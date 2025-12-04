@@ -1,14 +1,22 @@
 # Barocss Editor
 
-Zero Editor - A powerful document editor with DSL-based rendering
+Barocss Editor - A powerful document editor with schema-driven model, converter, and DSL-based rendering
 
 ## 📦 Packages
 
-- `@barocss/schema` - Schema DSL for defining document structure and validation rules
-- `@barocss/model` - Model Data for storing and managing document data with type safety
+- `@barocss/schema` - Schema DSL for defining document structure, validation rules, and node capabilities (editable / selectable / draggable / indentable)
+- `@barocss/datastore` - Transactional, schema-aware node store (normalized `INode` / `IMark` with `sid` / `stype`)
+- `@barocss/model` - High‑level model operations + DSL (`defineOperation`, `defineOperationDSL`, `transaction`, clipboard / indent / delete / move, etc.)
 - `@barocss/renderer-dom` - Renderer DSL for declarative DOM rendering
-- `@barocss/renderer-react` - React DSL for React-based rendering with hooks and context
-- `@barocss/editor-core` - Core editor logic that orchestrates schema, model, and renderers
+- `@barocss/editor-core` - Core editor logic (selection manager, keybinding, context, transaction manager)
+- `@barocss/extensions` - Core editor extensions (text, delete, paragraph, move-selection, select-all, indent, copy/paste/cut etc.)
+- `@barocss/converter` - Pluggable converters for HTML/Markdown/Office/Google Docs/Notion/LaTeX ↔ model
+- `@barocss/dsl` - Low-level template and registry layer used by renderers (`define`, `element`, `slot`, `data`, `defineMark`)
+- `@barocss/editor-view-dom` - View layer that connects `Editor` and the DOM (selection sync, input handling, keybinding dispatch)
+- `@barocss/devtool` - Developer tool UI for inspecting editor events, selection, transactions, and datastore state
+- `@barocss/shared` - Shared utilities and constants (platform detection, key normalization, shared helpers)
+- `@barocss/dom-observer` - DOM mutation observer utilities used by `editor-view-dom` and devtools
+- `@barocss/text-analyzer` - Experimental text analysis utilities (tokenization, statistics, helper types)
 
 ## 🚀 Getting Started
 
@@ -48,240 +56,193 @@ pnpm clean
 
 ## 📚 Usage
 
-### Absolute-based Operation Payloads
+### Transaction-based Operations (Model DSL)
 
-- Single position: `pos`
-- Range: `start`, `end`
-- Move: `from`, `to`
+All editing behavior is expressed as **model operations** composed into transactions via the DSL.
 
-Examples:
+- Single position: `insertText`, `splitTextNode`, `splitBlockNode`
+- Ranges: `deleteTextRange`, `replaceText`, `deleteRange`
+- Structural edits: `indentNode`, `outdentNode`, `mergeBlockNodes`, `addChild`
+- Clipboard: `copy`, `paste`, `cut` (built on `DataStore.serializeRange` / `deserializeNodes`)
+
+Example:
 
 ```ts
-import { applyOperation } from '@barocss/model';
-import '@barocss/model/operations/text.insert';
+import { transaction, control, insertText, deleteTextRange } from '@barocss/model';
 
-// Insert at absolute position
-applyOperation('text.insert', { pos: 42, text: ' Hello' }, ctx);
+// Insert text at current caret (control(targetNodeId, [dsl...]))
+await transaction(editor, control('text-1', [
+  insertText({ text: 'Hello' })
+])).commit();
 
-// Replace range
-applyOperation('text.replaceSelection', { start: 10, end: 25, text: 'MID' }, ctx);
-
-// Move node before another
-applyOperation('node.moveBefore', { from: 300, to: 280 }, ctx);
+// Delete a range inside a single text node
+await transaction(editor, control('text-1', [
+  deleteTextRange(2, 5)
+])).commit();
 ```
 
 ### Basic Schema Definition
 
 ```typescript
-import { schema } from '@barocss/schema';
+import { Schema } from '@barocss/schema';
 
-const paragraphSchema = schema('paragraph', {
-  attributes: {
-    align: {
-      type: 'string',
-      default: 'left',
-      validator: (value) => ['left', 'center', 'right', 'justify'].includes(value)
+// Minimal schema with a document, a paragraph block, and an inline text node
+export const paragraphSchema = new Schema('basic-doc', {
+  nodes: {
+    document: {
+      name: 'document',
+      content: 'block+'
+    },
+    paragraph: {
+      name: 'paragraph',
+      group: 'block',
+      content: 'inline*',
+      attrs: {
+        align: {
+          type: 'string',
+          default: 'left',
+          validate: (value: string) =>
+            ['left', 'center', 'right', 'justify'].includes(value)
+        }
+      }
+    },
+    'inline-text': {
+      name: 'inline-text',
+      group: 'inline',
+      // inline text is editable and can carry marks
+      editable: true,
+      marks: ['bold', 'italic']
     }
   },
-  content: 'inline*',
-  group: 'block'
+  marks: {
+    bold: {
+      name: 'bold',
+      group: 'text-style'
+    },
+    italic: {
+      name: 'italic',
+      group: 'text-style'
+    }
+  },
+  topNode: 'document'
 });
 ```
 
-### Model Data Creation
+### Model Data Creation (Datastore + Operations)
 
 ```typescript
-import { createDocument, NodeFactory } from '@barocss/model';
+import { DataStore } from '@barocss/datastore';
+import type { INode } from '@barocss/datastore';
 
-const document = createDocument([
-  NodeFactory.createParagraphNode([
-    NodeFactory.createTextNode('Hello, World!', { bold: true })
-  ])
-], paragraphSchema);
+// Simple document tree in INode form
+const nodes: INode[] = [
+  {
+    stype: 'paragraph',
+    content: [
+      { stype: 'inline-text', text: 'Hello, World!' }
+    ]
+  }
+];
+
+const dataStore = new DataStore();
+// Create the full tree in one call (assigns sid, parentId, and content id arrays)
+const root = dataStore.createNodeWithChildren({
+  stype: 'document',
+  content: nodes
+} as INode);
+dataStore.setRootNodeId(root.sid!);
 ```
 
 ### DOM Renderer Definition
 
-```typescript
-import { renderer, element, data, slot, on } from '@barocss/renderer-dom';
+The DOM renderer uses the same DSL as `apps/editor-test/src/main.ts`:
 
-const textRenderer = renderer('text',
-  element('span', 
-    { 
-      className: 'text-node',
-      style: (data) => ({
-        fontWeight: data.attributes.bold ? 'bold' : 'normal'
-      })
-    }, 
-    [data('text')],
-    [on('click', (element, event, data) => {
-      console.log('Text clicked:', data.sid);
-    })]
-  )
-);
+```typescript
+import { define, element, slot, data } from '@barocss/dsl';
+
+// Render inline text nodes as <span class="text">...</span>
+define('inline-text', element('span', { className: 'text' }, [
+  data('text', '')
+]));
 ```
 
-### React Renderer Definition
+### Editor Core Usage (Selection + Keybinding + Extensions)
 
 ```typescript
-import { rendererReact } from '@barocss/renderer-react';
+import { DataStore } from '@barocss/datastore';
+import { Editor } from '@barocss/editor-core';
+import { createCoreExtensions, createBasicExtensions } from '@barocss/extensions';
+import { createSchema } from '@barocss/schema';
+import { define, element, slot, data, getGlobalRegistry } from '@barocss/dsl';
 
-const TextRenderer: React.FC<TextNodeProps> = ({ data, isSelected }) => {
-  return (
-    <span 
-      className={`text-node ${isSelected ? 'selected' : ''}`}
-      style={{ fontWeight: data.attributes.bold ? 'bold' : 'normal' }}
-    >
-      {data.text}
-    </span>
-  );
-};
-
-const textRenderer = rendererReact('text', TextRenderer);
-```
-
-### Editor Core Usage
-
-```typescript
-import { ZeroEditor } from '@barocss/editor-core';
-
-const editor = new ZeroEditor({
-  theme: 'light',
-  readOnly: false,
-  onContentChange: (document) => {
-    console.log('Document changed:', document);
-  }
+// 1. Define schema (same API as apps/editor-test/src/main.ts)
+const schema = createSchema('basic-doc', {
+  topNode: 'document',
+  nodes: {
+    document: { name: 'document', group: 'document', content: 'block+' },
+    paragraph: { name: 'paragraph', group: 'block', content: 'inline*' },
+    'inline-text': { name: 'inline-text', group: 'inline' }
+  },
+  marks: {}
 });
 
-// Register schemas and renderers
-editor.registerSchema(paragraphSchema);
-editor.registerDOMRenderer('text', textRenderer);
+// 2. Create DataStore with schema
+const dataStore = new DataStore(undefined, schema);
 
-// Load document
-editor.loadDocument(document);
+// 3. Bootstrap initial document tree (INode form)
+const initialTree = {
+  sid: 'doc-1',
+  stype: 'document',
+  content: [
+    {
+      sid: 'p-1',
+      stype: 'paragraph',
+      content: [
+        { sid: 'text-1', stype: 'inline-text', text: 'Hello from BaroCSS Editor' }
+      ]
+    }
+  ]
+};
 
-// Get API
-const api = editor.getAPI();
-api.executeCommand('insertText', 'New text');
+// 4. Create editor with core + basic extensions
+const coreExtensions = createCoreExtensions();
+const basicExtensions = createBasicExtensions();
+
+const editor = new Editor({
+  editable: true,
+  schema,
+  dataStore,
+  extensions: [...coreExtensions, ...basicExtensions]
+});
+
+editor.loadDocument(initialTree, 'getting-started');
+
+// 5. Register DOM renderers using the DSL registry
+define('document', element('div', { className: 'document' }, [slot('content')]));
+define('paragraph', element('p', { className: 'paragraph' }, [slot('content')]));
+define('inline-text', element('span', { className: 'text' }, [data('text', '')]));
+
+// In a real app, pass editor + registry into EditorViewDOM
+// new EditorViewDOM(editor, { container, registry: getGlobalRegistry() }).render();
+
+// Execute commands via keybindings or API
+editor.executeCommand('selectAll');
 ```
 
 ## 🏗️ Architecture
 
 The editor is built with a modular architecture:
 
-1. **Schema DSL** - Defines document structure and validation rules
-2. **Model Data** - Manages document data with type safety
-3. **Renderer DSL** - Declarative DOM rendering
-4. **React DSL** - React-based rendering with hooks
-5. **Editor Core** - Orchestrates all components
-
-## 🔍 Validation System
-
-Barocss uses a robust validation system with structured error codes for reliable testing and error handling.
-
-### Validator Class
-
-The `Validator` class from `@barocss/schema` provides comprehensive validation:
-
-```typescript
-import { Validator, VALIDATION_ERRORS } from '@barocss/schema';
-
-// Structural validation
-const result = Validator.validateNodeStructure(node);
-if (!result.valid) {
-  console.log('Errors:', result.errors);
-  console.log('Error codes:', result.errorCodes);
-}
-
-// Schema-based validation
-const schemaResult = Validator.validateNode(schema, node);
-```
-
-### Error Code System
-
-Instead of fragile string matching, use structured error codes:
-
-```typescript
-// ❌ Fragile - breaks when error messages change
-expect(result.errors.some(err => err.includes('Content is required'))).toBe(true);
-
-// ✅ Robust - stable error codes
-expect(result.errorCodes).toContain(VALIDATION_ERRORS.CONTENT_REQUIRED_BUT_EMPTY);
-```
-
-### Available Error Codes
-
-```typescript
-const VALIDATION_ERRORS = {
-  // Node structure errors
-  NODE_REQUIRED: 'NODE_REQUIRED',
-  NODE_ID_REQUIRED: 'NODE_ID_REQUIRED',
-  NODE_TYPE_REQUIRED: 'NODE_TYPE_REQUIRED',
-  TEXT_CONTENT_REQUIRED: 'TEXT_CONTENT_REQUIRED',
-  
-  // Document structure errors
-  DOCUMENT_REQUIRED: 'DOCUMENT_REQUIRED',
-  DOCUMENT_ID_REQUIRED: 'DOCUMENT_ID_REQUIRED',
-  DOCUMENT_SCHEMA_REQUIRED: 'DOCUMENT_SCHEMA_REQUIRED',
-  DOCUMENT_CONTENT_REQUIRED: 'DOCUMENT_CONTENT_REQUIRED',
-  
-  // Schema validation errors
-  NODE_TYPE_UNKNOWN: 'NODE_TYPE_UNKNOWN',
-  CONTENT_REQUIRED_BUT_EMPTY: 'CONTENT_REQUIRED_BUT_EMPTY',
-  ATTRIBUTE_INVALID: 'ATTRIBUTE_INVALID',
-  ATTRIBUTE_REQUIRED: 'ATTRIBUTE_REQUIRED',
-  ATTRIBUTE_TYPE_MISMATCH: 'ATTRIBUTE_TYPE_MISMATCH',
-  
-  // Schema instance errors
-  INVALID_SCHEMA_INSTANCE: 'INVALID_SCHEMA_INSTANCE'
-};
-```
-
-### Benefits
-
-- **Stability**: Tests don't break when error messages change
-- **Clarity**: Clear error type identification
-- **Maintainability**: Easy to manage error types
-- **Extensibility**: Simple to add new error types
-
-## 📝 Development
-
-### Project Structure
-
-```
-barocss-editor/
-├── packages/
-│   ├── schema/          # Schema DSL package
-│   ├── model/           # Model Data package
-│   ├── renderer-dom/    # DOM Renderer package
-│   ├── renderer-react/  # React Renderer package
-│   └── editor-core/     # Core Editor package
-├── app/
-│   └── test-app/        # Test application
-└── paper/               # Documentation
-```
-
-### Building
-
-Each package is built independently using Vite:
-
-```bash
-# Build specific package
-pnpm --filter @barocss/schema build
-
-# Build all packages
-pnpm build
-```
-
-### Testing
-
-```bash
-# Run tests for all packages
-pnpm test
-
-# Run tests for specific package
-pnpm --filter @barocss/schema test
-```
+1. **Schema DSL (`@barocss/schema`)** - Defines document structure, validation rules, and node capabilities
+2. **Datastore (`@barocss/datastore`)** - Schema-aware, transactional node store (`INode`/`IMark`, `sid`/`stype`)
+3. **Model Operations + DSL (`@barocss/model`)** - High-level editing operations composed from datastore (`defineOperation`, `defineOperationDSL`, `transaction`)
+4. **Renderer DSL + DSL Core (`@barocss/renderer-dom`, `@barocss/dsl`)** - Declarative DOM rendering from the model using `define`, `element`, `slot`, `data`, `defineMark`
+5. **Editor Core (`@barocss/editor-core`)** - Selection manager, keybinding, context, transaction manager
+6. **View Layer (`@barocss/editor-view-dom`, `@barocss/dom-observer`)** - Bridges `Editor` to the DOM, handles text input, selection sync, and mutation observation
+7. **Extensions (`@barocss/extensions`)** - Business-level commands (delete, move-selection, indent, copy/paste/cut, etc.)
+8. **Converter (`@barocss/converter`)** - Conversion layer between the model and external formats (HTML, Markdown, Office HTML, Google Docs HTML, Notion HTML, LaTeX, plain text, etc.)
+9. **Devtool (`@barocss/devtool`)** - Debugging and inspection UI for the editor (events, selection, transactions, datastore)
+10. **Shared Utilities (`@barocss/shared`, `@barocss/text-analyzer`)** - Cross-package utilities (platform detection, key handling, text analysis helpers)
 
 ## 📄 License
 
