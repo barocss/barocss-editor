@@ -1,0 +1,27 @@
+{
+  "name": "@barocss/editor-test",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "live:watch": "node ./scripts/live-watch.js"
+  },
+  "dependencies": {
+    "@barocss/datastore": "workspace:*",
+    "@barocss/editor-core": "workspace:*",
+    "@barocss/editor-view-dom": "workspace:*",
+    "@barocss/schema": "workspace:*",
+    "@barocss/dsl": "workspace:*",
+    "@barocss/devtool": "workspace:*",
+    "@barocss/extensions": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vite": "^5.4.21"
+  }
+}

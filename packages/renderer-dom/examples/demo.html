@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BaroCSS Rich Text Editor Demo</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .demo-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        .demo-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .demo-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin: 0 0 10px 0;
+        }
+        
+        .demo-subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            margin: 0;
+        }
+        
+        .demo-content {
+            padding: 30px;
+        }
+        
+        .editor-section {
+            margin-bottom: 40px;
+        }
+        
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #333;
+        }
+        
+        .editor-container {
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            overflow: hidden;
+            min-height: 400px;
+        }
+        
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+        
+        .feature-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+        }
+        
+        .feature-title {
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .feature-description {
+            color: #666;
+            line-height: 1.5;
+        }
+        
+        .code-example {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 14px;
+            overflow-x: auto;
+            margin: 20px 0;
+        }
+        
+        .highlight {
+            color: #569cd6;
+        }
+        
+        .string {
+            color: #ce9178;
+        }
+        
+        .comment {
+            color: #6a9955;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .btn:hover {
+            background: #f8f9fa;
+        }
+        
+        .btn.primary {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+        
+        .btn.primary:hover {
+            background: #0056b3;
+        }
+        
+        .status {
+            padding: 10px;
+            background: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-container">
+        <div class="demo-header">
+            <h1 class="demo-title">BaroCSS Rich Text Editor</h1>
+            <p class="demo-subtitle">Built with Renderer DSL - A powerful, declarative approach to DOM rendering</p>
+        </div>
+        
+        <div class="demo-content">
+            <div class="editor-section">
+                <h2 class="section-title">Live Editor Demo</h2>
+                <div class="status" id="status">
+                    Ready to edit! Try the toolbar buttons or use keyboard shortcuts (Ctrl+B, Ctrl+I, etc.)
+                </div>
+                
+                <div class="controls">
+                    <button class="btn primary" onclick="loadSampleContent()">Load Sample Content</button>
+                    <button class="btn" onclick="clearEditor()">Clear Editor</button>
+                    <button class="btn" onclick="getContent()">Get HTML</button>
+                    <button class="btn" onclick="toggleToolbar()">Toggle Toolbar</button>
+                </div>
+                
+                <div class="editor-container" id="editor-container"></div>
+            </div>
+            
+            <div class="editor-section">
+                <h2 class="section-title">Features</h2>
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <div class="feature-title">🎨 Rich Formatting</div>
+                        <div class="feature-description">
+                            Bold, italic, underline, headings, and more. All powered by declarative DSL templates.
+                        </div>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <div class="feature-title">🔗 Smart Links & Media</div>
+                        <div class="feature-description">
+                            Insert links, images, lists, and tables with intelligent error handling and validation.
+                        </div>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <div class="feature-title">⌨️ Keyboard Shortcuts</div>
+                        <div class="feature-description">
+                            Full keyboard support with Ctrl+B, Ctrl+I, Ctrl+Z, Ctrl+A, and more for efficient editing.
+                        </div>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <div class="feature-title">📱 Responsive Design</div>
+                        <div class="feature-description">
+                            Fully responsive toolbar and content area that adapts to different screen sizes.
+                        </div>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <div class="feature-title">🔄 Undo/Redo</div>
+                        <div class="feature-description">
+                            Built-in history management with undo/redo functionality for safe editing.
+                        </div>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <div class="feature-title">⚡ Performance</div>
+                        <div class="feature-description">
+                            Optimized rendering with diffing algorithms and efficient DOM updates.
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="editor-section">
+                <h2 class="section-title">Code Example</h2>
+                <div class="code-example">
+<span class="comment">// Create a rich text editor with BaroCSS Renderer DSL</span>
+<span class="highlight">import</span> { RichTextEditor } <span class="highlight">from</span> <span class="string">'./rich-text-editor'</span>;
+
+<span class="comment">// Initialize editor</span>
+<span class="highlight">const</span> container = document.getElementById(<span class="string">'editor-container'</span>);
+<span class="highlight">const</span> editor = <span class="highlight">new</span> RichTextEditor(container);
+
+<span class="comment">// Editor methods</span>
+editor.focus();                    <span class="comment">// Focus the editor</span>
+editor.setContent(<span class="string">'&lt;h1&gt;Hello World&lt;/h1&gt;'</span>);  <span class="comment">// Set content</span>
+<span class="highlight">const</span> html = editor.getContent();     <span class="comment">// Get HTML content</span>
+editor.destroy();                  <span class="comment">// Clean up</span>
+
+<span class="comment">// Formatting</span>
+editor.formatText(<span class="string">'bold'</span>);        <span class="comment">// Bold selection</span>
+editor.formatText(<span class="string">'heading1'</span>);    <span class="comment">// H1 heading</span>
+editor.insertContent(<span class="string">'image'</span>, { src: <span class="string">'image.jpg'</span> });
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // This would be the actual implementation
+        // For demo purposes, we'll simulate the editor behavior
+        
+        let editor = null;
+        let isToolbarVisible = true;
+        
+        // Simulate editor initialization
+        function initEditor() {
+            const container = document.getElementById('editor-container');
+            container.innerHTML = `
+                <div class="rich-text-editor" style="border: 1px solid #ddd; border-radius: 8px; background-color: #fff; min-height: 300px; display: flex; flex-direction: column; font-family: system-ui, -apple-system, sans-serif;">
+                    <div class="editor-toolbar" style="display: flex; align-items: center; gap: 8px; padding: 12px; border-bottom: 1px solid #eee; background-color: #f8f9fa; flex-wrap: wrap;">
+                        <div class="toolbar-group" style="display: flex; align-items: center; gap: 4px; padding: 4px; border-right: 1px solid #ddd;">
+                            <button class="toolbar-btn" data-format="bold" style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; background-color: #fff; color: #333; cursor: pointer; font-size: 14px; font-weight: 400; transition: all 0.2s ease;" title="Bold">B</button>
+                            <button class="toolbar-btn" data-format="italic" style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; background-color: #fff; color: #333; cursor: pointer; font-size: 14px; font-weight: 400; transition: all 0.2s ease;" title="Italic">I</button>
+                            <button class="toolbar-btn" data-format="underline" style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; background-color: #fff; color: #333; cursor: pointer; font-size: 14px; font-weight: 400; transition: all 0.2s ease;" title="Underline">U</button>
+                        </div>
+                        <div class="toolbar-group" style="display: flex; align-items: center; gap: 4px; padding: 4px; border-right: 1px solid #ddd;">
+                            <button class="toolbar-btn" data-format="heading1" style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; background-color: #fff; color: #333; cursor: pointer; font-size: 14px; font-weight: 400; transition: all 0.2s ease;" title="Heading 1">H1</button>
+                            <button class="toolbar-btn" data-format="heading2" style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; background-color: #fff; color: #333; cursor: pointer; font-size: 14px; font-weight: 400; transition: all 0.2s ease;" title="Heading 2">H2</button>
+                            <button class="toolbar-btn" data-format="heading3" style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; background-color: #fff; color: #333; cursor: pointer; font-size: 14px; font-weight: 400; transition: all 0.2s ease;" title="Heading 3">H3</button>
+                        </div>
+                        <div class="toolbar-group" style="display: flex; align-items: center; gap: 4px; padding: 4px; border-right: 1px solid #ddd;">
+                            <button class="toolbar-btn" data-format="link" style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; background-color: #fff; color: #333; cursor: pointer; font-size: 14px; font-weight: 400; transition: all 0.2s ease;" title="Insert Link">Link</button>
+                            <button class="toolbar-btn" data-format="image" style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; background-color: #fff; color: #333; cursor: pointer; font-size: 14px; font-weight: 400; transition: all 0.2s ease;" title="Insert Image">Image</button>
+                            <button class="toolbar-btn" data-format="list" style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; background-color: #fff; color: #333; cursor: pointer; font-size: 14px; font-weight: 400; transition: all 0.2s ease;" title="Insert List">List</button>
+                        </div>
+                    </div>
+                    <div class="editor-content" contenteditable="true" spellcheck="true" style="flex: 1; padding: 16px; min-height: 200px; outline: none; line-height: 1.6; font-size: 16px; color: #333;">
+                        <div class="text-block heading1" style="margin: 0 0 16px 0; line-height: 1.6; font-size: 32px; font-weight: 700;">
+                            <span class="inline-text">Welcome to Rich Text Editor</span>
+                        </div>
+                        <div class="text-block paragraph" style="margin: 0 0 12px 0; line-height: 1.6;">
+                            <span class="inline-text">This is a powerful rich text editor built with BaroCSS Renderer DSL. You can format text, insert links, images, and more!</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Add event listeners
+            const content = container.querySelector('.editor-content');
+            const buttons = container.querySelectorAll('.toolbar-btn');
+            
+            buttons.forEach(button => {
+                button.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const format = button.getAttribute('data-format');
+                    if (format) {
+                        if (format === 'bold' || format === 'italic' || format === 'underline') {
+                            document.execCommand(format, false);
+                        } else if (format.startsWith('heading')) {
+                            const level = format.replace('heading', '');
+                            document.execCommand('formatBlock', false, `h${level}`);
+                        } else if (format === 'link') {
+                            const url = prompt('Enter URL:');
+                            if (url) {
+                                document.execCommand('createLink', false, url);
+                            }
+                        } else if (format === 'image') {
+                            const src = prompt('Enter image URL:');
+                            if (src) {
+                                const img = document.createElement('img');
+                                img.src = src;
+                                img.alt = '';
+                                img.className = 'editor-image';
+                                img.style.cssText = 'max-width: 100%; height: auto; border-radius: 4px; margin: 8px 0; display: block;';
+                                document.execCommand('insertHTML', false, img.outerHTML);
+                            }
+                        } else if (format === 'list') {
+                            document.execCommand('insertUnorderedList', false);
+                        }
+                        
+                        // Update button states
+                        updateToolbar();
+                    }
+                });
+            });
+            
+            content.addEventListener('input', () => {
+                updateToolbar();
+            });
+            
+            content.addEventListener('keydown', (e) => {
+                if (e.ctrlKey || e.metaKey) {
+                    switch (e.key) {
+                        case 'b':
+                            e.preventDefault();
+                            document.execCommand('bold', false);
+                            updateToolbar();
+                            break;
+                        case 'i':
+                            e.preventDefault();
+                            document.execCommand('italic', false);
+                            updateToolbar();
+                            break;
+                        case 'u':
+                            e.preventDefault();
+                            document.execCommand('underline', false);
+                            updateToolbar();
+                            break;
+                    }
+                }
+            });
+            
+            function updateToolbar() {
+                buttons.forEach(button => {
+                    const format = button.getAttribute('data-format');
+                    if (format && (format === 'bold' || format === 'italic' || format === 'underline')) {
+                        const isActive = document.queryCommandState(format);
+                        button.classList.toggle('active', isActive);
+                        if (isActive) {
+                            button.style.backgroundColor = '#007bff';
+                            button.style.color = '#fff';
+                        } else {
+                            button.style.backgroundColor = '#fff';
+                            button.style.color = '#333';
+                        }
+                    }
+                });
+            }
+        }
+        
+        // Global functions for demo
+        window.loadSampleContent = function() {
+            const content = document.querySelector('.editor-content');
+            content.innerHTML = `
+                <h1>Sample Rich Content</h1>
+                <p>This is a <strong>bold</strong> text with <em>italic</em> and <u>underlined</u> formatting.</p>
+                <h2>Features</h2>
+                <ul>
+                    <li>Rich text formatting</li>
+                    <li>Keyboard shortcuts</li>
+                    <li>Responsive design</li>
+                </ul>
+                <blockquote style="border-left: 4px solid #007bff; padding-left: 16px; font-style: italic; color: #666;">
+                    This is a blockquote example.
+                </blockquote>
+                <p>You can also insert <a href="https://example.com">links</a> and other content!</p>
+            `;
+            updateStatus('Sample content loaded!');
+        };
+        
+        window.clearEditor = function() {
+            const content = document.querySelector('.editor-content');
+            content.innerHTML = '<p><br></p>';
+            updateStatus('Editor cleared!');
+        };
+        
+        window.getContent = function() {
+            const content = document.querySelector('.editor-content');
+            const html = content.innerHTML;
+            console.log('Editor HTML:', html);
+            updateStatus('HTML content logged to console!');
+        };
+        
+        window.toggleToolbar = function() {
+            const toolbar = document.querySelector('.editor-toolbar');
+            if (toolbar) {
+                toolbar.style.display = toolbar.style.display === 'none' ? 'flex' : 'none';
+                isToolbarVisible = !isToolbarVisible;
+                updateStatus(`Toolbar ${isToolbarVisible ? 'shown' : 'hidden'}!`);
+            }
+        };
+        
+        function updateStatus(message) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.style.background = '#e7f3ff';
+            status.style.borderColor = '#b3d9ff';
+            
+            setTimeout(() => {
+                status.textContent = 'Ready to edit! Try the toolbar buttons or use keyboard shortcuts (Ctrl+B, Ctrl+I, etc.)';
+                status.style.background = '#e7f3ff';
+                status.style.borderColor = '#b3d9ff';
+            }, 3000);
+        }
+        
+        // Initialize editor when page loads
+        document.addEventListener('DOMContentLoaded', initEditor);
+    </script>
+</body>
+</html>

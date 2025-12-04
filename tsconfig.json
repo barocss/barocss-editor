@@ -1,0 +1,41 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "outDir": "./dist",
+    "baseUrl": ".",
+    "paths": {
+      "@barocss/schema": ["./packages/schema/src"],
+      "@barocss/model": ["./packages/model/src"],
+      "@barocss/dsl": ["./packages/dsl/src"],
+      "@barocss/renderer-dom": ["./packages/renderer-dom/src"],
+      "@barocss/renderer-react": ["./packages/renderer-react/src"],
+      "@barocss/editor-core": ["./packages/editor-core/src"]
+    }
+  },
+  "include": [
+    "packages/*/src/**/*",
+    "app/*/src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts",
+    "**/*.test.tsx"
+  ]
+}

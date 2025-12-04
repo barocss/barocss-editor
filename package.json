@@ -1,0 +1,41 @@
+{
+  "name": "barocss-editor",
+  "version": "1.0.0",
+  "description": "Zero Editor - A powerful document editor with DSL-based rendering",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev": "pnpm -r dev",
+    "dev:site": "pnpm --filter @barocss/editor-test dev",
+    "dev:decorator": "pnpm --filter @barocss/editor-decorator-test dev",
+    "test": "pnpm -r test",
+    "test:ui": "pnpm --filter @barocss/schema test:ui",
+    "test:coverage": "pnpm --filter @barocss/schema test:coverage",
+    "lint": "pnpm -r lint",
+    "type-check": "pnpm -r type-check",
+    "clean": "pnpm -r clean"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.24",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
+    "eslint": "^8.57.1",
+    "typescript": "^5.9.3",
+    "vite": "^5.4.21",
+    "vite-plugin-dts": "^4.5.4",
+    "vitest": "^4.0.7"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "packageManager": "pnpm@8.15.0",
+  "dependencies": {
+    "@playwright/test": "^1.56.1",
+    "playwright": "^1.56.1"
+  }
+}

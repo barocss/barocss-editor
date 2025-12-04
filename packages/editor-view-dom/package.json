@@ -1,0 +1,46 @@
+{
+  "name": "@barocss/editor-view-dom",
+  "version": "0.1.0",
+  "description": "DOM view layer for Barocss Editor",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "type-check": "tsc --noEmit",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:core": "vitest run test/core",
+    "test:events": "vitest run test/events",
+    "test:text-analysis": "vitest run test/text-analysis",
+    "test:decorator-system": "vitest run test/decorator-system",
+    "test:integration": "vitest run test/integration",
+    "test:coverage": "vitest run --coverage",
+    "test:ui": "vitest --ui"
+  },
+  "dependencies": {
+    "@barocss/dsl": "workspace:*",
+    "@barocss/datastore": "workspace:*",
+    "@barocss/dom-observer": "workspace:*",
+    "@barocss/editor-core": "workspace:*",
+    "@barocss/renderer-dom": "workspace:*",
+    "@barocss/schema": "workspace:*",
+    "@barocss/shared": "workspace:*",
+    "@barocss/text-analyzer": "workspace:*"
+  },
+  "devDependencies": {
+    "jsdom": "^24.1.3",
+    "typescript": "^5.9.3",
+    "vite": "^5.4.21",
+    "vitest": "^1.6.1"
+  },
+  "files": [
+    "dist"
+  ]
+}

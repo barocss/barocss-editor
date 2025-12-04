@@ -1,0 +1,190 @@
+/**
+ * Reconciler Text VNode 처리 테스트
+ * 
+ * 이 테스트는 reconciler가 text-only VNode를 올바르게 처리하는지 확인합니다.
+ * VNode builder는 이미 올바른 구조를 생성하는 것을 확인했으므로,
+ * reconciler만 테스트합니다.
+ */
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { Reconciler } from '../../src/reconcile/reconciler';
+import { DOMOperations } from '../../src/dom-operations';
+import { ComponentManager } from '../../src/component-manager';
+import { VNodeBuilder } from '../../src/vnode/factory';
+import { getGlobalRegistry } from '@barocss/dsl';
+import { VNode } from '../../src/vnode/types';
+
+describe('Reconciler Text VNode 처리', () => {
+  let reconciler: Reconciler;
+  let container: HTMLElement;
+  let registry: ReturnType<typeof getGlobalRegistry>;
+  let builder: VNodeBuilder;
+  let domOps: DOMOperations;
+  let componentManager: ComponentManager;
+
+  beforeEach(() => {
+    registry = getGlobalRegistry();
+    builder = new VNodeBuilder(registry);
+    domOps = new DOMOperations();
+    componentManager = new ComponentManager(domOps);
+    reconciler = new Reconciler(registry, builder, domOps, componentManager);
+    container = document.createElement('div');
+    document.body.appendChild(container);
+  });
+
+  afterEach(() => {
+    if (container && container.parentNode) {
+      container.parentNode.removeChild(container);
+    }
+  });
+
+  describe('Mark VNode의 children에 있는 text VNode 처리', () => {
+    it('should render text VNode inside mark VNode correctly', () => {
+      // VNode 구조 (VNode builder가 생성하는 올바른 구조)
+      const vnode: VNode = {
+        tag: 'span',
+        sid: 'text-1',
+        stype: 'text',
+        attrs: { className: 'text' },
+        children: [
+          {
+            tag: 'strong',
+            attrs: { className: 'mark-bold' },
+            children: [
+              {
+                text: 'Bold',
+                children: []
+              }
+            ]
+          }
+        ]
+      };
+
+      // Reconciler로 렌더링
+      reconciler.reconcile(container, vnode, { sid: 'text-1', stype: 'text' } as any, undefined);
+
+      // DOM 확인
+      const strongElement = container.querySelector('strong.mark-bold');
+      expect(strongElement).toBeTruthy();
+      expect(strongElement?.textContent).toBe('Bold');
+    });
+
+    it('should render multiple text VNodes inside mark VNode correctly', () => {
+      const vnode: VNode = {
+        tag: 'span',
+        sid: 'text-2',
+        stype: 'text',
+        attrs: { className: 'text' },
+        children: [
+          {
+            tag: 'strong',
+            attrs: { className: 'mark-bold' },
+            children: [
+              {
+                text: 'Bold',
+                children: []
+              }
+            ]
+          },
+          {
+            tag: 'span',
+            attrs: {},
+            children: [
+              {
+                text: ' text',
+                children: []
+              }
+            ]
+          }
+        ]
+      };
+
+      reconciler.reconcile(container, vnode, { sid: 'text-2', stype: 'text' } as any, undefined);
+
+      const strongElement = container.querySelector('strong.mark-bold');
+      expect(strongElement).toBeTruthy();
+      expect(strongElement?.textContent).toBe('Bold');
+      
+      const spanElement = container.querySelector('span.text');
+      expect(spanElement?.textContent).toBe('Bold text');
+    });
+  });
+
+  describe('Decorator VNode의 children에 있는 text VNode 처리', () => {
+    it('should render text VNode inside decorator VNode correctly', () => {
+      const vnode: VNode = {
+        tag: 'span',
+        sid: 'text-3',
+        stype: 'text',
+        attrs: { className: 'text' },
+        children: [
+          {
+            tag: 'span',
+            attrs: { className: 'chip' },
+            decoratorSid: 'chip-1',
+            decoratorStype: 'chip',
+            decoratorCategory: 'inline',
+            children: [
+              {
+                text: 'CHIP',
+                children: []
+              }
+            ]
+          }
+        ]
+      };
+
+      reconciler.reconcile(container, vnode, { sid: 'text-3', stype: 'text' } as any, undefined);
+
+      const chipElement = container.querySelector('.chip');
+      expect(chipElement).toBeTruthy();
+      expect(chipElement?.textContent).toBe('CHIP');
+    });
+  });
+
+  describe('재귀 호출에서 text VNode 처리', () => {
+    it('should handle text VNode in nested structure correctly', () => {
+      const vnode: VNode = {
+        tag: 'div',
+        sid: 'text-4',
+        stype: 'text',
+        children: [
+          {
+            tag: 'p',
+            children: [
+              {
+                tag: 'strong',
+                attrs: { className: 'mark-bold' },
+                children: [
+                  {
+                    text: 'Bold',
+                    children: []
+                  }
+                ]
+              },
+              {
+                tag: 'span',
+                attrs: {},
+                children: [
+                  {
+                    text: ' text',
+                    children: []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      };
+
+      reconciler.reconcile(container, vnode, { sid: 'text-4', stype: 'text' } as any, undefined);
+
+      const strongElement = container.querySelector('strong.mark-bold');
+      expect(strongElement).toBeTruthy();
+      expect(strongElement?.textContent).toBe('Bold');
+      
+      const pElement = container.querySelector('p');
+      expect(pElement?.textContent).toBe('Bold text');
+    });
+  });
+});
+

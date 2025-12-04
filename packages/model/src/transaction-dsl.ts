@@ -1,0 +1,137 @@
+import type { Editor } from '@barocss/editor-core';
+import { TransactionManager, type TransactionResult } from './transaction';
+import type { DataStore, INode } from '@barocss/datastore';
+import { Schema } from '@barocss/schema';
+import type { TransactionContext } from './types';
+
+// ---- Spec Types (minimal) ----
+export type HandleOrId = string;
+
+export type MarkDescriptor = { type: string; attrs?: Record<string, any>; range?: [number, number] };
+
+export type DirectOperation = { type: string; payload?: Record<string, any> };
+
+export type TransactionOperation = DirectOperation;
+
+// ---- Core DSL helpers ----
+
+export function control(target: HandleOrId, actions: Array<{ type: string; payload?: any }>): TransactionOperation[] {
+  return actions.map(a => ({ type: a.type, payload: {
+    ...a.payload,
+    nodeId: target
+  } }));
+}
+
+
+/**
+ * 컨테이너 노드 생성 (paragraph, heading, list 등)
+ * - attributes: 노드의 속성
+ * - content: 자식 노드들의 배열
+ */
+export function node(stype: string, attributes?: Record<string, any>, content?: INode[]): INode {
+  return { stype, attributes, content } as INode;
+}
+
+/**
+ * 텍스트 노드 생성 (inline-text, codeBlock 등)
+ * 오버로드된 함수로 다양한 패턴 지원:
+ * - textNode(type, text) - 기본 텍스트 노드
+ * - textNode(type, text, marks) - 마크만 있는 텍스트 노드
+ * - textNode(type, text, attributes) - 속성만 있는 텍스트 노드
+ * - textNode(type, text, marks, attributes) - 마크와 속성 모두 있는 텍스트 노드
+ */
+export function textNode(stype: string, text: string): INode;
+export function textNode(stype: string, text: string, marks: MarkDescriptor[]): INode;
+export function textNode(stype: string, text: string, attributes: Record<string, any>): INode;
+export function textNode(stype: string, text: string, marks: MarkDescriptor[], attributes: Record<string, any>): INode;
+export function textNode(
+  stype: string, 
+  text: string, 
+  marksOrAttributes?: MarkDescriptor[] | Record<string, any>, 
+  attributes?: Record<string, any>
+): INode {
+  const result: INode = { stype, text } as INode;
+  
+  // 세 번째 매개변수가 배열이면 marks, 객체면 attributes
+  if (Array.isArray(marksOrAttributes)) {
+    // marks가 있는 경우
+    result.marks = marksOrAttributes.map(mark => ({
+      type: mark.type,
+      attrs: mark.attrs,
+      range: mark.range
+    }));
+    
+    // 네 번째 매개변수가 있으면 attributes
+    if (attributes) {
+      result.attributes = attributes;
+    }
+  } else if (marksOrAttributes && typeof marksOrAttributes === 'object') {
+    // attributes만 있는 경우
+    result.attributes = marksOrAttributes;
+  }
+  
+  return result;
+}
+
+export function mark(stype: string, attrs?: Record<string, any>): MarkDescriptor {
+  // Extract range from attrs if present
+  const { range, ...otherAttrs } = attrs || {};
+  return { stype, attrs: otherAttrs, range };
+}
+
+// ---- Transaction (per spec) ----
+export interface TransactionBuilder {
+  commit(): Promise<TransactionResult>;
+}
+
+class TransactionBuilderImpl implements TransactionBuilder {
+  private editor: Editor;
+  private ops: (TransactionOperation | OpFunction)[];
+  constructor(editor: Editor, ops: (TransactionOperation | OpFunction)[]) {
+    this.editor = editor;
+    this.ops = ops;
+  }
+  async commit(): Promise<TransactionResult> {
+    // OpFunction과 일반 operation을 그대로 TransactionManager에 전달
+    // TransactionManager에서 실행 시점에 처리하도록 함
+    const tm = new TransactionManager(this.editor);
+    return tm.execute(this.ops);
+  }
+}
+
+export function transaction(editor: Editor, operations: (TransactionOperation | TransactionOperation[] | OpFunction)[]): TransactionBuilder {
+  // flat() 처리하여 배열을 평탄화
+  const flattenedOps = operations.flat();
+  return new TransactionBuilderImpl(editor, flattenedOps);
+}
+
+// ---- Functional DSL ----
+
+/**
+ * 함수형 DSL을 위한 operation 정의 함수
+ * transaction commit 시 실행됨
+ */
+export function op(operationFn: (context: TransactionContext) => OpResult | void | Promise<OpResult | void>): OpFunction {
+  return {
+    type: 'op-function',
+    execute: operationFn
+  };
+}
+
+/**
+ * OpResult - op 함수의 반환 타입
+ */
+export interface OpResult {
+  success: boolean;
+  data?: any;
+  error?: string;
+  inverse?: TransactionOperation; // 역함수 operation 지정 가능
+}
+
+/**
+ * OpFunction - 함수형 operation의 타입
+ */
+export interface OpFunction {
+  type: 'op-function';
+  execute: (context: TransactionContext) => OpResult | void | Promise<OpResult | void>;
+}

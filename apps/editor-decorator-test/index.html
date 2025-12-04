@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BaroCSS 데코레이터 테스트</title>
+    <style>
+      body { 
+        margin: 0; 
+        font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif; 
+        background: #f5f5f5; 
+      }
+      #app { padding: 20px; }
+      .container { 
+        background: #fff; 
+        border: 1px solid #ddd; 
+        border-radius: 8px; 
+        /* padding: 16px;  */
+        min-height: 300px; 
+        position: relative; 
+      }
+      .barocss-editor-content { 
+        min-height: 200px; 
+        outline: none; 
+        padding: 12px; 
+      }
+      .barocss-editor-content:focus { 
+        box-shadow: 0 0 0 3px rgba(0,122,204,0.1); 
+        border-radius: 4px; 
+      }
+      
+      /* Document structure */
+      .document { line-height: 1.6; }
+      .paragraph { margin: 0.5em 0; }
+      
+      /* Text marks */
+      .text { display: inline; }
+      .mark-bold { font-weight: bold; }
+      .mark-italic { font-style: italic; }
+      .mark-link { color: #007bff; text-decoration: underline; }
+      
+      /* Button styling */
+      button { 
+        background: #007acc; 
+        color: white; 
+        border: none; 
+        padding: 8px 16px; 
+        border-radius: 4px; 
+        cursor: pointer; 
+        margin: 4px;
+        font-size: 14px;
+        transition: background-color 0.2s;
+      }
+      button:hover { background: #005a9e; }
+      
+      .scenario-section {
+        margin: 20px 0;
+        padding: 16px;
+        background: #e8f5e8;
+        border-radius: 8px;
+        border: 1px solid #c3e6c3;
+      }
+      
+      .scenario-title {
+        margin-top: 0;
+        color: #2d5a2d;
+        font-size: 18px;
+        font-weight: 600;
+      }
+      
+      .scenario-description {
+        margin: 8px 0;
+        color: #4a7c4a;
+        font-size: 14px;
+      }
+      
+      .button-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 16px;
+      }
+      
+      .info-box {
+        background: #d4edda;
+        padding: 12px;
+        border-radius: 4px;
+        font-family: monospace;
+        font-size: 12px;
+        color: #155724;
+        line-height: 1.4;
+      }
+      
+      .status-indicator {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-right: 8px;
+      }
+      
+      .status-ready { background: #28a745; }
+      .status-running { background: #ffc107; }
+      .status-complete { background: #17a2b8; }
+      .status-error { background: #dc3545; }
+      
+      /* Decorator styles */
+      .decorator-comment {
+        position: absolute;
+        background-color: #ffffcc;
+        border: 1px solid #ffcc00;
+        border-radius: 4px;
+        padding: 4px 8px;
+        font-size: 12px;
+        z-index: 10;
+        pointer-events: auto;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        max-width: 200px;
+        word-wrap: break-word;
+      }
+      
+      .decorator-highlight {
+        position: absolute;
+        opacity: 0.3;
+        z-index: 1;
+        pointer-events: none;
+        border-radius: 2px;
+      }
+      
+      .decorator-link {
+        color: blue;
+        text-decoration: underline;
+        cursor: pointer;
+        background: rgba(0, 123, 255, 0.1);
+        padding: 1px 2px;
+        border-radius: 2px;
+      }
+      
+      /* Decorator container positioning */
+      .decorator-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        pointer-events: none;
+        z-index: 5;
+      }
+      
+      .decorator-layer {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        pointer-events: none;
+        z-index: 10;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <h1>🎨 BaroCSS 데코레이터 시스템 테스트</h1>
+      
+      <div class="scenario-section">
+        <h2 class="scenario-title">데코레이터 시나리오 테스트</h2>
+        <p class="scenario-description">
+          아래 버튼들을 클릭하여 데코레이터 시스템의 다양한 시나리오를 테스트할 수 있습니다.
+          각 시나리오는 브라우저 개발자 도구 콘솔에서 실행 결과를 확인할 수 있습니다.
+        </p>
+        
+        <div class="button-grid">
+          <button id="run-basic-crud" style="background: #28a745;">
+            <span class="status-indicator status-ready"></span>
+            기본 CRUD
+          </button>
+          <button id="run-batch-operation" style="background: #17a2b8;">
+            <span class="status-indicator status-ready"></span>
+            배치 작업
+          </button>
+          <button id="run-cross-node" style="background: #6f42c1;">
+            <span class="status-indicator status-ready"></span>
+            교차 노드
+          </button>
+          <button id="run-collaboration" style="background: #fd7e14;">
+            <span class="status-indicator status-ready"></span>
+            실시간 협업
+          </button>
+          <button id="run-performance" style="background: #e83e8c;">
+            <span class="status-indicator status-ready"></span>
+            성능 테스트
+          </button>
+          <button id="run-error-handling" style="background: #dc3545;">
+            <span class="status-indicator status-ready"></span>
+            에러 처리
+          </button>
+          <button id="run-complex" style="background: #8e44ad;">
+            <span class="status-indicator status-ready"></span>
+            복합 시나리오
+          </button>
+          <button id="run-all-scenarios" style="background: #2c3e50; font-weight: bold;">
+            <span class="status-indicator status-ready"></span>
+            🚀 모든 시나리오 실행
+          </button>
+        </div>
+        
+        <div class="info-box">
+          <strong>데코레이터 시나리오 설명:</strong><br>
+          <strong>기본 CRUD:</strong> 댓글 추가/조회/수정/삭제 테스트<br>
+          <strong>배치 작업:</strong> 여러 데코레이터 동시 처리 및 조회 테스트<br>
+          <strong>교차 노드:</strong> 여러 노드에 걸친 데코레이터 테스트<br>
+          <strong>실시간 협업:</strong> 여러 사용자의 동시 데코레이터 작업 시뮬레이션<br>
+          <strong>성능 테스트:</strong> 대량의 데코레이터 처리 성능 측정<br>
+          <strong>에러 처리:</strong> 잘못된 데이터, 중복 ID 등 에러 상황 테스트<br>
+          <strong>복합 시나리오:</strong> 모든 기능을 통합한 종합 테스트<br>
+          <br>
+          <strong>결과 확인:</strong> 브라우저 개발자 도구 콘솔에서 실행 결과를 확인하세요.<br>
+          <strong>전역 접근:</strong> <code>window.decoratorRunner</code>로 브라우저 콘솔에서 직접 실행 가능
+        </div>
+      </div>
+      
+      <div class="scenario-section">
+        <h2 class="scenario-title">에디터 콘텐츠</h2>
+        <p class="scenario-description">
+          아래는 데코레이터 테스트를 위한 샘플 콘텐츠입니다. 
+          각 텍스트 노드에 다양한 데코레이터를 추가하여 테스트할 수 있습니다.
+        </p>
+        <div id="editor-container" class="container"></div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,180 @@
+export interface TextRun {
+  domTextNode: Text;
+  start: number; // inclusive
+  end: number;   // exclusive
+}
+
+export interface ContainerRuns {
+  runs: TextRun[];
+  total: number;
+  byNode?: Map<Text, { start: number; end: number }>;
+}
+
+const runIndexByElement = new WeakMap<Element, ContainerRuns>();
+const runIndexById = new Map<string, ContainerRuns>();
+
+/**
+ * 요소 내부의 첫 번째 text node 찾기
+ * byNode 맵을 위해 필요 (convertDOMOffsetToModelOffset에서 사용)
+ */
+function getFirstTextNode(element: Element | Text | null): Text | null {
+  if (!element) return null;
+  
+  // Text node면 바로 반환
+  if (element.nodeType === Node.TEXT_NODE) {
+    return element as Text;
+  }
+  
+  // Element인 경우 자식 노드들을 순회하여 첫 번째 text node 찾기
+  if (element.nodeType === Node.ELEMENT_NODE) {
+    const el = element as Element;
+    const walker = document.createTreeWalker(
+      el,
+      NodeFilter.SHOW_TEXT,
+      null
+    );
+    
+    const firstTextNode = walker.nextNode() as Text | null;
+    return firstTextNode;
+  }
+  
+  return null;
+}
+
+/**
+ * 요소가 decorator인지 확인
+ */
+function isDecoratorElement(el: Element): boolean {
+  return !!(
+    el.hasAttribute('data-decorator-sid') ||
+    el.hasAttribute('data-bc-decorator') ||
+    el.hasAttribute('data-decorator-category')
+  );
+}
+
+export function buildTextRunIndex(
+  containerEl: Element,
+  containerId?: string,
+  options?: { buildReverseMap?: boolean; excludePredicate?: (el: Element) => boolean; normalizeWhitespace?: boolean }
+): ContainerRuns {
+  const runs: TextRun[] = [];
+  let total = 0;
+  const byNode = options?.buildReverseMap ? new Map<Text, { start: number; end: number }>() : undefined;
+
+  // inline-text의 직접 자식 요소들을 순서대로 순회
+  const childNodes = Array.from(containerEl.childNodes);
+  
+  for (const child of childNodes) {
+    // 1. Text node인 경우: textContent 사용
+    if (child.nodeType === Node.TEXT_NODE) {
+      const textNode = child as Text;
+      const textContent = textNode.textContent ?? '';
+      const textForLength = options?.normalizeWhitespace !== false ? textContent.trim() : textContent;
+      
+      if (textForLength.length > 0) {
+        const length = textForLength.length;
+        const start = total;
+        const end = start + length;
+        const run: TextRun = { domTextNode: textNode, start, end };
+        runs.push(run);
+        if (byNode) byNode.set(textNode, { start, end });
+        total = end;
+      }
+      continue;
+    }
+    
+    // 2. Element인 경우: 내부의 모든 text node를 개별적으로 수집
+    if (child.nodeType === Node.ELEMENT_NODE) {
+      const el = child as Element;
+      
+      // Decorator는 제외
+      if (isDecoratorElement(el)) {
+        continue;
+      }
+      
+      // excludePredicate로 제외되는 요소는 건너뜀
+      if (options?.excludePredicate && options.excludePredicate(el)) {
+        continue;
+      }
+      
+      // TreeWalker를 사용하여 내부의 모든 text node를 개별적으로 수집
+      // (decorator 하위는 제외)
+      const walker = document.createTreeWalker(
+        el,
+        NodeFilter.SHOW_TEXT,
+        {
+          acceptNode: (node: Node) => {
+            // decorator 하위인지 확인
+            let parent: Node | null = node.parentNode;
+            while (parent && parent !== el) {
+              if (parent.nodeType === Node.ELEMENT_NODE) {
+                const parentEl = parent as Element;
+                if (isDecoratorElement(parentEl)) {
+                  return NodeFilter.FILTER_REJECT; // decorator 하위는 제외
+                }
+              }
+              parent = parent.parentNode;
+            }
+            return NodeFilter.FILTER_ACCEPT;
+          }
+        }
+      );
+      
+      let textNode: Text | null;
+      while ((textNode = walker.nextNode() as Text | null)) {
+        const textContent = textNode.textContent ?? '';
+        const textForLength = options?.normalizeWhitespace !== false ? textContent.trim() : textContent;
+        
+        if (textForLength.length > 0) {
+          const length = textForLength.length;
+          const start = total;
+          const end = start + length;
+          const run: TextRun = { domTextNode: textNode, start, end };
+          runs.push(run);
+          if (byNode) byNode.set(textNode, { start, end });
+          total = end;
+        }
+      }
+    }
+  }
+
+  const result: ContainerRuns = { runs, total, byNode };
+  runIndexByElement.set(containerEl, result);
+  if (containerId) runIndexById.set(containerId, result);
+  return result;
+}
+
+export function getTextRunsByElement(containerEl: Element): ContainerRuns | undefined {
+  return runIndexByElement.get(containerEl);
+}
+
+export function getTextRunsById(containerId: string): ContainerRuns | undefined {
+  return runIndexById.get(containerId);
+}
+
+export function invalidateRunsByElement(containerEl: Element): void {
+  runIndexByElement.delete(containerEl);
+}
+
+export function invalidateRunsById(containerId: string): void {
+  runIndexById.delete(containerId);
+}
+
+export function binarySearchRun(runs: TextRun[], offset: number): number {
+  let lo = 0, hi = runs.length - 1, ans = -1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    const r = runs[mid];
+    if (offset < r.start) {
+      hi = mid - 1;
+    } else if (offset >= r.end) {
+      lo = mid + 1;
+    } else {
+      ans = mid;
+      break;
+    }
+  }
+  return ans;
+}
+
+

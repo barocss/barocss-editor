@@ -1,0 +1,24 @@
+{
+  "name": "@barocss/editor-decorator-test",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@barocss/datastore": "workspace:*",
+    "@barocss/editor-core": "workspace:*",
+    "@barocss/editor-view-dom": "workspace:*",
+    "@barocss/model": "workspace:*",
+    "@barocss/renderer-dom": "workspace:*",
+    "@barocss/schema": "workspace:*",
+    "@barocss/dsl": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vite": "^5.4.21"
+  }
+}
