@@ -2,6 +2,40 @@
 
 Development tools for Barocss Editor - visualize editor structure and events in real-time.
 
+## Architecture
+
+```mermaid
+graph TB
+    A["Editor"] --> B["Devtool"]
+    B --> C["Event Monitor"]
+    B --> D["Model Tree Viewer"]
+    B --> E["UI Panel"]
+    
+    C --> F["Event Log"]
+    C --> G["Event Filter"]
+    
+    D --> H["Node Tree"]
+    D --> I["Node Search"]
+    D --> J["DOM Highlight"]
+    
+    E --> K["Model Tree Tab"]
+    E --> L["Events Tab"]
+    
+    A --> M["Editor Events"]
+    M --> C
+    
+    A --> N["DataStore"]
+    N --> D
+    
+    style A fill:#e1f5ff
+    style B fill:#fff4e1
+    style C fill:#e8f5e9
+    style D fill:#f3e5f5
+    style E fill:#fce4ec
+    style F fill:#fff9c4
+    style H fill:#e0f2f1
+```
+
 ## Features
 
 - **Model Tree Visualization**: View the complete document structure as a tree
