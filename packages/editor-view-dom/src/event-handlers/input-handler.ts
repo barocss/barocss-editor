@@ -1075,6 +1075,8 @@ export class InputHandlerImpl implements InputHandler {
    * beforeinput 이벤트 처리
    * 설계 문서에 따르면 insertParagraph, insertLineBreak, historyUndo, historyRedo만 preventDefault() 처리
    * 나머지는 브라우저가 자동 처리하고 MutationObserver가 감지
+   * 
+   * 추가: formatBold, formatItalic, formatUnderline 등 포맷 관련 inputType도 beforeInput에서 처리
    */
   handleBeforeInput(event: InputEvent): void {
     const inputType = event.inputType;
@@ -1091,7 +1093,17 @@ export class InputHandlerImpl implements InputHandler {
       return;
     }
 
-    // 2) 삭제 처리 (Model-First)
+    // 2) 포맷 관련 inputType 처리 (formatBold, formatItalic, formatUnderline 등)
+    if (this.shouldHandleFormat(inputType)) {
+      console.log('[InputHandler] handleBeforeInput: preventDefault for format', { inputType });
+      event.preventDefault();
+      this.executeFormatCommand(inputType);
+      // 포맷 변경은 Insert Range 힌트를 사용하지 않으므로 초기화
+      this._pendingInsertHint = null;
+      return;
+    }
+
+    // 3) 삭제 처리 (Model-First)
     // IME 조합 중에는 브라우저 기본 동작 허용 (MutationObserver가 처리)
     if (this.shouldHandleDelete(inputType) && !event.isComposing) {
       console.log('[InputHandler] handleBeforeInput: preventDefault for delete', { inputType });
@@ -1102,10 +1114,10 @@ export class InputHandlerImpl implements InputHandler {
       return;
     }
 
-    // 3) Insert 계열 inputType에 대해 Insert Range 힌트 생성
+    // 4) Insert 계열 inputType에 대해 Insert Range 힌트 생성
     this.updateInsertHintFromBeforeInput(event);
 
-    // 4) 나머지 (텍스트 입력 등)는 브라우저가 자동 처리하도록 두고,
+    // 5) 나머지 (텍스트 입력 등)는 브라우저가 자동 처리하도록 두고,
     //    MutationObserver가 DOM 변경을 감지하여 모델을 업데이트한다.
     console.log('[InputHandler] handleBeforeInput: ALLOW (will be handled by MutationObserver)', { inputType });
   }
@@ -1214,6 +1226,20 @@ export class InputHandlerImpl implements InputHandler {
     ];
     
     return structuralTypes.includes(inputType) || historyTypes.includes(inputType);
+  }
+
+  /**
+   * 포맷 관련 inputType인지 확인
+   * beforeInput에서 preventDefault() 후 커맨드를 실행해야 하는 포맷 타입들
+   */
+  private shouldHandleFormat(inputType: string): boolean {
+    const formatTypes = [
+      'formatBold',        // Ctrl+B / Cmd+B
+      'formatItalic',      // Ctrl+I / Cmd+I
+      'formatUnderline',   // Ctrl+U / Cmd+U
+      'formatStrikeThrough' // Ctrl+Shift+S / Cmd+Shift+S
+    ];
+    return formatTypes.includes(inputType);
   }
 
   /**
@@ -1624,6 +1650,33 @@ export class InputHandlerImpl implements InputHandler {
         
       default:
         console.warn('[InputHandler] executeStructuralCommand: unknown inputType', { inputType });
+    }
+  }
+
+  /**
+   * 포맷 명령 실행
+   * beforeInput에서 preventDefault() 후 커맨드를 실행
+   */
+  private executeFormatCommand(inputType: string): void {
+    console.log('[InputHandler] executeFormatCommand: CALLED', { inputType });
+    
+    // inputType을 커맨드 이름으로 매핑
+    const commandMap: Record<string, string> = {
+      'formatBold': 'toggleBold',
+      'formatItalic': 'toggleItalic',
+      'formatUnderline': 'toggleUnderline',
+      'formatStrikeThrough': 'toggleStrikeThrough'
+    };
+    
+    const command = commandMap[inputType];
+    if (command) {
+      console.log('[InputHandler] executeFormatCommand: executing command', { inputType, command });
+      // editor:command.execute 이벤트 발생 (테스트에서 기대하는 형태)
+      this.editor.emit('editor:command.execute', { command, data: undefined });
+      // 실제 커맨드 실행
+      void this.editor.executeCommand(command, {});
+    } else {
+      console.warn('[InputHandler] executeFormatCommand: unknown format inputType', { inputType });
     }
   }
 

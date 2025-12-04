@@ -29,4 +29,7 @@ export * from './applyMark';
 export * from './copy';
 export * from './paste';
 export * from './cut';
+export * from '../operations/transformNode';
+export * from '../operations/moveBlockUp';
+export * from '../operations/moveBlockDown';
 

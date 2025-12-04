@@ -317,15 +317,15 @@
    - **수행**: 각 Format 명령 (`formatBold`, `formatItalic`, 등) 처리
    - **검증**: `preventDefault()` 호출
    - **검증**: `editor:command.execute` 이벤트 발생
-   - **검증**: 올바른 명령 문자열 (`bold.toggle`, `italic.toggle`, 등)
+   - **검증**: 올바른 명령 문자열 (`toggleBold`, `toggleItalic`, 등)
    - **검증**: `return true`
    - **목적**: Format 명령 변환 검증
 
    **포함 명령**:
-   - `formatBold` → `bold.toggle`
-   - `formatItalic` → `italic.toggle`
-   - `formatUnderline` → `underline.toggle`
-   - `formatStrikeThrough` → `strikeThrough.toggle`
+   - `formatBold` → `toggleBold`
+   - `formatItalic` → `toggleItalic`
+   - `formatUnderline` → `toggleUnderline`
+   - `formatStrikeThrough` → `toggleStrikeThrough`
    - `formatSuperscript` → `superscript.toggle`
    - `formatSubscript` → `subscript.toggle`
    - `formatJustifyFull` → `justify.toggle`

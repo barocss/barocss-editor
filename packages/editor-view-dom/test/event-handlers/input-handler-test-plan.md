@@ -279,12 +279,12 @@
 
 **5.1.1 formatBold**
 - **시나리오**: `inputType === 'formatBold'`
-- **기대**: `event.preventDefault()`, `editor:command.execute` 이벤트 발생, `command: 'bold.toggle'`
+- **기대**: `event.preventDefault()`, `editor:command.execute` 이벤트 발생, `command: 'toggleBold'`
 - **검증**: `preventDefault` 호출 확인, 이벤트 확인
 
 **5.1.2 formatItalic**
 - **시나리오**: `inputType === 'formatItalic'`
-- **기대**: `event.preventDefault()`, `command: 'italic.toggle'`
+- **기대**: `event.preventDefault()`, `command: 'toggleItalic'`
 - **검증**: 이벤트 확인
 
 **5.1.3 기타 format 명령들**

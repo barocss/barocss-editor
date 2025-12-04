@@ -870,6 +870,16 @@ export class CommandChain {
     return this;
   }
 
+  toggleUnderline(): CommandChain {
+    this.commands.push({ command: 'toggleUnderline' });
+    return this;
+  }
+
+  toggleStrikeThrough(): CommandChain {
+    this.commands.push({ command: 'toggleStrikeThrough' });
+    return this;
+  }
+
   setHeading(level: number): CommandChain {
     this.commands.push({ command: 'setHeading', payload: level });
     return this;

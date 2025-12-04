@@ -392,4 +392,80 @@ export class ContentOperations {
       // moveNode already emits a move operation
     }
   }
+
+  /**
+   * 블록 노드를 위로 이동 (같은 부모 내에서)
+   *
+   * Spec moveBlockUp:
+   * - 같은 부모의 content 배열에서 현재 노드를 한 칸 위로 이동
+   * - 첫 번째 노드면 이동 불가 (false 반환)
+   * - reorderChildren을 사용하여 순서 변경
+   */
+  moveBlockUp(nodeId: string): boolean {
+    const node = this.dataStore.getNode(nodeId);
+    if (!node || !node.parentId) {
+      return false;
+    }
+
+    const parent = this.dataStore.getNode(node.parentId);
+    if (!parent || !Array.isArray(parent.content)) {
+      return false;
+    }
+
+    const currentIndex = parent.content.indexOf(nodeId);
+    if (currentIndex === -1) {
+      return false;
+    }
+
+    // 첫 번째 노드면 이동 불가
+    if (currentIndex === 0) {
+      return false;
+    }
+
+    // 순서 변경: 현재 노드를 이전 위치로 이동
+    const newContent = [...parent.content];
+    const [movedNode] = newContent.splice(currentIndex, 1);
+    newContent.splice(currentIndex - 1, 0, movedNode);
+
+    this.reorderChildren(node.parentId, newContent);
+    return true;
+  }
+
+  /**
+   * 블록 노드를 아래로 이동 (같은 부모 내에서)
+   *
+   * Spec moveBlockDown:
+   * - 같은 부모의 content 배열에서 현재 노드를 한 칸 아래로 이동
+   * - 마지막 노드면 이동 불가 (false 반환)
+   * - reorderChildren을 사용하여 순서 변경
+   */
+  moveBlockDown(nodeId: string): boolean {
+    const node = this.dataStore.getNode(nodeId);
+    if (!node || !node.parentId) {
+      return false;
+    }
+
+    const parent = this.dataStore.getNode(node.parentId);
+    if (!parent || !Array.isArray(parent.content)) {
+      return false;
+    }
+
+    const currentIndex = parent.content.indexOf(nodeId);
+    if (currentIndex === -1) {
+      return false;
+    }
+
+    // 마지막 노드면 이동 불가
+    if (currentIndex === parent.content.length - 1) {
+      return false;
+    }
+
+    // 순서 변경: 현재 노드를 다음 위치로 이동
+    const newContent = [...parent.content];
+    const [movedNode] = newContent.splice(currentIndex, 1);
+    newContent.splice(currentIndex + 1, 0, movedNode);
+
+    this.reorderChildren(node.parentId, newContent);
+    return true;
+  }
 }

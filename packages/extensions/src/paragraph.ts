@@ -1,5 +1,5 @@
 import { Editor, Extension, type ModelSelection } from '@barocss/editor-core';
-import { transaction, control } from '@barocss/model';
+import { transaction, control, transformNode } from '@barocss/model';
 
 export interface ParagraphExtensionOptions {
   enabled?: boolean;
@@ -29,14 +29,14 @@ export class ParagraphExtension implements Extension {
   onCreate(editor: Editor): void {
     if (!this._options.enabled) return;
 
-    // Paragraph 명령어 (아직 구체 구현 없음)
+    // Paragraph 명령어
     (editor as any).registerCommand({
       name: 'setParagraph',
-      execute: (_ed: Editor) => {
-        return true;
+      execute: async (ed: Editor, payload?: { selection?: ModelSelection }) => {
+        return await this._executeSetParagraph(ed, payload?.selection);
       },
-      canExecute: (_ed: Editor) => {
-        return true;
+      canExecute: (_ed: Editor, payload?: { selection?: ModelSelection }) => {
+        return !!payload?.selection;
       }
     });
 
@@ -59,6 +59,52 @@ export class ParagraphExtension implements Extension {
   }
 
   /**
+   * setParagraph 실행부
+   * - 현재 블록 노드를 paragraph로 변환
+   */
+  private async _executeSetParagraph(
+    editor: Editor,
+    selection?: ModelSelection
+  ): Promise<boolean> {
+    if (!selection || selection.type !== 'range') {
+      return false;
+    }
+
+    const dataStore = (editor as any).dataStore;
+    if (!dataStore) {
+      console.error('[ParagraphExtension] dataStore not found');
+      return false;
+    }
+
+    // 현재 블록 노드 찾기 (startNodeId의 부모 블록 노드)
+    const targetNodeId = this._getTargetBlockNodeId(dataStore, selection);
+    if (!targetNodeId) {
+      console.warn('[ParagraphExtension] No target block node found');
+      return false;
+    }
+
+    const targetNode = dataStore.getNode(targetNodeId);
+    if (!targetNode) {
+      return false;
+    }
+
+    // 이미 paragraph면 no-op
+    if (targetNode.stype === 'paragraph') {
+      return true;
+    }
+
+    // transformNode operation 사용
+    const ops = [
+      ...control(targetNodeId, [
+        transformNode('paragraph')
+      ])
+    ];
+
+    const result = await transaction(editor, ops).commit();
+    return result.success;
+  }
+
+  /**
    * insertParagraph 실행부
    * - selection 을 해석하여 operation 배열을 구성한 뒤, transaction 으로 실행한다.
    */
@@ -77,6 +123,44 @@ export class ParagraphExtension implements Extension {
 
     const result = await transaction(editor, ops).commit();
     return result.success;
+  }
+
+  /**
+   * selection에서 대상 블록 노드 ID를 찾음
+   * - Range Selection: startNodeId의 부모 블록 노드
+   */
+  private _getTargetBlockNodeId(dataStore: any, selection: ModelSelection): string | null {
+    if (selection.type !== 'range') {
+      return null;
+    }
+
+    const startNode = dataStore.getNode(selection.startNodeId);
+    if (!startNode) return null;
+
+    const schema = dataStore.getActiveSchema();
+    if (schema) {
+      const nodeType = schema.getNodeType(startNode.stype);
+      // startNode가 블록이면 그대로 사용
+      if (nodeType?.group === 'block') {
+        return startNode.sid!;
+      }
+    }
+
+    // startNode의 부모 블록 노드를 찾음
+    let current = startNode;
+    while (current && current.parentId) {
+      const parent = dataStore.getNode(current.parentId);
+      if (!parent) break;
+
+      const parentType = schema?.getNodeType(parent.stype);
+      if (parentType?.group === 'block') {
+        return parent.sid!;
+      }
+
+      current = parent;
+    }
+
+    return null;
   }
 
   /**

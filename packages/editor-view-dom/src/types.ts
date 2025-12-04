@@ -91,6 +91,8 @@ export interface IEditorViewDOM {
   toggleBold(): void;
   toggleItalic(): void;
   toggleUnderline(): void;
+  toggleStrikeThrough(): void;
+  blur(): void;
 
   // 렌더링 API
   render(tree?: ModelData | any): void;        // ModelData 형식 (sid, stype 사용) 또는 editor에서 export

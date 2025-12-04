@@ -832,9 +832,9 @@ export class InputHandlerImpl implements InputHandler {
 
   private executeEditorCommand(inputType: string): void {
     const commandMap = {
-      'formatBold': 'bold.toggle',
-      'formatItalic': 'italic.toggle',
-      'formatUnderline': 'underline.toggle',
+      'formatBold': 'toggleBold',
+      'formatItalic': 'toggleItalic',
+      'formatUnderline': 'toggleUnderline',
       'insertParagraph': 'insertParagraph'
     };
     
@@ -1280,7 +1280,7 @@ graph LR
    ↓
 3. KeymapManager.getHandler('Ctrl+b')
    ↓
-4. editor.executeCommand('bold.toggle')
+4. editor.executeCommand('toggleBold')
    ↓
 5. editor-core에서 Model 업데이트
    ↓
@@ -1301,7 +1301,7 @@ graph LR
    ↓
 4. event.preventDefault() 호출
    ↓
-5. editor.executeCommand('bold.toggle')
+5. editor.executeCommand('toggleBold')
    ↓
 6. editor-core에서 Model 업데이트
    ↓
@@ -1390,9 +1390,9 @@ graph LR
 #### A. 포맷 관련 (beforeInput에서 차단)
 | inputType | 처리 방식 | 이유 |
 |-----------|-----------|------|
-| `formatBold` | beforeInput 차단 → `bold.toggle` | 일관된 Bold 로직 |
-| `formatItalic` | beforeInput 차단 → `italic.toggle` | 일관된 Italic 로직 |
-| `formatUnderline` | beforeInput 차단 → `underline.toggle` | 일관된 Underline 로직 |
+| `formatBold` | beforeInput 차단 → `toggleBold` | 일관된 Bold 로직 |
+| `formatItalic` | beforeInput 차단 → `toggleItalic` | 일관된 Italic 로직 |
+| `formatUnderline` | beforeInput 차단 → `toggleUnderline` | 일관된 Underline 로직 |
 | `formatStrikeThrough` | beforeInput 차단 → `strikethrough.toggle` | 일관된 취소선 로직 |
 | `formatJustifyLeft` | beforeInput 차단 → `align.left` | 일관된 정렬 로직 |
 | `formatJustifyCenter` | beforeInput 차단 → `align.center` | 일관된 정렬 로직 |

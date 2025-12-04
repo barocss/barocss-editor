@@ -98,6 +98,28 @@ export const DEFAULT_KEYBINDINGS: Keybinding[] = [
     command: 'selectAll',
     when: 'editorFocus'
   },
+  
+  // 텍스트 스타일 토글
+  {
+    key: 'Mod+b',
+    command: 'toggleBold',
+    when: 'editorFocus && editorEditable'
+  },
+  {
+    key: 'Mod+i',
+    command: 'toggleItalic',
+    when: 'editorFocus && editorEditable'
+  },
+  {
+    key: 'Mod+u',
+    command: 'toggleUnderline',
+    when: 'editorFocus && editorEditable'
+  },
+  {
+    key: 'Mod+Shift+s',
+    command: 'toggleStrikeThrough',
+    when: 'editorFocus && editorEditable'
+  },
   // 복사/붙여넣기/잘라내기 (CopyPasteExtension 연동)
   {
     key: 'Mod+c',
@@ -154,6 +176,47 @@ export const DEFAULT_KEYBINDINGS: Keybinding[] = [
     key: 'Mod+y',
     command: 'historyRedo',
     when: 'editorFocus && historyCanRedo'
+  },
+  
+  // 블록 타입 전환 (Heading / Paragraph)
+  {
+    key: 'Mod+Alt+1',
+    command: 'setHeading1',
+    when: 'editorFocus && editorEditable'
+  },
+  {
+    key: 'Mod+Alt+2',
+    command: 'setHeading2',
+    when: 'editorFocus && editorEditable'
+  },
+  {
+    key: 'Mod+Alt+3',
+    command: 'setHeading3',
+    when: 'editorFocus && editorEditable'
+  },
+  {
+    key: 'Mod+Alt+0',
+    command: 'setParagraph',
+    when: 'editorFocus && editorEditable'
+  },
+  
+  // 블록 이동 (위/아래)
+  {
+    key: 'Alt+ArrowUp',
+    command: 'moveBlockUp',
+    when: 'editorFocus && editorEditable'
+  },
+  {
+    key: 'Alt+ArrowDown',
+    command: 'moveBlockDown',
+    when: 'editorFocus && editorEditable'
+  },
+  
+  // Escape (선택 취소 또는 포커스 해제)
+  {
+    key: 'Escape',
+    command: 'escape',
+    when: 'editorFocus'
   }
 ];
 

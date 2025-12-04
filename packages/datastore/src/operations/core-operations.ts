@@ -342,4 +342,81 @@ export class CoreOperations {
       });
     }
   }
+
+  /**
+   * 노드 타입 변환 (paragraph → heading, heading → paragraph 등)
+   *
+   * Spec transformNode:
+   * - 기존 노드를 읽어서 새 stype으로 변환
+   * - content, attributes, marks 등은 유지
+   * - 같은 ID를 사용 (노드 ID 유지)
+   * - 부모의 content 배열에서 위치 유지
+   * - 기존 노드를 삭제하고 새 노드를 같은 위치에 추가
+   * - Schema validation 수행
+   */
+  transformNode(nodeId: string, newType: string, newAttrs?: Record<string, any>): { valid: boolean; errors: string[]; newNodeId?: string } {
+    const node = this.dataStore.getNode(nodeId);
+    if (!node) {
+      return { valid: false, errors: [`Node not found: ${nodeId}`] };
+    }
+
+    // 같은 타입이면 no-op
+    if (node.stype === newType) {
+      return { valid: true, errors: [], newNodeId: nodeId };
+    }
+
+    // 부모와 위치 확인
+    const parentId = node.parentId;
+    let position: number | undefined;
+    if (parentId) {
+      const parent = this.dataStore.getNode(parentId);
+      if (parent && Array.isArray(parent.content)) {
+        position = parent.content.indexOf(nodeId);
+      }
+    }
+
+    // 새 노드 생성 (기존 속성 유지, stype과 attributes만 변경)
+    const newNode: INode = {
+      ...node,
+      stype: newType,
+      attributes: {
+        ...(node.attributes || {}),
+        ...(newAttrs || {})
+      }
+    };
+
+    // Schema validation
+    const activeSchema = this.dataStore.getActiveSchema();
+    if (activeSchema) {
+      const validation = this.dataStore.validateNode(newNode, activeSchema);
+      if (!validation.valid) {
+        return { valid: false, errors: validation.errors };
+      }
+    }
+
+    // 기존 노드 삭제 (부모 content에서 제거)
+    if (parentId && position !== undefined) {
+      const parent = this.dataStore.getNode(parentId);
+      if (parent && Array.isArray(parent.content)) {
+        const newContent = [...parent.content];
+        newContent.splice(position, 1);
+        this.dataStore.updateNode(parentId, { content: newContent }, false);
+      }
+    }
+
+    // 새 노드 저장 (같은 ID 사용)
+    this.setNode(newNode, true);
+
+    // 부모 content에 다시 추가 (같은 위치)
+    if (parentId && position !== undefined) {
+      const parent = this.dataStore.getNode(parentId);
+      if (parent && Array.isArray(parent.content)) {
+        const newContent = [...parent.content];
+        newContent.splice(position, 0, nodeId);
+        this.dataStore.updateNode(parentId, { content: newContent }, false);
+      }
+    }
+
+    return { valid: true, errors: [], newNodeId: nodeId };
+  }
 }

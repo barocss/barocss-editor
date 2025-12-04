@@ -1,4 +1,5 @@
-import { Extension } from '@barocss/editor-core';
+import { Editor, Extension, type ModelSelection } from '@barocss/editor-core';
+import { transaction, control, transformNode } from '@barocss/model';
 
 export interface HeadingExtensionOptions {
   enabled?: boolean;
@@ -25,47 +26,52 @@ export class HeadingExtension implements Extension {
     };
   }
 
-  onCreate(_editor: any): void {
+  onCreate(editor: Editor): void {
     if (!this._options.enabled) return;
 
     // 각 헤딩 레벨별 명령어 등록
     this._options.levels?.forEach(level => {
-      _editor.registerCommand({
+      (editor as any).registerCommand({
         name: `setHeading${level}`,
-        execute: (editor: any) => {
-          return this._setHeading(editor, level);
+        execute: async (ed: Editor, payload?: { selection?: ModelSelection }) => {
+          return await this._executeSetHeading(ed, level, payload?.selection);
         },
-        canExecute: (editor: any) => {
-          return this._canSetHeading(editor, level);
+        canExecute: (_ed: Editor, payload?: { selection?: ModelSelection }) => {
+          return !!payload?.selection && this._canSetHeading(_ed, level);
         }
       });
     });
 
     // 일반 헤딩 설정 명령어
-    _editor.registerCommand({
+    (editor as any).registerCommand({
       name: 'setHeading',
-      execute: (editor: any, payload: number) => {
-        return this._setHeading(editor, payload);
+      execute: async (ed: Editor, payload?: { level?: number; selection?: ModelSelection }) => {
+        const level = payload?.level;
+        if (typeof level !== 'number') {
+          return false;
+        }
+        return await this._executeSetHeading(ed, level, payload?.selection);
       },
-      canExecute: (editor: any, payload: number) => {
-        return this._canSetHeading(editor, payload);
+      canExecute: (_ed: Editor, payload?: { level?: number; selection?: ModelSelection }) => {
+        const level = payload?.level;
+        return typeof level === 'number' && !!payload?.selection && this._canSetHeading(_ed, level);
       }
     });
 
     // 헤딩 제거 명령어
-    _editor.registerCommand({
+    (editor as any).registerCommand({
       name: 'removeHeading',
-      execute: (editor: any) => {
-        return this._removeHeading(editor);
+      execute: (ed: Editor) => {
+        return this._removeHeading(ed);
       },
-      canExecute: (editor: any) => {
-        return this._canRemoveHeading(editor);
+      canExecute: (_ed: Editor) => {
+        return this._canRemoveHeading(_ed);
       }
     });
 
     // 키보드 단축키 등록
     if (this._options.keyboardShortcuts) {
-      this._registerKeyboardShortcuts(_editor);
+      this._registerKeyboardShortcuts(editor);
     }
   }
 
@@ -73,25 +79,50 @@ export class HeadingExtension implements Extension {
     // 정리 작업
   }
 
-  private _setHeading(editor: any, level: number): boolean {
-    try {
-      const selection = editor.selection;
-      
-      if (selection.empty) {
-        // 빈 선택: 현재 위치에 헤딩 설정
-        return this._setHeadingAtPosition(editor, level, selection.anchor);
-      } else {
-        // 텍스트 선택: 선택된 텍스트를 헤딩으로 변환
-        return this._setHeadingInRange(editor, level, selection.from, selection.to);
-      }
-    } catch (error) {
-      console.error('Set heading failed:', error);
+  private async _executeSetHeading(
+    editor: Editor,
+    level: number,
+    selection?: ModelSelection
+  ): Promise<boolean> {
+    if (!selection || selection.type !== 'range') {
       return false;
     }
+
+    const dataStore = (editor as any).dataStore;
+    if (!dataStore) {
+      console.error('[HeadingExtension] dataStore not found');
+      return false;
+    }
+
+    // 현재 블록 노드 찾기 (startNodeId의 부모 블록 노드)
+    const targetNodeId = this._getTargetBlockNodeId(dataStore, selection);
+    if (!targetNodeId) {
+      console.warn('[HeadingExtension] No target block node found');
+      return false;
+    }
+
+    const targetNode = dataStore.getNode(targetNodeId);
+    if (!targetNode) {
+      return false;
+    }
+
+    // 이미 같은 타입이면 no-op
+    if (targetNode.stype === 'heading' && targetNode.attributes?.level === level) {
+      return true;
+    }
+
+    // transformNode operation 사용
+    const ops = [
+      ...control(targetNodeId, [
+        transformNode('heading', { level })
+      ])
+    ];
+
+    const result = await transaction(editor, ops).commit();
+    return result.success;
   }
 
-  private _canSetHeading(_editor: any, level: number): boolean {
-    // TODO: 실제 구현 - 현재 선택에 헤딩을 설정할 수 있는지 확인
+  private _canSetHeading(_editor: Editor, level: number): boolean {
     return this._options.levels?.includes(level) || false;
   }
 
@@ -100,16 +131,42 @@ export class HeadingExtension implements Extension {
     return true;
   }
 
-  private _setHeadingAtPosition(_editor: any, level: number, position: number): boolean {
-    // TODO: 실제 구현 - 특정 위치에 헤딩 설정
-    console.log(`Set heading ${level} at position:`, position);
-    return true;
-  }
+  /**
+   * selection에서 대상 블록 노드 ID를 찾음
+   * - Range Selection: startNodeId의 부모 블록 노드
+   */
+  private _getTargetBlockNodeId(dataStore: any, selection: ModelSelection): string | null {
+    if (selection.type !== 'range') {
+      return null;
+    }
 
-  private _setHeadingInRange(_editor: any, level: number, from: number, to: number): boolean {
-    // TODO: 실제 구현 - 범위에 헤딩 설정
-    console.log(`Set heading ${level} in range:`, from, to);
-    return true;
+    const startNode = dataStore.getNode(selection.startNodeId);
+    if (!startNode) return null;
+
+    const schema = dataStore.getActiveSchema();
+    if (schema) {
+      const nodeType = schema.getNodeType(startNode.stype);
+      // startNode가 블록이면 그대로 사용
+      if (nodeType?.group === 'block') {
+        return startNode.sid!;
+      }
+    }
+
+    // startNode의 부모 블록 노드를 찾음
+    let current = startNode;
+    while (current && current.parentId) {
+      const parent = dataStore.getNode(current.parentId);
+      if (!parent) break;
+
+      const parentType = schema?.getNodeType(parent.stype);
+      if (parentType?.group === 'block') {
+        return parent.sid!;
+      }
+
+      current = parent;
+    }
+
+    return null;
   }
 
   private _removeHeading(editor: any): boolean {
@@ -139,11 +196,9 @@ export class HeadingExtension implements Extension {
     return true;
   }
 
-  private _registerKeyboardShortcuts(_editor: any): void {
-    // TODO: 키보드 단축키 등록 로직
-    Object.entries(this._options.keyboardShortcuts || {}).forEach(([level, shortcut]) => {
-      console.log(`Register heading ${level} keyboard shortcut:`, shortcut);
-    });
+  private _registerKeyboardShortcuts(editor: Editor): void {
+    // 키보드 단축키는 기본 키바인딩에서 처리하므로 여기서는 아무것도 하지 않음
+    // 기본 키바인딩에 Mod+Alt+1/2/3이 이미 등록되어 있음
   }
 }
 

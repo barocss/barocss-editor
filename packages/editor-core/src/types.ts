@@ -324,6 +324,8 @@ export interface CommandChain {
   deleteSelection(): CommandChain;
   toggleBold(): CommandChain;
   toggleItalic(): CommandChain;
+  toggleUnderline(): CommandChain;
+  toggleStrikeThrough(): CommandChain;
   setHeading(level: number): CommandChain;
   insertParagraph(): CommandChain;
   focus(): CommandChain;

@@ -7,6 +7,10 @@ export * from './italic';
 export * from './heading';
 export * from './select-all';
 export * from './indent';
+export * from './underline';
+export * from './strikethrough';
+export * from './move-block';
+export * from './escape';
 
 // 클래스들을 import
 import { TextExtension } from './text';
@@ -18,6 +22,8 @@ import { SelectAllExtension } from './select-all';
 import { DeleteExtension } from './delete';
 import { MoveSelectionExtension } from './move-selection';
 import { IndentExtension } from './indent';
+import { UnderlineExtension } from './underline';
+import { MoveBlockExtension } from './move-block';
 import { CopyPasteExtension } from './copy-paste';
 import type { Extension } from '@barocss/editor-core';
 
@@ -55,13 +61,15 @@ export const ExtensionSets = {
   // 기본 텍스트 편집 (Bold, Italic만)
   basic: () => [
     new BoldExtension(),
-    new ItalicExtension()
+    new ItalicExtension(),
+    new UnderlineExtension()
   ],
   
   // 리치 텍스트 편집 (Bold, Italic, Heading만)
   rich: () => [
     new BoldExtension(),
     new ItalicExtension(),
+    new UnderlineExtension(),
     new HeadingExtension()
   ],
   

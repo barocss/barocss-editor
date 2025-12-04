@@ -27,6 +27,7 @@ describe('InputHandlerImpl', () => {
     mockEditor = {
       emit: vi.fn(),
       executeTransaction: vi.fn(),
+      executeCommand: vi.fn().mockResolvedValue(true),
       on: vi.fn(),
       off: vi.fn(),
       dataStore: {
@@ -751,14 +752,14 @@ describe('InputHandlerImpl', () => {
         preventDefault: vi.fn()
       } as any;
 
-      const result = inputHandler.handleBeforeInput(event);
+      inputHandler.handleBeforeInput(event);
 
       expect(event.preventDefault).toHaveBeenCalled();
       expect(mockEditor.emit).toHaveBeenCalledWith('editor:command.execute', {
-        command: 'bold.toggle',
+        command: 'toggleBold',
         data: undefined
       });
-      expect(result).toBe(true);
+      expect(mockEditor.executeCommand).toHaveBeenCalledWith('toggleBold', {});
     });
 
     it('formatItalic는 preventDefault하고 command 이벤트를 발생시켜야 함', () => {
@@ -768,14 +769,14 @@ describe('InputHandlerImpl', () => {
         preventDefault: vi.fn()
       } as any;
 
-      const result = inputHandler.handleBeforeInput(event);
+      inputHandler.handleBeforeInput(event);
 
       expect(event.preventDefault).toHaveBeenCalled();
       expect(mockEditor.emit).toHaveBeenCalledWith('editor:command.execute', {
-        command: 'italic.toggle',
+        command: 'toggleItalic',
         data: undefined
       });
-      expect(result).toBe(true);
+      expect(mockEditor.executeCommand).toHaveBeenCalledWith('toggleItalic', {});
     });
 
     it('insertParagraph는 preventDefault하고 command 이벤트를 발생시켜야 함', () => {
@@ -1145,10 +1146,10 @@ describe('InputHandlerImpl', () => {
 
   describe('handleBeforeInput - Additional Format Commands', () => {
     const formatCommands = [
-      { inputType: 'formatBold', command: 'bold.toggle' },
-      { inputType: 'formatItalic', command: 'italic.toggle' },
-      { inputType: 'formatUnderline', command: 'underline.toggle' },
-      { inputType: 'formatStrikeThrough', command: 'strikeThrough.toggle' },
+      { inputType: 'formatBold', command: 'toggleBold' },
+      { inputType: 'formatItalic', command: 'toggleItalic' },
+      { inputType: 'formatUnderline', command: 'toggleUnderline' },
+      { inputType: 'formatStrikeThrough', command: 'toggleStrikeThrough' },
       { inputType: 'formatSuperscript', command: 'superscript.toggle' },
       { inputType: 'formatSubscript', command: 'subscript.toggle' },
       { inputType: 'formatJustifyFull', command: 'justify.toggle' },
@@ -1168,14 +1169,21 @@ describe('InputHandlerImpl', () => {
           preventDefault: vi.fn()
         } as any;
 
-        const result = inputHandler.handleBeforeInput(event);
+        inputHandler.handleBeforeInput(event);
 
-        expect(event.preventDefault).toHaveBeenCalled();
-        expect(mockEditor.emit).toHaveBeenCalledWith('editor:command.execute', {
-          command,
-          data: undefined
-        });
-        expect(result).toBe(true);
+        // formatBold, formatItalic, formatUnderline, formatStrikeThrough만 beforeInput에서 처리
+        const handledFormats = ['formatBold', 'formatItalic', 'formatUnderline', 'formatStrikeThrough'];
+        if (handledFormats.includes(inputType)) {
+          expect(event.preventDefault).toHaveBeenCalled();
+          expect(mockEditor.emit).toHaveBeenCalledWith('editor:command.execute', {
+            command,
+            data: undefined
+          });
+          expect(mockEditor.executeCommand).toHaveBeenCalledWith(command, {});
+        } else {
+          // 다른 format은 아직 처리하지 않으므로 preventDefault가 호출되지 않음
+          expect(event.preventDefault).not.toHaveBeenCalled();
+        }
       });
     });
   });

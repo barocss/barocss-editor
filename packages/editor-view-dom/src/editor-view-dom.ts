@@ -272,6 +272,11 @@ export class EditorViewDOM implements IEditorViewDOM {
       }
     });
 
+    // Escape 키로 인한 blur 요청 처리
+    this.editor.on('editor:blur.request', () => {
+      this.blur();
+    });
+
     // 콘텐츠 변경 시 렌더링
     // MutationObserver에서 감지한 characterData 변경은 skipRender: true로 처리하여
     // 입력 중 렌더링과 selection 변경의 race condition을 방지
@@ -698,7 +703,15 @@ export class EditorViewDOM implements IEditorViewDOM {
   }
 
   toggleUnderline(): void {
-    this.editor.executeCommand('underline.toggle');
+    this.editor.executeCommand('toggleUnderline');
+  }
+
+  toggleStrikeThrough(): void {
+    this.editor.executeCommand('toggleStrikeThrough');
+  }
+
+  blur(): void {
+    this.contentEditableElement.blur();
   }
 
   // 유틸리티 메서드

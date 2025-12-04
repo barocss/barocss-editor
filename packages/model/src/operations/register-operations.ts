@@ -41,3 +41,6 @@ import './outdentText';
 import './copy';
 import './paste';
 import './cut';
+import './transformNode';
+import './moveBlockUp';
+import './moveBlockDown';

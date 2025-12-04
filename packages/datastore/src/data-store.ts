@@ -792,6 +792,41 @@ export class DataStore {
   }
 
   /**
+   * 노드 타입 변환 (paragraph → heading, heading → paragraph 등)
+   * 
+   * @param nodeId - 변환할 노드 ID
+   * @param newType - 새로운 노드 타입 (stype)
+   * @param newAttrs - 새로운 attributes (선택적)
+   * @returns 변환 결과
+   */
+  transformNode(nodeId: string, newType: string, newAttrs?: Record<string, any>): { valid: boolean; errors: string[]; newNodeId?: string } {
+    const realId = this.resolveAlias(nodeId);
+    return this.core.transformNode(realId, newType, newAttrs);
+  }
+
+  /**
+   * 블록 노드를 위로 이동
+   * 
+   * @param nodeId - 이동할 노드 ID
+   * @returns 이동 성공 여부
+   */
+  moveBlockUp(nodeId: string): boolean {
+    const realId = this.resolveAlias(nodeId);
+    return this.content.moveBlockUp(realId);
+  }
+
+  /**
+   * 블록 노드를 아래로 이동
+   * 
+   * @param nodeId - 이동할 노드 ID
+   * @returns 이동 성공 여부
+   */
+  moveBlockDown(nodeId: string): boolean {
+    const realId = this.resolveAlias(nodeId);
+    return this.content.moveBlockDown(realId);
+  }
+
+  /**
    * 루트 노드 조회
    * 
    * @returns 루트 노드 객체 (설정되지 않았으면 undefined)
