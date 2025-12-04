@@ -2,6 +2,34 @@
 
 Transactional, schema-aware node store for managing document structure with normalized `INode` and `IMark` using `sid` (stable ID) and `stype` (schema type).
 
+## Architecture
+
+```mermaid
+graph TB
+    subgraph "DataStore"
+        A[Node Storage<br/>INode/IMark]
+        B[Content Operations<br/>Parent-Child]
+        C[Transaction Manager<br/>Begin/Commit/Rollback]
+        D[Schema Validation]
+    end
+    
+    E[Schema] --> D
+    A --> B
+    C --> A
+    D --> A
+    
+    F[Model Operations] --> C
+    C --> G[DataStore State]
+    
+    style A fill:#e1f5ff
+    style B fill:#fff4e1
+    style C fill:#e8f5e9
+    style D fill:#f3e5f5
+    style E fill:#fce4ec
+    style F fill:#fce4ec
+    style G fill:#fff9c4
+```
+
 ## Overview
 
 `@barocss/datastore` provides a normalized, transactional data store for document nodes. It manages:

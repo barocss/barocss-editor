@@ -2,6 +2,35 @@
 
 이 패키지는 BaroCSS Editor의 확장 기능(Extension)을 제공합니다. Extension을 통해 에디터에 새로운 커맨드와 기능을 추가할 수 있습니다.
 
+## Architecture
+
+```mermaid
+graph TB
+    A[Extension] --> B[onCreate]
+    B --> C[Register Commands]
+    C --> D[Command Registry]
+    
+    E[Keybinding] --> D
+    F[User Action] --> D
+    D --> G[Command Execution]
+    
+    G --> H[Model Operations]
+    H --> I[Transaction]
+    I --> J[DataStore]
+    
+    K[Extension Sets] --> A
+    L[Core Extensions] --> K
+    M[Basic Extensions] --> K
+    N[Rich Extensions] --> K
+    
+    style A fill:#e1f5ff
+    style D fill:#fff4e1
+    style G fill:#e8f5e9
+    style H fill:#f3e5f5
+    style I fill:#fce4ec
+    style J fill:#fff9c4
+```
+
 ## 목차
 
 - [Extension 정의하기](#extension-정의하기)

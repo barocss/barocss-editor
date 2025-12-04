@@ -2,6 +2,31 @@
 
 Schema DSL for defining document structure and validation rules.
 
+## Architecture
+
+```mermaid
+graph LR
+    A[Schema Definition] --> B[Schema Registry]
+    B --> C[Validation]
+    C --> D[DataStore]
+    
+    A --> E[Node Schema]
+    A --> F[Mark Schema]
+    A --> G[Attribute Schema]
+    
+    E --> H[Content Model]
+    E --> I[Node Capabilities]
+    
+    G --> J[Type Validation]
+    G --> K[Custom Validators]
+    G --> L[Transforms]
+    
+    style A fill:#e1f5ff
+    style B fill:#fff4e1
+    style C fill:#e8f5e9
+    style D fill:#f3e5f5
+```
+
 ## Features
 
 - **Schema Definition**: Define document structure with attributes and content models

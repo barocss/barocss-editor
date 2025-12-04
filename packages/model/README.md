@@ -2,6 +2,32 @@
 
 Barocss 모델 패키지. 문서 데이터 구조와 트랜잭션 실행, Operation 정의/등록, 위치 계산 유틸리티를 제공합니다. 이 패키지는 DSL 우선(`transaction(editor, ops).commit()`) 아키텍처를 채택합니다.
 
+## Architecture
+
+```mermaid
+graph TB
+    A[Transaction DSL] --> B[TransactionManager]
+    B --> C[Operation Registry]
+    C --> D[Operation Execution]
+    D --> E[DataStore]
+    
+    F[defineOperation] --> C
+    G[defineOperationDSL] --> C
+    
+    H[PositionCalculator] --> I[Absolute Position]
+    H --> J[Node + Offset]
+    
+    E --> K[Node Updates]
+    E --> L[Mark Updates]
+    
+    style A fill:#e1f5ff
+    style B fill:#fff4e1
+    style C fill:#e8f5e9
+    style D fill:#f3e5f5
+    style E fill:#fce4ec
+    style H fill:#fff9c4
+```
+
 ## 핵심 구성요소
 - DataStore: 스냅샷/오버레이/락을 제공하는 저장소 (@barocss/datastore)
 - TransactionManager: 락 획득 → 오버레이 시작 → Operation 실행 → 커밋/롤백

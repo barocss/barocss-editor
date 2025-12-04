@@ -2,6 +2,32 @@
 
 Declarative DSL (Domain Specific Language) for building templates and renderer definitions. This package provides the template definition layer and is completely independent of rendering logic.
 
+## Architecture
+
+```mermaid
+graph TB
+    A[Template Definition] --> B[Registry]
+    B --> C[Template Lookup]
+    
+    A --> D[Element Template]
+    A --> E[Component Template]
+    A --> F[Mark Template]
+    
+    D --> G[element<br/>data<br/>slot]
+    E --> H[define<br/>component]
+    F --> I[defineMark]
+    
+    C --> J[Renderer-DOM]
+    
+    style A fill:#e1f5ff
+    style B fill:#fff4e1
+    style C fill:#e8f5e9
+    style D fill:#f3e5f5
+    style E fill:#f3e5f5
+    style F fill:#f3e5f5
+    style J fill:#fce4ec
+```
+
 ## Overview
 
 `@barocss/dsl` provides a declarative way to define:

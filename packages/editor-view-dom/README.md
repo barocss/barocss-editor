@@ -2,6 +2,43 @@
 
 DOM view layer for Barocss Editor - bridges `editor-core` with browser DOM functionality.
 
+## Architecture
+
+```mermaid
+graph TB
+    A[EditorViewDOM] --> B[Editor Core]
+    A --> C[DOM Events]
+    A --> D[MutationObserver]
+    A --> E[Selection Sync]
+    A --> F[Input Handler]
+    
+    C --> G[beforeinput]
+    C --> H[input]
+    C --> I[keydown]
+    
+    F --> J[Command Dispatch]
+    J --> B
+    
+    D --> K[DOM Changes]
+    K --> L[Model Sync]
+    L --> B
+    
+    E --> M[DOM Selection]
+    E --> N[Model Selection]
+    N --> B
+    
+    O[Renderer-DOM] --> A
+    A --> P[ContentEditable]
+    
+    style A fill:#e1f5ff
+    style B fill:#fff4e1
+    style C fill:#e8f5e9
+    style D fill:#f3e5f5
+    style E fill:#fce4ec
+    style F fill:#fff9c4
+    style O fill:#e0f2f1
+```
+
 ## Features
 
 ### 🎯 Core DOM Integration

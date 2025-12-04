@@ -2,6 +2,37 @@
 
 Headless editor core that manages document state, selection, commands, and extensions.
 
+## Architecture
+
+```mermaid
+graph TB
+    A[Editor] --> B[DataStore]
+    A --> C[SelectionManager]
+    A --> D[CommandRegistry]
+    A --> E[ExtensionManager]
+    A --> F[HistoryManager]
+    A --> G[KeybindingManager]
+    
+    H[Extensions] --> E
+    I[Commands] --> D
+    J[Keybindings] --> G
+    
+    C --> K[ModelSelection]
+    D --> L[Command Execution]
+    F --> M[Undo/Redo Stack]
+    
+    L --> N[Model Operations]
+    N --> B
+    
+    style A fill:#e1f5ff
+    style B fill:#fff4e1
+    style C fill:#e8f5e9
+    style D fill:#f3e5f5
+    style E fill:#fce4ec
+    style F fill:#fff9c4
+    style G fill:#e0f2f1
+```
+
 ## Overview
 
 `@barocss/editor-core` is a platform-independent editor core that provides:

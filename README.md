@@ -222,16 +222,63 @@ See [packages/editor-core/src/keybinding/default-keybindings.ts](./packages/edit
 
 The editor is built with a modular architecture:
 
-1. **Schema DSL (`@barocss/schema`)** - Defines document structure, validation rules, and node capabilities
-2. **Datastore (`@barocss/datastore`)** - Schema-aware, transactional node store (`INode`/`IMark`, `sid`/`stype`)
-3. **Model Operations + DSL (`@barocss/model`)** - High-level editing operations composed from datastore (`defineOperation`, `defineOperationDSL`, `transaction`)
-4. **Renderer DSL + DSL Core (`@barocss/renderer-dom`, `@barocss/dsl`)** - Declarative DOM rendering from the model using `define`, `element`, `slot`, `data`, `defineMark`
-5. **Editor Core (`@barocss/editor-core`)** - Selection manager, keybinding, context, transaction manager
-6. **View Layer (`@barocss/editor-view-dom`, `@barocss/dom-observer`)** - Bridges `Editor` to the DOM, handles text input, selection sync, and mutation observation
-7. **Extensions (`@barocss/extensions`)** - Business-level commands (delete, move-selection, indent, copy/paste/cut, etc.)
-8. **Converter (`@barocss/converter`)** - Conversion layer between the model and external formats (HTML, Markdown, Office HTML, Google Docs HTML, Notion HTML, LaTeX, plain text, etc.)
-9. **Devtool (`@barocss/devtool`)** - Debugging and inspection UI for the editor (events, selection, transactions, datastore)
-10. **Shared Utilities (`@barocss/shared`, `@barocss/text-analyzer`)** - Cross-package utilities (platform detection, key handling, text analysis helpers)
+```mermaid
+graph TB
+    subgraph "Schema Layer"
+        Schema[@barocss/schema<br/>Document Structure & Validation]
+    end
+    
+    subgraph "Data Layer"
+        DataStore[@barocss/datastore<br/>Transactional Node Store]
+        Model[@barocss/model<br/>Operations & DSL]
+    end
+    
+    subgraph "Rendering Layer"
+        DSL[@barocss/dsl<br/>Template DSL]
+        Renderer[@barocss/renderer-dom<br/>DOM Rendering]
+    end
+    
+    subgraph "Editor Layer"
+        Core[@barocss/editor-core<br/>Selection, Keybinding, Context]
+        Extensions[@barocss/extensions<br/>Commands & Extensions]
+        View[@barocss/editor-view-dom<br/>DOM Integration]
+    end
+    
+    subgraph "External"
+        Converter[@barocss/converter<br/>Format Conversion]
+        Devtool[@barocss/devtool<br/>Debugging UI]
+    end
+    
+    Schema --> DataStore
+    DataStore --> Model
+    Model --> Core
+    Core --> Extensions
+    DSL --> Renderer
+    Model --> Renderer
+    Core --> View
+    Renderer --> View
+    View --> Converter
+    View --> Devtool
+    
+    style Schema fill:#e1f5ff
+    style DataStore fill:#fff4e1
+    style Model fill:#fff4e1
+    style DSL fill:#e8f5e9
+    style Renderer fill:#e8f5e9
+    style Core fill:#f3e5f5
+    style Extensions fill:#f3e5f5
+    style View fill:#f3e5f5
+    style Converter fill:#fce4ec
+    style Devtool fill:#fce4ec
+```
+
+### Architecture Layers
+
+1. **Schema Layer (`@barocss/schema`)** - Defines document structure, validation rules, and node capabilities
+2. **Data Layer (`@barocss/datastore`, `@barocss/model`)** - Schema-aware, transactional node store and high-level editing operations
+3. **Rendering Layer (`@barocss/dsl`, `@barocss/renderer-dom`)** - Declarative DOM rendering from the model using template DSL
+4. **Editor Layer (`@barocss/editor-core`, `@barocss/extensions`, `@barocss/editor-view-dom`)** - Selection manager, keybinding, commands, and DOM integration
+5. **External Tools (`@barocss/converter`, `@barocss/devtool`)** - Format conversion and debugging utilities
 
 ## 📄 License
 

@@ -2,6 +2,44 @@
 
 Pluggable document format converter for converting between external formats (HTML, Markdown, LaTeX, Office HTML, Google Docs HTML, Notion HTML) and the BaroCSS Editor model format.
 
+## Architecture
+
+```mermaid
+graph LR
+    A[External Formats] --> B[Converter]
+    B --> C[Model Format]
+    C --> D[DataStore]
+    
+    A --> E[HTML]
+    A --> F[Markdown]
+    A --> G[LaTeX]
+    A --> H[Office HTML]
+    A --> I[Google Docs HTML]
+    A --> J[Notion HTML]
+    
+    B --> K[HTMLConverter]
+    B --> L[MarkdownConverter]
+    B --> M[LaTeXConverter]
+    B --> N[OfficeHTMLConverter]
+    B --> O[GoogleDocsConverter]
+    B --> P[NotionConverter]
+    
+    K --> Q[Conversion Rules]
+    L --> Q
+    M --> Q
+    N --> Q
+    O --> Q
+    P --> Q
+    
+    Q --> C
+    
+    style A fill:#e1f5ff
+    style B fill:#fff4e1
+    style C fill:#e8f5e9
+    style D fill:#f3e5f5
+    style Q fill:#fce4ec
+```
+
 ## Overview
 
 `@barocss/converter` provides a flexible converter system that supports:

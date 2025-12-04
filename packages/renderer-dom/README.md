@@ -2,6 +2,38 @@
 
 DOM 렌더러 패키지. 모델 데이터를 DOM으로 변환하고, `sid` 기반으로 안정적인 DOM 업데이트를 제공합니다.
 
+## Architecture
+
+```mermaid
+graph TB
+    A[Model Data] --> B[DOMRenderer.build]
+    B --> C[VNodeBuilder]
+    C --> D[VNode Tree]
+    
+    E[DSL Registry] --> C
+    F[ComponentManager] --> C
+    G[DecoratorManager] --> C
+    
+    D --> H[DOMReconcile]
+    H --> I[WIP Tree]
+    I --> J[Change Detection]
+    J --> K[DOM Updates]
+    K --> L[DOM]
+    
+    M[Previous VNode] --> H
+    D --> H
+    
+    N[Component State] --> F
+    O[Decorators] --> G
+    
+    style A fill:#e1f5ff
+    style B fill:#fff4e1
+    style C fill:#e8f5e9
+    style D fill:#f3e5f5
+    style H fill:#fce4ec
+    style L fill:#fff9c4
+```
+
 ## 설치
 
 ```bash
