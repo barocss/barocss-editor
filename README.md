@@ -1,22 +1,90 @@
 # Barocss Editor
 
-Barocss Editor - A powerful document editor with schema-driven model, converter, and DSL-based rendering
+A powerful document editor with schema-driven model, converter, and DSL-based rendering.
+
+## ✨ Features
+
+- **Schema-Driven**: Define document structure with validation rules and node capabilities
+- **Model-First Architecture**: All editing operations are expressed as model operations
+- **Transactional**: Atomic operations with rollback support
+- **Extensible**: Plugin-based extension system for custom commands
+- **Keyboard Shortcuts**: Rich keyboard shortcuts (Undo/Redo, Bold/Italic, Heading/Paragraph, Block movement, etc.)
+- **Format Conversion**: Convert between HTML, Markdown, LaTeX, Office HTML, Google Docs HTML, Notion HTML
+- **DSL-Based Rendering**: Declarative DOM rendering with template DSL
+- **TypeScript**: Full TypeScript support with comprehensive types
 
 ## 📦 Packages
 
-- `@barocss/schema` - Schema DSL for defining document structure, validation rules, and node capabilities (editable / selectable / draggable / indentable)
-- `@barocss/datastore` - Transactional, schema-aware node store (normalized `INode` / `IMark` with `sid` / `stype`)
-- `@barocss/model` - High‑level model operations + DSL (`defineOperation`, `defineOperationDSL`, `transaction`, clipboard / indent / delete / move, etc.)
-- `@barocss/renderer-dom` - Renderer DSL for declarative DOM rendering
-- `@barocss/editor-core` - Core editor logic (selection manager, keybinding, context, transaction manager)
-- `@barocss/extensions` - Core editor extensions (text, delete, paragraph, move-selection, select-all, indent, copy/paste/cut etc.)
-- `@barocss/converter` - Pluggable converters for HTML/Markdown/Office/Google Docs/Notion/LaTeX ↔ model
-- `@barocss/dsl` - Low-level template and registry layer used by renderers (`define`, `element`, `slot`, `data`, `defineMark`)
-- `@barocss/editor-view-dom` - View layer that connects `Editor` and the DOM (selection sync, input handling, keybinding dispatch)
-- `@barocss/devtool` - Developer tool UI for inspecting editor events, selection, transactions, and datastore state
-- `@barocss/shared` - Shared utilities and constants (platform detection, key normalization, shared helpers)
-- `@barocss/dom-observer` - DOM mutation observer utilities used by `editor-view-dom` and devtools
-- `@barocss/text-analyzer` - Experimental text analysis utilities (tokenization, statistics, helper types)
+Each package has its own README with detailed documentation:
+
+- [`@barocss/schema`](./packages/schema/README.md) - Schema DSL for defining document structure, validation rules, and node capabilities
+- [`@barocss/datastore`](./packages/datastore/README.md) - Transactional, schema-aware node store (normalized `INode` / `IMark` with `sid` / `stype`)
+- [`@barocss/model`](./packages/model/README.md) - High‑level model operations + DSL (`defineOperation`, `defineOperationDSL`, `transaction`)
+- [`@barocss/renderer-dom`](./packages/renderer-dom/README.md) - Renderer DSL for declarative DOM rendering
+- [`@barocss/editor-core`](./packages/editor-core/README.md) - Core editor logic (selection manager, keybinding, context, transaction manager)
+- [`@barocss/extensions`](./packages/extensions/README.md) - Core editor extensions (text, delete, paragraph, move-selection, select-all, indent, copy/paste/cut, etc.)
+- [`@barocss/converter`](./packages/converter/README.md) - Pluggable converters for HTML/Markdown/Office/Google Docs/Notion/LaTeX ↔ model
+- [`@barocss/dsl`](./packages/dsl/README.md) - Low-level template and registry layer used by renderers (`define`, `element`, `slot`, `data`, `defineMark`)
+- [`@barocss/editor-view-dom`](./packages/editor-view-dom/README.md) - View layer that connects `Editor` and the DOM (selection sync, input handling, keybinding dispatch)
+- [`@barocss/devtool`](./packages/devtool/README.md) - Developer tool UI for inspecting editor events, selection, transactions, and datastore state
+- [`@barocss/shared`](./packages/shared/README.md) - Shared utilities and constants (platform detection, key normalization, shared helpers)
+- [`@barocss/dom-observer`](./packages/dom-observer/README.md) - DOM mutation observer utilities used by `editor-view-dom` and devtools
+- [`@barocss/text-analyzer`](./packages/text-analyzer/README.md) - Experimental text analysis utilities (tokenization, statistics, helper types)
+
+## 🚀 Quick Start
+
+```typescript
+import { Editor } from '@barocss/editor-core';
+import { EditorViewDOM } from '@barocss/editor-view-dom';
+import { createCoreExtensions, createBasicExtensions } from '@barocss/extensions';
+import { createSchema } from '@barocss/schema';
+import { DataStore } from '@barocss/datastore';
+import { define, element, slot, data } from '@barocss/dsl';
+
+// 1. Define schema
+const schema = createSchema('basic-doc', {
+  topNode: 'document',
+  nodes: {
+    document: { name: 'document', group: 'document', content: 'block+' },
+    paragraph: { name: 'paragraph', group: 'block', content: 'inline*' },
+    'inline-text': { name: 'inline-text', group: 'inline' }
+  }
+});
+
+// 2. Create DataStore and Editor
+const dataStore = new DataStore();
+dataStore.registerSchema(schema);
+
+const editor = new Editor({
+  editable: true,
+  schema,
+  dataStore,
+  extensions: [...createCoreExtensions(), ...createBasicExtensions()]
+});
+
+// 3. Load initial document
+editor.loadDocument({
+  sid: 'doc-1',
+  stype: 'document',
+  content: [{
+    sid: 'p-1',
+    stype: 'paragraph',
+    content: [{ sid: 'text-1', stype: 'inline-text', text: 'Hello, World!' }]
+  }]
+}, 'initial');
+
+// 4. Register renderers
+define('document', element('div', { className: 'document' }, [slot('content')]));
+define('paragraph', element('p', { className: 'paragraph' }, [slot('content')]));
+define('inline-text', element('span', { className: 'text' }, [data('text', '')]));
+
+// 5. Create view and render
+const container = document.getElementById('editor');
+const view = new EditorViewDOM(editor, {
+  contentEditableElement: container!
+});
+view.render();
+```
 
 ## 🚀 Getting Started
 
@@ -56,178 +124,99 @@ pnpm clean
 
 ## 📚 Usage
 
-### Transaction-based Operations (Model DSL)
+### Model Operations
 
-All editing behavior is expressed as **model operations** composed into transactions via the DSL.
+All editing behavior is expressed as **model operations** composed into transactions:
 
-- Single position: `insertText`, `splitTextNode`, `splitBlockNode`
-- Ranges: `deleteTextRange`, `replaceText`, `deleteRange`
-- Structural edits: `indentNode`, `outdentNode`, `mergeBlockNodes`, `addChild`
-- Clipboard: `copy`, `paste`, `cut` (built on `DataStore.serializeRange` / `deserializeNodes`)
+```typescript
+import { transaction, control, insertText, toggleMark } from '@barocss/model';
 
-Example:
-
-```ts
-import { transaction, control, insertText, deleteTextRange } from '@barocss/model';
-
-// Insert text at current caret (control(targetNodeId, [dsl...]))
+// Insert text
 await transaction(editor, control('text-1', [
   insertText({ text: 'Hello' })
 ])).commit();
 
-// Delete a range inside a single text node
+// Toggle mark
 await transaction(editor, control('text-1', [
-  deleteTextRange(2, 5)
+  toggleMark('bold', [0, 5])
 ])).commit();
 ```
 
-### Basic Schema Definition
+See [@barocss/model/README.md](./packages/model/README.md) for more details.
+
+### Schema Definition
+
+Define your document structure with validation rules:
 
 ```typescript
-import { Schema } from '@barocss/schema';
-
-// Minimal schema with a document, a paragraph block, and an inline text node
-export const paragraphSchema = new Schema('basic-doc', {
-  nodes: {
-    document: {
-      name: 'document',
-      content: 'block+'
-    },
-    paragraph: {
-      name: 'paragraph',
-      group: 'block',
-      content: 'inline*',
-      attrs: {
-        align: {
-          type: 'string',
-          default: 'left',
-          validate: (value: string) =>
-            ['left', 'center', 'right', 'justify'].includes(value)
-        }
-      }
-    },
-    'inline-text': {
-      name: 'inline-text',
-      group: 'inline',
-      // inline text is editable and can carry marks
-      editable: true,
-      marks: ['bold', 'italic']
-    }
-  },
-  marks: {
-    bold: {
-      name: 'bold',
-      group: 'text-style'
-    },
-    italic: {
-      name: 'italic',
-      group: 'text-style'
-    }
-  },
-  topNode: 'document'
-});
-```
-
-### Model Data Creation (Datastore + Operations)
-
-```typescript
-import { DataStore } from '@barocss/datastore';
-import type { INode } from '@barocss/datastore';
-
-// Simple document tree in INode form
-const nodes: INode[] = [
-  {
-    stype: 'paragraph',
-    content: [
-      { stype: 'inline-text', text: 'Hello, World!' }
-    ]
-  }
-];
-
-const dataStore = new DataStore();
-// Create the full tree in one call (assigns sid, parentId, and content id arrays)
-const root = dataStore.createNodeWithChildren({
-  stype: 'document',
-  content: nodes
-} as INode);
-dataStore.setRootNodeId(root.sid!);
-```
-
-### DOM Renderer Definition
-
-The DOM renderer uses the same DSL as `apps/editor-test/src/main.ts`:
-
-```typescript
-import { define, element, slot, data } from '@barocss/dsl';
-
-// Render inline text nodes as <span class="text">...</span>
-define('inline-text', element('span', { className: 'text' }, [
-  data('text', '')
-]));
-```
-
-### Editor Core Usage (Selection + Keybinding + Extensions)
-
-```typescript
-import { DataStore } from '@barocss/datastore';
-import { Editor } from '@barocss/editor-core';
-import { createCoreExtensions, createBasicExtensions } from '@barocss/extensions';
 import { createSchema } from '@barocss/schema';
-import { define, element, slot, data, getGlobalRegistry } from '@barocss/dsl';
 
-// 1. Define schema (same API as apps/editor-test/src/main.ts)
 const schema = createSchema('basic-doc', {
   topNode: 'document',
   nodes: {
     document: { name: 'document', group: 'document', content: 'block+' },
     paragraph: { name: 'paragraph', group: 'block', content: 'inline*' },
-    'inline-text': { name: 'inline-text', group: 'inline' }
+    'inline-text': { name: 'inline-text', group: 'inline', marks: ['bold', 'italic'] }
   },
-  marks: {}
+  marks: {
+    bold: { name: 'bold', group: 'text-style' },
+    italic: { name: 'italic', group: 'text-style' }
+  }
 });
+```
 
-// 2. Create DataStore with schema
-const dataStore = new DataStore(undefined, schema);
+See [@barocss/schema/README.md](./packages/schema/README.md) for more details.
 
-// 3. Bootstrap initial document tree (INode form)
-const initialTree = {
-  sid: 'doc-1',
-  stype: 'document',
-  content: [
-    {
-      sid: 'p-1',
-      stype: 'paragraph',
-      content: [
-        { sid: 'text-1', stype: 'inline-text', text: 'Hello from BaroCSS Editor' }
-      ]
-    }
-  ]
-};
+### Renderer Definition
 
-// 4. Create editor with core + basic extensions
-const coreExtensions = createCoreExtensions();
-const basicExtensions = createBasicExtensions();
+Define how nodes are rendered to DOM:
 
-const editor = new Editor({
-  editable: true,
-  schema,
-  dataStore,
-  extensions: [...coreExtensions, ...basicExtensions]
-});
+```typescript
+import { define, element, slot, data } from '@barocss/dsl';
 
-editor.loadDocument(initialTree, 'getting-started');
-
-// 5. Register DOM renderers using the DSL registry
-define('document', element('div', { className: 'document' }, [slot('content')]));
 define('paragraph', element('p', { className: 'paragraph' }, [slot('content')]));
 define('inline-text', element('span', { className: 'text' }, [data('text', '')]));
-
-// In a real app, pass editor + registry into EditorViewDOM
-// new EditorViewDOM(editor, { container, registry: getGlobalRegistry() }).render();
-
-// Execute commands via keybindings or API
-editor.executeCommand('selectAll');
 ```
+
+See [@barocss/dsl/README.md](./packages/dsl/README.md) for more details.
+
+### Creating Custom Extensions
+
+Extensions allow you to add custom commands and functionality. See [@barocss/extensions/README.md](./packages/extensions/README.md) for detailed documentation and examples.
+
+## ⌨️ Default Keyboard Shortcuts
+
+The editor comes with a comprehensive set of keyboard shortcuts:
+
+### Text Formatting
+- `Mod+b` - Toggle Bold
+- `Mod+i` - Toggle Italic
+- `Mod+u` - Toggle Underline
+- `Mod+Shift+s` - Toggle StrikeThrough
+
+### Block Operations
+- `Mod+Alt+1/2/3` - Set Heading Level 1/2/3
+- `Mod+Alt+0` - Set Paragraph
+- `Alt+ArrowUp/Down` - Move Block Up/Down
+- `Tab` / `Shift+Tab` - Indent/Outdent
+
+### History
+- `Mod+z` - Undo
+- `Mod+Shift+z` / `Mod+y` - Redo
+
+### Navigation & Selection
+- `Mod+a` - Select All
+- `ArrowLeft/Right` - Move Cursor
+- `Alt+ArrowLeft/Right` (macOS) / `Ctrl+ArrowLeft/Right` (Windows/Linux) - Move by Word
+- `Shift+ArrowLeft/Right` - Extend Selection
+- `Escape` - Clear Selection or Blur
+
+### Clipboard
+- `Mod+c` - Copy
+- `Mod+v` - Paste
+- `Mod+x` - Cut
+
+See [packages/editor-core/src/keybinding/default-keybindings.ts](./packages/editor-core/src/keybinding/default-keybindings.ts) for the complete list.
 
 ## 🏗️ Architecture
 
@@ -255,6 +244,24 @@ MIT License - see LICENSE file for details.
 3. Make your changes
 4. Add tests
 5. Submit a pull request
+
+## 📖 Documentation
+
+- [Architecture Overview](./docs/architecture-summary.md)
+- [Package Documentation](./docs/README.md)
+- [API Reference](./docs/api-reference.md)
+- [Testing Guide](./paper/testing-guide.md)
+
+### Package-Specific Documentation
+
+- [Schema](./packages/schema/README.md) - Schema definition and validation
+- [Datastore](./packages/datastore/README.md) - Node storage and transactions
+- [Model](./packages/model/README.md) - Model operations and DSL
+- [Extensions](./packages/extensions/README.md) - Creating custom extensions
+- [DSL](./packages/dsl/README.md) - Template DSL reference
+- [Editor Core](./packages/editor-core/README.md) - Core editor API
+- [Editor View DOM](./packages/editor-view-dom/README.md) - DOM integration
+- [Converter](./packages/converter/README.md) - Format conversion
 
 ## 📞 Support
 
