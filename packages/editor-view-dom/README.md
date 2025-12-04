@@ -6,29 +6,29 @@ DOM view layer for Barocss Editor - bridges `editor-core` with browser DOM funct
 
 ```mermaid
 graph TB
-    A[EditorViewDOM] --> B[Editor Core]
-    A --> C[DOM Events]
-    A --> D[MutationObserver]
-    A --> E[Selection Sync]
-    A --> F[Input Handler]
+    A["EditorViewDOM"] --> B["Editor Core"]
+    A --> C["DOM Events"]
+    A --> D["MutationObserver"]
+    A --> E["Selection Sync"]
+    A --> F["Input Handler"]
     
-    C --> G[beforeinput]
-    C --> H[input]
-    C --> I[keydown]
+    C --> G["beforeinput"]
+    C --> H["input"]
+    C --> I["keydown"]
     
-    F --> J[Command Dispatch]
+    F --> J["Command Dispatch"]
     J --> B
     
-    D --> K[DOM Changes]
-    K --> L[Model Sync]
+    D --> K["DOM Changes"]
+    K --> L["Model Sync"]
     L --> B
     
-    E --> M[DOM Selection]
-    E --> N[Model Selection]
+    E --> M["DOM Selection"]
+    E --> N["Model Selection"]
     N --> B
     
-    O[Renderer-DOM] --> A
-    A --> P[ContentEditable]
+    O["Renderer-DOM"] --> A
+    A --> P["ContentEditable"]
     
     style A fill:#e1f5ff
     style B fill:#fff4e1

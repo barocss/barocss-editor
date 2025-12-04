@@ -6,22 +6,22 @@ Headless editor core that manages document state, selection, commands, and exten
 
 ```mermaid
 graph TB
-    A[Editor] --> B[DataStore]
-    A --> C[SelectionManager]
-    A --> D[CommandRegistry]
-    A --> E[ExtensionManager]
-    A --> F[HistoryManager]
-    A --> G[KeybindingManager]
+    A["Editor"] --> B["DataStore"]
+    A --> C["SelectionManager"]
+    A --> D["CommandRegistry"]
+    A --> E["ExtensionManager"]
+    A --> F["HistoryManager"]
+    A --> G["KeybindingManager"]
     
-    H[Extensions] --> E
-    I[Commands] --> D
-    J[Keybindings] --> G
+    H["Extensions"] --> E
+    I["Commands"] --> D
+    J["Keybindings"] --> G
     
-    C --> K[ModelSelection]
-    D --> L[Command Execution]
-    F --> M[Undo/Redo Stack]
+    C --> K["ModelSelection"]
+    D --> L["Command Execution"]
+    F --> M["Undo/Redo Stack"]
     
-    L --> N[Model Operations]
+    L --> N["Model Operations"]
     N --> B
     
     style A fill:#e1f5ff

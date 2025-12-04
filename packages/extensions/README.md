@@ -6,22 +6,22 @@
 
 ```mermaid
 graph TB
-    A[Extension] --> B[onCreate]
-    B --> C[Register Commands]
-    C --> D[Command Registry]
+    A["Extension"] --> B["onCreate"]
+    B --> C["Register Commands"]
+    C --> D["Command Registry"]
     
-    E[Keybinding] --> D
-    F[User Action] --> D
-    D --> G[Command Execution]
+    E["Keybinding"] --> D
+    F["User Action"] --> D
+    D --> G["Command Execution"]
     
-    G --> H[Model Operations]
-    H --> I[Transaction]
-    I --> J[DataStore]
+    G --> H["Model Operations"]
+    H --> I["Transaction"]
+    I --> J["DataStore"]
     
-    K[Extension Sets] --> A
-    L[Core Extensions] --> K
-    M[Basic Extensions] --> K
-    N[Rich Extensions] --> K
+    K["Extension Sets"] --> A
+    L["Core Extensions"] --> K
+    M["Basic Extensions"] --> K
+    N["Rich Extensions"] --> K
     
     style A fill:#e1f5ff
     style D fill:#fff4e1

@@ -7,19 +7,19 @@ Transactional, schema-aware node store for managing document structure with norm
 ```mermaid
 graph TB
     subgraph "DataStore"
-        A[Node Storage<br/>INode/IMark]
-        B[Content Operations<br/>Parent-Child]
-        C[Transaction Manager<br/>Begin/Commit/Rollback]
-        D[Schema Validation]
+        A["Node Storage<br/>INode/IMark"]
+        B["Content Operations<br/>Parent-Child"]
+        C["Transaction Manager<br/>Begin/Commit/Rollback"]
+        D["Schema Validation"]
     end
     
-    E[Schema] --> D
+    E["Schema"] --> D
     A --> B
     C --> A
     D --> A
     
-    F[Model Operations] --> C
-    C --> G[DataStore State]
+    F["Model Operations"] --> C
+    C --> G["DataStore State"]
     
     style A fill:#e1f5ff
     style B fill:#fff4e1

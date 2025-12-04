@@ -225,28 +225,28 @@ The editor is built with a modular architecture:
 ```mermaid
 graph TB
     subgraph "Schema Layer"
-        Schema[@barocss/schema<br/>Document Structure & Validation]
+        Schema["@barocss/schema<br/>Document Structure & Validation"]
     end
     
     subgraph "Data Layer"
-        DataStore[@barocss/datastore<br/>Transactional Node Store]
-        Model[@barocss/model<br/>Operations & DSL]
+        DataStore["@barocss/datastore<br/>Transactional Node Store"]
+        Model["@barocss/model<br/>Operations & DSL"]
     end
     
     subgraph "Rendering Layer"
-        DSL[@barocss/dsl<br/>Template DSL]
-        Renderer[@barocss/renderer-dom<br/>DOM Rendering]
+        DSL["@barocss/dsl<br/>Template DSL"]
+        Renderer["@barocss/renderer-dom<br/>DOM Rendering"]
     end
     
     subgraph "Editor Layer"
-        Core[@barocss/editor-core<br/>Selection, Keybinding, Context]
-        Extensions[@barocss/extensions<br/>Commands & Extensions]
-        View[@barocss/editor-view-dom<br/>DOM Integration]
+        Core["@barocss/editor-core<br/>Selection, Keybinding, Context"]
+        Extensions["@barocss/extensions<br/>Commands & Extensions"]
+        View["@barocss/editor-view-dom<br/>DOM Integration"]
     end
     
     subgraph "External"
-        Converter[@barocss/converter<br/>Format Conversion]
-        Devtool[@barocss/devtool<br/>Debugging UI]
+        Converter["@barocss/converter<br/>Format Conversion"]
+        Devtool["@barocss/devtool<br/>Debugging UI"]
     end
     
     Schema --> DataStore

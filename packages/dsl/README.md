@@ -6,18 +6,18 @@ Declarative DSL (Domain Specific Language) for building templates and renderer d
 
 ```mermaid
 graph TB
-    A[Template Definition] --> B[Registry]
-    B --> C[Template Lookup]
+    A["Template Definition"] --> B["Registry"]
+    B --> C["Template Lookup"]
     
-    A --> D[Element Template]
-    A --> E[Component Template]
-    A --> F[Mark Template]
+    A --> D["Element Template"]
+    A --> E["Component Template"]
+    A --> F["Mark Template"]
     
-    D --> G[element<br/>data<br/>slot]
-    E --> H[define<br/>component]
-    F --> I[defineMark]
+    D --> G["element<br/>data<br/>slot"]
+    E --> H["define<br/>component"]
+    F --> I["defineMark"]
     
-    C --> J[Renderer-DOM]
+    C --> J["Renderer-DOM"]
     
     style A fill:#e1f5ff
     style B fill:#fff4e1

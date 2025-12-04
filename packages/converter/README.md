@@ -6,25 +6,25 @@ Pluggable document format converter for converting between external formats (HTM
 
 ```mermaid
 graph LR
-    A[External Formats] --> B[Converter]
-    B --> C[Model Format]
-    C --> D[DataStore]
+    A["External Formats"] --> B["Converter"]
+    B --> C["Model Format"]
+    C --> D["DataStore"]
     
-    A --> E[HTML]
-    A --> F[Markdown]
-    A --> G[LaTeX]
-    A --> H[Office HTML]
-    A --> I[Google Docs HTML]
-    A --> J[Notion HTML]
+    A --> E["HTML"]
+    A --> F["Markdown"]
+    A --> G["LaTeX"]
+    A --> H["Office HTML"]
+    A --> I["Google Docs HTML"]
+    A --> J["Notion HTML"]
     
-    B --> K[HTMLConverter]
-    B --> L[MarkdownConverter]
-    B --> M[LaTeXConverter]
-    B --> N[OfficeHTMLConverter]
-    B --> O[GoogleDocsConverter]
-    B --> P[NotionConverter]
+    B --> K["HTMLConverter"]
+    B --> L["MarkdownConverter"]
+    B --> M["LaTeXConverter"]
+    B --> N["OfficeHTMLConverter"]
+    B --> O["GoogleDocsConverter"]
+    B --> P["NotionConverter"]
     
-    K --> Q[Conversion Rules]
+    K --> Q["Conversion Rules"]
     L --> Q
     M --> Q
     N --> Q

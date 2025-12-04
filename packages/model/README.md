@@ -6,19 +6,19 @@ Barocss 모델 패키지. 문서 데이터 구조와 트랜잭션 실행, Operat
 
 ```mermaid
 graph TB
-    A[Transaction DSL] --> B[TransactionManager]
-    B --> C[Operation Registry]
-    C --> D[Operation Execution]
-    D --> E[DataStore]
+    A["Transaction DSL"] --> B["TransactionManager"]
+    B --> C["Operation Registry"]
+    C --> D["Operation Execution"]
+    D --> E["DataStore"]
     
-    F[defineOperation] --> C
-    G[defineOperationDSL] --> C
+    F["defineOperation"] --> C
+    G["defineOperationDSL"] --> C
     
-    H[PositionCalculator] --> I[Absolute Position]
-    H --> J[Node + Offset]
+    H["PositionCalculator"] --> I["Absolute Position"]
+    H --> J["Node + Offset"]
     
-    E --> K[Node Updates]
-    E --> L[Mark Updates]
+    E --> K["Node Updates"]
+    E --> L["Mark Updates"]
     
     style A fill:#e1f5ff
     style B fill:#fff4e1

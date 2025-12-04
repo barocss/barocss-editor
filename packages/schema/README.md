@@ -6,20 +6,20 @@ Schema DSL for defining document structure and validation rules.
 
 ```mermaid
 graph LR
-    A[Schema Definition] --> B[Schema Registry]
-    B --> C[Validation]
-    C --> D[DataStore]
+    A["Schema Definition"] --> B["Schema Registry"]
+    B --> C["Validation"]
+    C --> D["DataStore"]
     
-    A --> E[Node Schema]
-    A --> F[Mark Schema]
-    A --> G[Attribute Schema]
+    A --> E["Node Schema"]
+    A --> F["Mark Schema"]
+    A --> G["Attribute Schema"]
     
-    E --> H[Content Model]
-    E --> I[Node Capabilities]
+    E --> H["Content Model"]
+    E --> I["Node Capabilities"]
     
-    G --> J[Type Validation]
-    G --> K[Custom Validators]
-    G --> L[Transforms]
+    G --> J["Type Validation"]
+    G --> K["Custom Validators"]
+    G --> L["Transforms"]
     
     style A fill:#e1f5ff
     style B fill:#fff4e1

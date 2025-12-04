@@ -6,25 +6,25 @@ DOM 렌더러 패키지. 모델 데이터를 DOM으로 변환하고, `sid` 기�
 
 ```mermaid
 graph TB
-    A[Model Data] --> B[DOMRenderer.build]
-    B --> C[VNodeBuilder]
-    C --> D[VNode Tree]
+    A["Model Data"] --> B["DOMRenderer.build"]
+    B --> C["VNodeBuilder"]
+    C --> D["VNode Tree"]
     
-    E[DSL Registry] --> C
-    F[ComponentManager] --> C
-    G[DecoratorManager] --> C
+    E["DSL Registry"] --> C
+    F["ComponentManager"] --> C
+    G["DecoratorManager"] --> C
     
-    D --> H[DOMReconcile]
-    H --> I[WIP Tree]
-    I --> J[Change Detection]
-    J --> K[DOM Updates]
-    K --> L[DOM]
+    D --> H["DOMReconcile"]
+    H --> I["WIP Tree"]
+    I --> J["Change Detection"]
+    J --> K["DOM Updates"]
+    K --> L["DOM"]
     
-    M[Previous VNode] --> H
+    M["Previous VNode"] --> H
     D --> H
     
-    N[Component State] --> F
-    O[Decorators] --> G
+    N["Component State"] --> F
+    O["Decorators"] --> G
     
     style A fill:#e1f5ff
     style B fill:#fff4e1
