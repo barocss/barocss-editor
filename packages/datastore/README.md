@@ -30,6 +30,61 @@ graph TB
     style G fill:#fff9c4
 ```
 
+## Memory Storage Structure & SID System
+
+```mermaid
+graph TB
+    subgraph "Memory Storage"
+        A["Map&lt;string, INode&gt;<br/>Key: sid<br/>Value: INode"]
+        B["Node Lookup<br/>O(1) Access"]
+    end
+    
+    subgraph "SID Generation"
+        C["Session ID<br/>_sessionId: number"]
+        D["Global Counter<br/>_globalCounter: number"]
+        E["SID Format<br/>sessionId:counter<br/>e.g., '0:1', '1:5'"]
+    end
+    
+    subgraph "Node Structure"
+        F["INode<br/>sid: '0:1'<br/>stype: 'paragraph'<br/>text: 'Hello'<br/>content: ['0:2']<br/>parentId: '0:0'"]
+    end
+    
+    subgraph "Collaborative Editing"
+        G["Session A<br/>sessionId: 0"]
+        H["Session B<br/>sessionId: 1"]
+        I["Operation Broadcast<br/>AtomicOperation"]
+        J["SID Consistency<br/>Same node = Same sid"]
+    end
+    
+    C --> E
+    D --> E
+    E --> A
+    A --> B
+    A --> F
+    
+    G --> I
+    H --> I
+    I --> J
+    J --> A
+    
+    style A fill:#e1f5ff
+    style E fill:#fff4e1
+    style F fill:#e8f5e9
+    style I fill:#f3e5f5
+    style J fill:#fce4ec
+```
+
+### Key Concepts
+
+- **Memory Storage**: Nodes are stored in a `Map<string, INode>` where the key is the `sid` (stable ID), providing O(1) lookup performance
+- **SID Format**: `sessionId:globalCounter` (e.g., `"0:1"`, `"1:5"`)
+  - `sessionId`: Unique identifier for each DataStore instance/session
+  - `globalCounter`: Static counter that increments for each new node
+- **Collaborative Editing**: SID ensures nodes can be consistently referenced across multiple sessions
+  - Same node always has the same SID across all sessions
+  - Operations are broadcast with SID references
+  - Conflict resolution uses SID to identify target nodes
+
 ## Overview
 
 `@barocss/datastore` provides a normalized, transactional data store for document nodes. It manages:
