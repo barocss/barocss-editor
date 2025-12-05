@@ -2,6 +2,26 @@
 
 Transactional, schema-aware node store for managing document structure with normalized `INode` and `IMark` using `sid` (stable ID) and `stype` (schema type).
 
+## Overview
+
+`@barocss/datastore` provides a normalized, transactional data store for document nodes. It manages:
+
+- **Node Storage**: Normalized node storage with `sid` (stable ID) and `stype` (schema type)
+- **Schema Validation**: Schema-aware operations with validation
+- **Transactions**: Atomic operations with rollback support via Copy-on-Write overlay
+- **Transactional Overlay**: Efficient COW mechanism that only duplicates modified nodes
+- **Lock System**: Global write lock with queue for concurrent transaction management
+- **Content Management**: Parent-child relationships and content ordering
+- **Mark Management**: Text marks (bold, italic, etc.) with range tracking
+- **Document Traversal**: Iterator and Visitor patterns for efficient document processing
+- **Operation Events**: `emitOperation()` / `onOperation()` for collaboration integration
+
+## Installation
+
+```bash
+pnpm add @barocss/datastore
+```
+
 ## Architecture
 
 ```mermaid
@@ -90,6 +110,412 @@ graph TB
   - Same node always has the same SID across all sessions
   - Operations are broadcast with SID references
   - Conflict resolution uses SID to identify target nodes
+
+## Transactional Overlay (Copy-on-Write)
+
+DataStore uses a Copy-on-Write (COW) overlay mechanism to provide efficient transactional operations without copying the entire document state.
+
+### Architecture
+
+```mermaid
+graph TB
+    subgraph "Base Layer (Read-Only)"
+        A["baseNodes<br/>Map&lt;sid, INode&gt;<br/>Original State"]
+    end
+    
+    subgraph "Overlay Layer (COW)"
+        B["overlayNodes<br/>Map&lt;sid, INode&gt;<br/>Modified Nodes"]
+        C["deletedNodeIds<br/>Set&lt;sid&gt;<br/>Deleted Nodes"]
+        D["touchedParents<br/>Set&lt;sid&gt;<br/>Parents with Content Changes"]
+        E["opBuffer<br/>AtomicOperation[]<br/>Operation History"]
+    end
+    
+    subgraph "Read Path"
+        F["getNode(id)"]
+        G{"deletedNodeIds<br/>has(id)?"}
+        H{"overlayNodes<br/>has(id)?"}
+        I["Return overlay"]
+        J["Return base"]
+        K["Return undefined"]
+    end
+    
+    subgraph "Write Path"
+        L["updateNode/createNode"]
+        M["Clone from base<br/>if needed"]
+        N["Apply changes"]
+        O["Store in overlay"]
+    end
+    
+    A --> F
+    B --> F
+    C --> F
+    
+    F --> G
+    G -->|yes| K
+    G -->|no| H
+    H -->|yes| I
+    H -->|no| J
+    
+    L --> M
+    M --> N
+    N --> O
+    O --> B
+    
+    style A fill:#e1f5ff
+    style B fill:#fff4e1
+    style C fill:#fce4ec
+    style D fill:#e8f5e9
+    style E fill:#f3e5f5
+```
+
+### How It Works
+
+1. **Transaction Begin**: `begin()` initializes an empty overlay without copying base nodes
+2. **Read Operations**: `getNode()` checks in order:
+   - `deletedNodeIds` → returns `undefined` if deleted
+   - `overlayNodes` → returns overlay version if modified
+   - `baseNodes` → returns original version (fallback)
+3. **Write Operations**: Changes are written to overlay using COW:
+   - If node exists in overlay → use overlay version
+   - If node exists only in base → clone from base to overlay
+   - Apply changes to cloned node
+   - Store in overlay
+4. **Transaction End**: `end()` returns collected operations (overlay remains active)
+5. **Commit**: `commit()` applies overlay changes to base in deterministic order:
+   - `create` → `update` → `move` → `delete`
+   - Clears overlay after application
+6. **Rollback**: `rollback()` discards overlay without applying changes
+
+### Transaction Lifecycle
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant DataStore
+    participant Overlay
+    participant Base
+    
+    Client->>DataStore: begin()
+    DataStore->>Overlay: begin()
+    Note over Overlay: Initialize empty overlay
+    
+    Client->>DataStore: updateNode(id, changes)
+    DataStore->>Overlay: Check if node in overlay
+    alt Node in overlay
+        Overlay-->>DataStore: Use overlay node
+    else Node only in base
+        DataStore->>Base: getNode(id)
+        Base-->>DataStore: Original node
+        DataStore->>Overlay: Clone to overlay
+    end
+    DataStore->>Overlay: Apply changes
+    DataStore->>Overlay: Store in overlayNodes
+    DataStore->>Overlay: Record operation in opBuffer
+    
+    Client->>DataStore: end()
+    DataStore->>Overlay: getCollectedOperations()
+    Overlay-->>Client: Return operations array
+    
+    Client->>DataStore: commit()
+    DataStore->>Overlay: Get operations
+    DataStore->>Base: Apply operations in order
+    Note over Base: create → update → move → delete
+    DataStore->>Overlay: rollback()
+    Note over Overlay: Clear overlay state
+```
+
+### Benefits
+
+- **O(1) Transaction Start**: No copying of base nodes on `begin()`
+- **Memory Efficient**: Only modified nodes are duplicated
+- **Atomic Operations**: All changes are collected and applied atomically
+- **Rollback Support**: Discard changes without affecting base state
+- **Operation History**: All operations are recorded for sync/collaboration
+
+## Lock System
+
+DataStore provides a global write lock to prevent concurrent write conflicts during transactions.
+
+### Architecture
+
+```mermaid
+graph TB
+    subgraph "Lock Manager"
+        A["Current Lock<br/>lockId, ownerId, acquiredAt"]
+        B["Transaction Queue<br/>Waiting Transactions"]
+        C["Lock Statistics<br/>Acquisitions, Timeouts, Wait Time"]
+    end
+    
+    subgraph "Lock Acquisition"
+        D["acquireLock(ownerId)"]
+        E{"Lock<br/>Available?"}
+        F["Immediate Acquisition"]
+        G["Queue Entry"]
+        H["Wait for Release"]
+    end
+    
+    subgraph "Lock Release"
+        I["releaseLock(lockId)"]
+        J["Clear Current Lock"]
+        K["Grant to Next<br/>in Queue"]
+    end
+    
+    D --> E
+    E -->|Yes| F
+    E -->|No| G
+    G --> H
+    H --> K
+    
+    I --> J
+    J --> K
+    
+    F --> A
+    K --> A
+    A --> C
+    B --> C
+    
+    style A fill:#e1f5ff
+    style B fill:#fff4e1
+    style C fill:#e8f5e9
+    style F fill:#f3e5f5
+    style G fill:#fce4ec
+```
+
+### How It Works
+
+1. **Lock Acquisition**: `acquireLock(ownerId)` attempts to acquire the global write lock
+   - If available → immediately granted
+   - If busy → added to queue, waits for current lock release
+   - Returns a unique `lockId` for the acquired lock
+
+2. **Lock Queue**: Multiple transactions can wait in a FIFO queue
+   - Each queued transaction has a timeout (default: 5 seconds)
+   - Timeout rejects the promise if lock not acquired in time
+
+3. **Lock Release**: `releaseLock(lockId)` releases the current lock
+   - Validates `lockId` matches current lock (optional)
+   - Grants lock to next transaction in queue
+   - Updates statistics
+
+4. **Lock Timeout**: Automatic timeout prevents deadlocks
+   - Queue timeout: 5 seconds (rejects if not acquired)
+   - Lock timeout: 50 seconds (force releases if held too long)
+
+### Lock Methods
+
+```typescript
+// Acquire lock (returns Promise<string>)
+const lockId = await dataStore.acquireLock('owner-id');
+
+// Release lock
+dataStore.releaseLock(lockId);
+
+// Check if locked
+const isLocked = dataStore.isLocked();
+
+// Get current lock info
+const lockInfo = dataStore.getCurrentLock();
+// { lockId: string, ownerId: string, acquiredAt: number } | null
+
+// Get queue length
+const queueLength = dataStore.getQueueLength();
+
+// Get lock statistics
+const stats = dataStore.getLockStats();
+```
+
+### Lock Statistics
+
+```typescript
+const stats = dataStore.getLockStats();
+// {
+//   totalAcquisitions: number,
+//   totalReleases: number,
+//   totalTimeouts: number,
+//   averageWaitTime: number,
+//   queueLength: number,
+//   isLocked: boolean,
+//   currentLock: { lockId, ownerId, acquiredAt } | null,
+//   queue: Array<{ lockId, ownerId }>
+// }
+```
+
+### Best Practices
+
+1. **Always Release**: Use try/finally to ensure lock is released
+2. **Timeout Handling**: Handle timeout errors appropriately
+3. **Owner ID**: Use meaningful owner IDs for debugging
+4. **Lock Scope**: Keep lock scope minimal (only during critical sections)
+
+## Model Integration
+
+When using `@barocss/model` transactions, the TransactionManager automatically orchestrates DataStore's lock and overlay systems:
+
+```mermaid
+sequenceDiagram
+    participant Model as Model Transaction
+    participant Lock as DataStore Lock
+    participant Overlay as DataStore Overlay
+    participant Base as Base Nodes
+    
+    Model->>Lock: acquireLock()
+    Lock-->>Model: lockId
+    
+    Model->>Overlay: begin()
+    Note over Overlay: Initialize overlay
+    
+    loop Operations
+        Model->>Overlay: Execute operation
+        Overlay->>Base: Read (if needed)
+        Overlay->>Overlay: Write to overlay
+    end
+    
+    Model->>Overlay: end()
+    Overlay-->>Model: AtomicOperation[]
+    
+    Model->>Overlay: commit()
+    Overlay->>Base: Apply all changes
+    
+    Model->>Lock: releaseLock()
+    Lock->>Lock: Grant to next
+```
+
+**Key Points**:
+- Lock acquired before overlay begins
+- All operations execute within overlay
+- Commit applies all changes atomically
+- Lock released after commit (in finally block)
+
+For detailed integration flow, see [Transaction Integration Guide](./docs/transaction-integration.md).
+
+## Basic Usage
+
+### Creating a DataStore
+
+```typescript
+import { DataStore } from '@barocss/datastore';
+import { createSchema } from '@barocss/schema';
+import type { INode } from '@barocss/datastore';
+
+// Create schema
+const schema = createSchema('basic-doc', {
+  topNode: 'document',
+  nodes: {
+    document: { name: 'document', group: 'document', content: 'block+' },
+    paragraph: { name: 'paragraph', group: 'block', content: 'inline*' },
+    'inline-text': { name: 'inline-text', group: 'inline' }
+  }
+});
+
+// Create DataStore with schema
+const dataStore = new DataStore();
+dataStore.registerSchema(schema);
+
+// Create document tree
+const root = dataStore.createNodeWithChildren({
+  stype: 'document',
+  content: [
+    {
+      stype: 'paragraph',
+      content: [
+        { stype: 'inline-text', text: 'Hello, World!' }
+      ]
+    }
+  ]
+} as INode);
+
+dataStore.setRootNodeId(root.sid!);
+```
+
+### Node Operations
+
+```typescript
+// Get node
+const node = dataStore.getNode('text-1');
+
+// Update node
+dataStore.updateNode('text-1', { text: 'Updated text' });
+
+// Create node
+const newNode = dataStore.createNode({
+  stype: 'paragraph',
+  content: []
+});
+
+// Delete node
+dataStore.deleteNode('node-id');
+```
+
+### Content Operations
+
+```typescript
+// Add child
+dataStore.content.addChild('parent-id', childNode, 0);
+
+// Remove child
+dataStore.content.removeChild('parent-id', 'child-id');
+
+// Move node
+dataStore.content.moveNode('node-id', 'new-parent-id', 0);
+
+// Reorder children
+dataStore.content.reorderChildren('parent-id', ['child-1', 'child-2', 'child-3']);
+```
+
+### Block Operations
+
+```typescript
+// Move block up/down
+dataStore.moveBlockUp('block-id');
+dataStore.moveBlockDown('block-id');
+
+// Transform node type
+dataStore.transformNode('node-id', 'heading', { level: 1 });
+```
+
+## Transactions
+
+Transactions use a Copy-on-Write overlay mechanism for efficient atomic operations:
+
+```typescript
+// Begin transaction (initializes overlay)
+dataStore.begin();
+
+try {
+  // All operations are written to overlay (not base)
+  dataStore.updateNode('text-1', { text: 'New text' });
+  dataStore.content.addChild('parent-id', newNode, 0);
+  
+  // End transaction (returns collected operations)
+  const operations = dataStore.end();
+  
+  // Commit applies overlay to base
+  dataStore.commit();
+} catch (error) {
+  // Rollback discards overlay without affecting base
+  dataStore.rollback();
+}
+```
+
+### Transactions with Lock
+
+For concurrent access, use the lock system:
+
+```typescript
+// Acquire lock before transaction
+const lockId = await dataStore.acquireLock('transaction-1');
+
+try {
+  dataStore.begin();
+  dataStore.updateNode('text-1', { text: 'New text' });
+  dataStore.commit();
+} catch (error) {
+  dataStore.rollback();
+} finally {
+  // Always release lock
+  dataStore.releaseLock(lockId);
+}
+```
 
 ## Collaborative Editing Integration
 
@@ -250,436 +676,13 @@ await adapter.connect(dataStore);
 
 See individual adapter READMEs for detailed setup instructions and examples.
 
-## Transactional Overlay (Copy-on-Write)
-
-DataStore uses a Copy-on-Write (COW) overlay mechanism to provide efficient transactional operations without copying the entire document state.
-
-### Architecture
-
-```mermaid
-graph TB
-    subgraph "Base Layer (Read-Only)"
-        A["baseNodes<br/>Map&lt;sid, INode&gt;<br/>Original State"]
-    end
-    
-    subgraph "Overlay Layer (COW)"
-        B["overlayNodes<br/>Map&lt;sid, INode&gt;<br/>Modified Nodes"]
-        C["deletedNodeIds<br/>Set&lt;sid&gt;<br/>Deleted Nodes"]
-        D["touchedParents<br/>Set&lt;sid&gt;<br/>Parents with Content Changes"]
-        E["opBuffer<br/>AtomicOperation[]<br/>Operation History"]
-    end
-    
-    subgraph "Read Path"
-        F["getNode(id)"]
-        G{"deletedNodeIds<br/>has(id)?"}
-        H{"overlayNodes<br/>has(id)?"}
-        I["Return overlay"]
-        J["Return base"]
-        K["Return undefined"]
-    end
-    
-    subgraph "Write Path"
-        L["updateNode/createNode"]
-        M["Clone from base<br/>if needed"]
-        N["Apply changes"]
-        O["Store in overlay"]
-    end
-    
-    A --> F
-    B --> F
-    C --> F
-    
-    F --> G
-    G -->|yes| K
-    G -->|no| H
-    H -->|yes| I
-    H -->|no| J
-    
-    L --> M
-    M --> N
-    N --> O
-    O --> B
-    
-    style A fill:#e1f5ff
-    style B fill:#fff4e1
-    style C fill:#fce4ec
-    style D fill:#e8f5e9
-    style E fill:#f3e5f5
-```
-
-### How It Works
-
-1. **Transaction Begin**: `begin()` initializes an empty overlay without copying base nodes
-2. **Read Operations**: `getNode()` checks in order:
-   - `deletedNodeIds` → returns `undefined` if deleted
-   - `overlayNodes` → returns overlay version if modified
-   - `baseNodes` → returns original version (fallback)
-3. **Write Operations**: Changes are written to overlay using COW:
-   - If node exists in overlay → use overlay version
-   - If node exists only in base → clone from base to overlay
-   - Apply changes to cloned node
-   - Store in overlay
-4. **Transaction End**: `end()` returns collected operations (overlay remains active)
-5. **Commit**: `commit()` applies overlay changes to base in deterministic order:
-   - `create` → `update` → `move` → `delete`
-   - Clears overlay after application
-6. **Rollback**: `rollback()` discards overlay without applying changes
-
-### Transaction Lifecycle
-
-```mermaid
-sequenceDiagram
-    participant Client
-    participant DataStore
-    participant Overlay
-    participant Base
-    
-    Client->>DataStore: begin()
-    DataStore->>Overlay: begin()
-    Note over Overlay: Initialize empty overlay
-    
-    Client->>DataStore: updateNode(id, changes)
-    DataStore->>Overlay: Check if node in overlay
-    alt Node in overlay
-        Overlay-->>DataStore: Use overlay node
-    else Node only in base
-        DataStore->>Base: getNode(id)
-        Base-->>DataStore: Original node
-        DataStore->>Overlay: Clone to overlay
-    end
-    DataStore->>Overlay: Apply changes
-    DataStore->>Overlay: Store in overlayNodes
-    DataStore->>Overlay: Record operation in opBuffer
-    
-    Client->>DataStore: end()
-    DataStore->>Overlay: getCollectedOperations()
-    Overlay-->>Client: Return operations array
-    
-    Client->>DataStore: commit()
-    DataStore->>Overlay: Get operations
-    DataStore->>Base: Apply operations in order
-    Note over Base: create → update → move → delete
-    DataStore->>Overlay: rollback()
-    Note over Overlay: Clear overlay state
-```
-
-### Benefits
-
-- **O(1) Transaction Start**: No copying of base nodes on `begin()`
-- **Memory Efficient**: Only modified nodes are duplicated
-- **Atomic Operations**: All changes are collected and applied atomically
-- **Rollback Support**: Discard changes without affecting base state
-- **Operation History**: All operations are recorded for sync/collaboration
-
-### Usage
-
-```typescript
-// Begin transaction
-dataStore.begin();
-
-try {
-  // All operations are written to overlay
-  dataStore.updateNode('node-1', { text: 'Updated' });
-  dataStore.createNode({ stype: 'paragraph', text: 'New' });
-  
-  // Get collected operations (overlay still active)
-  const operations = dataStore.end();
-  
-  // Commit overlay to base
-  dataStore.commit();
-} catch (error) {
-  // Rollback discards overlay
-  dataStore.rollback();
-}
-```
-
-## Lock System
-
-DataStore provides a global write lock to prevent concurrent write conflicts during transactions.
-
-### Architecture
-
-```mermaid
-graph TB
-    subgraph "Lock Manager"
-        A["Current Lock<br/>lockId, ownerId, acquiredAt"]
-        B["Transaction Queue<br/>Waiting Transactions"]
-        C["Lock Statistics<br/>Acquisitions, Timeouts, Wait Time"]
-    end
-    
-    subgraph "Lock Acquisition"
-        D["acquireLock(ownerId)"]
-        E{"Lock<br/>Available?"}
-        F["Immediate Acquisition"]
-        G["Queue Entry"]
-        H["Wait for Release"]
-    end
-    
-    subgraph "Lock Release"
-        I["releaseLock(lockId)"]
-        J["Clear Current Lock"]
-        K["Grant to Next<br/>in Queue"]
-    end
-    
-    D --> E
-    E -->|Yes| F
-    E -->|No| G
-    G --> H
-    H --> K
-    
-    I --> J
-    J --> K
-    
-    F --> A
-    K --> A
-    A --> C
-    B --> C
-    
-    style A fill:#e1f5ff
-    style B fill:#fff4e1
-    style C fill:#e8f5e9
-    style F fill:#f3e5f5
-    style G fill:#fce4ec
-```
-
-### How It Works
-
-1. **Lock Acquisition**: `acquireLock(ownerId)` attempts to acquire the global write lock
-   - If available → immediately granted
-   - If busy → added to queue, waits for current lock release
-   - Returns a unique `lockId` for the acquired lock
-
-2. **Lock Queue**: Multiple transactions can wait in a FIFO queue
-   - Each queued transaction has a timeout (default: 5 seconds)
-   - Timeout rejects the promise if lock not acquired in time
-
-3. **Lock Release**: `releaseLock(lockId)` releases the current lock
-   - Validates `lockId` matches current lock (optional)
-   - Grants lock to next transaction in queue
-   - Updates statistics
-
-4. **Lock Timeout**: Automatic timeout prevents deadlocks
-   - Queue timeout: 5 seconds (rejects if not acquired)
-   - Lock timeout: 50 seconds (force releases if held too long)
-
-### Usage
-
-```typescript
-// Acquire lock
-const lockId = await dataStore.acquireLock('transaction-1');
-
-try {
-  // Perform operations with exclusive access
-  dataStore.begin();
-  dataStore.updateNode('node-1', { text: 'Updated' });
-  dataStore.commit();
-} finally {
-  // Always release lock
-  dataStore.releaseLock(lockId);
-}
-```
-
-### Lock Statistics
-
-```typescript
-const stats = dataStore.getLockStats();
-// {
-//   totalAcquisitions: number,
-//   totalReleases: number,
-//   totalTimeouts: number,
-//   averageWaitTime: number,
-//   queueLength: number,
-//   isLocked: boolean,
-//   currentLock: { lockId, ownerId, acquiredAt } | null,
-//   queue: Array<{ lockId, ownerId }>
-// }
-```
-
-### Lock Methods
-
-```typescript
-// Acquire lock (returns Promise<string>)
-const lockId = await dataStore.acquireLock('owner-id');
-
-// Release lock
-dataStore.releaseLock(lockId);
-
-// Check if locked
-const isLocked = dataStore.isLocked();
-
-// Get current lock info
-const lockInfo = dataStore.getCurrentLock();
-// { lockId: string, ownerId: string, acquiredAt: number } | null
-
-// Get queue length
-const queueLength = dataStore.getQueueLength();
-
-// Get lock statistics
-const stats = dataStore.getLockStats();
-```
-
-### Best Practices
-
-1. **Always Release**: Use try/finally to ensure lock is released
-2. **Timeout Handling**: Handle timeout errors appropriately
-3. **Owner ID**: Use meaningful owner IDs for debugging
-4. **Lock Scope**: Keep lock scope minimal (only during critical sections)
-
-## Overview
-
-`@barocss/datastore` provides a normalized, transactional data store for document nodes. It manages:
-
-- **Node Storage**: Normalized node storage with `sid` (stable ID) and `stype` (schema type)
-- **Schema Validation**: Schema-aware operations with validation
-- **Transactions**: Atomic operations with rollback support via Copy-on-Write overlay
-- **Transactional Overlay**: Efficient COW mechanism that only duplicates modified nodes
-- **Lock System**: Global write lock with queue for concurrent transaction management
-- **Content Management**: Parent-child relationships and content ordering
-- **Mark Management**: Text marks (bold, italic, etc.) with range tracking
-- **Operation Events**: `emitOperation()` / `onOperation()` for collaboration integration
-
-## Installation
-
-```bash
-pnpm add @barocss/datastore
-```
-
-## Basic Usage
-
-### Creating a DataStore
-
-```typescript
-import { DataStore } from '@barocss/datastore';
-import { createSchema } from '@barocss/schema';
-import type { INode } from '@barocss/datastore';
-
-// Create schema
-const schema = createSchema('basic-doc', {
-  topNode: 'document',
-  nodes: {
-    document: { name: 'document', group: 'document', content: 'block+' },
-    paragraph: { name: 'paragraph', group: 'block', content: 'inline*' },
-    'inline-text': { name: 'inline-text', group: 'inline' }
-  }
-});
-
-// Create DataStore with schema
-const dataStore = new DataStore();
-dataStore.registerSchema(schema);
-
-// Create document tree
-const root = dataStore.createNodeWithChildren({
-  stype: 'document',
-  content: [
-    {
-      stype: 'paragraph',
-      content: [
-        { stype: 'inline-text', text: 'Hello, World!' }
-      ]
-    }
-  ]
-} as INode);
-
-dataStore.setRootNodeId(root.sid!);
-```
-
-### Node Operations
-
-```typescript
-// Get node
-const node = dataStore.getNode('text-1');
-
-// Update node
-dataStore.updateNode('text-1', { text: 'Updated text' });
-
-// Create node
-const newNode = dataStore.createNode({
-  stype: 'paragraph',
-  content: []
-});
-
-// Delete node
-dataStore.deleteNode('node-id');
-```
-
-### Content Operations
-
-```typescript
-// Add child
-dataStore.content.addChild('parent-id', childNode, 0);
-
-// Remove child
-dataStore.content.removeChild('parent-id', 'child-id');
-
-// Move node
-dataStore.content.moveNode('node-id', 'new-parent-id', 0);
-
-// Reorder children
-dataStore.content.reorderChildren('parent-id', ['child-1', 'child-2', 'child-3']);
-```
-
-### Block Operations
-
-```typescript
-// Move block up/down
-dataStore.moveBlockUp('block-id');
-dataStore.moveBlockDown('block-id');
-
-// Transform node type
-dataStore.transformNode('node-id', 'heading', { level: 1 });
-```
-
-### Transactions
-
-Transactions use a Copy-on-Write overlay mechanism for efficient atomic operations:
-
-```typescript
-// Begin transaction (initializes overlay)
-dataStore.begin();
-
-try {
-  // All operations are written to overlay (not base)
-  dataStore.updateNode('text-1', { text: 'New text' });
-  dataStore.content.addChild('parent-id', newNode, 0);
-  
-  // End transaction (returns collected operations)
-  const operations = dataStore.end();
-  
-  // Commit applies overlay to base
-  dataStore.commit();
-} catch (error) {
-  // Rollback discards overlay without affecting base
-  dataStore.rollback();
-}
-```
-
-### Transactions with Lock
-
-For concurrent access, use the lock system:
-
-```typescript
-// Acquire lock before transaction
-const lockId = await dataStore.acquireLock('transaction-1');
-
-try {
-  dataStore.begin();
-  dataStore.updateNode('text-1', { text: 'New text' });
-  dataStore.commit();
-} catch (error) {
-  dataStore.rollback();
-} finally {
-  // Always release lock
-  dataStore.releaseLock(lockId);
-}
-```
-
 ## API Reference
 
 ### DataStore Class
 
 #### Constructor
 ```typescript
-new DataStore(rootNodeId?: string, schema?: Schema)
+new DataStore(rootNodeId?: string, schema?: Schema, sessionId?: number)
 ```
 
 #### Methods
@@ -725,6 +728,18 @@ new DataStore(rootNodeId?: string, schema?: Schema)
 - `setRootNodeId(nodeId: string): void` - Set root node
 - `getRootNodeId(): string | null` - Get root node ID
 - `getRootNode(): INode | null` - Get root node
+
+**Operation Events**
+- `emitOperation(operation: AtomicOperation): void` - Emit operation event
+- `onOperation(callback: (operation: AtomicOperation) => void): void` - Register operation listener
+- `offOperation(callback: (operation: AtomicOperation) => void): void` - Unregister operation listener
+
+**Document Traversal & Iteration**
+- `createDocumentIterator(options?: DocumentIteratorOptions): DocumentIterator` - Create document iterator
+- `createRangeIterator(startNodeId: string, endNodeId: string, options?: RangeIteratorOptions): DocumentIterator` - Create range-based iterator
+- `traverse(visitor: DocumentVisitor, options?: VisitorTraversalOptions): TraversalResult` - Traverse with visitor pattern
+- `getNodesInRange(startNodeId: string, endNodeId: string, options?: RangeIteratorOptions): string[]` - Get nodes in range
+- `getRangeNodeCount(startNodeId: string, endNodeId: string, options?: RangeIteratorOptions): number` - Get node count in range
 
 **Serialization**
 - `serializeRange(startNodeId: string, startOffset: number, endNodeId: string, endOffset: number): SerializedRange` - Serialize range
@@ -787,6 +802,275 @@ interface LockStats {
 }
 ```
 
+### DocumentIteratorOptions
+```typescript
+interface DocumentIteratorOptions {
+  startNodeId?: string;              // Start node (default: root)
+  reverse?: boolean;                 // Reverse traversal
+  maxDepth?: number;                 // Maximum depth limit
+  filter?: {
+    stype?: string;                  // Single type filter
+    stypes?: string[];               // Multiple types filter
+    excludeTypes?: string[];         // Excluded types
+  };
+  customFilter?: (nodeId: string, node: INode) => boolean;
+  shouldStop?: (nodeId: string, node: INode) => boolean;
+  range?: {
+    startNodeId: string;
+    endNodeId: string;
+    includeStart?: boolean;
+    includeEnd?: boolean;
+  };
+}
+```
+
+### DocumentVisitor
+```typescript
+interface DocumentVisitor {
+  visit(nodeId: string, node: INode, context?: any): void | boolean;
+  enter?(nodeId: string, node: INode, context?: any): void;
+  exit?(nodeId: string, node: INode, context?: any): void;
+  shouldVisitChildren?(nodeId: string, node: INode): boolean;
+}
+```
+
+### VisitorTraversalOptions
+```typescript
+interface VisitorTraversalOptions {
+  startNodeId?: string;
+  reverse?: boolean;
+  maxDepth?: number;
+  filter?: {
+    stype?: string;
+    stypes?: string[];
+    excludeTypes?: string[];
+  };
+  customFilter?: (nodeId: string, node: INode) => boolean;
+  shouldStop?: (nodeId: string, node: INode) => boolean;
+  range?: {
+    startNodeId: string;
+    endNodeId: string;
+    includeStart?: boolean;
+    includeEnd?: boolean;
+  };
+  context?: any;
+}
+```
+
+### TraversalResult
+```typescript
+interface TraversalResult {
+  visitedCount: number;    // Number of nodes visited
+  skippedCount: number;    // Number of nodes skipped
+  stopped: boolean;        // Whether traversal was stopped early
+}
+```
+
+## Document Traversal & Iteration
+
+DataStore provides powerful document traversal capabilities through iterators and visitor patterns for efficient document processing.
+
+### DocumentIterator
+
+`DocumentIterator` implements the standard JavaScript `IterableIterator<string>` interface, allowing you to traverse the document tree using `for...of` loops.
+
+#### Basic Usage
+
+```typescript
+// Basic traversal
+const iterator = dataStore.createDocumentIterator();
+
+for (const nodeId of iterator) {
+  const node = dataStore.getNode(nodeId);
+  console.log(`${nodeId}: ${node.stype}`);
+}
+```
+
+#### Filtering Options
+
+```typescript
+// Filter by node type
+const textIterator = dataStore.createDocumentIterator({
+  filter: { stype: 'inline-text' }
+});
+
+// Filter by multiple types
+const blockIterator = dataStore.createDocumentIterator({
+  filter: { stypes: ['paragraph', 'heading'] }
+});
+
+// Exclude certain types
+const contentIterator = dataStore.createDocumentIterator({
+  filter: { excludeTypes: ['document'] }
+});
+
+// Custom filter function
+const customIterator = dataStore.createDocumentIterator({
+  customFilter: (nodeId, node) => {
+    return node.attributes?.level === 1;
+  }
+});
+```
+
+#### Depth and Direction Control
+
+```typescript
+// Limit depth
+const shallowIterator = dataStore.createDocumentIterator({
+  maxDepth: 2
+});
+
+// Reverse traversal
+const reverseIterator = dataStore.createDocumentIterator({
+  reverse: true
+});
+
+// Start from specific node
+const subtreeIterator = dataStore.createDocumentIterator({
+  startNodeId: 'paragraph-1'
+});
+```
+
+#### Range-Based Iteration
+
+```typescript
+// Create range iterator
+const rangeIterator = dataStore.createRangeIterator('0:2', '0:6');
+
+for (const nodeId of rangeIterator) {
+  const node = dataStore.getNode(nodeId);
+  console.log(nodeId, node);
+}
+
+// Exclude boundaries
+const innerRangeIterator = dataStore.createRangeIterator('0:2', '0:6', {
+  includeStart: false,
+  includeEnd: false
+});
+
+// With filtering
+const filteredRangeIterator = dataStore.createRangeIterator('0:2', '0:6', {
+  filter: { stype: 'inline-text' }
+});
+
+// Convenience methods
+const nodesInRange = dataStore.getNodesInRange('0:2', '0:6');
+const count = dataStore.getRangeNodeCount('0:2', '0:6');
+```
+
+### Visitor Pattern
+
+The visitor pattern allows you to perform operations while traversing the document:
+
+```typescript
+// Single visitor
+const result = dataStore.traverse({
+  visit: (nodeId, node) => {
+    console.log(`Visiting: ${nodeId} (${node.stype})`);
+  },
+  enter: (nodeId, node) => {
+    console.log(`Entering: ${nodeId}`);
+  },
+  exit: (nodeId, node) => {
+    console.log(`Exiting: ${nodeId}`);
+  },
+  shouldVisitChildren: (nodeId, node) => {
+    // Skip children of inline-text nodes
+    return node.stype !== 'inline-text';
+  }
+});
+
+console.log(result); // { visitedCount: 5, skippedCount: 0, stopped: false }
+```
+
+#### Multiple Visitors
+
+```typescript
+class TextExtractor {
+  private texts: string[] = [];
+  visit(nodeId: string, node: any) {
+    if (node.stype === 'inline-text' && node.text) {
+      this.texts.push(node.text);
+    }
+  }
+  getTexts() { return this.texts; }
+}
+
+class LinkCollector {
+  private links: Array<{nodeId: string, href: string}> = [];
+  visit(nodeId: string, node: any) {
+    if (node.marks) {
+      const linkMark = node.marks.find((m: any) => m.type === 'link');
+      if (linkMark) {
+        this.links.push({ nodeId, href: linkMark.attrs?.href || '' });
+      }
+    }
+  }
+  getLinks() { return this.links; }
+}
+
+// Execute multiple visitors in one traversal
+const textExtractor = new TextExtractor();
+const linkCollector = new LinkCollector();
+
+const results = dataStore.traverse(textExtractor, linkCollector);
+
+console.log('Texts:', textExtractor.getTexts());
+console.log('Links:', linkCollector.getLinks());
+```
+
+### Iterator Options
+
+```typescript
+interface DocumentIteratorOptions {
+  startNodeId?: string;              // Start node (default: root)
+  reverse?: boolean;                 // Reverse traversal
+  maxDepth?: number;                 // Maximum depth limit
+  filter?: {
+    stype?: string;                  // Single type filter
+    stypes?: string[];               // Multiple types filter
+    excludeTypes?: string[];         // Excluded types
+  };
+  customFilter?: (nodeId: string, node: INode) => boolean;
+  shouldStop?: (nodeId: string, node: INode) => boolean;
+  range?: {
+    startNodeId: string;
+    endNodeId: string;
+    includeStart?: boolean;
+    includeEnd?: boolean;
+  };
+}
+```
+
+### Visitor Interface
+
+```typescript
+interface DocumentVisitor {
+  visit(nodeId: string, node: INode, context?: any): void | boolean;
+  enter?(nodeId: string, node: INode, context?: any): void;
+  exit?(nodeId: string, node: INode, context?: any): void;
+  shouldVisitChildren?(nodeId: string, node: INode): boolean;
+}
+```
+
+### Performance Characteristics
+
+- **Time Complexity**: O(n) for full traversal, O(r) for range-based (r ≤ n)
+- **Space Complexity**: O(n) for visited tracking, O(r) for range-based
+- **Node Lookup**: O(1) using Map-based storage
+- **Filtering**: O(1) per node check
+
+### Use Cases
+
+1. **Text Extraction**: Extract all text content from document
+2. **Link Collection**: Find all links in document
+3. **Structure Analysis**: Analyze document hierarchy
+4. **Range Operations**: Process specific document sections
+5. **Statistics**: Collect node type statistics
+6. **Search**: Find nodes matching specific criteria
+
+For detailed documentation, see [Document Iterator Specification](./docs/document-iterator-spec.md) and [Model Traversal API](./docs/model-traversal-api.md).
+
 ## Advanced Features
 
 ### Drop Behavior
@@ -840,7 +1124,12 @@ cd packages/datastore
 pnpm test:run
 ```
 
+## Documentation
+
+- [Transaction Integration Guide](./docs/transaction-integration.md) - How Model transactions integrate with DataStore lock and overlay systems
+- [Document Iterator Specification](./docs/document-iterator-spec.md) - Detailed specification of DocumentIterator traversal logic and algorithms
+- [Model Traversal API](./docs/model-traversal-api.md) - Complete API reference for document traversal and navigation
+
 ## License
 
 MIT
-
