@@ -199,6 +199,51 @@ For production use, consider using collaboration adapter packages which provide 
 
 All adapters are built on top of [`@barocss/collaboration`](../collaboration/README.md) which provides the core interfaces and base adapter.
 
+#### Quick Integration Example
+
+All adapters follow the same pattern: create the adapter, connect it to DataStore, and operations will automatically sync:
+
+```typescript
+import { DataStore } from '@barocss/datastore';
+import { YjsAdapter } from '@barocss/collaboration-yjs';
+import * as Y from 'yjs';
+import { WebsocketProvider } from 'y-websocket';
+
+// 1. Create DataStore
+const dataStore = new DataStore();
+
+// 2. Set up collaboration backend (example: Yjs)
+const ydoc = new Y.Doc();
+const provider = new WebsocketProvider('ws://localhost:1234', 'room-id', ydoc);
+
+// 3. Create and connect adapter
+const adapter = new YjsAdapter({
+  ydoc,
+  config: { clientId: 'user-1' }
+});
+
+await adapter.connect(dataStore);
+
+// 4. Operations are now automatically synced!
+// - Local operations → sent to backend via adapter
+// - Remote operations → applied to DataStore via adapter
+```
+
+#### How It Works
+
+1. **Local Operations**: When DataStore emits operations via `emitOperation()`, the adapter captures them and sends to the collaboration backend
+2. **Remote Operations**: When the backend receives operations from other clients, the adapter applies them to DataStore using `applyOperationToDataStore()` (which temporarily disables operation listeners to prevent circular updates)
+3. **SID Consistency**: All clients use the same SID for the same node, ensuring consistent references across sessions
+
+#### Choosing an Adapter
+
+- **Yjs**: Best for WebSocket-based real-time collaboration with self-hosted or cloud servers
+- **Automerge**: Best for peer-to-peer collaboration or when you need immutable document history
+- **Yorkie**: Best for self-hosted or cloud-based collaboration with built-in presence features
+- **Liveblocks**: Best for managed infrastructure with built-in authentication and presence
+
+See individual adapter READMEs for detailed setup instructions and examples.
+
 ## Overview
 
 `@barocss/datastore` provides a normalized, transactional data store for document nodes. It manages:
