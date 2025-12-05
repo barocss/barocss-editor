@@ -38,6 +38,19 @@ graph TB
 - [Model Operations 사용하기](#model-operations-사용하기)
 - [예제](#예제)
 - [키바인딩 추가하기](#키바인딩-추가하기)
+- [상세 가이드](#상세-가이드)
+
+## 상세 가이드
+
+Extension 설계 및 구현에 대한 종합적인 가이드는 다음 문서를 참고하세요:
+
+- **[Extension 설계 및 구현 가이드](./docs/extension-design-and-implementation.md)**
+  - Extension이란 무엇인가
+  - Command의 역할과 구조
+  - Model Transaction과 Operation
+  - DataStore 직접 핸들링 금지 이유
+  - Operation 정의 및 DSL 작성 방법
+  - 전체 샘플: Highlight Extension 구현
 
 ## Extension 정의하기
 
