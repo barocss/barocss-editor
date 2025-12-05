@@ -85,6 +85,109 @@ graph TB
   - Operations are broadcast with SID references
   - Conflict resolution uses SID to identify target nodes
 
+## Collaborative Editing Integration
+
+```mermaid
+graph TB
+    subgraph "Local Session A"
+        A1["DataStore A<br/>sessionId: 0"]
+        A2["User Input"]
+        A3["Local Operations"]
+        A4["TransactionalOverlay<br/>COW Operations"]
+        A5["emitOperation<br/>AtomicOperation"]
+    end
+    
+    subgraph "Local Session B"
+        B1["DataStore B<br/>sessionId: 1"]
+        B2["User Input"]
+        B3["Local Operations"]
+        B4["TransactionalOverlay<br/>COW Operations"]
+        B5["emitOperation<br/>AtomicOperation"]
+    end
+    
+    subgraph "Operation Structure"
+        C1["AtomicOperation<br/>type: create|update|delete|move<br/>nodeId: sid<br/>data: INode snapshot<br/>timestamp: number<br/>parentId?: string<br/>position?: number"]
+    end
+    
+    subgraph "Collaboration Layer"
+        D1["Operation Broadcast<br/>CollaborationMessage"]
+        D2["OT/CRDT Server<br/>Ordering & Transform"]
+        D3["Conflict Resolution<br/>User > AI Priority"]
+    end
+    
+    subgraph "Remote Sync"
+        E1["onOperation Callback<br/>Receive Remote Ops"]
+        E2["Apply to Local DataStore<br/>Merge with SID"]
+        E3["Update Map&lt;sid, INode&gt;<br/>Maintain Consistency"]
+    end
+    
+    A2 --> A3
+    A3 --> A4
+    A4 --> A5
+    A5 --> C1
+    
+    B2 --> B3
+    B3 --> B4
+    B4 --> B5
+    B5 --> C1
+    
+    C1 --> D1
+    D1 --> D2
+    D2 --> D3
+    D3 --> E1
+    
+    E1 --> E2
+    E2 --> E3
+    E3 --> A1
+    E3 --> B1
+    
+    style A1 fill:#e1f5ff
+    style B1 fill:#e1f5ff
+    style C1 fill:#fff4e1
+    style D1 fill:#e8f5e9
+    style D2 fill:#f3e5f5
+    style D3 fill:#fce4ec
+    style E1 fill:#fff9c4
+    style E2 fill:#e0f2f1
+    style E3 fill:#f1f8e9
+```
+
+### Collaborative Editing Flow
+
+1. **Local Operations**
+   - User input triggers local operations in DataStore
+   - Operations are collected in `TransactionalOverlay` (Copy-on-Write)
+   - Each operation emits `AtomicOperation` event via `emitOperation()`
+
+2. **AtomicOperation Structure**
+   ```typescript
+   interface AtomicOperation {
+     type: 'create' | 'update' | 'delete' | 'move';
+     nodeId: string;        // SID reference
+     data?: any;            // Node snapshot
+     timestamp: number;
+     parentId?: string;     // SID reference
+     position?: number;
+   }
+   ```
+
+3. **Operation Broadcast**
+   - Operations are wrapped in `CollaborationMessage` and sent to server
+   - Server applies OT/CRDT transformations for ordering
+   - Conflict resolution follows priority: User > AI
+
+4. **Remote Synchronization**
+   - Remote operations received via `onOperation()` callback
+   - Operations are applied to local DataStore using SID references
+   - `Map<sid, INode>` is updated maintaining consistency across sessions
+
+### Key Integration Points
+
+- **SID Consistency**: All sessions reference the same node using the same SID
+- **Operation Events**: `emitOperation()` / `onOperation()` for operation lifecycle
+- **Transactional Overlay**: COW mechanism ensures atomic operations
+- **Conflict Resolution**: Operation-level conflict resolution, not node-level
+
 ## Overview
 
 `@barocss/datastore` provides a normalized, transactional data store for document nodes. It manages:
