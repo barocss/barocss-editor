@@ -7,27 +7,33 @@ Transactional, schema-aware node store for managing document structure with norm
 ```mermaid
 graph TB
     subgraph "DataStore"
-        A["Node Storage<br/>INode/IMark"]
+        A["Node Storage<br/>Map&lt;sid, INode&gt;"]
         B["Content Operations<br/>Parent-Child"]
         C["Transaction Manager<br/>Begin/Commit/Rollback"]
         D["Schema Validation"]
+        E["Transactional Overlay<br/>Copy-on-Write"]
+        F["Lock System<br/>Global Write Lock"]
     end
     
-    E["Schema"] --> D
+    G["Schema"] --> D
     A --> B
-    C --> A
+    C --> E
+    E --> A
     D --> A
+    F --> C
     
-    F["Model Operations"] --> C
-    C --> G["DataStore State"]
+    H["Model Operations"] --> C
+    C --> I["DataStore State"]
     
     style A fill:#e1f5ff
     style B fill:#fff4e1
     style C fill:#e8f5e9
     style D fill:#f3e5f5
-    style E fill:#fce4ec
+    style E fill:#fff9c4
     style F fill:#fce4ec
-    style G fill:#fff9c4
+    style G fill:#e0f2f1
+    style H fill:#e0f2f1
+    style I fill:#f1f8e9
 ```
 
 ## Memory Storage Structure & SID System
@@ -244,15 +250,293 @@ await adapter.connect(dataStore);
 
 See individual adapter READMEs for detailed setup instructions and examples.
 
+## Transactional Overlay (Copy-on-Write)
+
+DataStore uses a Copy-on-Write (COW) overlay mechanism to provide efficient transactional operations without copying the entire document state.
+
+### Architecture
+
+```mermaid
+graph TB
+    subgraph "Base Layer (Read-Only)"
+        A["baseNodes<br/>Map&lt;sid, INode&gt;<br/>Original State"]
+    end
+    
+    subgraph "Overlay Layer (COW)"
+        B["overlayNodes<br/>Map&lt;sid, INode&gt;<br/>Modified Nodes"]
+        C["deletedNodeIds<br/>Set&lt;sid&gt;<br/>Deleted Nodes"]
+        D["touchedParents<br/>Set&lt;sid&gt;<br/>Parents with Content Changes"]
+        E["opBuffer<br/>AtomicOperation[]<br/>Operation History"]
+    end
+    
+    subgraph "Read Path"
+        F["getNode(id)"]
+        G{"deletedNodeIds<br/>has(id)?"}
+        H{"overlayNodes<br/>has(id)?"}
+        I["Return overlay"]
+        J["Return base"]
+        K["Return undefined"]
+    end
+    
+    subgraph "Write Path"
+        L["updateNode/createNode"]
+        M["Clone from base<br/>if needed"]
+        N["Apply changes"]
+        O["Store in overlay"]
+    end
+    
+    A --> F
+    B --> F
+    C --> F
+    
+    F --> G
+    G -->|yes| K
+    G -->|no| H
+    H -->|yes| I
+    H -->|no| J
+    
+    L --> M
+    M --> N
+    N --> O
+    O --> B
+    
+    style A fill:#e1f5ff
+    style B fill:#fff4e1
+    style C fill:#fce4ec
+    style D fill:#e8f5e9
+    style E fill:#f3e5f5
+```
+
+### How It Works
+
+1. **Transaction Begin**: `begin()` initializes an empty overlay without copying base nodes
+2. **Read Operations**: `getNode()` checks in order:
+   - `deletedNodeIds` → returns `undefined` if deleted
+   - `overlayNodes` → returns overlay version if modified
+   - `baseNodes` → returns original version (fallback)
+3. **Write Operations**: Changes are written to overlay using COW:
+   - If node exists in overlay → use overlay version
+   - If node exists only in base → clone from base to overlay
+   - Apply changes to cloned node
+   - Store in overlay
+4. **Transaction End**: `end()` returns collected operations (overlay remains active)
+5. **Commit**: `commit()` applies overlay changes to base in deterministic order:
+   - `create` → `update` → `move` → `delete`
+   - Clears overlay after application
+6. **Rollback**: `rollback()` discards overlay without applying changes
+
+### Transaction Lifecycle
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant DataStore
+    participant Overlay
+    participant Base
+    
+    Client->>DataStore: begin()
+    DataStore->>Overlay: begin()
+    Note over Overlay: Initialize empty overlay
+    
+    Client->>DataStore: updateNode(id, changes)
+    DataStore->>Overlay: Check if node in overlay
+    alt Node in overlay
+        Overlay-->>DataStore: Use overlay node
+    else Node only in base
+        DataStore->>Base: getNode(id)
+        Base-->>DataStore: Original node
+        DataStore->>Overlay: Clone to overlay
+    end
+    DataStore->>Overlay: Apply changes
+    DataStore->>Overlay: Store in overlayNodes
+    DataStore->>Overlay: Record operation in opBuffer
+    
+    Client->>DataStore: end()
+    DataStore->>Overlay: getCollectedOperations()
+    Overlay-->>Client: Return operations array
+    
+    Client->>DataStore: commit()
+    DataStore->>Overlay: Get operations
+    DataStore->>Base: Apply operations in order
+    Note over Base: create → update → move → delete
+    DataStore->>Overlay: rollback()
+    Note over Overlay: Clear overlay state
+```
+
+### Benefits
+
+- **O(1) Transaction Start**: No copying of base nodes on `begin()`
+- **Memory Efficient**: Only modified nodes are duplicated
+- **Atomic Operations**: All changes are collected and applied atomically
+- **Rollback Support**: Discard changes without affecting base state
+- **Operation History**: All operations are recorded for sync/collaboration
+
+### Usage
+
+```typescript
+// Begin transaction
+dataStore.begin();
+
+try {
+  // All operations are written to overlay
+  dataStore.updateNode('node-1', { text: 'Updated' });
+  dataStore.createNode({ stype: 'paragraph', text: 'New' });
+  
+  // Get collected operations (overlay still active)
+  const operations = dataStore.end();
+  
+  // Commit overlay to base
+  dataStore.commit();
+} catch (error) {
+  // Rollback discards overlay
+  dataStore.rollback();
+}
+```
+
+## Lock System
+
+DataStore provides a global write lock to prevent concurrent write conflicts during transactions.
+
+### Architecture
+
+```mermaid
+graph TB
+    subgraph "Lock Manager"
+        A["Current Lock<br/>lockId, ownerId, acquiredAt"]
+        B["Transaction Queue<br/>Waiting Transactions"]
+        C["Lock Statistics<br/>Acquisitions, Timeouts, Wait Time"]
+    end
+    
+    subgraph "Lock Acquisition"
+        D["acquireLock(ownerId)"]
+        E{"Lock<br/>Available?"}
+        F["Immediate Acquisition"]
+        G["Queue Entry"]
+        H["Wait for Release"]
+    end
+    
+    subgraph "Lock Release"
+        I["releaseLock(lockId)"]
+        J["Clear Current Lock"]
+        K["Grant to Next<br/>in Queue"]
+    end
+    
+    D --> E
+    E -->|Yes| F
+    E -->|No| G
+    G --> H
+    H --> K
+    
+    I --> J
+    J --> K
+    
+    F --> A
+    K --> A
+    A --> C
+    B --> C
+    
+    style A fill:#e1f5ff
+    style B fill:#fff4e1
+    style C fill:#e8f5e9
+    style F fill:#f3e5f5
+    style G fill:#fce4ec
+```
+
+### How It Works
+
+1. **Lock Acquisition**: `acquireLock(ownerId)` attempts to acquire the global write lock
+   - If available → immediately granted
+   - If busy → added to queue, waits for current lock release
+   - Returns a unique `lockId` for the acquired lock
+
+2. **Lock Queue**: Multiple transactions can wait in a FIFO queue
+   - Each queued transaction has a timeout (default: 5 seconds)
+   - Timeout rejects the promise if lock not acquired in time
+
+3. **Lock Release**: `releaseLock(lockId)` releases the current lock
+   - Validates `lockId` matches current lock (optional)
+   - Grants lock to next transaction in queue
+   - Updates statistics
+
+4. **Lock Timeout**: Automatic timeout prevents deadlocks
+   - Queue timeout: 5 seconds (rejects if not acquired)
+   - Lock timeout: 50 seconds (force releases if held too long)
+
+### Usage
+
+```typescript
+// Acquire lock
+const lockId = await dataStore.acquireLock('transaction-1');
+
+try {
+  // Perform operations with exclusive access
+  dataStore.begin();
+  dataStore.updateNode('node-1', { text: 'Updated' });
+  dataStore.commit();
+} finally {
+  // Always release lock
+  dataStore.releaseLock(lockId);
+}
+```
+
+### Lock Statistics
+
+```typescript
+const stats = dataStore.getLockStats();
+// {
+//   totalAcquisitions: number,
+//   totalReleases: number,
+//   totalTimeouts: number,
+//   averageWaitTime: number,
+//   queueLength: number,
+//   isLocked: boolean,
+//   currentLock: { lockId, ownerId, acquiredAt } | null,
+//   queue: Array<{ lockId, ownerId }>
+// }
+```
+
+### Lock Methods
+
+```typescript
+// Acquire lock (returns Promise<string>)
+const lockId = await dataStore.acquireLock('owner-id');
+
+// Release lock
+dataStore.releaseLock(lockId);
+
+// Check if locked
+const isLocked = dataStore.isLocked();
+
+// Get current lock info
+const lockInfo = dataStore.getCurrentLock();
+// { lockId: string, ownerId: string, acquiredAt: number } | null
+
+// Get queue length
+const queueLength = dataStore.getQueueLength();
+
+// Get lock statistics
+const stats = dataStore.getLockStats();
+```
+
+### Best Practices
+
+1. **Always Release**: Use try/finally to ensure lock is released
+2. **Timeout Handling**: Handle timeout errors appropriately
+3. **Owner ID**: Use meaningful owner IDs for debugging
+4. **Lock Scope**: Keep lock scope minimal (only during critical sections)
+
 ## Overview
 
 `@barocss/datastore` provides a normalized, transactional data store for document nodes. It manages:
 
 - **Node Storage**: Normalized node storage with `sid` (stable ID) and `stype` (schema type)
 - **Schema Validation**: Schema-aware operations with validation
-- **Transactions**: Atomic operations with rollback support
+- **Transactions**: Atomic operations with rollback support via Copy-on-Write overlay
+- **Transactional Overlay**: Efficient COW mechanism that only duplicates modified nodes
+- **Lock System**: Global write lock with queue for concurrent transaction management
 - **Content Management**: Parent-child relationships and content ordering
 - **Mark Management**: Text marks (bold, italic, etc.) with range tracking
+- **Operation Events**: `emitOperation()` / `onOperation()` for collaboration integration
 
 ## Installation
 
@@ -347,20 +631,45 @@ dataStore.transformNode('node-id', 'heading', { level: 1 });
 
 ### Transactions
 
+Transactions use a Copy-on-Write overlay mechanism for efficient atomic operations:
+
 ```typescript
-// Begin transaction
+// Begin transaction (initializes overlay)
 dataStore.begin();
 
 try {
-  // Perform operations
+  // All operations are written to overlay (not base)
   dataStore.updateNode('text-1', { text: 'New text' });
   dataStore.content.addChild('parent-id', newNode, 0);
   
-  // Commit
-  dataStore.end();
+  // End transaction (returns collected operations)
+  const operations = dataStore.end();
+  
+  // Commit applies overlay to base
+  dataStore.commit();
 } catch (error) {
-  // Rollback on error
+  // Rollback discards overlay without affecting base
   dataStore.rollback();
+}
+```
+
+### Transactions with Lock
+
+For concurrent access, use the lock system:
+
+```typescript
+// Acquire lock before transaction
+const lockId = await dataStore.acquireLock('transaction-1');
+
+try {
+  dataStore.begin();
+  dataStore.updateNode('text-1', { text: 'New text' });
+  dataStore.commit();
+} catch (error) {
+  dataStore.rollback();
+} finally {
+  // Always release lock
+  dataStore.releaseLock(lockId);
 }
 ```
 
@@ -398,9 +707,19 @@ new DataStore(rootNodeId?: string, schema?: Schema)
 - `setSchema(schema: Schema): void` - Set active schema
 
 **Transaction Management**
-- `begin(): void` - Begin transaction
-- `end(): void` - End transaction
-- `rollback(): void` - Rollback transaction
+- `begin(): void` - Begin transaction (initializes overlay)
+- `end(): AtomicOperation[]` - End transaction (returns collected operations)
+- `commit(): void` - Commit transaction (applies overlay to base)
+- `rollback(): void` - Rollback transaction (discards overlay)
+- `getCollectedOperations(): AtomicOperation[]` - Get collected operations
+
+**Lock Management**
+- `acquireLock(ownerId?: string): Promise<string>` - Acquire global write lock
+- `releaseLock(lockId?: string): void` - Release global write lock
+- `isLocked(): boolean` - Check if lock is currently held
+- `getCurrentLock(): { lockId: string; ownerId: string; acquiredAt: number } | null` - Get current lock info
+- `getQueueLength(): number` - Get number of transactions waiting in queue
+- `getLockStats(): LockStats` - Get lock statistics
 
 **Document Management**
 - `setRootNodeId(nodeId: string): void` - Set root node
@@ -435,6 +754,39 @@ interface IMark {
 }
 ```
 
+### AtomicOperation
+```typescript
+interface AtomicOperation {
+  type: 'create' | 'update' | 'delete' | 'move';
+  nodeId: string;        // SID reference
+  data?: any;            // Node snapshot
+  timestamp: number;
+  parentId?: string;     // SID reference
+  position?: number;     // Position in parent content
+}
+```
+
+### LockStats
+```typescript
+interface LockStats {
+  totalAcquisitions: number;    // Total number of lock acquisitions
+  totalReleases: number;        // Total number of lock releases
+  totalTimeouts: number;        // Total number of timeout errors
+  averageWaitTime: number;      // Average wait time in milliseconds
+  queueLength: number;          // Current queue length
+  isLocked: boolean;            // Whether lock is currently held
+  currentLock: {                // Current lock info (null if unlocked)
+    lockId: string;
+    ownerId: string;
+    acquiredAt: number;
+  } | null;
+  queue: Array<{                // Queued transactions
+    lockId: string;
+    ownerId: string;
+  }>;
+}
+```
+
 ## Advanced Features
 
 ### Drop Behavior
@@ -456,12 +808,30 @@ defineDropBehavior('image', {
 
 ### Performance Optimization
 
+#### Batch Operations with Overlay
+
+The Copy-on-Write overlay allows efficient batching:
+
 ```typescript
-// Batch operations
+// Begin transaction (O(1) - no copying)
 dataStore.begin();
-// ... multiple operations
-dataStore.end(); // All operations committed atomically
+
+// Multiple operations (only modified nodes are duplicated)
+dataStore.updateNode('node-1', { text: 'Updated' });
+dataStore.updateNode('node-2', { text: 'Updated' });
+dataStore.createNode({ stype: 'paragraph', text: 'New' });
+
+// End returns operations, commit applies atomically
+const operations = dataStore.end();
+dataStore.commit(); // All changes applied in one go
 ```
+
+#### Benefits
+
+- **O(1) Transaction Start**: No copying on `begin()`
+- **Memory Efficient**: Only modified nodes are duplicated
+- **Atomic Commit**: All changes applied together
+- **Operation Collection**: All operations collected for sync/collaboration
 
 ## Testing
 
