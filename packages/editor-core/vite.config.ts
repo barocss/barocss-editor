@@ -20,7 +20,6 @@ export default defineConfig({
         '@barocss/model',
         '@barocss/datastore',
         '@barocss/renderer-dom',
-        '@barocss/renderer-react'
       ],
     },
   },

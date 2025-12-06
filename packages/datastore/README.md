@@ -1126,9 +1126,14 @@ pnpm test:run
 
 ## Documentation
 
+### Implementation Guides
 - [Transaction Integration Guide](./docs/transaction-integration.md) - How Model transactions integrate with DataStore lock and overlay systems
 - [Document Iterator Specification](./docs/document-iterator-spec.md) - Detailed specification of DocumentIterator traversal logic and algorithms
 - [Model Traversal API](./docs/model-traversal-api.md) - Complete API reference for document traversal and navigation
+
+### Design Decisions
+- [Drop Behavior Architecture](./docs/drop-behavior-architecture.md) - Design rationale for drop behavior system (hybrid approach: schema + defineDropBehavior)
+- [Node Type Specifications](./docs/) - Specifications for draggable, droppable, editable, and selectable nodes
 
 ## License
 

@@ -10,7 +10,7 @@ import { IS_MAC, IS_LINUX, IS_WINDOWS } from '@barocss/shared';
 
 export class Editor implements ContextProvider {
   private _document: any;
-  private _dataStore: any; // DataStore 타입 임시로 any 사용
+  private _dataStore: any; // Temporarily using any for DataStore type
   private _transactionManager: TransactionManager;
   private _selectionManager: SelectionManager;
   private _historyManager: HistoryManager;
@@ -26,7 +26,7 @@ export class Editor implements ContextProvider {
   private _context: Record<string, unknown> = {};
 
   constructor(options: EditorOptions = {}) {
-    this._dataStore = options.dataStore || new DataStore(); // DataStore 인스턴스
+    this._dataStore = options.dataStore || new DataStore();
     this._document = options.content ? this._convertFromDocumentState(options.content) : this._createEmptyDocument();
     this._historyManager = new HistoryManager(options.history);
     this._transactionManager = new TransactionManager(this);
@@ -37,37 +37,26 @@ export class Editor implements ContextProvider {
     this._keybindingRegistry = new KeybindingRegistryImpl();
     this._keybindingRegistry.setContextProvider(this);
     
-    // 초기 context 설정 (Extension 초기화 전에 기본값 설정)
-    // 이 값들은 Extension의 onCreate에서 항상 존재한다고 가정할 수 있음
+    // Initialize context before extension initialization
+    // These values are assumed to always exist in extension's onCreate
     this._context = { ...DEFAULT_CONTEXT_INITIAL_VALUES };
-    this._updateBuiltinContext(); // 실제 상태로 업데이트
+    this._updateBuiltinContext();
     
-    // 기본 command 등록 (setContext)
     this._registerCoreCommands();
-    
-    // 기본 keybinding 등록 (자동으로 source: 'core')
     this._registerDefaultKeybindings();
-    
-    // 초기 문서를 히스토리에 추가
     this._addToHistory(this._document);
     
-    // Extension 등록 (자동으로 source: 'extension')
     if (options.extensions) {
       options.extensions.forEach(ext => this.use(ext));
     }
     
-    // Model 이벤트 구독
     this._setupModelEventHandling();
-    
-    // Selection 이벤트 구독
     this._setupSelectionEventHandling();
-    
-    // Selection 에러 처리 설정
     this._setupSelectionErrorHandling();
   }
 
   private _registerCoreCommands(): void {
-    // setContext command (VS Code 스타일)
+    // setContext command (VS Code style)
     this.registerCommand({
       name: 'setContext',
       execute: (editor: Editor, payload?: { key: string; value: unknown }) => {
@@ -83,7 +72,7 @@ export class Editor implements ContextProvider {
   }
 
   private _registerDefaultKeybindings(): void {
-    // Core keybinding 등록 시 자동으로 'core'로 설정
+    // Automatically set source to 'core' when registering core keybindings
     this._keybindingRegistry.setCurrentSource('core');
     DEFAULT_KEYBINDINGS.forEach((binding) => {
       this.keybindings.register(binding);
@@ -91,7 +80,6 @@ export class Editor implements ContextProvider {
     this._keybindingRegistry.setCurrentSource(null);
   }
 
-  // 상태 접근
   get document(): DocumentState {
     return this._convertToDocumentState(this._document);
   }
@@ -124,7 +112,6 @@ export class Editor implements ContextProvider {
     return (this as any)._rootId;
   }
 
-  // SelectionManager 메서드들을 Editor 레벨에서 직접 접근 가능하도록 위임
   setRange(rangeSelection: any): void {
     this._selectionManager.setRange(rangeSelection);
   }
@@ -141,17 +128,17 @@ export class Editor implements ContextProvider {
     const effectiveRootId = rootId ?? this._rootId;
     const exporter = new DataStoreExporter(this._dataStore);
     const tree = exporter.exportToTree(effectiveRootId);
-    // exportToTree()는 실제 루트 노드를 그대로 반환 (INode 형식: stype, sid)
+    // exportToTree() returns the actual root node as-is (INode format: stype, sid)
     return tree;
   }
 
   /**
-   * Proxy 기반으로 문서를 반환 (lazy evaluation)
+   * Returns document as Proxy (lazy evaluation)
    * 
-   * content 배열이 ID 배열인 경우, 접근 시에만 실제 노드로 변환하여 메모리 효율적
+   * When content array contains IDs, converts to actual nodes only on access for memory efficiency
    * 
-   * @param rootId - 루트 노드 ID (없으면 기본 루트 사용)
-   * @returns Proxy로 래핑된 INode (ModelData 호환)
+   * @param rootId - Root node ID (uses default root if not provided)
+   * @returns Proxy-wrapped INode (ModelData compatible)
    */
   getDocumentProxy(rootId?: string): any | null {
     const effectiveRootId = rootId ?? this._rootId;
@@ -168,7 +155,6 @@ export class Editor implements ContextProvider {
     this._selectionManager.setAbsolutePos(absoluteSelection);
   }
 
-  // Selection 에러는 이벤트로 처리 (임시 비활성화)
   private _setupSelectionErrorHandling(): void {
     // this._selectionManager.setErrorHandler((error: any) => {
     //   this.emit('error:selection', { error });
@@ -183,7 +169,6 @@ export class Editor implements ContextProvider {
     return this._selectionManager.isSelectionInContentEditable();
   }
 
-  // 명령어 실행
   chain(): CommandChain {
     return new CommandChain(this);
   }
@@ -219,36 +204,26 @@ export class Editor implements ContextProvider {
     return commandDef.canExecute ? commandDef.canExecute(this, payload) : true;
   }
 
-  // 상태 변경
   setContent(content: DocumentState): void {
     this._document = this._convertFromDocumentState(content);
     this.emit('editor:content.change', { content, transaction: null });
   }
 
   updateSelection(selection: SelectionState | any): void {
-    // ModelSelection 형식인 경우 (type: 'range')
+    // ModelSelection format (type: 'range')
     if (selection && selection.type === 'range') {
-      // ModelSelection을 SelectionManager에 저장
       this._selectionManager.setSelection(selection);
-      
-      // context 업데이트
       this._updateBuiltinContext();
-      
-      // editor:selection.model 이벤트 발생
-      // View에서 render() 이후 DOM selection을 복원함
+      // View restores DOM selection after render()
       this.emit('editor:selection.model', selection);
       return;
     }
     
-    // SelectionState 형식인 경우 (기존 동작)
-    // context 업데이트
+    // SelectionState format (legacy behavior)
     this._updateBuiltinContext();
-    
-    // 대신 이벤트를 발생시켜 상태 변경을 알림
     this.emit('editor:selection.change', { selection, oldSelection: this.selection });
   }
 
-  // contentEditable 요소 설정 (editor-view-dom에서 호출)
   setContentEditableElement(element: HTMLElement): void {
     this._selectionManager.setContentEditableElement(element);
   }
@@ -259,31 +234,30 @@ export class Editor implements ContextProvider {
     this.emit('editor:editable.change', { editable });
   }
 
-  // Context 관리 (VS Code 스타일)
   setContext(key: string, value: unknown): void {
     const oldValue = this._context[key];
     
-    // null 또는 undefined를 설정하면 context key를 제거
+    // Remove context key if null or undefined
     if (value === null || value === undefined) {
       delete this._context[key];
     } else {
       this._context[key] = value;
     }
     
-    // Context 변경 이벤트 발생
-    // 1. 일반 이벤트: 모든 context 변경을 구독
+    // Emit context change events
+    // 1. General event: subscribe to all context changes
     this.emit('editor:context.change', { key, value, oldValue });
     
-    // 2. 특정 key에 대한 이벤트: 원하는 key만 구독 가능
+    // 2. Key-specific event: subscribe to specific keys only
     this.emit(`editor:context.change:${key}`, { key, value, oldValue });
     
-    // Context 변경 시 관련된 모든 부분이 자동으로 반응하도록 이벤트 기반으로 동작
-    // 예: keybinding 활성화/비활성화, UI 업데이트 등
-    // 주의: When clause는 resolve() 호출 시점에 재평가되며, 자동으로 재평가되지 않습니다.
+    // Context changes trigger event-based reactions
+    // e.g., keybinding enable/disable, UI updates
+    // Note: When clauses are re-evaluated on resolve() call, not automatically
   }
 
   /**
-   * 특정 context key의 변경만 구독하는 편의 메서드
+   * Convenience method to subscribe to changes of a specific context key
    * 
    * @example
    * ```typescript
@@ -299,46 +273,44 @@ export class Editor implements ContextProvider {
     const eventName = `editor:context.change:${key}`;
     this.on(eventName, callback);
     
-    // unsubscribe 함수 반환
+    // Return unsubscribe function
     return () => {
       this.off(eventName, callback);
     };
   }
 
   /**
-   * Context 조회
+   * Get context
    * 
-   * @param key - 조회할 context key (선택). 제공되지 않으면 전체 context 반환
-   * @returns key가 제공되면 해당 값, 아니면 전체 context 객체
+   * @param key - Context key to query (optional). Returns full context if not provided
+   * @returns Value for the key if provided, otherwise full context object
    * 
    * @example
    * ```typescript
-   * // 전체 context 조회
+   * // Get full context
    * const context = editor.getContext();
    * 
-   * // 특정 key 조회 (편의 메서드)
+   * // Get specific key (convenience method)
    * const isFocused = editor.getContext('editorFocus');
    * ```
    */
   getContext(): Record<string, unknown>;
   getContext(key: string): unknown;
   getContext(key?: string): Record<string, unknown> | unknown {
-    this._updateBuiltinContext(); // 항상 최신 상태로 업데이트
+    this._updateBuiltinContext(); // Always update to latest state
     
     if (key !== undefined) {
-      // 특정 key 조회
       return this._context[key];
     }
     
-    // 전체 context 반환
     return { ...this._context };
   }
 
   private _updateBuiltinContext(): void {
-    // 기본 context key 자동 업데이트
+    // Auto-update built-in context keys
     this._context.editorFocus = this._isFocused;
     this._context.editorEditable = this._isEditable;
-    // 플랫폼 context (고정 값)
+    // Platform context (fixed values)
     this._context.isMac = IS_MAC;
     this._context.isLinux = IS_LINUX;
     this._context.isWindows = IS_WINDOWS;
@@ -349,12 +321,12 @@ export class Editor implements ContextProvider {
       this._context.selectionType = selection.type;
       this._context.selectionDirection = selection.direction;
       
-      // canIndent: 선택된 노드가 indentable한지 체크 (구조적 들여쓰기)
+      // canIndent: check if selected node is indentable (structural indentation)
       const targetNodeId = this._getIndentableTargetNodeId(selection);
       this._context.canIndent = targetNodeId !== null && 
                                 this._dataStore.isIndentableNode(targetNodeId);
       
-      // canIndentText: Range selection이고 텍스트 노드인지 체크 (텍스트 들여쓰기)
+      // canIndentText: check if range selection and text node (text indentation)
       if (selection.type === 'range') {
         const startNode = this._dataStore.getNode(selection.startNodeId);
         this._context.canIndentText = startNode !== null && 
@@ -370,30 +342,27 @@ export class Editor implements ContextProvider {
       this._context.canIndentText = false;
     }
 
-    // History context
     this._context.historyCanUndo = this._historyManager.canUndo();
     this._context.historyCanRedo = this._historyManager.canRedo();
   }
 
   /**
-   * 현재 selection에서 indent/outdent 대상 노드 ID를 가져옴
-   * - Node Selection: startNodeId 사용
-   * - Range Selection: startNodeId의 부모 블록 노드
+   * Get indent/outdent target node ID from current selection
+   * - Node Selection: use startNodeId
+   * - Range Selection: parent block node of startNodeId
    */
   private _getIndentableTargetNodeId(selection: ModelSelection): string | null {
-    // Node Selection: startNodeId 사용
     if (selection.type === 'node') {
       return selection.startNodeId;
     }
 
-    // Range Selection: startNodeId의 부모 블록 노드를 찾음
     if (selection.type === 'range') {
       const startNode = this._dataStore.getNode(selection.startNodeId);
       if (!startNode) return null;
 
       const schema = this._dataStore.getActiveSchema();
       
-      // startNode가 블록이면 그대로 사용
+      // Use startNode if it's a block
       if (schema) {
         const nodeType = schema.getNodeType(startNode.stype);
         if (nodeType?.group === 'block' && this._dataStore.isIndentableNode(startNode.sid!)) {
@@ -401,7 +370,7 @@ export class Editor implements ContextProvider {
         }
       }
 
-      // startNode의 부모 블록 노드를 찾음
+      // Find parent block node of startNode
       let current = startNode;
       while (current && current.parentId) {
         const parent = this._dataStore.getNode(current.parentId);
@@ -416,11 +385,10 @@ export class Editor implements ContextProvider {
       }
     }
 
-    // cell, table 타입은 indentable하지 않음
+    // cell, table types are not indentable
     return null;
   }
 
-  // 이벤트 관리
   on(event: EditorEventType, callback: Function): void {
     if (!this._eventListeners.has(event)) {
       this._eventListeners.set(event, new Set());
@@ -455,7 +423,6 @@ export class Editor implements ContextProvider {
     }
   }
 
-  // 확장 관리
   use(extension: Extension): void {
     if (this._extensions.has(extension.name)) {
       console.warn(`Extension ${extension.name} is already installed`);
@@ -465,7 +432,6 @@ export class Editor implements ContextProvider {
     try {
       extension.onBeforeCreate?.(this);
       
-      // 확장의 명령어 등록
       if (extension.commands) {
         extension.commands.forEach(command => {
           this._commands.set(command.name, command);
@@ -474,16 +440,16 @@ export class Editor implements ContextProvider {
       
       this._extensions.set(extension.name, extension);
       
-      // Extension 등록 전에 현재 소스를 'extension'으로 설정
+      // Set source to 'extension' before extension registration
       this._keybindingRegistry.setCurrentSource('extension');
       extension.onCreate?.(this);
-      // Extension 등록 후 소스 초기화
+      // Reset source after extension registration
       this._keybindingRegistry.setCurrentSource(null);
       
       this.emit('extension:add', { extension });
     } catch (error) {
       console.error(`Error installing extension ${extension.name}:`, error);
-      // 에러 발생 시에도 소스 초기화
+      // Reset source even on error
       this._keybindingRegistry.setCurrentSource(null);
       throw error;
     }
@@ -498,7 +464,6 @@ export class Editor implements ContextProvider {
     try {
       extension.onDestroy?.(this);
       
-      // 확장의 명령어 제거
       if (extension.commands) {
         extension.commands.forEach(command => {
           this._commands.delete(command.name);
@@ -512,12 +477,10 @@ export class Editor implements ContextProvider {
     }
   }
 
-  // 명령어 등록 (확장에서 사용)
   registerCommand(command: Command): void {
     this._commands.set(command.name, command);
   }
 
-  // 히스토리
   undo(): void {
     try {
       if (this._historyIndex > 0) {
@@ -558,22 +521,20 @@ export class Editor implements ContextProvider {
     return this._historyIndex < this._history.length - 1;
   }
 
-  // 트랜잭션 실행
   executeTransaction(transaction: Transaction): void {
     try {
-      // TODO: 실제 트랜잭션 실행 로직 구현
+      // TODO: Implement actual transaction execution logic
       // this._transactionManager.commitTransaction(transaction);
 
       // Lightweight model mutation bridge for demo
       this._applyBasicTransaction(transaction as any);
       
-      // 문서 변경 시 히스토리에 추가
       this._addToHistory(this._document);
       
       this.emit('transactionExecuted', { transaction });
-      // 가시성 향상을 위한 임시 브리지: 콘텐츠 변경 이벤트도 발생
+      // Temporary bridge: also emit content change event
       this.emit('editor:content.change', { content: this.document, transaction });
-      // 모델 selection이 트랜잭션에 포함된 경우 브리지 이벤트로 알림
+      // Bridge event if model selection is included in transaction
       const selAfter = (transaction as any)?.selectionAfter;
       if (selAfter) {
         this.emit('editor:selection.model', selAfter as any);
@@ -595,7 +556,7 @@ export class Editor implements ContextProvider {
       const afterNodeId: string | undefined = tx.afterNodeId;
       const afterNode = afterNodeId ? ds.getNode(afterNodeId) : undefined;
       if (!afterNode) return;
-      // parent 찾기: 없으면 루트를 parent로 사용
+      // Find parent: use root as parent if not found
       const parent = (afterNode.parentId ? ds.getNode(afterNode.parentId) : ds.getNode(this.getRootId?.() as any)) || ds.getRootNode?.();
       if (!parent) return;
       const newParaId = tx.newParagraphId || genId();
@@ -669,7 +630,7 @@ export class Editor implements ContextProvider {
       const insertText: string = tx.text ?? '';
       const newText = oldText.slice(0, start) + insertText + oldText.slice(end);
       
-      // marks 업데이트 (제공된 경우)
+      // Update marks if provided
       const updatedNode: any = {
         ...node,
         text: newText,
@@ -699,9 +660,8 @@ export class Editor implements ContextProvider {
     }
   }
 
-  // Model 이벤트 처리 설정
   private _setupModelEventHandling(): void {
-    // TransactionManager 이벤트 구독 (임시 비활성화)
+    // TransactionManager event subscription (temporarily disabled)
     // this._transactionManager.on('transaction_commit', (event) => {
     //   this.emit('contentChange', {
     //     content: this.document,
@@ -717,7 +677,7 @@ export class Editor implements ContextProvider {
     //   this.emit('transactionRollback', { transaction: event.transaction });
     // });
 
-    // DataStore 이벤트 구독 (타입 안전성을 위해 임시로 주석 처리)
+    // DataStore event subscription (commented out for type safety)
     // this._dataStore.on('node_created', (event: any) => {
     //   this.emit('nodeCreate', { node: event.node, position: event.position });
     // });
@@ -731,7 +691,6 @@ export class Editor implements ContextProvider {
     // });
   }
 
-  // 헬퍼 메서드들
   private _createEmptyDocument(): any {
     return {
       id: `doc-${Date.now()}`,
@@ -744,7 +703,7 @@ export class Editor implements ContextProvider {
         createdAt: new Date(),
         updatedAt: new Date()
       },
-      schema: {} as any, // TODO: 기본 스키마 설정
+      schema: {} as any, // TODO: Set default schema
       version: 1
     };
   }
@@ -771,39 +730,37 @@ export class Editor implements ContextProvider {
         createdAt: state.createdAt,
         updatedAt: state.updatedAt
       },
-      schema: {} as any, // TODO: 기본 스키마 설정
+      schema: {} as any, // TODO: Set default schema
       version: state.version
     };
   }
 
   private _convertNode(node: INode): any {
-    // TODO: INode를 DocumentState Node로 변환
+    // TODO: Convert INode to DocumentState Node
     return node;
   }
 
   private _convertFromNode(node: any): INode {
-    // TODO: DocumentState Node를 INode로 변환
+    // TODO: Convert DocumentState Node to INode
     return node;
   }
 
   private _addToHistory(document: any): void {
-    // 현재 인덱스 이후의 히스토리 제거 (새로운 변경사항이 있을 때)
+    // Remove history after current index when new changes occur
     this._history = this._history.slice(0, this._historyIndex + 1);
     
-    // 새 문서를 히스토리에 추가
     this._history.push({ ...document });
     this._historyIndex++;
     
-    // 히스토리 크기 제한 (최대 100개)
+    // Limit history size (max 100)
     if (this._history.length > 100) {
       this._history.shift();
       this._historyIndex--;
     }
   }
 
-  // Selection 이벤트 처리 설정
   private _setupSelectionEventHandling(): void {
-    // SelectionManager의 이벤트를 Editor 이벤트로 전달 (임시 비활성화)
+    // Forward SelectionManager events to Editor events (temporarily disabled)
     // this._selectionManager.on('selectionChange', (data: any) => {
     //   this.emit('editor:selection.change', data);
     // });
@@ -819,28 +776,23 @@ export class Editor implements ContextProvider {
     // });
   }
 
-  // 생명주기
   destroy(): void {
-    // SelectionManager 정리
     this._selectionManager.clearSelection();
     this._selectionManager.destroy();
 
-    // 모든 확장 제거
     this._extensions.forEach(extension => {
       this.unuse(extension);
     });
 
-    // 이벤트 리스너 정리
     this._eventListeners.clear();
 
-    // TODO: Model 정리
+    // TODO: Clean up Model
     // this._transactionManager.destroy?.();
 
     this.emit('editor:destroy', { editor: this });
   }
 }
 
-// 명령어 체이닝 클래스
 export class CommandChain {
   private editor: Editor;
   private commands: Array<{ command: string; payload?: any }> = [];
@@ -849,7 +801,6 @@ export class CommandChain {
     this.editor = editor;
   }
 
-  // 명령어 추가
   insertText(text: string): CommandChain {
     this.commands.push({ command: 'insertText', payload: text });
     return this;
@@ -895,7 +846,6 @@ export class CommandChain {
     return this;
   }
 
-  // 실행
   async run(): Promise<boolean> {
     let success = true;
     for (const { command, payload } of this.commands) {
@@ -914,89 +864,86 @@ export class CommandChain {
   }
 }
 
-// History 관련 메서드들을 Editor 클래스에 추가
 declare module './editor' {
   interface Editor {
     /**
-     * 실행 취소
+     * Undo
      */
     undo(): Promise<boolean>;
 
     /**
-     * 다시 실행
+     * Redo
      */
     redo(): Promise<boolean>;
 
     /**
-     * 실행 취소 가능 여부
+     * Check if undo is possible
      */
     canUndo(): boolean;
 
     /**
-     * 다시 실행 가능 여부
+     * Check if redo is possible
      */
     canRedo(): boolean;
 
-
     /**
-     * 히스토리 통계 정보
+     * Get history statistics
      */
     getHistoryStats(): any;
 
     /**
-     * 히스토리 초기화
+     * Clear history
      */
     clearHistory(): void;
 
     /**
-     * HistoryManager 인스턴스 접근 (내부용)
+     * Access HistoryManager instance (internal use)
      */
     get historyManager(): HistoryManager;
 
     /**
-     * 트랜잭션 실행
+     * Execute transaction
      */
     transaction(operations: any[]): any;
 
     /**
-     * 히스토리 압축
+     * Compress history
      */
     compressHistory(): void;
 
     /**
-     * 히스토리 크기 조정
+     * Resize history
      */
     resizeHistory(maxSize: number): void;
 
     /**
-     * 히스토리 메모리 사용량 확인
+     * Get history memory usage
      */
     getHistoryMemoryUsage(): number;
 
     /**
-     * 히스토리 상태 검증
+     * Validate history state
      */
     validateHistory(): { isValid: boolean; errors: string[] };
   }
 }
 
-// History 관련 메서드 구현
 Editor.prototype.undo = async function(): Promise<boolean> {
   const entry = this._historyManager.undo();
   if (!entry) return false;
 
   try {
-    // undo/redo 플래그 설정
+    // Set undo/redo flag
     this._transactionManager._isUndoRedoOperation = true;
     
-    // 역함수 operations 실행
+    // Execute inverse operations
     const result = await this._transactionManager.execute(entry.inverseOperations);
     return result.success;
   } catch (error) {
     console.error('[Editor] undo failed:', error);
     return false;
   } finally {
-    // 플래그 해제
+    // Clear flag
     this._transactionManager._isUndoRedoOperation = false;
   }
 };
@@ -1006,17 +953,17 @@ Editor.prototype.redo = async function(): Promise<boolean> {
   if (!entry) return false;
 
   try {
-    // undo/redo 플래그 설정
+    // Set undo/redo flag
     this._transactionManager._isUndoRedoOperation = true;
     
-    // 원래 operations 실행
+    // Execute original operations
     const result = await this._transactionManager.execute(entry.operations);
     return result.success;
   } catch (error) {
     console.error('[Editor] redo failed:', error);
     return false;
   } finally {
-    // 플래그 해제
+    // Clear flag
     this._transactionManager._isUndoRedoOperation = false;
   }
 };
@@ -1045,7 +992,7 @@ Object.defineProperty(Editor.prototype, 'historyManager', {
 });
 
 Editor.prototype.transaction = function(operations: any[]) {
-  // TransactionBuilder를 반환
+  // Return TransactionBuilder
   return {
     commit: async () => {
       return await this._transactionManager.execute(operations);

@@ -17,7 +17,10 @@
     "test:coverage": "pnpm --filter @barocss/schema test:coverage",
     "lint": "pnpm -r lint",
     "type-check": "pnpm -r type-check",
-    "clean": "pnpm -r clean"
+    "clean": "pnpm -r clean",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "pnpm build && changeset publish"
   },
   "devDependencies": {
     "@types/node": "^20.19.24",

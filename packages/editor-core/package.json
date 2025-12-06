@@ -29,7 +29,6 @@
     "@barocss/model": "workspace:*",
     "@barocss/renderer-dom": "workspace:*",
     "@barocss/shared": "workspace:*",
-    "@barocss/renderer-react": "workspace:*",
     "@barocss/schema": "workspace:*"
   },
   "devDependencies": {
@@ -46,5 +45,20 @@
     "wysiwyg"
   ],
   "author": "Barocss Team",
-  "license": "MIT"
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "main": "./dist/index.js",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      }
+    },
+    "files": [
+      "dist"
+    ]
+  }
 }

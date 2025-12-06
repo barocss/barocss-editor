@@ -24,7 +24,6 @@
       "@barocss/model": ["./packages/model/src"],
       "@barocss/dsl": ["./packages/dsl/src"],
       "@barocss/renderer-dom": ["./packages/renderer-dom/src"],
-      "@barocss/renderer-react": ["./packages/renderer-react/src"],
       "@barocss/editor-core": ["./packages/editor-core/src"]
     }
   },
