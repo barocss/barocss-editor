@@ -25,7 +25,7 @@ export class CopyPasteExtension implements Extension {
   private _htmlConverter: HTMLConverter | null = null;
 
   onCreate(editor: Editor): void {
-    // HTML/Markdown Converter 초기화 및 기본 규칙 등록
+    // Initialize HTML/Markdown Converter and register default rules
     this._htmlConverter = new HTMLConverter();
     registerDefaultHTMLRules();
     registerOfficeHTMLRules();
@@ -42,14 +42,14 @@ export class CopyPasteExtension implements Extension {
           return false;
         }
 
-        // 1) 모델 관점 copy → 히스토리/undo를 위해 유지
+        // 1) Model perspective copy → maintained for history/undo
         const builder = transaction(ed, [copyOp(selection as any)]);
         const result = await builder.commit();
         if (!result || (result as any).success === false) {
           return false;
         }
 
-        // 2) DataStore + Converter 기반 Clipboard 데이터 생성
+        // 2) Generate Clipboard data based on DataStore + Converter
         const dataStore = (ed as any).dataStore;
         if (dataStore && this._htmlConverter) {
           try {
@@ -58,7 +58,7 @@ export class CopyPasteExtension implements Extension {
             const html: string = this._htmlConverter.convert(json, 'html');
             await this._writeClipboard({ json, text, html });
           } catch {
-            // Clipboard 실패는 편집 자체를 막지 않는다.
+            // Clipboard failure does not block editing itself
           }
         }
 
@@ -81,14 +81,14 @@ export class CopyPasteExtension implements Extension {
 
         let nodes: INode[] | undefined = payload?.nodes;
 
-        // payload로 nodes가 안 오면 Clipboard에서 읽어온다.
+        // Read from Clipboard if nodes are not provided in payload
         if (!nodes || nodes.length === 0) {
           const clip = await this._readClipboard();
-          // 1) 내부 JSON 포맷 (application/x-barocss 등에서 온 결과라고 가정)
+          // 1) Internal JSON format (assume result from application/x-barocss, etc.)
           if (clip.json && Array.isArray(clip.json)) {
             nodes = clip.json;
           }
-          // 2) HTML 포맷: Office / Google Docs / Notion / 일반 HTML 구분
+          // 2) HTML format: distinguish Office / Google Docs / Notion / general HTML
           if ((!nodes || nodes.length === 0) && clip.html && this._htmlConverter) {
             try {
               const source = this._detectHtmlSource(clip.html);
@@ -96,14 +96,14 @@ export class CopyPasteExtension implements Extension {
               if (source === 'office') {
                 htmlForParse = cleanOfficeHTML(htmlForParse);
               }
-              // Google Docs / Notion 은 각각 registerGoogleDocsHTMLRules / registerNotionHTMLRules
-              // 가 onCreate 에서 이미 호출되어 있으므로, 여기서는 HTML만 넘겨주면 된다.
+              // Google Docs / Notion have registerGoogleDocsHTMLRules / registerNotionHTMLRules
+              // already called in onCreate, so just pass HTML here
               nodes = this._htmlConverter.parse(htmlForParse, 'html') as INode[];
             } catch {
               // fallback to text
             }
           }
-          // 3) text/plain: markdown 여부를 heuristic 으로 보고 분기
+          // 3) text/plain: branch based on heuristic check for markdown
           if ((!nodes || nodes.length === 0) && clip.text) {
             if (this._looksLikeMarkdown(clip.text)) {
               try {
@@ -150,7 +150,7 @@ export class CopyPasteExtension implements Extension {
             const html: string = this._htmlConverter.convert(json, 'html');
             await this._writeClipboard({ json, text, html });
           } catch {
-            // clipboard 실패는 편집 자체를 막지 않는다.
+            // clipboard failure does not block editing itself
           }
         }
 
@@ -166,8 +166,8 @@ export class CopyPasteExtension implements Extension {
   }
 
   /**
-   * 텍스트를 paragraph + inline-text 노드 배열로 변환한다.
-   * 단순 paste fallback 용도로 사용된다.
+   * Converts text to array of paragraph + inline-text nodes.
+   * Used for simple paste fallback.
    */
   private _textToNodes(text: string): INode[] {
     const lines = text.split(/\r?\n/);
@@ -187,8 +187,8 @@ export class CopyPasteExtension implements Extension {
     return nodes;
   }
 
-  // 실제 브라우저 Clipboard API 대신, 테스트/호출자가 교체 가능한 훅을 제공한다.
-  // 기본 구현은 브라우저 환경이면 navigator.clipboard.writeText로 텍스트만 기록한다.
+  // Provides a hook that can be replaced by tests/callers instead of actual browser Clipboard API.
+  // Default implementation only writes text using navigator.clipboard.writeText if in browser environment.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   protected async _writeClipboard(data: ClipboardLike): Promise<void> {
     try {
@@ -201,8 +201,8 @@ export class CopyPasteExtension implements Extension {
   }
 
   /**
-   * Clipboard에서 데이터를 읽어온다.
-   * 기본 구현은 text 기반만 지원한다.
+   * Reads data from Clipboard.
+   * Default implementation only supports text-based.
    */
   protected async _readClipboard(): Promise<ClipboardLike> {
     try {
@@ -217,16 +217,16 @@ export class CopyPasteExtension implements Extension {
   }
 
   /**
-   * HTML 문자열에서 소스를 추정한다.
-   * - office: Word/PowerPoint/Excel 등의 HTML
+   * Estimates source from HTML string.
+   * - office: HTML from Word/PowerPoint/Excel, etc.
    * - google-docs: Google Docs HTML
    * - notion: Notion Export/Copy HTML
-   * - default: 그 외
+   * - default: others
    */
   private _detectHtmlSource(html: string): 'office' | 'google-docs' | 'notion' | 'default' {
     const lower = html.toLowerCase();
 
-    // Office HTML 특징: MsoNormal, mso-*, <o:p>, v:shape 등
+    // Office HTML characteristics: MsoNormal, mso-*, <o:p>, v:shape, etc.
     if (
       lower.includes('class="msonormal') ||
       lower.includes('mso-') ||
@@ -237,7 +237,7 @@ export class CopyPasteExtension implements Extension {
       return 'office';
     }
 
-    // Google Docs HTML 특징: docs-internal, data-docs-*, id="docs-internal-guid-..."
+    // Google Docs HTML characteristics: docs-internal, data-docs-*, id="docs-internal-guid-..."
     if (
       lower.includes('docs-internal') ||
       lower.includes('data-docs-') ||
@@ -246,7 +246,7 @@ export class CopyPasteExtension implements Extension {
       return 'google-docs';
     }
 
-    // Notion HTML 특징: data-block-id, notion- 클래스를 자주 사용
+    // Notion HTML characteristics: frequently uses data-block-id, notion- classes
     if (
       lower.includes('data-block-id') ||
       lower.includes('class="notion-')
@@ -258,10 +258,10 @@ export class CopyPasteExtension implements Extension {
   }
 
   /**
-   * 텍스트가 markdown-like 인지 대략적으로 판정한다.
+   * Roughly determines if text is markdown-like.
    */
   private _looksLikeMarkdown(text: string): boolean {
-    const lines = text.split(/\r?\n/).slice(0, 20); // 처음 몇 줄만 본다
+    const lines = text.split(/\r?\n/).slice(0, 20); // Only look at first few lines
     let score = 0;
     for (const raw of lines) {
       const line = raw.trim();

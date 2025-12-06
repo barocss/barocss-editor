@@ -13,7 +13,7 @@ export interface INode {
   attributes?: Record<string, any>;
   content?: (INode | string)[];
   text?: string;
-  marks?: IMark[]; // Mark만 노드 레벨에서 관리
+  marks?: IMark[]; // Only marks are managed at node level
   parentId?: string;
   metadata?: Record<string, any>;
   version?: number;

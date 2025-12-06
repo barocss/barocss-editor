@@ -5,27 +5,27 @@ import { GlobalConverterRegistry } from './registry';
 const registry = GlobalConverterRegistry.getInstance();
 
 /**
- * HTML 변환기
- * HTML 문자열을 모델 노드로 파싱하고, 모델 노드를 HTML 문자열로 변환합니다.
+ * HTML converter
+ * Parses HTML strings to model nodes and converts model nodes to HTML strings.
  */
 export class HTMLConverter {
   /**
-   * HTML 문자열을 모델 노드 배열로 파싱합니다.
+   * Parses HTML string to model node array.
    * 
-   * @param html HTML 문자열
-   * @param format 형식 (기본값: 'html')
-   * @returns 모델 노드 배열
+   * @param html HTML string
+   * @param format Format (default: 'html')
+   * @returns Model node array
    */
   parse(html: string, format: Format = 'html'): INode[] {
     if (format !== 'html') {
       throw new Error(`HTMLConverter.parse() only supports 'html' format, got '${format}'`);
     }
     
-    // DOMParser를 사용하여 HTML 파싱
+    // Parse HTML using DOMParser
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
     
-    // body의 자식 요소들을 순회하며 변환
+    // Traverse and convert body's child elements
     const nodes: INode[] = [];
     const body = doc.body;
     
@@ -33,7 +33,7 @@ export class HTMLConverter {
       return nodes;
     }
     
-    // body의 직접 자식 요소들을 변환
+    // Convert body's direct child elements
     for (const child of Array.from(body.childNodes)) {
       const node = this._parseDOMNode(child as Element | Text);
       if (node) {
@@ -45,10 +45,10 @@ export class HTMLConverter {
   }
   
   /**
-   * DOM 노드를 모델 노드로 변환
+   * Converts DOM node to model node
    */
   private _parseDOMNode(node: Element | Text): INode | null {
-    // Text 노드 처리
+    // Handle Text node
     if (node.nodeType === Node.TEXT_NODE) {
       const text = node.textContent?.trim();
       if (!text) return null;
@@ -58,7 +58,7 @@ export class HTMLConverter {
       };
     }
     
-    // Element 노드 처리
+    // Handle Element node
     if (node.nodeType !== Node.ELEMENT_NODE) {
       return null;
     }
@@ -66,8 +66,8 @@ export class HTMLConverter {
     const element = node as Element;
     const tagName = element.tagName.toLowerCase();
     
-    // 모든 stype에 대해 파서 규칙 확인
-    // 우선순위가 높은 규칙부터 시도
+    // Check parser rules for all stypes
+    // Try rules with higher priority first
     const allParserRules = this._getAllParserRules('html');
     
     for (const { stype, rules } of allParserRules) {
@@ -83,15 +83,15 @@ export class HTMLConverter {
       }
     }
     
-    // 기본 처리: 알 수 없는 태그는 paragraph로 변환 (block) 또는 inline-text로 변환 (inline)
+    // Default handling: convert unknown tags to paragraph (block) or inline-text (inline)
     return this._defaultElementToNode(element);
   }
   
   /**
-   * 모든 파서 규칙 조회 (stype별로 그룹화)
+   * Query all parser rules (grouped by stype)
    * 
-   * 현재는 알려진 stype들에 대해 규칙을 조회합니다.
-   * 나중에 registry에 getAllParserRules() 메서드를 추가하여 최적화 가능합니다.
+   * Currently queries rules for known stypes.
+   * Can be optimized later by adding getAllParserRules() method to registry.
    */
   private _getAllParserRules(format: Format): Array<{ stype: string; rules: any[] }> {
     const knownStypes = [
@@ -131,10 +131,10 @@ export class HTMLConverter {
       for (const [key, value] of Object.entries(rule.attrs)) {
         const attrValue = element.getAttribute(key);
         if (value === null) {
-          // 속성이 없어야 함
+          // Attribute should not exist
           if (attrValue !== null) return false;
         } else {
-          // 속성 값이 일치해야 함
+          // Attribute value must match
           if (attrValue !== value) return false;
         }
       }
@@ -151,14 +151,14 @@ export class HTMLConverter {
   }
   
   /**
-   * Element를 모델 노드로 변환
+   * Converts Element to model node
    */
   private _convertElementToNode(
     element: Element,
     stype: string,
     domRule: ParseDOMRule
   ): INode | null {
-    // 속성 추출
+    // Extract attributes
     let attributes: Record<string, any> | undefined;
     if (domRule.getAttrs) {
       const attrs = domRule.getAttrs(element);
@@ -166,14 +166,14 @@ export class HTMLConverter {
         attributes = attrs;
       }
     } else {
-      // 기본 속성 추출 (data-* 속성 등)
+      // Extract default attributes (data-* attributes, etc.)
       attributes = this._extractAttributes(element);
     }
     
-    // 자식 노드 변환
+    // Convert child nodes
     const content: INode[] = [];
     for (const child of Array.from(element.childNodes)) {
-      // table 내부의 tbody/thead/tfoot는 구조 래퍼로 간주하고 자식들을 직접 파싱
+      // Treat tbody/thead/tfoot inside table as structural wrappers and parse children directly
       if (
         stype === 'table' &&
         child.nodeType === Node.ELEMENT_NODE &&
@@ -194,7 +194,7 @@ export class HTMLConverter {
       }
     }
     
-    // 텍스트 추출 (자식이 없는 경우)
+    // Extract text (when no children)
     let text: string | undefined;
     if (content.length === 0) {
       text = element.textContent?.trim() || undefined;
@@ -209,15 +209,15 @@ export class HTMLConverter {
   }
   
   /**
-   * 기본 Element → Node 변환 (규칙이 없는 경우)
+   * Default Element → Node conversion (when no rules)
    */
   private _defaultElementToNode(element: Element): INode {
-    // Block 요소인지 확인
+    // Check if block element
     const blockTags = ['div', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'section', 'article', 'header', 'footer', 'nav', 'aside'];
     const isBlock = blockTags.includes(element.tagName.toLowerCase());
     
     if (isBlock) {
-      // Block 요소는 paragraph로 변환
+      // Convert block element to paragraph
       const content: INode[] = [];
       for (const child of Array.from(element.childNodes)) {
         const childNode = this._parseDOMNode(child as Element | Text);
@@ -232,7 +232,7 @@ export class HTMLConverter {
         text: content.length === 0 ? element.textContent?.trim() : undefined
       };
     } else {
-      // Inline 요소는 텍스트만 추출
+      // Extract only text for inline elements
       return {
         stype: 'inline-text',
         text: element.textContent?.trim() || ''
@@ -241,16 +241,16 @@ export class HTMLConverter {
   }
   
   /**
-   * Element의 속성 추출
+   * Extract Element attributes
    */
   private _extractAttributes(element: Element): Record<string, any> | undefined {
     const attrs: Record<string, any> = {};
     let hasAttrs = false;
     
     for (const attr of Array.from(element.attributes)) {
-      // data-* 속성만 추출 (일반 속성은 무시)
+      // Extract only data-* attributes (ignore regular attributes)
       if (attr.name.startsWith('data-')) {
-        // key는 'data-xxx' 전체를 그대로 보존
+        // Preserve entire 'data-xxx' as key
         const key = attr.name;
         attrs[key] = attr.value;
         hasAttrs = true;
@@ -261,11 +261,11 @@ export class HTMLConverter {
   }
   
   /**
-   * 모델 노드 배열을 HTML 문자열로 변환합니다.
+   * Converts model node array to HTML string.
    * 
-   * @param nodes 모델 노드 배열
-   * @param format 형식 (기본값: 'html')
-   * @returns HTML 문자열
+   * @param nodes Model node array
+   * @param format Format (default: 'html')
+   * @returns HTML string
    */
   convert(nodes: INode[], format: Format = 'html'): string {
     if (format !== 'html') {
@@ -290,15 +290,15 @@ export class HTMLConverter {
   private _convertNodeToHTML(node: INode): string {
     const stype = node.stype;
     
-    // 변환 규칙 조회
+    // Query conversion rules
     const rules = registry.getConverterRules(stype, 'html');
     
     if (rules.length > 0) {
-      // 첫 번째 규칙 사용 (우선순위가 가장 높은 것)
+      // Use first rule (highest priority)
       const rule = rules[0];
       let result = rule.convert(node);
       if (typeof result === 'string') {
-        // PLACEHOLDER_CONTENT를 실제 content로 교체
+        // Replace PLACEHOLDER_CONTENT with actual content
         if (result.includes('PLACEHOLDER_CONTENT')) {
           const content = this._convertContentToHTML(node.content);
           result = result.replace('PLACEHOLDER_CONTENT', content);
@@ -307,7 +307,7 @@ export class HTMLConverter {
       }
     }
     
-    // 기본 변환 (규칙이 없는 경우)
+    // Default conversion (when no rule exists)
     return this._defaultNodeToHTML(node);
   }
   
@@ -337,14 +337,14 @@ export class HTMLConverter {
    */
   private _defaultNodeToHTML(node: INode): string {
     if (node.text !== undefined) {
-      // 텍스트 노드
+      // Text node
       return this._escapeHTML(node.text);
     }
     
-    // 자식 노드 변환
+    // Convert child nodes
     const childrenHTML = this._convertContentToHTML(node.content);
     
-    // 기본 태그 사용
+    // Use default tag
     const tag = this._getDefaultTag(node.stype);
     return `<${tag}>${childrenHTML}</${tag}>`;
   }

@@ -1,9 +1,9 @@
 /**
- * Model 레벨에서만 Selection을 관리하는 SelectionManager
- * DOM과는 완전히 분리되어 있으며, editor-view-dom에서 DOM ↔ Model 변환을 처리합니다.
+ * SelectionManager that manages Selection only at the Model level
+ * Completely separated from DOM, DOM ↔ Model conversion is handled in editor-view-dom.
  * 
- * 이 클래스는 순수하게 Model 레벨에서 Selection 상태만 관리하며,
- * DOM 조작이나 이벤트 처리는 하지 않습니다.
+ * This class purely manages Selection state at the Model level only,
+ * and does not perform DOM manipulation or event handling.
  */
 
 import { DataStore } from "@barocss/datastore";
@@ -23,7 +23,7 @@ export class SelectionManager {
     }
   }
 
-  // ===== 기본 Selection 관리 =====
+  // ===== Basic Selection Management =====
 
   get startNodeId(): string | null {
     return this._currentSelection?.startNodeId || null;
@@ -42,37 +42,37 @@ export class SelectionManager {
   }
 
   /**
-   * 현재 Selection 반환
+   * Get current Selection
    */
   getCurrentSelection(): ModelSelection | null {
     return this._currentSelection;
   }
 
   /**
-   * Selection 설정
+   * Set Selection
    */
   setSelection(selection: ModelSelection | null): void {
     this._currentSelection = selection;
   }
 
   /**
-   * Selection 클리어
+   * Clear Selection
    */
   clearSelection(): void {
     this._currentSelection = null;
   }
 
-  // ===== Selection 상태 확인 =====
+  // ===== Selection State Check =====
 
   /**
-   * Selection이 비어있는지 확인
+   * Check if Selection is empty
    */
   isEmpty(): boolean {
     return this._currentSelection === null;
   }
 
   /**
-   * Selection이 특정 노드에 있는지 확인 (anchor 또는 focus가 해당 노드)
+   * Check if Selection is in a specific node (anchor or focus is in that node)
    */
   isInNode(nodeId: string): boolean {
     if (!this._currentSelection) return false;
@@ -80,7 +80,7 @@ export class SelectionManager {
   }
 
   /**
-   * Selection이 특정 위치에 있는지 확인 (collapsed)
+   * Check if Selection is at a specific position (collapsed)
    */
   isAtPosition(nodeId: string, position: number): boolean {
     if (!this._currentSelection) return false;
@@ -91,12 +91,12 @@ export class SelectionManager {
   }
 
   /**
-   * Selection이 특정 범위에 있는지 확인 (단일 노드 내에서)
+   * Check if Selection is in a specific range (within a single node)
    */
   isInRange(nodeId: string, start: number, end: number): boolean {
     if (!this._currentSelection) return false;
     
-    // 단일 노드 내에서만 범위 확인 가능
+    // Range check only possible within a single node
     if (this._currentSelection.startNodeId !== nodeId || this._currentSelection.endNodeId !== nodeId) {
       return false;
     }
@@ -108,12 +108,12 @@ export class SelectionManager {
   }
 
   /**
-   * Selection이 특정 범위와 겹치는지 확인 (단일 노드 내에서)
+   * Check if Selection overlaps with a specific range (within a single node)
    */
   overlapsWith(nodeId: string, start: number, end: number): boolean {
     if (!this._currentSelection) return false;
     
-    // 단일 노드 내에서만 겹침 확인 가능
+    // Overlap check only possible within a single node
     if (this._currentSelection.startNodeId !== nodeId || this._currentSelection.endNodeId !== nodeId) {
       return false;
     }
@@ -125,21 +125,21 @@ export class SelectionManager {
   }
 
   /**
-   * Selection 길이 반환 (단일 노드 내에서만)
+   * Get Selection length (only within a single node)
    */
   getLength(): number {
     if (!this._currentSelection) return 0;
     
-    // 단일 노드 내에서만 길이 계산 가능
+    // Length calculation only possible within a single node
     if (this._currentSelection.startNodeId !== this._currentSelection.endNodeId) {
-      return 0; // 또는 다른 처리 방식
+      return 0;
     }
     
     return Math.abs(this._currentSelection.endOffset - this._currentSelection.startOffset);
   }
 
   /**
-   * Selection이 collapsed인지 확인 (anchor === focus)
+   * Check if Selection is collapsed (anchor === focus)
    */
   isCollapsed(): boolean {
     if (!this._currentSelection) return true;
@@ -147,10 +147,10 @@ export class SelectionManager {
            this._currentSelection.startOffset === this._currentSelection.endOffset;
   }
 
-  // ===== Selection 조작 =====
+  // ===== Selection Manipulation =====
 
   /**
-   * Selection을 특정 위치로 이동 (collapsed)
+   * Move Selection to a specific position (collapsed)
    */
   moveTo(nodeId: string, position: number): void {
     this._currentSelection = {
@@ -163,7 +163,7 @@ export class SelectionManager {
   }
 
   /**
-   * Selection을 특정 범위로 설정 (단일 노드 내에서)
+   * Set Selection to a specific range (within a single node)
    */
   selectRange(nodeId: string, start: number, end: number): void {
     this._currentSelection = {
@@ -176,7 +176,7 @@ export class SelectionManager {
   }
 
   /**
-   * Selection을 특정 범위로 설정 (다중 노드 지원)
+   * Set Selection to a specific range (supports multiple nodes)
    */
   selectRangeMulti(startNodeId: string, startOffset: number, endNodeId: string, endOffset: number): void {
     this._currentSelection = {
@@ -189,7 +189,7 @@ export class SelectionManager {
   }
 
   /**
-   * Selection을 확장 (focus만 이동)
+   * Extend Selection (move only focus)
    */
   extendTo(nodeId: string, position: number): void {
     if (!this._currentSelection) {
@@ -207,7 +207,7 @@ export class SelectionManager {
   }
 
   /**
-   * Selection을 축소 (anchor를 focus로)
+   * Collapse Selection (anchor to focus)
    */
   collapseToStart(): void {
     if (!this._currentSelection) return;
@@ -222,7 +222,7 @@ export class SelectionManager {
   }
 
   /**
-   * Selection을 축소 (focus를 anchor로)
+   * Collapse Selection (focus to anchor)
    */
   collapseToEnd(): void {
     if (!this._currentSelection) return;
@@ -236,14 +236,14 @@ export class SelectionManager {
     };
   }
 
-  // ===== 고급 Selection 기능 =====
+  // ===== Advanced Selection Features =====
 
   /**
-   * 전체 노드 선택
+   * Select entire node
    */
   selectNode(nodeId: string): void {
-    // 노드의 전체 내용을 선택 (텍스트 길이를 알아야 함)
-    // DataStore에서 노드 정보를 가져와야 함
+    // Select entire content of node (need to know text length)
+    // Need to get node information from DataStore
     if (!this._dataStore) {
       throw new Error('DataStore not set');
     }
@@ -253,7 +253,7 @@ export class SelectionManager {
       throw new Error(`Node not found: ${nodeId}`);
     }
     
-    // 텍스트 노드인 경우 텍스트 길이를 사용
+    // Use text length for text nodes
     const textLength = node.text ? node.text.length : 0;
     
     this._currentSelection = {
@@ -266,7 +266,7 @@ export class SelectionManager {
   }
 
   /**
-   * 모든 텍스트 선택 (루트 노드부터)
+   * Select all text (from root node)
    */
   selectAll(): void {
       if (!this._dataStore) {
@@ -278,7 +278,7 @@ export class SelectionManager {
       return;
     }
     
-    // 루트 노드의 첫 번째 텍스트 노드부터 마지막까지 선택
+    // Select from first text node to last in root node
     const allNodes = this._dataStore.getAllNodes();
     const textNodes = allNodes.filter(node => node.text !== undefined);
     
@@ -299,7 +299,7 @@ export class SelectionManager {
   }
 
   /**
-   * 현재 위치에서 노드 시작까지 선택
+   * Select from current position to node start
    */
   selectToStart(): void {
     if (!this._currentSelection) return;
@@ -314,7 +314,7 @@ export class SelectionManager {
   }
 
   /**
-   * 현재 위치에서 노드 끝까지 선택
+   * Select from current position to node end
    */
   selectToEnd(): void {
     if (!this._currentSelection || !this._dataStore) return;
@@ -332,14 +332,14 @@ export class SelectionManager {
   }
 
   /**
-   * 노드 시작으로 이동
+   * Move to node start
    */
   moveToStart(nodeId: string): void {
     this.moveTo(nodeId, 0);
   }
 
   /**
-   * 노드 끝으로 이동
+   * Move to node end
    */
   moveToEnd(nodeId: string): void {
     if (!this._dataStore) {
@@ -355,7 +355,7 @@ export class SelectionManager {
   }
 
   /**
-   * 상대적 위치로 이동
+   * Move by relative position
    */
   moveBy(offset: number): void {
     if (!this._currentSelection) return;
@@ -365,7 +365,7 @@ export class SelectionManager {
   }
 
   /**
-   * 상대적 범위로 확장
+   * Extend by relative range
    */
   extendBy(offset: number): void {
     if (!this._currentSelection) return;
@@ -375,7 +375,7 @@ export class SelectionManager {
   }
 
   /**
-   * 단어 선택 (현재 위치 기준)
+   * Select word (based on current position)
    */
   selectWord(nodeId: string, position: number): void {
     if (!this._dataStore) {
@@ -393,7 +393,7 @@ export class SelectionManager {
     let wordStart = -1;
     let wordEnd = -1;
     
-    // 현재 위치가 포함된 단어 찾기
+    // Find word containing current position
     while ((match = wordRegex.exec(text)) !== null) {
       if (position >= match.index && position < match.index + match[0].length) {
         wordStart = match.index;
@@ -405,7 +405,7 @@ export class SelectionManager {
     if (wordStart !== -1 && wordEnd !== -1) {
       this.selectRange(nodeId, wordStart, wordEnd);
     } else {
-      // 단어가 없으면 현재 위치로 collapsed
+      // If no word, collapse to current position
       this._currentSelection = {
       type: 'range',
         startNodeId: nodeId,
@@ -417,7 +417,7 @@ export class SelectionManager {
   }
 
   /**
-   * 라인 선택 (현재 위치 기준)
+   * Select line (based on current position)
    */
   selectLine(nodeId: string, position: number): void {
     if (!this._dataStore) {
@@ -435,7 +435,7 @@ export class SelectionManager {
     let lineStart = 0;
     let lineEnd = 0;
     
-    // 현재 위치가 포함된 라인 찾기
+    // Find line containing current position
     for (let i = 0; i < lines.length; i++) {
       const lineLength = lines[i].length;
       lineEnd = currentPos + lineLength;
@@ -451,10 +451,10 @@ export class SelectionManager {
     this.selectRange(nodeId, lineStart, lineEnd);
   }
 
-  // ===== Selection 변환 =====
+  // ===== Selection Transformation =====
 
   /**
-   * 텍스트 삽입 후 Selection 위치 조정
+   * Adjust Selection position after text insertion
    */
   adjustForTextInsert(nodeId: string, position: number, insertedLength: number): void {
     if (!this._currentSelection) return;
@@ -462,12 +462,12 @@ export class SelectionManager {
     let newAnchorOffset = this._currentSelection.startOffset;
     let newFocusOffset = this._currentSelection.endOffset;
 
-    // anchor가 해당 노드에 있고 삽입 위치 이후에 있는 경우
+    // If anchor is in the node and after insertion position
     if (this._currentSelection.startNodeId === nodeId && this._currentSelection.startOffset >= position) {
       newAnchorOffset = this._currentSelection.startOffset + insertedLength;
     }
 
-    // focus가 해당 노드에 있고 삽입 위치 이후에 있는 경우
+    // If focus is in the node and after insertion position
     if (this._currentSelection.endNodeId === nodeId && this._currentSelection.endOffset >= position) {
       newFocusOffset = this._currentSelection.endOffset + insertedLength;
     }
@@ -482,7 +482,7 @@ export class SelectionManager {
   }
 
   /**
-   * 텍스트 삭제 후 Selection 위치 조정
+   * Adjust Selection position after text deletion
    */
   adjustForTextDelete(nodeId: string, startPos: number, endPos: number): void {
     if (!this._currentSelection) return;
@@ -491,24 +491,24 @@ export class SelectionManager {
     let newAnchorOffset = this._currentSelection.startOffset;
     let newFocusOffset = this._currentSelection.endOffset;
 
-    // anchor가 해당 노드에 있는 경우
+    // If anchor is in the node
     if (this._currentSelection.startNodeId === nodeId) {
       if (this._currentSelection.startOffset >= endPos) {
-        // 삭제 범위 이후에 있는 경우
+        // If after deletion range
         newAnchorOffset = this._currentSelection.startOffset - deletedLength;
       } else if (this._currentSelection.startOffset > startPos) {
-        // 삭제 범위 내에 있는 경우
+        // If within deletion range
         newAnchorOffset = startPos;
       }
     }
 
-    // focus가 해당 노드에 있는 경우
+    // If focus is in the node
     if (this._currentSelection.endNodeId === nodeId) {
       if (this._currentSelection.endOffset >= endPos) {
-        // 삭제 범위 이후에 있는 경우
+        // If after deletion range
         newFocusOffset = this._currentSelection.endOffset - deletedLength;
       } else if (this._currentSelection.endOffset > startPos) {
-        // 삭제 범위 내에 있는 경우
+        // If within deletion range
         newFocusOffset = startPos;
       }
     }
@@ -523,12 +523,12 @@ export class SelectionManager {
   }
 
   /**
-   * 노드 분할 후 Selection 위치 조정
+   * Adjust Selection position after node split
    */
   adjustForNodeSplit(nodeId: string, splitPosition: number): void {
     if (!this._currentSelection) return;
 
-    // anchor가 해당 노드에 있는 경우 분할 지점으로 이동
+    // If anchor is in the node, move to split point
     if (this._currentSelection.startNodeId === nodeId) {
       this._currentSelection = {
       type: 'range',
@@ -540,10 +540,10 @@ export class SelectionManager {
     }
   }
 
-  // ===== 유틸리티 메서드 =====
+  // ===== Utility Methods =====
 
   /**
-   * Selection이 특정 노드에 완전히 포함되어 있는지 확인
+   * Check if Selection is fully contained within a specific node
    */
   isFullyInNode(nodeId: string): boolean {
     if (!this._currentSelection) return false;
@@ -551,7 +551,7 @@ export class SelectionManager {
   }
 
   /**
-   * Selection이 특정 노드와 겹치는지 확인
+   * Check if Selection overlaps with a specific node
    */
   overlapsWithNode(nodeId: string): boolean {
     if (!this._currentSelection) return false;
@@ -559,7 +559,7 @@ export class SelectionManager {
   }
 
   /**
-   * Selection의 시작 위치 반환
+   * Get Selection start position
    */
   getStartPosition(): { nodeId: string; offset: number } | null {
     if (!this._currentSelection) return null;
@@ -575,7 +575,7 @@ export class SelectionManager {
   }
 
   /**
-   * Selection의 끝 위치 반환
+   * Get Selection end position
    */
   getEndPosition(): { nodeId: string; offset: number } | null {
     if (!this._currentSelection) return null;
@@ -591,7 +591,7 @@ export class SelectionManager {
   }
 
   /**
-   * Selection이 뒤집혀 있는지 확인 (anchor가 focus보다 뒤에 있음)
+   * Check if Selection is reversed (anchor is after focus)
    */
   isReversed(): boolean {
     if (!this._currentSelection) return false;
@@ -602,7 +602,7 @@ export class SelectionManager {
   }
 
   /**
-   * Selection을 정규화 (anchor가 항상 focus보다 앞에 오도록)
+   * Normalize Selection (anchor always comes before focus)
    */
   normalize(): void {
     if (!this._currentSelection) return;
@@ -619,12 +619,12 @@ export class SelectionManager {
   }
 
   /**
-   * Selection의 텍스트 내용 반환 (단일 노드 내에서만)
+   * Get Selection text content (only within a single node)
    */
   getSelectedText(): string | null {
     if (!this._currentSelection || !this._dataStore) return null;
     
-    // 단일 노드 내에서만 텍스트 반환 가능
+    // Text return only possible within a single node
     if (this._currentSelection.startNodeId !== this._currentSelection.endNodeId) {
       return null;
     }
@@ -638,17 +638,17 @@ export class SelectionManager {
     return node.text.substring(start, end);
   }
 
-  // ===== DataStore 설정 =====
+  // ===== DataStore Configuration =====
 
   /**
-   * DataStore 설정
+   * Set DataStore
    */
   setDataStore(dataStore: any): void {
     this._dataStore = dataStore;
   }
 
   /**
-   * 현재 SelectionManager를 복제하여 새로운 SelectionManager를 반환합니다.
+   * Clone current SelectionManager and return a new SelectionManager.
    * @returns new SelectionManager
    */
   clone(): SelectionManager {

@@ -199,7 +199,7 @@ export function element<T extends AllTagNames>(
   const isNative = isNativeHTMLTag(tag);
   
   if (typeof tag === 'string' && !isNative) {
-    // define()으로 정의된 모든 것은 component만 가능하므로 getComponent()만 사용
+    // Everything defined with define() is component-only, so only use getComponent()
     const registeredComponent = globalRegistry.getComponent(tag);
     if (registeredComponent) {
       // Delegate to component() so children are normalized consistently
@@ -584,7 +584,7 @@ export function addMarkClassAttribute(stype: string, template: RenderTemplate): 
     const existingClass = (template.attributes && (template.attributes as any)['className']) || '';
     const markClass = `mark-${stype}`;
     
-    // 중복 체크: 이미 mark-${stype}가 포함되어 있으면 추가하지 않음
+    // Duplicate check: don't add if mark-${stype} is already included
     const classStr = String(existingClass);
     const classList = classStr.split(/\s+/).filter(c => c.length > 0);
     const alreadyHasMarkClass = classList.includes(markClass);

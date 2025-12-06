@@ -32,7 +32,7 @@ describe('moveBlockDown operation (exec)', () => {
     });
     dataStore.registerSchema(schema);
 
-    // 문서 구조 생성
+    // Create document structure
     const docNode: INode = {
       sid: 'doc-1',
       stype: 'document',

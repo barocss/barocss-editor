@@ -24,11 +24,11 @@ export function splitTextByMarks(text: string, marks: TextMark[] | undefined | n
   if (!text || len === 0) return [];
   const ms = Array.isArray(marks) ? marks : [];
 
-  // range가 없는 마크들을 전체 텍스트에 적용
+  // Apply marks without range to entire text
   const globalMarks = ms.filter(m => m && !m.range);
   const rangedMarks = ms.filter(m => m && m.range);
 
-  // 수집 경계
+  // Collect boundaries
   const boundaries = new Set<number>();
   boundaries.add(0);
   boundaries.add(len);
@@ -52,19 +52,19 @@ export function splitTextByMarks(text: string, marks: TextMark[] | undefined | n
     const types: string[] = [];
     
     // Global marks (no range) - apply to entire text
-    // IMPORTANT: mark-{stype} 클래스를 자동으로 추가하지 않음
-    // 사용자가 명시적으로 정의한 className만 사용해야 함
+    // IMPORTANT: do not automatically add mark-{stype} class
+    // Only use className explicitly defined by user
     for (const m of globalMarks) {
       const markStype = (m as any).stype;
       if (markStype) {
-        // classes.push(`mark-${markStype}`); // 자동 추가 제거
+        // classes.push(`mark-${markStype}`); // Auto-add removed
         types.push(markStype);
       }
     }
     
     // Ranged marks - apply only if they overlap with this run
-    // IMPORTANT: mark-{stype} 클래스를 자동으로 추가하지 않음
-    // 사용자가 명시적으로 정의한 className만 사용해야 함
+    // IMPORTANT: do not automatically add mark-{stype} class
+    // Only use className explicitly defined by user
     for (const m of rangedMarks) {
       const s = clamp(m.range[0] ?? 0, 0, len);
       const e = clamp(m.range[1] ?? 0, 0, len);

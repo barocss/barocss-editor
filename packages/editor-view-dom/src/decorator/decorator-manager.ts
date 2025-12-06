@@ -1,7 +1,7 @@
 /**
  * DecoratorManager
  * 
- * Decorator의 CRUD 작업, 이벤트 발생, 조회를 담당하는 매니저
+ * Manager responsible for Decorator CRUD operations, event emission, and queries
  */
 
 import {
@@ -16,7 +16,7 @@ import {
 import { DecoratorRegistry } from './decorator-registry.js';
 
 /**
- * 간단한 EventEmitter 구현
+ * Simple EventEmitter implementation
  */
 class EventEmitter<T extends Record<string, (...args: any[]) => void>> {
   private listeners = new Map<keyof T, Array<T[keyof T]>>();
@@ -69,32 +69,32 @@ export class DecoratorManager extends EventEmitter<DecoratorEvents> {
   }
   
   /**
-   * Decorator 추가
+   * Add decorator
    */
   add(decorator: Decorator): void {
-    // 검증 (타입이 등록되어 있으면 검증, 없으면 통과)
+    // Validate (validate if type is registered, pass if not)
     const validation = this.registry.validateDecorator(decorator);
     if (!validation.valid) {
       throw new Error(`Invalid decorator: ${validation.errors.join(', ')}`);
     }
     
-    // 기본값 적용 (타입이 등록되어 있으면 기본값 적용)
+    // Apply defaults (apply defaults if type is registered)
     const decoratorWithDefaults = this.registry.applyDefaults(decorator);
     
-    // 중복 ID 체크
+    // Check duplicate ID
     if (this.decorators.has(decorator.sid)) {
       throw new Error(`Decorator with id '${decorator.sid}' already exists`);
     }
     
-    // 저장
+    // Store
     this.decorators.set(decorator.sid, decoratorWithDefaults);
     
-    // 이벤트 발생
+    // Emit event
     this.emit('decorator:added', decoratorWithDefaults);
   }
   
   /**
-   * Decorator 업데이트
+   * Update decorator
    */
   update(id: string, updates: Partial<Decorator>, options: DecoratorUpdateOptions = {}): void {
     const existing = this.decorators.get(id);
@@ -102,32 +102,32 @@ export class DecoratorManager extends EventEmitter<DecoratorEvents> {
       throw new Error(`Decorator with id '${id}' not found`);
     }
     
-    // 부분 업데이트 또는 전체 교체
+    // Partial update or full replacement
     const updated = options.partial !== false 
       ? { ...existing, ...updates }
       : { ...updates } as Decorator;
     
-    // ID는 변경할 수 없음
+    // ID cannot be changed
     updated.sid = existing.sid;
     
-    // 검증
+    // Validate
     const validation = this.registry.validateDecorator(updated as Decorator);
     if (!validation.valid) {
       throw new Error(`Invalid decorator update: ${validation.errors.join(', ')}`);
     }
     
-    // 기본값 적용
+    // Apply defaults
     const updatedWithDefaults = this.registry.applyDefaults(updated as Decorator);
     
-    // 저장
+    // Store
     this.decorators.set(id, updatedWithDefaults);
     
-    // 이벤트 발생
+    // Emit event
     this.emit('decorator:updated', updatedWithDefaults);
   }
   
   /**
-   * Decorator 제거
+   * Remove decorator
    */
   remove(id: string): void {
     const decorator = this.decorators.get(id);
@@ -135,15 +135,15 @@ export class DecoratorManager extends EventEmitter<DecoratorEvents> {
       throw new Error(`Decorator with id '${id}' not found`);
     }
     
-    // 제거
+    // Remove
     this.decorators.delete(id);
     
-    // 이벤트 발생
+    // Emit event
     this.emit('decorator:removed', id);
   }
   
   /**
-   * Decorator 활성화/비활성화
+   * Enable/disable decorator
    */
   setEnabled(id: string, enabled: boolean): boolean {
     const decorator = this.decorators.get(id);
@@ -156,33 +156,33 @@ export class DecoratorManager extends EventEmitter<DecoratorEvents> {
   }
   
   /**
-   * Decorator 활성화 여부 확인
+   * Check if decorator is enabled
    */
   isEnabled(id: string): boolean {
     const decorator = this.decorators.get(id);
-    return decorator?.enabled !== false; // 기본값은 true
+    return decorator?.enabled !== false; // Default is true
   }
   
   /**
-   * 특정 Decorator 조회
+   * Query specific decorator
    */
   get(id: string): Decorator | undefined {
     return this.decorators.get(id);
   }
   
   /**
-   * 모든 Decorator 조회
-   * enable된 것만 반환 (기본값: true)
+   * Query all decorators
+   * Return only enabled ones (default: true)
    */
   getAll(options: DecoratorQueryOptions = {}): Decorator[] {
     let decorators = Array.from(this.decorators.values());
     
-    // enable 필터링 (기본값: true이므로 enabled !== false인 것만)
+    // Filter by enable (default is true, so only enabled !== false)
     if (options.enabledOnly !== false) {
       decorators = decorators.filter(d => d.enabled !== false);
     }
     
-    // 필터링
+    // Filter
     if (options.type) {
       decorators = decorators.filter(d => d.stype === options.type);
     }
@@ -200,7 +200,7 @@ export class DecoratorManager extends EventEmitter<DecoratorEvents> {
       });
     }
     
-    // 정렬
+    // Sort
     if (options.sortBy) {
       const sortOrder = options.sortOrder || 'asc';
       decorators.sort((a, b) => {
@@ -283,13 +283,13 @@ export class DecoratorManager extends EventEmitter<DecoratorEvents> {
     endOffset: number
   ): LayerDecorator[] {
     return this.getLayerDecorators().filter(decorator => {
-      // Layer decorator는 target이 선택사항이므로, target이 없으면 범위 체크 불가
+      // Layer decorator target is optional, so cannot check range if target is missing
       if (!decorator.target) return false;
       
       if ('sid' in decorator.target && decorator.target.sid !== nodeId) return false;
       if (!('sid' in decorator.target)) return false;
       
-      // 범위 겹침 체크
+      // Check range overlap
       const decoratorStart = decorator.target.startOffset ?? 0;
       const decoratorEnd = decorator.target.endOffset ?? 0;
       
@@ -345,7 +345,7 @@ export class DecoratorManager extends EventEmitter<DecoratorEvents> {
     
     this.decorators.clear();
     
-    // 각 Decorator에 대해 제거 이벤트 발생
+    // Emit remove event for each Decorator
     decoratorIds.forEach(id => {
       this.emit('decorator:removed', id);
     });

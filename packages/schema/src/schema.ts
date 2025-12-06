@@ -11,12 +11,12 @@ export class Schema {
     this.nodes = new Map();
     this.marks = new Map();
     
-    // 노드 타입들 등록
+    // Register node types
     for (const [nodeName, nodeDef] of Object.entries(definition.nodes)) {
       this.nodes.set(nodeName, { ...nodeDef, name: nodeName });
     }
     
-    // 마크 타입들 등록
+    // Register mark types
     if (definition.marks) {
       for (const [markName, markDef] of Object.entries(definition.marks)) {
         this.marks.set(markName, { ...markDef, name: markName });
@@ -24,19 +24,19 @@ export class Schema {
     }
   }
 
-  // 노드 타입별 속성 조회
+  // Get attributes by node type
   getAttribute(nodeType: string, attrName: string): AttributeDefinition | undefined {
     const nodeDef = this.getNodeType(nodeType);
     return nodeDef?.attrs?.[attrName];
   }
 
-  // 노드 타입별 콘텐츠 모델 조회
+  // Get content model by node type
   getContentModel(nodeType: string): string | undefined {
     const nodeDef = this.getNodeType(nodeType);
     return nodeDef?.content;
   }
 
-  // 노드 타입별 속성 검증
+  // Validate attributes by node type
   validateAttributes(nodeType: string, attributes: Record<string, any>): ValidationResult {
     const nodeDef = this.getNodeType(nodeType);
     if (!nodeDef) {
@@ -46,7 +46,7 @@ export class Schema {
     return Validator.validateAttributes(nodeDef.attrs || {}, attributes);
   }
 
-  // 노드 타입별 콘텐츠 검증
+  // Validate content by node type
   validateContent(nodeType: string, content: any[]): ValidationResult {
     const nodeDef = this.getNodeType(nodeType);
     if (!nodeDef) {
@@ -60,7 +60,7 @@ export class Schema {
   }
 
 
-  // 노드 타입별 데이터 변환
+  // Transform data by node type
   transform(nodeType: string, data: any): any {
     const nodeDef = this.getNodeType(nodeType);
     if (!nodeDef) {
@@ -69,7 +69,7 @@ export class Schema {
     
     const transformed = { ...data };
     
-    // 속성 변환
+    // Transform attributes
     if (nodeDef.attrs) {
       for (const [key, definition] of Object.entries(nodeDef.attrs)) {
         if (definition.transform && transformed.attrs?.[key]) {
@@ -81,7 +81,7 @@ export class Schema {
     return transformed;
   }
 
-  // 노드 타입 관리
+  // Node type management
   getNodeType(type: string): NodeTypeDefinition | undefined {
     return this.nodes.get(type);
   }
@@ -94,7 +94,7 @@ export class Schema {
     return Array.from(this.nodes.values()).filter(node => node.group === group);
   }
 
-  // Marks 관리
+  // Marks management
   getMarkType(type: string): MarkDefinition | undefined {
     return this.marks.get(type);
   }
@@ -107,7 +107,7 @@ export class Schema {
     return Array.from(this.marks.values()).filter(mark => mark.group === group);
   }
 
-  // Marks 검증
+  // Marks validation
   validateMarks(marks: Mark[]): ValidationResult {
     const errors: string[] = [];
     
@@ -118,7 +118,7 @@ export class Schema {
         continue;
       }
       
-      // 마크 속성 검증
+      // Validate mark attributes
       if (markDef.attrs && mark.attrs) {
         for (const [attrName, attrDef] of Object.entries(markDef.attrs)) {
           const value = mark.attrs[attrName];
@@ -132,12 +132,12 @@ export class Schema {
           }
           
           if (value !== undefined && value !== null) {
-            // 타입 검증
+            // Type validation
             if (!this.validateAttributeType(value, attrDef.type)) {
               errors.push(`Mark '${mark.type}' attribute '${attrName}' has invalid type. Expected ${attrDef.type}, got ${typeof value}`);
             }
             
-            // 커스텀 검증자
+            // Custom validator
             if (attrDef.validator && !attrDef.validator(value, mark.attrs)) {
               errors.push(`Mark '${mark.type}' attribute '${attrName}' failed custom validation`);
             }
@@ -145,7 +145,7 @@ export class Schema {
         }
       }
       
-      // 마크 제외 관계 검증
+      // Validate mark exclusion relationships
       if (markDef.excludes) {
         const conflictingMarks = marks.filter(otherMark => 
           otherMark !== mark && markDef.excludes!.includes(otherMark.type)
@@ -174,9 +174,9 @@ export class Schema {
     }
   }
 
-  // 노드 생성 메서드들 (스펙에 맞게)
+  // Node creation methods (according to spec)
   doc(content?: any[]): any {
-    // TODO: Document 클래스 구현 후 연결
+    // TODO: Connect after Document class implementation
     return {
       type: this.topNode,
       content: content || []
@@ -189,7 +189,7 @@ export class Schema {
       throw new Error(`Unknown node type: ${type}`);
     }
     
-    // TODO: Node 클래스 구현 후 연결
+    // TODO: Connect after Node class implementation
     return {
       type,
       attrs: attrs || {},
@@ -203,7 +203,7 @@ export class Schema {
       throw new Error('Text node type not defined in schema');
     }
     
-    // Marks 검증
+    // Validate marks
     if (marks && marks.length > 0) {
       const marksValidation = this.validateMarks(marks);
       if (!marksValidation.valid) {
@@ -211,7 +211,7 @@ export class Schema {
       }
     }
     
-    // TODO: TextNode 클래스 구현 후 연결
+    // TODO: Connect after TextNode class implementation
     return {
       type: 'text',
       content,
@@ -221,14 +221,14 @@ export class Schema {
   }
 }
 
-// 통합 스키마 생성 함수
+// Unified schema creation function
 export function createSchema(name: string, definition: SchemaDefinition): Schema;
 export function createSchema(baseSchema: Schema, extensions: SchemaExtensions): Schema;
 export function createSchema(
   nameOrBase: string | Schema, 
   definitionOrExtensions: SchemaDefinition | SchemaExtensions
 ): Schema {
-  // 기존 스키마를 확장하는 경우
+  // When extending existing schema
   if (typeof nameOrBase === 'object') {
     const baseSchema = nameOrBase;
     const extensions = definitionOrExtensions as Partial<SchemaDefinition>;
@@ -248,7 +248,7 @@ export function createSchema(
     return new Schema(baseSchema.name, mergedDefinition);
   }
   
-  // 새로운 스키마 생성하는 경우
+  // When creating new schema
   const name = nameOrBase as string;
   const definition = definitionOrExtensions as SchemaDefinition;
   return new Schema(name, definition);

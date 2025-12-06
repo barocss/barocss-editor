@@ -6,16 +6,16 @@ export interface IndentExtensionOptions {
 }
 
 /**
- * Indent Extension - 구조적/텍스트 들여쓰기/내어쓰기 기능을 제공하는 Extension
+ * Indent Extension - Extension that provides structural/text indentation/outdentation functionality
  * 
- * 주요 기능:
- * - indentNode: 블록 노드를 한 단계 들여쓰기 (이전 형제의 마지막 자식으로 이동)
- * - outdentNode: 블록 노드를 한 단계 내어쓰기 (부모의 부모 아래로 이동)
- * - indentText: 텍스트 범위의 각 줄 앞에 들여쓰기 문자열 추가
- * - outdentText: 텍스트 범위의 각 줄 앞에서 들여쓰기 문자열 제거
- * - Tab/Shift+Tab 키바인딩 지원
- * - Range Selection 시 여러 노드 동시 처리
- * - Node Selection 시 선택된 노드 처리
+ * Main features:
+ * - indentNode: Indent block node by one level (move to last child of previous sibling)
+ * - outdentNode: Outdent block node by one level (move under parent's parent)
+ * - indentText: Add indentation string before each line in text range
+ * - outdentText: Remove indentation string from before each line in text range
+ * - Tab/Shift+Tab keybinding support
+ * - Process multiple nodes simultaneously on Range Selection
+ * - Process selected node on Node Selection
  */
 export class IndentExtension implements Extension {
   name = 'indent';
@@ -59,7 +59,7 @@ export class IndentExtension implements Extension {
         if (!nodeId) return false;
         const dataStore = (editor as any).dataStore;
         if (!dataStore) return false;
-        // outdent 가능 여부는 indentable 체크 + 부모가 있는지 확인
+        // Check if outdent is possible: verify indentable + parent exists
         if (!dataStore.isIndentableNode(nodeId)) return false;
         const node = dataStore.getNode(nodeId);
         if (!node || !node.parentId) return false;
@@ -67,7 +67,7 @@ export class IndentExtension implements Extension {
       }
     });
 
-    // 3. indentText command (텍스트 범위 들여쓰기)
+    // 3. indentText command (indent text range)
     editor.registerCommand({
       name: 'indentText',
       execute: async (editor: any, payload?: { selection?: ModelSelection; indent?: string }) => {
@@ -84,7 +84,7 @@ export class IndentExtension implements Extension {
       }
     });
 
-    // 4. outdentText command (텍스트 범위 내어쓰기)
+    // 4. outdentText command (outdent text range)
     editor.registerCommand({
       name: 'outdentText',
       execute: async (editor: any, payload?: { selection?: ModelSelection; indent?: string }) => {
@@ -103,14 +103,14 @@ export class IndentExtension implements Extension {
   }
 
   onDestroy(_editor: Editor): void {
-    // 정리 작업
+    // Cleanup
   }
 
   /**
-   * 현재 selection에서 indent/outdent 대상 노드 ID를 가져옴
-   * - Node Selection: 선택된 노드
-   * - Range Selection: startNodeId의 부모 블록 노드
-   * - Multi Node Selection: 첫 번째 노드
+   * Get target node ID for indent/outdent from current selection
+   * - Node Selection: selected node
+   * - Range Selection: parent block node of startNodeId
+   * - Multi Node Selection: first node
    */
   private _getTargetNodeId(editor: Editor): string | null {
     const selection = (editor as any).selection;
@@ -129,12 +129,12 @@ export class IndentExtension implements Extension {
       return selection.nodeIds[0];
     }
 
-    // Range Selection: startNodeId의 부모 블록 노드를 찾음
+    // Range Selection: find parent block node of startNodeId
     if (selection.type === 'range') {
       const startNode = dataStore.getNode(selection.startNodeId);
       if (!startNode) return null;
 
-      // startNode가 블록이면 그대로 사용
+      // If startNode is a block, use it as is
       const schema = dataStore.getActiveSchema();
       if (schema) {
         const nodeType = schema.getNodeType(startNode.stype);
@@ -143,7 +143,7 @@ export class IndentExtension implements Extension {
         }
       }
 
-      // startNode의 부모 블록 노드를 찾음
+      // Find parent block node of startNode
       let current = startNode;
       while (current && current.parentId) {
         const parent = dataStore.getNode(current.parentId);
@@ -162,11 +162,11 @@ export class IndentExtension implements Extension {
   }
 
   /**
-   * indentNode 실행
+   * Execute indentNode
    * 
-   * @param editor Editor 인스턴스
-   * @param nodeId 들여쓰기할 노드 ID (없으면 selection에서 추출)
-   * @returns 성공 여부
+   * @param editor Editor instance
+   * @param nodeId Node ID to indent (extracted from selection if not provided)
+   * @returns Success status
    */
   private async _executeIndentNode(editor: Editor, nodeId?: string): Promise<boolean> {
     const targetNodeId = nodeId || this._getTargetNodeId(editor);
@@ -192,11 +192,11 @@ export class IndentExtension implements Extension {
   }
 
   /**
-   * outdentNode 실행
+   * Execute outdentNode
    * 
-   * @param editor Editor 인스턴스
-   * @param nodeId 내어쓰기할 노드 ID (없으면 selection에서 추출)
-   * @returns 성공 여부
+   * @param editor Editor instance
+   * @param nodeId Node ID to outdent (extracted from selection if not provided)
+   * @returns Success status
    */
   private async _executeOutdentNode(editor: Editor, nodeId?: string): Promise<boolean> {
     const targetNodeId = nodeId || this._getTargetNodeId(editor);
@@ -228,7 +228,7 @@ export class IndentExtension implements Extension {
   }
 
   /**
-   * indentNode operations 생성
+   * Build indentNode operations
    */
   private _buildIndentNodeOperations(nodeId: string): any[] {
     return [
@@ -239,7 +239,7 @@ export class IndentExtension implements Extension {
   }
 
   /**
-   * outdentNode operations 생성
+   * Build outdentNode operations
    */
   private _buildOutdentNodeOperations(nodeId: string): any[] {
     return [
@@ -250,12 +250,12 @@ export class IndentExtension implements Extension {
   }
 
   /**
-   * indentText 실행 (텍스트 범위 들여쓰기)
+   * Execute indentText (indent text range)
    * 
-   * @param editor Editor 인스턴스
-   * @param selection 텍스트 범위 선택
-   * @param indentStr 들여쓰기 문자열 (기본값: '  ')
-   * @returns 성공 여부
+   * @param editor Editor instance
+   * @param selection Text range selection
+   * @param indentStr Indentation string (default: '  ')
+   * @returns Success status
    */
   private async _executeIndentText(editor: Editor, selection: ModelSelection, indentStr?: string): Promise<boolean> {
     if (selection.type !== 'range') {
@@ -268,12 +268,12 @@ export class IndentExtension implements Extension {
   }
 
   /**
-   * outdentText 실행 (텍스트 범위 내어쓰기)
+   * Execute outdentText (outdent text range)
    * 
-   * @param editor Editor 인스턴스
-   * @param selection 텍스트 범위 선택
-   * @param indentStr 제거할 들여쓰기 문자열 (기본값: '  ')
-   * @returns 성공 여부
+   * @param editor Editor instance
+   * @param selection Text range selection
+   * @param indentStr Indentation string to remove (default: '  ')
+   * @returns Success status
    */
   private async _executeOutdentText(editor: Editor, selection: ModelSelection, indentStr?: string): Promise<boolean> {
     if (selection.type !== 'range') {
@@ -286,18 +286,18 @@ export class IndentExtension implements Extension {
   }
 
   /**
-   * indentText operations 생성
+   * Build indentText operations
    */
   private _buildIndentTextOperations(selection: ModelSelection, indentStr?: string): any[] {
     if (selection.startNodeId === selection.endNodeId) {
-      // 단일 노드 범위
+      // Single node range
       return [
         ...control(selection.startNodeId, [
           indentText(selection.startOffset, selection.endOffset, indentStr)
         ])
       ];
     } else {
-      // Cross-node 범위
+      // Cross-node range
       return [
         indentText(
           selection.startNodeId,
@@ -311,18 +311,18 @@ export class IndentExtension implements Extension {
   }
 
   /**
-   * outdentText operations 생성
+   * Build outdentText operations
    */
   private _buildOutdentTextOperations(selection: ModelSelection, indentStr?: string): any[] {
     if (selection.startNodeId === selection.endNodeId) {
-      // 단일 노드 범위
+      // Single node range
       return [
         ...control(selection.startNodeId, [
           outdentText(selection.startOffset, selection.endOffset, indentStr)
         ])
       ];
     } else {
-      // Cross-node 범위
+      // Cross-node range
       return [
         outdentText(
           selection.startNodeId,

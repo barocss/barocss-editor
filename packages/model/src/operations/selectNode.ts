@@ -3,7 +3,7 @@ import type { SelectNodeOperation } from './index';
 import type { TransactionContext } from '../types';
 import { defineOperationDSL } from './define-operation-dsl';
 
-// 노드 선택
+// Select node
 defineOperation('selectNode', async (operation: SelectNodeOperation, context: TransactionContext) => {
   const { nodeId } = operation;
   

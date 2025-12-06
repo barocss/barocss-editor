@@ -41,7 +41,7 @@ export class GlobalConverterRegistry {
     }
     const rules = formatMap.get(format)!;
     rules.push(rule);
-    // 우선순위 순으로 정렬 (높은 우선순위가 먼저)
+    // Sort by priority (higher priority first)
     rules.sort((a, b) => (b.priority || 0) - (a.priority || 0));
   }
   
@@ -58,7 +58,7 @@ export class GlobalConverterRegistry {
     }
     const rules = formatMap.get(format)!;
     rules.push(rule);
-    // 우선순위 순으로 정렬 (높은 우선순위가 먼저)
+    // Sort by priority (higher priority first)
     rules.sort((a, b) => (b.priority || 0) - (a.priority || 0));
   }
   
@@ -75,7 +75,7 @@ export class GlobalConverterRegistry {
     }
     const rules = stypeMap.get(stype)!;
     rules.push(rule);
-    // 우선순위 순으로 정렬 (높은 우선순위가 먼저)
+    // Sort by priority (higher priority first)
     rules.sort((a, b) => (b.priority || 0) - (a.priority || 0));
   }
   

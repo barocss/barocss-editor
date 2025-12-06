@@ -24,7 +24,7 @@ defineOperation(
       throw new Error('[paste] range and data.nodes are required');
     }
 
-    // 단순 버전: startNodeId의 parent 아래에 노드를 삽입
+    // Simple version: insert nodes under startNodeId's parent
     const startNode = context.dataStore.getNode(range.startNodeId);
     if (!startNode || !startNode.parentId) {
       throw new Error('[paste] startNode or its parent not found');

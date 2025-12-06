@@ -23,7 +23,7 @@ export class BoldExtension implements Extension {
   onCreate(_editor: Editor): void {
     if (!this._options.enabled) return;
 
-    // Bold 명령어 등록
+    // Register Bold command
     _editor.registerCommand({
       name: 'toggleBold',
       execute: async (editor: Editor) => {
@@ -34,14 +34,14 @@ export class BoldExtension implements Extension {
       }
     });
 
-    // 키보드 단축키 등록
+    // Register keyboard shortcut
     if (this._options.keyboardShortcut) {
       this._registerKeyboardShortcut(_editor);
     }
   }
 
   onDestroy(_editor: any): void {
-    // 정리 작업
+    // Cleanup
   }
 
   private async _toggleBold(editor: any): Promise<boolean> {
@@ -54,7 +54,7 @@ export class BoldExtension implements Extension {
         head: selection?.head,
       });
       
-      // Transaction 생성 (모델 TransactionManager 사용)
+      // Create Transaction (using model TransactionManager)
       const tm = new TransactionManager(editor.dataStore);
       const transaction = tm.createBuilder('bold_toggle')
         .setMeta('type', 'bold_toggle')
@@ -65,11 +65,11 @@ export class BoldExtension implements Extension {
       });
       
       if (selection.empty) {
-        // 빈 선택: 현재 위치에 bold 마크 토글
+        // Empty selection: toggle bold mark at current position
         console.log('[Bold] path:position');
         return await this._toggleBoldAtPosition(editor, selection.anchor, transaction);
       } else {
-        // 텍스트 선택: 선택된 텍스트에 bold 마크 토글
+        // Text selection: toggle bold mark on selected text
         console.log('[Bold] path:range');
         return await this._toggleBoldInRange(editor, selection.from, selection.to, transaction);
       }
@@ -80,13 +80,13 @@ export class BoldExtension implements Extension {
   }
 
   private _canToggleBold(_editor: any): boolean {
-    // TODO: 실제 구현 - 현재 선택이 bold를 적용할 수 있는지 확인
+    // TODO: Actual implementation - check if current selection can apply bold
     return true;
   }
 
   private async _toggleBoldAtPosition(editor: any, position: number, transaction: TransactionBuilder): Promise<boolean> {
     try {
-      // 현재 위치의 텍스트 노드 찾기
+      // Find text node at current position
       const textNode = this._findTextNodeAtPosition(editor, position);
       console.log('[Bold] atPosition:foundTextNode', { position, nodeId: textNode?.sid, type: textNode?.type, textPreview: textNode?.text?.slice?.(0, 20) });
       
@@ -95,18 +95,18 @@ export class BoldExtension implements Extension {
         return false;
       }
       
-      // 현재 bold 마크 상태 확인
+      // Check current bold mark state
       const hasBold = this._hasBoldMark(textNode);
       console.log('[Bold] atPosition:hasBold', { nodeId: textNode.sid, hasBold, marks: textNode.marks });
       
       if (hasBold) {
-        // bold 마크 제거
+        // Remove bold mark
         transaction.updateNode(textNode.sid, {
           marks: textNode.marks?.filter((mark: any) => mark.type !== 'bold') || []
         });
         console.log('[Bold] atPosition:enqueue remove bold', { nodeId: textNode.sid });
       } else {
-        // bold 마크 추가
+        // Add bold mark
         const boldMark = {
           type: 'bold',
           range: [0, textNode.text?.length || 0],
@@ -119,7 +119,7 @@ export class BoldExtension implements Extension {
         console.log('[Bold] atPosition:enqueue add bold', { nodeId: textNode.sid, boldMark });
       }
       
-      // Transaction 실행
+      // Execute Transaction
       console.log('[Bold] atPosition:commit:start');
       return this._executeTransaction(editor, transaction);
     } catch (error) {
@@ -130,7 +130,7 @@ export class BoldExtension implements Extension {
 
   private async _toggleBoldInRange(editor: any, from: number, to: number, transaction: TransactionBuilder): Promise<boolean> {
     try {
-      // 범위 내의 모든 텍스트 노드 찾기
+      // Find all text nodes within range
       const textNodes = this._findTextNodesInRange(editor, from, to);
       console.log('[Bold] inRange:foundTextNodes', { from, to, count: textNodes.length, ids: textNodes.map((n: any) => n.sid) });
       
@@ -139,19 +139,19 @@ export class BoldExtension implements Extension {
         return false;
       }
       
-      // 모든 텍스트 노드에 bold 마크 토글
+      // Toggle bold mark on all text nodes
       for (const textNode of textNodes) {
         const hasBold = this._hasBoldMark(textNode);
         console.log('[Bold] inRange:node', { nodeId: textNode.sid, hasBold, marks: textNode.marks });
         
         if (hasBold) {
-          // bold 마크 제거
+          // Remove bold mark
           transaction.updateNode(textNode.sid, {
             marks: textNode.marks?.filter((mark: any) => mark.type !== 'bold') || []
           });
           console.log('[Bold] inRange:enqueue remove bold', { nodeId: textNode.sid });
         } else {
-          // bold 마크 추가
+          // Add bold mark
           const boldMark = {
             type: 'bold',
             range: [0, textNode.text?.length || 0],
@@ -165,7 +165,7 @@ export class BoldExtension implements Extension {
         }
       }
       
-      // Transaction 실행
+      // Execute Transaction
       console.log('[Bold] inRange:commit:start');
       return this._executeTransaction(editor, transaction);
     } catch (error) {
@@ -175,14 +175,14 @@ export class BoldExtension implements Extension {
   }
 
   private _registerKeyboardShortcut(_editor: any): void {
-    // TODO: 키보드 단축키 등록 로직
+    // TODO: Keyboard shortcut registration logic
     console.log('[Bold] registerShortcut', this._options.keyboardShortcut);
   }
 
-  // 헬퍼 메서드들
+  // Helper methods
   private _findTextNodeAtPosition(editor: any, _position: number): any {
-    // TODO: 실제 구현 - 위치에 해당하는 텍스트 노드 찾기
-    // 현재는 더미 구현
+    // TODO: Actual implementation - find text node at position
+    // Currently dummy implementation
     const document = editor.document;
     if (document.content && document.content.length > 0) {
       const found = document.content.find((node: any) => node.type === 'text');
@@ -193,8 +193,8 @@ export class BoldExtension implements Extension {
   }
 
   private _findTextNodesInRange(editor: any, _from: number, _to: number): any[] {
-    // TODO: 실제 구현 - 범위 내의 모든 텍스트 노드 찾기
-    // 현재는 더미 구현
+    // TODO: Actual implementation - find all text nodes within range
+    // Currently dummy implementation
     const document = editor.document;
     if (document.content && document.content.length > 0) {
       return document.content.filter((node: any) => node.type === 'text');
@@ -214,7 +214,7 @@ export class BoldExtension implements Extension {
       const result = await transaction.commit();
       console.log('[Bold] commit:after', { success: result?.success, errors: result?.errors });
       if (result.success) {
-        // 히스토리에 추가
+        // Add to history
         editor._addToHistory(editor._document);
         console.log('[Bold] history:added');
         return true;
@@ -229,7 +229,7 @@ export class BoldExtension implements Extension {
   }
 }
 
-// 편의 함수
+// Convenience function
 export function createBoldExtension(options?: BoldExtensionOptions): BoldExtension {
   return new BoldExtension(options);
 }

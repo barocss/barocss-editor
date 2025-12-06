@@ -40,14 +40,14 @@ describe('SelectionManager Advanced Features', () => {
     dataStore = new DataStore();
     selectionManager = new SelectionManager({ dataStore });
 
-    // 테스트용 노드들 설정
+    // Set up test nodes
     dataStore.setNode({ id: 'doc-1', type: 'document', content: ['para-1', 'para-2'] });
     dataStore.setNode({ id: 'para-1', type: 'paragraph', content: ['text-1'] });
     dataStore.setNode({ id: 'text-1', type: 'inline-text', text: 'Hello World', parentId: 'para-1' });
     dataStore.setNode({ id: 'para-2', type: 'paragraph', content: ['text-2'] });
     dataStore.setNode({ id: 'text-2', type: 'inline-text', text: 'Goodbye Universe', parentId: 'para-2' });
     
-    // 각 테스트 전에 selection 클리어
+    // Clear selection before each test
     selectionManager.clearSelection();
   });
 
@@ -195,7 +195,7 @@ describe('SelectionManager Advanced Features', () => {
     });
 
     it('should collapse to position if no word found', () => {
-      // 이전 selection을 클리어
+      // Clear previous selection
       selectionManager.clearSelection();
       selectionManager.selectWord('text-1', 5); // space between "Hello" and "World"
       
@@ -211,17 +211,17 @@ describe('SelectionManager Advanced Features', () => {
 
   describe('selectLine', () => {
     it('should select line containing position', () => {
-      // 텍스트에 줄바꿈 추가
+      // Add line breaks to text
       dataStore.setNode({ id: 'text-3', type: 'inline-text', text: 'Line 1\nLine 2\nLine 3', parentId: 'para-1' });
       
-      selectionManager.selectLine('text-3', 8); // "Line 2" 내부
+      selectionManager.selectLine('text-3', 8); // Inside "Line 2"
       
       const selection = selectionManager.getCurrentSelection();
       expect(selection).toEqual({
         startNodeId: 'text-3',
-        startOffset: 7, // "Line 2" 시작
+        startOffset: 7, // Start of "Line 2"
         endNodeId: 'text-3',
-        endOffset: 13 // "Line 2" 끝
+        endOffset: 13 // End of "Line 2"
       });
     });
   });
@@ -252,7 +252,7 @@ describe('SelectionManager Advanced Features', () => {
     });
 
     it('should detect reversed selection', () => {
-      // 뒤집힌 selection (anchor가 focus보다 뒤에 있음)
+      // Reversed selection (anchor is after focus)
       selectionManager.setSelection({
         startNodeId: 'text-1',
         startOffset: 8,

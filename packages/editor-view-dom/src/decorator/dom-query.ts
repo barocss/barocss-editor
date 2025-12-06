@@ -1,6 +1,6 @@
 /**
- * DOMQuery: Content 레이어의 DOM 요소를 찾는 유틸리티
- * ComponentManager 캐시를 우선 활용하여 성능 최적화
+ * DOMQuery: Utility for finding DOM elements in Content layer
+ * Prioritize ComponentManager cache for performance optimization
  */
 import { DOMRenderer } from '@barocss/renderer-dom';
 
@@ -11,11 +11,11 @@ export class DOMQuery {
   ) {}
 
   /**
-   * sid로 DOM 요소 찾기
-   * ComponentManager 캐시를 우선 사용, 없으면 querySelector
+   * Find DOM element by sid
+   * Prioritize ComponentManager cache, fallback to querySelector
    */
   findElementBySid(sid: string): HTMLElement | null {
-    // 1. ComponentManager 캐시 활용 (우선) - O(1)
+    // 1. Use ComponentManager cache (priority) - O(1)
     if (this.contentRenderer) {
       const componentManager = this.contentRenderer.getComponentManager();
       const instance = componentManager?.getComponentInstance(sid as any);
@@ -29,7 +29,7 @@ export class DOMQuery {
   }
 
   /**
-   * 텍스트 노드의 특정 offset 위치 계산 (contentLayer 기준 상대 좌표)
+   * Calculate specific offset position of text node (relative coordinates based on contentLayer)
    */
   calculateTextPosition(
     sid: string,
@@ -38,11 +38,11 @@ export class DOMQuery {
     const element = this.findElementBySid(sid);
     if (!element) return null;
     
-    // 텍스트 노드 찾기
+    // Find text node
     const textNode = this.findTextNode(element, offset);
     if (!textNode) return null;
     
-    // Range로 위치 계산
+    // Calculate position with Range
     const range = document.createRange();
     range.setStart(textNode.node, Math.min(offset, textNode.length));
     range.collapse(true);
@@ -50,7 +50,7 @@ export class DOMQuery {
     const rect = range.getBoundingClientRect();
     const contentLayerRect = this.contentLayer.getBoundingClientRect();
     
-    // contentLayer 기준 상대 좌표로 변환
+    // Convert to relative coordinates based on contentLayer
     return {
       top: rect.top - contentLayerRect.top,
       left: rect.left - contentLayerRect.left,
@@ -59,7 +59,7 @@ export class DOMQuery {
   }
 
   /**
-   * 요소의 경계 상자 계산 (contentLayer 기준 상대 좌표)
+   * Calculate element's bounding box (relative coordinates based on contentLayer)
    */
   getBoundingRect(sid: string): DOMRect | null {
     const element = this.findElementBySid(sid);
@@ -68,7 +68,7 @@ export class DOMQuery {
     const rect = element.getBoundingClientRect();
     const containerRect = this.contentLayer.getBoundingClientRect();
     
-    // contentLayer 기준 상대 좌표로 변환
+    // Convert to relative coordinates based on contentLayer
     return {
       top: rect.top - containerRect.top,
       left: rect.left - containerRect.left,
@@ -83,7 +83,7 @@ export class DOMQuery {
   }
 
   /**
-   * 텍스트 노드와 offset 찾기
+   * Find text node and offset
    */
   private findTextNode(
     element: HTMLElement,

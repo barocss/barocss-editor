@@ -175,7 +175,7 @@ export class VNodeBuilder {
   private ensureUniqueId(id: string | undefined): string | undefined {
     if (!id) return undefined;
 
-    // Model에서 ID가 유니크하다는 전제하에, 중복 발견시 warn만 출력
+    // Assuming IDs are unique in Model, only output warn on duplicate detection
     if (this.usedIds.has(id)) {
       console.warn(`[VNodeBuilder] Duplicate ID detected: "${id}". Model should ensure unique IDs.`);
     }
@@ -235,8 +235,8 @@ export class VNodeBuilder {
     const base: ComponentContext = {
       id,
       get state() { return state; }, // Dynamic state access
-      props: props, // props는 이미 sanitized된 값 (stype/sid 제외)
-      model: model, // model은 원본 그대로 (stype/sid 포함)
+      props: props, // props are already sanitized values (excluding stype/sid)
+      model: model, // model is original as is (including stype/sid)
       registry: this.registry,
       initState: (initial: Record<string, any>) => {
         // Initialize state if not already initialized
@@ -257,18 +257,18 @@ export class VNodeBuilder {
       }
     };
 
-    // spread 연산자나 Object.assign은 getter를 제거하므로, 
-    // getter를 보존하기 위해 Object.defineProperty를 사용
+    // Spread operator or Object.assign removes getters,
+    // so use Object.defineProperty to preserve getters
     const result: any = {};
 
-    // base의 일반 속성들을 복사
+    // Copy base's regular properties
     Object.keys(base).forEach(key => {
       if (key !== 'state') {
         result[key] = (base as any)[key];
       }
     });
 
-    // overrides의 일반 속성들을 복사
+    // Copy overrides' regular properties
     if (overrides) {
       Object.keys(overrides).forEach(key => {
         if (key !== 'state' && key !== 'instance') {
@@ -277,12 +277,12 @@ export class VNodeBuilder {
       });
     }
 
-    // instance는 직접 설정 (overrides에 있으면 사용)
+    // Set instance directly (use if in overrides)
     if (overrides?.instance) {
       result.instance = overrides.instance;
     }
 
-    // state getter 설정: base의 state getter 사용 (overrides에 state가 있으면 나중에 덮어쓸 수 있음)
+    // Set state getter: use base's state getter (can override later if state exists in overrides)
     Object.defineProperty(result, 'state', {
       get: () => state,
       enumerable: true,
@@ -329,17 +329,17 @@ export class VNodeBuilder {
       throw new Error('Data cannot be null or undefined');
     }
 
-    // define()으로 정의된 모든 것은 component만 가능
-    // getComponent()로만 가져올 수 있음 (get()은 레거시)
+    // Everything defined with define() can only be component
+    // Can only retrieve with getComponent() (get() is legacy)
     const component = this.registry.getComponent?.(nodeType);
     if (!component) {
       throw new Error(`Component for node type '${nodeType}' not found. All components must be registered via define().`);
     }
 
-    // component는 ExternalComponent 타입
-    // - template?: ContextualComponent - component 함수
-    // - managesDOM?: boolean - DOM 관리 여부
-    // - mount, update, unmount - lifecycle 메서드
+    // component is ExternalComponent type
+    // - template?: ContextualComponent - component function
+    // - managesDOM?: boolean - whether DOM is managed
+    // - mount, update, unmount - lifecycle methods
 
     let vnode: VNode | null;
 
@@ -347,7 +347,7 @@ export class VNodeBuilder {
     if (component.managesDOM === true) {
       vnode = this._buildExternalComponent(nodeType, component, data, options);
     } else {
-      // Context component (managesDOM === false 또는 undefined)
+      // Context component (managesDOM === false or undefined)
       vnode = this._buildContextComponentFromFunction(nodeType, component, data, options);
     }
     if (!vnode) {
@@ -355,16 +355,16 @@ export class VNodeBuilder {
     }
 
     // 
-    // 중요: decorator 처리는 각 child 빌드 시점에서 수행됨 (단방향 빌드 원칙)
-    // - _processEachTemplateChild: each 템플릿의 각 item 빌드 시 decorator 처리
-    // - _processComponentChild: ComponentTemplate 빌드 시 decorator 처리  
-    // - _processElementTemplateChild: ElementTemplate 빌드 시 decorator 처리
+    // Important: decorator processing is performed at each child build time (unidirectional build principle)
+    // - _processEachTemplateChild: decorator processing when building each item of each template
+    // - _processComponentChild: decorator processing when building ComponentTemplate
+    // - _processElementTemplateChild: decorator processing when building ElementTemplate
     // 
-    // 모든 children은 빌드 시점에 decorator와 함께 처리되므로,
-    // _processDecoratorsForChildren은 더 이상 필요하지 않음 (제거됨)
+    // All children are processed with decorators at build time,
+    // so _processDecoratorsForChildren is no longer needed (removed)
     // 
-    // 재귀적 nested children 처리는 각 child 빌드 시 자동으로 처리됨
-    // (각 child를 빌드할 때 그 child의 children도 빌드되며, decorator도 함께 처리됨)
+    // Recursive nested children processing is automatically handled at each child build time
+    // (when building each child, that child's children are also built, and decorators are processed together)
 
     // Clear build options after build completes
     this.currentBuildOptions = undefined;
@@ -372,7 +372,7 @@ export class VNodeBuilder {
       clearBuildInProgressFlag();
     }
 
-    // 로그: VNode 빌드 결과
+    // Log: VNode build result
     if (isTopLevel) {
       const buildInfo = {
         nodeType,
@@ -382,7 +382,7 @@ export class VNodeBuilder {
         hasText: vnode.text !== undefined,
         textPreview: vnode.text ? String(vnode.text).slice(0, 50) : undefined,
         childrenCount: Array.isArray(vnode.children) ? vnode.children.length : 0,
-        vnodeTree: this.serializeVNodeTree(vnode, 0, 3) // 최대 3레벨 깊이
+        vnodeTree: this.serializeVNodeTree(vnode, 0, 3) // Maximum 3 levels deep
       };
     }
 
@@ -390,8 +390,8 @@ export class VNodeBuilder {
   }
 
   /**
-   * VNode 트리를 직렬화하여 로그 출력용으로 변환
-   * 순환 참조 방지를 위해 깊이 제한
+   * Serialize VNode tree for log output
+   * Limit depth to prevent circular references
    */
   private serializeVNodeTree(vnode: VNode, depth: number = 0, maxDepth: number = 3): any {
     if (depth > maxDepth) {
@@ -406,7 +406,7 @@ export class VNodeBuilder {
       childrenCount: Array.isArray(vnode.children) ? vnode.children.length : 0
     };
     
-    // attrs 정보 추가 (특히 class 정보)
+    // Add attrs info (especially class info)
     if (vnode.attrs) {
       const classAttr = vnode.attrs.class || vnode.attrs.className;
       if (classAttr) {
@@ -414,7 +414,7 @@ export class VNodeBuilder {
       }
     }
     
-    // text-bold-italic 노드의 경우 더 깊이까지 직렬화
+    // Serialize deeper for text-bold-italic nodes
     const actualMaxDepth = (vnode.sid === 'text-bold-italic' || depth === 0) ? 10 : maxDepth;
     
     if (Array.isArray(vnode.children) && vnode.children.length > 0 && depth < actualMaxDepth) {
@@ -451,8 +451,8 @@ export class VNodeBuilder {
    */
   private _buildMarkedRunVNode(run: TextRun, model: ModelData): VNode {
     const activeTypes: string[] = Array.isArray(run?.types) ? run.types as string[] : [];
-    // innermost content: text를 span으로 감싸서 reconciler 처리를 단순화
-    // 에디터에 집중하므로 최적화: text-only VNode는 항상 span으로 감싸기
+    // innermost content: wrap text in span to simplify reconciler processing
+    // Optimization for editor focus: always wrap text-only VNode in span
     let inner: VNode = createSpanWrapper([
       createTextVNode(run?.text ?? '')
     ]);
@@ -466,14 +466,14 @@ export class VNodeBuilder {
       let markTmpl = this.registry.getMarkRenderer?.(t);
       // pick attrs from the model's overlapping mark of this type
       let activeMark: any = undefined;
-      if (Array.isArray((model as any)?.marks)) { // Array.isArray는 유지 (타입 체크용)
+      if (Array.isArray((model as any)?.marks)) { // Keep Array.isArray (for type checking)
         const nodeMarks = (model as any).marks as Array<any>;
         activeMark = nodeMarks.find((m: any) => {
           if (!m) return false;
-          // 마크 타입은 stype 필드를 사용 (IMark 인터페이스와 일관성 유지)
+          // Mark type uses stype field (maintain consistency with IMark interface)
           const markStype = m.stype;
           if (markStype !== t) return false;
-          // Range가 없는 mark는 전체 텍스트에 적용되므로 항상 match
+          // Marks without range apply to entire text, so always match
           if (!m.range) return true;
           const s = Math.max(0, m.range[0] ?? 0);
           const e = Math.max(0, m.range[1] ?? 0);
@@ -493,21 +493,21 @@ export class VNodeBuilder {
         model
       } as any;
 
-      // getMarkRenderer()는 ComponentTemplate만 반환 (define()으로 정의되므로)
-      // defineMark()는 define()을 사용하므로 항상 ComponentTemplate만 반환
+      // getMarkRenderer() only returns ComponentTemplate (defined with define())
+      // defineMark() uses define(), so always returns ComponentTemplate only
       if (markTmpl && isComponentTemplate(markTmpl)) {
         // Component template: execute component function to get ElementTemplate
         const compTmpl = markTmpl as ComponentTemplate;
         if (isFunction(compTmpl.component)) {
           // Create minimal context for mark renderer
-          // mark renderer의 경우 props가 model 역할도 함
+          // For mark renderer, props also act as model
           const markProps = sanitizePropsUtil(props || {});
           const markModel = (props || {}) as ModelData;
           const ctx: any = this._makeContext(`__mark_${t}`, {}, markProps, markModel, {});
           const elementTemplate = compTmpl.component(markProps, markModel, ctx) as ElementTemplate;
           if (elementTemplate && elementTemplate.type === 'element') {
-            // elementTemplate.attributes가 props입니다
-            // props를 model로 사용 (mark renderer의 경우)
+            // elementTemplate.attributes is props
+            // Use props as model (for mark renderer)
             inner = this._buildElement(elementTemplate, props || {} as ModelData, {
               injectChild: inner,
               useDataAsSlot: true
@@ -525,15 +525,15 @@ export class VNodeBuilder {
         }
       }
 
-      // Mark renderer가 정의되지 않은 경우: 기본 span으로 처리
-      // 마크 타입에 대한 태그 매핑은 스키마/템플릿 정의의 책임이므로 renderer-dom에서 처리하지 않음
-      // t는 run.types에서 오므로 항상 유효한 문자열이어야 함
+      // When mark renderer is not defined: handle with default span
+      // Tag mapping for mark types is responsibility of schema/template definition, so renderer-dom doesn't handle it
+      // t comes from run.types, so should always be valid string
       inner = createMarkWrapper('span', `mark-${t}`, inner);
     }
 
     // If no active types but classes exist (e.g., renderer wants class marks), return a span wrapper
-    // IMPORTANT: run.classes는 이제 비어있을 수 있음 (mark-{type} 자동 추가 제거)
-    // 따라서 이 fallback은 사용하지 않음
+    // IMPORTANT: run.classes can now be empty (mark-{type} auto-add removed)
+    // Therefore, don't use this fallback
     // if (activeTypes.length === 0 && isNonEmptyArray(run?.classes)) {
     //   return createElementVNode(
     //     'span',
@@ -542,30 +542,30 @@ export class VNodeBuilder {
     //   );
     // }
 
-    // innermost는 이미 span으로 감싸져 있으므로 추가 감싸기 불필요
+    // innermost is already wrapped in span, so additional wrapping is unnecessary
     return inner;
   }
 
   /**
    * Builds a VNode from an ElementTemplate
    * 
-   * ElementTemplate 구조: element('div', { className: 'test' }, [])
-   * - template.tag: 태그명 ('div')
-   * - template.attributes: props (템플릿 정의 시점의 props, { className: 'test' })
-   * - template.children: 자식 요소들
+   * ElementTemplate structure: element('div', { className: 'test' }, [])
+   * - template.tag: tag name ('div')
+   * - template.attributes: props (props at template definition time, { className: 'test' })
+   * - template.children: child elements
    * 
    * This is the core method for converting ElementTemplate objects into VNodes.
    * It handles:
    * 
    * - Dynamic tag resolution (if tag is a function)
-   * - Attribute processing (template.attributes는 props)
-   * - Data binding (data는 model, data('text'), data('content') 등에 사용)
+   * - Attribute processing (template.attributes is props)
+   * - Data binding (data is model, used for data('text'), data('content'), etc.)
    * - Child element processing (elements, text, data bindings, slots, etc.)
    * - Mixed content handling (elements with both child elements and text)
    * - Component resolution for registered component tags
    * 
-   * @param template - ElementTemplate to build (template.attributes가 props)
-   * @param data - Model data (런타임 모델 데이터, data('text'), data('content') 등에 사용)
+   * @param template - ElementTemplate to build (template.attributes is props)
+   * @param data - Model data (runtime model data, used for data('text'), data('content'), etc.)
    * @param options - Optional configuration for special cases
    *   - injectChild: VNode to inject when useDataAsSlot is true
    *   - useDataAsSlot: Whether to treat data('text') as an implicit slot
@@ -574,24 +574,24 @@ export class VNodeBuilder {
    * @returns VNode representing the element
    */
   private _buildElement(
-    template: ElementTemplate,  // template.attributes가 props
-    data: ModelData,  // model (런타임 데이터)
+    template: ElementTemplate,  // template.attributes is props
+    data: ModelData,  // model (runtime data)
     options?: { injectChild?: VNode; useDataAsSlot?: boolean; decorators?: Decorator[]; sid?: string }
   ): VNode {
     // Merge current build options with provided options
     const buildOptions = this._mergeBuildOptions(options, getSid(data));
 
     // Initialize VNode with tag, attrs, and key
-    // template.attributes는 props, data는 model
+    // template.attributes is props, data is model
     const vnode = initializeElementVNode(template, data);
 
     // Apply template attributes (props) and data bindings (model)
-    // template.attributes: 템플릿 정의 시점의 props
-    // data: 런타임 model 데이터
+    // template.attributes: props at template definition time
+    // data: runtime model data
     this._applyElementAttributes(vnode, template, data);
 
     // Process children and build ordered children array
-    // template.children: 템플릿 정의 시점의 자식
+    // template.children: children at template definition time
     // data: 런타임 model 데이터 (data('text'), data('content') 등)
     let { orderedChildren, hasDataTextProcessed } = this._processElementChildren(template, data, vnode, buildOptions);
 

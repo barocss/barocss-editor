@@ -40,7 +40,7 @@ describe('transformNode operation (exec)', () => {
     dataStore.registerSchema(schema);
     selectionManager = new SelectionManager({ dataStore });
 
-    // 문서 구조 생성
+    // Create document structure
     const docNode: INode = {
       sid: 'doc-1',
       stype: 'document',
@@ -84,7 +84,7 @@ describe('transformNode operation (exec)', () => {
   });
 
   it('heading을 paragraph로 변환해야 함', async () => {
-    // 먼저 heading으로 변환
+    // First convert to heading
     const headingNode: INode = {
       sid: 'heading-1',
       stype: 'heading',

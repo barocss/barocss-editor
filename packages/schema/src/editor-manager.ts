@@ -97,7 +97,7 @@ export const editorManager = new EditorSchemaManager();
  * @returns Schema instance with namespaced name
  */
 export function createNamespacedSchema(namespace: string, name: string, definition: SchemaDefinition) {
-  // 통합 스키마 정의만 지원
+  // Only unified schema definition is supported
   return createSchema(`${namespace}:${name}`, definition);
 }
 

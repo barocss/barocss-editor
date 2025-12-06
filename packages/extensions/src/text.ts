@@ -7,15 +7,15 @@ export interface TextExtensionOptions {
 }
 
 /**
- * Text Extension - 텍스트 입력 기능을 제공하는 Extension
+ * Text Extension - Extension that provides text input functionality
  * 
- * 주요 기능:
- * - 텍스트 교체 (삽입/삭제/교체)
- * - History 자동 관리 (TransactionManager가 처리)
+ * Main features:
+ * - Text replacement (insert/delete/replace)
+ * - Automatic history management (handled by TransactionManager)
  */
 export class TextExtension implements Extension {
   name = 'text';
-  priority = 200; // 높은 우선순위 (기본 텍스트 기능)
+  priority = 200; // High priority (basic text functionality)
   
   private _options: TextExtensionOptions;
 
@@ -29,7 +29,7 @@ export class TextExtension implements Extension {
   onCreate(editor: Editor): void {
     if (!this._options.enabled) return;
 
-    // replaceText 명령어 등록
+    // Register replaceText command
     editor.registerCommand({
       name: 'replaceText',
       execute: async (editor: Editor, payload: { 
@@ -45,30 +45,30 @@ export class TextExtension implements Extension {
   }
 
   onDestroy(_editor: Editor): void {
-    // 정리 작업
+    // Cleanup
   }
 
   /**
-   * 텍스트 교체 실행
+   * Execute text replacement
    * 
-   * Command의 책임:
-   * 1. Operations 조합 (삽입만 있는지, 교체가 있는지 판단)
-   * 2. Transaction 실행
+   * Command responsibilities:
+   * 1. Combine operations (determine if only insert or if replace exists)
+   * 2. Execute transaction
    */
   private async _executeReplaceText(
     editor: Editor,
     range: ModelSelection,
     text: string
   ): Promise<boolean> {
-    // 삽입만 있는 경우 (start === end)
+    // Only insert case (start === end)
     if (range.startOffset === range.endOffset) {
       const operations = this._buildInsertTextOperations(range, text);
       const result = await transaction(editor, operations).commit();
       return result.success;
     }
 
-    // 교체 또는 삭제가 있는 경우
-    // 여러 operations를 조합하여 하나의 transaction으로 실행
+    // Replace or delete case
+    // Combine multiple operations and execute as single transaction
     const operations = [
       ...this._buildDeleteTextOperations(range),
       ...this._buildInsertTextOperations(
@@ -82,7 +82,7 @@ export class TextExtension implements Extension {
   }
 
   /**
-   * 삽입 operations 생성
+   * Build insert operations
    */
   private _buildInsertTextOperations(
     range: ModelSelection,
@@ -102,7 +102,7 @@ export class TextExtension implements Extension {
   }
 
   /**
-   * 삭제 operations 생성
+   * Build delete operations
    */
   private _buildDeleteTextOperations(range: ModelSelection): any[] {
     return [
@@ -119,7 +119,7 @@ export class TextExtension implements Extension {
   }
 }
 
-// 편의 함수
+// Convenience function
 export function createTextExtension(options?: TextExtensionOptions): TextExtension {
   return new TextExtension(options);
 }

@@ -54,7 +54,7 @@ describe('DataStore Lock System', () => {
 
   describe('Lock Timeout', () => {
     it('should timeout when lock is not released', async () => {
-      dataStore.setLockTimeout(100); // 100ms 타임아웃
+      dataStore.setLockTimeout(100); // 100ms timeout
       
       await dataStore.acquireLock();
       
@@ -66,12 +66,12 @@ describe('DataStore Lock System', () => {
       
       const lockId1 = await dataStore.acquireLock('owner-1');
       
-      // 50ms 후에 락 해제
+      // Release lock after 50ms
       setTimeout(() => {
         dataStore.releaseLock(lockId1);
       }, 50);
       
-      // 락 해제 후 획득 시도
+      // Attempt to acquire after lock release
       const lockId2 = await dataStore.acquireLock('owner-2');
       expect(lockId2).toMatch(/^lock-\d+-[a-z0-9]+$/);
     });
@@ -81,19 +81,19 @@ describe('DataStore Lock System', () => {
     it('should process transactions in order (FIFO)', async () => {
       const results: number[] = [];
       
-      // 첫 번째 트랜잭션
+      // First transaction
       const promise1 = dataStore.acquireLock().then(() => {
         results.push(1);
         setTimeout(() => dataStore.releaseLock(), 50);
       });
       
-      // 두 번째 트랜잭션
+      // Second transaction
       const promise2 = dataStore.acquireLock().then(() => {
         results.push(2);
         setTimeout(() => dataStore.releaseLock(), 50);
       });
       
-      // 세 번째 트랜잭션
+      // Third transaction
       const promise3 = dataStore.acquireLock().then(() => {
         results.push(3);
         setTimeout(() => dataStore.releaseLock(), 50);
@@ -107,7 +107,7 @@ describe('DataStore Lock System', () => {
       const startTime = Date.now();
       const results: number[] = [];
       
-      // 동시에 여러 락 획득 시도
+      // Attempt to acquire multiple locks concurrently
       const promises = Array.from({ length: 5 }, (_, i) => 
         dataStore.acquireLock().then(() => {
           results.push(i + 1);
@@ -117,12 +117,12 @@ describe('DataStore Lock System', () => {
       
       await Promise.all(promises);
       
-      // 순서대로 실행되었는지 확인
+      // Verify executed in order
       expect(results).toEqual([1, 2, 3, 4, 5]);
       
-      // 총 실행 시간이 순차 실행 시간과 비슷한지 확인
+      // Verify total execution time is similar to sequential execution time
       const totalTime = Date.now() - startTime;
-      expect(totalTime).toBeGreaterThan(40); // 5 * 10ms = 50ms 이상
+      expect(totalTime).toBeGreaterThan(40); // 5 * 10ms = at least 50ms
     });
   });
 
@@ -133,7 +133,7 @@ describe('DataStore Lock System', () => {
       expect(initialStats.totalReleases).toBe(0);
       expect(initialStats.totalTimeouts).toBe(0);
       
-      // 락 획득/해제
+      // Acquire/release lock
       const lockId = await dataStore.acquireLock('test-owner');
       dataStore.releaseLock(lockId);
       
@@ -144,25 +144,25 @@ describe('DataStore Lock System', () => {
     });
 
     it.skip('should track timeout statistics', async () => {
-      // TODO: 타임아웃 로직 수정 후 활성화
-      dataStore.setLockTimeout(50); // 50ms 타임아웃
+      // TODO: Enable after fixing timeout logic
+      dataStore.setLockTimeout(50); // 50ms timeout
       
-      // 첫 번째 락 획득 (해제하지 않음)
+      // Acquire first lock (don't release)
       await dataStore.acquireLock();
       
-      // 두 번째 락 획득 시도 (타임아웃 발생)
+      // Attempt to acquire second lock (timeout occurs)
       const promise = dataStore.acquireLock();
       
-      // 타임아웃 발생 대기
+      // Wait for timeout to occur
       await new Promise(resolve => setTimeout(resolve, 100));
       
-      // 타임아웃이 발생했는지 확인
+      // Verify timeout occurred
       await expect(promise).rejects.toThrow('timeout');
       
       const stats = dataStore.getLockStats();
       expect(stats.totalTimeouts).toBe(1);
       
-      // 첫 번째 락 해제
+      // Release first lock
       dataStore.releaseLock();
     });
 
@@ -186,10 +186,10 @@ describe('DataStore Lock System', () => {
     it('should maintain correct queue length', async () => {
       expect(dataStore.getQueueLength()).toBe(0);
       
-      // 첫 번째 락 획득
+      // Acquire first lock
       await dataStore.acquireLock();
       
-      // 두 번째 락 획득 시도 (큐에 추가됨)
+      // Attempt to acquire second lock (added to queue)
       const promise2 = dataStore.acquireLock();
       expect(dataStore.getQueueLength()).toBe(1);
       

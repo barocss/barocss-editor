@@ -63,7 +63,7 @@ describe('indentNode operation (exec)', () => {
     const updatedP2 = dataStore.getNode(p2Id)!;
 
     expect(updatedRoot.content).toEqual([p1Id]);
-    // p1 의 자식 리스트의 마지막에 p2 가 추가되어야 함
+    // p2 should be added at the end of p1's child list
     expect(updatedP1.content).toEqual([expect.any(String), p2Id]);
     expect(updatedP2.parentId).toBe(p1Id);
   });

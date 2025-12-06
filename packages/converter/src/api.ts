@@ -38,7 +38,7 @@ export function defineParser(
  * ```typescript
  * defineDocumentParser('markdown', {
  *   parse(document: string) {
- *     // markdown-it 등 외부 파서 사용
+ *     // Use external parsers like markdown-it
  *     const md = new MarkdownIt();
  *     return md.parse(document);
  *   }
@@ -94,12 +94,12 @@ export function defineASTConverter(
  * 
  * @example
  * ```typescript
- * // HTML 변환 규칙
+ * // HTML conversion rules
  * defineConverter('paragraph', 'html', {
  *   convert: (node) => `<p>${node.text || ''}</p>`
  * });
  * 
- * // LaTeX 변환 규칙
+ * // LaTeX conversion rules
  * defineConverter('section', 'latex', {
  *   convert: (node) => {
  *     const level = node.attributes?.level || 1;

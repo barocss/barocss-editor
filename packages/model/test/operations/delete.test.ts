@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import '../../src/operations/register-operations'; // Operations 등록
+import '../../src/operations/register-operations'; // Register operations
 import { DataStore } from '@barocss/datastore';
 import { SelectionManager } from '@barocss/editor-core';
 import { createTransactionContext } from '../../src/create-transaction-context';
@@ -13,7 +13,7 @@ describe('delete operation', () => {
   let schema: Schema;
 
   beforeEach(() => {
-    // 테스트용 schema 생성
+    // Create schema for testing
     schema = new Schema('test-schema', {
       nodes: {
         'inline-text': {

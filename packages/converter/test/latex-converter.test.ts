@@ -54,16 +54,16 @@ Paragraph text.
     });
 
     it('should use external latex document parser via defineDocumentParser', () => {
-      // 외부 파서를 사용하는 케이스를 시뮬레이션 하기 위해
-      // registry를 초기화하고 별도의 DocumentParser를 등록한다.
+      // To simulate case using external parser,
+      // initialize registry and register separate DocumentParser
       GlobalConverterRegistry.getInstance().clear();
-      // 기본 규칙(heading/paragraph AST → Model, Converter)은 다시 등록
+      // Re-register default rules (heading/paragraph AST → Model, Converter)
       registerDefaultLatexRules();
 
-      // 간단한 외부 LaTeX 파서 시뮬레이션
-      // 실제로는 latex-utensils 같은 외부 라이브러리를 사용할 수 있으며,
-      // 여기서는 import만 해 두고 간단한 파서를 직접 구현한다.
-      // (LatexUtensils 네임스페이스는 외부 라이브러리 사용 예시용으로 import됨)
+      // Simulate simple external LaTeX parser
+      // Actually can use external libraries like latex-utensils,
+      // but here we only import and implement simple parser directly.
+      // (LatexUtensils namespace is imported as example of external library usage)
       defineDocumentParser('latex', {
         parse(document: string): any[] {
           const lines = document.split('\n');
@@ -85,7 +85,7 @@ Paragraph text.
               continue;
             }
 
-            // 섹션 이후 첫 문단만 paragraph로 간주
+            // Consider only first paragraph after section as paragraph
             if (currentSection) {
               ast.push({
                 type: 'paragraph',

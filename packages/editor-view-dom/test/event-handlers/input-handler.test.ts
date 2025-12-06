@@ -10,7 +10,7 @@ import { Editor } from '@barocss/editor-core';
 import { handleEfficientEdit } from '../../src/utils/efficient-edit-handler';
 import type { MarkRange, DecoratorRange } from '../../src/utils/edit-position-converter';
 
-// handleEfficientEdit 모킹 (이미 테스트된 함수)
+// Mock handleEfficientEdit (already tested function)
 vi.mock('../../src/utils/efficient-edit-handler', () => ({
   handleEfficientEdit: vi.fn()
 }));
@@ -23,7 +23,7 @@ describe('InputHandlerImpl', () => {
   let textNode: Text;
 
   beforeEach(() => {
-    // Mock Editor 생성
+    // Create Mock Editor
     mockEditor = {
       emit: vi.fn(),
       executeTransaction: vi.fn(),
@@ -37,7 +37,7 @@ describe('InputHandlerImpl', () => {
       updateDecorators: vi.fn()
     };
 
-    // DOM 구조 생성
+    // Create DOM structure
     container = document.createElement('div');
     document.body.appendChild(container);
 
@@ -50,7 +50,7 @@ describe('InputHandlerImpl', () => {
     textNode = document.createTextNode('Hello');
     inlineTextNode.appendChild(textNode);
 
-    // InputHandlerImpl 인스턴스 생성
+    // Create InputHandlerImpl instance
     inputHandler = new InputHandlerImpl(mockEditor as any);
   });
 
@@ -74,18 +74,18 @@ describe('InputHandlerImpl', () => {
 
       expect(eventHandler).toBeDefined();
 
-      // 이벤트 발생 시뮬레이션
+      // Simulate event occurrence
       eventHandler({ activeNodeId: 't1' });
 
-      // activeTextNodeId가 설정되었는지 확인 (private이므로 간접적으로 확인)
+      // Check if activeTextNodeId is set (indirect check since it's private)
       inputHandler.handleTextContentChange(null, null, textNode);
-      // activeTextNodeId가 설정되면 inactive node 체크를 통과할 수 있음
+      // If activeTextNodeId is set, inactive node check can pass
     });
   });
 
   describe('handleTextContentChange - Early Return Cases', () => {
     beforeEach(() => {
-      // 기본 모델 노드 설정
+      // Set default model node
       mockEditor.dataStore.getNode.mockReturnValue({
         text: 'Hello',
         marks: [],
@@ -137,12 +137,12 @@ describe('InputHandlerImpl', () => {
       inputHandler.handleTextContentChange('Hello', 'Hello World', textNode);
 
       expect(mockEditor.executeTransaction).not.toHaveBeenCalled();
-      // pending 상태는 private이므로 간접적으로 확인
-      // compositionEnd 시 커밋되는지로 확인
+      // pending state is private, so check indirectly
+      // Check if it commits on compositionEnd
     });
 
     it('Range Selection (collapsed 아님)인 경우 early return해야 함', () => {
-      // Range Selection 시뮬레이션
+      // Simulate Range Selection
       const range = document.createRange();
       range.setStart(textNode, 0);
       range.setEnd(textNode, 5);
@@ -157,11 +157,11 @@ describe('InputHandlerImpl', () => {
     });
 
     it('Inactive Node인 경우 early return해야 함', () => {
-      // activeTextNodeId 설정
+      // Set activeTextNodeId
       const eventHandler = mockEditor.on.mock.calls.find(
         (call: any[]) => call[0] === 'editor:selection.dom.applied'
       )?.[1];
-      eventHandler({ activeNodeId: 't2' }); // 다른 nodeId
+      eventHandler({ activeNodeId: 't2' }); // Different nodeId
 
       const otherInlineTextNode = document.createElement('span');
       otherInlineTextNode.setAttribute('data-bc-sid', 't1');
@@ -186,7 +186,7 @@ describe('InputHandlerImpl', () => {
     it('Text Node를 찾을 수 없는 경우 early return해야 함', () => {
       const element = document.createElement('div');
       element.setAttribute('data-bc-sid', 't1');
-      // text node가 없는 element
+      // Element without text node
 
       inputHandler.handleTextContentChange(null, null, element);
 
@@ -323,7 +323,7 @@ describe('InputHandlerImpl', () => {
 
       vi.mocked(handleEfficientEdit).mockReturnValue({
         newText: 'Hello World',
-        adjustedMarks: marks, // 동일한 marks
+        adjustedMarks: marks, // Same marks
         adjustedDecorators: [],
         editInfo: {
           nodeId: 't1',
@@ -397,7 +397,7 @@ describe('InputHandlerImpl', () => {
       vi.mocked(handleEfficientEdit).mockReturnValue({
         newText: 'Hello World',
         adjustedMarks: [],
-        adjustedDecorators: decorators, // 동일한 decorators
+        adjustedDecorators: decorators, // Same decorators
         editInfo: {
           nodeId: 't1',
           oldText: 'Hello',
@@ -458,10 +458,10 @@ describe('InputHandlerImpl', () => {
     });
 
     it('handleCompositionStart는 isComposing을 true로 설정하고 pending을 초기화해야 함', () => {
-      // pending 상태 설정 (간접적으로 확인)
+      // Set pending state (check indirectly)
       inputHandler.handleCompositionStart();
 
-      // 조합 중에는 트랜잭션이 실행되지 않아야 함
+      // Transaction should not execute during composition
       vi.mocked(handleEfficientEdit).mockReturnValue({
         newText: 'Hello World',
         adjustedMarks: [],
@@ -491,14 +491,14 @@ describe('InputHandlerImpl', () => {
     });
 
     it('handleCompositionEnd는 isComposing을 false로 설정하고 commitPendingImmediate를 호출해야 함', () => {
-      // 조합 시작
+      // Start composition
       inputHandler.handleCompositionStart();
 
-      // 조합 중 텍스트 변경 (pending에 저장)
+      // Text change during composition (stored in pending)
       inputHandler.handleTextContentChange('Hello', 'Hello World', textNode);
       expect(mockEditor.executeTransaction).not.toHaveBeenCalled();
 
-      // 조합 완료
+      // Composition complete
       vi.mocked(handleEfficientEdit).mockReturnValue({
         newText: 'Hello World',
         adjustedMarks: [],
@@ -516,7 +516,7 @@ describe('InputHandlerImpl', () => {
 
       inputHandler.handleCompositionEnd({} as CompositionEvent);
 
-      // commitPendingImmediate가 호출되어야 함
+      // commitPendingImmediate should be called
       expect(mockEditor.executeTransaction).toHaveBeenCalled();
     });
 
@@ -525,10 +525,10 @@ describe('InputHandlerImpl', () => {
 
       inputHandler.handleTextContentChange('Hello', 'Hello World', textNode);
 
-      // 조합 중이므로 트랜잭션이 실행되지 않아야 함
+      // Transaction should not execute during composition
       expect(mockEditor.executeTransaction).not.toHaveBeenCalled();
 
-      // 조합 완료 시 커밋되는지 확인
+      // Check if it commits when composition completes
       vi.mocked(handleEfficientEdit).mockReturnValue({
         newText: 'Hello World',
         adjustedMarks: [],
@@ -560,12 +560,12 @@ describe('InputHandlerImpl', () => {
     });
 
     it('pendingTextNodeId가 없으면 early return해야 함', () => {
-      // pending이 없는 상태에서 호출
+      // Call when no pending
       inputHandler.handleCompositionEnd({} as CompositionEvent);
 
-      // pending이 없으면 executeTransaction이 호출되지 않아야 함
-      // (다만 handleCompositionEnd는 commitPendingImmediate를 호출하므로,
-      //  실제로는 pending이 설정된 경우만 테스트)
+      // executeTransaction should not be called if no pending
+      // (However, handleCompositionEnd calls commitPendingImmediate,
+      //  so actually only test when pending is set)
     });
 
     it('조합 중이면 early return해야 함', () => {

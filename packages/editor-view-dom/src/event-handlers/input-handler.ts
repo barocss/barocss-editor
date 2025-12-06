@@ -7,8 +7,8 @@ import { analyzeTextChanges } from '@barocss/text-analyzer';
 import { getKeyString } from '@barocss/shared';
 
 /**
- * 입력 처리 디버그 정보 (Devtool용)
- * LastInputDebug와 동일한 구조를 editor-view-dom에서도 사용
+ * Input processing debug information (for Devtool)
+ * Uses the same structure as LastInputDebug in editor-view-dom
  */
 interface LastInputDebug {
   case: 'C1' | 'C2' | 'C3' | 'C4' | 'IME_INTERMEDIATE' | 'UNKNOWN';
@@ -43,25 +43,25 @@ export class InputHandlerImpl implements InputHandler {
   private editorViewDOM: IEditorViewDOM;
   private activeTextNodeId: string | null = null;
   /**
-   * beforeinput 단계에서 수집한 Insert Range 힌트
-   * - insertText / insertFromPaste / insertReplacementText 등에 대해
-   *   DOM selection과 inputType을 기반으로 contentRange를 추정한다.
-   * - dom-change-classifier(C1/C2)에서 contentRange 보정에 사용된다.
+   * Insert Range hint collected at beforeinput stage
+   * - For insertText / insertFromPaste / insertReplacementText, etc.,
+   *   estimates contentRange based on DOM selection and inputType.
+   * - Used for contentRange correction in dom-change-classifier (C1/C2).
    */
   private _pendingInsertHint: InputHint | null = null;
 
   constructor(editor: Editor, editorViewDOM: IEditorViewDOM) {
     this.editor = editor;
     this.editorViewDOM = editorViewDOM;
-    // DOM selection 적용 후 활성 노드 추적
+    // Track active node after DOM selection is applied
     (this.editor as any).on('editor:selection.dom.applied', (e: any) => {
       this.activeTextNodeId = e?.activeNodeId || null;
     });
   }
 
   handleInput(event: InputEvent): void {
-    // input 이벤트는 단순히 로깅용으로만 사용
-    // 실제 변경사항은 MutationObserver에서 처리
+    // input event is only used for logging
+    // Actual changes are handled by MutationObserver
     this.editor.emit('editor:input.detected', {
       inputType: event.inputType,
       data: event.data,
@@ -69,20 +69,20 @@ export class InputHandlerImpl implements InputHandler {
     });
   }
 
-  // composition 이벤트 핸들러 제거
-  // beforeinput 이벤트의 isComposing 속성으로 IME 조합 상태 추적
-  // 실제 처리는 MutationObserver가 담당
+  // composition event handler removed
+  // Track IME composition state using isComposing property of beforeinput event
+  // Actual processing is handled by MutationObserver
 
   /**
-   * keydown 이벤트 처리
+   * Handle keydown event
    * 
-   * 현재 구조:
-   * - EditorViewDOM.handleKeydown에서 KeymapManager를 통해 실제 단축키 처리
-   * - 이 메서드는 디버그 로그만 남기고 실제 처리는 EditorViewDOM에서 수행
+   * Current structure:
+   * - Actual shortcut handling is done via KeymapManager in EditorViewDOM.handleKeydown
+   * - This method only logs debug info, actual processing is done in EditorViewDOM
    * 
-   * 향후 계획:
-   * - KeyBindingManager 도입 시 이 메서드로 단축키 처리 로직 이동 가능
-   * - 현재는 KeymapManager 사용 (문서의 KeyBindingManager는 향후 확장 계획)
+   * Future plans:
+   * - When KeyBindingManager is introduced, shortcut handling logic can be moved to this method
+   * - Currently uses KeymapManager (KeyBindingManager in docs is a future expansion plan)
    */
   handleKeyDown(event: KeyboardEvent): void {
     const key = event.key;
@@ -99,18 +99,18 @@ export class InputHandlerImpl implements InputHandler {
       metaKey,
       shiftKey,
       altKey,
-      // key string 생성 (향후 KeyBindingManager에서 사용)
+      // Generate key string (for future use in KeyBindingManager)
       keyString: getKeyString(event)
     });
     
-    // TODO: KeyBindingManager 도입 시, keydown 처리 로직을 이 메서드로 옮긴다.
-    // 현재는 EditorViewDOM.handleKeydown에서 keymapManager를 통해 처리
+    // TODO: When KeyBindingManager is introduced, move keydown handling logic to this method.
+    // Currently handled via keymapManager in EditorViewDOM.handleKeydown
   }
 
 
   /**
-   * DOM 변경사항 처리 (MutationObserver에서 호출)
-   * MutationRecord[]를 받아 케이스 분류 모듈(dom-change-classifier)을 호출
+   * Handle DOM changes (called from MutationObserver)
+   * Receives MutationRecord[] and calls case classification module (dom-change-classifier)
    */
   async handleDomMutations(mutations: MutationRecord[]): Promise<void> {
     console.log('[InputHandler] handleDomMutations: CALLED', {
@@ -125,26 +125,26 @@ export class InputHandlerImpl implements InputHandler {
       }))
     });
 
-    // Model-First 변경 중 발생하는 DOM 변경은 무시 (무한루프 방지)
+    // Ignore DOM changes during Model-First changes (prevent infinite loop)
     if ((this.editorViewDOM as any)._isModelDrivenChange) {
       console.log('[InputHandler] handleDomMutations: SKIP - model-driven change');
       return;
     }
 
-    // 렌더링 중 발생하는 DOM 변경은 무시 (무한루프 방지)
+    // Ignore DOM changes during rendering (prevent infinite loop)
     if ((this.editorViewDOM as any)._isRendering) {
       console.log('[InputHandler] handleDomMutations: SKIP - rendering');
       return;
     }
 
-    // DOM 변경 분류
+    // Classify DOM changes
     const selection = window.getSelection();
     
-    // DOM selection을 모델 selection으로 변환 (C2/C3/C4에서 사용)
+    // Convert DOM selection to model selection (used in C2/C3/C4)
     let modelSelection: any = null;
     if (selection && selection.rangeCount > 0) {
       try {
-        // EditorViewDOM의 convertDOMSelectionToModel 사용
+        // Use EditorViewDOM's convertDOMSelectionToModel
         modelSelection = (this.editorViewDOM as any).convertDOMSelectionToModel?.(selection);
         console.log('[InputHandler] handleDomMutations: model selection converted', {
           modelSelection: modelSelection?.type === 'range' ? {
@@ -160,14 +160,14 @@ export class InputHandlerImpl implements InputHandler {
       }
     }
 
-    // IME 조합 중 여부 확인 (EditorViewDOM 상태 사용)
+    // Check if IME composition is in progress (use EditorViewDOM state)
     const isComposing =
       (this.editorViewDOM as any)._isComposing === true;
 
-    // beforeinput에서 수집한 Insert Range 힌트 유효성 검사
+    // Validate Insert Range hint collected from beforeinput
     const inputHint = this.getValidInsertHint(isComposing);
 
-    // 모델 selection 정보를 ClassifyOptions에 포함
+    // Include model selection information in ClassifyOptions
     const modelSelectionInfo = modelSelection && modelSelection.type === 'range' ? {
       startNodeId: modelSelection.startNodeId,
       startOffset: modelSelection.startOffset,
@@ -189,7 +189,7 @@ export class InputHandlerImpl implements InputHandler {
       nodeId: classified.nodeId
     });
 
-    // 케이스별 처리
+    // Handle by case
     switch (classified.case) {
       case 'C1':
         await this.handleC1(classified);
@@ -213,7 +213,7 @@ export class InputHandlerImpl implements InputHandler {
   }
 
   /**
-   * C1: 단일 inline-text 내부의 순수 텍스트 변경 처리
+   * C1: Handle pure text changes within a single inline-text
    */
   private async handleC1(classified: ClassifiedChange): Promise<void> {
     console.log('[InputHandler] handleC1: CALLED', { nodeId: classified.nodeId });
@@ -223,7 +223,7 @@ export class InputHandlerImpl implements InputHandler {
       return;
     }
 
-    // 텍스트 diff 분석
+    // Analyze text diff
     const selection = window.getSelection();
     const selectionOffset = selection && selection.rangeCount > 0 
       ? selection.getRangeAt(0).startOffset 
@@ -241,7 +241,7 @@ export class InputHandlerImpl implements InputHandler {
       return;
     }
 
-    // 첫 번째 변경만 처리 (일반적으로 C1은 하나의 변경만 있음)
+    // Process only the first change (C1 typically has only one change)
     const change = textChanges[0];
     console.log('[InputHandler] handleC1: text change', {
       type: change.type,
@@ -251,24 +251,24 @@ export class InputHandlerImpl implements InputHandler {
       confidence: change.confidence
     });
 
-    // DataStore 연산
+    // DataStore operation
     const dataStore = (this.editor as any).dataStore;
     if (!dataStore) {
       console.error('[InputHandler] handleC1: dataStore not found');
       return;
     }
 
-    // contentRange 결정
-    // 1순위: InputHint가 있는 경우 classified.contentRange 사용
-    // 2순위: analyzeTextChanges 결과 사용 (항상 정확함)
+    // Determine contentRange
+    // Priority 1: Use classified.contentRange if InputHint exists
+    // Priority 2: Use analyzeTextChanges result (always accurate)
     let contentRange;
     if (classified.contentRange && classified.metadata?.usedInputHint) {
-      // InputHint를 사용한 경우 classified.contentRange가 더 정확함
+      // classified.contentRange is more accurate when InputHint is used
       contentRange = classified.contentRange;
       console.log('[InputHandler] handleC1: using classified.contentRange (InputHint)', contentRange);
     } else {
-      // analyzeTextChanges 결과 사용 (InputHint가 없거나 정확하지 않은 경우)
-      // analyzeTextChanges가 prevText와 newText를 비교하여 정확한 변경 위치를 계산함
+      // Use analyzeTextChanges result (when InputHint is not available or inaccurate)
+      // analyzeTextChanges compares prevText and newText to calculate accurate change position
       contentRange = {
         startNodeId: classified.nodeId,
         startOffset: change.start,
@@ -285,19 +285,19 @@ export class InputHandlerImpl implements InputHandler {
     }
 
     try {
-      // 삭제 케이스는 beforeinput에서 Model-First로 처리되어야 함
-      // 하지만 IME 조합 중에는 브라우저 기본 동작을 허용하므로 MutationObserver가 감지할 수 있음
-      // 이 경우 fallback으로 처리 (경고 로그 포함)
+      // Delete cases should be handled Model-First in beforeinput
+      // However, during IME composition, browser default behavior is allowed, so MutationObserver can detect it
+      // Handle as fallback in this case (with warning log)
       if (change.type === 'delete') {
         console.warn('[InputHandler] handleC1: DELETE detected via MutationObserver (should be handled by beforeinput)', {
           contentRange,
           note: 'This may be an IME composition case or beforeinput was not triggered'
         });
 
-        // IME 조합 중이거나 beforeinput이 트리거되지 않은 경우 fallback 처리
-        // Command 호출로 변경
+        // Fallback handling when IME composition is in progress or beforeinput was not triggered
+        // Changed to command call
         try {
-          // 단일 노드 삭제인지 확인
+          // Check if single node deletion
           if (contentRange.startNodeId === contentRange.endNodeId) {
             const success = await this.editor.executeCommand('deleteText', { range: contentRange });
             if (!success) {
@@ -305,7 +305,7 @@ export class InputHandlerImpl implements InputHandler {
               return;
             }
           } else {
-            // Cross-node 삭제
+            // Cross-node deletion
             const success = await this.editor.executeCommand('deleteCrossNode', { range: contentRange });
             if (!success) {
               console.warn('[InputHandler] handleC1: fallback deleteCrossNode command failed', { contentRange });
@@ -317,7 +317,7 @@ export class InputHandlerImpl implements InputHandler {
           return;
         }
 
-        // 삭제 후 모델 기준으로 selection 계산
+        // Calculate selection based on model after deletion
         const modelSelection = {
           type: 'range' as const,
           startNodeId: contentRange.startNodeId,
@@ -327,7 +327,7 @@ export class InputHandlerImpl implements InputHandler {
           collapsed: true
         };
 
-        // 모델 selection을 DOM selection으로 변환하여 적용
+        // Convert model selection to DOM selection and apply
         try {
           (this.editorViewDOM as any).convertModelSelectionToDOM?.(modelSelection);
           this.editor.emit('editor:selection.change', {
@@ -344,7 +344,7 @@ export class InputHandlerImpl implements InputHandler {
           insertedText: change.text
         });
 
-        // Command 호출
+        // Call command
         try {
           const success = await this.editor.executeCommand('replaceText', {
             range: contentRange,
@@ -360,8 +360,8 @@ export class InputHandlerImpl implements InputHandler {
           return;
         }
 
-        // 삽입/교체 후 모델 기준으로 selection 계산
-        // 삽입된 텍스트의 끝 위치로 selection 이동
+        // Calculate selection based on model after insert/replace
+        // Move selection to end position of inserted text
         const insertedLength = change.text?.length || 0;
         const modelSelection = {
           type: 'range' as const,
@@ -372,10 +372,10 @@ export class InputHandlerImpl implements InputHandler {
           collapsed: true
         };
 
-        // 모델 selection을 DOM selection으로 변환하여 적용
+        // Convert model selection to DOM selection and apply
         try {
           (this.editorViewDOM as any).convertModelSelectionToDOM?.(modelSelection);
-          // 모델 selection도 업데이트
+          // Also update model selection
           this.editor.emit('editor:selection.change', {
             selection: modelSelection,
             oldSelection: (this.editor as any).selection || null
@@ -386,7 +386,7 @@ export class InputHandlerImpl implements InputHandler {
         }
       }
 
-      // LastInputDebug 객체 생성
+      // Create LastInputDebug object
       const inputDebug: LastInputDebug = {
         case: 'C1',
         inputType: this._pendingInsertHint?.inputType,
@@ -399,7 +399,7 @@ export class InputHandlerImpl implements InputHandler {
         notes: []
       };
 
-      // 규칙 검증: classifiedContentRange와 appliedContentRange 비교
+      // Rule validation: compare classifiedContentRange and appliedContentRange
       if (classified.contentRange) {
         const classifiedRange = classified.contentRange;
         if (classifiedRange.startNodeId !== contentRange.startNodeId ||
@@ -413,7 +413,7 @@ export class InputHandlerImpl implements InputHandler {
         }
       }
 
-      // editor:content.change 이벤트 발생 (skipRender: true)
+      // Emit editor:content.change event (skipRender: true)
       this.editor.emit('editor:content.change', {
         skipRender: true,
         from: 'MutationObserver-C1',
@@ -422,10 +422,10 @@ export class InputHandlerImpl implements InputHandler {
         inputDebug
       });
 
-      // editor 인스턴스에도 저장 (Devtool에서 접근 가능하도록)
+      // Also store in editor instance (for access from Devtool)
       (this.editor as any).__lastInputDebug = inputDebug;
 
-      // C1에서 텍스트 변경이 정상 적용되었으므로 Insert Hint 초기화
+      // Text change was successfully applied in C1, so clear Insert Hint
       this._pendingInsertHint = null;
     } catch (error) {
       console.error('[InputHandler] handleC1: failed to replace text', { error, contentRange });
@@ -447,7 +447,7 @@ export class InputHandlerImpl implements InputHandler {
       return;
     }
 
-    // 여러 노드에 걸친 범위 처리
+    // Handle range spanning multiple nodes
     const contentRange = classified.contentRange;
     const { startNodeId, endNodeId } = contentRange;
     const isMultiNode = startNodeId !== endNodeId;
@@ -462,27 +462,27 @@ export class InputHandlerImpl implements InputHandler {
       newTextLength: classified.newText.length
     });
 
-    // DataStore 연산
+    // DataStore operation
     const dataStore = (this.editor as any).dataStore;
     if (!dataStore) {
       console.error('[InputHandler] handleC2: dataStore not found');
       return;
     }
 
-    // 여러 노드에 걸친 경우 replaceText가 자동으로 처리
-    // (내부적으로 deleteText + insertText로 처리됨)
-    // 단일 노드인 경우도 replaceText로 처리 가능
+    // replaceText automatically handles cases spanning multiple nodes
+    // (processed internally as deleteText + insertText)
+    // Single node cases can also be handled with replaceText
 
     try {
-      // 여러 노드에 걸친 범위는 replaceText로 처리
-      // replaceText는 multi-node 케이스를 자동으로 처리 (deleteText + insertText)
+      // Handle range spanning multiple nodes with replaceText
+      // replaceText automatically handles multi-node cases (deleteText + insertText)
       console.log('[InputHandler] handleC2: calling replaceText command', {
         contentRange,
         newText: classified.newText,
         isMultiNode
       });
 
-      // Command 호출
+      // Call command
       try {
         const success = await this.editor.executeCommand('replaceText', {
           range: contentRange,
@@ -505,7 +505,7 @@ export class InputHandlerImpl implements InputHandler {
         return;
       }
 
-      // LastInputDebug 객체 생성
+      // Create LastInputDebug object
       const inputDebug: LastInputDebug = {
         case: 'C2',
         inputType: this._pendingInsertHint?.inputType,
@@ -518,7 +518,7 @@ export class InputHandlerImpl implements InputHandler {
         notes: []
       };
 
-      // 규칙 검증: classifiedContentRange와 appliedContentRange 비교
+      // Rule validation: compare classifiedContentRange and appliedContentRange
       if (classified.contentRange) {
         const classifiedRange = classified.contentRange;
         if (classifiedRange.startNodeId !== contentRange.startNodeId ||
@@ -532,7 +532,7 @@ export class InputHandlerImpl implements InputHandler {
         }
       }
 
-      // editor:content.change 이벤트 발생 (skipRender: true)
+      // Emit editor:content.change event (skipRender: true)
       this.editor.emit('editor:content.change', {
         skipRender: true,
         from: 'MutationObserver-C2',
@@ -545,10 +545,10 @@ export class InputHandlerImpl implements InputHandler {
         inputDebug
       });
 
-      // editor 인스턴스에도 저장 (Devtool에서 접근 가능하도록)
+      // Also store in editor instance (for access from Devtool)
       (this.editor as any).__lastInputDebug = inputDebug;
 
-      // C2에서 텍스트 변경이 정상 적용되었으므로 Insert Hint 초기화
+      // Text change was successfully applied in C2, so clear Insert Hint
       this._pendingInsertHint = null;
     } catch (error) {
       console.error('[InputHandler] handleC2: failed to replace text', { error, contentRange });
@@ -568,18 +568,18 @@ export class InputHandlerImpl implements InputHandler {
       affectedNodes: classified.metadata?.affectedNodeIds
     });
 
-    // 가능하면 command로 재해석
+    // Reinterpret as command if possible
     const command = classified.metadata?.command;
     if (command) {
       console.log('[InputHandler] handleC3: executing command', { command });
       try {
         this.editor.executeCommand(command);
         
-        // LastInputDebug 객체 생성
+        // Create LastInputDebug object
         const inputDebug: LastInputDebug = {
           case: 'C3',
           inputType: this._pendingInsertHint?.inputType,
-          usedInputHint: false, // C3는 구조 변경이므로 InputHint 사용 안 함
+          usedInputHint: false, // C3 is structure change, so InputHint is not used
           inputHintRange: this._pendingInsertHint?.contentRange,
           classifiedContentRange: classified.contentRange,
           timestamp: Date.now(),
@@ -587,35 +587,35 @@ export class InputHandlerImpl implements InputHandler {
           notes: [`Command executed: ${command}`]
         };
 
-        // 브라우저가 만든 DOM은 무시하고, command 결과로 다시 render
+        // Ignore DOM created by browser and re-render with command result
         this.editor.emit('editor:content.change', {
-          skipRender: false, // render 필요
+          skipRender: false, // render needed
           from: 'MutationObserver-C3-command',
           content: (this.editor as any).document,
           transaction: { type: 'block_structure_change', command },
           inputDebug
         });
 
-        // editor 인스턴스에도 저장 (Devtool에서 접근 가능하도록)
+        // Also store in editor instance (for Devtool access)
         (this.editor as any).__lastInputDebug = inputDebug;
 
-        // C3에서 구조 변경 command가 실행되었으므로 Insert Hint 초기화
+        // Clear Insert Hint since structure change command was executed in C3
         this._pendingInsertHint = null;
         return;
       } catch (error) {
         console.error('[InputHandler] handleC3: command execution failed', { command, error });
-        // fallback으로 진행
+        // proceed with fallback
       }
     }
 
-    // command로 표현 불가능한 경우: fallback 정책
-    // 허용 가능한 텍스트/인라인만 추출하여 안전하게 처리
+    // When cannot be expressed as command: fallback policy
+    // Safely process by extracting only allowed text/inline
     console.log('[InputHandler] handleC3: using fallback policy');
     
-    // Fallback 정책:
-    // 1. 브라우저가 만든 DOM 구조는 무시
-    // 2. 텍스트만 추출하여 현재 selection 위치에 삽입
-    // 3. block 구조는 모델 규칙에 맞게 유지 (변경하지 않음)
+    // Fallback policy:
+    // 1. Ignore DOM structure created by browser
+    // 2. Extract only text and insert at current selection position
+    // 3. Maintain block structure according to model rules (do not change)
     
     const dataStore = (this.editor as any).dataStore;
     if (!dataStore) {
@@ -623,13 +623,13 @@ export class InputHandlerImpl implements InputHandler {
       return;
     }
     
-    // DOM에서 변경된 텍스트 추출 (간단한 fallback)
-    // 실제로는 더 정교한 텍스트 추출 로직이 필요하지만,
-    // 일단은 classified.newText가 있으면 사용
+    // Extract changed text from DOM (simple fallback)
+    // Actually need more sophisticated text extraction logic,
+    // but for now use classified.newText if available
     if (classified.newText && classified.contentRange) {
       try {
-        // 텍스트만 안전하게 삽입 (block 구조는 유지)
-        // contentRange의 시작 위치에 텍스트 삽입
+        // Safely insert text only (maintain block structure)
+        // Insert text at start position of contentRange
         const insertRange = {
           startNodeId: classified.contentRange.startNodeId,
           startOffset: classified.contentRange.startOffset,
@@ -642,7 +642,7 @@ export class InputHandlerImpl implements InputHandler {
           text: classified.newText
         });
         
-        // Command 호출로 변경
+        // Changed to command call
         try {
           const success = await this.editor.executeCommand('replaceText', {
             range: insertRange,
@@ -665,7 +665,7 @@ export class InputHandlerImpl implements InputHandler {
           return;
         }
         
-        // LastInputDebug 객체 생성
+        // Create LastInputDebug object
         const inputDebug: LastInputDebug = {
           case: 'C3',
           inputType: this._pendingInsertHint?.inputType,
@@ -678,19 +678,19 @@ export class InputHandlerImpl implements InputHandler {
           notes: ['Fallback policy: text only inserted, block structure preserved']
         };
         
-        // 브라우저가 만든 DOM은 무시하고, fallback 결과로 다시 render
+        // Ignore DOM created by browser and re-render with fallback result
         this.editor.emit('editor:content.change', {
-          skipRender: false, // render 필요
+          skipRender: false, // render needed
           from: 'MutationObserver-C3-fallback',
           content: (this.editor as any).document,
           transaction: { type: 'block_structure_change_fallback' },
           inputDebug
         });
         
-        // editor 인스턴스에도 저장 (Devtool에서 접근 가능하도록)
+        // Also store in editor instance (for Devtool access)
         (this.editor as any).__lastInputDebug = inputDebug;
         
-        // C3에서 fallback이 실행되었으므로 Insert Hint 초기화
+        // Clear Insert Hint since fallback was executed in C3
         this._pendingInsertHint = null;
       } catch (error) {
         console.error('[InputHandler] handleC3: fallback failed', { error, classified });
@@ -704,9 +704,9 @@ export class InputHandlerImpl implements InputHandler {
   }
 
   /**
-   * C4: 마크/스타일/데코레이터 변경 처리
+   * C4: Handle mark/style/decorator changes
    * 
-   * 브라우저가 직접 생성한 스타일/태그를 모델 mark로 변환
+   * Convert styles/tags directly created by browser to model marks
    */
   private handleC4(classified: ClassifiedChange): void {
     console.log('[InputHandler] handleC4: CALLED', {
@@ -731,19 +731,19 @@ export class InputHandlerImpl implements InputHandler {
       return;
     }
 
-    // 각 mark 변경 처리
+    // Handle each mark change
     for (const change of markChanges) {
       try {
         const { nodeId, markType } = change;
         
-        // 모델 노드 확인
+        // Check model node
         const modelNode = dataStore.getNode(nodeId);
         if (!modelNode || modelNode.stype !== 'inline-text') {
           console.log('[InputHandler] handleC4: SKIP - not inline-text node', { nodeId });
           continue;
         }
 
-        // selection 범위 가져오기 (없으면 전체 텍스트)
+        // Get selection range (use full text if not available)
         const selection = window.getSelection();
         let startOffset = 0;
         let endOffset = modelNode.text?.length || 0;

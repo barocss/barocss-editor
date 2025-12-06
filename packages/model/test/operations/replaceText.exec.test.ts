@@ -46,7 +46,7 @@ describe('replaceText operation (exec)', () => {
   it('supports cross-node replacement via range payload', async () => {
     dataStore.setNode({ id: 'a', type: 'inline-text', text: 'Hello ' });
     dataStore.setNode({ id: 'b', type: 'inline-text', text: 'World' });
-    // parent content 연결은 없어도 fast-path 외의 분기에서 delete+insert가 동작하도록 datastore는 대비되어 있음
+    // DataStore is prepared to work with delete+insert in branches other than fast-path even without parent content connection
     const op = globalOperationRegistry.get('replaceText');
     const result = await op!.execute({
       type: 'replaceText',

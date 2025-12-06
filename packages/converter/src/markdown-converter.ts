@@ -5,16 +5,16 @@ import { GlobalConverterRegistry } from './registry';
 const registry = GlobalConverterRegistry.getInstance();
 
 /**
- * 간단한 Markdown 파서 (외부 라이브러리 없이 기본 구현)
+ * Simple Markdown parser (basic implementation without external libraries)
  * 
- * ⚠️ 주의: 이는 기본 구현이며, 실제 프로덕션에서는 markdown-it 같은
- * 외부 라이브러리를 사용하는 것을 권장합니다.
+ * ⚠️ Warning: This is a basic implementation. For production, it is recommended
+ * to use external libraries like markdown-it.
  */
 class SimpleMarkdownParser {
   /**
-   * Markdown 문자열을 AST로 변환
+   * Converts Markdown string to AST
    * 
-   * 간단한 구현: heading, paragraph, bold, italic만 지원
+   * Simple implementation: only supports heading, paragraph, bold, italic
    */
   parse(markdown: string): any[] {
     const lines = markdown.split('\n');
@@ -24,11 +24,11 @@ class SimpleMarkdownParser {
       const line = lines[i].trim();
       
       if (!line) {
-        // 빈 줄은 무시
+        // Ignore empty lines
         continue;
       }
       
-      // Heading 체크 (# ## ### 등)
+      // Check heading (# ## ### etc.)
       const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
       if (headingMatch) {
         const level = headingMatch[1].length;
@@ -54,13 +54,13 @@ class SimpleMarkdownParser {
   }
   
   /**
-   * 인라인 텍스트 파싱 (bold, italic)
+   * Parse inline text (bold, italic)
    */
   private _parseInline(text: string): any[] {
     const children: any[] = [];
     let currentIndex = 0;
     
-    // **bold** 또는 *italic* 패턴 찾기
+    // Find **bold** or *italic* patterns
     const patterns = [
       { regex: /\*\*([^*]+)\*\*/g, type: 'bold' },
       { regex: /\*([^*]+)\*/g, type: 'italic' },
@@ -82,10 +82,10 @@ class SimpleMarkdownParser {
       }
     }
     
-    // 인덱스 순으로 정렬
+    // Sort by index
     matches.sort((a, b) => a.index - b.index);
     
-    // 겹치는 매치 제거 (첫 번째 것만 유지)
+    // Remove overlapping matches (keep only first one)
     const filteredMatches: typeof matches = [];
     for (const match of matches) {
       const overlaps = filteredMatches.some(m => 
@@ -97,10 +97,10 @@ class SimpleMarkdownParser {
       }
     }
     
-    // 매치되지 않은 텍스트와 매치된 텍스트를 순서대로 처리
+    // Process unmatched text and matched text in order
     let lastIndex = 0;
     for (const match of filteredMatches) {
-      // 매치 전의 일반 텍스트
+      // Plain text before match
       if (match.index > lastIndex) {
         const plainText = text.substring(lastIndex, match.index);
         if (plainText) {
@@ -111,7 +111,7 @@ class SimpleMarkdownParser {
         }
       }
       
-      // 매치된 텍스트 (bold 또는 italic)
+      // Matched text (bold or italic)
       children.push({
         type: match.type,
         text: match.text
@@ -120,7 +120,7 @@ class SimpleMarkdownParser {
       lastIndex = match.index + match.length;
     }
     
-    // 마지막 매치 이후의 텍스트
+    // Text after last match
     if (lastIndex < text.length) {
       const plainText = text.substring(lastIndex);
       if (plainText) {
@@ -131,7 +131,7 @@ class SimpleMarkdownParser {
       }
     }
     
-    // 매치가 없으면 전체 텍스트 반환
+    // Return full text if no matches
     if (children.length === 0) {
       children.push({
         type: 'text',
@@ -144,8 +144,8 @@ class SimpleMarkdownParser {
 }
 
 /**
- * Markdown 변환기
- * Markdown 문자열을 모델 노드로 파싱하고, 모델 노드를 Markdown 문자열로 변환합니다.
+ * Markdown converter
+ * Parses Markdown strings to model nodes and converts model nodes to Markdown strings.
  */
 export class MarkdownConverter {
   private parser: SimpleMarkdownParser;
@@ -155,11 +155,11 @@ export class MarkdownConverter {
   }
   
   /**
-   * Markdown 문자열을 모델 노드 배열로 파싱합니다.
+   * Parses Markdown string to model node array.
    * 
-   * @param markdown Markdown 문자열
-   * @param format 형식 (기본값: 'markdown')
-   * @returns 모델 노드 배열
+   * @param markdown Markdown string
+   * @param format Format (default: 'markdown')
+   * @returns Model node array
    */
   parse(markdown: string, format: Format = 'markdown'): INode[] {
     if (format !== 'markdown' && format !== 'markdown-gfm') {
@@ -168,22 +168,22 @@ export class MarkdownConverter {
       );
     }
     
-    // 전체 문서 파서 사용 (요청된 format 우선, 없으면 기본 'markdown' 사용)
+    // Use full document parser (prefer requested format, fallback to default 'markdown')
     const documentParser =
       registry.getDocumentParser(format) || registry.getDocumentParser('markdown');
     if (documentParser) {
-      // 외부 파서 사용
+      // Use external parser
       const ast = documentParser.parse(markdown);
       return this._convertASTToNodes(ast);
     }
     
-    // 기본 파서 사용
+    // Use default parser
     const ast = this.parser.parse(markdown);
     return this._convertASTToNodes(ast);
   }
   
   /**
-   * AST를 모델 노드로 변환
+   * Converts AST to model nodes
    */
   private _convertASTToNodes(ast: any[]): INode[] {
     const nodes: INode[] = [];
@@ -199,10 +199,10 @@ export class MarkdownConverter {
   }
   
   /**
-   * 단일 AST 노드를 모델 노드로 변환
+   * Converts single AST node to model node
    */
   private _convertASTNode(astNode: any): INode | null {
-    // AST 변환 규칙 조회
+    // Query AST conversion rules
     const allRules = this._getAllASTConverterRules('markdown');
     
     for (const { stype, rules } of allRules) {
@@ -218,7 +218,7 @@ export class MarkdownConverter {
   }
   
   /**
-   * 모든 AST 변환 규칙 조회
+   * Query all AST conversion rules
    */
   private _getAllASTConverterRules(format: Format): Array<{ stype: string; rules: any[] }> {
     const knownStypes = ['heading', 'paragraph', 'inline-text', 'list', 'image'];
@@ -235,11 +235,11 @@ export class MarkdownConverter {
   }
   
   /**
-   * 모델 노드 배열을 Markdown 문자열로 변환합니다.
+   * Converts model node array to Markdown string.
    * 
-   * @param nodes 모델 노드 배열
-   * @param format 형식 (기본값: 'markdown')
-   * @returns Markdown 문자열
+   * @param nodes Model node array
+   * @param format Format (default: 'markdown')
+   * @returns Markdown string
    */
   convert(nodes: INode[], format: Format = 'markdown'): string {
     if (format !== 'markdown') {
@@ -259,16 +259,16 @@ export class MarkdownConverter {
   }
   
   /**
-   * 모델 노드를 Markdown 문자열로 변환
+   * Converts model node to Markdown string
    */
   private _convertNodeToMarkdown(node: INode): string {
     const stype = node.stype;
     
-    // 변환 규칙 조회
+    // Query conversion rules
     const rules = registry.getConverterRules(stype, 'markdown');
     
     if (rules.length > 0) {
-      // 첫 번째 규칙 사용 (우선순위가 가장 높은 것)
+      // Use first rule (highest priority)
       const rule = rules[0];
       const result = rule.convert(node);
       if (typeof result === 'string') {
@@ -276,12 +276,12 @@ export class MarkdownConverter {
       }
     }
     
-    // 기본 변환 (규칙이 없는 경우)
+    // Default conversion (when no rules)
     return this._defaultNodeToMarkdown(node);
   }
   
   /**
-   * 기본 Node → Markdown 변환 (규칙이 없는 경우)
+   * Default Node → Markdown conversion (when no rules)
    */
   private _defaultNodeToMarkdown(node: INode): string {
     if (node.text !== undefined) {

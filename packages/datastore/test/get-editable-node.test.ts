@@ -79,44 +79,44 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
       const secondText = textNodes[1];
       const thirdText = textNodes[2];
       
-      // 두 번째 텍스트의 이전은 첫 번째 텍스트
+      // Previous of second text is first text
       expect(dataStore.getPreviousEditableNode(secondText.sid!)).toBe(firstText.sid);
       
-      // 세 번째 텍스트의 이전은 두 번째 텍스트
+      // Previous of third text is second text
       expect(dataStore.getPreviousEditableNode(thirdText.sid!)).toBe(secondText.sid);
     });
 
-    it('getPreviousEditableNode: 첫 번째 형제는 null 반환 (block 노드는 건너뛰므로)', () => {
+    it('getPreviousEditableNode: first sibling returns null (skips block nodes)', () => {
       const textNodes = dataStore.findNodesByType('inline-text');
       const firstText = textNodes[0];
       
-      // 첫 번째 텍스트의 이전 편집 가능한 노드는 없음 (부모 paragraph는 block이므로 건너뜀)
+      // First text has no previous editable node (parent paragraph is block, so skipped)
       expect(dataStore.getPreviousEditableNode(firstText.sid!)).toBeNull();
     });
 
-    it('getNextEditableNode: 형제 노드가 있으면 다음 형제 반환', () => {
+    it('getNextEditableNode: returns next sibling if sibling exists', () => {
       const textNodes = dataStore.findNodesByType('inline-text');
       const firstText = textNodes[0];
       const secondText = textNodes[1];
       const thirdText = textNodes[2];
       
-      // 첫 번째 텍스트의 다음은 두 번째 텍스트
+      // Next of first text is second text
       expect(dataStore.getNextEditableNode(firstText.sid!)).toBe(secondText.sid);
       
-      // 두 번째 텍스트의 다음은 세 번째 텍스트
+      // Next of second text is third text
       expect(dataStore.getNextEditableNode(secondText.sid!)).toBe(thirdText.sid);
     });
 
-    it('getNextEditableNode: 마지막 형제는 null 반환', () => {
+    it('getNextEditableNode: last sibling returns null', () => {
       const textNodes = dataStore.findNodesByType('inline-text');
       const thirdText = textNodes[2];
       
-      // 세 번째 텍스트의 다음 편집 가능한 노드는 없음
+      // Third text has no next editable node
       expect(dataStore.getNextEditableNode(thirdText.sid!)).toBeNull();
     });
   });
 
-  describe('복잡한 구조 - 여러 paragraph', () => {
+  describe('Complex structure - multiple paragraphs', () => {
     beforeEach(() => {
       // document > [paragraph-1, paragraph-2]
       // paragraph-1 > [text-1, text-2]
@@ -141,50 +141,50 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
       });
     });
 
-    it('getPreviousEditableNode: 단락 간 이동 (이전 단락의 마지막 텍스트)', () => {
+    it('getPreviousEditableNode: cross-paragraph movement (last text of previous paragraph)', () => {
       const textNodes = dataStore.findNodesByType('inline-text');
       const para1Text1 = textNodes[0];
       const para1Text2 = textNodes[1];
       const para2Text1 = textNodes[2];
       
-      // Para2-Text1의 이전은 Para1-Text2 (이전 단락의 마지막 텍스트)
+      // Previous of Para2-Text1 is Para1-Text2 (last text of previous paragraph)
       expect(dataStore.getPreviousEditableNode(para2Text1.sid!)).toBe(para1Text2.sid);
       
-      // Para1-Text2의 이전은 Para1-Text1
+      // Previous of Para1-Text2 is Para1-Text1
       expect(dataStore.getPreviousEditableNode(para1Text2.sid!)).toBe(para1Text1.sid);
     });
 
-    it('getPreviousEditableNode: 첫 번째 단락의 첫 번째 텍스트는 null', () => {
+    it('getPreviousEditableNode: first text of first paragraph is null', () => {
       const textNodes = dataStore.findNodesByType('inline-text');
       const para1Text1 = textNodes[0];
       
-      // Para1-Text1의 이전 편집 가능한 노드는 없음
+      // Para1-Text1 has no previous editable node
       expect(dataStore.getPreviousEditableNode(para1Text1.sid!)).toBeNull();
     });
 
-    it('getNextEditableNode: 단락 간 이동 (다음 단락의 첫 텍스트)', () => {
+    it('getNextEditableNode: cross-paragraph movement (first text of next paragraph)', () => {
       const textNodes = dataStore.findNodesByType('inline-text');
       const para1Text1 = textNodes[0];
       const para1Text2 = textNodes[1];
       const para2Text1 = textNodes[2];
       
-      // Para1-Text1의 다음은 Para1-Text2
+      // Next of Para1-Text1 is Para1-Text2
       expect(dataStore.getNextEditableNode(para1Text1.sid!)).toBe(para1Text2.sid);
       
-      // Para1-Text2의 다음은 Para2-Text1 (다음 단락의 첫 텍스트)
+      // Next of Para1-Text2 is Para2-Text1 (first text of next paragraph)
       expect(dataStore.getNextEditableNode(para1Text2.sid!)).toBe(para2Text1.sid);
     });
 
-    it('getNextEditableNode: 마지막 단락의 마지막 텍스트는 null', () => {
+    it('getNextEditableNode: last text of last paragraph is null', () => {
       const textNodes = dataStore.findNodesByType('inline-text');
       const para2Text1 = textNodes[2];
       
-      // Para2-Text1의 다음 편집 가능한 노드는 없음
+      // Para2-Text1 has no next editable node
       expect(dataStore.getNextEditableNode(para2Text1.sid!)).toBeNull();
     });
   });
 
-  describe('inline-image 포함 구조', () => {
+  describe('Structure including inline-image', () => {
     beforeEach(() => {
       // document > paragraph > [text-1, image-1, text-2]
       dataStore.createNodeWithChildren({
@@ -209,37 +209,37 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
       const image = images[0];
       const afterText = textNodes[1];
       
-      // After 텍스트의 이전은 image
+      // Previous of After text is image
       expect(dataStore.getPreviousEditableNode(afterText.sid!)).toBe(image.sid);
       
-      // image의 이전은 Before 텍스트
+      // Previous of image is Before text
       expect(dataStore.getPreviousEditableNode(image.sid!)).toBe(beforeText.sid);
     });
 
-    it('getNextEditableNode: inline-image도 편집 가능한 노드로 간주', () => {
+    it('getNextEditableNode: inline-image is also considered editable node', () => {
       const textNodes = dataStore.findNodesByType('inline-text');
       const images = dataStore.findNodesByType('inline-image');
       const beforeText = textNodes[0];
       const image = images[0];
       const afterText = textNodes[1];
       
-      // Before 텍스트의 다음은 image
+      // Next of Before text is image
       expect(dataStore.getNextEditableNode(beforeText.sid!)).toBe(image.sid);
       
-      // image의 다음은 After 텍스트
+      // Next of image is After text
       expect(dataStore.getNextEditableNode(image.sid!)).toBe(afterText.sid);
     });
   });
 
-  describe('빈 paragraph 처리', () => {
+  describe('Empty paragraph handling', () => {
     beforeEach(() => {
-      // document > [paragraph-1 (빈), paragraph-2 > [text-1]]
+      // document > [paragraph-1 (empty), paragraph-2 > [text-1]]
       dataStore.createNodeWithChildren({
         stype: 'document',
         content: [
           {
             stype: 'paragraph',
-            content: [] // 빈 paragraph
+            content: [] // Empty paragraph
           },
           {
             stype: 'paragraph',
@@ -251,11 +251,11 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
       });
     });
 
-    it('getPreviousEditableNode: 빈 paragraph를 건너뛰고 이전 단락의 마지막 텍스트 찾기', () => {
+    it('getPreviousEditableNode: skip empty paragraph and find last text of previous paragraph', () => {
       const textNodes = dataStore.findNodesByType('inline-text');
       const para2Text1 = textNodes[0];
       
-      // Para2-Text1의 이전 편집 가능한 노드는 없음 (이전 paragraph가 비어있음)
+      // Para2-Text1 has no previous editable node (previous paragraph is empty)
       expect(dataStore.getPreviousEditableNode(para2Text1.sid!)).toBeNull();
     });
 

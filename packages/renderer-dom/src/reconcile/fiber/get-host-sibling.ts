@@ -1,38 +1,38 @@
 import { FiberNode } from './types';
 
 /**
- * React의 getHostSibling 알고리즘 구현
+ * Implementation of React's getHostSibling algorithm
  * 
- * 다음 형제의 DOM 노드를 찾기 위해:
- * 1. fiber.sibling부터 시작하여 다음 형제를 찾음
- * 2. 형제가 DOM 노드를 가지고 있으면 반환
- * 3. 형제가 DOM 노드를 가지고 있지 않으면, 자식 중 첫 번째 DOM 노드를 찾기 위해 깊이 우선 탐색
+ * To find next sibling's DOM node:
+ * 1. Start from fiber.sibling to find next sibling
+ * 2. If sibling has DOM node, return it
+ * 3. If sibling doesn't have DOM node, perform depth-first search to find first DOM node among children
  * 
- * React의 실제 구현:
- * - commitPlacement에서 getHostSibling을 호출할 때, 다음 형제는 아직 commit되지 않았을 수 있음
- * - 하지만 render phase에서 이미 domElement가 설정되었으므로, 다음 형제의 domElement를 찾을 수 있음
+ * React's actual implementation:
+ * - When getHostSibling is called in commitPlacement, next sibling may not be committed yet
+ * - However, domElement is already set in render phase, so can find next sibling's domElement
  * 
- * @param fiber - 현재 Fiber 노드
- * @returns 다음 형제의 DOM 노드 또는 null
+ * @param fiber - Current Fiber node
+ * @returns Next sibling's DOM node or null
  */
 export function getHostSibling(fiber: FiberNode): Node | null {
-  // 다음 형제 Fiber 찾기
+  // Find next sibling Fiber
   let sibling = fiber.sibling;
   
-  // 다음 형제가 없으면 null 반환
+  // Return null if no next sibling
   if (!sibling) {
     return null;
   }
   
-  // 다음 형제부터 시작하여 DOM 노드를 가진 형제 찾기
+  // Start from next sibling to find sibling with DOM node
   while (sibling !== null) {
-    // 형제가 DOM 노드를 가지고 있으면 반환
-    // Text node (#text) 또는 Host element (tag가 있는 경우)
+    // If sibling has DOM node, return it
+    // Text node (#text) or Host element (if has tag)
     if (sibling.domElement) {
       return sibling.domElement;
     }
     
-    // 형제가 DOM 노드를 가지고 있지 않으면, 자식 중 첫 번째 DOM 노드 찾기
+    // If sibling doesn't have DOM node, find first DOM node among children
     if (sibling.child) {
       let childFiber = sibling.child;
       while (childFiber) {
@@ -43,7 +43,7 @@ export function getHostSibling(fiber: FiberNode): Node | null {
       }
     }
     
-    // 다음 형제로 이동
+    // Move to next sibling
     sibling = sibling.sibling;
   }
   

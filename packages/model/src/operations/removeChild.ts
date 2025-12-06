@@ -4,10 +4,10 @@ import type { TransactionContext } from '../types';
 /**
  * removeChild operation (DSL + runtime)
  *
- * 목적
- * - 부모에서 특정 자식 노드를 제거한다. DataStore.content.removeChild 사용.
+ * Purpose:
+ * - Removes a specific child node from parent. Uses DataStore.content.removeChild.
  *
- * 입력 형태(DSL)
+ * Input format (DSL):
  * - control(parentId, [ removeChild(childId) ]) → payload: { childId }
  * - removeChild(parentId, childId) → payload: { parentId, childId }
  */
@@ -19,13 +19,13 @@ export interface RemoveChildOperation {
 }
 
 defineOperation('removeChild', async (operation: any, context: TransactionContext) => {
-  // control DSL에서 nodeId로 전달되거나, 직접 parentId로 전달될 수 있음
+  // Can be passed as nodeId from control DSL, or directly as parentId
   const parentId = operation.payload.parentId || operation.payload.nodeId;
   const childId = operation.payload.childId;
   const parent = context.dataStore.getNode(parentId);
   if (!parent) throw new Error(`Parent not found: ${parentId}`);
   
-  // 제거할 자식 노드 정보 저장 (역함수용)
+  // Store child node information to remove (for inverse function)
   const childToRemove = context.dataStore.getNode(childId);
   if (!childToRemove) throw new Error(`Child not found: ${childId}`);
   
@@ -39,6 +39,6 @@ defineOperation('removeChild', async (operation: any, context: TransactionContex
   };
 });
 
-// DSL 정의는 별도 파일로 분리 예정
+// DSL definition will be separated into a separate file
 
 

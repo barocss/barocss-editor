@@ -1,7 +1,7 @@
 import type { TransactionContext } from '../types';
 import type { INode } from '../types';
 
-// Operation 정의 인터페이스
+// Operation definition interface
 export interface OperationDefinition {
   name: string;
   execute: <T extends any>(operation: T, context: TransactionContext) => Promise<void | INode>;
@@ -31,7 +31,7 @@ class GlobalOperationRegistry {
 
 export const globalOperationRegistry = new GlobalOperationRegistry();
 
-// Operation 정의 함수
+// Operation definition function
 export function defineOperation<T extends any>(
   name: string, 
   executor: (operation: T, context: TransactionContext) => Promise<void | INode>,

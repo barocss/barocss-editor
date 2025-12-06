@@ -4,19 +4,19 @@ import type { TransactionContext } from '../types';
 /**
  * deleteTextRange operation (runtime)
  *
- * 목적
- * - 단일 텍스트 노드 내에서 startPosition~endPosition 구간의 텍스트를 삭제한다.
- * - DataStore 연산과 Selection 이동을 일관되게 처리한다.
+ * Purpose
+ * - Deletes text in the range startPosition~endPosition within a single text node.
+ * - Handles DataStore operations and Selection movement consistently.
  *
- * 입력 형태(DSL)
- * - control 체인: control(nodeId, [ deleteTextRange(start, end) ]) → payload: { start, end }
- * - 직접 호출: deleteTextRange(nodeId, start, end) → payload: { nodeId, start, end }
- *   - 빌더는 control(target, …)에서 target을 nodeId로 주입한다.
+ * Input format (DSL)
+ * - control chain: control(nodeId, [ deleteTextRange(start, end) ]) → payload: { start, end }
+ * - direct call: deleteTextRange(nodeId, start, end) → payload: { nodeId, start, end }
+ *   - Builder injects target as nodeId in control(target, …).
  *
- * payload 필드 (DSL)
+ * payload fields (DSL)
  * - start: number
  * - end: number
- * - nodeId?: string (직접 호출 시 포함)
+ * - nodeId?: string (included in direct call)
  */
 
 type DeleteTextRangeOperation = {
@@ -25,8 +25,8 @@ type DeleteTextRangeOperation = {
   end: number;
 };
 
-// 텍스트 노드에서 지정된 범위의 텍스트를 삭제한다.
-// DataStore.range.deleteText 호출을 사용하며, 삭제된 텍스트를 반환한다.
+// Deletes text in the specified range from a text node.
+// Uses DataStore.range.deleteText and returns the deleted text.
 defineOperation('deleteTextRange', 
   async (operation: any, context: TransactionContext) => {
     const { nodeId, start, end } = operation.payload as DeleteTextRangeOperation;
@@ -38,7 +38,7 @@ defineOperation('deleteTextRange',
         throw new Error(`Node not found: ${nodeId}`);
       }
 
-      // 1) DataStore 업데이트: 단일 노드 내부에서 [startPosition, endPosition) 구간 삭제
+      // 1) DataStore update: delete range [startPosition, endPosition) within single node
       const deletedText = context.dataStore.range.deleteText({
         startNodeId: nodeId,
         startOffset: start,
@@ -46,47 +46,47 @@ defineOperation('deleteTextRange',
         endOffset: end
       });
       
-      // 2) Selection 매핑: context.selection.current 직접 갱신
+      // 2) Selection mapping: directly update context.selection.current
       if (context.selection?.current) {
         const sel = context.selection.current;
         const deleteLength = end - start;
         
-        // start 처리
+        // Handle start
         if (sel.startNodeId === nodeId) {
           if (sel.startOffset >= start && sel.startOffset < end) {
-            // 삭제 범위 내 → start로 클램프
+            // Within deletion range → clamp to start
             sel.startOffset = start;
           } else if (sel.startOffset === end) {
-            // 삭제 범위 끝에 정확히 있음 → 삭제 시작 위치로 이동
+            // Exactly at deletion range end → move to deletion start position
             sel.startOffset = start;
           } else if (sel.startOffset > end) {
-            // 삭제 범위 이후 → 시프트
+            // After deletion range → shift
             sel.startOffset -= deleteLength;
           }
         }
         
-        // end 처리
+        // Handle end
         if (sel.endNodeId === nodeId) {
           if (sel.endOffset >= start && sel.endOffset < end) {
-            // 삭제 범위 내 → start로 클램프
+            // Within deletion range → clamp to start
             sel.endOffset = start;
           } else if (sel.endOffset === end) {
-            // 삭제 범위 끝에 정확히 있음 → 삭제 시작 위치로 이동
+            // Exactly at deletion range end → move to deletion start position
             sel.endOffset = start;
           } else if (sel.endOffset > end) {
-            // 삭제 범위 이후 → 시프트
+            // After deletion range → shift
             sel.endOffset -= deleteLength;
           }
         }
         
-        // Collapsed 상태 업데이트
+        // Update collapsed state
         if ('collapsed' in sel) {
           sel.collapsed = sel.startNodeId === sel.endNodeId && 
                           sel.startOffset === sel.endOffset;
         }
       }
       
-      // 3) 삭제된 텍스트 반환 + inverse + selection 정보
+      // 3) Return deleted text + inverse + selection info
       return { 
         ok: true, 
         data: deletedText, 
@@ -115,7 +115,7 @@ defineOperation('deleteTextRange',
 /**
  * deleteTextRange operation DSL
  *
- * 지원 형태:
- * - 직접 지정: deleteTextRange(nodeId, start, end) → { type: 'deleteTextRange', payload: { nodeId, start, end } }
- * - control 체인: control(nodeId, [ deleteTextRange(start, end) ]) → { type: 'deleteTextRange', payload: { start, end } }
+ * Supported forms:
+ * - Direct specification: deleteTextRange(nodeId, start, end) → { type: 'deleteTextRange', payload: { nodeId, start, end } }
+ * - control chain: control(nodeId, [ deleteTextRange(start, end) ]) → { type: 'deleteTextRange', payload: { start, end } }
  */

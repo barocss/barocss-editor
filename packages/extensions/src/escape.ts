@@ -7,8 +7,8 @@ export interface EscapeExtensionOptions {
 /**
  * EscapeExtension
  *
- * - `escape` 커맨드를 제공한다.
- * - 선택이 있으면 선택 취소, 없으면 포커스 해제
+ * - Provides `escape` command.
+ * - Clears selection if present, otherwise removes focus
  */
 export class EscapeExtension implements Extension {
   name = 'escape';
@@ -26,7 +26,7 @@ export class EscapeExtension implements Extension {
   onCreate(editor: Editor): void {
     if (!this._options.enabled) return;
 
-    // Escape 명령어 등록
+    // Register escape command
     (editor as any).registerCommand({
       name: 'escape',
       execute: (ed: Editor) => {
@@ -39,19 +39,19 @@ export class EscapeExtension implements Extension {
   }
 
   onDestroy(_editor: Editor): void {
-    // 정리 작업 필요 시 여기에 추가
+    // Add cleanup work here if needed
   }
 
   private _executeEscape(editor: Editor): boolean {
     const selection = editor.selection;
     
-    // 선택이 있으면 선택 취소
+    // Clear selection if present
     if (selection && !this._isSelectionEmpty(selection)) {
       editor.clearSelection();
       return true;
     }
     
-    // 선택이 없으면 포커스 해제 이벤트 emit (EditorViewDOM에서 처리)
+    // Emit blur request event if no selection (handled by EditorViewDOM)
     editor.emit('editor:blur.request', {});
     return true;
   }
@@ -69,7 +69,7 @@ export class EscapeExtension implements Extension {
   }
 }
 
-// 편의 함수
+// Convenience function
 export function createEscapeExtension(options?: EscapeExtensionOptions): EscapeExtension {
   return new EscapeExtension(options);
 }

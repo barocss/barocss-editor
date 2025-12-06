@@ -16,7 +16,7 @@ export class MutationObserverManagerImpl implements MutationObserverManager {
     this.inputHandler = inputHandler;
     this.baseManager = new BaseMutationObserverManager();
     
-    // 이벤트 핸들러 설정
+    // Set up event handlers
     this.baseManager.setEventHandlers({
       onStructureChange: (event) => {
         this.editor.emit('editor:node.change', event);
@@ -27,17 +27,17 @@ export class MutationObserverManagerImpl implements MutationObserverManager {
       onTextChange: (event) => {
         console.log('[MO] onTextChange: CALLED', { oldText: event.oldText, newText: event.newText, targetNodeType: event.target.nodeType });
         
-        // 주의: handleDomMutations가 우선 처리하므로,
-        // onTextChange는 handleDomMutations가 처리하지 못한 경우에만 fallback으로 사용
-        // 현재는 handleDomMutations가 모든 characterData 변경을 처리하므로,
-        // onTextChange는 비활성화하거나 최소한의 로깅만 수행
+        // Note: handleDomMutations takes priority,
+        // onTextChange is only used as fallback when handleDomMutations cannot handle it
+        // Currently handleDomMutations handles all characterData changes,
+        // so onTextChange is disabled or only performs minimal logging
         
-        // TODO: handleDomMutations로 완전히 마이그레이션되면 이 경로는 제거 가능
+        // TODO: This path can be removed once fully migrated to handleDomMutations
         console.log('[MO] onTextChange: SKIP - handled by handleDomMutations');
         
-        // 기존 로직은 주석 처리 (필요시 fallback으로 활성화 가능)
+        // Existing logic is commented out (can be enabled as fallback if needed)
         /*
-        // 현재 selection의 anchorNode와 같은 노드의 변경만 처리
+        // Only process changes to nodes same as current selection's anchorNode
         const selection = window.getSelection();
         if (!selection || selection.rangeCount === 0) {
           console.log('[MO] onTextChange: SKIP - no selection');
@@ -50,7 +50,7 @@ export class MutationObserverManagerImpl implements MutationObserverManager {
           return;
         }
         
-        // event.target이 selection.anchorNode와 같을 때만 처리
+        // Only process when event.target equals selection.anchorNode
         if (event.target !== anchorNode) {
           console.log('[MO] onTextChange: SKIP - target !== anchorNode', { 
             targetNodeType: event.target.nodeType,
@@ -68,20 +68,20 @@ export class MutationObserverManagerImpl implements MutationObserverManager {
   }
 
   setup(contentEditableElement: HTMLElement): void {
-    // BaseMutationObserverManager도 설정 (기존 호환성 유지)
+    // Also set up BaseMutationObserverManager (maintain backward compatibility)
     this.baseManager.setup(contentEditableElement);
 
-    // handleDomMutations를 위한 MutationObserver 직접 설정
+    // Set up MutationObserver directly for handleDomMutations
     this.observer = new MutationObserver((mutations) => {
       console.log('[MO] MutationObserver callback: mutations received', {
         count: mutations.length,
         types: mutations.map(m => m.type)
       });
 
-      // mutations를 배치로 수집
+      // Collect mutations in batch
       this.pendingMutations.push(...mutations);
 
-      // 짧은 지연 후 배치 처리 (동일한 이벤트 루프의 모든 mutations 수집)
+      // Process in batch after short delay (collect all mutations in same event loop)
       if (this.mutationTimer) {
         clearTimeout(this.mutationTimer);
       }
@@ -92,7 +92,7 @@ export class MutationObserverManagerImpl implements MutationObserverManager {
             count: this.pendingMutations.length
           });
 
-          // handleDomMutations 호출
+          // Call handleDomMutations
           if (this.inputHandler.handleDomMutations) {
             this.inputHandler.handleDomMutations([...this.pendingMutations]);
           }
@@ -103,7 +103,7 @@ export class MutationObserverManagerImpl implements MutationObserverManager {
       }, 0);
     });
 
-    // MutationObserver 옵션 설정
+    // Set MutationObserver options
     this.observer.observe(contentEditableElement, {
       childList: true,
       subtree: true,

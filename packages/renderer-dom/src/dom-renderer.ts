@@ -50,36 +50,36 @@ export class DOMRenderer {
   // Snapshot store for partial updates: sid -> last VNode
   private sidToVNodeSnapshot: Map<string, VNode> = new Map();
   
-  // 마지막 빌드 시점의 입력 저장 (자동 재빌드용)
+  // Store input at last build time (for automatic rebuild)
   private lastModel: ModelData | null = null;
   private lastDecorators: Decorator[] | null = null;
   private lastRuntime: Record<string, any> | null = null;
   private renderScheduled = false;
   
-  // Simple reconcile pipeline (VNode-DOM 1:1 매칭)
+  // Simple reconcile pipeline (VNode-DOM 1:1 matching)
   private domOperations: DOMOperations;
   private reconciler: Reconciler;
   private dataStore?: DataStore;
   
-  // 인스턴스 ID (디버깅용)
+  // Instance ID (for debugging)
   private readonly __instanceId: string;
   
   
   constructor(registry?: RendererRegistry, _options?: DOMRendererOptions) {
     this.dataStore = _options?.dataStore;
-    // 인스턴스 ID 생성 (디버깅용: 이름 포함)
+    // Generate instance ID (for debugging: includes name)
     const name = _options?.name || 'unknown';
     this.__instanceId = `domrenderer-${name}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     
     this.cache = new NodeCache();
     
-    // Simple reconcile pipeline (VNode-DOM 1:1 매칭 기반)
+    // Simple reconcile pipeline (based on VNode-DOM 1:1 matching)
     this.domOperations = new DOMOperations();
     const componentManager = new ComponentManager();
     this.componentManager = componentManager;
     
     // Create pattern decorator generator
-    // 패턴은 EditorViewDOM에서 데이터로 관리하고 전달받음
+    // Patterns are managed as data in EditorViewDOM and passed here
     this.patternDecoratorGenerator = new PatternDecoratorGenerator();
     
     // Create VNodeBuilder first
@@ -91,7 +91,7 @@ export class DOMRenderer {
     // Reconciler owns the flow (root→children)
     this.reconciler = new Reconciler(this.builder.getRegistry(), this.builder, this.domOperations, this.componentManager, this.__instanceId, this.dataStore);
 
-    // 상태 변경 이벤트 수신 → 전체 재렌더 (모델은 동일, 상태만 변경됨)
+    // Receive state change event → full re-render (model is same, only state changed)
     this.componentManager.on('changeState', (_sid: string) => {
       if (!this.rootElement || !this.lastModel) return;
       if (this.renderScheduled) return;
@@ -128,7 +128,7 @@ export class DOMRenderer {
   /**
    * Get pattern decorator generator (for external configuration)
    * 
-   * EditorViewDOM에서 패턴을 등록할 때 사용합니다.
+   * Used when registering patterns in EditorViewDOM.
    */
   getPatternDecoratorGenerator(): PatternDecoratorGenerator {
     return this.patternDecoratorGenerator;
@@ -212,7 +212,7 @@ export class DOMRenderer {
     this.lastDecorators = decorators;
     
     // Build content VNode using VNodeBuilder
-    // 패턴 decorator는 VNodeBuilder에서 inline-text 처리 시점에 자동 생성됨
+    // Pattern decorators are automatically generated in VNodeBuilder when processing inline-text
     const content = this.builder.build(model.stype, model, { decorators });
     return content;
   }
@@ -252,7 +252,7 @@ export class DOMRenderer {
     this.lastRuntime = runtime || null;
     
     // Build complete VNode tree from model
-    // 패턴 decorator는 VNodeBuilder에서 inline-text 처리 시점에 자동 생성됨
+    // Pattern decorators are automatically generated in VNodeBuilder when processing inline-text
     const vnode = this.builder.build(model.stype, model, { 
       decorators,
       selectionContext: selection?.model,
@@ -267,7 +267,7 @@ export class DOMRenderer {
       childrenCount: Array.isArray(vnode.children) ? vnode.children.length : 0
     });
     
-    // Reconcile VNode tree to container (model도 전달하여 sid/stype를 DOM에 설정)
+    // Reconcile VNode tree to container (also pass model to set sid/stype on DOM)
     this.reconciler.reconcile(container, vnode, model, runtime, options?.onComplete);
       }
 
@@ -309,7 +309,7 @@ export class DOMRenderer {
   }
 
 
-  // (구) updateBySid 제거: Reconciler에 위임
+  // (Old) updateBySid removed: delegated to Reconciler
 
   // Update decorators for a specific sid
   updateDecoratorsBySid(sid: string, decorators: Decorator[]): boolean {
@@ -321,7 +321,7 @@ export class DOMRenderer {
         hostEl = doc.querySelector(`[${DOMAttribute.BC_SID}="${sid}"]`) as HTMLElement | null;
       }
       if (!hostEl) return false;
-      // Decorator 변경은 VNodeBuilder에서 처리되므로 인스턴스에 저장하지 않음
+      // Decorator changes are handled in VNodeBuilder, so don't store in instance
       return true;
     } catch (e) {
       try { logger.error(LogCategory.RECONCILE, 'updateDecoratorsBySid failed', e); } catch {}
@@ -403,7 +403,7 @@ export class DOMRenderer {
     this.lastRuntime = runtime || null;
     
     // Build VNodes from models before passing to reconcileChildren
-    // VNodeBuilder가 전체 트리를 한 번에 빌드해야 하므로, 여기서 먼저 빌드
+    // VNodeBuilder must build entire tree at once, so build here first
     const vnodes: VNode[] = [];
     for (const model of models) {
       if (!model || !model.stype) continue;

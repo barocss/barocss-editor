@@ -1,10 +1,10 @@
 /**
- * 효율적인 ContentEditable 편집 처리
+ * Efficient ContentEditable edit handling
  * 
- * 핵심 최적화:
- * 1. Text Run Index를 매번 구축하여 항상 최신 정보 보장
- * 2. 변경된 text node의 위치만 계산하여 mark/decorator 범위 조정
- * 3. text-analyzer 패키지의 analyzeTextChanges 사용 (LCP/LCS + Selection 바이어싱)
+ * Key optimizations:
+ * 1. Build Text Run Index every time to always guarantee latest info
+ * 2. Calculate only changed text node position to adjust mark/decorator ranges
+ * 3. Use analyzeTextChanges from text-analyzer package (LCP/LCS + Selection biasing)
  */
 
 import { buildTextRunIndex, type ContainerRuns } from '@barocss/renderer-dom';
@@ -20,31 +20,31 @@ import {
 import type { DataStore } from '@barocss/datastore';
 
 /**
- * 효율적인 편집 처리 함수
+ * Efficient edit handling function
  * 
- * 핵심 원칙:
- * 1. MutationObserver는 개별 text node의 변경을 감지하지만,
- *    실제 비교는 sid 기준 전체 텍스트로 해야 함
- * 2. mark/decorator로 인해 하나의 inline-text 노드가 여러 text node로 분리됨
- * 3. 따라서 sid 기반 하위의 모든 text node를 합쳐서 비교해야 함
- * 4. Selection offset은 model 기반으로 normalize하여 변경점을 찾음
+ * Key principles:
+ * 1. MutationObserver detects changes in individual text nodes,
+ *    but actual comparison should be done with sid-based full text
+ * 2. One inline-text node is split into multiple text nodes due to mark/decorator
+ * 3. Therefore, must combine all text nodes under sid-based hierarchy for comparison
+ * 4. Normalize Selection offset based on model to find change point
  * 
- * 알고리즘:
- * 1. sid 추출 및 모델 텍스트 가져오기 (oldModelText)
- * 2. DOM에서 sid 기준 전체 텍스트 재구성 (newText = 모든 text node 합계)
- * 3. oldModelText vs newText 비교 (sid 기준)
- * 4. Selection offset을 Model offset으로 정규화
- * 5. 편집 위치 파악 및 marks/decorators 범위 조정
+ * Algorithm:
+ * 1. Extract sid and get model text (oldModelText)
+ * 2. Reconstruct full text from DOM by sid (newText = sum of all text nodes)
+ * 3. Compare oldModelText vs newText (by sid)
+ * 4. Normalize Selection offset to Model offset
+ * 5. Identify edit position and adjust marks/decorators ranges
  * 
- * Text Run Index는 매번 구축하여 항상 최신 정보를 보장합니다.
- * inline-text 노드 내의 text node 개수가 보통 적기 때문에
- * 성능 저하는 미미하며, 정확성이 더 중요합니다.
+ * Text Run Index is built every time to always guarantee latest info.
+ * Since number of text nodes within inline-text node is usually small,
+ * performance impact is minimal, and accuracy is more important.
  * 
- * @param textNode - 변경된 DOM text node (시작점으로만 사용)
- * @param oldModelText - 모델의 전체 텍스트 (sid 기준, 비교 대상)
- * @param modelMarks - 현재 모델의 marks 배열
- * @param decorators - 현재 decorators 배열
- * @returns 모델 업데이트 정보
+ * @param textNode - Changed DOM text node (only used as starting point)
+ * @param oldModelText - Full text from model (sid-based, comparison target)
+ * @param modelMarks - Current model's marks array
+ * @param decorators - Current decorators array
+ * @returns Model update info
  */
 export function handleEfficientEdit(
   textNode: Text,
@@ -59,7 +59,7 @@ export function handleEfficientEdit(
   editInfo: TextEdit;
 } | null {
   try {
-    // 1. inline-text 노드 찾기 (sid 추출)
+    // 1. Find inline-text node (extract sid)
     const inlineTextNode = findInlineTextNode(textNode);
     if (!inlineTextNode) {
       console.warn('[handleEfficientEdit] inline-text node not found');
@@ -72,8 +72,8 @@ export function handleEfficientEdit(
       return null;
     }
     
-    // 2. Text Run Index 구축 (sid 기반 하위의 모든 text node 수집)
-    // buildReverseMap: textNode → offset 변환을 위해 필요
+    // 2. Build Text Run Index (collect all text nodes under sid-based hierarchy)
+    // buildReverseMap: needed for textNode → offset conversion
     const runs = buildTextRunIndex(inlineTextNode, nodeId, {
       buildReverseMap: true,
       normalizeWhitespace: false
@@ -84,15 +84,15 @@ export function handleEfficientEdit(
       return null;
     }
     
-    // 3. DOM에서 sid 기준 전체 텍스트 재구성
+    // 3. Reconstruct full text from DOM by sid
     const newText = reconstructModelTextFromRuns(runs);
     
-    // 4. sid 기준 텍스트 비교 (oldModelText vs newText)
+    // 4. Compare text by sid (oldModelText vs newText)
     if (newText === oldModelText) {
-      return null; // 변경 없음
+      return null; // No change
     }
     
-    // 5. Selection offset을 Model offset으로 정규화
+    // 5. Normalize Selection offset to Model offset
     const selection = window.getSelection();
     let selectionOffset: number = 0;
     let selectionLength: number = 0;
@@ -104,15 +104,15 @@ export function handleEfficientEdit(
           textNode: range.startContainer as Text,
           offset: range.startOffset  // DOM offset
         };
-        // DOM offset → Model offset 변환
+        // Convert DOM offset → Model offset
         const modelPos = convertDOMToModelPosition(domPosition, inlineTextNode);
         if (modelPos) {
           selectionOffset = modelPos.offset;  // Model offset (normalized)
         }
       }
-      // Selection 길이 계산 (collapsed면 0)
+      // Calculate selection length (0 if collapsed)
       if (!range.collapsed) {
-        // Range의 끝 위치도 Model offset으로 변환
+        // Also convert range end position to Model offset
         if (range.endContainer.nodeType === Node.TEXT_NODE) {
           const endDomPosition: DOMEditPosition = {
             textNode: range.endContainer as Text,
@@ -126,7 +126,7 @@ export function handleEfficientEdit(
       }
     }
     
-    // 6. text-analyzer의 analyzeTextChanges 사용 (LCP/LCS + Selection 바이어싱)
+    // 6. Use text-analyzer's analyzeTextChanges (LCP/LCS + Selection biasing)
     const textChanges = analyzeTextChanges({
       oldText: oldModelText,
       newText: newText,
@@ -135,12 +135,12 @@ export function handleEfficientEdit(
     });
     
     if (textChanges.length === 0) {
-      // 변경사항 없음 (유니코드 정규화 후 동일한 경우)
+      // No changes (same after Unicode normalization)
       return null;
     }
     
-    // 첫 번째 TextChange를 TextEdit로 변환
-    // (일반적으로 하나의 변경만 발생)
+    // Convert first TextChange to TextEdit
+    // (generally only one change occurs)
     const firstChange = textChanges[0];
     return createEditInfoFromTextChange(
       nodeId,
@@ -158,24 +158,24 @@ export function handleEfficientEdit(
 }
 
 /**
- * Text Run Index에서 전체 텍스트 재구성
+ * Reconstruct full text from Text Run Index
  * 
- * sid 기반 하위의 모든 text node를 순서대로 합쳐서 재구성합니다.
- * mark/decorator로 인해 분리된 여러 text node를 하나의 텍스트로 합칩니다.
+ * Reconstructs by combining all text nodes under sid in order.
+ * Combines multiple text nodes separated by marks/decorators into one text.
  * 
- * ⚡ 최적화: 캐시된 runs를 사용하므로 비용이 낮음
- * - 이미 구축된 runs를 재사용
- * - textContent 접근만 수행 (O(n) where n = number of text nodes)
+ * ⚡ Optimization: Low cost because cached runs are used
+ * - Reuse already built runs
+ * - Only perform textContent access (O(n) where n = number of text nodes)
  * 
- * @param runs - Text Run Index (sid 기반 하위의 모든 text node 정보)
- * @returns sid 기준 전체 텍스트 (모든 text node의 textContent 합계)
+ * @param runs - Text Run Index (all text node information under sid)
+ * @returns Full text for sid (sum of all text nodes' textContent)
  */
 function reconstructModelTextFromRuns(runs: ContainerRuns): string {
-  // 모든 text node를 순서대로 합쳐서 sid 기준 전체 텍스트 재구성
+  // Reconstruct full text for sid by combining all text nodes in order
   const textParts = runs.runs.map(run => run.domTextNode.textContent || '');
   const result = textParts.join('');
   
-  // 디버깅: 중복 노드 감지 (경고만 출력, 건너뛰지는 않음)
+  // Debugging: detect duplicate nodes (only warn, don't skip)
   const seenNodes = new Set<Text>();
   const duplicates: Array<{ index: number; text: string }> = [];
   
@@ -202,10 +202,10 @@ function reconstructModelTextFromRuns(runs: ContainerRuns): string {
 }
 
 /**
- * TextChange를 TextEdit로 변환하여 편집 정보 생성
+ * Convert TextChange to TextEdit and create edit information
  * 
- * text-analyzer의 analyzeTextChanges 결과를 사용하여
- * 정확한 변경 범위를 파악하고 marks/decorators를 조정합니다.
+ * Uses text-analyzer's analyzeTextChanges result to
+ * identify accurate change range and adjust marks/decorators.
  */
 function createEditInfoFromTextChange(
   nodeId: string,
@@ -221,10 +221,10 @@ function createEditInfoFromTextChange(
   adjustedDecorators: DecoratorRange[];
   editInfo: TextEdit;
 } {
-  // TextChange를 TextEdit로 변환
+  // Convert TextChange to TextEdit
   const editType: 'insert' | 'delete' | 'replace' = textChange.type;
   
-  // 삽입/삭제 길이 계산
+  // Calculate insert/delete length
   let insertedLength = 0;
   let deletedLength = 0;
   
@@ -241,21 +241,21 @@ function createEditInfoFromTextChange(
     nodeId,
     oldText,
     newText,
-    editPosition: textChange.start,  // text-analyzer가 계산한 정확한 시작 위치
+    editPosition: textChange.start,  // Accurate start position calculated by text-analyzer
     editType,
     insertedLength,
     deletedLength,
-    insertedText: textChange.text  // 삽입/교체할 텍스트 내용
+    insertedText: textChange.text  // Text content to insert/replace
   };
   
-  // Mark 범위 조정은 RangeOperations.replaceText가 자동으로 처리하므로 불필요
-  // Decorator 범위 조정: dataStore.decorators.adjustRanges 사용
-  // dataStore.decorators는 생성자에서 항상 초기화되므로 dataStore가 있으면 항상 존재
+  // Mark range adjustment is automatically handled by RangeOperations.replaceText, so not needed
+  // Decorator range adjustment: use dataStore.decorators.adjustRanges
+  // dataStore.decorators is always initialized in constructor, so always exists if dataStore exists
   const adjustedDecorators = dataStore?.decorators.adjustRanges(decorators, nodeId, editInfo) ?? decorators;
   
   return {
     newText,
-    adjustedMarks: modelMarks, // RangeOperations.replaceText가 자동 조정하므로 원본 반환
+    adjustedMarks: modelMarks, // Return original as RangeOperations.replaceText automatically adjusts
     adjustedDecorators,
     editInfo
   };

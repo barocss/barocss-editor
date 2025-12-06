@@ -25,14 +25,14 @@ function createFakeEditor(dataStore: any, schema?: any): Editor & { __getCommand
   const commands: Record<string, any> = {};
 
   return {
-    // @ts-expect-error - 최소 구현만 제공
+    // @ts-expect-error - Only provides minimal implementation
     registerCommand: (cmd: any) => {
       commands[cmd.name] = cmd;
     },
     __getCommand(name: string) {
       return commands[name];
     },
-    // @ts-expect-error - 실제 Editor 인터페이스와 다를 수 있음
+    // @ts-expect-error - May differ from actual Editor interface
     dataStore,
     getActiveSchema: () => schema
   } as Editor & { __getCommand: (name: string) => any; dataStore: any };
@@ -137,7 +137,7 @@ describe('ParagraphExtension - setParagraph', () => {
 
     const result = await cmd.execute(editor, { selection });
     expect(result).toBe(true);
-    // no-op이므로 transaction이 호출되지 않음
+    // Transaction is not called because it's a no-op
     expect(commitMock).not.toHaveBeenCalled();
   });
 });

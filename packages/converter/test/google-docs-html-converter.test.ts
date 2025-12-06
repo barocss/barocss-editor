@@ -12,13 +12,13 @@ describe('Google Docs HTML Converter', () => {
   let cleaner: GoogleDocsHTMLCleaner;
 
   beforeEach(() => {
-    // Registry 초기화
+    // Initialize registry
     GlobalConverterRegistry.getInstance().clear();
 
-    // 기본 HTML 규칙 등록
+    // Register default HTML rules
     registerDefaultHTMLRules();
 
-    // Google Docs 전용 규칙 등록
+    // Register Google Docs-specific rules
     registerGoogleDocsHTMLRules();
 
     converter = new HTMLConverter();
@@ -71,7 +71,7 @@ describe('Google Docs HTML Converter', () => {
 
       expect(nodes.length).toBeGreaterThan(0);
       const headings = nodes.filter((n: any) => n.stype === 'heading');
-      // Google Docs heading 규칙이 적용되면 하나 이상은 heading으로 파싱될 수 있음
+      // If Google Docs heading rules are applied, at least one can be parsed as heading
       if (headings.length > 0) {
         expect(headings[0].attributes?.level).toBe(1);
       }
@@ -89,7 +89,7 @@ describe('Google Docs HTML Converter', () => {
 
       expect(nodes.length).toBeGreaterThan(0);
       const p = nodes[0] as any;
-      // 기본 HTML 규칙에서는 paragraph에 대해 data-*만 attributes에 담김
+      // In default HTML rules, only data-* attributes are stored in attributes for paragraph
       if (p.attributes) {
         expect(p.attributes['data-block-id']).toBe('abc123');
         expect(p.attributes['data-level']).toBe('1');

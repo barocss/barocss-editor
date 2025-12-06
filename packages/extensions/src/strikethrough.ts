@@ -8,10 +8,10 @@ export interface StrikeThroughExtensionOptions {
 /**
  * StrikeThroughExtension
  *
- * - `toggleStrikeThrough` 커맨드를 제공한다.
- * - 현재 구현 범위:
- *   - 같은 텍스트 노드 내 range selection 에 대해서만 strikethrough 마크 토글 operation 을 생성한다.
- *   - 여러 노드에 걸친 selection 은 아직 처리하지 않는다.
+ * - Provides `toggleStrikeThrough` command.
+ * - Current implementation scope:
+ *   - Only generates strikethrough mark toggle operation for range selection within the same text node.
+ *   - Does not yet handle selection spanning multiple nodes.
  */
 export class StrikeThroughExtension implements Extension {
   name = 'strikethrough';
@@ -29,7 +29,7 @@ export class StrikeThroughExtension implements Extension {
   onCreate(editor: Editor): void {
     if (!this._options.enabled) return;
 
-    // StrikeThrough 토글 명령어 등록
+    // Register strikeThrough toggle command
     (editor as any).registerCommand({
       name: 'toggleStrikeThrough',
       execute: async (ed: Editor, payload?: { selection?: ModelSelection }) => {
@@ -42,7 +42,7 @@ export class StrikeThroughExtension implements Extension {
   }
 
   onDestroy(_editor: Editor): void {
-    // 정리 작업 필요 시 여기에 추가
+    // Add cleanup work here if needed
   }
 
   private async _executeToggleStrikeThrough(
@@ -59,7 +59,7 @@ export class StrikeThroughExtension implements Extension {
       return false;
     }
 
-    // 여러 노드에 걸친 RangeSelection 은 아직 처리하지 않는다.
+    // Does not yet handle RangeSelection spanning multiple nodes
     if (selection.startNodeId !== selection.endNodeId) {
       return false;
     }
@@ -93,7 +93,7 @@ export class StrikeThroughExtension implements Extension {
   }
 }
 
-// 편의 함수
+// Convenience function
 export function createStrikeThroughExtension(options?: StrikeThroughExtensionOptions): StrikeThroughExtension {
   return new StrikeThroughExtension(options);
 }

@@ -12,11 +12,11 @@ import type { DataStore } from '../types';
 type RuntimeCtx = Record<string, any> | undefined;
 
 export class Reconciler {
-  // React 방식: 이전 Fiber tree 유지 (alternate로 참조)
+  // React-style: maintain previous Fiber tree (referenced as alternate)
   private rootFiber: FiberNode | null = null;
-  // portal 관리: portalId → { target, host }
+  // Portal management: portalId → { target, host }
   private portalHostsById: Map<string, { target: HTMLElement, host: HTMLElement }> = new Map();
-  // 현재 렌더에서 방문된 portalId 집합 (렌더 종료 시 클린업)
+  // Set of visited portalIds in current render (cleanup on render end)
   private currentVisitedPortalIds: Set<string> | null = null;
   
   constructor(
@@ -27,7 +27,7 @@ export class Reconciler {
     private domRendererInstanceId?: string,
     private dataStore?: DataStore
   ) {
-    // 인스턴스 ID 생성 (디버깅용)
+    // Generate instance ID (for debugging)
     (this as any).__instanceId = `reconciler-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }
 
@@ -41,28 +41,28 @@ export class Reconciler {
    * @param runtime - Runtime context (optional)
    */
   reconcile(container: HTMLElement, vnode: VNode, model: ModelData, runtime?: RuntimeCtx, onComplete?: () => void): void {
-    // IMPORTANT: sid가 없으면 early return (DOM 변경하지 않음)
+    // IMPORTANT: early return if no sid (don't change DOM)
     const sid = vnode.sid || String(model?.sid || '');
     if (!sid) {
-      // sid가 없으면 reconcile하지 않음 (기존 DOM 유지)
+      // Don't reconcile if no sid (maintain existing DOM)
       return;
     }
     
-    // rootVNode 변경 (첫 엘리먼트를 루트로 승격)
+    // Change rootVNode (promote first element to root)
     let rootVNode = vnode;
     if ((!rootVNode.tag || String(rootVNode.tag).toLowerCase() === 'div') && Array.isArray(rootVNode.children) && rootVNode.children.length > 0) {
       const firstEl = findFirstElementVNode(rootVNode);
       if (firstEl) {
-        // 첫 엘리먼트를 루트로 승격 (children 포함 깊은 복사)
+        // Promote first element to root (deep copy including children)
         rootVNode = firstEl as VNode;
       }
     }
     
-    // React 방식: 이전 rootFiber에서 prevVNode 가져오기
+    // React-style: get prevVNode from previous rootFiber
     const prevRootFiber = this.rootFiber;
     const prevVNode = prevRootFiber?.vnode;
     
-    // 포털 방문 집합 초기화 (루트 렌더 진입 시)
+    // Initialize portal visit set (on root render entry)
     const isTopLevel = this.currentVisitedPortalIds === null;
     if (isTopLevel) this.currentVisitedPortalIds = new Set<string>();
 
@@ -70,7 +70,7 @@ export class Reconciler {
     const context: any = {
       registry: this.registry,
       builder: this.builder,
-      parent: container, // Root 레벨에서는 container가 parent
+      parent: container, // At root level, container is parent
       dataStore: this.dataStore, // DataStore for getting model data by sid
       getComponent: (name: string) => {
         if (this.registry && typeof (this.registry as any).getComponent === 'function') {
@@ -104,27 +104,27 @@ export class Reconciler {
       }
     };
     
-    // Fiber 기반 reconcile 사용 (root 레벨도 Fiber로 처리)
-    // rootVNode를 container를 parent로 해서 Fiber로 처리
+    // Use Fiber-based reconcile (root level also processed as Fiber)
+    // Process rootVNode as Fiber with container as parent
     const fiberDeps: FiberReconcileDependencies = {
       dom: this.dom,
       components: this.components,
       currentVisitedPortalIds: this.currentVisitedPortalIds,
       portalHostsById: this.portalHostsById,
-      rootModel: context?.dataStore?.getNode(sid) || model, // model.text 처리를 위한 참조 (dataStore 우선)
-      rootSid: sid, // rootVNode의 sid
+      rootModel: context?.dataStore?.getNode(sid) || model, // Reference for model.text processing (dataStore takes priority)
+      rootSid: sid, // rootVNode's sid
       context: context,
-      prevRootFiber: prevRootFiber // React 방식: 이전 Fiber tree 전달
+      prevRootFiber: prevRootFiber // React style: pass previous Fiber tree
     };
     
-    // Fiber 완료 후 처리할 작업들
+    // Tasks to process after Fiber completes
     reconcileWithFiber(container, rootVNode, prevVNode, context, fiberDeps, (newRootFiber) => {
-      // React 방식: 새로운 rootFiber 저장 (다음 렌더에서 alternate로 사용)
+      // React style: save new rootFiber (use as alternate in next render)
       if (newRootFiber) {
         this.rootFiber = newRootFiber;
       }
       
-      // 렌더 종료 시 포털 클린업 수행
+      // Perform portal cleanup at end of render
       if (isTopLevel && this.currentVisitedPortalIds) {
         const visited = this.currentVisitedPortalIds;
         for (const [pid, entry] of this.portalHostsById.entries()) {
@@ -136,7 +136,7 @@ export class Reconciler {
         this.currentVisitedPortalIds = null;
       }
       
-      // Reconcile 완료 콜백 호출
+      // Call reconcile completion callback
       if (onComplete) {
         onComplete();
       }
@@ -147,16 +147,16 @@ export class Reconciler {
   reconcileChildren(parent: HTMLElement, vnodes: VNode[], buildOpts?: VNodeBuildOptions, _runtime?: RuntimeCtx): void {
     // VNodes are already built by VNodeBuilder, just reconcile them to DOM
     
-    // 모든 VNode를 순서대로 처리하기 위해 루트 VNode로 감싸기
-    // 이렇게 하면 reconcileWithFiber가 children을 순서대로 처리함
-    // tag가 없으면 children을 직접 parent에 추가하도록 처리됨
+    // Wrap all VNodes in root VNode to process in order
+    // This makes reconcileWithFiber process children in order
+    // If tag is missing, children are directly added to parent
     const rootVNode: VNode = {
-      tag: undefined, // 루트는 tag가 없음 (children을 직접 parent에 추가)
+      tag: undefined, // Root has no tag (children are directly added to parent)
       children: vnodes.filter(v => v !== null && v !== undefined)
     };
 
-    // Phase 2: VNode 트리 → DOM diff & 적용
-    // buildOpts에서 context 정보 추출 (children 렌더 경로에서는 selection 보존 비활성)
+    // Phase 2: VNode tree → DOM diff & apply
+    // Extract context info from buildOpts (selection preservation disabled in children render path)
     const context = {
       registry: this.registry,
       builder: this.builder,
@@ -172,12 +172,12 @@ export class Reconciler {
         return undefined;
       },
       reconcile: (vnode: VNode, container: HTMLElement, reconcileContext: any) => {
-        // reconcileFunc: ComponentManager에서 호출될 때 사용
-        // __isReconciling 플래그가 설정되어 있으면 재귀 호출 방지
+        // reconcileFunc: used when called from ComponentManager
+        // Prevent recursive call if __isReconciling flag is set
         if (reconcileContext?.__isReconciling) {
-          return; // 이미 reconciling 중이면 재귀 호출 방지
+          return; // Prevent recursive call if already reconciling
         }
-        // reconcileContext에 __isReconciling 설정
+        // Set __isReconciling on reconcileContext
         const safeContext = {
           ...reconcileContext,
           __isReconciling: true

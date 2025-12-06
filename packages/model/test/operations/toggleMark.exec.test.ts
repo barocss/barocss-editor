@@ -31,7 +31,7 @@ describe('toggleMark operation (exec)', () => {
     await op!.execute({ type: 'toggleMark', payload: { nodeId: 't1', markType: 'bold', range: [0, 3] } } as any, context);
     await op!.execute({ type: 'toggleMark', payload: { nodeId: 't1', markType: 'bold', range: [2, 5] } } as any, context);
     let node = dataStore.getNode('t1');
-    // toggleMark는 첫 번째 호출의 범위를 유지하므로 [0, 2]가 됨
+    // toggleMark maintains range from first call, so becomes [0, 2]
     expect(node?.marks).toEqual([{ stype: 'bold', range: [0, 2] } as any]);
 
     // toggle off exact merged range

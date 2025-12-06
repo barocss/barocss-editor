@@ -5,13 +5,13 @@ describe('HTMLConverter', () => {
   let converter: HTMLConverter;
   
   beforeEach(() => {
-    // Registry 초기화
+    // Initialize registry
     GlobalConverterRegistry.getInstance().clear();
     
-    // 기본 규칙 등록
+    // Register default rules
     registerDefaultHTMLRules();
     
-    // Converter 인스턴스 생성
+    // Create converter instance
     converter = new HTMLConverter();
   });
   
@@ -161,7 +161,7 @@ describe('HTMLConverter', () => {
       
       expect(nodes).toHaveLength(1);
       expect(nodes[0].stype).toBe('paragraph');
-      // data-* 속성은 attributes['data-xxx'] 형태로 보존
+      // data-* attributes are preserved in attributes['data-xxx'] format
       expect(nodes[0].attributes?.['data-level']).toBe('1');
       expect(nodes[0].attributes?.['data-type']).toBe('note');
     });
@@ -177,7 +177,7 @@ describe('HTMLConverter', () => {
       const html = '<p>   </p>';
       const nodes = converter.parse(html);
       
-      // 공백만 있는 텍스트 노드는 무시될 수 있음
+      // Text nodes with only whitespace may be ignored
       expect(nodes.length).toBeGreaterThanOrEqual(0);
     });
     
@@ -185,7 +185,7 @@ describe('HTMLConverter', () => {
       const html = '<div><p>First</p><p>Second</p></div>';
       const nodes = converter.parse(html);
       
-      // div는 기본적으로 paragraph로 변환됨
+      // div is converted to paragraph by default
       expect(nodes.length).toBeGreaterThan(0);
     });
 
@@ -581,7 +581,7 @@ describe('HTMLConverter', () => {
       
       const html = converter.convert(nodes);
       expect(html).toContain('Bold and italic');
-      // Marks가 중첩되어 있을 수 있음
+      // Marks may be nested
     });
   });
   
@@ -591,7 +591,7 @@ describe('HTMLConverter', () => {
       const nodes = converter.parse(originalHTML);
       const convertedHTML = converter.convert(nodes);
       
-      // 최소한 같은 내용이 포함되어야 함
+      // Should contain at least the same content
       expect(convertedHTML).toContain('Hello World');
       expect(convertedHTML).toContain('<p>');
     });

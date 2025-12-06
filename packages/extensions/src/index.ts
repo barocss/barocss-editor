@@ -12,7 +12,7 @@ export * from './strikethrough';
 export * from './move-block';
 export * from './escape';
 
-// 클래스들을 import
+// Import classes
 import { TextExtension } from './text';
 import { BoldExtension } from './bold';
 import { ItalicExtension } from './italic';
@@ -27,11 +27,11 @@ import { MoveBlockExtension } from './move-block';
 import { CopyPasteExtension } from './copy-paste';
 import type { Extension } from '@barocss/editor-core';
 
-// Core Extension (기본적으로 항상 포함되는 필수 Extension)
-// - TextExtension: insertText, deleteText 등 기본 텍스트 편집
-// - DeleteExtension: delete command (Backspace, Delete 키)
-// - ParagraphExtension: 기본 구조 (paragraph 생성 등)
-// - IndentExtension: 구조적 들여쓰기/내어쓰기 (Tab/Shift+Tab)
+// Core Extension (required extensions that are always included by default)
+// - TextExtension: basic text editing (insertText, deleteText, etc.)
+// - DeleteExtension: delete command (Backspace, Delete keys)
+// - ParagraphExtension: basic structure (paragraph creation, etc.)
+// - IndentExtension: structural indentation/outdentation (Tab/Shift+Tab)
 export function createCoreExtensions(): Extension[] {
   return [
     new TextExtension(),
@@ -44,9 +44,9 @@ export function createCoreExtensions(): Extension[] {
   ];
 }
 
-// 편의 함수들
-// 추가 Extension (Bold, Italic, Heading)
-// 주의: Core Extension은 Editor 생성자에서 자동으로 등록되므로 여기서는 제외
+// Convenience functions
+// Additional Extensions (Bold, Italic, Heading)
+// Note: Core Extensions are automatically registered in Editor constructor, so they are excluded here
 export function createBasicExtensions(): Extension[] {
   return [
     new BoldExtension(),
@@ -55,17 +55,17 @@ export function createBasicExtensions(): Extension[] {
   ];
 }
 
-// 재사용 가능한 확장 세트들
-// 주의: Core Extension은 Editor 생성자에서 자동으로 등록되므로 여기서는 제외
+// Reusable extension sets
+// Note: Core Extensions are automatically registered in Editor constructor, so they are excluded here
 export const ExtensionSets = {
-  // 기본 텍스트 편집 (Bold, Italic만)
+  // Basic text editing (Bold, Italic only)
   basic: () => [
     new BoldExtension(),
     new ItalicExtension(),
     new UnderlineExtension()
   ],
   
-  // 리치 텍스트 편집 (Bold, Italic, Heading만)
+  // Rich text editing (Bold, Italic, Heading only)
   rich: () => [
     new BoldExtension(),
     new ItalicExtension(),
@@ -73,7 +73,7 @@ export const ExtensionSets = {
     new HeadingExtension()
   ],
   
-  // 미니멀 편집 (추가 Extension 없음)
+  // Minimal editing (no additional Extensions)
   minimal: () => []
 } as const;
 

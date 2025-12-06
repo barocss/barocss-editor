@@ -74,7 +74,7 @@ describe('DSL Basic Operations', () => {
   it('should use op function for complex operations', async () => {
     const result = await transaction(mockEditor, [
       op(async (ctx) => {
-        // DataStore를 직접 사용
+        // Use DataStore directly
         const node = ctx.dataStore.createNodeWithChildren(
           textNode('inline-text', 'Hello from op function'),
           ctx.schema
@@ -88,13 +88,13 @@ describe('DSL Basic Operations', () => {
     ]).commit();
 
     expect(result.success).toBe(true);
-    expect(result.operations).toHaveLength(0); // OpResult는 operation을 생성하지 않음
+    expect(result.operations).toHaveLength(0); // OpResult does not create operations
   });
 
   it('should use op function with simple logic', async () => {
     const result = await transaction(mockEditor, [
       op(async (ctx) => {
-        // 간단한 조건부 로직
+        // Simple conditional logic
         const shouldCreate = true;
         if (shouldCreate) {
           const node = ctx.dataStore.createNodeWithChildren(
@@ -142,12 +142,12 @@ describe('DSL Basic Operations', () => {
   it('should handle op function with no return value', async () => {
     const result = await transaction(mockEditor, [
       op(async (ctx) => {
-        // 아무것도 리턴하지 않음
+        // Return nothing
       })
     ]).commit();
 
     expect(result.success).toBe(true);
-    expect(result.operations).toHaveLength(0); // 아무것도 리턴하지 않으면 operation 없음
+    expect(result.operations).toHaveLength(0); // No operations if nothing is returned
   });
 
 
@@ -171,12 +171,12 @@ describe('DSL Basic Operations', () => {
     ]).commit();
 
     expect(result.success).toBe(true);
-    expect(result.operations).toHaveLength(0); // OpResult는 operation을 생성하지 않음 (inverse는 나중에 undo할 때 사용)
+    expect(result.operations).toHaveLength(0); // OpResult does not create operations (inverse is used later for undo)
   });
 
   it('should stop execution when op function returns success: false', async () => {
     const result = await transaction(mockEditor, [
-      // 첫 번째 op - 성공
+      // First op - success
       op(async (ctx) => {
         const node = ctx.dataStore.createNodeWithChildren(
           textNode('inline-text', 'First node'),
@@ -185,12 +185,12 @@ describe('DSL Basic Operations', () => {
         return { success: true, data: node };
       }),
       
-      // 두 번째 op - 실패
+      // Second op - failure
       op(async (ctx) => {
         return { success: false, error: 'Second op failed' };
       }),
       
-      // 세 번째 op - 실행되지 않아야 함
+      // Third op - should not execute
       op(async (ctx) => {
         const node = ctx.dataStore.createNodeWithChildren(
           textNode('inline-text', 'Third node - should not be created'),
@@ -199,11 +199,11 @@ describe('DSL Basic Operations', () => {
         return { success: true, data: node };
       }),
       
-      // 일반 operation - 실행되지 않아야 함
+      // Regular operation - should not execute
       create(textNode('inline-text', 'Fourth node - should not be created'))
     ]).commit();
 
-    // 전체 트랜잭션이 실패해야 함
+    // Entire transaction should fail
     expect(result.success).toBe(false);
     expect(result.errors).toContain('Second op failed');
     expect(result.operations).toHaveLength(0);
@@ -211,7 +211,7 @@ describe('DSL Basic Operations', () => {
 
   it('should stop execution when op function throws error', async () => {
     const result = await transaction(mockEditor, [
-      // 첫 번째 op - 성공
+      // First op - success
       op(async (ctx) => {
         const node = ctx.dataStore.createNodeWithChildren(
           textNode('inline-text', 'First node'),
@@ -220,12 +220,12 @@ describe('DSL Basic Operations', () => {
         return { success: true, data: node };
       }),
       
-      // 두 번째 op - 에러 발생
+      // Second op - error thrown
       op(async (ctx) => {
         throw new Error('Op function threw error');
       }),
       
-      // 세 번째 op - 실행되지 않아야 함
+      // Third op - should not execute
       op(async (ctx) => {
         const node = ctx.dataStore.createNodeWithChildren(
           textNode('inline-text', 'Third node - should not be created'),
@@ -235,7 +235,7 @@ describe('DSL Basic Operations', () => {
       })
     ]).commit();
 
-    // 전체 트랜잭션이 실패해야 함
+    // Entire transaction should fail
     expect(result.success).toBe(false);
     expect(result.errors).toContain('Op function threw error');
     expect(result.operations).toHaveLength(0);
@@ -243,7 +243,7 @@ describe('DSL Basic Operations', () => {
 
   it('should continue execution when op function returns success: true', async () => {
     const result = await transaction(mockEditor, [
-      // 첫 번째 op - 성공
+      // First op - success
       op(async (ctx) => {
         const node = ctx.dataStore.createNodeWithChildren(
           textNode('inline-text', 'First node'),
@@ -252,7 +252,7 @@ describe('DSL Basic Operations', () => {
         return { success: true, data: node };
       }),
       
-      // 두 번째 op - 성공
+      // Second op - success
       op(async (ctx) => {
         const node = ctx.dataStore.createNodeWithChildren(
           textNode('inline-text', 'Second node'),
@@ -261,12 +261,12 @@ describe('DSL Basic Operations', () => {
         return { success: true, data: node };
       }),
       
-      // 일반 operation - 실행되어야 함
+      // Regular operation - should execute
       create(textNode('inline-text', 'Third node'))
     ]).commit();
 
-    // 전체 트랜잭션이 성공해야 함
+    // Entire transaction should succeed
     expect(result.success).toBe(true);
-    expect(result.operations).toHaveLength(1); // create operation만 operations에 추가됨
+    expect(result.operations).toHaveLength(1); // Only create operation is added to operations
   });
 });

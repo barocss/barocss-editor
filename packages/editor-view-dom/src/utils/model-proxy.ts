@@ -26,13 +26,13 @@ export function createModelProxy(
 ): ModelData | null {
   if (!node) return null;
 
-  // INode는 이미 sid, stype을 가지고 있으므로 ModelData와 호환됨
-  // Proxy 없이 직접 사용하거나, content 배열 처리만 필요
+  // INode already has sid, stype, so compatible with ModelData
+  // Can use directly without Proxy, only need to process content array
   if (!node.content || !dataStore) {
     return node as ModelData;
   }
 
-  // content 배열이 ID 배열인 경우 처리
+  // Handle case where content array is ID array
   const resolvedContent = node.content.map((item: any) => {
     if (typeof item === 'string') {
       const childNode = dataStore.getNode(item);
@@ -54,8 +54,8 @@ export function createModelProxy(
 }
 
 /**
- * @deprecated TreeDocument는 제거되었습니다. createModelDataFromNode를 사용하세요.
- * 이 함수는 하위 호환성을 위해 유지되지만, 실제로는 createModelDataFromNode와 동일합니다.
+ * @deprecated TreeDocument has been removed. Use createModelDataFromNode instead.
+ * This function is kept for backward compatibility, but is actually the same as createModelDataFromNode.
  */
 export function createModelProxyLegacy(
   node: INode | undefined,
@@ -65,7 +65,7 @@ export function createModelProxyLegacy(
 
   return new Proxy(node as any, {
     get(target: INode, prop: string | symbol): any {
-      // 레거시 호환성: id/type을 sid/stype으로 매핑 (사용되지 않음)
+      // Legacy compatibility: map id/type to sid/stype (not used)
       if (prop === 'id') {
         return target.sid;
       }
@@ -73,24 +73,24 @@ export function createModelProxyLegacy(
         return target.stype;
       }
       
-      // content 배열을 lazy evaluation으로 처리
+      // Process content array with lazy evaluation
       if (prop === 'content' && target.content) {
         return target.content.map((item: any) => {
-          // 문자열인 경우: ID 배열이거나 텍스트
+          // String case: ID array or text
           if (typeof item === 'string') {
-            // dataStore가 있고 ID로 보이는 경우 (길이가 충분히 길고 특정 패턴)
+            // If dataStore exists and looks like ID (sufficiently long and specific pattern)
             if (dataStore && item.length > 5 && !item.includes(' ')) {
               const childNode = dataStore.getNode(item);
               if (childNode) {
-                // ID로 노드를 찾았으면 재귀적으로 Proxy 생성
+                // If node found by ID, create Proxy recursively
                 return createModelProxy(childNode, dataStore);
               }
             }
-            // 텍스트 노드이거나 찾을 수 없는 경우 그대로 반환
+            // Return as-is if text node or not found
             return item;
           }
           
-          // 이미 INode 객체인 경우
+          // Already INode object case
           if (item && typeof item === 'object' && item.stype) {
             return createModelProxy(item as INode, dataStore);
           }
@@ -99,7 +99,7 @@ export function createModelProxyLegacy(
         });
       }
       
-      // 나머지는 원본 속성 반환
+      // Return original property for rest
       return (target as any)[prop];
     },
     
@@ -111,7 +111,7 @@ export function createModelProxyLegacy(
     
     ownKeys(target: INode): (string | symbol)[] {
       const keys = Object.keys(target);
-      // TreeDocument 인터페이스를 위해 id, type 추가
+      // Add id, type for TreeDocument interface
       if (target.sid && !keys.includes('id')) keys.push('id');
       if (target.stype && !keys.includes('type')) keys.push('type');
       return keys;
@@ -138,14 +138,14 @@ export function createModelProxyLegacy(
 }
 
 /**
- * INode를 직접 ModelData로 사용
+ * Use INode directly as ModelData
  * 
- * INode는 이미 stype, sid를 가지고 있으므로 renderer-dom과 호환됨
- * content 배열만 처리하면 됨
+ * INode already has stype, sid, so compatible with renderer-dom
+ * Only need to process content array
  * 
- * @param node - INode 객체
- * @param dataStore - content 배열이 ID인 경우 노드를 가져오기 위한 DataStore
- * @returns ModelData (INode를 직접 사용)
+ * @param node - INode object
+ * @param dataStore - DataStore to get nodes when content array is IDs
+ * @returns ModelData (using INode directly)
  */
 export function createModelDataFromNode(
   node: INode | undefined,
@@ -153,20 +153,20 @@ export function createModelDataFromNode(
 ): ModelData | null {
   if (!node) return null;
 
-  // content 배열이 ID 배열인 경우 INode 배열로 변환
+  // Convert content array to INode array if content array is ID array
   if (node.content && dataStore && Array.isArray(node.content)) {
     const resolvedContent = node.content.map((item: any) => {
       if (typeof item === 'string') {
-        // ID로 보이는 경우
+        // If looks like ID
         const childNode = dataStore.getNode(item);
         if (childNode) {
-          // 재귀적으로 처리
+          // Process recursively
           return createModelDataFromNode(childNode, dataStore);
         }
-        // 찾을 수 없으면 그대로 반환 (텍스트일 수 있음)
+        // Return as-is if not found (might be text)
         return item;
       }
-      // 이미 객체인 경우
+      // Already object case
       if (item && typeof item === 'object' && item.stype) {
         return createModelDataFromNode(item as INode, dataStore);
       }
@@ -179,7 +179,7 @@ export function createModelDataFromNode(
     } as ModelData;
   }
 
-  // content가 없거나 이미 처리된 경우 그대로 반환
+  // Return as-is if content is missing or already processed
   return node as ModelData;
 }
 

@@ -334,8 +334,8 @@ export class RangeOperations {
       if (updatedMarks && updatedMarks.length > 0) {
         const resultMarks: any[] = [];
         for (const m of updatedMarks) {
-          // Range가 없는 mark는 전체 텍스트에 적용되므로 조정할 필요 없음
-          // 텍스트가 바뀌어도 여전히 전체 텍스트에 적용됨
+          // Marks without range are applied to entire text, so no adjustment needed
+          // Still applied to entire text even if text changes
           if (!(m as any).range || (m as any).range === null || (m as any).range === undefined) {
             resultMarks.push({ ...m });
             continue;

@@ -2,7 +2,7 @@ import { Schema } from './schema.js';
 
 class SchemaRegistry {
   private _schemas = new Map<string, Schema>();
-  private _nodeGroups = new Map<string, string[]>(); // 노드 타입 그룹별 관리
+  private _nodeGroups = new Map<string, string[]>(); // Manage by node type group
 
   register(schema: Schema): void {
     if (this._schemas.has(schema.name)) {
@@ -10,7 +10,7 @@ class SchemaRegistry {
     }
     this._schemas.set(schema.name, schema);
     
-    // 노드 타입별 그룹 등록
+    // Register groups by node type
     for (const [nodeType, nodeDef] of schema.nodes) {
       if (nodeDef.group) {
         const groupNodes = this._nodeGroups.get(nodeDef.group) || [];
@@ -30,12 +30,12 @@ class SchemaRegistry {
     return Array.from(this._schemas.values());
   }
 
-  // 노드 타입 그룹별 조회
+  // Query by node type group
   getNodeTypesByGroup(group: string): string[] {
     return this._nodeGroups.get(group) || [];
   }
 
-  // 특정 스키마의 노드 타입 그룹별 조회
+  // Query by node type group in specific schema
   getNodeTypesByGroupInSchema(schemaName: string, group: string): string[] {
     const schema = this._schemas.get(schemaName);
     if (!schema) return [];
@@ -48,7 +48,7 @@ class SchemaRegistry {
   remove(name: string): boolean {
     const schema = this._schemas.get(name);
     if (schema) {
-      // 노드 타입 그룹에서 제거
+      // Remove from node type groups
       for (const [nodeType, nodeDef] of schema.nodes) {
         if (nodeDef.group) {
           const groupNodes = this._nodeGroups.get(nodeDef.group) || [];
@@ -73,7 +73,7 @@ class SchemaRegistry {
   }
 }
 
-// 전역 레지스트리 인스턴스
+// Global registry instance
 const globalRegistry = new SchemaRegistry();
 
 export function registerSchema(schema: Schema): void {
@@ -88,12 +88,12 @@ export function getAllSchemas(): Schema[] {
   return globalRegistry.getAll();
 }
 
-// 노드 타입 그룹별 조회
+// Query by node type group
 export function getNodeTypesByGroup(group: string): string[] {
   return globalRegistry.getNodeTypesByGroup(group);
 }
 
-// 특정 스키마의 노드 타입 그룹별 조회
+// Query by node type group in specific schema
 export function getNodeTypesByGroupInSchema(schemaName: string, group: string): string[] {
   return globalRegistry.getNodeTypesByGroupInSchema(schemaName, group);
 }

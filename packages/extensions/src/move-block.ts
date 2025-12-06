@@ -8,8 +8,8 @@ export interface MoveBlockExtensionOptions {
 /**
  * MoveBlockExtension
  *
- * - `moveBlockUp`, `moveBlockDown` 커맨드를 제공한다.
- * - 현재 선택된 블록 노드를 같은 부모 내에서 위/아래로 이동한다.
+ * - Provides `moveBlockUp`, `moveBlockDown` commands.
+ * - Moves currently selected block node up/down within the same parent.
  */
 export class MoveBlockExtension implements Extension {
   name = 'moveBlock';
@@ -27,7 +27,7 @@ export class MoveBlockExtension implements Extension {
   onCreate(editor: Editor): void {
     if (!this._options.enabled) return;
 
-    // moveBlockUp 명령어
+    // moveBlockUp command
     (editor as any).registerCommand({
       name: 'moveBlockUp',
       execute: async (ed: Editor, payload?: { selection?: ModelSelection }) => {
@@ -38,7 +38,7 @@ export class MoveBlockExtension implements Extension {
       }
     });
 
-    // moveBlockDown 명령어
+    // moveBlockDown command
     (editor as any).registerCommand({
       name: 'moveBlockDown',
       execute: async (ed: Editor, payload?: { selection?: ModelSelection }) => {
@@ -51,7 +51,7 @@ export class MoveBlockExtension implements Extension {
   }
 
   onDestroy(_editor: Editor): void {
-    // 정리 작업 필요 시 여기에 추가
+    // Add cleanup work here if needed
   }
 
   private async _executeMoveBlockUp(
@@ -68,14 +68,14 @@ export class MoveBlockExtension implements Extension {
       return false;
     }
 
-    // 현재 블록 노드 찾기
+    // Find current block node
     const targetNodeId = this._getTargetBlockNodeId(dataStore, selection);
     if (!targetNodeId) {
       console.warn('[MoveBlockExtension] No target block node found');
       return false;
     }
 
-    // moveBlockUp operation 사용
+    // Use moveBlockUp operation
     const ops = [
       ...control(targetNodeId, [
         moveBlockUp()
@@ -100,14 +100,14 @@ export class MoveBlockExtension implements Extension {
       return false;
     }
 
-    // 현재 블록 노드 찾기
+    // Find current block node
     const targetNodeId = this._getTargetBlockNodeId(dataStore, selection);
     if (!targetNodeId) {
       console.warn('[MoveBlockExtension] No target block node found');
       return false;
     }
 
-    // moveBlockDown operation 사용
+    // Use moveBlockDown operation
     const ops = [
       ...control(targetNodeId, [
         moveBlockDown()
@@ -119,8 +119,8 @@ export class MoveBlockExtension implements Extension {
   }
 
   /**
-   * selection에서 대상 블록 노드 ID를 찾음
-   * - Range Selection: startNodeId의 부모 블록 노드
+   * Finds target block node ID from selection
+   * - Range Selection: parent block node of startNodeId
    */
   private _getTargetBlockNodeId(dataStore: any, selection: ModelSelection): string | null {
     if (selection.type !== 'range') {
@@ -133,13 +133,13 @@ export class MoveBlockExtension implements Extension {
     const schema = dataStore.getActiveSchema();
     if (schema) {
       const nodeType = schema.getNodeType(startNode.stype);
-      // startNode가 블록이면 그대로 사용
+      // Use startNode as is if it's a block
       if (nodeType?.group === 'block') {
         return startNode.sid!;
       }
     }
 
-    // startNode의 부모 블록 노드를 찾음
+    // Find parent block node of startNode
     let current = startNode;
     while (current && current.parentId) {
       const parent = dataStore.getNode(current.parentId);
@@ -157,7 +157,7 @@ export class MoveBlockExtension implements Extension {
   }
 }
 
-// 편의 함수
+// Convenience function
 export function createMoveBlockExtension(options?: MoveBlockExtensionOptions): MoveBlockExtension {
   return new MoveBlockExtension(options);
 }

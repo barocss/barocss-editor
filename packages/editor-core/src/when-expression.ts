@@ -15,7 +15,7 @@ type TokenType =
 interface Token {
   type: TokenType;
   value: string;
-  raw?: string; // 원본 문자열 (정규식 등에서 사용)
+  raw?: string; // Original string (used in regex, etc.)
 }
 
 function tokenize(expr: string): Token[] {
@@ -25,13 +25,13 @@ function tokenize(expr: string): Token[] {
   while (i < expr.length) {
     const ch = expr[i];
 
-    // 공백 스킵
+    // Skip whitespace
     if (/\s/.test(ch)) {
       i++;
       continue;
     }
 
-    // 괄호
+    // Parentheses
     if (ch === '(') {
       tokens.push({ type: 'LPAREN', value: ch });
       i++;
@@ -43,7 +43,7 @@ function tokenize(expr: string): Token[] {
       continue;
     }
 
-    // 문자열 리터럴 (단일 따옴표 또는 큰따옴표)
+    // String literal (single or double quotes)
     if (ch === "'" || ch === '"') {
       const quote = ch;
       let j = i + 1;
@@ -69,7 +69,7 @@ function tokenize(expr: string): Token[] {
       continue;
     }
 
-    // 정규식 리터럴 `/pattern/flags`
+    // Regex literal `/pattern/flags`
     if (ch === '/') {
       let j = i + 1;
       let pattern = '';
@@ -125,7 +125,7 @@ function tokenize(expr: string): Token[] {
       continue;
     }
 
-    // 3-4자 연산자
+    // 3-4 character operators
     const fourChar = expr.slice(i, i + 4);
     if (fourChar === '!===' || fourChar === '===') {
       tokens.push({ type: 'OP', value: fourChar === '===' ? '==' : '!=' });
@@ -140,7 +140,7 @@ function tokenize(expr: string): Token[] {
       continue;
     }
 
-    // 2자 연산자
+    // 2 character operators
     const twoChar = expr.slice(i, i + 2);
     if (
       twoChar === '&&' ||
@@ -156,20 +156,20 @@ function tokenize(expr: string): Token[] {
       continue;
     }
 
-    // 1자 연산자
+    // 1 character operators
     if (ch === '!' || ch === '=' || ch === '<' || ch === '>') {
       tokens.push({ type: 'OP', value: ch });
       i++;
       continue;
     }
 
-    // 숫자 리터럴 (정수 또는 소수점, .5 같은 형식도 지원)
+    // Number literal (integer or decimal, also supports formats like .5)
     if (/\d/.test(ch) || (ch === '.' && i + 1 < expr.length && /\d/.test(expr[i + 1]))) {
       let j = i;
       let value = '';
-      // .5 같은 형식도 지원
+      // Also support formats like .5
       if (ch === '.') {
-        value = '0.'; // .5를 0.5로 변환하기 위해
+        value = '0.'; // Convert .5 to 0.5
         j = i + 1;
       }
       while (j < expr.length && /[\d.]/.test(expr[j])) {
@@ -183,7 +183,7 @@ function tokenize(expr: string): Token[] {
       }
     }
 
-    // 식별자
+    // Identifier
     if (/[a-zA-Z_$]/.test(ch)) {
       let j = i;
       let value = '';
@@ -195,7 +195,7 @@ function tokenize(expr: string): Token[] {
       continue;
     }
 
-    // 알 수 없는 문자 → 스킵
+    // Unknown character → skip
     i++;
   }
 
@@ -225,7 +225,7 @@ class WhenParser {
     return this.tokens[this.pos++] ?? null;
   }
 
-  // || (가장 낮은 우선순위)
+  // || (lowest priority)
   private parseOr(): boolean {
     let left = Boolean(this.parseAnd());
     while (this.peek()?.type === 'OP' && this.peek()!.value === '||') {
@@ -236,7 +236,7 @@ class WhenParser {
     return left;
   }
 
-  // && (중간 우선순위)
+  // && (medium priority)
   private parseAnd(): unknown {
     let left = this.parseIn();
     while (this.peek()?.type === 'OP' && this.peek()!.value === '&&') {
@@ -270,7 +270,7 @@ class WhenParser {
     return left;
   }
 
-  // 비교 연산자: >, >=, <, <=
+  // Comparison operators: >, >=, <, <=
   private parseComparison(): unknown {
     let left = this.parseEquality();
     const next = this.peek();
@@ -300,7 +300,7 @@ class WhenParser {
     return left;
   }
 
-  // 동등 연산자: ==, !=
+  // Equality operators: ==, !=
   private parseEquality(): unknown {
     let left = this.parseMatch();
     const next = this.peek();
@@ -315,7 +315,7 @@ class WhenParser {
     return left;
   }
 
-  // =~ (정규식 매칭)
+  // =~ (regex matching)
   private parseMatch(): unknown {
     let left = this.parseUnary();
     const next = this.peek();
@@ -342,7 +342,7 @@ class WhenParser {
     return left;
   }
 
-  // 단항 연산자: !
+  // Unary operator: !
   private parseUnary(): unknown {
     const next = this.peek();
     if (next && next.type === 'OP' && next.value === '!') {
@@ -352,7 +352,7 @@ class WhenParser {
     return this.parsePrimary();
   }
 
-  // 기본 값
+  // Primary value
   private parsePrimary(): unknown {
     const token = this.consume();
     if (!token) return false;

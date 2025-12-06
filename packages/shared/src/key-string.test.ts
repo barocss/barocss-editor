@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { getKeyString } from './key-string';
 
 /**
- * Mock KeyboardEvent 생성 헬퍼
+ * Helper to create mock KeyboardEvent
  */
 function createKeyboardEvent(key: string, options: {
   ctrlKey?: boolean;
@@ -34,7 +34,7 @@ describe('getKeyString', () => {
   it('should convert Cmd+b to Cmd+b (Mac) or Meta+b (non-Mac)', () => {
     const event = createKeyboardEvent('b', { metaKey: true });
     const result = getKeyString(event);
-    // Mac이면 Cmd+b, 아니면 Meta+b
+    // Cmd+b on Mac, Meta+b otherwise
     expect(result).toMatch(/^(Cmd|Meta)\+b$/);
   });
 
@@ -74,7 +74,7 @@ describe('getKeyString', () => {
   });
 
   it('should normalize alphabet keys to lowercase', () => {
-    // Shift를 누르면 대문자가 올 수 있지만, 소문자로 정규화
+    // Shift can produce uppercase, but normalized to lowercase
     const eventB = createKeyboardEvent('B', { ctrlKey: true });
     expect(getKeyString(eventB)).toBe('Ctrl+b');
     

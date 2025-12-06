@@ -6,13 +6,13 @@ describe('MarkdownConverter', () => {
   let converter: MarkdownConverter;
   
   beforeEach(() => {
-    // Registry 초기화
+    // Initialize registry
     GlobalConverterRegistry.getInstance().clear();
     
-    // 기본 규칙 등록
+    // Register default rules
     registerDefaultMarkdownRules();
     
-    // Converter 인스턴스 생성
+    // Create converter instance
     converter = new MarkdownConverter();
   });
   
@@ -311,12 +311,12 @@ describe('MarkdownConverter', () => {
       const md = new MarkdownIt();
       const markdown = '# Title\n\n**Bold** and *italic* text';
       
-      // markdown-it으로 파싱
+      // Parse with markdown-it
       const tokens = md.parse(markdown, {});
       
       expect(tokens.length).toBeGreaterThan(0);
       
-      // 토큰 구조 확인
+      // Check token structure
       const headingToken = tokens.find((t: any) => t.type === 'heading_open');
       expect(headingToken).toBeDefined();
       if (headingToken) {
@@ -328,27 +328,27 @@ describe('MarkdownConverter', () => {
       const md = new MarkdownIt();
       const markdown = '# Heading\n\nParagraph with **bold** text';
       
-      // markdown-it으로 파싱
+      // Parse with markdown-it
       const tokens = md.parse(markdown, {});
       
-      // 토큰을 모델 노드로 변환하는 로직 테스트
+      // Test logic to convert tokens to model nodes
       const nodes: any[] = [];
       let i = 0;
       
       while (i < tokens.length) {
         const token = tokens[i];
         
-        // Heading 처리
+        // Handle heading
         if (token.type === 'heading_open') {
           const level = parseInt(token.tag.slice(1)); // h1 -> 1
           const content: any[] = [];
           
-          // heading_close까지의 내용 수집
+          // Collect content until heading_close
           i++;
           while (i < tokens.length && tokens[i].type !== 'heading_close') {
             const childToken = tokens[i];
             if (childToken.type === 'inline') {
-              // inline 토큰의 자식 처리
+              // Process inline token's children
               if (childToken.children) {
                 for (const child of childToken.children) {
                   if (child.type === 'text') {
@@ -357,7 +357,7 @@ describe('MarkdownConverter', () => {
                       text: child.content
                     });
                   } else if (child.type === 'strong_open') {
-                    // strong의 내용 찾기
+                    // Find strong's content
                     i++;
                     const strongContent: any[] = [];
                     while (i < tokens.length && tokens[i].type !== 'strong_close') {
@@ -386,7 +386,7 @@ describe('MarkdownConverter', () => {
             content: content.length > 0 ? content : undefined
           });
         }
-        // Paragraph 처리
+        // Handle paragraph
         else if (token.type === 'paragraph_open') {
           const content: any[] = [];
           
@@ -401,7 +401,7 @@ describe('MarkdownConverter', () => {
                     text: child.content
                   });
                 } else if (child.type === 'strong_open') {
-                  // strong 처리 (간단한 버전)
+                  // Handle strong (simple version)
                   const strongText = childToken.children
                     .filter((c: any) => c.type === 'text' && 
                       childToken.children.indexOf(c) > childToken.children.indexOf(child))
@@ -435,16 +435,16 @@ describe('MarkdownConverter', () => {
     });
     
     it('should use markdown-it parser via defineDocumentParser', () => {
-      // Registry 초기화
+      // Initialize registry
       GlobalConverterRegistry.getInstance().clear();
       
-      // markdown-it을 사용하는 DocumentParser 등록
+      // Register DocumentParser using markdown-it
       defineDocumentParser('markdown', {
         parse(document: string): any[] {
           const md = new MarkdownIt();
           const tokens = md.parse(document, {});
           
-          // markdown-it 토큰을 간단한 AST로 변환
+          // Convert markdown-it tokens to simple AST
           const ast: any[] = [];
           let i = 0;
           
@@ -455,11 +455,11 @@ describe('MarkdownConverter', () => {
               const level = parseInt(token.tag.slice(1));
               const textParts: string[] = [];
               
-              // heading_close까지의 inline 토큰 찾기
+              // Find inline tokens until heading_close
               i++;
               while (i < tokens.length && tokens[i].type !== 'heading_close') {
                 if (tokens[i].type === 'inline' && tokens[i].children) {
-                  // inline의 children에서 텍스트 추출
+                  // Extract text from inline's children
                   for (const child of tokens[i].children) {
                     if (child.type === 'text') {
                       textParts.push(child.content);
@@ -477,7 +477,7 @@ describe('MarkdownConverter', () => {
             } else if (token.type === 'paragraph_open') {
               const textParts: string[] = [];
               
-              // paragraph_close까지의 inline 토큰 찾기
+              // Find inline tokens until paragraph_close
               i++;
               while (i < tokens.length && tokens[i].type !== 'paragraph_close') {
                 if (tokens[i].type === 'inline' && tokens[i].children) {
@@ -505,7 +505,7 @@ describe('MarkdownConverter', () => {
         }
       });
       
-      // AST → Model 변환 규칙 등록
+      // Register AST → Model conversion rules
       defineASTConverter('heading', 'markdown', {
         convert(astNode: any): any | null {
           if (astNode.type === 'heading') {
@@ -537,10 +537,10 @@ describe('MarkdownConverter', () => {
         }
       });
       
-      // Converter 인스턴스 생성
+      // Create Converter instance
       const converter = new MarkdownConverter();
       
-      // markdown-it을 사용하여 파싱
+      // Parse using markdown-it
       const markdown = '# Title\n\nParagraph text';
       const nodes = converter.parse(markdown);
       
@@ -568,15 +568,15 @@ const code = 'example';
       
       const tokens = md.parse(markdown, {});
       
-      // 다양한 토큰 타입 확인
+      // Check various token types
       const tokenTypes = new Set(tokens.map((t: any) => t.type));
       
-      // markdown-it의 실제 토큰 타입 확인
+      // Check actual token types from markdown-it
       expect(tokenTypes.has('heading_open')).toBe(true);
       expect(tokenTypes.has('paragraph_open')).toBe(true);
       expect(tokenTypes.has('bullet_list_open')).toBe(true);
       
-      // code_block은 'fence' 또는 다른 이름일 수 있음
+      // code_block may be 'fence' or another name
       const hasCodeBlock = tokenTypes.has('fence') || 
                           tokenTypes.has('code_block') ||
                           tokens.some((t: any) => t.type.includes('code') || t.type.includes('fence'));
@@ -586,10 +586,10 @@ const code = 'example';
   
   describe('complex markdown conversion', () => {
     beforeEach(() => {
-      // Registry 초기화
+      // Initialize Registry
       GlobalConverterRegistry.getInstance().clear();
       
-      // markdown-it을 사용하는 복잡한 DocumentParser 등록
+      // Register complex DocumentParser using markdown-it
       defineDocumentParser('markdown', {
         parse(document: string): any[] {
           const md = new MarkdownIt();
@@ -601,7 +601,7 @@ const code = 'example';
           while (i < tokens.length) {
             const token = tokens[i];
             
-            // Heading 처리
+            // Handle Heading
             if (token.type === 'heading_open') {
               const level = parseInt(token.tag.slice(1));
               const textParts: string[] = [];
@@ -624,7 +624,7 @@ const code = 'example';
                 text: textParts.join('')
               });
             }
-            // Paragraph 처리
+            // Handle Paragraph
             else if (token.type === 'paragraph_open') {
               const textParts: string[] = [];
               
@@ -647,7 +647,7 @@ const code = 'example';
                 });
               }
             }
-            // List 처리
+            // Handle List
             else if (token.type === 'bullet_list_open' || token.type === 'ordered_list_open') {
               const listItems: any[] = [];
               const isOrdered = token.type === 'ordered_list_open';
@@ -696,7 +696,7 @@ const code = 'example';
                 });
               }
             }
-            // Code block 처리
+            // Handle Code block
             else if (token.type === 'fence') {
               ast.push({
                 type: 'code_block',
@@ -704,7 +704,7 @@ const code = 'example';
                 code: token.content
               });
             }
-            // Blockquote 처리
+            // Handle Blockquote
             else if (token.type === 'blockquote_open') {
               const quoteParts: string[] = [];
               
@@ -742,7 +742,7 @@ const code = 'example';
         }
       });
       
-      // AST → Model 변환 규칙 등록
+      // Register AST → Model conversion rules
       defineASTConverter('heading', 'markdown', {
         convert(astNode: any): any | null {
           if (astNode.type === 'heading') {
@@ -856,33 +856,33 @@ console.log(example);
       
       expect(nodes.length).toBeGreaterThan(0);
       
-      // Heading 확인
+      // Check Heading
       const headings = nodes.filter((n: any) => n.stype === 'heading');
       expect(headings.length).toBeGreaterThanOrEqual(2);
       expect(headings.some((h: any) => h.attributes?.level === 1)).toBe(true);
       expect(headings.some((h: any) => h.attributes?.level === 2)).toBe(true);
       
-      // Paragraph 확인
+      // Check Paragraph
       const paragraphs = nodes.filter((n: any) => n.stype === 'paragraph');
       expect(paragraphs.length).toBeGreaterThanOrEqual(2);
       
-      // List 확인 (파싱이 성공한 경우에만)
+      // Check List (only if parsing succeeded)
       const lists = nodes.filter((n: any) => n.stype === 'list');
-      // 리스트 파싱이 구현되어 있으면 확인
+      // Check if list parsing is implemented
       if (lists.length > 0) {
         expect(lists.length).toBeGreaterThanOrEqual(1);
       }
       
-      // Code block 확인 (파싱이 성공한 경우에만)
+      // Check Code block (only if parsing succeeded)
       const codeBlocks = nodes.filter((n: any) => n.stype === 'code_block');
       if (codeBlocks.length > 0) {
         expect(codeBlocks[0].attributes?.language).toBe('javascript');
         expect(codeBlocks[0].text).toContain('const example');
       }
       
-      // Blockquote 확인 (파싱이 성공한 경우에만)
+      // Check Blockquote (only if parsing succeeded)
       const blockquotes = nodes.filter((n: any) => n.stype === 'blockquote');
-      // 최소한 주요 요소들은 파싱되어야 함
+      // At least main elements should be parsed
       expect(nodes.length).toBeGreaterThan(0);
     });
     
@@ -915,13 +915,13 @@ interface Example {
       
       expect(nodes.length).toBeGreaterThan(0);
       
-      // Nested content 확인
+      // Check nested content
       const paragraphs = nodes.filter((n: any) => n.stype === 'paragraph');
       expect(paragraphs.length).toBeGreaterThan(0);
       
-      // List with formatted items 확인 (파싱이 성공한 경우에만)
+      // Check List with formatted items (only if parsing succeeded)
       const lists = nodes.filter((n: any) => n.stype === 'list');
-      // 최소한 노드는 파싱되어야 함
+      // At least nodes should be parsed
       expect(nodes.length).toBeGreaterThan(0);
     });
     
@@ -941,8 +941,8 @@ This is a [link](https://example.com) in text.
       
       expect(nodes.length).toBeGreaterThan(0);
       
-      // Link와 Image는 현재 기본 파서에서 처리하지 않지만,
-      // markdown-it은 토큰으로 파싱함
+      // Links and Images are not handled in current default parser,
+      // but markdown-it parses them as tokens
       const md = new MarkdownIt();
       const tokens = md.parse(markdown, {});
       
@@ -952,12 +952,12 @@ This is a [link](https://example.com) in text.
       );
       expect(hasLink).toBe(true);
       
-      // markdown-it에서 이미지는 'image' 타입이 아니라 inline의 children에 있을 수 있음
+      // In markdown-it, images may be in inline's children rather than 'image' type
       const hasImage = tokens.some((t: any) => 
         t.type === 'image' ||
         (t.type === 'inline' && t.children?.some((c: any) => c.type === 'image'))
       );
-      // 이미지가 파싱되었는지 확인 (실제로는 있을 수 있음)
+      // Check if image was parsed (may actually exist)
       // expect(hasImage).toBe(true);
     });
     
@@ -974,8 +974,8 @@ This is a [link](https://example.com) in text.
       
       const nodes = converter.parse(markdown);
       
-      // Table은 현재 기본 파서에서 처리하지 않지만,
-      // markdown-it은 토큰으로 파싱함
+      // Tables are not handled in current default parser,
+      // but markdown-it parses them as tokens
       const md = new MarkdownIt();
       const tokens = md.parse(markdown, {});
       

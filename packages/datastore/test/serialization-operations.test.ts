@@ -91,7 +91,7 @@ describe('SerializationOperations', () => {
     } as any;
 
     const json = ds.serializeRange(selection);
-    // 현재 구현은 text 가 있는 노드만 직렬화 대상으로 삼는다.
+    // Current implementation only serializes nodes that have text.
     expect(json.map(n => n.text)).toEqual(['AAA', 'BBB']);
   });
 

@@ -3,10 +3,10 @@ import { DataStore } from '../src/data-store';
 import type { ModelSelection } from '@barocss/editor-core';
 
 describe('RangeOperations.deleteText - multi-node range behavior', () => {
-  it('paragraph-1 끝 ~ paragraph-2 중간 Range 를 삭제하면 텍스트 tail/head 가 올바르게 잘린다', () => {
+  it('should correctly truncate text tail/head when deleting range from end of paragraph-1 to middle of paragraph-2', () => {
     const store = new DataStore();
 
-    // document 구조:
+    // Document structure:
     // doc
     //  ├─ para-1: "Hello World"
     //  └─ para-2: "Foo Bar"
@@ -58,14 +58,14 @@ describe('RangeOperations.deleteText - multi-node range behavior', () => {
     const rangeOps = (store as any).range;
 
     const deleted = rangeOps.deleteText(range);
-    // 삭제된 내용이 어떤 문자열인지보다, 남은 구조가 중요한 테스트
+    // Test focuses on remaining structure rather than what string was deleted
     expect(typeof deleted).toBe('string');
 
     const t1 = store.getNode('text-1');
     const t2 = store.getNode('text-2');
 
-    expect(t1?.text).toBe('Hello');  // tail 잘림
-    expect(t2?.text).toBe('o Bar');  // head 잘림
+    expect(t1?.text).toBe('Hello');  // tail truncated
+    expect(t2?.text).toBe('o Bar');  // head truncated
   });
 });
 

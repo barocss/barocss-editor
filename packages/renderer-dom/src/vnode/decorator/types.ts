@@ -8,8 +8,8 @@
  */
 
 /**
- * Decorator Target 타입
- * - 단일 노드 타겟 또는 범위 타겟
+ * Decorator Target type
+ * - Single node target or range target
  */
 export type DecoratorTarget = 
   | {
@@ -36,30 +36,30 @@ export type DecoratorPosition =
   | 'absolute';     // absolute position in container
 
 /**
- * Decorator 타입
- * - renderer-dom에서 사용하는 decorator 타입
- * - editor-view-dom의 Decorator 타입과 호환되어야 함
+ * Decorator type
+ * - Decorator type used in renderer-dom
+ * - Must be compatible with Decorator type in editor-view-dom
  */
 export interface Decorator {
   sid: string;
-  stype: string; // decorator 타입 (comment, highlight, color-picker 등)
+  stype: string; // decorator type (comment, highlight, color-picker, etc.)
   category: 'layer' | 'inline' | 'block';
   data?: Record<string, any>;
   target: DecoratorTarget;
   /**
-   * 렌더링할 레이어 타겟
-   * - 'content': Content 레이어 (inline/block decorator 기본값)
-   * - 'decorator': Decorator 레이어 (layer decorator 기본값)
-   * - 'selection': Selection 레이어
-   * - 'context': Context 레이어
-   * - 'custom': Custom 레이어
+   * Layer target to render
+   * - 'content': Content layer (default for inline/block decorator)
+   * - 'decorator': Decorator layer (default for layer decorator)
+   * - 'selection': Selection layer
+   * - 'context': Context layer
+   * - 'custom': Custom layer
    */
   layerTarget?: 'content' | 'decorator' | 'selection' | 'context' | 'custom';
-  enabled?: boolean; // 활성화 여부 (기본값: true)
-  decoratorType?: 'target' | 'pattern' | 'custom'; // decorator 종류: 'target' (일반), 'pattern' (패턴 기반), 'custom' (함수 기반, 기본값: 'target')
-  position?: DecoratorPosition; // 렌더링 위치 (선택사항)
+  enabled?: boolean; // Whether enabled (default: true)
+  decoratorType?: 'target' | 'pattern' | 'custom'; // decorator kind: 'target' (general), 'pattern' (pattern-based), 'custom' (function-based, default: 'target')
+  position?: DecoratorPosition; // Rendering position (optional)
   
-  // 메타데이터 (선택사항)
+  // Metadata (optional)
   createdAt?: number;
   updatedAt?: number;
   author?: string;
@@ -73,9 +73,9 @@ export interface VNodeBuildOptions {
   decorators?: Decorator[];
   sid?: string; // Current node's sid for decorator matching
   /**
-   * SelectionContext: 렌더 시점의 선택 정보를 주입 (읽기 전용)
-   * - sid: 선택이 속한 모델 노드 식별자
-   * - modelOffset: 해당 sid 내 텍스트 기준 오프셋 (grapheme-safe)
+   * SelectionContext: inject selection info at render time (read-only)
+   * - sid: identifier of model node that selection belongs to
+   * - modelOffset: offset based on text within that sid (grapheme-safe)
    */
   selectionContext?: {
     sid: string;
@@ -88,8 +88,8 @@ export interface VNodeBuildOptions {
  */
 export interface DecoratorTextRun {
   text: string;
-  decorator?: Decorator;  // 단일 decorator (하위 호환성)
-  decorators?: Decorator[];  // 여러 decorator (before/after 등)
+  decorator?: Decorator;  // Single decorator (backward compatibility)
+  decorators?: Decorator[];  // Multiple decorators (before/after, etc.)
   start: number;
   end: number;
 }

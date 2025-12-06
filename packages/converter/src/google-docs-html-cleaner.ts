@@ -1,17 +1,17 @@
 /**
- * Google Docs HTML 정리 유틸리티
+ * Google Docs HTML cleaning utility
  *
- * Google Docs에서 복사한 HTML은 wrapper div, style/script 태그,
- * data-*, class 기반 메타 등이 섞여 있습니다.
- * 이 클래스는 불필요한 래퍼 및 태그를 제거하고, body 이하의
- * 실제 콘텐츠만 남겨서 HTMLConverter에 전달하기 위한 역할을 합니다.
+ * HTML copied from Google Docs contains a mix of wrapper divs, style/script tags,
+ * data-*, class-based metadata, etc.
+ * This class removes unnecessary wrappers and tags, leaving only actual content
+ * below body to pass to HTMLConverter.
  */
 export class GoogleDocsHTMLCleaner {
   /**
-   * Google Docs HTML을 정리합니다.
+   * Cleans Google Docs HTML.
    *
-   * @param html Google Docs에서 복사한 원본 HTML
-   * @returns 정리된 HTML (body 내부 콘텐츠 기준)
+   * @param html Original HTML copied from Google Docs
+   * @returns Cleaned HTML (based on body inner content)
    */
   clean(html: string): string {
     const parser = new DOMParser();
@@ -21,18 +21,18 @@ export class GoogleDocsHTMLCleaner {
       return html;
     }
 
-    // style / script 태그 제거
+    // Remove style / script tags
     this._removeElements(doc.body, ['style', 'script']);
 
-    // Google Docs 특유의 wrapper div/section 등을 평탄화하려면
-    // 여기서 class/id 패턴을 기준으로 언래핑할 수 있지만,
-    // 현재는 최소한의 정리만 수행합니다.
+    // To flatten Google Docs-specific wrapper div/section, etc.,
+    // we could unwrap based on class/id patterns here,
+    // but currently we only perform minimal cleaning.
 
     return doc.body.innerHTML;
   }
 
   /**
-   * 지정된 태그 이름들을 모두 제거합니다.
+   * Removes all elements with specified tag names.
    */
   private _removeElements(root: Element, tagNames: string[]): void {
     for (const tag of tagNames) {

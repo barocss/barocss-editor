@@ -84,6 +84,6 @@ defineOperation('wrap', async (operation: any, context: TransactionContext) => {
   }
 });
 
-// DSL 정의는 별도 파일로 분리 예정
+// DSL definition will be separated into a separate file
 
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import '../../src/operations/register-operations'; // Operations 등록
+import '../../src/operations/register-operations'; // Register operations
 import { DataStore } from '@barocss/datastore';
 import { SelectionManager } from '@barocss/editor-core';
 import { createTransactionContext } from '../../src/create-transaction-context';
@@ -14,7 +14,7 @@ describe('deleteTextRange operation', () => {
   let schema: Schema;
 
   beforeEach(() => {
-    // 테스트용 schema 생성
+    // Create schema for testing
     schema = new Schema('test-schema', {
       nodes: {
         'inline-text': {
@@ -46,7 +46,7 @@ describe('deleteTextRange operation', () => {
 
   describe('Basic functionality', () => {
     it('should delete text range', async () => {
-      // 텍스트 노드 생성
+      // Create text node
       const textNode = {
         id: 'text-1',
         type: 'inline-text',

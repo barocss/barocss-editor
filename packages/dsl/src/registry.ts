@@ -43,7 +43,7 @@ export class RendererRegistry {
   }
   
   // get() is removed - use getComponent() instead
-  // define()으로 정의된 모든 것은 component만 가능하므로 getComponent()만 사용
+  // Everything defined with define() is component-only, so only use getComponent()
   
   // Get all renderers (deprecated - use getComponent instead)
   getAll(): RendererDefinition[] {
@@ -116,16 +116,16 @@ export class RendererRegistry {
   }
 
   getMarkRenderer(type: string): RenderTemplate | undefined {
-    // _renderers에서 직접 가져오면 ComponentTemplate을 반환할 수 있음
+    // Getting directly from _renderers can return ComponentTemplate
     const renderer = this._renderers.get(`mark:${type}`);
     if (renderer && renderer.template) {
       return renderer.template as RenderTemplate;
     }
-    // Fallback: getComponent()에서 가져오기 (레거시 지원)
+    // Fallback: get from getComponent() (legacy support)
     const component = this.getComponent(`mark:${type}`);
     if (component && component.template) {
-      // component.template이 ContextualComponent 함수이면 실행 결과를 반환
-      // 또는 ExternalComponent의 template 속성을 반환
+      // If component.template is ContextualComponent function, return execution result
+      // Or return template property of ExternalComponent
       return component.template as any;
     }
     return undefined;

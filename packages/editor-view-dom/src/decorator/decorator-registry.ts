@@ -21,7 +21,7 @@ export class DecoratorRegistry {
   private renderers = new Map<string, DecoratorRenderer>();
   
   constructor() {
-    // 스키마 없이 초기화 (decorator는 스키마와 독립적)
+    // Initialize without schema (decorator is independent of schema)
   }
   
   /**
@@ -111,7 +111,7 @@ export class DecoratorRegistry {
   validateDecorator(decorator: Decorator): { valid: boolean; errors: string[] } {
     const errors: string[] = [];
     
-    // 기본 필드 검증 (항상 수행)
+    // Basic field validation (always performed)
     if (!decorator.sid) {
       errors.push('Decorator id is required');
     }
@@ -124,22 +124,22 @@ export class DecoratorRegistry {
       errors.push('Decorator type is required');
     }
     
-    // 타입 스키마 검증 (타입이 등록되어 있을 때만)
+    // Type schema validation (only when type is registered)
     const schema = this.getTypeSchema(decorator.category, decorator.stype);
     if (schema) {
-      // 타입이 등록되어 있으면 검증 수행
+      // Perform validation if type is registered
       if (schema.dataSchema) {
         const dataErrors = this.validateData(decorator.data || {}, schema.dataSchema);
         errors.push(...dataErrors);
       }
     }
-    // 타입이 등록되어 있지 않으면 검증하지 않고 통과 (선택적 타입 시스템)
+    // If type is not registered, pass without validation (opt-in type system)
     
     return { valid: errors.length === 0, errors };
   }
   
   /**
-   * 데이터 스키마 검증
+   * Data schema validation
    */
   private validateData(
     data: Record<string, any>,
@@ -147,7 +147,7 @@ export class DecoratorRegistry {
   ): string[] {
     const errors: string[] = [];
     
-    // 필수 필드 검증
+    // Required field validation
     for (const [key, fieldSchema] of Object.entries(schema)) {
       if (fieldSchema.required && !(key in data)) {
         errors.push(`Required field '${key}' is missing`);
@@ -156,7 +156,7 @@ export class DecoratorRegistry {
       
       const value = data[key];
       if (value !== undefined && value !== null) {
-        // 타입 검증
+        // Type validation
         const actualType = Array.isArray(value) ? 'array' : typeof value;
         if (actualType !== fieldSchema.type) {
           errors.push(`Field '${key}' should be ${fieldSchema.type}, got ${actualType}`);
@@ -168,23 +168,23 @@ export class DecoratorRegistry {
   }
   
   /**
-   * Decorator에 기본값 적용 (타입이 등록되어 있을 때만)
+   * Apply defaults to Decorator (only when type is registered)
    * 
-   * 타입이 등록되어 있으면 기본값을 적용하고, 없으면 원본을 반환합니다.
+   * If type is registered, apply defaults, otherwise return original.
    */
   applyDefaults(decorator: Decorator): Decorator {
     const schema = this.getTypeSchema(decorator.category, decorator.stype);
     if (!schema?.dataSchema) {
-      // 타입이 등록되어 있지 않으면 기본값 적용하지 않음
+      // Don't apply defaults if type is not registered
       return decorator;
     }
     
-    // data가 없으면 빈 객체로 초기화
+    // Initialize with empty object if data is missing
     const dataWithDefaults = { ...(decorator.data || {}) };
     
     for (const [key, fieldSchema] of Object.entries(schema.dataSchema)) {
       if (fieldSchema.default !== undefined && !(key in dataWithDefaults)) {
-        // 기본값이 함수면 호출, 아니면 그대로 사용
+        // Call if default is function, otherwise use as-is
         const defaultValue = typeof fieldSchema.default === 'function' 
           ? fieldSchema.default() 
           : fieldSchema.default;

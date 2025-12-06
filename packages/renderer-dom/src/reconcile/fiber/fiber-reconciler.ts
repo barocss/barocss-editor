@@ -21,22 +21,22 @@ import { EffectTag } from './types';
 import { VNodeTag, DOMAttribute } from '../../vnode/types';
 
 /**
- * Fiber reconcile에 필요한 의존성
+ * Dependencies required for Fiber reconcile
  */
 export interface FiberReconcileDependencies {
   dom: DOMOperations;
   components: ComponentManager;
   currentVisitedPortalIds: Set<string> | null;
   portalHostsById: Map<string, { target: HTMLElement, host: HTMLElement }>;
-  // Root 레벨 처리를 위한 추가 정보
-  rootModel?: any; // model.text 처리를 위한 model 참조
-  rootSid?: string; // rootVNode의 sid
+  // Additional information for root-level processing
+  rootModel?: any; // Model reference for model.text processing
+  rootSid?: string; // sid of rootVNode
   context?: any; // Reconciliation context (for unmountComponent)
-  prevRootFiber?: FiberNode | null; // React 방식: 이전 Fiber tree (alternate로 사용)
+  prevRootFiber?: FiberNode | null; // React-style: previous Fiber tree (used as alternate)
 }
 
 /**
- * 얕은 비교를 통한 Props 변경 확인
+ * Check Props changes via shallow comparison
  */
 function arePropsEqual(prev: any, next: any): boolean {
   if (prev === next) return true;
@@ -55,16 +55,16 @@ function arePropsEqual(prev: any, next: any): boolean {
 }
 
 /**
- * Fiber 기반 reconcile
+ * Fiber-based reconcile
  * 
- * VNode 트리를 Fiber 트리로 변환하고, 각 Fiber 노드를 개별적으로 처리
+ * Convert VNode tree to Fiber tree and process each Fiber node individually
  * 
  * @param container - Root container element
  * @param vnode - VNode tree to reconcile
  * @param prevVNode - Previous VNode (for diffing)
  * @param context - Reconciliation context
- * @param deps - Fiber reconcile에 필요한 의존성
- * @param onComplete - Fiber 작업 완료 시 호출될 콜백 (optional)
+ * @param deps - Dependencies required for Fiber reconcile
+ * @param onComplete - Callback to be called when Fiber work completes (optional)
  */
 export function reconcileWithFiber(
   container: HTMLElement,
@@ -74,14 +74,14 @@ export function reconcileWithFiber(
   deps: FiberReconcileDependencies,
   onComplete?: (rootFiber: FiberNode) => void
 ): void {
-  // React 방식: 이전 rootFiber를 alternate로 설정
+  // React-style: set previous rootFiber as alternate
   const prevRootFiber = deps.prevRootFiber || null;
   
-  // 1. Fiber 트리 생성 (이전 rootFiber를 alternate로 전달)
+  // 1. Create Fiber tree (pass previous rootFiber as alternate)
   const rootFiber = createFiberTree(container, vnode, prevVNode, context, null, 0, prevRootFiber);
   
-  // 2. Fiber render 함수 정의 (Render Phase)
-  // 각 Fiber 노드에 대해 변경사항 계산만 수행 (DOM 조작 없음)
+  // 2. Define Fiber render function (Render Phase)
+  // Only calculate changes for each Fiber node (no DOM manipulation)
   const fiberRender: FiberReconcileFunction = (fiber: FiberNode) => {
     renderFiberNode(fiber, deps, context);
     delete (fiber as any).__isReturningToParent;
@@ -90,27 +90,27 @@ export function reconcileWithFiber(
   // 3. Custom FiberScheduler that sets __isReturningToParent flag when returning to parent
   class CustomFiberScheduler extends FiberScheduler {
     protected performUnitOfWork(fiber: FiberNode): FiberNode | null {
-      // 1. 현재 Fiber render (Render Phase)
+      // 1. Render current Fiber (Render Phase)
       this.reconcileFiber(fiber);
       
-      // 2. 자식이 있으면 자식 반환 (다음 작업)
+      // 2. If child exists, return child (next work)
       if (fiber.child) {
         return fiber.child;
       }
       
-      // 3. 형제가 있으면 형제 반환
+      // 3. Return sibling if exists
       if (fiber.sibling) {
         return fiber.sibling;
       }
       
-      // 4. 부모로 돌아가서 형제 찾기
-      // IMPORTANT: 부모로 돌아갈 때, 부모의 모든 자식이 처리되었으므로
-      // 부모의 후처리(primitive text, stale decorator 제거)를 수행해야 함
+      // 4. Go back to parent and find sibling
+      // IMPORTANT: When going back to parent, all children of parent have been processed,
+      // so must perform parent's post-processing (remove primitive text, stale decorator)
       let nextFiber = fiber.return;
       while (nextFiber) {
-        // 부모로 돌아갈 때, 부모의 자식이 모두 처리되었으므로
-        // 부모에 대해 fiberReconcile을 다시 호출하여 후처리 수행
-        // __isReturningToParent 플래그를 설정하여 후처리 수행
+        // When going back to parent, all children of parent have been processed,
+        // so call fiberReconcile again on parent to perform post-processing
+        // Set __isReturningToParent flag to perform post-processing
         (nextFiber as any).__isReturningToParent = true;
         this.reconcileFiber(nextFiber);
         
@@ -120,13 +120,13 @@ export function reconcileWithFiber(
         nextFiber = nextFiber.return;
       }
       
-      return null; // 완료
+      return null; // Complete
     }
   }
   
-  // 4. Fiber Scheduler로 작업 시작 (비동기 yield)
+  // 4. Start work with Fiber Scheduler (async yield)
   const scheduler = new CustomFiberScheduler(fiberRender, () => {
-    // Render Phase 완료 후 Commit Phase 실행
+    // Execute Commit Phase after Render Phase completes
     commitFiberTree(rootFiber, deps, context);
     if (onComplete) {
       onComplete(rootFiber);
@@ -150,30 +150,30 @@ export function renderFiberNode(
 ): void {
   const { dom, components, currentVisitedPortalIds, portalHostsById } = deps;
   
-  // Primitive text는 Fiber로 변환하지 않으므로 여기서는 VNode만 처리
+  // Primitive text is not converted to Fiber, so only process VNode here
   const vnode = fiber.vnode;
-  // React 방식: alternate에서 prevVNode 가져오기 (fiber.prevVNode는 deprecated)
+  // React style: get prevVNode from alternate (fiber.prevVNode is deprecated)
   const prevVNode = fiber.alternate?.vnode || fiber.prevVNode;
   const parent = fiber.parent;
   
-  // IMPORTANT: prevVNode에서 ID를 nextVNode로 전달 (ID가 없을 때)
+  // IMPORTANT: Transfer ID from prevVNode to nextVNode (when ID is missing)
   transferVNodeIdFromPrev(vnode, prevVNode);
   
-  // IMPORTANT: 자동 생성 sid가 필요한 경우, stype과 index를 사용하여 일관된 ID 생성
+  // IMPORTANT: When auto-generated sid is needed, use stype and index to generate consistent ID
   generateVNodeIdIfNeeded(vnode, fiber, deps.components);
   
-  // 1. Portal 처리
+  // 1. Handle Portal
   if (handlePortalVNode(
     vnode,
     dom,
     (host, prev, next, ctx) => {
-      // Portal 내부 reconcile은 별도 처리
-      // Fiber 구조를 따르지 않고 직접 reconcile
+      // Portal internal reconcile is handled separately
+      // Reconcile directly without following Fiber structure
       const portalFiber = createFiberTree(host, next, prev, ctx);
       const portalScheduler = new FiberScheduler((f: FiberNode) => {
         renderFiberNode(f, deps, ctx);
       }, () => {
-        // Portal도 commit phase 실행
+        // Portal also executes commit phase
         commitFiberTree(portalFiber, deps, ctx);
       });
       portalScheduler.scheduleWork(portalFiber, FiberPriority.Normal);
@@ -181,7 +181,7 @@ export function renderFiberNode(
     currentVisitedPortalIds,
     portalHostsById
   )) {
-    // Portal은 처리되었으므로 여기서 종료
+    // Portal is handled, so exit here
     return;
   }
   

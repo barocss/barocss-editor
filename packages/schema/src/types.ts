@@ -9,17 +9,17 @@ export interface AttributeDefinition {
   objectSchema?: Record<string, AttributeDefinition>;
 }
 
-// 통합 스키마 정의
+// Unified schema definition
 export interface SchemaDefinition {
-  topNode?: string; // 기본값: 'doc'
+  topNode?: string; // Default: 'doc'
   nodes: Record<string, NodeTypeDefinition>;
   marks?: Record<string, MarkDefinition>;
 }
 
-// 스키마 확장을 위한 부분 정의
+// Partial definition for schema extension
 export type SchemaExtensions = Partial<SchemaDefinition>;
 
-// 노드 타입 정의
+// Node type definition
 export interface NodeTypeDefinition {
   name: string;
   group?: 'block' | 'inline' | 'document';
@@ -28,32 +28,32 @@ export interface NodeTypeDefinition {
   marks?: string[];
   inline?: boolean;
   /**
-   * Selectable: 노드가 클릭으로 선택 가능한지 여부
-   * - true: 선택 가능 (기본값, document 제외)
-   * - false: 선택 불가능
-   * - undefined: 기본값 (true, document 제외)
+   * Selectable: Whether node can be selected by clicking
+   * - true: Selectable (default, except document)
+   * - false: Not selectable
+   * - undefined: Default value (true, except document)
    * 
    * Selectable Node:
-   * - Block 노드: paragraph, heading, table 등 (기본적으로 선택 가능)
-   * - Inline 노드: inline-image, inline-link 등 (기본적으로 선택 가능)
-   * - Editable Node: 텍스트 노드, editable block 등 (기본적으로 선택 가능)
-   * - Document 노드: 선택 불가능 (항상 false)
+   * - Block nodes: paragraph, heading, table, etc. (selectable by default)
+   * - Inline nodes: inline-image, inline-link, etc. (selectable by default)
+   * - Editable nodes: text nodes, editable blocks, etc. (selectable by default)
+   * - Document nodes: Not selectable (always false)
    */
   selectable?: boolean;
   draggable?: boolean;
   /**
-   * Droppable: 노드가 다른 노드를 받을 수 있는지 여부 (드롭 타겟)
-   * - true: 드롭 가능 (기본값, content가 있으면 true)
-   * - false: 드롭 불가능
-   * - undefined: 기본값 (content가 있으면 true, 없으면 false)
+   * Droppable: Whether node can receive other nodes (drop target)
+   * - true: Droppable (default, true if content exists)
+   * - false: Not droppable
+   * - undefined: Default value (true if content exists, false otherwise)
    * 
    * Droppable Node:
-   * - content가 정의된 노드: document, paragraph, heading 등 (기본적으로 드롭 가능)
-   * - content가 없는 노드: atom 노드, 텍스트 노드 등 (기본적으로 드롭 불가능)
-   * - droppable: false로 명시하면 드롭 불가능
+   * - Nodes with content defined: document, paragraph, heading, etc. (droppable by default)
+   * - Nodes without content: atom nodes, text nodes, etc. (not droppable by default)
+   * - If droppable: false is specified, not droppable
    * 
-   * 주의: droppable은 "드롭 타겟"이 될 수 있는지를 의미하며,
-   * 실제로 어떤 노드를 받을 수 있는지는 content 정의에 따라 결정됨
+   * Note: droppable means whether it can be a "drop target",
+   * which nodes can actually be received is determined by content definition
    */
   droppable?: boolean;
   atom?: boolean;
@@ -62,60 +62,60 @@ export interface NodeTypeDefinition {
   defining?: boolean;
   isolating?: boolean;
   /**
-   * Editable: block 노드이지만 내부 텍스트 편집이 가능한 경우
-   * 예: codeBlock, mathBlock 등
-   * - true: block 노드이지만 커서로 탐색 가능하고 내부 텍스트 편집 가능
-   * - false 또는 undefined: 일반 block 노드 (편집 불가능)
+   * Editable: block node but internal text editing is possible
+   * Examples: codeBlock, mathBlock, etc.
+   * - true: block node but cursor navigation and internal text editing possible
+   * - false or undefined: regular block node (not editable)
    */
   editable?: boolean;
   /**
-   * Indentable: 들여쓰기/내어쓰기(indentation)의 직접 대상이 되는 노드인지 여부
+   * Indentable: Whether node is a direct target of indentation/outdentation
    *
    * - true:
-   *   - indent / outdent 명령의 대상이 될 수 있다.
-   *   - DataStore / Model 레벨에서 계층 이동(operation) 수행 시 고려 대상이 된다.
-   * - false 또는 undefined:
-   *   - indent / outdent 명령으로 구조를 변경하지 않는다.
+   *   - Can be target of indent / outdent commands.
+   *   - Considered during hierarchy movement (operation) at DataStore / Model level.
+   * - false or undefined:
+   *   - Structure is not changed by indent / outdent commands.
    *
-   * 기본 전략:
-   * - paragraph, heading, listItem 등: indentable: true
-   * - codeBlock, table, atom block 등: indentable: false (또는 undefined)
+   * Default strategy:
+   * - paragraph, heading, listItem, etc.: indentable: true
+   * - codeBlock, table, atom block, etc.: indentable: false (or undefined)
    */
   indentable?: boolean;
 
   /**
-   * Indent 그룹: 같은 그룹 내 노드끼리만 indent/outdent 대상이 되도록 제한하기 위한 힌트
+   * Indent group: Hint to restrict indent/outdent targets to nodes within the same group
    *
-   * 예시:
+   * Examples:
    * - paragraph: indentGroup: 'block'
    * - heading:   indentGroup: 'block'
    * - listItem:  indentGroup: 'listItem'
    *
-   * 사용 예:
-   * - indent 시 "현재 노드"와 "이전 형제 노드"의 indentGroup 이 같을 때만
-   *   이전 형제의 자식으로 이동을 허용한다.
+   * Usage example:
+   * - During indent, only allow moving as child of previous sibling
+   *   when "current node" and "previous sibling node" have the same indentGroup.
    */
   indentGroup?: string;
 
   /**
-   * Indent 시 부모가 될 수 있는 노드 타입 제한
+   * Restriction on node types that can become parent during indent
    *
-   * - 이 노드가 들여쓰기될 때, 실제 parent 가 될 수 있는 node type(stype) 목록
-   * - 예:
+   * - List of node types (stype) that can become actual parent when this node is indented
+   * - Examples:
    *   - listItem: indentParentTypes: ['bulletList', 'orderedList', 'listItem']
    *   - paragraph: indentParentTypes: ['paragraph', 'blockquote']
    *
-   * DataStore / Model 수준에서 indent operation 을 수행할 때,
-   * 후보 parent 의 stype 이 이 배열에 포함되지 않으면 구조 변경을 막을 수 있다.
+   * When performing indent operation at DataStore / Model level,
+   * structural change can be prevented if candidate parent's stype is not included in this array.
    */
   indentParentTypes?: string[];
 
   /**
-   * 최대 들여쓰기(level) 제한
+   * Maximum indentation (level) limit
    *
-   * - 현재 노드의 깊이가 maxIndentLevel 에 도달하면 더 이상 indent 를 허용하지 않기 위한 힌트
-   * - 실제 "현재 indent level" 계산은 DataStore / Model 쪽에서 담당한다.
-   * - 예:
+   * - Hint to disallow further indent when current node's depth reaches maxIndentLevel
+   * - Actual "current indent level" calculation is handled by DataStore / Model.
+   * - Examples:
    *   - paragraph: maxIndentLevel: 3
    *   - listItem:  maxIndentLevel: 5
    */
@@ -140,29 +140,29 @@ export interface NodeTypeDefinition {
    * 
    * 예시:
    * dropBehaviorRules: {
-   *   'inline-text': 'merge',      // inline-text를 드롭하면 병합
-   *   'inline-image': 'copy',      // inline-image를 드롭하면 복사
-   *   '*': 'move'                  // 기본값: 이동
+   *   'inline-text': 'merge',      // Merge when inline-text is dropped
+   *   'inline-image': 'copy',      // Copy when inline-image is dropped
+   *   '*': 'move'                  // Default: move
    * }
    * 
-   * 참고:
-   * - 이 규칙은 defineDropBehavior보다 우선순위가 낮음
-   * - 스키마는 데이터 모델 정의에 집중, 기본 규칙은 힌트일 뿐
-   * - 자세한 아키텍처 논의는 drop-behavior-architecture.md 참고
+   * Notes:
+   * - This rule has lower priority than defineDropBehavior
+   * - Schema focuses on data model definition, default rules are just hints
+   * - See drop-behavior-architecture.md for detailed architecture discussion
    */
   dropBehaviorRules?: Record<string, 'move' | 'copy' | 'merge' | 'transform' | 'wrap' | 'replace' | 'insert'>;
 }
 
-// 마크 정의
+// Mark definition
 export interface MarkDefinition {
   name: string;
   attrs?: Record<string, AttributeDefinition>;
-  excludes?: string[]; // 함께 사용할 수 없는 다른 marks
-  group?: string; // mark 그룹
-  inclusive?: boolean; // 기본값: true
+  excludes?: string[]; // Other marks that cannot be used together
+  group?: string; // Mark group
+  inclusive?: boolean; // Default: true
 }
 
-// 마크 인스턴스
+// Mark instance
 export interface Mark {
   type: string;
   attrs?: Record<string, any>;

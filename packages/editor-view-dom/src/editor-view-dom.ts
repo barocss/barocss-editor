@@ -13,7 +13,7 @@ import type { DecoratorExportData } from './types';
 import { getKeyString } from '@barocss/shared';
 
 export class EditorViewDOM implements IEditorViewDOM {
-  // 인스턴스 추적을 위한 고유 ID
+  // Unique ID for instance tracking
   private readonly __instanceId: string;
   
   public readonly editor: Editor;
@@ -30,7 +30,7 @@ export class EditorViewDOM implements IEditorViewDOM {
     selection: HTMLElement;
     context: HTMLElement;
     custom: HTMLElement;
-  } = {} as any; // 생성자에서 초기화됨
+  } = {} as any; // Initialized in constructor
 
   private inputHandler: InputHandlerImpl;
   private selectionHandler: DOMSelectionHandlerImpl;
@@ -38,71 +38,71 @@ export class EditorViewDOM implements IEditorViewDOM {
   private _isComposing: boolean = false;
   private _selectionChangeTimeout: number | null = null;
   private _isDragging: boolean = false;
-  private _isRendering: boolean = false; // 렌더링 중 플래그
-  private _isModelDrivenChange: boolean = false; // Model-First 변경 플래그
-  // 입력 중인 노드 추적 (skipNodes용)
+  private _isRendering: boolean = false; // Rendering flag
+  private _isModelDrivenChange: boolean = false; // Model-First change flag
+  // Track nodes being edited (for skipNodes)
   private _editingNodes: Set<string> = new Set();
   private _inputEndDebounceTimer: number | null = null;
   private _pendingRenderTimer: number | null = null;
-  // 내부 렌더러 (renderer-dom 래핑)
+  // Internal renderer (renderer-dom wrapper)
   private _rendererRegistry?: RendererRegistry;
-  private _domRenderer?: DOMRenderer; // Content 레이어용 (기존)
-  // Layer별 DOMRenderer (각각 독립적인 prevVNodeTree)
-  private _decoratorRenderer?: DOMRenderer;    // Decorator 레이어용
-  private _selectionRenderer?: DOMRenderer;    // Selection 레이어용
-  private _contextRenderer?: DOMRenderer;     // Context 레이어용
-  private _customRenderer?: DOMRenderer;       // Custom 레이어용
-  // Decorator Prebuilder (데이터 변환)
+  private _domRenderer?: DOMRenderer; // For Content layer (existing)
+  // DOMRenderer per layer (each with independent prevVNodeTree)
+  private _decoratorRenderer?: DOMRenderer;    // For Decorator layer
+  private _selectionRenderer?: DOMRenderer;    // For Selection layer
+  private _contextRenderer?: DOMRenderer;     // For Context layer
+  private _customRenderer?: DOMRenderer;       // For Custom layer
+  // Decorator Prebuilder (data transformation)
   private _decoratorPrebuilder?: DecoratorPrebuilder;
   private _hasRendered: boolean = false;
-  // 마지막 렌더링된 modelData 저장 (decorator만 업데이트할 때 재사용)
+  // Store last rendered modelData (reused when only decorator is updated)
   private _lastRenderedModelData: ModelData | null = null;
-  // 테스트 환경에서 동기 렌더링을 위한 옵션
+  // Options for synchronous rendering in test environment
   private _renderOptions: { sync?: boolean } = {};
 
   constructor(editor: Editor, options: EditorViewDOMOptions) {
-    // 고유 ID 생성
+    // Generate unique ID
     this.__instanceId = `editorview-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     this.editor = editor;
     
-    // Editor에 _viewDOM 참조 설정 (AutoTracer 등에서 접근용)
+    // Set _viewDOM reference in Editor (for access from AutoTracer, etc.)
     (editor as any)._viewDOM = this;
     
-    // Container 기반 API만 지원
+    // Only support container-based API
     this.container = options.container;
     this.setupLayeredStructure(options.layers);
     
-    // contentEditableElement는 항상 layers.content를 참조
+    // contentEditableElement always references layers.content
     this.contentEditableElement = this.layers.content;
     
-    // Decorator 시스템 초기화
-    // decorator는 스키마와 독립적으로 관리됨
+    // Initialize Decorator system
+    // decorators are managed independently from schema
     this.decoratorRegistry = new DecoratorRegistry();
     this.decoratorManager = new DecoratorManager(this.decoratorRegistry);
     this.remoteDecoratorManager = new RemoteDecoratorManager();
     
-    // 패턴 기반 Decorator 설정 관리자 초기화
+    // Initialize pattern-based Decorator configuration manager
     this.patternDecoratorConfigManager = new PatternDecoratorConfigManager();
     
-    // Decorator Generator 관리자 초기화 (함수 기반 decorator)
+    // Initialize Decorator Generator manager (function-based decorator)
     this.decoratorGeneratorManager = new DecoratorGeneratorManager();
     
-    // 핸들러들 초기화
+    // Initialize handlers
     this.inputHandler = new InputHandlerImpl(editor, this);
     this.selectionHandler = new DOMSelectionHandlerImpl(editor);
     this.mutationObserverManager = new MutationObserverManagerImpl(editor, this.inputHandler);
     
-    // 이벤트 리스너 설정
+    // Setup event listeners
     this.setupEventListeners();
     
-    // MutationObserver 설정
+    // Setup MutationObserver
     this.mutationObserverManager.setup(this.contentEditableElement);
     
 
-    // 렌더러 주입/초기화 (옵션 기반)
+    // Inject/initialize renderer (option-based)
     this._setupContentRenderer(options);
 
-    // autoRender 처리
+    // Handle autoRender
     const autoRender = options.autoRender !== false;
     if (autoRender && options.initialTree && this._domRenderer) {
       this.render(options.initialTree as any);
@@ -110,12 +110,12 @@ export class EditorViewDOM implements IEditorViewDOM {
   }
 
   /**
-   * 새로운 API: 컨테이너 내부에 계층 구조 생성
+   * New API: Create layered structure inside container
    */
   private setupLayeredStructure(layerConfig?: LayerConfiguration): void {
     const config = this.getDefaultLayerConfig(layerConfig);
     
-    // 컨테이너 스타일 설정
+    // Set container styles
     this.container.style.position = 'relative';
     this.container.style.overflow = 'hidden';
     
@@ -180,14 +180,14 @@ export class EditorViewDOM implements IEditorViewDOM {
     customLayer.setAttribute('data-bc-layer', 'custom');
     this.applyAttributes(customLayer, config.custom?.attributes);
     
-    // 컨테이너에 계층 추가 (z-index 순서대로)
+    // Add layers to container (in z-index order)
     this.container.appendChild(contentLayer);
     this.container.appendChild(decoratorLayer);
     this.container.appendChild(selectionLayer);
     this.container.appendChild(contextLayer);
     this.container.appendChild(customLayer);
     
-    // layers 객체 설정
+    // Set layers object
     this.layers.content = contentLayer;
     this.layers.decorator = decoratorLayer;
     this.layers.selection = selectionLayer;
@@ -197,7 +197,7 @@ export class EditorViewDOM implements IEditorViewDOM {
   
   
   /**
-   * 기본 계층 설정 가져오기
+   * Get default layer configuration
    */
   private getDefaultLayerConfig(userConfig?: LayerConfiguration): Required<LayerConfiguration> {
     return {
@@ -230,7 +230,7 @@ export class EditorViewDOM implements IEditorViewDOM {
   }
   
   /**
-   * 요소에 속성 적용
+   * Apply attributes to element
    */
   private applyAttributes(element: HTMLElement, attributes?: Record<string, string>): void {
     if (attributes) {
@@ -242,84 +242,84 @@ export class EditorViewDOM implements IEditorViewDOM {
 
   private setupEventListeners(): void {
     console.log('[EditorViewDOM] setupEventListeners');
-    // 입력 이벤트
+    // Input events
     this.contentEditableElement.addEventListener('input', this.handleInput.bind(this) as EventListener);
     this.contentEditableElement.addEventListener('beforeinput', this.handleBeforeInput.bind(this));
     this.contentEditableElement.addEventListener('keydown', this.handleKeydown.bind(this));
     this.contentEditableElement.addEventListener('paste', this.handlePaste.bind(this));
     this.contentEditableElement.addEventListener('drop', this.handleDrop.bind(this));
     
-    // 조합 이벤트 (IME) - 사용하지 않음
-    // beforeinput 이벤트의 isComposing 속성으로 IME 조합 상태 추적
-    // 실제 처리는 MutationObserver가 담당하므로 composition 이벤트 리스너 불필요
+    // Composition events (IME) - not used
+    // Track IME composition state using isComposing property of beforeinput event
+    // Actual processing is handled by MutationObserver, so composition event listener is unnecessary
     
-    // 선택 이벤트
+    // Selection events
     document.addEventListener('selectionchange', this.handleSelectionChange.bind(this));
     
-    // 드래그 감지를 위한 이벤트 리스너
+    // Event listeners for drag detection
     this.contentEditableElement.addEventListener('mousedown', this.handleMouseDown.bind(this));
     document.addEventListener('mousemove', this.handleMouseMove.bind(this));
     document.addEventListener('mouseup', this.handleMouseUp.bind(this));
 
-    // 모델 selection → DOM selection 브리지
+    // Model selection → DOM selection bridge
     this.editor.on('editor:selection.model', (sel: any) => {
       this._pendingModelSelection = sel;
       
-      // 렌더링이 진행 중이면 완료될 때까지 대기 (렌더링 완료 콜백에서 적용됨)
-      // 렌더링이 완료되었으면 바로 적용
+      // Wait until rendering completes if rendering is in progress (applied in rendering completion callback)
+      // Apply immediately if rendering is complete
       if (!this._isRendering) {
         this.applyModelSelectionWithRetry();
       }
     });
 
-    // Escape 키로 인한 blur 요청 처리
+    // Handle blur request from Escape key
     this.editor.on('editor:blur.request', () => {
       this.blur();
     });
 
-    // 콘텐츠 변경 시 렌더링
-    // MutationObserver에서 감지한 characterData 변경은 skipRender: true로 처리하여
-    // 입력 중 렌더링과 selection 변경의 race condition을 방지
+    // Render on content change
+    // CharacterData changes detected by MutationObserver are handled with skipRender: true to
+    // prevent race conditions between rendering during input and selection changes
     this.editor.on('editor:content.change', (e: any) => {
-      // 렌더링 중이면 무시 (무한루프 방지)
+      // Ignore if rendering (prevent infinite loop)
       if (this._isRendering) {
         return;
       }
       
-      // skipRender: true인 경우 렌더링 건너뛰기
-      // MutationObserver에서 감지한 characterData 변경은 입력 중이므로
-      // 렌더링을 지연시켜 selection과의 race condition을 방지
+      // Skip rendering if skipRender: true
+      // CharacterData changes detected by MutationObserver are during input, so
+      // delay rendering to prevent race conditions with selection
       if (e?.skipRender) {
         return;
       }
       this.render();
-      // 주의: selection은 브라우저가 자동으로 유지하므로 applyModelSelectionWithRetry() 호출하지 않음
-      // 사용자 입력 중에는 브라우저 selection을 변경하면 안됨
-      // applyModelSelectionWithRetry()는 editor:selection.model 이벤트에서만 호출됨
+      // Note: selection is automatically maintained by browser, so do not call applyModelSelectionWithRetry()
+      // Browser selection should not be changed during user input
+      // applyModelSelectionWithRetry() is only called in editor:selection.model event
     });
 
-    // text_update 이벤트는 제거 - 항상 diff를 통한 전체 렌더링 사용
+    // text_update event removed - always use full rendering via diff
     
-    // 포커스 이벤트
+    // Focus events
     this.contentEditableElement.addEventListener('focus', this.handleFocus.bind(this));
     this.contentEditableElement.addEventListener('blur', this.handleBlur.bind(this));
   }
 
   private setupKeymapHandlers(): void {
-    // keymapManager 기반 단축키는 더 이상 사용하지 않습니다.
-    // 모든 키 입력은 editor-core의 keybinding 시스템을 통해 처리됩니다.
+    // keymapManager-based shortcuts are no longer used.
+    // All key inputs are handled through editor-core's keybinding system.
   }
 
-  // DOM 이벤트 처리
+  // DOM event handling
   handleInput(event: InputEvent): void {
-    // 입력 시작 감지
+    // Detect input start
     this._onInputStart();
     this.inputHandler.handleInput(event);
   }
 
   handleBeforeInput(event: InputEvent): void {
-    // beforeinput 이벤트의 isComposing 속성으로 IME 조합 상태 추적
-    // composition 이벤트 리스너 대신 beforeinput의 isComposing 사용
+    // Track IME composition state using isComposing property of beforeinput event
+    // Use beforeinput's isComposing instead of composition event listener
     if (event.isComposing !== undefined) {
       this._isComposing = event.isComposing;
     }
@@ -327,19 +327,19 @@ export class EditorViewDOM implements IEditorViewDOM {
     this.inputHandler.handleBeforeInput(event);
   }
 
-  // composition 이벤트 핸들러 제거
-  // beforeinput 이벤트의 isComposing 속성으로 IME 조합 상태 추적
-  // 실제 처리는 MutationObserver가 담당
+  // composition event handler removed
+  // Track IME composition state using isComposing property of beforeinput event
+  // Actual processing is handled by MutationObserver
 
   handleKeydown(event: KeyboardEvent): void {
-    // 향후 KeyBindingManager 통합을 위해 InputHandler에 먼저 위임
+    // Delegate to InputHandler first for future KeyBindingManager integration
     if ((this.inputHandler as any).handleKeyDown) {
       (this.inputHandler as any).handleKeyDown(event);
     }
 
-    // IME 조합 중에는 구조 변경/명령 단축키를 처리하지 않는다.
-    // - 조합 문자열 수정(Enter/Backspace 등)은 IME/브라우저에 맡긴다.
-    // - 모델 구조 변경은 compositionend 이후 MutationObserver/C1/C2/C3 경로에서만 처리한다.
+    // Do not handle structure changes/command shortcuts during IME composition
+    // - Leave composition string modifications (Enter/Backspace, etc.) to IME/browser
+    // - Model structure changes are only handled in MutationObserver/C1/C2/C3 path after compositionend
     if (this._isComposing) {
       return;
     }
@@ -348,15 +348,15 @@ export class EditorViewDOM implements IEditorViewDOM {
     
     console.log('[EditorViewDOM] handleKeydown:', key);
     
-    // 모든 키를 editor-core keybinding 시스템에 위임
-    // Backspace, Delete도 keybinding 시스템을 통해 처리
-    // context는 Editor 내부에서 자동으로 관리됨
+    // Delegate all keys to editor-core keybinding system
+    // Backspace, Delete are also handled through keybinding system
+    // context is automatically managed inside Editor
     const resolved = this.editor.keybindings.resolve(key);
     if (resolved.length > 0) {
       const { command, args } = resolved[0];
       event.preventDefault();
-      // Command가 자동으로 editor.selection을 읽음
-      // 필요시 args로 override 가능
+      // Command automatically reads editor.selection
+      // Can override with args if needed
       void this.editor.executeCommand(command, args);
     }
   }
@@ -372,14 +372,14 @@ export class EditorViewDOM implements IEditorViewDOM {
     const domSelection = window.getSelection();
     if (!domSelection || domSelection.rangeCount === 0) return;
 
-    // DOM Selection → Model Selection 변환
+    // Convert DOM Selection → Model Selection
     const modelSelection = this.selectionHandler.convertDOMSelectionToModel(domSelection);
     if (!modelSelection || modelSelection.type === 'none') {
       console.warn('[EditorViewDOM] handleBackspaceKey: Failed to convert DOM selection', { modelSelection });
       return;
     }
 
-    // Backspace Command 호출 (모든 케이스 분기 및 로직은 Command에서 처리)
+    // Call Backspace Command (all case branching and logic handled in Command)
     this.editor.executeCommand('backspace', { selection: modelSelection });
   }
 
@@ -391,20 +391,20 @@ export class EditorViewDOM implements IEditorViewDOM {
     const domSelection = window.getSelection();
     if (!domSelection || domSelection.rangeCount === 0) return;
 
-    // DOM selection을 Model selection으로 변환
+    // Convert DOM selection to Model selection
     const modelSelection = this.selectionHandler.convertDOMSelectionToModel(domSelection);
     if (!modelSelection || modelSelection.type === 'none') {
       console.warn('[EditorViewDOM] handleDeleteKey: Failed to convert DOM selection', { modelSelection });
       return;
     }
     
-    // DeleteForward Command 호출 (모든 케이스 분기 및 로직은 Command에서 처리)
+    // Call DeleteForward Command (all case branching and logic handled in Command)
     this.editor.executeCommand('deleteForward', { selection: modelSelection });
   }
 
   handlePaste(event: ClipboardEvent): void {
-    // IME 조합 중에는 붙여넣기를 가로채지 않는다.
-    // 조합 문자열 내의 붙여넣기는 IME/브라우저에 맡긴다.
+    // Do not intercept paste during IME composition
+    // Leave paste within composition string to IME/browser
     if (this._isComposing) {
       return;
     }
@@ -421,7 +421,7 @@ export class EditorViewDOM implements IEditorViewDOM {
   }
 
   handleDrop(event: DragEvent): void {
-    // IME 조합 중에는 드롭을 가로채지 않는다.
+    // Do not intercept drop during IME composition
     if (this._isComposing) {
       return;
     }
@@ -438,29 +438,29 @@ export class EditorViewDOM implements IEditorViewDOM {
   }
 
   handleSelectionChange(): void {
-    // 1. 프로그래밍 방식의 Selection 변경이면 무시
+    // 1. Ignore if programmatic selection change
     if ((this.selectionHandler as any)._isProgrammaticChange) {
       return;
     }
 
-    // 2. editor 외부 포커스면 무시 (가장 빠른 체크)
+    // 2. Ignore if focus is outside editor (fastest check)
     if (document.activeElement !== this.contentEditableElement) {
       return;
     }
 
-    // 3. Selection이 존재하는지 체크
+    // 3. Check if selection exists
     const selection = window.getSelection();
     if (!selection || !selection.anchorNode) {
       return;
     }
 
-    // 4. anchorNode가 contentEditableElement 내부에 있는지 확인
+    // 4. Check if anchorNode is inside contentEditableElement
     const isInsideEditor = this.contentEditableElement.contains(selection.anchorNode);
     if (!isInsideEditor) {
       return;
     }
 
-    // 5. Devtool 영역 체크
+    // 5. Check Devtool area
     let node: Node | null = selection.anchorNode;
     while (node) {
       if (node instanceof Element && node.hasAttribute('data-devtool')) {
@@ -469,14 +469,14 @@ export class EditorViewDOM implements IEditorViewDOM {
       node = node.parentNode;
     }
 
-    // 6. 기존 타이머가 있으면 취소
+    // 6. Cancel existing timer if present
     if (this._selectionChangeTimeout) {
       clearTimeout(this._selectionChangeTimeout);
     }
 
-    // 7. 드래그 중이거나 빠른 연속 선택 변경 시 디바운싱 적용
+    // 7. Apply debouncing during drag or rapid consecutive selection changes
     const isRapidChange = this._isDragging;
-    const debounceDelay = isRapidChange ? 100 : 16; // 드래그 중: 100ms, 일반: 16ms (60fps)
+    const debounceDelay = isRapidChange ? 100 : 16; // During drag: 100ms, normal: 16ms (60fps)
 
     this._selectionChangeTimeout = window.setTimeout(() => {
       this._processSelectionChange();
@@ -492,14 +492,14 @@ export class EditorViewDOM implements IEditorViewDOM {
       const anchorId = ((anchorNode?.nodeType === Node.ELEMENT_NODE ? (anchorNode as Element) : anchorNode?.parentElement)?.closest?.('[data-bc-sid]')?.getAttribute('data-bc-sid')) || null;
       const focusId = ((focusNode?.nodeType === Node.ELEMENT_NODE ? (focusNode as Element) : focusNode?.parentElement)?.closest?.('[data-bc-sid]')?.getAttribute('data-bc-sid')) || null;
       
-      // Selection 방향 계산
+      // Calculate selection direction
       let direction: 'forward' | 'backward' | 'unknown' = 'unknown';
       if (anchorId && focusId) {
         if (anchorId === focusId) {
-          // 같은 노드 내에서의 선택
+          // Selection within same node
           direction = (sel?.anchorOffset || 0) <= (sel?.focusOffset || 0) ? 'forward' : 'backward';
         } else {
-          // 다른 노드 간의 선택 - DOM 순서로 판단
+          // Selection across different nodes - determine by DOM order
           const anchorEl = anchorNode?.nodeType === Node.ELEMENT_NODE ? (anchorNode as Element) : anchorNode?.parentElement;
           const focusEl = focusNode?.nodeType === Node.ELEMENT_NODE ? (focusNode as Element) : focusNode?.parentElement;
           
@@ -528,28 +528,28 @@ export class EditorViewDOM implements IEditorViewDOM {
         collapsed: sel?.isCollapsed || false,
         isDragging: this._isDragging
       };
-      // selectionHandler에게 위임 (중복 호출 방지)
+      // Delegate to selectionHandler (prevent duplicate calls)
     } catch {}
     this.selectionHandler.handleSelectionChange();
   }
 
   private handleMouseDown(event: MouseEvent): void {
-    // 마우스 다운 시 드래그 가능성 체크
+    // Check drag possibility on mouse down
     this._isDragging = false;
   }
 
   private handleMouseMove(event: MouseEvent): void {
-    // 마우스가 움직이고 버튼이 눌려있으면 드래그 중
+    // Dragging if mouse is moving and button is pressed
     if (event.buttons > 0) {
       this._isDragging = true;
     }
   }
 
   private handleMouseUp(event: MouseEvent): void {
-    // 마우스 업 시 드래그 종료
+    // End drag on mouse up
     if (this._isDragging) {
       this._isDragging = false;
-      // 드래그 종료 후 즉시 selection 처리
+      // Process selection immediately after drag ends
       if (this._selectionChangeTimeout) {
         clearTimeout(this._selectionChangeTimeout);
         this._selectionChangeTimeout = null;
@@ -560,14 +560,14 @@ export class EditorViewDOM implements IEditorViewDOM {
 
   private applyModelSelectionToDOM(sel: any): void {
     try {
-      // ModelSelection을 SelectionHandler가 이해하는 형식으로 변환
-      // sel은 이미 통일된 ModelSelection 형식 (startNodeId/endNodeId)
+      // Convert ModelSelection to format understood by SelectionHandler
+      // sel is already in unified ModelSelection format (startNodeId/endNodeId)
       if (!sel || sel.type === 'none') {
         return;
       }
       
-      // SelectionHandler를 사용하여 정확한 DOM selection 변환
-      // (mark/decorator로 분할된 text node 처리 포함)
+      // Use SelectionHandler to convert to accurate DOM selection
+      // (includes handling text nodes split by mark/decorator)
       this.selectionHandler.convertModelSelectionToDOM(sel);
     } catch (e) {
       console.warn('[EditorViewDOM] applyModelSelectionToDOM:error', e);
@@ -575,7 +575,7 @@ export class EditorViewDOM implements IEditorViewDOM {
   }
 
   private findLeafTextNode(el: Element): Text | null {
-    // el 아래 첫 텍스트 노드
+    // First text node under el
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
     return (walker.nextNode() as Text | null) || null;
   }
@@ -606,7 +606,7 @@ export class EditorViewDOM implements IEditorViewDOM {
 
   private handleFocus(): void {
     this.editor.emit('editor:selection.focus');
-    // 포커스 복귀 시 마지막 모델 selection을 DOM에 재적용 시도
+    // Try to reapply last model selection to DOM when focus returns
     try {
       const current = this.editor.selectionManager.getCurrentSelection();
       if (current) {
@@ -617,16 +617,16 @@ export class EditorViewDOM implements IEditorViewDOM {
   }
 
   private handleBlur(): void {
-    // 포커스가 벗어날 때 입력 종료 감지
+    // Detect input end when focus leaves
     this._onInputEnd();
     this.editor.emit('editor:selection.blur');
   }
 
-  // 브라우저 네이티브 명령 → Model-first Command 위임
+  // Browser native commands → delegate to Model-first Commands
   insertParagraph(): void {
     const domSelection = window.getSelection();
     if (!domSelection || domSelection.rangeCount === 0) {
-      // Selection 이 없으면 단순 커맨드 실행 (확장에서 기본 위치를 결정)
+      // Execute simple command if no selection (extension determines default position)
       this.editor.executeCommand('insertParagraph', {});
       return;
     }
@@ -693,7 +693,7 @@ export class EditorViewDOM implements IEditorViewDOM {
     this.editor.executeCommand('selectAll', {});
   }
 
-  // 편집 명령
+  // Editing commands
   toggleBold(): void {
     this.editor.executeCommand('toggleBold');
   }
@@ -714,26 +714,26 @@ export class EditorViewDOM implements IEditorViewDOM {
     this.contentEditableElement.blur();
   }
 
-  // 유틸리티 메서드
+  // Utility methods
 
 
-  // 생명주기
+  // Lifecycle
   destroy(): void {
-    // Decorator 시스템 정리
+    // Cleanup Decorator system
     this.decoratorManager.clear();
     this.decoratorManager.removeAllListeners();
     
-    // 이벤트 리스너 제거
+    // Remove event listeners
     this.contentEditableElement.removeEventListener('input', this.handleInput.bind(this) as EventListener);
     this.contentEditableElement.removeEventListener('beforeinput', this.handleBeforeInput.bind(this));
     this.contentEditableElement.removeEventListener('keydown', this.handleKeydown.bind(this));
-    // composition 이벤트 리스너는 등록하지 않으므로 제거 불필요
+    // composition event listener is not registered, so removal not needed
     this.contentEditableElement.removeEventListener('paste', this.handlePaste.bind(this));
     this.contentEditableElement.removeEventListener('drop', this.handleDrop.bind(this));
     
     document.removeEventListener('selectionchange', this.handleSelectionChange.bind(this));
     
-    // 드래그 감지 이벤트 리스너 제거
+    // Remove drag detection event listeners
     this.contentEditableElement.removeEventListener('mousedown', this.handleMouseDown.bind(this));
     document.removeEventListener('mousemove', this.handleMouseMove.bind(this));
     document.removeEventListener('mouseup', this.handleMouseUp.bind(this));
@@ -741,57 +741,57 @@ export class EditorViewDOM implements IEditorViewDOM {
     this.contentEditableElement.removeEventListener('focus', this.handleFocus.bind(this));
     this.contentEditableElement.removeEventListener('blur', this.handleBlur.bind(this));
     
-    // MutationObserver 해제
+    // Disconnect MutationObserver
     this.mutationObserverManager.disconnect();
     
-    // 계층 정리
+    // Cleanup layers
     this.cleanupLayers();
   }
   
   /**
-   * 모든 계층 정리
+   * Cleanup all layers
    */
   private cleanupLayers(): void {
-    // 각 계층의 내용 정리
+    // Cleanup content of each layer
     Object.values(this.layers).forEach(layer => {
       if (layer && layer.parentNode) {
-        // 계층 내부 정리
+        // Cleanup inside layer
         layer.innerHTML = '';
         
-        // 이벤트 리스너 제거 (있다면)
+        // Remove event listeners (if any)
         const clonedLayer = layer.cloneNode(false) as HTMLElement;
         layer.parentNode.replaceChild(clonedLayer, layer);
       }
     });
   }
 
-  // ----- 렌더러 내부 구성 -----
+  // ----- Renderer internal setup -----
   private _setupContentRenderer(options: EditorViewDOMOptions): void {
     console.log('[EditorViewDOM] _setupContentRenderer:start');
     
-    // 이미 설정되어 있으면 재생성하지 않음 (prevVNodeTree 유지)
+    // Do not recreate if already set (preserve prevVNodeTree)
     if (this._domRenderer) {
       return;
     }
     
-    // 1. 외부에서 전달받은 registry 사용 (우선순위 1)
+    // 1. Use registry passed from outside (priority 1)
     if (options.registry) {
       this._rendererRegistry = options.registry;
     } else {
-      // 2. 새로 생성 (글로벌 레지스트리 조회 허용)
-      // global:false → local registry가 없는 항목은 글로벌 레지스트리에서 조회
+      // 2. Create new (allow global registry lookup)
+      // global:false → lookup items not in local registry from global registry
       this._rendererRegistry = new RendererRegistry({ global: false });
     }
     
-    // 3. Content 레이어용 DOMRenderer 생성 (Selection 보존 활성화)
-    // 템플릿은 외부에서 정의되어야 함 (main.ts 등에서 define() 호출)
+    // 3. Create DOMRenderer for Content layer (selection preservation enabled)
+    // Templates must be defined externally (call define() in main.ts, etc.)
     this._domRenderer = new DOMRenderer(this._rendererRegistry, {
       enableSelectionPreservation: true,
       name: 'content',
       dataStore: this.editor.dataStore
     });
     
-    // 4. Layer별 DOMRenderer 생성 (각각 독립적인 prevVNodeTree)
+    // 4. Create DOMRenderer per layer (each with independent prevVNodeTree)
     this._decoratorRenderer = new DOMRenderer(this._rendererRegistry, { 
       name: 'decorator',
       dataStore: this.editor.dataStore
@@ -809,7 +809,7 @@ export class EditorViewDOM implements IEditorViewDOM {
       dataStore: this.editor.dataStore
     });
     
-    // 5. Decorator Prebuilder 초기화 (contentRenderer 전달하여 ComponentManager 접근)
+    // 5. Initialize Decorator Prebuilder (pass contentRenderer for ComponentManager access)
     if (this._domRenderer) {
       this._decoratorPrebuilder = new DecoratorPrebuilder(
         this._rendererRegistry!,
@@ -818,26 +818,26 @@ export class EditorViewDOM implements IEditorViewDOM {
       );
     }
     
-    // 패턴 설정을 Content DOMRenderer에 적용
+    // Apply pattern configurations to Content DOMRenderer
     this._applyPatternConfigsToRenderer();
   }
   
   /**
-   * 패턴 설정을 DOMRenderer에 적용
-   * enable된 패턴만 등록합니다.
+   * Apply pattern configurations to DOMRenderer
+   * Only registers enabled patterns.
    */
   private _applyPatternConfigsToRenderer(): void {
     if (!this._domRenderer) return;
     
     const generator = this._domRenderer.getPatternDecoratorGenerator();
     
-    // 기존 패턴 모두 제거
+    // Remove all existing patterns
     const allConfigs = this.patternDecoratorConfigManager.getConfigs();
     for (const config of allConfigs) {
       generator.unregisterPattern(config.sid);
     }
     
-    // enable된 패턴만 등록 (기본값은 true)
+    // Register only enabled patterns (default is true)
     const enabledConfigs = this.patternDecoratorConfigManager.getConfigs(true);
     for (const config of enabledConfigs) {
       generator.registerPattern({
@@ -851,7 +851,7 @@ export class EditorViewDOM implements IEditorViewDOM {
       });
     }
     
-    // 패턴 decorator는 기본적으로 활성화
+    // Pattern decorators are enabled by default
     generator.setEnabled(true);
   }
   
@@ -863,33 +863,33 @@ export class EditorViewDOM implements IEditorViewDOM {
     return this.selectionHandler.convertDOMSelectionToModel(sel);
   }
 
-  // 외부 노출 렌더 API
+  // External render API
   render(tree?: ModelData | any, options?: { sync?: boolean }): void {
     if (!this._domRenderer) {
       console.warn('[EditorViewDOM] No DOM renderer available');
       return;
     }
     
-    // 렌더링 중 플래그 설정 (무한루프 방지)
+    // Set rendering flag (prevent infinite loop)
     if (this._isRendering) {
-      return; // 이미 렌더링 중이면 무시
+      return; // Ignore if already rendering
     }
     this._isRendering = true;
     
-    // Model-First 변경 플래그 설정 (MutationObserver 필터링용)
+    // Set Model-First change flag (for MutationObserver filtering)
     this._isModelDrivenChange = true;
     
     try {
-      // 옵션 저장 (addDecorator 등에서 사용)
+      // Save options (used in addDecorator, etc.)
       if (options) {
         this._renderOptions = { ...this._renderOptions, ...options };
       }
     
-    // 1. 문서 가져오기
+    // 1. Get document
     let modelData: ModelData | null = null;
     
     if (tree) {
-      // 외부에서 전달된 모델 - 이미 ModelData 형식 (sid, stype 사용)
+      // Model passed from outside - already in ModelData format (uses sid, stype)
       if (!tree.stype) {
         console.error('[EditorViewDOM] Invalid tree format: missing stype (required)');
         return;
@@ -898,35 +898,35 @@ export class EditorViewDOM implements IEditorViewDOM {
         console.error('[EditorViewDOM] Invalid tree format: missing sid (required)');
         return;
       }
-      // 변환 없이 직접 사용
+      // Use directly without conversion
       modelData = tree as ModelData;
     } else {
-      // editor에서 직접 가져오기 - getDocumentProxy() 사용 (lazy evaluation)
+      // Get directly from editor - use getDocumentProxy() (lazy evaluation)
       try {
         const exported = this.editor.getDocumentProxy?.();
         if (exported) {
-          // getDocumentProxy()는 이미 Proxy로 래핑된 INode를 반환 (ModelData 호환)
+          // getDocumentProxy() returns INode already wrapped in Proxy (ModelData compatible)
           modelData = exported as ModelData;
         } else {
-          // modelData가 없으면 이전에 렌더링된 modelData 재사용 (decorator만 업데이트할 때)
+          // Reuse previously rendered modelData if no modelData (when only updating decorator)
           if (this._lastRenderedModelData) {
             modelData = this._lastRenderedModelData;
           } else {
-            // modelData가 없어도 decorator는 렌더링 가능
+            // Decorators can be rendered even without modelData
           }
         }
       } catch (error) {
         console.error('[EditorViewDOM] Error exporting document:', error);
-        // 에러가 발생해도 이전 modelData 재사용 시도
+        // Try to reuse previous modelData even if error occurs
         if (this._lastRenderedModelData) {
           modelData = this._lastRenderedModelData;
         }
       }
     }
     
-    // 2. Decorators 가져오기 (EditorModel - 로컬 + 원격)
-    // modelData가 없어도 decorator는 렌더링 가능
-    // EditorModel은 로컬 전용이므로 dataStore가 아닌 decoratorManager에서 가져옴
+    // 2. Get Decorators (EditorModel - local + remote)
+    // Decorators can be rendered even without modelData
+    // EditorModel is local-only, so get from decoratorManager, not dataStore
     let localDecorators: Decorator[] = [];
     try {
       const allLocalDecorators = this.decoratorManager.getAll();
@@ -937,7 +937,7 @@ export class EditorViewDOM implements IEditorViewDOM {
       console.error('[EditorViewDOM] Error getting local decorators:', error);
     }
     
-    // 원격 decorator 수집 (동시 편집에서 외부 사용자/AI의 decorator)
+    // Collect remote decorators (decorators from external users/AI in collaborative editing)
     let remoteDecorators: Decorator[] = [];
     try {
       remoteDecorators = this.remoteDecoratorManager.getAll();
@@ -945,7 +945,7 @@ export class EditorViewDOM implements IEditorViewDOM {
       console.error('[EditorViewDOM] Error getting remote decorators:', error);
     }
     
-    // 3. Generator 기반 decorator 생성
+    // 3. Generate Generator-based decorators
     let generatorDecorators: Decorator[] = [];
     if (modelData) {
       try {
@@ -955,10 +955,10 @@ export class EditorViewDOM implements IEditorViewDOM {
       }
     }
     
-    // 모든 decorator 통합 (로컬 + 원격 + generator)
+    // Integrate all decorators (local + remote + generator)
     const allDecorators = [...localDecorators, ...remoteDecorators, ...generatorDecorators];
     
-    // 4. Selection 정보 수집 (Content 레이어 렌더링용)
+    // 4. Collect selection information (for Content layer rendering)
     const selection = window.getSelection();
     let selectionContext: { 
       textNode?: Text; 
@@ -974,7 +974,7 @@ export class EditorViewDOM implements IEditorViewDOM {
       const domOffset = range.startOffset;
       
       if (textNode && this.layers.content.contains(textNode)) {
-        // Model selection으로 변환하여 sid와 modelOffset 얻기
+        // Convert to Model selection to get sid and modelOffset
         try {
           const modelSel = this.selectionHandler.convertDOMSelectionToModel(selection);
           if (modelSel && modelSel.anchor) {
@@ -996,7 +996,7 @@ export class EditorViewDOM implements IEditorViewDOM {
               }
             };
           } else {
-            // Model selection 변환 실패 시 DOM 기반으로만 전달
+            // Pass only DOM-based if Model selection conversion fails
             selectionContext = {
               textNode,
               restoreSelection: (node: Text, offset: number) => {
@@ -1012,15 +1012,15 @@ export class EditorViewDOM implements IEditorViewDOM {
             };
           }
         } catch (error) {
-          // Selection 변환 실패 시 무시 (선택적 기능)
+          // Ignore if selection conversion fails (optional feature)
           console.debug('[EditorViewDOM] Failed to convert selection for preservation:', error);
         }
       }
     }
     
-    // 5. Content 레이어 먼저 렌더링 (동기)
-    // modelData가 있으면 Content 렌더링, 없으면 decorator만 렌더링
-    // _lastRenderedModelData를 재사용하는 경우에도 content를 재렌더링 (decorator 업데이트 반영)
+    // 5. Render Content layer first (synchronous)
+    // Render Content if modelData exists, otherwise render only decorators
+    // Re-render content even when reusing _lastRenderedModelData (reflect decorator updates)
     if (modelData) {
       try {
         this._domRenderer?.render(
@@ -1031,9 +1031,9 @@ export class EditorViewDOM implements IEditorViewDOM {
           selectionContext,
           {
             onComplete: () => {
-              // Reconcile 완료 후 pending selection 적용
+              // Apply pending selection after Reconcile completes
               if (this._pendingModelSelection) {
-                // 다음 프레임에 적용 (DOM 업데이트 완료 보장)
+                // Apply in next frame (ensure DOM update completes)
                 requestAnimationFrame(() => {
                   this.applyModelSelectionWithRetry();
                 });
@@ -1042,15 +1042,15 @@ export class EditorViewDOM implements IEditorViewDOM {
           }
         );
         this._hasRendered = true;
-        // 마지막 렌더링된 modelData 저장 (decorator만 업데이트할 때 재사용)
+        // Store last rendered modelData (reuse when only decorator is updated)
         this._lastRenderedModelData = modelData;
       } catch (error) {
         console.error('[EditorViewDOM] Error rendering content:', error);
-        // Content 렌더링 실패해도 decorator는 렌더링 시도
+        // Try rendering decorator even if Content rendering fails
       }
     } else if (this._lastRenderedModelData && allDecorators.length > 0) {
-      // modelData가 없지만 decorator가 있고 이전 렌더링된 데이터가 있으면 content 재렌더링
-      // (decorator 업데이트를 content 레이어에 반영하기 위해)
+      // If no modelData but decorator exists and previous rendered data exists, re-render content
+      // (to reflect decorator updates in content layer)
       try {
         this._domRenderer?.render(
           this.layers.content, 
@@ -1060,9 +1060,9 @@ export class EditorViewDOM implements IEditorViewDOM {
           selectionContext,
           {
             onComplete: () => {
-              // Reconcile 완료 후 pending selection 적용
+              // Apply pending selection after Reconcile completes
               if (this._pendingModelSelection) {
-                // 다음 프레임에 적용 (DOM 업데이트 완료 보장)
+                // Apply in next frame (ensure DOM update completes)
                 requestAnimationFrame(() => {
                   this.applyModelSelectionWithRetry();
                 });
@@ -1075,19 +1075,19 @@ export class EditorViewDOM implements IEditorViewDOM {
       }
     }
     
-    // 5. requestAnimationFrame 이후 다른 레이어들 렌더링
-    // Content 렌더링 완료 후 DOM 위치 계산 가능
-    // modelData가 없어도 decorator는 렌더링 가능 (이전 렌더링된 DOM 사용)
+    // 5. Render other layers after requestAnimationFrame
+    // DOM position calculation possible after Content rendering completes
+    // Decorator can be rendered even without modelData (use previously rendered DOM)
     if (allDecorators.length > 0) {
       const renderLayers = () => {
-        // modelData가 없으면 이전 렌더링된 DOM을 사용하여 위치 계산
+        // If no modelData, use previously rendered DOM for position calculation
         const dataForLayers = modelData || (this._hasRendered ? {} as ModelData : null);
         if (dataForLayers !== null) {
           this._renderLayers(allDecorators, dataForLayers);
         }
       };
       
-      // sync 옵션이 있으면 동기적으로 실행 (테스트 환경용)
+      // If sync option exists, execute synchronously (for test environment)
       if (options?.sync || this._renderOptions.sync) {
         renderLayers();
       } else {
@@ -1095,10 +1095,10 @@ export class EditorViewDOM implements IEditorViewDOM {
       }
     }
     } finally {
-      // 렌더링 완료 후 플래그 해제
+      // Clear flag after rendering completes
       this._isRendering = false;
       
-      // Model-First 변경 플래그 해제 (다음 이벤트 루프에서)
+      // Clear Model-First change flag (in next event loop)
       setTimeout(() => {
         this._isModelDrivenChange = false;
       }, 0);
@@ -1106,7 +1106,7 @@ export class EditorViewDOM implements IEditorViewDOM {
   }
 
   /**
-   * Layer별 렌더링 (Content 제외)
+   * Render by layer (excluding Content)
    */
   private _renderLayers(allDecorators: Decorator[], modelData: ModelData): void {
     if (!this._decoratorPrebuilder) {
@@ -1115,20 +1115,20 @@ export class EditorViewDOM implements IEditorViewDOM {
     }
     
     try {
-      // 1. DecoratorPrebuilder로 모든 decorator를 DecoratorModel로 변환
+      // 1. Convert all decorators to DecoratorModel using DecoratorPrebuilder
       const decoratorModels = this._decoratorPrebuilder.buildAll(allDecorators, modelData);
       
-      // 2. Layer별로 분리
+      // 2. Separate by layer
       const decoratorLayerModels: DecoratorModel[] = [];
       const selectionLayerModels: DecoratorModel[] = [];
       const contextLayerModels: DecoratorModel[] = [];
       const customLayerModels: DecoratorModel[] = [];
       
       for (const model of decoratorModels) {
-        // Inline decorator는 content 레이어에만 렌더링되어야 함
-        // 다른 레이어에는 포함하지 않음
+        // Inline decorator should only be rendered in content layer
+        // Do not include in other layers
         if (model.category === 'inline') {
-          continue; // Inline decorator는 content 레이어에서만 처리
+          continue; // Inline decorator is only processed in content layer
         }
         
         const layerTarget = model.layerTarget || 'content';
@@ -1145,11 +1145,11 @@ export class EditorViewDOM implements IEditorViewDOM {
           case 'custom':
             customLayerModels.push(model);
             break;
-          // 'content'는 이미 Content 레이어에서 렌더링됨
+          // 'content' is already rendered in Content layer
         }
       }
       
-      // 3. 각 Layer 렌더링 (renderChildren 사용)
+      // 3. Render each layer (use renderChildren)
       if (decoratorLayerModels.length > 0 && this._decoratorRenderer) {
         this._decoratorRenderer.renderChildren(this.layers.decorator, decoratorLayerModels);
       }
@@ -1170,10 +1170,10 @@ export class EditorViewDOM implements IEditorViewDOM {
     }
   }
 
-  // 선택 복구 유틸리티 (툴바 등에서 사용 가능)
+  // Selection restore utility (usable from toolbar, etc.)
   restoreLastSelection(): void {
     try {
-      // DOM selection 비어있으면 마지막 모델 selection을 적용
+      // If DOM selection is empty, apply last model selection
       const sel = window.getSelection();
       const hasSelection = !!sel && sel.rangeCount > 0;
       if (!hasSelection) {
@@ -1298,7 +1298,7 @@ export class EditorViewDOM implements IEditorViewDOM {
     return this.patternDecoratorConfigManager.isConfigEnabled(sid);
   }
 
-  // ----- Decorator 관리 (EditorModel - 로컬 전용) -----
+  // ----- Decorator management (EditorModel - local only) -----
   
   /**
    * Decorator 타입 정의 (선택적)

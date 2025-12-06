@@ -43,11 +43,11 @@ export class SplitMergeOperations {
       throw new Error(`Split position must be between 0 and ${text.length}`);
     }
 
-    // 원본 노드의 텍스트를 분할
+    // Split original node's text
     const leftText = text.substring(0, splitPosition);
     const rightText = text.substring(splitPosition);
 
-    // 마크 범위 조정
+    // Adjust mark ranges
     const leftMarks: IMark[] = [];
     const rightMarks: IMark[] = [];
 
@@ -81,10 +81,10 @@ export class SplitMergeOperations {
       }
     }
 
-    // 원본 노드 업데이트
+    // Update original node
     this.dataStore.updateNode(nodeId, { text: leftText, marks: leftMarks } as Partial<INode>, false);
 
-    // 새 노드 생성
+    // Create new node
     const newNode: INode = {
       stype: node.stype,
       text: rightText,

@@ -66,11 +66,11 @@ describe('outdentNode operation (exec)', () => {
     const updatedP1 = dataStore.getNode(p1Id)!;
     const updatedChild = dataStore.getNode(childId)!;
 
-    // 루트: [p1, child] 순서
+    // Root: [p1, child] order
     expect(updatedRoot.content).toEqual([p1Id, childId]);
-    // p1 의 content 에서 child 가 제거됨
+    // child is removed from p1's content
     expect(updatedP1.content).toEqual([expect.any(String)]);
-    // child 의 parentId 는 document 가 됨
+    // child's parentId becomes document
     expect(updatedChild.parentId).toBe(rootId);
   });
 

@@ -2,13 +2,13 @@ import { defineOperation } from './define-operation';
 import type { TransactionContext } from '../types';
 
 /**
- * indentNode operation (구조 들여쓰기)
+ * indentNode operation (structural indent)
  *
- * 목적
- * - 지정된 노드를 schema 기반 규칙에 따라 한 단계 들여쓰기 한다.
- * - 내부적으로 DataStore.indentNode(nodeId)를 호출한다.
+ * Purpose
+ * - Indents the specified node one level according to schema-based rules.
+ * - Internally calls DataStore.indentNode(nodeId).
  *
- * 입력 형태(DSL)
+ * Input format (DSL)
  * - control(nodeId, [ indentNode() ]) → payload: {}
  * - indentNode(nodeId) → payload: { nodeId }
  */
@@ -31,8 +31,8 @@ defineOperation('indentNode', async (operation: any, context: TransactionContext
 
   const ok = context.dataStore.indentNode(nodeId);
 
-  // indentNode 가 false 를 반환한 경우 (더 이상 들여쓰기 불가 등)도
-  // 에러로 보지 않고 no-op 으로 처리한다.
+  // If indentNode returns false (e.g., cannot indent further),
+  // treat as no-op rather than error
   if (!ok) {
     return {
       ok: true,

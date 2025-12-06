@@ -8,12 +8,12 @@ export interface MoveSelectionOptions {
 /**
  * MoveSelectionExtension
  *
- * - 화살표 키 등으로 Selection(커서/범위)을 이동할 때,
- *   DataStore의 getPreviousEditableNode / getNextEditableNode,
- *   isSelectableNode 등을 사용해 다음 위치를 결정한다.
+ * - When moving Selection (cursor/range) with arrow keys, etc.,
+ *   uses DataStore's getPreviousEditableNode / getNextEditableNode,
+ *   isSelectableNode, etc. to determine the next position.
  *
- * - 이 Extension 자체는 키 이벤트를 직접 다루지 않고,
- *   editor-view-dom 이 전달하는 ModelSelection을 기준으로만 동작한다.
+ * - This Extension itself does not directly handle key events,
+ *   and only operates based on ModelSelection passed from editor-view-dom.
  */
 export class MoveSelectionExtension implements Extension {
   name = 'move-selection';
@@ -31,7 +31,7 @@ export class MoveSelectionExtension implements Extension {
   onCreate(editor: Editor): void {
     if (!this._options.enabled) return;
 
-    // 수평 이동: 왼쪽 (한 글자 단위, caret 이동)
+    // Horizontal movement: left (one character at a time, caret movement)
     editor.registerCommand({
       name: 'moveCursorLeft',
       execute: async (editor: Editor, payload?: { selection?: ModelSelection }) => {
@@ -45,7 +45,7 @@ export class MoveSelectionExtension implements Extension {
       }
     });
 
-    // 수평 이동: 오른쪽 (한 글자 단위, caret 이동)
+    // Horizontal movement: right (one character at a time, caret movement)
     editor.registerCommand({
       name: 'moveCursorRight',
       execute: async (editor: Editor, payload?: { selection?: ModelSelection }) => {
@@ -59,7 +59,7 @@ export class MoveSelectionExtension implements Extension {
       }
     });
 
-    // 범위 확장: 왼쪽 (Shift+ArrowLeft)
+    // Range extension: left (Shift+ArrowLeft)
     editor.registerCommand({
       name: 'extendSelectionLeft',
       execute: async (editor: Editor, payload?: { selection?: ModelSelection }) => {
@@ -73,7 +73,7 @@ export class MoveSelectionExtension implements Extension {
       }
     });
 
-    // 범위 확장: 오른쪽 (Shift+ArrowRight)
+    // Range extension: right (Shift+ArrowRight)
     editor.registerCommand({
       name: 'extendSelectionRight',
       execute: async (editor: Editor, payload?: { selection?: ModelSelection }) => {
@@ -87,7 +87,7 @@ export class MoveSelectionExtension implements Extension {
       }
     });
 
-    // (향후 확장) 단어 단위 수평 이동: 왼쪽
+    // (Future extension) Word-level horizontal movement: left
     editor.registerCommand({
       name: 'moveCursorWordLeft',
       execute: async (editor: Editor, payload?: { selection?: ModelSelection }) => {
@@ -101,7 +101,7 @@ export class MoveSelectionExtension implements Extension {
       }
     });
 
-    // (향후 확장) 단어 단위 수평 이동: 오른쪽
+    // (Future extension) Word-level horizontal movement: right
     editor.registerCommand({
       name: 'moveCursorWordRight',
       execute: async (editor: Editor, payload?: { selection?: ModelSelection }) => {
@@ -115,7 +115,7 @@ export class MoveSelectionExtension implements Extension {
       }
     });
 
-    // (향후 확장) 단어 단위 범위 확장: 왼쪽 (Ctrl/Alt+Shift+ArrowLeft)
+    // (Future extension) Word-level range extension: left (Ctrl/Alt+Shift+ArrowLeft)
     editor.registerCommand({
       name: 'extendSelectionWordLeft',
       execute: async (editor: Editor, payload?: { selection?: ModelSelection }) => {
@@ -129,7 +129,7 @@ export class MoveSelectionExtension implements Extension {
       }
     });
 
-    // (향후 확장) 단어 단위 범위 확장: 오른쪽 (Ctrl/Alt+Shift+ArrowRight)
+    // (Future extension) Word-level range extension: right (Ctrl/Alt+Shift+ArrowRight)
     editor.registerCommand({
       name: 'extendSelectionWordRight',
       execute: async (editor: Editor, payload?: { selection?: ModelSelection }) => {
@@ -145,17 +145,17 @@ export class MoveSelectionExtension implements Extension {
   }
 
   onDestroy(_editor: Editor): void {
-    // 정리 작업 필요 시 여기에 추가
+    // Add cleanup here if needed
   }
 
   /**
-   * 수평 이동 - caret 이동 (Left / Right, 한 글자 단위)
+   * Horizontal movement - caret movement (Left / Right, one character at a time)
    *
-   * 1. RangeSelection + collapsed 인 경우만 처리
-   * 2. 같은 텍스트 노드 안에서는 offset ±1
-   * 3. 텍스트 처음/끝에서:
-   *    - 이전/다음 editable 노드가 있으면 그 텍스트 노드의 끝/처음으로 이동
-   *    - editable 이 아니고 selectable 이면 해당 노드 전체를 선택 (0,0 range 로 표현)
+   * 1. Only handles RangeSelection + collapsed
+   * 2. Within the same text node: offset ±1
+   * 3. At text start/end:
+   *    - If previous/next editable node exists, move to end/start of that text node
+   *    - If not editable but selectable, select entire node (expressed as 0,0 range)
    */
   private async _moveCaretHorizontal(
     editor: Editor,
@@ -176,7 +176,7 @@ export class MoveSelectionExtension implements Extension {
     const isTextNode = typeof currentNode?.text === 'string';
     const textLength = isTextNode ? currentNode.text.length : 0;
 
-    // 1-1. 텍스트 노드 안에서의 단순 이동
+    // 1-1. Simple movement within text node
     if (isTextNode) {
       if (direction === 'left' && selection.startOffset > 0) {
         const newOffset = selection.startOffset - 1;
@@ -209,14 +209,14 @@ export class MoveSelectionExtension implements Extension {
       }
     }
 
-    // 1-2. 텍스트 처음/끝 또는 비텍스트 노드에서 인접 editable/selectable 로 이동
+    // 1-2. Move to adjacent editable/selectable from text start/end or non-text node
     const neighborId =
       direction === 'left'
         ? dataStore.getPreviousEditableNode(selection.startNodeId)
         : dataStore.getNextEditableNode(selection.startNodeId);
 
     if (!neighborId) {
-      // 더 이상 이동할 수 없음
+      // Cannot move further
       return false;
     }
 
@@ -226,7 +226,7 @@ export class MoveSelectionExtension implements Extension {
       return false;
     }
 
-    // 텍스트 노드인 경우: 해당 텍스트의 끝/처음으로 이동
+    // If text node: move to end/start of that text
     if (typeof neighborNode.text === 'string') {
       const offset = direction === 'left' ? neighborNode.text.length : 0;
       const newSelection: ModelSelection = {
@@ -242,7 +242,7 @@ export class MoveSelectionExtension implements Extension {
       return true;
     }
 
-    // 텍스트가 아니라면, selectable 인지 확인하고 노드 전체 선택으로 이동
+    // If not text, check if selectable and move to full node selection
     const isSelectableSimple =
       typeof dataStore.isSelectableNode === 'function'
         ? dataStore.isSelectableNode(neighborId)
@@ -262,16 +262,16 @@ export class MoveSelectionExtension implements Extension {
       return true;
     }
 
-    // selectable 도 아니면 이동하지 않는다.
+    // If not selectable either, do not move
     return false;
   }
 
   /**
-   * 수평 방향 RangeSelection 확장 (Shift + Left / Shift + Right)
+   * Extend RangeSelection horizontally (Shift + Left / Shift + Right)
    *
-   * 1. collapsed RangeSelection 기준으로만 확장
-   * 2. 같은 텍스트 노드 안에서는 한 글자 단위 확장
-   * 3. 텍스트 처음/끝에서 인접 텍스트 노드까지 cross-node 확장
+   * 1. Only extend from collapsed RangeSelection
+   * 2. Extend one character at a time within the same text node
+   * 3. Cross-node extension from text start/end to adjacent text node
    */
   private async _extendSelectionHorizontal(
     editor: Editor,
@@ -285,7 +285,7 @@ export class MoveSelectionExtension implements Extension {
     }
 
     if (!selection || selection.type !== 'range' || !selection.collapsed) {
-      // 현재 단계에서는 collapsed 상태에서의 확장만 지원한다.
+      // Currently only support extension from collapsed state
       return false;
     }
 
@@ -293,7 +293,7 @@ export class MoveSelectionExtension implements Extension {
     const isTextNode = typeof currentNode?.text === 'string';
     const textLength = isTextNode ? currentNode.text.length : 0;
 
-    // 2-1. 같은 텍스트 노드 안에서의 확장
+    // 2-1. Extension within the same text node
     if (isTextNode) {
       if (direction === 'right' && selection.startOffset < textLength) {
         // [offset, offset+1]
@@ -326,14 +326,14 @@ export class MoveSelectionExtension implements Extension {
       }
     }
 
-    // 2-2. 텍스트 처음/끝에서 인접 텍스트 노드로 cross-node 확장
+    // 2-2. Cross-node extension from text start/end to adjacent text node
     const neighborId =
       direction === 'left'
         ? dataStore.getPreviousEditableNode(selection.startNodeId)
         : dataStore.getNextEditableNode(selection.startNodeId);
 
     if (!neighborId) {
-      // 더 이상 이동할 수 없음
+      // Cannot move further
       return false;
     }
 
@@ -345,7 +345,7 @@ export class MoveSelectionExtension implements Extension {
 
     if (typeof neighborNode.text === 'string') {
       if (direction === 'right' && isTextNode && selection.startOffset === textLength) {
-        // [currentNodeId, currentOffset] → [neighborId, 1] (첫 글자까지)
+        // [currentNodeId, currentOffset] → [neighborId, 1] (to first character)
         const newSelection: ModelSelection = {
           type: 'range',
           startNodeId: selection.startNodeId,
@@ -378,17 +378,17 @@ export class MoveSelectionExtension implements Extension {
       }
     }
 
-    // Shift + Arrow 에서 selectable/non-text는 아직 지원하지 않는다.
+    // Shift + Arrow does not yet support selectable/non-text
     return false;
   }
 
   /**
-   * 단어 단위 수평 이동 (Left / Right)
+   * Word-level horizontal movement (Left / Right)
    *
-   * - 현재 단계에서는 "같은 텍스트 노드 내부"에서만 동작한다.
-   * - 단어 경계 정의:
-   *   - 공백(스페이스, 탭, 줄바꿈 등)과 비공백이 바뀌는 지점을 경계로 본다.
-   * - cross-node, non-text 노드에 대한 단어 단위 이동은 향후 확장 시에 다룬다.
+   * - Currently only works "within the same text node"
+   * - Word boundary definition:
+   *   - Boundary is where whitespace (space, tab, newline, etc.) and non-whitespace change
+   * - Word-level movement for cross-node, non-text nodes will be handled in future extensions
    */
   private async _moveWordHorizontal(
     editor: Editor,
@@ -402,7 +402,7 @@ export class MoveSelectionExtension implements Extension {
     }
 
     if (!selection || selection.type !== 'range' || !selection.collapsed) {
-      // 현재 단계에서는 collapsed range 에 대해서만 단어 단위 이동을 지원한다.
+      // Currently only support word-level movement for collapsed range
       return false;
     }
 
@@ -411,7 +411,7 @@ export class MoveSelectionExtension implements Extension {
       currentNode && typeof currentNode.text === 'string' ? currentNode.text : undefined;
 
     if (typeof text !== 'string') {
-      // 텍스트 노드가 아니면 단어 단위 이동은 아직 지원하지 않는다.
+      // Word-level movement is not yet supported for non-text nodes
       return false;
     }
 
@@ -420,21 +420,21 @@ export class MoveSelectionExtension implements Extension {
 
     if (direction === 'left') {
       if (offset === 0) {
-        // 노드의 처음이면 더 이상 왼쪽으로 단어 단위 이동하지 않는다 (향후 cross-node 확장 대상)
+        // If at node start, do not move word-level left anymore (future cross-node extension target)
         return false;
       }
 
-      // 왼쪽으로 가면서 첫 번째 "비공백 → 공백" 또는 "공백 → 비공백" 경계를 찾는다.
+      // Move left to find first "non-whitespace → whitespace" or "whitespace → non-whitespace" boundary
       let i = offset - 1;
-      // 현재 위치 기준 상태
+      // State at current position
       const isSpace = (ch: string) => /\s/.test(ch);
       let prevIsSpace = isSpace(text[i]);
 
       for (; i > 0; i--) {
         const curIsSpace = isSpace(text[i - 1]);
         if (curIsSpace !== prevIsSpace) {
-          // 경계를 찾았으므로 그 직후 위치가 새로운 caret 위치가 된다.
-          // 예: "foo bar", offset=7(끝)이면 i가 공백-비공백 경계까지 움직이고, i 가 새 offset.
+          // Boundary found, so the position right after it becomes the new caret position
+          // Example: "foo bar", offset=7(end), i moves to whitespace-non-whitespace boundary, i becomes new offset
           break;
         }
         prevIsSpace = curIsSpace;
@@ -455,21 +455,21 @@ export class MoveSelectionExtension implements Extension {
     } else {
       // direction === 'right'
       if (offset >= len) {
-        // 노드의 끝이면 더 이상 오른쪽으로 단어 단위 이동하지 않는다 (향후 cross-node 확장 대상)
+        // If at node end, do not move word-level right anymore (future cross-node extension target)
         return false;
       }
 
       const isSpace = (ch: string) => /\s/.test(ch);
       let i = offset;
 
-      // 1) 현재 위치가 공백이면, 다음 비공백 문자를 찾는다.
+      // 1) If current position is whitespace, find next non-whitespace character
       if (isSpace(text[i])) {
         while (i < len && isSpace(text[i])) {
           i++;
         }
       } else {
-        // 2) 현재 위치가 비공백이면, 이번 단어의 끝(다음 공백)까지 이동한 뒤,
-        //    그 이후 첫 번째 비공백 문자를 찾는다.
+        // 2) If current position is non-whitespace, move to end of current word (next whitespace),
+        //    then find first non-whitespace character after that
         while (i < len && !isSpace(text[i])) {
           i++;
         }
@@ -513,7 +513,7 @@ export class MoveSelectionExtension implements Extension {
     }
 
     if (!selection || selection.type !== 'range' || !selection.collapsed) {
-      // 현재 단계에서는 collapsed 상태에서의 단어 단위 확장만 지원한다.
+      // Currently only support word-level extension from collapsed state
       return false;
     }
 
@@ -522,7 +522,7 @@ export class MoveSelectionExtension implements Extension {
       currentNode && typeof currentNode.text === 'string' ? currentNode.text : undefined;
 
     if (typeof text !== 'string') {
-      // 텍스트 노드가 아니면 단어 단위 확장은 아직 지원하지 않는다.
+      // Word-level extension is not yet supported for non-text nodes
       return false;
     }
 

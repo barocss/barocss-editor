@@ -5,11 +5,11 @@ import { GlobalConverterRegistry } from './registry';
 const registry = GlobalConverterRegistry.getInstance();
 
 /**
- * 간단한 LaTeX 파서 (fallback 용)
+ * Simple LaTeX parser (for fallback)
  *
  * \section{Title}
  * \subsection{Subtitle}
- * 빈 줄로 구분되는 일반 문단 정도만 지원합니다.
+ * Only supports general paragraphs separated by empty lines.
  */
 class SimpleLatexParser {
   parse(document: string): any[] {
@@ -33,7 +33,7 @@ class SimpleLatexParser {
     for (const raw of lines) {
       const line = raw.trim();
       if (!line) {
-        // 빈 줄이면 현재까지 누적된 문단을 flush
+        // Flush accumulated paragraph if empty line
         flushParagraph();
         continue;
       }
@@ -62,7 +62,7 @@ class SimpleLatexParser {
         continue;
       }
 
-      // 기타는 문단 버퍼에 누적
+      // Accumulate others in paragraph buffer
       buffer.push(line);
     }
 
@@ -83,7 +83,7 @@ export class LatexConverter {
   }
 
   /**
-   * LaTeX 문자열을 모델 노드 배열로 파싱합니다.
+   * Parses LaTeX string to model node array.
    */
   parse(latex: string, format: Format = 'latex'): INode[] {
     if (format !== 'latex') {
@@ -169,7 +169,7 @@ export class LatexConverter {
       }
     }
 
-    // 기본 변환: paragraph 텍스트만 출력
+    // Default conversion: output only paragraph text
     if (node.text) {
       return node.text;
     }

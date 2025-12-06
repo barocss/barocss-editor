@@ -241,13 +241,13 @@ describe('Indentable Node - schema 기반 indent 메타 활용', () => {
       const updatedP1 = dataStore.getNode(p1Id)!;
       const updatedP2 = dataStore.getNode(p2Id)!;
 
-      // 루트의 자식은 p1 하나만 남고, p2 는 p1 의 자식 리스트의 마지막에 추가된다.
+      // Root has only p1 as child, and p2 is added at the end of p1's child list
       expect(updatedRoot.content).toEqual([p1Id]);
       expect(updatedP1.content).toEqual([p1ChildId, p2Id]);
       expect(updatedP2.parentId).toBe(p1Id);
     });
 
-    it('indentNode: 이전 형제가 없으면 아무 것도 하지 않는다', () => {
+    it('indentNode: does nothing if no previous sibling', () => {
       const doc = dataStore.createNodeWithChildren({
         stype: 'document',
         content: [
@@ -269,7 +269,7 @@ describe('Indentable Node - schema 기반 indent 메타 활용', () => {
       expect(updatedRoot.content).toEqual([p1Id]);
     });
 
-    it('outdentNode: 부모의 형제 수준으로 한 단계 outdent 해야 한다', () => {
+    it('outdentNode: should outdent one level to parent\'s sibling level', () => {
       const doc = dataStore.createNodeWithChildren({
         stype: 'document',
         content: [
@@ -299,11 +299,11 @@ describe('Indentable Node - schema 기반 indent 메타 활용', () => {
       const updatedP1 = dataStore.getNode(p1Id)!;
       const updatedChild = dataStore.getNode(childId)!;
 
-      // 루트: [p1, child] 순서
+      // Root: [p1, child] order
       expect(updatedRoot.content).toEqual([p1Id, childId]);
-      // p1 의 content 에서 child 가 제거됨
+      // child is removed from p1's content
       expect(updatedP1.content).toEqual([expect.any(String)]);
-      // child 의 parentId 는 document 가 됨
+      // child's parentId becomes document
       expect(updatedChild.parentId).toBe(rootId);
     });
 

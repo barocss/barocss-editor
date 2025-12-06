@@ -8,33 +8,33 @@ import {
 
 export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
   private editor: Editor;
-  private _isProgrammaticChange: boolean = false; // 프로그래밍 방식의 Selection 변경 플래그
+  private _isProgrammaticChange: boolean = false; // Flag for programmatic Selection change
 
   constructor(editor: Editor) {
     this.editor = editor;
   }
 
   /**
-   * DOM 요소가 텍스트 컨테이너인지 확인합니다.
-   * data-text-container="true" 속성이 있으면 텍스트 컨테이너입니다.
+   * Check if DOM element is a text container.
+   * If it has data-text-container="true" attribute, it is a text container.
    */
   private isTextContainer(element: Element): boolean {
     return element.getAttribute('data-text-container') === 'true';
   }
 
   /**
-   * Model에 노드가 실제로 존재하는지 확인합니다.
-   * Editor의 dataStore를 통해 노드 존재 여부를 검증합니다.
+   * Check if node actually exists in Model.
+   * Validates node existence through Editor's dataStore.
    */
   private nodeExistsInModel(nodeId: string): boolean {
     try {
-      // Editor의 dataStore를 통해 노드 존재 여부 확인
+      // Check node existence through Editor's dataStore
       if (this.editor.dataStore) {
         const node = this.editor.dataStore.getNode(nodeId);
         return node !== null && node !== undefined;
       }
 
-      return true; // 기존 동작 유지 (실제 노드들은 true)
+      return true; // Maintain existing behavior (actual nodes are true)
     } catch (error) {
       console.warn('[SelectionHandler] Error checking node existence:', error);
       return false;
@@ -42,7 +42,7 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
   }
 
   handleSelectionChange(): void {
-    // 프로그래밍 방식의 변경이면 무시
+    // Ignore if programmatic change
     if (this._isProgrammaticChange) {
       console.log('[SelectionHandler] Skipped: programmatic change');
       return;
@@ -54,14 +54,14 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
       return;
     }
 
-    // Editor 외부의 Selection 변경은 무시
+    // Ignore Selection changes outside Editor
     const editorViewDOM = (this.editor as any)._viewDOM;
     if (!editorViewDOM || !editorViewDOM.contentEditableElement) {
       console.log('[SelectionHandler] Skipped: no editorViewDOM');
       return;
     }
     
-    // Selection이 Editor의 contentEditable 내부에 있는지 확인
+    // Check if Selection is inside Editor's contentEditable
     const anchorNode = selection.anchorNode;
     const focusNode = selection.focusNode;
     if (!anchorNode) {
@@ -80,25 +80,25 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
       focusNode: focusNode?.nodeName
     });
     
-    // 둘 다 Editor 내부에 있어야 함
+    // Both must be inside Editor
     if (!isAnchorInside || !isFocusInside) {
       console.log('[SelectionHandler] Skipped: selection outside editor');
       return;
     }
     
-    // Devtool 영역 제외 (data-devtool 속성 체크)
+    // Exclude devtool area (check data-devtool attribute)
     let node: Node | null = anchorNode;
     while (node) {
       if (node instanceof Element && node.hasAttribute('data-devtool')) {
         console.log('[SelectionHandler] Skipped: inside devtool');
-        return; // Devtool 영역이면 무시
+        return; // Ignore if devtool area
       }
       node = node.parentNode;
     }
 
     console.log('[SelectionHandler] Processing selection change');
 
-    // DOM Selection을 Model Selection으로 변환
+    // Convert DOM Selection to Model Selection
     const modelSelection = this.convertDOMSelectionToModel(selection);
 
     this.editor.updateSelection?.(modelSelection);
@@ -115,7 +115,7 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
     const startOffset = range.startOffset;
     const endOffset = range.endOffset;
 
-    // data-bc-sid를 가진 가장 가까운 요소 찾기 (텍스트 컨테이너를 우선)
+    // Find closest element with data-bc-sid (prioritize text container)
     const startNode = this.findBestContainer(startContainer);
     const endNode = this.findBestContainer(endContainer);
 
@@ -130,7 +130,7 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
       return { type: 'none' };
     }
 
-    // Model에 노드가 실제로 존재하는지 확인
+    // Check if node actually exists in Model
     if (!this.nodeExistsInModel(startNodeId) || !this.nodeExistsInModel(endNodeId)) {
       console.warn('[SelectionHandler] Node does not exist in model:', {
         startNodeId,
@@ -141,22 +141,22 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
       return { type: 'none' };
     }
 
-    // Text Run Index 기반 글로벌 오프셋 계산
+    // Calculate global offset based on Text Run Index
     const startRuns = this.ensureRuns(startNode, startNodeId);
     const endRuns = startNode === endNode ? startRuns : this.ensureRuns(endNode, endNodeId);
 
     const startModelOffset = this.convertOffsetWithRuns(startNode, startContainer, startOffset, startRuns, false);
     const endModelOffset = this.convertOffsetWithRuns(endNode, endContainer, endOffset, endRuns, true);
 
-    // Selection 방향 결정
+    // Determine Selection direction
     const direction = this.determineSelectionDirection(selection, startNode, endNode, startModelOffset, endModelOffset);
 
-    // fromDOMSelection 사용하여 정규화 (통일된 ModelSelection 형식 반환)
+    // Normalize using fromDOMSelection (returns unified ModelSelection format)
     const modelSelection = fromDOMSelection(startNodeId, startModelOffset, endNodeId, endModelOffset, 'range');
     
     return {
       ...modelSelection,
-      direction // direction은 determineSelectionDirection에서 계산한 값으로 덮어쓰기
+      direction // Overwrite direction with value calculated from determineSelectionDirection
     };
   }
 
@@ -168,7 +168,7 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
       }
     }
 
-    // 부모 요소에서 data-bc-sid 찾기
+    // Find data-bc-sid in parent element
     let current = node.parentElement;
     while (current) {
       if (current.hasAttribute('data-bc-sid')) {
@@ -181,7 +181,7 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
   }
 
   private findBestContainer(node: Node): Element | null {
-    // 최우선: 텍스트 컨테이너인 노드
+    // Top priority: node that is a text container
     let el = this.findClosestDataNode(node);
     if (!el) return null;
     
@@ -189,7 +189,7 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
       return el;
     }
     
-    // 상위로 올라가며 텍스트 컨테이너를 찾되, 없다면 최초 data-bc-sid 유지
+    // Go up to find text container, but maintain original data-bc-sid if not found
     let cur: Element | null = el;
     while (cur) {
       if (this.isTextContainer(cur)) {
@@ -198,7 +198,7 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
       cur = cur.parentElement?.closest?.('[data-bc-sid]') || null;
     }
     
-    // document 같은 상위 컨테이너는 selection 컨테이너로 부적절 → 무시
+    // Upper containers like document are inappropriate as selection container → ignore
     const sid = el.getAttribute('data-bc-sid');
     if (sid) {
       const model = this.editor.dataStore?.getNode?.(sid);
@@ -208,7 +208,7 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
   }
 
   private ensureRuns(containerEl: Element, containerId: string): ContainerRuns {
-    // DOMRenderer 없이도 독립적으로 동작: 직접 인덱스 빌드
+    // Operate independently without DOMRenderer: build index directly
     return buildTextRunIndex(containerEl, containerId, {
       buildReverseMap: true,
       excludePredicate: (el) => el.hasAttribute('data-bc-decorator')
@@ -225,19 +225,19 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
         const clamped = Math.max(0, Math.min(offset, localLen));
         return entry.start + clamped;
       }
-      // fallback: 가장 가까운 텍스트 런으로 스냅
+      // fallback: snap to closest text run
       const idx = binarySearchRun(runs.runs, Math.max(0, Math.min(offset, runs.total - 1)));
       if (idx >= 0) return isEnd ? runs.runs[idx].end : runs.runs[idx].start;
       return 0;
     }
-    // Element 노드인 경우: child index 기준 경계에 가장 가까운 텍스트 노드 탐색
+    // If Element node: search for text node closest to boundary based on child index
     const el = container as Element;
     const boundaryText = this.findTextAtElementBoundary(containerEl, el, offset, isEnd);
     if (boundaryText) {
       const entry = runs.byNode?.get(boundaryText);
       if (entry) return isEnd ? entry.end : entry.start;
     }
-    // 텍스트가 없으면 컨테이너의 시작/끝으로 스냅
+    // If no text, snap to container start/end
     return isEnd ? runs.total : 0;
   }
 
@@ -257,7 +257,7 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
           lastBefore = t;
         }
       } else {
-        // child가 없다는 것은 offset이 끝 경계를 의미
+        // If no child, offset means end boundary
         lastBefore = t;
       }
       t = walker.nextNode() as Text | null;
@@ -272,22 +272,22 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
     startOffset: number, 
     endOffset: number
   ): 'forward' | 'backward' {
-    // 1. 같은 노드 내에서의 선택
+    // 1. Selection within same node
     if (startNode === endNode) {
       return startOffset <= endOffset ? 'forward' : 'backward';
     }
 
-    // 2. 다른 노드 간의 선택 - DOM 순서로 판단
+    // 2. Selection across different nodes - determine by DOM order
     const anchorNode = selection.anchorNode;
     const focusNode = selection.focusNode;
     
     if (!anchorNode || !focusNode) {
-      // DOM 순서로 판단 (compareDocumentPosition 사용)
+      // Determine by DOM order (use compareDocumentPosition)
       const position = startNode.compareDocumentPosition(endNode);
       return (position & Node.DOCUMENT_POSITION_FOLLOWING) ? 'forward' : 'backward';
     }
 
-    // 3. anchor/focus 기반으로 판단
+    // 3. Determine based on anchor/focus
     const anchorContainer = this.findBestContainer(anchorNode);
     const focusContainer = this.findBestContainer(focusNode);
     
@@ -304,26 +304,26 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
       }
     }
 
-    // 4. 최종 fallback: DOM 순서
+    // 4. Final fallback: DOM order
     const position = startNode.compareDocumentPosition(endNode);
     return (position & Node.DOCUMENT_POSITION_FOLLOWING) ? 'forward' : 'backward';
   }
 
   /**
-   * Model selection을 DOM selection으로 변환합니다.
+   * Convert model selection to DOM selection.
    */
   convertModelSelectionToDOM(modelSelection: any): void {
-    // 프로그래밍 방식의 변경임을 표시
+    // Mark as programmatic change
     this._isProgrammaticChange = true;
     
     try {
       if (!modelSelection || modelSelection.type === 'none') {
-        // 선택 해제
+        // Clear selection
         window.getSelection()?.removeAllRanges();
         return;
       }
 
-      // 통일된 ModelSelection 형식 (startNodeId/startOffset/endNodeId/endOffset) 지원
+      // Support unified ModelSelection format (startNodeId/startOffset/endNodeId/endOffset)
       if (modelSelection.type === 'range') {
         this.convertRangeSelectionToDOM(modelSelection);
       } else if (modelSelection.type === 'node') {
@@ -332,7 +332,7 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
         console.warn('[SelectionHandler] Unsupported selection type:', modelSelection.type);
       }
     } finally {
-      // 다음 이벤트 루프에서 플래그 해제 (selectionchange 이벤트가 처리된 후)
+      // Release flag in next event loop (after selectionchange event is processed)
       setTimeout(() => {
         this._isProgrammaticChange = false;
       }, 0);
@@ -340,7 +340,7 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
   }
 
   /**
-   * Range 선택을 DOM selection으로 변환합니다 (통일된 ModelSelection 형식).
+   * Convert range selection to DOM selection (unified ModelSelection format).
    */
   private convertRangeSelectionToDOM(rangeSelection: any): void {
     const { startNodeId, startOffset, endNodeId, endOffset } = rangeSelection;
@@ -352,7 +352,7 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
       endOffset
     });
     
-    // startNodeId와 endNodeId 노드 찾기
+    // Find nodes for startNodeId and endNodeId
     const startElementRaw = document.querySelector(`[data-bc-sid="${startNodeId}"]`);
     const endElementRaw = document.querySelector(`[data-bc-sid="${endNodeId}"]`);
     
@@ -366,9 +366,9 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
       return;
     }
 
-    // findBestContainer를 사용하여 텍스트 컨테이너 찾기
-    // (convertDOMSelectionToModel과 동일한 로직 사용)
-    // findBestContainer는 텍스트 컨테이너를 우선 찾고, 없으면 최초 data-bc-sid 요소를 반환
+    // Use findBestContainer to find text container
+    // (use same logic as convertDOMSelectionToModel)
+    // findBestContainer finds text container first, or returns first data-bc-sid element if not found
     const startElement = this.findBestContainer(startElementRaw);
     const endElement = this.findBestContainer(endElementRaw);
     
@@ -383,7 +383,7 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
     }
 
     try {
-      // Text Run Index를 사용하여 정확한 DOM 위치 찾기
+      // Use Text Run Index to find accurate DOM position
       const startRuns = this.getTextRunsForContainer(startElement);
       const endRuns = this.getTextRunsForContainer(endElement);
       
@@ -405,7 +405,7 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
         return;
       }
 
-      // DOM Selection 설정
+      // Set DOM Selection
       const selection = window.getSelection();
       if (!selection) return;
 
@@ -430,7 +430,7 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
   }
 
   /**
-   * 노드 선택을 DOM selection으로 변환합니다.
+   * Convert node selection to DOM selection.
    */
   private convertNodeSelectionToDOM(nodeSelection: any): void {
     const element = document.querySelector(`[data-bc-sid="${nodeSelection.nodeId}"]`);
@@ -461,32 +461,32 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
   }
 
   /**
-   * 컨테이너의 Text Run Index를 가져옵니다.
-   * data-bc-sid 하위의 모든 text node를 수집 (decorator 하위는 제외)
+   * Get Text Run Index for container.
+   * Collects all text nodes under data-bc-sid (excludes decorator children)
    * 
-   * 주의: 캐시를 사용하지 않고 매번 새로 생성합니다.
-   * 이유: DOM이 변경되면 Text Run Index도 무효화되어야 하는데,
-   *       캐시 무효화 로직이 복잡하고, Text Run Index 생성 비용이 크지 않기 때문입니다.
+   * Note: Does not use cache, creates new instance each time.
+   * Reason: When DOM changes, Text Run Index must be invalidated,
+   *         but cache invalidation logic is complex, and Text Run Index creation cost is not high.
    * 
-   * 성능 고려사항:
-   * - 일반적으로 inline-text 노드 하나당 text run은 몇 개 정도 (mark로 인해 분할되지만 많지 않음)
-   * - TreeWalker 순회는 O(n) where n = text node 개수
-   * - Selection 변환은 사용자 입력 시점에만 발생하므로 빈도가 높지 않음
+   * Performance considerations:
+   * - Generally a few text runs per inline-text node (split by marks but not many)
+   * - TreeWalker traversal is O(n) where n = number of text nodes
+   * - Selection conversion only occurs at user input time, so frequency is not high
    */
   private getTextRunsForContainer(container: Element): ContainerRuns | null {
     try {
       const containerId = container.getAttribute('data-bc-sid');
       
-      // 매번 새로 생성 (캐시 사용 안 함)
-      // DOM이 변경되면 Text Run Index도 무효화되어야 하므로,
-      // 캐시 무효화 로직이 복잡한 대신 매번 새로 생성하는 것이 안전합니다.
+      // Create new each time (no cache)
+      // When DOM changes, Text Run Index must be invalidated,
+      // so creating new each time is safer than complex cache invalidation logic.
       const runs = buildTextRunIndex(container, containerId || undefined, {
-        buildReverseMap: true, // 역방향 맵 생성 (O(1) 조회를 위해)
+        buildReverseMap: true, // Generate reverse map (for O(1) lookup)
         excludePredicate: (el) => {
-          // decorator는 제외 (buildTextRunIndex 내부에서도 체크하지만 명시적으로 전달)
+          // Exclude decorators (also checked inside buildTextRunIndex but explicitly passed)
           return this.isDecoratorElement(el);
         },
-        normalizeWhitespace: false // trim() 사용하지 않음 - 실제 DOM offset과 모델 offset 매칭을 위해
+        normalizeWhitespace: false // Don't use trim() - to match actual DOM offset with model offset
       });
       
       return runs;
@@ -497,7 +497,7 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
   }
 
   /**
-   * 요소가 decorator인지 확인
+   * Check if element is a decorator
    */
   private isDecoratorElement(el: Element): boolean {
     return !!(
@@ -508,7 +508,7 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
   }
 
   /**
-   * Model offset을 DOM range로 변환합니다.
+   * Convert model offset to DOM range.
    */
   private findDOMRangeFromModelOffset(runs: ContainerRuns, modelOffset: number): { node: Node; offset: number } | null {
     if (modelOffset < 0 || modelOffset > runs.total) {
@@ -516,7 +516,7 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
       return null;
     }
 
-    // modelOffset이 runs.total과 같을 때는 마지막 run의 끝 위치 사용
+    // When modelOffset equals runs.total, use end position of last run
     if (modelOffset === runs.total) {
       const lastRun = runs.runs[runs.runs.length - 1];
       return {

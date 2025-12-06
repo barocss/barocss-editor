@@ -45,7 +45,7 @@ describe('TransactionManager Lock Integration', () => {
       expect(result.success).toBe(true);
       expect(dataStore.isLocked()).toBe(false);
       
-      // 트랜잭션 완료 후 노드 확인 (노드가 생성되지 않을 수 있음)
+      // Verify node after transaction completes (node may not be created)
       const node = dataStore.getNode('node-1');
       if (node) {
         expect(node.text).toBe('Hello');
@@ -57,12 +57,12 @@ describe('TransactionManager Lock Integration', () => {
     it('should handle transaction failure and release lock', async () => {
       expect(dataStore.isLocked()).toBe(false);
       
-      // 잘못된 노드 생성으로 실패 유도 (존재하지 않는 타입)
+      // Induce failure with invalid node creation (non-existent type)
       const result = await transactionManager.execute([
         { type: 'create', payload: { node: { id: 'node-1', type: 'non-existent-type', text: 'Hello' } } }
       ]);
       
-      // 스키마 검증에서 실패할 것으로 예상하지만, 현재는 성공할 수 있음
+      // Expected to fail schema validation, but may succeed currently
       expect(dataStore.isLocked()).toBe(false);
       
       if (result.success) {
@@ -77,7 +77,7 @@ describe('TransactionManager Lock Integration', () => {
     it('should process transactions in order', async () => {
       const results: string[] = [];
       
-      // 순차적으로 트랜잭션 실행 (동시 실행 시 "Transaction already in progress" 에러 방지)
+      // Execute transactions sequentially (prevent "Transaction already in progress" error on concurrent execution)
       const result1 = await transactionManager.execute([
         { type: 'create', payload: { node: { id: 'node-1', type: 'paragraph', text: 'First' } } }
       ]);
@@ -98,7 +98,7 @@ describe('TransactionManager Lock Integration', () => {
       expect(result3.success).toBe(true);
       expect(dataStore.isLocked()).toBe(false);
       
-      // 노드들이 순서대로 생성되었는지 확인
+      // Verify nodes were created in order
       const node1 = dataStore.getNode('node-1');
       const node2 = dataStore.getNode('node-2');
       const node3 = dataStore.getNode('node-3');
@@ -114,7 +114,7 @@ describe('TransactionManager Lock Integration', () => {
     it('should maintain data consistency during concurrent operations', async () => {
       expect(dataStore.isLocked()).toBe(false);
       
-      // 순차적으로 트랜잭션 실행 (동시 실행 시 "Transaction already in progress" 에러 방지)
+      // Execute transactions sequentially (prevent "Transaction already in progress" error on concurrent execution)
       const results: TransactionResult[] = [];
       for (let i = 0; i < 5; i++) {
         const result = await transactionManager.execute([
@@ -123,7 +123,7 @@ describe('TransactionManager Lock Integration', () => {
         results.push(result);
       }
       
-      // 모든 트랜잭션이 성공했는지 확인
+      // Verify all transactions succeeded
       results.forEach((result, index) => {
         if (result.success) {
           expect(result.success).toBe(true);
@@ -134,7 +134,7 @@ describe('TransactionManager Lock Integration', () => {
       
       expect(dataStore.isLocked()).toBe(false);
       
-      // 모든 노드가 생성되었는지 확인
+      // Verify all nodes were created
       for (let i = 0; i < 5; i++) {
         const node = dataStore.getNode(`node-${i}`);
         if (node) {
@@ -151,7 +151,7 @@ describe('TransactionManager Lock Integration', () => {
       const initialStats = dataStore.getLockStats();
       expect(initialStats.totalAcquisitions).toBe(0);
       
-      // 트랜잭션 실행
+      // Execute transaction
       await transactionManager.execute([
         { type: 'create', payload: { node: { id: 'node-1', type: 'paragraph', text: 'Hello' } } }
       ]);
@@ -165,7 +165,7 @@ describe('TransactionManager Lock Integration', () => {
     it('should handle multiple transactions and track statistics', async () => {
       const initialStats = dataStore.getLockStats();
       
-      // 순차적으로 트랜잭션 실행
+      // Execute transactions sequentially
       for (let i = 0; i < 3; i++) {
         await transactionManager.execute([
           { type: 'create', nodeId: `node-${i}`, data: { id: `node-${i}`, type: 'paragraph', text: `Text ${i}` } }
@@ -181,7 +181,7 @@ describe('TransactionManager Lock Integration', () => {
 
   describe('Lock Timeout Integration', () => {
     it('should handle lock timeout during transaction', async () => {
-      // 첫 번째 트랜잭션 시작 (락 획득)
+      // Start first transaction (acquire lock)
       const result1 = await transactionManager.execute([
         { type: 'create', payload: { node: { id: 'node-1', type: 'paragraph', text: 'Hello' } } }
       ]);
@@ -189,14 +189,14 @@ describe('TransactionManager Lock Integration', () => {
       expect(result1.success).toBe(true);
       expect(dataStore.isLocked()).toBe(false);
       
-      // 두 번째 트랜잭션도 정상적으로 실행되어야 함
+      // Second transaction should also execute normally
       try {
         const result2 = await transactionManager.execute([
           { type: 'create', payload: { node: { id: 'node-2', type: 'paragraph', text: 'World' } } }
         ]);
         expect(result2.success).toBe(true);
       } catch (error) {
-        // 타임아웃 에러가 발생할 수 있음
+        // Timeout error may occur
         expect(error).toBeInstanceOf(Error);
         expect((error as Error).message).toContain('timeout');
       }
@@ -228,7 +228,7 @@ describe('TransactionManager Lock Integration', () => {
       expect(result.success).toBe(true);
       expect(dataStore.isLocked()).toBe(false);
       
-      // 노드들이 올바르게 생성/업데이트되었는지 확인
+      // Verify nodes were created/updated correctly
       const node1 = dataStore.getNode(node1Id);
       const node2 = dataStore.getNode(node2Id);
       if (node1 && node2) {
@@ -251,7 +251,7 @@ describe('TransactionManager Lock Integration', () => {
       expect(result.success).toBe(true);
       expect(dataStore.isLocked()).toBe(false);
       
-      // 모든 노드가 생성되었는지 확인
+      // Verify all nodes were created
       const node1 = dataStore.getNode('node-1');
       const node2 = dataStore.getNode('node-2');
       const node3 = dataStore.getNode('node-3');
@@ -269,13 +269,13 @@ describe('TransactionManager Lock Integration', () => {
     it('should handle partial transaction failure', async () => {
       dataStore.setNode({ id: 'root', type: 'document', content: [] });
       
-      // 유효한 노드와 잘못된 노드를 함께 생성
+      // Create valid and invalid nodes together
       const result = await transactionManager.execute([
         { type: 'create', nodeId: 'node-1', data: { id: 'node-1', type: 'paragraph', text: 'Valid' } },
         { type: 'create', nodeId: 'node-2', data: { id: 'node-2', type: 'non-existent-type', text: 'Invalid' } }
       ]);
       
-      // 스키마 검증이 제대로 작동하지 않을 수 있으므로 더 관대하게 처리
+      // Handle more leniently as schema validation may not work properly
       if (result.success) {
         console.log('Transaction succeeded despite invalid type - this may be expected behavior');
         expect(result.success).toBe(true);
@@ -286,7 +286,7 @@ describe('TransactionManager Lock Integration', () => {
       
       expect(dataStore.isLocked()).toBe(false);
       
-      // 유효한 노드는 생성되었는지 확인
+      // Verify valid node was created
       const validNode = dataStore.getNode('node-1');
       if (validNode) {
         expect(validNode.text).toBe('Valid');

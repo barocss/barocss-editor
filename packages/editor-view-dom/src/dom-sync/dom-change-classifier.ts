@@ -1,12 +1,12 @@
 /**
- * DOM → 모델 동기화 케이스 분류기
+ * DOM → Model sync case classifier
  * 
- * MutationObserver가 감지한 DOM 변경을 분석하여
- * C1/C2/C3/C4 케이스로 분류하고, 적절한 DataStore 연산을 결정한다.
+ * Analyzes DOM changes detected by MutationObserver
+ * and classifies them into C1/C2/C3/C4 cases, determining appropriate DataStore operations.
  * 
- * 참고 문서:
- * - `dom-to-model-sync-cases.md`: 케이스별 상세 정의
- * - `input-handling-implementation-guide.md`: 구현 가이드
+ * Reference documents:
+ * - `dom-to-model-sync-cases.md`: Detailed case definitions
+ * - `input-handling-implementation-guide.md`: Implementation guide
  */
 
 import { Editor } from '@barocss/editor-core';
@@ -14,39 +14,39 @@ import type { ModelSelection } from '@barocss/editor-core';
 import { reconstructModelTextFromDOM, extractModelTextFromRange } from '../utils/edit-position-converter';
 
 /**
- * DOM 변경 케이스 타입
+ * DOM change case type
  */
 export type DomChangeCase = 
-  | 'C1'  // 단일 inline-text 내부의 순수 텍스트 변경
-  | 'C2'  // 여러 inline-text에 걸친 텍스트 변경
-  | 'C3'  // 블록 구조 변경
-  | 'C4'  // 마크/스타일/데코레이터 변경
-  | 'C4_AUTO_CORRECT'  // 자동 교정
-  | 'C4_AUTO_LINK'     // 자동 링크
-  | 'C4_DND'           // 드래그 앤 드롭
-  | 'IME_INTERMEDIATE' // IME 조합 중간 상태
-  | 'UNKNOWN';          // 알 수 없는 변경
+  | 'C1'  // Pure text change within single inline-text
+  | 'C2'  // Text change across multiple inline-text
+  | 'C3'  // Block structure change
+  | 'C4'  // Mark/style/decorator change
+  | 'C4_AUTO_CORRECT'  // Auto correct
+  | 'C4_AUTO_LINK'     // Auto link
+  | 'C4_DND'           // Drag and drop
+  | 'IME_INTERMEDIATE' // IME composition intermediate state
+  | 'UNKNOWN';          // Unknown change
 
 /**
- * 분류 결과
+ * Classification result
  */
 export interface ClassifiedChange {
   case: DomChangeCase;
-  nodeId?: string;  // 변경된 모델 노드 ID (C1, C2의 경우)
-  contentRange?: ModelSelection;  // 텍스트 변경 범위 (C1, C2의 경우)
-  prevText?: string;  // 변경 전 텍스트 (C1, C2의 경우)
-  newText?: string;   // 변경 후 텍스트 (C1, C2의 경우)
-  insertedText?: string;  // 삽입된 텍스트
-  deletedLength?: number;  // 삭제된 길이
-  editPosition?: number;   // 편집 위치
-  mutations: MutationRecord[];  // 원본 mutations
-  metadata?: Record<string, any>;  // 케이스별 추가 정보
+  nodeId?: string;  // Changed model node ID (for C1, C2)
+  contentRange?: ModelSelection;  // Text change range (for C1, C2)
+  prevText?: string;  // Text before change (for C1, C2)
+  newText?: string;   // Text after change (for C1, C2)
+  insertedText?: string;  // Inserted text
+  deletedLength?: number;  // Deleted length
+  editPosition?: number;   // Edit position
+  mutations: MutationRecord[];  // Original mutations
+  metadata?: Record<string, any>;  // Additional case-specific info
 }
 
 /**
- * beforeinput 단계에서 수집한 Insert Range 힌트
- * - 입력 타입, 대상 ModelSelection, 입력 텍스트(선택), 타임스탬프를 포함한다.
- * - C1/C2에서 contentRange 계산을 보정하는 데 사용된다.
+ * Insert Range hint collected at beforeinput stage
+ * - Includes input type, target ModelSelection, input text (optional), timestamp.
+ * - Used to correct contentRange calculation in C1/C2.
  */
 export interface InputHint {
   inputType: string;
@@ -56,22 +56,22 @@ export interface InputHint {
 }
 
 /**
- * DOM 변경 분류 옵션
+ * DOM change classification options
  */
 export interface ClassifyOptions {
   editor: Editor;
-  selection?: Selection;  // 현재 DOM selection
-  modelSelection?: ModelSelection;  // 변환된 모델 selection (선택적)
-  inputHint?: InputHint;  // beforeinput에서 수집한 Insert Range 힌트 (선택적)
-  isComposing?: boolean;   // IME 조합 중 여부
+  selection?: Selection;  // Current DOM selection
+  modelSelection?: ModelSelection;  // Converted model selection (optional)
+  inputHint?: InputHint;  // Insert Range hint collected from beforeinput (optional)
+  isComposing?: boolean;   // Whether IME is composing
 }
 
 /**
- * DOM 변경을 케이스별로 분류
+ * Classify DOM changes by case
  * 
- * @param mutations MutationObserver가 감지한 변경사항
- * @param options 분류 옵션
- * @returns 분류 결과
+ * @param mutations Changes detected by MutationObserver
+ * @param options Classification options
+ * @returns Classification result
  */
 export function classifyDomChange(
   mutations: MutationRecord[],
@@ -82,7 +82,7 @@ export function classifyDomChange(
     isComposing: options.isComposing
   });
 
-  // 빈 mutations 처리
+  // Handle empty mutations
   if (mutations.length === 0) {
     console.log('[DomChangeClassifier] classifyDomChange: EMPTY mutations');
     return {
@@ -91,38 +91,38 @@ export function classifyDomChange(
     };
   }
 
-  // NOTE: isComposing 여부와 관계없이 텍스트 변경은 C1/C2로 처리
-  // selection만 정확하면 됨 (IME 중간 상태도 모델에 반영)
+  // NOTE: text changes are handled as C1/C2 regardless of isComposing
+  // only selection needs to be accurate (IME intermediate state is also reflected in model)
 
-  // C1: 단일 inline-text 내부의 순수 텍스트 변경
+  // C1: Pure text change within single inline-text
   const c1Result = classifyC1(mutations, options);
   if (c1Result) {
     console.log('[DomChangeClassifier] classifyDomChange: C1 detected', c1Result);
     return c1Result;
   }
 
-  // C2: 여러 inline-text에 걸친 텍스트 변경
+  // C2: Text change across multiple inline-text
   const c2Result = classifyC2(mutations, options);
   if (c2Result) {
     console.log('[DomChangeClassifier] classifyDomChange: C2 detected', c2Result);
     return c2Result;
   }
 
-  // C3: 블록 구조 변경
+  // C3: Block structure change
   const c3Result = classifyC3(mutations, options);
   if (c3Result) {
     console.log('[DomChangeClassifier] classifyDomChange: C3 detected', c3Result);
     return c3Result;
   }
 
-  // C4: 마크/스타일/데코레이터 변경
+  // C4: Mark/style/decorator change
   const c4Result = classifyC4(mutations, options);
   if (c4Result) {
     console.log('[DomChangeClassifier] classifyDomChange: C4 detected', c4Result);
     return c4Result;
   }
 
-  // 알 수 없는 변경
+  // Unknown change
   console.warn('[DomChangeClassifier] classifyDomChange: UNKNOWN', { mutations });
   return {
     case: 'UNKNOWN',
@@ -131,12 +131,12 @@ export function classifyDomChange(
 }
 
 /**
- * C1: 단일 inline-text 내부의 순수 텍스트 변경 분류
+ * C1: Classify pure text change within single inline-text
  * 
- * 감지 기준:
- * - 한 개의 inline-text 노드 안에서 텍스트만 변경됨
- * - mark wrapper / 스타일 / childList 여부는 무시하고, sid 기준 전체 텍스트만 비교
- * - block-level 요소(p, div, li 등)의 추가/삭제가 없을 것
+ * Detection criteria:
+ * - Only text changed within a single inline-text node
+ * - Ignore mark wrapper / style / childList, compare only sid-based full text
+ * - No addition/deletion of block-level elements (p, div, li, etc.)
  */
 function classifyC1(
   mutations: MutationRecord[],
@@ -144,13 +144,13 @@ function classifyC1(
 ): ClassifiedChange | null {
   console.log('[DomChangeClassifier] classifyC1: CHECKING');
 
-  // 1. 모든 mutation 에 대해, 가장 가까운 inline-text 노드를 찾는다.
-  //    - characterData/childList/attributes 를 가리지 않고 sid 기준으로만 본다.
+  // 1. For all mutations, find closest inline-text node.
+  //    - Don't distinguish characterData/childList/attributes, only look by sid.
   for (const mutation of mutations) {
     const target = mutation.target;
     const inlineTextNode = findClosestInlineTextNode(target);
     if (!inlineTextNode) {
-      // 이 mutation 에서는 inline-text 를 찾지 못했으므로 다음 mutation 으로
+      // Couldn't find inline-text in this mutation, so move to next mutation
       continue;
     }
 
@@ -159,14 +159,14 @@ function classifyC1(
       continue;
     }
 
-    // 모델 노드 확인
+    // Check model node
     const modelNode = options.editor.dataStore?.getNode?.(nodeId);
     if (!modelNode || modelNode.stype !== 'inline-text') {
       console.log('[DomChangeClassifier] classifyC1: SKIP - not inline-text node', { nodeId, stype: modelNode?.stype });
       continue;
     }
 
-    // 2. block-level 구조 변경이 섞여 있는지 가볍게 필터링
+    // 2. Lightly filter if block-level structure changes are mixed in
     if (mutation.type === 'childList') {
       const addedOrRemovedNodes = [
         ...Array.from(mutation.addedNodes || []),
@@ -179,17 +179,17 @@ function classifyC1(
         return ['p', 'div', 'li', 'ul', 'ol', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote'].includes(tag);
       });
       if (hasBlockLikeElement) {
-        // block 구조가 섞여 있으면 C1 이 아니라 C3 후보이므로 패스
+        // If block structure is mixed in, it's a C3 candidate, not C1, so skip
         console.log('[DomChangeClassifier] classifyC1: SKIP - block-like element in childList');
         continue;
       }
     }
 
-    // 3. 모델에서 prevText 가져오기 (sid 기준 전체 텍스트)
+    // 3. Get prevText from model (sid-based full text)
     const prevText = modelNode.text || '';
     
-    // 4. DOM에서 newText 재구성 (sid 기준 전체 텍스트)
-    //    mark/decorator 로 인해 여러 text node 로 분리될 수 있으므로, sid 기준으로 전부 합친다.
+    // 4. Reconstruct newText from DOM (sid-based full text)
+    //    May be split into multiple text nodes due to mark/decorator, so combine all by sid.
     const newText = reconstructModelTextFromDOM(inlineTextNode);
 
     console.log('[DomChangeClassifier] classifyC1: FOUND', {
@@ -200,14 +200,14 @@ function classifyC1(
       newTextLength: newText.length
     });
 
-    // 5. contentRange 계산
-    //    - InputHint 가 있으면 사용
-    //    - 없으면 handleC1 에서 analyzeTextChanges 로 정확한 범위 계산
+    // 5. Calculate contentRange
+    //    - Use if InputHint exists
+    //    - Otherwise, calculate accurate range with analyzeTextChanges in handleC1
     let startOffset: number | undefined = undefined;
     let endOffset: number | undefined = undefined;
     let usedInputHint = false;
 
-    // beforeinput 에서 수집한 Insert Range 힌트가 있으면 보정
+    // Correct if Insert Range hint collected from beforeinput exists
     const hint = options.inputHint;
     if (hint && hint.contentRange.startNodeId === nodeId && hint.contentRange.endNodeId === nodeId) {
       const hintedStart = Math.max(0, Math.min(prevText.length, hint.contentRange.startOffset));
@@ -222,8 +222,8 @@ function classifyC1(
         inputType: hint.inputType
       });
     } else {
-      // InputHint가 없으면 contentRange를 설정하지 않음
-      // handleC1에서 analyzeTextChanges를 사용하여 정확한 범위 계산
+      // If InputHint is missing, don't set contentRange
+      // Calculate accurate range using analyzeTextChanges in handleC1
       console.log('[DomChangeClassifier] classifyC1: no InputHint, contentRange will be calculated by analyzeTextChanges');
     }
 
@@ -232,7 +232,7 @@ function classifyC1(
       nodeId,
       prevText,
       newText,
-      // InputHint가 있을 때만 contentRange 설정, 없으면 undefined
+      // Set contentRange only when InputHint exists, undefined otherwise
       contentRange: startOffset !== undefined && endOffset !== undefined ? {
         startNodeId: nodeId,
         startOffset,
@@ -248,11 +248,11 @@ function classifyC1(
 }
 
 /**
- * C2: 여러 inline-text에 걸친 텍스트 변경 분류
+ * C2: Classify text change across multiple inline-text
  * 
- * 감지 기준:
- * - 연속 인라인 영역의 childList + characterData 패턴
- * - selection 기반 contentRange + 평탄화된 newText 생성
+ * Detection criteria:
+ * - childList + characterData pattern in consecutive inline area
+ * - Generate selection-based contentRange + flattened newText
  */
 function classifyC2(
   mutations: MutationRecord[],
@@ -260,7 +260,7 @@ function classifyC2(
 ): ClassifiedChange | null {
   console.log('[DomChangeClassifier] classifyC2: CHECKING');
 
-  // childList와 characterData가 함께 있는지 확인
+  // Check if childList and characterData are present together
   const hasChildList = mutations.some(m => m.type === 'childList');
   const hasCharacterData = mutations.some(m => m.type === 'characterData');
 
@@ -269,7 +269,7 @@ function classifyC2(
     return null;
   }
 
-  // selection이 필요함 (여러 노드에 걸친 범위를 알기 위해)
+  // Selection is needed (to know range across multiple nodes)
   if (!options.selection || options.selection.rangeCount === 0) {
     console.log('[DomChangeClassifier] classifyC2: SKIP - no selection');
     return null;
@@ -277,7 +277,7 @@ function classifyC2(
 
   const range = options.selection.getRangeAt(0);
   
-  // selection의 시작/끝 노드에서 inline-text 찾기
+  // Find inline-text from selection's start/end nodes
   const startInlineText = findClosestInlineTextNode(range.startContainer);
   const endInlineText = findClosestInlineTextNode(range.endContainer);
 
@@ -294,7 +294,7 @@ function classifyC2(
     return null;
   }
 
-  // 모델 노드 확인
+  // Check model nodes
   const startModelNode = options.editor.dataStore?.getNode?.(startNodeId);
   const endModelNode = options.editor.dataStore?.getNode?.(endNodeId);
 
@@ -307,13 +307,13 @@ function classifyC2(
     return null;
   }
 
-  // 같은 노드인 경우 C1로 처리
+  // If same node, handle as C1
   if (startNodeId === endNodeId) {
     console.log('[DomChangeClassifier] classifyC2: SKIP - same node (should be C1)');
     return null;
   }
 
-  // block-level 변경이 있는지 확인 (C3일 수 있음)
+  // Check if block-level change exists (may be C3)
   const hasBlockLevelChange = mutations.some(m => {
     if (m.type !== 'childList') return false;
     const target = m.target as Element;
@@ -330,25 +330,25 @@ function classifyC2(
     return null;
   }
 
-  // selection 범위의 평탄화된 텍스트 추출
-  // DOM selection의 범위를 추출하여 하나의 문자열로 만듦
+  // Extract flattened text from selection range
+  // Extract DOM selection range and make it a single string
   const flatText = extractFlatTextFromSelection(range);
   
-  // 모델에서 이전 텍스트 추출 (selection 범위)
-  // 여러 노드에 걸친 범위의 모델 텍스트 추출
+  // Extract previous text from model (selection range)
+  // Extract model text for range across multiple nodes
   let prevText = '';
   if (options.editor.dataStore) {
-    // contentRange는 나중에 계산되므로, 임시로 startNodeId와 endNodeId 사용
+    // contentRange is calculated later, so use startNodeId and endNodeId temporarily
     const tempRange = {
       startNodeId,
-      startOffset: 0, // 임시, 나중에 정확한 offset으로 업데이트
+      startOffset: 0, // Temporary, will update with accurate offset later
       endNodeId,
-      endOffset: endModelNode.text?.length || 0 // 임시
+      endOffset: endModelNode.text?.length || 0 // Temporary
     };
     prevText = extractModelTextFromRange(options.editor.dataStore, tempRange);
   }
   
-  // fallback: 추출 실패 시 첫 번째 노드의 텍스트만 사용
+  // fallback: if extraction fails, use only first node's text
   if (!prevText) {
     prevText = startModelNode.text || '';
   }
@@ -361,8 +361,8 @@ function classifyC2(
     flatTextPreview: flatText.slice(0, 50)
   });
 
-  // contentRange 계산
-  // 1순위: InputHint, 2순위: 모델 selection, 3순위: DOM selection 기반 계산
+  // Calculate contentRange
+  // Priority 1: InputHint, Priority 2: model selection, Priority 3: DOM selection-based calculation
   let startOffset = 0;
   let endOffset = 0;
   let usedInputHint = false;
@@ -371,7 +371,7 @@ function classifyC2(
   if (hint &&
       hint.contentRange.startNodeId === startNodeId &&
       hint.contentRange.endNodeId === endNodeId) {
-    // InputHint를 우선 사용
+    // Use InputHint first
     startOffset = hint.contentRange.startOffset;
     endOffset = hint.contentRange.endOffset;
     usedInputHint = true;
@@ -382,18 +382,18 @@ function classifyC2(
       endOffset
     });
   } else if (options.modelSelection) {
-    // 모델 selection을 사용하여 정확한 offset 계산
+    // Calculate accurate offset using model selection
     if (options.modelSelection.startNodeId === startNodeId) {
       startOffset = options.modelSelection.startOffset;
     } else {
-      // 시작 노드가 다르면 0부터 시작
+      // If start node is different, start from 0
       startOffset = 0;
     }
     
     if (options.modelSelection.endNodeId === endNodeId) {
       endOffset = options.modelSelection.endOffset;
     } else {
-      // 끝 노드가 다르면 끝 노드의 전체 길이
+      // If end node is different, use full length of end node
       endOffset = endModelNode.text?.length || 0;
     }
     
@@ -402,20 +402,20 @@ function classifyC2(
       calculatedOffsets: { startOffset, endOffset }
     });
   } else {
-    // DOM selection 기반으로 offset 계산 (fallback)
+    // Calculate offset based on DOM selection (fallback)
     // 
-    // TODO: DOM offset을 모델 offset으로 정확히 변환하는 로직 필요
+    // TODO: Need logic to accurately convert DOM offset to model offset
     // 
-    // 현재 제한사항:
-    // - 단일 노드 내에서만 정확한 변환 가능 (convertDOMOffsetToModelOffset 사용)
-    // - 여러 노드에 걸친 범위는 정확한 변환 어려움
+    // Current limitations:
+    // - Accurate conversion only possible within single node (use convertDOMOffsetToModelOffset)
+    // - Accurate conversion difficult for ranges across multiple nodes
     // 
-    // 향후 개선 방향:
-    // 1. range.startContainer와 range.endContainer를 각각 inline-text 노드로 변환
-    // 2. 각 노드 내부에서 convertDOMOffsetToModelOffset 사용
-    // 3. 중간 노드들의 텍스트 길이를 합산하여 정확한 offset 계산
+    // Future improvement direction:
+    // 1. Convert range.startContainer and range.endContainer to inline-text nodes respectively
+    // 2. Use convertDOMOffsetToModelOffset within each node
+    // 3. Sum text lengths of intermediate nodes to calculate accurate offset
     // 
-    // 현재는 간단히 0과 끝 노드 길이 사용 (부정확하지만 fallback)
+    // Currently use 0 and end node length simply (inaccurate but fallback)
     startOffset = 0;
     endOffset = endModelNode.text?.length || 0;
     
@@ -428,7 +428,7 @@ function classifyC2(
     });
   }
   
-  // prevText 재계산 (정확한 offset 사용)
+  // Recalculate prevText (using accurate offset)
   if (options.editor.dataStore && startOffset !== undefined && endOffset !== undefined) {
     const accurateRange = {
       startNodeId,
@@ -444,7 +444,7 @@ function classifyC2(
 
   return {
     case: 'C2',
-    nodeId: startNodeId, // 주 노드 (나중에 확장 가능)
+    nodeId: startNodeId, // Primary node (can be extended later)
     prevText,
     newText: flatText,
     contentRange: {
@@ -500,13 +500,13 @@ function classifyC3(
 ): ClassifiedChange | null {
   console.log('[DomChangeClassifier] classifyC3: CHECKING');
 
-  // block-level childList 변화 확인
+  // Check for block-level childList changes
   const blockLevelMutations: MutationRecord[] = [];
   
   for (const mutation of mutations) {
     if (mutation.type !== 'childList') continue;
     
-    // block 노드의 childList 변경인지 확인
+    // Check if it's a childList change of block node
     const target = mutation.target as Element;
     const sid = target.getAttribute('data-bc-sid');
     if (!sid) continue;
@@ -514,7 +514,7 @@ function classifyC3(
     const modelNode = options.editor.dataStore?.getNode?.(sid);
     if (!modelNode) continue;
 
-    // block 타입인지 확인 (paragraph, heading, list 등)
+    // Check if block type (paragraph, heading, list, etc.)
     const blockTypes = ['paragraph', 'heading', 'list', 'list-item', 'blockquote', 'code-block'];
     if (blockTypes.includes(modelNode.stype)) {
       blockLevelMutations.push(mutation);
@@ -526,8 +526,8 @@ function classifyC3(
     return null;
   }
 
-  // 구조 변경 패턴 분석
-  // 예: paragraph가 둘로 나뉘었는지, 병합되었는지 등
+  // Analyze structure change pattern
+  // e.g., whether paragraph was split into two, merged, etc.
   const pattern = analyzeBlockStructureChange(blockLevelMutations, options);
   
   if (!pattern) {
@@ -546,32 +546,32 @@ function classifyC3(
     metadata: {
       pattern: pattern.type,
       affectedNodeIds: pattern.affectedNodeIds,
-      command: pattern.command // 가능한 command (예: 'insertParagraph', 'mergeBlock')
+      command: pattern.command // Possible command (e.g., 'insertParagraph', 'mergeBlock')
     }
   };
 }
 
 /**
- * 블록 구조 변경 패턴 분석
+ * Block structure change pattern analysis
  */
 interface BlockStructurePattern {
   type: 'split' | 'merge' | 'insert' | 'delete' | 'unknown';
   affectedNodeIds: string[];
-  command?: string; // 가능한 command
+  command?: string; // Possible command
 }
 
 function analyzeBlockStructureChange(
   mutations: MutationRecord[],
   options: ClassifyOptions
 ): BlockStructurePattern | null {
-  // 간단한 패턴 분석
-  // TODO: 더 정교한 패턴 분석 구현 필요
+  // Simple pattern analysis
+  // TODO: Need to implement more sophisticated pattern analysis
   
   for (const mutation of mutations) {
     const addedNodes = Array.from(mutation.addedNodes);
     const removedNodes = Array.from(mutation.removedNodes);
     
-    // block 노드가 추가되었는지 확인
+    // Check if block node was added
     const addedBlocks = addedNodes.filter(node => {
       if (node.nodeType !== Node.ELEMENT_NODE) return false;
       const el = node as Element;
@@ -583,7 +583,7 @@ function analyzeBlockStructureChange(
       return blockTypes.includes(modelNode.stype);
     });
 
-    // block 노드가 제거되었는지 확인
+    // Check if block node was removed
     const removedBlocks = removedNodes.filter(node => {
       if (node.nodeType !== Node.ELEMENT_NODE) return false;
       const el = node as Element;
@@ -611,14 +611,14 @@ function analyzeBlockStructureChange(
       if (sid) affectedNodeIds.push(sid);
     });
 
-    // 패턴 판정
+    // Pattern determination
     if (addedBlocks.length > 0 && removedBlocks.length === 0) {
-      // block이 추가됨 (split 또는 insert)
+      // Block added (split or insert)
       if (addedBlocks.length === 1) {
         return {
           type: 'split',
           affectedNodeIds,
-          command: 'insertParagraph' // 추정
+          command: 'insertParagraph' // Estimated
         };
       }
       return {
@@ -626,13 +626,13 @@ function analyzeBlockStructureChange(
         affectedNodeIds
       };
     } else if (removedBlocks.length > 0 && addedBlocks.length === 0) {
-      // block이 제거됨 (merge 또는 delete)
+      // Block removed (merge or delete)
       return {
         type: 'merge',
         affectedNodeIds
       };
     } else if (addedBlocks.length > 0 && removedBlocks.length > 0) {
-      // block이 교체됨
+      // Block replaced
       return {
         type: 'unknown',
         affectedNodeIds
@@ -662,33 +662,33 @@ function classifyC4(
 ): ClassifiedChange | null {
   console.log('[DomChangeClassifier] classifyC4: CHECKING');
 
-  // attributes 변경 확인 (스타일 변경)
+  // Check attributes changes (style changes)
   const attributeMutations = mutations.filter(m => m.type === 'attributes');
   const childListMutations = mutations.filter(m => m.type === 'childList');
 
-  // 인라인 스타일/태그 변경 감지
+  // Detect inline style/tag changes
   const markChanges: Array<{
     nodeId: string;
     markType: string;
     range?: [number, number];
   }> = [];
 
-  // attributes 변경에서 스타일/태그 변경 감지
+  // Detect style/tag changes from attributes changes
   for (const mutation of attributeMutations) {
     const target = mutation.target as Element;
     if (target.nodeType !== Node.ELEMENT_NODE) continue;
 
-    // data-bc-sid가 있는 노드인지 확인 (우리가 관리하는 노드)
+    // Check if node has data-bc-sid (nodes we manage)
     const sid = target.getAttribute('data-bc-sid');
     if (sid) {
-      // 우리가 관리하는 노드의 속성 변경은 무시 (정규화된 구조)
+      // Ignore attribute changes on nodes we manage (normalized structure)
       continue;
     }
 
-    // 브라우저가 추가한 스타일/태그인지 확인
+    // Check if style/tag added by browser
     const markType = detectMarkFromElement(target);
     if (markType) {
-      // 상위 inline-text 노드 찾기
+      // Find parent inline-text node
       const inlineTextNode = findClosestInlineTextNode(target);
       if (inlineTextNode) {
         const nodeId = inlineTextNode.getAttribute('data-bc-sid');
@@ -702,12 +702,12 @@ function classifyC4(
     }
   }
 
-  // childList 변경에서 mark 태그 추가/제거 감지
+  // Detect mark tag add/remove from childList changes
   for (const mutation of childListMutations) {
     const addedNodes = Array.from(mutation.addedNodes);
     const removedNodes = Array.from(mutation.removedNodes);
 
-    // 추가된 노드에서 mark 태그 확인
+    // Check mark tags in added nodes
     for (const node of addedNodes) {
       if (node.nodeType !== Node.ELEMENT_NODE) continue;
       const el = node as Element;
@@ -726,7 +726,7 @@ function classifyC4(
       }
     }
 
-    // 제거된 노드에서 mark 태그 확인
+    // Check mark tags in removed nodes
     for (const node of removedNodes) {
       if (node.nodeType !== Node.ELEMENT_NODE) continue;
       const el = node as Element;
@@ -756,7 +756,7 @@ function classifyC4(
     markChanges
   });
 
-  // 자동 교정/스마트 인용/자동 링크 등 특수 케이스 확인
+  // Check special cases like auto-correction, smart quotes, auto-link, etc.
   const specialCase = detectSpecialCase(mutations, options);
   
   return {
@@ -770,13 +770,13 @@ function classifyC4(
 }
 
 /**
- * 요소에서 mark 타입 감지
- * <b>, <strong>, <i>, <em>, <u>, style 속성 등에서 mark 추출
+ * Detect mark type from element
+ * Extract mark from <b>, <strong>, <i>, <em>, <u>, style attribute, etc.
  */
 function detectMarkFromElement(element: Element): string | null {
   const tagName = element.tagName.toLowerCase();
   
-  // 태그 기반 mark 감지
+  // Tag-based mark detection
   const tagMarkMap: Record<string, string> = {
     'b': 'bold',
     'strong': 'bold',
@@ -794,7 +794,7 @@ function detectMarkFromElement(element: Element): string | null {
     return tagMarkMap[tagName];
   }
 
-  // style 속성 기반 mark 감지
+  // Style attribute-based mark detection
   const style = element.getAttribute('style');
   if (style) {
     if (style.includes('font-weight') && (style.includes('bold') || style.includes('700'))) {
@@ -815,23 +815,23 @@ function detectMarkFromElement(element: Element): string | null {
 }
 
 /**
- * 특수 케이스 감지 (자동 교정, 스마트 인용, 자동 링크, DnD 등)
+ * Detect special cases (auto-correction, smart quotes, auto-link, DnD, etc.)
  */
 function detectSpecialCase(
   mutations: MutationRecord[],
   options: ClassifyOptions
 ): DomChangeCase | null {
-  // TODO: 특수 케이스 감지 로직 구현
-  // - 자동 교정: 특정 클래스나 속성 패턴
-  // - 스마트 인용: 특수 문자 패턴
-  // - 자동 링크: <a> 태그 자동 생성
-  // - DnD: drag/drop 관련 속성
+  // TODO: Implement special case detection logic
+  // - Auto-correction: specific class or attribute patterns
+  // - Smart quotes: special character patterns
+  // - Auto-link: automatic <a> tag generation
+  // - DnD: drag/drop related attributes
   
-  return null; // 기본 C4
+  return null; // Default C4
 }
 
 /**
- * 상위 체인에서 가장 가까운 inline-text 노드 찾기
+ * Find closest inline-text node in parent chain
  */
 function findClosestInlineTextNode(node: Node): Element | null {
   let current: Node | null = node;
@@ -841,7 +841,7 @@ function findClosestInlineTextNode(node: Node): Element | null {
       const element = current as Element;
       const sid = element.getAttribute('data-bc-sid');
       if (sid) {
-        // 모델 노드 확인은 호출자에서 수행
+        // Model node verification is performed by caller
         return element;
       }
     }

@@ -27,7 +27,7 @@ describe('indentText operation (exec)', () => {
   });
 
   it('indents lines in a single node range (default two spaces)', async () => {
-    // 노드를 트리에 연결 (부모 필요)
+    // Connect node to tree (parent required)
     const rootId = 'root';
     dataStore.setNode({ sid: rootId, stype: 'document', content: ['t1'] });
     dataStore.setNode({ sid: 't1', stype: 'inline-text', text: 'A\nB', parentId: rootId });
@@ -35,8 +35,8 @@ describe('indentText operation (exec)', () => {
     const res = await op!.execute({ type: 'indentText', payload: { nodeId: 't1', start: 0, end: 3 } } as any, context);
     expect(res.ok).toBe(true);
     expect(typeof res.data).toBe('string');
-    // range.indent는 각 줄 앞에 indent를 추가하므로 '  A\n  B'가 되어야 함
-    // range.indent는 transformed 텍스트를 반환함
+    // range.indent adds indent before each line, so should be '  A\n  B'
+    // range.indent returns transformed text
     expect(res.data).toBe('  A\n  B');
   });
 

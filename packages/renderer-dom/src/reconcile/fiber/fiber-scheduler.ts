@@ -3,11 +3,11 @@ import { FiberNode, FiberPriority, FiberWorkStatus, EffectTag } from './types';
 /**
  * Fiber Scheduler
  * 
- * Fiber 작업을 작은 단위로 나눠서 처리하고, 브라우저가 다른 작업을 처리할 수 있도록 yield
+ * Break Fiber work into small units and yield so browser can handle other work
  */
 /**
- * Fiber reconcile 함수 타입
- * 실제 reconcile 로직을 수행하는 함수
+ * Fiber reconcile function type
+ * Function that performs actual reconcile logic
  */
 export type FiberReconcileFunction = (
   fiber: FiberNode
@@ -19,83 +19,83 @@ export class FiberScheduler {
   private reconcileFunction: FiberReconcileFunction;
   private onCompleteCallback: (() => void) | null = null;
   
-  // 시간 제한 (5ms마다 yield)
+  // Time limit (yield every 5ms)
   private timeSlice = 5; // milliseconds
   
-  // 작업 상태
+  // Work status
   private workStatus: FiberWorkStatus = FiberWorkStatus.Pending;
   
-  // 동기 모드 (테스트 환경에서 사용)
+  // Sync mode (used in test environment)
   private syncMode: boolean = false;
   
   constructor(reconcileFunction: FiberReconcileFunction, onComplete?: () => void) {
     this.reconcileFunction = reconcileFunction;
     this.onCompleteCallback = onComplete || null;
     
-    // 테스트 환경 감지: 자동으로 동기 모드 활성화
+    // Detect test environment: automatically enable sync mode
     this.syncMode = this.detectTestEnvironment();
   }
   
   /**
-   * 테스트 환경 감지
+   * Detect test environment
    */
   private detectTestEnvironment(): boolean {
-    // Vitest 환경 변수 확인
+    // Check Vitest environment variables
     if (typeof process !== 'undefined') {
-      // VITEST 환경 변수 (vitest가 자동으로 설정)
+      // VITEST environment variable (automatically set by vitest)
       if (process.env.VITEST === 'true' || process.env.VITEST === '1') {
         return true;
       }
-      // NODE_ENV가 test인 경우
+      // If NODE_ENV is test
       if (process.env.NODE_ENV === 'test') {
         return true;
       }
-      // CI 환경에서도 테스트로 간주할 수 있지만, 여기서는 명시적으로만
+      // Can also consider CI environment as test, but only explicitly here
     }
     
-    // globalThis에 vitest가 있는지 확인
+    // Check if vitest exists in globalThis
     if (typeof globalThis !== 'undefined') {
       if ((globalThis as any).vitest) {
         return true;
       }
-      // vitest/globals가 활성화된 경우
+      // If vitest/globals is enabled
       if ((globalThis as any).__vitest__) {
         return true;
       }
     }
     
-    // import.meta.vitest 확인 (ESM 환경)
+    // Check import.meta.vitest (ESM environment)
     try {
-      // @ts-ignore - import.meta는 ESM 환경에서만 사용 가능
+      // @ts-ignore - import.meta is only available in ESM environment
       if (typeof import.meta !== 'undefined' && (import.meta as any).vitest) {
         return true;
       }
     } catch {
-      // import.meta가 없는 환경 (Node.js CJS 등)
+      // Environment without import.meta (Node.js CJS, etc.)
     }
     
     return false;
   }
   
   /**
-   * 동기 모드 설정 (명시적으로 제어하려는 경우)
+   * Set sync mode (when explicitly controlling)
    */
   setSyncMode(enabled: boolean): void {
     this.syncMode = enabled;
   }
   
   /**
-   * 동기 모드 여부 확인
+   * Check if sync mode is enabled
    */
   isSyncMode(): boolean {
     return this.syncMode;
   }
   
   /**
-   * Fiber 작업 시작
+   * Start Fiber work
    * 
-   * @param rootFiber - 루트 Fiber Node
-   * @param priority - 작업 우선순위
+   * @param rootFiber - Root Fiber Node
+   * @param priority - Work priority
    */
   scheduleWork(rootFiber: FiberNode, priority: FiberPriority = FiberPriority.Normal): void {
     this.nextUnitOfWork = rootFiber;
@@ -108,49 +108,49 @@ export class FiberScheduler {
    * 작은 단위로 작업을 처리하고 yield
    */
   private workLoop(priority: FiberPriority): void {
-    // 동기 모드: 모든 작업을 한 번에 처리
+    // Synchronous mode: process all work at once
     if (this.syncMode) {
       while (this.nextUnitOfWork) {
         this.nextUnitOfWork = this.performUnitOfWork(this.nextUnitOfWork);
       }
-      // 모든 작업 완료
+      // All work completed
       this.workStatus = FiberWorkStatus.Completed;
       this.commitWork();
-      // 완료 콜백 호출
+      // Call completion callback
       if (this.onCompleteCallback) {
         this.onCompleteCallback();
       }
       return;
     }
     
-    // 비동기 모드: 작은 단위로 나눠서 처리 (기존 로직)
+    // Asynchronous mode: process in small units (existing logic)
     const startTime = performance.now();
     
-    // 우선순위에 따라 timeSlice 조정
+    // Adjust timeSlice according to priority
     const timeLimit = this.getTimeSliceForPriority(priority);
     
     while (this.nextUnitOfWork && this.shouldYield(startTime, timeLimit)) {
-      // 단위 작업 수행
+      // Perform unit work
       this.nextUnitOfWork = this.performUnitOfWork(this.nextUnitOfWork);
     }
     
-    // 아직 작업이 남아있으면 다음 프레임에서 계속
+    // Continue in next frame if work remains
     if (this.nextUnitOfWork) {
-      // requestIdleCallback 사용 (브라우저가 유휴 시간에 처리)
+      // Use requestIdleCallback (browser processes during idle time)
       if (typeof requestIdleCallback !== 'undefined') {
         requestIdleCallback(
           () => this.workLoop(priority),
           { timeout: 5 }
         );
       } else {
-        // requestIdleCallback이 없으면 requestAnimationFrame 사용
+        // Use requestAnimationFrame if requestIdleCallback is not available
         requestAnimationFrame(() => this.workLoop(priority));
       }
     } else {
-      // 모든 작업 완료
+      // All work completed
       this.workStatus = FiberWorkStatus.Completed;
       this.commitWork();
-      // 완료 콜백 호출
+      // Call completion callback
       if (this.onCompleteCallback) {
         this.onCompleteCallback();
       }
@@ -158,12 +158,12 @@ export class FiberScheduler {
   }
   
   /**
-   * 우선순위에 따른 timeSlice 반환
+   * Return timeSlice according to priority
    */
   private getTimeSliceForPriority(priority: FiberPriority): number {
     switch (priority) {
       case FiberPriority.Immediate:
-        return 10; // 즉시 처리 (더 긴 시간 할당)
+        return 10; // Immediate processing (allocate longer time)
       case FiberPriority.High:
         return 8;
       case FiberPriority.Normal:
@@ -185,27 +185,27 @@ export class FiberScheduler {
   }
   
   /**
-   * 단위 작업 수행
-   * 하나의 Fiber를 reconcile하고 다음 Fiber 반환
+   * Perform unit work
+   * Reconcile one Fiber and return next Fiber
    */
   protected performUnitOfWork(fiber: FiberNode): FiberNode | null {
-    // 1. 현재 Fiber reconcile
+    // 1. Reconcile current Fiber
     this.reconcileFiber(fiber);
     
-    // 2. 자식이 있으면 자식 반환 (다음 작업)
+    // 2. Return child if exists (next work)
     if (fiber.child) {
       return fiber.child;
     }
     
-    // 3. 형제가 있으면 형제 반환
+    // 3. Return sibling if exists
     if (fiber.sibling) {
       return fiber.sibling;
     }
     
-    // 4. 부모로 돌아가서 형제 찾기
-    // IMPORTANT: 부모로 돌아갈 때, 부모의 모든 자식이 처리되었으므로
-    // 부모의 후처리(primitive text, stale decorator 제거)를 수행해야 함
-    // 이를 위해 부모에 대해 fiberReconcile을 다시 호출
+    // 4. Go back to parent and find sibling
+    // IMPORTANT: When going back to parent, all children of parent have been processed,
+    // so must perform parent's post-processing (remove primitive text, stale decorator)
+    // To do this, call fiberReconcile again on parent
     let nextFiber = fiber.return;
     while (nextFiber) {
       // 부모로 돌아갈 때, 부모의 자식이 모두 처리되었으므로

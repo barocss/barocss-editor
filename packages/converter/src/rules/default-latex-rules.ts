@@ -1,9 +1,9 @@
 import { defineDocumentParser, defineASTConverter, defineConverter } from '../api';
 
 /**
- * 기본 LaTeX 변환 규칙 등록
+ * Register default LaTeX conversion rules
  *
- * \section, \subsection, 기본 문단 정도만 다룹니다.
+ * Only handles \section, \subsection, and basic paragraphs.
  */
 export function registerDefaultLatexRules(): void {
   // === Document Parser (LaTeX → AST) ===
@@ -63,7 +63,7 @@ export function registerDefaultLatexRules(): void {
     }
   });
 
-  // === AST → Model 변환 규칙 ===
+  // === AST → Model conversion rules ===
   defineASTConverter('heading', 'latex', {
     convert(astNode: any): any | null {
       if (astNode.type === 'heading') {
@@ -99,7 +99,7 @@ export function registerDefaultLatexRules(): void {
     }
   });
 
-  // === Model → LaTeX 변환 규칙 ===
+  // === Model → LaTeX Conversion Rules ===
   defineConverter('heading', 'latex', {
     convert: (node) => {
       const level = node.attributes?.level || 1;

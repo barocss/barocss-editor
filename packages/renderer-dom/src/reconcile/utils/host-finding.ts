@@ -28,16 +28,16 @@ export function findHostForChildVNode(
   
   // Strategy 1: Key-based matching (React's key prop)
   // VNode identifier (sid or data-decorator-sid from attrs) acts as key
-  // Domain 지식 없이 getVNodeId()로 통일된 ID만 비교
+  // Compare only unified ID with getVNodeId() without domain knowledge
   const vnodeId = getVNodeId(childVNode);
   if (vnodeId) {
-    // 인덱스 기반 매칭을 먼저 시도 (같은 인덱스의 prevChildVNode)
+    // Try index-based matching first (prevChildVNode at same index)
     if (childIndex < prevChildVNodes.length) {
       const prevChild = prevChildVNodes[childIndex];
       if (prevChild && typeof prevChild === 'object') {
         const prevChildVNode = prevChild as VNode;
         const prevId = getVNodeId(prevChildVNode);
-        // 같은 인덱스의 prevChildVNode가 같은 ID를 가지면 재사용
+        // Reuse if prevChildVNode at same index has same ID
         if (prevId === vnodeId) {
           if (prevChildVNode.meta?.domElement && prevChildVNode.meta.domElement instanceof HTMLElement) {
             host = prevChildVNode.meta.domElement;
@@ -51,8 +51,8 @@ export function findHostForChildVNode(
       }
     }
     
-    // Fallback: prevChildVNodes에서 같은 ID를 가진 VNode 찾기 (인덱스 기반)
-    // IMPORTANT: 같은 ID를 가진 여러 VNode가 있을 때, 인덱스에 가장 가까운 것을 선택
+    // Fallback: find VNode with same ID in prevChildVNodes (index-based)
+    // IMPORTANT: when multiple VNodes have same ID, select one closest to index
     if (!host) {
       let bestMatch: HTMLElement | null = null;
       let minIndexDiff = Infinity;
@@ -64,7 +64,7 @@ export function findHostForChildVNode(
         const prevId = getVNodeId(prevChildVNode);
         if (prevId !== vnodeId) continue;
         
-        // 인덱스 차이 계산
+        // Calculate index difference
         const indexDiff = Math.abs(i - childIndex);
         if (indexDiff < minIndexDiff) {
           minIndexDiff = indexDiff;
@@ -88,21 +88,21 @@ export function findHostForChildVNode(
     }
     
     // If not found from prevChildVNodes, try local search within parent
-    // IMPORTANT: prevChildVNodes가 없을 때는 같은 ID를 가진 요소를 찾지 않고,
-    // 항상 새로 생성해야 합니다 (같은 ID를 가진 여러 VNode가 있을 때 각각 다른 DOM 요소를 생성하기 위해)
-    // findChildHost는 prevVNode가 있을 때만 사용 (이미 매칭된 요소를 찾기 위해)
-    // prevChildVNodes가 없으면 findChildHost를 호출하지 않고 null을 반환하여 새로 생성하도록 함
+    // IMPORTANT: when prevChildVNodes is missing, don't search for elements with same ID,
+    // always create new (to create different DOM elements for each when multiple VNodes have same ID)
+    // findChildHost is only used when prevVNode exists (to find already matched elements)
+    // If prevChildVNodes is missing, don't call findChildHost and return null to create new
     if (!host && prevChildVNodes.length > 0) {
       host = findChildHost(parent, childVNode, childIndex);
     }
     
-    // 전역 검색 제거: React처럼 children 기준으로만 비교
-    // Cross-parent move는 새로 생성 (React 스타일)
+    // Remove global search: compare only based on children like React
+    // Cross-parent move creates new (React style)
   } else {
     // Strategy 2: Type-based matching + Index (React's type + index fallback)
     // Same tag at same index means same element
-    // Domain 지식 없이 구조적 속성만 확인
-    // ID가 있는 VNode는 이미 위에서 처리되었으므로, ID가 없는 경우만 구조적 매칭
+    // Check only structural properties without domain knowledge
+    // VNodes with ID are already processed above, so only structural matching for VNodes without ID
     if (!vnodeId) {
       const prevChild = prevChildVNodes[childIndex];
       if (prevChild && typeof prevChild === 'object') {
@@ -125,8 +125,8 @@ export function findHostForChildVNode(
     
     // Strategy 3: Index-based fallback (same tag at same index in DOM)
     // This is React's last resort when key is missing
-    // Domain 지식 없이 구조적 속성만 확인
-    // ID가 있는 VNode는 이미 위에서 처리되었으므로, ID가 없는 경우만 구조적 매칭
+    // Check only structural properties without domain knowledge
+    // VNodes with ID are already processed above, so only structural matching for VNodes without ID
     if (!host && childVNode.tag && !vnodeId) {
       host = findChildHost(parent, childVNode, childIndex);
     }
@@ -137,7 +137,7 @@ export function findHostForChildVNode(
 
 /**
  * Find host element in parent's children only (no global search)
- * React-style: children 기준으로만 비교
+ * React-style: compare only based on children
  * 
  * @param parent - Parent DOM element
  * @param vnode - VNode to find host for
@@ -153,20 +153,20 @@ export function findHostInParentChildren(
 ): HTMLElement | null {
   const vnodeId = getVNodeId(vnode);
   
-  // 1. prevVNode.children에서 같은 ID를 가진 VNode 찾기 (인덱스 기반)
-  // IMPORTANT: 같은 ID를 가진 여러 VNode가 있을 때, 인덱스에 가장 가까운 것을 선택
+  // 1. Find VNode with same ID in prevVNode.children (index-based)
+  // IMPORTANT: when multiple VNodes have same ID, select one closest to index
   if (prevVNode?.children && vnodeId) {
-    // 먼저 같은 인덱스의 prevChildVNode 확인
+    // First check prevChildVNode at same index
     if (childIndex < prevVNode.children.length) {
       const prevChild = prevVNode.children[childIndex];
       if (prevChild && typeof prevChild === 'object') {
         const prevChildVNode = prevChild as VNode;
         const prevId = getVNodeId(prevChildVNode);
-        // 같은 인덱스의 prevChildVNode가 같은 ID를 가지면 재사용
+        // Reuse if prevChildVNode at same index has same ID
         if (prevId === vnodeId) {
           if (prevChildVNode.meta?.domElement instanceof HTMLElement) {
             const domEl = prevChildVNode.meta.domElement;
-            // 현재 parent의 자식인지 확인
+            // Check if child of current parent
             if (domEl.parentElement === parent) {
               return domEl;
             }
@@ -175,7 +175,7 @@ export function findHostInParentChildren(
       }
     }
     
-    // Fallback: 인덱스에 가장 가까운 같은 ID를 가진 VNode 찾기
+    // Fallback: find VNode with same ID closest to index
     let bestMatch: HTMLElement | null = null;
     let minIndexDiff = Infinity;
     
@@ -187,9 +187,9 @@ export function findHostInParentChildren(
       if (prevId === vnodeId) {
         if (prevChildVNode.meta?.domElement instanceof HTMLElement) {
           const domEl = prevChildVNode.meta.domElement;
-          // 현재 parent의 자식인지 확인
+          // Check if child of current parent
           if (domEl.parentElement === parent) {
-            // 인덱스 차이 계산
+            // Calculate index difference
             const indexDiff = Math.abs(i - childIndex);
             if (indexDiff < minIndexDiff) {
               minIndexDiff = indexDiff;
@@ -205,10 +205,10 @@ export function findHostInParentChildren(
     }
   }
   
-  // 2. parent.children에서 같은 ID를 가진 요소 찾기 (인덱스 기반)
-  // IMPORTANT: prevVNode가 없을 때는 같은 ID를 가진 요소를 찾지 않고,
-  // 항상 새로 생성해야 합니다 (같은 ID를 가진 여러 VNode가 있을 때 각각 다른 DOM 요소를 생성하기 위해)
-  // prevVNode가 있을 때만 같은 ID를 가진 요소를 찾습니다 (이미 매칭된 요소를 찾기 위해)
+  // 2. Find element with same ID in parent.children (index-based)
+  // IMPORTANT: when prevVNode is missing, don't search for elements with same ID,
+  // always create new (to create different DOM elements for each when multiple VNodes have same ID)
+  // Only search for elements with same ID when prevVNode exists (to find already matched elements)
   if (vnodeId && prevVNode) {
     const children = Array.from(parent.children);
     let bestMatch: HTMLElement | null = null;
@@ -220,7 +220,7 @@ export function findHostInParentChildren(
       const childSid = childEl.getAttribute('data-bc-sid');
       const childDecoratorSid = childEl.getAttribute('data-decorator-sid');
       if (childSid === vnodeId || childDecoratorSid === vnodeId) {
-        // 인덱스 차이 계산
+        // Calculate index difference
         const indexDiff = Math.abs(i - childIndex);
         if (indexDiff < minIndexDiff) {
           minIndexDiff = indexDiff;
@@ -234,40 +234,40 @@ export function findHostInParentChildren(
     }
   }
   
-  // 3. prevVNode.children에서 구조적 매칭 (ID가 없는 경우)
-  // 인덱스만으로는 부족하므로 구조적 매칭 필요
+  // 3. Structural matching in prevVNode.children (when ID is missing)
+  // Index alone is insufficient, so structural matching is needed
   if (!vnodeId && prevVNode?.children) {
     const prevChildVNode = prevVNode.children.find(
       (c): c is VNode => {
         if (typeof c !== 'object' || c === null) return false;
-        // ID가 있는 VNode는 제외 (이미 위에서 처리됨)
+        // Exclude VNodes with ID (already processed above)
         if (getVNodeId(c)) return false;
-        // 태그가 같아야 함
+        // Tag must match
         if (c.tag !== vnode.tag) return false;
-        // 클래스 매칭 (구조적 매칭)
+        // Class matching (structural matching)
         if (vnode.attrs?.class || vnode.attrs?.className) {
           const vnodeClasses = normalizeClasses(vnode.attrs.class || vnode.attrs.className);
           const prevClasses = normalizeClasses(c.attrs?.class || c.attrs?.className);
           return vnodeClasses.every(cls => prevClasses.includes(cls));
         }
-        return true; // 클래스가 없으면 태그만으로 매칭
+        return true; // If no classes, match by tag only
       }
     );
     
     if (prevChildVNode?.meta?.domElement instanceof HTMLElement) {
       const domEl = prevChildVNode.meta.domElement;
-      // 현재 parent의 자식인지 확인
+      // Check if child of current parent
       if (domEl.parentElement === parent) {
         return domEl;
       }
     }
   }
   
-  // 4. 인덱스 기반 매칭 (fallback, ID가 없는 경우)
+  // 4. Index-based matching (fallback, when ID is missing)
   if (childIndex < parent.children.length) {
     const candidate = parent.children[childIndex] as HTMLElement;
     if (candidate && candidate.tagName.toLowerCase() === (vnode.tag || '').toLowerCase()) {
-      // 클래스 매칭 (구조적 매칭)
+      // Class matching (structural matching)
       if (vnode.attrs?.class || vnode.attrs?.className) {
         const vnodeClasses = normalizeClasses(vnode.attrs.class || vnode.attrs.className);
         const candidateClasses = candidate.className ? candidate.className.split(/\s+/).filter(Boolean) : [];

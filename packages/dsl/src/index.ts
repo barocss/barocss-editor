@@ -26,8 +26,8 @@ export {
   addMarkClassAttribute
 } from './template-builders';
 
-// Pattern decorator는 이제 EditorViewDOM에서 데이터로 관리됩니다.
-// 글로벌 레지스트리는 더 이상 사용하지 않습니다.
+// Pattern decorators are now managed as data in EditorViewDOM.
+// Global registry is no longer used.
 
 // Export types
 export type {

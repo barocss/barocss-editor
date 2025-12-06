@@ -1,12 +1,12 @@
 import { defineOperationDSL } from '../operations/define-operation-dsl';
 
 /**
- * outdentNode operation DSL (구조 내어쓰기)
+ * outdentNode operation DSL (structural outdent)
  *
- * 목적
- * - 지정된 노드를 한 단계 내어쓰기 한다. DataStore.outdentNode 사용.
+ * Purpose
+ * - Outdents the specified node one level. Uses DataStore.outdentNode.
  *
- * 입력 형태(DSL)
+ * Input format (DSL)
  * - control(nodeId, [ outdentNode() ]) → payload: {}
  * - outdentNode(nodeId) → payload: { nodeId }
  */
@@ -19,7 +19,7 @@ interface OutdentNodeOperation {
 export const outdentNode = defineOperationDSL(
   (...args: [] | [string]) => {
     if (args.length === 0) {
-      // control(nodeId, [ outdentNode() ]) 에서 nodeId 는 control 이 채워준다.
+      // In control(nodeId, [ outdentNode() ]), nodeId is filled by control
       return { type: 'outdentNode', payload: {} } as unknown as OutdentNodeOperation;
     }
     const [nodeId] = args as [string];

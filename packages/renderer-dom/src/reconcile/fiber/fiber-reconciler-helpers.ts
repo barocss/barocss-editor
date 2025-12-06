@@ -27,15 +27,15 @@ export function transferVNodeIdFromPrev(
   const prevVNodeId = getVNodeId(prevVNode);
   
   if (!vnodeId && prevVNodeId && prevVNode) {
-    // prevVNode에 ID가 있고, 같은 구조적 타입(stype)이면 ID 복사
-    // stype은 구조적 속성이므로 domain 지식이 아님
+    // If prevVNode has ID and same structural type (stype), copy ID
+    // stype is a structural property, not domain knowledge
     if (prevVNode.stype && prevVNode.stype === vnode.stype) {
-      // prevVNode의 ID를 vnode에 복사
-      // sid는 top-level에 복사
+      // Copy prevVNode's ID to vnode
+      // Copy sid to top-level
       if (prevVNode.sid) {
         vnode.sid = prevVNode.sid;
       } else if (prevVNode.attrs?.['data-decorator-sid']) {
-        // decorator 정보는 attrs에 저장되므로 attrs에 복사
+        // Decorator info is stored in attrs, so copy to attrs
         if (!vnode.attrs) vnode.attrs = {};
         vnode.attrs['data-decorator-sid'] = prevVNode.attrs['data-decorator-sid'];
       }
@@ -44,20 +44,20 @@ export function transferVNodeIdFromPrev(
 }
 
 /**
- * 자동 생성 sid가 필요한 경우, stype과 index를 사용하여 일관된 ID 생성
- * 같은 stype과 index를 가진 컴포넌트는 같은 instance를 공유
+ * Generate consistent ID using stype and index when auto-generated sid is needed
+ * Components with same stype and index share the same instance
  */
 export function generateVNodeIdIfNeeded(
   vnode: VNode,
   fiber: FiberNode,
   components: ComponentManager
 ): void {
-  // 이미 식별자가 있으면 아무것도 하지 않음
+  // Do nothing if identifier already exists
   if (getVNodeId(vnode)) {
     return;
   }
 
-  // 컴포넌트(stype)인 경우 ComponentManager 기반으로 sid 생성
+  // If component (stype), generate sid based on ComponentManager
   if (vnode.stype && components) {
     const componentManager = components as any;
     if (typeof componentManager.generateComponentId === 'function') {
@@ -69,7 +69,7 @@ export function generateVNodeIdIfNeeded(
     }
   }
 
-  // 일반 Host VNode(Text 제외)는 tag + index 기반으로 안정적 ID 생성
+  // Regular Host VNode (excluding Text) generate stable ID based on tag + index
   if (vnode.tag) {
     const parentId = getVNodeId(fiber.parentFiber?.vnode);
     const autoId = parentId
@@ -80,8 +80,8 @@ export function generateVNodeIdIfNeeded(
 }
 
 /**
- * prevVNode.meta.domElement에서 host 찾기
- * ID 기반 매칭 또는 구조적 매칭 (태그 + 클래스)
+ * Find host from prevVNode.meta.domElement
+ * ID-based matching or structural matching (tag + class)
  */
 export function findHostFromPrevVNode(
   vnode: VNode,
@@ -91,12 +91,12 @@ export function findHostFromPrevVNode(
     const vnodeId = getVNodeId(vnode);
     const prevVNodeId = getVNodeId(prevVNode);
     
-    // 같은 ID를 가진 경우 재사용
+    // Reuse if same ID
     if (vnodeId && prevVNodeId && vnodeId === prevVNodeId) {
       return prevVNode.meta.domElement;
     }
     
-    // ID가 없는 경우: 구조적 매칭 (태그 + 클래스)
+    // If no ID: structural matching (tag + class)
     if (!vnodeId && !prevVNodeId && vnode.tag === prevVNode.tag) {
       const vnodeClasses = normalizeClasses(vnode.attrs?.class || vnode.attrs?.className).sort();
       const prevClasses = normalizeClasses(prevVNode.attrs?.class || prevVNode.attrs?.className).sort();
@@ -141,9 +141,9 @@ export function updateExistingHost(
 ): void {
   const { dom, components } = deps;
   let prevChildVNode = findPrevChildVNode(vnode, index, prevChildVNodes);
-  // Domain 지식 없이 getVNodeId()로 ID 비교
+  // Compare IDs with getVNodeId() without domain knowledge
   if (!prevChildVNode && prevVNode && getVNodeId(prevVNode) === getVNodeId(vnode)) {
-    // prevVNode 자체가 현재 vnode와 매칭되는 경우 (root 레벨)
+    // When prevVNode itself matches current vnode (root level)
     prevChildVNode = prevVNode;
   }
   updateHostElement(
@@ -160,11 +160,11 @@ export function updateExistingHost(
 }
 
 /**
- * Host 찾기 또는 생성
+ * Find or create host
  * 
- * IMPORTANT: findHostForChildVNode와 findHostInParentChildren은 인덱스 기반으로 매칭하므로,
- * 같은 ID를 가진 여러 VNode가 있어도 각각 올바른 DOM 요소를 찾습니다.
- * 따라서 usedDomElements는 필요 없습니다.
+ * IMPORTANT: findHostForChildVNode and findHostInParentChildren match based on index,
+ * so even if multiple VNodes have the same ID, each finds the correct DOM element.
+ * Therefore, usedDomElements is not needed.
  */
 export function findOrCreateHost(
   fiber: FiberNode,
@@ -176,10 +176,10 @@ export function findOrCreateHost(
   const prevVNode = fiber.prevVNode;
   const parent = fiber.parent;
   
-  // 1. prevVNode.meta.domElement 확인
+  // 1. Check prevVNode.meta.domElement
   let host = findHostFromPrevVNode(vnode, prevVNode);
   
-  // 2. findHostForChildVNode로 찾기 (인덱스 기반 매칭)
+  // 2. Find with findHostForChildVNode (index-based matching)
   if (!host) {
     const prevChildVNodes = prevVNode?.children || [];
     const prevChildToElement = buildPrevChildToElementMap(prevChildVNodes);
@@ -192,17 +192,17 @@ export function findOrCreateHost(
     );
   }
   
-  // 3. findHostInParentChildren로 찾기 (인덱스 기반 매칭)
+  // 3. Find with findHostInParentChildren (index-based matching)
   if (!host) {
     host = findHostInParentChildren(parent, vnode, prevVNode, fiber.index);
   }
   
-  // 4. 새로 생성
-  // IMPORTANT: findHostForChildVNode와 findHostInParentChildren은 인덱스 기반으로 매칭하므로,
-  // 같은 ID를 가진 여러 VNode가 있어도 각각 올바른 DOM 요소를 찾습니다.
-  // 따라서 usedDomElements는 필요 없습니다.
+  // 4. Create new
+  // IMPORTANT: findHostForChildVNode and findHostInParentChildren match based on index,
+  // so even if multiple VNodes have the same ID, each finds the correct DOM element.
+  // Therefore, usedDomElements is not needed.
   if (!host) {
-    // createHostElement를 직접 사용 (중복 로직 제거)
+    // Use createHostElement directly (remove duplicate logic)
     host = createHostElement(
       parent,
       vnode,
@@ -212,7 +212,7 @@ export function findOrCreateHost(
       context
     );
   } else {
-    // 기존 host 업데이트
+    // Update existing host
     const prevChildVNodes = prevVNode?.children || [];
     updateExistingHost(
       host,
@@ -248,13 +248,13 @@ export function saveVNodeToTree(
   vnode: VNode,
   prevVNodeTree: Map<string, VNode> | undefined
 ): void {
-  // Domain 지식 없이 getVNodeId()로 ID 확인
+  // Check ID using getVNodeId() without domain knowledge
   const vnodeId = getVNodeId(vnode);
   if (prevVNodeTree && vnodeId) {
     try {
       prevVNodeTree.set(vnodeId, cloneVNodeTree(vnode));
     } catch (error) {
-      // Silent fail - prevVNodeTree 저장 실패는 치명적이지 않음
+      // Silent fail - prevVNodeTree save failure is not critical
     }
   }
 }

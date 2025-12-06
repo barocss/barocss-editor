@@ -65,7 +65,7 @@ export function removeStaleEarly(
           console.error('[Reconciler.removeStaleEarly] Error unmounting component:', err);
         }
       } else {
-        // prevChildVNode를 찾을 수 없으면, element에서 직접 정보를 가져와서 임시 VNode 생성
+        // If prevChildVNode cannot be found, get info directly from element and create temporary VNode
         try {
           const tempVNode: VNode = {
             tag: el.tagName.toLowerCase(),

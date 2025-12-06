@@ -1,8 +1,8 @@
 /**
- * ContentEditable 편집 위치 변환 유틸리티
+ * ContentEditable edit position conversion utility
  * 
- * DOM 편집 위치를 모델 위치로 변환하고,
- * 텍스트 편집에 따라 mark/decorator 범위를 조정합니다.
+ * Converts DOM edit position to model position,
+ * and adjusts mark/decorator ranges according to text edits.
  */
 
 import { buildTextRunIndex, type ContainerRuns } from '@barocss/renderer-dom';
@@ -10,12 +10,12 @@ import type { ModelSelection } from '@barocss/editor-core';
 
 export interface DOMEditPosition {
   textNode: Text;
-  offset: number;  // textNode 내부 offset
+  offset: number;  // offset within textNode
 }
 
 export interface ModelEditPosition {
-  nodeId: string;  // inline-text 노드의 sid
-  offset: number;  // inline-text 노드 내부의 모델 offset
+  nodeId: string;  // sid of inline-text node
+  offset: number;  // model offset within inline-text node
 }
 
 export interface MarkRange {
@@ -29,29 +29,29 @@ export interface DecoratorRange {
   stype: string;
   category: 'inline' | 'block' | 'layer';
   target: {
-    sid: string;           // 대상 inline-text 노드의 sid
-    startOffset: number;   // 시작 offset
-    endOffset: number;     // 끝 offset
+    sid: string;           // sid of target inline-text node
+    startOffset: number;   // start offset
+    endOffset: number;     // end offset
   };
 }
 
 export interface TextEdit {
-  nodeId: string;        // 편집된 inline-text 노드의 sid
-  oldText: string;       // 편집 전 텍스트
-  newText: string;       // 편집 후 텍스트
-  editPosition: number;  // 편집이 시작된 모델 offset
+  nodeId: string;        // sid of edited inline-text node
+  oldText: string;       // text before edit
+  newText: string;       // text after edit
+  editPosition: number;  // model offset where edit started
   editType: 'insert' | 'delete' | 'replace';
   insertedLength: number;
   deletedLength: number;
-  insertedText: string;  // 삽입/교체할 텍스트 내용 (textChange.text)
+  insertedText: string;  // text content to insert/replace (textChange.text)
 }
 
 /**
- * Text node가 속한 inline-text 노드 찾기
+ * Find inline-text node that text node belongs to
  */
 export function findInlineTextNode(textNode: Node): Element | null {
-  // 가장 가까운 data-bc-sid를 가진 요소 찾기
-  // schema에 정의되어 있으므로 타입 체크 불필요
+  // Find element with closest data-bc-sid
+  // No type check needed as it's defined in schema
   let current: Node | null = textNode;
   
   while (current) {
@@ -69,27 +69,27 @@ export function findInlineTextNode(textNode: Node): Element | null {
 }
 
 /**
- * DOM 편집 위치를 모델 위치로 변환
+ * Convert DOM edit position to model position
  * 
- * @param domPosition - DOM에서의 편집 위치 (textNode + offset)
- * @param container - 편집이 발생한 컨테이너 (paragraph 등)
- * @returns 모델 위치 (nodeId + offset)
+ * @param domPosition - Edit position in DOM (textNode + offset)
+ * @param container - Container where edit occurred (paragraph, etc.)
+ * @returns Model position (nodeId + offset)
  */
 export function convertDOMToModelPosition(
   domPosition: DOMEditPosition,
   container: Element
 ): ModelEditPosition | null {
-  // 1. textNode가 속한 inline-text 노드 찾기
+  // 1. Find inline-text node that textNode belongs to
   const inlineTextNode = findInlineTextNode(domPosition.textNode);
   if (!inlineTextNode) return null;
   
   const nodeId = inlineTextNode.getAttribute('data-bc-sid');
   if (!nodeId) return null;
   
-  // 2. Text Run Index 구축
+  // 2. Build Text Run Index
   const runs = buildTextRunIndex(inlineTextNode, nodeId);
   
-  // 3. DOM offset을 모델 offset으로 변환
+  // 3. Convert DOM offset to model offset
   const modelOffset = convertDOMOffsetToModelOffset(
     domPosition.textNode,
     domPosition.offset,
@@ -112,11 +112,11 @@ export function convertDOMOffsetToModelOffset(
   domOffset: number,
   runs: ContainerRuns
 ): number {
-  // textNode가 속한 run 찾기
+  // Find run that textNode belongs to
   const runIndex = runs.runs.findIndex(run => run.domTextNode === textNode);
   if (runIndex === -1) {
-    // textNode를 찾을 수 없으면 가장 가까운 run 사용
-    // 또는 byNode 맵 사용 (buildReverseMap 옵션이 활성화된 경우)
+    // If textNode cannot be found, use closest run
+    // Or use byNode map (if buildReverseMap option is enabled)
     if (runs.byNode) {
       const runInfo = runs.byNode.get(textNode);
       if (runInfo) {
@@ -128,16 +128,16 @@ export function convertDOMOffsetToModelOffset(
   
   const run = runs.runs[runIndex];
   
-  // run의 시작 offset + textNode 내부 offset
+  // Run's start offset + textNode internal offset
   return run.start + domOffset;
 }
 
 /**
- * 텍스트 편집에 따라 mark 범위를 조정
+ * Adjust mark ranges according to text edit
  * 
- * @param marks - 조정할 mark 배열
- * @param edit - 텍스트 편집 정보
- * @returns 조정된 mark 배열
+ * @param marks - Mark array to adjust
+ * @param edit - Text edit information
+ * @returns Adjusted mark array
  */
 export function adjustMarkRanges(
   marks: MarkRange[],
@@ -147,73 +147,73 @@ export function adjustMarkRanges(
   
   const { editPosition, insertedLength, deletedLength } = edit;
   const delta = insertedLength - deletedLength;
-  const editEnd = editPosition + deletedLength;  // 삭제 끝 위치
+  const editEnd = editPosition + deletedLength;  // Delete end position
   
   return marks
     .filter(mark => {
-      // range가 없거나 유효하지 않은 mark는 제거
+      // Remove marks without range or invalid range
       if (!mark || !mark.range || !Array.isArray(mark.range) || mark.range.length !== 2) {
         return false;
       }
       return true;
     })
     .map(mark => {
-      const [start, end] = mark.range!; // filter 후이므로 non-null
+      const [start, end] = mark.range!; // non-null after filter
     
-    // 편집이 mark 범위를 완전히 지우는 경우
+    // Case where edit completely erases mark range
     if (editPosition <= start && editEnd >= end) {
-      // mark 범위가 완전히 삭제됨 → 제거 (filter에서 처리)
+      // Mark range completely deleted → remove (handled in filter)
       return {
         ...mark,
-        range: [0, 0]  // 무효한 범위로 설정하여 filter에서 제거
+        range: [0, 0]  // Set invalid range to remove in filter
       };
     }
     
-    // 편집 위치가 mark 범위 앞에 있는 경우
+    // Case where edit position is before mark range
     if (editPosition <= start) {
-      // mark 범위 전체를 이동
+      // Move entire mark range
       return {
         ...mark,
         range: [start + delta, end + delta]
       };
     }
     
-    // 편집 위치가 mark 범위 안에 있는 경우
+    // Case where edit position is inside mark range
     if (editPosition < end) {
-      // 삭제가 mark 범위의 일부를 지우는 경우
+      // Case where delete erases part of mark range
       if (deletedLength > 0 && editEnd > start && editEnd < end) {
-        // 삭제된 부분만큼 end를 줄임
-        // 예: mark [5, 15], 삭제 [8, 12] → [5, 11] (4자 삭제, 4자 삽입 없으면)
+        // Reduce end by deleted portion
+        // Example: mark [5, 15], delete [8, 12] → [5, 11] (4 chars deleted, no 4 chars inserted)
         const deletedInMark = Math.min(editEnd, end) - Math.max(editPosition, start);
         return {
           ...mark,
           range: [start, end + delta]
         };
       }
-      // 삽입만 있는 경우 또는 삭제가 mark 범위 밖에서 끝나는 경우
+      // Case where only insert or delete ends outside mark range
       return {
         ...mark,
         range: [start, end + delta]
       };
     }
     
-    // 편집 위치가 mark 범위 뒤에 있는 경우
-    // mark 범위는 변경 없음
+    // Case where edit position is after mark range
+    // Mark range unchanged
     return mark;
   }).filter(mark => {
-    // 유효하지 않은 범위 제거 (start >= end 또는 음수)
+    // Remove invalid ranges (start >= end or negative)
     const [start, end] = mark.range;
     return start >= 0 && end > start;
   });
 }
 
 /**
- * 텍스트 편집에 따라 decorator 범위를 조정
+ * Adjust decorator ranges according to text edit
  * 
- * @param decorators - 조정할 decorator 배열
- * @param nodeId - 편집된 inline-text 노드의 sid
- * @param edit - 텍스트 편집 정보
- * @returns 조정된 decorator 배열
+ * @param decorators - Decorator array to adjust
+ * @param nodeId - sid of edited inline-text node
+ * @param edit - Text edit information
+ * @returns Adjusted decorator array
  */
 export function adjustDecoratorRanges(
   decorators: DecoratorRange[],
@@ -224,30 +224,30 @@ export function adjustDecoratorRanges(
   
   const { editPosition, insertedLength, deletedLength } = edit;
   const delta = insertedLength - deletedLength;
-  const editEnd = editPosition + deletedLength;  // 삭제 끝 위치
+  const editEnd = editPosition + deletedLength;  // Delete end position
   
   return decorators.map(decorator => {
-    // 해당 노드에 적용된 decorator만 조정
+    // Only adjust decorators applied to this node
     if (decorator.target.sid !== nodeId) {
       return decorator;
     }
     
     const { startOffset, endOffset } = decorator.target;
     
-    // 편집이 decorator 범위를 완전히 지우는 경우
+    // Case where edit completely erases decorator range
     if (editPosition <= startOffset && editEnd >= endOffset) {
-      // decorator 범위가 완전히 삭제됨 → 제거 (filter에서 처리)
+      // Decorator range completely deleted → remove (handled in filter)
       return {
         ...decorator,
         target: {
           ...decorator.target,
           startOffset: 0,
-          endOffset: 0  // 무효한 범위로 설정하여 filter에서 제거
+          endOffset: 0  // Set invalid range to remove in filter
         }
       };
     }
     
-    // 편집 위치가 decorator 범위 앞에 있는 경우
+    // Case where edit position is before decorator range
     if (editPosition <= startOffset) {
       return {
         ...decorator,
@@ -259,11 +259,11 @@ export function adjustDecoratorRanges(
       };
     }
     
-    // 편집 위치가 decorator 범위 안에 있는 경우
+    // Case where edit position is inside decorator range
     if (editPosition < endOffset) {
-      // 삭제가 decorator 범위의 일부를 지우는 경우
+      // Case where delete erases part of decorator range
       if (deletedLength > 0 && editEnd > startOffset && editEnd < endOffset) {
-        // 삭제된 부분만큼 end를 줄임
+        // Reduce end by deleted portion
         return {
           ...decorator,
           target: {

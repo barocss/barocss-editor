@@ -1,23 +1,23 @@
 /**
- * 패턴 기반 Decorator 설정 관리자
+ * Pattern-based Decorator configuration manager
  * 
- * 패턴 설정을 배열로 관리하고, DOMRenderer에 전달합니다.
+ * Manages pattern configurations as an array and passes them to DOMRenderer.
  */
 
 /**
- * 패턴 기반 Decorator 설정 타입
+ * Pattern-based Decorator configuration type
  */
 export interface PatternDecoratorConfig {
-  /** 패턴 식별자 (sid로 통일) */
+  /** Pattern identifier (unified as sid) */
   sid: string;
   
-  /** Decorator 타입 (stype으로 통일) */
+  /** Decorator type (unified as stype) */
   stype: string;
   
-  /** Decorator 카테고리 */
+  /** Decorator category */
   category: 'inline' | 'block' | 'layer';
   
-  /** 정규식 패턴 또는 함수 패턴 */
+  /** Regex pattern or function pattern */
   pattern: RegExp | ((text: string) => Array<{
     match: string;
     index: number;
@@ -25,10 +25,10 @@ export interface PatternDecoratorConfig {
     [key: number]: string | undefined;
   }>);
   
-  /** 매칭된 텍스트에서 데이터 추출 */
+  /** Extract data from matched text */
   extractData: (match: RegExpMatchArray) => Record<string, any>;
   
-  /** Decorator 생성 함수 */
+  /** Decorator creation function */
   createDecorator: (
     nodeId: string,
     startOffset: number,
@@ -42,8 +42,8 @@ export interface PatternDecoratorConfig {
       endOffset: number;
     };
     data?: Record<string, any>;
-    category?: 'inline' | 'block' | 'layer'; // createDecorator에서 지정 가능 (없으면 config의 category 사용)
-    layerTarget?: 'content' | 'decorator' | 'selection' | 'context' | 'custom'; // 다른 레이어에 렌더링 가능
+    category?: 'inline' | 'block' | 'layer'; // Can be specified in createDecorator (uses config's category if missing)
+    layerTarget?: 'content' | 'decorator' | 'selection' | 'context' | 'custom'; // Can render to other layers
   } | Array<{
     sid: string;
     target: {
@@ -54,38 +54,38 @@ export interface PatternDecoratorConfig {
     data?: Record<string, any>;
     category?: 'inline' | 'block' | 'layer';
     layerTarget?: 'content' | 'decorator' | 'selection' | 'context' | 'custom';
-  }>; // 배열을 반환하면 하나의 매칭에서 여러 decorator 생성 가능
+  }>; // If array is returned, can create multiple decorators from one match
   
-  /** 우선순위 (낮을수록 높은 우선순위, 기본값: 100) */
+  /** Priority (lower is higher priority, default: 100) */
   priority?: number;
   
-  /** 활성화 여부 (기본값: true) */
+  /** Whether enabled (default: true) */
   enabled?: boolean;
 }
 
 /**
- * 패턴 기반 Decorator 설정 관리자
+ * Pattern-based Decorator configuration manager
  * 
- * 패턴 설정을 배열로 저장하고 관리합니다.
- * 각 패턴의 enable/disable은 config.enabled로 관리됩니다.
+ * Stores and manages pattern configurations as an array.
+ * Enable/disable of each pattern is managed by config.enabled.
  */
 export class PatternDecoratorConfigManager {
-  /** 패턴 설정 배열 */
+  /** Pattern configuration array */
   private configs: PatternDecoratorConfig[] = [];
   
   /**
-   * 패턴 설정 배열 설정
+   * Set pattern configuration array
    * 
-   * @param configs - 패턴 설정 배열
+   * @param configs - Pattern configuration array
    */
   setConfigs(configs: PatternDecoratorConfig[]): void {
     this.configs = [...configs];
   }
   
   /**
-   * 패턴 설정 추가
+   * Add pattern configuration
    * 
-   * @param config - 패턴 설정
+   * @param config - Pattern configuration
    */
   addConfig(config: PatternDecoratorConfig): void {
     const existingIndex = this.configs.findIndex(c => c.sid === config.sid);
@@ -97,9 +97,9 @@ export class PatternDecoratorConfigManager {
   }
   
   /**
-   * 패턴 설정 제거
+   * Remove pattern configuration
    * 
-   * @param sid - 패턴 SID
+   * @param sid - Pattern SID
    */
   removeConfig(sid: string): boolean {
     const index = this.configs.findIndex(c => c.sid === sid);
@@ -111,24 +111,24 @@ export class PatternDecoratorConfigManager {
   }
   
   /**
-   * 모든 패턴 설정 가져오기
+   * Get all pattern configurations
    * 
-   * @param enabledOnly - true면 enabled된 것만 반환 (기본값: false)
-   * @returns 패턴 설정 배열 (복사본)
+   * @param enabledOnly - If true, return only enabled ones (default: false)
+   * @returns Pattern configuration array (copy)
    */
   getConfigs(enabledOnly: boolean = false): PatternDecoratorConfig[] {
     const configs = [...this.configs];
     if (enabledOnly) {
-      return configs.filter(config => config.enabled !== false); // 기본값은 true
+      return configs.filter(config => config.enabled !== false); // Default is true
     }
     return configs;
   }
   
   /**
-   * 패턴 설정 활성화/비활성화
+   * Enable/disable pattern configuration
    * 
-   * @param sid - 패턴 SID
-   * @param enabled - 활성화 여부
+   * @param sid - Pattern SID
+   * @param enabled - Whether enabled
    */
   setConfigEnabled(sid: string, enabled: boolean): boolean {
     const config = this.configs.find(c => c.sid === sid);
@@ -140,18 +140,18 @@ export class PatternDecoratorConfigManager {
   }
   
   /**
-   * 패턴 설정 활성화 여부 확인
+   * Check if pattern configuration is enabled
    * 
-   * @param sid - 패턴 SID
-   * @returns 활성화 여부 (기본값: true)
+   * @param sid - Pattern SID
+   * @returns Whether enabled (default: true)
    */
   isConfigEnabled(sid: string): boolean {
     const config = this.configs.find(c => c.sid === sid);
-    return config?.enabled !== false; // 기본값은 true
+    return config?.enabled !== false; // Default is true
   }
   
   /**
-   * 패턴 설정 초기화
+   * Clear pattern configurations
    */
   clear(): void {
     this.configs = [];

@@ -27,7 +27,7 @@ export interface MarkSpec {
   range?: [number, number];
 }
 
-// DSL: control(target, [setMarks(marks)]) 형태에서 사용
+// DSL: Used in control(target, [setMarks(marks)]) form
 export const setMarks = defineOperationDSL(
   (marks: MarkSpec[]) => ({
     type: 'setMarks',
@@ -42,7 +42,7 @@ defineOperation('setMarks', async (operation: any, context: TransactionContext) 
   const node = context.dataStore.getNode(nodeId);
   if (!node) throw new Error(`Node not found: ${nodeId}`);
   
-  // 전용 API 사용: DataStore.marks.setMarks 우선
+  // Use dedicated API: DataStore.marks.setMarks first
   const result = context.dataStore.marks.setMarks(nodeId, marks);
   
   if (!result || result.valid !== true) {

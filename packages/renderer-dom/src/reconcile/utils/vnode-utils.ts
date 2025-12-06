@@ -44,7 +44,7 @@ export function vnodeStructureMatches(prev: VNode, next: VNode): boolean {
     return false;
   }
   
-  // Class must match (구조적 매칭)
+  // Class must match (structural matching)
   const prevClasses = normalizeClasses(prev.attrs?.class || prev.attrs?.className).sort();
   const nextClasses = normalizeClasses(next.attrs?.class || next.attrs?.className).sort();
   if (prevClasses.length !== nextClasses.length) {
@@ -67,16 +67,16 @@ export function vnodeStructureMatches(prev: VNode, next: VNode): boolean {
 /**
  * Get VNode identifier (sid or data-decorator-sid from attrs)
  * 
- * Reconcile 레벨에서는 decorator를 구분하지 않고 VNode 식별자만 사용
- * Domain 지식 없이 순수하게 식별자만 반환
+ * At reconcile level, only use VNode identifier without distinguishing decorators
+ * Return only identifier purely without domain knowledge
  * 
- * IMPORTANT: decorator 정보는 attrs에 저장되므로 attrs에서도 읽음
+ * IMPORTANT: decorator info is stored in attrs, so also read from attrs
  */
 export function getVNodeId(vnode: VNode | undefined | null): string | undefined {
   if (!vnode) return undefined;
-  // sid는 top-level에 있음 (component VNode)
+  // sid is at top-level (component VNode)
   if (vnode.sid) return vnode.sid;
-  // decorator 정보는 attrs에 저장됨 (VNodeBuilder에서 설정)
+  // decorator info is stored in attrs (set in VNodeBuilder)
   return vnode.attrs?.[DOMAttribute.DECORATOR_SID];
 }
 

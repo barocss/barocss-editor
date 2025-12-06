@@ -27,7 +27,7 @@ export function assignComponentIdentityAttrs(
     attrs['data-bc-component'] = componentName;
   }
 
-  // data-bc-stype은 더 이상 DOM에 노출하지 않음 (sid만으로 모델 조회 가능)
+  // data-bc-stype is no longer exposed to DOM (model can be queried with sid only)
   // const defaultStype = options?.defaultStype ?? 'component';
   // if (attrs['data-bc-stype'] === undefined) {
   //   attrs['data-bc-stype'] = defaultStype;

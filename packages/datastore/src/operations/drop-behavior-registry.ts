@@ -24,7 +24,7 @@ class GlobalDropBehaviorRegistry {
         this.behaviors.set(targetType, []);
       }
       this.behaviors.get(targetType)!.push(definition);
-      // priority로 정렬 (높은 우선순위가 먼저)
+      // Sort by priority (higher priority first)
       this.behaviors.get(targetType)!.sort((a, b) => 
         (b.priority || 0) - (a.priority || 0)
       );
@@ -32,14 +32,14 @@ class GlobalDropBehaviorRegistry {
   }
 
   /**
-   * 타겟 타입과 소스 타입에 맞는 규칙을 찾아 행위를 반환합니다.
+   * Find rule matching target type and source type and return behavior.
    * 
-   * @param targetType 타겟 노드 타입 (stype)
-   * @param sourceType 소스 노드 타입 (stype)
-   * @param targetNode 타겟 노드 (선택적)
-   * @param sourceNode 소스 노드 (선택적)
-   * @param context 드롭 컨텍스트 (선택적)
-   * @returns 드롭 행위 또는 null (매칭되는 규칙 없음)
+   * @param targetType Target node type (stype)
+   * @param sourceType Source node type (stype)
+   * @param targetNode Target node (optional)
+   * @param sourceNode Source node (optional)
+   * @param context Drop context (optional)
+   * @returns Drop behavior or null (no matching rule)
    */
   get(
     targetType: string, 
@@ -48,34 +48,34 @@ class GlobalDropBehaviorRegistry {
     sourceNode?: INode,
     context?: DropContext
   ): DropBehavior | null {
-    // 타겟 타입별 규칙 확인
+    // Check rules by target type
     const behaviors = this.behaviors.get(targetType) || [];
     
-    // 와일드카드 규칙도 확인
+    // Also check wildcard rules
     const wildcardBehaviors = this.behaviors.get('*') || [];
     const allBehaviors = [...behaviors, ...wildcardBehaviors];
     
-    // 우선순위 순서로 매칭
+    // Match in priority order
     for (const definition of allBehaviors) {
-      // sourceType 매칭 확인
+      // Check sourceType match
       if (definition.sourceType) {
         const sourceTypes = Array.isArray(definition.sourceType) 
           ? definition.sourceType 
           : [definition.sourceType];
         
         if (!sourceTypes.includes(sourceType) && !sourceTypes.includes('*')) {
-          continue; // 매칭되지 않음
+          continue; // Not matched
         }
       }
       
-      // behavior 결정
+      // Determine behavior
       if (typeof definition.behavior === 'function') {
         if (targetNode && sourceNode) {
           const result = definition.behavior(targetNode, sourceNode, context || {});
           if (result !== null) {
             return result;
           }
-          // null 반환 시 다음 규칙 확인
+          // Check next rule if null returned
           continue;
         }
       } else {
@@ -83,11 +83,11 @@ class GlobalDropBehaviorRegistry {
       }
     }
     
-    return null; // 매칭되는 규칙 없음
+    return null; // No matching rule
   }
 
   /**
-   * 모든 규칙을 제거합니다.
+   * Remove all rules.
    */
   clear(): void {
     this.behaviors.clear();
@@ -97,17 +97,17 @@ class GlobalDropBehaviorRegistry {
 export const globalDropBehaviorRegistry = new GlobalDropBehaviorRegistry();
 
 /**
- * Drop Behavior를 정의합니다.
+ * Define Drop Behavior.
  * 
- * @param targetType 타겟 노드 타입 (stype 또는 group) 또는 배열
- * @param behavior 드롭 행위 또는 함수
- * @param options 옵션 (sourceType, priority)
+ * @param targetType Target node type (stype or group) or array
+ * @param behavior Drop behavior or function
+ * @param options Options (sourceType, priority)
  * 
  * @example
- * // 기본 드롭 행위 정의
+ * // Define default drop behavior
  * defineDropBehavior('paragraph', 'move');
  * 
- * // 동적 드롭 행위 정의
+ * // Define dynamic drop behavior
  * defineDropBehavior(
  *   'paragraph',
  *   (target, source, context) => {
@@ -119,7 +119,7 @@ export const globalDropBehaviorRegistry = new GlobalDropBehaviorRegistry();
  *   { priority: 100 }
  * );
  * 
- * // 특정 소스 타입에 대한 규칙
+ * // Rule for specific source type
  * defineDropBehavior(
  *   'paragraph',
  *   'merge',

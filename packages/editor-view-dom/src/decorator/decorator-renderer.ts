@@ -46,20 +46,20 @@ export class DecoratorRenderer {
     this.domRenderer = new DOMRenderer(this.rendererRegistry);
     this.visibilityManager = new DecoratorVisibilityManager();
     
-    // 기본 Decorator 렌더러들 등록
+    // Register default Decorator renderers
     this.registerBuiltinRenderers();
     
-    // Decorator 이벤트 리스닝
+    // Listen to Decorator events
     this.manager.on('decorator:added', this.handleDecoratorAdded.bind(this));
     this.manager.on('decorator:updated', this.handleDecoratorUpdated.bind(this));
     this.manager.on('decorator:removed', this.handleDecoratorRemoved.bind(this));
   }
   
   /**
-   * 기본 Decorator 렌더러들 등록 (글로벌에 없는 경우만)
+   * Register default Decorator renderers (only if not in global)
    */
   private registerBuiltinRenderers(): void {
-    // Layer Decorator 렌더러들
+    // Layer Decorator renderers
     if (!this.rendererRegistry.has('highlight')) {
       this.rendererRegistry.register(renderer('highlight', this.createLayerDecoratorTemplate()));
     }
@@ -76,7 +76,7 @@ export class DecoratorRenderer {
       this.rendererRegistry.register(renderer('warning', this.createLayerDecoratorTemplate()));
     }
     
-    // Inline Decorator 렌더러들
+    // Inline Decorator renderers
     if (!this.rendererRegistry.has('inline-widget')) {
       this.rendererRegistry.register(renderer('inline-widget', this.createInlineDecoratorTemplate()));
     }
@@ -85,7 +85,7 @@ export class DecoratorRenderer {
       this.rendererRegistry.register(renderer('inline-highlight', this.createInlineDecoratorTemplate()));
     }
     
-    // Block Decorator 렌더러들
+    // Block Decorator renderers
     if (!this.rendererRegistry.has('block-widget')) {
       this.rendererRegistry.register(renderer('block-widget', this.createBlockDecoratorTemplate()));
     }
@@ -179,25 +179,25 @@ export class DecoratorRenderer {
   }
   
   /**
-   * Decorator 렌더링 (render/update 함수처럼 깔끔하게)
+   * Render Decorator (clean like render/update functions)
    */
   renderDecorator(decorator: Decorator): void {
     console.log('[DecoratorRenderer] renderDecorator:start', { decoratorId: decorator.sid, type: decorator.stype });
     
-    // 가시성 상태 계산
+    // Calculate visibility state
     const visibilityState = this.visibilityManager.calculateVisibility(decorator);
     
-    // 기존 렌더링 제거
+    // Remove existing rendering
     this.removeDecoratorRendering(decorator.sid);
     
-    // 가시성이 false면 렌더링하지 않음
+    // Don't render if visibility is false
     if (!visibilityState.visible) {
       console.log(`[DecoratorRenderer] Decorator ${decorator.sid} is hidden: ${visibilityState.reason}`);
       
-      // 숨김 상태로 정보 저장
+      // Store information as hidden state
       this.renderedDecorators.set(decorator.sid, {
         decorator,
-        element: null as any, // DOM 요소는 없음
+        element: null as any, // No DOM element
         rendered: false,
         visible: false,
         visibilityState
@@ -206,34 +206,34 @@ export class DecoratorRenderer {
       return;
     }
     
-    // 타겟 컨테이너 결정
+    // Determine target container
     const container = this.getTargetContainer(decorator);
     if (!container) {
       console.warn(`Target container not found for decorator ${decorator.sid}`);
       return;
     }
     
-    // 렌더러 이름 결정
+    // Determine renderer name
     const rendererName = decorator.renderer || this.getDefaultRendererName(decorator);
     
-    // 렌더러 존재 확인
+    // Check if renderer exists
     if (!this.rendererRegistry.has(rendererName)) {
       console.warn(`Renderer not found: ${rendererName}`);
       return;
     }
     
     try {
-      // 데이터 변환
+      // Convert data
       const decoratorData = this.convertDecoratorData(decorator);
       
-      // DOM 렌더링 (renderer-dom 사용)
+      // DOM rendering (using renderer-dom)
       this.domRenderer.render(rendererName, container, decoratorData);
       
-      // 렌더링된 요소 찾기
+      // Find rendered element
       const renderedElement = container.querySelector(`[data-bc-decorator-sid="${decorator.sid}"]`) as HTMLElement;
       
       if (renderedElement) {
-        // 렌더링 정보 저장
+        // Store rendering information
         this.renderedDecorators.set(decorator.sid, {
           decorator,
           element: renderedElement,
@@ -242,7 +242,7 @@ export class DecoratorRenderer {
           visibilityState
         });
         
-        // 렌더링 완료 이벤트 발생
+        // Emit rendering complete event
         this.manager.emit('decorator:rendered', decorator.sid, renderedElement);
       }
       
@@ -253,7 +253,7 @@ export class DecoratorRenderer {
   }
   
   /**
-   * Decorator 데이터 변환
+   * Convert Decorator data
    */
   private convertDecoratorData(decorator: Decorator): any {
     const baseData = {
@@ -265,7 +265,7 @@ export class DecoratorRenderer {
       hasContent: !!(decorator.data.content && decorator.data.content.trim())
     };
 
-    // Layer Decorator의 경우 위치 정보 추가
+    // Add position information for Layer Decorator
     if (decorator.category === 'layer' && decorator.data.position) {
       return {
         ...baseData,
@@ -285,25 +285,25 @@ export class DecoratorRenderer {
   }
 
   /**
-   * Decorator 업데이트 (render/update 함수처럼 깔끔하게)
+   * Update Decorator (clean like render/update functions)
    */
   updateDecorator(decorator: Decorator): void {
     console.log('[DecoratorRenderer] updateDecorator:start', { decoratorId: decorator.sid });
     
-    // 기존 렌더링 제거
+    // Remove existing rendering
     this.removeDecoratorRendering(decorator.sid);
     
-    // 새로 렌더링
+    // Render again
     this.renderDecorator(decorator);
     
     console.log('[DecoratorRenderer] updateDecorator:done', { decoratorId: decorator.sid });
   }
 
   /**
-   * 기본 렌더러 이름 결정
+   * Determine default renderer name
    */
   private getDefaultRendererName(decorator: Decorator): string {
-    // 타입별 기본 렌더러 매핑
+    // Type-based default renderer mapping
     const defaultRenderers: Record<string, string> = {
       'highlight': 'highlight',
       'comment': 'comment',
@@ -335,25 +335,25 @@ export class DecoratorRenderer {
   }
   
   /**
-   * Inline Decorator 타겟 컨테이너
+   * Inline Decorator target container
    */
   private getInlineTargetContainer(decorator: InlineDecorator): HTMLElement | null {
     const targetElement = this.findTargetElement(decorator.target.nodeId);
     if (!targetElement) return null;
     
-    // 텍스트 노드 내의 특정 위치에 삽입
-    // 실제 구현에서는 더 정교한 위치 계산이 필요
+    // Insert at specific position within text node
+    // Actual implementation requires more sophisticated position calculation
     return targetElement;
   }
   
   /**
-   * Block Decorator 타겟 컨테이너
+   * Block Decorator target container
    */
   private getBlockTargetContainer(decorator: BlockDecorator): HTMLElement | null {
     const targetElement = this.findTargetElement(decorator.target.nodeId);
     if (!targetElement) return null;
     
-    // position에 따라 삽입 위치 결정
+    // Determine insert position based on position
     switch (decorator.target.position) {
       case 'before':
       case 'after':
@@ -366,7 +366,7 @@ export class DecoratorRenderer {
   }
   
   /**
-   * 렌더링 제거
+   * Remove rendering
    */
   private removeDecoratorRendering(decoratorId: string): void {
     const renderInfo = this.renderedDecorators.get(decoratorId);
@@ -377,10 +377,10 @@ export class DecoratorRenderer {
   }
   
   /**
-   * 타겟 요소 찾기
+   * Find target element
    */
   private findTargetElement(nodeId: string): HTMLElement | null {
-    // data-bc-sid 속성으로 요소 찾기
+    // Find element by data-bc-sid attribute
     const contentContainer = this.layerContainers.get('content');
     if (!contentContainer) return null;
     
@@ -388,7 +388,7 @@ export class DecoratorRenderer {
   }
   
   /**
-   * 모든 렌더링 정리
+   * Clear all rendering
    */
   clear(): void {
     this.renderedDecorators.forEach((_, decoratorId) => {
@@ -398,44 +398,44 @@ export class DecoratorRenderer {
   }
   
   /**
-   * 커스텀 렌더러 등록 (renderer-dom 레지스트리에 등록)
+   * Register custom renderer (register in renderer-dom registry)
    */
   registerRenderer(rendererDef: any): void {
     this.rendererRegistry.register(rendererDef);
   }
   
   /**
-   * 렌더러 레지스트리 접근
+   * Access renderer registry
    */
   getRendererRegistry(): RendererRegistry {
     return this.rendererRegistry;
   }
   
   /**
-   * 렌더링된 Decorator 정보 조회
+   * Get rendered Decorator information
    */
   getRenderedDecorator(decoratorId: string): DecoratorRenderInfo | undefined {
     return this.renderedDecorators.get(decoratorId);
   }
   
   /**
-   * 모든 렌더링된 Decorator 조회
+   * Get all rendered Decorators
    */
   getAllRenderedDecorators(): Map<string, DecoratorRenderInfo> {
     return new Map(this.renderedDecorators);
   }
   
-  // ===== 가시성 관리 API =====
+  // ===== Visibility Management API =====
   
   /**
-   * 가시성 매니저 접근
+   * Access visibility manager
    */
   getVisibilityManager(): DecoratorVisibilityManager {
     return this.visibilityManager;
   }
   
   /**
-   * 특정 타입의 데코레이터 표시/숨김
+   * Show/hide decorators of specific type
    */
   setTypeVisibility(type: string, visible: boolean): void {
     this.visibilityManager.setTypeVisibility(type, visible);

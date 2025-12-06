@@ -1,7 +1,7 @@
 /**
  * Component Info Creation Module
  * 
- * VNode에 component 정보를 추가하는 로직을 테스트 가능한 순수 함수로 분리
+ * Separate logic for adding component info to VNode into testable pure functions
  */
 
 import { VNode } from './types';
@@ -27,10 +27,10 @@ export function attachComponentInfo(
 ): VNode {
   const { props } = separatePropsAndModel(data, decorators);
   
-  // 최상위 필드에 직접 설정
+  // Set directly on top-level fields
   vnode.stype = componentName;
   vnode.props = sanitizeProps(props);
-  // decorators는 VNodeBuilder에서 이미 처리되어 VNode 트리에 반영되므로 저장하지 않음
+  // decorators are already processed in VNodeBuilder and reflected in VNode tree, so don't store
   if (options.isExternal !== undefined) {
     vnode.isExternal = options.isExternal;
   }
@@ -39,15 +39,15 @@ export function attachComponentInfo(
 }
 
 /**
- * VNode에 component 정보 추가 (props와 model이 이미 분리된 경우)
+ * Add component info to VNode (when props and model are already separated)
  * 
- * @param vnode - 대상 VNode
- * @param componentName - Component 이름
+ * @param vnode - Target VNode
+ * @param componentName - Component name
  * @param props - Sanitized props
- * @param model - 원본 모델 데이터
- * @param decorators - Decorator 정보 (optional)
- * @param options - 추가 옵션 (isExternal 등)
- * @returns Component 정보가 추가된 VNode
+ * @param model - Original model data
+ * @param decorators - Decorator info (optional)
+ * @param options - Additional options (isExternal, etc.)
+ * @returns VNode with component info added
  */
 export function attachComponentInfoWithSeparatedData(
   vnode: VNode,
@@ -57,10 +57,10 @@ export function attachComponentInfoWithSeparatedData(
   decorators: any[] = [],
   options: { isExternal?: boolean } = {}
 ): VNode {
-  // 최상위 필드에 직접 설정
+  // Set directly on top-level fields
   vnode.stype = componentName;
   vnode.props = sanitizeProps(props);
-  // decorators는 VNodeBuilder에서 이미 처리되어 VNode 트리에 반영되므로 저장하지 않음
+  // decorators are already processed in VNodeBuilder and reflected in VNode tree, so don't store
   if (options.isExternal !== undefined) {
     vnode.isExternal = options.isExternal;
   }

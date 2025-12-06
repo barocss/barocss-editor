@@ -1,5 +1,5 @@
 /**
- * PositionCalculator: Decorator의 위치를 계산하는 유틸리티
+ * PositionCalculator: Utility for calculating Decorator position
  */
 import type { Decorator, DecoratorTarget } from './types';
 import { DOMQuery } from './dom-query';
@@ -15,7 +15,7 @@ export class PositionCalculator {
   constructor(private domQuery: DOMQuery) {}
 
   /**
-   * Decorator의 위치 계산
+   * Calculate Decorator position
    */
   calculatePosition(decorator: Decorator): DecoratorPosition | null {
     if (!decorator.target) {
@@ -28,12 +28,12 @@ export class PositionCalculator {
 
     const target = decorator.target;
     
-    // Block decorator: 요소 전체 영역
+    // Block decorator: entire element area
     if (target.startOffset === undefined && target.endOffset === undefined) {
       const rect = this.domQuery.getBoundingRect(target.sid);
       if (!rect) return null;
       
-      // 'before' / 'after' 상대 배치 지원 (block 대상)
+      // Support 'before' / 'after' relative placement (for block target)
       const pos = (decorator as any)?.position as ('before' | 'after' | undefined);
       const margin = (decorator as any)?.data?.margin ?? 0;
       if (pos === 'after') {
@@ -53,7 +53,7 @@ export class PositionCalculator {
         };
       }
       
-      // 기본: 대상 영역과 동일 위치/크기 (overlay)
+      // Default: same position/size as target area (overlay)
       return {
         top: rect.top,
         left: rect.left,
@@ -62,7 +62,7 @@ export class PositionCalculator {
       };
     }
     
-    // Inline decorator: 텍스트 범위
+    // Inline decorator: text range
     if (target.startOffset !== undefined && target.endOffset !== undefined) {
       const startPos = this.domQuery.calculateTextPosition(
         target.sid,
@@ -75,7 +75,7 @@ export class PositionCalculator {
       
       if (!startPos || !endPos) return null;
       
-      // 같은 줄인 경우
+      // If same line
       if (Math.abs(startPos.top - endPos.top) < 1) {
         return {
           top: startPos.top,
@@ -85,7 +85,7 @@ export class PositionCalculator {
         };
       }
       
-      // 여러 줄인 경우: 첫 줄 시작부터 마지막 줄 끝까지
+      // If multiple lines: from start of first line to end of last line
       const elementRect = this.domQuery.getBoundingRect(target.sid);
       if (!elementRect) return null;
       

@@ -1,14 +1,14 @@
 import { IS_MAC } from './platform';
 
 /**
- * 키 이름 정규화
+ * Normalize key name
  * 
- * 브라우저의 키 이름을 일관된 형식으로 변환합니다.
- * - 특수 키는 대문자로 유지 (Enter, Escape 등)
- * - 알파벳 키는 소문자로 정규화 (대소문자 구분하지 않음)
+ * Convert browser key names to consistent format.
+ * - Special keys remain uppercase (Enter, Escape, etc.)
+ * - Alphabet keys are normalized to lowercase (case-insensitive)
  */
 function normalizeKeyName(key: string): string {
-  // 특수 키 매핑
+  // Special key mapping
   const keyMap: Record<string, string> = {
     ' ': 'Space',
     'ArrowUp': 'Up',
@@ -21,33 +21,33 @@ function normalizeKeyName(key: string): string {
     return keyMap[key];
   }
   
-  // 알파벳 키는 소문자로 정규화 (대소문자 구분하지 않음)
-  // 예: 'B' → 'b', 'b' → 'b'
+  // Normalize alphabet keys to lowercase (case-insensitive)
+  // Example: 'B' → 'b', 'b' → 'b'
   if (key.length === 1 && /[A-Za-z]/.test(key)) {
     return key.toLowerCase();
   }
   
-  // 나머지는 그대로 반환 (Enter, Escape, F1 등)
+  // Return the rest as is (Enter, Escape, F1, etc.)
   return key;
 }
 
 /**
- * KeyboardEvent를 정규화된 키 문자열로 변환
+ * Convert KeyboardEvent to normalized key string
  * 
- * 표준: `event.key`를 사용합니다 (VS Code, ProseMirror, Slate 등과 동일).
- * - `event.key`: 문자열 ('Enter', 'a', 'A' 등) - 권장, 표준
- * - `event.keyCode`: 숫자 (deprecated, 사용하지 않음)
- * - `event.code`: 물리적 키 위치 (일반적으로 사용하지 않음)
+ * Standard: Uses `event.key` (same as VS Code, ProseMirror, Slate, etc.).
+ * - `event.key`: string ('Enter', 'a', 'A', etc.) - recommended, standard
+ * - `event.keyCode`: number (deprecated, not used)
+ * - `event.code`: physical key position (generally not used)
  * 
- * @param event - KeyboardEvent 객체
- * @returns 정규화된 키 문자열 (예: 'Ctrl+b', 'Cmd+i', 'Enter', 'Shift+Enter')
+ * @param event - KeyboardEvent object
+ * @returns Normalized key string (e.g., 'Ctrl+b', 'Cmd+i', 'Enter', 'Shift+Enter')
  * 
  * @example
  * ```ts
  * document.addEventListener('keydown', (event) => {
  *   const key = getKeyString(event);
- *   // Mac에서 Cmd+b → 'Cmd+b'
- *   // Windows에서 Ctrl+b → 'Ctrl+b'
+ *   // On Mac: Cmd+b → 'Cmd+b'
+ *   // On Windows: Ctrl+b → 'Ctrl+b'
  *   // Enter → 'Enter'
  *   // Shift+Enter → 'Shift+Enter'
  * });
@@ -56,7 +56,7 @@ function normalizeKeyName(key: string): string {
 export function getKeyString(event: KeyboardEvent): string {
   const parts: string[] = [];
   
-  // 플랫폼별 Cmd/Ctrl 처리
+  // Handle Cmd/Ctrl by platform
   if (IS_MAC) {
     if (event.metaKey) parts.push('Cmd');
     if (event.ctrlKey) parts.push('Ctrl');
@@ -68,24 +68,24 @@ export function getKeyString(event: KeyboardEvent): string {
   if (event.altKey) parts.push('Alt');
   if (event.shiftKey) parts.push('Shift');
   
-  // event.key 사용 (표준, 모든 모던 브라우저에서 지원)
-  // event.keyCode는 deprecated되었으므로 사용하지 않음
+  // Use event.key (standard, supported by all modern browsers)
+  // event.keyCode is deprecated, so not used
   let keyName = event.key;
   
-  // event.key가 없는 경우 (매우 드문 경우, 구형 브라우저)
-  // event.code를 fallback으로 사용 (물리적 키 위치)
+  // If event.key is not available (very rare case, old browsers)
+  // Use event.code as fallback (physical key position)
   if (!keyName || keyName === 'Unidentified') {
-    // event.code는 물리적 키 위치를 나타내므로, 이를 키 이름으로 변환
-    // 예: 'KeyA' → 'a', 'Enter' → 'Enter'
+    // event.code represents physical key position, convert to key name
+    // Example: 'KeyA' → 'a', 'Enter' → 'Enter'
     if (event.code) {
       keyName = normalizeCodeToKey(event.code);
     } else {
-      // 최후의 수단: 빈 문자열 반환 (매칭되지 않음)
+      // Last resort: return empty string (no match)
       return '';
     }
   }
   
-  // 키 이름 정규화
+  // Normalize key name
   const normalizedKeyName = normalizeKeyName(keyName);
   parts.push(normalizedKeyName);
   
@@ -93,30 +93,30 @@ export function getKeyString(event: KeyboardEvent): string {
 }
 
 /**
- * event.code를 event.key 형식으로 변환 (fallback용)
+ * Convert event.code to event.key format (for fallback)
  * 
- * event.code는 물리적 키 위치를 나타내므로, 이를 논리적 키 이름으로 변환합니다.
- * 예: 'KeyA' → 'a', 'Digit1' → '1', 'Enter' → 'Enter'
+ * event.code represents physical key position, convert it to logical key name.
+ * Examples: 'KeyA' → 'a', 'Digit1' → '1', 'Enter' → 'Enter'
  */
 function normalizeCodeToKey(code: string): string {
-  // 'Key' 접두사 제거 (예: 'KeyA' → 'A' → 'a')
+  // Remove 'Key' prefix (e.g., 'KeyA' → 'A' → 'a')
   if (code.startsWith('Key')) {
     return code.substring(3).toLowerCase();
   }
   
-  // 'Digit' 접두사 제거 (예: 'Digit1' → '1')
+  // Remove 'Digit' prefix (e.g., 'Digit1' → '1')
   if (code.startsWith('Digit')) {
     return code.substring(5);
   }
   
-  // 'Numpad' 접두사 처리 (예: 'NumpadEnter' → 'Enter')
+  // Handle 'Numpad' prefix (e.g., 'NumpadEnter' → 'Enter')
   if (code.startsWith('Numpad')) {
     const numpadKey = code.substring(6);
-    // Numpad 키는 일반 키와 동일하게 처리
+    // Numpad keys are treated the same as regular keys
     return numpadKey;
   }
   
-  // 나머지는 그대로 반환 (Enter, Escape, ArrowUp 등)
+  // Return the rest as is (Enter, Escape, ArrowUp, etc.)
   return code;
 }
 

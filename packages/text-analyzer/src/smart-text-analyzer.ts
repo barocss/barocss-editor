@@ -3,14 +3,14 @@ import { TextChange, TextChangeAnalysisOptions } from './types';
 /**
  * Smart Text Change Analyzer
  * 
- * Selection 정보를 고려한 지능적인 텍스트 변경사항 분석기
- * LCP/LCS 기반 델타 계산과 Selection 바이어싱을 적용합니다.
+ * Intelligent text change analyzer considering Selection information
+ * Applies LCP/LCS-based delta calculation and Selection biasing.
  * 
- * 핵심 기능:
- * - LCP/LCS 알고리즘으로 O(n) 시간 복잡도의 정확한 델타 계산
- * - Selection 바이어싱으로 사용자 의도 반영한 변경사항 위치 조정
- * - 유니코드 복합 문자(이모지, 결합 문자) 안전 처리
- * - NFC 정규화로 일관된 텍스트 처리
+ * Key features:
+ * - Accurate delta calculation with O(n) time complexity using LCP/LCS algorithm
+ * - Adjust change position reflecting user intent with Selection biasing
+ * - Safe handling of Unicode composite characters (emojis, combining characters)
+ * - Consistent text processing with NFC normalization
  * 
  * @example
  * ```typescript
@@ -20,27 +20,27 @@ import { TextChange, TextChangeAnalysisOptions } from './types';
  *   selectionOffset: 6,
  *   selectionLength: 0
  * });
- * // 결과: [{ type: 'insert', start: 6, end: 6, text: 'beautiful ', confidence: 1.0 }]
+ * // Result: [{ type: 'insert', start: 6, end: 6, text: 'beautiful ', confidence: 1.0 }]
  * ```
  */
 
 /**
- * LCP/LCS를 사용한 기본 텍스트 차이 계산
+ * Basic text difference calculation using LCP/LCS
  * 
- * LCP (Longest Common Prefix): 두 텍스트의 공통 접두사 길이
- * LCS (Longest Common Suffix): LCP 제거 후 공통 접미사 길이
+ * LCP (Longest Common Prefix): length of common prefix of two texts
+ * LCS (Longest Common Suffix): length of common suffix after removing LCP
  * 
- * 알고리즘:
- * 1. LCP 계산: 앞에서부터 동일한 문자 개수 세기
- * 2. LCS 계산: 뒤에서부터 동일한 문자 개수 세기
- * 3. 변경 영역 계산: LCP 이후 ~ LCS 이전
+ * Algorithm:
+ * 1. Calculate LCP: count identical characters from the front
+ * 2. Calculate LCS: count identical characters from the back
+ * 3. Calculate change region: after LCP ~ before LCS
  * 
- * 시간 복잡도: O(n) where n = max(oldText.length, newText.length)
- * 공간 복잡도: O(1)
+ * Time complexity: O(n) where n = max(oldText.length, newText.length)
+ * Space complexity: O(1)
  * 
- * @param oldText - 변경 전 텍스트
- * @param newText - 변경 후 텍스트
- * @returns 텍스트 차이 정보 (kind, start, end, inserted, deleted)
+ * @param oldText - Text before change
+ * @param newText - Text after change
+ * @returns Text difference info (kind, start, end, inserted, deleted)
  */
 function calculateTextDifference(oldText: string, newText: string): {
   kind: 'none' | 'insert' | 'delete' | 'replace';
@@ -49,24 +49,24 @@ function calculateTextDifference(oldText: string, newText: string): {
   inserted: string;
   deleted: string;
 } {
-  // 동일한 텍스트인 경우 변경사항 없음
+  // No change if texts are identical
   if (oldText === newText) {
     return { kind: 'none', start: 0, end: 0, inserted: '', deleted: '' };
   }
 
-  // LCP (Longest Common Prefix) 계산
-  // 앞에서부터 동일한 문자 개수를 세어 공통 접두사 길이 찾기
+  // Calculate LCP (Longest Common Prefix)
+  // Count identical characters from the front to find common prefix length
   let lcp = 0;
   const m = Math.min(oldText.length, newText.length);
   while (lcp < m && oldText.charCodeAt(lcp) === newText.charCodeAt(lcp)) {
     lcp++;
   }
 
-  // LCS (Longest Common Suffix) 계산
-  // LCP 윈도우를 제거한 후 뒤에서부터 동일한 문자 개수를 세어 공통 접미사 길이 찾기
+  // Calculate LCS (Longest Common Suffix)
+  // After removing LCP window, count identical characters from the back to find common suffix length
   let lcs = 0;
-  const bRem = oldText.length - lcp;  // oldText에서 LCP 제거 후 남은 길이
-  const aRem = newText.length - lcp;  // newText에서 LCP 제거 후 남은 길이
+  const bRem = oldText.length - lcp;  // Remaining length after removing LCP from oldText
+  const aRem = newText.length - lcp;  // Remaining length after removing LCP from newText
   while (
     lcs < bRem &&
     lcs < aRem &&
@@ -75,26 +75,26 @@ function calculateTextDifference(oldText: string, newText: string): {
     lcs++;
   }
 
-  // 변경 영역 계산
-  const start = lcp;                           // 변경 시작 위치 (LCP 이후)
-  const end = oldText.length - lcs;            // 변경 끝 위치 (LCS 이전)
-  const deleted = oldText.slice(start, end);   // 삭제된 텍스트
-  const inserted = newText.slice(lcp, newText.length - lcs); // 삽입된 텍스트
+  // Calculate change region
+  const start = lcp;                           // Change start position (after LCP)
+  const end = oldText.length - lcs;            // Change end position (before LCS)
+  const deleted = oldText.slice(start, end);   // Deleted text
+  const inserted = newText.slice(lcp, newText.length - lcs); // Inserted text
 
-  // 변경 타입 결정
+  // Determine change type
   if (!deleted && !inserted) {
-    // 실제로는 변경사항이 없음 (정규화 등으로 인한 경우)
+    // Actually no change (due to normalization, etc.)
     return { kind: 'none', start, end, inserted: '', deleted: '' };
   }
   if (!deleted) {
-    // 삭제 없이 삽입만 있음
+    // Only insertion, no deletion
     return { kind: 'insert', start, end: start, inserted, deleted: '' };
   }
   if (!inserted) {
-    // 삽입 없이 삭제만 있음
+    // Only deletion, no insertion
     return { kind: 'delete', start, end, inserted: '', deleted };
   }
-  // 삽입과 삭제가 모두 있음 (교체)
+  // Both insertion and deletion (replacement)
   return { kind: 'replace', start, end, inserted, deleted };
 }
 
@@ -127,39 +127,39 @@ function analyzeTextChangesWithSelection(
 ): TextChange[] {
   const { kind, start, end, inserted, deleted } = textDifference;
   
-  // 변경사항이 없으면 빈 배열 반환
+  // Return empty array if no changes
   if (kind === 'none') return [];
 
-  // Selection 정보 계산
-  const isCollapsed = selectionLength === 0;  // 커서인지 선택 영역인지
+  // Calculate selection information
+  const isCollapsed = selectionLength === 0;  // Whether cursor or selection range
   const selectionStart = selectionOffset;
   const selectionEnd = selectionOffset + selectionLength;
 
-  // Selection 바이어싱 적용을 위한 변수들
+  // Variables for applying selection biasing
   let finalStart = start;
   let finalEnd = end;
   let finalInserted = inserted;
   let finalDeleted = deleted;
 
-  // 1x1 교체 최적화: Selection 근처에서 더 정확한 위치 찾기
+  // 1x1 replace optimization: find more accurate position near Selection
   if (kind === 'replace' && inserted.length === 1 && deleted.length === 1) {
-    // Selection 중심점 계산 (커서면 그 위치, 선택 영역이면 중앙)
+    // Calculate selection center point (cursor position if collapsed, center if selection range)
     const biasCenter = isCollapsed ? selectionStart : Math.floor((selectionStart + selectionEnd) / 2);
     
-    // 탐색 반경 계산 (텍스트 길이의 5% 또는 최대 3)
+    // Calculate search radius (5% of text length or max 3)
     const searchRadius = Math.min(3, Math.floor(oldText.length * 0.05));
     const searchStart = Math.max(0, biasCenter - searchRadius);
     const searchEnd = Math.min(oldText.length - 1, biasCenter + searchRadius);
     
-    // Selection 중심으로 제한된 범위에서 정확한 위치 탐색
+    // Search for accurate position within range limited to selection center
     for (let i = searchStart; i <= searchEnd; i++) {
-      // 선택 영역이 있는 경우 Selection 밖의 위치는 제외
+      // Exclude positions outside Selection if selection range exists
       if (!isCollapsed && (i < selectionStart || i >= selectionEnd)) continue;
       
-      // i 위치에서 교체를 시뮬레이션하여 결과 확인
+      // Simulate replace at position i and check result
       const simulated = oldText.slice(0, i) + inserted + oldText.slice(i + 1);
       if (simulated === newText) {
-        // 정확한 위치 발견
+        // Found accurate position
         finalStart = i;
         finalEnd = i + 1;
         finalDeleted = oldText[i];
@@ -167,41 +167,41 @@ function analyzeTextChangesWithSelection(
       }
     }
   } 
-  // 삭제 최적화: Selection과의 겹침과 거리를 모두 고려한 최적 위치 선택
+  // Delete optimization: select optimal position considering both overlap and distance with Selection
   else if (kind === 'delete') {
-    const delLen = end - start;  // 삭제할 텍스트 길이
+    const delLen = end - start;  // Length of text to delete
     const biasCenter = isCollapsed ? selectionStart : Math.floor((selectionStart + selectionEnd) / 2);
     
-    // 탐색 윈도우 반경 계산 (텍스트 길이의 10% 또는 최대 6)
+    // Calculate search window radius (10% of text length or max 6)
     const windowRadius = Math.min(6, Math.floor(oldText.length * 0.1));
     
-    // 최적 위치를 찾기 위한 변수들
+    // Variables to find optimal position
     let bestStart = start;
     let bestDist = Math.abs(biasCenter - (start + Math.floor(delLen / 2)));
     let bestOverlap = 0;
 
-    // 탐색 범위 계산
+    // Calculate search range
     const minS = Math.max(0, biasCenter - windowRadius);
     const maxS = Math.min(oldText.length - delLen, biasCenter + windowRadius);
 
-    // 가능한 모든 삭제 위치를 탐색
+    // Search all possible delete positions
     for (let s = minS; s <= maxS; s++) {
-      // s 위치에서 삭제를 시뮬레이션하여 결과 확인
+      // Simulate delete at position s and check result
       const simulated = oldText.slice(0, s) + oldText.slice(s + delLen);
-      if (simulated !== newText) continue;  // 결과가 맞지 않으면 스킵
+      if (simulated !== newText) continue;  // Skip if result doesn't match
 
-      // 삭제 영역과 Selection의 겹침 계산
+      // Calculate overlap between delete area and Selection
       const spanStart = s;
       const spanEnd = s + delLen;
       const overlap = isCollapsed
-        ? (biasCenter >= spanStart && biasCenter <= spanEnd) ? 1 : 0  // 커서가 삭제 영역 안에 있으면 1
-        : Math.max(0, Math.min(spanEnd, selectionEnd) - Math.max(spanStart, selectionStart)); // 선택 영역과의 겹침 길이
+        ? (biasCenter >= spanStart && biasCenter <= spanEnd) ? 1 : 0  // 1 if cursor is inside delete area
+        : Math.max(0, Math.min(spanEnd, selectionEnd) - Math.max(spanStart, selectionStart)); // Overlap length with selection range
       
-      // Selection 중심점과의 거리 계산
+      // Calculate distance from selection center point
       const center = s + Math.floor(delLen / 2);
       const dist = Math.abs(biasCenter - center);
 
-      // 겹침이 더 크거나, 겹침이 같으면 거리가 더 가까운 위치 선택
+      // Select position with larger overlap, or if overlap is same, select closer position
       if (overlap > bestOverlap || (overlap === bestOverlap && dist < bestDist)) {
         bestOverlap = overlap;
         bestDist = dist;
@@ -209,40 +209,40 @@ function analyzeTextChangesWithSelection(
       }
     }
     
-    // 최적 위치로 설정
+    // Set to optimal position
     finalStart = bestStart;
     finalEnd = bestStart + delLen;
     finalDeleted = oldText.slice(finalStart, finalEnd);
   }
 
-  // TextChange 객체 생성
+  // Create TextChange object
   const changes: TextChange[] = [];
 
   if (kind === 'insert') {
-    // 삽입: LCP/LCS 결과를 그대로 사용 (이미 정확함)
+    // Insert: use LCP/LCS result as-is (already accurate)
     changes.push({
       type: 'insert',
       start: finalStart,
-      end: finalStart,        // insert는 start === end (삽입 위치)
+      end: finalStart,        // insert: start === end (insert position)
       text: finalInserted,
       confidence: 1.0
     });
   } else if (kind === 'delete') {
-    // 삭제: Selection 바이어싱이 적용된 위치 사용
+    // Delete: use position with Selection biasing applied
     changes.push({
       type: 'delete',
       start: finalStart,
-      end: finalStart + finalDeleted.length,  // delete는 start + length = end
-      text: '',              // delete는 빈 문자열
+      end: finalStart + finalDeleted.length,  // delete: start + length = end
+      text: '',              // delete: empty string
       confidence: 1.0
     });
   } else if (kind === 'replace') {
-    // 교체: Selection 바이어싱이 적용된 위치 사용
+    // Replace: use position with Selection biasing applied
     changes.push({
       type: 'replace',
       start: finalStart,
-      end: finalStart + finalDeleted.length,  // replace는 start + oldLength = end
-      text: finalInserted,   // replace는 교체할 텍스트
+      end: finalStart + finalDeleted.length,  // replace: start + oldLength = end
+      text: finalInserted,   // replace: text to replace
       confidence: 1.0
     });
   }

@@ -12,13 +12,13 @@ describe('Notion HTML Converter', () => {
   let cleaner: NotionHTMLCleaner;
 
   beforeEach(() => {
-    // Registry 초기화
+    // Initialize registry
     GlobalConverterRegistry.getInstance().clear();
 
-    // 기본 HTML 규칙 등록
+    // Register default HTML rules
     registerDefaultHTMLRules();
 
-    // Notion 전용 규칙 등록
+    // Register Notion-specific rules
     registerNotionHTMLRules();
 
     converter = new HTMLConverter();
@@ -55,7 +55,7 @@ describe('Notion HTML Converter', () => {
       const nodes = converter.parse(cleaned);
 
       expect(nodes.length).toBeGreaterThan(0);
-      // 단순히 paragraph로 파싱되기만 해도 1차 목표는 달성
+      // Primary goal achieved if it's parsed as paragraph
       expect(nodes[0].stype).toBe('paragraph');
     });
 

@@ -69,7 +69,7 @@ describe('DataStore transformNode', () => {
       expect(transformedNode?.attributes?.level).toBe(1);
       expect(transformedNode?.content).toEqual(['text-1']);
 
-      // 부모의 content에서 위치가 유지되어야 함
+      // Position should be maintained in parent's content
       const doc = dataStore.getNode('doc-1');
       expect(doc?.content).toEqual(['para-1']);
     });
@@ -107,7 +107,7 @@ describe('DataStore transformNode', () => {
       const transformedNode = dataStore.getNode('heading-1');
       expect(transformedNode?.stype).toBe('paragraph');
       expect(transformedNode?.content).toEqual(['text-1']);
-      // attributes는 유지되지만 level은 paragraph에 의미 없음
+      // Attributes are maintained but level has no meaning for paragraph
     });
 
     it('같은 타입으로 변환하면 no-op이어야 함', () => {
@@ -151,7 +151,7 @@ describe('DataStore transformNode', () => {
         dataStore.setNode(node);
       });
 
-      // 중간 노드를 변환
+      // Transform middle node
       const result = dataStore.transformNode('para-2', 'heading', { level: 2 });
       expect(result.valid).toBe(true);
 

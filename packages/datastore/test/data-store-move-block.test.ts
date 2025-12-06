@@ -53,7 +53,7 @@ describe('DataStore moveBlockUp/moveBlockDown', () => {
         dataStore.setNode(node);
       });
 
-      // para-2를 위로 이동
+      // Move para-2 up
       const result = dataStore.moveBlockUp('para-2');
       expect(result).toBe(true);
 
@@ -118,7 +118,7 @@ describe('DataStore moveBlockUp/moveBlockDown', () => {
         dataStore.setNode(node);
       });
 
-      // para-2를 아래로 이동
+      // Move para-2 down
       const result = dataStore.moveBlockDown('para-2');
       expect(result).toBe(true);
 
@@ -169,14 +169,14 @@ describe('DataStore moveBlockUp/moveBlockDown', () => {
         dataStore.setNode(node);
       });
 
-      // para-3을 두 번 아래로 이동
+      // Move para-3 down twice
       expect(dataStore.moveBlockDown('para-3')).toBe(true);
       expect(dataStore.getNode('doc-1')?.content).toEqual(['para-1', 'para-2', 'para-4', 'para-3']);
 
-      expect(dataStore.moveBlockDown('para-3')).toBe(false); // 이미 마지막
+      expect(dataStore.moveBlockDown('para-3')).toBe(false); // Already last
       expect(dataStore.getNode('doc-1')?.content).toEqual(['para-1', 'para-2', 'para-4', 'para-3']);
 
-      // para-3을 위로 이동
+      // Move para-3 up
       expect(dataStore.moveBlockUp('para-3')).toBe(true);
       expect(dataStore.getNode('doc-1')?.content).toEqual(['para-1', 'para-2', 'para-3', 'para-4']);
     });

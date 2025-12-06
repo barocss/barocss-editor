@@ -8,10 +8,10 @@ export interface ParagraphExtensionOptions {
 /**
  * ParagraphExtension
  *
- * - Enter 키(`insertParagraph` command)를 처리한다.
- * - 실제 모델 변경은 @barocss/model 의 transaction + operations 조합으로 수행한다.
- * - DataStore 에 직접 쓰기 대신, operation 객체(deleteTextRange, splitTextNode, splitBlockNode, addChild 등)를 생성하여
- *   하나의 트랜잭션으로 실행한다.
+ * - Handles Enter key (`insertParagraph` command).
+ * - Actual model changes are performed using transaction + operations combination from @barocss/model.
+ * - Instead of writing directly to DataStore, creates operation objects (deleteTextRange, splitTextNode, splitBlockNode, addChild, etc.)
+ *   and executes them in a single transaction.
  */
 export class ParagraphExtension implements Extension {
   name = 'paragraph';
@@ -29,7 +29,7 @@ export class ParagraphExtension implements Extension {
   onCreate(editor: Editor): void {
     if (!this._options.enabled) return;
 
-    // Paragraph 명령어
+    // Paragraph command
     (editor as any).registerCommand({
       name: 'setParagraph',
       execute: async (ed: Editor, payload?: { selection?: ModelSelection }) => {
@@ -40,7 +40,7 @@ export class ParagraphExtension implements Extension {
       }
     });
 
-    // Enter 키: insertParagraph (Model-first, transaction 기반)
+    // Enter key: insertParagraph (Model-first, transaction-based)
     (editor as any).registerCommand({
       name: 'insertParagraph',
       execute: async (ed: Editor, payload?: { selection?: ModelSelection }) => {
@@ -51,16 +51,16 @@ export class ParagraphExtension implements Extension {
       }
     });
 
-    // 키보드 단축키 등록은 아직 ParagraphExtension에서 직접 담당하지 않는다.
+    // Keyboard shortcut registration is not yet directly handled by ParagraphExtension.
   }
 
   onDestroy(_editor: Editor): void {
-    // 정리 작업 필요 시 여기에 추가
+    // Add cleanup work here if needed
   }
 
   /**
-   * setParagraph 실행부
-   * - 현재 블록 노드를 paragraph로 변환
+   * setParagraph execution
+   * - Converts current block node to paragraph
    */
   private async _executeSetParagraph(
     editor: Editor,
@@ -76,7 +76,7 @@ export class ParagraphExtension implements Extension {
       return false;
     }
 
-    // 현재 블록 노드 찾기 (startNodeId의 부모 블록 노드)
+    // Find current block node (parent block node of startNodeId)
     const targetNodeId = this._getTargetBlockNodeId(dataStore, selection);
     if (!targetNodeId) {
       console.warn('[ParagraphExtension] No target block node found');
@@ -88,12 +88,12 @@ export class ParagraphExtension implements Extension {
       return false;
     }
 
-    // 이미 paragraph면 no-op
+    // No-op if already paragraph
     if (targetNode.stype === 'paragraph') {
       return true;
     }
 
-    // transformNode operation 사용
+    // Use transformNode operation
     const ops = [
       ...control(targetNodeId, [
         transformNode('paragraph')
@@ -105,8 +105,8 @@ export class ParagraphExtension implements Extension {
   }
 
   /**
-   * insertParagraph 실행부
-   * - selection 을 해석하여 operation 배열을 구성한 뒤, transaction 으로 실행한다.
+   * insertParagraph execution
+   * - Interprets selection, builds operation array, then executes via transaction.
    */
   private async _executeInsertParagraph(
     editor: Editor,
@@ -126,8 +126,8 @@ export class ParagraphExtension implements Extension {
   }
 
   /**
-   * selection에서 대상 블록 노드 ID를 찾음
-   * - Range Selection: startNodeId의 부모 블록 노드
+   * Finds target block node ID from selection
+   * - Range Selection: parent block node of startNodeId
    */
   private _getTargetBlockNodeId(dataStore: any, selection: ModelSelection): string | null {
     if (selection.type !== 'range') {
@@ -140,13 +140,13 @@ export class ParagraphExtension implements Extension {
     const schema = dataStore.getActiveSchema();
     if (schema) {
       const nodeType = schema.getNodeType(startNode.stype);
-      // startNode가 블록이면 그대로 사용
+      // Use startNode as is if it's a block
       if (nodeType?.group === 'block') {
         return startNode.sid!;
       }
     }
 
-    // startNode의 부모 블록 노드를 찾음
+    // Find parent block node of startNode
     let current = startNode;
     while (current && current.parentId) {
       const parent = dataStore.getNode(current.parentId);
@@ -164,18 +164,18 @@ export class ParagraphExtension implements Extension {
   }
 
   /**
-   * insertParagraph 에 필요한 operation 시퀀스를 구성한다.
+   * Builds operation sequence needed for insertParagraph.
    *
-   * 현재 구현 범위:
+   * Current implementation scope:
    * - collapsed range:
-   *   - 단일 텍스트 노드 + 단일 child paragraph 에서:
-   *     - 텍스트 중간: splitTextNode + splitBlockNode
-   *     - 텍스트 끝: 같은 타입의 빈 paragraph 를 뒤에 추가
-   *     - 텍스트 시작: 같은 타입의 빈 paragraph 를 앞에 추가
-   * - 같은 텍스트 노드 내 RangeSelection:
-   *   - deleteTextRange 후, collapsed selection 기준으로 위 로직 재사용
-   * - 여러 노드에 걸친 RangeSelection:
-   *   - 현재 단계에서는 operation 을 생성하지 않음 (빈 배열 반환)
+   *   - In single text node + single child paragraph:
+   *     - Middle of text: splitTextNode + splitBlockNode
+   *     - End of text: add empty paragraph of same type after
+   *     - Start of text: add empty paragraph of same type before
+   * - RangeSelection within same text node:
+   *   - After deleteTextRange, reuse above logic based on collapsed selection
+   * - RangeSelection spanning multiple nodes:
+   *   - Does not generate operations at current stage (returns empty array)
    */
   private _buildInsertParagraphOperations(
     editor: Editor,
@@ -193,9 +193,9 @@ export class ParagraphExtension implements Extension {
 
     const ops: any[] = [];
 
-    // 1) RangeSelection 처리
+    // 1) Handle RangeSelection
     if (!selection.collapsed) {
-      // 같은 텍스트 노드 내 RangeSelection
+      // RangeSelection within same text node
       if (selection.startNodeId === selection.endNodeId) {
         const node = dataStore.getNode(selection.startNodeId);
         if (!node || typeof node.text !== 'string') {
@@ -226,7 +226,7 @@ export class ParagraphExtension implements Extension {
           ])
         );
 
-        // 삭제 후 caret 은 startOffset 에 위치한다고 가정하고 collapsed 로직 재사용
+        // Assume caret is at startOffset after deletion and reuse collapsed logic
         const newTextLength = text.length - (endOffset - startOffset);
         const collapsedOffset = startOffset;
 
@@ -239,12 +239,12 @@ export class ParagraphExtension implements Extension {
         return ops.concat(collapsedOps);
       }
 
-      // 여러 노드에 걸친 RangeSelection 은 아직 transaction 기반 Enter 에서 다루지 않는다.
-      // (Backspace/Delete 와 동일한 Range 삭제 로직 확보 후 확장 예정)
+      // RangeSelection spanning multiple nodes is not yet handled in transaction-based Enter.
+      // (Will be extended after securing same Range deletion logic as Backspace/Delete)
       return [];
     }
 
-    // 2) collapsed 케이스
+    // 2) collapsed case
     const node = dataStore.getNode(selection.startNodeId);
     if (!node || typeof node.text !== 'string') {
       return [];
@@ -260,11 +260,11 @@ export class ParagraphExtension implements Extension {
   }
 
   /**
-   * collapsed 상태에서의 Enter 동작에 대한 operation 시퀀스
+   * Operation sequence for Enter behavior in collapsed state
    *
-   * - 텍스트 중간: splitTextNode + splitBlockNode
-   * - 텍스트 끝: 부모(doc) 아래 동일 타입의 빈 paragraph 를 뒤에 추가
-   * - 텍스트 시작: 부모(doc) 아래 동일 타입의 빈 paragraph 를 앞에 추가
+   * - Middle of text: splitTextNode + splitBlockNode
+   * - End of text: add empty paragraph of same type after under parent (doc)
+   * - Start of text: add empty paragraph of same type before under parent (doc)
    */
   private _buildCollapsedParagraphOps(
     dataStore: any,
@@ -287,7 +287,7 @@ export class ParagraphExtension implements Extension {
     const isSingleTextChild =
       parentBlock.content.length === 1 && parentBlock.content[0] === textNodeId;
 
-    // 1) 텍스트 중간에서 Enter: splitTextNode + splitBlockNode
+    // 1) Enter at middle of text: splitTextNode + splitBlockNode
     if (isSingleTextChild && offset > 0 && offset < textLength) {
       ops.push(
         ...control(textNodeId, [
@@ -306,7 +306,7 @@ export class ParagraphExtension implements Extension {
       return ops;
     }
 
-    // 2) 블록 끝에서 Enter: 현재 블록 뒤에 같은 타입의 빈 블록 추가
+    // 2) Enter at end of block: add empty block of same type after current block
     if (offset === textLength) {
       const grandParent = parentBlock.parentId
         ? dataStore.getNode(parentBlock.parentId)
@@ -338,7 +338,7 @@ export class ParagraphExtension implements Extension {
       return ops;
     }
 
-    // 3) 블록 시작에서 Enter: 현재 블록 앞에 같은 타입의 빈 블록 추가
+    // 3) Enter at start of block: add empty block of same type before current block
     if (offset === 0) {
       const grandParent = parentBlock.parentId
         ? dataStore.getNode(parentBlock.parentId)
@@ -370,12 +370,12 @@ export class ParagraphExtension implements Extension {
       return ops;
     }
 
-    // 기타 케이스는 아직 미구현
+    // Other cases not yet implemented
     return ops;
   }
 }
 
-// 편의 함수
+// Convenience function
 export function createParagraphExtension(options?: ParagraphExtensionOptions): ParagraphExtension {
   return new ParagraphExtension(options);
 }

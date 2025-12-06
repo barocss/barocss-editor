@@ -1,6 +1,6 @@
 /**
- * Decorator Target 타입
- * - 단일 노드 타겟 또는 범위 타겟
+ * Decorator Target type
+ * - Single node target or range target
  */
 export type DecoratorTarget = 
   | {
@@ -16,36 +16,36 @@ export type DecoratorTarget =
     };
 
 /**
- * Decorator 타입
- * - DecoratorManager에서 관리
- * - 일반 decorator와 패턴 decorator 모두 지원
+ * Decorator type
+ * - Managed by DecoratorManager
+ * - Supports both regular decorator and pattern decorator
  */
 export interface Decorator {
   sid: string;
-  stype: string; // decorator 타입 (comment, highlight, color-picker 등)
+  stype: string; // Decorator type (comment, highlight, color-picker, etc.)
   category: 'layer' | 'inline' | 'block';
   data?: Record<string, any>;
   /**
-   * Decorator 타겟
-   * - inline/block: 필수 (어떤 노드/범위에 적용할지 지정)
-   * - layer: 선택사항 (overlay 형태로 동작하므로 target이 없어도 됨)
-   *   - 커서, selection 같은 overlay는 target 없이 data.position으로만 위치 지정
+   * Decorator target
+   * - inline/block: Required (specify which node/range to apply to)
+   * - layer: Optional (works as overlay, so target is not required)
+   *   - Overlays like cursor, selection specify position only with data.position without target
    */
   target?: DecoratorTarget;
   /**
-   * 렌더링할 레이어 타겟
-   * - 'content': Content 레이어 (inline/block decorator 기본값)
-   * - 'decorator': Decorator 레이어 (layer decorator 기본값)
-   * - 'selection': Selection 레이어
-   * - 'context': Context 레이어
-   * - 'custom': Custom 레이어
+   * Layer target for rendering
+   * - 'content': Content layer (default for inline/block decorator)
+   * - 'decorator': Decorator layer (default for layer decorator)
+   * - 'selection': Selection layer
+   * - 'context': Context layer
+   * - 'custom': Custom layer
    */
   layerTarget?: 'content' | 'decorator' | 'selection' | 'context' | 'custom';
-  enabled?: boolean; // 활성화 여부 (기본값: true)
-  decoratorType?: 'target' | 'pattern' | 'custom'; // decorator 종류: 'target' (일반), 'pattern' (패턴 기반), 'custom' (함수 기반, 기본값: 'target')
-  position?: DecoratorPosition; // 렌더링 위치 (선택사항)
+  enabled?: boolean; // Enabled status (default: true)
+  decoratorType?: 'target' | 'pattern' | 'custom'; // Decorator type: 'target' (regular), 'pattern' (pattern-based), 'custom' (function-based, default: 'target')
+  position?: DecoratorPosition; // Rendering position (optional)
   
-  // 메타데이터 (선택사항)
+  // Metadata (optional)
   createdAt?: number;
   updatedAt?: number;
   author?: string;
@@ -60,11 +60,11 @@ export type DecoratorPosition =
   | 'overlay'       // overlay on top of target
   | 'absolute';     // absolute position in container
 
-// BUILTIN_*_TYPES는 스키마에서 정의되어야 함
-// editor-view-dom은 스키마를 통해 decorator 타입을 알아야 함
+// BUILTIN_*_TYPES must be defined in schema
+// editor-view-dom must know decorator types through schema
 
 /**
- * Decorator 조회 옵션
+ * Decorator query options
  */
 export interface DecoratorQueryOptions {
   type?: string;
@@ -72,14 +72,14 @@ export interface DecoratorQueryOptions {
   nodeId?: string;
   sortBy?: 'id' | 'type' | 'category';
   sortOrder?: 'asc' | 'desc';
-  enabledOnly?: boolean; // true면 enabled된 것만 반환 (기본값: true)
+  enabledOnly?: boolean; // If true, only return enabled ones (default: true)
 }
 
 /**
- * Decorator 업데이트 옵션
+ * Decorator update options
  */
 export interface DecoratorUpdateOptions {
-  partial?: boolean; // true면 부분 업데이트, false면 전체 교체
+  partial?: boolean; // If true, partial update, if false, full replacement
 }
 
 /**
@@ -110,31 +110,31 @@ export interface DecoratorTypeSchema {
 export type DecoratorRenderer = (decorator: Decorator, container: HTMLElement) => void;
 
 /**
- * Layer Decorator 타입
- * - Overlay 형태로 동작 (position: absolute)
- * - target은 선택사항 (커서, selection 같은 경우 target 없이 data.position만 사용)
+ * Layer Decorator type
+ * - Works as overlay (position: absolute)
+ * - target is optional (for cases like cursor, selection, use only data.position without target)
  */
 export interface LayerDecorator extends Decorator {
   category: 'layer';
-  target?: DecoratorTarget; // Layer는 overlay이므로 target이 선택사항
+  target?: DecoratorTarget; // Layer is overlay, so target is optional
 }
 
 /**
- * Inline Decorator 타입
- * - 텍스트 범위에 적용되는 decorator
- * - target 필수 (어떤 텍스트 범위에 적용할지 지정)
+ * Inline Decorator type
+ * - Decorator applied to text range
+ * - target required (specify which text range to apply to)
  */
 export interface InlineDecorator extends Decorator {
   category: 'inline';
-  target: DecoratorTarget; // Inline은 target 필수
+  target: DecoratorTarget; // Inline requires target
 }
 
 /**
- * Block Decorator 타입
- * - 블록 노드에 적용되는 decorator
- * - target 필수 (어떤 블록 노드에 적용할지 지정)
+ * Block Decorator type
+ * - Decorator applied to block node
+ * - target required (specify which block node to apply to)
  */
 export interface BlockDecorator extends Decorator {
   category: 'block';
-  target: DecoratorTarget; // Block은 target 필수
+  target: DecoratorTarget; // Block requires target
 }

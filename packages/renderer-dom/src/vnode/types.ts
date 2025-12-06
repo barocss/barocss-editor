@@ -7,12 +7,12 @@
 /**
  * VNode Tag Constants
  * 
- * 특수한 태그 값들을 상수로 정의하여 타입 안정성과 오타 방지
+ * Define special tag values as constants for type safety and typo prevention
  */
 export const VNodeTag = {
-  /** 텍스트 노드를 나타내는 특수 태그 */
+  /** Special tag representing text node */
   TEXT: '#text',
-  /** 포털 노드를 나타내는 태그 */
+  /** Tag representing portal node */
   PORTAL: 'portal',
 } as const;
 
@@ -21,7 +21,7 @@ export type VNodeTagType = typeof VNodeTag[keyof typeof VNodeTag];
 /**
  * DOM Attribute Constants
  * 
- * DOM에 저장되는 속성 이름들을 상수로 정의
+ * Define attribute names stored in DOM as constants
  */
 export const DOMAttribute = {
   /** Component Schema ID (data-bc-sid) */
@@ -58,7 +58,7 @@ export interface VNode {
   // They are NOT added to attrs as data-bc-* attributes (those are added by Reconciler)
   sid?: string;    // Schema ID - only set for component-generated VNodes with tag
   stype?: string;  // Schema Type - only set for component-generated VNodes with tag
-  props?: Record<string, any>;      // 순수 props (stype/sid/type 제외) - only for component-generated VNodes
+  props?: Record<string, any>;      // Pure props (excluding stype/sid/type) - only for component-generated VNodes
   // Decorator VNode identity information (only for decorator-generated VNodes)
   // These are set at the top level to indicate where the decorator node originated from
   // They are NOT added to attrs as data-decorator-* attributes (those are added by Reconciler)

@@ -14,18 +14,18 @@ const runIndexByElement = new WeakMap<Element, ContainerRuns>();
 const runIndexById = new Map<string, ContainerRuns>();
 
 /**
- * 요소 내부의 첫 번째 text node 찾기
- * byNode 맵을 위해 필요 (convertDOMOffsetToModelOffset에서 사용)
+ * Find first text node inside element
+ * Required for byNode map (used in convertDOMOffsetToModelOffset)
  */
 function getFirstTextNode(element: Element | Text | null): Text | null {
   if (!element) return null;
   
-  // Text node면 바로 반환
+  // If text node, return immediately
   if (element.nodeType === Node.TEXT_NODE) {
     return element as Text;
   }
   
-  // Element인 경우 자식 노드들을 순회하여 첫 번째 text node 찾기
+  // If element, traverse child nodes to find first text node
   if (element.nodeType === Node.ELEMENT_NODE) {
     const el = element as Element;
     const walker = document.createTreeWalker(
@@ -42,7 +42,7 @@ function getFirstTextNode(element: Element | Text | null): Text | null {
 }
 
 /**
- * 요소가 decorator인지 확인
+ * Check if element is a decorator
  */
 function isDecoratorElement(el: Element): boolean {
   return !!(
@@ -61,11 +61,11 @@ export function buildTextRunIndex(
   let total = 0;
   const byNode = options?.buildReverseMap ? new Map<Text, { start: number; end: number }>() : undefined;
 
-  // inline-text의 직접 자식 요소들을 순서대로 순회
+  // Traverse direct child elements of inline-text in order
   const childNodes = Array.from(containerEl.childNodes);
   
   for (const child of childNodes) {
-    // 1. Text node인 경우: textContent 사용
+    // 1. If text node: use textContent
     if (child.nodeType === Node.TEXT_NODE) {
       const textNode = child as Text;
       const textContent = textNode.textContent ?? '';
@@ -83,34 +83,34 @@ export function buildTextRunIndex(
       continue;
     }
     
-    // 2. Element인 경우: 내부의 모든 text node를 개별적으로 수집
+    // 2. If element: collect all internal text nodes individually
     if (child.nodeType === Node.ELEMENT_NODE) {
       const el = child as Element;
       
-      // Decorator는 제외
+      // Exclude decorators
       if (isDecoratorElement(el)) {
         continue;
       }
       
-      // excludePredicate로 제외되는 요소는 건너뜀
+      // Skip elements excluded by excludePredicate
       if (options?.excludePredicate && options.excludePredicate(el)) {
         continue;
       }
       
-      // TreeWalker를 사용하여 내부의 모든 text node를 개별적으로 수집
-      // (decorator 하위는 제외)
+      // Use TreeWalker to collect all internal text nodes individually
+      // (exclude decorator descendants)
       const walker = document.createTreeWalker(
         el,
         NodeFilter.SHOW_TEXT,
         {
           acceptNode: (node: Node) => {
-            // decorator 하위인지 확인
+            // Check if descendant of decorator
             let parent: Node | null = node.parentNode;
             while (parent && parent !== el) {
               if (parent.nodeType === Node.ELEMENT_NODE) {
                 const parentEl = parent as Element;
                 if (isDecoratorElement(parentEl)) {
-                  return NodeFilter.FILTER_REJECT; // decorator 하위는 제외
+                  return NodeFilter.FILTER_REJECT; // Exclude decorator descendants
                 }
               }
               parent = parent.parentNode;

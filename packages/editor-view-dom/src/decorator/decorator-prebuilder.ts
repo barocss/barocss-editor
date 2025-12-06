@@ -1,8 +1,8 @@
 /**
  * DecoratorPrebuilder
  * 
- * 모든 decorator (target, pattern, custom)를 DecoratorModel로 변환
- * Content 렌더링 완료 후 실행 (DOM 위치 계산 가능)
+ * Convert all decorators (target, pattern, custom) to DecoratorModel
+ * Executed after Content rendering completes (DOM position calculation possible)
  */
 import { RendererRegistry, ModelData } from '@barocss/dsl';
 import { DOMRenderer } from '@barocss/renderer-dom';
@@ -15,7 +15,7 @@ import { PositionCalculator, type DecoratorPosition } from './position-calculato
  */
 export interface DecoratorModel extends ModelData {
   sid: string;
-  stype: string; // defineDecorator로 정의된 타입
+  stype: string; // Type defined with defineDecorator
   category: 'layer' | 'inline' | 'block';
   layerTarget?: 'content' | 'decorator' | 'selection' | 'context' | 'custom';
   position?: {
@@ -25,7 +25,7 @@ export interface DecoratorModel extends ModelData {
     height: number;
   };
   data?: Record<string, any>;
-  // position 스타일을 위한 속성들 (템플릿에서 사용)
+  // Properties for position style (used in templates)
   style?: Record<string, string | number>;
 }
 
@@ -43,7 +43,7 @@ export class DecoratorPrebuilder {
   }
   
   /**
-   * 모든 decorator를 DecoratorModel로 변환
+   * Convert all decorators to DecoratorModel
    */
   buildAll(
     decorators: Decorator[],
@@ -60,41 +60,41 @@ export class DecoratorPrebuilder {
   }
   
   /**
-   * 단일 decorator를 DecoratorModel로 변환
+   * Convert single decorator to DecoratorModel
    */
   private buildDecorator(
     decorator: Decorator,
     modelData: ModelData
   ): DecoratorModel[] {
-    // 1. Custom decorator 처리
+    // 1. Handle custom decorator
     if (decorator.decoratorType === 'custom' && decorator.generate) {
-      // Custom decorator는 generate 함수를 통해 다른 decorator들을 생성
-      // 이 함수는 DecoratorGeneratorManager에서 관리됨
-      // 여기서는 이미 생성된 decorator만 처리
-      // generate 호출은 DecoratorGeneratorManager에서 이미 수행됨
+      // Custom decorator generates other decorators through generate function
+      // This function is managed in DecoratorGeneratorManager
+      // Here only process already generated decorators
+      // generate call is already performed in DecoratorGeneratorManager
     }
     
-    // 2. Target decorator 처리
+    // 2. Handle target decorator
     return [this.buildTargetDecorator(decorator, modelData)];
   }
   
   /**
-   * Target decorator를 DecoratorModel로 변환
+   * Convert target decorator to DecoratorModel
    */
   private buildTargetDecorator(
     decorator: Decorator,
     modelData: ModelData
   ): DecoratorModel {
-    // 위치 계산 (layer decorator인 경우)
+    // Calculate position (for layer decorator)
     let position: DecoratorModel['position'];
     const layerTarget = decorator.layerTarget || this.getDefaultLayerTarget(decorator);
     
     if (decorator.category === 'layer' || layerTarget !== 'content') {
-      // data.position이 직접 지정된 경우 우선 사용
+      // If data.position is directly specified, use it first
       if (decorator.data?.position) {
         position = decorator.data.position as DecoratorModel['position'];
       } else {
-        // target 기반 위치 계산 시도
+        // Try target-based position calculation
         const calculatedPosition = this.positionCalculator.calculatePosition(decorator);
         if (calculatedPosition) {
           position = calculatedPosition;
@@ -102,24 +102,24 @@ export class DecoratorPrebuilder {
       }
     }
     
-    // DecoratorModel 생성
-    // 템플릿 렌더링은 DOMRenderer가 처리하므로 기본 정보만 포함
+    // Create DecoratorModel
+    // Template rendering is handled by DOMRenderer, so only include basic information
     const decoratorModel: DecoratorModel = {
       sid: decorator.sid,
-      stype: decorator.stype, // defineDecorator로 정의된 타입
+      stype: decorator.stype, // Type defined with defineDecorator
       category: decorator.category,
       layerTarget,
-      data: decorator.data ? { ...decorator.data } : {} // decorator 데이터 (템플릿에서 사용)
+      data: decorator.data ? { ...decorator.data } : {} // Decorator data (used in template)
     };
     
-    // position이 있으면 data에 추가하고, 별도 필드로도 저장
+    // If position exists, add to data and also store as separate field
     if (position) {
       decoratorModel.position = position;
-      // data에도 position 포함 (템플릿에서 사용 가능하도록)
+      // Also include position in data (so it can be used in template)
       decoratorModel.data = decoratorModel.data || {};
       decoratorModel.data.position = position;
       
-      // style 속성에 position 스타일 추가 (layer decorator용)
+      // Add position style to style attribute (for layer decorator)
       if (layerTarget !== 'content') {
         decoratorModel.style = {
           position: 'absolute',

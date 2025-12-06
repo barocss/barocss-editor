@@ -1,13 +1,13 @@
 import type { ModelSelection } from '@barocss/editor-core';
 
 /**
- * Selection 매핑을 위한 공통 유틸리티 함수들
- * Operation별 Selection 매핑 로직을 재사용 가능한 패턴으로 제공합니다.
+ * Common utility functions for Selection mapping
+ * Provides reusable patterns for Selection mapping logic per operation.
  */
 export class SelectionMappingUtils {
   /**
-   * 삽입 후 Selection 이동
-   * 텍스트 삽입 시 삽입 위치 이후의 Selection을 이동시킵니다.
+   * Move Selection after insertion
+   * Moves Selection after insertion position when text is inserted.
    */
   static shiftAfterInsert(
     currentSelection: ModelSelection, 
@@ -26,8 +26,8 @@ export class SelectionMappingUtils {
   }
   
   /**
-   * 삭제 후 Selection 이동
-   * 텍스트 삭제 시 삭제 범위 시작으로 Selection을 이동시킵니다.
+   * Move Selection after deletion
+   * Moves Selection to deletion range start when text is deleted.
    */
   static collapseToStart(
     currentSelection: ModelSelection,
@@ -43,8 +43,8 @@ export class SelectionMappingUtils {
   }
   
   /**
-   * 분할 후 Selection 이동
-   * 텍스트 분할 시 분할 지점으로 Selection을 이동시킵니다.
+   * Move Selection after split
+   * Moves Selection to split point when text is split.
    */
   static moveToSplitPoint(
     currentSelection: ModelSelection,
@@ -60,22 +60,22 @@ export class SelectionMappingUtils {
   }
   
   /**
-   * Selection 클리어
-   * 노드 삭제 시 해당 노드의 Selection을 클리어합니다.
+   * Clear Selection
+   * Clears Selection for the node when node is deleted.
    */
   static clearSelection(
     currentSelection: ModelSelection,
     operation: { nodeId: string }
   ): ModelSelection | null {
     if (currentSelection.startNodeId === operation.nodeId || currentSelection.endNodeId === operation.nodeId) {
-      return null; // Selection 클리어
+      return null; // Clear selection
     }
     return currentSelection;
   }
   
   /**
-   * Selection 유지
-   * Operation이 Selection에 영향을 주지 않는 경우 사용합니다.
+   * Preserve Selection
+   * Used when operation does not affect Selection.
    */
   static preserveSelection(
     currentSelection: ModelSelection,
@@ -85,8 +85,8 @@ export class SelectionMappingUtils {
   }
   
   /**
-   * 범위 삭제 후 Selection 조정
-   * 특정 범위를 삭제한 후 Selection을 조정합니다.
+   * Adjust Selection after range deletion
+   * Adjusts Selection after deleting a specific range.
    */
   static adjustForRangeDelete(
     currentSelection: Selection,
@@ -96,10 +96,10 @@ export class SelectionMappingUtils {
     
     const deleteLength = operation.endPosition - operation.startPosition;
     
-    // Selection이 삭제 범위와 겹치는 경우
+    // If Selection overlaps with deletion range
     if (currentSelection.start >= operation.startPosition && 
         currentSelection.start < operation.endPosition) {
-      // 삭제 범위 시작으로 이동
+      // Move to deletion range start
       return {
         ...currentSelection,
         start: operation.startPosition,
@@ -107,7 +107,7 @@ export class SelectionMappingUtils {
       };
     }
     
-    // Selection이 삭제 범위 이후에 있는 경우 오프셋 조정
+    // Adjust offset if Selection is after deletion range
     if (currentSelection.start >= operation.endPosition) {
       return {
         ...currentSelection,

@@ -23,7 +23,7 @@ defineOperation(
     const json = context.dataStore.serializeRange(range);
     const text = context.dataStore.range.extractText(range);
 
-    // 텍스트 삭제는 RangeOperations.deleteRange를 통해 수행
+    // Text deletion is performed via RangeOperations.deleteRange
     context.dataStore.range.deleteRange(range);
 
     const result: CutResult = {

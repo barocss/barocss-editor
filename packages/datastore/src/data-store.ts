@@ -17,25 +17,25 @@ import { registerDefaultDropBehaviors } from './operations/drop-behavior-default
 import type { DocumentVisitor, VisitorTraversalOptions } from './operations/utility-operations';
 import { TransactionalOverlay } from './transactional-overlay';
 
-// 원자적 Operation 타입 정의
+// Atomic Operation type definition
 /**
  * AtomicOperation
  *
  * Spec:
- * - type: 원자 연산의 종류. 생성(create), 갱신(update), 삭제(delete), 이동(move)만 허용.
- * - nodeId: 연산 대상 노드의 ID. 삭제의 경우 삭제되는 노드 ID, 이동의 경우 이동되는 노드 ID.
- * - data: create/update에서 적용된 필드들의 스냅샷. 전체 대체가 아니라 병합된 데이터이며,
- *   최소한 { type, attributes, text, content, parentId, marks }를 포함할 수 있다.
- * - timestamp: 연산 생성 시각 (ms). 단조 증가를 보장하지 않으며, 정렬은 별도 정책에 따름.
- * - parentId: 연산 시점의 부모 ID 힌트. create/delete/move에서 의미를 갖는다.
- * - position: move에서 새 부모 내 삽입 위치(0 기반). create 시 부모 content에 삽입된 위치를 담을 수 있다.
+ * - type: Type of atomic operation. Only create, update, delete, move are allowed.
+ * - nodeId: ID of the target node. For delete, the ID of the node being deleted; for move, the ID of the node being moved.
+ * - data: Snapshot of fields applied in create/update. It's merged data, not a full replacement,
+ *   and can include at least { type, attributes, text, content, parentId, marks }.
+ * - timestamp: Operation creation time (ms). Does not guarantee monotonic increase; sorting follows separate policy.
+ * - parentId: Parent ID hint at operation time. Has meaning in create/delete/move.
+ * - position: Insertion position within new parent in move (0-based). Can contain insertion position in parent content during create.
  *
  * Invariants:
- * - type은 위 유니온 중 하나여야 한다.
- * - nodeId는 빈 문자열이 아니어야 한다.
- * - delete의 data는 선택적이며, base 스냅샷을 반드시 포함하지 않아도 된다.
- * - move의 position이 제공되는 경우 0 이상이어야 한다.
- * - 본 타입은 이벤트 페이로드 용도로만 사용하며, 외부에서 변경하지 않는다.
+ * - type must be one of the union types above.
+ * - nodeId must not be an empty string.
+ * - data in delete is optional and does not need to include base snapshot.
+ * - position in move must be 0 or greater if provided.
+ * - This type is only used for event payload purposes and should not be modified externally.
  */
 export interface AtomicOperation {
   type: 'create' | 'update' | 'delete' | 'move';
@@ -46,7 +46,7 @@ export interface AtomicOperation {
   position?: number;
 }
 
-// 간단한 EventEmitter 구현
+// Simple EventEmitter implementation
 class EventEmitter {
   private listeners: Map<string, Set<Function>> = new Map();
 
@@ -90,14 +90,14 @@ export class DataStore {
   private _eventEmitter: EventEmitter = new EventEmitter();
   private static _globalCounter: number = 0;
   private _sessionId: number = 0;
-  // Operation 수집 상태
+  // Operation collection state
   private _overlay: TransactionalOverlay | undefined;
   // Overlay-scoped alias map (non-persistent)
   private _overlayAliases: Map<string, string> | undefined;
   // Temporary alias set used during createNodeWithChildren to detect duplicates
   private _tempAliasSet: Set<string> | undefined;
 
-  // 글로벌 락 및 큐 관리
+  // Global lock and queue management
   private _currentLock: {
     lockId: string;
     ownerId: string;
@@ -110,7 +110,7 @@ export class DataStore {
     resolve: () => void;
     timeoutId: NodeJS.Timeout;
   }> = [];
-  private _lockTimeout: number = 5000; // 5초 타임아웃
+  private _lockTimeout: number = 5000; // 5 second timeout
   private _lockStats = {
     totalAcquisitions: 0,
     totalReleases: 0,
@@ -118,7 +118,7 @@ export class DataStore {
     averageWaitTime: 0
   };
 
-  // 분리된 연산 클래스들
+  // Separated operation classes
   public readonly core: CoreOperations;
   public readonly query: QueryOperations;
   public readonly content: ContentOperations;
@@ -136,7 +136,7 @@ export class DataStore {
       this.setActiveSchema(schema);
     }
 
-    // 연산 클래스들 초기화
+    // Initialize operation classes
     this.core = new CoreOperations(this);
     this.query = new QueryOperations(this);
     this.content = new ContentOperations(this);
@@ -147,7 +147,7 @@ export class DataStore {
     this.range = new RangeOperations(this);
     this.serialization = new SerializationOperations(this);
 
-    // 기본 드롭 행위 규칙 등록
+    // Register default drop behavior rules
     registerDefaultDropBehaviors();
   }
 
@@ -293,17 +293,17 @@ export class DataStore {
     for (const op of sorted) {
       switch (op.type) {
         case 'create': {
-          // overlay에서 노드를 가져오거나 op.data를 사용
+          // Get node from overlay or use op.data
           const overlayNode = (this._overlay as any)?.getOverlayNode(op.nodeId) as INode | undefined;
           const node = overlayNode || (op as any).data as INode;
           if (node) {
-            // 이미 생성된 노드가 있으면 그 노드의 marks를 보존
+            // Preserve marks if node already exists
             const existingNode = this.nodes.get(op.nodeId);
             const marks = node.marks || existingNode?.marks;
             this._setNodeInternal({ ...node, marks, sid: op.nodeId } as any);
           }
-          // Note: parentId 관계는 _createAllNodesRecursively에서 이미 설정되므로
-          // 여기서는 추가 처리하지 않음 (중복 방지)
+          // Note: parentId relationship is already set in _createAllNodesRecursively,
+          // so no additional processing here (prevent duplication)
           break;
         }
         case 'update': {
@@ -539,7 +539,7 @@ export class DataStore {
    * 
    * @example
    * ```typescript
-   * // 복잡한 문서 구조 생성
+   * // Create complex document structure
    * const document = {
    *   stype: 'document',
    *   content: [
@@ -568,13 +568,13 @@ export class DataStore {
     
     // Prepare temporary alias set to enforce uniqueness within this creation
     this._tempAliasSet = new Set<string>();
-    // 1. globalCounter를 현재 노드 수로 초기화
+    // 1. Initialize globalCounter to current node count
     DataStore._globalCounter = this.nodes.size;
     
-    // 2. 모든 중첩된 객체에 ID 부여 (재귀적으로)
+    // 2. Assign IDs to all nested objects (recursively)
     this._assignIdsRecursively(node);
     
-    // 2. Schema validation 수행 (ID가 부여된 후, 아직 DataStore 형식으로 변환하기 전)
+    // 2. Perform schema validation (after IDs are assigned, before converting to DataStore format)
     if (targetSchema) {
       // Strict: every node.stype must exist in schema and required attrs must be present
       const nodesDef: any = (targetSchema as any)?.nodes || undefined;
@@ -627,10 +627,10 @@ export class DataStore {
       }
     }
     
-    // 3. 모든 노드를 개별적으로 생성 (각각 operation 발생)
+    // 3. Create all nodes individually (each generates an operation)
     this._createAllNodesRecursively(node);
     
-    // 4. 루트 노드 ID 설정
+    // 4. Set root node ID
     if (!this.rootNodeId) {
       this.rootNodeId = node.sid;
     }
@@ -641,10 +641,10 @@ export class DataStore {
   }
 
   /**
-   * 모든 노드를 개별적으로 생성 (깊이 우선)
+   * Create all nodes individually (depth-first)
    */
   private _createAllNodesRecursively(node: INode): void {
-    // 자식 노드들 먼저 생성
+    // Create child nodes first
     if (node.content) {
       for (const child of node.content) {
         if (typeof child === 'object') {
@@ -653,7 +653,7 @@ export class DataStore {
       }
     }
     
-    // content를 ID 배열로 변환
+    // Convert content to ID array
     if (node.content && Array.isArray(node.content)) {
       node.content = node.content.map(child => {
         if (typeof child === 'object' && child !== null) {
@@ -663,7 +663,7 @@ export class DataStore {
       });
     }
     
-    // $alias 처리: overlay 범위라면 등록, 항상 저장 전 제거
+    // Handle $alias: register if overlay scope, always remove before saving
     if (node.attributes && (node.attributes as any).$alias) {
       const alias = (node.attributes as any).$alias as string;
       // Enforce uniqueness within this creation
@@ -674,7 +674,7 @@ export class DataStore {
         this._tempAliasSet.add(alias);
       }
       try {
-        // overlay 활성 시에만 alias 등록 (overlay 스코프)
+        // Register alias only when overlay is active (overlay scope)
         if ((this as any)._overlayAliasMap) {
           this.setAlias(alias, node.sid!);
         }
@@ -684,7 +684,7 @@ export class DataStore {
       node.attributes = newAttrs;
     }
 
-    // 현재 노드 생성 (operation 발생) — reject duplicate IDs
+    // Create current node (generates operation) — reject duplicate IDs
     if (this.nodes.has(node.sid!)) {
       throw new Error(`Node ID already exists: ${node.sid}`);
     }
@@ -708,23 +708,23 @@ export class DataStore {
   }
 
   /**
-   * 중첩된 객체들에 재귀적으로 ID 부여
+   * Recursively assign IDs to nested objects
    */
   private _assignIdsRecursively(node: INode): void {
-    // 현재 노드에 ID 부여
+    // Assign ID to current node
     if (!node.sid) {
       node.sid = this.generateId();
     }
     
-    // 자식 노드들에 ID 부여 (재귀적으로)
+    // Assign IDs to child nodes (recursively)
     if (node.content && Array.isArray(node.content)) {
       node.content.forEach(child => {
         if (typeof child === 'object' && child !== null) {
           const childNode = child as INode;
-          childNode.parentId = node.sid; // 부모 ID 설정
+          childNode.parentId = node.sid; // Set parent ID
           this._assignIdsRecursively(childNode);
         } else if (typeof child === 'string') {
-          // 기존 ID인 경우, 해당 노드를 찾아서 부모 ID 설정
+          // If it's an existing ID, find the node and set parent ID
           const existingNode = this.getNode(child);
           if (existingNode) {
             existingNode.parentId = node.sid;
@@ -735,39 +735,39 @@ export class DataStore {
   }
 
   /**
-   * DataStore 형식으로 변환 (content를 ID 배열로)
+   * Convert to DataStore format (convert content to ID array)
    */
   private _convertChildrenToDataStore(node: INode): void {
     if (node.content && Array.isArray(node.content)) {
       node.content = node.content.map(child => {
         if (typeof child === 'object' && child !== null) {
           const childNode = child as INode;
-          // 자식 노드를 재귀적으로 DataStore 형식으로 변환
+          // Recursively convert child node to DataStore format
           this._convertChildrenToDataStore(childNode);
-          // 자식 노드를 직접 저장 (validation은 이미 상위에서 수행됨)
+          // Save child node directly (validation already performed at parent level)
           this._setNodeInternal(childNode);
-          return childNode.sid!; // ID만 반환
+          return childNode.sid!; // Return only ID
         }
-        return child; // 이미 ID인 경우 그대로 반환
+        return child; // Return as is if already an ID
       });
     }
   }
 
   setRootNodeId(nodeId: string): void {
     // Spec:
-    // - 루트 노드 ID를 직접 설정한다. overlay 비활성 기준으로 즉시 적용된다.
-    // - setRoot()는 overlay 활성 시 overlay에만 반영한다.
+    // - Directly sets root node ID. Applied immediately when overlay is inactive.
+    // - setRoot() only reflects in overlay when overlay is active.
     this.rootNodeId = nodeId;
   }
 
   /**
-   * 트랜잭션 오버레이 기준으로 루트를 설정합니다.
-   * 활성 overlay가 있으면 overlay에만 반영되고, commit() 시 base에 적용됩니다.
+   * Set root based on transaction overlay.
+   * If active overlay exists, only reflected in overlay and applied to base on commit().
    */
   setRoot(rootId: string): void {
     // Spec:
-    // - overlay 활성 시 overlay에만 반영되고, commit() 시 base에 적용된다.
-    // - overlay 비활성 시 즉시 base에 반영된다.
+    // - When overlay is active, only reflected in overlay and applied to base on commit().
+    // - When overlay is inactive, immediately reflected in base.
     if (this._overlay && this._overlay.isActive()) {
       (this._overlay as any).overlayRootNodeId = rootId;
       return;
@@ -841,8 +841,8 @@ export class DataStore {
    */
   getRootNode(): INode | undefined {
     // Spec:
-    // - rootNodeId가 없으면 첫 노드로 추론하여 설정한다(편의 정책).
-    // - 항상 현재 컨텍스트(overlay 해석 포함)의 루트 노드를 반환한다.
+    // - If rootNodeId is not set, infers and sets first node (convenience policy).
+    // - Always returns root node of current context (including overlay interpretation).
     if (!this.rootNodeId) {
       const firstNode = Array.from(this.nodes.values())[0];
       if (firstNode) {
@@ -976,7 +976,7 @@ export class DataStore {
 
   saveNode(node: INode, validate: boolean = true): { valid: boolean; errors: string[] } | null {
     this.setNode(node, validate);
-    return null; // 성공
+    return null; // Success
   }
 
   updateNode(nodeId: string, updates: Partial<INode>, validate: boolean = true): { valid: boolean; errors: string[] } | null {
@@ -996,7 +996,7 @@ export class DataStore {
       return { valid: false, errors: [`Node not found: ${realId}`] };
     }
     
-    // stype 변경은 허용하지 않음 (구형 type도 병행 체크)
+    // Do not allow stype changes (also check legacy type)
     if (updates.stype && updates.stype !== node.stype) {
       return { 
         valid: false, 
@@ -1004,7 +1004,7 @@ export class DataStore {
       };
     }
     
-    // attributes를 올바르게 병합
+    // Merge attributes correctly
     // Handle $alias in updates.attributes
     if (updates.attributes && typeof (updates.attributes as any).$alias !== 'undefined') {
       const aliasVal = (updates.attributes as any).$alias;
@@ -1042,14 +1042,14 @@ export class DataStore {
     }
     
     
-    // content 업데이트인 경우 validation을 건너뛰어야 함 (ID 배열이므로)
+    // Skip validation for content updates (because it's an ID array)
     const isContentUpdate = updates.content !== undefined;
     
     if (validate && !isContentUpdate) {
-      // validation이 필요하고 content 업데이트가 아닌 경우
+      // When validation is needed and it's not a content update
       try {
         this.setNode(updatedNode, true);
-        return { valid: true, errors: [] }; // 성공
+        return { valid: true, errors: [] }; // Success
       } catch (error) {
         return { 
           valid: false, 
@@ -1057,19 +1057,19 @@ export class DataStore {
         };
       }
     } else {
-      // validation을 건너뛰는 경우 (content 업데이트이거나 validate=false)
+      // When skipping validation (content update or validate=false)
       this.setNode(updatedNode, false);
-      return { valid: true, errors: [] }; // 성공
+      return { valid: true, errors: [] }; // Success
     }
   }
 
   // ===== Alias Map (overlay scoped) =====
   /**
-   * overlay 범위의 alias를 등록합니다.
+   * Registers alias in overlay scope.
    *
    * Spec setAlias:
-   * - 동일 overlay 스코프에서 alias는 유일해야 합니다. 다른 id로 중복 등록 시 오류.
-   * - overlay가 없으면 내부 맵을 초기화해 사용합니다(트랜잭션 외 사용 가능).
+   * - Alias must be unique within the same overlay scope. Error if duplicate registration with different id.
+   * - If overlay does not exist, initializes and uses internal map (usable outside transactions).
    */
   setAlias(alias: string, id: string): void {
     if (!this._overlayAliases) this._overlayAliases = new Map<string, string>();
@@ -1081,25 +1081,25 @@ export class DataStore {
   }
 
   /**
-   * alias 혹은 실제 id를 입력받아 실제 id로 해석합니다.
-   * overlay가 없거나 매핑이 없으면 원본 문자열을 반환합니다.
+   * Takes alias or actual id as input and resolves to actual id.
+   * Returns original string if overlay does not exist or mapping is not found.
    */
   resolveAlias(idOrAlias: string): string {
     if (!this._overlayAliases) return idOrAlias;
     return this._overlayAliases.get(idOrAlias) || idOrAlias;
   }
 
-  /** overlay 스코프의 alias 매핑을 제거합니다. */
+  /** Removes alias mapping in overlay scope. */
   deleteAlias(alias: string): void {
     if (this._overlayAliases) this._overlayAliases.delete(alias);
   }
 
-  /** overlay 스코프의 alias 매핑을 모두 제거합니다. */
+  /** Removes all alias mappings in overlay scope. */
   clearAliases(): void {
     if (this._overlayAliases) this._overlayAliases.clear();
   }
 
-  /** overlay 스코프의 alias 맵을 읽기 전용으로 반환합니다. overlay가 없으면 빈 맵을 반환합니다. */
+  /** Returns alias map in overlay scope as read-only. Returns empty map if overlay does not exist. */
   getAliases(): ReadonlyMap<string, string> {
     return this._overlayAliases || new Map<string, string>();
   }
@@ -1139,9 +1139,9 @@ export class DataStore {
 
   saveDocumentInternal(document: Document, _validate: boolean = true): { valid: boolean; errors: string[] } {
     // Spec:
-    // - document.content(object 형태) 또는 contentIds(ID 배열)를 입력으로 받아 루트/자식 노드를 저장한다.
-    // - 반환되는 루트(document)는 parentId를 제거한 형태의 스냅샷에 기반한다.
-    // - schema 메타데이터는 root.attributes.schema에 병합하여 유지한다.
+    // - Takes document.content (object form) or contentIds (ID array) as input and stores root/child nodes.
+    // - The returned root (document) is based on a snapshot with parentId removed.
+    // - Schema metadata is merged and maintained in root.attributes.schema.
     let contentIds: string[] = [];
     if ((document as any).content) {
       for (const childNode of (document as any).content as any[]) {
@@ -1168,8 +1168,8 @@ export class DataStore {
 
   getDocument(documentId: string): Document | undefined {
     // Spec:
-    // - 현재 루트와 동일한 id이거나 'root' 요청일 때만 반환한다.
-    // - parentId는 제거된 형태로 content를 구성한다.
+    // - Returns only when id matches current root or 'root' is requested.
+    // - Constructs content with parentId removed.
     const rootNode = this.getRootNode();
     if (!rootNode) return undefined;
     if (documentId !== 'root' && rootNode.sid !== documentId) return undefined;
@@ -1204,7 +1204,7 @@ export class DataStore {
 
   updateDocument(documentId: string, updates: Partial<Document>, validate: boolean = true): { valid: boolean; errors: string[] } {
     // Spec:
-    // - getDocument() 스냅샷을 기반으로 병합 후 saveDocumentInternal()에 위임한다.
+    // - Merges based on getDocument() snapshot and delegates to saveDocumentInternal().
     const document = this.getDocument(documentId);
     if (!document) {
       return { valid: false, errors: [`Document not found: ${documentId}`] };
@@ -1215,12 +1215,12 @@ export class DataStore {
 
   deleteDocument(documentId: string): boolean {
     // Spec:
-    // - 현재 루트 문서는 삭제 불가 정책. 항상 에러를 던진다.
+    // - Policy: current root document cannot be deleted. Always throws error.
     const rootNode = this.getRootNode();
     if (!rootNode || rootNode.sid !== documentId) {
       return false;
     }
-    // 정책: 루트 문서는 삭제 불가
+    // Policy: root document cannot be deleted
     throw new Error('Cannot delete root document');
   }
 
@@ -1254,7 +1254,7 @@ export class DataStore {
   validateNode(node: INode, schema?: Schema): { valid: boolean; errors: string[] } {
     const targetSchema = schema || this._activeSchema;
     if (!targetSchema) {
-      return { valid: true, errors: [] }; // schema가 없으면 검증 통과
+      return { valid: true, errors: [] }; // Validation passes if no schema
     }
 
     try {
@@ -1424,7 +1424,7 @@ export class DataStore {
   }
 
   // ========================================
-  // Split & Merge Functions - 분할 및 병합 기능들
+  // Split & Merge Functions - split and merge features
   // ========================================
 
   /**
@@ -1708,7 +1708,7 @@ export class DataStore {
   }
 
   // ========================================
-  // Document Order Operations - 문서 순서 관련 연산들
+  // Document Order Operations - operations related to document order
   // ========================================
 
   /**
@@ -2015,20 +2015,20 @@ export class DataStore {
     return iterator.getRangeNodeCount();
   }
 
-  // ===== 글로벌 락 및 큐 관리 =====
+  // ===== Global lock and queue management =====
 
   /**
-   * 락 ID를 생성합니다.
+   * Generates a lock ID.
    */
   private _generateLockId(): string {
     return `lock-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }
 
   /**
-   * 글로벌 락을 획득합니다.
-   * 락이 사용 중이면 큐에 추가되어 순서대로 대기합니다.
-   * @param ownerId 락 소유자 ID (트랜잭션 ID 또는 사용자 ID)
-   * @returns 락 ID
+   * Acquires a global lock.
+   * If lock is in use, adds to queue and waits in order.
+   * @param ownerId Lock owner ID (transaction ID or user ID)
+   * @returns Lock ID
    */
   async acquireLock(ownerId: string = 'unknown'): Promise<string> {
     const startTime = Date.now();
@@ -2036,22 +2036,22 @@ export class DataStore {
     
     return new Promise((resolve, reject) => {
       if (!this._currentLock) {
-        // 락이 비어있으면 즉시 획득
+        // Acquire immediately if lock is empty
         this._currentLock = {
           lockId,
           ownerId,
           acquiredAt: Date.now(),
           timeoutId: setTimeout(() => {
-            // 락 타임아웃 (긴급 해제)
+            // Lock timeout (emergency release)
             this._forceReleaseLock();
-          }, this._lockTimeout * 10) // 락 자체 타임아웃 (50초)
+          }, this._lockTimeout * 10) // Lock's own timeout (50 seconds)
         };
         this._lockStats.totalAcquisitions++;
         resolve(lockId);
         return;
       }
       
-      // 락이 사용 중이면 큐에 추가
+      // Add to queue if lock is in use
       const queueItem = {
         lockId,
         ownerId,
@@ -2078,34 +2078,34 @@ export class DataStore {
   }
 
   /**
-   * 글로벌 락을 해제합니다.
-   * 큐에 대기 중인 다음 트랜잭션에게 락을 전달합니다.
-   * @param lockId 해제할 락 ID (선택사항, 검증용)
+   * Releases a global lock.
+   * Passes lock to next transaction waiting in queue.
+   * @param lockId Lock ID to release (optional, for validation)
    */
   releaseLock(lockId?: string): void {
     if (!this._currentLock) {
-      // 락이 없으면 무시
+      // Ignore if no lock
       return;
     }
     
-    // 락 ID 검증
+    // Validate lock ID
     if (lockId && this._currentLock.lockId !== lockId) {
       throw new Error(`Lock ID mismatch: expected ${this._currentLock.lockId}, got ${lockId}`);
     }
     
-    // 현재 락 타임아웃 취소
+    // Cancel current lock timeout
     clearTimeout(this._currentLock.timeoutId);
     
-    // 락 해제
+    // Release lock
     this._currentLock = null;
     this._lockStats.totalReleases++;
     
-    // 다음 트랜잭션에게 락 전달
+    // Pass lock to next transaction
     const next = this._transactionQueue.shift();
     if (next) {
-      // 타임아웃 취소
+      // Cancel timeout
       clearTimeout(next.timeoutId);
-      // 다음 트랜잭션에게 락 전달
+      // Pass lock to next transaction
       this._currentLock = {
         lockId: next.lockId,
         ownerId: next.ownerId,
@@ -2234,13 +2234,13 @@ export class DataStore {
    * 
    * @example
    * ```typescript
-   * // 단일 visitor
+   * // Single visitor
    * const result = dataStore.traverse(visitor);
    * 
-   * // 다중 visitor (가변 인자)
+   * // Multiple visitors (variadic arguments)
    * const results = dataStore.traverse(visitor1, visitor2, visitor3);
    * 
-   * // 배열로도 가능
+   * // Also possible with array
    * const results2 = dataStore.traverse([visitor1, visitor2]);
    * ```
    */

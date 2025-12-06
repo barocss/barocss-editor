@@ -26,8 +26,8 @@ export function handleVNodeTextProperty(
   const doc = parent.ownerDocument || document;
   
   // Check if there's an existing text node
-  // IMPORTANT: 모든 childNodes를 확인하여 텍스트 노드를 찾아야 함
-  // (다른 요소가 있을 수 있으므로 firstChild만 확인하면 안 됨)
+  // IMPORTANT: must check all childNodes to find text node
+  // (other elements may exist, so cannot check only firstChild)
   const existingTextNode = Array.from(parent.childNodes).find(
     node => node.nodeType === Node.TEXT_NODE
   ) as Text | undefined;
@@ -44,13 +44,13 @@ export function handleVNodeTextProperty(
       });
       existingTextNode.textContent = expectedText;
     }
-    // 다른 자식 요소가 있으면 제거 (text-only 모드)
+    // Remove other child elements if present (text-only mode)
     const otherChildren = Array.from(parent.childNodes).filter(node => node !== existingTextNode);
     for (const child of otherChildren) {
       try {
         parent.removeChild(child);
       } catch {
-        // 이미 제거되었을 수 있음
+        // May have already been removed
       }
     }
   } else {
@@ -85,16 +85,16 @@ export function handlePrimitiveTextChild(
   const expectedText = String(child);
   
   // If childIndex is provided, use position-aware handling (similar to handleTextOnlyVNode)
-  // childIndex는 VNode children 배열에서의 인덱스
-  // VNode children과 DOM childNodes는 같은 순서이므로, childIndex를 그대로 사용할 수 있음
-  // 단, VNode children: [text0, element0, text1, element1, ...]
+  // childIndex is the index in VNode children array
+  // VNode children and DOM childNodes are in the same order, so childIndex can be used directly
+  // However, VNode children: [text0, element0, text1, element1, ...]
   // DOM childNodes: [Text(text0), Element(element0), Text(text1), Element(element1), ...]
-  // 따라서 childIndex 위치의 node가 text node인지 확인하고, 아니면 그 위치에 삽입
+  // So check if node at childIndex position is a text node, otherwise insert at that position
   if (childIndex !== undefined) {
     const childNodes = Array.from(parent.childNodes);
     let textNodeToUse: Text | null = null;
     
-    // childIndex 위치에 text node가 있는지 확인
+    // Check if text node exists at childIndex position
     logger.debug(LogCategory.RECONCILE, 'handlePrimitiveTextChild: start', {
       parentTag: parent.tagName,
       child,
@@ -105,19 +105,19 @@ export function handlePrimitiveTextChild(
       const nodeAtIndex = childNodes[childIndex];
       if (nodeAtIndex && nodeAtIndex.nodeType === Node.TEXT_NODE) {
         const textNode = nodeAtIndex as Text;
-        // 이미 사용된 텍스트 노드는 제외
+        // Exclude already used text nodes
         if (!usedTextNodes || !usedTextNodes.has(textNode)) {
           textNodeToUse = textNode;
         }
       }
     }
     
-    // IMPORTANT: childIndex 위치에 텍스트 노드가 없으면,
-    // 모든 텍스트 노드를 확인하여 재사용 가능한 것 찾기
-    // (자식이 텍스트 하나만 있는 경우, childIndex가 맞지 않을 수 있음)
-    // 단, 이미 사용된 텍스트 노드는 제외 (중복 방지)
+    // IMPORTANT: if no text node at childIndex position,
+    // check all text nodes to find reusable one
+    // (when child has only one text, childIndex may not match)
+    // However, exclude already used text nodes (prevent duplicates)
     if (!textNodeToUse) {
-      // 먼저 childIndex 이후의 텍스트 노드를 확인 (더 가까운 위치)
+      // First check text nodes after childIndex (closer position)
       logger.debug(LogCategory.RECONCILE, 'handlePrimitiveTextChild: scanning forward for reusable text node', {
         childIndex,
         childNodeCount: childNodes.length
@@ -126,14 +126,14 @@ export function handlePrimitiveTextChild(
         const node = childNodes[i];
         if (node && node.nodeType === Node.TEXT_NODE) {
           const textNode = node as Text;
-          // 이미 사용된 텍스트 노드는 제외
+          // Exclude already used text nodes
           if (!usedTextNodes || !usedTextNodes.has(textNode)) {
             textNodeToUse = textNode;
             break;
           }
         }
       }
-      // childIndex 이후에 없으면, 이전 텍스트 노드를 확인
+      // If not found after childIndex, check previous text nodes
       if (!textNodeToUse) {
         logger.debug(LogCategory.RECONCILE, 'handlePrimitiveTextChild: scanning backward for reusable text node', {
           childIndex
@@ -142,7 +142,7 @@ export function handlePrimitiveTextChild(
           const node = childNodes[i];
           if (node && node.nodeType === Node.TEXT_NODE) {
             const textNode = node as Text;
-            // 이미 사용된 텍스트 노드는 제외
+            // Exclude already used text nodes
             if (!usedTextNodes || !usedTextNodes.has(textNode)) {
               textNodeToUse = textNode;
               break;
@@ -193,7 +193,7 @@ export function handlePrimitiveTextChild(
   }
   
   // Fallback: Try to reuse first text node if available (for backward compatibility)
-  // 단, 이미 사용된 텍스트 노드는 제외
+  // However, exclude already used text nodes
   const existingTextNode = parent.firstChild && parent.firstChild.nodeType === 3 
     ? parent.firstChild as Text 
     : null;
@@ -246,21 +246,21 @@ export function handleTextOnlyVNode(
   const doc = parent.ownerDocument || document;
   const expectedText = String(childVNode.text);
   
-  // React 방식: referenceNode를 사용하여 올바른 위치에 삽입
-  // referenceNode가 null이면 parent의 끝에 추가 (appendChild와 동일)
-  // referenceNode가 있으면 그 앞에 삽입 (insertBefore)
+  // React-style: use referenceNode to insert at correct position
+  // If referenceNode is null, append to end of parent (same as appendChild)
+  // If referenceNode exists, insert before it (insertBefore)
   
-  // 기존 텍스트 노드 재사용 시도 (referenceNode 주변에서 찾기)
+  // Try to reuse existing text node (search around referenceNode)
   let textNodeToUse: Text | null = null;
   
   if (referenceNode && referenceNode.parentNode === parent) {
-    // referenceNode의 이전 형제가 텍스트 노드인지 확인
+    // Check if referenceNode's previous sibling is a text node
     const prevSibling = referenceNode.previousSibling;
     if (prevSibling && prevSibling.nodeType === Node.TEXT_NODE) {
       textNodeToUse = prevSibling as Text;
     }
   } else if (!referenceNode) {
-    // referenceNode가 null이면 (첫 번째 child), parent의 첫 번째 child가 텍스트 노드인지 확인
+    // If referenceNode is null (first child), check if parent's first child is a text node
     const firstChild = parent.firstChild;
     if (firstChild && firstChild.nodeType === Node.TEXT_NODE) {
       textNodeToUse = firstChild as Text;

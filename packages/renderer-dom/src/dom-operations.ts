@@ -39,12 +39,12 @@ export class DOMOperations {
       element.setAttribute(DOMAttribute.BC_SID, String(sidToExpose));
     }
 
-    // Set attributes (초기 생성이므로 prevAttrs는 undefined)
+    // Set attributes (initial creation, so prevAttrs is undefined)
     if (vnode.attrs) {
       this.updateAttributes(element, undefined, vnode.attrs);
     }
     
-    // Set styles (초기 생성이므로 prevStyles는 undefined)
+    // Set styles (initial creation, so prevStyles is undefined)
     if (vnode.style) {
       this.updateStyles(element, undefined, vnode.style);
     }
@@ -69,7 +69,7 @@ export class DOMOperations {
   }
 
   /**
-   * Update text node content (추적 가능하도록 별도 메서드로 분리)
+   * Update text node content (separated into separate method for traceability)
    */
   public updateTextContent(textNode: Text, prevText: string, nextText: string): void {
     if (prevText !== nextText) {
@@ -87,11 +87,11 @@ export class DOMOperations {
     prevAttrs: Record<string, any> | undefined,
     nextAttrs: Record<string, any>
   ): void {
-    // IMPORTANT: prevAttrs가 없으면 기존 DOM의 속성을 읽어서 보존
-    // 이는 renderFiberNode에서 DOM을 재사용할 때 기존 속성을 보존하기 위함
+    // IMPORTANT: if prevAttrs is missing, read existing DOM attributes to preserve them
+    // This is to preserve existing attributes when reusing DOM in renderFiberNode
     let actualPrevAttrs = prevAttrs;
     if (!actualPrevAttrs) {
-      // 기존 DOM의 속성을 읽어서 prevAttrs로 사용
+      // Read existing DOM attributes and use as prevAttrs
       actualPrevAttrs = {};
       
       // class/className
@@ -107,7 +107,7 @@ export class DOMOperations {
         actualPrevAttrs['style'] = existingStyle;
       }
       
-      // data-* 속성들
+      // data-* attributes
       for (let i = 0; i < element.attributes.length; i++) {
         const attr = element.attributes[i];
         if (attr.name.startsWith('data-')) {
@@ -116,16 +116,16 @@ export class DOMOperations {
       }
     }
     
-    // 1. prevVNode에 있지만 nextVNode에 없는 속성 제거
-    // IMPORTANT: data-bc-sid는 createElement에서 vnode.sid로 설정되므로 보존해야 함
+    // 1. Remove attributes that exist in prevVNode but not in nextVNode
+    // IMPORTANT: data-bc-sid is set from vnode.sid in createElement, so must preserve
     if (actualPrevAttrs) {
       for (const key of Object.keys(actualPrevAttrs)) {
         if (!(key in nextAttrs)) {
-          // data-bc-sid는 보존 (createElement에서 vnode.sid로 설정됨)
+          // Preserve data-bc-sid (set from vnode.sid in createElement)
           if (key === DOMAttribute.BC_SID) {
             continue;
           }
-          // 제거
+          // Remove
           if (key === 'className' || key === 'class') {
             element.removeAttribute('class');
             (element as any).className = '';
@@ -136,7 +136,7 @@ export class DOMOperations {
       }
     }
     
-    // 2. nextVNode 속성 적용/업데이트 (prevVNode와 다르면)
+    // 2. Apply/update nextVNode attributes (if different from prevVNode)
     for (const [key, value] of Object.entries(nextAttrs)) {
       if (shouldSkipAttribute(element, key)) {
         continue;
@@ -153,7 +153,7 @@ export class DOMOperations {
         continue;
       }
       
-      // prevVNode와 다르면 업데이트 (prevVNode가 없으면 항상 업데이트)
+      // Update if different from prevVNode (always update if prevVNode is missing)
       const prevValue = actualPrevAttrs?.[key];
       if (prevValue !== value) {
         if (key === 'className' || key === 'class') {
@@ -177,7 +177,7 @@ export class DOMOperations {
     prevStyles: Record<string, any> | undefined,
     nextStyles: Record<string, any>
   ): void {
-    // 1. prevVNode에 있지만 nextVNode에 없는 스타일 제거
+    // 1. Remove styles that exist in prevVNode but not in nextVNode
     if (prevStyles) {
       for (const key of Object.keys(prevStyles)) {
         if (!(key in nextStyles)) {
@@ -187,12 +187,12 @@ export class DOMOperations {
       }
     }
     
-    // 2. nextVNode 스타일 적용/업데이트 (prevVNode와 다르면)
+    // 2. Apply/update nextVNode styles (if different from prevVNode)
     for (const [key, value] of Object.entries(nextStyles)) {
       // Convert camelCase to kebab-case (e.g., 'fontSize' -> 'font-size')
       const cssProperty = key.replace(/[A-Z]/g, match => `-${match.toLowerCase()}`);
       
-      // prevVNode와 다르면 업데이트 (prevVNode가 없으면 항상 업데이트)
+      // Update if different from prevVNode (always update if prevVNode is missing)
       const prevValue = prevStyles?.[key];
       if (prevValue !== value) {
         element.style.setProperty(cssProperty, String(value));
@@ -257,7 +257,7 @@ export class DOMOperations {
    * Insert DOM node into the tree
    */
   public insertDOMNode(node: Node, wip: DOMWorkInProgress, container?: HTMLElement): void {
-    // DOM 노드를 WIP에만 설정하고, 실제 DOM 추가는 finalizeDOMUpdate에서 처리
+    // Set DOM node only in WIP, actual DOM addition is handled in finalizeDOMUpdate
     wip.domNode = node;
   }
 
@@ -537,7 +537,7 @@ export class DOMOperations {
       }
     }
 
-    // DOM 업데이트 최종화
+    // Finalize DOM update
     if (wip.domNode) {
       // Ensure parent domNode exists before placing children
       if (wip.parent && !wip.parent.domNode && (wip.parent.vnode as any)?.tag) {
@@ -549,12 +549,12 @@ export class DOMOperations {
         }
       }
       if (wip.parent?.domNode) {
-        // 부모가 있는 경우 부모에 추가
+        // If parent exists, add to parent
         const parent = wip.parent.domNode as HTMLElement;
         
         // Skip over-strict parent/child verification; rely on source order and insertBefore
         
-        // Wrapper 금지: 자식 노드를 임의의 div로 감싸지 않는다 (SID_DRIVEN_LIFECYCLE)
+        // No wrapper: do not wrap child nodes in arbitrary div (SID_DRIVEN_LIFECYCLE)
 
         // Check if wip.domNode is already in a different parent
         const currentParent = wip.domNode.parentNode;
@@ -570,7 +570,7 @@ export class DOMOperations {
         
         const existingNode = parent.querySelector(`[data-wip-sid="${wip.sid}"]`);
         
-        // 순환 포함 방어: 자식이 부모를 포함하면 append 시도는 예외 발생(HierarchyRequestError)
+        // Cycle prevention: if child contains parent, append attempt throws exception (HierarchyRequestError)
         if ((wip.domNode as Node).contains(parent)) {
           try {
             console.error('[DOMOperations] finalizeDOMUpdate:cycle-detected (child contains parent) skip append', {
@@ -582,7 +582,7 @@ export class DOMOperations {
           return;
         }
         
-        // DOM이 이미 부모의 직접 자식인지 확인 (중복 append 방지)
+        // Check if DOM is already a direct child of parent (prevent duplicate append)
         const isAlreadyInParent = Array.from(parent.childNodes).includes(wip.domNode as ChildNode);
         const hasMarker = !!(wip.domNode as any).__barocss_inserted;
         
@@ -736,7 +736,7 @@ export class DOMOperations {
           }
         }
       } else {
-        // 루트 노드에 추가할지 결정하기 전에, 노드가 이미 어떤 부모에 속해있는지 확인
+        // Before deciding to add to root node, check if node already belongs to some parent
         const isInSomeParent = !!wip.domNode.parentNode;
         const hasMarker = !!(wip.domNode as any).__barocss_inserted;
         
@@ -749,13 +749,13 @@ export class DOMOperations {
           ? container.childNodes.length > 0
           : container.children.length > 0;
         
-        // 순환 포함 방어: 자식이 컨테이너를 포함하면 append 불가
+        // Cycle prevention: cannot append if child contains container
         if ((wip.domNode as Node).contains(container)) {
           
           return;
         }
         
-        // 내부 래퍼 금지: 내부 루트 보조 div를 생성하지 않는다
+        // Prohibit internal wrapper: do not create internal root auxiliary div
         const domCtx: any = context || {};
         const vnodeTag = (wip.vnode as any)?.tag;
 
@@ -763,7 +763,7 @@ export class DOMOperations {
         if (!isAlreadyInContainer && !hasMarker) {
           container.appendChild(wip.domNode);
           // If this is the first proper element (e.g., div), set as internal root
-          // (isInternalReconcile 체크 제거: 항상 false로 간주)
+          // (isInternalReconcile check removed: always considered false)
           if (!domCtx.__internalRootElement && vnodeTag) {
             domCtx.__internalRootElement = wip.domNode as HTMLElement;
           }

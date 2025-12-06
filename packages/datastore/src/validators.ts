@@ -35,7 +35,7 @@ export class IntegrityValidator {
     if (!(node as any).stype) {
       errors.push('Node stype is required');
     }
-    // text 필드가 있으면 텍스트 노드로 간주 (추가 검증 불필요)
+    // If text field exists, treat as text node (no additional validation needed)
     return { valid: errors.length === 0, errors } as any;
   }
 

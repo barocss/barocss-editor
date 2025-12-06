@@ -12,14 +12,14 @@ function createFakeEditor(selection?: ModelSelection | null): Editor & {
   const events: Map<string, Function[]> = new Map();
 
   return {
-    // @ts-expect-error - 최소 구현만 제공
+    // @ts-expect-error - Only minimal implementation provided
     registerCommand: (cmd: any) => {
       commands[cmd.name] = cmd;
     },
     __getCommand(name: string) {
       return commands[name];
     },
-    // @ts-expect-error - 실제 Editor 인터페이스와 다를 수 있음
+    // @ts-expect-error - May differ from actual Editor interface
     selection: selection || null,
     clearSelection: vi.fn(),
     emit: vi.fn((event: string, data?: any) => {

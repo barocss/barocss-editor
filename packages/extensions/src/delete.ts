@@ -34,7 +34,7 @@ export class DeleteExtension implements Extension {
   onCreate(editor: Editor): void {
     if (!this._options.enabled) return;
 
-    // 1. 노드 전체 삭제
+    // 1. Delete entire node
     editor.registerCommand({
       name: 'deleteNode',
       execute: async (editor: any, payload: { nodeId: string }) => {
@@ -45,7 +45,7 @@ export class DeleteExtension implements Extension {
       }
     });
 
-    // 2. Cross-node 텍스트 삭제
+    // 2. Cross-node text deletion
     editor.registerCommand({
       name: 'deleteCrossNode',
       execute: async (editor: any, payload: { range: ModelSelection }) => {
@@ -57,7 +57,7 @@ export class DeleteExtension implements Extension {
       }
     });
 
-    // 3. 단일 노드 텍스트 삭제
+    // 3. Single node text deletion
     editor.registerCommand({
       name: 'deleteText',
       execute: async (editor: any, payload: { range: ModelSelection }) => {
@@ -69,13 +69,13 @@ export class DeleteExtension implements Extension {
       }
     });
 
-    // 4. Backspace 키 처리 (비즈니스 로직 포함)
-    // selection은 payload에 있으면 사용, 없으면 editor.selection 사용
+    // 4. Backspace key handling (includes business logic)
+    // Use selection from payload if available, otherwise use editor.selection
     editor.registerCommand({
       name: 'backspace',
       execute: async (editor: any, payload?: { selection?: ModelSelection }) => {
-        // payload에 selection이 있으면 사용 (명시적 전달)
-        // 없으면 editor.selection 사용 (기본값)
+        // Use selection from payload if available (explicitly passed)
+        // Otherwise use editor.selection (default)
         const selection = payload?.selection || editor.selection;
         if (!selection) {
           console.warn('[DeleteExtension] backspace: No selection available');
@@ -84,19 +84,19 @@ export class DeleteExtension implements Extension {
         return await this._executeBackspace(editor, selection);
       },
       canExecute: (editor: any, payload?: any) => {
-        // selection이 있으면 실행 가능
+        // Executable if selection exists
         const selection = payload?.selection || editor.selection;
         return selection != null;
       }
     });
 
-    // 5. Delete 키 처리 (Forward Delete, Backspace와 대칭)
-    // selection은 payload에 있으면 사용, 없으면 editor.selection 사용
+    // 5. Delete key handling (Forward Delete, symmetric with Backspace)
+    // Use selection from payload if available, otherwise use editor.selection
     editor.registerCommand({
       name: 'deleteForward',
       execute: async (editor: any, payload?: { selection?: ModelSelection }) => {
-        // payload에 selection이 있으면 사용 (명시적 전달)
-        // 없으면 editor.selection 사용 (기본값)
+        // Use selection from payload if available (explicitly passed)
+        // Otherwise use editor.selection (default)
         const selection = payload?.selection || editor.selection;
         if (!selection) {
           console.warn('[DeleteExtension] deleteForward: No selection available');
@@ -105,7 +105,7 @@ export class DeleteExtension implements Extension {
         return await this._executeDeleteForward(editor, selection);
       },
       canExecute: (editor: any, payload?: any) => {
-        // selection이 있으면 실행 가능
+        // Executable if selection exists
         const selection = payload?.selection || editor.selection;
         return selection != null;
       }
@@ -113,15 +113,15 @@ export class DeleteExtension implements Extension {
   }
 
   onDestroy(_editor: Editor): void {
-    // 정리 작업
+    // Cleanup
   }
 
   /**
-   * 노드 전체 삭제
+   * Delete entire node
    * 
-   * @param editor Editor 인스턴스
-   * @param nodeId 삭제할 노드 ID
-   * @returns 성공 여부
+   * @param editor Editor instance
+   * @param nodeId Node ID to delete
+   * @returns Success status
    */
   private async _executeDeleteNode(editor: Editor, nodeId: string): Promise<boolean> {
     const operations = this._buildDeleteNodeOperations(nodeId);
@@ -130,14 +130,14 @@ export class DeleteExtension implements Extension {
   }
 
   /**
-   * Cross-node 텍스트 삭제
+   * Cross-node text deletion
    * 
-   * 현재: dataStore.range.deleteText 직접 호출
-   * 향후: transaction operation으로 전환
+   * Current: directly calls dataStore.range.deleteText
+   * Future: convert to transaction operation
    * 
-   * @param editor Editor 인스턴스
-   * @param range 삭제할 범위 (여러 노드에 걸침)
-   * @returns 성공 여부
+   * @param editor Editor instance
+   * @param range Range to delete (spans multiple nodes)
+   * @returns Success status
    */
   private async _executeDeleteCrossNode(editor: Editor, range: ModelSelection): Promise<boolean> {
     const dataStore = (editor as any).dataStore;
@@ -146,8 +146,8 @@ export class DeleteExtension implements Extension {
       return false;
     }
 
-    // 현재: dataStore.range.deleteText 직접 호출
-    // TODO: transaction operation으로 전환
+    // Current: directly call dataStore.range.deleteText
+    // TODO: convert to transaction operation
     try {
       dataStore.range.deleteText(range);
       return true;
@@ -212,17 +212,17 @@ export class DeleteExtension implements Extension {
    * @returns 성공 여부
    */
   private async _executeBackspace(editor: Editor, selection: ModelSelection): Promise<boolean> {
-    // 1. Range Selection 처리
+    // 1. Handle Range Selection
     if (!selection.collapsed) {
       return await this._executeDeleteText(editor, selection);
     }
 
-    // 2. Offset 0 처리
+    // 2. Handle Offset 0
     if (selection.startOffset === 0) {
       return await this._handleBackspaceAtOffsetZero(editor, selection);
     }
 
-    // 3. 일반 Backspace 처리 (offset > 0)
+    // 3. Normal Backspace handling (offset > 0)
     const deleteRange: ModelSelection = {
       type: 'range',
       startNodeId: selection.startNodeId,
@@ -237,16 +237,16 @@ export class DeleteExtension implements Extension {
   }
 
   /**
-   * Delete 키 처리 (Forward Delete)
+   * Delete key handling (Forward Delete)
    * 
-   * 케이스 분기:
-   * 1. Range Selection: 선택된 범위 삭제
-   * 2. Offset < text.length: 현재 노드에서 오른쪽 한 글자 삭제
-   * 3. Offset == text.length: 다음 편집 가능한 노드 기준으로 A′/B′/C′/D′/E′ 처리
+   * Case branching:
+   * 1. Range Selection: delete selected range
+   * 2. Offset < text.length: delete one character to the right in current node
+   * 3. Offset == text.length: handle A′/B′/C′/D′/E′ based on next editable node
    * 
-   * @param editor Editor 인스턴스
-   * @param selection 현재 Model Selection
-   * @returns 성공 여부
+   * @param editor Editor instance
+   * @param selection Current Model Selection
+   * @returns Success status
    */
   private async _executeDeleteForward(editor: Editor, selection: ModelSelection): Promise<boolean> {
     const dataStore = (editor as any).dataStore;
@@ -255,21 +255,21 @@ export class DeleteExtension implements Extension {
       return false;
     }
 
-    // 1. Range Selection 처리 (Backspace와 동일)
+    // 1. Handle Range Selection (same as Backspace)
     if (!selection.collapsed) {
       return await this._executeDeleteText(editor, selection);
     }
 
     const currentNode = dataStore.getNode(selection.startNodeId);
 
-    // 텍스트 노드가 아니면 여기서는 처리하지 않고 상위 레벨(다른 커맨드)에 위임
+    // If not a text node, do not handle here and delegate to upper level (other command)
     if (typeof currentNode?.text !== 'string') {
       return false;
     }
 
     const textLength = currentNode.text.length;
 
-    // 2. Offset < text.length → 일반 Delete (현재 노드에서 오른쪽 한 글자 삭제)
+    // 2. Offset < text.length → Normal Delete (delete one character to the right in current node)
     if (selection.startOffset < textLength) {
       const deleteRange: ModelSelection = {
         type: 'range',
@@ -283,10 +283,10 @@ export class DeleteExtension implements Extension {
       return await this._executeDeleteText(editor, deleteRange);
     }
 
-    // 3. 텍스트 끝에서 Delete (Offset == text.length)
+    // 3. Delete at text end (Offset == text.length)
     const nextEditableNodeId = dataStore.getNextEditableNode(selection.startNodeId);
 
-    // 케이스 E′: 다음 편집 가능한 노드 없음
+    // Case E′: No next editable node
     if (!nextEditableNodeId) {
       return false;
     }
@@ -300,7 +300,7 @@ export class DeleteExtension implements Extension {
     const currentParent = dataStore.getParent(selection.startNodeId);
     const nextParent = dataStore.getParent(nextEditableNodeId);
 
-    // 케이스 D′: 다른 부모 (블록 경계) - 블록 병합
+    // Case D′: Different parent (block boundary) - merge blocks
     if (currentParent?.sid !== nextParent?.sid) {
       if (!currentParent || !nextParent) {
         console.warn('[DeleteExtension] _executeDeleteForward: Cannot merge blocks - missing parent', {
@@ -310,7 +310,7 @@ export class DeleteExtension implements Extension {
         return false;
       }
 
-      // 같은 타입의 블록인지 확인
+      // Check if blocks are of the same type
       if (currentParent.stype !== nextParent.stype) {
         console.warn('[DeleteExtension] _executeDeleteForward: Cannot merge different block types', {
           currentParentType: currentParent.stype,
@@ -319,16 +319,16 @@ export class DeleteExtension implements Extension {
         return false;
       }
 
-      // 블록 병합 수행 (현재 블록 + 다음 블록)
+      // Perform block merge (current block + next block)
       return await this._executeMergeBlockNodes(editor, currentParent.sid!, nextParent.sid!);
     }
 
-    // 케이스 A′/B′/C′: 같은 부모 내에서 처리
+    // Case A′/B′/C′: Handle within the same parent
     if (typeof nextNode.text === 'string') {
       const nextTextLength = nextNode.text.length;
 
       if (nextTextLength > 0) {
-        // 케이스 A′: 다음 노드의 첫 문자 삭제
+        // Case A′: Delete first character of next node
         const deleteRange: ModelSelection = {
           type: 'range',
           startNodeId: nextEditableNodeId,
@@ -340,7 +340,7 @@ export class DeleteExtension implements Extension {
         };
         return await this._executeDeleteText(editor, deleteRange);
       } else {
-        // 케이스 B′: 빈 텍스트 노드 병합
+        // Case B′: Merge empty text nodes
         if (typeof currentNode.text === 'string') {
           return await this._executeMergeTextNodes(editor, selection.startNodeId, nextEditableNodeId);
         }
@@ -352,24 +352,24 @@ export class DeleteExtension implements Extension {
         return false;
       }
     } else {
-      // 케이스 C′: 다음 노드 전체 삭제 (.text 필드 없음)
+      // Case C′: Delete entire next node (no .text field)
       return await this._executeDeleteNode(editor, nextEditableNodeId);
     }
   }
 
   /**
-   * Offset 0에서 Backspace 처리
+   * Handle Backspace at Offset 0
    * 
-   * 케이스:
-   * A. 이전 노드의 마지막 문자 삭제 (텍스트 길이 > 0)
-   * B. 빈 노드 병합 (텍스트 길이 === 0)
-   * C. 이전 노드 전체 삭제 (.text 필드 없음)
-   * D. 다른 부모 (블록 경계) - 블록 병합
-   * E. 이전 노드 없음 - 아무 동작 안 함
+   * Cases:
+   * A. Delete last character of previous node (text length > 0)
+   * B. Merge empty nodes (text length === 0)
+   * C. Delete entire previous node (no .text field)
+   * D. Different parent (block boundary) - merge blocks
+   * E. No previous node - no action
    * 
-   * @param editor Editor 인스턴스
-   * @param selection 현재 Model Selection
-   * @returns 성공 여부
+   * @param editor Editor instance
+   * @param selection Current Model Selection
+   * @returns Success status
    */
   private async _handleBackspaceAtOffsetZero(
     editor: Editor,
@@ -381,10 +381,10 @@ export class DeleteExtension implements Extension {
       return false;
     }
 
-    // getPreviousEditableNode를 사용하여 이전 편집 가능한 노드 찾기 (블록 노드는 건너뜀)
+    // Use getPreviousEditableNode to find previous editable node (skip block nodes)
     const prevEditableNodeId = dataStore.getPreviousEditableNode(selection.startNodeId);
     
-    // 케이스 E: 이전 편집 가능한 노드 없음
+    // Case E: No previous editable node
     if (!prevEditableNodeId) {
       return false;
     }
@@ -404,9 +404,9 @@ export class DeleteExtension implements Extension {
     const prevParent = dataStore.getParent(prevEditableNodeId);
     const currentParent = dataStore.getParent(selection.startNodeId);
 
-    // 케이스 D: 다른 부모 (블록 경계) - 블록 병합
+    // Case D: Different parent (block boundary) - merge blocks
     if (prevParent?.sid !== currentParent?.sid) {
-      // 이전 노드의 부모와 현재 노드의 부모가 다름 → 블록 병합
+      // Previous node's parent and current node's parent are different → merge blocks
       if (!prevParent || !currentParent) {
         console.warn('[DeleteExtension] _handleBackspaceAtOffsetZero: Cannot merge blocks - missing parent', {
           prevParent: prevParent?.sid,
@@ -415,7 +415,7 @@ export class DeleteExtension implements Extension {
         return false;
       }
 
-      // 같은 타입의 블록인지 확인
+      // Check if blocks are of the same type
       if (prevParent.stype !== currentParent.stype) {
         console.warn('[DeleteExtension] _handleBackspaceAtOffsetZero: Cannot merge different block types', {
           prevParentType: prevParent.stype,
@@ -424,17 +424,17 @@ export class DeleteExtension implements Extension {
         return false;
       }
 
-      // 블록 병합 수행
+      // Perform block merge
       return await this._executeMergeBlockNodes(editor, prevParent.sid!, currentParent.sid!);
     }
 
-    // 케이스 A, B, C 처리 (같은 부모 내에서)
-    // .text 필드가 있고 문자열 타입인지 확인 (실제 텍스트 노드인지 확인)
+    // Handle cases A, B, C (within the same parent)
+    // Check if .text field exists and is string type (verify if it's actually a text node)
     if (prevNode.text !== undefined && typeof prevNode.text === 'string') {
       const prevTextLength = prevNode.text.length;
 
       if (prevTextLength > 0) {
-        // 케이스 A: 이전 노드의 마지막 문자 삭제
+        // Case A: Delete last character of previous node
         const deleteRange: ModelSelection = {
           type: 'range',
           startNodeId: prevEditableNodeId,
@@ -446,12 +446,12 @@ export class DeleteExtension implements Extension {
         };
         return await this._executeDeleteText(editor, deleteRange);
       } else {
-        // 케이스 B: 빈 노드 병합
-        // 둘 다 텍스트 노드인지 확인 (.text 필드가 있으면 텍스트 노드)
+        // Case B: Merge empty nodes
+        // Check if both are text nodes (.text field exists means text node)
         if (currentNode.text !== undefined && typeof currentNode.text === 'string') {
           return await this._executeMergeTextNodes(editor, prevEditableNodeId, selection.startNodeId);
         } else {
-          // 텍스트 노드가 아니면 병합하지 않음
+          // Do not merge if not text nodes
           console.warn('[DeleteExtension] _handleBackspaceAtOffsetZero: Cannot merge non-text nodes', {
             prevNodeId: prevEditableNodeId,
             currentNodeId: selection.startNodeId
@@ -460,18 +460,18 @@ export class DeleteExtension implements Extension {
         }
       }
     } else {
-      // 케이스 C: 이전 노드 전체 삭제 (.text 필드 없음)
+      // Case C: Delete entire previous node (no .text field)
       return await this._executeDeleteNode(editor, prevEditableNodeId);
     }
   }
 
   /**
-   * 텍스트 노드 병합
+   * Merge text nodes
    * 
-   * @param editor Editor 인스턴스
-   * @param leftNodeId 왼쪽 노드 ID (병합 후 유지될 노드)
-   * @param rightNodeId 오른쪽 노드 ID (병합 후 삭제될 노드)
-   * @returns 성공 여부
+   * @param editor Editor instance
+   * @param leftNodeId Left node ID (node to keep after merge)
+   * @param rightNodeId Right node ID (node to delete after merge)
+   * @returns Success status
    */
   private async _executeMergeTextNodes(
     editor: Editor,
@@ -489,12 +489,12 @@ export class DeleteExtension implements Extension {
   }
 
   /**
-   * 블록 노드 병합 (케이스 D: 블록 경계)
+   * Merge block nodes (Case D: block boundary)
    * 
-   * @param editor Editor 인스턴스
-   * @param leftBlockId 왼쪽 블록 노드 ID (병합 후 유지될 노드)
-   * @param rightBlockId 오른쪽 블록 노드 ID (병합 후 삭제될 노드)
-   * @returns 성공 여부
+   * @param editor Editor instance
+   * @param leftBlockId Left block node ID (node to keep after merge)
+   * @param rightBlockId Right block node ID (node to delete after merge)
+   * @returns Success status
    */
   private async _executeMergeBlockNodes(
     editor: Editor,
@@ -512,7 +512,7 @@ export class DeleteExtension implements Extension {
   }
 }
 
-// 편의 함수
+// Convenience function
 export function createDeleteExtension(options?: DeleteExtensionOptions): DeleteExtension {
   return new DeleteExtension(options);
 }

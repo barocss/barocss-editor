@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { insertText as insertTextDsl } from '../../src/operations-dsl/insertText';
-import '../../src/operations/register-operations'; // Operations 등록
+import '../../src/operations/register-operations'; // Register operations
 import { DataStore } from '@barocss/datastore';
 import { SelectionManager } from '@barocss/editor-core';
 import { createTransactionContext } from '../../src/create-transaction-context';
@@ -14,7 +14,7 @@ describe('insertText operation', () => {
   let schema: Schema;
 
   beforeEach(() => {
-    // 테스트용 schema 생성
+    // Create schema for testing
     schema = new Schema('test-schema', {
       nodes: {
         'inline-text': {
@@ -46,7 +46,7 @@ describe('insertText operation', () => {
 
   describe('Basic functionality', () => {
     it('should insert text at specified position', async () => {
-      // 텍스트 노드 생성
+      // Create text node
       const textNode = {
         id: 'text-1',
         type: 'inline-text',
@@ -71,7 +71,7 @@ describe('insertText operation', () => {
 
       expect(result.data).toBe(' Beautiful');
       
-      // DataStore에서 확인
+      // Verify in DataStore
       const updatedNode = dataStore.getNode('text-1');
       expect(updatedNode?.text).toBe('Hello Beautiful World');
     });
@@ -137,7 +137,7 @@ describe('insertText operation', () => {
 
   describe('Selection mapping', () => {
     it('should shift selection after insert', async () => {
-      // 텍스트 노드 생성
+      // Create text node
       const textNode = {
         id: 'text-1',
         type: 'inline-text',
@@ -146,7 +146,7 @@ describe('insertText operation', () => {
       };
       dataStore.setNode(textNode);
 
-      // 기존 Selection 설정
+      // Set existing Selection
            const initialSelection = { type: 'range' as const, startNodeId: 'text-1', startOffset: 5, endNodeId: 'text-1', endOffset: 10 };
       selectionManager.setSelection(initialSelection);
 
@@ -155,7 +155,7 @@ describe('insertText operation', () => {
         payload: { nodeId: 'text-1', pos: 3, text: ' Beautiful' }
       } as any;
 
-      // Operation 실행
+      // Execute operation
       const insertTextOperation = globalOperationRegistry.get('insertText');
       await insertTextOperation!.execute(operation, context);
       
@@ -173,7 +173,7 @@ describe('insertText operation', () => {
       };
       dataStore.setNode(textNode);
 
-      // 기존 Selection 설정
+      // Set existing Selection
            const initialSelection = { type: 'range' as const, startNodeId: 'text-1', startOffset: 5, endNodeId: 'text-1', endOffset: 10 };
       selectionManager.setSelection(initialSelection);
 
@@ -182,11 +182,11 @@ describe('insertText operation', () => {
         payload: { nodeId: 'text-1', pos: 11, text: ' Beautiful' }
       } as any;
 
-      // Operation 실행
+      // Execute operation
       const insertTextOperation = globalOperationRegistry.get('insertText');
       await insertTextOperation!.execute(operation, context);
       
-      // Selection이 변경되지 않았는지 확인
+      // Verify selection has not changed
       const finalSelection = selectionManager.getCurrentSelection();
       expect(finalSelection).toEqual(initialSelection);
     });
@@ -200,7 +200,7 @@ describe('insertText operation', () => {
       };
       dataStore.setNode(textNode);
 
-      // 다른 노드의 Selection 설정
+      // Set Selection for different node
            const initialSelection = { type: 'range' as const, startNodeId: 'text-2', startOffset: 3, endNodeId: 'text-2', endOffset: 7 };
       selectionManager.setSelection(initialSelection);
 
@@ -209,11 +209,11 @@ describe('insertText operation', () => {
         payload: { nodeId: 'text-1', pos: 5, text: ' Beautiful' }
       } as any;
 
-      // Operation 실행
+      // Execute operation
       const insertTextOperation = globalOperationRegistry.get('insertText');
       await insertTextOperation!.execute(operation, context);
       
-      // Selection이 변경되지 않았는지 확인
+      // Verify selection has not changed
       const finalSelection = selectionManager.getCurrentSelection();
       expect(finalSelection).toEqual(initialSelection);
     });
@@ -227,7 +227,7 @@ describe('insertText operation', () => {
       };
       dataStore.setNode(textNode);
 
-      // Selection이 없는 상태
+      // No selection state
       selectionManager.clearSelection();
 
       const operation = {
@@ -235,11 +235,11 @@ describe('insertText operation', () => {
         payload: { nodeId: 'text-1', pos: 5, text: ' Beautiful' }
       } as any;
 
-      // Operation 실행
+      // Execute operation
       const insertTextOperation = globalOperationRegistry.get('insertText');
       await insertTextOperation!.execute(operation, context);
       
-      // Selection이 여전히 null인지 확인
+      // Verify selection is still null
       const finalSelection = selectionManager.getCurrentSelection();
       expect(finalSelection).toBeNull();
     });

@@ -1,33 +1,33 @@
 /**
  * RemoteDecoratorManager
  * 
- * 외부 사용자/AI의 decorator를 관리하는 매니저
- * Selection 정보 공유와 유사한 패턴으로 별도 채널로 관리
+ * Manager for managing decorators from external users/AI
+ * Managed in separate channel similar to selection information sharing pattern
  */
 
 import type { Decorator } from './types.js';
 
 /**
- * Decorator 소유자 정보
+ * Decorator owner information
  */
 export interface DecoratorOwner {
   userId: string;
-  agentId?: string; // AI인 경우
+  agentId?: string; // If AI
   sessionId: string;
 }
 
 /**
- * RemoteDecoratorManager 클래스
+ * RemoteDecoratorManager class
  * 
- * 외부 decorator를 관리하며, 소유자 정보를 포함합니다.
+ * Manages external decorators and includes owner information.
  */
 export class RemoteDecoratorManager {
   private remoteDecorators = new Map<string, Decorator>();
   private ownerMap = new Map<string, DecoratorOwner>(); // sid → owner
   
   /**
-   * 외부 decorator 추가/업데이트
-   * 동시 편집 시스템에서 호출됨
+   * Add/update external decorator
+   * Called from collaborative editing system
    */
   setRemoteDecorator(
     decorator: Decorator,
@@ -36,8 +36,8 @@ export class RemoteDecoratorManager {
     const key = decorator.sid;
     this.remoteDecorators.set(key, {
       ...decorator,
-      // owner 정보는 별도 맵에 저장 (decorator 자체에는 포함하지 않음)
-      // 필요시 data 필드에 메타데이터로 포함 가능
+      // Store owner info in separate map (not included in decorator itself)
+      // Can be included as metadata in data field if needed
       data: {
         ...decorator.data,
         _remoteOwner: {

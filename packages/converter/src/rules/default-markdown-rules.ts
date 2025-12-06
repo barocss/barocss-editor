@@ -1,13 +1,13 @@
 import { defineDocumentParser, defineASTConverter, defineConverter } from '../api';
 
 /**
- * 기본 Markdown 변환 규칙 등록
+ * Register default Markdown conversion rules
  */
 export function registerDefaultMarkdownRules(): void {
   // === Document Parser ===
   
-  // 간단한 Markdown 파서 등록 (외부 라이브러리 없이)
-  // 실제로는 markdown-it 같은 외부 라이브러리를 사용하는 것을 권장
+  // Register simple Markdown parser (without external libraries)
+  // Actually, it is recommended to use external libraries like markdown-it
   defineDocumentParser('markdown', {
     parse(document: string): any[] {
       const lines = document.split('\n');
@@ -20,7 +20,7 @@ export function registerDefaultMarkdownRules(): void {
         i++;
         if (!trimmed) continue;
 
-        // Heading 체크
+        // Check heading
         const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)$/);
         if (headingMatch) {
           ast.push({
@@ -32,11 +32,11 @@ export function registerDefaultMarkdownRules(): void {
           continue;
         }
 
-        // Bullet List 체크 (-, *, +) 및 Task List (- [ ] / - [x])
+        // Check Bullet List (-, *, +) and Task List (- [ ] / - [x])
         const bulletMatch = trimmed.match(/^[-*+]\s+(.+)$/);
         if (bulletMatch) {
           const items: any[] = [];
-          // 현재 줄 포함 연속된 bullet line 수집
+          // Collect consecutive bullet lines including current line
           let j = i - 1;
           while (j < lines.length) {
             const l = lines[j].trim();
@@ -45,7 +45,7 @@ export function registerDefaultMarkdownRules(): void {
             if (!m) break;
             let text = m[1];
 
-            // Task list 패턴 체크: [ ] text, [x] text
+            // Check task list pattern: [ ] text, [x] text
             const taskMatch = text.match(/^\[([ xX])\]\s*(.*)$/);
             const isTask = !!taskMatch;
             const checked = isTask && taskMatch![1].toLowerCase() === 'x';
@@ -71,7 +71,7 @@ export function registerDefaultMarkdownRules(): void {
           continue;
         }
 
-        // Ordered List 체크 (1. 2. ...)
+        // Check Ordered List (1. 2. ...)
         const orderedMatch = trimmed.match(/^\d+[.)]\s+(.+)$/);
         if (orderedMatch) {
           const items: any[] = [];
@@ -109,7 +109,7 @@ export function registerDefaultMarkdownRules(): void {
           continue;
         }
 
-        // Image (단독 라인)
+        // Image (standalone line)
         const imageMatch = trimmed.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
         if (imageMatch) {
           ast.push({
@@ -120,7 +120,7 @@ export function registerDefaultMarkdownRules(): void {
           continue;
         }
 
-        // 기본 Paragraph
+        // Default Paragraph
         ast.push({
           type: 'paragraph',
           text: trimmed,
@@ -132,7 +132,7 @@ export function registerDefaultMarkdownRules(): void {
     }
   });
   
-  // === AST → Model 변환 규칙 ===
+  // === AST → Model conversion rules ===
   
   // Heading
   defineASTConverter('heading', 'markdown', {
@@ -278,7 +278,7 @@ export function registerDefaultMarkdownRules(): void {
     }
   });
   
-  // === Model → Markdown 변환 규칙 ===
+  // === Model → Markdown conversion rules ===
   
   // Heading
   defineConverter('heading', 'markdown', {
@@ -302,7 +302,7 @@ export function registerDefaultMarkdownRules(): void {
     convert: (node) => {
       let text = node.text || '';
       
-      // Marks 처리
+      // Process marks
       if (node.marks && node.marks.length > 0) {
         for (const mark of node.marks) {
           if (mark.stype === 'bold') {
@@ -366,12 +366,12 @@ export function registerDefaultMarkdownRules(): void {
 }
 
 /**
- * 인라인 텍스트 파싱 (bold, italic)
+ * Parse inline text (bold, italic)
  */
 function parseInline(text: string): any[] {
   const children: any[] = [];
   
-  // **bold** 또는 *italic* 패턴 찾기
+  // Find **bold** or *italic* patterns
   const boldPattern = /\*\*([^*]+)\*\*/g;
   const italicPattern = /\*([^*]+)\*/g;
   
@@ -388,7 +388,7 @@ function parseInline(text: string): any[] {
   }
   
   while ((match = italicPattern.exec(text)) !== null) {
-    // bold와 겹치지 않는 경우만 추가
+    // Add only if not overlapping with bold
     const overlaps = matches.some(m => 
       (match!.index >= m.index && match!.index < m.index + m.length) ||
       (m.index >= match!.index && m.index < match!.index + match!.length)
@@ -403,13 +403,13 @@ function parseInline(text: string): any[] {
     }
   }
   
-  // 인덱스 순으로 정렬
+  // Sort by index
   matches.sort((a, b) => a.index - b.index);
   
-  // 매치되지 않은 텍스트와 매치된 텍스트를 순서대로 처리
+  // Process unmatched text and matched text in order
   let lastIndex = 0;
   for (const match of matches) {
-    // 매치 전의 일반 텍스트
+    // Plain text before match
     if (match.index > lastIndex) {
       const plainText = text.substring(lastIndex, match.index);
       if (plainText) {
@@ -420,7 +420,7 @@ function parseInline(text: string): any[] {
       }
     }
     
-    // 매치된 텍스트
+    // Matched text
     children.push({
       type: match.type,
       text: match.text
@@ -429,7 +429,7 @@ function parseInline(text: string): any[] {
     lastIndex = match.index + match.length;
   }
   
-  // 마지막 매치 이후의 텍스트
+  // Text after last match
   if (lastIndex < text.length) {
     const plainText = text.substring(lastIndex);
     if (plainText) {
@@ -440,7 +440,7 @@ function parseInline(text: string): any[] {
     }
   }
   
-  // 매치가 없으면 전체 텍스트 반환
+  // Return full text if no match
   if (children.length === 0) {
     children.push({
       type: 'text',
@@ -452,7 +452,7 @@ function parseInline(text: string): any[] {
 }
 
 /**
- * 노드 content를 Markdown 문자열로 변환
+ * Convert node content to Markdown string
  */
 function convertContentToMarkdown(content: (any | string)[]): string {
   const parts: string[] = [];
@@ -461,7 +461,7 @@ function convertContentToMarkdown(content: (any | string)[]): string {
     if (typeof item === 'string') {
       parts.push(item);
     } else if (item && typeof item === 'object' && 'stype' in item) {
-      // 간단한 재귀 변환
+      // Simple recursive conversion
       if (item.text !== undefined) {
         let text = item.text;
         if (item.marks && item.marks.length > 0) {

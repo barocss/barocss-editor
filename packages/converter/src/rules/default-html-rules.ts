@@ -1,8 +1,8 @@
 import { defineParser, defineConverter } from '../api';
 
 /**
- * 기본 HTML 변환 규칙 등록
- * paragraph, heading, bold, italic 등 기본 노드 타입에 대한 변환 규칙
+ * Register default HTML conversion rules
+ * Conversion rules for basic node types like paragraph, heading, bold, italic
  */
 export function registerDefaultHTMLRules(): void {
   // === Parser Rules (HTML → Model) ===
@@ -115,7 +115,7 @@ export function registerDefaultHTMLRules(): void {
     parseDOM: [{ tag: 'tr' }]
   });
 
-  // Table Cell (td/th 공통)
+  // Table Cell (common for td/th)
   defineParser('table_cell', 'html', {
     parseDOM: [
       {
@@ -149,8 +149,8 @@ export function registerDefaultHTMLRules(): void {
   // Paragraph
   defineConverter('paragraph', 'html', {
     convert: (node) => {
-      // content 변환은 HTMLConverter 내부에서 재귀적으로 처리됨
-      // 여기서는 placeholder만 반환 (실제 변환은 HTMLConverter._convertContentToHTML에서 수행)
+      // Content conversion is handled recursively inside HTMLConverter
+      // Here, only return placeholder (actual conversion performed in HTMLConverter._convertContentToHTML)
       return '<p>PLACEHOLDER_CONTENT</p>';
     }
   });
@@ -159,7 +159,7 @@ export function registerDefaultHTMLRules(): void {
   defineConverter('heading', 'html', {
     convert: (node) => {
       const level = node.attributes?.level || 1;
-      // content 변환은 HTMLConverter 내부에서 재귀적으로 처리됨
+      // Content conversion is handled recursively inside HTMLConverter
       return `<h${level}>PLACEHOLDER_CONTENT</h${level}>`;
     }
   });
@@ -170,7 +170,7 @@ export function registerDefaultHTMLRules(): void {
       const text = node.text || '';
       const escaped = escapeHTML(text);
       
-      // Marks 처리 (bold, italic 등)
+      // Process marks (bold, italic, etc.)
       let result = escaped;
       if (node.marks && node.marks.length > 0) {
         for (const mark of node.marks) {
@@ -266,10 +266,10 @@ export function registerDefaultHTMLRules(): void {
 }
 
 /**
- * 노드 content를 HTML 문자열로 변환
+ * Converts node content to HTML string
  * 
- * ⚠️ 주의: 이 함수는 기본 규칙 등록 시에만 사용됩니다.
- * 실제 변환은 HTMLConverter.convert()에서 registry를 통해 수행됩니다.
+ * ⚠️ Warning: This function is only used during default rule registration.
+ * Actual conversion is performed through registry in HTMLConverter.convert().
  */
 function convertContentToHTML(content: (any | string)[]): string {
   const parts: string[] = [];
@@ -278,7 +278,7 @@ function convertContentToHTML(content: (any | string)[]): string {
     if (typeof item === 'string') {
       parts.push(escapeHTML(item));
     } else if (item && typeof item === 'object' && 'stype' in item) {
-      // 간단한 재귀 변환 (기본 규칙용)
+      // Simple recursive conversion (for default rules)
       if (item.text !== undefined) {
         parts.push(escapeHTML(item.text));
       } else if (item.content) {

@@ -17,10 +17,10 @@ export interface DropContext {
    * 키보드 수정자 키 상태
    */
   modifiers?: {
-    ctrlKey?: boolean;  // Ctrl 키 (Windows/Linux)
-    metaKey?: boolean;  // Cmd 키 (Mac)
-    shiftKey?: boolean; // Shift 키
-    altKey?: boolean;   // Alt 키
+    ctrlKey?: boolean;  // Ctrl key (Windows/Linux)
+    metaKey?: boolean;  // Cmd key (Mac)
+    shiftKey?: boolean; // Shift key
+    altKey?: boolean;   // Alt key
   };
   
   /**

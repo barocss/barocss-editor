@@ -4,15 +4,15 @@ import { OfficeHTMLCleaner } from '../office-html-cleaner';
 const cleaner = new OfficeHTMLCleaner();
 
 /**
- * Microsoft Office HTML 변환 규칙 등록
+ * Register Microsoft Office HTML conversion rules
  * 
- * MS Word, PowerPoint, Excel 등에서 복사한 HTML을 처리합니다.
+ * Handles HTML copied from MS Word, PowerPoint, Excel, etc.
  */
 export function registerOfficeHTMLRules(): void {
-  // Office HTML은 일반 HTML 파서 규칙을 사용하되,
-  // 파싱 전에 Office 특수 포맷을 정리합니다.
+  // Office HTML uses general HTML parser rules,
+  // but cleans Office-specific formats before parsing.
   
-  // Paragraph (Office의 o:p 태그도 처리)
+  // Paragraph (also handles Office's o:p tag)
   defineParser('paragraph', 'html', {
     parseDOM: [
       { tag: 'p' },
@@ -23,22 +23,22 @@ export function registerOfficeHTMLRules(): void {
       {
         tag: 'div',
         getAttrs: (node) => {
-          // Office의 div를 paragraph로 변환 (특정 조건)
+          // Convert Office's div to paragraph (under specific conditions)
           const style = node.getAttribute('style') || '';
           const className = node.getAttribute('class') || '';
           
-          // Office 특정 클래스나 스타일이 있으면 paragraph로 처리
+          // Treat as paragraph if Office-specific class or style exists
           if (className.includes('Mso') || style.includes('mso-')) {
             return {};
           }
-          return null; // 매칭 안 됨
+          return null; // No match
         },
         priority: 50
       }
     ]
   });
   
-  // Heading (Office의 제목 스타일 처리)
+  // Heading (handle Office heading styles)
   defineParser('heading', 'html', {
     parseDOM: [
       { tag: 'h1', getAttrs: () => ({ level: 1 }) },
@@ -50,20 +50,20 @@ export function registerOfficeHTMLRules(): void {
       {
         tag: 'p',
         getAttrs: (node) => {
-          // Office의 제목 스타일 확인
+          // Check Office heading styles
           const style = node.getAttribute('style') || '';
           const className = node.getAttribute('class') || '';
           
-          // MsoHeading 스타일 확인
+          // Check MsoHeading style
           if (className.includes('MsoHeading')) {
-            // 클래스명에서 레벨 추출 (예: MsoHeading1 → level 1)
+            // Extract level from class name (e.g., MsoHeading1 → level 1)
             const levelMatch = className.match(/MsoHeading(\d)/);
             if (levelMatch) {
               return { level: parseInt(levelMatch[1]) };
             }
           }
           
-          // MsoTitle, MsoSubtitle도 heading으로 처리
+          // Also treat MsoTitle, MsoSubtitle as heading
           if (className === 'MsoTitle') {
             return { level: 1 };
           }
@@ -71,13 +71,13 @@ export function registerOfficeHTMLRules(): void {
             return { level: 2 };
           }
           
-          // 스타일에서 제목 레벨 확인
+          // Check heading level from style
           if (style.includes('mso-style-name')) {
             const nameMatch = style.match(/mso-style-name:\s*["']?Heading\s*(\d)/i);
             if (nameMatch) {
               return { level: parseInt(nameMatch[1]) };
             }
-            // Title, Subtitle 스타일도 확인
+            // Also check Title, Subtitle styles
             if (style.match(/mso-style-name:\s*["']?Title/i)) {
               return { level: 1 };
             }
@@ -86,14 +86,14 @@ export function registerOfficeHTMLRules(): void {
             }
           }
           
-          return null; // 매칭 안 됨
+          return null; // No match
         },
         priority: 100
       }
     ]
   });
   
-  // Inline Text (Office의 span 처리)
+  // Inline Text (handle Office's span)
   defineParser('inline-text', 'html', {
     parseDOM: [
       { tag: 'span' },
@@ -101,10 +101,10 @@ export function registerOfficeHTMLRules(): void {
       {
         tag: 'span',
         getAttrs: (node) => {
-          // Office 특수 span 처리
+          // Handle Office-specific span
           const style = node.getAttribute('style') || '';
           if (style.includes('mso-')) {
-            return {}; // Office span도 일반 span으로 처리
+            return {}; // Also treat Office span as regular span
           }
           return null;
         },
@@ -115,10 +115,10 @@ export function registerOfficeHTMLRules(): void {
 }
 
 /**
- * Office HTML을 정리하여 일반 HTML로 변환
+ * Cleans Office HTML and converts to regular HTML
  * 
- * @param html Office에서 복사한 HTML
- * @returns 정리된 HTML
+ * @param html HTML copied from Office
+ * @returns Cleaned HTML
  */
 export function cleanOfficeHTML(html: string): string {
   return cleaner.clean(html);

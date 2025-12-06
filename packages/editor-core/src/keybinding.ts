@@ -40,25 +40,25 @@ export class KeybindingRegistryImpl implements KeybindingRegistry {
   }
 
   register(binding: Keybinding): void {
-    // source 결정 우선순위:
-    // 1. 현재 컨텍스트 (setCurrentSource로 설정된 값)
-    // 2. 명시적으로 지정된 source
-    // 3. 기본값: 'user' (명시적으로 setCurrentSource를 호출하지 않은 경우)
+    // Source determination priority:
+    // 1. Current context (value set via setCurrentSource)
+    // 2. Explicitly specified source
+    // 3. Default: 'user' (when setCurrentSource is not explicitly called)
     let source: KeybindingSource = this._currentSource ?? binding.source ?? 'user';
     
-    // Extension 등록 중인데 source가 'user'로 지정된 경우 경고
+    // Warn if Extension registration has source set to 'user'
     if (this._currentSource === 'extension' && binding.source === 'user') {
-      console.warn(`[KeybindingRegistry] Extension은 source를 'user'로 지정할 수 없습니다. 'extension'으로 설정됩니다.`);
+      console.warn(`[KeybindingRegistry] Extension cannot set source to 'user'. It will be set to 'extension'.`);
       source = 'extension';
     }
     
-    // Core 등록 중인데 source가 다른 값으로 지정된 경우 경고
+    // Warn if Core registration has source set to a different value
     if (this._currentSource === 'core' && binding.source && binding.source !== 'core') {
-      console.warn(`[KeybindingRegistry] Core keybinding 등록 중에는 source를 'core'로만 설정할 수 있습니다. 무시됩니다.`);
+      console.warn(`[KeybindingRegistry] During Core keybinding registration, source can only be set to 'core'. It will be ignored.`);
       source = 'core';
     }
     
-    // 키 문자열 정규화 (대소문자 무시)
+    // Normalize key string (case-insensitive)
     const normalizedKey = this._normalizeKeyString(binding.key);
     
     const enriched: InternalBinding = {
@@ -97,17 +97,17 @@ export class KeybindingRegistryImpl implements KeybindingRegistry {
     key: string,
     context?: Record<string, unknown>
   ): Array<{ command: string; args?: unknown }> {
-    // context가 제공되지 않으면 contextProvider에서 가져옴
+    // Get context from contextProvider if not provided
     const effectiveContext = context ?? this._contextProvider?.getContext() ?? {};
     
-    // 입력 키 정규화
+    // Normalize input key
     const normalizedKey = this._normalizeKeyString(key);
     
-    // Mod 키 확장: Mod+b keybinding이 있으면 Ctrl+b (Windows/Linux) 또는 Cmd+b (Mac)도 매칭
-    // 반대로 Ctrl+b 또는 Cmd+b로 들어온 키는 Mod+b keybinding도 매칭
+    // Expand Mod key: If Mod+b keybinding exists, also match Ctrl+b (Windows/Linux) or Cmd+b (Mac)
+    // Conversely, keys entered as Ctrl+b or Cmd+b also match Mod+b keybinding
     const keyVariants = this._expandModKey(normalizedKey);
     
-    // 모든 변형에 대해 매칭 시도 (이미 정규화되어 있으므로 직접 비교)
+    // Try matching for all variants (direct comparison since already normalized)
     const candidates = this._bindings.filter(b => {
       const bindingKeyVariants = this._expandModKey(b.key);
       const matches = keyVariants.some(k => bindingKeyVariants.includes(k));
@@ -118,7 +118,7 @@ export class KeybindingRegistryImpl implements KeybindingRegistry {
       return [];
     }
 
-    // source 우선순위: user > extension > core
+    // Source priority: user > extension > core
     const priority: Record<KeybindingSource, number> = {
       user: 3,
       extension: 2,
@@ -129,7 +129,7 @@ export class KeybindingRegistryImpl implements KeybindingRegistry {
       const pa = priority[a.source ?? 'extension'];
       const pb = priority[b.source ?? 'extension'];
       if (pa !== pb) return pb - pa;
-      // 같은 source 내에서는 최근 등록 우선 (id 내림차순)
+      // Within the same source, prioritize recent registrations (id descending)
       return b.id - a.id;
     });
 
@@ -137,20 +137,20 @@ export class KeybindingRegistryImpl implements KeybindingRegistry {
   }
 
   /**
-   * Mod 키를 플랫폼별로 확장
-   * - Mod+b → [Mod+b, Ctrl+b, Cmd+b] (모든 플랫폼에서 매칭 가능하도록)
-   * - Ctrl+b → [Ctrl+b, Mod+b] (Mod+b keybinding도 매칭)
-   * - Cmd+b → [Cmd+b, Mod+b] (Mod+b keybinding도 매칭)
+   * Expand Mod key by platform
+   * - Mod+b → [Mod+b, Ctrl+b, Cmd+b] (to match on all platforms)
+   * - Ctrl+b → [Ctrl+b, Mod+b] (also matches Mod+b keybinding)
+   * - Cmd+b → [Cmd+b, Mod+b] (also matches Mod+b keybinding)
    */
   private _expandModKey(key: string): string[] {
     return expandModKey(key);
   }
 
   /**
-   * 키 문자열 정규화 (대소문자 무시)
-   * - Modifier는 첫 글자만 대문자로 유지
-   * - 키 이름은 소문자로 정규화
-   * 예: 'Ctrl+B' → 'Ctrl+b', 'CMD+SHIFT+Z' → 'Cmd+Shift+z'
+   * Normalize key string (case-insensitive)
+   * - Modifier: keep only first letter uppercase
+   * - Key name: normalize to lowercase
+   * Example: 'Ctrl+B' → 'Ctrl+b', 'CMD+SHIFT+Z' → 'Cmd+Shift+z'
    */
   private _normalizeKeyString(key: string): string {
     return normalizeKeyString(key);

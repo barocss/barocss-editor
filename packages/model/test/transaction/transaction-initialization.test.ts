@@ -38,7 +38,7 @@ describe('Transaction Initialization', () => {
         create(node('inline-text', 'Hello World'))
       ]);
 
-      // TransactionBuilder 인터페이스 확인
+      // Verify TransactionBuilder interface
       expect(builder).toBeDefined();
       expect(typeof builder.commit).toBe('function');
     });

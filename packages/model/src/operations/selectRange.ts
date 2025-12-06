@@ -3,7 +3,7 @@ import type { SelectRangeOperation } from './index';
 import type { TransactionContext } from '../types';
 import { defineOperationDSL } from './define-operation-dsl';
 
-// 선택 영역 설정
+// Set selection range
 defineOperation('selectRange', async (operation: SelectRangeOperation, context: TransactionContext) => {
   const { nodeId, start, end } = operation;
   

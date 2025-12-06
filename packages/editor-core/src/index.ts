@@ -5,11 +5,10 @@ export { PluginManager, AutoSavePlugin } from './plugins';
 export * from './keybinding';
 export { evaluateWhenExpression } from './when-expression';
 export * from './context/default-context';
-// Extension 인터페이스는 types.ts에서 export됨
-// Extension 구현은 @barocss/extensions 패키지에서 제공
+// Extension interface is exported from types.ts
+// Extension implementations are provided by @barocss/extensions package
 export { SelectionManager } from './selection-manager';
 export { HistoryManager } from './history-manager';
-// i18n exports
 export {
   getLocalizedMessage,
   registerLocaleMessages,

@@ -1,16 +1,16 @@
 import { defineParser } from '../api';
 
 /**
- * Google Docs HTML 변환 규칙 등록
+ * Register Google Docs HTML conversion rules
  *
- * 현재는 기본 HTML 규칙을 주로 사용하고,
- * Google Docs 특유의 heading/paragraph 패턴 일부만 보완합니다.
+ * Currently mainly uses default HTML rules,
+ * and only supplements some Google Docs-specific heading/paragraph patterns.
  */
 export function registerGoogleDocsHTMLRules(): void {
-  // Google Docs는 대부분 <p> 기반으로 렌더링되지만,
-  // 경우에 따라 data-*, class, style로 heading을 표현하기도 합니다.
+  // Google Docs mostly renders with <p> tags,
+  // but sometimes expresses headings with data-*, class, style.
   //
-  // 여기서는 data-heading-level 속성이 있는 경우를 heading으로 간주합니다.
+  // Here, we consider cases with data-heading-level attribute as heading.
 
   defineParser('heading', 'html', {
     parseDOM: [
@@ -35,7 +35,7 @@ export function registerGoogleDocsHTMLRules(): void {
     ]
   });
 
-  // 나머지 요소들(div/span 등)은 기본 HTML 규칙과 fallback에 맡깁니다.
+  // Other elements (div/span, etc.) are left to default HTML rules and fallback.
 }
 
 

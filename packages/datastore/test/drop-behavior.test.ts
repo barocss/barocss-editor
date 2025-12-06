@@ -9,7 +9,7 @@ describe('Drop Behavior', () => {
   let schema: Schema;
 
   beforeEach(() => {
-    // 기본 스키마 생성
+    // Create basic schema
     schema = createSchema('test', {
       topNode: 'document',
       nodes: {
@@ -42,7 +42,7 @@ describe('Drop Behavior', () => {
 
     dataStore = new DataStore(undefined, schema);
     
-    // 기본 문서 구조 생성
+    // Create basic document structure
     const docId = 'doc';
     const para1Id = 'para-1';
     const para2Id = 'para-2';
@@ -67,7 +67,7 @@ describe('Drop Behavior', () => {
   });
 
   afterEach(() => {
-    // Registry 초기화
+    // Initialize registry
     globalDropBehaviorRegistry.clear();
   });
 
@@ -139,9 +139,9 @@ describe('Drop Behavior', () => {
     });
   });
 
-  describe('getDropBehavior - 스키마 dropBehaviorRules', () => {
+  describe('getDropBehavior - schema dropBehaviorRules', () => {
     beforeEach(() => {
-      // dropBehaviorRules가 있는 스키마 생성
+      // Create schema with dropBehaviorRules
       schema = createSchema('test', {
         topNode: 'document',
         nodes: {
@@ -223,7 +223,7 @@ describe('Drop Behavior', () => {
       const paraId = dataStore.findNodesByType('paragraph')[0].sid!;
       const headingId = dataStore.findNodesByType('heading')[0].sid!;
 
-      // paragraph에 heading에 대한 명시적 규칙이 없으므로 와일드카드 규칙 적용
+      // Apply wildcard rule as there is no explicit rule for heading in paragraph
       const behavior = dataStore.getDropBehavior(paraId, headingId);
       expect(behavior).toBe('move');
     });
@@ -232,7 +232,7 @@ describe('Drop Behavior', () => {
       const paraId = dataStore.findNodesByType('paragraph')[0].sid!;
       const textId = dataStore.findNodesByType('inline-text')[0].sid!;
 
-      // inline-text에 대한 명시적 규칙(merge)이 와일드카드(move)보다 우선
+      // Explicit rule for inline-text (merge) takes precedence over wildcard (move)
       const behavior = dataStore.getDropBehavior(paraId, textId);
       expect(behavior).toBe('merge');
     });
@@ -273,15 +273,15 @@ describe('Drop Behavior', () => {
       expect(dataStore.getDropBehavior(paraId, imageId)).toBe('move');
     });
 
-    it('함수 규칙에서 null 반환 시 다음 우선순위 확인', () => {
+    it('should check next priority when function rule returns null', () => {
       defineDropBehavior(
         'paragraph',
         (target, source, context) => {
-          // 조건에 맞지 않으면 null 반환
+          // Return null if condition doesn't match
           if (context?.modifiers?.shiftKey) {
             return 'copy';
           }
-          return null; // 다음 우선순위 확인
+          return null; // Check next priority
         },
         { priority: 200 }
       );
@@ -289,27 +289,27 @@ describe('Drop Behavior', () => {
       const paraId = dataStore.findNodesByType('paragraph')[0].sid!;
       const textId = dataStore.findNodesByType('inline-text')[0].sid!;
 
-      // shiftKey가 없으면 null 반환 → 다음 우선순위(기본 규칙) 확인
+      // If shiftKey is absent, return null → check next priority (default rule)
       expect(dataStore.getDropBehavior(paraId, textId)).toBe('merge');
 
-      // shiftKey가 있으면 copy 반환
+      // If shiftKey is present, return copy
       const context: DropContext = {
         modifiers: { shiftKey: true }
       };
       expect(dataStore.getDropBehavior(paraId, textId, context)).toBe('copy');
     });
 
-    it('우선순위 기반 규칙 매칭', () => {
-      // 낮은 우선순위 규칙
+    it('should match rules based on priority', () => {
+      // Low priority rule
       defineDropBehavior('paragraph', 'move', { priority: 10 });
       
-      // 높은 우선순위 규칙
+      // High priority rule
       defineDropBehavior('paragraph', 'copy', { priority: 100 });
 
       const para1Id = dataStore.findNodesByType('paragraph')[0].sid!;
       const para2Id = dataStore.findNodesByType('paragraph')[1].sid!;
 
-      // 높은 우선순위 규칙이 적용됨
+      // High priority rule is applied
       const behavior = dataStore.getDropBehavior(para1Id, para2Id);
       expect(behavior).toBe('copy');
     });
@@ -361,15 +361,15 @@ describe('Drop Behavior', () => {
       const text1Id = dataStore.findNodesByType('inline-text')[0].sid!;
       const text2Id = dataStore.findNodesByType('inline-text')[1].sid!;
 
-      // 모든 조합에 대해 copy 적용
+      // Apply copy to all combinations
       expect(dataStore.getDropBehavior(para1Id, para2Id)).toBe('copy');
       expect(dataStore.getDropBehavior(text1Id, text2Id)).toBe('copy');
     });
   });
 
-  describe('getDropBehavior - 우선순위', () => {
+  describe('getDropBehavior - priority', () => {
     beforeEach(() => {
-      // 스키마에 dropBehaviorRules 정의
+      // Define dropBehaviorRules in schema
       schema = createSchema('test', {
         topNode: 'document',
         nodes: {
@@ -414,20 +414,20 @@ describe('Drop Behavior', () => {
       const paraId = dataStore.findNodesByType('paragraph')[0].sid!;
       const textId = dataStore.findNodesByType('inline-text')[0].sid!;
 
-      // defineDropBehavior 규칙 등록 (스키마 규칙보다 우선)
+      // Register defineDropBehavior rule (takes precedence over schema rule)
       defineDropBehavior('paragraph', 'copy', { 
         sourceType: 'inline-text',
         priority: 200 
       });
 
-      // 1. UI 컨텍스트가 없으면 defineDropBehavior 규칙 적용
+      // 1. If no UI context, apply defineDropBehavior rule
       expect(dataStore.getDropBehavior(paraId, textId)).toBe('copy');
 
-      // 2. UI 컨텍스트(Ctrl)가 있으면 UI 컨텍스트가 최우선
+      // 2. If UI context (Ctrl) exists, UI context takes highest priority
       const context: DropContext = {
         modifiers: { ctrlKey: true }
       };
-      expect(dataStore.getDropBehavior(paraId, textId, context)).toBe('copy'); // 이미 copy이므로 동일
+      expect(dataStore.getDropBehavior(paraId, textId, context)).toBe('copy'); // Same as already copy
 
       // 3. defineDropBehavior 규칙 제거 후 스키마 규칙 확인
       globalDropBehaviorRegistry.clear();

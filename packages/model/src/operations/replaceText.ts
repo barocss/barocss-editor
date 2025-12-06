@@ -4,24 +4,24 @@ import type { TransactionContext } from '../types';
 /**
  * replaceText operation (DSL + runtime)
  *
- * 목적
- * - 단일 텍스트 노드의 지정된 범위(start, end)를 새 텍스트(newText)로 교체한다.
- * - 텍스트/마크 업데이트는 DataStore.range.replaceText에 위임한다.
+ * Purpose:
+ * - Replaces the specified range (start, end) of a single text node with new text (newText).
+ * - Delegates text/mark updates to DataStore.range.replaceText.
  *
- * 입력 형태(DSL)
+ * Input format (DSL):
  * - control(nodeId, [ replaceText(start, end, newText) ]) → payload: { start, end, newText }
  * - control(nodeId, [ replaceText(startId, startOffset, endId, endOffset, newText) ]) → payload: { range: { startNodeId, startOffset, endNodeId, endOffset }, newText }
  * - replaceText(nodeId, start, end, newText) → payload: { nodeId, start, end, newText }
  * - replaceText(startId, startOffset, endId, endOffset, newText) → payload: { range: { startNodeId, startOffset, endNodeId, endOffset }, newText }
- *   - 빌더는 control(target, …)에서 target을 nodeId로 주입한다.
+ *   - Builder injects target as nodeId in control(target, …).
  *
- * Selection 매핑
- * - 동일 노드 범위 교체 시, 교체 이후 구간의 selection은 길이 변화(newText.length - (end-start))만큼 이동한다.
- * - 이 구현에서는 SelectionManager 연동은 생략하고 DataStore에 책임을 위임한다(필요 시 추후 확장).
+ * Selection mapping:
+ * - When replacing a range in the same node, selection after the replacement moves by the length change (newText.length - (end-start)).
+ * - This implementation omits SelectionManager integration and delegates responsibility to DataStore (can be extended later if needed).
  *
- * 예외 처리
- * - DataStore.range.replaceText가 잘못된 범위 등으로 실패하면 빈 문자열을 반환할 수 있다.
- * - 본 구현은 노드 존재 여부를 엄격히 검사하고, 노드 미존재/잘못된 범위에 대해 명확한 예외를 던진다.
+ * Exception handling:
+ * - DataStore.range.replaceText may return an empty string if it fails due to invalid range, etc.
+ * - This implementation strictly checks node existence and throws clear exceptions for non-existent nodes/invalid ranges.
  */
 
 type ReplaceTextOperationPayload =
@@ -40,7 +40,7 @@ type ReplaceTextOperationPayload =
 
 defineOperation('replaceText', async (operation: any, context: TransactionContext) => {
   try {
-    // operation은 { type: 'replaceText', payload: { ... } } 형태
+    // operation is in the form { type: 'replaceText', payload: { ... } }
     const payload = operation.payload;
     
     if (!payload) {
@@ -99,6 +99,6 @@ defineOperation('replaceText', async (operation: any, context: TransactionContex
   }
 });
 
-// DSL 정의는 별도 파일로 분리 예정
+// DSL definition will be separated into a separate file
 
 

@@ -72,7 +72,7 @@ describe('Transaction Commit', () => {
 
       const result = await builder.commit();
 
-      // TransactionManager가 사용되었는지 확인
+      // Verify TransactionManager was used
       expect(result).toBeDefined();
       expect(result.success).toBeDefined();
       expect(result.errors).toBeDefined();
@@ -186,8 +186,8 @@ describe('Transaction Commit', () => {
 
       const result = await builder.commit();
 
-      // Schema가 DataStore에서 TransactionManager로 전달되었는지 확인
-      // (실제로는 TransactionManager 내부에서 확인해야 함)
+      // Verify schema was passed from DataStore to TransactionManager
+      // (Actually should be verified inside TransactionManager)
       expect(result.success).toBe(true);
     });
   });

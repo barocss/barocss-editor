@@ -54,7 +54,7 @@ export class DataStoreLoader {
       sid: nodeId,
       stype: nodeType,
       attributes: treeNode.attributes || {},
-      // content는 로딩 단계에서 parent에 의해 구성되므로 여기서는 비워둔다
+      // content is constructed by parent during loading phase, so leave empty here
       content: undefined,
       text: treeNode.text,
       marks: treeNode.marks,
@@ -116,12 +116,12 @@ export class DataStoreExporter {
   }
 
   /**
-   * Proxy 기반으로 INode를 반환 (lazy evaluation)
+   * Return INode based on Proxy (lazy evaluation)
    * 
-   * content 배열이 ID 배열인 경우, 접근 시에만 실제 노드로 변환하여 메모리 효율적
+   * If content array is ID array, convert to actual node only on access for memory efficiency
    * 
-   * @param rootNodeId - 루트 노드 ID (없으면 기본 루트 사용)
-   * @returns Proxy로 래핑된 INode (ModelData 호환)
+   * @param rootNodeId - Root node ID (use default root if not provided)
+   * @returns INode wrapped in Proxy (ModelData compatible)
    */
   toProxy(rootNodeId?: string): INode | null {
     const rootId = rootNodeId || this._dataStore.getRootNode()?.sid;
@@ -132,31 +132,31 @@ export class DataStoreExporter {
   }
 
   /**
-   * INode를 Proxy로 래핑하여 lazy evaluation 지원
+   * Wrap INode in Proxy to support lazy evaluation
    * 
-   * content 배열이 ID 배열인 경우, 접근 시에만 실제 INode로 변환
+   * If content array is ID array, convert to actual INode only on access
    */
   private _createProxy(node: INode): INode {
-    const dataStore = this._dataStore; // 클로저로 캡처
-    const createProxy = (n: INode) => this._createProxy(n); // 재귀 호출을 위한 참조
+    const dataStore = this._dataStore; // Capture via closure
+    const createProxy = (n: INode) => this._createProxy(n); // Reference for recursive call
     
     return new Proxy(node, {
       get(target: INode, prop: string | symbol): any {
-        // content 접근 시 lazy evaluation
+        // Lazy evaluation on content access
         if (prop === 'content' && target.content) {
           return target.content.map((item: any) => {
-            // 문자열인 경우: ID로 간주하고 노드로 변환
+            // String case: treat as ID and convert to node
             if (typeof item === 'string') {
               const childNode = dataStore.getNode(item);
               if (childNode) {
-                // 재귀적으로 Proxy 생성
+                // Create Proxy recursively
                 return createProxy(childNode);
               }
-              // 찾을 수 없으면 그대로 반환 (텍스트일 수 있음)
+              // Return as-is if not found (might be text)
               return item;
             }
             
-            // 이미 INode 객체인 경우 (이미 변환된 경우)
+            // Already INode object case (already converted)
             if (item && typeof item === 'object' && item.stype) {
               return createProxy(item as INode);
             }
@@ -165,7 +165,7 @@ export class DataStoreExporter {
           });
         }
         
-        // 나머지는 원본 속성 반환
+        // Return original property for rest
         return (target as any)[prop];
       }
     }) as INode;

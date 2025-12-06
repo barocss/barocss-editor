@@ -26,7 +26,7 @@ export function normalizeKeyString(key: string): string {
     const part = parts[i].trim();
     if (!part) continue;
     
-    // Modifier 키 처리 (첫 글자만 대문자)
+    // Handle modifier keys (only first letter capitalized)
     const modifierMap: Record<string, string> = {
       'ctrl': 'Ctrl',
       'cmd': 'Cmd',
@@ -40,12 +40,12 @@ export function normalizeKeyString(key: string): string {
     if (modifierMap[lowerPart]) {
       normalized.push(modifierMap[lowerPart]);
     } else {
-      // 키 이름은 소문자로 정규화 (대소문자 구분하지 않음)
-      // 단, 특수 키는 그대로 유지 (Enter, Escape 등)
+      // Normalize key names to lowercase (case-insensitive)
+      // Special keys are kept as is (Enter, Escape, etc.)
       if (part.length === 1 && /[A-Za-z]/.test(part)) {
         normalized.push(part.toLowerCase());
       } else {
-        // 특수 키는 그대로 유지 (Enter, Escape, F1 등)
+        // Keep special keys as is (Enter, Escape, F1, etc.)
         normalized.push(part);
       }
     }
@@ -72,21 +72,21 @@ export function normalizeKeyString(key: string): string {
  * ```
  */
 export function expandModKey(key: string): string[] {
-  const variants: string[] = [key]; // 원본 키도 포함
+  const variants: string[] = [key]; // Include original key
   
-  // Mod 키 확장
+  // Expand Mod key
   if (key.startsWith('Mod+')) {
-    // Mod+b → Ctrl+b, Cmd+b도 추가
-    const rest = key.substring(4); // 'Mod+' 제거
+    // Mod+b → also add Ctrl+b, Cmd+b
+    const rest = key.substring(4); // Remove 'Mod+'
     variants.push(`Ctrl+${rest}`);
     variants.push(`Cmd+${rest}`);
   } else if (key.startsWith('Ctrl+')) {
-    // Ctrl+b → Mod+b도 추가
-    const rest = key.substring(5); // 'Ctrl+' 제거
+    // Ctrl+b → also add Mod+b
+    const rest = key.substring(5); // Remove 'Ctrl+'
     variants.push(`Mod+${rest}`);
   } else if (key.startsWith('Cmd+')) {
-    // Cmd+b → Mod+b도 추가
-    const rest = key.substring(4); // 'Cmd+' 제거
+    // Cmd+b → also add Mod+b
+    const rest = key.substring(4); // Remove 'Cmd+'
     variants.push(`Mod+${rest}`);
   }
   

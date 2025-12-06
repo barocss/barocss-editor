@@ -40,9 +40,9 @@ export class QueryOperations {
   findNodes(predicate: (node: INode) => boolean): INode[] {
     const results: INode[] = [];
     
-    // 항상 모든 노드를 순회 (고아 노드 포함)
-    // DocumentIterator는 루트와 연결된 노드만 순회하므로, 
-    // 고아 노드들을 찾기 위해서는 전체 노드 맵을 순회해야 함
+    // Always iterate through all nodes (including orphaned nodes)
+    // DocumentIterator only traverses nodes connected to root,
+    // so must iterate through entire node map to find orphaned nodes
     for (const [id, node] of this.dataStore.getNodes()) {
       const n = this.dataStore.getNode(id);
       if (n && predicate(n)) {
@@ -54,7 +54,7 @@ export class QueryOperations {
   }
 
   /**
-   * 타입으로 노드들 찾기
+   * Find nodes by type
    * 
    * Spec findNodesByType:
    * - Returns array of nodes with the specified type.
@@ -63,8 +63,8 @@ export class QueryOperations {
    * - Order follows document traversal order when root is set.
    * - Useful for finding all nodes of a specific type (e.g., all paragraphs).
    * 
-   * @param stype 찾을 노드 타입 (schema type)
-   * @returns 해당 타입의 노드들의 배열
+   * @param stype Node type to find (schema type)
+   * @returns Array of nodes of that type
    */
   findNodesByType(stype: string): INode[] {
     const results: INode[] = [];
@@ -83,7 +83,7 @@ export class QueryOperations {
   }
 
   /**
-   * 속성으로 노드들 찾기
+   * Find nodes by attribute
    * 
    * Spec findNodesByAttribute:
    * - Returns array of nodes with the specified attribute key-value pair.
@@ -92,9 +92,9 @@ export class QueryOperations {
    * - Order is not guaranteed (Map iteration order).
    * - Useful for finding nodes with specific attributes (e.g., all nodes with class="highlight").
    * 
-   * @param key 속성 키
-   * @param value 속성 값
-   * @returns 해당 속성을 가진 노드들의 배열
+   * @param key Attribute key
+   * @param value Attribute value
+   * @returns Array of nodes with that attribute
    */
   findNodesByAttribute(key: string, value: any): INode[] {
     return this.findNodes(node => 
@@ -103,7 +103,7 @@ export class QueryOperations {
   }
 
   /**
-   * 텍스트 내용으로 노드들 찾기
+   * Find nodes by text content
    * 
    * Spec findNodesByText:
    * - Returns array of nodes containing the specified text.
@@ -113,11 +113,11 @@ export class QueryOperations {
    * - Order is not guaranteed (Map iteration order).
    * - Useful for finding nodes containing specific text content.
    * 
-   * @param text 찾을 텍스트 내용
-   * @returns 해당 텍스트를 포함하는 노드들의 배열
+   * @param text Text content to find
+   * @returns Array of nodes containing that text
    */
   findNodesByText(text: string): INode[] {
-    // 빈 텍스트인 경우 빈 배열 반환
+    // Return empty array for empty text
     if (!text || text.trim() === '') {
       return [];
     }
@@ -128,7 +128,7 @@ export class QueryOperations {
   }
 
   /**
-   * 부모 ID로 자식 노드들 찾기
+   * Find child nodes by parent ID
    * 
    * Spec findChildrenByParentId:
    * - Returns array of nodes that are direct children of the specified parent.
@@ -138,8 +138,8 @@ export class QueryOperations {
    * - Order follows document traversal order when parent is connected.
    * - Useful for finding all direct children of a specific node.
    * 
-   * @param parentId 부모 노드 ID
-   * @returns 해당 부모의 직접 자식 노드들의 배열
+   * @param parentId Parent node ID
+   * @returns Array of direct child nodes of that parent
    */
   findChildrenByParentId(parentId: string): INode[] {
     const parent = this.dataStore.getNode(parentId);
@@ -147,14 +147,14 @@ export class QueryOperations {
       return [];
     }
     
-    // 부모가 존재하고 content가 있으면 직접 접근 (더 효율적)
+    // Direct access if parent exists and has content (more efficient)
     return parent.content
       .map(childId => this.dataStore.getNode(childId as string))
       .filter((child): child is INode => child !== undefined);
   }
 
   /**
-   * 루트 노드들 찾기 (parentId가 없는 노드들)
+   * Find root nodes (nodes without parentId)
    * 
    * Spec findRootNodes:
    * - Returns array of nodes that have no parent (parentId is null/undefined).
@@ -163,14 +163,14 @@ export class QueryOperations {
    * - Order is not guaranteed (Map iteration order).
    * - Useful for finding top-level nodes in the document tree.
    * 
-   * @returns 루트 노드들의 배열
+   * @returns Array of root nodes
    */
   findRootNodes(): INode[] {
     return this.findNodes(node => !node.parentId);
   }
 
   /**
-   * 텍스트 내용으로 노드 검색 (대소문자 구분 없음)
+   * Search nodes by text content (case-insensitive)
    * 
    * Spec searchText:
    * - Returns array of nodes containing the specified text (case-insensitive).
@@ -181,8 +181,8 @@ export class QueryOperations {
    * - Order is not guaranteed (Map iteration order).
    * - Useful for case-insensitive text search including orphaned nodes.
    * 
-   * @param query 검색할 텍스트 (대소문자 구분 없음)
-   * @returns 해당 텍스트를 포함하는 노드들의 배열
+   * @param query Text to search (case-insensitive)
+   * @returns Array of nodes containing that text
    */
   searchText(query: string): INode[] {
     if (!query || query.trim() === '') {
@@ -192,7 +192,7 @@ export class QueryOperations {
     const lowerQuery = query.toLowerCase();
     const results: INode[] = [];
     
-    // 항상 모든 노드를 순회 (고아 노드 포함)
+    // Always iterate through all nodes (including orphaned nodes)
     for (const [id, node] of this.dataStore.getNodes()) {
       const n = this.dataStore.getNode(id);
       if (n && n.text && n.text.toLowerCase().includes(lowerQuery)) {

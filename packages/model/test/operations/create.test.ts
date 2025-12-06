@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { create as createDSL } from '../../src/operations-dsl/create';
-import '../../src/operations/register-operations'; // Operations 등록
+import '../../src/operations/register-operations'; // Register operations
 import { DataStore, INode } from '@barocss/datastore';
 import { SelectionManager } from '@barocss/editor-core';
 import { createTransactionContext } from '../../src/create-transaction-context';
@@ -14,7 +14,7 @@ describe('create operation', () => {
   let schema: Schema;
 
   beforeEach(() => {
-    // 테스트용 schema 생성
+    // Create schema for testing
     schema = new Schema('test-schema', {
       nodes: {
         'inline-text': {
@@ -46,7 +46,7 @@ describe('create operation', () => {
       }
     });
     
-    // DataStore 생성 (schema는 생성자에서 전달)
+    // Create DataStore (schema is passed in constructor)
     dataStore = new DataStore(undefined, schema);
     selectionManager = new SelectionManager({ dataStore });
     context = createTransactionContext(dataStore, selectionManager, schema);
@@ -101,7 +101,7 @@ describe('create operation', () => {
   });
 
   it('should create nested structure with parent-child relationship', async () => {
-    // 중첩된 구조를 한 번에 생성
+    // Create nested structure at once
     const nestedNode = {
       type: 'paragraph',
       content: [
@@ -119,7 +119,7 @@ describe('create operation', () => {
     expect(result.data.type).toBe('paragraph');
     expect(result.data.content).toHaveLength(1);
     
-    // 자식 노드 확인
+    // Verify child node
     const childId = result.data.content[0];
     const childNode = dataStore.getNode(childId);
     expect(childNode?.type).toBe('inline-text');
@@ -128,7 +128,7 @@ describe('create operation', () => {
   });
 
   it('should create nested nodes with auto-generated IDs', async () => {
-    // 중첩된 노드 구조 생성
+    // Create nested node structure
     const nestedNode = {
       type: 'paragraph',
       content: [
@@ -147,12 +147,12 @@ describe('create operation', () => {
     const createOperation = globalOperationRegistry.get('create');
     const result = await createOperation!.execute({ type: 'create', payload: { node: nestedNode } } as any, context);
 
-    // 루트 노드가 생성되었는지 확인
+    // Verify root node was created
     expect(result.data?.sid).toBeDefined();
     expect(result.data?.type).toBe('paragraph');
     expect(result.data?.content).toHaveLength(2);
 
-    // 자식 노드들이 생성되었는지 확인
+    // Verify child nodes were created
     const child1 = dataStore.getNode(result.data!.content![0]);
     const child2 = dataStore.getNode(result.data!.content![1]);
     
@@ -168,7 +168,7 @@ describe('create operation', () => {
   });
 
   it('should handle deeply nested structures', async () => {
-    // 깊게 중첩된 노드 구조 생성
+    // Create deeply nested node structure
     const deeplyNestedNode = {
       type: 'document',
       content: [
@@ -196,27 +196,27 @@ describe('create operation', () => {
     const createOperation = globalOperationRegistry.get('create');
     const result = await createOperation!.execute({ type: 'create', payload: { node: deeplyNestedNode } } as any, context);
 
-    // 루트 노드 확인
+    // Verify root node
     expect(result.data?.sid).toBeDefined();
     expect(result.data?.content).toHaveLength(2);
 
-    // 첫 번째 paragraph 확인
+    // Verify first paragraph
     const paragraph1 = dataStore.getNode(result.data!.content![0]);
     expect(paragraph1).toBeDefined();
     expect(paragraph1!.content).toHaveLength(1);
 
-    // 첫 번째 text 노드 확인
+    // Verify first text node
     const text1 = dataStore.getNode(paragraph1!.content![0] as string);
     expect(text1).toBeDefined();
     expect(text1!.text).toBe('Level 1');
     expect(text1!.parentId).toBe(paragraph1!.sid);
 
-    // 두 번째 paragraph 확인
+    // Verify second paragraph
     const paragraph2 = dataStore.getNode(result.data!.content![1]);
     expect(paragraph2).toBeDefined();
     expect(paragraph2!.content).toHaveLength(1);
 
-    // 두 번째 text 노드 확인
+    // Verify second text node
     const text2 = dataStore.getNode(paragraph2!.content![0] as string);
     expect(text2).toBeDefined();
     expect(text2!.text).toBe('Level 2');
@@ -224,12 +224,12 @@ describe('create operation', () => {
   });
 
   it('should fail schema validation for invalid node structure', async () => {
-    // 잘못된 노드 구조 (paragraph가 inline-text를 직접 포함할 수 없음)
+    // Invalid node structure (paragraph cannot directly contain inline-text)
     const invalidNode = {
       type: 'paragraph',
       content: [
         {
-          type: 'invalid-type', // schema에 정의되지 않은 타입
+          type: 'invalid-type', // Type not defined in schema
           text: 'Invalid content'
         }
       ]
@@ -241,7 +241,7 @@ describe('create operation', () => {
   });
 
   it('should pass schema validation for valid node structure', async () => {
-    // 올바른 노드 구조
+    // Valid node structure
     const validNode = {
       type: 'document',
       content: [
@@ -267,7 +267,7 @@ describe('create operation', () => {
 
          describe('Selection mapping', () => {
            it('should preserve selection when creating a node', async () => {
-             // 기존 Selection 설정
+             // Set existing Selection
              const initialSelection = { type: 'range' as const, startNodeId: 'existing-text', startOffset: 5, endNodeId: 'existing-text', endOffset: 10 };
              selectionManager.setSelection(initialSelection);
 
@@ -281,11 +281,11 @@ describe('create operation', () => {
               } }
              };
 
-             // Operation 실행
+             // Execute operation
              const createOperation = globalOperationRegistry.get('create');
              await createOperation!.execute(operation, context);
              
-             // Selection이 유지되었는지 확인
+             // Verify selection is preserved
              const finalSelection = selectionManager.getCurrentSelection();
              expect(finalSelection).toEqual(initialSelection);
            });

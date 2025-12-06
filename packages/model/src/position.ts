@@ -1,19 +1,19 @@
 import { DataStore } from '@barocss/datastore';
 
 /**
- * PositionCalculator는 절대 위치와 nodeId + offset 간의 변환을 담당하는 유틸리티 클래스입니다.
+ * PositionCalculator is a utility class responsible for converting between absolute positions and nodeId + offset.
  * 
- * 이 클래스는 Barocss의 노드 경계 포함 Position 시스템을 구현하며,
- * ProseMirror와 유사한 방식으로 문서 전체를 선형 시퀀스로 처리합니다.
+ * This class implements Barocss's Position system that includes node boundaries,
+ * processing the entire document as a linear sequence similar to ProseMirror.
  * 
  * @example
  * ```typescript
  * const calculator = new PositionCalculator(dataStore);
  * 
- * // nodeId + offset을 절대 위치로 변환
+ * // Convert nodeId + offset to absolute position
  * const absolutePos = calculator.calculateAbsolutePosition('text-1', 3);
  * 
- * // 절대 위치를 nodeId + offset으로 변환
+ * // Convert absolute position to nodeId + offset
  * const nodePos = calculator.findNodeByAbsolutePosition(5);
  * ```
  */
@@ -25,18 +25,18 @@ export class PositionCalculator {
   }
 
   /**
-   * 절대 위치를 nodeId + offset으로 변환합니다.
+   * Converts absolute position to nodeId + offset.
    * 
-   * 이 메서드는 문서 전체를 선형 시퀀스로 간주하여 주어진 절대 위치에
-   * 해당하는 노드와 그 노드 내에서의 오프셋을 반환합니다.
+   * This method treats the entire document as a linear sequence and returns
+   * the node and offset within that node corresponding to the given absolute position.
    * 
-   * @param absoluteOffset - 문서 전체에서의 절대 위치 (0부터 시작)
-   * @returns 해당 위치의 노드 ID와 오프셋, 또는 null (위치를 찾을 수 없는 경우)
+   * @param absoluteOffset - Absolute position in the entire document (starting from 0)
+   * @returns Node ID and offset at that position, or null (if position cannot be found)
    * 
    * @example
    * ```typescript
    * const result = calculator.findNodeByAbsolutePosition(7);
-   * // { nodeId: 'text-1', offset: 4 } - text-1 노드의 4번째 문자
+   * // { nodeId: 'text-1', offset: 4 } - 4th character in text-1 node
    * ```
    */
   findNodeByAbsolutePosition(absoluteOffset: number): { nodeId: string; offset: number } | null {
@@ -46,13 +46,13 @@ export class PositionCalculator {
       const node = this._dataStore.getNode(nodeId);
       if (!node) return null;
 
-      // 노드 시작 위치 확인
+      // Check node start position
       if (currentOffset === absoluteOffset) {
-        return { nodeId: node.sid!, offset: 0 }; // 노드 시작
+        return { nodeId: node.sid!, offset: 0 }; // Node start
       }
       currentOffset += 1;
 
-      // 텍스트 노드인 경우
+      // If text node
       if (node.text) {
         const nodeLength = node.text.length;
         if (currentOffset + nodeLength > absoluteOffset) {
@@ -64,7 +64,7 @@ export class PositionCalculator {
         currentOffset += nodeLength;
       }
 
-      // 컨테이너 노드인 경우 자식들을 순회
+      // If container node, traverse children
       if (node.content) {
         for (const childId of node.content) {
           const result = traverse(childId as string);
@@ -72,9 +72,9 @@ export class PositionCalculator {
         }
       }
 
-      // 노드 끝 위치 확인
+      // Check node end position
       if (currentOffset === absoluteOffset) {
-        return { nodeId: node.sid!, offset: node.text ? node.text.length : 0 }; // 노드 끝
+        return { nodeId: node.sid!, offset: node.text ? node.text.length : 0 }; // Node end
       }
       currentOffset += 1;
 
@@ -88,21 +88,21 @@ export class PositionCalculator {
   }
 
   /**
-   * nodeId + offset을 절대 위치로 변환합니다.
+   * Converts nodeId + offset to absolute position.
    * 
-   * 이 메서드는 주어진 노드 ID와 그 노드 내에서의 오프셋을
-   * 문서 전체에서의 절대 위치로 변환합니다.
+   * This method converts the given node ID and offset within that node
+   * to an absolute position in the entire document.
    * 
-   * @param nodeId - 대상 노드의 ID
-   * @param offset - 노드 내에서의 오프셋 (0부터 시작)
-   * @returns 문서 전체에서의 절대 위치
+   * @param nodeId - ID of the target node
+   * @param offset - Offset within the node (starting from 0)
+   * @returns Absolute position in the entire document
    * 
-   * @throws {Error} 노드를 찾을 수 없는 경우
+   * @throws {Error} If node cannot be found
    * 
    * @example
    * ```typescript
    * const absolutePos = calculator.calculateAbsolutePosition('text-1', 3);
-   * // 5 - text-1 노드의 3번째 문자의 절대 위치
+   * // 5 - Absolute position of the 3rd character in text-1 node
    * ```
    */
   calculateAbsolutePosition(nodeId: string, offset: number): number {
@@ -117,30 +117,30 @@ export class PositionCalculator {
       const node = this._dataStore.getNode(currentNodeId);
       if (!node) return false;
 
-      // 현재 노드가 목표 노드인 경우
+      // If current node is the target node
       if (node.sid === nodeId) {
         targetNodeFound = true;
-        // 노드 시작 위치 + offset
+        // Node start position + offset
         absoluteOffset += offset;
         return true;
       }
 
-      // 노드 시작 위치 추가 (1)
+      // Add node start position (1)
       absoluteOffset += 1;
 
-      // 텍스트 노드인 경우 텍스트 길이 추가
+      // If text node, add text length
       if (node.text) {
         absoluteOffset += node.text.length;
       }
 
-      // 컨테이너 노드인 경우 자식들을 순회
+      // If container node, traverse children
       if (node.content) {
         for (const childId of node.content) {
           if (traverse(childId as string)) return true;
         }
       }
 
-      // 노드 끝 위치 추가 (1)
+      // Add node end position (1)
       absoluteOffset += 1;
 
       return false;
@@ -161,12 +161,12 @@ export class PositionCalculator {
   }
 
   /**
-   * 노드의 경로를 계산합니다.
+   * Calculates the path of a node.
    * 
-   * 문서 루트부터 해당 노드까지의 경로를 배열로 반환합니다.
+   * Returns the path from the document root to the specified node as an array.
    * 
-   * @param nodeId - 경로를 계산할 노드의 ID
-   * @returns 노드 경로 배열 (루트부터 순서대로)
+   * @param nodeId - ID of the node to calculate path for
+   * @returns Node path array (from root in order)
    * 
    * @example
    * ```typescript
@@ -179,10 +179,10 @@ export class PositionCalculator {
   }
 
   /**
-   * 노드의 부모 ID를 가져옵니다.
+   * Gets the parent ID of a node.
    * 
-   * @param nodeId - 부모를 찾을 노드의 ID
-   * @returns 부모 노드의 ID, 또는 undefined (부모가 없는 경우)
+   * @param nodeId - ID of the node to find parent for
+   * @returns Parent node ID, or undefined (if no parent)
    * 
    * @example
    * ```typescript
@@ -196,15 +196,15 @@ export class PositionCalculator {
   }
 
   /**
-   * 노드의 형제 노드 중 순서를 가져옵니다.
+   * Gets the order of a node among its siblings.
    * 
-   * @param nodeId - 순서를 찾을 노드의 ID
-   * @returns 형제 노드 중에서의 순서 (0부터 시작)
+   * @param nodeId - ID of the node to find order for
+   * @returns Order among sibling nodes (starting from 0)
    * 
    * @example
    * ```typescript
    * const index = calculator.getSiblingIndex('text-1');
-   * // 0 - 첫 번째 형제 노드
+   * // 0 - First sibling node
    * ```
    */
   getSiblingIndex(nodeId: string): number {
@@ -212,16 +212,16 @@ export class PositionCalculator {
   }
 
   /**
-   * 두 노드 간의 거리를 계산합니다.
+   * Calculates the distance between two nodes.
    * 
-   * @param nodeId1 - 첫 번째 노드의 ID
-   * @param nodeId2 - 두 번째 노드의 ID
-   * @returns 두 노드 간의 절대 위치 거리
+   * @param nodeId1 - ID of the first node
+   * @param nodeId2 - ID of the second node
+   * @returns Absolute position distance between the two nodes
    * 
    * @example
    * ```typescript
    * const distance = calculator.calculateDistance('text-1', 'text-2');
-   * // 15 - 두 노드 간의 절대 위치 차이
+   * // 15 - Absolute position difference between the two nodes
    * ```
    */
   calculateDistance(nodeId1: string, nodeId2: string): number {
@@ -235,15 +235,15 @@ export class PositionCalculator {
   }
 
   /**
-   * 노드의 텍스트 길이를 반환합니다.
+   * Returns the text length of a node.
    * 
-   * @param nodeId - 텍스트 길이를 계산할 노드의 ID
-   * @returns 텍스트 길이, 또는 0 (텍스트가 없는 경우)
+   * @param nodeId - ID of the node to calculate text length for
+   * @returns Text length, or 0 (if no text)
    * 
    * @example
    * ```typescript
    * const length = calculator.getTextLength('text-1');
-   * // 11 - "Hello World"의 길이
+   * // 11 - Length of "Hello World"
    * ```
    */
   getTextLength(nodeId: string): number {
@@ -252,10 +252,10 @@ export class PositionCalculator {
   }
 
   /**
-   * 노드가 텍스트 노드인지 확인합니다.
+   * Checks if a node is a text node.
    * 
-   * @param nodeId - 확인할 노드의 ID
-   * @returns 텍스트 노드 여부
+   * @param nodeId - ID of the node to check
+   * @returns Whether it is a text node
    * 
    * @example
    * ```typescript
@@ -269,10 +269,10 @@ export class PositionCalculator {
   }
 
   /**
-   * 노드가 컨테이너 노드인지 확인합니다.
+   * Checks if a node is a container node.
    * 
-   * @param nodeId - 확인할 노드의 ID
-   * @returns 컨테이너 노드 여부
+   * @param nodeId - ID of the node to check
+   * @returns Whether it is a container node
    * 
    * @example
    * ```typescript

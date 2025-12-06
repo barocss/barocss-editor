@@ -2,15 +2,15 @@ import type { INode } from '../types';
 import type { DataStore } from '../data-store';
 
 /**
- * Content Management 연산들
+ * Content Management operations
  * 
- * 노드의 부모-자식 관계, 이동, 복사 등의 내용 조작 기능들을 담당합니다.
+ * Handles content manipulation features such as parent-child relationships, movement, copying, etc.
  */
 export class ContentOperations {
   constructor(private dataStore: DataStore) {}
 
   /**
-   * 자식 노드 추가 (부모의 content 배열 업데이트)
+   * Add child node (update parent's content array)
    *
    * Spec addChild:
    * - Creates child when object provided (assigns id if missing) and persists via setNode(); overlay-aware.
@@ -55,7 +55,7 @@ export class ContentOperations {
       childId = child.sid;
       childNode = child;
       
-      // setNode가 이미 overlay에 저장하므로 중복 호출 불필요
+      // No need for duplicate call as setNode already stores in overlay
       this.dataStore.setNode(childNode);
     }
 
@@ -79,7 +79,7 @@ export class ContentOperations {
   }
 
   /**
-   * 자식 노드 제거 (부모의 content 배열에서 제거)
+   * Remove child node (remove from parent's content array)
    *
    * Spec removeChild:
    * - Removes child id from parent.content via updateNode(false), mirrors locally.
@@ -115,7 +115,7 @@ export class ContentOperations {
   }
 
   /**
-   * 노드를 다른 부모로 이동
+   * Move node to different parent
    *
    * Spec moveNode:
    * - Removes id from oldParent.content and inserts into newParent.content at position (default: end).
@@ -139,7 +139,7 @@ export class ContentOperations {
       throw new Error(`Parent node not found: ${newParentId}`);
     }
 
-    // 1. 기존 부모에서 제거
+    // 1. Remove from existing parent
     if (node.parentId) {
       const oldParent = this.dataStore.getNode(node.parentId);
       if (oldParent && Array.isArray(oldParent.content)) {
@@ -155,7 +155,7 @@ export class ContentOperations {
       }
     }
 
-    // 2. 새 부모에 추가
+    // 2. Add to new parent
     const baseContent = Array.isArray(newParent.content) ? newParent.content : [];
     const insertPosition = position !== undefined ? position : baseContent.length;
     const newParentContent = [...baseContent];
@@ -165,11 +165,11 @@ export class ContentOperations {
     // Reflect locally after update
     newParent.content = newParentContent;
 
-    // 3. 노드의 parentId 업데이트 (store + local)
+    // 3. Update node's parentId (store + local)
     this.dataStore.updateNode(nodeId, { parentId: newParentId } as Partial<INode>, false);
     node.parentId = newParentId;
 
-    // 원자적 move operation emit
+    // Emit atomic move operation
     this.dataStore.emitOperation({
       type: 'move',
       nodeId,
@@ -180,7 +180,7 @@ export class ContentOperations {
   }
 
   /**
-   * 노드 복사 (새 ID 생성)
+   * Copy node (generate new ID)
    *
    * Spec copyNode:
    * - Clones node with new id; parentId set to provided newParentId or preserved.
@@ -208,10 +208,10 @@ export class ContentOperations {
       if (parent) {
         const base = Array.isArray(parent.content) ? parent.content : [];
         const newContent = [...base, newNodeId];
-        // update 먼저, 로컬 반영은 사후
+        // Update first, local reflection afterward
         this.dataStore.updateNode(newParentId, { content: newContent }, false);
         parent.content = newContent;
-        // 위치 반영은 신규 생성의 일부로 간주: move emit은 하지 않음
+        // Position reflection is considered part of new creation: do not emit move
       }
     }
 
@@ -219,7 +219,7 @@ export class ContentOperations {
   }
 
   /**
-   * 노드와 모든 자식들을 복사 (재귀적 복사)
+   * Copy node and all children (recursive copy)
    *
    * Spec cloneNodeWithChildren:
    * - Recursively clones subtree with fresh ids; sets parentId links for each clone.
@@ -252,7 +252,7 @@ export class ContentOperations {
         }
       }
       copiedNode.content = newChildIds;
-      // 복제된 노드의 content 설정을 update로 수집
+      // Collect content setting of cloned node as update
       this.dataStore.updateNode(copiedNode.sid!, { content: newChildIds }, false);
     }
 
@@ -270,7 +270,7 @@ export class ContentOperations {
   }
 
   /**
-   * 자식 노드 순서 변경
+   * Reorder child nodes
    *
    * Spec reorderChildren:
    * - Validates that each id exists; then replaces parent.content with the provided order via updateNode(false).
@@ -294,7 +294,7 @@ export class ContentOperations {
     // Reflect locally after update
     parent.content = [...childIds];
 
-    // 순서 변경을 move 시퀀스로 기록 (원래 위치 대비 새 위치 비교)
+    // Record order change as move sequence (compare new position with original position)
     const newIndexMap = new Map<string, number>();
     childIds.forEach((id, idx) => newIndexMap.set(id, idx));
     for (let i = 0; i < childIds.length; i++) {
@@ -313,7 +313,7 @@ export class ContentOperations {
   }
 
   /**
-   * 자식 노드들 일괄 추가
+   * Batch add child nodes
    *
    * Spec addChildren:
    * - Invokes addChild sequentially preserving relative order; returns added ids.
@@ -337,7 +337,7 @@ export class ContentOperations {
   }
 
   /**
-   * 자식 노드들 일괄 제거
+   * Batch remove child nodes
    *
    * Spec removeChildren:
    * - Invokes removeChild for each id and returns boolean results per child.
@@ -356,7 +356,7 @@ export class ContentOperations {
   }
 
   /**
-   * 자식 노드들 일괄 이동
+   * Batch move child nodes
    *
    * Spec moveChildren:
    * - Validates parents/children; reuses moveNode per child with position offset when provided.
@@ -394,12 +394,12 @@ export class ContentOperations {
   }
 
   /**
-   * 블록 노드를 위로 이동 (같은 부모 내에서)
+   * Move block node up (within same parent)
    *
    * Spec moveBlockUp:
-   * - 같은 부모의 content 배열에서 현재 노드를 한 칸 위로 이동
-   * - 첫 번째 노드면 이동 불가 (false 반환)
-   * - reorderChildren을 사용하여 순서 변경
+   * - Moves current node one position up in same parent's content array
+   * - Cannot move if first node (returns false)
+   * - Uses reorderChildren to change order
    */
   moveBlockUp(nodeId: string): boolean {
     const node = this.dataStore.getNode(nodeId);
@@ -417,12 +417,12 @@ export class ContentOperations {
       return false;
     }
 
-    // 첫 번째 노드면 이동 불가
+    // Cannot move if first node
     if (currentIndex === 0) {
       return false;
     }
 
-    // 순서 변경: 현재 노드를 이전 위치로 이동
+    // Change order: move current node to previous position
     const newContent = [...parent.content];
     const [movedNode] = newContent.splice(currentIndex, 1);
     newContent.splice(currentIndex - 1, 0, movedNode);
@@ -432,12 +432,12 @@ export class ContentOperations {
   }
 
   /**
-   * 블록 노드를 아래로 이동 (같은 부모 내에서)
+   * Move block node down (within same parent)
    *
    * Spec moveBlockDown:
-   * - 같은 부모의 content 배열에서 현재 노드를 한 칸 아래로 이동
-   * - 마지막 노드면 이동 불가 (false 반환)
-   * - reorderChildren을 사용하여 순서 변경
+   * - Moves current node one position down in same parent's content array
+   * - Cannot move if last node (returns false)
+   * - Uses reorderChildren to change order
    */
   moveBlockDown(nodeId: string): boolean {
     const node = this.dataStore.getNode(nodeId);
@@ -455,12 +455,12 @@ export class ContentOperations {
       return false;
     }
 
-    // 마지막 노드면 이동 불가
+    // Cannot move if last node
     if (currentIndex === parent.content.length - 1) {
       return false;
     }
 
-    // 순서 변경: 현재 노드를 다음 위치로 이동
+    // Change order: move current node to next position
     const newContent = [...parent.content];
     const [movedNode] = newContent.splice(currentIndex, 1);
     newContent.splice(currentIndex + 1, 0, movedNode);

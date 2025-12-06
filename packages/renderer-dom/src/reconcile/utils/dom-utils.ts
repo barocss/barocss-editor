@@ -10,11 +10,11 @@ export function findChildHost(
   vnode: VNode,
   childIndex?: number
 ): HTMLElement | null {
-  // VNode 식별자로 찾기 (sid 또는 data-decorator-sid from attrs)
+  // Find by VNode identifier (sid or data-decorator-sid from attrs)
   const vnodeId = getVNodeId(vnode);
   if (vnodeId && childIndex !== undefined) {
-    // DOM에서 data-bc-sid 또는 data-decorator-sid로 찾기 (인덱스 기반)
-    // IMPORTANT: 같은 ID를 가진 여러 요소가 있을 때, 인덱스에 가장 가까운 요소를 선택
+    // Find in DOM by data-bc-sid or data-decorator-sid (index-based)
+    // IMPORTANT: when multiple elements have the same ID, select the one closest to the index
     const children = Array.from(parent.children);
     let bestMatch: HTMLElement | null = null;
     let minIndexDiff = Infinity;
@@ -26,7 +26,7 @@ export function findChildHost(
         child.getAttribute('data-decorator-sid') === vnodeId;
       if (!isMatch) continue;
       
-      // 인덱스 차이 계산
+      // Calculate index difference
       const indexDiff = Math.abs(i - childIndex);
       if (indexDiff < minIndexDiff) {
         minIndexDiff = indexDiff;
@@ -37,20 +37,20 @@ export function findChildHost(
     if (bestMatch) return bestMatch;
   }
   
-  // Fallback: ID가 없는 경우 같은 인덱스의 같은 태그를 가진 요소 재사용
-  // Domain 지식 없이 구조적 속성만 확인
+  // Fallback: if no ID, reuse element with same tag at same index
+  // Check only structural properties without domain knowledge
   const vnodeIdForFallback = getVNodeId(vnode);
   if (childIndex !== undefined && vnode.tag && !vnodeIdForFallback) {
     const children = Array.from(parent.children);
     
-    // IMPORTANT: childIndex 위치의 요소를 먼저 확인
+    // IMPORTANT: check element at childIndex position first
     if (childIndex < children.length) {
       const candidate = children[childIndex] as HTMLElement;
       if (candidate && candidate.tagName.toLowerCase() === vnode.tag.toLowerCase()) {
-        // 같은 태그이고, sid가 없는 경우 재사용
+        // Same tag and no sid, reuse
         const hasSid = candidate.hasAttribute('data-bc-sid') || candidate.hasAttribute('data-decorator-sid');
         if (!hasSid) {
-          // 클래스도 비교하여 더 정확하게 매칭 (구조적 매칭)
+          // Also compare classes for more accurate matching (structural matching)
           if (vnode.attrs?.class || vnode.attrs?.className) {
             const vnodeClasses = normalizeClasses(vnode.attrs.class || vnode.attrs.className);
             const candidateClasses = candidate.className ? candidate.className.split(/\s+/).filter(Boolean) : [];
@@ -59,20 +59,20 @@ export function findChildHost(
                 return candidate;
               }
             } else {
-              // 클래스가 없으면 태그만으로 재사용
+              // If no classes, reuse by tag only
               return candidate;
             }
         }
       }
     }
     
-    // IMPORTANT: childIndex 위치에서 찾지 못하면, 모든 자식 요소를 순회
-    // (prevVNode가 없을 때 인덱스가 맞지 않을 수 있음)
+    // IMPORTANT: if not found at childIndex position, traverse all child elements
+    // (index may not match when prevVNode is missing)
     for (const candidate of children) {
       if (candidate.tagName.toLowerCase() === vnode.tag.toLowerCase()) {
         const hasSid = candidate.hasAttribute('data-bc-sid') || candidate.hasAttribute('data-decorator-sid');
         if (!hasSid) {
-          // 클래스도 비교하여 더 정확하게 매칭 (구조적 매칭)
+          // Also compare classes for more accurate matching (structural matching)
           if (vnode.attrs?.class || vnode.attrs?.className) {
             const vnodeClasses = normalizeClasses(vnode.attrs.class || vnode.attrs.className);
             const candidateClasses = candidate.className ? candidate.className.split(/\s+/).filter(Boolean) : [];
@@ -81,7 +81,7 @@ export function findChildHost(
               return candidate as HTMLElement;
             }
           } else {
-            // 클래스가 없으면 태그만으로 재사용
+            // If no classes, reuse by tag only
             return candidate as HTMLElement;
           }
         }
@@ -104,22 +104,22 @@ export function queryHost(parent: HTMLElement, sid: string): HTMLElement | null 
  * Moves elements to correct positions without removing them
  */
 export function reorder(parent: HTMLElement, ordered: (HTMLElement | Text)[]): void {
-  // ordered 배열의 순서대로 DOM에 배치
-  // 각 요소를 순회하면서 올바른 위치에 있는지 확인하고, 필요시 이동
+  // Place in DOM according to order in ordered array
+  // Iterate through each element, check if it's in correct position, and move if needed
   const orderedSet = new Set(ordered);
   
-  // ordered에 없는 요소는 제거하지 않음 (removeStale에서 처리)
-  // ordered에 있는 요소만 재정렬
-  // IMPORTANT: current 배열을 매번 다시 가져와야 함 (insertBefore로 인해 DOM이 변경됨)
+  // Don't remove elements not in ordered (handled in removeStale)
+  // Only reorder elements in ordered
+  // IMPORTANT: Must get current array again each time (DOM changes due to insertBefore)
   for (let i = 0; i < ordered.length; i++) {
     const want = ordered[i];
     
-    // 현재 DOM 상태를 다시 확인
+    // Check current DOM state again
     const currentNow = Array.from(parent.childNodes);
     
-    // 현재 위치가 올바른지 확인
+    // Check if current position is correct
     if (currentNow[i] !== want) {
-      // 올바른 위치로 이동
+      // Move to correct position
       const referenceNode = i < currentNow.length ? currentNow[i] : null;
       parent.insertBefore(want, referenceNode);
     }

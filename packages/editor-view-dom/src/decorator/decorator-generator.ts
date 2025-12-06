@@ -15,19 +15,19 @@ import type { ModelData } from '@barocss/editor-core';
  * 패턴 기반 decorator보다 복잡한 로직에 적합합니다.
  */
 export interface DecoratorGenerator {
-  /** Generator 식별자 */
+  /** Generator identifier */
   sid: string;
   
-  /** Generator 이름 (선택사항) */
+  /** Generator name (optional) */
   name?: string;
   
   /**
-   * Decorator 생성 함수
+   * Decorator generation function
    * 
-   * @param model - 현재 노드의 모델 데이터
-   * @param text - 텍스트 내용 (model.text가 있는 경우)
-   * @param context - 추가 컨텍스트 정보
-   * @returns 생성된 decorator 배열
+   * @param model - Current node's model data
+   * @param text - Text content (if model.text exists)
+   * @param context - Additional context information
+   * @returns Generated decorator array
    */
   generate(
     model: ModelData,
@@ -35,38 +35,38 @@ export interface DecoratorGenerator {
     context?: DecoratorGeneratorContext
   ): Decorator[];
   
-  /** 우선순위 (낮을수록 높은 우선순위, 기본값: 100) */
+  /** Priority (lower value = higher priority, default: 100) */
   priority?: number;
   
-  /** 활성화 여부 (기본값: true) */
+  /** Enabled status (default: true) */
   enabled?: boolean;
   
   /**
-   * 변경 감지 콜백 등록
+   * Register change detection callback
    * 
-   * Generator가 변경을 감지했을 때 호출할 콜백을 등록합니다.
-   * 예: 외부 API 응답, 사용자 입력 등
+   * Registers a callback to be called when Generator detects changes.
+   * Examples: external API response, user input, etc.
    * 
-   * @param callback - 변경 감지 시 호출될 콜백
-   * @returns 콜백 제거 함수
+   * @param callback - Callback to be called on change detection
+   * @returns Callback removal function
    */
   onDidChange?(callback: () => void): () => void;
 }
 
 /**
- * Decorator Generator 컨텍스트
+ * Decorator Generator context
  */
 export interface DecoratorGeneratorContext {
-  /** 전체 문서 모델 (선택사항) */
+  /** Full document model (optional) */
   documentModel?: ModelData;
   
-  /** 현재 노드의 부모 모델 (선택사항) */
+  /** Current node's parent model (optional) */
   parentModel?: ModelData;
   
-  /** 형제 노드들 (선택사항) */
+  /** Sibling nodes (optional) */
   siblings?: ModelData[];
   
-  /** 추가 컨텍스트 데이터 */
+  /** Additional context data */
   [key: string]: any;
 }
 
@@ -78,14 +78,14 @@ export class DecoratorGeneratorManager {
   private changeCallbacks: Map<string, () => void> = new Map(); // sid -> cleanup function
   
   /**
-   * Generator 등록
+   * Register Generator
    * 
-   * Generator에 `onDidChange`가 있으면 콜백을 등록합니다.
+   * Registers callback if Generator has `onDidChange`.
    */
   registerGenerator(generator: DecoratorGenerator, onChangeCallback?: () => void): void {
     this.generators.set(generator.sid, generator);
     
-    // onDidChange가 있으면 콜백 등록
+    // Register callback if onDidChange exists
     if (generator.onDidChange && onChangeCallback) {
       const cleanup = generator.onDidChange(onChangeCallback);
       this.changeCallbacks.set(generator.sid, cleanup);
@@ -93,10 +93,10 @@ export class DecoratorGeneratorManager {
   }
   
   /**
-   * Generator 제거
+   * Unregister Generator
    */
   unregisterGenerator(sid: string): boolean {
-    // 변경 감지 콜백 정리
+    // Clean up change detection callback
     const cleanup = this.changeCallbacks.get(sid);
     if (cleanup) {
       cleanup();
@@ -107,16 +107,16 @@ export class DecoratorGeneratorManager {
   }
   
   /**
-   * Generator 가져오기
+   * Get Generator
    */
   getGenerator(sid: string): DecoratorGenerator | undefined {
     return this.generators.get(sid);
   }
   
   /**
-   * 모든 Generator 가져오기
+   * Get all Generators
    * 
-   * @param enabledOnly - true면 enabled된 것만 반환 (기본값: false)
+   * @param enabledOnly - If true, only return enabled ones (default: false)
    */
   getAllGenerators(enabledOnly: boolean = false): DecoratorGenerator[] {
     const generators = Array.from(this.generators.values());
@@ -127,7 +127,7 @@ export class DecoratorGeneratorManager {
   }
   
   /**
-   * Generator 활성화/비활성화
+   * Enable/disable Generator
    */
   setGeneratorEnabled(sid: string, enabled: boolean): boolean {
     const generator = this.generators.get(sid);
@@ -139,7 +139,7 @@ export class DecoratorGeneratorManager {
   }
   
   /**
-   * Generator 활성화 여부 확인
+   * Check if Generator is enabled
    */
   isGeneratorEnabled(sid: string): boolean {
     const generator = this.generators.get(sid);
@@ -147,10 +147,10 @@ export class DecoratorGeneratorManager {
   }
   
   /**
-   * 모든 Generator 초기화
+   * Initialize all Generators
    */
   clear(): void {
-    // 모든 변경 감지 콜백 정리
+    // Clean up all change detection callbacks
     for (const cleanup of this.changeCallbacks.values()) {
       cleanup();
     }
@@ -159,9 +159,9 @@ export class DecoratorGeneratorManager {
   }
   
   /**
-   * 모델에 대한 모든 decorator 생성
+   * Generate all decorators for model
    * 
-   * @param model - 모델 데이터
+   * @param model - Model data
    * @param text - 텍스트 내용 (model.text가 있는 경우)
    * @param context - 추가 컨텍스트
    * @returns 생성된 decorator 배열

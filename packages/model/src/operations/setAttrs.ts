@@ -25,7 +25,7 @@ defineOperation('setAttrs', async (operation: any, context: TransactionContext) 
   const { nodeId, attrs } = operation.payload;
   const node = context.dataStore.getNode(nodeId);
   if (!node) throw new Error(`Node not found: ${nodeId}`);
-  // 스키마 검증을 거치도록 updateNode 사용
+  // Use updateNode to go through schema validation
   const result = context.dataStore.updateNode(nodeId, { attributes: { ...(node.attributes || {}), ...attrs } });
   if (!result || result.valid !== true) {
     const message = result?.errors?.[0] || 'Update failed';

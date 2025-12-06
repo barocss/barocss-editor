@@ -21,13 +21,13 @@ export class SelectAllExtension implements Extension {
           return false;
         }
 
-        // 1) SelectionManager 가 ModelSelection 을 계산하도록 위임
+        // 1) Delegate to SelectionManager to calculate ModelSelection
         selectionManager.selectAll();
 
-        // 2) SelectionManager 에 저장된 ModelSelection 을 Editor 로 전달
+        // 2) Pass ModelSelection stored in SelectionManager to Editor
         const selection = selectionManager.getCurrentSelection();
 
-        // 3) Editor.updateSelection() 경로를 통해 selection 및 context, 이벤트를 일괄 갱신
+        // 3) Update selection, context, and events in batch via Editor.updateSelection() path
         editor.updateSelection(selection);
 
         return true;
@@ -37,7 +37,7 @@ export class SelectAllExtension implements Extension {
   }
 
   onDestroy(_editor: Editor): void {
-    // 정리 작업 없음
+    // No cleanup needed
   }
 }
 

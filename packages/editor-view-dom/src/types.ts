@@ -1,6 +1,6 @@
 import { Editor } from '@barocss/editor-core';
 import type { RendererRegistry, ModelData } from '@barocss/dsl';
-// TreeDocument는 제거됨 - ModelData (sid, stype)를 직접 사용
+// TreeDocument is removed - use ModelData (sid, stype) directly
 
 export interface LayerConfiguration {
   contentEditable?: {
@@ -31,10 +31,10 @@ export interface EditorViewDOMOptions {
   keymaps?: KeymapConfig[];
   inputHandlers?: InputHandlerConfig[];
   mutationObserver?: MutationObserverConfig;
-  // 렌더러 주입/자동 렌더링 옵션
+  // Renderer injection/auto-rendering options
   registry?: RendererRegistry; // RendererRegistry
-  initialTree?: ModelData | any;  // ModelData 형식 (sid, stype 사용)
-  autoRender?: boolean;   // 기본값: true
+  initialTree?: ModelData | any;  // ModelData format (uses sid, stype)
+  autoRender?: boolean;   // Default: true
 }
 
 export interface KeymapConfig {
@@ -69,38 +69,38 @@ export interface IEditorViewDOM {
     custom: HTMLElement;
   };
   
-  // DOM 이벤트 처리
+  // DOM event handling
   handleInput(event: InputEvent): void;
   handleKeydown(event: KeyboardEvent): void;
   handlePaste(event: ClipboardEvent): void;
   handleDrop(event: DragEvent): void;
   handleSelectionChange(): void;
   
-  // Selection 변환
+  // Selection conversion
   convertDOMSelectionToModel?(sel: Selection): any;
   convertModelSelectionToDOM?(sel: any): void;
   
-  // 브라우저 네이티브 명령 (Model-first Command 위임)
+  // Browser native commands (delegated to Model-first Commands)
   insertParagraph(): void;
   insertText(text: string): void;
   deleteSelection(): void;
   historyUndo(): void;
   historyRedo(): void;
   
-  // 편집 명령
+  // Editing commands
   toggleBold(): void;
   toggleItalic(): void;
   toggleUnderline(): void;
   toggleStrikeThrough(): void;
   blur(): void;
 
-  // 렌더링 API
-  render(tree?: ModelData | any): void;        // ModelData 형식 (sid, stype 사용) 또는 editor에서 export
+  // Rendering API
+  render(tree?: ModelData | any): void;        // ModelData format (uses sid, stype) or exported from editor
   
-  // Decorator 관리 API
-  getDecorators?(options?: any): any[];        // Decorator 목록 조회
+  // Decorator management API
+  getDecorators?(options?: any): any[];        // Query decorator list
   
-  // Decorator 타입 정의 (선택적)
+  // Decorator type definition (optional)
   defineDecoratorType(
     type: string,
     category: 'layer' | 'inline' | 'block',
@@ -114,7 +114,7 @@ export interface IEditorViewDOM {
     }
   ): void;
   
-  // 생명주기
+  // Lifecycle
   destroy(): void;
 }
 
@@ -145,20 +145,20 @@ export interface MutationObserverManager {
 
 export interface TextChange {
   type: 'insert' | 'delete' | 'replace';
-  start: number;        // 변경 시작 위치 (oldText 기준)
-  end: number;          // 변경 끝 위치 (oldText 기준)
-  text: string;         // 변경할 텍스트 (insert: 삽입할 텍스트, delete: '', replace: 교체할 텍스트)
-  confidence: number;   // 분석 신뢰도 (0-1)
+  start: number;        // Change start position (based on oldText)
+  end: number;          // Change end position (based on oldText)
+  text: string;         // Text to change (insert: text to insert, delete: '', replace: text to replace)
+  confidence: number;   // Analysis confidence (0-1)
 }
 
 export interface TextChangeAnalysisOptions {
   oldText: string;
   newText: string;
-  selectionOffset: number;  // 사용자 Selection 위치
-  selectionLength?: number; // 선택된 텍스트 길이 (0이면 커서)
+  selectionOffset: number;  // User selection position
+  selectionLength?: number; // Selected text length (0 means cursor)
   context?: {
-    beforeText?: string;    // 앞쪽 컨텍스트
-    afterText?: string;     // 뒤쪽 컨텍스트
+    beforeText?: string;    // Leading context
+    afterText?: string;     // Trailing context
   };
 }
 
@@ -176,13 +176,13 @@ export interface DecoratorExportData {
     enabled?: boolean;
   }>;
   patternDecorators: Array<{
-    sid: string;  // id → sid로 통일
+    sid: string;  // Unified from id → sid
     stype: string;
     category: 'inline' | 'block' | 'layer';
-    pattern: { source: string; flags: string }; // RegExp를 문자열로 변환
+    pattern: { source: string; flags: string }; // RegExp converted to string
     priority?: number;
     enabled?: boolean;
-    // extractData와 createDecorator는 함수이므로 제외
-    // load 시 patternFunctions 매개변수에서 제공된 함수를 사용합니다.
+    // extractData and createDecorator are functions, so excluded
+    // Functions provided in patternFunctions parameter are used on load
   }>;
 }

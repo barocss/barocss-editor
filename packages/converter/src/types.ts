@@ -1,19 +1,19 @@
 import type { INode } from '@barocss/datastore';
 
 /**
- * 지원하는 문서 형식
+ * Supported document formats
  */
 export type Format =
-  | 'html'           // HTML 마크업
+  | 'html'           // HTML markup
   | 'text'           // Plain text
   | 'markdown'       // Markdown
   | 'markdown-gfm'   // GitHub Flavored Markdown
-  | 'json'           // JSON (모델 구조)
-  | 'rtf'            // Rich Text Format (Microsoft Word 등)
-  | 'latex'          // LaTeX (학술 문서)
-  | 'asciidoc'       // AsciiDoc (기술 문서)
-  | 'rst'            // ReStructuredText (Python 문서화)
-  | 'bbcode'         // BBCode (포럼 등)
+  | 'json'           // JSON (model structure)
+  | 'rtf'            // Rich Text Format (Microsoft Word, etc.)
+  | 'latex'          // LaTeX (academic documents)
+  | 'asciidoc'       // AsciiDoc (technical documents)
+  | 'rst'            // ReStructuredText (Python documentation)
+  | 'bbcode'         // BBCode (forums, etc.)
   | 'xml'            // XML
   | 'yaml'           // YAML
   | 'notion'         // Notion Block Format

@@ -29,7 +29,7 @@ export class HeadingExtension implements Extension {
   onCreate(editor: Editor): void {
     if (!this._options.enabled) return;
 
-    // 각 헤딩 레벨별 명령어 등록
+    // Register commands for each heading level
     this._options.levels?.forEach(level => {
       (editor as any).registerCommand({
         name: `setHeading${level}`,
@@ -42,7 +42,7 @@ export class HeadingExtension implements Extension {
       });
     });
 
-    // 일반 헤딩 설정 명령어
+    // General heading setting command
     (editor as any).registerCommand({
       name: 'setHeading',
       execute: async (ed: Editor, payload?: { level?: number; selection?: ModelSelection }) => {
@@ -58,7 +58,7 @@ export class HeadingExtension implements Extension {
       }
     });
 
-    // 헤딩 제거 명령어
+    // Remove heading command
     (editor as any).registerCommand({
       name: 'removeHeading',
       execute: (ed: Editor) => {
@@ -69,14 +69,14 @@ export class HeadingExtension implements Extension {
       }
     });
 
-    // 키보드 단축키 등록
+    // Register keyboard shortcuts
     if (this._options.keyboardShortcuts) {
       this._registerKeyboardShortcuts(editor);
     }
   }
 
   onDestroy(_editor: any): void {
-    // 정리 작업
+    // Cleanup work
   }
 
   private async _executeSetHeading(
@@ -94,7 +94,7 @@ export class HeadingExtension implements Extension {
       return false;
     }
 
-    // 현재 블록 노드 찾기 (startNodeId의 부모 블록 노드)
+    // Find current block node (parent block node of startNodeId)
     const targetNodeId = this._getTargetBlockNodeId(dataStore, selection);
     if (!targetNodeId) {
       console.warn('[HeadingExtension] No target block node found');
@@ -106,12 +106,12 @@ export class HeadingExtension implements Extension {
       return false;
     }
 
-    // 이미 같은 타입이면 no-op
+    // No-op if already same type
     if (targetNode.stype === 'heading' && targetNode.attributes?.level === level) {
       return true;
     }
 
-    // transformNode operation 사용
+    // Use transformNode operation
     const ops = [
       ...control(targetNodeId, [
         transformNode('heading', { level })
@@ -127,13 +127,13 @@ export class HeadingExtension implements Extension {
   }
 
   private _canRemoveHeading(_editor: any): boolean {
-    // TODO: 실제 구현 - 현재 선택에서 헤딩을 제거할 수 있는지 확인
+    // TODO: Actual implementation - check if heading can be removed from current selection
     return true;
   }
 
   /**
-   * selection에서 대상 블록 노드 ID를 찾음
-   * - Range Selection: startNodeId의 부모 블록 노드
+   * Finds target block node ID from selection
+   * - Range Selection: parent block node of startNodeId
    */
   private _getTargetBlockNodeId(dataStore: any, selection: ModelSelection): string | null {
     if (selection.type !== 'range') {
@@ -146,13 +146,13 @@ export class HeadingExtension implements Extension {
     const schema = dataStore.getActiveSchema();
     if (schema) {
       const nodeType = schema.getNodeType(startNode.stype);
-      // startNode가 블록이면 그대로 사용
+      // Use startNode as is if it's a block
       if (nodeType?.group === 'block') {
         return startNode.sid!;
       }
     }
 
-    // startNode의 부모 블록 노드를 찾음
+    // Find parent block node of startNode
     let current = startNode;
     while (current && current.parentId) {
       const parent = dataStore.getNode(current.parentId);
@@ -185,24 +185,24 @@ export class HeadingExtension implements Extension {
   }
 
   private _removeHeadingAtPosition(_editor: any, position: number): boolean {
-    // TODO: 실제 구현 - 특정 위치에서 헤딩 제거
+    // TODO: Actual implementation - remove heading at specific position
     console.log('Remove heading at position:', position);
     return true;
   }
 
   private _removeHeadingInRange(_editor: any, from: number, to: number): boolean {
-    // TODO: 실제 구현 - 범위에서 헤딩 제거
+    // TODO: Actual implementation - remove heading in range
     console.log('Remove heading in range:', from, to);
     return true;
   }
 
   private _registerKeyboardShortcuts(editor: Editor): void {
-    // 키보드 단축키는 기본 키바인딩에서 처리하므로 여기서는 아무것도 하지 않음
-    // 기본 키바인딩에 Mod+Alt+1/2/3이 이미 등록되어 있음
+    // Keyboard shortcuts are handled by default keybindings, so do nothing here
+    // Mod+Alt+1/2/3 are already registered in default keybindings
   }
 }
 
-// 편의 함수
+// Convenience function
 export function createHeadingExtension(options?: HeadingExtensionOptions): HeadingExtension {
   return new HeadingExtension(options);
 }

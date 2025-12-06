@@ -37,7 +37,7 @@ describe('mergeTextNodes operation (exec)', () => {
     const merged = dataStore.getNode('a');
     expect(merged?.text).toBe('Hello World');
     const parent = dataStore.getNode(parentId);
-    // parent.content에서 'b'가 제거되거나 더 이상 인접 하지 않을 수 있음
+    // 'b' may be removed from parent.content or no longer adjacent
     expect(Array.isArray(parent?.content)).toBe(true);
   });
 

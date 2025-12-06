@@ -52,21 +52,21 @@ export function textNode(
 ): INode {
   const result: INode = { stype, text } as INode;
   
-  // 세 번째 매개변수가 배열이면 marks, 객체면 attributes
+  // If third parameter is array, it's marks; if object, it's attributes
   if (Array.isArray(marksOrAttributes)) {
-    // marks가 있는 경우
+    // If marks exist
     result.marks = marksOrAttributes.map(mark => ({
       type: mark.type,
       attrs: mark.attrs,
       range: mark.range
     }));
     
-    // 네 번째 매개변수가 있으면 attributes
+    // If fourth parameter exists, it's attributes
     if (attributes) {
       result.attributes = attributes;
     }
   } else if (marksOrAttributes && typeof marksOrAttributes === 'object') {
-    // attributes만 있는 경우
+    // If only attributes exist
     result.attributes = marksOrAttributes;
   }
   
@@ -92,15 +92,15 @@ class TransactionBuilderImpl implements TransactionBuilder {
     this.ops = ops;
   }
   async commit(): Promise<TransactionResult> {
-    // OpFunction과 일반 operation을 그대로 TransactionManager에 전달
-    // TransactionManager에서 실행 시점에 처리하도록 함
+    // Pass OpFunction and regular operations directly to TransactionManager
+    // Let TransactionManager handle them at execution time
     const tm = new TransactionManager(this.editor);
     return tm.execute(this.ops);
   }
 }
 
 export function transaction(editor: Editor, operations: (TransactionOperation | TransactionOperation[] | OpFunction)[]): TransactionBuilder {
-  // flat() 처리하여 배열을 평탄화
+  // Flatten array using flat()
   const flattenedOps = operations.flat();
   return new TransactionBuilderImpl(editor, flattenedOps);
 }
@@ -125,7 +125,7 @@ export interface OpResult {
   success: boolean;
   data?: any;
   error?: string;
-  inverse?: TransactionOperation; // 역함수 operation 지정 가능
+  inverse?: TransactionOperation; // Can specify inverse operation
 }
 
 /**

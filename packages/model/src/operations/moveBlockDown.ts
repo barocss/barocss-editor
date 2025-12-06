@@ -5,7 +5,7 @@ import type { TransactionContext } from '../types';
 /**
  * moveBlockDown operation (DSL + runtime)
  *
- * 블록 노드를 같은 부모 내에서 아래로 이동합니다.
+ * Moves a block node down within the same parent.
  * 
  * - moveBlockDown(nodeId) → { type: 'moveBlockDown', payload: { nodeId } }
  * - control(nodeId, [ moveBlockDown() ]) → { type: 'moveBlockDown', payload: {} }
@@ -47,7 +47,7 @@ defineOperation('moveBlockDown', async (operation: any, context: TransactionCont
     throw new Error(`Node ${nodeId} not found in parent content`);
   }
 
-  // 마지막 노드면 이동 불가
+  // Cannot move if already at last position
   if (currentIndex === parent.content.length - 1) {
     return {
       ok: false,

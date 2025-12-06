@@ -1,81 +1,81 @@
 /**
  * Text Change Analysis Types
  * 
- * 텍스트 변경사항 분석에 필요한 타입 정의들
+ * Type definitions needed for text change analysis
  */
 
 /**
- * 텍스트 변경사항을 나타내는 인터페이스
+ * Interface representing text change
  * 
  * @interface TextChange
  */
 export interface TextChange {
-  /** 변경 타입: insert(삽입), delete(삭제), replace(교체) */
+  /** Change type: insert, delete, replace */
   type: 'insert' | 'delete' | 'replace';
   
-  /** 변경 시작 위치 (oldText 기준) */
+  /** Change start position (based on oldText) */
   start: number;
   
-  /** 변경 끝 위치 (oldText 기준) */
+  /** Change end position (based on oldText) */
   end: number;
   
-  /** 변경할 텍스트 
-   * - insert: 삽입할 텍스트
-   * - delete: 빈 문자열
-   * - replace: 교체할 텍스트
+  /** Text to change
+   * - insert: text to insert
+   * - delete: empty string
+   * - replace: text to replace
    */
   text: string;
   
-  /** 분석 신뢰도 (0-1) */
+  /** Analysis confidence (0-1) */
   confidence: number;
 }
 
 /**
- * 텍스트 변경사항 분석 옵션
+ * Text change analysis options
  * 
  * @interface TextChangeAnalysisOptions
  */
 export interface TextChangeAnalysisOptions {
-  /** 변경 전 텍스트 */
+  /** Text before change */
   oldText: string;
   
-  /** 변경 후 텍스트 */
+  /** Text after change */
   newText: string;
   
-  /** 사용자 Selection 시작 위치 */
+  /** User Selection start position */
   selectionOffset: number;
   
-  /** 선택된 텍스트 길이 (0이면 커서) */
+  /** Selected text length (0 if cursor) */
   selectionLength?: number;
   
-  /** 추가 컨텍스트 정보 (선택사항) */
+  /** Additional context info (optional) */
   context?: {
-    /** 앞쪽 컨텍스트 */
+    /** Context before */
     beforeText?: string;
     
-    /** 뒤쪽 컨텍스트 */
+    /** Context after */
     afterText?: string;
   };
 }
 
 /**
- * LCP/LCS 알고리즘 결과
+ * LCP/LCS algorithm result
  * 
  * @interface TextDifference
  */
 export interface TextDifference {
-  /** 변경 종류 */
+  /** Change kind */
   kind: 'none' | 'insert' | 'delete' | 'replace';
   
-  /** 변경 시작 위치 */
+  /** Change start position */
   start: number;
   
-  /** 변경 끝 위치 */
+  /** Change end position */
   end: number;
   
-  /** 삽입된 텍스트 */
+  /** Inserted text */
   inserted: string;
   
-  /** 삭제된 텍스트 */
+  /** Deleted text */
   deleted: string;
 }

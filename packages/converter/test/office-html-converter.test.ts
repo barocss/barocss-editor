@@ -5,16 +5,16 @@ describe('Office HTML Converter', () => {
   let converter: HTMLConverter;
   
   beforeEach(() => {
-    // Registry 초기화
+    // Initialize registry
     GlobalConverterRegistry.getInstance().clear();
     
-    // 기본 규칙 등록
+    // Register default rules
     registerDefaultHTMLRules();
     
-    // Office 규칙 등록
+    // Register Office rules
     registerOfficeHTMLRules();
     
-    // Converter 인스턴스 생성
+    // Create converter instance
     converter = new HTMLConverter();
   });
   
@@ -41,7 +41,7 @@ describe('Office HTML Converter', () => {
       const cleaned = cleanOfficeHTML(officeHTML);
       
       expect(cleaned).not.toContain('mso-margin-top-alt');
-      // 일반 스타일은 유지될 수 있음
+      // Regular styles may be preserved
       expect(cleaned).toContain('Text');
     });
     
@@ -84,8 +84,8 @@ describe('Office HTML Converter', () => {
       const cleaned = cleanOfficeHTML(officeHTML);
       const nodes = converter.parse(cleaned);
       
-      // MsoHeading 클래스가 있으면 heading으로 파싱되어야 함
-      // (실제로는 파서 규칙이 적용되어야 함)
+      // If MsoHeading class exists, should be parsed as heading
+      // (parser rules should actually be applied)
       expect(nodes.length).toBeGreaterThan(0);
     });
     
@@ -141,7 +141,7 @@ describe('Office HTML Converter', () => {
       const cleaned = cleanOfficeHTML(officeHTML);
       const nodes = converter.parse(cleaned);
       
-      // 내용은 보존되어야 함
+      // Content should be preserved
       expect(nodes.length).toBeGreaterThan(0);
       const paragraph = nodes.find((n: any) => n.stype === 'paragraph');
       expect(paragraph).toBeDefined();
@@ -150,7 +150,7 @@ describe('Office HTML Converter', () => {
   
   describe('real-world Office HTML samples', () => {
     it('should parse Word document HTML', () => {
-      // 실제 Word에서 복사한 HTML 샘플 (간소화)
+      // HTML sample copied from actual Word (simplified)
       const wordHTML = `
         <html xmlns:o="urn:schemas-microsoft-com:office:office"
               xmlns:w="urn:schemas-microsoft-com:office:word"
@@ -173,7 +173,7 @@ describe('Office HTML Converter', () => {
     });
     
     it('should parse PowerPoint slide HTML', () => {
-      // PowerPoint에서 복사한 HTML 샘플 (간소화)
+      // HTML sample copied from PowerPoint (simplified)
       const pptHTML = `
         <div>
           <p style="mso-style-name:Title;">Slide Title</p>
@@ -190,7 +190,7 @@ describe('Office HTML Converter', () => {
     });
     
     it('should parse Excel table HTML', () => {
-      // Excel에서 복사한 HTML 샘플
+      // HTML sample copied from Excel
       const excelHTML = `
         <table border="1" style="mso-table-lspace:0; mso-table-rspace:0;">
           <tr>
@@ -207,8 +207,8 @@ describe('Office HTML Converter', () => {
       const cleaned = cleanOfficeHTML(excelHTML);
       const nodes = converter.parse(cleaned);
       
-      // 테이블은 현재 기본 파서에서 처리하지 않지만,
-      // 정리는 되어야 함
+      // Tables are not currently handled by default parser,
+      // but should be cleaned
       expect(cleaned).not.toContain('mso-table-lspace');
       expect(cleaned).not.toContain('mso-width-source');
     });
@@ -237,7 +237,7 @@ describe('Office HTML Converter', () => {
       `;
       
       const cleaned = cleanOfficeHTML(officeHTML);
-      // 주석 참조는 제거되거나 일반 텍스트로 변환되어야 함
+      // Comment references should be removed or converted to plain text
       expect(cleaned).toContain('Text');
     });
     
@@ -287,13 +287,13 @@ describe('Office HTML Converter', () => {
       
       expect(nodes.length).toBeGreaterThan(0);
       
-      // 최소한 노드는 파싱되어야 함
-      // MsoHeading 클래스는 heading으로 파싱될 수 있지만,
-      // MsoTitle, MsoSubtitle은 paragraph로 파싱될 수 있음
+      // At least nodes should be parsed
+      // MsoHeading class can be parsed as heading,
+      // but MsoTitle, MsoSubtitle may be parsed as paragraph
       const headings = nodes.filter((n: any) => n.stype === 'heading');
       const paragraphs = nodes.filter((n: any) => n.stype === 'paragraph');
       
-      // 최소한 하나의 블록 요소는 파싱되어야 함
+      // At least one block element should be parsed
       expect(headings.length + paragraphs.length).toBeGreaterThan(0);
     });
     
@@ -404,7 +404,7 @@ describe('Office HTML Converter', () => {
       
       const cleaned = cleanOfficeHTML(officeHTML);
       
-      // Office 테이블 속성 제거 확인
+      // Verify Office table attributes are removed
       expect(cleaned).not.toContain('mso-table-lspace');
       expect(cleaned).not.toContain('mso-yfti-tbllook');
       expect(cleaned).not.toContain('mso-width-source');
@@ -445,7 +445,7 @@ describe('Office HTML Converter', () => {
       expect(nodes.length).toBeGreaterThan(0);
       expect(cleaned).toContain('example.com');
       expect(cleaned).toContain('email link');
-      // 이미지 태그는 유지되어야 함
+      // Image tags should be preserved
       expect(cleaned).toContain('<img');
     });
     
@@ -503,11 +503,11 @@ describe('Office HTML Converter', () => {
       
       expect(nodes.length).toBeGreaterThan(0);
       
-      // 다양한 요소 확인
+      // Check various elements
       const headings = nodes.filter((n: any) => n.stype === 'heading');
       const paragraphs = nodes.filter((n: any) => n.stype === 'paragraph');
       
-      // 최소한 하나의 블록 요소는 파싱되어야 함
+      // At least one block element should be parsed
       expect(headings.length + paragraphs.length).toBeGreaterThan(0);
     });
     
@@ -574,10 +574,10 @@ describe('Office HTML Converter', () => {
       
       const cleaned = cleanOfficeHTML(excelHTML);
       
-      // Office 속성 제거 확인
+      // Verify Office attributes are removed
       expect(cleaned).not.toContain('mso-table-lspace');
       expect(cleaned).not.toContain('mso-width-source');
-      // 병합 속성은 유지되어야 함
+      // Merge attributes should be preserved
       expect(cleaned).toContain('colspan');
       expect(cleaned).toContain('rowspan');
       expect(cleaned).toContain('Merged Header');
@@ -686,7 +686,7 @@ describe('Office HTML Converter', () => {
       
       const cleaned = cleanOfficeHTML(officeHTML);
       
-      // VML 요소는 제거되어야 함
+      // VML elements should be removed
       expect(cleaned).not.toContain('v:shapetype');
       expect(cleaned).not.toContain('v:shape');
       expect(cleaned).toContain('Text before shape');
@@ -709,7 +709,7 @@ describe('Office HTML Converter', () => {
       const cleaned = cleanOfficeHTML(officeHTML);
       const nodes = converter.parse(cleaned);
       
-      // Smart tag는 제거되고 내용만 남아야 함
+      // Smart tags should be removed, only content should remain
       expect(cleaned).not.toContain('o:smarttag');
       expect(cleaned).toContain('John Doe');
       expect(cleaned).toContain('Contact');
@@ -736,7 +736,7 @@ describe('Office HTML Converter', () => {
       expect(nodes.length).toBeGreaterThan(0);
       expect(cleaned).toContain('Original text');
       expect(cleaned).toContain('inserted text');
-      // 삭제된 텍스트는 strikethrough로 표시될 수 있음
+      // Deleted text may be displayed as strikethrough
     });
   });
 });

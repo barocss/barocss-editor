@@ -8,7 +8,7 @@ export interface CopyResult {
 }
 
 type CopyOperation = {
-  range: any; // ModelSelection (에디터 코어 타입에 의존하므로 런타임에서는 any로 둔다)
+  range: any; // ModelSelection (using any at runtime due to dependency on editor-core types)
 };
 
 defineOperation(

@@ -5,7 +5,7 @@ import type { TransactionContext } from '../types';
 /**
  * moveBlockUp operation (DSL + runtime)
  *
- * 블록 노드를 같은 부모 내에서 위로 이동합니다.
+ * Moves a block node up within the same parent.
  * 
  * - moveBlockUp(nodeId) → { type: 'moveBlockUp', payload: { nodeId } }
  * - control(nodeId, [ moveBlockUp() ]) → { type: 'moveBlockUp', payload: {} }
@@ -47,7 +47,7 @@ defineOperation('moveBlockUp', async (operation: any, context: TransactionContex
     throw new Error(`Node ${nodeId} not found in parent content`);
   }
 
-  // 첫 번째 노드면 이동 불가
+  // Cannot move if already at first position
   if (currentIndex === 0) {
     return {
       ok: false,
@@ -55,9 +55,6 @@ defineOperation('moveBlockUp', async (operation: any, context: TransactionContex
       error: 'Cannot move block up: already at first position'
     };
   }
-
-  // 이전 위치 저장 (inverse용)
-  const prevIndex = currentIndex - 1;
 
   const success = context.dataStore.moveBlockUp(nodeId);
   if (!success) {

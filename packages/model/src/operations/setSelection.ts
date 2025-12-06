@@ -15,11 +15,11 @@ export interface SetSelectionOperation {
   };
 }
 
-// Selection 설정 (anchor/head 형식)
+// Set Selection (anchor/head format)
 defineOperation('setSelection', async (operation: SetSelectionOperation, context: TransactionContext) => {
   const { anchor, head } = operation.payload;
   
-  // TransactionContext의 selection을 업데이트
+  // Update selection in TransactionContext
   context.selection.current = {
     anchor,
     head,

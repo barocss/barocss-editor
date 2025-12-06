@@ -38,7 +38,7 @@ export class MarkOperations {
       return;
     }
 
-    // 1. Range가 없는 mark에 전체 범위 할당
+    // 1. Assign full range to marks without range
     const marksWithRange = node.marks.map(mark => {
       if (!mark.range) {
         return { ...mark, range: [0, textLength] as [number, number] };
@@ -46,7 +46,7 @@ export class MarkOperations {
       return mark;
     });
 
-    // 2. 범위 정규화 (clamp to [0, textLength])
+    // 2. Normalize ranges (clamp to [0, textLength])
     const normalizedMarks = marksWithRange.map(mark => ({
       ...mark,
       range: [
@@ -55,18 +55,18 @@ export class MarkOperations {
       ] as [number, number]
     }));
 
-    // 3. 빈 범위 마크 제거
+    // 3. Remove marks with empty range
     const validMarks = normalizedMarks.filter(mark => 
       mark.range![0] < mark.range![1]
     );
 
-    // 4. 중복 마크 제거
+    // 4. Remove duplicate marks
     const uniqueMarks = this.removeDuplicateMarks(validMarks);
 
-    // 5. 겹치는 마크 병합
+    // 5. Merge overlapping marks
     const mergedMarks = this.mergeOverlappingMarks(uniqueMarks);
 
-    // 6. 마크 정렬
+    // 6. Sort marks
     const sortedMarks = mergedMarks.sort((a, b) => a.range![0] - b.range![0]);
 
     // Persist via update path to emit operation and honor overlay, then reflect locally
@@ -76,12 +76,12 @@ export class MarkOperations {
   }
 
   /**
-   * 중복 마크를 제거합니다.
+   * Remove duplicate marks.
    */
   private removeDuplicateMarks(marks: IMark[]): IMark[] {
     const seen = new Set<string>();
     return marks.filter(mark => {
-      // Range가 없는 mark는 stype과 attrs만으로 중복 체크
+      // Check duplicates for marks without range using only stype and attrs
       const key = mark.range 
         ? `${mark.stype}:${JSON.stringify(mark.attrs || {})}:${mark.range[0]}-${mark.range[1]}`
         : `${mark.stype}:${JSON.stringify(mark.attrs || {})}:global`;
@@ -94,7 +94,7 @@ export class MarkOperations {
   }
 
   /**
-   * 겹치는 마크를 병합합니다.
+   * Merge overlapping marks.
    *
    * Spec:
    * - Only marks with identical (type, attrs) can merge.
@@ -104,8 +104,8 @@ export class MarkOperations {
   private mergeOverlappingMarks(marks: IMark[]): IMark[] {
     if (marks.length <= 1) return marks;
 
-    // Range가 없는 mark는 이 함수에 전달되지 않아야 함 (이미 분리되어 있음)
-    // 하지만 안전성을 위해 체크
+    // Marks without range should not be passed to this function (already separated)
+    // But check for safety
     const marksWithRange = marks.filter(m => m.range);
     if (marksWithRange.length <= 1) return marksWithRange;
 
@@ -175,7 +175,7 @@ export class MarkOperations {
     return normalizedCount;
   }
 
-  /** 텍스트 노드 판별 (.text 필드 존재 여부로 판단) */
+  /** Determine text node (by presence of .text field) */
   private isTextNode(node: { text?: string }): boolean {
     return typeof node.text === 'string';
   }
@@ -212,7 +212,7 @@ export class MarkOperations {
       }
     }
 
-    // 겹치는 마크 확인
+    // Check overlapping marks
     const sortedMarks = node.marks
       .filter(mark => mark.range && mark.range[0] < mark.range[1])
       .sort((a, b) => a.range![0] - b.range![0]);
@@ -306,7 +306,7 @@ export class MarkOperations {
       let next = Array.isArray(marks) ? marks.slice() : [];
 
       if (shouldNormalize) {
-        // 1. Range가 없는 mark에 전체 범위 할당
+        // 1. Assign full range to marks without range
         const marksWithRange = next.map(mark => {
           if (!mark.range) {
             return { ...mark, range: [0, textLength] as [number, number] };
@@ -314,7 +314,7 @@ export class MarkOperations {
           return mark;
         });
 
-        // 2. 범위 정규화 (clamp to [0, textLength])
+        // 2. Normalize ranges (clamp to [0, textLength])
         const normalizedMarks = marksWithRange.map(mark => ({
           ...mark,
           range: [
@@ -323,18 +323,18 @@ export class MarkOperations {
           ] as [number, number]
         }));
 
-        // 3. 빈 범위 마크 제거
+        // 3. Remove marks with empty range
         const validMarks = normalizedMarks.filter(mark => 
           mark.range![0] < mark.range![1]
         );
 
-        // 4. 중복 마크 제거
+        // 4. Remove duplicate marks
         const uniqueMarks = this.removeDuplicateMarks(validMarks);
 
-        // 5. 겹치는 마크 병합
+        // 5. Merge overlapping marks
         const mergedMarks = this.mergeOverlappingMarks(uniqueMarks);
 
-        // 6. 마크 정렬
+        // 6. Sort marks
         next = mergedMarks.sort((a, b) => a.range![0] - b.range![0]);
       }
 
@@ -446,7 +446,7 @@ export class MarkOperations {
     }
 
     const current = (node.marks || []) as IMark[];
-    // 동일 범위/타입/attrs가 완전히 덮여있으면 제거 수행 대상이므로 no-op 아님
+    // If same range/type/attrs is completely covered, it's a removal target, so not a no-op
     const [rs, re] = range;
     const resultMarks: IMark[] = [];
     let overlapped = false;

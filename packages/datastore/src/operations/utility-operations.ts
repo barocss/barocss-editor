@@ -172,7 +172,7 @@ export class UtilityOperations {
     if (!parent || !parent.content) return null;
     
     const currentIndex = parent.content.indexOf(nodeId);
-    if (currentIndex <= 0) return null; // 첫 번째 형제이거나 찾을 수 없음
+    if (currentIndex <= 0) return null; // First sibling or not found
     
     return parent.content[currentIndex - 1] as string;
   }
@@ -194,7 +194,7 @@ export class UtilityOperations {
     if (!parent || !parent.content) return null;
     
     const currentIndex = parent.content.indexOf(nodeId);
-    if (currentIndex === -1 || currentIndex >= parent.content.length - 1) return null; // 마지막 형제이거나 찾을 수 없음
+    if (currentIndex === -1 || currentIndex >= parent.content.length - 1) return null; // Last sibling or not found
     
     return parent.content[currentIndex + 1] as string;
   }
@@ -291,10 +291,10 @@ export class UtilityOperations {
     
     if (!node1 || !node2) return null;
     
-    // 같은 노드면 자기 자신 반환
+    // If same node, return itself
     if (nodeId1 === nodeId2) return nodeId1;
     
-    // node1의 조상 경로 구하기
+    // Get ancestor path of node1
     const ancestors1 = new Set<string>();
     let currentId: string | undefined = nodeId1;
     while (currentId) {
@@ -303,7 +303,7 @@ export class UtilityOperations {
       currentId = node?.parentId;
     }
     
-    // node2의 조상 경로를 따라가면서 공통 조상 찾기
+    // Find common ancestor by following node2's ancestor path
     currentId = nodeId2;
     while (currentId) {
       if (ancestors1.has(currentId)) {
@@ -340,14 +340,14 @@ export class UtilityOperations {
     
     if (!node1 || !node2) return -1;
     
-    // 같은 노드면 거리 0
+    // If same node, distance is 0
     if (nodeId1 === nodeId2) return 0;
     
-    // 공통 조상 찾기
+    // Find common ancestor
     const commonAncestorId = this.getCommonAncestor(nodeId1, nodeId2);
     if (!commonAncestorId) return -1;
     
-    // node1에서 공통 조상까지의 거리
+    // Distance from node1 to common ancestor
     let distance1 = 0;
     let currentId: string | undefined = nodeId1;
     while (currentId && currentId !== commonAncestorId) {
@@ -356,7 +356,7 @@ export class UtilityOperations {
       currentId = node?.parentId;
     }
     
-    // node2에서 공통 조상까지의 거리
+    // Distance from node2 to common ancestor
     let distance2 = 0;
     currentId = nodeId2;
     while (currentId && currentId !== commonAncestorId) {
@@ -387,7 +387,7 @@ export class UtilityOperations {
     while (currentId) {
       const node = this.dataStore.getNode(currentId) as INode | undefined;
       if (!node) {
-        // 존재하지 않는 노드가 발견되면 빈 배열 반환
+        // Return empty array if non-existent node is found
         return [];
       }
       path.unshift(currentId);
@@ -593,10 +593,10 @@ export class UtilityOperations {
    * - Useful for creating backups or testing scenarios.
    * - Returns a completely independent copy.
    * 
-   * @returns 복제된 DataStore 인스턴스
+   * @returns Cloned DataStore instance
    */
   clone(): any {
-    // 새 DataStore 인스턴스 생성: 스키마는 공유(참조 유지), 세션 ID는 동일 값
+    // Create new DataStore instance: schema is shared (reference maintained), session ID is same value
     const activeSchema = (this.dataStore as any)._activeSchema;
     const sessionId = typeof this.dataStore.getSessionId === 'function' ? this.dataStore.getSessionId() : 0;
     const cloned = new (this.dataStore.constructor as any)(this.dataStore.getRootNodeId(), activeSchema, sessionId);
@@ -643,10 +643,10 @@ export class UtilityOperations {
    * // document > paragraph-1 > text-2
    * // document > paragraph-2 > text-3
    * 
-   * compareDocumentOrder('text-1', 'text-2') // -1 (text-1이 앞)
-   * compareDocumentOrder('text-2', 'text-1') // 1 (text-2가 뒤)
-   * compareDocumentOrder('text-1', 'text-1') // 0 (같은 노드)
-   * compareDocumentOrder('text-2', 'text-3') // -1 (text-2가 앞)
+   * compareDocumentOrder('text-1', 'text-2') // -1 (text-1 is before)
+   * compareDocumentOrder('text-2', 'text-1') // 1 (text-2 is after)
+   * compareDocumentOrder('text-1', 'text-1') // 0 (same node)
+   * compareDocumentOrder('text-2', 'text-3') // -1 (text-2 is before)
    * ```
    */
   compareDocumentOrder(nodeId1: string, nodeId2: string): number {
@@ -664,7 +664,7 @@ export class UtilityOperations {
       throw new Error(`Node not found: ${nodeId2}`);
     }
 
-    // 공통 조상 찾기
+    // Find common ancestor
     let commonAncestorIndex = 0;
     const minLength = Math.min(path1.length, path2.length);
     
@@ -676,24 +676,24 @@ export class UtilityOperations {
       }
     }
 
-    // 공통 조상이 없는 경우 (루트가 다름)
+    // If no common ancestor (different roots)
     if (commonAncestorIndex === 0 && path1[0] !== path2[0]) {
       throw new Error('Nodes are not in the same document tree');
     }
 
-    // 공통 조상의 다음 레벨에서 순서 비교
+    // Compare order at next level of common ancestor
     const nextIndex1 = commonAncestorIndex + 1;
     const nextIndex2 = commonAncestorIndex + 1;
 
-    // 한 경로가 다른 경로의 부분집합인 경우
+    // If one path is a subset of the other
     if (nextIndex1 >= path1.length) {
-      return -1; // path1이 더 짧음 (조상)
+      return -1; // path1 is shorter (ancestor)
     }
     if (nextIndex2 >= path2.length) {
-      return 1; // path2가 더 짧음 (조상)
+      return 1; // path2 is shorter (ancestor)
     }
 
-    // 공통 부모에서의 형제 순서 비교
+    // Compare sibling order at common parent
     const parentId = path1[commonAncestorIndex];
     const parent = this.dataStore.getNode(parentId);
     
@@ -712,10 +712,10 @@ export class UtilityOperations {
   }
 
   /**
-   * 주어진 노드의 다음 노드를 문서 순서대로 찾습니다.
+   * Find the next node of the given node in document order
    * 
-   * @param nodeId 현재 노드 ID
-   * @returns 다음 노드 ID (없으면 null)
+   * @param nodeId Current node ID
+   * @returns Next node ID (null if none)
    * 
    * @example
    * ```typescript
@@ -723,9 +723,9 @@ export class UtilityOperations {
    * // document > paragraph-2 > [text-3]
    * 
    * getNextNode('text-1') // 'text-2'
-   * getNextNode('text-2') // 'text-3' (다음 단락으로)
-   * getNextNode('text-3') // null (마지막 노드)
-   * getNextNode('paragraph-1') // 'text-1' (첫 번째 자식)
+   * getNextNode('text-2') // 'text-3' (to next paragraph)
+   * getNextNode('text-3') // null (last node)
+   * getNextNode('paragraph-1') // 'text-1' (first child)
    * ```
    */
   getNextNode(nodeId: string): string | null {
@@ -734,12 +734,12 @@ export class UtilityOperations {
       throw new Error(`Node not found: ${nodeId}`);
     }
 
-    // 1. 자식 노드가 있으면 첫 번째 자식 반환
+    // 1. If child nodes exist, return first child
     if (node.content && node.content.length > 0) {
       return node.content[0] as string;
     }
 
-    // 2. 형제 노드가 있으면 다음 형제 반환
+    // 2. If sibling nodes exist, return next sibling
     const parent = this.getParent(nodeId);
     if (parent && parent.content) {
       const currentIndex = parent.content.indexOf(nodeId);
@@ -748,7 +748,7 @@ export class UtilityOperations {
       }
     }
 
-    // 3. 부모의 다음 형제 찾기 (재귀적으로, 하지만 자식은 찾지 않음)
+    // 3. Find parent's next sibling (recursively, but don't find children)
     if (parent) {
       const parentNext = this._getNextSiblingOnly(parent.sid!);
       if (parentNext) {
@@ -756,12 +756,12 @@ export class UtilityOperations {
       }
     }
 
-    // 4. 더 이상 다음 노드가 없음
+    // 4. No more next nodes
     return null;
   }
 
   /**
-   * 부모의 다음 형제만 찾기 (자식은 찾지 않음)
+   * Find only parent's next sibling (don't find children)
    */
   private _getNextSiblingOnly(nodeId: string): string | null {
     const parent = this.getParent(nodeId);
@@ -772,7 +772,7 @@ export class UtilityOperations {
       }
     }
 
-    // 더 위로 올라가서 형제 찾기
+    // Go up further to find sibling
     if (parent) {
       return this._getNextSiblingOnly(parent.sid!);
     }
@@ -781,20 +781,20 @@ export class UtilityOperations {
   }
 
   /**
-   * 주어진 노드의 이전 노드를 문서 순서대로 찾습니다.
+   * Find the previous node of the given node in document order
    * 
-   * @param nodeId 현재 노드 ID
-   * @returns 이전 노드 ID (없으면 null)
+   * @param nodeId Current node ID
+   * @returns Previous node ID (null if none)
    * 
    * @example
    * ```typescript
    * // document > paragraph-1 > [text-1, text-2]
    * // document > paragraph-2 > [text-3]
    * 
-   * getPreviousNode('text-3') // 'text-2' (이전 단락으로)
+   * getPreviousNode('text-3') // 'text-2' (to previous paragraph)
    * getPreviousNode('text-2') // 'text-1'
-   * getPreviousNode('text-1') // 'paragraph-1' (부모)
-   * getPreviousNode('paragraph-1') // 'document' (부모)
+   * getPreviousNode('text-1') // 'paragraph-1' (parent)
+   * getPreviousNode('paragraph-1') // 'document' (parent)
    * ```
    */
   getPreviousNode(nodeId: string): string | null {
@@ -803,7 +803,7 @@ export class UtilityOperations {
       throw new Error(`Node not found: ${nodeId}`);
     }
 
-    // 1. 이전 형제 노드가 있으면 그 형제의 마지막 자식 반환
+    // 1. If previous sibling node exists, return that sibling's last child
     const parent = this.getParent(nodeId);
     if (parent && parent.content) {
       const currentIndex = parent.content.indexOf(nodeId);
@@ -813,25 +813,25 @@ export class UtilityOperations {
       }
     }
 
-    // 2. 부모 노드 반환 (부모가 있으면)
+    // 2. Return parent node (if parent exists)
     if (parent) {
       return parent.sid!;
     }
 
-    // 3. 더 이상 이전 노드가 없음
+    // 3. No more previous nodes
     return null;
   }
 
   /**
-   * 주어진 노드의 마지막 자손을 찾습니다 (재귀적으로)
+   * Find the last descendant of the given node (recursively)
    */
   private _getLastDescendant(nodeId: string): string {
     const node = this.dataStore.getNode(nodeId);
     if (!node || !node.content || node.content.length === 0) {
-      return nodeId; // 자식이 없으면 자기 자신 반환
+      return nodeId; // If no children, return itself
     }
 
-    // 마지막 자식의 마지막 자손 찾기
+    // Find last descendant of last child
     const lastChildId = node.content[node.content.length - 1] as string;
     return this._getLastDescendant(lastChildId);
   }
@@ -862,7 +862,7 @@ export class UtilityOperations {
         continue;
       }
 
-      // 타입별 필터링
+      // Filter by type
       const schema = (this.dataStore as any)._activeSchema;
       if (schema) {
         const nodeType = schema.getNodeType?.(node.stype);
@@ -872,17 +872,17 @@ export class UtilityOperations {
           const isEditableBlock = group === 'block' && nodeType.editable === true && isTextNode;
           const isInline = group === 'inline';
           
-          // editable block은 별도 처리
+          // Handle editable block separately
           if (isEditableBlock) {
             if (!includeEditableBlocks) {
               continue;
             }
           } else {
-            // 텍스트 노드 필터링 (editable block 제외)
+            // Filter text nodes (excluding editable blocks)
             if (isTextNode && !includeText) {
               continue;
             }
-            // inline 노드 필터링 (텍스트 노드가 아닌 경우만)
+            // Filter inline nodes (only if not text node)
             if (isInline && !isTextNode && !includeInline) {
               continue;
             }
@@ -890,7 +890,7 @@ export class UtilityOperations {
         }
       }
 
-      // 커스텀 필터 적용
+      // Apply custom filter
       if (filter && !filter(node)) {
         continue;
       }
@@ -902,39 +902,39 @@ export class UtilityOperations {
   }
 
   /**
-   * 노드 ID 배열에서 편집 가능한 노드만 필터링합니다.
+   * Filter only editable nodes from node ID array
    * 
-   * @param nodeIds 노드 ID 배열
-   * @returns 편집 가능한 노드 ID 배열
+   * @param nodeIds Node ID array
+   * @returns Editable node ID array
    */
   filterEditableNodes(nodeIds: string[]): string[] {
     return nodeIds.filter(nodeId => this._isEditableNode(nodeId));
   }
 
   /**
-   * 노드 ID 배열에서 선택 가능한 노드만 필터링합니다.
+   * Filter only selectable nodes from node ID array
    * 
-   * @param nodeIds 노드 ID 배열
-   * @returns 선택 가능한 노드 ID 배열
+   * @param nodeIds Node ID array
+   * @returns Selectable node ID array
    */
   filterSelectableNodes(nodeIds: string[]): string[] {
     return nodeIds.filter(nodeId => this._isSelectableNode(nodeId));
   }
 
   /**
-   * 노드가 선택 가능한 노드인지 확인합니다.
+   * Check if node is selectable
    * 
-   * 선택 가능한 노드:
-   * - 기본적으로 모든 노드는 선택 가능 (document 제외)
-   * - 스키마에서 selectable: false로 명시하면 선택 불가능
-   * - document 노드는 항상 선택 불가능
+   * Selectable nodes:
+   * - By default, all nodes are selectable (except document)
+   * - If selectable: false is specified in schema, not selectable
+   * - document nodes are always not selectable
    * 
-   * 선택 불가능한 노드:
-   * - document 노드 (group === 'document')
-   * - selectable: false로 명시된 노드
+   * Non-selectable nodes:
+   * - document nodes (group === 'document')
+   * - Nodes with selectable: false specified
    * 
-   * @param nodeId 노드 ID
-   * @returns 선택 가능 여부
+   * @param nodeId Node ID
+   * @returns Whether selectable
    */
   private _isSelectableNode(nodeId: string): boolean {
     const node = this.dataStore.getNode(nodeId);
@@ -942,7 +942,7 @@ export class UtilityOperations {
       return false;
     }
     
-    // 1. 스키마에서 group 확인 (최우선)
+    // 1. Check group from schema (highest priority)
     const schema = (this.dataStore as any)._activeSchema;
     if (schema) {
       try {
@@ -950,39 +950,39 @@ export class UtilityOperations {
         if (nodeType) {
           const group = nodeType.group;
           
-          // document 노드는 항상 선택 불가능
+          // document nodes are always not selectable
           if (group === 'document') {
             return false;
           }
           
-          // selectable 속성이 명시적으로 false이면 선택 불가능
+          // If selectable property is explicitly false, not selectable
           if (nodeType.selectable === false) {
             return false;
           }
           
-          // 그 외의 경우는 선택 가능 (기본값 true)
+          // Otherwise selectable (default true)
           return true;
         }
       } catch (error) {
-        // 스키마 조회 실패 시 계속 진행
+        // Continue if schema lookup fails
       }
     }
     
-    // 2. 스키마 정보가 없으면 기본적으로 선택 가능 (document 제외)
-    // stype이 'document'이면 선택 불가능
+    // 2. If no schema info, selectable by default (except document)
+    // If stype is 'document', not selectable
     if (node.stype === 'document') {
       return false;
     }
     
-    // 3. 그 외의 경우는 선택 가능 (안전하게 true)
+    // 3. Otherwise selectable (safely true)
     return true;
   }
 
   /**
-   * 문서 내 모든 선택 가능한 노드를 조회합니다.
+   * Get all selectable nodes in document
    * 
-   * @param options 필터 옵션
-   * @returns 선택 가능한 노드 배열
+   * @param options Filter options
+   * @returns Selectable node array
    */
   getSelectableNodes(options?: {
     filter?: (node: INode) => boolean;
@@ -1004,9 +1004,9 @@ export class UtilityOperations {
         continue;
       }
 
-      // 타입별 필터링
+      // Filter by type
       const schema = (this.dataStore as any)._activeSchema;
-      let shouldInclude = true; // 기본값: 포함
+      let shouldInclude = true; // Default: include
       
       if (schema) {
         const nodeType = schema.getNodeType?.(node.stype);
@@ -1016,13 +1016,13 @@ export class UtilityOperations {
           const isInline = group === 'inline';
           const isEditable = this._isEditableNode(nodeId);
           
-          // 옵션이 하나라도 true이면 필터링 적용
+          // If any option is true, apply filtering
           const hasFilter = includeBlocks || includeInline || includeEditable;
           
           if (hasFilter) {
-            shouldInclude = false; // 기본값: 제외
+            shouldInclude = false; // Default: exclude
             
-            // OR 조건: 하나라도 조건에 맞으면 포함
+            // OR condition: include if any condition matches
             if (includeBlocks && isBlock) {
               shouldInclude = true;
             }
@@ -1033,7 +1033,7 @@ export class UtilityOperations {
               shouldInclude = true;
             }
           }
-          // 옵션이 모두 false이면 필터링 안 함 (기본값 true 유지)
+          // If all options are false, don't filter (maintain default true)
         }
       }
       
@@ -1041,7 +1041,7 @@ export class UtilityOperations {
         continue;
       }
 
-      // 커스텀 필터 적용
+      // Apply custom filter
       if (filter && !filter(node)) {
         continue;
       }
@@ -1053,18 +1053,18 @@ export class UtilityOperations {
   }
 
   /**
-   * 노드가 드래그 가능한 노드인지 확인합니다.
+   * Check if node is draggable
    * 
-   * 드래그 가능한 노드:
-   * - 기본적으로 모든 노드는 드래그 가능 (document 제외)
-   * - draggable: false로 명시하면 드래그 불가능
+   * Draggable nodes:
+   * - By default, all nodes are draggable (except document)
+   * - If draggable: false is specified, not draggable
    * 
-   * 드래그 불가능한 노드:
-   * - document 노드 (group === 'document')
-   * - draggable: false로 명시된 노드
+   * Non-draggable nodes:
+   * - document nodes (group === 'document')
+   * - Nodes with draggable: false specified
    * 
-   * @param nodeId 노드 ID
-   * @returns 드래그 가능 여부
+   * @param nodeId Node ID
+   * @returns Whether draggable
    */
   private _isDraggableNode(nodeId: string): boolean {
     const node = this.dataStore.getNode(nodeId);
@@ -1072,7 +1072,7 @@ export class UtilityOperations {
       return false;
     }
     
-    // 1. 스키마에서 group 확인 (최우선)
+    // 1. Check group from schema (highest priority)
     const schema = (this.dataStore as any)._activeSchema;
     if (schema) {
       try {
@@ -1080,31 +1080,31 @@ export class UtilityOperations {
         if (nodeType) {
           const group = nodeType.group;
           
-          // document 노드는 항상 드래그 불가능
+          // document nodes are always not draggable
           if (group === 'document') {
             return false;
           }
           
-          // draggable 속성이 명시적으로 false이면 드래그 불가능
+          // If draggable property is explicitly false, not draggable
           if (nodeType.draggable === false) {
             return false;
           }
           
-          // 그 외의 경우는 드래그 가능 (기본값 true)
+          // Otherwise draggable (default true)
           return true;
         }
       } catch (error) {
-        // 스키마 조회 실패 시 계속 진행
+        // Continue if schema lookup fails
       }
     }
     
-    // 2. 스키마 정보가 없으면 기본적으로 드래그 가능 (document 제외)
-    // stype이 'document'이면 드래그 불가능
+    // 2. If no schema info, draggable by default (except document)
+    // If stype is 'document', not draggable
     if (node.stype === 'document') {
       return false;
     }
     
-    // 3. 그 외의 경우는 드래그 가능 (안전하게 true)
+    // 3. Otherwise draggable (safely true)
     return true;
   }
 
@@ -1134,9 +1134,9 @@ export class UtilityOperations {
         continue;
       }
 
-      // 타입별 필터링
+      // Filter by type
       const schema = (this.dataStore as any)._activeSchema;
-      let shouldInclude = true; // 기본값: 포함
+      let shouldInclude = true; // Default: include
       
       if (schema) {
         const nodeType = schema.getNodeType?.(node.stype);
@@ -1146,13 +1146,13 @@ export class UtilityOperations {
           const isInline = group === 'inline';
           const isEditable = this._isEditableNode(nodeId);
           
-          // 옵션이 하나라도 true이면 필터링 적용
+          // If any option is true, apply filtering
           const hasFilter = includeBlocks || includeInline || includeEditable;
           
           if (hasFilter) {
-            shouldInclude = false; // 기본값: 제외
+            shouldInclude = false; // Default: exclude
             
-            // OR 조건: 하나라도 조건에 맞으면 포함
+            // OR condition: include if any condition matches
             if (includeBlocks && isBlock) {
               shouldInclude = true;
             }
@@ -1163,7 +1163,7 @@ export class UtilityOperations {
               shouldInclude = true;
             }
           }
-          // 옵션이 모두 false이면 필터링 안 함 (기본값 true 유지)
+          // If all options are false, don't filter (maintain default true)
         }
       }
       
@@ -1171,7 +1171,7 @@ export class UtilityOperations {
         continue;
       }
 
-      // 커스텀 필터 적용
+      // Apply custom filter
       if (filter && !filter(node)) {
         continue;
       }
@@ -1183,28 +1183,28 @@ export class UtilityOperations {
   }
 
   /**
-   * 노드 ID 배열에서 드래그 가능한 노드만 필터링합니다.
+   * Filter only draggable nodes from node ID array
    * 
-   * @param nodeIds 노드 ID 배열
-   * @returns 드래그 가능한 노드 ID 배열
+   * @param nodeIds Node ID array
+   * @returns Draggable node ID array
    */
   filterDraggableNodes(nodeIds: string[]): string[] {
     return nodeIds.filter(nodeId => this._isDraggableNode(nodeId));
   }
 
   /**
-   * 노드가 드롭 가능한 노드인지 확인합니다 (드롭 타겟이 될 수 있는지).
+   * Check if node is droppable (can be a drop target)
    * 
-   * 드롭 가능한 노드:
-   * - content가 정의된 노드 (기본적으로 드롭 가능)
-   * - droppable: false로 명시하면 드롭 불가능
+   * Droppable nodes:
+   * - Nodes with content defined (droppable by default)
+   * - If droppable: false is specified, not droppable
    * 
-   * 드롭 불가능한 노드:
-   * - content가 없는 노드 (atom 노드, 텍스트 노드 등)
-   * - droppable: false로 명시된 노드
+   * Non-droppable nodes:
+   * - Nodes without content (atom nodes, text nodes, etc.)
+   * - Nodes with droppable: false specified
    * 
-   * @param nodeId 노드 ID
-   * @returns 드롭 가능 여부
+   * @param nodeId Node ID
+   * @returns Whether droppable
    */
   private _isDroppableNode(nodeId: string): boolean {
     const node = this.dataStore.getNode(nodeId);
@@ -1212,62 +1212,62 @@ export class UtilityOperations {
       return false;
     }
     
-    // 1. 스키마에서 content와 droppable 확인 (최우선)
+    // 1. Check content and droppable from schema (highest priority)
     const schema = (this.dataStore as any)._activeSchema;
     if (schema) {
       try {
         const nodeType = schema.getNodeType?.(node.stype);
         if (nodeType) {
-          // droppable 속성이 명시적으로 false이면 드롭 불가능
+          // If droppable property is explicitly false, not droppable
           if (nodeType.droppable === false) {
             return false;
           }
           
-          // content가 있으면 드롭 가능 (기본값)
+          // If content exists, droppable (default)
           if (nodeType.content) {
             return true;
           }
           
-          // content가 없으면 드롭 불가능 (기본값)
+          // If no content, not droppable (default)
           return false;
         }
       } catch (error) {
-        // 스키마 조회 실패 시 계속 진행
+        // Continue if schema lookup fails
       }
     }
     
-    // 2. 스키마 정보가 없으면 노드의 content 필드 확인
+    // 2. If no schema info, check node's content field
     if (node.content !== undefined) {
-      // content 필드가 있으면 드롭 가능
+      // If content field exists, droppable
       return true;
     }
     
-    // 3. 그 외의 경우는 드롭 불가능 (안전하게 false)
+    // 3. Otherwise not droppable (safely false)
     return false;
   }
 
   /**
-   * 특정 노드를 드롭 타겟 노드에 드롭할 수 있는지 확인합니다.
+   * Check if a specific node can be dropped on a drop target node
    * 
-   * @param targetNodeId 드롭 타겟 노드 ID
-   * @param draggedNodeId 드래그되는 노드 ID
-   * @returns 드롭 가능 여부
+   * @param targetNodeId Drop target node ID
+   * @param draggedNodeId Dragged node ID
+   * @returns Whether droppable
    */
   canDropNode(targetNodeId: string, draggedNodeId: string): boolean {
-    // 1. 드롭 타겟이 droppable인지 확인
+    // 1. Check if drop target is droppable
     if (!this._isDroppableNode(targetNodeId)) {
       return false;
     }
     
-    // 2. 드래그되는 노드가 draggable인지 확인
+    // 2. Check if dragged node is draggable
     if (!this._isDraggableNode(draggedNodeId)) {
       return false;
     }
     
-    // 3. 스키마의 content 정의 확인
+    // 3. Check schema's content definition
     const schema = (this.dataStore as any)._activeSchema;
     if (!schema) {
-      // 스키마가 없으면 기본적으로 허용 (안전하게 true)
+      // If no schema, allow by default (safely true)
       return true;
     }
     
@@ -1288,45 +1288,45 @@ export class UtilityOperations {
       
       const contentModel = targetNodeType.content;
       if (!contentModel) {
-        // content가 없으면 드롭 불가능
+        // If no content, not droppable
         return false;
       }
       
-      // content 모델에서 draggedNode의 group 또는 stype이 허용되는지 확인
+      // Check if draggedNode's group or stype is allowed in content model
       const draggedGroup = draggedNodeType.group;
       const draggedStype = draggedNode.stype;
       
-      // 간단한 content 모델 파싱 (예: 'block+', 'inline*', 'block+ inline*')
-      // 더 복잡한 파싱은 Validator.validateContentModel 사용
+      // Simple content model parsing (e.g., 'block+', 'inline*', 'block+ inline*')
+      // For more complex parsing, use Validator.validateContentModel
       const contentModelLower = contentModel.toLowerCase();
       
-      // group 기반 확인
+      // Check based on group
       if (draggedGroup) {
         if (contentModelLower.includes(draggedGroup)) {
           return true;
         }
       }
       
-      // stype 기반 확인
+      // Check based on stype
       if (contentModelLower.includes(draggedStype)) {
         return true;
       }
       
-      // content 모델이 '*' 또는 '+'로 끝나는 경우 (예: 'block*', 'inline+')
-      // 모든 노드를 허용하는 것으로 간주하지 않음 (명시적으로 group 또는 stype이 있어야 함)
+      // If content model ends with '*' or '+' (e.g., 'block*', 'inline+')
+      // Do not consider as allowing all nodes (must explicitly have group or stype)
       
       return false;
     } catch (error) {
-      // 스키마 조회 실패 시 안전하게 false 반환
+      // Return false safely if schema lookup fails
       return false;
     }
   }
 
   /**
-   * 문서 내 모든 드롭 가능한 노드를 조회합니다.
+   * Get all droppable nodes in document
    * 
-   * @param options 필터 옵션
-   * @returns 드롭 가능한 노드 배열
+   * @param options Filter options
+   * @returns Droppable node array
    */
   getDroppableNodes(options?: {
     filter?: (node: INode) => boolean;
@@ -1348,9 +1348,9 @@ export class UtilityOperations {
         continue;
       }
 
-      // 타입별 필터링
+      // Filter by type
       const schema = (this.dataStore as any)._activeSchema;
-      let shouldInclude = true; // 기본값: 포함
+      let shouldInclude = true; // Default: include
       
       if (schema) {
         const nodeType = schema.getNodeType?.(node.stype);
@@ -1360,13 +1360,13 @@ export class UtilityOperations {
           const isInline = group === 'inline';
           const isDocument = group === 'document';
           
-          // 옵션이 하나라도 true이면 필터링 적용
+          // If any option is true, apply filtering
           const hasFilter = includeBlocks || includeInline || includeDocument;
           
           if (hasFilter) {
-            shouldInclude = false; // 기본값: 제외
+            shouldInclude = false; // Default: exclude
             
-            // OR 조건: 하나라도 조건에 맞으면 포함
+            // OR condition: include if any condition matches
             if (includeBlocks && isBlock) {
               shouldInclude = true;
             }
@@ -1377,7 +1377,7 @@ export class UtilityOperations {
               shouldInclude = true;
             }
           }
-          // 옵션이 모두 false이면 필터링 안 함 (기본값 true 유지)
+          // If all options are false, don't filter (maintain default true)
         }
       }
       
@@ -1385,7 +1385,7 @@ export class UtilityOperations {
         continue;
       }
 
-      // 커스텀 필터 적용
+      // Apply custom filter
       if (filter && !filter(node)) {
         continue;
       }
@@ -1425,7 +1425,7 @@ export class UtilityOperations {
 
     const schema = (this.dataStore as any)._activeSchema;
     if (!schema) {
-      // 스키마가 없으면 indent 규칙을 알 수 없으므로 안전하게 false
+      // If no schema, cannot know indent rules, so safely return false
       return false;
     }
 
@@ -1435,7 +1435,7 @@ export class UtilityOperations {
         return false;
       }
 
-      // document 그룹은 항상 indent 대상이 아님
+      // document group is never an indent target
       if (nodeType.group === 'document') {
         return false;
       }
@@ -1447,10 +1447,10 @@ export class UtilityOperations {
   }
 
   /**
-   * 노드에 대한 indent 관련 메타데이터를 반환합니다.
+   * Return indent-related metadata for node
    *
-   * - 스키마가 없거나 노드/노드 타입을 찾지 못하면 null 반환.
-   * - indentable, indentGroup, indentParentTypes, maxIndentLevel 을 포함합니다.
+   * - Returns null if schema is missing or node/node type not found.
+   * - Includes indentable, indentGroup, indentParentTypes, maxIndentLevel.
    */
   getIndentMetadata(nodeId: string): {
     indentable: boolean;
@@ -1481,7 +1481,7 @@ export class UtilityOperations {
     };
   }
 
-  // ===== Public schema-aware helpers (DataStore에서 직접 사용) =====
+  // ===== Public schema-aware helpers (used directly by DataStore) =====
 
   /**
    * Public wrapper for editable check.
@@ -1518,18 +1518,18 @@ export class UtilityOperations {
     return this._isIndentableNode(nodeId);
   }
 
-  // ===== Indent / Outdent (구조 수준) =====
+  // ===== Indent / Outdent (structural level) =====
 
   /**
-   * 현재 노드를 이전 형제 노드의 자식으로 들여쓰기 합니다.
+   * Indent current node as child of previous sibling node
    *
-   * 기본 규칙:
-   * - nodeType.indentable === true 인 block 노드만 대상.
-   * - 이전 형제 노드가 존재해야 함.
-   * - indentParentTypes 가 정의되어 있으면, 이전 형제의 stype 이 그 안에 포함되어야 함.
-   * - maxIndentLevel 이 정의되어 있으면, 현재 깊이가 그 값 미만일 때만 허용.
+   * Basic rules:
+   * - Only block nodes with nodeType.indentable === true are targets.
+   * - Previous sibling node must exist.
+   * - If indentParentTypes is defined, previous sibling's stype must be included in it.
+   * - If maxIndentLevel is defined, only allowed when current depth is less than that value.
    *
-   * @returns 실제로 구조 변경이 일어났으면 true, 아니면 false
+   * @returns true if structural change actually occurred, false otherwise
    */
   indentNode(nodeId: string): boolean {
     const node = this.dataStore.getNode(nodeId);
@@ -1547,7 +1547,7 @@ export class UtilityOperations {
       return false;
     }
 
-    // 최대 들여쓰기 레벨 검사 (간단한 깊이 계산)
+    // Check maximum indent level (simple depth calculation)
     if (typeof meta.maxIndentLevel === 'number') {
       const currentLevel = this._getIndentDepth(nodeId, meta.indentGroup);
       if (currentLevel >= meta.maxIndentLevel) {
@@ -1555,7 +1555,7 @@ export class UtilityOperations {
       }
     }
 
-    // 이전 형제 노드를 부모 후보로 사용
+    // Use previous sibling node as parent candidate
     const prevSiblingId = this.getPreviousSibling(nodeId);
     if (!prevSiblingId) {
       return false;
@@ -1571,14 +1571,14 @@ export class UtilityOperations {
       return false;
     }
 
-    // indentParentTypes 가 정의되어 있으면 stype 기준으로 체크
+    // If indentParentTypes is defined, check based on stype
     if (meta.indentParentTypes && meta.indentParentTypes.length > 0) {
       if (!meta.indentParentTypes.includes(prevNode.stype)) {
         return false;
       }
     }
 
-    // 실제 이동: 이전 형제의 마지막 자식으로 이동
+    // Actual move: move to last child of previous sibling
     const baseContent = Array.isArray(prevNode.content) ? prevNode.content : [];
     const insertPos = baseContent.length;
     this.dataStore.moveNode(nodeId, prevSiblingId, insertPos);
@@ -1586,14 +1586,14 @@ export class UtilityOperations {
   }
 
   /**
-   * 현재 노드를 한 단계 outdent 합니다.
+   * Outdent current node by one level
    *
-   * 기본 규칙:
-   * - nodeType.indentable === true 인 노드만 대상.
-   * - 부모가 존재해야 함.
-   * - 부모의 부모(조부모)를 새 부모로 사용.
+   * Basic rules:
+   * - Only nodes with nodeType.indentable === true are targets.
+   * - Parent must exist.
+   * - Use parent's parent (grandparent) as new parent.
    *
-   * @returns 실제로 구조 변경이 일어났으면 true, 아니면 false
+   * @returns true if structural change actually occurred, false otherwise
    */
   outdentNode(nodeId: string): boolean {
     const node = this.dataStore.getNode(nodeId);
@@ -1618,11 +1618,11 @@ export class UtilityOperations {
 
     const grandParent = parent.parentId ? this.dataStore.getNode(parent.parentId) : undefined;
     if (!grandParent) {
-      // 더 이상 outdent 할 수 없음 (루트 수준)
+      // Cannot outdent further (root level)
       return false;
     }
 
-    // 부모가 grandParent.content 안에서 어디 있는지 찾아, 그 바로 뒤에 node 를 삽입
+    // Find where parent is in grandParent.content, and insert node right after it
     const gpContent = Array.isArray(grandParent.content) ? grandParent.content : [];
     const parentIndex = gpContent.indexOf(parent.sid!);
     const insertPos = parentIndex >= 0 ? parentIndex + 1 : gpContent.length;
@@ -1632,11 +1632,11 @@ export class UtilityOperations {
   }
 
   /**
-   * indent 깊이(레벨)을 대략적으로 계산합니다.
+   * Roughly calculate indent depth (level)
    *
-   * - 같은 indentGroup 또는 indentable 노드를 위로 타고 올라가며 카운트합니다.
-   * - group, indentGroup 설계에 따라 "시각적 들여쓰기 수준"과 완전히 일치하지 않을 수 있지만,
-   *   maxIndentLevel 제한을 위한 보수적인 지표로 사용합니다.
+   * - Counts by traversing up through same indentGroup or indentable nodes.
+   * - May not exactly match "visual indentation level" depending on group, indentGroup design,
+   *   but used as a conservative indicator for maxIndentLevel limitation.
    */
   private _getIndentDepth(nodeId: string, indentGroup?: string): number {
     let depth = 0;
@@ -1660,19 +1660,19 @@ export class UtilityOperations {
   }
 
   /**
-   * 노드가 편집 가능한 노드인지 확인합니다.
+   * Check if node is editable
    * 
-   * 편집 가능한 노드:
-   * - 텍스트 노드 (.text 필드가 있음)
-   * - inline 노드 (group === 'inline')
-   * - editable block 노드 (group === 'block' && editable === true && .text 필드 있음)
+   * Editable nodes:
+   * - Text nodes (has .text field)
+   * - Inline nodes (group === 'inline')
+   * - Editable block nodes (group === 'block' && editable === true && has .text field)
    * 
-   * 편집 불가능한 노드:
-   * - block 노드 (group === 'block', editable 속성 없음)
-   * - document 노드 (group === 'document')
+   * Non-editable nodes:
+   * - Block nodes (group === 'block', no editable property)
+   * - Document nodes (group === 'document')
    * 
-   * @param nodeId 노드 ID
-   * @returns 편집 가능 여부
+   * @param nodeId Node ID
+   * @returns Whether editable
    */
   private _isEditableNode(nodeId: string): boolean {
     const node = this.dataStore.getNode(nodeId);
@@ -1680,7 +1680,7 @@ export class UtilityOperations {
       return false;
     }
     
-    // 1. 먼저 스키마에서 group 확인 (우선순위 1)
+    // 1. First check group from schema (priority 1)
     const schema = (this.dataStore as any)._activeSchema;
     if (schema) {
       try {
@@ -1688,49 +1688,49 @@ export class UtilityOperations {
         if (nodeType) {
           const group = nodeType.group;
           
-          // Editable Block: block이지만 editable=true이면 편집 가능
+          // Editable Block: block but editable=true means editable
           if (group === 'block' && nodeType.editable === true) {
-            // .text 필드가 있어야 편집 가능
+            // Must have .text field to be editable
             if (node.text !== undefined && typeof node.text === 'string') {
               return true;
             }
-            // .text 필드가 없으면 편집 불가능
+            // If no .text field, not editable
             return false;
           }
           
-          // 일반 block 또는 document 노드는 편집 불가능
+          // Regular block or document nodes are not editable
           if (group === 'block' || group === 'document') {
             return false;
           }
           
-          // inline 노드는 편집 가능
+          // Inline nodes are editable
           if (group === 'inline') {
             return true;
           }
         }
       } catch (error) {
-        // 스키마 조회 실패 시 계속 진행
+        // Continue if schema lookup fails
       }
     }
     
-    // 2. 스키마 정보가 없으면 stype으로 추정
-    // 'inline-' 접두사가 있으면 inline 노드로 간주
+    // 2. If no schema info, estimate from stype
+    // If has 'inline-' prefix, consider as inline node
     if (node.stype && node.stype.startsWith('inline-')) {
       return true;
     }
     
-    // 3. block 노드로 추정 (content가 있고 text 필드가 없으면 block으로 간주)
+    // 3. Estimate as block node (if has content and no text field, consider as block)
     if (node.content && node.text === undefined) {
       return false;
     }
     
-    // 4. 텍스트 노드 (.text 필드가 있고, block이 아닌 경우)
-    // 주의: codeBlock처럼 .text 필드가 있어도 group이 'block'이면 이미 위에서 처리됨
+    // 4. Text node (.text field exists, and not block)
+    // Note: Even if .text field exists like codeBlock, if group is 'block', already handled above
     if (node.text !== undefined && typeof node.text === 'string') {
       return true;
     }
     
-    // 5. 그 외의 경우는 편집 가능한 노드로 간주 (안전하게 true)
+    // 5. Otherwise consider as editable node (safely true)
     return true;
   }
 
@@ -1747,35 +1747,35 @@ export class UtilityOperations {
    * // document > paragraph-1 > [text-1, text-2]
    * // document > paragraph-2 > [text-3]
    * 
-   * getPreviousEditableNode('text-3') // 'text-2' (이전 단락의 마지막 텍스트)
+   * getPreviousEditableNode('text-3') // 'text-2' (last text of previous paragraph)
    * getPreviousEditableNode('text-2') // 'text-1'
-   * getPreviousEditableNode('text-1') // null (이전 편집 가능한 노드 없음)
+   * getPreviousEditableNode('text-1') // null (no previous editable node)
    * ```
    */
   getPreviousEditableNode(nodeId: string): string | null {
     let currentId: string | null = nodeId;
-    const visited = new Set<string>(); // 무한 루프 방지
+    const visited = new Set<string>(); // Prevent infinite loop
     
     while (currentId) {
-      // 무한 루프 방지
+      // Prevent infinite loop
       if (visited.has(currentId)) {
         console.warn('[UtilityOperations] getPreviousEditableNode: Circular reference detected', { nodeId, currentId });
         return null;
       }
       visited.add(currentId);
       
-      // 이전 노드 찾기
+      // Find previous node
       const prevId = this.getPreviousNode(currentId);
       if (!prevId) {
-        return null; // 더 이상 이전 노드가 없음
+        return null; // No more previous nodes
       }
       
-      // 편집 가능한 노드인지 확인
+      // Check if editable node
       if (this._isEditableNode(prevId)) {
         return prevId;
       }
       
-      // 편집 불가능한 노드(block/document)면 건너뛰고 계속 찾기
+      // Skip non-editable nodes (block/document) and continue searching
       currentId = prevId;
     }
     
@@ -1783,12 +1783,12 @@ export class UtilityOperations {
   }
 
   /**
-   * 문서 순서상 다음 편집 가능한 노드를 찾습니다.
+   * Find next editable node in document order
    * 
-   * Delete, 화살표 키 등에서 사용: block 노드는 건너뛰고 inline/텍스트 노드만 반환
+   * Used in Delete, arrow keys, etc.: skip block nodes and return only inline/text nodes
    * 
-   * @param nodeId 현재 노드 ID
-   * @returns 다음 편집 가능한 노드 ID (없으면 null)
+   * @param nodeId Current node ID
+   * @returns Next editable node ID (null if none)
    * 
    * @example
    * ```typescript
@@ -1796,34 +1796,34 @@ export class UtilityOperations {
    * // document > paragraph-2 > [text-3]
    * 
    * getNextEditableNode('text-1') // 'text-2'
-   * getNextEditableNode('text-2') // 'text-3' (다음 단락의 첫 텍스트)
-   * getNextEditableNode('text-3') // null (다음 편집 가능한 노드 없음)
+   * getNextEditableNode('text-2') // 'text-3' (first text of next paragraph)
+   * getNextEditableNode('text-3') // null (no next editable node)
    * ```
    */
   getNextEditableNode(nodeId: string): string | null {
     let currentId: string | null = nodeId;
-    const visited = new Set<string>(); // 무한 루프 방지
+    const visited = new Set<string>(); // Prevent infinite loop
     
     while (currentId) {
-      // 무한 루프 방지
+      // Prevent infinite loop
       if (visited.has(currentId)) {
         console.warn('[UtilityOperations] getNextEditableNode: Circular reference detected', { nodeId, currentId });
         return null;
       }
       visited.add(currentId);
       
-      // 다음 노드 찾기
+      // Find next node
       const nextId = this.getNextNode(currentId);
       if (!nextId) {
-        return null; // 더 이상 다음 노드가 없음
+        return null; // No more next nodes
       }
       
-      // 편집 가능한 노드인지 확인
+      // Check if editable node
       if (this._isEditableNode(nextId)) {
         return nextId;
       }
       
-      // 편집 불가능한 노드(block/document)면 건너뛰고 계속 찾기
+      // Skip non-editable nodes (block/document) and continue searching
       currentId = nextId;
     }
     
@@ -1838,18 +1838,18 @@ export class UtilityOperations {
    * 
    * @example
    * ```typescript
-   * // 기본 순회
+   * // Basic traversal
    * const iterator = dataStore.createDocumentIterator();
    * for (const nodeId of iterator) {
    *   console.log(nodeId);
    * }
    * 
-   * // 특정 타입만 필터링
+   * // Filter only specific types
    * const textIterator = dataStore.createDocumentIterator({
    *   filter: { stype: 'inline-text' }
    * });
    * 
-   * // 특정 깊이까지만
+   * // Only up to specific depth
    * const shallowIterator = dataStore.createDocumentIterator({
    *   maxDepth: 2
    * });
@@ -1860,15 +1860,15 @@ export class UtilityOperations {
   }
 
   /**
-   * Visitor 패턴을 사용하여 문서를 순회합니다.
+   * Traverse document using Visitor pattern
    * 
-   * @param visitors 방문자 객체들 (가변 인자)
-   * @param options 순회 옵션
-   * @returns 순회 결과 정보 (단일 visitor) 또는 각 Visitor의 실행 결과 (다중 visitor)
+   * @param visitors Visitor objects (variadic arguments)
+   * @param options Traversal options
+   * @returns Traversal result info (single visitor) or execution results of each Visitor (multiple visitors)
    * 
    * @example
    * ```typescript
-   * // 단일 visitor
+   * // Single visitor
    * const visitor = {
    *   visit(nodeId, node) {
    *     console.log(`Visiting: ${nodeId} (${node.type})`);
@@ -1877,14 +1877,14 @@ export class UtilityOperations {
    * 
    * const result = dataStore.traverse(visitor);
    * 
-   * // 다중 visitor (가변 인자)
+   * // Multiple visitors (variadic arguments)
    * const textExtractor = new TextExtractor();
    * const linkCollector = new LinkCollector();
    * const nodeCounter = new NodeCounter();
    * 
    * const results = dataStore.traverse(textExtractor, linkCollector, nodeCounter);
    * 
-   * // 배열로도 가능
+   * // Also possible with array
    * const results2 = dataStore.traverse([textExtractor, linkCollector]);
    * ```
    */
@@ -1898,7 +1898,7 @@ export class UtilityOperations {
     visitor: DocumentVisitor;
     result: { visitedCount: number; skippedCount: number; stopped: boolean };
   }> {
-    // 인자 파싱
+    // Parse arguments
     let visitors: DocumentVisitor[];
     let options: VisitorTraversalOptions = {} as VisitorTraversalOptions;
 
@@ -1906,15 +1906,15 @@ export class UtilityOperations {
       throw new Error('At least one visitor is required');
     }
 
-    // 첫 번째 인자가 배열인 경우
+    // If first argument is an array
     if (Array.isArray(args[0])) {
       visitors = args[0] as DocumentVisitor[];
       options = (args[1] as VisitorTraversalOptions) || ({} as VisitorTraversalOptions);
     } else {
-      // 가변 인자인 경우
+      // If variadic arguments
       const lastArg = args[args.length - 1] as unknown;
       
-      // 마지막 인자가 옵션인지 확인 (visit 메서드가 없고, context, filter 등의 속성이 있으면 옵션)
+      // Check if last argument is options (no visit method, has properties like context, filter, etc.)
       if (
         lastArg &&
         typeof lastArg === 'object' &&
@@ -1937,13 +1937,13 @@ export class UtilityOperations {
       }
     }
     
-    // 단일 visitor인 경우 단일 결과 반환
+    // Return single result for single visitor
     if (visitors.length === 1) {
       const result = this._traverseSingleVisitor(visitors[0], options);
       return result;
     }
     
-    // 다중 visitor인 경우 각각의 결과 반환
+    // Return each result for multiple visitors
     return visitors.map(visitor => ({
       visitor,
       result: this._traverseSingleVisitor(visitor, options)
@@ -1951,7 +1951,7 @@ export class UtilityOperations {
   }
 
   /**
-   * 단일 Visitor를 순회하는 내부 메서드
+   * Internal method to traverse with a single Visitor
    */
   private _traverseSingleVisitor(visitor: DocumentVisitor, options: VisitorTraversalOptions = {}): {
     visitedCount: number;
@@ -1967,28 +1967,28 @@ export class UtilityOperations {
       const node = this.dataStore.getNode(nodeId);
       if (!node) continue;
 
-      // enter 호출
+      // Call enter
       if (visitor.enter) {
         visitor.enter(nodeId, node, options.context);
       }
 
-      // shouldVisitChildren 체크
+      // Check shouldVisitChildren
       if (visitor.shouldVisitChildren && !visitor.shouldVisitChildren(nodeId, node)) {
         skippedCount++;
-        // exit 호출
+        // Call exit
         if (visitor.exit) {
           visitor.exit(nodeId, node, options.context);
         }
         continue;
       }
 
-      // visit 호출
+      // Call visit
       const result = visitor.visit(nodeId, node, options.context);
       
-      // visit에서 false 반환 시 하위 노드 스킵
+      // Skip child nodes if visit returns false
       if (result === false) {
         skippedCount++;
-        // exit 호출
+        // Call exit
         if (visitor.exit) {
           visitor.exit(nodeId, node, options.context);
         }
@@ -1997,17 +1997,17 @@ export class UtilityOperations {
 
       visitedCount++;
 
-      // shouldStop 체크
+      // Check shouldStop
       if (options.shouldStop && options.shouldStop(nodeId, node)) {
         stopped = true;
-        // exit 호출
+        // Call exit
         if (visitor.exit) {
           visitor.exit(nodeId, node, options.context);
         }
         break;
       }
 
-      // exit 호출
+      // Call exit
       if (visitor.exit) {
         visitor.exit(nodeId, node, options.context);
       }
@@ -2019,20 +2019,20 @@ export class UtilityOperations {
   // ========== Drop Behavior ==========
 
   /**
-   * 기본 드롭 행위를 결정합니다.
+   * Determine default drop behavior
    * 
-   * @param targetNode 타겟 노드
-   * @param sourceNode 소스 노드
-   * @param context 드롭 컨텍스트
-   * @returns 드롭 행위
+   * @param targetNode Target node
+   * @param sourceNode Source node
+   * @param context Drop context
+   * @returns Drop behavior
    */
   private _getDefaultDropBehavior(
     targetNode: INode,
     sourceNode: INode,
     context: DropContext
   ): DropBehavior {
-    // 타입 조합 기본 규칙
-    // 1. 텍스트 노드 → 텍스트 노드: merge
+    // Default type combination rules
+    // 1. Text node → Text node: merge
     if (typeof targetNode.text === 'string' && typeof sourceNode.text === 'string') {
       return 'merge';
     }
@@ -2043,7 +2043,7 @@ export class UtilityOperations {
       const sourceType = schema.getNodeType?.(sourceNode.stype);
       
       if (targetType && sourceType) {
-        // 2. block(예: paragraph) ← inline 텍스트: merge
+        // 2. block (e.g., paragraph) ← inline text: merge
         if (
           targetType.group === 'block' &&
           sourceType.group === 'inline' &&
@@ -2052,7 +2052,7 @@ export class UtilityOperations {
           return 'merge';
         }
         
-        // 3. 같은 타입의 block: move
+        // 3. Same type of block: move
         if (
           targetType.group === 'block' &&
           sourceType.group === 'block' &&
@@ -2063,40 +2063,40 @@ export class UtilityOperations {
       }
     }
     
-    // 4. 기본값: move (내부 드래그)
+    // 4. Default: move (internal drag)
     return 'move';
   }
 
   /**
-   * 드롭 타겟에 소스 노드를 드롭했을 때의 행위를 결정합니다.
+   * Determine behavior when dropping source node on drop target
    * 
-   * 우선순위:
-   * 1. UI 컨텍스트 (Ctrl/Cmd = copy) - 최우선
-   * 2. defineDropBehavior 규칙 (동적 규칙)
-   * 3. 스키마 dropBehaviorRules (기본 규칙 힌트)
-   * 4. 타입 조합 기본 규칙 (내장 규칙)
-   * 5. 기본값 (move/insert)
+   * Priority:
+   * 1. UI context (Ctrl/Cmd = copy) - highest priority
+   * 2. defineDropBehavior rules (dynamic rules)
+   * 3. Schema dropBehaviorRules (default rule hints)
+   * 4. Type combination default rules (built-in rules)
+   * 5. Default value (move/insert)
    * 
-   * @param targetNodeId 드롭 타겟 노드 ID
-   * @param sourceNodeId 소스 노드 ID
-   * @param context UI 컨텍스트 (선택적)
-   * @returns 드롭 행위
+   * @param targetNodeId Drop target node ID
+   * @param sourceNodeId Source node ID
+   * @param context UI context (optional)
+   * @returns Drop behavior
    */
 
   /**
-   * 드롭 타겟에 소스 노드를 드롭했을 때의 행위를 결정합니다.
+   * Determine behavior when dropping source node on drop target
    * 
-   * 우선순위:
-   * 1. UI 컨텍스트 (Ctrl/Cmd = copy) - 최우선
-   * 2. defineDropBehavior 규칙 (동적 규칙)
-   * 3. 스키마 dropBehaviorRules (기본 규칙 힌트)
-   * 4. 타입 조합 기본 규칙 (내장 규칙)
-   * 5. 기본값 (move/insert)
+   * Priority:
+   * 1. UI context (Ctrl/Cmd = copy) - highest priority
+   * 2. defineDropBehavior rules (dynamic rules)
+   * 3. Schema dropBehaviorRules (default rule hints)
+   * 4. Type combination default rules (built-in rules)
+   * 5. Default value (move/insert)
    * 
-   * @param targetNodeId 드롭 타겟 노드 ID
-   * @param sourceNodeId 소스 노드 ID
-   * @param context UI 컨텍스트 (선택적)
-   * @returns 드롭 행위
+   * @param targetNodeId Drop target node ID
+   * @param sourceNodeId Source node ID
+   * @param context UI context (optional)
+   * @returns Drop behavior
    */
   getDropBehavior(
     targetNodeId: string,
@@ -2107,24 +2107,24 @@ export class UtilityOperations {
     const sourceNode = this.dataStore.getNode(sourceNodeId);
     
     if (!targetNode || !sourceNode) {
-      return 'move'; // 기본값
+      return 'move'; // Default
     }
     
     const schema = (this.dataStore as any)._activeSchema;
     const sourceStype = sourceNode.stype;
     const dropContext = context || {};
     
-    // 1. UI 컨텍스트 확인 (최우선)
+    // 1. Check UI context (highest priority)
     if (dropContext.modifiers?.ctrlKey || dropContext.modifiers?.metaKey) {
-      return 'copy'; // Ctrl/Cmd + 드래그 = 복사
+      return 'copy'; // Ctrl/Cmd + drag = copy
     }
     
-    // 2. 외부 드래그 확인 (UI 컨텍스트 다음)
+    // 2. Check external drag (after UI context)
     if (dropContext.sourceOrigin === 'external') {
       return 'insert';
     }
     
-    // 3. defineDropBehavior 규칙 확인
+    // 3. Check defineDropBehavior rules
     const registeredBehavior = globalDropBehaviorRegistry.get(
       targetNode.stype,
       sourceStype,
@@ -2137,13 +2137,13 @@ export class UtilityOperations {
       return registeredBehavior;
     }
     
-    // 4. 스키마의 dropBehaviorRules 확인
+    // 4. Check schema's dropBehaviorRules
     if (schema) {
       const targetType = schema.getNodeType?.(targetNode.stype);
       if (targetType?.dropBehaviorRules) {
         const rules = targetType.dropBehaviorRules;
         
-        // 소스 타입별 규칙 확인 (우선순위: stype > *)
+        // Check rules by source type (priority: stype > *)
         if (rules[sourceStype]) {
           return rules[sourceStype] as DropBehavior;
         }
@@ -2154,95 +2154,95 @@ export class UtilityOperations {
       }
     }
     
-    // 5. 타입 조합 기본 규칙 (스키마 규칙이 없을 때만)
-    // 6. 기본값
+    // 5. Type combination default rules (only if no schema rules)
+    // 6. Default
     return this._getDefaultDropBehavior(targetNode, sourceNode, dropContext);
   }
 }
 
 /**
- * 문서 순회 범위 정의
+ * Document traversal range definition
  */
 export interface DocumentRange {
-  /** 시작 노드 ID */
+  /** Start node ID */
   startNodeId: string;
-  /** 끝 노드 ID */
+  /** End node ID */
   endNodeId: string;
-  /** 시작 노드 포함 여부 (기본값: true) */
+  /** Whether to include start node (default: true) */
   includeStart?: boolean;
-  /** 끝 노드 포함 여부 (기본값: true) */
+  /** Whether to include end node (default: true) */
   includeEnd?: boolean;
 }
 
 /**
- * 문서 노드 방문을 위한 Visitor 인터페이스
+ * Visitor interface for document node traversal
  */
 export interface DocumentVisitor {
-  /** 노드 방문 시 호출 (필수) */
+  /** Called when visiting a node (required) */
   visit(nodeId: string, node: any, context?: any): void | boolean;
   
-  /** 노드 진입 시 호출 (선택) */
+  /** Called when entering a node (optional) */
   enter?(nodeId: string, node: any, context?: any): void;
   
-  /** 노드 종료 시 호출 (선택) */
+  /** Called when exiting a node (optional) */
   exit?(nodeId: string, node: any, context?: any): void;
   
-  /** 하위 트리 방문 여부 결정 (선택) */
+  /** Determines whether to visit child trees (optional) */
   shouldVisitChildren?(nodeId: string, node: any): boolean;
 }
 
 /**
- * Visitor 순회 옵션
+ * Visitor traversal options
  */
 export interface VisitorTraversalOptions {
-  /** 시작 노드 ID (기본값: 루트 노드) */
+  /** Start node ID (default: root node) */
   startNodeId?: string;
-  /** 역순 순회 여부 */
+  /** Whether to traverse in reverse order */
   reverse?: boolean;
-  /** 최대 깊이 제한 */
+  /** Maximum depth limit */
   maxDepth?: number;
-  /** 노드 타입 필터 */
+  /** Node type filter */
   filter?: {
     stype?: string;
     stypes?: string[];
     excludeStypes?: string[];
   };
-  /** 사용자 정의 필터 함수 */
+  /** User-defined filter function */
   customFilter?: (nodeId: string, node: any) => boolean;
-  /** 순회 중단 조건 */
+  /** Traversal stop condition */
   shouldStop?: (nodeId: string, node: any) => boolean;
-  /** 순회 범위 제한 */
+  /** Traversal range limit */
   range?: DocumentRange;
-  /** 컨텍스트 객체 */
+  /** Context object */
   context?: any;
 }
 
 /**
- * 문서 순회 옵션
+ * Document traversal options
  */
 export interface DocumentIteratorOptions {
-  /** 시작 노드 ID (기본값: 루트 노드) */
+  /** Start node ID (default: root node) */
   startNodeId?: string;
-  /** 역순 순회 여부 */
+  /** Whether to traverse in reverse order */
   reverse?: boolean;
-  /** 최대 깊이 제한 */
+  /** Maximum depth limit */
   maxDepth?: number;
-  /** 노드 타입 필터 */
+  /** Node type filter */
   filter?: {
     stype?: string;
     stypes?: string[];
     excludeStypes?: string[];
   };
-  /** 사용자 정의 필터 함수 */
+  /** User-defined filter function */
   customFilter?: (nodeId: string, node: any) => boolean;
-  /** 순회 중단 조건 */
+  /** Traversal stop condition */
   shouldStop?: (nodeId: string, node: any) => boolean;
-  /** 순회 범위 제한 */
+  /** Traversal range limit */
   range?: DocumentRange;
 }
 
 /**
- * 문서 순회를 위한 Iterator 클래스
+ * Iterator class for document traversal
  */
 export class DocumentIterator implements IterableIterator<string> {
   private currentId: string | null;
@@ -2266,13 +2266,13 @@ export class DocumentIterator implements IterableIterator<string> {
       range: options.range as any
     } as Required<DocumentIteratorOptions>;
 
-    // 범위 설정
+    // Set range
     if (this.options.range) {
       this.rangeStartId = this.options.range.startNodeId;
       this.rangeEndId = this.options.range.endNodeId;
     }
 
-    // 역순 순회인 경우 마지막 노드부터 시작
+    // If reverse traversal, start from last node
     if (this.options.reverse) {
       this.currentId = this.findLastNode();
     } else {
@@ -2293,44 +2293,44 @@ export class DocumentIterator implements IterableIterator<string> {
         continue;
       }
 
-      // 범위 체크
+      // Range check
       if (!this.isInRange(this.currentId)) {
         this.currentId = this.getNextNode();
         continue;
       }
 
-      // 중복 방문 체크
+      // Duplicate visit check
       if (this.visited.has(this.currentId)) {
         this.currentId = this.getNextNode();
         continue;
       }
 
-      // 깊이 체크
+      // Depth check
       const depth = this.dataStore.getNodePath(this.currentId).length;
       if (depth > this.options.maxDepth) {
         this.currentId = this.getNextNode();
         continue;
       }
 
-      // 타입 필터 체크
+      // Type filter check
       if (!this.matchesTypeFilter(node)) {
         this.currentId = this.getNextNode();
         continue;
       }
 
-      // 사용자 정의 필터 체크
+      // User-defined filter check
       if (!this.options.customFilter(this.currentId, node)) {
         this.currentId = this.getNextNode();
         continue;
       }
 
-      // 중단 조건 체크
+      // Stop condition check
       if (this.options.shouldStop(this.currentId, node)) {
         this.currentId = null;
         break;
       }
 
-      // 방문 표시
+      // Mark as visited
       this.visited.add(this.currentId);
       const result = this.currentId;
       this.currentId = this.getNextNode();
@@ -2354,7 +2354,7 @@ export class DocumentIterator implements IterableIterator<string> {
   private matchesTypeFilter(node: any): boolean {
     const { filter } = this.options;
     
-    // 노드는 stype 필드를 사용
+    // Nodes use the stype field
     const nodeType = node.stype;
     const filterAny: any = filter || {};
     const filterType = filterAny.stype;
@@ -2375,46 +2375,46 @@ export class DocumentIterator implements IterableIterator<string> {
   }
 
   /**
-   * 현재 노드가 순회 범위 내에 있는지 확인합니다.
+   * Check if current node is within traversal range
    */
   private isInRange(nodeId: string): boolean {
-    // 범위가 설정되지 않은 경우 모든 노드 허용
+    // If no range is set, allow all nodes
     if (!this.options.range || !this.rangeStartId || !this.rangeEndId) {
       return true;
     }
 
     const { includeStart = true, includeEnd = true } = this.options.range;
 
-    // 시작 노드 체크
+    // Check start node
     if (nodeId === this.rangeStartId) {
       return includeStart;
     }
 
-    // 끝 노드 체크
+    // Check end node
     if (nodeId === this.rangeEndId) {
       return includeEnd;
     }
 
-    // 범위 내 노드인지 확인
+    // Check if node is within range
     const comparison = this.dataStore.utility.compareDocumentOrder(nodeId, this.rangeStartId);
     const endComparison = this.dataStore.utility.compareDocumentOrder(nodeId, this.rangeEndId);
 
-    // 시작 노드보다 앞에 있으면 범위 밖
+    // If before start node, out of range
     if (comparison < 0) {
       return false;
     }
 
-    // 끝 노드보다 뒤에 있으면 범위 밖
+    // If after end node, out of range
     if (endComparison > 0) {
       return false;
     }
 
-    // 범위 내에 있음
+    // Within range
     return true;
   }
 
   /**
-   * 현재 Iterator의 상태를 리셋합니다.
+   * Reset current Iterator's state
    */
   reset(): void {
     this.currentId = this.options.startNodeId;
@@ -2422,7 +2422,7 @@ export class DocumentIterator implements IterableIterator<string> {
   }
 
   /**
-   * 특정 노드부터 순회를 시작합니다.
+   * Start traversal from specific node
    */
   startFrom(nodeId: string): void {
     this.currentId = nodeId;
@@ -2430,14 +2430,14 @@ export class DocumentIterator implements IterableIterator<string> {
   }
 
   /**
-   * 순회 옵션을 업데이트합니다.
+   * Update traversal options
    */
   updateOptions(newOptions: Partial<DocumentIteratorOptions>): void {
     this.options = { ...this.options, ...newOptions };
   }
 
   /**
-   * 모든 노드를 배열로 수집합니다.
+   * Collect all nodes into an array
    */
   toArray(): string[] {
     const result: string[] = [];
@@ -2448,7 +2448,7 @@ export class DocumentIterator implements IterableIterator<string> {
   }
 
   /**
-   * 조건에 맞는 첫 번째 노드를 찾습니다.
+   * Find first node matching condition
    */
   find(predicate: (nodeId: string, node: any) => boolean): string | null {
     for (const nodeId of this) {
@@ -2461,7 +2461,7 @@ export class DocumentIterator implements IterableIterator<string> {
   }
 
   /**
-   * 조건에 맞는 모든 노드를 찾습니다.
+   * Find all nodes matching condition
    */
   findAll(predicate: (nodeId: string, node: any) => boolean): string[] {
     const result: string[] = [];
@@ -2504,7 +2504,7 @@ export class DocumentIterator implements IterableIterator<string> {
       const depth = this.dataStore.getNodePath(nodeId).length;
       
       stats.total++;
-      // 노드는 stype 필드를 사용
+      // Nodes use the stype field
       const nodeType = node.stype || 'unknown';
       stats.byType[nodeType] = (stats.byType[nodeType] || 0) + 1;
       stats.byDepth[depth] = (stats.byDepth[depth] || 0) + 1;

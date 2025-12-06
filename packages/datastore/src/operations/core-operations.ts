@@ -3,9 +3,9 @@ import type { AtomicOperation, DataStore } from '../data-store';
 import { Schema } from '@barocss/schema';
 
 /**
- * 핵심 저장소 연산들
+ * Core storage operations
  * 
- * DataStore의 기본적인 CRUD 기능과 ID 관리, Schema validation 등을 담당합니다.
+ * Handles basic CRUD functionality, ID management, Schema validation, etc. for DataStore.
  */
 export class CoreOperations {
   constructor(private dataStore: DataStore) {}
@@ -23,17 +23,17 @@ export class CoreOperations {
    * - Never mutates returned nodes with defaults (e.g., marks); normalization is handled elsewhere.
    */
   setNode(node: INode, validate: boolean = true): void {
-    // 1. globalCounter를 현재 노드 수로 초기화
+    // 1. Initialize globalCounter to current node count
     (this.dataStore.constructor as any)._globalCounter = this.dataStore.getNodes().size;
     
-    // 2. ID 부여 (없는 경우)
+    // 2. Assign ID (if missing)
     if (!node.sid) {
       node.sid = this.dataStore.generateId();
     }
 
     const activeSchema = this.dataStore.getActiveSchema();
     
-    // 3. Schema validation (중첩된 객체 형태로)
+    // 3. Schema validation (in nested object form)
     if (validate && activeSchema) {
       const hasObjectContent = node.content && Array.isArray(node.content) && 
         node.content.some(child => typeof child === 'object' && child !== null);
@@ -52,10 +52,10 @@ export class CoreOperations {
       }
     }
     
-    // 4. DataStore 형식으로 변환 (content를 ID 배열로)
+    // 4. Convert to DataStore format (convert content to ID array)
     this._convertChildrenToDataStore(node);
     
-    // 5~7. 항상 base를 갱신하고 op를 emit. overlay 활성 시 op도 overlay에 기록
+    // 5~7. Always update base and emit op. When overlay is active, also record op in overlay
     const overlay = (this.dataStore as any)._overlay;
     const isNewNode = !this.dataStore.getNodes().has(node.sid!);
     const operation = {
@@ -122,7 +122,7 @@ export class CoreOperations {
       return false;
     }
 
-    // Root protection: 루트 노드는 삭제 금지
+    // Root protection: root node deletion is prohibited
     const rootId = this.dataStore.getRootNodeId && this.dataStore.getRootNodeId();
     if (rootId && nodeId === rootId) {
       throw new Error('Cannot delete root node');
@@ -137,14 +137,14 @@ export class CoreOperations {
     }
 
     if (deleted) {
-      // 부모의 content 배열에서 삭제된 노드 ID 제거
+      // Remove deleted node ID from parent's content array
       if (node.parentId) {
         const parent = this.dataStore.getNodes().get(node.parentId);
         if (parent && parent.content) {
           const index = parent.content.indexOf(nodeId);
           if (index !== -1) {
             parent.content.splice(index, 1);
-            // 부모 노드 업데이트 (operation 발생)
+            // Update parent node (generates operation)
             this.updateNode(node.parentId, { content: parent.content }, false);
           }
         }
@@ -178,7 +178,7 @@ export class CoreOperations {
       return { valid: false, errors: [`Node not found: ${nodeId}`] };
     }
     
-    // stype 변경은 허용하지 않음 (구형 type도 병행 체크)
+    // Do not allow stype changes (also check legacy type)
     if (updates.stype && updates.stype !== node.stype) {
       return { 
         valid: false, 
@@ -186,7 +186,7 @@ export class CoreOperations {
       };
     }
     
-    // attributes를 올바르게 병합
+    // Merge attributes correctly
     const updatedNode = { ...node, ...updates } as INode;
     if (updates.attributes && node.attributes) {
       updatedNode.attributes = { ...node.attributes, ...updates.attributes };
@@ -206,15 +206,15 @@ export class CoreOperations {
       }
     } else {
       const overlay = (this.dataStore as any)._overlay;
-      // 항상 base 업데이트 수행
+      // Always perform base update
       this.setNode(updatedNode, false);
-      // op 기록은 _emitOperation에서 중앙 집중 처리
+      // op recording is centrally handled in _emitOperation
       return { valid: true, errors: [] };
     }
   }
 
   /**
-   * 중첩된 노드 구조를 한 번에 생성
+   * Create nested node structure at once
    *
    * Spec createNodeWithChildren:
    * - Assigns ids recursively and sets parentId links during assignment.
@@ -225,13 +225,13 @@ export class CoreOperations {
   createNodeWithChildren(node: INode, schema?: Schema): INode {
     const targetSchema = schema || this.dataStore.getActiveSchema();
     
-    // 1. globalCounter를 현재 노드 수로 초기화
+    // 1. Initialize globalCounter to current node count
     (this.dataStore.constructor as any)._globalCounter = this.dataStore.getNodes().size;
     
-    // 2. 모든 중첩된 객체에 ID 부여 (재귀적으로)
+    // 2. Assign IDs to all nested objects (recursively)
     this._assignIdsRecursively(node);
     
-    // 3. Schema validation 수행
+    // 3. Perform schema validation
     if (targetSchema) {
       const validation = this.dataStore.validateNode(node, targetSchema);
       if (!validation.valid) {
@@ -239,10 +239,10 @@ export class CoreOperations {
       }
     }
     
-    // 4. 모든 노드를 개별적으로 생성
+    // 4. Create all nodes individually
     this._createAllNodesRecursively(node);
     
-    // 5. DataStore에서 생성된 노드를 다시 가져와서 반환 (marks 포함)
+    // 5. Retrieve created node from DataStore and return (including marks)
     const createdNode = this.dataStore.getNode(node.sid!);
     if (!createdNode) {
       throw new Error(`Failed to retrieve created node ${node.sid}`);
@@ -251,14 +251,14 @@ export class CoreOperations {
   }
 
   /**
-   * 모든 노드를 개별적으로 생성 (깊이 우선)
+   * Create all nodes individually (depth-first)
    */
   private _createAllNodesRecursively(node: INode): void {
-    // content를 ID 배열로 변환 (자식 노드 생성 전에)
+    // Convert content to ID array (before creating child nodes)
     if (node.content && Array.isArray(node.content)) {
       node.content = node.content.map(child => {
         if (typeof child === 'object' && child !== null) {
-          // 자식 노드 먼저 생성
+          // Create child nodes first
           this._createAllNodesRecursively(child as INode);
           return (child as INode).sid!;
         }
@@ -266,15 +266,15 @@ export class CoreOperations {
       });
     }
     
-    // 현재 노드 생성 (overlay 활성 시 overlay에만 기록)
+    // Create current node (record only in overlay when overlay is active)
     const overlay = (this.dataStore as any)._overlay;
     if (overlay && overlay.isActive && overlay.isActive()) {
       overlay.upsertNode(node, 'create');
     } else {
-      // 노드를 저장할 때 marks를 보존
+      // Preserve marks when storing node
       const nodeToStore = {
         ...node,
-        marks: node.marks // marks를 명시적으로 보존
+        marks: node.marks // Explicitly preserve marks
       };
       this.dataStore.setNodeInternal(nodeToStore);
     }
@@ -298,7 +298,7 @@ export class CoreOperations {
   }
 
   /**
-   * 중첩된 객체들에 재귀적으로 ID 부여
+   * Recursively assign IDs to nested objects
    */
   private _assignIdsRecursively(node: INode): void {
     if (!node.sid) {
@@ -322,7 +322,7 @@ export class CoreOperations {
   }
 
   /**
-   * DataStore 형식으로 변환 (content를 ID 배열로)
+   * Convert to DataStore format (convert content to ID array)
    */
   private _convertChildrenToDataStore(node: INode): void {
     if (node.content && Array.isArray(node.content)) {
@@ -344,15 +344,15 @@ export class CoreOperations {
   }
 
   /**
-   * 노드 타입 변환 (paragraph → heading, heading → paragraph 등)
+   * Transform node type (paragraph → heading, heading → paragraph, etc.)
    *
    * Spec transformNode:
-   * - 기존 노드를 읽어서 새 stype으로 변환
-   * - content, attributes, marks 등은 유지
-   * - 같은 ID를 사용 (노드 ID 유지)
-   * - 부모의 content 배열에서 위치 유지
-   * - 기존 노드를 삭제하고 새 노드를 같은 위치에 추가
-   * - Schema validation 수행
+   * - Reads existing node and converts to new stype
+   * - Preserves content, attributes, marks, etc.
+   * - Uses same ID (maintains node ID)
+   * - Maintains position in parent's content array
+   * - Deletes existing node and adds new node at same position
+   * - Performs schema validation
    */
   transformNode(nodeId: string, newType: string, newAttrs?: Record<string, any>): { valid: boolean; errors: string[]; newNodeId?: string } {
     const node = this.dataStore.getNode(nodeId);
@@ -360,12 +360,12 @@ export class CoreOperations {
       return { valid: false, errors: [`Node not found: ${nodeId}`] };
     }
 
-    // 같은 타입이면 no-op
+    // No-op if same type
     if (node.stype === newType) {
       return { valid: true, errors: [], newNodeId: nodeId };
     }
 
-    // 부모와 위치 확인
+    // Check parent and position
     const parentId = node.parentId;
     let position: number | undefined;
     if (parentId) {
@@ -375,7 +375,7 @@ export class CoreOperations {
       }
     }
 
-    // 새 노드 생성 (기존 속성 유지, stype과 attributes만 변경)
+    // Create new node (preserve existing properties, only change stype and attributes)
     const newNode: INode = {
       ...node,
       stype: newType,
@@ -394,7 +394,7 @@ export class CoreOperations {
       }
     }
 
-    // 기존 노드 삭제 (부모 content에서 제거)
+    // Delete existing node (remove from parent content)
     if (parentId && position !== undefined) {
       const parent = this.dataStore.getNode(parentId);
       if (parent && Array.isArray(parent.content)) {
@@ -404,10 +404,10 @@ export class CoreOperations {
       }
     }
 
-    // 새 노드 저장 (같은 ID 사용)
+    // Save new node (use same ID)
     this.setNode(newNode, true);
 
-    // 부모 content에 다시 추가 (같은 위치)
+    // Add back to parent content (same position)
     if (parentId && position !== undefined) {
       const parent = this.dataStore.getNode(parentId);
       if (parent && Array.isArray(parent.content)) {

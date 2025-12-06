@@ -19,7 +19,7 @@ export class OfficeHTMLCleaner {
       return html;
     }
     
-    // Office 특수 요소 및 속성 제거
+    // Remove Office-specific elements and attributes
     this._removeOfficeAttributes(doc.body);
     this._removeOfficeStyles(doc.body);
     this._removeOfficeElements(doc.body);
@@ -35,7 +35,7 @@ export class OfficeHTMLCleaner {
   private _removeOfficeAttributes(element: Element): void {
     const officeAttrPrefixes = ['mso-', 'o:', 'v:', 'xml:', 'w:'];
     
-    // 현재 요소의 속성 제거
+    // Remove current element's attributes
     const attrsToRemove: string[] = [];
     for (const attr of Array.from(element.attributes)) {
       if (officeAttrPrefixes.some(prefix => attr.name.startsWith(prefix))) {
@@ -47,7 +47,7 @@ export class OfficeHTMLCleaner {
       element.removeAttribute(attrName);
     }
     
-    // 자식 요소 재귀 처리
+    // Recursively process child elements
     for (const child of Array.from(element.children)) {
       this._removeOfficeAttributes(child);
     }
@@ -57,10 +57,10 @@ export class OfficeHTMLCleaner {
    * Office 인라인 스타일 정리
    */
   private _removeOfficeStyles(element: Element): void {
-    // style 속성에서 mso-* 스타일 제거
+    // Remove mso-* styles from style attribute
     const style = element.getAttribute('style');
     if (style) {
-      // mso-* 스타일 제거
+      // Remove mso-* styles
       const cleanedStyle = style
         .split(';')
         .filter(decl => {
@@ -78,7 +78,7 @@ export class OfficeHTMLCleaner {
       }
     }
     
-    // 자식 요소 재귀 처리
+    // Recursively process child elements
     for (const child of Array.from(element.children)) {
       this._removeOfficeStyles(child);
     }
@@ -88,13 +88,13 @@ export class OfficeHTMLCleaner {
    * Office 특수 요소 제거 및 변환
    */
   private _removeOfficeElements(element: Element): void {
-    // o:p → p로 변환
+    // Convert o:p → p
     const oParagraphs = element.getElementsByTagName('o:p');
     for (let i = oParagraphs.length - 1; i >= 0; i--) {
       const el = oParagraphs[i];
       const p = document.createElement('p');
       
-      // 속성 복사 (Office 속성 제외)
+      // Copy attributes (excluding Office attributes)
       for (const attr of Array.from(el.attributes)) {
         if (!attr.name.startsWith('mso-') && 
             !attr.name.startsWith('o:') &&
@@ -103,7 +103,7 @@ export class OfficeHTMLCleaner {
         }
       }
       
-      // 내용 복사
+      // Copy content
       while (el.firstChild) {
         p.appendChild(el.firstChild);
       }
@@ -111,7 +111,7 @@ export class OfficeHTMLCleaner {
       el.parentNode?.replaceChild(p, el);
     }
     
-    // 기타 Office 요소 제거
+    // Remove other Office elements
     const officeElements = [
       'o:smarttag',    // Office smart tag
       'v:shapetype',   // VML shape type
@@ -122,10 +122,10 @@ export class OfficeHTMLCleaner {
     
     for (const tagName of officeElements) {
       const elements = element.getElementsByTagName(tagName);
-      // 역순으로 제거 (live NodeList이므로)
+      // Remove in reverse order (because of live NodeList)
       for (let i = elements.length - 1; i >= 0; i--) {
         const el = elements[i];
-        // 내용을 부모로 이동
+        // Move content to parent
         while (el.firstChild) {
           el.parentNode?.insertBefore(el.firstChild, el);
         }
@@ -133,7 +133,7 @@ export class OfficeHTMLCleaner {
       }
     }
     
-    // 자식 요소 재귀 처리
+    // Recursively process child elements
     for (const child of Array.from(element.children)) {
       this._removeOfficeElements(child);
     }
@@ -147,11 +147,11 @@ export class OfficeHTMLCleaner {
     const tables = element.getElementsByTagName('table');
     
     for (const table of Array.from(tables)) {
-      // Office 테이블 속성 제거
+      // Remove Office table attributes
       const attrsToRemove = ['border', 'cellpadding', 'cellspacing', 'width', 'style'];
       for (const attr of attrsToRemove) {
         if (attr === 'style') {
-          // style은 완전히 제거하지 않고 정리만
+          // Clean style instead of completely removing
           const style = table.getAttribute('style');
           if (style && style.includes('mso-')) {
             table.removeAttribute('style');
@@ -161,10 +161,10 @@ export class OfficeHTMLCleaner {
         }
       }
       
-      // 테이블 내부 요소 정리
+      // Clean table internal elements
       const cells = table.getElementsByTagName('td');
       for (const cell of Array.from(cells)) {
-        // 셀의 불필요한 속성 제거
+        // Remove unnecessary cell attributes
         cell.removeAttribute('width');
         cell.removeAttribute('height');
         const cellStyle = cell.getAttribute('style');
@@ -201,7 +201,7 @@ export class OfficeHTMLCleaner {
       el.parentNode?.replaceChild(em, el);
     }
     
-    // <u> 제거 (밑줄은 일반적으로 지원하지 않음)
+    // Remove <u> (underline is generally not supported)
     const underlineElements = element.getElementsByTagName('u');
     for (let i = underlineElements.length - 1; i >= 0; i--) {
       const el = underlineElements[i];
@@ -212,7 +212,7 @@ export class OfficeHTMLCleaner {
       el.parentNode?.replaceChild(span, el);
     }
     
-    // <font> 태그를 제거하고 내용만 유지
+    // Remove <font> tags and keep only content
     const fontElements = element.getElementsByTagName('font');
     for (let i = fontElements.length - 1; i >= 0; i--) {
       const el = fontElements[i];

@@ -1,17 +1,17 @@
 /**
  * Props Resolution Module
  * 
- * Component props와 model을 분리하고 처리하는 로직을 테스트 가능한 순수 함수로 분리
+ * Separate logic for separating and processing component props and model into testable pure functions
  */
 
 import { ComponentProps, ComponentTemplate, ModelData } from '@barocss/dsl';
 
 /**
- * Props에서 모델 메타데이터 제거 (stype/sid/type)
- * 순수 전달 데이터만 반환
+ * Remove model metadata from props (stype/sid/type)
+ * Return only pure data to pass
  * 
- * @param props - 원본 props 객체
- * @returns Sanitized props (stype, sid, type 제거)
+ * @param props - Original props object
+ * @returns Sanitized props (stype, sid, type removed)
  */
 export function sanitizeProps(props: any): ComponentProps {
   if (!props || typeof props !== 'object') return {};
@@ -20,15 +20,15 @@ export function sanitizeProps(props: any): ComponentProps {
 }
 
 /**
- * Component props를 resolve하는 로직
+ * Logic to resolve component props
  * 
- * 우선순위:
- * 1. template.props가 함수면 함수 실행 결과 사용
- * 2. template.props가 객체이고 값이 있으면 사용 (build()에서 설정한 sanitized props)
- * 3. 그 외에는 data에서 sanitizeProps로 추출
+ * Priority:
+ * 1. If template.props is a function, use function execution result
+ * 2. If template.props is an object with values, use it (sanitized props set in build())
+ * 3. Otherwise, extract from data with sanitizeProps
  * 
  * @param template - ComponentTemplate
- * @param data - 원본 모델 데이터
+ * @param data - Original model data
  * @returns Resolved props (sanitized)
  */
 export function resolveComponentProps(
@@ -36,33 +36,33 @@ export function resolveComponentProps(
   data: ModelData
 ): Record<string, any> {
   if (typeof template.props === 'function') {
-    // Props function: 함수 실행 결과 사용
+    // Props function: use function execution result
     return template.props(data);
   } else if (template.props !== undefined && template.props !== null) {
-    // template.props가 명시적으로 설정됨 (build()에서 설정한 sanitized props일 수 있음)
+    // template.props is explicitly set (may be sanitized props set in build())
     const propsKeys = Object.keys(template.props);
     if (propsKeys.length > 0) {
-      // Props가 있으면 사용 (build()에서 이미 sanitized)
+      // If props exist, use them (already sanitized in build())
       return template.props;
     } else {
-      // template.props가 빈 객체인 경우, data에서 추출
+      // If template.props is empty object, extract from data
       return sanitizeProps(data || {});
     }
   } else {
-    // template.props가 undefined/null이면 data에서 추출
+    // If template.props is undefined/null, extract from data
     return sanitizeProps(data || {});
   }
 }
 
 /**
- * Component 정보 생성 (props, model, decorators 분리)
+ * Create component info (separate props, model, decorators)
  * 
- * @param componentName - Component 이름
+ * @param componentName - Component name
  * @param props - Sanitized props
- * @param model - 원본 모델 데이터
- * @param decorators - Decorator 정보
- * @param options - 추가 옵션 (isExternal 등)
- * @returns Component 정보 객체
+ * @param model - Original model data
+ * @param decorators - Decorator info
+ * @param options - Additional options (isExternal, etc.)
+ * @returns Component info object
  */
 export function createComponentInfo(
   componentName: string,
@@ -79,7 +79,7 @@ export function createComponentInfo(
 } {
   return {
     name: componentName,
-    props: sanitizeProps(props), // 이중 sanitize 방지 (이미 sanitized일 수 있음)
+    props: sanitizeProps(props), // Prevent double sanitize (may already be sanitized)
     model: { ...model },
     decorators,
     ...options
@@ -87,11 +87,11 @@ export function createComponentInfo(
 }
 
 /**
- * Model 데이터에서 props와 model 분리
+ * Separate props and model from model data
  * 
- * @param data - 원본 모델 데이터
- * @param decorators - Decorator 정보 (optional)
- * @returns 분리된 props와 model
+ * @param data - Original model data
+ * @param decorators - Decorator info (optional)
+ * @returns Separated props and model
  */
 export function separatePropsAndModel(
   data: ModelData,

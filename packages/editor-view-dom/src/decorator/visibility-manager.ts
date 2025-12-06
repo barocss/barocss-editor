@@ -9,14 +9,14 @@ export interface VisibilityRule {
   id: string;
   name: string;
   condition: (decorator: any) => boolean;
-  priority: number; // 높을수록 우선순위 높음
+  priority: number; // Higher value = higher priority
 }
 
 export interface VisibilityState {
   decoratorId: string;
   visible: boolean;
-  reason?: string; // 숨김/표시 이유
-  overriddenBy?: string; // 어떤 규칙에 의해 오버라이드되었는지
+  reason?: string; // Reason for hide/show
+  overriddenBy?: string; // Which rule overrode it
 }
 
 export interface VisibilitySettings {
@@ -24,7 +24,7 @@ export interface VisibilitySettings {
   showByType: Record<string, boolean>;
   showByAuthor: Record<string, boolean>;
   showByCategory: Record<string, boolean>;
-  showById: Record<string, boolean>; // 개별 ID별 표시/숨김
+  showById: Record<string, boolean>; // Show/hide by individual ID
   customRules: VisibilityRule[];
 }
 
@@ -46,42 +46,42 @@ export class DecoratorVisibilityManager {
         inline: true,
         block: true
       },
-      showById: {}, // 개별 ID별 설정
+      showById: {}, // Settings by individual ID
       customRules: [],
       ...initialSettings
     };
     
-    // 기본 규칙들 등록
+    // Register default rules
     this.registerDefaultRules();
   }
   
   /**
-   * 기본 가시성 규칙들 등록
+   * Register default visibility rules
    */
   private registerDefaultRules(): void {
-    // 1. 전체 표시/숨김 규칙
+    // 1. Global show/hide rule
     this.addRule({
       id: 'global-toggle',
-      name: '전체 표시/숨김',
+      name: 'Global Show/Hide',
       condition: () => this.settings.showAll,
       priority: 1000
     });
     
-    // 2. 타입별 표시/숨김 규칙
+    // 2. Type-based show/hide rule
     this.addRule({
       id: 'type-filter',
-      name: '타입별 필터',
+      name: 'Type Filter',
       condition: (decorator) => {
         const typeSetting = this.settings.showByType[decorator.stype];
-        return typeSetting !== false; // 명시적으로 false가 아니면 표시
+        return typeSetting !== false; // Show if not explicitly false
       },
       priority: 900
     });
     
-    // 3. 작성자별 표시/숨김 규칙
+    // 3. Author-based show/hide rule
     this.addRule({
       id: 'author-filter',
-      name: '작성자별 필터',
+      name: 'Author Filter',
       condition: (decorator) => {
         const author = decorator.data?.author;
         if (!author) return true;
@@ -92,10 +92,10 @@ export class DecoratorVisibilityManager {
       priority: 800
     });
     
-    // 4. 카테고리별 표시/숨김 규칙
+    // 4. Category-based show/hide rule
     this.addRule({
       id: 'category-filter',
-      name: '카테고리별 필터',
+      name: 'Category Filter',
       condition: (decorator) => {
         const categorySetting = this.settings.showByCategory[decorator.category];
         return categorySetting !== false;
@@ -103,24 +103,24 @@ export class DecoratorVisibilityManager {
       priority: 700
     });
     
-    // 5. 개별 ID별 표시/숨김 규칙 (최고 우선순위)
+    // 5. Individual ID-based show/hide rule (highest priority)
     this.addRule({
       id: 'id-filter',
-      name: '개별 ID 필터',
+      name: 'Individual ID Filter',
       condition: (decorator) => {
         const idSetting = this.settings.showById[decorator.sid];
-        return idSetting !== false; // 명시적으로 false가 아니면 표시
+        return idSetting !== false; // Show if not explicitly false
       },
-      priority: 1100 // 가장 높은 우선순위
+      priority: 1100 // Highest priority
     });
   }
   
   /**
-   * 가시성 규칙 추가
+   * Add visibility rule
    */
   addRule(rule: VisibilityRule): void {
     this.rules.push(rule);
-    this.rules.sort((a, b) => b.priority - a.priority); // 우선순위 순으로 정렬
+    this.rules.sort((a, b) => b.priority - a.priority); // Sort by priority
   }
   
   /**
@@ -131,22 +131,22 @@ export class DecoratorVisibilityManager {
   }
   
   /**
-   * 데코레이터의 가시성 상태 계산
+   * Calculate visibility state of decorator
    */
   calculateVisibility(decorator: any): VisibilityState {
-    // 기존 상태 확인
+    // Check existing state
     const existingState = this.visibilityStates.get(decorator.sid);
     
-    // 규칙들을 우선순위 순으로 적용
+    // Apply rules in priority order
     for (const rule of this.rules) {
       try {
         const isVisible = rule.condition(decorator);
         
-        // 첫 번째로 적용되는 규칙이 최종 결정
+        // First rule that applies is final decision
         const newState: VisibilityState = {
           decoratorId: decorator.sid,
           visible: isVisible,
-          reason: `${rule.name}: ${isVisible ? '표시' : '숨김'}`,
+          reason: `${rule.name}: ${isVisible ? 'Show' : 'Hide'}`,
           overriddenBy: rule.sid
         };
         
@@ -157,11 +157,11 @@ export class DecoratorVisibilityManager {
       }
     }
     
-    // 기본값: 표시
+    // Default: show
     const defaultState: VisibilityState = {
       decoratorId: decorator.sid,
       visible: true,
-      reason: '기본값: 표시'
+      reason: 'Default: Show'
     };
     
     this.visibilityStates.set(decorator.sid, defaultState);
@@ -191,12 +191,12 @@ export class DecoratorVisibilityManager {
   }
   
   /**
-   * 설정 업데이트
+   * Update settings
    */
   updateSettings(updates: Partial<VisibilitySettings>): void {
     this.settings = { ...this.settings, ...updates };
     
-    // 모든 데코레이터의 가시성 재계산
+    // Recalculate visibility of all decorators
     this.recalculateAllVisibility();
   }
   
@@ -262,37 +262,37 @@ export class DecoratorVisibilityManager {
   }
   
   /**
-   * 모든 데코레이터의 가시성 재계산
+   * Recalculate visibility of all decorators
    */
   private recalculateAllVisibility(): void {
-    // 실제 구현에서는 데코레이터 매니저에서 모든 데코레이터를 가져와야 함
-    // 여기서는 기존 상태만 초기화
+    // In actual implementation, should get all decorators from decorator manager
+    // Here, only initialize existing states
     this.visibilityStates.clear();
   }
   
   /**
-   * 데코레이터 제거 시 상태 정리
+   * Clean up state when decorator is removed
    */
   removeDecorator(decoratorId: string): void {
     this.visibilityStates.delete(decoratorId);
   }
   
   /**
-   * 현재 설정 조회
+   * Get current settings
    */
   getSettings(): VisibilitySettings {
     return { ...this.settings };
   }
   
   /**
-   * 현재 규칙들 조회
+   * Get current rules
    */
   getRules(): VisibilityRule[] {
     return [...this.rules];
   }
   
   /**
-   * 가시성 통계 조회
+   * Get visibility statistics
    */
   getVisibilityStats(): {
     total: number;
@@ -316,8 +316,8 @@ export class DecoratorVisibilityManager {
         stats.hidden++;
       }
       
-      // 타입별 통계는 실제 데코레이터 데이터가 필요하므로 여기서는 생략
-      // 실제 구현에서는 데코레이터 매니저와 연동 필요
+      // Type-based statistics require actual decorator data, so omitted here
+      // In actual implementation, integration with decorator manager is needed
     }
     
     return stats;

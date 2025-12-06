@@ -105,7 +105,7 @@ defineOperation('applyMark', async (operation: any, context: TransactionContext)
   }
 });
 
-// DSL (control/direct, 단일/크로스 노드)
-// DSL 정의는 별도 파일로 분리 예정
+// DSL (control/direct, single/cross node)
+// DSL definition will be separated into a separate file
 
 

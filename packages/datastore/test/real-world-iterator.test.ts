@@ -146,9 +146,9 @@ describe('Real-World DocumentIterator', () => {
     dataStore = new DataStore(undefined, schema);
   });
 
-  describe('복잡한 실제 문서 구조', () => {
+  describe('Complex real-world document structure', () => {
     beforeEach(() => {
-      // main.ts를 참고한 실제 문서 구조
+      // Real document structure based on main.ts
       dataStore.createNodeWithChildren({
         stype: 'document',
         content: [
@@ -568,7 +568,7 @@ describe('Real-World DocumentIterator', () => {
       });
     });
 
-    it('전체 문서 순회 - 모든 노드', () => {
+    it('Traverse entire document - all nodes', () => {
       const iterator = dataStore.createDocumentIterator();
       const allNodes: string[] = [];
       
@@ -576,18 +576,18 @@ describe('Real-World DocumentIterator', () => {
         allNodes.push(nodeId);
       }
       
-      console.log('=== 전체 문서 순회 결과 ===');
+      console.log('=== Entire document traversal result ===');
       allNodes.forEach((id, index) => {
         const node = dataStore.getNode(id);
         const depth = dataStore.getNodePath(id).length;
-        console.log(`${index + 1}. ${id} (${node?.type}) - 깊이: ${depth} - ${node?.text || ''}`);
+        console.log(`${index + 1}. ${id} (${node?.type}) - depth: ${depth} - ${node?.text || ''}`);
       });
       
-      expect(allNodes.length).toBeGreaterThan(50); // 복잡한 문서이므로 많은 노드
+      expect(allNodes.length).toBeGreaterThan(50); // Complex document, so many nodes
       expect(allNodes[0]).toBe(dataStore.getRootNodeId());
     });
 
-    it('테이블 관련 노드만 필터링', () => {
+    it('Filter only table-related nodes', () => {
       const iterator = dataStore.createDocumentIterator({
         filter: { 
           stypes: ['bTable', 'bTableHeader', 'bTableBody', 'bTableRow', 'bTableHeaderCell', 'bTableCell'] 
@@ -599,21 +599,21 @@ describe('Real-World DocumentIterator', () => {
         tableNodes.push(nodeId);
       }
       
-      console.log('=== 테이블 관련 노드만 필터링 ===');
+      console.log('=== Filter only table-related nodes ===');
       tableNodes.forEach((id, index) => {
         const node = dataStore.getNode(id);
         const depth = dataStore.getNodePath(id).length;
-        console.log(`${index + 1}. ${id} (${node?.stype}) - 깊이: ${depth} - ${node?.text || ''}`);
+        console.log(`${index + 1}. ${id} (${node?.stype}) - depth: ${depth} - ${node?.text || ''}`);
       });
       
-      expect(tableNodes.length).toBeGreaterThan(20); // 두 개의 테이블과 그 내용들
+      expect(tableNodes.length).toBeGreaterThan(20); // Two tables and their contents
       tableNodes.forEach(id => {
         const nodeType = dataStore.getNode(id)?.stype;
         expect(['bTable', 'bTableHeader', 'bTableBody', 'bTableRow', 'bTableHeaderCell', 'bTableCell']).toContain(nodeType);
       });
     });
 
-    it('리스트 관련 노드만 필터링', () => {
+    it('Filter only list-related nodes', () => {
       const iterator = dataStore.createDocumentIterator({
         filter: { 
           stypes: ['list', 'listItem'] 
@@ -625,21 +625,21 @@ describe('Real-World DocumentIterator', () => {
         listNodes.push(nodeId);
       }
       
-      console.log('=== 리스트 관련 노드만 필터링 ===');
+      console.log('=== Filter only list-related nodes ===');
       listNodes.forEach((id, index) => {
         const node = dataStore.getNode(id);
         const depth = dataStore.getNodePath(id).length;
-        console.log(`${index + 1}. ${id} (${node?.stype}) - 깊이: ${depth} - ${node?.text || ''}`);
+        console.log(`${index + 1}. ${id} (${node?.stype}) - depth: ${depth} - ${node?.text || ''}`);
       });
       
-      expect(listNodes.length).toBe(4); // 리스트 1개, 리스트 아이템 3개
+      expect(listNodes.length).toBe(4); // 1 list, 3 list items
       listNodes.forEach(id => {
         const nodeType = dataStore.getNode(id)?.stype;
         expect(['list', 'listItem']).toContain(nodeType);
       });
     });
 
-    it('마크가 적용된 텍스트 노드만 필터링', () => {
+    it('Filter only text nodes with marks applied', () => {
       const iterator = dataStore.createDocumentIterator({
         customFilter: (nodeId, node) => {
           return node?.stype === 'inline-text' && node?.marks && node.marks.length > 0;
@@ -651,14 +651,14 @@ describe('Real-World DocumentIterator', () => {
         markedNodes.push(nodeId);
       }
       
-      console.log('=== 마크가 적용된 텍스트 노드만 필터링 ===');
+      console.log('=== Filter only text nodes with marks applied ===');
       markedNodes.forEach((id, index) => {
         const node = dataStore.getNode(id);
         const marks = node?.marks?.map(m => m.stype).join(', ') || '';
         console.log(`${index + 1}. ${id} - "${node?.text}" [${marks}]`);
       });
       
-      expect(markedNodes.length).toBe(8); // 8개의 마크가 적용된 텍스트들
+      expect(markedNodes.length).toBe(8); // 8 texts with marks applied
       markedNodes.forEach(id => {
         const node = dataStore.getNode(id);
         expect(node?.marks).toBeTruthy();
@@ -666,7 +666,7 @@ describe('Real-World DocumentIterator', () => {
       });
     });
 
-    it('특정 깊이의 노드들만 순회', () => {
+    it('Traverse only nodes at specific depth', () => {
       const iterator = dataStore.createDocumentIterator({
         maxDepth: 3
       });
@@ -679,7 +679,7 @@ describe('Real-World DocumentIterator', () => {
         }
       }
       
-      console.log('=== 깊이 3인 노드들 ===');
+      console.log('=== Nodes at depth 3 ===');
       depth3Nodes.forEach((id, index) => {
         const node = dataStore.getNode(id);
         console.log(`${index + 1}. ${id} (${node?.type}) - ${node?.text || ''}`);
@@ -691,12 +691,12 @@ describe('Real-World DocumentIterator', () => {
       });
     });
 
-    it('테이블 셀 내부의 텍스트만 필터링', () => {
+    it('Filter only text inside table cells', () => {
       const iterator = dataStore.createDocumentIterator({
         customFilter: (nodeId, node) => {
           if (node?.stype !== 'inline-text') return false;
           
-          // 부모가 테이블 셀인지 확인
+          // Check if parent is table cell
           const path = dataStore.getNodePath(nodeId);
           return path.some(id => {
             const pathNode = dataStore.getNode(id);
@@ -710,18 +710,18 @@ describe('Real-World DocumentIterator', () => {
         tableTextNodes.push(nodeId);
       }
       
-      console.log('=== 테이블 셀 내부의 텍스트만 필터링 ===');
+      console.log('=== Filter only text inside table cells ===');
       tableTextNodes.forEach((id, index) => {
         const node = dataStore.getNode(id);
         console.log(`${index + 1}. ${id} - "${node?.text}"`);
       });
       
-      expect(tableTextNodes.length).toBeGreaterThan(10); // 테이블 셀들의 텍스트
+      expect(tableTextNodes.length).toBeGreaterThan(10); // Text in table cells
       tableTextNodes.forEach(id => {
         const node = dataStore.getNode(id);
         expect(node?.stype).toBe('inline-text');
         
-        // 부모 경로에 테이블 셀이 있는지 확인
+        // Check if table cell exists in parent path
         const path = dataStore.getNodePath(id);
         const hasTableCell = path.some(pathId => {
           const pathNode = dataStore.getNode(pathId);
@@ -731,7 +731,7 @@ describe('Real-World DocumentIterator', () => {
       });
     });
 
-    it('코드 관련 노드만 필터링', () => {
+    it('Filter only code-related nodes', () => {
       const iterator = dataStore.createDocumentIterator({
         filter: { 
           stypes: ['codeBlock'] 
@@ -743,36 +743,36 @@ describe('Real-World DocumentIterator', () => {
         codeNodes.push(nodeId);
       }
       
-      console.log('=== 코드 관련 노드만 필터링 ===');
+      console.log('=== Filter only code-related nodes ===');
       codeNodes.forEach((id, index) => {
         const node = dataStore.getNode(id);
-        console.log(`${index + 1}. ${id} (${node?.type}) - 언어: ${node?.attributes?.language || 'text'}`);
-        console.log(`   코드: ${node?.text?.substring(0, 50)}...`);
+        console.log(`${index + 1}. ${id} (${node?.type}) - language: ${node?.attributes?.language || 'text'}`);
+        console.log(`   code: ${node?.text?.substring(0, 50)}...`);
       });
       
-      expect(codeNodes.length).toBe(1); // 하나의 코드 블록
+      expect(codeNodes.length).toBe(1); // One code block
       const codeNode = dataStore.getNode(codeNodes[0]);
       expect(codeNode?.stype).toBe('codeBlock');
       expect(codeNode?.attributes?.language).toBe('typescript');
     });
 
-    it('역순 순회 - 복잡한 문서', () => {
+    it('Reverse traversal - complex document', () => {
       const iterator = dataStore.createDocumentIterator({ reverse: true });
       const reverseNodes: string[] = [];
       
       for (const nodeId of iterator) {
         reverseNodes.push(nodeId);
-        if (reverseNodes.length >= 20) break; // 처음 20개만
+        if (reverseNodes.length >= 20) break; // Only first 20
       }
       
-      console.log('=== 역순 순회 (처음 20개) ===');
+      console.log('=== Reverse traversal (first 20) ===');
       reverseNodes.forEach((id, index) => {
         const node = dataStore.getNode(id);
         console.log(`${index + 1}. ${id} (${node?.type}) - ${node?.text || ''}`);
       });
       
       expect(reverseNodes.length).toBe(20);
-      // 역순이므로 마지막 노드가 첫 번째로 나와야 함
+      // Reverse order, so last node should appear first
       let lastNodeId = dataStore.getRootNodeId() as string;
       let currentId = lastNodeId;
       while (currentId) {
@@ -782,11 +782,11 @@ describe('Real-World DocumentIterator', () => {
       expect(reverseNodes[0]).toBe(lastNodeId);
     });
 
-    it('특정 섹션 내에서만 순회', () => {
-      // "주요 기능" 섹션부터 시작 (실제 노드 ID 사용)
+    it('Traverse only within specific section', () => {
+      // Start from "주요 기능" section (using actual node ID)
       const headings = dataStore.findNodesByType('heading');
       const mainFeaturesHeading = headings.find(h => {
-        // heading 노드의 자식 텍스트 노드에서 텍스트 확인
+        // Check text in heading node's child text node
         if (h.content && h.content.length > 0) {
           const textNode = dataStore.getNode(h.content[0] as string);
           return textNode?.text === '주요 기능';

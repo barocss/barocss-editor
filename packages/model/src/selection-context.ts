@@ -1,15 +1,15 @@
 import type { ModelSelection } from '@barocss/editor-core';
 
 /**
- * SelectionContext - 트랜잭션 내에서 Selection을 관리하는 컨텍스트 클래스
+ * SelectionContext - Context class for managing Selection within transactions
  * 
- * 각 operation이 context.selection.current를 직접 갱신하여
- * 최종 selectionAfter를 계산할 수 있도록 함
+ * Each operation directly updates context.selection.current to
+ * calculate the final selectionAfter
  */
 export class SelectionContext {
-  // 트랜잭션 시작 시점의 스냅샷
+  // Snapshot at transaction start
   public readonly before: ModelSelection | null;
-  // 오퍼레이션들이 갱신하는 현재 값(최종 SelectionAfter)
+  // Current value updated by operations (final SelectionAfter)
   public current: ModelSelection | null;
 
   constructor(before: ModelSelection | null) {
@@ -18,19 +18,19 @@ export class SelectionContext {
   }
 
   /**
-   * Selection 전체를 설정
+   * Set entire Selection
    */
   setSelection(next: ModelSelection): void {
     if (this.current) {
       Object.assign(this.current, next);
     } else {
-      // current가 null이면 새로 생성
+      // Create new if current is null
       this.current = { ...next };
     }
   }
 
   /**
-   * 단일 캐럿(커서) 설정
+   * Set single caret (cursor)
    */
   setCaret(nodeId: string, offset: number): void {
     if (this.current) {
@@ -42,7 +42,7 @@ export class SelectionContext {
       this.current.collapsed = true;
       this.current.direction = 'none';
     } else {
-      // current가 null이면 새로 생성
+      // Create new if current is null
       this.current = {
         type: 'range',
         startNodeId: nodeId,
@@ -56,7 +56,7 @@ export class SelectionContext {
   }
 
   /**
-   * 범위 선택 설정
+   * Set range selection
    */
   setRange(startId: string, startOff: number, endId: string, endOff: number): void {
     if (this.current) {
@@ -68,7 +68,7 @@ export class SelectionContext {
       this.current.collapsed = startId === endId && startOff === endOff;
       this.current.direction = 'forward';
     } else {
-      // current가 null이면 새로 생성
+      // Create new if current is null
       this.current = {
         type: 'range',
         startNodeId: startId,
@@ -82,7 +82,7 @@ export class SelectionContext {
   }
 
   /**
-   * Selection 클리어
+   * Clear Selection
    */
   clear(): void {
     this.current = null;

@@ -1,18 +1,18 @@
 import type { Keybinding } from '../keybinding';
 
 /**
- * 에디터 코어 기본 keyboard shortcut 목록
+ * Default keyboard shortcuts for editor core
  * 
- * 이 목록은 에디터의 기본 동작을 정의하며,
- * 사용자가 user 레벨에서 override할 수 있습니다.
+ * This list defines the default behavior of the editor,
+ * and can be overridden at the user level.
  */
 export const DEFAULT_KEYBINDINGS: Keybinding[] = [
-  // 기본 편집
+  // Basic editing
   {
     key: 'Enter',
     command: 'insertParagraph',
     when: 'editorFocus && editorEditable'
-    // source는 _registerDefaultKeybindings()에서 setCurrentSource('core')로 자동 설정됨
+    // source is automatically set to 'core' via setCurrentSource('core') in _registerDefaultKeybindings()
   },
   {
     key: 'Backspace',
@@ -25,7 +25,7 @@ export const DEFAULT_KEYBINDINGS: Keybinding[] = [
     when: 'editorFocus && editorEditable'
   },
   
-  // 커서 이동
+  // Cursor movement
   {
     key: 'ArrowLeft',
     command: 'moveCursorLeft',
@@ -48,8 +48,8 @@ export const DEFAULT_KEYBINDINGS: Keybinding[] = [
     when: 'editorFocus',
     args: {}
   },
-  // 단어 단위 커서 이동 (OS별)
-  // macOS: Alt+ArrowLeft/Right, 그 외(Ctrl+ArrowLeft/Right)
+  // Word-level cursor movement (OS-specific)
+  // macOS: Alt+ArrowLeft/Right, others: Ctrl+ArrowLeft/Right
   {
     key: 'Alt+ArrowLeft',
     command: 'moveCursorWordLeft',
@@ -70,7 +70,7 @@ export const DEFAULT_KEYBINDINGS: Keybinding[] = [
     command: 'moveCursorWordRight',
     when: 'editorFocus && !isMac'
   },
-  // 단어 단위 범위 확장 (OS별)
+  // Word-level range extension (OS-specific)
   {
     key: 'Alt+Shift+ArrowLeft',
     command: 'extendSelectionWordLeft',
@@ -92,14 +92,14 @@ export const DEFAULT_KEYBINDINGS: Keybinding[] = [
     when: 'editorFocus && !isMac'
   },
   
-  // 전체 선택
+  // Select all
   {
     key: 'Mod+a',
     command: 'selectAll',
     when: 'editorFocus'
   },
   
-  // 텍스트 스타일 토글
+  // Text style toggle
   {
     key: 'Mod+b',
     command: 'toggleBold',
@@ -120,7 +120,7 @@ export const DEFAULT_KEYBINDINGS: Keybinding[] = [
     command: 'toggleStrikeThrough',
     when: 'editorFocus && editorEditable'
   },
-  // 복사/붙여넣기/잘라내기 (CopyPasteExtension 연동)
+  // Copy/paste/cut (integrated with CopyPasteExtension)
   {
     key: 'Mod+c',
     command: 'copy',
@@ -137,8 +137,8 @@ export const DEFAULT_KEYBINDINGS: Keybinding[] = [
     when: 'editorFocus && editorEditable && !selectionEmpty'
   },
   
-  // 들여쓰기/내어쓰기
-  // 텍스트 들여쓰기 (코드 블록 등 텍스트 노드에서 사용)
+  // Indent/outdent
+  // Text indentation (used in text nodes like code blocks)
   {
     key: 'Tab',
     command: 'indentText',
@@ -149,7 +149,7 @@ export const DEFAULT_KEYBINDINGS: Keybinding[] = [
     command: 'outdentText',
     when: 'editorFocus && editorEditable && canIndentText'
   },
-  // 구조적 들여쓰기 (블록 노드 구조 변경)
+  // Structural indentation (changes block node structure)
   {
     key: 'Tab',
     command: 'indentNode',
@@ -161,7 +161,7 @@ export const DEFAULT_KEYBINDINGS: Keybinding[] = [
     when: 'editorFocus && editorEditable && canIndent'
   },
   
-  // 히스토리
+  // History
   {
     key: 'Mod+z',
     command: 'historyUndo',
@@ -178,7 +178,7 @@ export const DEFAULT_KEYBINDINGS: Keybinding[] = [
     when: 'editorFocus && historyCanRedo'
   },
   
-  // 블록 타입 전환 (Heading / Paragraph)
+  // Block type conversion (Heading / Paragraph)
   {
     key: 'Mod+Alt+1',
     command: 'setHeading1',
@@ -200,7 +200,7 @@ export const DEFAULT_KEYBINDINGS: Keybinding[] = [
     when: 'editorFocus && editorEditable'
   },
   
-  // 블록 이동 (위/아래)
+  // Block movement (up/down)
   {
     key: 'Alt+ArrowUp',
     command: 'moveBlockUp',
@@ -212,7 +212,7 @@ export const DEFAULT_KEYBINDINGS: Keybinding[] = [
     when: 'editorFocus && editorEditable'
   },
   
-  // Escape (선택 취소 또는 포커스 해제)
+  // Escape (clear selection or blur focus)
   {
     key: 'Escape',
     command: 'escape',
