@@ -120,7 +120,7 @@ describe('Extensions', () => {
       const extension = new TextExtension();
       expect(extension).toBeDefined();
       expect(extension.name).toBe('text');
-      expect(extension.priority).toBe(200); // 높은 우선순위
+      expect(extension.priority).toBe(200); // High priority
     });
 
     it('편의 함수로 TextExtension을 생성할 수 있어야 함', () => {
@@ -156,7 +156,7 @@ describe('Extensions', () => {
         expect(() => editor.use(extension)).not.toThrow();
       });
 
-      // 모든 확장이 등록되었는지 확인
+      // Verify all extensions are registered
       expect(editor['_extensions'].size).toBe(5);
     });
 

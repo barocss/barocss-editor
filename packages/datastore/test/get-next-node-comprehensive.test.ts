@@ -131,11 +131,11 @@ describe('getNextNode - Comprehensive Validation', () => {
       });
     });
 
-    it('깊은 중첩에서 올바른 순서로 이동', () => {
+    it('movement in correct order in deep nesting', () => {
       const allNodes = dataStore.getAllNodes();
       const nodeMap = new Map(allNodes.map(node => [node.sid!, node]));
       
-      // 문서 순서대로 노드 ID 수집
+      // Collect node IDs in document order
       const documentOrder: string[] = [];
       let currentId = dataStore.getRootNodeId() as string;
       
@@ -149,30 +149,30 @@ describe('getNextNode - Comprehensive Validation', () => {
         return `${id} (${node?.type})`;
       }));
       
-      // 예상 순서: document > heading > text > paragraph > text > list > listItem-1 > paragraph > text > paragraph > text > listItem-2 > paragraph > text > paragraph > text
+      // Expected order: document > heading > text > paragraph > text > list > listItem-1 > paragraph > text > paragraph > text > listItem-2 > paragraph > text > paragraph > text
       expect(documentOrder.length).toBeGreaterThan(10);
       
-      // 첫 번째는 document
+      // First is document
       expect(nodeMap.get(documentOrder[0])?.stype).toBe('document');
       
-      // 마지막은 conclusion paragraph의 text
+      // Last is text of conclusion paragraph
       const lastNode = nodeMap.get(documentOrder[documentOrder.length - 1]);
       expect(lastNode?.stype).toBe('inline-text');
       expect(lastNode?.text).toBe('Conclusion paragraph');
     });
 
-    it('listItem 내부에서 올바른 순서', () => {
+    it('correct order inside listItem', () => {
       const listItems = dataStore.findNodesByType('listItem');
       const firstListItem = listItems[0];
       
-      // listItem-1의 첫 번째 자식 (paragraph)
+      // First child of listItem-1 (paragraph)
       const firstChild = dataStore.getNextNode(firstListItem.sid!);
       expect(firstChild).toBeTruthy();
       
       const firstChildNode = dataStore.getNode(firstChild!);
       expect(firstChildNode?.stype).toBe('paragraph');
       
-      // 그 paragraph의 첫 번째 자식 (text)
+      // First child of that paragraph (text)
       const firstText = dataStore.getNextNode(firstChild!);
       expect(firstText).toBeTruthy();
       
@@ -182,9 +182,9 @@ describe('getNextNode - Comprehensive Validation', () => {
     });
   });
 
-  describe('경계 케이스 심화 검증', () => {
+  describe('Edge case deep validation', () => {
     beforeEach(() => {
-      // 단일 노드 문서
+      // Single node document
       dataStore.createNodeWithChildren({
         stype: 'document',
         content: [
@@ -198,7 +198,7 @@ describe('getNextNode - Comprehensive Validation', () => {
       });
     });
 
-    it('단일 노드에서의 동작', () => {
+    it('behavior with single node', () => {
       const document = dataStore.findNodesByType('document')[0];
       const paragraph = dataStore.findNodesByType('paragraph')[0];
       const text = dataStore.findNodesByType('inline-text')[0];
@@ -209,14 +209,14 @@ describe('getNextNode - Comprehensive Validation', () => {
       // paragraph -> text
       expect(dataStore.getNextNode(paragraph.sid!)).toBe(text.sid);
       
-      // text -> null (마지막)
+      // text -> null (last)
       expect(dataStore.getNextNode(text.sid!)).toBeNull();
     });
   });
 
-  describe('빈 콘텐츠 노드 검증', () => {
+  describe('Empty content node validation', () => {
     beforeEach(() => {
-      // 빈 paragraph가 있는 문서
+      // Document with empty paragraph
       dataStore.createNodeWithChildren({
         stype: 'document',
         content: [
@@ -228,7 +228,7 @@ describe('getNextNode - Comprehensive Validation', () => {
           },
           {
             stype: 'paragraph',
-            content: [] // 빈 paragraph
+            content: [] // Empty paragraph
           },
           {
             stype: 'paragraph',
@@ -240,23 +240,23 @@ describe('getNextNode - Comprehensive Validation', () => {
       });
     });
 
-    it('빈 콘텐츠 노드 처리', () => {
+    it('handle empty content node', () => {
       const paragraphs = dataStore.findNodesByType('paragraph');
       const emptyParagraph = paragraphs[1];
       
-      // 빈 paragraph는 자식이 없으므로 다음 형제로 이동
+      // Empty paragraph has no children, so move to next sibling
       const nextAfterEmpty = dataStore.getNextNode(emptyParagraph.sid!);
       expect(nextAfterEmpty).toBeTruthy();
       
       const nextNode = dataStore.getNode(nextAfterEmpty!);
       expect(nextNode?.stype).toBe('paragraph');
-      expect(nextNode?.content?.length).toBe(1); // 세 번째 paragraph
+      expect(nextNode?.content?.length).toBe(1); // Third paragraph
     });
   });
 
-  describe('성능 및 복잡성 검증', () => {
+  describe('Performance and complexity validation', () => {
     beforeEach(() => {
-      // 깊은 중첩 구조 (3레벨) - createNodeWithChildren 사용
+      // Deep nested structure (3 levels) - using createNodeWithChildren
       dataStore.createNodeWithChildren({
         stype: 'document',
         content: [
@@ -294,14 +294,14 @@ describe('getNextNode - Comprehensive Validation', () => {
       });
     });
 
-    it('깊은 중첩에서 성능 테스트', () => {
+    it('performance test in deep nesting', () => {
       const startTime = performance.now();
       
-      // 모든 노드를 순회
+      // Traverse all nodes
       let currentId = dataStore.getRootNodeId() as string;
       let count = 0;
       
-      while (currentId && count < 100) { // 무한 루프 방지
+      while (currentId && count < 100) { // Prevent infinite loop
         currentId = dataStore.getNextNode(currentId) as string;
         count++;
       }
@@ -311,13 +311,13 @@ describe('getNextNode - Comprehensive Validation', () => {
       
       console.log(`Traversed ${count} nodes in ${duration.toFixed(2)}ms`);
       
-      // 성능 기준: 100개 노드를 10ms 이내에 순회
+      // Performance criteria: traverse 100 nodes within 10ms
       expect(duration).toBeLessThan(10);
-      expect(count).toBeGreaterThan(5); // 최소 5개 노드는 순회해야 함
+      expect(count).toBeGreaterThan(5); // Must traverse at least 5 nodes
     });
   });
 
-  describe('에러 케이스 검증', () => {
+  describe('Error case validation', () => {
     beforeEach(() => {
       dataStore.createNodeWithChildren({
         stype: 'document',
@@ -332,34 +332,34 @@ describe('getNextNode - Comprehensive Validation', () => {
       });
     });
 
-    it('존재하지 않는 노드 ID로 호출', () => {
+    it('call with non-existent node ID', () => {
       expect(() => {
         dataStore.getNextNode('non-existent-sid');
       }).toThrow('Node not found: non-existent-sid');
     });
 
-    it('빈 문자열로 호출', () => {
+    it('call with empty string', () => {
       expect(() => {
         dataStore.getNextNode('');
       }).toThrow('Node not found: ');
     });
 
-    it('null로 호출', () => {
+    it('call with null', () => {
       expect(() => {
         dataStore.getNextNode(null as any);
       }).toThrow();
     });
 
-    it('undefined로 호출', () => {
+    it('call with undefined', () => {
       expect(() => {
         dataStore.getNextNode(undefined as any);
       }).toThrow();
     });
   });
 
-  describe('실제 에디터 시나리오 검증', () => {
+  describe('Real editor scenario validation', () => {
     beforeEach(() => {
-      // main.ts와 유사한 복잡한 문서 구조
+      // Complex document structure similar to main.ts
       dataStore.createNodeWithChildren({
         stype: 'document',
         content: [
@@ -399,11 +399,11 @@ describe('getNextNode - Comprehensive Validation', () => {
       });
     });
 
-    it('실제 에디터 문서에서 순서 검증', () => {
+    it('validate order in real editor document', () => {
       const allNodes = dataStore.getAllNodes();
       const textNodes = allNodes.filter(node => node.stype === 'inline-text');
       
-      // 첫 번째 heading의 text부터 시작
+      // Start from first heading's text
       const firstHeading = dataStore.findNodesByType('heading')[0];
       const firstText = dataStore.getNextNode(firstHeading.sid!);
       
@@ -411,7 +411,7 @@ describe('getNextNode - Comprehensive Validation', () => {
       const firstTextNode = dataStore.getNode(firstText!);
       expect(firstTextNode?.text).toBe('BaroCSS Editor Demo');
       
-      // 순서대로 모든 text 노드 순회
+      // Traverse all text nodes in order
       let currentId = firstText;
       const visitedTexts: string[] = [];
       
@@ -425,7 +425,7 @@ describe('getNextNode - Comprehensive Validation', () => {
       
       console.log('Visited texts in order:', visitedTexts);
       
-      // 예상 순서 확인
+      // Verify expected order
       expect(visitedTexts[0]).toBe('BaroCSS Editor Demo');
       expect(visitedTexts[1]).toBe('This is a ');
       expect(visitedTexts[2]).toBe('bold text');
@@ -437,7 +437,7 @@ describe('getNextNode - Comprehensive Validation', () => {
       expect(visitedTexts[8]).toBe(' and some text after.');
     });
 
-    it('마크가 적용된 텍스트 노드들 간 이동', () => {
+    it('move between text nodes with marks applied', () => {
       const textNodes = dataStore.findNodesByType('inline-text');
       const boldText = textNodes.find(node => node.text === 'bold text');
       const italicText = textNodes.find(node => node.text === 'italic text');
@@ -445,19 +445,19 @@ describe('getNextNode - Comprehensive Validation', () => {
       expect(boldText).toBeTruthy();
       expect(italicText).toBeTruthy();
       
-      // bold text의 다음은 " and this is "
+      // Next after bold text is " and this is "
       const nextAfterBold = dataStore.getNextNode(boldText!.sid!);
       const nextNode = dataStore.getNode(nextAfterBold!);
       expect(nextNode?.text).toBe(' and this is ');
       
-      // " and this is "의 다음은 italic text
+      // Next after " and this is " is italic text
       const nextAfterSpace = dataStore.getNextNode(nextAfterBold!);
       const italicNode = dataStore.getNode(nextAfterSpace!);
       expect(italicNode?.text).toBe('italic text');
     });
   });
 
-  describe('메모리 및 참조 무결성 검증', () => {
+  describe('Memory and reference integrity validation', () => {
     beforeEach(() => {
       dataStore.createNodeWithChildren({
         stype: 'document',
@@ -474,14 +474,14 @@ describe('getNextNode - Comprehensive Validation', () => {
       });
     });
 
-    it('노드 삭제 후 getNextNode 동작', () => {
+    it('getNextNode behavior after node deletion', () => {
       const textNodes = dataStore.findNodesByType('inline-text');
       const middleNode = textNodes[1]; // "Node 2"
       
-      // 중간 노드 삭제
+      // Delete middle node
       dataStore.deleteNode(middleNode.sid!);
       
-      // 첫 번째 노드의 다음은 이제 세 번째 노드
+      // Next after first node is now third node
       const firstNode = textNodes[0];
       const nextAfterFirst = dataStore.getNextNode(firstNode.sid!);
       const thirdNode = textNodes[2];
@@ -489,12 +489,12 @@ describe('getNextNode - Comprehensive Validation', () => {
       expect(nextAfterFirst).toBe(thirdNode.sid);
     });
 
-    it('노드 추가 후 getNextNode 동작', () => {
+    it('getNextNode behavior after node addition', () => {
       const textNodes = dataStore.findNodesByType('inline-text');
       const firstNode = textNodes[0];
       const parent = dataStore.getNode(textNodes[0].parentId!);
       
-      // 새 노드 생성 (createNodeWithChildren 사용)
+      // Create new node (using createNodeWithChildren)
       const newDocument = dataStore.createNodeWithChildren({
         stype: 'paragraph',
         content: [
@@ -504,21 +504,21 @@ describe('getNextNode - Comprehensive Validation', () => {
       
       const newTextId = newDocument.content[0] as string;
       
-      // 부모의 content 배열에 새 노드 추가
+      // Add new node to parent's content array
       if (parent?.content) {
         const firstIndex = parent.content.indexOf(firstNode.sid!);
         parent.content.splice(firstIndex + 1, 0, newTextId);
         dataStore.updateNode(parent.sid!, { content: parent.content });
         
-        // 새 노드의 parentId 업데이트
+        // Update new node's parentId
         dataStore.updateNode(newTextId, { parentId: parent.sid });
       }
       
-      // 첫 번째 노드의 다음은 새로 추가된 노드
+      // Next of first node should be newly added node
       const nextAfterFirst = dataStore.getNextNode(firstNode.sid!);
       expect(nextAfterFirst).toBe(newTextId);
       
-      // 새 노드의 다음은 원래 두 번째 노드
+      // Next of new node should be original second node
       const nextAfterNew = dataStore.getNextNode(newTextId);
       expect(nextAfterNew).toBe(textNodes[1].sid);
     });

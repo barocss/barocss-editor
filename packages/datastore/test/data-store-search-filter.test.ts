@@ -42,7 +42,7 @@ describe('DataStore Search & Filter Functions', () => {
     });
     dataStore = new DataStore(undefined, schema);
 
-    // 테스트용 문서 구조 생성
+    // Create document structure for testing
     const document: INode = {
       stype: 'document',
       attributes: { class: 'main-doc', id: 'doc-1' },
@@ -101,7 +101,7 @@ describe('DataStore Search & Filter Functions', () => {
     });
 
     it('should find multiple nodes with same text', () => {
-      // 같은 텍스트를 가진 노드 추가
+      // Add node with same text
       const duplicateText: INode = {
         stype: 'inline-text',
         text: 'Hello World',
@@ -140,7 +140,7 @@ describe('DataStore Search & Filter Functions', () => {
     });
 
     it('should find multiple nodes with same attribute value', () => {
-      // 같은 class를 가진 노드 추가
+      // Add node with same class
       const duplicateClass: INode = {
         stype: 'inline-text',
         text: 'Another text',
@@ -164,7 +164,7 @@ describe('DataStore Search & Filter Functions', () => {
 
     it('should handle null values', () => {
       const results = dataStore.findByAttribute('class', null);
-      expect(results).toHaveLength(0); // 모든 노드가 class 값을 가지고 있음
+      expect(results).toHaveLength(0); // All nodes have class values
     });
   });
 
@@ -173,10 +173,10 @@ describe('DataStore Search & Filter Functions', () => {
       const textNodes = dataStore.findNodesByType('inline-text');
       const boldNodes = dataStore.findByAttribute('class', 'bold');
       
-      expect(textNodes).toHaveLength(3); // 3개의 inline-text 노드
-      expect(boldNodes).toHaveLength(1); // 1개의 bold 클래스 노드
+      expect(textNodes).toHaveLength(3); // 3 inline-text nodes
+      expect(boldNodes).toHaveLength(1); // 1 bold class node
       
-      // bold 클래스 노드가 inline-text 타입인지 확인
+      // Verify bold class node is inline-text type
       const boldTextNodes = textNodes.filter(node => 
         boldNodes.some(boldNode => boldNode.sid === node.sid)
       );

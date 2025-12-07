@@ -15,7 +15,7 @@ describe('EditorViewDOM + renderer-dom Complex Scenarios Integration', () => {
   beforeEach(() => {
     registry = getGlobalRegistry();
     
-    // 컴포넌트 정의
+    // Define components
     if (!registry.has('document')) {
       define('document', element('div', { className: 'document' }, [slot('content')]));
     }
@@ -77,7 +77,7 @@ describe('EditorViewDOM + renderer-dom Complex Scenarios Integration', () => {
       const html1 = normalizeHTML(container.firstElementChild as Element);
       expect(html1).toContain('Item 1');
 
-      // 아이템 추가
+      // Add item
       const tree2: TreeDocument = {
         sid: 'doc1',
         stype: 'document',
@@ -145,7 +145,7 @@ describe('EditorViewDOM + renderer-dom Complex Scenarios Integration', () => {
       const html1 = normalizeHTML(container.firstElementChild as Element);
       expect(html1).toContain('Item 2');
 
-      // 아이템 제거
+      // Remove item
       const tree2: TreeDocument = {
         sid: 'doc1',
         stype: 'document',
@@ -208,7 +208,7 @@ describe('EditorViewDOM + renderer-dom Complex Scenarios Integration', () => {
       expect(li1El).toBeTruthy();
       expect(li2El).toBeTruthy();
 
-      // 순서 변경
+      // Change order
       const tree2: TreeDocument = {
         sid: 'doc1',
         stype: 'document',
@@ -241,7 +241,7 @@ describe('EditorViewDOM + renderer-dom Complex Scenarios Integration', () => {
       const li1ElAfter = container.querySelector('[data-bc-sid="li1"]');
       const li2ElAfter = container.querySelector('[data-bc-sid="li2"]');
 
-      // DOM 요소는 재사용되어야 함
+      // DOM elements should be reused
       expect(li1ElAfter).toBe(li1El);
       expect(li2ElAfter).toBe(li2El);
     });
@@ -342,7 +342,7 @@ describe('EditorViewDOM + renderer-dom Complex Scenarios Integration', () => {
       view.render(tree2);
       const boxEl2 = container.querySelector('[data-bc-sid="box1"]') as HTMLElement;
 
-      // DOM 요소는 재사용되어야 함
+      // DOM elements should be reused
       expect(boxEl2).toBe(boxEl1);
     });
   });
@@ -380,7 +380,7 @@ describe('EditorViewDOM + renderer-dom Complex Scenarios Integration', () => {
       expect(html1).toContain('Title');
       expect(html1).toContain('Content');
 
-      // Header 숨김
+      // Hide Header
       const tree2: TreeDocument = {
         sid: 'doc1',
         stype: 'document',
@@ -409,8 +409,8 @@ describe('EditorViewDOM + renderer-dom Complex Scenarios Integration', () => {
       define('item-list', (_p: ComponentProps, m: ModelData) => {
         return element('ul', { className: 'list' }, [
           each(
-            'items',  // data에서 가져올 배열의 이름
-            (item: any) => element('li', {}, [item.name || ''])  // 각 아이템을 렌더링하는 함수
+            'items',  // Name of array to get from data
+            (item: any) => element('li', {}, [item.name || ''])  // Function to render each item
           )
         ]);
       });
@@ -437,7 +437,7 @@ describe('EditorViewDOM + renderer-dom Complex Scenarios Integration', () => {
       expect(html1).toContain('Item A');
       expect(html1).toContain('Item B');
 
-      // 아이템 추가
+      // Add item
       const tree2: TreeDocument = {
         sid: 'doc1',
         stype: 'document',

@@ -1002,7 +1002,7 @@ Content after rule.
       
       expect(nodes.length).toBeGreaterThan(0);
       
-      // Horizontal rule 확인
+      // Verify horizontal rule
       const md = new MarkdownIt();
       const tokens = md.parse(markdown, {});
       
@@ -1041,18 +1041,18 @@ function example() {
       
       expect(nodes.length).toBeGreaterThan(0);
       
-      // 다양한 요소 확인
+      // Verify various elements
       const headings = nodes.filter((n: any) => n.stype === 'heading');
       expect(headings.length).toBeGreaterThanOrEqual(3);
       
       const paragraphs = nodes.filter((n: any) => n.stype === 'paragraph');
       expect(paragraphs.length).toBeGreaterThan(0);
       
-      // 리스트와 코드 블록은 파싱이 성공한 경우에만 확인
+      // Verify lists and code blocks only if parsing succeeded
       const lists = nodes.filter((n: any) => n.stype === 'list');
       const codeBlocks = nodes.filter((n: any) => n.stype === 'code_block');
       
-      // 최소한 하나의 요소는 파싱되어야 함
+      // At least one element should be parsed
       expect(nodes.length).toBeGreaterThan(0);
     });
     
@@ -1074,7 +1074,7 @@ const code = 'example';
       const nodes = converter.parse(originalMarkdown);
       const convertedMarkdown = converter.convert(nodes);
       
-      // 최소한 주요 내용이 포함되어야 함
+      // At least main content should be included
       expect(convertedMarkdown).toContain('Title');
       expect(convertedMarkdown).toContain('Paragraph');
     });

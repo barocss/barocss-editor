@@ -121,7 +121,7 @@ describe('KeybindingRegistry', () => {
         when: 'editorFocus && editorEditable'
       });
 
-      // context를 제공하지 않아도 contextProvider에서 가져옴
+      // Get from contextProvider even if context is not provided
       const result = registry.resolve('Ctrl+b');
       expect(result).toHaveLength(1);
       expect(result[0].command).toBe('toggleBold');
@@ -142,7 +142,7 @@ describe('KeybindingRegistry', () => {
         when: 'editorFocus && editorEditable'
       });
 
-      // 제공된 context가 우선
+      // Provided context takes priority
       const result = registry.resolve('Ctrl+b', { editorFocus: false, editorEditable: true });
       expect(result).toHaveLength(0);
     });
@@ -155,7 +155,7 @@ describe('KeybindingRegistry', () => {
         when: 'editorFocus && editorEditable'
       });
 
-      // contextProvider도 없고 context도 없으면 빈 context로 평가
+      // If no contextProvider and no context provided, evaluate with empty context
       const result = registry.resolve('Ctrl+b');
       expect(result).toHaveLength(0);
     });
@@ -165,12 +165,12 @@ describe('KeybindingRegistry', () => {
     it('should use current source when setCurrentSource is called', () => {
       const registry = new KeybindingRegistryImpl();
       
-      // Extension 등록 시뮬레이션
+      // Simulate Extension registration
       registry.setCurrentSource('extension');
       registry.register({
         key: 'Mod+b',
         command: 'toggleBold'
-        // source는 자동으로 'extension'
+        // source is automatically 'extension'
       });
       registry.setCurrentSource(null);
       
@@ -178,21 +178,21 @@ describe('KeybindingRegistry', () => {
       expect(result).toHaveLength(1);
       expect(result[0].command).toBe('toggleBold');
       
-      // 내부적으로 source가 'extension'으로 설정되었는지 확인
-      // (직접 확인은 어렵지만, 우선순위로 확인 가능)
+      // Verify source is internally set to 'extension'
+      // (difficult to verify directly, but can verify by priority)
     });
 
     it('should use user as default when setCurrentSource is not called', () => {
       const registry = new KeybindingRegistryImpl();
       
-      // setCurrentSource를 호출하지 않고 등록
+      // Register without calling setCurrentSource
       registry.register({
         key: 'Ctrl+d',
         command: 'deleteSelection'
-        // source는 자동으로 'user' (기본값)
+        // source is automatically 'user' (default)
       });
       
-      // user source가 core보다 우선순위가 높은지 확인
+      // Verify user source has higher priority than core
       registry.setCurrentSource('core');
       registry.register({
         key: 'Ctrl+d',
@@ -202,7 +202,7 @@ describe('KeybindingRegistry', () => {
       
       const result = registry.resolve('Ctrl+d', {});
       expect(result).toHaveLength(2);
-      // user가 core보다 우선순위가 높아야 함
+      // user should have higher priority than core
       expect(result[0].command).toBe('deleteSelection'); // user
       expect(result[1].command).toBe('coreDelete'); // core
     });
@@ -210,16 +210,16 @@ describe('KeybindingRegistry', () => {
     it('should override explicit source when current source is set', () => {
       const registry = new KeybindingRegistryImpl();
       
-      // Extension 등록 중에 source: 'user'를 명시적으로 지정해도 무시됨
+      // Even if source: 'user' is explicitly specified during Extension registration, it is ignored
       registry.setCurrentSource('extension');
       registry.register({
         key: 'Mod+b',
         command: 'toggleBold',
-        source: 'user'  // 명시적으로 지정해도 무시됨
+        source: 'user'  // Explicitly specified but ignored
       });
       registry.setCurrentSource(null);
       
-      // user source로 등록된 것과 비교
+      // Compare with one registered with user source
       registry.register({
         key: 'Mod+b',
         command: 'userBold',
@@ -228,24 +228,24 @@ describe('KeybindingRegistry', () => {
       
       const result = registry.resolve('Mod+b', {});
       expect(result).toHaveLength(2);
-      // user가 extension보다 우선순위가 높아야 함
+      // user should have higher priority than extension
       expect(result[0].command).toBe('userBold'); // user
-      expect(result[1].command).toBe('toggleBold'); // extension (현재 컨텍스트가 우선)
+      expect(result[1].command).toBe('toggleBold'); // extension (current context takes priority)
     });
 
     it('should handle core keybinding registration', () => {
       const registry = new KeybindingRegistryImpl();
       
-      // Core 등록 시뮬레이션
+      // Simulate Core registration
       registry.setCurrentSource('core');
       registry.register({
         key: 'Enter',
         command: 'insertParagraph'
-        // source는 자동으로 'core'
+        // source is automatically 'core'
       });
       registry.setCurrentSource(null);
       
-      // Extension 등록
+      // Extension registration
       registry.setCurrentSource('extension');
       registry.register({
         key: 'Enter',
@@ -253,16 +253,16 @@ describe('KeybindingRegistry', () => {
       });
       registry.setCurrentSource(null);
       
-      // User 등록
+      // Register user
       registry.register({
         key: 'Enter',
         command: 'userEnter'
-        // source는 자동으로 'user'
+        // source is automatically 'user'
       });
       
       const result = registry.resolve('Enter', {});
       expect(result).toHaveLength(3);
-      // 우선순위: user > extension > core
+      // Priority: user > extension > core
       expect(result[0].command).toBe('userEnter');
       expect(result[1].command).toBe('extensionEnter');
       expect(result[2].command).toBe('insertParagraph');
@@ -271,7 +271,7 @@ describe('KeybindingRegistry', () => {
     it('should handle Extension onCreate simulation', () => {
       const registry = new KeybindingRegistryImpl();
       
-      // Extension의 onCreate 시뮬레이션
+      // Simulate Extension's onCreate
       registry.setCurrentSource('extension');
       registry.register({
         key: 'Mod+b',
@@ -283,123 +283,123 @@ describe('KeybindingRegistry', () => {
       });
       registry.setCurrentSource(null);
       
-      // 모든 keybinding이 extension source로 등록되었는지 확인
+      // Verify all keybindings are registered with extension source
       const boldResult = registry.resolve('Mod+b', {});
       const italicResult = registry.resolve('Mod+i', {});
       
       expect(boldResult).toHaveLength(1);
       expect(italicResult).toHaveLength(1);
       
-      // user source로 등록하면 우선순위가 높아야 함
+      // Registering with user source should have higher priority
       registry.register({
         key: 'Mod+b',
         command: 'userBold'
-        // source는 자동으로 'user'
+        // source is automatically 'user'
       });
       
       const finalResult = registry.resolve('Mod+b', {});
       expect(finalResult).toHaveLength(2);
-      expect(finalResult[0].command).toBe('userBold'); // user가 우선
+      expect(finalResult[0].command).toBe('userBold'); // user has priority
       expect(finalResult[1].command).toBe('toggleBold'); // extension
     });
   });
 
-  describe('Mod 키 확장 및 매칭', () => {
-    it('Mod+b keybinding이 Ctrl+b로도 매칭되어야 함', () => {
+  describe('Mod key expansion and matching', () => {
+    it('Mod+b keybinding should also match Ctrl+b', () => {
       const registry = new KeybindingRegistryImpl();
       
-      // Mod+b로 등록
+      // Register Mod+b
       registry.register({
         key: 'Mod+b',
         command: 'toggleBold'
       });
       
-      // Ctrl+b로 resolve하면 매칭되어야 함
+      // Should match when resolving Ctrl+b
       const result = registry.resolve('Ctrl+b', {});
       expect(result).toHaveLength(1);
       expect(result[0].command).toBe('toggleBold');
     });
 
-    it('Mod+b keybinding이 Cmd+b로도 매칭되어야 함', () => {
+    it('Mod+b keybinding should also match Cmd+b', () => {
       const registry = new KeybindingRegistryImpl();
       
-      // Mod+b로 등록
+      // Register Mod+b
       registry.register({
         key: 'Mod+b',
         command: 'toggleBold'
       });
       
-      // Cmd+b로 resolve하면 매칭되어야 함
+      // Should match when resolving Cmd+b
       const result = registry.resolve('Cmd+b', {});
       expect(result).toHaveLength(1);
       expect(result[0].command).toBe('toggleBold');
     });
 
-    it('Ctrl+b로 등록된 keybinding이 Mod+b로도 매칭되어야 함', () => {
+    it('Ctrl+b registered keybinding should also match Mod+b', () => {
       const registry = new KeybindingRegistryImpl();
       
-      // Ctrl+b로 등록
+      // Register Ctrl+b
       registry.register({
         key: 'Ctrl+b',
         command: 'toggleBold'
       });
       
-      // Mod+b로 resolve하면 매칭되어야 함
+      // Should match when resolving Mod+b
       const result = registry.resolve('Mod+b', {});
       expect(result).toHaveLength(1);
       expect(result[0].command).toBe('toggleBold');
     });
 
-    it('Cmd+b로 등록된 keybinding이 Mod+b로도 매칭되어야 함', () => {
+    it('Cmd+b registered keybinding should also match Mod+b', () => {
       const registry = new KeybindingRegistryImpl();
       
-      // Cmd+b로 등록
+      // Register Cmd+b
       registry.register({
         key: 'Cmd+b',
         command: 'toggleBold'
       });
       
-      // Mod+b로 resolve하면 매칭되어야 함
+      // Should match when resolving Mod+b
       const result = registry.resolve('Mod+b', {});
       expect(result).toHaveLength(1);
       expect(result[0].command).toBe('toggleBold');
     });
 
-    it('Cmd+b로 명시적으로 등록하면 Mod+b보다 우선해야 함', () => {
+    it('explicitly registered Cmd+b should take priority over Mod+b', () => {
       const registry = new KeybindingRegistryImpl();
       
-      // Mod+b로 등록
+      // Register Mod+b
       registry.register({
         key: 'Mod+b',
         command: 'modBold',
         source: 'core'
       });
       
-      // Cmd+b로 명시적으로 등록
+      // Explicitly register Cmd+b
       registry.register({
         key: 'Cmd+b',
         command: 'cmdBold',
         source: 'extension'
       });
       
-      // Cmd+b로 resolve하면 명시적인 Cmd+b가 매칭되어야 함
+      // Explicit Cmd+b should match when resolving Cmd+b
       const result = registry.resolve('Cmd+b', {});
       expect(result).toHaveLength(2);
-      // Cmd+b가 명시적으로 등록되어 있으므로 우선
-      expect(result[0].command).toBe('cmdBold'); // extension (우선순위 높음)
+      // Cmd+b is explicitly registered, so it takes priority
+      expect(result[0].command).toBe('cmdBold'); // extension (higher priority)
       expect(result[1].command).toBe('modBold'); // core
     });
 
-    it('Mod+Shift+z keybinding이 Ctrl+Shift+z로도 매칭되어야 함', () => {
+    it('Mod+Shift+z keybinding should also match Ctrl+Shift+z', () => {
       const registry = new KeybindingRegistryImpl();
       
-      // Mod+Shift+z로 등록
+      // Register with Mod+Shift+z
       registry.register({
         key: 'Mod+Shift+z',
         command: 'redo'
       });
       
-      // Ctrl+Shift+z로 resolve하면 매칭되어야 함
+      // Should match when resolving with Ctrl+Shift+z
       const result = registry.resolve('Ctrl+Shift+z', {});
       expect(result).toHaveLength(1);
       expect(result[0].command).toBe('redo');
@@ -410,18 +410,18 @@ describe('KeybindingRegistry', () => {
     it('should match keybindings regardless of case', () => {
       const registry = new KeybindingRegistryImpl();
       
-      // 소문자로 등록
+      // Register with lowercase
       registry.register({
         key: 'Mod+b',
         command: 'toggleBold'
       });
       
-      // 대문자로 resolve해도 매칭되어야 함
+      // Should match when resolving with uppercase
       const result1 = registry.resolve('Ctrl+B', {});
       expect(result1).toHaveLength(1);
       expect(result1[0].command).toBe('toggleBold');
       
-      // 소문자로 resolve해도 매칭되어야 함
+      // Should match when resolving with lowercase
       const result2 = registry.resolve('Ctrl+b', {});
       expect(result2).toHaveLength(1);
       expect(result2[0].command).toBe('toggleBold');
@@ -430,13 +430,13 @@ describe('KeybindingRegistry', () => {
     it('should normalize modifier case', () => {
       const registry = new KeybindingRegistryImpl();
       
-      // 대문자 modifier로 등록
+      // Register with uppercase modifier
       registry.register({
         key: 'CTRL+B',
         command: 'toggleBold'
       });
       
-      // 소문자 modifier로 resolve해도 매칭되어야 함
+      // Should match when resolving with lowercase modifier
       const result = registry.resolve('ctrl+b', {});
       expect(result).toHaveLength(1);
       expect(result[0].command).toBe('toggleBold');
@@ -445,13 +445,13 @@ describe('KeybindingRegistry', () => {
     it('should handle mixed case', () => {
       const registry = new KeybindingRegistryImpl();
       
-      // 소문자로 등록
+      // Register with lowercase
       registry.register({
         key: 'mod+shift+z',
         command: 'redo'
       });
       
-      // 대문자로 resolve해도 매칭되어야 함
+      // Should match when resolving with uppercase
       const result = registry.resolve('Mod+Shift+Z', {});
       expect(result).toHaveLength(1);
       expect(result[0].command).toBe('redo');

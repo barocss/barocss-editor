@@ -340,11 +340,11 @@ describe('Unified Traverse API', () => {
 
       const results = dataStore.traverse([textExtractor], { maxDepth: 3 });
 
-      console.log('=== 배열 + 옵션 결과 ===');
-      console.log('텍스트:', textExtractor.getTexts());
-      console.log('순회 결과:', results);
+      console.log('=== Array + options result ===');
+      console.log('Text:', textExtractor.getTexts());
+      console.log('Traversal result:', results);
 
-      // 배열에 visitor가 하나만 있으면 단일 결과 반환
+      // If array has only one visitor, return single result
       expect(results).toHaveProperty('visitedCount');
       expect(results).toHaveProperty('skippedCount');
       expect(results).toHaveProperty('stopped');

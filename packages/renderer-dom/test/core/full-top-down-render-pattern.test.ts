@@ -142,7 +142,7 @@ describe('Full Top-Down Render Pattern', () => {
           }
           
           // Always use state value if available, fallback to model
-          // ctx.instance이 있으면 우선 사용, 없으면 ctx.getState 사용
+          // Use ctx.instance if available, otherwise use ctx.getState
           const count = ctx?.instance?.get?.('count') ?? ctx?.getState?.('count') ?? modelCount;
           return element('span', { className: 'child' }, [String(count)]);
         });
@@ -185,12 +185,12 @@ describe('Full Top-Down Render Pattern', () => {
       expect(calls[0][0]).toBe('parent'); // nodeType
       expect(calls[0][1]).toEqual(expect.objectContaining({ sid: 'parent-1' }));
 
-      // 실제 상태 값이 DOM에 반영되었는지 검증
+      // Verify actual state value is reflected in DOM
       if (instance && instance.setState) {
-        // setState({ count: 10 })가 반영되었는지 확인
+        // Verify setState({ count: 10 }) is reflected
         expect(container.textContent).toContain('10');
-        // 이전 값 '0'이 사라졌는지 확인 (초기 렌더링의 '0'은 제거되어야 함)
-        // 단, '10'에 '0'이 포함되어 있으므로 정확한 검증을 위해 'child' 요소만 확인
+        // Verify previous value '0' is gone (initial render's '0' should be removed)
+        // However, '10' contains '0', so verify only 'child' element for accurate verification
         const childElement = container.querySelector('.child');
         expect(childElement?.textContent).toBe('10');
       }
@@ -232,7 +232,7 @@ describe('Full Top-Down Render Pattern', () => {
         ]
       } as any;
 
-      // Initial render (lastModel 저장)
+      // Initial render (save lastModel)
       renderer.render(container, model);
       expect(container.textContent).toContain('Initial');
 
@@ -263,11 +263,11 @@ describe('Full Top-Down Render Pattern', () => {
       expect(lastCall[2]).toEqual([]); // lastDecorators (empty array)
       expect(lastCall[3]).toBeUndefined(); // lastRuntime
 
-      // 실제 상태 값이 DOM에 반영되었는지 검증
+      // Verify actual state value is reflected in DOM
       if (instance && instance.setState) {
-        // setState({ text: 'Changed' })가 DOM에 반영되었는지 확인
+        // Verify setState({ text: 'Changed' }) is reflected in DOM
         expect(container.textContent).toContain('Changed');
-        expect(container.textContent).not.toContain('Initial'); // 이전 값이 사라졌는지
+        expect(container.textContent).not.toContain('Initial'); // Verify previous value is gone
       }
 
       renderSpy.mockRestore();
@@ -308,7 +308,7 @@ describe('Full Top-Down Render Pattern', () => {
       const decorators = [{ type: 'test', sid: 'comp-1' }] as any;
       const runtime = { dataStore: { key: 'value' } };
 
-      // Initial render (lastModel, lastDecorators, lastRuntime 저장)
+      // Initial render (save lastModel, lastDecorators, lastRuntime)
       renderer.render(container, model, decorators, runtime);
 
       // Spy on render

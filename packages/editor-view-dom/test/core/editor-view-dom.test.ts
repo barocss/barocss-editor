@@ -49,11 +49,11 @@ describe('EditorViewDOM', () => {
     });
 
     it('이벤트 리스너가 등록되어야 함', () => {
-      // 새로운 컨테이너 생성
+      // Create new container
       const newContainer = document.createElement('div');
       document.body.appendChild(newContainer);
       
-      // createElement를 스파이하여 생성되는 content layer를 감시
+      // Spy on createElement to monitor content layer creation
       const originalCreateElement = document.createElement;
       const contentElements: HTMLElement[] = [];
       
@@ -65,16 +65,16 @@ describe('EditorViewDOM', () => {
         return element;
       });
       
-      // 새로운 인스턴스 생성
+      // Create new instance
       const newEditorViewDOM = new EditorViewDOM(mockEditor, {
         container: newContainer
       });
       
-      // content layer에 이벤트 리스너가 등록되었는지 확인
+      // Verify event listener is registered on content layer
       expect(newEditorViewDOM.layers.content).toBeDefined();
       expect(newEditorViewDOM.layers.content.contentEditable).toBe('true');
       
-      // 정리
+      // Cleanup
       newEditorViewDOM.destroy();
       document.body.removeChild(newContainer);
       vi.restoreAllMocks();
@@ -90,7 +90,7 @@ describe('EditorViewDOM', () => {
 
       editorViewDOM.layers.content.dispatchEvent(event);
       
-      // 이벤트가 처리되었는지 확인 (에러가 발생하지 않으면 성공)
+      // Verify event is processed (success if no error occurs)
       expect(true).toBe(true);
     });
 
@@ -104,7 +104,7 @@ describe('EditorViewDOM', () => {
 
       editorViewDOM.layers.content.dispatchEvent(event);
       
-      // 이벤트가 처리되었는지 확인 (에러가 발생하지 않으면 성공)
+      // Verify event is processed (success if no error occurs)
       expect(true).toBe(true);
     });
 
@@ -117,7 +117,7 @@ describe('EditorViewDOM', () => {
 
       editorViewDOM.layers.content.dispatchEvent(event);
       
-      // 이벤트가 처리되었는지 확인 (에러가 발생하지 않으면 성공)
+      // Verify event is processed (success if no error occurs)
       expect(true).toBe(true);
     });
   });
@@ -126,32 +126,32 @@ describe('EditorViewDOM', () => {
     it('insertText 명령이 올바르게 실행되어야 함', () => {
       const result = editorViewDOM.insertText('test text');
       
-      expect(result).toBeUndefined(); // void 메서드
+      expect(result).toBeUndefined(); // void method
       expect(editorViewDOM.layers.content.textContent).toContain('test text');
     });
 
     it('insertParagraph 명령이 올바르게 실행되어야 함', () => {
       const result = editorViewDOM.insertParagraph();
       
-      expect(result).toBeUndefined(); // void 메서드
+      expect(result).toBeUndefined(); // void method
     });
 
     it('deleteSelection 명령이 올바르게 실행되어야 함', () => {
       const result = editorViewDOM.deleteSelection();
       
-      expect(result).toBeUndefined(); // void 메서드
+      expect(result).toBeUndefined(); // void method
     });
 
     it('historyUndo 명령이 올바르게 실행되어야 함', () => {
       const result = editorViewDOM.historyUndo();
       
-      expect(result).toBeUndefined(); // void 메서드
+      expect(result).toBeUndefined(); // void method
     });
 
     it('historyRedo 명령이 올바르게 실행되어야 함', () => {
       const result = editorViewDOM.historyRedo();
       
-      expect(result).toBeUndefined(); // void 메서드
+      expect(result).toBeUndefined(); // void method
     });
   });
 
@@ -159,19 +159,19 @@ describe('EditorViewDOM', () => {
     it('toggleBold 명령이 올바르게 실행되어야 함', () => {
       const result = editorViewDOM.toggleBold();
       
-      expect(result).toBeUndefined(); // void 메서드
+      expect(result).toBeUndefined(); // void method
     });
 
     it('toggleItalic 명령이 올바르게 실행되어야 함', () => {
       const result = editorViewDOM.toggleItalic();
       
-      expect(result).toBeUndefined(); // void 메서드
+      expect(result).toBeUndefined(); // void method
     });
 
     it('toggleUnderline 명령이 올바르게 실행되어야 함', () => {
       const result = editorViewDOM.toggleUnderline();
       
-      expect(result).toBeUndefined(); // void 메서드
+      expect(result).toBeUndefined(); // void method
     });
   });
 

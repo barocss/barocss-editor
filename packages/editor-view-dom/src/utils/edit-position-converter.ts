@@ -272,7 +272,7 @@ export function adjustDecoratorRanges(
           }
         };
       }
-      // 삽입만 있는 경우 또는 삭제가 decorator 범위 밖에서 끝나는 경우
+      // If only insertion or deletion ends outside decorator range
       return {
         ...decorator,
         target: {
@@ -282,11 +282,11 @@ export function adjustDecoratorRanges(
       };
     }
     
-    // 편집 위치가 decorator 범위 뒤에 있는 경우
-    // decorator 범위는 변경 없음
+    // If edit position is after decorator range
+    // Decorator range remains unchanged
     return decorator;
   }).filter(decorator => {
-    // 유효하지 않은 범위 제거
+    // Remove invalid ranges
     const { startOffset, endOffset } = decorator.target;
     return startOffset >= 0 && endOffset > startOffset;
   });
@@ -334,7 +334,7 @@ export function extractModelTextFromRange(
 ): string {
   const { startNodeId, startOffset, endNodeId, endOffset } = contentRange;
   
-  // 같은 노드인 경우
+  // Same node case
   if (startNodeId === endNodeId) {
     const node = dataStore.getNode(startNodeId);
     if (!node || typeof node.text !== 'string') return '';
@@ -342,21 +342,21 @@ export function extractModelTextFromRange(
     return text.substring(startOffset, endOffset);
   }
   
-  // 여러 노드에 걸친 경우
+  // Cross-node case
   let result = '';
   
-  // 시작 노드의 끝 부분
+  // End portion of start node
   const startNode = dataStore.getNode(startNodeId);
   if (startNode && typeof startNode.text === 'string') {
     const startText = startNode.text;
     result += startText.substring(startOffset);
   }
   
-  // 중간 노드들 (부모가 같은 경우 순회)
-  // TODO: 더 정확한 순회 로직 필요 (현재는 간단히 처리)
-  // 실제로는 dataStore에서 노드 간 관계를 확인해야 함
+  // Intermediate nodes (traverse if same parent)
+  // TODO: Need more accurate traversal logic (currently handled simply)
+  // Should actually check node relationships in dataStore
   
-  // 끝 노드의 시작 부분
+  // Start portion of end node
   const endNode = dataStore.getNode(endNodeId);
   if (endNode && typeof endNode.text === 'string') {
     const endText = endNode.text;
@@ -367,12 +367,12 @@ export function extractModelTextFromRange(
 }
 
 export function reconstructModelTextFromDOM(inlineTextNode: Element): string {
-  // buildTextRunIndex를 사용하여 모든 text node를 순회하고 합침
+  // Traverse and combine all text nodes using buildTextRunIndex
   const runs = buildTextRunIndex(inlineTextNode, undefined, {
-    normalizeWhitespace: false  // 공백도 그대로 유지
+    normalizeWhitespace: false  // Preserve whitespace as-is
   });
   
-  // 모든 text node의 텍스트를 순서대로 합침
+  // Combine all text node texts in order
   return runs.runs
     .map(run => run.domTextNode.textContent || '')
     .join('');
@@ -404,15 +404,15 @@ export function analyzeDOMEditAndAdjustRanges(
   const nodeId = inlineTextNode.getAttribute('data-bc-sid');
   if (!nodeId) return null;
   
-  // 1. DOM에서 실제 텍스트 재구성
+  // 1. Reconstruct actual text from DOM
   const newText = reconstructModelTextFromDOM(inlineTextNode);
   
   if (newText === oldModelText) {
-    // 변경 없음
+    // No change
     return null;
   }
   
-  // 2. 편집 위치 자동 감지 (LCS 알고리즘 사용)
+  // 2. Auto-detect edit position (using LCS algorithm)
   const selection = window.getSelection();
   let detectedEditPosition = editPosition;
   
@@ -430,12 +430,12 @@ export function analyzeDOMEditAndAdjustRanges(
     }
   }
   
-  // 편집 위치를 찾을 수 없으면 텍스트 변경 분석으로 추정
+  // If edit position cannot be found, estimate using text change analysis
   if (detectedEditPosition === undefined) {
-    // 간단한 휴리스틱: 텍스트 길이 차이로 추정
+    // Simple heuristic: estimate from text length difference
     const lengthDiff = newText.length - oldModelText.length;
     if (lengthDiff > 0) {
-      // 삽입: 새 텍스트가 더 길면, 공통 접두사 이후에 삽입된 것으로 간주
+      // Insertion: if new text is longer, consider inserted after common prefix
       let commonPrefix = 0;
       while (
         commonPrefix < oldModelText.length &&
@@ -446,7 +446,7 @@ export function analyzeDOMEditAndAdjustRanges(
       }
       detectedEditPosition = commonPrefix;
     } else {
-      // 삭제: 공통 접두사 이후에 삭제된 것으로 간주
+      // Deletion: consider deleted after common prefix
       let commonPrefix = 0;
       while (
         commonPrefix < oldModelText.length &&
@@ -459,7 +459,7 @@ export function analyzeDOMEditAndAdjustRanges(
     }
   }
   
-  // 3. 편집 정보 생성
+  // 3. Generate edit information
   const insertedLength = Math.max(0, newText.length - oldModelText.length);
   const deletedLength = Math.max(0, oldModelText.length - newText.length);
   const editType: 'insert' | 'delete' | 'replace' = 
@@ -476,28 +476,28 @@ export function analyzeDOMEditAndAdjustRanges(
     deletedLength
   };
   
-  // 4. Mark 범위 조정은 호출자가 제공해야 함 (editor.dataStore에서 marks 가져와야 함)
-  // 5. Decorator 범위 조정도 호출자가 제공해야 함 (editor.getDecorators()에서 가져와야 함)
+  // 4. Mark range adjustment must be provided by caller (get marks from editor.dataStore)
+  // 5. Decorator range adjustment must also be provided by caller (get from editor.getDecorators())
   
   return {
     newText,
-    adjustedMarks: [], // 호출자가 adjustMarkRanges로 조정해야 함
-    adjustedDecorators: [], // 호출자가 adjustDecoratorRanges로 조정해야 함
+    adjustedMarks: [], // Caller must adjust using adjustMarkRanges
+    adjustedDecorators: [], // Caller must adjust using adjustDecoratorRanges
     editInfo
   };
 }
 
 /**
- * 통합 편집 처리 함수
+ * Integrated edit processing function
  * 
- * inline-text 하위 DOM을 다시 분석하여 model text 재구성하고,
- * mark/decorator 범위를 자동으로 조정합니다.
+ * Re-analyzes inline-text sub-DOM to reconstruct model text,
+ * and automatically adjusts mark/decorator ranges.
  * 
- * @param textNode - 편집이 발생한 DOM text node
- * @param oldModelText - 편집 전 모델 텍스트
- * @param modelMarks - 현재 모델의 marks 배열
- * @param decorators - 현재 decorators 배열
- * @returns 모델 업데이트 정보
+ * @param textNode - DOM text node where edit occurred
+ * @param oldModelText - Model text before edit
+ * @param modelMarks - Current model's marks array
+ * @param decorators - Current decorators array
+ * @returns Model update information
  */
 export function handleContentEditableEdit(
   textNode: Text,
@@ -510,22 +510,22 @@ export function handleContentEditableEdit(
   adjustedDecorators: DecoratorRange[];
   editInfo: TextEdit;
 } | null {
-  // 1. inline-text 노드 찾기
+  // 1. Find inline-text node
   const inlineTextNode = findInlineTextNode(textNode);
   if (!inlineTextNode) return null;
   
   const nodeId = inlineTextNode.getAttribute('data-bc-sid');
   if (!nodeId) return null;
   
-  // 2. DOM에서 실제 텍스트 재구성 (편집 후)
+  // 2. Reconstruct actual text from DOM (after edit)
   const newText = reconstructModelTextFromDOM(inlineTextNode);
   
   if (newText === oldModelText) {
-    // 변경 없음
+    // No change
     return null;
   }
   
-  // 3. 편집 위치 파악 (Selection에서)
+  // 3. Determine edit position (from Selection)
   const selection = window.getSelection();
   let editPosition: number | undefined;
   
@@ -543,9 +543,9 @@ export function handleContentEditableEdit(
     }
   }
   
-  // 편집 위치를 찾을 수 없으면 텍스트 변경 분석으로 추정
+  // If edit position cannot be found, estimate from text change analysis
   if (editPosition === undefined) {
-    // 공통 접두사 찾기
+    // Find common prefix
     let commonPrefix = 0;
     while (
       commonPrefix < oldModelText.length &&
@@ -557,7 +557,7 @@ export function handleContentEditableEdit(
     editPosition = commonPrefix;
   }
   
-  // 4. 편집 정보 생성
+  // 4. Generate edit information
   const insertedLength = Math.max(0, newText.length - oldModelText.length);
   const deletedLength = Math.max(0, oldModelText.length - newText.length);
   const editType: 'insert' | 'delete' | 'replace' = 
@@ -574,10 +574,10 @@ export function handleContentEditableEdit(
     deletedLength
   };
   
-  // 5. Mark 범위 조정
+  // 5. Adjust mark ranges
   const adjustedMarks = adjustMarkRanges(modelMarks, editInfo);
   
-  // 6. Decorator 범위 조정
+  // 6. Adjust decorator ranges
   const adjustedDecorators = adjustDecoratorRanges(decorators, nodeId, editInfo);
   
   return {

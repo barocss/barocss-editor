@@ -97,7 +97,7 @@ export class SplitMergeOperations {
     newNode.sid = newNodeId;
     this.dataStore.setNode(newNode, false);
 
-    // 부모의 content 배열에 새 노드 추가
+    // Add new node to parent's content array
     if (node.parentId) {
       const parent = this.dataStore.getNode(node.parentId);
       if (parent && parent.content) {
@@ -143,12 +143,12 @@ export class SplitMergeOperations {
       throw new Error(`Right node is not a text node: ${rightNode.stype}`);
     }
 
-    // 텍스트 병합 (사전 뮤테이션 금지: 업데이트 값 계산 후 updateNode 사용)
+    // Merge text (no pre-mutation: calculate update value then use updateNode)
     const leftText = leftNode.text || '';
     const rightText = rightNode.text || '';
     const mergedText = leftText + rightText;
 
-    // 왼쪽 노드의 marks에 range가 없는 경우 range 추가
+    // Add range to left node's marks if range is missing
     if (leftNode.marks) {
       leftNode.marks = leftNode.marks.map(mark => ({
         ...mark,
@@ -156,7 +156,7 @@ export class SplitMergeOperations {
       }));
     }
 
-    // 마크 병합
+    // Merge marks
     if (rightNode.marks) {
       const leftTextLength = leftText.length;
       
@@ -175,10 +175,10 @@ export class SplitMergeOperations {
       }
     }
 
-    // 왼쪽 노드 업데이트 (updateNode 경로로만 기록)
+    // Update left node (record only through updateNode path)
     this.dataStore.updateNode(leftNodeId, { text: mergedText, marks: leftNode.marks } as Partial<INode>, false);
 
-    // 부모의 content 배열에서 오른쪽 노드 제거
+    // Remove right node from parent's content array
     if (leftNode.parentId) {
       const parent = this.dataStore.getNode(leftNode.parentId);
       if (parent && parent.content) {
@@ -191,7 +191,7 @@ export class SplitMergeOperations {
       }
     }
 
-    // 오른쪽 노드 제거
+    // Remove right node
     this.dataStore.deleteNode(rightNodeId);
 
     return leftNodeId;
@@ -230,7 +230,7 @@ export class SplitMergeOperations {
       throw new Error(`Split position must be between 0 and ${node.content.length}`);
     }
 
-    // 새 블록 노드 생성
+    // Create new block node
     const newNode: INode = {
       stype: node.stype,
       attributes: { ...node.attributes },
@@ -242,13 +242,13 @@ export class SplitMergeOperations {
     newNode.sid = newNodeId;
     this.dataStore.setNode(newNode, false);
 
-    // 자식 노드들을 분할
+    // Split child nodes
     const rightChildren = node.content.splice(splitPosition);
-    // 정책: 새 노드에 우측 자식들을 포함
+    // Policy: include right children in new node
     newNode.content = rightChildren;
     this.dataStore.updateNode(newNodeId, { content: rightChildren } as Partial<INode>, false);
 
-    // 오른쪽 자식들의 부모 ID 업데이트
+    // Update parent ID of right children
     for (const childId of rightChildren) {
       const child = this.dataStore.getNode(childId as string);
       if (child) {
@@ -256,10 +256,10 @@ export class SplitMergeOperations {
       }
     }
 
-    // 원본 노드 업데이트
+    // Update original node
     this.dataStore.updateNode(nodeId, { content: node.content } as Partial<INode>, false);
 
-    // 부모의 content 배열에 새 노드 추가
+    // Add new node to parent's content array
     if (node.parentId) {
       const parent = this.dataStore.getNode(node.parentId);
       if (parent && parent.content) {
@@ -301,7 +301,7 @@ export class SplitMergeOperations {
       throw new Error(`Cannot merge different node types: ${leftNode.stype} and ${rightNode.stype}`);
     }
 
-    // 오른쪽 노드의 자식들을 왼쪽 노드로 이동
+    // Move children from right node to left node
     if (rightNode.content && rightNode.content.length > 0) {
       if (!leftNode.content) {
         leftNode.content = [];
@@ -317,10 +317,10 @@ export class SplitMergeOperations {
       leftNode.content.push(...rightNode.content);
     }
 
-    // 왼쪽 노드 업데이트
+    // Update left node
     this.dataStore.updateNode(leftNodeId, { content: leftNode.content } as Partial<INode>, false);
 
-    // 오른쪽 노드 제거
+    // Remove right node
     this.dataStore.deleteNode(rightNodeId);
 
     return leftNodeId;
@@ -355,10 +355,10 @@ export class SplitMergeOperations {
       throw new Error(`Invalid range: ${startPosition}-${endPosition}`);
     }
 
-    // 첫 번째 분할: startPosition에서
+    // First split: at startPosition
     const firstSplitId = this.splitTextNode(nodeId, startPosition);
     
-    // 두 번째 분할: (endPosition - startPosition)에서
+    // Second split: at (endPosition - startPosition)
     const secondSplitId = this.splitTextNode(firstSplitId, endPosition - startPosition);
 
     return firstSplitId;
@@ -399,7 +399,7 @@ export class SplitMergeOperations {
 
     let mergedNodeId = nodeId;
 
-    // 왼쪽 노드들과 연속으로 병합
+    // Merge continuously with left nodes
     while (currentIndex > 0) {
       const leftNodeId = parent.content[currentIndex - 1];
       const leftNode = this.dataStore.getNode(leftNodeId as string);
@@ -418,7 +418,7 @@ export class SplitMergeOperations {
       }
     }
 
-    // 오른쪽 노드들과 연속으로 병합
+    // Merge continuously with right nodes
     while (true) {
       const currentParent = this.dataStore.getNode(node.parentId);
       if (!currentParent || !currentParent.content) {
@@ -478,7 +478,7 @@ export class SplitMergeOperations {
     const newText = text.substring(0, startPosition) + text.substring(endPosition);
     node.text = newText;
 
-    // 마크 범위 조정
+    // Adjust mark ranges
     if (node.marks) {
       node.marks = node.marks
         .map(mark => {
@@ -551,11 +551,11 @@ export class SplitMergeOperations {
     const replacedText = text.substring(startPosition, endPosition);
     const deltaLength = newText.length - (endPosition - startPosition);
 
-    // 텍스트 교체
+    // Replace text
     const updatedText = text.substring(0, startPosition) + newText + text.substring(endPosition);
     node.text = updatedText;
 
-    // 마크 범위 조정
+    // Adjust mark ranges
     if (node.marks) {
       node.marks = node.marks
         .map(mark => {
@@ -563,34 +563,34 @@ export class SplitMergeOperations {
 
           const [markStart, markEnd] = mark.range;
 
-          // 삭제 범위와 겹치는 마크 처리
+          // Handle marks overlapping with deletion range
           if (markStart < endPosition && markEnd > startPosition) {
             if (markStart >= startPosition && markEnd <= endPosition) {
-              // 마크가 완전히 교체 범위 내에 있는 경우 - 마크 제거
+              // Mark is completely within replacement range - remove mark
               return null;
             }
             else if (markStart < startPosition && markEnd > endPosition) {
-              // 마크가 교체 범위를 포함하는 경우 - 분할
+              // Mark contains replacement range - split
               return [
                 { ...mark, range: [markStart, startPosition] as [number, number] },
                 { ...mark, range: [startPosition + newText.length, markEnd - (endPosition - startPosition) + newText.length] as [number, number] }
               ];
             }
             else if (markStart < startPosition && markEnd <= endPosition) {
-              // 마크가 교체 범위 시작 이전에서 끝나는 경우
+              // Mark ends before replacement range start
               return { ...mark, range: [markStart, startPosition] as [number, number] };
             }
             else if (markStart >= startPosition && markEnd > endPosition) {
-              // 마크가 교체 범위 시작 이후에서 끝나는 경우
+              // Mark starts after replacement range start
               return { ...mark, range: [startPosition + newText.length, markEnd - (endPosition - startPosition) + newText.length] as [number, number] };
             }
           }
           else if (markStart >= endPosition) {
-            // 마크가 교체 범위 이후에 있는 경우 - 오프셋 조정
+            // Mark is after replacement range - adjust offset
             return { ...mark, range: [markStart + deltaLength, markEnd + deltaLength] as [number, number] };
           }
           else {
-            // 마크가 교체 범위 이전에 있는 경우 - 변경 없음
+            // Mark is before replacement range - no change
             return mark;
           }
         })
@@ -634,7 +634,7 @@ export class SplitMergeOperations {
     const newText = currentText.substring(0, position) + text + currentText.substring(position);
     node.text = newText;
 
-    // 마크 범위 조정
+    // Adjust mark ranges
     if (node.marks) {
       node.marks = node.marks.map(mark => {
         if (!mark.range) return mark;

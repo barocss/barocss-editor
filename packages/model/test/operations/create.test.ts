@@ -291,7 +291,7 @@ describe('create operation', () => {
            });
 
            it('should preserve selection when creating nested nodes', async () => {
-             // 기존 Selection 설정
+             // Set existing selection
              const initialSelection = { type: 'range' as const, startNodeId: 'existing-text', startOffset: 3, endNodeId: 'existing-text', endOffset: 7 };
              selectionManager.setSelection(initialSelection);
 
@@ -316,17 +316,17 @@ describe('create operation', () => {
               } }
              };
 
-             // Operation 실행
+             // Execute operation
              const createOperation = globalOperationRegistry.get('create');
              await createOperation!.execute(operation, context);
              
-             // Selection이 유지되었는지 확인
+             // Verify selection is preserved
              const finalSelection = selectionManager.getCurrentSelection();
              expect(finalSelection).toEqual(initialSelection);
            });
 
            it('should handle null selection gracefully', async () => {
-             // Selection이 없는 상태
+             // No selection state
              selectionManager.clearSelection();
 
             const operation = {
@@ -339,11 +339,11 @@ describe('create operation', () => {
               } }
              };
 
-             // Operation 실행
+             // Execute operation
              const createOperation = globalOperationRegistry.get('create');
              await createOperation!.execute(operation, context);
              
-             // Selection이 여전히 null인지 확인
+             // Verify selection is still null
              const finalSelection = selectionManager.getCurrentSelection();
              expect(finalSelection).toBeNull();
            });

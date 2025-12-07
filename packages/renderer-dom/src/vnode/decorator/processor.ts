@@ -195,8 +195,8 @@ export class DecoratorProcessor {
         }
       }
       
-      // 여러 decorator가 있을 때 before/after를 구분하여 처리
-      // 단일 decorator는 하위 호환성을 위해 decorator 필드에 저장
+      // When multiple decorators exist, distinguish before/after for processing
+      // Single decorator is stored in decorator field for backward compatibility
       const decorator = matchingDecorators.length > 0 ? matchingDecorators[0] : undefined;
       const decoratorsArray = matchingDecorators.length > 1 ? matchingDecorators : undefined;
       
@@ -236,10 +236,10 @@ export class DecoratorProcessor {
     }
     
     // Build decorator VNode without processing decorators (to avoid infinite recursion)
-    // define()으로 정의된 모든 것은 component만 가능하므로 getComponent()만 사용
+    // Everything defined with define() can only be components, so only use getComponent()
     const component = this.registry.getComponent?.(decorator.stype);
     if (!component) {
-      // Fallback: component가 없을 때는 div 사용 (defineDecorator에서 정의된 템플릿을 사용해야 함)
+      // Fallback: use div when component is missing (should use template defined in defineDecorator)
       console.warn(`Component not found for decorator type '${decorator.stype}', using fallback div`);
       const fallbackVNode = {
         tag: 'div',
@@ -259,32 +259,32 @@ export class DecoratorProcessor {
       return fallbackVNode;
     }
     
-    // component.template이 ContextualComponent 함수
+    // component.template is a ContextualComponent function
     const componentTemplate = component.template;
     let decoratorVNode: VNode;
     
     try {
-      // 중요: decorator를 빌드할 때는 decorators를 빈 배열로 전달하여 무한 재귀 방지
+      // Important: pass empty array for decorators when building decorator to prevent infinite recursion
       const buildOptionsWithoutDecorators = { decorators: [] };
       
       if (componentTemplate && typeof componentTemplate === 'function') {
-        // ContextualComponent 함수 실행: component(props, model, context)
-        const props = {};  // decorator는 props가 없음
+        // Execute ContextualComponent function: component(props, model, context)
+        const props = {};  // decorator has no props
         const model = decorator.data || {};
-        const minimalCtx = {} as any;  // decorator 빌드 시 context는 최소한으로
+        const minimalCtx = {} as any;  // minimal context when building decorator
         const elementTemplate = componentTemplate(props, model, minimalCtx) as ElementTemplate;
         
-        // Component 함수는 ElementTemplate을 반환해야 함
+        // Component function must return ElementTemplate
         if (elementTemplate && typeof elementTemplate === 'object' && elementTemplate.type === 'element') {
           decoratorVNode = buildElement(elementTemplate, model, buildOptionsWithoutDecorators);
-          // decorator identity 설정 in attrs (not top-level)
+          // Set decorator identity in attrs (not top-level)
           if (!decoratorVNode.attrs) decoratorVNode.attrs = {};
           if (decorator.sid) decoratorVNode.attrs['data-decorator-sid'] = decorator.sid;
           if (decorator.stype) decoratorVNode.attrs['data-decorator-stype'] = decorator.stype;
           if (decorator.category) decoratorVNode.attrs['data-decorator-category'] = decorator.category;
-          // position은 명시적으로 지정된 경우에만 설정
-          // inline decorator는 기본적으로 position이 없음 (overlay로 처리)
-          // block/layer decorator는 기본값 'after' 사용
+          // position is only set when explicitly specified
+          // inline decorator has no position by default (handled as overlay)
+          // block/layer decorator uses default 'after'
           if (decorator.position) {
             decoratorVNode.attrs['data-decorator-position'] = decorator.position;
           } else if (decorator.category === 'block' || decorator.category === 'layer') {
@@ -294,7 +294,7 @@ export class DecoratorProcessor {
           throw new Error(`Component '${decorator.stype}' must return an ElementTemplate`);
         }
       } else {
-        // template이 함수가 아닐 때 fallback
+        // Fallback when template is not a function
         decoratorVNode = {
           tag: 'div',
           attrs: {},
@@ -305,9 +305,9 @@ export class DecoratorProcessor {
         if (decorator.sid) decoratorVNode.attrs!['data-decorator-sid'] = decorator.sid;
         if (decorator.stype) decoratorVNode.attrs!['data-decorator-stype'] = decorator.stype;
         if (decorator.category) decoratorVNode.attrs!['data-decorator-category'] = decorator.category;
-        // position은 명시적으로 지정된 경우에만 설정
-        // inline decorator는 기본적으로 position이 없음 (overlay로 처리)
-        // block/layer decorator는 기본값 'after' 사용
+        // position is only set when explicitly specified
+        // inline decorator has no position by default (handled as overlay)
+        // block/layer decorator uses default 'after'
         if (decorator.position) {
           decoratorVNode.attrs!['data-decorator-position'] = decorator.position;
         } else if (decorator.category === 'block' || decorator.category === 'layer') {
@@ -316,7 +316,7 @@ export class DecoratorProcessor {
       }
     } catch (error) {
       console.error('Error building decorator VNode:', error, decorator);
-      // inline decorator는 <span>으로, block/layer는 <div>로
+      // inline decorator as <span>, block/layer as <div>
       const defaultTag = decorator.category === 'inline' ? 'span' : 'div';
       const errorVNode = {
         tag: defaultTag,
@@ -337,8 +337,8 @@ export class DecoratorProcessor {
     }
     
     // Store decorator identity information in attrs (not top-level)
-    // Reconciler는 attrs를 그대로 DOM에 복사하므로, 여기서 attrs에 설정하면 DOM으로 전달됨
-    // 이미 설정된 경우 건너뛰기 (위에서 이미 설정했을 수 있음)
+    // Reconciler copies attrs directly to DOM, so setting attrs here passes to DOM
+    // Skip if already set (may have been set above)
     if (!decoratorVNode.attrs) decoratorVNode.attrs = {};
     if (!decoratorVNode.attrs['data-decorator-sid'] && decorator.sid) {
       decoratorVNode.attrs['data-decorator-sid'] = decorator.sid;
@@ -349,9 +349,9 @@ export class DecoratorProcessor {
     if (!decoratorVNode.attrs['data-decorator-category'] && decorator.category) {
       decoratorVNode.attrs['data-decorator-category'] = decorator.category;
     }
-    // position은 명시적으로 지정된 경우에만 설정
-    // inline decorator는 기본적으로 position이 없음 (overlay로 처리)
-    // block/layer decorator는 기본값 'after' 사용
+    // position is only set when explicitly specified
+    // inline decorator has no position by default (handled as overlay)
+    // block/layer decorator uses default 'after'
     if (!decoratorVNode.attrs['data-decorator-position']) {
       if (decorator.position) {
         decoratorVNode.attrs['data-decorator-position'] = decorator.position;

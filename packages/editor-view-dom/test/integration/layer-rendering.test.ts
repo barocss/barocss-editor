@@ -22,12 +22,12 @@ describe('Layer별 렌더링', () => {
     
     registry = getGlobalRegistry();
     
-    // 기본 노드 타입 정의 (element() 사용, registry는 전달하지 않음 - globalRegistry에 자동 등록)
+    // Define basic node types (using element(), registry not passed - automatically registered to globalRegistry)
     define('document', element('div', { className: 'document' }, [slot('content')]));
     define('paragraph', element('p', { className: 'paragraph' }, [slot('content')]));
     define('inline-text', element('span', { className: 'inline-text' }, [data('text')]));
     
-    // Decorator 타입 정의 (registry는 전달하지 않음)
+    // Define Decorator types (registry not passed)
     defineDecorator('cursor', element('div', {
       className: 'cursor',
       style: { position: 'absolute', width: '2px', height: '18px', background: 'blue' }
@@ -41,7 +41,7 @@ describe('Layer별 렌더링', () => {
     editor = new Editor({ dataStore: new DataStore() });
     view = new EditorViewDOM(editor, { container, registry });
     
-    // Decorator 타입 등록
+    // Register Decorator types
     view.defineDecoratorType('cursor', 'layer', {
       description: 'Cursor decorator'
     });
@@ -52,7 +52,7 @@ describe('Layer별 렌더링', () => {
   });
 
   it('Content 레이어 먼저 렌더링되어야 함', async () => {
-    // 테스트용 데이터 직접 생성 (editor.loadDocument() 의존성 제거)
+    // Create test data directly (remove dependency on editor.loadDocument())
     const tree = {
       sid: 'doc1',
       stype: 'document',
@@ -71,13 +71,13 @@ describe('Layer별 렌더링', () => {
       ]
     };
     
-    // render() 직접 호출하여 content 렌더링 테스트
+    // Call render() directly to test content rendering
     view.render(tree);
     
-    // requestAnimationFrame 완료 대기 (decorator 레이어 렌더링용, 이 테스트에서는 필요 없지만 일관성을 위해)
+    // Wait for requestAnimationFrame to complete (for decorator layer rendering, not needed in this test but for consistency)
     await new Promise(resolve => requestAnimationFrame(resolve));
     
-    // Content 레이어에 내용이 렌더링되어야 함
+    // Content should be rendered in Content layer
     expectHTML(
       view.layers.content,
       `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">
@@ -92,7 +92,7 @@ describe('Layer별 렌더링', () => {
   });
 
   it('Layer decorator는 decorator 레이어에 렌더링되어야 함', async () => {
-    // 테스트용 데이터 직접 생성
+    // Create test data directly
     const tree = {
       sid: 'doc1',
       stype: 'document',
@@ -111,11 +111,11 @@ describe('Layer별 렌더링', () => {
       ]
     };
     
-    // 1. Content 먼저 렌더링 (decorator 위치 계산을 위해 필요)
+    // 1. Render Content first (needed for decorator position calculation)
     view.render(tree);
     await new Promise(resolve => requestAnimationFrame(resolve));
     
-    // 2. Layer decorator 추가 (addDecorator가 자동으로 render() 호출)
+    // 2. Add Layer decorator (addDecorator automatically calls render())
     view.addDecorator({
       sid: 'cursor-1',
       stype: 'cursor',
@@ -126,10 +126,10 @@ describe('Layer별 렌더링', () => {
       }
     });
     
-    // 3. requestAnimationFrame 완료 대기 (decorator 레이어 렌더링)
+    // 3. Wait for requestAnimationFrame to complete (decorator layer rendering)
     await new Promise(resolve => requestAnimationFrame(resolve));
     
-    // 4. Decorator 레이어에 cursor가 렌더링되어야 함
+    // 4. Cursor should be rendered in Decorator layer
     expectHTML(
       view.layers.decorator,
       `<div class="barocss-editor-decorators" data-bc-layer="decorator" style="position: absolute; top: 0px; left: 0px; right: 0px; bottom: 0px; pointer-events: none; z-index: 10;">
@@ -147,7 +147,7 @@ describe('Layer별 렌더링', () => {
   });
 
   it('Inline decorator는 content 레이어에만 렌더링되어야 함', async () => {
-    // 테스트용 데이터 직접 생성
+    // Create test data directly
     const tree = {
       sid: 'doc1',
       stype: 'document',
@@ -166,11 +166,11 @@ describe('Layer별 렌더링', () => {
       ]
     };
     
-    // 1. Content 먼저 렌더링 (inline decorator가 content 레이어에 렌더링되므로 필요)
+    // 1. Render Content first (needed because inline decorator is rendered in content layer)
     view.render(tree);
     await new Promise(resolve => requestAnimationFrame(resolve));
     
-    // 2. Inline decorator 추가 (addDecorator가 자동으로 render() 호출)
+    // 2. Add Inline decorator (addDecorator automatically calls render())
     view.addDecorator({
       sid: 'highlight-1',
       stype: 'highlight',
@@ -184,11 +184,11 @@ describe('Layer별 렌더링', () => {
       data: { color: 'yellow' }
     });
     
-    // 3. requestAnimationFrame 완료 대기 (content 레이어 재렌더링)
+    // 3. Wait for requestAnimationFrame to complete (content layer re-rendering)
     await new Promise(resolve => requestAnimationFrame(resolve));
     
-    // 4. Content 레이어에 highlight가 렌더링되어야 함 (inline decorator는 content 레이어 내부에 렌더링됨)
-    // 실제 렌더링 구조: inline decorator는 content 레이어 내부에 직접 렌더링됨
+    // 4. Highlight should be rendered in Content layer (inline decorator is rendered inside content layer)
+    // Actual rendering structure: inline decorator is rendered directly inside content layer
     expectHTML(
       view.layers.content,
       `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">
@@ -204,7 +204,7 @@ describe('Layer별 렌더링', () => {
       expect
     );
     
-    // 5. 다른 레이어에는 inline decorator가 없어야 함
+    // 5. Inline decorator should not exist in other layers
     expectHTML(
       view.layers.decorator,
       `<div 
@@ -217,7 +217,7 @@ describe('Layer별 렌더링', () => {
   });
 
   it('여러 레이어에 decorator가 동시에 렌더링되어야 함', async () => {
-    // 테스트용 데이터 직접 생성
+    // Create test data directly
     const tree = {
       sid: 'doc1',
       stype: 'document',
@@ -236,11 +236,11 @@ describe('Layer별 렌더링', () => {
       ]
     };
     
-    // 1. Content 먼저 렌더링
+    // 1. Render Content first
     view.render(tree);
     await new Promise(resolve => requestAnimationFrame(resolve));
     
-    // 2. 여러 레이어에 decorator 추가 (addDecorator가 자동으로 render() 호출)
+    // 2. Add decorators to multiple layers (addDecorator automatically calls render())
     view.addDecorator({
       sid: 'cursor-1',
       stype: 'cursor',
@@ -264,11 +264,11 @@ describe('Layer별 렌더링', () => {
       data: { color: 'yellow' }
     });
     
-    // 3. requestAnimationFrame 완료 대기 (모든 레이어 렌더링)
+    // 3. Wait for requestAnimationFrame to complete (all layers rendering)
     await new Promise(resolve => requestAnimationFrame(resolve));
     
-    // 4. Content 레이어에 inline decorator가 렌더링되어야 함
-    // 실제 렌더링 구조: inline decorator는 content 레이어 내부에 직접 렌더링됨
+    // 4. Inline decorator should be rendered in Content layer
+    // Actual rendering structure: inline decorator is rendered directly inside content layer
     expectHTML(
       view.layers.content,
       `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">
@@ -284,7 +284,7 @@ describe('Layer별 렌더링', () => {
       expect
     );
     
-    // 5. Decorator 레이어에 layer decorator가 렌더링되어야 함
+    // 5. Layer decorator should be rendered in Decorator layer
     expectHTML(
       view.layers.decorator,
       `<div 

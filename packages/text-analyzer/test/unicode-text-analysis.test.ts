@@ -97,11 +97,11 @@ describe('Unicode Text Analysis', () => {
       });
     });
 
-    it('복합 이모지가 올바르게 처리되어야 함', () => {
+    it('should handle composite emoji correctly', () => {
       const changes = analyzeTextChanges({
         oldText: '👨‍👩‍👧‍👦',
         newText: '👨‍👩‍👧‍👦 family',
-        selectionOffset: 11, // 이모지 끝
+        selectionOffset: 11, // End of emoji
         selectionLength: 0
       });
 
@@ -115,12 +115,12 @@ describe('Unicode Text Analysis', () => {
       });
     });
 
-    it('이모지 수정이 올바르게 처리되어야 함', () => {
+    it('should handle emoji modification correctly', () => {
       const changes = analyzeTextChanges({
         oldText: 'Hello 👋',
         newText: 'Hello 🎉',
         selectionOffset: 6,
-        selectionLength: 2 // 이모지 선택
+        selectionLength: 2 // Emoji selected
       });
 
       expect(changes).toHaveLength(1);
@@ -260,39 +260,39 @@ describe('Unicode Text Analysis', () => {
         type: 'replace',
         start: 6,
         end: 8,
-        text: expect.any(String), // 이모지가 JSDOM에서 깨질 수 있음
+        text: expect.any(String), // Emoji may break in JSDOM
         confidence: expect.any(Number)
       });
     });
   });
 
   describe('복합 문자 경계 안전성', () => {
-    it('이모지 중간에서 분할하지 않아야 함', () => {
+    it('should not split at middle of emoji', () => {
       const changes = analyzeTextChanges({
         oldText: '👨‍👩‍👧‍👦',
         newText: '👨‍👩‍👧‍👦',
-        selectionOffset: 5, // 이모지 중간
+        selectionOffset: 5, // Middle of emoji
         selectionLength: 0
       });
 
-      // 동일한 텍스트이므로 변경사항 없음
+      // No changes as text is identical
       expect(changes).toHaveLength(0);
     });
 
-    it('결합 문자 중간에서 분할하지 않아야 함', () => {
+    it('should not split at middle of combining character', () => {
       const changes = analyzeTextChanges({
         oldText: 'café',
         newText: 'café',
-        selectionOffset: 3, // e와 ́ 사이
+        selectionOffset: 3, // Between e and ́
         selectionLength: 0
       });
 
-      // 동일한 텍스트이므로 변경사항 없음
+      // No changes as text is identical
       expect(changes).toHaveLength(0);
     });
   });
 
-  describe('성능 테스트', () => {
+  describe('Performance test', () => {
     it('긴 유니코드 텍스트를 효율적으로 처리해야 함', () => {
       const longText = '👨‍👩‍👧‍👦'.repeat(1000);
       const modifiedText = longText + ' world';
@@ -308,10 +308,10 @@ describe('Unicode Text Analysis', () => {
 
       expect(changes).toHaveLength(1);
       expect(changes[0].type).toBe('insert');
-      expect(end - start).toBeLessThan(50); // 50ms 이내
+      expect(end - start).toBeLessThan(50); // Within 50ms
     });
 
-    it('복잡한 유니코드 조합을 효율적으로 처리해야 함', () => {
+    it('should efficiently handle complex unicode combinations', () => {
       const complexText = 'café 👨‍👩‍👧‍👦 مرحبا שלום'.repeat(100);
       const modifiedText = complexText + ' world';
       
@@ -326,7 +326,7 @@ describe('Unicode Text Analysis', () => {
 
       expect(changes).toHaveLength(1);
       expect(changes[0].type).toBe('insert');
-      expect(end - start).toBeLessThan(100); // 100ms 이내
+      expect(end - start).toBeLessThan(100); // Within 100ms
     });
   });
 });

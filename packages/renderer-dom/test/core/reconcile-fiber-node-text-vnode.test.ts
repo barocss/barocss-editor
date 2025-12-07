@@ -1,8 +1,8 @@
 /**
- * reconcileFiberNode - Text VNode 처리 테스트
+ * reconcileFiberNode - Text VNode Handling Test
  * 
- * mark wrapper 내부의 span wrapper가 text VNode를 children으로 가질 때
- * reconcileFiberNode가 어떻게 처리하는지 검증
+ * Verifies how reconcileFiberNode handles when a span wrapper inside a mark wrapper
+ * has a text VNode as children
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
@@ -34,7 +34,7 @@ describe('reconcileFiberNode - Text VNode Handling', () => {
   });
 
   it('should handle text VNode child in span wrapper', () => {
-    // VNode 구조:
+    // VNode structure:
     // span wrapper (span)
     //   -> text VNode (text: "yellow background")
     
@@ -50,7 +50,7 @@ describe('reconcileFiberNode - Text VNode Handling', () => {
       children: [textVNode]
     };
 
-    // DOM에 초기 구조 생성
+    // Create initial structure in DOM
     const spanEl = document.createElement('span');
     const textNode = document.createTextNode('yellow background');
     spanEl.appendChild(textNode);
@@ -69,25 +69,25 @@ describe('reconcileFiberNode - Text VNode Handling', () => {
       }
     };
 
-    // Fiber 생성
+    // Create Fiber
     const fiber = createFiberTree(container, spanWrapper, prevVNode, {});
 
-    // reconcileFiberNode 호출
+    // Call reconcileFiberNode
     reconcileFiberNode(fiber, deps, {});
 
-    // span wrapper의 domElement 확인
+    // Verify span wrapper's domElement
     expect(fiber.domElement).toBe(spanEl);
 
-    // text VNode Fiber 찾기
+    // Find text VNode Fiber
     const textVNodeFiber = fiber.child;
     expect(textVNodeFiber).toBeTruthy();
     expect(textVNodeFiber?.vnode.text).toBe('yellow background');
 
-    // text VNode Fiber reconcile
+    // Reconcile text VNode Fiber
     if (textVNodeFiber) {
       reconcileFiberNode(textVNodeFiber, deps, {});
       
-      // 텍스트 노드가 올바르게 처리되었는지 확인
+      // Verify text node is processed correctly
       expect(spanEl.textContent).toBe('yellow background');
       expect(spanEl.childNodes.length).toBe(1);
       expect(spanEl.firstChild).toBe(textNode);

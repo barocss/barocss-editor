@@ -42,7 +42,7 @@ describe('DataStore Content Manipulation Functions', () => {
     });
     dataStore = new DataStore(undefined, schema);
 
-    // 테스트용 기본 구조 생성
+    // Create base structure for testing
     const parent: INode = {
       sid: 'parent',
       stype: 'paragraph',
@@ -81,13 +81,13 @@ describe('DataStore Content Manipulation Functions', () => {
       const addedIds = dataStore.addChildren('parent', newChildren);
 
       expect(addedIds).toHaveLength(2);
-      expect(addedIds[0]).toMatch(/^\d+:\d+$/); // 피그마 스타일 ID
+      expect(addedIds[0]).toMatch(/^\d+:\d+$/); // Figma-style ID
       expect(addedIds[1]).toMatch(/^\d+:\d+$/);
 
       const updatedParent = dataStore.getNode('parent');
-      expect(updatedParent!.content).toHaveLength(4); // 기존 2개 + 새로 추가된 2개
+      expect(updatedParent!.content).toHaveLength(4); // Existing 2 + newly added 2
 
-      // 새로 추가된 노드들 확인
+      // Verify newly added nodes
       const newChild1 = dataStore.getNode(addedIds[0]);
       const newChild2 = dataStore.getNode(addedIds[1]);
       expect(newChild1!.text).toBe('New Child 1');
@@ -115,8 +115,8 @@ describe('DataStore Content Manipulation Functions', () => {
       const addedIds = dataStore.addChildren('parent', mixedChildren);
 
       expect(addedIds).toHaveLength(2);
-      expect(addedIds[0]).toMatch(/^\d+:\d+$/); // 새로 생성된 노드
-      expect(addedIds[1]).toBe('existing-child'); // 기존 노드 ID
+      expect(addedIds[0]).toMatch(/^\d+:\d+$/); // Newly created node
+      expect(addedIds[1]).toBe('existing-child'); // Existing node ID
 
       const updatedParent = dataStore.getNode('parent');
       expect(updatedParent!.content).toHaveLength(4);
@@ -128,14 +128,14 @@ describe('DataStore Content Manipulation Functions', () => {
         { stype: 'inline-text', text: 'Inserted Child 2', attributes: { class: 'inserted-2' } }
       ];
 
-      dataStore.addChildren('parent', newChildren, 1); // 두 번째 위치에 삽입
+      dataStore.addChildren('parent', newChildren, 1); // Insert at second position
 
       const updatedParent = dataStore.getNode('parent');
       expect(updatedParent!.content).toHaveLength(4);
-      expect(updatedParent!.content[0]).toBe('child-1'); // 기존 첫 번째
-      expect(updatedParent!.content[1]).toMatch(/^\d+:\d+$/); // 새로 삽입된 첫 번째
-      expect(updatedParent!.content[2]).toMatch(/^\d+:\d+$/); // 새로 삽입된 두 번째
-      expect(updatedParent!.content[3]).toBe('child-2'); // 기존 두 번째
+      expect(updatedParent!.content[0]).toBe('child-1'); // Existing first
+      expect(updatedParent!.content[1]).toMatch(/^\d+:\d+$/); // Newly inserted first
+      expect(updatedParent!.content[2]).toMatch(/^\d+:\d+$/); // Newly inserted second
+      expect(updatedParent!.content[3]).toBe('child-2'); // Existing second
     });
 
     it('should add children at end when position not specified', () => {
@@ -182,7 +182,7 @@ describe('DataStore Content Manipulation Functions', () => {
       const updatedParent = dataStore.getNode('parent');
       expect(updatedParent!.content).toHaveLength(0);
 
-      // 자식 노드들이 여전히 존재하는지 확인 (removeChild는 노드를 삭제하지 않음)
+      // Verify child nodes still exist (removeChild does not delete nodes)
       expect(dataStore.getNode('child-1')).toBeDefined();
       expect(dataStore.getNode('child-2')).toBeDefined();
     });
@@ -205,13 +205,13 @@ describe('DataStore Content Manipulation Functions', () => {
     });
 
     it('should handle non-existent children gracefully', () => {
-      // removeChild는 존재하지 않는 자식을 제거하려고 해도 에러를 던지지 않음
+      // removeChild does not throw error even when trying to remove non-existent child
       expect(() => {
         dataStore.removeChildren('parent', ['non-existent-child']);
       }).not.toThrow();
 
       const updatedParent = dataStore.getNode('parent');
-      expect(updatedParent!.content).toHaveLength(2); // 변경 없음
+      expect(updatedParent!.content).toHaveLength(2); // Unchanged
     });
 
     it('should throw error if parent not found', () => {
@@ -245,7 +245,7 @@ describe('DataStore Content Manipulation Functions', () => {
       expect(newParent!.content).toContain('child-1');
       expect(newParent!.content).toContain('child-2');
 
-      // 자식 노드들의 parentId 업데이트 확인
+      // Verify parentId update of child nodes
       const movedChild1 = dataStore.getNode('child-1');
       const movedChild2 = dataStore.getNode('child-2');
       expect(movedChild1!.parentId).toBe('parent-2');
@@ -313,7 +313,7 @@ describe('DataStore Content Manipulation Functions', () => {
 
   describe('Integration with existing functions', () => {
     it('should work with addChild and removeChild', () => {
-      // addChildren으로 추가
+      // Add with addChildren
       const addedIds = dataStore.addChildren('parent', [
         { stype: 'inline-text', text: 'Added Child', attributes: { class: 'added' } }
       ]);
@@ -321,7 +321,7 @@ describe('DataStore Content Manipulation Functions', () => {
       expect(addedIds).toHaveLength(1);
       expect(dataStore.getChildCount('parent')).toBe(3);
 
-      // removeChildren으로 제거
+      // Remove with removeChildren
       dataStore.removeChildren('parent', [addedIds[0]]);
       expect(dataStore.getChildCount('parent')).toBe(2);
     });
@@ -329,7 +329,7 @@ describe('DataStore Content Manipulation Functions', () => {
     it('should maintain data integrity during batch operations', () => {
       const initialCount = dataStore.getChildCount('parent');
       
-      // 여러 자식 추가
+      // Add multiple children
       const addedIds = dataStore.addChildren('parent', [
         { stype: 'inline-text', text: 'Batch 1', attributes: { class: 'batch-1' } },
         { stype: 'inline-text', text: 'Batch 2', attributes: { class: 'batch-2' } }
@@ -337,11 +337,11 @@ describe('DataStore Content Manipulation Functions', () => {
 
       expect(dataStore.getChildCount('parent')).toBe(initialCount + 2);
 
-      // 일부만 제거
+      // Remove some
       dataStore.removeChildren('parent', [addedIds[0]]);
       expect(dataStore.getChildCount('parent')).toBe(initialCount + 1);
 
-      // 나머지 이동
+      // Move remaining
       const parent2: INode = {
         sid: 'parent-2',
         stype: 'paragraph',

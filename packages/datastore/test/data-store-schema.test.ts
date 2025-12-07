@@ -8,7 +8,7 @@ describe('DataStore Schema Integration', () => {
   let schema: Schema;
 
   beforeEach(() => {
-    // 테스트용 schema 생성
+    // Create schema for testing
     schema = new Schema('test-schema', {
       nodes: {
         'inline-text': {
@@ -75,7 +75,7 @@ describe('DataStore Schema Integration', () => {
       dataStore = new DataStore();
       dataStore.setActiveSchema(schema);
       
-      // schema가 등록되었는지 확인 (내부적으로 등록됨)
+      // Verify schema is registered (registered internally)
       expect(dataStore.getActiveSchema()).toBe(schema);
     });
   });
@@ -90,21 +90,21 @@ describe('DataStore Schema Integration', () => {
       const id2 = dataStore.generateId();
       
       expect(id1).not.toBe(id2);
-      expect(id1).toMatch(/^\d+:\d+$/); // 피그마 스타일: sessionId:counter
+      expect(id1).toMatch(/^\d+:\d+$/); // Figma-style: sessionId:counter
       expect(id2).toMatch(/^\d+:\d+$/);
     });
 
     it('should generate IDs with different sessions', () => {
-      // 세션 0으로 ID 생성
+      // Generate ID with session 0
       dataStore.setSessionId(0);
       const session0Id = dataStore.generateId();
       
-      // 세션 1로 변경 후 ID 생성
+      // Change to session 1 and generate ID
       dataStore.setSessionId(1);
       const session1Id = dataStore.generateId();
       
-      expect(session0Id).toMatch(/^0:\d+$/); // 세션 0
-      expect(session1Id).toMatch(/^1:\d+$/); // 세션 1
+      expect(session0Id).toMatch(/^0:\d+$/); // Session 0
+      expect(session1Id).toMatch(/^1:\d+$/); // Session 1
     });
 
     it('should auto-generate IDs in createNodeWithChildren', () => {
@@ -117,7 +117,7 @@ describe('DataStore Schema Integration', () => {
       const result = dataStore.createNodeWithChildren(nodeWithoutId);
       
       expect(result.sid).toBeDefined();
-      expect(result.sid).toMatch(/^\d+:\d+$/); // 피그마 스타일: sessionId:counter
+      expect(result.sid).toMatch(/^\d+:\d+$/); // Figma-style: sessionId:counter
     });
   });
 
@@ -329,7 +329,7 @@ describe('DataStore Schema Integration', () => {
     });
 
     it('should handle existing node references', () => {
-      // 먼저 기존 노드 생성
+      // First create existing node
       const existingNode: INode = {
         sid: 'existing-node-sid',
         stype: 'inline-text',
@@ -338,11 +338,11 @@ describe('DataStore Schema Integration', () => {
       };
       dataStore.setNode(existingNode, false);
 
-      // 기존 노드가 제대로 저장되었는지 확인
+      // Verify existing node is properly stored
       expect(dataStore.getNode('existing-node-sid')).toBeDefined();
 
-      // createNodeWithChildren은 중첩된 노드 객체 구조를 받아서 처리
-      // 기존 노드 ID를 직접 참조하는 것은 지원하지 않음
+      // createNodeWithChildren receives nested node object structure and processes it
+      // Direct reference to existing node IDs is not supported
       const nodeWithNestedStructure: INode = {
         stype: 'paragraph',
         content: [
@@ -359,7 +359,7 @@ describe('DataStore Schema Integration', () => {
       expect(result).toBeDefined();
       expect(result.stype).toBe('paragraph');
       expect(result.content).toHaveLength(1);
-      expect(typeof result.content![0]).toBe('string'); // ID로 변환됨
+      expect(typeof result.content![0]).toBe('string'); // Converted to ID
     });
 
     it('should preserve node attributes during creation', () => {

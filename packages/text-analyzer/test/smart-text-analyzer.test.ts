@@ -69,9 +69,9 @@ describe('Smart Text Analyzer', () => {
     });
   });
 
-  describe('Selection Bias 적용', () => {
+  describe('Selection Bias application', () => {
     it('should prefer changes near selection for ambiguous cases', () => {
-      // "aa" -> "aaa" 에서 selection이 끝에 있으면 끝에 삽입으로 감지
+      // In "aa" -> "aaa", if selection is at the end, detect as insertion at the end
       const changes = analyzeTextChanges({
         oldText: 'aa',
         newText: 'aaa',
@@ -107,7 +107,7 @@ describe('Smart Text Analyzer', () => {
         oldText: 'Hello beautiful world',
         newText: 'Hello world',
         selectionOffset: 8,
-        selectionLength: 5 // "tiful" 선택
+        selectionLength: 5 // "tiful" selected
       });
 
       expect(changes).toHaveLength(1);
@@ -155,12 +155,12 @@ describe('Smart Text Analyzer', () => {
         selectionLength: 0
       });
 
-      // 정규화 후 동일하므로 변경사항 없음
+      // No changes as they are identical after normalization
       expect(changes).toHaveLength(0);
     });
   });
 
-  describe('LCP/LCS 알고리즘', () => {
+  describe('LCP/LCS algorithm', () => {
     it('should find longest common prefix correctly', () => {
       const changes = analyzeTextChanges({
         oldText: 'The quick brown fox',
@@ -286,7 +286,7 @@ describe('Smart Text Analyzer', () => {
 
       expect(changes).toHaveLength(1);
       expect(changes[0].type).toBe('replace');
-      expect(end - start).toBeLessThan(100); // 100ms 이내
+      expect(end - start).toBeLessThan(100); // Within 100ms
     });
   });
 });

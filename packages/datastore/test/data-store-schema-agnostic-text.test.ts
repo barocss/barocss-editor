@@ -7,13 +7,13 @@ describe('Schema-agnostic text nodes (text presence only)', () => {
   let schema: Schema;
 
   beforeEach(() => {
-    // Custom schema: text 노드 타입 이름은 임의이지만 .text 필드만 있으면 텍스트로 취급
+    // Custom schema: text node type name is arbitrary, but if it has .text field, it's treated as text
     schema = new Schema('custom', {
       topNode: 'doc',
       nodes: {
         doc: { name: 'doc', group: 'document', content: 'block+' },
         p: { name: 'p', group: 'block', content: 'inline*' },
-        tnode: { name: 'tnode', group: 'inline' } // 텍스트 타입명은 tnode
+        tnode: { name: 'tnode', group: 'inline' } // Text type name is tnode
       },
       marks: {}
     });
@@ -33,7 +33,7 @@ describe('Schema-agnostic text nodes (text presence only)', () => {
     dataStore.begin();
     dataStore.replaceText({ stype: 'range' as const, startNodeId: 'a', startOffset: 0, endNodeId: 'a', endOffset: 5 }, 'Hi');
     const ops = dataStore.end();
-    // replaceText가 최소한 update 흐름을 탈 수 있도록 보장(구현에 따라 수집 방식이 다를 수 있어도 성공적으로 종료되어야 함)
+    // Ensure replaceText can at least take the update flow (should complete successfully even if collection method differs by implementation)
     expect(Array.isArray(ops)).toBe(true);
     dataStore.commit();
     const p1 = dataStore.getNode('p1')!;

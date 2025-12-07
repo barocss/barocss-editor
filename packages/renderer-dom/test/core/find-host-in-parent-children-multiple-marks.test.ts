@@ -1,7 +1,7 @@
 /**
  * Test for findHostInParentChildren with multiple mark wrappers
  * 
- * 문제: 여러 mark wrapper가 순차적으로 있을 때 두 번째 wrapper가 재사용되지 않음
+ * Issue: When multiple mark wrappers exist sequentially, the second wrapper is not reused
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
@@ -17,13 +17,13 @@ describe('findHostInParentChildren - Multiple Mark Wrappers', () => {
     parent = document.createElement('span');
     parent.setAttribute('data-bc-sid', 'text-1');
     
-    // 첫 번째 mark wrapper (bold)
+    // First mark wrapper (bold)
     boldWrapper = document.createElement('span');
     boldWrapper.className = 'mark-bold';
     boldWrapper.textContent = 'Hello';
     parent.appendChild(boldWrapper);
     
-    // 두 번째 mark wrapper (italic)
+    // Second mark wrapper (italic)
     italicWrapper = document.createElement('span');
     italicWrapper.className = 'mark-italic';
     italicWrapper.textContent = 'World';
@@ -96,7 +96,7 @@ describe('findHostInParentChildren - Multiple Mark Wrappers', () => {
       children: ['Beautiful']
     };
 
-    // prevVNode는 parent VNode (text-1)
+    // prevVNode is parent VNode (text-1)
     const prevVNode: VNode = {
       tag: 'span',
       children: [

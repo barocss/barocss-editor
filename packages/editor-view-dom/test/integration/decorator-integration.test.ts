@@ -23,13 +23,13 @@ describe('EditorViewDOM + renderer-dom Decorator Integration', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     
-    // 렌더러 등록 (renderer-dom 테스트와 동일한 패턴)
+    // Register renderers (same pattern as renderer-dom test)
     registry = getGlobalRegistry();
     define('document', element('div', { className: 'document' }, [slot('content')]));
     define('paragraph', element('p', { className: 'paragraph' }, [slot('content')]));
     define('inline-text', element('span', { className: 'text' }, [data('text')]));
     
-    // Decorator 템플릿 정의
+    // Define decorator templates
     defineDecorator('highlight', element('span', {
       className: 'highlight-decorator',
       style: { backgroundColor: 'yellow' }
@@ -49,10 +49,10 @@ describe('EditorViewDOM + renderer-dom Decorator Integration', () => {
     view = new EditorViewDOM(editor, { 
       container,
       autoRender: false,
-      registry // 렌더러 레지스트리 전달
+      registry // Pass renderer registry
     });
     
-    // Decorator 타입 정의 (선택적 - 검증을 원할 때만)
+    // Define decorator types (optional - only when validation is desired)
     view.defineDecoratorType('highlight', 'inline', {
       description: 'Highlight decorator',
       dataSchema: {
@@ -158,7 +158,7 @@ describe('EditorViewDOM + renderer-dom Decorator Integration', () => {
         ]
       };
 
-      // Decorator 추가
+      // Add decorator
       view.addDecorator({
         sid: 'd1',
         stype: 'highlight',
@@ -171,19 +171,19 @@ describe('EditorViewDOM + renderer-dom Decorator Integration', () => {
         data: { color: 'yellow' }
       });
 
-      // render 호출 전 decorator 확인
+      // Verify decorator before calling render
       const decorators = view.decoratorManager.getAll();
       expect(decorators).toHaveLength(1);
       expect(decorators[0].sid).toBe('d1');
 
-      // render 호출
+      // Call render
       view.render(tree);
       
-      // render 후에도 decorator가 유지되는지 확인
+      // Verify decorator is preserved after render
       const decoratorsAfter = view.decoratorManager.getAll();
       expect(decoratorsAfter).toHaveLength(1);
       
-      // 전체 렌더링 결과 확인
+      // Verify full rendering result
       expectHTML(
         view.layers.content,
         `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">
@@ -238,11 +238,11 @@ describe('EditorViewDOM + renderer-dom Decorator Integration', () => {
       const decorators = view.decoratorManager.getAll();
       expect(decorators).toHaveLength(2);
       
-      // 렌더링 및 전체 결과 확인
+      // Verify rendering and full result
       view.render(tree);
       
-      // 참고: DecoratorRenderer가 별도로 처리하므로 실제 구조가 다를 수 있음
-      // 실제 결과를 확인하여 expectHTML 작성 필요
+      // Note: DecoratorRenderer handles separately, so actual structure may differ
+      // Need to check actual result to write expectHTML
       const html = view.layers.content.innerHTML;
       expect(html).toContain('data-bc-sid="doc1"');
       expect(html).toContain('data-bc-sid="p1"');
@@ -278,7 +278,7 @@ describe('EditorViewDOM + renderer-dom Decorator Integration', () => {
 
   describe('RemoteDecoratorManager 통합', () => {
     it('should collect local and remote decorators', () => {
-      // 로컬 decorator
+      // Local decorator
       view.addDecorator({
         sid: 'local-1',
         stype: 'highlight',
@@ -287,7 +287,7 @@ describe('EditorViewDOM + renderer-dom Decorator Integration', () => {
         data: {}
       });
 
-      // 원격 decorator
+      // Remote decorator
       view.remoteDecoratorManager.setRemoteDecorator(
         {
           sid: 'remote-1',

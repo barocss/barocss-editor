@@ -93,7 +93,7 @@ describe('DataStore Content Management Functions', () => {
       const ops = dataStore.end();
 
       expect(childId).toBeDefined();
-      expect(childId).toMatch(/^\d+:\d+$/); // 피그마 스타일 ID
+      expect(childId).toMatch(/^\d+:\d+$/); // Figma-style ID
 
       const updatedParent = dataStore.getNode('parent');
       expect(updatedParent!.content).toContain(childId);
@@ -111,7 +111,7 @@ describe('DataStore Content Management Functions', () => {
     });
 
     it('should add child at specific position', () => {
-      // 먼저 다른 자식 추가
+      // First add another child
       const child2 = {
         sid: 'child-2',
         stype: 'inline-text',
@@ -123,7 +123,7 @@ describe('DataStore Content Management Functions', () => {
       dataStore.addChild('parent', 'child-2');
       dataStore.end();
 
-      // 첫 번째 위치에 child 추가
+      // Add child at first position
       dataStore.begin();
       const childId = dataStore.addChild('parent', 'child', 0);
       dataStore.end();
@@ -160,7 +160,7 @@ describe('DataStore Content Management Functions', () => {
 
     it('should validate new child node object', () => {
       const invalidChild = {
-        stype: 'invalid-type', // schema에 정의되지 않은 타입
+        stype: 'invalid-type', // Type not defined in schema
         text: 'Invalid child'
       };
 
@@ -241,7 +241,7 @@ describe('DataStore Content Management Functions', () => {
       dataStore.removeChild('parent', 'non-existent');
 
       const updatedParent = dataStore.getNode('parent');
-      expect(updatedParent!.content).toHaveLength(2); // 변경되지 않음
+      expect(updatedParent!.content).toHaveLength(2); // Unchanged
     });
 
     it('should throw error if parent not found', () => {
@@ -251,7 +251,7 @@ describe('DataStore Content Management Functions', () => {
     });
 
     it('should handle non-existent child gracefully', () => {
-      // 존재하지 않는 자식을 제거해도 에러가 발생하지 않아야 함
+      // Should not throw error when removing non-existent child
       expect(() => {
         dataStore.removeChild('parent', 'non-existent');
       }).not.toThrow();
@@ -402,7 +402,7 @@ describe('DataStore Content Management Functions', () => {
     });
 
     it('should handle complex move operations', () => {
-      // text-1을 paragraph-2로 이동
+      // Move text-1 to paragraph-2
       dataStore.moveNode('text-1', 'paragraph-2');
 
       const updatedParagraph1 = dataStore.getNode('paragraph-1');
@@ -415,7 +415,7 @@ describe('DataStore Content Management Functions', () => {
     });
 
     it('should handle complex copy operations', () => {
-      // paragraph-1을 복사
+      // Copy paragraph-1
       const newParagraphId = dataStore.cloneNodeWithChildren('paragraph-1', 'document');
 
       const updatedDocument = dataStore.getNode('document');
@@ -427,10 +427,10 @@ describe('DataStore Content Management Functions', () => {
     });
 
     it('should handle reordering with moves', () => {
-      // text-1을 paragraph-2로 이동
+      // Move text-1 to paragraph-2
       dataStore.moveNode('text-1', 'paragraph-2');
       
-      // paragraph-2의 자식들 순서 변경
+      // Reorder children of paragraph-2
       dataStore.reorderChildren('paragraph-2', ['text-1', 'text-3']);
 
       const updatedParagraph2 = dataStore.getNode('paragraph-2');

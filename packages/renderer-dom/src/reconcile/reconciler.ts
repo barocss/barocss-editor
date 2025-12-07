@@ -183,7 +183,7 @@ export class Reconciler {
           __isReconciling: true
         };
         try {
-          // Fiber 기반 reconcile 사용
+          // Use Fiber-based reconcile
           const fiberDeps: FiberReconcileDependencies = {
             dom: this.dom,
             components: this.components,
@@ -199,24 +199,24 @@ export class Reconciler {
       __isReconciling: false
     };
     
-    // 모든 VNode를 루트 VNode의 children으로 처리
-    // reconcileWithFiber가 children을 순서대로 처리함
+    // Process all VNodes as children of root VNode
+    // reconcileWithFiber processes children in order
     const fiberDeps: FiberReconcileDependencies = {
       dom: this.dom,
       components: this.components,
       currentVisitedPortalIds: this.currentVisitedPortalIds,
       portalHostsById: this.portalHostsById,
       context: context,
-      prevRootFiber: null // reconcileRootVNode는 별도 rootFiber 유지하지 않음
+      prevRootFiber: null // reconcileRootVNode does not maintain separate rootFiber
     };
     
-    // 루트 VNode를 reconcileWithFiber로 처리
-    // 이렇게 하면 children이 순서대로 처리됨
+    // Process root VNode with reconcileWithFiber
+    // This ensures children are processed in order
     reconcileWithFiber(parent, rootVNode, undefined, context, fiberDeps);
   }
 
   private reconcileVNodesToDOM(parent: HTMLElement, newVNodes: VNode[], sidToModel: Map<string, ModelData>, context?: any): void {
-    // 기존 host 수집 (VNode 식별자 보유 자식)
+    // Collect existing hosts (children with VNode identifiers)
     const existingHosts = Array.from(parent.children).filter(
       (el): el is HTMLElement => 
         el instanceof HTMLElement && (
@@ -224,15 +224,15 @@ export class Reconciler {
         )
     ) as HTMLElement[];
     
-    // Fiber 완료 추적을 위한 카운터
+    // Counter for tracking Fiber completion
     let completedCount = 0;
     const totalCount = newVNodes.filter(v => v.sid || v.attrs?.['data-decorator-sid']).length;
-    // VNode 순서대로 host를 저장하기 위한 Map (index -> host)
+    // Map to store hosts in VNode order (index -> host)
     const nextHostsByIndex = new Map<number, HTMLElement>();
     
-    // 모든 Fiber 작업 완료 후 실행할 작업
+    // Task to execute after all Fiber work completes
     const onAllComplete = () => {
-      // VNode 순서대로 nextHosts 배열 구성
+      // Build nextHosts array in VNode order
       const nextHosts: HTMLElement[] = [];
       for (let i = 0; i < newVNodes.length; i++) {
         const host = nextHostsByIndex.get(i);
@@ -241,10 +241,10 @@ export class Reconciler {
         }
       }
       
-      // 순서 정렬 (host-only): nextHosts 배열의 순서대로 DOM에 배치
+      // Reorder (host-only): place in DOM according to nextHosts array order
       reorder(parent, nextHosts);
       
-      // 제거 (host-only): nextHosts에 없는 기존 host만 제거
+      // Remove (host-only): remove only existing hosts not in nextHosts
       const keepSet = new Set(nextHosts);
       for (const el of existingHosts) {
         if (!keepSet.has(el)) {
@@ -253,16 +253,16 @@ export class Reconciler {
       }
     };
     
-    // 각 VNode를 Fiber로 처리
+    // Process each VNode as Fiber
     for (let i = 0; i < newVNodes.length; i++) {
       const vnode = newVNodes[i];
       const sid = vnode.sid;
       if (!sid) continue; // Only process VNodes with sid (component-generated)
-      // reconcile context 구성
+      // Build reconcile context
       const reconcileContext = {
         registry: this.registry,
         builder: this.builder,
-        parent: parent, // parent를 직접 사용 (Fiber에서 host를 찾거나 생성)
+        parent: parent, // Use parent directly (Fiber finds or creates host)
         getComponent: (name: string) => {
           if (this.registry && typeof (this.registry as any).getComponent === 'function') {
             return (this.registry as any).getComponent(name);
@@ -275,38 +275,38 @@ export class Reconciler {
         __isReconciling: (context as any)?.__isReconciling || false
       };
       
-      // Fiber 기반 reconcile 사용
+      // Use Fiber-based reconcile
       const fiberDeps: FiberReconcileDependencies = {
         dom: this.dom,
         components: this.components,
         currentVisitedPortalIds: this.currentVisitedPortalIds,
         portalHostsById: this.portalHostsById,
-        rootModel: context?.dataStore?.getNode(sid), // model.text 처리를 위한 참조 (dataStore에서 가져옴)
-        rootSid: sid, // rootVNode의 sid (model.text 처리를 위해)
+        rootModel: context?.dataStore?.getNode(sid), // Reference for model.text processing (fetched from dataStore)
+        rootSid: sid, // sid of rootVNode (for model.text processing)
         context: reconcileContext,
-        prevRootFiber: null // reconcileVNodesToDOM은 별도 rootFiber 유지하지 않음
+        prevRootFiber: null // reconcileVNodesToDOM does not maintain separate rootFiber
       };
       
-      // VNode 인덱스 캡처
+      // Capture VNode index
       const vnodeIndex = i;
       
-      // Fiber 완료 콜백
+      // Fiber completion callback
       reconcileWithFiber(parent, vnode, undefined, reconcileContext, fiberDeps, () => {
         
-        // host 찾기 (Fiber reconcile 후에 DOM에 추가됨)
+        // Find host (added to DOM after Fiber reconcile)
         const host = vnode.meta?.domElement as HTMLElement | undefined;
         if (host) {
-          // VNode 순서대로 저장
+          // Store in VNode order
           nextHostsByIndex.set(vnodeIndex, host);
           
-          // 인스턴스 동기화
+          // Synchronize instance
           const inst = this.components.getComponentInstance(sid as any);
           if (inst) {
             inst.element = host;
           }
         }
         
-        // 모든 VNode 처리 완료 확인
+        // Verify all VNodes are processed
         completedCount++;
         if (completedCount === totalCount) {
           onAllComplete();
@@ -314,14 +314,14 @@ export class Reconciler {
       });
     }
     
-    // VNode가 없는 경우 즉시 완료 처리
+    // If no VNodes, complete immediately
     if (totalCount === 0) {
       onAllComplete();
     }
   }
 
-  // Note: reconcileVNodeChildren, processChildVNode, removeStale, unmountRoot, setRootContainer, reconcileRoot는 
-  // Fiber reconcile로 완전히 전환되어 제거됨
+  // Note: reconcileVNodeChildren, processChildVNode, removeStale, unmountRoot, setRootContainer, reconcileRoot are 
+  // completely replaced by Fiber reconcile and removed
 
 }
 

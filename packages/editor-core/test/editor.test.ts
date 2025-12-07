@@ -68,28 +68,28 @@ describe('Editor', () => {
       expect(context['test.key']).toBe(true);
     });
 
-    it('getContext(key)로 특정 key를 조회할 수 있어야 함', () => {
+    it('should be able to query specific key with getContext(key)', () => {
       editor.setContext('test.key', 'value');
       
-      // 특정 key 조회
+      // Query specific key
       const value = editor.getContext('test.key');
       expect(value).toBe('value');
       
-      // 존재하지 않는 key는 undefined 반환
+      // Return undefined for non-existent key
       const unknown = editor.getContext('unknown.key');
       expect(unknown).toBeUndefined();
     });
 
-    it('getContext()와 getContext(key) 모두 동작해야 함', () => {
+    it('both getContext() and getContext(key) should work', () => {
       editor.setContext('test.key1', 'value1');
       editor.setContext('test.key2', 'value2');
       
-      // 전체 context 조회
+      // Query entire context
       const context = editor.getContext();
       expect(context['test.key1']).toBe('value1');
       expect(context['test.key2']).toBe('value2');
       
-      // 특정 key 조회
+      // Query specific key
       expect(editor.getContext('test.key1')).toBe('value1');
       expect(editor.getContext('test.key2')).toBe('value2');
     });
@@ -107,18 +107,18 @@ describe('Editor', () => {
       });
     });
 
-    it('특정 key에 대한 이벤트만 구독할 수 있어야 함', () => {
+    it('should be able to subscribe to events for specific key only', () => {
       const listener1 = vi.fn();
       const listener2 = vi.fn();
       
-      // 특정 key만 구독
+      // Subscribe to specific key only
       editor.on('editor:context.change:test.key1', listener1);
       editor.on('editor:context.change:test.key2', listener2);
       
       editor.setContext('test.key1', 'value1');
       editor.setContext('test.key2', 'value2');
       
-      // listener1은 test.key1만 받음
+      // listener1 only receives test.key1
       expect(listener1).toHaveBeenCalledTimes(1);
       expect(listener1).toHaveBeenCalledWith({
         key: 'test.key1',
@@ -126,7 +126,7 @@ describe('Editor', () => {
         oldValue: undefined
       });
       
-      // listener2는 test.key2만 받음
+      // listener2 only receives test.key2
       expect(listener2).toHaveBeenCalledTimes(1);
       expect(listener2).toHaveBeenCalledWith({
         key: 'test.key2',
@@ -135,12 +135,12 @@ describe('Editor', () => {
       });
     });
 
-    it('onContextChange 편의 메서드로 특정 key만 구독할 수 있어야 함', () => {
+    it('should be able to subscribe to specific key only with onContextChange convenience method', () => {
       const listener = vi.fn();
       const unsubscribe = editor.onContextChange('test.key', listener);
       
       editor.setContext('test.key', 'value1');
-      editor.setContext('other.key', 'value2'); // 다른 key는 무시
+      editor.setContext('other.key', 'value2'); // Other keys are ignored
       editor.setContext('test.key', 'value3');
       
       expect(listener).toHaveBeenCalledTimes(2);
@@ -155,10 +155,10 @@ describe('Editor', () => {
         oldValue: 'value1'
       });
       
-      // unsubscribe 테스트
+      // Test unsubscribe
       unsubscribe();
       editor.setContext('test.key', 'value4');
-      expect(listener).toHaveBeenCalledTimes(2); // 더 이상 호출되지 않음
+      expect(listener).toHaveBeenCalledTimes(2); // No longer called
     });
 
     it('setContext command로 context를 설정할 수 있어야 함', async () => {
@@ -172,20 +172,20 @@ describe('Editor', () => {
       expect(context['test.key']).toBe('command-value');
     });
 
-    it('null 또는 undefined로 context key를 제거할 수 있어야 함', () => {
-      // Context key 설정
+    it('should be able to remove context key with null or undefined', () => {
+      // Set context key
       editor.setContext('test.key', 'value');
       expect(editor.getContext()['test.key']).toBe('value');
       
-      // null로 제거
+      // Remove with null
       editor.setContext('test.key', null);
       expect(editor.getContext()['test.key']).toBeUndefined();
       
-      // 다시 설정
+      // Set again
       editor.setContext('test.key', 'value2');
       expect(editor.getContext()['test.key']).toBe('value2');
       
-      // undefined로 제거
+      // Remove with undefined
       editor.setContext('test.key', undefined);
       expect(editor.getContext()['test.key']).toBeUndefined();
     });
@@ -363,7 +363,7 @@ describe('Editor Keybinding 등록', () => {
         ed.keybindings.register({
           key: 'Mod+b',
           command: 'testBold'
-          // source는 자동으로 'extension'
+          // source is automatically 'extension'
         });
       }
     }
@@ -395,7 +395,7 @@ describe('Editor Keybinding 등록', () => {
       extensions: [new TestExtension()]
     });
 
-    // User keybinding 등록 (setCurrentSource를 호출하지 않으면 자동으로 'user')
+    // Register User keybinding (automatically 'user' if setCurrentSource is not called)
     testEditor.keybindings.register({
       key: 'Mod+b',
       command: 'userBold'
@@ -406,19 +406,19 @@ describe('Editor Keybinding 등록', () => {
       editorEditable: true
     });
     expect(result).toHaveLength(2);
-    expect(result[0].command).toBe('userBold'); // user가 우선
+    expect(result[0].command).toBe('userBold'); // user takes priority
     expect(result[1].command).toBe('extensionBold'); // extension
   });
 
-  it('Extension이 source를 조작하려고 해도 무시되어야 함', () => {
+  it('should ignore Extension attempts to manipulate source', () => {
     class TestExtension implements Extension {
       name = 'test';
       onCreate(ed: Editor): void {
-        // Extension 등록 중에 source: 'user'를 지정해도 무시됨
+        // Even if source: 'user' is specified during Extension registration, it is ignored
         ed.keybindings.register({
           key: 'Mod+b',
           command: 'extensionBold',
-          source: 'user'  // 명시적으로 지정해도 무시됨
+          source: 'user'  // Explicitly specified but ignored
         });
       }
     }
@@ -427,7 +427,7 @@ describe('Editor Keybinding 등록', () => {
       extensions: [new TestExtension()]
     });
 
-    // User keybinding 등록
+    // Register User keybinding
     testEditor.keybindings.register({
       key: 'Mod+b',
       command: 'userBold'
@@ -438,7 +438,7 @@ describe('Editor Keybinding 등록', () => {
       editorEditable: true
     });
     expect(result).toHaveLength(2);
-    // user가 우선순위가 높아야 함
+    // user should have higher priority
     expect(result[0].command).toBe('userBold');
     expect(result[1].command).toBe('extensionBold');
   });

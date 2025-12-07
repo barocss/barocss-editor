@@ -266,82 +266,82 @@ function analyzeTextChangesWithSelection(
  * 
  * @example
  * ```typescript
- * isSafeCharacterSplit("👨‍👩‍👧‍👦", 2); // false (이모지 내부 - 분할하면 안됨)
- * isSafeCharacterSplit("café", 4); // true (é는 단일 문자 - 분할 가능)
- * isSafeCharacterSplit("cafe\u0301", 4); // false (e + 결합 문자 - 분할하면 안됨)
+ * isSafeCharacterSplit("👨‍👩‍👧‍👦", 2); // false (inside emoji - should not split)
+ * isSafeCharacterSplit("café", 4); // true (é is a single character - can split)
+ * isSafeCharacterSplit("cafe\u0301", 4); // false (e + combining mark - should not split)
  * ```
  */
 function isSafeCharacterSplit(text: string, index: number): boolean {
-  // 텍스트 경계는 항상 안전한 경계
+  // Text boundaries are always safe boundaries
   if (index <= 0 || index >= text.length) return true;
   
-  // 인덱스 앞뒤의 유니코드 코드 포인트 가져오기
+  // Get Unicode code points before and after index
   const before = text.codePointAt(index - 1);
   const after = text.codePointAt(index);
   
-  // 코드 포인트를 가져올 수 없으면 안전한 경계로 간주
+  // If code points cannot be obtained, consider as safe boundary
   if (!before || !after) return true;
   
-  // 서로게이트 페어 확인 (UTF-16에서 4바이트 유니코드 문자)
-  // High Surrogate (U+D800-U+DBFF): 4바이트 문자의 첫 번째 부분
+  // Check for surrogate pairs (4-byte Unicode characters in UTF-16)
+  // High Surrogate (U+D800-U+DBFF): first part of 4-byte character
   if (before >= 0xD800 && before <= 0xDBFF) return false;
-  // Low Surrogate (U+DC00-U+DFFF): 4바이트 문자의 두 번째 부분
+  // Low Surrogate (U+DC00-U+DFFF): second part of 4-byte character
   if (after >= 0xDC00 && after <= 0xDFFF) return false;
   
-  // 결합 문자 확인 (Combining Marks)
-  // U+0300-U+036F: Combining Diacritical Marks (가장 일반적인 결합 문자)
-  // 예: é = e + ́ (U+0065 + U+0301)
+  // Check for combining marks
+  // U+0300-U+036F: Combining Diacritical Marks (most common combining marks)
+  // Example: é = e + ́ (U+0065 + U+0301)
   if (after >= 0x0300 && after <= 0x036F) return false;
   
   // U+1AB0-U+1AFF: Combining Diacritical Marks Extended
-  // 예: ẹ = e + ̣ (U+0065 + U+0323)
+  // Example: ẹ = e + ̣ (U+0065 + U+0323)
   if (after >= 0x1AB0 && after <= 0x1AFF) return false;
   
   // U+1DC0-U+1DFF: Combining Diacritical Marks Supplement
-  // 예: ẹ = e + ̣ (U+0065 + U+0323)
+  // Example: ẹ = e + ̣ (U+0065 + U+0323)
   if (after >= 0x1DC0 && after <= 0x1DFF) return false;
   
   // U+20D0-U+20FF: Combining Diacritical Marks for Symbols
-  // 예: 기호에 결합되는 발음 구별 부호
+  // Example: diacritical marks combined with symbols
   if (after >= 0x20D0 && after <= 0x20FF) return false;
   
   // U+FE20-U+FE2F: Combining Half Marks
-  // 예: 반각 결합 문자
+  // Example: half-width combining marks
   if (after >= 0xFE20 && after <= 0xFE2F) return false;
   
-  // 위의 모든 조건에 해당하지 않으면 안전한 경계
+  // If none of the above conditions apply, it's a safe boundary
   return true;
 }
 
 /**
- * 안전한 문자 분할 지점으로 인덱스 조정
+ * Adjust index to safe character split point
  * 
- * 주어진 인덱스를 가장 가까운 안전한 문자 분할 지점으로 조정
- * 복합 문자(이모지, 결합 문자)의 분할을 방지하여 유니코드 텍스트 무결성 보장
+ * Adjusts given index to the nearest safe character split point
+ * Prevents splitting of complex characters (emojis, combining marks) to ensure Unicode text integrity
  * 
- * @param text - 조정할 텍스트
- * @param index - 조정할 인덱스 위치
- * @param direction - 조정 방향 ('left': 왼쪽으로, 'right': 오른쪽으로)
- * @returns 안전한 문자 분할 지점으로 조정된 인덱스
+ * @param text - Text to adjust
+ * @param index - Index position to adjust
+ * @param direction - Adjustment direction ('left': to left, 'right': to right)
+ * @returns Index adjusted to safe character split point
  * 
  * @example
  * ```typescript
- * adjustToSafeSplitPoint("👨‍👩‍👧‍👦", 2, 'left'); // 0 (이모지 시작)
- * adjustToSafeSplitPoint("cafe\u0301", 4, 'right'); // 5 (결합 문자 끝)
- * adjustToSafeSplitPoint("hello", 3, 'left'); // 3 (이미 안전한 분할 지점)
+ * adjustToSafeSplitPoint("👨‍👩‍👧‍👦", 2, 'left'); // 0 (emoji start)
+ * adjustToSafeSplitPoint("cafe\u0301", 4, 'right'); // 5 (combining mark end)
+ * adjustToSafeSplitPoint("hello", 3, 'left'); // 3 (already a safe split point)
  * ```
  */
 function adjustToSafeSplitPoint(text: string, index: number, direction: 'left' | 'right'): number {
-  // 인덱스를 텍스트 범위 내로 제한
+  // Limit index to text range
   let adjusted = Math.max(0, Math.min(text.length, index));
   
   if (direction === 'left') {
-    // 왼쪽으로 이동하면서 안전한 분할 지점 찾기
+    // Move left to find safe split point
     while (adjusted > 0 && !isSafeCharacterSplit(text, adjusted)) {
       adjusted--;
     }
   } else {
-    // 오른쪽으로 이동하면서 안전한 분할 지점 찾기
+    // Move right to find safe split point
     while (adjusted < text.length && !isSafeCharacterSplit(text, adjusted)) {
       adjusted++;
     }
@@ -373,53 +373,53 @@ function adjustToSafeSplitPoint(text: string, index: number, direction: 'left' |
  * 
  * @example
  * ```typescript
- * // 기본 삽입
+ * // Basic insert
  * const changes = analyzeTextChanges({
  *   oldText: 'Hello world',
  *   newText: 'Hello beautiful world',
  *   selectionOffset: 6,
  *   selectionLength: 0
  * });
- * // 결과: [{ type: 'insert', start: 6, end: 6, text: 'beautiful ', confidence: 1.0 }]
+ * // Result: [{ type: 'insert', start: 6, end: 6, text: 'beautiful ', confidence: 1.0 }]
  * 
- * // Selection 바이어싱이 적용된 교체
+ * // Replace with Selection biasing applied
  * const changes2 = analyzeTextChanges({
  *   oldText: 'abcdef',
  *   newText: 'abXdef',
  *   selectionOffset: 2,
  *   selectionLength: 1
  * });
- * // 결과: [{ type: 'replace', start: 2, end: 3, text: 'X', confidence: 1.0 }]
+ * // Result: [{ type: 'replace', start: 2, end: 3, text: 'X', confidence: 1.0 }]
  * 
- * // 유니코드 안전 처리
+ * // Unicode-safe handling
  * const changes3 = analyzeTextChanges({
  *   oldText: 'Hello 👋',
  *   newText: 'Hello 👋 world',
  *   selectionOffset: 8,
  *   selectionLength: 0
  * });
- * // 결과: [{ type: 'insert', start: 8, end: 8, text: ' world', confidence: 1.0 }]
+ * // Result: [{ type: 'insert', start: 8, end: 8, text: ' world', confidence: 1.0 }]
  * ```
  */
 export function analyzeTextChanges(options: TextChangeAnalysisOptions): TextChange[] {
   const { oldText, newText, selectionOffset, selectionLength = 0 } = options;
   
-  // 1. 유니코드 정규화 (NFC - Canonical Decomposition, followed by Canonical Composition)
-  // 결합 문자 형태(e + ́)를 정규화된 형태(é)로 통일하여 일관된 처리 보장
+  // 1. Unicode normalization (NFC - Canonical Decomposition, followed by Canonical Composition)
+  // Unify combining character forms (e + ́) to normalized form (é) to ensure consistent processing
   const normalizedOldText = oldText.normalize('NFC');
   const normalizedNewText = newText.normalize('NFC');
   
-  // 정규화 후 동일한 텍스트인 경우 변경사항 없음
+  // No changes if text is identical after normalization
   if (normalizedOldText === normalizedNewText) {
     return [];
   }
 
-  // 2. LCP/LCS 기반 기본 텍스트 차이 계산
-  // O(n) 시간 복잡도로 정확한 델타 계산
+  // 2. Calculate basic text difference based on LCP/LCS
+  // Accurate delta calculation with O(n) time complexity
   const textDifference = calculateTextDifference(normalizedOldText, normalizedNewText);
   
-  // 3. Selection 정보를 고려한 변경사항 분석
-  // 사용자의 Selection 위치를 바탕으로 변경사항 위치를 정확하게 조정
+  // 3. Analyze changes considering selection information
+  // Accurately adjust change positions based on user's selection location
   const changes = analyzeTextChangesWithSelection(
     normalizedOldText,
     normalizedNewText,
@@ -428,13 +428,13 @@ export function analyzeTextChanges(options: TextChangeAnalysisOptions): TextChan
     selectionLength
   );
 
-  // 4. 안전한 문자 분할 지점으로 조정
-  // 이모지, 결합 문자 등 복합 문자의 분할을 방지하여 유니코드 무결성 보장
+  // 4. Adjust to safe character split points
+  // Prevent splitting of complex characters like emojis and combining characters to ensure Unicode integrity
   const adjustedChanges = changes.map(change => ({
     ...change,
-    // 시작 위치를 왼쪽으로 조정하여 안전한 분할 지점으로 이동
+    // Adjust start position to the left to move to safe split point
     start: adjustToSafeSplitPoint(normalizedOldText, change.start, 'left'),
-    // 끝 위치를 오른쪽으로 조정하여 안전한 분할 지점으로 이동
+    // Adjust end position to the right to move to safe split point
     end: adjustToSafeSplitPoint(normalizedOldText, change.end, 'right')
   }));
 

@@ -151,7 +151,7 @@ describe('evaluateWhenExpression', () => {
     });
 
     it('should support decimal numbers in comparisons', () => {
-      // 소수점 숫자 리터럴
+      // Decimal number literals
       expect(evaluateWhenExpression('progress > 0.5', { progress: 0.75 })).toBe(true);
       expect(evaluateWhenExpression('progress > 0.5', { progress: 0.3 })).toBe(false);
       expect(evaluateWhenExpression('progress >= 0.5', { progress: 0.5 })).toBe(true);
@@ -159,13 +159,13 @@ describe('evaluateWhenExpression', () => {
       expect(evaluateWhenExpression('progress <= 0.5', { progress: 0.5 })).toBe(true);
       expect(evaluateWhenExpression('progress <= 0.5', { progress: 0.6 })).toBe(false);
 
-      // context 값이 소수점인 경우
+      // When context value is decimal
       expect(evaluateWhenExpression('progress > 0', { progress: 0.1 })).toBe(true);
       expect(evaluateWhenExpression('progress < 1', { progress: 0.9 })).toBe(true);
       expect(evaluateWhenExpression('0.5 < progress', { progress: 0.75 })).toBe(true);
       expect(evaluateWhenExpression('1.0 > progress', { progress: 0.5 })).toBe(true);
 
-      // 양쪽 모두 소수점
+      // Both sides are decimal
       expect(evaluateWhenExpression('progress > 0.3', { progress: 0.7 })).toBe(true);
       expect(evaluateWhenExpression('progress < 0.8', { progress: 0.5 })).toBe(true);
       expect(evaluateWhenExpression('progress >= 0.5', { progress: 0.5 })).toBe(true);
@@ -173,14 +173,14 @@ describe('evaluateWhenExpression', () => {
     });
 
     it('should support various decimal number formats', () => {
-      // 다양한 소수점 형식
+      // Various decimal formats
       expect(evaluateWhenExpression('value > 0.1', { value: 0.2 })).toBe(true);
       expect(evaluateWhenExpression('value > .5', { value: 0.6 })).toBe(true);
       expect(evaluateWhenExpression('value < 1.5', { value: 1.2 })).toBe(true);
       expect(evaluateWhenExpression('value >= 0.0', { value: 0.1 })).toBe(true);
       expect(evaluateWhenExpression('value <= 1.0', { value: 0.9 })).toBe(true);
 
-      // 큰 소수점 숫자
+      // Large decimal numbers
       expect(evaluateWhenExpression('value > 10.5', { value: 11.2 })).toBe(true);
       expect(evaluateWhenExpression('value < 100.99', { value: 50.5 })).toBe(true);
     });
@@ -306,8 +306,8 @@ describe('evaluateWhenExpression', () => {
     });
   });
 
-  describe('복잡한 케이스', () => {
-    it('여러 연산자가 섞인 복잡한 표현식', () => {
+  describe('Complex cases', () => {
+    it('complex expressions with multiple operators', () => {
       const context = {
         editorFocus: true,
         editorEditable: true,
@@ -318,26 +318,26 @@ describe('evaluateWhenExpression', () => {
         'loadingStateExtension.isLoading': false
       };
 
-      // 복잡한 AND 조건
+      // Complex AND conditions
       expect(evaluateWhenExpression(
         'editorFocus && editorEditable && !selectionEmpty && selectionType == "range"',
         context
       )).toBe(true);
 
-      // 복잡한 OR와 AND 조합
+      // Complex combination of OR and AND
       expect(evaluateWhenExpression(
         'editorFocus && (editorEditable || selectionEmpty)',
         context
       )).toBe(true);
 
-      // 여러 레벨의 논리 연산자
+      // Multiple levels of logical operators
       expect(evaluateWhenExpression(
         'editorFocus && editorEditable && !selectionEmpty && (selectionType == "range" || selectionType == "node")',
         context
       )).toBe(true);
     });
 
-    it('중첩된 괄호와 복잡한 논리 연산', () => {
+    it('nested parentheses and complex logical operations', () => {
       const context = {
         a: true,
         b: false,
@@ -346,7 +346,7 @@ describe('evaluateWhenExpression', () => {
         e: true
       };
 
-      // 깊게 중첩된 괄호
+      // Deeply nested parentheses
       expect(evaluateWhenExpression(
         '((a && b) || (c && d)) && e',
         context
@@ -363,7 +363,7 @@ describe('evaluateWhenExpression', () => {
       )).toBe(true); // !(false || false) = !false = true
     });
 
-    it('다양한 타입의 값 비교', () => {
+    it('comparison of various value types', () => {
       const context = {
         stringValue: 'test',
         numberValue: 42,
@@ -372,26 +372,26 @@ describe('evaluateWhenExpression', () => {
         undefinedValue: undefined
       };
 
-      // 문자열 비교
+      // String comparison
       expect(evaluateWhenExpression("stringValue == 'test'", context)).toBe(true);
       expect(evaluateWhenExpression("stringValue != 'other'", context)).toBe(true);
 
-      // 숫자 비교
+      // Number comparison
       expect(evaluateWhenExpression('numberValue > 40', context)).toBe(true);
       expect(evaluateWhenExpression('numberValue < 50', context)).toBe(true);
       expect(evaluateWhenExpression('numberValue >= 42', context)).toBe(true);
       expect(evaluateWhenExpression('numberValue <= 42', context)).toBe(true);
 
-      // boolean 비교
+      // Boolean comparison
       expect(evaluateWhenExpression('booleanValue == true', context)).toBe(true);
       expect(evaluateWhenExpression('booleanValue != false', context)).toBe(true);
 
-      // null 비교
+      // Null comparison
       expect(evaluateWhenExpression('nullValue == null', context)).toBe(true);
       expect(evaluateWhenExpression('nullValue != null', context)).toBe(false);
     });
 
-    it('실제 Extension 사용 시나리오와 유사한 복잡한 조건', () => {
+    it('complex conditions similar to actual Extension usage scenarios', () => {
       const context = {
         editorFocus: true,
         editorEditable: true,
@@ -404,26 +404,26 @@ describe('evaluateWhenExpression', () => {
         'multiSelectionExtension.hasMultiple': false
       };
 
-      // 읽기 전용이 아니고 마크다운 모드이고 로딩 중이 아닐 때
+      // When not read-only, in markdown mode, and not loading
       expect(evaluateWhenExpression(
         '!readOnlyExtension.enabled && modeExtension.currentMode == "markdown" && !loadingStateExtension.isLoading',
         context
       )).toBe(true);
 
-      // 이미지 선택이고 다중 선택이 아닐 때
+      // When image is selected and not multiple selection
       expect(evaluateWhenExpression(
         'nodeTypeExtension.isImage && !multiSelectionExtension.hasMultiple && editorFocus',
         context
       )).toBe(true);
 
-      // 복합 조건: 에디터 포커스 + 편집 가능 + 선택이 비어있지 않음 + 특정 타입
+      // Compound condition: editor focus + editable + selection not empty + specific type
       expect(evaluateWhenExpression(
         'editorFocus && editorEditable && !selectionEmpty && selectionType == "node"',
         context
       )).toBe(true);
     });
 
-    it('많은 context key가 있는 복잡한 표현식', () => {
+    it('complex expressions with many context keys', () => {
       const context = {
         a: true,
         b: false,
@@ -437,19 +437,19 @@ describe('evaluateWhenExpression', () => {
         j: false
       };
 
-      // 많은 조건을 AND로 연결
+      // Connect many conditions with AND
       expect(evaluateWhenExpression(
         'a && c && e && g && i',
         context
       )).toBe(true);
 
-      // 많은 조건을 OR로 연결
+      // Connect many conditions with OR
       expect(evaluateWhenExpression(
         'a || b || c || d || e',
         context
       )).toBe(true);
 
-      // 복잡한 조합
+      // Complex combination
       expect(evaluateWhenExpression(
         '(a && c) || (e && g) || (i && !j)',
         context
@@ -467,26 +467,26 @@ describe('evaluateWhenExpression', () => {
       };
 
 
-      // 복잡한 숫자 비교와 논리 연산
+      // Complex number comparison and logical operations
       expect(evaluateWhenExpression(
         'count > minCount && count < maxCount && enabled',
         context
       )).toBe(true);
 
-      // 문자열 비교와 논리 연산
+      // String comparison and logical operations
       expect(evaluateWhenExpression(
         "mode == 'edit' && status == 'active' && enabled",
         context
       )).toBe(true);
 
-      // 모든 연산자 조합 (큰따옴표와 작은따옴표 모두 지원)
+      // All operator combinations (both double and single quotes supported)
       expect(evaluateWhenExpression(
         'count >= minCount && count <= maxCount && enabled && mode == "edit"',
         context
       )).toBe(true);
     });
 
-    it('정규식 매칭과 다른 연산자 조합', () => {
+    it('regex matching combined with other operators', () => {
       const context = {
         resourceFilename: 'docker-compose.yml',
         resourceScheme: 'file',
@@ -494,26 +494,26 @@ describe('evaluateWhenExpression', () => {
         editorEditable: true
       };
 
-      // 정규식과 논리 연산
+      // Regex and logical operations
       expect(evaluateWhenExpression(
         "resourceFilename =~ /docker/ && editorFocus",
         context
       )).toBe(true);
 
-      // 정규식과 비교 연산
+      // Regex and comparison operations
       expect(evaluateWhenExpression(
         "resourceFilename =~ /docker/ && resourceScheme == 'file'",
         context
       )).toBe(true);
 
-      // 정규식과 복잡한 논리 연산
+      // Regex and complex logical operations
       expect(evaluateWhenExpression(
         "(resourceFilename =~ /docker/ || resourceFilename =~ /compose/) && editorFocus && editorEditable",
         context
       )).toBe(true);
     });
 
-    it('in/not in 연산자와 다른 연산자 조합', () => {
+    it('in/not in operators combined with other operators', () => {
       const context = {
         resourceFilename: 'test',
         supportedFolders: ['test', 'foo', 'bar'],
@@ -521,26 +521,26 @@ describe('evaluateWhenExpression', () => {
         selectionEmpty: false
       };
 
-      // in 연산자와 논리 연산
+      // in operator and logical operations
       expect(evaluateWhenExpression(
         'resourceFilename in supportedFolders && editorFocus',
         context
       )).toBe(true);
 
-      // not in 연산자와 논리 연산
+      // not in operator and logical operations
       expect(evaluateWhenExpression(
         'resourceFilename not in supportedFolders || editorFocus',
         context
       )).toBe(true);
 
-      // 복잡한 조합
+      // Complex combination
       expect(evaluateWhenExpression(
         '(resourceFilename in supportedFolders && editorFocus) || !selectionEmpty',
         context
       )).toBe(true);
     });
 
-    it('실제 VS Code 스타일의 복잡한 when clause', () => {
+    it('complex when clause in actual VS Code style', () => {
       const context = {
         editorFocus: true,
         editorEditable: true,
@@ -553,7 +553,7 @@ describe('evaluateWhenExpression', () => {
         resourceScheme: 'file'
       };
 
-      // VS Code의 실제 when clause 예시
+      // Actual VS Code when clause example
       expect(evaluateWhenExpression(
         'debuggersAvailable && !inDebugMode',
         context
@@ -570,7 +570,7 @@ describe('evaluateWhenExpression', () => {
       )).toBe(true);
     });
 
-    it('부정 연산자와 복잡한 표현식', () => {
+    it('negation operators and complex expressions', () => {
       const context = {
         a: true,
         b: false,
@@ -578,7 +578,7 @@ describe('evaluateWhenExpression', () => {
         d: false
       };
 
-      // 여러 부정 연산자
+      // Multiple negation operators
       expect(evaluateWhenExpression(
         '!a && !b',
         context
@@ -594,7 +594,7 @@ describe('evaluateWhenExpression', () => {
         context
       )).toBe(true); // !true || !false = false || true = true
 
-      // 중첩된 부정
+      // Nested negation
       expect(evaluateWhenExpression(
         '!(!a && !b)',
         context
@@ -623,7 +623,7 @@ describe('evaluateWhenExpression', () => {
       )).toBe(false); // !true || (false && true) = false || false = false
     });
 
-    it('매우 긴 복잡한 표현식', () => {
+    it('very long complex expressions', () => {
       const context = {
         a: true,
         b: false,
@@ -635,22 +635,22 @@ describe('evaluateWhenExpression', () => {
         h: false
       };
 
-      // 매우 긴 표현식
+      // Very long expression
       const longExpr = 'a && !b && c && !d && e && !f && g && !h';
       expect(evaluateWhenExpression(longExpr, context)).toBe(true);
 
-      // 매우 긴 OR 표현식
+      // Very long OR expression
       const longOrExpr = 'a || b || c || d || e || f || g || h';
       expect(evaluateWhenExpression(longOrExpr, context)).toBe(true);
     });
 
-    it('동일한 context key를 여러 번 사용하는 표현식', () => {
+    it('expressions using same context key multiple times', () => {
       const context = {
         mode: 'edit',
         count: 5
       };
 
-      // 같은 key를 여러 번 사용
+      // Use same key multiple times
       expect(evaluateWhenExpression(
         "mode == 'edit' && mode != 'view' && mode != 'preview'",
         context
@@ -662,7 +662,7 @@ describe('evaluateWhenExpression', () => {
       )).toBe(true);
     });
 
-    it('복잡한 문자열 비교와 논리 연산', () => {
+    it('complex string comparison and logical operations', () => {
       const context = {
         type1: 'image',
         type2: 'video',
@@ -670,7 +670,7 @@ describe('evaluateWhenExpression', () => {
         currentType: 'image'
       };
 
-      // 여러 문자열 비교
+      // Multiple string comparisons
       expect(evaluateWhenExpression(
         "currentType == type1 || currentType == type2 || currentType == type3",
         context
@@ -682,7 +682,7 @@ describe('evaluateWhenExpression', () => {
       )).toBe(true);
     });
 
-    it('복잡한 숫자 비교와 논리 연산 조합', () => {
+    it('complex number comparison and logical operation combinations', () => {
       const context = {
         count: 5,
         max: 10,
@@ -690,7 +690,7 @@ describe('evaluateWhenExpression', () => {
         threshold: 7
       };
 
-      // 복잡한 숫자 비교
+      // Complex number comparison
       expect(evaluateWhenExpression(
         'count >= min && count <= max && count < threshold',
         context
@@ -702,7 +702,7 @@ describe('evaluateWhenExpression', () => {
       )).toBe(true);
     });
 
-    it('실제 Extension에서 사용할 수 있는 복잡한 시나리오', () => {
+    it('complex scenarios usable in actual extensions', () => {
       const context = {
         editorFocus: true,
         editorEditable: true,
@@ -719,13 +719,13 @@ describe('evaluateWhenExpression', () => {
         historyCanRedo: false
       };
 
-      // 매우 복잡한 실제 사용 시나리오
+      // Very complex real-world usage scenario
       expect(evaluateWhenExpression(
         'editorFocus && editorEditable && !selectionEmpty && selectionType == "range" && !readOnlyExtension.enabled && modeExtension.currentMode == "markdown" && !loadingStateExtension.isLoading && !errorStateExtension.hasError && !dragDropExtension.isDragging',
         context
       )).toBe(true);
 
-      // 히스토리 관련 복잡한 조건
+      // Complex history-related conditions
       expect(evaluateWhenExpression(
         '(historyCanUndo || historyCanRedo) && editorEditable && !readOnlyExtension.enabled',
         context

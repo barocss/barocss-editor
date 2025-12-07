@@ -20,7 +20,7 @@ describe('skipNodes 기능', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
 
-    // 기본 템플릿 정의
+    // Define base templates
     define('paragraph', element('p', { className: 'paragraph' }, [slot('content')]));
     define('text', element('span', { className: 'text' }, [data('text')]));
     define('inline-text', element('span', { className: 'inline-text' }, [data('text')]));
@@ -35,7 +35,7 @@ describe('skipNodes 기능', () => {
 
   describe('기본 동작', () => {
     it('skipNodes에 포함된 노드는 reconcile 스킵', async () => {
-      // 초기 렌더링
+      // Initial rendering
       const model1 = {
         sid: 'root-1',
         stype: 'paragraph',
@@ -54,8 +54,8 @@ describe('skipNodes 기능', () => {
       const initialHTML = container.innerHTML;
       expect(initialHTML).toContain('Hello World');
 
-      // skipNodes에 포함된 노드로 재렌더링
-      // 부모와 자식 모두 skipNodes에 포함
+      // Re-render with nodes included in skipNodes
+      // Both parent and child are included in skipNodes
       const model2 = {
         sid: 'root-1',
         stype: 'paragraph',
@@ -63,22 +63,22 @@ describe('skipNodes 기능', () => {
           {
             sid: 'text-1',
             stype: 'inline-text',
-            text: 'Changed Text' // 텍스트 변경
+            text: 'Changed Text' // Text change
           }
         ]
       };
 
-      const skipNodes = new Set<string>(['root-1', 'text-1']); // 부모와 자식 모두 skip
+      const skipNodes = new Set<string>(['root-1', 'text-1']); // Skip both parent and child
       renderer.render(container, model2, [], undefined, undefined, { skipNodes });
       await waitForFiber();
 
-      // skipNodes에 포함되어 있으므로 DOM이 변경되지 않아야 함
+      // DOM should not change since included in skipNodes
       expect(container.innerHTML).toBe(initialHTML);
-      expect(container.textContent).toBe('Hello World'); // 원래 텍스트 유지
+      expect(container.textContent).toBe('Hello World'); // Keep original text
     });
 
     it('skipNodes에 포함되지 않은 노드는 정상적으로 업데이트', async () => {
-      // 초기 렌더링
+      // Initial rendering
       const model1 = {
         sid: 'root-1',
         stype: 'paragraph',
@@ -94,7 +94,7 @@ describe('skipNodes 기능', () => {
       renderer.render(container, model1, []);
       await waitForFiber();
 
-      // skipNodes에 포함되지 않은 노드로 재렌더링
+      // Re-render with nodes not included in skipNodes
       const model2 = {
         sid: 'root-1',
         stype: 'paragraph',
@@ -107,18 +107,18 @@ describe('skipNodes 기능', () => {
         ]
       };
 
-      const skipNodes = new Set<string>(['other-node']); // 다른 노드만 skip
+      const skipNodes = new Set<string>(['other-node']); // Only skip other node
       renderer.render(container, model2, [], undefined, undefined, { skipNodes });
       await waitForFiber();
 
-      // 정상적으로 업데이트되어야 함
+      // Should update normally
       expect(container.textContent).toBe('Changed Text');
     });
   });
 
   describe('자식 노드 처리', () => {
     it('부모가 skipNodes에 포함되어도 자식은 업데이트 가능', async () => {
-      // 초기 렌더링: 중첩 구조
+      // Initial rendering: nested structure
       const model1 = {
         sid: 'root-1',
         stype: 'paragraph',
@@ -136,7 +136,7 @@ describe('skipNodes 기능', () => {
 
       const initialHTML = container.innerHTML;
 
-      // 부모만 skipNodes에 포함, 자식은 제외
+      // Only parent included in skipNodes, child excluded
       const model2 = {
         sid: 'root-1',
         stype: 'paragraph',
@@ -144,19 +144,19 @@ describe('skipNodes 기능', () => {
           {
             sid: 'child-1',
             stype: 'text',
-            text: 'Updated Child Text' // 자식 텍스트 변경
+            text: 'Updated Child Text' // Child text change
           }
         ]
       };
 
-      const skipNodes = new Set<string>(['root-1']); // 부모만 skip
+      const skipNodes = new Set<string>(['root-1']); // Only skip parent
       renderer.render(container, model2, [], undefined, undefined, { skipNodes });
       await waitForFiber();
 
-      // 부모는 변경되지 않았지만, 자식은 업데이트 가능
-      // (실제로는 부모가 skip되면 자식도 처리되지 않을 수 있음)
-      // 이는 구현에 따라 다를 수 있음
-      expect(container.innerHTML).toBe(initialHTML); // 부모가 skip되면 자식도 처리 안 됨
+      // Parent is not changed, but child can be updated
+      // (Actually, if parent is skipped, child may not be processed)
+      // This may vary by implementation
+      expect(container.innerHTML).toBe(initialHTML); // If parent is skipped, child is not processed
     });
 
     it('자식이 skipNodes에 포함되면 자식만 스킵', async () => {

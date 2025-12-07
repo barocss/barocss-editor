@@ -18,7 +18,7 @@ describe('createFiberTree - Mark Wrapper prevChildVNode 찾기', () => {
   });
 
   it('mark wrapper의 prevChildVNode를 인덱스로 찾을 수 있어야 함', () => {
-    // 첫 번째 render의 VNode
+    // VNode from first render
     const prevVNode: VNode = {
       tag: 'span',
       stype: 'inline-text',
@@ -34,7 +34,7 @@ describe('createFiberTree - Mark Wrapper prevChildVNode 찾기', () => {
       ]
     };
 
-    // 두 번째 render의 VNode
+    // VNode from second render
     const vnode: VNode = {
       tag: 'span',
       stype: 'inline-text',
@@ -50,23 +50,23 @@ describe('createFiberTree - Mark Wrapper prevChildVNode 찾기', () => {
       ]
     };
 
-    // createFiberTree로 Fiber 생성
+    // Create Fiber with createFiberTree
     const fiber = createFiberTree(container, vnode, prevVNode, {});
 
-    // mark wrapper Fiber 찾기
+    // Find mark wrapper Fiber
     const markWrapperFiber = fiber.child;
     expect(markWrapperFiber).toBeTruthy();
     expect(markWrapperFiber?.vnode.tag).toBe('span');
     expect(markWrapperFiber?.vnode.attrs?.class).toBe('mark-bold');
     
-    // prevVNode가 올바르게 설정되었는지 확인
+    // Verify prevVNode is set correctly
     expect(markWrapperFiber?.prevVNode).toBeTruthy();
     expect(markWrapperFiber?.prevVNode?.tag).toBe('span');
     expect(markWrapperFiber?.prevVNode?.attrs?.class).toBe('mark-bold');
   });
 
   it('mark wrapper의 prevChildVNode를 클래스로 찾을 수 있어야 함', () => {
-    // 첫 번째 render의 VNode (primitive text가 먼저)
+    // VNode from first render (primitive text first)
     const prevVNode: VNode = {
       tag: 'span',
       stype: 'inline-text',
@@ -82,7 +82,7 @@ describe('createFiberTree - Mark Wrapper prevChildVNode 찾기', () => {
       ]
     };
 
-    // 두 번째 render의 VNode
+    // VNode from second render
     const vnode: VNode = {
       tag: 'span',
       stype: 'inline-text',
@@ -98,17 +98,17 @@ describe('createFiberTree - Mark Wrapper prevChildVNode 찾기', () => {
       ]
     };
 
-    // createFiberTree로 Fiber 생성
+    // Create Fiber with createFiberTree
     const fiber = createFiberTree(container, vnode, prevVNode, {});
 
-    // mark wrapper Fiber 찾기
+    // Find mark wrapper Fiber
     const markWrapperFiber = fiber.child;
     
     expect(markWrapperFiber).toBeTruthy();
     expect(markWrapperFiber?.vnode.tag).toBe('span');
     expect(markWrapperFiber?.vnode.attrs?.class).toBe('mark-bold');
     
-    // prevVNode가 올바르게 설정되었는지 확인
+    // Verify prevVNode is set correctly
     expect(markWrapperFiber?.prevVNode).toBeTruthy();
     expect(markWrapperFiber?.prevVNode?.tag).toBe('span');
     expect(markWrapperFiber?.prevVNode?.attrs?.class).toBe('mark-bold');

@@ -21,7 +21,7 @@ describe('EditorViewDOM + renderer-dom Detailed Integration', () => {
       autoRender: false
     });
     
-    // 기본 컴포넌트 및 마크 정의
+    // Define basic components and marks
     const registry = getGlobalRegistry();
     define('document', element('div', { className: 'document' }, [slot('content')]));
     define('paragraph', element('p', { className: 'paragraph' }, [slot('content')]));
@@ -71,9 +71,9 @@ describe('EditorViewDOM + renderer-dom Detailed Integration', () => {
       
       const html = normalizeHTML(container.firstElementChild as Element);
       expect(html).toContain('data-bc-sid="p1"');
-      // 마크가 적용된 텍스트 확인 (실제 렌더링 결과에 맞게 수정)
-      // 텍스트가 일부만 렌더링되는 경우가 있으므로, 최소한 일부 텍스트가 있는지 확인
-      expect(html).toContain('rld'); // "World"의 일부
+      // Verify text with marks applied (modified to match actual rendering result)
+      // Text may be partially rendered, so verify at least some text exists
+      expect(html).toContain('rld'); // Part of "World"
     });
 
     it('handles marks spanning multiple text nodes', () => {
@@ -201,7 +201,7 @@ describe('EditorViewDOM + renderer-dom Detailed Integration', () => {
       const element1After = container.querySelector('[data-bc-sid="p1"]');
       const element2 = container.querySelector('[data-bc-sid="p2"]');
       
-      // 기존 요소는 유지되어야 함
+      // Existing elements should be preserved
       expect(element1After).toBe(element1);
       expect(element2).toBeTruthy();
       expect(element2?.textContent).toContain('Second');
@@ -232,7 +232,7 @@ describe('EditorViewDOM + renderer-dom Detailed Integration', () => {
       view.render(tree2);
       const element2After = container.querySelector('[data-bc-sid="p2"]');
       
-      // 제거된 요소는 없어야 함
+      // Removed element should not exist
       expect(element2After).toBeNull();
     });
 
@@ -263,23 +263,23 @@ describe('EditorViewDOM + renderer-dom Detailed Integration', () => {
       const element1After = container.querySelector('[data-bc-sid="p1"]');
       const element2After = container.querySelector('[data-bc-sid="p2"]');
       
-      // DOM 요소는 재사용되어야 함 (순서만 변경)
+      // DOM elements should be reused (only order changed)
       expect(element1After).toBe(element1);
       expect(element2After).toBe(element2);
       
-      // 순서 확인 - content layer 또는 직접 children에서 확인
+      // Verify order - check in content layer or direct children
       const contentLayer = container.querySelector('[data-bc-layer="content"]');
       const root = contentLayer || container.firstElementChild;
       const children = Array.from(root?.children || []);
       const p1Index = children.findIndex(el => el.getAttribute('data-bc-sid') === 'p1');
       const p2Index = children.findIndex(el => el.getAttribute('data-bc-sid') === 'p2');
       
-      // p2가 p1보다 앞에 있어야 함 (순서 변경 확인)
-      // 요소가 존재하는 경우에만 순서 확인
+      // p2 should be before p1 (verify order change)
+      // Only verify order if elements exist
       if (p1Index >= 0 && p2Index >= 0) {
         expect(p2Index).toBeLessThan(p1Index);
       } else {
-        // 요소를 찾을 수 없는 경우, 최소한 DOM 요소는 재사용되었는지 확인
+        // If elements cannot be found, at least verify DOM elements are reused
         expect(element1After).toBeTruthy();
         expect(element2After).toBeTruthy();
       }
@@ -303,8 +303,8 @@ describe('EditorViewDOM + renderer-dom Detailed Integration', () => {
       
       view.render(tree1);
       const element1 = container.querySelector('[data-bc-sid="p1"]') as HTMLElement;
-      // className이 포함되어야 함 (기본 className과 함께)
-      // attributes가 제대로 적용되는지 확인 (기본 템플릿이 attributes를 사용하는지 확인 필요)
+      // className should be included (along with default className)
+      // Verify attributes are properly applied (need to check if base template uses attributes)
       expect(element1).toBeTruthy();
       
       const tree2: TreeDocument = {
@@ -323,10 +323,10 @@ describe('EditorViewDOM + renderer-dom Detailed Integration', () => {
       view.render(tree2);
       const element2 = container.querySelector('[data-bc-sid="p1"]') as HTMLElement;
       
-      // 같은 DOM 요소여야 함
+      // Should be same DOM element
       expect(element2).toBe(element1);
-      // 속성 업데이트 확인 (attributes 처리는 템플릿 정의에 따라 다를 수 있음)
-      // 최소한 DOM 요소가 유지되는지 확인
+      // Verify attribute update (attribute handling may vary depending on template definition)
+      // At least verify DOM element is preserved
       expect(element2).toBeTruthy();
     });
 
@@ -346,8 +346,8 @@ describe('EditorViewDOM + renderer-dom Detailed Integration', () => {
       
       view.render(tree1);
       const element1 = container.querySelector('[data-bc-sid="p1"]') as HTMLElement;
-      // attributes가 제대로 적용되는지 확인
-      // 기본 템플릿이 attributes를 사용하는지 확인 필요
+      // Verify attributes are properly applied
+      // Need to check if base template uses attributes
       expect(element1).toBeTruthy();
       
       const tree2: TreeDocument = {
@@ -366,26 +366,26 @@ describe('EditorViewDOM + renderer-dom Detailed Integration', () => {
       view.render(tree2);
       const element2 = container.querySelector('[data-bc-sid="p1"]') as HTMLElement;
       
-      // 같은 DOM 요소가 유지되어야 함
+      // Same DOM element should be preserved
       expect(element2).toBe(element1);
-      // 속성 제거는 reconciler의 prevVNode/nextVNode 비교로 처리됨
-      // attributes 처리는 템플릿 정의에 따라 다를 수 있음
+      // Attribute removal is handled by reconciler's prevVNode/nextVNode comparison
+      // Attribute handling may vary depending on template definition
     });
   });
 
   describe('Proxy-based Lazy Evaluation', () => {
     it('uses getDocumentProxy for lazy evaluation', () => {
-      // editor에서 직접 가져오기 (proxy 사용)
+      // Get directly from editor (using proxy)
       view.render();
       
-      // getDocumentProxy가 호출되었는지 확인
-      // (실제로는 내부적으로 호출되므로, 정상 렌더링만 확인)
+      // Verify getDocumentProxy is called
+      // (Actually called internally, so only verify normal rendering)
       const html = normalizeHTML(container.firstElementChild as Element);
       expect(html).toBeTruthy();
     });
 
     it('handles large document with proxy efficiently', () => {
-      // 대용량 문서 생성
+      // Create large document
       const paragraphs: any[] = [];
       for (let i = 0; i < 100; i++) {
         paragraphs.push({
@@ -405,8 +405,8 @@ describe('EditorViewDOM + renderer-dom Detailed Integration', () => {
       view.render(tree);
       const endTime = performance.now();
       
-      // 렌더링 시간 확인 (대략적인 성능 체크)
-      expect(endTime - startTime).toBeLessThan(5000); // 5초 이내
+      // Verify rendering time (rough performance check)
+      expect(endTime - startTime).toBeLessThan(5000); // Within 5 seconds
       
       const html = normalizeHTML(container.firstElementChild as Element);
       expect(html).toContain('data-bc-sid="doc1"');
@@ -419,14 +419,14 @@ describe('EditorViewDOM + renderer-dom Detailed Integration', () => {
     it('handles missing stype gracefully', () => {
       const tree: any = {
         sid: 'doc1',
-        // stype 없음
+        // No stype
         content: []
       };
       
-      // 에러가 발생하거나 경고가 나와야 함
+      // Should throw error or show warning
       expect(() => {
         view.render(tree);
-      }).not.toThrow(); // 또는 적절한 에러 처리
+      }).not.toThrow(); // Or appropriate error handling
     });
 
     it('handles invalid tree structure', () => {
@@ -435,20 +435,20 @@ describe('EditorViewDOM + renderer-dom Detailed Integration', () => {
         stype: 'document',
         content: [
           {
-            // stype 없음
+            // No stype
             sid: 'p1',
             content: []
           }
         ]
       };
       
-      // 에러가 발생할 수 있음 (stype 필수)
-      // 하지만 렌더링이 중단되지 않고 경고만 나올 수 있음
+      // Error may occur (stype is required)
+      // But rendering may not stop and only show warning
       try {
         view.render(tree);
-        // 에러 없이 처리되거나 경고만 나올 수 있음
+        // May be handled without error or only show warning
       } catch (error) {
-        // stype이 필수이므로 에러가 발생할 수 있음
+        // Error may occur because stype is required
         expect(error).toBeTruthy();
       }
     });
@@ -507,7 +507,7 @@ describe('EditorViewDOM + renderer-dom Detailed Integration', () => {
       const html = normalizeHTML(container.firstElementChild as Element);
       expect(html).toContain('data-bc-sid="doc1"');
       expect(html).toContain('Article Title');
-      // 실제 렌더링 결과에 맞게 수정 (마크에 의해 텍스트가 분할됨)
+      // Modified to match actual rendering result (text is split by marks)
       expect(html).toContain('is a paragraph with');
       expect(html).toContain('bold text.');
       expect(html).toContain('Item 1');
@@ -515,7 +515,7 @@ describe('EditorViewDOM + renderer-dom Detailed Integration', () => {
     });
 
     it('handles incremental content updates', () => {
-      // 초기 렌더링
+      // Initial rendering
       const tree1: TreeDocument = {
         sid: 'doc1',
         stype: 'document',
@@ -528,7 +528,7 @@ describe('EditorViewDOM + renderer-dom Detailed Integration', () => {
       const html1 = normalizeHTML(container.firstElementChild as Element);
       expect(html1).toContain('Initial');
       
-      // 첫 번째 업데이트
+      // First update
       const tree2: TreeDocument = {
         sid: 'doc1',
         stype: 'document',
@@ -544,7 +544,7 @@ describe('EditorViewDOM + renderer-dom Detailed Integration', () => {
       expect(html2).toContain('New');
       expect(html2).not.toContain('Initial');
       
-      // 두 번째 업데이트
+      // Second update
       const tree3: TreeDocument = {
         sid: 'doc1',
         stype: 'document',

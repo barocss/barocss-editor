@@ -20,11 +20,11 @@ describe('HistoryManager Advanced Features', () => {
   });
 
   it('should get memory usage', async () => {
-    // 초기 상태
+    // Initial state
     const initialMemory = editor.getHistoryMemoryUsage();
     expect(initialMemory).toBe(0);
 
-    // 작업 수행 후
+    // After performing operation
     await editor.transaction([
       { type: 'create', payload: { node: textNode('paragraph', 'Hello') } }
     ]).commit();
@@ -34,7 +34,7 @@ describe('HistoryManager Advanced Features', () => {
   });
 
   it('should resize history correctly', async () => {
-    // 여러 작업 수행
+    // Perform multiple operations
     for (let i = 0; i < 5; i++) {
       await editor.transaction([
         { type: 'create', payload: { node: textNode('paragraph', `Step ${i + 1}`) } }
@@ -43,18 +43,18 @@ describe('HistoryManager Advanced Features', () => {
 
     expect(editor.getHistoryStats().totalEntries).toBe(5);
 
-    // 히스토리 크기 축소
+    // Reduce history size
     editor.resizeHistory(3);
     expect(editor.getHistoryStats().totalEntries).toBe(3);
   });
 
   it('should compress similar operations', async () => {
-    // 먼저 노드 생성
+    // First create node
     await editor.transaction([
       { type: 'create', payload: { node: textNode('paragraph', 'Initial') } }
     ]).commit();
 
-    // 연속된 텍스트 작업 수행 (실제로는 create 작업으로 대체)
+    // Perform consecutive text operations (actually replaced with create operations)
     await editor.transaction([
       { type: 'create', payload: { node: textNode('paragraph', 'Hello') } }
     ]).commit();
@@ -68,9 +68,9 @@ describe('HistoryManager Advanced Features', () => {
     ]).commit();
 
     const beforeCompress = editor.getHistoryStats().totalEntries;
-    expect(beforeCompress).toBe(4); // 초기 + 3개 작업
+    expect(beforeCompress).toBe(4); // Initial + 3 operations
 
-    // 압축 실행
+    // Execute compression
     editor.compressHistory();
 
     const afterCompress = editor.getHistoryStats().totalEntries;
@@ -78,10 +78,10 @@ describe('HistoryManager Advanced Features', () => {
   });
 
   it('should handle empty operations gracefully', async () => {
-    // 빈 operations로 히스토리 추가 시도
+    // Try to add history with empty operations
     const initialStats = editor.getHistoryStats();
     
-    // 빈 operations는 히스토리에 추가되지 않아야 함
+    // Empty operations should not be added to history
     await editor.transaction([]).commit();
     
     const afterStats = editor.getHistoryStats();
@@ -89,21 +89,21 @@ describe('HistoryManager Advanced Features', () => {
   });
 
   it('should maintain history integrity after compression', async () => {
-    // 여러 작업 수행
+    // Perform multiple operations
     for (let i = 0; i < 3; i++) {
       await editor.transaction([
         { type: 'create', payload: { node: textNode('paragraph', `Step ${i + 1}`) } }
       ]).commit();
     }
 
-    // 압축 전 검증
+    // Verify before compression
     const beforeValidation = editor.validateHistory();
     expect(beforeValidation.isValid).toBe(true);
 
-    // 압축 실행
+    // Execute compression
     editor.compressHistory();
 
-    // 압축 후 검증
+    // Verify after compression
     const afterValidation = editor.validateHistory();
     expect(afterValidation.isValid).toBe(true);
   });

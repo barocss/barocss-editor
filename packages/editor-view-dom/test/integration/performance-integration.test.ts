@@ -14,7 +14,7 @@ describe('EditorViewDOM + renderer-dom Performance Integration', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     
-    // 렌더러 등록
+    // Register renderer
     const registry = getGlobalRegistry();
     define('document', element('div', { className: 'document' }, [slot('content')]));
     define('paragraph', element('p', { className: 'paragraph' }, [slot('content')]));
@@ -28,7 +28,7 @@ describe('EditorViewDOM + renderer-dom Performance Integration', () => {
       registry
     });
     
-    // Decorator 타입 정의 (선택적 - 검증을 원할 때만)
+    // Define Decorator type (optional - only when validation is desired)
     view.defineDecoratorType('highlight', 'inline', {
       description: 'Highlight decorator',
       dataSchema: {
@@ -73,14 +73,14 @@ describe('EditorViewDOM + renderer-dom Performance Integration', () => {
       const duration = endTime - startTime;
       console.log(`[Performance] Rendered 1000 paragraphs in ${duration.toFixed(2)} ms`);
       
-      // 렌더링 시간은 환경에 따라 다르므로, 너무 엄격하게 제한하지 않음
-      // 1000개 노드에 대해 2초 이내를 목표로 하지만, 테스트에서는 통과만 확인
-      expect(duration).toBeLessThan(5000); // 5초 이내
+      // Rendering time varies by environment, so don't restrict too strictly
+      // Target is within 2 seconds for 1000 nodes, but in tests only verify pass
+      expect(duration).toBeLessThan(5000); // Within 5 seconds
       
       const html = normalizeHTML(container.firstElementChild as Element);
       expect(html).toContain('data-bc-sid="doc-large"');
-      expect(html).toContain('Paragraph 500'); // 중간 내용 확인
-      expect(html).toContain('Paragraph 999'); // 마지막 내용 확인
+      expect(html).toContain('Paragraph 500'); // Verify middle content
+      expect(html).toContain('Paragraph 999'); // Verify last content
     });
 
     it('renders 2000 paragraphs efficiently', { timeout: 30000 }, () => {
@@ -109,12 +109,12 @@ describe('EditorViewDOM + renderer-dom Performance Integration', () => {
       const duration = endTime - startTime;
       console.log(`[Performance] Rendered 2000 paragraphs in ${duration.toFixed(2)} ms`);
       
-      // 2000개 노드에 대해 30초 이내를 목표 (CI 환경 고려)
-      expect(duration).toBeLessThan(30000); // 30초 이내
+      // Target is within 30 seconds for 2000 nodes (considering CI environment)
+      expect(duration).toBeLessThan(30000); // Within 30 seconds
       
       const html = normalizeHTML(container.firstElementChild as Element);
       expect(html).toContain('data-bc-sid="doc-very-large"');
-      expect(html).toContain('Paragraph 1000'); // 중간 내용 확인
+      expect(html).toContain('Paragraph 1000'); // Verify middle content
     });
 
     it('handles large document updates efficiently', () => {
@@ -140,7 +140,7 @@ describe('EditorViewDOM + renderer-dom Performance Integration', () => {
       const html1 = normalizeHTML(container.firstElementChild as Element);
       expect(html1).toContain('Initial 50');
 
-      // 대량 업데이트
+      // Bulk update
       const updatedParagraphs = Array.from({ length: 100 }, (_, i) => ({
         sid: `p${i}`,
         stype: 'paragraph',
@@ -166,8 +166,8 @@ describe('EditorViewDOM + renderer-dom Performance Integration', () => {
       const duration = endTime - startTime;
       console.log(`[Performance] Updated 100 paragraphs in ${duration.toFixed(2)} ms`);
       
-      // 업데이트는 렌더링보다 빠를 것으로 예상
-      expect(duration).toBeLessThan(2000); // 2초 이내
+      // Updates are expected to be faster than rendering
+      expect(duration).toBeLessThan(2000); // Within 2 seconds
       
       const html2 = normalizeHTML(container.firstElementChild as Element);
       expect(html2).toContain('Updated 50');
@@ -193,23 +193,23 @@ describe('EditorViewDOM + renderer-dom Performance Integration', () => {
         }))
       };
 
-      // 첫 렌더링
+      // First rendering
       view.render(tree);
       
-      // 첫 렌더링 후 요소 수 측정
+      // Measure element count after first rendering
       const initialElementCount = container.querySelectorAll('*').length;
       expect(initialElementCount).toBeGreaterThan(0);
 
-      // 반복 렌더링 (10회)
+      // Repeat rendering (10 times)
       for (let i = 0; i < 10; i++) {
         view.render(tree);
       }
 
-      // 메모리 누수 체크: DOM 요소 수가 비정상적으로 증가하지 않아야 함
+      // Memory leak check: DOM element count should not abnormally increase
       const finalElementCount = container.querySelectorAll('*').length;
       
-      // 반복 렌더링 후에도 요소 수가 크게 증가하지 않아야 함
-      // (약간의 증가는 허용하지만, 3배 이상 증가하면 문제)
+      // Element count should not significantly increase after repeated rendering
+      // (Slight increase is allowed, but 3x or more increase is a problem)
       expect(finalElementCount).toBeLessThan(initialElementCount * 3);
       
       const html = normalizeHTML(container.firstElementChild as Element);
@@ -220,7 +220,7 @@ describe('EditorViewDOM + renderer-dom Performance Integration', () => {
 
   describe('Proxy-based Lazy Evaluation Performance', () => {
     it('uses proxy efficiently for large documents', async () => {
-      // DataStore에 대량 문서 로드
+      // Load large document to DataStore
       const paragraphs = Array.from({ length: 500 }, (_, i) => ({
         sid: `p${i}`,
         stype: 'paragraph',
@@ -239,36 +239,36 @@ describe('EditorViewDOM + renderer-dom Performance Integration', () => {
         content: paragraphs
       };
 
-      // DataStore에 로드
+      // Load to DataStore
       editor.loadDocument(tree, 'proxy-session');
       
-      // 잠시 대기 (로드 완료 대기)
+      // Wait briefly (wait for load completion)
       await new Promise(resolve => setTimeout(resolve, 100));
       
-      // Proxy 문서 확인
+      // Verify Proxy document
       const proxyDoc = editor.getDocumentProxy?.();
       expect(proxyDoc).toBeTruthy();
       expect(proxyDoc?.stype).toBe('document');
       
       const startTime = performance.now();
-      view.render(); // Proxy를 통해 렌더링
+      view.render(); // Render through Proxy
       const endTime = performance.now();
       
       const duration = endTime - startTime;
       console.log(`[Performance] Rendered 500 paragraphs with proxy in ${duration.toFixed(2)} ms`);
       
-      // Proxy를 사용한 렌더링 시간은 환경에 따라 다르므로, 너무 엄격하게 제한하지 않음
-      expect(duration).toBeLessThan(5000); // 5초 이내
+      // Rendering time with Proxy varies by environment, so don't restrict too strictly
+      expect(duration).toBeLessThan(5000); // Within 5 seconds
       
       const contentLayer = container.querySelector('[data-bc-layer="content"]');
       if (contentLayer) {
         const html = normalizeHTML(contentLayer as Element);
-        // Proxy 문서의 sid는 로드 시 생성된 것이므로, doc-proxy와 다를 수 있음
-        // 최소한 문서가 렌더링되었는지 확인
+        // Proxy document's sid is generated at load time, so may differ from doc-proxy
+        // At least verify document is rendered
         expect(html).toContain('data-bc-stype="document"');
-        expect(html).toContain('Paragraph 250'); // 중간 내용 확인
+        expect(html).toContain('Paragraph 250'); // Verify middle content
       } else {
-        // content layer가 없으면 최소한 container에 내용이 있는지 확인
+        // If content layer doesn't exist, at least verify container has content
         expect(container.children.length).toBeGreaterThan(0);
       }
     });
@@ -298,8 +298,8 @@ describe('EditorViewDOM + renderer-dom Performance Integration', () => {
         content: paragraphs
       };
 
-      // Decorators 추가
-      // 일부 paragraph에 decorator 추가
+      // Add Decorators
+      // Add decorator to some paragraphs
       for (let i = 0; i < 50; i++) {
         view.addDecorator({
           sid: `d${i}`,
@@ -321,14 +321,14 @@ describe('EditorViewDOM + renderer-dom Performance Integration', () => {
       const duration = endTime - startTime;
       console.log(`[Performance] Rendered 200 paragraphs with marks and 50 decorators in ${duration.toFixed(2)} ms`);
       
-      // 마크와 decorator가 있는 경우 약간 더 느릴 수 있음
-      expect(duration).toBeLessThan(5000); // 5초 이내
+      // May be slightly slower with marks and decorators
+      expect(duration).toBeLessThan(5000); // Within 5 seconds
       
-      // content layer에서 확인
+      // Verify in content layer
       const contentLayer = view.layers.content;
       const html = normalizeHTML(contentLayer.firstElementChild as Element);
       expect(html).toContain('data-bc-sid="doc-mixed"');
-      // 마크로 인해 텍스트가 분할될 수 있으므로 paragraph 100의 sid로 확인
+      // Text may be split by marks, so verify with paragraph 100's sid
       expect(html).toContain('data-bc-sid="p100"');
     });
   });

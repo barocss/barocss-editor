@@ -208,10 +208,10 @@ export class FiberScheduler {
     // To do this, call fiberReconcile again on parent
     let nextFiber = fiber.return;
     while (nextFiber) {
-      // 부모로 돌아갈 때, 부모의 자식이 모두 처리되었으므로
-      // 부모에 대해 fiberReconcile을 다시 호출하여 후처리 수행
-      // (fiberReconcile은 자식이 없을 때만 후처리를 수행하므로, 
-      //  부모로 돌아갈 때는 부모의 자식이 모두 처리된 상태이므로 후처리가 필요함)
+      // When returning to parent, all of parent's children have been processed
+      // Call fiberReconcile again on parent to perform post-processing
+      // (fiberReconcile only performs post-processing when there are no children,
+      //  so when returning to parent, all children are processed and post-processing is needed)
       this.reconcileFiber(nextFiber);
       
       if (nextFiber.sibling) {
@@ -220,18 +220,18 @@ export class FiberScheduler {
       nextFiber = nextFiber.return;
     }
     
-    return null; // 완료
+    return null; // Complete
   }
   
   /**
    * Fiber reconcile
-   * 실제 reconcile 함수를 호출
+   * Call actual reconcile function
    */
   protected reconcileFiber(fiber: FiberNode): void {
-    // 외부에서 제공된 reconcile 함수 호출
+    // Call reconcile function provided externally
     this.reconcileFunction(fiber);
     
-    // effectTag 결정 (reconcile 함수에서 설정할 수도 있음)
+    // Determine effectTag (may be set by reconcile function)
     if (!fiber.effectTag) {
       if (!fiber.prevVNode) {
         fiber.effectTag = EffectTag.PLACEMENT;
@@ -242,12 +242,12 @@ export class FiberScheduler {
   }
   
   /**
-   * 모든 작업 완료 후 호출되는 콜백
-   * 실제 DOM 조작은 reconcileFunction에서 수행되므로 여기서는 상태만 업데이트
+   * Callback called after all work completes
+   * Actual DOM manipulation is performed in reconcileFunction, so only update state here
    */
   private commitWork(): void {
-    // 작업 완료 처리
-    // 실제 DOM 조작은 reconcileFunction에서 이미 수행됨
+    // Handle work completion
+    // Actual DOM manipulation already performed in reconcileFunction
     this.workInProgress = null;
   }
   

@@ -50,9 +50,9 @@ describe('Visitor Pattern', () => {
     dataStore = new DataStore(undefined, schema);
   });
 
-  describe('기본 Visitor 패턴', () => {
+  describe('Basic Visitor pattern', () => {
     beforeEach(() => {
-      // 간단한 문서 구조 생성
+      // Create simple document structure
       dataStore.createNodeWithChildren({
         stype: 'document',
         content: [
@@ -170,10 +170,10 @@ describe('Visitor Pattern', () => {
       expect(counts['heading']).toBe(2);
       expect(counts['paragraph']).toBe(2);
       expect(counts['inline-text']).toBe(4);
-      expect(result.visitedCount).toBe(9); // 총 노드 수
+      expect(result.visitedCount).toBe(9); // Total node count
     });
 
-    it('조건부 하위 트리 스킵 Visitor', () => {
+    it('conditional subtree skip Visitor', () => {
       const visitedNodes: string[] = [];
       const skippedNodes: string[] = [];
 
@@ -182,7 +182,7 @@ describe('Visitor Pattern', () => {
           visitedNodes.push(nodeId);
         },
         shouldVisitChildren(nodeId, node) {
-          // heading 노드의 하위는 스킵
+          // Skip children of heading nodes
           if (node.stype === 'heading') {
             skippedNodes.push(nodeId);
             return false;
@@ -193,22 +193,22 @@ describe('Visitor Pattern', () => {
 
       const result = dataStore.traverse(visitor);
 
-      console.log('=== 조건부 스킵 결과 ===');
-      console.log('방문한 노드:', visitedNodes);
-      console.log('스킵한 노드:', skippedNodes);
-      console.log('결과:', result);
+      console.log('=== Conditional skip result ===');
+      console.log('Visited nodes:', visitedNodes);
+      console.log('Skipped nodes:', skippedNodes);
+      console.log('Result:', result);
 
       expect(result.skippedCount).toBeGreaterThan(0);
-      expect(skippedNodes.length).toBe(2); // heading 노드 2개
+      expect(skippedNodes.length).toBe(2); // 2 heading nodes
     });
 
-    it('visit에서 false 반환하여 하위 노드 스킵', () => {
+    it('skip child nodes by returning false from visit', () => {
       const visitedNodes: string[] = [];
 
       const visitor: DocumentVisitor = {
         visit(nodeId, node) {
           visitedNodes.push(nodeId);
-          // heading 노드에서 false 반환하여 하위 노드 스킵
+          // Return false from heading node to skip child nodes
           if (node.stype === 'heading') {
             return false;
           }
@@ -217,12 +217,12 @@ describe('Visitor Pattern', () => {
 
       const result = dataStore.traverse(visitor);
 
-      console.log('=== visit false 반환 결과 ===');
-      console.log('방문한 노드:', visitedNodes);
-      console.log('결과:', result);
+      console.log('=== visit false return result ===');
+      console.log('Visited nodes:', visitedNodes);
+      console.log('Result:', result);
 
       expect(result.skippedCount).toBeGreaterThan(0);
-      // heading 노드의 하위 inline-text는 방문되지 않아야 함
+      // Child inline-text of heading nodes should not be visited
       const headingNodes = visitedNodes.filter(id => {
         const node = dataStore.getNode(id);
         return node?.stype === 'heading';
@@ -282,7 +282,7 @@ describe('Visitor Pattern', () => {
       expect(texts).toContain('메인 제목');
       expect(texts).toContain('일반 텍스트');
       expect(texts).toContain('굵은 텍스트');
-      expect(result.visitedCount).toBe(3); // inline-text 노드만
+      expect(result.visitedCount).toBe(3); // Only inline-text nodes
     });
 
     it('범위 기반 Visitor 실행', () => {
@@ -310,11 +310,11 @@ describe('Visitor Pattern', () => {
       console.log('결과:', result);
 
       expect(result.visitedCount).toBeGreaterThan(0);
-      expect(result.visitedCount).toBeLessThan(5); // 전체 노드보다 적어야 함
+      expect(result.visitedCount).toBeLessThan(5); // Should be less than total nodes
     });
   });
 
-  describe('여러 Visitor 순차 실행', () => {
+  describe('Sequential execution of multiple Visitors', () => {
     beforeEach(() => {
       dataStore.createNodeWithChildren({
         stype: 'document',

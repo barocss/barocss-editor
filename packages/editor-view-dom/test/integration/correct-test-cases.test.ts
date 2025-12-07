@@ -8,24 +8,24 @@ describe('Correct Test Cases', () => {
         oldText: 'hello beautiful world',
         newText: 'hello world',
         selectionOffset: 6,
-        selectionLength: 10 // 'beautiful ' 선택
+        selectionLength: 10 // Select 'beautiful '
       });
 
       console.log('Selection 영역 삭제 결과:', result);
       
       /**
-       * 스마트 분석기 분석 과정:
-       * 1. LCP 계산: "hello " (6자) 공통 접두사 발견
-       * 2. LCS 계산: "world" (5자) 공통 접미사 발견
-       * 3. 변경 영역 식별: oldText[6:16] vs newText[6:6] = "beautiful " vs ""
-       * 4. Selection 바이어싱: selectionOffset=6이 변경 영역 시작점과 일치
-       * 5. 변경 타입 결정: 삭제 (newText 부분이 비어있음)
-       * 6. 신뢰도 계산: Selection 기반이므로 confidence=1.0
+       * Smart analyzer analysis process:
+       * 1. LCP calculation: "hello " (6 chars) common prefix found
+       * 2. LCS calculation: "world" (5 chars) common suffix found
+       * 3. Change region identification: oldText[6:16] vs newText[6:6] = "beautiful " vs ""
+       * 4. Selection biasing: selectionOffset=6 matches change region start
+       * 5. Change type determination: delete (newText part is empty)
+       * 6. Confidence calculation: confidence=1.0 because Selection-based
        */
       
-      // 스마트 분석기는 LCP/LCS 기반으로 최적해를 찾으므로 여러 변경사항이 감지될 수 있음
+      // Smart analyzer finds optimal solution based on LCP/LCS, so multiple changes may be detected
       expect(result.length).toBeGreaterThan(0);
-      // 첫 번째 변경사항이 주요 변경사항 (스마트 분석기는 replace로 감지할 수 있음)
+      // First change is the main change (smart analyzer may detect as replace)
       expect(result[0]).toMatchObject({
         type: expect.stringMatching(/delete|replace/),
         start: 6,
@@ -40,11 +40,11 @@ describe('Correct Test Cases', () => {
         oldText: 'hello beautiful world',
         newText: 'hello amazing world',
         selectionOffset: 6,
-        selectionLength: 10 // 'beautiful ' 선택
+        selectionLength: 10 // Select 'beautiful '
       });
 
       console.log('Selection 영역 교체 결과:', result);
-      // 스마트 분석기는 LCP/LCS 기반으로 최적해를 찾으므로 여러 변경사항이 감지될 수 있음
+      // Smart analyzer finds optimal solution based on LCP/LCS, so multiple changes may be detected
       expect(result.length).toBeGreaterThan(0);
       expect(result[0]).toMatchObject({
         type: expect.stringMatching(/replace|delete|insert/),
@@ -60,13 +60,13 @@ describe('Correct Test Cases', () => {
         oldText: 'hello world',
         newText: 'hello beautiful world',
         selectionOffset: 6,
-        selectionLength: 0 // 커서 위치
+        selectionLength: 0 // Cursor position
       });
 
       console.log('Selection 영역 삽입 결과:', result);
-      // 스마트 분석기는 LCP/LCS 기반으로 최적해를 찾으므로 여러 변경사항이 감지될 수 있음
+      // Smart analyzer finds optimal solution based on LCP/LCS, so multiple changes may be detected
       expect(result.length).toBeGreaterThan(0);
-      // 첫 번째 변경사항이 주요 변경사항
+      // First change is the main change
       expect(result[0]).toMatchObject({
         type: 'insert',
         start: 6,
@@ -87,9 +87,9 @@ describe('Correct Test Cases', () => {
       });
 
       console.log('텍스트 끝에 삽입 결과:', result);
-      // 스마트 분석기는 LCP/LCS 기반으로 최적해를 찾으므로 여러 변경사항이 감지될 수 있음
+      // Smart analyzer finds optimal solution based on LCP/LCS, so multiple changes may be detected
       expect(result.length).toBeGreaterThan(0);
-      // 첫 번째 변경사항이 주요 변경사항
+      // First change is the main change
       expect(result[0]).toMatchObject({
         type: 'insert',
         start: 5,
@@ -108,9 +108,9 @@ describe('Correct Test Cases', () => {
       });
 
       console.log('텍스트 시작에 삽입 결과:', result);
-      // 스마트 분석기는 LCP/LCS 기반으로 최적해를 찾으므로 여러 변경사항이 감지될 수 있음
+      // Smart analyzer finds optimal solution based on LCP/LCS, so multiple changes may be detected
       expect(result.length).toBeGreaterThan(0);
-      // 첫 번째 변경사항이 주요 변경사항
+      // First change is the main change
       expect(result[0]).toMatchObject({
         type: 'insert',
         start: 0,
@@ -129,9 +129,9 @@ describe('Correct Test Cases', () => {
       });
 
       console.log('텍스트 중간에 삽입 결과:', result);
-      // 스마트 분석기는 LCP/LCS 기반으로 최적해를 찾으므로 여러 변경사항이 감지될 수 있음
+      // Smart analyzer finds optimal solution based on LCP/LCS, so multiple changes may be detected
       expect(result.length).toBeGreaterThan(0);
-      // 첫 번째 변경사항이 주요 변경사항
+      // First change is the main change
       expect(result[0]).toMatchObject({
         type: 'insert',
         start: 6,
@@ -150,9 +150,9 @@ describe('Correct Test Cases', () => {
       });
 
       console.log('전체 텍스트 삭제 결과:', result);
-      // 스마트 분석기는 LCP/LCS 기반으로 최적해를 찾으므로 여러 변경사항이 감지될 수 있음
+      // Smart analyzer finds optimal solution based on LCP/LCS, so multiple changes may be detected
       expect(result.length).toBeGreaterThan(0);
-      // 첫 번째 변경사항이 주요 변경사항
+      // First change is the main change
       expect(result[0]).toMatchObject({
         type: expect.stringMatching(/delete|replace/),
         start: 0,
@@ -171,9 +171,9 @@ describe('Correct Test Cases', () => {
       });
 
       console.log('빈 문자열에서 삽입 결과:', result);
-      // 스마트 분석기는 LCP/LCS 기반으로 최적해를 찾으므로 여러 변경사항이 감지될 수 있음
+      // Smart analyzer finds optimal solution based on LCP/LCS, so multiple changes may be detected
       expect(result.length).toBeGreaterThan(0);
-      // 첫 번째 변경사항이 주요 변경사항
+      // First change is the main change
       expect(result[0]).toMatchObject({
         type: 'insert',
         start: 0,
@@ -190,13 +190,13 @@ describe('Correct Test Cases', () => {
         oldText: 'aaaaa',
         newText: 'aaaa',
         selectionOffset: 2,
-        selectionLength: 1 // 중간의 'a' 선택
+        selectionLength: 1 // Select middle 'a'
       });
 
       console.log('연속된 문자에서 Selection 기반 변경 결과:', result);
-      // 스마트 분석기는 LCP/LCS 기반으로 최적해를 찾으므로 여러 변경사항이 감지될 수 있음
+      // Smart analyzer finds optimal solution based on LCP/LCS, so multiple changes may be detected
       expect(result.length).toBeGreaterThan(0);
-      // 첫 번째 변경사항이 주요 변경사항
+      // First change is the main change
       expect(result[0]).toMatchObject({
         type: expect.stringMatching(/delete|replace/),
         start: 2,
@@ -215,9 +215,9 @@ describe('Correct Test Cases', () => {
       });
 
       console.log('한글 텍스트 변경 결과:', result);
-      // 스마트 분석기는 LCP/LCS 기반으로 최적해를 찾으므로 여러 변경사항이 감지될 수 있음
+      // Smart analyzer finds optimal solution based on LCP/LCS, so multiple changes may be detected
       expect(result.length).toBeGreaterThan(0);
-      // 첫 번째 변경사항이 주요 변경사항
+      // First change is the main change
       expect(result[0]).toMatchObject({
         type: 'insert',
         start: 5,

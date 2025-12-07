@@ -11,7 +11,7 @@ import {
 
 describe('i18n', () => {
   beforeEach(() => {
-    // 각 테스트 전에 기본 locale을 'en'으로 리셋
+    // Reset default locale to 'en' before each test
     setDefaultLocale('en');
   });
 
@@ -40,9 +40,9 @@ describe('i18n', () => {
       const message = getLocalizedMessage(
         'context.editorFocus.description',
         undefined,
-        'ja' // 일본어는 등록되지 않음
+        'ja' // Japanese is not registered
       );
-      expect(message).toBe('Whether the editor has focus'); // 영어로 fallback
+      expect(message).toBe('Whether the editor has focus'); // Fallback to English
     });
 
     it('should return message ID when message not found in any locale', () => {
@@ -51,7 +51,7 @@ describe('i18n', () => {
     });
 
     it('should replace placeholders', () => {
-      // 테스트를 위해 임시 메시지 등록
+      // Register temporary message for testing
       registerLocaleMessages('en', {
         'test.message': 'Hello, {name}! Count: {count}',
       });
@@ -139,8 +139,8 @@ describe('i18n', () => {
     });
 
     it('should return false for unregistered locales (before registration)', () => {
-      // 이 테스트는 registerLocaleMessages가 호출되기 전에 실행되어야 함
-      // 다른 테스트에서 'ja'를 등록했을 수 있으므로, 등록되지 않은 locale을 사용
+      // This test should run before registerLocaleMessages is called
+      // Other tests may have registered 'ja', so use an unregistered locale
       expect(hasLocaleMessages('fr')).toBe(false);
       expect(hasLocaleMessages('de')).toBe(false);
     });
@@ -195,7 +195,7 @@ describe('i18n', () => {
 
   describe('initializeI18n', () => {
     it('should detect browser locale when autoDetect is true', () => {
-      // navigator.language를 mock
+      // Mock navigator.language
       Object.defineProperty(global, 'navigator', {
         value: {
           language: 'ko-KR',

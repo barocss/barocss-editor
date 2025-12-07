@@ -21,11 +21,11 @@ describe('Mark Wrapper Text Change', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
 
-    // 기본 템플릿 정의
+    // Define basic templates
     define('paragraph', element('p', { className: 'paragraph' }, [slot('content')]));
     define('inline-text', element('span', { className: 'text' }, [data('text')]));
 
-    // Bold mark 정의 (useDataAsSlot을 위해 data('text') 사용)
+    // Define Bold mark (using data('text') for useDataAsSlot)
     defineMark('bold', element('span', {
       className: 'custom-bold mark-bold',
       'data-mark-type': 'bold',
@@ -33,7 +33,7 @@ describe('Mark Wrapper Text Change', () => {
       style: { 'font-weight': 'bold', 'padding': '1px 2px', 'border-radius': '2px' }
     }, [data('text')]));
 
-    // Italic mark 정의 (useDataAsSlot을 위해 data('text') 사용)
+    // Define Italic mark (using data('text') for useDataAsSlot)
     defineMark('italic', element('span', {
       className: 'custom-italic mark-italic',
       'data-mark-type': 'italic',
@@ -50,7 +50,7 @@ describe('Mark Wrapper Text Change', () => {
   });
 
   it('bold + italic mark가 있는 텍스트에 글자 추가 시 mark wrapper 유지', async () => {
-    // 초기 모델: "bold and italic"
+    // Initial model: "bold and italic"
     const model1 = {
       sid: 'p-1',
       stype: 'paragraph',
@@ -67,11 +67,11 @@ describe('Mark Wrapper Text Change', () => {
       ]
     };
 
-    // 초기 렌더링
+    // Initial rendering
     renderer.render(container, model1 as any, []);
     await waitForFiber(renderer);
 
-    // 초기 DOM 구조 확인
+    // Verify initial DOM structure
     const textNode = container.querySelector('[data-bc-sid="text-bold-italic"]');
     expect(textNode).toBeTruthy();
     
@@ -80,15 +80,15 @@ describe('Mark Wrapper Text Change', () => {
     expect(boldWrapper).toBeTruthy();
     expect(italicWrapper).toBeTruthy();
     
-    // 초기 텍스트 확인
+    // Verify initial text
     expect(textNode?.textContent).toBe('bold and italic');
     
-    // 초기 DOM 구조 저장
+    // Save initial DOM structure
     const initialBoldWrapper = boldWrapper as HTMLElement;
     const initialItalicWrapper = italicWrapper as HTMLElement;
     const initialTextContent = textNode?.textContent;
 
-    // 모델 변경: "bold and italic" -> "boㅁld and italic" (글자 하나 추가)
+    // Model change: "bold and italic" -> "boㅁld and italic" (add one character)
     const model2 = {
       sid: 'p-1',
       stype: 'paragraph',
@@ -105,27 +105,27 @@ describe('Mark Wrapper Text Change', () => {
       ]
     };
 
-    // 재렌더링
+    // Re-render
     renderer.render(container, model2 as any, []);
     await waitForFiber(renderer);
 
-    // 재렌더링 후 DOM 구조 확인
+    // Verify DOM structure after re-render
     const textNodeAfter = container.querySelector('[data-bc-sid="text-bold-italic"]');
     expect(textNodeAfter).toBeTruthy();
     expect(textNodeAfter?.textContent).toBe('boㅁld and italic');
 
-    // Mark wrapper가 유지되었는지 확인
+    // Verify mark wrapper is preserved
     const boldWrapperAfter = textNodeAfter?.querySelector('.mark-bold');
     const italicWrapperAfter = textNodeAfter?.querySelector('.mark-italic');
     
     expect(boldWrapperAfter).toBeTruthy();
     expect(italicWrapperAfter).toBeTruthy();
     
-    // DOM 요소가 재사용되었는지 확인 (같은 객체여야 함)
+    // Verify DOM elements are reused (should be same object)
     expect(boldWrapperAfter).toBe(initialBoldWrapper);
     expect(italicWrapperAfter).toBe(initialItalicWrapper);
     
-    // 구조 확인: <span data-bc-sid="text-bold-italic">
+    // Verify structure: <span data-bc-sid="text-bold-italic">
     //   <span class="mark-bold">
     //     <span class="mark-italic">
     //       <span>boㅁld and italic</span>
@@ -138,7 +138,7 @@ describe('Mark Wrapper Text Change', () => {
   });
 
   it('VNodeBuilder가 동일한 구조를 생성하는지 확인', async () => {
-    // 모델 1
+    // Model 1
     const model1 = {
       sid: 'text-bold-italic',
       stype: 'inline-text',
@@ -149,10 +149,10 @@ describe('Mark Wrapper Text Change', () => {
       ]
     };
 
-    // VNodeBuilder로 VNode 생성
+    // Create VNode using VNodeBuilder
     const builder = (renderer as any).builder;
     
-    // 디버깅: getMarks 확인
+    // Debug: check getMarks
     const marks1 = getMarks(model1 as any);
     console.log('[TEST] model1 marks:', marks1);
     console.log('[TEST] model1:', JSON.stringify(model1, null, 2));
@@ -161,7 +161,7 @@ describe('Mark Wrapper Text Change', () => {
     console.log('[TEST] vnode1 children:', vnode1.children?.length);
     console.log('[TEST] vnode1 first child:', JSON.stringify(vnode1.children?.[0], null, 2));
 
-    // 모델 2 (글자 하나 추가)
+    // Model 2 (add one character)
     const model2 = {
       sid: 'text-bold-italic',
       stype: 'inline-text',
@@ -174,26 +174,26 @@ describe('Mark Wrapper Text Change', () => {
 
     const vnode2 = builder.build('inline-text', model2 as any, {});
 
-    // VNode 구조 비교
-    // 1. children 개수 확인
+    // Compare VNode structures
+    // 1. Verify children count
     expect(vnode1.children?.length).toBe(1);
     expect(vnode2.children?.length).toBe(1);
 
-    // 2. 첫 번째 child가 mark wrapper인지 확인
+    // 2. Verify first child is mark wrapper
     const child1 = vnode1.children?.[0] as any;
     const child2 = vnode2.children?.[0] as any;
     
     expect(child1?.tag).toBe('span');
     expect(child2?.tag).toBe('span');
     
-    // 3. mark wrapper의 class 확인
+    // 3. Verify mark wrapper's class
     const child1Class = child1?.attrs?.class || child1?.attrs?.className;
     const child2Class = child2?.attrs?.class || child2?.attrs?.className;
     
     expect(child1Class).toContain('mark-bold');
     expect(child2Class).toContain('mark-bold');
     
-    // 4. 중첩된 mark wrapper 확인
+    // 4. Verify nested mark wrapper
     const child1Children = child1?.children;
     const child2Children = child2?.children;
     
@@ -212,7 +212,7 @@ describe('Mark Wrapper Text Change', () => {
     expect(nested1Class).toContain('mark-italic');
     expect(nested2Class).toContain('mark-italic');
     
-    // 5. 최종 텍스트 노드 확인 (재귀적으로 찾기)
+    // 5. Verify final text node (find recursively)
     const findTextVNode = (vnode: any): any => {
       if (vnode?.text !== undefined) {
         return vnode;
@@ -234,7 +234,7 @@ describe('Mark Wrapper Text Change', () => {
     expect(final1?.text).toBe('bold and italic');
     expect(final2?.text).toBe('boㅁld and italic');
     
-    // 구조는 동일하고 텍스트만 다름
+    // Structure is identical, only text differs
     expect(vnode1.children?.length).toBe(vnode2.children?.length);
   });
 });

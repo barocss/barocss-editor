@@ -5,7 +5,7 @@ import { DataStore } from '@barocss/datastore';
 import { Schema } from '@barocss/schema';
 // import { EDITOR_EVENTS } from '../src/types';
 
-// Mock DOM 환경 설정
+// Set up Mock DOM environment
 const createMockElement = (tagName: string, attributes: Record<string, string> = {}): HTMLElement => {
   const element = document.createElement(tagName);
   Object.entries(attributes).forEach(([key, value]) => {
@@ -21,10 +21,10 @@ describe('Editor + SelectionManager 통합 테스트', () => {
   let schema: Schema;
 
   beforeEach(() => {
-    // DOM 환경 초기화
+    // Initialize DOM environment
     document.body.innerHTML = '';
     
-    // Mock Schema 생성
+    // Create Mock Schema
     schema = {
       nodes: {
         document: {
@@ -51,7 +51,7 @@ describe('Editor + SelectionManager 통합 테스트', () => {
       }
     } as any;
 
-    // Mock DataStore 생성
+    // Create Mock DataStore
     dataStore = {
       getNode: vi.fn(),
       getNodes: vi.fn(),
@@ -63,14 +63,14 @@ describe('Editor + SelectionManager 통합 테스트', () => {
       unsubscribe: vi.fn()
     } as any;
 
-    // contentEditable 요소 생성
+    // Create contentEditable element
     contentEditableElement = createMockElement('div', {
       'contenteditable': 'true',
       'data-bc-sid': 'root-1',
       'data-bc-stype': 'document'
     });
 
-    // 자식 요소들 추가
+    // Add child elements
     const paragraph = createMockElement('p', {
       'data-bc-sid': 'p-1',
       'data-bc-stype': 'paragraph'
@@ -87,7 +87,7 @@ describe('Editor + SelectionManager 통합 테스트', () => {
 
     document.body.appendChild(contentEditableElement);
 
-    // Mock DataStore 응답 설정
+    // Set up Mock DataStore responses
     (dataStore.getNode as any).mockImplementation((nodeId: string) => {
       const mockNodes: Record<string, any> = {
         'root-1': { id: 'root-1', type: 'document' },
@@ -97,7 +97,7 @@ describe('Editor + SelectionManager 통합 테스트', () => {
       return mockNodes[nodeId] || null;
     });
 
-    // Editor 생성
+    // Create Editor
     editor = new Editor({
       contentEditableElement,
       dataStore,
@@ -124,11 +124,11 @@ describe('Editor + SelectionManager 통합 테스트', () => {
     });
 
     it('Editor의 selection 메서드들이 작동해야 함', () => {
-      // dataStore가 설정되었는지 확인하기 위해 에러 이벤트 테스트
+      // Test error event to verify dataStore is set
       const errorHandler = vi.fn();
       editor.on('error:selection', errorHandler);
 
-      // 존재하지 않는 노드로 선택 시도
+      // Try to select with non-existent node
       editor.setRange({
         startNodeId: 'non-existent',
         startOffset: 0,
@@ -136,7 +136,7 @@ describe('Editor + SelectionManager 통합 테스트', () => {
         endOffset: 1
       });
 
-      // 에러가 발생해야 함 (dataStore가 설정되어 있으므로)
+      // Error should occur (because dataStore is set)
       expect(errorHandler).toHaveBeenCalled();
     });
   });
@@ -146,7 +146,7 @@ describe('Editor + SelectionManager 통합 테스트', () => {
       const selectionChangeHandler = vi.fn();
       editor.on('editor:selection.change', selectionChangeHandler);
 
-      // DOM에서 텍스트 선택 시뮬레이션
+      // Simulate text selection in DOM
       const textNode = contentEditableElement.querySelector('p')?.firstChild as Text;
       const range = document.createRange();
       range.setStart(textNode, 0);
@@ -156,7 +156,7 @@ describe('Editor + SelectionManager 통합 테스트', () => {
       selection?.removeAllRanges();
       selection?.addRange(range);
 
-      // selectionchange 이벤트 시뮬레이션
+      // Simulate selectionchange event
       const selectionChangeEvent = new Event('selectionchange');
       document.dispatchEvent(selectionChangeEvent);
 
@@ -170,13 +170,13 @@ describe('Editor + SelectionManager 통합 테스트', () => {
       editor.on('editor:selection.focus', focusHandler);
       editor.on('editor:selection.blur', blurHandler);
 
-      // focus 이벤트 시뮬레이션
+      // Simulate focus event
       const focusEvent = new Event('focus');
       contentEditableElement.dispatchEvent(focusEvent);
 
       expect(focusHandler).toHaveBeenCalled();
 
-      // blur 이벤트 시뮬레이션
+      // Simulate blur event
       const blurEvent = new Event('blur');
       contentEditableElement.dispatchEvent(blurEvent);
 
@@ -241,7 +241,7 @@ describe('Editor + SelectionManager 통합 테스트', () => {
     });
 
     it('Selection이 contentEditable 내에 있는지 확인할 수 있어야 함', () => {
-      // contentEditable 내부 선택
+      // Select inside contentEditable
       const textNode = contentEditableElement.querySelector('p')?.firstChild as Text;
       const range = document.createRange();
       range.setStart(textNode, 0);
@@ -253,7 +253,7 @@ describe('Editor + SelectionManager 통합 테스트', () => {
 
       expect(editor.isSelectionInContentEditable()).toBe(true);
 
-      // 선택 지우기
+      // Clear selection
       selection?.removeAllRanges();
       expect(editor.isSelectionInContentEditable()).toBe(false);
     });
@@ -264,7 +264,7 @@ describe('Editor + SelectionManager 통합 테스트', () => {
       const errorHandler = vi.fn();
       editor.on('error:selection', errorHandler);
 
-      // 존재하지 않는 노드로 선택 시도
+      // Try to select with non-existent node
       editor.setRange({
         startNodeId: 'non-existent',
         startOffset: 0,
@@ -282,7 +282,7 @@ describe('Editor + SelectionManager 통합 테스트', () => {
     });
 
     it('Selection 에러 이벤트가 등록되지 않으면 콘솔에 에러를 출력해야 함', () => {
-      // 새로운 Editor 인스턴스를 생성하여 에러 이벤트가 등록되지 않은 상태로 테스트
+      // Create new Editor instance to test without error event registered
       const testEditor = new Editor({
         contentEditableElement,
         dataStore,
@@ -291,10 +291,10 @@ describe('Editor + SelectionManager 통합 테스트', () => {
 
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-      // SelectionManager의 에러 핸들러를 제거하여 콘솔 에러가 발생하도록 함
+      // Remove SelectionManager's error handler to trigger console error
       (testEditor as any)._selectionManager._errorHandler = undefined;
 
-      // 존재하지 않는 노드로 선택 시도
+      // Try to select with non-existent node
       testEditor.setRange({
         startNodeId: 'non-existent',
         startOffset: 0,
@@ -318,7 +318,7 @@ describe('Editor + SelectionManager 통합 테스트', () => {
       
       editor.destroy();
       
-      // SelectionManager의 clearSelection이 호출되었는지 확인
+      // Verify SelectionManager's clearSelection is called
       expect(clearSelectionSpy).toHaveBeenCalled();
     });
   });
@@ -328,7 +328,7 @@ describe('Editor + SelectionManager 통합 테스트', () => {
       const selectionChangeHandler = vi.fn();
       editor.on('editor:selection.change', selectionChangeHandler);
 
-      // 사용자가 "Hello" 텍스트를 선택하는 시뮬레이션
+      // Simulate user selecting "Hello" text
       const textNode = contentEditableElement.querySelector('p')?.firstChild as Text;
       const range = document.createRange();
       range.setStart(textNode, 0);
@@ -338,7 +338,7 @@ describe('Editor + SelectionManager 통합 테스트', () => {
       selection?.removeAllRanges();
       selection?.addRange(range);
 
-      // selectionchange 이벤트 시뮬레이션
+      // Simulate selectionchange event
       const selectionChangeEvent = new Event('selectionchange');
       document.dispatchEvent(selectionChangeEvent);
 
@@ -354,7 +354,7 @@ describe('Editor + SelectionManager 통합 테스트', () => {
     });
 
     it('프로그래밍적으로 선택을 설정했을 때 DOM에 반영되어야 함', () => {
-      // 프로그래밍적으로 선택 설정
+      // Set selection programmatically
       editor.setRange({
         startNodeId: 'h1-1',
         startOffset: 0,
@@ -366,35 +366,35 @@ describe('Editor + SelectionManager 통합 테스트', () => {
       expect(selection).toBeTruthy();
       expect(selection?.rangeCount).toBeGreaterThan(0);
 
-      // 선택된 텍스트가 "Title"인지 확인
+      // Verify selected text is "Title"
       const selectedText = selection?.toString();
       expect(selectedText).toBe('Title');
     });
 
     it('복잡한 선택 시나리오에서도 올바르게 작동해야 함', () => {
-      // 여러 단계의 선택 변경 시뮬레이션
+      // Simulate multi-step selection changes
       const selectionChanges: string[] = [];
       
       editor.on('selectionChange', (data) => {
         selectionChanges.push(data.selection.textContent);
       });
 
-      // 1단계: 첫 번째 단락 선택
+      // Step 1: Select first paragraph
       editor.setNode({
         nodeId: 'p-1',
         selectAll: true
       });
 
-      // 2단계: 제목 선택
+      // Step 2: Select heading
       editor.setNode({
         nodeId: 'h1-1',
         selectAll: true
       });
 
-      // 3단계: 선택 지우기
+      // Step 3: Clear selection
       editor.clearSelection();
 
-      // selectionchange 이벤트들을 수동으로 발생시켜야 함
+      // selectionchange events must be manually dispatched
       const selectionChangeEvent = new Event('selectionchange');
       document.dispatchEvent(selectionChangeEvent);
 

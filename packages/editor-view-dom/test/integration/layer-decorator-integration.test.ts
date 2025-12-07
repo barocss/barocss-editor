@@ -14,13 +14,13 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     
-    // 렌더러 등록
+    // Register renderers
     const registry = getGlobalRegistry();
     define('document', element('div', { className: 'document' }, [slot('content')]));
     define('paragraph', element('p', { className: 'paragraph' }, [slot('content')]));
     define('inline-text', element('span', { className: 'text' }, [data('text')]));
     
-    // Decorator 템플릿 정의
+    // Define decorator templates
     defineDecorator('highlight', element('span', {
       className: 'highlight-decorator',
       style: { backgroundColor: 'yellow' }
@@ -42,7 +42,7 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
       registry
     });
     
-    // Decorator 타입 정의 (선택적 - 검증을 원할 때만)
+    // Define decorator types (optional - only when validation is desired)
     view.defineDecoratorType('highlight', 'layer', {
       description: 'Highlight layer decorator',
       dataSchema: {
@@ -90,7 +90,7 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
         ]
       };
 
-      // Layer decorator 추가
+      // Add layer decorator
       view.addDecorator({
         sid: 'layer1',
         stype: 'highlight',
@@ -106,7 +106,7 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
 
       view.render(tree);
 
-      // 전체 렌더링 결과 확인
+      // Verify full rendering result
       expectHTML(
         view.layers.content,
         `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">
@@ -140,7 +140,7 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
         ]
       };
 
-      // 여러 layer decorator 추가
+      // Add multiple layer decorators
       view.addDecorator({
         sid: 'layer1',
         stype: 'highlight',
@@ -159,7 +159,7 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
 
       view.render(tree);
 
-      // 전체 렌더링 결과 확인
+      // Verify full rendering result
       expectHTML(
         view.layers.content,
         `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">
@@ -196,7 +196,7 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
         ]
       };
 
-      // 초기 decorator
+      // Initial decorator
       view.addDecorator({
         sid: 'layer1',
         stype: 'highlight',
@@ -210,7 +210,7 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
 
       view.render(tree);
       
-      // 초기 렌더링 결과 확인
+      // Verify initial rendering result
       expectHTML(
         view.layers.content,
         `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">
@@ -224,7 +224,7 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
         expect
       );
 
-      // Position 업데이트
+      // Update position
       view.updateDecorator('layer1', {
         data: {
           position: { top: '20px', left: '30px' },
@@ -234,7 +234,7 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
 
       view.render(tree);
       
-      // 업데이트 후 렌더링 결과 확인
+      // Verify rendering result after update
       expectHTML(
         view.layers.content,
         `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">
@@ -272,7 +272,7 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
 
       view.render(tree);
       
-      // 초기 렌더링 결과 확인
+      // Verify initial rendering result
       expectHTML(
         view.layers.content,
         `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">
@@ -285,7 +285,7 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
         expect
       );
 
-      // Layer decorator 추가
+      // Add layer decorator
       view.addDecorator({
         sid: 'layer1',
         stype: 'highlight',
@@ -296,7 +296,7 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
 
       view.render(tree);
       
-      // decorator 추가 후 렌더링 결과 확인
+      // Verify rendering result after adding decorator
       expectHTML(
         view.layers.content,
         `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">
@@ -340,7 +340,7 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
 
       view.render(tree);
       
-      // 초기 렌더링 결과 확인
+      // Verify initial rendering result
       expectHTML(
         view.layers.content,
         `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">
@@ -354,12 +354,12 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
         expect
       );
 
-      // Layer decorator 제거
+      // Remove layer decorator
       view.removeDecorator('layer1');
 
       view.render(tree);
       
-      // decorator 제거 후 렌더링 결과 확인
+      // Verify rendering result after removing decorator
       expectHTML(
         view.layers.content,
         `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">
@@ -418,7 +418,7 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
 
       view.render(tree);
 
-      // 전체 렌더링 결과 확인
+      // Verify full rendering result
       expectHTML(
         view.layers.content,
         `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">
@@ -476,7 +476,7 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
 
       view.render(tree);
 
-      // 전체 렌더링 결과 확인
+      // Verify full rendering result
       expectHTML(
         view.layers.content,
         `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">

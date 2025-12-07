@@ -37,7 +37,7 @@ describe('DataStore Mark Normalization', () => {
         stype: 'inline-text',
         text: 'Hello World',
         marks: [
-          { stype: 'bold' }, // 범위 없음
+          { stype: 'bold' }, // No range
           { stype: 'italic', range: [0, 5] }
         ],
         parentId: 'para-1'
@@ -50,7 +50,7 @@ describe('DataStore Mark Normalization', () => {
       const node = dataStore.getNode('text-1');
 
       expect(node!.marks).toEqual([
-        { stype: 'bold', range: [0, 11] }, // 전체 텍스트에 적용
+        { stype: 'bold', range: [0, 11] }, // Applied to entire text
         { stype: 'italic', range: [0, 5] }
       ]);
     // Spec: different attrs must not merge; we still emit one update for normalized marks
@@ -64,7 +64,7 @@ describe('DataStore Mark Normalization', () => {
         text: 'Hello World',
         marks: [
           { stype: 'bold', range: [0, 5] },
-          { stype: 'italic', range: [5, 5] }, // 빈 범위
+          { stype: 'italic', range: [5, 5] }, // Empty range
           { stype: 'link', range: [6, 11] }
         ],
         parentId: 'para-1'
@@ -90,7 +90,7 @@ describe('DataStore Mark Normalization', () => {
         text: 'Hello World',
         marks: [
           { stype: 'bold', range: [0, 5] },
-          { stype: 'bold', range: [3, 8] }, // 겹치는 bold 마크
+          { stype: 'bold', range: [3, 8] }, // Overlapping bold mark
           { stype: 'italic', range: [6, 11] }
         ],
         parentId: 'para-1'
@@ -103,7 +103,7 @@ describe('DataStore Mark Normalization', () => {
       const node = dataStore.getNode('text-1');
 
       expect(node!.marks).toEqual([
-        { stype: 'bold', range: [0, 8] }, // 병합됨
+        { stype: 'bold', range: [0, 8] }, // Merged
         { stype: 'italic', range: [6, 11] }
       ]);
       expect(ops.some(o => o.type === 'update' && o.nodeId === 'text-1')).toBe(true);
@@ -116,7 +116,7 @@ describe('DataStore Mark Normalization', () => {
         text: 'Hello World',
         marks: [
           { stype: 'link', range: [0, 5], attrs: { href: 'http://example.com' } },
-          { stype: 'link', range: [3, 8], attrs: { href: 'http://different.com' } } // 다른 href
+          { stype: 'link', range: [3, 8], attrs: { href: 'http://different.com' } } // Different href
         ],
         parentId: 'para-1'
       };
@@ -142,7 +142,7 @@ describe('DataStore Mark Normalization', () => {
         text: 'Hello World',
         marks: [
           { stype: 'bold', range: [0, 5] },
-          { stype: 'bold', range: [0, 5] }, // 중복
+          { stype: 'bold', range: [0, 5] }, // Duplicate
           { stype: 'italic', range: [6, 11] }
         ],
         parentId: 'para-1'
@@ -213,8 +213,8 @@ describe('DataStore Mark Normalization', () => {
         stype: 'inline-text',
         text: 'Hello',
         marks: [
-          { stype: 'bold', range: [0, 10] }, // 텍스트 길이 초과
-          { stype: 'italic', range: [-2, 3] } // 음수 범위
+          { stype: 'bold', range: [0, 10] }, // Exceeds text length
+          { stype: 'italic', range: [-2, 3] } // Negative range
         ],
         parentId: 'para-1'
       };
@@ -226,8 +226,8 @@ describe('DataStore Mark Normalization', () => {
       const node = dataStore.getNode('text-1');
 
       expect(node!.marks).toEqual([
-        { stype: 'bold', range: [0, 5] }, // 정규화됨
-        { stype: 'italic', range: [0, 3] } // 정규화됨
+        { stype: 'bold', range: [0, 5] }, // Normalized
+        { stype: 'italic', range: [0, 3] } // Normalized
       ]);
       expect(ops.some(o => o.type === 'update' && o.nodeId === 'text-1')).toBe(true);
     });
@@ -239,7 +239,7 @@ describe('DataStore Mark Normalization', () => {
         sid: 'text-1',
         stype: 'inline-text',
         text: 'Hello',
-        marks: [{ stype: 'bold' }], // 범위 없음
+        marks: [{ stype: 'bold' }], // No range
         parentId: 'para-1'
       };
       const textNode2 = {
@@ -277,9 +277,9 @@ describe('DataStore Mark Normalization', () => {
         text: 'Hello World',
         marks: [
           { stype: 'bold', range: [0, 5] },
-          { stype: 'bold', range: [3, 8] }, // 겹치는 마크
+          { stype: 'bold', range: [3, 8] }, // Overlapping mark
           { stype: 'italic', range: [6, 11] },
-          { stype: 'link', range: [5, 5] } // 빈 마크
+          { stype: 'link', range: [5, 5] } // Empty mark
         ],
         parentId: 'para-1'
       };
@@ -323,9 +323,9 @@ describe('DataStore Mark Normalization', () => {
         text: 'Hello World',
         marks: [
           { stype: 'bold', range: [0, 5] },
-          { stype: 'italic', range: [5, 5] }, // 빈 마크
+          { stype: 'italic', range: [5, 5] }, // Empty mark
           { stype: 'link', range: [6, 11] },
-          { stype: 'link' } // 범위 없음
+          { stype: 'link' } // No range
         ],
         parentId: 'para-1'
       };

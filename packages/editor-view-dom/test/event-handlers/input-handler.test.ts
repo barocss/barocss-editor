@@ -106,9 +106,9 @@ describe('InputHandlerImpl', () => {
       expect(mockEditor.executeTransaction).not.toHaveBeenCalled();
     });
 
-    it('nodeId를 찾을 수 없는 경우 early return해야 함', () => {
+    it('should early return when nodeId cannot be found', () => {
       const orphanTextNode = document.createTextNode('Hello');
-      // parentElement가 없거나 data-bc-sid가 없는 경우
+      // If parentElement is absent or data-bc-sid is missing
 
       inputHandler.handleTextContentChange(null, null, orphanTextNode);
 
@@ -568,13 +568,13 @@ describe('InputHandlerImpl', () => {
       //  so actually only test when pending is set)
     });
 
-    it('조합 중이면 early return해야 함', () => {
+    it('should early return if composing', () => {
       inputHandler.handleCompositionStart();
-      // 조합 중에는 commitPendingImmediate가 early return해야 함
-      // (간접적으로 확인)
+      // commitPendingImmediate should early return during composition
+      // (verified indirectly)
     });
 
-    it('Model Node를 찾을 수 없으면 early return해야 함', () => {
+    it('should early return if Model Node cannot be found', () => {
       inputHandler.handleCompositionStart();
       inputHandler.handleTextContentChange('Hello', 'Hello World', textNode);
 
@@ -582,20 +582,20 @@ describe('InputHandlerImpl', () => {
 
       inputHandler.handleCompositionEnd({} as CompositionEvent);
 
-      // Model Node를 찾을 수 없으면 트랜잭션이 실행되지 않아야 함
+      // Transaction should not execute if Model Node cannot be found
       expect(mockEditor.executeTransaction).not.toHaveBeenCalled();
     });
 
-    it('inline-text 노드를 찾을 수 없으면 기본 방식으로 처리해야 함', () => {
+    it('should handle with default method if inline-text node cannot be found', () => {
       inputHandler.handleCompositionStart();
       inputHandler.handleTextContentChange('Hello', 'Hello World', textNode);
 
-      // inline-text 노드 제거
+      // Remove inline-text node
       inlineTextNode.remove();
 
       inputHandler.handleCompositionEnd({} as CompositionEvent);
 
-      // 기본 방식으로 트랜잭션이 실행되어야 함
+      // Transaction should execute with default method
       expect(mockEditor.executeTransaction).toHaveBeenCalledWith({
         type: 'text_replace',
         nodeId: 't1',
@@ -605,16 +605,16 @@ describe('InputHandlerImpl', () => {
       });
     });
 
-    it('Text Node를 찾을 수 없으면 기본 방식으로 처리해야 함', () => {
+    it('should handle with default method if Text Node cannot be found', () => {
       inputHandler.handleCompositionStart();
       inputHandler.handleTextContentChange('Hello', 'Hello World', textNode);
 
-      // text node 제거
+      // Remove text node
       inlineTextNode.removeChild(textNode);
 
       inputHandler.handleCompositionEnd({} as CompositionEvent);
 
-      // 기본 방식으로 트랜잭션이 실행되어야 함
+      // Transaction should execute with default method
       expect(mockEditor.executeTransaction).toHaveBeenCalledWith({
         type: 'text_replace',
         nodeId: 't1',
@@ -667,8 +667,8 @@ describe('InputHandlerImpl', () => {
   });
 
   describe('resolveModelTextNodeId', () => {
-    it('Text Node에서 nodeId를 추출해야 함', () => {
-      // handleTextContentChange를 통해 간접적으로 테스트
+    it('should extract nodeId from Text Node', () => {
+      // Test indirectly through handleTextContentChange
       mockEditor.dataStore.getNode.mockReturnValue({
         text: 'Hello',
         marks: [],
@@ -693,7 +693,7 @@ describe('InputHandlerImpl', () => {
 
       inputHandler.handleTextContentChange('Hello', 'Hello World', textNode);
 
-      // nodeId가 올바르게 추출되어 executeTransaction이 호출되었는지 확인
+      // Verify nodeId was correctly extracted and executeTransaction was called
       expect(mockEditor.executeTransaction).toHaveBeenCalledWith(
         expect.objectContaining({ nodeId: 't1' })
       );
@@ -734,9 +734,9 @@ describe('InputHandlerImpl', () => {
       );
     });
 
-    it('nodeId를 찾을 수 없으면 null을 반환해야 함', () => {
+    it('should return null when nodeId cannot be found', () => {
       const orphanTextNode = document.createTextNode('Hello');
-      // parentElement가 없거나 data-bc-sid가 없는 경우
+      // If parentElement is absent or data-bc-sid is missing
 
       inputHandler.handleTextContentChange(null, null, orphanTextNode);
 
@@ -811,12 +811,12 @@ describe('InputHandlerImpl', () => {
   });
 
   describe('getCurrentSelection', () => {
-    it('Selection이 없으면 { offset: 0, length: 0 }을 반환해야 함', () => {
-      // Selection이 없는 경우 시뮬레이션
+    it('should return { offset: 0, length: 0 } when Selection is absent', () => {
+      // Simulate case where Selection is absent
       const originalGetSelection = window.getSelection;
       window.getSelection = vi.fn(() => null as any);
 
-      // handleTextContentChange를 통해 간접적으로 테스트
+      // Test indirectly through handleTextContentChange
       mockEditor.dataStore.getNode.mockReturnValue({
         text: 'Hello',
         marks: [],
@@ -832,7 +832,7 @@ describe('InputHandlerImpl', () => {
           nodeId: 't1',
           oldText: 'Hello',
           newText: 'Hello World',
-          editPosition: 0, // Selection이 없으면 0
+          editPosition: 0, // 0 if Selection is absent
           editType: 'insert',
           insertedLength: 6,
           deletedLength: 0
@@ -843,7 +843,7 @@ describe('InputHandlerImpl', () => {
 
       expect(mockEditor.executeTransaction).toHaveBeenCalled();
 
-      // 복원
+      // Restore
       window.getSelection = originalGetSelection;
     });
 
@@ -1171,7 +1171,7 @@ describe('InputHandlerImpl', () => {
 
         inputHandler.handleBeforeInput(event);
 
-        // formatBold, formatItalic, formatUnderline, formatStrikeThrough만 beforeInput에서 처리
+        // Only formatBold, formatItalic, formatUnderline, formatStrikeThrough are handled in beforeInput
         const handledFormats = ['formatBold', 'formatItalic', 'formatUnderline', 'formatStrikeThrough'];
         if (handledFormats.includes(inputType)) {
           expect(event.preventDefault).toHaveBeenCalled();
@@ -1181,7 +1181,7 @@ describe('InputHandlerImpl', () => {
           });
           expect(mockEditor.executeCommand).toHaveBeenCalledWith(command, {});
         } else {
-          // 다른 format은 아직 처리하지 않으므로 preventDefault가 호출되지 않음
+          // Other formats are not yet handled, so preventDefault is not called
           expect(event.preventDefault).not.toHaveBeenCalled();
         }
       });
@@ -1252,7 +1252,7 @@ describe('InputHandlerImpl', () => {
 
       inputHandler.handleTextContentChange('Hello', 'Hi', textNode);
 
-      // Range Selection이면 skip_range_selection 이벤트가 발생해야 함
+      // skip_range_selection event should occur for Range Selection
       expect(mockEditor.emit).toHaveBeenCalledWith('editor:input.skip_range_selection', expect.any(Object));
     });
 
@@ -1305,11 +1305,11 @@ describe('InputHandlerImpl', () => {
       vi.useRealTimers();
     });
 
-    it('조합 종료 누락 대비 타이머가 400ms 후 자동 커밋해야 함', () => {
-      // DOM에서 텍스트 변경 시뮬레이션 (commitPendingImmediate에서 사용)
+    it('timer should auto-commit after 400ms to handle missing composition end', () => {
+      // Simulate text change in DOM (used in commitPendingImmediate)
       textNode.textContent = 'Hello World';
 
-      // commitPendingImmediate에서 호출될 handleEfficientEdit 모킹
+      // Mock handleEfficientEdit that will be called in commitPendingImmediate
       vi.mocked(handleEfficientEdit).mockReturnValue({
         newText: 'Hello World',
         adjustedMarks: [],
@@ -1327,41 +1327,41 @@ describe('InputHandlerImpl', () => {
 
       inputHandler.handleCompositionStart();
       
-      // 조합 중 텍스트 변경 (pending에 저장, 타이머 설정)
+      // Text change during composition (saved to pending, timer set)
       inputHandler.handleTextContentChange('Hello', 'Hello World', textNode);
       
-      // 조합 중이므로 트랜잭션이 실행되지 않아야 함
+      // Transaction should not execute during composition
       expect(mockEditor.executeTransaction).not.toHaveBeenCalled();
 
-      // 조합 종료 누락 시뮬레이션: isComposing을 false로 설정 (실제로는 브라우저가 자동으로 설정)
-      // 하지만 commitPendingImmediate는 isComposing을 체크하므로, 타이머 실행 전에 false로 설정되어야 함
-      // 실제 시나리오: 조합 종료 이벤트가 누락되었지만, 브라우저는 조합을 종료했을 수 있음
-      // 따라서 타이머가 실행될 때는 isComposing이 false일 가능성이 높음
-      // 테스트를 위해 handleCompositionEnd를 호출하지 않고, 직접 isComposing을 false로 설정하는 것은 불가능 (private)
-      // 대신, 조합 종료 없이 400ms 경과 후 타이머가 실행되는 시나리오를 테스트
-      // 하지만 commitPendingImmediate는 isComposing을 체크하므로, 실제로는 조합 종료 후에만 커밋됨
-      // 따라서 이 테스트는 "조합 종료 시 타이머 취소" 테스트로 변경하는 것이 더 적절함
+      // Simulate missing composition end: set isComposing to false (browser normally does this automatically)
+      // However, commitPendingImmediate checks isComposing, so it must be false before timer execution
+      // Real scenario: composition end event may be missing, but browser may have ended composition
+      // Therefore, isComposing is likely false when timer executes
+      // For testing, cannot call handleCompositionEnd and directly set isComposing to false (private)
+      // Instead, test scenario where timer executes after 400ms without composition end
+      // However, commitPendingImmediate checks isComposing, so it only commits after composition end
+      // Therefore, it's more appropriate to change this test to "cancel timer on composition end"
       
-      // 조합 종료 (타이머 취소 및 즉시 커밋)
+      // Composition end (cancel timer and commit immediately)
       inputHandler.handleCompositionEnd({} as CompositionEvent);
       
-      // 조합 종료 시 즉시 커밋되므로 트랜잭션이 호출되어야 함
+      // Transaction should be called since it commits immediately on composition end
       expect(mockEditor.executeTransaction).toHaveBeenCalled();
       
-      // 타이머가 취소되었는지 확인 (400ms 후에도 추가 호출이 없어야 함)
+      // Verify timer is cancelled (no additional calls after 400ms)
       const callCountBefore = mockEditor.executeTransaction.mock.calls.length;
       vi.advanceTimersByTime(400);
       const callCountAfter = mockEditor.executeTransaction.mock.calls.length;
       
-      // 타이머가 취소되어 추가 호출이 없어야 함
+      // Timer should be cancelled, no additional calls
       expect(callCountAfter).toBe(callCountBefore);
     });
 
-    it('조합 종료 시 타이머를 취소해야 함', () => {
+    it('should cancel timer on composition end', () => {
       inputHandler.handleCompositionStart();
       inputHandler.handleTextContentChange('Hello', 'Hello World', textNode);
 
-      // 조합 종료
+      // Composition end
       vi.mocked(handleEfficientEdit).mockReturnValue({
         newText: 'Hello World',
         adjustedMarks: [],
@@ -1379,12 +1379,12 @@ describe('InputHandlerImpl', () => {
 
       inputHandler.handleCompositionEnd({} as CompositionEvent);
 
-      // 타이머가 취소되어야 함 (400ms 후에도 추가 호출이 없어야 함)
+      // Timer should be cancelled (no additional calls after 400ms)
       const callCountBefore = mockEditor.executeTransaction.mock.calls.length;
       vi.advanceTimersByTime(400);
       const callCountAfter = mockEditor.executeTransaction.mock.calls.length;
 
-      // 조합 종료 시 한 번만 호출되어야 함
+      // Should only be called once on composition end
       expect(callCountAfter).toBe(callCountBefore);
     });
   });
@@ -1413,14 +1413,14 @@ describe('InputHandlerImpl', () => {
         }
       });
 
-      // activeTextNodeId가 null이면 inactive node 체크를 통과
+      // If activeTextNodeId is null, inactive node check passes
       inputHandler.handleTextContentChange('Hello', 'Hello World', textNode);
 
       expect(mockEditor.executeTransaction).toHaveBeenCalled();
     });
 
     it('textNodeId와 activeTextNodeId가 일치하면 처리해야 함', () => {
-      // activeTextNodeId 설정
+      // Set activeTextNodeId
       const eventHandler = mockEditor.on.mock.calls.find(
         (call: any[]) => call[0] === 'editor:selection.dom.applied'
       )?.[1];
@@ -1470,7 +1470,7 @@ describe('InputHandlerImpl', () => {
         stype: 'inline-text'
       });
       mockEditor.getDecorators.mockReturnValue(decorators);
-      delete mockEditor.updateDecorators; // updateDecorators 제거
+      delete mockEditor.updateDecorators; // Remove updateDecorators
 
       vi.mocked(handleEfficientEdit).mockReturnValue({
         newText: 'Hello World',
@@ -1496,7 +1496,7 @@ describe('InputHandlerImpl', () => {
 
       inputHandler.handleTextContentChange('Hello', 'Hello World', textNode);
 
-      // updateDecorators가 없으면 호출하지 않아야 함 (에러 없이 처리)
+      // Should not call if updateDecorators is missing (handle without error)
       expect(mockEditor.executeTransaction).toHaveBeenCalled();
     });
   });

@@ -13,11 +13,11 @@ describe('Selection Mapping Test', () => {
     const result = analyzeTextChanges({
       oldText: 'hello world',
       newText: 'hello beautiful world',
-      selectionOffset: 6, // newText 기준 위치
+      selectionOffset: 6, // Position relative to newText
       selectionLength: 0
     });
 
-    // 기대 결과: oldText의 6번째 위치에 "beautiful " 삽입됨
+    // Expected result: "beautiful " inserted at 6th position of oldText
     expect(result).toHaveLength(1);
     expect(result[0]).toMatchObject({
       type: 'insert',
@@ -32,11 +32,11 @@ describe('Selection Mapping Test', () => {
     const result = analyzeTextChanges({
       oldText: 'hello world',
       newText: 'hello beautiful world',
-      selectionOffset: 6, // oldText 기준 위치
+      selectionOffset: 6, // Position relative to oldText
       selectionLength: 0
     });
 
-    // 기대 결과: oldText의 6번째 위치에 "beautiful " 삽입됨
+    // Expected result: "beautiful " inserted at 6th position of oldText
     expect(result).toHaveLength(1);
     expect(result[0]).toMatchObject({
       type: 'insert',
@@ -51,11 +51,11 @@ describe('Selection Mapping Test', () => {
     const result = analyzeTextChanges({
       oldText: 'hello beautiful world',
       newText: 'hello world',
-      selectionOffset: 6, // newText 기준 위치
+      selectionOffset: 6, // Position relative to newText
       selectionLength: 10
     });
 
-    // 기대 결과: oldText의 "beautiful " 부분이 삭제됨
+    // Expected result: "beautiful " part of oldText is deleted
     expect(result).toHaveLength(1);
     expect(result[0]).toMatchObject({
       type: 'delete',
@@ -99,9 +99,9 @@ describe('Selection Mapping Test', () => {
     document.body.appendChild(container);
     const runs = buildTextRunIndex(container, 'text-yellow-bg', { buildReverseMap: true });
     expect(runs.total).toBe('yellow background'.length);
-    // 두 개 이상의 run을 가질 수 있으나, total은 전체 논리 텍스트 길이와 동일해야 함
+    // May have two or more runs, but total should equal entire logical text length
     expect(runs.runs.length).toBeGreaterThanOrEqual(1);
-    // 마지막 문자 'd'가 포함되는지 확인: total-1 위치 검색
+    // Verify last character 'd' is included: search at total-1 position
     const lastIdx = binarySearchRun(runs.runs, runs.total - 1);
     expect(lastIdx).toBeGreaterThanOrEqual(0);
   });

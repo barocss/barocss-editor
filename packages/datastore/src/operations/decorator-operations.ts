@@ -9,43 +9,43 @@ export interface DecoratorRange {
   stype: string;
   category: 'inline' | 'block' | 'layer';
   target: {
-    sid: string;           // 대상 inline-text 노드의 sid
-    startOffset: number;   // 시작 offset
-    endOffset: number;     // 끝 offset
+    sid: string;           // sid of target inline-text node
+    startOffset: number;   // Start offset
+    endOffset: number;     // End offset
   };
 }
 
 /**
- * Text Edit 정보 인터페이스
+ * Text Edit information interface
  */
 export interface TextEdit {
-  nodeId: string;        // 편집된 inline-text 노드의 sid
-  oldText: string;       // 편집 전 텍스트
-  newText: string;       // 편집 후 텍스트
-  editPosition: number;  // 편집이 시작된 모델 offset
+  nodeId: string;        // sid of edited inline-text node
+  oldText: string;       // Text before edit
+  newText: string;       // Text after edit
+  editPosition: number;  // Model offset where edit started
   editType: 'insert' | 'delete' | 'replace';
   insertedLength: number;
   deletedLength: number;
-  insertedText: string;  // 삽입/교체할 텍스트 내용
+  insertedText: string;  // Text content to insert/replace
 }
 
 /**
- * Decorator Management 연산들
+ * Decorator Management operations
  * 
- * Decorator 범위 조정 기능을 제공합니다.
- * 실제 저장은 editor-view-dom에서 관리하지만,
- * 텍스트 편집 시 decorator 범위를 자동으로 조정하는 로직을 제공합니다.
+ * Provides decorator range adjustment functionality.
+ * Actual storage is managed in editor-view-dom,
+ * but provides logic to automatically adjust decorator ranges during text editing.
  */
 export class DecoratorOperations {
   constructor(private dataStore: DataStore) {}
 
   /**
-   * 텍스트 편집에 따라 decorator 범위를 조정
+   * Adjust decorator ranges according to text editing
    * 
-   * @param decorators - 조정할 decorator 배열
-   * @param nodeId - 편집된 inline-text 노드의 sid
-   * @param edit - 텍스트 편집 정보
-   * @returns 조정된 decorator 배열
+   * @param decorators - Array of decorators to adjust
+   * @param nodeId - sid of edited inline-text node
+   * @param edit - Text edit information
+   * @returns Adjusted decorator array
    */
   adjustRanges(
     decorators: DecoratorRange[],
@@ -56,30 +56,30 @@ export class DecoratorOperations {
     
     const { editPosition, insertedLength, deletedLength } = edit;
     const delta = insertedLength - deletedLength;
-    const editEnd = editPosition + deletedLength;  // 삭제 끝 위치
+    const editEnd = editPosition + deletedLength;  // End position of deletion
     
     return decorators.map(decorator => {
-      // 해당 노드에 적용된 decorator만 조정
+      // Only adjust decorators applied to this node
       if (decorator.target.sid !== nodeId) {
         return decorator;
       }
       
       const { startOffset, endOffset } = decorator.target;
       
-      // 편집이 decorator 범위를 완전히 지우는 경우
+      // If edit completely erases decorator range
       if (editPosition <= startOffset && editEnd >= endOffset) {
-        // decorator 범위가 완전히 삭제됨 → 제거 (filter에서 처리)
+        // Decorator range is completely deleted → remove (handled in filter)
         return {
           ...decorator,
           target: {
             ...decorator.target,
             startOffset: 0,
-            endOffset: 0  // 무효한 범위로 설정하여 filter에서 제거
+            endOffset: 0  // Set to invalid range to remove in filter
           }
         };
       }
       
-      // 편집 위치가 decorator 범위 앞에 있는 경우
+      // If edit position is before decorator range
       if (editPosition <= startOffset) {
         return {
           ...decorator,
@@ -91,11 +91,11 @@ export class DecoratorOperations {
         };
       }
       
-      // 편집 위치가 decorator 범위 안에 있는 경우
+      // If edit position is within decorator range
       if (editPosition < endOffset) {
-        // 삭제가 decorator 범위의 일부를 지우는 경우
+        // If deletion erases part of decorator range
         if (deletedLength > 0 && editEnd > startOffset && editEnd < endOffset) {
-          // 삭제된 부분만큼 end를 줄임
+          // Reduce end by deleted portion
           return {
             ...decorator,
             target: {
@@ -104,7 +104,7 @@ export class DecoratorOperations {
             }
           };
         }
-        // 삽입만 있는 경우 또는 삭제가 decorator 범위 밖에서 끝나는 경우
+        // If only insertion or deletion ends outside decorator range
         return {
           ...decorator,
           target: {
@@ -114,11 +114,11 @@ export class DecoratorOperations {
         };
       }
       
-      // 편집 위치가 decorator 범위 뒤에 있는 경우
-      // decorator 범위는 변경 없음
+      // If edit position is after decorator range
+      // Decorator range remains unchanged
       return decorator;
     }).filter(decorator => {
-      // 유효하지 않은 범위 제거
+      // Remove invalid ranges
       const { startOffset, endOffset } = decorator.target;
       return startOffset >= 0 && endOffset > startOffset;
     });

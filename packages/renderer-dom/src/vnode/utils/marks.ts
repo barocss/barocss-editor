@@ -72,7 +72,7 @@ export function splitTextByMarks(text: string, marks: TextMark[] | undefined | n
       if (s < end && e > start) {
         const markStype = (m as any).stype;
         if (markStype) {
-          // classes.push(`mark-${markStype}`); // 자동 추가 제거
+          // classes.push(`mark-${markStype}`); // Auto-add removed
           types.push(markStype);
         }
       }

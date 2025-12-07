@@ -1308,7 +1308,7 @@ export class EditorViewDOM implements IEditorViewDOM {
    * 
    * @example
    * ```typescript
-   * // 타입 정의 (선택적)
+   * // Type definition (optional)
    * view.defineDecoratorType('highlight', 'inline', {
    *   description: 'Highlight decorator',
    *   dataSchema: {
@@ -1317,13 +1317,13 @@ export class EditorViewDOM implements IEditorViewDOM {
    *   }
    * });
    * 
-   * // 이제 highlight 타입은 검증됨
+   * // Now highlight type is validated
    * view.addDecorator({
    *   sid: 'd1',
    *   stype: 'highlight',
    *   category: 'inline',
    *   target: { sid: 't1', startOffset: 0, endOffset: 5 },
-   *   data: { color: 'red' }  // opacity는 기본값 0.3 적용
+   *   data: { color: 'red' }  // opacity applies default value 0.3
    * });
    * ```
    */
@@ -1353,9 +1353,9 @@ export class EditorViewDOM implements IEditorViewDOM {
    * 
    * 일반 decorator와 패턴 decorator 설정 모두 지원합니다.
    * 
-   * main.ts에서 사용:
+   * Usage in main.ts:
    * ```typescript
-   * // 일반 decorator 추가
+   * // Add general decorator
    * view.addDecorator({
    *   sid: 'comment-1',
    *   type: 'comment',
@@ -1371,13 +1371,13 @@ export class EditorViewDOM implements IEditorViewDOM {
    *   }
    * });
    * 
-   * // 패턴 decorator 설정 추가 (통일된 형식)
+   * // Add pattern decorator configuration (unified format)
    * view.addDecorator({
    *   sid: 'hex-color',
-   *   type: 'color-picker', // 실제 decorator 타입
+   *   type: 'color-picker', // Actual decorator type
    *   category: 'inline',
-   *   decoratorType: 'pattern', // 패턴 decorator임을 명시
-   *   target: { sid: '' }, // 패턴 decorator는 target이 없음
+   *   decoratorType: 'pattern', // Indicates pattern decorator
+   *   target: { sid: '' }, // Pattern decorator has no target
    *   data: {
    *     pattern: /#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})\b/g,
    *     extractData: (match) => ({ color: match[0] }),
@@ -1392,18 +1392,18 @@ export class EditorViewDOM implements IEditorViewDOM {
    * ```
    */
   addDecorator(decorator: Decorator | DecoratorGenerator): void {
-    // decoratorType 확인
+    // Check decoratorType
     const decoratorType = 'decoratorType' in decorator 
       ? decorator.decoratorType 
       : ('generate' in decorator ? 'custom' : undefined);
     
-    // custom (함수 기반) decorator
+    // custom (function-based) decorator
     if (decoratorType === 'custom' || 'generate' in decorator) {
       const generator = decorator as DecoratorGenerator;
-      // onDidChange 콜백 등록 (변경 감지 시 재렌더링)
+      // Register onDidChange callback (re-render on change detection)
       this.decoratorGeneratorManager.registerGenerator(
         generator,
-        () => this.render(undefined, this._renderOptions) // 변경 감지 시 재렌더링 (옵션 유지)
+        () => this.render(undefined, this._renderOptions) // Re-render on change detection (preserve options)
       );
       this.render(undefined, this._renderOptions);
       return;
@@ -1420,7 +1420,7 @@ export class EditorViewDOM implements IEditorViewDOM {
       return;
     }
     
-    // target (일반) decorator
+    // target (general) decorator
     const targetDecorator: Decorator = {
       ...(decorator as Decorator),
       decoratorType: decoratorType || 'target'
@@ -1489,8 +1489,8 @@ export class EditorViewDOM implements IEditorViewDOM {
       sid: config.sid,
       stype: config.stype,
       category: config.category,
-      target: { sid: '' }, // 패턴 decorator는 target이 없음 (텍스트에서 자동 생성)
-      decoratorType: 'pattern', // 패턴 decorator임을 명시
+      target: { sid: '' }, // Pattern decorator has no target (auto-generated from text)
+      decoratorType: 'pattern', // Indicates pattern decorator
       data: {
         pattern: config.pattern,
         extractData: config.extractData,
@@ -1502,26 +1502,26 @@ export class EditorViewDOM implements IEditorViewDOM {
   }
   
   /**
-   * Decorator 제거
+   * Remove decorator
    * 
-   * 일반 decorator, 패턴 decorator 설정, custom decorator 모두 제거 가능합니다.
+   * Can remove general decorators, pattern decorator configurations, and custom decorators.
    */
   removeDecorator(id: string): boolean {
-    // custom decorator 제거 시도
+    // Attempt to remove custom decorator
     const customRemoved = this.decoratorGeneratorManager.unregisterGenerator(id);
     if (customRemoved) {
       this.render();
       return true;
     }
     
-    // 패턴 decorator 설정 제거 시도
+    // Attempt to remove pattern decorator configuration
     const patternRemoved = this.patternDecoratorConfigManager.removeConfig(id);
     if (patternRemoved) {
       this._applyPatternConfigsToRenderer();
       return true;
     }
     
-    // 일반 decorator 제거 시도
+    // Attempt to remove general decorator
     try {
       this.decoratorManager.remove(id);
       this.render();
@@ -1532,14 +1532,14 @@ export class EditorViewDOM implements IEditorViewDOM {
   }
   
   /**
-   * Decorator 업데이트
+   * Update decorator
    * 
-   * 일반 decorator만 업데이트 가능합니다.
+   * Only general decorators can be updated.
    */
   updateDecorator(id: string, updates: Partial<Decorator>): boolean {
     try {
       this.decoratorManager.update(id, updates);
-      // Decorator 업데이트 시 자동 재렌더링 (옵션 유지)
+      // Auto re-render on decorator update (preserve options)
       this.render(undefined, this._renderOptions);
       return true;
     } catch {
@@ -1548,26 +1548,26 @@ export class EditorViewDOM implements IEditorViewDOM {
   }
   
   /**
-   * Decorator 활성화/비활성화
+   * Enable/disable decorator
    * 
-   * 일반 decorator, 패턴 decorator 설정, custom decorator 모두 지원합니다.
+   * Supports regular decorators, pattern decorator configs, and custom decorators.
    */
   setDecoratorEnabled(id: string, enabled: boolean): boolean {
-    // custom decorator 활성화/비활성화 시도
+    // Try to enable/disable custom decorator
     const customUpdated = this.decoratorGeneratorManager.setGeneratorEnabled(id, enabled);
     if (customUpdated) {
       this.render();
       return true;
     }
     
-    // 패턴 decorator 설정 활성화/비활성화 시도
+    // Try to enable/disable pattern decorator config
     const patternUpdated = this.patternDecoratorConfigManager.setConfigEnabled(id, enabled);
     if (patternUpdated) {
       this._applyPatternConfigsToRenderer();
       return true;
     }
     
-    // 일반 decorator 활성화/비활성화 시도
+    // Try to enable/disable regular decorator
     const updated = this.decoratorManager.setEnabled(id, enabled);
     if (updated) {
       this.render();
@@ -1576,44 +1576,44 @@ export class EditorViewDOM implements IEditorViewDOM {
   }
   
   /**
-   * Decorator 활성화 여부 확인
+   * Check if decorator is enabled
    * 
-   * 일반 decorator, 패턴 decorator 설정, custom decorator 모두 확인 가능합니다.
+   * Can check regular decorators, pattern decorator configs, and custom decorators.
    */
   isDecoratorEnabled(id: string): boolean {
-    // custom decorator 확인
+    // Check custom decorator
     if (this.decoratorGeneratorManager.isGeneratorEnabled(id)) {
       return true;
     }
     
-    // 패턴 decorator 설정 확인
+    // Check pattern decorator config
     if (this.patternDecoratorConfigManager.isConfigEnabled(id)) {
       return true;
     }
     
-    // 일반 decorator 확인
+    // Check regular decorator
     return this.decoratorManager.isEnabled(id);
   }
   
   /**
-   * 모든 Decorator 조회
+   * Get all decorators
    * 
-   * 일반 decorator, 패턴 decorator 설정, custom decorator를 모두 반환합니다.
+   * Returns regular decorators, pattern decorator configs, and custom decorators.
    * 
-   * 주의: custom decorator는 DecoratorGenerator 타입이므로 타입이 다릅니다.
+   * Note: Custom decorators are of type DecoratorGenerator, so the type is different.
    */
   getDecorators(options?: DecoratorQueryOptions): (Decorator | DecoratorGenerator)[] {
     const regularDecorators = this.decoratorManager.getAll(options);
     
-    // 패턴 decorator 설정도 Decorator 형식으로 변환하여 포함
+    // Also convert pattern decorator configs to Decorator format and include
     const patternConfigs = this.patternDecoratorConfigManager.getConfigs(
-      options?.enabledOnly !== false // 기본값은 true
+      options?.enabledOnly !== false // Default is true
     );
     const patternDecorators = patternConfigs.map(config => 
       this._convertPatternConfigToDecorator(config)
     );
     
-    // custom decorator 포함
+    // Include custom decorators
     const customDecorators = this.decoratorGeneratorManager.getAllGenerators(
       options?.enabledOnly !== false
     );
@@ -1622,24 +1622,24 @@ export class EditorViewDOM implements IEditorViewDOM {
   }
   
   /**
-   * 특정 Decorator 조회
+   * Get specific decorator
    * 
-   * 일반 decorator, 패턴 decorator 설정, custom decorator 모두 조회 가능합니다.
+   * Can retrieve regular decorators, pattern decorator configs, and custom decorators.
    */
   getDecorator(id: string): Decorator | DecoratorGenerator | undefined {
-    // custom decorator 조회
+    // Retrieve custom decorator
     const generator = this.decoratorGeneratorManager.getGenerator(id);
     if (generator) {
       return generator;
     }
     
-    // 일반 decorator 조회
+    // Retrieve regular decorator
     const decorator = this.decoratorManager.get(id);
     if (decorator) {
       return decorator;
     }
     
-    // 패턴 decorator 설정 조회
+    // Retrieve pattern decorator config
     const configs = this.patternDecoratorConfigManager.getConfigs();
     const config = configs.find(c => c.id === id);
     if (config) {
@@ -1650,12 +1650,12 @@ export class EditorViewDOM implements IEditorViewDOM {
   }
   
   /**
-   * 모든 Decorator를 JSON으로 Export
+   * Export all decorators as JSON
    * 
-   * 일반 decorator와 패턴 decorator 설정을 모두 포함합니다.
-   * 함수는 직렬화할 수 없으므로 패턴 decorator의 함수는 제외됩니다.
+   * Includes both regular decorators and pattern decorator configs.
+   * Functions cannot be serialized, so pattern decorator functions are excluded.
    * 
-   * main.ts에서 사용:
+   * Usage in main.ts:
    * ```typescript
    * const exportData = view.exportDecorators();
    * const json = JSON.stringify(exportData, null, 2);
@@ -1663,15 +1663,15 @@ export class EditorViewDOM implements IEditorViewDOM {
    * ```
    */
   exportDecorators(): DecoratorExportData {
-    // 일반 decorator (target decorators)
+    // Regular decorators (target decorators)
     const targetDecorators = this.decoratorManager.getAll({ enabledOnly: false })
       .filter(d => d.decoratorType !== 'pattern')
       .map(d => {
         const { decoratorType, ...rest } = d;
-        return rest; // 변환 없이 그대로 (stype 포함)
+        return rest; // Return as-is without conversion (includes stype)
       });
     
-    // 패턴 decorator 설정 (함수 제외)
+    // Pattern decorator configs (functions excluded)
     const patternConfigs = this.patternDecoratorConfigManager.getConfigs();
     const patternDecorators = patternConfigs.map(config => ({
       sid: config.sid,
@@ -1693,15 +1693,15 @@ export class EditorViewDOM implements IEditorViewDOM {
   }
   
   /**
-   * JSON에서 Decorator를 Load
+   * Load decorators from JSON
    * 
-   * 패턴 decorator의 함수는 다음 순서로 찾습니다:
-   * 1. patternFunctions 매개변수에서 제공된 함수
-   * 2. 글로벌 패턴 레지스트리에서 등록된 함수 (모듈화된 패턴)
+   * Pattern decorator functions are found in the following order:
+   * 1. Functions provided in patternFunctions parameter
+   * 2. Functions registered in global pattern registry (modularized patterns)
    * 
-   * main.ts에서 사용:
+   * Usage in main.ts:
    * ```typescript
-   * // 방법 1: 함수 직접 제공
+   * // Method 1: Provide functions directly
    * const json = localStorage.getItem('decorators');
    * if (json) {
    *   const exportData = JSON.parse(json);
@@ -1717,8 +1717,8 @@ export class EditorViewDOM implements IEditorViewDOM {
    *   });
    * }
    * 
-   * // 방법 2: 모듈화된 패턴 사용
-   * // 패턴을 모듈로 분리하고 함수를 재사용
+   * // Method 2: Use modularized patterns
+   * // Separate patterns into modules and reuse functions
    * import { hexColorPattern } from './patterns/hex-color';
    * 
    * const json = localStorage.getItem('decorators');
@@ -1753,22 +1753,22 @@ export class EditorViewDOM implements IEditorViewDOM {
       };
     }>
   ): void {
-    // 기존 decorator 모두 제거
+    // Remove all existing decorators
     this.decoratorManager.clear();
     this.patternDecoratorConfigManager.clear();
     this.decoratorGeneratorManager.clear();
     
-    // 일반 decorator 로드
+    // Load regular decorators
     for (const decorator of data.targetDecorators) {
       this.decoratorManager.add({
         ...decorator,
         decoratorType: 'target'
-      }); // 변환 없이 그대로 (stype 포함)
+      }); // Return as-is without conversion (includes stype)
     }
     
-    // 패턴 decorator 설정 로드
+    // Load pattern decorator settings
     for (const patternData of data.patternDecorators) {
-      // patternFunctions에서 함수 찾기
+      // Find function in patternFunctions
       const functions = patternFunctions?.[patternData.sid];
       
       if (!functions) {
@@ -1777,10 +1777,10 @@ export class EditorViewDOM implements IEditorViewDOM {
         continue;
       }
       
-      // RegExp 재구성
+      // Reconstruct RegExp
       const pattern = new RegExp(patternData.pattern.source, patternData.pattern.flags);
       
-      // Decorator 형식으로 변환하여 추가
+      // Convert to decorator format and add
       this.addDecorator({
         sid: patternData.sid,
         stype: patternData.stype,
@@ -1797,17 +1797,17 @@ export class EditorViewDOM implements IEditorViewDOM {
       });
     }
     
-    // 재렌더링
+    // Re-render
     this.render();
   }
 
   /**
-   * Generator 기반 decorator 생성 (내부 메서드)
+   * Generate decorators based on generator (internal method)
    */
   private _generateGeneratorDecorators(model: ModelData): Decorator[] {
     const decorators: Decorator[] = [];
     
-    // 재귀적으로 모든 텍스트 노드를 찾아서 generator 실행
+    // Recursively find all text nodes and run generator
     const traverse = (node: ModelData): void => {
       const text = node.text && typeof node.text === 'string' ? node.text : null;
       const generatorDecorators = this.decoratorGeneratorManager.generateDecorators(
@@ -1817,7 +1817,7 @@ export class EditorViewDOM implements IEditorViewDOM {
       );
       decorators.push(...generatorDecorators);
       
-      // 자식 노드 재귀 처리
+      // Recursively process child nodes
       if (node.children && Array.isArray(node.children)) {
         for (const child of node.children) {
           traverse(child);
@@ -1830,8 +1830,8 @@ export class EditorViewDOM implements IEditorViewDOM {
   }
 
   /**
-   * Selection 기반으로 현재 편집 중인 노드의 sid 추출
-   * skipNodes 기능을 위한 메서드
+   * Extract sid of currently editing nodes based on Selection
+   * Method for skipNodes functionality
    */
   private _getEditingNodeSids(): Set<string> {
     const sids = new Set<string>();
@@ -1843,7 +1843,7 @@ export class EditorViewDOM implements IEditorViewDOM {
     
     const range = selection.getRangeAt(0);
     
-    // anchor/focus 노드에서 sid 추출
+    // Extract sid from anchor/focus nodes
     const getSidFromNode = (node: Node): string | null => {
       let el: Element | null = null;
       if (node.nodeType === Node.TEXT_NODE) {
@@ -1868,8 +1868,8 @@ export class EditorViewDOM implements IEditorViewDOM {
   }
 
   /**
-   * 입력 시작 시점에 호출
-   * 현재 Selection 기반으로 편집 중인 노드를 editingNodes에 추가
+   * Called at input start
+   * Add currently editing nodes to editingNodes based on current Selection
    */
   private _onInputStart(): void {
     const sids = this._getEditingNodeSids();
@@ -1879,22 +1879,22 @@ export class EditorViewDOM implements IEditorViewDOM {
   }
 
   /**
-   * 입력 종료 시점에 호출
-   * debounce 후 editingNodes에서 제거
+   * Called at input end
+   * Remove from editingNodes after debounce
    * 
-   * 주의: 재렌더링은 하지 않음
-   * - 입력 중에는 브라우저가 DOM을 직접 업데이트
-   * - 우리는 모델만 업데이트 (skipRender: true)
-   * - 입력이 끝난 후 재렌더링하면 selection과 충돌할 수 있음
+   * Note: Does not re-render
+   * - During input, browser directly updates DOM
+   * - We only update model (skipRender: true)
+   * - Re-rendering after input ends may conflict with selection
    */
   private _onInputEnd(): void {
-    // debounce: 입력 완료 후 일정 시간 대기
+    // debounce: wait for a certain time after input completes
     if (this._inputEndDebounceTimer) {
       clearTimeout(this._inputEndDebounceTimer);
     }
     
     this._inputEndDebounceTimer = window.setTimeout(() => {
-      // editingNodes 초기화
+      // Initialize editingNodes
       this._editingNodes.clear();
       
       this._inputEndDebounceTimer = null;

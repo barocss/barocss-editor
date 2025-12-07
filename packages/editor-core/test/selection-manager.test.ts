@@ -9,7 +9,7 @@ import {
   DOMAccessError 
 } from '../src/types';
 
-// Mock DOM 환경 설정
+// Set up Mock DOM environment
 const createMockElement = (tagName: string, attributes: Record<string, string> = {}): HTMLElement => {
   const element = document.createElement(tagName);
   Object.entries(attributes).forEach(([key, value]) => {
@@ -28,10 +28,10 @@ describe('SelectionManager', () => {
   let dataStore: DataStore;
 
   beforeEach(() => {
-    // DOM 환경 초기화
+    // Initialize DOM environment
     document.body.innerHTML = '';
     
-    // Mock DataStore 생성
+    // Create Mock DataStore
     dataStore = {
       getNode: vi.fn(),
       getNodes: vi.fn(),
@@ -43,14 +43,14 @@ describe('SelectionManager', () => {
       unsubscribe: vi.fn()
     } as any;
 
-    // contentEditable 요소 생성
+    // Create contentEditable element
     contentEditableElement = createMockElement('div', {
       'contenteditable': 'true',
       'data-bc-sid': 'root-1',
       'data-bc-stype': 'document'
     });
 
-    // 자식 요소들 추가
+    // Add child elements
     const paragraph = createMockElement('p', {
       'data-bc-sid': 'p-1',
       'data-bc-stype': 'paragraph'
@@ -67,13 +67,13 @@ describe('SelectionManager', () => {
 
     document.body.appendChild(contentEditableElement);
 
-    // SelectionManager 생성
+    // Create SelectionManager
     selectionManager = new SelectionManager({
       contentEditableElement,
       dataStore
     });
 
-    // Mock DataStore 응답 설정
+    // Set up Mock DataStore responses
     (dataStore.getNode as any).mockImplementation((nodeId: string) => {
       const mockNodes: Record<string, any> = {
         'root-1': { id: 'root-1', type: 'document' },

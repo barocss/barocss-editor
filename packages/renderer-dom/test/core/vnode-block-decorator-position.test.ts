@@ -1,7 +1,7 @@
 /**
- * Block Decorator Position 테스트
+ * Block Decorator Position Test
  * 
- * Block decorator의 position 정보가 제대로 저장되고 적용되는지 확인합니다.
+ * Verifies that block decorator's position information is properly stored and applied.
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 import { define, element, data, defineDecorator, getGlobalRegistry, slot } from '@barocss/dsl';
@@ -82,7 +82,7 @@ describe('Block Decorator Position', () => {
         type: 'comment',
         category: 'block',
         target: { sid: 'p2' }
-        // position 없음
+        // No position
       }
     ];
     

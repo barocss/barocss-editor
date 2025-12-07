@@ -259,24 +259,24 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
       expect(dataStore.getPreviousEditableNode(para2Text1.sid!)).toBeNull();
     });
 
-    it('getNextEditableNode: 빈 paragraph를 건너뛰고 다음 단락의 첫 텍스트 찾기', () => {
-      // 첫 번째 paragraph가 비어있으므로 테스트할 노드가 없음
-      // 이 케이스는 실제로 발생하지 않을 수 있지만, 안전성을 위해 확인
+    it('getNextEditableNode: skip empty paragraph and find first text of next paragraph', () => {
+      // First paragraph is empty, so no node to test
+      // This case may not occur in practice, but check for safety
       const paragraphs = dataStore.findNodesByType('paragraph');
       const emptyParagraph = paragraphs[0];
       
-      // 빈 paragraph의 다음 편집 가능한 노드는 다음 paragraph의 첫 텍스트
+      // Next editable node of empty paragraph is first text of next paragraph
       const textNodes = dataStore.findNodesByType('inline-text');
       const para2Text1 = textNodes[0];
       
-      // 빈 paragraph에서 시작하면 다음 편집 가능한 노드는 Para2-Text1
-      // 하지만 빈 paragraph 자체는 편집 가능한 노드가 아니므로, 
-      // 실제로는 paragraph의 첫 자식부터 시작해야 함
-      // 이 테스트는 실제 사용 시나리오와 다를 수 있음
+      // If starting from empty paragraph, next editable node is Para2-Text1
+      // However, empty paragraph itself is not an editable node, 
+      // so should actually start from first child of paragraph
+      // This test may differ from actual usage scenario
     });
   });
 
-  describe('heading과 paragraph 혼합', () => {
+  describe('heading and paragraph mix', () => {
     beforeEach(() => {
       // document > [heading > [text-1], paragraph > [text-2, text-3]]
       dataStore.createNodeWithChildren({
@@ -306,28 +306,28 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
       const paraText1 = textNodes[1];
       const paraText2 = textNodes[2];
       
-      // Para-Text1의 이전은 Heading Text (이전 block의 마지막 텍스트)
+      // Previous of Para-Text1 is Heading Text (last text of previous block)
       expect(dataStore.getPreviousEditableNode(paraText1.sid!)).toBe(headingText.sid);
       
-      // Heading Text의 이전 편집 가능한 노드는 없음
+      // No previous editable node for Heading Text
       expect(dataStore.getPreviousEditableNode(headingText.sid!)).toBeNull();
     });
 
-    it('getNextEditableNode: heading과 paragraph 간 이동', () => {
+    it('getNextEditableNode: move between heading and paragraph', () => {
       const textNodes = dataStore.findNodesByType('inline-text');
       const headingText = textNodes[0];
       const paraText1 = textNodes[1];
       const paraText2 = textNodes[2];
       
-      // Heading Text의 다음은 Para-Text1 (다음 block의 첫 텍스트)
+      // Next of Heading Text is Para-Text1 (first text of next block)
       expect(dataStore.getNextEditableNode(headingText.sid!)).toBe(paraText1.sid);
       
-      // Para-Text1의 다음은 Para-Text2
+      // Next of Para-Text1 is Para-Text2
       expect(dataStore.getNextEditableNode(paraText1.sid!)).toBe(paraText2.sid);
     });
   });
 
-  describe('에지 케이스', () => {
+  describe('Edge cases', () => {
     beforeEach(() => {
       // document > paragraph > [text-1]
       dataStore.createNodeWithChildren({
@@ -442,7 +442,7 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
           'inline-image': {
             name: 'inline-image',
             group: 'inline',
-            atom: true, // atom 노드
+            atom: true, // atom node
             attrs: {
               src: { type: 'string' },
               alt: { type: 'string', default: '' }
@@ -473,7 +473,7 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
           'codeBlock': {
             name: 'codeBlock',
             group: 'block',
-            content: 'text*', // text 필드가 있는 block 노드
+            content: 'text*', // block node with text field
             attrs: {
               language: { type: 'string', default: 'text' }
             }
@@ -578,20 +578,20 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
         const image2 = images[1];
         const afterText = textNodes[2];
         
-        // After 텍스트의 이전은 image2
+        // Previous of After text is image2
         expect(complexDataStore.getPreviousEditableNode(afterText.sid!)).toBe(image2.sid);
         
-        // image2의 이전은 middleText
+        // Previous of image2 is middleText
         expect(complexDataStore.getPreviousEditableNode(image2.sid!)).toBe(middleText.sid);
         
-        // middleText의 이전은 image1
+        // Previous of middleText is image1
         expect(complexDataStore.getPreviousEditableNode(middleText.sid!)).toBe(image1.sid);
         
-        // image1의 이전은 beforeText
+        // Previous of image1 is beforeText
         expect(complexDataStore.getPreviousEditableNode(image1.sid!)).toBe(beforeText.sid);
       });
 
-      it('getNextEditableNode: atom 노드(inline-image)도 편집 가능한 노드로 간주', () => {
+      it('getNextEditableNode: atom nodes (inline-image) are also considered editable nodes', () => {
         const textNodes = complexDataStore.findNodesByType('inline-text');
         const images = complexDataStore.findNodesByType('inline-image');
         const beforeText = textNodes[0];
@@ -600,21 +600,21 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
         const image2 = images[1];
         const afterText = textNodes[2];
         
-        // beforeText의 다음은 image1
+        // Next of beforeText is image1
         expect(complexDataStore.getNextEditableNode(beforeText.sid!)).toBe(image1.sid);
         
-        // image1의 다음은 middleText
+        // Next of image1 is middleText
         expect(complexDataStore.getNextEditableNode(image1.sid!)).toBe(middleText.sid);
         
-        // middleText의 다음은 image2
+        // Next of middleText is image2
         expect(complexDataStore.getNextEditableNode(middleText.sid!)).toBe(image2.sid);
         
-        // image2의 다음은 afterText
+        // Next of image2 is afterText
         expect(complexDataStore.getNextEditableNode(image2.sid!)).toBe(afterText.sid);
       });
     });
 
-    describe('table 구조 처리', () => {
+    describe('table structure handling', () => {
       beforeEach(() => {
         // document > [paragraph > [text-1], table > [row1 > [cell1 > [text-2]], row2 > [cell2 > [text-3]]], paragraph > [text-4]]
         complexDataStore.createNodeWithChildren({
@@ -673,51 +673,51 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
         const cell2Text = textNodes[2];
         const afterText = textNodes[3];
         
-        // Cell2-Text1의 이전은 Cell1-Text1 (table 내부에서)
+        // Previous of Cell2-Text1 is Cell1-Text1 (within table)
         expect(complexDataStore.getPreviousEditableNode(cell2Text.sid!)).toBe(cell1Text.sid);
         
-        // Cell1-Text1의 이전은 Before Table (table을 건너뛰고)
+        // Previous of Cell1-Text1 is Before Table (skipping table)
         expect(complexDataStore.getPreviousEditableNode(cell1Text.sid!)).toBe(beforeText.sid);
       });
 
-      it('getPreviousEditableNode: table과 paragraph 간 이동', () => {
+      it('getPreviousEditableNode: move between table and paragraph', () => {
         const textNodes = complexDataStore.findNodesByType('inline-text');
         const beforeText = textNodes[0];
         const afterText = textNodes[3];
         
-        // After Table의 이전은 Cell2-Text1 (table의 마지막 텍스트)
+        // Previous of After Table is Cell2-Text1 (last text of table)
         const cell2Text = textNodes[2];
         expect(complexDataStore.getPreviousEditableNode(afterText.sid!)).toBe(cell2Text.sid);
       });
 
-      it('getNextEditableNode: table 내부 텍스트 간 이동', () => {
+      it('getNextEditableNode: move between texts within table', () => {
         const textNodes = complexDataStore.findNodesByType('inline-text');
         const beforeText = textNodes[0];
         const cell1Text = textNodes[1];
         const cell2Text = textNodes[2];
         const afterText = textNodes[3];
         
-        // Cell1-Text1의 다음은 Cell2-Text1 (table 내부에서)
+        // Next of Cell1-Text1 is Cell2-Text1 (within table)
         expect(complexDataStore.getNextEditableNode(cell1Text.sid!)).toBe(cell2Text.sid);
         
-        // Cell2-Text1의 다음은 After Table (table을 건너뛰고)
+        // Next of Cell2-Text1 is After Table (skipping table)
         expect(complexDataStore.getNextEditableNode(cell2Text.sid!)).toBe(afterText.sid);
       });
 
-      it('getNextEditableNode: table과 paragraph 간 이동', () => {
+      it('getNextEditableNode: move between table and paragraph', () => {
         const textNodes = complexDataStore.findNodesByType('inline-text');
         const beforeText = textNodes[0];
         const cell1Text = textNodes[1];
         
-        // Before Table의 다음은 Cell1-Text1 (table의 첫 텍스트)
+        // Next of Before Table is Cell1-Text1 (first text of table)
         expect(complexDataStore.getNextEditableNode(beforeText.sid!)).toBe(cell1Text.sid);
       });
     });
 
-    describe('codeBlock (.text 필드 있는 block 노드) 처리', () => {
+    describe('codeBlock (.text field block node) handling', () => {
       beforeEach(() => {
-        // codeBlock은 content: 'text*'를 가지지만 실제로는 .text 필드를 가질 수 있음
-        // editable 속성이 없으면 block 노드로 간주되어 건너뛰어야 함
+        // codeBlock has content: 'text*' but can actually have .text field
+        // If editable attribute is missing, considered a block node and should be skipped
         complexDataStore.createNodeWithChildren({
           stype: 'document',
           content: [
@@ -730,7 +730,7 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
             {
               stype: 'codeBlock',
               attrs: { language: 'javascript' },
-              text: 'const x = 1;' // .text 필드가 있는 block 노드
+              text: 'const x = 1;' // block node with .text field
             },
             {
               stype: 'paragraph',
@@ -747,26 +747,26 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
         const beforeText = textNodes[0];
         const afterText = textNodes[1];
         
-        // After Code의 이전은 Before Code (codeBlock을 건너뛰고)
+        // Previous of After Code is Before Code (skipping codeBlock)
         expect(complexDataStore.getPreviousEditableNode(afterText.sid!)).toBe(beforeText.sid);
       });
 
-      it('getNextEditableNode: codeBlock은 editable 속성이 없으면 block 노드이므로 건너뛰기', () => {
+      it('getNextEditableNode: skip codeBlock if no editable attribute (treated as block node)', () => {
         const textNodes = complexDataStore.findNodesByType('inline-text');
         const beforeText = textNodes[0];
         const afterText = textNodes[1];
         
-        // Before Code의 다음은 After Code (codeBlock을 건너뛰고)
+        // Next of Before Code is After Code (skipping codeBlock)
         expect(complexDataStore.getNextEditableNode(beforeText.sid!)).toBe(afterText.sid);
       });
     });
 
-    describe('editable: true인 block 노드 처리', () => {
+    describe('editable: true block node handling', () => {
       let editableSchema: Schema;
       let editableDataStore: DataStore;
 
       beforeEach(() => {
-        // editable: true인 codeBlock과 mathBlock을 포함한 스키마
+        // Schema including codeBlock and mathBlock with editable: true
         editableSchema = new Schema('editable-block-schema', {
           nodes: {
             'document': {
@@ -782,7 +782,7 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
             'codeBlock': {
               name: 'codeBlock',
               group: 'block',
-              editable: true, // 편집 가능한 block
+              editable: true, // editable block
               attrs: {
                 language: { type: 'string', default: 'text' }
               }
@@ -790,7 +790,7 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
             'mathBlock': {
               name: 'mathBlock',
               group: 'block',
-              editable: true, // 편집 가능한 block
+              editable: true, // editable block
               attrs: {
                 tex: { type: 'string' },
                 engine: { type: 'string', default: 'katex' }
@@ -821,7 +821,7 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
               {
                 stype: 'codeBlock',
                 attributes: { language: 'javascript' },
-                text: 'const x = 1;' // .text 필드가 있고 editable: true
+                text: 'const x = 1;' // has .text field and editable: true
               },
               {
                 stype: 'paragraph',
@@ -838,39 +838,39 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
           const textNodes = editableDataStore.findNodesByType('inline-text');
           const beforeText = textNodes[0];
           
-          // codeBlock의 이전은 Before Code
+          // Previous of codeBlock is Before Code
           expect(editableDataStore.getPreviousEditableNode(codeBlock.sid!)).toBe(beforeText.sid);
         });
 
-        it('getNextEditableNode: editable: true인 codeBlock은 편집 가능하므로 탐색 가능', () => {
+        it('getNextEditableNode: editable: true codeBlock is searchable since it is editable', () => {
           const codeBlock = editableDataStore.findNodesByType('codeBlock')[0];
           const textNodes = editableDataStore.findNodesByType('inline-text');
           const afterText = textNodes[1];
           
-          // codeBlock의 다음은 After Code
+          // Next of codeBlock is After Code
           expect(editableDataStore.getNextEditableNode(codeBlock.sid!)).toBe(afterText.sid);
         });
 
-        it('getPreviousEditableNode: After Code의 이전은 codeBlock (건너뛰지 않음)', () => {
+        it('getPreviousEditableNode: previous of After Code is codeBlock (not skipped)', () => {
           const codeBlock = editableDataStore.findNodesByType('codeBlock')[0];
           const textNodes = editableDataStore.findNodesByType('inline-text');
           const afterText = textNodes[1];
           
-          // After Code의 이전은 codeBlock (editable: true이므로 건너뛰지 않음)
+          // Previous of After Code is codeBlock (not skipped because editable: true)
           expect(editableDataStore.getPreviousEditableNode(afterText.sid!)).toBe(codeBlock.sid);
         });
 
-        it('getNextEditableNode: Before Code의 다음은 codeBlock (건너뛰지 않음)', () => {
+        it('getNextEditableNode: next of Before Code is codeBlock (not skipped)', () => {
           const codeBlock = editableDataStore.findNodesByType('codeBlock')[0];
           const textNodes = editableDataStore.findNodesByType('inline-text');
           const beforeText = textNodes[0];
           
-          // Before Code의 다음은 codeBlock (editable: true이므로 건너뛰지 않음)
+          // Next of Before Code is codeBlock (not skipped because editable: true)
           expect(editableDataStore.getNextEditableNode(beforeText.sid!)).toBe(codeBlock.sid);
         });
       });
 
-      describe('editable: true이지만 .text 필드가 없는 경우', () => {
+      describe('editable: true but no .text field', () => {
         beforeEach(() => {
           editableDataStore.createNodeWithChildren({
             stype: 'document',
@@ -884,7 +884,7 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
               {
                 stype: 'mathBlock',
                 attributes: { tex: 'E=mc^2', engine: 'katex' }
-                // .text 필드가 없음 (editable: true이지만)
+                // No .text field (even though editable: true)
               },
               {
                 stype: 'paragraph',
@@ -901,23 +901,23 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
           const beforeText = textNodes[0];
           const afterText = textNodes[1];
           
-          // After Math의 이전은 Before Math (mathBlock을 건너뛰고)
-          // editable: true이지만 .text 필드가 없으면 편집 불가능
+          // Previous of After Math is Before Math (skipping mathBlock)
+          // If editable: true but no .text field, not editable
           expect(editableDataStore.getPreviousEditableNode(afterText.sid!)).toBe(beforeText.sid);
         });
 
-        it('getNextEditableNode: editable: true이지만 .text 필드가 없으면 편집 불가능 (건너뛰기)', () => {
+        it('getNextEditableNode: if editable: true but no .text field, not editable (skip)', () => {
           const textNodes = editableDataStore.findNodesByType('inline-text');
           const beforeText = textNodes[0];
           const afterText = textNodes[1];
           
-          // Before Math의 다음은 After Math (mathBlock을 건너뛰고)
-          // editable: true이지만 .text 필드가 없으면 편집 불가능
+          // Next of Before Math is After Math (skipping mathBlock)
+          // If editable: true but no .text field, not editable
           expect(editableDataStore.getNextEditableNode(beforeText.sid!)).toBe(afterText.sid);
         });
       });
 
-      describe('editable: true인 여러 block 노드 연속', () => {
+      describe('multiple consecutive editable: true block nodes', () => {
         beforeEach(() => {
           editableDataStore.createNodeWithChildren({
             stype: 'document',
@@ -941,7 +941,7 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
               {
                 stype: 'mathBlock',
                 attributes: { tex: 'E=mc^2', engine: 'katex' },
-                text: 'E=mc^2' // .text 필드가 있음
+                text: 'E=mc^2' // has .text field
               },
               {
                 stype: 'paragraph',
@@ -964,20 +964,20 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
           const beforeText = textNodes[0];
           const afterText = textNodes[1];
           
-          // codeBlock1의 이전은 Before
+          // Previous of codeBlock1 is Before
           expect(editableDataStore.getPreviousEditableNode(codeBlock1.sid!)).toBe(beforeText.sid);
           
-          // codeBlock2의 이전은 codeBlock1
+          // Previous of codeBlock2 is codeBlock1
           expect(editableDataStore.getPreviousEditableNode(codeBlock2.sid!)).toBe(codeBlock1.sid);
           
-          // mathBlock의 이전은 codeBlock2
+          // Previous of mathBlock is codeBlock2
           expect(editableDataStore.getPreviousEditableNode(mathBlock.sid!)).toBe(codeBlock2.sid);
           
-          // After의 이전은 mathBlock
+          // Previous of After is mathBlock
           expect(editableDataStore.getPreviousEditableNode(afterText.sid!)).toBe(mathBlock.sid);
         });
 
-        it('getNextEditableNode: editable: true인 block 노드들을 순차적으로 탐색', () => {
+        it('getNextEditableNode: sequentially search editable: true block nodes', () => {
           const codeBlocks = editableDataStore.findNodesByType('codeBlock');
           const mathBlocks = editableDataStore.findNodesByType('mathBlock');
           const textNodes = editableDataStore.findNodesByType('inline-text');
@@ -988,16 +988,16 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
           const beforeText = textNodes[0];
           const afterText = textNodes[1];
           
-          // Before의 다음은 codeBlock1
+          // Next of Before is codeBlock1
           expect(editableDataStore.getNextEditableNode(beforeText.sid!)).toBe(codeBlock1.sid);
           
-          // codeBlock1의 다음은 codeBlock2
+          // Next of codeBlock1 is codeBlock2
           expect(editableDataStore.getNextEditableNode(codeBlock1.sid!)).toBe(codeBlock2.sid);
           
-          // codeBlock2의 다음은 mathBlock
+          // Next of codeBlock2 is mathBlock
           expect(editableDataStore.getNextEditableNode(codeBlock2.sid!)).toBe(mathBlock.sid);
           
-          // mathBlock의 다음은 After
+          // Next of mathBlock is After
           expect(editableDataStore.getNextEditableNode(mathBlock.sid!)).toBe(afterText.sid);
         });
       });
@@ -1111,9 +1111,9 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
       });
     });
 
-    describe('.text 필드가 있는 노드 처리', () => {
+    describe('Handling nodes with .text field', () => {
       beforeEach(() => {
-        // inline-text는 .text 필드를 가짐
+        // inline-text has .text field
         complexDataStore.createNodeWithChildren({
           stype: 'document',
           content: [
@@ -1135,26 +1135,26 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
         const text2 = textNodes[1];
         const text3 = textNodes[2];
         
-        // .text 필드가 있는 노드는 편집 가능한 노드로 간주
+        // Nodes with .text field are considered editable nodes
         expect(complexDataStore.getPreviousEditableNode(text3.sid!)).toBe(text2.sid);
         expect(complexDataStore.getPreviousEditableNode(text2.sid!)).toBe(text1.sid);
       });
 
-      it('getNextEditableNode: .text 필드가 있는 노드는 편집 가능', () => {
+      it('getNextEditableNode: nodes with .text field are editable', () => {
         const textNodes = complexDataStore.findNodesByType('inline-text');
         const text1 = textNodes[0];
         const text2 = textNodes[1];
         const text3 = textNodes[2];
         
-        // .text 필드가 있는 노드는 편집 가능한 노드로 간주
+        // Nodes with .text field are considered editable nodes
         expect(complexDataStore.getNextEditableNode(text1.sid!)).toBe(text2.sid);
         expect(complexDataStore.getNextEditableNode(text2.sid!)).toBe(text3.sid);
       });
     });
 
-    describe('atom 속성 확인', () => {
+    describe('atom attribute check', () => {
       beforeEach(() => {
-        // inline-image는 atom: true
+        // inline-image has atom: true
         complexDataStore.createNodeWithChildren({
           stype: 'document',
           content: [
@@ -1177,7 +1177,7 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
         const image = images[0];
         const afterText = textNodes[1];
         
-        // atom 노드이지만 group이 inline이므로 편집 가능
+        // Atom node but editable because group is inline
         expect(complexDataStore.getPreviousEditableNode(afterText.sid!)).toBe(image.sid);
         expect(complexDataStore.getPreviousEditableNode(image.sid!)).toBe(beforeText.sid);
         
@@ -1186,11 +1186,11 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
       });
     });
 
-    describe('코드블럭 내부 텍스트 처리', () => {
+    describe('Code block internal text handling', () => {
       beforeEach(() => {
-        // codeBlock은 block이지만 내부에 텍스트가 있을 수 있음
-        // 하지만 codeBlock 자체는 편집 불가능하고, 내부 텍스트는 어떻게 처리할지?
-        // 실제로는 codeBlock 내부의 텍스트 노드를 찾아야 함
+        // codeBlock is a block but can have text inside
+        // However, codeBlock itself is not editable, how should internal text be handled?
+        // Actually, should find text nodes inside codeBlock
         complexDataStore.createNodeWithChildren({
           stype: 'document',
           content: [
@@ -1203,7 +1203,7 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
             {
               stype: 'codeBlock',
               attrs: { language: 'javascript' },
-              text: 'const x = 1;\nconst y = 2;' // .text 필드가 있지만 block 노드
+              text: 'const x = 1;\nconst y = 2;' // Has .text field but is a block node
             },
             {
               stype: 'paragraph',
@@ -1215,29 +1215,29 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
         });
       });
 
-      it('getPreviousEditableNode: codeBlock은 block이므로 건너뛰기 (내부 텍스트는 접근 불가)', () => {
+      it('getPreviousEditableNode: skip codeBlock because it is a block (internal text is inaccessible)', () => {
         const textNodes = complexDataStore.findNodesByType('inline-text');
         const beforeText = textNodes[0];
         const afterText = textNodes[1];
         
-        // codeBlock은 block 노드이므로 건너뛰고, After CodeBlock의 이전은 Before CodeBlock
+        // Skip codeBlock because it is a block node, previous of After CodeBlock is Before CodeBlock
         expect(complexDataStore.getPreviousEditableNode(afterText.sid!)).toBe(beforeText.sid);
       });
 
-      it('getNextEditableNode: codeBlock은 block이므로 건너뛰기 (내부 텍스트는 접근 불가)', () => {
+      it('getNextEditableNode: skip codeBlock because it is a block (internal text is inaccessible)', () => {
         const textNodes = complexDataStore.findNodesByType('inline-text');
         const beforeText = textNodes[0];
         const afterText = textNodes[1];
         
-        // codeBlock은 block 노드이므로 건너뛰고, Before CodeBlock의 다음은 After CodeBlock
+        // Skip codeBlock because it is a block node, next of Before CodeBlock is After CodeBlock
         expect(complexDataStore.getNextEditableNode(beforeText.sid!)).toBe(afterText.sid);
       });
     });
 
-    describe('Canvas 블럭 (복잡한 block 노드)', () => {
+    describe('Canvas block (complex block node)', () => {
       beforeEach(() => {
-        // canvas는 복잡한 block 노드로, 내부에 다양한 요소를 가질 수 있음
-        // 하지만 canvas 자체는 편집 불가능한 block 노드
+        // canvas is a complex block node that can have various elements inside
+        // However, canvas itself is a non-editable block node
         complexDataStore.createNodeWithChildren({
           stype: 'document',
           content: [
@@ -1249,10 +1249,10 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
             },
             {
               stype: 'canvas',
-              // group은 스키마 정의에만 있고, 모델 노드에는 없음
+              // group exists only in schema definition, not in model nodes
               content: [
-                // canvas 내부에는 다양한 요소가 있을 수 있지만, canvas 자체는 건너뛰어야 함
-                { stype: 'inline-text', text: 'Canvas Content' } // 하지만 이건 canvas 내부이므로 접근 불가
+                // canvas can have various elements inside, but canvas itself should be skipped
+                { stype: 'inline-text', text: 'Canvas Content' } // But this is inside canvas so inaccessible
               ]
             },
             {
@@ -1265,29 +1265,29 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
         });
       });
 
-      it('getPreviousEditableNode: canvas는 block이므로 건너뛰기', () => {
+      it('getPreviousEditableNode: skip canvas because it is a block', () => {
         const textNodes = complexDataStore.findNodesByType('inline-text');
-        // canvas 내부의 텍스트는 찾지 않음 (canvas가 block이므로)
+        // Do not find text inside canvas (because canvas is a block)
         const beforeText = textNodes[0]; // Before Canvas
-        const afterText = textNodes[1]; // After Canvas (canvas 내부 텍스트는 제외)
+        const afterText = textNodes[1]; // After Canvas (excluding text inside canvas)
         
-        // After Canvas의 이전은 Before Canvas (canvas를 건너뛰고)
+        // Previous of After Canvas is Before Canvas (skipping canvas)
         expect(complexDataStore.getPreviousEditableNode(afterText.sid!)).toBe(beforeText.sid);
       });
 
-      it('getNextEditableNode: canvas는 block이므로 건너뛰기', () => {
+      it('getNextEditableNode: skip canvas because it is a block', () => {
         const textNodes = complexDataStore.findNodesByType('inline-text');
         const beforeText = textNodes[0];
         const afterText = textNodes[1];
         
-        // Before Canvas의 다음은 After Canvas (canvas를 건너뛰고)
+        // Next of Before Canvas is After Canvas (skipping canvas)
         expect(complexDataStore.getNextEditableNode(beforeText.sid!)).toBe(afterText.sid);
       });
     });
 
-    describe('다양한 inline 노드들', () => {
+    describe('Various inline nodes', () => {
       beforeEach(() => {
-        // 다양한 inline 노드들: link, button, mention 등
+        // Various inline nodes: link, button, mention, etc.
         complexDataStore.createNodeWithChildren({
           stype: 'document',
           content: [
@@ -1321,7 +1321,7 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
         const button = buttons[0];
         const text4 = textNodes[3];
         
-        // 모든 inline 노드들은 편집 가능한 노드로 간주
+        // All inline nodes are considered editable nodes
         expect(complexDataStore.getPreviousEditableNode(text4.sid!)).toBe(button.sid);
         expect(complexDataStore.getPreviousEditableNode(button.sid!)).toBe(text3.sid);
         expect(complexDataStore.getPreviousEditableNode(text3.sid!)).toBe(mention.sid);
@@ -1330,7 +1330,7 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
         expect(complexDataStore.getPreviousEditableNode(link.sid!)).toBe(text1.sid);
       });
 
-      it('getNextEditableNode: 다양한 inline 노드들도 편집 가능', () => {
+      it('getNextEditableNode: various inline nodes are also editable', () => {
         const textNodes = complexDataStore.findNodesByType('inline-text');
         const links = complexDataStore.findNodesByType('inline-link');
         const mentions = complexDataStore.findNodesByType('inline-mention');
@@ -1344,7 +1344,7 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
         const button = buttons[0];
         const text4 = textNodes[3];
         
-        // 모든 inline 노드들은 편집 가능한 노드로 간주
+        // All inline nodes are considered editable nodes
         expect(complexDataStore.getNextEditableNode(text1.sid!)).toBe(link.sid);
         expect(complexDataStore.getNextEditableNode(link.sid!)).toBe(text2.sid);
         expect(complexDataStore.getNextEditableNode(text2.sid!)).toBe(mention.sid);
@@ -1354,12 +1354,12 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
       });
     });
 
-    describe('AI 생성 컨텐츠 - 자유로운 구조', () => {
+    describe('AI-generated content - free structure', () => {
       beforeEach(() => {
-        // AI가 만드는 자유로운 구조:
-        // - 중첩된 block들
-        // - 다양한 inline 노드들의 혼합
-        // - 예상치 못한 구조
+        // Free structure created by AI:
+        // - Nested blocks
+        // - Mix of various inline nodes
+        // - Unexpected structures
         complexDataStore.createNodeWithChildren({
           stype: 'document',
           content: [
@@ -1379,7 +1379,7 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
             },
             {
               stype: 'blockQuote',
-              // group은 스키마 정의에만 있고, 모델 노드에는 없음
+              // group exists only in schema definition, not in model nodes
               content: [
                 {
                   stype: 'paragraph',
@@ -1441,7 +1441,7 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
         const image = images[0];
         const aiTitle = textNodes[0];
         
-        // 복잡한 구조에서도 모든 편집 가능한 노드를 올바르게 찾아야 함
+        // Should correctly find all editable nodes even in complex structures
         expect(complexDataStore.getPreviousEditableNode(finalText.sid!)).toBe(tableText.sid);
         expect(complexDataStore.getPreviousEditableNode(tableText.sid!)).toBe(para2Text2.sid);
         expect(complexDataStore.getPreviousEditableNode(para2Text2.sid!)).toBe(link.sid);
@@ -1467,7 +1467,7 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
         const tableText = textNodes[5];
         const finalText = textNodes[6];
         
-        // 복잡한 구조에서도 모든 편집 가능한 노드를 올바르게 찾아야 함
+        // Should correctly find all editable nodes even in complex structures
         expect(complexDataStore.getNextEditableNode(aiTitle.sid!)).toBe(image.sid);
         expect(complexDataStore.getNextEditableNode(image.sid!)).toBe(para1Text.sid);
         expect(complexDataStore.getNextEditableNode(para1Text.sid!)).toBe(quoteText.sid);
@@ -1479,9 +1479,9 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
       });
     });
 
-    describe('중첩된 block 구조 (blockQuote 내부)', () => {
+    describe('Nested block structure (inside blockQuote)', () => {
       beforeEach(() => {
-        // blockQuote 내부에 paragraph가 있는 경우
+        // Case where paragraph is inside blockQuote
         complexDataStore.createNodeWithChildren({
           stype: 'document',
           content: [
@@ -1493,7 +1493,7 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
             },
             {
               stype: 'blockQuote',
-              // group은 스키마 정의에만 있고, 모델 노드에는 없음
+              // group exists only in schema definition, not in model nodes
               content: [
                 {
                   stype: 'paragraph',
@@ -1521,29 +1521,29 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
         const quoteText2 = textNodes[2];
         const afterText = textNodes[3];
         
-        // blockQuote는 block이지만 내부의 텍스트는 편집 가능
+        // blockQuote is a block but text inside is editable
         expect(complexDataStore.getPreviousEditableNode(afterText.sid!)).toBe(quoteText2.sid);
         expect(complexDataStore.getPreviousEditableNode(quoteText2.sid!)).toBe(quoteText1.sid);
         expect(complexDataStore.getPreviousEditableNode(quoteText1.sid!)).toBe(beforeText.sid);
       });
 
-      it('getNextEditableNode: blockQuote 내부 텍스트도 편집 가능', () => {
+      it('getNextEditableNode: text inside blockQuote is also editable', () => {
         const textNodes = complexDataStore.findNodesByType('inline-text');
         const beforeText = textNodes[0];
         const quoteText1 = textNodes[1];
         const quoteText2 = textNodes[2];
         const afterText = textNodes[3];
         
-        // blockQuote는 block이지만 내부의 텍스트는 편집 가능
+        // blockQuote is a block but text inside is editable
         expect(complexDataStore.getNextEditableNode(beforeText.sid!)).toBe(quoteText1.sid);
         expect(complexDataStore.getNextEditableNode(quoteText1.sid!)).toBe(quoteText2.sid);
         expect(complexDataStore.getNextEditableNode(quoteText2.sid!)).toBe(afterText.sid);
       });
     });
 
-    describe('List 구조 (중첩된 block)', () => {
+    describe('List structure (nested block)', () => {
       beforeEach(() => {
-        // list > listItem > paragraph > text 구조
+        // list > listItem > paragraph > text structure
         complexDataStore.createNodeWithChildren({
           stype: 'document',
           content: [
@@ -1555,12 +1555,12 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
             },
             {
               stype: 'list',
-              // group은 스키마 정의에만 있고, 모델 노드에는 없음
+              // group exists only in schema definition, not in model nodes
               attributes: { type: 'bullet' },
               content: [
                 {
                   stype: 'listItem',
-                  // group은 스키마 정의에만 있고, 모델 노드에는 없음
+                  // group exists only in schema definition, not in model nodes
                   content: [
                     {
                       stype: 'paragraph',
@@ -1572,7 +1572,7 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
                 },
                 {
                   stype: 'listItem',
-                  // group은 스키마 정의에만 있고, 모델 노드에는 없음
+                  // group exists only in schema definition, not in model nodes
                   content: [
                     {
                       stype: 'paragraph',
@@ -1601,29 +1601,29 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
         const listItem2 = textNodes[2];
         const afterText = textNodes[3];
         
-        // list는 block이지만 내부의 텍스트는 편집 가능
+        // list is a block but text inside is editable
         expect(complexDataStore.getPreviousEditableNode(afterText.sid!)).toBe(listItem2.sid);
         expect(complexDataStore.getPreviousEditableNode(listItem2.sid!)).toBe(listItem1.sid);
         expect(complexDataStore.getPreviousEditableNode(listItem1.sid!)).toBe(beforeText.sid);
       });
 
-      it('getNextEditableNode: list 내부 텍스트도 편집 가능', () => {
+      it('getNextEditableNode: text inside list is also editable', () => {
         const textNodes = complexDataStore.findNodesByType('inline-text');
         const beforeText = textNodes[0];
         const listItem1 = textNodes[1];
         const listItem2 = textNodes[2];
         const afterText = textNodes[3];
         
-        // list는 block이지만 내부의 텍스트는 편집 가능
+        // list is a block but text inside is editable
         expect(complexDataStore.getNextEditableNode(beforeText.sid!)).toBe(listItem1.sid);
         expect(complexDataStore.getNextEditableNode(listItem1.sid!)).toBe(listItem2.sid);
         expect(complexDataStore.getNextEditableNode(listItem2.sid!)).toBe(afterText.sid);
       });
     });
 
-    describe('빈 block 노드 처리', () => {
+    describe('Empty block node handling', () => {
       beforeEach(() => {
-        // 빈 paragraph, 빈 heading 등
+        // Empty paragraph, empty heading, etc.
         complexDataStore.createNodeWithChildren({
           stype: 'document',
           content: [
@@ -1635,12 +1635,12 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
             },
             {
               stype: 'paragraph',
-              content: [] // 빈 paragraph
+              content: [] // Empty paragraph
             },
             {
               stype: 'heading',
               attrs: { level: 1 },
-              content: [] // 빈 heading
+              content: [] // Empty heading
             },
             {
               stype: 'paragraph',
@@ -1657,16 +1657,16 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
         const beforeText = textNodes[0];
         const afterText = textNodes[1];
         
-        // 빈 block 노드들을 건너뛰고 Before Empty를 찾아야 함
+        // Should skip empty block nodes and find Before Empty
         expect(complexDataStore.getPreviousEditableNode(afterText.sid!)).toBe(beforeText.sid);
       });
 
-      it('getNextEditableNode: 빈 block 노드들을 건너뛰고 다음 편집 가능한 노드 찾기', () => {
+      it('getNextEditableNode: skip empty block nodes and find next editable node', () => {
         const textNodes = complexDataStore.findNodesByType('inline-text');
         const beforeText = textNodes[0];
         const afterText = textNodes[1];
         
-        // 빈 block 노드들을 건너뛰고 After Empty를 찾아야 함
+        // Should skip empty block nodes and find After Empty
         expect(complexDataStore.getNextEditableNode(beforeText.sid!)).toBe(afterText.sid);
       });
     });
@@ -1808,7 +1808,7 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
           {
             stype: 'mathBlock',
             attributes: { tex: 'E=mc^2', engine: 'katex' }
-            // .text 필드 없음
+            // No .text field
           }
         ]
       });
@@ -1916,7 +1916,7 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
     it('모든 편집 가능한 노드 조회', () => {
       const editableNodes = editableDataStore.getEditableNodes();
       
-      // 텍스트 노드 3개 + inline-image 1개 + codeBlock 1개 = 5개
+      // 3 text nodes + 1 inline-image + 1 codeBlock = 5 nodes
       expect(editableNodes.length).toBe(5);
       
       const nodeTypes = editableNodes.map(n => n.stype);
@@ -1925,26 +1925,26 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
       expect(nodeTypes).toContain('codeBlock');
     });
 
-    it('텍스트 노드만 조회', () => {
+    it('query only text nodes', () => {
       const textNodes = editableDataStore.getEditableNodes({
         includeText: true,
         includeInline: false,
         includeEditableBlocks: false
       });
       
-      // 텍스트 노드만 (inline-text는 텍스트 노드)
+      // Only text nodes (inline-text is a text node)
       expect(textNodes.length).toBe(3);
       expect(textNodes.every(n => n.stype === 'inline-text' && n.text)).toBe(true);
     });
 
-    it('inline 노드만 조회', () => {
+    it('query only inline nodes', () => {
       const inlineNodes = editableDataStore.getEditableNodes({
         includeText: false,
         includeInline: true,
         includeEditableBlocks: false
       });
       
-      // inline-image만 (inline-text는 텍스트 노드로 분류됨)
+      // Only inline-image (inline-text is classified as text node)
       expect(inlineNodes.length).toBe(1);
       expect(inlineNodes[0].stype).toBe('inline-image');
     });
@@ -1967,20 +1967,20 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
         }
       });
       
-      // 'const x = 1;' (11자)만 포함 (텍스트 노드들은 모두 5자 이하)
+      // Only includes 'const x = 1;' (11 chars) (all text nodes are 5 chars or less)
       expect(longTextNodes.length).toBeGreaterThanOrEqual(1);
       expect(longTextNodes.some(n => n.stype === 'codeBlock')).toBe(true);
     });
 
-    it('편집 가능한 노드가 없는 문서는 빈 배열 반환', () => {
+    it('document with no editable nodes should return empty array', () => {
       const emptyStore = new DataStore(undefined, editableSchema);
-      // document는 최소 1개의 block이 필요하므로 빈 paragraph 추가
+      // document requires at least 1 block, so add empty paragraph
       emptyStore.createNodeWithChildren({
         stype: 'document',
         content: [
           {
             stype: 'paragraph',
-            content: [] // 편집 가능한 노드 없음
+            content: [] // No editable nodes
           }
         ]
       });
@@ -2051,7 +2051,7 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
     });
 
     it('모든 노드 중 편집 가능한 노드만 필터링', () => {
-      // 모든 노드 ID 수집
+      // Collect all node IDs
       const textNodes = editableDataStore.findNodesByType('inline-text');
       const codeBlocks = editableDataStore.findNodesByType('codeBlock');
       const paragraphs = editableDataStore.findNodesByType('paragraph');
@@ -2064,15 +2064,15 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
       
       const editableNodeIds = editableDataStore.filterEditableNodes(allNodeIds);
       
-      // 텍스트 노드 3개 + codeBlock 1개 = 4개
+      // 3 text nodes + 1 codeBlock = 4 nodes
       expect(editableNodeIds.length).toBe(4);
       
-      // paragraph는 제외되어야 함
+      // paragraph should be excluded
       paragraphs.forEach(paragraph => {
         expect(editableNodeIds).not.toContain(paragraph.sid);
       });
       
-      // 텍스트 노드와 codeBlock은 포함되어야 함
+      // text nodes and codeBlock should be included
       textNodes.forEach(textNode => {
         expect(editableNodeIds).toContain(textNode.sid);
       });
@@ -2112,7 +2112,7 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
       ];
       
       const result = editableDataStore.filterEditableNodes(nodeIds);
-      // 존재하지 않는 노드는 false를 반환하므로 제외됨
+      // Non-existent nodes return false, so they are excluded
       expect(result.length).toBe(textNodes.length);
       expect(result.every(id => textNodes.some(n => n.sid === id))).toBe(true);
     });
@@ -2210,7 +2210,7 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
             name: 'nonSelectableBlock',
             content: 'inline*',
             group: 'block',
-            selectable: false // 선택 불가능
+            selectable: false // Not selectable
           },
           'inline-text': {
             name: 'inline-text',
@@ -2219,7 +2219,7 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
           'nonSelectableInline': {
             name: 'nonSelectableInline',
             group: 'inline',
-            selectable: false // 선택 불가능
+            selectable: false // Not selectable
           }
         },
         marks: {}
@@ -2360,16 +2360,16 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
         ]
       });
       
-      // nonSelectableBlock 내부의 inline-text는 selectable이지만, 
-      // nonSelectableBlock 자체는 selectable: false이므로 내부 노드도 영향을 받지 않음
-      // (selectable은 노드 자체의 속성이므로 자식 노드에 상속되지 않음)
+      // inline-text inside nonSelectableBlock is selectable,
+      // but nonSelectableBlock itself is selectable: false, so internal nodes are not affected
+      // (selectable is a property of the node itself, so it is not inherited by child nodes)
     });
 
     it('모든 선택 가능한 노드 조회', () => {
       const selectableNodes = selectableDataStore.getSelectableNodes();
       
-      // paragraph 2개 + codeBlock 1개 + inline-text 3개 + inline-image 1개 = 7개
-      // nonSelectableBlock은 제외
+      // 2 paragraphs + 1 codeBlock + 3 inline-text + 1 inline-image = 7 nodes
+      // nonSelectableBlock is excluded
       expect(selectableNodes.length).toBe(7);
       
       const nodeTypes = selectableNodes.map(n => n.stype);
@@ -2387,7 +2387,7 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
         includeEditable: false
       });
       
-      // paragraph 2개 + codeBlock 1개 = 3개 (모두 block 노드)
+      // 2 paragraphs + 1 codeBlock = 3 nodes (all block nodes)
       expect(blockNodes.length).toBe(3);
       expect(blockNodes.every(n => {
         const schema = (selectableDataStore as any)._activeSchema;
@@ -2403,7 +2403,7 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
         includeEditable: false
       });
       
-      // inline-text 3개 + inline-image 1개 = 4개 (모두 inline 노드)
+      // 3 inline-text + 1 inline-image = 4 nodes (all inline nodes)
       expect(inlineNodes.length).toBe(4);
       expect(inlineNodes.every(n => {
         const schema = (selectableDataStore as any)._activeSchema;
@@ -2419,23 +2419,23 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
         includeEditable: true
       });
       
-      // 모든 노드가 editable이어야 함
+      // All nodes should be editable
       editableNodes.forEach(node => {
         expect(selectableDataStore.isEditableNode(node.sid!)).toBe(true);
       });
       
-      // inline-text 3개 (Text 1, Text 2, Text 3) + codeBlock 1개 + inline-image 1개 = 5개 (editable인 노드들)
-      // inline-image는 group: 'inline'이므로 editable임
-      // nonSelectableBlock 내부의 inline-text도 editable이므로 포함됨
+      // 3 inline-text (Text 1, Text 2, Text 3) + 1 codeBlock + 1 inline-image = 5 nodes (editable nodes)
+      // inline-image is editable because group: 'inline'
+      // inline-text inside nonSelectableBlock is also editable, so included
       const textNodes = selectableDataStore.findNodesByType('inline-text');
       const codeBlocks = selectableDataStore.findNodesByType('codeBlock');
       const imageNodes = selectableDataStore.findNodesByType('inline-image');
       
-      // 모든 inline-text, codeBlock, inline-image가 포함되어야 함
+      // All inline-text, codeBlock, inline-image should be included
       const expectedCount = textNodes.length + codeBlocks.length + imageNodes.length;
       expect(editableNodes.length).toBeGreaterThanOrEqual(expectedCount);
       
-      // 모든 textNodes, codeBlocks, imageNodes가 포함되어야 함
+      // All textNodes, codeBlocks, imageNodes should be included
       textNodes.forEach(textNode => {
         expect(editableNodes.some(n => n.sid === textNode.sid)).toBe(true);
       });
@@ -2537,15 +2537,15 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
       
       const selectableNodeIds = selectableDataStore.filterSelectableNodes(allNodeIds);
       
-      // paragraph 2개 + textNodes 3개 = 5개 (nonSelectableBlock 제외)
+      // 2 paragraphs + 3 textNodes = 5 nodes (nonSelectableBlock excluded)
       expect(selectableNodeIds.length).toBe(5);
       
-      // nonSelectableBlock은 제외되어야 함
+      // nonSelectableBlock should be excluded
       nonSelectableBlocks.forEach(block => {
         expect(selectableNodeIds).not.toContain(block.sid);
       });
       
-      // paragraph와 textNodes는 포함되어야 함
+      // paragraphs and textNodes should be included
       paragraphs.forEach(paragraph => {
         expect(selectableNodeIds).toContain(paragraph.sid);
       });
@@ -2585,7 +2585,7 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
       ];
       
       const result = selectableDataStore.filterSelectableNodes(nodeIds);
-      // 존재하지 않는 노드는 false를 반환하므로 제외됨
+      // Non-existent nodes return false, so they are excluded
       expect(result.length).toBe(paragraphs.length);
       expect(result.every(id => paragraphs.some(n => n.sid === id))).toBe(true);
     });
@@ -2719,12 +2719,12 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
       it('모든 드래그 가능한 노드 조회', () => {
         const draggableNodes = draggableDataStore.getDraggableNodes();
         
-        // 모든 노드가 드래그 가능해야 함 (document, nonDraggableBlock 제외)
+        // All nodes should be draggable (document, nonDraggableBlock excluded)
         draggableNodes.forEach(node => {
           expect(draggableDataStore.isDraggableNode(node.sid!)).toBe(true);
         });
         
-        // document와 nonDraggableBlock은 제외되어야 함
+        // document and nonDraggableBlock should be excluded
         const documentNode = draggableDataStore.getRootNode();
         if (documentNode) {
           expect(draggableNodes.some(n => n.sid === documentNode.sid)).toBe(false);
@@ -2792,7 +2792,7 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
 
       it('빈 문서는 빈 배열 반환', () => {
         const emptyStore = new DataStore(undefined, draggableSchema);
-        // document는 최소 1개의 block이 필요하므로 빈 paragraph 추가
+        // document requires at least 1 block, so add empty paragraph
         emptyStore.createNodeWithChildren({
           stype: 'document',
           content: [
@@ -2804,9 +2804,9 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
         });
         
         const draggableNodes = emptyStore.getDraggableNodes();
-        // paragraph는 드래그 가능하므로 1개 반환
+        // paragraph is draggable, so returns 1
         expect(draggableNodes.length).toBeGreaterThanOrEqual(1);
-        // 모든 반환된 노드는 드래그 가능해야 함
+        // All returned nodes should be draggable
         draggableNodes.forEach(node => {
           expect(emptyStore.isDraggableNode(node.sid!)).toBe(true);
         });
@@ -2824,7 +2824,7 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
           expect(draggableDataStore.isDraggableNode(nodeId)).toBe(true);
         });
         
-        // document와 nonDraggableBlock은 제외되어야 함
+        // document and nonDraggableBlock should be excluded
         const documentNode = draggableDataStore.getRootNode();
         if (documentNode) {
           expect(draggableNodeIds).not.toContain(documentNode.sid);
@@ -2862,7 +2862,7 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
         ];
         
         const result = draggableDataStore.filterDraggableNodes(nodeIds);
-        // 존재하지 않는 노드는 false를 반환하므로 제외됨
+        // Non-existent nodes return false, so they are excluded
         expect(result.length).toBe(paragraphs.length);
         expect(result.every(id => paragraphs.some(n => n.sid === id))).toBe(true);
       });
@@ -3039,9 +3039,9 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
         const documentNode = droppableDataStore.getRootNode();
         const paragraphs = droppableDataStore.findNodesByType('paragraph');
         
-        // draggable: false인 노드가 없으므로, 존재하지 않는 노드로 테스트
+        // No nodes with draggable: false, so test with non-existent node
         if (documentNode && paragraphs.length > 0) {
-          // 존재하지 않는 노드는 draggable이 아니므로 false 반환
+          // Non-existent nodes are not draggable, so return false
           expect(droppableDataStore.canDropNode(documentNode.sid!, 'non-existent')).toBe(false);
         }
       });
@@ -3051,18 +3051,18 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
       it('모든 드롭 가능한 노드 조회', () => {
         const droppableNodes = droppableDataStore.getDroppableNodes();
         
-        // 모든 노드가 드롭 가능해야 함 (content가 있는 노드만)
+        // All nodes should be droppable (only nodes with content)
         droppableNodes.forEach(node => {
           expect(droppableDataStore.isDroppableNode(node.sid!)).toBe(true);
         });
         
-        // document와 paragraph는 포함되어야 함
+        // document and paragraph should be included
         const documentNode = droppableDataStore.getRootNode();
         if (documentNode) {
           expect(droppableNodes.some(n => n.sid === documentNode.sid)).toBe(true);
         }
         
-        // nonDroppableBlock은 제외되어야 함
+        // nonDroppableBlock should be excluded
         const nonDroppableBlocks = droppableDataStore.findNodesByType('nonDroppableBlock');
         nonDroppableBlocks.forEach(block => {
           expect(droppableNodes.some(n => n.sid === block.sid)).toBe(false);
@@ -3122,7 +3122,7 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
           expect(droppableDataStore.isDroppableNode(nodeId)).toBe(true);
         });
         
-        // nonDroppableBlock은 제외되어야 함
+        // nonDroppableBlock should be excluded
         const nonDroppableBlocks = droppableDataStore.findNodesByType('nonDroppableBlock');
         nonDroppableBlocks.forEach(block => {
           expect(droppableNodeIds).not.toContain(block.sid);
@@ -3157,7 +3157,7 @@ describe('getPreviousEditableNode / getNextEditableNode', () => {
         ];
         
         const result = droppableDataStore.filterDroppableNodes(nodeIds);
-        // 존재하지 않는 노드는 false를 반환하므로 제외됨
+        // Non-existent nodes return false, so they are excluded
         const expectedCount = (documentNode ? 1 : 0) + paragraphs.length;
         expect(result.length).toBe(expectedCount);
       });

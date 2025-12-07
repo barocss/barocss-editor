@@ -50,48 +50,48 @@ describe('VNodeBuilder Actual Mark Wrapper Creation', () => {
 
     const vnode = builder.build('inline-text', model);
 
-    // VNode 구조 확인
+    // Verify VNode structure
     expect(vnode.tag).toBe('span');
     expect(vnode.sid).toBe('text-yellow-bg');
     expect(vnode.stype).toBe('inline-text');
     
-    // children이 있는지 확인
+    // Verify children exist
     expect(vnode.children).toBeDefined();
     expect(Array.isArray(vnode.children)).toBe(true);
     
-    // mark wrapper가 children에 있는지 확인
+    // Verify mark wrapper is in children
     if (vnode.children && vnode.children.length > 0) {
       const firstChild = vnode.children[0];
       expect(typeof firstChild).toBe('object');
       
       const markWrapper = firstChild as VNode;
       expect(markWrapper.tag).toBe('span');
-      // VNodeBuilder가 자동으로 mark-{type} 클래스를 추가할 수 있음
+      // VNodeBuilder may automatically add mark-{type} class
       expect(markWrapper.attrs?.className).toContain('custom-bg-color');
       
-      // mark wrapper의 children 확인
+      // Verify mark wrapper's children
       if (markWrapper.children && markWrapper.children.length > 0) {
         const inner = markWrapper.children[0];
         expect(typeof inner).toBe('object');
         
         const innerVNode = inner as VNode;
-        // inner는 span wrapper일 수 있음
+        // inner may be a span wrapper
         if (innerVNode.tag === 'span') {
-          // span wrapper의 children 확인
+          // Verify span wrapper's children
           if (innerVNode.children && innerVNode.children.length > 0) {
             const textNode = innerVNode.children[0];
             if (typeof textNode === 'object') {
               const textVNode = textNode as VNode;
-              // text VNode는 tag가 없고 text 속성이 있음
+              // text VNode has no tag and has text property
               expect(textVNode.tag).toBeUndefined();
               expect(textVNode.text).toBeDefined();
             } else {
-              // 또는 primitive text일 수 있음
+              // Or may be primitive text
               expect(typeof textNode === 'string' || typeof textNode === 'number').toBe(true);
             }
           }
         } else {
-          // inner가 text VNode일 수도 있음
+          // inner may be a text VNode
           expect(innerVNode.tag).toBeUndefined();
           expect(innerVNode.text).toBeDefined();
         }
@@ -139,29 +139,29 @@ describe('VNodeBuilder Actual Mark Wrapper Creation', () => {
 
     const updatedVNode = builder.build('inline-text', updatedModel);
 
-    // 구조가 동일한지 확인
+    // Verify structure is identical
     expect(initialVNode.tag).toBe(updatedVNode.tag);
     expect(initialVNode.sid).toBe(updatedVNode.sid);
     
-    // children 구조 확인
+    // Verify children structure
     if (initialVNode.children && initialVNode.children.length > 0) {
       const initialMarkWrapper = initialVNode.children[0] as VNode;
       
       if (updatedVNode.children && updatedVNode.children.length > 0) {
         const updatedMarkWrapper = updatedVNode.children[0] as VNode;
         
-        // mark wrapper의 구조가 동일한지 확인
+        // Verify mark wrapper structure is identical
         expect(initialMarkWrapper.tag).toBe(updatedMarkWrapper.tag);
         expect(initialMarkWrapper.attrs?.className).toBe(updatedMarkWrapper.attrs?.className);
         
-        // children 구조 확인
+        // Verify children structure
         if (initialMarkWrapper.children && initialMarkWrapper.children.length > 0) {
           const initialInner = initialMarkWrapper.children[0] as VNode;
           
           if (updatedMarkWrapper.children && updatedMarkWrapper.children.length > 0) {
             const updatedInner = updatedMarkWrapper.children[0] as VNode;
             
-            // inner 구조가 동일한지 확인
+            // Verify inner structure is identical
             expect(initialInner.tag).toBe(updatedInner.tag);
           }
         }

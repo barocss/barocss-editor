@@ -11,7 +11,7 @@ describe('EditorViewDOM + renderer-dom Error Handling Integration', () => {
   let container: HTMLElement;
   
   beforeEach(() => {
-    // 컴포넌트 정의
+    // Define components
     if (!getGlobalRegistry().has('document')) {
       define('document', element('div', { className: 'document' }, [slot('content')]));
     }
@@ -46,11 +46,11 @@ describe('EditorViewDOM + renderer-dom Error Handling Integration', () => {
     it.skip('handles missing stype gracefully', () => {
       const tree: any = {
         sid: 'doc1',
-        // stype 없음
+        // No stype
         content: []
       };
       
-      // stype이 없으면 에러 발생
+      // Error occurs if stype is missing
       expect(() => {
         view.render(tree);
       }).toThrow('[EditorViewDOM] Invalid tree format: missing stype (required)');
@@ -63,13 +63,13 @@ describe('EditorViewDOM + renderer-dom Error Handling Integration', () => {
         content: [
           {
             sid: 'p1',
-            stype: 'unknown-type',  // 등록되지 않은 타입
+            stype: 'unknown-type',  // Unregistered type
             content: []
           }
         ]
       };
       
-      // VNodeBuilder에서 stype이 없으면 에러 발생
+      // Error occurs in VNodeBuilder if stype is missing
       expect(() => {
         view.render(tree);
       }).toThrow('Renderer for node type \'unknown-type\' not found');
@@ -83,7 +83,7 @@ describe('EditorViewDOM + renderer-dom Error Handling Integration', () => {
         stype: 'document',
         content: [
           {
-            // sid 없음
+            // No sid
             stype: 'paragraph',
             content: [
               { sid: 't1', stype: 'text', text: 'Content' }
@@ -92,7 +92,7 @@ describe('EditorViewDOM + renderer-dom Error Handling Integration', () => {
         ]
       };
       
-      // sid가 없어도 렌더링은 가능하지만 경고가 발생할 수 있음
+      // Rendering is possible even without sid, but warning may occur
       view.render(tree);
       
       expectHTML(
@@ -114,7 +114,7 @@ describe('EditorViewDOM + renderer-dom Error Handling Integration', () => {
       const tree: TreeDocument = {
         sid: 'doc1',
         stype: 'document',
-        content: []  // 빈 배열
+        content: []  // Empty array
       };
       
       view.render(tree);
@@ -135,7 +135,7 @@ describe('EditorViewDOM + renderer-dom Error Handling Integration', () => {
         content: null  // null content
       };
       
-      // null content는 빈 배열로 처리되어야 함
+      // null content should be treated as empty array
       view.render(tree);
       
       expectHTML(
@@ -156,7 +156,7 @@ describe('EditorViewDOM + renderer-dom Error Handling Integration', () => {
         content: []
       };
       
-      // 20단계 깊은 중첩 생성
+      // Create 20-level deep nesting
       let current: any = tree;
       for (let i = 0; i < 20; i++) {
         current.content = [{
@@ -167,7 +167,7 @@ describe('EditorViewDOM + renderer-dom Error Handling Integration', () => {
         current = current.content[0];
       }
       
-      // 마지막에 텍스트 추가
+      // Add text at the end
       current.content = [
         { sid: 'text-final', stype: 'text', text: 'Deep Text' }
       ];
@@ -242,9 +242,9 @@ describe('EditorViewDOM + renderer-dom Error Handling Integration', () => {
         ]
       };
       
-      // 순환 참조는 TreeDocument 구조상 발생하기 어려움
-      // (직접 참조가 아닌 id 기반 참조이므로)
-      // 대신 잘못된 구조를 테스트
+      // Circular references are difficult to occur in TreeDocument structure
+      // (because it's id-based reference, not direct reference)
+      // Instead, test invalid structure
       view.render(tree);
       
       expectHTML(
@@ -271,14 +271,14 @@ describe('EditorViewDOM + renderer-dom Error Handling Integration', () => {
             content: [
               null,  // null child
               undefined,  // undefined child
-              'invalid string',  // 문자열 child (일반적으로 허용되지 않음)
+              'invalid string',  // String child (generally not allowed)
               { sid: 't1', stype: 'text', text: 'Valid' }
             ]
           }
         ]
       };
       
-      // 일부 잘못된 child는 무시되고 유효한 것만 렌더링되어야 함
+      // Some invalid children should be ignored and only valid ones rendered
       view.render(tree);
       
       const html = normalizeHTML(container.firstElementChild as Element);
@@ -300,7 +300,7 @@ describe('EditorViewDOM + renderer-dom Error Handling Integration', () => {
             ]
           },
           {
-            sid: 'p1',  // 중복 sid
+            sid: 'p1',  // Duplicate sid
             stype: 'paragraph',
             content: [
               { sid: 't2', stype: 'text', text: 'Second' }
@@ -309,8 +309,8 @@ describe('EditorViewDOM + renderer-dom Error Handling Integration', () => {
         ]
       };
       
-      // 중복 sid는 DOM에서 같은 요소를 가리킬 수 있음
-      // 렌더링은 가능하지만 예상치 못한 동작이 발생할 수 있음
+      // Duplicate sid can point to same element in DOM
+      // Rendering is possible but unexpected behavior may occur
       view.render(tree);
       
       expectHTML(
@@ -340,7 +340,7 @@ describe('EditorViewDOM + renderer-dom Error Handling Integration', () => {
               {
                 sid: 't1',
                 stype: 'text'
-                // text 속성 없음
+                // No text attribute
               }
             ]
           }

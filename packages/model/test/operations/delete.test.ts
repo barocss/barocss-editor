@@ -49,7 +49,7 @@ describe('delete operation', () => {
   });
 
   it('should delete a node', async () => {
-    // 테스트용 노드 생성
+    // Create node for testing
     const node = {
       id: 'test-node',
       type: 'inline-text',
@@ -71,7 +71,7 @@ describe('delete operation', () => {
   });
 
   it('should delete child nodes recursively', async () => {
-    // 부모 노드 생성
+    // Create parent node
     const parentNode = {
       id: 'parent-node',
       type: 'paragraph',
@@ -80,7 +80,7 @@ describe('delete operation', () => {
     };
     dataStore.setNode(parentNode);
 
-    // 자식 노드들 생성
+    // Create child nodes
     const child1 = {
       id: 'child-1',
       type: 'inline-text',
@@ -102,14 +102,14 @@ describe('delete operation', () => {
       payload: { nodeId: 'parent-node' }
     } as any, context);
 
-    // 부모와 자식 노드들이 모두 삭제되었는지 확인
+    // Verify parent and child nodes are all deleted
     expect(dataStore.getNode('parent-node')).toBeUndefined();
     expect(dataStore.getNode('child-1')).toBeUndefined();
     expect(dataStore.getNode('child-2')).toBeUndefined();
   });
 
   it('should remove node from parent content array', async () => {
-    // 부모 노드 생성
+    // Create parent node
     const parentNode = {
       id: 'parent-node',
       type: 'paragraph',
@@ -118,7 +118,7 @@ describe('delete operation', () => {
     };
     dataStore.setNode(parentNode);
 
-    // 자식 노드 생성
+    // Create child node
     const childNode = {
       id: 'child-1',
       type: 'inline-text',
@@ -139,7 +139,7 @@ describe('delete operation', () => {
   });
 
   it('should throw error when trying to delete root node (root is immutable)', async () => {
-    // 루트 노드 생성
+    // Create root node
     const rootNode = {
       id: 'root-node',
       type: 'inline-text',
@@ -148,7 +148,7 @@ describe('delete operation', () => {
     dataStore.setNode(rootNode);
     dataStore.setRoot('root-node');
 
-    // 다른 노드 생성
+    // Create other node
     const otherNode = {
       id: 'other-node',
       type: 'inline-text',
@@ -161,12 +161,12 @@ describe('delete operation', () => {
       type: 'delete',
       payload: { nodeId: 'root-node' }
     } as any, context)).rejects.toThrow('Cannot delete root node');
-    // 루트 유지 확인
+    // Verify root is maintained
     expect(dataStore.getRootNodeId()).toBe('root-node');
   });
 
   it('should not clear root node; deleting root is forbidden', async () => {
-    // 루트 노드 생성
+    // Create root node
     const rootNode = {
       id: 'root-node',
       type: 'inline-text',
@@ -194,7 +194,7 @@ describe('delete operation', () => {
 
          describe('Selection mapping', () => {
            it('should clear selection when deleting selected node', async () => {
-             // 텍스트 노드 생성
+             // Create text node
              const textNode = {
                id: 'text-1',
                type: 'inline-text',
@@ -203,7 +203,7 @@ describe('delete operation', () => {
              };
              dataStore.setNode(textNode);
 
-             // 기존 Selection 설정
+             // Set existing selection
              const initialSelection = { type: 'range' as const, startNodeId: 'text-1', startOffset: 5, endNodeId: 'text-1', endOffset: 10 };
              selectionManager.setSelection(initialSelection);
 
@@ -212,17 +212,17 @@ describe('delete operation', () => {
               payload: { nodeId: 'text-1' }
             } as any;
 
-             // Operation 실행
+             // Execute operation
              const deleteOperation = globalOperationRegistry.get('delete');
              await deleteOperation!.execute(operation, context);
              
-             // Selection이 클리어되었는지 확인
+             // Verify selection is cleared
              const finalSelection = selectionManager.getCurrentSelection();
              expect(finalSelection).toBeNull();
            });
 
            it('should preserve selection when deleting different node', async () => {
-             // 두 개의 텍스트 노드 생성
+             // Create two text nodes
              const textNode1 = {
                id: 'text-1',
                type: 'inline-text',
@@ -238,26 +238,26 @@ describe('delete operation', () => {
              dataStore.setNode(textNode1);
              dataStore.setNode(textNode2);
 
-             // text-2의 Selection 설정
+             // Set selection for text-2
              const initialSelection = { type: 'range' as const, startNodeId: 'text-2', startOffset: 3, endNodeId: 'text-2', endOffset: 7 };
              selectionManager.setSelection(initialSelection);
 
             const operation = {
               type: 'delete',
-              payload: { nodeId: 'text-1' } // 다른 노드 삭제
+              payload: { nodeId: 'text-1' } // Delete different node
             } as any;
 
-             // Operation 실행
+             // Execute operation
              const deleteOperation = globalOperationRegistry.get('delete');
              await deleteOperation!.execute(operation, context);
              
-             // Selection이 유지되었는지 확인
+             // Verify selection is preserved
              const finalSelection = selectionManager.getCurrentSelection();
              expect(finalSelection).toEqual(initialSelection);
            });
 
            it('should handle null selection gracefully', async () => {
-             // 텍스트 노드 생성
+             // Create text node
              const textNode = {
                id: 'text-1',
                type: 'inline-text',
@@ -266,7 +266,7 @@ describe('delete operation', () => {
              };
              dataStore.setNode(textNode);
 
-             // Selection이 없는 상태
+             // No selection state
              selectionManager.clearSelection();
 
             const operation = {
@@ -274,11 +274,11 @@ describe('delete operation', () => {
               payload: { nodeId: 'text-1' }
             } as any;
 
-             // Operation 실행
+             // Execute operation
              const deleteOperation = globalOperationRegistry.get('delete');
              await deleteOperation!.execute(operation, context);
              
-             // Selection이 여전히 null인지 확인
+             // Verify selection is still null
              const finalSelection = selectionManager.getCurrentSelection();
              expect(finalSelection).toBeNull();
            });

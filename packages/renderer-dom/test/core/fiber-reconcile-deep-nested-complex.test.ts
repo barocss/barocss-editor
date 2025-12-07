@@ -45,7 +45,7 @@ describe('reconcileWithFiber - 깊게 중첩된 문서 + 복잡한 mark/decorato
         children: [{ tag: undefined, text: 'deep text' }]
       };
 
-      // 10단계 중첩
+      // 10 levels of nesting
       for (let i = 9; i >= 1; i--) {
         vnode = {
           tag: 'div',
@@ -62,13 +62,13 @@ describe('reconcileWithFiber - 깊게 중첩된 문서 + 복잡한 mark/decorato
 
       reconcileWithFiber(container, rootVNode, undefined, {}, deps);
 
-      // 모든 레벨의 요소가 생성되어야 함
+      // Elements at all levels should be created
       for (let i = 1; i <= 10; i++) {
         const elements = container.querySelectorAll(`[data-bc-sid="level-${i}"]`);
         expect(elements.length).toBe(1);
       }
 
-      // 텍스트가 포함되어야 함
+      // Text should be included
       expect(container.textContent).toContain('deep text');
     });
 
@@ -80,7 +80,7 @@ describe('reconcileWithFiber - 깊게 중첩된 문서 + 복잡한 mark/decorato
         children: [{ tag: undefined, text: 'deep decorator' }]
       };
 
-      // 5단계 중첩
+      // 5 levels of nesting
       for (let i = 4; i >= 1; i--) {
         vnode = {
           tag: 'div',
@@ -97,7 +97,7 @@ describe('reconcileWithFiber - 깊게 중첩된 문서 + 복잡한 mark/decorato
 
       reconcileWithFiber(container, rootVNode, undefined, {}, deps);
 
-      // decorator 요소가 있어야 함
+      // Decorator element should exist
       const decoratorElements = container.querySelectorAll('[data-decorator-sid="d-deep"]');
       expect(decoratorElements.length).toBe(1);
 

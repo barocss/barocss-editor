@@ -6,7 +6,7 @@ import { VNode } from '../../src/vnode/types';
 import { DOMOperations } from '../../src/dom-operations';
 import { ComponentManager } from '../../src/component-manager';
 
-// 헬퍼 함수: 모든 Fiber를 재귀적으로 처리
+// Helper function: recursively process all Fibers
 function reconcileAllFibers(fiber: FiberNode, deps: FiberReconcileDependencies, context: any): void {
   reconcileFiberNode(fiber, deps, context);
   
@@ -17,7 +17,7 @@ function reconcileAllFibers(fiber: FiberNode, deps: FiberReconcileDependencies, 
   }
 }
 
-describe('processPrimitiveTextChildren - 단위 테스트', () => {
+describe('processPrimitiveTextChildren - Unit Test', () => {
   let container: HTMLElement;
   let deps: FiberReconcileDependencies;
   let dom: DOMOperations;
@@ -62,25 +62,25 @@ describe('processPrimitiveTextChildren - 단위 테스트', () => {
       const fiber = createFiberTree(container, vnode, undefined, {});
       reconcileAllFibers(fiber, deps, {});
 
-      // domElement와 primitiveTextChildren 확인
+      // Verify domElement and primitiveTextChildren
       expect(fiber.domElement).toBeDefined();
       expect(fiber.primitiveTextChildren).toBeDefined();
       expect(fiber.primitiveTextChildren?.length).toBe(3); // 'first', 'second', 123
 
-      // primitive text 처리
+      // Process primitive text
       processPrimitiveTextChildren(fiber, deps);
 
-      // DOM에 텍스트 노드가 추가되었는지 확인
-      // (handlePrimitiveTextChild의 동작에 따라 다를 수 있음)
-      // IMPORTANT: fiber.domElement가 container이므로, container.childNodes를 확인
+      // Verify text nodes are added to DOM
+      // (May vary depending on handlePrimitiveTextChild behavior)
+      // IMPORTANT: fiber.domElement is container, so check container.childNodes
       const textNodes = Array.from(fiber.domElement?.childNodes || []).filter(n => n.nodeType === Node.TEXT_NODE);
-      // primitiveTextChildren가 있으면 텍스트 노드가 생성되어야 함
+      // If primitiveTextChildren exists, text nodes should be created
       if (fiber.primitiveTextChildren && fiber.primitiveTextChildren.length > 0) {
         expect(textNodes.length).toBeGreaterThanOrEqual(1);
       }
     });
 
-    it('primitive text가 올바른 위치에 삽입되어야 함', () => {
+    it('primitive text should be inserted at correct position', () => {
       const vnode: VNode = {
         tag: 'div',
         sid: 'parent-1',

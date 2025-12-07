@@ -8,7 +8,7 @@ describe('DataStore replaceText (ContentRange)', () => {
   let schema: Schema;
 
   beforeEach(() => {
-    // 테스트용 스키마 생성 (apps/editor-test/src/main.ts 스타일에 맞춤)
+    // Create schema for testing (matching apps/editor-test/src/main.ts style)
     schema = new Schema('test-schema', {
       nodes: {
         document: { name: 'document', group: 'document', content: 'block+' },
@@ -24,9 +24,9 @@ describe('DataStore replaceText (ContentRange)', () => {
     dataStore = new DataStore(undefined, schema);
   });
 
-  describe('기본 텍스트 교체', () => {
+  describe('Basic text replacement', () => {
     it('should replace text in the middle of a text node', () => {
-      // 텍스트 노드 생성
+      // Create text node
       const textNode = {
         sid: 'text-1',
         stype: 'inline-text',
@@ -35,7 +35,7 @@ describe('DataStore replaceText (ContentRange)', () => {
       };
       dataStore.setNode(textNode);
 
-      // 텍스트 교체
+      // Replace text
       const replacedText = dataStore.replaceText({ stype: 'range' as const, startNodeId: 'text-1', startOffset: 6, endNodeId: 'text-1', endOffset: 11 }, 'Universe');
       
       expect(replacedText).toBe('World');
@@ -130,7 +130,7 @@ describe('DataStore replaceText (ContentRange)', () => {
     });
   });
 
-  describe('마크가 있는 텍스트 교체', () => {
+  describe('Text replacement with marks', () => {
     it('should handle marks when replacing text', () => {
       const textNode = {
         sid: 'text-1',
@@ -144,14 +144,14 @@ describe('DataStore replaceText (ContentRange)', () => {
       };
       dataStore.setNode(textNode as INode);
 
-      // "World"를 "Universe"로 교체
+      // Replace "World" with "Universe"
       const replacedText = dataStore.replaceText({ stype: 'range' as const, startNodeId: 'text-1', startOffset: 6, endNodeId: 'text-1', endOffset: 11 }, 'Universe');
       
       expect(replacedText).toBe('World');
       
       const updatedNode = dataStore.getNode('text-1');
       expect(updatedNode!.text).toBe('Hello Universe');
-      expect(updatedNode!.marks).toHaveLength(1); // "Hello"의 bold 마크만 남음
+      expect(updatedNode!.marks).toHaveLength(1); // Only bold mark of "Hello" remains
       expect(updatedNode!.marks![0]).toEqual({ stype: 'bold', range: [0, 5] });
     });
 
@@ -161,20 +161,20 @@ describe('DataStore replaceText (ContentRange)', () => {
         stype: 'inline-text',
         text: 'Hello Beautiful World',
         marks: [
-          { stype: 'bold', range: [0, 20] }  // 전체 텍스트
+          { stype: 'bold', range: [0, 20] }  // Entire text
         ],
         parentId: 'para-1'
       };
       dataStore.setNode(textNode as INode);
 
-      // "Beautiful"을 "Amazing"으로 교체
+      // Replace "Beautiful" with "Amazing"
       const replacedText = dataStore.replaceText({ stype: 'range' as const, startNodeId: 'text-1', startOffset: 6, endNodeId: 'text-1', endOffset: 15 }, 'Amazing');
       
       expect(replacedText).toBe('Beautiful');
       
       const updatedNode = dataStore.getNode('text-1');
       expect(updatedNode!.text).toBe('Hello Amazing World');
-      expect(updatedNode!.marks).toHaveLength(2); // 분할된 마크
+      expect(updatedNode!.marks).toHaveLength(2); // Split marks
       expect(updatedNode!.marks![0]).toEqual({ stype: 'bold', range: [0, 6] });
       expect(updatedNode!.marks![1]).toEqual({ stype: 'bold', range: [13, 18] });
     });
@@ -192,14 +192,14 @@ describe('DataStore replaceText (ContentRange)', () => {
       };
       dataStore.setNode(textNode as INode);
 
-      // "Beautiful"을 "Amazing"으로 교체
+      // Replace "Beautiful" with "Amazing"
       const replacedText = dataStore.replaceText({ stype: 'range' as const, startNodeId: 'text-1', startOffset: 6, endNodeId: 'text-1', endOffset: 15 }, 'Amazing');
       
       expect(replacedText).toBe('Beautiful');
       
       const updatedNode = dataStore.getNode('text-1');
       expect(updatedNode!.text).toBe('Hello Amazing World');
-      expect(updatedNode!.marks).toHaveLength(1); // "Hello"의 italic 마크만 남음
+      expect(updatedNode!.marks).toHaveLength(1); // Only italic mark of "Hello" remains
       expect(updatedNode!.marks![0]).toEqual({ stype: 'italic', range: [0, 5] });
     });
 
@@ -215,7 +215,7 @@ describe('DataStore replaceText (ContentRange)', () => {
       };
       dataStore.setNode(textNode as INode);
 
-      // "Beautiful"을 "Amazing"으로 교체 (길이가 다름)
+      // Replace "Beautiful" with "Amazing" (different length)
       const replacedText = dataStore.replaceText({ stype: 'range' as const, startNodeId: 'text-1', startOffset: 6, endNodeId: 'text-1', endOffset: 15 }, 'Amazing');
       
       expect(replacedText).toBe('Beautiful');
@@ -223,12 +223,12 @@ describe('DataStore replaceText (ContentRange)', () => {
       const updatedNode = dataStore.getNode('text-1');
       expect(updatedNode!.text).toBe('Hello Amazing World');
       expect(updatedNode!.marks).toHaveLength(1);
-      // "World"의 마크 범위가 조정됨 (길이 차이만큼)
+      // Mark range of "World" is adjusted (by length difference)
       expect(updatedNode!.marks![0]).toEqual({ stype: 'bold', range: [14, 19] });
     });
   });
 
-  describe('경계 및 에러 처리(범위 API에서는 예외 미발생)', () => {
+  describe('Edge cases and error handling (no exceptions in range API)', () => {
     it('should return empty string for non-existent node', () => {
       const replacedText = dataStore.replaceText({ stype: 'range' as const, startNodeId: 'non-existent', startOffset: 0, endNodeId: 'non-existent', endOffset: 5 }, 'New text');
       expect(replacedText).toBe('');

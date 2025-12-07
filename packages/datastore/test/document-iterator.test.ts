@@ -142,8 +142,8 @@ describe('DocumentIterator', () => {
       });
       
       expect(reverseNodes.length).toBe(12);
-      // 역순이므로 마지막 노드가 첫 번째로 나와야 함
-      // getAllNodes()는 생성 순서이므로, 문서 순서로 마지막 노드를 찾아야 함
+      // Reverse order, so last node should appear first
+      // getAllNodes() is in creation order, so must find last node in document order
       let lastNodeId = dataStore.getRootNodeId() as string;
       let currentId = lastNodeId;
       while (currentId) {
@@ -169,13 +169,13 @@ describe('DocumentIterator', () => {
         console.log(`${index + 1}. ${id} - "${node?.text}"`);
       });
       
-      expect(textNodes.length).toBe(4); // 제목, 첫 번째 단락, 리스트 항목 1, 리스트 항목 2
+      expect(textNodes.length).toBe(4); // Title, first paragraph, list item 1, list item 2
       textNodes.forEach(id => {
         expect(dataStore.getNode(id)?.stype).toBe('inline-text');
       });
     });
 
-    it('여러 타입 필터링', () => {
+    it('filter multiple types', () => {
       const iterator = dataStore.createDocumentIterator({
         filter: { stypes: ['heading', 'paragraph'] }
       });
@@ -185,13 +185,13 @@ describe('DocumentIterator', () => {
         blockNodes.push(nodeId);
       }
       
-      console.log('=== heading과 paragraph만 필터링 ===');
+      console.log('=== Filter only heading and paragraph ===');
       blockNodes.forEach((id, index) => {
         const node = dataStore.getNode(id);
         console.log(`${index + 1}. ${id} (${node?.stype}) - ${node?.text || ''}`);
       });
       
-      expect(blockNodes.length).toBe(4); // heading 1개, paragraph 3개 (listItem 내부 포함)
+      expect(blockNodes.length).toBe(4); // 1 heading, 3 paragraphs (including inside listItem)
       blockNodes.forEach(id => {
         const nodeType = dataStore.getNode(id)?.stype;
         expect(['heading', 'paragraph']).toContain(nodeType);
@@ -245,7 +245,7 @@ describe('DocumentIterator', () => {
     it('사용자 정의 필터', () => {
       const iterator = dataStore.createDocumentIterator({
         customFilter: (nodeId, node) => {
-          // 텍스트가 있는 노드만
+          // Only nodes with text
           return node?.text && node.text.length > 0;
         }
       });
@@ -271,7 +271,7 @@ describe('DocumentIterator', () => {
     it('중단 조건', () => {
       const iterator = dataStore.createDocumentIterator({
         shouldStop: (nodeId, node) => {
-          // list 노드를 만나면 중단
+          // Stop when encountering list node
           return node?.stype === 'list';
         }
       });
@@ -281,13 +281,13 @@ describe('DocumentIterator', () => {
         beforeListNodes.push(nodeId);
       }
       
-      console.log('=== list 노드에서 중단 ===');
+      console.log('=== Stop at list node ===');
       beforeListNodes.forEach((id, index) => {
         const node = dataStore.getNode(id);
         console.log(`${index + 1}. ${id} (${node?.stype}) - ${node?.text || ''}`);
       });
       
-      // list 노드 이전까지만 순회되어야 함
+      // Should traverse only up to before list node
       const lastNode = dataStore.getNode(beforeListNodes[beforeListNodes.length - 1]);
       expect(lastNode?.stype).not.toBe('list');
     });
@@ -383,7 +383,7 @@ describe('DocumentIterator', () => {
       });
       
       expect(nodesBeforeSecondParagraph.length).toBeGreaterThan(0);
-      // 마지막 노드는 '두 번째 단락'이 아니어야 함
+      // Last node should not be '두 번째 단락'
       const lastNode = dataStore.getNode(nodesBeforeSecondParagraph[nodesBeforeSecondParagraph.length - 1]);
       expect(lastNode?.text).not.toBe('두 번째 단락');
     });
@@ -410,28 +410,28 @@ describe('DocumentIterator', () => {
     it('reset() 메서드', () => {
       const iterator = dataStore.createDocumentIterator();
       
-      // 첫 번째 순회
+      // First traversal
       const firstPass: string[] = [];
       for (const nodeId of iterator) {
         firstPass.push(nodeId);
-        if (firstPass.length >= 3) break; // 3개만
+        if (firstPass.length >= 3) break; // Only 3
       }
       
-      // 리셋 후 두 번째 순회
+      // Second traversal after reset
       iterator.reset();
       const secondPass: string[] = [];
       for (const nodeId of iterator) {
         secondPass.push(nodeId);
-        if (secondPass.length >= 3) break; // 3개만
+        if (secondPass.length >= 3) break; // Only 3
       }
       
       expect(firstPass).toEqual(secondPass);
     });
 
-    it('startFrom() 메서드', () => {
+    it('startFrom() method', () => {
       const iterator = dataStore.createDocumentIterator();
       
-      // 특정 노드부터 시작
+      // Start from specific node
       const paragraphNodes = dataStore.findNodesByType('paragraph');
       const secondParagraph = paragraphNodes[1];
       
@@ -440,7 +440,7 @@ describe('DocumentIterator', () => {
       const fromSecondParagraph: string[] = [];
       for (const nodeId of iterator) {
         fromSecondParagraph.push(nodeId);
-        if (fromSecondParagraph.length >= 3) break; // 3개만
+        if (fromSecondParagraph.length >= 3) break; // Only 3
       }
       
       console.log('=== startFrom() 결과 ===');
@@ -453,9 +453,9 @@ describe('DocumentIterator', () => {
     });
   });
 
-  describe('복잡한 문서에서의 Iterator', () => {
+  describe('Iterator in complex document', () => {
     beforeEach(() => {
-      // 복잡한 기술 문서 구조
+      // Complex technical document structure
       dataStore.createNodeWithChildren({
         stype: 'document',
         content: [
@@ -565,19 +565,19 @@ describe('DocumentIterator', () => {
       
       for (const nodeId of iterator) {
         count++;
-        if (count > 1000) break; // 무한 루프 방지
+        if (count > 1000) break; // Prevent infinite loop
       }
       
       const endTime = performance.now();
       const duration = endTime - startTime;
       
-      console.log(`\n=== Iterator 성능 테스트 ===`);
-      console.log(`순회한 노드 수: ${count}`);
-      console.log(`소요 시간: ${duration.toFixed(2)}ms`);
-      console.log(`노드당 평균 시간: ${(duration / count).toFixed(4)}ms`);
+      console.log(`\n=== Iterator performance test ===`);
+      console.log(`Nodes traversed: ${count}`);
+      console.log(`Time taken: ${duration.toFixed(2)}ms`);
+      console.log(`Average time per node: ${(duration / count).toFixed(4)}ms`);
       
-      expect(duration).toBeLessThan(10); // 10ms 이내
-      expect(count).toBeGreaterThan(5); // 최소 5개 노드는 순회
+      expect(duration).toBeLessThan(10); // Within 10ms
+      expect(count).toBeGreaterThan(5); // At least 5 nodes should be traversed
     });
   });
 });

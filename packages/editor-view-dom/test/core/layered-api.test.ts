@@ -16,7 +16,7 @@ describe('EditorViewDOM Container API', () => {
   let container: HTMLElement;
   
   beforeEach(() => {
-    // DOM 환경 설정
+    // Set up DOM environment
     document.body.innerHTML = '';
     container = document.createElement('div');
     container.sid = 'editor-container';
@@ -33,21 +33,21 @@ describe('EditorViewDOM Container API', () => {
         container: container
       });
       
-      // 컨테이너 확인
+      // Verify container
       expect(view.container).toBe(container);
       expect(container.style.position).toBe('relative');
       
-      // 5개 계층 모두 존재 확인
+      // Verify all 5 layers exist
       expect(view.layers.content).toBeInstanceOf(HTMLElement);
       expect(view.layers.decorator).toBeInstanceOf(HTMLElement);
       expect(view.layers.selection).toBeInstanceOf(HTMLElement);
       expect(view.layers.context).toBeInstanceOf(HTMLElement);
       expect(view.layers.custom).toBeInstanceOf(HTMLElement);
       
-      // contentEditableElement는 content layer와 동일
+      // contentEditableElement is same as content layer
       expect(view.contentEditableElement).toBe(view.layers.content);
       
-      // content layer는 contentEditable
+      // content layer is contentEditable
       expect(view.layers.content.contentEditable).toBe('true');
       
       view.destroy();
@@ -112,16 +112,16 @@ describe('EditorViewDOM Container API', () => {
         container: container
       });
       
-      // content layer는 relative
+      // content layer is relative
       expect(view.layers.content.style.position).toBe('relative');
       
-      // 나머지 계층들은 absolute
+      // Other layers are absolute
       expect(view.layers.decorator.style.position).toBe('absolute');
       expect(view.layers.selection.style.position).toBe('absolute');
       expect(view.layers.context.style.position).toBe('absolute');
       expect(view.layers.custom.style.position).toBe('absolute');
       
-      // overlay 계층들은 전체 영역 커버
+      // Overlay layers cover entire area
       [view.layers.decorator, view.layers.selection, view.layers.context, view.layers.custom].forEach(layer => {
         expect(layer.style.top).toBe('0px');
         expect(layer.style.left).toBe('0px');
@@ -137,10 +137,10 @@ describe('EditorViewDOM Container API', () => {
         container: container
       });
       
-      // content layer는 pointer events 허용
+      // content layer allows pointer events
       expect(view.layers.content.style.pointerEvents).toBe('');
       
-      // overlay 계층들은 pointer events 차단
+      // Overlay layers block pointer events
       expect(view.layers.decorator.style.pointerEvents).toBe('none');
       expect(view.layers.selection.style.pointerEvents).toBe('none');
       expect(view.layers.context.style.pointerEvents).toBe('none');
@@ -156,7 +156,7 @@ describe('EditorViewDOM Container API', () => {
         container: container
       });
       
-      // Content layer에 텍스트 추가
+      // Add text to Content layer
       const textNode = document.createTextNode('Hello World');
       view.layers.content.appendChild(textNode);
       
@@ -172,7 +172,7 @@ describe('EditorViewDOM Container API', () => {
         container: container
       });
       
-      // Decorator layer에 하이라이트 요소 추가
+      // Add highlight element to Decorator layer
       const highlight = document.createElement('div');
       highlight.className = 'highlight';
       highlight.style.backgroundColor = 'yellow';
@@ -197,7 +197,7 @@ describe('EditorViewDOM Container API', () => {
         container: container
       });
       
-      // Selection layer에 커서 표시
+      // Show cursor in Selection layer
       const cursor = document.createElement('div');
       cursor.className = 'cursor';
       cursor.style.position = 'absolute';
@@ -222,7 +222,7 @@ describe('EditorViewDOM Container API', () => {
         container: container
       });
       
-      // Context layer에 툴팁 추가
+      // Add tooltip to Context layer
       const tooltip = document.createElement('div');
       tooltip.className = 'tooltip';
       tooltip.textContent = 'This is a tooltip';
@@ -248,7 +248,7 @@ describe('EditorViewDOM Container API', () => {
         container: container
       });
       
-      // Custom layer에 디버그 정보 추가
+      // Add debug info to Custom layer
       const debugInfo = document.createElement('div');
       debugInfo.className = 'debug-info';
       debugInfo.innerHTML = '<span>Debug: Line 1</span><span>Cursor: 25</span>';
@@ -275,7 +275,7 @@ describe('EditorViewDOM Container API', () => {
         container: container
       });
       
-      // Content layer에 텍스트 요소 추가
+      // Add text element to Content layer
       const textSpan = document.createElement('span');
       textSpan.textContent = 'Sample text';
       textSpan.style.position = 'absolute';
@@ -283,22 +283,22 @@ describe('EditorViewDOM Container API', () => {
       textSpan.style.top = '15px';
       view.layers.content.appendChild(textSpan);
       
-      // Decorator layer에 같은 위치에 하이라이트 추가
+      // Add highlight at same position in Decorator layer
       const highlight = document.createElement('div');
       highlight.style.position = 'absolute';
-      highlight.style.left = '20px';  // 텍스트와 같은 x 좌표
-      highlight.style.top = '15px';   // 텍스트와 같은 y 좌표
+      highlight.style.left = '20px';  // Same x coordinate as text
+      highlight.style.top = '15px';   // Same y coordinate as text
       highlight.style.width = '80px';
       highlight.style.height = '18px';
       highlight.style.backgroundColor = 'yellow';
       highlight.style.opacity = '0.3';
       view.layers.decorator.appendChild(highlight);
       
-      // 좌표가 일치하는지 확인
+      // Verify coordinates match
       expect(textSpan.style.left).toBe(highlight.style.left);
       expect(textSpan.style.top).toBe(highlight.style.top);
       
-      // 계층별 z-index 확인
+      // Verify z-index by layer
       const contentZIndex = parseInt(view.layers.content.style.zIndex);
       const decoratorZIndex = parseInt(view.layers.decorator.style.zIndex);
       expect(decoratorZIndex).toBeGreaterThan(contentZIndex);
@@ -311,21 +311,21 @@ describe('EditorViewDOM Container API', () => {
         container: container
       });
       
-      // Container의 위치 설정
+      // Set container position
       container.style.position = 'relative';
       container.style.left = '100px';
       container.style.top = '50px';
       
-      // Content layer는 relative positioning
+      // Content layer is relative positioning
       expect(view.layers.content.style.position).toBe('relative');
       
-      // 다른 계층들은 absolute positioning
+      // Other layers are absolute positioning
       expect(view.layers.decorator.style.position).toBe('absolute');
       expect(view.layers.selection.style.position).toBe('absolute');
       expect(view.layers.context.style.position).toBe('absolute');
       expect(view.layers.custom.style.position).toBe('absolute');
       
-      // Absolute 계층들의 좌표가 0,0으로 설정되어 있는지 확인
+      // Verify absolute layers' coordinates are set to 0,0
       [view.layers.decorator, view.layers.selection, view.layers.context, view.layers.custom].forEach(layer => {
         expect(layer.style.top).toBe('0px');
         expect(layer.style.left).toBe('0px');
@@ -343,14 +343,14 @@ describe('EditorViewDOM Container API', () => {
         container: container
       });
       
-      // Content layer는 pointer-events가 허용되어야 함
+      // Content layer should allow pointer-events
       expect(view.layers.content.style.pointerEvents).toBe('');
       
-      // 이벤트 리스너 추가 테스트
+      // Test adding event listener
       const clickHandler = vi.fn();
       view.layers.content.addEventListener('click', clickHandler);
       
-      // 클릭 이벤트 시뮬레이션
+      // Simulate click event
       const clickEvent = new MouseEvent('click', {
         bubbles: true,
         cancelable: true,
@@ -369,7 +369,7 @@ describe('EditorViewDOM Container API', () => {
         container: container
       });
       
-      // Overlay 계층들은 pointer-events가 차단되어야 함
+      // Overlay layers should block pointer-events
       expect(view.layers.decorator.style.pointerEvents).toBe('none');
       expect(view.layers.selection.style.pointerEvents).toBe('none');
       expect(view.layers.context.style.pointerEvents).toBe('none');
@@ -383,20 +383,20 @@ describe('EditorViewDOM Container API', () => {
         container: container
       });
       
-      // Decorator layer에 클릭 가능한 위젯 추가
+      // Add clickable widget to Decorator layer
       const interactiveWidget = document.createElement('button');
       interactiveWidget.textContent = 'Click me';
       interactiveWidget.style.position = 'absolute';
       interactiveWidget.style.left = '10px';
       interactiveWidget.style.top = '10px';
-      interactiveWidget.style.pointerEvents = 'auto'; // 이벤트 허용
+      interactiveWidget.style.pointerEvents = 'auto'; // Allow events
       
       view.layers.decorator.appendChild(interactiveWidget);
       
       const clickHandler = vi.fn();
       interactiveWidget.addEventListener('click', clickHandler);
       
-      // 클릭 이벤트 시뮬레이션
+      // Simulate click event
       const clickEvent = new MouseEvent('click', {
         bubbles: true,
         cancelable: true
@@ -415,7 +415,7 @@ describe('EditorViewDOM Container API', () => {
         container: container
       });
       
-      // 여러 요소를 decorator layer에 추가
+      // Add multiple elements to decorator layer
       const elements = [];
       for (let i = 0; i < 3; i++) {
         const element = document.createElement('div');
@@ -427,13 +427,13 @@ describe('EditorViewDOM Container API', () => {
       
       expect(view.layers.decorator.children.length).toBe(3);
       
-      // 중간 요소 제거
+      // Remove middle element
       view.layers.decorator.removeChild(elements[1]);
       expect(view.layers.decorator.children.length).toBe(2);
       expect(view.layers.decorator.children[0].textContent).toBe('Decorator 0');
       expect(view.layers.decorator.children[1].textContent).toBe('Decorator 2');
       
-      // 모든 요소 제거
+      // Remove all elements
       view.layers.decorator.innerHTML = '';
       expect(view.layers.decorator.children.length).toBe(0);
       
@@ -445,7 +445,7 @@ describe('EditorViewDOM Container API', () => {
         container: container
       });
       
-      // 복잡한 중첩 구조 생성
+      // Create complex nested structure
       const panel = document.createElement('div');
       panel.className = 'context-panel';
       
@@ -468,7 +468,7 @@ describe('EditorViewDOM Container API', () => {
       panel.appendChild(content);
       view.layers.context.appendChild(panel);
       
-      // 구조 검증
+      // Verify structure
       expect(view.layers.context.children.length).toBe(1);
       expect(panel.children.length).toBe(2);
       expect(content.children.length).toBe(4);
@@ -487,7 +487,7 @@ describe('EditorViewDOM Container API', () => {
       
       const startTime = performance.now();
       
-      // 많은 수의 요소 추가
+      // Add large number of elements
       const fragment = document.createDocumentFragment();
       for (let i = 0; i < 1000; i++) {
         const element = document.createElement('div');
@@ -505,7 +505,7 @@ describe('EditorViewDOM Container API', () => {
       const duration = endTime - startTime;
       
       expect(view.layers.decorator.children.length).toBe(1000);
-      expect(duration).toBeLessThan(100); // 100ms 이내에 완료되어야 함
+      expect(duration).toBeLessThan(100); // Should complete within 100ms
       
       view.destroy();
     });
@@ -515,7 +515,7 @@ describe('EditorViewDOM Container API', () => {
         container: container
       });
       
-      // 초기 요소 생성
+      // Create initial element
       const cursor = document.createElement('div');
       cursor.className = 'animated-cursor';
       cursor.style.position = 'absolute';
@@ -526,7 +526,7 @@ describe('EditorViewDOM Container API', () => {
       
       const startTime = performance.now();
       
-      // 빈번한 위치 업데이트 시뮬레이션
+      // Simulate frequent position updates
       for (let i = 0; i < 100; i++) {
         cursor.style.left = `${i * 2}px`;
         cursor.style.top = `${Math.sin(i * 0.1) * 10 + 10}px`;
@@ -536,7 +536,7 @@ describe('EditorViewDOM Container API', () => {
       const duration = endTime - startTime;
       
       expect(cursor.style.left).toBe('198px');
-      expect(duration).toBeLessThan(50); // 50ms 이내에 완료되어야 함
+      expect(duration).toBeLessThan(50); // Should complete within 50ms
       
       view.destroy();
     });
@@ -548,12 +548,12 @@ describe('EditorViewDOM Container API', () => {
         container: container
       });
       
-      // 계층들이 존재하는지 확인
+      // Verify layers exist
       expect(container.children.length).toBe(5);
       
       view.destroy();
       
-      // 계층들의 내용이 정리되었는지 확인
+      // Verify layer contents are cleared
       Object.values(view.layers).forEach(layer => {
         expect(layer.innerHTML).toBe('');
       });
@@ -564,21 +564,21 @@ describe('EditorViewDOM Container API', () => {
         container: container
       });
       
-      // 이벤트 리스너 추가
+      // Add event listeners
       const handler1 = vi.fn();
       const handler2 = vi.fn();
       
       view.layers.content.addEventListener('click', handler1);
       view.layers.context.addEventListener('mouseover', handler2);
       
-      // 요소에 이벤트 리스너가 있는 상태에서 destroy
+      // Destroy with event listeners on elements
       view.destroy();
       
-      // destroy 후 이벤트 발생시켜도 핸들러가 호출되지 않아야 함
+      // Handlers should not be called even if events are dispatched after destroy
       const clickEvent = new MouseEvent('click');
       const mouseEvent = new MouseEvent('mouseover');
       
-      // 이미 정리된 계층에서는 이벤트가 발생하지 않음
+      // Events do not occur on already cleaned layers
       expect(handler1).not.toHaveBeenCalled();
       expect(handler2).not.toHaveBeenCalled();
     });

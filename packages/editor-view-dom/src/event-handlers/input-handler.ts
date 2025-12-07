@@ -749,11 +749,11 @@ export class InputHandlerImpl implements InputHandler {
         let endOffset = modelNode.text?.length || 0;
 
         if (selection && selection.rangeCount > 0 && !selection.isCollapsed) {
-          // selection이 있으면 그 범위 사용
-          // TODO: DOM selection을 모델 offset으로 정확히 변환
-          // 현재는 간단히 처리 (range는 나중에 사용 예정)
+          // Use selection range if available
+          // TODO: Accurately convert DOM selection to model offset
+          // Currently handled simply (range will be used later)
         } else if (change.range) {
-          // metadata에 range가 있으면 사용
+          // Use range from metadata if available
           [startOffset, endOffset] = change.range;
         }
 
@@ -770,11 +770,11 @@ export class InputHandlerImpl implements InputHandler {
           contentRange
         });
 
-        // mark 토글 (기존에 있으면 제거, 없으면 추가)
+        // Toggle mark (remove if exists, add if not)
         dataStore.range.toggleMark(contentRange, markType);
 
-        // editor:content.change 이벤트 발생 (skipRender: true)
-        // 브라우저가 만든 DOM은 무시하고, 모델 mark로 정규화한 후 render
+        // Emit editor:content.change event (skipRender: true)
+        // Ignore DOM created by browser, normalize with model mark then render
         this.editor.emit('editor:content.change', {
           skipRender: true,
           from: 'MutationObserver-C4',
@@ -786,29 +786,29 @@ export class InputHandlerImpl implements InputHandler {
       }
     }
 
-    // 모든 mark 변경 후 한 번만 render (skipRender: false로 재발생)
-    // 브라우저가 만든 DOM 구조를 우리의 정규화된 구조로 교체
+    // Render only once after all mark changes (re-emit with skipRender: false)
+    // Replace DOM structure created by browser with our normalized structure
     this.editor.emit('editor:content.change', {
-      skipRender: false, // render 필요 (정규화된 구조로 교체)
+      skipRender: false, // Render needed (replace with normalized structure)
       from: 'MutationObserver-C4-normalize',
       content: (this.editor as any).document,
       transaction: { type: 'mark_normalize' }
     });
   }
 
-  // MutationObserver에서 호출되는 메서드 (기존 호환성 유지)
-  // 주의: oldValue/newValue는 개별 text node의 값이지만,
-  // 실제 비교는 sid 기준 전체 텍스트로 해야 함 (mark/decorator로 분리되기 때문)
+  // Method called from MutationObserver (maintains backward compatibility)
+  // Note: oldValue/newValue are values of individual text nodes,
+  // but actual comparison should be done on full text by sid (because it's split by mark/decorator)
   async handleTextContentChange(oldValue: string | null, newValue: string | null, target: Node): Promise<void> {
     console.log('[Input] handleTextContentChange: CALLED', { oldValue, newValue, targetNodeType: target.nodeType, targetNodeName: target.nodeName });
     
-    // 렌더링 중 발생하는 DOM 변경은 무시 (무한루프 방지)
+    // Ignore DOM changes during rendering (prevent infinite loop)
     if ((this.editorViewDOM as any)._isRendering) {
       console.log('[Input] handleTextContentChange: SKIP - rendering');
       return;
     }
     
-    // filler <br>가 들어간 경우: 건너뜀 (커서 안정화)
+    // Skip if filler <br> is present (stabilize cursor)
     if (target.nodeType === Node.ELEMENT_NODE) {
       const el = target as Element;
       const hasFiller = el.querySelector('br[data-bc-filler="true"]');
@@ -829,14 +829,14 @@ export class InputHandlerImpl implements InputHandler {
     }
 
 
-    // 조합이 아닐 때: collapsed만 처리
+    // When not composing: only handle collapsed
     if (selection.length !== 0) {
       console.log('[Input] handleTextContentChange: SKIP - range selection', { selectionLength: selection.length });
       this.editor.emit('editor:input.skip_range_selection', selection);
       return;
     }
 
-    // 다른 노드에서의 변경은 무시 (커서 튀는 현상 방지)
+    // Ignore changes in other nodes (prevent cursor jumping)
     if (this.activeTextNodeId && textNodeId && textNodeId !== this.activeTextNodeId) {
       console.log('[Input] handleTextContentChange: SKIP - inactive node', { textNodeId, activeTextNodeId: this.activeTextNodeId });
       this.editor.emit('editor:input.skip_inactive_node', { textNodeId, activeTextNodeId: this.activeTextNodeId });
@@ -845,7 +845,7 @@ export class InputHandlerImpl implements InputHandler {
     
     console.log('[Input] handleTextContentChange: PROCESSING', { textNodeId });
 
-    // textNodeId 기준으로 모델 조회 (커서 위치의 data-bc-sid가 바로 모델)
+    // Query model by textNodeId (data-bc-sid at cursor position is the model)
     const modelNode = this.editor.dataStore?.getNode?.(textNodeId);
     if (!modelNode) {
       this.editor.emit('editor:input.node_not_found', { textNodeId });
@@ -853,15 +853,15 @@ export class InputHandlerImpl implements InputHandler {
     }
 
     const oldModelText = modelNode.text || '';
-    // modelNode.marks를 MarkRange[] 형식으로 정규화
-    // range가 없는 경우 전체 텍스트 범위로 설정
-    // IMark는 stype을 사용하고, MarkRange는 type을 사용하므로 변환 필요
+    // Normalize modelNode.marks to MarkRange[] format
+    // If range is missing, set to full text range
+    // IMark uses stype, MarkRange uses type, so conversion is needed
     const rawMarks = modelNode.marks || [];
       const modelMarks: MarkRange[] = rawMarks
         .filter((mark: any) => mark && (mark.type || mark.stype))
         .map((mark: any) => {
-          const markType = mark.type || mark.stype; // IMark는 stype, MarkRange는 type
-          // range가 없으면 전체 텍스트 범위로 설정
+          const markType = mark.type || mark.stype; // IMark uses stype, MarkRange uses type
+          // If range is missing, set to full text range
           if (!mark.range || !Array.isArray(mark.range) || mark.range.length !== 2) {
             return {
               type: markType,
@@ -878,12 +878,12 @@ export class InputHandlerImpl implements InputHandler {
     
     const decorators = (this.editorViewDOM as any).getDecorators?.() || [];
 
-    // 텍스트 노드 찾기 (target이 Text 노드가 아닐 수 있음)
+    // Find text node (target may not be a Text node)
     let textNode: Text | null = null;
     if (target.nodeType === Node.TEXT_NODE) {
       textNode = target as Text;
     } else if (target.nodeType === Node.ELEMENT_NODE) {
-      // Element인 경우 첫 번째 text node 찾기
+      // If Element, find first text node
       const walker = document.createTreeWalker(
         target as Element,
         NodeFilter.SHOW_TEXT,
@@ -897,23 +897,23 @@ export class InputHandlerImpl implements InputHandler {
       return;
     }
 
-    // dataStore에 직접 업데이트 (transaction 사용하지 않음)
+    // Update dataStore directly (not using transaction)
     const dataStore = (this.editor as any).dataStore;
     if (!dataStore) {
       console.error('[Input] dataStore not found');
       return;
     }
 
-    // 효율적인 편집 처리 (marks/decorator 범위 자동 조정)
-    // handleEfficientEdit 내부에서 sid 기준 전체 텍스트를 재구성하여 비교함
-    // actualTextNodeId를 사용하여 올바른 inline-text 노드를 찾도록 함
+    // Efficient edit processing (automatic marks/decorator range adjustment)
+    // handleEfficientEdit internally reconstructs full text based on sid for comparison
+    // Use actualTextNodeId to find correct inline-text node
     console.log('[Input] handleTextContentChange: calling handleEfficientEdit', { textNodeId, oldModelTextLength: oldModelText.length });
     const editResult = handleEfficientEdit(
       textNode,
-      oldModelText,  // sid 기준 모델 텍스트 (비교 대상)
+      oldModelText,  // Model text based on sid (comparison target)
       modelMarks,
       decorators,
-      dataStore  // dataStore.decorators.adjustRanges 사용을 위해 전달
+      dataStore  // Passed to use dataStore.decorators.adjustRanges
     );
 
     if (!editResult) {
@@ -932,12 +932,12 @@ export class InputHandlerImpl implements InputHandler {
       return;
     }
 
-    // 범위 기반 텍스트 업데이트 (전체 문자열 교체 대신)
+    // Range-based text update (instead of full string replacement)
     const editInfo = editResult.editInfo;
     const startOffset = editInfo.editPosition;
     const endOffset = editInfo.editPosition + editInfo.deletedLength;
     
-    // ContentRange 생성
+    // Create ContentRange
     const contentRange = {
       startNodeId: textNodeId,
       startOffset: startOffset,
@@ -945,12 +945,12 @@ export class InputHandlerImpl implements InputHandler {
       endOffset: endOffset
     };
     
-    // 업데이트 전 모델 상태 확인
+    // Check model state before update
     const nodeBefore = dataStore.getNode(textNodeId);
     const textBefore = nodeBefore?.text || '';
     
-    // RangeOperations.replaceText를 사용하여 범위 기반 업데이트
-    // 이 메서드는 marks를 자동으로 조정하므로 별도 marks 업데이트 불필요
+    // Use RangeOperations.replaceText for range-based update
+    // This method automatically adjusts marks, so separate marks update is not needed
     try {
       console.log('[Input] handleTextContentChange: calling replaceText', { 
         textNodeId, 
@@ -959,7 +959,7 @@ export class InputHandlerImpl implements InputHandler {
         textBefore 
       });
       
-      // Command 호출로 변경
+      // Change to command call
       let replacedText: string | null = null;
       try {
         const success = await this.editor.executeCommand('replaceText', {
@@ -975,8 +975,8 @@ export class InputHandlerImpl implements InputHandler {
           return;
         }
         
-        // replacedText는 operation 결과에서 가져올 수 있지만, 
-        // 현재는 성공 여부만 확인하고 넘어감
+        // replacedText can be obtained from operation result, 
+        // but currently only check success and continue
         replacedText = editInfo.insertedText;
       } catch (error) {
         console.error('[Input] handleTextContentChange: replaceText command execution failed', { 
@@ -987,7 +987,7 @@ export class InputHandlerImpl implements InputHandler {
         return;
       }
       
-      // 업데이트 후 모델 상태 확인
+      // Verify model state after update
       const nodeAfter = dataStore.getNode(textNodeId);
       const textAfter = nodeAfter?.text || '';
       
@@ -999,7 +999,7 @@ export class InputHandlerImpl implements InputHandler {
         changed: textBefore !== textAfter
       });
       
-      // 디버깅: 모델 업데이트 확인
+      // Debug: verify model update
       if (textBefore === textAfter) {
         console.warn('[Input] Model text unchanged after replaceText', {
           nodeId: textNodeId,
@@ -1020,22 +1020,22 @@ export class InputHandlerImpl implements InputHandler {
       return;
     }
 
-    // Marks는 RangeOperations.replaceText가 자동으로 조정하므로 별도 업데이트 불필요
+    // Marks are automatically adjusted by RangeOperations.replaceText, so no separate update needed
 
-    // Decorators 업데이트 (변경된 경우만)
-    // updateDecorators는 editorViewDOM에서 처리 (dataStore가 아님)
+    // Update decorators (only if changed)
+    // updateDecorators is handled in editorViewDOM (not in dataStore)
     const decoratorsChanged = JSON.stringify(editResult.adjustedDecorators) !== JSON.stringify(decorators);
     if (decoratorsChanged) {
-      // TODO: adjustedDecorators를 decorator 형식으로 변환하여 업데이트
+      // TODO: convert adjustedDecorators to decorator format and update
     }
 
-    // editor:content.change 이벤트 수동 발생
-    // ⚠️ 중요: MutationObserver에서 감지한 변경은 항상 skipRender: true로 처리
-    // render()가 호출되면 DOM 변경 → MutationObserver 재감지 → 무한 루프 발생
+    // Manually emit editor:content.change event
+    // ⚠️ Important: changes detected by MutationObserver must always be handled with skipRender: true
+    // If render() is called, DOM changes → MutationObserver re-detects → infinite loop occurs
     console.log('[Input] handleTextContentChange: emitting editor:content.change', { textNodeId });
     this.editor.emit('editor:content.change', {
-      skipRender: true, // 필수: MutationObserver 변경은 render() 호출 안 함
-      from: 'MutationObserver', // 디버깅용: 변경 출처 표시
+      skipRender: true, // Required: MutationObserver changes do not call render()
+      from: 'MutationObserver', // For debugging: indicate change source
       content: (this.editor as any).document,
       transaction: { type: 'text_replace', nodeId: textNodeId }
     });
@@ -1043,8 +1043,8 @@ export class InputHandlerImpl implements InputHandler {
 
 
   private resolveModelTextNodeId(target: Node): string | null {
-    // 목표: 커서 위치에서 가장 가까운 data-bc-sid를 찾아 반환
-    // 커서 위치의 data-bc-sid가 바로 모델이므로 타입 체크 불필요
+    // Goal: find and return the closest data-bc-sid from cursor position
+    // data-bc-sid at cursor position is the model itself, so type check is unnecessary
     
     let el: Element | null = null;
     if (target.nodeType === Node.TEXT_NODE) {
@@ -1058,7 +1058,7 @@ export class InputHandlerImpl implements InputHandler {
       return null;
     }
     
-    // 가장 가까운 data-bc-sid 찾기
+    // Find closest data-bc-sid
     const foundEl = el.closest('[data-bc-sid]');
     if (foundEl) {
       const sid = foundEl.getAttribute('data-bc-sid');
@@ -1083,42 +1083,42 @@ export class InputHandlerImpl implements InputHandler {
     
     console.log('[InputHandler] handleBeforeInput: CALLED', { inputType, data: event.data });
     
-    // 1) 구조 변경/히스토리 관련 inputType은 기존 정책대로 처리
+    // 1) Handle structural change/history-related inputTypes with existing policy
     if (this.shouldPreventDefault(inputType)) {
       console.log('[InputHandler] handleBeforeInput: preventDefault', { inputType });
       event.preventDefault();
       this.executeStructuralCommand(inputType);
-      // 구조 변경은 Insert Range 힌트를 사용하지 않으므로 초기화
+      // Structural changes do not use Insert Range hint, so reset
       this._pendingInsertHint = null;
       return;
     }
 
-    // 2) 포맷 관련 inputType 처리 (formatBold, formatItalic, formatUnderline 등)
+    // 2) Handle format-related inputTypes (formatBold, formatItalic, formatUnderline, etc.)
     if (this.shouldHandleFormat(inputType)) {
       console.log('[InputHandler] handleBeforeInput: preventDefault for format', { inputType });
       event.preventDefault();
       this.executeFormatCommand(inputType);
-      // 포맷 변경은 Insert Range 힌트를 사용하지 않으므로 초기화
+      // Format changes do not use Insert Range hint, so reset
       this._pendingInsertHint = null;
       return;
     }
 
-    // 3) 삭제 처리 (Model-First)
-    // IME 조합 중에는 브라우저 기본 동작 허용 (MutationObserver가 처리)
+    // 3) Handle deletion (Model-First)
+    // Allow browser default behavior during IME composition (MutationObserver handles it)
     if (this.shouldHandleDelete(inputType) && !event.isComposing) {
       console.log('[InputHandler] handleBeforeInput: preventDefault for delete', { inputType });
       event.preventDefault();
       this.handleDelete(event);
-      // 삭제는 Insert Range 힌트를 사용하지 않으므로 초기화
+      // Deletion does not use Insert Range hint, so reset
       this._pendingInsertHint = null;
       return;
     }
 
-    // 4) Insert 계열 inputType에 대해 Insert Range 힌트 생성
+    // 4) Generate Insert Range hint for Insert-type inputTypes
     this.updateInsertHintFromBeforeInput(event);
 
-    // 5) 나머지 (텍스트 입력 등)는 브라우저가 자동 처리하도록 두고,
-    //    MutationObserver가 DOM 변경을 감지하여 모델을 업데이트한다.
+    // 5) For the rest (text input, etc.), let browser handle automatically,
+    //    and MutationObserver detects DOM changes to update the model.
     console.log('[InputHandler] handleBeforeInput: ALLOW (will be handled by MutationObserver)', { inputType });
   }
 
@@ -1131,12 +1131,12 @@ export class InputHandlerImpl implements InputHandler {
   private updateInsertHintFromBeforeInput(event: InputEvent): void {
     const inputType = event.inputType;
 
-    // 대상이 아닌 inputType은 힌트 생성하지 않음
+    // Do not generate hint for non-target inputTypes
     const insertTypes = new Set<string>([
       'insertText',
       'insertFromPaste',
       'insertReplacementText',
-      // 'insertCompositionText', // IME용은 추후 단계에서 안전하게 도입
+      // 'insertCompositionText', // IME support will be safely introduced in a later stage
       // 'insertFromComposition'
     ]);
 
@@ -1151,7 +1151,7 @@ export class InputHandlerImpl implements InputHandler {
       return;
     }
 
-    // DOM selection → 모델 selection 변환
+    // Convert DOM selection → model selection
     let modelSelection: any = null;
     try {
       modelSelection = (this.editorViewDOM as any).convertDOMSelectionToModel?.(selection);
@@ -1188,15 +1188,15 @@ export class InputHandlerImpl implements InputHandler {
   }
 
   /**
-   * _pendingInsertHint의 유효성을 검사하여 반환
-   * - IME 조합 중에는 사용하지 않는다 (조합 완료 후 최종 DOM 변경만 신뢰)
-   * - 너무 오래된 힌트는 무시한다 (기본 500ms)
+   * Validate and return _pendingInsertHint
+   * - Do not use during IME composition (only trust final DOM changes after composition completes)
+   * - Ignore hints that are too old (default 500ms)
    */
   private getValidInsertHint(isComposing: boolean): InputHint | null {
     const hint = this._pendingInsertHint;
     if (!hint) return null;
 
-    // IME 조합 중에는 힌트를 사용하지 않는다.
+    // Do not use hint during IME composition
     if (isComposing) {
       return null;
     }
@@ -1211,12 +1211,12 @@ export class InputHandlerImpl implements InputHandler {
   }
 
   /**
-   * preventDefault()가 필요한 inputType인지 확인
-   * 설계 문서에 따르면 구조 변경(insertParagraph, insertLineBreak)과 히스토리(historyUndo, historyRedo)만 처리
+   * Check if inputType requires preventDefault()
+   * According to design document, only handle structural changes (insertParagraph, insertLineBreak) and history (historyUndo, historyRedo)
    */
   private shouldPreventDefault(inputType: string): boolean {
     const structuralTypes = [
-      'insertParagraph',  // Enter 키
+      'insertParagraph',  // Enter key
       'insertLineBreak'  // Shift+Enter
     ];
     
@@ -1253,21 +1253,21 @@ export class InputHandlerImpl implements InputHandler {
       'deleteWordBackward',     // Option+Backspace (Mac) / Ctrl+Backspace (Windows)
       'deleteWordForward',      // Option+Delete (Mac) / Ctrl+Delete (Windows)
       'deleteByCut',           // Ctrl+X / Cmd+X
-      'deleteByDrag'           // 드래그로 선택 후 삭제
+      'deleteByDrag'           // Delete after drag selection
     ];
     return deleteTypes.includes(inputType);
   }
 
   /**
-   * 삭제 처리 (Model-First)
-   * beforeinput에서 preventDefault() 후 호출
+   * Handle deletion (Model-First)
+   * Called after preventDefault() in beforeinput
    */
   private async handleDelete(event: InputEvent): Promise<void> {
     const inputType = event.inputType;
     console.log('[InputHandler] handleDelete: CALLED', { inputType });
 
-    // 1. 현재 모델 selection 읽기
-    // beforeinput 시점에서는 DOM selection을 모델 selection으로 변환
+    // 1. Read current model selection
+    // At beforeinput time, convert DOM selection to model selection
     const domSelection = window.getSelection();
     if (!domSelection || domSelection.rangeCount === 0) {
       console.warn('[InputHandler] handleDelete: no DOM selection');
@@ -1287,11 +1287,11 @@ export class InputHandlerImpl implements InputHandler {
       return;
     }
 
-    // TransactionManager가 올바른 selectionBefore를 가질 수 있도록 현재 selection 업데이트
-    // (이벤트 발생을 최소화하기 위해 내부적으로 처리되면 좋겠지만, 현재는 공개 API 사용)
+    // Update current selection so TransactionManager can have correct selectionBefore
+    // (Ideally handled internally to minimize event emission, but currently using public API)
     this.editor.updateSelection(modelSelection);
 
-    // 2. 삭제 범위 계산
+    // 2. Calculate deletion range
     const contentRange = this.calculateDeleteRange(modelSelection, inputType, modelSelection.startNodeId);
     if (!contentRange) {
       console.warn('[InputHandler] handleDelete: failed to calculate delete range');
@@ -1300,11 +1300,11 @@ export class InputHandlerImpl implements InputHandler {
 
     console.log('[InputHandler] handleDelete: calculated range', { contentRange, inputType });
 
-    // 3. 비즈니스 로직: 어떤 Command를 호출할지 결정
+    // 3. Business logic: decide which Command to call
     let success = false;
     
     if (contentRange._deleteNode && contentRange.nodeId) {
-      // 노드 전체 삭제
+      // Delete entire node
       try {
         success = await this.editor.executeCommand('deleteNode', { 
           nodeId: contentRange.nodeId 
@@ -1314,7 +1314,7 @@ export class InputHandlerImpl implements InputHandler {
         return;
       }
     } else if (contentRange.startNodeId !== contentRange.endNodeId) {
-      // Cross-node 삭제
+      // Cross-node deletion
       try {
         success = await this.editor.executeCommand('deleteCrossNode', { 
           range: contentRange 
@@ -1324,7 +1324,7 @@ export class InputHandlerImpl implements InputHandler {
         return;
       }
     } else {
-      // 단일 노드 텍스트 삭제
+      // Single node text deletion
       try {
         success = await this.editor.executeCommand('deleteText', { 
           range: contentRange 
@@ -1341,8 +1341,8 @@ export class InputHandlerImpl implements InputHandler {
     }
     console.log('[InputHandler] handleDelete: command completed', { contentRange });
 
-    // 4. 모델 기준으로 새 selection 계산
-    // 삭제된 범위의 시작 위치로 selection 이동
+    // 4. Calculate new selection based on model
+    // Move selection to start position of deleted range
     const newModelSelection = {
       type: 'range' as const,
       startNodeId: contentRange.startNodeId,
@@ -1352,14 +1352,14 @@ export class InputHandlerImpl implements InputHandler {
       collapsed: true
     };
 
-    // 5. 모델 selection 업데이트
+    // 5. Update model selection
     this.editor.emit('editor:selection.change', {
       selection: newModelSelection,
       oldSelection: modelSelection
     });
 
-    // 6. render() → DOM 업데이트
-    // skipRender: false로 설정하여 DOM 업데이트
+    // 6. render() → DOM update
+    // Set skipRender: false to update DOM
     this.editor.emit('editor:content.change', {
       skipRender: false,
       from: 'beforeinput-delete',
@@ -1367,9 +1367,9 @@ export class InputHandlerImpl implements InputHandler {
       transaction: { type: 'delete', contentRange }
     });
 
-    // 7. DOM 업데이트 후 Selection 복구
-    // 렌더링으로 인해 DOM 요소가 교체되므로 Selection을 다시 설정해야 함
-    // requestAnimationFrame을 이중으로 사용하여 렌더링 및 레이아웃 완료 후 실행 보장
+    // 7. Restore Selection after DOM update
+    // DOM elements are replaced by rendering, so Selection must be set again
+    // Use requestAnimationFrame twice to ensure execution after rendering and layout completion
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         try {
@@ -1383,12 +1383,12 @@ export class InputHandlerImpl implements InputHandler {
   }
 
   /**
-   * 삭제 범위 계산
-   * 모델 selection과 inputType을 기반으로 삭제할 범위를 계산
+   * Calculate deletion range
+   * Calculate range to delete based on model selection and inputType
    * 
-   * @param modelSelection 현재 모델 selection
-   * @param inputType beforeinput의 inputType
-   * @param currentNodeId 현재 노드 ID (노드 삭제 시 selection 위치 결정용)
+   * @param modelSelection Current model selection
+   * @param inputType inputType from beforeinput
+   * @param currentNodeId Current node ID (for determining selection position when deleting node)
    */
   private calculateDeleteRange(modelSelection: any, inputType: string, currentNodeId: string): any | null {
     if (modelSelection.type !== 'range') {
@@ -1397,7 +1397,7 @@ export class InputHandlerImpl implements InputHandler {
 
     const { startNodeId, startOffset, endNodeId, endOffset, collapsed } = modelSelection;
 
-    // Range selection인 경우: 선택된 범위 삭제
+    // If range selection: delete selected range
     if (!collapsed) {
       return {
         startNodeId,
@@ -1407,10 +1407,10 @@ export class InputHandlerImpl implements InputHandler {
       };
     }
 
-    // Collapsed selection인 경우: inputType에 따라 삭제 범위 결정
+    // If collapsed selection: determine deletion range based on inputType
     switch (inputType) {
       case 'deleteContentBackward': // Backspace
-        // 커서 앞의 문자 삭제
+        // Delete character before cursor
         if (startOffset > 0) {
           return {
             startNodeId,
@@ -1419,7 +1419,7 @@ export class InputHandlerImpl implements InputHandler {
             endOffset: startOffset
           };
         }
-        // 노드 시작 위치: 이전 노드의 마지막 문자 삭제
+        // At node start: delete last character of previous node
         return this.calculateCrossNodeDeleteRange(
           startNodeId,
           'backward',
@@ -1427,7 +1427,7 @@ export class InputHandlerImpl implements InputHandler {
         );
 
       case 'deleteContentForward': // Delete
-        // 커서 뒤의 문자 삭제
+        // Delete character after cursor
         const node = (this.editor as any).dataStore?.getNode?.(startNodeId);
         const textLength = node?.text?.length || 0;
         if (startOffset < textLength) {
@@ -1438,7 +1438,7 @@ export class InputHandlerImpl implements InputHandler {
             endOffset: startOffset + 1
           };
         }
-        // 노드 끝 위치: 다음 노드의 첫 문자 삭제
+        // At node end: delete first character of next node
         return this.calculateCrossNodeDeleteRange(
           startNodeId,
           'forward',
@@ -1447,8 +1447,8 @@ export class InputHandlerImpl implements InputHandler {
 
       case 'deleteWordBackward': // Option+Backspace
       case 'deleteWordForward':  // Option+Delete
-        // 단어 단위 삭제는 현재 단순히 1글자만 삭제
-        // TODO: 단어 경계 감지 구현
+        // Word deletion currently only deletes 1 character
+        // TODO: implement word boundary detection
         return this.calculateDeleteRange(
           { ...modelSelection, type: 'range' },
           inputType === 'deleteWordBackward' ? 'deleteContentBackward' : 'deleteContentForward',
@@ -1457,7 +1457,7 @@ export class InputHandlerImpl implements InputHandler {
 
       case 'deleteByCut':
       case 'deleteByDrag':
-        // 선택된 범위 삭제 (이미 위에서 처리됨)
+        // Delete selected range (already handled above)
         return {
           startNodeId,
           startOffset,
@@ -1472,13 +1472,13 @@ export class InputHandlerImpl implements InputHandler {
   }
 
   /**
-   * 노드 경계에서 삭제 범위 계산
-   * 이전/다음 노드의 문자를 삭제하거나, 조건 불만족 시 null 반환
+   * Calculate deletion range at node boundary
+   * Delete character from previous/next node, or return null if conditions not met
    * 
-   * @param currentNodeId 현재 노드 ID
-   * @param direction 'backward' (이전 노드) 또는 'forward' (다음 노드)
-   * @param dataStore DataStore 인스턴스
-   * @returns 삭제 범위 또는 null
+   * @param currentNodeId Current node ID
+   * @param direction 'backward' (previous node) or 'forward' (next node)
+   * @param dataStore DataStore instance
+   * @returns Deletion range or null
    */
   private calculateCrossNodeDeleteRange(
     currentNodeId: string,
@@ -1496,8 +1496,8 @@ export class InputHandlerImpl implements InputHandler {
       return null;
     }
 
-    // 현재 노드가 .text 필드를 가진 노드가 아니면 처리하지 않음
-    // inline-text, inline-image 등은 모두 커스텀 schema이므로 타입 이름으로 체크하지 않음
+    // Do not process if current node does not have .text field
+    // inline-text, inline-image, etc. are all custom schemas, so do not check by type name
     if (currentNode.text === undefined || typeof currentNode.text !== 'string') {
       console.log('[InputHandler] calculateCrossNodeDeleteRange: current node has no text field', { currentNodeId, type: currentNode.type || currentNode.stype });
       return null;
@@ -1518,17 +1518,17 @@ export class InputHandlerImpl implements InputHandler {
     let targetNodeId: string | null = null;
 
     if (direction === 'backward') {
-      // 이전 형제 노드 찾기
+      // Find previous sibling node
       if (currentIndex === 0) {
-        // 첫 번째 형제: 이전 노드 없음
+        // First sibling: no previous node
         console.log('[InputHandler] calculateCrossNodeDeleteRange: no previous sibling', { currentNodeId });
         return null;
       }
       targetNodeId = currentParent.content[currentIndex - 1] as string;
     } else {
-      // 다음 형제 노드 찾기
+      // Find next sibling node
       if (currentIndex >= currentParent.content.length - 1) {
-        // 마지막 형제: 다음 노드 없음
+        // Last sibling: no next node
         console.log('[InputHandler] calculateCrossNodeDeleteRange: no next sibling', { currentNodeId });
         return null;
       }
@@ -1545,7 +1545,7 @@ export class InputHandlerImpl implements InputHandler {
       return null;
     }
 
-    // 대상 노드의 부모가 현재 노드의 부모와 같은지 확인
+    // Verify target node's parent is same as current node's parent
     const targetParent = dataStore.getParent?.(targetNodeId);
     if (!targetParent || targetParent.sid !== currentParent.sid) {
       console.log('[InputHandler] calculateCrossNodeDeleteRange: target node has different parent', {
@@ -1556,10 +1556,10 @@ export class InputHandlerImpl implements InputHandler {
       return null;
     }
 
-    // 대상 노드 타입에 따른 처리
+    // Handle based on target node type
     const targetNodeType = targetNode.type || targetNode.stype;
     
-    // 1. block 노드인 경우: 아무 동작도 하지 않음 (블록 경계)
+    // 1. If block node: do nothing (block boundary)
     const schema = (dataStore as any).schema;
     if (schema) {
       const nodeSpec = schema.getNodeType?.(targetNodeType);
@@ -1569,17 +1569,17 @@ export class InputHandlerImpl implements InputHandler {
       }
     }
 
-    // 2. .text 필드가 있는 노드인 경우: 문자 삭제
-    // inline-text, inline-image 등은 모두 커스텀 schema이므로 타입 이름으로 체크하지 않음
-    // .text 필드 존재 여부로 판단
+    // 2. If node has .text field: delete character
+    // inline-text, inline-image, etc. are all custom schemas, so don't check by type name
+    // Judge by .text field existence
     if (targetNode.text !== undefined && typeof targetNode.text === 'string') {
-      // 기존 로직 계속 (아래에서 처리)
+      // Continue existing logic (handled below)
     } else {
-      // 3. .text 필드가 없는 inline 노드 (inline-image 등)인 경우: 노드 자체 삭제
-      // 특별한 플래그로 노드 삭제를 나타냄
+      // 3. If inline node without .text field (inline-image, etc.): delete entire node
+      // Indicate node deletion with special flag
       console.log('[InputHandler] calculateCrossNodeDeleteRange: target node has no text field (delete entire node)', { targetNodeId, type: targetNodeType });
       return {
-        _deleteNode: true, // 특별한 플래그
+        _deleteNode: true, // Special flag
         nodeId: targetNodeId
       };
     }
@@ -1588,10 +1588,10 @@ export class InputHandlerImpl implements InputHandler {
     const targetTextLength = targetText.length;
 
     if (direction === 'backward') {
-      // 이전 노드의 마지막 문자 삭제
+      // Delete last character of previous node
       if (targetTextLength === 0) {
-        // 이전 노드가 비어있음: Phase 1에서는 아무 동작도 하지 않음
-        // Phase 2에서 노드 병합 구현 예정
+        // Previous node is empty: do nothing in Phase 1
+        // Node merging to be implemented in Phase 2
         console.log('[InputHandler] calculateCrossNodeDeleteRange: previous node is empty (merge not implemented)', { targetNodeId });
         return null;
       }
@@ -1602,10 +1602,10 @@ export class InputHandlerImpl implements InputHandler {
         endOffset: targetTextLength
       };
     } else {
-      // 다음 노드의 첫 문자 삭제
+      // Delete first character of next node
       if (targetTextLength === 0) {
-        // 다음 노드가 비어있음: Phase 1에서는 아무 동작도 하지 않음
-        // Phase 2에서 노드 병합 구현 예정
+        // Next node is empty: do nothing in Phase 1
+        // Node merging to be implemented in Phase 2
         console.log('[InputHandler] calculateCrossNodeDeleteRange: next node is empty (merge not implemented)', { targetNodeId });
         return null;
       }
@@ -1619,8 +1619,8 @@ export class InputHandlerImpl implements InputHandler {
   }
 
   /**
-   * 구조 변경 명령 실행
-   * EditorViewDOM의 메서드를 호출하여 실제 처리
+   * Execute structural change command
+   * Calls EditorViewDOM's method to actually process
    */
   private executeStructuralCommand(inputType: string): void {
     console.log('[InputHandler] executeStructuralCommand: CALLED', { inputType });
@@ -1633,8 +1633,8 @@ export class InputHandlerImpl implements InputHandler {
         
       case 'insertLineBreak':
         console.log('[InputHandler] executeStructuralCommand: calling insertLineBreak');
-        // IEditorViewDOM에 insertLineBreak가 없으므로 insertText('\n') 사용
-        // TODO: IEditorViewDOM에 insertLineBreak 메서드 추가 고려
+        // insertLineBreak doesn't exist in IEditorViewDOM, so use insertText('\n')
+        // TODO: Consider adding insertLineBreak method to IEditorViewDOM
         this.editorViewDOM.insertText('\n');
         break;
         
@@ -1654,13 +1654,13 @@ export class InputHandlerImpl implements InputHandler {
   }
 
   /**
-   * 포맷 명령 실행
-   * beforeInput에서 preventDefault() 후 커맨드를 실행
+   * Execute format command
+   * Executes command after preventDefault() in beforeInput
    */
   private executeFormatCommand(inputType: string): void {
     console.log('[InputHandler] executeFormatCommand: CALLED', { inputType });
     
-    // inputType을 커맨드 이름으로 매핑
+    // Map inputType to command name
     const commandMap: Record<string, string> = {
       'formatBold': 'toggleBold',
       'formatItalic': 'toggleItalic',
@@ -1671,9 +1671,9 @@ export class InputHandlerImpl implements InputHandler {
     const command = commandMap[inputType];
     if (command) {
       console.log('[InputHandler] executeFormatCommand: executing command', { inputType, command });
-      // editor:command.execute 이벤트 발생 (테스트에서 기대하는 형태)
+      // Emit editor:command.execute event (form expected in tests)
       this.editor.emit('editor:command.execute', { command, data: undefined });
-      // 실제 커맨드 실행
+      // Actually execute command
       void this.editor.executeCommand(command, {});
     } else {
       console.warn('[InputHandler] executeFormatCommand: unknown format inputType', { inputType });
@@ -1692,7 +1692,7 @@ export class InputHandlerImpl implements InputHandler {
     const startOffset = range.startOffset;
     const endOffset = range.endOffset;
 
-    // 텍스트 노드인 경우
+    // If text node
     if (startContainer.nodeType === Node.TEXT_NODE) {
       return {
         offset: startOffset,
@@ -1700,7 +1700,7 @@ export class InputHandlerImpl implements InputHandler {
       };
     }
 
-    // 요소 노드인 경우 - 텍스트 자식들을 순회하여 오프셋 계산
+    // If element node - traverse text children to calculate offset
     if (startContainer.nodeType === Node.ELEMENT_NODE) {
       const element = startContainer as Element;
       const textNodes = this.getTextNodes(element);
@@ -1719,8 +1719,8 @@ export class InputHandlerImpl implements InputHandler {
       if (startContainer === endContainer) {
         length = endOffset - startOffset;
       } else {
-        // 다른 컨테이너인 경우 복잡한 계산 필요
-        // 간단히 처리
+        // If different container, complex calculation needed
+        // Handle simply
         length = endOffset - startOffset;
       }
       

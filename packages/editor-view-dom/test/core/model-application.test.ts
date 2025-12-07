@@ -18,23 +18,23 @@ describe('Model Application Test', () => {
 
       console.log('삽입 케이스 변화량:', changes);
 
-      // 1. oldText + changes = newText 검증
+      // 1. Verify oldText + changes = newText
       let reconstructedText = oldText;
       
       changes.forEach(change => {
         if (change.type === 'insert') {
-          // 삽입: start 위치에 text 삽입
+          // Insert: insert text at start position
           reconstructedText = 
             reconstructedText.slice(0, change.start) + 
             change.text + 
             reconstructedText.slice(change.start);
         } else if (change.type === 'delete') {
-          // 삭제: start부터 end까지 삭제
+          // Delete: delete from start to end
           reconstructedText = 
             reconstructedText.slice(0, change.start) + 
             reconstructedText.slice(change.end);
         } else if (change.type === 'replace') {
-          // 교체: start부터 end까지 삭제 후 text 삽입
+          // Replace: delete from start to end, then insert text
           reconstructedText = 
             reconstructedText.slice(0, change.start) + 
             change.text + 
@@ -64,7 +64,7 @@ describe('Model Application Test', () => {
 
       console.log('삭제 케이스 변화량:', changes);
 
-      // 1. oldText + changes = newText 검증
+      // 1. Verify oldText + changes = newText
       let reconstructedText = oldText;
       
       changes.forEach(change => {
@@ -107,7 +107,7 @@ describe('Model Application Test', () => {
 
       console.log('교체 케이스 변화량:', changes);
 
-      // 1. oldText + changes = newText 검증
+      // 1. Verify oldText + changes = newText
       let reconstructedText = oldText;
       
       changes.forEach(change => {
@@ -150,7 +150,7 @@ describe('Model Application Test', () => {
 
       console.log('복합 케이스 변화량:', changes);
 
-      // 1. oldText + changes = newText 검증
+      // 1. Verify oldText + changes = newText
       let reconstructedText = oldText;
       
       changes.forEach(change => {

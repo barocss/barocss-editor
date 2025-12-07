@@ -23,12 +23,12 @@ describe('EditorViewDOM + renderer-dom Form Elements Integration', () => {
       autoRender: false
     });
     
-    // 기본 컴포넌트 정의
+    // Define basic components
     if (!getGlobalRegistry().has('document')) {
       define('document', element('div', { className: 'document' }, [slot('content')]));
     }
     
-    // 폼 요소 템플릿 등록
+    // Register form element templates
     define('form', element('form', { className: 'barocss-form' }, [slot('content')]));
     define('input', (_props: any, model: ModelData) => {
       const type = model.attributes?.type || model.type || 'text';
@@ -170,8 +170,8 @@ describe('EditorViewDOM + renderer-dom Form Elements Integration', () => {
 
       const html = normalizeHTML(container.firstElementChild as Element);
       expect(html).toContain('data-bc-sid="textarea1"');
-      // textarea의 value는 attribute로 설정되거나 children으로 렌더링될 수 있음
-      // 현재는 빈 textarea로 렌더링됨
+      // textarea value can be set as attribute or rendered as children
+      // Currently rendered as empty textarea
       expect(html).toContain('textarea1');
     });
 
@@ -251,7 +251,7 @@ describe('EditorViewDOM + renderer-dom Form Elements Integration', () => {
       expect(html).toContain('data-bc-sid="select1"');
       expect(html).toContain('data-bc-sid="option1"');
       expect(html).toContain('data-bc-sid="option2"');
-      // option의 text는 children으로 렌더링될 수 있지만, 현재는 빈 option으로 렌더링됨
+      // option text can be rendered as children, but currently rendered as empty option
     });
 
     it('updates select selected value', () => {
@@ -412,12 +412,12 @@ describe('EditorViewDOM + renderer-dom Form Elements Integration', () => {
 
       const html = normalizeHTML(container.firstElementChild as Element);
       expect(html).toContain('data-bc-sid="form-input1"');
-      // form-input의 value는 component state로 관리되지만, 현재는 빈 span으로 렌더링됨
-      // 컴포넌트가 렌더링되었는지만 확인
+      // form-input value is managed by component state, but currently rendered as empty span
+      // Only verify that component is rendered
     });
   });
 
-  describe('폼 요소 이벤트 처리', () => {
+  describe('Form element event handling', () => {
     it.skip('handles form element onChange event', () => {
       const onChangeSpy = vi.fn();
 
@@ -456,11 +456,11 @@ describe('EditorViewDOM + renderer-dom Form Elements Integration', () => {
       const inputEl = container.querySelector('[data-bc-sid="form-input1"] .input-field') as HTMLInputElement;
       expect(inputEl).toBeTruthy();
       
-      // 이벤트 시뮬레이션 (실제 구현에 따라 다를 수 있음)
+      // Simulate event (may vary depending on actual implementation)
       if (inputEl) {
         inputEl.value = 'Changed';
         inputEl.dispatchEvent(new Event('change', { bubbles: true }));
-        // onChangeSpy가 호출되었는지 확인 (실제 구현에 따라 다를 수 있음)
+        // Verify onChangeSpy was called (may vary depending on actual implementation)
       }
     });
   });

@@ -14,18 +14,18 @@ describe('handleEfficientEdit', () => {
   let textNode: Text;
 
   beforeEach(() => {
-    // DOM 구조 생성
+    // Create DOM structure
     container = document.createElement('div');
     document.body.appendChild(container);
 
-    // inline-text 노드 생성
+    // Create inline-text node
     inlineTextNode = document.createElement('span');
     inlineTextNode.setAttribute('data-bc-sid', 't1');
     inlineTextNode.setAttribute('data-bc-stype', 'inline-text');
     inlineTextNode.className = 'text';
     container.appendChild(inlineTextNode);
 
-    // 텍스트 노드 생성
+    // Create text node
     textNode = document.createTextNode('Hello');
     inlineTextNode.appendChild(textNode);
   });
@@ -48,7 +48,7 @@ describe('handleEfficientEdit', () => {
   });
 
   it('텍스트 삽입 시 정확한 편집 정보를 반환해야 함', () => {
-    // 텍스트 변경
+    // Change text
     textNode.textContent = 'Hello World';
 
     const result = handleEfficientEdit(
@@ -68,10 +68,10 @@ describe('handleEfficientEdit', () => {
   });
 
   it('텍스트 삭제 시 정확한 편집 정보를 반환해야 함', () => {
-    // 초기 텍스트 설정
+    // Set initial text
     textNode.textContent = 'Hello World';
     
-    // 텍스트 삭제
+    // Delete text
     textNode.textContent = 'Hello';
 
     const result = handleEfficientEdit(
@@ -88,10 +88,10 @@ describe('handleEfficientEdit', () => {
   });
 
   it('텍스트 교체 시 정확한 편집 정보를 반환해야 함', () => {
-    // 초기 텍스트 설정
+    // Set initial text
     textNode.textContent = 'Hello';
     
-    // 텍스트 교체
+    // Replace text
     textNode.textContent = 'Hi';
 
     const result = handleEfficientEdit(
@@ -109,7 +109,7 @@ describe('handleEfficientEdit', () => {
   });
 
   it('mark가 있는 경우 범위가 조정되어야 함', () => {
-    // mark가 있는 구조 생성
+    // Create structure with mark
     inlineTextNode.innerHTML = '';
     const markElement = document.createElement('strong');
     markElement.className = 'mark-bold';
@@ -117,13 +117,13 @@ describe('handleEfficientEdit', () => {
     markElement.appendChild(markTextNode);
     inlineTextNode.appendChild(markElement);
 
-    // 텍스트 변경
+    // Change text
     markTextNode.textContent = 'Hello World';
 
     const modelMarks: MarkRange[] = [
       {
         type: 'bold',
-        range: [0, 5]  // "Hello"에 적용된 mark
+        range: [0, 5]  // Mark applied to "Hello"
       }
     ];
 
@@ -136,16 +136,16 @@ describe('handleEfficientEdit', () => {
 
     expect(result).toBeTruthy();
     expect(result?.adjustedMarks.length).toBeGreaterThan(0);
-    // mark 범위가 조정되었는지 확인
+    // Verify mark range is adjusted
     const adjustedMark = result?.adjustedMarks[0];
     expect(adjustedMark?.type).toBe('bold');
-    // 범위가 업데이트되었는지 확인 (텍스트가 길어졌으므로)
-    // 삽입이 발생했으므로 범위의 끝이 늘어나야 함
+    // Verify range is updated (text has grown)
+    // Since insertion occurred, range end should increase
     expect(adjustedMark?.range[1]).toBeGreaterThanOrEqual(5);
   });
 
   it('decorator가 있는 경우 범위가 조정되어야 함', () => {
-    // 텍스트 변경
+    // Change text
     textNode.textContent = 'Hello World';
 
     const decorators: DecoratorRange[] = [
@@ -156,7 +156,7 @@ describe('handleEfficientEdit', () => {
         target: {
           sid: 't1',
           startOffset: 0,
-          endOffset: 5  // "Hello"에 적용된 decorator
+          endOffset: 5  // Decorator applied to "Hello"
         }
       }
     ];
@@ -170,15 +170,15 @@ describe('handleEfficientEdit', () => {
 
     expect(result).toBeTruthy();
     expect(result?.adjustedDecorators.length).toBeGreaterThan(0);
-    // decorator 범위가 조정되었는지 확인
+    // Verify decorator range is adjusted
     const adjustedDecorator = result?.adjustedDecorators[0];
     expect(adjustedDecorator?.target.startOffset).toBe(0);
-    // 범위가 업데이트되었는지 확인 (삽입이 발생했으므로 범위의 끝이 늘어나야 함)
+    // Verify range is updated (end should increase since insertion occurred)
     expect(adjustedDecorator?.target.endOffset).toBeGreaterThanOrEqual(5);
   });
 
   it('inline-text 노드를 찾을 수 없으면 null을 반환해야 함', () => {
-    // 독립적인 텍스트 노드 생성 (inline-text 노드 밖)
+    // Create independent text node (outside inline-text node)
     const orphanTextNode = document.createTextNode('Hello');
 
     const result = handleEfficientEdit(
@@ -192,7 +192,7 @@ describe('handleEfficientEdit', () => {
   });
 
   it('data-bc-sid가 없으면 null을 반환해야 함', () => {
-    // data-bc-sid가 없는 노드 생성
+    // Create node without data-bc-sid
     const noSidNode = document.createElement('span');
     const noSidTextNode = document.createTextNode('Hello');
     noSidNode.appendChild(noSidTextNode);
@@ -209,12 +209,12 @@ describe('handleEfficientEdit', () => {
   });
 
   it('Selection이 있는 경우 정확한 편집 위치를 계산해야 함', () => {
-    // 텍스트 변경
+    // Change text
     textNode.textContent = 'Hello World';
 
-    // Selection 설정 (중간 위치)
+    // Set selection (middle position)
     const range = document.createRange();
-    range.setStart(textNode, 5);  // "Hello" 뒤
+    range.setStart(textNode, 5);  // After "Hello"
     range.setEnd(textNode, 5);
     const selection = window.getSelection();
     selection?.removeAllRanges();
@@ -233,7 +233,7 @@ describe('handleEfficientEdit', () => {
   });
 
   it('여러 text node가 있는 경우 전체 텍스트를 재구성해야 함', () => {
-    // 여러 text node 구조 생성
+    // Create structure with multiple text nodes
     inlineTextNode.innerHTML = '';
     const textNode1 = document.createTextNode('Hello');
     const markElement = document.createElement('strong');
@@ -243,7 +243,7 @@ describe('handleEfficientEdit', () => {
     inlineTextNode.appendChild(markElement);
     markElement.appendChild(textNode2);
 
-    // 텍스트 변경
+    // Change text
     textNode1.textContent = 'Hi';
     textNode2.textContent = ' Universe';
 
@@ -255,12 +255,12 @@ describe('handleEfficientEdit', () => {
     );
 
     expect(result).toBeTruthy();
-    // 전체 텍스트가 재구성되었는지 확인
+    // Verify full text is reconstructed
     expect(result?.newText).toBe('Hi Universe');
   });
 
   it('mark와 decorator가 모두 있는 경우 둘 다 조정되어야 함', () => {
-    // mark가 있는 구조 생성
+    // Create structure with marks
     inlineTextNode.innerHTML = '';
     const textNode1 = document.createTextNode('Hello');
     const markElement = document.createElement('strong');
@@ -270,15 +270,15 @@ describe('handleEfficientEdit', () => {
     inlineTextNode.appendChild(markElement);
     markElement.appendChild(textNode2);
 
-    // 텍스트 변경
+    // Change text
     textNode1.textContent = 'Hi';
     textNode2.textContent = ' Universe';
 
-    // mark 범위를 편집 범위와 겹치도록 설정 (조정이 발생하도록)
+    // Set mark range to overlap with edit range (to trigger adjustment)
     const modelMarks: MarkRange[] = [
       {
         type: 'bold',
-        range: [0, 11]  // 전체 텍스트에 적용된 mark (편집 범위와 겹침)
+        range: [0, 11]  // Mark applied to full text (overlaps with edit range)
       }
     ];
 
@@ -290,7 +290,7 @@ describe('handleEfficientEdit', () => {
         target: {
           sid: 't1',
           startOffset: 0,
-          endOffset: 5  // "Hello"에 적용된 decorator (편집 범위와 겹침)
+          endOffset: 5  // Decorator applied to "Hello" (overlaps with edit range)
         }
       }
     ];
@@ -303,8 +303,8 @@ describe('handleEfficientEdit', () => {
     );
 
     expect(result).toBeTruthy();
-    // mark와 decorator가 모두 조정되었는지 확인
-    // (편집 범위와 겹치지 않는 경우 조정되지 않을 수 있음)
+    // Verify both mark and decorator are adjusted
+    // (may not be adjusted if they don't overlap with edit range)
     if (result?.adjustedMarks?.length && result?.adjustedMarks?.length > 0) {
       const adjustedMark = result.adjustedMarks[0];
       expect(adjustedMark?.type).toBe('bold');
@@ -318,23 +318,23 @@ describe('handleEfficientEdit', () => {
       expect(adjustedDecorator?.target.endOffset).toBeGreaterThanOrEqual(adjustedDecorator?.target.startOffset);
     }
     
-    // 최소한 하나는 조정되어야 함 (편집 범위와 겹치는 경우)
+    // At least one should be adjusted (if overlapping with edit range)
     expect((result?.adjustedMarks?.length && result?.adjustedMarks?.length > 0 ? result?.adjustedMarks?.length : 0) + (result?.adjustedDecorators?.length && result?.adjustedDecorators?.length > 0 ? result?.adjustedDecorators?.length : 0)).toBeGreaterThan(0);
   });
 
-  // ========== 추가 테스트 케이스 (우선순위 높음) ==========
+  // ========== Additional test cases (high priority) ==========
 
   describe('경계값 및 Edge Cases', () => {
     it('빈 텍스트에서 삽입 시 정확한 편집 정보를 반환해야 함', () => {
-      // 빈 텍스트 설정
+      // Set empty text
       textNode.textContent = '';
       
-      // 텍스트 삽입
+      // Insert text
       textNode.textContent = 'Hello';
 
       const result = handleEfficientEdit(
         textNode,
-        '',  // oldModelText (빈 텍스트)
+        '',  // oldModelText (empty text)
         [],
         []
       );
@@ -348,13 +348,13 @@ describe('handleEfficientEdit', () => {
     });
 
     it('전체 텍스트 삭제 시 정확한 편집 정보를 반환해야 함', () => {
-      // 초기 텍스트 설정
+      // Set initial text
       textNode.textContent = 'Hello';
       
-      // 전체 텍스트 삭제
-      // 주의: textNode.textContent = ''로 설정하면 buildTextRunIndex가 빈 runs를 반환할 수 있음
-      // 따라서 실제로는 텍스트를 하나씩 삭제하는 것이 더 현실적
-      // 하지만 테스트 목적상, 빈 텍스트 노드가 있어도 작동해야 함
+      // Delete full text
+      // Note: Setting textNode.textContent = '' may cause buildTextRunIndex to return empty runs
+      // So in practice, deleting text one by one is more realistic
+      // But for testing purposes, should work even with empty text node
       inlineTextNode.textContent = '';
 
       const result = handleEfficientEdit(
@@ -364,16 +364,16 @@ describe('handleEfficientEdit', () => {
         []
       );
 
-      // 빈 텍스트 노드인 경우 buildTextRunIndex가 빈 runs를 반환하여 null이 될 수 있음
-      // 이는 정상적인 동작이므로, null을 허용하거나 빈 텍스트 노드를 유지해야 함
+      // If text node is empty, buildTextRunIndex may return empty runs, resulting in null
+      // This is normal behavior, so should allow null or maintain empty text node
       if (result) {
         expect(result.newText).toBe('');
         expect(result.editInfo.editType).toBe('delete');
         expect(result.editInfo.deletedLength).toBe(5);
         expect(result.editInfo.insertedLength).toBe(0);
       } else {
-        // 빈 runs로 인해 null이 반환되는 경우도 정상
-        // 이 경우 테스트를 스킵하거나 다른 방식으로 검증
+        // Returning null due to empty runs is also normal
+        // In this case, skip test or verify in another way
         expect(result).toBeNull();
       }
     });
@@ -383,7 +383,7 @@ describe('handleEfficientEdit', () => {
 
       const result = handleEfficientEdit(
         textNode,
-        '',  // oldModelText (빈 텍스트)
+        '',  // oldModelText (empty text)
         [],
         []
       );
@@ -394,7 +394,7 @@ describe('handleEfficientEdit', () => {
     it('공백만 있는 텍스트에서 삽입 시 정확히 처리되어야 함', () => {
       textNode.textContent = '   ';
       
-      // 공백 중간에 삽입
+      // Insert in middle of spaces
       textNode.textContent = '  Hello  ';
 
       const result = handleEfficientEdit(
@@ -411,15 +411,15 @@ describe('handleEfficientEdit', () => {
 
   describe('Selection 관련 Edge Cases', () => {
     it('Selection의 startContainer가 Element 노드인 경우 처리해야 함', () => {
-      // Element 노드에 Selection 설정
+      // Set Selection on Element node
       const range = document.createRange();
-      range.setStart(inlineTextNode, 0);  // Element 노드
+      range.setStart(inlineTextNode, 0);  // Element node
       range.setEnd(inlineTextNode, 0);
       const selection = window.getSelection();
       selection?.removeAllRanges();
       selection?.addRange(range);
 
-      // 텍스트 변경
+      // Change text
       textNode.textContent = 'Hello World';
 
       const result = handleEfficientEdit(
@@ -430,23 +430,23 @@ describe('handleEfficientEdit', () => {
       );
 
       expect(result).toBeTruthy();
-      // Element 노드인 경우 selectionOffset은 0이 되지만, text-analyzer가 여전히 작동해야 함
+      // If Element node, selectionOffset becomes 0, but text-analyzer should still work
       expect(result?.editInfo.editPosition).toBeGreaterThanOrEqual(0);
     });
 
     it('Selection이 범위 선택인 경우 정확히 처리되어야 함', () => {
-      // 초기 텍스트 설정
+      // Set initial text
       textNode.textContent = 'Hello World';
       
-      // 범위 선택 설정
+      // Set range selection
       const range = document.createRange();
-      range.setStart(textNode, 0);  // "Hello" 선택
+      range.setStart(textNode, 0);  // Select "Hello"
       range.setEnd(textNode, 5);
       const selection = window.getSelection();
       selection?.removeAllRanges();
       selection?.addRange(range);
 
-      // 선택된 텍스트 교체
+      // Replace selected text
       textNode.textContent = 'Hi World';
 
       const result = handleEfficientEdit(
@@ -462,7 +462,7 @@ describe('handleEfficientEdit', () => {
     });
 
     it('Selection이 다른 노드에 있는 경우 처리해야 함', () => {
-      // 다른 inline-text 노드 생성
+      // Create another inline-text node
       const otherInlineTextNode = document.createElement('span');
       otherInlineTextNode.setAttribute('data-bc-sid', 't2');
       otherInlineTextNode.setAttribute('data-bc-stype', 'inline-text');
@@ -470,7 +470,7 @@ describe('handleEfficientEdit', () => {
       otherInlineTextNode.appendChild(otherTextNode);
       container.appendChild(otherInlineTextNode);
 
-      // 다른 노드에 Selection 설정
+      // Set Selection on different node
       const range = document.createRange();
       range.setStart(otherTextNode, 0);
       range.setEnd(otherTextNode, 0);
@@ -478,7 +478,7 @@ describe('handleEfficientEdit', () => {
       selection?.removeAllRanges();
       selection?.addRange(range);
 
-      // 원래 노드의 텍스트 변경
+      // Change text of original node
       textNode.textContent = 'Hello World';
 
       const result = handleEfficientEdit(
@@ -489,7 +489,7 @@ describe('handleEfficientEdit', () => {
       );
 
       expect(result).toBeTruthy();
-      // Selection이 다른 노드에 있어도 text-analyzer가 작동해야 함
+      // text-analyzer should work even if Selection is on different node
       expect(result?.newText).toBe('Hello World');
     });
   });
@@ -501,11 +501,11 @@ describe('handleEfficientEdit', () => {
       const modelMarks: MarkRange[] = [
         {
           type: 'bold',
-          range: [0, 5]  // "Hello"에 적용된 mark (편집 범위 앞)
+          range: [0, 5]  // Mark applied to "Hello" (before edit range)
         }
       ];
 
-      // 편집 위치 12 (뒤쪽에서 삽입)
+      // Edit position 12 (insert at end)
       const range = document.createRange();
       range.setStart(textNode, 12);
       range.setEnd(textNode, 12);
@@ -523,11 +523,11 @@ describe('handleEfficientEdit', () => {
       );
 
       expect(result).toBeTruthy();
-      // Mark가 편집 범위 앞에 있으므로 조정되지 않아야 함 (또는 범위가 그대로 유지)
+      // Mark is before edit range, so should not be adjusted (or range should remain unchanged)
       const adjustedMark = result?.adjustedMarks[0];
       if (adjustedMark) {
         expect(adjustedMark.range[0]).toBe(0);
-        expect(adjustedMark.range[1]).toBe(5);  // 변경 없음
+        expect(adjustedMark.range[1]).toBe(5);  // No change
       }
     });
 
@@ -537,11 +537,11 @@ describe('handleEfficientEdit', () => {
       const modelMarks: MarkRange[] = [
         {
           type: 'bold',
-          range: [0, 10]  // "Hello Worl"에 적용된 mark (편집 범위와 겹침)
+          range: [0, 10]  // Mark applied to "Hello Worl" (overlaps with edit range)
         }
       ];
 
-      // 편집 위치 5 (중간에 삽입)
+      // Edit position 5 (insert in middle)
       const range = document.createRange();
       range.setStart(textNode, 5);
       range.setEnd(textNode, 5);
@@ -561,7 +561,7 @@ describe('handleEfficientEdit', () => {
       expect(result).toBeTruthy();
       expect(result?.adjustedMarks.length).toBeGreaterThan(0);
       const adjustedMark = result?.adjustedMarks[0];
-      expect(adjustedMark?.range[1]).toBeGreaterThan(10);  // 범위가 확장되어야 함
+      expect(adjustedMark?.range[1]).toBeGreaterThan(10);  // Range should expand
     });
 
     it('Mark가 편집 범위 안에 완전히 포함된 경우 조정되어야 함', () => {
@@ -570,11 +570,11 @@ describe('handleEfficientEdit', () => {
       const modelMarks: MarkRange[] = [
         {
           type: 'bold',
-          range: [6, 11]  // "World"에 적용된 mark (편집 범위 안에 포함)
+          range: [6, 11]  // Mark applied to "World" (completely within edit range)
         }
       ];
 
-      // 편집 위치 0 (앞에서 대량 삽입)
+      // Edit position 0 (large insert at front)
       const range = document.createRange();
       range.setStart(textNode, 0);
       range.setEnd(textNode, 0);
@@ -594,7 +594,7 @@ describe('handleEfficientEdit', () => {
       expect(result).toBeTruthy();
       expect(result?.adjustedMarks.length).toBeGreaterThan(0);
       const adjustedMark = result?.adjustedMarks[0];
-      // Mark 범위가 이동되어야 함
+      // Mark range should be moved
       expect(adjustedMark?.range[0]).toBeGreaterThan(6);
       expect(adjustedMark?.range[1]).toBeGreaterThan(11);
     });
@@ -605,11 +605,11 @@ describe('handleEfficientEdit', () => {
       const modelMarks: MarkRange[] = [
         {
           type: 'bold',
-          range: [0, 20]  // 전체 텍스트에 적용된 mark
+          range: [0, 20]  // Mark applied to full text
         }
       ];
 
-      // 편집 위치 6 (Mark 안에서 삽입)
+      // Edit position 6 (insert within Mark)
       const range = document.createRange();
       range.setStart(textNode, 6);
       range.setEnd(textNode, 6);
@@ -629,7 +629,7 @@ describe('handleEfficientEdit', () => {
       expect(result).toBeTruthy();
       expect(result?.adjustedMarks.length).toBeGreaterThan(0);
       const adjustedMark = result?.adjustedMarks[0];
-      // Mark 범위가 확장되어야 함
+      // Mark range should expand
       expect(adjustedMark?.range[1]).toBeGreaterThan(20);
     });
   });
@@ -648,18 +648,18 @@ describe('handleEfficientEdit', () => {
       boldElement.appendChild(italicElement);
       italicElement.appendChild(textNode2);
 
-      // 텍스트 변경
+      // Change text
       textNode1.textContent = 'Hi';
       textNode2.textContent = ' Universe';
 
       const modelMarks: MarkRange[] = [
         {
           type: 'bold',
-          range: [0, 11]  // 전체에 적용된 bold
+          range: [0, 11]  // Bold applied to full text
         },
         {
           type: 'italic',
-          range: [5, 11]  // "World"에 적용된 italic (bold와 겹침)
+          range: [5, 11]  // Italic applied to "World" (overlaps with bold)
         }
       ];
 
@@ -671,19 +671,19 @@ describe('handleEfficientEdit', () => {
       );
 
       expect(result).toBeTruthy();
-      // 두 mark 모두 조정되어야 함 (편집 범위와 겹치므로)
-      // adjustMarkRanges는 모든 mark를 반환하지만, 일부는 조정되지 않을 수 있음
+      // Both marks should be adjusted (overlap with edit range)
+      // adjustMarkRanges returns all marks, but some may not be adjusted
       expect(result?.adjustedMarks.length).toBeGreaterThanOrEqual(1);
-      // 편집 범위와 겹치는 mark는 조정되어야 함
+      // Marks overlapping with edit range should be adjusted
       const adjustedMarks = result?.adjustedMarks.filter(mark => {
         const [start, end] = mark.range;
-        // 편집 위치는 대략 2-5 사이 (Hi 삽입 위치)
-        // mark [0, 11]과 [5, 11]은 모두 편집 범위와 겹침
+        // Edit position is roughly 2-5 (Hi insertion position)
+        // marks [0, 11] and [5, 11] both overlap with edit range
         return (start <= 5 && end >= 2) || (start <= 11 && end >= 5);
       });
       expect(adjustedMarks?.length).toBeGreaterThanOrEqual(1);
       
-      // 모든 mark의 범위가 유효해야 함
+      // All mark ranges should be valid
       result?.adjustedMarks.forEach(mark => {
         expect(mark.range[0]).toBeGreaterThanOrEqual(0);
         expect(mark.range[1]).toBeGreaterThanOrEqual(mark.range[0]);
@@ -705,18 +705,18 @@ describe('handleEfficientEdit', () => {
       inlineTextNode.appendChild(italicElement);
       italicElement.appendChild(textNode3);
 
-      // 텍스트 변경
+      // Change text
       textNode1.textContent = 'Hi';
       textNode3.textContent = ' Universe';
 
       const modelMarks: MarkRange[] = [
         {
           type: 'bold',
-          range: [0, 6]  // "Hello "에 적용된 bold
+          range: [0, 6]  // Bold applied to "Hello "
         },
         {
           type: 'italic',
-          range: [6, 11]  // "World"에 적용된 italic (연속)
+          range: [6, 11]  // Italic applied to "World" (continuous)
         }
       ];
 
@@ -728,20 +728,20 @@ describe('handleEfficientEdit', () => {
       );
 
       expect(result).toBeTruthy();
-      // 두 mark 모두 조정되어야 함
-      // adjustMarkRanges는 모든 mark를 반환하지만, 일부는 조정되지 않을 수 있음
+      // Both marks should be adjusted
+      // adjustMarkRanges returns all marks, but some may not be adjusted
       expect(result?.adjustedMarks.length).toBeGreaterThanOrEqual(1);
-      // 편집 범위와 겹치는 mark는 조정되어야 함
-      // 편집 위치는 대략 2-5 사이 (Hi 삽입 위치)
-      // mark [0, 6]은 편집 범위와 겹침, [6, 11]은 편집 범위 뒤에 있음
+      // Marks overlapping with edit range should be adjusted
+      // Edit position is roughly 2-5 (Hi insertion position)
+      // mark [0, 6] overlaps with edit range, [6, 11] is after edit range
       const adjustedMarks = result?.adjustedMarks.filter(mark => {
         const [start, end] = mark.range;
-        // 편집 위치와 겹치는 mark는 조정되어야 함
+        // Marks overlapping with edit position should be adjusted
         return (start <= 5 && end >= 2);
       });
       expect(adjustedMarks?.length).toBeGreaterThanOrEqual(1);
       
-      // 모든 mark의 범위가 유효해야 함
+      // All mark ranges should be valid
       result?.adjustedMarks.forEach(mark => {
         expect(mark.range[0]).toBeGreaterThanOrEqual(0);
         expect(mark.range[1]).toBeGreaterThanOrEqual(mark.range[0]);
@@ -754,15 +754,15 @@ describe('handleEfficientEdit', () => {
       const modelMarks: MarkRange[] = [
         {
           type: 'bold',
-          range: [0, 5]  // "Hello"에 적용된 bold (편집 범위 앞)
+          range: [0, 5]  // Bold applied to "Hello" (before edit range)
         },
         {
           type: 'italic',
-          range: [12, 16]  // "Test"에 적용된 italic (편집 범위 뒤)
+          range: [12, 16]  // Italic applied to "Test" (after edit range)
         }
       ];
 
-      // 편집 위치 6 (중간에 삽입)
+      // Edit position 6 (insert in middle)
       const range = document.createRange();
       range.setStart(textNode, 6);
       range.setEnd(textNode, 6);
@@ -780,7 +780,7 @@ describe('handleEfficientEdit', () => {
       );
 
       expect(result).toBeTruthy();
-      // 두 mark 모두 존재해야 하지만, 하나는 조정되고 하나는 그대로일 수 있음
+      // Both marks should exist, but one may be adjusted and one unchanged
       expect(result?.adjustedMarks.length).toBe(2);
     });
   });
@@ -797,7 +797,7 @@ describe('handleEfficientEdit', () => {
           target: {
             sid: 't1',
             startOffset: 0,
-            endOffset: 11  // 전체에 적용된 highlight
+            endOffset: 11  // Highlight applied to full text
           }
         },
         {
@@ -807,12 +807,12 @@ describe('handleEfficientEdit', () => {
           target: {
             sid: 't1',
             startOffset: 6,
-            endOffset: 11  // "World"에 적용된 comment (highlight와 겹침)
+            endOffset: 11  // Comment applied to "World" (overlaps with highlight)
           }
         }
       ];
 
-      // 텍스트 변경
+      // Change text
       textNode.textContent = 'Hello Beautiful World';
 
       const result = handleEfficientEdit(
@@ -824,7 +824,7 @@ describe('handleEfficientEdit', () => {
 
       expect(result).toBeTruthy();
       expect(result?.adjustedDecorators.length).toBe(2);
-      // 두 decorator 모두 조정되어야 함
+      // Both decorators should be adjusted
       result?.adjustedDecorators.forEach(decorator => {
         expect(decorator.target.startOffset).toBeGreaterThanOrEqual(0);
         expect(decorator.target.endOffset).toBeGreaterThanOrEqual(decorator.target.startOffset);
@@ -840,7 +840,7 @@ describe('handleEfficientEdit', () => {
           stype: 'highlight',
           category: 'inline',
           target: {
-            sid: 't1',  // 현재 nodeId와 일치
+            sid: 't1',  // Matches current nodeId
             startOffset: 0,
             endOffset: 5
           }
@@ -850,14 +850,14 @@ describe('handleEfficientEdit', () => {
           stype: 'comment',
           category: 'inline',
           target: {
-            sid: 't2',  // 다른 nodeId
+            sid: 't2',  // Different nodeId
             startOffset: 0,
             endOffset: 5
           }
         }
       ];
 
-      // 텍스트 변경
+      // Change text
       textNode.textContent = 'Hello Beautiful World';
 
       const result = handleEfficientEdit(
@@ -868,10 +868,10 @@ describe('handleEfficientEdit', () => {
       );
 
       expect(result).toBeTruthy();
-      // t1의 decorator만 조정되어야 함
+      // Only t1's decorator should be adjusted
       const adjustedDecorators = result?.adjustedDecorators.filter(d => d.target.sid === 't1');
       expect(adjustedDecorators?.length).toBe(1);
-      // t2의 decorator는 조정되지 않아야 함 (또는 필터링되어 반환되지 않음)
+      // t2's decorator should not be adjusted (or filtered out and not returned)
     });
   });
 
@@ -906,31 +906,31 @@ describe('handleEfficientEdit', () => {
     });
 
     it('유니코드 정규화 후 동일한 경우 null을 반환해야 함', () => {
-      // 이 테스트는 실제로 유니코드 정규화가 발생하는 경우를 시뮬레이션하기 어려움
-      // text-analyzer가 정규화 후 동일하다고 판단하면 null을 반환
+      // This test is difficult to simulate actual Unicode normalization
+      // If text-analyzer determines they are identical after normalization, returns null
       textNode.textContent = 'café';
 
-      // 동일한 텍스트 (정규화 후)
+      // Same text (after normalization)
       const result = handleEfficientEdit(
         textNode,
-        'café',  // oldModelText (동일)
+        'café',  // oldModelText (identical)
         [],
         []
       );
 
-      // 정규화 후 동일하면 null, 아니면 결과 반환
-      // 실제로는 text-analyzer가 판단하므로 결과가 있을 수도 있음
+      // Returns null if identical after normalization, otherwise returns result
+      // Actually text-analyzer determines, so result may exist
       if (result) {
         expect(result.newText).toBe('café');
       } else {
-        // null 반환도 유효 (정규화 후 동일)
+        // null return is also valid (identical after normalization)
       }
     });
   });
 
   describe('복잡한 DOM 구조', () => {
     it('중첩된 mark 구조를 정확히 처리해야 함', () => {
-      // Bold 안에 Italic
+      // Italic inside Bold
       inlineTextNode.innerHTML = '';
       const boldElement = document.createElement('strong');
       boldElement.className = 'mark-bold';
@@ -945,7 +945,7 @@ describe('handleEfficientEdit', () => {
       italicElement.appendChild(textNode2);
       boldElement.appendChild(textNode3);
 
-      // 텍스트 변경
+      // Text change
       textNode1.textContent = 'Hi';
       textNode2.textContent = 'llo';
       textNode3.textContent = ' World';
@@ -953,11 +953,11 @@ describe('handleEfficientEdit', () => {
       const modelMarks: MarkRange[] = [
         {
           type: 'bold',
-          range: [0, 5]  // "Hello"에 적용된 bold
+          range: [0, 5]  // bold applied to "Hello"
         },
         {
           type: 'italic',
-          range: [2, 4]  // "ll"에 적용된 italic (bold 안에 중첩)
+          range: [2, 4]  // italic applied to "ll" (nested inside bold)
         }
       ];
 
@@ -970,10 +970,10 @@ describe('handleEfficientEdit', () => {
 
       expect(result).toBeTruthy();
       expect(result?.newText).toBe('Hillo World');
-      // 두 mark 모두 조정되어야 함 (편집 범위와 겹치므로)
+      // Both marks should be adjusted (overlap with edit range)
       expect(result?.adjustedMarks.length).toBeGreaterThanOrEqual(1);
-      // 편집 위치는 대략 2-5 사이 (Hi 삽입 위치)
-      // mark [0, 5]와 [2, 4]는 모두 편집 범위와 겹침
+      // Edit position is roughly between 2-5 (Hi insertion position)
+      // marks [0, 5] and [2, 4] both overlap with edit range
       const adjustedMarks = result?.adjustedMarks.filter(mark => {
         const [start, end] = mark.range;
         return (start <= 5 && end >= 2);
@@ -991,14 +991,14 @@ describe('handleEfficientEdit', () => {
       inlineTextNode.appendChild(boldElement);
       boldElement.appendChild(textNode2);
 
-      // 텍스트 변경
+      // Text change
       textNode1.textContent = 'Hi';
       textNode2.textContent = ' Universe';
 
       const modelMarks: MarkRange[] = [
         {
           type: 'bold',
-          range: [6, 11]  // "World"에 적용된 bold (편집 범위와 겹침)
+          range: [6, 11]  // bold applied to "World" (overlaps with edit range)
         }
       ];
 
@@ -1010,7 +1010,7 @@ describe('handleEfficientEdit', () => {
           target: {
             sid: 't1',
             startOffset: 0,
-            endOffset: 5  // "Hello"에 적용된 highlight (편집 범위와 겹침)
+            endOffset: 5  // highlight applied to "Hello" (overlaps with edit range)
           }
         }
       ];
@@ -1024,11 +1024,11 @@ describe('handleEfficientEdit', () => {
 
       expect(result).toBeTruthy();
       expect(result?.newText).toBe('Hi Universe');
-      // 편집 위치는 대략 2-5 사이 (Hi 삽입 위치)
-      // mark [6, 11]은 편집 범위 뒤에 있으므로 조정되지 않을 수 있음
-      // decorator [0, 5]는 편집 범위와 겹치므로 조정되어야 함
+      // Edit position is roughly between 2-5 (Hi insertion position)
+      // mark [6, 11] is after edit range, so may not be adjusted
+      // decorator [0, 5] overlaps with edit range, so should be adjusted
       expect(result?.adjustedDecorators.length).toBeGreaterThan(0);
-      // mark는 편집 범위와 겹치지 않을 수 있으므로 조건부로 확인
+      // mark may not overlap with edit range, so verify conditionally
       if (result?.adjustedMarks?.length && result?.adjustedMarks?.length > 0) {
         result.adjustedMarks.forEach(mark => {
           expect(mark.range[0]).toBeGreaterThanOrEqual(0);

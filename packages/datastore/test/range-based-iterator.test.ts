@@ -71,9 +71,9 @@ describe('Range-Based Iterator', () => {
     dataStore = new DataStore(undefined, schema);
   });
 
-  describe('기본 범위 순회', () => {
+  describe('Basic range traversal', () => {
     beforeEach(() => {
-      // 간단한 문서 구조 생성
+      // Create simple document structure
       dataStore.createNodeWithChildren({
         stype: 'document',
         content: [
@@ -137,7 +137,7 @@ describe('Range-Based Iterator', () => {
         console.log(`${index + 1}. ${id} (${node?.stype}) - ${node?.text || ''}`);
       });
 
-      // 범위 내에는 heading1, paragraph1, heading2가 포함되어야 함
+      // Range should include heading1, paragraph1, heading2
       expect(rangeNodes.length).toBeGreaterThan(2);
       expect(rangeNodes).toContain(heading1!.sid);
       expect(rangeNodes).toContain(heading2!.sid);
@@ -148,7 +148,7 @@ describe('Range-Based Iterator', () => {
       const heading1 = allNodes.find(n => n.stype === 'heading' && n.attributes?.level === 1);
       const heading2 = allNodes.find(n => n.stype === 'heading' && n.attributes?.level === 2);
 
-      // 시작 노드 제외
+      // Exclude start node
       const excludeStartIterator = dataStore.createRangeIterator(
         heading1!.sid!,
         heading2!.sid!,
@@ -163,7 +163,7 @@ describe('Range-Based Iterator', () => {
       expect(excludeStartNodes).not.toContain(heading1!.sid);
       expect(excludeStartNodes).toContain(heading2!.sid);
 
-      // 끝 노드 제외
+      // Exclude end node
       const excludeEndIterator = dataStore.createRangeIterator(
         heading1!.sid!,
         heading2!.sid!,
@@ -210,9 +210,9 @@ describe('Range-Based Iterator', () => {
     });
   });
 
-  describe('필터링과 함께 사용', () => {
+  describe('Using with filtering', () => {
     beforeEach(() => {
-      // 복잡한 문서 구조 생성
+      // Create complex document structure
       dataStore.createNodeWithChildren({
         stype: 'document',
         content: [
@@ -290,7 +290,7 @@ describe('Range-Based Iterator', () => {
         console.log(`${index + 1}. ${id} - "${node?.text}"`);
       });
 
-      // 모든 노드가 inline-text 타입이어야 함
+      // All nodes should be inline-text type
       textNodes.forEach(nodeId => {
         const node = dataStore.getNode(nodeId);
         expect(node?.stype).toBe('inline-text');
@@ -325,7 +325,7 @@ describe('Range-Based Iterator', () => {
         console.log(`${index + 1}. ${id} (${node?.type})`);
       });
 
-      // 모든 노드가 paragraph 또는 listItem 타입이어야 함
+      // All nodes should be paragraph or listItem type
       filteredNodes.forEach(nodeId => {
         const node = dataStore.getNode(nodeId);
         expect(['paragraph', 'listItem']).toContain(node?.stype);
@@ -391,18 +391,18 @@ describe('Range-Based Iterator', () => {
       });
 
       expect(reverseNodes.length).toBeGreaterThan(0);
-      // 역순이므로 마지막 노드가 먼저 나와야 함
+      // Reverse order, so last node should appear first
       expect(reverseNodes[0]).toBe(heading2!.sid);
     });
   });
 
-  describe('에러 처리', () => {
-    it('존재하지 않는 노드로 범위 설정', () => {
+  describe('Error handling', () => {
+    it('set range with non-existent nodes', () => {
       expect(() => {
         dataStore.createRangeIterator('nonexistent-1', 'nonexistent-2');
       }).not.toThrow();
 
-      // Iterator는 생성되지만 순회 시 빈 결과를 반환해야 함
+      // Iterator is created but should return empty results when traversed
       const iterator = dataStore.createRangeIterator('nonexistent-1', 'nonexistent-2');
       const nodes: string[] = [];
       for (const nodeId of iterator) {
@@ -435,7 +435,7 @@ describe('Range-Based Iterator', () => {
       const paragraph1 = allNodes.find(n => n.text === '문단 1');
       const paragraph2 = allNodes.find(n => n.text === '문단 2');
 
-      // 잘못된 범위 (paragraph2 -> paragraph1)
+      // Invalid range (paragraph2 -> paragraph1)
       const iterator = dataStore.createRangeIterator(
         paragraph2!.sid!,
         paragraph1!.sid!
@@ -446,14 +446,14 @@ describe('Range-Based Iterator', () => {
         nodes.push(nodeId);
       }
 
-      // 잘못된 범위는 빈 결과를 반환해야 함 (또는 최소한의 결과)
+      // Invalid range should return empty result (or at least minimal result)
       expect(nodes.length).toBeLessThanOrEqual(2);
     });
   });
 
   describe('extractText/iterator 일관성 (동일 부모 fast-path 포함)', () => {
     it('동일 부모 content 상에서 start→end 구간 텍스트 추출', () => {
-      // 문서: paragraph(parent) 아래에 a, b 두 텍스트 노드
+      // Document: two text nodes a, b under paragraph(parent)
       dataStore.createNodeWithChildren({
         stype: 'document',
         content: [
@@ -472,12 +472,12 @@ describe('Range-Based Iterator', () => {
       const a = dataStore.getNode(para!.content![0]);
       const b = dataStore.getNode(para!.content![1]);
 
-      // 1) extractText fast-path 검증
+      // 1) Verify extractText fast-path
       const rng = { stype: 'range' as const, startNodeId: a!.sid!, startOffset: 0, endNodeId: b!.sid!, endOffset: (b!.text as string).length };
       const extracted = dataStore.range.extractText(rng);
       expect(extracted).toBe('hello world');
 
-      // 2) iterator가 동일 부모 구간을 모두 순회하는지 기본 검증
+      // 2) Basic verification that iterator traverses all same-parent sections
       const it = dataStore.createRangeIterator(a!.sid!, b!.sid!, { includeStart: true, includeEnd: true });
       const ids: string[] = [];
       for (const id of it) ids.push(id);

@@ -6,7 +6,7 @@ describe('Schema Extension', () => {
   let baseSchema: any;
 
   beforeEach(() => {
-    // 기본 스키마 생성
+    // Create base schema
     baseSchema = createSchema('base', {
       topNode: 'doc',
       nodes: {
@@ -66,16 +66,16 @@ describe('Schema Extension', () => {
         }
       });
 
-      // 기본 노드들이 유지되는지 확인
+      // Verify base nodes are preserved
       expect(extendedSchema.hasNodeType('doc')).toBe(true);
       expect(extendedSchema.hasNodeType('paragraph')).toBe(true);
       expect(extendedSchema.hasNodeType('text')).toBe(true);
 
-      // 새로운 노드들이 추가되었는지 확인
+      // Verify new nodes are added
       expect(extendedSchema.hasNodeType('heading')).toBe(true);
       expect(extendedSchema.hasNodeType('image')).toBe(true);
 
-      // 스키마 이름이 유지되는지 확인
+      // Verify schema name is preserved
       expect(extendedSchema.name).toBe('base');
     });
 
@@ -99,10 +99,10 @@ describe('Schema Extension', () => {
         }
       });
 
-      // 기본 마크가 유지되는지 확인
+      // Verify base mark is preserved
       expect(extendedSchema.hasMarkType('bold')).toBe(true);
 
-      // 새로운 마크들이 추가되었는지 확인
+      // Verify new marks are added
       expect(extendedSchema.hasMarkType('italic')).toBe(true);
       expect(extendedSchema.hasMarkType('link')).toBe(true);
     });
@@ -130,11 +130,11 @@ describe('Schema Extension', () => {
         }
       });
 
-      // 기본 요소들이 유지되는지 확인
+      // Verify base elements are preserved
       expect(extendedSchema.hasNodeType('paragraph')).toBe(true);
       expect(extendedSchema.hasMarkType('bold')).toBe(true);
 
-      // 새로운 요소들이 추가되었는지 확인
+      // Verify new elements are added
       expect(extendedSchema.hasNodeType('heading')).toBe(true);
       expect(extendedSchema.hasMarkType('italic')).toBe(true);
     });
@@ -148,7 +148,7 @@ describe('Schema Extension', () => {
             group: 'block',
             attrs: {
               level: { type: 'number', default: 1 },
-              align: { type: 'string', default: 'left' } // 새로운 속성 추가
+              align: { type: 'string', default: 'left' } // Add new attribute
             }
           }
         },
@@ -158,18 +158,18 @@ describe('Schema Extension', () => {
             group: 'text-style',
             attrs: {
               weight: { type: 'string', default: 'bold' },
-              color: { type: 'string', default: 'black' } // 새로운 속성 추가
+              color: { type: 'string', default: 'black' } // Add new attribute
             }
           }
         }
       });
 
-      // 기존 노드가 수정되었는지 확인
+      // Verify existing node is modified
       const paragraphDef = extendedSchema.getNodeType('paragraph');
       expect(paragraphDef?.attrs?.align).toBeDefined();
       expect(paragraphDef?.attrs?.level).toBeDefined();
 
-      // 기존 마크가 수정되었는지 확인
+      // Verify existing mark is modified
       const boldDef = extendedSchema.getMarkType('bold');
       expect(boldDef?.attrs?.color).toBeDefined();
       expect(boldDef?.attrs?.weight).toBeDefined();
@@ -207,7 +207,7 @@ describe('Schema Extension', () => {
     it('should work with empty extensions', () => {
       const extendedSchema = createSchema(baseSchema, {});
 
-      // 기본 스키마와 동일해야 함
+      // Should be identical to base schema
       expect(extendedSchema.name).toBe(baseSchema.name);
       expect(extendedSchema.topNode).toBe(baseSchema.topNode);
       expect(extendedSchema.nodes.size).toBe(baseSchema.nodes.size);
@@ -231,7 +231,7 @@ describe('Schema Extension', () => {
 
   describe('real-world usage examples', () => {
     it('should extend blog schema with social media features', () => {
-      // 블로그 기본 스키마
+      // Base blog schema
       const blogSchema = createSchema('blog', {
         topNode: 'doc',
         nodes: {
@@ -244,7 +244,7 @@ describe('Schema Extension', () => {
         }
       });
 
-      // 소셜 미디어 기능 추가
+      // Add social media features
       const socialMediaSchema = createSchema(blogSchema, {
         nodes: {
           tweet: {
@@ -274,18 +274,18 @@ describe('Schema Extension', () => {
         }
       });
 
-      // 기본 블로그 기능 유지
+      // Preserve base blog features
       expect(socialMediaSchema.hasNodeType('paragraph')).toBe(true);
       expect(socialMediaSchema.hasMarkType('bold')).toBe(true);
 
-      // 소셜 미디어 기능 추가
+      // Add social media features
       expect(socialMediaSchema.hasNodeType('tweet')).toBe(true);
       expect(socialMediaSchema.hasNodeType('hashtag')).toBe(true);
       expect(socialMediaSchema.hasMarkType('mention')).toBe(true);
     });
 
     it('should extend editor schema with collaborative features', () => {
-      // 기본 에디터 스키마
+      // Base editor schema
       const editorSchema = createSchema('editor', {
         topNode: 'doc',
         nodes: {
@@ -295,7 +295,7 @@ describe('Schema Extension', () => {
         }
       });
 
-      // 협업 기능 추가
+      // Add collaborative features
       const collaborativeSchema = createSchema(editorSchema, {
         nodes: {
           comment: {
@@ -320,10 +320,10 @@ describe('Schema Extension', () => {
         }
       });
 
-      // 기본 에디터 기능 유지
+      // Preserve base editor features
       expect(collaborativeSchema.hasNodeType('paragraph')).toBe(true);
 
-      // 협업 기능 추가
+      // Add collaborative features
       expect(collaborativeSchema.hasNodeType('comment')).toBe(true);
       expect(collaborativeSchema.hasMarkType('highlight')).toBe(true);
     });

@@ -27,13 +27,13 @@ describe('Pattern 및 Custom Decorator 렌더링 통합', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     
-    // 렌더러 등록
+    // Register renderers
     registry = getGlobalRegistry();
     define('document', element('div', { className: 'document' }, [slot('content')]));
     define('paragraph', element('p', { className: 'paragraph' }, [slot('content')]));
     define('inline-text', element('span', { className: 'text' }, [data('text')]));
     
-    // Decorator 템플릿 정의
+    // Define decorator templates
     defineDecorator('link', element('a', {
       className: 'link-decorator',
       style: { color: 'blue', textDecoration: 'underline' }
@@ -49,7 +49,7 @@ describe('Pattern 및 Custom Decorator 렌더링 통합', () => {
       style: { background: 'lightblue' }
     }, [slot('text')]));
     
-    // 다른 레이어용 decorator 템플릿
+    // Decorator template for other layers
     defineDecorator('cursor', element('div', {
       className: 'cursor',
       style: { position: 'absolute', width: '2px', height: '18px', background: 'blue' }
@@ -108,7 +108,7 @@ describe('Pattern 및 Custom Decorator 렌더링 통합', () => {
         ]
       };
       
-      // Pattern decorator 등록 (URL 패턴)
+      // Register pattern decorator (URL pattern)
       view.addDecorator({
         sid: 'url-pattern',
         stype: 'link',
@@ -141,20 +141,20 @@ describe('Pattern 및 Custom Decorator 렌더링 통합', () => {
         }
       });
       
-      // render() 호출 - pattern decorator가 자동으로 매칭되어 생성됨
+      // Call render() - pattern decorator is automatically matched and created
       view.render(tree, { sync: true });
       
-      // Pattern decorator config가 등록되었는지 확인
+      // Verify pattern decorator config is registered
       const patternConfigs = view.patternDecoratorConfigManager.getConfigs();
       expect(patternConfigs).toHaveLength(1);
       expect(patternConfigs[0].sid).toBe('url-pattern');
       expect(patternConfigs[0].stype).toBe('link');
       
-      // 전체 렌더링 결과 확인 (expectHTML 사용)
-      // Pattern decorator가 매칭되어 link decorator로 렌더링됨
+      // Verify full rendering result (using expectHTML)
+      // Pattern decorator is matched and rendered as link decorator
       await new Promise(resolve => requestAnimationFrame(resolve));
       
-      // 실제 렌더링 결과 확인 (pattern decorator는 inline-text span 안에 렌더링됨)
+      // Verify actual rendering result (pattern decorator is rendered inside inline-text span)
       const actualHTML = view.layers.content.innerHTML;
       expect(actualHTML).toContain('data-bc-sid="t1"');
       expect(actualHTML).toContain('link-decorator');
@@ -180,7 +180,7 @@ describe('Pattern 및 Custom Decorator 렌더링 통합', () => {
         ]
       };
       
-      // Pattern decorator 등록 - createDecorator가 배열을 반환하여 여러 decorator 생성
+      // Register pattern decorator - createDecorator returns array to create multiple decorators
       view.addDecorator({
         sid: 'url-multi-pattern',
         stype: 'link',
@@ -190,7 +190,7 @@ describe('Pattern 및 Custom Decorator 렌더링 통합', () => {
           pattern: /https?:\/\/[^\s]+/g,
           extractData: (match: RegExpMatchArray) => ({ url: match[0] }),
           createDecorator: (nodeId, start, end, data) => {
-            // 하나의 매칭에서 여러 decorator 생성
+            // Create multiple decorators from one match
             return [
               {
                 sid: `pattern-link-${nodeId}-${start}-${end}`,
@@ -205,7 +205,7 @@ describe('Pattern 및 Custom Decorator 렌더링 통합', () => {
                 data: { 
                   url: data.url, 
                   message: `Link: ${data.url}`,
-                  position: { top: 20, left: 10, width: 150, height: 30 } // layer decorator는 position 필요
+                  position: { top: 20, left: 10, width: 150, height: 30 } // layer decorator requires position
                 },
                 category: 'layer',
                 layerTarget: 'context'
@@ -218,28 +218,28 @@ describe('Pattern 및 Custom Decorator 렌더링 통합', () => {
       
       view.render(tree, { sync: true });
       
-      // 여러 decorator가 생성되었는지 확인
+      // Verify multiple decorators are created
       await new Promise(resolve => requestAnimationFrame(resolve));
       
-      // content 레이어에 link decorator가 렌더링되었는지 확인
+      // Verify link decorator is rendered in content layer
       const contentHTML = view.layers.content.innerHTML;
       expect(contentHTML).toContain('pattern-link');
       expect(contentHTML).toContain('https://example.com');
       
-      // context 레이어에 tooltip decorator가 렌더링되었는지 확인
+      // Verify tooltip decorator is rendered in context layer
       const contextHTML = view.layers.context.innerHTML;
-      // data.position이 있으면 DecoratorPrebuilder가 position을 계산하고 렌더링
+      // If data.position exists, DecoratorPrebuilder calculates and renders position
       if (contextHTML.includes('tooltip')) {
         expect(contextHTML).toContain('pattern-tooltip');
       } else {
-        // pattern decorator가 생성되었는지만 확인 (실제 렌더링은 data.position에 따라 결정)
+        // Only verify pattern decorator is created (actual rendering depends on data.position)
         const patternConfigs = view.patternDecoratorConfigManager.getConfigs();
         expect(patternConfigs).toHaveLength(1);
         expect(patternConfigs[0].sid).toBe('url-multi-pattern');
       }
     });
     
-    it('함수 패턴으로 pattern decorator를 정의할 수 있어야 함', async () => {
+    it('should be able to define pattern decorator with function pattern', async () => {
       const tree: ModelData = {
         sid: 'doc1',
         stype: 'document',
@@ -258,14 +258,14 @@ describe('Pattern 및 Custom Decorator 렌더링 통합', () => {
         ]
       };
       
-      // 함수 패턴으로 @mention 매칭
+      // Match @mention with function pattern
       view.addDecorator({
         sid: 'mention-pattern',
         stype: 'link',
         category: 'inline',
         decoratorType: 'pattern',
         data: {
-          // 함수 패턴: @로 시작하는 단어 매칭
+          // Function pattern: match words starting with @
           pattern: (text: string) => {
             const matches: Array<{
               match: string;
@@ -299,26 +299,26 @@ describe('Pattern 및 Custom Decorator 렌더링 통합', () => {
       
       view.render(tree, { sync: true });
       
-      // Pattern config가 등록되었는지 확인
+      // Verify pattern config is registered
       const patternConfigs = view.patternDecoratorConfigManager.getConfigs();
       expect(patternConfigs).toHaveLength(1);
       expect(patternConfigs[0].sid).toBe('mention-pattern');
       
-      // 함수 패턴인지 확인
+      // Verify it's a function pattern
       expect(typeof patternConfigs[0].pattern).toBe('function');
       
       await new Promise(resolve => requestAnimationFrame(resolve));
       
-      // 실제 렌더링 결과 확인
+      // Verify actual rendering result
       const actualHTML = view.layers.content.innerHTML;
       expect(actualHTML).toContain('data-bc-sid="t1"');
       expect(actualHTML).toContain('link-decorator');
-      // 함수 패턴으로 매칭된 mention이 렌더링되었는지 확인
+      // Verify mentions matched by function pattern are rendered
       expect(actualHTML).toContain('@user123');
       expect(actualHTML).toContain('@admin456');
     });
     
-    it('함수 패턴과 RegExp 패턴을 함께 사용할 수 있어야 함', async () => {
+    it('should be able to use function pattern and RegExp pattern together', async () => {
       const tree: ModelData = {
         sid: 'doc1',
         stype: 'document',
@@ -337,7 +337,7 @@ describe('Pattern 및 Custom Decorator 렌더링 통합', () => {
         ]
       };
       
-      // RegExp 패턴 (URL)
+      // RegExp pattern (URL)
       view.addDecorator({
         sid: 'url-pattern',
         stype: 'link',
@@ -355,7 +355,7 @@ describe('Pattern 및 Custom Decorator 렌더링 통합', () => {
         }
       });
       
-      // 함수 패턴 (@mention)
+      // Function pattern (@mention)
       view.addDecorator({
         sid: 'mention-pattern',
         stype: 'email',
@@ -395,11 +395,11 @@ describe('Pattern 및 Custom Decorator 렌더링 통합', () => {
       
       view.render(tree, { sync: true });
       
-      // 두 패턴 모두 등록되었는지 확인
+      // Verify both patterns are registered
       const patternConfigs = view.patternDecoratorConfigManager.getConfigs();
       expect(patternConfigs).toHaveLength(2);
       
-      // RegExp 패턴과 함수 패턴이 모두 있는지 확인
+      // Verify both RegExp pattern and function pattern exist
       const urlConfig = patternConfigs.find(c => c.sid === 'url-pattern');
       const mentionConfig = patternConfigs.find(c => c.sid === 'mention-pattern');
       expect(urlConfig).toBeDefined();
@@ -409,7 +409,7 @@ describe('Pattern 및 Custom Decorator 렌더링 통합', () => {
       
       await new Promise(resolve => requestAnimationFrame(resolve));
       
-      // 실제 렌더링 결과 확인
+      // Verify actual rendering result
       const actualHTML = view.layers.content.innerHTML;
       expect(actualHTML).toContain('link-decorator');
       expect(actualHTML).toContain('https://example.com');
@@ -436,7 +436,7 @@ describe('Pattern 및 Custom Decorator 렌더링 통합', () => {
         ]
       };
       
-      // URL 패턴
+      // URL pattern
       view.addDecorator({
         sid: 'url-pattern',
         stype: 'link',
@@ -454,7 +454,7 @@ describe('Pattern 및 Custom Decorator 렌더링 통합', () => {
         }
       });
       
-      // Email 패턴
+      // Email pattern
       view.addDecorator({
         sid: 'email-pattern',
         stype: 'email',
@@ -478,16 +478,16 @@ describe('Pattern 및 Custom Decorator 렌더링 통합', () => {
       
       view.render(tree, { sync: true });
       
-      // 두 패턴 모두 등록되었는지 확인
+      // Verify both patterns are registered
       const patternConfigs = view.patternDecoratorConfigManager.getConfigs();
       expect(patternConfigs).toHaveLength(2);
       expect(patternConfigs.find(c => c.sid === 'url-pattern')).toBeDefined();
       expect(patternConfigs.find(c => c.sid === 'email-pattern')).toBeDefined();
       
-      // 전체 렌더링 결과 확인
+      // Verify full rendering result
       await new Promise(resolve => requestAnimationFrame(resolve));
       
-      // 실제 렌더링 결과 확인
+      // Verify actual rendering result
       const actualHTML = view.layers.content.innerHTML;
       expect(actualHTML).toContain('data-bc-sid="t1"');
       expect(actualHTML).toContain('email-decorator');
@@ -532,7 +532,7 @@ describe('Pattern 및 Custom Decorator 렌더링 통합', () => {
       view.render(tree, { sync: true });
       await new Promise(r => requestAnimationFrame(r));
 
-      // 전체 구조 검증
+      // Verify full structure
       expectHTML(
         view.layers.content,
         `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">
@@ -549,7 +549,7 @@ describe('Pattern 및 Custom Decorator 렌더링 통합', () => {
         expect
       );
 
-      // chip이 Hello 앞에 오는지 순서 검증
+      // Verify order: chip should come before Hello
       const html = view.layers.content.innerHTML;
       const chipIdx = html.indexOf('class="chip"');
       const helloIdx = html.indexOf('Hello');
@@ -594,7 +594,7 @@ describe('Pattern 및 Custom Decorator 렌더링 통합', () => {
       view.render(tree, { sync: true });
       await new Promise(r => requestAnimationFrame(r));
 
-      // 전체 구조 검증 (wrapper 및 노드 존재)
+      // Verify full structure (wrapper and node existence)
       expectHTML(
         view.layers.content,
         `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">
@@ -611,7 +611,7 @@ describe('Pattern 및 Custom Decorator 렌더링 통합', () => {
         expect
       );
 
-      // Hello 뒤에 chip이 오는지 순서 검증
+      // Verify order: chip should come after Hello
       const html = view.layers.content.innerHTML;
       const helloIdx = html.indexOf('Hello');
       const chipIdx = html.indexOf('class="chip"', helloIdx);
@@ -641,13 +641,13 @@ describe('Pattern 및 Custom Decorator 렌더링 통합', () => {
         ]
       };
       
-      // Custom decorator generator 등록
+      // Register custom decorator generator
       const generator: DecoratorGenerator = {
         sid: 'ai-status-generator',
         name: 'AI Status Generator',
         priority: 10,
         generate: (model: ModelData, text: string | null, context?: DecoratorGeneratorContext): any[] => {
-          // 텍스트에 "AI"가 포함되어 있으면 decorator 생성
+          // Create decorator if text contains "AI"
           if (text && text.includes('AI')) {
             return [{
               sid: `ai-status-${model.sid}`,
@@ -670,18 +670,18 @@ describe('Pattern 및 Custom Decorator 렌더링 통합', () => {
       
       view.addDecorator(generator);
       
-      // Generator가 등록되었는지 확인
+      // Verify generator is registered
       const registeredGenerator = view.decoratorGeneratorManager.getGenerator('ai-status-generator');
       expect(registeredGenerator).toBeDefined();
       
-      // render() 호출 - custom decorator가 생성됨
+      // Call render() - custom decorator is created
       view.render(tree, { sync: true });
       
-      // 전체 렌더링 결과 확인
+      // Verify full rendering result
       await new Promise(resolve => requestAnimationFrame(resolve));
       
-      // "AI"가 없으므로 decorator가 생성되지 않음
-      // "AI"가 없으므로 decorator가 생성되지 않음
+      // Decorator is not created because "AI" is not present
+      // Decorator is not created because "AI" is not present
       expectHTML(
         view.layers.content,
         `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">
@@ -714,7 +714,7 @@ describe('Pattern 및 Custom Decorator 렌더링 통합', () => {
         ]
       };
       
-      // Custom decorator generator - decorator 레이어에 생성
+      // Custom decorator generator - create in decorator layer
       const generator: DecoratorGenerator = {
         sid: 'layer-generator',
         generate: (model: ModelData, text: string | null): any[] => {
@@ -737,20 +737,20 @@ describe('Pattern 및 Custom Decorator 렌더링 통합', () => {
       view.addDecorator(generator);
       view.render(tree, { sync: true });
       
-      // Generator가 등록되었는지 확인
+      // Verify generator is registered
       const registeredGenerator = view.decoratorGeneratorManager.getGenerator('layer-generator');
       expect(registeredGenerator).toBeDefined();
       
-      // Custom decorator generator는 다른 레이어에 decorator를 생성할 수 있음
-      // 이는 generate 함수에서 category와 layerTarget을 지정할 수 있기 때문
-      // render()에서 _generateGeneratorDecorators()가 호출되어 decorator 생성
-      // data.position이 있으면 DecoratorPrebuilder가 position을 계산하고
-      // layerTarget에 따라 해당 레이어에 렌더링됨
+      // Custom decorator generator can create decorators in other layers
+      // This is because category and layerTarget can be specified in the generate function
+      // _generateGeneratorDecorators() is called in render() to create decorators
+      // If data.position exists, DecoratorPrebuilder calculates position and
+      // renders to the corresponding layer according to layerTarget
       
-      // decorator 레이어에 decorator가 렌더링되었는지 확인
+      // Verify decorator is rendered in decorator layer
       await new Promise(resolve => requestAnimationFrame(resolve));
       
-      // generator가 등록되었는지 확인 (실제 렌더링은 data.position과 layerTarget에 따라 결정됨)
+      // Verify generator is registered (actual rendering depends on data.position and layerTarget)
       expect(registeredGenerator?.sid).toBe('layer-generator');
     });
     
@@ -778,13 +778,13 @@ describe('Pattern 및 Custom Decorator 렌더링 통합', () => {
         ]
       };
       
-      // 여러 decorator를 생성하는 generator
+      // Generator that creates multiple decorators
       const generator: DecoratorGenerator = {
         sid: 'multi-generator',
         generate: (model: ModelData, text: string | null): any[] => {
           const decorators: any[] = [];
           
-          // 모든 텍스트 노드에 decorator 생성
+          // Create decorator for all text nodes
           if (text && text.length > 0) {
             decorators.push({
               sid: `generated-${model.sid}`,
@@ -809,14 +809,14 @@ describe('Pattern 및 Custom Decorator 렌더링 통합', () => {
       view.addDecorator(generator);
       view.render(tree, { sync: true });
       
-      // Generator가 등록되었는지 확인
+      // Verify generator is registered
       const registeredGenerator = view.decoratorGeneratorManager.getGenerator('multi-generator');
       expect(registeredGenerator).toBeDefined();
       
-      // 전체 렌더링 결과 확인
+      // Verify full rendering result
       await new Promise(resolve => requestAnimationFrame(resolve));
       
-      // 전체 렌더링 결과 확인
+      // Verify full rendering result
       expectHTML(
         view.layers.content,
         `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">
@@ -852,7 +852,7 @@ describe('Pattern 및 Custom Decorator 렌더링 통합', () => {
         ]
       };
       
-      // Pattern decorator 등록
+      // Register pattern decorator
       view.addDecorator({
         sid: 'url-pattern',
         stype: 'link',
@@ -870,7 +870,7 @@ describe('Pattern 및 Custom Decorator 렌더링 통합', () => {
         }
       });
       
-      // Custom decorator generator 등록
+      // Register custom decorator generator
       const generator: DecoratorGenerator = {
         sid: 'custom-gen',
         generate: (model: ModelData, text: string | null): any[] => {
@@ -893,20 +893,20 @@ describe('Pattern 및 Custom Decorator 렌더링 통합', () => {
       
       view.addDecorator(generator);
       
-      // render() 호출
+      // Call render()
       view.render(tree, { sync: true });
       
-      // Pattern config와 Custom generator가 모두 등록되었는지 확인
+      // Verify both pattern config and custom generator are registered
       const patternConfigs = view.patternDecoratorConfigManager.getConfigs();
       expect(patternConfigs).toHaveLength(1);
       
       const customGenerator = view.decoratorGeneratorManager.getGenerator('custom-gen');
       expect(customGenerator).toBeDefined();
       
-      // 전체 렌더링 결과 확인
+      // Verify full rendering result
       await new Promise(resolve => requestAnimationFrame(resolve));
       
-      // 실제 렌더링 결과 확인
+      // Verify actual rendering result
       const actualHTML = view.layers.content.innerHTML;
       expect(actualHTML).toContain('data-bc-sid="t1"');
       expect(actualHTML).toContain('link-decorator');
@@ -934,14 +934,14 @@ describe('Pattern 및 Custom Decorator 렌더링 통합', () => {
         ]
       };
       
-      // 여러 레이어에 decorator를 생성하는 generator
+      // Generator that creates decorators in multiple layers
       const generator: DecoratorGenerator = {
         sid: 'multi-layer-generator',
         generate: (model: ModelData, text: string | null): any[] => {
           const decorators: any[] = [];
           
           if (text) {
-            // decorator 레이어
+            // decorator layer
             decorators.push({
               sid: `decorator-layer-${model.sid}`,
               stype: 'cursor',
@@ -952,7 +952,7 @@ describe('Pattern 및 Custom Decorator 렌더링 통합', () => {
               }
             });
             
-            // selection 레이어
+            // selection layer
             decorators.push({
               sid: `selection-layer-${model.sid}`,
               stype: 'selection',
@@ -963,7 +963,7 @@ describe('Pattern 및 Custom Decorator 렌더링 통합', () => {
               }
             });
             
-            // context 레이어
+            // context layer
             decorators.push({
               sid: `context-layer-${model.sid}`,
               stype: 'tooltip',
@@ -974,7 +974,7 @@ describe('Pattern 및 Custom Decorator 렌더링 통합', () => {
               }
             });
             
-            // custom 레이어
+            // custom layer
             decorators.push({
               sid: `custom-layer-${model.sid}`,
               stype: 'badge',
@@ -993,29 +993,29 @@ describe('Pattern 및 Custom Decorator 렌더링 통합', () => {
       view.addDecorator(generator);
       view.render(tree, { sync: true });
       
-      // 각 레이어에 decorator가 렌더링되었는지 확인
+      // Verify decorators are rendered in each layer
       await new Promise(resolve => requestAnimationFrame(resolve));
       
-      // Generator decorator가 생성되었는지 확인
-      // _generateGeneratorDecorators()가 호출되어 decorator 생성
+      // Verify generator decorator is created
+      // _generateGeneratorDecorators() is called to create decorators
       const allGenerators = view.decoratorGeneratorManager.getAllGenerators();
       expect(allGenerators).toHaveLength(1);
       
-      // 실제로 생성된 decorator 확인
-      // render()에서 _generateGeneratorDecorators()가 호출되어 decorator 생성
-      // data.position이 있으면 DecoratorPrebuilder가 position을 계산하고
-      // layerTarget에 따라 해당 레이어에 렌더링됨
+      // Verify actually created decorators
+      // _generateGeneratorDecorators() is called in render() to create decorators
+      // If data.position exists, DecoratorPrebuilder calculates position and
+      // renders to the corresponding layer according to layerTarget
       
-      // Custom decorator generator는 다른 레이어에 decorator를 생성할 수 있음
-      // 이는 generate 함수에서 category와 layerTarget을 지정할 수 있기 때문
-      // Pattern decorator는 기본적으로 inline category이고 content 레이어에만 렌더링됨
+      // Custom decorator generator can create decorators in other layers
+      // This is because category and layerTarget can be specified in the generate function
+      // Pattern decorator is inline category by default and only rendered in content layer
       
-      // decorator 레이어 확인 (data.position이 있으면 렌더링되어야 함)
+      // Check decorator layer (should render if data.position exists)
       const decoratorHTML = view.layers.decorator.innerHTML;
-      // 실제로는 data.position이 있으면 DecoratorPrebuilder가 position을 계산하고
-      // layerTarget에 따라 해당 레이어에 렌더링됨
-      // 하지만 현재 테스트에서는 실제 렌더링 구조를 확인하기 어려우므로
-      // generator가 등록되었는지만 확인
+      // Actually, if data.position exists, DecoratorPrebuilder calculates position and
+      // renders to the corresponding layer according to layerTarget
+      // However, in the current test it's difficult to verify the actual rendering structure,
+      // so only verify that generator is registered
       expect(allGenerators[0].sid).toBe('multi-layer-generator');
     });
     
@@ -1038,11 +1038,11 @@ describe('Pattern 및 Custom Decorator 렌더링 통합', () => {
         ]
       };
       
-      // Pattern decorator 등록 - createDecorator에서 layerTarget 지정
+      // Register pattern decorator - specify layerTarget in createDecorator
       view.addDecorator({
         sid: 'url-pattern-layer',
         stype: 'cursor',
-        category: 'inline', // 기본 category (하지만 createDecorator에서 override 가능)
+        category: 'inline', // Default category (but can be overridden in createDecorator)
         decoratorType: 'pattern',
         data: {
           pattern: /https?:\/\/[^\s]+/g,
@@ -1052,10 +1052,10 @@ describe('Pattern 및 Custom Decorator 렌더링 통합', () => {
             target: { sid: nodeId, startOffset: start, endOffset: end },
             data: { 
               url: data.url,
-              position: { top: 10, left: 20, width: 2, height: 18 } // layer decorator는 position 필요
+              position: { top: 10, left: 20, width: 2, height: 18 } // layer decorator requires position
             },
-            category: 'layer', // layer category로 override
-            layerTarget: 'decorator' // decorator 레이어에 렌더링
+            category: 'layer', // Override to layer category
+            layerTarget: 'decorator' // Render in decorator layer
           }),
           priority: 10
         }
@@ -1063,29 +1063,29 @@ describe('Pattern 및 Custom Decorator 렌더링 통합', () => {
       
       view.render(tree, { sync: true });
       
-      // Pattern decorator는 decorator 레이어에 렌더링됨
+      // Pattern decorator is rendered in decorator layer
       await new Promise(resolve => requestAnimationFrame(resolve));
       
-      // Pattern decorator가 생성되었는지 확인
-      // render()에서 _generateGeneratorDecorators()가 호출되어 pattern decorator 생성
-      // Pattern decorator는 renderer-dom의 PatternDecoratorGenerator에서 생성됨
+      // Verify pattern decorator is created
+      // _generateGeneratorDecorators() is called in render() to create pattern decorator
+      // Pattern decorator is created by PatternDecoratorGenerator in renderer-dom
       
-      // decorator 레이어에 pattern decorator가 렌더링되었는지 확인
+      // Verify pattern decorator is rendered in decorator layer
       const decoratorHTML = view.layers.decorator.innerHTML;
-      // 실제로는 pattern decorator가 생성되어야 하지만,
-      // layer category이고 layerTarget이 'decorator'이면 decorator 레이어에 렌더링됨
-      // data.position이 있으면 DecoratorPrebuilder가 position을 계산하고 렌더링
+      // Actually, pattern decorator should be created,
+      // but if category is layer and layerTarget is 'decorator', it's rendered in decorator layer
+      // If data.position exists, DecoratorPrebuilder calculates position and renders
       if (decoratorHTML.includes('cursor')) {
         expect(decoratorHTML).toContain('pattern-cursor');
       } else {
-        // pattern decorator가 생성되었는지만 확인 (실제 렌더링은 data.position에 따라 결정)
+        // Only verify pattern decorator is created (actual rendering depends on data.position)
         const patternConfigs = view.patternDecoratorConfigManager.getConfigs();
         expect(patternConfigs).toHaveLength(1);
         expect(patternConfigs[0].sid).toBe('url-pattern-layer');
       }
     });
     
-    it('pattern decorator는 기본적으로 content 레이어에만 렌더링됨 (inline category)', async () => {
+    it('pattern decorator is rendered only in content layer by default (inline category)', async () => {
       const tree: ModelData = {
         sid: 'doc1',
         stype: 'document',
@@ -1104,7 +1104,7 @@ describe('Pattern 및 Custom Decorator 렌더링 통합', () => {
         ]
       };
       
-      // Pattern decorator 등록 (기본적으로 inline category)
+      // Register pattern decorator (inline category by default)
       view.addDecorator({
         sid: 'url-pattern',
         stype: 'link',
@@ -1124,16 +1124,16 @@ describe('Pattern 및 Custom Decorator 렌더링 통합', () => {
       
       view.render(tree, { sync: true });
       
-      // Pattern decorator는 content 레이어에만 렌더링됨
+      // Pattern decorator is rendered only in content layer
       await new Promise(resolve => requestAnimationFrame(resolve));
       
-      // content 레이어에 pattern decorator가 렌더링되었는지 확인
+      // Verify pattern decorator is rendered in content layer
       const contentHTML = view.layers.content.innerHTML;
       expect(contentHTML).toContain('data-bc-sid="t1"');
       expect(contentHTML).toContain('link-decorator');
       expect(contentHTML).toContain('https://example.com');
       
-      // 다른 레이어에는 없어야 함
+      // Should not be in other layers
       expect(view.layers.decorator.innerHTML).not.toContain('pattern-link');
       expect(view.layers.selection.innerHTML).not.toContain('pattern-link');
     });

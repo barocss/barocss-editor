@@ -61,7 +61,7 @@ describe('HistoryManager', () => {
 
   describe('크기 제한', () => {
     it('최대 크기 제한', () => {
-      // 6개의 엔트리 추가 (maxSize: 5)
+      // Add 6 entries (maxSize: 5)
       for (let i = 0; i < 6; i++) {
         historyManager.push({
           operations: [{ type: 'create', payload: { node: { type: 'text', text: `Hello ${i}` } } }],

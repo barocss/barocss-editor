@@ -205,10 +205,10 @@ describe('findOrCreateHost and updateExistingHost', () => {
 
       const result = findOrCreateHost(fiber, deps, {});
 
-      // findOrCreateHost는 host를 찾거나 생성만 하고,
-      // 속성 업데이트는 reconcileFiberNode에서 dom.updateAttributes로 수행됨
+      // findOrCreateHost only finds or creates host,
+      // attribute updates are performed by dom.updateAttributes in reconcileFiberNode
       expect(result).toBe(host);
-      // className 업데이트는 reconcileFiberNode에서 수행되므로 여기서는 확인하지 않음
+      // className update is performed in reconcileFiberNode, so not verified here
     });
   });
 
@@ -242,8 +242,8 @@ describe('findOrCreateHost and updateExistingHost', () => {
         context: {}
       };
 
-      // updateExistingHost는 updateHostElement를 호출하므로
-      // 실제 업데이트는 updateHostElement가 수행함
+      // updateExistingHost calls updateHostElement,
+      // so actual update is performed by updateHostElement
       updateExistingHost(
         host,
         container,
@@ -255,9 +255,9 @@ describe('findOrCreateHost and updateExistingHost', () => {
         {}
       );
 
-      // updateHostElement는 dom.updateAttributes를 호출하므로
-      // className이 업데이트되어야 함
-      // 하지만 updateHostElement의 동작은 별도 테스트에서 확인
+      // updateHostElement calls dom.updateAttributes,
+      // so className should be updated
+      // But updateHostElement's behavior is verified in separate test
       expect(host).toBeInstanceOf(HTMLElement);
     });
 

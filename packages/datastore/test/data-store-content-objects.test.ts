@@ -47,7 +47,7 @@ describe('DataStore Content as Objects Functions', () => {
     });
     dataStore = new DataStore(undefined, schema);
 
-    // 테스트 데이터 생성 (중첩 구조)
+    // Create test data (nested structure)
     const document = {
       stype: 'document',
       content: [
@@ -70,7 +70,7 @@ describe('DataStore Content as Objects Functions', () => {
     const result = dataStore.createNodeWithChildren(document);
     console.log('createNodeWithChildren result:', { id: result.sid, stype: result.stype });
     
-    // document 노드가 실제로 저장되었는지 확인
+    // Verify document node is actually stored
     const documentFromStore = dataStore.getNode(result.sid!);
     console.log('Document from store:', documentFromStore ? { id: documentFromStore.sid, stype: documentFromStore.stype } : 'NOT FOUND');
   });
@@ -114,7 +114,7 @@ describe('DataStore Content as Objects Functions', () => {
       expect(children).toHaveLength(2);
       expect(children.every(node => node.stype === 'paragraph')).toBe(true);
       
-      // 각 paragraph의 content도 객체 배열이어야 함
+      // Each paragraph's content should also be an object array
       children.forEach(paragraph => {
         expect(Array.isArray(paragraph.content)).toBe(true);
         expect(paragraph.content?.every(child => typeof child === 'object')).toBe(true);
@@ -159,24 +159,24 @@ describe('DataStore Content as Objects Functions', () => {
     it('should return all nodes with children as object arrays', () => {
       const allNodesWithChildren = dataStore.getAllNodesWithChildren();
       
-      // 실제 노드 수 확인 (document + 2 paragraphs + 3 text nodes = 6개)
+      // Verify actual node count (document + 2 paragraphs + 3 text nodes = 6)
       expect(allNodesWithChildren).toHaveLength(6);
       
-      // 실제 노드 타입들 확인
+      // Verify actual node types
       console.log('Node types:', allNodesWithChildren.map(node => node.stype));
       console.log('All nodes:', allNodesWithChildren.map(node => ({ id: node.sid, type: node.stype })));
       
-      // getAllNodes()에서도 확인
+      // Also verify with getAllNodes()
       const allNodes = dataStore.getAllNodes();
       console.log('All nodes from getAllNodes():', allNodes.map(node => ({ id: node.sid, type: node.stype })));
       
-      // document 노드 찾기
+      // Find document node
       const documentNode = allNodesWithChildren.find(node => node.stype === 'document');
       expect(documentNode).toBeDefined();
       expect(Array.isArray(documentNode!.content)).toBe(true);
       expect(documentNode!.content).toHaveLength(2);
       
-      // paragraph 노드들 확인
+      // Verify paragraph nodes
       const paragraphNodes = allNodesWithChildren.filter(node => node.stype === 'paragraph');
       expect(paragraphNodes).toHaveLength(2);
       
@@ -203,14 +203,14 @@ describe('DataStore Content as Objects Functions', () => {
       const allNodesWithChildren = dataStore.getAllNodesWithChildren();
       const allNodes = dataStore.getAllNodes();
       
-      // 실제 노드 수 확인
+      // Verify actual node count
       console.log('allNodes.length:', allNodes.length);
       console.log('allNodesWithChildren.length:', allNodesWithChildren.length);
       
-      // ID 기반 노드 수와 객체 기반 노드 수가 같아야 함
+      // ID-based node count and object-based node count should be equal
       expect(allNodesWithChildren).toHaveLength(allNodes.length);
       
-      // 모든 ID가 유지되어야 함
+      // All IDs should be preserved
       const nodeWithChildrenIds = allNodesWithChildren.map(node => node.sid).sort();
       const nodeIds = allNodes.map(node => node.sid).sort();
       expect(nodeWithChildrenIds).toEqual(nodeIds);

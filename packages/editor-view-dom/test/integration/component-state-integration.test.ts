@@ -23,8 +23,8 @@ describe('EditorViewDOM + renderer-dom Component State Integration', () => {
       autoRender: false
     });
     
-    // 기본 컴포넌트 정의 (문서/문단/텍스트)
-    // 테스트에서 사용자 정의 컴포넌트를 렌더링할 때 필요한 베이스 템플릿
+    // Define basic components (document/paragraph/text)
+    // Base template needed for rendering custom components in tests
     define('document', element('div', { className: 'document' }, [slot('content')]));
     define('paragraph', element('p', { className: 'paragraph' }, [slot('content')]));
     define('inline-text', element('span', { className: 'text' }, [data('text')]));
@@ -41,13 +41,13 @@ describe('EditorViewDOM + renderer-dom Component State Integration', () => {
 
   describe('Basic State Management', () => {
     it('component can access and use state via context.instance', () => {
-      // Counter 컴포넌트 정의
+      // Define Counter component
       const CounterState = class extends BaseComponentState {};
 
       defineState('counter', CounterState);
       
       define('counter', (_props: any, model: ModelData, ctx: ComponentContext) => {
-        // initState를 수동으로 호출 (model.attributes에서 초기값 가져오기)
+        // Manually call initState (get initial value from model.attributes)
         if (!ctx.getState('count')) {
           const initialCount = model.attributes?.count || model.count || 0;
           ctx.initState({ count: Number(initialCount) });
@@ -88,7 +88,7 @@ describe('EditorViewDOM + renderer-dom Component State Integration', () => {
       let renderCount = 0;
       define('counter', (_props: any, model: ModelData, ctx: ComponentContext) => {
         renderCount++;
-        // initState 호출
+        // Call initState
         if (!ctx.getState('count')) {
           const initialCount = model.attributes?.count || model.count || 0;
           ctx.initState({ count: Number(initialCount) });
@@ -114,13 +114,13 @@ describe('EditorViewDOM + renderer-dom Component State Integration', () => {
       view.render(tree);
       const initialCount = renderCount;
       
-      // setState 호출 (자동 재렌더링 트리거)
+      // Call setState (triggers automatic re-render)
       const counterEl = container.querySelector('[data-bc-sid="counter1"]');
       expect(counterEl).toBeTruthy();
       
-      // state 변경 시뮬레이션 (실제로는 컴포넌트 내부에서 호출)
-      // changeState 이벤트가 발생하면 자동 재렌더링됨
-      // 여기서는 직접 테스트하기 어려우므로, state 접근이 가능한지 확인
+      // Simulate state change (actually called inside component)
+      // Automatic re-render occurs when changeState event fires
+      // Difficult to test directly here, so verify state access is possible
       expect(renderCount).toBeGreaterThan(0);
     });
 
@@ -130,7 +130,7 @@ describe('EditorViewDOM + renderer-dom Component State Integration', () => {
       defineState('counter', CounterState);
       
       define('counter', (_props: any, model: ModelData, ctx: ComponentContext) => {
-        // initState 호출
+        // Call initState
         if (!ctx.getState('count')) {
           const initialCount = model.attributes?.count || model.count || 0;
           ctx.initState({ count: Number(initialCount) });
@@ -181,13 +181,13 @@ describe('EditorViewDOM + renderer-dom Component State Integration', () => {
       defineState('counter', CounterState);
       
       define('counter', (_props: any, model: ModelData, ctx: ComponentContext) => {
-        // initState 호출
+        // Call initState
         if (!ctx.getState('count')) {
           const initialCount = model.attributes?.count || model.count || 0;
           const initialLabel = model.attributes?.label || model.label || 'Count';
           ctx.initState({ count: Number(initialCount), label: String(initialLabel) });
         }
-        // state를 ctx.instance 또는 ctx.getState로 접근
+        // Access state via ctx.instance or ctx.getState
         const count = ctx.instance?.get('count') ?? ctx.getState('count') ?? 0;
         const label = ctx.instance?.get('label') ?? ctx.getState('label') ?? 'Count';
         return element('div', { className: 'counter' }, [
@@ -230,7 +230,7 @@ describe('EditorViewDOM + renderer-dom Component State Integration', () => {
       defineState('counter', CounterState);
       
       define('counter', (_props: any, model: ModelData, ctx: ComponentContext) => {
-        // initState를 수동으로 호출하고 spy로 감싸기
+        // Manually call initState and wrap with spy
         if (!ctx.getState('count')) {
           const initialCount = model.attributes?.count || model.count || 0;
           initStateSpy({ count: initialCount });
@@ -256,7 +256,7 @@ describe('EditorViewDOM + renderer-dom Component State Integration', () => {
 
       view.render(tree);
 
-      // initState가 호출되었는지 확인
+      // Verify initState was called
       expect(initStateSpy).toHaveBeenCalled();
       expect(initStateSpy).toHaveBeenCalledWith(expect.objectContaining({ count: 3 }));
     });
@@ -267,7 +267,7 @@ describe('EditorViewDOM + renderer-dom Component State Integration', () => {
       defineState('counter', CounterState);
       
       define('counter', (_props: any, model: ModelData, ctx: ComponentContext) => {
-        // initState 호출
+        // Call initState
         if (!ctx.getState('count')) {
           const initialCount = model.attributes?.count || model.count || 0;
           ctx.initState({ count: Number(initialCount) });
@@ -294,7 +294,7 @@ describe('EditorViewDOM + renderer-dom Component State Integration', () => {
       const count1 = container.querySelector('[data-bc-sid="counter1"] .count')?.textContent;
       expect(count1).toBe('5');
 
-      // 같은 sid로 재렌더링 (state 유지)
+      // Re-render with same sid (state preserved)
       const tree2: TreeDocument = {
         sid: 'doc1',
         stype: 'document',
@@ -302,7 +302,7 @@ describe('EditorViewDOM + renderer-dom Component State Integration', () => {
           {
             sid: 'counter1',
             stype: 'counter',
-            attributes: { count: 5 } // 같은 값
+            attributes: { count: 5 } // Same value
           }
         ]
       };
@@ -310,10 +310,10 @@ describe('EditorViewDOM + renderer-dom Component State Integration', () => {
       view.render(tree2);
       const count2 = container.querySelector('[data-bc-sid="counter1"] .count')?.textContent;
       
-      // state가 유지되어야 함
+      // State should be preserved
       expect(count2).toBe('5');
       
-      // DOM 요소도 재사용되어야 함
+      // DOM element should also be reused
       const el1 = container.querySelector('[data-bc-sid="counter1"]');
       const el2 = container.querySelector('[data-bc-sid="counter1"]');
       expect(el2).toBe(el1);
@@ -327,7 +327,7 @@ describe('EditorViewDOM + renderer-dom Component State Integration', () => {
       defineState('counter', CounterState);
       
       define('counter', (_props: any, model: ModelData, ctx: ComponentContext) => {
-        // initState 호출
+        // Call initState
         if (!ctx.getState('count')) {
           const initialCount = model.attributes?.count || model.count || 0;
           ctx.initState({ count: Number(initialCount) });

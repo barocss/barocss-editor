@@ -17,7 +17,7 @@ describe('Layer Rendering Scenarios', () => {
   let container: HTMLElement;
   
   beforeEach(() => {
-    // DOM 환경 설정
+    // Set up DOM environment
     document.body.innerHTML = '';
     container = document.createElement('div');
     container.sid = 'editor-container';
@@ -36,12 +36,12 @@ describe('Layer Rendering Scenarios', () => {
         container: container
       });
       
-      // 1. Content layer에 텍스트 추가
+      // 1. Add text to Content layer
       const paragraph = document.createElement('p');
       paragraph.innerHTML = 'This is <strong>bold</strong> and <em>italic</em> text.';
       view.layers.content.appendChild(paragraph);
       
-      // 2. Decorator layer에 하이라이트 추가
+      // 2. Add highlights to Decorator layer
       const highlight1 = document.createElement('div');
       highlight1.className = 'highlight-yellow';
       highlight1.style.position = 'absolute';
@@ -64,7 +64,7 @@ describe('Layer Rendering Scenarios', () => {
       highlight2.style.opacity = '0.3';
       view.layers.decorator.appendChild(highlight2);
       
-      // 3. Selection layer에 커서 추가
+      // 3. Add cursor to Selection layer
       const cursor = document.createElement('div');
       cursor.className = 'cursor';
       cursor.style.position = 'absolute';
@@ -76,7 +76,7 @@ describe('Layer Rendering Scenarios', () => {
       cursor.style.animation = 'blink 1s infinite';
       view.layers.selection.appendChild(cursor);
       
-      // 검증
+      // Verify
       expect(view.layers.content.children.length).toBe(1);
       expect(view.layers.decorator.children.length).toBe(2);
       expect(view.layers.selection.children.length).toBe(1);
@@ -91,7 +91,7 @@ describe('Layer Rendering Scenarios', () => {
         container: container
       });
       
-      // Content layer에 여러 줄 텍스트
+      // Multi-line text in Content layer
       const lines = [
         'First line of text',
         'Second line with more content',
@@ -106,19 +106,19 @@ describe('Layer Rendering Scenarios', () => {
         view.layers.content.appendChild(line);
       });
       
-      // Selection layer에 범위 선택 표시
+      // Show range selection in Selection layer
       const selectionRange = document.createElement('div');
       selectionRange.className = 'selection-range';
       selectionRange.style.position = 'absolute';
       selectionRange.style.left = '80px';
       selectionRange.style.top = '25px';
       selectionRange.style.width = '150px';
-      selectionRange.style.height = '45px'; // 2줄에 걸친 선택
+      selectionRange.style.height = '45px'; // Selection spanning 2 lines
       selectionRange.style.backgroundColor = 'rgba(0, 123, 255, 0.2)';
       selectionRange.style.border = '1px solid rgba(0, 123, 255, 0.4)';
       view.layers.selection.appendChild(selectionRange);
       
-      // 검증
+      // Verify
       expect(view.layers.content.children.length).toBe(3);
       expect(view.layers.selection.children.length).toBe(1);
       expect(selectionRange.style.height).toBe('45px');
@@ -133,7 +133,7 @@ describe('Layer Rendering Scenarios', () => {
         container: container
       });
       
-      // Content layer에 코드 블록
+      // Code block in Content layer
       const codeBlock = document.createElement('pre');
       codeBlock.style.fontFamily = 'monospace';
       codeBlock.style.fontSize = '14px';
@@ -156,7 +156,7 @@ describe('Layer Rendering Scenarios', () => {
       
       view.layers.content.appendChild(codeBlock);
       
-      // Decorator layer에 라인 번호 추가
+      // Add line numbers to Decorator layer
       const lineNumbers = document.createElement('div');
       lineNumbers.className = 'line-numbers';
       lineNumbers.style.position = 'absolute';
@@ -178,19 +178,19 @@ describe('Layer Rendering Scenarios', () => {
       
       view.layers.decorator.appendChild(lineNumbers);
       
-      // Decorator layer에 에러 표시 추가
+      // Add error indicator to Decorator layer
       const errorIndicator = document.createElement('div');
       errorIndicator.className = 'error-indicator';
       errorIndicator.style.position = 'absolute';
       errorIndicator.style.left = '35px';
-      errorIndicator.style.top = '50px'; // 3번째 줄
+      errorIndicator.style.top = '50px'; // 3rd line
       errorIndicator.style.width = '200px';
       errorIndicator.style.height = '20px';
       errorIndicator.style.backgroundColor = 'rgba(220, 53, 69, 0.1)';
       errorIndicator.style.border = '1px solid rgba(220, 53, 69, 0.3)';
       view.layers.decorator.appendChild(errorIndicator);
       
-      // 검증
+      // Verify
       expect(view.layers.content.children.length).toBe(1);
       expect(view.layers.decorator.children.length).toBe(2);
       expect(codeBlock.children.length).toBe(4);
@@ -204,13 +204,13 @@ describe('Layer Rendering Scenarios', () => {
         container: container
       });
       
-      // Content layer에 코드 입력 중
+      // Code input in Content layer
       const codeLine = document.createElement('div');
       codeLine.textContent = 'console.lo';
       codeLine.style.fontFamily = 'monospace';
       view.layers.content.appendChild(codeLine);
       
-      // Context layer에 자동완성 팝업
+      // Autocomplete popup in Context layer
       const autocompletePopup = document.createElement('div');
       autocompletePopup.className = 'autocomplete-popup';
       autocompletePopup.style.position = 'absolute';
@@ -241,7 +241,7 @@ describe('Layer Rendering Scenarios', () => {
       
       view.layers.context.appendChild(autocompletePopup);
       
-      // 검증
+      // Verify
       expect(view.layers.context.children.length).toBe(1);
       expect(autocompletePopup.children.length).toBe(3);
       expect(autocompletePopup.children[0].style.backgroundColor).toBe('rgb(227, 242, 253)');
@@ -256,7 +256,7 @@ describe('Layer Rendering Scenarios', () => {
         container: container
       });
       
-      // Content layer에 공유 문서
+      // Shared document in Content layer
       const sharedDocument = document.createElement('div');
       sharedDocument.innerHTML = `
         <h1>Shared Document</h1>
@@ -265,7 +265,7 @@ describe('Layer Rendering Scenarios', () => {
       `;
       view.layers.content.appendChild(sharedDocument);
       
-      // Selection layer에 여러 사용자의 커서와 선택 영역
+      // Multiple users' cursors and selections in Selection layer
       const users = [
         { name: 'Alice', color: '#ff4444', cursorPos: { x: 100, y: 60 }, selectionPos: { x: 50, y: 85, width: 120, height: 18 } },
         { name: 'Bob', color: '#44ff44', cursorPos: { x: 200, y: 85 }, selectionPos: null },
@@ -273,7 +273,7 @@ describe('Layer Rendering Scenarios', () => {
       ];
       
       users.forEach(user => {
-        // 사용자 커서
+        // User cursor
         const cursor = document.createElement('div');
         cursor.className = `cursor-${user.name.toLowerCase()}`;
         cursor.style.position = 'absolute';
@@ -284,7 +284,7 @@ describe('Layer Rendering Scenarios', () => {
         cursor.style.backgroundColor = user.color;
         view.layers.selection.appendChild(cursor);
         
-        // 사용자 이름 라벨
+        // User name label
         const label = document.createElement('div');
         label.className = `cursor-label-${user.name.toLowerCase()}`;
         label.textContent = user.name;
@@ -300,7 +300,7 @@ describe('Layer Rendering Scenarios', () => {
         label.style.border = `1px solid ${user.color}`;
         view.layers.selection.appendChild(label);
         
-        // 사용자 선택 영역 (있는 경우)
+        // User selection area (if exists)
         if (user.selectionPos) {
           const selection = document.createElement('div');
           selection.className = `selection-${user.name.toLowerCase()}`;
@@ -314,10 +314,10 @@ describe('Layer Rendering Scenarios', () => {
         }
       });
       
-      // 검증
+      // Verify
       expect(view.layers.selection.children.length).toBe(8); // 3 cursors + 3 labels + 2 selections
       
-      // 각 사용자의 요소들이 올바르게 생성되었는지 확인
+      // Verify each user's elements are correctly created
       const aliceElements = Array.from(view.layers.selection.children).filter(el => 
         el.className.includes('alice')
       );
@@ -333,13 +333,13 @@ describe('Layer Rendering Scenarios', () => {
         container: container
       });
       
-      // Content layer에 대용량 코드 파일 시뮬레이션
+      // Simulate large code file in Content layer
       const codeContainer = document.createElement('div');
       codeContainer.style.fontFamily = 'monospace';
       codeContainer.style.fontSize = '14px';
       codeContainer.style.lineHeight = '20px';
       
-      // 100줄의 코드 생성
+      // Generate 100 lines of code
       for (let i = 0; i < 100; i++) {
         const line = document.createElement('div');
         line.textContent = `// Line ${i + 1}: function example${i}() { return ${i}; }`;
@@ -349,11 +349,11 @@ describe('Layer Rendering Scenarios', () => {
       
       view.layers.content.appendChild(codeContainer);
       
-      // Decorator layer에 구문 강조 오버레이 추가
+      // Add syntax highlighting overlay to Decorator layer
       const startTime = performance.now();
       
       for (let i = 0; i < 100; i++) {
-        // 키워드 강조
+        // Keyword highlighting
         const keywordHighlight = document.createElement('div');
         keywordHighlight.style.position = 'absolute';
         keywordHighlight.style.left = `${100 + i % 10}px`;
@@ -363,7 +363,7 @@ describe('Layer Rendering Scenarios', () => {
         keywordHighlight.style.backgroundColor = 'rgba(0, 0, 255, 0.1)';
         view.layers.decorator.appendChild(keywordHighlight);
         
-        // 함수명 강조
+        // Function name highlighting
         const functionHighlight = document.createElement('div');
         functionHighlight.style.position = 'absolute';
         functionHighlight.style.left = `${200 + i % 15}px`;
@@ -377,11 +377,11 @@ describe('Layer Rendering Scenarios', () => {
       const endTime = performance.now();
       const renderTime = endTime - startTime;
       
-      // 검증
+      // Verify
       expect(view.layers.content.children.length).toBe(1);
       expect(codeContainer.children.length).toBe(100);
       expect(view.layers.decorator.children.length).toBe(200); // 100 keyword + 100 function highlights
-      expect(renderTime).toBeLessThan(200); // 200ms 이내에 렌더링 완료
+      expect(renderTime).toBeLessThan(200); // Rendering completed within 200ms
       
       view.destroy();
     });
@@ -391,7 +391,7 @@ describe('Layer Rendering Scenarios', () => {
         container: container
       });
       
-      // Content layer에 긴 문서
+      // Long document in Content layer
       const longDocument = document.createElement('div');
       for (let i = 0; i < 200; i++) {
         const paragraph = document.createElement('p');
@@ -401,7 +401,7 @@ describe('Layer Rendering Scenarios', () => {
       }
       view.layers.content.appendChild(longDocument);
       
-      // Custom layer에 스크롤 위치 표시기
+      // Scroll position indicator in Custom layer
       const scrollIndicator = document.createElement('div');
       scrollIndicator.className = 'scroll-indicator';
       scrollIndicator.style.position = 'absolute';
@@ -417,7 +417,7 @@ describe('Layer Rendering Scenarios', () => {
       scrollIndicator.textContent = 'Line 1 of 200';
       view.layers.custom.appendChild(scrollIndicator);
       
-      // Custom layer에 미니맵
+      // Minimap in Custom layer
       const minimap = document.createElement('div');
       minimap.className = 'minimap';
       minimap.style.position = 'absolute';
@@ -428,7 +428,7 @@ describe('Layer Rendering Scenarios', () => {
       minimap.style.backgroundColor = '#f0f0f0';
       minimap.style.border = '1px solid #ccc';
       
-      // 미니맵에 콘텐츠 표시
+      // Display content in minimap
       for (let i = 0; i < 20; i++) {
         const minimapLine = document.createElement('div');
         minimapLine.style.height = '2px';
@@ -439,7 +439,7 @@ describe('Layer Rendering Scenarios', () => {
       
       view.layers.custom.appendChild(minimap);
       
-      // 검증
+      // Verify
       expect(view.layers.content.children.length).toBe(1);
       expect(longDocument.children.length).toBe(200);
       expect(view.layers.custom.children.length).toBe(2);
@@ -455,12 +455,12 @@ describe('Layer Rendering Scenarios', () => {
         container: container
       });
       
-      // Content layer에 텍스트와 위젯 플레이스홀더
+      // Text and widget placeholder in Content layer
       const paragraph = document.createElement('p');
       paragraph.innerHTML = 'Click here to see the chart: <span class="widget-placeholder">[CHART]</span> and continue reading.';
       view.layers.content.appendChild(paragraph);
       
-      // Decorator layer에 인터랙티브 차트 위젯
+      // Interactive chart widget in Decorator layer
       const chartWidget = document.createElement('div');
       chartWidget.className = 'chart-widget';
       chartWidget.style.position = 'absolute';
@@ -472,10 +472,10 @@ describe('Layer Rendering Scenarios', () => {
       chartWidget.style.border = '2px solid #007bff';
       chartWidget.style.borderRadius = '8px';
       chartWidget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
-      chartWidget.style.pointerEvents = 'auto'; // 인터랙션 허용
+      chartWidget.style.pointerEvents = 'auto'; // Allow interaction
       chartWidget.setAttribute('data-bc-decorator', 'inline');
       
-      // 차트 헤더
+      // Chart header
       const chartHeader = document.createElement('div');
       chartHeader.style.padding = '10px';
       chartHeader.style.borderBottom = '1px solid #eee';
@@ -483,7 +483,7 @@ describe('Layer Rendering Scenarios', () => {
       chartHeader.textContent = 'Sales Chart';
       chartWidget.appendChild(chartHeader);
       
-      // 차트 내용 (간단한 막대 그래프 시뮬레이션)
+      // Chart content (simple bar graph simulation)
       const chartContent = document.createElement('div');
       chartContent.style.padding = '20px';
       chartContent.style.display = 'flex';
@@ -504,7 +504,7 @@ describe('Layer Rendering Scenarios', () => {
       
       chartWidget.appendChild(chartContent);
       
-      // 차트 컨트롤
+      // Chart controls
       const chartControls = document.createElement('div');
       chartControls.style.padding = '10px';
       chartControls.style.borderTop = '1px solid #eee';
@@ -524,17 +524,17 @@ describe('Layer Rendering Scenarios', () => {
       chartWidget.appendChild(chartControls);
       view.layers.decorator.appendChild(chartWidget);
       
-      // 이벤트 핸들러 테스트
+      // Test event handlers
       const refreshHandler = vi.fn();
       const exportHandler = vi.fn();
       refreshButton.addEventListener('click', refreshHandler);
       exportButton.addEventListener('click', exportHandler);
       
-      // 버튼 클릭 시뮬레이션
+      // Simulate button clicks
       refreshButton.click();
       exportButton.click();
       
-      // 검증
+      // Verify
       expect(view.layers.decorator.children.length).toBe(1);
       expect(chartWidget.children.length).toBe(3); // header + content + controls
       expect(chartContent.children.length).toBe(5); // 5 bars

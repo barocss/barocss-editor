@@ -24,23 +24,23 @@ describe('DecoratorPrebuilder', () => {
   let prebuilder: DecoratorPrebuilder;
   
   beforeEach(() => {
-    // RendererRegistry 초기화 (global: false로 설정하여 전역 레지스트리 참조)
+    // Initialize RendererRegistry (set global: false to reference global registry)
     registry = new RendererRegistry({ global: false });
     
-    // 기본 노드 타입 정의 (전역 레지스트리에 등록)
+    // Define basic node types (registered in global registry)
     define('document', element('div', { className: 'document' }));
     define('paragraph', element('p', { className: 'paragraph' }));
     define('inline-text', element('span', { className: 'inline-text' }));
     
-    // Content layer 생성
+    // Create content layer
     contentLayer = document.createElement('div');
     contentLayer.className = 'barocss-editor-content';
     document.body.appendChild(contentLayer);
     
-    // DOMRenderer 생성
+    // Create DOMRenderer
     contentRenderer = new DOMRenderer(registry);
     
-    // DecoratorPrebuilder 생성
+    // Create DecoratorPrebuilder
     prebuilder = new DecoratorPrebuilder(registry, contentLayer, contentRenderer);
   });
   
@@ -70,7 +70,7 @@ describe('DecoratorPrebuilder', () => {
         ]
       };
       
-      // Content 렌더링 (DOM이 있어야 position 계산 가능)
+      // Render content (DOM is required for position calculation)
       contentRenderer.render(contentLayer, modelData);
       
       const decorators: Decorator[] = [
@@ -200,13 +200,13 @@ describe('DecoratorPrebuilder', () => {
         ]
       };
       
-      // Content 렌더링 (DOM이 있어야 position 계산 가능)
+      // Render content (DOM is required for position calculation)
       contentRenderer.render(contentLayer, modelData);
       
-      // DOM 요소에 실제 크기 설정 (테스트 환경)
+      // Set actual size on DOM element (test environment)
       const element = contentLayer.querySelector('[data-bc-sid="p1"]') as HTMLElement;
       if (element) {
-        // 실제 크기를 가지도록 설정
+        // Set to have actual size
         Object.defineProperty(element, 'offsetWidth', { value: 200, configurable: true });
         Object.defineProperty(element, 'offsetHeight', { value: 30, configurable: true });
         element.style.position = 'relative';
@@ -214,7 +214,7 @@ describe('DecoratorPrebuilder', () => {
         element.style.height = '30px';
       }
       
-      // getBoundingClientRect를 모킹
+      // Mock getBoundingClientRect
       const originalGetBoundingClientRect = HTMLElement.prototype.getBoundingClientRect;
       HTMLElement.prototype.getBoundingClientRect = function() {
         if (this.getAttribute('data-bc-sid') === 'p1') {
@@ -246,7 +246,7 @@ describe('DecoratorPrebuilder', () => {
         
         const models = prebuilder.buildAll([decorator], modelData);
         
-        // Position이 계산되었는지 확인
+        // Verify position is calculated
         if (models[0].position) {
           const expected: DecoratorModel[] = [
             {
@@ -267,11 +267,11 @@ describe('DecoratorPrebuilder', () => {
           ];
           expect(models).toEqual(expected);
         } else {
-          // Position 계산 실패 시 (DOM 환경 문제) 스킵
+          // Skip if position calculation fails (DOM environment issue)
           console.warn('Position calculation failed, likely due to test environment DOM limitations');
         }
       } finally {
-        // 원래 메서드 복원
+        // Restore original method
         HTMLElement.prototype.getBoundingClientRect = originalGetBoundingClientRect;
       }
     });
@@ -384,7 +384,7 @@ describe('DecoratorPrebuilder', () => {
         ]
       };
       
-      // Content 렌더링 (target이 모델에 존재해야 함)
+      // Render content (target must exist in model)
       contentRenderer.render(contentLayer, modelData);
       
       const decorator: Decorator = {
@@ -800,7 +800,7 @@ describe('DecoratorPrebuilder', () => {
         ]
       };
       
-      // Content 렌더링 (target이 모델에 존재해야 함)
+      // Render content (target must exist in model)
       contentRenderer.render(contentLayer, modelData);
       
       const inlineDeco: Decorator = {
@@ -851,10 +851,10 @@ describe('DecoratorPrebuilder', () => {
         ]
       };
       
-      // Content 렌더링
+      // Render content
       contentRenderer.render(contentLayer, modelData);
       
-      // 존재하지 않는 target을 참조하는 decorator
+      // Decorator referencing non-existent target
       const decorator: Decorator = {
         sid: 'd1',
         stype: 'highlight',
@@ -900,7 +900,7 @@ describe('DecoratorPrebuilder', () => {
         ]
       };
       
-      // 렌더링하지 않음 (DOM이 없음)
+      // Do not render (no DOM)
       
       const decorator: Decorator = {
         sid: 'd1',

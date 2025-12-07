@@ -76,7 +76,7 @@ describe('Pattern 및 Custom Decorator Edge Cases', () => {
         ]
       };
       
-      // 낮은 priority (먼저 처리)
+      // Low priority (processed first)
       view.addDecorator({
         sid: 'url-pattern-low',
         stype: 'link',
@@ -90,11 +90,11 @@ describe('Pattern 및 Custom Decorator Edge Cases', () => {
             target: { sid: nodeId, startOffset: start, endOffset: end },
             data: { url: data.url, priority: data.priority }
           }),
-          priority: 10 // 낮은 priority
+          priority: 10 // Low priority
         }
       });
       
-      // 높은 priority (나중에 처리)
+      // High priority (processed later)
       view.addDecorator({
         sid: 'url-pattern-high',
         stype: 'link',
@@ -108,17 +108,17 @@ describe('Pattern 및 Custom Decorator Edge Cases', () => {
             target: { sid: nodeId, startOffset: start, endOffset: end },
             data: { url: data.url, priority: data.priority }
           }),
-          priority: 20 // 높은 priority
+          priority: 20 // High priority
         }
       });
       
       view.render(tree, { sync: true });
       
-      // 두 패턴 모두 등록되었는지 확인
+      // Verify both patterns are registered
       const patternConfigs = view.patternDecoratorConfigManager.getConfigs();
       expect(patternConfigs).toHaveLength(2);
       
-      // Priority 순서 확인 (낮은 것이 먼저)
+      // Verify priority order (lower priority first)
       const sorted = patternConfigs.sort((a, b) => (a.priority || 100) - (b.priority || 100));
       expect(sorted[0].sid).toBe('url-pattern-low');
       expect(sorted[1].sid).toBe('url-pattern-high');
@@ -145,7 +145,7 @@ describe('Pattern 및 Custom Decorator Edge Cases', () => {
         ]
       };
       
-      // Pattern decorator 등록
+      // Register pattern decorator
       view.addDecorator({
         sid: 'url-pattern',
         stype: 'link',
@@ -163,18 +163,18 @@ describe('Pattern 및 Custom Decorator Edge Cases', () => {
         }
       });
       
-      // 비활성화
+      // Disable
       const updated = view.setDecoratorEnabled('url-pattern', false);
-      expect(updated).toBe(true); // setDecoratorEnabled가 성공했는지 확인
+      expect(updated).toBe(true); // Verify setDecoratorEnabled succeeded
       
       view.render(tree, { sync: true });
       
-      // 비활성화 확인
-      // isDecoratorEnabled는 isConfigEnabled를 확인
+      // Verify disabled
+      // isDecoratorEnabled checks isConfigEnabled
       const config = view.patternDecoratorConfigManager.getConfigs().find(c => c.sid === 'url-pattern');
       expect(config?.enabled).toBe(false);
       
-      // enabledOnly로 조회하면 포함되지 않아야 함
+      // Should not be included when querying with enabledOnly
       const enabledConfigs = view.patternDecoratorConfigManager.getConfigs(true);
       expect(enabledConfigs).toHaveLength(0);
     });
@@ -213,20 +213,20 @@ describe('Pattern 및 Custom Decorator Edge Cases', () => {
       
       view.addDecorator(generator);
       
-      // 비활성화
+      // Disable
       const updated = view.setDecoratorEnabled('test-generator', false);
-      expect(updated).toBe(true); // setDecoratorEnabled가 성공했는지 확인
+      expect(updated).toBe(true); // Verify setDecoratorEnabled succeeded
       
       view.render(tree, { sync: true });
       
-      // 비활성화 확인
-      // isDecoratorEnabled는 isGeneratorEnabled를 확인하는데,
-      // isGeneratorEnabled는 generator?.enabled !== false를 반환
-      // enabled가 undefined면 true를 반환하므로, 명시적으로 false로 설정해야 함
+      // Verify disabled
+      // isDecoratorEnabled checks isGeneratorEnabled,
+      // isGeneratorEnabled returns generator?.enabled !== false
+      // If enabled is undefined, it returns true, so must explicitly set to false
       const retrievedGenerator = view.decoratorGeneratorManager.getGenerator('test-generator');
       expect(retrievedGenerator?.enabled).toBe(false);
       
-      // enabledOnly로 조회하면 포함되지 않아야 함
+      // Should not be included when querying with enabledOnly
       const enabledGenerators = view.decoratorGeneratorManager.getAllGenerators(true);
       expect(enabledGenerators).toHaveLength(0);
     });
@@ -261,9 +261,9 @@ describe('Pattern 및 Custom Decorator Edge Cases', () => {
           pattern: /https?:\/\/[^\s]+/g,
           extractData: (match: RegExpMatchArray) => ({ url: match[0] }),
           createDecorator: (nodeId, start, end, data) => {
-            // 조건에 따라 빈 배열 반환
+            // Return empty array based on condition
             if (data.url.includes('example')) {
-              return []; // 빈 배열 반환
+              return []; // Return empty array
             }
             return [{
               sid: `pattern-link-${nodeId}-${start}-${end}`,
@@ -277,7 +277,7 @@ describe('Pattern 및 Custom Decorator Edge Cases', () => {
       
       view.render(tree, { sync: true });
       
-      // Pattern config는 등록되었지만 decorator는 생성되지 않음
+      // Pattern config is registered but decorator is not created
       const patternConfigs = view.patternDecoratorConfigManager.getConfigs();
       expect(patternConfigs).toHaveLength(1);
     });
@@ -304,7 +304,7 @@ describe('Pattern 및 Custom Decorator Edge Cases', () => {
       const generator: DecoratorGenerator = {
         sid: 'empty-generator',
         generate: (model: ModelData, text: string | null): any[] => {
-          // 항상 빈 배열 반환
+          // Always return empty array
           return [];
         }
       };
@@ -312,7 +312,7 @@ describe('Pattern 및 Custom Decorator Edge Cases', () => {
       view.addDecorator(generator);
       view.render(tree, { sync: true });
       
-      // Generator는 등록되었지만 decorator는 생성되지 않음
+      // Generator is registered but decorator is not created
       const registeredGenerator = view.decoratorGeneratorManager.getGenerator('empty-generator');
       expect(registeredGenerator).toBeDefined();
     });
@@ -338,7 +338,7 @@ describe('Pattern 및 Custom Decorator Edge Cases', () => {
         ]
       };
       
-      // 에러를 발생시키는 패턴
+      // Pattern that throws error
       view.addDecorator({
         sid: 'error-pattern',
         stype: 'link',
@@ -354,7 +354,7 @@ describe('Pattern 및 Custom Decorator Edge Cases', () => {
         }
       });
       
-      // 정상 작동하는 패턴
+      // Pattern that works normally
       view.addDecorator({
         sid: 'email-pattern',
         stype: 'email',
@@ -372,10 +372,10 @@ describe('Pattern 및 Custom Decorator Edge Cases', () => {
         }
       });
       
-      // 에러가 발생해도 다른 패턴은 처리되어야 함
+      // Other patterns should be processed even if error occurs
       view.render(tree, { sync: true });
       
-      // 두 패턴 모두 등록되었는지 확인
+      // Verify both patterns are registered
       const patternConfigs = view.patternDecoratorConfigManager.getConfigs();
       expect(patternConfigs).toHaveLength(2);
     });
@@ -399,7 +399,7 @@ describe('Pattern 및 Custom Decorator Edge Cases', () => {
         ]
       };
       
-      // 에러를 발생시키는 generator
+      // Generator that throws error
       const errorGenerator: DecoratorGenerator = {
         sid: 'error-generator',
         generate: (model: ModelData, text: string | null): any[] => {
@@ -407,7 +407,7 @@ describe('Pattern 및 Custom Decorator Edge Cases', () => {
         }
       };
       
-      // 정상 작동하는 generator
+      // Generator that works normally
       const normalGenerator: DecoratorGenerator = {
         sid: 'normal-generator',
         generate: (model: ModelData, text: string | null): any[] => {
@@ -424,10 +424,10 @@ describe('Pattern 및 Custom Decorator Edge Cases', () => {
       view.addDecorator(errorGenerator);
       view.addDecorator(normalGenerator);
       
-      // 에러가 발생해도 다른 generator는 실행되어야 함
+      // Other generators should execute even if error occurs
       view.render(tree, { sync: true });
       
-      // 두 generator 모두 등록되었는지 확인
+      // Verify both generators are registered
       const allGenerators = view.decoratorGeneratorManager.getAllGenerators();
       expect(allGenerators).toHaveLength(2);
     });
@@ -446,7 +446,7 @@ describe('Pattern 및 Custom Decorator Edge Cases', () => {
               {
                 sid: 't1',
                 stype: 'inline-text',
-                text: '' // 빈 텍스트
+                text: '' // Empty text
               }
             ]
           }
@@ -472,7 +472,7 @@ describe('Pattern 및 Custom Decorator Edge Cases', () => {
       
       view.render(tree, { sync: true });
       
-      // Pattern config는 등록되었지만 매칭은 없음
+      // Pattern config is registered but no match
       const patternConfigs = view.patternDecoratorConfigManager.getConfigs();
       expect(patternConfigs).toHaveLength(1);
     });
@@ -489,7 +489,7 @@ describe('Pattern 및 Custom Decorator Edge Cases', () => {
               {
                 sid: 't1',
                 stype: 'inline-text'
-                // text 속성 없음
+                // No text attribute
               }
             ]
           }
@@ -499,7 +499,7 @@ describe('Pattern 및 Custom Decorator Edge Cases', () => {
       const generator: DecoratorGenerator = {
         sid: 'text-generator',
         generate: (model: ModelData, text: string | null): any[] => {
-          // text가 null이면 빈 배열 반환
+          // Return empty array if text is null
           if (!text) {
             return [];
           }
@@ -516,7 +516,7 @@ describe('Pattern 및 Custom Decorator Edge Cases', () => {
       view.addDecorator(generator);
       view.render(tree, { sync: true });
       
-      // Generator는 등록되었지만 decorator는 생성되지 않음
+      // Generator is registered but decorator is not created
       const registeredGenerator = view.decoratorGeneratorManager.getGenerator('text-generator');
       expect(registeredGenerator).toBeDefined();
     });
@@ -535,7 +535,7 @@ describe('Pattern 및 Custom Decorator Edge Cases', () => {
               {
                 sid: 't1',
                 stype: 'inline-text',
-                text: 'Hello World' // URL이 없음
+                text: 'Hello World' // No URL
               }
             ]
           }
@@ -561,7 +561,7 @@ describe('Pattern 및 Custom Decorator Edge Cases', () => {
       
       view.render(tree, { sync: true });
       
-      // Pattern config는 등록되었지만 매칭은 없음
+      // Pattern config is registered but no match
       const patternConfigs = view.patternDecoratorConfigManager.getConfigs();
       expect(patternConfigs).toHaveLength(1);
     });
@@ -590,7 +590,7 @@ describe('Pattern 및 Custom Decorator Edge Cases', () => {
       const generator: DecoratorGenerator = {
         sid: 'context-generator',
         generate: (model: ModelData, text: string | null, context?: DecoratorGeneratorContext): any[] => {
-          // context를 활용하여 decorator 생성
+          // Use context to create decorator
           const documentModel = context?.documentModel;
           if (documentModel && text) {
             return [{
@@ -611,7 +611,7 @@ describe('Pattern 및 Custom Decorator Edge Cases', () => {
       view.addDecorator(generator);
       view.render(tree, { sync: true });
       
-      // Generator가 등록되었는지 확인
+      // Verify generator is registered
       const registeredGenerator = view.decoratorGeneratorManager.getGenerator('context-generator');
       expect(registeredGenerator).toBeDefined();
     });

@@ -63,41 +63,41 @@ describe('getPreviousNode', () => {
       });
     });
 
-    it('형제 노드가 있으면 이전 형제 반환', () => {
+    it('should return previous sibling if sibling exists', () => {
       const textNodes = dataStore.findNodesByType('inline-text');
       const firstText = textNodes[0];
       const secondText = textNodes[1];
       
-      // 두 번째 텍스트의 이전은 첫 번째 텍스트
+      // Previous of second text is first text
       expect(dataStore.getPreviousNode(secondText.sid!)).toBe(firstText.sid);
     });
 
-    it('첫 번째 형제는 부모 반환', () => {
+    it('should return parent for first sibling', () => {
       const textNodes = dataStore.findNodesByType('inline-text');
       const paragraph = dataStore.findNodesByType('paragraph')[0];
       const firstText = textNodes[0];
       
-      // 첫 번째 텍스트의 이전은 부모 paragraph
+      // Previous of first text is parent paragraph
       expect(dataStore.getPreviousNode(firstText.sid!)).toBe(paragraph.sid);
     });
 
-    it('부모 노드의 이전은 그 부모', () => {
+    it('previous of parent node is its parent', () => {
       const paragraph = dataStore.findNodesByType('paragraph')[0];
       const document = dataStore.findNodesByType('document')[0];
       
-      // paragraph의 이전은 document
+      // Previous of paragraph is document
       expect(dataStore.getPreviousNode(paragraph.sid!)).toBe(document.sid);
     });
 
-    it('루트 노드는 null 반환', () => {
+    it('should return null for root node', () => {
       const document = dataStore.findNodesByType('document')[0];
       
-      // document의 이전은 null
+      // Previous of document is null
       expect(dataStore.getPreviousNode(document.sid!)).toBeNull();
     });
   });
 
-  describe('복잡한 중첩 구조', () => {
+  describe('Complex nested structure', () => {
     beforeEach(() => {
       // document > [paragraph-1, paragraph-2]
       // paragraph-1 > [text-1, text-2]
@@ -122,35 +122,35 @@ describe('getPreviousNode', () => {
       });
     });
 
-    it('단락 간 이동', () => {
+    it('movement between paragraphs', () => {
       const textNodes = dataStore.findNodesByType('inline-text');
       const paragraphs = dataStore.findNodesByType('paragraph');
       
-      // Para2-Text1의 이전은 paragraph-2 (부모)
+      // Previous of Para2-Text1 is paragraph-2 (parent)
       expect(dataStore.getPreviousNode(textNodes[2].sid!)).toBe(paragraphs[1].sid);
       
-      // Para1-Text2의 이전은 Para1-Text1
+      // Previous of Para1-Text2 is Para1-Text1
       expect(dataStore.getPreviousNode(textNodes[1].sid!)).toBe(textNodes[0].sid);
     });
 
-    it('단락 노드에서 이전 단락의 마지막 자식으로 이동', () => {
+    it('move from paragraph node to last child of previous paragraph', () => {
       const paragraphs = dataStore.findNodesByType('paragraph');
       const textNodes = dataStore.findNodesByType('inline-text');
       
-      // paragraph-2의 이전은 paragraph-1의 마지막 자식 (Para1-Text2)
+      // Previous of paragraph-2 is last child of paragraph-1 (Para1-Text2)
       expect(dataStore.getPreviousNode(paragraphs[1].sid!)).toBe(textNodes[1].sid);
     });
 
-    it('첫 번째 단락의 첫 번째 노드는 부모 반환', () => {
+    it('should return parent for first node of first paragraph', () => {
       const paragraphs = dataStore.findNodesByType('paragraph');
       const textNodes = dataStore.findNodesByType('inline-text');
       
-      // Para1-Text1의 이전은 paragraph-1
+      // Previous of Para1-Text1 is paragraph-1
       expect(dataStore.getPreviousNode(textNodes[0].sid!)).toBe(paragraphs[0].sid);
     });
   });
 
-  describe('깊은 중첩 구조', () => {
+  describe('Deep nested structure', () => {
     beforeEach(() => {
       // document > paragraph > [text-1, text-2, text-3]
       dataStore.createNodeWithChildren({
@@ -168,7 +168,7 @@ describe('getPreviousNode', () => {
       });
     });
 
-    it('깊은 중첩에서 순서대로 역이동', () => {
+    it('reverse movement in order in deep nesting', () => {
       const textNodes = dataStore.findNodesByType('inline-text');
       
       // Text-3 -> Text-2
@@ -183,7 +183,7 @@ describe('getPreviousNode', () => {
     });
   });
 
-  describe('경계 케이스', () => {
+  describe('Edge cases', () => {
     beforeEach(() => {
       dataStore.createNodeWithChildren({
         stype: 'document',
@@ -211,16 +211,16 @@ describe('getPreviousNode', () => {
       }).toThrow('Node not found: any-sid');
     });
 
-    it('단일 노드에서의 동작', () => {
+    it('behavior with single node', () => {
       const textNode = dataStore.findNodesByType('inline-text')[0];
       const paragraph = dataStore.findNodesByType('paragraph')[0];
       
-      // 단일 텍스트의 이전은 부모 paragraph
+      // Previous of single text is parent paragraph
       expect(dataStore.getPreviousNode(textNode.sid!)).toBe(paragraph.sid);
     });
   });
 
-  describe('다양한 마크가 적용된 inline-text 노드들', () => {
+  describe('inline-text nodes with various marks applied', () => {
     beforeEach(() => {
       // document > paragraph > [text, bold-text, italic-text, link-text, code-text, text]
       dataStore.createNodeWithChildren({
@@ -241,11 +241,11 @@ describe('getPreviousNode', () => {
       });
     });
 
-    it('다양한 마크가 적용된 inline-text 노드들 간의 역순 이동', () => {
+    it('reverse movement between inline-text nodes with various marks applied', () => {
       const allNodes = dataStore.getAllNodes();
       const inlineTextNodes = allNodes.filter(node => node.stype === 'inline-text');
       
-      // 역순으로 이동 확인
+      // Verify reverse movement
       expect(dataStore.getPreviousNode(inlineTextNodes[5].sid!)).toBe(inlineTextNodes[4].sid);
       expect(dataStore.getPreviousNode(inlineTextNodes[4].sid!)).toBe(inlineTextNodes[3].sid);
       expect(dataStore.getPreviousNode(inlineTextNodes[3].sid!)).toBe(inlineTextNodes[2].sid);
@@ -255,7 +255,7 @@ describe('getPreviousNode', () => {
     });
   });
 
-  describe('heading과 paragraph 혼합', () => {
+  describe('heading and paragraph mix', () => {
     beforeEach(() => {
       // document > [heading, paragraph, heading, paragraph]
       dataStore.createNodeWithChildren({
@@ -291,26 +291,26 @@ describe('getPreviousNode', () => {
       });
     });
 
-    it('heading과 paragraph 간의 역이동', () => {
+    it('reverse movement between heading and paragraph', () => {
       const headings = dataStore.findNodesByType('heading');
       const paragraphs = dataStore.findNodesByType('paragraph');
       const textNodes = dataStore.findNodesByType('inline-text');
       
-      // paragraph-2의 이전은 heading-2의 마지막 자손 (text)
+      // Previous of paragraph-2 is last descendant of heading-2 (text)
       expect(dataStore.getPreviousNode(paragraphs[1].sid!)).toBe(textNodes[2].sid);
       
-      // heading-2의 이전은 paragraph-1의 마지막 자손 (text)
+      // Previous of heading-2 is last descendant of paragraph-1 (text)
       expect(dataStore.getPreviousNode(headings[1].sid!)).toBe(textNodes[1].sid);
       
-      // paragraph-1의 이전은 heading-1의 마지막 자손 (text)
+      // Previous of paragraph-1 is last descendant of heading-1 (text)
       expect(dataStore.getPreviousNode(paragraphs[0].sid!)).toBe(textNodes[0].sid);
     });
 
-    it('heading 내부의 inline-text 노드 역이동', () => {
+    it('reverse movement of inline-text node inside heading', () => {
       const heading2 = dataStore.findNodesByType('heading')[1];
       const textNode = dataStore.findNodesByType('inline-text')[2];
       
-      // heading-2의 이전은 paragraph-1
+      // Previous of heading-2 is paragraph-1
       expect(dataStore.getPreviousNode(heading2.sid!)).toBeTruthy();
     });
   });
@@ -351,7 +351,7 @@ describe('getPreviousNode', () => {
       const allNodes = dataStore.getAllNodes();
       const inlineTextNodes = allNodes.filter(node => node.stype === 'inline-text');
       
-      // 역순으로 이동 확인
+      // Verify reverse order movement
       expect(dataStore.getPreviousNode(inlineTextNodes[3].sid!)).toBe(inlineTextNodes[2].sid);
       expect(dataStore.getPreviousNode(inlineTextNodes[2].sid!)).toBe(inlineTextNodes[1].sid);
       expect(dataStore.getPreviousNode(inlineTextNodes[1].sid!)).toBe(inlineTextNodes[0].sid);
@@ -379,14 +379,14 @@ describe('getPreviousNode', () => {
     it('getNextNode와 getPreviousNode는 대칭적', () => {
       const textNodes = dataStore.findNodesByType('inline-text');
       
-      // A -> B이면 B -> A여야 함
+      // If A -> B, then B -> A must be true
       const firstToSecond = dataStore.getNextNode(textNodes[0].sid!);
       expect(firstToSecond).toBe(textNodes[1].sid);
       
       const secondToFirst = dataStore.getPreviousNode(textNodes[1].sid!);
       expect(secondToFirst).toBe(textNodes[0].sid);
       
-      // B -> C이면 C -> B여야 함
+      // If B -> C, then C -> B must be true
       const secondToThird = dataStore.getNextNode(textNodes[1].sid!);
       expect(secondToThird).toBe(textNodes[2].sid);
       

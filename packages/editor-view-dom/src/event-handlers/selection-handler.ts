@@ -525,7 +525,7 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
       };
     }
 
-    // Binary search로 적절한 run 찾기
+    // Find appropriate run using binary search
     const runIndex = binarySearchRun(runs.runs, modelOffset);
     if (runIndex === -1) {
       console.warn('[SelectionHandler] Could not find run for model offset:', { modelOffset, runs: runs.runs.map(r => ({ start: r.start, end: r.end })) });

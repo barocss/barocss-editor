@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { ModelSelection } from '@barocss/editor-core';
 
-// @barocss/model 모듈을 mock 해서 실제 DataStore/Transaction에 의존하지 않도록 한다.
-// vi.mock은 파일 상단에서 동기적으로 정의해야 하므로, 이 스코프 안에서 mock 데이터를 유지한다.
+// Mock @barocss/model module to avoid dependency on actual DataStore/Transaction
+// vi.mock must be defined synchronously at the top of the file, so maintain mock data in this scope
 const commitMock = vi.fn().mockResolvedValue({ success: true });
 const recordedTransactions: any[][] = [];
 
@@ -12,8 +12,8 @@ vi.mock('@barocss/model', () => {
       recordedTransactions.push(operations);
       return { commit: commitMock };
     },
-    // control은 단일 노드 텍스트 삭제에서 operations 래핑에 사용되므로
-    // 그냥 내부 operations 배열을 그대로 반환하도록 구현한다.
+    // control is used for wrapping operations in single node text deletion,
+    // so just return the internal operations array as is
     control: (_nodeId: string, ops: any[]) => ops
   };
 });
@@ -53,8 +53,8 @@ describe('DeleteExtension - backspace / deleteForward', () => {
     recordedTransactions.length = 0;
   });
 
-  it('backspace: offset > 0 인 경우 현재 노드에서 왼쪽 한 글자를 deleteText로 삭제한다', async () => {
-    const fakeDataStore = {}; // _executeBackspace의 offset>0 경로에서는 dataStore를 사용하지 않는다.
+  it('backspace: deletes one character to the left from current node with deleteText when offset > 0', async () => {
+    const fakeDataStore = {}; // _executeBackspace's offset>0 path does not use dataStore
     const editor = new FakeEditor(fakeDataStore) as any;
 
     const ext = new DeleteExtension();
@@ -75,11 +75,11 @@ describe('DeleteExtension - backspace / deleteForward', () => {
 
     await backspaceCmd!.execute(editor, { selection });
 
-    // transaction 이 한 번 호출되고 commit 이 한 번 호출되어야 한다.
+    // transaction should be called once and commit should be called once
     expect(recordedTransactions).toHaveLength(1);
     expect(commitMock).toHaveBeenCalledTimes(1);
 
-    // 전달된 operations 에 deleteTextRange 가 포함되어 있는지 간단히 확인한다.
+    // Simply verify that deleteTextRange is included in the passed operations
     const ops = recordedTransactions[0];
     expect(ops).toHaveLength(1);
     expect(ops[0].type).toBe('deleteTextRange');
@@ -152,7 +152,7 @@ describe('DeleteExtension - backspace / deleteForward', () => {
     const selection: ModelSelection = {
       type: 'range',
       startNodeId: 'text-1',
-      startOffset: 5, // "Hello|" 끝
+      startOffset: 5, // End of "Hello|"
       endNodeId: 'text-1',
       endOffset: 5,
       collapsed: true,
@@ -170,7 +170,7 @@ describe('DeleteExtension - backspace / deleteForward', () => {
     expect(ops[0].payload).toEqual({ start: 0, end: 1 });
   });
 
-  it('deleteForward: 텍스트 끝에서 다음 노드가 없으면 아무 동작도 하지 않는다 (케이스 E′)', async () => {
+  it('deleteForward: does nothing when there is no next node at text end (case E′)', async () => {
     const fakeDataStore = {
       getNode: (sid: string) => {
         if (sid === 'text-1') {
@@ -191,7 +191,7 @@ describe('DeleteExtension - backspace / deleteForward', () => {
     const selection: ModelSelection = {
       type: 'range',
       startNodeId: 'text-1',
-      startOffset: 5, // 끝
+      startOffset: 5, // End
       endNodeId: 'text-1',
       endOffset: 5,
       collapsed: true,
@@ -200,7 +200,7 @@ describe('DeleteExtension - backspace / deleteForward', () => {
 
     await deleteForwardCmd!.execute(editor, { selection });
 
-    // 다음 편집 가능한 노드가 없으므로 transaction 이 호출되지 않아야 한다.
+    // Transaction should not be called as there is no next editable node
     expect(recordedTransactions).toHaveLength(0);
     expect(commitMock).not.toHaveBeenCalled();
   });
@@ -245,7 +245,7 @@ describe('DeleteExtension - backspace / deleteForward', () => {
     const selection: ModelSelection = {
       type: 'range',
       startNodeId: 'text-2',
-      startOffset: 0, // paragraph-2의 첫 텍스트 시작
+      startOffset: 0, // Start of first text in paragraph-2
       endNodeId: 'text-2',
       endOffset: 0,
       collapsed: true,
@@ -261,7 +261,7 @@ describe('DeleteExtension - backspace / deleteForward', () => {
     expect(ops[0].payload).toEqual({ leftNodeId: 'para-1', rightNodeId: 'para-2' });
   });
 
-  it('deleteForward: 블록 경계에서 다음 블록과 병합한다 (케이스 D′)', async () => {
+  it('deleteForward: merges with next block at block boundary (case D′)', async () => {
     /**
      * 구조:
      * document
@@ -301,7 +301,7 @@ describe('DeleteExtension - backspace / deleteForward', () => {
     const selection: ModelSelection = {
       type: 'range',
       startNodeId: 'text-1',
-      startOffset: 5, // "Hello" 끝
+      startOffset: 5, // End of "Hello"
       endNodeId: 'text-1',
       endOffset: 5,
       collapsed: true,
@@ -317,7 +317,7 @@ describe('DeleteExtension - backspace / deleteForward', () => {
     expect(ops[0].payload).toEqual({ leftNodeId: 'para-1', rightNodeId: 'para-2' });
   });
 
-  it('backspace: inline-image 를 이전 편집 가능한 노드로 보고 전체 삭제한다 (케이스 C)', async () => {
+  it('backspace: treats inline-image as previous editable node and deletes entirely (case C)', async () => {
     /**
      * 구조:
      * paragraph
@@ -469,8 +469,8 @@ describe('DeleteExtension - backspace / deleteForward', () => {
 
     await backspaceCmd!.execute(editor, { selection });
 
-    // 서로 다른 블록 타입이므로 mergeBlockNodes는 생성되지 않아야 한다.
-    // (현재 구현에서는 아무 operation 도 생성하지 않음)
+    // mergeBlockNodes should not be created as block types are different
+    // (current implementation does not create any operation)
     expect(recordedTransactions).toHaveLength(0);
     expect(commitMock).not.toHaveBeenCalled();
   });

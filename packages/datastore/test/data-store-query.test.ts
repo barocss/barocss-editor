@@ -47,7 +47,7 @@ describe('DataStore Query Functions', () => {
     });
     dataStore = new DataStore(undefined, schema);
 
-    // 테스트 데이터 생성
+    // Create test data
     const document = {
       stype: 'document',
       content: [
@@ -98,7 +98,7 @@ describe('DataStore Query Functions', () => {
 
   describe('findNodesByAttribute', () => {
     it('should find nodes by attribute', () => {
-      // 노드에 속성 추가
+      // Add attribute to node
       const nodes = dataStore.getAllNodes();
       const firstNode = nodes[0];
       if (firstNode) {

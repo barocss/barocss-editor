@@ -94,15 +94,15 @@ describe('DataStore Move/Copy Functions', () => {
     it('should move node to different parent', () => {
       dataStore.moveNode('child-1', 'parent-2');
 
-      // child-1이 parent-2로 이동되었는지 확인
+      // Verify child-1 moved to parent-2
       const updatedChild = dataStore.getNode('child-1');
       expect(updatedChild!.parentId).toBe('parent-2');
 
-      // parent-1에서 child-1이 제거되었는지 확인
+      // Verify child-1 removed from parent-1
       const updatedParent1 = dataStore.getNode('parent-1');
       expect(updatedParent1!.content).toHaveLength(0);
 
-      // parent-2에 child-1이 추가되었는지 확인
+      // Verify child-1 added to parent-2
       const updatedParent2 = dataStore.getNode('parent-2');
       expect(updatedParent2!.content).toContain('child-1');
       expect(updatedParent2!.content).toHaveLength(2);
@@ -213,16 +213,16 @@ describe('DataStore Move/Copy Functions', () => {
     });
 
     it('should validate copied node', () => {
-      // 먼저 유효한 노드 생성
+      // First create valid node
       const validNode = {
         sid: 'valid-node',
         stype: 'inline-text',
         text: 'Valid text',
         attributes: {}
       };
-      dataStore.setNode(validNode, false); // validation 없이 생성
+      dataStore.setNode(validNode, false); // Create without validation
 
-      // 복사 시 validation 수행
+      // Perform validation on copy
       const copiedId = dataStore.copyNode('valid-node', 'parent');
       
       expect(copiedId).toBeDefined();
@@ -288,7 +288,7 @@ describe('DataStore Move/Copy Functions', () => {
       expect(clonedParent!.parentId).toBe('parent');
       expect(clonedParent!.content).toHaveLength(2);
 
-      // 자식들도 복사되었는지 확인
+      // Verify children are also copied
       const clonedChild1Id = clonedParent!.content![0] as string;
       const clonedChild2Id = clonedParent!.content![1] as string;
 
@@ -320,7 +320,7 @@ describe('DataStore Move/Copy Functions', () => {
     });
 
     it('should validate cloned nodes', () => {
-      // 먼저 유효한 서브트리 생성
+      // First create valid subtree
       const validParent = {
         sid: 'valid-parent',
         stype: 'paragraph',
@@ -338,7 +338,7 @@ describe('DataStore Move/Copy Functions', () => {
       dataStore.setNode(validParent, false);
       dataStore.setNode(validChild, false);
 
-      // 복제 시 validation 수행
+      // Perform validation on clone
       const clonedId = dataStore.cloneNodeWithChildren('valid-parent', 'parent');
       
       expect(clonedId).toBeDefined();

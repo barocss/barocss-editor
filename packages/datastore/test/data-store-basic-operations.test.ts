@@ -231,7 +231,7 @@ describe('DataStore Basic Operations', () => {
       const siblings = dataStore.getSiblings('child1');
       expect(siblings).toHaveLength(1);
       expect(siblings.map(s => s.sid)).toContain('child2');
-      expect(siblings.map(s => s.sid)).not.toContain('child1'); // 자신은 제외
+      expect(siblings.map(s => s.sid)).not.toContain('child1'); // Exclude self
     });
 
     it('should get sibling index', () => {

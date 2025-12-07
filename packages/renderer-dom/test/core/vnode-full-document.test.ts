@@ -40,14 +40,14 @@ describe('Full Document VNode Verification', () => {
   const builder = new VNodeBuilder(registry);
 
   beforeEach(() => {
-    // main.ts의 구조를 따라 정의
+    // Define following main.ts structure
     
-    // 기본 블록 컴포넌트
+    // Basic block components
     define('document', element('div', { className: 'document' }, [slot('content')]));
     define('paragraph', element('p', { className: 'paragraph' }, [slot('content')]));
     define('heading', element((model: any) => `h${model.attributes?.level || 1}`, { className: 'heading' }, [slot('content')]));
     
-    // inline-text (main.ts의 구조)
+    // inline-text (main.ts structure)
     define('inline-text', element('span', { className: (d: any) => {
       const classes: any[] = ['text'];
       if (Array.isArray(d.marks)) {
@@ -58,7 +58,7 @@ describe('Full Document VNode Verification', () => {
       return classes;
     } }, [data('text')]));
     
-    // 마크 정의 (main.ts의 일부)
+    // Define marks (part of main.ts)
     defineMark('bold', element('span', { 
       className: 'custom-bold',
       'data-mark-type': 'bold',
@@ -116,13 +116,13 @@ describe('Full Document VNode Verification', () => {
       style: { backgroundColor: attr('color', '#ffff00') }
     }, [data('text')]));
     
-    // Decorator 정의
+    // Define Decorators
     defineDecorator('comment', element('div', { className: 'comment-block' }, []));
     defineDecorator('highlight-decorator', element('span', { className: 'highlight-decorator' }, []));
   });
 
   it('should build VNode for full document with complex marks', () => {
-    // main.ts의 initialTree 구조를 참고
+    // Reference main.ts's initialTree structure
     const documentModel = {
       sid: 'doc-1',
       stype: 'document',
@@ -203,15 +203,15 @@ describe('Full Document VNode Verification', () => {
       ]
     };
     
-    // Inline decorator는 각 텍스트 노드의 sid를 target으로 해야 함
-    // 'text-bold' 노드의 "bold text" 부분에 decorator 적용
+    // Inline decorator should use each text node's sid as target
+    // Apply decorator to "bold text" part of 'text-bold' node
     const decorators: DecoratorData[] = [
       {
         sid: 'd1',
         stype: 'highlight-decorator',
         type: 'highlight-decorator',
         category: 'inline',
-        target: { sid: 'text-bold', startOffset: 0, endOffset: 4 } // "bold" 부분에만
+        target: { sid: 'text-bold', startOffset: 0, endOffset: 4 } // Only "bold" part
       }
     ];
     
@@ -223,15 +223,15 @@ describe('Full Document VNode Verification', () => {
     
     expect(vnode).toBeTruthy();
     
-    // paragraph의 children에서 text-bold 노드를 찾아서 decorator가 적용되었는지 확인
+    // Find text-bold node in paragraph's children and verify decorator is applied
     const paragraphChild = (vnode.children as any[]).find((c: any) => c.stype === 'paragraph');
     expect(paragraphChild).toBeTruthy();
     
     const textBoldChild = (paragraphChild.children as any[]).find((c: any) => c.sid === 'text-bold');
     expect(textBoldChild).toBeTruthy();
     
-    // decorator가 적용되었다면 children에 decorator VNode가 있어야 함
-    // 또는 marks와 함께 처리되어야 함
+    // If decorator is applied, children should have decorator VNode
+    // Or should be processed together with marks
     expect(textBoldChild.children).toBeTruthy();
     expect(Array.isArray(textBoldChild.children)).toBe(true);
   });
@@ -282,7 +282,7 @@ describe('Full Document VNode Verification', () => {
     expect(vnode).toBeTruthy();
     expect(vnode.children).toBeTruthy();
     
-    // 현재 빌더는 block decorator를 children으로 물리 노드화하지 않고, 최상위 decorators 메타에 저장한다.
+    // Current builder does not materialize block decorators as children nodes, but stores them in top-level decorators metadata
     expect(Array.isArray((vnode as any).decorators)).toBe(true);
     const hasBlockDecorator = ((vnode as any).decorators as any[]).some((d: any) =>
       d && d.category === 'block' && d.position === 'after' && d.sid === 'd2' && d.target?.sid === 'p-1'

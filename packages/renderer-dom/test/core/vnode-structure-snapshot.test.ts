@@ -1,15 +1,15 @@
 /**
- * VNode 구조 스냅샷 테스트
+ * VNode Structure Snapshot Test
  * 
- * 이 테스트는 실제 VNode 구조를 JSON으로 직렬화하여 문서화합니다.
- * 테스트 실행 후 결과를 docs/vnode-structure-examples.md에 업데이트할 수 있습니다.
+ * This test serializes actual VNode structures to JSON for documentation.
+ * After test execution, results can be updated to docs/vnode-structure-examples.md.
  */
 import { describe, it } from 'vitest';
 import { define, element, data, defineDecorator, getGlobalRegistry, slot } from '@barocss/dsl';
 import { DecoratorData, VNodeBuilder } from '../../src/vnode/factory';
 
 /**
- * VNode를 JSON으로 직렬화 (순환 참조 및 함수 제거)
+ * Serialize VNode to JSON (remove circular references and functions)
  */
 function serializeVNode(vnode: any, depth: number = 0): any {
   if (depth > 10) return '[Max depth reached]';
@@ -26,11 +26,11 @@ function serializeVNode(vnode: any, depth: number = 0): any {
   if (typeof vnode === 'object') {
     const result: any = {};
     for (const key in vnode) {
-      if (key === 'getter' || key === 'function') continue; // 함수 제외
+      if (key === 'getter' || key === 'function') continue; // Exclude functions
       const value = vnode[key];
-      if (typeof value === 'function') continue; // 함수 제외
+      if (typeof value === 'function') continue; // Exclude functions
       if (key === 'component' && value) {
-        // component 정보는 제한적으로 직렬화
+        // Serialize component information limitedly
         result.component = {
           name: value.name,
           props: serializeVNode(value.props, depth + 1),

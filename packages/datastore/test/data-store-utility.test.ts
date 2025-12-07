@@ -42,7 +42,7 @@ describe('DataStore Utility Methods', () => {
     });
     dataStore = new DataStore(undefined, schema);
 
-    // 테스트용 계층 구조 생성
+    // Create hierarchical structure for testing
     const document: INode = {
       sid: 'doc',
       stype: 'document',
@@ -170,7 +170,7 @@ describe('DataStore Utility Methods', () => {
     });
 
     it('should update when root node changes', () => {
-      // 새로운 루트 노드 설정
+      // Set new root node
       const newRoot: INode = {
         sid: 'new-root',
         stype: 'document',
@@ -225,7 +225,7 @@ describe('DataStore Utility Methods', () => {
     });
 
     it('should update when siblings change', () => {
-      // 새로운 형제 노드 추가
+      // Add new sibling node
       const newSibling: INode = {
         sid: 'text-4',
         stype: 'inline-text',
@@ -245,12 +245,12 @@ describe('DataStore Utility Methods', () => {
 
   describe('Integration with existing functions', () => {
     it('should work with tree navigation functions', () => {
-      // getNodePath와 isLeafNode 조합
+      // Combination of getNodePath and isLeafNode
       const text1Path = dataStore.getNodePath('text-1');
       expect(text1Path).toEqual(['doc', 'para-1', 'text-1']);
       expect(dataStore.isLeafNode('text-1')).toBe(true);
 
-      // getNodeDepth와 getChildCount 조합
+      // Combination of getNodeDepth and getChildCount
       const para1Depth = dataStore.getNodeDepth('para-1');
       const para1ChildCount = dataStore.getChildCount('para-1');
       expect(para1Depth).toBe(1);
@@ -258,13 +258,13 @@ describe('DataStore Utility Methods', () => {
     });
 
     it('should work with query functions', () => {
-      // findNodes와 isLeafNode 조합 (stype 필터링)
+      // Combination of findNodes and isLeafNode (stype filtering)
       const textNodes = dataStore.findNodes(node => node.stype === 'inline-text');
       expect(textNodes.length).toBeGreaterThanOrEqual(3);
       const leafNodes = textNodes.filter(node => dataStore.isLeafNode(node.sid!));
       expect(leafNodes.length).toBeGreaterThanOrEqual(3);
 
-      // findByAttribute와 getSiblings 조합
+      // Combination of findByAttribute and getSiblings
       const boldNodes = dataStore.findByAttribute('class', 'bold');
       if (boldNodes.length > 0) {
         const boldNodeSiblings = dataStore.getSiblings(boldNodes[0].sid!);
@@ -273,7 +273,7 @@ describe('DataStore Utility Methods', () => {
     });
 
     it('should work with content manipulation functions', () => {
-      // addChild와 getChildCount 조합
+      // Combination of addChild and getChildCount
       const initialCount = dataStore.getChildCount('para-1');
       const newChild = dataStore.addChild('para-1', {
         stype: 'inline-text',
@@ -282,7 +282,7 @@ describe('DataStore Utility Methods', () => {
       });
       expect(dataStore.getChildCount('para-1')).toBe(initialCount + 1);
 
-      // removeChild와 getChildCount 조합
+      // Combination of removeChild and getChildCount
       dataStore.removeChild('para-1', 'text-1');
       expect(dataStore.getChildCount('para-1')).toBe(initialCount);
     });

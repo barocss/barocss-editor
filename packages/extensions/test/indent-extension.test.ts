@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { ModelSelection } from '@barocss/editor-core';
 
-// @barocss/model 모듈을 mock
+// Mock @barocss/model module
 const commitMock = vi.fn().mockResolvedValue({ success: true });
 const recordedTransactions: any[][] = [];
 
@@ -12,7 +12,7 @@ vi.mock('@barocss/model', () => {
       return { commit: commitMock };
     },
     control: (nodeId: string, ops: any[]) => {
-      // control은 nodeId를 각 operation의 payload에 추가
+      // control adds nodeId to each operation's payload
       return ops.map(op => ({
         ...op,
         payload: {
@@ -94,7 +94,7 @@ describe('IndentExtension', () => {
         direction: 'forward'
       };
 
-      // text-1의 부모가 para-1이라고 가정
+      // Assume text-1's parent is para-1
       fakeDataStore.getParent = (sid: string) => {
         if (sid === 'text-1') return { sid: 'para-1', stype: 'paragraph' };
         return null;
@@ -106,7 +106,7 @@ describe('IndentExtension', () => {
       const indentCmd = editor.commands.get('indentNode');
       expect(indentCmd).toBeDefined();
 
-      // nodeId를 명시적으로 전달
+      // Pass nodeId explicitly
       await indentCmd!.execute(editor, { nodeId: 'para-1' });
 
       expect(recordedTransactions).toHaveLength(1);
@@ -162,7 +162,7 @@ describe('IndentExtension', () => {
       const indentCmd = editor.commands.get('indentNode');
       expect(indentCmd).toBeDefined();
 
-      // nodeId 없이 실행 (selection에서 자동 추출)
+      // Execute without nodeId (auto-extract from selection)
       await indentCmd!.execute(editor);
 
       expect(recordedTransactions).toHaveLength(1);
@@ -224,7 +224,7 @@ describe('IndentExtension', () => {
           }
           return null;
         },
-        isIndentableNode: () => false, // indentable하지 않음
+        isIndentableNode: () => false, // Not indentable
         getActiveSchema: () => ({
           getNodeType: () => null
         })
@@ -244,7 +244,7 @@ describe('IndentExtension', () => {
 
       const result = await indentCmd!.execute(editor);
 
-      // indentable하지 않으므로 false 반환
+      // Return false as not indentable
       expect(result).toBe(false);
       expect(recordedTransactions).toHaveLength(0);
       expect(commitMock).not.toHaveBeenCalled();
@@ -298,7 +298,7 @@ describe('IndentExtension', () => {
       const fakeDataStore = {
         getNode: (sid: string) => {
           if (sid === 'para-1') {
-            return { sid, stype: 'paragraph', parentId: null }; // 부모 없음
+            return { sid, stype: 'paragraph', parentId: null }; // No parent
           }
           return null;
         },
@@ -322,7 +322,7 @@ describe('IndentExtension', () => {
 
       const result = await outdentCmd!.execute(editor);
 
-      // 부모가 없으므로 false 반환
+      // Return false as no parent
       expect(result).toBe(false);
       expect(recordedTransactions).toHaveLength(0);
       expect(commitMock).not.toHaveBeenCalled();
@@ -356,15 +356,15 @@ describe('IndentExtension', () => {
       const indentCmd = editor.commands.get('indentNode');
       expect(indentCmd).toBeDefined();
 
-      // indentable한 노드
+      // Indentable node
       expect(indentCmd!.canExecute(editor, { nodeId: 'para-1' })).toBe(true);
 
-      // indentable하지 않은 노드
+      // Non-indentable node
       fakeDataStore.isIndentableNode = () => false;
       expect(indentCmd!.canExecute(editor, { nodeId: 'para-1' })).toBe(false);
     });
 
-    it('outdentNode: indentable하고 부모가 있는 노드만 실행 가능', () => {
+    it('outdentNode: only indentable nodes with parent can execute', () => {
       const fakeDataStore = {
         getNode: (sid: string) => {
           if (sid === 'para-1') {
@@ -390,10 +390,10 @@ describe('IndentExtension', () => {
       const outdentCmd = editor.commands.get('outdentNode');
       expect(outdentCmd).toBeDefined();
 
-      // indentable하고 부모가 있는 노드
+      // Indentable node with parent
       expect(outdentCmd!.canExecute(editor, { nodeId: 'para-1' })).toBe(true);
 
-      // 부모가 없는 노드
+      // Node without parent
       fakeDataStore.getNode = (sid: string) => {
         if (sid === 'para-1') {
           return { sid, stype: 'paragraph', parentId: null };

@@ -340,7 +340,7 @@ describe('Unicode Text Analysis', () => {
       });
       const duration = performance.now() - startTime;
       
-      expect(duration).toBeLessThan(5); // 5ms 이내
+      expect(duration).toBeLessThan(5); // Within 5ms
       expect(changes).toHaveLength(1);
       expect(changes[0]).toMatchObject({
         type: 'insert',

@@ -135,12 +135,12 @@ describe('Schema Validators', () => {
     });
 
     it('should return error for multiple content with ? (zero or one)', () => {
-      // text 노드는 콘텐츠 모델이 없으므로 다른 노드 타입으로 테스트
+      // Text nodes have no content model, so test with other node types
       const content = [
         { stype: 'paragraph', content: [] },
         { stype: 'paragraph', content: [] }
       ];
-      // paragraph 노드에 ? 모델을 임시로 설정하여 테스트
+      // Temporarily set ? model on paragraph node for testing
       const paragraphDef = schema.getNodeType('paragraph');
       if (paragraphDef) {
         paragraphDef.content = 'text?';

@@ -19,11 +19,11 @@ describe('DOMRenderer Simple Re-render', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
 
-    // 최소한의 템플릿만 정의
+    // Define minimal templates only
     define('paragraph', element('p', { className: 'p' }, [slot('content')]));
     define('inline-text', element('span', { className: 'text' }, [data('text')]));
     
-    // 간단한 chip decorator
+    // Simple chip decorator
     defineDecorator('chip', element('span', {
       className: 'chip',
       style: { padding: '2px 4px', backgroundColor: '#e0e0e0' }
@@ -50,13 +50,13 @@ describe('DOMRenderer Simple Re-render', () => {
       ]
     };
 
-    // 1단계: 첫 렌더링 (decorator 없음)
+    // Step 1: First render (no decorator)
     console.log('[TEST] 1단계: 첫 렌더링');
     renderer.render(container, model);
     expect(container.querySelector('[data-bc-sid="t1"]')).toBeTruthy();
     expect(container.querySelector('.chip')).toBeFalsy();
 
-    // 2단계: decorator 추가
+    // Step 2: Add decorator
     console.log('[TEST] 2단계: decorator 추가');
     const decorators = [
       {
@@ -68,7 +68,7 @@ describe('DOMRenderer Simple Re-render', () => {
       }
     ];
 
-    // 3단계: 두 번째 렌더링 (decorator 있음)
+    // Step 3: Second render (with decorator)
     console.log('[TEST] 3단계: 두 번째 렌더링 시작');
     try {
       renderer.render(container, model, decorators);
@@ -78,7 +78,7 @@ describe('DOMRenderer Simple Re-render', () => {
       throw error;
     }
     
-    // decorator가 렌더링되어야 함
+    // Decorator should be rendered
     const textEl = container.querySelector('[data-bc-sid="t1"]');
     expect(textEl).toBeTruthy();
     

@@ -131,17 +131,17 @@ export class ComponentManager implements ComponentStateProvider {
     const componentId = this.generateComponentId(vnode);
     const componentName = vnode.stype;
     
-    // 중복 마운트 방지: 이미 마운트된 인스턴스가 있으면 기존 element 반환
+    // Prevent duplicate mount: if already mounted instance exists, return existing element
     const existingInstanceRef = this.componentInstances.get(componentId);
     if (existingInstanceRef) {
       const existingInstance = existingInstanceRef;
       if (existingInstance && existingInstance.element) {
-        // 이미 마운트된 인스턴스가 있으면 기존 element 반환 (재귀 호출 방지)
-        // mounted 플래그는 나중에 설정되므로, element만 확인
+        // If already mounted instance exists, return existing element (prevent recursive call)
+        // mounted flag is set later, so only check element
         if (existingInstance.mounted) {
           return existingInstance.element;
         }
-        // 마운트 중인 경우도 재귀 호출 방지
+        // Also prevent recursive call if mounting
         return existingInstance.element;
       }
     }
@@ -156,7 +156,7 @@ export class ComponentManager implements ComponentStateProvider {
     if (!component && context.registry) {
       if (typeof context.registry.getComponent === 'function') {
         component = context.registry.getComponent(componentName);
-        // ExternalComponent에서 template 함수 추출
+        // Extract template function from ExternalComponent
         if (component && component.template && typeof component.template === 'function') {
           component = component.template;
         }
@@ -168,26 +168,26 @@ export class ComponentManager implements ComponentStateProvider {
       return null;
     }
 
-    // Props 분리 (최상위 필드에서 가져옴)
+    // Separate props (get from top-level fields)
     const rawProps = vnode.props || {};
     const sanitizedProps = this.sanitizeProps(rawProps);
 
-    // 기존 인스턴스 재사용 또는 새로 생성
-    // IMPORTANT: BaseComponentState는 sid 기반으로 관리되며, 기존 인스턴스 재사용 시 보존됨
+    // Reuse existing instance or create new one
+    // IMPORTANT: BaseComponentState is managed by sid, and preserved when reusing existing instance
     let instance: ComponentInstance;
     const existingInstanceRef2 = this.componentInstances.get(componentId);
     if (existingInstanceRef2) {
       const existingInstance2 = existingInstanceRef2;
       if (existingInstance2 && existingInstance2.element) {
-        // 기존 인스턴스 재사용 (props 업데이트, BaseComponentState 보존)
+        // Reuse existing instance (update props, preserve BaseComponentState)
         existingInstance2.props = sanitizedProps;
         // Update getModel to use current context
         existingInstance2.getModel = () => this.getModelFromDataStore(vnode.sid, context);
-        // __stateInstance는 기존 것을 그대로 유지 (sid 기반으로 동일한 인스턴스)
+        // __stateInstance is kept as is (same instance based on sid)
         instance = existingInstance2;
       } else {
         
-        // 기존 인스턴스가 없거나 element가 없으면 새로 생성
+        // Create new if existing instance doesn't exist or has no element
         instance = {
           id: componentId,
           component: component,
@@ -197,8 +197,8 @@ export class ComponentManager implements ComponentStateProvider {
           mounted: false,
           getModel: () => this.getModelFromDataStore(vnode.sid, context)
         };
-        // 상태 인스턴스 주입 (stype 기준으로 StateClass 찾아서 생성)
-        // sid 기반으로 관리되므로, 동일 sid면 기존 인스턴스를 재사용해야 함
+        // Inject state instance (find StateClass by stype and create)
+        // Managed by sid, so reuse existing instance if same sid
         const stypeFromVNode: string | undefined = vnode.stype;
         const StateClass: any = stypeFromVNode ? StateRegistry.get(stypeFromVNode) : undefined;
         if (StateClass) {
@@ -223,19 +223,19 @@ export class ComponentManager implements ComponentStateProvider {
         }
       }
     } else {
-      // 새 인스턴스 생성 (sid 기반으로 관리)
+      // Create new instance (managed by sid)
       instance = {
-        id: componentId,  // componentId = sid (generateComponentId가 sid를 우선 사용)
+        id: componentId,  // componentId = sid (generateComponentId prioritizes sid)
         component: component,
-        props: sanitizedProps,      // 순수 props
+        props: sanitizedProps,      // Pure props
         state: {},
         element: undefined as any,
         mounted: false,
         getModel: () => this.getModelFromDataStore(vnode.sid, context)
       };
-      // 상태 인스턴스 주입 (stype 기준으로 StateClass 찾아서 생성)
-      // BaseComponentState는 sid 기반으로 관리되며, ComponentManager가 관리
-      // BaseComponentState 생성 시 componentManager와 sid를 전달하여 자동 emit 활성화
+      // Inject state instance (find StateClass by stype and create)
+      // BaseComponentState is managed by sid, and managed by ComponentManager
+      // Pass componentManager and sid when creating BaseComponentState to enable auto emit
       const stypeFromVNode: string | undefined = vnode.stype;
       const StateClass: any = stypeFromVNode ? StateRegistry.get(stypeFromVNode) : undefined;
       if (StateClass) {
@@ -273,7 +273,7 @@ export class ComponentManager implements ComponentStateProvider {
       }
     }
     
-    // 인스턴스를 즉시 저장하여 재귀 호출 방지 (element 설정 전)
+    // Save instance immediately to prevent recursive calls (before setting element)
     if (!this.componentInstances.has(componentId)) {
       // Ensure initState applied if available
       try {
@@ -295,20 +295,20 @@ export class ComponentManager implements ComponentStateProvider {
       const isExternal = isExternalComponent(vnode);
       const isContextual = isContextualComponent(vnode);
       
-      // mountComponent는 순수 hook으로만 작동합니다
-      // VNodeBuilder.build()에서 이미 전체 VNode 트리를 빌드했고,
-      // Reconciler가 mountComponent 호출 후 children을 reconcile하므로,
-      // 여기서는 component 함수 호출, 빌드, reconcile을 수행하지 않습니다
+      // mountComponent works purely as a hook
+      // VNodeBuilder.build() already built the entire VNode tree,
+      // and Reconciler reconciles children after calling mountComponent,
+      // so we don't call component function, build, or reconcile here
         
         // Use provided host container as the component root (no nested host)
         if (!instance.element) {
           instance.element = container;
-      }
+        }
       
-      // vnode 저장 (updateComponent에서 사용)
+      // Save vnode (used in updateComponent)
                     instance.vnode = vnode;
       
-      // 라이프사이클 훅: BaseComponentState.mount 호출
+      // Lifecycle hook: call BaseComponentState.mount
               try {
                 const stateInstHook: any = (instance as any).__stateInstance;
                 if (!((instance as any).__mountHookCalled) && stateInstHook && typeof stateInstHook.mount === 'function') {
@@ -317,7 +317,7 @@ export class ComponentManager implements ComponentStateProvider {
                 }
               } catch {}
       
-              // 마운트 완료 표시
+              // Mark mount complete
               instance.mounted = true;
       (instance as any).lastRenderedState = { ...(instance.state || {}) };
       

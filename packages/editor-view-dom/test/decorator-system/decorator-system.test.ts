@@ -28,7 +28,7 @@ describe('DecoratorManager - 기본 CRUD', () => {
       autoRender: false
     });
     
-    // Decorator 타입 정의 (선택적 - 검증을 원할 때만)
+    // Define decorator types (optional - only when validation is desired)
     view.defineDecoratorType('highlight', 'inline', {
       description: 'Highlight decorator',
       dataSchema: {
@@ -169,7 +169,7 @@ describe('RemoteDecoratorManager', () => {
       autoRender: false
     });
     
-    // Decorator 타입 정의 (선택적 - 검증을 원할 때만)
+    // Define decorator types (optional - only when validation is desired)
     view.defineDecoratorType('comment', 'layer', {
       description: 'Comment layer decorator',
       dataSchema: {
@@ -231,7 +231,7 @@ describe('RemoteDecoratorManager', () => {
     
     expect(view.remoteDecoratorManager.getAll()).toHaveLength(2);
     
-    // removeByOwner는 userId만 받음
+    // removeByOwner only accepts userId
     view.remoteDecoratorManager.removeByOwner('user-1');
     
     const remaining = view.remoteDecoratorManager.getAll();
@@ -240,7 +240,7 @@ describe('RemoteDecoratorManager', () => {
   });
 });
 
-describe('DecoratorRegistry - 타입 검증', () => {
+describe('DecoratorRegistry - Type validation', () => {
   let editor: Editor;
   let view: EditorViewDOM;
   let container: HTMLElement;
@@ -256,7 +256,7 @@ describe('DecoratorRegistry - 타입 검증', () => {
       autoRender: false
     });
     
-    // 타입 정의 (검증 테스트용)
+    // Type definition (for validation testing)
     view.defineDecoratorType('highlight', 'inline', {
       description: 'Highlight decorator',
       dataSchema: {
@@ -275,27 +275,27 @@ describe('DecoratorRegistry - 타입 검증', () => {
   });
 
   it('should validate decorator with defined types', () => {
-    // 타입이 정의되어 있으면 검증됨
+    // If type is defined, validation is performed
     expect(() => {
       view.addDecorator({
         sid: 'd1',
         stype: 'highlight',
         category: 'inline',
         target: { sid: 't1', startOffset: 0, endOffset: 5 },
-        data: {}  // color는 기본값 'yellow' 적용
+        data: {}  // color defaults to 'yellow'
       });
     }).not.toThrow();
     
     const decorator = view.decoratorManager.get('d1');
-    expect(decorator?.data?.color).toBe('yellow');  // 기본값 적용 확인
+    expect(decorator?.data?.color).toBe('yellow');  // Verify default value applied
   });
 
   it('should allow decorator without type definition', () => {
-    // 타입이 정의되어 있지 않아도 사용 가능 (선택적 타입 시스템)
+    // Can be used even if type is not defined (optional type system)
     expect(() => {
       view.addDecorator({
         sid: 'd2',
-        stype: 'unknown-type',  // 정의되지 않은 타입
+        stype: 'unknown-type',  // Undefined type
         category: 'inline',
         target: { sid: 't1', startOffset: 0, endOffset: 5 },
         data: { custom: 'value' }

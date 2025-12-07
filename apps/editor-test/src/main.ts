@@ -15,7 +15,7 @@ function bootstrap() {
     throw new Error('Missing #editor-container');
   }
   
-  // 이미 에디터가 마운트되어 있으면 스킵 (HMR 방지)
+  // Skip if editor is already mounted (prevent HMR)
   if (container.hasAttribute('data-bootstrap-executed')) {
     console.log('[editor-test] bootstrap: SKIP (already executed, HMR detected)');
     return;
@@ -158,7 +158,7 @@ function bootstrap() {
           { sid: 'text-p2-3', stype: 'inline-text', text: '.' }
         ]
       }
-      // 모델 축소: 테스트를 위해 나머지 content 제거
+      // Model reduced: removed remaining content for testing
       /*
       ,{
         sid: 'h-3',
@@ -784,12 +784,12 @@ const result = renderDocument(initialTree);`
     ]
   } as any;
   
-  // 이미 Editor 인스턴스가 존재하면 재사용 (HMR 방지)
+  // Reuse existing Editor instance if it exists (prevent HMR)
   let editor: Editor;
   if (window.__editor) {
     editor = window.__editor;
   } else {
-    // 모든 Extension 등록 (기본 편집 기능 + 추가 기능)
+    // Register all Extensions (basic editing features + additional features)
     const coreExtensions = createCoreExtensions();
     const basicExtensions = createBasicExtensions();
     
@@ -803,7 +803,7 @@ const result = renderDocument(initialTree);`
     window.__editor = editor;
   }
 
-  // define은 글로벌 레지스트리에 즉시 등록됨
+  // define is immediately registered in global registry
   define('document', element('div', {className: 'document'}, [slot('content')]));
   define('heading', element((model: any) => `h${model.attributes.level || 1}`, { className: 'heading' }, [slot('content')]));
   define('paragraph', element('p', {className: 'paragraph'}, [slot('content')]));
@@ -833,7 +833,7 @@ const result = renderDocument(initialTree);`
     })
   );
   
-  // 새로운 노드 타입들 - 하나씩 추가
+  // New node types - add one by one
   
   define('codeBlock', element('div', { 
       className: 'code-block',
@@ -1034,7 +1034,7 @@ const result = renderDocument(initialTree);`
   });
 
   
-  // 커스텀 마크 렌더러 정의
+  // Define custom mark renderers
   defineMark('bold', element('span', { 
     className: 'custom-bold',
     'data-mark-type': 'bold',
@@ -1342,16 +1342,16 @@ const result = renderDocument(initialTree);`
     dir: attr('dir', '')
   }, [data('text')]));
   
-  // 텍스트 노드: 비어 있으면 filler <br>을 렌더해 줄 높이/커서 유지
-  // 주의: mark 클래스는 inline-text 템플릿에 추가하지 않음
-  // mark는 _buildMarkedRunsWithDecorators에서 별도 wrapper로 처리됨
-  // 따라서 className은 'text'만 가져야 함
+  // Text node: if empty, render filler <br> to maintain line height/cursor
+  // Note: do not add mark classes to inline-text template
+  // marks are handled as separate wrappers in _buildMarkedRunsWithDecorators
+  // therefore className should only be 'text'
   define('inline-text',element('span', { className: 'text' }, [
         data('text', '')
       ])
   );
 
-  // 이미 EditorViewDOM 인스턴스가 존재하면 재사용 (HMR 방지)
+  // Reuse existing EditorViewDOM instance if it exists (prevent HMR)
   let view: EditorViewDOM;
   if (window.__editorViewDOM) {
     view = window.__editorViewDOM;
@@ -1361,17 +1361,17 @@ const result = renderDocument(initialTree);`
     window.__editorViewDOM = view;
   }
   
-  // 디버깅을 위해 에디터 인스턴스를 전역에 노출
+  // Expose editor instance globally for debugging
   (window as any).editor = editor;
   (window as any).editorView = view;
   
-  // Devtool 초기화 (Auto Tracing 활성화)
+  // Initialize Devtool (Auto Tracing enabled)
   const devtoolContainer = document.getElementById('devtool-container');
   const devtool = new Devtool({
     editor,
     maxEvents: 500,
     debug: false,
-    enableAutoTracing: true,  // Auto Tracing 활성화
+    enableAutoTracing: true,  // Enable Auto Tracing
     container: devtoolContainer || undefined,
   });
   (window as any).devtool = devtool;
@@ -1383,23 +1383,23 @@ const result = renderDocument(initialTree);`
   //   editor.executeCommand('toggleBold');
   // });
 
-  // // 모델 좌표 기준 selection 테스트 버튼들
+  // // Model coordinate-based selection test buttons
   // const testSelectionButton = document.getElementById('test-selection');
   // testSelectionButton?.addEventListener('click', () => {
-  //   console.log('=== 모델 좌표 기준 Selection 테스트 ===');
+  //   console.log('=== Model coordinate-based Selection test ===');
     
-  //   // 1. 간단한 텍스트 선택 (text-1: "This is a ")
+  //   // 1. Simple text selection (text-1: "This is a ")
   //   const simpleSelection = {
   //     type: 'text',
   //     anchor: { nodeId: 'text-1', offset: 0 },
   //     focus: { nodeId: 'text-1', offset: 9 }
   //   };
-  //   console.log('1. 간단한 텍스트 선택:', simpleSelection);
+  //   console.log('1. Simple text selection:', simpleSelection);
   //   view.selectionHandler?.convertModelSelectionToDOM(simpleSelection);
     
   //   setTimeout(() => {
   //     const selection = window.getSelection();
-  //     console.log('선택 결과:', {
+  //     console.log('Selection result:', {
   //       rangeCount: selection?.rangeCount,
   //       text: selection?.toString(),
   //       anchorNode: selection?.anchorNode,
@@ -1412,20 +1412,20 @@ const result = renderDocument(initialTree);`
 
   // const testBoldSelectionButton = document.getElementById('test-bold-selection');
   // testBoldSelectionButton?.addEventListener('click', () => {
-  //   console.log('=== 마크가 있는 텍스트 Selection 테스트 ===');
+  //   console.log('=== Selection test with marked text ===');
     
-  //   // 2. 마크가 있는 텍스트 선택 (text-bold: "bold text")
+  //   // 2. Text selection with marks (text-bold: "bold text")
   //   const boldSelection = {
   //     type: 'text',
   //     anchor: { nodeId: 'text-bold', offset: 0 },
   //     focus: { nodeId: 'text-bold', offset: 9 }
   //   };
-  //   console.log('2. 마크가 있는 텍스트 선택:', boldSelection);
+  //   console.log('2. Text selection with marks:', boldSelection);
   //   view.selectionHandler?.convertModelSelectionToDOM(boldSelection);
     
   //   setTimeout(() => {
   //     const selection = window.getSelection();
-  //     console.log('선택 결과:', {
+  //     console.log('Selection result:', {
   //       rangeCount: selection?.rangeCount,
   //       text: selection?.toString(),
   //       anchorNode: selection?.anchorNode,
@@ -1438,20 +1438,20 @@ const result = renderDocument(initialTree);`
 
   // const testComplexSelectionButton = document.getElementById('test-complex-selection');
   // testComplexSelectionButton?.addEventListener('click', () => {
-  //   console.log('=== 복합 마크 텍스트 Selection 테스트 ===');
+  //   console.log('=== Complex mark text Selection test ===');
     
-  //   // 3. 복합 마크가 있는 텍스트 선택 (text-bold-italic: "bold and italic")
+  //   // 3. Text selection with complex marks (text-bold-italic: "bold and italic")
   //   const complexSelection = {
   //     type: 'text',
   //     anchor: { nodeId: 'text-bold-italic', offset: 0 },
   //     focus: { nodeId: 'text-bold-italic', offset: 15 }
   //   };
-  //   console.log('3. 복합 마크 텍스트 선택:', complexSelection);
+  //   console.log('3. Complex mark text selection:', complexSelection);
   //   view.selectionHandler?.convertModelSelectionToDOM(complexSelection);
     
   //   setTimeout(() => {
   //     const selection = window.getSelection();
-  //     console.log('선택 결과:', {
+  //     console.log('Selection result:', {
   //       rangeCount: selection?.rangeCount,
   //       text: selection?.toString(),
   //       anchorNode: selection?.anchorNode,

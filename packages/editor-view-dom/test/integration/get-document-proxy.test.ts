@@ -17,7 +17,7 @@ describe('EditorViewDOM getDocumentProxy() null issue', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
 
-    // main.ts와 동일한 schema 생성
+    // Create same schema as main.ts
     schema = createSchema('decorator-test', {
       topNode: 'document',
       nodes: {
@@ -31,7 +31,7 @@ describe('EditorViewDOM getDocumentProxy() null issue', () => {
       },
     });
 
-    // 기본 노드 정의
+    // Define basic nodes
     const registry = getGlobalRegistry();
     define('document', element('div', { className: 'document' }, [slot('content')]));
     define('heading', element((model: { attributes: { level?: number } }) => `h${model.attributes.level || 1}`, { className: 'heading' }, [slot('content')]));
@@ -49,7 +49,7 @@ describe('EditorViewDOM getDocumentProxy() null issue', () => {
   });
 
   it('should have rootId set after loadDocument', () => {
-    // main.ts와 동일한 초기화 순서
+    // Same initialization order as main.ts
     dataStore = new DataStore(undefined, schema);
     editor = new Editor({ editable: true, schema, dataStore });
 
@@ -67,10 +67,10 @@ describe('EditorViewDOM getDocumentProxy() null issue', () => {
       ]
     } as any;
 
-    // loadDocument 호출
+    // Call loadDocument
     editor.loadDocument(initialTree, 'decorator-test');
 
-    // _rootId가 설정되었는지 확인
+    // Verify _rootId is set
     const rootId = (editor as any).getRootId();
     expect(rootId).toBe('doc-1');
   });
@@ -95,7 +95,7 @@ describe('EditorViewDOM getDocumentProxy() null issue', () => {
 
     editor.loadDocument(initialTree, 'decorator-test');
 
-    // dataStore에 rootNode가 있는지 확인
+    // Verify rootNode exists in dataStore
     const rootNode = dataStore.getRootNode();
     expect(rootNode).toBeDefined();
     expect(rootNode?.sid).toBe('doc-1');
@@ -121,7 +121,7 @@ describe('EditorViewDOM getDocumentProxy() null issue', () => {
 
     editor.loadDocument(initialTree, 'decorator-test');
 
-    // getDocumentProxy()가 null이 아닌지 확인
+    // Verify getDocumentProxy() is not null
     const proxy = editor.getDocumentProxy?.();
     expect(proxy).not.toBeNull();
     expect(proxy?.sid).toBe('doc-1');
@@ -152,34 +152,34 @@ describe('EditorViewDOM getDocumentProxy() null issue', () => {
       registry: getGlobalRegistry()
     });
 
-    // tree 없이 render() 호출 (main.ts와 동일)
+    // Call render() without tree (same as main.ts)
     view.render();
 
-    // content layer에 내용이 렌더링되었는지 확인
+    // Verify content is rendered in content layer
     expect(view.layers.content).toBeDefined();
     expect(view.layers.content.innerHTML).toContain('Hello World');
   });
 
   it('should handle null getDocumentProxy gracefully', () => {
-    // schema 없이 DataStore 생성 (잘못된 케이스)
+    // Create DataStore without schema (invalid case)
     dataStore = new DataStore();
     editor = new Editor({ editable: true, dataStore });
 
-    // loadDocument 없이 EditorViewDOM 생성
+    // Create EditorViewDOM without loadDocument
     view = new EditorViewDOM(editor, {
       container,
       registry: getGlobalRegistry()
     });
 
-    // render() 호출 시 getDocumentProxy()가 null을 반환할 수 있음
+    // getDocumentProxy() may return null when render() is called
     view.render();
 
-    // null이어도 에러가 발생하지 않아야 함
+    // Should not error even if null
     expect(view.layers.content).toBeDefined();
   });
 
   it('should fail when dataStore is missing schema', () => {
-    // schema 없이 DataStore 생성
+    // Create DataStore without schema
     dataStore = new DataStore();
     editor = new Editor({ editable: true, dataStore });
 
@@ -197,18 +197,18 @@ describe('EditorViewDOM getDocumentProxy() null issue', () => {
       ]
     } as any;
 
-    // schema 없이 loadDocument 호출
+    // Call loadDocument without schema
     editor.loadDocument(initialTree, 'decorator-test');
 
-    // getDocumentProxy()가 null을 반환할 수 있음
+    // getDocumentProxy() may return null
     const proxy = editor.getDocumentProxy?.();
-    // schema가 없어도 노드는 로드되므로 null이 아닐 수 있음
-    // 하지만 실제 동작을 확인해야 함
+    // Nodes may be loaded even without schema, so may not be null
+    // But need to verify actual behavior
     console.log('Proxy without schema:', proxy);
   });
 
   it('should reproduce main.ts scenario exactly', () => {
-    // main.ts와 정확히 동일한 순서로 재현
+    // Reproduce in exactly the same order as main.ts
     dataStore = new DataStore(undefined, schema);
     const initialTree: ModelData = {
       sid: 'doc-1',
@@ -232,10 +232,10 @@ describe('EditorViewDOM getDocumentProxy() null issue', () => {
       registry: getGlobalRegistry()
     });
 
-    // main.ts와 동일: tree 없이 render() 호출
+    // Same as main.ts: call render() without tree
     view.render();
 
-    // 디버깅 정보 출력
+    // Output debugging info
     const rootId = (editor as any).getRootId();
     const rootNode = dataStore.getRootNode();
     const proxy = editor.getDocumentProxy?.();
@@ -249,7 +249,7 @@ describe('EditorViewDOM getDocumentProxy() null issue', () => {
       dataStoreRootNodeId: (dataStore as any).rootNodeId
     });
 
-    // 검증
+    // Verify
     expect(rootId).toBe('doc-1');
     expect(rootNode).toBeDefined();
     expect(rootNode?.sid).toBe('doc-1');

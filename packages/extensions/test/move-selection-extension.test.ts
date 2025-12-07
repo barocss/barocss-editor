@@ -305,7 +305,7 @@ describe('MoveSelectionExtension - horizontal movement', () => {
     const cmd = editor.commands.get('moveCursorRight');
     expect(cmd).toBeDefined();
 
-    // 시작: text-1a 끝 (offset 2) → text-1b 처음
+    // Start: end of text-1a (offset 2) → start of text-1b
     let selection: ModelSelection = {
       type: 'range',
       startNodeId: 'text-1a',
@@ -327,7 +327,7 @@ describe('MoveSelectionExtension - horizontal movement', () => {
       direction: 'forward'
     });
 
-    // text-1b 끝에서 → text-2a 처음
+    // From end of text-1b → start of text-2a
     await cmd!.execute(editor, {
       selection: {
         type: 'range',
@@ -349,7 +349,7 @@ describe('MoveSelectionExtension - horizontal movement', () => {
       direction: 'forward'
     });
 
-    // text-2a 끝에서 → text-2b 처음
+    // From end of text-2a → start of text-2b
     await cmd!.execute(editor, {
       selection: {
         type: 'range',
@@ -396,7 +396,7 @@ describe('MoveSelectionExtension - horizontal movement', () => {
     const cmd = editor.commands.get('moveCursorLeft');
     expect(cmd).toBeDefined();
 
-    // 시작: text-2b 처음(offset 0) → text-2a 끝
+    // Start: start of text-2b (offset 0) → end of text-2a
     let selection: ModelSelection = {
       type: 'range',
       startNodeId: 'text-2b',
@@ -418,7 +418,7 @@ describe('MoveSelectionExtension - horizontal movement', () => {
       direction: 'backward'
     });
 
-    // text-2a 처음(offset 0)으로 맞춰서 → text-1b 끝
+    // Align to start of text-2a (offset 0) → end of text-1b
     await cmd!.execute(editor, {
       selection: {
         type: 'range',
@@ -440,7 +440,7 @@ describe('MoveSelectionExtension - horizontal movement', () => {
       direction: 'backward'
     });
 
-    // text-1b 처음(offset 0) → text-1a 끝
+    // Start of text-1b (offset 0) → end of text-1a
     await cmd!.execute(editor, {
       selection: {
         type: 'range',
@@ -499,7 +499,7 @@ describe('MoveSelectionExtension - horizontal movement', () => {
     const cmd = editor.commands.get('moveCursorRight');
     expect(cmd).toBeDefined();
 
-    // 1. text-1 "A|" (offset 1) → text-1 끝이라 다음 editable 로 이동
+    // 1. text-1 "A|" (offset 1) → end of text-1, move to next editable
     let selection: ModelSelection = {
       type: 'range',
       startNodeId: 'text-1',
@@ -521,7 +521,7 @@ describe('MoveSelectionExtension - horizontal movement', () => {
       direction: 'forward'
     });
 
-    // 2. image-1 → text-2 (빈 텍스트, offset 0)
+    // 2. image-1 → text-2 (empty text, offset 0)
     await cmd!.execute(editor, { selection: editor.lastSelection });
     expect(editor.lastSelection).toEqual({
       type: 'range',
@@ -585,7 +585,7 @@ describe('MoveSelectionExtension - horizontal movement', () => {
     const cmd = editor.commands.get('moveCursorLeft');
     expect(cmd).toBeDefined();
 
-    // 1. text-3 "|B" (offset 0) → 이전 editable 로 이동
+    // 1. text-3 "|B" (offset 0) → move to previous editable
     let selection: ModelSelection = {
       type: 'range',
       startNodeId: 'text-3',
@@ -607,7 +607,7 @@ describe('MoveSelectionExtension - horizontal movement', () => {
       direction: 'backward'
     });
 
-    // 2. image-2 → text-2 (빈 텍스트, offset 0)
+    // 2. image-2 → text-2 (empty text, offset 0)
     await cmd!.execute(editor, { selection: editor.lastSelection });
     expect(editor.lastSelection).toEqual({
       type: 'range',
@@ -801,7 +801,7 @@ describe('MoveSelectionExtension - horizontal movement', () => {
       const fakeDataStore = {
         getNode: (sid: string) =>
           sid === 'text-1'
-            ? { sid, stype: 'inline-text', text: 'foo  bar baz' } // 두 개의 공백 포함
+            ? { sid, stype: 'inline-text', text: 'foo  bar baz' } // Contains two spaces
             : null
       };
 
@@ -815,7 +815,7 @@ describe('MoveSelectionExtension - horizontal movement', () => {
       const selection: ModelSelection = {
         type: 'range',
         startNodeId: 'text-1',
-        startOffset: 0, // "foo"의 시작 지점
+        startOffset: 0, // Start point of "foo"
         endNodeId: 'text-1',
         endOffset: 0,
         collapsed: true,
@@ -825,7 +825,7 @@ describe('MoveSelectionExtension - horizontal movement', () => {
       await cmd!.execute(editor, { selection });
 
       // "foo__bar baz"
-      // offset 0 에서 오른쪽으로 단어 단위 이동 → "bar"의 시작 인덱스 5 로 이동
+      // Word-wise move right from offset 0 → move to start index 5 of "bar"
       expect(editor.lastSelection).toEqual({
         type: 'range',
         startNodeId: 'text-1',
@@ -855,7 +855,7 @@ describe('MoveSelectionExtension - horizontal movement', () => {
       const selection: ModelSelection = {
         type: 'range',
         startNodeId: 'text-1',
-        startOffset: 8, // "baz" 직전 공백/문자 경계 근처
+        startOffset: 8, // Near boundary before "baz" (space/character)
         endNodeId: 'text-1',
         endOffset: 8,
         collapsed: true,
@@ -865,7 +865,7 @@ describe('MoveSelectionExtension - horizontal movement', () => {
       await cmd!.execute(editor, { selection });
 
       // "foo__bar baz"
-      // offset 8(대략 "baz" 인근)에서 왼쪽으로 단어 단위 이동 → "bar"의 시작 인덱스 5 로 이동
+      // Word-wise move left from offset 8 (around "baz") → move to start index 5 of "bar"
       expect(editor.lastSelection).toEqual({
         type: 'range',
         startNodeId: 'text-1',

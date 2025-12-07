@@ -14,7 +14,7 @@ describe('EditorViewDOM + renderer-dom Integration', () => {
   beforeEach(() => {
     registry = getGlobalRegistry();
     
-    // 컴포넌트 정의
+    // Define components
     if (!registry.has('document')) {
       define('document', element('div', { className: 'document' }, [slot('content')]));
     }
@@ -31,7 +31,7 @@ describe('EditorViewDOM + renderer-dom Integration', () => {
       define('inline-text', element('span', { className: 'text' }, [data('text')]));
     }
     
-    // Mark 정의
+    // Define marks
     if (!registry.has('bold')) {
       defineMark('bold', element('strong', { className: 'mark-bold' }, [data('text')]));
     }
@@ -43,7 +43,7 @@ describe('EditorViewDOM + renderer-dom Integration', () => {
     editor = new Editor({ dataStore });
     view = new EditorViewDOM(editor, { 
       container,
-      autoRender: false, // 수동 렌더링으로 테스트
+      autoRender: false, // Test with manual rendering
       registry
     });
   });
@@ -177,7 +177,7 @@ describe('EditorViewDOM + renderer-dom Integration', () => {
     const html = normalizeHTML(container.firstElementChild as Element);
     expect(html).toContain('data-bc-sid="doc1"');
     expect(html).toContain('data-bc-sid="p1"');
-    // 마크가 적용된 텍스트 확인
+    // Verify text with marks applied
     expect(html).toContain('Hello');
   });
   
@@ -202,7 +202,7 @@ describe('EditorViewDOM + renderer-dom Integration', () => {
     expect(html1).toContain('data-bc-sid="p1"');
     expect(html1).toContain('First');
     
-    // 업데이트
+    // Update
     const tree2: TreeDocument = {
       sid: 'doc1',
       stype: 'document',
@@ -245,7 +245,7 @@ describe('EditorViewDOM + renderer-dom Integration', () => {
     const element1 = container.querySelector('[data-bc-sid="p1"]');
     expect(element1).toBeTruthy();
     
-    // 같은 sid로 업데이트
+    // Update with same sid
     const tree2: TreeDocument = {
       sid: 'doc1',
       stype: 'document',
@@ -264,7 +264,7 @@ describe('EditorViewDOM + renderer-dom Integration', () => {
     
     const element2 = container.querySelector('[data-bc-sid="p1"]');
     expect(element2).toBeTruthy();
-    // 같은 DOM 요소여야 함 (sid 기반 재사용)
+    // Should be the same DOM element (reused based on sid)
     expect(element2).toBe(element1);
   });
   

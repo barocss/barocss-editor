@@ -79,11 +79,11 @@ describe('reconcile-utils: host-finding', () => {
       expect(result).toBe(el);
     });
 
-    // NOTE: 전역 검색은 제거되었습니다 (React처럼 children 기준으로만 비교)
-    // Cross-parent move는 새로 생성하는 것이 올바른 동작입니다
+    // NOTE: Global search has been removed (compare only by children like React)
+    // Cross-parent move is correct behavior to create new
     it.skip('should find host globally by sid when not in parent', () => {
-      // 전역 검색 제거: React처럼 children 기준으로만 비교
-      // Cross-parent move는 새로 생성 (React 스타일)
+      // Global search removed: compare only by children like React
+      // Cross-parent move creates new (React style)
       const otherParent = document.createElement('div');
       document.body.appendChild(otherParent);
       const el = document.createElement('div');

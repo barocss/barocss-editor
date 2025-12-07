@@ -7,7 +7,7 @@ describe('compareDocumentOrder', () => {
   let schema: Schema;
 
   beforeEach(() => {
-    // 간단한 스키마 정의
+    // Simple schema definition
     schema = new Schema('test-schema', {
       nodes: {
         'document': {
@@ -33,7 +33,7 @@ describe('compareDocumentOrder', () => {
     dataStore = new DataStore(undefined, schema);
   });
 
-  describe('같은 부모 내 형제 노드들', () => {
+  describe('Sibling nodes within same parent', () => {
     beforeEach(() => {
       // document > paragraph-1 > [text-1, text-2, text-3]
       dataStore.createNodeWithChildren({
@@ -51,12 +51,12 @@ describe('compareDocumentOrder', () => {
       });
     });
 
-    it('같은 노드는 0을 반환해야 함', () => {
+    it('should return 0 for same node', () => {
       const text1 = dataStore.findNodesByType('inline-text')[0];
       expect(dataStore.compareDocumentOrder(text1.sid!, text1.sid!)).toBe(0);
     });
 
-    it('첫 번째 노드가 두 번째 노드보다 앞에 있으면 -1을 반환해야 함', () => {
+    it('should return -1 if first node is before second node', () => {
       const textNodes = dataStore.findNodesByType('inline-text');
       const text1 = textNodes[0];
       const text2 = textNodes[1];
@@ -64,7 +64,7 @@ describe('compareDocumentOrder', () => {
       expect(dataStore.compareDocumentOrder(text1.sid!, text2.sid!)).toBe(-1);
     });
 
-    it('첫 번째 노드가 두 번째 노드보다 뒤에 있으면 1을 반환해야 함', () => {
+    it('should return 1 if first node is after second node', () => {
       const textNodes = dataStore.findNodesByType('inline-text');
       const text1 = textNodes[0];
       const text2 = textNodes[1];
@@ -72,17 +72,17 @@ describe('compareDocumentOrder', () => {
       expect(dataStore.compareDocumentOrder(text2.sid!, text1.sid!)).toBe(1);
     });
 
-    it('첫 번째와 세 번째 노드 비교', () => {
+    it('compare first and third nodes', () => {
       const textNodes = dataStore.findNodesByType('inline-text');
       const text1 = textNodes[0];
       const text3 = textNodes[2];
       
-      expect(dataStore.compareDocumentOrder(text1.sid!, text3.sid!)).toBe(-2); // 인덱스 차이
+      expect(dataStore.compareDocumentOrder(text1.sid!, text3.sid!)).toBe(-2); // Index difference
       expect(dataStore.compareDocumentOrder(text3.sid!, text1.sid!)).toBe(2);
     });
   });
 
-  describe('다른 부모의 노드들', () => {
+  describe('Nodes with different parents', () => {
     beforeEach(() => {
       // document > [paragraph-1, paragraph-2]
       // paragraph-1 > [text-1, text-2]
@@ -108,7 +108,7 @@ describe('compareDocumentOrder', () => {
       });
     });
 
-    it('다른 단락의 노드들 비교', () => {
+    it('compare nodes from different paragraphs', () => {
       const textNodes = dataStore.findNodesByType('inline-text');
       const para1Text1 = textNodes[0]; // Para1-Text1
       const para2Text1 = textNodes[2]; // Para2-Text1
@@ -117,7 +117,7 @@ describe('compareDocumentOrder', () => {
       expect(dataStore.compareDocumentOrder(para2Text1.sid!, para1Text1.sid!)).toBe(1);
     });
 
-    it('같은 단락 내의 노드들 비교', () => {
+    it('compare nodes within same paragraph', () => {
       const textNodes = dataStore.findNodesByType('inline-text');
       const para1Text1 = textNodes[0]; // Para1-Text1
       const para1Text2 = textNodes[1]; // Para1-Text2
@@ -127,7 +127,7 @@ describe('compareDocumentOrder', () => {
     });
   });
 
-  describe('조상-후손 관계', () => {
+  describe('Ancestor-descendant relationship', () => {
     beforeEach(() => {
       // document > paragraph-1 > text-1
       dataStore.createNodeWithChildren({
@@ -143,7 +143,7 @@ describe('compareDocumentOrder', () => {
       });
     });
 
-    it('조상이 후손보다 앞에 있음', () => {
+    it('ancestor is before descendant', () => {
       const document = dataStore.getRootNode()!;
       const paragraph = dataStore.findNodesByType('paragraph')[0];
       
@@ -152,7 +152,7 @@ describe('compareDocumentOrder', () => {
     });
   });
 
-  describe('에러 케이스', () => {
+  describe('Error cases', () => {
     it('존재하지 않는 노드 ID로 비교 시 에러 발생', () => {
       expect(() => {
         dataStore.compareDocumentOrder('non-existent-1', 'non-existent-2');
@@ -169,7 +169,7 @@ describe('compareDocumentOrder', () => {
     });
   });
 
-  describe('복잡한 중첩 구조', () => {
+  describe('Complex nested structure', () => {
     beforeEach(() => {
       // document > [paragraph-1, paragraph-2, paragraph-3]
       // paragraph-1 > [text-1, text-2]
@@ -203,7 +203,7 @@ describe('compareDocumentOrder', () => {
       });
     });
 
-    it('다른 단락의 첫 번째와 마지막 노드 비교', () => {
+    it('compare first and last nodes from different paragraphs', () => {
       const textNodes = dataStore.findNodesByType('inline-text');
       const firstText = textNodes[0]; // Para1-Text1
       const lastText = textNodes[5];  // Para3-Text3
@@ -212,7 +212,7 @@ describe('compareDocumentOrder', () => {
       expect(dataStore.compareDocumentOrder(lastText.sid!, firstText.sid!)).toBeGreaterThan(0);
     });
 
-    it('같은 단락의 첫 번째와 마지막 노드 비교', () => {
+    it('compare first and last nodes within same paragraph', () => {
       const textNodes = dataStore.findNodesByType('inline-text');
       const para3First = textNodes[3]; // Para3-Text1
       const para3Last = textNodes[5];  // Para3-Text3
@@ -221,7 +221,7 @@ describe('compareDocumentOrder', () => {
       expect(dataStore.compareDocumentOrder(para3Last.sid!, para3First.sid!)).toBeGreaterThan(0);
     });
 
-    it('인접한 단락의 노드들 비교', () => {
+    it('compare nodes from adjacent paragraphs', () => {
       const textNodes = dataStore.findNodesByType('inline-text');
       const para1Last = textNodes[1];  // Para1-Text2
       const para2First = textNodes[2]; // Para2-Text1
@@ -230,7 +230,7 @@ describe('compareDocumentOrder', () => {
       expect(dataStore.compareDocumentOrder(para2First.sid!, para1Last.sid!)).toBe(1);
     });
 
-    it('단락 노드들 간의 비교', () => {
+    it('compare paragraph nodes', () => {
       const paragraphs = dataStore.findNodesByType('paragraph');
       const para1 = paragraphs[0];
       const para2 = paragraphs[1];
@@ -242,7 +242,7 @@ describe('compareDocumentOrder', () => {
     });
   });
 
-  describe('경계 케이스', () => {
+  describe('Edge cases', () => {
     beforeEach(() => {
       // document > paragraph > [text-1, text-2]
       dataStore.createNodeWithChildren({
@@ -293,9 +293,9 @@ describe('compareDocumentOrder', () => {
     });
   });
 
-  describe('성능 테스트', () => {
+  describe('Performance test', () => {
     beforeEach(() => {
-      // 깊은 중첩 구조 생성
+      // Create deep nested structure
       // document > paragraph-1 > [text-1, text-2, ..., text-10]
       const textNodes = Array.from({ length: 10 }, (_, i) => ({
         stype: 'inline-text',

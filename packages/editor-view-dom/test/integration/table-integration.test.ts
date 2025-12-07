@@ -21,7 +21,7 @@ describe('EditorViewDOM + renderer-dom Table Integration', () => {
       autoRender: false
     });
     
-    // 테이블 템플릿 등록
+    // Register table templates
     define('document', element('div', { className: 'document' }, [slot('content')]));
     define('table', element('table', { className: 'barocss-table' }, [slot('content')]));
     define('tbody', element('tbody', { className: 'barocss-tbody' }, [slot('content')]));
@@ -31,7 +31,7 @@ describe('EditorViewDOM + renderer-dom Table Integration', () => {
     define('paragraph', element('p', { className: 'paragraph' }, [slot('content')]));
     define('inline-text', element('span', { className: 'text' }, [data('text')]));
     
-    // Decorator 타입 정의 (선택적 - 검증을 원할 때만)
+    // Define decorator types (optional - only when validation is desired)
     view.defineDecoratorType('highlight', 'block', {
       description: 'Highlight block decorator',
       dataSchema: {
@@ -108,11 +108,11 @@ describe('EditorViewDOM + renderer-dom Table Integration', () => {
       expect(html).toContain('data-bc-sid="td2"');
       expect(html).toContain('Cell 1');
       expect(html).toContain('Cell 2');
-      // 순서 확인: Cell 1이 Cell 2보다 먼저 나와야 함
+      // Verify order: Cell 1 should appear before Cell 2
       const cell1Index = html.indexOf('Cell 1');
       const cell2Index = html.indexOf('Cell 2');
       expect(cell1Index).toBeLessThan(cell2Index);
-      // Cell 1과 Cell 2가 각각 td 태그 안에 있는지 확인 (span 등 중간 태그 허용)
+      // Verify Cell 1 and Cell 2 are each inside td tags (intermediate tags like span allowed)
       expect(html).toMatch(/<td[^>]*>.*?Cell 1.*?<\/td>/s);
       expect(html).toMatch(/<td[^>]*>.*?Cell 2.*?<\/td>/s);
     });
@@ -173,17 +173,17 @@ describe('EditorViewDOM + renderer-dom Table Integration', () => {
       expect(html).toContain('data-bc-sid="th2"');
       expect(html).toContain('Header 1');
       expect(html).toContain('Header 2');
-      // 순서 확인: Header 1이 Header 2보다 먼저 나와야 함
+      // Verify order: Header 1 should appear before Header 2
       const header1Index = html.indexOf('Header 1');
       const header2Index = html.indexOf('Header 2');
       expect(header1Index).toBeLessThan(header2Index);
-      // Header 1과 Header 2가 각각 th 태그 안에 있는지 확인 (span 등 중간 태그 허용)
+      // Verify Header 1 and Header 2 are each inside th tags (intermediate tags like span allowed)
       expect(html).toMatch(/<th[^>]*>.*?Header 1.*?<\/th>/s);
       expect(html).toMatch(/<th[^>]*>.*?Header 2.*?<\/th>/s);
     });
   });
 
-  describe('테이블 셀 내용 업데이트', () => {
+  describe('Table cell content update', () => {
     it('updates table cell content', () => {
       const tree1 = {
         sid: 'doc1',
@@ -268,7 +268,7 @@ describe('EditorViewDOM + renderer-dom Table Integration', () => {
     });
   });
 
-  describe('테이블 행 추가/제거', () => {
+  describe('Table row add/remove', () => {
     it('adds table row', () => {
       const tree1 = {
         sid: 'doc1',
@@ -472,7 +472,7 @@ describe('EditorViewDOM + renderer-dom Table Integration', () => {
     });
   });
 
-  describe('테이블 행 재정렬', () => {
+  describe('Table row reordering', () => {
     it('reorders table rows while preserving DOM identity', () => {
       const tree1 = {
         sid: 'doc1',
@@ -588,13 +588,13 @@ describe('EditorViewDOM + renderer-dom Table Integration', () => {
       const tr1El2 = container.querySelector('[data-bc-sid="tr1"]');
       const tr2El2 = container.querySelector('[data-bc-sid="tr2"]');
       
-      // DOM 요소는 재사용되어야 함
+      // DOM elements should be reused
       expect(tr1El2).toBe(tr1El1);
       expect(tr2El2).toBe(tr2El1);
     });
   });
 
-  describe('중첩된 테이블 구조', () => {
+  describe('Nested table structure', () => {
     it('renders nested table structure', () => {
       const tree = {
         sid: 'doc1',
@@ -666,7 +666,7 @@ describe('EditorViewDOM + renderer-dom Table Integration', () => {
     });
   });
 
-  describe('테이블에 marks/decorator 적용', () => {
+  describe('Apply marks/decorator to table', () => {
     it('renders table cell with marks', () => {
       const tree = {
         sid: 'doc1',
@@ -713,7 +713,7 @@ describe('EditorViewDOM + renderer-dom Table Integration', () => {
       expect(html).toContain('data-bc-sid="table1"');
       expect(html).toContain('Bold');
       expect(html).toContain('Text');
-      // Mark가 적용되었는지 확인 (구현에 따라 다를 수 있음)
+      // Verify mark is applied (may vary depending on implementation)
     });
 
     it('renders table with decorator', () => {
@@ -764,7 +764,7 @@ describe('EditorViewDOM + renderer-dom Table Integration', () => {
 
       view.render(tree);
 
-      // 전체 렌더링 결과 확인
+      // Verify full rendering result
       expectHTML(
         view.layers.content,
         `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">

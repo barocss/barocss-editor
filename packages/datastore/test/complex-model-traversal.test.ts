@@ -107,9 +107,9 @@ describe('Complex Model Traversal', () => {
     dataStore = new DataStore(undefined, schema);
   });
 
-  describe('복잡한 기술 문서 구조', () => {
+  describe('Complex technical document structure', () => {
     beforeEach(() => {
-      // 실제 기술 문서와 같은 복잡한 구조
+      // Complex structure similar to real technical documents
       dataStore.createNodeWithChildren({
         stype: 'document',
         content: [
@@ -321,11 +321,11 @@ const editor = new Editor({
       });
     });
 
-    it('복잡한 문서 구조에서 전체 순회', () => {
+    it('full traversal in complex document structure', () => {
       const allNodes = dataStore.getAllNodes();
-      console.log(`\n=== 전체 노드 수: ${allNodes.length} ===`);
+      console.log(`\n=== Total node count: ${allNodes.length} ===`);
       
-      // 문서 순서대로 모든 노드 순회
+      // Traverse all nodes in document order
       const documentOrder: string[] = [];
       let currentId = dataStore.getRootNodeId() as string;
       
@@ -334,7 +334,7 @@ const editor = new Editor({
         currentId = dataStore.getNextNode(currentId) as string;
       }
       
-      console.log('=== 문서 순서 ===');
+      console.log('=== Document order ===');
       documentOrder.forEach((id, index) => {
         const node = dataStore.getNode(id);
         const indent = '  '.repeat((node?.parentId ? dataStore.getNodePath(id).length - 1 : 0));
@@ -343,31 +343,31 @@ const editor = new Editor({
       
       expect(documentOrder.length).toBeGreaterThan(20);
       
-      // 첫 번째는 document
+      // First is document
       expect(dataStore.getNode(documentOrder[0])?.stype).toBe('document');
       
-      // 마지막은 마지막 paragraph의 마지막 text
+      // Last is last text of last paragraph
       const lastNode = dataStore.getNode(documentOrder[documentOrder.length - 1]);
       expect(lastNode?.stype).toBe('inline-text');
       expect(lastNode?.text).toContain('참조하세요');
     });
 
-    it('특정 섹션 내에서 순회', () => {
+    it('traversal within specific section', () => {
       const headings = dataStore.findNodesByType('heading');
-      console.log('=== 모든 heading 노드들 ===');
+      console.log('=== All heading nodes ===');
       headings.forEach(h => {
-        // heading의 자식 텍스트 노드 찾기
+        // Find child text node of heading
         const childText = h.content && h.content.length > 0 ? 
           dataStore.getNode(h.content[0] as string)?.text : 'no text';
         console.log(`- ${h.sid} (level: ${h.attributes?.level}) - "${childText}"`);
       });
       
-      // 메인 제목 찾기 (level 1인 heading)
+      // Find main title (heading with level 1)
       const mainHeading = headings.find(h => h.attributes?.level === 1);
       
       expect(mainHeading).toBeTruthy();
       
-      // 메인 제목부터 다음 제목까지 순회
+      // Traverse from main title to next title
       let currentId = dataStore.getNextNode(mainHeading!.sid!);
       const sectionNodes: string[] = [];
       
@@ -389,17 +389,17 @@ const editor = new Editor({
       expect(sectionNodes.length).toBeGreaterThan(0);
     });
 
-    it('리스트 아이템 내부 순회', () => {
+    it('traversal inside list item', () => {
       const listItems = dataStore.findNodesByType('listItem');
       const firstListItem = listItems[0];
       
-      // 첫 번째 리스트 아이템 내부 순회
+      // Traverse inside first list item
       let currentId = dataStore.getNextNode(firstListItem.sid!);
       const itemNodes: string[] = [];
       
       while (currentId) {
         const node = dataStore.getNode(currentId);
-        // 다음 리스트 아이템이나 다른 블록을 만나면 중단
+        // Stop when encountering next list item or other block
         if (node?.stype === 'listItem' || (node?.stype !== 'paragraph' && node?.stype !== 'inline-text')) {
           break;
         }
@@ -407,7 +407,7 @@ const editor = new Editor({
         currentId = dataStore.getNextNode(currentId) as string;
       }
       
-      console.log(`\n=== 첫 번째 리스트 아이템 내부 노드 ===`);
+      console.log(`\n=== Nodes inside first list item ===`);
       itemNodes.forEach(id => {
         const node = dataStore.getNode(id);
         console.log(`- ${id} (${node?.type}) - ${node?.text || ''}`);
@@ -416,17 +416,17 @@ const editor = new Editor({
       expect(itemNodes.length).toBeGreaterThan(0);
     });
 
-    it('테이블 구조 순회', () => {
+    it('traversal of table structure', () => {
       const tables = dataStore.findNodesByType('table');
       const table = tables[0];
       
-      // 테이블 내부 순회
+      // Traverse inside table
       let currentId = dataStore.getNextNode(table.sid!);
       const tableNodes: string[] = [];
       
       while (currentId) {
         const node = dataStore.getNode(currentId);
-        // 테이블 밖으로 나가면 중단
+        // Stop when exiting table
         if (node?.stype !== 'tableRow' && node?.stype !== 'tableCell' && node?.stype !== 'paragraph' && node?.stype !== 'inline-text') {
           break;
         }
@@ -434,7 +434,7 @@ const editor = new Editor({
         currentId = dataStore.getNextNode(currentId) as string;
       }
       
-      console.log(`\n=== 테이블 내부 노드 수: ${tableNodes.length} ===`);
+      console.log(`\n=== Table internal node count: ${tableNodes.length} ===`);
       tableNodes.forEach(id => {
         const node = dataStore.getNode(id);
         console.log(`- ${id} (${node?.type}) - ${node?.text || ''}`);
@@ -443,13 +443,13 @@ const editor = new Editor({
       expect(tableNodes.length).toBeGreaterThan(10);
     });
 
-    it('역순 순회 테스트', () => {
+    it('reverse traversal test', () => {
       const allNodes = dataStore.getAllNodes();
       const lastTextNode = allNodes.filter(n => n.stype === 'inline-text').pop();
       
       expect(lastTextNode).toBeTruthy();
       
-      // 마지막 노드부터 역순으로 순회
+      // Traverse in reverse order from last node
       const reverseOrder: string[] = [];
       let currentId = lastTextNode!.sid!;
       
@@ -458,7 +458,7 @@ const editor = new Editor({
         currentId = dataStore.getPreviousNode(currentId) as string;
       }
       
-      console.log(`\n=== 역순 순회 노드 수: ${reverseOrder.length} ===`);
+      console.log(`\n=== Reverse traversal node count: ${reverseOrder.length} ===`);
       reverseOrder.slice(0, 10).forEach((id, index) => {
         const node = dataStore.getNode(id);
         console.log(`${index + 1}. ${id} (${node?.type}) - ${node?.text || ''}`);
@@ -468,7 +468,7 @@ const editor = new Editor({
       expect(reverseOrder[0]).toBe(lastTextNode!.sid);
     });
 
-    it('특정 노드 타입만 필터링하여 순회', () => {
+    it('traverse filtering only specific node types', () => {
       const textNodes: string[] = [];
       let currentId = dataStore.getRootNodeId() as string;
       
@@ -480,7 +480,7 @@ const editor = new Editor({
         currentId = dataStore.getNextNode(currentId) as string;
       }
       
-      console.log(`\n=== 텍스트 노드만 필터링: ${textNodes.length}개 ===`);
+      console.log(`\n=== Filtered text nodes only: ${textNodes.length} ===`);
       textNodes.forEach((id, index) => {
         const node = dataStore.getNode(id);
         console.log(`${index + 1}. ${id} - "${node?.text}"`);
@@ -488,7 +488,7 @@ const editor = new Editor({
       
       expect(textNodes.length).toBeGreaterThan(15);
       
-      // 첫 번째 텍스트 노드는 메인 제목
+      // First text node is main title
       expect(dataStore.getNode(textNodes[0])?.text).toBe('React 에디터 개발 가이드');
     });
 
@@ -520,7 +520,7 @@ const editor = new Editor({
       let count = 0;
       let currentId = dataStore.getRootNodeId() as string;
       
-      while (currentId && count < 1000) { // 무한 루프 방지
+      while (currentId && count < 1000) { // Prevent infinite loop
         currentId = dataStore.getNextNode(currentId) as string;
         count++;
       }
@@ -533,14 +533,14 @@ const editor = new Editor({
       console.log(`소요 시간: ${duration.toFixed(2)}ms`);
       console.log(`노드당 평균 시간: ${(duration / count).toFixed(4)}ms`);
       
-      expect(duration).toBeLessThan(10); // 10ms 이내
-      expect(count).toBeGreaterThan(20); // 최소 20개 노드는 순회
+      expect(duration).toBeLessThan(10); // Within 10ms
+      expect(count).toBeGreaterThan(20); // At least 20 nodes should be traversed
     });
   });
 
   describe('중첩된 리스트와 블록 구조', () => {
     beforeEach(() => {
-      // 깊게 중첩된 리스트 구조
+      // Deeply nested list structure
       dataStore.createNodeWithChildren({
         stype: 'document',
         content: [
@@ -626,7 +626,7 @@ const editor = new Editor({
       const allNodes = dataStore.getAllNodes();
       console.log(`\n=== 중첩 구조 전체 노드 수: ${allNodes.length} ===`);
       
-      // 모든 노드를 순서대로 출력
+      // Output all nodes in order
       let currentId = dataStore.getRootNodeId() as string;
       const order: string[] = [];
       

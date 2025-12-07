@@ -193,16 +193,16 @@ describe('DataStore Lock System', () => {
       const promise2 = dataStore.acquireLock();
       expect(dataStore.getQueueLength()).toBe(1);
       
-      // 세 번째 락 획득 시도 (큐에 추가됨)
+      // Attempt to acquire third lock (added to queue)
       const promise3 = dataStore.acquireLock();
       expect(dataStore.getQueueLength()).toBe(2);
       
-      // 첫 번째 락 해제
+      // Release first lock
       dataStore.releaseLock();
       await promise2;
       expect(dataStore.getQueueLength()).toBe(1);
       
-      // 두 번째 락 해제
+      // Release second lock
       dataStore.releaseLock();
       await promise3;
       expect(dataStore.getQueueLength()).toBe(0);
@@ -213,10 +213,10 @@ describe('DataStore Lock System', () => {
     it('should validate lock ID on release', async () => {
       const lockId = await dataStore.acquireLock('test-owner');
       
-      // 잘못된 락 ID로 해제 시도
+      // Attempt to release with wrong lock ID
       expect(() => dataStore.releaseLock('wrong-sid')).toThrow('Lock ID mismatch');
       
-      // 올바른 락 ID로 해제
+      // Release with correct lock ID
       expect(() => dataStore.releaseLock(lockId)).not.toThrow();
     });
 
@@ -233,23 +233,23 @@ describe('DataStore Lock System', () => {
     });
 
     it('should track queue information', async () => {
-      // 첫 번째 락 획득
+      // Acquire first lock
       const lockId1 = await dataStore.acquireLock('owner-1');
       
-      // 두 번째 락 시도 (큐에 추가됨)
+      // Attempt second lock (added to queue)
       const promise2 = dataStore.acquireLock('owner-2');
       
-      // 큐 정보 확인
+      // Check queue information
       const queueInfo = dataStore.getQueueInfo();
       expect(queueInfo).toHaveLength(1);
       expect(queueInfo[0].ownerId).toBe('owner-2');
-      // waitTime은 0일 수 있음 (너무 빨리 실행되는 경우)
+      // waitTime can be 0 (if executed too quickly)
       
-      // 첫 번째 락 해제
+      // Release first lock
       dataStore.releaseLock(lockId1);
       await promise2;
       
-      // 큐가 비어있는지 확인
+      // Verify queue is empty
       expect(dataStore.getQueueLength()).toBe(0);
     });
   });
@@ -263,7 +263,7 @@ describe('DataStore Lock System', () => {
       const lockId = await dataStore.acquireLock('test-owner');
       dataStore.releaseLock(lockId);
       
-      // 두 번째 해제는 무시됨
+      // Second release is ignored
       expect(() => dataStore.releaseLock()).not.toThrow();
     });
   });
@@ -272,7 +272,7 @@ describe('DataStore Lock System', () => {
     it('should work with node operations', async () => {
       await dataStore.acquireLock();
       
-      // 노드 생성
+      // Create node
       const node = { sid: 'node-1', stype: 'paragraph', text: 'Hello' };
       dataStore.setNode(node);
       
@@ -284,7 +284,7 @@ describe('DataStore Lock System', () => {
     it('should maintain data consistency during concurrent operations', async () => {
       const results: any[] = [];
       
-      // 동시에 여러 노드 생성 시도
+      // Attempt to create multiple nodes concurrently
       const promises = Array.from({ length: 3 }, (_, i) => 
         dataStore.acquireLock().then(() => {
           const id = `node-${i}`;
@@ -297,7 +297,7 @@ describe('DataStore Lock System', () => {
       
       await Promise.all(promises);
       
-      // 모든 노드가 정상적으로 생성되었는지 확인
+      // Verify all nodes are created successfully
       expect(results).toHaveLength(3);
       expect(results.every(node => node !== undefined)).toBe(true);
     });

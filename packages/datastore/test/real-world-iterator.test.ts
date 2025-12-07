@@ -798,7 +798,7 @@ describe('Real-World DocumentIterator', () => {
       const iterator = dataStore.createDocumentIterator({
         startNodeId: mainFeaturesHeading!.sid!,
         shouldStop: (nodeId, node) => {
-          // 다음 제목을 만나면 중단
+          // Stop when next heading is encountered
           return node?.stype === 'heading' && nodeId !== mainFeaturesHeading!.sid;
         }
       });
@@ -808,32 +808,32 @@ describe('Real-World DocumentIterator', () => {
         sectionNodes.push(nodeId);
       }
       
-      console.log('=== "주요 기능" 섹션 내에서만 순회 ===');
+      console.log('=== Traverse only within "주요 기능" section ===');
       sectionNodes.forEach((id, index) => {
         const node = dataStore.getNode(id);
         console.log(`${index + 1}. ${id} (${node?.type}) - ${node?.text || ''}`);
       });
       
       expect(sectionNodes.length).toBeGreaterThan(5);
-      // 첫 번째 노드는 "주요 기능" 제목이어야 함
+      // First node should be "주요 기능" heading
       const firstNode = dataStore.getNode(sectionNodes[0]);
       expect(firstNode?.stype).toBe('heading');
       
-      // heading 노드의 자식 텍스트 노드 확인
+      // Verify child text node of heading node
       if (firstNode?.content && firstNode.content.length > 0) {
         const textNode = dataStore.getNode(firstNode.content[0] as string);
         expect(textNode?.text).toBe('주요 기능');
       }
     });
 
-    it('통계 정보 수집', () => {
+    it('collect statistics', () => {
       const iterator = dataStore.createDocumentIterator();
       const stats = iterator.getStats();
       
-      console.log('=== 문서 통계 정보 ===');
-      console.log(`총 노드 수: ${stats.total}`);
-      console.log('타입별 노드 수:', stats.byType);
-      console.log('깊이별 노드 수:', stats.byDepth);
+      console.log('=== Document statistics ===');
+      console.log(`Total nodes: ${stats.total}`);
+      console.log('Nodes by type:', stats.byType);
+      console.log('Nodes by depth:', stats.byDepth);
       
       expect(stats.total).toBeGreaterThan(50);
       expect(stats.byType['document']).toBe(1);
@@ -843,7 +843,7 @@ describe('Real-World DocumentIterator', () => {
       expect(stats.byType['inline-text']).toBeGreaterThan(20);
     });
 
-    it('성능 테스트 - 대용량 순회', () => {
+    it('performance test - large-scale traversal', () => {
       const startTime = performance.now();
       
       const iterator = dataStore.createDocumentIterator();
@@ -851,25 +851,25 @@ describe('Real-World DocumentIterator', () => {
       
       for (const nodeId of iterator) {
         count++;
-        if (count > 1000) break; // 무한 루프 방지
+        if (count > 1000) break; // Prevent infinite loop
       }
       
       const endTime = performance.now();
       const duration = endTime - startTime;
       
-      console.log(`\n=== 복잡한 문서 Iterator 성능 테스트 ===`);
-      console.log(`순회한 노드 수: ${count}`);
-      console.log(`소요 시간: ${duration.toFixed(2)}ms`);
-      console.log(`노드당 평균 시간: ${(duration / count).toFixed(4)}ms`);
+      console.log(`\n=== Complex document Iterator performance test ===`);
+      console.log(`Nodes traversed: ${count}`);
+      console.log(`Time taken: ${duration.toFixed(2)}ms`);
+      console.log(`Average time per node: ${(duration / count).toFixed(4)}ms`);
       
-      expect(duration).toBeLessThan(50); // 50ms 이내
-      expect(count).toBeGreaterThan(50); // 최소 50개 노드는 순회
+      expect(duration).toBeLessThan(50); // Within 50ms
+      expect(count).toBeGreaterThan(50); // Must traverse at least 50 nodes
     });
 
-    it('조건부 순회 - 특정 조건에서 중단', () => {
+    it('conditional traversal - stop at specific condition', () => {
       const iterator = dataStore.createDocumentIterator({
         shouldStop: (nodeId, node) => {
-          // 테이블을 만나면 중단
+          // Stop when table is encountered
           return node?.stype === 'bTable';
         }
       });
@@ -879,34 +879,34 @@ describe('Real-World DocumentIterator', () => {
         beforeTableNodes.push(nodeId);
       }
       
-      console.log('=== 테이블 이전까지 순회 ===');
+      console.log('=== Traverse until table ===');
       beforeTableNodes.forEach((id, index) => {
         const node = dataStore.getNode(id);
         console.log(`${index + 1}. ${id} (${node?.type}) - ${node?.text || ''}`);
       });
       
-      // 마지막 노드는 테이블이 아니어야 함
+      // Last node should not be a table
       const lastNode = dataStore.getNode(beforeTableNodes[beforeTableNodes.length - 1]);
       expect(lastNode?.stype).not.toBe('bTable');
     });
 
-    it('유틸리티 메서드 테스트', () => {
-      // find() - 첫 번째 테이블 찾기
+    it('utility method tests', () => {
+      // find() - find first table
       const iterator1 = dataStore.createDocumentIterator();
       const firstTable = iterator1.find((nodeId, node) => node?.stype === 'bTable');
       expect(firstTable).toBeTruthy();
       const tableNode = dataStore.getNode(firstTable!);
       expect(tableNode?.stype).toBe('bTable');
       
-      // findAll() - 모든 제목 찾기 (새로운 Iterator 사용)
+      // findAll() - find all headings (using new Iterator)
       const iterator2 = dataStore.createDocumentIterator();
       const allHeadings = iterator2.findAll((nodeId, node) => node?.stype === 'heading');
-      expect(allHeadings.length).toBe(5); // 5개의 제목
+      expect(allHeadings.length).toBe(5); // 5 headings
       allHeadings.forEach(id => {
         expect(dataStore.getNode(id)?.stype).toBe('heading');
       });
       
-      // takeWhile() - 첫 번째 테이블까지 (새로운 Iterator 사용)
+      // takeWhile() - until first table (using new Iterator)
       const iterator3 = dataStore.createDocumentIterator();
       const beforeFirstTable = iterator3.takeWhile((nodeId, node) => node?.stype !== 'bTable');
       expect(beforeFirstTable.length).toBeGreaterThan(0);
@@ -915,9 +915,9 @@ describe('Real-World DocumentIterator', () => {
     });
   });
 
-  describe('극도로 복잡한 문서 구조', () => {
+  describe('Extremely complex document structure', () => {
     beforeEach(() => {
-      // 극도로 복잡한 문서 구조 생성
+      // Create extremely complex document structure
       dataStore.createNodeWithChildren({
         stype: 'document',
         content: [
@@ -1087,18 +1087,18 @@ describe('Real-World DocumentIterator', () => {
       
       expect(allNodes.length).toBeGreaterThan(20);
       
-      // 깊이별 분포 확인
+      // Check distribution by depth
       const depthStats: Record<number, number> = {};
       allNodes.forEach(id => {
         const depth = dataStore.getNodePath(id).length;
         depthStats[depth] = (depthStats[depth] || 0) + 1;
       });
       
-      console.log('깊이별 분포:', depthStats);
+      console.log('Distribution by depth:', depthStats);
       expect(depthStats[1]).toBe(1); // document
-      expect(depthStats[2]).toBeGreaterThan(0); // 최상위 블록들
-      expect(depthStats[3]).toBeGreaterThan(0); // 중첩된 블록들
-      expect(depthStats[4]).toBeGreaterThan(0); // 더 깊이 중첩된 블록들
+      expect(depthStats[2]).toBeGreaterThan(0); // Top-level blocks
+      expect(depthStats[3]).toBeGreaterThan(0); // Nested blocks
+      expect(depthStats[4]).toBeGreaterThan(0); // More deeply nested blocks
     });
 
     it('특정 깊이 제한으로 순회', () => {

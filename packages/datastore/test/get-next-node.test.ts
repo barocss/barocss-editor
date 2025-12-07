@@ -101,15 +101,15 @@ describe('getNextNode', () => {
       expect(dataStore.getNextNode(text1.sid!)).toBe(text2.sid);
     });
 
-    it('마지막 노드는 null 반환', () => {
+    it('should return null for last node', () => {
       const textNodes = dataStore.findNodesByType('inline-text');
-      const text2 = textNodes[1]; // 마지막 텍스트 노드
+      const text2 = textNodes[1]; // Last text node
       
       expect(dataStore.getNextNode(text2.sid!)).toBeNull();
     });
   });
 
-  describe('복잡한 중첩 구조', () => {
+  describe('Complex nested structure', () => {
     beforeEach(() => {
       // document > [paragraph-1, paragraph-2, paragraph-3]
       // paragraph-1 > [text-1, text-2]
@@ -142,17 +142,17 @@ describe('getNextNode', () => {
       });
     });
 
-    it('단락 간 이동', () => {
+    it('movement between paragraphs', () => {
       const textNodes = dataStore.findNodesByType('inline-text');
       const paragraphs = dataStore.findNodesByType('paragraph');
       const para1Text2 = textNodes[1]; // Para1-Text2
       const para2 = paragraphs[1]; // paragraph-2
       
-      // para1Text2의 다음은 paragraph-2
+      // Next of para1Text2 is paragraph-2
       expect(dataStore.getNextNode(para1Text2.sid!)).toBe(para2.sid);
     });
 
-    it('단락 노드에서 첫 번째 자식으로 이동', () => {
+    it('move from paragraph node to first child', () => {
       const paragraphs = dataStore.findNodesByType('paragraph');
       const textNodes = dataStore.findNodesByType('inline-text');
       const para1 = paragraphs[0];
@@ -161,25 +161,25 @@ describe('getNextNode', () => {
       expect(dataStore.getNextNode(para1.sid!)).toBe(para1Text1.sid);
     });
 
-    it('문서의 마지막 노드는 null 반환', () => {
+    it('should return null for last node of document', () => {
       const textNodes = dataStore.findNodesByType('inline-text');
       const lastText = textNodes[4]; // Para3-Text2 (index 4)
       
       expect(dataStore.getNextNode(lastText.sid!)).toBeNull();
     });
 
-    it('단락의 마지막 노드에서 다음 단락으로 이동', () => {
+    it('move from last node of paragraph to next paragraph', () => {
       const textNodes = dataStore.findNodesByType('inline-text');
       const paragraphs = dataStore.findNodesByType('paragraph');
       const para2Text1 = textNodes[2]; // Para2-Text1
       const para3 = paragraphs[2]; // paragraph-3
       
-      // para2Text1의 다음은 paragraph-3
+      // Next of para2Text1 is paragraph-3
       expect(dataStore.getNextNode(para2Text1.sid!)).toBe(para3.sid);
     });
   });
 
-  describe('깊은 중첩 구조', () => {
+  describe('Deep nested structure', () => {
     beforeEach(() => {
       // document > paragraph-1 > [text-1, text-2, text-3]
       // document > paragraph-2 > [text-4]
@@ -204,7 +204,7 @@ describe('getNextNode', () => {
       });
     });
 
-    it('깊은 중첩에서 순서대로 이동', () => {
+    it('movement in order in deep nesting', () => {
       const textNodes = dataStore.findNodesByType('inline-text');
       const paragraphs = dataStore.findNodesByType('paragraph');
       const para1Text1 = textNodes[0];
@@ -218,7 +218,7 @@ describe('getNextNode', () => {
     });
   });
 
-  describe('경계 케이스', () => {
+  describe('Edge cases', () => {
     it('존재하지 않는 노드 ID로 호출 시 에러 발생', () => {
       expect(() => {
         dataStore.getNextNode('non-existent');
@@ -251,7 +251,7 @@ describe('getNextNode', () => {
     });
   });
 
-  describe('다양한 마크가 적용된 inline-text 노드들', () => {
+  describe('inline-text nodes with various marks applied', () => {
     beforeEach(() => {
       // document > paragraph > [text, bold-text, italic-text, link-text, code-text, text]
       dataStore.createNodeWithChildren({
@@ -272,11 +272,11 @@ describe('getNextNode', () => {
       });
     });
 
-    it('다양한 마크가 적용된 inline-text 노드들 간의 순서대로 이동', () => {
+    it('movement in order between inline-text nodes with various marks applied', () => {
       const allNodes = dataStore.getAllNodes();
       const inlineTextNodes = allNodes.filter(node => node.stype === 'inline-text');
       
-      // 순서대로 이동 확인
+      // Verify movement in order
       expect(dataStore.getNextNode(inlineTextNodes[0].sid!)).toBe(inlineTextNodes[1].sid);
       expect(dataStore.getNextNode(inlineTextNodes[1].sid!)).toBe(inlineTextNodes[2].sid);
       expect(dataStore.getNextNode(inlineTextNodes[2].sid!)).toBe(inlineTextNodes[3].sid);
@@ -293,7 +293,7 @@ describe('getNextNode', () => {
     });
   });
 
-  describe('heading과 paragraph 혼합', () => {
+  describe('heading and paragraph mix', () => {
     beforeEach(() => {
       // document > [heading, paragraph, heading, paragraph]
       dataStore.createNodeWithChildren({
@@ -329,22 +329,22 @@ describe('getNextNode', () => {
       });
     });
 
-    it('heading과 paragraph 간의 이동', () => {
+    it('movement between heading and paragraph', () => {
       const headings = dataStore.findNodesByType('heading');
       const paragraphs = dataStore.findNodesByType('paragraph');
       const textNodes = dataStore.findNodesByType('inline-text');
       
-      // heading-1 -> text (자식)
+      // heading-1 -> text (child)
       expect(dataStore.getNextNode(headings[0].sid!)).toBe(textNodes[0].sid);
       
-      // paragraph-1 -> text (자식)
+      // paragraph-1 -> text (child)
       expect(dataStore.getNextNode(paragraphs[0].sid!)).toBe(textNodes[1].sid);
       
-      // heading-2 -> text (자식)
+      // heading-2 -> text (child)
       expect(dataStore.getNextNode(headings[1].sid!)).toBe(textNodes[2].sid);
     });
 
-    it('heading 내부의 inline-text 노드 이동', () => {
+    it('movement of inline-text node inside heading', () => {
       const heading2 = dataStore.findNodesByType('heading')[1];
       const textNode = dataStore.findNodesByType('inline-text')[2];
       
@@ -353,7 +353,7 @@ describe('getNextNode', () => {
     });
   });
 
-  describe('복합 마크가 적용된 inline-text 노드들', () => {
+  describe('inline-text nodes with composite marks applied', () => {
     beforeEach(() => {
       // document > paragraph > [text, bold+italic text, link text, text]
       dataStore.createNodeWithChildren({
@@ -385,11 +385,11 @@ describe('getNextNode', () => {
       });
     });
 
-    it('복합 마크가 적용된 구조에서 순서대로 이동', () => {
+    it('movement in order in structure with composite marks applied', () => {
       const allNodes = dataStore.getAllNodes();
       const inlineTextNodes = allNodes.filter(node => node.stype === 'inline-text');
       
-      // 순서대로 이동 확인
+      // Verify movement in order
       expect(dataStore.getNextNode(inlineTextNodes[0].sid!)).toBe(inlineTextNodes[1].sid);
       expect(dataStore.getNextNode(inlineTextNodes[1].sid!)).toBe(inlineTextNodes[2].sid);
       expect(dataStore.getNextNode(inlineTextNodes[2].sid!)).toBe(inlineTextNodes[3].sid);
@@ -397,9 +397,9 @@ describe('getNextNode', () => {
     });
   });
 
-  describe('성능 테스트', () => {
+  describe('Performance test', () => {
     beforeEach(() => {
-      // 많은 노드가 있는 구조
+      // Structure with many nodes
       const textNodes = Array.from({ length: 20 }, (_, i) => ({
         stype: 'inline-text',
         text: `Text-${i + 1}`
@@ -416,10 +416,10 @@ describe('getNextNode', () => {
       });
     });
 
-    it('많은 노드에서 순서대로 이동', () => {
+    it('movement in order with many nodes', () => {
       const textNodes = dataStore.findNodesByType('inline-text');
       
-      // 첫 번째부터 마지막까지 순서대로 이동
+      // Move in order from first to last
       let currentId = textNodes[0].sid!;
       for (let i = 1; i < textNodes.length; i++) {
         const nextId = dataStore.getNextNode(currentId);
@@ -427,7 +427,7 @@ describe('getNextNode', () => {
         currentId = nextId!;
       }
       
-      // 마지막 노드는 null
+      // Last node is null
       expect(dataStore.getNextNode(currentId)).toBeNull();
     });
   });

@@ -429,30 +429,30 @@ describe('Drop Behavior', () => {
       };
       expect(dataStore.getDropBehavior(paraId, textId, context)).toBe('copy'); // Same as already copy
 
-      // 3. defineDropBehavior 규칙 제거 후 스키마 규칙 확인
+      // 3. Check schema rule after removing defineDropBehavior rule
       globalDropBehaviorRegistry.clear();
-      expect(dataStore.getDropBehavior(paraId, textId)).toBe('merge'); // 스키마 규칙
+      expect(dataStore.getDropBehavior(paraId, textId)).toBe('merge'); // Schema rule
     });
 
-    it('우선순위: defineDropBehavior > 스키마 규칙 > 기본 규칙', () => {
+    it('priority: defineDropBehavior > schema rule > default rule', () => {
       const paraId = dataStore.findNodesByType('paragraph')[0].sid!;
       const textId = dataStore.findNodesByType('inline-text')[0].sid!;
 
-      // defineDropBehavior 규칙이 없으면 스키마 규칙 적용
+      // If no defineDropBehavior rule, apply schema rule
       expect(dataStore.getDropBehavior(paraId, textId)).toBe('merge');
 
-      // defineDropBehavior 규칙 등록
+      // Register defineDropBehavior rule
       defineDropBehavior('paragraph', 'copy', { 
         sourceType: 'inline-text',
         priority: 200 
       });
 
-      // defineDropBehavior 규칙이 우선
+      // defineDropBehavior rule takes priority
       expect(dataStore.getDropBehavior(paraId, textId)).toBe('copy');
     });
   });
 
-  describe('getDropBehavior - 엣지 케이스', () => {
+  describe('getDropBehavior - Edge cases', () => {
     it('존재하지 않는 노드 ID는 기본값 반환', () => {
       const behavior = dataStore.getDropBehavior('nonexistent-1', 'nonexistent-2');
       expect(behavior).toBe('move');
@@ -489,18 +489,18 @@ describe('Drop Behavior', () => {
         sourceOrigin: 'internal'
       };
 
-      // Ctrl 키가 있으면 copy
+      // If Ctrl key is present, copy
       const behavior = dataStore.getDropBehavior(para1Id, para2Id, context);
       expect(behavior).toBe('copy');
     });
   });
 
-  describe('defineDropBehavior - Registry 동작', () => {
+  describe('defineDropBehavior - Registry behavior', () => {
     beforeEach(() => {
       globalDropBehaviorRegistry.clear();
     });
 
-    it('규칙 등록 및 조회', () => {
+    it('rule registration and retrieval', () => {
       defineDropBehavior('paragraph', 'copy');
 
       const para1Id = dataStore.findNodesByType('paragraph')[0].sid!;
@@ -516,7 +516,7 @@ describe('Drop Behavior', () => {
       expect(behavior).toBe('copy');
     });
 
-    it('규칙 제거 (clear)', () => {
+    it('rule removal (clear)', () => {
       defineDropBehavior('paragraph', 'copy');
       
       globalDropBehaviorRegistry.clear();
@@ -525,11 +525,11 @@ describe('Drop Behavior', () => {
       const para2Id = dataStore.findNodesByType('paragraph')[1].sid!;
 
       const behavior = dataStore.getDropBehavior(para1Id, para2Id);
-      // 규칙이 제거되었으므로 기본 규칙 적용
+      // Default rule applied since rule is removed
       expect(behavior).toBe('move');
     });
 
-    it('여러 규칙 등록 시 우선순위 정렬', () => {
+    it('priority sorting when multiple rules are registered', () => {
       defineDropBehavior('paragraph', 'move', { priority: 10 });
       defineDropBehavior('paragraph', 'copy', { priority: 100 });
       defineDropBehavior('paragraph', 'merge', { priority: 50 });
@@ -537,15 +537,15 @@ describe('Drop Behavior', () => {
       const para1Id = dataStore.findNodesByType('paragraph')[0].sid!;
       const para2Id = dataStore.findNodesByType('paragraph')[1].sid!;
 
-      // 가장 높은 우선순위 규칙 적용
+      // Apply rule with highest priority
       const behavior = dataStore.getDropBehavior(para1Id, para2Id);
       expect(behavior).toBe('copy');
     });
   });
 
-  describe('기본 규칙 등록', () => {
-    it('DataStore 초기화 시 기본 규칙이 등록됨', () => {
-      // 새로운 DataStore 생성 (기본 규칙 자동 등록)
+  describe('Default rule registration', () => {
+    it('default rules are registered on DataStore initialization', () => {
+      // Create new DataStore (default rules automatically registered)
       const newDataStore = new DataStore(undefined, schema);
       
       const docId = 'doc';
@@ -563,7 +563,7 @@ describe('Drop Behavior', () => {
       newDataStore.addChild(paraId, text2Id);
       newDataStore.setRootNodeId(docId);
 
-      // 텍스트 노드 → 텍스트 노드: merge (기본 규칙)
+      // Text node → text node: merge (default rule)
       const behavior = newDataStore.getDropBehavior(text1Id, text2Id);
       expect(behavior).toBe('merge');
     });

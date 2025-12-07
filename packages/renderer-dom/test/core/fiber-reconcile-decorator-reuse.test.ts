@@ -40,7 +40,7 @@ describe('reconcileFiberNode - Decorator 재사용 방지', () => {
   });
 
   it('chip-after VNode가 chip-before DOM 요소를 재사용하지 않아야 함', () => {
-    // DOM에 chip-before가 이미 있음
+    // chip-before already exists in DOM
     const textEl = document.createElement('span');
     textEl.setAttribute('data-bc-sid', 'text-14');
     textEl.className = 'text';
@@ -54,7 +54,7 @@ describe('reconcileFiberNode - Decorator 재사용 방지', () => {
     textEl.appendChild(document.createTextNode('Hello World'));
     container.appendChild(textEl);
 
-    // VNode에는 chip-after만 있음
+    // Only chip-after exists in VNode
     const vnode: VNode = {
       tag: 'span',
       stype: 'inline-text',
@@ -93,7 +93,7 @@ describe('reconcileFiberNode - Decorator 재사용 방지', () => {
       ]
     };
 
-    // chip-after VNode를 위한 Fiber 생성
+    // Create Fiber for chip-after VNode
     const chipAfterVNode = vnode.children[1] as VNode;
     const chipAfterFiber: FiberNode = {
       vnode: chipAfterVNode,
@@ -105,11 +105,11 @@ describe('reconcileFiberNode - Decorator 재사용 방지', () => {
       index: 1
     } as FiberNode;
 
-    // reconcileFiberNode 호출
+    // Call reconcileFiberNode
     reconcileFiberNode(chipAfterFiber, deps, {});
 
-    // chip-after VNode가 chip-before DOM 요소를 재사용하지 않아야 함
-    // (새로운 DOM 요소를 생성하거나, chip-before를 재사용하지 않아야 함)
+    // chip-after VNode should not reuse chip-before DOM element
+    // (should create new DOM element or not reuse chip-before)
     const chipBeforeAfter = textEl.querySelector('[data-decorator-sid="chip-before"]');
     const chipAfter = textEl.querySelector('[data-decorator-sid="chip-after"]');
     
@@ -126,8 +126,8 @@ describe('reconcileFiberNode - Decorator 재사용 방지', () => {
       }))
     });
 
-    // chip-before가 chip-after로 변경되지 않아야 함
-    // (chip-before는 그대로 있어야 하고, chip-after는 새로 생성되어야 함)
+    // chip-before should not be changed to chip-after
+    // (chip-before should remain, chip-after should be newly created)
     expect(chipBeforeAfter?.getAttribute('data-decorator-sid')).toBe('chip-before');
     expect(chipAfter?.getAttribute('data-decorator-sid')).toBe('chip-after');
   });

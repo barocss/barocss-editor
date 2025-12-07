@@ -10,7 +10,7 @@ describe('Simple Selection Test', () => {
       selectionLength: 0
     });
 
-    // 기대 결과: oldText의 6번째 위치에 "beautiful " 삽입
+    // Expected result: insert "beautiful " at 6th position of oldText
     expect(result).toHaveLength(1);
     expect(result[0]).toMatchObject({
       type: 'insert',
@@ -29,7 +29,7 @@ describe('Simple Selection Test', () => {
       selectionLength: 10
     });
 
-    // 기대 결과: oldText의 6번째 위치에서 "beautiful " 삭제
+    // Expected result: delete "beautiful " from 6th position of oldText
     expect(result).toHaveLength(1);
     expect(result[0]).toMatchObject({
       type: 'delete',

@@ -64,9 +64,9 @@ describe('Advanced Visitor Examples', () => {
     dataStore = new DataStore(undefined, schema);
   });
 
-  describe('실용적인 Visitor 클래스들', () => {
+  describe('Practical Visitor classes', () => {
     beforeEach(() => {
-      // 복잡한 문서 구조 생성
+      // Create complex document structure
       dataStore.createNodeWithChildren({
         stype: 'document',
         content: [
@@ -154,8 +154,8 @@ describe('Advanced Visitor Examples', () => {
       const result = dataStore.traverse(linkCollector);
 
       const links = linkCollector.getLinks();
-      console.log('=== 링크 수집 결과 ===');
-      console.log('수집된 링크:', links);
+      console.log('=== Link collection result ===');
+      console.log('Collected links:', links);
 
       expect(links.length).toBe(1);
       expect(links[0].text).toBe('GitHub');
@@ -163,7 +163,7 @@ describe('Advanced Visitor Examples', () => {
       expect(result.visitedCount).toBeGreaterThan(0);
     });
 
-    it('마크 분석 Visitor', () => {
+    it('Mark analysis Visitor', () => {
       class MarkAnalyzer implements DocumentVisitor {
         private markStats: Record<string, number> = {};
         private markedTexts: Record<string, string[]> = {};
@@ -196,9 +196,9 @@ describe('Advanced Visitor Examples', () => {
       const markStats = markAnalyzer.getMarkStats();
       const markedTexts = markAnalyzer.getMarkedTexts();
 
-      console.log('=== 마크 분석 결과 ===');
-      console.log('마크 통계:', markStats);
-      console.log('마크된 텍스트:', markedTexts);
+      console.log('=== Mark analysis result ===');
+      console.log('Mark statistics:', markStats);
+      console.log('Marked texts:', markedTexts);
 
       expect(markStats['bold']).toBe(2); // React, bold
       expect(markStats['italic']).toBe(1); // italic
@@ -209,13 +209,13 @@ describe('Advanced Visitor Examples', () => {
       expect(markedTexts['link']).toContain('GitHub');
     });
 
-    it('구조 분석 Visitor', () => {
+    it('Structure analysis Visitor', () => {
       class StructureAnalyzer implements DocumentVisitor {
         private structure: any = {};
         private nodeDepths: Record<string, number> = {};
 
         visit(nodeId: string, node: any) {
-          // 노드의 실제 깊이 계산
+          // Calculate actual depth of node
           let depth = 1;
           let currentId = node.parentId;
           while (currentId) {
@@ -259,27 +259,27 @@ describe('Advanced Visitor Examples', () => {
       const maxDepth = structureAnalyzer.getMaxDepth();
       const nodeCount = structureAnalyzer.getNodeCount();
 
-      console.log('=== 구조 분석 결과 ===');
-      console.log('최대 깊이:', maxDepth);
-      console.log('노드 수:', nodeCount);
-      console.log('깊이별 노드 수:', {
+      console.log('=== Structure analysis result ===');
+      console.log('Max depth:', maxDepth);
+      console.log('Node count:', nodeCount);
+      console.log('Node count by depth:', {
         depth1: structureAnalyzer.getNodesByDepth(1).length,
         depth2: structureAnalyzer.getNodesByDepth(2).length,
         depth3: structureAnalyzer.getNodesByDepth(3).length,
         depth4: structureAnalyzer.getNodesByDepth(4).length
       });
 
-      expect(maxDepth).toBeGreaterThan(1); // 깊이 있는 구조
+      expect(maxDepth).toBeGreaterThan(1); // Deep structure
       expect(nodeCount).toBeGreaterThan(5);
       
-      // 루트 노드 확인
+      // Verify root node
       const rootNodes = structureAnalyzer.getNodesByDepth(1);
       expect(rootNodes.length).toBe(1);
       const rootNode = structure[rootNodes[0]];
       expect(rootNode.type).toBe('document');
     });
 
-    it('텍스트 통계 Visitor', () => {
+    it('Text statistics Visitor', () => {
       class TextStatistics implements DocumentVisitor {
         private totalCharacters = 0;
         private totalWords = 0;
@@ -319,8 +319,8 @@ describe('Advanced Visitor Examples', () => {
       const result = dataStore.traverse(textStats);
 
       const stats = textStats.getStatistics();
-      console.log('=== 텍스트 통계 결과 ===');
-      console.log('통계:', stats);
+      console.log('=== Text statistics result ===');
+      console.log('Statistics:', stats);
 
       expect(stats.totalCharacters).toBeGreaterThan(0);
       expect(stats.totalWords).toBeGreaterThan(0);
@@ -329,12 +329,12 @@ describe('Advanced Visitor Examples', () => {
       expect(stats.textByType['inline-text'].length).toBeGreaterThan(0);
     });
 
-    it('조건부 검색 Visitor', () => {
+    it('Conditional search Visitor', () => {
       class ConditionalSearcher implements DocumentVisitor {
         private foundNodes: Array<{nodeId: string, node: any, reason: string}> = [];
 
         visit(nodeId: string, node: any) {
-          // React 관련 텍스트 찾기
+          // Find React-related text
           if (node.stype === 'inline-text' && node.text && node.text.includes('React')) {
             this.foundNodes.push({
               nodeId,
@@ -343,7 +343,7 @@ describe('Advanced Visitor Examples', () => {
             });
           }
 
-          // 링크가 있는 텍스트 찾기
+          // Find text with links
           if (node.stype === 'inline-text' && node.marks && 
               node.marks.some((m: any) => m.stype === 'link')) {
             this.foundNodes.push({
@@ -353,7 +353,7 @@ describe('Advanced Visitor Examples', () => {
             });
           }
 
-          // 제목 레벨 2 찾기
+          // Find heading level 2
           if (node.stype === 'heading' && node.attributes?.level === 2) {
             this.foundNodes.push({
               nodeId,
@@ -372,8 +372,8 @@ describe('Advanced Visitor Examples', () => {
       const result = dataStore.traverse(searcher);
 
       const foundNodes = searcher.getFoundNodes();
-      console.log('=== 조건부 검색 결과 ===');
-      console.log('찾은 노드들:', foundNodes);
+      console.log('=== Conditional search result ===');
+      console.log('Found nodes:', foundNodes);
 
       expect(foundNodes.length).toBeGreaterThan(0);
       expect(foundNodes.some(n => n.reason === 'Contains "React"')).toBe(true);
@@ -382,7 +382,7 @@ describe('Advanced Visitor Examples', () => {
     });
   });
 
-  describe('Visitor 조합 사용', () => {
+  describe('Using Visitor combinations', () => {
     beforeEach(() => {
       dataStore.createNodeWithChildren({
         stype: 'document',
@@ -405,7 +405,7 @@ describe('Advanced Visitor Examples', () => {
       });
     });
 
-    it('여러 Visitor를 조합하여 복합 분석', () => {
+    it('combine multiple Visitors for composite analysis', () => {
       class TextExtractor implements DocumentVisitor {
         private texts: string[] = [];
 
@@ -454,17 +454,17 @@ describe('Advanced Visitor Examples', () => {
 
       const results = dataStore.traverse(textExtractor, markCollector, nodeCounter);
 
-      console.log('=== 복합 분석 결과 ===');
-      console.log('텍스트:', textExtractor.getTexts());
-      console.log('마크:', markCollector.getMarks());
-      console.log('노드 수:', nodeCounter.getCount());
-      console.log('실행 결과:', results);
+      console.log('=== Composite analysis result ===');
+      console.log('Text:', textExtractor.getTexts());
+      console.log('Marks:', markCollector.getMarks());
+      console.log('Node count:', nodeCounter.getCount());
+      console.log('Execution result:', results);
 
       expect(textExtractor.getTexts()).toContain('제목');
       expect(textExtractor.getTexts()).toContain('내용 1');
       expect(textExtractor.getTexts()).toContain('내용 2');
       expect(markCollector.getMarks()).toContain('bold');
-      expect(nodeCounter.getCount()).toBe(6); // 총 노드 수
+      expect(nodeCounter.getCount()).toBe(6); // Total node count
       expect(results.length).toBe(3);
     });
   });

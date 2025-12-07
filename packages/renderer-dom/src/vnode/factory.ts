@@ -592,7 +592,7 @@ export class VNodeBuilder {
 
     // Process children and build ordered children array
     // template.children: children at template definition time
-    // data: 런타임 model 데이터 (data('text'), data('content') 등)
+    // data: runtime model data (data('text'), data('content'), etc.)
     let { orderedChildren, hasDataTextProcessed } = this._processElementChildren(template, data, vnode, buildOptions);
 
     // Remove meaningless span wrappers (e.g., leftover empty spans from decorator splits)
@@ -625,8 +625,8 @@ export class VNodeBuilder {
    */
   private _applyElementAttributes(vnode: VNode, template: ElementTemplate, data: ModelData): void {
     // Apply template attributes (props) first
-    // template.attributes: 템플릿 정의 시점의 props
-    // data: 런타임 model 데이터 (동적 속성 해석에 사용)
+    // template.attributes: props at template definition time
+    // data: runtime model data (used for dynamic attribute resolution)
     this._setAttributes(vnode, template.attributes, data);
   }
 
@@ -755,7 +755,7 @@ export class VNodeBuilder {
     data: ModelData,
     buildOptions: { injectChild?: VNode; useDataAsSlot?: boolean; decorators?: Decorator[]; sid?: string }
   ): VNode | null {
-    // ComponentTemplate의 props를 data로 전달 (item 컴포넌트가 data('text')를 사용)
+    // Pass ComponentTemplate's props as data (item component uses data('text'))
     const childProps = child.props || {};
     const childData = { ...data, ...childProps };
     return this._buildComponent(child, childData, buildOptions);
@@ -783,7 +783,7 @@ export class VNodeBuilder {
     options?: { injectChild?: VNode; useDataAsSlot?: boolean; decorators?: Decorator[]; sid?: string },
     hasDataTextProcessed?: { value: boolean }
   ): void {
-    // null이나 undefined는 무시
+    // Ignore null or undefined
     if (isNullOrUndefined(child)) {
       return;
     }
@@ -884,10 +884,10 @@ export class VNodeBuilder {
         injectedUsedRef,
         hasDataTextProcessed
       );
-      // shouldReturn이 true인 경우만 return (injectChild 처리된 경우)
-      // false인 경우는 정상 처리 완료이므로 다음 child 계속 처리
+      // Return only if shouldReturn is true (injectChild processed case)
+      // If false, normal processing complete, continue with next child
       if (shouldReturn) return;
-      // false인 경우는 여기서 return하지 않고 계속 진행
+      // If false, do not return here, continue
     }
     
     // Handle SlotTemplate
@@ -1012,7 +1012,7 @@ export class VNodeBuilder {
         decorators: childDecorators // Pass child-specific decorators
       });
       
-      // sid는 VNode 최상위에 설정되어야 함 (data-bc-sid는 Reconciler에서 추가)
+      // sid should be set at VNode top level (data-bc-sid is added by Reconciler)
       // Set key if key function is provided (for efficient reconciliation)
       if (keyFn && isFunction(keyFn)) {
         childVNode.key = String(keyFn(item, index));
@@ -1153,10 +1153,10 @@ export class VNodeBuilder {
         flushTextParts();
         // Convert marks to format expected by splitTextByMarks (TextMark[])
         // IMPORTANT: TextMark now uses 'stype' to match IMark interface
-        // Range가 없는 mark는 undefined로 유지 (splitTextByMarks에서 globalMarks로 처리됨)
+        // Marks without range remain undefined (handled as globalMarks in splitTextByMarks)
         const textMarks = marks ? marks.map(m => ({
           stype: (m as any).stype, // IMark uses 'stype'
-          range: m.range || undefined, // range가 없으면 undefined로 유지
+          range: m.range || undefined, // Keep as undefined if no range
           attrs: (m as any).attrs || (m as any).attributes
         })) : undefined;
         // Process both marks and inline decorators together
@@ -1268,7 +1268,7 @@ export class VNodeBuilder {
     Object.entries(attributes).forEach(([key, value]) => {
       if (isNullOrUndefined(value)) return;
 
-      // 이벤트 핸들러는 그대로 보존
+      // Preserve event handlers as-is
       if (isEventHandler(key, value)) {
         vnode.attrs![key] = value;
         return;
@@ -1342,20 +1342,20 @@ export class VNodeBuilder {
         continue;
       }
 
-      // child.stype 또는 child.type을 사용하여 childType 결정
-      // 'item' 같은 하드코딩된 값이 아니라 child의 실제 stype/type을 사용
+      // Determine childType using child.stype or child.type
+      // Use actual stype/type of child, not hardcoded values like 'item'
       const childType = child.stype || child.type;
 
       if (!childType) {
-        // childType이 없으면 스킵
+        // Skip if no childType
         continue;
       }
 
-      // childType을 사용하여 VNode 생성 (child.stype 또는 child.type 사용)
-      // build() 재귀 호출을 피하기 위해 _buildExternalComponent 또는 _buildContextComponentFromFunction 직접 호출
+      // Create VNode using childType (using child.stype or child.type)
+      // Directly call _buildExternalComponent or _buildContextComponentFromFunction to avoid build() recursive call
       const component = this.registry.getComponent?.(childType);
       if (!component) {
-        // Component가 없으면 스킵
+        // Skip if no component
         continue;
       }
       
@@ -1366,10 +1366,10 @@ export class VNodeBuilder {
       
       let childVNode: VNode;
       if (component.managesDOM === true) {
-        // External component: 재귀 호출 없이 직접 빌드
+        // External component: build directly without recursive call
         childVNode = this._buildExternalComponent(childType, component, child, childBuildOptions);
       } else {
-        // Context component: 재귀 호출 없이 직접 빌드
+        // Context component: build directly without recursive call
         childVNode = this._buildContextComponentFromFunction(childType, component, child, childBuildOptions);
       }
 
@@ -1463,11 +1463,11 @@ export class VNodeBuilder {
     const buildOptions = this._mergeBuildOptions(options, getSid(data));
 
     // Get registered component (check once)
-    // define()으로 정의된 모든 것은 component만 가능하므로 getComponent()만 사용
+    // Everything defined with define() can only be a component, so only use getComponent()
     // 
-    // 참고: template.component 체크는 불필요함
-    // - component() 함수로 생성된 ComponentTemplate은 component 속성이 없음
-    // - define()으로 생성된 템플릿은 build() 함수에서 처리되므로 _buildComponent()로 올 일이 없음
+    // Note: template.component check is unnecessary
+    // - ComponentTemplate created with component() function has no component property
+    // - Templates created with define() are handled by build() function, so they won't reach _buildComponent()
     const component = this.registry.getComponent(template.name);
     if (!component) {
       return null;
@@ -1481,7 +1481,7 @@ export class VNodeBuilder {
     const { props, key } = resolveComponentPropsAndKey(template, data);
 
     // Components registered via registerContextComponent (managesDOM === false)
-    // 컨텍스트 컴포넌트는 element 템플릿을 즉시 빌드하여 데코레이터/마크가 내부에 반영되도록 한다.
+    // Context components immediately build element templates so decorators/marks are reflected inside
     if (component.managesDOM === false && isFunction(component.template)) {
       return this._buildContextComponent(template, component, props, data, buildOptions);
     }
@@ -1493,7 +1493,7 @@ export class VNodeBuilder {
 
   /**
    * Build context component (managesDOM === false)
-   * 컨텍스트 컴포넌트는 element 템플릿을 즉시 빌드하여 데코레이터/마크가 내부에 반영되도록 한다.
+   * Context components immediately build element templates so decorators/marks are reflected inside
    */
   private _buildContextComponent(
     template: ComponentTemplate,
@@ -1507,7 +1507,7 @@ export class VNodeBuilder {
     const elementTemplate = component.template(resolvedProps, mergedData, this._makeContext(`${template.name}-${mergedData?.sid ?? 'noid'}`, {}, resolvedProps, mergedData, {}));
     const vnode = this._buildElement(elementTemplate as ElementTemplate, mergedData, buildOptions);
 
-    // component identity 부여 (reconcile에서 컴포넌트로 인식할 수 있도록)
+    // Assign component identity (so it can be recognized as a component in reconcile)
     vnode.attrs = vnode.attrs || {} as any;
     assignComponentIdentityAttrs(vnode.attrs as Record<string, any>, template.name, mergedData, undefined, (id) => this.ensureUniqueId(id));
 
@@ -1546,8 +1546,8 @@ export class VNodeBuilder {
       tag: 'div', // wrap component with div
       attrs: wrapperAttrs,
       stype: template.name,
-      props: { ...sanitizedProps, children },  // sanitized props 사용
-      // decorators는 VNodeBuilder에서 이미 처리되어 VNode 트리에 반영되므로 저장하지 않음
+      props: { ...sanitizedProps, children },  // Use sanitized props
+      // Decorators are already processed in VNodeBuilder and reflected in VNode tree, so don't store
       children: component.managesDOM ? undefined : children
     };
 
@@ -1691,8 +1691,8 @@ export class VNodeBuilder {
       ...this.currentBuildOptions,
       ...options,
       decorators: this._resolveDecoratorsFromOptions(options?.decorators),
-      // sid는 options에 명시적으로 전달된 경우에만 사용
-      // undefined가 전달되면 undefined로 유지 (부모 sid 상속 안 함)
+      // sid is only used if explicitly provided in options
+      // If undefined is passed, keep as undefined (no parent sid inheritance)
       sid: options?.sid !== undefined 
         ? options.sid 
         : (this.currentBuildOptions?.sid !== undefined 
@@ -1716,21 +1716,21 @@ export class VNodeBuilder {
     buildOptions: VNodeBuildOptions
   ): { childSid?: string; childBuildOptions: VNodeBuildOptions; childData: ModelData } {
     // Extract child sid from attributes if available
-    // 중요: 자식 요소는 명시적으로 sid가 있을 때만 사용
-    // 부모의 sid를 자동으로 상속받지 않음 (각 요소는 고유한 sid를 가져야 함)
+    // Important: child elements only use sid if explicitly present
+    // Do not automatically inherit parent's sid (each element must have unique sid)
     const childSid = child.attributes?.['data-bc-sid'] || child.attributes?.sid;
     
-    // childSid가 없으면 undefined (부모 sid 상속 안 함)
-    // 자식 요소를 빌드할 때는 sid를 명시적으로 전달 (undefined면 sid 없음)
+    // If childSid is absent, undefined (no parent sid inheritance)
+    // When building child elements, explicitly pass sid (no sid if undefined)
     const childBuildOptions = {
       ...buildOptions,
-      // 자식에 명시 sid가 없으면 부모 sid를 전파하여 인라인 데코레이터가 적용되도록 함
+      // If child has no explicit sid, propagate parent sid so inline decorators can be applied
       sid: childSid !== undefined 
         ? childSid 
         : (buildOptions.sid !== undefined ? buildOptions.sid : undefined)
     };
     
-    // childSid가 없으면 data에서 sid를 제거하여 부모 sid 상속 방지
+    // If childSid is absent, remove sid from data to prevent parent sid inheritance
     const childData = childSid !== undefined ? data : { ...data };
     
     return { childSid, childBuildOptions, childData };
@@ -1891,16 +1891,16 @@ export class VNodeBuilder {
     data: ModelData,
     options?: VNodeBuildOptions
   ): VNode {
-    // External component: props는 템플릿에서 정의되거나 없음
-    // data에서 props를 추출하지 않음 - 템플릿 정의 시점에 props가 결정됨
+    // External component: props are defined in template or absent
+    // Do not extract props from data - props are determined at template definition time
     // sid comes directly from data, but if missing and stype exists, auto-generate it
     const modelSid = (data as any)?.sid || options?.sid;
     const nodeSid = modelSid ? String(modelSid) : undefined;
-    // decorators는 VNodeBuilder에서 이미 처리되어 VNode 트리에 반영되므로 저장하지 않음
+    // Decorators are already processed in VNodeBuilder and reflected in VNode tree, so don't store
     const vnode = createComponentVNode({
       sid: nodeSid,
       stype: nodeType,
-      props: {},  // 템플릿에서 정의되지 않았으면 빈 객체
+      props: {},  // Empty object if not defined in template
       model: data,
       isExternal: true
     });
@@ -1911,7 +1911,7 @@ export class VNodeBuilder {
         const generatedSid = this.componentManager.generateComponentId(vnode);
         if (generatedSid) {
           markAutoGeneratedSid(vnode, generatedSid);
-          // decorators는 VNodeBuilder에서 이미 처리되어 VNode 트리에 반영되므로 저장하지 않음
+          // Decorators are already processed in VNodeBuilder and reflected in VNode tree, so don't store
         }
       }
     }
@@ -1991,16 +1991,16 @@ export class VNodeBuilder {
     data: ModelData,
     options?: VNodeBuildOptions
   ): VNode {
-    // component.template이 ContextualComponent 함수
+    // component.template is a ContextualComponent function
     const componentFunction = component.template;
     if (!componentFunction || !isFunction(componentFunction)) {
       throw new Error(`Component '${nodeType}' must have a template function (ContextualComponent).`);
     }
 
-    // Component 함수 실행: component(props, model, context)
-    // props는 템플릿에서 정의되거나 없음 (data에서 추출하지 않음)
-    // model은 data 그대로 사용
-    const props = {};  // 템플릿에서 정의되지 않았으면 빈 객체
+    // Execute Component function: component(props, model, context)
+    // props are defined in template or absent (not extracted from data)
+    // model uses data as is
+    const props = {};  // Empty object if not defined in template
     const model = data;
 
     // Get component state if available (for stateful components)
@@ -2014,17 +2014,17 @@ export class VNodeBuilder {
     try {
       const elementTemplate = componentFunction(props, model, minimalCtx) as ElementTemplate;
 
-      // Component 함수는 ElementTemplate을 반환해야 함
+      // Component function must return an ElementTemplate
       if (!isObject(elementTemplate) || elementTemplate.type !== 'element') {
         throw new Error(`Component '${nodeType}' must return an ElementTemplate.`);
       }
 
-      // elementTemplate.attributes가 props입니다
-      // _buildElement: template.attributes가 props, model은 런타임 데이터
+      // elementTemplate.attributes are props
+      // _buildElement: template.attributes are props, model is runtime data
       const vnode = this._buildElement(elementTemplate, model, options);
       // After attachComponentInfo, set sid and marks at top level
       this._applySidToVNode(vnode, model, options);
-      // element 기반은 wrapper 없이, 컴포넌트 표식은 부여하지 않음
+      // Element-based: no wrapper, do not assign component marker
       // Filter decorators for this specific node before attaching
       const nodeSid = vnode.sid || (model as any)?.sid;
       const filteredDecorators = nodeSid && options?.decorators 
@@ -2034,12 +2034,12 @@ export class VNodeBuilder {
       return vnode;
     } catch (error) {
       // If execution fails, return component VNode for ComponentManager
-      // ComponentTemplate 생성: props는 템플릿에서 정의되거나 없음
-      // data에서 props를 추출하지 않음 - 템플릿 정의 시점에 props가 결정됨
+      // Create ComponentTemplate: props are defined in template or absent
+      // Do not extract props from data - props are determined at template definition time
       const componentTemplate = {
         type: 'component',
         name: nodeType,
-        props: undefined  // 템플릿에서 정의되지 않았으면 undefined
+        props: undefined  // undefined if not defined in template
       } as ComponentTemplate;
       const vnode = this._buildComponent(componentTemplate, data, options);
       if (vnode) {
@@ -2155,17 +2155,17 @@ export class VNodeBuilder {
           };
           inner = this._buildMarkedRunVNode(modifiedMarkRun, model);
         } else {
-          // 일반 텍스트는 <span>으로 렌더링하고, text는 children에 text VNode로 넣기
+          // Render plain text as <span>, put text as text VNode in children
           inner = createSpanWrapper([
             createTextVNode(decoratorRun.text)
           ]);
         }
-        // Selection Anchoring: 절대 오프셋 계산(markRun.start + decoratorRun.start) 기준으로 포함 여부 판단
+        // Selection Anchoring: determine inclusion based on absolute offset calculation (markRun.start + decoratorRun.start)
         if (selCtx && currentSid && selCtx.sid === currentSid) {
           const absStart = (markRun.start ?? 0) + (decoratorRun.start ?? 0);
           const absEnd = (markRun.start ?? 0) + (decoratorRun.end ?? decoratorRun.start ?? 0);
           if (selCtx.modelOffset >= absStart && selCtx.modelOffset < absEnd) {
-            // DOM 속성으로 노출하지 않고 VNode 메타에만 표기
+            // Do not expose as DOM attribute, only mark in VNode meta
             (inner as any).meta = (inner as any).meta || {};
             (inner as any).meta.isSelectionRun = true;
             (inner as any).meta.selectionAnchorOffset = selCtx.modelOffset - absStart;
@@ -2173,7 +2173,7 @@ export class VNodeBuilder {
           }
         }
 
-        // 여러 decorator 처리 (before/after 등)
+        // Process multiple decorators (before/after, etc.)
         this._processDecoratorRuns(decoratorRun, inner, nodes, markRun);
       }
     }
@@ -2186,24 +2186,24 @@ export class VNodeBuilder {
         return true;
       }
       if (isVNode(child)) {
-        // VNode에 직접 text가 있으면 content가 있음
+        // If VNode has direct text, it has content
         if (child.text !== undefined && child.text !== null && String(child.text).trim().length > 0) {
           return true;
         }
-        // children이 있으면 재귀적으로 확인
+        // If has children, check recursively
         if (Array.isArray(child.children) && child.children.length > 0) {
-          // children 중 하나라도 content가 있으면 true
+          // If any child has content, return true
           const hasAnyContent = child.children.some(hasContent);
           if (hasAnyContent) {
             return true;
           }
         }
-        // children이 없거나 모두 빈 경우, VNode 자체가 의미있는 속성을 가지고 있는지 확인
-        // sid, data-decorator-sid (from attrs), attrs, style이 있으면 의미있는 VNode
+        // If no children or all empty, check if VNode itself has meaningful attributes
+        // If has sid, data-decorator-sid (from attrs), attrs, style, it's a meaningful VNode
         if (child.sid || child.attrs?.[DOMAttribute.DECORATOR_SID]) {
           return true;
         }
-        // decorator-related attrs만 의미있는 콘텐츠로 간주
+        // Only decorator-related attrs are considered meaningful content
         if (child.attrs) {
           const decoratorAttrKeys = Object.keys(child.attrs).filter(key =>
             key.startsWith('data-decorator-')
@@ -2215,10 +2215,10 @@ export class VNodeBuilder {
         if (child.style && Object.keys(child.style).length > 0) {
           return true;
         }
-        // 아무것도 없으면 빈 VNode
+        // If nothing, it's an empty VNode
         return false;
       }
-      // null, undefined 등은 content가 없음
+      // null, undefined, etc. have no content
       return false;
     };
 
@@ -2331,24 +2331,24 @@ export class VNodeBuilder {
     nodes: VNode[],
     markRun: TextRun
   ): void {
-    // 여러 decorator 처리 (before/after 등)
+    // Process multiple decorators (before/after, etc.)
     const decoratorsToProcess = decoratorRun.decorators || (decoratorRun.decorator ? [decoratorRun.decorator] : []);
 
     if (decoratorsToProcess.length > 0) {
-      // before decorator들
+      // before decorators
       const beforeDecorators = decoratorsToProcess.filter((d: Decorator) =>
         d.category === 'inline' && (d.position === 'before')
       );
-      // after decorator들
+      // after decorators
       const afterDecorators = decoratorsToProcess.filter((d: Decorator) =>
         d.category === 'inline' && (d.position === 'after')
       );
-      // overlay/inside decorator들 (텍스트를 감싸는 형태)
+      // overlay/inside decorators (wrapping text)
       const overlayDecorators = decoratorsToProcess.filter((d: Decorator) =>
         !(d.category === 'inline' && (d.position === 'before' || d.position === 'after'))
       );
 
-      // before decorator들 먼저 추가
+      // Add before decorators first
       for (const decorator of beforeDecorators) {
         const decoratorVNode = this.decoratorProcessor.buildDecoratorVNode(
           decorator,
@@ -2357,25 +2357,25 @@ export class VNodeBuilder {
         nodes.push(decoratorVNode);
       }
 
-      // overlay decorator들로 텍스트 감싸기 (가장 안쪽부터)
+      // Wrap text with overlay decorators (innermost first)
       let wrappedInner = inner;
       for (const decorator of overlayDecorators) {
         const decoratorVNode = this.decoratorProcessor.buildDecoratorVNode(
           decorator,
           (template, data, options) => this._buildElement(template, data, options)
         );
-        // overlay decorator는 renderer가 제공하는 자식 대신
-        // 실제 텍스트/mark VNode를 children으로 사용해야 한다.
-        // 템플릿에서 placeholder children을 정의했더라도 중복 렌더링을 방지하기 위해 비움.
+        // overlay decorator should use actual text/mark VNode as children
+        // instead of children provided by renderer
+        // Even if placeholder children are defined in template, clear to prevent duplicate rendering
         decoratorVNode.children = [];
         decoratorVNode.children.push(wrappedInner);
         wrappedInner = decoratorVNode;
       }
 
-      // 텍스트 (또는 감싸진 텍스트) 추가
+      // Add text (or wrapped text)
       nodes.push(wrappedInner);
 
-      // after decorator들 추가
+      // Add after decorators
       for (const decorator of afterDecorators) {
         const decoratorVNode = this.decoratorProcessor.buildDecoratorVNode(
           decorator,
@@ -2404,7 +2404,7 @@ export class VNodeBuilder {
     data: ModelData,
     buildOptions: VNodeBuildOptions
   ): VNode | null {
-    // Resolve props: build()에서 설정한 props를 우선 사용
+    // Resolve props: prioritize props set in build()
     const resolvedProps = resolveComponentProps(template, data);
 
     // Convert children to content
@@ -2414,7 +2414,7 @@ export class VNodeBuilder {
         if ((child as any).type === 'element') {
           contentVNodes.push(this._buildElement(child as ElementTemplate, data, buildOptions));
         } else if ((child as any).type === 'component') {
-          // ComponentTemplate의 props를 data로 전달 (item 컴포넌트가 data('text')를 사용)
+          // Pass ComponentTemplate's props as data (item component uses data('text'))
           const childProps = (child as ComponentTemplate).props || {};
           const childData = { ...data, ...childProps };
           const childVNode = this._buildComponent(child as ComponentTemplate, childData, buildOptions);
@@ -2429,9 +2429,9 @@ export class VNodeBuilder {
     // Ensure child component identity reflects this component, not parent
     mergedData.stype = template.name;
 
-    // getComponent()는 항상 ExternalComponent를 반환하므로
-    // isElementTemplate(registeredComponent)는 항상 false
-    // ElementTemplate 체크는 불필요 (실행되지 않음)
+    // getComponent() always returns ExternalComponent, so
+    // isElementTemplate(registeredComponent) is always false
+    // ElementTemplate check is unnecessary (not executed)
 
     const _key = `${template.name}-${mergedData?.sid ?? 'noid'}`;
     // Get component state from ComponentManager if available

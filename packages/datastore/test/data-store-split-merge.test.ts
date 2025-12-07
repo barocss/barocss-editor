@@ -7,7 +7,7 @@ describe('DataStore Split & Merge Functions', () => {
   let schema: Schema;
 
   beforeEach(() => {
-    // 테스트용 schema 생성
+    // Create schema for testing
     schema = new Schema('test-schema', {
       nodes: {
         'inline-text': {
@@ -42,7 +42,7 @@ describe('DataStore Split & Merge Functions', () => {
 
   describe('splitTextNode', () => {
     it('should split text node at specified position', () => {
-      // 텍스트 노드 생성
+      // Create text node
       const textNode = {
         sid: 'text-1',
         stype: 'inline-text',
@@ -51,14 +51,14 @@ describe('DataStore Split & Merge Functions', () => {
       };
       dataStore.setNode(textNode);
 
-      // 5번째 위치에서 분할
+      // Split at 5th position
       const newNodeId = dataStore.splitTextNode('text-1', 5);
 
-      // 원본 노드 확인
+      // Verify original node
       const originalNode = dataStore.getNode('text-1');
       expect(originalNode!.text).toBe('Hello');
 
-      // 새 노드 확인
+      // Verify new node
       const newNode = dataStore.getNode(newNodeId);
       expect(newNode!.text).toBe(' World');
       expect(newNode!.stype).toBe('inline-text');
@@ -109,7 +109,7 @@ describe('DataStore Split & Merge Functions', () => {
         stype: 'inline-text',
         text: 'Hello World',
         marks: [
-          { stype: 'bold', range: [2, 8] } // "llo Wo" 부분이 분할점을 가로지름
+          { stype: 'bold', range: [2, 8] } // "llo Wo" part crosses the split point
         ]
       };
       dataStore.setNode(textNode);
@@ -119,9 +119,9 @@ describe('DataStore Split & Merge Functions', () => {
       const originalNode = dataStore.getNode('text-1');
       const newNode = dataStore.getNode(newNodeId);
 
-      // 왼쪽 노드: "Hello"에서 "llo" 부분만 bold
+      // Left node: only "llo" part in "Hello" is bold
       expect(originalNode!.marks).toEqual([{ stype: 'bold', range: [2, 5] }]);
-      // 오른쪽 노드: " World"에서 " Wo" 부분만 bold
+      // Right node: only " Wo" part in " World" is bold
       expect(newNode!.marks).toEqual([{ stype: 'bold', range: [0, 3] }]);
     });
 
@@ -131,8 +131,8 @@ describe('DataStore Split & Merge Functions', () => {
         stype: 'inline-text',
         text: 'Hello World',
         marks: [
-          { stype: 'bold' }, // 전체 텍스트에 적용
-          { stype: 'italic' } // 전체 텍스트에 적용
+          { stype: 'bold' }, // Applied to entire text
+          { stype: 'italic' } // Applied to entire text
         ]
       };
       dataStore.setNode(textNode);
@@ -142,12 +142,12 @@ describe('DataStore Split & Merge Functions', () => {
       const originalNode = dataStore.getNode('text-1');
       const newNode = dataStore.getNode(newNodeId);
 
-      // 왼쪽 노드: "Hello" 전체에 bold, italic 적용
+      // Left node: bold and italic applied to entire "Hello"
       expect(originalNode!.marks).toEqual([
         { stype: 'bold', range: [0, 5] },
         { stype: 'italic', range: [0, 5] }
       ]);
-      // 오른쪽 노드: " World" 전체에 bold, italic 적용
+      // Right node: bold and italic applied to entire " World"
       expect(newNode!.marks).toEqual([
         { stype: 'bold', range: [0, 6] },
         { stype: 'italic', range: [0, 6] }
@@ -160,9 +160,9 @@ describe('DataStore Split & Merge Functions', () => {
         stype: 'inline-text',
         text: 'Hello World',
         marks: [
-          { stype: 'bold' }, // 전체 텍스트
-          { stype: 'italic', range: [2, 8] }, // "llo Wo" 부분만
-          { stype: 'fontColor', attrs: { color: '#ff0000' } } // 전체 텍스트
+          { stype: 'bold' }, // Full text
+          { stype: 'italic', range: [2, 8] }, // Only "llo Wo" part
+          { stype: 'fontColor', attrs: { color: '#ff0000' } } // Full text
         ]
       };
       dataStore.setNode(textNode);
@@ -172,18 +172,18 @@ describe('DataStore Split & Merge Functions', () => {
       const originalNode = dataStore.getNode('text-1');
       const newNode = dataStore.getNode(newNodeId);
 
-      // 왼쪽 노드: "Hello"
+      // Left node: "Hello"
       expect(originalNode!.marks).toEqual([
-        { stype: 'bold', range: [0, 5] }, // 전체 텍스트에서 왼쪽 부분
-        { stype: 'italic', range: [2, 5] }, // 범위가 분할점을 가로지름
-        { stype: 'fontColor', range: [0, 5], attrs: { color: '#ff0000' } } // 전체 텍스트에서 왼쪽 부분
+        { stype: 'bold', range: [0, 5] }, // Left part from full text
+        { stype: 'italic', range: [2, 5] }, // Range crosses split point
+        { stype: 'fontColor', range: [0, 5], attrs: { color: '#ff0000' } } // Left part from full text
       ]);
       
-      // 오른쪽 노드: " World"
+      // Right node: " World"
       expect(newNode!.marks).toEqual([
-        { stype: 'bold', range: [0, 6] }, // 전체 텍스트에서 오른쪽 부분
-        { stype: 'italic', range: [0, 3] }, // 범위가 분할점을 가로지름
-        { stype: 'fontColor', range: [0, 6], attrs: { color: '#ff0000' } } // 전체 텍스트에서 오른쪽 부분
+        { stype: 'bold', range: [0, 6] }, // Right part from full text
+        { stype: 'italic', range: [0, 3] }, // Range crosses split point
+        { stype: 'fontColor', range: [0, 6], attrs: { color: '#ff0000' } } // Right part from full text
       ]);
     });
 
@@ -260,7 +260,7 @@ describe('DataStore Split & Merge Functions', () => {
         sid: 'text-2',
         stype: 'inline-text',
         text: ' World',
-        marks: [{ stype: 'italic', range: [1, 5] }] // "World" 부분만 italic
+        marks: [{ stype: 'italic', range: [1, 5] }] // Only "World" part is italic
       };
       dataStore.setNode(leftNode);
       dataStore.setNode(rightNode);
@@ -270,7 +270,7 @@ describe('DataStore Split & Merge Functions', () => {
       const mergedNode = dataStore.getNode('text-1');
       expect(mergedNode!.marks).toHaveLength(2);
       expect(mergedNode!.marks![0]).toEqual({ stype: 'bold', range: [0, 5] });
-      // 오른쪽 노드의 마크는 왼쪽 텍스트 길이(5)만큼 오프셋되어야 함
+      // Right node's mark should be offset by left text length (5)
       expect(mergedNode!.marks![1]).toEqual({ stype: 'italic', range: [6, 10] });
     });
 
@@ -279,13 +279,13 @@ describe('DataStore Split & Merge Functions', () => {
         sid: 'text-1',
         stype: 'inline-text',
         text: 'Hello',
-        marks: [{ stype: 'bold' }] // 전체 텍스트에 적용
+        marks: [{ stype: 'bold' }] // Applied to full text
       };
       const rightNode = {
         sid: 'text-2',
         stype: 'inline-text',
         text: ' World',
-        marks: [{ stype: 'italic' }] // 전체 텍스트에 적용
+        marks: [{ stype: 'italic' }] // Applied to full text
       };
       dataStore.setNode(leftNode);
       dataStore.setNode(rightNode);
@@ -294,9 +294,9 @@ describe('DataStore Split & Merge Functions', () => {
 
       const mergedNode = dataStore.getNode('text-1');
       expect(mergedNode!.marks).toHaveLength(2);
-      // 왼쪽 노드의 마크는 그대로 유지
+      // Left node's mark is preserved as-is
       expect(mergedNode!.marks![0]).toEqual({ stype: 'bold', range: [0, 5] });
-      // 오른쪽 노드의 마크는 오프셋되어 추가됨
+      // Right node's mark is offset and added
       expect(mergedNode!.marks![1]).toEqual({ stype: 'italic', range: [5, 11] });
     });
 
@@ -306,8 +306,8 @@ describe('DataStore Split & Merge Functions', () => {
         stype: 'inline-text',
         text: 'Hello',
         marks: [
-          { stype: 'bold' }, // 전체 텍스트
-          { stype: 'italic', range: [0, 3] } // "Hel" 부분만
+          { stype: 'bold' }, // Full text
+          { stype: 'italic', range: [0, 3] } // Only "Hel" part
         ]
       };
       const rightNode = {
@@ -315,8 +315,8 @@ describe('DataStore Split & Merge Functions', () => {
         stype: 'inline-text',
         text: ' World',
         marks: [
-          { stype: 'fontColor', attrs: { color: '#ff0000' } }, // 전체 텍스트
-          { stype: 'underline', range: [1, 4] } // "Wor" 부분만
+          { stype: 'fontColor', attrs: { color: '#ff0000' } }, // Full text
+          { stype: 'underline', range: [1, 4] } // Only "Wor" part
         ]
       };
       dataStore.setNode(leftNode);
@@ -327,11 +327,11 @@ describe('DataStore Split & Merge Functions', () => {
       const mergedNode = dataStore.getNode('text-1');
       expect(mergedNode!.marks).toHaveLength(4);
       
-      // 왼쪽 노드의 마크들
+      // Left node's marks
       expect(mergedNode!.marks![0]).toEqual({ stype: 'bold', range: [0, 5] });
       expect(mergedNode!.marks![1]).toEqual({ stype: 'italic', range: [0, 3] });
       
-      // 오른쪽 노드의 마크들 (오프셋 적용됨)
+      // Right node's marks (offset applied)
       expect(mergedNode!.marks![2]).toEqual({ stype: 'fontColor', range: [5, 11], attrs: { color: '#ff0000' } });
       expect(mergedNode!.marks![3]).toEqual({ stype: 'underline', range: [6, 9] });
     });
@@ -357,7 +357,7 @@ describe('DataStore Split & Merge Functions', () => {
 
   describe('splitBlockNode', () => {
     beforeEach(() => {
-      // 부모 노드 생성
+      // Create parent node
       const parentNode = {
         sid: 'parent-1',
         stype: 'paragraph',
@@ -366,7 +366,7 @@ describe('DataStore Split & Merge Functions', () => {
       };
       dataStore.setNode(parentNode);
 
-      // 자식 노드들 생성
+      // Create child nodes
       const children = [
         { sid: 'child-1', stype: 'inline-text', text: 'Child 1', parentId: 'parent-1' },
         { sid: 'child-2', stype: 'inline-text', text: 'Child 2', parentId: 'parent-1' },
@@ -379,17 +379,17 @@ describe('DataStore Split & Merge Functions', () => {
     it('should split block node at specified position', () => {
       const newNodeId = dataStore.splitBlockNode('parent-1', 2);
 
-      // 원본 노드 확인
+      // Verify original node
       const originalNode = dataStore.getNode('parent-1');
       expect(originalNode!.content).toEqual(['child-1', 'child-2']);
 
-      // 새 노드 확인
+      // Verify new node
       const newNode = dataStore.getNode(newNodeId);
       expect(newNode!.content).toEqual(['child-3', 'child-4']);
       expect(newNode!.stype).toBe('paragraph');
       expect(newNode!.attributes?.class).toBe('parent');
 
-      // 자식들의 부모 ID 업데이트 확인
+      // Verify children's parent IDs are updated
       const child3 = dataStore.getNode('child-3');
       const child4 = dataStore.getNode('child-4');
       expect(child3!.parentId).toBe(newNodeId);
@@ -417,7 +417,7 @@ describe('DataStore Split & Merge Functions', () => {
 
   describe('mergeBlockNodes', () => {
     beforeEach(() => {
-      // 두 개의 블록 노드 생성
+      // Create two block nodes
       const leftNode = {
         sid: 'left-1',
         stype: 'paragraph',
@@ -433,7 +433,7 @@ describe('DataStore Split & Merge Functions', () => {
       dataStore.setNode(leftNode);
       dataStore.setNode(rightNode);
 
-      // 자식 노드들 생성
+      // Create child nodes
       const children = [
         { sid: 'child-1', stype: 'inline-text', text: 'Left 1', parentId: 'left-1' },
         { sid: 'child-2', stype: 'inline-text', text: 'Left 2', parentId: 'left-1' },
@@ -448,14 +448,14 @@ describe('DataStore Split & Merge Functions', () => {
 
       expect(mergedNodeId).toBe('left-1');
       
-      // 왼쪽 노드에 모든 자식이 병합되었는지 확인
+      // Verify all children are merged into left node
       const mergedNode = dataStore.getNode('left-1');
       expect(mergedNode!.content).toEqual(['child-1', 'child-2', 'child-3', 'child-4']);
 
-      // 오른쪽 노드는 삭제되었는지 확인
+      // Verify right node is deleted
       expect(dataStore.getNode('right-1')).toBeUndefined();
 
-      // 자식들의 부모 ID가 업데이트되었는지 확인
+      // Verify children's parent IDs are updated
       const child3 = dataStore.getNode('child-3');
       const child4 = dataStore.getNode('child-4');
       expect(child3!.parentId).toBe('left-1');
@@ -477,7 +477,7 @@ describe('DataStore Split & Merge Functions', () => {
 
   describe('splitTextRange', () => {
     it('should split text range and return middle node', () => {
-      // 부모 노드 생성
+      // Create parent node
       const parentNode = {
         sid: 'parent-1',
         stype: 'paragraph',
@@ -495,18 +495,18 @@ describe('DataStore Split & Merge Functions', () => {
       };
       dataStore.setNode(textNode);
 
-      // "lo Wo" 부분을 분할 (3-8)
+      // Split "lo Wo" part (3-8)
       const middleNodeId = dataStore.splitTextRange('text-1', 3, 8);
 
-      // 원본 노드 확인
+      // Verify original node
       const originalNode = dataStore.getNode('text-1');
       expect(originalNode!.text).toBe('Hel');
 
-      // 중간 노드 확인
+      // Verify middle node
       const middleNode = dataStore.getNode(middleNodeId);
       expect(middleNode!.text).toBe('lo Wo');
 
-      // 마지막 노드 확인 (자동으로 생성됨)
+      // Verify last node (automatically created)
       const parent = dataStore.getNode(originalNode!.parentId!);
       const lastNodeId = parent!.content![2];
       const lastNode = dataStore.getNode(lastNodeId);
@@ -529,7 +529,7 @@ describe('DataStore Split & Merge Functions', () => {
 
   describe('autoMergeTextNodes', () => {
     beforeEach(() => {
-      // 부모 노드 생성
+      // Create parent node
       const parentNode = {
         sid: 'parent-1',
         stype: 'paragraph',
@@ -538,7 +538,7 @@ describe('DataStore Split & Merge Functions', () => {
       };
       dataStore.setNode(parentNode);
 
-      // 텍스트 노드들 생성
+      // Create text nodes
       const textNodes = [
         { sid: 'text-1', stype: 'inline-text', text: 'Hello', parentId: 'parent-1' },
         { sid: 'text-2', stype: 'inline-text', text: ' ', parentId: 'parent-1' },
@@ -552,21 +552,21 @@ describe('DataStore Split & Merge Functions', () => {
 
       expect(mergedNodeId).toBe('text-1');
       
-      // 모든 텍스트가 병합되었는지 확인
+      // Verify all text is merged
       const mergedNode = dataStore.getNode('text-1');
       expect(mergedNode!.text).toBe('Hello World');
 
-      // 중간 노드들이 삭제되었는지 확인
+      // Verify middle nodes are deleted
       expect(dataStore.getNode('text-2')).toBeUndefined();
       expect(dataStore.getNode('text-3')).toBeUndefined();
 
-      // 부모의 content가 업데이트되었는지 확인
+      // Verify parent's content is updated
       const parent = dataStore.getNode('parent-1');
       expect(parent!.content).toEqual(['text-1']);
     });
 
     it('should not merge non-text nodes', () => {
-      // paragraph 노드 추가
+      // Add paragraph node
       const paragraphNode = {
         sid: 'para-1',
         stype: 'paragraph',
@@ -575,14 +575,14 @@ describe('DataStore Split & Merge Functions', () => {
       };
       dataStore.setNode(paragraphNode);
 
-      // 부모의 content 업데이트
+      // Update parent's content
       const parent = dataStore.getNode('parent-1');
       parent!.content = ['text-1', 'para-1', 'text-3'];
       dataStore.setNode(parent);
 
       const mergedNodeId = dataStore.autoMergeTextNodes('para-1');
 
-      // paragraph 노드는 병합되지 않아야 함
+      // Paragraph node should not be merged
       expect(mergedNodeId).toBe('para-1');
       expect(dataStore.getNode('text-1')).toBeDefined();
       expect(dataStore.getNode('text-3')).toBeDefined();
