@@ -188,7 +188,7 @@ describe('Reconciler state change throttling', () => {
       stateInst.set({ count: 3 });
     }
 
-    // 동기 모드에서는 즉시 완료되므로 대기 불필요
+    // In sync mode, completes immediately so no wait needed
 
     // Should only render once (throttled)
     expect(renderCount).toBeLessThanOrEqual(2); // Allow initial + throttled

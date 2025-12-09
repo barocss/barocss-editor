@@ -101,7 +101,7 @@ describe('reconcileWithFiber - 깊게 중첩된 문서 + 복잡한 mark/decorato
       const decoratorElements = container.querySelectorAll('[data-decorator-sid="d-deep"]');
       expect(decoratorElements.length).toBe(1);
 
-      // 모든 레벨의 요소가 생성되어야 함
+      // All level elements should be created
       for (let i = 1; i <= 4; i++) {
         const elements = container.querySelectorAll(`[data-bc-sid="level-${i}"]`);
         expect(elements.length).toBe(1);
@@ -131,7 +131,7 @@ describe('reconcileWithFiber - 깊게 중첩된 문서 + 복잡한 mark/decorato
         ]
       };
 
-      // 5단계 중첩
+      // 5-level nesting
       let vnode: VNode = deepTextVNode;
       for (let i = 5; i >= 1; i--) {
         vnode = {
@@ -149,21 +149,21 @@ describe('reconcileWithFiber - 깊게 중첩된 문서 + 복잡한 mark/decorato
 
       reconcileWithFiber(container, rootVNode, undefined, {}, deps);
 
-      // decorator 요소가 있어야 함
+      // Decorator element should exist
       const decoratorElements = container.querySelectorAll('[data-decorator-sid="d-highlight"]');
       expect(decoratorElements.length).toBe(1);
 
-      // mark 요소가 있어야 함
+      // Mark element should exist
       const markElements = container.querySelectorAll('.mark-bold');
       expect(markElements.length).toBeGreaterThan(0);
 
-      // 모든 레벨의 요소가 생성되어야 함
+      // All level elements should be created
       for (let i = 1; i <= 5; i++) {
         const elements = container.querySelectorAll(`[data-bc-sid="level-${i}"]`);
         expect(elements.length).toBe(1);
       }
 
-      // 텍스트가 포함되어야 함
+      // Text should be included
       expect(container.textContent).toContain('bold and highlighted');
     });
 
@@ -208,7 +208,7 @@ describe('reconcileWithFiber - 깊게 중첩된 문서 + 복잡한 mark/decorato
         ]
       };
 
-      // level3을 level2로 감싸고, level5를 level4로 감싸서 level1에 배치
+      // Wrap level3 with level2, wrap level5 with level4, place in level1
       const level2VNode: VNode = {
         tag: 'div',
         sid: 'level-2',
@@ -235,29 +235,29 @@ describe('reconcileWithFiber - 깊게 중첩된 문서 + 복잡한 mark/decorato
 
       reconcileWithFiber(container, rootVNode, undefined, {}, deps);
 
-      // 두 decorator 요소가 모두 있어야 함
+      // Both decorator elements should exist
       const decorator3Elements = container.querySelectorAll('[data-decorator-sid="d-level3"]');
       const decorator5Elements = container.querySelectorAll('[data-decorator-sid="d-level5"]');
       expect(decorator3Elements.length).toBe(1);
       expect(decorator5Elements.length).toBe(1);
 
-      // 두 mark 요소가 모두 있어야 함
+      // Both mark elements should exist
       const markBoldElements = container.querySelectorAll('.mark-bold');
       const markItalicElements = container.querySelectorAll('.mark-italic');
       expect(markBoldElements.length).toBeGreaterThan(0);
       expect(markItalicElements.length).toBeGreaterThan(0);
 
-      // 텍스트가 모두 포함되어야 함
+      // All text should be included
       expect(container.textContent).toContain('level3 text');
       expect(container.textContent).toContain('level5 text');
     });
   });
 
   describe('매우 복잡한 시나리오', () => {
-    // NOTE: 다른 부모 아래에 같은 decoratorSid를 가진 요소가 있을 때,
-    // 전역 검색으로 인해 하나만 렌더링되는 현재 구현 제한이 있음
+    // NOTE: When elements with the same decoratorSid exist under different parents,
+    // current implementation limitation: only one is rendered due to global search
     it.skip('깊게 중첩 + 여러 mark + 여러 decorator + 같은 decoratorSid', () => {
-      // 같은 decoratorSid를 가진 여러 VNode를 깊게 중첩된 구조에 배치
+      // Place multiple VNodes with the same decoratorSid in deeply nested structure
       const decoratorVNode1: VNode = {
         tag: 'span',
         decoratorSid: 'd-shared',
@@ -286,7 +286,7 @@ describe('reconcileWithFiber - 깊게 중첩된 문서 + 복잡한 mark/decorato
         ]
       };
 
-      // 깊게 중첩된 구조 생성
+      // Create deeply nested structure
       const level3VNode: VNode = {
         tag: 'div',
         sid: 'level-3',
@@ -325,18 +325,18 @@ describe('reconcileWithFiber - 깊게 중첩된 문서 + 복잡한 mark/decorato
 
       reconcileWithFiber(container, rootVNode, undefined, {}, deps);
 
-      // 같은 decoratorSid를 가진 두 요소가 모두 있어야 함
-      // NOTE: 다른 부모 아래에 있으면 전역 검색으로 인해 하나만 렌더링될 수 있음
+      // Both elements with the same decoratorSid should exist
+      // NOTE: If under different parents, only one may be rendered due to global search
       const decoratorElements = container.querySelectorAll('[data-decorator-sid="d-shared"]');
-      // 최소 1개는 있어야 함 (실제로는 2개가 이상적이지만, 현재 구현 제한으로 1개일 수 있음)
+      // At least 1 should exist (ideally 2, but may be 1 due to current implementation limitation)
       expect(decoratorElements.length).toBeGreaterThanOrEqual(1);
 
-      // 텍스트가 모두 포함되어야 함 (decorator가 렌더링되면 그 안의 mark도 렌더링됨)
+      // All text should be included (if decorator is rendered, marks inside are also rendered)
       expect(container.textContent).toContain('first');
       expect(container.textContent).toContain('second');
       
-      // NOTE: mark 요소는 decorator 안에 있으므로, decorator가 제대로 렌더링되면 mark도 렌더링됨
-      // 하지만 다른 부모 아래에 있는 경우 전역 검색으로 인해 하나의 decorator만 렌더링될 수 있음
+      // NOTE: Mark elements are inside decorator, so if decorator is rendered correctly, marks are also rendered
+      // However, if under different parents, only one decorator may be rendered due to global search
     });
 
     it('매우 깊은 중첩(15단계) + mark + decorator', () => {
@@ -360,7 +360,7 @@ describe('reconcileWithFiber - 깊게 중첩된 문서 + 복잡한 mark/decorato
         ]
       };
 
-      // 15단계 중첩
+      // 15 levels of nesting
       let vnode: VNode = deepTextVNode;
       for (let i = 15; i >= 1; i--) {
         vnode = {
@@ -378,15 +378,15 @@ describe('reconcileWithFiber - 깊게 중첩된 문서 + 복잡한 mark/decorato
 
       reconcileWithFiber(container, rootVNode, undefined, {}, deps);
 
-      // decorator 요소가 있어야 함
+      // Decorator element should exist
       const decoratorElements = container.querySelectorAll('[data-decorator-sid="d-deep"]');
       expect(decoratorElements.length).toBe(1);
 
-      // mark 요소가 있어야 함
+      // Mark element should exist
       const markElements = container.querySelectorAll('.mark-bold, .mark-italic');
       expect(markElements.length).toBeGreaterThan(0);
 
-      // 텍스트가 포함되어야 함
+      // Text should be included
       expect(container.textContent).toContain('very deep text');
     });
   });

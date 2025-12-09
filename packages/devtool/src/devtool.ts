@@ -14,7 +14,7 @@ export class Devtool {
   private eventLogs: EventLog[] = [];
   private maxEvents: number;
   private debug: boolean;
-  private lastSelection: any = null; // 마지막 selection 정보 저장
+  private lastSelection: any = null; // Store last selection information
   private autoTracer: AutoTracer;
   private traces: Map<string, ExecutionFlow> = new Map();
   private maxFlows: number = 100;
@@ -37,17 +37,17 @@ export class Devtool {
     console.log('[Devtool] constructor: calling setupEventListeners');
     this.setupEventListeners();
 
-    // AutoTracer 초기화
+    // Initialize AutoTracer
     this.autoTracer = new AutoTracer(this.editor, {
       enabled: options.enableAutoTracing !== false
     });
 
-    // AutoTracer 활성화
+    // Enable AutoTracer
     if (options.enableAutoTracing !== false) {
       this.autoTracer.enable();
     }
 
-    // Trace 이벤트 리스너 설정
+    // Setup Trace event listeners
     this.setupTraceListeners();
 
     // Initial render
@@ -68,14 +68,14 @@ export class Devtool {
     console.log('[Devtool] setupEventListeners: patching emit');
     this.patchEditorEmit();
 
-    // Event logging은 일시적으로 비활성화 (Execution Flow에 집중)
+    // Event logging temporarily disabled (focusing on Execution Flow)
     // if (!this.debug) {
     //   console.log('[Devtool] setupEventListeners: SKIP - debug is false');
     //   return;
     // }
 
     // Listen to all events using a catch-all approach
-    // Event logging 비활성화 (Execution Flow에 집중)
+    // Event logging disabled (focusing on Execution Flow)
     /*
     const eventTypes = [
       'editor:content.change',
@@ -83,8 +83,8 @@ export class Devtool {
       'editor:node.update',
       'editor:node.delete',
       'editor:selection.change',
-      'editor:selection.model',  // 모델 selection 변경 이벤트
-      'editor:selection.dom.applied',  // DOM selection 적용 이벤트
+      'editor:selection.model',  // Model selection change event
+      'editor:selection.dom.applied',  // DOM selection applied event
       'editor:selection.focus',
       'editor:selection.blur',
       'editor:command.execute',
@@ -107,18 +107,18 @@ export class Devtool {
       this.editor.on(eventType, (data: any) => {
         console.log('[Devtool] Event received:', eventType, data);
         this.logEvent(eventType, data);
-        // editor:content.change 또는 selection 변경 이벤트 발생 시 즉시 모델 트리 갱신
+        // Immediately refresh model tree when editor:content.change or selection change event occurs
         if (eventType === 'editor:content.change' || 
             eventType === 'editor:selection.change' ||
             eventType === 'editor:selection.model' ||
             eventType === 'editor:selection.dom.applied') {
           console.log('[Devtool] Content/Selection change detected, refreshing model tree...');
-          // selection.change 이벤트에서 selection 정보 저장
+          // Store selection information from selection.change event
           if (eventType === 'editor:selection.change' && data?.selection) {
             this.lastSelection = data.selection;
           }
           
-          // 약간의 지연을 두어 모델 업데이트가 완료된 후 트리 갱신
+          // Add slight delay to refresh tree after model update completes
           setTimeout(() => {
             this.refreshModelTree();
           }, 10);
@@ -177,7 +177,7 @@ export class Devtool {
       span.output = data.output;
     }
 
-    // 플로우 완료 확인
+    // Check if flow is completed
     if (this._isCompleted(flow)) {
       flow.endTime = data.timestamp;
       flow.duration = data.timestamp - flow.startTime;
@@ -209,7 +209,7 @@ export class Devtool {
         startTime: Date.now()
       });
 
-      // 최대 개수 제한
+      // Limit maximum count
       if (this.traces.size > this.maxFlows) {
         const oldest = Array.from(this.traces.entries())
           .sort((a, b) => a[1].startTime - b[1].startTime)[0];
@@ -254,10 +254,10 @@ export class Devtool {
         isContentChange: event === 'editor:content.change',
         dataKeys: data ? Object.keys(data) : []
       });
-      // Event logging 비활성화 (Execution Flow에 집중)
+      // Event logging disabled (focusing on Execution Flow)
       // this.logEvent(event, data);
       
-      // editor:content.change에서 inputDebug 감지 및 UI 업데이트
+      // Detect inputDebug in editor:content.change and update UI
       if (event === 'editor:content.change' && data?.inputDebug) {
         console.log('[Devtool] inputDebug detected in editor:content.change', data.inputDebug);
         this.ui.updateLastInputDebug(data.inputDebug);
@@ -423,7 +423,7 @@ export class Devtool {
       return selectionMap;
     }
 
-    // SelectionState 타입 처리 (nodeId, from, to 사용)
+    // Handle SelectionState type (using nodeId, from, to)
     if (selection.nodeId && typeof selection.from === 'number' && typeof selection.to === 'number') {
       selectionMap.set(selection.nodeId, {
         start: selection.from,
@@ -432,15 +432,15 @@ export class Devtool {
       return selectionMap;
     }
 
-    // editor:selection.change 이벤트의 selection 객체 처리
-    // anchorNode, focusNode를 사용하여 nodeId 찾기
+    // Handle selection object from editor:selection.change event
+    // Find nodeId using anchorNode, focusNode
     if (selection.anchorNode || selection.focusNode) {
       const anchorNode = selection.anchorNode;
       const focusNode = selection.focusNode;
       const anchorOffset = selection.anchorOffset || 0;
       const focusOffset = selection.focusOffset || 0;
       
-      // anchorNode에서 nodeId 찾기
+      // Find nodeId from anchorNode
       let anchorNodeId: string | null = null;
       if (anchorNode) {
         const anchorEl = anchorNode.nodeType === Node.ELEMENT_NODE 
@@ -449,7 +449,7 @@ export class Devtool {
         anchorNodeId = anchorEl?.closest?.('[data-bc-sid]')?.getAttribute('data-bc-sid') || null;
       }
       
-      // focusNode에서 nodeId 찾기
+      // Find nodeId from focusNode
       let focusNodeId: string | null = null;
       if (focusNode) {
         const focusEl = focusNode.nodeType === Node.ELEMENT_NODE 
@@ -460,7 +460,7 @@ export class Devtool {
       
       if (anchorNodeId && focusNodeId) {
         if (anchorNodeId === focusNodeId) {
-          // 같은 노드 내 selection
+          // Selection within same node
           const start = Math.min(anchorOffset, focusOffset);
           const end = Math.max(anchorOffset, focusOffset);
           selectionMap.set(anchorNodeId, {
@@ -468,7 +468,7 @@ export class Devtool {
             end
           });
         } else {
-          // 다른 노드에 걸친 selection
+          // Selection spanning different nodes
           selectionMap.set(anchorNodeId, {
             start: anchorOffset,
             end: Infinity
@@ -482,8 +482,8 @@ export class Devtool {
       }
     }
 
-    // ModelRangeSelection 타입 처리 (type === 'range')
-    // 또는 convertDOMSelectionToModel 결과 (startNodeId, startOffset, endNodeId, endOffset)
+    // Handle ModelRangeSelection type (type === 'range')
+    // Or result from convertDOMSelectionToModel (startNodeId, startOffset, endNodeId, endOffset)
     if (selection.type === 'range' && selection.startNodeId && selection.endNodeId) {
       const startNodeId = selection.startNodeId;
       const startOffset = selection.startOffset || 0;
@@ -500,7 +500,7 @@ export class Devtool {
         // 다른 노드에 걸친 selection
         selectionMap.set(startNodeId, {
           start: startOffset,
-          end: Infinity // 노드 끝까지
+          end: Infinity // To end of node
         });
         selectionMap.set(endNodeId, {
           start: 0,
@@ -510,7 +510,7 @@ export class Devtool {
       return selectionMap;
     }
 
-    // startNodeId/endNodeId만 있는 경우 (type이 없어도 처리)
+    // When only startNodeId/endNodeId exist (process even without type)
     if (selection.startNodeId && selection.endNodeId && typeof selection.startOffset === 'number') {
       const startNodeId = selection.startNodeId;
       const startOffset = selection.startOffset || 0;
@@ -535,7 +535,7 @@ export class Devtool {
       return selectionMap;
     }
 
-    // ModelSelection 타입 처리 (startNodeId, startOffset, endNodeId, endOffset)
+    // Handle ModelSelection type (startNodeId, startOffset, endNodeId, endOffset)
     if (selection.startNodeId && selection.endNodeId) {
       const startNodeId = selection.startNodeId;
       const startOffset = selection.startOffset || 0;
@@ -554,7 +554,7 @@ export class Devtool {
         // 다른 노드에 걸친 selection
         selectionMap.set(startNodeId, {
           start: startOffset,
-          end: Infinity // 노드 끝까지
+          end: Infinity // To end of node
         });
         selectionMap.set(endNodeId, {
           start: 0,
@@ -612,7 +612,7 @@ export class Devtool {
       return [{ text, start: 0, end: len, marks: [], decorators: [] }];
     }
 
-    // Range가 없는 mark는 전체 텍스트에 적용되므로 [0, text.length]로 변환
+    // Marks without range apply to entire text, so convert to [0, text.length]
     const normalizedMarks = (marks || []).map(mark => ({
       ...mark,
       range: mark.range || [0, len]

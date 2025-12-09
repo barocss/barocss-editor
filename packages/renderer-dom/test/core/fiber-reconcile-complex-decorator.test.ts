@@ -66,15 +66,15 @@ describe('reconcileWithFiber - 복잡한 decorator 케이스', () => {
 
       reconcileWithFiber(container, vnode, undefined, {}, deps);
 
-      // decorator 요소가 있어야 함
+      // Decorator element should exist
       const decoratorElements = container.querySelectorAll('[data-decorator-sid="d-highlight"]');
       expect(decoratorElements.length).toBe(1);
 
-      // mark 요소가 있어야 함
+      // Mark element should exist
       const markElements = container.querySelectorAll('.mark-bold');
       expect(markElements.length).toBeGreaterThan(0);
 
-      // 텍스트가 포함되어야 함
+      // Text should be included
       expect(container.textContent).toContain('bold and highlighted');
     });
 
@@ -123,13 +123,13 @@ describe('reconcileWithFiber - 복잡한 decorator 케이스', () => {
 
       reconcileWithFiber(container, vnode, undefined, {}, deps);
 
-      // 두 개의 decorator 요소가 있어야 함
+      // Two decorator elements should exist
       const highlightElements = container.querySelectorAll('[data-decorator-sid="d-highlight"]');
       const underlineElements = container.querySelectorAll('[data-decorator-sid="d-underline"]');
       expect(highlightElements.length).toBe(1);
       expect(underlineElements.length).toBe(1);
 
-      // mark 요소들이 있어야 함
+      // Mark elements should exist
       const markElements = container.querySelectorAll('.mark-bold, .mark-italic');
       expect(markElements.length).toBeGreaterThan(0);
     });
@@ -173,23 +173,23 @@ describe('reconcileWithFiber - 복잡한 decorator 케이스', () => {
 
       reconcileWithFiber(container, vnode, undefined, {}, deps);
 
-      // 3개의 decorator 요소가 모두 렌더링되어야 함
+      // All 3 decorator elements should be rendered
       const decoratorElements = container.querySelectorAll('[data-decorator-sid="d-highlight"]');
       expect(decoratorElements.length).toBe(3);
 
-      // 각각 다른 텍스트를 가져야 함
+      // Each should have different text
       const texts = Array.from(decoratorElements).map(el => el.textContent);
       expect(texts).toContain('first');
       expect(texts).toContain('second');
       expect(texts).toContain('third');
     });
 
-    // NOTE: 다른 부모 아래에 같은 decoratorSid를 가진 VNode가 있는 경우,
-    // 현재 구현에서는 전역 검색으로 인해 같은 DOM 요소를 재사용할 수 있습니다.
-    // 이는 실제 사용 사례에서는 같은 부모 아래에 같은 decoratorSid를 가진 VNode가 있는 경우가 더 일반적이므로,
-    // 이 케이스는 스킵합니다.
+    // NOTE: When VNodes with the same decoratorSid exist under different parents,
+    // the current implementation may reuse the same DOM element due to global search.
+    // Since in actual use cases, VNodes with the same decoratorSid under the same parent are more common,
+    // this case is skipped.
     it.skip('다른 부모 아래에 같은 decoratorSid를 가진 VNode가 있는 경우', () => {
-      // 이 테스트는 현재 구현에서 전역 검색으로 인해 같은 DOM 요소를 재사용하므로 스킵
+      // This test is skipped because current implementation reuses same DOM element due to global search
     });
   });
 
@@ -204,7 +204,7 @@ describe('reconcileWithFiber - 복잡한 decorator 케이스', () => {
         children: [{ tag: undefined, text: 'deep' }]
       };
 
-      // 5단계 중첩
+      // 5-level nesting
       for (let i = 4; i >= 1; i--) {
         vnode = {
           tag: 'span',
@@ -224,13 +224,13 @@ describe('reconcileWithFiber - 복잡한 decorator 케이스', () => {
 
       reconcileWithFiber(container, rootVNode, undefined, {}, deps);
 
-      // 모든 레벨의 decorator 요소가 있어야 함
+      // Decorator elements at all levels should exist
       for (let i = 1; i <= 5; i++) {
         const elements = container.querySelectorAll(`[data-decorator-sid="d-level-${i}"]`);
         expect(elements.length).toBe(1);
       }
 
-      // 텍스트가 포함되어야 함
+      // Text should be included
       expect(container.textContent).toContain('deep');
     });
   });
@@ -258,11 +258,11 @@ describe('reconcileWithFiber - 복잡한 decorator 케이스', () => {
 
       reconcileWithFiber(container, vnode, undefined, {}, deps);
 
-      // 모든 decorator 요소가 렌더링되어야 함
+      // All decorator elements should be rendered
       const decoratorElements = container.querySelectorAll('[data-decorator-sid="d-highlight"]');
       expect(decoratorElements.length).toBe(20);
 
-      // 각각 다른 텍스트를 가져야 함
+      // Each should have different text
       const texts = Array.from(decoratorElements).map(el => el.textContent);
       for (let i = 0; i < 20; i++) {
         expect(texts).toContain(`item-${i}`);
@@ -307,11 +307,11 @@ describe('reconcileWithFiber - 복잡한 decorator 케이스', () => {
       reconcileWithFiber(container, prevVNode, undefined, {}, deps);
       reconcileWithFiber(container, vnode, prevVNode, {}, deps);
 
-      // 새로운 decorator 요소가 있어야 함
+      // New decorator element should exist
       const newElements = container.querySelectorAll('[data-decorator-sid="d-new"]');
       expect(newElements.length).toBe(1);
 
-      // 이전 decorator 요소는 제거되어야 함
+      // Previous decorator element should be removed
       const oldElements = container.querySelectorAll('[data-decorator-sid="d-old"]');
       expect(oldElements.length).toBe(0);
     });

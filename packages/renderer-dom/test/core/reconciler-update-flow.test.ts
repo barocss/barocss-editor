@@ -1,8 +1,8 @@
 /**
- * Reconciler 업데이트 플로우 검증 테스트
+ * Reconciler Update Flow Verification Test
  * 
- * 이 테스트는 여러 번 render() 호출 시 reconciler가 어떻게 업데이트하는지 확인합니다.
- * 특히 decorator 추가/제거 시 prevVNode 매칭과 updateComponent 호출을 검증합니다.
+ * This test verifies how the reconciler updates when render() is called multiple times.
+ * Specifically validates prevVNode matching and updateComponent calls when decorators are added/removed.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { define, element, data, defineDecorator, getGlobalRegistry, slot, text } from '@barocss/dsl';
@@ -24,12 +24,12 @@ describe('Reconciler Update Flow', () => {
   beforeEach(() => {
     registry = getGlobalRegistry();
     
-    // 기본 템플릿 정의
+    // Define base templates
     define('document', element('div', { className: 'document' }, [slot('content')]));
     define('paragraph', element('p', { className: 'paragraph' }, [slot('content')]));
     define('inline-text', element('span', { className: 'text' }, [data('text')]));
     
-    // chip decorator 정의
+    // Define chip decorator
     defineDecorator('chip', element('span', {
       className: 'chip',
       style: {
@@ -42,12 +42,12 @@ describe('Reconciler Update Flow', () => {
       }
     }, [text('CHIP')]));
 
-    // DOMRenderer 생성
+    // Create DOMRenderer
     renderer = new DOMRenderer(registry);
     container = document.createElement('div');
     document.body.appendChild(container);
 
-    // Reconciler 내부 접근을 위한 설정
+    // Setup for accessing Reconciler internals
     builder = (renderer as any).builder;
     componentManager = (renderer as any).componentManager;
     reconciler = (renderer as any).reconciler;
@@ -70,7 +70,7 @@ describe('Reconciler Update Flow', () => {
 
       renderer.render(container, model);
 
-      // prevVNodeTree에 저장되었는지 확인
+      // Verify stored in prevVNodeTree
       const prevVNode = (reconciler as any).prevVNodeTree.get('text-14');
       expect(prevVNode).toBeTruthy();
       expect(prevVNode.sid).toBe('text-14');
@@ -84,12 +84,12 @@ describe('Reconciler Update Flow', () => {
         text: 'Hello World'
       };
 
-      // 첫 번째 render
+      // First render
       renderer.render(container, model);
       const prevVNode1 = (reconciler as any).prevVNodeTree.get('text-14');
       expect(prevVNode1).toBeTruthy();
 
-      // decorator 추가 후 두 번째 render
+      // Second render after adding decorator
       const decorators: Decorator[] = [
         {
           sid: 'chip-before',
@@ -106,12 +106,12 @@ describe('Reconciler Update Flow', () => {
       ];
       renderer.render(container, model, decorators);
 
-      // prevVNode가 업데이트되었는지 확인
+      // Verify prevVNode is updated
       const prevVNode2 = (reconciler as any).prevVNodeTree.get('text-14');
       expect(prevVNode2).toBeTruthy();
       expect(prevVNode2.sid).toBe('text-14');
       
-      // children 구조가 변경되었는지 확인
+      // Verify children structure is changed
       expect(prevVNode2.children).toBeTruthy();
       expect(Array.isArray(prevVNode2.children)).toBe(true);
       expect(prevVNode2.children.length).toBeGreaterThan(0);
@@ -126,13 +126,13 @@ describe('Reconciler Update Flow', () => {
         text: 'Hello World'
       };
 
-      // 첫 번째 render
+      // First render
       renderer.render(container, model);
 
-      // updateComponent 호출 여부를 확인하기 위해 spy 설정
+      // Set spy to check if updateComponent is called
       const updateComponentSpy = vi.spyOn(componentManager, 'updateComponent');
 
-      // decorator 추가 후 두 번째 render
+      // Second render after adding decorator
       const decorators: Decorator[] = [
         {
           sid: 'chip-before',
@@ -149,9 +149,9 @@ describe('Reconciler Update Flow', () => {
       ];
       renderer.render(container, model, decorators);
 
-      // updateComponent 호출 확인
-      // inline-text는 element template이므로 updateComponent가 호출되지 않을 수 있음
-      // 대신 Fiber reconcile에서 직접 처리됨
+      // Verify updateComponent call
+      // inline-text is element template, so updateComponent may not be called
+      // Instead, handled directly in Fiber reconcile
       console.log('updateComponent 호출 횟수:', updateComponentSpy.mock.calls.length);
       if (updateComponentSpy.mock.calls.length > 0) {
         const calls = updateComponentSpy.mock.calls;
@@ -162,8 +162,8 @@ describe('Reconciler Update Flow', () => {
         })));
       }
 
-      // updateComponent가 호출되지 않아도 정상 동작할 수 있음
-      // (element template은 직접 DOM 업데이트)
+      // It's normal if updateComponent is not called
+      // (element template directly updates DOM)
       updateComponentSpy.mockRestore();
     });
 
@@ -180,13 +180,13 @@ describe('Reconciler Update Flow', () => {
         ]
       };
 
-      // 첫 번째 render
+      // First render
       renderer.render(container, model);
 
-      // updateComponent 호출 여부를 확인하기 위해 spy 설정
+      // Set spy to check if updateComponent is called
       const updateComponentSpy = vi.spyOn(componentManager, 'updateComponent');
 
-      // decorator 추가 후 두 번째 render
+      // Second render after adding decorator
       const decorators: Decorator[] = [
         {
           sid: 'chip-before',
@@ -204,18 +204,18 @@ describe('Reconciler Update Flow', () => {
       
       renderer.render(container, model, decorators);
 
-      // inline-text는 element template이므로 updateComponent가 호출되지 않을 수 있음
-      // 대신 Fiber reconcile에서 직접 처리됨
-      // 이 테스트는 __isReconciling 플래그가 올바르게 작동하는지 확인하는 것
+      // inline-text is element template, so updateComponent may not be called
+      // Instead, handled directly in Fiber reconcile
+      // This test verifies __isReconciling flag works correctly
       console.log('updateComponent 호출 횟수:', updateComponentSpy.mock.calls.length);
       
-      // updateComponent가 호출되지 않아도 정상 동작할 수 있음
-      // (element template은 직접 DOM 업데이트)
-      // 중요한 것은 decorator가 올바르게 렌더링되는 것
+      // It's normal if updateComponent is not called
+      // (element template directly updates DOM)
+      // Important thing is decorator is rendered correctly
       const textEl = container.querySelector('[data-bc-sid="text-14"]');
       expect(textEl).toBeTruthy();
       
-      // decorator가 렌더링되었는지 확인
+      // Verify decorator is rendered
       const decoratorEl = textEl?.querySelector('[data-decorator-sid="chip-before"]') || 
                          textEl?.querySelector('.chip');
       expect(decoratorEl).toBeTruthy();
@@ -238,12 +238,12 @@ describe('Reconciler Update Flow', () => {
         ]
       };
 
-      // 첫 번째 render
+      // First render
       renderer.render(container, model);
       const firstElement = container.querySelector('[data-bc-sid="text-14"]');
       expect(firstElement).toBeTruthy();
 
-      // 두 번째 render (decorator 추가)
+      // Second render (add decorator)
       const decorators: Decorator[] = [
         {
           sid: 'chip-before',
@@ -260,10 +260,10 @@ describe('Reconciler Update Flow', () => {
       ];
       renderer.render(container, model, decorators);
 
-      // 같은 DOM 요소가 재사용되었는지 확인
+      // Verify same DOM element is reused
       const secondElement = container.querySelector('[data-bc-sid="text-14"]');
       expect(secondElement).toBeTruthy();
-      expect(secondElement).toBe(firstElement); // 같은 요소여야 함
+      expect(secondElement).toBe(firstElement); // Should be same element
     });
 
     it('should find decorator DOM element by decoratorSid', async () => {
@@ -294,21 +294,21 @@ describe('Reconciler Update Flow', () => {
         }
       ];
 
-      // 첫 번째 render
+      // First render
       renderer.render(container, model, decorators);
       
-      // 실제 DOM 구조 확인
+      // Verify actual DOM structure
       console.log('Container HTML:', container.innerHTML);
       
-      // text-14 내부에서 decorator 찾기
+      // Find decorator inside text-14
       const textEl = container.querySelector('[data-bc-sid="text-14"]');
       expect(textEl).toBeTruthy();
       
-      // decorator는 text-14의 자식으로 들어가야 함
+      // Decorator should be child of text-14
       const firstDecorator = textEl?.querySelector('[data-decorator-sid="chip-before"]') || 
                             container.querySelector('[data-decorator-sid="chip-before"]');
       
-      // 만약 data-decorator-sid가 없으면 다른 방법으로 찾기
+      // If data-decorator-sid is missing, find by other method
       if (!firstDecorator) {
         const chipEl = textEl?.querySelector('.chip');
         expect(chipEl).toBeTruthy();
@@ -317,14 +317,14 @@ describe('Reconciler Update Flow', () => {
         expect(firstDecorator).toBeTruthy();
       }
 
-      // 두 번째 render (동일한 decorator)
+      // Second render (same decorator)
       renderer.render(container, model, decorators);
 
-      // 같은 decorator DOM 요소가 재사용되었는지 확인
+      // Verify same decorator DOM element is reused
       const secondDecorator = textEl?.querySelector('[data-decorator-sid="chip-before"]') || 
                              container.querySelector('[data-decorator-sid="chip-before"]');
       if (secondDecorator && firstDecorator) {
-        expect(secondDecorator).toBe(firstDecorator); // 같은 요소여야 함
+        expect(secondDecorator).toBe(firstDecorator); // Should be same element
       }
     });
   });
@@ -343,13 +343,13 @@ describe('Reconciler Update Flow', () => {
         ]
       };
 
-      // 1. decorator 없이 render
+      // 1. Render without decorator
       renderer.render(container, model);
       let textEl = container.querySelector('[data-bc-sid="text-14"]');
       expect(textEl).toBeTruthy();
       expect(container.querySelector('[data-decorator-sid="chip-before"]')).toBeFalsy();
 
-      // 2. decorator 추가
+      // 2. Add decorator
       const decorators: Decorator[] = [
         {
           sid: 'chip-before',
@@ -368,12 +368,12 @@ describe('Reconciler Update Flow', () => {
       textEl = container.querySelector('[data-bc-sid="text-14"]');
       expect(textEl).toBeTruthy();
       
-      // decorator는 text-14의 자식으로 들어가야 함
+      // Decorator should be child of text-14
       const decoratorEl = textEl?.querySelector('[data-decorator-sid="chip-before"]') || 
                          container.querySelector('[data-decorator-sid="chip-before"]') ||
                          textEl?.querySelector('.chip');
       
-      // decorator가 렌더링되었는지 확인 (다양한 방법으로)
+      // Verify decorator is rendered (using various methods)
       if (!decoratorEl) {
         console.log('Container HTML:', container.innerHTML);
         console.log('Text element children:', Array.from(textEl?.children || []).map(c => ({
@@ -384,13 +384,13 @@ describe('Reconciler Update Flow', () => {
       }
       expect(decoratorEl).toBeTruthy();
 
-      // 3. decorator 제거
+      // 3. Remove decorator
       renderer.render(container, model, []);
       textEl = container.querySelector('[data-bc-sid="text-14"]');
       expect(textEl).toBeTruthy();
       expect(container.querySelector('[data-decorator-sid="chip-before"]')).toBeFalsy();
 
-      // 4. decorator 다시 추가
+      // 4. Add decorator again
       renderer.render(container, model, decorators);
       textEl = container.querySelector('[data-bc-sid="text-14"]');
       expect(textEl).toBeTruthy();
@@ -426,10 +426,10 @@ describe('Reconciler Update Flow', () => {
         }
       ];
 
-      // 첫 번째 render
+      // First render
       renderer.render(container, model1, decorators1);
 
-      // 텍스트와 decorator 모두 변경
+      // Change both text and decorator
       const model2 = {
         sid: 'doc-1',
         stype: 'document',
@@ -459,16 +459,16 @@ describe('Reconciler Update Flow', () => {
 
       renderer.render(container, model2, decorators2);
 
-      // text-14 요소가 여전히 존재해야 함 (같은 sid)
+      // text-14 element should still exist (same sid)
       const textEl = container.querySelector('[data-bc-sid="text-14"]');
       expect(textEl).toBeTruthy();
-      // NOTE: decorator가 텍스트 앞에 추가되면 textContent가 ' TextCHIP'이 될 수 있음
-      // 전체 텍스트 내용에서 'Test'를 확인하거나, 실제 텍스트 노드를 확인
+      // NOTE: If decorator is added before text, textContent may become ' TextCHIP'
+      // Check 'Test' in full text content or verify actual text node
       const textContent = textEl?.textContent || '';
-      // 'Test'가 포함되어 있거나, 'Test Text'의 일부가 포함되어 있어야 함
+      // Should contain 'Test' or part of 'Test Text'
       expect(textContent.includes('Test') || textContent.includes('Text')).toBe(true);
 
-      // 새로운 decorator가 렌더링되어야 함
+      // New decorator should be rendered
       const decoratorEl = textEl?.querySelector('[data-decorator-sid="chip-after"]') || 
                          container.querySelector('[data-decorator-sid="chip-after"]') ||
                          textEl?.querySelector('.chip');
@@ -478,7 +478,7 @@ describe('Reconciler Update Flow', () => {
       }
       expect(decoratorEl).toBeTruthy();
 
-      // 이전 decorator는 제거되어야 함
+      // Previous decorator should be removed
       const oldDecorator = container.querySelector('[data-decorator-sid="chip-before"]');
       if (oldDecorator) {
         // eslint-disable-next-line no-console

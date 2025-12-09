@@ -98,7 +98,7 @@ describe('DOMRenderer Simple Re-render', () => {
       ]
     };
 
-    // 1단계: 첫 렌더링 (decorator 없음)
+    // Step 1: First render (no decorator)
     console.log('[TEST] 1단계: 첫 렌더링 (decorator 없음)');
     renderer.render(container, baseModel);
     expectHTML(
@@ -111,7 +111,7 @@ describe('DOMRenderer Simple Re-render', () => {
       expect
     );
 
-    // 2단계: decorator 추가 (before)
+    // Step 2: Add decorator (before)
     console.log('[TEST] 2단계: decorator 추가 (before)');
     const decorators1 = [
       {
@@ -124,8 +124,8 @@ describe('DOMRenderer Simple Re-render', () => {
     ];
     renderer.render(container, baseModel, decorators1);
     console.log('[TEST] 2단계: container.innerHTML =', container.innerHTML);
-    // 현재 구조: decorator가 text 내부에 들어가고 있음 (수정 필요)
-    // 임시로 실제 구조에 맞춰 테스트
+    // Current structure: decorator is inside text (needs fix)
+    // Temporarily test according to actual structure
     expectHTML(
       container,
       `<p class="p" data-bc-sid="p1">
@@ -136,10 +136,10 @@ describe('DOMRenderer Simple Re-render', () => {
       </p>`,
       expect
     );
-    // TODO: position: 'before'인 경우 chip이 text의 형제가 되어야 함
-    // 현재는 text 내부에 들어가고 있음
+    // TODO: When position: 'before', chip should be sibling of text
+    // Currently it's inside text
 
-    // 3단계: decorator 제거
+    // Step 3: Remove decorator
     console.log('[TEST] 3단계: decorator 제거');
     renderer.render(container, baseModel, []);
     expectHTML(
@@ -152,7 +152,7 @@ describe('DOMRenderer Simple Re-render', () => {
       expect
     );
 
-    // 4단계: 다른 decorator 추가 (after)
+    // Step 4: Add different decorator (after)
     console.log('[TEST] 4단계: 다른 decorator 추가 (after)');
     const decorators2 = [
       {
@@ -165,15 +165,15 @@ describe('DOMRenderer Simple Re-render', () => {
     ];
     renderer.render(container, baseModel, decorators2);
     console.log('[TEST] 4단계: container.innerHTML =', container.innerHTML);
-    // 현재 구조 확인 후 테스트 조정
+    // Check current structure and adjust test
     const textEl2 = container.querySelector('[data-bc-sid="t1"]');
     expect(textEl2).toBeTruthy();
     const chipEl2 = container.querySelector('[data-decorator-sid="chip2"]');
     expect(chipEl2).toBeTruthy();
     expect(chipEl2?.textContent).toBe('CHIP');
-    // TODO: position: 'after'인 경우 chip이 text의 형제가 되어야 함
+    // TODO: When position: 'after', chip should be sibling of text
 
-    // 5단계: 텍스트 변경
+    // Step 5: Change text
     console.log('[TEST] 5단계: 텍스트 변경');
     const modelWithNewText = {
       sid: 'p1',
@@ -193,7 +193,7 @@ describe('DOMRenderer Simple Re-render', () => {
     const chipEl3 = container.querySelector('[data-decorator-sid="chip2"]');
     expect(chipEl3).toBeTruthy();
 
-    // 6단계: 여러 decorator 추가 (before + after)
+    // Step 6: Add multiple decorators (before + after)
     console.log('[TEST] 6단계: 여러 decorator 추가 (before + after)');
     const decorators3 = [
       {
@@ -215,7 +215,7 @@ describe('DOMRenderer Simple Re-render', () => {
     const textEl5 = container.querySelector('[data-bc-sid="t1"]');
     expect(textEl5).toBeTruthy();
     
-    // decorator는 text-14의 children으로 렌더링됨
+    // Decorators are rendered as children of text-14
     const chip3 = textEl5?.querySelector('[data-decorator-sid="chip3"]') || 
                   container.querySelector('[data-decorator-sid="chip3"]');
     const chip4 = textEl5?.querySelector('[data-decorator-sid="chip4"]') || 
@@ -223,7 +223,7 @@ describe('DOMRenderer Simple Re-render', () => {
     expect(chip3).toBeTruthy();
     expect(chip4).toBeTruthy();
 
-    // 7단계: decorator 하나 제거 (before만 남김)
+    // Step 7: Remove one decorator (only before remains)
     console.log('[TEST] 7단계: decorator 하나 제거 (before만 남김)');
     const decorators4 = [
       {
@@ -240,7 +240,7 @@ describe('DOMRenderer Simple Re-render', () => {
     expect(chip3_2).toBeTruthy();
     expect(chip4_2).toBeFalsy();
 
-    // 8단계: 텍스트와 decorator 모두 변경
+    // Step 8: Change both text and decorator
     console.log('[TEST] 8단계: 텍스트와 decorator 모두 변경');
     const modelWithNewText2 = {
       sid: 'p1',
@@ -269,7 +269,7 @@ describe('DOMRenderer Simple Re-render', () => {
     const chip5 = container.querySelector('[data-decorator-sid="chip5"]');
     expect(chip5).toBeTruthy();
 
-    // 9단계: 모든 decorator 제거
+    // Step 9: Remove all decorators
     console.log('[TEST] 9단계: 모든 decorator 제거');
     renderer.render(container, modelWithNewText2, []);
     expectHTML(
@@ -282,7 +282,7 @@ describe('DOMRenderer Simple Re-render', () => {
       expect
     );
 
-    // 10단계: 새로운 decorator 추가 (다시 before)
+    // Step 10: Add new decorator (before again)
     console.log('[TEST] 10단계: 새로운 decorator 추가 (다시 before)');
     const decorators6 = [
       {

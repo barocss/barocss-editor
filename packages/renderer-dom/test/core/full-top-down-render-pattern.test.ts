@@ -61,7 +61,7 @@ describe('Full Top-Down Render Pattern', () => {
 
       const renderer = new DOMRenderer(registry);
       
-      // Model + Props + State = 하나의 "문서"
+      // Model + Props + State = one "document"
       const model = {
         sid: 'comp-1',
         stype: 'combined-component',
@@ -115,12 +115,12 @@ describe('Full Top-Down Render Pattern', () => {
       const html = normalizeHTML(container.firstElementChild as Element);
       expect(html).toContain('ModelText'); // Model value
       
-      // 실제 상태 값이 DOM에 반영되었는지 검증
+      // Verify actual state value is reflected in DOM
       if (instance && instance.setState) {
-        // State가 DOM에 반영되었는지 확인
+        // Verify state is reflected in DOM
         const stateElement = container.querySelector('.state');
         expect(stateElement).toBeTruthy();
-        expect(stateElement?.textContent).toBe('5'); // setState({ count: 5 })가 반영되었는지
+        expect(stateElement?.textContent).toBe('5'); // Verify setState({ count: 5 }) is reflected
       }
     });
 
@@ -334,7 +334,7 @@ describe('Full Top-Down Render Pattern', () => {
       expect(lastCall[2]).toEqual(decorators); // lastDecorators
       expect(lastCall[3]).toEqual(runtime); // lastRuntime
 
-      // 실제 상태 값이 DOM에 반영되었는지 검증
+      // Verify actual state value is reflected in DOM
       if (instance && instance.setState) {
         expect(container.textContent).toContain('Changed');
         expect(container.textContent).not.toContain('Initial');
@@ -479,7 +479,7 @@ describe('Full Top-Down Render Pattern', () => {
         })
       );
 
-      // 실제 상태 값이 DOM에 반영되었는지 검증
+      // Verify actual state value is reflected in DOM
       if (instance && instance.setState) {
         expect(container.textContent).toContain('Changed');
         expect(container.textContent).not.toContain('Initial');

@@ -16,7 +16,7 @@ describe('EditorViewDOM + renderer-dom Mount/Unmount Integration', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     
-    // 컴포넌트 정의
+    // Define component
     if (!getGlobalRegistry().has('document')) {
       define('document', element('div', { className: 'document' }, [slot('content')]));
     }
@@ -58,7 +58,7 @@ describe('EditorViewDOM + renderer-dom Mount/Unmount Integration', () => {
       defineState('test-component', TestState);
       
       define('test-component', (_props: any, model: ModelData, ctx: ComponentContext) => {
-        // initState를 수동으로 호출
+        // Manually call initState
         if (!ctx.getState('initialized')) {
           ctx.initState({ initialized: true });
         }
@@ -80,9 +80,9 @@ describe('EditorViewDOM + renderer-dom Mount/Unmount Integration', () => {
 
       view.render(tree);
 
-      // mount()가 호출되었는지 확인
-      // Note: 현재 BaseComponentState.mount()는 TODO 상태이므로 실제 호출 여부를 확인
-      // ComponentManager에서 stateInstHook.mount()를 호출하는지 확인
+      // Verify mount() was called
+      // Note: Currently BaseComponentState.mount() is in TODO state, so verify actual call
+      // Verify that ComponentManager calls stateInstHook.mount()
       expectHTML(
         view.layers.content,
         `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">
@@ -95,9 +95,9 @@ describe('EditorViewDOM + renderer-dom Mount/Unmount Integration', () => {
         expect
       );
       
-      // mountSpy가 호출되었는지 확인 (실제 구현에 따라 다를 수 있음)
-      // 현재는 BaseComponentState.mount()가 TODO이므로 호출되지 않을 수 있음
-      // 하지만 컴포넌트가 렌더링되었는지는 확인 가능
+      // Verify mountSpy was called (may vary depending on actual implementation)
+      // Currently BaseComponentState.mount() is TODO, so it may not be called
+      // But we can verify that the component was rendered
     });
 
     it('unmount() 호출 시점 확인 (컴포넌트가 DOM에서 제거될 때)', () => {
@@ -113,7 +113,7 @@ describe('EditorViewDOM + renderer-dom Mount/Unmount Integration', () => {
       defineState('test-component', TestState);
       
       define('test-component', (_props: any, model: ModelData, ctx: ComponentContext) => {
-        // initState를 수동으로 호출
+        // Manually call initState
         if (!ctx.getState('initialized')) {
           ctx.initState({ initialized: true });
         }
@@ -137,7 +137,7 @@ describe('EditorViewDOM + renderer-dom Mount/Unmount Integration', () => {
       const compEl1 = container.querySelector('[data-bc-sid="comp1"]');
       expect(compEl1).toBeTruthy();
 
-      // 컴포넌트 제거
+      // Remove component
       const tree2 = {
         sid: 'doc1',
         stype: 'document',
@@ -148,9 +148,9 @@ describe('EditorViewDOM + renderer-dom Mount/Unmount Integration', () => {
       const compEl2 = container.querySelector('[data-bc-sid="comp1"]');
       expect(compEl2).toBeNull();
       
-      // unmount()가 호출되었는지 확인
-      // 현재는 BaseComponentState.unmount()가 TODO이므로 호출되지 않을 수 있음
-      // 하지만 컴포넌트가 제거되었는지는 확인 가능
+      // Verify unmount() was called
+      // Currently BaseComponentState.unmount() is TODO, so it may not be called
+      // But we can verify that the component was removed
     });
 
     it('여러 컴포넌트의 독립적인 mount/unmount', () => {
@@ -203,7 +203,7 @@ describe('EditorViewDOM + renderer-dom Mount/Unmount Integration', () => {
       expect(comp1).toBeTruthy();
       expect(comp2).toBeTruthy();
 
-      // comp2만 제거
+      // Remove only comp2
       const tree2 = {
         sid: 'doc1',
         stype: 'document',
@@ -260,7 +260,7 @@ describe('EditorViewDOM + renderer-dom Mount/Unmount Integration', () => {
       const initialMountCalls = mountSpy.mock.calls.length;
       const initialUnmountCalls = unmountSpy.mock.calls.length;
 
-      // 같은 sid로 재렌더링
+      // Re-render with same sid
       const tree2 = {
         sid: 'doc1',
         stype: 'document',
@@ -271,13 +271,13 @@ describe('EditorViewDOM + renderer-dom Mount/Unmount Integration', () => {
 
       view.render(tree2);
       
-      // 재렌더링 시 mount/unmount가 호출되지 않아야 함 (같은 sid이므로)
-      // 현재는 BaseComponentState.mount/unmount가 TODO이므로 실제 호출 여부는 확인 불가
-      // 하지만 DOM 요소가 재사용되었는지는 확인 가능
-      // 재렌더링 후에도 컴포넌트가 존재하는지 확인
+      // mount/unmount should not be called on re-render (same sid)
+      // Currently BaseComponentState.mount/unmount is TODO, so actual call cannot be verified
+      // But we can verify that DOM element was reused
+      // Verify component still exists after re-render
       const compEl1 = container.querySelector('[data-bc-sid="comp1"]');
       const compEl2 = container.querySelector('[data-bc-sid="comp1"]');
-      expect(compEl2).toBe(compEl1); // 같은 DOM 요소 재사용
+      expect(compEl2).toBe(compEl1); // Same DOM element reused
     });
 
     it('sid 변경 시 unmount → mount 호출 확인', () => {
@@ -326,7 +326,7 @@ describe('EditorViewDOM + renderer-dom Mount/Unmount Integration', () => {
       const compEl1 = container.querySelector('[data-bc-sid="comp1"]');
       expect(compEl1).toBeTruthy();
 
-      // 다른 sid로 변경
+      // Change to different sid
       const tree2 = {
         sid: 'doc1',
         stype: 'document',
@@ -339,8 +339,8 @@ describe('EditorViewDOM + renderer-dom Mount/Unmount Integration', () => {
       
       const compEl1After = container.querySelector('[data-bc-sid="comp1"]');
       const compEl2After = container.querySelector('[data-bc-sid="comp2"]');
-      expect(compEl1After).toBeNull(); // comp1 제거
-      expect(compEl2After).toBeTruthy(); // comp2 추가
+      expect(compEl1After).toBeNull(); // comp1 removed
+      expect(compEl2After).toBeTruthy(); // comp2 added
     });
   });
 });

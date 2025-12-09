@@ -6,16 +6,16 @@ describe('convertModelSelectionToDOM', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
-    // 테스트용 컨테이너 생성
+    // Create test container
     container = document.createElement('div');
     container.sid = 'test-container';
     document.body.appendChild(container);
 
-    // SelectionHandler 생성 (Editor는 mock으로 처리)
+    // Create SelectionHandler (Editor is mocked)
     const mockEditor = {} as any;
     selectionHandler = new DOMSelectionHandlerImpl(mockEditor);
 
-    // 테스트용 DOM 구조 생성
+    // Create test DOM structure
     setupTestDOM();
   });
 
@@ -24,7 +24,7 @@ describe('convertModelSelectionToDOM', () => {
   });
 
   function setupTestDOM() {
-    // 간단한 텍스트 컨테이너 (마크 없음)
+    // Simple text container (no marks)
     const simpleTextContainer = document.createElement('span');
     simpleTextContainer.setAttribute('data-bc-sid', 'text-1');
     simpleTextContainer.setAttribute('data-bc-stype', 'inline-text');
@@ -32,7 +32,7 @@ describe('convertModelSelectionToDOM', () => {
     simpleTextContainer.textContent = 'Hello world';
     container.appendChild(simpleTextContainer);
 
-    // 마크가 있는 텍스트 컨테이너
+    // Text container with marks
     const boldTextContainer = document.createElement('span');
     boldTextContainer.setAttribute('data-bc-sid', 'text-bold');
     boldTextContainer.setAttribute('data-bc-stype', 'inline-text');
@@ -47,7 +47,7 @@ describe('convertModelSelectionToDOM', () => {
     boldTextContainer.appendChild(boldWrapper);
     container.appendChild(boldTextContainer);
 
-    // 복합 마크가 있는 텍스트 컨테이너
+    // Text container with complex marks
     const complexTextContainer = document.createElement('span');
     complexTextContainer.setAttribute('data-bc-sid', 'text-complex');
     complexTextContainer.setAttribute('data-bc-stype', 'inline-text');
@@ -68,8 +68,8 @@ describe('convertModelSelectionToDOM', () => {
     container.appendChild(complexTextContainer);
   }
 
-  describe('텍스트 선택 변환', () => {
-    it('간단한 텍스트 컨테이너에서 선택을 생성해야 함', () => {
+  describe('Text selection conversion', () => {
+    it('should create selection in simple text container', () => {
       const modelSelection = {
         type: 'text',
         anchor: { nodeId: 'text-1', offset: 2 },
@@ -84,7 +84,7 @@ describe('convertModelSelectionToDOM', () => {
       expect(selection!.toString()).toBe('llo w');
     });
 
-    it('마크가 있는 텍스트 컨테이너에서 선택을 생성해야 함', () => {
+    it('should create selection in text container with marks', () => {
       const modelSelection = {
         type: 'text',
         anchor: { nodeId: 'text-bold', offset: 0 },
@@ -99,7 +99,7 @@ describe('convertModelSelectionToDOM', () => {
       expect(selection!.toString()).toBe('bold text');
     });
 
-    it('복합 마크가 있는 텍스트 컨테이너에서 선택을 생성해야 함', () => {
+    it('should create selection in text container with complex marks', () => {
       const modelSelection = {
         type: 'text',
         anchor: { nodeId: 'text-complex', offset: 0 },
@@ -114,7 +114,7 @@ describe('convertModelSelectionToDOM', () => {
       expect(selection!.toString()).toBe('bold and italic');
     });
 
-    it('다른 텍스트 컨테이너 간 선택을 생성해야 함', () => {
+    it('should create selection across different text containers', () => {
       const modelSelection = {
         type: 'text',
         anchor: { nodeId: 'text-1', offset: 6 },
@@ -130,8 +130,8 @@ describe('convertModelSelectionToDOM', () => {
     });
   });
 
-  describe('노드 선택 변환', () => {
-    it('텍스트 컨테이너 전체를 선택해야 함', () => {
+  describe('Node selection conversion', () => {
+    it('should select entire text container', () => {
       const modelSelection = {
         type: 'node',
         nodeId: 'text-1'
@@ -145,7 +145,7 @@ describe('convertModelSelectionToDOM', () => {
       expect(selection!.toString()).toBe('Hello world');
     });
 
-    it('마크가 있는 텍스트 컨테이너 전체를 선택해야 함', () => {
+    it('should select entire text container with marks', () => {
       const modelSelection = {
         type: 'node',
         nodeId: 'text-bold'
@@ -160,9 +160,9 @@ describe('convertModelSelectionToDOM', () => {
     });
   });
 
-  describe('에러 처리', () => {
-    it('존재하지 않는 노드 ID에 대해 에러를 처리해야 함', () => {
-      // 이전 선택 초기화
+  describe('Error handling', () => {
+    it('should handle error for non-existent node ID', () => {
+      // Clear previous selection
       window.getSelection()?.removeAllRanges();
       
       const modelSelection = {
@@ -171,21 +171,21 @@ describe('convertModelSelectionToDOM', () => {
         focus: { nodeId: 'non-existent', offset: 5 }
       };
 
-      // 에러가 발생하지 않아야 함
+      // Should not throw error
       expect(() => {
         selectionHandler.convertModelSelectionToDOM(modelSelection);
       }).not.toThrow();
 
-      // 선택이 없어야 함
+      // Should have no selection
       const selection = window.getSelection();
       expect(selection!.rangeCount).toBe(0);
     });
 
-    it('텍스트 컨테이너가 아닌 요소에 대해 에러를 처리해야 함', () => {
+    it('should handle error for non-text-container element', () => {
       // 이전 선택 초기화
       window.getSelection()?.removeAllRanges();
       
-      // 일반 div 요소 생성 (data-text-container 없음)
+      // Create regular div element (no data-text-container)
       const div = document.createElement('div');
       div.setAttribute('data-bc-sid', 'div-1');
       div.setAttribute('data-bc-stype', 'div');
@@ -206,7 +206,7 @@ describe('convertModelSelectionToDOM', () => {
       expect(selection!.rangeCount).toBe(0);
     });
 
-    it('잘못된 offset에 대해 에러를 처리해야 함', () => {
+    it('should handle error for invalid offset', () => {
       // 이전 선택 초기화
       window.getSelection()?.removeAllRanges();
       
@@ -225,9 +225,9 @@ describe('convertModelSelectionToDOM', () => {
     });
   });
 
-  describe('선택 해제', () => {
-    it('type이 none인 경우 선택을 해제해야 함', () => {
-      // 먼저 선택 생성
+  describe('Selection clearing', () => {
+    it('should clear selection when type is none', () => {
+      // First create selection
       const modelSelection = {
         type: 'text',
         anchor: { nodeId: 'text-1', offset: 0 },
@@ -235,19 +235,19 @@ describe('convertModelSelectionToDOM', () => {
       };
       selectionHandler.convertModelSelectionToDOM(modelSelection);
 
-      // 선택이 있는지 확인
+      // Verify selection exists
       let selection = window.getSelection();
       expect(selection!.rangeCount).toBe(1);
 
-      // 선택 해제
+      // Clear selection
       selectionHandler.convertModelSelectionToDOM({ type: 'none' });
 
       selection = window.getSelection();
       expect(selection!.rangeCount).toBe(0);
     });
 
-    it('null/undefined인 경우 선택을 해제해야 함', () => {
-      // 먼저 선택 생성
+    it('should clear selection when null/undefined', () => {
+      // First create selection
       const modelSelection = {
         type: 'text',
         anchor: { nodeId: 'text-1', offset: 0 },
@@ -255,11 +255,11 @@ describe('convertModelSelectionToDOM', () => {
       };
       selectionHandler.convertModelSelectionToDOM(modelSelection);
 
-      // 선택이 있는지 확인
+      // Verify selection exists
       let selection = window.getSelection();
       expect(selection!.rangeCount).toBe(1);
 
-      // null로 선택 해제
+      // Clear selection with null
       selectionHandler.convertModelSelectionToDOM(null);
 
       selection = window.getSelection();

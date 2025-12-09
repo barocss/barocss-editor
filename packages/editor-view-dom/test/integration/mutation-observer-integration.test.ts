@@ -19,10 +19,10 @@ describe('MutationObserver Integration', () => {
   let registry: any;
 
   beforeEach(() => {
-    // Registry 초기화
+    // Initialize Registry
     registry = getGlobalRegistry();
     
-    // 기본 컴포넌트 정의
+    // Define basic components
     define('document', element('div', { className: 'document' }, [slot('content')]));
     define('paragraph', element('p', { className: 'paragraph' }, [slot('content')]));
     define('inline-text', element('span', {
@@ -31,7 +31,7 @@ describe('MutationObserver Integration', () => {
       'data-bc-stype': (data: any) => data.stype || ''
     }, [data('text')]));
 
-    // Mock Editor 생성
+    // Create Mock Editor
     editor = {
       emit: vi.fn(),
       executeTransaction: vi.fn(),
@@ -51,11 +51,11 @@ describe('MutationObserver Integration', () => {
       }
     } as any;
 
-    // DOM 컨테이너 생성
+    // Create DOM container
     container = document.createElement('div');
     document.body.appendChild(container);
 
-    // EditorViewDOM 생성
+    // Create EditorViewDOM
     editorView = new EditorViewDOM(editor, {
       container,
       registry,
@@ -75,7 +75,7 @@ describe('MutationObserver Integration', () => {
 
   describe('MutationObserver → InputHandler 통합', () => {
     it('텍스트 노드 변경 시 InputHandler.handleTextContentChange가 호출되어야 함', async () => {
-      // 초기 모델 설정
+      // Set initial model
       const model = {
         stype: 'document',
         sid: 'doc1',
@@ -94,7 +94,7 @@ describe('MutationObserver Integration', () => {
         ]
       };
 
-      // 모델 노드 설정
+      // Set model node
       (editor.dataStore.getNode as any).mockReturnValue({
         text: 'Hello',
         marks: [],
@@ -102,10 +102,10 @@ describe('MutationObserver Integration', () => {
         stype: 'inline-text'
       });
 
-      // EditorViewDOM 렌더링
+      // Render EditorViewDOM
       await editorView.render(model as any);
 
-      // DOM에서 텍스트 노드 찾기
+      // Find text node in DOM
       const textElement = container.querySelector('[data-bc-sid="t1"]');
       expect(textElement).toBeTruthy();
 
@@ -114,22 +114,22 @@ describe('MutationObserver Integration', () => {
       ) as Text;
       expect(textNode).toBeTruthy();
 
-      // InputHandler.handleTextContentChange 스파이
+      // Spy on InputHandler.handleTextContentChange
       const inputHandler = (editorView as any).inputHandler as InputHandlerImpl;
       const handleTextContentChangeSpy = vi.spyOn(inputHandler, 'handleTextContentChange');
 
-      // 텍스트 변경 시뮬레이션
+      // Simulate text change
       textNode.textContent = 'Hello World';
 
-      // MutationObserver가 변경을 감지할 때까지 대기
+      // Wait until MutationObserver detects change
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      // handleTextContentChange가 호출되었는지 확인
+      // Verify handleTextContentChange was called
       expect(handleTextContentChangeSpy).toHaveBeenCalled();
     });
 
     it('텍스트 변경 시 모델 트랜잭션이 실행되어야 함', async () => {
-      // 초기 모델 설정
+      // Set initial model
       const model = {
         stype: 'document',
         sid: 'doc1',
@@ -148,7 +148,7 @@ describe('MutationObserver Integration', () => {
         ]
       };
 
-      // 모델 노드 설정
+      // Set model node
       (editor.dataStore.getNode as any).mockReturnValue({
         text: 'Hello',
         marks: [],
@@ -156,7 +156,7 @@ describe('MutationObserver Integration', () => {
         stype: 'inline-text'
       });
 
-      // handleEfficientEdit 모킹
+      // Mock handleEfficientEdit
       const { handleEfficientEdit } = await import('../../src/utils/efficient-edit-handler');
       vi.spyOn(await import('../../src/utils/efficient-edit-handler'), 'handleEfficientEdit').mockReturnValue({
         newText: 'Hello World',
@@ -173,27 +173,27 @@ describe('MutationObserver Integration', () => {
         }
       });
 
-      // EditorViewDOM 렌더링
+      // Render EditorViewDOM
       await editorView.render(model as any);
 
-      // DOM에서 텍스트 노드 찾기
+      // Find text node in DOM
       const textElement = container.querySelector('[data-bc-sid="t1"]');
       const textNode = Array.from(textElement!.childNodes).find(
         (node) => node.nodeType === Node.TEXT_NODE
       ) as Text;
 
-      // 텍스트 변경
+      // Change text
       textNode.textContent = 'Hello World';
 
-      // MutationObserver가 변경을 감지할 때까지 대기
+      // Wait until MutationObserver detects change
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      // executeTransaction이 호출되었는지 확인
+      // Verify executeTransaction was called
       expect(editor.executeTransaction).toHaveBeenCalled();
     });
 
     it('IME 조합 중 텍스트 변경은 보류되어야 함', async () => {
-      // 초기 모델 설정
+      // Set initial model
       const model = {
         stype: 'document',
         sid: 'doc1',
@@ -212,7 +212,7 @@ describe('MutationObserver Integration', () => {
         ]
       };
 
-      // 모델 노드 설정
+      // Set model node
       (editor.dataStore.getNode as any).mockReturnValue({
         text: 'Hello',
         marks: [],
@@ -220,32 +220,32 @@ describe('MutationObserver Integration', () => {
         stype: 'inline-text'
       });
 
-      // EditorViewDOM 렌더링
+      // Render EditorViewDOM
       await editorView.render(model as any);
 
-      // IME 조합 시작
+      // Start IME composition
       const inputHandler = (editorView as any).inputHandler as InputHandlerImpl;
       inputHandler.handleCompositionStart();
 
-      // DOM에서 텍스트 노드 찾기
+      // Find text node in DOM
       const textElement = container.querySelector('[data-bc-sid="t1"]');
       const textNode = Array.from(textElement!.childNodes).find(
         (node) => node.nodeType === Node.TEXT_NODE
       ) as Text;
 
-      // 조합 중 텍스트 변경
+      // Change text during composition
       textNode.textContent = 'Hello World';
 
-      // MutationObserver가 변경을 감지할 때까지 대기
+      // Wait until MutationObserver detects change
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      // 조합 중이므로 트랜잭션이 실행되지 않아야 함
+      // Transaction should not execute during composition
       expect(editor.executeTransaction).not.toHaveBeenCalled();
 
-      // 조합 완료
+      // Complete composition
       inputHandler.handleCompositionEnd({} as CompositionEvent);
 
-      // 조합 완료 후 트랜잭션이 실행되어야 함
+      // Transaction should execute after composition completes
       expect(editor.executeTransaction).toHaveBeenCalled();
     });
   });
@@ -257,7 +257,7 @@ describe('MutationObserver Integration', () => {
     });
 
     it('onTextChange 이벤트가 InputHandler로 전달되어야 함', async () => {
-      // 초기 모델 설정
+      // Set initial model
       const model = {
         stype: 'document',
         sid: 'doc1',
@@ -276,7 +276,7 @@ describe('MutationObserver Integration', () => {
         ]
       };
 
-      // 모델 노드 설정
+      // Set model node
       (editor.dataStore.getNode as any).mockReturnValue({
         text: 'Hello',
         marks: [],
@@ -284,28 +284,28 @@ describe('MutationObserver Integration', () => {
         stype: 'inline-text'
       });
 
-      // EditorViewDOM 렌더링
+      // Render EditorViewDOM
       await editorView.render(model as any);
 
-      // InputHandler 스파이
+      // Spy on InputHandler
       const inputHandler = (editorView as any).inputHandler as InputHandlerImpl;
       const handleTextContentChangeSpy = vi.spyOn(inputHandler, 'handleTextContentChange');
 
-      // DOM에서 텍스트 노드 찾기
+      // Find text node in DOM
       const textElement = container.querySelector('[data-bc-sid="t1"]') as HTMLElement;
       const textNode = Array.from(textElement.childNodes).find(
         (node) => node.nodeType === Node.TEXT_NODE
       ) as Text;
 
-      // 텍스트 변경 (MutationObserver가 감지)
+      // Change text (MutationObserver will detect)
       textNode.textContent = 'Hello World';
 
-      // MutationObserver가 변경을 감지할 때까지 대기
+      // Wait until MutationObserver detects change
       await new Promise((resolve) => setTimeout(resolve, 200));
 
-      // handleTextContentChange가 호출되었는지 확인
+      // Verify handleTextContentChange was called
       expect(handleTextContentChangeSpy).toHaveBeenCalled();
-      // 첫 번째 호출의 인자 확인
+      // Verify arguments of first call
       const firstCall = handleTextContentChangeSpy.mock.calls[0];
       expect(firstCall[0]).toBe('Hello'); // oldText
       expect(firstCall[1]).toBe('Hello World'); // newText
@@ -315,7 +315,7 @@ describe('MutationObserver Integration', () => {
 
   describe('실제 DOM 변경 감지', () => {
     it('DOM 텍스트 노드 변경이 감지되어야 함', async () => {
-      // 초기 모델 설정
+      // Set initial model
       const model = {
         stype: 'document',
         sid: 'doc1',
@@ -334,7 +334,7 @@ describe('MutationObserver Integration', () => {
         ]
       };
 
-      // 모델 노드 설정
+      // Set model node
       (editor.dataStore.getNode as any).mockReturnValue({
         text: 'Hello',
         marks: [],
@@ -342,10 +342,10 @@ describe('MutationObserver Integration', () => {
         stype: 'inline-text'
       });
 
-      // EditorViewDOM 렌더링
+      // Render EditorViewDOM
       await editorView.render(model as any);
 
-      // DOM에서 텍스트 노드 찾기
+      // Find text node in DOM
       const textElement = container.querySelector('[data-bc-sid="t1"]') as HTMLElement;
       expect(textElement).toBeTruthy();
 
@@ -355,22 +355,22 @@ describe('MutationObserver Integration', () => {
       expect(textNode).toBeTruthy();
       expect(textNode.textContent).toBe('Hello');
 
-      // InputHandler 스파이
+      // Spy on InputHandler
       const inputHandler = (editorView as any).inputHandler as InputHandlerImpl;
       const handleTextContentChangeSpy = vi.spyOn(inputHandler, 'handleTextContentChange');
 
-      // 실제 DOM 변경
+      // Actual DOM change
       textNode.textContent = 'Hello World';
 
-      // MutationObserver가 변경을 감지할 때까지 대기
+      // Wait until MutationObserver detects change
       await new Promise((resolve) => setTimeout(resolve, 200));
 
-      // handleTextContentChange가 호출되었는지 확인
+      // Verify handleTextContentChange was called
       expect(handleTextContentChangeSpy).toHaveBeenCalled();
     });
 
     it('여러 텍스트 노드 변경이 순차적으로 처리되어야 함', async () => {
-      // 초기 모델 설정 (여러 텍스트 노드)
+      // Set initial model (multiple text nodes)
       const model = {
         stype: 'document',
         sid: 'doc1',
@@ -394,7 +394,7 @@ describe('MutationObserver Integration', () => {
         ]
       };
 
-      // 모델 노드 설정
+      // Set model node
       (editor.dataStore.getNode as any).mockImplementation((nodeId: string) => {
         if (nodeId === 't1') {
           return { text: 'Hello', marks: [], sid: 't1', stype: 'inline-text' };
@@ -405,41 +405,41 @@ describe('MutationObserver Integration', () => {
         return null;
       });
 
-      // EditorViewDOM 렌더링
+      // Render EditorViewDOM
       await editorView.render(model as any);
 
-      // InputHandler 스파이
+      // Spy on InputHandler
       const inputHandler = (editorView as any).inputHandler as InputHandlerImpl;
       const handleTextContentChangeSpy = vi.spyOn(inputHandler, 'handleTextContentChange');
 
-      // 첫 번째 텍스트 노드 변경
+      // Change first text node
       const textElement1 = container.querySelector('[data-bc-sid="t1"]') as HTMLElement;
       const textNode1 = Array.from(textElement1.childNodes).find(
         (node) => node.nodeType === Node.TEXT_NODE
       ) as Text;
       textNode1.textContent = 'Hello!';
 
-      // MutationObserver가 변경을 감지할 때까지 대기
+      // Wait until MutationObserver detects change
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      // 두 번째 텍스트 노드 변경
+      // Change second text node
       const textElement2 = container.querySelector('[data-bc-sid="t2"]') as HTMLElement;
       const textNode2 = Array.from(textElement2.childNodes).find(
         (node) => node.nodeType === Node.TEXT_NODE
       ) as Text;
       textNode2.textContent = 'World!';
 
-      // MutationObserver가 변경을 감지할 때까지 대기
+      // Wait until MutationObserver detects change
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      // handleTextContentChange가 여러 번 호출되었는지 확인
+      // Verify handleTextContentChange was called multiple times
       expect(handleTextContentChangeSpy).toHaveBeenCalledTimes(2);
     });
   });
 
   describe('에러 처리', () => {
     it('모델 노드를 찾을 수 없을 때 에러 없이 처리되어야 함', async () => {
-      // 초기 모델 설정
+      // Set initial model
       const model = {
         stype: 'document',
         sid: 'doc1',
@@ -458,47 +458,47 @@ describe('MutationObserver Integration', () => {
         ]
       };
 
-      // 모델 노드를 찾을 수 없도록 설정
+      // Set up so model node cannot be found
       (editor.dataStore.getNode as any).mockReturnValue(null);
 
-      // EditorViewDOM 렌더링
+      // Render EditorViewDOM
       await editorView.render(model as any);
 
-      // DOM에서 텍스트 노드 찾기
+      // Find text node in DOM
       const textElement = container.querySelector('[data-bc-sid="t1"]') as HTMLElement;
       const textNode = Array.from(textElement.childNodes).find(
         (node) => node.nodeType === Node.TEXT_NODE
       ) as Text;
 
-      // 텍스트 변경
+      // Change text
       textNode.textContent = 'Hello World';
 
-      // MutationObserver가 변경을 감지할 때까지 대기
+      // Wait until MutationObserver detects change
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      // 에러 없이 처리되어야 함 (executeTransaction은 호출되지 않음)
+      // Should handle without error (executeTransaction is not called)
       expect(editor.executeTransaction).not.toHaveBeenCalled();
     });
 
     it('data-bc-sid가 없는 노드는 무시되어야 함', async () => {
-      // 일반 div 요소 생성 (data-bc-sid 없음)
+      // Create regular div element (no data-bc-sid)
       const div = document.createElement('div');
       div.textContent = 'Hello';
       container.appendChild(div);
 
-      // InputHandler 스파이
+      // Spy on InputHandler
       const inputHandler = (editorView as any).inputHandler as InputHandlerImpl;
       const handleTextContentChangeSpy = vi.spyOn(inputHandler, 'handleTextContentChange');
 
-      // 텍스트 변경
+      // Change text
       div.textContent = 'Hello World';
 
-      // MutationObserver가 변경을 감지할 때까지 대기
+      // Wait until MutationObserver detects change
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      // handleTextContentChange는 호출되지만, early return되어야 함
-      // (실제로는 MutationObserver가 모든 변경을 감지하므로 호출될 수 있음)
-      // 하지만 nodeId가 없으면 early return됨
+      // handleTextContentChange may be called, but should early return
+      // (Actually MutationObserver detects all changes, so it may be called)
+      // But if nodeId is missing, it should early return
     });
   });
 });

@@ -1,9 +1,9 @@
 /**
- * Decorator 타입별 렌더링 테스트
+ * Decorator Type Rendering Test
  * 
- * - target decorator (일반 decorator)
- * - pattern decorator (패턴 기반 자동 생성)
- * - custom decorator는 editor-view-dom에서 테스트
+ * - target decorator (general decorator)
+ * - pattern decorator (pattern-based auto generation)
+ * - custom decorator is tested in editor-view-dom
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -27,11 +27,11 @@ describe('Decorator Types Rendering', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
 
-    // 기본 템플릿 정의
+    // Define base templates
     define('paragraph', element('p', { className: 'paragraph' }, [slot('content')]));
     define('inline-text', element('span', { className: 'text' }, [data('text')]));
     
-    // Decorator 템플릿 정의
+    // Define Decorator templates
     defineDecorator('comment', element('span', {
       className: 'comment-decorator',
       'data-decorator-sid': data('sid'),
@@ -48,9 +48,9 @@ describe('Decorator Types Rendering', () => {
       style: { backgroundColor: data('color') }
     }, [data('text')]));
     
-    // 각 테스트 전에 pattern decorator generator 초기화
+    // Initialize pattern decorator generator before each test
     const patternGenerator = (renderer as any).patternDecoratorGenerator as PatternDecoratorGenerator;
-    // 모든 패턴 제거
+    // Remove all patterns
     const patternSids = Array.from((patternGenerator as any).patterns.keys());
     patternSids.forEach(sid => patternGenerator.unregisterPattern(sid));
     patternGenerator.setEnabled(false);
@@ -62,7 +62,7 @@ describe('Decorator Types Rendering', () => {
     }
   });
 
-  describe('target decorator (일반 decorator)', () => {
+  describe('target decorator (general decorator)', () => {
     it('일반 decorator가 올바르게 렌더링되어야 함', () => {
       const model = {
         sid: 'p-1',
@@ -183,8 +183,8 @@ describe('Decorator Types Rendering', () => {
         ]
       };
 
-      // Pattern decorator generator 설정
-      // DOMRenderer 내부의 patternDecoratorGenerator에 접근
+      // Configure pattern decorator generator
+      // Access patternDecoratorGenerator inside DOMRenderer
       const patternGenerator = (renderer as any).patternDecoratorGenerator as PatternDecoratorGenerator;
       patternGenerator.registerPattern({
         sid: 'hex-color',
@@ -208,18 +208,18 @@ describe('Decorator Types Rendering', () => {
 
       renderer.render(container, model, []);
       
-      // 실제 결과: 텍스트 순서가 변경되었고, 중복 decorator가 생성될 수 있음
+      // Actual result: text order may change and duplicate decorators may be created
       const textElement = container.querySelector('[data-bc-sid="text-1"]');
       expect(textElement).toBeTruthy();
       
-      // 텍스트 내용 확인
+      // Verify text content
       const textContent = textElement?.textContent || '';
       expect(textContent).toContain('Color');
       expect(textContent).toContain('#FF0000');
       expect(textContent).toContain('and');
       expect(textContent).toContain('#00FF00');
       
-      // Decorator 확인
+      // Verify Decorator
       const decorator1 = textElement?.querySelector('[data-decorator-sid="pattern-hex-text-1-6-13"]');
       const decorator2 = textElement?.querySelector('[data-decorator-sid="pattern-hex-text-1-18-25"]');
       expect(decorator1).toBeTruthy();
@@ -241,7 +241,7 @@ describe('Decorator Types Rendering', () => {
 
       const patternGenerator = (renderer as any).patternDecoratorGenerator as PatternDecoratorGenerator;
       
-      // Hex 패턴
+      // Hex pattern
       patternGenerator.registerPattern({
         sid: 'hex-color',
         stype: 'color-picker',
@@ -260,7 +260,7 @@ describe('Decorator Types Rendering', () => {
         priority: 10
       });
 
-      // RGBA 패턴
+      // RGBA pattern
       patternGenerator.registerPattern({
         sid: 'rgba-color',
         stype: 'color-picker',
@@ -289,18 +289,18 @@ describe('Decorator Types Rendering', () => {
 
       renderer.render(container, model, []);
       
-      // 실제 결과: 텍스트 순서가 변경되었고, 중복 decorator가 생성될 수 있음
+      // Actual result: text order may change and duplicate decorators may be created
       const textElement = container.querySelector('[data-bc-sid="text-1"]');
       expect(textElement).toBeTruthy();
       
-      // 텍스트 내용 확인
+      // Verify text content
       const textContent = textElement?.textContent || '';
       expect(textContent).toContain('Hex');
       expect(textContent).toContain('#FF0000');
       expect(textContent).toContain('and');
       expect(textContent).toContain('rgba(0, 255, 0, 0.5)');
       
-      // Decorator 확인
+      // Verify Decorator
       const hexDecorator = textElement?.querySelector('[data-decorator-sid="pattern-hex-text-1-4-11"]');
       const rgbaDecorator = textElement?.querySelector('[data-decorator-sid="pattern-rgba-text-1-16-36"]');
       expect(hexDecorator).toBeTruthy();
@@ -341,7 +341,7 @@ describe('Decorator Types Rendering', () => {
       
       patternGenerator.setEnabled(true);
 
-      // 일반 decorator도 함께 전달
+      // Also pass regular decorator
       const decorators: Decorator[] = [
         {
           sid: 'comment-1',
@@ -397,7 +397,7 @@ describe('Decorator Types Rendering', () => {
           sid: 'decorator-1',
           stype: 'comment',
           category: 'inline',
-          // decoratorType 없음 (기본값: 'target')
+          // No decoratorType (default: 'target')
           target: {
             sid: 'text-1',
             startOffset: 0,
@@ -424,10 +424,10 @@ describe('Decorator Types Rendering', () => {
     });
 
     it('decoratorType이 pattern이면 패턴 기반으로 처리되어야 함', () => {
-      // pattern decorator는 VNodeBuilder에서 자동 생성되므로
-      // decoratorType: 'pattern'은 설정 정보로만 사용됨
-      // 실제 렌더링은 pattern generator가 생성한 decorator로 처리됨
-      expect(true).toBe(true); // 패턴 decorator는 위의 테스트에서 검증됨
+      // Pattern decorator is automatically generated in VNodeBuilder
+      // decoratorType: 'pattern' is only used as configuration info
+      // Actual rendering is handled by decorator generated by pattern generator
+      expect(true).toBe(true); // Pattern decorator is verified in tests above
     });
   });
 
@@ -490,13 +490,13 @@ describe('Decorator Types Rendering', () => {
         ]
       };
 
-      // Custom decorator generator 설정
+      // Configure custom decorator generator
       const customGeneratorManager = new CustomDecoratorGeneratorManager();
       const urlGenerator: CustomDecoratorGenerator = {
         generate: (model: ModelData, text: string | null): Decorator[] => {
           if (!text) return [];
           
-          // URL 패턴 찾기
+          // Find URL pattern
           const urlPattern = /https?:\/\/[^\s]+/g;
           const matches = Array.from(text.matchAll(urlPattern));
           const nodeId = model.sid;
@@ -526,8 +526,8 @@ describe('Decorator Types Rendering', () => {
       
       customGeneratorManager.addGenerator(urlGenerator);
 
-      // DOMRenderer에 custom generator manager 주입
-      // DOMRenderer의 builder를 재생성하여 custom generator manager 추가
+      // Inject custom generator manager into DOMRenderer
+      // Recreate DOMRenderer's builder to add custom generator manager
       const patternGenerator = (renderer as any).patternDecoratorGenerator;
       (renderer as any).builder = new VNodeBuilder(
         registry,
@@ -537,7 +537,7 @@ describe('Decorator Types Rendering', () => {
         }
       );
 
-      // defineDecorator로 link 템플릿 정의
+      // Define link template with defineDecorator
       defineDecorator('link', element('span', {
         className: 'link-decorator',
         style: { color: 'blue', textDecoration: 'underline' }

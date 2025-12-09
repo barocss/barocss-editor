@@ -19,11 +19,11 @@ describe('DOMRenderer Multiple Render Calls', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
 
-    // 기본 템플릿 정의
+    // Define base templates
     define('paragraph', element('p', { className: 'paragraph' }, [slot('content')]));
     define('inline-text', element('span', { className: 'text' }, [data('text')]));
     
-    // chip decorator 정의 (main.ts와 동일)
+    // Define chip decorator (same as main.ts)
     defineDecorator('chip', element('span', {
       className: 'chip',
       style: {
@@ -60,7 +60,7 @@ describe('DOMRenderer Multiple Render Calls', () => {
 
       renderer.render(container, model);
 
-      // decorator 없이 텍스트만 렌더링되어야 함
+      // Should render only text without decorator
       expectHTML(
         container,
         `<p class="paragraph" data-bc-sid="p-1">
@@ -85,10 +85,10 @@ describe('DOMRenderer Multiple Render Calls', () => {
         ]
       };
 
-      // 첫 번째 render (decorator 없음)
+      // First render (no decorator)
       renderer.render(container, model);
 
-      // decorator 추가
+      // Add decorator
       const decorators = [
         {
           sid: 'chip-before',
@@ -103,14 +103,14 @@ describe('DOMRenderer Multiple Render Calls', () => {
         }
       ];
 
-      // 두 번째 render (decorator 있음)
+      // Second render (with decorator)
       renderer.render(container, model, decorators);
 
-      // decorator가 렌더링되어야 함
+      // Decorator should be rendered
       const textElement = container.querySelector('[data-bc-sid="text-14"]');
       expect(textElement).toBeTruthy();
       
-      // chip decorator는 text-14의 children으로 렌더링됨
+      // chip decorator is rendered as children of text-14
       const chipElement = textElement?.querySelector('[data-decorator-sid="chip-before"]') || 
                          textElement?.querySelector('.chip');
       expect(chipElement).toBeTruthy();
@@ -131,10 +131,10 @@ describe('DOMRenderer Multiple Render Calls', () => {
         ]
       };
 
-      // 첫 번째 render
+      // First render
       renderer.render(container, model);
 
-      // 여러 decorator 추가
+      // Add multiple decorators
       const decorators = [
         {
           sid: 'chip-before',
@@ -160,29 +160,29 @@ describe('DOMRenderer Multiple Render Calls', () => {
         }
       ];
 
-      // 두 번째 render
+      // Second render
       renderer.render(container, model, decorators);
 
-      // 두 decorator가 모두 렌더링되어야 함
+      // Both decorators should be rendered
       const textElement = container.querySelector('[data-bc-sid="text-14"]');
       expect(textElement).toBeTruthy();
       
-      // decorator는 text-14의 children으로 렌더링됨
+      // Decorators are rendered as children of text-14
       // before decorator
       const beforeChip = textElement?.querySelector('[data-decorator-sid="chip-before"]') || 
                          textElement?.querySelector('.chip');
       expect(beforeChip).toBeTruthy();
       expect(beforeChip?.textContent).toBe('CHIP');
       
-      // after decorator도 text-14 내부에 렌더링됨
-      // VNodeBuilder의 _buildMarkedRunsWithDecorators 로직에 따라 children으로 들어감
+      // after decorator is also rendered inside text-14
+      // According to VNodeBuilder's _buildMarkedRunsWithDecorators logic, it goes into children
       const textContent = textElement?.textContent || '';
       expect(textContent).toContain('Hello');
       expect(textContent).toContain('World');
       
-      // after decorator도 확인
+      // Also verify after decorator
       const afterChip = textElement?.querySelector('[data-decorator-sid="chip-after"]');
-      // after decorator는 텍스트 범위에 따라 위치가 달라질 수 있음
+      // after decorator position may vary depending on text range
       if (afterChip) {
         expect(afterChip.textContent).toBe('CHIP');
       }
@@ -201,7 +201,7 @@ describe('DOMRenderer Multiple Render Calls', () => {
         ]
       };
 
-      // 첫 번째 render (decorator 있음)
+      // First render (with decorator)
       const decorators1 = [
         {
           sid: 'chip-before',
@@ -217,15 +217,15 @@ describe('DOMRenderer Multiple Render Calls', () => {
       ];
       renderer.render(container, model, decorators1);
 
-      // 두 번째 render (decorator 없음)
+      // Second render (no decorator)
       renderer.render(container, model);
 
-      // decorator가 제거되어야 함
+      // Decorator should be removed
       const textElement = container.querySelector('[data-bc-sid="text-14"]');
       expect(textElement).toBeTruthy();
       
       const chipElement = textElement?.previousSibling as HTMLElement;
-      // decorator가 제거되었으므로 chip이 없어야 함
+      // Since decorator is removed, chip should not exist
       if (chipElement) {
         expect(chipElement?.classList.contains('chip')).toBe(false);
       }
@@ -258,19 +258,19 @@ describe('DOMRenderer Multiple Render Calls', () => {
         }
       ];
 
-      // 첫 번째 render
+      // First render
       renderer.render(container, model, decorators);
       
       const chip1 = container.querySelector('.chip');
       expect(chip1).toBeTruthy();
 
-      // 두 번째 render (동일한 modelData, 동일한 decorators)
+      // Second render (same modelData, same decorators)
       renderer.render(container, model, decorators);
       
       const chip2 = container.querySelector('.chip');
       expect(chip2).toBeTruthy();
       
-      // 세 번째 render
+      // Third render
       renderer.render(container, model, decorators);
       
       const chip3 = container.querySelector('.chip');
@@ -292,10 +292,10 @@ describe('DOMRenderer Multiple Render Calls', () => {
         ]
       };
 
-      // 첫 번째 render
+      // First render
       renderer.render(container, model);
 
-      // decorator 추가 후 두 번째 render
+      // Second render after adding decorator
       const decorators = [
         {
           sid: 'chip-before',
@@ -310,8 +310,8 @@ describe('DOMRenderer Multiple Render Calls', () => {
         }
       ];
 
-      // 이 호출에서 updateComponent가 호출되어야 하고,
-      // context.getComponent가 있어서 warning이 발생하지 않아야 함
+      // In this call, updateComponent should be called,
+      // and context.getComponent should exist so no warning occurs
       let warningOccurred = false;
       const originalWarn = console.warn;
       console.warn = (...args: any[]) => {
@@ -325,7 +325,7 @@ describe('DOMRenderer Multiple Render Calls', () => {
 
       console.warn = originalWarn;
 
-      // warning이 발생하지 않아야 함
+      // Warning should not occur
       expect(warningOccurred).toBe(false);
     });
   });

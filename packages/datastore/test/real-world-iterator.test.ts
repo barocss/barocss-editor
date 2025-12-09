@@ -783,7 +783,7 @@ describe('Real-World DocumentIterator', () => {
     });
 
     it('Traverse only within specific section', () => {
-      // Start from "주요 기능" section (using actual node ID)
+      // Start from "주요 기능" section (using actual node ID) - Note: "주요 기능" is Korean text meaning "Main Features"
       const headings = dataStore.findNodesByType('heading');
       const mainFeaturesHeading = headings.find(h => {
         // Check text in heading node's child text node
@@ -815,7 +815,7 @@ describe('Real-World DocumentIterator', () => {
       });
       
       expect(sectionNodes.length).toBeGreaterThan(5);
-      // First node should be "주요 기능" heading
+      // First node should be "주요 기능" heading - Note: "주요 기능" is Korean text meaning "Main Features"
       const firstNode = dataStore.getNode(sectionNodes[0]);
       expect(firstNode?.stype).toBe('heading');
       

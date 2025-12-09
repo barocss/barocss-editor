@@ -14,12 +14,12 @@ describe('Inline Position Decorator (before/after)', () => {
   beforeEach(() => {
     registry = getGlobalRegistry();
     
-    // 기본 노드 정의
+    // Define basic nodes
     define('document', element('div', { className: 'document' }, [slot('content')]));
     define('paragraph', element('p', { className: 'paragraph' }, [slot('content')]));
     define('inline-text', element('span', { className: 'text' }, [data('text')]));
     
-    // Chip decorator 정의
+    // Define Chip decorator
     defineDecorator('chip', element('span', {
       className: 'chip',
       style: {
@@ -61,7 +61,7 @@ describe('Inline Position Decorator (before/after)', () => {
       ]
     };
     
-    // Chip decorator with position 'before' 추가
+    // Add Chip decorator with position 'before'
     view.addDecorator({
       sid: 'chip-before',
       stype: 'chip',
@@ -74,7 +74,7 @@ describe('Inline Position Decorator (before/after)', () => {
     view.render(tree, { sync: true });
     await new Promise(resolve => requestAnimationFrame(resolve));
     
-    // Chip이 "Hello" 앞에 삽입되어야 함
+    // Chip should be inserted before "Hello"
     expectHTML(
       view.layers.content,
       `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">
@@ -111,7 +111,7 @@ describe('Inline Position Decorator (before/after)', () => {
       ]
     };
     
-    // Chip decorator with position 'after' 추가
+    // Add Chip decorator with position 'after'
     view.addDecorator({
       sid: 'chip-after',
       stype: 'chip',
@@ -124,7 +124,7 @@ describe('Inline Position Decorator (before/after)', () => {
     view.render(tree, { sync: true });
     await new Promise(resolve => requestAnimationFrame(resolve));
     
-    // Chip이 "World" 뒤에 삽입되어야 함
+    // Chip should be inserted after "World"
     expectHTML(
       view.layers.content,
       `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">
@@ -161,7 +161,7 @@ describe('Inline Position Decorator (before/after)', () => {
       ]
     };
     
-    // 두 개의 chip decorator 추가
+    // Add two chip decorators
     view.addDecorator({
       sid: 'chip-before',
       stype: 'chip',
@@ -183,7 +183,7 @@ describe('Inline Position Decorator (before/after)', () => {
     view.render(tree, { sync: true });
     await new Promise(resolve => requestAnimationFrame(resolve));
     
-    // 두 chip이 모두 올바른 위치에 삽입되어야 함
+    // Both chips should be inserted at correct positions
     expectHTML(
       view.layers.content,
       `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">
@@ -204,7 +204,7 @@ describe('Inline Position Decorator (before/after)', () => {
   });
 
   it('should handle text-14 scenario from main.ts (Inline before/after 테스트: Hello World)', async () => {
-    // main.ts의 text-14와 동일한 시나리오
+    // Same scenario as text-14 in main.ts
     const tree: ModelData = {
       sid: 'doc-1',
       stype: 'document',
@@ -223,7 +223,7 @@ describe('Inline Position Decorator (before/after)', () => {
       ]
     };
     
-    // main.ts와 동일한 오프셋 계산 로직
+    // Same offset calculation logic as main.ts
     const findNodeBySid = (node: any, sid: string): any | null => {
       if (!node) return null;
       if (node.sid === sid) return node;
@@ -239,7 +239,7 @@ describe('Inline Position Decorator (before/after)', () => {
     const helloStart = t14Text.indexOf('Hello');
     const worldStart = t14Text.indexOf('World');
     
-    // main.ts와 동일한 decorator 추가
+    // Add decorator same as main.ts
     if (helloStart >= 0) {
       view.addDecorator({
         sid: 'chip-before',
@@ -265,7 +265,7 @@ describe('Inline Position Decorator (before/after)', () => {
     view.render(tree, { sync: true });
     await new Promise(resolve => requestAnimationFrame(resolve));
     
-    // "Hello" 앞에 chip-before, "World" 뒤에 chip-after가 있어야 함
+    // chip-before should be before "Hello", chip-after should be after "World"
     const contentHTML = view.layers.content.innerHTML;
     expect(contentHTML).toContain('data-decorator-sid="chip-before"');
     expect(contentHTML).toContain('data-decorator-sid="chip-after"');
@@ -273,7 +273,7 @@ describe('Inline Position Decorator (before/after)', () => {
     expect(contentHTML).toContain('Hello');
     expect(contentHTML).toContain('World');
     
-    // chip-before가 "Hello" 앞에 있는지 확인
+    // Verify chip-before is before "Hello"
     const text14Element = view.layers.content.querySelector('[data-bc-sid="text-14"]');
     expect(text14Element).toBeTruthy();
     if (text14Element) {
@@ -282,12 +282,12 @@ describe('Inline Position Decorator (before/after)', () => {
       const chipBeforeIndex = children.findIndex(el => el.getAttribute('data-decorator-sid') === 'chip-before');
       const chipAfterIndex = children.findIndex(el => el.getAttribute('data-decorator-sid') === 'chip-after');
       
-      // chip-before는 "Hello"를 포함하는 요소보다 앞에 있어야 함
+      // chip-before should be before element containing "Hello"
       if (helloIndex >= 0 && chipBeforeIndex >= 0) {
         expect(chipBeforeIndex).toBeLessThan(helloIndex);
       }
       
-      // chip-after는 "World"를 포함하는 요소보다 뒤에 있어야 함
+      // chip-after should be after element containing "World"
       const worldIndex = children.findIndex(el => el.textContent?.includes('World'));
       if (worldIndex >= 0 && chipAfterIndex >= 0) {
         expect(chipAfterIndex).toBeGreaterThan(worldIndex);
@@ -314,7 +314,7 @@ describe('Inline Position Decorator (before/after)', () => {
       ]
     };
     
-    // "First" 앞에 chip
+    // Chip before "First"
     view.addDecorator({
       sid: 'chip-first-before',
       stype: 'chip',
@@ -324,7 +324,7 @@ describe('Inline Position Decorator (before/after)', () => {
       position: 'before'
     });
     
-    // "Second" 뒤에 chip
+    // Chip after "Second"
     view.addDecorator({
       sid: 'chip-second-after',
       stype: 'chip',
@@ -334,7 +334,7 @@ describe('Inline Position Decorator (before/after)', () => {
       position: 'after'
     });
     
-    // "Third" 앞에 chip
+    // Chip before "Third"
     view.addDecorator({
       sid: 'chip-third-before',
       stype: 'chip',
@@ -404,7 +404,7 @@ describe('Inline Position Decorator (before/after)', () => {
     const contentHTML = view.layers.content.innerHTML;
     expect(contentHTML).toContain('data-decorator-sid="chip-before"');
     expect(contentHTML).toContain('data-decorator-sid="chip-after"');
-    // 텍스트가 분리되어 렌더링될 수 있으므로 부분 문자열 확인
+    // Text may be split during rendering, so check partial strings
     expect(contentHTML).toContain('안녕');
     expect(contentHTML).toContain('하세요');
     expect(contentHTML).toContain('세계');

@@ -10,7 +10,7 @@ describe('Reconciler: prevVNode vs nextVNode 비교', () => {
   beforeEach(() => {
     container = document.createElement('div');
     const reg = getGlobalRegistry();
-    // attrs와 style을 동적으로 받을 수 있는 템플릿
+    // Template that can dynamically receive attrs and style
     define('paragraph', element('p', {
       className: data('attrs.className', 'para'),
       id: data('attrs.id'),

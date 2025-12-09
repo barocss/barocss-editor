@@ -39,7 +39,7 @@ describe('removeStaleChildren - 매칭 로직 검증', () => {
   });
 
   it('expectedChildIds에 chip-before가 포함되지 않아야 함', () => {
-    // VNode에는 chip-after만 있음
+    // VNode only has chip-after
     const vnode: VNode = {
       tag: 'span',
       stype: 'inline-text',
@@ -57,7 +57,7 @@ describe('removeStaleChildren - 매칭 로직 검증', () => {
       ]
     };
 
-    // expectedChildIds 수집
+    // Collect expectedChildIds
     const expectedChildIds = new Set<string>();
     if (vnode.children) {
       for (const child of vnode.children) {
@@ -76,7 +76,7 @@ describe('removeStaleChildren - 매칭 로직 검증', () => {
   });
 
   it('usedDomElements에 chip-before가 포함되지 않아야 함', () => {
-    // DOM에 chip-before와 chip-after가 모두 있음
+    // Both chip-before and chip-after exist in DOM
     const chipBefore = document.createElement('span');
     chipBefore.setAttribute('data-decorator-sid', 'chip-before');
     chipBefore.textContent = 'CHIP';
@@ -88,7 +88,7 @@ describe('removeStaleChildren - 매칭 로직 검증', () => {
     container.appendChild(chipBefore);
     container.appendChild(chipAfter);
 
-    // VNode에는 chip-after만 있음
+    // VNode only has chip-after
     const vnode: VNode = {
       tag: 'span',
       stype: 'inline-text',
@@ -119,7 +119,7 @@ describe('removeStaleChildren - 매칭 로직 검증', () => {
       ]
     };
 
-    // usedDomElements 추적 로직 시뮬레이션
+    // Simulate usedDomElements tracking logic
     const childElements = Array.from(container.children).filter(
       (el): el is HTMLElement => el instanceof HTMLElement
     );
@@ -132,7 +132,7 @@ describe('removeStaleChildren - 매칭 로직 검증', () => {
           const childVNode = child as VNode;
           const childId = childVNode.sid || childVNode.attrs?.['data-decorator-sid'];
           if (childId) {
-            // sid로 DOM 요소 찾기 (이미 매칭된 요소는 제외)
+            // Find DOM element by sid (exclude already matched elements)
             const matchedEl = childElements.find(
               el => !usedDomElements.has(el) && (
                 el.getAttribute('data-bc-sid') === childId || 
@@ -147,13 +147,13 @@ describe('removeStaleChildren - 매칭 로직 검증', () => {
       }
     }
 
-    // chip-after만 usedDomElements에 포함되어야 함
+    // Only chip-after should be included in usedDomElements
     expect(usedDomElements.has(chipAfter)).toBe(true);
     expect(usedDomElements.has(chipBefore)).toBe(false);
   });
 
   it('removeStaleChildren이 chip-before를 제거해야 함', () => {
-    // DOM에 chip-before와 chip-after가 모두 있음
+    // Both chip-before and chip-after exist in DOM
     const chipBefore = document.createElement('span');
     chipBefore.setAttribute('data-decorator-sid', 'chip-before');
     chipBefore.textContent = 'CHIP';
@@ -165,7 +165,7 @@ describe('removeStaleChildren - 매칭 로직 검증', () => {
     container.appendChild(chipBefore);
     container.appendChild(chipAfter);
 
-    // VNode에는 chip-after만 있음
+    // VNode only has chip-after
     const vnode: VNode = {
       tag: 'span',
       stype: 'inline-text',
@@ -206,10 +206,10 @@ describe('removeStaleChildren - 매칭 로직 검증', () => {
       index: 0
     } as FiberNode;
 
-    // removeStaleChildren 호출
+    // Call removeStaleChildren
     removeStaleChildren(fiber, deps);
 
-    // chip-before가 제거되어야 함
+    // chip-before should be removed
     const chipBeforeAfter = container.querySelector('[data-decorator-sid="chip-before"]');
     const chipAfterAfter = container.querySelector('[data-decorator-sid="chip-after"]');
     

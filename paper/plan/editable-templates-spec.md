@@ -1,34 +1,34 @@
-# 편집 가능한 템플릿 스펙 (Editable Templates Specification)
+# Editable Templates Specification
 
-## 📋 개요
+## 📋 Overview
 
-이 문서는 Barocss Editor의 편집 가능한 템플릿 시스템에 대한 명세를 정의합니다. `renderer-dom`의 DSL을 사용하여 편집 가능한 영역과 편집 불가능한 UI 영역을 구분하는 템플릿을 작성하는 방법을 설명합니다.
+This document defines the specification for Barocss Editor's editable template system. It explains how to write templates that distinguish between editable areas and non-editable UI areas using `renderer-dom`'s DSL.
 
-## 🎯 핵심 개념
+## 🎯 Core Concepts
 
-### 1. 편집 영역 구분
-- **최상위 `contentEditable="true"`**: 전체 문서 편집 영역
-- **편집 가능한 요소**: `data-bc-edit` 속성으로 편집 타입 명시
-- **편집 불가능한 UI 요소**: `data-bc-ui` 속성으로 UI 요소 표시 (`contentEditable="false"`)
+### 1. Editable Area Distinction
+- **Top-level `contentEditable="true"`**: Entire document editing area
+- **Editable elements**: Specify edit type with `data-bc-edit` attribute
+- **Non-editable UI elements**: Mark UI elements with `data-bc-ui` attribute (`contentEditable="false"`)
 
-### 2. 편집 타입 구분
-- **콘텐츠 편집**: `data-bc-edit="content"` - 텍스트 내용 변경
-- **속성 편집**: `data-bc-edit="attribute:속성명"` + `data-bc-value="현재값"` - 특정 속성 변경
-- **UI 요소**: `data-bc-ui="타입"` - 편집 불가능한 UI 요소
+### 2. Edit Type Distinction
+- **Content editing**: `data-bc-edit="content"` - Change text content
+- **Attribute editing**: `data-bc-edit="attribute:attributeName"` + `data-bc-value="currentValue"` - Change specific attribute
+- **UI element**: `data-bc-ui="type"` - Non-editable UI element
 
-### 3. 속성 관리
-- **스키마 기반**: 각 노드 타입마다 다른 속성 정의
-- **동적 생성**: `data.attributes`를 통해 유동적인 속성 처리
-- **고정 속성 제거**: `data-bc-alignment` 같은 고정된 속성 사용 안함
+### 3. Attribute Management
+- **Schema-based**: Different attribute definitions for each node type
+- **Dynamic generation**: Flexible attribute handling through `data.attributes`
+- **Remove fixed attributes**: Do not use fixed attributes like `data-bc-alignment`
 
-## 🏗️ 템플릿 구조
+## 🏗️ Template Structure
 
-### 1. 기본 렌더러 정의
+### 1. Basic Renderer Definition
 
 ```typescript
 import { renderer, element, slot, data, attr } from '@barocss/renderer-dom';
 
-// 편집 가능한 문서 렌더러
+// Editable document renderer
 const documentRenderer = renderer('document',
   element('div',
     {
@@ -40,14 +40,14 @@ const documentRenderer = renderer('document',
 );
 ```
 
-### 2. 편집 가능한 콘텐츠 템플릿
+### 2. Editable Content Templates
 
-#### 단락 (Paragraph)
+#### Paragraph
 ```typescript
 const paragraphRenderer = renderer('paragraph',
   element('p',
     {
-      'data-bc-edit': 'content',  // 콘텐츠 편집
+      'data-bc-edit': 'content',  // Content editing
       className: (data) => `paragraph paragraph-${data.attributes?.textAlign || 'left'}`,
       style: (data) => ({
         textAlign: data.attributes?.textAlign || 'left',
@@ -60,13 +60,13 @@ const paragraphRenderer = renderer('paragraph',
 );
 ```
 
-#### 헤딩 (Heading)
+#### Heading
 ```typescript
 const headingRenderer = renderer('heading',
   element((data) => `h${data.attributes?.level || 1}`,
     {
-      'data-bc-edit': 'attribute:level',  // level 속성 편집
-      'data-bc-value': (data) => String(data.attributes?.level || 1),  // 현재 레벨 값
+      'data-bc-edit': 'attribute:level',  // Edit level attribute
+      'data-bc-value': (data) => String(data.attributes?.level || 1),  // Current level value
       className: (data) => `heading heading-level-${data.attributes?.level || 1}`,
       style: (data) => ({
         fontSize: `${2 - (data.attributes?.level || 1) * 0.2}rem`,
@@ -79,13 +79,13 @@ const headingRenderer = renderer('heading',
 );
 ```
 
-#### 리스트 (List)
+#### List
 ```typescript
 const listRenderer = renderer('list',
   element((data) => data.attributes?.ordered ? 'ol' : 'ul',
     {
-      'data-bc-edit': 'attribute:ordered',  // ordered 속성 편집
-      'data-bc-value': (data) => String(data.attributes?.ordered || false),  // 현재 ordered 값
+      'data-bc-edit': 'attribute:ordered',  // Edit ordered attribute
+      'data-bc-value': (data) => String(data.attributes?.ordered || false),  // Current ordered value
       className: (data) => `list ${data.attributes?.ordered ? 'ordered' : 'unordered'}`,
       style: {
         margin: '10px 0',
@@ -99,7 +99,7 @@ const listRenderer = renderer('list',
 const listItemRenderer = renderer('listItem',
   element('li',
     {
-      'data-bc-edit': 'content',  // 콘텐츠 편집
+      'data-bc-edit': 'content',  // Content editing
       className: 'list-item',
       style: {
         margin: '5px 0'
@@ -110,14 +110,14 @@ const listItemRenderer = renderer('listItem',
 );
 ```
 
-### 3. 편집 불가능한 UI 템플릿
+### 3. Non-editable UI Templates
 
-#### UI 헤딩
+#### UI Heading
 ```typescript
 const uiHeadingRenderer = renderer('uiHeading',
   element('div',
     {
-      'data-bc-ui': 'heading',  // UI 요소
+      'data-bc-ui': 'heading',  // UI element
       contentEditable: 'false',
       className: (data) => `ui-heading ui-heading-level-${data.attributes?.level || 1}`,
       style: {
@@ -140,12 +140,12 @@ const uiHeadingRenderer = renderer('uiHeading',
 );
 ```
 
-#### UI 버튼
+#### UI Button
 ```typescript
 const uiButtonRenderer = renderer('uiButton',
   element('button',
     {
-      'data-bc-ui': 'button',  // UI 요소
+      'data-bc-ui': 'button',  // UI element
       className: 'ui-button',
       contentEditable: 'false',
       type: 'button',
@@ -164,12 +164,12 @@ const uiButtonRenderer = renderer('uiButton',
 );
 ```
 
-#### UI 컨테이너
+#### UI Container
 ```typescript
 const uiContainerRenderer = renderer('uiContainer',
   element('div',
     {
-      'data-bc-ui': 'container',  // UI 요소
+      'data-bc-ui': 'container',  // UI element
       className: (data) => `ui-container ui-${data.attributes?.type || 'container'}`,
       contentEditable: 'false',
       style: {
@@ -185,9 +185,9 @@ const uiContainerRenderer = renderer('uiContainer',
 );
 ```
 
-## 📊 데이터 구조
+## 📊 Data Structure
 
-### 1. 문서 데이터 구조
+### 1. Document Data Structure
 
 ```typescript
 interface DocumentData {
@@ -209,9 +209,9 @@ interface NodeData {
 }
 ```
 
-### 2. 사용 예시
+### 2. Usage Examples
 
-#### 기본 편집 가능한 문서
+#### Basic Editable Document
 ```typescript
 const documentData: DocumentData = {
   id: 'doc-1',
@@ -221,19 +221,19 @@ const documentData: DocumentData = {
       {
         id: 'p-1',
         type: 'paragraph',
-        text: '이것은 편집 가능한 단락입니다.',
+        text: 'This is an editable paragraph.',
         attributes: { textAlign: 'left' }
       },
       {
         id: 'h1-1',
         type: 'heading',
-        text: '제목 텍스트',
+        text: 'Title Text',
         attributes: { level: 1 }
       },
       {
         id: 'p-2',
         type: 'paragraph',
-        text: '또 다른 편집 가능한 단락입니다.',
+        text: 'Another editable paragraph.',
         attributes: { textAlign: 'center' }
       }
     ]
@@ -241,7 +241,7 @@ const documentData: DocumentData = {
 };
 ```
 
-#### UI 요소가 포함된 문서
+#### Document with UI Elements
 ```typescript
 const documentDataWithUI: DocumentData = {
   id: 'doc-2',
@@ -251,31 +251,31 @@ const documentDataWithUI: DocumentData = {
       {
         id: 'h1-1',
         type: 'heading',
-        text: '편집 가능한 제목',
+        text: 'Editable Title',
         attributes: { level: 1 }
       },
       {
         id: 'p-1',
         type: 'paragraph',
-        text: '이 단락은 편집할 수 있습니다.',
+        text: 'This paragraph can be edited.',
         attributes: { textAlign: 'left' }
       },
       {
         id: 'ui-heading-1',
         type: 'uiHeading',
-        text: 'UI 제목 (편집 불가)',
+        text: 'UI Title (Not Editable)',
         attributes: { level: 2 }
       },
       {
         id: 'ui-button-1',
         type: 'uiButton',
-        text: '저장',
+        text: 'Save',
         attributes: { action: 'save' }
       },
       {
         id: 'p-2',
         type: 'paragraph',
-        text: '마지막 편집 가능한 단락입니다.',
+        text: 'Last editable paragraph.',
         attributes: { textAlign: 'right' }
       }
     ]
@@ -283,17 +283,17 @@ const documentDataWithUI: DocumentData = {
 };
 ```
 
-## 🔧 렌더러 등록 및 사용
+## 🔧 Renderer Registration and Usage
 
-### 1. 렌더러 레지스트리 설정
+### 1. Renderer Registry Setup
 
 ```typescript
 import { RendererRegistry, RendererFactory } from '@barocss/renderer-dom';
 
-// 렌더러 레지스트리 생성
+// Create renderer registry
 const registry = new RendererRegistry();
 
-// 렌더러 등록
+// Register renderers
 registry.register(documentRenderer);
 registry.register(paragraphRenderer);
 registry.register(headingRenderer);
@@ -303,26 +303,26 @@ registry.register(uiHeadingRenderer);
 registry.register(uiButtonRenderer);
 registry.register(uiContainerRenderer);
 
-// 렌더러 팩토리 생성
+// Create renderer factory
 const factory = new RendererFactory(registry);
 ```
 
-### 2. 렌더링 실행
+### 2. Rendering Execution
 
 ```typescript
-// 문서 렌더링
+// Render document
 const element = factory.createRenderer('document', documentData);
 
-// DOM에 추가
+// Append to DOM
 document.getElementById('editor').appendChild(element);
 ```
 
-## 🎨 CSS 스타일링
+## 🎨 CSS Styling
 
-### 1. 기본 스타일
+### 1. Basic Styles
 
 ```css
-/* 편집 가능한 영역 */
+/* Editable area */
 .barocss-editor {
   border: 2px solid #e0e0e0;
   border-radius: 4px;
@@ -336,7 +336,7 @@ document.getElementById('editor').appendChild(element);
   box-shadow: 0 0 0 3px rgba(0, 122, 204, 0.1);
 }
 
-/* 편집 가능한 요소 */
+/* Editable elements */
 .paragraph {
   margin: 10px 0;
   line-height: 1.6;
@@ -355,7 +355,7 @@ document.getElementById('editor').appendChild(element);
 .heading-level-2 { font-size: 1.5rem; }
 .heading-level-3 { font-size: 1.25rem; }
 
-/* 편집 불가능한 UI 요소 */
+/* Non-editable UI elements */
 [contentEditable="false"] {
   user-select: none;
   pointer-events: none;
@@ -392,74 +392,74 @@ document.getElementById('editor').appendChild(element);
 }
 ```
 
-## 📄 생성되는 HTML 구조
+## 📄 Generated HTML Structure
 
-### 1. 기본 문서 구조
+### 1. Basic Document Structure
 ```html
 <div contentEditable="true" class="barocss-editor">
-  <!-- 콘텐츠 편집 가능한 단락 -->
+  <!-- Content-editable paragraph -->
   <p data-bc-edit="content" data-bc-sid="p-1" data-bc-stype="paragraph" 
      class="paragraph paragraph-left">
-    편집 가능한 텍스트
+    Editable text
   </p>
   
-  <!-- 속성 편집 가능한 헤딩 -->
+  <!-- Attribute-editable heading -->
   <h1 data-bc-edit="attribute:level" data-bc-value="1" 
       data-bc-sid="h1-1" data-bc-stype="heading" 
       class="heading heading-level-1">
-    제목 텍스트
+    Title text
   </h1>
   
-  <!-- 편집 불가능한 UI 버튼 -->
+  <!-- Non-editable UI button -->
   <button data-bc-ui="button" contentEditable="false" 
           class="ui-button" type="button">
-    저장
+    Save
   </button>
   
-  <!-- 편집 불가능한 UI 컨테이너 -->
+  <!-- Non-editable UI container -->
   <div data-bc-ui="container" contentEditable="false" 
        class="ui-container ui-container">
-    <span>UI 컨텐츠</span>
+    <span>UI content</span>
   </div>
 </div>
 ```
 
-### 2. 편집 타입별 속성
+### 2. Attributes by Edit Type
 ```html
-<!-- 콘텐츠 편집 (값 불필요) -->
-<p data-bc-edit="content">텍스트 내용을 편집</p>
+<!-- Content editing (value not needed) -->
+<p data-bc-edit="content">Edit text content</p>
 
-<!-- 속성 편집 (현재 값 포함) -->
-<h1 data-bc-edit="attribute:level" data-bc-value="1">제목 레벨을 편집</h1>
-<div data-bc-edit="attribute:textAlign" data-bc-value="center">정렬을 편집</div>
-<ol data-bc-edit="attribute:ordered" data-bc-value="true">순서 있는 리스트</ol>
+<!-- Attribute editing (includes current value) -->
+<h1 data-bc-edit="attribute:level" data-bc-value="1">Edit title level</h1>
+<div data-bc-edit="attribute:textAlign" data-bc-value="center">Edit alignment</div>
+<ol data-bc-edit="attribute:ordered" data-bc-value="true">Ordered list</ol>
 
-<!-- UI 요소 (편집 불가능) -->
-<button data-bc-ui="button" contentEditable="false">버튼</button>
-<div data-bc-ui="container" contentEditable="false">컨테이너</div>
+<!-- UI element (not editable) -->
+<button data-bc-ui="button" contentEditable="false">Button</button>
+<div data-bc-ui="container" contentEditable="false">Container</div>
 ```
 
-## 🚀 사용 예시
+## 🚀 Usage Examples
 
-### 1. 기본 사용법
+### 1. Basic Usage
 
 ```typescript
-// Editor 인스턴스 생성
+// Create Editor instance
 const editor = new Editor({
   contentEditableElement: document.getElementById('editor'),
   dataStore: dataStore,
   schema: schema
 });
 
-// 편집 가능한 문서 렌더링
+// Render editable document
 const element = factory.createRenderer('document', documentData);
 document.getElementById('editor').appendChild(element);
 ```
 
-### 2. 이벤트 처리
+### 2. Event Handling
 
 ```typescript
-// 편집 이벤트 리스너
+// Edit event listeners
 editor.on('editor:selection.change', (data) => {
   console.log('Selection changed:', data.selection);
 });
@@ -468,7 +468,7 @@ editor.on('editor:content.change', (data) => {
   console.log('Content changed:', data.content);
 });
 
-// UI 버튼 클릭 이벤트
+// UI button click event
 document.addEventListener('click', (event) => {
   const target = event.target as HTMLElement;
   if (target.classList.contains('ui-button')) {
@@ -478,7 +478,7 @@ document.addEventListener('click', (event) => {
 });
 ```
 
-### 3. Editor 파싱 로직
+### 3. Editor Parsing Logic
 
 ```typescript
 export class Editor {
@@ -514,58 +514,58 @@ export class Editor {
     const nodeId = target.getAttribute('data-bc-sid');
     
     if (type === 'attribute') {
-      // 속성 편집 처리 (현재 값과 새 값 비교)
+      // Handle attribute editing (compare current value with new value)
       this._handleAttributeEdit(nodeId, attribute, value, target);
     } else if (type === 'content') {
-      // 콘텐츠 편집 처리
+      // Handle content editing
       this._handleContentEdit(nodeId, target);
     }
   }
 }
 ```
 
-## 📋 속성 네이밍 컨벤션
+## 📋 Attribute Naming Conventions
 
-### 1. 편집 관련 속성
-- `data-bc-edit="content"` - 콘텐츠 편집 (텍스트 내용 변경)
-- `data-bc-edit="attribute:속성명"` - 속성 편집 (예: `"attribute:level"`, `"attribute:textAlign"`)
-- `data-bc-value="현재값"` - 속성 편집 시 현재 값 (예: `"1"`, `"center"`, `"true"`)
-- `data-bc-ui="타입"` - UI 요소 표시 (편집 불가능)
-- `contentEditable: 'false'` - 편집 불가능 (UI 요소)
+### 1. Edit-related Attributes
+- `data-bc-edit="content"` - Content editing (change text content)
+- `data-bc-edit="attribute:attributeName"` - Attribute editing (e.g., `"attribute:level"`, `"attribute:textAlign"`)
+- `data-bc-value="currentValue"` - Current value for attribute editing (e.g., `"1"`, `"center"`, `"true"`)
+- `data-bc-ui="type"` - UI element marker (not editable)
+- `contentEditable: 'false'` - Not editable (UI element)
 
-### 2. 모델 매핑 속성
-- `data-bc-sid` - 노드 ID (자동 설정)
-- `data-bc-stype` - 노드 타입 (자동 설정)
+### 2. Model Mapping Attributes
+- `data-bc-sid` - Node ID (automatically set)
+- `data-bc-stype` - Node type (automatically set)
 
-### 3. 스키마 기반 속성
-- `data.attributes.textAlign` - 텍스트 정렬
-- `data.attributes.level` - 헤딩 레벨
-- `data.attributes.action` - UI 액션
-- `data.attributes.type` - UI 타입
+### 3. Schema-based Attributes
+- `data.attributes.textAlign` - Text alignment
+- `data.attributes.level` - Heading level
+- `data.attributes.action` - UI action
+- `data.attributes.type` - UI type
 
-### 4. CSS 클래스
-- `paragraph paragraph-{textAlign}` - 단락 스타일
-- `heading heading-level-{level}` - 헤딩 스타일
-- `ui-{type}` - UI 요소 스타일
+### 4. CSS Classes
+- `paragraph paragraph-{textAlign}` - Paragraph style
+- `heading heading-level-{level}` - Heading style
+- `ui-{type}` - UI element style
 
-## 🔄 동적 속성 처리
+## 🔄 Dynamic Attribute Handling
 
-### 1. 스키마 기반 속성
-각 노드 타입마다 다른 속성을 `data.attributes`를 통해 처리:
+### 1. Schema-based Attributes
+Handle different attributes for each node type through `data.attributes`:
 
 ```typescript
-// 단락의 경우
+// For paragraph
 attributes: { textAlign: 'left' }
 
-// 헤딩의 경우
+// For heading
 attributes: { level: 1 }
 
-// UI 버튼의 경우
+// For UI button
 attributes: { action: 'save' }
 ```
 
-### 2. 동적 스타일 생성
-`style` 함수를 통해 데이터 기반 동적 스타일 생성:
+### 2. Dynamic Style Generation
+Generate data-based dynamic styles through `style` function:
 
 ```typescript
 style: (data) => ({
@@ -574,15 +574,15 @@ style: (data) => ({
 })
 ```
 
-## 🎯 핵심 원칙
+## 🎯 Core Principles
 
-1. **편집 타입 명시**: `data-bc-edit` 속성으로 편집 타입을 명확히 구분
-   - `"content"`: 텍스트 내용 편집
-   - `"attribute:속성명"`: 특정 속성 편집 (현재 값은 `data-bc-value`로 저장)
-2. **UI 요소 분리**: `data-bc-ui` 속성으로 편집 불가능한 UI 요소 표시
-3. **스키마 기반**: 고정된 속성 대신 유동적인 스키마 사용
-4. **동적 생성**: 데이터 기반으로 속성과 스타일 동적 생성
-5. **명확한 네이밍**: 속성 이름이 명확하고 직관적
-6. **유연한 구조**: 새로운 노드 타입 추가 시 스키마만 정의
+1. **Explicit Edit Type**: Clearly distinguish edit types with `data-bc-edit` attribute
+   - `"content"`: Edit text content
+   - `"attribute:attributeName"`: Edit specific attribute (current value stored in `data-bc-value`)
+2. **UI Element Separation**: Mark non-editable UI elements with `data-bc-ui` attribute
+3. **Schema-based**: Use flexible schema instead of fixed attributes
+4. **Dynamic Generation**: Dynamically generate attributes and styles based on data
+5. **Clear Naming**: Attribute names are clear and intuitive
+6. **Flexible Structure**: Only define schema when adding new node types
 
-이 스펙을 따라 편집 가능한 템플릿을 작성하면 유동적이고 확장 가능한 에디터 시스템을 구축할 수 있습니다.
+By following this spec to write editable templates, you can build a flexible and extensible editor system.

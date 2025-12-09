@@ -73,7 +73,7 @@ describe('Component State Change Flow', () => {
       patch: { text: 'Changed' } 
     });
 
-    // queueMicrotask는 마이크로태스크 큐에 넣으므로 대기 필요
+    // queueMicrotask puts it in microtask queue, so wait is needed
     await new Promise(resolve => queueMicrotask(resolve));
 
     // Should trigger render after microtask
@@ -104,7 +104,7 @@ describe('Component State Change Flow', () => {
     componentManager.emit('changeState', 'disp1', { state: { text: 'Change2' } });
     componentManager.emit('changeState', 'disp1', { state: { text: 'Change3' } });
 
-    // queueMicrotask는 마이크로태스크 큐에 넣으므로 대기 필요
+    // queueMicrotask puts it in microtask queue, so wait is needed
     await new Promise(resolve => queueMicrotask(resolve));
 
     // Should only trigger render once (renderScheduled flag prevents duplicates)
@@ -132,7 +132,7 @@ describe('Component State Change Flow', () => {
     // Before microtask, render should not be called
     expect(renderSpy).not.toHaveBeenCalled();
 
-    // queueMicrotask는 마이크로태스크 큐에 넣으므로 대기 필요
+    // queueMicrotask puts it in microtask queue, so wait is needed
     await new Promise(resolve => queueMicrotask(resolve));
 
     // After microtask, render should be called once (batched)
@@ -281,7 +281,7 @@ describe('Component State Change Flow', () => {
       patch: { count: 5 } 
     });
 
-    // queueMicrotask는 마이크로태스크 큐에 넣으므로 대기 필요
+    // queueMicrotask puts it in microtask queue, so wait is needed
     await new Promise(resolve => queueMicrotask(resolve));
 
     // State should be reflected in the rebuilt VNode

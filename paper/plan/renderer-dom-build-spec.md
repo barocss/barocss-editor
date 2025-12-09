@@ -1,26 +1,26 @@
 # Renderer DOM Build Function Specification
 
-## 개요
+## Overview
 
-`DOMRenderer.build()` 함수는 Model 데이터와 Decorator 데이터를 받아서 VNode(Virtual Node)를 생성하는 핵심 함수입니다. 이 문서는 어떤 입력(Model, Decorators)을 어떻게 빌드하면 어떤 출력(VNode)이 나오는지 명확하게 설명합니다.
+The `DOMRenderer.build()` function is a core function that takes Model data and Decorator data and generates VNode (Virtual Node). This document clearly explains what input (Model, Decorators) produces what output (VNode) when built.
 
-## 빌드 함수 시그니처
+## Build Function Signature
 
 ```typescript
 build(model: ModelData, decorators: DecoratorData[] = []): VNode
 ```
 
-### 입력
+### Input
 
 #### 1. Model (ModelData)
 
-Model은 다음 필수 속성을 가져야 합니다:
+Model must have the following required properties:
 
-- **`stype`** (string, 필수): 사용할 템플릿의 타입. `define()` 함수로 등록된 템플릿 이름과 일치해야 합니다.
-- **`sid`** (string, 선택): 노드의 고유 식별자. Decorator 매칭과 reconciliation에 사용됩니다.
-- **기타 속성**: 템플릿에서 사용할 데이터 (예: `text`, `title`, `content`, `attributes`, `marks` 등)
+- **`stype`** (string, required): Type of template to use. Must match the template name registered with the `define()` function.
+- **`sid`** (string, optional): Unique identifier for the node. Used for Decorator matching and reconciliation.
+- **Other properties**: Data to be used in templates (e.g., `text`, `title`, `content`, `attributes`, `marks`, etc.)
 
-**예제:**
+**Example:**
 ```typescript
 const model = {
   stype: 'paragraph',
@@ -32,22 +32,22 @@ const model = {
 
 #### 2. Decorators (DecoratorData[])
 
-Decorator 배열은 텍스트나 노드에 추가적인 스타일링이나 기능을 적용하는 메타데이터입니다.
+Decorator array is metadata that applies additional styling or functionality to text or nodes.
 
 ```typescript
 interface DecoratorData {
-  sid: string;              // Decorator 고유 ID
-  stype: string;            // Decorator 타입 (highlight, comment 등)
+  sid: string;              // Decorator unique ID
+  stype: string;            // Decorator type (highlight, comment, etc.)
   category: 'inline' | 'block' | 'layer';
   target: {
-    sid: string;            // 대상 노드의 sid
-    startOffset?: number;   // inline decorator의 시작 오프셋
-    endOffset?: number;     // inline decorator의 끝 오프셋
+    sid: string;            // Target node's sid
+    startOffset?: number;   // Inline decorator start offset
+    endOffset?: number;     // Inline decorator end offset
   };
 }
 ```
 
-**예제:**
+**Example:**
 ```typescript
 const decorators = [
   {
@@ -63,25 +63,25 @@ const decorators = [
 ];
 ```
 
-### 출력
+### Output
 
 #### VNode (Virtual Node)
 
-빌드 함수는 완성된 VNode 객체를 반환합니다.
+The build function returns a completed VNode object.
 
 ```typescript
 interface VNode {
-  tag?: string;              // HTML 태그명 (예: 'div', 'p', 'span')
-  attrs?: Record<string, any>; // HTML 속성들
-  style?: Record<string, any>;  // 인라인 스타일
-  text?: string;              // 텍스트 노드의 내용
-  children?: VNode[];          // 자식 VNode 배열
-  component?: {                // 컴포넌트 정보 (컴포넌트인 경우)
+  tag?: string;              // HTML tag name (e.g., 'div', 'p', 'span')
+  attrs?: Record<string, any>; // HTML attributes
+  style?: Record<string, any>;  // Inline styles
+  text?: string;              // Text node content
+  children?: VNode[];          // Child VNode array
+  component?: {                // Component information (if component)
     name: string;
     props: Record<string, any>;
     isExternal?: boolean;
   };
-  portal?: {                   // Portal 정보 (Portal인 경우)
+  portal?: {                   // Portal information (if portal)
     target: HTMLElement;
     template: RenderTemplate;
     portalId: string;
@@ -89,25 +89,25 @@ interface VNode {
 }
 ```
 
-## 빌드 프로세스
+## Build Process
 
-빌드 함수는 다음 단계를 거쳐 VNode를 생성합니다:
+The build function generates VNode through the following steps:
 
-1. **템플릿 조회**: `model.stype`으로 등록된 템플릿을 Registry에서 찾습니다.
-2. **데이터 바인딩**: 템플릿의 `data()`, `attr()` 등의 함수가 model 데이터를 참조합니다.
-3. **Mark 처리**: `model.marks`가 있으면 텍스트를 mark 범위에 따라 분할하고 mark VNode를 생성합니다.
-4. **Decorator 적용**: Decorator를 텍스트나 노드에 적용합니다.
-5. **Component 처리**: Contextual Component나 External Component를 처리합니다.
-6. **Slot 처리**: `slot()` 함수로 지정된 자식 콘텐츠를 렌더링합니다.
-7. **재귀적 빌드**: 중첩된 템플릿이나 자식 요소들을 재귀적으로 빌드합니다.
+1. **Template Lookup**: Find the registered template in Registry using `model.stype`.
+2. **Data Binding**: Template functions like `data()`, `attr()` reference model data.
+3. **Mark Processing**: If `model.marks` exists, split text by mark ranges and create mark VNodes.
+4. **Decorator Application**: Apply Decorators to text or nodes.
+5. **Component Processing**: Process Contextual Components or External Components.
+6. **Slot Processing**: Render child content specified by `slot()` function.
+7. **Recursive Build**: Recursively build nested templates or child elements.
 
-## 스펙별 빌드 결과
+## Build Results by Specification
 
-### 1. 기본 Element 빌드
+### 1. Basic Element Build
 
-**입력:**
+**Input:**
 ```typescript
-// 템플릿 등록
+// Template registration
 define('paragraph', element('p', [data('text')]));
 
 const model = {
@@ -119,7 +119,7 @@ const model = {
 const decorators = [];
 ```
 
-**출력:**
+**Output:**
 ```typescript
 {
   tag: 'p',
@@ -131,9 +131,9 @@ const decorators = [];
 }
 ```
 
-### 2. Nested Elements 빌드
+### 2. Nested Elements Build
 
-**입력:**
+**Input:**
 ```typescript
 define('container', element('div', [
   element('h1', [data('title')]),
@@ -148,7 +148,7 @@ const model = {
 };
 ```
 
-**출력:**
+**Output:**
 ```typescript
 {
   tag: 'div',
@@ -160,9 +160,9 @@ const model = {
 }
 ```
 
-### 3. Decorator 적용 빌드
+### 3. Decorator Application Build
 
-**입력:**
+**Input:**
 ```typescript
 define('paragraph', element('p', [data('text')]));
 define('highlight', element('span', { className: 'highlight' }, [slot('content')]));
@@ -183,7 +183,7 @@ const decorators = [
 ];
 ```
 
-**출력:**
+**Output:**
 ```typescript
 {
   tag: 'p',
@@ -203,9 +203,9 @@ const decorators = [
 }
 ```
 
-### 4. Mark 처리 빌드
+### 4. Mark Processing Build
 
-**입력:**
+**Input:**
 ```typescript
 define('text-with-mark', element('p', [data('text')]));
 defineMark('bold', element('strong', [data('text')]));
@@ -220,7 +220,7 @@ const model = {
 };
 ```
 
-**출력:**
+**Output:**
 ```typescript
 {
   tag: 'p',
@@ -232,9 +232,9 @@ const model = {
 }
 ```
 
-### 5. Mark + Decorator 조합 빌드
+### 5. Mark + Decorator Combination Build
 
-**입력:**
+**Input:**
 ```typescript
 define('text-mark-decorator', element('p', [data('text')]));
 defineMark('bold', element('strong', [data('text')]));
@@ -259,7 +259,7 @@ const decorators = [
 ];
 ```
 
-**출력:**
+**Output:**
 ```typescript
 {
   tag: 'p',
@@ -273,7 +273,7 @@ const decorators = [
         'data-decorator-category': 'inline'
       },
       children: [
-        { tag: 'strong', text: 'Hello' }  // Mark가 Decorator 안에 중첩됨
+        { tag: 'strong', text: 'Hello' }  // Mark nested inside Decorator
       ]
     },
     { text: ' World' }
@@ -281,11 +281,11 @@ const decorators = [
 }
 ```
 
-**중첩 순서:** Decorator → Mark → Text
+**Nesting Order:** Decorator → Mark → Text
 
-### 6. Component 빌드 (Contextual)
+### 6. Component Build (Contextual)
 
-**입력:**
+**Input:**
 ```typescript
 registerContextComponent('button', (props, context) => {
   return element('button', { className: 'btn' }, [data('text')]);
@@ -298,7 +298,7 @@ const model = {
 };
 ```
 
-**출력:**
+**Output:**
 ```typescript
 {
   tag: 'button',
@@ -316,9 +316,9 @@ const model = {
 }
 ```
 
-### 7. External Component 빌드
+### 7. External Component Build
 
-**입력:**
+**Input:**
 ```typescript
 define('chart', {
   mount: (props, container) => {
@@ -339,7 +339,7 @@ const model = {
 };
 ```
 
-**출력:**
+**Output:**
 ```typescript
 {
   tag: 'div',
@@ -356,9 +356,9 @@ const model = {
 }
 ```
 
-### 8. Slot 처리 빌드
+### 8. Slot Processing Build
 
-**입력:**
+**Input:**
 ```typescript
 define('container', element('div', { className: 'container' }, [slot('content')]));
 define('item', element('span', { className: 'item' }, [data('text')]));
@@ -373,7 +373,7 @@ const model = {
 };
 ```
 
-**출력:**
+**Output:**
 ```typescript
 {
   tag: 'div',
@@ -397,9 +397,9 @@ const model = {
 }
 ```
 
-### 9. Conditional Rendering (`when()`) 빌드
+### 9. Conditional Rendering (`when()`) Build
 
-**입력:**
+**Input:**
 ```typescript
 define('conditional-component', element('div', [
   when((d: any) => d.show, element('span', { className: 'shown' }, [data('text')])),
@@ -414,21 +414,21 @@ const model = {
 };
 ```
 
-**출력:**
+**Output:**
 ```typescript
 {
   tag: 'div',
   attrs: { 'data-bc-sid': 'c1', 'data-bc-stype': 'conditional-component' },
   children: [
     { tag: 'span', attrs: { className: 'shown' }, text: 'Visible content' }
-    // hidden span은 조건이 false이므로 포함되지 않음
+    // hidden span is not included because condition is false
   ]
 }
 ```
 
-### 10. Array Iteration (`each()`) 빌드
+### 10. Array Iteration (`each()`) Build
 
-**입력:**
+**Input:**
 ```typescript
 const eachTemplate: EachTemplate = {
   type: 'each',
@@ -448,7 +448,7 @@ const model = {
 };
 ```
 
-**출력:**
+**Output:**
 ```typescript
 {
   tag: 'ul',
@@ -460,9 +460,9 @@ const model = {
 }
 ```
 
-### 11. Mixed Content (Text + Elements) 빌드
+### 11. Mixed Content (Text + Elements) Build
 
-**입력:**
+**Input:**
 ```typescript
 define('mixed-content', element('div', [
   text('Hello '),
@@ -476,7 +476,7 @@ const model = {
 };
 ```
 
-**출력:**
+**Output:**
 ```typescript
 {
   tag: 'div',
@@ -489,9 +489,9 @@ const model = {
 }
 ```
 
-### 12. Dynamic Attributes 빌드
+### 12. Dynamic Attributes Build
 
-**입력:**
+**Input:**
 ```typescript
 define('dynamic-attr', element('div', {
   className: attr('attributes.className'),
@@ -511,7 +511,7 @@ const model = {
 };
 ```
 
-**출력:**
+**Output:**
 ```typescript
 {
   tag: 'div',
@@ -526,9 +526,9 @@ const model = {
 }
 ```
 
-### 13. Component Props 전달 빌드
+### 13. Component Props Passing Build
 
-**입력:**
+**Input:**
 ```typescript
 registerContextComponent('profile', (props, context) => {
   return element('div', [
@@ -547,7 +547,7 @@ const model = {
 };
 ```
 
-**출력:**
+**Output:**
 ```typescript
 {
   tag: 'div',
@@ -564,85 +564,85 @@ const model = {
 }
 ```
 
-## 중첩 및 조합 규칙
+## Nesting and Combination Rules
 
-### 1. Mark와 Decorator 중첩 순서
+### 1. Mark and Decorator Nesting Order
 
-Mark와 Decorator가 동시에 적용될 때의 중첩 순서는 다음과 같습니다:
+When Mark and Decorator are applied simultaneously, the nesting order is as follows:
 
 ```
-Decorator (외부) → Mark → Text (내부)
+Decorator (outer) → Mark → Text (inner)
 ```
 
-이유:
-- Decorator는 스타일링이나 기능적 래퍼입니다.
-- Mark는 텍스트의 의미적 강조입니다.
-- 따라서 Decorator가 외부, Mark가 내부에 위치합니다.
+Reason:
+- Decorator is a styling or functional wrapper.
+- Mark is semantic emphasis of text.
+- Therefore, Decorator is positioned outside, Mark inside.
 
-### 2. 여러 Mark 중첩
+### 2. Multiple Mark Nesting
 
-여러 Mark가 겹칠 때는 `run.types` 배열의 역순으로 중첩됩니다:
+When multiple Marks overlap, they are nested in reverse order of the `run.types` array:
 
 ```typescript
 // marks: [bold, italic] → types: ['bold', 'italic']
-// 결과: <em><strong>text</strong></em>
+// Result: <em><strong>text</strong></em>
 ```
 
-### 3. 여러 Decorator 처리
+### 3. Multiple Decorator Processing
 
-여러 Decorator가 같은 텍스트에 적용될 때는 각각 별도의 VNode로 생성되거나, 범위에 따라 분할됩니다.
+When multiple Decorators are applied to the same text, each is created as a separate VNode or split according to ranges.
 
-## 특수 속성 및 메타데이터
+## Special Attributes and Metadata
 
 ### data-bc-sid
 
-모든 VNode에 `data-bc-sid` 속성이 추가되어 노드를 식별합니다. 이는 reconciliation과 decorator 매칭에 사용됩니다.
+All VNodes have the `data-bc-sid` attribute added to identify nodes. This is used for reconciliation and decorator matching.
 
 ### data-bc-stype
 
-`data-bc-stype` 속성은 원본 model의 `stype`을 보존합니다. 컴포넌트의 경우 `'component'`로 설정될 수 있습니다.
+The `data-bc-stype` attribute preserves the original model's `stype`. For components, it may be set to `'component'`.
 
 ### data-bc-component
 
-External Component나 Contextual Component인 경우 `data-bc-component` 속성에 컴포넌트 이름이 설정됩니다.
+For External Components or Contextual Components, the component name is set in the `data-bc-component` attribute.
 
 ### data-decorator-sid / data-decorator-category
 
-Decorator가 적용된 VNode에는 `data-decorator-sid`와 `data-decorator-category` 속성이 추가됩니다.
+VNodes with Decorators applied have `data-decorator-sid` and `data-decorator-category` attributes added.
 
-## 에러 처리
+## Error Handling
 
-### 1. stype이 없는 경우
+### 1. Missing stype
 
 ```typescript
 build({ sid: 'p1', text: 'Hello' }, []);
 // Error: model must have stype property
 ```
 
-### 2. 등록되지 않은 템플릿 사용
+### 2. Using Unregistered Template
 
 ```typescript
 build({ stype: 'unknown-template', sid: 'p1' }, []);
 // Error: Renderer for node type 'unknown-template' not found
 ```
 
-### 3. null/undefined 데이터
+### 3. null/undefined Data
 
 ```typescript
 build(null, []);
 // Error: Data cannot be null or undefined
 ```
 
-## 성능 고려사항
+## Performance Considerations
 
-1. **ID 재사용**: 같은 빌드 사이클 내에서 동일한 `sid`를 여러 번 사용하면 unique ID가 생성됩니다 (중복 방지).
-2. **재귀적 빌드**: 깊게 중첩된 구조는 재귀적으로 처리되므로 깊이가 깊을수록 성능에 영향을 줄 수 있습니다.
-3. **Decorator 처리**: 많은 Decorator가 있을 경우 텍스트 분할과 매칭 과정이 시간이 걸릴 수 있습니다.
+1. **ID Reuse**: Using the same `sid` multiple times within the same build cycle generates a unique ID (duplicate prevention).
+2. **Recursive Build**: Deeply nested structures are processed recursively, so deeper nesting can impact performance.
+3. **Decorator Processing**: When there are many Decorators, the text splitting and matching process can take time.
 
-## 예제: 복잡한 빌드 시나리오
+## Example: Complex Build Scenario
 
 ```typescript
-// 템플릿 정의
+// Template definition
 define('article', element('article', [slot('content')]));
 define('paragraph', element('p', [data('text')]));
 defineMark('bold', element('strong', [data('text')]));
@@ -675,10 +675,10 @@ const decorators = [
   }
 ];
 
-// 빌드
+// Build
 const vnode = renderer.build(model, decorators);
 
-// 결과 VNode 구조:
+// Resulting VNode structure:
 // article
 //   └─ p (data-bc-sid: 'p1')
 //       └─ span.highlight (data-decorator-sid: 'd1')
@@ -687,10 +687,10 @@ const vnode = renderer.build(model, decorators);
 //       └─ ' World'
 ```
 
-## 참고 사항
+## Notes
 
-- 빌드 함수는 DOM을 직접 생성하지 않습니다. VNode만 생성합니다.
-- 실제 DOM 렌더링은 `renderer.render(container, vnode)`를 호출해야 합니다.
-- Component의 내부 상태는 `ComponentManager`를 통해 관리되며, 빌드 시점에 반영됩니다.
-- `lastModel`과 `lastDecorators`가 저장되어 자동 재빌드를 지원합니다.
+- The build function does not directly create DOM. It only creates VNode.
+- Actual DOM rendering requires calling `renderer.render(container, vnode)`.
+- Component internal state is managed through `ComponentManager` and reflected at build time.
+- `lastModel` and `lastDecorators` are stored to support automatic rebuild.
 

@@ -2,27 +2,27 @@
 
 ## Overview
 
-Selection 시스템은 Barocss Editor에서 문서의 특정 부분을 선택하고 조작할 수 있는 핵심 기능입니다. 본 문서는 Model 레벨에서의 Selection 관리와 DOM ↔ Model 간의 양방향 변환을 다룹니다.
+The Selection system is a core feature in Barocss Editor that allows selecting and manipulating specific parts of a document. This document covers Selection management at the Model level and bidirectional conversion between DOM ↔ Model.
 
-### 주요 원칙
+### Key Principles
 
-- **Model 중심**: Selection 상태는 Model 레벨에서 관리
-- **DOM 분리**: DOM 조작은 editor-view-dom에서 처리
-- **양방향 변환**: DOM Selection ↔ Model Selection 자동 변환
-- **Text Run Index**: 중첩된 마크 구조에서 정확한 위치 매핑
-- **안전한 검증**: DOM에 있지만 Model에 없는 요소는 안전하게 처리
+- **Model-centric**: Selection state is managed at the Model level
+- **DOM Separation**: DOM manipulation is handled in editor-view-dom
+- **Bidirectional Conversion**: Automatic conversion between DOM Selection ↔ Model Selection
+- **Text Run Index**: Accurate position mapping in nested mark structures
+- **Safe Validation**: Safely handle elements that exist in DOM but not in Model
 
 ## Core Concepts
 
-### 1. Model Selection 구조
+### 1. Model Selection Structure
 
 ```typescript
-// Model 레벨에서의 Selection 표현
+// Selection representation at Model level
 interface ModelSelection {
-  anchorId: string;      // 선택 시작점 노드 ID
-  anchorOffset: number;  // 선택 시작점 오프셋
-  focusId: string;       // 선택 끝점 노드 ID  
-  focusOffset: number;   // 선택 끝점 오프셋
+  anchorId: string;      // Selection start point node ID
+  anchorOffset: number;  // Selection start point offset
+  focusId: string;       // Selection end point node ID  
+  focusOffset: number;   // Selection end point offset
 }
 
 // SelectionManager 기본 API
@@ -39,7 +39,7 @@ class SelectionManager {
 ```
 
 
-### 2. DOM ↔ Model 변환 시스템
+### 2. DOM ↔ Model Conversion System
 
 #### 2.1 DOMSelectionHandler
 
@@ -50,71 +50,71 @@ interface DOMSelectionHandler {
   convertModelSelectionToDOM(modelSelection: any): void;
 }
 
-// DOM Selection → Model Selection 변환
+// DOM Selection → Model Selection conversion
 convertDOMSelectionToModel(selection: Selection): ModelSelection {
-  // 1. data-bc-sid 속성을 가진 요소 찾기
-  // 2. Text Run Index로 정확한 offset 계산  
-  // 3. Model에 노드가 존재하는지 검증
-  // 4. Model Selection 객체 생성
+  // 1. Find element with data-bc-sid attribute
+  // 2. Calculate accurate offset using Text Run Index  
+  // 3. Verify node exists in Model
+  // 4. Create Model Selection object
 }
 
-// Model Selection → DOM Selection 변환
+// Model Selection → DOM Selection conversion
 convertModelSelectionToDOM(modelSelection: ModelSelection): void {
-  // 1. 텍스트 컨테이너 식별 (data-text-container="true")
-  // 2. Text Run Index로 DOM Text 노드 찾기
-  // 3. Binary Search로 정확한 offset 매핑
-  // 4. DOM Range 생성 및 선택 적용
+  // 1. Identify text container (data-text-container="true")
+  // 2. Find DOM Text node using Text Run Index
+  // 3. Map accurate offset using Binary Search
+  // 4. Create DOM Range and apply selection
 }
 ```
 
-#### 2.2 Text Run Index 시스템
+#### 2.2 Text Run Index System
 
-중첩된 마크 구조에서 정확한 DOM ↔ Model 위치 매핑을 위한 시스템입니다.
+A system for accurate DOM ↔ Model position mapping in nested mark structures.
 
 ```typescript
 interface TextRun {
-  domTextNode: Text;        // DOM Text 노드
-  start: number;            // 시작 오프셋
-  end: number;              // 끝 오프셋 (exclusive)
+  domTextNode: Text;        // DOM Text node
+  start: number;            // Start offset
+  end: number;              // End offset (exclusive)
 }
 
 interface ContainerRuns {
-  runs: TextRun[];          // Text Run 배열
-  total: number;            // 총 텍스트 길이
-  byNode?: Map<Text, { start: number; end: number }>; // O(1) 역매핑
+  runs: TextRun[];          // Text Run array
+  total: number;            // Total text length
+  byNode?: Map<Text, { start: number; end: number }>; // O(1) reverse mapping
 }
 
-// Text Run Index 생성
+// Create Text Run Index
 function buildTextRunIndex(container: Element): ContainerRuns {
-  // 1. 컨테이너 내 모든 Text 노드 순회
-  // 2. 각 Text 노드의 길이를 누적하여 오프셋 계산
-  // 3. byNode Map으로 O(1) 역매핑 지원
+  // 1. Traverse all Text nodes in container
+  // 2. Calculate offset by accumulating each Text node's length
+  // 3. Support O(1) reverse mapping with byNode Map
 }
 
-// Binary Search로 효율적인 offset 변환
+// Efficient offset conversion using Binary Search
 function binarySearchRun(runs: TextRun[], targetOffset: number): number {
-  // O(log n) 시간복잡도로 적절한 Text Run 찾기
+  // Find appropriate Text Run with O(log n) time complexity
 }
 ```
 
-#### 2.3 Model 검증 및 안전성
+#### 2.3 Model Validation and Safety
 
 ```typescript
-// Model에 노드가 실제로 존재하는지 확인
+// Check if node actually exists in Model
 private nodeExistsInModel(nodeId: string): boolean {
   try {
     if (this.editor.dataStore) {
       const node = this.editor.dataStore.getNode(nodeId);
       return node !== null && node !== undefined;
     }
-    return true; // dataStore가 없는 경우 기본값
+    return true; // Default value when dataStore doesn't exist
   } catch (error) {
     console.warn('[SelectionHandler] Error checking node existence:', error);
     return false;
   }
 }
 
-// DOM에 있지만 Model에 없는 요소 처리
+// Handle elements that exist in DOM but not in Model
 if (!this.nodeExistsInModel(startNodeId) || !this.nodeExistsInModel(endNodeId)) {
   console.warn('[SelectionHandler] Node does not exist in model:', {
     startNodeId,
@@ -122,14 +122,14 @@ if (!this.nodeExistsInModel(startNodeId) || !this.nodeExistsInModel(endNodeId)) 
     startExists: this.nodeExistsInModel(startNodeId),
     endExists: this.nodeExistsInModel(endNodeId)
   });
-  return { type: 'none' }; // 안전하게 선택 해제
+  return { type: 'none' }; // Safely clear selection
 }
 ```
 
-#### 2.4 Selection 방향 감지
+#### 2.4 Selection Direction Detection
 
 ```typescript
-// Selection 방향 결정 (forward/backward)
+// Determine Selection direction (forward/backward)
 private determineSelectionDirection(
   selection: Selection, 
   startNode: Element, 
@@ -137,12 +137,12 @@ private determineSelectionDirection(
   startOffset: number, 
   endOffset: number
 ): 'forward' | 'backward' {
-  // 같은 노드 내 선택
+  // Selection within same node
   if (startNode === endNode) {
     return startOffset <= endOffset ? 'forward' : 'backward';
   }
   
-  // Cross-node 선택: anchor/focus 노드 기반으로 방향 판단
+  // Cross-node selection: Determine direction based on anchor/focus nodes
   const anchorNode = this.findBestContainer(selection.anchorNode);
   const focusNode = this.findBestContainer(selection.focusNode);
   
@@ -152,18 +152,18 @@ private determineSelectionDirection(
     return 'backward';
   }
   
-  // Fallback: DOM document position 비교
+  // Fallback: Compare DOM document position
   return startNode.compareDocumentPosition(endNode) & Node.DOCUMENT_POSITION_FOLLOWING 
     ? 'forward' : 'backward';
 }
 ```
 
-### 3. PositionBasedSelectionManager (고급 기능)
+### 3. PositionBasedSelectionManager (Advanced Features)
 
-복잡한 Position 기반 Selection 관리가 필요한 경우 사용하는 고급 시스템입니다.
+An advanced system used when complex Position-based Selection management is needed.
 
 ```typescript
-// Position 기반 Selection 타입
+// Position-based Selection type
 interface PositionBasedSelection {
   id: string;
   type: 'text' | 'node' | 'cross-node' | 'multi-node' | 'document';
@@ -178,68 +178,68 @@ interface PositionBasedSelection {
 
 interface Position {
   id: string;
-  absolute: number;           // 절대 위치
-  nodeOffset: number;         // 노드 내 오프셋
-  nodeId: string;             // 노드 ID
-  path: string[];             // 경로
-  parentId?: string;          // 부모 노드 ID
-  siblingIndex?: number;      // 형제 노드 인덱스
-  documentVersion: number;    // 문서 버전
-  lastUpdated: Date;          // 마지막 업데이트
-  isInvalidated: boolean;     // 무효화 여부
-  invalidationReason?: string; // 무효화 이유
-  isValid: boolean;           // 유효성
-  type: 'text' | 'anchor' | 'focus'; // 타입
-  timestamp: Date;            // 생성 시점
-  metadata?: Record<string, any>; // 메타데이터
-  references: {               // 참조 추적
+  absolute: number;           // Absolute position
+  nodeOffset: number;         // Offset within node
+  nodeId: string;             // Node ID
+  path: string[];             // Path
+  parentId?: string;          // Parent node ID
+  siblingIndex?: number;      // Sibling node index
+  documentVersion: number;    // Document version
+  lastUpdated: Date;          // Last update
+  isInvalidated: boolean;     // Invalidation status
+  invalidationReason?: string; // Invalidation reason
+  isValid: boolean;           // Validity
+  type: 'text' | 'anchor' | 'focus'; // Type
+  timestamp: Date;            // Creation time
+  metadata?: Record<string, any>; // Metadata
+  references: {               // Reference tracking
     highlights: string[];
     decorations: string[];
     selections: string[];
   };
 }
 
-// 통합된 Selection API
+// Integrated Selection API
 class PositionBasedSelectionManager {
-  // 통합된 텍스트 선택 (단일 노드 또는 Cross Node 자동 감지)
+  // Integrated text selection (automatic detection of single node or Cross Node)
   selectRange(
     startNodeId: string, 
     startOffset: number, 
     endNodeId: string, 
     endOffset: number
   ): string {
-    // 같은 노드인지 자동 감지하여 적절한 Selection 타입 생성
+    // Automatically detect if same node and create appropriate Selection type
   }
 
-  // 편의 메서드들
+  // Convenience methods
   selectTextRange(nodeId: string, startOffset: number, endOffset: number): string;
   selectCrossNode(startNodeId: string, startOffset: number, endNodeId: string, endOffset: number): string;
   selectAbsoluteRange(startOffset: number, endOffset: number): string;
   selectNode(nodeId: string): string;
 
-  // Selection 관리
+  // Selection management
   getCurrentSelection(): PositionBasedSelection | null;
   getSelectedText(): string;
   getSelectedNodes(): INode[];
   clearSelection(): void;
   validateSelection(): boolean;
 
-  // 히스토리 관리
+  // History management
   getSelectionHistory(): PositionBasedSelection[];
   undoSelection(): boolean;
   restoreSelection(selection: PositionBasedSelection): void;
 }
 ```
 
-### 4. 사용 예시
+### 4. Usage Examples
 
-#### 4.1 기본 Selection 사용법
+#### 4.1 Basic Selection Usage
 
 ```typescript
-// 1. SelectionManager 기본 사용
+// 1. Basic SelectionManager usage
 const selectionManager = new SelectionManager({ dataStore });
 
-// Selection 설정
+// Set Selection
 selectionManager.setSelection({
   anchorId: 'text-1',
   anchorOffset: 0,
@@ -247,24 +247,24 @@ selectionManager.setSelection({
   focusOffset: 5
 });
 
-// Selection 상태 확인
+// Check Selection state
 const currentSelection = selectionManager.getCurrentSelection();
 console.log(currentSelection); // { anchorId: 'text-1', anchorOffset: 0, focusId: 'text-1', focusOffset: 5 }
 
-// Selection이 특정 노드에 있는지 확인
+// Check if Selection is in specific node
 const isInNode = selectionManager.isInNode('text-1'); // true
 
-// Selection이 특정 위치에 있는지 확인 (collapsed)
+// Check if Selection is at specific position (collapsed)
 const isAtPosition = selectionManager.isAtPosition('text-1', 3); // false
 
-// Selection이 특정 범위에 있는지 확인
+// Check if Selection is in specific range
 const isInRange = selectionManager.isInRange('text-1', 0, 10); // true
 ```
 
-#### 4.2 DOM ↔ Model 변환 사용법
+#### 4.2 DOM ↔ Model Conversion Usage
 
 ```typescript
-// 1. DOM Selection → Model Selection 변환
+// 1. DOM Selection → Model Selection conversion
 const domSelection = window.getSelection();
 const modelSelection = selectionHandler.convertDOMSelectionToModel(domSelection);
 
@@ -278,7 +278,7 @@ console.log(modelSelection);
 //   direction: 'forward'
 // }
 
-// 2. Model Selection → DOM Selection 변환
+// 2. Model Selection → DOM Selection conversion
 const modelSelection = {
   type: 'text',
   anchor: { nodeId: 'text-1', offset: 0 },
@@ -286,135 +286,135 @@ const modelSelection = {
 };
 
 selectionHandler.convertModelSelectionToDOM(modelSelection);
-// DOM에서 해당 범위가 선택됨
+// The range is selected in DOM
 ```
 
-#### 4.3 PositionCalculator 사용법
+#### 4.3 PositionCalculator Usage
 
 ```typescript
-// 1. 위치 변환 유틸리티 사용
+// 1. Use position conversion utility
 const calculator = new PositionCalculator(dataStore);
 
-// nodeId + offset을 절대 위치로 변환
+// Convert nodeId + offset to absolute position
 const absolutePos = calculator.calculateAbsolutePosition('text-1', 3);
 
-// 절대 위치를 nodeId + offset으로 변환
+// Convert absolute position to nodeId + offset
 const nodePos = calculator.findNodeByAbsolutePosition(absolutePos);
 
-// 노드 경로 계산
+// Calculate node path
 const path = calculator.getNodePath('text-1'); // ['doc-1', 'para-1', 'text-1']
 
-// 부모 ID 및 형제 순서 조회
+// Query parent ID and sibling order
 const parentId = calculator.getParentId('text-1');
 const siblingIndex = calculator.getSiblingIndex('text-1');
 
-// 노드 간 거리 계산
+// Calculate distance between nodes
 const distance = calculator.calculateDistance('text-1', 'text-2');
 ```
 
-## 2. SelectionManager 사용 가이드
+## 2. SelectionManager Usage Guide
 
-### 2.1 언제 어떤 SelectionManager를 사용해야 할까?
+### 2.1 When to Use Which SelectionManager?
 
-#### **기본 SelectionManager (editor-core)**
-- **사용 시기**: Editor 클래스에서 기본적인 Selection 관리가 필요할 때
-- **특징**: 간단한 `ModelSelection` 인터페이스 (anchorId, anchorOffset, focusId, focusOffset)
-- **용도**: 
-  - DOM과 분리된 순수 Model 레벨 Selection 관리
-  - 기본적인 선택 상태 확인 및 설정
-  - Editor의 기본 Selection 기능
+#### **Basic SelectionManager (editor-core)**
+- **When to use**: When basic Selection management is needed in Editor class
+- **Characteristics**: Simple `ModelSelection` interface (anchorId, anchorOffset, focusId, focusOffset)
+- **Use cases**: 
+  - Pure Model-level Selection management separated from DOM
+  - Basic selection state checking and setting
+  - Editor's basic Selection functionality
 
 ```typescript
-// Editor에서 기본 SelectionManager 사용
+// Use basic SelectionManager in Editor
 const editor = new Editor({ dataStore });
 const selection = editor.selectionManager.getCurrentSelection();
 
-// 기본 Selection 상태 확인
+// Check basic Selection state
 if (selection) {
-  console.log(`선택된 범위: ${selection.anchorId}:${selection.anchorOffset} ~ ${selection.focusId}:${selection.focusOffset}`);
+  console.log(`Selected range: ${selection.anchorId}:${selection.anchorOffset} ~ ${selection.focusId}:${selection.focusOffset}`);
 }
 ```
 
 #### **PositionCalculator (model)**
-- **사용 시기**: 위치 변환이 필요할 때
-- **특징**: 절대 위치와 nodeId + offset 간의 변환 유틸리티
-- **용도**:
-  - DOM ↔ Model 위치 변환
-  - 노드 경로 계산
-  - 부모-자식 관계 조회
-  - 노드 간 거리 계산
+- **When to use**: When position conversion is needed
+- **Characteristics**: Conversion utility between absolute position and nodeId + offset
+- **Use cases**:
+  - DOM ↔ Model position conversion
+  - Node path calculation
+  - Parent-child relationship lookup
+  - Distance calculation between nodes
 
 ```typescript
-// 위치 변환이 필요한 경우
+// When position conversion is needed
 const calculator = new PositionCalculator(dataStore);
 
-// DOM에서 받은 절대 위치를 Model 좌표로 변환
+// Convert absolute position received from DOM to Model coordinates
 const domAbsolutePosition = 15;
 const modelPosition = calculator.findNodeByAbsolutePosition(domAbsolutePosition);
 
-// Model 좌표를 DOM 절대 위치로 변환
+// Convert Model coordinates to DOM absolute position
 const backToDomPosition = calculator.calculateAbsolutePosition(
   modelPosition.nodeId, 
   modelPosition.offset
 );
 
-// 노드 구조 정보 조회
+// Query node structure information
 const path = calculator.getNodePath('text-1');
 const parentId = calculator.getParentId('text-1');
 ```
 
-### 2.2 절대 좌표 vs Model Selection 변환 시나리오
+### 2.2 Absolute Coordinates vs Model Selection Conversion Scenarios
 
-#### **언제 절대 좌표를 사용해야 할까?**
+#### **When to Use Absolute Coordinates?**
 
-1. **ProseMirror 스타일 API가 필요할 때**
+1. **When ProseMirror-style API is needed**
    ```typescript
-   // 절대 위치 기반 선택 (ProseMirror와 유사)
+   // Selection based on absolute position (similar to ProseMirror)
    const selection = positionManager.selectAbsoluteRange(10, 20);
    ```
 
-2. **Cross-node Selection이 필요할 때**
+2. **When Cross-node Selection is needed**
    ```typescript
-   // 여러 노드에 걸친 선택
+   // Selection spanning multiple nodes
    const selection = positionManager.selectRange('text-1', 5, 'text-2', 3);
    ```
 
-3. **Selection 히스토리가 필요할 때**
+3. **When Selection history is needed**
    ```typescript
-   // 선택 히스토리 관리
+   // Selection history management
    const history = positionManager.getSelectionHistory();
    const undone = positionManager.undoSelection();
    ```
 
-4. **복잡한 Position 추적이 필요할 때**
+4. **When complex Position tracking is needed**
    ```typescript
-   // Position 객체로 동적 변화 추적
+   // Track dynamic changes with Position object
    const selection = positionManager.getCurrentSelection();
-   console.log(selection.startPosition.absolute); // 절대 위치
-   console.log(selection.startPosition.path);     // 노드 경로
+   console.log(selection.startPosition.absolute); // Absolute position
+   console.log(selection.startPosition.path);     // Node path
    ```
 
-#### **언제 Model Selection을 사용해야 할까?**
+#### **When to Use Model Selection?**
 
-1. **기본적인 선택 상태 관리**
+1. **Basic selection state management**
    ```typescript
-   // 간단한 선택 상태 확인
+   // Simple selection state checking
    const selection = selectionManager.getCurrentSelection();
    if (selection) {
-     console.log(`선택된 노드: ${selection.anchorId}`);
+     console.log(`Selected node: ${selection.anchorId}`);
    }
    ```
 
-2. **DOM과의 기본적인 연동**
+2. **Basic integration with DOM**
    ```typescript
-   // DOM Selection과 Model Selection 간 변환
+   // Conversion between DOM Selection and Model Selection
    const domSelection = window.getSelection();
    const modelSelection = selectionHandler.convertDOMSelectionToModel(domSelection);
    ```
 
-3. **Editor의 기본 기능**
+3. **Editor's basic functionality**
    ```typescript
-   // Editor의 기본 Selection 기능
+   // Editor's basic Selection functionality
    editor.selectionManager.setSelection({
      anchorId: 'text-1',
      anchorOffset: 0,
@@ -423,16 +423,16 @@ const parentId = calculator.getParentId('text-1');
    });
    ```
 
-### 2.3 절대 좌표 ↔ Model Selection 변환 시나리오
+### 2.3 Absolute Coordinates ↔ Model Selection Conversion Scenarios
 
-#### **절대 좌표 → Model Selection 변환**
+#### **Absolute Coordinates → Model Selection Conversion**
 
 ```typescript
-// 1. 절대 위치를 nodeId + offset으로 변환
+// 1. Convert absolute position to nodeId + offset
 const positionCalculator = new PositionCalculator(dataStore);
 const nodePos = positionCalculator.findNodeByAbsolutePosition(10);
 
-// 2. Model Selection으로 변환
+// 2. Convert to Model Selection
 const modelSelection: ModelSelection = {
   anchorId: nodePos.nodeId,
   anchorOffset: nodePos.offset,
@@ -440,17 +440,17 @@ const modelSelection: ModelSelection = {
   focusOffset: nodePos.offset + 5
 };
 
-// 3. SelectionManager에 설정
+// 3. Set in SelectionManager
 selectionManager.setSelection(modelSelection);
 ```
 
-#### **Model Selection → 절대 좌표 변환**
+#### **Model Selection → Absolute Coordinates Conversion**
 
 ```typescript
-// 1. Model Selection에서 nodeId + offset 추출
+// 1. Extract nodeId + offset from Model Selection
 const selection = selectionManager.getCurrentSelection();
 if (selection) {
-  // 2. 절대 위치로 변환
+  // 2. Convert to absolute position
   const anchorAbsolute = positionCalculator.calculateAbsolutePosition(
     selection.anchorId, 
     selection.anchorOffset
@@ -460,61 +460,61 @@ if (selection) {
     selection.focusOffset
   );
   
-  // 3. 절대 위치 기반 선택
+  // 3. Select based on absolute position
   positionManager.selectAbsoluteRange(anchorAbsolute, focusAbsolute);
 }
 ```
 
-### 2.4 실제 사용 시나리오
+### 2.4 Real-world Usage Scenarios
 
-#### **시나리오 1: 기본 텍스트 편집**
+#### **Scenario 1: Basic Text Editing**
 ```typescript
-// Editor에서 기본 SelectionManager 사용
+// Use basic SelectionManager in Editor
 const editor = new Editor({ dataStore });
 
-// 사용자가 텍스트를 선택하면 DOM → Model 변환
+// Convert DOM → Model when user selects text
 editor.on('selectionchange', () => {
   const domSelection = window.getSelection();
   const modelSelection = editor.selectionHandler.convertDOMSelectionToModel(domSelection);
   editor.selectionManager.setSelection(modelSelection);
 });
 
-// 텍스트 편집 시 Model Selection 사용
+// Use Model Selection for text editing
 const selection = editor.selectionManager.getCurrentSelection();
 if (selection) {
-  // 선택된 텍스트에 마크 적용
+  // Apply mark to selected text
   editor.executeCommand('bold');
 }
 ```
 
-#### **시나리오 2: 복잡한 문서 조작**
+#### **Scenario 2: Complex Document Manipulation**
 ```typescript
-// 복잡한 Selection 관리가 필요한 경우
+// When complex Selection management is needed
 const positionManager = new PositionBasedSelectionManager(dataStore);
 
-// 여러 노드에 걸친 선택
+// Selection spanning multiple nodes
 const selectionId = positionManager.selectRange('text-1', 5, 'text-2', 3);
 
-// 선택된 텍스트 조작
+// Manipulate selected text
 const selectedText = positionManager.getSelectedText();
 const selectedNodes = positionManager.getSelectedNodes();
 
-// 히스토리 관리
+// History management
 const history = positionManager.getSelectionHistory();
 ```
 
-#### **시나리오 3: ProseMirror 스타일 API**
+#### **Scenario 3: ProseMirror-style API**
 ```typescript
-// ProseMirror와 유사한 절대 위치 기반 API
+// Absolute position-based API similar to ProseMirror
 const positionManager = new PositionBasedSelectionManager(dataStore);
 
-// 절대 위치 기반 선택
+// Selection based on absolute position
 const selection = positionManager.selectAbsoluteRange(10, 20);
 
-// 절대 위치 기반 텍스트 삽입
+// Text insertion based on absolute position
 const position = positionCalculator.findNodeByAbsolutePosition(15);
 if (position) {
-  // 해당 위치에 텍스트 삽입
+  // Insert text at that position
   editor.executeCommand('insertText', { 
     nodeId: position.nodeId, 
     offset: position.offset, 
@@ -523,88 +523,88 @@ if (position) {
 }
 ```
 
-## 3. 구현 상태
+## 3. Implementation Status
 
-### ✅ 완료된 기능
+### ✅ Completed Features
 
-#### **1. 기본 SelectionManager**
-- **ModelSelection 인터페이스**: 간단한 anchor/focus 기반 Selection 표현
-- **기본 API**: `getCurrentSelection()`, `setSelection()`, `clearSelection()` 등
-- **상태 확인**: `isEmpty()`, `isInNode()`, `isAtPosition()`, `isInRange()` 등
-- **겹침 검사**: `overlapsWith()` 메서드로 Selection 겹침 확인
+#### **1. Basic SelectionManager**
+- **ModelSelection Interface**: Simple anchor/focus-based Selection representation
+- **Basic API**: `getCurrentSelection()`, `setSelection()`, `clearSelection()`, etc.
+- **State Checking**: `isEmpty()`, `isInNode()`, `isAtPosition()`, `isInRange()`, etc.
+- **Overlap Check**: Check Selection overlap with `overlapsWith()` method
 
-#### **2. DOM ↔ Model 변환 시스템**
-- **DOMSelectionHandler**: DOM Selection과 Model Selection 간 양방향 변환
-- **convertDOMSelectionToModel()**: 브라우저 선택을 모델 좌표로 변환
-- **convertModelSelectionToDOM()**: 모델 좌표를 브라우저 선택으로 변환
-- **Model 검증**: DOM에 있지만 Model에 없는 요소 안전 처리
-- **Selection 방향 감지**: forward/backward 방향 정보 제공
+#### **2. DOM ↔ Model Conversion System**
+- **DOMSelectionHandler**: Bidirectional conversion between DOM Selection and Model Selection
+- **convertDOMSelectionToModel()**: Convert browser selection to model coordinates
+- **convertModelSelectionToDOM()**: Convert model coordinates to browser selection
+- **Model Validation**: Safely handle elements that exist in DOM but not in Model
+- **Selection Direction Detection**: Provide forward/backward direction information
 
-#### **3. Text Run Index 시스템**
-- **중첩 마크 구조 지원**: 복잡한 마크 구조에서 정확한 위치 매핑
-- **Binary Search**: O(log n) 시간복잡도로 효율적인 offset 변환
-- **O(1) 역매핑**: `byNode` Map으로 빠른 DOM Text 노드 찾기
-- **컨테이너별 인덱싱**: `data-text-container="true"` 속성으로 텍스트 컨테이너 식별
+#### **3. Text Run Index System**
+- **Nested Mark Structure Support**: Accurate position mapping in complex mark structures
+- **Binary Search**: Efficient offset conversion with O(log n) time complexity
+- **O(1) Reverse Mapping**: Fast DOM Text node lookup with `byNode` Map
+- **Container-based Indexing**: Identify text containers with `data-text-container="true"` attribute
 
-#### **4. PositionBasedSelectionManager (고급 기능)**
-- **통합된 selectRange() API**: 단일 노드 vs Cross Node 자동 감지
-- **편의 메서드**: `selectTextRange()`, `selectCrossNode()`, `selectAbsoluteRange()` 등
-- **Selection 관리**: 선택 조회, 검증, 히스토리 관리
-- **Position 기반**: 복잡한 Position 객체로 동적 변화 추적
+#### **4. PositionBasedSelectionManager (Advanced Features)**
+- **Integrated selectRange() API**: Automatic detection of single node vs Cross Node
+- **Convenience Methods**: `selectTextRange()`, `selectCrossNode()`, `selectAbsoluteRange()`, etc.
+- **Selection Management**: Selection lookup, validation, history management
+- **Position-based**: Track dynamic changes with complex Position objects
 
-#### **5. 성능 최적화**
-- **드래그 감지**: 마우스 이벤트 기반 드래그 상태 추적
-- **디바운싱**: 일반 선택(16ms), 드래그 중(100ms) 최적화
-- **드래그 종료**: 즉시 selection 처리로 정확한 최종 상태 보장
+#### **5. Performance Optimization**
+- **Drag Detection**: Track drag state based on mouse events
+- **Debouncing**: Optimization for normal selection (16ms), during drag (100ms)
+- **Drag End**: Immediate selection processing to ensure accurate final state
 
-### 🆕 최신 구현 기능 (2024년 업데이트)
+### 🆕 Latest Implementation Features (2024 Update)
 
-#### **Model Selection to DOM Selection 변환**
-- **구현**: `DOMSelectionHandler`에 `convertModelSelectionToDOM` 메서드 추가
-- **지원 타입**: `text`, `node`, `none` Selection 타입
-- **핵심 알고리즘**:
-  1. 텍스트 컨테이너 식별 (`data-text-container="true"`)
-  2. Text Run Index 활용한 DOM Text 노드 매핑
-  3. Binary Search로 효율적인 offset 변환
-  4. DOM Range 생성 및 정확한 선택 범위 설정
+#### **Model Selection to DOM Selection Conversion**
+- **Implementation**: Added `convertModelSelectionToDOM` method to `DOMSelectionHandler`
+- **Supported Types**: `text`, `node`, `none` Selection types
+- **Core Algorithm**:
+  1. Identify text container (`data-text-container="true"`)
+  2. Map DOM Text nodes using Text Run Index
+  3. Efficient offset conversion with Binary Search
+  4. Create DOM Range and set accurate selection range
 
-#### **안전한 Model 검증**
-- **nodeExistsInModel()**: Model에 노드가 실제로 존재하는지 확인
-- **안전한 변환**: DOM에 있지만 Model에 없는 요소는 `{ type: 'none' }` 반환
-- **일관성 유지**: Model과 DOM 간의 동기화 상태 보장
+#### **Safe Model Validation**
+- **nodeExistsInModel()**: Check if node actually exists in Model
+- **Safe Conversion**: Return `{ type: 'none' }` for elements that exist in DOM but not in Model
+- **Consistency Maintenance**: Ensure synchronization state between Model and DOM
 
-#### **Selection Direction 정보**
-- **구현**: `determineSelectionDirection` 메서드로 방향 판단
-- **알고리즘**: 
-  - 같은 노드 내: `startOffset <= endOffset ? 'forward' : 'backward'`
-  - Cross-node: anchor/focus 노드 기반 방향 판단
-  - Fallback: DOM document position 비교
+#### **Selection Direction Information**
+- **Implementation**: Determine direction with `determineSelectionDirection` method
+- **Algorithm**: 
+  - Within same node: `startOffset <= endOffset ? 'forward' : 'backward'`
+  - Cross-node: Determine direction based on anchor/focus nodes
+  - Fallback: Compare DOM document position
 
-### 🚧 향후 구현 예정
-- **Highlight 시스템**: 텍스트 하이라이트 기능
-- **Decoration 시스템**: 밑줄, 배경색 등 장식 기능
-- **사용자 친화적 API**: SimplePositionManager, UserFriendlyPositionManager
-- **성능 최적화**: 대용량 문서 처리 최적화
+### 🚧 Planned Future Implementation
+- **Highlight System**: Text highlighting functionality
+- **Decoration System**: Decorative features like underline, background color, etc.
+- **User-friendly API**: SimplePositionManager, UserFriendlyPositionManager
+- **Performance Optimization**: Optimization for large document processing
 
-## 3. 결론
+## 3. Conclusion
 
-Selection 시스템이 Model 중심의 간단한 구조로 완전히 재설계되었습니다.
+The Selection system has been completely redesigned with a simple Model-centric structure.
 
-### 🎯 핵심 장점:
+### 🎯 Key Advantages:
 
-1. **단순함**: `ModelSelection` 인터페이스로 간단한 Selection 표현
-2. **DOM 분리**: Model 레벨에서만 Selection 관리, DOM 조작은 editor-view-dom에서 처리
-3. **양방향 변환**: DOM ↔ Model Selection 자동 변환으로 완벽한 동기화
-4. **안전성**: Model 검증을 통한 안전한 변환 처리
-5. **성능 최적화**: Text Run Index와 Binary Search로 효율적인 위치 매핑
-6. **방향 정보**: forward/backward 방향 정보로 Selection 의미 명확화
-7. **드래그 최적화**: 디바운싱으로 부드러운 사용자 경험
-8. **고급 기능**: PositionBasedSelectionManager로 복잡한 Selection 관리 지원
+1. **Simplicity**: Simple Selection representation with `ModelSelection` interface
+2. **DOM Separation**: Selection management only at Model level, DOM manipulation handled in editor-view-dom
+3. **Bidirectional Conversion**: Perfect synchronization with automatic DOM ↔ Model Selection conversion
+4. **Safety**: Safe conversion processing through Model validation
+5. **Performance Optimization**: Efficient position mapping with Text Run Index and Binary Search
+6. **Direction Information**: Clarify Selection meaning with forward/backward direction information
+7. **Drag Optimization**: Smooth user experience with debouncing
+8. **Advanced Features**: Support complex Selection management with PositionBasedSelectionManager
 
-### 🚀 사용법:
+### 🚀 Usage:
 
 ```typescript
-// 1. 기본 SelectionManager (권장)
+// 1. Basic SelectionManager (Recommended)
 const selectionManager = new SelectionManager({ dataStore });
 selectionManager.setSelection({
   anchorId: 'text-1',
@@ -613,51 +613,51 @@ selectionManager.setSelection({
   focusOffset: 5
 });
 
-// 2. DOM ↔ Model 변환
+// 2. DOM ↔ Model conversion
 const modelSelection = selectionHandler.convertDOMSelectionToModel(domSelection);
 selectionHandler.convertModelSelectionToDOM(modelSelection);
 
-// 3. 고급 PositionBasedSelectionManager
+// 3. Advanced PositionBasedSelectionManager
 const positionManager = new PositionBasedSelectionManager(dataStore);
-positionManager.selectRange('text-1', 0, 'text-2', 5); // 자동 감지
+positionManager.selectRange('text-1', 0, 'text-2', 5); // Automatic detection
 ```
 
-### 🆕 최신 기능 활용:
+### 🆕 Latest Features Usage:
 
 ```typescript
-// Selection Direction 정보 포함
+// Include Selection Direction information
 const modelSelection = selectionHandler.convertDOMSelectionToModel(domSelection);
 console.log(modelSelection.direction); // 'forward' | 'backward'
 
-// 드래그 최적화 (자동 적용)
-// - 일반 선택: 16ms 디바운싱
-// - 드래그 중: 100ms 디바운싱  
-// - 드래그 종료: 즉시 처리
+// Drag optimization (automatically applied)
+// - Normal selection: 16ms debouncing
+// - During drag: 100ms debouncing  
+// - Drag end: Immediate processing
 
-// Text Run Index로 정확한 위치 매핑
-// - 중첩된 마크 구조에서도 정확한 offset 변환
-// - O(log n) Binary Search로 빠른 성능
+// Accurate position mapping with Text Run Index
+// - Accurate offset conversion even in nested mark structures
+// - Fast performance with O(log n) Binary Search
 ```
 
-## 4. 통합 방향 및 권장사항
+## 4. Integration Direction and Recommendations
 
-### 4.1 현재 구조의 문제점
+### 4.1 Current Structure Issues
 
-1. **중복된 기능**: 두 SelectionManager가 비슷한 기능을 제공
-2. **일관성 부족**: Editor와 Transaction에서 다른 SelectionManager 사용
-3. **복잡성**: 개발자가 어떤 것을 사용해야 할지 혼란
-4. **유지보수**: 두 개의 클래스를 관리해야 하는 부담
+1. **Duplicated Features**: Two SelectionManagers provide similar functionality
+2. **Lack of Consistency**: Different SelectionManagers used in Editor and Transaction
+3. **Complexity**: Confusion for developers about which to use
+4. **Maintenance**: Burden of managing two classes
 
-### 4.2 권장 통합 방향
+### 4.2 Recommended Integration Direction
 
-#### **옵션 1: 통합 (권장)**
+#### **Option 1: Integration (Recommended)**
 ```typescript
-// SelectionManager에 Position 기능 통합
+// Integrate Position features into SelectionManager
 class SelectionManager {
   private _basicSelection: ModelSelection | null = null;
   private _positionManager?: PositionBasedSelectionManager;
   
-  // 기본 기능 (항상 사용 가능)
+  // Basic features (always available)
   getCurrentSelection(): ModelSelection | null {
     return this._basicSelection;
   }
@@ -666,7 +666,7 @@ class SelectionManager {
     this._basicSelection = selection;
   }
   
-  // 고급 기능 (필요시 PositionManager 활성화)
+  // Advanced features (activate PositionManager when needed)
   selectRange(startNodeId: string, startOffset: number, endNodeId: string, endOffset: number): string {
     if (!this._positionManager) {
       this._positionManager = new PositionBasedSelectionManager(this._dataStore);
@@ -697,19 +697,19 @@ class SelectionManager {
 }
 ```
 
-#### **장점**
-- **단순함**: 하나의 SelectionManager로 모든 기능 제공
-- **일관성**: Editor와 Transaction에서 동일한 API 사용
-- **점진적 사용**: 기본 기능부터 고급 기능까지 단계적 사용 가능
-- **유지보수**: 하나의 클래스로 관리하여 복잡성 감소
-- **성능**: 필요할 때만 PositionManager 생성
+#### **Advantages**
+- **Simplicity**: Provide all features with one SelectionManager
+- **Consistency**: Use same API in Editor and Transaction
+- **Progressive Usage**: Can use from basic to advanced features step by step
+- **Maintenance**: Reduced complexity by managing one class
+- **Performance**: Create PositionManager only when needed
 
-#### **사용 예시**
+#### **Usage Example**
 ```typescript
-// Editor에서 통합된 SelectionManager 사용
+// Use integrated SelectionManager in Editor
 const editor = new Editor({ dataStore });
 
-// 기본 기능 (항상 사용 가능)
+// Basic features (always available)
 const selection = editor.selectionManager.getCurrentSelection();
 editor.selectionManager.setSelection({
   anchorId: 'text-1',
@@ -718,39 +718,39 @@ editor.selectionManager.setSelection({
   focusOffset: 5
 });
 
-// 고급 기능 (필요시 자동 활성화)
+// Advanced features (automatically activated when needed)
 const selectionId = editor.selectionManager.selectRange('text-1', 0, 'text-2', 3);
 const absoluteSelection = editor.selectionManager.selectAbsoluteRange(10, 20);
 const history = editor.selectionManager.getSelectionHistory();
 ```
 
-### 4.3 구현 단계
+### 4.3 Implementation Steps
 
-1. **1단계**: PositionBasedSelectionManager 테스트 수정 및 안정화
-2. **2단계**: SelectionManager에 Position 기능 통합
-3. **3단계**: Editor에서 통합된 SelectionManager 사용
-4. **4단계**: 기존 PositionBasedSelectionManager 제거 (선택사항)
+1. **Step 1**: Fix and stabilize PositionBasedSelectionManager tests
+2. **Step 2**: Integrate Position features into SelectionManager
+3. **Step 3**: Use integrated SelectionManager in Editor
+4. **Step 4**: Remove existing PositionBasedSelectionManager (optional)
 
-## 5. 결론
+## 5. Conclusion
 
-이제 Selection 시스템이 Model 중심의 간단하고 안전한 구조로 완전히 재설계되어, 사용자 친화적이면서도 강력하고 성능이 최적화된 Selection 기능을 제공합니다.
+The Selection system has now been completely redesigned with a simple and safe Model-centric structure, providing user-friendly, powerful, and performance-optimized Selection functionality.
 
-### 주요 장점
+### Key Advantages
 
-1. **단순함**: Model 레벨에서 Selection을 간단하게 관리
-2. **DOM 분리**: DOM 조작과 Model 상태를 명확히 분리
-3. **양방향 변환**: DOM ↔ Model 간 자동 변환으로 개발자 편의성 제공
-4. **안전성**: Model 검증으로 DOM-Model 불일치 상황 안전 처리
-5. **성능**: Text Run Index와 드래그 최적화로 효율적인 처리
-6. **방향 정보**: Selection 방향 정보로 사용자 의도 파악
-7. **드래그 최적화**: 드래그 중 디바운싱으로 성능 향상
-8. **고급 기능**: PositionBasedSelectionManager로 복잡한 Selection 관리 지원
-9. **통합성**: 하나의 SelectionManager로 모든 기능 제공 (통합 후)
+1. **Simplicity**: Simple Selection management at Model level
+2. **DOM Separation**: Clear separation between DOM manipulation and Model state
+3. **Bidirectional Conversion**: Developer convenience with automatic DOM ↔ Model conversion
+4. **Safety**: Safe handling of DOM-Model mismatch situations through Model validation
+5. **Performance**: Efficient processing with Text Run Index and drag optimization
+6. **Direction Information**: Understand user intent with Selection direction information
+7. **Drag Optimization**: Performance improvement with debouncing during drag
+8. **Advanced Features**: Support complex Selection management with PositionBasedSelectionManager
+9. **Integration**: Provide all features with one SelectionManager (after integration)
 
-### 사용 패턴
+### Usage Patterns
 
-- **기본 사용**: `SelectionManager`로 간단한 Selection 관리
-- **DOM 연동**: `DOMSelectionHandler`로 자동 변환
-- **고급 사용**: `PositionBasedSelectionManager`로 복잡한 Selection 관리 (통합 전)
-- **통합 사용**: 통합된 `SelectionManager`로 모든 기능 사용 (통합 후)
-- **성능 최적화**: 드래그 감지와 디바운싱 활용
+- **Basic Usage**: Simple Selection management with `SelectionManager`
+- **DOM Integration**: Automatic conversion with `DOMSelectionHandler`
+- **Advanced Usage**: Complex Selection management with `PositionBasedSelectionManager` (before integration)
+- **Integrated Usage**: Use all features with integrated `SelectionManager` (after integration)
+- **Performance Optimization**: Utilize drag detection and debouncing

@@ -29,11 +29,11 @@ describe('VNodeBuilder Mark Wrapper Structure', () => {
       }]
     };
 
-    // VNodeBuilder를 통해 직접 빌드하는 대신, 구조를 확인하기 위해
-    // _buildMarkedRunVNode를 테스트할 수 없으므로, 실제 빌드 결과를 확인
-    // 하지만 이건 private 메서드이므로, 실제 사용 시나리오를 테스트해야 함
+    // Instead of building directly through VNodeBuilder, verify structure
+    // Cannot test _buildMarkedRunVNode, so verify actual build result
+    // But this is a private method, so need to test actual usage scenario
     
-    // 대신 createMarkWrapper와 createSpanWrapper의 조합을 확인
+    // Instead, verify combination of createMarkWrapper and createSpanWrapper
     const textVNode = {
       tag: undefined,
       text: 'Hello',
@@ -52,7 +52,7 @@ describe('VNodeBuilder Mark Wrapper Structure', () => {
       children: [spanWrapper]
     } as VNode;
 
-    // 구조 확인
+    // Verify structure
     expect(markWrapper.tag).toBe('span');
     expect(markWrapper.attrs?.className).toBe('mark-bold');
     expect(markWrapper.children?.length).toBe(1);
@@ -67,8 +67,8 @@ describe('VNodeBuilder Mark Wrapper Structure', () => {
   });
 
   it('should verify mark wrapper children structure', () => {
-    // mark wrapper의 children은 VNode 배열이어야 함
-    // primitive text가 아닌 VNode (span wrapper)를 children으로 가짐
+    // mark wrapper's children should be VNode array
+    // Has VNode (span wrapper) as children, not primitive text
     
     const textVNode = {
       tag: undefined,
@@ -88,13 +88,13 @@ describe('VNodeBuilder Mark Wrapper Structure', () => {
       children: [spanWrapper]
     } as VNode;
 
-    // mark wrapper의 children은 VNode 배열
+    // mark wrapper's children is VNode array
     expect(Array.isArray(markWrapper.children)).toBe(true);
     expect(markWrapper.children?.length).toBe(1);
     expect(typeof markWrapper.children?.[0]).toBe('object');
     expect((markWrapper.children?.[0] as VNode).tag).toBe('span');
     
-    // primitive text가 아님
+    // Not primitive text
     expect(typeof markWrapper.children?.[0]).not.toBe('string');
     expect(typeof markWrapper.children?.[0]).not.toBe('number');
   });
@@ -112,7 +112,7 @@ describe('VNodeBuilder Mark Wrapper Structure', () => {
       children: [textVNode]
     } as VNode;
 
-    // inner span wrapper의 children은 VNode 배열
+    // inner span wrapper's children is a VNode array
     expect(Array.isArray(spanWrapper.children)).toBe(true);
     expect(spanWrapper.children?.length).toBe(1);
     

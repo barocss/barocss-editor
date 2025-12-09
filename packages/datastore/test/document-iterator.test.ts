@@ -383,7 +383,7 @@ describe('DocumentIterator', () => {
       });
       
       expect(nodesBeforeSecondParagraph.length).toBeGreaterThan(0);
-      // Last node should not be '두 번째 단락'
+      // Last node should not be '두 번째 단락' - Note: "두 번째 단락" is Korean text meaning "Second paragraph"
       const lastNode = dataStore.getNode(nodesBeforeSecondParagraph[nodesBeforeSecondParagraph.length - 1]);
       expect(lastNode?.text).not.toBe('두 번째 단락');
     });

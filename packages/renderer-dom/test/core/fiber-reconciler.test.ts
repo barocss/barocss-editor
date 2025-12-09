@@ -41,10 +41,10 @@ describe('Fiber Reconciler', () => {
       
       reconcileWithFiber(container, vnode, undefined, {}, deps);
       
-      // Wait for scheduler to process (Fiber는 비동기로 처리됨)
+      // Wait for scheduler to process (Fiber is processed asynchronously)
       await new Promise(resolve => setTimeout(resolve, 50));
       
-      // DOM에 요소가 생성되었는지 확인
+      // Verify elements are created in DOM
       expect(container.children.length).toBeGreaterThan(0);
     });
     
@@ -68,7 +68,7 @@ describe('Fiber Reconciler', () => {
       // Wait for scheduler to process
       await new Promise(resolve => setTimeout(resolve, 50));
       
-      // DOM에 요소가 생성되었는지 확인
+      // Verify elements are created in DOM
       expect(container.children.length).toBeGreaterThan(0);
     });
     
@@ -98,7 +98,7 @@ describe('Fiber Reconciler', () => {
       // Wait for scheduler to process
       await new Promise(resolve => setTimeout(resolve, 100));
       
-      // DOM에 요소들이 생성되었는지 확인
+      // Verify elements are created in DOM
       expect(container.children.length).toBeGreaterThan(0);
     });
     
@@ -129,7 +129,7 @@ describe('Fiber Reconciler', () => {
       // Wait for scheduler to process
       await new Promise(resolve => setTimeout(resolve, 100));
       
-      // DOM에 요소들이 생성되었는지 확인
+      // Verify elements are created in DOM
       expect(container.children.length).toBeGreaterThan(0);
     });
     
@@ -152,7 +152,7 @@ describe('Fiber Reconciler', () => {
       // Wait for scheduler to process
       await new Promise(resolve => setTimeout(resolve, 50));
       
-      // DOM에 요소가 생성되었는지 확인
+      // Verify element is created in DOM
       expect(container.children.length).toBeGreaterThan(0);
     });
   });

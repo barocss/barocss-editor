@@ -1,67 +1,67 @@
-# Copy/Paste/Cut 기능 구현 스펙
+# Copy/Paste/Cut Feature Implementation Specification
 
-## 개요
+## Overview
 
-복사/붙여넣기/잘라내기 기능을 각 레이어(schema, datastore, model, extensions)에서 구현하기 위해 필요한 기능들을 정리합니다.  
-특히, **`@barocss/converter` 패키지를 copy/paste/cut 흐름에서 어떻게 사용할지**를 명확히 정의합니다.
-
----
-
-## 1. Schema 레이어
-
-### 1.1 필요한 기능
-
-**현재 상태**: Schema는 모델 구조와 검증만 담당합니다.
-
-**결론**: Schema 레이어에서는 추가할 것이 없습니다.
-- 변환 규칙은 Converter 패키지에서 정의
-- Schema는 모델 구조만 정의 (변환 규칙 없음)
-
-**이유**:
-- Schema는 "데이터 모델 구조"와 "검증 규칙"에만 집중해야 함
-- 변환 규칙은 "외부 형식 처리"이므로 Converter 패키지의 책임
-- Schema가 변환 로직에 의존하지 않도록 순수성 유지
-- Converter 패키지가 독립적으로 동작 가능하도록 설계
-
-**참고**: 
-- ProseMirror는 `parseDOM`을 Schema에 정의하지만, 우리는 더 명확한 책임 분리를 위해 Converter 패키지로 분리합니다.
-- Schema는 모델 구조만 정의하고, Converter는 변환 규칙을 정의합니다.
+This document outlines the features needed to implement copy/paste/cut functionality across each layer (schema, datastore, model, extensions).  
+In particular, it clearly defines **how to use the `@barocss/converter` package in the copy/paste/cut flow**.
 
 ---
 
-## 2. DataStore 레이어
+## 1. Schema Layer
 
-### 2.1 필요한 기능
+### 1.1 Required Features
 
-#### 2.1.1 노드 트리 직렬화 (Serialization)
+**Current State**: Schema is responsible only for model structure and validation.
 
-**목적**: 선택된 범위의 노드들을 JSON 형식으로 직렬화
+**Conclusion**: No additions needed in the Schema layer.
+- Conversion rules are defined in the Converter package
+- Schema only defines model structure (no conversion rules)
 
-**⚠️ 중요**: DataStore는 모델 데이터만 알고 있으므로, **JSON 직렬화만** 담당합니다.
-- HTML/Markdown 직렬화는 **Extension 레이어 + `@barocss/converter`** 에서 처리 (JSON → 외부 포맷 변환)
-- 텍스트 직렬화는 `RangeOperations.extractText()` 사용 (이미 존재)
+**Reasons**:
+- Schema should focus only on "data model structure" and "validation rules"
+- Conversion rules are "external format processing", which is the Converter package's responsibility
+- Maintain Schema's purity by not depending on conversion logic
+- Design Converter package to work independently
 
-**필요한 메서드**:
+**Note**: 
+- ProseMirror defines `parseDOM` in Schema, but we separate it into the Converter package for clearer responsibility separation.
+- Schema defines only model structure, and Converter defines conversion rules.
+
+---
+
+## 2. DataStore Layer
+
+### 2.1 Required Features
+
+#### 2.1.1 Node Tree Serialization
+
+**Purpose**: Serialize nodes in the selected range to JSON format
+
+**⚠️ Important**: DataStore only knows about model data, so it is responsible for **JSON serialization only**.
+- HTML/Markdown serialization is handled in **Extension layer + `@barocss/converter`** (JSON → external format conversion)
+- Text serialization uses `RangeOperations.extractText()` (already exists)
+
+**Required Method**:
 ```typescript
 // packages/datastore/src/operations/serialization-operations.ts
 
 class SerializationOperations {
   /**
-   * 선택된 범위의 노드들을 JSON 형식으로 직렬화
+   * Serialize nodes in the selected range to JSON format
    * 
-   * @param range 선택된 범위 (ModelSelection)
-   * @returns 직렬화된 노드 트리 (INode[] 형태, ID는 제거하거나 새로 생성)
+   * @param range Selected range (ModelSelection)
+   * @returns Serialized node tree (INode[] format, IDs removed or newly generated)
    */
   serializeRange(range: ModelSelection): INode[] {
-    // 1. range에 포함된 모든 노드 추출
-    // 2. 노드 트리 구조 유지 (parent-child 관계)
-    // 3. ID를 제거하거나 새로 생성 (붙여넣기 시 충돌 방지)
-    // 4. JSON 형태로 반환 (순수 모델 데이터만)
+    // 1. Extract all nodes included in range
+    // 2. Maintain node tree structure (parent-child relationships)
+    // 3. Remove or regenerate IDs (to prevent conflicts on paste)
+    // 4. Return in JSON format (pure model data only)
   }
 }
 ```
 
-**DataStore에 노출**:
+**Exposed in DataStore**:
 ```typescript
 // packages/datastore/src/data-store.ts
 
@@ -69,9 +69,9 @@ class DataStore {
   // ... existing code ...
   
   /**
-   * 선택된 범위를 JSON으로 직렬화
+   * Serialize selected range to JSON
    * 
-   * 참고: HTML/텍스트 직렬화는 Extension 레이어에서 처리
+   * Note: HTML/text serialization is handled in Extension layer
    */
   serializeRange(range: ModelSelection): INode[] {
     return this.serialization.serializeRange(range);
@@ -79,46 +79,46 @@ class DataStore {
 }
 ```
 
-**텍스트 추출**:
-- `RangeOperations.extractText()` 사용 (이미 존재)
-- 또는 `DataStore.range.extractText(range)` 사용
+**Text Extraction**:
+- Use `RangeOperations.extractText()` (already exists)
+- Or use `DataStore.range.extractText(range)`
 
-#### 2.1.2 노드 트리 역직렬화 (Deserialization)
+#### 2.1.2 Node Tree Deserialization
 
-**목적**: 직렬화된 JSON 데이터를 파싱하여 노드 트리로 복원
+**Purpose**: Parse serialized JSON data and restore to node tree
 
-**⚠️ 중요**: DataStore는 모델 데이터만 알고 있으므로, **JSON 역직렬화만** 담당합니다.
-- HTML 역직렬화는 Extension 레이어에서 처리 (HTML → 모델 노드(`INode[]`) 변환 후 `deserializeNodes()` 호출)
-- 텍스트/Markdown 역직렬화는 Extension 레이어에서 처리 (텍스트/Markdown → 모델 노드(`INode[]`) 변환 후 `deserializeNodes()` 호출)
+**⚠️ Important**: DataStore only knows about model data, so it is responsible for **JSON deserialization only**.
+- HTML deserialization is handled in Extension layer (HTML → model nodes (`INode[]`) conversion, then call `deserializeNodes()`)
+- Text/Markdown deserialization is handled in Extension layer (Text/Markdown → model nodes (`INode[]`) conversion, then call `deserializeNodes()`)
 
-**필요한 메서드**:
+**Required Method**:
 ```typescript
 // packages/datastore/src/operations/serialization-operations.ts
 
 class SerializationOperations {
   /**
-   * JSON 형식의 노드 트리를 파싱하여 노드 생성
+   * Parse JSON format node tree and create nodes
    * 
-   * @param nodes 직렬화된 노드 배열 (INode[])
-   * @param targetParentId 붙여넣기할 부모 노드 ID
-   * @param targetPosition 붙여넣기할 위치 (부모의 content 배열 인덱스)
-   * @returns 생성된 노드 ID 배열
+   * @param nodes Serialized node array (INode[])
+   * @param targetParentId Parent node ID to paste into
+   * @param targetPosition Position to paste (index in parent's content array)
+   * @returns Array of created node IDs
    */
   deserializeNodes(
     nodes: INode[],
     targetParentId: string,
     targetPosition?: number
   ): string[] {
-    // 1. 노드 트리를 재귀적으로 순회
-    // 2. 각 노드에 새 ID 부여 (기존 ID는 무시)
-    // 3. parentId 관계 재설정
-    // 4. targetParentId의 content에 삽입
-    // 5. 생성된 노드 ID 배열 반환
+    // 1. Recursively traverse node tree
+    // 2. Assign new ID to each node (ignore existing IDs)
+    // 3. Reset parentId relationships
+    // 4. Insert into targetParentId's content
+    // 5. Return array of created node IDs
   }
 }
 ```
 
-**DataStore에 노출**:
+**Exposed in DataStore**:
 ```typescript
 // packages/datastore/src/data-store.ts
 
@@ -126,9 +126,9 @@ class DataStore {
   // ... existing code ...
   
   /**
-   * JSON 노드 트리를 역직렬화하여 삽입
+   * Deserialize JSON node tree and insert
    * 
-   * 참고: HTML/텍스트 역직렬화는 Extension 레이어에서 처리
+   * Note: HTML/text deserialization is handled in Extension layer
    */
   deserializeNodes(
     nodes: INode[],
@@ -140,56 +140,56 @@ class DataStore {
 }
 ```
 
-#### 2.1.3 선택된 범위 삭제
+#### 2.1.3 Delete Selected Range
 
-**현재 상태**: `RangeOperations.deleteText()`가 이미 존재합니다.
+**Current State**: `RangeOperations.deleteText()` already exists.
 
-**확장 필요성**:
-- 텍스트 노드뿐만 아니라 블록 노드 전체 삭제도 지원해야 할 수 있음
-- 현재 `deleteText`는 텍스트 범위만 삭제하므로, 노드 전체 삭제는 별도 메서드 필요
+**Extension Needs**:
+- May need to support deletion of entire block nodes, not just text nodes
+- Current `deleteText` only deletes text ranges, so a separate method is needed for entire node deletion
 
-**필요한 메서드**:
+**Required Method**:
 ```typescript
 // packages/datastore/src/operations/range-operations.ts
 
 class RangeOperations {
   /**
-   * 선택된 범위의 노드들을 삭제
-   * - 텍스트 범위: deleteText 사용
-   * - 노드 전체: deleteNode 사용
+   * Delete nodes in the selected range
+   * - Text range: use deleteText
+   * - Entire node: use deleteNode
    */
   deleteRange(range: ModelSelection): void {
-    // 1. range가 텍스트 범위인지 노드 범위인지 판단
-    // 2. 텍스트 범위면 deleteText 호출
-    // 3. 노드 범위면 deleteNode 호출 (각 노드별로)
+    // 1. Determine if range is text range or node range
+    // 2. If text range, call deleteText
+    // 3. If node range, call deleteNode (for each node)
   }
 }
 ```
 
 ---
 
-## 3. Model 레이어
+## 3. Model Layer
 
-### 3.1 필요한 기능
+### 3.1 Required Features
 
 #### 3.1.1 Copy Operation
 
-**목적**: 선택된 범위를 **모델 관점에서** 복사 가능한 데이터(모델 JSON + 텍스트)로 준비  
-클립보드 API 호출과 HTML/Markdown 변환은 **Extensions + Converter** 책임입니다.
+**Purpose**: Prepare selected range as copyable data (model JSON + text) from **model perspective**  
+Clipboard API calls and HTML/Markdown conversion are the responsibility of **Extensions + Converter**.
 
-**필요한 Operation (최종 형태)**:
+**Required Operation (Final Form)**:
 ```typescript
 // packages/model/src/operations/copy.ts
 
 export interface CopyResult {
-  json: INode[];  // 모델 JSON (DataStore.serializeRange 기반)
-  text: string;   // 순수 텍스트 (RangeOperations.extractText 기반)
+  json: INode[];  // Model JSON (based on DataStore.serializeRange)
+  text: string;   // Plain text (based on RangeOperations.extractText)
 }
 
 export function copy(context: OperationContext, range: ModelSelection): CopyResult {
-  // 1. DataStore.serializeRange() 호출 → json
-  // 2. DataStore.range.extractText() 호출 → text
-  // 3. html/markdown 등 외부 포맷은 여기서 만들지 않는다.
+  // 1. Call DataStore.serializeRange() → json
+  // 2. Call DataStore.range.extractText() → text
+  // 3. Do not create external formats like html/markdown here
   return {
     json: context.dataStore.serializeRange(range),
     text: context.dataStore.range.extractText(range)
@@ -211,20 +211,20 @@ export function copy(range: ModelSelection) {
 
 #### 3.1.2 Paste Operation
 
-**목적**: 붙여넣기 대상 위치에서 **모델 노드 삽입 + Selection 업데이트**를 담당  
-외부 포맷(HTML/Markdown/Text)을 모델 노드(`INode[]`)로 바꾸는 변환은 **Extensions + Converter**에서 처리합니다.
+**Purpose**: Responsible for **model node insertion + Selection update** at the paste target location  
+Conversion of external formats (HTML/Markdown/Text) to model nodes (`INode[]`) is handled in **Extensions + Converter**.
 
-**필요한 Operation (최종 형태)**:
+**Required Operation (Final Form)**:
 ```typescript
 // packages/model/src/operations/paste.ts
 
 export interface PasteInput {
-  nodes: INode[];             // 이미 Converter를 통해 만들어진 모델 노드
+  nodes: INode[];             // Model nodes already created through Converter
 }
 
 export interface PasteResult {
   insertedNodeIds: string[];
-  newSelection: ModelSelection;  // 붙여넣기 후 커서 위치
+  newSelection: ModelSelection;  // Cursor position after paste
 }
 
 export function paste(
@@ -232,9 +232,9 @@ export function paste(
   data: PasteInput,
   targetRange: ModelSelection
 ): PasteResult {
-  // 1. targetRange의 startNodeId/startOffset 기준으로 붙여넣기 위치 결정
-  // 2. context.dataStore.deserializeNodes(data.nodes, targetParentId, targetPosition) 호출
-  // 3. 생성된 노드 ID들을 기반으로 newSelection 계산
+  // 1. Determine paste location based on targetRange's startNodeId/startOffset
+  // 2. Call context.dataStore.deserializeNodes(data.nodes, targetParentId, targetPosition)
+  // 3. Calculate newSelection based on created node IDs
 }
 ```
 
@@ -253,10 +253,10 @@ export function paste(nodes: INode[], targetRange: ModelSelection) {
 
 #### 3.1.3 Cut Operation
 
-**목적**: 선택된 범위를 복사하고 삭제  
-여기서도 Converter는 사용하지 않고, **모델 JSON + 텍스트**까지만 반환합니다.
+**Purpose**: Copy and delete selected range  
+Converter is not used here either, only returns **model JSON + text**.
 
-**필요한 Operation**:
+**Required Operation**:
 ```typescript
 // packages/model/src/operations/cut.ts
 
@@ -267,13 +267,13 @@ export interface CutResult {
 }
 
 export function cut(context: OperationContext, range: ModelSelection): CutResult {
-  // 1. copy() 호출하여 json + text 확보
+  // 1. Call copy() to obtain json + text
   const copied = copy(context, range);
 
-  // 2. deleteRange() 호출하여 삭제 (또는 deleteTextRange)
+  // 2. Call deleteRange() to delete (or deleteTextRange)
   context.dataStore.range.deleteRange(range);
 
-  // 3. 결과 반환 (클립보드 저장/HTML 변환은 Extension 책임)
+  // 3. Return result (clipboard storage/HTML conversion is Extension's responsibility)
   return {
     json: copied.json,
     text: copied.text,
@@ -294,9 +294,9 @@ export function cut(range: ModelSelection) {
 }
 ```
 
-**Transaction 사용 예시**:
+**Transaction Usage Example**:
 ```typescript
-// Extension에서 사용
+// Usage in Extension
 const result = await transaction(editor, (control) => {
   const copyResult = control(range, [copy(range)]);
   const deleteResult = control(range, [deleteTextRange(range)]);
@@ -306,15 +306,15 @@ const result = await transaction(editor, (control) => {
 
 ---
 
-## 4. Extensions 레이어
+## 4. Extensions Layer
 
-### 4.1 필요한 기능
+### 4.1 Required Features
 
 #### 4.1.1 Copy Command
 
-**목적**: 클립보드 API와 통합하여 복사 기능 제공
+**Purpose**: Provide copy functionality integrated with clipboard API
 
-**필요한 Command**:
+**Required Command**:
 ```typescript
 // packages/extensions/src/copy-paste.ts
 
@@ -325,18 +325,18 @@ export class CopyPasteExtension implements Extension {
   private _converter: HTMLConverter;
 
   constructor() {
-    // Converter 인스턴스 생성
+    // Create Converter instance
     this._converter = new HTMLConverter();
   }
 
   onCreate(editor: Editor): void {
-    // 1. 기본 변환 규칙 등록
+    // 1. Register default conversion rules
     this._registerDefaultRules();
     
-    // 2. Schema 참조 (노드 타입 이름 확인용)
+    // 2. Reference Schema (for checking node type names)
     this._converter.useSchema(editor.dataStore.getActiveSchema());
     
-    // 3. copy command 등록
+    // 3. Register copy command
     editor.registerCommand({
       name: 'copy',
       execute: async (editor: Editor, payload?: { selection?: ModelSelection }) => {
@@ -345,16 +345,16 @@ export class CopyPasteExtension implements Extension {
           return false;
         }
 
-        // 1. DataStore에서 JSON 직렬화
+        // 1. Serialize JSON from DataStore
         const json = editor.dataStore.serializeRange(selection);
         
-        // 2. 텍스트 추출 (이미 존재하는 메서드 사용)
+        // 2. Extract text (using existing method)
         const text = editor.dataStore.range.extractText(selection);
         
-        // 3. JSON을 HTML로 변환 (Converter 사용)
+        // 3. Convert JSON to HTML (using Converter)
         const html = this._converter.convert(json, 'html');
 
-        // 4. 클립보드 API로 저장
+        // 4. Save to clipboard API
         await this._writeToClipboard({ json, html, text });
         return true;
       },
@@ -366,26 +366,26 @@ export class CopyPasteExtension implements Extension {
   }
 
   /**
-   * 기본 변환 규칙 등록
+   * Register default conversion rules
    */
   private _registerDefaultRules(): void {
-    // Converter에 기본 변환 규칙 등록
-    // 예: paragraph, heading, bold, italic 등
+    // Register default conversion rules in Converter
+    // Examples: paragraph, heading, bold, italic, etc.
   }
 
   private async _writeToClipboard(data: { json: INode[]; html: string; text: string }): Promise<void> {
-    // 1. Clipboard API 사용 (navigator.clipboard.write)
-    // 2. 여러 형식 저장 (text/plain, text/html, application/json)
-    // 3. Fallback: document.execCommand('copy') 사용
+    // 1. Use Clipboard API (navigator.clipboard.write)
+    // 2. Save multiple formats (text/plain, text/html, application/json)
+    // 3. Fallback: use document.execCommand('copy')
   }
 }
 ```
 
 #### 4.1.2 Paste Command
 
-**목적**: 클립보드 API에서 데이터를 읽어와 붙여넣기
+**Purpose**: Read data from clipboard API and paste
 
-**필요한 Command**:
+**Required Command**:
 ```typescript
 // packages/extensions/src/copy-paste.ts
 
@@ -393,7 +393,7 @@ export class CopyPasteExtension implements Extension {
   onCreate(editor: Editor): void {
     // ... copy command ...
 
-    // 2. paste command 등록
+    // 2. Register paste command
     editor.registerCommand({
       name: 'paste',
       execute: async (editor: Editor, payload?: { selection?: ModelSelection; clipboardData?: ClipboardData }) => {
@@ -402,19 +402,19 @@ export class CopyPasteExtension implements Extension {
           return false;
         }
 
-        // 1. 클립보드에서 데이터 읽기
+        // 1. Read data from clipboard
         const clipboardData = payload?.clipboardData || await this._readFromClipboard();
 
-        // 2. 클립보드 데이터를 JSON으로 변환 (Converter 사용)
+        // 2. Convert clipboard data to JSON (using Converter)
         const json = await this._clipboardDataToJSON(clipboardData);
 
-        // 3. DataStore.deserializeNodes() 호출하여 노드 생성
+        // 3. Call DataStore.deserializeNodes() to create nodes
         const targetParentId = this._getTargetParentId(selection, editor.dataStore);
         const targetPosition = this._getTargetPosition(selection, editor.dataStore);
         
         const insertedNodeIds = editor.dataStore.deserializeNodes(json, targetParentId, targetPosition);
 
-        // 4. Selection 업데이트
+        // 4. Update Selection
         const newSelection = this._createSelectionAfterPaste(selection, insertedNodeIds);
         editor.updateSelection(newSelection);
         return true;
@@ -427,27 +427,27 @@ export class CopyPasteExtension implements Extension {
   }
 
   /**
-   * 클립보드 데이터를 JSON 노드 트리로 변환
+   * Convert clipboard data to JSON node tree
    * 
-   * 우선순위:
-   * 1. application/json (우선): 직접 사용
-   * 2. text/html: HTML → JSON 변환 (Converter 사용)
-   * 3. text/plain: 텍스트 → JSON 변환
+   * Priority:
+   * 1. application/json (priority): use directly
+   * 2. text/html: HTML → JSON conversion (using Converter)
+   * 3. text/plain: text → JSON conversion
    */
   private async _clipboardDataToJSON(
     clipboardData: ClipboardData
   ): Promise<INode[]> {
-    // 1. application/json 형식이 있으면 직접 사용
+    // 1. If application/json format exists, use directly
     if (clipboardData.json) {
       return clipboardData.json;
     }
 
-    // 2. text/html 형식이 있으면 HTML → JSON 변환 (Converter 사용)
+    // 2. If text/html format exists, convert HTML → JSON (using Converter)
     if (clipboardData.html) {
       return this._converter.parse(clipboardData.html, 'html');
     }
 
-    // 3. text/plain 형식이 있으면 텍스트 → JSON 변환
+    // 3. If text/plain format exists, convert text → JSON
     if (clipboardData.text) {
       return this._textToJSON(clipboardData.text);
     }
@@ -456,27 +456,27 @@ export class CopyPasteExtension implements Extension {
   }
 
   /**
-   * 텍스트를 JSON 노드 트리로 변환
+   * Convert text to JSON node tree
    */
   private _textToJSON(text: string): INode[] {
-    // 1. 텍스트를 paragraph + inline-text 노드로 변환
-    // 2. 줄바꿈을 paragraph 분리로 처리
-    // 3. JSON 노드 트리 생성
+    // 1. Convert text to paragraph + inline-text nodes
+    // 2. Handle line breaks as paragraph separation
+    // 3. Create JSON node tree
   }
 
   private async _readFromClipboard(): Promise<ClipboardData> {
-    // 1. Clipboard API 사용 (navigator.clipboard.read)
-    // 2. 여러 형식 읽기 (text/plain, text/html, application/json)
-    // 3. Fallback: paste 이벤트의 clipboardData 사용
+    // 1. Use Clipboard API (navigator.clipboard.read)
+    // 2. Read multiple formats (text/plain, text/html, application/json)
+    // 3. Fallback: use clipboardData from paste event
   }
 }
 ```
 
 #### 4.1.3 Cut Command
 
-**목적**: 복사 + 삭제 조합
+**Purpose**: Copy + delete combination
 
-**필요한 Command**:
+**Required Command**:
 ```typescript
 // packages/extensions/src/copy-paste.ts
 
@@ -484,7 +484,7 @@ export class CopyPasteExtension implements Extension {
   onCreate(editor: Editor): void {
     // ... copy, paste commands ...
 
-    // 3. cut command 등록
+    // 3. Register cut command
     editor.registerCommand({
       name: 'cut',
       execute: async (editor: Editor, payload?: { selection?: ModelSelection }) => {
@@ -493,15 +493,15 @@ export class CopyPasteExtension implements Extension {
           return false;
         }
 
-        // Model operation으로 잘라내기 (복사 + 삭제)
+        // Cut using Model operation (copy + delete)
         const cutResult = await transaction(editor, (control) => {
           return control(selection, [
             copy(selection),
-            deleteTextRange(selection)  // 또는 deleteRange(selection)
+            deleteTextRange(selection)  // or deleteRange(selection)
           ]);
         });
 
-        // 클립보드 API로 저장
+        // Save to clipboard API
         await this._writeToClipboard(cutResult.copyResult);
         return true;
       },
@@ -514,16 +514,16 @@ export class CopyPasteExtension implements Extension {
 }
 ```
 
-#### 4.1.4 키 바인딩 등록
+#### 4.1.4 Key Binding Registration
 
-**기본 키 바인딩 (예정)**:
+**Default Key Bindings (Planned)**:
 ```typescript
 // packages/editor-core/src/keybinding/default-keybindings.ts
 
 export const DEFAULT_KEYBINDINGS: Keybinding[] = [
   // ... existing keybindings ...
   
-  // 복사/붙여넣기/잘라내기
+  // Copy/Paste/Cut
   {
     key: 'Mod+c',
     command: 'copy',
@@ -542,24 +542,24 @@ export const DEFAULT_KEYBINDINGS: Keybinding[] = [
 ];
 ```
 
-**요약 표**:
+**Summary Table**:
 
-| 키           | command | when                                               | 설명                                 |
-|--------------|---------|----------------------------------------------------|--------------------------------------|
-| `Mod+c`      | `copy`  | `editorFocus && editorEditable && !selectionEmpty`| 선택 범위를 클립보드로 복사         |
-| `Mod+v`      | `paste` | `editorFocus && editorEditable`                   | 클립보드 내용을 현재 selection에 붙여넣기 |
-| `Mod+x`      | `cut`   | `editorFocus && editorEditable && !selectionEmpty`| 선택 범위를 잘라내기(복사 + 삭제)   |
+| Key           | command | when                                               | Description                                 |
+|--------------|---------|----------------------------------------------------|---------------------------------------------|
+| `Mod+c`      | `copy`  | `editorFocus && editorEditable && !selectionEmpty`| Copy selected range to clipboard         |
+| `Mod+v`      | `paste` | `editorFocus && editorEditable`                   | Paste clipboard content to current selection |
+| `Mod+x`      | `cut`   | `editorFocus && editorEditable && !selectionEmpty`| Cut selected range (copy + delete)   |
 
 ---
 
-### 4.2 붙여넣기 후 Selection 규칙 (Converter 사용을 전제로 한 흐름)
+### 4.2 Selection Rules After Paste (Flow Assuming Converter Usage)
 
-붙여넣기 후 Selection을 어떻게 둘지는 copy/paste UX의 핵심입니다.  
-아래는 **range selection + paste** 기준으로, Converter를 통해 생성된 모델 노드를 어디에 어떻게 붙여넣고 Selection을 어떻게 이동시키는지에 대한 규칙입니다.
+How to position Selection after paste is key to copy/paste UX.  
+Below are rules for **range selection + paste**, specifying where and how to paste model nodes created through Converter and how to move Selection.
 
-#### 4.2.1 단일 인라인 텍스트만 붙여넣는 경우
+#### 4.2.1 Pasting Single Inline Text Only
 
-**상황**: 하나의 `inline-text` 조각만 붙여넣기.
+**Scenario**: Pasting only one `inline-text` fragment.
 
 ```text
 Before:
@@ -577,13 +577,13 @@ After:
   [inline-text: "Hello Test▮World"]
 ```
 
-- **규칙**:  
-  - 텍스트 범위가 `collapsed`인 경우, 붙여넣은 텍스트의 **끝**에 caret을 둔다.  
-  - Selection 타입은 계속 `range`이며, `collapsed: true`.
+- **Rule**:  
+  - If text range is `collapsed`, place caret at the **end** of pasted text.  
+  - Selection type remains `range` with `collapsed: true`.
 
-#### 4.2.2 여러 블록을 붙여넣는 경우
+#### 4.2.2 Pasting Multiple Blocks
 
-**상황**: 두 개 이상의 block 노드를 붙여넣기.
+**Scenario**: Pasting two or more block nodes.
 
 ```text
 Before:
@@ -610,11 +610,11 @@ After:
   [inline-text: "World"]
 ```
 
-- **규칙**:
-  - 붙여넣은 블록들이 하나 이상이면, **마지막으로 삽입된 블록의 끝**에 caret을 둔다.
-  - Selection 타입은 `range`, `collapsed: true`.
+- **Rule**:
+  - If pasted blocks are one or more, place caret at the **end of the last inserted block**.
+  - Selection type is `range` with `collapsed: true`.
 
-#### 4.2.3 텍스트 범위가 선택된 상태에서 붙여넣기 (치환)
+#### 4.2.3 Pasting with Text Range Selected (Replacement)
 
 ```text
 Before:
@@ -632,11 +632,11 @@ After:
   [inline-text: "HeTEST▮rld"]
 ```
 
-- **규칙**:
-  - range selection이 비어 있지 않은 경우, 먼저 선택된 내용을 삭제 후 붙여넣기.
-  - caret은 **붙여넣어진 마지막 인라인 조각의 끝**에 위치.
+- **Rule**:
+  - If range selection is not empty, delete selected content first, then paste.
+  - Caret is positioned at the **end of the last pasted inline fragment**.
 
-#### 4.2.4 블록 전체가 선택된 상태에서 붙여넣기 (multi-block range)
+#### 4.2.4 Pasting with Entire Block Selected (multi-block range)
 
 ```text
 Before:
@@ -658,140 +658,140 @@ After:
   [inline-text: "X▮"]
 ```
 
-- **규칙**:
-  - 선택 범위가 여러 블록을 포함하는 경우, 해당 블록들을 삭제하고 붙여넣은 블록들로 대체.
-  - caret은 마지막으로 삽입된 블록의 끝에 위치.
+- **Rule**:
+  - If selected range includes multiple blocks, delete those blocks and replace with pasted blocks.
+  - Caret is positioned at the end of the last inserted block.
 
 ---
 
-## 5. 구현 순서
+## 5. Implementation Order
 
-### Phase 0: Converter 패키지 생성
-1. `@barocss/converter` 패키지 생성
-2. `HTMLConverter` 클래스 구현
-3. 변환 규칙 인터페이스 정의 (`ConverterRule`, `ParseDOMRule`)
-4. 기본 변환 규칙 정의 (`DEFAULT_HTML_RULES`)
-5. 테스트 코드 작성
+### Phase 0: Create Converter Package
+1. Create `@barocss/converter` package
+2. Implement `HTMLConverter` class
+3. Define conversion rule interfaces (`ConverterRule`, `ParseDOMRule`)
+4. Define default conversion rules (`DEFAULT_HTML_RULES`)
+5. Write test code
 
-### Phase 1: DataStore 레이어
-1. `SerializationOperations` 클래스 생성
-2. `serializeRange()` 구현 (JSON 직렬화만)
-3. `deserializeNodes()` 구현 (JSON 역직렬화만)
-4. `DataStore`에 메서드 노출
-5. 테스트 코드 작성
+### Phase 1: DataStore Layer
+1. Create `SerializationOperations` class
+2. Implement `serializeRange()` (JSON serialization only)
+3. Implement `deserializeNodes()` (JSON deserialization only)
+4. Expose methods in `DataStore`
+5. Write test code
 
-### Phase 2: Model 레이어
-1. `copy`, `paste`, `cut` operation 정의
-2. DSL 함수 정의
-3. `register-operations.ts`에 등록
-4. 테스트 코드 작성
+### Phase 2: Model Layer
+1. Define `copy`, `paste`, `cut` operations
+2. Define DSL functions
+3. Register in `register-operations.ts`
+4. Write test code
 
-### Phase 3: Extensions 레이어
-1. `CopyPasteExtension` 생성
-2. `copy`, `paste`, `cut` command 구현
-3. **Converter 패키지를 사용한 HTML 변환 구현**
-4. 클립보드 API 통합
-5. 키 바인딩 등록
-6. 테스트 코드 작성
+### Phase 3: Extensions Layer
+1. Create `CopyPasteExtension`
+2. Implement `copy`, `paste`, `cut` commands
+3. **Implement HTML conversion using Converter package**
+4. Integrate clipboard API
+5. Register key bindings
+6. Write test code
 
-### Phase 4: 통합 테스트
-1. 전체 플로우 테스트
-2. 다양한 형식 (JSON, HTML, Text) 테스트
-3. Cross-node 범위 테스트
-4. Marks 보존 테스트
+### Phase 4: Integration Testing
+1. Test complete flow
+2. Test various formats (JSON, HTML, Text)
+3. Test cross-node ranges
+4. Test Mark preservation
 
 ---
 
-## 6. 고려사항
+## 6. Considerations
 
-### 6.1 클립보드 형식 우선순위
-1. **JSON 형식** (우선): 모델 구조 완전 보존
-2. **HTML 형식**: 외부 애플리케이션과 호환성 (Extension 레이어에서 JSON ↔ HTML 변환)
-3. **텍스트 형식**: Fallback (Extension 레이어에서 JSON ↔ 텍스트 변환)
+### 6.1 Clipboard Format Priority
+1. **JSON format** (priority): Complete preservation of model structure
+2. **HTML format**: Compatibility with external applications (JSON ↔ HTML conversion in Extension layer)
+3. **Text format**: Fallback (JSON ↔ text conversion in Extension layer)
 
-### 6.2 HTML 직렬화/역직렬화 위치
-- **DataStore 레이어**: JSON 직렬화/역직렬화만 담당 (모델 데이터만 알고 있음)
-- **Converter 패키지**: HTML ↔ JSON 변환 담당
-  - 변환 규칙 정의 및 등록
-  - HTML 태그 → 노드 타입 매핑
-  - HTML 태그 → Marks 매핑
-  - Renderer-DOM의 실제 렌더링과는 다름 (의미론적 HTML)
-- **Extension 레이어**: Converter 패키지를 사용하여 변환 수행
+### 6.2 HTML Serialization/Deserialization Location
+- **DataStore layer**: Responsible only for JSON serialization/deserialization (only knows model data)
+- **Converter package**: Responsible for HTML ↔ JSON conversion
+  - Define and register conversion rules
+  - HTML tag → node type mapping
+  - HTML tag → Marks mapping
+  - Different from Renderer-DOM's actual rendering (semantic HTML)
+- **Extension layer**: Perform conversion using Converter package
 
-### 6.3 Converter 패키지 기반 변환
+### 6.3 Converter Package-Based Conversion
 
-**우리 접근 방식**:
-- **Converter 패키지**: 변환 규칙 정의 및 실제 변환 로직 담당
-- **Schema**: 모델 구조만 정의 (변환 규칙 없음)
-- **느슨한 결합**: Converter가 Schema의 노드 타입 이름만 참조
+**Our Approach**:
+- **Converter package**: Responsible for conversion rule definition and actual conversion logic
+- **Schema**: Defines only model structure (no conversion rules)
+- **Loose coupling**: Converter only references Schema's node type names
 
-**장점**:
-1. **명확한 책임 분리**: Schema는 모델 구조만, Converter는 변환만
-2. **Schema의 순수성**: Schema가 변환 로직에 의존하지 않음
-3. **Converter 독립성**: Converter가 Schema 없이도 동작 가능 (기본 규칙 사용)
-4. **확장성**: 새로운 변환 형식 추가가 쉬움 (Markdown, RTF 등)
-5. **재사용성**: Converter를 다른 프로젝트에서도 사용 가능
+**Advantages**:
+1. **Clear responsibility separation**: Schema only for model structure, Converter only for conversion
+2. **Schema purity**: Schema does not depend on conversion logic
+3. **Converter independence**: Converter can work without Schema (using default rules)
+4. **Extensibility**: Easy to add new conversion formats (Markdown, RTF, etc.)
+5. **Reusability**: Converter can be used in other projects
 
-**사용 예시**:
+**Usage Example**:
 ```typescript
-// Converter 패키지에서 변환 규칙 정의
+// Define conversion rules in Converter package
 import { HTMLConverter } from '@barocss/converter';
 import { DEFAULT_HTML_RULES } from '@barocss/converter/rules';
 
 const converter = new HTMLConverter();
 
-// 기본 규칙 등록
+// Register default rules
 DEFAULT_HTML_RULES.forEach(rule => {
   converter.registerRule(rule.stype, rule);
 });
 
-// Schema 참조 (노드 타입 이름 확인용)
+// Reference Schema (for checking node type names)
 converter.useSchema(schema);
 
-// 변환 사용
+// Use conversion
 const nodes = converter.parse(html, 'html');
 const html = converter.convert(nodes, 'html');
 ```
 
-### 6.4 외부 HTML 붙여넣기 처리
+### 6.4 External HTML Paste Handling
 
-**문제점**:
-- 외부 애플리케이션(브라우저, 워드프로세서 등)에서 복사한 HTML은 우리 모델 구조와 다를 수 있음
-- 예: `<div><p><strong>Hello</strong> World</p></div>` (외부 HTML)
-- 우리 모델: `paragraph` → `inline-text` (marks: bold)
+**Issues**:
+- HTML copied from external applications (browsers, word processors, etc.) may differ from our model structure
+- Example: `<div><p><strong>Hello</strong> World</p></div>` (external HTML)
+- Our model: `paragraph` → `inline-text` (marks: bold)
 
-**처리 전략**:
+**Processing Strategy**:
 
-1. **HTML 정리 (Cleaning)**:
-   - 불필요한 래퍼 태그 제거 (`<div><p>...</p></div>` → `<p>...</p>`)
-   - 인라인 스타일 제거 (`style="..."`)
-   - 클래스명 제거 (`class="..."`)
-   - `<script>`, `<style>` 태그 제거
+1. **HTML Cleaning**:
+   - Remove unnecessary wrapper tags (`<div><p>...</p></div>` → `<p>...</p>`)
+   - Remove inline styles (`style="..."`)
+   - Remove class names (`class="..."`)
+   - Remove `<script>`, `<style>` tags
 
-2. **태그 매핑**:
-   - 기본 HTML 태그 → 노드 타입 매핑 (Extension에서 정의)
-   - 알 수 없는 태그 처리:
-     - Block 요소 → `paragraph`로 변환
-     - Inline 요소 → 텍스트만 추출하여 `inline-text`로 변환
+2. **Tag Mapping**:
+   - Basic HTML tag → node type mapping (defined in Extension)
+   - Handle unknown tags:
+     - Block elements → convert to `paragraph`
+     - Inline elements → extract text only and convert to `inline-text`
 
-3. **스키마 검증**:
-   - 스키마에 있는 노드 타입: 그대로 사용
-   - 스키마에 없는 노드 타입: 기본 타입으로 변환
-   - 예: `<div>` → `paragraph` (block으로 처리)
+3. **Schema Validation**:
+   - Node types in schema: use as-is
+   - Node types not in schema: convert to default type
+   - Example: `<div>` → `paragraph` (treated as block)
 
-4. **Marks 처리**:
-   - HTML 태그 → Marks 매핑 (`<strong>` → `bold`)
-   - 중첩된 Marks 처리 (`<strong><em>...</em></strong>` → `bold` + `italic`)
+4. **Marks Processing**:
+   - HTML tag → Marks mapping (`<strong>` → `bold`)
+   - Handle nested Marks (`<strong><em>...</em></strong>` → `bold` + `italic`)
 
-5. **커스터마이징**:
-   - Extension에서 `_getNodeTypeFromHTMLTag()` 오버라이드 가능
-   - Extension에서 `_getMarkFromHTMLTag()` 오버라이드 가능
-   - 특정 HTML 구조를 특별히 처리할 수 있음
+5. **Customization**:
+   - Can override `_getNodeTypeFromHTMLTag()` in Extension
+   - Can override `_getMarkFromHTMLTag()` in Extension
+   - Can specially handle specific HTML structures
 
-**예시: 외부 HTML 처리**
+**Example: External HTML Processing**
 
 ```typescript
-// 외부에서 복사한 HTML
+// HTML copied from external source
 const externalHTML = `
   <div style="color: red;">
     <p><strong>Hello</strong> <em>World</em></p>
@@ -799,11 +799,11 @@ const externalHTML = `
   </div>
 `;
 
-// 1. 정리 후
+// 1. After cleaning
 // <p><strong>Hello</strong> <em>World</em></p>
 // <h1>Title</h1>
 
-// 2. 변환 후 (JSON)
+// 2. After conversion (JSON)
 [
   {
     stype: 'paragraph',
@@ -839,31 +839,31 @@ const externalHTML = `
 ]
 ```
 
-### 6.2 붙여넣기 위치 결정
-- `targetRange.startNodeId`와 `targetRange.startOffset`을 기준으로 삽입
-- 텍스트 노드 내부: 텍스트 삽입
-- 블록 노드 사이: 새 블록 삽입
+### 6.5 Paste Location Determination
+- Insert based on `targetRange.startNodeId` and `targetRange.startOffset`
+- Inside text node: insert text
+- Between block nodes: insert new block
 
-### 6.3 Marks 보존
-- 복사 시: Marks 정보 포함
-- 붙여넣기 시: Marks 정보 복원
-- HTML 파싱 시: HTML 태그를 Marks로 변환
+### 6.6 Mark Preservation
+- On copy: include Mark information
+- On paste: restore Mark information
+- On HTML parsing: convert HTML tags to Marks
 
-### 6.4 보안 고려사항
-- 클립보드 읽기/쓰기는 사용자 제스처(키 입력 등)에서만 허용
-- HTML 파싱 시 XSS 방지
+### 6.7 Security Considerations
+- Clipboard read/write only allowed from user gestures (key input, etc.)
+- XSS prevention on HTML parsing
 
-### 6.5 클립보드 API 상세 구현
+### 6.8 Clipboard API Detailed Implementation
 
-**ClipboardItem API 사용**:
+**Using ClipboardItem API**:
 ```typescript
 private async _writeToClipboard(data: { json: INode[]; html: string; text: string }): Promise<void> {
   try {
-    // ClipboardItem API 사용 (최신 브라우저)
+    // Use ClipboardItem API (modern browsers)
     if (navigator.clipboard && navigator.clipboard.write) {
       const clipboardItems: ClipboardItem[] = [];
       
-      // 여러 형식 동시 저장
+      // Save multiple formats simultaneously
       if (data.text) {
         clipboardItems.push(new ClipboardItem({
           'text/plain': new Blob([data.text], { type: 'text/plain' })
@@ -887,7 +887,7 @@ private async _writeToClipboard(data: { json: INode[]; html: string; text: strin
     }
     
     // Fallback: document.execCommand('copy')
-    // textarea를 사용하여 텍스트만 복사
+    // Copy text only using textarea
     const textarea = document.createElement('textarea');
     textarea.value = data.text;
     textarea.style.position = 'fixed';
@@ -903,11 +903,11 @@ private async _writeToClipboard(data: { json: INode[]; html: string; text: strin
 }
 ```
 
-**클립보드 읽기**:
+**Reading from Clipboard**:
 ```typescript
 private async _readFromClipboard(): Promise<ClipboardData> {
   try {
-    // ClipboardItem API 사용 (최신 브라우저)
+    // Use ClipboardItem API (modern browsers)
     if (navigator.clipboard && navigator.clipboard.read) {
       const clipboardItems = await navigator.clipboard.read();
       const data: ClipboardData = {};
@@ -929,8 +929,8 @@ private async _readFromClipboard(): Promise<ClipboardData> {
       return data;
     }
     
-    // Fallback: paste 이벤트의 clipboardData 사용
-    // (이벤트 핸들러에서 처리)
+    // Fallback: use clipboardData from paste event
+    // (handled in event handler)
     return {};
   } catch (error) {
     console.error('Failed to read from clipboard:', error);
@@ -939,19 +939,19 @@ private async _readFromClipboard(): Promise<ClipboardData> {
 }
 ```
 
-**보안 제약사항**:
-- HTTPS 또는 localhost에서만 Clipboard API 사용 가능
-- 사용자 제스처(키 입력, 마우스 클릭 등)에서만 호출 가능
-- 권한 요청이 필요할 수 있음 (일부 브라우저)
+**Security Constraints**:
+- Clipboard API only available on HTTPS or localhost
+- Can only be called from user gestures (key input, mouse click, etc.)
+- May require permission request (some browsers)
 
-### 6.6 붙여넣기 후 Selection 위치 결정
+### 6.9 Selection Position Determination After Paste
 
-**규칙**:
-1. **텍스트 노드 내부 붙여넣기**: 삽입된 텍스트의 끝 위치로 커서 이동
-2. **블록 노드 사이 붙여넣기**: 마지막 삽입된 블록의 끝으로 커서 이동
-3. **여러 노드 붙여넣기**: 마지막 노드의 끝으로 커서 이동
+**Rules**:
+1. **Paste inside text node**: Move cursor to end position of inserted text
+2. **Paste between block nodes**: Move cursor to end of last inserted block
+3. **Paste multiple nodes**: Move cursor to end of last node
 
-**구현 예시**:
+**Implementation Example**:
 ```typescript
 private _createSelectionAfterPaste(
   originalSelection: ModelSelection,
@@ -961,7 +961,7 @@ private _createSelectionAfterPaste(
     return originalSelection;
   }
   
-  // 마지막 삽입된 노드 찾기
+  // Find last inserted node
   const lastNodeId = insertedNodeIds[insertedNodeIds.length - 1];
   const lastNode = this.editor.dataStore.getNode(lastNodeId);
   
@@ -969,7 +969,7 @@ private _createSelectionAfterPaste(
     return originalSelection;
   }
   
-  // 텍스트 노드인 경우: 텍스트 끝으로 커서 이동
+  // If text node: move cursor to end of text
   if (lastNode.text !== undefined) {
     const textLength = lastNode.text.length;
     return {
@@ -982,8 +982,8 @@ private _createSelectionAfterPaste(
     };
   }
   
-  // 블록 노드인 경우: 노드의 끝으로 커서 이동
-  // (블록 노드의 마지막 텍스트 노드 찾기)
+  // If block node: move cursor to end of node
+  // (find last text node in block node)
   const lastTextNode = this._findLastTextNode(lastNodeId);
   if (lastTextNode) {
     const textLength = lastTextNode.text?.length || 0;
@@ -997,7 +997,7 @@ private _createSelectionAfterPaste(
     };
   }
   
-  // Fallback: 원래 selection 유지
+  // Fallback: maintain original selection
   return originalSelection;
 }
 
@@ -1010,7 +1010,7 @@ private _findLastTextNode(nodeId: string): INode | null {
   }
   
   if (node.content && Array.isArray(node.content)) {
-    // content 배열의 마지막 요소부터 역순으로 탐색
+    // Traverse from last element of content array in reverse
     for (let i = node.content.length - 1; i >= 0; i--) {
       const childId = node.content[i];
       if (typeof childId === 'string') {
@@ -1024,98 +1024,98 @@ private _findLastTextNode(nodeId: string): INode | null {
 }
 ```
 
-### 6.7 에러 처리 및 예외 상황
+### 6.10 Error Handling and Exception Cases
 
-**클립보드 접근 실패**:
+**Clipboard Access Failure**:
 ```typescript
 try {
   await this._writeToClipboard(data);
 } catch (error) {
-  // 사용자에게 알림 (선택사항)
+  // Notify user (optional)
   console.error('Failed to copy to clipboard:', error);
-  // Fallback: document.execCommand('copy') 시도
-  // 또는 사용자에게 수동 복사 안내
+  // Fallback: try document.execCommand('copy')
+  // Or guide user to manual copy
 }
 ```
 
-**변환 실패**:
+**Conversion Failure**:
 ```typescript
 try {
   const json = await this._clipboardDataToJSON(clipboardData);
   if (json.length === 0) {
-    // 변환 실패: 텍스트만 추출하여 기본 paragraph로 생성
+    // Conversion failed: extract text only and create default paragraph
     return this._textToJSON(clipboardData.text || '');
   }
   return json;
 } catch (error) {
   console.error('Failed to convert clipboard data:', error);
-  // Fallback: 텍스트만 추출
+  // Fallback: extract text only
   return this._textToJSON(clipboardData.text || '');
 }
 ```
 
-**스키마 검증 실패**:
+**Schema Validation Failure**:
 ```typescript
 try {
   const insertedNodeIds = editor.dataStore.deserializeNodes(json, targetParentId, targetPosition);
-  // 성공
+  // Success
 } catch (error) {
-  // 스키마 검증 실패: 기본 타입으로 변환 후 재시도
+  // Schema validation failed: convert to default type and retry
   const sanitizedJson = this._sanitizeNodesForSchema(json, editor.dataStore.getActiveSchema());
   const insertedNodeIds = editor.dataStore.deserializeNodes(sanitizedJson, targetParentId, targetPosition);
 }
 ```
 
-### 6.8 성능 최적화
+### 6.11 Performance Optimization
 
-**큰 문서 복사 시**:
-- 직렬화 시 깊은 복사 최소화
-- JSON.stringify 최적화 (순환 참조 처리)
-- 클립보드에 저장할 때만 직렬화 (필요한 시점에만)
+**When Copying Large Documents**:
+- Minimize deep copying during serialization
+- Optimize JSON.stringify (handle circular references)
+- Serialize only when saving to clipboard (only when needed)
 
-**복잡한 HTML 파싱 시**:
-- HTML 정리 단계에서 불필요한 태그 조기 제거
-- DOM 파싱 결과 캐싱 (동일한 HTML 재사용 시)
-- 비동기 파싱 (큰 HTML의 경우)
+**When Parsing Complex HTML**:
+- Remove unnecessary tags early in HTML cleaning stage
+- Cache DOM parsing results (when reusing same HTML)
+- Async parsing (for large HTML)
 
-### 6.9 사용자 피드백
+### 6.12 User Feedback
 
-**복사 성공 시**:
-- 시각적 피드백 (선택사항): 토스트 메시지, 애니메이션 등
-- 접근성: 스크린 리더 알림
+**On Copy Success**:
+- Visual feedback (optional): toast messages, animations, etc.
+- Accessibility: screen reader notifications
 
-**붙여넣기 실패 시**:
-- 사용자에게 명확한 오류 메시지
-- Fallback 동작 안내
+**On Paste Failure**:
+- Clear error messages to user
+- Guide fallback behavior
 
-### 6.10 브라우저 호환성
+### 6.13 Browser Compatibility
 
-**Clipboard API 지원**:
+**Clipboard API Support**:
 - Chrome 66+, Edge 79+, Firefox 63+, Safari 13.1+
-- Fallback: `document.execCommand('copy')` (구형 브라우저)
+- Fallback: `document.execCommand('copy')` (older browsers)
 
-**paste 이벤트 Fallback**:
+**Paste Event Fallback**:
 ```typescript
-// editor-view-dom에서 paste 이벤트 처리
+// Handle paste event in editor-view-dom
 handlePaste(event: ClipboardEvent): void {
   const clipboardData = event.clipboardData;
   if (!clipboardData) return;
   
-  // Clipboard API를 사용할 수 없는 경우 paste 이벤트의 clipboardData 사용
+  // Use clipboardData from paste event if Clipboard API is unavailable
   const data: ClipboardData = {
     text: clipboardData.getData('text/plain'),
     html: clipboardData.getData('text/html'),
-    json: null // paste 이벤트에서는 JSON 형식 지원 안 함
+    json: null // JSON format not supported in paste event
   };
   
-  // paste command 실행
+  // Execute paste command
   this.editor.executeCommand('paste', { clipboardData: data });
 }
 ```
 
 ---
 
-## 7. 관련 문서
+## 7. Related Documents
 - [Delete Extension Spec](./delete-extension-responsibilities.md)
 - [Range Operations Spec](../datastore/docs/range-operations.md)
 - [Model Operations Spec](../model/docs/operations.md)

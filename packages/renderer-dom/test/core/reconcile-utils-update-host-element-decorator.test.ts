@@ -19,7 +19,7 @@ describe('updateHostElement - decorator 관련 케이스', () => {
         el.setAttribute(name, value);
       },
       updateAttributes: (el: HTMLElement, prevAttrs: any, attrs: any) => {
-        // 실제 DOMOperations.updateAttributes와 동일하게 동작
+        // Works same as actual DOMOperations.updateAttributes
         if (attrs) {
           Object.keys(attrs).forEach(key => {
             const value = attrs[key];
@@ -80,7 +80,7 @@ describe('updateHostElement - decorator 관련 케이스', () => {
         {}
       );
       
-      // attrs는 updateHostElement에서 처리되지 않으므로 직접 호출
+      // attrs are not processed in updateHostElement, so call directly
       if (childVNode.attrs) {
         mockDom.updateAttributes(host, undefined, childVNode.attrs);
       }
@@ -118,7 +118,7 @@ describe('updateHostElement - decorator 관련 케이스', () => {
         }
       };
 
-      // 첫 번째 host 업데이트
+      // Update first host
       updateHostElement(
         host1,
         parent,
@@ -131,7 +131,7 @@ describe('updateHostElement - decorator 관련 케이스', () => {
         {}
       );
 
-      // 두 번째 host 업데이트
+      // Update second host
       updateHostElement(
         host2,
         parent,
@@ -144,7 +144,7 @@ describe('updateHostElement - decorator 관련 케이스', () => {
         {}
       );
       
-      // attrs는 updateHostElement에서 처리되지 않으므로 직접 호출
+      // attrs are not processed in updateHostElement, so call directly
       if (childVNode1.attrs) {
         mockDom.updateAttributes(host1, undefined, childVNode1.attrs);
       }
@@ -152,7 +152,7 @@ describe('updateHostElement - decorator 관련 케이스', () => {
         mockDom.updateAttributes(host2, undefined, childVNode2.attrs);
       }
 
-      // 각각 다른 host가 업데이트되어야 함
+      // Each different host should be updated
       expect(host1.getAttribute('data-decorator-sid')).toBe('d-highlight');
       expect(host2.getAttribute('data-decorator-sid')).toBe('d-highlight');
       expect(host1).not.toBe(host2);
@@ -192,7 +192,7 @@ describe('updateHostElement - decorator 관련 케이스', () => {
         {}
       );
       
-      // attrs는 updateHostElement에서 처리되지만, mockDom.updateAttributes가 호출되지 않을 수 있으므로 직접 호출
+      // attrs are processed in updateHostElement, but mockDom.updateAttributes may not be called, so call directly
       if (childVNode.attrs) {
         mockDom.updateAttributes(host, prevChildVNode?.attrs, childVNode.attrs);
       }

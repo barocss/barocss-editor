@@ -39,7 +39,7 @@ describe('processPrimitiveTextChildren - Mark Wrapper', () => {
   });
 
   it('mark wrapper의 텍스트를 업데이트해야 함 (기존 텍스트 노드 재사용)', () => {
-    // DOM에 mark wrapper가 이미 있고 텍스트 노드가 있음
+    // Mark wrapper already exists in DOM with text node
     const markWrapper = document.createElement('span');
     markWrapper.className = 'mark-bold';
     const textNode = document.createTextNode('Hello');
@@ -73,18 +73,18 @@ describe('processPrimitiveTextChildren - Mark Wrapper', () => {
       primitiveTextChildren: [{ text: 'Hello World', index: 0 }]
     } as FiberNode;
 
-    // processPrimitiveTextChildren 호출
+    // Call processPrimitiveTextChildren
     processPrimitiveTextChildren(fiber, deps);
 
-    // 텍스트가 업데이트되었는지 확인
+    // Verify text is updated
     expect(markWrapper.textContent).toBe('Hello World');
-    // 기존 텍스트 노드가 재사용되었는지 확인
+    // Verify existing text node is reused
     expect(markWrapper.childNodes.length).toBe(1);
     expect(markWrapper.firstChild).toBe(textNode);
   });
 
   it('mark wrapper의 텍스트를 업데이트해야 함 (새 텍스트 노드 생성)', () => {
-    // DOM에 mark wrapper가 있지만 텍스트 노드가 없음
+    // Mark wrapper exists in DOM but no text node
     const markWrapper = document.createElement('span');
     markWrapper.className = 'mark-bold';
     container.appendChild(markWrapper);
@@ -116,18 +116,18 @@ describe('processPrimitiveTextChildren - Mark Wrapper', () => {
       primitiveTextChildren: [{ text: 'Hello World', index: 0 }]
     } as FiberNode;
 
-    // processPrimitiveTextChildren 호출
+    // Call processPrimitiveTextChildren
     processPrimitiveTextChildren(fiber, deps);
 
-    // 텍스트가 추가되었는지 확인
+    // Verify text is added
     expect(markWrapper.textContent).toBe('Hello World');
     expect(markWrapper.childNodes.length).toBe(1);
     expect(markWrapper.firstChild?.nodeType).toBe(Node.TEXT_NODE);
   });
 
   it('mark wrapper의 텍스트를 업데이트해야 함 (childIndex가 맞지 않을 때 기존 텍스트 노드 재사용)', () => {
-    // DOM에 mark wrapper가 이미 있고 텍스트 노드가 있음
-    // 하지만 childIndex가 맞지 않는 경우 (예: elementCount 계산 오류)
+    // Mark wrapper already exists in DOM with text node
+    // But childIndex doesn't match (e.g., elementCount calculation error)
     const markWrapper = document.createElement('span');
     markWrapper.className = 'mark-bold';
     const textNode = document.createTextNode('Hello');
@@ -161,13 +161,13 @@ describe('processPrimitiveTextChildren - Mark Wrapper', () => {
       primitiveTextChildren: [{ text: 'Hello World', index: 0 }]
     } as FiberNode;
 
-    // processPrimitiveTextChildren 호출
-    // elementCount = 0이지만, 실제로는 텍스트 노드가 0번째 위치에 있음
+    // Call processPrimitiveTextChildren
+    // elementCount = 0, but text node is actually at 0th position
     processPrimitiveTextChildren(fiber, deps);
 
-    // 텍스트가 업데이트되었는지 확인
+    // Verify text is updated
     expect(markWrapper.textContent).toBe('Hello World');
-    // 기존 텍스트 노드가 재사용되었는지 확인 (중복 생성 방지)
+    // Verify existing text node is reused (prevent duplicate creation)
     expect(markWrapper.childNodes.length).toBe(1);
     expect(markWrapper.firstChild).toBe(textNode);
   });

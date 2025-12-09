@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { cloneVNodeTree } from '../../src/reconcile/utils/vnode-clone';
 import { VNode } from '../../src/vnode/types';
 
-describe('cloneVNodeTree - 단위 테스트', () => {
+describe('cloneVNodeTree - Unit Test', () => {
   describe('기본 복제', () => {
     it('단일 VNode를 복제해야 함', () => {
       const vnode: VNode = {
@@ -122,7 +122,7 @@ describe('cloneVNodeTree - 단위 테스트', () => {
       expect(cloned.children?.length).toBe(2);
       expect((cloned.children?.[0] as VNode).decoratorSid).toBe('d-highlight');
       expect((cloned.children?.[1] as VNode).decoratorSid).toBe('d-highlight');
-      // 각각 다른 객체여야 함
+      // Should be different objects
       expect(cloned.children?.[0]).not.toBe(cloned.children?.[1]);
     });
   });
@@ -152,7 +152,7 @@ describe('cloneVNodeTree - 단위 테스트', () => {
       expect((cloned.children?.[0] as VNode).sid).toBe('level-2');
       expect(((cloned.children?.[0] as VNode).children?.[0] as VNode).sid).toBe('level-3');
       
-      // 모든 레벨이 다른 객체여야 함
+      // All levels should be different objects
       expect(cloned).not.toBe(vnode);
       expect(cloned.children?.[0]).not.toBe(vnode.children?.[0]);
       expect((cloned.children?.[0] as VNode).children?.[0]).not.toBe((vnode.children?.[0] as VNode).children?.[0]);

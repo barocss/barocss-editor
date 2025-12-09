@@ -113,7 +113,7 @@ describe('reconcile-utils: host-management', () => {
         {}
       );
       
-      // attrs는 createHostElement에서 처리되지 않으므로 직접 호출
+      // attrs are not processed in createHostElement, so call directly
       if (childVNode.attrs) {
         mockDom.updateAttributes(result, undefined, childVNode.attrs);
       }
@@ -267,12 +267,12 @@ describe('reconcile-utils: host-management', () => {
         {}
       );
 
-      // attrs는 updateHostElement에서 처리되지 않으므로 직접 호출
+      // attrs are not processed in updateHostElement, so call directly
       if (childVNode.attrs) {
         mockDom.updateAttributes(host, undefined, childVNode.attrs);
       }
 
-      // updateAttributes가 setAttribute를 호출하므로, 실제 DOM에서 확인
+      // updateAttributes calls setAttribute, so verify in actual DOM
       expect(host.getAttribute('data-decorator-sid')).toBe('new-deco-sid');
       expect(host.getAttribute('data-decorator-stype')).toBe('new-deco-stype');
     });

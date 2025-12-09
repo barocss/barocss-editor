@@ -1,104 +1,104 @@
 # Barocss Reconcile Algorithm - Children Reconciliation
 
-## 개요
+## Overview
 
-Barocss의 DOM reconciliation은 React-style의 효율적인 DOM 업데이트 알고리즘을 사용합니다. 특히 **Work In Progress (WIP)** 패턴을 통해 단계별로 DOM 변경을 관리합니다.
+Barocss's DOM reconciliation uses a React-style efficient DOM update algorithm. It manages DOM changes step by step through the **Work In Progress (WIP)** pattern.
 
-## 핵심 원칙
+## Core Principles
 
-### 1. VNode는 동적으로 판단하지 않음
+### 1. VNode is Not Dynamically Evaluated
 
-**중요**: reconcile 단계에서는 VNode의 내용을 동적으로 해석하지 않습니다. VNode는 이미 `VNodeBuilder`에서 완전히 평가되고 확장된 상태입니다.
+**Important**: The reconcile phase does not dynamically interpret VNode content. VNode is already fully evaluated and expanded in `VNodeBuilder`.
 
 ```typescript
 // Build Phase (VNodeBuilder)
 const vnode = builder.build(template, data);
-// vnode는 이미 완전한 상태
+// vnode is already complete
 
 // Reconcile Phase
-// vnode를 변경하지 않고, prev vnode와 next vnode를 비교
+// Compare prev vnode and next vnode without modifying vnode
 reconcile(prevVNode, nextVNode, container, context);
 ```
 
-### 2. Key 우선, 없으면 위치 기반
+### 2. Key First, Then Position-based
 
-- **Key가 있는 경우**: `key`로 형제 범위에서 1:1 매칭하고, DOM 노드를 재사용/이동한다.
-- **Key가 없는 경우**: 부모-자식 관계의 동일 인덱스(위치)로 매칭한다.
-- **혼합된 목록**: keyed를 우선 배치한 후 남은 슬롯에 unkeyed를 인덱스 기준으로 맞춘다. 키는 절대 중복되면 안 된다.
+- **With Key**: Match 1:1 in sibling scope using `key`, and reuse/move DOM nodes.
+- **Without Key**: Match by same index (position) in parent-child relationship.
+- **Mixed List**: Place keyed items first, then fit unkeyed items into remaining slots by index. Keys must never be duplicated.
 
-### 3. 특수 속성/DOM id는 매칭에 사용하지 않음
+### 3. Special Attributes/DOM id Not Used for Matching
 
-`data-bc-sid`, `data-bc-stype` 등 내부 식별용 속성은 더 이상 사용하지 않는다. 또한 `attrs.sid` 같은 일반 DOM 속성도 매칭 기준에 포함하지 않는다. 매칭은 오직 key 또는 위치로만 수행한다.
+Internal identification attributes like `data-bc-sid`, `data-bc-stype` are no longer used. Also, general DOM attributes like `attrs.sid` are not included in matching criteria. Matching is performed only by key or position.
 
-### 4. 데코레이터 포함
+### 4. Decorator Inclusion
 
-데코레이터는 빌드 단계에서 완전히 포함된 상태로 VNode 트리에 포함됩니다:
+Decorators are included in the VNode tree in a fully included state from the build phase:
 
-- 데코레이터는 VNode 빌드 단계에서 처리되어 일반 VNode children의 일부가 됩니다
-- 모든 데코레이터(inline, block, layer)는 VNode 트리에 포함되며 다른 VNode와 동일하게 reconcile됩니다
-- Reconciliation 단계에서 특별한 필터링이나 제외가 필요 없습니다
-- 데코레이터 VNode는 `attrs['data-decorator-sid']`로 식별되지만 reconcile에서 정상적으로 처리됩니다
+- Decorators are processed in the VNode build phase and become part of regular VNode children
+- All decorators (inline, block, layer) are included in the VNode tree and reconciled the same as other VNodes
+- No special filtering or exclusion is needed in the Reconciliation phase
+- Decorator VNodes are identified by `attrs['data-decorator-sid']` but are processed normally in reconcile
 
-## WIP (Work In Progress) 개념
+## WIP (Work In Progress) Concept
 
-### WIP 구조
+### WIP Structure
 
 ```typescript
 interface DOMWorkInProgress {
-  id: string;                    // WIP 노드 ID
+  id: string;                    // WIP node ID
   type: 'text' | 'element' | 'component' | 'portal' | 'canvas';
-  vnode: VNode;                   // 현재 VNode
-  domNode?: Node;                 // 실제 DOM 노드
-  parent?: DOMWorkInProgress;      // 부모 WIP
-  children: DOMWorkInProgress[];   // 자식 WIP들
+  vnode: VNode;                   // Current VNode
+  domNode?: Node;                 // Actual DOM node
+  parent?: DOMWorkInProgress;      // Parent WIP
+  children: DOMWorkInProgress[];   // Child WIPs
   
-  // 변경 추적
+  // Change tracking
   needsUpdate: boolean;
   isNew: boolean;
   isDeleted: boolean;
   changes: string[];              // ['insert', 'text', 'attrs', 'style', 'children']
   
-  previousVNode?: VNode;          // 이전 VNode (비교용)
+  previousVNode?: VNode;          // Previous VNode (for comparison)
   
-  // 렌더링 우선순위
+  // Rendering priority
   renderPriority: DOMRenderPriority;
   isRendered: boolean;
 }
 ```
 
-### WIP의 역할
+### WIP Role
 
-1. **상태 추적**: VNode와 DOM 노드의 매핑 상태를 추적
-2. **변경 감지**: 이전 VNode와 현재 VNode를 비교하여 변경사항 감지
-3. **우선순위 관리**: 변경의 중요도에 따라 렌더링 우선순위 결정
-4. **DOM 조작 계획**: 실제 DOM 조작 전에 계획 수립
+1. **State Tracking**: Track mapping state between VNode and DOM nodes
+2. **Change Detection**: Compare previous VNode and current VNode to detect changes
+3. **Priority Management**: Determine rendering priority based on change importance
+4. **DOM Manipulation Planning**: Plan before actual DOM manipulation
 
-### WIP Tree 생성
+### WIP Tree Creation
 
 ```typescript
 createWorkInProgressTree(nextVNode, container, prevVNode): DOMWorkInProgress[] {
-  // 1. 각 VNode에 대해 WIP 노드 생성
-  // 2. parent-child 관계 유지
-  // 3. 이전 VNode 정보 저장 (previousVNode)
-  // 4. 기본 변경사항 감지 (insert, delete 등)
+  // 1. Create WIP node for each VNode
+  // 2. Maintain parent-child relationships
+  // 3. Store previous VNode information (previousVNode)
+  // 4. Detect basic changes (insert, delete, etc.)
 }
 ```
 
-## Children Reconciliation 알고리즘
+## Children Reconciliation Algorithm
 
-### 전체 흐름
+### Overall Flow
 
 ```mermaid
 graph TD
-    A[reconcile 시작] --> B[WIP Tree 생성]
-    B --> C[변경사항 감지]
-    C --> D[우선순위 할당]
-    D --> E[우선순위별 처리]
-    E --> F[DOM 조작 실행]
+    A[reconcile start] --> B[Create WIP Tree]
+    B --> C[Detect changes]
+    C --> D[Assign priority]
+    D --> E[Process by priority]
+    E --> F[Execute DOM manipulation]
     F --> G[finalizeDOMUpdate]
 ```
 
-### 1. WIP Tree 생성 단계
+### 1. WIP Tree Creation Phase
 
 ```typescript
 private createWorkInProgressNode(
@@ -110,7 +110,7 @@ private createWorkInProgressNode(
   const isNew = !prevVNode;
   const changes = isNew ? ['insert'] : this.calculateChanges(prevVNode, vnode);
   
-  // 기존 DOM 노드 찾기
+  // Find existing DOM node
   let domNode: Node | undefined;
   if (isNew) {
     domNode = this.findDOMNode(vnode, container);
@@ -134,40 +134,40 @@ private createWorkInProgressNode(
     isRendered: false
   };
   
-  // 자식 노드들 재귀적으로 처리
+  // Recursively process child nodes
   if (vnode.children) {
     const prevChildren = prevVNode?.children || [];
-    // ... children WIP 생성
+    // ... create children WIP
   }
   
   return workInProgress;
 }
 ```
 
-### 2. Children Reconcile 단계
+### 2. Children Reconcile Phase
 
-children reconcile은 **동시 순회 알고리즘**을 사용합니다:
+Children reconcile uses a **simultaneous traversal algorithm**:
 
 ```typescript
 private reconcileChildren(wip: DOMWorkInProgress, prevChildren: VNode[], nextChildren: VNode[]): void {
-  let domIndex = 0;  // 현재 DOM 인덱스
-  let prevIndex = 0; // 이전 VNode 인덱스
-  let nextIndex = 0; // 새 VNode 인덱스
+  let domIndex = 0;  // Current DOM index
+  let prevIndex = 0; // Previous VNode index
+  let nextIndex = 0; // New VNode index
   
-  // 양쪽을 동시에 순회하면서 비교
+  // Traverse both sides simultaneously and compare
   while (prevIndex < prevChildren.length || nextIndex < nextChildren.length) {
     const prevChild = prevChildren[prevIndex];
     const nextChild = nextChildren[nextIndex];
     
-    // Case 1: 새 자식이 없음 → 제거
+    // Case 1: No new child → Remove
     if (!nextChild) {
       const nodeToRemove = domNode.childNodes[domIndex];
       domNode.removeChild(nodeToRemove);
       prevIndex++;
-      // domIndex는 유지 (다음 비교에서 사용)
+      // Keep domIndex (used in next comparison)
     }
     
-    // Case 2: 기존 자식이 없음 → 추가
+    // Case 2: No existing child → Add
     else if (!prevChild) {
       // Check if decorator should be excluded
       if (wip.context?.excludeDecorators && nextChild.attrs?.['data-decorator'] === 'true') {
@@ -181,7 +181,7 @@ private reconcileChildren(wip: DOMWorkInProgress, prevChildren: VNode[], nextChi
         : null;
       domNode.insertBefore(newNode, referenceNode);
       
-      // child WIP의 domNode 설정
+      // Set child WIP's domNode
       const childWip = wip.children[nextIndex];
       if (childWip) {
         childWip.domNode = newNode;
@@ -191,14 +191,14 @@ private reconcileChildren(wip: DOMWorkInProgress, prevChildren: VNode[], nextChi
       nextIndex++;
     }
     
-    // Case 3: 같은 노드 → 보존 (DOM 노드 재사용)
+    // Case 3: Same node → Preserve (reuse DOM node)
     else if (this.isSameNode(prevChild, nextChild)) {
       domIndex++;
       prevIndex++;
       nextIndex++;
     }
     
-    // Case 4: 다른 노드 → 교체
+    // Case 4: Different node → Replace
     else {
       // Check if decorator should be excluded
       if (wip.context?.excludeDecorators && nextChild.attrs?.['data-decorator'] === 'true') {
@@ -215,7 +215,7 @@ private reconcileChildren(wip: DOMWorkInProgress, prevChildren: VNode[], nextChi
         domNode.appendChild(newNode);
       }
       
-      // child WIP의 domNode 설정
+      // Set child WIP's domNode
       const childWip = wip.children[nextIndex];
       if (childWip) {
         childWip.domNode = newNode;
@@ -229,11 +229,11 @@ private reconcileChildren(wip: DOMWorkInProgress, prevChildren: VNode[], nextChi
 }
 ```
 
-### 3. 동시 순회 알고리즘의 장점
+### 3. Advantages of Simultaneous Traversal Algorithm
 
-#### 예시: 삽입/삭제/재배치
+#### Example: Insert/Delete/Reorder
 
-**이전 상태**:
+**Previous State**:
 ```html
 <div>
   <span>A</span>  <!-- index 0 -->
@@ -242,7 +242,7 @@ private reconcileChildren(wip: DOMWorkInProgress, prevChildren: VNode[], nextChi
 </div>
 ```
 
-**새로운 상태**:
+**New State**:
 ```html
 <div>
   <span>B</span>  <!-- index 0 -->
@@ -251,30 +251,30 @@ private reconcileChildren(wip: DOMWorkInProgress, prevChildren: VNode[], nextChi
 </div>
 ```
 
-**알고리즘 동작**:
+**Algorithm Operation**:
 
-| 단계 | prevChild | nextChild | 동작 |
+| Step | prevChild | nextChild | Action |
 |------|-----------|-----------|------|
-| 1 | `<span>A</span>` | `<span>B</span>` | 다름 → 교체: A → B |
-| 2 | `<span>B</span>` | `<span>D</span>` | 다름 → 교체: B → D |
-| 3 | `<span>C</span>` | `<span>C</span>` | 같음 → 보존 |
+| 1 | `<span>A</span>` | `<span>B</span>` | Different → Replace: A → B |
+| 2 | `<span>B</span>` | `<span>D</span>` | Different → Replace: B → D |
+| 3 | `<span>C</span>` | `<span>C</span>` | Same → Preserve |
 
-**최종 결과**: A만 제거되고 B는 보존됨
+**Final Result**: Only A is removed, B is preserved
 
-### 4. isSameNode 판단
+### 4. isSameNode Determination
 
 ```typescript
 private isSameNode(prevChild: VNode, nextChild: VNode): boolean {
-  // 1. tag 비교
+  // 1. Compare tag
   if (prevChild.tag !== nextChild.tag) return false;
   
-  // 2. text 비교
+  // 2. Compare text
   if (prevChild.text !== nextChild.text) return false;
   
-  // 3. component 이름 비교
+  // 3. Compare component name
   if (prevChild.component?.name !== nextChild.component?.name) return false;
   
-  // 4. key 비교 (있는 경우)
+  // 4. Compare key (if present)
   if (prevChild.attrs?.key || nextChild.attrs?.key) {
     return prevChild.attrs?.key === nextChild.attrs?.key;
   }
@@ -283,86 +283,86 @@ private isSameNode(prevChild: VNode, nextChild: VNode): boolean {
 }
 ```
 
-## Key 기반 매칭
+## Key-based Matching
 
-### Key가 있는 경우
+### When Key is Present
 
-Key는 children을 효율적으로 매칭하기 위해 사용됩니다:
+Key is used to efficiently match children:
 
 ```typescript
-// Key 기반 매칭
+// Key-based matching
 const prevItem = { tag: 'li', attrs: { key: 'item-1' }, text: 'Item 1' };
 const nextItem = { tag: 'li', attrs: { key: 'item-1' }, text: 'Item 1 (updated)' };
 
-// key가 같으면 같은 노드로 판단
-// → text만 업데이트하고 DOM 노드는 보존
+// If keys are the same, treat as same node
+// → Only update text, preserve DOM node
 ```
 
-### Key 없이 위치 기반 매칭
+### Position-based Matching Without Key
 
-Key가 없는 경우, 인덱스와 구조로 매칭:
+When key is absent, match by index and structure:
 
 ```typescript
-// 위치 기반 매칭
-// 1. 같은 부모
-// 2. 같은 인덱스
-// 3. 같은 tag
+// Position-based matching
+// 1. Same parent
+// 2. Same index
+// 3. Same tag
 ```
 
-## Children WIP와 DOM 노드 동기화
+## Children WIP and DOM Node Synchronization
 
-### 중요: child WIP의 domNode 설정
+### Important: Set child WIP's domNode
 
-children reconcile 중 DOM을 조작할 때, **해당 child WIP의 domNode를 업데이트**해야 합니다:
+When manipulating DOM during children reconcile, **update the child WIP's domNode**:
 
 ```typescript
 if (!prevChild) {
-  // 새 노드 삽입
+  // Insert new node
   const newNode = this.createNewDOMNode(nextChild);
   domNode.insertBefore(newNode, referenceNode);
   
-  // child WIP의 domNode 설정
+  // Set child WIP's domNode
   const childWip = wip.children[nextIndex];
   if (childWip) {
-    childWip.domNode = newNode;  // ⭐ 중요!
+    childWip.domNode = newNode;  // ⭐ Important!
   }
 }
 ```
 
-이렇게 해야 `finalizeDOMUpdate`에서 중복 append를 방지합니다.
+This prevents duplicate append in `finalizeDOMUpdate`.
 
-### 중복 append 방지
+### Prevent Duplicate Append
 
-children reconcile에서 이미 `insertBefore`를 했는데, `finalizeDOMUpdate`에서 다시 append하면 중복됩니다:
+If `insertBefore` was already done in children reconcile, appending again in `finalizeDOMUpdate` causes duplication:
 
 ```typescript
-// ❌ 잘못된 예: children reconcile 후 finalizeDOMUpdate에서 append
-reconcileChildren(wip, prevChildren, nextChildren);  // insertBefore 실행
-finalizeDOMUpdate(wip);  // 또 append 실행 → 중복!
+// ❌ Wrong example: append in finalizeDOMUpdate after children reconcile
+reconcileChildren(wip, prevChildren, nextChildren);  // execute insertBefore
+finalizeDOMUpdate(wip);  // execute append again → duplicate!
 
-// ✅ 올바른 예: child WIP의 domNode를 설정하여 재사용
-reconcileChildren(wip, prevChildren, nextChildren);  // insertBefore 실행 + childWip.domNode 설정
-finalizeDOMUpdate(wip);  // domNode가 이미 있으므로 append 안 함
+// ✅ Correct example: reuse by setting child WIP's domNode
+reconcileChildren(wip, prevChildren, nextChildren);  // execute insertBefore + set childWip.domNode
+finalizeDOMUpdate(wip);  // don't append since domNode already exists
 ```
 
-## Text Node 업데이트
+## Text Node Update
 
-### Text Node는 특수 처리
+### Text Node Special Handling
 
 ```typescript
 public processTextNode(wip: DOMWorkInProgress): void {
   if (changes.includes('insert')) {
-    // 새 텍스트 노드 생성
+    // Create new text node
     const textNode = document.createTextNode(String(vnode.text));
     wip.domNode = textNode;
     this.domOperations.insertDOMNode(textNode, wip, this.currentContainer);
   } 
   else if (changes.includes('text')) {
-    // 기존 텍스트 노드 업데이트
+    // Update existing text node
     let targetNode = domNode;
     
     if (!targetNode && wip.previousVNode) {
-      // 부모의 자식 또는 컨테이너의 직접 자식에서 찾기
+      // Find in parent's children or container's direct children
       if (wip.parent?.domNode) {
         const parentDomNode = wip.parent.domNode;
         const childNodes = Array.from(parentDomNode.childNodes);
@@ -384,26 +384,26 @@ public processTextNode(wip: DOMWorkInProgress): void {
 }
 ```
 
-### Text Node 매칭 원칙
+### Text Node Matching Principles
 
-1. **부모-자식 관계 기반**: 부모의 childNodes에서 같은 위치의 텍스트 노드 찾기
-2. **내용 기반**: 이전 텍스트 내용으로 매칭 (태그 기반 매칭 불가)
-3. **특수 속성 사용 안 함**: `data-bc-sid` 등 특수 속성 사용 안 함
+1. **Parent-child relationship based**: Find text node at same position in parent's childNodes
+2. **Content-based**: Match by previous text content (tag-based matching not possible)
+3. **No special attributes**: Do not use special attributes like `data-bc-sid`
 
-## DOM 노드 찾기 전략
+## DOM Node Finding Strategy
 
-### 1. Key 기반 (우선)
+### 1. Key-based (Priority)
 
 ```typescript
-// 주: 현재 구현은 DOM 속성에 key를 저장하지 않는다.
-// Key 매칭은 VNode 레벨에서만 수행하며,
-// 실제 DOM 노드 탐색은 이전 VNode의 특성(텍스트 등)과 현재 부모의 자식 순서를 이용한다.
+// Note: Current implementation does not store key in DOM attributes.
+// Key matching is performed only at VNode level,
+// and actual DOM node search uses previous VNode characteristics (text, etc.) and current parent's child order.
 ```
 
-### 2. 위치 기반 (key 없음)
+### 2. Position-based (No Key)
 
 ```typescript
-// 부모의 해당 위치 child 찾기
+// Find child at parent's corresponding position
 if (wip.parent?.domNode && wip.parent.domNode instanceof HTMLElement) {
   const parentDomNode = wip.parent.domNode;
   const tagName = wip.previousVNode?.tag || wip.vnode.tag;
@@ -423,11 +423,11 @@ if (wip.parent?.domNode && wip.parent.domNode instanceof HTMLElement) {
 }
 ```
 
-## 예시: 실제 동작
+## Examples: Actual Behavior
 
-### 예시 1: 리스트 재정렬
+### Example 1: List Reordering
 
-**이전**:
+**Before**:
 ```html
 <ul>
   <li>Item 1</li>
@@ -436,7 +436,7 @@ if (wip.parent?.domNode && wip.parent.domNode instanceof HTMLElement) {
 </ul>
 ```
 
-**이후**:
+**After**:
 ```html
 <ul>
   <li>Item 3</li>
@@ -445,19 +445,19 @@ if (wip.parent?.domNode && wip.parent.domNode instanceof HTMLElement) {
 </ul>
 ```
 
-**Key 없음**:
-- Item 1 (0) → Item 3 (0): 다름 → 교체 (내용 변경)
-- Item 2 (1) → Item 1 (1): 다름 → 교체 (내용 변경)
-- Item 3 (2) → Item 2 (2): 다름 → 교체 (내용 변경)
+**Without Key**:
+- Item 1 (0) → Item 3 (0): Different → Replace (content change)
+- Item 2 (1) → Item 1 (1): Different → Replace (content change)
+- Item 3 (2) → Item 2 (2): Different → Replace (content change)
 
-**Key 있음** (key='item-1', key='item-2', key='item-3'):
-- Item 1 (key='item-1') → Item 3 (key='item-3'): 다른 key → 교체
-- Item 2 (key='item-2') → Item 1 (key='item-1'): 다른 key → 교체
-- Item 3 (key='item-3') → Item 2 (key='item-2'): 다른 key → 교체
+**With Key** (key='item-1', key='item-2', key='item-3'):
+- Item 1 (key='item-1') → Item 3 (key='item-3'): Different key → Replace
+- Item 2 (key='item-2') → Item 1 (key='item-1'): Different key → Replace
+- Item 3 (key='item-3') → Item 2 (key='item-2'): Different key → Replace
 
-**최적화**: key 기반 매칭으로 재사용 가능하지만, key가 없으면 순서대로 비교하므로 재사용할 수 없음
+**Optimization**: Reuse possible with key-based matching, but without key, sequential comparison prevents reuse
 
-### 예시 2: Text Node 업데이트
+### Example 2: Text Node Update
 
 ```typescript
 // VNode 1
@@ -467,28 +467,28 @@ const vnode1 = { attrs: {}, text: 'Hello' };
 const vnode2 = { attrs: {}, text: 'World' };
 
 // reconcile(prevVNode, nextVNode, container, context)
-// 1. prevVNode.text !== nextVNode.text 감지
-// 2. changes = ['text'] 추가
-// 3. processTextNode() 호출
-// 4. 부모의 childNodes에서 텍스트 'Hello' 찾기
-// 5. 찾은 텍스트 노드의 textContent를 'World'로 업데이트
+// 1. Detect prevVNode.text !== nextVNode.text
+// 2. Add changes = ['text']
+// 3. Call processTextNode()
+// 4. Find text 'Hello' in parent's childNodes
+// 5. Update found text node's textContent to 'World'
 ```
 
-## 우선순위 처리
+## Priority Processing
 
-### 우선순위 레벨
+### Priority Levels
 
 ```typescript
 enum DOMRenderPriority {
-  IMMEDIATE = 1,    // 즉시 처리 (애니메이션, 사용자 입력)
-  HIGH = 2,         // 높은 우선순위 (레이아웃 변경)
-  NORMAL = 3,       // 일반 우선순위 (일반 업데이트)
-  LOW = 4,          // 낮은 우선순위 (백그라운드 작업)
-  IDLE = 5          // 유휴 시간 (통계, 로깅)
+  IMMEDIATE = 1,    // Immediate processing (animations, user input)
+  HIGH = 2,         // High priority (layout changes)
+  NORMAL = 3,       // Normal priority (general updates)
+  LOW = 4,          // Low priority (background tasks)
+  IDLE = 5          // Idle time (statistics, logging)
 }
 ```
 
-### 우선순위 할당 규칙
+### Priority Assignment Rules
 
 ```typescript
 calculatePriority(changes: string[], wip: DOMWorkInProgress): DOMRenderPriority {
@@ -502,68 +502,68 @@ calculatePriority(changes: string[], wip: DOMWorkInProgress): DOMRenderPriority 
 }
 ```
 
-## 정리
+## Summary
 
-### 핵심 포인트
+### Key Points
 
-1. **VNode는 reconcile에서 동적으로 판단하지 않음** - 이미 build 단계에서 완성됨
-2. **Key 우선, 없으면 위치 기반 매칭** - 특수 속성 사용 안 함
-3. **동시 순회 알고리즘** - prev와 next를 동시에 순회하며 비교
-4. **Child WIP의 domNode 동기화** - DOM 조작 시 child WIP의 domNode 업데이트 필수
-5. **Fallback 없음** - 명확한 매칭 전략만 사용
+1. **VNode is not dynamically evaluated in reconcile** - Already completed in build phase
+2. **Key first, then position-based matching** - No special attributes used
+3. **Simultaneous traversal algorithm** - Traverse and compare prev and next simultaneously
+4. **Child WIP's domNode synchronization** - Must update child WIP's domNode when manipulating DOM
+5. **No fallback** - Only use clear matching strategies
 
 ---
 
-## 개선된 구현 디테일
+## Improved Implementation Details
 
-최근 `renderer-dom` 개선 사항을 반영한 구현 요약이다.
+Implementation summary reflecting recent `renderer-dom` improvements.
 
-### A. Key-based Reconciler 동작
+### A. Key-based Reconciler Behavior
 
-- 파일: `packages/renderer-dom/src/key-based-reconciler.ts`
-- 요점:
-  - `excludeDecorators` 옵션에 따라 prev/next 자식에서 데코레이터를 필터링하고 key 맵 생성
-  - next 순회 시 key 없는 노드는 인덱스 기반, key 있는 노드는 기존 DOM 재사용 + 필요 시 `insertBefore`로 이동
-  - DOM 이동 시 remove() 호출 없이 `insertBefore`만 사용
-  - 이동/삽입 처리된 child WIP에 `__barocss_inserted=true`와 `isRendered=true`를 세팅해 최종화에서 중복 삽입 방지
+- File: `packages/renderer-dom/src/key-based-reconciler.ts`
+- Key points:
+  - Filter decorators from prev/next children based on `excludeDecorators` option and create key map
+  - When traversing next, nodes without key use index-based, nodes with key reuse existing DOM + move with `insertBefore` if needed
+  - When moving DOM, use only `insertBefore` without calling remove()
+  - Set `__barocss_inserted=true` and `isRendered=true` on moved/inserted child WIP to prevent duplicate insertion in finalization
 
-### B. finalizeDOMUpdate 가드
+### B. finalizeDOMUpdate Guard
 
-- 파일: `packages/renderer-dom/src/dom-operations.ts`
-- 개선:
-  - 부모가 있는 경우 이미 부모에 있거나(marker 포함) 동일 노드가 있으면 append 생략
-  - 부모가 없는 경우에도 `node.parentNode`나 marker가 있으면 루트 삽입 생략
+- File: `packages/renderer-dom/src/dom-operations.ts`
+- Improvements:
+  - If parent exists, skip append if already in parent (including marker) or same node exists
+  - If parent doesn't exist, skip root insertion if `node.parentNode` or marker exists
 
-### C. 데코레이터 제외 처리
+### C. Decorator Exclusion Processing
 
-- 파일: `packages/renderer-dom/src/dom-reconcile.ts`
-- `excludeDecorators`가 true이고 `attrs['data-decorator']==='true'`이면 해당 노드는 reconcile에서 제외
+- File: `packages/renderer-dom/src/dom-reconcile.ts`
+- If `excludeDecorators` is true and `attrs['data-decorator']==='true'`, exclude that node from reconcile
 
-### D. 포털 처리
+### D. Portal Processing
 
-- 포털 수명주기는 `PortalManager`가 담당하며 제거 시 정확히 해당 포털만 청소
-- 포털 ID는 DOM 속성에 노출하지 않고 내부 매핑(WeakMap/Map)으로 유지
+- Portal lifecycle is managed by `PortalManager`, cleaning up only that portal when removed
+- Portal ID is not exposed in DOM attributes, maintained in internal mapping (WeakMap/Map)
 
-### E. 네임스페이스 처리
+### E. Namespace Processing
 
-- 요소 생성/속성 갱신은 `namespace-utils`를 통해 SVG/MathML 등 NS를 정확히 사용
+- Element creation/attribute updates use SVG/MathML etc. NS accurately through `namespace-utils`
 
-### F. 책임 분리
+### F. Separation of Responsibilities
 
-- `VNodeBuilder`: when/flatten/템플릿 평가 → 완전한 VNode 생성
-- `DOMReconcile`: prev/next 비교 + 최소 DOM 변경, 동적 해석 없음
-- `ComponentManager`: 컴포넌트 마운트/업데이트/언마운트
+- `VNodeBuilder`: when/flatten/template evaluation → Complete VNode generation
+- `DOMReconcile`: prev/next comparison + minimal DOM changes, no dynamic interpretation
+- `ComponentManager`: Component mount/update/unmount
 
-### G. 로깅
+### G. Logging
 
-- `DOMReconcile`: WIP 생성/우선순위/최종화 + 통계/최종 HTML
-- `KeyBasedReconciler`: 입력 요약, DOM 스냅샷, 이동/삽입, 이동 후 children 상태
-- `DOMOperations.finalizeDOMUpdate`: 부모/루트 분기별 가드 판단
+- `DOMReconcile`: WIP creation/priority/finalization + statistics/final HTML
+- `KeyBasedReconciler`: Input summary, DOM snapshot, move/insert, children state after move
+- `DOMOperations.finalizeDOMUpdate`: Guard determination by parent/root branch
 
-### 설계 철학
+### Design Philosophy
 
-- **예측 가능성**: 항상 같은 입력에 대해 같은 출력
-- **순수성**: DOM 조작 외부 상태 의존 최소화
-- **효율성**: 최소한의 DOM 조작으로 업데이트
-- **간단함**: 복잡한 fallback 로직 없이 명확한 전략만 사용
+- **Predictability**: Always same output for same input
+- **Purity**: Minimize external state dependencies for DOM manipulation
+- **Efficiency**: Update with minimal DOM manipulation
+- **Simplicity**: Only use clear strategies without complex fallback logic
 

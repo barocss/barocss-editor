@@ -59,7 +59,7 @@ describe('VNodeBuilder DSL Functions', () => {
     });
 
     it('should handle boolean condition directly', () => {
-      // when()은 함수를 받지만, boolean 값도 직접 평가 가능
+      // when() accepts a function, but boolean values can also be evaluated directly
       define('boolean-cond', element('div', {}, [
         when((d: any) => true, element('span', {}, [text('Always')])),
         when((d: any) => false, element('span', {}, [text('Never')]))
@@ -68,7 +68,7 @@ describe('VNodeBuilder DSL Functions', () => {
       const model = { stype: 'boolean-cond', sid: 'c3' };
       const vnode = builder.build('boolean-cond', model);
       
-      // 텍스트가 children에 포함되거나 text 속성으로 collapse될 수 있음
+      // Text may be included in children or collapsed into text property
       const checkText = (vnode: any, expected: string): boolean => {
         if (vnode.text === expected) return true;
         if (Array.isArray(vnode.children)) {
@@ -140,20 +140,20 @@ describe('VNodeBuilder DSL Functions', () => {
       expect(items[1].tag).toBe('li');
       expect(items[2].tag).toBe('li');
       
-      // 텍스트 내용 확인
-      // text() 함수는 DataTemplate을 반환하므로, _processChild에서 처리되어 children에 포함됨
-      // 단일 텍스트 노드는 vnode.text로 collapse될 수 있음
+      // Verify text content
+      // text() function returns DataTemplate, so it's processed in _processChild and included in children
+      // Single text nodes may be collapsed into vnode.text
       const checkText = (vnode: any, expected: string): boolean => {
-        // vnode.text로 collapse된 경우
+        // When collapsed into vnode.text
         if (vnode.text === expected || (typeof vnode.text === 'string' && vnode.text.includes(expected))) {
           return true;
         }
-        // children에 포함된 경우
+        // When included in children
         if (Array.isArray(vnode.children)) {
           return vnode.children.some((ch: any) => {
             if (ch === expected) return true;
             if (typeof ch === 'string' && ch.includes(expected)) return true;
-            // 중첩된 VNode에서도 확인
+            // Also check in nested VNodes
             if (ch && typeof ch === 'object' && ch.text === expected) return true;
             return false;
           });
@@ -161,8 +161,8 @@ describe('VNodeBuilder DSL Functions', () => {
         return false;
       };
       
-      // 각 item의 텍스트가 포함되어 있는지 확인
-      // 단일 텍스트 노드는 text 속성으로 collapse될 수 있음
+      // Verify each item's text is included
+      // Single text nodes may be collapsed into text property
       const hasText1 = checkText(items[0], 'Item 1') || items[0].text === 'Item 1';
       const hasText2 = checkText(items[1], 'Item 2') || items[1].text === 'Item 2';
       const hasText3 = checkText(items[2], 'Item 3') || items[2].text === 'Item 3';
@@ -228,28 +228,28 @@ describe('VNodeBuilder DSL Functions', () => {
       const vnode = builder.build('sid-list', model);
       const items = vnode.children as any[];
       
-      // each()로 생성된 VNode는 일반 element이므로 stype가 없음
-      // 따라서 sid는 옵션으로 전달되지만, stype가 없으면 sid도 설정되지 않을 수 있음
-      // 실제로는 each()의 item이 component가 아닌 일반 element이므로 sid가 필요하지 않을 수 있음
-      // 하지만 옵션으로 전달된 sid는 확인 가능해야 함
-      // attrs에는 data-bc-sid가 없어야 함 (Reconciler에서 추가)
+      // VNodes created by each() are regular elements, so they have no stype
+      // Therefore sid is passed as an option, but if stype is missing, sid may also not be set
+      // Actually, since each() items are regular elements, not components, sid may not be needed
+      // But sid passed as an option should be verifiable
+      // attrs should not have data-bc-sid (added by Reconciler)
       expect(items[0].attrs?.['data-bc-sid']).toBeUndefined();
       expect(items[1].attrs?.['data-bc-sid']).toBeUndefined();
       
-      // 각 item의 sid는 VNode에 직접 포함되지 않을 수 있음 (일반 element이므로)
-      // 하지만 옵션으로 전달된 sid는 확인 가능해야 함
-      // 실제로는 _buildElement에서 sid 옵션이 전달되지만, stype가 없으면 설정되지 않을 수 있음
-      // 이는 정상 동작이며, component가 아닌 일반 element에는 sid가 필요하지 않음
+      // Each item's sid may not be directly included in VNode (since it's a regular element)
+      // But sid passed as an option should be verifiable
+      // Actually, sid option is passed in _buildElement, but may not be set if stype is missing
+      // This is normal behavior, and regular elements (not components) don't need sid
     });
 
     it('should handle nested each() with item as data context', () => {
-      // 중첩된 each()는 바깥쪽 each의 item을 데이터로 사용
-      // 이 경우 각 row를 데이터로 사용하여 cells를 처리
+      // Nested each() uses the outer each's item as data
+      // In this case, each row is used as data to process cells
       define('nested-list', element('div', {}, [
         each('rows', (row: any) => 
           element('div', { className: 'row' }, [
-            // row 객체를 데이터로 사용하여 cells 배열에 접근
-            // 실제로는 each() 내부에서 row 객체의 속성에 직접 접근
+            // Use row object as data to access cells array
+            // Actually, inside each(), row object's properties are accessed directly
             each('cells', (cell: any) => 
               element('span', { className: 'cell' }, [text(cell.value)])
             )
@@ -275,11 +275,11 @@ describe('VNodeBuilder DSL Functions', () => {
       const firstRow = rows[0];
       expect(firstRow.tag).toBe('div');
       expect(firstRow.attrs?.className).toBe('row');
-      // cells 배열이 처리되어야 함
-      // 주의: each() 내부에서 each('cells')는 row.cells를 찾지 못할 수 있음
-      // 이는 각 row 객체가 데이터로 전달되지만, each('cells')는 data['cells']를 찾기 때문
-      // 실제로는 row 객체 자체가 데이터로 전달되므로 row.cells가 아니라 cells를 찾음
-      // 따라서 이 테스트는 실제 동작을 확인하기 위해 수정 필요
+      // cells array should be processed
+      // Note: Inside each(), each('cells') may not find row.cells
+      // This is because each row object is passed as data, but each('cells') looks for data['cells']
+      // Actually, the row object itself is passed as data, so it looks for cells, not row.cells
+      // Therefore, this test needs modification to verify actual behavior
       if (firstRow.children && Array.isArray(firstRow.children) && firstRow.children.length > 0) {
         const firstCell = (firstRow.children as any[])[0];
         if (firstCell && typeof firstCell === 'object' && firstCell.tag) {
@@ -327,7 +327,7 @@ describe('VNodeBuilder DSL Functions', () => {
       const items = vnode.children as any[];
       
       expect(items.length).toBe(3);
-      // visible이 true인 항목만 렌더링되어야 함
+      // Only items with visible=true should be rendered
       const visibleItems = items.filter((item: any) => 
         item.children?.some((c: any) => c?.attrs?.className === 'visible')
       );

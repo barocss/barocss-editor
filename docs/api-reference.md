@@ -4,25 +4,25 @@
 
 ### portal(target, template, portalId?)
 
-Portal을 생성하는 DSL 함수입니다. 지정된 DOM 컨테이너에 템플릿을 렌더링하며, 여러 Portal이 같은 target을 공유할 수 있도록 독립적인 컨테이너를 생성합니다.
+A DSL function that creates a Portal. Renders a template to a specified DOM container and creates independent containers so multiple Portals can share the same target.
 
-**매개변수:**
-- `target: HTMLElement` - Portal이 렌더링될 DOM 컨테이너
-- `template: RenderTemplate` - Portal에 렌더링할 템플릿
-- `portalId?: string` - 선택적 Portal 고유 식별자 (자동 생성됨)
+**Parameters:**
+- `target: HTMLElement` - DOM container where Portal will be rendered
+- `template: RenderTemplate` - Template to render in Portal
+- `portalId?: string` - Optional Portal unique identifier (auto-generated)
 
-**반환값:**
-- `PortalTemplate` - Portal 템플릿 객체
+**Returns:**
+- `PortalTemplate` - Portal template object
 
-**특징:**
-- **독립적 컨테이너**: 각 Portal은 고유한 컨테이너를 가져 서로 간섭하지 않음
-- **기존 DOM 보존**: Portal target의 기존 내용을 건드리지 않음
-- **상태 보존**: Portal 업데이트 시 DOM 상태(포커스, 스크롤 등) 보존
-- **성능 최적화**: reconcile 알고리즘을 사용한 효율적인 업데이트
+**Features:**
+- **Independent Container**: Each Portal has its own container and doesn't interfere with others
+- **Preserve Existing DOM**: Doesn't touch existing content of Portal target
+- **State Preservation**: Preserves DOM state (focus, scroll, etc.) on Portal update
+- **Performance Optimization**: Efficient updates using reconcile algorithm
 
-**예시:**
+**Examples:**
 ```typescript
-// 기본 사용법
+// Basic usage
 const tooltip = portal(document.body, element('div', {
   className: 'tooltip',
   style: {
@@ -32,7 +32,7 @@ const tooltip = portal(document.body, element('div', {
   }
 }, [text('Tooltip content')]), 'tooltip-portal');
 
-// 상태와 연동
+// Integration with state
 defineDecorator('comment', (ctx) => {
   ctx.initState('showTooltip', false);
   
@@ -53,12 +53,12 @@ defineDecorator('comment', (ctx) => {
   ]);
 });
 
-// 여러 Portal이 같은 target 공유
+// Multiple Portals sharing same target
 define('multi-portal-component', (props, ctx) => {
   return element('div', [
     text('Main App'),
     
-    // 각 Portal에 고유 ID 지정
+    // Assign unique ID to each Portal
     portal(document.body, element('div', { 
       className: 'notification',
       style: { position: 'fixed', top: '10px', right: '10px' }
@@ -76,7 +76,7 @@ define('multi-portal-component', (props, ctx) => {
   ]);
 });
 
-// 조건부 Portal
+// Conditional Portal
 define('conditional-portal-component', (props, ctx) => {
   return element('div', {}, [
     text('Main content'),
@@ -93,7 +93,7 @@ define('conditional-portal-component', (props, ctx) => {
   ]);
 });
 
-// 데이터 바인딩 Portal
+// Data binding Portal
 define('data-bound-portal-component', (props, ctx) => {
   return element('div', {}, [
     portal(
@@ -111,7 +111,7 @@ define('data-bound-portal-component', (props, ctx) => {
   ]);
 });
 
-// 중첩 컴포넌트 Portal
+// Nested component Portal
 define('portal-child', (props, ctx) => {
   return element('div', { 
     'data-testid': 'portal-child',
@@ -133,21 +133,21 @@ define('portal-parent', (props, ctx) => {
 });
 ```
 
-## 상태 관리 API
+## State Management API
 
 ### ComponentContext
 
-컴포넌트와 데코레이터에서 사용할 수 있는 상태 관리 Context입니다.
+A state management Context that can be used in components and decorators.
 
 #### initState(key, value)
 
-상태를 초기화합니다.
+Initializes state.
 
-**매개변수:**
-- `key: string` - 상태 키
-- `value: any` - 초기값
+**Parameters:**
+- `key: string` - State key
+- `value: any` - Initial value
 
-**예시:**
+**Example:**
 ```typescript
 define('my-component', (ctx) => {
   ctx.initState('count', 0);
@@ -159,15 +159,15 @@ define('my-component', (ctx) => {
 
 #### getState(key)
 
-상태 값을 가져옵니다.
+Gets state value.
 
-**매개변수:**
-- `key: string` - 상태 키
+**Parameters:**
+- `key: string` - State key
 
-**반환값:**
-- `any` - 상태 값
+**Returns:**
+- `any` - State value
 
-**예시:**
+**Example:**
 ```typescript
 const count = ctx.getState('count');
 const showModal = ctx.getState('showModal');
@@ -175,13 +175,13 @@ const showModal = ctx.getState('showModal');
 
 #### setState(key, value)
 
-상태 값을 설정합니다.
+Sets state value.
 
-**매개변수:**
-- `key: string` - 상태 키
-- `value: any` - 새로운 값
+**Parameters:**
+- `key: string` - State key
+- `value: any` - New value
 
-**예시:**
+**Example:**
 ```typescript
 ctx.setState('count', 5);
 ctx.setState('showModal', true);
@@ -189,62 +189,62 @@ ctx.setState('showModal', true);
 
 #### toggleState(key)
 
-상태 값을 토글합니다.
+Toggles state value.
 
-**매개변수:**
-- `key: string` - 상태 키
+**Parameters:**
+- `key: string` - State key
 
-**예시:**
+**Example:**
 ```typescript
 ctx.toggleState('showModal'); // true -> false, false -> true
 ```
 
-## 템플릿 시스템 API
+## Template System API
 
 ### isDSLTemplate(obj)
 
-DSL 템플릿 객체와 일반 HTML 속성 객체를 구분합니다.
+Distinguishes DSL template objects from regular HTML attribute objects.
 
-**매개변수:**
-- `obj: any` - 검사할 객체
+**Parameters:**
+- `obj: any` - Object to check
 
-**반환값:**
-- `boolean` - DSL 템플릿 객체이면 `true`, 그렇지 않으면 `false`
+**Returns:**
+- `boolean` - `true` if DSL template object, `false` otherwise
 
-**예시:**
+**Example:**
 ```typescript
-// DSL 템플릿 객체 (true 반환)
+// DSL template objects (returns true)
 isDSLTemplate(text('Hello'))           // true
 isDSLTemplate(data('name'))            // true
 isDSLTemplate(element('div'))          // true
 isDSLTemplate(component('button'))     // true
 isDSLTemplate(when(true, text('ok')))  // true
 
-// 일반 객체 (false 반환)
-isDSLTemplate({ type: 'text', placeholder: 'Enter text' })  // false - HTML input 속성
-isDSLTemplate({ className: 'btn', disabled: true })        // false - HTML 요소 속성
-isDSLTemplate({ href: '#home', target: '_blank' })         // false - HTML 링크 속성
+// Regular objects (returns false)
+isDSLTemplate({ type: 'text', placeholder: 'Enter text' })  // false - HTML input attributes
+isDSLTemplate({ className: 'btn', disabled: true })        // false - HTML element attributes
+isDSLTemplate({ href: '#home', target: '_blank' })         // false - HTML link attributes
 ```
 
-**용도:**
-- `element()` 함수 내부에서 매개변수 해석 시 사용
-- DSL 템플릿 객체는 자식으로 처리
-- HTML 속성 객체는 속성으로 처리
+**Use cases:**
+- Used when interpreting parameters inside `element()` function
+- DSL template objects are processed as children
+- HTML attribute objects are processed as attributes
 
 ### define(name, template)
 
-컴포넌트를 정의합니다.
+Defines a component.
 
-**매개변수:**
-- `name: string` - 컴포넌트 이름
-- `template: RenderTemplate | Function` - 템플릿 또는 템플릿 함수
+**Parameters:**
+- `name: string` - Component name
+- `template: RenderTemplate | Function` - Template or template function
 
-**예시:**
+**Example:**
 ```typescript
-// 정적 템플릿
+// Static template
 define('button', element('button', { className: 'btn' }, [text('Click me')]));
 
-// 동적 템플릿 (상태 관리)
+// Dynamic template (state management)
 define('counter', (props, context) => {
   context.initState('count', 0);
   
@@ -256,14 +256,14 @@ define('counter', (props, context) => {
   ]);
 });
 
-// 함수형 컴포넌트 (전체 데이터 접근)
+// Function-based component (full data access)
 define('bTable', (props, context) => {
-  // props에는 전체 모델 데이터가 포함됨
+  // props contains full model data
   return element('table', { className: 'table' }, [
-    // 중첩된 속성에 접근 가능
+    // Can access nested properties
     ...(props?.attributes?.caption ? [
       element('caption', { className: 'table-caption' }, [
-        data('attributes.caption') // props.attributes.caption에 접근
+        data('attributes.caption') // Access props.attributes.caption
       ])
     ] : []),
     slot('content')
@@ -271,78 +271,78 @@ define('bTable', (props, context) => {
 });
 ```
 
-**템플릿 타입:**
-- **ElementTemplate** (자동 변환): 상태 없는 순수 템플릿 - `define()`에 전달 시 자동으로 `ComponentTemplate`으로 변환됨 (`(props, ctx) => ElementTemplate`)
-- **ContextualComponent**: `(props, context)` 매개변수를 가진 상태 관리 함수 - 명시적으로 함수로 정의
-- **Function-based Component**: 전체 모델 데이터에 접근하고 `data()` DSL로 중첩 속성을 사용할 수 있는 함수
-- **ExternalComponent**: 외부 라이브러리 통합을 위한 `mount`, `update`, `unmount` 메서드를 가진 객체
+**Template Types:**
+- **ElementTemplate** (automatic conversion): Stateless pure template - Automatically converted to `ComponentTemplate` when passed to `define()` (`(props, ctx) => ElementTemplate`)
+- **ContextualComponent**: State management function with `(props, context)` parameters - Explicitly defined as function
+- **Function-based Component**: Function that can access full model data and use nested properties with `data()` DSL
+- **ExternalComponent**: Object with `mount`, `update`, `unmount` methods for external library integration
 
-**중요**: `define()` 함수는 모든 템플릿을 자동으로 컴포넌트로 변환합니다:
+**Important**: The `define()` function automatically converts all templates to components:
 ```typescript
-// ElementTemplate (자동 변환)
+// ElementTemplate (automatic conversion)
 define('card', element('div', { className: 'card' }))
-// 내부적으로는: define('card', (props, ctx) => element('div', { className: 'card' }))
+// Internally: define('card', (props, ctx) => element('div', { className: 'card' }))
 ```
 
 ### defineMark(type, template)
 
-텍스트 마크를 정의합니다. 마크는 텍스트에 서식을 적용하기 위한 기능입니다.
+Defines a text mark. Marks are features for applying formatting to text.
 
-**중요**: `defineMark()`는 내부적으로 `define()`을 사용하므로 모든 마크 템플릿이 자동으로 컴포넌트로 변환됩니다.
+**Important**: `defineMark()` internally uses `define()`, so all mark templates are automatically converted to components.
 
-**매개변수:**
-- `type: string` - 마크 타입 (예: 'bold', 'italic', 'underline')
-- `template: RenderTemplate` - 마크가 적용될 때 렌더링할 템플릿
+**Parameters:**
+- `type: string` - Mark type (e.g., 'bold', 'italic', 'underline')
+- `template: RenderTemplate` - Template to render when mark is applied
 
-**반환값:**
-- `RendererDefinition` - 마크 정의 객체
+**Returns:**
+- `RendererDefinition` - Mark definition object
 
-**예시:**
+**Example:**
 ```typescript
-// 기본 마크 정의
+// Basic mark definitions
 defineMark('bold', element('strong', [data('text')]));
 defineMark('italic', element('em', [data('text')]));
 defineMark('underline', element('u', [data('text')]));
 defineMark('code', element('code', [data('text')]));
 
-// 사용법
+// Usage
 const model = {
   type: 'text',
   text: 'Hello World',
   marks: [
-    { type: 'bold', range: [0, 5] },      // "Hello"를 <strong>으로
-    { type: 'italic', range: [6, 11] }    // "World"를 <em>으로
+    { type: 'bold', range: [0, 5] },      // "Hello" as <strong>
+    { type: 'italic', range: [6, 11] }    // "World" as <em>
   ]
 };
 
-// 렌더링 결과: <strong>Hello</strong> <em>World</em>
+// Rendering result: <strong>Hello</strong> <em>World</em>
 ```
 
-**마크 시스템 특징:**
-- 마크는 `marks` 속성으로 텍스트에 적용됩니다
-- `range: [start, end]` 형태로 적용 범위를 지정합니다
-- 여러 마크가 겹칠 수 있습니다
-- 마크는 자동으로 적절한 HTML 요소로 래핑됩니다
+**Mark System Features:**
+- Marks are applied to text via `marks` attribute
+- Apply range specified as `range: [start, end]` format
+- Multiple marks can overlap
+- Marks are automatically wrapped in appropriate HTML elements
 
 ### defineDecorator(name, template)
 
-데코레이터를 정의합니다.
+Defines a decorator.
 
-**중요**: `defineDecorator()`는 내부적으로 `define()`을 사용하므로 모든 데코레이터 템플릿이 자동으로 컴포넌트로 변환됩니다. 또한 `data-decorator="true"` 속성이 자동으로 추가됩니다.
+**Important**: `defineDecorator()` internally uses `define()`, so all decorator templates are automatically converted to components. Also, `data-decorator="true"` attribute is automatically added.
 
-**매개변수:**
-- `name: string` - 데코레이터 이름
-- `template: RenderTemplate | Function` - 템플릿 또는 템플릿 함수
+**Parameters:**
+- `name: string` - Decorator name
+- `template: RenderTemplate | Function` - Template or template function
 
-**예시:**
+**Example:**
 ```typescript
-// 정적 데코레이터
+// Static decorator
 defineDecorator('highlight', element('div', {
   className: 'highlight',
   style: { backgroundColor: 'yellow' }
 }, [text(' ')]));
 
-// 동적 데코레이터
+// Dynamic decorator
 defineDecorator('comment', (ctx) => {
   ctx.initState('showTooltip', false);
   
@@ -365,17 +365,17 @@ defineDecorator('comment', (ctx) => {
 
 ### element(tag, attributes?, children?)
 
-HTML 요소를 생성합니다. 동적 속성과 함수 자식을 지원합니다.
+Creates an HTML element. Supports dynamic attributes and function children.
 
-**매개변수:**
-- `tag: string | Function` - HTML 태그 또는 동적 태그 함수
-- `attributes?: ElementAttributes | Function` - 요소 속성 또는 동적 속성 함수 (선택사항)
-- `children?: ElementChild[]` - 자식 요소들 (선택사항)
+**Parameters:**
+- `tag: string | Function` - HTML tag or dynamic tag function
+- `attributes?: ElementAttributes | Function` - Element attributes or dynamic attribute function (optional)
+- `children?: ElementChild[]` - Child elements (optional)
 
-**반환값:**
-- `ElementTemplate` - 요소 템플릿
+**Returns:**
+- `ElementTemplate` - Element template
 
-**ElementChild 타입:**
+**ElementChild Type:**
 ```typescript
 type ElementChild = 
   | string 
@@ -386,30 +386,30 @@ type ElementChild =
   | ConditionalTemplate 
   | ComponentTemplate 
   | PortalTemplate 
-  | ((data: any) => ElementChild)  // 함수 자식
+  | ((data: any) => ElementChild)  // Function child
   | ElementChild[]
 ```
 
-**예시:**
+**Example:**
 ```typescript
-// 기본 요소
+// Basic element
 element('div', { className: 'container' }, [text('Hello')]);
 
-// 동적 태그
+// Dynamic tag
 element((model) => `h${model.level}`, { className: 'heading' }, [text('Title')]);
 
-// 동적 속성 (함수)
+// Dynamic attributes (function)
 element('div', {
   className: (d) => d.active ? 'active' : 'inactive',
   style: (d) => ({ color: d.color || 'black' })
 }, [text('Dynamic content')]);
 
-// 함수 자식
+// Function child
 element('li', { className: 'feature' }, [
   (d) => d.name + (d.enabled ? ' ✓' : '')
 ]);
 
-// 혼합 콘텐츠 (텍스트 + 함수 자식)
+// Mixed content (text + function child)
 element('div', { className: 'header' }, [
   text('Title: '),
   (d) => d.title,
@@ -417,20 +417,20 @@ element('div', { className: 'header' }, [
   (d) => d.author
 ]);
 
-// 배열 반환 함수 자식 (each 대체)
+// Array-returning function child (replacement for each)
 element('ul', { className: 'list' }, [
   (d) => d.items.map(item => 
     element('li', { className: 'item' }, [text(item.name)])
   )
 ]);
 
-// 이벤트 핸들러
+// Event handlers
 element('button', {
   onClick: (e) => console.log('clicked'),
   onMouseEnter: (e) => console.log('hovered')
 }, [text('Click me')]);
 
-// 스타일
+// Styles
 element('div', {
   style: {
     position: 'fixed',
@@ -442,26 +442,26 @@ element('div', {
 }, [text('Fixed element')]);
 ```
 
-**함수 자식 특징:**
-- 함수는 현재 데이터 컨텍스트를 매개변수로 받습니다
-- 문자열, 숫자, 템플릿 객체, 배열을 반환할 수 있습니다
-- 배열을 반환하면 각 항목이 개별 VNode로 처리됩니다
+**Function Child Features:**
+- Function receives current data context as parameter
+- Can return string, number, template object, or array
+- If array is returned, each item is processed as individual VNode
 
-**함수 속성 특징:**
-- 함수는 현재 데이터 컨텍스트를 매개변수로 받습니다
-- 속성 값(문자열, 숫자, 객체 등)을 반환해야 합니다
+**Function Attribute Features:**
+- Function receives current data context as parameter
+- Must return attribute value (string, number, object, etc.)
 
 ### text(content)
 
-텍스트 노드를 생성합니다.
+Creates a text node.
 
-**매개변수:**
-- `content: string | number` - 텍스트 내용
+**Parameters:**
+- `content: string | number` - Text content
 
-**반환값:**
-- `TextTemplate` - 텍스트 템플릿
+**Returns:**
+- `TextTemplate` - Text template
 
-**예시:**
+**Example:**
 ```typescript
 text('Hello World');
 text(42);
@@ -470,16 +470,16 @@ text(data('user.name', 'Unknown'));
 
 ### data(path, defaultValue?)
 
-데이터 바인딩을 생성합니다.
+Creates data binding.
 
-**매개변수:**
-- `path: string` - 데이터 경로
-- `defaultValue?: any` - 기본값 (선택사항)
+**Parameters:**
+- `path: string` - Data path
+- `defaultValue?: any` - Default value (optional)
 
-**반환값:**
-- `DataTemplate` - 데이터 템플릿
+**Returns:**
+- `DataTemplate` - Data template
 
-**예시:**
+**Example:**
 ```typescript
 data('user.name', 'Unknown');
 data('count');
@@ -490,33 +490,33 @@ data('settings.theme', 'light');
 
 ### ExternalComponent Interface
 
-외부 라이브러리와 통합하기 위한 컴포넌트 인터페이스입니다.
+Component interface for integrating with external libraries.
 
-**인터페이스:**
+**Interface:**
 ```typescript
 interface ExternalComponent {
-  // 템플릿 함수 (registerContextComponent에서 사용)
+  // Template function (used in registerContextComponent)
   template?: ContextualComponent;
   
-  // 컴포넌트 마운트 (DOM에 추가) - 상태 관리를 위해 context 선택적 제공
+  // Component mount (add to DOM) - context optionally provided for state management
   mount(container: HTMLElement, props: Record<string, any>, id: string, context?: ComponentContext): HTMLElement;
   
-  // 컴포넌트 업데이트 (props 변경) - instance.state를 통한 읽기 전용 상태 접근
+  // Component update (props change) - read-only state access via instance.state
   update?(instance: ComponentInstance, prevProps: Record<string, any>, nextProps: Record<string, any>): void;
   
-  // 컴포넌트 언마운트 (DOM에서 제거) - 정리를 위해 context 선택적 제공
+  // Component unmount (remove from DOM) - context optionally provided for cleanup
   unmount(instance: ComponentInstance, context?: ComponentContext): void;
   
-  // 컴포넌트가 DOM을 직접 관리하는지 여부
+  // Whether component directly manages DOM
   managesDOM?: boolean;
 }
 ```
 
-### DOM 생성 방식
+### DOM Creation Methods
 
-ExternalComponent는 **3가지 방식**으로 DOM을 생성할 수 있습니다:
+ExternalComponent can create DOM in **3 ways**:
 
-#### 1. DOM API 방식
+#### 1. DOM API Method
 ```typescript
 const TraditionalComponent: ExternalComponent = {
   mount: (container, props, id) => {
@@ -536,7 +536,7 @@ const TraditionalComponent: ExternalComponent = {
 };
 ```
 
-#### 2. innerHTML 방식
+#### 2. innerHTML Method
 ```typescript
 const InnerHTMLComponent: ExternalComponent = {
   mount: (container, props, id) => {
@@ -554,17 +554,17 @@ const InnerHTMLComponent: ExternalComponent = {
 };
 ```
 
-#### 3. DSL 방식
+#### 3. DSL Method
 ```typescript
 const DSLComponent: ExternalComponent = {
   mount: (container, props, id) => {
-    // DSL을 사용한 선언적 DOM 생성
+    // Declarative DOM creation using DSL
     const template = element('div', { className: 'counter' }, [
       element('span', { className: 'count' }, [text(`${props.count || 0}`)]),
       element('button', { className: 'increment' }, [text('+')])
     ]);
     
-    // DSL을 DOM으로 변환
+    // Convert DSL to DOM
     const builder = new VNodeBuilder(registry);
     const vnode = builder.buildFromElementTemplate(template, props);
     const div = vnodeToDOM(vnode, container);
@@ -575,18 +575,18 @@ const DSLComponent: ExternalComponent = {
 };
 ```
 
-### 방식별 비교
+### Method Comparison
 
-| 방식 | 장점 | 단점 | 사용 시기 |
+| Method | Advantages | Disadvantages | When to Use |
 |------|------|------|-----------|
-| **DOM API** | 세밀한 제어, 성능 최적화 | 코드가 길고 복잡 | 복잡한 DOM 조작이 필요한 경우 |
-| **innerHTML** | 간단하고 빠름, HTML 친화적 | XSS 위험, 타입 안전성 부족 | 빠른 프로토타이핑, 단순한 구조 |
-| **DSL** | 타입 안전, 일관성, 선언적 | 학습 곡선, 약간의 오버헤드 | 복잡한 UI, 유지보수성 중시 |
+| **DOM API** | Fine-grained control, performance optimization | Long and complex code | When complex DOM manipulation is needed |
+| **innerHTML** | Simple and fast, HTML-friendly | XSS risk, lack of type safety | Rapid prototyping, simple structure |
+| **DSL** | Type safe, consistent, declarative | Learning curve, slight overhead | Complex UI, maintainability priority |
 
-### 사용 예시
+### Usage Example
 
 ```typescript
-// DSL을 사용한 카운터 컴포넌트
+// Counter component using DSL
 const DSLCounter: ExternalComponent = {
   mount: (container, props, id) => {
     const template = element('div', { className: 'dsl-counter' }, [
@@ -599,7 +599,7 @@ const DSLCounter: ExternalComponent = {
     const vnode = builder.buildFromElementTemplate(template, props);
     const div = vnodeToDOM(vnode, container);
     
-    // 이벤트 리스너 추가
+    // Add event listeners
     let count = props.initialCount || 0;
     const incrementBtn = div.querySelector('.increment')!;
     const decrementBtn = div.querySelector('.decrement')!;
@@ -631,15 +631,15 @@ const DSLCounter: ExternalComponent = {
   }
 };
 
-// 컴포넌트 등록
+// Component registration
 registry.register(define('dsl-counter', DSLCounter));
 ```
 
-## Portal 컨테이너 관리 API
+## Portal Container Management API
 
-### Portal 컨테이너 구조
+### Portal Container Structure
 
-Portal 시스템은 각 Portal에 대해 독립적인 컨테이너를 생성합니다:
+The Portal system creates independent containers for each Portal:
 
 ```html
 <!-- Target element with existing content -->
@@ -657,21 +657,21 @@ Portal 시스템은 각 Portal에 대해 독립적인 컨테이너를 생성합�
 </div>
 ```
 
-### Portal 컨테이너 속성
+### Portal Container Attributes
 
-- `data-portal`: Portal의 고유 식별자
-- `data-portal-container="true"`: Portal 컨테이너임을 나타내는 마커
-- `style="position: relative"`: Portal 콘텐츠의 위치 기준점
+- `data-portal`: Portal's unique identifier
+- `data-portal-container="true"`: Marker indicating Portal container
+- `style="position: relative"`: Position reference point for Portal content
 
-### Portal 컨테이너 관리 함수
+### Portal Container Management Functions
 
 ```typescript
-// Portal 컨테이너 찾기
+// Find Portal container
 function findPortalContainer(target: HTMLElement, portalId: string): HTMLElement | null {
   return target.querySelector(`[data-portal="${portalId}"]`);
 }
 
-// Portal 컨테이너 생성
+// Create Portal container
 function createPortalContainer(portalId: string, target: HTMLElement): HTMLElement {
   const container = document.createElement('div');
   container.setAttribute('data-portal', portalId);
@@ -681,7 +681,7 @@ function createPortalContainer(portalId: string, target: HTMLElement): HTMLEleme
   return container;
 }
 
-// Portal 컨테이너 제거
+// Remove Portal container
 function removePortalContainer(portalId: string, target: HTMLElement): void {
   const container = target.querySelector(`[data-portal="${portalId}"]`);
   if (container) {
@@ -690,17 +690,17 @@ function removePortalContainer(portalId: string, target: HTMLElement): void {
 }
 ```
 
-## Portal 성능 최적화 API
+## Portal Performance Optimization API
 
-### Portal 업데이트 최적화
+### Portal Update Optimization
 
-Portal 시스템은 다음과 같은 성능 최적화를 제공합니다:
+The Portal system provides the following performance optimizations:
 
 ```typescript
-// Portal ID 기반 컨테이너 재사용
+// Container reuse based on Portal ID
 define('optimized-portal', (props, ctx) => {
   return element('div', [
-    // 고정된 Portal ID로 컨테이너 재사용
+    // Reuse container with fixed Portal ID
     portal(document.body, element('div', {
       className: 'optimized-portal',
       style: { position: 'fixed' }
@@ -708,7 +708,7 @@ define('optimized-portal', (props, ctx) => {
   ]);
 });
 
-// 조건부 Portal로 불필요한 렌더링 방지
+// Prevent unnecessary rendering with conditional Portal
 define('conditional-optimized-portal', (props, ctx) => {
   return element('div', [
     when(props.showPortal,
@@ -720,12 +720,12 @@ define('conditional-optimized-portal', (props, ctx) => {
 });
 ```
 
-### Portal 상태 보존
+### Portal State Preservation
 
-Portal 업데이트 시 DOM 상태를 보존합니다:
+Preserves DOM state on Portal update:
 
 ```typescript
-// 입력 필드가 있는 Portal - 포커스 상태 보존
+// Portal with input field - preserves focus state
 define('form-portal', (props, ctx) => {
   return element('div', [
     portal(document.body, element('div', {
@@ -735,7 +735,7 @@ define('form-portal', (props, ctx) => {
       element('input', { 
         type: 'text',
         placeholder: 'Enter text...',
-        // 포커스 상태가 Portal 업데이트 시 보존됨
+        // Focus state is preserved on Portal update
       }),
       element('button', [text('Submit')])
     ]), 'form-portal-id')
@@ -743,10 +743,10 @@ define('form-portal', (props, ctx) => {
 });
 ```
 
-### Portal 메모리 관리
+### Portal Memory Management
 
 ```typescript
-// Portal 정리 함수
+// Portal cleanup function
 function cleanupPortals(target: HTMLElement): void {
   const portalContainers = target.querySelectorAll('[data-portal-container="true"]');
   portalContainers.forEach(container => {
@@ -754,7 +754,7 @@ function cleanupPortals(target: HTMLElement): void {
   });
 }
 
-// 특정 Portal만 정리
+// Clean up specific Portal only
 function cleanupPortal(portalId: string, target: HTMLElement): void {
   const container = target.querySelector(`[data-portal="${portalId}"]`);
   if (container) {
@@ -763,9 +763,9 @@ function cleanupPortal(portalId: string, target: HTMLElement): void {
 }
 ```
 
-## 관련 문서
+## Related Documents
 
-- [Portal System Specification](portal-system-spec.md) - Portal 시스템 상세 스펙
-- [Decorator Implementation Guide](decorator-implementation-guide.md) - 데코레이터 구현 가이드
-- [Renderer DOM Specification](renderer-dom-spec.md) - 렌더링 시스템 스펙
-- [DSL to JSON Specification](dsl-json-specification.md) - DSL 문법과 JSON 변환 구조 상세 스펙
+- [Portal System Specification](portal-system-spec.md) - Portal system detailed specification
+- [Decorator Implementation Guide](decorator-implementation-guide.md) - Decorator implementation guide
+- [Renderer DOM Specification](renderer-dom-spec.md) - Rendering system specification
+- [DSL to JSON Specification](dsl-json-specification.md) - DSL syntax and JSON conversion structure detailed specification

@@ -36,7 +36,7 @@ describe('createHostElement - 단위 테스트', () => {
 
       const host = createHostElement(parent, decoratorVNode, 0, dom, components);
       
-      // attrs는 updateHostElement에서 설정되므로, 여기서는 attrs를 복사해야 함
+      // attrs are set in updateHostElement, so we need to copy attrs here
       if (decoratorVNode.attrs) {
         dom.updateAttributes(host, undefined, decoratorVNode.attrs);
       }
@@ -46,8 +46,8 @@ describe('createHostElement - 단위 테스트', () => {
       expect(host.getAttribute('data-decorator-sid')).toBe('d-highlight');
       expect(host.getAttribute('data-decorator-stype')).toBe('highlight');
       expect(host.getAttribute('data-decorator-category')).toBe('inline');
-      // createHostElement는 기본 속성만 설정하고, attrs와 style은 updateHostElement에서 설정됨
-      // 따라서 className과 style은 여기서 확인하지 않음
+      // createHostElement only sets basic attributes, attrs and style are set in updateHostElement
+      // Therefore, className and style are not checked here
     });
 
     it('같은 decoratorSid를 가진 여러 VNode로 각각 고유한 DOM 요소를 생성해야 함', () => {
@@ -69,13 +69,13 @@ describe('createHostElement - 단위 테스트', () => {
         }
       };
 
-      // 첫 번째 요소 생성
+      // Create first element
       const host1 = createHostElement(parent, decoratorVNode1, 0, dom, components);
       if (decoratorVNode1.attrs) {
         dom.updateAttributes(host1, undefined, decoratorVNode1.attrs);
       }
       
-      // 두 번째 요소 생성
+      // Create second element
       const host2 = createHostElement(parent, decoratorVNode2, 1, dom, components);
       if (decoratorVNode2.attrs) {
         dom.updateAttributes(host2, undefined, decoratorVNode2.attrs);
@@ -87,7 +87,7 @@ describe('createHostElement - 단위 테스트', () => {
       expect(host1.getAttribute('data-decorator-sid')).toBe('d-highlight');
       expect(host2.getAttribute('data-decorator-sid')).toBe('d-highlight');
       
-      // 각각 다른 DOM 요소여야 함
+      // Should be different DOM elements
       expect(parent.children.length).toBe(2);
       expect(parent.children[0]).toBe(host1);
       expect(parent.children[1]).toBe(host2);

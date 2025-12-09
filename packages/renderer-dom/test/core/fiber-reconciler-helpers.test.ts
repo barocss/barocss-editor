@@ -1,7 +1,7 @@
 /**
- * Fiber Reconciler Helpers 테스트
+ * Fiber Reconciler Helpers Test
  * 
- * reconcileFiberNode에서 분리된 헬퍼 함수들의 단위 테스트
+ * Unit tests for helper functions separated from reconcileFiberNode
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
@@ -73,7 +73,7 @@ describe('Fiber Reconciler Helpers', () => {
 
       transferVNodeIdFromPrev(vnode, prevVNode);
 
-      expect(vnode.sid).toBe('p-2'); // 기존 id 유지
+      expect(vnode.sid).toBe('p-2'); // Keep existing id
     });
 
     it('should not transfer id when stype does not match', () => {
@@ -181,7 +181,7 @@ describe('Fiber Reconciler Helpers', () => {
 
       generateVNodeIdIfNeeded(vnode, fiber, components);
 
-      expect(vnode.sid).toBe('p-1'); // 기존 id 유지
+      expect(vnode.sid).toBe('p-1'); // Keep existing id
     });
 
     it('should not generate sid when vnode has no stype', () => {

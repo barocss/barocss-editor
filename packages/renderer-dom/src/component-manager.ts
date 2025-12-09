@@ -321,7 +321,7 @@ export class ComponentManager implements ComponentStateProvider {
               instance.mounted = true;
       (instance as any).lastRenderedState = { ...(instance.state || {}) };
       
-      // External component 처리
+      // Handle external component
       if (isExternal || typeof component.mount === 'function') {
         // External component with mount function
         // Try multiple mount signatures for compatibility
@@ -464,7 +464,7 @@ export class ComponentManager implements ComponentStateProvider {
     // Fallback to local instances
     const instanceRef = this.componentInstances.get(componentId);
     if (instanceRef) {
-      // mounted 보정: 호스트 엘리먼트가 존재하면 mounted=true로 일관화
+      // mounted correction: if host element exists, set mounted=true for consistency
       if (instanceRef.element && !instanceRef.mounted) {
         instanceRef.mounted = true;
       }
@@ -590,16 +590,16 @@ export class ComponentManager implements ComponentStateProvider {
         return;
       }
       
-      // IMPORTANT: 자동 생성 sid의 경우, stype과 index를 사용하여 instance 찾기
-      // 같은 stype과 index를 가진 컴포넌트는 같은 instance를 공유
-      // nextVNode에 이미 sid가 설정되어 있으면 그대로 사용
+      // IMPORTANT: For auto-generated sid, find instance using stype and index
+      // Components with same stype and index share the same instance
+      // If sid is already set in nextVNode, use it as-is
       let componentId = this.generateComponentId(nextVNode);
       let instanceRef = this.componentInstances.get(componentId);
       
       if (instanceRef) {
         const instance = instanceRef;
         if (instance && instance.mounted && instance.element) {
-          // Debug: updateComponent가 정상적으로 업데이트하는 경우
+          // Debug: when updateComponent updates normally
           logger.debug(LogCategory.COMPONENT, 'updateComponent 정상 업데이트', {
             componentId,
             stype: nextVNode.stype,
@@ -608,7 +608,7 @@ export class ComponentManager implements ComponentStateProvider {
             hasElement: !!instance.element
           });
           try {
-            // Props 분리 (최상위 필드에서 가져옴)
+            // Extract props (from top-level fields)
             const nextRawProps = nextVNode.props || {};
             const nextSanitizedProps = this.sanitizeProps(nextRawProps);
             
@@ -641,7 +641,7 @@ export class ComponentManager implements ComponentStateProvider {
           }
         } else {
           // Instance not mounted, need to mount
-          // Debug: instance가 있지만 mounted가 false이거나 element가 없는 경우
+          // Debug: instance exists but mounted is false or element is missing
           logger.warn(LogCategory.COMPONENT, 'instance가 있지만 mounted가 false이거나 element가 없음, mountComponent 호출', {
             componentId,
             stype: nextVNode.stype,

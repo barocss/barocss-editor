@@ -1,8 +1,8 @@
 /**
- * data('text') 개념 검증 테스트
+ * data('text') Concept Verification Test
  * 
- * 이 테스트는 data('text')가 템플릿의 children에 있을 때,
- * mark와 decorator가 어떻게 처리되는지 확인합니다.
+ * This test verifies how marks and decorators are processed
+ * when data('text') is in the template's children.
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 import { define, element, data, defineDecorator, getGlobalRegistry, text } from '@barocss/dsl';
@@ -48,11 +48,11 @@ describe('data("text") 개념 검증', () => {
     registry = getGlobalRegistry();
     builder = new VNodeBuilder(registry);
 
-    // inline-text 템플릿 정의: element('span', [data('text')])
-    // data('text')는 템플릿의 children에 있음
+    // Define inline-text template: element('span', [data('text')])
+    // data('text') is in template's children
     define('inline-text', element('span', { className: 'text' }, [data('text')]));
     
-    // chip decorator 정의
+    // Define chip decorator
     defineDecorator('chip', element('span', {
       className: 'chip',
       style: {
@@ -68,14 +68,14 @@ describe('data("text") 개념 검증', () => {
 
   describe('템플릿 구조 확인', () => {
     it('should show template structure with data("text")', () => {
-      // 템플릿 구조 확인
+      // Verify template structure
       const component = registry.getComponent('inline-text');
       expect(component).toBeTruthy();
       
-      console.log('\n=== 템플릿 구조 ===');
+      console.log('\n=== Template Structure ===');
       console.log('Template keys:', Object.keys(component || {}));
       
-      // ExternalComponent.template은 ContextualComponent 함수
+      // ExternalComponent.template is a ContextualComponent function
       const templateFn = component?.template;
       expect(typeof templateFn).toBe('function');
       const templateDef = typeof templateFn === 'function'
@@ -91,7 +91,7 @@ describe('data("text") 개념 검증', () => {
         }))
       }, null, 2));
       
-      // data('text')가 children에 있는지 확인
+      // Verify data('text') is in children
       const children = templateDef?.children || [];
       const dataText = children.find((c: any) => 
         (c?.type === 'data' && c?.path === 'text') || 
@@ -117,21 +117,21 @@ describe('data("text") 개념 검증', () => {
         text: 'Hello World'
       };
 
-      // VNode 빌드
+      // Build VNode
       const vnode = builder.build('inline-text', model);
 
-      console.log('\n=== data("text") 처리 결과 ===');
+      console.log('\n=== data("text") Processing Result ===');
       printVNodeStructure(vnode);
 
-      // data('text')가 처리되어 VNode가 생성됨
+      // data('text') is processed and VNode is created
       expect(vnode).toBeTruthy();
       expect(vnode.sid).toBe('text-14');
       expect(vnode.stype).toBe('inline-text');
       expect(vnode.tag).toBe('span');
       
-      // text 필드가 있는 모델은 항상 children으로 변환됨
-      // model.text는 data('text')를 통해 vnode로 변환되어 children으로 들어감
-      expect(vnode.text).toBeUndefined(); // 부모 vnode에는 text가 없어야 함
+      // Models with text field are always converted to children
+      // model.text is converted to vnode through data('text') and enters as children
+      expect(vnode.text).toBeUndefined(); // Parent vnode should not have text
       expect(vnode.children).toHaveLength(1);
       expect(vnode.children![0]).toHaveProperty('text', 'Hello World');
     });
@@ -158,32 +158,32 @@ describe('data("text") 개념 검증', () => {
         }
       ];
 
-      // VNode 빌드
+      // Build VNode
       const vnode = builder.build('inline-text', model, { decorators });
 
-      console.log('\n=== data("text") + decorator 처리 결과 ===');
+      console.log('\n=== data("text") + decorator Processing Result ===');
       printVNodeStructure(vnode);
 
-      // data('text')가 처리되어 decorator와 분할된 텍스트가 children으로 들어감
+      // data('text') is processed and decorator and split text enter as children
       expect(vnode).toBeTruthy();
       expect(vnode.sid).toBe('text-14');
       expect(vnode.stype).toBe('inline-text');
       expect(vnode.tag).toBe('span');
       
-      // decorator가 있으면 children이 생성됨
+      // If decorator exists, children are created
       expect(vnode.children).toBeTruthy();
       expect(Array.isArray(vnode.children)).toBe(true);
       expect(vnode.children.length).toBeGreaterThan(0);
       
-      // children에 decorator VNode와 분할된 텍스트 VNode가 포함됨
-      // 텍스트는 mark wrapper로 감싸져 있을 수 있음
+      // children contains decorator VNode and split text VNode
+      // Text may be wrapped in mark wrapper
       const children = vnode.children as any[];
       expect(children.length).toBe(3);
       expect(children[0].decoratorSid).toBe('chip-before');
-      // children[1]은 mark wrapper일 수 있음: { tag: 'span', children: [{ text: 'Hello' }] }
+      // children[1] may be mark wrapper: { tag: 'span', children: [{ text: 'Hello' }] }
       const text1 = children[1].text || (children[1].children?.[0]?.text);
       expect(text1).toBe('Hello');
-      // children[2]도 mark wrapper일 수 있음
+      // children[2] may also be mark wrapper
       const text2 = children[2].text || (children[2].children?.[0]?.text);
       expect(text2).toBe(' World');
     });
@@ -214,31 +214,31 @@ describe('data("text") 개념 검증', () => {
 
       const vnode = builder.build('inline-text', model, { decorators });
 
-      console.log('\n=== 개념 정리 ===');
-      console.log('1. 템플릿 정의:');
+      console.log('\n=== Concept Summary ===');
+      console.log('1. Template definition:');
       console.log('   define("inline-text", element("span", [data("text")]))');
-      console.log('   → data("text")는 템플릿의 children에 있음');
+      console.log('   → data("text") is in template\'s children');
       console.log('');
-      console.log('2. VNodeBuilder._processChild()에서 data("text") 처리:');
-      console.log('   - child.path === "text"일 때');
-      console.log('   - model.text 값을 가져옴');
-      console.log('   - mark와 decorator가 있으면 _buildMarkedRunsWithDecorators() 호출');
-      console.log('   - 생성된 VNode들을 orderedChildren.push()로 추가');
+      console.log('2. Process data("text") in VNodeBuilder._processChild():');
+      console.log('   - When child.path === "text"');
+      console.log('   - Get model.text value');
+      console.log('   - If marks and decorators exist, call _buildMarkedRunsWithDecorators()');
+      console.log('   - Add generated VNodes via orderedChildren.push()');
       console.log('');
-      console.log('3. VNodeBuilder._buildElement()에서 최종 설정:');
+      console.log('3. Final setup in VNodeBuilder._buildElement():');
       console.log('   - vnode.children = [...orderedChildren]');
-      console.log('   → data("text")에서 생성된 VNode들이 부모 VNode의 children으로 들어감');
+      console.log('   → VNodes generated from data("text") enter as parent VNode\'s children');
       console.log('');
-      console.log('4. 최종 VNode 구조:');
+      console.log('4. Final VNode structure:');
       printVNodeStructure(vnode);
       console.log('');
-      console.log('결론:');
-      console.log('  - data("text")는 템플릿의 children에 있음');
-      console.log('  - 처리되면 생성된 VNode들이 부모 VNode의 children으로 들어감');
-      console.log('  - mark와 decorator가 있으면 분할된 VNode들이 children으로 들어감');
-      console.log('  - 이는 올바른 개념입니다!');
+      console.log('Conclusion:');
+      console.log('  - data("text") is in template\'s children');
+      console.log('  - When processed, generated VNodes enter as parent VNode\'s children');
+      console.log('  - If marks and decorators exist, split VNodes enter as children');
+      console.log('  - This is the correct concept!');
 
-      // 검증
+      // Verification
       expect(vnode.children).toBeTruthy();
       expect(vnode.children.length).toBeGreaterThan(0);
     });

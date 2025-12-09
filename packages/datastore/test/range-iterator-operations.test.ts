@@ -831,7 +831,7 @@ describe('Range Iterator Operations', () => {
       const textNode = dataStore.getAllNodes().find(n => n.stype === 'inline-text')!;
       const range: ModelSelection = { stype: 'range' as const, startNodeId: textNode.sid!, startOffset: 0, endNodeId: textNode.sid!, endOffset: 5 };
       const expanded = dataStore.expandToWord(range);
-      // 양 끝 공백이 없으므로 동일해야 함
+      // Should be identical as there are no leading/trailing spaces
       expect(expanded).toEqual(range);
       const swapped = dataStore.normalizeRange({ stype: 'range' as const, startNodeId: textNode.sid!, startOffset: 5, endNodeId: textNode.sid!, endOffset: 0 });
       expect(swapped).toEqual(range);

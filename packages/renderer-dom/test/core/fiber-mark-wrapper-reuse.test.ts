@@ -41,7 +41,7 @@ describe('Fiber - Mark Wrapper 재사용', () => {
   });
 
   it('findHostForChildVNode가 mark wrapper를 찾을 수 있어야 함', () => {
-    // DOM에 mark wrapper가 이미 있음
+    // Mark wrapper already exists in DOM
     const textEl = document.createElement('span');
     textEl.setAttribute('data-bc-sid', 'text-1');
     textEl.className = 'text';
@@ -53,7 +53,7 @@ describe('Fiber - Mark Wrapper 재사용', () => {
     textEl.appendChild(markWrapper);
     container.appendChild(textEl);
 
-    // VNode: mark wrapper (sid와 decoratorSid가 모두 없음)
+    // VNode: mark wrapper (both sid and decoratorSid are missing)
     const vnode: VNode = {
       tag: 'span',
       attrs: {
@@ -74,7 +74,7 @@ describe('Fiber - Mark Wrapper 재사용', () => {
     const prevChildToElement = new Map<VNode | string | number, HTMLElement | Text>();
     prevChildToElement.set(prevVNode, markWrapper);
 
-    // findHostForChildVNode 호출
+    // Call findHostForChildVNode
     const host = findHostForChildVNode(
       textEl,
       vnode,
@@ -87,7 +87,7 @@ describe('Fiber - Mark Wrapper 재사용', () => {
   });
 
   it('reconcileFiberNode가 mark wrapper를 재사용해야 함', () => {
-    // DOM에 mark wrapper가 이미 있음
+    // Mark wrapper already exists in DOM
     const textEl = document.createElement('span');
     textEl.setAttribute('data-bc-sid', 'text-1');
     textEl.className = 'text';
@@ -99,7 +99,7 @@ describe('Fiber - Mark Wrapper 재사용', () => {
     textEl.appendChild(markWrapper);
     container.appendChild(textEl);
 
-    // VNode: mark wrapper (sid와 decoratorSid가 모두 없음)
+    // VNode: mark wrapper (both sid and decoratorSid are missing)
     const vnode: VNode = {
       tag: 'span',
       attrs: {
@@ -119,22 +119,22 @@ describe('Fiber - Mark Wrapper 재사용', () => {
       }
     };
 
-    // createFiberTree로 Fiber 생성 (primitiveTextChildren이 올바르게 설정됨)
+    // Create Fiber with createFiberTree (primitiveTextChildren is correctly set)
     const fiber = createFiberTree(textEl, vnode, prevVNode, {});
 
-    // reconcileFiberNode 호출
+    // Call reconcileFiberNode
     reconcileFiberNode(fiber, deps, {});
 
-    // processPrimitiveTextChildren 호출 (실제 reconcileWithFiber에서 자동으로 호출됨)
+    // Call processPrimitiveTextChildren (automatically called in actual reconcileWithFiber)
     processPrimitiveTextChildren(fiber, deps);
 
-    // mark wrapper가 재사용되었는지 확인
+    // Verify mark wrapper is reused
     expect(fiber.domElement).toBe(markWrapper);
     expect(markWrapper.textContent).toBe('Hello World');
   });
 
   it('prevVNodeMatches가 false일 때 findHostForChildVNode가 호출되어야 함', () => {
-    // DOM에 mark wrapper가 이미 있음
+    // Mark wrapper already exists in DOM
     const textEl = document.createElement('span');
     textEl.setAttribute('data-bc-sid', 'text-1');
     textEl.className = 'text';
@@ -146,7 +146,7 @@ describe('Fiber - Mark Wrapper 재사용', () => {
     textEl.appendChild(markWrapper);
     container.appendChild(textEl);
 
-    // VNode: mark wrapper (sid와 decoratorSid가 모두 없음)
+    // VNode: mark wrapper (both sid and decoratorSid are missing)
     const vnode: VNode = {
       tag: 'span',
       attrs: {
@@ -166,15 +166,15 @@ describe('Fiber - Mark Wrapper 재사용', () => {
       }
     };
 
-    // prevVNodeMatches 확인
+    // Verify prevVNodeMatches
     const prevVNodeMatches = prevVNode && (
       (prevVNode.sid && prevVNode.sid === vnode.sid) ||
       (prevVNode.decoratorSid && prevVNode.decoratorSid === vnode.decoratorSid)
     );
 
-    expect(prevVNodeMatches).toBeFalsy(); // sid와 decoratorSid가 모두 없으므로 false
+    expect(prevVNodeMatches).toBeFalsy(); // false because both sid and decoratorSid are missing
 
-    // findHostForChildVNode가 호출되어야 함
+    // findHostForChildVNode should be called
     const prevChildVNodes: (VNode | string | number)[] = [prevVNode];
     const prevChildToElement = new Map<VNode | string | number, HTMLElement | Text>();
     prevChildToElement.set(prevVNode, markWrapper);
@@ -209,18 +209,18 @@ describe('Fiber - Mark Wrapper 재사용', () => {
 
     const fiber = createFiberTree(container, vnode, prevVNode, {});
 
-    // primitiveTextChildren이 올바르게 수집되었는지 확인
+    // Verify primitiveTextChildren is correctly collected
     expect(fiber.primitiveTextChildren).toBeDefined();
     expect(fiber.primitiveTextChildren?.length).toBe(1);
     expect(fiber.primitiveTextChildren?.[0].text).toBe('Hello World');
     expect(fiber.primitiveTextChildren?.[0].index).toBe(0);
     
-    // child Fiber는 없어야 함 (primitive text는 Fiber로 변환하지 않음)
+    // Should not have child Fiber (primitive text is not converted to Fiber)
     expect(fiber.child).toBeNull();
   });
 
   it('processPrimitiveTextChildren이 mark wrapper의 텍스트를 업데이트해야 함', () => {
-    // DOM에 mark wrapper가 이미 있음
+    // Mark wrapper already exists in DOM
     const markWrapper = document.createElement('span');
     markWrapper.className = 'mark-bold';
     markWrapper.textContent = 'Hello';
@@ -253,15 +253,15 @@ describe('Fiber - Mark Wrapper 재사용', () => {
       primitiveTextChildren: [{ text: 'Hello World', index: 0 }]
     } as FiberNode;
 
-    // processPrimitiveTextChildren 호출
+    // Call processPrimitiveTextChildren
     processPrimitiveTextChildren(fiber, deps);
 
-    // 텍스트가 업데이트되었는지 확인
+    // Verify text is updated
     expect(markWrapper.textContent).toBe('Hello World');
   });
 
   it('reconcileFiberNode 후 processPrimitiveTextChildren이 호출되어야 함', () => {
-    // DOM에 mark wrapper가 이미 있음
+    // Mark wrapper already exists in DOM
     const textEl = document.createElement('span');
     textEl.setAttribute('data-bc-sid', 'text-1');
     textEl.className = 'text';
@@ -273,7 +273,7 @@ describe('Fiber - Mark Wrapper 재사용', () => {
     textEl.appendChild(markWrapper);
     container.appendChild(textEl);
 
-    // VNode: mark wrapper (sid와 decoratorSid가 모두 없음)
+    // VNode: mark wrapper (both sid and decoratorSid are missing)
     const vnode: VNode = {
       tag: 'span',
       attrs: {
@@ -293,16 +293,16 @@ describe('Fiber - Mark Wrapper 재사용', () => {
       }
     };
 
-    // createFiberTree로 Fiber 생성
+    // Create Fiber with createFiberTree
     const fiber = createFiberTree(textEl, vnode, prevVNode, {});
     
-    // reconcileFiberNode 호출
+    // Call reconcileFiberNode
     reconcileFiberNode(fiber, deps, {});
     
-    // processPrimitiveTextChildren 호출 (실제 reconcileWithFiber에서 자동으로 호출됨)
+    // Call processPrimitiveTextChildren (automatically called in actual reconcileWithFiber)
     processPrimitiveTextChildren(fiber, deps);
 
-    // mark wrapper가 재사용되고 텍스트가 업데이트되었는지 확인
+    // Verify mark wrapper is reused and text is updated
     expect(fiber.domElement).toBe(markWrapper);
     expect(markWrapper.textContent).toBe('Hello World');
   });

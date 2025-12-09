@@ -5,7 +5,7 @@ import { ModelData } from '../../src/types';
 import type { VNodeBuildOptions } from '../../src/vnode/decorator/types';
 import { SidTextNodePool } from '../../src/text-node-pool';
 
-// 타입 정의
+// Type definitions
 interface ModelDataWithAttributes extends ModelData {
   attributes?: {
     className?: string;
@@ -27,13 +27,13 @@ describe('Reconciler Verification Tests', () => {
     
     registry = getGlobalRegistry();
     
-    // 기본 inline-text 렌더러 등록
+    // Register base inline-text renderer
     define('inline-text', element('span', { 
       'data-bc-sid': (data: ModelData) => data.sid || '',
       'data-bc-stype': (data: ModelData) => data.stype || ''
     }, [data('text')]));
     
-    // paragraph 렌더러 등록
+    // Register paragraph renderer
     define('paragraph', element('p', {
       'data-bc-sid': (data: ModelData) => data.sid || '',
       'data-bc-stype': (data: ModelData) => data.stype || '',
@@ -42,7 +42,7 @@ describe('Reconciler Verification Tests', () => {
       style: (data: ModelDataWithAttributes) => data.style || {}
     }, [slot('content')]));
     
-    // document 렌더러 등록
+    // Register document renderer
     define('document', element('div', {
       'data-bc-sid': (data: ModelData) => data.sid || '',
       'data-bc-stype': (data: ModelData) => data.stype || ''
@@ -67,11 +67,11 @@ describe('Reconciler Verification Tests', () => {
         ]
       };
 
-      // 첫 렌더링
+      // First render
       renderer.render(container, model);
       const firstDOM = container.innerHTML;
 
-      // 동일한 모델로 재렌더링
+      // Re-render with same model
       renderer.render(container, model);
       const secondDOM = container.innerHTML;
 
@@ -95,11 +95,11 @@ describe('Reconciler Verification Tests', () => {
         ]
       };
 
-      // 첫 렌더링
+      // First render
       renderer.render(container, model1);
       const firstDOM = container.innerHTML;
 
-      // 텍스트 변경 후 재렌더링
+      // Re-render after text change
       renderer.render(container, model2);
       const secondDOM = container.innerHTML;
 
@@ -118,19 +118,19 @@ describe('Reconciler Verification Tests', () => {
         ]
       };
 
-      // 첫 렌더링
+      // First render
       renderer.render(container, model);
       const textNodesBefore = Array.from(container.querySelectorAll('*'))
         .flatMap(el => Array.from(el.childNodes).filter(n => n.nodeType === 3));
       const textNodeRefsBefore = new Set(textNodesBefore);
 
-      // 동일한 모델로 재렌더링
+      // Re-render with same model
       renderer.render(container, model);
       const textNodesAfter = Array.from(container.querySelectorAll('*'))
         .flatMap(el => Array.from(el.childNodes).filter(n => n.nodeType === 3));
       const textNodeRefsAfter = new Set(textNodesAfter);
 
-      // Text Node가 재사용되었는지 확인
+      // Verify Text Node is reused
       const reused = textNodesAfter.filter(n => textNodeRefsBefore.has(n));
       expect(reused.length).toBeGreaterThan(0);
       expect(textNodesAfter.length).toBe(textNodesBefore.length);
@@ -153,21 +153,21 @@ describe('Reconciler Verification Tests', () => {
         ]
       };
 
-      // 첫 렌더링
+      // First render
       renderer.render(container, model1);
       const textNodesBefore = Array.from(container.querySelectorAll('*'))
         .flatMap(el => Array.from(el.childNodes).filter(n => n.nodeType === 3));
       const textNodeRefsBefore = new Set(textNodesBefore);
 
-      // 텍스트 변경 후 재렌더링
+      // Re-render after text change
       renderer.render(container, model2);
       const textNodesAfter = Array.from(container.querySelectorAll('*'))
         .flatMap(el => Array.from(el.childNodes).filter(n => n.nodeType === 3));
       const textNodeRefsAfter = new Set(textNodesAfter);
 
-      // Text Node가 변경되었는지 확인
+      // Verify Text Node is changed
       const reused = textNodesAfter.filter(n => textNodeRefsBefore.has(n));
-      // 텍스트가 변경되었으므로 재사용된 노드는 없거나, textContent가 업데이트되었을 수 있음
+      // Since text changed, no nodes should be reused, or textContent may have been updated
       expect(container.textContent).toBe('World');
     });
   });
@@ -182,19 +182,19 @@ describe('Reconciler Verification Tests', () => {
         ]
       };
 
-      // 첫 렌더링
+      // First render
       renderer.render(container, model);
       const textNodesBefore = Array.from(container.querySelectorAll('*'))
         .flatMap(el => Array.from(el.childNodes).filter(n => n.nodeType === 3));
       const textContentsBefore = textNodesBefore.map(n => n.textContent);
 
-      // 동일한 모델로 재렌더링
+      // Re-render with same model
       renderer.render(container, model);
       const textNodesAfter = Array.from(container.querySelectorAll('*'))
         .flatMap(el => Array.from(el.childNodes).filter(n => n.nodeType === 3));
       const textContentsAfter = textNodesAfter.map(n => n.textContent);
 
-      // 텍스트 내용이 동일해야 함
+      // Text content should be identical
       expect(textContentsBefore).toEqual(textContentsAfter);
     });
   });
@@ -224,24 +224,24 @@ describe('Reconciler Verification Tests', () => {
         ]
       };
 
-      // 첫 렌더링
+      // First render
       renderer.render(container, model);
       const textNodesBefore = Array.from(container.querySelectorAll('*'))
         .flatMap(el => Array.from(el.childNodes).filter(n => n.nodeType === 3));
       const textNodeRefsBefore = new Set(textNodesBefore);
       const firstDOM = container.innerHTML;
 
-      // 동일한 모델로 재렌더링
+      // Re-render with same model
       renderer.render(container, model);
       const textNodesAfter = Array.from(container.querySelectorAll('*'))
         .flatMap(el => Array.from(el.childNodes).filter(n => n.nodeType === 3));
       const textNodeRefsAfter = new Set(textNodesAfter);
       const secondDOM = container.innerHTML;
 
-      // DOM이 변경되지 않아야 함
+      // DOM should not change
       expect(firstDOM).toBe(secondDOM);
       
-      // Text Node가 재사용되었는지 확인
+      // Verify Text Node is reused
       const reused = textNodesAfter.filter(n => textNodeRefsBefore.has(n));
       expect(reused.length).toBeGreaterThan(0);
     });
@@ -270,26 +270,26 @@ describe('Reconciler Verification Tests', () => {
             sid: 'p-1',
             stype: 'paragraph',
             content: [
-              { sid: 'text-1', stype: 'inline-text', text: 'Hello' }, // 변경 없음
-              { sid: 'text-2', stype: 'inline-text', text: ' Universe' } // 변경됨
+              { sid: 'text-1', stype: 'inline-text', text: 'Hello' }, // No change
+              { sid: 'text-2', stype: 'inline-text', text: ' Universe' } // Changed
             ]
           }
         ]
       };
 
-      // 첫 렌더링
+      // First render
       renderer.render(container, model1);
       const textNodesBefore = Array.from(container.querySelectorAll('*'))
         .flatMap(el => Array.from(el.childNodes).filter(n => n.nodeType === 3));
       const textNodeRefsBefore = new Set(textNodesBefore);
 
-      // 일부 텍스트 변경 후 재렌더링
+      // Re-render after partial text change
       renderer.render(container, model2);
       const textNodesAfter = Array.from(container.querySelectorAll('*'))
         .flatMap(el => Array.from(el.childNodes).filter(n => n.nodeType === 3));
       const textNodeRefsAfter = new Set(textNodesAfter);
 
-      // 최종 텍스트 확인
+      // Verify final text
       expect(container.textContent).toBe('Hello Universe');
     });
   });
@@ -304,7 +304,7 @@ describe('Reconciler Verification Tests', () => {
         ]
       };
 
-      // build 호출 추적
+      // Track build calls
       const buildCallCounts: Map<string, number> = new Map();
       const originalBuild = renderer['builder']['build'].bind(renderer['builder']);
       
@@ -314,22 +314,22 @@ describe('Reconciler Verification Tests', () => {
         return originalBuild(nodeType, data, options);
       });
 
-      // 첫 렌더링
+      // First render
       renderer.render(container, model);
       const firstCallCounts = new Map(buildCallCounts);
       buildCallCounts.clear();
 
-      // 동일한 모델로 재렌더링
+      // Re-render with same model
       renderer.render(container, model);
       const secondCallCounts = new Map(buildCallCounts);
 
-      // 재렌더링 시 build 호출이 최소화되어야 함
+      // Build calls should be minimized on re-render
       // Component update should minimize rebuilds
-      // 최소한 첫 렌더링보다는 적어야 함 (완벽하지 않더라도)
+      // Should be less than first render at minimum (even if not perfect)
       const totalFirst = Array.from(firstCallCounts.values()).reduce((a, b) => a + b, 0);
       const totalSecond = Array.from(secondCallCounts.values()).reduce((a, b) => a + b, 0);
       
-      // 재렌더링 시 build 호출이 첫 렌더링보다 적거나 같아야 함
+      // Build calls on re-render should be less than or equal to first render
       expect(totalSecond).toBeLessThanOrEqual(totalFirst);
     });
   });
@@ -362,7 +362,7 @@ describe('Reconciler Verification Tests', () => {
       const pElement2 = container.querySelector('p');
       const className2 = pElement2?.className || '';
 
-      // className이 변경되었는지 확인
+      // Verify className is changed
       expect(className2).toBe('new-class');
       expect(className1).not.toBe(className2);
     });
@@ -530,7 +530,7 @@ describe('Reconciler Verification Tests', () => {
         ]
       };
 
-      // 빈 텍스트는 정상적으로 렌더링되어야 함
+      // Empty text should be rendered correctly
       renderer.render(container, model);
       const pElement = container.querySelector('p');
       expect(pElement).toBeTruthy();
@@ -552,14 +552,14 @@ describe('Reconciler Verification Tests', () => {
         .flatMap(el => Array.from(el.childNodes).filter(n => n.nodeType === 3));
       const textNodeRefsFirst = new Set(textNodesFirst);
 
-      // 두 번째 렌더링
+      // Second render
       renderer.render(container, model);
       const textNodesSecond = Array.from(container.querySelectorAll('*'))
         .flatMap(el => Array.from(el.childNodes).filter(n => n.nodeType === 3));
       const textNodeRefsSecond = new Set(textNodesSecond);
       const reusedSecond = textNodesSecond.filter(n => textNodeRefsFirst.has(n));
 
-      // 세 번째 렌더링
+      // Third render
       renderer.render(container, model);
       const textNodesThird = Array.from(container.querySelectorAll('*'))
         .flatMap(el => Array.from(el.childNodes).filter(n => n.nodeType === 3));
@@ -598,9 +598,9 @@ describe('Reconciler Verification Tests', () => {
             sid: 'p-1',
             stype: 'paragraph',
             content: [
-              { sid: 'text-1', stype: 'inline-text', text: 'A' }, // 변경 없음
-              { sid: 'text-2', stype: 'inline-text', text: 'X' }, // 변경됨
-              { sid: 'text-3', stype: 'inline-text', text: 'C' }  // 변경 없음
+              { sid: 'text-1', stype: 'inline-text', text: 'A' }, // No change
+              { sid: 'text-2', stype: 'inline-text', text: 'X' }, // Changed
+              { sid: 'text-3', stype: 'inline-text', text: 'C' }  // No change
             ]
           }
         ]
@@ -616,7 +616,7 @@ describe('Reconciler Verification Tests', () => {
         .flatMap(el => Array.from(el.childNodes).filter(n => n.nodeType === 3));
       const textNodeRefsAfter = new Set(textNodesAfter);
 
-      // 일부 Text Node는 재사용되어야 함
+      // Some Text Nodes should be reused
       const reused = textNodesAfter.filter(n => textNodeRefsBefore.has(n));
       expect(reused.length).toBeGreaterThan(0);
       expect(container.textContent).toBe('AXC');
@@ -736,7 +736,7 @@ describe('Reconciler Verification Tests', () => {
         .flatMap(el => Array.from(el.childNodes).filter(n => n.nodeType === 3));
       const textNodeRefsFirst = new Set(textNodesFirst);
 
-      // 빠르게 5번 연속 렌더링
+      // Render 5 times in quick succession
       for (let i = 0; i < 5; i++) {
         renderer.render(container, model);
       }
@@ -848,7 +848,7 @@ describe('Reconciler Verification Tests', () => {
             sid: 'p-2',
             stype: 'paragraph',
             content: [
-              { sid: 'text-2', stype: 'inline-text', text: 'Second' } // 변경 없음
+              { sid: 'text-2', stype: 'inline-text', text: 'Second' } // No change
             ]
           },
           {
@@ -871,7 +871,7 @@ describe('Reconciler Verification Tests', () => {
         .flatMap(el => Array.from(el.childNodes).filter(n => n.nodeType === 3));
       const textNodeRefsAfter = new Set(textNodesAfter);
 
-      // 일부 Text Node는 재사용되어야 함 (text-2는 변경되지 않았으므로)
+      // Some Text Nodes should be reused (text-2 was not changed)
       const reused = textNodesAfter.filter(n => textNodeRefsBefore.has(n));
       expect(reused.length).toBeGreaterThan(0);
       expect(container.textContent).toBe('First UpdatedSecondThird Updated');
@@ -1052,9 +1052,9 @@ describe('Reconciler Verification Tests', () => {
       const secondDOM = container.innerHTML;
       const secondText = container.textContent;
 
-      // 순서가 변경되었으므로 DOM이 달라야 함
+      // DOM should be different since order changed
       expect(firstDOM).not.toBe(secondDOM);
-      // 하지만 텍스트 내용은 동일해야 함
+      // But text content should be the same
       expect(secondText).toBe('ThirdFirstSecond');
     });
   });
@@ -1083,7 +1083,7 @@ describe('Reconciler Verification Tests', () => {
             { 
               sid: `text-${i + 1}`, 
               stype: 'inline-text', 
-              text: i === 4 ? `Paragraph ${i + 1} Updated` : `Paragraph ${i + 1}` // 5번째만 변경
+              text: i === 4 ? `Paragraph ${i + 1} Updated` : `Paragraph ${i + 1}` // Only 5th changed
             }
           ]
         }))
@@ -1099,9 +1099,9 @@ describe('Reconciler Verification Tests', () => {
         .flatMap(el => Array.from(el.childNodes).filter(n => n.nodeType === 3));
       const textNodeRefsAfter = new Set(textNodesAfter);
 
-      // 대부분의 Text Node는 재사용되어야 함
+      // Most Text Nodes should be reused
       const reused = textNodesAfter.filter(n => textNodeRefsBefore.has(n));
-      expect(reused.length).toBeGreaterThan(5); // 최소 5개 이상 재사용
+      expect(reused.length).toBeGreaterThan(5); // At least 5 should be reused
       expect(container.textContent).toContain('Paragraph 5 Updated');
     });
   });
@@ -1152,7 +1152,7 @@ describe('Reconciler Verification Tests', () => {
       const pElement2 = container.querySelector('p[data-bc-sid="p-1"]');
       const spanElement2 = container.querySelector('span[data-bc-sid="text-1"]');
 
-      // 동일한 sid를 가진 요소가 재사용되어야 함
+      // Elements with the same sid should be reused
       expect(pElement1).toBe(pElement2);
       expect(spanElement1).toBe(spanElement2);
       expect(container.textContent).toBe('World');
@@ -1172,7 +1172,7 @@ describe('Reconciler Verification Tests', () => {
 
       renderer.render(container, model);
       
-      // Selection 생성
+      // Create Selection
       const textNode = Array.from(container.querySelectorAll('*'))
         .flatMap(el => Array.from(el.childNodes).filter(n => n.nodeType === 3))[0] as Text;
       const selection = window.getSelection();
@@ -1185,10 +1185,10 @@ describe('Reconciler Verification Tests', () => {
       const selectedTextNode = selection?.anchorNode as Text;
       expect(selectedTextNode).toBe(textNode);
 
-      // 재렌더링
+      // Re-render
       renderer.render(container, model);
 
-      // Selection이 여전히 같은 Text Node를 참조해야 함
+      // Selection should still reference the same Text Node
       const newSelectedTextNode = selection?.anchorNode as Text;
       expect(newSelectedTextNode).toBe(selectedTextNode);
     });
@@ -1212,7 +1212,7 @@ describe('Reconciler Verification Tests', () => {
 
       renderer.render(container, model1);
       
-      // Selection 생성
+      // Create Selection
       const textNode = Array.from(container.querySelectorAll('*'))
         .flatMap(el => Array.from(el.childNodes).filter(n => n.nodeType === 3))[0] as Text;
       const selection = window.getSelection();
@@ -1225,13 +1225,13 @@ describe('Reconciler Verification Tests', () => {
       const selectedTextNode = selection?.anchorNode as Text;
       const originalOffset = selection?.anchorOffset || 0;
 
-      // 텍스트 변경 후 재렌더링
+      // Re-render after text change
       renderer.render(container, model2);
 
-      // Selection이 여전히 같은 Text Node를 참조해야 함
+      // Selection should still reference the same Text Node
       const newSelectedTextNode = selection?.anchorNode as Text;
       expect(newSelectedTextNode).toBe(selectedTextNode);
-      // Text Node의 내용이 업데이트되었는지 확인
+      // Verify Text Node content is updated
       expect(newSelectedTextNode.textContent).toBe('Hello World');
     });
   });
@@ -1243,7 +1243,7 @@ describe('Reconciler Verification Tests', () => {
         stype: 'paragraph',
         content: [
           { sid: 'text-1', stype: 'inline-text', text: 'Hello' },
-          { sid: '', stype: 'inline-text', text: 'World' } // 빈 sid
+          { sid: '', stype: 'inline-text', text: 'World' } // Empty sid
         ]
       };
 
@@ -1257,7 +1257,7 @@ describe('Reconciler Verification Tests', () => {
         sid: 'p-1',
         stype: 'paragraph',
         content: [
-          { sid: 'text-1', text: 'Hello' } as ModelData // stype 없음
+          { sid: 'text-1', text: 'Hello' } as ModelData // No stype
         ]
       };
 
@@ -1314,7 +1314,7 @@ describe('Reconciler Verification Tests', () => {
       const textNodeRefsAfter = new Set(textNodesAfter);
 
       const reused = textNodesAfter.filter(n => textNodeRefsBefore.has(n));
-      expect(reused.length).toBeGreaterThan(40); // 대부분 재사용되어야 함
+      expect(reused.length).toBeGreaterThan(40); // Most should be reused
     });
   });
 
@@ -1426,7 +1426,7 @@ describe('Reconciler Verification Tests', () => {
       const textNodeRefsAfter = new Set(textNodesAfter);
 
       expect(container.textContent).toBe('Hello World');
-      // 분할된 경우 새로운 Text Node가 생성될 수 있음
+      // When split, new Text Nodes may be created
       expect(textNodesAfter.length).toBeGreaterThanOrEqual(textNodesBefore.length);
     });
 
@@ -1459,7 +1459,7 @@ describe('Reconciler Verification Tests', () => {
       const textNodeRefsAfter = new Set(textNodesAfter);
 
       expect(container.textContent).toBe('Hello World');
-      // 병합된 경우 Text Node 수가 줄어들 수 있음
+      // When merged, Text Node count may decrease
       expect(textNodesAfter.length).toBeLessThanOrEqual(textNodesBefore.length);
     });
   });
@@ -1616,7 +1616,7 @@ describe('Reconciler Verification Tests', () => {
         const textNode2 = document.createTextNode('New');
         pool.register('text-1', textNode1);
         
-        // 시간 지연 시뮬레이션
+        // Simulate time delay
         vi.useFakeTimers();
         vi.advanceTimersByTime(100);
         
@@ -1648,8 +1648,8 @@ describe('Reconciler Verification Tests', () => {
         const nodes1 = pool.getTextNodesBySid('text-1');
         const nodes2 = pool.getTextNodesBySid('text-2');
         
-        expect(nodes1.length).toBe(1); // protected이므로 유지
-        expect(nodes2.length).toBe(0); // 정리됨
+        expect(nodes1.length).toBe(1); // Maintained because protected
+        expect(nodes2.length).toBe(0); // Cleaned up
         
         vi.useRealTimers();
       });
@@ -1710,10 +1710,10 @@ describe('Reconciler Verification Tests', () => {
         expect(node1.textContent).toBe('');
 
         const node2 = pool.addOrReuseTextNode('text-1', '');
-        expect(node2).toBe(node1); // 재사용되어야 함
+        expect(node2).toBe(node1); // Should be reused
 
         const node3 = pool.addOrReuseTextNode('text-1', 'Hello');
-        expect(node3).toBe(node1); // 같은 노드 재사용
+        expect(node3).toBe(node1); // Reuse same node
         expect(node3.textContent).toBe('Hello');
       });
 
@@ -1724,7 +1724,7 @@ describe('Reconciler Verification Tests', () => {
         expect(node1.textContent.length).toBe(10000);
 
         const node2 = pool.addOrReuseTextNode('text-1', longText);
-        expect(node2).toBe(node1); // 재사용되어야 함
+        expect(node2).toBe(node1); // Should be reused
       });
 
       it('특수 문자와 이모지가 포함된 텍스트를 올바르게 처리해야 함', () => {
@@ -1747,7 +1747,7 @@ describe('Reconciler Verification Tests', () => {
         expect(pool.getTextNodesBySid('text-1').length).toBe(0);
 
         const node2 = pool.addOrReuseTextNode('text-1', 'World');
-        expect(node2).not.toBe(node1); // 새로 생성되어야 함
+        expect(node2).not.toBe(node1); // Should be newly created
         expect(node2.textContent).toBe('World');
         expect(pool.getSidByTextNode(node2)).toBe('text-1');
 
@@ -1777,14 +1777,14 @@ describe('Reconciler Verification Tests', () => {
         const time1 = Date.now();
         vi.advanceTimersByTime(50);
         
-        // 재사용 시 lastUsedAt 업데이트 확인
+        // Verify lastUsedAt is updated on reuse
         const node2 = pool.addOrReuseTextNode('text-1', 'Hello');
         expect(node2).toBe(node1);
         
         vi.advanceTimersByTime(30);
         pool.cleanup({ maxIdleMs: 50 });
         
-        // lastUsedAt이 업데이트되어 cleanup에서 제외되어야 함
+        // lastUsedAt should be updated and excluded from cleanup
         expect(pool.getTextNodesBySid('text-1').length).toBe(1);
 
         vi.useRealTimers();
@@ -1795,15 +1795,15 @@ describe('Reconciler Verification Tests', () => {
         pool.register('text-1', textNode);
         expect(pool.getSidByTextNode(textNode)).toBe('text-1');
 
-        // 같은 Text Node를 다른 sid로 등록하면 textToSid는 업데이트되지만
-        // 기존 sid의 nodes 배열에는 여전히 남아있을 수 있음 (구현 상세사항)
+        // When registering the same Text Node with a different sid, textToSid is updated but
+        // it may still remain in the existing sid's nodes array (implementation detail)
         pool.register('text-2', textNode);
-        expect(pool.getSidByTextNode(textNode)).toBe('text-2'); // 마지막 sid로 조회
+        expect(pool.getSidByTextNode(textNode)).toBe('text-2'); // Query with last sid
         expect(pool.getTextNodesBySid('text-2')).toContain(textNode);
       });
 
       it('maxEntries와 maxIdleMs를 동시에 적용할 수 있어야 함', () => {
-        // 여러 항목 생성
+        // Create multiple items
         for (let i = 0; i < 10; i++) {
           pool.addOrReuseTextNode(`text-${i}`, `Text ${i}`);
         }
@@ -1811,20 +1811,20 @@ describe('Reconciler Verification Tests', () => {
         vi.useFakeTimers();
         vi.advanceTimersByTime(100);
 
-        // 일부 항목만 최근에 사용
+        // Only some items used recently
         pool.addOrReuseTextNode('text-5', 'Text 5 Updated');
         pool.addOrReuseTextNode('text-6', 'Text 6 Updated');
         pool.addOrReuseTextNode('text-7', 'Text 7 Updated');
 
-        // maxEntries와 maxIdleMs 동시 적용
+        // Apply maxEntries and maxIdleMs simultaneously
         pool.cleanup({ maxEntries: 5, maxIdleMs: 50 });
 
-        // 최근에 사용된 항목들은 유지되어야 함
+        // Recently used items should be maintained
         expect(pool.getTextNodesBySid('text-5').length).toBeGreaterThan(0);
         expect(pool.getTextNodesBySid('text-6').length).toBeGreaterThan(0);
         expect(pool.getTextNodesBySid('text-7').length).toBeGreaterThan(0);
 
-        // 전체 항목 수가 maxEntries 이하여야 함
+        // Total item count should be less than or equal to maxEntries
         let activeEntries = 0;
         for (let i = 0; i < 10; i++) {
           if (pool.getTextNodesBySid(`text-${i}`).length > 0) {
@@ -1857,7 +1857,7 @@ describe('Reconciler Verification Tests', () => {
         expect(node1.textContent).toBe('Hello');
 
         const node2 = pool.addOrReuseTextNode('text-1', 'World', null);
-        expect(node2).toBe(node1); // 첫 후보 재사용
+        expect(node2).toBe(node1); // Reuse first candidate
       });
 
       it('Selection Text Node가 undefined여도 정상 동작해야 함', () => {
@@ -1875,12 +1875,12 @@ describe('Reconciler Verification Tests', () => {
         pool.register('text-1', node2);
         pool.register('text-1', node3);
 
-        // Selection 없이 재사용 시 첫 번째가 선택되어야 함
+        // When reusing without Selection, first should be selected
         const reused1 = pool.addOrReuseTextNode('text-1', 'Updated');
         expect(reused1).toBe(node1);
 
         const reused2 = pool.addOrReuseTextNode('text-1', 'Updated Again');
-        expect(reused2).toBe(node1); // 여전히 첫 번째
+        expect(reused2).toBe(node1); // Still first
       });
     });
   });
@@ -1922,7 +1922,7 @@ describe('Reconciler Verification Tests', () => {
 
       rendererWithPool.render(container, model);
       
-      // Selection 생성
+      // Create Selection
       const textNode = Array.from(container.querySelectorAll('*'))
         .flatMap(el => Array.from(el.childNodes).filter(n => n.nodeType === 3))[0] as Text;
       const selection = window.getSelection();
@@ -1934,13 +1934,13 @@ describe('Reconciler Verification Tests', () => {
 
       const selectedTextNode = selection?.anchorNode as Text;
 
-      // Selection context와 함께 재렌더링
+      // Re-render with Selection context
       rendererWithPool.render(container, model, [], undefined, {
         textNode: selectedTextNode,
         restoreSelection: () => {}
       });
 
-      // Selection이 여전히 같은 Text Node를 참조해야 함
+      // Selection should still reference the same Text Node
       const newSelectedTextNode = selection?.anchorNode as Text;
       expect(newSelectedTextNode).toBe(selectedTextNode);
     });
@@ -1966,9 +1966,9 @@ describe('Reconciler Verification Tests', () => {
         ]
       };
 
-      // Portal VNode를 직접 생성하여 테스트
+      // Create Portal VNode directly for testing
       const vnode = renderer['builder'].build('document', model);
-      // Portal을 VNode에 추가 (테스트용)
+      // Add Portal to VNode (for testing)
       if (vnode.children && Array.isArray(vnode.children)) {
         const portalVNode: any = {
           tag: 'portal',
@@ -1991,16 +1991,16 @@ describe('Reconciler Verification Tests', () => {
 
       renderer['reconciler'].reconcile(container, vnode, model);
 
-      // Portal 내용이 외부 타겟에 렌더링되었는지 확인
+      // Verify Portal content is rendered to external target
       const portalHost = portalTarget.querySelector('[data-bc-sid="test-portal"]');
       expect(portalHost).toBeTruthy();
       expect(portalTarget.textContent).toContain('Portal content');
-      // NOTE: Portal이 container의 내용을 제거하거나 이동시킬 수 있으므로,
-      // Portal이 올바르게 렌더링되었는지만 확인
-      // Main content는 원본 model에 있으므로, Portal이 올바르게 작동하면
-      // container나 portalTarget 어딘가에 있을 수 있음
-      // 하지만 Portal 테스트의 주요 목적은 Portal이 외부 타겟에 렌더링되는 것이므로
-      // Portal content 확인으로 충분
+      // NOTE: Portal may remove or move container content, so
+      // only verify Portal is rendered correctly
+      // Main content is in the original model, so if Portal works correctly,
+      // it may be somewhere in container or portalTarget
+      // But the main purpose of Portal test is to verify Portal renders to external target,
+      // so verifying Portal content is sufficient
 
       document.body.removeChild(portalTarget);
     });
@@ -2064,7 +2064,7 @@ describe('Reconciler Verification Tests', () => {
       renderer['reconciler'].reconcile(container, vnode2, model);
       const portalHost2 = portalTarget.querySelector('[data-bc-sid="test-portal"]') as HTMLElement;
 
-      // Portal 호스트가 재사용되어야 함
+      // Portal host should be reused
       expect(portalHost1).toBe(portalHost2);
       expect(portalTarget.textContent).toContain('Portal 2');
 
@@ -2110,7 +2110,7 @@ describe('Reconciler Verification Tests', () => {
       renderer['reconciler'].reconcile(container, vnode1, model1);
       expect(portalTarget.querySelector('[data-bc-sid="test-portal"]')).toBeTruthy();
 
-      // Portal이 없는 모델로 재렌더링
+      // Re-render with model without Portal
       const model2: ModelData = {
         sid: 'doc-1',
         stype: 'document',
@@ -2128,7 +2128,7 @@ describe('Reconciler Verification Tests', () => {
       const vnode2 = renderer['builder'].build('document', model2);
       renderer['reconciler'].reconcile(container, vnode2, model2);
 
-      // Portal 호스트가 정리되어야 함
+      // Portal host should be cleaned up
       expect(portalTarget.querySelector('[data-bc-sid="test-portal"]')).toBeFalsy();
 
       document.body.removeChild(portalTarget);
@@ -2146,7 +2146,7 @@ describe('Reconciler Verification Tests', () => {
       };
 
       const vnode = renderer['builder'].build('paragraph', model);
-      // Decorator VNode를 직접 추가 (테스트용)
+      // Add Decorator VNode directly (for testing)
       if (vnode.children && Array.isArray(vnode.children)) {
         const decoratorVNode: any = {
           tag: 'span',
@@ -2161,13 +2161,13 @@ describe('Reconciler Verification Tests', () => {
             text: '🔖'
           }]
         };
-        // Decorator를 첫 번째 자식 앞에 삽입
+        // Insert Decorator before first child
         (vnode.children as any[]).unshift(decoratorVNode);
       }
 
       renderer['reconciler'].reconcile(container, vnode, model);
 
-      // Decorator가 렌더링되었는지 확인
+      // Verify Decorator is rendered
       const decoratorElement = container.querySelector('[data-decorator-sid="decorator-1"]');
       expect(decoratorElement).toBeTruthy();
       expect(container.textContent).toContain('🔖');
@@ -2225,7 +2225,7 @@ describe('Reconciler Verification Tests', () => {
       renderer['reconciler'].reconcile(container, vnode2, model);
       const decoratorElement2 = container.querySelector('[data-decorator-sid="decorator-1"]') as HTMLElement;
 
-      // Decorator가 재사용되어야 함
+      // Decorator should be reused
       expect(decoratorElement1).toBe(decoratorElement2);
     });
 
@@ -2259,11 +2259,11 @@ describe('Reconciler Verification Tests', () => {
       renderer['reconciler'].reconcile(container, vnode1, model);
       expect(container.querySelector('[data-decorator-sid="decorator-1"]')).toBeTruthy();
 
-      // Decorator가 없는 모델로 재렌더링
+      // Re-render with model without Decorator
       const vnode2 = renderer['builder'].build('paragraph', model);
       renderer['reconciler'].reconcile(container, vnode2, model);
 
-      // Decorator가 제거되어야 함
+      // Decorator should be removed
       expect(container.querySelector('[data-decorator-sid="decorator-1"]')).toBeFalsy();
     });
 
@@ -2315,7 +2315,7 @@ describe('Reconciler Verification Tests', () => {
       expect(decorator1Element).toBeTruthy();
       expect(decorator2Element).toBeTruthy();
       
-      // 순서 확인: DOM 트리를 순회하면서 decorator1이 decorator2보다 먼저 나타나야 함
+      // Verify order: decorator1 should appear before decorator2 when traversing DOM tree
       const allElements = container.querySelectorAll('[data-decorator-sid]');
       const decorator1Index = Array.from(allElements).indexOf(decorator1Element as Element);
       const decorator2Index = Array.from(allElements).indexOf(decorator2Element as Element);
@@ -2327,7 +2327,7 @@ describe('Reconciler Verification Tests', () => {
 
   describe('Component 업데이트', () => {
     it('Component가 마운트되어야 함', () => {
-      // Component는 일반적으로 stype을 가진 VNode로 처리됨
+      // Component is generally processed as a VNode with stype
       const model: ModelData = {
         sid: 'p-1',
         stype: 'paragraph',
@@ -2338,7 +2338,7 @@ describe('Reconciler Verification Tests', () => {
 
       renderer.render(container, model);
 
-      // Component가 DOM에 렌더링되었는지 확인
+      // Verify Component is rendered to DOM
       const paragraphElement = container.querySelector('[data-bc-sid="p-1"]');
       expect(paragraphElement).toBeTruthy();
       expect(paragraphElement?.getAttribute('data-bc-stype')).toBe('paragraph');
@@ -2356,7 +2356,7 @@ describe('Reconciler Verification Tests', () => {
       renderer.render(container, model);
       const paragraphElement1 = container.querySelector('[data-bc-sid="p-1"]') as HTMLElement;
 
-      // 모델 업데이트 (className 추가)
+      // Update model (add className)
       const updatedModel: ModelDataWithAttributes = {
         sid: 'p-1',
         stype: 'paragraph',
@@ -2371,7 +2371,7 @@ describe('Reconciler Verification Tests', () => {
       renderer.render(container, updatedModel);
       const paragraphElement2 = container.querySelector('[data-bc-sid="p-1"]') as HTMLElement;
 
-      // Component가 재사용되어야 함
+      // Component should be reused
       expect(paragraphElement1).toBe(paragraphElement2);
       expect(paragraphElement2.className).toBe('updated');
     });
@@ -2394,7 +2394,7 @@ describe('Reconciler Verification Tests', () => {
       renderer.render(container, model1);
       expect(container.querySelector('[data-bc-sid="p-1"]')).toBeTruthy();
 
-      // Component 제거
+      // Remove Component
       const model2: ModelData = {
         sid: 'doc-1',
         stype: 'document',
@@ -2431,7 +2431,7 @@ describe('Reconciler Verification Tests', () => {
       expect(container.querySelector('[data-bc-sid="p-1"]')).toBeTruthy();
       expect(container.querySelector('[data-bc-sid="p-2"]')).toBeTruthy();
 
-      // p-1 제거, p-3 추가
+      // Remove p-1, add p-3
       const model2: ModelData = {
         sid: 'doc-1',
         stype: 'document',
@@ -2477,7 +2477,7 @@ describe('Reconciler Verification Tests', () => {
       expect(paragraphElement1.className).toBe('class1');
       expect(paragraphElement1.id).toBe('para1');
 
-      // 속성 변경
+      // Change attributes
       const model2: ModelDataWithAttributes = {
         sid: 'p-1',
         stype: 'paragraph',
@@ -2493,7 +2493,7 @@ describe('Reconciler Verification Tests', () => {
       renderer.render(container, model2);
       const paragraphElement2 = container.querySelector('[data-bc-sid="p-1"]') as HTMLElement;
 
-      // Component가 재사용되어야 함
+      // Component should be reused
       expect(paragraphElement1).toBe(paragraphElement2);
       expect(paragraphElement2.className).toBe('class2');
       expect(paragraphElement2.id).toBe('para2');
@@ -2517,12 +2517,12 @@ describe('Reconciler Verification Tests', () => {
       const rendererWithPool = new DOMRenderer(registry, { enableSelectionPreservation: true });
       rendererWithPool.render(editableContainer, model);
 
-      // 초기 Text Node 참조 저장
+      // Store initial Text Node references
       const textNodesFirst = Array.from(editableContainer.querySelectorAll('*'))
         .flatMap(el => Array.from(el.childNodes).filter(n => n.nodeType === 3)) as Text[];
       const textNodeRefsFirst = new Set(textNodesFirst);
 
-      // Selection 설정
+      // Set Selection
       if (textNodesFirst.length > 0) {
         const selection = window.getSelection();
         const range = document.createRange();
@@ -2532,7 +2532,7 @@ describe('Reconciler Verification Tests', () => {
         selection?.addRange(range);
       }
 
-      // 모델 업데이트 (텍스트 변경)
+      // Update model (text change)
       const updatedModel: ModelData = {
         sid: 'p-1',
         stype: 'paragraph',
@@ -2541,7 +2541,7 @@ describe('Reconciler Verification Tests', () => {
         ]
       };
 
-      // Selection context와 함께 재렌더링
+      // Re-render with Selection context
       const selection = window.getSelection();
       const selectedTextNode = selection?.anchorNode as Text | undefined;
       rendererWithPool.render(editableContainer, updatedModel, [], undefined, {
@@ -2556,7 +2556,7 @@ describe('Reconciler Verification Tests', () => {
         }
       });
 
-      // Text Node가 재사용되었는지 확인
+      // Verify Text Node is reused
       const textNodesSecond = Array.from(editableContainer.querySelectorAll('*'))
         .flatMap(el => Array.from(el.childNodes).filter(n => n.nodeType === 3)) as Text[];
       const reused = textNodesSecond.filter(n => textNodeRefsFirst.has(n));
@@ -2583,7 +2583,7 @@ describe('Reconciler Verification Tests', () => {
       rendererWithPool.render(editableContainer, model);
       const textNodesRefs: Set<Text> = new Set();
 
-      // 빠른 연속 업데이트 시뮬레이션
+      // Simulate rapid consecutive updates
       for (let i = 0; i < 5; i++) {
         model = {
           sid: 'p-1',
@@ -2608,17 +2608,17 @@ describe('Reconciler Verification Tests', () => {
           }
         });
 
-        // 각 렌더링 후 Text Node 참조 수집
+        // Collect Text Node references after each render
         const currentTextNodes = Array.from(editableContainer.querySelectorAll('*'))
           .flatMap(el => Array.from(el.childNodes).filter(n => n.nodeType === 3)) as Text[];
         currentTextNodes.forEach(n => textNodesRefs.add(n));
       }
 
-      // Text Node가 과도하게 생성되지 않았는지 확인 (재사용이 이루어졌어야 함)
+      // Verify Text Nodes are not excessively created (reuse should occur)
       const textNodesFinal = Array.from(editableContainer.querySelectorAll('*'))
         .flatMap(el => Array.from(el.childNodes).filter(n => n.nodeType === 3)) as Text[];
       
-      // 최종 Text Node 수가 합리적인 범위 내에 있어야 함
+      // Final Text Node count should be within reasonable range
       expect(textNodesFinal.length).toBeLessThanOrEqual(10);
 
       document.body.removeChild(editableContainer);
@@ -2639,25 +2639,25 @@ describe('Reconciler Verification Tests', () => {
 
       renderer.render(editableContainer, model);
       
-      // 초기 DOM 상태 저장
+      // Store initial DOM state
       const initialHTML = editableContainer.innerHTML;
       const textNodesInitial = Array.from(editableContainer.querySelectorAll('*'))
         .flatMap(el => Array.from(el.childNodes).filter(n => n.nodeType === 3)) as Text[];
       const textNodeRefsInitial = new Set(textNodesInitial);
 
-      // Focus 후 blur 시뮬레이션
+      // Simulate focus then blur
       editableContainer.focus();
       editableContainer.blur();
 
-      // 동일한 모델로 재렌더링 (blur 후 일반적으로 발생하는 상황)
+      // Re-render with same model (typical situation after blur)
       renderer.render(editableContainer, model);
 
-      // DOM이 불필요하게 변경되지 않았는지 확인
+      // Verify DOM is not unnecessarily changed
       const textNodesAfter = Array.from(editableContainer.querySelectorAll('*'))
         .flatMap(el => Array.from(el.childNodes).filter(n => n.nodeType === 3)) as Text[];
       const reused = textNodesAfter.filter(n => textNodeRefsInitial.has(n));
       
-      // Text Node가 재사용되어야 함
+      // Text Node should be reused
       expect(reused.length).toBeGreaterThan(0);
       expect(editableContainer.innerHTML).toBe(initialHTML);
 
@@ -2681,21 +2681,21 @@ describe('Reconciler Verification Tests', () => {
 
       rendererWithPool.render(editableContainer, model);
       
-      // 중간 위치에 Selection 설정
+      // Set Selection at middle position
       const textNodes = Array.from(editableContainer.querySelectorAll('*'))
         .flatMap(el => Array.from(el.childNodes).filter(n => n.nodeType === 3)) as Text[];
       
       if (textNodes.length > 0) {
         const selection = window.getSelection();
         const range = document.createRange();
-        // "Hello " 뒤에 커서 설정
+        // Set cursor after "Hello "
         range.setStart(textNodes[0], 6);
         range.setEnd(textNodes[0], 6);
         selection?.removeAllRanges();
         selection?.addRange(range);
       }
 
-      // 중간에 텍스트 추가된 모델
+      // Model with text added in the middle
       const updatedModel: ModelData = {
         sid: 'p-1',
         stype: 'paragraph',
@@ -2719,7 +2719,7 @@ describe('Reconciler Verification Tests', () => {
         }
       });
 
-      // Selection이 유지되었는지 확인
+      // Verify Selection is maintained
       const finalSelection = window.getSelection();
       expect(finalSelection?.anchorNode).toBeTruthy();
       expect(finalSelection?.anchorOffset).toBeGreaterThanOrEqual(0);

@@ -21,18 +21,18 @@ describe('Reconciler Complex Scenarios', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
 
-    // 기본 템플릿 정의
+    // Define base templates
     define('document', element('div', { className: 'document' }, [slot('content')]));
     define('paragraph', element('p', { className: 'paragraph' }, [slot('content')]));
     define('heading', element('h1', { className: 'heading' }, [slot('content')]));
     define('inline-text', element('span', { className: 'text' }, [data('text')]));
     
-    // Mark 정의
+    // Define Marks
     defineMark('bold', element('strong', { className: 'mark-bold' }, [data('text')]));
     defineMark('italic', element('em', { className: 'mark-italic' }, [data('text')]));
     defineMark('link', element('a', { className: 'mark-link', href: '#' }, [data('text')]));
     
-    // Decorator 정의
+    // Define Decorators
     defineDecorator('chip', element('span', {
       className: 'chip',
       style: {
@@ -171,8 +171,8 @@ describe('Reconciler Complex Scenarios', () => {
 
       renderer.render(container, model, decorators);
 
-      // expectHTML로 전체 DOM 구조 검증 (실제 DOM 구조에 맞게)
-      // NOTE: 빈 span은 removeStaleChildren에서 제거되므로 실제 DOM에는 없을 수 있음
+      // Verify full DOM structure with expectHTML (matching actual DOM structure)
+      // NOTE: Empty spans may be removed by removeStaleChildren, so they may not exist in actual DOM
       expectHTML(
         container,
         `<p class="paragraph" data-bc-sid="p-1">
@@ -246,17 +246,17 @@ describe('Reconciler Complex Scenarios', () => {
 
       renderer.render(container, model, decorators);
 
-      // expectHTML로 전체 DOM 구조 검증 (실제 DOM 구조에 맞게)
-      // decorator가 텍스트를 분할하지 않는 경우도 있음
+      // Verify full DOM structure with expectHTML (matching actual DOM structure)
+      // Decorator may not split text in some cases
       const text1El = container.querySelector('[data-bc-sid="text-1"]');
       const text2El = container.querySelector('[data-bc-sid="text-2"]');
       
-      // 첫 번째 텍스트에 chip decorator 확인
+      // Verify chip decorator on first text
       expect(text1El).toBeTruthy();
       const chip1El = text1El?.querySelector('.chip');
       expect(chip1El).toBeTruthy();
       
-      // 두 번째 텍스트는 decorator가 적용되지 않을 수 있음 (range가 맞지 않으면)
+      // Second text may not have decorator applied (if range doesn't match)
       expect(text2El).toBeTruthy();
     });
   });
@@ -298,7 +298,7 @@ describe('Reconciler Complex Scenarios', () => {
 
       renderer.render(container, model, decorators);
 
-      // expectHTML로 전체 DOM 구조 검증 (Mark + Decorator, 실제 DOM 구조에 맞게)
+      // Verify full DOM structure with expectHTML (Mark + Decorator, matching actual DOM structure)
       expectHTML(
         container,
         `<p class="paragraph" data-bc-sid="p-1">
@@ -327,7 +327,7 @@ describe('Reconciler Complex Scenarios', () => {
         ]
       };
 
-      // 1단계: decorator 없이 렌더링
+      // Step 1: Render without decorator
       renderer.render(container, model);
       expectHTML(
         container,
@@ -337,7 +337,7 @@ describe('Reconciler Complex Scenarios', () => {
         expect
       );
 
-      // 2단계: decorator 추가
+      // Step 2: Add decorator
       const decorators1: Decorator[] = [
         {
           sid: 'chip-1',
@@ -353,7 +353,7 @@ describe('Reconciler Complex Scenarios', () => {
         }
       ];
       renderer.render(container, model, decorators1);
-      // 실제 DOM 구조: 기존 텍스트가 남아있고, decorator와 분할된 텍스트가 추가됨
+      // Actual DOM structure: existing text remains, decorator and split text are added
       const textEl = container.querySelector('[data-bc-sid="text-1"]');
       expect(textEl).toBeTruthy();
       const chipEl = textEl?.querySelector('.chip');
@@ -361,7 +361,7 @@ describe('Reconciler Complex Scenarios', () => {
       expect(textEl?.textContent).toContain('Hello');
       expect(textEl?.textContent).toContain('World');
 
-      // 3단계: decorator 제거
+      // Step 3: Remove decorator
       renderer.render(container, model);
       expectHTML(
         container,
@@ -371,7 +371,7 @@ describe('Reconciler Complex Scenarios', () => {
         expect
       );
 
-      // 4단계: decorator 다시 추가
+      // Step 4: Add decorator again
       renderer.render(container, model, decorators1);
       const textEl4 = container.querySelector('[data-bc-sid="text-1"]');
       expect(textEl4).toBeTruthy();
@@ -409,7 +409,7 @@ describe('Reconciler Complex Scenarios', () => {
         }
       ];
 
-      // 첫 번째 render
+      // First render
       renderer.render(container, model1, decorators1);
       const textEl1 = container.querySelector('[data-bc-sid="text-1"]');
       expect(textEl1).toBeTruthy();
@@ -417,7 +417,7 @@ describe('Reconciler Complex Scenarios', () => {
       expect(chipEl1).toBeTruthy();
       expect(textEl1?.textContent).toContain('Hello');
 
-      // 텍스트 변경 + decorator 변경
+      // Text change + decorator change
       const model2 = {
         sid: 'p-1',
         stype: 'paragraph',
@@ -509,7 +509,7 @@ describe('Reconciler Complex Scenarios', () => {
         ]
       };
 
-      // 첫 번째 render (decorator 없음)
+      // First render (no decorator)
       renderer.render(container, model);
       
       expectHTML(
@@ -533,7 +533,7 @@ describe('Reconciler Complex Scenarios', () => {
         expect
       );
 
-      // 두 번째 render (decorator 추가)
+      // Second render (add decorator)
       const decorators: Decorator[] = [
         {
           sid: 'chip-1',
@@ -563,7 +563,7 @@ describe('Reconciler Complex Scenarios', () => {
 
       renderer.render(container, model, decorators);
 
-      // 실제 DOM 구조 확인: badge decorator가 적용되지 않을 수 있음 (range가 맞지 않으면)
+      // Verify actual DOM structure: badge decorator may not be applied (if range doesn't match)
       const text1El = container.querySelector('[data-bc-sid="text-1"]');
       expect(text1El).toBeTruthy();
       const chip1El = text1El?.querySelector('.chip');
@@ -634,26 +634,26 @@ describe('Reconciler Complex Scenarios', () => {
 
       renderer.render(container, model, decorators);
 
-      // expectHTML로 전체 DOM 구조 검증
-      // decorator가 텍스트를 분할하므로 구조가 복잡해짐
+      // Verify full DOM structure with expectHTML
+      // Structure becomes complex because decorator splits text
       const textEl = container.querySelector('[data-bc-sid="text-1"]');
       expect(textEl).toBeTruthy();
       
-      // 모든 decorator가 렌더링되었는지 확인
+      // Verify all decorators are rendered
       const chips = textEl?.querySelectorAll('.chip');
       const badges = textEl?.querySelectorAll('.badge');
       
       expect(chips?.length).toBeGreaterThanOrEqual(2);
       expect(badges?.length).toBeGreaterThanOrEqual(1);
       
-      // 텍스트 내용이 올바른지 확인
+      // Verify text content is correct
       const textContent = textEl?.textContent || '';
       expect(textContent).toContain('This');
       expect(textContent).toContain('very');
-      expect(textContent.length).toBeGreaterThan(50); // 긴 텍스트가 렌더링되었는지 확인
+      expect(textContent.length).toBeGreaterThan(50); // Verify long text is rendered
       
-      // expectHTML로 기본 구조 확인 (정확한 분할은 복잡하므로 구조만 확인)
-      // 실제 DOM 구조를 기반으로 작성
+      // Verify basic structure with expectHTML (only structure, not exact split which is complex)
+      // Based on actual DOM structure
       expectHTML(
         container,
         (div) => {
@@ -665,7 +665,7 @@ describe('Reconciler Complex Scenarios', () => {
           span.className = 'text';
           span.setAttribute('data-bc-sid', 'text-1');
           
-          // decorator와 텍스트가 children으로 들어감 (실제 분할 구조)
+          // Decorator and text go into children (actual split structure)
           const chip1 = document.createElement('span');
           chip1.className = 'chip';
           chip1.setAttribute('data-decorator', 'true');

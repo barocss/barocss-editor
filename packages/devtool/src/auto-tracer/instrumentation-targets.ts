@@ -1,24 +1,24 @@
 /**
- * 고정된 모니터링 대상 목록
+ * Fixed list of monitoring targets
  * 
- * 새로운 패키지/클래스를 모니터링하려면 여기에 명시적으로 추가해야 합니다.
- * 이 목록을 기반으로 AutoTracer가 자동으로 함수를 래핑하여 추적합니다.
+ * To monitor new packages/classes, explicitly add them here.
+ * AutoTracer automatically wraps functions based on this list for tracking.
  */
 
 export interface InstrumentationTarget {
-  /** 패키지 이름 (예: '@barocss/editor-core') */
+  /** Package name (e.g., '@barocss/editor-core') */
   package: string;
-  /** 클래스 이름 (예: 'Editor', 'InputHandlerImpl') */
+  /** Class name (e.g., 'Editor', 'InputHandlerImpl') */
   className: string;
-  /** 계측할 메서드 이름 목록 */
+  /** List of method names to instrument */
   methods: string[];
-  /** 입력 인자 직렬화 함수 (선택 사항) */
+  /** Input argument serialization function (optional) */
   inputSerializer?: (methodName: string, args: any[]) => any;
-  /** 출력 결과 직렬화 함수 (선택 사항) */
+  /** Output result serialization function (optional) */
   outputSerializer?: (methodName: string, result: any) => any;
 }
 
-// 데이터 요약 헬퍼 함수
+// Data summarization helper functions
 const summarizeModelData = (data: any): any => {
   if (!data) return data;
   if (Array.isArray(data)) return `Array(${data.length})`;
@@ -64,7 +64,7 @@ export const INSTRUMENTATION_TARGETS: InstrumentationTarget[] = [
       }
       if (methodName === 'updateSelection' && args[0]) {
         const sel = args[0];
-        // type: 'range' 형식 (startNodeId/endNodeId)
+        // type: 'range' format (startNodeId/endNodeId)
         if (sel.type === 'range') {
           return [{
             type: sel.type,
@@ -75,7 +75,7 @@ export const INSTRUMENTATION_TARGETS: InstrumentationTarget[] = [
             collapsed: sel.collapsed
           }];
         }
-        // 기타 형식
+        // Other formats
         return [sel];
       }
       return args;
@@ -182,7 +182,7 @@ export const INSTRUMENTATION_TARGETS: InstrumentationTarget[] = [
     methods: ['execute'],
     outputSerializer: (methodName, result) => {
       if (methodName === 'execute' && result) {
-        // TransactionResult의 selectionBefore/After를 간결하게 표시
+        // Display TransactionResult's selectionBefore/After concisely
         return {
           success: result.success,
           errors: result.errors,
@@ -234,7 +234,7 @@ export const INSTRUMENTATION_TARGETS: InstrumentationTarget[] = [
     className: 'VNodeBuilder',
     methods: ['build']
   },
-  // DOM Operations (Reconcile 세부 동작 확인용)
+  // DOM Operations (for checking Reconcile detailed operations)
   {
     package: '@barocss/renderer-dom',
     className: 'DOMOperations',

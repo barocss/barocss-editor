@@ -39,7 +39,7 @@ export class DevtoolUI {
   private createContainer(): HTMLElement {
     const container = document.createElement('div');
     container.id = 'barocss-devtool';
-    container.setAttribute('data-devtool', 'true'); // Selection 이벤트 필터링용
+    container.setAttribute('data-devtool', 'true'); // For filtering Selection events
     container.innerHTML = `
       <div class="devtool-tabs">
         <button class="devtool-tab" data-tab="tree">Model Tree</button>
@@ -87,10 +87,10 @@ export class DevtoolUI {
       });
     });
 
-    // Execution Flow 이벤트 위임 (flowList에 한 번만 등록)
+    // Execution Flow event delegation (register once on flowList)
     const flowList = container.querySelector('#flow-list');
     if (flowList) {
-      // Copy 버튼 클릭 이벤트 위임
+      // Copy button click event delegation
       flowList.addEventListener('click', (e) => {
         const target = e.target as HTMLElement;
         const copyBtn = target.closest('.flow-copy-btn') as HTMLElement;
@@ -103,9 +103,9 @@ export class DevtoolUI {
         const traceId = copyBtn.getAttribute('data-trace-id');
         if (!traceId || !action) return;
         
-        // flows 배열은 updateExecutionFlow에서 접근 가능하도록 저장 필요
-        // 대신 DOM에서 flow 데이터를 찾거나, 클로저로 flows를 참조
-        // 일단 flows를 인스턴스 변수로 저장하는 방법 사용
+        // flows array needs to be stored to be accessible from updateExecutionFlow
+        // Alternatively, find flow data from DOM or reference flows via closure
+        // For now, use method of storing flows as instance variable
         const flow = this._currentFlows?.find(f => f.traceId === traceId);
         if (!flow) return;
         
@@ -116,10 +116,10 @@ export class DevtoolUI {
         }
       });
 
-      // Flow 헤더 클릭 이벤트 위임 (확장/축소)
+      // Flow header click event delegation (expand/collapse)
       flowList.addEventListener('click', (e) => {
         const target = e.target as HTMLElement;
-        // Copy 버튼 클릭은 무시
+        // Ignore Copy button clicks
         if (target.closest('.flow-copy-btn')) {
           return;
         }
@@ -1225,7 +1225,7 @@ export class DevtoolUI {
     const flowList = document.getElementById('flow-list');
     if (!flowList) return;
 
-    // 현재 flows 저장 (이벤트 위임에서 사용)
+    // Store current flows (used in event delegation)
     this._currentFlows = flows;
 
     if (flows.length === 0) {
@@ -1233,7 +1233,7 @@ export class DevtoolUI {
       return;
     }
 
-    // 플로우 목록 렌더링 (초기에는 traceId만 표시, 클릭 시 spans 펼침)
+    // Render flow list (initially show only traceId, expand spans on click)
     flowList.innerHTML = flows.map((flow, index) => {
       const hasError = flow.spans.some(span => span.error);
       const totalDuration = flow.duration || (flow.spans.reduce((sum, span) => sum + (span.duration || 0), 0));
@@ -1259,7 +1259,7 @@ export class DevtoolUI {
               const spanClass = span.className || 'unknown';
               const indent = span.parentSpanId ? '20px' : '0px';
               
-              // 이상 징후 아이콘 및 클래스
+              // Anomaly icon and class
               const hasAnomalies = span.anomalies && span.anomalies.length > 0;
               const criticalAnomalies = span.anomalies?.filter(a => a.severity === 'critical') || [];
               const warningAnomalies = span.anomalies?.filter(a => a.severity === 'warning') || [];
@@ -1278,7 +1278,7 @@ export class DevtoolUI {
                 anomalyClass = 'span-info';
               }
               
-              // Input/Output 데이터 렌더링
+              // Render Input/Output data
               let detailsHtml = '';
               
               if (span.input) {
@@ -1303,7 +1303,7 @@ export class DevtoolUI {
                 }
               }
               
-              // 이상 징후 렌더링
+              // Render anomalies
               if (hasAnomalies) {
                 detailsHtml += `
                   <div class="span-anomalies">
@@ -1341,8 +1341,8 @@ export class DevtoolUI {
       `;
     }).join('');
 
-    // 이벤트 리스너는 setupEventListeners에서 flowList에 한 번만 등록됨
-    // (이벤트 위임 패턴 사용)
+    // Event listeners are registered only once on flowList in setupEventListeners
+    // (using event delegation pattern)
   }
 
   /**
@@ -1479,7 +1479,7 @@ export class DevtoolUI {
   private _copyToClipboard(text: string): void {
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(() => {
-        // 간단한 피드백 (선택사항)
+        // Simple feedback (optional)
         const notification = document.createElement('div');
         notification.style.cssText = `
           position: fixed;
@@ -1502,7 +1502,7 @@ export class DevtoolUI {
         console.error('Failed to copy:', err);
       });
     } else {
-      // Fallback: textarea 사용
+      // Fallback: use textarea
       const textarea = document.createElement('textarea');
       textarea.value = text;
       textarea.style.position = 'fixed';

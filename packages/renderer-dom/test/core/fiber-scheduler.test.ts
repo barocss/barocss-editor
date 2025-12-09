@@ -3,7 +3,7 @@ import { FiberScheduler, FiberReconcileFunction } from '../../src/reconcile/fibe
 import { FiberNode, FiberPriority } from '../../src/reconcile/fiber/types';
 import { VNode } from '../../src/vnode/types';
 
-describe('FiberScheduler - 단위 테스트', () => {
+describe('FiberScheduler - Unit Test', () => {
   let container: HTMLElement;
   let reconcileCallOrder: FiberNode[];
 
@@ -42,7 +42,7 @@ describe('FiberScheduler - 단위 테스트', () => {
       const scheduler = new FiberScheduler(reconcileFunction);
       scheduler.scheduleWork(rootFiber);
 
-      // 동기 모드이므로 즉시 실행됨
+      // Executes immediately in sync mode
       expect(reconcileCallOrder.length).toBeGreaterThan(0);
       expect(reconcileCallOrder[0]).toBe(rootFiber);
     });
@@ -94,7 +94,7 @@ describe('FiberScheduler - 단위 테스트', () => {
       const scheduler = new FiberScheduler(reconcileFunction);
       scheduler.scheduleWork(rootFiber);
 
-      // 루트와 자식 모두 처리되어야 함
+      // Both root and child should be processed
       expect(reconcileCallOrder.length).toBe(2);
       expect(reconcileCallOrder[0].vnode.sid).toBe('root');
       expect(reconcileCallOrder[1].vnode.sid).toBe('child');
@@ -172,8 +172,8 @@ describe('FiberScheduler - 단위 테스트', () => {
       const scheduler = new FiberScheduler(reconcileFunction);
       scheduler.scheduleWork(rootFiber);
 
-      // 루트, child1, child2 순서로 처리되어야 함
-      // (부모로 돌아갈 때도 reconcile이 호출될 수 있으므로 3개 이상일 수 있음)
+      // Should be processed in order: root, child1, child2
+      // (May be 3 or more since reconcile can be called when returning to parent)
       expect(reconcileCallOrder.length).toBeGreaterThanOrEqual(3);
       expect(reconcileCallOrder[0].vnode.sid).toBe('root');
       expect(reconcileCallOrder.some(f => f.vnode.sid === 'child1')).toBe(true);
@@ -211,7 +211,7 @@ describe('FiberScheduler - 단위 테스트', () => {
       scheduler.setSyncMode(true);
       scheduler.scheduleWork(rootFiber);
 
-      // 동기 모드이므로 즉시 완료
+      // Should complete immediately in sync mode
       expect(scheduler.isSyncMode()).toBe(true);
       expect(reconcileCallOrder.length).toBe(1);
     });
@@ -249,7 +249,7 @@ describe('FiberScheduler - 단위 테스트', () => {
       scheduler.setSyncMode(true);
       scheduler.scheduleWork(rootFiber);
 
-      // 동기 모드이므로 즉시 완료되고 콜백 호출
+      // Should complete immediately and call callback in sync mode
       expect(onCompleteCalled).toBe(true);
     });
   });

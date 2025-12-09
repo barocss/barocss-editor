@@ -5,13 +5,13 @@
  * FiberScheduler가 동기 모드로 작동하도록 환경을 설정합니다.
  */
 
-// Vitest 환경 변수 명시적으로 설정
+// Explicitly set Vitest environment variables
 if (typeof process !== 'undefined') {
   process.env.VITEST = 'true';
   process.env.NODE_ENV = process.env.NODE_ENV || 'test';
 }
 
-// globalThis에 vitest 플래그 설정
+// Set vitest flag on globalThis
 if (typeof globalThis !== 'undefined') {
   (globalThis as any).vitest = true;
   (globalThis as any).__vitest__ = true;

@@ -1,109 +1,109 @@
 /**
  * DOM Observer Types
  * 
- * DOM 변경사항 감지와 관련된 타입 정의들
+ * Type definitions related to DOM change detection
  */
 
 /**
- * MutationObserver 관리자 인터페이스
+ * MutationObserver manager interface
  * 
  * @interface MutationObserverManager
  */
 export interface MutationObserverManager {
-  /** MutationObserver 설정 */
+  /** Setup MutationObserver */
   setup(contentEditableElement: HTMLElement): void;
   
-  /** MutationObserver 연결 해제 */
+  /** Disconnect MutationObserver */
   disconnect(): void;
   
-  /** 개별 mutation 처리 */
+  /** Handle individual mutation */
   handleMutation(mutation: MutationRecord): void;
 }
 
 /**
- * DOM 구조 변경 이벤트 데이터
+ * DOM structure change event data
  * 
  * @interface DOMStructureChangeEvent
  */
 export interface DOMStructureChangeEvent {
-  /** 변경 타입 */
+  /** Change type */
   type: 'structure';
   
-  /** 추가된 노드들 */
+  /** Added nodes */
   addedNodes: Node[];
   
-  /** 제거된 노드들 */
+  /** Removed nodes */
   removedNodes: Node[];
   
-  /** 변경이 발생한 타겟 노드 */
+  /** Target node where change occurred */
   target: Node;
 }
 
 /**
- * 노드 업데이트 이벤트 데이터
+ * Node update event data
  * 
  * @interface NodeUpdateEvent
  */
 export interface NodeUpdateEvent {
-  /** 변경 타입 */
+  /** Change type */
   type: 'attribute';
   
-  /** 변경된 속성명 */
+  /** Changed attribute name */
   attributeName: string;
   
-  /** 이전 값 */
+  /** Previous value */
   oldValue: string | null;
   
-  /** 새로운 값 */
+  /** New value */
   newValue: string | null;
   
-  /** 변경된 요소 */
+  /** Changed element */
   target: Element;
   
-  /** 노드 ID */
+  /** Node ID */
   nodeId: string | null;
 }
 
 /**
- * 텍스트 변경 이벤트 데이터
+ * Text change event data
  * 
  * @interface TextChangeEvent
  */
 export interface TextChangeEvent {
-  /** 이전 텍스트 */
+  /** Previous text */
   oldText: string | null;
   
-  /** 새로운 텍스트 */
+  /** New text */
   newText: string | null;
   
-  /** 변경된 노드 */
+  /** Changed node */
   target: Node;
 }
 
 /**
- * MutationObserver 옵션
+ * MutationObserver options
  * 
  * @interface MutationObserverOptions
  */
 export interface MutationObserverOptions {
-  /** 자식 노드 변경 감지 */
+  /** Detect child node changes */
   childList?: boolean;
   
-  /** 하위 트리 변경 감지 */
+  /** Detect subtree changes */
   subtree?: boolean;
   
-  /** 텍스트 노드 변경 감지 */
+  /** Detect text node changes */
   characterData?: boolean;
   
-  /** 속성 변경 감지 */
+  /** Detect attribute changes */
   attributes?: boolean;
   
-  /** 감지할 속성 필터 */
+  /** Attribute filter to detect */
   attributeFilter?: string[];
   
-  /** 이전 값 저장 */
+  /** Store previous value */
   characterDataOldValue?: boolean;
   
-  /** 속성 이전 값 저장 */
+  /** Store attribute previous value */
   attributeOldValue?: boolean;
 }

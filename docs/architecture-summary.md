@@ -1,6 +1,6 @@
-# Barocss Architecture - 간단 요약
+# Barocss Architecture - Brief Summary
 
-## 핵심 구조
+## Core Structure
 
 ```
 Model → DSL → VNodeBuilder → VNode → DOMReconcile → DOM
@@ -8,7 +8,7 @@ Model → DSL → VNodeBuilder → VNode → DOMReconcile → DOM
      element, data, when, component, slot, portal
 ```
 
-## 전체 파이프라인
+## Complete Pipeline
 
 ```
 1. DSL Layer (packages/dsl)
@@ -21,82 +21,82 @@ Model → DSL → VNodeBuilder → VNode → DOMReconcile → DOM
    └─ VNode × VNode → DOM
 ```
 
-## 각 레이어의 역할
+## Role of Each Layer
 
 ### 1. DSL Layer (packages/dsl)
-**역할**: 함수형 템플릿 정의
+**Role**: Functional template definition
 
-- `element()` - HTML 요소 템플릿
-- `data()` - 데이터 바인딩  
-- `when()` - 조건부 렌더링
-- `component()` - 컴포넌트 템플릿
-- `slot()` - 슬롯 템플릿
-- `portal()` - Portal 템플릿
+- `element()` - HTML element template
+- `data()` - Data binding  
+- `when()` - Conditional rendering
+- `component()` - Component template
+- `slot()` - Slot template
+- `portal()` - Portal template
 
-모든 빌더는 순수 함수 (Pure Functions)
+All builders are pure functions (Pure Functions)
 
-**입력**: Builder parameters
-**출력**: Template
+**Input**: Builder parameters
+**Output**: Template
 
 ### 2. VNodeBuilder (packages/vnode)
-**역할**: DSL 템플릿을 VNode로 변환
+**Role**: Convert DSL templates to VNode
 
-- Registry에서 템플릿 조회
+- Template lookup from Registry
 - Data binding (data(), className, style)
 - Component resolution
 - Conditional rendering (build time)
-- `when()` 조건은 build time에 평가되어 일반 VNode로 변환
+- `when()` conditions are evaluated at build time and converted to regular VNode
 
-**입력**: Template × Model data
-**출력**: VNode tree
+**Input**: Template × Model data
+**Output**: VNode tree
 
 ### 3. DOMReconcile (packages/renderer-dom)
-**역할**: VNode 차이를 DOM 변경으로 변환
+**Role**: Convert VNode differences to DOM changes
 
-- WIP 트리 생성 및 관리
-- 변경사항 감지 (tag, attrs, children)
-- 우선순위 기반 처리
-- 최소 DOM 변경 적용
+- WIP tree creation and management
+- Change detection (tag, attrs, children)
+- Priority-based processing
+- Minimal DOM changes applied
 - Children reconcile (React-style)
 
-**입력**: prevVNode, nextVNode
-**출력**: DOM updates
+**Input**: prevVNode, nextVNode
+**Output**: DOM updates
 
-## Reconcile의 4단계
+## 4 Steps of Reconcile
 
 ```typescript
 reconcile(prevVNode, nextVNode, container, context) {
-  // 1. WIP Tree 생성
+  // 1. Create WIP Tree
   const wipTree = createWorkInProgressTree(nextVNode, prevVNode);
   
-  // 2. 변경사항 감지 및 우선순위 할당
+  // 2. Detect changes and assign priority
   detectChangesAndAssignPriority(prevVNode, nextVNode);
   
-  // 3. 우선순위별 처리
+  // 3. Process by priority
   processByPriority(context, processWorkInProgress);
   
-  // 4. DOM 업데이트 실행
+  // 4. Execute DOM updates
   executeDOMUpdates(container, finalizeDOMUpdate);
 }
 ```
 
-## Children Reconcile 핵심
+## Children Reconcile Core
 
 ```typescript
-// DOM을 직접 조작하는 reconciliation
+// Reconciliation that directly manipulates DOM
 reconcileChildren(wip, prevChildren, nextChildren) {
   while (prevIndex < prevChildren.length || nextIndex < nextChildren.length) {
     if (!prevChild) {
-      // 새 자식 추가
+      // Add new child
       const newNode = createNewDOMNode(nextChild);
       domNode.insertBefore(newNode, referenceNode);
       
-      // 중요: child WIP의 domNode 설정
+      // Important: Set child WIP's domNode
       wip.children[nextIndex].domNode = newNode;
     } else if (isSameNode(prevChild, nextChild)) {
-      // 동일한 노드 - skip
+      // Same node - skip
     } else {
-      // 노드 교체
+      // Replace node
       const newNode = createNewDOMNode(nextChild);
       domNode.replaceChild(newNode, oldNode);
       wip.children[nextIndex].domNode = newNode;
@@ -105,43 +105,43 @@ reconcileChildren(wip, prevChildren, nextChildren) {
 }
 ```
 
-**핵심 규칙**: reconcile에서 생성/교체된 DOM 노드를 child WIP의 `domNode`에 설정해야 중복 append를 방지할 수 있음
+**Core Rule**: DOM nodes created/replaced in reconcile must be set in child WIP's `domNode` to prevent duplicate append
 
-## 주요 클래스
+## Key Classes
 
-| 클래스/함수 | 레이어 | 역할 |
+| Class/Function | Layer | Role |
 |-----------|--------|------|
-| `element, data, when, component` | **DSL** | 템플릿 빌더 (순수 함수) |
-| `VNodeBuilder` | **VNode** | DSL 템플릿 → VNode 변환 |
+| `element, data, when, component` | **DSL** | Template builder (pure functions) |
+| `VNodeBuilder` | **VNode** | DSL template → VNode conversion |
 | `DOMReconcile` | **Renderer** | VNode → DOM reconcile orchestration |
-| `WorkInProgressManager` | **Renderer** | WIP 트리 생성 및 관리 |
-| `ChangeDetection` | **Renderer** | 변경사항 감지 |
-| `DOMProcessor` | **Renderer** | DOM 조작 (insert/update/remove) |
-| `ComponentManager` | **Renderer** | 컴포넌트 라이프사이클 |
-| `PortalManager` | **Renderer** | Portal 렌더링 |
-| `DOMOperations` | **Renderer** | DOM 생성/수정 유틸리티 |
+| `WorkInProgressManager` | **Renderer** | WIP tree creation and management |
+| `ChangeDetection` | **Renderer** | Change detection |
+| `DOMProcessor` | **Renderer** | DOM manipulation (insert/update/remove) |
+| `ComponentManager` | **Renderer** | Component lifecycle |
+| `PortalManager` | **Renderer** | Portal rendering |
+| `DOMOperations` | **Renderer** | DOM creation/modification utilities |
 
-## 핵심 규칙
+## Core Rules
 
-1. **DSL 빌더**는 순수 함수로 템플릿을 정의
-2. **VNodeBuilder**는 템플릿과 데이터를 VNode로 변환만 담당
-3. **DOMReconcile**은 VNode 차이를 DOM 변경으로 변환
-4. **WIP 패턴**으로 실제 변경을 일괄 처리
-5. **children reconcile**에서 생성된 DOM 노드는 child WIP의 domNode에 설정 필수
-6. **finalizeDOMUpdate**에서 중복 append 방지 (`isAlreadyInDOM` 체크)
+1. **DSL builders** define templates as pure functions
+2. **VNodeBuilder** only converts templates and data to VNode
+3. **DOMReconcile** converts VNode differences to DOM changes
+4. **WIP pattern** batches actual changes
+5. **children reconcile** must set created DOM nodes in child WIP's domNode
+6. **finalizeDOMUpdate** prevents duplicate append (`isAlreadyInDOM` check)
 
-## 파일 구조
+## File Structure
 
 ```
 packages/
-├─ schema/              # Schema 정의
+├─ schema/              # Schema definition
 ├─ dsl/                 # DSL Layer ⭐
 │  ├─ template-builders.ts  # element, data, when, component
 │  ├─ types.ts             # Template types
 │  └─ registry.ts          # Template registry
 ├─ vnode/              # VNodeBuilder
-│  └─ factory.ts       # DSL Template → VNode 변환
-├─ model/              # Model 데이터
+│  └─ factory.ts       # DSL Template → VNode conversion
+├─ model/              # Model data
 ├─ renderer-dom/
 │  ├─ dom-renderer.ts           # High-level wrapper
 │  ├─ dom-reconcile.ts          # Main reconcile
@@ -155,30 +155,30 @@ packages/
 └─ datastore/         # Data management
 ```
 
-## 사용 예제
+## Usage Examples
 
-자세한 예제는 [`architecture-practical-examples.md`](./architecture-practical-examples.md) 참고
+For detailed examples, see [`architecture-practical-examples.md`](./architecture-practical-examples.md)
 
 ### Basic Render
 ```typescript
-// DSL 템플릿 정의
+// Define DSL template
 define('paragraph', element('p', {}, [data('text')]));
 
 // Render
 const renderer = new DOMRenderer();
 const model = { stype: 'paragraph', text: 'Hello' };
 renderer.render(container, model);
-// 결과: <p>Hello</p>
+// Result: <p>Hello</p>
 ```
 
-### Update (Reconcile 자동)
+### Update (Automatic Reconcile)
 ```typescript
 model.text = 'New';
 renderer.render(container, model);
-// 결과: <p>New</p> (전체 재생성 없이 텍스트만 변경)
+// Result: <p>New</p> (only text changed without full regeneration)
 ```
 
-### 복잡한 템플릿
+### Complex Template
 ```typescript
 define('article', element('article',
   { className: data('className') },
@@ -193,12 +193,12 @@ define('article', element('article',
 ));
 ```
 
-## 관련 문서
+## Related Documents
 
-- [`architecture-design-principles.md`](./architecture-design-principles.md) - **핵심 설계 원칙** ⭐
-- [`architecture-reconcile-algorithm.md`](./architecture-reconcile-algorithm.md) - **Reconcile 알고리즘 상세** ⭐
-- [`architecture-practical-examples.md`](./architecture-practical-examples.md) - 실제 사용 예제
-- [`architecture-mathematical-model.md`](./architecture-mathematical-model.md) - 수학적 모델
-- [`architecture-flow-diagram.md`](./architecture-flow-diagram.md) - 플로우 다이어그램
-- [`architecture-reconcile-overview.md`](./architecture-reconcile-overview.md) - 전체 개요
+- [`architecture-design-principles.md`](./architecture-design-principles.md) - **Core Design Principles** ⭐
+- [`architecture-reconcile-algorithm.md`](./architecture-reconcile-algorithm.md) - **Reconcile Algorithm Details** ⭐
+- [`architecture-practical-examples.md`](./architecture-practical-examples.md) - Practical usage examples
+- [`architecture-mathematical-model.md`](./architecture-mathematical-model.md) - Mathematical model
+- [`architecture-flow-diagram.md`](./architecture-flow-diagram.md) - Flow diagram
+- [`architecture-reconcile-overview.md`](./architecture-reconcile-overview.md) - Complete overview
 

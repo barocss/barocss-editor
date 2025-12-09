@@ -727,17 +727,17 @@ describe('Reconciler advanced cases', () => {
 
     const m2: ModelData = {
       sid: 'b1', stype: 'box',
-      // id 제거, className 변경, data-x 제거, style 일부 제거/변경
+      // Remove id, change className, remove data-x, remove/change some style
       className: 'b c',
       style: { backgroundColor: 'blue' }
     };
     renderer.render(container, m2);
     const h2 = normalizeHTML(container.firstElementChild as Element);
-    // 제거 확인
+    // Verify removal
     expect(h2).not.toContain('id="first"');
     expect(h2).not.toContain('data-x="1"');
     expect(h2).not.toMatch(/font-weight:\s*bold/);
-    // 변경/유지 확인
+    // Verify change/maintenance
     expect(h2).toContain('class="b c"');
     expect(h2).toMatch(/background-color:\s*blue/);
   });
@@ -786,7 +786,7 @@ describe('Reconciler advanced cases', () => {
     
     if (!registry.has('counter')) {
       defineState('counter', CounterState);
-      // 제네릭 타입을 사용하여 타입 안정성 향상
+      // Use generic types to improve type safety
       define<ComponentProps, CounterModel, ComponentContext>('counter', (_p, m, ctx) => {
         if (!ctx.getState('count')) {
           ctx.initState({ count: Number(m?.text ?? 0) });

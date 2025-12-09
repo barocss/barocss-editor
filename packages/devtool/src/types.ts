@@ -34,7 +34,7 @@ export interface ModelTreeNode {
     start: number;
     end: number;
   };
-  /** 텍스트가 marks/decorators로 분리된 경우, 분리된 텍스트 런들 */
+  /** Separated text runs when text is split by marks/decorators */
   textRuns?: Array<{
     text: string;
     start: number;

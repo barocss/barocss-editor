@@ -1,27 +1,27 @@
-# indentText / outdentText 명세
+# indentText / outdentText Specification
 
-## 개요
+## Overview
 
-`indentText`와 `outdentText`는 **텍스트 내용 자체에 들여쓰기 문자열을 추가/제거**하는 기능입니다. 
+`indentText` and `outdentText` are features that **add/remove indentation strings to the text content itself**.
 
-**⚠️ 주의: 이 기능은 주로 코드 블록(code-block) 같은 단일 텍스트 노드에서 사용하는 것이 적합합니다.**
+**⚠️ Note: This feature is primarily suitable for use in single text nodes like code blocks (code-block).**
 
-여러 노드에 걸친 범위나 paragraph가 여러 inline-text를 가지는 경우에는 노드 경계에서 예상과 다르게 동작할 수 있습니다.
+When used across multiple nodes or when a paragraph has multiple inline-text nodes, it may behave unexpectedly at node boundaries.
 
-## 핵심 개념
+## Core Concepts
 
 ### indentText vs indentNode
 
-| 구분 | indentText | indentNode |
-|------|-----------|------------|
-| **대상** | 텍스트 노드의 **내용** | 블록 노드의 **구조** |
-| **동작** | 각 줄 앞에 공백 문자열 추가 | 노드를 이전 형제의 자식으로 이동 |
-| **사용 사례** | 코드 블록 내부 들여쓰기 | 리스트 아이템 들여쓰기 |
-| **모델 변경** | `node.text` 내용 변경 | `node.parentId`, `parent.content` 변경 |
+| Aspect | indentText | indentNode |
+|--------|-----------|------------|
+| **Target** | **Content** of text node | **Structure** of block node |
+| **Operation** | Add whitespace string before each line | Move node as child of previous sibling |
+| **Use Cases** | Indentation inside code blocks | List item indentation |
+| **Model Change** | Change `node.text` content | Change `node.parentId`, `parent.content` |
 
-### 예시
+### Examples
 
-#### indentText (텍스트 내용 변경)
+#### indentText (Text Content Change)
 
 **Before:**
 ```javascript
@@ -43,7 +43,7 @@
 }
 ```
 
-#### indentNode (구조 변경)
+#### indentNode (Structure Change)
 
 **Before:**
 ```javascript
@@ -75,23 +75,23 @@
 }
 ```
 
-## 동작 원리
+## How It Works
 
-### 1. DataStore 레벨 (`range.indent` / `range.outdent`)
+### 1. DataStore Level (`range.indent` / `range.outdent`)
 
 ```typescript
 // packages/datastore/src/operations/range-operations.ts
 
 indent(contentRange: ModelSelection, indent: string = '  '): string {
-  // 1. 범위에서 텍스트 추출
+  // 1. Extract text from range
   const text = this.extractText(contentRange);
   if (text.length === 0) return '';
   
-  // 2. 각 줄 앞에 indent 문자열 추가
-  // 정규식: (^|\n) - 줄 시작 또는 줄바꿈 뒤
+  // 2. Add indent string before each line
+  // Regex: (^|\n) - line start or after newline
   const transformed = text.replace(/(^|\n)/g, (m, g1) => g1 + indent);
   
-  // 3. 원본 범위를 변환된 텍스트로 교체
+  // 3. Replace original range with transformed text
   this.replaceText(contentRange, transformed);
   
   return transformed;
@@ -101,11 +101,11 @@ outdent(contentRange: ModelSelection, indent: string = '  '): string {
   const text = this.extractText(contentRange);
   if (text.length === 0) return '';
   
-  // indent 문자열을 이스케이프하여 정규식으로 사용
+  // Escape indent string for use in regex
   const escaped = indent.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const rx = new RegExp(`(^|\\n)${escaped}`, 'g');
   
-  // 각 줄 앞의 indent 문자열 제거
+  // Remove indent string before each line
   const transformed = text.replace(rx, (m, g1) => g1);
   
   this.replaceText(contentRange, transformed);
@@ -113,7 +113,7 @@ outdent(contentRange: ModelSelection, indent: string = '  '): string {
 }
 ```
 
-### 2. Model 레벨 (`indentText` / `outdentText` operation)
+### 2. Model Level (`indentText` / `outdentText` operation)
 
 ```typescript
 // packages/model/src/operations/indentText.ts
@@ -122,7 +122,7 @@ defineOperation('indentText', async (operation, context) => {
   const payload = operation.payload;
   const indent = payload.indent ?? '  ';
   
-  // 범위 생성 및 검증
+  // Create and validate range
   const range: ModelSelection = {
     type: 'range',
     startNodeId: nodeId,
@@ -133,18 +133,18 @@ defineOperation('indentText', async (operation, context) => {
     direction: 'forward'
   };
   
-  // DataStore의 range.indent 호출
+  // Call DataStore's range.indent
   const result = context.dataStore.range.indent(range, indent);
   
   return {
     ok: true,
-    data: result,  // 변환된 텍스트 반환
+    data: result,  // Return transformed text
     inverse: { type: 'outdentText', payload: { nodeId, start, end, indent } }
   };
 });
 ```
 
-### 3. Extension 레벨 (Command)
+### 3. Extension Level (Command)
 
 ```typescript
 // packages/extensions/src/indent.ts
@@ -155,7 +155,7 @@ editor.registerCommand({
     const selection = payload?.selection || editor.selection;
     if (!selection || selection.type !== 'range') return false;
     
-    // operation 생성 및 transaction 실행
+    // Create operation and execute transaction
     const operations = [
       ...control(selection.startNodeId, [
         indentText(selection.startOffset, selection.endOffset, indentStr)
@@ -168,35 +168,35 @@ editor.registerCommand({
 });
 ```
 
-## Renderer-DOM 표현
+## Renderer-DOM Representation
 
-### 핵심 원리
+### Core Principle
 
-**`indentText`/`outdentText`는 모델의 `node.text` 내용을 변경하므로, renderer-dom은 자동으로 변경된 텍스트를 렌더링합니다.**
+**Since `indentText`/`outdentText` change the `node.text` content in the model, renderer-dom automatically renders the changed text.**
 
-### 렌더링 흐름
+### Rendering Flow
 
 ```
-1. Model 변경
+1. Model Change
    node.text: 'function hello() {\n  return "world";\n}'
-   ↓ indentText 실행
+   ↓ indentText execution
    node.text: '  function hello() {\n    return "world";\n  }'
 
-2. Renderer-DOM 렌더링
-   - data('text')로 텍스트 가져오기
-   - VNode 생성: { tag: 'code', children: [{ text: '  function...' }] }
-   - DOM 생성: <code>  function hello() {
+2. Renderer-DOM Rendering
+   - Get text with data('text')
+   - Create VNode: { tag: 'code', children: [{ text: '  function...' }] }
+   - Create DOM: <code>  function hello() {
      return "world";
    }</code>
 
-3. 브라우저 표시
-   - 공백 문자는 그대로 유지됨 (white-space: pre 또는 pre-wrap 필요)
-   - CSS로 들여쓰기 시각화
+3. Browser Display
+   - Whitespace characters are preserved (white-space: pre or pre-wrap required)
+   - Visualize indentation with CSS
 ```
 
-### 실제 예시
+### Real Examples
 
-#### 코드 블록 예시
+#### Code Block Example
 
 **Model:**
 ```javascript
@@ -208,7 +208,7 @@ editor.registerCommand({
 }
 ```
 
-**indentText 실행 후:**
+**After indentText execution:**
 ```javascript
 {
   sid: 'code-1',
@@ -234,7 +234,7 @@ editor.registerCommand({
 }
 ```
 
-**DOM 결과:**
+**DOM Result:**
 ```html
 <pre data-language="javascript">
   <code>  function hello() {
@@ -243,34 +243,34 @@ editor.registerCommand({
 </pre>
 ```
 
-**CSS 필요:**
+**CSS Required:**
 ```css
 pre, code {
-  white-space: pre;  /* 또는 pre-wrap */
-  /* 공백 문자가 그대로 유지됨 */
+  white-space: pre;  /* or pre-wrap */
+  /* Whitespace characters are preserved */
 }
 ```
 
-### 주의사항
+### Notes
 
-1. **공백 문자 보존**
-   - `indentText`는 실제 공백 문자(` `, `\t`)를 텍스트에 추가합니다.
-   - 브라우저는 기본적으로 연속된 공백을 하나로 축약하므로, `white-space: pre` 또는 `pre-wrap` CSS가 필요합니다.
+1. **Whitespace Preservation**
+   - `indentText` adds actual whitespace characters (` `, `\t`) to the text.
+   - Browsers collapse consecutive whitespace by default, so `white-space: pre` or `pre-wrap` CSS is required.
 
-2. **Mark 범위 조정**
-   - `range.replaceText`는 마크 범위를 자동으로 조정합니다.
-   - 들여쓰기로 인한 텍스트 길이 변경에 따라 마크 범위도 이동합니다.
+2. **Mark Range Adjustment**
+   - `range.replaceText` automatically adjusts mark ranges.
+   - Mark ranges move according to text length changes caused by indentation.
 
-3. **Cross-node 범위**
-   - 여러 노드에 걸친 범위도 지원합니다.
-   - 각 노드의 해당 부분에 들여쓰기가 적용됩니다.
+3. **Cross-node Ranges**
+   - Ranges spanning multiple nodes are also supported.
+   - Indentation is applied to the corresponding part of each node.
 
-## 사용 사례
+## Use Cases
 
-### 1. 코드 블록 들여쓰기
+### 1. Code Block Indentation
 
 ```typescript
-// 사용자가 코드 블록 내부에서 Tab 키를 누름
+// User presses Tab key inside code block
 const selection = {
   type: 'range',
   startNodeId: 'code-1',
@@ -279,19 +279,19 @@ const selection = {
   endOffset: 20
 };
 
-// indentText 실행
+// Execute indentText
 await editor.executeCommand('indentText', {
   selection,
   indent: '  '  // 2 spaces
 });
 
-// 결과: 코드 블록의 선택된 부분이 2칸 들여쓰기됨
+// Result: Selected part of code block is indented by 2 spaces
 ```
 
-### 2. 인용문 들여쓰기
+### 2. Quote Indentation
 
 ```typescript
-// 인용문 내부 텍스트 들여쓰기
+// Indent text inside quote
 const selection = {
   type: 'range',
   startNodeId: 'quote-text-1',
@@ -302,24 +302,24 @@ const selection = {
 
 await editor.executeCommand('indentText', {
   selection,
-  indent: '> '  // 인용문 표시
+  indent: '> '  // Quote marker
 });
 ```
 
-### 3. 리스트 아이템 들여쓰기 (구조적)
+### 3. List Item Indentation (Structural)
 
 ```typescript
-// 리스트 아이템 자체를 들여쓰기 (구조 변경)
+// Indent list item itself (structure change)
 await editor.executeCommand('indentNode', {
   nodeId: 'list-item-2'
 });
 
-// 이건 indentNode를 사용 (구조 변경)
+// This uses indentNode (structure change)
 ```
 
-## DSL 사용법
+## DSL Usage
 
-### 단일 노드 범위
+### Single Node Range
 
 ```typescript
 import { transaction, control, indentText } from '@barocss/model';
@@ -349,33 +349,33 @@ await transaction(editor, [
 ]).commit();
 ```
 
-## 제한사항 및 주의사항
+## Limitations and Notes
 
-### 1. 텍스트 노드만 대상
+### 1. Text Nodes Only
 
-**`indentText`/`outdentText`는 텍스트 노드(`node.text`가 있는 노드)만 대상으로 합니다.**
+**`indentText`/`outdentText` only target text nodes (nodes with `node.text`).**
 
-- ✅ **동작**: `inline-text`, `code-block` 등 텍스트를 가진 노드
-- ❌ **무시**: `inline-image`, `page-break` 등 atom 노드 (텍스트 없음)
-- ⚠️ **경고**: 텍스트가 없는 노드는 `extractText`에서 제외됨
+- ✅ **Works**: Nodes with text like `inline-text`, `code-block`
+- ❌ **Ignored**: Atom nodes without text like `inline-image`, `page-break`
+- ⚠️ **Warning**: Nodes without text are excluded from `extractText`
 
-### 2. 여러 노드에 걸친 범위의 동작
+### 2. Behavior with Ranges Spanning Multiple Nodes
 
-**Paragraph가 여러 inline-text를 가지는 경우:**
+**When paragraph has multiple inline-text nodes:**
 
 ```javascript
-// Model 구조
+// Model structure
 {
   sid: 'para-1',
   stype: 'paragraph',
   content: [
     { sid: 'text-1', stype: 'inline-text', text: 'Hello\n' },
-    { sid: 'img-1', stype: 'inline-image', src: '...' },  // atom 노드
+    { sid: 'img-1', stype: 'inline-image', src: '...' },  // atom node
     { sid: 'text-2', stype: 'inline-text', text: 'World\n' }
   ]
 }
 
-// Range: text-1의 처음부터 text-2의 끝까지
+// Range: from start of text-1 to end of text-2
 const range = {
   startNodeId: 'text-1',
   startOffset: 0,
@@ -383,92 +383,92 @@ const range = {
   endOffset: 6
 };
 
-// indentText 실행 시:
-// 1. extractText: 'Hello\nWorld\n' 추출 (img-1은 제외)
-// 2. 변환: '  Hello\n  World\n'
-// 3. replaceText: deleteText + insertText로 처리
-//    - text-1: '  Hello\n'로 교체
-//    - text-2: '  World\n'로 교체
-//    - img-1: 변경 없음 (텍스트 없음)
+// When indentText executes:
+// 1. extractText: Extract 'Hello\nWorld\n' (img-1 excluded)
+// 2. Transform: '  Hello\n  World\n'
+// 3. replaceText: Process as deleteText + insertText
+//    - text-1: Replace with '  Hello\n'
+//    - text-2: Replace with '  World\n'
+//    - img-1: No change (no text)
 ```
 
-**결과:**
-- ✅ 각 텍스트 노드의 첫 줄은 들여쓰기됨
-- ✅ atom 노드(inline-image 등)는 영향 없음
-- ⚠️ **하지만**: 여러 노드에 걸친 경우, `replaceText`가 `deleteText` + `insertText`로 처리되므로 **원래 구조가 변경될 수 있음**
+**Result:**
+- ✅ First line of each text node is indented
+- ✅ Atom nodes (inline-image, etc.) are unaffected
+- ⚠️ **However**: With ranges spanning multiple nodes, `replaceText` is processed as `deleteText` + `insertText`, so **original structure may change**
 
-### 3. 정확한 사용 사례
+### 3. Appropriate Use Cases
 
-#### ✅ 적합한 사용 사례 (권장)
+#### ✅ Suitable Use Cases (Recommended)
 
-1. **코드 블록 (code-block) - 가장 적합**
+1. **Code Block (code-block) - Most Suitable**
    ```javascript
-   // 단일 code-block 노드 내부
+   // Inside single code-block node
    {
      sid: 'code-1',
      stype: 'code-block',
      text: 'function hello() {\n  return "world";\n}'
    }
-   // indentText → 각 줄 앞에 공백 추가
-   // ✅ 단일 텍스트 노드이므로 안전하게 동작
+   // indentText → Add whitespace before each line
+   // ✅ Safe operation since it's a single text node
    ```
 
-2. **단일 텍스트를 가진 블록 노드**
+2. **Block Node with Single Text**
    ```javascript
-   // 단일 텍스트 노드만 가진 블록
+   // Block with only single text node
    {
      sid: 'pre-1',
      stype: 'pre',
      text: 'Line 1\nLine 2\nLine 3'
    }
-   // indentText → 각 줄 앞에 공백 추가
-   // ✅ 단일 텍스트 노드이므로 안전하게 동작
+   // indentText → Add whitespace before each line
+   // ✅ Safe operation since it's a single text node
    ```
 
-#### ⚠️ 주의가 필요한 사용 사례 (비권장)
+#### ⚠️ Use Cases Requiring Caution (Not Recommended)
 
-1. **여러 inline-text 노드에 걸친 범위**
-   - 각 노드별로 개별 처리됨
-   - 노드 경계에서 줄 단위 들여쓰기가 깨질 수 있음
-   - 예: `text-1`의 마지막 줄과 `text-2`의 첫 줄이 같은 논리적 줄인 경우
-   - **권장하지 않음**: paragraph가 여러 inline-text를 가지는 경우는 구조가 복잡해질 수 있음
+1. **Ranges Spanning Multiple inline-text Nodes**
+   - Processed individually per node
+   - Line-based indentation may break at node boundaries
+   - Example: When last line of `text-1` and first line of `text-2` are the same logical line
+   - **Not recommended**: When paragraph has multiple inline-text nodes, structure can become complex
 
-2. **Atom 노드가 포함된 범위**
-   - Atom 노드는 텍스트가 없으므로 `extractText`에서 제외됨
-   - 들여쓰기 결과가 예상과 다를 수 있음
-   - **권장하지 않음**: inline-image 등이 포함된 범위는 예상과 다르게 동작할 수 있음
+2. **Ranges Including Atom Nodes**
+   - Atom nodes have no text, so excluded from `extractText`
+   - Indentation result may differ from expectations
+   - **Not recommended**: Ranges including inline-image, etc. may behave unexpectedly
 
-#### ❌ 부적합한 사용 사례
+#### ❌ Unsuitable Use Cases
 
-1. **구조적 들여쓰기 (리스트 아이템 등)**
-   - `indentNode`/`outdentNode` 사용해야 함
-   - `indentText`는 텍스트 내용만 변경하므로 구조 변경 불가
+1. **Structural Indentation (List Items, etc.)**
+   - Must use `indentNode`/`outdentNode`
+   - `indentText` only changes text content, cannot change structure
 
-2. **Block 노드 자체의 들여쓰기**
-   - Block 노드는 보통 텍스트를 직접 가지지 않음
-   - `indentNode` 사용해야 함
+2. **Indentation of Block Node Itself**
+   - Block nodes usually don't have text directly
+   - Must use `indentNode`
 
-### 4. Tab 문자 (`\t`) vs 공백 문자 (` `)
+### 4. Tab Character (`\t`) vs Space Character (` `)
 
-**`indentText`는 어떤 문자열이든 추가할 수 있습니다:**
+**`indentText` can add any string:**
 
 ```typescript
-// 공백 2개
+// 2 spaces
 indentText(range, '  ')
 
-// Tab 문자
+// Tab character
 indentText(range, '\t')
 
-// 커스텀 문자열
-indentText(range, '> ')  // 인용문
-indentText(range, '- ')   // 리스트 마커
+// Custom string
+indentText(range, '> ')  // Quote
+indentText(range, '- ')   // List marker
 ```
 
-**기본값은 공백 2개 (`'  '`)입니다.**
+**Default is 2 spaces (`'  '`).**
 
-### 5. 실제 동작 예시
+### 5. Actual Behavior Examples
 
-#### 예시 1: 단일 텍스트 노드 (코드 블록)
+#### Example 1: Single Text Node (Code Block)
 
 ```javascript
 // Before
@@ -478,10 +478,10 @@ indentText(range, '- ')   // 리스트 마커
   text: 'function hello() {\n  return "world";\n}'
 }
 
-// indentText(range, '  ') 실행
+// Execute indentText(range, '  ')
 // extractText: 'function hello() {\n  return "world";\n}'
 // transformed: '  function hello() {\n    return "world";\n  }'
-// replaceText: 단일 노드이므로 직접 교체
+// replaceText: Direct replacement since single node
 
 // After
 {
@@ -491,7 +491,7 @@ indentText(range, '- ')   // 리스트 마커
 }
 ```
 
-#### 예시 2: 여러 텍스트 노드 (주의 필요)
+#### Example 2: Multiple Text Nodes (Caution Required)
 
 ```javascript
 // Before
@@ -507,8 +507,8 @@ indentText(range, '- ')   // 리스트 마커
 // extractText: 'Line 1\nLine 2\n'
 // transformed: '  Line 1\n  Line 2\n'
 // replaceText: deleteText + insertText
-//   - text-1: '  Line 1\n'로 교체
-//   - text-2: '  Line 2\n'로 교체
+//   - text-1: Replace with '  Line 1\n'
+//   - text-2: Replace with '  Line 2\n'
 
 // After
 {
@@ -520,18 +520,18 @@ indentText(range, '- ')   // 리스트 마커
 }
 ```
 
-**⚠️ 문제점:**
-- 노드 경계에서 줄 단위 들여쓰기가 깨질 수 있음
-- `text-1`의 마지막 줄과 `text-2`의 첫 줄이 같은 논리적 줄인 경우, 각각 개별 처리되어 의도와 다를 수 있음
+**⚠️ Issues:**
+- Line-based indentation may break at node boundaries
+- When last line of `text-1` and first line of `text-2` are the same logical line, individual processing may differ from intent
 
-## 요약
+## Summary
 
-1. **`indentText`/`outdentText`는 텍스트 내용을 변경**합니다.
-2. **모델의 `node.text`가 변경**되므로, renderer-dom은 자동으로 변경된 텍스트를 렌더링합니다.
-3. **공백 문자는 실제 텍스트에 포함**되므로, CSS `white-space: pre`가 필요할 수 있습니다.
-4. **구조적 들여쓰기는 `indentNode`/`outdentNode`를 사용**합니다.
-5. **텍스트 노드만 대상**이며, atom 노드(inline-image 등)는 영향 없습니다.
-6. **여러 노드에 걸친 범위는 주의 필요**: 각 노드별로 개별 처리되므로 노드 경계에서 예상과 다를 수 있습니다.
-7. **Tab 문자(`\t`) 또는 공백(` `) 모두 사용 가능**: `indent` 파라미터로 지정합니다.
-8. **⚠️ 권장 사용 사례: 코드 블록(code-block) 같은 단일 텍스트 노드에서만 사용**
+1. **`indentText`/`outdentText` change text content**.
+2. **Since `node.text` in model changes**, renderer-dom automatically renders the changed text.
+3. **Whitespace characters are included in actual text**, so CSS `white-space: pre` may be required.
+4. **Use `indentNode`/`outdentNode` for structural indentation**.
+5. **Only targets text nodes**, atom nodes (inline-image, etc.) are unaffected.
+6. **Caution needed for ranges spanning multiple nodes**: Processed individually per node, so may differ from expectations at node boundaries.
+7. **Both Tab character (`\t`) and space (` `) can be used**: Specified via `indent` parameter.
+8. **⚠️ Recommended use case: Use only in single text nodes like code blocks (code-block)**
 

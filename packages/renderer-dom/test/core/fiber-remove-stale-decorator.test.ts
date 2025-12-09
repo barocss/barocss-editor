@@ -6,11 +6,11 @@ import { VNode } from '../../src/vnode/types';
 import { DOMOperations } from '../../src/dom-operations';
 import { ComponentManager } from '../../src/component-manager';
 
-// 헬퍼 함수: 모든 Fiber를 재귀적으로 처리
+// Helper function: Process all Fibers recursively
 function reconcileAllFibers(fiber: FiberNode, deps: FiberReconcileDependencies, context: any): void {
   reconcileFiberNode(fiber, deps, context);
   
-  // 자식 Fiber 처리
+  // Process child Fibers
   let childFiber = fiber.child;
   while (childFiber) {
     reconcileAllFibers(childFiber, deps, context);
@@ -45,7 +45,7 @@ describe('removeStaleChildren - Decorator VNode 제거 방지', () => {
   });
 
   afterEach(() => {
-    // 테스트 간 상태 정리
+    // Clean up state between tests
     if (container && container.parentNode) {
       container.parentNode.removeChild(container);
     }
@@ -91,7 +91,7 @@ describe('removeStaleChildren - Decorator VNode 제거 방지', () => {
       const fiber = createFiberTree(container, vnode, undefined, {});
       reconcileAllFibers(fiber, deps, {});
 
-      // removeStaleChildren 호출
+      // Call removeStaleChildren
       removeStaleChildren(fiber, deps);
 
       const decoratorElements = container.querySelectorAll('[data-decorator-sid="d-highlight"]');
@@ -136,18 +136,18 @@ describe('removeStaleChildren - Decorator VNode 제거 방지', () => {
       const fiber = createFiberTree(container, vnode, undefined, {});
       reconcileAllFibers(fiber, deps, {});
 
-      // removeStaleChildren 호출 전 DOM 요소 확인
+      // Verify DOM elements before calling removeStaleChildren
       const beforeRemove = container.querySelectorAll('[data-decorator-sid="d-highlight"]');
       expect(beforeRemove.length).toBe(3);
 
-      // removeStaleChildren 호출
+      // Call removeStaleChildren
       removeStaleChildren(fiber, deps);
 
-      // removeStaleChildren 호출 후에도 모든 decorator 요소가 유지되어야 함
+      // All decorator elements should be maintained after calling removeStaleChildren
       const afterRemove = container.querySelectorAll('[data-decorator-sid="d-highlight"]');
       expect(afterRemove.length).toBe(3);
       
-      // 각 요소가 고유한지 확인
+      // Verify each element is unique
       const texts = Array.from(afterRemove).map(el => el.textContent);
       expect(texts).toContain('first');
       expect(texts).toContain('second');
@@ -185,7 +185,7 @@ describe('removeStaleChildren - Decorator VNode 제거 방지', () => {
       const fiber = createFiberTree(container, vnode, undefined, {});
       reconcileAllFibers(fiber, deps, {});
 
-      // DOM에 2개의 decorator 요소가 생성되었는지 확인
+      // Verify 2 decorator elements are created in DOM
       const decoratorElements = container.querySelectorAll('[data-decorator-sid="d-highlight"]');
       // eslint-disable-next-line no-console
       console.log('[TEST] reconcileAllFibers 후:', {
@@ -213,10 +213,10 @@ describe('removeStaleChildren - Decorator VNode 제거 방지', () => {
       });
       expect(decoratorElements.length).toBe(2);
 
-      // removeStaleChildren 호출
+      // Call removeStaleChildren
       removeStaleChildren(fiber, deps);
 
-      // 모든 decorator 요소가 유지되어야 함
+      // All decorator elements should be maintained
       const afterRemove = container.querySelectorAll('[data-decorator-sid="d-highlight"]');
       expect(afterRemove.length).toBe(2);
     });

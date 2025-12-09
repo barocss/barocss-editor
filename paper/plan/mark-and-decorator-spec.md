@@ -1,48 +1,48 @@
-# Mark & Decorator 스펙 문서
+# Mark & Decorator Specification Document
 
-## 개요
+## Overview
 
-Barocss Editor는 **1가지 포맷팅 기법**과 **3가지 레이어링 기법**을 제공합니다.
+Barocss Editor provides **1 formatting technique** and **3 layering techniques**.
 
-- **Mark**: 모델에 저장되는 실제 포맷팅 데이터
-- **Decorator**: 모델과 무관한 부가 정보 표시 (3가지 타입)
+- **Mark**: Actual formatting data stored in the model
+- **Decorator**: Additional information display independent of the model (3 types)
 
-## 1. Mark (모델 데이터)
+## 1. Mark (Model Data)
 
-### 1.1 정의
-Mark는 모델에 저장되는 실제 포맷팅 데이터로, 사용자가 편집 가능한 컨텐츠의 일부입니다.
+### 1.1 Definition
+Mark is actual formatting data stored in the model and is part of content that users can edit.
 
-### 1.2 특징
-- **Schema 기반**: `@barocss/schema` 패키지에서 정의
-- **모델 저장**: 문서 모델에 영구적으로 저장됨
-- **편집 가능**: 사용자가 직접 편집할 수 있는 컨텐츠
-- **렌더링**: `renderer-dom`에서 처리 및 렌더링
-- **diff 포함**: DOM diff 알고리즘에 포함되어 변경사항 추적
-- **확장 가능**: Schema 확장을 통해 새로운 Mark 타입 추가 가능
+### 1.2 Characteristics
+- **Schema-based**: Defined in `@barocss/schema` package
+- **Model Storage**: Permanently stored in document model
+- **Editable**: Content that users can directly edit
+- **Rendering**: Processed and rendered in `renderer-dom`
+- **Diff Included**: Included in DOM diff algorithm for change tracking
+- **Extensible**: Can add new Mark types through Schema extension
 
-### 1.3 Mark 타입 (Schema 기반)
+### 1.3 Mark Types (Schema-based)
 
-Mark는 `@barocss/schema` 패키지에서 정의되며, Schema 설정에 따라 동적으로 결정됩니다.
+Marks are defined in the `@barocss/schema` package and are dynamically determined based on Schema configuration.
 
-#### Mark 인터페이스
+#### Mark Interface
 ```typescript
 interface Mark {
-  type: string;                    // Schema에서 정의된 Mark 타입
-  attrs: Record<string, any>;      // Mark별 속성
+  type: string;                    // Mark type defined in Schema
+  attrs: Record<string, any>;      // Mark-specific attributes
 }
 ```
 
-#### Schema에서 Mark 정의 예시
+#### Mark Definition Example in Schema
 ```typescript
 import { createSchema } from '@barocss/schema';
 
 const schema = createSchema('rich-text-editor', {
   topNode: 'doc',
   nodes: {
-    // ... 노드 정의
+    // ... node definitions
   },
   marks: {
-    // 기본 텍스트 스타일
+    // Basic text styles
     bold: {
       name: 'bold',
       group: 'text-style',
@@ -65,7 +65,7 @@ const schema = createSchema('rich-text-editor', {
       attrs: {}
     },
     
-    // 색상 관련
+    // Color related
     color: {
       name: 'color',
       group: 'color',
@@ -75,7 +75,7 @@ const schema = createSchema('rich-text-editor', {
       }
     },
     
-    // 링크
+    // Link
     link: {
       name: 'link',
       group: 'link',
@@ -86,7 +86,7 @@ const schema = createSchema('rich-text-editor', {
       }
     },
     
-    // 커스텀 Mark (사용자 정의)
+    // Custom Mark (user-defined)
     highlight: {
       name: 'highlight',
       group: 'annotation',
@@ -99,9 +99,9 @@ const schema = createSchema('rich-text-editor', {
 });
 ```
 
-#### Schema 기반 Mark 사용 예시
+#### Schema-based Mark Usage Example
 ```typescript
-// Schema에서 정의된 Mark 사용
+// Use Mark defined in Schema
 const boldMark: Mark = { 
   type: 'bold', 
   attrs: { weight: 'bold' } 
@@ -117,19 +117,19 @@ const linkMark: Mark = {
   attrs: { href: 'https://example.com', target: '_blank' } 
 };
 
-// 커스텀 Mark 사용
+// Use custom Mark
 const highlightMark: Mark = { 
   type: 'highlight', 
   attrs: { color: 'yellow', intensity: 0.5 } 
 };
 ```
 
-#### Schema 확장을 통한 새로운 Mark 추가
+#### Adding New Marks through Schema Extension
 ```typescript
-// 기존 Schema 확장
+// Extend existing Schema
 const extendedSchema = createSchema(schema, {
   marks: {
-    // 새로운 Mark 추가
+    // Add new Mark
     strikethrough: {
       name: 'strikethrough',
       group: 'text-style',
@@ -156,28 +156,28 @@ const extendedSchema = createSchema(schema, {
 });
 ```
 
-### 1.4 Mark와 Schema의 관계
+### 1.4 Relationship between Mark and Schema
 
-#### Schema 패키지 역할
-- **Mark 정의**: 사용 가능한 Mark 타입과 속성 정의
-- **검증**: Mark 데이터의 유효성 검사
-- **타입 안전성**: TypeScript 타입 생성 및 검증
-- **확장성**: 기존 Schema를 확장하여 새로운 Mark 추가
+#### Schema Package Role
+- **Mark Definition**: Define available Mark types and attributes
+- **Validation**: Validate Mark data
+- **Type Safety**: Generate and validate TypeScript types
+- **Extensibility**: Extend existing Schema to add new Marks
 
-#### renderer-dom에서의 Mark 처리 (DSL 기반)
+#### Mark Processing in renderer-dom (DSL-based)
 ```typescript
-// renderer-dom에서 DSL을 통한 Mark 렌더링
+// Mark rendering through DSL in renderer-dom
 import { RendererRegistry, renderer, element, data, when, attr } from '@barocss/renderer-dom';
 
 const registry = new RendererRegistry();
 
-// Text 렌더러에서 Mark에 따른 조건부 렌더링
+// Conditional rendering based on Mark in Text renderer
 registry.register(renderer('text', element('span', {
   className: 'text-node',
   style: (d: any) => {
     const styles: any = {};
     
-    // Mark 배열을 순회하며 스타일 적용
+    // Apply styles by iterating through Mark array
     if (d.marks) {
       d.marks.forEach((mark: Mark) => {
         switch (mark.type) {
@@ -203,19 +203,19 @@ registry.register(renderer('text', element('span', {
     return styles;
   }
 }, [
-  // Bold Mark가 있을 때 strong 요소로 감싸기
+  // Wrap with strong element when Bold Mark exists
   when(
     (d: any) => d.marks?.some((mark: Mark) => mark.type === 'bold'),
     element('strong', {}, [data('text', '')])
   ),
   
-  // Italic Mark가 있을 때 em 요소로 감싸기  
+  // Wrap with em element when Italic Mark exists  
   when(
     (d: any) => d.marks?.some((mark: Mark) => mark.type === 'italic'),
     element('em', {}, [data('text', '')])
   ),
   
-  // Link Mark가 있을 때 a 요소로 감싸기
+  // Wrap with a element when Link Mark exists
   when(
     (d: any) => d.marks?.some((mark: Mark) => mark.type === 'link'),
     element('a', {
@@ -230,41 +230,41 @@ registry.register(renderer('text', element('span', {
     }, [data('text', '')])
   ),
   
-  // Mark가 없을 때 기본 텍스트
+  // Default text when no Mark exists
   when(
     (d: any) => !d.marks || d.marks.length === 0,
     data('text', '')
   )
 ])));
 
-// 또는 더 간단한 방식으로 중첩된 요소 생성
+// Or create nested elements in a simpler way
 registry.register(renderer('text', 
-  // Link Mark 체크
+  // Check Link Mark
   when(
     (d: any) => d.marks?.some((mark: Mark) => mark.type === 'link'),
     element('a', {
       href: (d: any) => d.marks?.find((m: Mark) => m.type === 'link')?.attrs?.href || '#'
     }, [
-      // Bold Mark 체크 (Link 안에서)
+      // Check Bold Mark (inside Link)
       when(
         (d: any) => d.marks?.some((mark: Mark) => mark.type === 'bold'),
         element('strong', {}, [
-          // Italic Mark 체크 (Bold 안에서)
+          // Check Italic Mark (inside Bold)
           when(
             (d: any) => d.marks?.some((mark: Mark) => mark.type === 'italic'),
             element('em', {}, [data('text', '')]),
-            data('text', '') // Italic이 없으면 일반 텍스트
+            data('text', '') // Regular text if no Italic
           )
         ]),
-        // Bold가 없으면 Italic만 체크
+        // Check only Italic if no Bold
         when(
           (d: any) => d.marks?.some((mark: Mark) => mark.type === 'italic'),
           element('em', {}, [data('text', '')]),
-          data('text', '') // 둘 다 없으면 일반 텍스트
+          data('text', '') // Regular text if neither exists
         )
       )
     ]),
-    // Link가 없으면 Bold 체크
+    // Check Bold if no Link
     when(
       (d: any) => d.marks?.some((mark: Mark) => mark.type === 'bold'),
       element('strong', {}, [
@@ -274,69 +274,69 @@ registry.register(renderer('text',
           data('text', '')
         )
       ]),
-      // Bold가 없으면 Italic만 체크
+      // Check only Italic if no Bold
       when(
         (d: any) => d.marks?.some((mark: Mark) => mark.type === 'italic'),
         element('em', {}, [data('text', '')]),
-        data('text', '') // 모든 Mark가 없으면 일반 텍스트
+        data('text', '') // Regular text if no Mark exists
       )
     )
   )
 ));
 ```
 
-#### Mark 데이터 흐름
+#### Mark Data Flow
 ```
-Schema 정의 → Model 저장 → renderer-dom 렌더링 → DOM 출력
-     ↓              ↓              ↓              ↓
-  Mark 타입      Mark 인스턴스    HTML 요소      사용자 화면
-   정의           생성/저장       생성/스타일      표시/편집
+Schema Definition → Model Storage → renderer-dom Rendering → DOM Output
+     ↓                    ↓                    ↓                ↓
+  Mark Type          Mark Instance         HTML Element      User Screen
+   Definition         Creation/Storage      Creation/Style     Display/Edit
 ```
 
-### 1.5 Mark 적용 예시
+### 1.5 Mark Application Example
 
 ```html
-<!-- Mark 적용 전 -->
+<!-- Before Mark application -->
 <div data-bc-sid="text-1">Hello World</div>
 
-<!-- Mark 적용 후 -->
+<!-- After Mark application -->
 <div data-bc-sid="text-1">
   <strong style="color: red;">Hello</strong> <em>World</em>
 </div>
 ```
 
-## 2. Decorator (부가 정보 표시)
+## 2. Decorator (Additional Information Display)
 
-### 2.1 정의
-Decorator는 문서 모델과 별도로 관리되는 부가 정보를 표시하는 시스템으로, 렌더링 방식에 따라 3가지 카테고리로 구분됩니다.
+### 2.1 Definition
+Decorator is a system for displaying additional information managed separately from the document model, classified into 3 categories based on rendering method.
 
-### 2.2 특징
-- **데이터 저장**: `DataStore`의 `Document.decorators` 배열에 저장
-- **사용자 편집**: 직접 편집 불가능 (읽기 전용)
-- **렌더링**: `renderer-dom`의 `ContentDecoratorRenderer`와 `DisplayDecoratorRenderer`에서 처리
-- **이벤트 처리**: `defineDecorator` 템플릿에서 이벤트 핸들러 정의 가능
-- **위치 관리**: 절대 위치 또는 상대 위치로 배치
+### 2.2 Characteristics
+- **Data Storage**: Stored in `DataStore`'s `Document.decorators` array
+- **User Editing**: Cannot be directly edited (read-only)
+- **Rendering**: Processed in `renderer-dom`'s `ContentDecoratorRenderer` and `DisplayDecoratorRenderer`
+- **Event Handling**: Can define event handlers in `defineDecorator` template
+- **Position Management**: Placed at absolute or relative positions
 
-### 2.3 Decorator 분류 체계
+### 2.3 Decorator Classification System
 
-Decorator는 **렌더링 방식**에 따라 3가지 카테고리로 분류되며, 각 카테고리 내에서 **자유로운 타입 정의**가 가능합니다.
+Decorators are classified into **3 categories** based on **rendering method**, and **free type definition** is possible within each category.
 
-#### 2.3.1 Layer Decorator (오버레이 데코레이터)
+#### 2.3.1 Layer Decorator (Overlay Decorator)
 
-**정의**: 문서 위에 오버레이로 표시되는 데코레이터로, `DisplayDecoratorRenderer`에서 처리됩니다.
+**Definition**: A decorator displayed as an overlay on top of the document, processed by `DisplayDecoratorRenderer`.
 
-**특징**:
-- 절대 위치로 배치
-- 문서 구조와 독립적
-- `contenteditable="false"`로 편집 방지
-- 이벤트 핸들러 지원 (onMouseEnter, onClick 등)
+**Characteristics**:
+- Positioned absolutely
+- Independent of document structure
+- Editing prevented with `contenteditable="false"`
+- Event handler support (onMouseEnter, onClick, etc.)
 
-**기본 구조**:
+**Basic Structure**:
 ```typescript
 interface IDecorator {
-  id: string;                    // 고유 식별자
-  type: string;                  // defineDecorator로 등록된 템플릿 이름
-  category: 'layer';             // 분류 (고정값)
+  id: string;                    // Unique identifier
+  type: string;                  // Template name registered with defineDecorator
+  category: 'layer';             // Category (fixed value)
   target: {
     nodeId: string;
     startOffset: number;
@@ -347,98 +347,98 @@ interface IDecorator {
     endNodeId: string;
     endOffset: number;
   };
-  data: Record<string, any>;     // 템플릿에 전달될 데이터
-  createdAt: number;             // 생성 시간
-  updatedAt: number;             // 수정 시간
-  version: number;               // 버전 (충돌 해결용)
+  data: Record<string, any>;     // Data passed to template
+  createdAt: number;             // Creation timestamp
+  updatedAt: number;             // Update timestamp
+  version: number;               // Version (for conflict resolution)
 }
 ```
 
-**사용 방법**:
-- `defineDecorator`로 템플릿 정의
-- `addDecorator`로 데코레이터 추가
-- `DisplayDecoratorRenderer`에서 오버레이 렌더링
+**Usage**:
+- Define template with `defineDecorator`
+- Add decorator with `addDecorator`
+- Render overlay in `DisplayDecoratorRenderer`
 
-자세한 구현 예시는 [Decorator Implementation Guide](../docs/decorator-implementation-guide.md)를 참조하세요.
+For detailed implementation examples, see [Decorator Implementation Guide](../docs/decorator-implementation-guide.md).
 
-#### 2.3.2 Inline Decorator (인라인 데코레이터)
+#### 2.3.2 Inline Decorator
 
-**정의**: 텍스트 내부에 삽입되는 데코레이터로, `ContentDecoratorRenderer`에서 처리됩니다.
+**Definition**: A decorator inserted inside text, processed by `ContentDecoratorRenderer`.
 
-**특징**:
-- 텍스트 내부에 `position: 'inside-start'` 또는 `'inside-end'`로 삽입
-- `contenteditable="false"`로 편집 방지
-- 인라인 요소로 렌더링 (`span` 태그 사용)
-- 이벤트 핸들러 지원
+**Characteristics**:
+- Inserted inside text with `position: 'inside-start'` or `'inside-end'`
+- Editing prevented with `contenteditable="false"`
+- Rendered as inline element (using `span` tag)
+- Event handler support
 
-**기본 구조**:
+**Basic Structure**:
 ```typescript
 interface IDecorator {
-  id: string;                    // 고유 식별자
-  type: string;                  // defineDecorator로 등록된 템플릿 이름
-  category: 'inline';            // 분류 (고정값)
+  id: string;                    // Unique identifier
+  type: string;                  // Template name registered with defineDecorator
+  category: 'inline';            // Category (fixed value)
   target: {
     nodeId: string;
     startOffset: number;
     endOffset: number;
   };
-  data: Record<string, any>;     // 템플릿에 전달될 데이터
-  createdAt: number;             // 생성 시간
-  updatedAt: number;             // 수정 시간
-  version: number;               // 버전 (충돌 해결용)
+  data: Record<string, any>;     // Data passed to template
+  createdAt: number;             // Creation timestamp
+  updatedAt: number;             // Update timestamp
+  version: number;               // Version (for conflict resolution)
 }
 ```
 
-**사용 방법**:
-- `defineDecorator`로 템플릿 정의
-- `addDecorator`로 데코레이터 추가
-- `ContentDecoratorRenderer`에서 인라인 렌더링
+**Usage**:
+- Define template with `defineDecorator`
+- Add decorator with `addDecorator`
+- Render inline in `ContentDecoratorRenderer`
 
-자세한 구현 예시는 [Decorator Implementation Guide](../docs/decorator-implementation-guide.md)를 참조하세요.
+For detailed implementation examples, see [Decorator Implementation Guide](../docs/decorator-implementation-guide.md).
 
-#### 2.3.3 Block Decorator (블록 데코레이터)
+#### 2.3.3 Block Decorator
 
-**정의**: 블록 레벨에 삽입되는 데코레이터로, `ContentDecoratorRenderer`에서 처리됩니다.
+**Definition**: A decorator inserted at block level, processed by `ContentDecoratorRenderer`.
 
-**특징**:
-- 블록 레벨에 `position: 'before'` 또는 `'after'`로 삽입
-- `contenteditable="false"`로 편집 방지
-- 블록 요소로 렌더링 (`div` 태그 사용)
-- 이벤트 핸들러 지원
+**Characteristics**:
+- Inserted at block level with `position: 'before'` or `'after'`
+- Editing prevented with `contenteditable="false"`
+- Rendered as block element (using `div` tag)
+- Event handler support
 
-**기본 구조**:
+**Basic Structure**:
 ```typescript
 interface IDecorator {
-  id: string;                    // 고유 식별자
-  type: string;                  // defineDecorator로 등록된 템플릿 이름
-  category: 'block';             // 분류 (고정값)
+  id: string;                    // Unique identifier
+  type: string;                  // Template name registered with defineDecorator
+  category: 'block';             // Category (fixed value)
   target: {
     nodeId: string;
     startOffset: number;
     endOffset: number;
   };
-  data: Record<string, any>;     // 템플릿에 전달될 데이터
-  createdAt: number;             // 생성 시간
-  updatedAt: number;             // 수정 시간
-  version: number;               // 버전 (충돌 해결용)
+  data: Record<string, any>;     // Data passed to template
+  createdAt: number;             // Creation timestamp
+  updatedAt: number;             // Update timestamp
+  version: number;               // Version (for conflict resolution)
 }
 ```
 
-**사용 방법**:
-- `defineDecorator`로 템플릿 정의
-- `addDecorator`로 데코레이터 추가
-- `ContentDecoratorRenderer`에서 블록 렌더링
+**Usage**:
+- Define template with `defineDecorator`
+- Add decorator with `addDecorator`
+- Render block in `ContentDecoratorRenderer`
 
-자세한 구현 예시는 [Decorator Implementation Guide](../docs/decorator-implementation-guide.md)를 참조하세요.
+For detailed implementation examples, see [Decorator Implementation Guide](../docs/decorator-implementation-guide.md).
 
-// 외부에서 정의한 커스텀 타입 사용
+// Using custom type defined externally
 const customPanelDecorator: BlockDecorator = {
   id: 'custom-panel-1',
   category: 'block',
-  type: 'ai-assistant-panel',  // 자유로운 타입명
+  type: 'ai-assistant-panel',  // Free type name
   target: { nodeId: 'text-1', position: 'wrap' },
   data: {
-    // 커스텀 데이터 구조
+    // Custom data structure
     assistantType: 'writing-helper',
     suggestions: [
       'Improve grammar',
@@ -453,14 +453,14 @@ const customPanelDecorator: BlockDecorator = {
       theme: 'professional'
     }
   },
-  renderer: 'ai-assistant-panel-renderer'  // 커스텀 렌더러 지정
+  renderer: 'ai-assistant-panel-renderer'  // Custom renderer specification
 };
 
-// 플러그인에서 정의한 타입
+// Type defined in plugin
 const pluginPanelDecorator: BlockDecorator = {
   id: 'plugin-panel-1',
   category: 'block',
-  type: 'collaboration-sidebar',  // 플러그인에서 정의한 타입
+  type: 'collaboration-sidebar',  // Type defined in plugin
   target: { nodeId: 'text-1', position: 'after' },
   data: {
     collaborators: [
@@ -474,16 +474,16 @@ const pluginPanelDecorator: BlockDecorator = {
 };
 ```
 
-### 2.4 Decorator 확장성 및 커스텀 렌더러
+### 2.4 Decorator Extensibility and Custom Renderers
 
-#### 2.4.1 커스텀 Decorator 타입 등록
+#### 2.4.1 Registering Custom Decorator Types
 ```typescript
-// editor-view-dom에서 커스텀 Decorator 타입 등록
+// Register custom Decorator types in editor-view-dom
 import { DecoratorRegistry } from '@barocss/editor-view-dom';
 
 const decoratorRegistry = new DecoratorRegistry();
 
-// Layer Decorator 커스텀 타입 등록
+// Register custom Layer Decorator type
 decoratorRegistry.registerLayerType('my-custom-annotation', {
   defaultRenderer: 'custom-annotation-renderer',
   dataSchema: {
@@ -493,7 +493,7 @@ decoratorRegistry.registerLayerType('my-custom-annotation', {
   }
 });
 
-// Inline Decorator 커스텀 타입 등록
+// Register custom Inline Decorator type
 decoratorRegistry.registerInlineType('interactive-chart', {
   defaultRenderer: 'interactive-chart-renderer',
   dataSchema: {
@@ -504,7 +504,7 @@ decoratorRegistry.registerInlineType('interactive-chart', {
   }
 });
 
-// Block Decorator 커스텀 타입 등록
+// Register custom Block Decorator type
 decoratorRegistry.registerBlockType('ai-assistant-panel', {
   defaultRenderer: 'ai-assistant-panel-renderer',
   dataSchema: {
@@ -515,15 +515,15 @@ decoratorRegistry.registerBlockType('ai-assistant-panel', {
 });
 ```
 
-#### 2.4.2 커스텀 렌더러 정의
+#### 2.4.2 Defining Custom Renderers
 ```typescript
-// DSL을 사용한 커스텀 렌더러 정의
+// Define custom renderer using DSL
 import { renderer, element, data, when, attr } from '@barocss/editor-view-dom';
 
-// Layer Decorator 커스텀 렌더러
+// Custom Layer Decorator renderer
 decoratorRegistry.registerRenderer('custom-annotation-renderer', 
   renderer('custom-annotation', (decorator: LayerDecorator) => {
-    // CSS 스타일만 적용 (Layer Decorator)
+    // Apply CSS styles only (Layer Decorator)
     return {
       styles: {
         backgroundColor: decorator.data.severity === 'high' ? '#ffebee' : '#f3e5f5',
@@ -535,7 +535,7 @@ decoratorRegistry.registerRenderer('custom-annotation-renderer',
   })
 );
 
-// Inline Decorator 커스텀 렌더러
+// Custom Inline Decorator renderer
 decoratorRegistry.registerRenderer('interactive-chart-renderer',
   renderer('interactive-chart', element('div', {
     className: 'interactive-chart-widget',
@@ -546,7 +546,7 @@ decoratorRegistry.registerRenderer('interactive-chart-renderer',
       borderRadius: '4px',
       display: 'inline-block'
     }),
-    'data-bc-decorator': 'inline'  // diff에서 제외
+    'data-bc-decorator': 'inline'  // Excluded from diff
   }, [
     element('canvas', {
       width: attr('data.width', 200),
@@ -560,7 +560,7 @@ decoratorRegistry.registerRenderer('interactive-chart-renderer',
   ]))
 );
 
-// Block Decorator 커스텀 렌더러
+// Custom Block Decorator renderer
 decoratorRegistry.registerRenderer('ai-assistant-panel-renderer',
   renderer('ai-assistant-panel', element('div', {
     className: 'ai-assistant-panel',
@@ -575,15 +575,15 @@ decoratorRegistry.registerRenderer('ai-assistant-panel-renderer',
       boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
       padding: '16px'
     },
-    'data-bc-decorator': 'block'  // diff에서 제외
+    'data-bc-decorator': 'block'  // Excluded from diff
   }, [
     element('h3', {}, [data('data.assistantType', 'AI Assistant')]),
     element('div', { className: 'suggestions' }, [
-      // suggestions 배열 렌더링
+      // Render suggestions array
       when(
         (d: any) => d.data.suggestions && d.data.suggestions.length > 0,
         element('ul', {}, 
-          // 동적 리스트 렌더링 (실제 구현에서는 더 복잡할 수 있음)
+          // Dynamic list rendering (may be more complex in actual implementation)
           data('data.suggestions', []).map((suggestion: string) =>
             element('li', {}, [suggestion])
           )
@@ -600,114 +600,114 @@ decoratorRegistry.registerRenderer('ai-assistant-panel-renderer',
 );
 ```
 
-## 3. 실제 사용 예시
+## 3. Practical Usage Examples
 
-### 3.1 Mark 적용 예시
+### 3.1 Mark Application Example
 
 ```html
-<!-- Mark 적용 전 -->
+<!-- Before Mark application -->
 <div data-bc-sid="text-1">Hello World</div>
 
-<!-- Mark 적용 후 -->
+<!-- After Mark application -->
 <div data-bc-sid="text-1">
   <strong style="color: red;">Hello</strong> <em>World</em>
 </div>
 ```
 
-### 3.2 실제 사용 예시
+### 3.2 Practical Usage Examples
 
-자세한 HTML 렌더링 예시와 구현 방법은 [Decorator Implementation Guide](../docs/decorator-implementation-guide.md)를 참조하세요.
+For detailed HTML rendering examples and implementation methods, see [Decorator Implementation Guide](../docs/decorator-implementation-guide.md).
 
-## 4. 처리 위치별 정리
+## 4. Summary by Processing Location
 
-| 기법 | 정의 위치 | 처리 위치 | 저장 위치 | 사용자 편집 | 이벤트 처리 |
-|------|-----------|-----------|-----------|-------------|-------------|
-| **Mark** | `@barocss/schema` | `renderer-dom` | 모델 데이터 | 가능 | ❌ |
-| **Layer Decorator** | `defineDecorator` | `DisplayDecoratorRenderer` | `DataStore.decorators` | 불가능 | ✅ |
-| **Inline Decorator** | `defineDecorator` | `ContentDecoratorRenderer` | `DataStore.decorators` | 불가능 | ✅ |
-| **Block Decorator** | `defineDecorator` | `ContentDecoratorRenderer` | `DataStore.decorators` | 불가능 | ✅ |
+| Technique | Definition Location | Processing Location | Storage Location | User Editing | Event Handling |
+|-----------|---------------------|---------------------|------------------|--------------|----------------|
+| **Mark** | `@barocss/schema` | `renderer-dom` | Model data | Yes | ❌ |
+| **Layer Decorator** | `defineDecorator` | `DisplayDecoratorRenderer` | `DataStore.decorators` | No | ✅ |
+| **Inline Decorator** | `defineDecorator` | `ContentDecoratorRenderer` | `DataStore.decorators` | No | ✅ |
+| **Block Decorator** | `defineDecorator` | `ContentDecoratorRenderer` | `DataStore.decorators` | No | ✅ |
 
-## 5. 구현 가이드
+## 5. Implementation Guide
 
-### 5.1 Mark 구현 (Schema 기반)
-- **정의**: `@barocss/schema` 패키지에서 Mark 타입 및 속성 정의
-- **처리**: `renderer-dom`에서 Schema 기반 렌더링 처리
-- **저장**: 모델 데이터에 영구 저장
-- **동기화**: 모델 변경 시 자동으로 DOM 업데이트
-- **검증**: Schema 기반 Mark 속성 유효성 검사
+### 5.1 Mark Implementation (Schema-based)
+- **Definition**: Define Mark types and attributes in `@barocss/schema` package
+- **Processing**: Schema-based rendering in `renderer-dom`
+- **Storage**: Permanently stored in model data
+- **Synchronization**: Automatic DOM updates on model changes
+- **Validation**: Schema-based Mark attribute validation
 
-### 5.2 Layer Decorator 구현
-- **정의**: `defineDecorator`로 템플릿 등록
-- **처리**: `DisplayDecoratorRenderer`에서 오버레이 렌더링
-- **저장**: `DataStore.decorators` 배열에 저장
-- **이벤트**: `onMouseEnter`, `onClick` 등 이벤트 핸들러 지원
-- **위치**: 절대 위치로 배치
+### 5.2 Layer Decorator Implementation
+- **Definition**: Register template with `defineDecorator`
+- **Processing**: Overlay rendering in `DisplayDecoratorRenderer`
+- **Storage**: Stored in `DataStore.decorators` array
+- **Events**: Event handler support (`onMouseEnter`, `onClick`, etc.)
+- **Position**: Positioned absolutely
 
-### 5.3 Inline Decorator 구현
-- **정의**: `defineDecorator`로 템플릿 등록
-- **처리**: `ContentDecoratorRenderer`에서 인라인 렌더링
-- **저장**: `DataStore.decorators` 배열에 저장
-- **이벤트**: 클릭, 호버 등 이벤트 핸들러 지원
-- **위치**: 텍스트 내부에 `position: 'inside-start'` 또는 `'inside-end'`로 삽입
+### 5.3 Inline Decorator Implementation
+- **Definition**: Register template with `defineDecorator`
+- **Processing**: Inline rendering in `ContentDecoratorRenderer`
+- **Storage**: Stored in `DataStore.decorators` array
+- **Events**: Event handler support (click, hover, etc.)
+- **Position**: Inserted inside text with `position: 'inside-start'` or `'inside-end'`
 
-### 5.4 Block Decorator 구현
-- **정의**: `defineDecorator`로 템플릿 등록
-- **처리**: `ContentDecoratorRenderer`에서 블록 렌더링
-- **저장**: `DataStore.decorators` 배열에 저장
-- **이벤트**: 클릭, 호버 등 이벤트 핸들러 지원
-- **위치**: 블록 레벨에 `position: 'before'` 또는 `'after'`로 삽입
+### 5.4 Block Decorator Implementation
+- **Definition**: Register template with `defineDecorator`
+- **Processing**: Block rendering in `ContentDecoratorRenderer`
+- **Storage**: Stored in `DataStore.decorators` array
+- **Events**: Event handler support (click, hover, etc.)
+- **Position**: Inserted at block level with `position: 'before'` or `'after'`
 
-## 6. 성능 고려사항
+## 6. Performance Considerations
 
 ### 6.1 Mark
-- 모델 데이터이므로 성능 영향 최소
-- diff에 포함되므로 변경 시 재렌더링
+- Minimal performance impact as it is model data
+- Included in diff, so re-rendering on changes
 
 ### 6.2 Layer Decorator
-- CSS로만 표현되므로 성능 영향 최소
-- diff에 포함되므로 변경 시 재렌더링
+- Minimal performance impact as it is expressed only with CSS
+- Included in diff, so re-rendering on changes
 
 ### 6.3 Inline Decorator
-- 실제 DOM 위젯이므로 성능 영향 있음
-- diff에서 제외되므로 변경 시 재적용 필요
+- Performance impact exists as it is an actual DOM widget
+- Excluded from diff, so re-application needed on changes
 
 ### 6.4 Block Decorator
-- 실제 DOM 위젯이므로 성능 영향 있음
-- diff에서 제외되므로 변경 시 재적용 필요
+- Performance impact exists as it is an actual DOM widget
+- Excluded from diff, so re-application needed on changes
 
-## 7. 확장성
+## 7. Extensibility
 
-### 7.1 Mark 확장
-- 새로운 Mark 타입 추가 가능
-- `renderer-dom`에서 처리 로직 추가
+### 7.1 Mark Extension
+- Can add new Mark types
+- Add processing logic in `renderer-dom`
 
-### 7.2 Decorator 확장
-- 새로운 Decorator 타입 추가 가능
-- `editor-view-dom`에서 처리 로직 추가
+### 7.2 Decorator Extension
+- Can add new Decorator types
+- Add processing logic in `editor-view-dom`
 
-### 7.3 커스텀 위젯
-- Inline/Block Decorator에서 커스텀 위젯 지원
-- 위젯 생명주기 관리
+### 7.3 Custom Widgets
+- Custom widget support in Inline/Block Decorator
+- Widget lifecycle management
 
-## 8. 테스트 전략
+## 8. Testing Strategy
 
-### 8.1 Mark 테스트
-- 모델 데이터 동기화 테스트
-- 렌더링 결과 테스트
-- diff 동작 테스트
+### 8.1 Mark Testing
+- Model data synchronization tests
+- Rendering result tests
+- Diff behavior tests
 
-### 8.2 Decorator 테스트
-- 부가 정보 표시 테스트
-- 위젯 삽입/제거 테스트
-- diff 제외 동작 테스트
+### 8.2 Decorator Testing
+- Additional information display tests
+- Widget insertion/removal tests
+- Diff exclusion behavior tests
 
-### 8.3 통합 테스트
-- Mark와 Decorator 조합 테스트
-- 성능 테스트
-- 사용자 상호작용 테스트
+### 8.3 Integration Testing
+- Mark and Decorator combination tests
+- Performance tests
+- User interaction tests
 
-## 📖 관련 문서
+## 📖 Related Documents
 
-- [Decorator Implementation Guide](../docs/decorator-implementation-guide.md) - 실제 구현 가이드
-- [Renderer Decorator System Specification](renderer-decorator-spec.md) - 렌더링 시스템 기술 스펙
-- [BaroCSS Editor API Reference](../api-reference.md) - 전체 API 참조
+- [Decorator Implementation Guide](../docs/decorator-implementation-guide.md) - Practical implementation guide
+- [Renderer Decorator System Specification](renderer-decorator-spec.md) - Rendering system technical specification
+- [BaroCSS Editor API Reference](../api-reference.md) - Complete API reference

@@ -160,7 +160,7 @@ describe('skipNodes 기능', () => {
     });
 
     it('자식이 skipNodes에 포함되면 자식만 스킵', async () => {
-      // 초기 렌더링: 중첩 구조
+      // Initial rendering: nested structure
       const model1 = {
         sid: 'root-1',
         stype: 'paragraph',
@@ -178,7 +178,7 @@ describe('skipNodes 기능', () => {
 
       const initialChildText = container.textContent;
 
-      // 자식만 skipNodes에 포함
+      // Only child included in skipNodes
       const model2 = {
         sid: 'root-1',
         stype: 'paragraph',
@@ -191,18 +191,18 @@ describe('skipNodes 기능', () => {
         ]
       };
 
-      const skipNodes = new Set<string>(['child-1']); // 자식만 skip
+      const skipNodes = new Set<string>(['child-1']); // Only skip child
       renderer.render(container, model2, [], undefined, undefined, { skipNodes });
       await waitForFiber();
 
-      // 자식이 skip되므로 원래 텍스트 유지
+      // Keep original text since child is skipped
       expect(container.textContent).toBe(initialChildText);
     });
   });
 
   describe('다중 노드 처리', () => {
     it('여러 노드를 skipNodes에 포함 가능', async () => {
-      // 초기 렌더링: 여러 노드
+      // Initial rendering: multiple nodes
       const model1 = {
         sid: 'root-1',
         stype: 'paragraph',
@@ -225,7 +225,7 @@ describe('skipNodes 기능', () => {
 
       const initialHTML = container.innerHTML;
 
-      // 여러 노드를 skipNodes에 포함
+      // Include multiple nodes in skipNodes
       const model2 = {
         sid: 'root-1',
         stype: 'paragraph',
@@ -243,21 +243,21 @@ describe('skipNodes 기능', () => {
         ]
       };
 
-      const skipNodes = new Set<string>(['child-1', 'child-2']); // 여러 노드 skip
+      const skipNodes = new Set<string>(['child-1', 'child-2']); // Skip multiple nodes
       renderer.render(container, model2, [], undefined, undefined, { skipNodes });
       await waitForFiber();
 
-      // 모든 노드가 skip되므로 원래 HTML 유지
+      // Keep original HTML since all nodes are skipped
       expect(container.innerHTML).toBe(initialHTML);
     });
   });
 
   describe('속성 및 스타일 업데이트', () => {
     it('skipNodes에 포함된 노드는 속성 업데이트 스킵', async () => {
-      // paragraph 템플릿에 className 속성 추가
+      // Add className attribute to paragraph template
       define('paragraph', element('p', { className: 'paragraph' }, [slot('content')]));
       
-      // 초기 렌더링
+      // Initial rendering
       const model1 = {
         sid: 'root-1',
         stype: 'paragraph',
@@ -277,10 +277,10 @@ describe('skipNodes 기능', () => {
       await waitForFiber();
 
       const initialElement = container.querySelector('[data-bc-sid="root-1"]') as HTMLElement;
-      // className은 attrs에서 설정되므로 확인
+      // className is set from attrs, so verify
       expect(initialElement).toBeTruthy();
 
-      // 속성 변경
+      // Change attribute
       const model2 = {
         sid: 'root-1',
         stype: 'paragraph',
@@ -300,16 +300,16 @@ describe('skipNodes 기능', () => {
       renderer.render(container, model2, [], undefined, undefined, { skipNodes });
       await waitForFiber();
 
-      // 속성 업데이트가 스킵되어야 함 (초기 상태 유지)
-      // 실제로는 className이 attrs로 설정되지 않을 수 있으므로
-      // 단순히 요소가 존재하는지만 확인
+      // Attribute update should be skipped (maintain initial state)
+      // Actually className may not be set from attrs, so
+      // simply verify element exists
       expect(initialElement).toBeTruthy();
     });
   });
 
   describe('빈 skipNodes', () => {
     it('skipNodes가 빈 Set이면 정상적으로 업데이트', async () => {
-      // 초기 렌더링
+      // Initial rendering
       const model1 = {
         sid: 'root-1',
         stype: 'paragraph',
@@ -325,7 +325,7 @@ describe('skipNodes 기능', () => {
       renderer.render(container, model1, []);
       await waitForFiber();
 
-      // 빈 skipNodes로 재렌더링
+      // Re-render with empty skipNodes
       const model2 = {
         sid: 'root-1',
         stype: 'paragraph',
@@ -338,16 +338,16 @@ describe('skipNodes 기능', () => {
         ]
       };
 
-      const skipNodes = new Set<string>(); // 빈 Set
+      const skipNodes = new Set<string>(); // Empty Set
       renderer.render(container, model2, [], undefined, undefined, { skipNodes });
       await waitForFiber();
 
-      // 정상적으로 업데이트되어야 함
+      // Should update normally
       expect(container.textContent).toBe('Updated');
     });
 
     it('skipNodes가 undefined이면 정상적으로 업데이트', async () => {
-      // 초기 렌더링
+      // Initial rendering
       const model1 = {
         sid: 'root-1',
         stype: 'paragraph',
@@ -363,7 +363,7 @@ describe('skipNodes 기능', () => {
       renderer.render(container, model1, []);
       await waitForFiber();
 
-      // skipNodes 없이 재렌더링
+      // Re-render without skipNodes
       const model2 = {
         sid: 'root-1',
         stype: 'paragraph',
@@ -376,10 +376,10 @@ describe('skipNodes 기능', () => {
         ]
       };
 
-      renderer.render(container, model2, []); // skipNodes 없음
+      renderer.render(container, model2, []); // No skipNodes
       await waitForFiber();
 
-      // 정상적으로 업데이트되어야 함
+      // Should update normally
       expect(container.textContent).toBe('Updated');
     });
   });

@@ -27,7 +27,7 @@ describe('removeStaleEarly - decorator 관련 케이스', () => {
 
   describe('decoratorSid를 가진 요소 처리', () => {
     it('decoratorSid를 가진 요소는 removeStaleEarly에서 제거하지 않아야 함', () => {
-      // removeStaleEarly는 data-bc-sid만 확인하므로 decoratorSid는 제거하지 않음
+      // removeStaleEarly only checks data-bc-sid, so it doesn't remove decoratorSid
       const decoratorEl = document.createElement('span');
       decoratorEl.setAttribute('data-decorator-sid', 'd-highlight');
       parent.appendChild(decoratorEl);
@@ -42,7 +42,7 @@ describe('removeStaleEarly - decorator 관련 케이스', () => {
 
       removeStaleEarly(parent, childVNodes, [], mockComponents, {});
 
-      // decorator 요소는 제거되지 않아야 함 (removeStaleEarly는 sid만 확인)
+      // Decorator element should not be removed (removeStaleEarly only checks sid)
       const decoratorElements = parent.querySelectorAll('[data-decorator-sid="d-highlight"]');
       expect(decoratorElements.length).toBe(1);
     });
@@ -67,7 +67,7 @@ describe('removeStaleEarly - decorator 관련 케이스', () => {
 
       removeStaleEarly(parent, childVNodes, prevChildVNodes, mockComponents, {});
 
-      // sid2는 제거되어야 함
+      // sid2 should be removed
       const remainingElements = parent.querySelectorAll('[data-bc-sid]');
       expect(remainingElements.length).toBe(1);
       expect(remainingElements[0].getAttribute('data-bc-sid')).toBe('sid1');

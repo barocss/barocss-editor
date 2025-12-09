@@ -98,30 +98,30 @@ describe('processPrimitiveTextChildren - Unit Test', () => {
       const fiber = createFiberTree(container, vnode, undefined, {});
       reconcileAllFibers(fiber, deps, {});
 
-      // domElement가 설정되었는지 확인
+      // Verify domElement is set
       expect(fiber.domElement).toBeDefined();
       expect(fiber.primitiveTextChildren).toBeDefined();
       expect(fiber.primitiveTextChildren?.length).toBeGreaterThan(0);
 
-      // primitive text 처리
+      // Process primitive text
       processPrimitiveTextChildren(fiber, deps);
 
-      // DOM에 텍스트 노드가 추가되었는지 확인
-      // (handlePrimitiveTextChild가 정확한 위치에 삽입하는지 확인)
-      // IMPORTANT: fiber.domElement가 container이므로, container.childNodes를 확인
+      // Verify text nodes are added to DOM
+      // (Verify handlePrimitiveTextChild inserts at correct position)
+      // IMPORTANT: fiber.domElement is container, so check container.childNodes
       const allNodes = Array.from(fiber.domElement?.childNodes || []);
       const textNodes = allNodes.filter(n => n.nodeType === Node.TEXT_NODE);
       
-      // span 요소가 있는지 확인
+      // Verify span element exists
       const spanElement = allNodes.find(n => 
         n.nodeType === Node.ELEMENT_NODE && (n as HTMLElement).tagName === 'SPAN'
       );
       expect(spanElement).toBeDefined();
       
-      // primitiveTextChildren가 있으면 텍스트 노드가 생성되어야 함
-      // (하지만 handlePrimitiveTextChild의 동작에 따라 다를 수 있음)
+      // If primitiveTextChildren exists, text nodes should be created
+      // (But may vary depending on handlePrimitiveTextChild behavior)
       if (fiber.primitiveTextChildren && fiber.primitiveTextChildren.length > 0) {
-        // 텍스트 노드가 생성되었는지 확인 (최소 1개 이상)
+        // Verify text nodes are created (at least 1)
         expect(textNodes.length).toBeGreaterThanOrEqual(1);
       }
     });
@@ -145,7 +145,7 @@ describe('processPrimitiveTextChildren - Unit Test', () => {
       processPrimitiveTextChildren(fiber, deps);
       const afterCount = container.childNodes.length;
 
-      // primitiveTextChildren가 없으므로 변경 없음
+      // No change since primitiveTextChildren doesn't exist
       expect(afterCount).toBe(beforeCount);
     });
 
@@ -157,10 +157,10 @@ describe('processPrimitiveTextChildren - Unit Test', () => {
       };
 
       const fiber = createFiberTree(container, vnode, undefined, {});
-      // domElement를 설정하지 않음
+      // Don't set domElement
       fiber.domElement = null;
 
-      // 에러가 발생하지 않아야 함
+      // Should not throw error
       expect(() => {
         processPrimitiveTextChildren(fiber, deps);
       }).not.toThrow();

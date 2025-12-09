@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { vnodeStructureMatches, normalizeClasses } from '../../src/reconcile/utils/vnode-utils';
 import { VNode } from '../../src/vnode/types';
 
-describe('vnode-utils - decorator 관련 케이스', () => {
+describe('vnode-utils - decorator related cases', () => {
   describe('vnodeStructureMatches - decorator VNode', () => {
     it('decoratorSid를 가진 VNode의 구조를 비교해야 함', () => {
       const prev: VNode = {
@@ -47,7 +47,7 @@ describe('vnode-utils - decorator 관련 케이스', () => {
         }
       };
 
-      // class가 다르므로 구조가 다름
+      // Structure differs because class is different
       expect(vnodeStructureMatches(prev, next)).toBe(false);
     });
 
@@ -72,7 +72,7 @@ describe('vnode-utils - decorator 관련 케이스', () => {
         children: [{ tag: undefined, text: 'second' }]
       };
 
-      // 구조는 같지만 내용이 다름 (children count는 같음)
+      // Structure is same but content differs (children count is same)
       expect(vnodeStructureMatches(prev, next)).toBe(true);
     });
 

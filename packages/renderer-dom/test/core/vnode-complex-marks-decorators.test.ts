@@ -1,8 +1,8 @@
 /**
- * 복잡한 Mark와 Decorator 결합 테스트
+ * Complex Mark and Decorator Combination Test
  * 
- * 이 테스트는 아주 복잡한 mark와 decorator가 결합되었을 때
- * VNodeBuilder가 어떤 VNode를 생성하는지 확인합니다.
+ * This test verifies what VNode VNodeBuilder creates
+ * when very complex marks and decorators are combined.
  */
 import { describe, it } from 'vitest';
 import { define, element, data, defineDecorator, getGlobalRegistry, slot } from '@barocss/dsl';
@@ -41,13 +41,13 @@ describe('Complex Marks and Decorators', () => {
   const builder = new VNodeBuilder(registry);
 
   beforeEach(() => {
-    // 마크 정의
+    // Define marks
     define('mark:bold', element('strong', { className: 'mark-bold' }, []));
     define('mark:italic', element('em', { className: 'mark-italic' }, []));
     define('mark:underline', element('u', { className: 'mark-underline' }, []));
     define('mark:code', element('code', { className: 'mark-code' }, []));
     
-    // Decorator 정의
+    // Define Decorators
     defineDecorator('highlight', element('span', { className: 'highlight' }, []));
     defineDecorator('comment', element('div', { className: 'comment' }, []));
     defineDecorator('link', element('a', { className: 'link' }, []));
@@ -56,12 +56,12 @@ describe('Complex Marks and Decorators', () => {
   it('should handle multiple overlapping marks with decorators', () => {
     define('paragraph', element('p', {}, [data('text')]));
     
-    // 텍스트: "This is bold and italic text with code"
-    // 마크:
+    // Text: "This is bold and italic text with code"
+    // Marks:
     // - bold: [8, 12] "bold"
     // - italic: [13, 19] "and italic"
     // - code: [30, 34] "code"
-    // Decorator:
+    // Decorators:
     // - highlight: [0, 25] "This is bold and italic"
     // - comment: [26, 34] "text with code"
     const model = {
@@ -98,7 +98,7 @@ describe('Complex Marks and Decorators', () => {
     console.log('\n=== Multiple Overlapping Marks with Decorators ===');
     console.log(JSON.stringify(serialized, null, 2));
     
-    // 검증
+    // Verification
     expect(vnode).toBeTruthy();
     expect(vnode.tag).toBe('p');
     expect(vnode.children).toBeTruthy();
@@ -108,12 +108,12 @@ describe('Complex Marks and Decorators', () => {
   it('should handle nested marks inside decorators', () => {
     define('paragraph', element('p', {}, [data('text')]));
     
-    // 텍스트: "Bold text with highlight"
-    // 마크:
+    // Text: "Bold text with highlight"
+    // Marks:
     // - bold: [0, 9] "Bold text"
-    // Decorator:
+    // Decorators:
     // - highlight: [5, 25] "text with highlight"
-    // 결과: "Bold " (일반) + highlight decorator 안에 "text" (bold) + " with highlight" (일반)
+    // Result: "Bold " (normal) + "text" (bold) inside highlight decorator + " with highlight" (normal)
     const model = {
       stype: 'paragraph',
       sid: 'p2',
@@ -146,11 +146,11 @@ describe('Complex Marks and Decorators', () => {
   it('should handle multiple decorators overlapping with marks', () => {
     define('paragraph', element('p', {}, [data('text')]));
     
-    // 텍스트: "Link and highlight text"
-    // 마크:
+    // Text: "Link and highlight text"
+    // Marks:
     // - bold: [0, 4] "Link"
     // - italic: [9, 18] "highlight"
-    // Decorator:
+    // Decorators:
     // - link: [0, 4] "Link"
     // - highlight: [9, 25] "highlight text"
     const model = {
@@ -192,15 +192,15 @@ describe('Complex Marks and Decorators', () => {
   it('should handle complex scenario: marks, inline decorators, and block decorators', () => {
     define('paragraph', element('p', {}, [data('text')]));
     
-    // 텍스트: "Complex text with everything"
-    // 마크:
+    // Text: "Complex text with everything"
+    // Marks:
     // - bold: [0, 7] "Complex"
     // - italic: [8, 12] "text"
     // - underline: [13, 16] "with"
     // Inline Decorator:
     // - highlight: [17, 27] "everything"
     // Block Decorator:
-    // - comment: 전체 paragraph
+    // - comment: entire paragraph
     const model = {
       stype: 'paragraph',
       sid: 'p4',
@@ -242,14 +242,14 @@ describe('Complex Marks and Decorators', () => {
   it('should handle deeply nested marks and decorators', () => {
     define('paragraph', element('p', {}, [data('text')]));
     
-    // 텍스트: "A B C D E"
-    // 마크:
+    // Text: "A B C D E"
+    // Marks:
     // - bold: [2, 3] "B"
     // - italic: [4, 5] "C"
     // - underline: [6, 7] "D"
     // Decorator:
     // - highlight: [2, 7] "B C D"
-    // 결과: "A " + highlight decorator 안에 "B" (bold) + " " + "C" (italic) + " " + "D" (underline) + " E"
+    // Result: "A " + "B" (bold) + " " + "C" (italic) + " " + "D" (underline) inside highlight decorator + " E"
     const model = {
       stype: 'paragraph',
       sid: 'p5',

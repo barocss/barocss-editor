@@ -116,7 +116,7 @@ describe('SelectionManager', () => {
         startNodeId: 'p-1',
         startOffset: 0,
         endNodeId: 'p-1',
-        endOffset: 1  // Element 노드의 경우 0 또는 1만 허용
+        endOffset: 1  // For Element nodes, only 0 or 1 are allowed
       };
 
       selectionManager.setRange(rangeSelection);
@@ -152,7 +152,7 @@ describe('SelectionManager', () => {
 
       const rangeSelection = {
         startNodeId: 'p-1',
-        startOffset: 999, // 잘못된 오프셋
+        startOffset: 999, // Invalid offset
         endNodeId: 'p-1',
         endOffset: 5
       };
@@ -212,7 +212,7 @@ describe('SelectionManager', () => {
 
   describe('DOM Selection 변환', () => {
     it('DOM Selection을 SelectionState로 변환해야 함', () => {
-      // DOM에서 텍스트 선택 시뮬레이션
+      // Simulate text selection in DOM
       const textNode = contentEditableElement.querySelector('p')?.firstChild as Text;
       expect(textNode).toBeTruthy();
 
@@ -224,7 +224,7 @@ describe('SelectionManager', () => {
       selection?.removeAllRanges();
       selection?.addRange(range);
 
-      // selectionchange 이벤트 시뮬레이션
+      // Simulate selectionchange event
       const selectionChangeEvent = new Event('selectionchange');
       document.dispatchEvent(selectionChangeEvent);
 
@@ -256,7 +256,7 @@ describe('SelectionManager', () => {
       const errorHandler = vi.fn();
       selectionManager.setErrorHandler(errorHandler);
 
-      // 존재하지 않는 노드로 선택 시도
+      // Attempt to select non-existent node
       const rangeSelection = {
         startNodeId: 'non-existent',
         startOffset: 0,
@@ -272,7 +272,7 @@ describe('SelectionManager', () => {
     it('에러 핸들러가 없으면 콘솔에 에러를 출력해야 함', () => {
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-      // 존재하지 않는 노드로 선택 시도
+      // Attempt to select non-existent node
       const rangeSelection = {
         startNodeId: 'non-existent',
         startOffset: 0,
@@ -296,7 +296,7 @@ describe('SelectionManager', () => {
       const selectionChangeHandler = vi.fn();
       selectionManager.on('selectionChange', selectionChangeHandler);
 
-      // DOM에서 텍스트 선택 시뮬레이션
+      // Simulate text selection in DOM
       const textNode = contentEditableElement.querySelector('p')?.firstChild as Text;
       const range = document.createRange();
       range.setStart(textNode, 0);
@@ -306,7 +306,7 @@ describe('SelectionManager', () => {
       selection?.removeAllRanges();
       selection?.addRange(range);
 
-      // selectionchange 이벤트 시뮬레이션
+      // Simulate selectionchange event
       const selectionChangeEvent = new Event('selectionchange');
       document.dispatchEvent(selectionChangeEvent);
 
@@ -349,7 +349,7 @@ describe('SelectionManager', () => {
 
   describe('유틸리티 메서드', () => {
     it('clearSelection이 선택을 지워야 함', () => {
-      // 먼저 선택 설정
+      // First set selection
       const textNode = contentEditableElement.querySelector('p')?.firstChild as Text;
       const range = document.createRange();
       range.setStart(textNode, 0);
@@ -361,14 +361,14 @@ describe('SelectionManager', () => {
 
       expect(selection?.rangeCount).toBeGreaterThan(0);
 
-      // 선택 지우기
+      // Clear selection
       selectionManager.clearSelection();
 
       expect(selection?.rangeCount).toBe(0);
     });
 
     it('isSelectionInContentEditable이 올바르게 작동해야 함', () => {
-      // contentEditable 내부 선택
+      // Selection inside contentEditable
       const textNode = contentEditableElement.querySelector('p')?.firstChild as Text;
       const range = document.createRange();
       range.setStart(textNode, 0);
@@ -380,7 +380,7 @@ describe('SelectionManager', () => {
 
       expect(selectionManager.isSelectionInContentEditable()).toBe(true);
 
-      // 선택 지우기
+      // Clear selection
       selection?.removeAllRanges();
       expect(selectionManager.isSelectionInContentEditable()).toBe(false);
     });
@@ -388,14 +388,14 @@ describe('SelectionManager', () => {
 
   describe('텍스트가 없는 노드 처리', () => {
     it('이미지 노드에 대해 올바른 오프셋을 처리해야 함', () => {
-      // 이미지 노드 추가
+      // Add image node
       const img = createMockElement('img', {
         'data-bc-sid': 'img-1',
         'data-bc-stype': 'image'
       });
       contentEditableElement.appendChild(img);
 
-      // Mock DataStore에 이미지 노드 추가
+      // Add image node to Mock DataStore
       (dataStore.getNode as any).mockImplementation((nodeId: string) => {
         const mockNodes: Record<string, any> = {
           'root-1': { id: 'root-1', type: 'document' },

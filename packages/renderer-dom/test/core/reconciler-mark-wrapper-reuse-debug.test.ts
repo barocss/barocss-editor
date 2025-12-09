@@ -42,26 +42,26 @@ describe('Reconciler: Mark Wrapper Reuse Debug', () => {
     }, [slot('content')]));
 
     // Initial render with bgColor mark
-    // IMPORTANT: mark range는 [start, end) 형식이므로, 전체 텍스트를 포함하려면 [0, text.length]이어야 함
+    // IMPORTANT: mark range is in [start, end) format, so to include entire text, use [0, text.length]
     const initialModel: ModelData = {
       sid: 'p-1',
       stype: 'paragraph',
       content: [{
         sid: 'text-yellow-bg',
         stype: 'inline-text',
-        text: 'yellow background', // 17자
+        text: 'yellow background', // 17 characters
         marks: [{
           type: 'bgColor',
-          range: [0, 17], // 전체 텍스트를 포함하도록 수정 (기존: [0, 16])
+          range: [0, 17], // Modified to include entire text (previously: [0, 16])
           attrs: { bgColor: '#ffff00' }
         }]
       }]
     };
 
-    // VNodeBuilder로 VNode 생성 (DOMRenderer의 build 메서드 사용)
+    // Create VNode using VNodeBuilder (using DOMRenderer's build method)
     const initialVNode = renderer.build(initialModel);
 
-    // VNode 구조 확인
+    // Verify VNode structure
     console.log('[DEBUG] Initial VNode structure:');
     console.log(JSON.stringify(initialVNode, (key, value) => {
       if (key === 'meta') return '[meta]';
@@ -88,7 +88,7 @@ describe('Reconciler: Mark Wrapper Reuse Debug', () => {
 
     const updatedVNode = renderer.build(updatedModel);
 
-    // Updated VNode 구조 확인
+    // Verify Updated VNode structure
     console.log('[DEBUG] Updated VNode structure:');
     console.log(JSON.stringify(updatedVNode, (key, value) => {
       if (key === 'meta') return '[meta]';
@@ -97,7 +97,7 @@ describe('Reconciler: Mark Wrapper Reuse Debug', () => {
       return value;
     }, 2));
 
-    // 실제 렌더링
+    // Actual rendering
     renderer.render(container, initialModel);
     
     const textSpan = container.querySelector('[data-bc-sid="text-yellow-bg"]') as HTMLElement;

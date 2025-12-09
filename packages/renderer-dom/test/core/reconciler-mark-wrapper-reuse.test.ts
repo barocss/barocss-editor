@@ -1,8 +1,8 @@
 /**
  * Test for mark wrapper DOM element reuse
  * 
- * 문제: mark wrapper span이 sid가 없어서 매번 새로 생성되는 문제
- * 해결: prevVNode에 DOM element 참조를 저장하여 재사용
+ * Problem: mark wrapper span is created new every time because it has no sid
+ * Solution: Store DOM element reference in prevVNode for reuse
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -24,14 +24,14 @@ describe('Reconciler: Mark Wrapper DOM Element Reuse', () => {
     renderer = new DOMRenderer(registry);
     
     // Define inline-text component with marks
-    // Note: 실제 mark rendering은 factory에서 처리되므로, 여기서는 간단한 구조로 테스트
+    // Note: Actual mark rendering is handled in factory, so test with simple structure here
     define('inline-text', element('span', {
       'data-bc-sid': data('sid'),
       'data-bc-stype': () => 'inline-text',
       class: 'text'
     }, [
-      // Mark wrapper는 factory에서 생성되므로, 여기서는 직접 구조를 만들지 않음
-      // 대신 실제 사용 패턴을 시뮬레이션
+      // Mark wrapper is created in factory, so don't create structure directly here
+      // Instead, simulate actual usage pattern
       data('text')
     ]));
   });
@@ -509,17 +509,17 @@ describe('Reconciler: Mark Wrapper DOM Element Reuse', () => {
     }, [slot('content')]));
 
     // Initial render with bgColor mark
-    // IMPORTANT: mark range는 [start, end) 형식이므로, 전체 텍스트를 포함하려면 [0, text.length]이어야 함
+    // IMPORTANT: mark range is in [start, end) format, so to include entire text, use [0, text.length]
     const initialModel: ModelData = {
       sid: 'p-1',
       stype: 'paragraph',
       content: [{
         sid: 'text-yellow-bg',
         stype: 'inline-text',
-        text: 'yellow background', // 17자
+        text: 'yellow background', // 17 characters
         marks: [{
           type: 'bgColor',
-          range: [0, 17], // 전체 텍스트를 포함하도록 수정 (기존: [0, 16])
+          range: [0, 17], // Modified to include entire text (previously: [0, 16])
           attrs: { bgColor: '#ffff00' }
         }]
       }]

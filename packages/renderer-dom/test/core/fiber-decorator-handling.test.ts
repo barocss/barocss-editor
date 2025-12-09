@@ -95,7 +95,7 @@ describe('Fiber Decorator Handling', () => {
       expect(fiber).toBeDefined();
       expect(fiber.child).toBeDefined();
       
-      // 모든 decorator VNode가 Fiber로 변환되었는지 확인
+      // Verify all decorator VNodes are converted to Fiber
       let childFiber = fiber.child;
       let count = 0;
       while (childFiber) {
@@ -175,7 +175,7 @@ describe('Fiber Decorator Handling', () => {
       const fiber = createFiberTree(container, parentVNode, undefined, {});
       reconcileFiberNode(fiber, deps, {});
 
-      // 모든 자식 Fiber 처리
+      // Process all child Fibers
       let childFiber = fiber.child;
       while (childFiber) {
         reconcileFiberNode(childFiber, deps, {});
@@ -187,7 +187,7 @@ describe('Fiber Decorator Handling', () => {
     });
 
     it('decoratorSid가 있는 VNode는 일반 span을 재사용하지 않아야 함', () => {
-      // 먼저 일반 span 생성
+      // Create normal span first
       const normalSpan = document.createElement('span');
       normalSpan.textContent = 'normal';
       container.appendChild(normalSpan);
@@ -213,7 +213,7 @@ describe('Fiber Decorator Handling', () => {
       const fiber = createFiberTree(container, decoratorVNode, undefined, {});
       reconcileFiberNode(fiber, deps, {});
 
-      // 일반 span은 그대로 유지되어야 함
+      // Normal span should remain unchanged
       expect(container.children.length).toBe(2);
       const decoratorEl = container.querySelector('[data-decorator-sid="d-highlight"]');
       expect(decoratorEl).toBeDefined();
@@ -223,7 +223,7 @@ describe('Fiber Decorator Handling', () => {
 
   describe('removeStaleChildren - decorator VNode 제거 방지', () => {
     it('현재 VNode children에 있는 decorator VNode는 제거하지 않아야 함', () => {
-      // 초기 렌더링
+      // Initial rendering
       const initialVNode: VNode = {
         tag: 'span',
         sid: 'text-1',
@@ -247,11 +247,11 @@ describe('Fiber Decorator Handling', () => {
         childFiber = childFiber.sibling;
       }
 
-      // DOM에 decorator 요소가 생성되었는지 확인
+      // Verify decorator element is created in DOM
       let decoratorEl = container.querySelector('[data-decorator-sid="d-highlight"]');
       expect(decoratorEl).toBeDefined();
 
-      // 같은 VNode로 다시 렌더링 (removeStaleChildren 호출)
+      // Re-render with same VNode (removeStaleChildren will be called)
       const sameVNode: VNode = {
         tag: 'span',
         sid: 'text-1',
@@ -275,10 +275,10 @@ describe('Fiber Decorator Handling', () => {
         childFiber = childFiber.sibling;
       }
 
-      // removeStaleChildren 호출
+      // Call removeStaleChildren
       removeStaleChildren(newFiber, deps);
 
-      // decorator 요소가 여전히 존재해야 함
+      // Decorator element should still exist
       decoratorEl = container.querySelector('[data-decorator-sid="d-highlight"]');
       expect(decoratorEl).toBeDefined();
     });
@@ -327,7 +327,7 @@ describe('Fiber Decorator Handling', () => {
         childFiber = childFiber.sibling;
       }
 
-      // removeStaleChildren 호출
+      // Call removeStaleChildren
       removeStaleChildren(fiber, deps);
 
       const decoratorElements = container.querySelectorAll('[data-decorator-sid="d-highlight"]');

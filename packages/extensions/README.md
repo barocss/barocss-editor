@@ -1,6 +1,6 @@
 # Extensions
 
-이 패키지는 BaroCSS Editor의 확장 기능(Extension)을 제공합니다. Extension을 통해 에디터에 새로운 커맨드와 기능을 추가할 수 있습니다.
+This package provides extension functionality for BaroCSS Editor. Extensions allow you to add new commands and features to the editor.
 
 ## Architecture
 
@@ -31,44 +31,44 @@ graph TB
     style J fill:#fff9c4
 ```
 
-## 목차
+## Table of Contents
 
-- [Extension 정의하기](#extension-정의하기)
-- [Command 등록하기](#command-등록하기)
-- [Model Operations 사용하기](#model-operations-사용하기)
-- [예제](#예제)
-- [키바인딩 추가하기](#키바인딩-추가하기)
-- [상세 가이드](#상세-가이드)
+- [Defining Extensions](#defining-extensions)
+- [Registering Commands](#registering-commands)
+- [Using Model Operations](#using-model-operations)
+- [Examples](#examples)
+- [Adding Keybindings](#adding-keybindings)
+- [Detailed Guide](#detailed-guide)
 
-## 상세 가이드
+## Detailed Guide
 
-Extension 설계 및 구현에 대한 종합적인 가이드는 다음 문서를 참고하세요:
+For a comprehensive guide on Extension design and implementation, refer to the following document:
 
-- **[Extension 설계 및 구현 가이드](./docs/extension-design-and-implementation.md)**
-  - Extension이란 무엇인가
-  - Command의 역할과 구조
-  - Model Transaction과 Operation
-  - DataStore 직접 핸들링 금지 이유
-  - Operation 정의 및 DSL 작성 방법
-  - 전체 샘플: Highlight Extension 구현
+- **[Extension Design and Implementation Guide](./docs/extension-design-and-implementation.md)**
+  - What is an Extension
+  - Role and structure of Commands
+  - Model Transactions and Operations
+  - Why direct DataStore handling is prohibited
+  - How to define Operations and write DSL
+  - Complete sample: Highlight Extension implementation
 
-## Extension 정의하기
+## Defining Extensions
 
-Extension은 `Extension` 인터페이스를 구현하는 클래스입니다.
+An Extension is a class that implements the `Extension` interface.
 
-### 기본 구조
+### Basic Structure
 
 ```typescript
 import { Editor, Extension } from '@barocss/editor-core';
 
 export interface MyExtensionOptions {
   enabled?: boolean;
-  // 추가 옵션...
+  // Additional options...
 }
 
 export class MyExtension implements Extension {
   name = 'myExtension';
-  priority = 100; // 우선순위 (낮을수록 먼저 실행)
+  priority = 100; // Priority (lower values execute first)
 
   private _options: MyExtensionOptions;
 
@@ -82,93 +82,93 @@ export class MyExtension implements Extension {
   onCreate(editor: Editor): void {
     if (!this._options.enabled) return;
     
-    // Command 등록, 이벤트 리스너 등록 등
+    // Register commands, event listeners, etc.
   }
 
   onDestroy(_editor: Editor): void {
-    // 정리 작업 (이벤트 리스너 제거 등)
+    // Cleanup (remove event listeners, etc.)
   }
 }
 ```
 
-### 생명주기 메서드
+### Lifecycle Methods
 
-- **`onCreate(editor: Editor)`**: Extension이 에디터에 등록될 때 호출됩니다.
-- **`onDestroy(editor: Editor)`**: Extension이 제거될 때 호출됩니다.
+- **`onCreate(editor: Editor)`**: Called when the Extension is registered with the editor.
+- **`onDestroy(editor: Editor)`**: Called when the Extension is removed.
 
-## Command 등록하기
+## Registering Commands
 
-Extension에서 커맨드를 등록하려면 `editor.registerCommand()`를 사용합니다.
+To register a command in an Extension, use `editor.registerCommand()`.
 
-### 기본 Command 등록
+### Basic Command Registration
 
 ```typescript
 onCreate(editor: Editor): void {
   (editor as any).registerCommand({
     name: 'myCommand',
     execute: async (ed: Editor, payload?: any) => {
-      // 커맨드 실행 로직
-      return true; // 성공 시 true, 실패 시 false
+      // Command execution logic
+      return true; // Return true on success, false on failure
     },
     canExecute: (_ed: Editor, payload?: any) => {
-      // 커맨드 실행 가능 여부 확인
+      // Check if command can be executed
       return true;
     }
   });
 }
 ```
 
-### Command 실행 방법
+### Executing Commands
 
-커맨드는 다음과 같이 실행할 수 있습니다:
+Commands can be executed as follows:
 
 ```typescript
-// 직접 실행
+// Direct execution
 await editor.executeCommand('myCommand', { /* payload */ });
 
-// CommandChain 사용
+// Using CommandChain
 await editor.commands()
   .myCommand()
   .run();
 ```
 
-## Model Operations 사용하기
+## Using Model Operations
 
-Extension에서 모델을 변경하려면 `@barocss/model`의 operations를 사용합니다.
+To modify the model in an Extension, use operations from `@barocss/model`.
 
-### Transaction과 Operations
+### Transactions and Operations
 
-모든 모델 변경은 transaction을 통해 수행됩니다:
+All model changes are performed through transactions:
 
 ```typescript
 import { transaction, control, toggleMark, transformNode, moveBlockUp } from '@barocss/model';
 
-// 1. Operations 배열 생성
+// 1. Create Operations array
 const ops = [
   ...control(nodeId, [
     toggleMark('bold', [startOffset, endOffset])
   ])
 ];
 
-// 2. Transaction 실행
+// 2. Execute Transaction
 const result = await transaction(editor, ops).commit();
 return result.success;
 ```
 
-### 주요 Operations
+### Main Operations
 
 #### Mark Operations
 
 ```typescript
 import { toggleMark, applyMark, removeMark } from '@barocss/model';
 
-// Mark 토글
+// Toggle mark
 toggleMark('bold', [startOffset, endOffset])
 
-// Mark 적용
+// Apply mark
 applyMark('bold', [startOffset, endOffset])
 
-// Mark 제거
+// Remove mark
 removeMark('bold', [startOffset, endOffset])
 ```
 
@@ -177,17 +177,17 @@ removeMark('bold', [startOffset, endOffset])
 ```typescript
 import { transformNode, moveBlockUp, moveBlockDown } from '@barocss/model';
 
-// 노드 타입 변환 (예: paragraph → heading)
+// Transform node type (e.g., paragraph → heading)
 transformNode('heading', { level: 1 })
 
-// 블록 이동
+// Move block
 moveBlockUp()
 moveBlockDown()
 ```
 
 #### Control Helper
 
-`control()` 헬퍼를 사용하면 특정 노드에 대한 operations를 그룹화할 수 있습니다:
+You can use the `control()` helper to group operations for a specific node:
 
 ```typescript
 import { control, toggleMark } from '@barocss/model';
@@ -200,9 +200,9 @@ const ops = [
 ];
 ```
 
-## 예제
+## Examples
 
-### 예제 1: 간단한 Mark 토글 Extension
+### Example 1: Simple Mark Toggle Extension
 
 ```typescript
 import { Editor, Extension, type ModelSelection } from '@barocss/editor-core';
@@ -239,7 +239,7 @@ export class BoldExtension implements Extension {
       return false;
     }
 
-    // 같은 텍스트 노드 내에서만 처리
+    // Only process within the same text node
     if (selection.startNodeId !== selection.endNodeId) {
       return false;
     }
@@ -262,7 +262,7 @@ export class BoldExtension implements Extension {
 }
 ```
 
-### 예제 2: 블록 타입 변환 Extension
+### Example 2: Block Type Transform Extension
 
 ```typescript
 import { Editor, Extension, type ModelSelection } from '@barocss/editor-core';
@@ -273,7 +273,7 @@ export class HeadingExtension implements Extension {
   priority = 100;
 
   onCreate(editor: Editor): void {
-    // setHeading1, setHeading2, setHeading3 등록
+    // Register setHeading1, setHeading2, setHeading3
     [1, 2, 3].forEach(level => {
       (editor as any).registerCommand({
         name: `setHeading${level}`,
@@ -315,13 +315,13 @@ export class HeadingExtension implements Extension {
   }
 
   private _getTargetBlockNodeId(dataStore: any, selection: ModelSelection): string | null {
-    // selection에서 블록 노드 찾기 로직
+    // Logic to find block node from selection
     // ...
   }
 }
 ```
 
-### 예제 3: 간단한 Action Extension (Model 변경 없음)
+### Example 3: Simple Action Extension (No Model Changes)
 
 ```typescript
 import { Editor, Extension } from '@barocss/editor-core';
@@ -336,13 +336,13 @@ export class EscapeExtension implements Extension {
       execute: (ed: Editor) => {
         const selection = ed.selection;
         
-        // 선택이 있으면 선택 취소
+        // If selection exists, clear it
         if (selection && !this._isSelectionEmpty(selection)) {
           ed.clearSelection();
           return true;
         }
         
-        // 선택이 없으면 포커스 해제
+        // If no selection, blur focus
         ed.emit('editor:blur.request', {});
         return true;
       },
@@ -364,9 +364,9 @@ export class EscapeExtension implements Extension {
 }
 ```
 
-## 키바인딩 추가하기
+## Adding Keybindings
 
-Extension에서 커맨드를 등록한 후, 키바인딩을 추가하려면 `packages/editor-core/src/keybinding/default-keybindings.ts`에 추가합니다:
+After registering a command in an Extension, to add a keybinding, add it to `packages/editor-core/src/keybinding/default-keybindings.ts`:
 
 ```typescript
 export const DEFAULT_KEYBINDINGS: Keybinding[] = [
@@ -380,23 +380,23 @@ export const DEFAULT_KEYBINDINGS: Keybinding[] = [
 ];
 ```
 
-### 키바인딩 포맷
+### Keybinding Format
 
-- **Modifier**: `Mod` (macOS: Cmd, 그 외: Ctrl), `Alt`, `Shift`
-- **키**: `A-Z`, `0-9`, `Enter`, `Escape`, `Backspace`, `Delete`, `Tab`, `ArrowLeft`, `ArrowRight`, `ArrowUp`, `ArrowDown`, `Home`, `End` 등
-- **조합**: `Mod+b`, `Mod+Shift+s`, `Alt+ArrowUp` 등
+- **Modifier**: `Mod` (macOS: Cmd, others: Ctrl), `Alt`, `Shift`
+- **Keys**: `A-Z`, `0-9`, `Enter`, `Escape`, `Backspace`, `Delete`, `Tab`, `ArrowLeft`, `ArrowRight`, `ArrowUp`, `ArrowDown`, `Home`, `End`, etc.
+- **Combinations**: `Mod+b`, `Mod+Shift+s`, `Alt+ArrowUp`, etc.
 
-### When 조건
+### When Conditions
 
-- `editorFocus`: 에디터에 포커스가 있을 때
-- `editorEditable`: 에디터가 편집 가능할 때
-- `!selectionEmpty`: 선택이 비어있지 않을 때
-- `historyCanUndo`: Undo 가능할 때
-- `isMac`: macOS일 때
+- `editorFocus`: When the editor has focus
+- `editorEditable`: When the editor is editable
+- `!selectionEmpty`: When selection is not empty
+- `historyCanUndo`: When undo is possible
+- `isMac`: When on macOS
 
-## Extension 사용하기
+## Using Extensions
 
-Extension을 에디터에 등록하려면:
+To register an Extension to the editor:
 
 ```typescript
 import { Editor } from '@barocss/editor-core';
@@ -409,7 +409,7 @@ const editor = new Editor({
 });
 ```
 
-또는 편의 함수 사용:
+Or use a convenience function:
 
 ```typescript
 import { createMyExtension } from '@barocss/extensions';
@@ -421,9 +421,9 @@ const editor = new Editor({
 });
 ```
 
-## 참고 자료
+## References
 
 - [Command Architecture Guide](./docs/command-architecture-guide.md)
 - [Operation Selection Handling](./docs/operation-selection-handling.md)
-- [@barocss/model](../model/README.md) - Model operations 문서
+- [@barocss/model](../model/README.md) - Model operations documentation
 

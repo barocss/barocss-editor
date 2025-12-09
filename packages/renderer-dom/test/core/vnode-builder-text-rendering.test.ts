@@ -1,10 +1,10 @@
 /**
- * VNodeBuilder 텍스트 렌더링 테스트
+ * VNodeBuilder Text Rendering Test
  * 
- * element() 템플릿에서 텍스트를 렌더링하는 다양한 방법을 테스트합니다.
- * - element('span', {}, ['Test Component']) - 문자열 배열 직접 사용
- * - element('span', {}, [text('Test Component')]) - text() 함수 사용
- * - element('span', 'Test Component') - 문자열 직접 사용 (오버로드)
+ * Tests various ways to render text in element() templates.
+ * - element('span', {}, ['Test Component']) - Direct use of string array
+ * - element('span', {}, [text('Test Component')]) - Use text() function
+ * - element('span', 'Test Component') - Direct use of string (overload)
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { define, element, text, getGlobalRegistry } from '@barocss/dsl';
@@ -25,7 +25,7 @@ describe('VNodeBuilder Text Rendering', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
 
-    // 기본 컴포넌트 정의
+    // Define base components
     if (!registry.has('document')) {
       define('document', element('div', { className: 'document' }, []));
     }
@@ -37,7 +37,7 @@ describe('VNodeBuilder Text Rendering', () => {
     }
   });
 
-  describe('문자열 배열 직접 사용', () => {
+  describe('Direct use of string array', () => {
     it('should render text from string array in element children', () => {
       define('test-component', element('div', { className: 'test-component' }, [
         element('span', {}, ['Test Component'])
@@ -81,7 +81,7 @@ describe('VNodeBuilder Text Rendering', () => {
     });
   });
 
-  describe('text() 함수 사용', () => {
+  describe('Use text() function', () => {
     it('should render text from text() function in element children', () => {
       define('test-component', element('div', { className: 'test-component' }, [
         element('span', {}, [text('Test Component')])
@@ -184,7 +184,7 @@ describe('VNodeBuilder Text Rendering', () => {
 
       renderer.render(container, model);
 
-      // 빈 텍스트는 렌더링되지 않을 수 있음
+      // Empty text may not be rendered
       const span = container.querySelector('span');
       expect(span).toBeTruthy();
     });

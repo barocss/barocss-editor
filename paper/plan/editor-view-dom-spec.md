@@ -1,24 +1,24 @@
-# Editor View DOM 스펙 (Editor View DOM Specification)
+# Editor View DOM Specification
 
-## 📋 개요
+## 📋 Overview
 
-이 문서는 Barocss Editor의 `editor-view-dom` 패키지에 대한 명세를 정의합니다. `editor-view-dom`은 `editor-core`와 DOM 사이의 브리지 역할을 하며, 다음과 같은 핵심 기능을 제공합니다:
+This document specifies the `editor-view-dom` package for BaroCSS Editor. `editor-view-dom` bridges `editor-core` and the DOM, providing:
 
-- **DOM 이벤트 처리**: 브라우저의 `contentEditable` 기능과 네이티브 편집 명령 처리
-- **Selection 관리**: DOM Selection과 Model Selection 간의 양방향 변환 및 동기화
-- **Decorator 시스템**: 모델과 무관한 부가 정보 표시 (Layer, Inline, Block)
-- **DSL 렌더링**: `@barocss/renderer-dom`의 DSL을 re-export하여 통합된 렌더링 경험 제공
-  - WIP 기반 `renderer-dom` reconcile를 사용하며, 데코레이터는 `excludeDecorators`로 분리 렌더링
-- **텍스트 변경 감지**: 고도화된 텍스트 분석 알고리즘으로 정확한 변경사항 추적
+- **DOM event handling**: Uses browser `contentEditable` and native editing commands
+- **Selection management**: Bidirectional conversion/synchronization between DOM Selection and Model Selection
+- **Decorator system**: Presents auxiliary info independent of the model (Layer, Inline, Block)
+- **DSL rendering**: Re-exports `@barocss/renderer-dom` DSL for unified rendering
+  - Uses WIP-based `renderer-dom` reconcile, rendering decorators separately via `excludeDecorators`
+- **Text change detection**: Advanced text analysis algorithm for accurate change tracking
 
-## 🎯 핵심 개념
+## 🎯 Core Concepts
 
-### 1. 역할 분리
-- **`editor-core`**: Headless editor - DOM 없이도 동작하는 순수한 로직
-- **`editor-view-dom`**: DOM View Layer - 브라우저 기능과 DOM 이벤트 처리
-- **관계**: `editor-view-dom`이 `editor-core`를 래핑하여 DOM 기능 제공
+### 1. Responsibility separation
+- **`editor-core`**: Headless editor—pure logic that works without DOM
+- **`editor-view-dom`**: DOM view layer—browser features and DOM event handling
+- **Relationship**: `editor-view-dom` wraps `editor-core` to provide DOM capabilities
 
-### 2. 아키텍처
+### 2. Architecture
 ```
 ┌─────────────────┐    ┌──────────────────────────┐    ┌─────────────────┐
 │   editor-core   │    │    editor-view-dom       │    │  renderer-dom   │
@@ -44,52 +44,52 @@
     └─────────┘                 └─────────┘                 └─────────┘
 ```
 
-### 3. Selection 관리 시스템
+### 3. Selection management system
 ```
 DOM Selection ←→ DOMSelectionHandler ←→ Model Selection
      │                    │                    │
      ▼                    ▼                    ▼
-브라우저 선택      양방향 변환         editor-core
+Browser selection   Bidirectional conversion   editor-core
      │                    │                    │
      ▼                    ▼                    ▼
-Range 객체        Text Run Index      SelectionState
+Range object        Text Run Index            SelectionState
 ```
 
-#### 3.1 Selection 변환 플로우
-- **DOM → Model**: `convertDOMSelectionToModel()` - 브라우저 선택을 모델 좌표로 변환
-- **Model → DOM**: `convertModelSelectionToDOM()` - 모델 좌표를 브라우저 선택으로 변환
-- **Text Run Index**: 중첩된 마크 구조에서 정확한 위치 매핑을 위한 인덱스
-- **Model 검증**: DOM에 있지만 Model에 없는 요소는 안전하게 무시
+#### 3.1 Selection conversion flow
+- **DOM → Model**: `convertDOMSelectionToModel()` converts browser selection to model coordinates
+- **Model → DOM**: `convertModelSelectionToDOM()` converts model coordinates to browser selection
+- **Text Run Index**: Index for precise mapping in nested mark structures
+- **Model validation**: Safely ignore DOM elements that do not exist in the Model
 
-#### 3.2 Text Container 식별
-- **`data-text-container="true"`**: 텍스트를 포함할 수 있는 DOM 요소 표시 (모델의 `text` 필드 존재 시 자동)
-- **스키마 기반**: `text` 필드가 있는 노드만 텍스트 컨테이너로 인식
-- **자동 적용**: `VNodeBuilder`에서 렌더링 시 자동으로 속성 추가
+#### 3.2 Text container identification
+- **`data-text-container="true"`**: Marks DOM elements that can hold text (auto-added when model has `text` field)
+- **Schema-based**: Only nodes with a `text` field are treated as text containers
+- **Auto-applied**: Attribute is added during rendering by `VNodeBuilder`
 
-### 4. 텍스트 변경 감지 플로우
+### 4. Text change detection flow
 ```
-DOM 변경 감지 → MutationObserver → Smart Text Analyzer → Model 업데이트
+DOM change detection → MutationObserver → Smart Text Analyzer → Model update
      │                │                    │                    │
      ▼                ▼                    ▼                    ▼
-Text Node 변경   변경사항 분석      TextChange 생성      editor-core
+Text Node change   Analyze changes    Create TextChange    editor-core
      │                │                    │                    │
      ▼                ▼                    ▼                    ▼
-oldText/newText   LCP/LCS 알고리즘    {type, start, end,     이벤트 발생
-비교              Selection Bias      text, confidence}
+Compare old/new    LCP/LCS algorithm   {type, start, end,   Fire event
+Selection Bias     text, confidence}
 ```
 
-### 5. Mark vs Decorator 구분
-- **Mark**: `@barocss/schema`에서 정의, `renderer-dom`에서 처리, 모델 데이터, diff 포함
-- **Decorator**: `editor-view-dom`에서 정의/처리, 별도 저장소, diff 제외 여부는 타입별로 다름
+### 5. Mark vs Decorator
+- **Mark**: Defined in `@barocss/schema`, handled in `renderer-dom`, part of model data and diff
+- **Decorator**: Defined/handled in `editor-view-dom`, stored separately; diff exclusion depends on type
 
-### 6. 통신 방식
-- **이벤트 기반**: `editor-core`와 `editor-view-dom` 간 이벤트로 통신
-- **양방향**: DOM 변경 → `editor-core`, `editor-core` 명령 → DOM 조작
-- **DSL 통합**: `renderer-dom`의 DSL을 re-export하여 일관된 렌더링 경험 제공
+### 6. Communication
+- **Event-driven**: Communicate between `editor-core` and `editor-view-dom` via events
+- **Bidirectional**: DOM changes → `editor-core`, `editor-core` commands → DOM manipulation
+- **DSL integration**: Re-export `renderer-dom` DSL for a unified rendering experience
 
 ### 7. Layered Rendering Architecture
 
-`editor-view-dom`은 5개의 계층으로 구성된 렌더링 아키텍처를 사용합니다:
+`editor-view-dom` uses a 5-layer rendering architecture:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -127,19 +127,19 @@ oldText/newText   LCP/LCS 알고리즘    {type, start, end,     이벤트 발�
 └─────────────────────────────────────────────────────────────┘
 ```
 
-#### 6.1 계층별 특성
+#### 6.1 Layer characteristics
 
-| 계층 | Z-Index | 포지션 | 이벤트 | 용도 |
-|------|---------|--------|--------|------|
-| Content | 1 | relative | 허용 | 실제 편집 가능한 콘텐츠 |
-| Decorator | 10-50 | absolute | 차단* | 부가 정보 표시 |
-| Selection | 100 | absolute | 차단 | 선택 상태 UI |
-| Context | 200 | absolute | 차단 | 상황별 UI |
-| Custom | 1000+ | absolute | 차단 | 사용자 정의 UI |
+| Layer     | Z-Index | Position  | Events      | Purpose                       |
+|-----------|---------|-----------|-------------|-------------------------------|
+| Content   | 1       | relative  | allowed     | Actual editable content       |
+| Decorator | 10-50   | absolute  | blocked*    | Auxiliary information         |
+| Selection | 100     | absolute  | blocked     | Selection UI                  |
+| Context   | 200     | absolute  | blocked     | Contextual UI                 |
+| Custom    | 1000+   | absolute  | blocked     | User-defined UI               |
 
-*Decorator 계층의 일부 요소(inline/block)는 이벤트를 허용할 수 있음. 데코레이터 DOM은 모델 reconcile에서 제외되며 독립적으로 업데이트됨.
+*Some decorator elements (inline/block) may allow events. Decorator DOM is excluded from model reconcile and updated independently.
 
-#### 6.2 자동 생성 DOM 구조
+#### 6.2 Auto-generated DOM structure
 
 ```html
 <div id="editor-container" style="position: relative; overflow: hidden;">
@@ -147,7 +147,7 @@ oldText/newText   LCP/LCS 알고리즘    {type, start, end,     이벤트 발�
   <div class="barocss-editor-content" contenteditable="true" 
        style="position: relative; z-index: 1;" 
        data-bc-layer="content">
-    <!-- 실제 에디터 콘텐츠 -->
+    <!-- Actual editor content -->
   </div>
   
   <!-- Layer 2: Decorator -->
@@ -155,7 +155,7 @@ oldText/newText   LCP/LCS 알고리즘    {type, start, end,     이벤트 발�
        style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; 
               pointer-events: none; z-index: 10;" 
        data-bc-layer="decorator">
-    <!-- Decorator 요소들 -->
+    <!-- Decorator elements -->
   </div>
   
   <!-- Layer 3: Selection -->
@@ -163,7 +163,7 @@ oldText/newText   LCP/LCS 알고리즘    {type, start, end,     이벤트 발�
        style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; 
               pointer-events: none; z-index: 100;" 
        data-bc-layer="selection">
-    <!-- 선택 상태 UI -->
+    <!-- Selection UI -->
   </div>
   
   <!-- Layer 4: Context -->
@@ -171,7 +171,7 @@ oldText/newText   LCP/LCS 알고리즘    {type, start, end,     이벤트 발�
        style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; 
               pointer-events: none; z-index: 200;" 
        data-bc-layer="context">
-    <!-- 컨텍스트 메뉴, 툴팁 등 -->
+    <!-- Context menu, tooltip, etc. -->
   </div>
   
   <!-- Layer 5: Custom -->
@@ -179,33 +179,33 @@ oldText/newText   LCP/LCS 알고리즘    {type, start, end,     이벤트 발�
        style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; 
               pointer-events: none; z-index: 1000;" 
        data-bc-layer="custom">
-    <!-- 사용자 정의 UI -->
+    <!-- Custom UI -->
   </div>
 </div>
 ```
 
-#### 6.3 내부 레이어 관리 시스템
+#### 6.3 Internal layer management
 
-`EditorViewDOM`은 내부적으로 다음과 같은 방식으로 계층을 관리합니다:
+`EditorViewDOM` manages layers internally as follows:
 
-##### 6.3.1 계층 생성 및 초기화
+##### 6.3.1 Create and initialize layers
 
 ```typescript
 class EditorViewDOMImpl {
   public readonly layers: {
-    content: HTMLElement;      // contentEditable 요소
-    decorator: HTMLElement;    // Decorator 오버레이
-    selection: HTMLElement;    // 선택 상태 표시
-    context: HTMLElement;      // 컨텍스트 UI
-    custom: HTMLElement;       // 사용자 정의 UI
+    content: HTMLElement;      // contentEditable element
+    decorator: HTMLElement;    // Decorator overlay
+    selection: HTMLElement;    // Selection display
+    context: HTMLElement;      // Context UI
+    custom: HTMLElement;       // Custom UI
   };
 
   private setupLayeredStructure(layerConfig?: LayerConfiguration): void {
-    // 1. 컨테이너 스타일 설정
+    // 1. Configure container styles
     this.container.style.position = 'relative';
     this.container.style.overflow = 'hidden';
     
-    // 2. 각 계층 생성 및 설정
+    // 2. Create and configure each layer
     const contentLayer = this.createLayer('content', {
       contentEditable: 'true',
       position: 'relative',
@@ -219,9 +219,9 @@ class EditorViewDOMImpl {
       zIndex: '10'
     });
     
-    // ... 나머지 계층들
+    // ... remaining layers
     
-    // 3. 컨테이너에 순서대로 추가
+    // 3. Append to container in order
     this.container.appendChild(contentLayer);
     this.container.appendChild(decoratorLayer);
     this.container.appendChild(selectionLayer);
@@ -240,37 +240,37 @@ class EditorViewDOMImpl {
 }
 ```
 
-##### 6.3.2 계층별 접근 및 조작
+##### 6.3.2 Layer access and manipulation
 
 ```typescript
-// 각 계층에 직접 접근 가능
-view.layers.content      // contentEditable 요소
-view.layers.decorator    // Decorator 컨테이너
-view.layers.selection    // Selection UI 컨테이너
-view.layers.context      // Context UI 컨테이너
-view.layers.custom       // Custom UI 컨테이너
+// Direct access to each layer
+view.layers.content      // contentEditable element
+view.layers.decorator    // Decorator container
+view.layers.selection    // Selection UI container
+view.layers.context      // Context UI container
+view.layers.custom       // Custom UI container
 
-// 계층별 요소 추가
+// Add element per layer
 const highlight = document.createElement('div');
 highlight.className = 'selection-highlight';
 view.layers.selection.appendChild(highlight);
 
-// 계층별 이벤트 처리
+// Layer-specific event handling
 view.layers.context.addEventListener('click', (e) => {
-  // Context 계층 클릭 처리
+  // Handle clicks on context layer
 });
 ```
 
-##### 6.3.3 계층 좌표 시스템
+##### 6.3.3 Layer coordinate system
 
-모든 overlay 계층(decorator, selection, context, custom)은 content 계층과 동일한 좌표계를 사용합니다:
+All overlay layers (decorator, selection, context, custom) use the same coordinate system as the content layer:
 
 ```typescript
-// Content 계층의 텍스트 위치를 다른 계층에서 참조
+// Reference text position in the content layer from other layers
 const textRect = getTextNodeRect(textNode, offset);
 const overlayElement = document.createElement('div');
 
-// Content 계층 기준 좌표를 overlay 계층에 적용
+// Apply content-layer coordinates to overlay layer
 overlayElement.style.position = 'absolute';
 overlayElement.style.left = `${textRect.left}px`;
 overlayElement.style.top = `${textRect.top}px`;
@@ -280,28 +280,28 @@ overlayElement.style.height = `${textRect.height}px`;
 view.layers.decorator.appendChild(overlayElement);
 ```
 
-##### 6.3.4 계층 생명주기 관리
+##### 6.3.4 Layer lifecycle management
 
 ```typescript
 class EditorViewDOMImpl {
   destroy(): void {
-    // 1. 각 계층의 내용 정리
+    // 1. Clear contents of each layer
     Object.values(this.layers).forEach(layer => {
       if (layer && layer.parentNode) {
         layer.innerHTML = '';
         
-        // 이벤트 리스너 완전 제거
+        // Completely remove event listeners
         const clonedLayer = layer.cloneNode(false) as HTMLElement;
         layer.parentNode.replaceChild(clonedLayer, layer);
       }
     });
     
-    // 2. 참조 정리
+    // 2. Clear references
     this.layers = null;
     this.container = null;
   }
   
-  // 특정 계층만 정리
+  // Clear a specific layer
   clearLayer(layerName: keyof typeof this.layers): void {
     const layer = this.layers[layerName];
     if (layer) {
@@ -311,9 +311,9 @@ class EditorViewDOMImpl {
 }
 ```
 
-##### 6.3.5 계층 커스터마이징
+##### 6.3.5 Layer customization
 
-사용자는 계층 설정을 통해 각 계층의 스타일과 속성을 커스터마이징할 수 있습니다:
+Users can customize styles and attributes per layer via configuration:
 
 ```typescript
 const view = new EditorViewDOM(editor, {
@@ -345,38 +345,38 @@ const view = new EditorViewDOM(editor, {
 });
 ```
 
-이렇게 생성된 DOM 구조:
+Resulting DOM structure:
 
 ```html
 <div id="editor-container">
   <div class="my-custom-content" contenteditable="true" 
        data-bc-layer="content" data-testid="editor-content" 
        aria-label="Text editor">
-    <!-- 에디터 콘텐츠 -->
+    <!-- Editor content -->
   </div>
   
   <div class="my-custom-decorators" 
        data-bc-layer="decorator" data-layer="decorations">
-    <!-- Decorator 요소들 -->
+    <!-- Decorator elements -->
   </div>
   
-  <!-- 나머지 계층들... -->
+  <!-- Remaining layers... -->
 </div>
 ```
 
-## 🔍 텍스트 변경 감지 시스템
+## 🔍 Text Change Detection System
 
-### 1. MutationObserver 기반 감지
+### 1. Detection via MutationObserver
 
-#### 1.1 설정
+#### 1.1 Setup
 ```typescript
 const mutationObserver = new MutationObserver((mutations) => {
   mutations.forEach(mutation => {
     if (mutation.type === 'childList') {
-      // DOM 구조 변경 감지
+      // Detect DOM structure changes
       this.handleDOMStructureChange(mutation);
     } else if (mutation.type === 'characterData') {
-      // 텍스트 노드 변경 감지
+      // Detect text node changes
       this.handleTextContentChange(mutation);
     }
   });
@@ -390,32 +390,32 @@ mutationObserver.observe(contentEditableElement, {
 });
 ```
 
-#### 1.2 텍스트 변경 감지 플로우
+#### 1.2 Text change detection flow
 ```
-사용자 입력
+User input
      │
      ▼
-DOM Text Node 변경
+DOM Text Node change
      │
      ▼
-MutationObserver 콜백
+MutationObserver callback
      │
      ▼
-oldValue vs newValue 비교
+Compare oldValue vs newValue
      │
      ▼
-Smart Text Analyzer 호출
+Call Smart Text Analyzer
      │
      ▼
-TextChange 객체 생성
+Create TextChange object
      │
      ▼
-editor-core 이벤트 발생
+Fire editor-core event
 ```
 
 ### 2. Smart Text Analyzer
 
-#### 2.1 핵심 알고리즘
+#### 2.1 Core algorithm
 ```typescript
 export function analyzeTextChanges(options: {
   oldText: string;
@@ -423,14 +423,14 @@ export function analyzeTextChanges(options: {
   selectionOffset: number;
   selectionLength: number;
 }): TextChange[] {
-  // 1. 유니코드 정규화 (NFC)
+  // 1. Unicode normalization (NFC)
   const normalizedOldText = oldText.normalize('NFC');
   const normalizedNewText = newText.normalize('NFC');
   
-  // 2. 전역 텍스트 차이 계산 (LCP/LCS)
+  // 2. Compute global text difference (LCP/LCS)
   const textDifference = calculateTextDifference(normalizedOldText, normalizedNewText);
   
-  // 3. Selection 기반 바이어싱 적용
+  // 3. Apply selection-based bias
   return analyzeTextChangesWithSelection(
     normalizedOldText,
     normalizedNewText,
@@ -441,16 +441,16 @@ export function analyzeTextChanges(options: {
 }
 ```
 
-#### 2.2 LCP/LCS 알고리즘
+#### 2.2 LCP/LCS algorithm
 ```typescript
 function calculateTextDifference(oldText: string, newText: string) {
-  // Longest Common Prefix (LCP) 계산
+  // Compute Longest Common Prefix (LCP)
   const commonPrefix = findLCP(oldText, newText);
   
-  // Longest Common Suffix (LCS) 계산  
+  // Compute Longest Common Suffix (LCS)
   const commonSuffix = findLCS(oldText, newText);
   
-  // 변경 영역 식별
+  // Identify changed region
   const oldChanged = oldText.slice(commonPrefix, oldText.length - commonSuffix);
   const newChanged = newText.slice(commonPrefix, newText.length - commonSuffix);
   
@@ -464,7 +464,7 @@ function calculateTextDifference(oldText: string, newText: string) {
 }
 ```
 
-#### 2.3 Selection Bias 알고리즘
+#### 2.3 Selection Bias algorithm
 ```typescript
 function analyzeTextChangesWithSelection(
   oldText: string,
@@ -473,7 +473,7 @@ function analyzeTextChangesWithSelection(
   selectionOffset: number,
   selectionLength: number
 ): TextChange[] {
-  // Selection 영역을 oldText 좌표로 매핑
+  // Map selection area to oldText coordinates
   const oldSelectionStart = mapIndexAfterToBefore(
     selectionOffset, 
     oldText, 
@@ -481,7 +481,7 @@ function analyzeTextChangesWithSelection(
   );
   const oldSelectionEnd = oldSelectionStart + selectionLength;
   
-  // Selection 기반 바이어싱 적용
+  // Apply selection-based bias
   if (textDifference.kind === 'replace') {
     return computeReplaceDeltaWithBias(
       textDifference,
@@ -506,25 +506,25 @@ function analyzeTextChangesWithSelection(
 }
 ```
 
-### 3. TextChange 구조
+### 3. TextChange structure
 
-#### 3.1 인터페이스
+#### 3.1 Interface
 ```typescript
 export interface TextChange {
   type: 'insert' | 'delete' | 'replace';
-  start: number;        // 변경 시작 위치 (oldText 기준)
-  end: number;          // 변경 끝 위치 (oldText 기준)
-  text: string;         // 변경할 텍스트
-  confidence: number;   // 분석 신뢰도 (0-1)
+  start: number;        // Start position (based on oldText)
+  end: number;          // End position (based on oldText)
+  text: string;         // Text to apply
+  confidence: number;   // Confidence (0-1)
 }
 ```
 
-#### 3.2 각 타입별 의미
-- **insert**: `start === end`, `text`에 삽입할 내용
-- **delete**: `start < end`, `text`는 빈 문자열
-- **replace**: `start < end`, `text`에 교체할 내용
+#### 3.2 Meaning by type
+- **insert**: `start === end`, `text` contains inserted content
+- **delete**: `start < end`, `text` is empty string
+- **replace**: `start < end`, `text` contains replacement content
 
-#### 3.3 모델 적용 예시
+#### 3.3 Applying to model example
 ```typescript
 function applyChanges(oldText: string, changes: TextChange[]): string {
   let result = oldText;
@@ -548,34 +548,34 @@ function applyChanges(oldText: string, changes: TextChange[]): string {
 }
 ```
 
-### 4. 유니코드 처리
+### 4. Unicode handling
 
-#### 4.1 정규화
-- **NFC 정규화**: 모든 텍스트를 NFC 형태로 정규화
-- **BOM 제거**: Byte Order Mark 문자 제거
-- **제로폭 문자 처리**: ZWSP, ZWNJ, ZWJ 등 처리
+#### 4.1 Normalization
+- **NFC normalization**: Normalize all text to NFC
+- **BOM removal**: Remove Byte Order Mark
+- **Zero-width characters**: Handle ZWSP, ZWNJ, ZWJ, etc.
 
-#### 4.2 복합 문자 지원
-- **이모지 수식어**: 👍 → 👍🏻
-- **복합 이모지 가족**: 👨 → 👨‍👩‍👧‍👦
-- **한글 조합**: ㅎ → 한
-- **RTL/LTR 혼합**: Hello مرحبا
+#### 4.2 Complex character support
+- **Emoji modifiers**: 👍 → 👍🏻
+- **Compound emoji family**: 👨 → 👨‍👩‍👧‍👦
+- **Hangul composition**: ㅎ → 한
+- **RTL/LTR mix**: Hello مرحبا
 
-### 5. 성능 최적화
+### 5. Performance optimization
 
-#### 5.1 알고리즘 복잡도
-- **LCP/LCS 계산**: O(min(m,n)) where m,n은 텍스트 길이
-- **Selection 매핑**: O(1)
-- **전체 복잡도**: O(min(m,n))
+#### 5.1 Algorithm complexity
+- **LCP/LCS**: O(min(m,n)) where m,n are text lengths
+- **Selection mapping**: O(1)
+- **Overall complexity**: O(min(m,n))
 
-#### 5.2 메모리 사용량
-- **정규화**: 임시 문자열 생성 (GC 대상)
-- **중간 결과**: 최소한의 객체만 생성
-- **캐싱**: 없음 (정확성 우선)
+#### 5.2 Memory usage
+- **Normalization**: Temporary strings (GC eligible)
+- **Intermediates**: Minimal objects created
+- **Caching**: None (favor accuracy)
 
-## 🏗️ 핵심 컴포넌트
+## 🏗️ Core Components
 
-### 1. 컴포넌트 아키텍처 다이어그램
+### 1. Component architecture diagram
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -610,16 +610,16 @@ function applyChanges(oldText: string, changes: TextChange[]): string {
                     └─────────────────────┘
 ```
 
-### 2. 텍스트 변경 감지 상세 플로우
+### 2. Detailed text change detection flow
 
 ```
-사용자 타이핑: "hello" → "hello world"
+User typing: "hello" → "hello world"
                     │
                     ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                    MutationObserver                             │
 ├─────────────────────────────────────────────────────────────────┤
-│  감지: Text Node 변경                                           │
+│  Detect: Text Node change                                      │
 │  oldValue: "hello"                                             │
 │  newValue: "hello world"                                       │
 │  target: <div>hello world</div>                                │
@@ -629,24 +629,24 @@ function applyChanges(oldText: string, changes: TextChange[]): string {
 ┌─────────────────────────────────────────────────────────────────┐
 │                 Smart Text Analyzer                            │
 ├─────────────────────────────────────────────────────────────────┤
-│  1. 유니코드 정규화 (NFC)                                       │
+│  1. Unicode normalization (NFC)                                │
 │     oldText: "hello" → "hello"                                │
 │     newText: "hello world" → "hello world"                     │
 │                                                                 │
-│  2. LCP/LCS 계산                                                │
-│     LCP: "hello" (5자)                                         │
-│     LCS: "" (0자)                                              │
-│     변경영역: oldText[5:5] vs newText[5:11]                    │
+│  2. LCP/LCS calculation                                        │
+│     LCP: "hello" (length 5)                                    │
+│     LCS: "" (length 0)                                         │
+│     Changed region: oldText[5:5] vs newText[5:11]              │
 │                                                                 │
-│  3. Selection Bias 적용                                         │
-│     selectionOffset: 11 (newText 기준)                         │
-│     oldSelectionStart: 5 (oldText 기준)                        │
-│     변경타입: insert (oldText 부분이 비어있음)                  │
+│  3. Apply Selection Bias                                       │
+│     selectionOffset: 11 (based on newText)                     │
+│     oldSelectionStart: 5 (based on oldText)                    │
+│     Change type: insert (oldText region empty)                 │
 └─────────────────────────────────────────────────────────────────┘
                     │
                     ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                    TextChange 생성                              │
+│                    Create TextChange                           │
 ├─────────────────────────────────────────────────────────────────┤
 │  {                                                              │
 │    type: 'insert',                                             │
@@ -659,7 +659,7 @@ function applyChanges(oldText: string, changes: TextChange[]): string {
                     │
                     ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                  editor-core 이벤트                            │
+│                  editor-core event                             │
 ├─────────────────────────────────────────────────────────────────┤
 │  editor.emit('editor:input.detected', {                        │
 │    changes: [{                                                 │
@@ -673,17 +673,17 @@ function applyChanges(oldText: string, changes: TextChange[]): string {
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 3. EditorViewDOM 클래스
+### 3. EditorViewDOM class
 ```typescript
 export class EditorViewDOMImpl implements EditorViewDOM {
   public readonly editor: Editor;
   public readonly container: HTMLElement;
   public readonly layers: {
-    content: HTMLElement;      // contentEditable 요소
-    decorator: HTMLElement;    // Decorator 오버레이
-    selection: HTMLElement;    // 선택 상태 표시
-    context: HTMLElement;      // 컨텍스트 UI
-    custom: HTMLElement;       // 사용자 정의 UI
+    content: HTMLElement;      // contentEditable element
+    decorator: HTMLElement;    // Decorator overlay
+    selection: HTMLElement;    // Selection display
+    context: HTMLElement;      // Context UI
+    custom: HTMLElement;       // Custom UI
   };
   public readonly keymapManager: KeymapManager;
 
@@ -696,49 +696,49 @@ export class EditorViewDOMImpl implements EditorViewDOM {
     this.editor = editor;
     this.container = options.container;
     
-    // 계층형 구조 설정
+    // Setup layered structure
     this.setupLayeredStructure(options.layers);
     
-    // 핸들러들 초기화
+    // Initialize handlers
     this.inputHandler = new InputHandlerImpl(editor);
     this.selectionHandler = new SelectionHandlerImpl(editor);
     this.mutationObserverManager = new MutationObserverManagerImpl(editor, this.inputHandler);
     this.nativeCommands = new NativeCommands(editor, this.layers.content);
     
-    // 키맵 매니저 초기화
+    // Initialize keymap manager
     this.keymapManager = new KeymapManagerImpl();
     this.setupKeymapHandlers();
     
-    // 이벤트 리스너 설정
+    // Set event listeners
     this.setupEventListeners();
     
-    // MutationObserver 설정
+    // Setup MutationObserver
     this.mutationObserverManager.setup(this.layers.content);
   }
 
-  // 이벤트 리스너 설정
+  // Set event listeners
   private setupEventListeners(): void {
-    // 입력 이벤트
+    // Input events
     this.layers.content.addEventListener('input', this.handleInput.bind(this));
     this.layers.content.addEventListener('beforeinput', this.handleBeforeInput.bind(this));
     this.layers.content.addEventListener('keydown', this.handleKeydown.bind(this));
     this.layers.content.addEventListener('paste', this.handlePaste.bind(this));
     this.layers.content.addEventListener('drop', this.handleDrop.bind(this));
     
-    // 조합 이벤트 (IME)
+    // Composition events (IME)
     this.layers.content.addEventListener('compositionstart', this.handleCompositionStart.bind(this));
     this.layers.content.addEventListener('compositionupdate', this.handleCompositionUpdate.bind(this));
     this.layers.content.addEventListener('compositionend', this.handleCompositionEnd.bind(this));
     
-    // 선택 이벤트
+    // Selection events
     document.addEventListener('selectionchange', this.handleSelectionChange.bind(this));
     
-    // 포커스 이벤트
+    // Focus events
     this.layers.content.addEventListener('focus', this.handleFocus.bind(this));
     this.layers.content.addEventListener('blur', this.handleBlur.bind(this));
   }
 
-  // DOM 이벤트 처리
+  // DOM event handling
   private handleInput(event: InputEvent): void {
     this.inputHandler.handleInput(event);
   }
@@ -763,7 +763,7 @@ export class EditorViewDOMImpl implements EditorViewDOM {
     this.selectionHandler.handleSelectionChange();
   }
 
-  // 브라우저 네이티브 명령
+  // Browser native commands
   insertParagraph(): void {
     this.nativeCommands.insertParagraph();
   }
@@ -784,7 +784,7 @@ export class EditorViewDOMImpl implements EditorViewDOM {
     this.nativeCommands.historyRedo();
   }
 
-  // 편집 명령
+  // Editing commands
   toggleBold(): void {
     this.nativeCommands.toggleBold();
   }
@@ -797,24 +797,24 @@ export class EditorViewDOMImpl implements EditorViewDOM {
     this.nativeCommands.toggleUnderline();
   }
 
-  // 생명주기
+  // Lifecycle
   destroy(): void {
     this.mutationObserverManager.destroy();
     this.keymapManager.destroy();
-    // 이벤트 리스너 제거
+    // Remove event listeners
   }
 }
 ```
 
-### 4. InputHandler 상세 동작
+### 4. InputHandler details
 
-#### 4.1 beforeInput 이벤트 처리
+#### 4.1 Handling beforeInput event
 ```typescript
 export class InputHandlerImpl implements InputHandler {
   handleBeforeInput(event: InputEvent): void {
     const { inputType } = event;
     
-    // 포맷 및 구조 변경 inputType 차단
+    // Block format/structural inputTypes
     if (this.shouldPreventDefault(inputType)) {
       event.preventDefault();
       this.executeEditorCommand(inputType);
@@ -846,11 +846,11 @@ export class InputHandlerImpl implements InputHandler {
 }
 ```
 
-#### 4.2 input 이벤트 처리 (MutationObserver 연동)
+#### 4.2 Handling input event (with MutationObserver)
 ```typescript
 handleInput(event: InputEvent): void {
-  // MutationObserver가 텍스트 변경을 감지하고 처리
-  // 이 메서드는 이벤트만 발생시킴
+  // MutationObserver detects text changes and processes them
+  // This method only emits event
   this.editor.emit('editor:input.detected', {
     inputType: event.inputType,
     data: event.data,
@@ -859,9 +859,9 @@ handleInput(event: InputEvent): void {
 }
 ```
 
-### 5. MutationObserverManager 상세 동작
+### 5. MutationObserverManager details
 
-#### 5.1 텍스트 변경 감지
+#### 5.1 Text change detection
 ```typescript
 export class MutationObserverManagerImpl implements MutationObserverManager {
   private mutationObserver: MutationObserver;
@@ -891,7 +891,7 @@ export class MutationObserverManagerImpl implements MutationObserverManager {
     const newValue = mutation.target.textContent || '';
     
     if (oldValue !== newValue) {
-      // Smart Text Analyzer 호출
+      // Call Smart Text Analyzer
       const changes = analyzeTextChanges({
         oldText: oldValue,
         newText: newValue,
@@ -907,44 +907,44 @@ export class MutationObserverManagerImpl implements MutationObserverManager {
 }
 ```
 
-### 6. 이벤트 플로우 다이어그램
+### 6. Event flow diagram
 
 ```
-사용자 액션 → DOM 이벤트 → EditorViewDOM → 핸들러 → editor-core
+User action → DOM event → EditorViewDOM → Handler → editor-core
      │              │            │           │         │
      ▼              ▼            ▼           ▼         ▼
-타이핑 "a"    input 이벤트   InputHandler  SmartText  이벤트 발생
+Type "a"      input event   InputHandler  SmartText  Emit event
      │              │            │      Analyzer      │
      ▼              ▼            ▼           ▼         ▼
-DOM 변경    MutationObserver  TextChange  editor-core
-     │              │        생성         이벤트
+DOM change    MutationObserver  TextChange  editor-core
+     │              │        created       event
      ▼              ▼           ▼         ▼
 Text Node   oldValue vs    {type, start,  editor.emit
-변경        newValue       end, text}     ('input.detected')
+change      newValue       end, text}     ('input.detected')
 ```
 
-### 7. 키맵 시스템
+### 7. Keymap System
 
-#### 7.1 키맵 등록
+#### 7.1 Keymap registration
 ```typescript
 private setupKeymapHandlers(): void {
-  // 포맷 명령
+  // Format commands
   this.keymapManager.register('Ctrl+b', () => this.toggleBold());
   this.keymapManager.register('Ctrl+i', () => this.toggleItalic());
   this.keymapManager.register('Ctrl+u', () => this.toggleUnderline());
   
-  // 편집 명령
+  // Editing commands
   this.keymapManager.register('Enter', () => this.insertParagraph());
   this.keymapManager.register('Ctrl+z', () => this.historyUndo());
   this.keymapManager.register('Ctrl+y', () => this.historyRedo());
   
-  // 선택 명령
+  // Selection commands
   this.keymapManager.register('Ctrl+a', () => this.selectAll());
   this.keymapManager.register('Escape', () => this.clearSelection());
 }
 ```
 
-#### 7.2 키 이벤트 처리
+#### 7.2 Key event handling
 ```typescript
 handleKeydown(event: KeyboardEvent): void {
   const key = this.getKeyString(event);
@@ -967,30 +967,30 @@ handleKeydown(event: KeyboardEvent): void {
   private handleDrop(event: DragEvent): void;
   private handleSelectionChange(): void;
   
-  // MutationObserver 설정
+  // Setup MutationObserver
   private setupMutationObserver(): void;
   private handleDOMStructureChange(mutation: MutationRecord): void;
   private handleTextContentChange(mutation: MutationRecord): void;
   private handleAttributeChange(mutation: MutationRecord): void;
   
-  // 브라우저 네이티브 명령
+  // Browser native commands
   insertParagraph(): void;
   insertText(text: string): void;
   deleteSelection(): void;
   historyUndo(): void;
   historyRedo(): void;
   
-  // 편집 명령
+  // Edit commands
   toggleBold(): void;
   toggleItalic(): void;
   toggleUnderline(): void;
   
-  // 생명주기
+  // Lifecycle
   destroy(): void;
 }
 ```
 
-### 2. 이벤트 핸들러들
+### 2. Event handlers
 
 #### InputHandler
 ```typescript
@@ -998,7 +998,7 @@ export class InputHandler {
   private editor: Editor;
   
   handleInput(event: InputEvent): void {
-    // input 이벤트를 editor-core 이벤트로 변환
+    // Convert input event to editor-core event
     this.editor.emit('editor:content.change', {
       type: 'input',
       data: event.data,
@@ -1008,7 +1008,7 @@ export class InputHandler {
   }
   
   handleBeforeInput(event: InputEvent): void {
-    // 입력 전 검증 및 변환
+    // Validation/conversion before input
   }
 }
 ```
@@ -1041,14 +1041,14 @@ export class KeyboardHandler {
 ```
 
 #### DOMSelectionHandler
-**역할**: DOM Selection과 Model Selection 간의 양방향 변환 및 동기화
+**Role**: Bidirectional conversion and sync between DOM Selection and Model Selection
 
-**주요 기능**:
-- **DOM → Model 변환**: `convertDOMSelectionToModel()` - 브라우저 선택을 모델 좌표로 변환
-- **Model → DOM 변환**: `convertModelSelectionToDOM()` - 모델 좌표를 브라우저 선택으로 변환
-- **Text Container 식별**: `data-text-container="true"` 속성으로 텍스트 컨테이너 확인
-- **Model 검증**: DOM에 있지만 Model에 없는 요소는 안전하게 무시
-- **Text Run Index**: 중첩된 마크 구조에서 정확한 위치 매핑
+**Key features**:
+- **DOM → Model**: `convertDOMSelectionToModel()` converts browser selection to model coordinates
+- **Model → DOM**: `convertModelSelectionToDOM()` converts model coordinates to browser selection
+- **Text Container identification**: Use `data-text-container="true"` to mark text containers
+- **Model validation**: Safely ignore DOM elements not in the Model
+- **Text Run Index**: Accurate mapping in nested mark structures
 
 ```typescript
 export class DOMSelectionHandler {
@@ -1058,7 +1058,7 @@ export class DOMSelectionHandler {
     const selection = window.getSelection();
     if (!selection) return;
     
-    // DOM Selection을 Model Selection으로 변환
+    // Convert DOM Selection to Model Selection
     const modelSelection = this.convertDOMSelectionToModel(selection);
     
     this.editor.emit('editor:selection.change', {
@@ -1067,29 +1067,28 @@ export class DOMSelectionHandler {
   }
   
   private convertDOMSelectionToModel(selection: Selection): ModelSelection {
-    // DOM Selection → Model Selection 변환 로직
-    // 1. data-bc-sid 속성을 가진 요소 찾기
-    // 2. Text Run Index로 정확한 offset 계산
-    // 3. Model에 노드가 존재하는지 검증
-    // 4. Model Selection 객체 생성
+    // DOM Selection → Model Selection conversion
+    // 1. Find element with data-bc-sid
+    // 2. Compute precise offset via Text Run Index
+    // 3. Validate node existence in Model
+    // 4. Create Model Selection object
   }
   
   convertModelSelectionToDOM(modelSelection: ModelSelection): void {
-    // Model Selection → DOM Selection 변환 로직
-    // 1. 텍스트 컨테이너 식별 (data-text-container="true")
-    // 2. Text Run Index로 DOM Text 노드 찾기
-    // 3. Binary Search로 정확한 offset 매핑
-    // 4. DOM Range 생성 및 선택 적용
+    // Model Selection → DOM Selection conversion
+    // 1. Identify text container (data-text-container="true")
+    // 2. Find DOM Text node via Text Run Index
+    // 3. Binary search for precise offset mapping
+    // 4. Create DOM Range and apply selection
   }
   
   private nodeExistsInModel(nodeId: string): boolean {
-    // Model에 노드가 실제로 존재하는지 확인
-    // DOM에 있지만 Model에 없는 요소는 안전하게 무시
+    // Confirm node exists in Model; ignore DOM nodes absent in Model
   }
 }
 ```
 
-### 3. MutationObserver 시스템
+### 3. MutationObserver System
 
 ```typescript
 export class MutationObserverManager {
@@ -1156,7 +1155,7 @@ export class MutationObserverManager {
 }
 ```
 
-### 4. 단축키 시스템
+### 4. Shortcut System
 
 ```typescript
 export class KeymapManager {
@@ -1167,7 +1166,7 @@ export class KeymapManager {
   }
   
   private setupDefaultKeymaps(): void {
-    // 텍스트 서식
+    // Text formatting
     this.register('Ctrl+b', () => this.toggleBold());
     this.register('Cmd+b', () => this.toggleBold());
     this.register('Ctrl+i', () => this.toggleItalic());
@@ -1175,11 +1174,11 @@ export class KeymapManager {
     this.register('Ctrl+u', () => this.toggleUnderline());
     this.register('Cmd+u', () => this.toggleUnderline());
     
-    // 단락
+    // Paragraph
     this.register('Enter', () => this.insertParagraph());
     this.register('Shift+Enter', () => this.insertLineBreak());
     
-    // 히스토리
+    // History
     this.register('Ctrl+z', () => this.historyUndo());
     this.register('Cmd+z', () => this.historyUndo());
     this.register('Ctrl+y', () => this.historyRedo());
@@ -1187,11 +1186,11 @@ export class KeymapManager {
     this.register('Ctrl+Shift+z', () => this.historyRedo());
     this.register('Cmd+Shift+z', () => this.historyRedo());
     
-    // 선택
+    // Selection
     this.register('Ctrl+a', () => this.selectAll());
     this.register('Cmd+a', () => this.selectAll());
     
-    // 삭제
+    // Deletion
     this.register('Backspace', () => this.handleBackspace());
     this.register('Delete', () => this.handleDelete());
   }
@@ -1206,13 +1205,13 @@ export class KeymapManager {
 }
 ```
 
-## 🔄 이벤트 흐름
+## 🔄 Event Flow
 
-### 1. 사용자 입력 처리 아키텍처
+### 1. User Input Processing Architecture
 
 ```mermaid
 graph TD
-    A[사용자 액션] --> B{이벤트 타입}
+    A[User Action] --> B{Event Type}
     
     B -->|keydown| C[KeyboardHandler]
     B -->|beforeInput| D[InputHandler]
@@ -1222,232 +1221,232 @@ graph TD
     C --> G[KeymapManager]
     G --> H[editor.executeCommand]
     
-    D --> I{inputType 검사}
-    I -->|formatBold, formatItalic 등| J[event.preventDefault]
-    I -->|insertText, insertParagraph 등| K[DOM 변경 허용]
+    D --> I{inputType Check}
+    I -->|formatBold, formatItalic etc| J[event.preventDefault]
+    I -->|insertText, insertParagraph etc| K[Allow DOM Change]
     
     J --> L[editor.executeCommand]
-    K --> M[DOM 변경]
+    K --> M[DOM Change]
     
-    L --> N[editor-core Model 업데이트]
+    L --> N[editor-core Model Update]
     M --> O[MutationObserver]
     
-    N --> P[editor.emit 변경 이벤트]
-    O --> Q[editor.emit 동기화 이벤트]
+    N --> P[editor.emit Change Event]
+    O --> Q[editor.emit Sync Event]
     
-    P --> R[DOM 렌더링]
-    Q --> S[Model 동기화]
+    P --> R[DOM Rendering]
+    Q --> S[Model Sync]
     
-    R --> T[최종 DOM 상태]
+    R --> T[Final DOM State]
     S --> T
 ```
 
-### 2. beforeInput vs input 이벤트 처리
+### 2. beforeInput vs input Event Processing
 
 ```mermaid
 graph LR
-    A[사용자 액션] --> B[beforeInput 이벤트]
-    B --> C{inputType 분석}
+    A[User Action] --> B[beforeInput Event]
+    B --> C{inputType Analysis}
     
     C -->|formatBold| D[event.preventDefault]
     C -->|formatItalic| D
     C -->|formatUnderline| D
-    C -->|insertText| E[DOM 변경 허용]
+    C -->|insertText| E[Allow DOM Change]
     C -->|insertParagraph| E
     C -->|deleteContentBackward| E
     
     D --> F[editor.executeCommand]
-    E --> G[DOM 변경]
+    E --> G[DOM Change]
     
-    F --> H[Model 업데이트]
-    G --> I[input 이벤트]
+    F --> H[Model Update]
+    G --> I[input Event]
     
-    H --> J[DOM 렌더링]
+    H --> J[DOM Rendering]
     I --> K[MutationObserver]
     
-    J --> L[최종 상태]
-    K --> M[Model 동기화]
+    J --> L[Final State]
+    K --> M[Model Sync]
     M --> L
 ```
 
-### 3. 구체적인 처리 흐름
+### 3. Specific Processing Flow
 
-#### A. Bold 토글 (Ctrl+B)
+#### A. Bold Toggle (Ctrl+B)
 ```
-1. 사용자가 Ctrl+B 누름
+1. User presses Ctrl+B
    ↓
-2. keydown 이벤트 → KeyboardHandler
+2. keydown event → KeyboardHandler
    ↓
 3. KeymapManager.getHandler('Ctrl+b')
    ↓
 4. editor.executeCommand('toggleBold')
    ↓
-5. editor-core에서 Model 업데이트
+5. Model update in editor-core
    ↓
 6. editor.emit('editor:node.update')
    ↓
-7. EditorViewDOM에서 DOM 업데이트
+7. DOM update in EditorViewDOM
    ↓
-8. MutationObserver 감지 (무시)
+8. MutationObserver detects (ignored)
 ```
 
-#### B. Bold 토글 (beforeInput)
+#### B. Bold Toggle (beforeInput)
 ```
-1. 사용자가 Bold 버튼 클릭
+1. User clicks Bold button
    ↓
-2. beforeInput 이벤트 (inputType: 'formatBold')
+2. beforeInput event (inputType: 'formatBold')
    ↓
 3. InputHandler.handleBeforeInput()
    ↓
-4. event.preventDefault() 호출
+4. Call event.preventDefault()
    ↓
 5. editor.executeCommand('toggleBold')
    ↓
-6. editor-core에서 Model 업데이트
+6. Model update in editor-core
    ↓
 7. editor.emit('editor:node.update')
    ↓
-8. EditorViewDOM에서 DOM 업데이트
+8. DOM update in EditorViewDOM
 ```
 
-#### C. 텍스트 입력
+#### C. Text Input
 ```
-1. 사용자가 'a' 키 입력
+1. User types 'a' key
    ↓
-2. beforeInput 이벤트 (inputType: 'insertText')
+2. beforeInput event (inputType: 'insertText')
    ↓
 3. InputHandler.handleBeforeInput()
    ↓
-4. DOM 변경 허용
+4. Allow DOM change
    ↓
-5. DOM에 'a' 텍스트 삽입
+5. Insert 'a' text into DOM
    ↓
-6. input 이벤트 발생
+6. input event fires
    ↓
 7. InputHandler.handleInput()
    ↓
 8. editor.emit('editor:content.change')
    ↓
-9. editor-core에서 Model 동기화
+9. Model sync in editor-core
 ```
 
-#### D. IME 조합 입력 (한글 등) - MutationObserver 방식
+#### D. IME Composition Input (Korean etc.) - MutationObserver Method
 ```
-1. 사용자가 한글 입력 시작
+1. User starts Korean input
    ↓
-2. compositionstart 이벤트
+2. compositionstart event
    ↓
 3. InputHandler.handleCompositionStart()
    ↓
-4. isComposing = true 설정
+4. Set isComposing = true
    ↓
-5. 사용자가 계속 입력 (ㅎ, ㅏ, ㄴ, ㄱ)
+5. User continues input (ㅎ, ㅏ, ㄴ, ㄱ)
    ↓
-6. compositionupdate 이벤트 (여러 번)
+6. compositionupdate event (multiple times)
    ↓
 7. InputHandler.handleCompositionUpdate()
    ↓
-8. compositionText 업데이트 (조합 중이므로 모델 업데이트 안함)
+8. Update compositionText (no model update during composition)
    ↓
-9. 사용자가 Space 또는 Enter로 조합 완료
+9. User completes composition with Space or Enter
    ↓
-10. DOM에 최종 텍스트 삽입 (브라우저가 자동 처리)
+10. Final text inserted into DOM (browser handles automatically)
     ↓
 11. MutationObserver.handleTextContentChange()
     ↓
-12. InputHandler.analyzeTextChanges() - oldValue vs newValue 비교
+12. InputHandler.analyzeTextChanges() - compare oldValue vs newValue
     ↓
-13. 정확한 변경사항 추출 (추가/삭제/교체)
+13. Extract precise changes (add/delete/replace)
     ↓
 14. editor.emit('editor:content.change', { type: 'textChange', changes })
     ↓
-15. editor-core에서 Model 동기화 + Selection 위치 조정
+15. Model sync + Selection position adjustment in editor-core
 ```
 
-#### E. 일반 텍스트 입력 - MutationObserver 방식
+#### E. Normal Text Input - MutationObserver Method
 ```
-1. 사용자가 'a' 키 입력
+1. User types 'a' key
    ↓
-2. beforeInput 이벤트 (inputType: 'insertText')
+2. beforeInput event (inputType: 'insertText')
    ↓
-3. DOM 변경 허용
+3. Allow DOM change
    ↓
-4. DOM에 'a' 텍스트 삽입
+4. Insert 'a' text into DOM
    ↓
 5. MutationObserver.handleTextContentChange()
    ↓
-6. InputHandler.analyzeTextChanges() - '' vs 'a' 비교
+6. InputHandler.analyzeTextChanges() - compare '' vs 'a'
    ↓
-7. 변경사항 추출: { type: 'insert', text: 'a', offset: 0, length: 1 }
+7. Extract changes: { type: 'insert', text: 'a', offset: 0, length: 1 }
    ↓
 8. editor.emit('editor:content.change', { type: 'textChange', changes })
    ↓
-9. editor-core에서 Model 동기화 + Selection 위치 조정
+9. Model sync + Selection position adjustment in editor-core
 ```
 
-### 4. inputType별 처리 전략
+### 4. Processing Strategy by inputType
 
-#### A. 포맷 관련 (beforeInput에서 차단)
-| inputType | 처리 방식 | 이유 |
-|-----------|-----------|------|
-| `formatBold` | beforeInput 차단 → `toggleBold` | 일관된 Bold 로직 |
-| `formatItalic` | beforeInput 차단 → `toggleItalic` | 일관된 Italic 로직 |
-| `formatUnderline` | beforeInput 차단 → `toggleUnderline` | 일관된 Underline 로직 |
-| `formatStrikeThrough` | beforeInput 차단 → `strikethrough.toggle` | 일관된 취소선 로직 |
-| `formatJustifyLeft` | beforeInput 차단 → `align.left` | 일관된 정렬 로직 |
-| `formatJustifyCenter` | beforeInput 차단 → `align.center` | 일관된 정렬 로직 |
-| `formatJustifyRight` | beforeInput 차단 → `align.right` | 일관된 정렬 로직 |
-| `formatJustifyFull` | beforeInput 차단 → `align.justify` | 일관된 정렬 로직 |
-| `formatIndent` | beforeInput 차단 → `indent.increase` | 일관된 들여쓰기 로직 |
-| `formatOutdent` | beforeInput 차단 → `indent.decrease` | 일관된 내어쓰기 로직 |
-| `formatRemove` | beforeInput 차단 → `format.remove` | 일관된 서식 제거 로직 |
+#### A. Format Related (Blocked in beforeInput)
+| inputType | Processing Method | Reason |
+|-----------|------------------|--------|
+| `formatBold` | Block beforeInput → `toggleBold` | Consistent Bold logic |
+| `formatItalic` | Block beforeInput → `toggleItalic` | Consistent Italic logic |
+| `formatUnderline` | Block beforeInput → `toggleUnderline` | Consistent Underline logic |
+| `formatStrikeThrough` | Block beforeInput → `strikethrough.toggle` | Consistent strikethrough logic |
+| `formatJustifyLeft` | Block beforeInput → `align.left` | Consistent alignment logic |
+| `formatJustifyCenter` | Block beforeInput → `align.center` | Consistent alignment logic |
+| `formatJustifyRight` | Block beforeInput → `align.right` | Consistent alignment logic |
+| `formatJustifyFull` | Block beforeInput → `align.justify` | Consistent alignment logic |
+| `formatIndent` | Block beforeInput → `indent.increase` | Consistent indent logic |
+| `formatOutdent` | Block beforeInput → `indent.decrease` | Consistent outdent logic |
+| `formatRemove` | Block beforeInput → `format.remove` | Consistent format removal logic |
 
-#### B. 구조 관련 (beforeInput에서 차단)
-| inputType | 처리 방식 | 이유 |
-|-----------|-----------|------|
-| `insertParagraph` | beforeInput 차단 → `paragraph.insert` | 우리 스키마의 paragraph로 렌더링 |
-| `insertOrderedList` | beforeInput 차단 → `list.insertOrdered` | 우리 스키마의 list로 렌더링 |
-| `insertUnorderedList` | beforeInput 차단 → `list.insertUnordered` | 우리 스키마의 list로 렌더링 |
-| `insertHorizontalRule` | beforeInput 차단 → `rule.insert` | 우리 스키마의 rule로 렌더링 |
-| `insertLineBreak` | beforeInput 차단 → `linebreak.insert` | 우리 스키마의 linebreak로 렌더링 |
+#### B. Structure Related (Blocked in beforeInput)
+| inputType | Processing Method | Reason |
+|-----------|------------------|--------|
+| `insertParagraph` | Block beforeInput → `paragraph.insert` | Render as our schema's paragraph |
+| `insertOrderedList` | Block beforeInput → `list.insertOrdered` | Render as our schema's list |
+| `insertUnorderedList` | Block beforeInput → `list.insertUnordered` | Render as our schema's list |
+| `insertHorizontalRule` | Block beforeInput → `rule.insert` | Render as our schema's rule |
+| `insertLineBreak` | Block beforeInput → `linebreak.insert` | Render as our schema's linebreak |
 
-#### C. 텍스트 관련 (DOM 변경 허용)
-| inputType | 처리 방식 | 이유 |
-|-----------|-----------|------|
-| `insertText` | DOM 변경 허용 → 동기화 | 단순 텍스트 입력 |
-| `insertCompositionText` | CompositionEvent 처리 | IME 조합 입력 |
-| `insertFromPaste` | DOM 변경 허용 → 동기화 | 붙여넣기 처리 |
-| `insertFromDrop` | DOM 변경 허용 → 동기화 | 드래그앤드롭 처리 |
-| `insertFromYank` | DOM 변경 허용 → 동기화 | Yank 삽입 |
-| `insertReplacementText` | DOM 변경 허용 → 동기화 | 교체 텍스트 삽입 |
-| `insertFromClipboard` | DOM 변경 허용 → 동기화 | 클립보드에서 삽입 |
+#### C. Text Related (Allow DOM Change)
+| inputType | Processing Method | Reason |
+|-----------|------------------|--------|
+| `insertText` | Allow DOM change → sync | Simple text input |
+| `insertCompositionText` | Handle CompositionEvent | IME composition input |
+| `insertFromPaste` | Allow DOM change → sync | Paste handling |
+| `insertFromDrop` | Allow DOM change → sync | Drag and drop handling |
+| `insertFromYank` | Allow DOM change → sync | Yank insertion |
+| `insertReplacementText` | Allow DOM change → sync | Replacement text insertion |
+| `insertFromClipboard` | Allow DOM change → sync | Insert from clipboard |
 
-#### D. 삭제 관련 (DOM 변경 허용)
-| inputType | 처리 방식 | 이유 |
-|-----------|-----------|------|
-| `deleteContentBackward` | DOM 변경 허용 → 동기화 | 단순 뒤로 삭제 |
-| `deleteContentForward` | DOM 변경 허용 → 동기화 | 단순 앞으로 삭제 |
-| `deleteByCut` | DOM 변경 허용 → 동기화 | 잘라내기로 삭제 |
-| `deleteByDrag` | DOM 변경 허용 → 동기화 | 드래그로 삭제 |
-| `deleteWordBackward` | DOM 변경 허용 → 동기화 | 단어 뒤로 삭제 |
-| `deleteWordForward` | DOM 변경 허용 → 동기화 | 단어 앞으로 삭제 |
+#### D. Deletion Related (Allow DOM Change)
+| inputType | Processing Method | Reason |
+|-----------|------------------|--------|
+| `deleteContentBackward` | Allow DOM change → sync | Simple backward deletion |
+| `deleteContentForward` | Allow DOM change → sync | Simple forward deletion |
+| `deleteByCut` | Allow DOM change → sync | Deletion by cut |
+| `deleteByDrag` | Allow DOM change → sync | Deletion by drag |
+| `deleteWordBackward` | Allow DOM change → sync | Word backward deletion |
+| `deleteWordForward` | Allow DOM change → sync | Word forward deletion |
 
-## 🎯 **MutationObserver 기반 텍스트 변경 감지의 장점**
+## 🎯 **Advantages of MutationObserver-based Text Change Detection**
 
-### **1. 브라우저 호환성**
-- **CompositionEvent 문제 해결**: `compositionend`가 발생하지 않는 브라우저에서도 정상 동작
-- **일관된 동작**: 모든 브라우저에서 동일한 방식으로 텍스트 변경 감지
-- **IME 지원**: 한글, 일본어, 중국어 등 모든 IME 입력 완벽 지원
+### **1. Browser Compatibility**
+- **CompositionEvent Issue Resolution**: Works correctly even in browsers where `compositionend` doesn't fire
+- **Consistent Behavior**: Text change detection works the same way across all browsers
+- **IME Support**: Perfect support for all IME inputs (Korean, Japanese, Chinese, etc.)
 
-### **2. 정확한 변경사항 추출**
+### **2. Accurate Change Extraction**
 ```typescript
-// 기존 방식 (문제)
+// Old method (problem)
 editor.emit('editor:content.change', {
   type: 'input',
-  data: 'a'  // 전체 텍스트가 아닌 일부만
+  data: 'a'  // Only partial, not full text
 });
 
-// 새로운 방식 (해결)
+// New method (solution)
 editor.emit('editor:content.change', {
   type: 'textChange',
   changes: [
@@ -1463,21 +1462,21 @@ editor.emit('editor:content.change', {
 });
 ```
 
-### **3. Selection 동기화**
-- **정확한 위치 계산**: 변경사항의 `offset`과 `length`로 Selection 위치 정확히 조정
-- **점진적 업데이트**: 전체 텍스트를 다시 설정하지 않고 변경된 부분만 업데이트
-- **성능 최적화**: 불필요한 전체 모델 업데이트 방지
+### **3. Selection Synchronization**
+- **Accurate Position Calculation**: Precisely adjust Selection position using `offset` and `length` of changes
+- **Incremental Updates**: Update only changed parts without resetting entire text
+- **Performance Optimization**: Prevent unnecessary full model updates
 
-### **4. ProseMirror 방식 채택**
-- **검증된 접근법**: ProseMirror에서 실제로 사용하는 방식
-- **안정성**: 복잡한 편집 시나리오에서도 안정적으로 동작
-- **확장성**: 새로운 편집 기능 추가 시에도 동일한 패턴 사용
+### **4. ProseMirror Approach Adoption**
+- **Proven Method**: Approach actually used in ProseMirror
+- **Stability**: Works stably even in complex editing scenarios
+- **Extensibility**: Same pattern can be used when adding new editing features
 
-## 🔄 **최종 이벤트 흐름 (MutationObserver 중심)**
+## 🔄 **Final Event Flow (MutationObserver Centric)**
 
 ```mermaid
 graph TD
-    A[사용자 입력] --> B{이벤트 타입}
+    A[User Input] --> B{Event Type}
     
     B -->|keydown| C[KeyboardHandler]
     B -->|beforeInput| D[InputHandler]
@@ -1487,12 +1486,12 @@ graph TD
     C --> G[KeymapManager]
     G --> H[editor.executeCommand]
     
-    D --> I{inputType 검사}
-    I -->|formatBold, insertParagraph 등| J[event.preventDefault]
-    I -->|insertText, deleteContent 등| K[DOM 변경 허용]
+    D --> I{inputType Check}
+    I -->|formatBold, insertParagraph etc| J[event.preventDefault]
+    I -->|insertText, deleteContent etc| K[Allow DOM Change]
     
     J --> L[editor.executeCommand]
-    K --> M[DOM 변경]
+    K --> M[DOM Change]
     
     F --> N[isComposing = true]
     N --> O[compositionupdate]
@@ -1504,24 +1503,24 @@ graph TD
     
     R --> S[handleTextContentChange]
     S --> T[analyzeTextChanges]
-    T --> U[정확한 변경사항 추출]
+    T --> U[Extract Precise Changes]
     U --> V[editor.emit textChange]
     
-    L --> W[Model 업데이트]
-    V --> X[Model 동기화 + Selection 조정]
+    L --> W[Model Update]
+    V --> X[Model Sync + Selection Adjustment]
     
-    W --> Y[DOM 렌더링]
+    W --> Y[DOM Rendering]
     X --> Y
     
-    Y --> Z[최종 상태]
+    Y --> Z[Final State]
 ```
 
-## 📊 타입 정의
+## 📊 Type Definitions
 
 ```typescript
 export interface EditorViewDOMOptions {
-  container: HTMLElement;                    // 필수: 에디터 컨테이너 요소
-  layers?: LayerConfiguration;               // 선택: 계층 설정
+  container: HTMLElement;                    // Required: Editor container element
+  layers?: LayerConfiguration;               // Optional: Layer configuration
   keymaps?: KeymapConfig[];
   inputHandlers?: InputHandlerConfig[];
   mutationObserver?: MutationObserverConfig;
@@ -1571,26 +1570,26 @@ export interface MutationObserverConfig {
 }
 ```
 
-## 🎨 Decorator 시스템
+## 🎨 Decorator System
 
-### 1. Decorator 개요
+### 1. Decorator Overview
 
-Decorator는 모델과 무관한 부가 정보를 표시하는 시스템으로, 3가지 분류로 나뉩니다:
+Decorator is a system for displaying additional information independent of the model, divided into 3 categories:
 
-- **Layer Decorator**: DOM 구조 변경 없이 CSS/오버레이로만 표현 (diff 포함)
-- **Inline Decorator**: 텍스트 내부에 실제 DOM 위젯 삽입 (diff 제외)
-- **Block Decorator**: 블록 레벨에 실제 DOM 위젯 삽입 (diff 제외)
+- **Layer Decorator**: Expressed only via CSS/overlay without DOM structure changes (diff included)
+- **Inline Decorator**: Inserts actual DOM widgets inside text (diff excluded)
+- **Block Decorator**: Inserts actual DOM widgets at block level (diff excluded)
 
-### 2. Decorator 타입 시스템
+### 2. Decorator Type System
 
-#### 2.1 기본 구조
+#### 2.1 Basic Structure
 ```typescript
 interface BaseDecorator {
-  id: string;                    // 고유 식별자
-  category: 'layer' | 'inline' | 'block';  // 분류 (고정)
-  type: string;                  // 자유로운 타입 정의
-  data: Record<string, any>;     // 타입별 자유로운 데이터
-  renderer?: string;             // 커스텀 렌더러 (선택사항)
+  id: string;                    // Unique identifier
+  category: 'layer' | 'inline' | 'block';  // Category (fixed)
+  type: string;                  // Free type definition
+  data: Record<string, any>;     // Free data per type
+  renderer?: string;             // Custom renderer (optional)
 }
 
 interface LayerDecorator extends BaseDecorator {
@@ -1620,21 +1619,21 @@ interface BlockDecorator extends BaseDecorator {
 }
 ```
 
-#### 2.2 기본 제공 타입
+#### 2.2 Built-in Types
 ```typescript
-// Layer Decorator 기본 타입
+// Layer Decorator built-in types
 const BUILTIN_LAYER_TYPES = [
   'highlight', 'comment', 'annotation', 'error', 
   'warning', 'info', 'selection', 'focus'
 ] as const;
 
-// Inline Decorator 기본 타입
+// Inline Decorator built-in types
 const BUILTIN_INLINE_TYPES = [
   'link-button', 'emoji-button', 'mention-button', 
   'hashtag-button', 'inline-input', 'inline-select', 'inline-toggle'
 ] as const;
 
-// Block Decorator 기본 타입
+// Block Decorator built-in types
 const BUILTIN_BLOCK_TYPES = [
   'toolbar', 'context-menu', 'dropdown', 'modal', 
   'panel', 'overlay', 'floating-action', 'notification'
@@ -1643,7 +1642,7 @@ const BUILTIN_BLOCK_TYPES = [
 
 ### 3. DecoratorRegistry
 
-#### 3.1 기본 사용법
+#### 3.1 Basic Usage
 ```typescript
 import { 
   DecoratorRegistry,
@@ -1652,7 +1651,7 @@ import {
 
 const decoratorRegistry = new DecoratorRegistry();
 
-// 커스텀 타입 등록
+// Register custom type
 decoratorRegistry.registerLayerType('my-highlight', {
   defaultRenderer: 'my-highlight-renderer',
   dataSchema: {
@@ -1662,9 +1661,9 @@ decoratorRegistry.registerLayerType('my-highlight', {
 });
 ```
 
-#### 3.2 커스텀 렌더러 정의
+#### 3.2 Custom Renderer Definition
 ```typescript
-// Layer Decorator 렌더러 (CSS만 적용)
+// Layer Decorator renderer (CSS only)
 decoratorRegistry.registerRenderer('my-highlight-renderer', 
   renderer('my-highlight', (decorator: LayerDecorator) => ({
     styles: {
@@ -1674,7 +1673,7 @@ decoratorRegistry.registerRenderer('my-highlight-renderer',
   }))
 );
 
-// Inline Decorator 렌더러 (실제 DOM 위젯)
+// Inline Decorator renderer (actual DOM widget)
 decoratorRegistry.registerRenderer('interactive-chart-renderer',
   renderer('interactive-chart', element('div', {
     className: 'interactive-chart-widget',
@@ -1682,7 +1681,7 @@ decoratorRegistry.registerRenderer('interactive-chart-renderer',
       width: `${d.data.width}px`,
       height: `${d.data.height}px`
     }),
-    'data-bc-decorator': 'inline'  // diff에서 제외
+    'data-bc-decorator': 'inline'  // Excluded from diff
   }, [
     element('canvas', {
       width: attr('data.width', 200),
@@ -1694,7 +1693,7 @@ decoratorRegistry.registerRenderer('interactive-chart-renderer',
   ]))
 );
 
-// Block Decorator 렌더러 (블록 레벨 위젯)
+// Block Decorator renderer (block-level widget)
 decoratorRegistry.registerRenderer('ai-assistant-panel-renderer',
   renderer('ai-assistant-panel', element('div', {
     className: 'ai-assistant-panel',
@@ -1708,14 +1707,14 @@ decoratorRegistry.registerRenderer('ai-assistant-panel-renderer',
       borderRadius: '8px',
       padding: '16px'
     },
-    'data-bc-decorator': 'block'  // diff에서 제외
+    'data-bc-decorator': 'block'  // Excluded from diff
   }, [
     element('h3', {}, [data('data.assistantType', 'AI Assistant')]),
     element('div', { className: 'suggestions' }, [
       when(
         (d: any) => d.data.suggestions?.length > 0,
         element('ul', {}, [
-          // suggestions 배열 렌더링
+          // Render suggestions array
           slot('data.suggestions')
         ])
       )
@@ -1724,64 +1723,64 @@ decoratorRegistry.registerRenderer('ai-assistant-panel-renderer',
 );
 ```
 
-#### 3.3 renderer-dom 통합
+#### 3.3 renderer-dom Integration
 
-Decorator 시스템은 `@barocss/renderer-dom`의 DSL을 활용하여 일관된 렌더링을 제공합니다:
+The Decorator system leverages `@barocss/renderer-dom`'s DSL to provide consistent rendering:
 
-##### 3.3.1 Decorator 템플릿 함수
+##### 3.3.1 Decorator Template Functions
 
 ```typescript
 import { decorator, widget, overlay, element, data } from '@barocss/renderer-dom';
 
-// Layer Decorator (reconcile 제외)
+// Layer Decorator (excluded from reconcile)
 define('highlight', decorator('div', {
   className: 'highlight-overlay',
   style: data('styles'),
-  'data-decorator': 'true'  // 자동 추가
+  'data-decorator': 'true'  // Automatically added
 }, [data('content')]));
 
-// Inline Widget (reconcile 제외)
+// Inline Widget (excluded from reconcile)
 define('inline-widget', widget('span', {
   className: 'inline-widget',
   'data-widget-type': data('type'),
-  'data-decorator': 'true'  // 자동 추가
+  'data-decorator': 'true'  // Automatically added
 }, [data('content')]));
 
-// Overlay (reconcile 제외)
+// Overlay (excluded from reconcile)
 define('tooltip', overlay('div', {
   className: 'tooltip',
   style: data('position'),
-  'data-decorator': 'true'  // 자동 추가
+  'data-decorator': 'true'  // Automatically added
 }, [data('text')]));
 ```
 
-##### 3.3.2 Reconcile 제외 시스템
+##### 3.3.2 Reconcile Exclusion System
 
-Decorator는 `data-decorator="true"` 속성과 `reconcile: false` 플래그로 reconcile에서 자동 제외됩니다:
+Decorators are automatically excluded from reconcile using the `data-decorator="true"` attribute and `reconcile: false` flag:
 
 ```typescript
-// VNode에서 decorator 식별
+// Identify decorator in VNode
 const decoratorVNode = {
   tag: 'div',
   attrs: { 'data-decorator': 'true', className: 'highlight' },
   children: ['Highlighted text'],
-  reconcile: false  // reconcile 제외
+  reconcile: false  // Excluded from reconcile
 };
 
-// reconcile 시 자동 필터링
+// Automatic filtering during reconcile
 const reconcileChildren = children.filter(child => 
   child.reconcile !== false && child.attrs?.['data-decorator'] !== 'true'
 );
 ```
 
-##### 3.3.3 렌더링 경로 분리
+##### 3.3.3 Rendering Path Separation
 
 ```typescript
-// 1단계: Model 렌더링 (reconcile)
+// Step 1: Model rendering (reconcile)
 const modelVNode = renderer['builder'].build('document', modelData);
 const contentElement = renderer.render(modelVNode, contentContainer);
 
-// 2단계: Decorator 렌더링 (appendChild)
+// Step 2: Decorator rendering (appendChild)
 const decoratorVNodes = [
   renderer['builder'].build('highlight', highlightData),
   renderer['builder'].build('inline-widget', widgetData)
@@ -1789,20 +1788,20 @@ const decoratorVNodes = [
 renderer.renderDecorators(decoratorVNodes, decoratorContainer);
 ```
 
-##### 3.3.4 성능 최적화
+##### 3.3.4 Performance Optimization
 
-- **Reconcile 보호**: Decorator는 reconcile 과정에서 완전히 제외
-- **독립적 업데이트**: Decorator 변경이 모델 DOM에 영향 없음
-- **안정적 DOM**: 모델 DOM이 decorator 변경 중에도 안정적 유지
-- **효율적 렌더링**: 모델 콘텐츠만 reconcile 과정을 거침
+- **Reconcile Protection**: Decorators are completely excluded from the reconcile process
+- **Independent Updates**: Decorator changes do not affect model DOM
+- **Stable DOM**: Model DOM remains stable even during decorator changes
+- **Efficient Rendering**: Only model content goes through the reconcile process
 
-### 4. Decorator 관리
+### 4. Decorator Management
 
-#### 4.1 Decorator 추가/제거
+#### 4.1 Decorator Add/Remove
 ```typescript
 const editorView = new EditorViewDOM(editor, options);
 
-// Decorator 추가
+// Add Decorator
 const highlightDecorator: LayerDecorator = {
   id: 'highlight-1',
   category: 'layer',
@@ -1813,73 +1812,73 @@ const highlightDecorator: LayerDecorator = {
 
 editorView.decoratorManager.add(highlightDecorator);
 
-// Decorator 업데이트 (부분 diff 적용)
+// Update Decorator (partial diff applied)
 editorView.decoratorManager.update('highlight-1', {
-  data: { backgroundColor: 'orange' }  // 색상만 변경
+  data: { backgroundColor: 'orange' }  // Only color changed
 });
 
-// Decorator 제거
+// Remove Decorator
 editorView.decoratorManager.remove('highlight-1');
 ```
 
-#### 4.2 Decorator 조회
+#### 4.2 Decorator Query
 ```typescript
-// 특정 Decorator 조회
+// Query specific Decorator
 const decorator = editorView.decoratorManager.get('highlight-1');
 
-// 타입별 Decorator 조회
+// Query Decorators by type
 const highlights = editorView.decoratorManager.getByType('highlight');
 
-// 노드별 Decorator 조회
+// Query Decorators by node
 const nodeDecorators = editorView.decoratorManager.getByNode('text-1');
 
-// 카테고리별 Decorator 조회
+// Query Decorators by category
 const layerDecorators = editorView.decoratorManager.getByCategory('layer');
 ```
 
 ### 5. DSL Re-export
 
-`editor-view-dom`은 `@barocss/renderer-dom`의 DSL 함수들을 re-export하여 통합된 개발 경험을 제공합니다:
+`editor-view-dom` re-exports DSL functions from `@barocss/renderer-dom` to provide a unified development experience:
 
 ```typescript
-// 사용자는 하나의 패키지에서 모든 것을 import
+// Users can import everything from a single package
 import { 
   EditorViewDOM,
   DecoratorRegistry,
   // renderer-dom DSL (re-export)
   renderer, element, data, when, attr,
-  RendererRegistry  // 필요시에만
+  RendererRegistry  // Only when needed
 } from '@barocss/editor-view-dom';
 
-// renderer-dom을 직접 import할 필요 없음
-// import { renderer, element } from '@barocss/renderer-dom';  // ❌ 불필요
+// No need to directly import renderer-dom
+// import { renderer, element } from '@barocss/renderer-dom';  // ❌ Unnecessary
 ```
 
-### 6. 부분 Diff 시스템
+### 6. Partial Diff System
 
-Decorator 렌더러가 `renderer-dom`의 DSL을 사용하므로, 자동으로 부분 diff가 적용됩니다:
+Since Decorator renderers use `renderer-dom`'s DSL, partial diff is automatically applied:
 
 ```typescript
-// Decorator 데이터 변경 시
+// When Decorator data changes
 const updatedDecorator = {
   ...existingDecorator,
   data: {
     ...existingDecorator.data,
-    title: 'Updated Title',  // 이 부분만 변경
-    width: 250              // 이 부분만 변경
+    title: 'Updated Title',  // Only this part changed
+    width: 250              // Only this part changed
   }
 };
 
-// renderer-dom의 diff 시스템이 자동으로:
-// 1. title 텍스트만 업데이트
-// 2. width 스타일만 업데이트  
-// 3. 나머지 DOM은 그대로 유지
+// renderer-dom's diff system automatically:
+// 1. Updates only title text
+// 2. Updates only width style  
+// 3. Keeps rest of DOM unchanged
 editorView.decoratorManager.update(decoratorId, updatedDecorator);
 ```
 
-## 🚀 사용 예시
+## 🚀 Usage Examples
 
-### 1. 기본 사용법
+### 1. Basic Usage
 ```typescript
 import { Editor } from '@barocss/editor-core';
 import { 
@@ -1888,13 +1887,13 @@ import {
   renderer, element, data  // DSL re-export
 } from '@barocss/editor-view-dom';
 
-// editor-core 인스턴스 생성
+// Create editor-core instance
 const editor = new Editor({
   dataStore: dataStore,
   schema: schema
 });
 
-// Container 기반 API로 DOM 기능 추가
+// Add DOM functionality with container-based API
 const view = new EditorViewDOM(editor, {
   container: document.getElementById('editor-container'),
   layers: {
@@ -1908,10 +1907,10 @@ const view = new EditorViewDOM(editor, {
   }
 });
 
-// Decorator 시스템 설정
+// Configure Decorator system
 const decoratorRegistry = new DecoratorRegistry();
 
-// 커스텀 하이라이트 Decorator 등록
+// Register custom highlight Decorator
 decoratorRegistry.registerRenderer('my-highlight',
   renderer('my-highlight', (decorator) => ({
     styles: {
@@ -1922,7 +1921,7 @@ decoratorRegistry.registerRenderer('my-highlight',
   }))
 );
 
-// 하이라이트 Decorator 추가
+// Add highlight Decorator
 view.decoratorManager.add({
   id: 'highlight-1',
   category: 'layer',
@@ -1931,25 +1930,25 @@ view.decoratorManager.add({
   data: { color: 'yellow' }
 });
 
-// 이제 사용자가 키보드로 편집하면 자동으로 처리됨
+// Now user editing with keyboard is automatically handled
 ```
 
-### 2. 커스텀 단축키 등록
+### 2. Custom Shortcut Registration
 ```typescript
 view.keymapManager.register('Ctrl+Shift+h', () => {
-  // 커스텀 헤딩 삽입
+  // Insert custom heading
   view.insertHeading(2);
 });
 
 view.keymapManager.register('Ctrl+Shift+l', () => {
-  // 커스텀 리스트 삽입
+  // Insert custom list
   view.insertList();
 });
 ```
 
-### 3. 고급 Decorator 사용법
+### 3. Advanced Decorator Usage
 ```typescript
-// Inline Decorator - 인터랙티브 차트 위젯
+// Inline Decorator - Interactive chart widget
 decoratorRegistry.registerRenderer('interactive-chart',
   renderer('interactive-chart', element('div', {
     className: 'chart-widget',
@@ -1970,7 +1969,7 @@ decoratorRegistry.registerRenderer('interactive-chart',
   ]))
 );
 
-// Block Decorator - AI 어시스턴트 패널
+// Block Decorator - AI assistant panel
 decoratorRegistry.registerRenderer('ai-assistant',
   renderer('ai-assistant', element('div', {
     className: 'ai-assistant-panel',
@@ -1981,7 +1980,7 @@ decoratorRegistry.registerRenderer('ai-assistant',
       when(
         (d) => d.data.suggestions?.length > 0,
         element('ul', {}, [
-          // 동적 리스트 렌더링 (실제 구현에서는 slot 사용)
+          // Dynamic list rendering (use slot in actual implementation)
           slot('data.suggestions')
         ])
       )
@@ -1992,7 +1991,7 @@ decoratorRegistry.registerRenderer('ai-assistant',
   ]))
 );
 
-// Decorator 사용
+// Use Decorators
 view.decoratorManager.add({
   id: 'chart-1',
   category: 'inline',
@@ -2014,9 +2013,9 @@ view.decoratorManager.add({
 });
 ```
 
-### 4. 이벤트 리스너
+### 4. Event Listeners
 ```typescript
-// editor-core 이벤트 리스닝
+// Listen to editor-core events
 editor.on('editor:content.change', (data) => {
   console.log('Content changed:', data);
 });
@@ -2029,7 +2028,7 @@ editor.on('editor:node.update', (data) => {
   console.log('Node updated:', data.node);
 });
 
-// Decorator 이벤트 리스닝
+// Listen to Decorator events
 view.decoratorManager.on('decorator:added', (decorator) => {
   console.log('Decorator added:', decorator.sid, decorator.type);
 });
@@ -2043,98 +2042,98 @@ view.decoratorManager.on('decorator:removed', (decoratorId) => {
 });
 ```
 
-## 🎯 핵심 원칙
+## 🎯 Core Principles
 
-1. **단일 책임**: DOM 관련 기능과 Decorator 시스템 담당
-2. **이벤트 기반**: `editor-core`와 이벤트로 통신
-3. **DSL 통합**: `renderer-dom`의 DSL을 re-export하여 일관된 개발 경험 제공
-4. **확장 가능**: 새로운 이벤트 핸들러, 단축키, Decorator 타입 쉽게 추가
-5. **브라우저 호환**: 다양한 브라우저의 `contentEditable` 동작 차이 처리
-6. **성능 최적화**: `MutationObserver`, 이벤트 디바운싱, 부분 diff로 성능 최적화
-7. **타입 안전성**: TypeScript 기반 강타입 Decorator 시스템
-6. **Headless 지원**: `editor-core`는 DOM 없이도 동작 가능
+1. **Single Responsibility**: Handles DOM-related functionality and Decorator system
+2. **Event-Based**: Communicates with `editor-core` via events
+3. **DSL Integration**: Re-exports `renderer-dom`'s DSL to provide consistent development experience
+4. **Extensible**: Easy to add new event handlers, shortcuts, and Decorator types
+5. **Browser Compatible**: Handles differences in `contentEditable` behavior across browsers
+6. **Performance Optimized**: Optimized with `MutationObserver`, event debouncing, and partial diff
+7. **Type Safe**: Strongly-typed Decorator system based on TypeScript
+8. **Headless Support**: `editor-core` can operate without DOM
 
-이 스펙을 따라 `editor-view-dom`을 구현하면 `editor-core`의 순수한 로직과 DOM의 복잡한 이벤트 처리를 깔끔하게 분리할 수 있습니다.
+By following this spec, `editor-view-dom` implementation cleanly separates `editor-core`'s pure logic from DOM's complex event handling.
 
-## 📊 성능 및 테스트 결과
+## 📊 Performance and Test Results
 
-### 1. 테스트 커버리지
-- **총 122개 테스트 통과** ✅
-- **11개 테스트 파일** 완전 통과
-- **45개 이벤트 테스트** JSDOM 제한으로 실패 (실제 브라우저에서만 완전 테스트 가능)
+### 1. Test Coverage
+- **Total 122 tests passed** ✅
+- **11 test files** fully passed
+- **45 event tests** failed due to JSDOM limitations (fully testable only in actual browser)
 
-### 2. 테스트 파일별 상세
+### 2. Test File Details
 ```
-✅ model-application.test.ts           (4개 테스트)  - 모델 적용 검증
-✅ basic-text-analysis.test.ts         (8개 테스트)  - 기본 텍스트 분석
-✅ correct-test-cases.test.ts          (10개 테스트) - 올바른 케이스 검증
-✅ smart-text-analyzer.test.ts         (17개 테스트) - 스마트 분석기
-✅ unicode-text-analysis.test.ts       (18개 테스트) - 유니코드 처리
-✅ editor-view-dom.test.ts             (15개 테스트) - DOM 이벤트 처리
-✅ selection-mapping-test.test.ts      (3개 테스트)  - Selection 매핑
-✅ simple-selection-test.test.ts       (2개 테스트)  - 간단한 Selection
-✅ decorator-system.test.ts            (15개 테스트) - Decorator 시스템
-✅ layered-api.test.ts                 (22개 테스트) - 계층형 API
-✅ layer-rendering-scenarios.test.ts   (8개 테스트)  - 레이어 렌더링 시나리오
+✅ model-application.test.ts           (4 tests)  - Model application verification
+✅ basic-text-analysis.test.ts         (8 tests)  - Basic text analysis
+✅ correct-test-cases.test.ts          (10 tests) - Correct case verification
+✅ smart-text-analyzer.test.ts         (17 tests) - Smart analyzer
+✅ unicode-text-analysis.test.ts       (18 tests) - Unicode handling
+✅ editor-view-dom.test.ts             (15 tests) - DOM event handling
+✅ selection-mapping-test.test.ts      (3 tests)  - Selection mapping
+✅ simple-selection-test.test.ts       (2 tests)  - Simple Selection
+✅ decorator-system.test.ts            (15 tests) - Decorator system
+✅ layered-api.test.ts                 (22 tests) - Layered API
+✅ layer-rendering-scenarios.test.ts   (8 tests)  - Layer rendering scenarios
 
-❌ browser-event-simulation.test.ts    (14개 테스트) - JSDOM Selection API 제한
-❌ event-integration.test.ts           (17개 테스트) - JSDOM Selection API 제한  
-❌ mutation-observer-integration.test.ts (14개 테스트) - JSDOM Selection API 제한
+❌ browser-event-simulation.test.ts    (14 tests) - JSDOM Selection API limitation
+❌ event-integration.test.ts           (17 tests) - JSDOM Selection API limitation  
+❌ mutation-observer-integration.test.ts (14 tests) - JSDOM Selection API limitation
 ```
 
-### 3. JSDOM 환경 제한사항
-- **Selection API 제한**: `selection.getRangeAt()` 함수가 JSDOM에서 제대로 구현되지 않음
-- **이벤트 테스트**: 실제 브라우저 환경에서만 완전한 테스트 가능
-- **핵심 기능**: 122개 테스트 모두 정상 동작 확인
+### 3. JSDOM Environment Limitations
+- **Selection API Limitation**: `selection.getRangeAt()` function not properly implemented in JSDOM
+- **Event Testing**: Fully testable only in actual browser environment
+- **Core Functionality**: All 122 tests confirmed to work normally
 
-### 4. 성능 지표
-- **알고리즘 복잡도**: O(min(m,n)) where m,n은 텍스트 길이
-- **메모리 사용량**: 최소한의 임시 객체만 생성
-- **처리 속도**: 1000자 텍스트 < 5ms
-- **유니코드 지원**: NFC 정규화, 복합 이모지, RTL/LTR 혼합
+### 4. Performance Metrics
+- **Algorithm Complexity**: O(min(m,n)) where m,n are text lengths
+- **Memory Usage**: Creates only minimal temporary objects
+- **Processing Speed**: < 5ms for 1000 character text
+- **Unicode Support**: NFC normalization, compound emojis, RTL/LTR mixed text
 
-### 5. 지원 기능
-- **텍스트 변경 감지**: insert, delete, replace
-- **Selection 기반 분석**: 정확한 위치 계산
-- **유니코드 처리**: 이모지, 한글, 아랍어, 히브리어
-- **키보드 단축키**: Ctrl+B, Ctrl+I, Ctrl+Z 등
-- **네이티브 명령**: insertText, insertParagraph, deleteSelection
-- **이벤트 처리**: input, beforeInput, keydown, paste, drop
+### 5. Supported Features
+- **Text Change Detection**: insert, delete, replace
+- **Selection-Based Analysis**: Accurate position calculation
+- **Unicode Handling**: Emojis, Hangul, Arabic, Hebrew
+- **Keyboard Shortcuts**: Ctrl+B, Ctrl+I, Ctrl+Z, etc.
+- **Native Commands**: insertText, insertParagraph, deleteSelection
+- **Event Handling**: input, beforeInput, keydown, paste, drop
 
-## 🎯 핵심 성과
+## 🎯 Key Achievements
 
-### 1. TextChange 구조 완성
+### 1. TextChange Structure Completed
 ```typescript
 interface TextChange {
   type: 'insert' | 'delete' | 'replace';
-  start: number;        // oldText 기준 시작 위치
-  end: number;          // oldText 기준 끝 위치
-  text: string;         // 변경할 텍스트
-  confidence: number;   // 분석 신뢰도 (0-1)
+  start: number;        // Start position based on oldText
+  end: number;          // End position based on oldText
+  text: string;         // Text to change
+  confidence: number;   // Analysis confidence (0-1)
 }
 ```
 
-### 2. 모델 적용 검증 완료
-- `oldText + changes = newText` 검증 성공
-- 모든 시나리오에서 정확한 변화량 계산
-- Selection 기반 정확한 위치 매핑
+### 2. Model Application Verification Completed
+- `oldText + changes = newText` verification successful
+- Accurate change calculation in all scenarios
+- Accurate position mapping based on Selection
 
-### 3. 스마트 텍스트 분석기 완성
-- LCP/LCS 알고리즘 기반
-- Selection Bias 적용
-- 유니코드 정규화 지원
-- 복합 문자 및 RTL/LTR 텍스트 처리
+### 3. Smart Text Analyzer Completed
+- Based on LCP/LCS algorithm
+- Selection Bias applied
+- Unicode normalization supported
+- Compound characters and RTL/LTR text handling
 
-### 4. MutationObserver 기반 감지
-- 정확한 텍스트 변경 감지
-- oldValue vs newValue 비교
-- 실시간 DOM 변경 추적
+### 4. MutationObserver-Based Detection
+- Accurate text change detection
+- oldValue vs newValue comparison
+- Real-time DOM change tracking
 
-**`editor-view-dom` 패키지가 완전히 구현되고 핵심 기능 122개 테스트를 모두 통과했습니다!** 🚀
+**The `editor-view-dom` package is fully implemented and all 122 core functionality tests have passed!** 🚀
 
-### 6. 최종 상태
-- **✅ 핵심 기능**: 122개 테스트 모두 통과
-- **✅ Smart Text Analyzer**: 43개 테스트 통과 (LCP/LCS, Selection Bias, Unicode 처리)
-- **✅ Decorator 시스템**: 15개 테스트 통과 (Layer, Inline, Block)
-- **✅ Layered API**: 30개 테스트 통과 (5계층 구조)
-- **⚠️ 이벤트 테스트**: 45개 테스트 JSDOM 제한으로 실패 (실제 브라우저에서만 완전 테스트 가능)
+### 6. Final Status
+- **✅ Core Functionality**: All 122 tests passed
+- **✅ Smart Text Analyzer**: 43 tests passed (LCP/LCS, Selection Bias, Unicode handling)
+- **✅ Decorator System**: 15 tests passed (Layer, Inline, Block)
+- **✅ Layered API**: 30 tests passed (5-layer structure)
+- **⚠️ Event Tests**: 45 tests failed due to JSDOM limitations (fully testable only in actual browser)

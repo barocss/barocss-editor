@@ -76,7 +76,7 @@ describe('reconcileWithFiber - Edge Cases', () => {
 
       reconcileWithFiber(container, vnode, undefined, {}, deps);
 
-      // DOM 요소가 생성되어야 함
+      // DOM element should be created
       expect(container.children.length).toBe(1);
     });
 
@@ -97,7 +97,7 @@ describe('reconcileWithFiber - Edge Cases', () => {
 
       reconcileWithFiber(container, vnode, undefined, {}, deps);
 
-      // DOM 요소가 생성되어야 함
+      // DOM element should be created
       expect(container.children.length).toBe(1);
     });
   });
@@ -113,7 +113,7 @@ describe('reconcileWithFiber - Edge Cases', () => {
 
       reconcileWithFiber(container, vnode, undefined, {}, deps);
 
-      // 텍스트가 포함되어야 함
+      // Text should be included
       expect(container.textContent).toContain('direct text');
     });
 
@@ -133,7 +133,7 @@ describe('reconcileWithFiber - Edge Cases', () => {
 
       reconcileWithFiber(container, vnode, undefined, {}, deps);
 
-      // children이 우선되어야 함
+      // children should take priority
       expect(container.textContent).toContain('child text');
     });
   });
@@ -189,16 +189,16 @@ describe('reconcileWithFiber - Edge Cases', () => {
         innerHTML: el.innerHTML
       })));
 
-      // decorator 요소가 있어야 함
-      // NOTE: 현재 reconciler는 children의 텍스트 노드를 별도 decorator 요소로 생성할 수 있음
+      // Decorator element should exist
+      // NOTE: Current reconciler may create separate decorator elements for text nodes in children
       const decoratorElements = container.querySelectorAll('[data-decorator-sid="d-highlight"]');
       expect(decoratorElements.length).toBeGreaterThanOrEqual(1);
 
-      // mark 요소들이 있어야 함
+      // Mark elements should exist
       const markElements = container.querySelectorAll('.mark-bold, .mark-italic');
       expect(markElements.length).toBeGreaterThan(0);
 
-      // 텍스트가 포함되어야 함
+      // Text should be included
       expect(container.textContent).toContain('before');
       expect(container.textContent).toContain('bold');
       expect(container.textContent).toContain('italic');
@@ -234,13 +234,13 @@ describe('reconcileWithFiber - Edge Cases', () => {
 
       reconcileWithFiber(container, vnode, undefined, {}, deps);
 
-      // 두 레벨의 decorator 요소가 모두 있어야 함
+      // Both levels of decorator elements should exist
       const outerElements = container.querySelectorAll('[data-decorator-sid="d-outer"]');
       const innerElements = container.querySelectorAll('[data-decorator-sid="d-inner"]');
       expect(outerElements.length).toBe(1);
       expect(innerElements.length).toBe(1);
 
-      // 내부 decorator가 외부 decorator 안에 있어야 함
+      // Inner decorator should be inside outer decorator
       const outerElement = outerElements[0] as HTMLElement;
       const innerElement = innerElements[0] as HTMLElement;
       expect(outerElement.contains(innerElement)).toBe(true);
@@ -285,7 +285,7 @@ describe('reconcileWithFiber - Edge Cases', () => {
 
       reconcileWithFiber(container, vnode, undefined, {}, deps);
 
-      // 세 가지 decorator 요소가 모두 있어야 함
+      // All three decorator elements should exist
       const highlightElements = container.querySelectorAll('[data-decorator-sid="d-highlight"]');
       const underlineElements = container.querySelectorAll('[data-decorator-sid="d-underline"]');
       const strikethroughElements = container.querySelectorAll('[data-decorator-sid="d-strikethrough"]');
@@ -294,7 +294,7 @@ describe('reconcileWithFiber - Edge Cases', () => {
       expect(underlineElements.length).toBe(1);
       expect(strikethroughElements.length).toBe(1);
 
-      // 각각 다른 텍스트를 가져야 함
+      // Each should have different text
       expect(Array.from(highlightElements)[0].textContent).toBe('highlighted');
       expect(Array.from(underlineElements)[0].textContent).toBe('underlined');
       expect(Array.from(strikethroughElements)[0].textContent).toBe('strikethrough');
@@ -366,11 +366,11 @@ describe('reconcileWithFiber - Edge Cases', () => {
       reconcileWithFiber(container, prevVNode, undefined, {}, deps);
       reconcileWithFiber(container, vnode, prevVNode, {}, deps);
 
-      // 새로운 decorator 요소들이 있어야 함
+      // New decorator elements should exist
       const newElements = container.querySelectorAll('[data-decorator-sid="d-new"]');
       expect(newElements.length).toBe(2);
 
-      // 이전 decorator 요소는 제거되어야 함
+      // Previous decorator element should be removed
       const oldElements = container.querySelectorAll('[data-decorator-sid="d-old"]');
       expect(oldElements.length).toBe(0);
     });

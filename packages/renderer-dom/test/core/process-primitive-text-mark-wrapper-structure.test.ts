@@ -34,7 +34,7 @@ describe('processPrimitiveTextChildren - Mark Wrapper Structure', () => {
   });
 
   it('should handle mark wrapper with span wrapper and text VNode inside', () => {
-    // VNode 구조:
+    // VNode structure:
     // mark wrapper (span.custom-bg-color)
     //   -> span wrapper (span)
     //       -> text VNode (text: "yellow background")
@@ -57,7 +57,7 @@ describe('processPrimitiveTextChildren - Mark Wrapper Structure', () => {
       children: [spanWrapper]
     };
 
-    // DOM에 초기 구조 생성
+    // Create initial structure in DOM
     const markEl = document.createElement('span');
     markEl.className = 'custom-bg-color';
     
@@ -67,7 +67,7 @@ describe('processPrimitiveTextChildren - Mark Wrapper Structure', () => {
     markEl.appendChild(spanEl);
     container.appendChild(markEl);
 
-    // Fiber 생성
+    // Create Fiber
     const prevVNode: VNode = {
       tag: 'span',
       attrs: { className: 'custom-bg-color' },
@@ -87,25 +87,25 @@ describe('processPrimitiveTextChildren - Mark Wrapper Structure', () => {
 
     const fiber = createFiberTree(container, markWrapper, prevVNode, {});
 
-    // reconcileFiberNode 호출 (host 찾기 및 설정)
-    // 여기서는 processPrimitiveTextChildren만 테스트하므로
-    // fiber.domElement를 수동으로 설정
+    // Call reconcileFiberNode (find and set host)
+    // Since we're only testing processPrimitiveTextChildren here,
+    // manually set fiber.domElement
     fiber.domElement = markEl;
 
-    // processPrimitiveTextChildren 호출
-    // mark wrapper의 children은 VNode이므로 primitiveTextChildren이 없어야 함
-    // 하지만 실제로는 span wrapper의 children이 text VNode이므로
-    // 이것이 어떻게 처리되는지 확인해야 함
+    // Call processPrimitiveTextChildren
+    // mark wrapper's children are VNodes, so primitiveTextChildren should be undefined
+    // But actually, span wrapper's children are text VNodes, so
+    // we need to verify how this is handled
     
     expect(fiber.primitiveTextChildren).toBeUndefined();
     
-    // span wrapper Fiber 찾기
+    // Find span wrapper Fiber
     const spanWrapperFiber = fiber.child;
     expect(spanWrapperFiber).toBeTruthy();
     expect(spanWrapperFiber?.vnode.tag).toBe('span');
     
-    // span wrapper의 primitiveTextChildren 확인
-    // span wrapper의 children은 text VNode이므로 primitiveTextChildren이 없어야 함
+    // Verify span wrapper's primitiveTextChildren
+    // span wrapper's children are text VNodes, so primitiveTextChildren should be undefined
     expect(spanWrapperFiber?.primitiveTextChildren).toBeUndefined();
   });
 
@@ -150,7 +150,7 @@ describe('processPrimitiveTextChildren - Mark Wrapper Structure', () => {
       children: [updatedSpanWrapper]
     };
 
-    // DOM에 초기 구조 생성
+    // Create initial structure in DOM
     const markEl = document.createElement('span');
     markEl.className = 'custom-bg-color';
     
@@ -183,18 +183,18 @@ describe('processPrimitiveTextChildren - Mark Wrapper Structure', () => {
     const fiber = createFiberTree(container, updatedMarkWrapper, prevVNode, {});
     fiber.domElement = markEl;
 
-    // span wrapper Fiber 찾기
+    // Find span wrapper Fiber
     const spanWrapperFiber = fiber.child;
     expect(spanWrapperFiber).toBeTruthy();
     
     if (spanWrapperFiber) {
       spanWrapperFiber.domElement = spanEl;
       
-      // span wrapper의 children은 text VNode이므로
-      // primitiveTextChildren이 없어야 함
-      // 대신 text VNode가 Fiber로 변환되어야 함
+      // span wrapper's children are text VNodes, so
+      // primitiveTextChildren should be undefined
+      // Instead, text VNode should be converted to Fiber
       
-      // text VNode Fiber 찾기
+      // Find text VNode Fiber
       const textVNodeFiber = spanWrapperFiber.child;
       expect(textVNodeFiber).toBeTruthy();
       expect(textVNodeFiber?.vnode.text).toBe('yellow bㅁackground');

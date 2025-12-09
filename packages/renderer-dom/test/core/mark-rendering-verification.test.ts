@@ -20,7 +20,7 @@ describe('Mark Rendering Verification', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
 
-    // 기본 템플릿 정의
+    // Define base templates
     define('paragraph', element('p', { className: 'paragraph' }, [slot('content')]));
     define('inline-text', element('span', { className: 'text' }, [data('text')]));
   });
@@ -33,14 +33,14 @@ describe('Mark Rendering Verification', () => {
 
   describe('단순 마크 렌더링', () => {
     it('bold 마크가 텍스트 중복 없이 렌더링되어야 함', () => {
-      // 마크 템플릿 정의
+      // Define mark template
       defineMark('bold', element('span', {
         className: 'custom-bold',
         'data-mark-type': 'bold',
         style: { fontWeight: 'bold' }
       }, [data('text')]));
 
-      // paragraph 내부의 slot을 통해 inline-text를 렌더링 (실제 브라우저 상황과 동일)
+      // Render inline-text through paragraph's internal slot (same as actual browser situation)
       const paragraphModel = {
         sid: 'p-1',
         stype: 'paragraph',
@@ -54,10 +54,10 @@ describe('Mark Rendering Verification', () => {
         ]
       };
 
-      // DOM 렌더링 (paragraph를 렌더링하면 내부 slot을 통해 inline-text가 렌더링됨)
+      // DOM rendering (rendering paragraph renders inline-text through internal slot)
       renderer.render(container, paragraphModel);
       
-      // 전체 HTML 구조 검증 (container의 전체 HTML과 비교)
+      // Verify entire HTML structure (compare with container's full HTML)
       expectHTML(
         container,
         `<p class="paragraph" data-bc-sid="p-1">
@@ -68,7 +68,7 @@ describe('Mark Rendering Verification', () => {
         expect
       );
       
-      // 텍스트 중복 확인
+      // Verify text duplication
       const el = container.querySelector('[data-bc-sid="text-bold"]');
       const textContent = el?.textContent || '';
       expect(textContent).toBe('bold text');
@@ -97,7 +97,7 @@ describe('Mark Rendering Verification', () => {
 
       renderer.render(container, paragraphModel);
       
-      // 전체 HTML 구조 검증 (container의 전체 HTML과 비교)
+      // Verify entire HTML structure (compare with container's full HTML)
       expectHTML(
         container,
         `<p class="paragraph" data-bc-sid="p-2">
@@ -108,7 +108,7 @@ describe('Mark Rendering Verification', () => {
         expect
       );
       
-      // 텍스트 중복 확인
+      // Verify text duplication
       const el = container.querySelector('[data-bc-sid="text-italic"]');
       const textContent = el?.textContent || '';
       expect(textContent).toBe('italic text');
@@ -138,8 +138,8 @@ describe('Mark Rendering Verification', () => {
 
       renderer.render(container, paragraphModel);
       
-      // 전체 HTML 구조 검증 (container의 전체 HTML과 비교)
-      // style의 color 값은 rgb로 변환되므로 rgb 값으로 비교
+      // Verify full HTML structure (compare with container's full HTML)
+      // style color values are converted to rgb, so compare with rgb values
       expectHTML(
         container,
         `<p class="paragraph" data-bc-sid="p-3">
@@ -150,7 +150,7 @@ describe('Mark Rendering Verification', () => {
         expect
       );
       
-      // 텍스트 중복 확인
+      // Verify no text duplication
       const el = container.querySelector('[data-bc-sid="text-red"]');
       const textContent = el?.textContent || '';
       expect(textContent).toBe('red text');
@@ -188,7 +188,7 @@ describe('Mark Rendering Verification', () => {
 
       renderer.render(container, paragraphModel);
       
-      // 전체 HTML 구조 검증 (container의 전체 HTML과 비교)
+      // Verify full HTML structure (compare with container's full HTML)
       expectHTML(
         container,
         `<p class="paragraph" data-bc-sid="p-4">
@@ -201,7 +201,7 @@ describe('Mark Rendering Verification', () => {
         expect
       );
       
-      // 텍스트 중복 확인
+      // Verify no text duplication
       const el = container.querySelector('[data-bc-sid="text-bold-italic"]');
       const textContent = el?.textContent || '';
       expect(textContent).toBe('bold and italic');
@@ -243,8 +243,8 @@ describe('Mark Rendering Verification', () => {
 
       renderer.render(container, paragraphModel);
       
-      // 전체 HTML 구조 검증 (container의 전체 HTML과 비교)
-      // style의 color와 backgroundColor 값은 rgb로 변환됨
+      // Verify full HTML structure (compare with container's full HTML)
+      // style color and backgroundColor values are converted to rgb
       expectHTML(
         container,
         `<p class="paragraph" data-bc-sid="p-5">
@@ -259,7 +259,7 @@ describe('Mark Rendering Verification', () => {
         expect
       );
       
-      // 텍스트 중복 확인
+      // Verify no text duplication
       const el = container.querySelector('[data-bc-sid="text-complex"]');
       const textContent = el?.textContent || '';
       expect(textContent).toBe('Bold+Red+Yellow');
@@ -282,16 +282,16 @@ describe('Mark Rendering Verification', () => {
             sid: 'text-partial',
             stype: 'inline-text',
             text: 'This is a bold text',
-            marks: [{ type: 'bold', range: [10, 20] }] // "bold text"만
+            marks: [{ type: 'bold', range: [10, 20] }] // Only "bold text"
           }
         ]
       };
 
       renderer.render(container, paragraphModel);
       
-      // 전체 HTML 구조 검증 (container의 전체 HTML과 비교)
-      // 실제 렌더링된 DOM 구조를 그대로 문자열로 작성
-      // normalizeHTML은 실제 DOM을 직접 순회하므로 구조를 그대로 유지함
+      // Verify full HTML structure (compare with container's full HTML)
+      // Write actual rendered DOM structure as string
+      // normalizeHTML directly traverses actual DOM, so structure is preserved as is
       expectHTML(
         container,
         `<p class="paragraph" data-bc-sid="p-6">
@@ -303,7 +303,7 @@ describe('Mark Rendering Verification', () => {
         expect
       );
       
-      // 텍스트 중복 확인
+      // Verify no text duplication
       const el = container.querySelector('[data-bc-sid="text-partial"]');
       const textContent = el?.textContent || '';
       expect(textContent).toBe('This is a bold text');
@@ -339,9 +339,9 @@ describe('Mark Rendering Verification', () => {
 
       renderer.render(container, paragraphModel);
       
-      // 전체 HTML 구조 검증 (container의 전체 HTML과 비교)
-      // 실제 렌더링된 DOM 구조를 그대로 문자열로 작성
-      // normalizeHTML은 실제 DOM을 직접 순회하므로 구조를 그대로 유지함
+      // Verify full HTML structure (compare with container's full HTML)
+      // Write actual rendered DOM structure as string
+      // normalizeHTML directly traverses actual DOM, so structure is preserved as is
       expectHTML(
         container,
         `<p class="paragraph" data-bc-sid="p-7">
@@ -355,7 +355,7 @@ describe('Mark Rendering Verification', () => {
         expect
       );
       
-      // 텍스트 중복 확인
+      // Verify no text duplication
       const el = container.querySelector('[data-bc-sid="text-multi"]');
       const textContent = el?.textContent || '';
       expect(textContent).toBe('This is bold and this is italic');
@@ -385,19 +385,19 @@ describe('Mark Rendering Verification', () => {
 
       renderer.render(container, paragraphModel);
       
-      // DOM 구조 확인
+      // Verify DOM structure
       const el = container.querySelector('[data-bc-sid="text-bold"]');
       expect(el).toBeTruthy();
       
-      // 마크 래퍼가 있어야 함
+      // Mark wrapper should exist
       const markWrapper = el?.querySelector('.custom-bold');
       expect(markWrapper).toBeTruthy();
       
-      // 마크 래퍼 내 텍스트가 존재해야 함
+      // Text should exist inside mark wrapper
       const markText = markWrapper?.textContent || '';
       expect(markText).toBe('bold text');
       
-      // 전체 HTML 구조 검증
+      // Verify full HTML structure
       expectHTML(
         container,
         `<p class="paragraph" data-bc-sid="p-test">
@@ -410,7 +410,7 @@ describe('Mark Rendering Verification', () => {
     });
 
     it('마크 템플릿이 useDataAsSlot을 올바르게 사용해야 함', () => {
-      // 마크 템플릿이 data('text')를 사용하는 경우
+      // When mark template uses data('text')
       defineMark('bold', element('span', {
         className: 'custom-bold'
       }, [data('text')]));
@@ -430,7 +430,7 @@ describe('Mark Rendering Verification', () => {
 
       renderer.render(container, paragraphModel);
       
-      // 전체 HTML 구조 검증
+      // Verify full HTML structure
       expectHTML(
         container,
         `<p class="paragraph" data-bc-sid="p-test2">
@@ -478,7 +478,7 @@ describe('Mark Rendering Verification', () => {
 
       renderer.render(container, model);
       
-      // 전체 HTML 구조 검증
+      // Verify full HTML structure
       expectHTML(
         container,
         `<p class="paragraph" data-bc-sid="p1">
@@ -491,11 +491,11 @@ describe('Mark Rendering Verification', () => {
         expect
       );
       
-      // 텍스트 중복 확인
+      // Verify no text duplication
       const textContent = container.textContent || '';
       expect(textContent).toBe('This is a bold text and normal');
       
-      // bold 텍스트가 한 번만 나타나야 함
+      // bold text should appear only once
       const boldMatches = textContent.match(/bold text/g) || [];
       expect(boldMatches.length).toBe(1);
     });
@@ -529,9 +529,9 @@ describe('Mark Rendering Verification', () => {
 
       renderer.render(container, paragraphModel);
       
-      // 전체 HTML 구조 검증 (container의 전체 HTML과 비교)
-      // 실제 렌더링된 DOM 구조를 그대로 문자열로 작성
-      // normalizeHTML은 실제 DOM을 직접 순회하므로 구조를 그대로 유지함
+      // Verify full HTML structure (compare with container's full HTML)
+      // Write actual rendered DOM structure as string
+      // normalizeHTML directly traverses actual DOM, so structure is preserved as is
       expectHTML(
         container,
         `<p class="paragraph" data-bc-sid="p-8">
@@ -545,7 +545,7 @@ describe('Mark Rendering Verification', () => {
         expect
       );
       
-      // 텍스트 중복 확인
+      // Verify no text duplication
       const el = container.querySelector('[data-bc-sid="text-long"]');
       const expectedText = 'Long paragraph with multiple bold sections and multiple italic sections';
       const textContent = el?.textContent || '';
@@ -589,7 +589,7 @@ describe('Mark Rendering Verification', () => {
       ];
 
       for (const testCase of testCases) {
-        // 각 테스트 케이스마다 container 초기화
+        // Initialize container for each test case
         container.innerHTML = '';
         
         const paragraphModel = {
@@ -607,7 +607,7 @@ describe('Mark Rendering Verification', () => {
 
         renderer.render(container, paragraphModel);
         
-        // 전체 HTML 구조 검증 (container의 전체 HTML과 비교)
+        // Verify full HTML structure (compare with container's full HTML)
         let expectedHTML = '';
         if (testCase.marks.length === 1 && testCase.marks[0].type === 'bold') {
           expectedHTML = `<p class="paragraph" data-bc-sid="p-${testCase.sid}">
@@ -633,7 +633,7 @@ describe('Mark Rendering Verification', () => {
         
         expectHTML(container, expectedHTML, expect);
         
-        // 텍스트 중복 확인
+        // Verify no text duplication
         const el = container.querySelector(`[data-bc-sid="${testCase.sid}"]`);
         const textContent = el?.textContent || '';
         expect(textContent.length).toBe(testCase.expectedLength);
@@ -661,7 +661,7 @@ describe('Mark Rendering Verification', () => {
 
       renderer.render(container, paragraphModel);
       
-      // DOM을 재귀적으로 순회하여 모든 텍스트 노드 수집
+      // Recursively traverse DOM to collect all text nodes
       function collectTextNodes(node: Node, texts: string[] = []): string[] {
         if (node.nodeType === Node.TEXT_NODE) {
           const text = node.textContent?.trim() || '';
@@ -679,11 +679,11 @@ describe('Mark Rendering Verification', () => {
       const allTexts = collectTextNodes(container);
       const fullText = allTexts.join('');
       
-      // 전체 텍스트가 원본과 일치해야 함
+      // Full text should match original
       expect(fullText).toBe('bold text');
       expect(fullText.length).toBe(9);
       
-      // 텍스트가 한 번만 나타나야 함
+      // Text should appear only once
       const textMatches = fullText.match(/bold text/g) || [];
       expect(textMatches.length).toBe(1);
     });
@@ -691,7 +691,7 @@ describe('Mark Rendering Verification', () => {
 
   describe('복잡한 마크 중첩 시나리오', () => {
     it('5개 이상의 마크가 서로 다른 range로 중첩되어야 함', () => {
-      // 6개의 마크 정의
+      // Define 6 marks
       defineMark('bold', element('span', {
         className: 'custom-bold',
         style: { fontWeight: 'bold' }
@@ -722,8 +722,8 @@ describe('Mark Rendering Verification', () => {
         style: { textDecoration: 'line-through' }
       }, [data('text')]));
 
-      // 텍스트: "This is a complex text with multiple overlapping marks"
-      // 길이: 55
+      // Text: "This is a complex text with multiple overlapping marks"
+      // Length: 55
       const text = 'This is a complex text with multiple overlapping marks';
       
       const paragraphModel = {
@@ -748,19 +748,19 @@ describe('Mark Rendering Verification', () => {
 
       renderer.render(container, paragraphModel);
       
-      // 텍스트 중복 확인
+      // Verify no text duplication
       const el = container.querySelector('[data-bc-sid="text-complex"]');
       expect(el).toBeTruthy();
       const textContent = el?.textContent || '';
       expect(textContent).toBe(text);
       expect(textContent.length).toBe(text.length);
       
-      // 텍스트가 한 번만 나타나야 함
+      // Text should appear only once
       const textMatches = textContent.match(new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || [];
       expect(textMatches.length).toBe(1);
       
-      // 전체 HTML 구조 검증
-      // 실제 렌더링된 HTML 구조를 기반으로 작성
+      // Verify full HTML structure
+      // Written based on actual rendered HTML structure
       expectHTML(
         container,
         `<p class="paragraph" data-bc-sid="p-complex">
@@ -809,7 +809,7 @@ describe('Mark Rendering Verification', () => {
     });
 
     it('7개 이상의 마크가 완전히 겹치는 경우', () => {
-      // 7개의 마크 정의
+      // Define 7 marks
       defineMark('bold', element('span', {
         className: 'custom-bold',
         style: { fontWeight: 'bold' }
@@ -870,20 +870,20 @@ describe('Mark Rendering Verification', () => {
 
       renderer.render(container, paragraphModel);
       
-      // 텍스트 중복 확인
+      // Verify no text duplication
       const el = container.querySelector('[data-bc-sid="text-all-marks"]');
       expect(el).toBeTruthy();
       const textContent = el?.textContent || '';
       expect(textContent).toBe(text);
       expect(textContent.length).toBe(text.length);
       
-      // 텍스트가 한 번만 나타나야 함
+      // Text should appear only once
       const textMatches = textContent.match(new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || [];
       expect(textMatches.length).toBe(1);
       
-      // 전체 HTML 구조 검증
-      // 7개의 마크가 완전히 겹치는 경우, 모든 마크가 중첩된 구조로 렌더링됨
-      // 실제 렌더링된 HTML 구조를 기반으로 작성
+      // Verify full HTML structure
+      // When 7 marks completely overlap, all marks are rendered in nested structure
+      // Written based on actual rendered HTML structure
       expectHTML(
         container,
         `
@@ -912,19 +912,19 @@ describe('Mark Rendering Verification', () => {
 
   describe('Mark와 Decorator 중첩 테스트', () => {
     it('mark와 inline decorator가 같은 텍스트에 적용되어야 함', () => {
-      // 마크 템플릿 정의
+      // Define mark template
       defineMark('bold', element('span', {
         className: 'custom-bold mark-bold',
         style: { fontWeight: 'bold' }
       }, [data('text')]));
 
-      // Decorator 템플릿 정의
+      // Define decorator template
       defineDecorator('highlight', element('span', {
         className: 'highlight-decorator',
         style: { backgroundColor: 'yellow' }
       }, []));
 
-      // Document 템플릿 정의
+      // Define document template
       define('document', element('div', { className: 'document' }, [slot('content')]));
 
       const documentModel = {
@@ -956,17 +956,17 @@ describe('Mark Rendering Verification', () => {
         }
       ];
 
-      // VNodeBuilder로 VNode 구조 먼저 확인
+      // First verify VNode structure using VNodeBuilder
       const builder = new VNodeBuilder(registry);
       const vnode = builder.build('document', documentModel, { decorators });
       
-      // VNode 구조 출력 및 검증
+      // Output and verify VNode structure
       // eslint-disable-next-line no-console
       console.log('\n=== VNodeBuilder 결과물 ===');
       // eslint-disable-next-line no-console
       console.log(JSON.stringify(vnode, null, 2));
       
-      // inline-text VNode 찾기
+      // Find inline-text VNode
       const findInlineTextVNode = (node: any): any => {
         if (node?.stype === 'inline-text' && node?.sid === 'text-1') {
           return node;
@@ -1022,7 +1022,7 @@ describe('Mark Rendering Verification', () => {
 
       renderer.render(container, documentModel, decorators);
 
-      // 전체 HTML 구조 검증 - 실제 렌더링된 HTML 구조를 그대로 비교
+      // Verify full HTML structure - compare with actual rendered HTML structure
       const inlineTextEl = container.querySelector('[data-bc-sid="text-1"]');
       if (inlineTextEl) {
         // Temporary debug: print actual DOM for inspection
@@ -1061,24 +1061,24 @@ describe('Mark Rendering Verification', () => {
         expect
       );
 
-      // 텍스트 중복 확인
-      // 현재 decorator range 변환 로직에 문제가 있어 mark가 제대로 렌더링되지 않음
-      // TODO: decorator range 변환 로직 수정 필요
+      // Verify no text duplication
+      // Current decorator range conversion logic has issues, marks are not rendered properly
+      // TODO: decorator range conversion logic needs to be fixed
       const el = container.querySelector('[data-bc-sid="text-1"]');
       const textContent = el?.textContent || '';
-      // 실제 렌더링된 텍스트 확인 (현재는 "bold"가 누락됨)
+      // Verify actual rendered text (currently "bold" is missing)
       expect(textContent).toContain('This is');
       expect(textContent).toContain('highlighted text');
     });
 
     it('decorator가 mark를 완전히 감싸는 경우', () => {
-      // 마크 템플릿 정의
+      // Define mark template
       defineMark('bold', element('span', {
         className: 'custom-bold mark-bold',
         style: { fontWeight: 'bold' }
       }, [data('text')]));
 
-      // Decorator 템플릿 정의
+      // Define decorator template
       defineDecorator('highlight', element('span', {
         className: 'highlight-decorator',
         style: { backgroundColor: 'yellow' }
@@ -1103,13 +1103,13 @@ describe('Mark Rendering Verification', () => {
           stype: 'highlight',
           type: 'highlight',
           category: 'inline',
-          target: { sid: 'text-wrap', startOffset: 0, endOffset: 33 } // 전체 텍스트 감싸기
+          target: { sid: 'text-wrap', startOffset: 0, endOffset: 33 } // Wrap entire text
         }
       ];
 
       renderer.render(container, paragraphModel, decorators);
 
-      // 전체 HTML 구조 검증 - 실제 렌더링된 HTML 구조를 그대로 비교
+      // Verify full HTML structure - compare with actual rendered HTML structure
       expectHTML(
         container,
         `<p class="paragraph" data-bc-sid="p-decorator-wraps-mark">
@@ -1123,15 +1123,15 @@ describe('Mark Rendering Verification', () => {
         expect
       );
 
-      // 텍스트 중복 확인
-      // TODO: decorator range 변환 로직 수정 필요
+      // Verify no text duplication
+      // TODO: decorator range conversion logic needs to be fixed
       const el = container.querySelector('[data-bc-sid="text-wrap"]');
       const textContent = el?.textContent || '';
       expect(textContent).toContain('text');
     });
 
     it('여러 mark와 decorator가 복잡하게 겹치는 경우', () => {
-      // 마크 템플릿 정의
+      // Define mark template
       defineMark('bold', element('span', {
         className: 'custom-bold mark-bold',
         style: { fontWeight: 'bold' }
@@ -1142,7 +1142,7 @@ describe('Mark Rendering Verification', () => {
         style: { fontStyle: 'italic' }
       }, [data('text')]));
 
-      // Decorator 템플릿 정의
+      // Define decorator template
       defineDecorator('highlight', element('span', {
         className: 'highlight-decorator',
         style: { backgroundColor: 'yellow' }
@@ -1187,17 +1187,17 @@ describe('Mark Rendering Verification', () => {
         }
       ];
 
-      // VNodeBuilder로 VNode 구조 먼저 확인
+      // First verify VNode structure using VNodeBuilder
       const builder = new VNodeBuilder(registry);
       const vnode = builder.build('paragraph', paragraphModel, { decorators });
       
-      // VNode 구조 출력 및 검증
+      // Output and verify VNode structure
       // eslint-disable-next-line no-console
       console.log('\n=== [복잡한 겹침] VNodeBuilder 결과물 ===');
       // eslint-disable-next-line no-console
       console.log(JSON.stringify(vnode, null, 2));
       
-      // inline-text VNode 찾기
+      // Find inline-text VNode
       const findInlineTextVNode = (node: any): any => {
         if (node?.stype === 'inline-text' && node?.sid === 'text-complex') {
           return node;
@@ -1236,7 +1236,7 @@ describe('Mark Rendering Verification', () => {
 
       renderer.render(container, paragraphModel, decorators);
 
-      // 실제 DOM 구조 확인
+      // Verify actual DOM structure
       const inlineTextEl = container.querySelector('[data-bc-sid="text-complex"]');
       if (inlineTextEl) {
         // eslint-disable-next-line no-console
@@ -1261,7 +1261,7 @@ describe('Mark Rendering Verification', () => {
         console.log(inlineTextEl.innerHTML);
       }
 
-      // 전체 HTML 구조 검증 - 실제 렌더링된 HTML 구조를 그대로 비교
+      // Verify full HTML structure - compare with actual rendered HTML structure
       expectHTML(
         container,
         `<p class="paragraph" data-bc-sid="p-complex-overlap">
@@ -1279,8 +1279,8 @@ describe('Mark Rendering Verification', () => {
         expect
       );
 
-      // 텍스트 중복 확인
-      // TODO: decorator range 변환 로직 수정 필요
+      // Verify no text duplication
+      // TODO: decorator range conversion logic needs to be fixed
       const el = container.querySelector('[data-bc-sid="text-complex"]');
       const textContent = el?.textContent || '';
       expect(textContent).toContain('This is a');
@@ -1290,13 +1290,13 @@ describe('Mark Rendering Verification', () => {
     });
 
     it('decorator와 mark가 부분적으로 겹치는 경우', () => {
-      // 마크 템플릿 정의
+      // Define mark template
       defineMark('bold', element('span', {
         className: 'custom-bold mark-bold',
         style: { fontWeight: 'bold' }
       }, [data('text')]));
 
-      // Decorator 템플릿 정의
+      // Define decorator template
       defineDecorator('highlight', element('span', {
         className: 'highlight-decorator',
         style: { backgroundColor: 'yellow' }
@@ -1326,7 +1326,7 @@ describe('Mark Rendering Verification', () => {
 
       renderer.render(container, paragraphModel, decorators);
 
-      // 전체 HTML 구조 검증 - 실제 렌더링된 HTML 구조를 그대로 비교
+      // Verify full HTML structure - compare with actual rendered HTML structure
       expectHTML(
         container,
         `<p class="paragraph" data-bc-sid="p-partial-overlap">
@@ -1342,7 +1342,7 @@ describe('Mark Rendering Verification', () => {
         expect
       );
 
-      // 텍스트 중복 확인
+      // Verify no text duplication
       const el = container.querySelector('[data-bc-sid="text-partial"]');
       const textContent = el?.textContent || '';
       expect(textContent).toBe('This is bold and highlighted text');

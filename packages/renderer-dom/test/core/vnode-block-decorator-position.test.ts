@@ -98,7 +98,7 @@ describe('Block Decorator Position', () => {
     );
     
     expect(blockDecorator).toBeTruthy();
-    // position이 없으면 기본값 'after' 사용
+    // Use default 'after' if position is not provided
     expect(blockDecorator.decoratorPosition).toBe('after');
   });
 
@@ -131,7 +131,7 @@ describe('Block Decorator Position', () => {
     expect(vnode.children).toBeTruthy();
     const children = vnode.children as any[];
     
-    // before position이면 paragraph 앞에 decorator가 추가되어야 함
+    // If before position, decorator should be added before paragraph
     const firstChild = children[0];
     expect(firstChild).toBeTruthy();
     expect(firstChild.decoratorSid).toBe('d3');
@@ -167,7 +167,7 @@ describe('Block Decorator Position', () => {
     expect(vnode.children).toBeTruthy();
     const children = vnode.children as any[];
     
-    // after position이면 paragraph 뒤에 decorator가 추가되어야 함
+    // If after position, decorator should be added after paragraph
     const lastChild = children[children.length - 1];
     expect(lastChild).toBeTruthy();
     expect(lastChild.decoratorSid).toBe('d4');

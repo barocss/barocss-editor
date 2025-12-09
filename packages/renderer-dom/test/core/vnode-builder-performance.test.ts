@@ -15,7 +15,7 @@ describe('VNodeBuilder Performance Tests', () => {
     registry = getGlobalRegistry();
     builder = new VNodeBuilder(registry);
     
-    // 기본 컴포넌트 정의
+    // Define base components
     define('document', element('div', { className: 'document' }, [slot('content')]));
     define('paragraph', element('p', { className: 'paragraph' }, [slot('content')]));
     define('inline-text', element('span', { className: 'text' }, [data('text')]));
@@ -53,7 +53,7 @@ describe('VNodeBuilder Performance Tests', () => {
       console.log(`\n✓ Built 1000 paragraphs in ${duration.toFixed(2)}ms`);
       console.log(`  Average: ${(duration / 1000).toFixed(3)}ms per paragraph`);
       
-      // 성능 기준: 1000개 paragraph는 1초 이내에 처리되어야 함
+      // Performance target: 1000 paragraphs should be processed within 1 second
       expect(duration).toBeLessThan(1000);
     });
 
@@ -90,7 +90,7 @@ describe('VNodeBuilder Performance Tests', () => {
       console.log(`\n✓ Built 100 paragraphs with marks in ${duration.toFixed(2)}ms`);
       console.log(`  Average: ${(duration / 100).toFixed(3)}ms per paragraph`);
       
-      // 성능 기준: 100개 paragraph with marks는 500ms 이내에 처리되어야 함
+      // Performance target: 100 paragraphs with marks should be processed within 500ms
       expect(duration).toBeLessThan(500);
     });
 
@@ -124,7 +124,7 @@ describe('VNodeBuilder Performance Tests', () => {
       
       expect(vnode).toBeTruthy();
       
-      // 깊이가 10인 중첩 구조 확인
+      // Verify nested structure with depth of 10
       let current = vnode;
       let depth = 0;
       while (current.children && current.children.length > 0) {
@@ -141,7 +141,7 @@ describe('VNodeBuilder Performance Tests', () => {
       
       console.log(`\n✓ Built 10-level nested structure in ${duration.toFixed(2)}ms`);
       
-      // 성능 기준: 10레벨 중첩 구조는 100ms 이내에 처리되어야 함
+      // Performance target: 10-level nested structure should be processed within 100ms
       expect(duration).toBeLessThan(100);
     });
 
@@ -170,14 +170,14 @@ describe('VNodeBuilder Performance Tests', () => {
       console.log(`\n✓ Built 1000 sibling nodes in ${duration.toFixed(2)}ms`);
       console.log(`  Average: ${(duration / 1000).toFixed(3)}ms per sibling`);
       
-      // 성능 기준: 1000개 sibling은 500ms 이내에 처리되어야 함
+      // Performance target: 1000 siblings should be processed within 500ms
       expect(duration).toBeLessThan(500);
     });
   });
 
   describe('Complex mark processing performance', () => {
     it('should handle text with many overlapping marks efficiently', () => {
-      // 100개의 겹치는 마크가 있는 긴 텍스트
+      // Long text with 100 overlapping marks
       const marks = Array.from({ length: 100 }, (_, i) => ({
         type: i % 2 === 0 ? 'bold' : 'italic',
         range: [i, i + 10]
@@ -189,7 +189,7 @@ describe('VNodeBuilder Performance Tests', () => {
         content: [{
           sid: 'text-1',
           stype: 'inline-text',
-          text: 'A'.repeat(200), // 200자 텍스트
+          text: 'A'.repeat(200), // 200 character text
           marks
         }]
       };
@@ -203,7 +203,7 @@ describe('VNodeBuilder Performance Tests', () => {
       
       console.log(`\n✓ Processed text with 100 overlapping marks in ${duration.toFixed(2)}ms`);
       
-      // 성능 기준: 100개 겹치는 마크는 200ms 이내에 처리되어야 함
+      // Performance target: 100 overlapping marks should be processed within 200ms
       expect(duration).toBeLessThan(200);
     });
   });
@@ -226,14 +226,14 @@ describe('VNodeBuilder Performance Tests', () => {
         content: paragraphs
       };
       
-      // VNode 구조가 올바르게 생성되었는지 확인
+      // Verify VNode structure is created correctly
       const vnode = builder.build('document', documentModel);
       
       expect(vnode).toBeTruthy();
       expect(vnode.children).toBeTruthy();
       expect(vnode.children.length).toBe(500);
       
-      // 각 paragraph가 올바른 구조를 가져야 함
+      // Each paragraph should have correct structure
       const firstParagraph = vnode.children[0] as any;
       expect(firstParagraph.tag).toBe('p');
       expect(firstParagraph.sid).toBe('p-0');

@@ -1424,7 +1424,7 @@ describe('InputHandlerImpl', () => {
       const eventHandler = mockEditor.on.mock.calls.find(
         (call: any[]) => call[0] === 'editor:selection.dom.applied'
       )?.[1];
-      eventHandler({ activeNodeId: 't1' }); // 같은 nodeId
+      eventHandler({ activeNodeId: 't1' }); // same nodeId
 
       mockEditor.dataStore.getNode.mockReturnValue({
         text: 'Hello',

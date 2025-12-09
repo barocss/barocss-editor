@@ -6,18 +6,18 @@ import { VNode } from '../../src/vnode/types';
 import { DOMOperations } from '../../src/dom-operations';
 import { ComponentManager } from '../../src/component-manager';
 
-// 헬퍼 함수: 모든 Fiber를 재귀적으로 처리
+// Helper function: Process all Fibers recursively
 function reconcileAllFibers(fiber: FiberNode, deps: FiberReconcileDependencies, context: any): void {
   reconcileFiberNode(fiber, deps, context);
   
-  // 자식 Fiber 처리
+  // Process child Fibers
   let childFiber = fiber.child;
   while (childFiber) {
     reconcileAllFibers(childFiber, deps, context);
     childFiber = childFiber.sibling;
   }
   
-  // 부모로 돌아갈 때 removeStaleChildren 호출 (실제 reconcileWithFiber와 동일한 로직)
+  // Call removeStaleChildren when returning to parent (same logic as actual reconcileWithFiber)
   removeStaleChildren(fiber, deps);
 }
 
@@ -55,7 +55,7 @@ describe('removeStaleChildren - 실제 시나리오: decorator 변경', () => {
   });
 
   it('chip-before에서 chip-after로 변경 시 chip-before가 제거되어야 함', () => {
-    // 첫 번째 render: chip-before decorator
+    // First render: chip-before decorator
     const prevVNode: VNode = {
       tag: 'div',
       stype: 'document',
@@ -82,7 +82,7 @@ describe('removeStaleChildren - 실제 시나리오: decorator 변경', () => {
       ]
     };
 
-    // 두 번째 render: chip-after decorator (chip-before 제거됨)
+    // Second render: chip-after decorator (chip-before removed)
     const nextVNode: VNode = {
       tag: 'div',
       stype: 'document',
@@ -109,21 +109,21 @@ describe('removeStaleChildren - 실제 시나리오: decorator 변경', () => {
       ]
     };
 
-    // 첫 번째 render
+    // First render
     const prevFiber = createFiberTree(container, prevVNode, undefined, {});
     reconcileAllFibers(prevFiber, deps, {});
     
-    // DOM 확인: chip-before가 있어야 함
+    // Verify DOM: chip-before should exist
     const textEl1 = container.querySelector('[data-bc-sid="text-14"]');
     expect(textEl1).toBeTruthy();
     const chipBefore1 = textEl1?.querySelector('[data-decorator-sid="chip-before"]');
     expect(chipBefore1).toBeTruthy();
 
-    // 두 번째 render
+    // Second render
     const nextFiber = createFiberTree(container, nextVNode, prevVNode, {});
     reconcileAllFibers(nextFiber, deps, {});
 
-    // DOM 확인: chip-before가 제거되어야 함
+    // Verify DOM: chip-before should be removed
     const textEl2 = container.querySelector('[data-bc-sid="text-14"]');
     expect(textEl2).toBeTruthy();
     const chipBefore2 = textEl2?.querySelector('[data-decorator-sid="chip-before"]');
@@ -137,7 +137,7 @@ describe('removeStaleChildren - 실제 시나리오: decorator 변경', () => {
   });
 
   it('removeStaleChildren이 text-14 Fiber에서 올바르게 작동하는지 확인', () => {
-    // document 모델로 시작
+    // Start with document model
     const prevVNode: VNode = {
       tag: 'div',
       stype: 'document',
@@ -164,17 +164,17 @@ describe('removeStaleChildren - 실제 시나리오: decorator 변경', () => {
       ]
     };
 
-    // 첫 번째 render: chip-before decorator
+    // First render: chip-before decorator
     const prevFiber = createFiberTree(container, prevVNode, undefined, {});
     reconcileAllFibers(prevFiber, deps, {});
     
-    // DOM 확인: chip-before가 있어야 함
+    // Verify DOM: chip-before should exist
     const textEl1 = container.querySelector('[data-bc-sid="text-14"]');
     expect(textEl1).toBeTruthy();
     const chipBefore1 = textEl1?.querySelector('[data-decorator-sid="chip-before"]');
     expect(chipBefore1).toBeTruthy();
 
-    // 두 번째 render: chip-after decorator (chip-before 제거됨)
+    // Second render: chip-after decorator (chip-before removed)
     const vnode: VNode = {
       tag: 'div',
       stype: 'document',
@@ -204,7 +204,7 @@ describe('removeStaleChildren - 실제 시나리오: decorator 변경', () => {
     const fiber = createFiberTree(container, vnode, prevVNode, {});
     reconcileAllFibers(fiber, deps, {});
     
-    // DOM 확인: chip-before가 제거되어야 함
+    // Verify DOM: chip-before should be removed
     const textEl2 = container.querySelector('[data-bc-sid="text-14"]');
     expect(textEl2).toBeTruthy();
     const chipBefore2 = textEl2?.querySelector('[data-decorator-sid="chip-before"]');

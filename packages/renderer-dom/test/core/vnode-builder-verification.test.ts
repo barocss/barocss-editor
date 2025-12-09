@@ -21,7 +21,7 @@ describe('VNodeBuilder verification', () => {
     expect(vnode.tag).toBe('p');
     expect(vnode.attrs).toBeTruthy();
     expect(vnode.attrs?.className).toBe('para');
-    // data-bc-* 속성이 VNode에 없어야 함
+    // VNode should not have data-bc-* attributes
     expect(vnode.attrs?.['data-bc-sid']).toBeUndefined();
     expect(vnode.attrs?.['data-bc-stype']).toBeUndefined();
     expect(vnode.attrs?.['data-bc-component']).toBeUndefined();
@@ -45,7 +45,7 @@ describe('VNodeBuilder verification', () => {
     expect(firstChild).toBeTruthy();
     expect(firstChild.tag).toBe('span');
     expect(firstChild.attrs?.className).toBe('child');
-    // children에도 data-bc-* 없어야 함
+    // children should also not have data-bc-*
     expect(firstChild.attrs?.['data-bc-sid']).toBeUndefined();
   });
 
@@ -57,7 +57,7 @@ describe('VNodeBuilder verification', () => {
     
     expect(vnode).toBeTruthy();
     expect(vnode.tag).toBe('p');
-    // text는 children에 포함되거나 별도 처리될 수 있음 (구현에 따라)
+    // text may be included in children or processed separately (depending on implementation)
   });
 
   it('should build VNode with decorators', () => {
@@ -71,7 +71,7 @@ describe('VNodeBuilder verification', () => {
     
     expect(vnode).toBeTruthy();
     expect(vnode.tag).toBe('p');
-    // decorator는 VNode 구조에 반영될 수 있음 (구현에 따라)
+    // decorator may be reflected in VNode structure (depending on implementation)
   });
 
   it('should not include any data-bc-* attributes in VNode tree', () => {
@@ -82,12 +82,12 @@ describe('VNodeBuilder verification', () => {
     const model = { stype: 'nested', sid: 'n1' };
     const vnode = builder.build('nested', model);
     
-    // VNode 자체에 data-bc-* 없어야 함
+    // VNode itself should not have data-bc-*
     expect(vnode.attrs?.['data-bc-sid']).toBeUndefined();
     expect(vnode.attrs?.['data-bc-stype']).toBeUndefined();
     expect(vnode.attrs?.['data-bc-component']).toBeUndefined();
     
-    // children에도 data-bc-* 없어야 함
+    // children should also not have data-bc-*
     if (Array.isArray(vnode.children)) {
       for (const child of vnode.children) {
         if (typeof child === 'object' && 'attrs' in child) {
@@ -111,16 +111,16 @@ describe('VNodeBuilder verification', () => {
     expect(vnode.tag).toBe('button');
     expect(vnode.attrs?.className).toBe('btn');
     expect(vnode.attrs?.id).toBe('my-button');
-    expect(vnode.attrs?.['data-action']).toBe('click'); // 일반 data-*는 템플릿 일부이므로 유지
+    expect(vnode.attrs?.['data-action']).toBe('click'); // Regular data-* is part of template, so keep it
     
-    // 하지만 DOM 표식용 data-bc-*는 없어야 함
+    // But DOM marker data-bc-* should not exist
     expect(vnode.attrs?.['data-bc-sid']).toBeUndefined();
     expect(vnode.attrs?.['data-bc-stype']).toBeUndefined();
   });
 
   describe('복잡한 문서 구조: 텍스트 + 마크 + decorator', () => {
     beforeEach(() => {
-      // 마크 renderer 정의
+      // Define mark renderer
       define('mark:bold', element('strong', { className: 'mark-bold' }, []));
       define('mark:italic', element('em', { className: 'mark-italic' }, []));
     });
@@ -148,11 +148,11 @@ describe('VNodeBuilder verification', () => {
       expect(vnode.children).toBeTruthy();
       expect(Array.isArray(vnode.children)).toBe(true);
       
-      // marks가 적용된 children 구조 확인
+      // Verify children structure with marks applied
       const children = vnode.children as any[];
       expect(children.length).toBeGreaterThan(0);
       
-      // 첫 번째 마크 (bold)
+      // First mark (bold)
       const boldChild = children.find(c => 
         typeof c === 'object' && 
         (c.tag === 'strong' || c.attrs?.className?.includes('mark-bold'))
@@ -196,7 +196,7 @@ describe('VNodeBuilder verification', () => {
       
       expect(vnode.children).toBeTruthy();
       
-      // paragraph VNode 찾기
+      // Find paragraph VNode
       const children = vnode.children as any[];
       const paragraphVNode = children.find(c => 
         typeof c === 'object' && 
@@ -205,7 +205,7 @@ describe('VNodeBuilder verification', () => {
       );
       expect(paragraphVNode).toBeTruthy();
       
-      // paragraph의 children에서 decorator가 적용된 구조 확인
+      // Verify decorator-applied structure in paragraph's children
       if (paragraphVNode && paragraphVNode.children) {
         const paragraphChildren = paragraphVNode.children as any[];
         const decoratorChild = paragraphChildren.find(c => 
@@ -248,7 +248,7 @@ describe('VNodeBuilder verification', () => {
       expect(vnode.sid).toBe('p3');
       expect(vnode.stype).toBe('paragraph');
       
-      // decorators가 VNode 최상위에 있는지 확인
+      // Verify decorators are at VNode top level
       expect(vnode.decorators).toBeTruthy();
       expect(Array.isArray(vnode.decorators)).toBe(true);
       expect(vnode.decorators!.length).toBe(1);
@@ -258,7 +258,7 @@ describe('VNodeBuilder verification', () => {
       const children = vnode.children as any[];
       expect(children.length).toBeGreaterThan(0);
       
-      // marks와 decorators가 모두 적용되었는지 확인
+      // Verify marks and decorators are both applied
       const hasMark = children.some(c => 
         typeof c === 'object' && 
         (c.tag === 'strong' || c.attrs?.className?.includes('mark-bold'))
@@ -294,10 +294,10 @@ describe('VNodeBuilder verification', () => {
       expect(vnode.attrs?.className).toBe('list');
       expect(vnode.children).toBeTruthy();
       
-      // children 구조 확인 (slot 확장 후)
+      // Verify children structure (after slot expansion)
       const children = vnode.children as any[];
-      // items가 slot으로 확장되어 children에 포함되어야 함
-      // 실제 구조는 slot 처리 방식에 따라 다를 수 있음
+      // items should be expanded via slot and included in children
+      // Actual structure may vary depending on slot processing method
     });
 
     it('should build complex VNode: document with multiple paragraphs, marks, and decorators', () => {
@@ -354,12 +354,12 @@ describe('VNodeBuilder verification', () => {
       expect(vnode.tag).toBe('article');
       expect(vnode.attrs?.className).toBe('document');
       
-      // 복잡한 구조가 올바르게 빌드되었는지 확인
+      // Verify complex structure is built correctly
       expect(vnode.children).toBeTruthy();
       const children = vnode.children as any[];
       
-      // content가 slot으로 확장되어 포함되어야 함
-      // 실제 구조는 slot 처리 방식에 따라 다를 수 있음
+      // content should be expanded via slot and included
+      // Actual structure may vary depending on slot processing method
     });
 
     it('should build VNode with overlapping marks and decorators', () => {
@@ -397,7 +397,7 @@ describe('VNodeBuilder verification', () => {
       const children = vnode.children as any[];
       expect(children.length).toBeGreaterThan(0);
       
-      // marks와 decorators가 모두 적용되었는지 확인
+      // Verify marks and decorators are both applied
       const hasBold = children.some(c => 
         typeof c === 'object' && 
         (c.tag === 'strong' || c.attrs?.className?.includes('mark-bold'))
@@ -411,7 +411,7 @@ describe('VNodeBuilder verification', () => {
         c.attrs?.['data-decorator-sid'] === 'd1'
       );
       
-      // 최소한 하나는 적용되어야 함
+      // At least one should be applied
       expect(hasBold || hasItalic || hasHighlight).toBe(true);
     });
 
@@ -447,7 +447,7 @@ describe('VNodeBuilder verification', () => {
       expect(vnode).toBeTruthy();
       expect(vnode.tag).toBe('article');
       
-      // document의 children에서 paragraph와 block decorator 찾기
+      // Find paragraph and block decorator in document's children
       const children = vnode.children as any[];
       const paragraphVNode = children.find(c => 
         typeof c === 'object' && 
@@ -456,7 +456,7 @@ describe('VNodeBuilder verification', () => {
       );
       expect(paragraphVNode).toBeTruthy();
       
-      // block decorator가 paragraph의 sibling으로 추가되었는지 확인
+      // Verify block decorator is added as sibling of paragraph
       const blockDecorator = children.find(c => 
         typeof c === 'object' && 
         c.attrs?.['data-decorator-category'] === 'block' &&

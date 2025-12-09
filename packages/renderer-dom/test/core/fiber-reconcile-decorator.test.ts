@@ -6,11 +6,11 @@ import { VNode } from '../../src/vnode/types';
 import { DOMOperations } from '../../src/dom-operations';
 import { ComponentManager } from '../../src/component-manager';
 
-// 헬퍼 함수: 모든 Fiber를 재귀적으로 처리
+// Helper function: Process all Fibers recursively
 function reconcileAllFibers(fiber: FiberNode, deps: FiberReconcileDependencies, context: any): void {
   reconcileFiberNode(fiber, deps, context);
   
-  // 자식 Fiber 처리
+  // Process child Fibers
   let childFiber = fiber.child;
   while (childFiber) {
     reconcileAllFibers(childFiber, deps, context);
@@ -120,7 +120,7 @@ describe('reconcileFiberNode - Decorator VNode 처리', () => {
       });
       expect(decoratorElements.length).toBe(3);
       
-      // 각 decorator 요소가 고유한지 확인
+      // Verify each decorator element is unique
       const texts = Array.from(decoratorElements).map(el => el.textContent);
       expect(texts).toContain('first');
       expect(texts).toContain('second');
@@ -155,23 +155,23 @@ describe('reconcileFiberNode - Decorator VNode 처리', () => {
 
       const fiber = createFiberTree(container, parentVNode, undefined, {});
       
-      // 첫 번째 자식 Fiber 처리
+      // Process first child Fiber
       let childFiber = fiber.child;
       expect(childFiber).toBeDefined();
       reconcileAllFibers(childFiber!, deps, {});
       
-      // 첫 번째 decorator 요소가 생성되었는지 확인
+      // Verify first decorator element is created
       const firstDecorator = container.querySelector('[data-decorator-sid="d-highlight"]');
       expect(firstDecorator).toBeDefined();
       expect(firstDecorator?.textContent).toBe('first');
       expect(childFiber!.domElement).toBe(firstDecorator);
 
-      // 두 번째 자식 Fiber 처리
+      // Process second child Fiber
       childFiber = childFiber!.sibling;
       expect(childFiber).toBeDefined();
       reconcileAllFibers(childFiber!, deps, {});
       
-      // 두 번째 decorator 요소가 생성되었는지 확인
+      // Verify second decorator element is created
       const allDecorators = container.querySelectorAll('[data-decorator-sid="d-highlight"]');
       expect(allDecorators.length).toBe(2);
       expect(allDecorators[0]).toBe(firstDecorator);

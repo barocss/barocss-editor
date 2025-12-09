@@ -54,8 +54,8 @@ describe('VNodeBuilder Function Component', () => {
       
       expect(vnode).toBeTruthy();
       expect(vnode.stype).toBe('model-access');
-      // context.model이 전달되었는지 확인 (실제로는 ComponentManager에서 호출되므로 build 시점에는 확인 불가)
-      // 하지만 VNode에는 model 정보가 포함되어 있어야 함
+      // Verify context.model is passed (actually called from ComponentManager, so cannot verify at build time)
+      // But VNode should contain model information
       expect(vnode.model).toBeDefined();
       expect(vnode.model?.sid).toBe('m1');
       expect(vnode.model?.stype).toBe('model-access');
@@ -122,7 +122,7 @@ describe('VNodeBuilder Function Component', () => {
       expect(Array.isArray(vnode.children)).toBe(true);
       expect((vnode.children as any[]).length).toBeGreaterThan(0);
       
-      // h1과 p가 포함되어 있는지 확인
+      // Verify h1 and p are included
       const h1 = (vnode.children as any[]).find((c: any) => c?.tag === 'h1');
       const p = (vnode.children as any[]).find((c: any) => c?.tag === 'p');
       expect(h1).toBeTruthy();
@@ -147,7 +147,7 @@ describe('VNodeBuilder Function Component', () => {
         ]
       };
       
-      // paragraph 정의 필요
+      // paragraph definition needed
       define('paragraph', element('p', {}, [data('text')]));
       
       const vnode = builder.build('container', model);
@@ -156,7 +156,7 @@ describe('VNodeBuilder Function Component', () => {
       expect(vnode.tag).toBe('div');
       expect(vnode.children).toBeTruthy();
       expect(Array.isArray(vnode.children)).toBe(true);
-      // content의 각 항목이 VNode로 변환되어야 함
+      // Each item in content should be converted to VNode
       expect((vnode.children as any[]).length).toBeGreaterThan(0);
     });
   });
@@ -187,14 +187,14 @@ describe('VNodeBuilder Function Component', () => {
       expect(vnode).toBeTruthy();
       expect(vnode.stype).toBe('props-test');
       expect(vnode.props).toBeDefined();
-      // props에는 순수 데이터만 (stype, sid 제외)
+      // props should contain only pure data (excluding stype, sid)
       expect(vnode.props?.label).toBe('Test Label');
       expect(vnode.props?.value).toBe(42);
       expect(vnode.props?.extra).toBe('Extra Data');
       expect(vnode.props?.stype).toBeUndefined();
       expect(vnode.props?.sid).toBeUndefined();
       
-      // model에는 원본 데이터 포함
+      // model contains original data
       expect(vnode.model).toBeDefined();
       expect(vnode.model?.stype).toBe('props-test');
       expect(vnode.model?.sid).toBe('pt1');
@@ -222,7 +222,7 @@ describe('VNodeBuilder Function Component', () => {
       expect(vnode).toBeTruthy();
       expect(vnode.tag).toBe('div');
       expect(vnode.children).toBeTruthy();
-      // data() 바인딩이 처리되어 텍스트로 변환되어야 함
+      // data() binding should be processed and converted to text
       expect(Array.isArray(vnode.children)).toBe(true);
     });
   });

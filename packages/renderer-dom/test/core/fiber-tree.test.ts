@@ -171,10 +171,10 @@ describe('Fiber Tree', () => {
       
       const fiber = createFiberTree(container, vnode, undefined, {});
       
-      // Primitive text는 Fiber로 변환하지 않음
+      // Primitive text is not converted to Fiber
       expect(fiber.child).toBeDefined();
       expect(fiber.child?.vnode.sid).toBe('child');
-      expect(fiber.child?.sibling).toBeNull(); // text는 Fiber로 변환되지 않음
+      expect(fiber.child?.sibling).toBeNull(); // text is not converted to Fiber
     });
     
     it('should preserve prevVNode reference', () => {

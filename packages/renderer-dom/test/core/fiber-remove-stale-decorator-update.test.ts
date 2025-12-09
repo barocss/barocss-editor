@@ -6,11 +6,11 @@ import { VNode } from '../../src/vnode/types';
 import { DOMOperations } from '../../src/dom-operations';
 import { ComponentManager } from '../../src/component-manager';
 
-// 헬퍼 함수: 모든 Fiber를 재귀적으로 처리
+// Helper function: Process all Fibers recursively
 function reconcileAllFibers(fiber: FiberNode, deps: FiberReconcileDependencies, context: any): void {
   reconcileFiberNode(fiber, deps, context);
   
-  // 자식 Fiber 처리
+  // Process child Fibers
   let childFiber = fiber.child;
   while (childFiber) {
     reconcileAllFibers(childFiber, deps, context);
@@ -52,7 +52,7 @@ describe('removeStaleChildren - Decorator 변경 시 제거', () => {
   });
 
   it('decorator가 변경되면 이전 decorator를 제거해야 함', () => {
-    // 첫 번째 render: chip-before decorator
+    // First render: chip-before decorator
     const prevVNode: VNode = {
       tag: 'span',
       stype: 'inline-text',
@@ -72,7 +72,7 @@ describe('removeStaleChildren - Decorator 변경 시 제거', () => {
       ]
     };
 
-    // 두 번째 render: chip-after decorator (chip-before 제거됨)
+    // Second render: chip-after decorator (chip-before removed)
     const nextVNode: VNode = {
       tag: 'span',
       stype: 'inline-text',
@@ -92,22 +92,22 @@ describe('removeStaleChildren - Decorator 변경 시 제거', () => {
       ]
     };
 
-    // 첫 번째 render
+    // First render
     const prevFiber = createFiberTree(container, prevVNode, undefined, {});
     reconcileAllFibers(prevFiber, deps, {});
     
-    // DOM 확인: chip-before가 있어야 함
+    // Verify DOM: chip-before should exist
     const chipBefore1 = container.querySelector('[data-decorator-sid="chip-before"]');
     expect(chipBefore1).toBeTruthy();
 
-    // 두 번째 render
+    // Second render
     const nextFiber = createFiberTree(container, nextVNode, prevVNode, {});
     reconcileAllFibers(nextFiber, deps, {});
     
-    // removeStaleChildren 호출 (부모로 돌아갈 때)
+    // Call removeStaleChildren (when returning to parent)
     removeStaleChildren(nextFiber, deps);
 
-    // DOM 확인: chip-before가 제거되어야 함
+    // Verify DOM: chip-before should be removed
     const chipBefore2 = container.querySelector('[data-decorator-sid="chip-before"]');
     const chipAfter = container.querySelector('[data-decorator-sid="chip-after"]');
     
@@ -136,7 +136,7 @@ describe('removeStaleChildren - Decorator 변경 시 제거', () => {
     const fiber = createFiberTree(container, vnode, undefined, {});
     reconcileAllFibers(fiber, deps, {});
     
-    // removeStaleChildren 호출 전에 expectedChildIds 확인
+    // Verify expectedChildIds before calling removeStaleChildren
     const expectedChildIds = new Set<string>();
     if (vnode.children) {
       for (const child of vnode.children) {
@@ -155,7 +155,7 @@ describe('removeStaleChildren - Decorator 변경 시 제거', () => {
   });
 
   it('removeStaleChildren이 usedDomElements를 올바르게 추적하는지 확인', () => {
-    // DOM에 chip-before와 chip-after가 모두 있는 경우
+    // Case where both chip-before and chip-after exist in DOM
     const chipBefore = document.createElement('span');
     chipBefore.setAttribute('data-decorator-sid', 'chip-before');
     chipBefore.textContent = 'CHIP';
@@ -167,7 +167,7 @@ describe('removeStaleChildren - Decorator 변경 시 제거', () => {
     container.appendChild(chipBefore);
     container.appendChild(chipAfter);
 
-    // VNode에는 chip-after만 있음
+    // VNode only has chip-after
     const vnode: VNode = {
       tag: 'span',
       stype: 'inline-text',
@@ -187,10 +187,10 @@ describe('removeStaleChildren - Decorator 변경 시 제거', () => {
     const fiber = createFiberTree(container, vnode, undefined, {});
     fiber.domElement = container;
     
-    // removeStaleChildren 호출
+    // Call removeStaleChildren
     removeStaleChildren(fiber, deps);
 
-    // chip-before가 제거되어야 함
+    // chip-before should be removed
     const chipBeforeAfter = container.querySelector('[data-decorator-sid="chip-before"]');
     const chipAfterAfter = container.querySelector('[data-decorator-sid="chip-after"]');
     

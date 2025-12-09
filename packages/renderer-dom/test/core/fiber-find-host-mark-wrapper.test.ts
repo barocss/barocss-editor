@@ -19,7 +19,7 @@ describe('findHostForChildVNode - Mark Wrapper', () => {
   });
 
   it('Strategy 2: 인덱스 기반 매칭으로 mark wrapper를 찾을 수 있어야 함', () => {
-    // DOM에 mark wrapper가 이미 있음
+    // Mark wrapper already exists in DOM
     const textEl = document.createElement('span');
     textEl.setAttribute('data-bc-sid', 'text-1');
     textEl.className = 'text';
@@ -31,7 +31,7 @@ describe('findHostForChildVNode - Mark Wrapper', () => {
     textEl.appendChild(markWrapper);
     container.appendChild(textEl);
 
-    // VNode: mark wrapper (sid와 decoratorSid가 모두 없음)
+    // VNode: mark wrapper (both sid and decoratorSid are missing)
     const vnode: VNode = {
       tag: 'span',
       attrs: {
@@ -55,7 +55,7 @@ describe('findHostForChildVNode - Mark Wrapper', () => {
     const prevChildToElement = new Map<VNode | string | number, HTMLElement | Text>();
     prevChildToElement.set(prevVNode, markWrapper);
 
-    // findHostForChildVNode 호출
+    // Call findHostForChildVNode
     const host = findHostForChildVNode(
       textEl,
       vnode,
@@ -68,7 +68,7 @@ describe('findHostForChildVNode - Mark Wrapper', () => {
   });
 
   it('Strategy 3: 인덱스 기반 fallback으로 mark wrapper를 찾을 수 있어야 함', () => {
-    // DOM에 mark wrapper가 이미 있음
+    // Mark wrapper already exists in DOM
     const textEl = document.createElement('span');
     textEl.setAttribute('data-bc-sid', 'text-1');
     textEl.className = 'text';
@@ -80,7 +80,7 @@ describe('findHostForChildVNode - Mark Wrapper', () => {
     textEl.appendChild(markWrapper);
     container.appendChild(textEl);
 
-    // VNode: mark wrapper (sid와 decoratorSid가 모두 없음)
+    // VNode: mark wrapper (both sid and decoratorSid are missing)
     const vnode: VNode = {
       tag: 'span',
       attrs: {
@@ -89,11 +89,11 @@ describe('findHostForChildVNode - Mark Wrapper', () => {
       children: ['Hello World']
     };
 
-    // prevChildVNodes가 비어있거나 prevChildToElement가 비어있는 경우
+    // When prevChildVNodes is empty or prevChildToElement is empty
     const prevChildVNodes: (VNode | string | number)[] = [];
     const prevChildToElement = new Map<VNode | string | number, HTMLElement | Text>();
 
-    // findHostForChildVNode 호출
+    // Call findHostForChildVNode
     const host = findHostForChildVNode(
       textEl,
       vnode,
@@ -102,12 +102,12 @@ describe('findHostForChildVNode - Mark Wrapper', () => {
       prevChildToElement
     );
 
-    // Strategy 3 (인덱스 기반 fallback)으로 찾아야 함
+    // Should find using Strategy 3 (index-based fallback)
     expect(host).toBe(markWrapper);
   });
 
   it('findChildHost가 childIndex 위치에서 찾지 못하면 모든 자식 요소를 순회해야 함', () => {
-    // DOM에 mark wrapper가 이미 있음 (하지만 childIndex가 맞지 않는 경우)
+    // Mark wrapper already exists in DOM (but childIndex doesn't match)
     const textEl = document.createElement('span');
     textEl.setAttribute('data-bc-sid', 'text-1');
     textEl.className = 'text';
@@ -119,7 +119,7 @@ describe('findHostForChildVNode - Mark Wrapper', () => {
     textEl.appendChild(markWrapper);
     container.appendChild(textEl);
 
-    // VNode: mark wrapper (sid와 decoratorSid가 모두 없음)
+    // VNode: mark wrapper (both sid and decoratorSid are missing)
     const vnode: VNode = {
       tag: 'span',
       attrs: {
@@ -128,10 +128,10 @@ describe('findHostForChildVNode - Mark Wrapper', () => {
       children: ['Hello World']
     };
 
-    // findChildHost 직접 호출 (childIndex가 맞지 않는 경우)
-    const host = findChildHost(textEl, vnode, 999); // 잘못된 childIndex
+    // Call findChildHost directly (when childIndex doesn't match)
+    const host = findChildHost(textEl, vnode, 999); // Invalid childIndex
 
-    // 모든 자식 요소를 순회하여 클래스 매칭으로 찾아야 함
+    // Should traverse all child elements to find by class matching
     expect(host).toBe(markWrapper);
   });
 });

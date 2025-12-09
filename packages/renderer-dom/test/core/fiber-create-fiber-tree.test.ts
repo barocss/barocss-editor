@@ -95,7 +95,7 @@ describe('createFiberTree - 단위 테스트', () => {
       expect(fiber.child?.vnode.decoratorSid).toBe('d-highlight');
       expect(fiber.child?.sibling).toBeDefined();
       expect(fiber.child?.sibling?.vnode.decoratorSid).toBe('d-highlight');
-      // 두 Fiber는 서로 다른 객체여야 함
+      // Two Fibers should be different objects
       expect(fiber.child).not.toBe(fiber.child?.sibling);
     });
   });
@@ -123,11 +123,11 @@ describe('createFiberTree - 단위 테스트', () => {
         children: [
           {
             tag: 'span',
-            sid: 'child-2' // 순서가 바뀜
+            sid: 'child-2' // Order changed
           },
           {
             tag: 'span',
-            sid: 'child-1' // 순서가 바뀜
+            sid: 'child-1' // Order changed
           }
         ]
       };
@@ -135,7 +135,7 @@ describe('createFiberTree - 단위 테스트', () => {
       const fiber = createFiberTree(container, vnode, prevVNode, {});
 
       expect(fiber.child).toBeDefined();
-      // child-2가 첫 번째이지만, prevVNode에서 child-2를 찾아야 함
+      // child-2 is first, but should find child-2 from prevVNode
       expect(fiber.child?.prevVNode?.sid).toBe('child-2');
       expect(fiber.child?.sibling?.prevVNode?.sid).toBe('child-1');
     });
@@ -189,12 +189,12 @@ describe('createFiberTree - 단위 테스트', () => {
 
       const fiber = createFiberTree(container, vnode, undefined, {});
 
-      // primitive text는 Fiber로 생성되지 않음
+      // Primitive text is not created as Fiber
       expect(fiber.child).toBeDefined();
       expect(fiber.child?.vnode.sid).toBe('child-1');
       expect(fiber.child?.sibling).toBeNull();
       
-      // primitive text 정보는 저장됨
+      // Primitive text information is stored
       expect(fiber.primitiveTextChildren).toBeDefined();
       expect(fiber.primitiveTextChildren?.length).toBe(2);
       expect(fiber.primitiveTextChildren?.[0].text).toBe('text1');

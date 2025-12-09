@@ -1107,15 +1107,15 @@ describe('handleEfficientEdit', () => {
     });
   });
 
-  // ========== 추가 안정성 테스트 케이스 ==========
+  // ========== Additional stability test cases ==========
 
-  describe('공백 문자 처리', () => {
-    it('공백 삽입을 정확히 처리해야 함', () => {
+  describe('Whitespace character handling', () => {
+    it('should handle space insertion accurately', () => {
       textNode.textContent = 'Hello World';
 
       const result = handleEfficientEdit(
         textNode,
-        'HelloWorld',  // oldModelText (공백 없음)
+        'HelloWorld',  // oldModelText (no space)
         [],
         []
       );
@@ -1125,12 +1125,12 @@ describe('handleEfficientEdit', () => {
       expect(result?.editInfo.editType).toBe('insert');
     });
 
-    it('공백 삭제를 정확히 처리해야 함', () => {
+    it('should handle space deletion accurately', () => {
       textNode.textContent = 'HelloWorld';
 
       const result = handleEfficientEdit(
         textNode,
-        'Hello World',  // oldModelText (공백 있음)
+        'Hello World',  // oldModelText (with space)
         [],
         []
       );
@@ -1140,12 +1140,12 @@ describe('handleEfficientEdit', () => {
       expect(result?.editInfo.editType).toBe('delete');
     });
 
-    it('여러 공백 연속을 정확히 처리해야 함', () => {
+    it('should handle multiple consecutive spaces accurately', () => {
       textNode.textContent = 'Hello    World';
 
       const result = handleEfficientEdit(
         textNode,
-        'Hello World',  // oldModelText (공백 1개)
+        'Hello World',  // oldModelText (1 space)
         [],
         []
       );
@@ -1154,7 +1154,7 @@ describe('handleEfficientEdit', () => {
       expect(result?.newText).toBe('Hello    World');
     });
 
-    it('탭 문자가 포함된 텍스트를 정확히 처리해야 함', () => {
+    it('should handle text containing tab characters accurately', () => {
       textNode.textContent = 'Hello\tWorld';
 
       const result = handleEfficientEdit(
@@ -1168,7 +1168,7 @@ describe('handleEfficientEdit', () => {
       expect(result?.newText).toBe('Hello\tWorld');
     });
 
-    it('줄바꿈 문자가 포함된 텍스트를 정확히 처리해야 함', () => {
+    it('should handle text containing newline characters accurately', () => {
       textNode.textContent = 'Hello\nWorld';
 
       const result = handleEfficientEdit(
@@ -1183,8 +1183,8 @@ describe('handleEfficientEdit', () => {
     });
   });
 
-  describe('긴 텍스트 처리', () => {
-    it('매우 긴 텍스트 삽입을 정확히 처리해야 함', () => {
+  describe('Long text handling', () => {
+    it('should handle very long text insertion accurately', () => {
       const longText = 'A'.repeat(1000);
       textNode.textContent = `Hello ${longText}`;
 
@@ -1197,10 +1197,10 @@ describe('handleEfficientEdit', () => {
 
       expect(result).toBeTruthy();
       expect(result?.newText).toBe(`Hello ${longText}`);
-      expect(result?.editInfo.insertedLength).toBe(longText.length + 1); // 공백 포함
+      expect(result?.editInfo.insertedLength).toBe(longText.length + 1); // including space
     });
 
-    it('매우 긴 텍스트 삭제를 정확히 처리해야 함', () => {
+    it('should handle very long text deletion accurately', () => {
       const longText = 'A'.repeat(1000);
       textNode.textContent = 'Hello';
 
@@ -1213,10 +1213,10 @@ describe('handleEfficientEdit', () => {
 
       expect(result).toBeTruthy();
       expect(result?.newText).toBe('Hello');
-      expect(result?.editInfo.deletedLength).toBe(longText.length + 1); // 공백 포함
+      expect(result?.editInfo.deletedLength).toBe(longText.length + 1); // including space
     });
 
-    it('매우 긴 텍스트 교체를 정확히 처리해야 함', () => {
+    it('should handle very long text replacement accurately', () => {
       const longText1 = 'A'.repeat(500);
       const longText2 = 'B'.repeat(500);
       textNode.textContent = `Hello ${longText2}`;
@@ -1234,38 +1234,38 @@ describe('handleEfficientEdit', () => {
     });
   });
 
-  describe('Mark 삭제 시나리오', () => {
-    it('Mark 범위 전체가 삭제되는 경우 제거되어야 함', () => {
+  describe('Mark deletion scenarios', () => {
+    it('should remove mark when entire mark range is deleted', () => {
       textNode.textContent = '';
 
       const modelMarks: MarkRange[] = [
         {
           type: 'bold',
-          range: [0, 5]  // "Hello"에 적용된 mark
+          range: [0, 5]  // mark applied to "Hello"
         }
       ];
 
       const result = handleEfficientEdit(
         textNode,
-        'Hello',  // oldModelText (전체 삭제)
+        'Hello',  // oldModelText (entire deletion)
         modelMarks,
         []
       );
 
-      // 빈 텍스트 노드인 경우 null이 반환될 수 있음
+      // null may be returned for empty text nodes
       if (result) {
-        // Mark 범위가 완전히 삭제되면 제거되어야 함
+        // Mark should be removed when range is completely deleted
         expect(result.adjustedMarks.length).toBe(0);
       }
     });
 
-    it('Mark 범위 일부가 삭제되는 경우 범위가 축소되어야 함', () => {
+    it('should shrink range when part of mark range is deleted', () => {
       textNode.textContent = 'Hello';
 
       const modelMarks: MarkRange[] = [
         {
           type: 'bold',
-          range: [0, 11]  // "Hello World"에 적용된 mark
+          range: [0, 11]  // mark applied to "Hello World"
         }
       ];
 
@@ -1279,18 +1279,18 @@ describe('handleEfficientEdit', () => {
       if (result) {
         expect(result.adjustedMarks.length).toBeGreaterThan(0);
         const adjustedMark = result.adjustedMarks[0];
-        // 범위가 축소되어야 함
+        // Range should be shrunk
         expect(adjustedMark.range[1]).toBeLessThanOrEqual(5);
       }
     });
 
-    it('Mark 범위 앞부분이 삭제되는 경우 범위가 이동되어야 함', () => {
+    it('should move range when front part of mark range is deleted', () => {
       textNode.textContent = 'World';
 
       const modelMarks: MarkRange[] = [
         {
           type: 'bold',
-          range: [6, 11]  // "World"에 적용된 mark
+          range: [6, 11]  // mark applied to "World"
         }
       ];
 
@@ -1304,15 +1304,15 @@ describe('handleEfficientEdit', () => {
       if (result) {
         expect(result.adjustedMarks.length).toBeGreaterThan(0);
         const adjustedMark = result.adjustedMarks[0];
-        // 범위가 앞으로 이동해야 함
+        // Range should move forward
         expect(adjustedMark.range[0]).toBeLessThan(6);
         expect(adjustedMark.range[1]).toBeLessThan(11);
       }
     });
   });
 
-  describe('Decorator 삭제 시나리오', () => {
-    it('Decorator 범위 전체가 삭제되는 경우 제거되어야 함', () => {
+  describe('Decorator deletion scenarios', () => {
+    it('should remove decorator when entire decorator range is deleted', () => {
       textNode.textContent = '';
 
       const decorators: DecoratorRange[] = [
@@ -1323,26 +1323,26 @@ describe('handleEfficientEdit', () => {
           target: {
             sid: 't1',
             startOffset: 0,
-            endOffset: 5  // "Hello"에 적용된 decorator
+            endOffset: 5  // decorator applied to "Hello"
           }
         }
       ];
 
       const result = handleEfficientEdit(
         textNode,
-        'Hello',  // oldModelText (전체 삭제)
+        'Hello',  // oldModelText (entire deletion)
         [],
         decorators
       );
 
-      // 빈 텍스트 노드인 경우 null이 반환될 수 있음
+      // null may be returned for empty text nodes
       if (result) {
-        // Decorator 범위가 완전히 삭제되면 제거되어야 함
+        // Decorator should be removed when range is completely deleted
         expect(result.adjustedDecorators.length).toBe(0);
       }
     });
 
-    it('Decorator 범위 일부가 삭제되는 경우 범위가 축소되어야 함', () => {
+    it('should shrink range when part of decorator range is deleted', () => {
       textNode.textContent = 'Hello';
 
       const decorators: DecoratorRange[] = [
@@ -1353,7 +1353,7 @@ describe('handleEfficientEdit', () => {
           target: {
             sid: 't1',
             startOffset: 0,
-            endOffset: 11  // "Hello World"에 적용된 decorator
+            endOffset: 11  // decorator applied to "Hello World"
           }
         }
       ];
@@ -1368,7 +1368,7 @@ describe('handleEfficientEdit', () => {
       if (result) {
         expect(result.adjustedDecorators.length).toBeGreaterThan(0);
         const adjustedDecorator = result.adjustedDecorators[0];
-        // 범위가 축소되어야 함
+        // Range should be shrunk
         expect(adjustedDecorator.target.endOffset).toBeLessThanOrEqual(5);
       }
     });
@@ -1384,7 +1384,7 @@ describe('handleEfficientEdit', () => {
           target: {
             sid: 't1',
             startOffset: 6,
-            endOffset: 11  // "World"에 적용된 decorator
+            endOffset: 11  // decorator applied to "World"
           }
         }
       ];
@@ -1399,7 +1399,7 @@ describe('handleEfficientEdit', () => {
       if (result) {
         expect(result.adjustedDecorators.length).toBeGreaterThan(0);
         const adjustedDecorator = result.adjustedDecorators[0];
-        // 범위가 앞으로 이동해야 함
+        // Range should move forward
         expect(adjustedDecorator.target.startOffset).toBeLessThan(6);
         expect(adjustedDecorator.target.endOffset).toBeLessThan(11);
       }
@@ -1407,10 +1407,10 @@ describe('handleEfficientEdit', () => {
   });
 
   describe('Selection 범위 선택', () => {
-    it('범위 선택 후 삽입 시 정확히 처리되어야 함', () => {
+    it('should handle range selection followed by insertion accurately', () => {
       textNode.textContent = 'HelloX World';
 
-      // 범위 선택 설정 (중간 부분 선택)
+      // Set range selection (select middle part)
       const range = document.createRange();
       range.setStart(textNode, 5);
       range.setEnd(textNode, 5);
@@ -1430,10 +1430,10 @@ describe('handleEfficientEdit', () => {
       expect(result?.editInfo.editPosition).toBe(5);
     });
 
-    it('범위 선택 후 교체 시 정확히 처리되어야 함', () => {
+    it('should handle range selection followed by replacement accurately', () => {
       textNode.textContent = 'Hi World';
 
-      // 범위 선택 설정 ("Hello" 선택)
+      // Set range selection (select "Hello")
       const range = document.createRange();
       range.setStart(textNode, 0);
       range.setEnd(textNode, 5);
@@ -1453,7 +1453,7 @@ describe('handleEfficientEdit', () => {
       expect(result?.editInfo.editType).toBe('replace');
     });
 
-    it('범위 선택이 Element 노드에 걸쳐 있는 경우 처리해야 함', () => {
+    it('should handle range selection spanning Element nodes', () => {
       inlineTextNode.innerHTML = '';
       const textNode1 = document.createTextNode('Hello');
       const markElement = document.createElement('strong');
@@ -1463,7 +1463,7 @@ describe('handleEfficientEdit', () => {
       inlineTextNode.appendChild(markElement);
       markElement.appendChild(textNode2);
 
-      // 범위 선택 설정 (Element 노드에 걸침)
+      // Set range selection (spanning Element nodes)
       const range = document.createRange();
       range.setStart(textNode1, 3);
       range.setEnd(textNode2, 3);
@@ -1471,7 +1471,7 @@ describe('handleEfficientEdit', () => {
       selection?.removeAllRanges();
       selection?.addRange(range);
 
-      // 텍스트 변경
+      // Change text
       textNode1.textContent = 'Hel';
       textNode2.textContent = 'X World';
 
@@ -1487,20 +1487,20 @@ describe('handleEfficientEdit', () => {
     });
   });
 
-  describe('빈 Text Node 처리', () => {
-    it('빈 text node가 있는 구조를 정확히 처리해야 함', () => {
+  describe('Empty Text Node handling', () => {
+    it('should handle structure with empty text nodes accurately', () => {
       inlineTextNode.innerHTML = '';
       const textNode1 = document.createTextNode('Hello');
       const markElement = document.createElement('strong');
       markElement.className = 'mark-bold';
-      const textNode2 = document.createTextNode('');  // 빈 text node
+      const textNode2 = document.createTextNode('');  // empty text node
       const textNode3 = document.createTextNode(' World');
       inlineTextNode.appendChild(textNode1);
       inlineTextNode.appendChild(markElement);
       markElement.appendChild(textNode2);
       inlineTextNode.appendChild(textNode3);
 
-      // 텍스트 변경
+      // Change text
       textNode1.textContent = 'Hi';
       textNode3.textContent = ' Universe';
 
@@ -1515,16 +1515,16 @@ describe('handleEfficientEdit', () => {
       expect(result?.newText).toBe('Hi Universe');
     });
 
-    it('빈 mark wrapper가 있는 구조를 정확히 처리해야 함', () => {
+    it('should handle structure with empty mark wrapper accurately', () => {
       inlineTextNode.innerHTML = '';
       const textNode1 = document.createTextNode('Hello');
       const markElement = document.createElement('strong');
       markElement.className = 'mark-bold';
-      // markElement에 text node가 없음 (빈 wrapper)
+      // markElement has no text node (empty wrapper)
       inlineTextNode.appendChild(textNode1);
       inlineTextNode.appendChild(markElement);
 
-      // 텍스트 변경
+      // Change text
       textNode1.textContent = 'Hi';
 
       const result = handleEfficientEdit(
@@ -1539,9 +1539,9 @@ describe('handleEfficientEdit', () => {
     });
   });
 
-  describe('여러 편집 연속', () => {
-    it('삽입 후 삭제를 정확히 처리해야 함', () => {
-      // 첫 번째 편집: 삽입
+  describe('Multiple consecutive edits', () => {
+    it('should handle insertion followed by deletion accurately', () => {
+      // First edit: insertion
       textNode.textContent = 'Hello World';
       let result = handleEfficientEdit(
         textNode,
@@ -1553,7 +1553,7 @@ describe('handleEfficientEdit', () => {
       expect(result).toBeTruthy();
       expect(result?.newText).toBe('Hello World');
 
-      // 두 번째 편집: 삭제
+      // Second edit: deletion
       textNode.textContent = 'Hello';
       result = handleEfficientEdit(
         textNode,
@@ -1567,8 +1567,8 @@ describe('handleEfficientEdit', () => {
       expect(result?.editInfo.editType).toBe('delete');
     });
 
-    it('삭제 후 삽입을 정확히 처리해야 함', () => {
-      // 첫 번째 편집: 삭제
+    it('should handle deletion followed by insertion accurately', () => {
+      // First edit: deletion
       textNode.textContent = 'Hello';
       let result = handleEfficientEdit(
         textNode,
@@ -1580,7 +1580,7 @@ describe('handleEfficientEdit', () => {
       expect(result).toBeTruthy();
       expect(result?.newText).toBe('Hello');
 
-      // 두 번째 편집: 삽입
+      // Second edit: insertion
       textNode.textContent = 'Hello Test';
       result = handleEfficientEdit(
         textNode,
@@ -1595,8 +1595,8 @@ describe('handleEfficientEdit', () => {
     });
   });
 
-  describe('IME 및 다국어 처리', () => {
-    it('한글 조합 문자를 정확히 처리해야 함', () => {
+  describe('IME and multilingual handling', () => {
+    it('should handle Korean composition characters accurately', () => {
       textNode.textContent = '안녕하세요';
 
       const result = handleEfficientEdit(
@@ -1611,7 +1611,7 @@ describe('handleEfficientEdit', () => {
       expect(result?.editInfo.insertedLength).toBeGreaterThan(0);
     });
 
-    it('일본어 조합 문자를 정확히 처리해야 함', () => {
+    it('should handle Japanese composition characters accurately', () => {
       textNode.textContent = 'こんにちは';
 
       const result = handleEfficientEdit(
@@ -1625,7 +1625,7 @@ describe('handleEfficientEdit', () => {
       expect(result?.newText).toBe('こんにちは');
     });
 
-    it('중국어 문자를 정확히 처리해야 함', () => {
+    it('should handle Chinese characters accurately', () => {
       textNode.textContent = '你好世界';
 
       const result = handleEfficientEdit(
@@ -1639,7 +1639,7 @@ describe('handleEfficientEdit', () => {
       expect(result?.newText).toBe('你好世界');
     });
 
-    it('이모지와 텍스트 혼합을 정확히 처리해야 함', () => {
+    it('should handle emoji and text mixture accurately', () => {
       textNode.textContent = 'Hello 👋 World 🌍';
 
       const result = handleEfficientEdit(
@@ -1653,7 +1653,7 @@ describe('handleEfficientEdit', () => {
       expect(result?.newText).toBe('Hello 👋 World 🌍');
     });
 
-    it('이모지 삽입을 정확히 처리해야 함', () => {
+    it('should handle emoji insertion accurately', () => {
       textNode.textContent = 'Hello 👋';
 
       const result = handleEfficientEdit(
@@ -1665,13 +1665,13 @@ describe('handleEfficientEdit', () => {
 
       expect(result).toBeTruthy();
       expect(result?.newText).toBe('Hello 👋');
-      // 이모지는 여러 유니코드 코드 포인트로 구성될 수 있음
+      // Emojis can consist of multiple Unicode code points
       expect(result?.editInfo.insertedLength).toBeGreaterThan(0);
     });
   });
 
-  describe('특수 문자 처리', () => {
-    it('특수 기호를 정확히 처리해야 함', () => {
+  describe('Special character handling', () => {
+    it('should handle special symbols accurately', () => {
       textNode.textContent = 'Hello @#$% World';
 
       const result = handleEfficientEdit(
@@ -1685,7 +1685,7 @@ describe('handleEfficientEdit', () => {
       expect(result?.newText).toBe('Hello @#$% World');
     });
 
-    it('수학 기호를 정확히 처리해야 함', () => {
+    it('should handle mathematical symbols accurately', () => {
       textNode.textContent = 'x = y + z * 2';
 
       const result = handleEfficientEdit(
@@ -1699,7 +1699,7 @@ describe('handleEfficientEdit', () => {
       expect(result?.newText).toBe('x = y + z * 2');
     });
 
-    it('HTML 엔티티 문자를 정확히 처리해야 함', () => {
+    it('should handle HTML entity characters accurately', () => {
       textNode.textContent = 'Hello <world>';
 
       const result = handleEfficientEdit(
@@ -1714,18 +1714,18 @@ describe('handleEfficientEdit', () => {
     });
   });
 
-  describe('Mark 범위와 편집 범위 세부 관계', () => {
-    it('Mark가 편집 범위 뒤에 있는 경우 조정되지 않아야 함', () => {
+  describe('Detailed relationship between Mark range and edit range', () => {
+    it('should not adjust mark when it is after edit range', () => {
       textNode.textContent = 'Hello World Test';
 
       const modelMarks: MarkRange[] = [
         {
           type: 'bold',
-          range: [12, 16]  // "Test"에 적용된 mark (편집 범위 뒤)
+          range: [12, 16]  // mark applied to "Test" (after edit range)
         }
       ];
 
-      // 편집 위치 0 (앞에서 삽입)
+      // Edit position 0 (insert at front)
       const range = document.createRange();
       range.setStart(textNode, 0);
       range.setEnd(textNode, 0);
@@ -1745,23 +1745,23 @@ describe('handleEfficientEdit', () => {
       expect(result).toBeTruthy();
       const adjustedMark = result?.adjustedMarks[0];
       if (adjustedMark) {
-        // Mark 범위가 이동되어야 함 (앞에 삽입되었으므로)
+        // Mark range should move (inserted at front)
         expect(adjustedMark.range[0]).toBeGreaterThan(12);
         expect(adjustedMark.range[1]).toBeGreaterThan(16);
       }
     });
 
-    it('Mark가 편집 범위와 정확히 겹치는 경우 조정되어야 함', () => {
+    it('should adjust mark when it exactly overlaps with edit range', () => {
       textNode.textContent = 'HelloX World';
 
       const modelMarks: MarkRange[] = [
         {
           type: 'bold',
-          range: [0, 5]  // "Hello"에 적용된 mark
+          range: [0, 5]  // mark applied to "Hello"
         }
       ];
 
-      // 편집 위치 4 (범위 안에 삽입하여 확장되도록)
+      // Edit position 4 (insert inside range to expand)
       const range = document.createRange();
       range.setStart(textNode, 4);
       range.setEnd(textNode, 4);
@@ -1769,7 +1769,7 @@ describe('handleEfficientEdit', () => {
       selection?.removeAllRanges();
       selection?.addRange(range);
 
-      // 텍스트 변경 (범위 안에 삽입)
+      // Change text (insert inside range)
       textNode.textContent = 'HellXo World';
 
       const result = handleEfficientEdit(
@@ -1782,13 +1782,13 @@ describe('handleEfficientEdit', () => {
       expect(result).toBeTruthy();
       expect(result?.adjustedMarks.length).toBeGreaterThan(0);
       const adjustedMark = result?.adjustedMarks[0];
-      // Mark 범위가 확장되어야 함 (범위 안에 삽입되었으므로)
-      expect(adjustedMark?.range[1]).toBeGreaterThan(5); // 5 + 1 (삽입)
+      // Mark range should expand (inserted inside range)
+      expect(adjustedMark?.range[1]).toBeGreaterThan(5); // 5 + 1 (insertion)
     });
   });
 
-  describe('Decorator 범위와 편집 범위 세부 관계', () => {
-    it('Decorator가 편집 범위 뒤에 있는 경우 조정되지 않아야 함', () => {
+  describe('Detailed relationship between Decorator range and edit range', () => {
+    it('should not adjust decorator when it is after edit range', () => {
       textNode.textContent = 'Hello World Test';
 
       const decorators: DecoratorRange[] = [
@@ -1799,12 +1799,12 @@ describe('handleEfficientEdit', () => {
           target: {
             sid: 't1',
             startOffset: 12,
-            endOffset: 16  // "Test"에 적용된 decorator (편집 범위 뒤)
+            endOffset: 16  // decorator applied to "Test" (after edit range)
           }
         }
       ];
 
-      // 편집 위치 0 (앞에서 삽입)
+      // Edit position 0 (insert at front)
       const range = document.createRange();
       range.setStart(textNode, 0);
       range.setEnd(textNode, 0);
@@ -1824,13 +1824,13 @@ describe('handleEfficientEdit', () => {
       expect(result).toBeTruthy();
       const adjustedDecorator = result?.adjustedDecorators[0];
       if (adjustedDecorator) {
-        // Decorator 범위가 이동되어야 함 (앞에 삽입되었으므로)
+        // Decorator range should move (inserted at front)
         expect(adjustedDecorator.target.startOffset).toBeGreaterThan(12);
         expect(adjustedDecorator.target.endOffset).toBeGreaterThan(16);
       }
     });
 
-    it('Decorator가 편집 범위와 정확히 겹치는 경우 조정되어야 함', () => {
+    it('should adjust decorator when it exactly overlaps with edit range', () => {
       textNode.textContent = 'HellXo World';
 
       const decorators: DecoratorRange[] = [
@@ -1841,12 +1841,12 @@ describe('handleEfficientEdit', () => {
           target: {
             sid: 't1',
             startOffset: 0,
-            endOffset: 5  // "Hello"에 적용된 decorator
+            endOffset: 5  // decorator applied to "Hello"
           }
         }
       ];
 
-      // 편집 위치 4 (범위 안에 삽입하여 확장되도록)
+      // Edit position 4 (insert inside range to expand)
       const range = document.createRange();
       range.setStart(textNode, 4);
       range.setEnd(textNode, 4);
@@ -1854,7 +1854,7 @@ describe('handleEfficientEdit', () => {
       selection?.removeAllRanges();
       selection?.addRange(range);
 
-      // 텍스트 변경 (범위 안에 삽입)
+      // Change text (insert inside range)
       textNode.textContent = 'HellXo World';
 
       const result = handleEfficientEdit(
@@ -1867,13 +1867,13 @@ describe('handleEfficientEdit', () => {
       expect(result).toBeTruthy();
       expect(result?.adjustedDecorators.length).toBeGreaterThan(0);
       const adjustedDecorator = result?.adjustedDecorators[0];
-      // Decorator 범위가 확장되어야 함 (범위 안에 삽입되었으므로)
-      expect(adjustedDecorator?.target.endOffset).toBeGreaterThan(5); // 5 + 1 (삽입)
+      // Decorator range should expand (inserted inside range)
+      expect(adjustedDecorator?.target.endOffset).toBeGreaterThan(5); // 5 + 1 (insertion)
     });
   });
 
-  describe('복잡한 Mark/Decorator 조합', () => {
-    it('3개 이상의 mark가 겹치는 경우 모두 조정되어야 함', () => {
+  describe('Complex Mark/Decorator combinations', () => {
+    it('should adjust all marks when 3 or more marks overlap', () => {
       inlineTextNode.innerHTML = '';
       const textNode1 = document.createTextNode('Hello');
       const boldElement = document.createElement('strong');
@@ -1889,22 +1889,22 @@ describe('handleEfficientEdit', () => {
       italicElement.appendChild(underlineElement);
       underlineElement.appendChild(textNode2);
 
-      // 텍스트 변경
+      // Change text
       textNode1.textContent = 'Hi';
       textNode2.textContent = ' Universe';
 
       const modelMarks: MarkRange[] = [
         {
           type: 'bold',
-          range: [0, 11]  // 전체에 적용된 bold
+          range: [0, 11]  // bold applied to entire text
         },
         {
           type: 'italic',
-          range: [5, 11]  // "World"에 적용된 italic
+          range: [5, 11]  // italic applied to "World"
         },
         {
           type: 'underline',
-          range: [7, 11]  // "orld"에 적용된 underline
+          range: [7, 11]  // underline applied to "orld"
         }
       ];
 
@@ -1917,14 +1917,14 @@ describe('handleEfficientEdit', () => {
 
       expect(result).toBeTruthy();
       expect(result?.adjustedMarks.length).toBeGreaterThanOrEqual(1);
-      // 모든 mark의 범위가 유효해야 함
+      // All mark ranges should be valid
       result?.adjustedMarks.forEach(mark => {
         expect(mark.range[0]).toBeGreaterThanOrEqual(0);
         expect(mark.range[1]).toBeGreaterThanOrEqual(mark.range[0]);
       });
     });
 
-    it('Mark와 Decorator가 여러 개 겹치는 경우 모두 조정되어야 함', () => {
+    it('should adjust all when multiple Marks and Decorators overlap', () => {
       inlineTextNode.innerHTML = '';
       const textNode1 = document.createTextNode('Hello');
       const boldElement = document.createElement('strong');
@@ -1934,18 +1934,18 @@ describe('handleEfficientEdit', () => {
       inlineTextNode.appendChild(boldElement);
       boldElement.appendChild(textNode2);
 
-      // 텍스트 변경
+      // Change text
       textNode1.textContent = 'Hi';
       textNode2.textContent = ' Universe';
 
       const modelMarks: MarkRange[] = [
         {
           type: 'bold',
-          range: [0, 11]  // 전체에 적용된 bold
+          range: [0, 11]  // bold applied to entire text
         },
         {
           type: 'italic',
-          range: [5, 11]  // "World"에 적용된 italic
+          range: [5, 11]  // italic applied to "World"
         }
       ];
 
@@ -1957,7 +1957,7 @@ describe('handleEfficientEdit', () => {
           target: {
             sid: 't1',
             startOffset: 0,
-            endOffset: 5  // "Hello"에 적용된 highlight
+            endOffset: 5  // highlight applied to "Hello"
           }
         },
         {
@@ -1967,7 +1967,7 @@ describe('handleEfficientEdit', () => {
           target: {
             sid: 't1',
             startOffset: 6,
-            endOffset: 11  // "World"에 적용된 comment
+            endOffset: 11  // comment applied to "World"
           }
         }
       ];
@@ -1981,14 +1981,14 @@ describe('handleEfficientEdit', () => {
 
       expect(result).toBeTruthy();
       expect(result?.newText).toBe('Hi Universe');
-      // Mark와 Decorator가 모두 조정되어야 함
+      // Both Marks and Decorators should be adjusted
       expect((result?.adjustedMarks?.length ?? 0) + (result?.adjustedDecorators?.length ?? 0)).toBeGreaterThan(0);
     });
   });
 
-  describe('에러 및 예외 케이스', () => {
-    it('buildTextRunIndex가 빈 runs를 반환하는 경우 null을 반환해야 함', () => {
-      // 빈 inline-text 노드
+  describe('Error and exception cases', () => {
+    it('should return null when buildTextRunIndex returns empty runs', () => {
+      // Empty inline-text node
       inlineTextNode.innerHTML = '';
       inlineTextNode.textContent = '';
 
@@ -1999,16 +1999,16 @@ describe('handleEfficientEdit', () => {
         []
       );
 
-      // 빈 runs로 인해 null이 반환되어야 함
+      // Should return null due to empty runs
       expect(result).toBeNull();
     });
 
-    it('convertDOMToModelPosition이 실패하는 경우에도 작동해야 함', () => {
+    it('should work even when convertDOMToModelPosition fails', () => {
       textNode.textContent = 'Hello World';
 
-      // Selection이 Element 노드에 있는 경우 (변환 실패 가능)
+      // When selection is on Element node (conversion may fail)
       const range = document.createRange();
-      range.setStart(inlineTextNode, 0);  // Element 노드
+      range.setStart(inlineTextNode, 0);  // Element node
       range.setEnd(inlineTextNode, 0);
       const selection = window.getSelection();
       selection?.removeAllRanges();
@@ -2021,15 +2021,15 @@ describe('handleEfficientEdit', () => {
         []
       );
 
-      // Selection 변환 실패해도 text-analyzer가 작동해야 함
+      // text-analyzer should work even if selection conversion fails
       expect(result).toBeTruthy();
       expect(result?.newText).toBe('Hello World');
     });
   });
 
-  describe('실제 사용 시나리오', () => {
-    it('연속 타이핑을 정확히 처리해야 함', () => {
-      // 첫 번째: 'H'
+  describe('Real-world usage scenarios', () => {
+    it('should handle consecutive typing accurately', () => {
+      // First: 'H'
       textNode.textContent = 'H';
       let result = handleEfficientEdit(
         textNode,
@@ -2039,7 +2039,7 @@ describe('handleEfficientEdit', () => {
       );
       expect(result?.newText).toBe('H');
 
-      // 두 번째: 'He'
+      // Second: 'He'
       textNode.textContent = 'He';
       result = handleEfficientEdit(
         textNode,
@@ -2049,7 +2049,7 @@ describe('handleEfficientEdit', () => {
       );
       expect(result?.newText).toBe('He');
 
-      // 세 번째: 'Hel'
+      // Third: 'Hel'
       textNode.textContent = 'Hel';
       result = handleEfficientEdit(
         textNode,
@@ -2060,11 +2060,11 @@ describe('handleEfficientEdit', () => {
       expect(result?.newText).toBe('Hel');
     });
 
-    it('백스페이스 연속을 정확히 처리해야 함', () => {
-      // 초기: 'Hello'
+    it('should handle consecutive backspaces accurately', () => {
+      // Initial: 'Hello'
       textNode.textContent = 'Hello';
 
-      // 첫 번째 백스페이스: 'Hell'
+      // First backspace: 'Hell'
       textNode.textContent = 'Hell';
       let result = handleEfficientEdit(
         textNode,
@@ -2074,7 +2074,7 @@ describe('handleEfficientEdit', () => {
       );
       expect(result?.newText).toBe('Hell');
 
-      // 두 번째 백스페이스: 'Hel'
+      // Second backspace: 'Hel'
       textNode.textContent = 'Hel';
       result = handleEfficientEdit(
         textNode,
@@ -2085,11 +2085,11 @@ describe('handleEfficientEdit', () => {
       expect(result?.newText).toBe('Hel');
     });
 
-    it('중간 삽입 연속을 정확히 처리해야 함', () => {
-      // 초기: 'Hello'
+    it('should handle consecutive middle insertions accurately', () => {
+      // Initial: 'Hello'
       textNode.textContent = 'Hello';
 
-      // 첫 번째 삽입: 'HeXllo'
+      // First insertion: 'HeXllo'
       textNode.textContent = 'HeXllo';
       let result = handleEfficientEdit(
         textNode,
@@ -2099,7 +2099,7 @@ describe('handleEfficientEdit', () => {
       );
       expect(result?.newText).toBe('HeXllo');
 
-      // 두 번째 삽입: 'HeXYllo'
+      // Second insertion: 'HeXYllo'
       textNode.textContent = 'HeXYllo';
       result = handleEfficientEdit(
         textNode,

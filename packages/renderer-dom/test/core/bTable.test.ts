@@ -51,7 +51,7 @@ describe('bTable renderer (component and element template paths)', () => {
     return {
       id,
       type: 'bTable',
-      caption, // data('caption')이 이 값을 찾을 수 있도록
+      caption, // So data('caption') can find this value
       attributes: { caption },
       content: [
         {
@@ -112,12 +112,12 @@ describe('bTable renderer (component and element template paths)', () => {
     // First child should be caption (if caption exists)
     if (model.attributes?.caption) {
       const captionChild = children.find((c: any) => c?.tag === 'caption');
-      // NOTE: caption이 children에 없을 수 있음 (VNodeBuilder 구현에 따라)
-      // caption이 있으면 확인하고, 없으면 경고만 출력
+      // NOTE: caption may not be in children (depending on VNodeBuilder implementation)
+      // If caption exists, verify it; otherwise just output warning
       if (captionChild) {
       expect(captionChild?.attrs?.className).toContain('table-caption');
       } else {
-        // caption이 없으면 children 구조를 확인
+        // If caption is missing, verify children structure
         console.warn('Caption not found in children. Children:', children.map((c: any) => c?.tag));
       }
     }

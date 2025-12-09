@@ -10,7 +10,7 @@ describe('Reconciler root rendering (basic)', () => {
   beforeEach(() => {
     container = document.createElement('div');
     const reg = getGlobalRegistry();
-    // 클린업: 동일 stype 재정의 대비, 전역 레지스트리는 덮어쓰기만 가정
+    // Cleanup: assume global registry only overwrites, in case of same stype redefinition
     define('paragraph', element('p', { className: 'para' }, []));
     renderer = new DOMRenderer(reg);
   });

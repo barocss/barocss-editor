@@ -72,11 +72,11 @@ describe('VNode Decorator Structure', () => {
     registry = getGlobalRegistry();
     builder = new VNodeBuilder(registry);
 
-    // 기본 템플릿 정의
+    // Define base templates
     define('paragraph', element('p', { className: 'paragraph' }, [slot('content')]));
     define('inline-text', element('span', { className: 'text' }, [data('text')]));
     
-    // chip decorator 정의
+    // Define chip decorator
     defineDecorator('chip', element('span', {
       className: 'chip',
       style: {
@@ -147,31 +147,31 @@ describe('VNode Decorator Structure', () => {
       expect(vnode.stype).toBe('inline-text');
       expect(vnode.tag).toBe('span');
       
-      // children이 있어야 함
+      // children should exist
       expect(vnode.children).toBeTruthy();
       expect(Array.isArray(vnode.children)).toBe(true);
       expect(vnode.children.length).toBeGreaterThan(0);
 
-      // 첫 번째 child는 decorator VNode여야 함
+      // First child should be decorator VNode
       const firstChild = vnode.children[0] as any;
       expect(firstChild).toBeTruthy();
       expect(firstChild.attrs?.['data-decorator-sid']).toBe('chip-before');
       expect(firstChild.attrs?.['data-decorator-stype']).toBe('chip');
       expect(firstChild.attrs?.['data-decorator-position']).toBe('before');
 
-      // 두 번째 child는 분할된 텍스트여야 함 (mark wrapper로 감싸져 있을 수 있음)
+      // Second child should be split text (may be wrapped in mark wrapper)
       const secondChild = vnode.children[1] as any;
       expect(secondChild).toBeTruthy();
       const text1 = secondChild.text || (secondChild.children?.[0]?.text);
       expect(text1).toBe('Hello');
-      expect(secondChild.sid).toBeUndefined(); // 분할된 텍스트는 sid가 없음
+      expect(secondChild.sid).toBeUndefined(); // Split text has no sid
 
-      // 세 번째 child는 나머지 텍스트여야 함 (mark wrapper로 감싸져 있을 수 있음)
+      // Third child should be remaining text (may be wrapped in mark wrapper)
       const thirdChild = vnode.children[2] as any;
       expect(thirdChild).toBeTruthy();
       const text2 = thirdChild.text || (thirdChild.children?.[0]?.text);
       expect(text2).toBe(' World');
-      expect(thirdChild.sid).toBeUndefined(); // 분할된 텍스트는 sid가 없음
+      expect(thirdChild.sid).toBeUndefined(); // Split text has no sid
     });
   });
 
@@ -210,31 +210,31 @@ describe('VNode Decorator Structure', () => {
       expect(vnode.stype).toBe('inline-text');
       expect(vnode.tag).toBe('span');
       
-      // children이 있어야 함
+      // children should exist
       expect(vnode.children).toBeTruthy();
       expect(Array.isArray(vnode.children)).toBe(true);
       expect(vnode.children.length).toBeGreaterThan(0);
 
-      // 첫 번째 child는 분할된 텍스트여야 함 (mark wrapper로 감싸져 있을 수 있음)
+      // First child should be split text (may be wrapped in mark wrapper)
       const firstChild = vnode.children[0] as any;
       expect(firstChild).toBeTruthy();
       const text1 = firstChild.text || (firstChild.children?.[0]?.text);
       expect(text1).toBe('Hello');
-      expect(firstChild.sid).toBeUndefined(); // 분할된 텍스트는 sid가 없음
+      expect(firstChild.sid).toBeUndefined(); // Split text has no sid
 
-      // 두 번째 child는 decorator VNode여야 함
+      // Second child should be decorator VNode
       const secondChild = vnode.children[1] as any;
       expect(secondChild).toBeTruthy();
       expect(secondChild.attrs?.['data-decorator-sid']).toBe('chip-after');
       expect(secondChild.attrs?.['data-decorator-stype']).toBe('chip');
       expect(secondChild.attrs?.['data-decorator-position']).toBe('after');
 
-      // 세 번째 child는 나머지 텍스트여야 함 (mark wrapper로 감싸져 있을 수 있음)
+      // Third child should be remaining text (may be wrapped in mark wrapper)
       const thirdChild = vnode.children[2] as any;
       expect(thirdChild).toBeTruthy();
       const text2 = thirdChild.text || (thirdChild.children?.[0]?.text);
       expect(text2).toBe(' World');
-      expect(thirdChild.sid).toBeUndefined(); // 분할된 텍스트는 sid가 없음
+      expect(thirdChild.sid).toBeUndefined(); // Split text has no sid
     });
   });
 
@@ -285,12 +285,12 @@ describe('VNode Decorator Structure', () => {
       expect(vnode.stype).toBe('inline-text');
       expect(vnode.tag).toBe('span');
       
-      // children이 있어야 함
+      // children should exist
       expect(vnode.children).toBeTruthy();
       expect(Array.isArray(vnode.children)).toBe(true);
       expect(vnode.children.length).toBeGreaterThan(0);
 
-      // 구조 확인
+      // Verify structure
       const children = vnode.children as any[];
       console.log(`\nChildren count: ${children.length}`);
       children.forEach((child, idx) => {
@@ -313,12 +313,12 @@ describe('VNode Decorator Structure', () => {
         text: 'Hello World'
       };
 
-      // 1. decorator 없이 빌드
+      // 1. Build without decorator
       const vnode1 = builder.build('inline-text', model);
       console.log('\n=== VNode without decorator ===');
       printVNodeStructure(vnode1);
 
-      // 2. decorator 추가 후 빌드
+      // 2. Build after adding decorator
       const decorators: Decorator[] = [
         {
           sid: 'chip-before',
@@ -337,16 +337,16 @@ describe('VNode Decorator Structure', () => {
       console.log('\n=== VNode with decorator ===');
       printVNodeStructure(vnode2);
 
-      // 비교
+      // Compare
       console.log('\n=== Comparison ===');
       console.log('Without decorator - children count:', (vnode1.children as any[])?.length || 0);
       console.log('With decorator - children count:', (vnode2.children as any[])?.length || 0);
 
-      // 원본 컴포넌트 VNode는 하나만 존재해야 함
+      // Original component VNode should exist only once
       expect(vnode1.sid).toBe('text-14');
       expect(vnode2.sid).toBe('text-14');
       
-      // decorator가 추가되면 children 구조가 변경됨
+      // When decorator is added, children structure changes
       expect(vnode1.children).not.toEqual(vnode2.children);
     });
   });

@@ -1,15 +1,15 @@
 /**
- * Block Decorator 스펙 및 테스트
+ * Block Decorator Specification and Test
  * 
- * Block Decorator는 block-level 요소에 적용되는 decorator로,
- * target 요소의 형제 요소로 before/after 위치에 렌더링됩니다.
+ * Block Decorator is a decorator applied to block-level elements,
+ * rendered as a sibling element of the target element at before/after position.
  * 
- * 스펙:
+ * Specification:
  * - category: 'block'
- * - position: 'before' | 'after' (block decorator는 주로 before/after 사용)
- * - target: { sid: string } (startOffset/endOffset 없음 - 전체 요소 대상)
- * - 렌더링 위치: target 요소의 형제 요소로 before/after에 삽입
- * - target 요소의 텍스트/children에는 영향을 주지 않아야 함
+ * - position: 'before' | 'after' (block decorator mainly uses before/after)
+ * - target: { sid: string } (no startOffset/endOffset - targets entire element)
+ * - Rendering position: Inserted as sibling element of target element at before/after
+ * - Should not affect target element's text/children
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -29,12 +29,12 @@ describe('Block Decorator 스펙 및 테스트', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
 
-    // 기본 템플릿 정의
+    // Define base templates
     define('document', element('div', { className: 'document' }, [slot('content')]));
     define('paragraph', element('p', { className: 'paragraph' }, [data('text')]));
     define('heading', element('h1', { className: 'heading' }, [data('text')]));
     
-    // Block Decorator 정의
+    // Define Block Decorators
     defineDecorator('comment', element('div', {
       className: 'comment-decorator',
       style: {
@@ -91,7 +91,7 @@ describe('Block Decorator 스펙 및 테스트', () => {
 
       renderer.render(container, model, decorators);
 
-      // 실제 DOM 구조 확인
+      // Verify actual DOM structure
       const paragraph = container.querySelector('[data-bc-sid="p-1"]') as HTMLElement;
       const decorator = container.querySelector('[data-decorator-sid="comment-1"]') as HTMLElement;
       
@@ -100,7 +100,7 @@ describe('Block Decorator 스펙 및 테스트', () => {
       expect(decorator.getAttribute('data-decorator-position')).toBe('before');
       expect(paragraph.textContent).toBe('This is a paragraph with a comment before it.');
       
-      // expectHTML로 전체 DOM 구조 검증
+      // Verify full DOM structure with expectHTML
       expectHTML(
         container,
         `<div class="document" data-bc-sid="doc-1">
@@ -139,7 +139,7 @@ describe('Block Decorator 스펙 및 테스트', () => {
 
       renderer.render(container, model, decorators);
 
-      // 실제 DOM 구조 확인
+      // Verify actual DOM structure
       const paragraph = container.querySelector('[data-bc-sid="p-1"]') as HTMLElement;
       const decorator = container.querySelector('[data-decorator-sid="comment-1"]') as HTMLElement;
       
@@ -148,7 +148,7 @@ describe('Block Decorator 스펙 및 테스트', () => {
       expect(decorator.getAttribute('data-decorator-position')).toBe('after');
       expect(paragraph.textContent).toBe('This is a paragraph with a comment after it.');
       
-      // expectHTML로 전체 DOM 구조 검증
+      // Verify full DOM structure with expectHTML
       expectHTML(
         container,
         `<div class="document" data-bc-sid="doc-1">
@@ -197,7 +197,7 @@ describe('Block Decorator 스펙 및 테스트', () => {
 
       renderer.render(container, model, decorators);
 
-      // paragraph의 텍스트가 정상적으로 렌더링되는지 확인
+      // Verify paragraph text is rendered correctly
       const paragraph = container.querySelector('[data-bc-sid="p-1"]') as HTMLElement;
       expect(paragraph).toBeTruthy();
       expect(paragraph.textContent).toBe('This paragraph should have its text rendered correctly even with block decorators.');
@@ -209,7 +209,7 @@ describe('Block Decorator 스펙 및 테스트', () => {
       expect(commentDecorator.textContent).toBe('COMMENT');
       expect(noteDecorator.textContent).toBe('NOTE');
       
-      // expectHTML로 전체 DOM 구조 검증
+      // Verify entire DOM structure with expectHTML
       expectHTML(
         container,
         `<div class="document" data-bc-sid="doc-1">
@@ -271,7 +271,7 @@ describe('Block Decorator 스펙 및 테스트', () => {
 
       renderer.render(container, model, decorators);
 
-      // expectHTML로 전체 DOM 구조 검증
+      // Verify entire DOM structure with expectHTML
       expectHTML(
         container,
         `<div class="document" data-bc-sid="doc-1">
@@ -329,9 +329,9 @@ describe('Block Decorator 스펙 및 테스트', () => {
 
       renderer.render(container, model, decorators);
 
-      // expectHTML로 전체 DOM 구조 검증 (실제 구조에 맞게)
-      // TODO: p-1의 텍스트가 정상적으로 렌더링되어야 함 (현재 버그)
-      // block decorator가 before position일 때 텍스트가 paragraph 밖으로 나가는 문제가 있음
+      // Verify entire DOM structure with expectHTML (matching actual structure)
+      // TODO: p-1's text should be rendered correctly (current bug)
+      // Problem: when block decorator is at before position, text goes outside paragraph
       expectHTML(
         container,
         `<div class="document" data-bc-sid="doc-1">
@@ -359,12 +359,12 @@ describe('Block Decorator 스펙 및 테스트', () => {
         ]
       };
 
-      // 첫 번째 렌더링: decorator 없음
+      // First render: no decorator
       renderer.render(container, model, []);
       const paragraph1 = container.querySelector('[data-bc-sid="p-1"]') as HTMLElement;
       expect(paragraph1.textContent).toBe('This paragraph should keep its text when decorator is added.');
 
-      // 두 번째 렌더링: decorator 추가
+      // Second render: add decorator
       const decorators: Decorator[] = [
         {
           sid: 'comment-1',
@@ -380,8 +380,8 @@ describe('Block Decorator 스펙 및 테스트', () => {
       renderer.render(container, model, decorators);
       
       const paragraph2 = container.querySelector('[data-bc-sid="p-1"]') as HTMLElement;
-      expect(paragraph2).toBe(paragraph1); // 같은 DOM 요소여야 함
-      expect(paragraph2.textContent).toBe('This paragraph should keep its text when decorator is added.'); // 텍스트 유지
+      expect(paragraph2).toBe(paragraph1); // Should be same DOM element
+      expect(paragraph2.textContent).toBe('This paragraph should keep its text when decorator is added.'); // Text should be maintained
     });
 
     it('block decorator 제거 시 paragraph 텍스트가 유지되어야 함', () => {
@@ -397,7 +397,7 @@ describe('Block Decorator 스펙 및 테스트', () => {
         ]
       };
 
-      // 첫 번째 렌더링: decorator 있음
+      // First render: with decorator
       const decorators: Decorator[] = [
         {
           sid: 'comment-1',
@@ -415,12 +415,12 @@ describe('Block Decorator 스펙 및 테스트', () => {
       expect(paragraph1).toBeTruthy();
       expect(paragraph1.textContent).toBe('This paragraph should keep its text when decorator is removed.');
 
-      // 두 번째 렌더링: decorator 제거
+      // Second render: remove decorator
       renderer.render(container, model, []);
       
       const paragraph2 = container.querySelector('[data-bc-sid="p-1"]') as HTMLElement;
-      expect(paragraph2).toBe(paragraph1); // 같은 DOM 요소여야 함
-      expect(paragraph2.textContent).toBe('This paragraph should keep its text when decorator is removed.'); // 텍스트 유지
+      expect(paragraph2).toBe(paragraph1); // Should be same DOM element
+      expect(paragraph2.textContent).toBe('This paragraph should keep its text when decorator is removed.'); // Text should be maintained
     });
   });
 });

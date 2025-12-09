@@ -115,7 +115,7 @@ describe('findHostInParentChildren - Multiple Mark Wrappers', () => {
       ]
     };
 
-    // Strategy 3: prevVNode.children에서 구조적 매칭
+    // Strategy 3: Structural matching from prevVNode.children
     const found = findHostInParentChildren(parent, vnode, prevVNode, 1);
     
     expect(found).toBe(italicWrapper);

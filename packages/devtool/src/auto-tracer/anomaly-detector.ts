@@ -1,13 +1,13 @@
 /**
- * 이상 징후 자동 감지
+ * Automatic anomaly detection
  * 
- * 예상값 없이도 "뭔가 이상하다"를 감지하여 디버깅을 돕습니다.
+ * Detects "something is wrong" even without expected values to aid debugging.
  */
 
 export enum AnomalySeverity {
-  CRITICAL = 'critical',  // 🔴 심각한 문제 (데이터 손실, 크래시 가능성)
-  WARNING = 'warning',    // 🟡 경고 (예상치 못한 동작)
-  INFO = 'info'           // 🔵 정보 (참고사항)
+  CRITICAL = 'critical',  // 🔴 Critical issue (data loss, crash possibility)
+  WARNING = 'warning',    // 🟡 Warning (unexpected behavior)
+  INFO = 'info'           // 🔵 Info (reference)
 }
 
 export interface Anomaly {
@@ -35,23 +35,23 @@ export class AnomalyDetector {
   ): Anomaly[] {
     const anomalies: Anomaly[] = [];
 
-    // Selection 관련 이상 징후
+    // Selection-related anomalies
     if (methodName === 'updateSelection' || methodName === 'convertModelSelectionToDOM') {
       anomalies.push(...this._detectSelectionAnomalies(input, output, timestamp));
     }
 
-    // 텍스트 변경 관련 이상 징후
+    // Text change-related anomalies
     if (methodName === 'deleteText' || methodName === 'replaceText' || methodName === 'setNode') {
       anomalies.push(...this._detectTextChangeAnomalies(methodName, input, output));
     }
 
-    // Render 관련 이상 징후
+    // Render-related anomalies
     if (methodName === 'render') {
       this.renderTimestamp = timestamp;
       this.selectionUpdateAfterRender = false;
     }
 
-    // Selection 복구 누락 감지
+    // Detect missing Selection restoration
     if (methodName === 'updateSelection' && this.renderTimestamp > 0) {
       const timeSinceRender = timestamp - this.renderTimestamp;
       if (timeSinceRender < 100) {
@@ -59,7 +59,7 @@ export class AnomalyDetector {
       }
     }
 
-    // DOM-Model 동기화 이상 징후
+    // DOM-Model synchronization anomalies
     if (methodName === 'reconcile') {
       anomalies.push(...this._detectSyncAnomalies(input, output));
     }
@@ -73,7 +73,7 @@ export class AnomalyDetector {
   validateTraceFlow(spans: any[]): Anomaly[] {
     const anomalies: Anomaly[] = [];
 
-    // render 후 Selection 복구 누락 감지
+    // Detect missing Selection restoration after render
     const hasRender = spans.some(s => s.methodName === 'render');
     const hasSelectionUpdate = spans.some(s => 
       s.methodName === 'updateSelection' || s.methodName === 'convertModelSelectionToDOM'
@@ -83,14 +83,14 @@ export class AnomalyDetector {
       anomalies.push({
         severity: AnomalySeverity.WARNING,
         type: 'SELECTION_NOT_RESTORED',
-        message: 'Render 후 Selection 복구가 누락되었습니다',
+        message: 'Selection restoration after render is missing',
         details: {
-          suggestion: 'render 후 convertModelSelectionToDOM 또는 updateSelection을 호출해야 합니다'
+          suggestion: 'Should call convertModelSelectionToDOM or updateSelection after render'
         }
       });
     }
 
-    // Transaction 없이 DataStore 직접 수정 감지
+    // Detect direct DataStore modification without Transaction
     const hasDataStoreChange = spans.some(s => 
       s.className === 'CoreOperations' || s.className === 'RangeOperations'
     );
@@ -100,9 +100,9 @@ export class AnomalyDetector {
       anomalies.push({
         severity: AnomalySeverity.WARNING,
         type: 'NO_TRANSACTION',
-        message: 'Transaction 없이 DataStore를 직접 수정했습니다',
+        message: 'DataStore was directly modified without Transaction',
         details: {
-          suggestion: 'Command → Transaction → Operation 패턴을 사용하세요'
+          suggestion: 'Use Command → Transaction → Operation pattern'
         }
       });
     }
@@ -116,7 +116,7 @@ export class AnomalyDetector {
   private _detectSelectionAnomalies(input: any, output: any, timestamp: number): Anomaly[] {
     const anomalies: Anomaly[] = [];
 
-    // Selection 데이터 추출
+    // Extract Selection data
     let selection: any = null;
     if (Array.isArray(input) && input[0]) {
       selection = input[0];
@@ -128,15 +128,15 @@ export class AnomalyDetector {
       return anomalies;
     }
 
-    // Selection이 짧은 시간에 여러 번 변경됨 (튐 현상)
+    // Selection changed multiple times in short period (flicker phenomenon)
     const lastSel = this.lastSelections.get('current');
     if (lastSel) {
       const timeDiff = timestamp - lastSel.timestamp;
-      if (timeDiff < 50) { // 50ms 이내 재변경
+      if (timeDiff < 50) { // Re-changed within 50ms
         anomalies.push({
           severity: AnomalySeverity.WARNING,
           type: 'SELECTION_FLICKER',
-          message: 'Selection이 짧은 시간에 여러 번 변경되었습니다 (커서 튐 가능성)',
+          message: 'Selection changed multiple times in short period (possible cursor flicker)',
           details: {
             timeDiff: `${timeDiff}ms`,
             previous: lastSel.selection,

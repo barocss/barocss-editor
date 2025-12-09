@@ -16,7 +16,7 @@ describe('findHostForChildVNode - Decorator VNode 처리', () => {
 
   describe('같은 decoratorSid를 가진 여러 VNode 처리', () => {
     it('같은 decoratorSid를 가진 여러 VNode가 각각 고유한 DOM 요소를 찾아야 함', () => {
-      // 초기 DOM 구조: 3개의 highlight-decorator 요소
+      // Initial DOM structure: 3 highlight-decorator elements
       const decorator1 = document.createElement('span');
       decorator1.setAttribute('data-decorator-sid', 'd-highlight');
       decorator1.setAttribute('class', 'highlight-decorator');
@@ -35,7 +35,7 @@ describe('findHostForChildVNode - Decorator VNode 처리', () => {
       decorator3.textContent = 'third';
       parent.appendChild(decorator3);
 
-      // 첫 번째 VNode: 첫 번째 decorator 요소를 찾아야 함
+      // First VNode: should find first decorator element
       const prevVNode1: VNode = {
         tag: 'span',
         attrs: {
@@ -67,7 +67,7 @@ describe('findHostForChildVNode - Decorator VNode 처리', () => {
       expect(host1).toBe(decorator1);
       expect(host1?.textContent).toBe('first');
 
-      // 두 번째 VNode: 두 번째 decorator 요소를 찾아야 함 (첫 번째는 이미 사용됨)
+      // Second VNode: should find second decorator element (first is already used)
       const prevVNode2: VNode = {
         tag: 'span',
         attrs: {
@@ -100,7 +100,7 @@ describe('findHostForChildVNode - Decorator VNode 처리', () => {
       expect(host2?.textContent).toBe('second');
       expect(host2).not.toBe(decorator1);
 
-      // 세 번째 VNode: 세 번째 decorator 요소를 찾아야 함 (첫 번째, 두 번째는 이미 사용됨)
+      // Third VNode: should find third decorator element (first and second are already used)
       const prevVNode3: VNode = {
         tag: 'span',
         attrs: {
@@ -136,7 +136,7 @@ describe('findHostForChildVNode - Decorator VNode 처리', () => {
     });
 
     it('인덱스 기반 매칭이 우선되어야 함', () => {
-      // 초기 DOM 구조: 3개의 highlight-decorator 요소
+      // Initial DOM structure: 3 highlight-decorator elements
       const decorator1 = document.createElement('span');
       decorator1.setAttribute('data-decorator-sid', 'd-highlight');
       parent.appendChild(decorator1);
@@ -149,7 +149,7 @@ describe('findHostForChildVNode - Decorator VNode 처리', () => {
       decorator3.setAttribute('data-decorator-sid', 'd-highlight');
       parent.appendChild(decorator3);
 
-      // prevChildVNodes에 같은 인덱스의 VNode가 있으면 그것을 우선 매칭
+      // If prevChildVNodes has VNode at the same index, prioritize matching it
       const prevVNode1: VNode = {
         tag: 'span',
         attrs: {
@@ -177,7 +177,7 @@ describe('findHostForChildVNode - Decorator VNode 처리', () => {
       prevChildToElement.set(prevVNode2, decorator2);
       prevChildToElement.set(prevVNode3, decorator3);
 
-      // 첫 번째 VNode (인덱스 0)
+      // First VNode (index 0)
       const vnode1: VNode = {
         tag: 'span',
         attrs: {
@@ -196,7 +196,7 @@ describe('findHostForChildVNode - Decorator VNode 처리', () => {
 
       expect(host1).toBe(decorator1);
 
-      // 두 번째 VNode (인덱스 1)
+      // Second VNode (index 1)
       const vnode2: VNode = {
         tag: 'span',
         attrs: {
@@ -215,7 +215,7 @@ describe('findHostForChildVNode - Decorator VNode 처리', () => {
 
       expect(host2).toBe(decorator2);
 
-      // 세 번째 VNode (인덱스 2)
+      // Third VNode (index 2)
       const vnode3: VNode = {
         tag: 'span',
         attrs: {
@@ -238,7 +238,7 @@ describe('findHostForChildVNode - Decorator VNode 처리', () => {
 
   describe('decoratorSid가 없는 VNode와 구분', () => {
     it('decoratorSid가 있는 VNode는 일반 span을 재사용하지 않아야 함', () => {
-      // 일반 span 요소 (decoratorSid 없음)
+      // Normal span element (no decoratorSid)
       const normalSpan = document.createElement('span');
       normalSpan.textContent = 'normal';
       parent.appendChild(normalSpan);
@@ -261,9 +261,9 @@ describe('findHostForChildVNode - Decorator VNode 처리', () => {
         prevChildToElement
       );
 
-      // decoratorSid가 있는 VNode는 일반 span을 재사용하지 않아야 함
+      // VNode with decoratorSid should not reuse normal span
       expect(host).not.toBe(normalSpan);
-      // host가 없거나, decoratorSid를 가진 요소여야 함 (일반 span이 아니어야 함)
+      // host should be null or an element with decoratorSid (not a normal span)
       if (host) {
         expect(host.hasAttribute('data-decorator-sid') || host.hasAttribute('data-bc-sid')).toBe(true);
         expect(host).not.toBe(normalSpan);
@@ -271,12 +271,12 @@ describe('findHostForChildVNode - Decorator VNode 처리', () => {
     });
 
     it('decoratorSid가 없는 VNode는 일반 span을 재사용할 수 있어야 함', () => {
-      // 일반 span 요소
+      // Normal span element
       const normalSpan = document.createElement('span');
       normalSpan.textContent = 'normal';
       parent.appendChild(normalSpan);
 
-      // decoratorSid가 없는 VNode
+      // VNode without decoratorSid
       const normalVNode: VNode = {
         tag: 'span',
         attrs: { className: 'text' }
@@ -297,7 +297,7 @@ describe('findHostForChildVNode - Decorator VNode 처리', () => {
         prevChildToElement
       );
 
-      // decoratorSid가 없는 VNode는 일반 span을 재사용할 수 있어야 함
+      // VNode without decoratorSid should be able to reuse normal span
       expect(host).toBe(normalSpan);
     });
   });

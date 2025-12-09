@@ -5,7 +5,7 @@ import { getGlobalRegistry, define, element, slot, type ComponentProps, type Mod
 const registry = getGlobalRegistry();
 
 describe('Reconciler performance smoke', () => {
-  const DEBUG_COUNT = 10; // 임시: 성능 이슈 파악을 위해 모든 케이스를 10회로 제한
+  const DEBUG_COUNT = 10; // Temporary: limit all cases to 10 iterations to identify performance issues
 
   it('renders 1000 paragraphs under reasonable time', () => {
     console.log('[PERF-TEST] start: 1k paragraphs smoke');

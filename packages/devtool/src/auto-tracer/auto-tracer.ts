@@ -70,7 +70,7 @@ export class AutoTracer {
       this._instrumentTarget(target);
     });
     
-    // TransactionManager는 매번 새로 생성되므로 prototype 레벨에서 계측
+    // TransactionManager is created new each time, so instrument at prototype level
     this._instrumentTransactionManagerPrototype();
   }
 
@@ -78,10 +78,10 @@ export class AutoTracer {
    * 단일 대상 계측
    */
   private _instrumentTarget(target: InstrumentationTarget): void {
-    // Editor의 executeCommand는 특별 처리
+    // Editor's executeCommand is handled specially
     if (target.className === 'Editor' && target.methods.includes('executeCommand')) {
       this._instrumentEditorExecuteCommand();
-      // executeCommand를 제외한 다른 메서드들만 처리
+      // Process only other methods excluding executeCommand
       const otherMethods = target.methods.filter(m => m !== 'executeCommand');
       if (otherMethods.length > 0) {
         const instance = this._findInstance(target.className);
@@ -111,15 +111,15 @@ export class AutoTracer {
       return;
     }
 
-    // 각 메서드 계측
+    // Instrument each method
     target.methods.forEach(methodName => {
       const original = instance[methodName];
       if (original && typeof original === 'function') {
-        // 원본 메서드 저장 (나중에 복원용)
+        // Store original method (for later restoration)
         const key = `${target.className}.${methodName}`;
         this.originalMethods.set(key, original);
 
-        // 메서드 래핑 (this 바인딩 보존)
+        // Wrap method (preserve this binding)
         instance[methodName] = this._wrapFunction(
           original,
           methodName,
@@ -146,11 +146,11 @@ export class AutoTracer {
       return;
     }
 
-    // 원본 메서드 저장
+    // Store original method
     const key = 'Editor.executeCommand';
     this.originalMethods.set(key, original);
 
-    // executeCommand 래핑 (this 바인딩 유지)
+    // Wrap executeCommand (maintain this binding)
     const self = this;
     editor.executeCommand = async function(command: string, payload?: any): Promise<boolean> {
       if (!self.enabled || !self._shouldTrace('executeCommand')) {
@@ -168,13 +168,13 @@ export class AutoTracer {
       const startTime = performance.now();
 
       try {
-        // Trace 시작 이벤트
+        // Trace start event
         self._emitTraceStart(traceContext, { command, payload });
 
-        // 원본 함수 실행 (this 바인딩 유지)
+        // Execute original function (maintain this binding)
         const result = await original.call(this, command, payload);
 
-        // Trace 종료 이벤트
+        // Trace end event
         self._emitTraceEnd(traceContext, result, performance.now() - startTime);
         self.contextManager.cleanupContext(traceContext.spanId);
 
@@ -191,14 +191,14 @@ export class AutoTracer {
    * 모든 계측 해제
    */
   private _uninstrumentAll(): void {
-    // 원본 메서드 복원
+    // Restore original methods
     this.originalMethods.forEach((original, key) => {
       if (key === 'Editor.executeCommand') {
-        // Editor.executeCommand 특별 처리
+        // Special handling for Editor.executeCommand
         const editor = this.editor as any;
         editor.executeCommand = original;
       } else if (key === 'TransactionManager.prototype.execute') {
-        // TransactionManager.prototype.execute 특별 처리
+        // Special handling for TransactionManager.prototype.execute
         TransactionManager.prototype.execute = original as any;
       } else {
         const [className, methodName] = key.split('.');
@@ -224,7 +224,7 @@ export class AutoTracer {
   ): T {
     return ((...args: any[]) => {
       if (!this.enabled || !this._shouldTrace(name)) {
-        // this 바인딩 보존
+        // Preserve this binding
         return instance ? fn.call(instance, ...args) : fn(...args);
       }
 
@@ -239,15 +239,15 @@ export class AutoTracer {
       const startTime = performance.now();
 
       try {
-        // Trace 시작 이벤트
-        // Serializer 적용
+        // Trace start event
+        // Apply Serializer
         const serializedArgs = inputSerializer ? inputSerializer(name, args) : args;
         this._emitTraceStart(traceContext, serializedArgs);
 
         // 원본 함수 실행 (this 바인딩 보존)
         const result = instance ? fn.call(instance, ...args) : fn(...args);
 
-        // Promise인 경우
+        // If Promise
         if (result instanceof Promise) {
           return result.then(
             (value) => {
@@ -263,7 +263,7 @@ export class AutoTracer {
           ) as any;
         }
 
-        // 동기 함수인 경우
+        // If synchronous function
         this._emitTraceEnd(traceContext, result, performance.now() - startTime);
         this.contextManager.cleanupContext(traceContext.spanId);
 
@@ -280,7 +280,7 @@ export class AutoTracer {
    * 추적 여부 결정 (샘플링)
    */
   private _shouldTrace(operationName: string): boolean {
-    // 제외 패턴 확인
+    // Check exclude patterns
     if (this.options.excludePatterns) {
       for (const pattern of this.options.excludePatterns) {
         if (operationName.includes(pattern)) {
@@ -289,7 +289,7 @@ export class AutoTracer {
       }
     }
 
-    // 샘플링
+    // Sampling
     return Math.random() < (this.options.samplingRate || 1.0);
   }
 
@@ -300,13 +300,13 @@ export class AutoTracer {
     context: TraceContext,
     input?: any
   ): void {
-    // Trace 시작 시 Span 목록 초기화
+    // Initialize Span list when Trace starts
     if (!this.currentTraceSpans.has(context.traceId)) {
       this.currentTraceSpans.set(context.traceId, []);
       this.anomalyDetector.reset();
     }
 
-    // input을 context에 저장 (나중에 이상 징후 감지 시 사용)
+    // Store input in context (for use when detecting anomalies later)
     (context as any).input = input;
 
     this.editor.emit('editor:trace.start', {
@@ -329,7 +329,7 @@ export class AutoTracer {
     output?: any,
     duration?: number
   ): void {
-    // 이상 징후 감지
+    // Detect anomalies
     const anomalies = this.anomalyDetector.detectAnomalies(
       context.operationName,
       context.className,
@@ -338,7 +338,7 @@ export class AutoTracer {
       Date.now()
     );
 
-    // Span 정보 저장
+    // Store Span information
     const spans = this.currentTraceSpans.get(context.traceId) || [];
     spans.push({
       spanId: context.spanId,
@@ -350,15 +350,15 @@ export class AutoTracer {
       anomalies: anomalies.length > 0 ? anomalies : undefined
     });
 
-    // Root Span인 경우 전체 흐름 검증
+    // If Root Span, validate entire flow
     if (!context.parentSpanId) {
       const flowAnomalies = this.anomalyDetector.validateTraceFlow(spans);
       if (flowAnomalies.length > 0) {
-        // 마지막 Span에 흐름 검증 결과 추가
+        // Add flow validation result to last Span
         const lastSpan = spans[spans.length - 1];
         lastSpan.anomalies = [...(lastSpan.anomalies || []), ...flowAnomalies];
       }
-      // Trace 종료 시 정리
+      // Cleanup when Trace ends
       this.currentTraceSpans.delete(context.traceId);
     }
 
@@ -405,18 +405,18 @@ export class AutoTracer {
       return editor;
     }
     
-    // EditorViewDOM 접근
+    // Access EditorViewDOM
     const viewDOM = editor._viewDOM;
     if (!viewDOM) {
       return null;
     }
 
     if (className === 'InputHandlerImpl') {
-      // InputHandlerImpl은 private inputHandler 필드
+      // InputHandlerImpl is private inputHandler field
       return viewDOM.inputHandler || (viewDOM as any)._inputHandler;
     }
     
-    // DataStore 접근 (private _dataStore 또는 public dataStore)
+    // Access DataStore (private _dataStore or public dataStore)
     const dataStore = editor.dataStore || (editor as any)._dataStore;
     
     if (className === 'CoreOperations') {
@@ -433,7 +433,7 @@ export class AutoTracer {
       return editor.transactionManager || editor._transactionManager;
     }
     
-    // DOMRenderer 접근
+    // Access DOMRenderer
     const domRenderer = viewDOM._domRenderer || (viewDOM as any).domRenderer;
     
     if (className === 'DOMRenderer') {
@@ -463,11 +463,11 @@ export class AutoTracer {
       return;
     }
     
-    // 원본 메서드 저장
+    // Store original method
     const key = 'TransactionManager.prototype.execute';
     this.originalMethods.set(key, originalExecute);
     
-    // TransactionManager.prototype.execute 래핑
+    // Wrap TransactionManager.prototype.execute
     const self = this;
     TransactionManager.prototype.execute = async function(operations: any[]): Promise<any> {
       if (!self.enabled || !self._shouldTrace('execute')) {
@@ -485,13 +485,13 @@ export class AutoTracer {
       const startTime = performance.now();
       
       try {
-        // Trace 시작 이벤트
+        // Trace start event
         self._emitTraceStart(traceContext, { operations });
         
-        // 원본 함수 실행 (this 바인딩 유지)
+        // Execute original function (maintain this binding)
         const result = await originalExecute.call(this, operations);
         
-        // Trace 종료 이벤트
+        // Trace end event
         self._emitTraceEnd(traceContext, result, performance.now() - startTime);
         self.contextManager.cleanupContext(traceContext.spanId);
         

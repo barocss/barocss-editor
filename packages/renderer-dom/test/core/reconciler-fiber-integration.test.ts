@@ -48,7 +48,7 @@ describe('Reconciler Fiber Integration', () => {
       
       reconciler.reconcile(container, vnode, model);
       
-      // Wait for fiber scheduler to process (Fiber는 비동기로 처리됨)
+      // Wait for fiber scheduler to process (Fiber is processed asynchronously)
       await new Promise(resolve => setTimeout(resolve, 50));
       
       // Container should have been reconciled

@@ -12,28 +12,28 @@
  * @returns Promise that resolves when Fiber work is complete
  */
 export async function waitForFiber(timeout: number = 200): Promise<void> {
-  // 테스트 환경에서는 단순히 짧은 시간을 기다리는 것이 더 안정적입니다.
-  // Fiber는 비동기로 처리되므로, 마이크로태스크와 다음 이벤트 루프를 기다립니다.
+  // In test environment, simply waiting for a short time is more stable.
+  // Since Fiber is processed asynchronously, wait for microtasks and next event loop.
   
-  // 마이크로태스크 큐가 비워질 때까지 기다림
+  // Wait until microtask queue is empty
   await new Promise(resolve => queueMicrotask(resolve));
   await new Promise(resolve => queueMicrotask(resolve));
   
-  // 다음 이벤트 루프를 기다림
+  // Wait for next event loop
   await new Promise(resolve => setTimeout(resolve, 0));
   
-  // 추가로 한 번 더 마이크로태스크를 기다림
+  // Wait for microtasks one more time
   await new Promise(resolve => queueMicrotask(resolve));
   
-  // requestAnimationFrame이 있으면 사용 (브라우저 환경)
+  // Use requestAnimationFrame if available (browser environment)
   if (typeof requestAnimationFrame !== 'undefined') {
     await new Promise(resolve => requestAnimationFrame(resolve));
   }
   
-  // 마지막으로 짧은 시간을 기다림 (DOM 업데이트가 완료되도록)
+  // Finally wait for a short time (to ensure DOM updates are complete)
   await new Promise(resolve => setTimeout(resolve, 20));
   
-  // 한 번 더 마이크로태스크를 기다림
+  // Wait for microtasks one more time
   await new Promise(resolve => queueMicrotask(resolve));
 }
 

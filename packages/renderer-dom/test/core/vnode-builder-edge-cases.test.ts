@@ -26,7 +26,7 @@ describe('VNodeBuilder Edge Cases and Error Handling', () => {
       expect(vnode).toBeTruthy();
       expect(vnode.tag).toBe('p');
       expect(vnode.children).toBeTruthy();
-      // 빈 텍스트도 처리되어야 함
+      // Empty text should also be processed
       expect(Array.isArray(vnode.children)).toBe(true);
     });
 
@@ -74,8 +74,8 @@ describe('VNodeBuilder Edge Cases and Error Handling', () => {
     it('should handle undefined data parameter', () => {
       define('paragraph', element('p', {}, []));
       
-      // undefined는 기본값 {}로 처리되므로 에러가 발생하지 않음
-      // 빈 객체로 처리되어 VNode가 생성됨
+      // undefined is processed as default {}, so no error occurs
+      // Processed as empty object and VNode is created
       const vnode = builder.build('paragraph', undefined as any);
       expect(vnode).toBeTruthy();
       expect(vnode.tag).toBe('p');
@@ -106,7 +106,7 @@ describe('VNodeBuilder Edge Cases and Error Handling', () => {
       const vnode = builder.build('paragraph', model, { decorators });
       
       expect(vnode).toBeTruthy();
-      // Fallback decorator VNode가 생성되어야 함
+      // Fallback decorator VNode should be created
       const hasDecorator = (vnode.children as any[]).some((child: any) => 
         child.decoratorSid === 'd1'
       );
@@ -123,13 +123,13 @@ describe('VNodeBuilder Edge Cases and Error Handling', () => {
         stype: 'paragraph', 
         sid: 'p1', 
         text: 'Hello',
-        marks: [{ type: 'bold', range: [0, 100] }] // 텍스트 길이(5) 초과
+        marks: [{ type: 'bold', range: [0, 100] }] // Exceeds text length (5)
       };
       
       const vnode = builder.build('paragraph', model);
       
       expect(vnode).toBeTruthy();
-      // 범위 초과는 텍스트 길이로 제한되어야 함
+      // Exceeding range should be limited to text length
       expect(vnode.children).toBeTruthy();
     });
 
@@ -141,13 +141,13 @@ describe('VNodeBuilder Edge Cases and Error Handling', () => {
         stype: 'paragraph', 
         sid: 'p1', 
         text: 'Hello',
-        marks: [{ type: 'bold', range: [-5, 3] }] // 음수 범위
+        marks: [{ type: 'bold', range: [-5, 3] }] // Negative range
       };
       
       const vnode = builder.build('paragraph', model);
       
       expect(vnode).toBeTruthy();
-      // 음수 범위는 0으로 제한되어야 함
+      // Negative range should be limited to 0
       expect(vnode.children).toBeTruthy();
     });
 
@@ -165,7 +165,7 @@ describe('VNodeBuilder Edge Cases and Error Handling', () => {
       const vnode = builder.build('paragraph', model);
       
       expect(vnode).toBeTruthy();
-      // 반전된 범위는 빈 범위로 처리되거나 자동으로 정정되어야 함
+      // Reversed range should be processed as empty range or automatically corrected
       expect(vnode.children).toBeTruthy();
     });
   });
@@ -182,14 +182,14 @@ describe('VNodeBuilder Edge Cases and Error Handling', () => {
           stype: 'highlight',
           type: 'highlight',
           category: 'inline',
-          target: { sid: 'p1', startOffset: 0, endOffset: 100 } // 텍스트 길이 초과
+          target: { sid: 'p1', startOffset: 0, endOffset: 100 } // Exceeds text length
         }
       ];
       
       const vnode = builder.build('paragraph', model, { decorators });
       
       expect(vnode).toBeTruthy();
-      // 범위 초과는 텍스트 길이로 제한되어야 함
+      // Exceeding range should be limited to text length
       expect(vnode.children).toBeTruthy();
     });
 
@@ -204,14 +204,14 @@ describe('VNodeBuilder Edge Cases and Error Handling', () => {
           stype: 'highlight',
           type: 'highlight',
           category: 'inline',
-          target: { sid: 'p1', startOffset: -5, endOffset: 3 } // 음수 범위
+          target: { sid: 'p1', startOffset: -5, endOffset: 3 } // Negative range
         }
       ];
       
       const vnode = builder.build('paragraph', model, { decorators });
       
       expect(vnode).toBeTruthy();
-      // 음수 범위는 0으로 제한되어야 함
+      // Negative range should be limited to 0
       expect(vnode.children).toBeTruthy();
     });
   });
@@ -224,7 +224,7 @@ describe('VNodeBuilder Edge Cases and Error Handling', () => {
       const decorators: DecoratorData[] = [
         {
           sid: 'd1',
-          stype: '', // 빈 stype
+          stype: '', // Empty stype
           type: 'highlight',
           category: 'inline',
           target: { sid: 'p1', startOffset: 0, endOffset: 5 }
@@ -234,7 +234,7 @@ describe('VNodeBuilder Edge Cases and Error Handling', () => {
       const vnode = builder.build('paragraph', model, { decorators });
       
       expect(vnode).toBeTruthy();
-      // 에러 VNode가 생성되어야 함
+      // Error VNode should be created
       const hasErrorDecorator = (vnode.children as any[]).some((child: any) => 
         child.attrs?.['data-decorator-error']
       );
@@ -255,11 +255,11 @@ describe('VNodeBuilder Edge Cases and Error Handling', () => {
         }
       ];
       
-      // target이 없으면 decorator가 적용되지 않아야 함
+      // If target is missing, decorator should not be applied
       const vnode = builder.build('paragraph', model, { decorators });
       
       expect(vnode).toBeTruthy();
-      // decorator가 적용되지 않아야 함 (children이 없거나 텍스트만 있어야 함)
+      // Decorator should not be applied (children should be empty or text only)
       if (vnode.children) {
         const hasDecorator = (vnode.children as any[]).some((child: any) => 
           child.decoratorSid === 'd1'
@@ -323,7 +323,7 @@ describe('VNodeBuilder Edge Cases and Error Handling', () => {
         text: 'Hello',
         marks: [
           { type: 'bold', range: [0, 5] },
-          { type: 'italic', range: [0, 5] } // 동일한 범위
+          { type: 'italic', range: [0, 5] } // Same range
         ]
       };
       
@@ -331,7 +331,7 @@ describe('VNodeBuilder Edge Cases and Error Handling', () => {
       
       expect(vnode).toBeTruthy();
       expect(vnode.children).toBeTruthy();
-      // 두 마크가 모두 적용되어야 함 (중첩 구조)
+      // Both marks should be applied (nested structure)
       const hasBold = (vnode.children as any[]).some((child: any) => 
         child.tag === 'strong'
       );
@@ -346,13 +346,13 @@ describe('VNodeBuilder Edge Cases and Error Handling', () => {
         stype: 'paragraph', 
         sid: 'p1', 
         text: 'Hello',
-        marks: [{ type: 'bold', range: [2, 2] }] // 빈 범위
+        marks: [{ type: 'bold', range: [2, 2] }] // Empty range
       };
       
       const vnode = builder.build('paragraph', model);
       
       expect(vnode).toBeTruthy();
-      // 빈 범위는 무시되거나 빈 마크 VNode가 생성되어야 함
+      // Empty range should be ignored or empty mark VNode should be created
       expect(vnode.children).toBeTruthy();
     });
   });
@@ -369,7 +369,7 @@ describe('VNodeBuilder Edge Cases and Error Handling', () => {
       
       expect(vnode).toBeTruthy();
       expect(vnode.attrs).toBeTruthy();
-      // 기본값이 적용되어야 함
+      // Default value should be applied
       expect(vnode.attrs?.className).toBe('default');
     });
 
@@ -395,17 +395,17 @@ describe('VNodeBuilder Edge Cases and Error Handling', () => {
       
       expect(vnode).toBeTruthy();
       expect(vnode.sid).toBe('custom-sid-123');
-      // sid가 생성되지 않고 모델에서 그대로 가져와야 함
+      // sid should not be generated, should be taken from model as-is
     });
 
     it('should handle missing sid gracefully', () => {
       define('paragraph', element('p', {}, []));
       
-      const model = { stype: 'paragraph' }; // sid 없음
+      const model = { stype: 'paragraph' }; // No sid
       const vnode = builder.build('paragraph', model);
       
       expect(vnode).toBeTruthy();
-      // sid가 없어도 VNode는 생성되어야 함
+      // VNode should be created even without sid
       expect(vnode.tag).toBe('p');
     });
   });

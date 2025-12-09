@@ -1,18 +1,18 @@
-# Selection System 명세
+# Selection System Specification
 
-## 개요
+## Overview
 
-이 문서는 Barocss Editor의 Selection 시스템에 대한 종합적인 명세입니다. Node Selection과 Range Selection의 차이, ComponentManager와의 통신, Selection UI 렌더링, Model ↔ DOM Selection 변환, 그리고 문제 해결 방법을 다룹니다.
+This document provides a comprehensive specification for Barocss Editor's Selection system. It covers the differences between Node Selection and Range Selection, communication with ComponentManager, Selection UI rendering, Model ↔ DOM Selection conversion, and troubleshooting methods.
 
 ---
 
-## 1. Selection 타입 정의
+## 1. Selection Type Definitions
 
 ### 1.1 Range Selection (`type: 'range'`)
 
-**용도**: 텍스트 범위 선택 (offset 기반)
+**Purpose**: Text range selection (offset-based)
 
-**구조**:
+**Structure**:
 ```typescript
 interface ModelRangeSelection {
   type: 'range';
@@ -20,19 +20,19 @@ interface ModelRangeSelection {
   startOffset: number;
   endNodeId: string;
   endOffset: number;
-  collapsed: boolean;        // true면 커서 (startOffset === endOffset)
+  collapsed: boolean;        // true if cursor (startOffset === endOffset)
   direction?: 'forward' | 'backward';
 }
 ```
 
-**사용 케이스**:
-- 텍스트 노드 내의 특정 범위 선택
-- Cross-node 텍스트 선택 (여러 노드에 걸친 선택)
-- Collapsed selection (커서, `startOffset === endOffset`)
+**Use Cases**:
+- Select specific range within text node
+- Cross-node text selection (selection spanning multiple nodes)
+- Collapsed selection (cursor, `startOffset === endOffset`)
 
-**예시**:
+**Examples**:
 ```typescript
-// 텍스트 범위 선택
+// Text range selection
 {
   type: 'range',
   startNodeId: 'text-1',
@@ -42,7 +42,7 @@ interface ModelRangeSelection {
   collapsed: false
 }
 
-// 커서 (collapsed)
+// Cursor (collapsed)
 {
   type: 'range',
   startNodeId: 'text-1',
@@ -55,9 +55,9 @@ interface ModelRangeSelection {
 
 ### 1.2 Node Selection (`type: 'node'`)
 
-**용도**: 노드 전체 선택 (offset 없음)
+**Purpose**: Select entire node (no offset)
 
-**구조**:
+**Structure**:
 ```typescript
 interface ModelNodeSelection {
   type: 'node';
@@ -65,20 +65,20 @@ interface ModelNodeSelection {
 }
 ```
 
-**사용 케이스**:
-- **Atom 노드**: `.text` 필드가 없는 노드 (예: `inline-image`, `inline-video`)
-- **Block 요소**: `paragraph`, `heading` 등 block 그룹 노드
-- **사용자가 노드를 클릭하여 선택한 경우**
+**Use Cases**:
+- **Atom nodes**: Nodes without `.text` field (e.g., `inline-image`, `inline-video`)
+- **Block elements**: Block group nodes like `paragraph`, `heading`
+- **When user clicks node to select**
 
-**예시**:
+**Examples**:
 ```typescript
-// Inline-image 선택
+// Inline-image selection
 {
   type: 'node',
   nodeId: 'image-1'
 }
 
-// Paragraph 선택
+// Paragraph selection
 {
   type: 'node',
   nodeId: 'paragraph-1'
@@ -87,7 +87,7 @@ interface ModelNodeSelection {
 
 ### 1.3 Multi-Node Selection (`type: 'multi-node'`)
 
-**용도**: 여러 노드를 동시에 선택 (Ctrl/Cmd + 클릭)
+**Purpose**: Select multiple nodes simultaneously (Ctrl/Cmd + click)
 
 **구조**:
 ```typescript

@@ -122,7 +122,7 @@ describe('reconcileFiberNode - Text VNode Handling', () => {
       children: [updatedTextVNode]
     };
 
-    // DOM에 초기 구조 생성
+    // Create initial structure in DOM
     const spanEl = document.createElement('span');
     const textNode = document.createTextNode('yellow background');
     spanEl.appendChild(textNode);
@@ -141,26 +141,26 @@ describe('reconcileFiberNode - Text VNode Handling', () => {
       }
     };
 
-    // Updated Fiber 생성
+    // Create Updated Fiber
     const fiber = createFiberTree(container, updatedSpanWrapper, prevVNode, {});
 
-    // reconcileFiberNode 호출
+    // Call reconcileFiberNode
     reconcileFiberNode(fiber, deps, {});
 
-    // text VNode Fiber reconcile
+    // Reconcile text VNode Fiber
     const textVNodeFiber = fiber.child;
     if (textVNodeFiber) {
       reconcileFiberNode(textVNodeFiber, deps, {});
       
-      // 텍스트가 업데이트되었는지 확인
+      // Verify text is updated
       expect(spanEl.textContent).toBe('yellow bㅁackground');
       expect(spanEl.childNodes.length).toBe(1);
-      expect(spanEl.firstChild).toBe(textNode); // 같은 텍스트 노드 재사용
+      expect(spanEl.firstChild).toBe(textNode); // Reuse same text node
     }
   });
 
   it('should handle mark wrapper with span wrapper and text VNode', () => {
-    // VNode 구조:
+    // VNode structure:
     // mark wrapper (span.custom-bg-color)
     //   -> span wrapper (span)
     //       -> text VNode (text: "yellow background")
@@ -183,7 +183,7 @@ describe('reconcileFiberNode - Text VNode Handling', () => {
       children: [spanWrapper]
     };
 
-    // DOM에 초기 구조 생성
+    // Create initial structure in DOM
     const markEl = document.createElement('span');
     markEl.className = 'custom-bg-color';
     
@@ -213,23 +213,23 @@ describe('reconcileFiberNode - Text VNode Handling', () => {
       }
     };
 
-    // Fiber 생성
+    // Create Fiber
     const fiber = createFiberTree(container, markWrapper, prevVNode, {});
 
-    // reconcileFiberNode 호출 (mark wrapper)
+    // Call reconcileFiberNode (mark wrapper)
     reconcileFiberNode(fiber, deps, {});
 
-    // span wrapper Fiber reconcile
+    // Reconcile span wrapper Fiber
     const spanWrapperFiber = fiber.child;
     if (spanWrapperFiber) {
       reconcileFiberNode(spanWrapperFiber, deps, {});
       
-      // text VNode Fiber reconcile
+      // Reconcile text VNode Fiber
       const textVNodeFiber = spanWrapperFiber.child;
       if (textVNodeFiber) {
         reconcileFiberNode(textVNodeFiber, deps, {});
         
-        // 텍스트가 올바르게 처리되었는지 확인
+        // Verify text is processed correctly
         expect(spanEl.textContent).toBe('yellow background');
         expect(spanEl.childNodes.length).toBe(1);
         expect(spanEl.firstChild).toBe(textNode);
@@ -277,7 +277,7 @@ describe('reconcileFiberNode - Text VNode Handling', () => {
       children: [updatedSpanWrapper]
     };
 
-    // DOM에 초기 구조 생성
+    // Create initial structure in DOM
     const markEl = document.createElement('span');
     markEl.className = 'custom-bg-color';
     
@@ -307,26 +307,26 @@ describe('reconcileFiberNode - Text VNode Handling', () => {
       }
     };
 
-    // Updated Fiber 생성
+    // Create Updated Fiber
     const fiber = createFiberTree(container, updatedMarkWrapper, prevVNode, {});
 
-    // reconcileFiberNode 호출 (mark wrapper)
+    // Call reconcileFiberNode (mark wrapper)
     reconcileFiberNode(fiber, deps, {});
 
-    // span wrapper Fiber reconcile
+    // Reconcile span wrapper Fiber
     const spanWrapperFiber = fiber.child;
     if (spanWrapperFiber) {
       reconcileFiberNode(spanWrapperFiber, deps, {});
       
-      // text VNode Fiber reconcile
+      // Reconcile text VNode Fiber
       const textVNodeFiber = spanWrapperFiber.child;
       if (textVNodeFiber) {
         reconcileFiberNode(textVNodeFiber, deps, {});
         
-        // 텍스트가 업데이트되었는지 확인 (중복 없이)
+        // Verify text is updated (without duplication)
         expect(spanEl.textContent).toBe('yellow bㅁackground');
         expect(spanEl.childNodes.length).toBe(1);
-        expect(spanEl.firstChild).toBe(textNode); // 같은 텍스트 노드 재사용
+        expect(spanEl.firstChild).toBe(textNode); // Reuse same text node
       }
     }
   });

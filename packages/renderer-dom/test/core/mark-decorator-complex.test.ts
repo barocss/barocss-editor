@@ -20,18 +20,18 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
 
-    // 기본 템플릿 정의
+    // Define base templates
     define('document', element('div', { className: 'document' }, [slot('content')]));
     define('paragraph', element('p', { className: 'paragraph' }, [slot('content')]));
     define('inline-text', element('span', { className: 'text' }, [data('text')]));
     
-    // Mark 정의
+    // Define Marks
     defineMark('bold', element('strong', { className: 'mark-bold' }, [data('text')]));
     defineMark('italic', element('em', { className: 'mark-italic' }, [data('text')]));
     defineMark('link', element('a', { className: 'mark-link', href: '#' }, [data('text')]));
     defineMark('code', element('code', { className: 'mark-code' }, [data('text')]));
     
-    // Decorator 정의
+    // Define Decorators
     defineDecorator('chip', element('span', {
       className: 'chip',
       style: {
@@ -106,7 +106,7 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
 
       renderer.render(container, model, decorators);
 
-      // expectHTML로 전체 DOM 구조 검증
+      // Verify entire DOM structure with expectHTML
       expectHTML(
         container,
         `<p class="paragraph" data-bc-sid="p-1">
@@ -173,7 +173,7 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
 
       renderer.render(container, model, decorators);
 
-      // expectHTML로 전체 DOM 구조 검증 (실제 DOM 구조에 맞게)
+      // Verify entire DOM structure with expectHTML (matching actual DOM structure)
       expectHTML(
         container,
         `<p class="paragraph" data-bc-sid="p-1">
@@ -217,7 +217,7 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
           target: {
             sid: 'text-1',
             startOffset: 5,
-            endOffset: 9 // "text" 부분
+            endOffset: 9 // "text" part
           },
           position: 'before',
           data: {}
@@ -226,7 +226,7 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
 
       renderer.render(container, model, decorators);
 
-      // expectHTML로 전체 DOM 구조 검증 (실제 DOM 구조에 맞게)
+      // Verify entire DOM structure with expectHTML (matching actual DOM structure)
       expectHTML(
         container,
         `<p class="paragraph" data-bc-sid="p-1">
@@ -297,7 +297,7 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
 
       renderer.render(container, model, decorators);
 
-      // expectHTML로 전체 DOM 구조 검증 (실제 DOM 구조에 맞게)
+      // Verify entire DOM structure with expectHTML (matching actual DOM structure)
       expectHTML(
         container,
         `<p class="paragraph" data-bc-sid="p-1">
@@ -332,7 +332,7 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
               },
               {
                 type: 'italic',
-                range: [0, 4] // "Bold"와 겹침
+                range: [0, 4] // Overlaps with "Bold"
               }
             ]
           }
@@ -341,7 +341,7 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
 
       renderer.render(container, model);
 
-      // expectHTML로 전체 DOM 구조 검증
+      // Verify entire DOM structure with expectHTML
       expectHTML(
         container,
         `<p class="paragraph" data-bc-sid="p-1">
@@ -372,11 +372,11 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
               },
               {
                 type: 'italic',
-                range: [0, 4] // "Bold"와 겹침
+                range: [0, 4] // Overlaps with "Bold"
               },
               {
                 type: 'link',
-                range: [0, 4] // "Bold"와 겹침
+                range: [0, 4] // Overlaps with "Bold"
               }
             ]
           }
@@ -385,7 +385,7 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
 
       renderer.render(container, model);
 
-      // expectHTML로 전체 DOM 구조 검증
+      // Verify entire DOM structure with expectHTML
       expectHTML(
         container,
         `<p class="paragraph" data-bc-sid="p-1">
@@ -431,7 +431,7 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
 
       renderer.render(container, model);
 
-      // expectHTML로 전체 DOM 구조 검증
+      // Verify entire DOM structure with expectHTML
       expectHTML(
         container,
         `<p class="paragraph" data-bc-sid="p-1">
@@ -463,7 +463,7 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
               },
               {
                 type: 'italic',
-                range: [0, 4] // "Bold"와 겹침
+                range: [0, 4] // Overlaps with "Bold"
               }
             ]
           }
@@ -487,7 +487,7 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
 
       renderer.render(container, model, decorators);
 
-      // expectHTML로 전체 DOM 구조 검증
+      // Verify entire DOM structure with expectHTML
       expectHTML(
         container,
         `<p class="paragraph" data-bc-sid="p-1">
@@ -519,7 +519,7 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
               },
               {
                 type: 'italic',
-                range: [8, 12] // "bold"와 겹침
+                range: [8, 12] // Overlaps with "bold"
               },
               {
                 type: 'link',
@@ -536,7 +536,7 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
 
       renderer.render(container, model);
 
-      // expectHTML로 전체 DOM 구조 검증 (실제 DOM 구조에 맞게)
+      // Verify entire DOM structure with expectHTML (matching actual DOM structure)
       expectHTML(
         container,
         `<p class="paragraph" data-bc-sid="p-1">
@@ -575,7 +575,7 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
               },
               {
                 type: 'italic',
-                range: [0, 10] // "Hello Worl" (전체를 거의 덮음)
+                range: [0, 10] // "Hello Worl" (covers almost entire text)
               }
             ]
           }
@@ -584,9 +584,9 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
 
       renderer.render(container, model);
 
-      // expectHTML로 전체 DOM 구조 검증 (실제 DOM 구조에 맞게)
-      // italic이 0-10을 덮고, 그 안에 bold가 0-2와 5-7에 있음
-      // 실제로는 bold가 italic보다 바깥에 있을 수 있음
+      // Verify entire DOM structure with expectHTML (matching actual DOM structure)
+      // italic covers 0-10, with bold at 0-2 and 5-7 inside it
+      // Actually, bold may be outside italic
       expectHTML(
         container,
         `<p class="paragraph" data-bc-sid="p-1">
@@ -630,7 +630,7 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
               },
               {
                 type: 'italic',
-                range: [0, 15] // "This is a test " (거의 전체)
+                range: [0, 15] // "This is a test " (almost entire)
               }
             ]
           }
@@ -639,7 +639,7 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
 
       renderer.render(container, model);
 
-      // expectHTML로 전체 DOM 구조 검증 (실제 DOM 구조에 맞게)
+      // Verify entire DOM structure with expectHTML (matching actual DOM structure)
       expectHTML(
         container,
         `<p class="paragraph" data-bc-sid="p-1">
@@ -685,15 +685,15 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
               },
               {
                 type: 'italic',
-                range: [12, 16] // "link" (bold와 겹침)
+                range: [12, 16] // "link" (overlaps with bold)
               },
               {
                 type: 'link',
-                range: [0, 4] // "Bold" (bold와 겹침)
+                range: [0, 4] // "Bold" (overlaps with bold)
               },
               {
                 type: 'link',
-                range: [12, 16] // "link" (bold, italic과 겹침)
+                range: [12, 16] // "link" (overlaps with bold, italic)
               }
             ]
           }
@@ -702,8 +702,8 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
 
       renderer.render(container, model);
 
-      // expectHTML로 전체 DOM 구조 검증 (실제 DOM 구조에 맞게)
-      // 복잡한 중첩 구조
+      // Verify entire DOM structure with expectHTML (matching actual DOM structure)
+      // Complex nested structure
       expectHTML(
         container,
         `<p class="paragraph" data-bc-sid="p-1">
@@ -780,7 +780,7 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
 
       renderer.render(container, model, decorators);
 
-      // expectHTML로 전체 DOM 구조 검증 (실제 DOM 구조에 맞게)
+      // Verify entire DOM structure with expectHTML (matching actual DOM structure)
       expectHTML(
         container,
         `<p class="paragraph" data-bc-sid="p-1">
@@ -892,7 +892,7 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
 
       renderer.render(container, model, decorators);
 
-      // expectHTML로 전체 DOM 구조 검증 (실제 DOM 구조에 맞게)
+      // Verify entire DOM structure with expectHTML (matching actual DOM structure)
       expectHTML(
         container,
         `<div class="document" data-bc-sid="doc-1">
@@ -988,7 +988,7 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
 
       renderer.render(container, model, decorators);
 
-      // expectHTML로 전체 DOM 구조 검증 (실제 DOM 구조에 맞게)
+      // Verify entire DOM structure with expectHTML (matching actual DOM structure)
       expectHTML(
         container,
         `<div class="document" data-bc-sid="doc-1">
@@ -1028,7 +1028,7 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
         ]
       };
 
-      // 첫 번째 render: decorator 없음
+      // First render: no decorator
       renderer.render(container, model);
       expectHTML(
         container,
@@ -1041,7 +1041,7 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
         expect
       );
 
-      // 두 번째 render: decorator 추가
+      // Second render: add decorator
       const decorators: Decorator[] = [
         {
           sid: 'chip-1',
@@ -1069,7 +1069,7 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
         expect
       );
 
-      // 세 번째 render: decorator 제거
+      // Third render: remove decorator
       renderer.render(container, model);
       expectHTML(
         container,

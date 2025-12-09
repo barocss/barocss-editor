@@ -1,6 +1,6 @@
 # @barocss/renderer-dom
 
-DOM 렌더러 패키지. 모델 데이터를 DOM으로 변환하고, `sid` 기반으로 안정적인 DOM 업데이트를 제공합니다.
+DOM renderer package. Converts model data to DOM and provides stable DOM updates based on `sid`.
 
 ## Architecture
 
@@ -34,22 +34,22 @@ graph TB
     style L fill:#fff9c4
 ```
 
-## 설치
+## Installation
 
 ```bash
 pnpm add @barocss/renderer-dom
 ```
 
-## 기본 사용법
+## Basic Usage
 
 ```typescript
 import { DOMRenderer } from '@barocss/renderer-dom';
 import { define, element, slot } from '@barocss/dsl';
 
-// 템플릿 정의
+// Define template
 define('paragraph', element('p', { className: 'para' }, [slot('content')]));
 
-// 렌더러 생성 및 렌더링
+// Create renderer and render
 const renderer = new DOMRenderer();
 const container = document.getElementById('app');
 
@@ -64,30 +64,30 @@ const model = {
 renderer.render(container, model);
 ```
 
-## 아키텍처 개요
+## Architecture Overview
 
-renderer-dom은 다음과 같은 흐름으로 동작합니다:
+renderer-dom operates in the following flow:
 
-1. **모델 → VNode**: `VNodeBuilder`가 모델을 순수한 VNode 트리로 변환
-2. **VNode → DOM**: `Reconciler`가 이전 VNode와 새 VNode를 비교하여 최소 변경만 DOM에 적용
-3. **상태 관리**: `ComponentManager`가 `sid` 기반으로 컴포넌트 인스턴스와 상태를 전역 관리
+1. **Model → VNode**: `VNodeBuilder` converts model into a pure VNode tree
+2. **VNode → DOM**: `Reconciler` compares previous VNode with new VNode and applies only minimal changes to DOM
+3. **State Management**: `ComponentManager` globally manages component instances and state based on `sid`
 
-핵심 원칙:
-- VNode는 순수한 표현 (DOM 표식 포함 안 함)
-- `sid` 기반 DOM 안정성 (React의 `key`와 유사)
-- 전체 문서 재빌드 + prev/next 비교로 최소 변경 보장
+Core Principles:
+- VNode is a pure representation (does not include DOM markers)
+- `sid`-based DOM stability (similar to React's `key`)
+- Full document rebuild + prev/next comparison ensures minimal changes
 
-## DSL 규칙
+## DSL Rules
 
-### 템플릿 정의
+### Template Definition
 
-`define()`으로 컴포넌트 템플릿을 등록합니다.
+Register component templates with `define()`.
 
 ```typescript
-// 엘리먼트 템플릿
+// Element template
 define('heading', element('h1', { className: 'title' }, [slot('content')]));
 
-// 함수 컴포넌트 (시그니처: (props, model, context) => ElementTemplate)
+// Function component (signature: (props, model, context) => ElementTemplate)
 define('counter', (props, model, ctx) => {
   const count = ctx.instance?.get('count') ?? 0;
   return element('div', {}, [
@@ -96,39 +96,39 @@ define('counter', (props, model, ctx) => {
   ]);
 });
 
-// 제네릭 타입 지원
+// Generic type support
 define<MyProps, MyModel, MyContext>('typed-component', (props, model, ctx) => {
-  // 타입 안전성 보장
+  // Type safety guaranteed
 });
 ```
 
-**중요**: 
-- 템플릿 함수는 항상 `ElementTemplate`을 반환해야 합니다
-- `props`와 `model`은 절대 혼합하지 않습니다
-- `context.model`은 원본 모델을 가리킵니다
+**Important**: 
+- Template functions must always return `ElementTemplate`
+- Never mix `props` and `model`
+- `context.model` refers to the original model
 
 ### `element(tag, attrs?, children?)`
 
-엘리먼트 템플릿을 생성합니다.
+Creates an element template.
 
 ```typescript
-// 정적 속성
+// Static attributes
 element('div', { className: 'container', id: 'app' }, [])
 
-// 동적 속성 (함수)
+// Dynamic attributes (function)
 element('div', { 
   className: (model) => model.active ? 'active' : 'inactive' 
 }, [])
 
-// 네임스페이스는 자동 처리 (SVG/MathML)
+// Namespace is automatically handled (SVG/MathML)
 element('svg', { width: 100, height: 100 }, [
   element('circle', { cx: 50, cy: 50, r: 40 })
 ])
 ```
 
-### `slot('content')` - 자식 확장의 유일한 경로
+### `slot('content')` - The Only Path for Child Expansion
 
-자식 모델을 렌더링하려면 **반드시** `slot('content')`를 사용합니다.
+To render child models, you **must** use `slot('content')`.
 
 ```typescript
 define('list', element('ul', {}, [slot('content')]));
@@ -143,9 +143,9 @@ const model = {
 };
 ```
 
-**주의**: `data('content')`는 배열 원본 접근만 제공하며, children 확장에는 사용하지 않습니다.
+**Note**: `data('content')` only provides access to the array original and should not be used for children expansion.
 
-### `when()` - 조건부 렌더링
+### `when()` - Conditional rendering
 
 ```typescript
 import { when } from '@barocss/dsl';
@@ -155,13 +155,13 @@ define('conditional', (props, model, ctx) => {
     when(
       () => model.show,
       element('span', {}, ['Visible']),
-      element('span', {}, ['Hidden']) // elseTemplate (선택)
+      element('span', {}, ['Hidden']) // elseTemplate (optional)
     )
   ]);
 });
 ```
 
-### `each()` - 반복 렌더링
+### `each()` - Iterative rendering
 
 ```typescript
 import { each } from '@barocss/dsl';
@@ -171,42 +171,42 @@ define('list', (props, model, ctx) => {
     each(
       () => model.items,
       (item, index) => element('li', {}, [item.text]),
-      (item) => item.id // key 함수 (선택, sid 대체용)
+      (item) => item.id // key function (optional, as sid replacement)
     )
   ]);
 });
 ```
 
-## VNode 구조
+## VNode Structure
 
-VNode는 DOM의 순수한 표현입니다. DOM 표식(`data-bc-*`, `data-decorator-*`)은 VNode에 포함되지 않습니다.
+VNode is a pure representation of DOM. DOM markers (`data-bc-*`, `data-decorator-*`) are not included in VNode.
 
 ```typescript
 interface VNode {
-  // 기본 필드
+  // Basic fields
   tag?: string;
   text?: string | number;
   attrs?: Record<string, any>;
   style?: Record<string, any>;
   children?: Array<string | number | VNode>;
   
-  // 컴포넌트 식별자
+  // Component identifiers
   sid?: string;
   stype?: string;
   props?: Record<string, any>;
   model?: Record<string, any>;
   
-  // 데코레이터 참조
+  // Decorator references
   decorators?: unknown[];
   
-  // 데코레이터 VNode 전용
+  // Decorator VNode only
   decoratorSid?: string;
   decoratorStype?: string;
   decoratorCategory?: 'inline' | 'block' | 'layer' | string;
   decoratorPosition?: 'before' | 'after' | 'inside' | string;
   decoratorModel?: Record<string, any>;
   
-  // 포털 VNode 전용
+  // Portal VNode only
   portal?: { 
     target: HTMLElement | (() => HTMLElement) | string; 
     template: any; 
@@ -215,59 +215,59 @@ interface VNode {
 }
 ```
 
-## 데이터 속성(data-*) 처리
+## Handling data-* attributes
 
-- `data-bc-sid`, `data-bc-stype` 등 모든 `data-*` 표식은 **Reconciler가 DOM에서만** 부착/갱신합니다
-- VNode에는 `sid`, `stype` 등 식별 정보만 최상위로 가집니다
-- `data-component-*` 속성은 사용하지 않습니다 (제거됨)
+- All `data-*` markers like `data-bc-sid`, `data-bc-stype` are **attached/updated by Reconciler only in DOM**
+- Only identifier information like `sid`, `stype` is raised to the top level in VNode
+- `data-component-*` attributes are not used (removed)
 
-## Reconciler 동작 원리
+## Reconciler Behavior
 
-### prevVNode vs nextVNode 비교
+### prevVNode vs nextVNode comparison
 
-Reconciler는 이전 VNode와 새 VNode를 비교하여 최소 변경만 DOM에 적용합니다.
+Reconciler compares previous VNode with new VNode and applies only minimal changes to DOM.
 
 ```typescript
-// 첫 렌더
+// First render
 renderer.render(container, { sid: 'p1', stype: 'paragraph', text: 'Hello' });
-// → prevVNodeTree에 저장
+// → stored in prevVNodeTree
 
-// 두 번째 렌더
+// Second render
 renderer.render(container, { sid: 'p1', stype: 'paragraph', text: 'World' });
-// → prevVNode와 nextVNode 비교 → 텍스트만 업데이트
+// → compare prevVNode with nextVNode → only text updated
 ```
 
-### 루트 호스트 처리
+### Root Host Processing
 
-- `model.sid`로 container 직하에서 host를 찾거나 생성
-- 태그가 다르면 교체
-- `data-bc-sid`, `data-bc-stype`를 DOM에만 설정
+- Find or create host directly under container using `model.sid`
+- Replace if tag differs
+- Set `data-bc-sid`, `data-bc-stype` only in DOM
 
-### 속성/스타일 업데이트
+### Attribute/Style Updates
 
-- `updateAttributes(element, prevAttrs, nextAttrs)`: 이전 속성과 비교하여 추가/수정/제거
-- `updateStyles(element, prevStyles, nextStyles)`: 이전 스타일과 비교하여 추가/수정/제거
+- `updateAttributes(element, prevAttrs, nextAttrs)`: Compare with previous attributes to add/modify/remove
+- `updateStyles(element, prevStyles, nextStyles)`: Compare with previous styles to add/modify/remove
 
-**제거 처리**: 이전에 있던 속성/스타일이 새 VNode에 없으면 DOM에서 제거됩니다.
+**Removal Handling**: Attributes/styles that existed previously but are not in the new VNode are removed from DOM.
 
-### 자식 재조정
+### Child Reconciliation
 
-- `slot('content')`로 확장된 children을 재귀적으로 reconcile
-- 매칭 우선순위: `sid`(컴포넌트) / `decoratorSid`(데코레이터) → 동일 DOM 재사용
-- 텍스트/엘리먼트 혼합에서도 최소 변경 목표
-- 깊은 중첩 구조에서 부모 경로가 크게 변경될 때 DOM 요소가 교체될 수 있으나, `sid` 기준 인스턴스는 보존됨
+- Recursively reconcile children expanded via `slot('content')`
+- Matching priority: `sid` (component) / `decoratorSid` (decorator) → reuse same DOM
+- Minimal change goal even in text/element mixtures
+- In deeply nested structures, DOM elements may be replaced when parent path changes significantly, but instances based on `sid` are preserved
 
-### 텍스트 노드 처리
+### Text Node Processing
 
-텍스트 노드는 부모의 다른 엘리먼트 자식에 영향을 주지 않도록 별도 갱신합니다.
+Text nodes are updated separately to avoid affecting other element children of the parent.
 
-### 삭제/정리
+### Deletion/Cleanup
 
-방문되지 않은 호스트/포털 호스트는 렌더 종료 시 정리됩니다.
+Unvisited hosts/portal hosts are cleaned up when rendering ends.
 
-## 네임스페이스 처리
+## Namespace handling
 
-SVG, MathML 등 네임스페이스가 필요한 요소는 자동으로 처리됩니다.
+Elements requiring namespaces like SVG, MathML are automatically handled.
 
 ```typescript
 define('svg-icon', element('svg', { 
@@ -279,13 +279,13 @@ define('svg-icon', element('svg', {
 ]));
 ```
 
-특수 속성(`xlink:href` 등)과 스타일 제거/갱신도 포함됩니다.
+Special attributes (like `xlink:href`) and style removal/updates are also included.
 
-## 마크(Mark)와 데코레이터(Decorator)
+## Marks and Decorators
 
-### 마크 정의
+### Mark Definition
 
-텍스트에 스타일을 적용합니다.
+Applies styles to text.
 
 ```typescript
 import { defineMark } from '@barocss/dsl';
@@ -300,9 +300,9 @@ defineMark('link', element('a', {
 }, [data('text')]));
 ```
 
-### 데코레이터 정의
+### Decorator Definition
 
-UI 오버레이를 추가합니다.
+Adds UI overlays.
 
 ```typescript
 import { defineDecorator } from '@barocss/dsl';
@@ -312,10 +312,10 @@ defineDecorator('comment', element('div', {
 }, []));
 ```
 
-### 사용 예시
+### Usage example
 
 ```typescript
-// 모델에서 마크 사용
+// Using marks in model
 const model = {
   sid: 'p1',
   stype: 'paragraph',
@@ -332,7 +332,7 @@ const model = {
   ]
 };
 
-// 데코레이터 사용
+// Using decorators
 const decorators = [
   {
     sid: 'dec1',
@@ -346,34 +346,34 @@ const decorators = [
 renderer.render(container, model, decorators);
 ```
 
-### 데코레이터 규칙
+### Decorator Rules
 
-- VNode 최상위에 `decoratorSid`, `decoratorStype`, `decoratorCategory`, `decoratorPosition`, `decoratorModel` 보관
-- DOM에서는 대응 `data-decorator-*` 속성을 Reconciler가 부착/갱신
-- **블록/레이어 데코레이터는 컴포넌트 VNode에만 적용** (마크 VNode에 적용 금지)
-- 인라인 마크와 데코레이터는 동시에 처리 가능하며, 겹침/분할 케이스를 안전하게 다룸
-- `decoratorPosition`을 기준으로 삽입 위치 결정 (`before`/`after`/`inside`)
+- Store `decoratorSid`, `decoratorStype`, `decoratorCategory`, `decoratorPosition`, `decoratorModel` at VNode top level
+- In DOM, Reconciler attaches/updates corresponding `data-decorator-*` attributes
+- **Block/layer decorators are applied only to component VNodes** (prohibited on mark VNodes)
+- Inline marks and decorators can be processed simultaneously, safely handling overlap/split cases
+- Determine insertion position based on `decoratorPosition` (`before`/`after`/`inside`)
 
-## 컴포넌트 상태 관리
+## Component state management
 
-### 상태 클래스 정의
+### State Class Definition
 
 ```typescript
 import { defineState } from '@barocss/renderer-dom';
 import { BaseComponentState } from '@barocss/renderer-dom';
 
 class CounterState extends BaseComponentState {
-  // 선택: 초기 상태 설정
+  // Optional: Set initial state
   initState(initial: any) {
     this.data = { count: initial?.count ?? 0 };
   }
   
-  // 선택: 스냅샷 생성 (미제공 시 얕은 복사 사용)
+  // Optional: Create snapshot (uses shallow copy if not provided)
   snapshot() {
     return { ...this.data };
   }
   
-  // 커스텀 메서드
+  // Custom methods
   increment() {
     this.set({ count: this.get('count') + 1 });
   }
@@ -382,7 +382,7 @@ class CounterState extends BaseComponentState {
 defineState('counter', CounterState);
 ```
 
-### 상태 사용
+### Using State
 
 ```typescript
 define('counter', (props, model, ctx) => {
@@ -396,18 +396,18 @@ define('counter', (props, model, ctx) => {
 });
 ```
 
-### 상태 관리 원칙
+### State Management Principles
 
-- `ComponentManager`가 `sid` 기반으로 `BaseComponentState` 인스턴스를 전역 관리
-- `context.instance`로 상태 접근 가능
-- `set(patch)` 호출 시 `ComponentManager.emit('changeState', sid, ...)` 발행
-- `BaseComponentState.mount(vnode, element, context)`/`unmount()` 훅이 라이프사이클에 통합 호출
-- **DOMRenderer는 `changeState` 이벤트를 구독하고 `requestAnimationFrame`으로 스로틀된 전체 re-render를 트리거**
-- **부분 업데이트 API는 제공하지 않음** (`updateBySid` 제거). 항상 전체 문서 재빌드 + prev/next 비교
+- `ComponentManager` globally manages `BaseComponentState` instances based on `sid`
+- State access via `context.instance`
+- `set(patch)` call emits `ComponentManager.emit('changeState', sid, ...)`
+- `BaseComponentState.mount(vnode, element, context)`/`unmount()` hooks are integrated into lifecycle
+- **DOMRenderer subscribes to `changeState` event and triggers throttled full re-render via `requestAnimationFrame`**
+- **Partial update API is not provided** (`updateBySid` removed). Always full document rebuild + prev/next comparison
 
-## 포털(Portal)
+## Portal
 
-다른 DOM 컨테이너에 렌더링할 수 있습니다.
+You can render to a different DOM container.
 
 ```typescript
 import { portal } from '@barocss/dsl';
@@ -415,87 +415,87 @@ import { portal } from '@barocss/dsl';
 define('modal', (props, model, ctx) => {
   return element('div', {}, [
     portal(
-      () => document.body, // 타겟: HTMLElement | (() => HTMLElement) | string
+      () => document.body, // target: HTMLElement | (() => HTMLElement) | string
       element('div', { className: 'modal-overlay' }, [model.content]),
-      'modal-root' // portalId (선택)
+      'modal-root' // portalId (optional)
     )
   ]);
 });
 ```
 
-### 포털 동작 원리
+### Portal Operation Principle
 
-- `portalId`로 대상 컨테이너 내 호스트를 식별/재사용
-- 렌더 사이클에서 방문되지 않은 포털은 정리됨
-- 타겟이 변경되면 이전 타겟의 호스트를 정리하고 새 타겟으로 이관
-- 동일 `portalId`는 동일 DOM 호스트 재사용을 보장
+- Identify/reuse host within target container using `portalId`
+- Portals not visited in render cycle are cleaned up
+- When target changes, clean up host from previous target and migrate to new target
+- Same `portalId` guarantees reuse of same DOM host
 
-## 성능 및 안정성
+## Performance and Stability
 
-### DOM 안정성
+### DOM Stability
 
-- `sid`/`decoratorSid`는 React의 `key`처럼 DOM 재사용의 기준
-- 동일 `sid`를 가진 컴포넌트는 DOM 요소와 상태 인스턴스가 재사용됨
+- `sid`/`decoratorSid` serve as criteria for DOM reuse, similar to React's `key`
+- Components with the same `sid` reuse DOM elements and state instances
 
-### 전체 문서 재조정
+### Full Document Reconciliation
 
-- 전체 문서 리컨실도 허용됨
-- VNode 생성은 순수/빠르게 유지
-- 불필요한 DOM 읽기 금지 (비교는 prevVNode vs nextVNode로 수행)
+- Full document reconciliation is allowed
+- VNode creation remains pure/fast
+- Unnecessary DOM reads are prohibited (comparison performed via prevVNode vs nextVNode)
 
-### 성능 기준
+### Performance Benchmarks
 
-- 1000 노드: < 3초
-- 5000 노드: < 60초 (느린 CI 환경 기준)
-- 블록 데코레이터 혼합 1000 노드: < 30초
-- 반복 50회 전체 렌더 시 메모리 증가: 5MB 미만
+- 1000 nodes: < 3 seconds
+- 5000 nodes: < 60 seconds (slow CI environment baseline)
+- 1000 nodes with block decorators: < 30 seconds
+- Memory increase for 50 full render iterations: < 5MB
 
-## API 레퍼런스
+## API Reference
 
 ### `DOMRenderer`
 
 #### `constructor(registry?: RendererRegistry, options?: DOMRendererOptions)`
 
-렌더러 인스턴스를 생성합니다.
+Creates a renderer instance.
 
 #### `render(container: HTMLElement, model: ModelData, decorators?: DecoratorData[], runtime?: Record<string, any>): void`
 
-모델을 DOM으로 렌더링합니다.
+Renders model to DOM.
 
-**파라미터:**
-- `container`: 렌더링 대상 DOM 요소
-- `model`: 루트 모델 데이터 (반드시 `sid`, `stype` 포함)
-- `decorators`: 데코레이터 배열 (선택)
-- `runtime`: 런타임 컨텍스트 (선택)
+**Parameters:**
+- `container`: Target DOM element for rendering
+- `model`: Root model data (must include `sid`, `stype`)
+- `decorators`: Decorator array (optional)
+- `runtime`: Runtime context (optional)
 
 ### `defineState(stype: string, StateClass: new (...args: any[]) => BaseComponentState): void`
 
-상태 클래스를 등록합니다.
+Registers a state class.
 
-## 오류 처리
+## Error Handling
 
-- **`stype` 누락 모델**: 렌더 시작 시 즉시 에러를 던짐. 렌더는 중단됨
-- **`sid` 누락 모델**: 스킵하고 경고를 기록. 기존 DOM은 변경되지 않음
-- **미등록 `stype`**: 에러를 던짐
-- **잘못된 데코레이터 범위/포지션**: 해당 데코레이터는 무시 (크래시하지 않음)
-- **포털 타겟 무효**: 해당 포털은 스킵하고 경고를 기록
+- **Model missing `stype`**: Throws error immediately when rendering starts. Rendering is aborted
+- **Model missing `sid`**: Skips and logs warning. Existing DOM is not changed
+- **Unregistered `stype`**: Throws error
+- **Invalid decorator range/position**: That decorator is ignored (does not crash)
+- **Invalid portal target**: That portal is skipped and warning is logged
 
-## 주의사항
+## Notes
 
-1. **`stype` 필수**: 모델에 `stype`이 없으면 에러가 발생합니다
-2. **`sid` 권장**: `sid`가 없으면 경고가 발생하고 DOM이 업데이트되지 않을 수 있습니다
-3. **`slot('content')` 사용**: 자식 렌더링에는 반드시 `slot('content')`를 사용하세요
-4. **상태 변경은 자동 재렌더**: `set()` 호출 시 자동으로 전체 문서가 재렌더링됩니다
-5. **포털 정리**: 포털은 렌더 사이클에서 방문되지 않으면 자동으로 정리됩니다
-6. **VNode 순수성**: VNode에 DOM 표식(`data-*`)을 주입하지 마세요
-7. **래퍼 금지**: 래퍼(wrapper) 도입은 금지됩니다
+1. **`stype` required**: Error occurs if model does not have `stype`
+2. **`sid` recommended**: Warning occurs and DOM may not update if `sid` is missing
+3. **Use `slot('content')`**: Always use `slot('content')` for child rendering
+4. **State changes trigger auto re-render**: Full document is automatically re-rendered when `set()` is called
+5. **Portal cleanup**: Portals are automatically cleaned up if not visited in render cycle
+6. **VNode purity**: Do not inject DOM markers (`data-*`) into VNode
+7. **Wrapper prohibition**: Introduction of wrappers is prohibited
 
-## 테스트/검증 원칙
+## Testing/Validation Principles
 
-- DOM 비교는 `normalizeHTML(container.firstElementChild)` 기반 정규화 문자열로 검증
-- prev/next 비교로 속성/스타일 제거가 반영되어야 함
-- 포털은 `portalId`로 호스트를 재사용하고, 방문되지 않으면 정리됨
+- DOM comparison is validated using normalized strings based on `normalizeHTML(container.firstElementChild)`
+- Attribute/style removal must be reflected via prev/next comparison
+- Portals reuse hosts via `portalId` and are cleaned up if not visited
 
-## 라이선스
+## License
 
 MIT

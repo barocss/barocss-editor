@@ -1,40 +1,40 @@
 # Barocss Architecture Documentation
 
-Barocss의 아키텍처를 이해하기 위한 문서 모음입니다.
+A collection of documents for understanding Barocss architecture.
 
-## 📚 핵심 문서
+## 📚 Core Documents
 
-### 시작하기
-1. **[architecture-summary.md](./architecture-summary.md)** - 빠른 참조용 요약
-2. **[architecture-design-principles.md](./architecture-design-principles.md)** - 핵심 설계 원칙 ⭐
-3. **[architecture-practical-examples.md](./architecture-practical-examples.md)** - 실전 예제
+### Getting Started
+1. **[architecture-summary.md](./architecture-summary.md)** - Quick reference summary
+2. **[architecture-design-principles.md](./architecture-design-principles.md)** - Core design principles ⭐
+3. **[architecture-practical-examples.md](./architecture-practical-examples.md)** - Practical examples
 
-### 상세 설명
-4. **[architecture-reconcile-algorithm.md](./architecture-reconcile-algorithm.md)** - Reconcile 알고리즘 상세 ⭐
-5. **[architecture-reconcile-overview.md](./architecture-reconcile-overview.md)** - 전체 아키텍처 개요
-6. **[architecture-flow-diagram.md](./architecture-flow-diagram.md)** - 플로우 다이어그램
-7. **[architecture-mathematical-model.md](./architecture-mathematical-model.md)** - 수학적 모델
+### Detailed Explanations
+4. **[architecture-reconcile-algorithm.md](./architecture-reconcile-algorithm.md)** - Reconcile algorithm details ⭐
+5. **[architecture-reconcile-overview.md](./architecture-reconcile-overview.md)** - Overall architecture overview
+6. **[architecture-flow-diagram.md](./architecture-flow-diagram.md)** - Flow diagram
+7. **[architecture-mathematical-model.md](./architecture-mathematical-model.md)** - Mathematical model
 
-## 🎯 빠른 시작
+## 🎯 Quick Start
 
-Barocss는 다음 구조로 동작합니다:
+Barocss operates with the following structure:
 
 ```
 DSL → VNode → Reconcile → DOM
 ```
 
-### 핵심 개념
-- **DSL**: 함수형 템플릿 정의 (`element`, `data`, `when`, `component`)
-- **VNodeBuilder**: 템플릿 → VNode 변환 (순수 함수)
-- **DOMReconcile**: VNode 차이 → DOM 변경 (최소한의 DOM 조작)
-- **VNode는 reconcile에서 동적으로 판단되지 않음** ⭐ (핵심 설계 원칙)
+### Core Concepts
+- **DSL**: Functional template definition (`element`, `data`, `when`, `component`)
+- **VNodeBuilder**: Template → VNode conversion (pure function)
+- **DOMReconcile**: VNode diff → DOM changes (minimal DOM manipulation)
+- **VNode is not dynamically determined in reconcile** ⭐ (core design principle)
 
-### 예제
+### Example
 ```typescript
 import { define, element, data } from '@barocss/dsl';
 import { DOMRenderer } from '@barocss/renderer-dom';
 
-// 템플릿 정의
+// Define template
 define('paragraph', element('p', {}, [data('text')]));
 
 // Render
@@ -43,93 +43,93 @@ const model = { stype: 'paragraph', text: 'Hello' };
 renderer.render(container, model);
 ```
 
-## 📖 문서 가이드
+## 📖 Document Guide
 
-### 새로 시작하는 경우
-1. `architecture-summary.md`로 전체 개념 파악
-2. `architecture-practical-examples.md`로 실제 사용법 학습
-3. `architecture-design-principles.md`로 핵심 원칙 이해
+### For Newcomers
+1. Understand overall concepts with `architecture-summary.md`
+2. Learn practical usage with `architecture-practical-examples.md`
+3. Understand core principles with `architecture-design-principles.md`
 
-### 깊이 있게 이해하려면
-1. `architecture-reconcile-overview.md` - 전체 구조
-2. `architecture-flow-diagram.md` - 데이터 흐름
-3. `architecture-mathematical-model.md` - 수학적 모델
+### For Deep Understanding
+1. `architecture-reconcile-overview.md` - Overall structure
+2. `architecture-flow-diagram.md` - Data flow
+3. `architecture-mathematical-model.md` - Mathematical model
 
-### 특정 주제
-- **설계 원칙**: `architecture-design-principles.md`
-- **실전 예제**: `architecture-practical-examples.md`
-- **Reconcile 동작**: `architecture-reconcile-overview.md`
-- **함수형 표현**: `architecture-mathematical-model.md`
+### Specific Topics
+- **Design Principles**: `architecture-design-principles.md`
+- **Practical Examples**: `architecture-practical-examples.md`
+- **Reconcile Behavior**: `architecture-reconcile-overview.md`
+- **Functional Expression**: `architecture-mathematical-model.md`
 
-## 🔗 관련 문서
+## 🔗 Related Documents
 
-### dom/ 폴더
-- `portal-system-spec.md` - Portal 시스템 사양
-- `portal-use-cases.md` - Portal 사용 사례
-- `decorator-implementation-guide.md` - Decorator 구현 가이드
+### dom/ Folder
+- `portal-system-spec.md` - Portal system specification
+- `portal-use-cases.md` - Portal use cases
+- `decorator-implementation-guide.md` - Decorator implementation guide
 
-### 기타
-- `api-reference.md` - API 참조
+### Others
+- `api-reference.md` - API reference
 
-## 🎓 학습 경로
+## 🎓 Learning Path
 
-### 초급
-1. `architecture-summary.md` - 기본 개념
-2. `architecture-practical-examples.md` - 간단한 예제
+### Beginner
+1. `architecture-summary.md` - Basic concepts
+2. `architecture-practical-examples.md` - Simple examples
 
-### 중급
-3. `architecture-design-principles.md` - 핵심 원칙
-4. `architecture-reconcile-overview.md` - 전체 흐름
+### Intermediate
+3. `architecture-design-principles.md` - Core principles
+4. `architecture-reconcile-overview.md` - Overall flow
 
-### 고급
-5. `architecture-flow-diagram.md` - 상세한 데이터 흐름
-6. `architecture-mathematical-model.md` - 수학적 근거
+### Advanced
+5. `architecture-flow-diagram.md` - Detailed data flow
+6. `architecture-mathematical-model.md` - Mathematical basis
 
-## 💡 핵심 내용 요약
+## 💡 Core Content Summary
 
-### 설계 원칙
-- **VNode는 reconcile에서 동적으로 판단되지 않음**
-- Build Phase와 Reconcile Phase 완전 분리
-- 순수 함수 우선 (VNodeBuilder)
-- 책임의 명확성
+### Design Principles
+- **VNode is not dynamically determined in reconcile**
+- Complete separation of Build Phase and Reconcile Phase
+- Pure functions first (VNodeBuilder)
+- Clear responsibility
 
-### 데이터 흐름
+### Data Flow
 ```
 DSL (element, data, when) 
-  → VNodeBuilder (순수 함수)
-  → VNode Tree (완성됨)
-  → DOMReconcile (차이 계산)
-  → DOM (최소 변경)
+  → VNodeBuilder (pure function)
+  → VNode Tree (completed)
+  → DOMReconcile (diff calculation)
+  → DOM (minimal changes)
 ```
 
-### 레이어 구조
+### Layer Structure
 ```
 1. DSL Layer (packages/dsl)
-   - 템플릿 빌더 (순수 함수)
+   - Template builder (pure function)
    
 2. VNode Layer (packages/vnode)
-   - Template → VNode 변환
+   - Template → VNode conversion
    
 3. Renderer Layer (packages/renderer-dom)
-   - VNode → DOM 업데이트
+   - VNode → DOM update
 ```
 
-## 🔍 문제 해결
+## 🔍 Troubleshooting
 
-### VNode 관련
-- `architecture-design-principles.md`의 "VNode vs Reconcile 분리 원칙" 참고
-- VNode는 Build Phase에서만 생성됨
+### VNode Related
+- Refer to "VNode vs Reconcile Separation Principle" in `architecture-design-principles.md`
+- VNode is only created in Build Phase
 
-### Reconcile 관련
-- `architecture-reconcile-overview.md`의 "Children Reconcile" 섹션
-- `architecture-design-principles.md`의 "수학적 표현" 참고
+### Reconcile Related
+- Refer to "Children Reconcile" section in `architecture-reconcile-overview.md`
+- Refer to "Mathematical Expression" in `architecture-design-principles.md`
 
-### 실전 사용
-- `architecture-practical-examples.md`의 예제 참고
+### Practical Usage
+- Refer to examples in `architecture-practical-examples.md`
 
-## 📝 문서 업데이트 이력
+## 📝 Document Update History
 
-- 2024: Core architecture 문서 생성
-- 2024: DSL 패키지 추가, 설계 원칙 문서화
-- 2024: 중복 문서 정리, 구조 개선
+- 2024: Core architecture documents created
+- 2024: DSL package added, design principles documented
+- 2024: Duplicate documents cleaned up, structure improved
 

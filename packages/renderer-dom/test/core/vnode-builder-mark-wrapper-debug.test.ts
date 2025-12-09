@@ -45,9 +45,9 @@ describe('VNodeBuilder Mark Wrapper Debug', () => {
 
     const vnode = builder.build('inline-text', initialModel);
 
-    // 실제 구조를 JSON으로 출력
+    // Output actual structure as JSON
     const structure = JSON.stringify(vnode, (key, value) => {
-      // 순환 참조 방지
+      // Prevent circular references
       if (key === 'meta' || key === 'component' || key === 'registry') {
         return undefined;
       }
@@ -56,12 +56,12 @@ describe('VNodeBuilder Mark Wrapper Debug', () => {
 
     console.log('Initial VNode Structure:', structure);
 
-    // 구조 확인
+    // Verify structure
     expect(vnode.tag).toBe('span');
     expect(vnode.sid).toBe('text-yellow-bg');
     expect(vnode.stype).toBe('inline-text');
     
-    // children이 있는지 확인
+    // Verify children exist
     if (vnode.children && vnode.children.length > 0) {
       console.log('Children count:', vnode.children.length);
       
@@ -117,7 +117,7 @@ describe('VNodeBuilder Mark Wrapper Debug', () => {
     console.log('Initial children count:', initialVNode.children?.length);
     console.log('Updated children count:', updatedVNode.children?.length);
 
-    // 구조 비교
+    // Compare structures
     if (initialVNode.children && initialVNode.children.length > 0) {
       const initialMarkWrapper = initialVNode.children[0] as VNode;
       console.log('Initial mark wrapper:', {

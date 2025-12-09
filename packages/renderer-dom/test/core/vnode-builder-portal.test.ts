@@ -17,7 +17,7 @@ describe('VNodeBuilder Portal Handling', () => {
     registry = getGlobalRegistry();
     builder = new VNodeBuilder(registry);
     
-    // Portal 테스트를 위한 DOM 요소 생성
+    // Create DOM element for Portal testing
     portalTarget = document.createElement('div');
     portalTarget.id = 'portal-target';
     document.body.appendChild(portalTarget);
@@ -174,7 +174,7 @@ describe('VNodeBuilder Portal Handling', () => {
       const vnode = builder.build('container', model);
       
       expect(vnode).toBeTruthy();
-      // Invalid target은 null을 반환하므로 portal VNode가 생성되지 않음
+      // Invalid target returns null, so portal VNode is not created
       const portalVNode = (vnode.children as any[]).find((child: any) => child.tag === 'portal');
       expect(portalVNode).toBeFalsy();
     });
