@@ -1,58 +1,57 @@
-# LaTeX Converter 샘플 코드
+# LaTeX Converter sample code
 
-## 개요
+## Overview
 
-LaTeX 형식의 문서를 파싱하고 변환하는 완전한 샘플 코드입니다.
-Schema 정의부터 파서, 변환 규칙까지 모든 단계를 포함합니다.
+This is a full, end-to-end example for parsing and converting LaTeX. It covers Schema definition, parser, AST→Model rules, and Model→LaTeX rules.
 
-## ⚠️ 중요: `sid` 필드에 대해
+## ⚠️ Important: about the `sid` field
 
-**변환 규칙에서 반환하는 `INode` 객체에는 `sid`를 포함하지 않아도 됩니다.**
+Do **not** include `sid` in the `INode` objects you return from conversion rules.
 
-- **`sid`는 DataStore가 자동 생성**: `dataStore.deserializeNodes()` 또는 `dataStore.createNode()` 호출 시 자동으로 `sid`가 할당됩니다
-- **변환 규칙은 순수 데이터만 반환**: `stype`, `attributes`, `content`, `text` 등만 포함하면 됩니다
-- **변환 규칙은 `sid`를 사용하지 않음**: `convert` 함수는 `sid`를 참조하지 않습니다
+- `sid` is assigned automatically by DataStore when you call `dataStore.deserializeNodes()` or `dataStore.createNode()`.
+- Conversion rules should return pure data only: `stype`, `attributes`, `content`, `text`, etc.
+- Conversion rules never read `sid`; `convert` does not use it.
 
-**예시**:
+Example:
 ```typescript
-// ✅ 올바른 방법: sid 없이 반환
+// ✅ Correct: return without sid
 defineASTConverter('section', 'latex', {
   convert(astNode, toConverter) {
     return {
       stype: 'section',
       attributes: { level: 1 },
       content: [...]
-      // sid는 포함하지 않음
+      // sid is not included
     };
   }
 });
 
-// DataStore에 추가할 때 sid가 자동 생성됨
+// DataStore will assign sid automatically
 const nodeIds = dataStore.deserializeNodes(nodes, rootId);
-// 이제 모든 노드에 sid가 할당됨
+// Now every node has an sid
 ```
 
 ---
 
-## 1. Schema 정의
+## 1. Define the Schema
 
-### 1.1 LaTeX 문서를 위한 Schema
+### 1.1 Schema for LaTeX documents
 
 ```typescript
 import { createSchema } from '@barocss/schema';
 
-// LaTeX 문서를 위한 Schema 생성
+// Schema for LaTeX documents
 export const latexSchema = createSchema('latex-document', {
   topNode: 'doc',
   nodes: {
-    // 문서 루트
+    // Document root
     doc: {
       name: 'doc',
       group: 'document',
       content: 'block+'
     },
     
-    // 섹션 (section, subsection, subsubsection)
+    // Section (section, subsection, subsubsection)
     section: {
       name: 'section',
       group: 'block',
@@ -71,7 +70,7 @@ export const latexSchema = createSchema('latex-document', {
       selectable: true
     },
     
-    // 단락
+    // Paragraph
     paragraph: {
       name: 'paragraph',
       group: 'block',
@@ -85,7 +84,7 @@ export const latexSchema = createSchema('latex-document', {
       }
     },
     
-    // 수식 블록
+    // Equation block
     equation: {
       name: 'equation',
       group: 'block',
@@ -103,7 +102,7 @@ export const latexSchema = createSchema('latex-document', {
       selectable: true
     },
     
-    // 리스트
+    // Lists
     itemize: {
       name: 'itemize',
       group: 'block',
@@ -124,35 +123,35 @@ export const latexSchema = createSchema('latex-document', {
       selectable: true
     },
     
-    // 리스트 아이템
+    // List item
     'list-item': {
       name: 'list-item',
       group: 'block',
       content: 'inline*'
     },
     
-    // 인라인 텍스트
+    // Inline text
     'inline-text': {
       name: 'inline-text',
       group: 'inline',
       text: true
     },
     
-    // 볼드 텍스트 (\textbf{})
+    // Bold text (\textbf{})
     'text-bold': {
       name: 'text-bold',
       group: 'inline',
       content: 'inline*'
     },
     
-    // 이탤릭 텍스트 (\textit{})
+    // Italic text (\textit{})
     'text-italic': {
       name: 'text-italic',
       group: 'inline',
       content: 'inline*'
     },
     
-    // 인라인 수식 ($...$)
+    // Inline math ($...$)
     'math-inline': {
       name: 'math-inline',
       group: 'inline',
@@ -180,13 +179,13 @@ export const latexSchema = createSchema('latex-document', {
 
 ---
 
-## 2. LaTeX 파서 설정
+## 2. Set up the LaTeX parser
 
-### 2.1 외부 LaTeX 파서 사용
+### 2.1 Use an external LaTeX parser
 
 ```typescript
-// LaTeX 파서는 복잡하므로, 간단한 예시로 구현
-// 실제로는 latex-parser 같은 라이브러리 사용 권장
+// Real LaTeX parsing is complex; this is a simplified demo.
+// In production, prefer a dedicated LaTeX parser library.
 
 interface LaTeXASTNode {
   type: string;
@@ -204,7 +203,7 @@ class SimpleLaTeXParser {
     const lines = latex.split('\n');
     
     for (const line of lines) {
-      // Section 파싱 (\section{}, \subsection{}, \subsubsection{})
+      // Parse section (\section{}, \subsection{}, \subsubsection{})
       const sectionMatch = line.match(/^\\(section|subsection|subsubsection)\{([^}]+)\}/);
       if (sectionMatch) {
         const level = sectionMatch[1] === 'section' ? 1 : 
@@ -217,10 +216,10 @@ class SimpleLaTeXParser {
         continue;
       }
       
-      // Equation 파싱 (\begin{equation}...\end{equation})
-      // (간단화: 실제로는 더 복잡한 파싱 필요)
+      // Equation parsing (\begin{equation}...\end{equation})
+      // (simplified; real parsing is more involved)
       
-      // Paragraph 파싱 (일반 텍스트)
+      // Paragraph parsing (plain text)
       if (line.trim() && !line.startsWith('\\')) {
         nodes.push({
           type: 'paragraph',
@@ -234,20 +233,20 @@ class SimpleLaTeXParser {
 }
 ```
 
-### 2.2 전체 문서 파서 등록
+### 2.2 Register the whole-document parser
 
 ```typescript
 import { defineDocumentParser } from '@barocss/converter';
 
 const latexParser = new SimpleLaTeXParser();
 
-// LaTeX 전체 문서 파서 등록
+// Register LaTeX whole-document parser
 defineDocumentParser('latex', {
   parse(document: string, toConverter: (astNode: any) => INode | null): INode[] {
-    // 1. 외부 파서 사용
+    // 1) Use external parser
     const ast = latexParser.parse(document);
     
-    // 2. AST → Model 변환 (defineASTConverter로 정의된 규칙 사용)
+    // 2) AST → Model conversion (rules defined via defineASTConverter)
     return ast.map(node => toConverter(node)).filter(Boolean) as INode[];
   }
 });
@@ -255,9 +254,9 @@ defineDocumentParser('latex', {
 
 ---
 
-## 3. AST → Model 변환 규칙
+## 3. AST → Model conversion rules
 
-### 3.1 Section 변환
+### 3.1 Section conversion
 
 ```typescript
 import { defineASTConverter } from '@barocss/converter';
@@ -285,35 +284,33 @@ defineASTConverter('section', 'latex', {
 });
 ```
 
-**⚠️ 중요: `sid` 필드에 대해**
+⚠️ Reminder: do **not** include `sid` in these returned nodes.
+- DataStore assigns `sid` when nodes are added.
+- `_assignIdsRecursively()` runs during `dataStore.createNode()` or `dataStore.deserializeNodes()`.
+- Return pure data only.
 
-변환 규칙에서 반환하는 `INode` 객체에는 **`sid`를 포함하지 않아도 됩니다**.
-- `sid`는 DataStore에 노드를 추가할 때 자동으로 생성됩니다
-- `dataStore.createNode()` 또는 `dataStore.deserializeNodes()` 호출 시 `_assignIdsRecursively()`가 자동으로 `sid`를 할당합니다
-- 변환 규칙은 순수한 데이터 구조만 반환하면 됩니다
-
-**예시**:
+Example:
 ```typescript
-// ✅ 올바른 방법: sid 없이 반환
+// ✅ Correct: no sid
 return {
   stype: 'section',
   attributes: { level: 1 },
   content: [...]
 };
 
-// ❌ 불필요: sid를 미리 생성할 필요 없음
+// ❌ Unnecessary: do not pre-create sid
 return {
-  sid: 'section-123',  // DataStore가 자동으로 생성
+  sid: 'section-123',  // DataStore will create this
   stype: 'section',
   ...
 };
 ```
 
-**💡 노드 생성 방식: 순수 객체 vs `node`/`textNode` 함수**
+💡 How to build nodes: plain objects vs `node`/`textNode`
 
-변환 규칙에서 노드를 생성하는 방법은 두 가지가 있습니다:
+Two options when building nodes inside conversion rules:
 
-**옵션 1: 순수 JS 객체 (권장)**
+**Option 1: Plain JS objects (recommended)**
 ```typescript
 defineASTConverter('section', 'latex', {
   convert(astNode, toConverter) {
@@ -328,16 +325,15 @@ defineASTConverter('section', 'latex', {
   }
 });
 ```
+Pros:
+- No extra dependency: `@barocss/converter` stays independent of `@barocss/model`
+- Simple and clear: pure data structures
+- Conversion rules remain pure functions
 
-**장점**:
-- ✅ 의존성 없음: `@barocss/converter`가 `@barocss/model`에 의존하지 않아도 됨
-- ✅ 간단하고 직관적: 순수 데이터 구조만 반환
-- ✅ 변환 규칙은 순수 함수로 유지 가능
+Cons:
+- Marks and similar details are handled manually
 
-**단점**:
-- ⚠️ marks 처리 등이 수동으로 해야 함
-
-**옵션 2: `node`/`textNode` 함수 사용**
+**Option 2: Use `node`/`textNode` helpers**
 ```typescript
 import { node, textNode } from '@barocss/model';
 
@@ -349,27 +345,26 @@ defineASTConverter('section', 'latex', {
   }
 });
 ```
+Pros:
+- Consistent with DSL style (`transaction` DSL)
+- Easier mark handling with `textNode('inline-text', text, [mark('bold')])`
+- Potentially clearer typing
 
-**장점**:
-- ✅ DSL 패턴과 일관성: `transaction` DSL과 동일한 스타일
-- ✅ `textNode`로 marks 처리 편리: `textNode('inline-text', 'text', [mark('bold')])`
-- ✅ 타입 체크가 더 명확할 수 있음
+Cons:
+- Requires dependency on `@barocss/model`
+- `node` is just a helper returning plain objects
 
-**단점**:
-- ⚠️ `@barocss/model` 패키지 의존성 필요
-- ⚠️ `node` 함수는 단순히 객체를 반환하는 헬퍼일 뿐 (실제로는 순수 객체와 동일)
+Recommendation:
+- Prefer plain objects so `@barocss/converter` stays decoupled.
+- Use `textNode` only when mark handling is complex and the helper is beneficial.
 
-**추천**: 
-- **순수 객체 방식 권장**: 변환 규칙은 순수 데이터 구조만 반환하는 것이 더 적합합니다. `@barocss/converter` 패키지가 `@barocss/model`에 의존하지 않아도 되므로 패키지 구조가 더 깔끔해집니다.
-- **`textNode`가 필요한 경우만**: marks 처리가 복잡한 경우에만 `textNode` 함수를 선택적으로 사용할 수 있습니다.
-
-### 3.2 Paragraph 변환
+### 3.2 Paragraph conversion
 
 ```typescript
 defineASTConverter('paragraph', 'latex', {
   convert(astNode: any, toConverter: (astNode: any) => INode | null): INode | null {
     if (astNode.type === 'paragraph') {
-      // LaTeX 텍스트에서 \textbf{}, \textit{} 등을 파싱
+      // Parse inline LaTeX like \textbf{}, \textit{}, etc.
       const content = parseInlineContent(astNode.content || '', toConverter);
       
       return {
@@ -385,17 +380,17 @@ defineASTConverter('paragraph', 'latex', {
   priority: 100
 });
 
-// 인라인 콘텐츠 파싱 헬퍼
+// Helper to parse inline content
 function parseInlineContent(text: string, toConverter: (astNode: any) => INode | null): INode[] {
   const nodes: INode[] = [];
   let currentIndex = 0;
   
-  // \textbf{text} 파싱
+  // Parse \textbf{text}
   const boldRegex = /\\textbf\{([^}]+)\}/g;
   let match;
   
   while ((match = boldRegex.exec(text)) !== null) {
-    // match 이전의 일반 텍스트
+    // Plain text before the match
     if (match.index > currentIndex) {
       nodes.push({
         stype: 'inline-text',
@@ -403,7 +398,7 @@ function parseInlineContent(text: string, toConverter: (astNode: any) => INode |
       });
     }
     
-    // \textbf{...} 내용
+    // The contents of \textbf{...}
     nodes.push({
       stype: 'text-bold',
       content: [{
@@ -415,7 +410,7 @@ function parseInlineContent(text: string, toConverter: (astNode: any) => INode |
     currentIndex = match.index + match[0].length;
   }
   
-  // 남은 텍스트
+  // Remaining text
   if (currentIndex < text.length) {
     nodes.push({
       stype: 'inline-text',
@@ -430,7 +425,7 @@ function parseInlineContent(text: string, toConverter: (astNode: any) => INode |
 }
 ```
 
-### 3.3 Equation 변환
+### 3.3 Equation conversion
 
 ```typescript
 defineASTConverter('equation', 'latex', {
@@ -459,7 +454,7 @@ defineASTConverter('equation', 'latex', {
 });
 ```
 
-### 3.4 Itemize/Enumerate 변환
+### 3.4 Itemize/Enumerate conversion
 
 ```typescript
 defineASTConverter('itemize', 'latex', {
@@ -509,9 +504,9 @@ defineASTConverter('enumerate', 'latex', {
 
 ---
 
-## 4. Model → LaTeX 변환 규칙
+## 4. Model → LaTeX conversion rules
 
-### 4.1 Section 변환
+### 4.1 Section conversion
 
 ```typescript
 import { defineConverter } from '@barocss/converter';
@@ -535,11 +530,11 @@ defineConverter('section', 'latex', {
 });
 ```
 
-### 4.2 Paragraph 변환
+### 4.2 Paragraph conversion
 
 ```typescript
 defineConverter('paragraph', 'latex', {
-  toLaTeX: (node: INode): string => {
+  convert: (node: INode): string => {
     const content = convertContentToLaTeX(node.content || []);
     const indent = node.attributes?.indent || 0;
     
@@ -552,11 +547,11 @@ defineConverter('paragraph', 'latex', {
 });
 ```
 
-### 4.3 Equation 변환
+### 4.3 Equation conversion
 
 ```typescript
 defineConverter('equation', 'latex', {
-  toLaTeX: (node: INode): string => {
+  convert: (node: INode): string => {
     const formula = node.content?.find(c => c.stype === 'math-inline')?.attributes?.formula || '';
     const label = node.attributes?.label || '';
     const numbered = node.attributes?.numbered !== false;
@@ -575,11 +570,11 @@ defineConverter('equation', 'latex', {
 });
 ```
 
-### 4.4 Itemize/Enumerate 변환
+### 4.4 Itemize/Enumerate conversion
 
 ```typescript
 defineConverter('itemize', 'latex', {
-  toLaTeX: (node: INode): string => {
+  convert: (node: INode): string => {
     const items = (node.content || [])
       .filter(c => c.stype === 'list-item')
       .map(item => {
@@ -593,7 +588,7 @@ defineConverter('itemize', 'latex', {
 });
 
 defineConverter('enumerate', 'latex', {
-  toLaTeX: (node: INode): string => {
+  convert: (node: INode): string => {
     const start = node.attributes?.start || 1;
     const items = (node.content || [])
       .filter(c => c.stype === 'list-item')
@@ -613,48 +608,48 @@ defineConverter('enumerate', 'latex', {
 });
 
 defineConverter('list-item', 'latex', {
-  toLaTeX: (node: INode): string => {
+  convert: (node: INode): string => {
     return convertContentToLaTeX(node.content || []);
   }
 });
 ```
 
-### 4.5 인라인 요소 변환
+### 4.5 Inline elements conversion
 
 ```typescript
 defineConverter('inline-text', 'latex', {
-  toLaTeX: (node: INode): string => {
-    // LaTeX 특수 문자 이스케이프
+  convert: (node: INode): string => {
+    // Escape LaTeX special characters
     return escapeLaTeX(node.text || '');
   }
 });
 
 defineConverter('text-bold', 'latex', {
-  toLaTeX: (node: INode): string => {
+  convert: (node: INode): string => {
     const content = convertContentToLaTeX(node.content || []);
     return `\\textbf{${content}}`;
   }
 });
 
 defineConverter('text-italic', 'latex', {
-  toLaTeX: (node: INode): string => {
+  convert: (node: INode): string => {
     const content = convertContentToLaTeX(node.content || []);
     return `\\textit{${content}}`;
   }
 });
 
 defineConverter('math-inline', 'latex', {
-  toLaTeX: (node: INode): string => {
+  convert: (node: INode): string => {
     const formula = node.attributes?.formula || node.text || '';
     return `$${formula}$`;
   }
 });
 ```
 
-### 4.6 헬퍼 함수
+### 4.6 Helper functions
 
 ```typescript
-// 콘텐츠를 LaTeX로 변환
+// Convert content to LaTeX
 function convertContentToLaTeX(content: INode[]): string {
   return content
     .map(node => {
@@ -667,7 +662,7 @@ function convertContentToLaTeX(content: INode[]): string {
     .join('');
 }
 
-// LaTeX 특수 문자 이스케이프
+// Escape LaTeX special characters
 function escapeLaTeX(text: string): string {
   return text
     .replace(/\\/g, '\\textbackslash{}')
@@ -685,9 +680,9 @@ function escapeLaTeX(text: string): string {
 
 ---
 
-## 5. 사용 예시
+## 5. Usage examples
 
-### 5.1 LaTeX → Model 변환
+### 5.1 LaTeX → Model
 
 ```typescript
 import { latexParser } from '@barocss/converter';
@@ -707,34 +702,34 @@ This is a paragraph with \\textbf{bold text} and \\textit{italic text}.
 \\end{itemize}
 `;
 
-// 1. LaTeX → Model 변환 (sid 없이)
+// 1) LaTeX → Model (without sid)
 const parser = globalConverterRegistry.getDocumentParser('latex');
 const nodes = parser?.parse(latex, (astNode) => 
   globalConverterRegistry.convertASTToModel(astNode, 'latex')
 ) || [];
 
-// nodes에는 아직 sid가 없음
+// nodes do not have sid yet
 console.log(nodes);
-// 결과: [
+// Result: [
 //   { stype: 'section', attributes: { level: 1 }, content: [...] },
 //   { stype: 'paragraph', content: [...] },
 //   ...
 // ]
 
-// 2. DataStore에 추가 (이때 sid가 자동으로 생성됨)
+// 2) Add to DataStore (sid is created here)
 const dataStore = new DataStore(latexSchema);
 const rootId = dataStore.getRootId();
 const nodeIds = dataStore.deserializeNodes(nodes, rootId);
 
-// 이제 모든 노드에 sid가 할당됨
+// Now every node has sid
 console.log(nodeIds);
-// 결과: ['1:1', '1:2', '1:3', ...]
+// Result: ['1:1', '1:2', '1:3', ...]
 
 const sectionNode = dataStore.getNode(nodeIds[0]);
-console.log(sectionNode?.sid); // '1:1' (자동 생성됨)
+console.log(sectionNode?.sid); // '1:1' (auto-generated)
 ```
 
-### 5.2 Model → LaTeX 변환
+### 5.2 Model → LaTeX
 
 ```typescript
 const nodes: INode[] = [
@@ -763,31 +758,31 @@ const nodes: INode[] = [
   }
 ];
 
-// Model → LaTeX 변환
+// Model → LaTeX
 const latex = nodes
   .map(node => {
     const converter = globalConverterRegistry.getConverter(node.stype, 'latex');
-    if (converter.length > 0 && converter[0].toLaTeX) {
-      return converter[0].toLaTeX(node);
+    if (converter.length > 0 && converter[0].convert) {
+      return converter[0].convert(node);
     }
     return '';
   })
   .join('');
 
 console.log(latex);
-// 결과:
+// Result:
 // \section{Introduction}\label{intro}
 // This is a paragraph with \textbf{bold text} and \textit{italic text}
 ```
 
 ---
 
-## 6. 확장 예시
+## 6. Extension example
 
-### 6.1 커스텀 노드 타입 추가
+### 6.1 Add a custom node type
 
 ```typescript
-// Schema에 새로운 노드 타입 추가
+// Extend Schema with a new node type
 const extendedSchema = latexSchema.extend({
   nodes: {
     'custom-theorem': {
@@ -808,8 +803,8 @@ const extendedSchema = latexSchema.extend({
   }
 });
 
-// AST → Model 변환 규칙 추가
-// ⚠️ 주의: sid는 포함하지 않음 (DataStore가 자동 생성)
+// Add AST → Model conversion rule
+// ⚠️ Note: do not include sid (DataStore creates it)
 defineASTConverter('custom-theorem', 'latex', {
   convert(astNode: any, toConverter: (astNode: any) => INode | null): INode | null {
     if (astNode.type === 'theorem') {
@@ -820,7 +815,7 @@ defineASTConverter('custom-theorem', 'latex', {
           number: astNode.number || 0
         },
         content: (astNode.children || []).map((child: any) => toConverter(child)) || []
-        // sid는 포함하지 않음 - DataStore.deserializeNodes() 호출 시 자동 생성
+        // sid is not included — DataStore.deserializeNodes() assigns it
       };
     }
     return null;
@@ -828,8 +823,8 @@ defineASTConverter('custom-theorem', 'latex', {
   priority: 100
 });
 
-// Model → LaTeX 변환 규칙 추가
-// ⚠️ 주의: node.sid는 사용하지 않음 (변환에 불필요)
+// Add Model → LaTeX conversion rule
+// ⚠️ Note: do not use node.sid (not needed for conversion)
 defineConverter('custom-theorem', 'latex', {
   convert: (node: INode): string => {
     const name = node.attributes?.name || 'Theorem';
@@ -842,27 +837,27 @@ defineConverter('custom-theorem', 'latex', {
 
 ---
 
-## 7. 주의사항
+## 7. Notes and caveats
 
-### 7.1 LaTeX 파싱의 복잡성
+### 7.1 LaTeX parsing is complex
 
-- 실제 LaTeX 파싱은 매우 복잡합니다
-- 환경(`\begin{...}...\end{...}`), 명령어(`\command{arg}`), 수식 등 다양한 구조
-- 프로덕션 환경에서는 전문 LaTeX 파서 라이브러리 사용 권장
+- Real-world LaTeX parsing is very involved.
+- Environments (`\begin{...}...\end{...}`), commands (`\command{arg}`), formulas, and nesting add complexity.
+- In production, use a specialized LaTeX parser library.
 
-### 7.2 특수 문자 처리
+### 7.2 Special characters
 
-- LaTeX 특수 문자(`{`, `}`, `$`, `&`, `#`, `^`, `_`, `~`, `%`) 이스케이프 필요
-- 수식 내부와 일반 텍스트의 처리 방식이 다름
+- Escape LaTeX special chars: `{`, `}`, `$`, `&`, `#`, `^`, `_`, `~`, `%`.
+- Math contexts vs plain text may need different handling.
 
-### 7.3 환경 중첩
+### 7.3 Nested environments
 
-- LaTeX 환경은 중첩될 수 있음 (`itemize` 안에 `enumerate` 등)
-- 재귀적 파싱과 변환이 중요
+- Environments can nest (`itemize` inside `enumerate`, etc.).
+- Recursive parsing and conversion matter.
 
 ---
 
-## 8. 테스트 예시
+## 8. Test examples
 
 ```typescript
 import { describe, it, expect } from 'vitest';
@@ -894,4 +889,3 @@ describe('LaTeX Converter', () => {
   });
 });
 ```
-

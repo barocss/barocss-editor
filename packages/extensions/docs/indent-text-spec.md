@@ -324,20 +324,20 @@ await editor.executeCommand('indentNode', {
 ```typescript
 import { transaction, control, indentText } from '@barocss/model';
 
-// control 사용
+// Using control
 await transaction(editor, [
   ...control('code-1', [
     indentText(0, 20, '  ')  // start, end, indent
   ])
 ]).commit();
 
-// 직접 호출
+// Direct call
 await transaction(editor, [
   indentText('code-1', 0, 20, '  ')  // nodeId, start, end, indent
 ]).commit();
 ```
 
-### Cross-node 범위
+### Cross-node Range
 
 ```typescript
 await transaction(editor, [

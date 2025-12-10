@@ -1,107 +1,107 @@
 # Editor View DOM Tests
 
-`@barocss/editor-view-dom` 패키지의 테스트 스위트입니다.
+Test suite for the `@barocss/editor-view-dom` package.
 
-## 📁 테스트 구조
+## 📁 Test Structure
 
 ### [`core/`](./core/)
-핵심 기능 테스트
-- EditorViewDOM 클래스 기본 동작
-- Container 기반 API 및 계층 시스템
-- 모델-뷰 동기화
+Core functionality tests
+- EditorViewDOM class basic behavior
+- Container-based API and layer system
+- Model-view synchronization
 
 ### [`events/`](./events/)
-이벤트 처리 테스트
-- 브라우저 이벤트 시뮬레이션
-- 이벤트 핸들러 통합
-- MutationObserver 연동
+Event handling tests
+- Browser event simulation
+- Event handler integration
+- MutationObserver integration
 
 ### [`text-analysis/`](./text-analysis/)
-텍스트 분석 알고리즘 테스트
-- Smart Text Analyzer 핵심 로직
-- 유니코드 및 복합 문자 처리
-- 변경 감지 및 분류
+Text analysis algorithm tests
+- Smart Text Analyzer core logic
+- Unicode and composite character handling
+- Change detection and classification
 
 ### [`decorator-system/`](./decorator-system/)
-Decorator 시스템 테스트
-- DecoratorRegistry 및 DecoratorManager
-- Layer/Inline/Block Decorator 타입
-- 커스텀 렌더러 등록
+Decorator system tests
+- DecoratorRegistry and DecoratorManager
+- Layer/Inline/Block Decorator types
+- Custom renderer registration
 
 ### [`integration/`](./integration/)
-통합 테스트
-- 시스템 간 상호작용
-- 실제 사용 시나리오
-- Selection 매핑 및 처리
+Integration tests
+- Inter-system interactions
+- Real usage scenarios
+- Selection mapping and handling
 
-## 🚀 실행 방법
+## 🚀 How to Run
 
-### 전체 테스트 실행
+### Run All Tests
 ```bash
 pnpm test
 ```
 
-### 특정 그룹 테스트 실행
+### Run Specific Group
 ```bash
-pnpm test test/core           # 핵심 기능 테스트
-pnpm test test/events         # 이벤트 테스트
-pnpm test test/text-analysis  # 텍스트 분석 테스트
-pnpm test test/decorator-system # Decorator 시스템 테스트
-pnpm test test/integration    # 통합 테스트
+pnpm test test/core           # Core functionality tests
+pnpm test test/events         # Event tests
+pnpm test test/text-analysis  # Text analysis tests
+pnpm test test/decorator-system # Decorator system tests
+pnpm test test/integration    # Integration tests
 ```
 
-### 특정 테스트 파일 실행
+### Run Specific Test File
 ```bash
 pnpm test test/core/layered-api.test.ts
 pnpm test test/events/event-integration.test.ts
 ```
 
-### 테스트 실행 옵션
+### Test Execution Options
 ```bash
-pnpm test:run                 # 단일 실행 (watch 모드 없음)
-pnpm test:coverage           # 커버리지 포함 실행
-pnpm test:ui                 # UI 모드로 실행
+pnpm test:run                 # Single run (no watch mode)
+pnpm test:coverage           # Run with coverage
+pnpm test:ui                 # Run in UI mode
 ```
 
-## 🔧 테스트 환경
+## 🔧 Test Environment
 
-- **테스트 러너**: Vitest
-- **DOM 환경**: JSDOM
-- **모킹**: vi (Vitest 내장)
-- **설정 파일**: `vitest.config.ts`
+- **Test runner**: Vitest
+- **DOM environment**: JSDOM
+- **Mocking**: vi (built-in Vitest)
+- **Config file**: `vitest.config.ts`
 
-## 📝 테스트 작성 가이드
+## 📝 Test Writing Guide
 
-### 기본 구조
+### Basic Structure
 ```typescript
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
-describe('테스트 그룹명', () => {
+describe('Test Group Name', () => {
   beforeEach(() => {
-    // 각 테스트 전 설정
+    // Setup before each test
   });
   
   afterEach(() => {
-    // 각 테스트 후 정리
+    // Cleanup after each test
   });
   
-  it('should 테스트 내용', () => {
-    // 테스트 코드
+  it('should test content', () => {
+    // Test code
     expect(actual).toBe(expected);
   });
 });
 ```
 
-### 모킹 예시
+### Mocking Examples
 ```typescript
-// editor-core 모킹
+// Mock editor-core
 const mockEditor = {
   emit: vi.fn(),
   on: vi.fn(),
   executeCommand: vi.fn()
 } as any;
 
-// DOM API 모킹
+// Mock DOM API
 Object.defineProperty(window, 'getSelection', {
   value: vi.fn(() => ({
     getRangeAt: vi.fn(),
@@ -110,14 +110,14 @@ Object.defineProperty(window, 'getSelection', {
 });
 ```
 
-## 🐛 알려진 제약사항
+## 🐛 Known Limitations
 
-- **JSDOM 제약**: 일부 브라우저 네이티브 API가 완전히 지원되지 않음
-- **이벤트 시뮬레이션**: 실제 브라우저와 다를 수 있는 이벤트 동작
-- **Selection API**: JSDOM에서 제한적인 Selection 객체 지원
+- **JSDOM limitations**: some browser native APIs not fully supported
+- **Event simulation**: event behavior may differ from actual browser
+- **Selection API**: limited Selection object support in JSDOM
 
-## 📊 커버리지 목표
+## 📊 Coverage Goals
 
-- **전체 커버리지**: 90% 이상
-- **핵심 로직**: 95% 이상
-- **에러 처리**: 85% 이상
+- **Overall coverage**: 90%+
+- **Core logic**: 95%+
+- **Error handling**: 85%+

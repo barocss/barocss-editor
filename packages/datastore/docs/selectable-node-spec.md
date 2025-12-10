@@ -1,286 +1,286 @@
-# Selectable Node 명세
+# Selectable Node Specification
 
-## 개요
+## Overview
 
-이 문서는 "Selectable Node"의 정의, 용도, 판단 기준을 명확히 정의합니다.
-
----
-
-## 1. Selectable Node란?
-
-**Selectable Node**는 **클릭으로 선택 가능한 노드**입니다. 즉, 사용자가 마우스 클릭, 드래그, 또는 키보드 단축키로 노드를 선택할 수 있는 노드입니다.
-
-### 핵심 개념
-
-- **클릭으로 선택 가능**: 사용자가 노드를 클릭하면 Node Selection 또는 Range Selection으로 선택됨
-- **Selection 대상**: Node Selection 또는 Range Selection의 대상이 될 수 있음
-- **편집 명령과는 독립적**: Editable Node와는 별개 개념 (selectable이지만 editable이 아닐 수 있음)
-
-### 중요한 구분: Editable vs Selectable
-
-#### Editable Node (커서로 탐색 가능)
-- **텍스트 노드**: `.text` 필드가 있는 노드
-- **Inline 노드**: `group: 'inline'`인 노드
-- **Editable Block**: `group: 'block'` + `editable: true` + `.text` 필드 있음
-- **특징**: Backspace/Delete/화살표 키로 탐색 가능
-
-#### Selectable Node (클릭으로 선택 가능)
-- **Block 노드**: paragraph, heading, table 등
-- **Inline 노드**: inline-image, inline-link 등
-- **텍스트 노드**: inline-text 등
-- **특징**: 
-  - 클릭하면 Node Selection 또는 Range Selection으로 선택 가능
-  - Editable Node와는 별개 (block 노드는 selectable이지만 editable이 아님)
-
-### Selection 방식의 차이
-
-Selectable Node는 노드 타입에 따라 다른 Selection 방식을 사용합니다:
-
-#### Block 노드
-- **Node Selection**: 노드 전체를 선택
-- 예: `{ type: 'node', nodeId: 'paragraph-1' }`
-- 사용자가 block을 클릭하면 Node Selection으로 선택됨
-
-#### Inline Atom 노드
-- **Node Selection**: 노드 전체를 선택 (offset 없음)
-- 예: `{ type: 'node', nodeId: 'image-1' }`
-- 사용자가 inline-image를 클릭하면 Node Selection으로 선택됨
-
-#### 텍스트 노드
-- **Range Selection**: offset 기반으로 커서를 둘 수 있음
-- 예: `{ type: 'range', startNodeId: 'text-1', startOffset: 5, endOffset: 5 }`
-- 사용자가 텍스트를 클릭하면 Range Selection (커서)로 선택됨
-- 또는 텍스트 전체를 선택하면 Range Selection (범위)로 선택됨
+This document clearly defines the definition, purpose, and criteria for "Selectable Node".
 
 ---
 
-## 2. Selectable Node 판단 기준
+## 1. What is a Selectable Node?
 
-### 2.1 우선순위 기반 판단
+**Selectable Node** is a **node that can be selected by clicking**. That is, a node that users can select with mouse click, drag, or keyboard shortcuts.
 
-`_isSelectableNode(nodeId)` 함수는 다음 순서로 판단합니다:
+### Core Concepts
 
-#### 1단계: 스키마 Group 확인 (최우선)
+- **Selectable by clicking**: When user clicks a node, it is selected as Node Selection or Range Selection
+- **Selection target**: Can be the target of Node Selection or Range Selection
+- **Independent of edit commands**: Separate concept from Editable Node (can be selectable but not editable)
+
+### Important Distinction: Editable vs Selectable
+
+#### Editable Node (navigable with cursor)
+- **Text node**: Node with `.text` field
+- **Inline node**: Node with `group: 'inline'`
+- **Editable Block**: `group: 'block'` + `editable: true` + has `.text` field
+- **Characteristics**: Navigable with Backspace/Delete/arrow keys
+
+#### Selectable Node (selectable by clicking)
+- **Block node**: paragraph, heading, table, etc.
+- **Inline node**: inline-image, inline-link, etc.
+- **Text node**: inline-text, etc.
+- **Characteristics**: 
+  - Can be selected as Node Selection or Range Selection when clicked
+  - Separate from Editable Node (block nodes are selectable but not editable)
+
+### Differences in Selection Methods
+
+Selectable Node uses different selection methods depending on node type:
+
+#### Block Node
+- **Node Selection**: Select entire node
+- Example: `{ type: 'node', nodeId: 'paragraph-1' }`
+- When user clicks block, selected as Node Selection
+
+#### Inline Atom Node
+- **Node Selection**: Select entire node (no offset)
+- Example: `{ type: 'node', nodeId: 'image-1' }`
+- When user clicks inline-image, selected as Node Selection
+
+#### Text Node
+- **Range Selection**: Can place cursor based on offset
+- Example: `{ type: 'range', startNodeId: 'text-1', startOffset: 5, endOffset: 5 }`
+- When user clicks text, selected as Range Selection (cursor)
+- Or when entire text is selected, selected as Range Selection (range)
+
+---
+
+## 2. Selectable Node Criteria
+
+### 2.1 Priority-Based Determination
+
+The `_isSelectableNode(nodeId)` function determines in the following order:
+
+#### Step 1: Check Schema Group (Highest Priority)
 
 ```typescript
-// 스키마에서 노드 타입의 group 확인
+// Check node type's group from schema
 const nodeType = schema.getNodeType(node.stype);
 const group = nodeType?.group;
 
-// document 노드는 항상 선택 불가능
+// document node is always not selectable
 if (group === 'document') {
   return false;
 }
 
-// selectable 속성이 명시적으로 false이면 선택 불가능
+// If selectable attribute is explicitly false, not selectable
 if (nodeType.selectable === false) {
   return false;
 }
 
-// 그 외의 경우는 선택 가능 (기본값 true)
+// Otherwise selectable (default true)
 return true;
 ```
 
-**예시:**
-- `paragraph` (group: 'block') → **선택 가능**
-- `inline-image` (group: 'inline') → **선택 가능**
-- `inline-text` (group: 'inline') → **선택 가능**
-- `document` (group: 'document') → **선택 불가능**
-- `hiddenBlock` (group: 'block', selectable: false) → **선택 불가능**
+**Examples:**
+- `paragraph` (group: 'block') → **Selectable**
+- `inline-image` (group: 'inline') → **Selectable**
+- `inline-text` (group: 'inline') → **Selectable**
+- `document` (group: 'document') → **Not selectable**
+- `hiddenBlock` (group: 'block', selectable: false) → **Not selectable**
 
-#### 2단계: stype 확인 (폴백)
+#### Step 2: Check stype (Fallback)
 
 ```typescript
-// stype이 'document'이면 선택 불가능
+// If stype is 'document', not selectable
 if (node.stype === 'document') {
   return false;
 }
 ```
 
-#### 3단계: 기본값 (안전하게 true)
+#### Step 3: Default (Safely true)
 
 ```typescript
-// 그 외의 경우는 선택 가능 (안전하게 true)
+// Otherwise selectable (safely true)
 return true;
 ```
 
 ---
 
-## 3. Selectable Node의 종류
+## 3. Types of Selectable Nodes
 
-### 3.1 Block 노드
+### 3.1 Block Node
 
-**판단 기준:**
-- `group: 'block'` (스키마에서 확인)
-- `selectable: false`가 아니면 선택 가능
+**Criteria:**
+- `group: 'block'` (checked from schema)
+- Selectable if not `selectable: false`
 
-**특징:**
-- 클릭하면 Node Selection으로 선택됨
-- Block 전체가 선택됨 (내부 텍스트가 아닌 block 자체)
-- Editable Node가 아님 (편집 명령으로 탐색 불가능)
+**Characteristics:**
+- Selected as Node Selection when clicked
+- Entire block is selected (block itself, not internal text)
+- Not Editable Node (not navigable with edit commands)
 
-**예시:**
+**Example:**
 ```typescript
 {
   stype: 'paragraph',
   content: ['text-1', 'text-2']
-  // 스키마 정의: { group: 'block' }
+  // Schema definition: { group: 'block' }
 }
-// 사용자가 paragraph를 클릭하면:
+// When user clicks paragraph:
 // { type: 'node', nodeId: 'paragraph-1' }
 ```
 
-**사용 케이스:**
-- Block 전체 선택
-- Block 삭제
-- Block 이동/복사
+**Use cases:**
+- Select entire block
+- Delete block
+- Move/copy block
 
-### 3.2 Inline Atom 노드
+### 3.2 Inline Atom Node
 
-**판단 기준:**
-- `group: 'inline'` (스키마에서 확인)
-- `atom: true` (스키마에서 확인)
-- `.text` 필드 없음
-- `selectable: false`가 아니면 선택 가능
+**Criteria:**
+- `group: 'inline'` (checked from schema)
+- `atom: true` (checked from schema)
+- No `.text` field
+- Selectable if not `selectable: false`
 
-**특징:**
-- 클릭하면 Node Selection으로 선택됨
-- 노드 전체가 선택됨 (offset 없음)
-- Editable Node임 (편집 명령으로 탐색 가능)
+**Characteristics:**
+- Selected as Node Selection when clicked
+- Entire node is selected (no offset)
+- Is Editable Node (navigable with edit commands)
 
-**예시:**
+**Example:**
 ```typescript
 {
   stype: 'inline-image',
   attributes: { src: 'image.jpg', alt: 'Image' }
-  // 스키마 정의: { group: 'inline', atom: true }
+  // Schema definition: { group: 'inline', atom: true }
 }
-// 사용자가 inline-image를 클릭하면:
+// When user clicks inline-image:
 // { type: 'node', nodeId: 'image-1' }
 ```
 
-**사용 케이스:**
-- 이미지 선택
-- 이미지 삭제
-- 이미지 속성 편집
+**Use cases:**
+- Select image
+- Delete image
+- Edit image attributes
 
-### 3.3 텍스트 노드
+### 3.3 Text Node
 
-**판단 기준:**
-- `.text` 필드가 있고 `typeof node.text === 'string'`
-- `group: 'inline'` (스키마에서 확인)
-- `selectable: false`가 아니면 선택 가능
+**Criteria:**
+- Has `.text` field and `typeof node.text === 'string'`
+- `group: 'inline'` (checked from schema)
+- Selectable if not `selectable: false`
 
-**특징:**
-- 클릭하면 Range Selection (커서)로 선택됨
-- 텍스트 범위를 드래그하면 Range Selection (범위)로 선택됨
-- Editable Node임 (편집 명령으로 탐색 가능)
+**Characteristics:**
+- Selected as Range Selection (cursor) when clicked
+- When text range is dragged, selected as Range Selection (range)
+- Is Editable Node (navigable with edit commands)
 
-**예시:**
+**Example:**
 ```typescript
 {
   stype: 'inline-text',
   text: 'Hello World'
-  // 스키마 정의: { group: 'inline' }
+  // Schema definition: { group: 'inline' }
 }
-// 사용자가 텍스트를 클릭하면:
+// When user clicks text:
 // { type: 'range', startNodeId: 'text-1', startOffset: 5, endOffset: 5, collapsed: true }
 ```
 
-**사용 케이스:**
-- 텍스트 편집
-- 텍스트 범위 선택
-- 커서 이동
+**Use cases:**
+- Edit text
+- Select text range
+- Move cursor
 
-### 3.4 Editable Block 노드
+### 3.4 Editable Block Node
 
-**판단 기준:**
-- `group: 'block'` (스키마에서 확인)
-- `editable: true` (스키마에서 확인)
-- `.text` 필드 있음
-- `selectable: false`가 아니면 선택 가능
+**Criteria:**
+- `group: 'block'` (checked from schema)
+- `editable: true` (checked from schema)
+- Has `.text` field
+- Selectable if not `selectable: false`
 
-**특징:**
-- 클릭하면 Node Selection 또는 Range Selection으로 선택 가능
-- Editable Node임 (편집 명령으로 탐색 가능)
+**Characteristics:**
+- Can be selected as Node Selection or Range Selection when clicked
+- Is Editable Node (navigable with edit commands)
 
-**예시:**
+**Example:**
 ```typescript
 {
   stype: 'codeBlock',
   text: 'const x = 1;'
-  // 스키마 정의: { group: 'block', editable: true }
+  // Schema definition: { group: 'block', editable: true }
 }
-// 사용자가 codeBlock을 클릭하면:
-// { type: 'node', nodeId: 'codeBlock-1' } 또는
+// When user clicks codeBlock:
+// { type: 'node', nodeId: 'codeBlock-1' } or
 // { type: 'range', startNodeId: 'codeBlock-1', startOffset: 0, ... }
 ```
 
 ---
 
-## 4. Selectable Node가 아닌 것
+## 4. What is Not a Selectable Node
 
-### 4.1 Document 노드
+### 4.1 Document Node
 
-**특징:**
+**Characteristics:**
 - `group: 'document'`
-- 최상위 컨테이너
-- 선택 대상이 아님
+- Top-level container
+- Not a selection target
 
-**예시:**
+**Example:**
 ```typescript
 {
   stype: 'document',
   content: ['paragraph-1', 'paragraph-2']
 }
-// document 노드는 선택 불가능
+// document node is not selectable
 ```
 
-### 4.2 selectable: false인 노드
+### 4.2 Node with selectable: false
 
-**특징:**
-- 스키마에서 `selectable: false`로 명시
-- 클릭해도 선택되지 않음
-- UI 요소나 숨겨진 노드에 사용
+**Characteristics:**
+- Explicitly set to `selectable: false` in schema
+- Not selected even when clicked
+- Used for UI elements or hidden nodes
 
-**예시:**
+**Example:**
 ```typescript
-// 스키마 정의
+// Schema definition
 {
   'hiddenBlock': {
     name: 'hiddenBlock',
     group: 'block',
-    selectable: false  // 선택 불가능
+    selectable: false  // Not selectable
   }
 }
 ```
 
 ---
 
-## 5. 사용 케이스
+## 5. Use Cases
 
-### 5.1 클릭으로 노드 선택
+### 5.1 Select Node by Clicking
 
-**시나리오**: 사용자가 paragraph를 클릭
+**Scenario**: User clicks paragraph
 
 ```
 Before:
 [paragraph-1: "Hello"]
 [paragraph-2: "World"]
-         ↑ 클릭
+         ↑ click
 
 After:
 [paragraph-1: "Hello"]
-[paragraph-2: "World"] (선택됨)
+[paragraph-2: "World"] (selected)
 
 Selection: { type: 'node', nodeId: 'paragraph-2' }
 ```
 
-**동작:**
+**Behavior:**
 ```typescript
-// 사용자가 paragraph를 클릭
+// User clicks paragraph
 if (dataStore.isSelectableNode('paragraph-2')) {
-  // Node Selection으로 선택
+  // Select as Node Selection
   editor.updateSelection({
     type: 'node',
     nodeId: 'paragraph-2'
@@ -288,57 +288,57 @@ if (dataStore.isSelectableNode('paragraph-2')) {
 }
 ```
 
-### 5.2 클릭으로 이미지 선택
+### 5.2 Select Image by Clicking
 
-**시나리오**: 사용자가 inline-image를 클릭
+**Scenario**: User clicks inline-image
 
 ```
 Before:
 [text-1: "Hello"] [image-1] [text-2: "World"]
-                   ↑ 클릭
+                   ↑ click
 
 After:
-[text-1: "Hello"] [image-1 (선택됨)] [text-2: "World"]
+[text-1: "Hello"] [image-1 (selected)] [text-2: "World"]
 
 Selection: { type: 'node', nodeId: 'image-1' }
 ```
 
-**동작:**
+**Behavior:**
 ```typescript
-// 사용자가 inline-image를 클릭
+// User clicks inline-image
 if (dataStore.isSelectableNode('image-1')) {
-  // Node Selection으로 선택
+  // Select as Node Selection
   editor.updateSelection({
     type: 'node',
     nodeId: 'image-1'
   });
   
-  // ComponentManager에 select 이벤트 전달
+  // Pass select event to ComponentManager
   componentManager.emit('select', 'image-1', { ... });
 }
 ```
 
-### 5.3 클릭으로 텍스트 커서 이동
+### 5.3 Move Cursor by Clicking Text
 
-**시나리오**: 사용자가 텍스트를 클릭
+**Scenario**: User clicks text
 
 ```
 Before:
 [text-1: "Hello World"]
-         ↑ 클릭 (offset 5)
+         ↑ click (offset 5)
 
 After:
 [text-1: "Hello World"]
-     ↑ 커서 (offset 5)
+     ↑ cursor (offset 5)
 
 Selection: { type: 'range', startNodeId: 'text-1', startOffset: 5, endOffset: 5, collapsed: true }
 ```
 
-**동작:**
+**Behavior:**
 ```typescript
-// 사용자가 텍스트를 클릭
+// User clicks text
 if (dataStore.isSelectableNode('text-1')) {
-  // Range Selection (커서)로 선택
+  // Select as Range Selection (cursor)
   editor.updateSelection({
     type: 'range',
     startNodeId: 'text-1',
@@ -352,9 +352,9 @@ if (dataStore.isSelectableNode('text-1')) {
 
 ---
 
-## 6. 판단 로직 상세
+## 6. Detailed Determination Logic
 
-### 6.1 _isSelectableNode 구현
+### 6.1 _isSelectableNode Implementation
 
 ```typescript
 private _isSelectableNode(nodeId: string): boolean {
@@ -363,7 +363,7 @@ private _isSelectableNode(nodeId: string): boolean {
     return false;
   }
   
-  // 1. 스키마에서 group 확인 (최우선)
+  // 1. Check group from schema (highest priority)
   const schema = this.dataStore.getActiveSchema();
   if (schema) {
     try {
@@ -371,83 +371,83 @@ private _isSelectableNode(nodeId: string): boolean {
       if (nodeType) {
         const group = nodeType.group;
         
-        // document 노드는 항상 선택 불가능
+        // document node is always not selectable
         if (group === 'document') {
           return false;
         }
         
-        // selectable 속성이 명시적으로 false이면 선택 불가능
+        // If selectable attribute is explicitly false, not selectable
         if (nodeType.selectable === false) {
           return false;
         }
         
-        // 그 외의 경우는 선택 가능 (기본값 true)
+        // Otherwise selectable (default true)
         return true;
       }
     } catch (error) {
-      // 스키마 조회 실패 시 계속 진행
+      // Continue if schema lookup fails
     }
   }
   
-  // 2. 스키마 정보가 없으면 기본적으로 선택 가능 (document 제외)
+  // 2. If no schema info, selectable by default (except document)
   if (node.stype === 'document') {
     return false;
   }
   
-  // 3. 그 외의 경우는 선택 가능 (안전하게 true)
+  // 3. Otherwise selectable (safely true)
   return true;
 }
 ```
 
-### 6.2 판단 순서의 중요성
+### 6.2 Importance of Determination Order
 
-**왜 스키마 Group을 먼저 확인하는가?**
+**Why check Schema Group first?**
 
-1. **정확성**: 스키마 정의가 가장 정확한 정보
-2. **명시적 제어**: `selectable: false`로 명시적으로 제어 가능
-3. **일관성**: 스키마 기반으로 일관된 동작 보장
+1. **Accuracy**: Schema definition is the most accurate information
+2. **Explicit control**: Can explicitly control with `selectable: false`
+3. **Consistency**: Ensures consistent behavior based on schema
 
 ---
 
-## 7. Editable vs Selectable 비교
+## 7. Editable vs Selectable Comparison
 
-### 7.1 핵심 구분
+### 7.1 Core Distinction
 
-| 구분 | Editable Node | Selectable Node |
-|------|--------------|----------------|
-| **탐색 방법** | 커서로 탐색 (Backspace/Delete/화살표 키) | 클릭으로 선택 |
-| **편집 명령** | `getPreviousEditableNode` / `getNextEditableNode`로 탐색 가능 | 탐색 불가능 (editable node가 아닌 경우) |
-| **Selection** | Range 또는 Node Selection | Node Selection 또는 Range Selection |
-| **예시** | `.text` 필드가 있는 노드, `group: 'inline'`인 노드, `editable: true`인 block | `group: 'block'`인 노드, `group: 'inline'`인 노드, 모든 노드 (document 제외) |
+| Distinction | Editable Node | Selectable Node |
+|-------------|---------------|-----------------|
+| **Navigation method** | Navigate with cursor (Backspace/Delete/arrow keys) | Select by clicking |
+| **Edit commands** | Navigable with `getPreviousEditableNode` / `getNextEditableNode` | Not navigable (if not editable node) |
+| **Selection** | Range or Node Selection | Node Selection or Range Selection |
+| **Examples** | Nodes with `.text` field, nodes with `group: 'inline'`, blocks with `editable: true` | Nodes with `group: 'block'`, nodes with `group: 'inline'`, all nodes (except document) |
 
-### 7.2 관계
+### 7.2 Relationship
 
-**Editable Node는 Selectable Node의 부분집합:**
-- 모든 Editable Node는 Selectable Node입니다
-- 하지만 Selectable Node가 모두 Editable Node는 아닙니다
-- 예: `paragraph`는 Selectable이지만 Editable이 아닙니다
+**Editable Node is a subset of Selectable Node:**
+- All Editable Nodes are Selectable Nodes
+- But not all Selectable Nodes are Editable Nodes
+- Example: `paragraph` is Selectable but not Editable
 
 **Venn Diagram:**
 ```
 Selectable Node
-  ├── Editable Node (텍스트, inline, editable block)
-  └── Non-Editable Selectable (일반 block 노드)
+  ├── Editable Node (text, inline, editable block)
+  └── Non-Editable Selectable (regular block nodes)
 ```
 
 ---
 
-## 8. 주요 사용처
+## 8. Main Usage
 
-### 8.1 클릭 이벤트 처리
+### 8.1 Click Event Handling
 
 ```typescript
-// 사용자가 노드를 클릭했을 때
+// When user clicks a node
 function handleNodeClick(nodeId: string) {
   if (dataStore.isSelectableNode(nodeId)) {
-    // Node Selection 또는 Range Selection으로 선택
+    // Select as Node Selection or Range Selection
     const node = dataStore.getNode(nodeId);
     if (node.text !== undefined) {
-      // 텍스트 노드: Range Selection
+      // Text node: Range Selection
       editor.updateSelection({
         type: 'range',
         startNodeId: nodeId,
@@ -457,7 +457,7 @@ function handleNodeClick(nodeId: string) {
         collapsed: false
       });
     } else {
-      // Atom 노드 또는 Block: Node Selection
+      // Atom node or Block: Node Selection
       editor.updateSelection({
         type: 'node',
         nodeId: nodeId
@@ -467,13 +467,13 @@ function handleNodeClick(nodeId: string) {
 }
 ```
 
-### 8.2 ComponentManager 이벤트
+### 8.2 ComponentManager Events
 
 ```typescript
-// Node Selection이 발생했을 때
+// When Node Selection occurs
 function handleNodeSelection(selection: ModelNodeSelection) {
   if (dataStore.isSelectableNode(selection.nodeId)) {
-    // ComponentManager에 select 이벤트 전달
+    // Pass select event to ComponentManager
     componentManager.emit('select', selection.nodeId, {
       selection: selection
     });
@@ -481,13 +481,13 @@ function handleNodeSelection(selection: ModelNodeSelection) {
 }
 ```
 
-### 8.3 선택 가능한 노드 목록 조회
+### 8.3 Query Selectable Node List
 
 ```typescript
-// 문서 내 모든 선택 가능한 노드 조회
+// Query all selectable nodes in document
 const selectableNodes = dataStore.getSelectableNodes();
 
-// Block 노드만 조회
+// Query only block nodes
 const blockNodes = dataStore.getSelectableNodes({
   includeBlocks: true,
   includeInline: false,
@@ -497,43 +497,42 @@ const blockNodes = dataStore.getSelectableNodes({
 
 ---
 
-## 9. 요약
+## 9. Summary
 
-### Selectable Node의 정의
+### Definition of Selectable Node
 
-1. **클릭으로 선택 가능한 노드** (마우스 클릭, 드래그, 키보드 단축키)
-2. **Node Selection 또는 Range Selection의 대상이 될 수 있는 노드**
-3. **Document 노드가 아닌 노드** (기본적으로 모든 노드는 선택 가능)
+1. **Node selectable by clicking** (mouse click, drag, keyboard shortcuts)
+2. **Node that can be the target of Node Selection or Range Selection**
+3. **Node that is not a document node** (basically all nodes are selectable)
 
-### 핵심 구분
+### Core Distinction
 
-- **Editable Node**: 커서로 탐색 가능 (텍스트, inline, editable block)
-- **Selectable Node**: 클릭으로 선택 가능 (block, inline, 텍스트 모두)
-- **관계**: Editable Node는 Selectable Node의 부분집합
+- **Editable Node**: Navigable with cursor (text, inline, editable block)
+- **Selectable Node**: Selectable by clicking (all blocks, inline, text)
+- **Relationship**: Editable Node is a subset of Selectable Node
 
-### 판단 기준 (우선순위)
+### Criteria (Priority)
 
-1. **스키마 Group** (최우선)
-   - `group: 'document'` → 선택 불가능
-   - `selectable: false` → 선택 불가능
-   - 그 외 → 선택 가능 (기본값 true)
-2. **stype 확인** (폴백)
-   - `stype === 'document'` → 선택 불가능
-3. **기본값**
-   - 그 외는 선택 가능 (안전하게 true)
+1. **Schema Group** (highest priority)
+   - `group: 'document'` → Not selectable
+   - `selectable: false` → Not selectable
+   - Otherwise → Selectable (default true)
+2. **stype check** (fallback)
+   - `stype === 'document'` → Not selectable
+3. **Default**
+   - Otherwise selectable (safely true)
 
-### 주요 사용처
+### Main Usage
 
-- 클릭 이벤트 처리: 노드 클릭 시 선택 가능 여부 확인
-- Selection 관리: Node Selection 또는 Range Selection의 대상 노드
-- ComponentManager 이벤트: 선택된 노드에 대한 이벤트 전달
+- Click event handling: Check if node is selectable when node is clicked
+- Selection management: Target nodes for Node Selection or Range Selection
+- ComponentManager events: Pass events for selected nodes
 
 ---
 
-## 10. 참고 자료
+## 10. References
 
-- `packages/datastore/src/operations/utility-operations.ts`: `_isSelectableNode` 구현
-- `packages/datastore/test/get-editable-node.test.ts`: 테스트 케이스
-- `packages/datastore/docs/editable-node-spec.md`: Editable Node 명세
-- `packages/editor-view-dom/docs/selection-system.md`: Selection System 명세
-
+- `packages/datastore/src/operations/utility-operations.ts`: `_isSelectableNode` implementation
+- `packages/datastore/test/get-editable-node.test.ts`: Test cases
+- `packages/datastore/docs/editable-node-spec.md`: Editable Node specification
+- `packages/editor-view-dom/docs/selection-system.md`: Selection System specification

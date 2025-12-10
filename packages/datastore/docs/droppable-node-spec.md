@@ -1,122 +1,122 @@
-# Droppable Node 명세
+# Droppable Node Specification
 
-## 개요
+## Overview
 
-이 문서는 "Droppable Node"의 정의, 용도, 판단 기준을 명확히 정의합니다. Droppable Node는 드래그 앤 드롭 시스템에서 **드롭 타겟**이 될 수 있는 노드입니다.
-
----
-
-## 1. Droppable Node란?
-
-**Droppable Node**는 **다른 노드를 받을 수 있는 노드**입니다. 즉, 사용자가 노드를 드래그하여 이 노드에 드롭할 수 있는 노드입니다.
-
-### 핵심 개념
-
-- **드롭 타겟**: 다른 노드를 받을 수 있는 노드
-- **content 기반**: 스키마의 `content` 정의에 따라 어떤 노드를 받을 수 있는지 결정
-- **드래그 앤 드롭의 반대편**: draggable은 "무엇을 드래그하는가", droppable은 "어디에 드롭하는가"
-
-### 중요한 구분: Draggable vs Droppable
-
-#### Draggable Node (드래그 소스)
-- **무엇을 드래그하는가**: 드래그할 수 있는 노드
-- **기본적으로 모든 노드는 드래그 가능** (document 제외)
-- `draggable: false`로 명시하면 드래그 불가능
-
-#### Droppable Node (드롭 타겟)
-- **어디에 드롭하는가**: 드롭할 수 있는 노드
-- **content가 정의된 노드만 드롭 가능** (기본적으로)
-- `droppable: false`로 명시하면 드롭 불가능
-- 스키마의 `content` 정의에 따라 어떤 노드를 받을 수 있는지 결정
-
-### 관계
-
-- **Draggable Node**: 드래그할 수 있는 노드 (대부분의 노드)
-- **Droppable Node**: 드롭할 수 있는 노드 (content가 있는 노드)
-- **일부 노드는 둘 다 가능**: paragraph는 draggable이면서 droppable (자신을 드래그할 수 있고, 다른 노드를 받을 수 있음)
+This document clearly defines the definition, purpose, and criteria for "Droppable Node". Droppable Node is a node that can be a **drop target** in the drag and drop system.
 
 ---
 
-## 2. Droppable Node 판단 기준
+## 1. What is a Droppable Node?
 
-### 2.1 우선순위 기반 판단
+**Droppable Node** is a **node that can receive other nodes**. That is, a node where users can drag and drop nodes.
 
-`_isDroppableNode(nodeId)` 함수는 다음 순서로 판단합니다:
+### Core Concepts
 
-#### 1단계: 스키마 droppable 속성 확인 (최우선)
+- **Drop target**: Node that can receive other nodes
+- **content-based**: Determines which nodes can be received based on schema's `content` definition
+- **Opposite side of drag and drop**: draggable is "what to drag", droppable is "where to drop"
+
+### Important Distinction: Draggable vs Droppable
+
+#### Draggable Node (Drag Source)
+- **What to drag**: Node that can be dragged
+- **Basically all nodes are draggable** (except document)
+- Not draggable if explicitly set to `draggable: false`
+
+#### Droppable Node (Drop Target)
+- **Where to drop**: Node that can be dropped on
+- **Only nodes with content defined are droppable** (basically)
+- Not droppable if explicitly set to `droppable: false`
+- Determines which nodes can be received based on schema's `content` definition
+
+### Relationship
+
+- **Draggable Node**: Node that can be dragged (most nodes)
+- **Droppable Node**: Node that can be dropped on (nodes with content)
+- **Some nodes can be both**: paragraph is both draggable and droppable (can drag itself and receive other nodes)
+
+---
+
+## 2. Droppable Node Criteria
+
+### 2.1 Priority-Based Determination
+
+The `_isDroppableNode(nodeId)` function determines in the following order:
+
+#### Step 1: Check Schema droppable Attribute (Highest Priority)
 
 ```typescript
-// 스키마에서 노드 타입의 droppable 속성 확인
+// Check node type's droppable attribute from schema
 const nodeType = schema.getNodeType(node.stype);
 
-// droppable 속성이 명시적으로 false이면 드롭 불가능
+// If droppable attribute is explicitly false, not droppable
 if (nodeType.droppable === false) {
   return false;
 }
 ```
 
-#### 2단계: 스키마 content 확인
+#### Step 2: Check Schema content
 
 ```typescript
-// content가 있으면 드롭 가능 (기본값)
+// If has content, droppable (default)
 if (nodeType.content) {
   return true;
 }
 
-// content가 없으면 드롭 불가능 (기본값)
+// If no content, not droppable (default)
 return false;
 ```
 
-**예시:**
-- `document` (content: 'block+') → **드롭 가능**
-- `paragraph` (content: 'inline*') → **드롭 가능**
-- `heading` (content: 'inline*') → **드롭 가능**
-- `inline-text` (content 없음) → **드롭 불가능**
-- `inline-image` (content 없음, atom: true) → **드롭 불가능**
-- `fixedBlock` (content: 'inline*', droppable: false) → **드롭 불가능**
+**Examples:**
+- `document` (content: 'block+') → **Droppable**
+- `paragraph` (content: 'inline*') → **Droppable**
+- `heading` (content: 'inline*') → **Droppable**
+- `inline-text` (no content) → **Not droppable**
+- `inline-image` (no content, atom: true) → **Not droppable**
+- `fixedBlock` (content: 'inline*', droppable: false) → **Not droppable**
 
-#### 3단계: 노드 content 필드 확인 (폴백)
+#### Step 3: Check Node content Field (Fallback)
 
 ```typescript
-// 스키마 정보가 없으면 노드의 content 필드 확인
+// If no schema info, check node's content field
 if (node.content !== undefined) {
-  // content 필드가 있으면 드롭 가능
+  // If has content field, droppable
   return true;
 }
 ```
 
-#### 4단계: 기본값 (안전하게 false)
+#### Step 4: Default (Safely false)
 
 ```typescript
-// 그 외의 경우는 드롭 불가능 (안전하게 false)
+// Otherwise not droppable (safely false)
 return false;
 ```
 
 ---
 
-## 3. 특정 노드 드롭 가능 여부 확인
+## 3. Check if Specific Node Can Be Dropped
 
-### 3.1 canDropNode 함수
+### 3.1 canDropNode Function
 
-`canDropNode(targetNodeId, draggedNodeId)` 함수는 특정 노드를 드롭 타겟에 드롭할 수 있는지 확인합니다.
+The `canDropNode(targetNodeId, draggedNodeId)` function checks if a specific node can be dropped on a drop target.
 
-**판단 순서:**
+**Determination order:**
 
-1. **드롭 타겟이 droppable인지 확인**
+1. **Check if drop target is droppable**
    ```typescript
    if (!_isDroppableNode(targetNodeId)) {
      return false;
    }
    ```
 
-2. **드래그되는 노드가 draggable인지 확인**
+2. **Check if dragged node is draggable**
    ```typescript
    if (!_isDraggableNode(draggedNodeId)) {
      return false;
    }
    ```
 
-3. **스키마의 content 정의 확인**
+3. **Check schema's content definition**
    ```typescript
    const targetNodeType = schema.getNodeType(targetNode.stype);
    const draggedNodeType = schema.getNodeType(draggedNode.stype);
@@ -125,164 +125,164 @@ return false;
    const draggedGroup = draggedNodeType.group;
    const draggedStype = draggedNode.stype;
    
-   // content 모델에서 draggedNode의 group 또는 stype이 허용되는지 확인
+   // Check if draggedNode's group or stype is allowed in content model
    if (contentModel.includes(draggedGroup) || contentModel.includes(draggedStype)) {
      return true;
    }
    ```
 
-**예시:**
+**Examples:**
 
 ```typescript
-// block 노드를 document에 드롭 가능
-canDropNode('document-1', 'paragraph-1') // true (document의 content: 'block+')
+// Can drop block node on document
+canDropNode('document-1', 'paragraph-1') // true (document's content: 'block+')
 
-// inline 노드를 paragraph에 드롭 가능
-canDropNode('paragraph-1', 'inline-text-1') // true (paragraph의 content: 'inline*')
-canDropNode('paragraph-1', 'inline-image-1') // true (paragraph의 content: 'inline*')
+// Can drop inline node on paragraph
+canDropNode('paragraph-1', 'inline-text-1') // true (paragraph's content: 'inline*')
+canDropNode('paragraph-1', 'inline-image-1') // true (paragraph's content: 'inline*')
 
-// block 노드를 inline 노드에 드롭 불가능
-canDropNode('inline-text-1', 'paragraph-1') // false (inline-text는 content 없음)
+// Cannot drop block node on inline node
+canDropNode('inline-text-1', 'paragraph-1') // false (inline-text has no content)
 
-// droppable: false인 노드에는 드롭 불가능
+// Cannot drop on node with droppable: false
 canDropNode('nonDroppableBlock-1', 'paragraph-1') // false
 ```
 
 ---
 
-## 4. Droppable Node의 종류
+## 4. Types of Droppable Nodes
 
-### 4.1 Document 노드
+### 4.1 Document Node
 
-**판단 기준:**
-- `group: 'document'` (스키마에서 확인)
-- `content: 'block+'` (스키마에서 확인)
-- `droppable: false`가 아니면 드롭 가능
+**Criteria:**
+- `group: 'document'` (checked from schema)
+- `content: 'block+'` (checked from schema)
+- Droppable if not `droppable: false`
 
-**특징:**
-- block 노드를 받을 수 있음
-- 최상위 컨테이너
-- 다른 노드의 부모가 될 수 있음
+**Characteristics:**
+- Can receive block nodes
+- Top-level container
+- Can be parent of other nodes
 
-**예시:**
+**Example:**
 ```typescript
 {
   stype: 'document',
   content: ['paragraph-1', 'paragraph-2']
-  // 스키마 정의: { group: 'document', content: 'block+' }
+  // Schema definition: { group: 'document', content: 'block+' }
 }
-// 사용자가 paragraph를 document에 드롭하면:
+// When user drops paragraph on document:
 // moveNode({ nodeId: 'paragraph-1', newParentId: 'document-1', position: 2 })
 ```
 
-### 4.2 Block 노드
+### 4.2 Block Node
 
-**판단 기준:**
-- `group: 'block'` (스키마에서 확인)
-- `content` 정의 있음 (스키마에서 확인)
-- `droppable: false`가 아니면 드롭 가능
+**Criteria:**
+- `group: 'block'` (checked from schema)
+- Has `content` definition (checked from schema)
+- Droppable if not `droppable: false`
 
-**특징:**
-- 일반적으로 inline 노드를 받을 수 있음
-- Block 전체가 드롭 타겟이 됨
+**Characteristics:**
+- Generally can receive inline nodes
+- Entire block becomes drop target
 
-**예시:**
+**Example:**
 ```typescript
 {
   stype: 'paragraph',
   content: ['text-1', 'text-2']
-  // 스키마 정의: { group: 'block', content: 'inline*' }
+  // Schema definition: { group: 'block', content: 'inline*' }
 }
-// 사용자가 inline-text를 paragraph에 드롭하면:
+// When user drops inline-text on paragraph:
 // moveNode({ nodeId: 'text-1', newParentId: 'paragraph-2', position: 1 })
 ```
 
-### 4.3 Droppable이 아닌 노드
+### 4.3 Non-Droppable Nodes
 
-**판단 기준:**
-- `content` 정의 없음
-- `droppable: false`로 명시
+**Criteria:**
+- No `content` definition
+- Explicitly set to `droppable: false`
 
-**특징:**
-- 드롭 타겟이 될 수 없음
-- Atom 노드, 텍스트 노드 등
+**Characteristics:**
+- Cannot be drop target
+- Atom nodes, text nodes, etc.
 
-**예시:**
+**Example:**
 ```typescript
 {
   stype: 'inline-text',
   text: 'Hello World'
-  // 스키마 정의: { group: 'inline' } (content 없음)
+  // Schema definition: { group: 'inline' } (no content)
 }
-// inline-text는 드롭 불가능
+// inline-text is not droppable
 ```
 
 ---
 
-## 5. 사용 케이스
+## 5. Use Cases
 
-### 5.1 드롭 타겟 확인
+### 5.1 Check Drop Target
 
-**시나리오**: 사용자가 노드를 드래그하여 다른 노드 위에 호버
+**Scenario**: User drags node and hovers over another node
 
 ```
 Before:
 [paragraph-1: "Hello"]
 [paragraph-2: "World"]
-         ↑ 드래그 중
-         ↑ 호버 (드롭 가능한지 확인)
+         ↑ dragging
+         ↑ hover (check if droppable)
 
-동작:
+Behavior:
 if (dataStore.isDroppableNode('paragraph-2')) {
-  // 드롭 타겟으로 표시 (예: 배경색 변경)
+  // Mark as drop target (e.g., change background color)
   element.classList.add('droppable');
 } else {
-  // 드롭 불가능 표시 (예: 커서 변경)
+  // Mark as not droppable (e.g., change cursor)
   element.classList.add('no-drop');
 }
 ```
 
-**동작:**
+**Behavior:**
 ```typescript
-// 사용자가 노드를 드래그하여 다른 노드 위에 호버
+// When user drags node and hovers over another node
 function handleDragOver(targetNodeId: string) {
   if (dataStore.isDroppableNode(targetNodeId)) {
-    // 드롭 타겟으로 표시
-    event.preventDefault(); // 드롭 허용
+    // Mark as drop target
+    event.preventDefault(); // Allow drop
     element.classList.add('droppable');
   } else {
-    // 드롭 불가능 표시
+    // Mark as not droppable
     element.classList.add('no-drop');
   }
 }
 ```
 
-### 5.2 특정 노드 드롭 가능 여부 확인
+### 5.2 Check if Specific Node Can Be Dropped
 
-**시나리오**: 사용자가 paragraph를 드래그하여 다른 paragraph 위에 드롭 시도
+**Scenario**: User drags paragraph and attempts to drop on another paragraph
 
 ```
 Before:
 [paragraph-1: "Hello"]
 [paragraph-2: "World"]
-         ↑ 드래그 중
-         ↑ 드롭 시도
+         ↑ dragging
+         ↑ drop attempt
 
-동작:
+Behavior:
 if (dataStore.canDropNode('paragraph-2', 'paragraph-1')) {
-  // 드롭 가능: moveNode 실행
+  // Droppable: execute moveNode
 } else {
-  // 드롭 불가능: 드롭 차단
+  // Not droppable: block drop
 }
 ```
 
-**동작:**
+**Behavior:**
 ```typescript
-// 사용자가 노드를 드롭했을 때
+// When user drops node
 function handleDrop(targetNodeId: string, position: number, draggedNodeId: string) {
-  // 특정 노드를 드롭할 수 있는지 확인
+  // Check if specific node can be dropped
   if (dataStore.canDropNode(targetNodeId, draggedNodeId)) {
-    // moveNode operation 실행
+    // Execute moveNode operation
     await transaction(editor, [
       {
         type: 'moveNode',
@@ -294,37 +294,37 @@ function handleDrop(targetNodeId: string, position: number, draggedNodeId: strin
       }
     ]).commit();
   } else {
-    // 드롭 불가능: 드롭 차단
+    // Not droppable: block drop
     event.preventDefault();
-    // 시각적 피드백 제공
+    // Provide visual feedback
   }
 }
 ```
 
-### 5.3 드롭 가능한 노드 목록 조회
+### 5.3 Query Droppable Node List
 
-**시나리오**: 드래그 중일 때 드롭 가능한 노드에만 시각적 피드백 제공
+**Scenario**: Provide visual feedback only to droppable nodes while dragging
 
 ```
 Before:
 [paragraph-1: "Hello"]
 [paragraph-2: "World"]
 [inline-text-1: "Foo"]
-         ↑ 드래그 중
+         ↑ dragging
 
-동작:
+Behavior:
 const droppableNodes = dataStore.getDroppableNodes();
-// paragraph-1, paragraph-2만 포함 (inline-text-1은 제외)
+// Only includes paragraph-1, paragraph-2 (excludes inline-text-1)
 droppableNodes.forEach(node => {
   highlightDroppableArea(node.sid);
 });
 ```
 
-**동작:**
+**Behavior:**
 ```typescript
-// 사용자가 노드를 드래그 시작했을 때
+// When user starts dragging node
 function handleDragStart(draggedNodeId: string) {
-  // 모든 드롭 가능한 노드에 시각적 피드백 제공
+  // Provide visual feedback to all droppable nodes
   const droppableNodes = dataStore.getDroppableNodes();
   droppableNodes.forEach(node => {
     const element = document.querySelector(`[data-bc-sid="${node.sid}"]`);
@@ -334,7 +334,7 @@ function handleDragStart(draggedNodeId: string) {
   });
 }
 
-// 드래그 종료 시 피드백 제거
+// Remove feedback when drag ends
 function handleDragEnd() {
   const droppableNodes = dataStore.getDroppableNodes();
   droppableNodes.forEach(node => {
@@ -348,9 +348,9 @@ function handleDragEnd() {
 
 ---
 
-## 6. 판단 로직 상세
+## 6. Detailed Determination Logic
 
-### 6.1 _isDroppableNode 구현
+### 6.1 _isDroppableNode Implementation
 
 ```typescript
 private _isDroppableNode(nodeId: string): boolean {
@@ -359,59 +359,59 @@ private _isDroppableNode(nodeId: string): boolean {
     return false;
   }
   
-  // 1. 스키마에서 content와 droppable 확인 (최우선)
+  // 1. Check content and droppable from schema (highest priority)
   const schema = this.dataStore.getActiveSchema();
   if (schema) {
     try {
       const nodeType = schema.getNodeType(node.stype);
       if (nodeType) {
-        // droppable 속성이 명시적으로 false이면 드롭 불가능
+        // If droppable attribute is explicitly false, not droppable
         if (nodeType.droppable === false) {
           return false;
         }
         
-        // content가 있으면 드롭 가능 (기본값)
+        // If has content, droppable (default)
         if (nodeType.content) {
           return true;
         }
         
-        // content가 없으면 드롭 불가능 (기본값)
+        // If no content, not droppable (default)
         return false;
       }
     } catch (error) {
-      // 스키마 조회 실패 시 계속 진행
+      // Continue if schema lookup fails
     }
   }
   
-  // 2. 스키마 정보가 없으면 노드의 content 필드 확인
+  // 2. If no schema info, check node's content field
   if (node.content !== undefined) {
-    // content 필드가 있으면 드롭 가능
+    // If has content field, droppable
     return true;
   }
   
-  // 3. 그 외의 경우는 드롭 불가능 (안전하게 false)
+  // 3. Otherwise not droppable (safely false)
   return false;
 }
 ```
 
-### 6.2 canDropNode 구현
+### 6.2 canDropNode Implementation
 
 ```typescript
 canDropNode(targetNodeId: string, draggedNodeId: string): boolean {
-  // 1. 드롭 타겟이 droppable인지 확인
+  // 1. Check if drop target is droppable
   if (!this._isDroppableNode(targetNodeId)) {
     return false;
   }
   
-  // 2. 드래그되는 노드가 draggable인지 확인
+  // 2. Check if dragged node is draggable
   if (!this._isDraggableNode(draggedNodeId)) {
     return false;
   }
   
-  // 3. 스키마의 content 정의 확인
+  // 3. Check schema's content definition
   const schema = this.dataStore.getActiveSchema();
   if (!schema) {
-    return true; // 스키마가 없으면 기본적으로 허용
+    return true; // If no schema, allow by default
   }
   
   const targetNode = this.dataStore.getNode(targetNodeId);
@@ -430,21 +430,21 @@ canDropNode(targetNodeId: string, draggedNodeId: string): boolean {
   
   const contentModel = targetNodeType.content;
   if (!contentModel) {
-    return false; // content가 없으면 드롭 불가능
+    return false; // If no content, not droppable
   }
   
-  // content 모델에서 draggedNode의 group 또는 stype이 허용되는지 확인
+  // Check if draggedNode's group or stype is allowed in content model
   const draggedGroup = draggedNodeType.group;
   const draggedStype = draggedNode.stype;
   
   const contentModelLower = contentModel.toLowerCase();
   
-  // group 기반 확인
+  // Check based on group
   if (draggedGroup && contentModelLower.includes(draggedGroup)) {
     return true;
   }
   
-  // stype 기반 확인
+  // Check based on stype
   if (contentModelLower.includes(draggedStype)) {
     return true;
   }
@@ -455,63 +455,63 @@ canDropNode(targetNodeId: string, draggedNodeId: string): boolean {
 
 ---
 
-## 7. Draggable vs Droppable 비교
+## 7. Draggable vs Droppable Comparison
 
-### 7.1 핵심 구분
+### 7.1 Core Distinction
 
-| 구분 | Draggable Node | Droppable Node |
-|------|---------------|----------------|
-| **의미** | 드래그할 수 있는 노드 (드래그 소스) | 드롭할 수 있는 노드 (드롭 타겟) |
-| **판단 기준** | 기본적으로 모든 노드 (document 제외) | content가 있는 노드만 |
-| **제어** | `draggable: false`로 명시 | `droppable: false`로 명시 |
-| **예시** | paragraph, inline-text, inline-image | document, paragraph, heading |
+| Distinction | Draggable Node | Droppable Node |
+|-------------|---------------|----------------|
+| **Meaning** | Node that can be dragged (drag source) | Node that can be dropped on (drop target) |
+| **Criteria** | Basically all nodes (except document) | Only nodes with content |
+| **Control** | Explicitly set with `draggable: false` | Explicitly set with `droppable: false` |
+| **Examples** | paragraph, inline-text, inline-image | document, paragraph, heading |
 
-### 7.2 관계
+### 7.2 Relationship
 
 **Venn Diagram:**
 ```
-Draggable Node (대부분의 노드)
-  ├── Droppable Node (content가 있는 노드)
-  │     └── 둘 다 가능 (paragraph, heading 등)
-  └── Non-Droppable Draggable (content가 없는 노드)
-        └── inline-text, inline-image 등
+Draggable Node (most nodes)
+  ├── Droppable Node (nodes with content)
+  │     └── Both possible (paragraph, heading, etc.)
+  └── Non-Droppable Draggable (nodes without content)
+        └── inline-text, inline-image, etc.
 ```
 
-**예시:**
-- **둘 다 가능**: paragraph, heading, document
-  - 드래그할 수 있고, 다른 노드를 받을 수 있음
-- **Draggable만 가능**: inline-text, inline-image
-  - 드래그할 수 있지만, 다른 노드를 받을 수 없음
-- **둘 다 불가능**: draggable: false, droppable: false인 노드
+**Examples:**
+- **Both possible**: paragraph, heading, document
+  - Can drag and can receive other nodes
+- **Only Draggable**: inline-text, inline-image
+  - Can drag but cannot receive other nodes
+- **Neither**: Nodes with draggable: false, droppable: false
 
 ---
 
-## 8. 주요 사용처
+## 8. Main Usage
 
-### 8.1 드래그 앤 드롭 이벤트 처리
+### 8.1 Drag and Drop Event Handling
 
 ```typescript
-// 사용자가 노드를 드래그하여 다른 노드 위에 호버
+// When user drags node and hovers over another node
 function handleDragOver(targetNodeId: string, draggedNodeId: string) {
-  // 드롭 타겟이 droppable인지 확인
+  // Check if drop target is droppable
   if (dataStore.isDroppableNode(targetNodeId)) {
-    // 특정 노드를 드롭할 수 있는지 확인
+    // Check if specific node can be dropped
     if (dataStore.canDropNode(targetNodeId, draggedNodeId)) {
-      // 드롭 가능: 드롭 허용
+      // Droppable: allow drop
       event.preventDefault();
       element.classList.add('droppable');
     } else {
-      // 드롭 불가능: 드롭 차단
+      // Not droppable: block drop
       element.classList.add('no-drop');
     }
   }
 }
 
-// 사용자가 노드를 드롭했을 때
+// When user drops node
 function handleDrop(targetNodeId: string, position: number, draggedNodeId: string) {
-  // 드롭 가능 여부 확인
+  // Check if droppable
   if (dataStore.canDropNode(targetNodeId, draggedNodeId)) {
-    // moveNode operation 실행
+    // Execute moveNode operation
     await transaction(editor, [
       {
         type: 'moveNode',
@@ -526,13 +526,13 @@ function handleDrop(targetNodeId: string, position: number, draggedNodeId: strin
 }
 ```
 
-### 8.2 드롭 가능한 노드 목록 조회
+### 8.2 Query Droppable Node List
 
 ```typescript
-// 문서 내 모든 드롭 가능한 노드 조회
+// Query all droppable nodes in document
 const droppableNodes = dataStore.getDroppableNodes();
 
-// Block 노드만 조회
+// Query only block nodes
 const blockNodes = dataStore.getDroppableNodes({
   includeBlocks: true,
   includeInline: false,
@@ -540,60 +540,59 @@ const blockNodes = dataStore.getDroppableNodes({
 });
 ```
 
-### 8.3 드롭 가능 여부 확인
+### 8.3 Check Droppability
 
 ```typescript
-// 특정 노드가 드롭 타겟이 될 수 있는지 확인
+// Check if specific node can be drop target
 if (dataStore.isDroppableNode(nodeId)) {
-  // 드롭 UI 활성화 (예: 드롭 영역 표시)
+  // Enable drop UI (e.g., show drop area)
   element.setAttribute('data-droppable', 'true');
 } else {
-  // 드롭 UI 비활성화
+  // Disable drop UI
   element.setAttribute('data-droppable', 'false');
 }
 ```
 
 ---
 
-## 9. 요약
+## 9. Summary
 
-### Droppable Node의 정의
+### Definition of Droppable Node
 
-1. **드롭 타겟이 될 수 있는 노드** (다른 노드를 받을 수 있음)
-2. **content가 정의된 노드** (기본적으로 드롭 가능)
-3. **스키마의 content 정의에 따라 어떤 노드를 받을 수 있는지 결정**
+1. **Node that can be a drop target** (can receive other nodes)
+2. **Node with content defined** (droppable by default)
+3. **Determines which nodes can be received based on schema's content definition**
 
-### 핵심 구분
+### Core Distinction
 
-- **Draggable Node**: 드래그할 수 있는 노드 (대부분의 노드)
-- **Droppable Node**: 드롭할 수 있는 노드 (content가 있는 노드)
-- **canDropNode**: 특정 노드를 드롭 타겟에 드롭할 수 있는지 확인
+- **Draggable Node**: Node that can be dragged (most nodes)
+- **Droppable Node**: Node that can be dropped on (nodes with content)
+- **canDropNode**: Check if specific node can be dropped on drop target
 
-### 판단 기준 (우선순위)
+### Criteria (Priority)
 
-1. **스키마 droppable 속성** (최우선)
-   - `droppable: false` → 드롭 불가능
-2. **스키마 content 확인**
-   - `content` 있음 → 드롭 가능 (기본값)
-   - `content` 없음 → 드롭 불가능 (기본값)
-3. **노드 content 필드 확인** (폴백)
-   - `content` 필드 있음 → 드롭 가능
-4. **기본값**
-   - 그 외는 드롭 불가능 (안전하게 false)
+1. **Schema droppable attribute** (highest priority)
+   - `droppable: false` → Not droppable
+2. **Check schema content**
+   - Has `content` → Droppable (default)
+   - No `content` → Not droppable (default)
+3. **Check node content field** (fallback)
+   - Has `content` field → Droppable
+4. **Default**
+   - Otherwise not droppable (safely false)
 
-### 주요 사용처
+### Main Usage
 
-- 드래그 앤 드롭 이벤트 처리: 드롭 타겟 확인 및 드롭 가능 여부 확인
-- moveNode operation: 드롭 가능한 노드만 이동 가능
-- 드롭 UI: 드롭 가능한 노드에만 드롭 영역 표시
+- Drag and drop event handling: Check drop target and droppability
+- moveNode operation: Only droppable nodes can be moved to
+- Drop UI: Show drop area only on droppable nodes
 
 ---
 
-## 10. 참고 자료
+## 10. References
 
-- `packages/datastore/src/operations/utility-operations.ts`: `_isDroppableNode`, `canDropNode` 구현
-- `packages/datastore/test/get-editable-node.test.ts`: 테스트 케이스
-- `packages/datastore/docs/draggable-node-spec.md`: Draggable Node 명세
-- `packages/model/src/operations/moveNode.ts`: moveNode operation 구현
-- `packages/schema/src/validators.ts`: Content 모델 검증 로직
-
+- `packages/datastore/src/operations/utility-operations.ts`: `_isDroppableNode`, `canDropNode` implementation
+- `packages/datastore/test/get-editable-node.test.ts`: Test cases
+- `packages/datastore/docs/draggable-node-spec.md`: Draggable Node specification
+- `packages/model/src/operations/moveNode.ts`: moveNode operation implementation
+- `packages/schema/src/validators.ts`: Content model validation logic

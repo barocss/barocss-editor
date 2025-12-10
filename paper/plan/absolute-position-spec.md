@@ -1,59 +1,59 @@
-# Absolute Position 스펙
+# Absolute Position Specification
 
-## 1. 개요
+## 1. Overview
 
-Absolute Position은 Barocss Editor에서 문서 전체를 하나의 연속된 텍스트로 간주했을 때의 **문자 인덱스**입니다. 이는 ProseMirror의 Position 개념과 유사하지만, Barocss의 계층적 문서 구조에 맞게 설계되었습니다.
+Absolute Position is a **character index** when treating the entire document as one continuous text in Barocss Editor. It is similar to ProseMirror’s Position concept but designed for Barocss’s hierarchical document structure.
 
-### 1.1 목적
-- **정확한 선택**: 노드 경계에서의 선택을 정확하게 처리
-- **구조 보존**: 문서의 계층적 구조 정보를 유지
-- **확장성**: 하이라이트, 데코레이션, 협업 편집 등 향후 기능 지원
-- **호환성**: ProseMirror와 유사한 방식으로 다른 에디터와의 호환성 확보
+### 1.1 Purpose
+- **Accurate selection**: handle selection at node boundaries precisely
+- **Structure preservation**: maintain hierarchical structure information
+- **Extensibility**: support future features like highlights, decorations, collaborative editing
+- **Compatibility**: align with ProseMirror-style approaches for interoperability
 
-## 2. Absolute Position 정의
+## 2. Absolute Position Definition
 
-### 2.1 기본 개념
+### 2.1 Basic Concept
 
 ```typescript
-// Absolute Position은 0부터 시작하는 정수
-// 노드 경계와 텍스트 문자를 모두 포함
+// Absolute Position is an integer starting from 0
+// Includes both node boundaries and text characters
 type AbsolutePosition = number;  // 0, 1, 2, 3, ...
 
-// 예시: 문서 구조
+// Example: document structure
 // doc-1
 //   ├── para-1
 //   │   └── text-1 (text: "Hello")
 //   └── para-2
 //       └── text-2 (text: "World")
 
-// Absolute Position 매핑 (노드 경계 포함):
-// 0: doc-1 시작
-// 1: para-1 시작
-// 2: H (text-1의 0번째 문자)
-// 3: e (text-1의 1번째 문자)
-// 4: l (text-1의 2번째 문자)
-// 5: l (text-1의 3번째 문자)
-// 6: o (text-1의 4번째 문자)
-// 7: para-1 끝
-// 8: para-2 시작
-// 9: W (text-2의 0번째 문자)
-// 10: o (text-2의 1번째 문자)
-// 11: r (text-2의 2번째 문자)
-// 12: l (text-2의 3번째 문자)
-// 13: d (text-2의 4번째 문자)
-// 14: para-2 끝
-// 15: doc-1 끝
+// Absolute Position mapping (including node boundaries):
+// 0: doc-1 start
+// 1: para-1 start
+// 2: H (text-1, 0th char)
+// 3: e (text-1, 1st char)
+// 4: l (text-1, 2nd char)
+// 5: l (text-1, 3rd char)
+// 6: o (text-1, 4th char)
+// 7: para-1 end
+// 8: para-2 start
+// 9: W (text-2, 0th char)
+// 10: o (text-2, 1st char)
+// 11: r (text-2, 2nd char)
+// 12: l (text-2, 3rd char)
+// 13: d (text-2, 4th char)
+// 14: para-2 end
+// 15: doc-1 end
 ```
 
-### 2.2 계산 규칙
+### 2.2 Calculation Rules
 
-1. **문서 순회**: 문서의 루트부터 깊이 우선 순회(DFS)
-2. **모든 노드 포함**: 텍스트 노드와 컨테이너 노드 모두 포함
-3. **노드 경계 포함**: 각 노드의 시작과 끝 위치를 인덱스로 할당
-4. **순차적 인덱싱**: 문서 순서대로 0부터 연속적으로 인덱스 할당
-5. **선택 가능성**: 빈 노드도 선택할 수 있도록 노드 경계 유지
+1. **Document traversal**: depth-first traversal (DFS) from root
+2. **Include all nodes**: both text and container nodes
+3. **Include node boundaries**: assign an index to each node’s start and end
+4. **Sequential indexing**: assign indices sequentially from 0 in document order
+5. **Selectability**: maintain boundaries so empty nodes are selectable
 
-### 2.3 계산 알고리즘
+### 2.3 Calculation Algorithm
 
 ```typescript
 function calculateAbsolutePosition(nodeId: string, offset: number): number {
@@ -63,28 +63,28 @@ function calculateAbsolutePosition(nodeId: string, offset: number): number {
     const node = document.getNode(currentNodeId);
     if (!node) return false;
 
-    // 현재 노드가 목표 노드인 경우
+    // If current node is the target
     if (node.sid === nodeId) {
       absoluteOffset += offset;
       return true;
     }
 
-    // 노드 시작 위치 추가 (1)
+    // Add node start position (1)
     absoluteOffset += 1;
 
-    // 텍스트 노드인 경우 텍스트 길이 추가
+    // If text node, add text length
     if (node.text) {
       absoluteOffset += node.text.length;
     }
 
-    // 컨테이너 노드인 경우 자식들을 순회
+    // If container, traverse children
     if (node.content) {
       for (const childId of node.content) {
         if (traverse(childId)) return true;
       }
     }
 
-    // 노드 끝 위치 추가 (1)
+    // Add node end position (1)
     absoluteOffset += 1;
 
     return false;
@@ -95,7 +95,7 @@ function calculateAbsolutePosition(nodeId: string, offset: number): number {
 }
 ```
 
-### 2.4 역변환 알고리즘
+### 2.4 Reverse Conversion Algorithm
 
 ```typescript
 function findNodeByAbsolutePosition(absoluteOffset: number): { nodeId: string; offset: number } | null {
@@ -105,13 +105,13 @@ function findNodeByAbsolutePosition(absoluteOffset: number): { nodeId: string; o
     const node = document.getNode(nodeId);
     if (!node) return null;
 
-    // 노드 시작 위치 확인
+    // Check node start position
     if (currentOffset === absoluteOffset) {
-      return { nodeId, offset: 0 }; // 노드 시작
+      return { nodeId, offset: 0 }; // node start
     }
     currentOffset += 1;
 
-    // 텍스트 노드인 경우
+    // If text node
     if (node.text) {
       const nodeLength = node.text.length;
       if (currentOffset + nodeLength > absoluteOffset) {
@@ -123,7 +123,7 @@ function findNodeByAbsolutePosition(absoluteOffset: number): { nodeId: string; o
       currentOffset += nodeLength;
     }
 
-    // 컨테이너 노드인 경우 자식들을 순회
+    // If container, traverse children
     if (node.content) {
       for (const childId of node.content) {
         const result = traverse(childId);
@@ -131,9 +131,9 @@ function findNodeByAbsolutePosition(absoluteOffset: number): { nodeId: string; o
       }
     }
 
-    // 노드 끝 위치 확인
+    // Check node end position
     if (currentOffset === absoluteOffset) {
-      return { nodeId, offset: node.text ? node.text.length : 0 }; // 노드 끝
+      return { nodeId, offset: node.text ? node.text.length : 0 }; // node end
     }
     currentOffset += 1;
 
@@ -144,70 +144,70 @@ function findNodeByAbsolutePosition(absoluteOffset: number): { nodeId: string; o
 }
 ```
 
-## 3. Absolute Position의 특징
+## 3. Characteristics of Absolute Position
 
-### 3.1 장점
+### 3.1 Advantages
 
-1. **정확한 선택**: 노드 경계에서의 선택을 정확하게 처리
-2. **구조 보존**: 문서의 계층적 구조 정보를 유지
-3. **빈 노드 선택**: 텍스트가 없는 노드도 선택 가능
-4. **ProseMirror 호환**: ProseMirror와 동일한 방식으로 호환성 확보
-5. **확장성**: 하이라이트, 데코레이션 등 향후 기능 지원
+1. **Accurate selection**: precise handling at node boundaries
+2. **Structure preservation**: maintains hierarchical structure
+3. **Empty node selection**: enables selection of nodes without text
+4. **ProseMirror compatibility**: aligns with ProseMirror for interoperability
+5. **Extensibility**: supports future features like highlights, decorations
 
-### 3.2 단점
+### 3.2 Disadvantages
 
-1. **복잡성**: 노드 경계 계산이 복잡
-2. **성능**: 대규모 문서에서 계산 오버헤드
-3. **이해 어려움**: 개발자가 이해하기 어려울 수 있음
+1. **Complexity**: node boundary calculation is complex
+2. **Performance**: calculation overhead in large documents
+3. **Learning curve**: may be harder for developers to understand
 
-### 3.3 다른 에디터와의 비교
+### 3.3 Comparison with Other Editors
 
-| 에디터 | Position 방식 | 구조 정보 | 선택 방식 |
-|--------|---------------|-----------|-----------|
-| **ProseMirror** | 노드 경계 포함 | ✅ | 정확한 경계 |
-| **Word** | 문자 단위 | ❌ | 단순한 범위 |
-| **Google Docs** | 하이브리드 | ✅ | 구조 + 텍스트 |
-| **Notion** | 블록 기반 | ✅ | 블록 단위 |
-| **Obsidian** | 라인 기반 | ❌ | 라인 + 문자 |
-| **Barocss** | 노드 경계 포함 | ✅ | 정확한 경계 |
+| Editor | Position Method | Structure Info | Selection Method |
+|--------|----------------|----------------|-------------------|
+| **ProseMirror** | Includes node boundaries | ✅ | Precise boundaries |
+| **Word** | Character-based | ❌ | Simple range |
+| **Google Docs** | Hybrid | ✅ | Structure + text |
+| **Notion** | Block-based | ✅ | Block unit |
+| **Obsidian** | Line-based | ❌ | Line + character |
+| **Barocss** | Includes node boundaries | ✅ | Precise boundaries |
 
-## 4. 사용 예시
+## 4. Usage Examples
 
-### 4.1 기본 사용법
+### 4.1 Basic Usage
 
 ```typescript
 import { PositionCalculator } from '@barocss/model';
 
 const calculator = new PositionCalculator(document);
 
-// nodeId + offset을 절대 위치로 변환
+// Convert nodeId + offset to absolute position
 const absolutePos = calculator.calculateAbsolutePosition('text-1', 3);
-console.log(absolutePos); // 5 (para-1 시작 + text-1 시작 + 3)
+console.log(absolutePos); // 5 (para-1 start + text-1 start + 3)
 
-// 절대 위치를 nodeId + offset으로 변환
+// Convert absolute position to nodeId + offset
 const nodePos = calculator.findNodeByAbsolutePosition(5);
 console.log(nodePos); // { nodeId: 'text-1', offset: 3 }
 ```
 
-### 4.2 Selection과 함께 사용
+### 4.2 Usage with Selection
 
 ```typescript
 import { PositionBasedSelectionManager } from '@barocss/model';
 
 const selectionManager = new PositionBasedSelectionManager(document, positionTracker);
 
-// 절대 위치 기반 선택
+// Select based on absolute positions
 const selectionId = selectionManager.selectAbsoluteRange(2, 7);
-// text-1의 0-5번째 문자 선택
+// Selects text-1 characters 0-5
 
-// 노드 선택
+// Select a node
 const nodeSelectionId = selectionManager.selectNode('para-1');
-// 빈 paragraph 선택 가능
+// Can select empty paragraph
 ```
 
-### 4.3 직렬화와 업데이트 규칙 요약
+### 4.3 Serialization and Update Rules Summary
 
-직렬화 포맷(권장):
+Recommended serialization format:
 
 ```json
 {
@@ -218,17 +218,17 @@ const nodeSelectionId = selectionManager.selectNode('para-1');
 }
 ```
 
-업데이트 규칙(요약):
+Update rules (summary):
 
-- 텍스트 삽입: 삽입 절대 위치 ≤ 포지션이면 해당 포지션 absolute(+len)
-- 텍스트 삭제: 삭제 구간 이전은 유지, 이후는 absolute(-len), 구간 내는 무효화
-- 노드 삽입/삭제: 삽입/삭제 위치가 포지션 앞이면 absolute 가감, 동일 노드 삭제 시 무효화
-- 노드 이동: 경계 포함 계산에 따라 이동량만큼 절대값 보정
+- Text insertion: if insertion absolute position ≤ position, add length to that position
+- Text deletion: positions before deletion remain; positions after subtract length; positions inside are invalidated
+- Node insertion/deletion: if insertion/deletion is before position, adjust absolute value; if same node is deleted, invalidate
+- Node move: adjust absolute value by move amount based on boundary-inclusive calculation
 
-### 4.3 복잡한 문서 구조
+### 4.4 Complex Document Structure
 
 ```typescript
-// 복잡한 문서 구조 예시
+// Example: complex document structure
 const complexDocument = {
   id: 'doc-1',
   type: 'document',
@@ -238,111 +238,111 @@ const complexDocument = {
 // section-1 > para-1 > text-1("Hello") + para-2 > text-2("World")
 // section-2 > para-3 > text-3("Test")
 
-// Absolute Position 매핑:
-// 0: doc-1 시작
-// 1: section-1 시작
-// 2: para-1 시작
+// Absolute Position mapping:
+// 0: doc-1 start
+// 1: section-1 start
+// 2: para-1 start
 // 3: H, 4: e, 5: l, 6: l, 7: o
-// 8: para-1 끝
-// 9: para-2 시작
+// 8: para-1 end
+// 9: para-2 start
 // 10: W, 11: o, 12: r, 13: l, 14: d
-// 15: para-2 끝
-// 16: section-1 끝
-// 17: section-2 시작
-// 18: para-3 시작
+// 15: para-2 end
+// 16: section-1 end
+// 17: section-2 start
+// 18: para-3 start
 // 19: T, 20: e, 21: s, 22: t
-// 23: para-3 끝
-// 24: section-2 끝
-// 25: doc-1 끝
+// 23: para-3 end
+// 24: section-2 end
+// 25: doc-1 end
 ```
 
-## 5. 성능 고려사항
+## 5. Performance Considerations
 
-### 5.1 계산 복잡도
+### 5.1 Computational Complexity
 
-- **시간 복잡도**: O(N) - 문서의 노드 수에 비례
-- **공간 복잡도**: O(1) - 상수 공간 사용
-- **최적화**: 캐싱, 증분 업데이트 등으로 성능 향상 가능
+- **Time complexity**: O(N) — proportional to number of nodes
+- **Space complexity**: O(1) — constant space
+- **Optimization**: can improve with caching, incremental updates
 
-### 5.2 최적화 전략
+### 5.2 Optimization Strategies
 
-1. **캐싱**: 자주 사용되는 Position 계산 결과 캐싱
-2. **증분 업데이트**: 변경된 부분만 재계산
-3. **지연 계산**: 필요할 때만 계산
-4. **인덱싱**: 자주 사용되는 노드에 대한 인덱스 구축
+1. **Caching**: cache frequently used position calculations
+2. **Incremental updates**: recompute only changed parts
+3. **Lazy calculation**: compute only when needed
+4. **Indexing**: build indices for frequently accessed nodes
 
-## 6. 구현 상태
+## 6. Implementation Status
 
-### 6.1 완료된 기능
+### 6.1 Completed Features
 
-- ✅ PositionCalculator 클래스 구현
-- ✅ calculateAbsolutePosition 메서드
-- ✅ findNodeByAbsolutePosition 메서드
-- ✅ PositionBasedSelectionManager 통합
-- ✅ 단위 테스트 작성
-- ✅ 사용 예제 작성
+- ✅ PositionCalculator class implemented
+- ✅ calculateAbsolutePosition method
+- ✅ findNodeByAbsolutePosition method
+- ✅ PositionBasedSelectionManager integration
+- ✅ Unit tests written
+- ✅ Usage examples written
 
-### 6.2 향후 계획
+### 6.2 Future Plans
 
-- 🔄 Position 캐싱 시스템
-- 🔄 증분 업데이트 최적화
-- 🔄 사용자 친화적 API 추가
-- 🔄 성능 벤치마크
+- 🔄 Position caching system
+- 🔄 Incremental update optimization
+- 🔄 User-friendly API additions
+- 🔄 Performance benchmarks
 
-## 7. 결론
+## 7. Conclusion
 
-Barocss의 Absolute Position 시스템은 **ProseMirror와 유사한 방식**으로 설계되어 정확한 선택과 구조 보존을 제공합니다. 노드 경계를 포함하는 방식으로 빈 노드도 선택할 수 있고, 향후 하이라이트, 데코레이션, 협업 편집 등의 기능을 지원할 수 있는 확장 가능한 기반을 마련했습니다.
+Barocss’s Absolute Position system is designed in a **ProseMirror-like manner** to provide accurate selection and structure preservation. By including node boundaries, it enables selection of empty nodes and establishes an extensible foundation for future features like highlights, decorations, and collaborative editing.
 
-이 시스템은 복잡성을 감수하더라도 **정확성과 확장성**을 우선시한 설계 결정으로, Barocss Editor의 핵심 기능인 정확한 문서 편집을 지원합니다.
+This system prioritizes **accuracy and extensibility** over simplicity, supporting Barocss Editor’s core goal of precise document editing.
 
-## 8. Operation 페이로드 규약 (Absolute 기반)
+## 8. Operation Payload Convention (Absolute-based)
 
-### 8.1 키 규약
+### 8.1 Key Convention
 
-- 단일 위치: `pos`
-- 범위: `start`, `end`
-- 이동: `from`, `to`
+- Single position: `pos`
+- Range: `start`, `end`
+- Move: `from`, `to`
 
-모든 좌표는 Absolute Position(정수)이며, 오퍼레이션 내부에서 노드/오프셋으로 정상화된다.
+All coordinates are Absolute Positions (integers) and are normalized to node/offset inside operations.
 
-### 8.2 매핑 동작
+### 8.2 Mapping Behavior
 
-- `pos` → `resolveAbsolute(pos)`로 `{ nodeId, offset }` 계산 후 기존 로직 적용
-- `start/end` → 각각 `resolveAbsolute(start|end)`로 시작/끝 노드와 오프셋 계산 후 기존 로직 적용
-- `from/to` → 각각 절대 좌표가 가리키는 노드 ID로 해석하여 이동 대상/목표를 결정
+- `pos` → compute `{ nodeId, offset }` via `resolveAbsolute(pos)`, then apply existing logic
+- `start/end` → compute start/end node and offset via `resolveAbsolute(start|end)`, then apply existing logic
+- `from/to` → interpret absolute coordinates as node IDs to determine move source/target
 
-### 8.3 사용 예시
+### 8.3 Usage Examples
 
 ```ts
-// 텍스트 삽입
+// Text insertion
 applyOperation('text.insert', { pos: 42, text: 'Hello' }, ctx);
 
-// 텍스트 선택 치환
+// Replace selected text
 applyOperation('text.replaceSelection', { start: 10, end: 25, text: 'MID' }, ctx);
 
-// 텍스트 범위 삭제
+// Delete text range
 applyOperation('text.deleteRange', { start: 100, end: 120 }, ctx);
 
-// 텍스트 분할
+// Split text
 applyOperation('text.splitAtSelection', { pos: 77 }, ctx);
 
-// 블록 분할
+// Split block
 applyOperation('block.splitAtSelection', { pos: 130 }, ctx);
 
-// 인접 형제 래핑
+// Wrap adjacent siblings
 applyOperation('block.wrapAdjacentSiblings', { start: 200, end: 260, wrapperType: 'section', wrapperAttrs: { class: 'range' } }, ctx);
 
-// 노드 이동 (앞/뒤)
+// Move node (before/after)
 applyOperation('node.moveBefore', { from: 300, to: 280 }, ctx);
 applyOperation('node.moveAfter', { from: 300, to: 320 }, ctx);
 
-// 리스트 아이템 분할 / 병합
+// Split/merge list items
 applyOperation('list.splitItem', { pos: 410 }, ctx);
 applyOperation('list.mergeWithNextItem', { pos: 512 }, ctx);
 applyOperation('list.mergeWithPrevItem', { pos: 512 }, ctx);
 ```
 
-### 8.4 검증 원칙 요약
+### 8.4 Validation Principles Summary
 
-- 정상화가 실패하면 유효성 에러(`absolute position out of bounds` 등)를 반환한다.
-- 정상화 이후에는 기존 노드/오프셋 기반 검증 로직을 그대로 따른다.
+- If normalization fails, return a validity error (e.g., `absolute position out of bounds`).
+- After normalization, follow existing node/offset-based validation logic.

@@ -1,49 +1,49 @@
 # Op Function DSL Specification
 
-## 개요
+## Overview
 
-`op()` 함수는 Barocss Editor의 함수형 DSL로, 복잡한 로직과 흐름 제어를 위한 명령형 프로그래밍 스타일을 제공합니다. 기존의 선언적 DSL과 달리 일반 JavaScript 문법을 사용하여 복잡한 작업을 수행할 수 있습니다.
+The `op()` function is a functional DSL in Barocss Editor that provides imperative programming style for complex logic and flow control. Unlike the existing declarative DSL, it allows complex tasks using regular JavaScript syntax.
 
-## 목차
+## Table of Contents
 
-1. [기본 개념](#1-기본-개념)
-2. [함수 시그니처](#2-함수-시그니처)
+1. [Basic Concepts](#1-basic-concepts)
+2. [Function Signature](#2-function-signature)
 3. [TransactionContext](#3-transactioncontext)
-4. [OpResult 구조](#4-opresult-구조)
-5. [지원하는 반환 타입](#5-지원하는-반환-타입)
-6. [실행 흐름](#6-실행-흐름)
-7. [기존 DSL과의 혼용](#7-기존-dsl과의-혼용)
-8. [주요 특징](#8-주요-특징)
-9. [사용 사례](#9-사용-사례)
-10. [주의사항](#10-주의사항)
-11. [테스트 가이드](#11-테스트-가이드)
+4. [OpResult Structure](#4-opresult-structure)
+5. [Supported Return Types](#5-supported-return-types)
+6. [Execution Flow](#6-execution-flow)
+7. [Mixing with Existing DSL](#7-mixing-with-existing-dsl)
+8. [Key Features](#8-key-features)
+9. [Use Cases](#9-use-cases)
+10. [Notes](#10-notes)
+11. [Testing Guide](#11-testing-guide)
 
-## 1. 기본 개념
+## 1. Basic Concepts
 
-### 1.1 선언적 DSL vs 함수형 DSL
+### 1.1 Declarative DSL vs Functional DSL
 
-**선언적 DSL (기존)**
+**Declarative DSL (existing)**
 ```typescript
-// 선언적 방식 - 무엇을 할지 명시
+// Declarative approach - specify what to do
 const result = await transaction(editor, [
   create(textNode('inline-text', 'Hello')),
   control('node-sid', setText('Updated'))
 ]).commit();
 ```
 
-**함수형 DSL (op)**
+**Functional DSL (op)**
 ```typescript
-// 명령형 방식 - 어떻게 할지 명시
+// Imperative approach - specify how to do
 const result = await transaction(editor, [
   op(async (ctx) => {
-    // 복잡한 로직 수행
+    // Perform complex logic
     const node = ctx.dataStore.createNodeWithChildren(
       textNode('inline-text', 'Hello'),
       ctx.schema
     );
     
     if (someCondition) {
-      // 추가 작업
+      // Additional work
     }
     
     return {
@@ -54,12 +54,12 @@ const result = await transaction(editor, [
 ]).commit();
 ```
 
-### 1.2 사용 시기
+### 1.2 When to Use
 
-- **선언적 DSL**: 단순하고 직관적인 작업
-- **함수형 DSL**: 복잡한 조건부 로직, 반복문, 비동기 작업, 외부 API 호출
+- **Declarative DSL**: simple and intuitive tasks
+- **Functional DSL**: complex conditional logic, loops, async operations, external API calls
 
-## 2. 함수 시그니처
+## 2. Function Signature
 
 ```typescript
 function op(
@@ -67,72 +67,72 @@ function op(
 ): OpFunction
 ```
 
-### 2.1 매개변수
+### 2.1 Parameters
 
-- `operationFn`: 실행할 함수
-  - `context`: `TransactionContext` 객체
-  - 반환값: `OpResult | void | Promise<OpResult | void>`
+- `operationFn`: function to execute
+  - `context`: `TransactionContext` object
+  - Return value: `OpResult | void | Promise<OpResult | void>`
 
-### 2.2 반환값
+### 2.2 Return Value
 
-- `OpFunction`: 실행 가능한 함수형 operation 객체
+- `OpFunction`: executable functional operation object
 
 ## 3. TransactionContext
 
-`op` 함수는 `TransactionContext`를 매개변수로 받습니다:
+The `op` function receives `TransactionContext` as a parameter:
 
 ```typescript
 interface TransactionContext {
-  dataStore: DataStore;           // DataStore 인스턴스 (직접 조작 가능)
-  selectionManager: SelectionManager; // SelectionManager 인스턴스
-  selection?: ModelSelection;     // 현재 선택 영역
-  schema?: any;                   // Schema 인스턴스
-  selectAbsoluteRange: (start: number, end: number) => void; // 절대 위치 선택
-  resolveAbsolute: (position: number) => { nodeId: string; offset: number } | null; // 위치 해석
+  dataStore: DataStore;           // DataStore instance (can manipulate directly)
+  selectionManager: SelectionManager; // SelectionManager instance
+  selection?: ModelSelection;     // current selection
+  schema?: any;                   // Schema instance
+  selectAbsoluteRange: (start: number, end: number) => void; // select by absolute position
+  resolveAbsolute: (position: number) => { nodeId: string; offset: number } | null; // resolve position
 }
 ```
 
-### 3.1 주요 속성
+### 3.1 Key Properties
 
-- **`dataStore`**: 데이터 조작의 핵심 객체
-- **`selectionManager`**: 선택 영역 관리
-- **`selection`**: 현재 선택 상태
-- **`schema`**: 스키마 검증용
-- **`selectAbsoluteRange`**: 절대 위치로 선택
-- **`resolveAbsolute`**: 절대 위치를 노드/오프셋으로 변환
+- **`dataStore`**: core object for data manipulation
+- **`selectionManager`**: manage selection
+- **`selection`**: current selection state
+- **`schema`**: for schema validation
+- **`selectAbsoluteRange`**: select by absolute position
+- **`resolveAbsolute`**: convert absolute position to node/offset
 
-## 4. OpResult 구조
+## 4. OpResult Structure
 
 ```typescript
 interface OpResult {
-  success: boolean;                    // 성공/실패 여부
-  data?: any;                         // 결과 데이터
-  error?: string;                     // 에러 메시지 (success: false일 때)
-  inverse?: TransactionOperation;     // 역함수 operation (undo용)
+  success: boolean;                    // success/failure status
+  data?: any;                         // result data
+  error?: string;                     // error message (when success: false)
+  inverse?: TransactionOperation;     // inverse operation (for undo)
 }
 ```
 
-### 4.1 속성 설명
+### 4.1 Property Descriptions
 
-- **`success`**: 작업 성공 여부 (필수)
-- **`data`**: 작업 결과 데이터 (선택)
-- **`error`**: 실패 시 에러 메시지 (선택)
-- **`inverse`**: undo를 위한 역함수 operation (선택)
+- **`success`**: whether operation succeeded (required)
+- **`data`**: operation result data (optional)
+- **`error`**: error message on failure (optional)
+- **`inverse`**: inverse operation for undo (optional)
 
-## 5. 지원하는 반환 타입
+## 5. Supported Return Types
 
-### 5.1 void (아무것도 반환하지 않음)
+### 5.1 void (returns nothing)
 
 ```typescript
 op(async (ctx) => {
-  // 부수 효과만 수행 (로깅, 상태 변경 등)
-  // 아무것도 리턴하지 않음
+  // Only perform side effects (logging, state changes, etc.)
+  // Return nothing
 })
 ```
 
-**사용 사례**: 로깅, 상태 변경, 부수 효과만 필요한 경우
+**Use case**: when only side effects like logging, state changes are needed
 
-### 5.2 OpResult (성공/실패 결과)
+### 5.2 OpResult (success/failure result)
 
 ```typescript
 op(async (ctx) => {
@@ -148,9 +148,9 @@ op(async (ctx) => {
 })
 ```
 
-**사용 사례**: 단순한 작업 수행 후 결과 반환
+**Use case**: return result after simple operation
 
-### 5.3 OpResult with inverse (역함수 지정)
+### 5.3 OpResult with inverse (specify inverse)
 
 ```typescript
 op(async (ctx) => {
@@ -167,9 +167,9 @@ op(async (ctx) => {
 })
 ```
 
-**사용 사례**: undo 기능이 필요한 작업
+**Use case**: operations that need undo functionality
 
-### 5.4 실패 케이스
+### 5.4 Failure case
 
 ```typescript
 op(async (ctx) => {
@@ -188,65 +188,65 @@ op(async (ctx) => {
 })
 ```
 
-**사용 사례**: 조건부 실행에서 실패 처리
+**Use case**: failure handling in conditional execution
 
-## 6. 실행 흐름
+## 6. Execution Flow
 
 ```mermaid
 graph TD
-    A[transaction 호출] --> B[op 함수 등록]
-    B --> C[commit 호출]
-    C --> D[TransactionManager 실행]
-    D --> E[OpFunction 식별]
-    E --> F[_executeOpFunction 호출]
-    F --> G[opFn.execute 실행]
-    G --> H{반환값 타입}
-    H -->|OpResult| I[성공/실패 처리]
-    H -->|void| J[빈 배열 반환]
-    I --> K[결과 반환]
+    A[transaction call] --> B[op function registration]
+    B --> C[commit call]
+    C --> D[TransactionManager execution]
+    D --> E[OpFunction identification]
+    E --> F[_executeOpFunction call]
+    F --> G[opFn.execute execution]
+    G --> H{return type}
+    H -->|OpResult| I[success/failure processing]
+    H -->|void| J[return empty array]
+    I --> K[return result]
     J --> K
 ```
 
-### 6.1 단계별 설명
+### 6.1 Step-by-Step Description
 
-1. **Transaction 시작**: `transaction(editor, [op(...)])` 호출
-2. **Operation 등록**: `op` 함수가 `OpFunction` 객체로 변환
-3. **Transaction Commit**: `commit()` 호출 시 `TransactionManager`가 실행
-4. **OpFunction 실행**: `_executeOpFunction`에서 `opFn.execute(context)` 호출
-5. **결과 처리**: `OpResult` 또는 `void` 반환값 처리
-6. **Operation 생성**: `OpResult`는 즉시 operation을 생성하지 않음 (inverse는 undo용)
+1. **Transaction start**: call `transaction(editor, [op(...)])`
+2. **Operation registration**: `op` function is converted to `OpFunction` object
+3. **Transaction commit**: `TransactionManager` executes when `commit()` is called
+4. **OpFunction execution**: `opFn.execute(context)` is called in `_executeOpFunction`
+5. **Result processing**: handle `OpResult` or `void` return value
+6. **Operation creation**: `OpResult` does not immediately create an operation (inverse is for undo)
 
-## 7. 기존 DSL과의 혼용
+## 7. Mixing with Existing DSL
 
 ```typescript
 const result = await transaction(editor, [
-  // 기존 선언적 DSL
+  // Existing declarative DSL
   create(textNode('inline-text', 'Regular operation')),
   
-  // 함수형 DSL
+  // Functional DSL
   op(async (ctx) => {
-    // 커스텀 로직 실행
+    // Execute custom logic
     return { success: true };
   }),
   
-  // 다시 선언적 DSL
+  // Back to declarative DSL
   control('node-sid', setText('Updated text'))
 ]).commit();
 ```
 
-### 7.1 혼용 시 주의사항
+### 7.1 Notes When Mixing
 
-- 선언적 DSL과 함수형 DSL을 자유롭게 혼용 가능
-- 실행 순서는 배열 순서대로
-- `op` 함수는 `result.operations`에 추가되지 않음
+- Can freely mix declarative DSL and functional DSL
+- Execution order follows array order
+- `op` function is not added to `result.operations`
 
-## 8. 주요 특징
+## 8. Key Features
 
-### 8.1 비동기 지원
+### 8.1 Async Support
 
 ```typescript
 op(async (ctx) => {
-  // 비동기 작업 완전 지원
+  // Full async operation support
   const response = await fetch('/api/data');
   const data = await response.json();
   
@@ -259,11 +259,11 @@ op(async (ctx) => {
 })
 ```
 
-### 8.2 직접 DataStore 조작
+### 8.2 Direct DataStore Manipulation
 
 ```typescript
 op(async (ctx) => {
-  // DataStore를 직접 조작하여 복잡한 작업 수행
+  // Perform complex tasks by directly manipulating DataStore
   const node1 = ctx.dataStore.createNodeWithChildren(
     textNode('inline-text', 'First'),
     ctx.schema
@@ -274,12 +274,12 @@ op(async (ctx) => {
     ctx.schema
   );
   
-  // 노드 간 관계 설정 등 복잡한 로직
+  // Complex logic like setting relationships between nodes
   return { success: true, data: [node1, node2] };
 })
 ```
 
-### 8.3 조건부 실행
+### 8.3 Conditional Execution
 
 ```typescript
 op(async (ctx) => {
@@ -298,12 +298,12 @@ op(async (ctx) => {
 })
 ```
 
-### 8.4 에러 처리
+### 8.4 Error Handling
 
 ```typescript
 op(async (ctx) => {
   try {
-    // 복잡한 로직 수행
+    // Perform complex logic
     const result = await complexOperation();
     return { success: true, data: result };
   } catch (error) {
@@ -312,7 +312,7 @@ op(async (ctx) => {
 })
 ```
 
-### 8.5 역함수 지원
+### 8.5 Inverse Support
 
 ```typescript
 op(async (ctx) => {
@@ -329,15 +329,15 @@ op(async (ctx) => {
 })
 ```
 
-### 8.6 트랜잭션 안전성
+### 8.6 Transaction Safety
 
-- 모든 변경사항이 트랜잭션 내에서 안전하게 실행
-- 에러 발생 시 자동 롤백
-- 메모리 누수 방지
+- All changes execute safely within transaction
+- Automatic rollback on error
+- Prevents memory leaks
 
-## 9. 사용 사례
+## 9. Use Cases
 
-### 9.1 복잡한 조건부 로직
+### 9.1 Complex Conditional Logic
 
 ```typescript
 op(async (ctx) => {
@@ -363,7 +363,7 @@ op(async (ctx) => {
 })
 ```
 
-### 9.2 다중 노드 생성
+### 9.2 Multiple Node Creation
 
 ```typescript
 op(async (ctx) => {
@@ -394,7 +394,7 @@ op(async (ctx) => {
 })
 ```
 
-### 9.3 외부 API 호출과 연동
+### 9.3 External API Call Integration
 
 ```typescript
 op(async (ctx) => {
@@ -421,7 +421,7 @@ op(async (ctx) => {
 })
 ```
 
-### 9.4 반복문과 배열 처리
+### 9.4 Loops and Array Processing
 
 ```typescript
 op(async (ctx) => {
@@ -454,17 +454,17 @@ op(async (ctx) => {
 })
 ```
 
-## 10. 주의사항
+## 10. Notes
 
-### 10.1 지원하지 않는 패턴
+### 10.1 Unsupported Patterns
 
 ```typescript
-// ❌ 잘못된 사용법
+// ❌ Incorrect usage
 op((ctx) => { 
   return { type: 'create', payload: { node: textNode('text', 'Hello') } };
 })
 
-// ✅ 올바른 사용법
+// ✅ Correct usage
 op((ctx) => {
   const node = ctx.dataStore.createNodeWithChildren(
     textNode('inline-text', 'Hello'),
@@ -474,24 +474,24 @@ op((ctx) => {
 })
 ```
 
-### 10.2 OpResult 구조 준수
+### 10.2 OpResult Structure Compliance
 
-- `defineOperation`과 동일한 `OpResult` 구조만 사용
-- `{ type, payload }` 형태 직접 반환 불가
+- Use only the same `OpResult` structure as `defineOperation`
+- Cannot directly return `{ type, payload }` form
 
-### 10.3 inverse 처리
+### 10.3 inverse Handling
 
-- `inverse`는 실제로 실행되지 않고 나중에 undo할 때 사용
-- `OpResult`를 반환해도 `result.operations`에는 추가되지 않음
+- `inverse` is not executed immediately but used later for undo
+- Returning `OpResult` does not add to `result.operations`
 
-### 10.4 DataStore 조작
+### 10.4 DataStore Manipulation
 
-- `ctx.dataStore`를 직접 조작할 때는 스키마 검증을 고려
-- 트랜잭션 내에서 안전하게 실행되지만 스키마 위반 시 에러 발생 가능
+- Consider schema validation when directly manipulating `ctx.dataStore`
+- Executes safely within transaction but may throw error on schema violation
 
-## 11. 테스트 가이드
+## 11. Testing Guide
 
-### 11.1 기본 테스트
+### 11.1 Basic Test
 
 ```typescript
 it('should execute op function successfully', async () => {
@@ -510,11 +510,11 @@ it('should execute op function successfully', async () => {
   ]).commit();
 
   expect(result.success).toBe(true);
-  expect(result.operations).toHaveLength(0); // OpResult는 operation을 생성하지 않음
+  expect(result.operations).toHaveLength(0); // OpResult does not create operation
 });
 ```
 
-### 11.2 에러 처리 테스트
+### 11.2 Error Handling Test
 
 ```typescript
 it('should handle op function errors', async () => {
@@ -532,7 +532,7 @@ it('should handle op function errors', async () => {
 });
 ```
 
-### 11.3 비동기 작업 테스트
+### 11.3 Async Operation Test
 
 ```typescript
 it('should handle async operations', async () => {
@@ -554,7 +554,7 @@ it('should handle async operations', async () => {
 });
 ```
 
-### 11.4 복잡한 시나리오 테스트
+### 11.4 Complex Scenario Test
 
 ```typescript
 it('should handle complex multi-node creation', async () => {
@@ -591,10 +591,10 @@ it('should handle complex multi-node creation', async () => {
 
   expect(result.success).toBe(true);
   expect(result.operations).toHaveLength(0);
-  expect(result.data).toHaveLength(3); // 3개 노드만 생성됨
+  expect(result.data).toHaveLength(3); // Only 3 nodes created
 });
 ```
 
 ---
 
-이 스펙 문서는 `op` 함수형 DSL의 완전한 가이드입니다. 복잡한 로직과 흐름 제어가 필요한 경우 이 DSL을 활용하여 더 유연하고 강력한 작업을 수행할 수 있습니다.
+This specification document is a complete guide to the `op` functional DSL. When complex logic and flow control are needed, you can use this DSL to perform more flexible and powerful operations.

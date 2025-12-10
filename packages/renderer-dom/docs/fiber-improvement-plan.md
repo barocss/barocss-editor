@@ -1,129 +1,129 @@
-# Fiber 개선 계획
+# Fiber Improvement Plan
 
-## 핵심 원칙
+## Core Principles
 
-**Reconciler는 domain을 몰라도 동작해야 함**
+**Reconciler must work without knowing the domain**
 
-- Fiber는 VNodeBuilder가 만든 결과물을 그대로 reconcile만 수행
-- `decoratorSid`, `decoratorStype` 같은 domain 개념을 직접 알면 안 됨
-- React처럼 순수한 reconciliation 로직만 담당
+- Fiber only reconciles what VNodeBuilder created
+- Must not directly know domain concepts like `decoratorSid`, `decoratorStype`
+- Only handles pure reconciliation logic like React
 
-## 현재 문제점 정리
+## Current Issues Summary
 
-### 1. Domain 지식 누수 (Domain Knowledge Leakage)
+### 1. Domain Knowledge Leakage
 
-#### 문제가 있는 파일들
+#### Problematic Files
 
 **1. `fiber-reconciler.ts`**
-- Line 140-151: `decoratorSid`, `decoratorStype` 직접 확인
-- Line 228-233: `decoratorSid` 비교 로직
-- Line 300-315: `isDecoratorVNode` 체크 및 `decoratorSid` 비교
+- Line 140-151: Direct check of `decoratorSid`, `decoratorStype`
+- Line 228-233: `decoratorSid` comparison logic
+- Line 300-315: `isDecoratorVNode` check and `decoratorSid` comparison
 
 **2. `fiber-tree.ts`**
-- Line 67-68: `decoratorSid` 직접 사용
-- Line 83-88: `!childVNode.decoratorSid` 조건문
-- Line 107-113: `decoratorSid`, `decoratorStype` 직접 확인
+- Line 67-68: Direct use of `decoratorSid`
+- Line 83-88: `!childVNode.decoratorSid` condition
+- Line 107-113: Direct check of `decoratorSid`, `decoratorStype`
 
 **3. `host-finding.ts`**
 - Line 41-43: `isDecoratorVNode = !!childVNode.decoratorSid`
-- Line 53-57: `decoratorSid` 직접 비교
-- Line 84-95: `decoratorSid` 조건문
-- Line 138-144: `decoratorSid` 비교
+- Line 53-57: Direct `decoratorSid` comparison
+- Line 84-95: `decoratorSid` condition
+- Line 138-144: `decoratorSid` comparison
 
 **4. `host-management.ts`**
-- Line 201-211: `decoratorSid`, `decoratorStype` 등 직접 사용 (이건 DOM 속성 설정이므로 OK)
-- Line 351-362: `decoratorSid`, `decoratorStype` 등 직접 사용 (이건 DOM 속성 설정이므로 OK)
+- Line 201-211: Direct use of `decoratorSid`, `decoratorStype`, etc. (OK - DOM attribute setting)
+- Line 351-362: Direct use of `decoratorSid`, `decoratorStype`, etc. (OK - DOM attribute setting)
 
-**참고**: `host-management.ts`의 `decoratorSid` 사용은 DOM 속성 설정이므로 문제 없음. VNode의 속성을 그대로 DOM에 반영하는 것은 정상적인 동작.
+**Note**: `decoratorSid` usage in `host-management.ts` is OK because it's DOM attribute setting. Reflecting VNode attributes to DOM is normal behavior.
 
-### 2. 전역 검색 문제 (Global Search Problem)
+### 2. Global Search Problem
 
-#### 문제가 있는 파일들
+#### Problematic Files
 
 **1. `fiber-reconciler.ts`**
-- Line 301-318: `parent.ownerDocument?.querySelectorAll` 사용
+- Line 301-318: Use of `parent.ownerDocument?.querySelectorAll`
 
 **2. `host-finding.ts`**
-- Line 130-148: `parent.ownerDocument?.querySelectorAll` 사용
+- Line 130-148: Use of `parent.ownerDocument?.querySelectorAll`
 
 **3. `host-management.ts`**
-- Line 124-136: `parent.ownerDocument.querySelectorAll` 사용
+- Line 124-136: Use of `parent.ownerDocument.querySelectorAll`
 
-## 개선 계획
+## Improvement Plan
 
-### Phase 1: Domain 지식 제거
+### Phase 1: Remove Domain Knowledge
 
-#### 1.1 `getVNodeId()` 함수 통일
+#### 1.1 Unify `getVNodeId()` Function
 
-**현재**: 여러 곳에서 `vnode.sid || vnode.decoratorSid` 반복
+**Current**: `vnode.sid || vnode.decoratorSid` repeated in many places
 
-**개선**: 
-- `getVNodeId()` 함수를 모든 곳에서 사용
-- Domain 개념 없이 "VNode 식별자"로만 취급
+**Improvement**: 
+- Use `getVNodeId()` function everywhere
+- Treat only as "VNode identifier" without domain concepts
 
-**파일**: `host-finding.ts`, `fiber-reconciler.ts`, `fiber-tree.ts`, `dom-utils.ts`
+**Files**: `host-finding.ts`, `fiber-reconciler.ts`, `fiber-tree.ts`, `dom-utils.ts`
 
-#### 1.2 `decoratorSid` 직접 참조 제거
+#### 1.2 Remove Direct `decoratorSid` References
 
-**현재**:
+**Current**:
 ```typescript
 if (vnode.decoratorSid && prevVNode.decoratorSid !== vnode.decoratorSid) {
-  // 재사용하지 않음
+  // Don't reuse
 }
 ```
 
-**개선**:
+**Improvement**:
 ```typescript
 const vnodeId = getVNodeId(vnode);
 const prevVNodeId = getVNodeId(prevVNode);
 if (vnodeId && prevVNodeId && vnodeId !== prevVNodeId) {
-  // ID가 다르면 재사용하지 않음
+  // Don't reuse if IDs differ
 }
 ```
 
-**파일**: `fiber-reconciler.ts` (Line 140-151, 228-233, 300-315)
+**Files**: `fiber-reconciler.ts` (Line 140-151, 228-233, 300-315)
 
-#### 1.3 `isDecoratorVNode` 체크 제거
+#### 1.3 Remove `isDecoratorVNode` Check
 
-**현재**:
+**Current**:
 ```typescript
 const isDecoratorVNode = !!childVNode.decoratorSid;
 if (isDecoratorVNode) {
-  // decorator 특별 처리
+  // Special decorator handling
 }
 ```
 
-**개선**: 
-- `isDecoratorVNode` 체크 제거
-- `getVNodeId()`로 통일된 ID 비교만 수행
+**Improvement**: 
+- Remove `isDecoratorVNode` check
+- Only perform unified ID comparison with `getVNodeId()`
 
-**파일**: `host-finding.ts` (Line 41-43, 53-57, 84-95, 138-144)
+**Files**: `host-finding.ts` (Line 41-43, 53-57, 84-95, 138-144)
 
-#### 1.4 `decoratorSid` 조건문 제거
+#### 1.4 Remove `decoratorSid` Conditions
 
-**현재**:
+**Current**:
 ```typescript
 if (!childVNode.decoratorSid) {
-  // decorator가 아닌 경우만 처리
+  // Only process if not decorator
 }
 ```
 
-**개선**:
-- 조건문 제거 또는 `getVNodeId()` 기반으로 변경
-- Domain 개념 없이 구조적 속성만 확인
+**Improvement**:
+- Remove condition or change to `getVNodeId()`-based
+- Only check structural properties without domain concepts
 
-**파일**: `fiber-tree.ts` (Line 83-88)
+**Files**: `fiber-tree.ts` (Line 83-88)
 
-### Phase 2: 전역 검색 제거
+### Phase 2: Remove Global Search
 
-#### 2.1 `findHostInParentChildren()` 함수 구현
+#### 2.1 Implement `findHostInParentChildren()` Function
 
-**새 함수**: `host-finding.ts`에 추가
+**New Function**: Add to `host-finding.ts`
 
 ```typescript
 /**
  * Find host element in parent's children only (no global search)
- * React-style: children 기준으로만 비교
+ * React-style: compare only based on children
  */
 function findHostInParentChildren(
   parent: HTMLElement,
@@ -133,7 +133,7 @@ function findHostInParentChildren(
 ): HTMLElement | null {
   const vnodeId = getVNodeId(vnode);
   
-  // 1. prevVNode.children에서 같은 ID를 가진 VNode 찾기
+  // 1. Find VNode with same ID in prevVNode.children
   if (prevVNode?.children && vnodeId) {
     const prevChildVNode = prevVNode.children.find(
       (c): c is VNode => {
@@ -144,14 +144,14 @@ function findHostInParentChildren(
     
     if (prevChildVNode?.meta?.domElement instanceof HTMLElement) {
       const domEl = prevChildVNode.meta.domElement;
-      // 현재 parent의 자식인지 확인
+      // Verify it's a child of current parent
       if (domEl.parentElement === parent) {
         return domEl;
       }
     }
   }
   
-  // 2. parent.children에서 같은 ID를 가진 요소 찾기
+  // 2. Find element with same ID in parent.children
   if (vnodeId) {
     const children = Array.from(parent.children);
     for (const child of children) {
@@ -164,11 +164,11 @@ function findHostInParentChildren(
     }
   }
   
-  // 3. 인덱스 기반 매칭 (mark wrapper 등 sid가 없는 경우)
+  // 3. Index-based matching (for cases without sid like mark wrappers)
   if (childIndex < parent.children.length) {
     const candidate = parent.children[childIndex] as HTMLElement;
     if (candidate && candidate.tagName.toLowerCase() === (vnode.tag || '').toLowerCase()) {
-      // 클래스 매칭 (mark wrapper)
+      // Class matching (mark wrapper)
       if (vnode.attrs?.class || vnode.attrs?.className) {
         const vnodeClasses = normalizeClasses(vnode.attrs.class || vnode.attrs.className);
         const candidateClasses = candidate.className ? candidate.className.split(/\s+/).filter(Boolean) : [];
@@ -185,9 +185,9 @@ function findHostInParentChildren(
 }
 ```
 
-#### 2.2 `fiber-reconciler.ts` 전역 검색 제거
+#### 2.2 Remove Global Search in `fiber-reconciler.ts`
 
-**현재** (Line 283-319):
+**Current** (Line 283-319):
 ```typescript
 if (!host) {
   const allMatches = parent.ownerDocument?.querySelectorAll(...);
@@ -195,10 +195,10 @@ if (!host) {
 }
 ```
 
-**개선**:
+**Improvement**:
 ```typescript
-// 전역 검색 제거
-// findHostInParentChildren으로 대체하거나, 바로 새로 생성
+// Remove global search
+// Replace with findHostInParentChildren or create new immediately
 if (!host) {
   host = findHostInParentChildren(parent, vnode, prevVNode, fiber.index);
 }
@@ -207,9 +207,9 @@ if (!host) {
 }
 ```
 
-#### 2.3 `host-finding.ts` 전역 검색 제거
+#### 2.3 Remove Global Search in `host-finding.ts`
 
-**현재** (Line 126-148):
+**Current** (Line 126-148):
 ```typescript
 if (!host) {
   const allMatches = parent.ownerDocument?.querySelectorAll(...);
@@ -217,13 +217,13 @@ if (!host) {
 }
 ```
 
-**개선**:
-- 전역 검색 제거
-- `findHostInParentChildren` 사용 또는 바로 null 반환
+**Improvement**:
+- Remove global search
+- Use `findHostInParentChildren` or return null immediately
 
-#### 2.4 `host-management.ts` 전역 검색 제거
+#### 2.4 Remove Global Search in `host-management.ts`
 
-**현재** (Line 122-136):
+**Current** (Line 122-136):
 ```typescript
 if (!existingHost && parent.ownerDocument) {
   const allMatches = parent.ownerDocument.querySelectorAll(...);
@@ -231,103 +231,102 @@ if (!existingHost && parent.ownerDocument) {
 }
 ```
 
-**개선**:
-- 전역 검색 제거
-- `parent.children`에서만 검색
+**Improvement**:
+- Remove global search
+- Search only in `parent.children`
 
-### Phase 3: `usedDomElements` 추적 제거
+### Phase 3: Remove `usedDomElements` Tracking
 
-전역 검색을 제거하면 `usedDomElements` 추적도 불필요해짐.
+Removing global search makes `usedDomElements` tracking unnecessary.
 
-**제거 대상**:
+**To Remove**:
 - `fiber-reconciler.ts` (Line 286-296)
-- `host-finding.ts` (여러 곳)
-- `host-management.ts` (여러 곳)
+- `host-finding.ts` (multiple places)
+- `host-management.ts` (multiple places)
 
-### Phase 4: 테스트 및 검증
+### Phase 4: Testing and Verification
 
-1. 기존 테스트 통과 확인
-2. 성능 측정 (전역 검색 제거 전후)
-3. Edge case 테스트
+1. Verify existing tests pass
+2. Performance measurement (before/after removing global search)
+3. Edge case tests
 
-## 개선 순서
+## Improvement Order
 
-### Step 1: `getVNodeId()` 통일
-1. 모든 파일에서 `getVNodeId()` 사용 확인
-2. `vnode.sid || vnode.decoratorSid` 직접 사용 제거
+### Step 1: Unify `getVNodeId()`
+1. Verify `getVNodeId()` usage in all files
+2. Remove direct use of `vnode.sid || vnode.decoratorSid`
 
-### Step 2: Domain 지식 제거 (fiber-reconciler.ts)
-1. Line 140-151: `decoratorSid` 직접 참조 제거
-2. Line 228-233: `decoratorSid` 비교 로직 제거
-3. Line 300-315: `isDecoratorVNode` 체크 제거
+### Step 2: Remove Domain Knowledge (fiber-reconciler.ts)
+1. Line 140-151: Remove direct `decoratorSid` references
+2. Line 228-233: Remove `decoratorSid` comparison logic
+3. Line 300-315: Remove `isDecoratorVNode` check
 
-### Step 3: Domain 지식 제거 (fiber-tree.ts)
-1. Line 67-68: `getVNodeId()` 사용
-2. Line 83-88: `decoratorSid` 조건문 제거
-3. Line 107-113: `decoratorSid` 직접 참조 제거
+### Step 3: Remove Domain Knowledge (fiber-tree.ts)
+1. Line 67-68: Use `getVNodeId()`
+2. Line 83-88: Remove `decoratorSid` condition
+3. Line 107-113: Remove direct `decoratorSid` references
 
-### Step 4: Domain 지식 제거 (host-finding.ts)
-1. Line 41-43: `isDecoratorVNode` 제거
-2. Line 53-57: `decoratorSid` 비교 제거
-3. Line 84-95: `decoratorSid` 조건문 제거
-4. Line 138-144: `decoratorSid` 비교 제거
+### Step 4: Remove Domain Knowledge (host-finding.ts)
+1. Line 41-43: Remove `isDecoratorVNode`
+2. Line 53-57: Remove `decoratorSid` comparison
+3. Line 84-95: Remove `decoratorSid` condition
+4. Line 138-144: Remove `decoratorSid` comparison
 
-### Step 5: `findHostInParentChildren()` 구현
-1. `host-finding.ts`에 새 함수 추가
-2. React 스타일의 children 기준 매칭 구현
+### Step 5: Implement `findHostInParentChildren()`
+1. Add new function to `host-finding.ts`
+2. Implement React-style children-based matching
 
-### Step 6: 전역 검색 제거
-1. `fiber-reconciler.ts` 전역 검색 제거
-2. `host-finding.ts` 전역 검색 제거
-3. `host-management.ts` 전역 검색 제거
+### Step 6: Remove Global Search
+1. Remove global search in `fiber-reconciler.ts`
+2. Remove global search in `host-finding.ts`
+3. Remove global search in `host-management.ts`
 
-### Step 7: `usedDomElements` 제거
-1. 모든 `usedDomElements` 파라미터 제거
-2. 관련 추적 로직 제거
+### Step 7: Remove `usedDomElements`
+1. Remove all `usedDomElements` parameters
+2. Remove related tracking logic
 
-### Step 8: 테스트 및 검증
-1. 모든 테스트 통과 확인
-2. 성능 측정
-3. 문서 업데이트
+### Step 8: Testing and Verification
+1. Verify all tests pass
+2. Performance measurement
+3. Update documentation
 
-## 예상되는 문제점
+## Expected Issues
 
 ### 1. Cross-parent Move
 
-**현재**: 전역 검색으로 재사용
+**Current**: Reuse via global search
 
-**개선 후**: 새로 생성
+**After Improvement**: Create new
 
-**해결책**: 
-- React처럼 새로 생성하는 것이 맞음
-- VNodeBuilder가 이미 올바른 구조를 만들었으므로, Fiber는 그대로 따라가면 됨
+**Solution**: 
+- Creating new is correct like React
+- VNodeBuilder already created correct structure, so Fiber just follows it
 
-### 2. Mark Wrapper 재사용
+### 2. Mark Wrapper Reuse
 
-**현재**: 전역 검색 + 복잡한 추적
+**Current**: Global search + complex tracking
 
-**개선 후**: `findHostInParentChildren`에서 인덱스 + 태그 + 클래스로 매칭
+**After Improvement**: Match by index + tag + class in `findHostInParentChildren`
 
-**해결책**: 
-- `findHostInParentChildren`의 Strategy 3에서 처리
-- 더 단순하고 정확함
+**Solution**: 
+- Handle in Strategy 3 of `findHostInParentChildren`
+- Simpler and more accurate
 
-## 성공 기준
+## Success Criteria
 
-1. ✅ Domain 지식 완전 제거
-   - `decoratorSid` 직접 참조 없음
-   - `isDecoratorVNode` 체크 없음
-   - Domain 개념 없이 VNode 구조만 확인
+1. ✅ Complete Domain Knowledge Removal
+   - No direct `decoratorSid` references
+   - No `isDecoratorVNode` checks
+   - Only check VNode structure without domain concepts
 
-2. ✅ 전역 검색 완전 제거
-   - `querySelectorAll` 사용 없음
-   - Children 기준으로만 비교
+2. ✅ Complete Global Search Removal
+   - No `querySelectorAll` usage
+   - Compare only based on children
 
-3. ✅ 모든 테스트 통과
-   - 기존 테스트 모두 통과
-   - 성능 개선 확인
+3. ✅ All Tests Pass
+   - All existing tests pass
+   - Performance improvement confirmed
 
-4. ✅ 코드 단순화
-   - `usedDomElements` 추적 불필요
-   - 복잡한 fallback 로직 제거
-
+4. ✅ Code Simplification
+   - `usedDomElements` tracking unnecessary
+   - Remove complex fallback logic

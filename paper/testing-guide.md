@@ -2,7 +2,7 @@
 
 ## 1. Overview
 
-이 문서는 Barocss Editor의 테스트 작성 및 디버깅을 위한 가이드입니다. 실제 테스트 수정 과정에서 발견된 문제들과 해결 방법을 정리했습니다.
+This document is a guide for writing and debugging tests in Barocss Editor. It summarizes issues found and solutions during actual test modification.
 
 ## 2. Test Structure
 
@@ -221,22 +221,22 @@ it('should handle href attribute correctly', () => {
 ### 3.5 Node Creation and Access
 
 ```typescript
-// ✅ 올바른 방법
+// ✅ Correct approach
 const createResult = await transaction(mockEditor, [
   create(textNode('inline-text', 'Hello'))
 ]).commit();
 
 expect(createResult.success).toBe(true);
-const nodeId = createResult.operations[0].result.data.sid; // 생성된 ID 사용
+const nodeId = createResult.operations[0].result.data.sid; // Use created ID
 
-// ❌ 잘못된 방법
+// ❌ Incorrect approach
 const nodeId = createResult.operations[0].nodeId; // undefined
 ```
 
 ### 3.2 Control DSL Usage
 
 ```typescript
-// ✅ 올바른 방법
+// ✅ Correct approach
 const result = await transaction(mockEditor, [
   control(nodeId, [
     { type: 'setText', payload: { text: 'Updated Text' } }
@@ -251,7 +251,7 @@ expect(result.operations[0].payload.text).toBe('Updated Text');
 ### 3.3 Multiple Operations
 
 ```typescript
-// ✅ 올바른 방법
+// ✅ Correct approach
 const result = await transaction(mockEditor, [
   create(textNode('inline-text', 'First')),
   create(textNode('inline-text', 'Second'))
@@ -263,12 +263,12 @@ expect(result.operations).toHaveLength(2);
 
 ### 3.4 Functional DSL (op function)
 
-`op()` 함수는 복잡한 로직과 흐름 제어를 위한 함수형 DSL입니다. 테스트에서 복잡한 시나리오를 구현할 때 유용합니다.
+The `op()` function is a functional DSL for complex logic and flow control. It is useful for implementing complex scenarios in tests.
 
-#### 3.4.1 기본 사용법
+#### 3.4.1 Basic Usage
 
 ```typescript
-// ✅ 기본 사용법 - OpResult 반환
+// ✅ Basic usage - return OpResult
 const result = await transaction(mockEditor, [
   op(async (ctx) => {
     const node = ctx.dataStore.createNodeWithChildren(
@@ -284,13 +284,13 @@ const result = await transaction(mockEditor, [
 ]).commit();
 
 expect(result.success).toBe(true);
-expect(result.operations).toHaveLength(0); // OpResult는 operation을 생성하지 않음
+expect(result.operations).toHaveLength(0); // OpResult does not create operations
 ```
 
-#### 3.4.2 조건부 실행
+#### 3.4.2 Conditional Execution
 
 ```typescript
-// ✅ 조건부 실행 (일반 JavaScript 문법)
+// ✅ Conditional execution (standard JavaScript syntax)
 const result = await transaction(mockEditor, [
   op(async (ctx) => {
     const shouldCreate = true;
@@ -316,10 +316,10 @@ expect(result.success).toBe(true);
 expect(result.operations).toHaveLength(0);
 ```
 
-#### 3.4.3 역함수 지정
+#### 3.4.3 Specify Inverse
 
 ```typescript
-// ✅ inverse 지정 (undo용)
+// ✅ Specify inverse (for undo)
 const result = await transaction(mockEditor, [
   op(async (ctx) => {
     const node = ctx.dataStore.createNodeWithChildren(
@@ -336,17 +336,17 @@ const result = await transaction(mockEditor, [
 ]).commit();
 
 expect(result.success).toBe(true);
-expect(result.operations).toHaveLength(0); // inverse는 undo용이므로 즉시 실행되지 않음
+expect(result.operations).toHaveLength(0); // inverse is for undo, not executed immediately
 ```
 
-#### 3.4.4 void 반환
+#### 3.4.4 void Return
 
 ```typescript
-// ✅ 아무것도 반환하지 않음 (부수 효과만)
+// ✅ Return nothing (side effects only)
 const result = await transaction(mockEditor, [
   op(async (ctx) => {
-    // 부수 효과만 수행 (로깅, 상태 변경 등)
-    // 아무것도 리턴하지 않음
+    // Perform side effects only (logging, state changes, etc.)
+    // Return nothing
   })
 ]).commit();
 
@@ -354,14 +354,14 @@ expect(result.success).toBe(true);
 expect(result.operations).toHaveLength(0);
 ```
 
-#### 3.4.5 에러 처리
+#### 3.4.5 Error Handling
 
 ```typescript
-// ✅ 실패 케이스
+// ✅ Failure case
 const result = await transaction(mockEditor, [
   op(async (ctx) => {
     try {
-      // 복잡한 로직 수행
+      // Perform complex logic
       const node = ctx.dataStore.createNodeWithChildren(
         textNode('inline-text', 'Success'),
         ctx.schema
@@ -384,27 +384,27 @@ expect(result.success).toBe(true);
 expect(result.operations).toHaveLength(0);
 ```
 
-#### 3.4.6 기존 DSL과 혼용
+#### 3.4.6 Mixing with Existing DSL
 
 ```typescript
-// ✅ 기존 operation과 혼용
+// ✅ Mix with existing operations
 const result = await transaction(mockEditor, [
   create(textNode('inline-text', 'Regular operation')),
   op(async (ctx) => {
-    // 커스텀 로직 실행
+    // Execute custom logic
     return { success: true };
   }),
   control('node-sid', setText('Updated text'))
 ]).commit();
 
 expect(result.success).toBe(true);
-expect(result.operations).toHaveLength(2); // create + control만 operation으로 생성됨
+expect(result.operations).toHaveLength(2); // Only create + control create operations
 ```
 
-#### 3.4.7 복잡한 시나리오 테스트
+#### 3.4.7 Complex Scenario Testing
 
 ```typescript
-// ✅ 다중 노드 생성과 조건부 로직
+// ✅ Multi-node creation with conditional logic
 it('should handle complex multi-node creation', async () => {
   const result = await transaction(mockEditor, [
     op(async (ctx) => {
@@ -439,18 +439,18 @@ it('should handle complex multi-node creation', async () => {
 
   expect(result.success).toBe(true);
   expect(result.operations).toHaveLength(0);
-  expect(result.data).toHaveLength(3); // 3개 노드만 생성됨
+  expect(result.data).toHaveLength(3); // Only 3 nodes created
 });
 ```
 
-#### 3.4.8 비동기 작업 테스트
+#### 3.4.8 Async Operation Testing
 
 ```typescript
-// ✅ 비동기 작업 시뮬레이션
+// ✅ Simulate async operations
 it('should handle async operations', async () => {
   const result = await transaction(mockEditor, [
     op(async (ctx) => {
-      // 비동기 작업 시뮬레이션
+      // Simulate async operation
       await new Promise(resolve => setTimeout(resolve, 10));
       
       const node = ctx.dataStore.createNodeWithChildren(
@@ -470,14 +470,14 @@ it('should handle async operations', async () => {
 });
 ```
 
-#### 3.4.9 OpResult 구조
+#### 3.4.9 OpResult Structure
 
 ```typescript
 interface OpResult {
-  success: boolean;                    // 성공/실패 여부
-  data?: any;                         // 결과 데이터
-  error?: string;                     // 에러 메시지 (success: false일 때)
-  inverse?: TransactionOperation;     // 역함수 operation (undo용)
+  success: boolean;                    // success/failure
+  data?: any;                         // result data
+  error?: string;                     // error message (when success: false)
+  inverse?: TransactionOperation;     // inverse operation (for undo)
 }
 ```
 
@@ -485,104 +485,104 @@ interface OpResult {
 
 ```typescript
 interface TransactionContext {
-  dataStore: DataStore;           // DataStore 인스턴스 (직접 조작 가능)
-  selectionManager: SelectionManager; // SelectionManager 인스턴스
-  selection?: ModelSelection;     // 현재 선택 영역
-  schema?: any;                   // Schema 인스턴스
-  selectAbsoluteRange: (start: number, end: number) => void; // 절대 위치 선택
-  resolveAbsolute: (position: number) => { nodeId: string; offset: number } | null; // 위치 해석
+  dataStore: DataStore;           // DataStore instance (can manipulate directly)
+  selectionManager: SelectionManager; // SelectionManager instance
+  selection?: ModelSelection;     // current selection
+  schema?: any;                   // Schema instance
+  selectAbsoluteRange: (start: number, end: number) => void; // select by absolute position
+  resolveAbsolute: (position: number) => { nodeId: string; offset: number } | null; // resolve position
 }
 ```
 
-#### 3.4.11 테스트 주의사항
+#### 3.4.11 Testing Notes
 
-- `op((ctx) => { return { type, payload } })` 형태는 지원하지 않음
-- `defineOperation`과 동일한 `OpResult` 구조만 사용
-- `inverse`는 실제로 실행되지 않고 나중에 undo할 때 사용
-- `OpResult`를 반환해도 `result.operations`에는 추가되지 않음 (inverse는 undo용)
-- `ctx.dataStore`를 직접 조작할 때는 스키마 검증을 고려해야 함
-- 비동기 작업은 `async/await` 패턴을 사용
+- `op((ctx) => { return { type, payload } })` form is not supported
+- Use only the same `OpResult` structure as `defineOperation`
+- `inverse` is not executed immediately, used later for undo
+- Even if `OpResult` is returned, it is not added to `result.operations` (inverse is for undo)
+- When manipulating `ctx.dataStore` directly, consider schema validation
+- Use `async/await` pattern for async operations
 
 ## 4. Common Issues and Solutions
 
 ### 4.1 Operation Registration Error
 
-**에러:**
+**Error:**
 ```
 Error: Unknown operation type: update
 ```
 
-**원인:** Operation이 `register-operations.ts`에 등록되지 않음
+**Cause:** Operation not registered in `register-operations.ts`
 
-**해결방법:**
+**Solution:**
 ```typescript
-// register-operations.ts에 추가
+// Add to register-operations.ts
 import './update';
 ```
 
 ### 4.2 Node ID Access Error
 
-**에러:**
+**Error:**
 ```
 TypeError: Cannot read properties of undefined (reading 'id')
 ```
 
-**원인:** 잘못된 경로로 노드 ID 접근
+**Cause:** Accessing node ID via incorrect path
 
-**해결방법:**
+**Solution:**
 ```typescript
-// ❌ 잘못된 방법
+// ❌ Incorrect approach
 const nodeId = result.operations[0].result.sid;
 
-// ✅ 올바른 방법
+// ✅ Correct approach
 const nodeId = result.operations[0].result.data.sid;
 ```
 
 ### 4.3 Payload Structure Error
 
-**에러:**
+**Error:**
 ```
 Cannot destructure property 'nodeId' of 'operation.payload' as it is undefined
 ```
 
-**원인:** Operation이 `operation.payload`에서 매개변수를 추출하지 않음
+**Cause:** Operation does not extract parameters from `operation.payload`
 
-**해결방법:**
+**Solution:**
 ```typescript
-// Operation 구현에서
+// In operation implementation
 defineOperation('setText', async (operation: any, context: TransactionContext) => {
-  const { nodeId, text } = operation.payload; // payload에서 추출
+  const { nodeId, text } = operation.payload; // Extract from payload
   // ...
 });
 ```
 
 ### 4.4 Editor Constructor Issues
 
-**에러:**
+**Error:**
 ```
 Cannot read properties of undefined (reading 'getActiveSchema')
 ```
 
-**원인:** `TransactionManager`에 잘못된 객체 전달
+**Cause:** Passing incorrect object to `TransactionManager`
 
-**해결방법:**
+**Solution:**
 ```typescript
-// Editor 생성자에서
-this._transactionManager = new TransactionManager(this); // Editor 인스턴스 전달
+// In Editor constructor
+this._transactionManager = new TransactionManager(this); // Pass Editor instance
 ```
 
 ### 4.5 Event System Issues
 
-**에러:**
+**Error:**
 ```
 this._transactionManager.on is not a function
 ```
 
-**원인:** `TransactionManager`나 `SelectionManager`에 이벤트 시스템이 없음
+**Cause:** `TransactionManager` or `SelectionManager` lacks event system
 
-**해결방법:**
+**Solution:**
 ```typescript
-// Editor에서 이벤트 구독 부분을 주석 처리
+// Comment out event subscription in Editor
 // this._transactionManager.on('transaction_commit', (event) => {
 //   this.emit('contentChange', { content: this.document, transaction: event.transaction });
 // });
@@ -593,24 +593,24 @@ this._transactionManager.on is not a function
 ### 5.1 Mock vs Real Objects
 
 ```typescript
-// ✅ 실제 객체 사용 권장
+// ✅ Prefer using real objects
 const dataStore = new DataStore();
 const editor = new Editor({ dataStore, schema });
 
-// ❌ 과도한 mock 사용 지양
+// ❌ Avoid excessive mocking
 const mockDataStore = { getNode: jest.fn() };
 ```
 
 ### 5.2 Error Handling
 
 ```typescript
-// ✅ 명확한 에러 메시지
+// ✅ Clear error messages
 expect(result.success).toBe(true);
 if (!result.success) {
   console.log('Transaction failed:', result.errors);
 }
 
-// ✅ 예외 상황 테스트
+// ✅ Test exception cases
 it('should handle invalid node type', async () => {
   const result = await transaction(editor, [
     { type: 'create', payload: { node: { type: 'invalid-type' } } }
@@ -624,7 +624,7 @@ it('should handle invalid node type', async () => {
 ### 5.3 Async Testing
 
 ```typescript
-// ✅ async/await 사용
+// ✅ Use async/await
 it('should create node', async () => {
   const result = await transaction(editor, [
     create(textNode('inline-text', 'Hello'))
@@ -633,7 +633,7 @@ it('should create node', async () => {
   expect(result.success).toBe(true);
 });
 
-// ❌ Promise 체이닝 지양
+// ❌ Avoid Promise chaining
 it('should create node', () => {
   return transaction(editor, [
     create(textNode('inline-text', 'Hello'))
@@ -648,7 +648,7 @@ it('should create node', () => {
 ### 6.1 Console Logging
 
 ```typescript
-// 디버깅용 로그 추가
+// Add logs for debugging
 console.log('Created nodeId:', nodeId);
 console.log('Node exists:', !!dataStore.getNode(nodeId));
 console.log('Update result:', result);
@@ -657,7 +657,7 @@ console.log('Update result:', result);
 ### 6.2 Result Inspection
 
 ```typescript
-// 결과 객체 구조 확인
+// Check result object structure
 console.log('Result structure:', JSON.stringify(result, null, 2));
 console.log('Operations:', result.operations);
 console.log('Errors:', result.errors);
@@ -666,7 +666,7 @@ console.log('Errors:', result.errors);
 ### 6.3 DataStore State
 
 ```typescript
-// DataStore 상태 확인
+// Check DataStore state
 console.log('All nodes:', dataStore.getAllNodes());
 console.log('Root node:', dataStore.getRootNode());
 console.log('Is locked:', dataStore.isLocked());
@@ -677,7 +677,7 @@ console.log('Is locked:', dataStore.isLocked());
 ### 7.1 Test Isolation
 
 ```typescript
-// 각 테스트마다 새로운 인스턴스 사용
+// Use new instance for each test
 beforeEach(() => {
   dataStore = new DataStore();
   editor = new Editor({ dataStore, schema });
@@ -687,7 +687,7 @@ beforeEach(() => {
 ### 7.2 Memory Management
 
 ```typescript
-// 테스트 후 정리
+// Clean up after tests
 afterEach(() => {
   editor?.destroy();
   dataStore = null;
@@ -723,7 +723,7 @@ it('should handle partial transaction failure', async () => {
   ]);
   
   expect(result.success).toBe(false);
-  expect(dataStore.isLocked()).toBe(false); // Lock이 해제되었는지 확인
+  expect(dataStore.isLocked()).toBe(false); // Verify lock is released
 });
 ```
 
@@ -746,12 +746,12 @@ describe('History System', () => {
   });
 
   it('should track operations in history', async () => {
-    // 트랜잭션 실행
+    // Execute transaction
     await editor.transaction([
       create(textNode('paragraph', 'Hello World'))
     ]).commit();
 
-    // 히스토리 상태 확인
+    // Check history state
     expect(editor.canUndo()).toBe(true);
     expect(editor.canRedo()).toBe(false);
     
@@ -761,17 +761,17 @@ describe('History System', () => {
   });
 
   it('should undo operations correctly', async () => {
-    // 초기 상태
+    // Initial state
     const initialStats = editor.getHistoryStats();
     
-    // 트랜잭션 실행
+    // Execute transaction
     await editor.transaction([
       create(textNode('paragraph', 'Hello'))
     ]).commit();
 
     expect(editor.canUndo()).toBe(true);
     
-    // 실행 취소
+    // Undo
     const undone = await editor.undo();
     expect(undone).toBe(true);
     expect(editor.canUndo()).toBe(false);
@@ -779,16 +779,16 @@ describe('History System', () => {
   });
 
   it('should redo operations correctly', async () => {
-    // 트랜잭션 실행
+    // Execute transaction
     await editor.transaction([
       create(textNode('paragraph', 'Hello'))
     ]).commit();
 
-    // 실행 취소
+    // Undo
     await editor.undo();
     expect(editor.canRedo()).toBe(true);
     
-    // 다시 실행
+    // Redo
     const redone = await editor.redo();
     expect(redone).toBe(true);
     expect(editor.canUndo()).toBe(true);
@@ -807,7 +807,7 @@ describe('History Configuration', () => {
       history: { maxSize: 3 }
     });
 
-    // 5개의 트랜잭션 실행
+    // Execute 5 transactions
     for (let i = 0; i < 5; i++) {
       editor.transaction([
         create(textNode('paragraph', `Item ${i}`))
@@ -815,7 +815,7 @@ describe('History Configuration', () => {
     }
 
     const stats = editor.getHistoryStats();
-    expect(stats.totalEntries).toBe(3); // maxSize 제한
+    expect(stats.totalEntries).toBe(3); // maxSize limit
   });
 
 });
@@ -834,7 +834,7 @@ describe('History Exclusion Rules', () => {
   it('should exclude selection operations from history', async () => {
     const initialStats = editor.getHistoryStats();
     
-    // 선택 영역 변경 (히스토리에 추가되지 않아야 함)
+    // Change selection (should not be added to history)
     await editor.transaction([
       { type: 'selectRange', payload: { nodeId: 'node-1', start: 0, end: 5 } }
     ]).commit();
@@ -846,7 +846,7 @@ describe('History Exclusion Rules', () => {
   it('should exclude log operations from history', async () => {
     const initialStats = editor.getHistoryStats();
     
-    // 로그 operation (히스토리에 추가되지 않아야 함)
+    // Log operation (should not be added to history)
     await editor.transaction([
       { type: 'log', payload: { message: 'Debug info' } }
     ]).commit();
@@ -882,4 +882,4 @@ describe('History Error Handling', () => {
 
 ---
 
-이 가이드는 실제 테스트 수정 과정에서 발견된 문제들과 해결 방법을 바탕으로 작성되었습니다. 지속적으로 업데이트되어야 합니다.
+This guide is based on issues found and solutions during actual test modification. It should be continuously updated.

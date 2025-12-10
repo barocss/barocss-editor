@@ -1,21 +1,21 @@
-# 실행 플로우 모니터링 패턴 (개선안)
+# Execution Flow Monitoring Pattern (Improved)
 
-## 핵심 원칙
+## Core Principles
 
-**이미 있는 이벤트를 최대한 활용하고, Devtool이 자동으로 플로우를 재구성**
+**Maximize use of existing events, and let Devtool automatically reconstruct flows**
 
-- ✅ 최소한의 추가 이벤트만 추가
-- ✅ Devtool이 timestamp와 패턴 매칭으로 이벤트 연결
-- ✅ 코드 변경 최소화
+- ✅ Add only minimal additional events
+- ✅ Devtool connects events using timestamp and pattern matching
+- ✅ Minimize code changes
 
 ---
 
-## 문제점: correlationId를 모든 곳에 넣는 것
+## Problem: Adding correlationId Everywhere
 
-### 현재 제안된 방식의 문제
+### Issues with Current Proposed Approach
 
 ```typescript
-// 모든 함수에 correlationId 추가 필요
+// Need to add correlationId to all functions
 private async handleDelete(event: InputEvent, correlationId: string): Promise<void> {
   const functionCorrelationId = this._generateCorrelationId();
   // ...
@@ -24,43 +24,43 @@ private async handleDelete(event: InputEvent, correlationId: string): Promise<vo
 }
 ```
 
-**문제점**:
-- ❌ 모든 함수 시그니처 변경 필요
-- ❌ 코드가 복잡해짐
-- ❌ 유지보수 어려움
+**Problems**:
+- ❌ Need to change all function signatures
+- ❌ Code becomes complex
+- ❌ Hard to maintain
 
 ---
 
-## 개선된 접근 방법
+## Improved Approach
 
-### 옵션 1: 이벤트 패턴 매칭 (권장)
+### Option 1: Event Pattern Matching (Recommended)
 
-**핵심**: 이미 있는 이벤트들을 timestamp와 패턴으로 자동 연결
+**Core**: Automatically connect existing events using timestamp and patterns
 
-#### 이미 있는 이벤트들
+#### Existing Events
 
-1. **Command 이벤트**
-   - `editor:command.execute` - Command 실행 (이미 있음)
-   - `editor:command.before` - Command 실행 전 (이미 있음)
-   - `editor:command.after` - Command 실행 후 (이미 있음)
+1. **Command Events**
+   - `editor:command.execute` - Command execution (already exists)
+   - `editor:command.before` - Before command execution (already exists)
+   - `editor:command.after` - After command execution (already exists)
 
-2. **Content 이벤트**
-   - `editor:content.change` - Content 변경 (transaction 정보 포함, 이미 있음)
+2. **Content Events**
+   - `editor:content.change` - Content change (includes transaction info, already exists)
 
-3. **History 이벤트**
-   - `editor:history.change` - History 변경 (이미 있음)
+3. **History Events**
+   - `editor:history.change` - History change (already exists)
 
-4. **Selection 이벤트**
-   - `editor:selection.change` - Selection 변경 (이미 있음)
+4. **Selection Events**
+   - `editor:selection.change` - Selection change (already exists)
 
-#### Devtool이 자동으로 플로우 재구성
+#### Devtool Automatically Reconstructs Flow
 
 ```typescript
 // packages/devtool/src/flow-reconstructor.ts
 
 class FlowReconstructor {
   private events: FlowEvent[] = [];
-  private timeWindow: number = 1000; // 1초 내 이벤트들을 하나의 플로우로 간주
+  private timeWindow: number = 1000; // Consider events within 1 second as one flow
 
   handleEvent(type: string, data: any, timestamp: number): void {
     const event: FlowEvent = {
@@ -75,23 +75,23 @@ class FlowReconstructor {
   }
 
   private _reconstructFlow(newEvent: FlowEvent): void {
-    // 1. 시간 윈도우 내의 이벤트들 찾기
+    // 1. Find events within time window
     const recentEvents = this.events.filter(e => 
       Math.abs(e.timestamp - newEvent.timestamp) < this.timeWindow
     );
 
-    // 2. 패턴 매칭으로 플로우 재구성
+    // 2. Reconstruct flow using pattern matching
     const flow = this._matchPattern(recentEvents);
     
-    // 3. 플로우 저장
+    // 3. Save flow
     if (flow) {
       this._saveFlow(flow);
     }
   }
 
   private _matchPattern(events: FlowEvent[]): ExecutionFlow | null {
-    // 패턴 1: Command → Transaction → Operation
-    // editor:command.execute → editor:content.change (transaction 정보 포함)
+    // Pattern 1: Command → Transaction → Operation
+    // editor:command.execute → editor:content.change (includes transaction info)
     const commandEvent = events.find(e => e.type === 'editor:command.execute');
     const contentEvent = events.find(e => 
       e.type === 'editor:content.change' && 
@@ -99,7 +99,7 @@ class FlowReconstructor {
     );
     
     if (commandEvent && contentEvent) {
-      // 시간 순서 확인
+      // Check time order
       if (contentEvent.timestamp > commandEvent.timestamp && 
           contentEvent.timestamp - commandEvent.timestamp < 500) {
         return {
@@ -117,7 +117,7 @@ class FlowReconstructor {
       }
     }
 
-    // 패턴 2: Selection 변경 → Content 변경
+    // Pattern 2: Selection change → Content change
     const selectionEvent = events.find(e => e.type === 'editor:selection.change');
     if (selectionEvent && contentEvent) {
       if (contentEvent.timestamp > selectionEvent.timestamp &&
@@ -136,27 +136,27 @@ class FlowReconstructor {
 }
 ```
 
-**장점**:
-- ✅ 코드 변경 최소화 (이미 있는 이벤트 활용)
-- ✅ 자동으로 플로우 재구성
-- ✅ correlationId 불필요
+**Advantages**:
+- ✅ Minimize code changes (use existing events)
+- ✅ Automatically reconstruct flows
+- ✅ No correlationId needed
 
-**단점**:
-- ⚠️ 시간 윈도우 기반이라 정확도가 떨어질 수 있음
-- ⚠️ 복잡한 패턴 매칭 로직 필요
+**Disadvantages**:
+- ⚠️ May be less accurate due to time window-based approach
+- ⚠️ Need complex pattern matching logic
 
 ---
 
-### 옵션 2: 선택적 함수 추적 (하이브리드)
+### Option 2: Selective Function Tracing (Hybrid)
 
-**핵심**: 핵심 함수만 선택적으로 이벤트 추가
+**Core**: Add events only to key functions selectively
 
 ```typescript
 // packages/editor-view-dom/src/event-handlers/input-handler.ts
 
-// 핵심 함수만 간단하게 이벤트 추가
+// Add events only to key functions simply
 private async handleDelete(event: InputEvent): Promise<void> {
-  // 선택적: 핵심 함수만 이벤트 추가
+  // Optional: add events only to key functions
   if (this.editor._devtoolEnabled) {
     this.editor.emit('editor:function.start', {
       functionName: 'handleDelete',
@@ -165,14 +165,14 @@ private async handleDelete(event: InputEvent): Promise<void> {
     });
   }
   
-  // ... 기존 로직 ...
+  // ... existing logic ...
   
-  // Command 실행은 이미 editor:command.execute 이벤트가 있음
+  // Command execution already has editor:command.execute event
   await this.editor.executeCommand('deleteText', { range });
-  // → editor:command.execute 이벤트 자동 발생
+  // → editor:command.execute event automatically emitted
   
-  // Transaction 실행은 editor:content.change에 transaction 정보 포함
-  // → editor:content.change 이벤트 자동 발생
+  // Transaction execution includes transaction info in editor:content.change
+  // → editor:content.change event automatically emitted
   
   if (this.editor._devtoolEnabled) {
     this.editor.emit('editor:function.end', {
@@ -184,16 +184,16 @@ private async handleDelete(event: InputEvent): Promise<void> {
 }
 ```
 
-**장점**:
-- ✅ 핵심 함수만 선택적으로 추적
-- ✅ Devtool 활성화 시에만 이벤트 발생 (성능 영향 최소화)
-- ✅ correlationId 불필요 (timestamp로 연결)
+**Advantages**:
+- ✅ Selectively trace only key functions
+- ✅ Events emitted only when Devtool is enabled (minimize performance impact)
+- ✅ No correlationId needed (connect using timestamp)
 
 ---
 
-### 옵션 3: Proxy 패턴으로 자동 추적
+### Option 3: Auto Tracing with Proxy Pattern
 
-**핵심**: 함수 호출을 자동으로 가로채서 추적
+**Core**: Automatically intercept function calls to trace
 
 ```typescript
 // packages/devtool/src/auto-tracer.ts
@@ -212,7 +212,7 @@ class AutoTracer {
     const inputHandler = (this.editor as any)._viewDOM?._inputHandler;
     if (!inputHandler) return;
 
-    // 핵심 메서드만 래핑
+    // Wrap only key methods
     const methods = ['handleDelete', 'handleC1', 'handleC2', 'handleC3'];
     
     methods.forEach(methodName => {
@@ -247,7 +247,7 @@ class AutoTracer {
       try {
         const result = fn(...args);
         
-        // Promise인 경우
+        // If Promise
         if (result instanceof Promise) {
           return result.then(
             (value) => {
@@ -272,7 +272,7 @@ class AutoTracer {
           );
         }
         
-        // 동기 함수인 경우
+        // Synchronous function
         this.editor.emit('editor:function.end', {
           functionName: name,
           className,
@@ -296,50 +296,50 @@ class AutoTracer {
 }
 ```
 
-**사용**:
+**Usage**:
 ```typescript
-// Devtool 초기화 시
+// When initializing Devtool
 const devtool = new Devtool({ editor });
-devtool.enableAutoTracing(); // 자동 추적 활성화
+devtool.enableAutoTracing(); // Enable auto tracing
 ```
 
-**장점**:
-- ✅ 코드 변경 없음
-- ✅ 자동으로 함수 실행 추적
-- ✅ Devtool 활성화 시에만 동작
+**Advantages**:
+- ✅ No code changes
+- ✅ Automatically trace function execution
+- ✅ Works only when Devtool is enabled
 
-**단점**:
-- ⚠️ 함수 래핑 오버헤드
-- ⚠️ 초기 설정 복잡
+**Disadvantages**:
+- ⚠️ Function wrapping overhead
+- ⚠️ Complex initial setup
 
 ---
 
-## 최종 권장안: 하이브리드 접근
+## Final Recommendation: Hybrid Approach
 
-### Phase 1: 이미 있는 이벤트로 기본 플로우 재구성
+### Phase 1: Reconstruct Basic Flow with Existing Events
 
-**코드 변경 없음**
+**No code changes**
 
 ```typescript
-// Devtool이 이미 있는 이벤트로 플로우 재구성
+// Devtool reconstructs flow with existing events
 // - editor:command.execute
-// - editor:content.change (transaction 정보 포함)
+// - editor:content.change (includes transaction info)
 // - editor:history.change
 // - editor:selection.change
 ```
 
-**구현**:
+**Implementation**:
 ```typescript
 // packages/devtool/src/flow-reconstructor.ts
 
 class FlowReconstructor {
   reconstructFlow(events: FlowEvent[]): ExecutionFlow[] {
-    // 1. 시간 윈도우로 이벤트 그룹화
+    // 1. Group events by time window
     const groups = this._groupByTimeWindow(events, 1000);
     
-    // 2. 각 그룹에서 패턴 매칭
+    // 2. Pattern matching for each group
     return groups.map(group => {
-      // 패턴: Command → Transaction
+      // Pattern: Command → Transaction
       const command = group.find(e => e.type === 'editor:command.execute');
       const content = group.find(e => 
         e.type === 'editor:content.change' && 
@@ -366,20 +366,20 @@ class FlowReconstructor {
 
 ---
 
-### Phase 2: 선택적 함수 추적 (필요한 경우만)
+### Phase 2: Selective Function Tracing (Only When Needed)
 
-**핵심 함수만 선택적으로 이벤트 추가**
+**Add events only to key functions selectively**
 
 ```typescript
 // packages/editor-view-dom/src/event-handlers/input-handler.ts
 
-// Devtool 활성화 여부 확인
+// Check if Devtool is enabled
 private _shouldTrace(): boolean {
   return (this.editor as any)._devtoolEnabled === true;
 }
 
 private async handleDelete(event: InputEvent): Promise<void> {
-  // 선택적: 핵심 함수만 이벤트 추가
+  // Optional: add events only to key functions
   if (this._shouldTrace()) {
     this.editor.emit('editor:function.start', {
       functionName: 'handleDelete',
@@ -388,7 +388,7 @@ private async handleDelete(event: InputEvent): Promise<void> {
     });
   }
   
-  // ... 기존 로직 (변경 없음) ...
+  // ... existing logic (no changes) ...
   
   if (this._shouldTrace()) {
     this.editor.emit('editor:function.end', {
@@ -400,69 +400,69 @@ private async handleDelete(event: InputEvent): Promise<void> {
 }
 ```
 
-**장점**:
-- ✅ 최소한의 코드 변경
-- ✅ Devtool 활성화 시에만 이벤트 발생
-- ✅ correlationId 불필요 (timestamp로 연결)
+**Advantages**:
+- ✅ Minimal code changes
+- ✅ Events emitted only when Devtool is enabled
+- ✅ No correlationId needed (connect using timestamp)
 
 ---
 
-### Phase 3: 고급 기능
+### Phase 3: Advanced Features
 
-1. **노드 범위 하이라이트**
-   - 플로우에서 노드 범위 클릭 시 에디터에서 하이라이트
+1. **Node Range Highlighting**
+   - Highlight in editor when clicking node range in flow
 
-2. **플로우 필터링**
-   - 이벤트 타입, Command 타입 등으로 필터링
+2. **Flow Filtering**
+   - Filter by event type, Command type, etc.
 
-3. **플로우 검색**
-   - 특정 노드 ID, Command 이름 등으로 검색
-
----
-
-## 비교: correlationId vs 패턴 매칭
-
-### correlationId 방식
-
-**장점**:
-- ✅ 정확한 이벤트 연결
-- ✅ 복잡한 플로우도 추적 가능
-
-**단점**:
-- ❌ 모든 함수에 correlationId 추가 필요
-- ❌ 코드가 복잡해짐
-- ❌ 유지보수 어려움
-
-### 패턴 매칭 방식 (권장)
-
-**장점**:
-- ✅ 코드 변경 최소화
-- ✅ 이미 있는 이벤트 활용
-- ✅ 자동으로 플로우 재구성
-
-**단점**:
-- ⚠️ 시간 윈도우 기반이라 정확도가 떨어질 수 있음
-- ⚠️ 복잡한 패턴 매칭 로직 필요
-
-**하지만**:
-- 대부분의 경우 timestamp 기반 패턴 매칭으로 충분
-- 정확도가 필요한 경우에만 선택적으로 correlationId 추가
+3. **Flow Search**
+   - Search by specific node ID, Command name, etc.
 
 ---
 
-## 정리
+## Comparison: correlationId vs Pattern Matching
 
-**최종 권장안**:
+### correlationId Approach
 
-1. **Phase 1**: 이미 있는 이벤트로 기본 플로우 재구성 (코드 변경 없음)
-2. **Phase 2**: 핵심 함수만 선택적으로 이벤트 추가 (최소한의 변경)
-3. **Phase 3**: 고급 기능 추가
+**Advantages**:
+- ✅ Accurate event connection
+- ✅ Can trace complex flows
 
-**correlationId는 선택적**:
-- 기본적으로는 timestamp와 패턴 매칭으로 충분
-- 정확도가 필요한 특수한 경우에만 correlationId 추가
+**Disadvantages**:
+- ❌ Need to add correlationId to all functions
+- ❌ Code becomes complex
+- ❌ Hard to maintain
 
-**구현 순서**:
-1. Devtool이 이미 있는 이벤트로 플로우 재구성
-2. 필요시 핵심 함수에만 간단한 이벤트 추가
-3. 고급 기능 추가
+### Pattern Matching Approach (Recommended)
+
+**Advantages**:
+- ✅ Minimize code changes
+- ✅ Use existing events
+- ✅ Automatically reconstruct flows
+
+**Disadvantages**:
+- ⚠️ May be less accurate due to time window-based approach
+- ⚠️ Need complex pattern matching logic
+
+**However**:
+- Timestamp-based pattern matching is sufficient in most cases
+- Add correlationId selectively only when accuracy is needed
+
+---
+
+## Summary
+
+**Final Recommendation**:
+
+1. **Phase 1**: Reconstruct basic flow with existing events (no code changes)
+2. **Phase 2**: Add events selectively only to key functions (minimal changes)
+3. **Phase 3**: Add advanced features
+
+**correlationId is optional**:
+- Timestamp and pattern matching are sufficient by default
+- Add correlationId only in special cases where accuracy is needed
+
+**Implementation Order**:
+1. Devtool reconstructs flow with existing events
+2. Add simple events to key functions only when needed
+3. Add advanced features

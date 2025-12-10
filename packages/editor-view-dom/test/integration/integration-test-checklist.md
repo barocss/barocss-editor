@@ -1,143 +1,142 @@
-# EditorViewDOM + renderer-dom 통합 테스트 체크리스트
+# EditorViewDOM + renderer-dom Integration Test Checklist
 
-## ✅ 완료된 테스트
+## ✅ Completed Tests
 
-### 기본 통합 테스트 (`renderer-dom-integration.test.ts`)
-- [x] 간단한 paragraph 렌더링
-- [x] heading과 paragraph가 있는 문서 렌더링
-- [x] 중첩 구조 렌더링
-- [x] 마크가 있는 텍스트 렌더링
-- [x] 콘텐츠 업데이트
-- [x] DOM 요소 identity 보존 (sid 기반)
-- [x] 빈 문서 처리
-- [x] content 속성 없는 문서 처리
+### Basic Integration Tests (`renderer-dom-integration.test.ts`)
+- [x] Simple paragraph rendering
+- [x] Document rendering with heading and paragraph
+- [x] Nested structure rendering
+- [x] Text with marks rendering
+- [x] Content updates
+- [x] DOM element identity preservation (sid-based)
+- [x] Empty document handling
+- [x] Document without content property handling
 
-### 디테일한 통합 테스트 (`renderer-dom-detailed-integration.test.ts`)
-- [x] Complex Marks (2개)
-  - [x] 여러 마크 중첩 처리
-  - [x] 여러 텍스트 노드에 걸친 마크 처리
-- [x] Deep Nesting (2개)
-  - [x] 5단계 깊은 중첩 구조
-  - [x] 텍스트와 엘리먼트 혼합 콘텐츠
-- [x] Content Updates (3개)
-  - [x] 자식 추가 시 DOM 보존
-  - [x] 자식 제거 시 나머지 DOM 보존
-  - [x] 자식 재정렬 시 DOM identity 보존
-- [x] Attributes and Styles (2개)
-  - [x] 엘리먼트 속성 업데이트
-  - [x] 속성 제거 처리
-- [x] Proxy-based Lazy Evaluation (2개)
-  - [x] getDocumentProxy() 사용 확인
-  - [x] 대용량 문서 성능 테스트 (100개 paragraph)
-- [x] Error Handling (2개)
-  - [x] stype 누락 처리
-  - [x] 잘못된 트리 구조 처리
-- [x] Real-world Scenarios (2개)
-  - [x] Article 구조 렌더링
-  - [x] 점진적 콘텐츠 업데이트
+### Detailed Integration Tests (`renderer-dom-detailed-integration.test.ts`)
+- [x] Complex Marks (2)
+  - [x] Multiple mark nesting
+  - [x] Marks spanning multiple text nodes
+- [x] Deep Nesting (2)
+  - [x] 5-level deep nested structure
+  - [x] Mixed text and element content
+- [x] Content Updates (3)
+  - [x] DOM preservation on child addition
+  - [x] Remaining DOM preservation on child removal
+  - [x] DOM identity preservation on child reordering
+- [x] Attributes and Styles (2)
+  - [x] Element attribute updates
+  - [x] Attribute removal handling
+- [x] Proxy-based Lazy Evaluation (2)
+  - [x] getDocumentProxy() usage verification
+  - [x] Large document performance test (100 paragraphs)
+- [x] Error Handling (2)
+  - [x] Missing stype handling
+  - [x] Invalid tree structure handling
+- [x] Real-world Scenarios (2)
+  - [x] Article structure rendering
+  - [x] Incremental content updates
 
-## 🔄 진행 중
+## 🔄 In Progress
 
-없음
+None
 
-## ✅ 최근 완료 사항 (2024)
+## ✅ Recently Completed (2024)
 
-### id/type → sid/stype 변환 완료
-- [x] 모든 통합 테스트 파일에서 `id`/`type` → `sid`/`stype` 변환 완료
-- [x] `renderer-dom-integration.test.ts` - 변환 완료
-- [x] `renderer-dom-detailed-integration.test.ts` - 변환 완료
-- [x] `component-state-integration.test.ts` - 변환 완료
-- [x] `decorator-integration.test.ts` - 변환 완료
-- [x] `performance-integration.test.ts` - 변환 완료
-- [x] `complex-scenarios-integration.test.ts` - 변환 완료
-- [x] `error-handling-integration.test.ts` - 변환 완료
-- [x] `portal-integration.test.ts` - 변환 완료
-- [x] `table-integration.test.ts` - 변환 완료
-- [x] `form-elements-integration.test.ts` - 변환 완료
-- [x] `layer-decorator-integration.test.ts` - 변환 완료
-- [x] `mount-unmount-integration.test.ts` - 변환 완료
+### id/type → sid/stype Conversion Complete
+- [x] All integration test files converted from `id`/`type` to `sid`/`stype`
+- [x] `renderer-dom-integration.test.ts` - conversion complete
+- [x] `renderer-dom-detailed-integration.test.ts` - conversion complete
+- [x] `component-state-integration.test.ts` - conversion complete
+- [x] `decorator-integration.test.ts` - conversion complete
+- [x] `performance-integration.test.ts` - conversion complete
+- [x] `complex-scenarios-integration.test.ts` - conversion complete
+- [x] `error-handling-integration.test.ts` - conversion complete
+- [x] `portal-integration.test.ts` - conversion complete
+- [x] `table-integration.test.ts` - conversion complete
+- [x] `form-elements-integration.test.ts` - conversion complete
+- [x] `layer-decorator-integration.test.ts` - conversion complete
+- [x] `mount-unmount-integration.test.ts` - conversion complete
 
-## 📋 다음 단계
+## 📋 Next Steps
 
-### Component State 관리 통합 테스트 ✅
-- [x] Component state 초기화 및 접근 (`component-state-integration.test.ts`)
-- [x] setState() 호출 시 자동 재렌더링 (기본 확인)
-- [x] 여러 컴포넌트의 독립적인 state 관리
-- [x] state 변경 시 DOM 업데이트 확인
-- [x] state 재렌더링 시 유지 확인
-- [x] getState()를 통한 state 접근
-- [x] BaseComponentState.mount/unmount 호출 확인 (`mount-unmount-integration.test.ts` - 테스트 작성 완료)
+### Component State Management Integration Tests ✅
+- [x] Component state initialization and access (`component-state-integration.test.ts`)
+- [x] Automatic re-rendering on setState() call (basic verification)
+- [x] Independent state management for multiple components
+- [x] DOM update verification on state change
+- [x] State persistence verification on re-render
+- [x] State access via getState()
+- [x] BaseComponentState.mount/unmount call verification (`mount-unmount-integration.test.ts` - test written)
 
-### Decorator 통합 테스트 ✅
-- [x] Inline decorator 렌더링 및 업데이트 (`decorator-integration.test.ts`)
-- [x] Block decorator 렌더링 및 업데이트
-- [x] Decorator 추가/제거 시 host DOM 안정성
-- [x] 여러 decorator 중첩 처리
-- [x] Decorator position 변경 (before/after)
-- [x] Decorator와 mark 동시 적용
-- [x] Layer decorator 렌더링 및 업데이트 (`layer-decorator-integration.test.ts` - 테스트 작성 완료)
+### Decorator Integration Tests ✅
+- [x] Inline decorator rendering and updates (`decorator-integration.test.ts`)
+- [x] Block decorator rendering and updates
+- [x] Host DOM stability on decorator add/remove
+- [x] Multiple decorator nesting
+- [x] Decorator position changes (before/after)
+- [x] Simultaneous decorator and mark application
+- [x] Layer decorator rendering and updates (`layer-decorator-integration.test.ts` - test written)
 
-### Portal 통합 테스트 ✅
-- [x] Portal 기본 렌더링 (`portal-integration.test.ts`)
-- [x] Portal target 변경
-- [x] Portal content 업데이트
-- [x] 여러 Portal 동시 사용
-- [x] Portal 정리 (unmount 시)
+### Portal Integration Tests ✅
+- [x] Basic Portal rendering (`portal-integration.test.ts`)
+- [x] Portal target change
+- [x] Portal content updates
+- [x] Multiple Portals simultaneously
+- [x] Portal cleanup (on unmount)
 - [x] Portal with Complex Content
 
-### 성능 및 스케일 테스트 ✅
-- [x] 1000개 노드 렌더링 성능 (`performance-integration.test.ts`)
-- [x] 2000개 노드 렌더링 성능 (5000개는 너무 느려서 2000개로 조정)
-- [x] 대량 업데이트 성능
-- [x] 메모리 누수 확인 (반복 렌더링)
-- [x] Proxy lazy evaluation 성능 비교
-- [x] Mixed Decorators and Marks 성능
+### Performance and Scale Tests ✅
+- [x] 1000 node rendering performance (`performance-integration.test.ts`)
+- [x] 2000 node rendering performance (adjusted from 5000 as it was too slow)
+- [x] Bulk update performance
+- [x] Memory leak check (repeated rendering)
+- [x] Proxy lazy evaluation performance comparison
+- [x] Mixed Decorators and Marks performance
 
-### 복잡한 시나리오 테스트 ✅
-- [x] 리스트 아이템 동적 추가/제거/재정렬 (`complex-scenarios-integration.test.ts`)
-- [x] 중첩된 리스트 구조
-- [x] 동적 속성/스타일 업데이트
-- [x] 조건부 렌더링 (when)
-- [x] 반복 렌더링 (each)
-- [x] 테이블 구조 렌더링 (`table-integration.test.ts` - 9개 테스트 작성 완료)
-- [x] 폼 요소 렌더링 (`form-elements-integration.test.ts` - 테스트 작성 완료)
+### Complex Scenario Tests ✅
+- [x] Dynamic list item add/remove/reorder (`complex-scenarios-integration.test.ts`)
+- [x] Nested list structures
+- [x] Dynamic attribute/style updates
+- [x] Conditional rendering (when)
+- [x] Iterative rendering (each)
+- [x] Table structure rendering (`table-integration.test.ts` - 9 tests written)
+- [x] Form element rendering (`form-elements-integration.test.ts` - tests written)
 
-### 에러 처리 및 엣지 케이스 ✅
-- [x] 잘못된 stype 처리 (`error-handling-integration.test.ts`)
-- [x] 중복 sid 처리
-- [x] 매우 깊은 중첩 (20+ 레벨)
-- [x] 빈 content 배열 처리
-- [x] null/undefined 값 처리
-- [x] Missing sid 처리
-- [x] Invalid child types 처리
-- [x] Missing required properties 처리
+### Error Handling and Edge Cases ✅
+- [x] Invalid stype handling (`error-handling-integration.test.ts`)
+- [x] Duplicate sid handling
+- [x] Very deep nesting (20+ levels)
+- [x] Empty content array handling
+- [x] null/undefined value handling
+- [x] Missing sid handling
+- [x] Invalid child types handling
+- [x] Missing required properties handling
 
-### 데이터 변환 테스트 ✅
-- [x] TreeDocument → ModelData 변환 (기본 통합 테스트에서 확인)
-- [x] INode 직접 사용 (stype/sid) (기본 통합 테스트에서 확인)
-- [x] Proxy 기반 lazy evaluation (성능 테스트에서 확인)
-- [x] convertTreeToModel 에러 처리 (에러 처리 테스트에서 확인)
+### Data Conversion Tests ✅
+- [x] TreeDocument → ModelData conversion (verified in basic integration tests)
+- [x] Direct INode usage (stype/sid) (verified in basic integration tests)
+- [x] Proxy-based lazy evaluation (verified in performance tests)
+- [x] convertTreeToModel error handling (verified in error handling tests)
 
-## 📊 테스트 통계
+## 📊 Test Statistics
 
-- **완료된 테스트**: 100+ 개
-  - 기본 통합 테스트: 8개 (`renderer-dom-integration.test.ts`)
-  - 디테일한 통합 테스트: 15개 (`renderer-dom-detailed-integration.test.ts`)
-  - Component State 관리: 7개 (`component-state-integration.test.ts`)
-  - Decorator 통합: 8개 (`decorator-integration.test.ts`)
-  - Portal 통합: 8개 (`portal-integration.test.ts`)
-  - 성능 및 스케일: 6개 (`performance-integration.test.ts`)
-  - 복잡한 시나리오: 7개 (`complex-scenarios-integration.test.ts`)
-  - 에러 처리 및 엣지 케이스: 8개 (`error-handling-integration.test.ts`)
-  - 테이블 구조: 9개 (`table-integration.test.ts`)
-  - 폼 요소: 다수 (`form-elements-integration.test.ts`)
-  - Layer decorator: 다수 (`layer-decorator-integration.test.ts`)
-  - Mount/Unmount: 다수 (`mount-unmount-integration.test.ts`)
-- **현재 커버리지**: 기본 기능, 주요 시나리오, 성능, 복잡한 케이스, 에러 처리
+- **Completed tests**: 100+
+  - Basic integration tests: 8 (`renderer-dom-integration.test.ts`)
+  - Detailed integration tests: 15 (`renderer-dom-detailed-integration.test.ts`)
+  - Component State management: 7 (`component-state-integration.test.ts`)
+  - Decorator integration: 8 (`decorator-integration.test.ts`)
+  - Portal integration: 8 (`portal-integration.test.ts`)
+  - Performance and scale: 6 (`performance-integration.test.ts`)
+  - Complex scenarios: 7 (`complex-scenarios-integration.test.ts`)
+  - Error handling and edge cases: 8 (`error-handling-integration.test.ts`)
+  - Table structure: 9 (`table-integration.test.ts`)
+  - Form elements: multiple (`form-elements-integration.test.ts`)
+  - Layer decorator: multiple (`layer-decorator-integration.test.ts`)
+  - Mount/Unmount: multiple (`mount-unmount-integration.test.ts`)
+- **Current coverage**: basic functionality, major scenarios, performance, complex cases, error handling
 
-## 🎯 우선순위
+## 🎯 Priorities
 
-1. **높음**: Component State 관리, Decorator 통합
-2. **중간**: Portal 통합, 복잡한 시나리오
-3. **낮음**: 성능 테스트, 엣지 케이스
-
+1. **High**: Component State management, Decorator integration
+2. **Medium**: Portal integration, complex scenarios
+3. **Low**: Performance tests, edge cases

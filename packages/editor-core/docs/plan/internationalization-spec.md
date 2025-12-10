@@ -1,50 +1,50 @@
-# Internationalization (i18n) 스펙
+# Internationalization (i18n) Specification
 
-## 1. 개요
+## 1. Overview
 
-Barocss Editor는 다국어 지원을 위해 VS Code의 로컬라이제이션 시스템을 참고하여 설계되었습니다. 사용자 인터페이스 텍스트, 에러 메시지, 도움말 텍스트 등을 다양한 언어로 제공할 수 있습니다.
+Barocss Editor is designed with reference to VS Code's localization system for multilingual support. It can provide user interface text, error messages, help text, etc. in various languages.
 
-## 2. VS Code의 다국어 지원 방식
+## 2. VS Code's Multilingual Support Approach
 
-### 2.1 언어 팩 (Language Packs)
+### 2.1 Language Packs
 
-VS Code는 공식적으로 다양한 언어 팩을 제공합니다:
-- 각 언어별로 별도의 확장 프로그램으로 제공
-- 사용자가 원하는 언어 팩을 설치하여 UI 언어 변경
-- GitHub의 [vscode-loc 저장소](https://github.com/microsoft/vscode-loc)를 통해 커뮤니티가 관리
+VS Code officially provides various language packs:
+- Provided as separate extension programs for each language
+- Users install desired language packs to change UI language
+- Managed by community through GitHub's [vscode-loc repository](https://github.com/microsoft/vscode-loc)
 
-### 2.2 로컬라이제이션 파일 구조
+### 2.2 Localization File Structure
 
-VS Code는 다음 구조를 사용합니다:
+VS Code uses the following structure:
 
 ```
 extension/
-  package.json          # 기본 언어 정의
-  package.nls.json      # 영어 (기본)
-  package.nls.ko.json   # 한국어
-  package.nls.ja.json   # 일본어
+  package.json          # Default language definition
+  package.nls.json      # English (default)
+  package.nls.ko.json   # Korean
+  package.nls.ja.json   # Japanese
   ...
 ```
 
-### 2.3 번역 키 시스템
+### 2.3 Translation Key System
 
-VS Code는 메시지 ID를 사용하여 번역을 관리합니다:
+VS Code manages translations using message IDs:
 
 ```json
-// package.nls.json (영어)
+// package.nls.json (English)
 {
   "extension.description": "My Extension Description",
   "command.title": "Execute Command"
 }
 
-// package.nls.ko.json (한국어)
+// package.nls.ko.json (Korean)
 {
   "extension.description": "내 확장 프로그램 설명",
   "command.title": "명령 실행"
 }
 ```
 
-### 2.4 사용 방법
+### 2.4 Usage
 
 ```typescript
 import * as nls from 'vscode-nls';
@@ -53,51 +53,51 @@ const localize = nls.loadMessageBundle();
 const message = localize('extension.description', 'Default Description');
 ```
 
-## 3. Barocss Editor의 다국어 지원 제안
+## 3. Barocss Editor's Multilingual Support Proposal
 
-### 3.1 구조 제안
+### 3.1 Structure Proposal
 
-VS Code 방식을 참고하되, 더 간단한 구조로 시작:
+Reference VS Code approach but start with simpler structure:
 
 ```
 packages/editor-core/
   src/
     i18n/
-      messages.json          # 영어 (기본, 메시지 ID 정의)
-      messages.ko.json       # 한국어
-      messages.ja.json       # 일본어
-      messages.zh-CN.json    # 중국어 (간체)
+      messages.json          # English (default, message ID definitions)
+      messages.ko.json       # Korean
+      messages.ja.json       # Japanese
+      messages.zh-CN.json    # Chinese (Simplified)
       ...
     context/
-      default-context.ts     # 기본 context 정의
+      default-context.ts     # Default context definitions
 ```
 
-### 3.2 메시지 ID 네이밍 규칙
+### 3.2 Message ID Naming Rules
 
-계층적 네이밍을 사용하여 그룹화:
+Use hierarchical naming for grouping:
 
 ```
 {category}.{subcategory}.{key}
 
-예시:
+Examples:
 - context.editorFocus.description
 - context.editorEditable.description
 - error.invalidSelection.message
 - command.toggleBold.label
 ```
 
-### 3.3 구현 방식
+### 3.3 Implementation Approach
 
-#### 옵션 1: JSON 기반 로컬라이제이션 (VS Code 스타일)
+#### Option 1: JSON-based Localization (VS Code Style)
 
-**장점**:
-- VS Code와 동일한 패턴으로 친숙함
-- 확장 프로그램에서도 동일한 방식 사용 가능
-- JSON 파일로 관리하여 번역 작업이 쉬움
+**Advantages**:
+- Familiar pattern, same as VS Code
+- Can use same approach in extensions
+- Easy translation work with JSON files
 
-**단점**:
-- 런타임에 JSON 파일 로드 필요
-- 번들 크기 증가 가능성
+**Disadvantages**:
+- Need to load JSON files at runtime
+- Possible bundle size increase
 
 ```typescript
 // packages/editor-core/src/i18n/messages.json
@@ -115,16 +115,16 @@ packages/editor-core/
 }
 ```
 
-#### 옵션 2: TypeScript 객체 기반 (간단한 방식)
+#### Option 2: TypeScript Object-based (Simple Approach)
 
-**장점**:
-- 타입 안정성
-- 번들 최적화 가능
-- 런타임 오버헤드 없음
+**Advantages**:
+- Type safety
+- Bundle optimization possible
+- No runtime overhead
 
-**단점**:
-- 모든 언어를 번들에 포함해야 함
-- 동적 언어 변경이 어려움
+**Disadvantages**:
+- Must include all languages in bundle
+- Difficult to change languages dynamically
 
 ```typescript
 // packages/editor-core/src/i18n/messages.ts
@@ -140,27 +140,27 @@ export const messages = {
 };
 ```
 
-#### 옵션 3: 하이브리드 방식 (권장)
+#### Option 3: Hybrid Approach (Recommended)
 
-**구조**:
-- 기본 언어(en, ko)는 TypeScript 파일로 내장
-- 다른 언어는 외부에서 등록 가능
-- Extension이나 호스트 애플리케이션에서 언어 팩 제공 가능
+**Structure**:
+- Basic languages (en, ko) embedded as TypeScript files
+- Other languages can be registered externally
+- Extensions or host applications can provide language packs
 
-**장점**:
-- 기본 언어는 번들에 포함되어 즉시 사용 가능
-- 타입 안정성 (기본 언어)
-- 외부에서 언어 팩 확장 가능
-- `require()`나 `import()` 동적 호출 불필요
-- 번들 크기 최적화 (필요한 언어만 포함)
+**Advantages**:
+- Basic languages included in bundle, immediately usable
+- Type safety (for basic languages)
+- Can extend language packs externally
+- No need for dynamic `require()` or `import()` calls
+- Bundle size optimization (only include needed languages)
 
-**단점**:
-- 외부 언어 팩은 런타임에 등록 필요
+**Disadvantages**:
+- External language packs need to be registered at runtime
 
-**중요: 언어 팩 로딩 타이밍**
-- 언어 팩은 **Editor 생성 전에 등록**되어야 함
-- Editor가 렌더링되기 전에 모든 메시지가 준비되어야 깜빡임(FOUC) 방지
-- Async 로딩이 필요한 경우, `await loadLanguagePack()` 후에 Editor 생성
+**Important: Language Pack Loading Timing**
+- Language packs must be **registered before Editor creation**
+- All messages must be ready before Editor renders to prevent flicker (FOUC)
+- If async loading is needed, create Editor after `await loadLanguagePack()`
 
 ```typescript
 // packages/editor-core/src/i18n/messages.en.ts
@@ -179,27 +179,27 @@ export const messagesKo = {
 import { messagesEn } from './messages.en';
 import { messagesKo } from './messages.ko';
 
-// 내장 언어 (기본 제공)
+// Built-in languages (provided by default)
 const builtinMessages: Record<string, Record<string, string>> = {
   en: messagesEn,
   ko: messagesKo
 };
 
-// 외부에서 등록된 언어 팩
+// Externally registered language packs
 const externalMessages: Record<string, Record<string, string>> = {};
 
 /**
- * 언어 팩 등록 (외부에서 호출)
+ * Register language pack (called from external)
  * 
- * 여러 Extension이나 호스트 애플리케이션에서 같은 locale에 메시지를 등록할 수 있습니다.
- * 기존 메시지와 병합되므로, 각 Extension은 자신의 메시지만 등록하면 됩니다.
+ * Multiple Extensions or host applications can register messages for the same locale.
+ * Messages are merged, so each Extension only needs to register its own messages.
  * 
- * **용어 설명**:
- * - `locale`: 언어 및 지역 설정을 나타내는 식별자 (예: 'en', 'ko', 'ja', 'zh-CN')
- * - `localize`: 특정 locale에 맞게 번역/조정하는 동작 (동사)
+ * **Terminology**:
+ * - `locale`: Identifier representing language and region settings (e.g., 'en', 'ko', 'ja', 'zh-CN')
+ * - `localize`: Action of translating/adjusting to match specific locale (verb)
  * 
- * @param locale - 언어 코드 (예: 'ja', 'zh-CN')
- * @param messages - 등록할 메시지 객체
+ * @param locale - Language code (e.g., 'ja', 'zh-CN')
+ * @param messages - Message object to register
  * 
  * @example
  * ```typescript
@@ -208,12 +208,12 @@ const externalMessages: Record<string, Record<string, string>> = {};
  *   'command.toggleBold.label': '太字'
  * });
  * 
- * // Extension B (같은 locale에 추가 메시지 등록)
+ * // Extension B (register additional messages for same locale)
  * registerLocaleMessages('ja', {
  *   'command.toggleItalic.label': '斜体'
  * });
  * 
- * // 결과: 두 Extension의 메시지가 모두 등록됨
+ * // Result: Messages from both Extensions are registered
  * ```
  */
 export function registerLocaleMessages(locale: string, messages: Record<string, string>): void {
@@ -221,45 +221,45 @@ export function registerLocaleMessages(locale: string, messages: Record<string, 
     externalMessages[locale] = {};
   }
   
-  // 기존 메시지와 병합 (덮어쓰기 방지)
+  // Merge with existing messages (prevent overwriting)
   Object.assign(externalMessages[locale], messages);
 }
 
 /**
- * 메시지 조회 (플레이스홀더 치환 지원)
+ * Get message (supports placeholder replacement)
  * 
- * **함수명 설명**:
- * - `getLocalizedMessage`: 특정 locale에 맞게 번역된(localized) 메시지를 가져옴
- * - `getLocaleMessage`와의 차이: "localized"는 이미 번역된 상태를 의미
+ * **Function name explanation**:
+ * - `getLocalizedMessage`: Gets message that is already translated (localized) for specific locale
+ * - Difference from `getLocaleMessage`: "localized" means already translated state
  * 
- * **파라미터 순서**:
- * - `id`: 메시지 ID (필수)
- * - `params`: 플레이스홀더 치환용 파라미터 (선택, 자주 사용)
- * - `locale`: 언어 코드 (선택, 기본값은 전역 locale 설정 사용)
+ * **Parameter order**:
+ * - `id`: Message ID (required)
+ * - `params`: Parameters for placeholder replacement (optional, frequently used)
+ * - `locale`: Language code (optional, defaults to global locale setting)
  * 
- * @param id - 메시지 ID
- * @param params - 플레이스홀더 치환용 파라미터 (선택)
- * @param locale - 언어 코드 (선택, 기본값은 전역 locale 또는 'en')
- * @returns 번역된 메시지 (플레이스홀더 치환됨)
+ * @param id - Message ID
+ * @param params - Parameters for placeholder replacement (optional)
+ * @param locale - Language code (optional, defaults to global locale or 'en')
+ * @returns Translated message (with placeholders replaced)
  * 
  * @example
  * ```typescript
- * // 기본 사용 (전역 locale 사용)
+ * // Basic usage (use global locale)
  * getLocalizedMessage('context.editorFocus.description');
- * // 현재 locale이 'ko'면: "에디터가 포커스를 가지고 있는지 여부"
+ * // If current locale is 'ko': "에디터가 포커스를 가지고 있는지 여부"
  * 
- * // 특정 locale 지정
+ * // Specify specific locale
  * getLocalizedMessage('context.editorFocus.description', undefined, 'ko');
  * 
- * // 플레이스홀더 치환 (가장 일반적인 사용)
+ * // Placeholder replacement (most common usage)
  * getLocalizedMessage('error.invalidSelection', { 
  *   start: 10, 
  *   end: 20 
  * });
- * // 메시지: "선택 범위가 유효하지 않습니다: {start} ~ {end}"
- * // 결과: "선택 범위가 유효하지 않습니다: 10 ~ 20"
+ * // Message: "선택 범위가 유효하지 않습니다: {start} ~ {end}"
+ * // Result: "선택 범위가 유효하지 않습니다: 10 ~ 20"
  * 
- * // 플레이스홀더 + 특정 locale
+ * // Placeholder + specific locale
  * getLocalizedMessage('error.invalidSelection', { start: 10, end: 20 }, 'ko');
  * ```
  */
@@ -268,11 +268,11 @@ export function getLocalizedMessage(
   params?: Record<string, string | number>,
   locale?: string
 ): string {
-  // locale이 제공되지 않으면 전역 locale 사용
+  // Use global locale if locale not provided
   const effectiveLocale = locale || getDefaultLocale();
   let message: string | undefined;
   
-  // 1. 외부 등록된 언어 팩 확인
+  // 1. Check externally registered language pack
   if (externalMessages[effectiveLocale]) {
     message = externalMessages[effectiveLocale][id];
     if (message) {
@@ -280,7 +280,7 @@ export function getLocalizedMessage(
     }
   }
   
-  // 2. 내장 언어 팩 확인
+  // 2. Check built-in language pack
   const builtin = builtinMessages[effectiveLocale];
   if (builtin) {
     message = builtin[id];
@@ -289,24 +289,24 @@ export function getLocalizedMessage(
     }
   }
   
-  // 3. 영어로 fallback
+  // 3. Fallback to English
   message = builtinMessages.en[id];
   if (message) {
     return replacePlaceholders(message, params);
   }
   
-  // 4. 메시지를 찾을 수 없으면 ID 반환
+  // 4. If message not found, return ID
   return id;
 }
 
 /**
- * 플레이스홀더 치환
+ * Placeholder replacement
  * 
- * 메시지 문자열의 {key} 형태를 params의 값으로 치환합니다.
+ * Replaces {key} patterns in message strings with values from params.
  * 
- * @param message - 원본 메시지
- * @param params - 치환할 파라미터
- * @returns 치환된 메시지
+ * @param message - Original message
+ * @param params - Parameters to replace
+ * @returns Replaced message
  * 
  * @example
  * ```typescript
@@ -332,32 +332,32 @@ function replacePlaceholders(
 }
 
 /**
- * 전역 locale 설정
+ * Global locale setting
  */
 let defaultLocale: string = 'en';
 
 /**
- * 전역 locale 설정
+ * Set global locale
  * 
- * @param locale - 언어 코드
+ * @param locale - Language code
  */
 export function setDefaultLocale(locale: string): void {
   defaultLocale = locale;
 }
 
 /**
- * 전역 locale 조회
+ * Get global locale
  * 
- * @returns 현재 설정된 locale
+ * @returns Currently set locale
  */
 export function getDefaultLocale(): string {
   return defaultLocale;
 }
 
 /**
- * 특정 locale의 메시지가 등록되어 있는지 확인
+ * Check if messages for specific locale are registered
  * 
- * @param locale - 언어 코드
+ * @param locale - Language code
  * @returns boolean
  */
 export function hasLocaleMessages(locale: string): boolean {
@@ -368,10 +368,10 @@ export function hasLocaleMessages(locale: string): boolean {
 }
 
 /**
- * 언어 팩을 async로 로드하고 등록
+ * Load and register language pack asynchronously
  * 
- * @param locale - 언어 코드
- * @param url - 언어 팩 JSON 파일 URL
+ * @param locale - Language code
+ * @param url - Language pack JSON file URL
  * @returns Promise<void>
  * 
  * @example
@@ -393,62 +393,62 @@ export async function loadLocaleMessages(
 }
 ```
 
-### 3.4 사용 예시
+### 3.4 Usage Examples
 
-#### 기본 사용 (내장 언어)
+#### Basic Usage (Built-in Languages)
 
 ```typescript
 import { getLocalizedMessage } from '@barocss/editor-core/i18n';
 
-// Editor 초기화 시 언어 설정 (내장 언어: en, ko)
+// Set language when initializing Editor (built-in languages: en, ko)
 const editor = new Editor({
-  locale: 'ko', // 또는 'en'
+  locale: 'ko', // or 'en'
   // ...
 });
 
-// 메시지 조회
+// Get message
 const description = getLocalizedMessage('context.editorFocus.description', undefined, 'ko');
-// 한국어: "에디터가 포커스를 가지고 있는지 여부"
+// Korean: "에디터가 포커스를 가지고 있는지 여부"
 ```
 
-#### 외부 언어 팩 등록
+#### External Language Pack Registration
 
 ```typescript
 import { registerLocaleMessages, getLocalizedMessage } from '@barocss/editor-core/i18n';
 
-// 외부에서 언어 팩 등록 (예: 일본어)
+// Register language pack from external (e.g., Japanese)
 registerLocaleMessages('ja', {
   'context.editorFocus.description': 'エディターがフォーカスを持っているかどうか',
   'context.editorEditable.description': 'エディターが編集可能な状態かどうか'
 });
 
-// 여러 Extension에서 같은 locale에 메시지 추가 가능
+// Multiple Extensions can add messages to same locale
 registerLocaleMessages('ja', {
   'command.toggleBold.label': '太字',
   'command.toggleItalic.label': '斜体'
 });
 
-// Editor 초기화 시 등록된 언어 사용
+// Use registered language when initializing Editor
 const editor = new Editor({
   locale: 'ja',
   // ...
 });
 
-// 메시지 조회
+// Get message
 const description = getLocalizedMessage('context.editorFocus.description', undefined, 'ja');
-// 일본어: "エディターがフォーカスを持っているかどうか"
+// Japanese: "エディターがフォーカスを持っているかどうか"
 ```
 
-#### 플레이스홀더 치환
+#### Placeholder Replacement
 
 ```typescript
-// 메시지에 플레이스홀더 포함
+// Messages with placeholders
 registerLocaleMessages('ko', {
   'error.invalidSelection': '선택 범위가 유효하지 않습니다: {start} ~ {end}',
   'command.deleteNode': '{count}개의 노드를 삭제했습니다'
 });
 
-// 파라미터와 함께 조회
+// Get with parameters
 const errorMsg = getLocalizedMessage('error.invalidSelection', {
   start: 10,
   end: 20
@@ -461,7 +461,7 @@ const deleteMsg = getLocalizedMessage('command.deleteNode', {
 // "5개의 노드를 삭제했습니다"
 ```
 
-#### Extension에서 언어 팩 제공
+#### Providing Language Pack from Extension
 
 ```typescript
 // packages/extensions/src/japanese-language-pack.ts
@@ -475,7 +475,7 @@ export function registerJapaneseMessages(): void {
   });
 }
 
-// Extension의 onCreate에서 등록
+// Register in Extension's onCreate
 export class JapaneseLanguagePackExtension implements Extension {
   onCreate(editor: Editor): void {
     registerJapaneseMessages();
@@ -483,7 +483,7 @@ export class JapaneseLanguagePackExtension implements Extension {
 }
 ```
 
-#### 여러 Extension에서 메시지 등록
+#### Registering Messages from Multiple Extensions
 
 ```typescript
 // Extension A
@@ -496,7 +496,7 @@ export class BoldExtension implements Extension {
   }
 }
 
-// Extension B (같은 locale에 추가 메시지 등록)
+// Extension B (register additional messages for same locale)
 export class ItalicExtension implements Extension {
   onCreate(editor: Editor): void {
     registerLocaleMessages('ja', {
@@ -506,10 +506,10 @@ export class ItalicExtension implements Extension {
   }
 }
 
-// 결과: 두 Extension의 메시지가 모두 등록되어 사용 가능
+// Result: Messages from both Extensions are registered and available
 ```
 
-### 3.5 Context Description 다국어 지원
+### 3.5 Context Description Multilingual Support
 
 ```typescript
 // packages/editor-core/src/context/default-context.ts
@@ -520,13 +520,13 @@ export function getContextDescription(key: keyof DefaultContext, locale?: string
   return getLocalizedMessage(messageId, undefined, locale) || DEFAULT_CONTEXT_DESCRIPTIONS[key];
 }
 
-// 사용 예시
+// Usage example
 const description = getContextDescription('editorFocus', 'ko');
 ```
 
-## 4. Extension에서의 다국어 지원
+## 4. Multilingual Support in Extensions
 
-Extension도 동일한 방식으로 다국어를 지원할 수 있습니다:
+Extensions can also support multiple languages in the same way:
 
 ```
 packages/extensions/
@@ -538,24 +538,24 @@ packages/extensions/
         ...
 ```
 
-## 5. Locale 설정 및 관리
+## 5. Locale Settings and Management
 
-### 5.1 Locale 기본값 설정
+### 5.1 Default Locale Setting
 
-Locale 기본값은 다음 순서로 결정됩니다:
+Default locale is determined in the following order:
 
-1. **Editor 옵션에서 명시적으로 설정**: `new Editor({ locale: 'ko' })`
-2. **전역 locale 설정**: `setDefaultLocale('ko')`
-3. **브라우저 언어 자동 감지**: `navigator.language` (옵션)
-4. **기본값**: `'en'`
+1. **Explicitly set in Editor options**: `new Editor({ locale: 'ko' })`
+2. **Global locale setting**: `setDefaultLocale('ko')`
+3. **Browser language auto-detection**: `navigator.language` (optional)
+4. **Default**: `'en'`
 
 ```typescript
 // packages/editor-core/src/i18n/index.ts
 
-// 전역 locale 기본값
+// Global locale default
 let defaultLocale: string = 'en';
 
-// 브라우저 언어 자동 감지
+// Browser language auto-detection
 function detectBrowserLocale(): string {
   if (typeof navigator !== 'undefined') {
     const browserLang = navigator.language || navigator.languages?.[0];
@@ -564,7 +564,7 @@ function detectBrowserLocale(): string {
   return 'en';
 }
 
-// 초기화 시 브라우저 언어로 설정 (옵션)
+// Set to browser language on initialization (optional)
 export function initializeI18n(options?: { autoDetect?: boolean }): void {
   if (options?.autoDetect !== false) {
     defaultLocale = detectBrowserLocale();
@@ -572,91 +572,91 @@ export function initializeI18n(options?: { autoDetect?: boolean }): void {
 }
 ```
 
-### 5.2 Locale 설정 및 조회
+### 5.2 Locale Setting and Retrieval
 
 ```typescript
 import { setDefaultLocale, getDefaultLocale } from '@barocss/editor-core/i18n';
 
-// 전역 locale 설정
+// Set global locale
 setDefaultLocale('ko');
 
-// 전역 locale 조회
+// Get global locale
 const currentLocale = getDefaultLocale(); // 'ko'
 
-// Editor 옵션으로 설정 (전역 설정보다 우선)
+// Set via Editor options (takes precedence over global setting)
 const editor = new Editor({
-  locale: 'ja', // 이 Editor 인스턴스만 'ja' 사용
+  locale: 'ja', // This Editor instance only uses 'ja'
   // ...
 });
 
-// Editor 인스턴스에서 locale 변경
+// Change locale from Editor instance
 editor.setLocale('ko');
 ```
 
-### 5.3 용어 정리
+### 5.3 Terminology
 
-- **`locale`**: 언어 및 지역 설정을 나타내는 식별자 (명사)
-  - 예: `'en'`, `'ko'`, `'ja'`, `'zh-CN'`
-  - 사용: `setDefaultLocale('ko')`, `getDefaultLocale()`
+- **`locale`**: Identifier representing language and region settings (noun)
+  - Examples: `'en'`, `'ko'`, `'ja'`, `'zh-CN'`
+  - Usage: `setDefaultLocale('ko')`, `getDefaultLocale()`
 
-- **`localize`**: 특정 locale에 맞게 번역/조정하는 동작 (동사)
-  - 예: "localize the message" (메시지를 번역하다)
-  - 사용: `getLocalizedMessage()` (이미 번역된 메시지를 가져옴)
+- **`localize`**: Action of translating/adjusting to match specific locale (verb)
+  - Example: "localize the message" (translate the message)
+  - Usage: `getLocalizedMessage()` (gets already translated message)
 
-- **`localized`**: 이미 번역된 상태를 나타내는 형용사
-  - 예: "localized message" (번역된 메시지)
-  - 사용: `getLocalizedMessage()` (localized message를 가져옴)
+- **`localized`**: Adjective indicating already translated state
+  - Example: "localized message" (translated message)
+  - Usage: `getLocalizedMessage()` (gets localized message)
 
-**함수명 설명**:
-- `getLocalizedMessage()`: 특정 locale에 맞게 번역된(localized) 메시지를 가져옴
-- `getLocaleMessage()`와의 차이: "localized"는 이미 번역된 상태를 의미
+**Function name explanation**:
+- `getLocalizedMessage()`: Gets message that is already translated (localized) for specific locale
+- Difference from `getLocaleMessage()`: "localized" means already translated state
 
-### 5.4 외부 언어 팩 등록
+### 5.4 External Language Pack Registration
 
-기본 제공되지 않는 언어는 외부에서 등록할 수 있습니다:
+Languages not provided by default can be registered externally:
 
 ```typescript
 import { registerLocaleMessages } from '@barocss/editor-core/i18n';
 
-// 언어 팩 등록 (병합 방식)
+// Register language pack (merge method)
 registerLocaleMessages('ja', {
   'context.editorFocus.description': 'エディターがフォーカスを持っているかどうか',
   'context.editorEditable.description': 'エディターが編集可能な状態かどうか',
-  // ... 메시지 ID에 대한 번역
+  // ... translations for message IDs
 });
 
-// 여러 Extension에서 같은 locale에 메시지 추가 가능
+// Multiple Extensions can add messages to same locale
 registerLocaleMessages('ja', {
   'command.toggleBold.label': '太字'
 });
 
-// 등록 후 사용
+// Use after registration
 const editor = new Editor({
   locale: 'ja',
   // ...
 });
 ```
 
-**언어 팩 등록 특징**:
-- **병합 방식**: 같은 locale에 여러 번 등록해도 기존 메시지와 병합됨
-- **덮어쓰기**: 같은 메시지 ID를 다시 등록하면 나중에 등록한 것이 우선
-- **등록 시점**: Editor 생성 전에 등록해야 해당 언어를 사용할 수 있음
-- **Extension 등록**: Extension의 `onCreate`에서 등록하는 것이 일반적
-- **호스트 등록**: 호스트 애플리케이션에서도 등록 가능
+**Language pack registration characteristics**:
+- **Merge method**: Multiple registrations for same locale merge with existing messages
+- **Overwriting**: If same message ID is registered again, later registration takes precedence
+- **Registration timing**: Must register before Editor creation to use that language
+- **Extension registration**: Common to register in Extension's `onCreate`
+- **Host registration**: Host applications can also register
 
-**⚠️ 중요: 깜빡임(FOUC) 방지**
+**⚠️ Important: Preventing Flicker (FOUC)**
 
-언어 파일을 async로 로드하는 경우, **Editor가 렌더링되기 전에 모든 메시지가 준비되어야 합니다**. 그렇지 않으면 영어로 먼저 표시되었다가 나중에 일본어로 바뀌는 깜빡임 현상이 발생합니다.
+If language files are loaded asynchronously, **all messages must be ready before Editor renders**. Otherwise, English will be displayed first and then change to Japanese, causing flicker.
 
-**올바른 사용법**:
+**Correct usage**:
 ```typescript
-// ✅ 올바른 방법: 언어 팩 로드 후 Editor 생성
+// ✅ Correct method: Create Editor after loading language pack
 async function initEditor() {
-  // 1. 언어 팩 먼저 로드
+  // 1. Load language pack first
   const japaneseMessages = await fetch('/i18n/messages.ja.json').then(r => r.json());
   registerLocaleMessages('ja', japaneseMessages);
   
-  // 2. 언어 팩 로드 완료 후 Editor 생성
+  // 2. Create Editor after language pack loading completes
   const editor = new Editor({
     locale: 'ja',
     // ...
@@ -665,19 +665,19 @@ async function initEditor() {
   return editor;
 }
 
-// ❌ 잘못된 방법: Editor 생성 후 언어 팩 로드
-const editor = new Editor({ locale: 'ja' }); // 영어로 먼저 표시됨
+// ❌ Incorrect method: Load language pack after creating Editor
+const editor = new Editor({ locale: 'ja' }); // Displays in English first
 const messages = await fetch('/i18n/messages.ja.json').then(r => r.json());
-registerLocaleMessages('ja', messages); // 나중에 일본어로 바뀜 (깜빡임 발생)
+registerLocaleMessages('ja', messages); // Changes to Japanese later (flicker occurs)
 ```
 
-**언어 팩 로딩 헬퍼 함수** (선택사항):
+**Language pack loading helper function** (optional):
 ```typescript
 /**
- * 언어 팩을 async로 로드하고 등록
+ * Load and register language pack asynchronously
  * 
- * @param locale - 언어 코드
- * @param url - 언어 팩 JSON 파일 URL
+ * @param locale - Language code
+ * @param url - Language pack JSON file URL
  * @returns Promise<void>
  */
 export async function loadLocaleMessages(
@@ -692,15 +692,15 @@ export async function loadLocaleMessages(
   registerLocaleMessages(locale, messages);
 }
 
-// 사용 예시
+// Usage example
 async function initEditor() {
-  // 여러 언어 팩을 병렬로 로드
+  // Load multiple language packs in parallel
   await Promise.all([
     loadLocaleMessages('ja', '/i18n/messages.ja.json'),
     loadLocaleMessages('zh-CN', '/i18n/messages.zh-CN.json')
   ]);
   
-  // 모든 언어 팩 로드 완료 후 Editor 생성
+  // Create Editor after all language packs are loaded
   const editor = new Editor({
     locale: 'ja',
     // ...
@@ -710,30 +710,30 @@ async function initEditor() {
 }
 ```
 
-**Editor 옵션으로 언어 팩 미리 제공** (권장):
+**Providing language pack via Editor options** (recommended):
 ```typescript
-// 언어 팩을 미리 준비하여 Editor 옵션으로 전달
+// Prepare language pack in advance and pass via Editor options
 const japaneseMessages = {
   'context.editorFocus.description': 'エディターがフォーカスを持っているかどうか',
-  // ... 모든 메시지
+  // ... all messages
 };
 
-// Editor 생성 전에 등록
+// Register before Editor creation
 registerLocaleMessages('ja', japaneseMessages);
 
-// 또는 Editor 생성 시점에 확실히 등록되어 있음을 보장
+// Or ensure it's registered at Editor creation time
 const editor = new Editor({
   locale: 'ja',
   // ...
 });
 ```
 
-**언어 팩 로딩 상태 확인**:
+**Check language pack loading status**:
 ```typescript
 /**
- * 특정 locale의 메시지가 등록되어 있는지 확인
+ * Check if messages for specific locale are registered
  * 
- * @param locale - 언어 코드
+ * @param locale - Language code
  * @returns boolean
  */
 export function hasLocaleMessages(locale: string): boolean {
@@ -743,61 +743,61 @@ export function hasLocaleMessages(locale: string): boolean {
   );
 }
 
-// 사용 예시
+// Usage example
 if (!hasLocaleMessages('ja')) {
-  // 언어 팩이 없으면 로드 대기
+  // Wait to load if language pack doesn't exist
   await loadLocaleMessages('ja', '/i18n/messages.ja.json');
 }
 
 const editor = new Editor({ locale: 'ja' });
 ```
 
-## 6. 구현 계획
+## 6. Implementation Plan
 
-### 6.1 1단계: 기본 구조 설정
+### 6.1 Step 1: Set Up Basic Structure
 
-1. `packages/editor-core/src/i18n/` 디렉토리 생성
-2. 기본 메시지 정의 (영어) - TypeScript 파일로 (`messages.en.ts`)
-3. `getLocalizedMessage()` 함수 구현
+1. Create `packages/editor-core/src/i18n/` directory
+2. Define basic messages (English) - as TypeScript file (`messages.en.ts`)
+3. Implement `getLocalizedMessage()` function
 
-### 6.2 2단계: Context Description 다국어화
+### 6.2 Step 2: Multilingualize Context Descriptions
 
-1. `DEFAULT_CONTEXT_DESCRIPTIONS`를 메시지 ID로 변환
-2. `getContextDescription()` 함수 구현
-3. 기본 언어(영어) 번역 추가
+1. Convert `DEFAULT_CONTEXT_DESCRIPTIONS` to message IDs
+2. Implement `getContextDescription()` function
+3. Add translations for basic language (English)
 
-### 6.3 3단계: 언어 팩 시스템 구현
+### 6.3 Step 3: Implement Language Pack System
 
-1. 한국어 번역 추가 (TypeScript 파일로 `messages.ko.ts`)
-2. `registerLocaleMessages()` 함수 구현 (외부 언어 팩 등록용)
-3. `getLocalizedMessage()` 함수 구현 (내장/외부 언어 팩 통합 조회)
-4. 전역 locale 설정 함수 구현 (`setDefaultLocale`, `getDefaultLocale`)
-5. 브라우저 언어 자동 감지 기능 구현
+1. Add Korean translations (as TypeScript file `messages.ko.ts`)
+2. Implement `registerLocaleMessages()` function (for external language pack registration)
+3. Implement `getLocalizedMessage()` function (integrated lookup for built-in/external language packs)
+4. Implement global locale setting functions (`setDefaultLocale`, `getDefaultLocale`)
+5. Implement browser language auto-detection feature
 
-### 6.4 4단계: Extension 지원
+### 6.4 Step 4: Extension Support
 
-1. Extension에서 i18n 사용 가이드 작성
-2. Extension i18n 구조 정의
-3. Extension 언어 팩 로딩 지원
+1. Write guide for using i18n in Extensions
+2. Define Extension i18n structure
+3. Support Extension language pack loading
 
-## 7. 고려사항
+## 7. Considerations
 
-### 7.1 번들 크기
+### 7.1 Bundle Size
 
-- 모든 언어를 번들에 포함하면 크기가 커질 수 있음
-- Tree-shaking을 통해 사용하지 않는 언어는 제거 가능
-- 필요시 빌드 시점에 특정 언어만 포함하도록 설정 가능
+- Including all languages in bundle can increase size
+- Unused languages can be removed through tree-shaking
+- Can configure to include only specific languages at build time if needed
 
-### 7.2 번역 품질
+### 7.2 Translation Quality
 
-- 기본 언어(영어)는 항상 제공
-- 다른 언어는 커뮤니티 기여 또는 전문 번역가 필요
-- 번역이 없는 경우 기본 언어로 fallback
+- Basic language (English) always provided
+- Other languages need community contributions or professional translators
+- Fallback to basic language if translation not available
 
-### 7.3 타입 안정성
+### 7.3 Type Safety
 
-- 메시지 ID를 타입으로 정의하여 오타 방지
-- TypeScript의 타입 시스템 활용
+- Define message IDs as types to prevent typos
+- Utilize TypeScript's type system
 
 ```typescript
 type MessageId = 
@@ -814,56 +814,56 @@ function getLocalizedMessage(
 }
 ```
 
-### 7.4 메시지 병합 및 중첩 구조
+### 7.4 Message Merging and Nested Structure
 
-**병합 방식**:
-- 같은 locale에 여러 번 등록해도 기존 메시지와 병합됨
-- `Object.assign()`을 사용하여 덮어쓰기 방지
-- 각 Extension은 자신의 메시지만 등록하면 됨
+**Merge method**:
+- Multiple registrations for same locale merge with existing messages
+- Use `Object.assign()` to prevent overwriting
+- Each Extension only needs to register its own messages
 
-**중첩 구조 고려사항**:
-- 현재는 평면 구조 (`'context.editorFocus.description'`) 사용
-- 중첩 구조가 필요한 경우, 메시지 ID에 점(.)을 사용하여 계층 표현
-- 예: `'context.editorFocus.description'`, `'context.editorFocus.tooltip'`
+**Nested structure considerations**:
+- Currently using flat structure (`'context.editorFocus.description'`)
+- If nested structure needed, use dot(.) in message ID to represent hierarchy
+- Example: `'context.editorFocus.description'`, `'context.editorFocus.tooltip'`
 
-**다른 에디터들의 방식**:
-- **VS Code**: JSON 기반, 병합 방식 지원 (Extension별 언어 팩)
-- **i18next**: 네임스페이스 기반, 병합 및 중첩 구조 지원
-- **React Intl**: 메시지 ID 기반, 플레이스홀더 치환 지원
+**Other editors' approaches**:
+- **VS Code**: JSON-based, supports merge method (Extension-specific language packs)
+- **i18next**: Namespace-based, supports merging and nested structures
+- **React Intl**: Message ID-based, supports placeholder replacement
 
-**우리 방식**:
-- 평면 구조 + 점(.) 구분자로 계층 표현
-- `registerLocaleMessages()`로 병합 지원
-- `getLocalizedMessage()`로 플레이스홀더 치환 지원
+**Our approach**:
+- Flat structure + dot(.) separator to represent hierarchy
+- Support merging via `registerLocaleMessages()`
+- Support placeholder replacement via `getLocalizedMessage()`
 
-## 8. 숫자/날짜 포맷팅 고려사항
+## 8. Number/Date Formatting Considerations
 
-### 8.1 현재 접근 방식
+### 8.1 Current Approach
 
-현재 Barocss Editor는 **텍스트 메시지 번역에만 집중**합니다. 이는 VS Code와 동일한 접근 방식입니다.
+Currently Barocss Editor **focuses only on text message translation**. This is the same approach as VS Code.
 
-**이유**:
-- 가장 기본적이고 필수적인 기능
-- 에디터 코어의 복잡도 최소화
-- VS Code도 텍스트 번역에만 집중
+**Reasons**:
+- Most basic and essential feature
+- Minimize editor core complexity
+- VS Code also focuses only on text translation
 
-### 8.2 숫자/날짜 포맷팅이 필요한 경우
+### 8.2 When Number/Date Formatting is Needed
 
-에디터에서 숫자나 날짜를 표시해야 하는 경우:
-- **페이지 번호**: "Page 1,234"
-- **날짜/시간**: "January 15, 2024"
-- **통계 정보**: "1,234 words"
+When editor needs to display numbers or dates:
+- **Page numbers**: "Page 1,234"
+- **Date/time**: "January 15, 2024"
+- **Statistics**: "1,234 words"
 
-### 8.3 권장 해결 방법
+### 8.3 Recommended Solution
 
-**브라우저의 `Intl` API 직접 사용** (별도 라이브러리 불필요):
+**Use browser's `Intl` API directly** (no separate library needed):
 
 ```typescript
-// 숫자 포맷팅
+// Number formatting
 const pageNumber = new Intl.NumberFormat('ko-KR').format(1234);
 // "1,234"
 
-// 날짜 포맷팅
+// Date formatting
 const date = new Intl.DateTimeFormat('ko-KR', {
   year: 'numeric',
   month: 'long',
@@ -872,26 +872,26 @@ const date = new Intl.DateTimeFormat('ko-KR', {
 // "2024년 1월 15일"
 ```
 
-**필요시 유틸리티 함수 제공** (향후):
-- `@barocss/shared`에 `Intl` API 래퍼 함수 추가 가능
-- 현재는 직접 `Intl` API 사용 권장
+**Provide utility functions if needed** (future):
+- Can add `Intl` API wrapper functions to `@barocss/shared`
+- Currently recommend using `Intl` API directly
 
-자세한 내용은 `i18n-number-formatting-analysis.md` 문서를 참고하세요.
+See `i18n-number-formatting-analysis.md` document for details.
 
-## 9. 복수형(Pluralization) 처리
+## 9. Pluralization Handling
 
-### 9.1 복수형이란?
+### 9.1 What is Pluralization?
 
-숫자에 따라 단어의 형태가 달라지는 현상입니다:
-- **영어**: "0 items", "1 item", "2 items"
-- **러시아어**: 더 복잡한 규칙 (1, 2-4, 5+ 등)
-- **한국어**: "0개", "1개", "2개" (상대적으로 단순)
+Phenomenon where word forms change based on numbers:
+- **English**: "0 items", "1 item", "2 items"
+- **Russian**: More complex rules (1, 2-4, 5+, etc.)
+- **Korean**: "0개", "1개", "2개" (relatively simple)
 
-### 9.2 현재 접근 방식
+### 9.2 Current Approach
 
-Barocss Editor는 **VS Code 방식**을 따릅니다: 메시지 ID를 분리하여 조건부로 선택합니다.
+Barocss Editor follows **VS Code approach**: Separate message IDs and conditionally select.
 
-**메시지 정의**:
+**Message definitions**:
 ```typescript
 // messages.en.ts
 export const messagesEn = {
@@ -908,7 +908,7 @@ export const messagesKo = {
 };
 ```
 
-**사용 방법**:
+**Usage**:
 ```typescript
 function getWordCountMessage(count: number, locale?: string): string {
   if (count === 0) {
@@ -921,26 +921,25 @@ function getWordCountMessage(count: number, locale?: string): string {
 }
 ```
 
-### 9.3 장점
+### 9.3 Advantages
 
-- **단순함**: 현재 구조와 완벽 호환
-- **VS Code와 동일**: 검증된 접근 방식
-- **충분함**: 대부분의 언어에서 잘 동작
+- **Simplicity**: Perfect compatibility with current structure
+- **Same as VS Code**: Proven approach
+- **Sufficient**: Works well for most languages
 
-### 9.4 향후 확장 가능성
+### 9.4 Future Extensibility
 
-복잡한 복수형 규칙(러시아어 등)이 필요한 경우:
-- `@barocss/shared`에 `Intl.PluralRules` 기반 헬퍼 함수 추가 가능
-- 브라우저 네이티브 API 활용 (번들 크기 증가 없음)
+If complex pluralization rules (Russian, etc.) are needed:
+- Can add `Intl.PluralRules`-based helper functions to `@barocss/shared`
+- Utilize browser native API (no bundle size increase)
 
-자세한 내용은 `i18n-number-formatting-analysis.md` 문서를 참고하세요.
+See `i18n-number-formatting-analysis.md` document for details.
 
-## 10. 참고 자료
+## 10. References
 
 - [VS Code Localization](https://code.visualstudio.com/api/advanced-topics/extension-localization)
 - [VS Code Language Packs](https://marketplace.visualstudio.com/vscode)
 - [vscode-loc Repository](https://github.com/microsoft/vscode-loc)
-- [i18next](https://www.i18next.com/) - 인기 있는 JavaScript i18n 라이브러리
-- [Format.js](https://formatjs.io/) - React Intl의 기반 라이브러리
-- [MDN: Intl API](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl) - 브라우저 네이티브 국제화 API
-
+- [i18next](https://www.i18next.com/) - Popular JavaScript i18n library
+- [Format.js](https://formatjs.io/) - Base library for React Intl
+- [MDN: Intl API](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl) - Browser native internationalization API

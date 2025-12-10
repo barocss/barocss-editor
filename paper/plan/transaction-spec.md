@@ -1,21 +1,21 @@
 # Transaction System Specification
 
-## 1. 개요
+## 1. Overview
 
-Transaction 시스템은 Barocss Model의 핵심 구성 요소로, 데이터의 일관성과 원자성을 보장합니다. 본 문서는 실제 구현된 코드를 기반으로 한 최종 명세서입니다.
+The Transaction system is a core part of the Barocss Model that guarantees data consistency and atomicity. This final specification is based on the actual implementation.
 
-### 1.1 핵심 특징
-- **원자성**: 모든 변경사항이 성공하거나 전부 실패
-- **일관성**: 스키마 검증을 통한 데이터 무결성 보장
-- **격리성**: 글로벌 락을 통한 동시성 제어
-- **지속성**: DataStore overlay 시스템을 통한 안전한 커밋
-- **확장성**: 새로운 operation 추가가 쉬운 구조
+### 1.1 Key Characteristics
+- **Atomicity**: all changes succeed or all fail
+- **Consistency**: schema validation enforces data integrity
+- **Isolation**: global lock controls concurrency
+- **Durability**: DataStore overlay commits safely
+- **Extensibility**: easy to add new operations
 
-### 1.2 주요 구성 요소
-- **TransactionManager**: 트랜잭션 실행 및 관리
-- **TransactionBuilder**: DSL 기반 트랜잭션 구성
-- **GlobalOperationRegistry**: Operation 등록 및 조회
-- **DataStore Integration**: 스키마 검증 및 데이터 저장
+### 1.2 Main Components
+- **TransactionManager**: executes and manages transactions
+- **TransactionBuilder**: builds transactions via DSL
+- **GlobalOperationRegistry**: registers and looks up operations
+- **DataStore Integration**: schema validation and data storage
 
 ## 2. Architecture
 
@@ -41,12 +41,12 @@ export class TransactionManager {
 }
 ```
 
-**주요 기능:**
-- 트랜잭션 실행 및 관리
-- 글로벌 락 획득/해제
-- DataStore overlay 트랜잭션 관리
-- Operation 실행 및 결과 수집
-- 에러 처리 및 롤백
+**Responsibilities:**
+- Execute and manage transactions
+- Acquire/release global lock
+- Manage DataStore overlay transactions
+- Execute operations and collect results
+- Handle errors and rollback
 
 #### 2.1.2 TransactionBuilder
 ```typescript
@@ -63,11 +63,11 @@ class TransactionBuilderImpl implements TransactionBuilder {
 }
 ```
 
-**주요 기능:**
-- DSL 기반 트랜잭션 구성
-- Editor와 DataStore 연동
-- 스키마 자동 설정
-- TransactionManager를 통한 실행
+**Responsibilities:**
+- Build transactions via DSL
+- Integrate with Editor and DataStore
+- Auto-apply schema
+- Run through TransactionManager
 
 ### 2.2 Type Definitions
 
@@ -154,40 +154,40 @@ sequenceDiagram
 
 ### 4.1 Global Lock System
 ```typescript
-// 락 획득
+// Acquire lock
 const lockId = await this._dataStore.acquireLock('transaction-execution');
 
-// 락 해제
+// Release lock
 this._dataStore.releaseLock(lockId);
 ```
 
-**특징:**
-- 글로벌 락을 통한 동시성 제어
-- 트랜잭션 실행 중 다른 트랜잭션 차단
-- 자동 락 해제 (finally 블록)
-- 데드락 방지
+**Notes:**
+- Global lock controls concurrency
+- Blocks other transactions during execution
+- Automatic release in `finally`
+- Deadlock prevention
 
 ### 4.2 DataStore Overlay System
 ```typescript
-// 트랜잭션 시작
+// Begin transaction
 this._dataStore.begin();
 
-// operations 실행
+// Execute operations
 for (const operation of operations) {
   await this._executeOperation(operation);
 }
 
-// 커밋 또는 롤백
+// Commit or rollback
 this._dataStore.end();
-this._dataStore.commit(); // 성공 시
-// this._dataStore.rollback(); // 실패 시
+this._dataStore.commit(); // on success
+// this._dataStore.rollback(); // on failure
 ```
 
-**특징:**
-- Overlay 기반 격리된 변경사항
-- 원자적 커밋/롤백
-- 스키마 검증
-- 성능 최적화
+**Notes:**
+- Overlay isolates changes
+- Atomic commit/rollback
+- Schema validation
+- Performance optimized
 
 ## 5. Operation System Integration
 
@@ -203,11 +203,11 @@ class GlobalOperationRegistry {
 }
 ```
 
-**기능:**
-- Operation 정의 등록 및 조회
-- Runtime operation 실행
-- 타입 안전성 보장
-- 동적 operation 로딩
+**Responsibilities:**
+- Register and lookup operation definitions
+- Runtime operation execution
+- Type safety
+- Dynamic operation loading
 
 ### 5.2 Operation Execution
 ```typescript
@@ -225,7 +225,7 @@ private async _executeOperation(operation: any): Promise<any> {
   
   const result = await def.execute(operation, context);
   
-  // operation에 실행 결과를 포함하여 반환
+  // Return operation with result attached
   return {
     ...operation,
     result
@@ -233,57 +233,57 @@ private async _executeOperation(operation: any): Promise<any> {
 }
 ```
 
-**특징:**
-- 동적 operation 조회
-- TransactionContext 제공
-- 결과 수집 및 반환
-- 에러 전파
+**Notes:**
+- Dynamic lookup
+- Provides TransactionContext
+- Collects and returns results
+- Propagates errors
 
 ## 6. Schema Integration
 
 ### 6.1 Schema Propagation
 ```typescript
-// TransactionBuilder에서 스키마 설정
+// Set schema from DataStore in TransactionBuilder
 if (dataStore && dataStore._activeSchema) {
   tm.setSchema(dataStore._activeSchema);
 }
 ```
 
-**기능:**
-- DataStore의 활성 스키마를 TransactionManager에 설정
-- 모든 operation에서 스키마 검증
-- 스키마 위반 시 즉시 실패 처리
+**Notes:**
+- TransactionManager receives active schema from DataStore
+- All operations undergo schema validation
+- Immediate failure on schema violations
 
 ### 6.2 Schema Validation
 ```typescript
-// DataStore.updateNode에서 자동 스키마 검증
+// Automatic schema validation in DataStore.updateNode
 const result = context.dataStore.updateNode(nodeId, { text });
 if (!result.valid) {
   throw new Error('Schema validation failed');
 }
 ```
 
-**특징:**
-- 자동 스키마 검증
-- 검증 실패 시 명확한 에러 메시지
-- 트랜잭션 전체 실패 처리
+**Notes:**
+- Automatic validation
+- Clear errors on failure
+- Entire transaction fails on validation errors
 
 ## 7. Error Handling
 
 ### 7.1 Error Types
-- **Schema Validation Errors**: 스키마 위반
-- **Operation Errors**: 개별 operation 실패
-- **Lock Errors**: 락 획득/해제 실패
-- **DataStore Errors**: 데이터 저장소 오류
+- **Schema Validation Errors**: schema violations
+- **Operation Errors**: individual operation failures
+- **Lock Errors**: lock acquire/release failures
+- **DataStore Errors**: data store issues
 
 ### 7.2 Error Recovery
 ```typescript
 try {
-  // 트랜잭션 실행
+  // Execute transaction
   const result = await this.execute(operations);
   return result;
 } catch (error: any) {
-  // 에러 발생 시 overlay 롤백
+  // Roll back overlay on error
   try { this._dataStore.rollback(); } catch (_) {}
   
   return {
@@ -293,24 +293,24 @@ try {
     operations
   };
 } finally {
-  // 락 해제
+  // Release lock
   if (lockId) {
     this._dataStore.releaseLock(lockId);
   }
 }
 ```
 
-**특징:**
-- 자동 롤백
-- 에러 메시지 수집
-- 리소스 정리
-- 원자성 보장
+**Notes:**
+- Automatic rollback
+- Collect error messages
+- Cleanup resources
+- Preserve atomicity
 
 ## 8. Performance Considerations
 
 ### 8.1 Batch Operations
 ```typescript
-// 여러 operation을 한 번에 실행 (권장)
+// Execute multiple operations at once (recommended)
 const result = await transaction(editor, [
   create(textNode('inline-text', 'Text 1')),
   create(textNode('inline-text', 'Text 2')),
@@ -318,23 +318,23 @@ const result = await transaction(editor, [
 ]).commit();
 ```
 
-**장점:**
-- 단일 락 획득
-- 단일 overlay 트랜잭션
-- 원자적 실행
-- 성능 최적화
+**Benefits:**
+- Single lock acquisition
+- Single overlay transaction
+- Atomic execution
+- Performance optimized
 
 ### 8.2 Lock Duration
-- 락은 최소한의 시간만 유지
-- Operation 실행 시간에만 락 보유
-- 자동 락 해제 보장
-- 데드락 방지
+- Keep lock time minimal
+- Hold lock only during operation execution
+- Ensure automatic release
+- Prevent deadlocks
 
 ### 8.3 Memory Management
-- Overlay 기반 메모리 효율성
-- 불필요한 데이터 복사 최소화
-- 가비지 컬렉션 친화적
-- 메모리 누수 방지
+- Overlay is memory-efficient
+- Minimize unnecessary copies
+- GC-friendly
+- Prevent leaks
 
 ## 9. Testing
 
@@ -389,35 +389,35 @@ describe('Transaction Integration', () => {
 ## 10. Best Practices
 
 ### 10.1 Transaction Design
-- **원자성**: 관련된 모든 변경사항을 하나의 트랜잭션에서 처리
-- **일관성**: 스키마 검증을 통한 데이터 무결성 보장
-- **격리성**: 동시성 제어를 통한 데이터 일관성
-- **지속성**: 안전한 커밋을 통한 데이터 보존
+- **Atomicity**: handle related changes in one transaction
+- **Consistency**: enforce schema validation
+- **Isolation**: control concurrency for consistency
+- **Durability**: commit safely
 
 ### 10.2 Error Handling
-- **명확한 에러 메시지**: 사용자가 이해할 수 있는 에러 메시지
-- **적절한 롤백**: 실패 시 모든 변경사항 롤백
-- **리소스 정리**: 락과 메모리 리소스 정리
-- **로깅**: 디버깅을 위한 적절한 로깅
+- **Clear errors**: user-friendly error messages
+- **Proper rollback**: rollback all changes on failure
+- **Resource cleanup**: release locks and memory
+- **Logging**: log appropriately for debugging
 
 ### 10.3 Performance
-- **배치 처리**: 관련 operation들을 한 번에 처리
-- **락 최소화**: 락 보유 시간 최소화
-- **메모리 효율성**: 불필요한 데이터 복사 방지
-- **캐싱**: 자주 사용되는 데이터 캐싱
+- **Batching**: process related operations together
+- **Minimize lock time**: keep lock ownership short
+- **Memory efficiency**: avoid unnecessary copies
+- **Caching**: cache frequently used data
 
 ## 11. Future Extensions
 
 ### 11.1 Planned Features
-- **분산 트랜잭션**: 여러 DataStore 간 트랜잭션
-- **트랜잭션 히스토리**: 트랜잭션 실행 히스토리 관리
-- **성능 모니터링**: 트랜잭션 성능 메트릭
-- **플러그인 시스템**: 커스텀 트랜잭션 로직
+- **Distributed transactions**: across multiple DataStores
+- **Transaction history**: manage execution history
+- **Performance monitoring**: transaction metrics
+- **Plugin system**: custom transaction logic
 
 ### 11.2 API Stability
-- 현재 API는 안정화됨
-- 새로운 기능은 기존 패턴을 따름
+- Current API is stable
+- New features follow existing patterns
 
 ---
 
-이 명세서는 실제 구현된 Transaction 시스템을 기반으로 작성되었으며, 모든 예제는 테스트를 통과한 검증된 코드입니다.
+This specification is based on the implemented Transaction system, and all examples come from tested, verified code.

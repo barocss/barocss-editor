@@ -25,7 +25,7 @@ interface ModelSelection {
   focusOffset: number;   // Selection end point offset
 }
 
-// SelectionManager 기본 API
+// SelectionManager Basic API
 class SelectionManager {
   getCurrentSelection(): ModelSelection | null;
   setSelection(selection: ModelSelection | null): void;

@@ -1,29 +1,29 @@
-# Model Data 스펙 문서
+# Model Data Specification
 
-## 📋 개요
+## 📋 Overview
 
-Model Data는 Zero Editor에서 실제 문서 데이터를 저장하고 관리하는 데이터 모델입니다. Schema DSL로 정의된 구조를 기반으로 하며, 타입 안전성과 데이터 무결성을 보장합니다.
+Model Data is the data model that stores and manages actual document data in Zero Editor. It is based on structures defined by Schema DSL and ensures type safety and data integrity.
 
-## 🎯 설계 목표
+## 🎯 Design Goals
 
-### 1. **데이터 무결성**
-- 스키마 기반 데이터 검증
-- 타입 안전성 보장
-- 일관된 데이터 구조
+### 1. **Data Integrity**
+- Schema-based data validation
+- Type safety
+- Consistent data structure
 
-### 2. **성능 최적화**
-- 효율적인 메모리 사용
-- 빠른 데이터 접근
-- 지연 로딩 지원
+### 2. **Performance Optimization**
+- Efficient memory usage
+- Fast data access
+- Lazy loading support
 
-### 3. **확장성**
-- 동적 속성 추가
-- 커스텀 데이터 타입
-- 플러그인 시스템과 통합
+### 3. **Extensibility**
+- Dynamic attribute addition
+- Custom data types
+- Integration with plugin system
 
-## 🏗️ 핵심 개념
+## 🏗️ Core Concepts
 
-### 1. **노드 데이터 구조**
+### 1. **Node Data Structure**
 
 ```typescript
 interface INode {
@@ -42,7 +42,7 @@ interface INode {
 }
 ```
 
-### 2. **마크 데이터 구조**
+### 2. **Mark Data Structure**
 
 ```typescript
 interface Mark {
@@ -55,7 +55,7 @@ interface Mark {
 }
 ```
 
-### 3. **문서 데이터 구조**
+### 3. **Document Data Structure**
 
 ```typescript
 interface Document {
@@ -74,12 +74,12 @@ interface Document {
 }
 ```
 
-## 📝 사용 예시
+## 📝 Usage Examples
 
-### 1. **기본 노드 생성**
+### 1. **Basic Node Creation**
 
 ```typescript
-// 텍스트 노드 생성
+// Create text node
 const textNode: INode = {
   id: 'text-123',
   type: 'text',
@@ -94,7 +94,7 @@ const textNode: INode = {
   updatedAt: new Date()
 };
 
-// 문단 노드 생성
+// Create paragraph node
 const paragraphNode: INode = {
   id: 'para-456',
   type: 'paragraph',
@@ -108,7 +108,7 @@ const paragraphNode: INode = {
   updatedAt: new Date()
 };
 
-// 이미지 노드 생성
+// Create image node
 const imageNode: INode = {
   id: 'img-789',
   type: 'image',
@@ -124,10 +124,10 @@ const imageNode: INode = {
 };
 ```
 
-### 2. **복합 노드 생성**
+### 2. **Composite Node Creation**
 
 ```typescript
-// 리스트 아이템 노드
+// List item node
 const listItemNode: INode = {
   id: 'li-001',
   type: 'listItem',
@@ -141,7 +141,7 @@ const listItemNode: INode = {
   updatedAt: new Date()
 };
 
-// 리스트 노드
+// List node
 const listNode: INode = {
   id: 'list-002',
   type: 'list',
@@ -154,7 +154,7 @@ const listNode: INode = {
   updatedAt: new Date()
 };
 
-// 테이블 셀 노드
+// Table cell node
 const tableCellNode: INode = {
   id: 'cell-003',
   type: 'tableCell',
@@ -168,7 +168,7 @@ const tableCellNode: INode = {
   updatedAt: new Date()
 };
 
-// 테이블 행 노드
+// Table row node
 const tableRowNode: INode = {
   id: 'row-004',
   type: 'tableRow',
@@ -178,7 +178,7 @@ const tableRowNode: INode = {
   updatedAt: new Date()
 };
 
-// 테이블 노드
+// Table node
 const tableNode: INode = {
   id: 'table-005',
   type: 'table',
@@ -189,10 +189,10 @@ const tableNode: INode = {
 };
 ```
 
-### 3. **문서 생성**
+### 3. **Document Creation**
 
 ```typescript
-// 완전한 문서 생성
+// Create complete document
 const document: Document = {
   id: 'doc-001',
   type: 'document',
@@ -213,9 +213,9 @@ const document: Document = {
 };
 ```
 
-## 🔧 고급 기능
+## 🔧 Advanced Features
 
-### 1. **노드 팩토리**
+### 1. **Node Factory**
 
 ```typescript
 class NodeFactory {
@@ -255,15 +255,15 @@ class NodeFactory {
 }
 ```
 
-### 2. **데이터 변환**
+### 2. **Data Transformation**
 
 ```typescript
 class DataTransformer {
-  // 스키마 기반 데이터 변환
+  // Schema-based data transformation
   static transform(data: any, schema: Schema): INode {
     const transformedData = { ...data };
     
-    // 속성 변환
+    // Transform attributes
     for (const [key, definition] of Object.entries(schema.definition.attributes || {})) {
       if (definition.transform && transformedData.attributes?.[key]) {
         transformedData.attributes[key] = definition.transform(transformedData.attributes[key]);
@@ -273,11 +273,11 @@ class DataTransformer {
     return transformedData;
   }
   
-  // 데이터 정규화
+  // Data normalization
   static normalize(node: INode, schema: Schema): INode {
     const normalized = { ...node };
     
-    // 기본값 적용
+    // Apply defaults
     for (const [key, definition] of Object.entries(schema.definition.attributes || {})) {
       if (normalized.attributes[key] === undefined && definition.default !== undefined) {
         normalized.attributes[key] = definition.default;
@@ -287,11 +287,11 @@ class DataTransformer {
     return normalized;
   }
   
-  // 데이터 검증
+  // Data validation
   static validate(node: INode, schema: Schema): ValidationResult {
     const errors: string[] = [];
     
-    // 속성 검증
+    // Validate attributes
     for (const [key, definition] of Object.entries(schema.definition.attributes || {})) {
       const value = node.attributes[key];
       
@@ -313,7 +313,7 @@ class DataTransformer {
 }
 ```
 
-### 3. **데이터 저장소**
+### 3. **Data Store**
 
 ```typescript
 class DataStore {
@@ -321,40 +321,40 @@ class DataStore {
   private _documents = new Map<string, Document>();
   private _schemas = new Map<string, Schema>();
   
-  // 노드 저장
+  // Save node
   saveNode(node: INode): void {
     this._nodes.set(node.sid, node);
   }
   
-  // 노드 가져오기
+  // Get node
   getNode(id: string): INode | undefined {
     return this._nodes.get(id);
   }
   
-  // 문서 저장
+  // Save document
   saveDocument(document: Document): void {
     this._documents.set(document.sid, document);
     
-    // 문서의 모든 노드 저장
+    // Save all nodes in document
     this._saveDocumentNodes(document);
   }
   
-  // 문서 가져오기
+  // Get document
   getDocument(id: string): Document | undefined {
     return this._documents.get(id);
   }
   
-  // 스키마 등록
+  // Register schema
   registerSchema(schema: Schema): void {
     this._schemas.set(schema.name, schema);
   }
   
-  // 스키마 가져오기
+  // Get schema
   getSchema(name: string): Schema | undefined {
     return this._schemas.get(name);
   }
   
-  // 문서의 모든 노드 저장
+  // Save all nodes in document
   private _saveDocumentNodes(document: Document): void {
     const saveNodeRecursive = (node: INode) => {
       this._nodes.set(node.sid, node);
@@ -368,82 +368,82 @@ class DataStore {
 }
 ```
 
-## 📊 데이터 검증
+## 📊 Data Validation
 
-### 1. **Validator 클래스 통합**
+### 1. **Validator Class Integration**
 
-Model Data는 `@barocss/schema`의 `Validator` 클래스를 사용하여 포괄적인 검증을 수행합니다.
+Model Data uses the `Validator` class from `@barocss/schema` for comprehensive validation.
 
-#### 구조적 검증
+#### Structural Validation
 
 ```typescript
 import { Validator, VALIDATION_ERRORS } from '@barocss/schema';
 
-// 노드 구조 검증 (스키마와 무관)
+// Node structure validation (schema-independent)
 const nodeValidation = Validator.validateNodeStructure(node);
 if (!nodeValidation.valid) {
   console.error('Node structure validation failed:', nodeValidation.errors);
   console.error('Error codes:', nodeValidation.errorCodes);
 }
 
-// 문서 구조 검증
+// Document structure validation
 const documentValidation = Validator.validateDocumentStructure(document);
 if (!documentValidation.valid) {
   console.error('Document structure validation failed:', documentValidation.errorCodes);
 }
 ```
 
-#### 스키마 기반 검증
+#### Schema-based Validation
 
 ```typescript
-// 스키마를 사용한 노드 검증
+// Node validation with schema
 const schemaValidation = Validator.validateNode(schema, node);
 if (!schemaValidation.valid) {
   console.error('Schema validation failed:', schemaValidation.errors);
 }
 
-// 스키마를 사용한 문서 검증
+// Document validation with schema
 const documentSchemaValidation = Validator.validateDocument(schema, document);
 if (!documentSchemaValidation.valid) {
   console.error('Document schema validation failed:', documentSchemaValidation.errors);
 }
 ```
 
-#### 에러 코드 활용
+#### Error Code Usage
 
 ```typescript
-// 안전한 오류 처리
+// Safe error handling
 const result = Validator.validateNodeStructure(node);
 if (!result.valid) {
   if (result.errorCodes?.includes(VALIDATION_ERRORS.TEXT_CONTENT_REQUIRED)) {
-    // 텍스트 내용 누락 처리
+    // Handle missing text content
   }
   if (result.errorCodes?.includes(VALIDATION_ERRORS.NODE_TYPE_UNKNOWN)) {
-    // 알 수 없는 노드 타입 처리
+    // Handle unknown node type
   }
 }
 ```
 
-### 2. **스키마 기반 검증**
+### 2. **Schema-based Validation**
 
 ```typescript
 class DataValidator {
-  // 노드 검증
+  // Validate node
   static validateNode(node: INode, schema: Schema): ValidationResult {
     const errors: string[] = [];
     
-    // 타입 검증
+    // Type validation
     if (node.type !== schema.name) {
       errors.push(`Node type '${node.type}' does not match schema '${schema.name}'`);
     }
     
-    // 속성 검증
+    // Attribute validation
     const attributeValidation = DataTransformer.validate(node, schema);
     if (!attributeValidation.valid) {
       errors.push(...attributeValidation.errors);
     }
     
-    // 컨텐츠 검증
+    // Content validation
     if (schema.definition.content && node.content) {
       const contentValidation = this.validateContent(node.content, schema.definition.content);
       if (!contentValidation.valid) {
@@ -457,12 +457,12 @@ class DataValidator {
     };
   }
   
-  // 컨텐츠 검증
+  // Validate content
   static validateContent(content: INode[], contentModel: string): ValidationResult {
-    // 컨텐츠 모델 파싱 및 검증 로직
+    // Content model parsing and validation logic
     const errors: string[] = [];
     
-    // 간단한 예시: 필수 컨텐츠 검증
+    // Simple example: required content validation
     if (contentModel.endsWith('+') && content.length === 0) {
       errors.push('Content is required but empty');
     }
@@ -475,30 +475,30 @@ class DataValidator {
 }
 ```
 
-### 2. **데이터 무결성 검증**
+### 3. **Data Integrity Validation**
 
 ```typescript
 class IntegrityValidator {
-  // 문서 무결성 검증
+  // Validate document integrity
   static validateDocument(document: Document): ValidationResult {
     const errors: string[] = [];
     
-    // 문서 ID 검증
+    // Document ID validation
     if (!document.sid) {
       errors.push('Document ID is required');
     }
     
-    // 스키마 검증
+    // Schema validation
     if (!document.schema) {
       errors.push('Document schema is required');
     }
     
-    // 컨텐츠 검증
+    // Content validation
     if (!document.content || document.content.length === 0) {
       errors.push('Document content is required');
     }
     
-    // 각 노드 검증
+    // Validate each node
     document.content.forEach((node, index) => {
       const nodeValidation = DataValidator.validateNode(node, document.schema);
       if (!nodeValidation.valid) {
@@ -514,20 +514,20 @@ class IntegrityValidator {
 }
 ```
 
-## 🚀 성능 최적화
+## 🚀 Performance Optimization
 
-### 1. **지연 로딩**
+### 1. **Lazy Loading**
 
 ```typescript
 class LazyDataStore extends DataStore {
   private _lazyNodes = new Map<string, () => Promise<INode>>();
   
-  // 지연 로딩 노드 등록
+  // Register lazy-loading node
   registerLazyNode(id: string, loader: () => Promise<INode>): void {
     this._lazyNodes.set(id, loader);
   }
   
-  // 지연 로딩 노드 가져오기
+  // Get lazy-loading node
   async getNodeAsync(id: string): Promise<INode | undefined> {
     if (this._nodes.has(id)) {
       return this._nodes.get(id);
@@ -545,14 +545,14 @@ class LazyDataStore extends DataStore {
 }
 ```
 
-### 2. **데이터 캐싱**
+### 2. **Data Caching**
 
 ```typescript
 class CachedDataStore extends DataStore {
   private _cache = new Map<string, { data: any; timestamp: number }>();
-  private _cacheTimeout = 5 * 60 * 1000; // 5분
+  private _cacheTimeout = 5 * 60 * 1000; // 5 minutes
   
-  // 캐시된 노드 가져오기
+  // Get cached node
   getNode(id: string): INode | undefined {
     const cached = this._cache.get(id);
     if (cached && Date.now() - cached.timestamp < this._cacheTimeout) {
@@ -567,7 +567,7 @@ class CachedDataStore extends DataStore {
     return node;
   }
   
-  // 캐시 무효화
+  // Invalidate cache
   invalidateCache(id?: string): void {
     if (id) {
       this._cache.delete(id);
@@ -578,9 +578,9 @@ class CachedDataStore extends DataStore {
 }
 ```
 
-## 📚 API 레퍼런스
+## 📚 API Reference
 
-### INode 인터페이스
+### INode Interface
 
 ```typescript
 interface INode {
@@ -599,7 +599,7 @@ interface INode {
 }
 ```
 
-### Document 인터페이스
+### Document Interface
 
 ```typescript
 interface Document {
@@ -618,31 +618,31 @@ interface Document {
 }
 ```
 
-### 유틸리티 함수
+### Utility Functions
 
 ```typescript
-// 노드 생성
+// Create node
 function createNode(type: TNodeType, attributes?: Record<string, any>, content?: INode[]): INode;
 
-// 텍스트 노드 생성
+// Create text node
 function createTextNode(text: string, attributes?: Record<string, any>): INode;
 
-// 문서 생성
+// Create document
 function createDocument(content: INode[], schema: Schema, metadata?: any): Document;
 
-// 데이터 검증
+// Validate data
 function validateNode(node: INode, schema: Schema): ValidationResult;
 
-// 데이터 변환
+// Transform data
 function transformNode(node: INode, schema: Schema): INode;
 ```
 
-## 🔍 예제
+## 🔍 Examples
 
-### 완전한 문서 생성 예제
+### Complete Document Creation Example
 
 ```typescript
-// 1. 스키마 등록
+// 1. Register schemas
 const paragraphSchema = schema('paragraph', {
   attributes: {
     align: { type: 'string', default: 'left' }
@@ -657,12 +657,12 @@ const textSchema = schema('text', {
   }
 });
 
-// 2. 노드 생성
+// 2. Create nodes
 const textNode1 = createTextNode('Hello ', { bold: true });
 const textNode2 = createTextNode('World!', { italic: true });
 const paragraphNode = createNode('paragraph', { align: 'center' }, [textNode1, textNode2]);
 
-// 3. 문서 생성
+// 3. Create document
 const document = createDocument(
   [paragraphNode],
   documentSchema,
@@ -673,17 +673,17 @@ const document = createDocument(
   }
 );
 
-// 4. 데이터 검증
+// 4. Validate data
 const validation = validateNode(paragraphNode, paragraphSchema);
 if (!validation.valid) {
   console.error('Validation errors:', validation.errors);
 }
 
-// 5. 데이터 저장
+// 5. Save data
 const dataStore = new DataStore();
 dataStore.registerSchema(paragraphSchema);
 dataStore.registerSchema(textSchema);
 dataStore.saveDocument(document);
 ```
 
-이렇게 Model Data를 통해 스키마 기반의 안전하고 효율적인 데이터 관리를 할 수 있습니다.
+Model Data enables safe and efficient data management based on schemas.

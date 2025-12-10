@@ -1,77 +1,77 @@
-# Auto Tracing 통합 계획
+# Auto Tracing Integration Plan
 
-## 구조 결정: 분리 vs 통합
+## Structure Decision: Separation vs Integration
 
-### 옵션 1: 단순 구조 (권장, 초기)
+### Option 1: Simple Structure (Recommended, Initial)
 
 ```
 Devtool
-├── AutoTracer (독립 모듈)
-│   ├── 계측 로직
-│   └── 이벤트 발생 (traceId, spanId, parentSpanId 포함)
+├── AutoTracer (Independent module)
+│   ├── Instrumentation logic
+│   └── Event emission (includes traceId, spanId, parentSpanId)
 └── Devtool
-    ├── traces: Map<string, Trace> (이벤트 수집)
-    ├── _handleTraceStart/End (플로우 재구성)
+    ├── traces: Map<string, Trace> (event collection)
+    ├── _handleTraceStart/End (flow reconstruction)
     └── DevtoolUI
-        ├── Model Tree 탭
-        ├── Events 탭
-        └── Execution Flow 탭 (새로 추가)
+        ├── Model Tree tab
+        ├── Events tab
+        └── Execution Flow tab (newly added)
 ```
 
-**장점**:
-- ✅ 구조 단순
-- ✅ AutoTracer는 독립적으로 사용 가능
-- ✅ 중간 레이어 없음 (직접적)
-- ✅ 필요시 나중에 FlowReconstructor로 리팩토링 가능
+**Advantages**:
+- ✅ Simple structure
+- ✅ AutoTracer can be used independently
+- ✅ No intermediate layer (direct)
+- ✅ Can refactor to FlowReconstructor later if needed
 
-**단점**:
-- ⚠️ Devtool 클래스가 약간 비대해질 수 있음 (하지만 초기에는 충분)
+**Disadvantages**:
+- ⚠️ Devtool class may become slightly large (but sufficient initially)
 
-### 옵션 2: 분리 구조 (복잡한 기능 필요시)
-
-```
-Devtool
-├── AutoTracer (독립 모듈)
-├── FlowReconstructor (독립 모듈)
-│   ├── Trace 이벤트 수집
-│   ├── 플로우 재구성
-│   ├── 검색/필터링
-│   └── 통계/분석
-└── DevtoolUI
-```
-
-**사용 시기**:
-- 검색/필터링 기능 필요
-- 플로우 통계/분석 필요
-- 다른 곳에서도 플로우 재구성 로직 재사용
-
-### 옵션 2: 통합 구조
+### Option 2: Separated Structure (When Complex Features Needed)
 
 ```
 Devtool
-├── AutoTracer (내부 클래스)
-├── FlowReconstructor (내부 클래스)
+├── AutoTracer (Independent module)
+├── FlowReconstructor (Independent module)
+│   ├── Trace event collection
+│   ├── Flow reconstruction
+│   ├── Search/filtering
+│   └── Statistics/analysis
 └── DevtoolUI
-    └── Execution Flow 탭 (새로 추가)
 ```
 
-**장점**:
-- ✅ 간단한 구조
-- ✅ 하나의 인스턴스로 관리
+**When to use**:
+- Search/filtering features needed
+- Flow statistics/analysis needed
+- Reuse flow reconstruction logic elsewhere
 
-**단점**:
-- ❌ AutoTracer를 독립적으로 사용 불가
-- ❌ 테스트 어려움
+### Option 2: Integrated Structure
 
-**결론**: **옵션 1 (분리 구조) 권장**
+```
+Devtool
+├── AutoTracer (Internal class)
+├── FlowReconstructor (Internal class)
+└── DevtoolUI
+    └── Execution Flow tab (newly added)
+```
+
+**Advantages**:
+- ✅ Simple structure
+- ✅ Manage with single instance
+
+**Disadvantages**:
+- ❌ Cannot use AutoTracer independently
+- ❌ Hard to test
+
+**Conclusion**: **Option 1 (Separated Structure) Recommended**
 
 ---
 
-## 구현 계획
+## Implementation Plan
 
-### Phase 1: 모니터링 대상 고정
+### Phase 1: Fixed Monitoring Targets
 
-#### 1.1 고정된 모니터링 대상 정의
+#### 1.1 Define Fixed Monitoring Targets
 
 ```typescript
 // packages/devtool/src/auto-tracer/instrumentation-targets.ts
@@ -83,8 +83,8 @@ export interface InstrumentationTarget {
 }
 
 /**
- * 고정된 모니터링 대상 목록
- * 새로운 패키지/클래스를 추가하려면 여기에 명시적으로 추가
+ * Fixed monitoring target list
+ * Explicitly add here to add new packages/classes
  */
 export const INSTRUMENTATION_TARGETS: InstrumentationTarget[] = [
   // Editor Core
@@ -151,7 +151,7 @@ export const INSTRUMENTATION_TARGETS: InstrumentationTarget[] = [
 ];
 ```
 
-#### 1.2 동적 계측 로직
+#### 1.2 Dynamic Instrumentation Logic
 
 ```typescript
 // packages/devtool/src/auto-tracer/auto-tracer.ts
@@ -165,7 +165,7 @@ export class AutoTracer {
     if (this.enabled) return;
     this.enabled = true;
     
-    // 고정된 대상만 계측
+    // Instrument only fixed targets
     this._instrumentTargets(INSTRUMENTATION_TARGETS);
   }
   
@@ -176,14 +176,14 @@ export class AutoTracer {
   }
   
   private _instrumentTarget(target: InstrumentationTarget): void {
-    // Editor 인스턴스에서 대상 찾기
+    // Find target from Editor instance
     const instance = this._findInstance(target.className);
     if (!instance) {
       console.warn(`[AutoTracer] Instance not found: ${target.className}`);
       return;
     }
     
-    // 각 메서드 계측
+    // Instrument each method
     target.methods.forEach(methodName => {
       const original = instance[methodName];
       if (original && typeof original === 'function') {
@@ -200,7 +200,7 @@ export class AutoTracer {
   private _findInstance(className: string): any {
     const editor = this.editor as any;
     
-    // 클래스 이름으로 인스턴스 찾기
+    // Find instance by class name
     if (className === 'Editor') {
       return editor;
     }
@@ -236,26 +236,26 @@ export class AutoTracer {
 
 ---
 
-### Phase 2: AutoTracer 구현
+### Phase 2: AutoTracer Implementation
 
-#### 2.1 파일 구조
+#### 2.1 File Structure
 
 ```
 packages/devtool/src/
 ├── auto-tracer/
-│   ├── auto-tracer.ts          # AutoTracer 메인 클래스
-│   ├── instrumentation-targets.ts  # 고정된 계측 대상
-│   ├── trace-context.ts        # TraceContext 관리
+│   ├── auto-tracer.ts          # AutoTracer main class
+│   ├── instrumentation-targets.ts  # Fixed instrumentation targets
+│   ├── trace-context.ts        # TraceContext management
 │   └── index.ts
 ├── flow-reconstructor/
-│   ├── flow-reconstructor.ts   # FlowReconstructor 클래스
+│   ├── flow-reconstructor.ts   # FlowReconstructor class
 │   └── index.ts
-├── devtool.ts                  # Devtool 메인 클래스
-├── ui.ts                       # DevtoolUI 클래스
-└── types.ts                    # 타입 정의
+├── devtool.ts                  # Devtool main class
+├── ui.ts                       # DevtoolUI class
+└── types.ts                    # Type definitions
 ```
 
-#### 2.2 AutoTracer 기본 구현
+#### 2.2 AutoTracer Basic Implementation
 
 ```typescript
 // packages/devtool/src/auto-tracer/auto-tracer.ts
@@ -296,18 +296,18 @@ export class AutoTracer {
   
   disable(): void {
     this.enabled = false;
-    // 계측 해제 로직
+    // Uninstrument logic
   }
   
-  // ... 나머지 구현
+  // ... rest of implementation
 }
 ```
 
 ---
 
-### Phase 3: Devtool에서 직접 플로우 재구성 (FlowReconstructor 없이)
+### Phase 3: Direct Flow Reconstruction in Devtool (Without FlowReconstructor)
 
-**이유**: `AutoTracer`가 이미 완전한 정보를 제공하므로, 단순한 수집 로직은 Devtool에 포함
+**Reason**: Since `AutoTracer` already provides complete information, simple collection logic can be included in Devtool
 
 ```typescript
 // packages/devtool/src/devtool.ts
@@ -355,7 +355,7 @@ export class Devtool {
       span.output = data.output;
     }
     
-    // 플로우 완료 확인
+    // Check flow completion
     if (this._isCompleted(flow)) {
       flow.endTime = data.timestamp;
       flow.duration = data.timestamp - flow.startTime;
@@ -370,7 +370,7 @@ export class Devtool {
         startTime: Date.now()
       });
       
-      // 최대 개수 제한
+      // Limit maximum count
       if (this.traces.size > this.maxFlows) {
         const oldest = Array.from(this.traces.entries())
           .sort((a, b) => a[1].startTime - b[1].startTime)[0];
@@ -393,13 +393,13 @@ export class Devtool {
 }
 ```
 
-**나중에 필요하면**: 검색/필터링 기능 추가 시 `FlowReconstructor`로 리팩토링
+**When needed later**: Refactor to `FlowReconstructor` when adding search/filtering features
 
 ---
 
-### Phase 4: Devtool 통합
+### Phase 4: Devtool Integration
 
-#### 4.1 Devtool 클래스 업데이트
+#### 4.1 Update Devtool Class
 
 ```typescript
 // packages/devtool/src/devtool.ts
@@ -413,22 +413,22 @@ export class Devtool {
   private autoTracer: AutoTracer;
   private traces: Map<string, ExecutionFlow> = new Map();
   private maxFlows: number = 100;
-  // ... 기존 필드들
+  // ... existing fields
   
   constructor(options: DevtoolOptions) {
-    // ... 기존 초기화
+    // ... existing initialization
     
-    // AutoTracer 초기화
+    // Initialize AutoTracer
     this.autoTracer = new AutoTracer(this.editor, {
       enabled: options.enableAutoTracing !== false
     });
     
-    // AutoTracer 활성화
+    // Enable AutoTracer
     if (options.enableAutoTracing !== false) {
       this.autoTracer.enable();
     }
     
-    // Trace 이벤트 리스너 설정
+    // Setup trace event listeners
     this.setupTraceListeners();
   }
   
@@ -449,7 +449,7 @@ export class Devtool {
     });
   }
   
-  // 플로우 재구성 메서드들 (위 Phase 3 참고)
+  // Flow reconstruction methods (see Phase 3 above)
   private _handleTraceStart(data: any): void { }
   private _handleTraceEnd(data: any): void { }
   private _handleTraceError(data: any): void { }
@@ -457,7 +457,7 @@ export class Devtool {
 }
 ```
 
-#### 4.2 DevtoolUI에 Execution Flow 탭 추가
+#### 4.2 Add Execution Flow Tab to DevtoolUI
 
 ```typescript
 // packages/devtool/src/ui.ts
@@ -473,10 +473,10 @@ private createContainer(): HTMLElement {
     </div>
     <div class="devtool-content">
       <div class="devtool-panel active" id="panel-tree">
-        <!-- 기존 Model Tree -->
+        <!-- Existing Model Tree -->
       </div>
       <div class="devtool-panel" id="panel-events">
-        <!-- 기존 Events -->
+        <!-- Existing Events -->
       </div>
       <div class="devtool-panel" id="panel-flow">
         <div class="devtool-flow-list" id="flow-list"></div>
@@ -491,7 +491,7 @@ updateExecutionFlow(flows: ExecutionFlow[]): void {
   const flowList = document.getElementById('flow-list');
   if (!flowList) return;
   
-  // 플로우 목록 렌더링
+  // Render flow list
   flowList.innerHTML = flows.map(flow => `
     <div class="flow-item" data-trace-id="${flow.traceId}">
       <div class="flow-header">
@@ -514,9 +514,9 @@ updateExecutionFlow(flows: ExecutionFlow[]): void {
 
 ---
 
-### Phase 5: 데이터 수집 및 업데이트
+### Phase 5: Data Collection and Updates
 
-#### 5.1 주기적 업데이트
+#### 5.1 Periodic Updates
 
 ```typescript
 // packages/devtool/src/devtool.ts
@@ -526,7 +526,7 @@ private updateInterval: number | null = null;
 constructor(options: DevtoolOptions) {
   // ...
   
-  // 주기적 업데이트 (선택적)
+  // Periodic update (optional)
   if (options.autoUpdateInterval) {
     this.updateInterval = window.setInterval(() => {
       this.updateExecutionFlow();
@@ -540,13 +540,13 @@ private updateExecutionFlow(): void {
 }
 ```
 
-#### 5.2 이벤트 기반 업데이트
+#### 5.2 Event-Based Updates
 
 ```typescript
-// Trace 이벤트 발생 시 자동 업데이트
+// Automatically update when trace event occurs
 this.editor.on('editor:trace.end', (data) => {
   this.flowReconstructor.handleTraceEvent('editor:trace.end', data);
-  // 완료된 플로우만 UI 업데이트
+  // Update UI only for completed flows
   const completedFlows = this.flowReconstructor.getCompletedFlows(10);
   this.ui.updateExecutionFlow(completedFlows);
 });
@@ -554,29 +554,28 @@ this.editor.on('editor:trace.end', (data) => {
 
 ---
 
-## 구현 순서
+## Implementation Order
 
-1. **모니터링 대상 고정** (`instrumentation-targets.ts`)
-2. **AutoTracer 기본 구조** (`auto-tracer/`)
-3. **Devtool 통합** (Devtool 클래스에 플로우 재구성 로직 추가)
-4. **UI 추가** (Execution Flow 탭)
-5. **데이터 수집 및 업데이트** (이벤트 기반 + 주기적)
+1. **Fix monitoring targets** (`instrumentation-targets.ts`)
+2. **AutoTracer basic structure** (`auto-tracer/`)
+3. **Devtool integration** (Add flow reconstruction logic to Devtool class)
+4. **Add UI** (Execution Flow tab)
+5. **Data collection and updates** (event-based + periodic)
 
-**참고**: FlowReconstructor는 나중에 검색/필터링 기능이 필요할 때 추가
+**Note**: Add FlowReconstructor later when search/filtering features are needed
 
 ---
 
-## 정리
+## Summary
 
-**구조**: 단순 구조 (AutoTracer 독립, 플로우 재구성은 Devtool 내부)
+**Structure**: Simple structure (AutoTracer independent, flow reconstruction inside Devtool)
 
-**모니터링 대상**: 고정된 목록 (`INSTRUMENTATION_TARGETS`)
+**Monitoring targets**: Fixed list (`INSTRUMENTATION_TARGETS`)
 
-**플로우 재구성**: Devtool 클래스 내부에서 직접 처리 (FlowReconstructor 없이)
+**Flow reconstruction**: Handle directly inside Devtool class (without FlowReconstructor)
 
-**데이터 수집**: 이벤트 기반 + 주기적 업데이트
+**Data collection**: Event-based + periodic updates
 
-**UI**: DevtoolUI에 Execution Flow 탭 추가
+**UI**: Add Execution Flow tab to DevtoolUI
 
-**향후 확장**: 검색/필터링 기능 필요 시 FlowReconstructor로 리팩토링
-
+**Future expansion**: Refactor to FlowReconstructor when search/filtering features are needed

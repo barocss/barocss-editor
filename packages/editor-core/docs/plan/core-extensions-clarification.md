@@ -1,120 +1,120 @@
-# Core Extensions 개념 정리
+# Core Extensions Concept Clarification
 
-## 현재 문제점
+## Current Problems
 
-### 1. **모호한 개념**
-- `coreExtensions`와 `extensions`의 구분이 불명확
-- "Core"가 무엇을 의미하는지 모호함
-- 필수인지 선택인지 불명확
+### 1. **Ambiguous Concept**
+- Distinction between `coreExtensions` and `extensions` is unclear
+- What "Core" means is ambiguous
+- Whether required or optional is unclear
 
-### 2. **현재 구조**
+### 2. **Current Structure**
 ```typescript
 interface EditorOptions {
-  coreExtensions?: Extension[]; // 기본 편집 기능?
-  extensions?: Extension[];     // 추가 기능?
+  coreExtensions?: Extension[]; // Basic editing features?
+  extensions?: Extension[];     // Additional features?
 }
 ```
 
-**문제**:
-- 둘 다 optional이므로 Editor는 생성 가능
-- 하지만 기본 편집 기능 없이는 실제로 편집 불가
-- 사용자가 혼란스러울 수 있음
+**Problems**:
+- Both are optional, so Editor can be created
+- But actually cannot edit without basic editing features
+- Users may be confused
 
 ---
 
-## ProseMirror 방식 (참고)
+## ProseMirror Approach (Reference)
 
 ```typescript
-// ProseMirror는 단순히 plugins 배열만 사용
+// ProseMirror uses only plugins array
 const view = new EditorView(document.body, {
   state: EditorState.create({
     plugins: [
-      keymap(baseKeymap),  // 기본 기능
-      // ... 다른 plugins
+      keymap(baseKeymap),  // Basic features
+      // ... other plugins
     ]
   })
 });
 ```
 
-**특징**:
-- ✅ 단순한 구조: `plugins` 배열 하나만
-- ✅ 명확함: 모든 plugin을 동일하게 처리
-- ✅ 구분 없음: "core" vs "extension" 구분 없음
+**Characteristics**:
+- ✅ Simple structure: Only one `plugins` array
+- ✅ Clear: All plugins treated equally
+- ✅ No distinction: No "core" vs "extension" distinction
 
 ---
 
-## 개선 방안
+## Improvement Options
 
-### 옵션 1: `coreExtensions` 제거, `extensions`로 통일 ✅ **권장**
+### Option 1: Remove `coreExtensions`, Unify with `extensions` ✅ **Recommended**
 
-**구조**:
+**Structure**:
 ```typescript
 interface EditorOptions {
-  extensions?: Extension[]; // 모든 Extension (구분 없음)
+  extensions?: Extension[]; // All Extensions (no distinction)
 }
 ```
 
-**사용법**:
+**Usage**:
 ```typescript
 const editor = new Editor({
   extensions: [
-    ...createCoreExtensions(),  // 기본 편집 기능
-    ...createBasicExtensions()  // 추가 기능
+    ...createCoreExtensions(),  // Basic editing features
+    ...createBasicExtensions()  // Additional features
   ]
 });
 ```
 
-**장점**:
-- ✅ 단순하고 명확함
-- ✅ ProseMirror와 유사한 구조
-- ✅ 구분 없이 모든 Extension을 동일하게 처리
-- ✅ 사용자가 필요한 Extension만 선택
+**Advantages**:
+- ✅ Simple and clear
+- ✅ Similar structure to ProseMirror
+- ✅ Treat all Extensions equally without distinction
+- ✅ Users can select only needed Extensions
 
-**단점**:
-- ⚠️ 사용자가 `createCoreExtensions()`를 호출해야 함 (하지만 이것이 의도된 동작)
+**Disadvantages**:
+- ⚠️ Users must call `createCoreExtensions()` (but this is intended behavior)
 
 ---
 
-### 옵션 2: `coreExtensions`를 필수로 만들기
+### Option 2: Make `coreExtensions` Required
 
-**구조**:
+**Structure**:
 ```typescript
 interface EditorOptions {
-  coreExtensions: Extension[]; // 필수
-  extensions?: Extension[];    // 선택
+  coreExtensions: Extension[]; // Required
+  extensions?: Extension[];    // Optional
 }
 ```
 
-**사용법**:
+**Usage**:
 ```typescript
 const editor = new Editor({
-  coreExtensions: createCoreExtensions(), // 필수
-  extensions: createBasicExtensions()    // 선택
+  coreExtensions: createCoreExtensions(), // Required
+  extensions: createBasicExtensions()    // Optional
 });
 ```
 
-**장점**:
-- ✅ 필수/선택 구분 명확
-- ✅ 기본 편집 기능 누락 방지
+**Advantages**:
+- ✅ Clear required/optional distinction
+- ✅ Prevents missing basic editing features
 
-**단점**:
-- ⚠️ 여전히 "core" 개념이 모호함
-- ⚠️ 사용자가 항상 `createCoreExtensions()` 호출 필요
+**Disadvantages**:
+- ⚠️ "core" concept still ambiguous
+- ⚠️ Users must always call `createCoreExtensions()`
 
 ---
 
-### 옵션 3: 편의 함수 제공
+### Option 3: Provide Convenience Function
 
-**구조**:
+**Structure**:
 ```typescript
 // @barocss/extensions
 export function createEditorWithDefaults(options?: EditorOptions) {
   const editor = new Editor(options);
   
-  // Core Extension 자동 등록
+  // Automatically register Core Extensions
   createCoreExtensions().forEach(ext => editor.use(ext));
   
-  // 사용자 Extension 추가 등록
+  // Add user Extensions
   if (options?.extensions) {
     options.extensions.forEach(ext => editor.use(ext));
   }
@@ -123,14 +123,14 @@ export function createEditorWithDefaults(options?: EditorOptions) {
 }
 ```
 
-**사용법**:
+**Usage**:
 ```typescript
-// 간단한 사용 (기본 기능 자동 포함)
+// Simple usage (basic features automatically included)
 const editor = createEditorWithDefaults({
   extensions: createBasicExtensions()
 });
 
-// 고급 사용 (모든 Extension 직접 제어)
+// Advanced usage (direct control of all Extensions)
 const editor = new Editor({
   extensions: [
     ...createCoreExtensions(),
@@ -139,60 +139,59 @@ const editor = new Editor({
 });
 ```
 
-**장점**:
-- ✅ 간단한 사용법 제공
-- ✅ 고급 사용자도 직접 제어 가능
-- ✅ 기본 기능 누락 방지
+**Advantages**:
+- ✅ Provides simple usage
+- ✅ Advanced users can also directly control
+- ✅ Prevents missing basic features
 
-**단점**:
-- ⚠️ 두 가지 방식이 혼재 (혼란 가능)
+**Disadvantages**:
+- ⚠️ Two approaches coexist (may cause confusion)
 
 ---
 
-## 권장 방안
+## Recommended Approach
 
-### ✅ **옵션 1: `coreExtensions` 제거, `extensions`로 통일**
+### ✅ **Option 1: Remove `coreExtensions`, Unify with `extensions`**
 
-**이유**:
-1. **단순성**: 하나의 옵션만 사용
-2. **명확성**: "core" vs "extension" 구분 불필요
-3. **일관성**: ProseMirror와 유사한 구조
-4. **유연성**: 사용자가 필요한 Extension만 선택
+**Reasons**:
+1. **Simplicity**: Use only one option
+2. **Clarity**: No need for "core" vs "extension" distinction
+3. **Consistency**: Similar structure to ProseMirror
+4. **Flexibility**: Users can select only needed Extensions
 
-**구현**:
+**Implementation**:
 ```typescript
-// EditorOptions 수정
+// Modify EditorOptions
 interface EditorOptions {
-  extensions?: Extension[]; // 모든 Extension (구분 없음)
+  extensions?: Extension[]; // All Extensions (no distinction)
 }
 
-// 사용법
+// Usage
 const editor = new Editor({
   extensions: [
-    ...createCoreExtensions(),  // 기본 편집 기능
-    ...createBasicExtensions()  // 추가 기능
+    ...createCoreExtensions(),  // Basic editing features
+    ...createBasicExtensions()  // Additional features
   ]
 });
 ```
 
-**주의사항**:
-- `createCoreExtensions()`를 호출하지 않으면 기본 편집 기능 없음
-- 하지만 이것이 의도된 동작 (ProseMirror와 동일)
-- 문서에서 명확히 안내 필요
+**Notes**:
+- If `createCoreExtensions()` is not called, no basic editing features
+- But this is intended behavior (same as ProseMirror)
+- Need clear documentation
 
 ---
 
-## 결론
+## Conclusion
 
-### ✅ **`coreExtensions` 제거 권장**
+### ✅ **Recommend Removing `coreExtensions`**
 
-**이유**:
-1. 개념이 모호함
-2. ProseMirror와 유사하게 단순화
-3. 모든 Extension을 동일하게 처리
+**Reasons**:
+1. Concept is ambiguous
+2. Simplify similar to ProseMirror
+3. Treat all Extensions equally
 
-**구현**:
-- `coreExtensions` 옵션 제거
-- `extensions` 옵션만 사용
-- 사용자가 `createCoreExtensions()`를 `extensions`에 포함
-
+**Implementation**:
+- Remove `coreExtensions` option
+- Use only `extensions` option
+- Users include `createCoreExtensions()` in `extensions`

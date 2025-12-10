@@ -1,8 +1,8 @@
-# Fiber DOM 구조 오류 분석
+# Fiber DOM Structure Error Analysis
 
-## 문제 현상
+## Problem Phenomenon
 
-테스트에서 DOM 구조가 예상과 다르게 렌더링됨:
+DOM structure rendered differently than expected in tests:
 
 **Expected:**
 ```html
@@ -19,71 +19,70 @@
 <div class="document" data-bc-sid="doc-1">
   <h1 class="heading" data-bc-sid="h1-1">
     <span class="text" data-bc-sid="text-1">
-      <div>제목입니다</div>  <!-- ❌ 텍스트가 <div>로 감싸져 있음 -->
+      <div>제목입니다</div>  <!-- ❌ Text wrapped in <div> -->
     </span>
   </h1>
   <p class="paragraph" data-bc-sid="p-1">
-    <span class="text" data-bc-sid="text-2"></span>  <!-- ❌ 비어있음 -->
+    <span class="text" data-bc-sid="text-2"></span>  <!-- ❌ Empty -->
   </p>
-  <div>첫 번째 단락입니다.</div>  <!-- ❌ 텍스트가 밖에 <div>로 렌더링됨 -->
+  <div>첫 번째 단락입니다.</div>  <!-- ❌ Text rendered as <div> outside -->
   ...
 </div>
 ```
 
-## 원인 분석
+## Cause Analysis
 
-### 1. React Fiber는 비동기로 동작
+### 1. React Fiber Works Asynchronously
 
-React Fiber는 기본적으로 **비동기**로 동작합니다:
-- `createRoot().render()`는 동기 함수지만, 내부적으로는 비동기 처리
-- `flushSync()`를 사용하면 동기로 강제할 수 있음
-- 브라우저에 yield하여 UI 응답성 유지
+React Fiber works **asynchronously** by default:
+- `createRoot().render()` is synchronous function, but internally processes asynchronously
+- Can force synchronous with `flushSync()`
+- Yields to browser to maintain UI responsiveness
 
-### 2. DOM 구조 오류의 원인
+### 2. Causes of DOM Structure Errors
 
-#### 문제 1: 자식 Fiber의 parent가 잘못 설정됨
+#### Problem 1: Child Fiber's parent Incorrectly Set
 
-`createFiberTree`에서 자식 Fiber를 생성할 때:
+When creating child Fibers in `createFiberTree`:
 ```typescript
 const childFiber = createFiberTree(
-  parent, // ❌ 항상 root container로 설정됨
+  parent, // ❌ Always set to root container
   childVNode,
   ...
 );
 ```
 
-**해결**: `reconcileFiberNode`에서 host 생성 후 자식 Fiber들의 `parent`를 업데이트
+**Solution**: Update child Fibers' `parent` to current host after creating host in `reconcileFiberNode`
 ```typescript
-// 4-1. 직접 자식 Fiber들의 parent를 현재 host로 업데이트
+// 4-1. Directly update child Fibers' parent to current host
 let childFiber = fiber.child;
 while (childFiber) {
-  childFiber.parent = host; // ✅ 부모 Fiber의 DOM element로 업데이트
+  childFiber.parent = host; // ✅ Update to parent Fiber's DOM element
   childFiber = childFiber.sibling;
 }
 ```
 
-#### 문제 2: vnode.text 처리 순서
+#### Problem 2: vnode.text Processing Order
 
-`vnode.text`가 있는 VNode는 `handleVNodeTextProperty`로 처리되어야 하는데, 현재는 자식 Fiber 처리 후에 확인됨.
+VNodes with `vnode.text` should be processed with `handleVNodeTextProperty`, but currently checked after child Fiber processing.
 
-**해결**: `vnode.text` 처리를 host 생성 직후로 이동 (자식 Fiber 처리 전)
+**Solution**: Move `vnode.text` processing to immediately after host creation (before child Fiber processing)
 
-#### 문제 3: Primitive text 처리
+#### Problem 3: Primitive Text Processing
 
-Primitive text (string/number)가 `<div>`로 감싸져 렌더링됨.
+Primitive text (string/number) rendered wrapped in `<div>`.
 
-**원인**: `processPrimitiveTextChildren`에서 직접 DOM 조작 대신 `handlePrimitiveTextChild`를 사용해야 함
+**Cause**: Should use `handlePrimitiveTextChild` instead of direct DOM manipulation in `processPrimitiveTextChildren`
 
-**해결**: `handlePrimitiveTextChild`를 사용하여 올바른 위치에 텍스트 노드 생성/업데이트
+**Solution**: Use `handlePrimitiveTextChild` to create/update text node at correct position
 
-## 수정 사항
+## Modifications
 
-1. ✅ 자식 Fiber들의 `parent`를 부모 Fiber의 DOM element로 업데이트
-2. ✅ `vnode.text` 처리를 host 생성 직후로 이동
-3. ✅ `processPrimitiveTextChildren`에서 `handlePrimitiveTextChild` 사용
+1. ✅ Update child Fibers' `parent` to parent Fiber's DOM element
+2. ✅ Move `vnode.text` processing to immediately after host creation
+3. ✅ Use `handlePrimitiveTextChild` in `processPrimitiveTextChildren`
 
-## 추가 확인 필요
+## Additional Verification Needed
 
-- `data-bc-stype` 속성이 누락됨 (의도된 변경인지 확인)
-- 텍스트가 여전히 `<div>`로 감싸져 렌더링되는 문제 (추가 디버깅 필요)
-
+- `data-bc-stype` attribute missing (verify if intentional change)
+- Text still rendered wrapped in `<div>` issue (additional debugging needed)

@@ -1,6 +1,6 @@
 # Barocss Architecture Flow Diagram
 
-## 전체 아키텍처 플로우
+## Overall Architecture Flow
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -12,15 +12,15 @@
 ┌─────────────────────────────────────────────────────────────────────┐
 │                      VNodeBuilder                                    │
 │  ┌──────────────────────────────────────────────────────────────┐  │
-│  │ 1. Registry에서 템플릿 조회                                     │  │
+│  │ 1. Look up template from Registry                             │  │
 │  │    template = registry.getTemplate('paragraph')              │  │
 │  └──────────────────────────────────────────────────────────────┘  │
 │  ┌──────────────────────────────────────────────────────────────┐  │
-│  │ 2. 템플릿 → VNode 변환                                         │  │
-│  │    - tag: 'p'                                                  │  │
-│  │    - text: 'Hello'                                            │  │
-│  │    - attrs: { className: 'active' }                            │  │
-│  │    - children: []                                              │  │
+│  │ 2. Template → VNode conversion                               │  │
+│  │    - tag: 'p'                                                 │  │
+│  │    - text: 'Hello'                                           │  │
+│  │    - attrs: { className: 'active' }                           │  │
+│  │    - children: []                                             │  │
 │  └──────────────────────────────────────────────────────────────┘  │
 └────────────────────┬────────────────────────────────────────────────┘
                      │
@@ -40,30 +40,30 @@
 │                    DOMReconcile                                      │
 │                                                                      │
 │  ┌──────────────────────────────────────────────────────────────┐  │
-│  │ Step 1: WIP Tree 생성                                          │  │
+│  │ Step 1: Create WIP Tree                                       │  │
 │  │  createWorkInProgressTree(nextVNode, prevVNode)               │  │
 │  │  ┌──────────────────────────────────────────────────────┐    │  │
-│  │  │ WIP {                                                   │    │  │
-│  │  │   id: 'p-123',                                          │    │  │
-│  │  │   type: 'element',                                      │    │  │
-│  │  │   vnode: nextVNode,                                     │    │  │
-│  │  │   previousVNode: prevVNode,                             │    │  │
-│  │  │   domNode: <existing DOM node>,                         │    │  │
-│  │  │   changes: ['insert'],                                  │    │  │
-│  │  │   needsUpdate: true                                     │    │  │
-│  │  │ }                                                        │    │  │
+│  │  │ WIP {                                                 │    │  │
+│  │  │   id: 'p-123',                                        │    │  │
+│  │  │   type: 'element',                                    │    │  │
+│  │  │   vnode: nextVNode,                                   │    │  │
+│  │  │   previousVNode: prevVNode,                          │    │  │
+│  │  │   domNode: <existing DOM node>,                       │    │  │
+│  │  │   changes: ['insert'],                                │    │  │
+│  │  │   needsUpdate: true                                   │    │  │
+│  │  │ }                                                      │    │  │
 │  │  └──────────────────────────────────────────────────────┘    │  │
 │  └──────────────────────────────────────────────────────────────┘  │
 │                                                                      │
 │  ┌──────────────────────────────────────────────────────────────┐  │
-│  │ Step 2: 변경사항 감지 및 우선순위 할당                           │  │
+│  │ Step 2: Detect changes and assign priority                  │  │
 │  │  detectChangesAndAssignPriority()                          │  │
 │  │  - changes: ['insert', 'attrs', 'text', 'children']         │  │
 │  │  - priority: IMMEDIATE / HIGH / NORMAL / LOW / IDLE         │  │
 │  └──────────────────────────────────────────────────────────────┘  │
 │                                                                      │
 │  ┌──────────────────────────────────────────────────────────────┐  │
-│  │ Step 3: 우선순위별 처리                                        │  │
+│  │ Step 3: Process by priority                                  │  │
 │  │  processByPriority(context, processWorkInProgress)          │  │
 │  │                                                              │  │
 │  │  ┌────────────────────────────────────────────────────┐    │  │
@@ -87,7 +87,7 @@
 │  └──────────────────────────────────────────────────────────────┘  │
 │                                                                      │
 │  ┌──────────────────────────────────────────────────────────────┐  │
-│  │ Step 4: DOM 업데이트 실행                                     │  │
+│  │ Step 4: Execute DOM updates                                  │  │
 │  │  executeDOMUpdates(container, finalizeDOMUpdate)            │  │
 │  │                                                              │  │
 │  │  ┌────────────────────────────────────────────────────┐    │  │
@@ -105,11 +105,11 @@
                      ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │                          DOM                                        │
-│                    <p class="active">Hello</p>                        │
+│                    <p class="active">Hello</p>                      │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-## Children Reconcile 상세 플로우
+## Children Reconcile Detailed Flow
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -140,14 +140,14 @@
 │  │  Case 2: !prevChild                                          │  │
 │  │    → Create new DOM node                                      │  │
 │  │    → insertBefore(newNode, referenceNode)                    │  │
-│  │    → childWip.domNode = newNode  ⭐ 중요                     │  │
+│  │    → childWip.domNode = newNode  ⭐ Important                │  │
 │  │                                                               │  │
 │  │  Case 3: isSameNode(prevChild, nextChild)                    │  │
 │  │    → Skip (already in DOM)                                   │  │
 │  │                                                               │  │
 │  │  Case 4: Different nodes                                     │  │
 │  │    → replaceChild(oldNode, newNode)                         │  │
-│  │    → childWip.domNode = newNode  ⭐ 중요                     │  │
+│  │    → childWip.domNode = newNode  ⭐ Important                │  │
 │  └─────────────────────────────────────────────────────────────┘  │
 └────────────────────┬────────────────────────────────────────────────┘
                      │
@@ -159,14 +159,14 @@
 │                                                                      │
 │  if (isAlreadyInDOM) {                                               │
 │    // Already in DOM, skip append                                   │
-│    return;                                                            │
+│    return;                                                           │
 │  }                                                                    │
 │                                                                      │
 │  parent.appendChild(childWip.domNode);                               │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-## 컴포넌트 처리 플로우
+## Component Processing Flow
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -209,7 +209,7 @@
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-## Update 시나리오
+## Update Scenario
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -245,30 +245,29 @@
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-## 핵심 개념
+## Core Concepts
 
 ### 1. VNodeBuilder (DSL → VNode)
-- Template registry 조회
-- Data binding (data(), className, style 등)
+- Template registry lookup
+- Data binding (data(), className, style, etc.)
 - Component resolution
 - Conditional rendering (build time)
-- DSL → VNode 변환만 담당
+- Only responsible for DSL → VNode conversion
 
 ### 2. DOMReconcile (VNode → DOM)
-- VNode 차이 감지
-- WIP 트리 생성 및 관리
-- 우선순위 기반 처리
-- 최소 DOM 변경 적용
-- DOM의 실제 상태만 담당
+- VNode difference detection
+- WIP tree creation and management
+- Priority-based processing
+- Apply minimal DOM changes
+- Only responsible for actual DOM state
 
 ### 3. Children Reconcile
 - React-style reconciliation
-- DOM 노드 재사용
-- Index 기반 매칭
-- WIP의 domNode 설정 필수
+- DOM node reuse
+- Index-based matching
+- Must set WIP's domNode
 
-### 4. WIP 패턴
-- 변경사항을 일괄 처리
-- 우선순위 기반 처리
-- 불필요한 DOM 조작 최소화
-
+### 4. WIP Pattern
+- Batch process changes
+- Priority-based processing
+- Minimize unnecessary DOM manipulation

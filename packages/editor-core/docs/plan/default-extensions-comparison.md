@@ -1,23 +1,23 @@
-# 다른 에디터들의 기본 기능 관리 방식 비교
+# Comparison of Default Feature Management Methods in Other Editors
 
-## 주요 에디터들의 접근 방식
+## Approaches of Major Editors
 
 ### 1. **ProseMirror**
 
-**구조**:
+**Structure**:
 ```
-@prosemirror/core          → 최소한의 핵심 기능 (EditorState, Transaction)
-@prosemirror/commands      → 기본 Command들 (insertText, delete, etc.)
-@prosemirror/schema-basic  → 기본 Schema + Extension들
+@prosemirror/core          → Minimal core functionality (EditorState, Transaction)
+@prosemirror/commands      → Basic Commands (insertText, delete, etc.)
+@prosemirror/schema-basic  → Basic Schema + Extensions
 ```
 
-**특징**:
-- ✅ Core는 **최소한만** 제공 (EditorState, Transaction)
-- ✅ **기본 Command들은 별도 패키지** (`@prosemirror/commands`)
-- ✅ 사용자가 명시적으로 import해서 사용
-- ❌ Core에 기본 command가 포함되지 않음
+**Characteristics**:
+- ✅ Core provides **minimum only** (EditorState, Transaction)
+- ✅ **Basic Commands are separate package** (`@prosemirror/commands`)
+- ✅ Users explicitly import and use
+- ❌ Core does not include basic commands
 
-**사용 예시**:
+**Usage example**:
 ```typescript
 import { EditorState } from '@prosemirror/state';
 import { EditorView } from '@prosemirror/view';
@@ -26,46 +26,46 @@ import { schema } from '@prosemirror/schema-basic';
 import { keymap } from '@prosemirror/keymap';
 import { baseKeymap } from '@prosemirror/example-setup';
 
-// 기본 기능을 명시적으로 plugins에 추가
+// Explicitly add basic features to plugins array
 const view = new EditorView(document.body, {
   state: EditorState.create({
     doc: DOMParser.fromSchema(schema).parse(document.body),
     plugins: [
-      keymap(baseKeymap), // 기본 키보드 단축키 (Enter, Backspace 등)
-      // ... 다른 plugins
+      keymap(baseKeymap), // Basic keyboard shortcuts (Enter, Backspace, etc.)
+      // ... other plugins
     ]
   })
 });
 ```
 
-**핵심**:
-- ProseMirror는 **기본 편집 기능도 외부에서 제공**
-- `baseKeymap`이 Enter, Backspace 등의 기본 동작을 제공
-- 사용자가 `plugins` 배열에 **명시적으로 추가**해야 함
+**Core**:
+- ProseMirror **provides basic editing features externally**
+- `baseKeymap` provides basic behaviors like Enter, Backspace
+- Users must **explicitly add** to `plugins` array
 
 ---
 
 ### 2. **Slate.js**
 
-**구조**:
+**Structure**:
 ```
 slate                      → Core (Editor, Transforms)
 slate-history              → History Extension
 ```
 
-**특징**:
-- ✅ Core에 **기본 Transform 함수들이 포함**됨
+**Characteristics**:
+- ✅ Core **includes basic Transform functions**
   - `Transforms.insertText()`
   - `Transforms.delete()`
   - `Transforms.insertNodes()`
-- ✅ 기본 편집 기능이 **core에 내장**
-- ✅ 사용자가 별도 import 없이 사용 가능
+- ✅ Basic editing features are **built into core**
+- ✅ Users can use without separate imports
 
-**사용 예시**:
+**Usage example**:
 ```typescript
 import { Editor, Transforms } from 'slate';
 
-// 기본 Transform이 core에 포함되어 있음
+// Basic Transforms are included in core
 Transforms.insertText(editor, 'Hello');
 Transforms.delete(editor, { at: [0] });
 ```
@@ -74,27 +74,27 @@ Transforms.delete(editor, { at: [0] });
 
 ### 3. **Tiptap**
 
-**구조**:
+**Structure**:
 ```
-@tiptap/core               → 핵심 기능 (Editor, Extension 시스템)
+@tiptap/core               → Core functionality (Editor, Extension system)
 @tiptap/extension-bold      → Bold Extension
 @tiptap/extension-italic    → Italic Extension
-@tiptap/starter-kit         → 기본 Extension 세트
+@tiptap/starter-kit         → Basic Extension set
 ```
 
-**특징**:
-- ✅ Core는 **최소한만** 제공 (Editor, Extension 시스템)
-- ✅ **모든 기능이 Extension**으로 제공
-- ✅ `@tiptap/starter-kit`에 기본 Extension들이 포함
-- ❌ Core에 기본 command가 포함되지 않음
+**Characteristics**:
+- ✅ Core provides **minimum only** (Editor, Extension system)
+- ✅ **All features provided as Extensions**
+- ✅ `@tiptap/starter-kit` includes basic Extensions
+- ❌ Core does not include basic commands
 
-**사용 예시**:
+**Usage example**:
 ```typescript
 import { Editor } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 
 const editor = new Editor({
-  extensions: [StarterKit], // 기본 기능 포함
+  extensions: [StarterKit], // Includes basic features
 });
 ```
 
@@ -102,121 +102,121 @@ const editor = new Editor({
 
 ### 4. **Lexical**
 
-**구조**:
+**Structure**:
 ```
 lexical                    → Core (Editor, Node, Commands)
 @lexical/rich-text         → Rich Text Extension
 @lexical/plain-text        → Plain Text Extension
 ```
 
-**특징**:
-- ✅ Core에 **기본 Command들이 포함**됨
+**Characteristics**:
+- ✅ Core **includes basic Commands**
   - `$insertText()`
   - `$deleteSelection()`
   - `$getSelection()`
-- ✅ 기본 편집 기능이 **core에 내장**
-- ✅ 사용자가 별도 import 없이 사용 가능
+- ✅ Basic editing features are **built into core**
+- ✅ Users can use without separate imports
 
-**사용 예시**:
+**Usage example**:
 ```typescript
 import { $insertText, $deleteSelection } from 'lexical';
 
-// 기본 command가 core에 포함되어 있음
+// Basic commands are included in core
 $insertText('Hello');
 $deleteSelection();
 ```
 
 ---
 
-## 비교 요약
+## Comparison Summary
 
-| 에디터 | Core에 기본 기능 포함? | 기본 기능 제공 방식 |
-|--------|---------------------|-------------------|
-| **ProseMirror** | ❌ | 별도 패키지 (`@prosemirror/commands`) |
-| **Slate.js** | ✅ | Core에 `Transforms` 포함 |
-| **Tiptap** | ❌ | Extension으로 제공 (`@tiptap/starter-kit`) |
-| **Lexical** | ✅ | Core에 Command 함수 포함 |
-
----
-
-## 패턴 분석
-
-### 패턴 1: Core에 기본 기능 포함 (Slate.js, Lexical)
-**장점**:
-- ✅ 사용자가 즉시 사용 가능
-- ✅ 별도 패키지 설치 불필요
-- ✅ 간단한 사용법
-
-**단점**:
-- ⚠️ Core 패키지 크기 증가
-- ⚠️ Tree-shaking 어려움
-- ⚠️ 기본 기능 제거 불가
-
-### 패턴 2: 별도 패키지로 제공 (ProseMirror, Tiptap)
-**장점**:
-- ✅ Core 패키지 경량화
-- ✅ Tree-shaking 최적화 가능
-- ✅ 사용자가 선택적으로 설치
-
-**단점**:
-- ⚠️ 사용자가 명시적으로 import 필요
-- ⚠️ 기본 기능 누락 가능성
-- ⚠️ 초기 설정 복잡
+| Editor | Basic Features in Core? | How Basic Features Provided |
+|--------|------------------------|---------------------------|
+| **ProseMirror** | ❌ | Separate package (`@prosemirror/commands`) |
+| **Slate.js** | ✅ | Core includes `Transforms` |
+| **Tiptap** | ❌ | Provided as Extension (`@tiptap/starter-kit`) |
+| **Lexical** | ✅ | Core includes Command functions |
 
 ---
 
-## 우리 에디터에 대한 권장사항
+## Pattern Analysis
 
-### 현재 상황
-- `editor-core`: Extension 시스템만 제공
-- `@barocss/extensions`: 기본 Extension들 제공
-- 사용자가 명시적으로 `createCoreExtensions()` 호출 필요
+### Pattern 1: Include Basic Features in Core (Slate.js, Lexical)
+**Advantages**:
+- ✅ Users can use immediately
+- ✅ No separate package installation needed
+- ✅ Simple usage
 
-### 권장 접근 방식
+**Disadvantages**:
+- ⚠️ Core package size increase
+- ⚠️ Difficult tree-shaking
+- ⚠️ Cannot remove basic features
 
-#### 옵션 A: Core에 기본 기능 포함 (Slate.js/Lexical 방식) ✅ **권장**
+### Pattern 2: Provide as Separate Package (ProseMirror, Tiptap)
+**Advantages**:
+- ✅ Core package lightweight
+- ✅ Tree-shaking optimization possible
+- ✅ Users can selectively install
 
-**이유**:
-1. **사용자 경험**: 기본 편집 기능(insertText, delete)은 **항상 필요**
-2. **일관성**: 다른 에디터들도 기본 기능은 core에 포함
-3. **편의성**: 사용자가 별도 설정 없이 즉시 사용 가능
+**Disadvantages**:
+- ⚠️ Users must explicitly import
+- ⚠️ Possibility of missing basic features
+- ⚠️ Complex initial setup
 
-**구현**:
+---
+
+## Recommendations for Our Editor
+
+### Current Situation
+- `editor-core`: Only provides Extension system
+- `@barocss/extensions`: Provides basic Extensions
+- Users must explicitly call `createCoreExtensions()`
+
+### Recommended Approach
+
+#### Option A: Include Basic Features in Core (Slate.js/Lexical Approach) ✅ **Recommended**
+
+**Reasons**:
+1. **User experience**: Basic editing features (insertText, delete) are **always needed**
+2. **Consistency**: Other editors also include basic features in core
+3. **Convenience**: Users can use immediately without separate setup
+
+**Implementation**:
 ```typescript
 // packages/editor-core/src/editor.ts
 constructor(options: EditorOptions = {}) {
   // ...
   
-  // 기본 Extension 자동 등록 (항상 포함)
+  // Automatically register basic Extensions (always included)
   // TextExtension, DeleteExtension, ParagraphExtension
   this._registerCoreExtensions();
   
-  // 사용자 Extension 추가 등록
+  // Add user Extensions
   if (options.extensions) {
     options.extensions.forEach(ext => this.use(ext));
   }
 }
 
 private _registerCoreExtensions() {
-  // Core Extension을 editor-core 내부에 직접 구현
-  // 또는 @barocss/extensions를 optional dependency로 사용
+  // Implement Core Extensions directly in editor-core
+  // Or use @barocss/extensions as optional dependency
 }
 ```
 
-**주의사항**:
-- `editor-core`가 `@barocss/extensions`에 의존하게 됨
-- 순환 의존 방지 필요
+**Notes**:
+- `editor-core` will depend on `@barocss/extensions`
+- Need to prevent circular dependencies
 
-#### 옵션 B: 현재 방식 유지 (ProseMirror/Tiptap 방식)
+#### Option B: Maintain Current Approach (ProseMirror/Tiptap Approach)
 
-**이유**:
-1. **경량화**: Core 패키지 크기 최소화
-2. **유연성**: 사용자가 필요한 Extension만 선택
-3. **의존성 분리**: Core가 Extension 구현에 의존하지 않음
+**Reasons**:
+1. **Lightweight**: Minimize core package size
+2. **Flexibility**: Users can select only needed Extensions
+3. **Dependency separation**: Core does not depend on Extension implementation
 
-**현재 구현**:
+**Current implementation**:
 ```typescript
-// 사용자가 명시적으로 등록
+// Users explicitly register
 const editor = new Editor({
   coreExtensions: createCoreExtensions(),
   extensions: createBasicExtensions()
@@ -225,22 +225,22 @@ const editor = new Editor({
 
 ---
 
-## 결론
+## Conclusion
 
-### ✅ **권장: 옵션 A (Core에 기본 기능 포함)**
+### ✅ **Recommend: Option A (Include Basic Features in Core)**
 
-**이유**:
-1. **기본 편집 기능은 필수**: `insertText`, `delete`는 모든 에디터에서 필요
-2. **사용자 경험**: 별도 설정 없이 즉시 사용 가능
-3. **일관성**: Slate.js, Lexical과 유사한 패턴
+**Reasons**:
+1. **Basic editing features are essential**: `insertText`, `delete` are needed in all editors
+2. **User experience**: Can use immediately without separate setup
+3. **Consistency**: Similar pattern to Slate.js, Lexical
 
-**구현 방법**:
-- `editor-core` 내부에 기본 Extension 구현
-- 또는 `@barocss/extensions`를 **optional dependency**로 사용
-- Editor 생성자에서 자동 등록
+**Implementation method**:
+- Implement basic Extensions inside `editor-core`
+- Or use `@barocss/extensions` as **optional dependency**
+- Auto-register in Editor constructor
 
-**대안**:
-- 현재 방식 유지하되, **편의 함수 제공**:
+**Alternative**:
+- Maintain current approach but **provide convenience function**:
   ```typescript
   // @barocss/extensions
   export function createEditorWithDefaults(options?: EditorOptions) {
@@ -249,4 +249,3 @@ const editor = new Editor({
     return editor;
   }
   ```
-

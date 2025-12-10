@@ -1,75 +1,75 @@
-# Editable Node API 제안
+# Editable Node API Proposal
 
-## 현재 구현 상태
+## Current Implementation Status
 
-### ✅ 이미 구현된 것
+### ✅ Already Implemented
 
-1. **스키마 속성**
-   - `editable?: boolean` - block 노드의 편집 가능 여부
+1. **Schema attribute**
+   - `editable?: boolean` - Whether block node is editable
 
-2. **Private 함수**
-   - `_isEditableNode(nodeId: string): boolean` - 편집 가능 여부 확인 (private)
+2. **Private function**
+   - `_isEditableNode(nodeId: string): boolean` - Check if editable (private)
 
 3. **Public API**
-   - `getPreviousEditableNode(nodeId: string): string | null` - 이전 편집 가능한 노드 찾기
-   - `getNextEditableNode(nodeId: string): string | null` - 다음 편집 가능한 노드 찾기
+   - `getPreviousEditableNode(nodeId: string): string | null` - Find previous editable node
+   - `getNextEditableNode(nodeId: string): string | null` - Find next editable node
 
 ---
 
-## 추가 제안 사항
+## Additional Proposals
 
 ### 1. Public API: `isEditableNode()`
 
-**목적:** Extension이나 Command에서 노드의 편집 가능 여부를 확인
+**Purpose:** Check if node is editable from Extension or Command
 
-**시그니처:**
+**Signature:**
 ```typescript
 isEditableNode(nodeId: string): boolean
 ```
 
-**사용 예시:**
+**Usage example:**
 ```typescript
-// Extension에서 사용
+// Use in Extension
 if (dataStore.isEditableNode(nodeId)) {
-  // 편집 가능한 노드에 대한 처리
+  // Handle editable node
 } else {
-  // 편집 불가능한 노드에 대한 처리
+  // Handle non-editable node
 }
 ```
 
-**구현 위치:**
-- `packages/datastore/src/data-store.ts`에 public 메서드 추가
-- 내부적으로 `utility._isEditableNode()` 호출
+**Implementation location:**
+- Add public method to `packages/datastore/src/data-store.ts`
+- Internally call `utility._isEditableNode()`
 
 ---
 
-### 2. 편집 가능한 노드 목록 조회
+### 2. Query Editable Node List
 
-**목적:** 문서 내 모든 편집 가능한 노드를 조회
+**Purpose:** Query all editable nodes in document
 
-**시그니처:**
+**Signature:**
 ```typescript
 getEditableNodes(options?: {
   filter?: (node: INode) => boolean;
-  includeText?: boolean; // .text 필드가 있는 노드 포함 여부
-  includeInline?: boolean; // inline 노드 포함 여부
-  includeEditableBlocks?: boolean; // editable: true인 block 노드 포함 여부
+  includeText?: boolean; // Include nodes with .text field
+  includeInline?: boolean; // Include inline nodes
+  includeEditableBlocks?: boolean; // Include editable: true block nodes
 }): INode[]
 ```
 
-**사용 예시:**
+**Usage example:**
 ```typescript
-// 모든 편집 가능한 노드 조회
+// Query all editable nodes
 const editableNodes = dataStore.getEditableNodes();
 
-// 텍스트 노드만 조회
+// Query only text nodes
 const textNodes = dataStore.getEditableNodes({
   includeText: true,
   includeInline: false,
   includeEditableBlocks: false
 });
 
-// editable block 노드만 조회
+// Query only editable block nodes
 const editableBlocks = dataStore.getEditableNodes({
   includeText: false,
   includeInline: false,
@@ -79,18 +79,18 @@ const editableBlocks = dataStore.getEditableNodes({
 
 ---
 
-### 3. 편집 가능한 노드로 필터링
+### 3. Filter Editable Nodes
 
-**목적:** DocumentIterator나 다른 쿼리 결과를 편집 가능한 노드로 필터링
+**Purpose:** Filter DocumentIterator or other query results to editable nodes
 
-**시그니처:**
+**Signature:**
 ```typescript
 filterEditableNodes(nodeIds: string[]): string[]
 ```
 
-**사용 예시:**
+**Usage example:**
 ```typescript
-// 모든 노드 중 편집 가능한 노드만 필터링
+// Filter to editable nodes from all nodes
 const allNodes = dataStore.findNodesByType('*');
 const editableNodeIds = dataStore.filterEditableNodes(
   allNodes.map(n => n.sid!)
@@ -99,11 +99,11 @@ const editableNodeIds = dataStore.filterEditableNodes(
 
 ---
 
-### 4. 편집 가능한 노드 통계 정보
+### 4. Editable Node Statistics
 
-**목적:** 문서 내 편집 가능한 노드의 통계 정보 제공
+**Purpose:** Provide statistics on editable nodes in document
 
-**시그니처:**
+**Signature:**
 ```typescript
 getEditableNodeStats(): {
   total: number;
@@ -114,22 +114,22 @@ getEditableNodeStats(): {
 }
 ```
 
-**사용 예시:**
+**Usage example:**
 ```typescript
 const stats = dataStore.getEditableNodeStats();
-console.log(`총 ${stats.total}개의 편집 가능한 노드`);
-console.log(`텍스트 노드: ${stats.textNodes}개`);
-console.log(`Inline 노드: ${stats.inlineNodes}개`);
-console.log(`Editable Block: ${stats.editableBlocks}개`);
+console.log(`Total ${stats.total} editable nodes`);
+console.log(`Text nodes: ${stats.textNodes}`);
+console.log(`Inline nodes: ${stats.inlineNodes}`);
+console.log(`Editable Blocks: ${stats.editableBlocks}`);
 ```
 
 ---
 
-### 5. 편집 가능한 노드 범위 계산
+### 5. Calculate Editable Node Range
 
-**목적:** 특정 범위 내 편집 가능한 노드들의 범위 계산
+**Purpose:** Calculate range of editable nodes within specific range
 
-**시그니처:**
+**Signature:**
 ```typescript
 getEditableNodeRange(startNodeId: string, endNodeId: string): {
   startNodeId: string;
@@ -139,28 +139,28 @@ getEditableNodeRange(startNodeId: string, endNodeId: string): {
 }
 ```
 
-**사용 예시:**
+**Usage example:**
 ```typescript
-// 두 노드 사이의 편집 가능한 노드 범위 계산
+// Calculate range of editable nodes between two nodes
 const range = dataStore.getEditableNodeRange('text-1', 'text-5');
-console.log(`범위 내 노드 수: ${range.nodeIds.length}`);
-console.log(`총 텍스트 길이: ${range.totalTextLength}`);
+console.log(`Number of nodes in range: ${range.nodeIds.length}`);
+console.log(`Total text length: ${range.totalTextLength}`);
 ```
 
 ---
 
-### 6. 편집 가능한 노드 검색
+### 6. Search Editable Nodes
 
-**목적:** 특정 조건에 맞는 편집 가능한 노드 검색
+**Purpose:** Search editable nodes matching specific conditions
 
-**시그니처:**
+**Signature:**
 ```typescript
 findEditableNodes(predicate: (node: INode) => boolean): INode[]
 ```
 
-**사용 예시:**
+**Usage example:**
 ```typescript
-// 텍스트 길이가 10 이상인 편집 가능한 노드 찾기
+// Find editable nodes with text length >= 10
 const longTextNodes = dataStore.findEditableNodes(
   node => node.text && node.text.length >= 10
 );
@@ -168,82 +168,82 @@ const longTextNodes = dataStore.findEditableNodes(
 
 ---
 
-### 7. 편집 가능한 노드 그룹화
+### 7. Group Editable Nodes
 
-**목적:** 편집 가능한 노드를 타입별로 그룹화
+**Purpose:** Group editable nodes by type
 
-**시그니처:**
+**Signature:**
 ```typescript
 groupEditableNodesByType(): Record<string, INode[]>
 ```
 
-**사용 예시:**
+**Usage example:**
 ```typescript
 const grouped = dataStore.groupEditableNodesByType();
-console.log('inline-text 노드:', grouped['inline-text']);
-console.log('codeBlock 노드:', grouped['codeBlock']);
+console.log('inline-text nodes:', grouped['inline-text']);
+console.log('codeBlock nodes:', grouped['codeBlock']);
 ```
 
 ---
 
-## 우선순위
+## Priority
 
-### Phase 1: 필수 API (즉시 구현)
-1. ✅ `isEditableNode()` - Public API로 노출
-   - Extension/Command에서 자주 사용
-   - 현재 private 함수를 public으로 노출
+### Phase 1: Essential API (Implement immediately)
+1. ✅ `isEditableNode()` - Expose as public API
+   - Frequently used in Extension/Command
+   - Expose current private function as public
 
-### Phase 2: 유용한 API (단기)
-2. ✅ `getEditableNodes()` - 편집 가능한 노드 목록 조회
-   - 문서 분석, 통계 등에 유용
-3. ✅ `filterEditableNodes()` - 필터링 유틸리티
-   - 다른 쿼리 결과와 조합하여 사용
+### Phase 2: Useful API (Short term)
+2. ✅ `getEditableNodes()` - Query editable node list
+   - Useful for document analysis, statistics, etc.
+3. ✅ `filterEditableNodes()` - Filtering utility
+   - Use in combination with other query results
 
-### Phase 3: 고급 API (중기)
-4. ✅ `getEditableNodeStats()` - 통계 정보
-   - 문서 분석, 디버깅에 유용
-5. ✅ `getEditableNodeRange()` - 범위 계산
-   - Selection 처리, 텍스트 추출 등에 유용
+### Phase 3: Advanced API (Medium term)
+4. ✅ `getEditableNodeStats()` - Statistics
+   - Useful for document analysis, debugging
+5. ✅ `getEditableNodeRange()` - Range calculation
+   - Useful for Selection handling, text extraction, etc.
 
-### Phase 4: 선택적 API (장기)
-6. ✅ `findEditableNodes()` - 검색
-   - 특정 조건 검색이 필요한 경우
-7. ✅ `groupEditableNodesByType()` - 그룹화
-   - 타입별 분석이 필요한 경우
+### Phase 4: Optional API (Long term)
+6. ✅ `findEditableNodes()` - Search
+   - When specific condition search is needed
+7. ✅ `groupEditableNodesByType()` - Grouping
+   - When type-based analysis is needed
 
 ---
 
-## 구현 예시
+## Implementation Examples
 
-### `isEditableNode()` 구현
+### `isEditableNode()` Implementation
 
 ```typescript
 // packages/datastore/src/data-store.ts
 /**
- * 노드가 편집 가능한 노드인지 확인합니다.
+ * Checks if node is an editable node.
  * 
- * 편집 가능한 노드:
- * - 텍스트 노드 (.text 필드가 있음)
- * - inline 노드 (group === 'inline')
- * - editable block 노드 (group === 'block' && editable === true && .text 필드 있음)
+ * Editable nodes:
+ * - Text nodes (have .text field)
+ * - Inline nodes (group === 'inline')
+ * - Editable block nodes (group === 'block' && editable === true && have .text field)
  * 
- * @param nodeId 노드 ID
- * @returns 편집 가능 여부
+ * @param nodeId Node ID
+ * @returns Whether editable
  */
 isEditableNode(nodeId: string): boolean {
   return this.utility._isEditableNode(nodeId);
 }
 ```
 
-### `getEditableNodes()` 구현
+### `getEditableNodes()` Implementation
 
 ```typescript
 // packages/datastore/src/operations/utility-operations.ts
 /**
- * 문서 내 모든 편집 가능한 노드를 조회합니다.
+ * Queries all editable nodes in document.
  * 
- * @param options 필터 옵션
- * @returns 편집 가능한 노드 배열
+ * @param options Filter options
+ * @returns Array of editable nodes
  */
 getEditableNodes(options?: {
   filter?: (node: INode) => boolean;
@@ -265,7 +265,7 @@ getEditableNodes(options?: {
       continue;
     }
 
-    // 타입별 필터링
+    // Filter by type
     const schema = (this.dataStore as any)._activeSchema;
     if (schema) {
       const nodeType = schema.getNodeType?.(node.stype);
@@ -287,7 +287,7 @@ getEditableNodes(options?: {
       }
     }
 
-    // 커스텀 필터 적용
+    // Apply custom filter
     if (filter && !filter(node)) {
       continue;
     }
@@ -301,30 +301,29 @@ getEditableNodes(options?: {
 
 ---
 
-## 테스트 케이스
+## Test Cases
 
-각 API에 대한 테스트 케이스를 추가해야 합니다:
+Test cases should be added for each API:
 
-1. `isEditableNode()` 테스트
-   - 텍스트 노드
-   - inline 노드
-   - editable block 노드
-   - 일반 block 노드
-   - document 노드
+1. `isEditableNode()` tests
+   - Text node
+   - Inline node
+   - Editable block node
+   - Regular block node
+   - Document node
 
-2. `getEditableNodes()` 테스트
-   - 모든 편집 가능한 노드 조회
-   - 타입별 필터링
-   - 커스텀 필터 적용
+2. `getEditableNodes()` tests
+   - Query all editable nodes
+   - Filter by type
+   - Apply custom filter
 
-3. `filterEditableNodes()` 테스트
-   - 빈 배열
-   - 모든 편집 가능한 노드
-   - 편집 불가능한 노드 포함
+3. `filterEditableNodes()` tests
+   - Empty array
+   - All editable nodes
+   - Including non-editable nodes
 
 ---
 
-## 문서화
+## Documentation
 
-각 API에 대한 JSDoc 주석과 사용 예시를 추가해야 합니다.
-
+JSDoc comments and usage examples should be added for each API.

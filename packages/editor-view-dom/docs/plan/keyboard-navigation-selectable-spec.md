@@ -1,293 +1,265 @@
-## 키보드 이동 & Selectable 노드 스펙 (Model / editor-view-dom 기준)
+## Keyboard Navigation & Selectable Node Spec (Model / editor-view-dom)
 
-이 문서는 **키보드로 Selection을 이동할 때**  
-`editable` / `selectable` / `block` 정보를 어떻게 활용할지 정의한다.
+This doc defines how to use `editable` / `selectable` / `block` info when moving selection with the keyboard.
 
-- Backspace / DeleteForward 의 동작은 이미 `DeleteExtension` + `DataStore` 기반으로 정의되어 있다.
-- 여기서는 **화살표 키(← → ↑ ↓)**와 Tab 등을 눌렀을 때,
-  - 텍스트 커서 이동 (RangeSelection)
-  - 노드 선택 이동 (NodeSelection)
-  를 어떻게 수행할지에 초점을 맞춘다.
+- Backspace / DeleteForward behaviors are already defined via `DeleteExtension` + `DataStore`.
+- Here we focus on what happens when pressing Arrow keys (← → ↑ ↓) and Tab:
+  - Moving the text cursor (RangeSelection)
+  - Moving to select whole nodes (NodeSelection)
 
 ---
 
-## 1. 기본 개념 정리
+## 1. Core concepts
 
-### 1.1 Editable vs Selectable (요약)
+### 1.1 Editable vs Selectable (summary)
 
 - **Editable Node**
   - `DataStore.isEditableNode(nodeId) === true`
-  - Backspace / DeleteForward / 화살표 키로 **커서가 들어갈 수 있는 노드**
-  - 예:
-    - 텍스트 노드 (`typeof node.text === 'string'`)
-    - `editable: true` 인 block (codeBlock 등)의 내부 텍스트
+  - The cursor can enter with Backspace / DeleteForward / Arrow keys
+  - Examples:
+    - Text nodes (`typeof node.text === 'string'`)
+    - Blocks with `editable: true` (e.g., codeBlock) where inner text is editable
 
 - **Selectable Node**
   - `DataStore.isSelectableNode(nodeId) === true`
-  - **클릭 또는 키보드 이동으로 전체가 선택될 수 있는 노드**
-  - 예:
-    - inline-image (`group: 'inline', atom: true, text 없음`)
-    - table block, widget block (`group: 'block', selectable: true`)
+  - The entire node can be selected via click or keyboard move
+  - Examples:
+    - Inline image (`group: 'inline', atom: true, no text`)
+    - Table block, widget block (`group: 'block', selectable: true`)
 
-### 1.2 Selection 타입
+### 1.2 Selection types
 
 - **ModelRangeSelection**
-  - 텍스트 범위 또는 커서 위치
+  - Text range or caret position
   - `type: 'range'`, `startNodeId`, `startOffset`, `endNodeId`, `endOffset`, `collapsed`
 
 - **ModelNodeSelection**
-  - 노드 전체 선택
+  - Whole-node selection
   - `type: 'node'`, `nodeId`
 
-editor-view-dom 은 `DOMSelectionHandler`를 통해:
+editor-view-dom uses `DOMSelectionHandler` to convert:
 
-- DOM Selection ↔ ModelRangeSelection / ModelNodeSelection 간 변환을 담당한다.
+- DOM Selection ↔ ModelRangeSelection / ModelNodeSelection
 
-### 1.3 Shift / Multi-node Selection에 대한 단계적 목표
+### 1.3 Shift / Multi-node selection: staged goals
 
-- **1단계 (현재 목표)**:
-  - 키보드 이동(Arrow, Backspace, DeleteForward)은 **모두 ModelRangeSelection** 기준으로만 처리한다.
-  - Shift + Arrow 역시 RangeSelection 확장만 다루고,  
-    MultiNodeSelection / NodeSelection + Shift 는 다루지 않는다.
-  - NodeSelection / MultiNodeSelection 은 마우스 + modifier (Ctrl/Cmd + click) 위주로 설계한다.
-- **2단계 (향후)**:
-  - 키보드만으로도 MultiNodeSelection 을 쌓을 수 있는 규칙을 정의할 수 있다.
-  - 예: NodeSelection 상태에서 Shift + Arrow 로 인접 노드를 포함하는 멀티 선택.
-  - 이 단계는 toolbar / component manager / selection-system 전체와 연동이 필요하므로  
-    별도 문서/라운드에서 정의한다.
+- **Phase 1 (current goal)**:
+  - Keyboard moves (Arrow, Backspace, DeleteForward) are handled only as **ModelRangeSelection**.
+  - Shift + Arrow only extends RangeSelection; no MultiNodeSelection / NodeSelection + Shift yet.
+  - NodeSelection / MultiNodeSelection is primarily mouse + modifier (Ctrl/Cmd + click).
+- **Phase 2 (later)**:
+  - Define rules to build MultiNodeSelection via keyboard (e.g., from NodeSelection, Shift + Arrow adds adjacent nodes).
+  - Needs coordination with toolbar / component manager / selection-system; handle in a later spec.
 
 ---
 
-## 2. editor-view-dom 의 역할
+## 2. Role of editor-view-dom
 
-### 2.1 공통 패턴 (Backspace / Delete 와 동일)
+### 2.1 Common pattern (same as Backspace / Delete)
 
-editor-view-dom 은 **키 이벤트를 직접 해석하지 않고**, 항상 다음 패턴을 따른다:
+editor-view-dom does not interpret key semantics directly. It always:
 
-1. **DOM Selection → Model Selection 변환**
+1. **Convert DOM Selection → Model Selection**
    - `this.selectionHandler.convertDOMSelectionToModel(domSelection)`
-2. **적절한 Command 호출**
+2. **Dispatch the appropriate command**
    - Backspace: `editor.executeCommand('backspace', { selection: modelSelection })`
    - Delete: `editor.executeCommand('deleteForward', { selection: modelSelection })`
-   - 화살표/탭 이동:
+   - Arrows/Tab:
      - `editor.executeCommand('moveCursorLeft',  { selection: modelSelection })`
      - `editor.executeCommand('moveCursorRight', { selection: modelSelection })`
      - `editor.executeCommand('moveCursorUp',    { selection: modelSelection })`
      - `editor.executeCommand('moveCursorDown',  { selection: modelSelection })`
 
-> **원칙**:  
-> editor-view-dom 은 **DOM ↔ Model Selection 변환 + command 디스패치만 담당**한다.  
-> 실제 “어디로 이동할지 / 무엇을 선택할지”는 Extension 또는 core command 가 결정한다.
+> Principle: editor-view-dom only handles DOM↔Model selection conversion and command dispatch. Deciding where to move/what to select is owned by the Extension or core command.
 
-### 2.2 Selection 반영
+### 2.2 Applying the selection
 
-Command 가 ModelSelection 또는 ModelNodeSelection 을 결정하면:
+When a command decides on ModelSelection or ModelNodeSelection:
 
-1. `SelectionManager` 가 내부 selection state 를 업데이트한다.
-2. editor-view-dom 의 `SelectionHandler` 가 이를 DOM Selection 으로 반영한다.
-   - RangeSelection → 텍스트 커서/범위로 반영
-   - NodeSelection → 해당 노드 DOM 전체를 선택 영역(예: wrapper div)으로 반영
+1. `SelectionManager` updates internal selection state.
+2. editor-view-dom `SelectionHandler` reflects it into DOM Selection:
+   - RangeSelection → text caret/range
+   - NodeSelection → highlight/select the entire node DOM (e.g., wrapper div)
 
 ---
 
-## 3. MoveSelectionExtension (가칭) 설계
+## 3. MoveSelectionExtension (working name)
 
-키보드 이동은 별도의 Extension 에서 처리한다.  
-여기서는 이름을 **MoveSelectionExtension** 이라고 부른다.
+Keyboard moves are handled in a separate Extension, here called **MoveSelectionExtension**.
 
-### 3.1 책임
+### 3.1 Responsibilities
 
-MoveSelectionExtension 은 다음 command 들을 등록하고 구현한다:
+MoveSelectionExtension registers and implements:
 
 - `moveCursorLeft`
 - `moveCursorRight`
 - `moveCursorUp`
 - `moveCursorDown`
 
-각 command 는:
+Each command:
 
-1. 현재 selection (range / node) 를 입력으로 받는다.
-2. `DataStore` 의 helper 를 이용해 다음 타겟을 결정한다.
+1. Receives the current selection (range / node).
+2. Uses `DataStore` helpers to decide the next target:
    - `getPreviousEditableNode`, `getNextEditableNode`
    - `isSelectableNode`, `isEditableNode`
    - `getParent`, `getChildren`
-3. 최종 ModelSelection / ModelNodeSelection 을 만들어 `SelectionManager` 에 전달한다.
+3. Builds the final ModelSelection / ModelNodeSelection and passes it to `SelectionManager`.
 
-### 3.2 수평 이동 (Left / Right)
+### 3.2 Horizontal moves (Left / Right)
 
-#### 3.2.1 RangeSelection 상태 (텍스트 안에 커서/범위)
+#### 3.2.1 When in RangeSelection (cursor/range inside text)
 
-**케이스 1: 텍스트 안에서의 단순 이동**
+**Case 1: Simple move inside the same text node**
 
-- 같은 텍스트 노드 안에서는 selection-handler 의 **텍스트 오프셋 알고리즘**을 그대로 사용한다.
-  - `startOffset > 0` 이면:
+- Within the same text node, reuse selection-handler’s **text offset algorithm**.
+  - If `startOffset > 0`:
     - Left: `startOffset - 1`
-  - `startOffset < textLength` 이면:
+  - If `startOffset < textLength`:
     - Right: `startOffset + 1`
 
-**케이스 2: 텍스트 끝/처음에서 인접 노드로 이동**
+**Case 2: At text boundary, move to adjacent node**
 
-- Left 키, `startOffset === 0`:
+- Left, at `startOffset === 0`:
   1. `const prevEditable = dataStore.getPreviousEditableNode(startNodeId)`
-  2. prevEditable 이:
-     - **editable** 이면 → 해당 노드의 **마지막 텍스트 offset** 으로 RangeSelection 이동
-     - **editable 이 아니고 selectable 이면**:
-       - `ModelNodeSelection` 으로 전환 (`type: 'node', nodeId: prevEditable`)
+  2. If `prevEditable` is:
+     - **editable** → move RangeSelection to the **last text offset** of that node
+     - **not editable but selectable** → switch to `ModelNodeSelection` (`{ type: 'node', nodeId: prevEditable }`)
 
-- Right 키, `startOffset === textLength`:
+- Right, at `startOffset === textLength`:
   1. `const nextEditable = dataStore.getNextEditableNode(startNodeId)`
-  2. nextEditable 이:
-     - editable 이면 → 해당 노드의 **처음 offset 0** 으로 RangeSelection 이동
-     - editable 이 아니고 selectable 이면:
-       - `ModelNodeSelection` 으로 전환
+  2. If `nextEditable` is:
+     - editable → move RangeSelection to **offset 0** of that node
+     - not editable but selectable → switch to `ModelNodeSelection`
 
-> 이 때 **“editable 이 아니고 selectable 인지”** 여부는  
-> `isEditableNode(nextId) === false` && `isSelectableNode(nextId) === true` 로 판별한다.
+> Check “not editable but selectable” via `!isEditableNode(nextId) && isSelectableNode(nextId)`.
 
-#### 3.2.1-Shift RangeSelection 확장 (Shift + Left / Shift + Right)
+#### 3.2.1-Shift RangeSelection expansion (Shift + Left / Shift + Right)
 
-- **원칙**:
-  - Shift + Arrow 는 항상 **RangeSelection 확장**만 담당한다.
-  - NodeSelection / MultiNodeSelection 은 키보드 기반으로는 아직 지원하지 않는다.
+- Principle:
+  - Shift + Arrow always **extends RangeSelection only**.
+  - Keyboard does not yet create NodeSelection / MultiNodeSelection.
 
-- **같은 노드 안에서**:
-  - Shift + Right:
-    - focus 쪽 offset 을 `+1` 하여 `selectRange(startOffset, endOffset+1)`
-  - Shift + Left:
-    - focus 쪽 offset 을 `-1` 하여 `selectRange(startOffset-1, endOffset)`
+- **Within the same node**:
+  - Shift + Right: increment the focus offset (`endOffset + 1`)
+  - Shift + Left: decrement the focus offset (`startOffset - 1`)
 
-- **노드 경계를 넘을 때**:
-  - Right, caret 이 텍스트 끝에 있고 Shift 가 눌린 상태:
-    - `getNextEditableNode(startNodeId)` 를 호출하여 다음 텍스트 노드를 찾는다.
-    - 다음 텍스트 노드가 있으면:
-      - `selectRangeMulti(startNodeId, startOffset, nextNodeId, 1)` 처럼  
-        cross-node RangeSelection 으로 확장한다.
-  - Left, caret 이 텍스트 처음에 있고 Shift 가 눌린 상태:
-    - `getPreviousEditableNode(startNodeId)` 로 이전 텍스트 노드를 찾고,
-    - 이전 텍스트 노드의 마지막 글자까지 범위를 확장한다.
+- **Crossing node boundaries**:
+  - Right at end of text with Shift:
+    - `getNextEditableNode(startNodeId)` to find the next text node.
+    - If it exists, extend to cross-node range (e.g., `selectRangeMulti(startNodeId, startOffset, nextNodeId, 1)`).
+  - Left at start of text with Shift:
+    - `getPreviousEditableNode(startNodeId)` to find the previous text node.
+    - Extend through that node’s last character.
 
-- **inline-image 등 non-text에 대한 Shift + Arrow**:
-  - 현재 단계에서는 **NodeSelection / MultiNodeSelection 로 확장하지 않는다.**
-  - inline-image 구간에서 Shift + Arrow 를 눌렀을 때의 정확한 UX 는  
-    selection-system / multi-node-spec 이 정리된 후 별도 라운드에서 정의한다.
+- **Shift + Arrow on non-text like inline images**:
+  - Do not expand to NodeSelection / MultiNodeSelection in this phase.
+  - Exact UX for inline images + Shift will be defined after selection-system / multi-node-spec is finalized.
 
-#### 3.2.1-Ctrl/Alt 조합 (Ctrl/Alt + Left / Right)
+#### 3.2.1-Ctrl/Alt combos (Ctrl/Alt + Left / Right)
 
-- **현재 단계 정의**:
-  - Ctrl/Alt 키가 눌려 있어도, 좌우 화살표의 **논리 동작은 Shift 여부만** 고려한다.
-  - 즉, `Ctrl+ArrowLeft/Right`, `Alt+ArrowLeft/Right` 는  
-    - Shift 가 없으면 → `moveCursorLeft/Right` 와 동일한 **한 글자 단위 이동**
-    - Shift 가 있으면 → `Shift+ArrowLeft/Right` 와 동일한 **RangeSelection 확장**
-- **단어 단위 이동/선택 (word-wise navigation)**:
-  - 단어 단위 이동/선택 (`Ctrl+Arrow`, `Ctrl+Shift+Arrow` / macOS 에서 `Alt+Arrow`) 은  
-    DataStore 의 word boundary 정의 및 i18n 이슈가 정리된 이후 별도 스펙으로 추가한다.
-  - 이 스펙이 도입되기 전까지는, Ctrl/Alt 수정자는 MoveSelectionExtension 에서  
-    추가적인 의미를 갖지 않는다 (브라우저 수준에서만 해석되는 키 조합 없음).
+- **Current phase**:
+  - Ctrl/Alt does not change the logic; only Shift matters.
+  - `Ctrl+ArrowLeft/Right`, `Alt+ArrowLeft/Right` →
+    - Without Shift: same as `moveCursorLeft/Right` (single-char move)
+    - With Shift: same as `Shift+ArrowLeft/Right` (range expand)
+- **Word-wise navigation**:
+  - Word-boundary moves (`Ctrl+Arrow`, `Ctrl+Shift+Arrow`; on macOS `Alt+Arrow`) will be added later after DataStore word-boundary/i18n decisions.
+  - Until then, Ctrl/Alt modifiers have no extra meaning in MoveSelectionExtension.
 
-#### 3.2.2 NodeSelection 상태 (노드 전체 선택) – 향후 단계
+#### 3.2.2 NodeSelection state (whole node selected) – later phase
 
-현재 구현에서는 MoveSelectionExtension 이 **RangeSelection**만 다루며,  
-NodeSelection / MultiNodeSelection 은 키보드에서 직접 생성하지 않는다.
+Current implementation focuses on **RangeSelection** only; keyboard does not create NodeSelection / MultiNodeSelection yet.
 
-향후 단계에서 다음과 같은 규칙을 도입할 수 있다:
+Future rules could include:
 
-- NodeSelection 상태에서 Left/Right:
-  - 이전/다음 editable 노드로 RangeSelection 전환
-  - 또는 인접 selectable 노드로 NodeSelection 이동
+- From NodeSelection, Left/Right:
+  - Switch to RangeSelection in previous/next editable node
+  - Or move NodeSelection to adjacent selectable node
 - Shift + Left/Right:
-  - 인접 selectable 노드를 포함하는 MultiNodeSelection 생성
+  - Build MultiNodeSelection including adjacent selectable nodes
 
-그러나 이는 toolbar, component manager, selection-system 의  
-multi-node selection 스펙이 먼저 정리된 뒤에 구현한다.
+These require a defined multi-node selection spec (toolbar, component manager, selection-system) before implementation.
 
 ---
 
-## 4. 수직 이동 (Up / Down)
+## 4. Vertical moves (Up / Down)
 
-수직 이동은 DOM 레벨의 **라인 개념**과 맞추는 것이 이상적이지만, 구현 난이도가 높다.
+Vertical moves ideally match DOM line concepts, but that’s complex.
 
-### 4.1 현재 단계: 브라우저 네이티브 Up/Down 유지
+### 4.1 Current phase: keep browser-native Up/Down
 
-- Up/Down 에 대해서는 당분간 **브라우저 기본 caret 이동**을 그대로 사용한다.
+- For now, Up/Down uses **browser default caret movement**.
 - editor-view-dom:
-  - Left/Right, Backspace, Delete 키는 Model-first 로 가로채서 Command 로 처리한다.
-  - Up/Down 키는 특별한 처리를 하지 않고 브라우저 네이티브 동작에 맡긴다.
-- DOMSelection → ModelSelection 변환 시:
-  - Up/Down 으로 caret 이 이동한 이후의 DOMSelection 을  
-    최대한 근접한 ModelSelection 으로 정규화하되,
-  - 라인 단위 정확도까지는 보장하지 않는다.
+  - Left/Right, Backspace, Delete are intercepted (model-first) and dispatched as commands.
+  - Up/Down is left to native behavior.
+- When converting DOMSelection → ModelSelection after Up/Down:
+  - Normalize to the closest possible ModelSelection,
+  - Do not guarantee line-accurate positioning.
 
-이 접근은:
+This lets us focus on horizontal moves/deletes/selectables while observing Up/Down sync issues.
 
-- 수평 이동 / 삭제 / selectable 처리에 집중하면서,
-- Up/Down 으로 인한 Selection-sync 문제를 관찰할 시간을 벌기 위함이다.
+### 4.2 Later phase: model-first Up/Down
 
-### 4.2 향후 단계: Model-first Up/Down
+Future approach:
 
-향후에는 다음과 같은 방향으로 Up/Down 을 Model-first 로 재정의할 수 있다:
+1. Use `getBoundingClientRect()` to read caret x/y.
+2. selection-handler finds the nearest text/inline position on the above/below line using that x.
+3. Convert to ModelSelection and reset DOMSelection accordingly.
 
-1. `getBoundingClientRect()` 기반으로 현재 caret 의 x좌표, y좌표를 얻는다.
-2. selection-handler 가 같은 x좌표를 기준으로 “위/아래 라인에서 가장 가까운 텍스트/inline 위치”를 찾는다.
-3. 해당 위치를 ModelSelection 으로 변환하고, DOMSelection 을 이에 맞춰 재설정한다.
-
-이 단계는:
-
-- table, codeBlock, 다단계 레이아웃 등에서의 caret 동작이 충분히 관찰/정리된 뒤에  
-  별도의 스펙/라운드에서 진행한다.
+This will be tackled after we observe caret behavior in table/codeBlock/multi-column layouts, etc.
 
 ---
 
-## 5. Backspace / DeleteForward 와의 상호작용
+## 5. Interaction with Backspace / DeleteForward
 
-키보드 이동과 삭제는 다음 규칙을 공유한다:
+Keyboard move and delete share these rules:
 
-- **Editable 기준 탐색**:  
+- **Editable-based search**:
   - Backspace: `getPreviousEditableNode`
   - DeleteForward: `getNextEditableNode`
-  - MoveSelection: 동일한 helper 를 사용해 “다음 커서 위치”를 결정
+  - MoveSelection: same helpers to pick the next caret position
 
-- **Selectable 노드 처리**:
+- **Selectable handling**:
   - Delete / Backspace:
-    - inline-image 같은 selectable + editable 노드는 **deleteNode / mergeTextNodes** 로 처리 (이미 구현/테스트 완료).
+    - Selectable + editable nodes like inline-image are handled via `deleteNode / mergeTextNodes` (already implemented/tested).
   - MoveSelection:
-    - Arrow 키로 inline-image 에 도달하면:
-      - Delete 없이 **NodeSelection** 으로만 이동.
-      - 이 상태에서 Delete 키를 누르면 DeleteExtension 이 `deleteNode` 를 수행.
+    - When Arrow hits inline-image:
+      - Move to **NodeSelection only**, no delete.
+      - Pressing Delete then triggers DeleteExtension `deleteNode`.
 
-이렇게 분리하면:
+Separation of concerns:
 
-- MoveSelectionExtension 은 **“어디로 이동할지/무엇을 선택할지”** 만 책임진다.
-- DeleteExtension 은 **“선택된 것을 어떻게 지울지 / 병합할지”** 에만 집중한다.
+- MoveSelectionExtension owns “where to move / what to select”.
+- DeleteExtension owns “how to remove/merge the selected target”.
 
 ---
 
-## 6. 구현 및 검증 계획
+## 6. Implementation & validation plan
 
-1. **문서 스펙 고정 (현재 문서)**  
-   - editable / selectable / block 에 따른 이동 규칙을 확정한다.
+1. **Lock the spec (this doc)**
+   - Finalize move rules based on editable/selectable/block.
 
-2. **MoveSelectionExtension 골격 추가 (`@barocss/extensions`)**
-   - `onCreate`에서 `moveCursorLeft/Right/Up/Down` command 등록.
-   - 최소 구현:
-     - RangeSelection + 텍스트 안 단순 이동 (같은 노드 내 offset ±1)
-     - 텍스트 끝/처음에서 `getPreviousEditableNode` / `getNextEditableNode` 호출 후:
+2. **Add MoveSelectionExtension skeleton (`@barocss/extensions`)**
+   - Register `moveCursorLeft/Right/Up/Down` commands in `onCreate`.
+   - Minimal implementation:
+     - RangeSelection + intra-text moves (offset ±1 in same node)
+     - At text boundary, call `getPreviousEditableNode` / `getNextEditableNode`:
        - editable → RangeSelection
        - selectable → NodeSelection
 
-3. **editor-view-dom 연동**
-   - `EditorViewDOM.handleArrowLeft/Right/Up/Down` (또는 key handler)에서:
-     - DOM Selection → ModelSelection 변환
-     - `editor.executeCommand('moveCursorLeft', { selection })` 호출로 변경.
+3. **Wire into editor-view-dom**
+   - In `EditorViewDOM.handleArrowLeft/Right/Up/Down` (or key handler):
+     - Convert DOMSelection → ModelSelection
+     - Call `editor.executeCommand('moveCursorLeft', { selection })`, etc.
 
-4. **단위 테스트 (extensions 패키지)**
-   - Backspace / deleteForward 테스트와 동일한 기법 사용:
-     - fake DataStore + `getPreviousEditableNode`, `getNextEditableNode`, `isSelectableNode` mock.
-     - MoveSelectionExtension 이 만들어내는 selection / operations 를 검증.
+4. **Unit tests (extensions package)**
+   - Similar to Backspace/deleteForward tests:
+     - fake DataStore + mocks for `getPreviousEditableNode`, `getNextEditableNode`, `isSelectableNode`.
+     - Verify selections/operations produced by MoveSelectionExtension.
 
-5. **통합 테스트 (선택 사항)**
-   - editor-view-dom 레벨에서:
-     - 간단한 DOM + selection 을 구성한 뒤
-     - handleArrowLeft/Right 호출 → ModelSelection 변경 → DOMSelection 반영 과정을 snapshot 으로 확인.
+5. **Integration tests (optional)**
+   - At editor-view-dom level:
+     - Build simple DOM + selection
+     - Call handleArrowLeft/Right → ModelSelection change → DOMSelection reflection; snapshot the flow.
 
-이 계획에 따라, MoveSelectionExtension 과 editor-view-dom 의 키보드 이동이  
-
+With this plan, MoveSelectionExtension and editor-view-dom keyboard navigation can be delivered in stages while keeping delete behaviors cleanly separated.

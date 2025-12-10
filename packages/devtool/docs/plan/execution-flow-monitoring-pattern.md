@@ -1,47 +1,47 @@
-# 실행 플로우 모니터링 패턴
+# Execution Flow Monitoring Pattern
 
-## 핵심 원칙
+## Core Principles
 
-**이미 있는 이벤트를 최대한 활용하고, Devtool이 자동으로 플로우를 재구성**
+**Maximize use of existing events, and let Devtool automatically reconstruct flows**
 
-- ✅ 최소한의 추가 이벤트만 추가
-- ✅ Devtool이 timestamp와 패턴 매칭으로 이벤트 연결
-- ✅ 코드 변경 최소화
+- ✅ Add only minimal additional events
+- ✅ Devtool connects events using timestamp and pattern matching
+- ✅ Minimize code changes
 
 ---
 
-## 현재 이벤트 구조
+## Current Event Structure
 
-### 이미 존재하는 이벤트
+### Existing Events
 
-1. **Command 이벤트**
-   - `editor:command.before` - Command 실행 전
-   - `editor:command.execute` - Command 실행
-   - `editor:command.after` - Command 실행 후
+1. **Command Events**
+   - `editor:command.before` - Before command execution
+   - `editor:command.execute` - Command execution
+   - `editor:command.after` - After command execution
 
-2. **Content 이벤트**
-   - `editor:content.change` - Content 변경 (transaction 정보 포함)
+2. **Content Events**
+   - `editor:content.change` - Content change (includes transaction info)
 
-3. **History 이벤트**
-   - `editor:history.change` - History 변경
+3. **History Events**
+   - `editor:history.change` - History change
    - `editor:history.undo` - Undo
    - `editor:history.redo` - Redo
 
-4. **Selection 이벤트**
-   - `editor:selection.change` - Selection 변경
+4. **Selection Events**
+   - `editor:selection.change` - Selection change
 
 ---
 
-## 추가 필요한 이벤트
+## Additional Events Needed
 
-### 1. 브라우저 이벤트 레벨
+### 1. Browser Event Level
 
-**목적**: 브라우저 이벤트 발생 추적
+**Purpose**: Track browser event occurrence
 
 ```typescript
 // packages/editor-view-dom/src/event-handlers/input-handler.ts
 
-// beforeinput 이벤트
+// beforeinput event
 editor.emit('editor:input.beforeinput', {
   inputType: event.inputType,
   data: event.data,
@@ -51,7 +51,7 @@ editor.emit('editor:input.beforeinput', {
   timestamp: Date.now()
 });
 
-// keydown 이벤트
+// keydown event
 editor.emit('editor:input.keydown', {
   key: event.key,
   code: event.code,
@@ -62,7 +62,7 @@ editor.emit('editor:input.keydown', {
   timestamp: Date.now()
 });
 
-// MutationObserver 감지
+// MutationObserver detection
 editor.emit('editor:input.mutation', {
   mutations: mutations.map(m => ({
     type: m.type,
@@ -77,14 +77,14 @@ editor.emit('editor:input.mutation', {
 
 ---
 
-### 2. 함수 실행 레벨
+### 2. Function Execution Level
 
-**목적**: 주요 함수 실행 추적
+**Purpose**: Track key function execution
 
 ```typescript
 // packages/editor-view-dom/src/event-handlers/input-handler.ts
 
-// 함수 시작
+// Function start
 editor.emit('editor:function.start', {
   functionName: 'handleDelete',
   className: 'InputHandlerImpl',
@@ -93,7 +93,7 @@ editor.emit('editor:function.start', {
   timestamp: Date.now()
 });
 
-// 함수 종료
+// Function end
 editor.emit('editor:function.end', {
   functionName: 'handleDelete',
   className: 'InputHandlerImpl',
@@ -106,14 +106,14 @@ editor.emit('editor:function.end', {
 
 ---
 
-### 3. Transaction 레벨
+### 3. Transaction Level
 
-**목적**: Transaction 실행 추적
+**Purpose**: Track transaction execution
 
 ```typescript
 // packages/model/src/transaction.ts
 
-// Transaction 시작
+// Transaction start
 editor.emit('editor:transaction.start', {
   transactionId: transaction.sid,
   operations: operations.map(op => ({
@@ -124,7 +124,7 @@ editor.emit('editor:transaction.start', {
   timestamp: Date.now()
 });
 
-// Transaction 종료
+// Transaction end
 editor.emit('editor:transaction.end', {
   transactionId: transaction.sid,
   success: result.success,
@@ -139,14 +139,14 @@ editor.emit('editor:transaction.end', {
 
 ---
 
-### 4. Operation 레벨
+### 4. Operation Level
 
-**목적**: 개별 Operation 실행 추적
+**Purpose**: Track individual operation execution
 
 ```typescript
 // packages/model/src/transaction.ts
 
-// Operation 시작
+// Operation start
 editor.emit('editor:operation.start', {
   operationId: this._generateOperationId(),
   transactionId: transaction.sid,
@@ -156,7 +156,7 @@ editor.emit('editor:operation.start', {
   timestamp: Date.now()
 });
 
-// Operation 종료
+// Operation end
 editor.emit('editor:operation.end', {
   operationId: operationId,
   transactionId: transaction.sid,
@@ -172,76 +172,76 @@ editor.emit('editor:operation.end', {
 
 ---
 
-## 이벤트 연결 전략
+## Event Connection Strategy
 
-### CorrelationId 기반 연결
+### CorrelationId-Based Connection
 
-각 실행 단위에 `correlationId`를 부여하여 이벤트를 연결:
+Assign `correlationId` to each execution unit to connect events:
 
 ```typescript
-// 예시: handleDelete 실행 플로우
+// Example: handleDelete execution flow
 
-// 1. 브라우저 이벤트
+// 1. Browser event
 editor:input.keydown { correlationId: 'evt-1' }
 
-// 2. 함수 시작
+// 2. Function start
 editor:function.start { 
   functionName: 'handleDelete',
-  correlationId: 'evt-1',  // 부모 이벤트 ID
-  childCorrelationId: 'func-1'  // 자식 이벤트 ID
+  correlationId: 'evt-1',  // Parent event ID
+  childCorrelationId: 'func-1'  // Child event ID
 }
 
-// 3. Command 실행
+// 3. Command execution
 editor:command.execute {
   command: 'deleteText',
-  correlationId: 'func-1',  // 부모 함수 ID
-  childCorrelationId: 'cmd-1'  // 자식 이벤트 ID
+  correlationId: 'func-1',  // Parent function ID
+  childCorrelationId: 'cmd-1'  // Child event ID
 }
 
-// 4. Transaction 시작
+// 4. Transaction start
 editor:transaction.start {
   transactionId: 'txn-123',
-  correlationId: 'cmd-1',  // 부모 Command ID
-  childCorrelationId: 'txn-1'  // 자식 이벤트 ID
+  correlationId: 'cmd-1',  // Parent Command ID
+  childCorrelationId: 'txn-1'  // Child event ID
 }
 
-// 5. Operation 실행
+// 5. Operation execution
 editor:operation.start {
   operationType: 'deleteTextRange',
-  correlationId: 'txn-1',  // 부모 Transaction ID
-  childCorrelationId: 'op-1'  // 자식 이벤트 ID
+  correlationId: 'txn-1',  // Parent Transaction ID
+  childCorrelationId: 'op-1'  // Child event ID
 }
 
-// 6. Operation 종료
+// 6. Operation end
 editor:operation.end {
   operationId: 'op-1',
-  correlationId: 'op-1'  // 같은 Operation ID
+  correlationId: 'op-1'  // Same Operation ID
 }
 
-// 7. Transaction 종료
+// 7. Transaction end
 editor:transaction.end {
   transactionId: 'txn-123',
-  correlationId: 'txn-1'  // 같은 Transaction ID
+  correlationId: 'txn-1'  // Same Transaction ID
 }
 
-// 8. Command 종료
+// 8. Command end
 editor:command.after {
   command: 'deleteText',
-  correlationId: 'cmd-1'  // 같은 Command ID
+  correlationId: 'cmd-1'  // Same Command ID
 }
 
-// 9. 함수 종료
+// 9. Function end
 editor:function.end {
   functionName: 'handleDelete',
-  correlationId: 'func-1'  // 같은 함수 ID
+  correlationId: 'func-1'  // Same function ID
 }
 ```
 
 ---
 
-## Devtool에서 플로우 재구성
+## Flow Reconstruction in Devtool
 
-### 이벤트 수집 및 그룹화
+### Event Collection and Grouping
 
 ```typescript
 // packages/devtool/src/flow-monitor.ts
@@ -255,7 +255,7 @@ export class FlowMonitor {
   }
 
   private setupEventListeners(): void {
-    // 모든 관련 이벤트 수신
+    // Receive all related events
     const eventTypes = [
       'editor:input.beforeinput',
       'editor:input.keydown',
@@ -295,7 +295,7 @@ export class FlowMonitor {
   }
 
   private _reconstructFlow(event: FlowEvent): void {
-    // correlationId를 따라가며 플로우 재구성
+    // Reconstruct flow by following correlationId
     const flowId = this._findRootCorrelationId(event.correlationId);
     
     if (!this.flows.has(flowId)) {
@@ -311,7 +311,7 @@ export class FlowMonitor {
 
     const flow = this.flows.get(flowId)!;
     
-    // 이벤트 타입에 따라 분류
+    // Classify by event type
     if (event.type.startsWith('editor:input.')) {
       flow.events.push(event);
     } else if (event.type.startsWith('editor:function.')) {
@@ -343,18 +343,18 @@ export class FlowMonitor {
 
 ---
 
-## 이벤트 데이터 구조
+## Event Data Structure
 
 ### FlowEvent
 
 ```typescript
 interface FlowEvent {
-  id: string;                    // 고유 ID
-  type: string;                  // 이벤트 타입
-  data: any;                      // 이벤트 데이터
-  timestamp: number;             // 발생 시간
-  correlationId?: string;        // 현재 실행 단위 ID
-  parentCorrelationId?: string;  // 부모 실행 단위 ID
+  id: string;                    // Unique ID
+  type: string;                  // Event type
+  data: any;                      // Event data
+  timestamp: number;             // Occurrence time
+  correlationId?: string;        // Current execution unit ID
+  parentCorrelationId?: string;  // Parent execution unit ID
 }
 ```
 
@@ -362,23 +362,23 @@ interface FlowEvent {
 
 ```typescript
 interface ExecutionFlow {
-  id: string;                    // 플로우 ID (root correlationId)
-  events: FlowEvent[];           // 브라우저 이벤트들
-  functions: FlowEvent[];        // 함수 실행 이벤트들
-  commands: FlowEvent[];         // Command 실행 이벤트들
-  transactions: FlowEvent[];      // Transaction 이벤트들
-  operations: FlowEvent[];       // Operation 이벤트들
-  nodeRanges?: NodeRangeInfo[];  // 관련 노드 범위 정보
+  id: string;                    // Flow ID (root correlationId)
+  events: FlowEvent[];           // Browser events
+  functions: FlowEvent[];        // Function execution events
+  commands: FlowEvent[];         // Command execution events
+  transactions: FlowEvent[];      // Transaction events
+  operations: FlowEvent[];       // Operation events
+  nodeRanges?: NodeRangeInfo[];  // Related node range information
 }
 ```
 
 ---
 
-## 이벤트 emit 전략
+## Event Emit Strategy
 
-### 1. 브라우저 이벤트 레벨
+### 1. Browser Event Level
 
-**위치**: `packages/editor-view-dom/src/event-handlers/input-handler.ts`
+**Location**: `packages/editor-view-dom/src/event-handlers/input-handler.ts`
 
 ```typescript
 private async handleBeforeInput(event: InputEvent): Promise<void> {
@@ -393,7 +393,7 @@ private async handleBeforeInput(event: InputEvent): Promise<void> {
     timestamp: Date.now()
   });
   
-  // ... 처리 로직 ...
+  // ... processing logic ...
 }
 
 private async handleKeydown(event: KeyboardEvent): Promise<void> {
@@ -410,7 +410,7 @@ private async handleKeydown(event: KeyboardEvent): Promise<void> {
     timestamp: Date.now()
   });
   
-  // ... 처리 로직 ...
+  // ... processing logic ...
 }
 
 async handleDomMutations(mutations: MutationRecord[]): Promise<void> {
@@ -428,15 +428,15 @@ async handleDomMutations(mutations: MutationRecord[]): Promise<void> {
     timestamp: Date.now()
   });
   
-  // ... 처리 로직 ...
+  // ... processing logic ...
 }
 ```
 
 ---
 
-### 2. 함수 실행 레벨
+### 2. Function Execution Level
 
-**위치**: `packages/editor-view-dom/src/event-handlers/input-handler.ts`
+**Location**: `packages/editor-view-dom/src/event-handlers/input-handler.ts`
 
 ```typescript
 private async handleDelete(event: InputEvent, correlationId: string): Promise<void> {
@@ -447,13 +447,13 @@ private async handleDelete(event: InputEvent, correlationId: string): Promise<vo
     functionName: 'handleDelete',
     className: 'InputHandlerImpl',
     input: { event, modelSelection: this._getCurrentSelection() },
-    correlationId: correlationId,  // 부모 이벤트 ID
+    correlationId: correlationId,  // Parent event ID
     childCorrelationId: functionCorrelationId,
     timestamp: startTime
   });
   
   try {
-    // ... 처리 로직 ...
+    // ... processing logic ...
     
     this.editor.emit('editor:function.end', {
       functionName: 'handleDelete',
@@ -479,16 +479,16 @@ private async handleDelete(event: InputEvent, correlationId: string): Promise<vo
 
 ---
 
-### 3. Command 레벨
+### 3. Command Level
 
-**위치**: `packages/editor-core/src/editor.ts`
+**Location**: `packages/editor-core/src/editor.ts`
 
 ```typescript
 async executeCommand(command: string, payload?: any): Promise<boolean> {
   const commandCorrelationId = this._generateCorrelationId();
   const startTime = Date.now();
   
-  // Command 실행 전
+  // Before command execution
   this.emit('editor:command.before', {
     command,
     payload,
@@ -510,18 +510,18 @@ async executeCommand(command: string, payload?: any): Promise<boolean> {
     const result = await commandDef.execute(this, payload);
     commandDef.after?.(this, payload);
 
-    // Command 실행
+    // Command execution
     this.emit('editor:command.execute', {
       command,
       payload,
       success: result,
       correlationId: commandCorrelationId,
-      childCorrelationId: this._generateCorrelationId(),  // Transaction용
+      childCorrelationId: this._generateCorrelationId(),  // For Transaction
       duration: Date.now() - startTime,
       timestamp: Date.now()
     });
 
-    // Command 실행 후
+    // After command execution
     this.emit('editor:command.after', {
       command,
       payload,
@@ -546,9 +546,9 @@ async executeCommand(command: string, payload?: any): Promise<boolean> {
 
 ---
 
-### 4. Transaction 레벨
+### 4. Transaction Level
 
-**위치**: `packages/model/src/transaction.ts`
+**Location**: `packages/model/src/transaction.ts`
 
 ```typescript
 async execute(operations: (TransactionOperation | OpFunction)[], correlationId?: string): Promise<TransactionResult> {
@@ -556,7 +556,7 @@ async execute(operations: (TransactionOperation | OpFunction)[], correlationId?:
   const transactionCorrelationId = correlationId || this._generateCorrelationId();
   const startTime = Date.now();
   
-  // Transaction 시작
+  // Transaction start
   this._editor.emit('editor:transaction.start', {
     transactionId,
     operations: operations.map(op => ({
@@ -568,9 +568,9 @@ async execute(operations: (TransactionOperation | OpFunction)[], correlationId?:
   });
   
   try {
-    // ... Transaction 실행 로직 ...
+    // ... Transaction execution logic ...
     
-    // 각 Operation 실행 시
+    // When executing each operation
     for (const operation of operations) {
       const operationCorrelationId = this._generateCorrelationId();
       
@@ -584,7 +584,7 @@ async execute(operations: (TransactionOperation | OpFunction)[], correlationId?:
         timestamp: Date.now()
       });
       
-      // ... Operation 실행 ...
+      // ... Operation execution ...
       
       this._editor.emit('editor:operation.end', {
         operationId: operationId,
@@ -599,7 +599,7 @@ async execute(operations: (TransactionOperation | OpFunction)[], correlationId?:
       });
     }
     
-    // Transaction 종료
+    // Transaction end
     this._editor.emit('editor:transaction.end', {
       transactionId,
       success: true,
@@ -628,113 +628,112 @@ async execute(operations: (TransactionOperation | OpFunction)[], correlationId?:
 
 ---
 
-## Devtool UI 통합
+## Devtool UI Integration
 
-### 1. "Execution Flow" 탭 추가
+### 1. Add "Execution Flow" Tab
 
 ```typescript
 // packages/devtool/src/ui.ts
 
-// 탭 추가
+// Add tab
 <div class="devtool-tabs">
   <button class="devtool-tab" data-tab="tree">Model Tree</button>
   <button class="devtool-tab" data-tab="events">Events</button>
-  <button class="devtool-tab" data-tab="flow">Execution Flow</button>  // 새 탭
+  <button class="devtool-tab" data-tab="flow">Execution Flow</button>  // New tab
 </div>
 
-// 패널 추가
+// Add panel
 <div class="devtool-panel" id="panel-flow">
   <div class="flow-list" id="flow-list"></div>
   <div class="flow-detail" id="flow-detail"></div>
 </div>
 ```
 
-### 2. 플로우 목록 표시
+### 2. Display Flow List
 
 ```typescript
-// 최근 실행 플로우 목록
+// Recent execution flow list
 interface FlowListItem {
   id: string;
-  eventType: string;        // 'beforeinput', 'keydown', 'mutation' 등
-  command?: string;          // 실행된 Command
-  success: boolean;          // 성공 여부
-  duration: number;          // 전체 실행 시간
-  timestamp: number;         // 발생 시간
+  eventType: string;        // 'beforeinput', 'keydown', 'mutation', etc.
+  command?: string;          // Executed Command
+  success: boolean;          // Success status
+  duration: number;          // Total execution time
+  timestamp: number;         // Occurrence time
 }
 ```
 
-### 3. 플로우 상세 정보
+### 3. Flow Detail Information
 
 ```typescript
-// 플로우 트리 시각화
+// Flow tree visualization
 interface FlowDetail {
-  event: FlowEvent;          // 브라우저 이벤트
-  functions: FlowEvent[];    // 함수 실행들
-  commands: FlowEvent[];      // Command 실행들
-  transactions: FlowEvent[];  // Transaction 실행들
-  operations: FlowEvent[];    // Operation 실행들
-  nodeRanges?: NodeRangeInfo[];  // 관련 노드 범위
+  event: FlowEvent;          // Browser event
+  functions: FlowEvent[];    // Function executions
+  commands: FlowEvent[];      // Command executions
+  transactions: FlowEvent[];  // Transaction executions
+  operations: FlowEvent[];    // Operation executions
+  nodeRanges?: NodeRangeInfo[];  // Related node ranges
 }
 ```
 
 ---
 
-## 구현 단계
+## Implementation Phases
 
-### Phase 1: 이벤트 추가 (최소한)
+### Phase 1: Add Events (Minimal)
 
-1. **브라우저 이벤트 이벤트 추가**
+1. **Add browser event events**
    - `editor:input.beforeinput`
    - `editor:input.keydown`
    - `editor:input.mutation`
 
-2. **함수 실행 이벤트 추가**
+2. **Add function execution events**
    - `editor:function.start`
    - `editor:function.end`
 
-3. **Transaction/Operation 이벤트 추가**
+3. **Add Transaction/Operation events**
    - `editor:transaction.start`
    - `editor:transaction.end`
    - `editor:operation.start`
    - `editor:operation.end`
 
-### Phase 2: Devtool 모니터링
+### Phase 2: Devtool Monitoring
 
-1. **FlowMonitor 클래스 구현**
-   - 이벤트 수집
-   - correlationId 기반 플로우 재구성
-   - 플로우 저장 및 조회
+1. **Implement FlowMonitor class**
+   - Event collection
+   - Flow reconstruction based on correlationId
+   - Flow storage and retrieval
 
-2. **Devtool UI 통합**
-   - "Execution Flow" 탭 추가
-   - 플로우 목록 표시
-   - 플로우 상세 정보 표시
+2. **Devtool UI integration**
+   - Add "Execution Flow" tab
+   - Display flow list
+   - Display flow detail information
 
-### Phase 3: 고급 기능
+### Phase 3: Advanced Features
 
-1. **노드 범위 하이라이트**
-2. **플로우 필터링**
-3. **플로우 검색**
-
----
-
-## 장점
-
-1. ✅ **구현 단순**: 각 레이어는 이벤트만 emit
-2. ✅ **유연성**: Devtool이 이벤트를 자유롭게 재구성
-3. ✅ **확장성**: 새로운 이벤트 추가가 쉬움
-4. ✅ **성능**: 이벤트 기반이므로 오버헤드 최소화
+1. **Node range highlighting**
+2. **Flow filtering**
+3. **Flow search**
 
 ---
 
-## 정리
+## Advantages
 
-**핵심**: 각 레이어에서 이벤트를 emit하고, Devtool이 이벤트를 모니터링하여 플로우를 재구성
+1. ✅ **Simple implementation**: Each layer only emits events
+2. ✅ **Flexibility**: Devtool freely reconstructs events
+3. ✅ **Extensibility**: Easy to add new events
+4. ✅ **Performance**: Event-based, so overhead minimized
 
-**이벤트 연결**: `correlationId`와 `parentCorrelationId`로 이벤트 간 관계 추적
+---
 
-**구현 순서**: 
-1. 이벤트 추가 (각 레이어)
-2. Devtool 모니터링 (이벤트 수집 및 재구성)
-3. UI 통합 (플로우 시각화)
+## Summary
 
+**Core**: Each layer emits events, and Devtool monitors events to reconstruct flows
+
+**Event connection**: Track relationships between events using `correlationId` and `parentCorrelationId`
+
+**Implementation order**: 
+1. Add events (each layer)
+2. Devtool monitoring (event collection and reconstruction)
+3. UI integration (flow visualization)

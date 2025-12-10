@@ -2,21 +2,21 @@
 
 ## 1. Overview
 
-Operation DSL은 Barocss Model의 핵심 구성 요소로, **선언적 operation 정의**와 **DSL 기반 operation 생성**을 제공합니다. 이 시스템은 `defineOperation`과 `defineOperationDSL` 두 가지 패턴을 통해 operation을 정의하고 사용할 수 있게 합니다.
+Operation DSL is a core component of Barocss Model, providing **declarative operation definition** and **DSL-based operation creation**. This system enables operation definition and usage through two patterns: `defineOperation` and `defineOperationDSL`.
 
 ### 1.1 Core Philosophy
-- **이중 패턴**: Runtime 정의(`defineOperation`) + DSL 생성(`defineOperationDSL`)
-- **타입 안전성**: TypeScript로 완전한 타입 지원
-- **확장성**: 새로운 operation 추가가 쉬운 구조
-- **일관성**: 모든 operation이 동일한 패턴을 따름
-- **검증**: Schema 검증과 에러 처리가 내장됨
+- **Dual pattern**: Runtime definition (`defineOperation`) + DSL creation (`defineOperationDSL`)
+- **Type safety**: full TypeScript type support
+- **Extensibility**: easy to add new operations
+- **Consistency**: all operations follow the same pattern
+- **Validation**: built-in Schema validation and error handling
 
 ### 1.2 Key Benefits
-- **선언적 정의**: operation의 실행 로직을 명확하게 정의
-- **DSL 생성**: 간편한 함수 호출로 operation 객체 생성
-- **자동 등록**: Global registry를 통한 자동 operation 등록
-- **타입 안전성**: 컴파일 타임 타입 검증
-- **테스트 친화적**: Mock과 실제 구현 모두 지원
+- **Declarative definition**: clearly define operation execution logic
+- **DSL creation**: create operation objects with simple function calls
+- **Auto-registration**: automatic operation registration via global registry
+- **Type safety**: compile-time type verification
+- **Test-friendly**: supports both mocks and actual implementations
 
 ## 2. Architecture
 
@@ -29,7 +29,7 @@ defineOperation('operationType', async (operation: any, context: TransactionCont
   const { nodeId, ...params } = operation.payload;
   // ... operation logic
   
-  // OperationExecuteResult 구조로 반환
+  // Return OperationExecuteResult structure
   return {
     ok: true,
     data: updatedNode,
@@ -38,11 +38,11 @@ defineOperation('operationType', async (operation: any, context: TransactionCont
 });
 ```
 
-**역할:**
-- Operation의 실제 실행 로직 정의
-- Global registry에 등록
-- TransactionContext를 통한 DataStore 접근
-- Schema 검증 및 에러 처리
+**Role:**
+- Define actual execution logic for operations
+- Register in global registry
+- Access DataStore via TransactionContext
+- Schema validation and error handling
 
 #### 2.1.2 defineOperationDSL Pattern
 ```typescript
@@ -52,11 +52,11 @@ export const operationName = defineOperationDSL((...args) => ({
 }));
 ```
 
-**역할:**
-- DSL 기반 operation 객체 생성
+**Role:**
+- Create operation objects based on DSL
 - Type-safe parameter handling
-- Control function과의 연동
-- Operation descriptor 반환
+- Integration with Control function
+- Return operation descriptor
 
 ### 2.2 Global Registry System
 
@@ -72,11 +72,11 @@ class GlobalOperationRegistry {
 }
 ```
 
-**기능:**
-- 모든 operation의 중앙 등록소
-- Runtime에 operation 조회 및 실행
-- TransactionManager에서 사용
-- 동적 operation 로딩 지원
+**Features:**
+- Central registry for all operations
+- Runtime operation lookup and execution
+- Used by TransactionManager
+- Supports dynamic operation loading
 
 #### 2.2.2 OperationDefinition Interface
 ```typescript
@@ -87,10 +87,10 @@ interface OperationDefinition {
 }
 ```
 
-**구성 요소:**
-- `name`: Operation 타입명
-- `execute`: 실제 실행 함수
-- `mapSelection`: Selection 매핑 함수 (선택사항)
+**Components:**
+- `name`: Operation type name
+- `execute`: actual execution function
+- `mapSelection`: Selection mapping function (optional)
 
 ## 3. Type Definitions
 
@@ -121,33 +121,33 @@ interface TransactionContext {
 ## 4. Operation Categories
 
 ### 4.1 Text Operations
-- **setText**: 텍스트 전체 설정
-- **insertText**: 텍스트 삽입
-- **replaceText**: 텍스트 교체
-- **deleteTextRange**: 텍스트 범위 삭제
+- **setText**: set entire text
+- **insertText**: insert text
+- **replaceText**: replace text
+- **deleteTextRange**: delete text range
 
 ### 4.2 Attribute Operations
-- **setAttrs**: 노드 속성 설정
-- **updateAttrs**: 노드 속성 업데이트
+- **setAttrs**: set node attributes
+- **updateAttrs**: update node attributes
 
 ### 4.3 Mark Operations
-- **setMarks**: 마크 전체 설정
-- **applyMark**: 마크 적용
-- **removeMark**: 마크 제거
-- **toggleMark**: 마크 토글
-- **updateMark**: 마크 업데이트
+- **setMarks**: set all marks
+- **applyMark**: apply mark
+- **removeMark**: remove mark
+- **toggleMark**: toggle mark
+- **updateMark**: update mark
 
 ### 4.4 Content Operations
-- **create**: 노드 생성
-- **addChild**: 자식 노드 추가
-- **wrap**: 텍스트 래핑
-- **unwrap**: 텍스트 언래핑
+- **create**: create node
+- **addChild**: add child node
+- **wrap**: wrap text
+- **unwrap**: unwrap text
 
 ### 4.5 Range Operations
-- **indent**: 들여쓰기
-- **outdent**: 내어쓰기
-- **mergeTextNodes**: 텍스트 노드 병합
-- **replacePattern**: 패턴 교체
+- **indent**: indent
+- **outdent**: outdent
+- **mergeTextNodes**: merge text nodes
+- **replacePattern**: replace pattern
 
 ## 5. Implementation Examples
 
@@ -291,14 +291,14 @@ defineOperation('setText', async (operation: any, context: TransactionContext) =
 ```
 
 ### 7.2 Schema Validation
-- DataStore의 `updateNode`에서 자동 스키마 검증
-- 검증 실패 시 `result.valid: false` 반환
-- Operation에서 명시적 에러 처리
+- Automatic schema validation in DataStore's `updateNode`
+- Returns `result.valid: false` on validation failure
+- Explicit error handling in operations
 
 ### 7.3 Transaction Rollback
-- Operation 실패 시 전체 트랜잭션 롤백
-- 원자성 보장
-- 에러 메시지 전파
+- Rollback entire transaction on operation failure
+- Ensures atomicity
+- Propagates error messages
 
 ## 8. Testing
 
@@ -351,31 +351,31 @@ describe('setText DSL', () => {
 ## 9. Best Practices
 
 ### 9.1 Operation Design
-- **단일 책임**: 각 operation은 하나의 명확한 작업만 수행
-- **에러 처리**: 명확한 에러 메시지와 적절한 예외 처리
-- **타입 안전성**: TypeScript 타입을 적극 활용
-- **일관성**: 다른 operation과 동일한 패턴 유지
+- **Single responsibility**: each operation performs one clear task
+- **Error handling**: clear error messages and appropriate exception handling
+- **Type safety**: actively use TypeScript types
+- **Consistency**: maintain the same pattern as other operations
 
 ### 9.2 DSL Design
-- **오버로드 활용**: 다양한 사용 패턴 지원
-- **기본값 제공**: 선택적 매개변수에 적절한 기본값
-- **문서화**: JSDoc을 통한 명확한 사용법 설명
-- **테스트**: 다양한 시나리오에 대한 테스트 작성
+- **Use overloads**: support various usage patterns
+- **Provide defaults**: appropriate defaults for optional parameters
+- **Documentation**: clear usage via JSDoc
+- **Testing**: write tests for various scenarios
 
 ### 9.3 Integration
-- **Control 함수 연동**: `control()` 함수와의 자연스러운 연동
-- **Transaction 통합**: Transaction 시스템과의 원활한 통합
-- **Schema 검증**: DataStore의 스키마 검증 활용
-- **Selection 매핑**: 필요시 Selection 매핑 함수 제공
+- **Control function integration**: natural integration with `control()` function
+- **Transaction integration**: smooth integration with Transaction system
+- **Schema validation**: leverage DataStore's schema validation
+- **Selection mapping**: provide Selection mapping function when needed
 
 ## 10. Extension Guide
 
 ### 10.1 Adding New Operations
-1. **DSL 정의**: `defineOperationDSL`로 DSL 함수 생성
-2. **Runtime 정의**: `defineOperation`으로 실행 로직 정의
-3. **테스트 작성**: DSL과 Runtime 모두 테스트
-4. **문서화**: 사용법과 예제 문서화
-5. **등록**: `register-operations.ts`에 추가
+1. **DSL definition**: create DSL function with `defineOperationDSL`
+2. **Runtime definition**: define execution logic with `defineOperation`
+3. **Write tests**: test both DSL and Runtime
+4. **Documentation**: document usage and examples
+5. **Registration**: add to `register-operations.ts`
 
 ### 10.2 Custom Operation Categories
 ```typescript
@@ -387,38 +387,38 @@ export const customOperation = defineOperationDSL((param: string) => ({
 ```
 
 ### 10.3 Plugin System
-- Global registry를 통한 동적 operation 등록
-- 플러그인별 operation namespace 지원
-- 런타임 operation 로딩 가능
+- Dynamic operation registration via global registry
+- Support operation namespace per plugin
+- Runtime operation loading possible
 
 ## 11. Performance Considerations
 
 ### 11.1 Registry Lookup
-- Map 기반 O(1) 조회 성능
-- 메모리 효율적인 operation 저장
-- 지연 로딩 지원
+- O(1) lookup performance with Map
+- Memory-efficient operation storage
+- Supports lazy loading
 
 ### 11.2 Operation Execution
-- 비동기 실행으로 논블로킹 처리
-- 에러 발생 시 즉시 중단
-- 메모리 누수 방지
+- Non-blocking processing with async execution
+- Immediate abort on error
+- Prevents memory leaks
 
 ### 11.3 DSL Generation
-- 가벼운 객체 생성
-- 불필요한 복사 최소화
-- 타입 안전성과 성능의 균형
+- Lightweight object creation
+- Minimize unnecessary copies
+- Balance type safety and performance
 
 ## 12. Functional DSL (op function)
 
-### 12.1 개요
+### 12.1 Overview
 
-`op()` 함수는 복잡한 로직과 흐름 제어를 위한 함수형 DSL입니다. 기존의 선언적 DSL과 달리 명령형 프로그래밍 스타일로 복잡한 작업을 수행할 수 있습니다.
+The `op()` function is a functional DSL for complex logic and flow control. Unlike the existing declarative DSL, it allows imperative programming style for complex tasks.
 
 ```typescript
-// 함수 시그니처
+// Function signature
 function op(operationFn: (context: TransactionContext) => OpResult | void | Promise<OpResult | void>): OpFunction
 
-// 기본 사용법
+// Basic usage
 const result = await transaction(editor, [
   op(async (ctx) => {
     const node = ctx.dataStore.createNodeWithChildren(
@@ -436,41 +436,41 @@ const result = await transaction(editor, [
 
 ### 12.2 TransactionContext
 
-`op` 함수는 `TransactionContext`를 매개변수로 받습니다:
+The `op` function receives `TransactionContext` as a parameter:
 
 ```typescript
 interface TransactionContext {
-  dataStore: DataStore;           // DataStore 인스턴스 (직접 조작 가능)
-  selectionManager: SelectionManager; // SelectionManager 인스턴스
-  selection?: ModelSelection;     // 현재 선택 영역
-  schema?: any;                   // Schema 인스턴스
-  selectAbsoluteRange: (start: number, end: number) => void; // 절대 위치 선택
-  resolveAbsolute: (position: number) => { nodeId: string; offset: number } | null; // 위치 해석
+  dataStore: DataStore;           // DataStore instance (can manipulate directly)
+  selectionManager: SelectionManager; // SelectionManager instance
+  selection?: ModelSelection;     // current selection
+  schema?: any;                   // Schema instance
+  selectAbsoluteRange: (start: number, end: number) => void; // select by absolute position
+  resolveAbsolute: (position: number) => { nodeId: string; offset: number } | null; // resolve position
 }
 ```
 
-### 12.3 OpResult 구조
+### 12.3 OpResult Structure
 
 ```typescript
 interface OpResult {
-  success: boolean;                    // 성공/실패 여부
-  data?: any;                         // 결과 데이터
-  error?: string;                     // 에러 메시지 (success: false일 때)
-  inverse?: TransactionOperation;     // 역함수 operation (undo용)
+  success: boolean;                    // success/failure status
+  data?: any;                         // result data
+  error?: string;                     // error message (when success: false)
+  inverse?: TransactionOperation;     // inverse operation (for undo)
 }
 ```
 
-### 12.4 지원하는 반환 타입
+### 12.4 Supported Return Types
 
-#### 12.4.1 void (아무것도 반환하지 않음)
+#### 12.4.1 void (returns nothing)
 ```typescript
 op(async (ctx) => {
-  // 부수 효과만 수행 (로깅, 상태 변경 등)
-  // 아무것도 리턴하지 않음
+  // Only perform side effects (logging, state changes, etc.)
+  // Return nothing
 })
 ```
 
-#### 12.4.2 OpResult (성공/실패 결과)
+#### 12.4.2 OpResult (success/failure result)
 ```typescript
 op(async (ctx) => {
   const node = ctx.dataStore.createNodeWithChildren(
@@ -485,7 +485,7 @@ op(async (ctx) => {
 })
 ```
 
-#### 12.4.3 OpResult with inverse (역함수 지정)
+#### 12.4.3 OpResult with inverse (specify inverse)
 ```typescript
 op(async (ctx) => {
   const node = ctx.dataStore.createNodeWithChildren(
@@ -501,7 +501,7 @@ op(async (ctx) => {
 })
 ```
 
-#### 12.4.4 실패 케이스
+#### 12.4.4 Failure case
 ```typescript
 op(async (ctx) => {
   const condition = false;
@@ -519,45 +519,45 @@ op(async (ctx) => {
 })
 ```
 
-### 12.5 실행 흐름
+### 12.5 Execution Flow
 
-1. **Transaction 시작**: `transaction(editor, [op(...)])` 호출
-2. **Operation 등록**: `op` 함수가 `OpFunction` 객체로 변환
-3. **Transaction Commit**: `commit()` 호출 시 `TransactionManager`가 실행
-4. **OpFunction 실행**: `_executeOpFunction`에서 `opFn.execute(context)` 호출
-5. **결과 처리**: `OpResult` 또는 `void` 반환값 처리
-6. **Operation 생성**: `OpResult`는 즉시 operation을 생성하지 않음 (inverse는 undo용)
+1. **Transaction start**: call `transaction(editor, [op(...)])`
+2. **Operation registration**: `op` function is converted to `OpFunction` object
+3. **Transaction commit**: `TransactionManager` executes when `commit()` is called
+4. **OpFunction execution**: `opFn.execute(context)` is called in `_executeOpFunction`
+5. **Result processing**: handle `OpResult` or `void` return value
+6. **Operation creation**: `OpResult` does not immediately create an operation (inverse is for undo)
 
-### 12.6 기존 DSL과의 혼용
+### 12.6 Mixing with Existing DSL
 
 ```typescript
 const result = await transaction(editor, [
-  // 기존 선언적 DSL
+  // Existing declarative DSL
   create(textNode('inline-text', 'Regular operation')),
   
-  // 함수형 DSL
+  // Functional DSL
   op(async (ctx) => {
-    // 커스텀 로직 실행
+    // Execute custom logic
     return { success: true };
   }),
   
-  // 다시 선언적 DSL
+  // Back to declarative DSL
   control('node-sid', setText('Updated text'))
 ]).commit();
 ```
 
-### 12.7 주요 특징
+### 12.7 Key Features
 
-- **비동기 지원**: `async/await` 패턴 완전 지원
-- **직접 DataStore 조작**: `ctx.dataStore`를 통한 직접적인 데이터 조작
-- **조건부 실행**: 일반 JavaScript 문법으로 복잡한 로직 구현
-- **에러 처리**: `try/catch`와 `OpResult.error`를 통한 명확한 에러 처리
-- **역함수 지원**: `inverse` 속성으로 undo 동작 정의
-- **트랜잭션 안전성**: 모든 변경사항이 트랜잭션 내에서 안전하게 실행
+- **Async support**: full support for `async/await` pattern
+- **Direct DataStore manipulation**: direct data manipulation via `ctx.dataStore`
+- **Conditional execution**: implement complex logic with regular JavaScript syntax
+- **Error handling**: clear error handling via `try/catch` and `OpResult.error`
+- **Inverse support**: define undo behavior via `inverse` property
+- **Transaction safety**: all changes execute safely within transaction
 
-### 12.8 사용 사례
+### 12.8 Use Cases
 
-#### 12.8.1 복잡한 조건부 로직
+#### 12.8.1 Complex Conditional Logic
 ```typescript
 op(async (ctx) => {
   const user = await getUser();
@@ -575,7 +575,7 @@ op(async (ctx) => {
 })
 ```
 
-#### 12.8.2 다중 노드 생성
+#### 12.8.2 Multiple Node Creation
 ```typescript
 op(async (ctx) => {
   const nodes = [];
@@ -598,7 +598,7 @@ op(async (ctx) => {
 })
 ```
 
-#### 12.8.3 외부 API 호출과 연동
+#### 12.8.3 External API Call Integration
 ```typescript
 op(async (ctx) => {
   try {
@@ -623,58 +623,58 @@ op(async (ctx) => {
 })
 ```
 
-### 12.9 주의사항
+### 12.9 Notes
 
-- `op((ctx) => { return { type, payload } })` 형태는 지원하지 않음
-- `defineOperation`과 동일한 `OpResult` 구조만 사용
-- `inverse`는 실제로 실행되지 않고 나중에 undo할 때 사용
-- `OpResult`를 반환해도 `result.operations`에는 추가되지 않음 (inverse는 undo용)
-- `ctx.dataStore`를 직접 조작할 때는 스키마 검증을 고려해야 함
+- `op((ctx) => { return { type, payload } })` form is not supported
+- Use only the same `OpResult` structure as `defineOperation`
+- `inverse` is not executed immediately but used later for undo
+- Returning `OpResult` does not add to `result.operations` (inverse is for undo)
+- When manipulating `ctx.dataStore` directly, consider schema validation
 
 ## 13. Operation Registration and Testing
 
 ### 13.1 Operation Registration
-모든 operations은 `register-operations.ts`에서 등록되어야 합니다:
+All operations must be registered in `register-operations.ts`:
 
 ```typescript
 // register-operations.ts
 import './create';
-import './update';  // 필수 등록
+import './update';  // Required registration
 import './delete';
-// ... 기타 operations
+// ... other operations
 ```
 
-**중요 사항:**
-- `defineOperation`으로 정의된 operation은 자동으로 global registry에 등록
-- 테스트에서 사용할 operation은 반드시 등록되어 있어야 함
-- 등록되지 않은 operation은 "Unknown operation type" 에러 발생
+**Important points:**
+- Operations defined with `defineOperation` are automatically registered in global registry
+- Operations used in tests must be registered
+- Unregistered operations throw "Unknown operation type" error
 
 ### 13.2 Testing Best Practices
 
 #### 13.2.1 Node ID Handling
 ```typescript
-// ✅ 올바른 방법
+// ✅ Correct way
 const createResult = await transaction(editor, [
   create(textNode('inline-text', 'Hello'))
 ]).commit();
 
-const nodeId = createResult.operations[0].result.data.sid; // 생성된 ID 사용
+const nodeId = createResult.operations[0].result.data.sid; // Use generated ID
 const updateResult = await transaction(editor, [
   control(nodeId, [{ type: 'setText', payload: { text: 'Updated' } }])
 ]).commit();
 
-// ❌ 잘못된 방법
+// ❌ Incorrect way
 const nodeId = createResult.operations[0].nodeId; // undefined
 ```
 
 #### 13.2.2 Operation Result Access
 ```typescript
-// ✅ 올바른 방법
+// ✅ Correct way
 expect(result.success).toBe(true);
 expect(result.operations[0].result.data.sid).toBeDefined();
 expect(result.operations[0].result.data.text).toBe('Updated');
 
-// ❌ 잘못된 방법
+// ❌ Incorrect way
 expect(result.operations[0].result.sid).toBeDefined(); // undefined
 ```
 
@@ -684,20 +684,20 @@ expect(result.operations[0].result.sid).toBeDefined(); // undefined
 ```
 Error: Unknown operation type: update
 ```
-**해결방법:** `register-operations.ts`에 해당 operation import 추가
+**Solution:** Add import for that operation in `register-operations.ts`
 
 #### 13.3.2 Node ID Access Error
 ```
 TypeError: Cannot read properties of undefined (reading 'id')
 ```
-**해결방법:** `result.data.sid`로 접근
+**Solution:** Access via `result.data.sid`
 
 #### 13.3.3 Payload Structure Error
 ```
 Cannot destructure property 'nodeId' of 'operation.payload' as it is undefined
 ```
-**해결방법:** operation이 `operation.payload`에서 매개변수 추출하도록 구현
+**Solution:** Implement operation to extract parameters from `operation.payload`
 
 ---
 
-이 명세서는 실제 구현된 Operation DSL 시스템을 기반으로 작성되었으며, 모든 예제는 테스트를 통과한 검증된 코드입니다.
+This specification is based on the actual implemented Operation DSL system, and all examples are verified code that has passed tests.

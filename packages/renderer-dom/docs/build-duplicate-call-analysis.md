@@ -1,114 +1,114 @@
-# build 함수 중복 호출 분석
+# build Function Duplicate Call Analysis
 
-## 문제 상황
+## Problem Situation
 
-테스트 로그를 보면 `VNodeBuilder.build`가 각 `inline-text` 노드마다 두 번씩 호출되고 있습니다:
+Test logs show `VNodeBuilder.build` is called twice for each `inline-text` node:
 
 ```
 [VNodeBuilder.build] START: nodeType=inline-text, sid=text-1, stype=inline-text, decoratorsCount=0
 [VNodeBuilder.build] START: nodeType=inline-text, sid=text-1, stype=inline-text, decoratorsCount=0
 ```
 
-## 호출 경로 분석
+## Call Path Analysis
 
-### 1차 호출: DOMRenderer.render()
+### First Call: DOMRenderer.render()
 
 ```
 DOMRenderer.render()
-  └─> builder.build(model.stype, model, options)  [1차 호출]
+  └─> builder.build(model.stype, model, options)  [First call]
       └─> VNodeBuilder.build()
-          └─> _buildElement() 또는 _buildComponent()
+          └─> _buildElement() or _buildComponent()
               └─> _processChild()
-                  └─> slot 처리 시: this.build(childType, child) [slot 내부에서 재호출 가능]
+                  └─> When processing slot: this.build(childType, child) [can be re-called inside slot]
 ```
 
-### 2차 호출: updateComponent 내부
+### Second Call: Inside updateComponent
 
 ```
 reconciler.reconcile()
   └─> reconcileVNodeChildren()
-      └─> updateComponent() [__isReconciling이 false일 때만]
-          └─> buildFromElementTemplate() [2차 호출]
+      └─> updateComponent() [only when __isReconciling is false]
+          └─> buildFromElementTemplate() [Second call]
               └─> _buildElement()
                   └─> _processChild()
-                      └─> slot 처리 시: this.build(childType, child) [slot 내부에서 재호출 가능]
+                      └─> When processing slot: this.build(childType, child) [can be re-called inside slot]
 ```
 
-## 중복 호출이 발생하는 이유
+## Why Duplicate Calls Occur
 
-### 시나리오 1: updateComponent에서 buildFromElementTemplate 호출
+### Scenario 1: buildFromElementTemplate Called in updateComponent
 
-`updateComponent`는 컴포넌트의 이전/다음 상태를 비교하기 위해:
-1. `buildFromElementTemplate(prevElementTemplate, ...)` 호출
-2. `buildFromElementTemplate(nextElementTemplate, ...)` 호출
+`updateComponent` calls:
+1. `buildFromElementTemplate(prevElementTemplate, ...)`
+2. `buildFromElementTemplate(nextElementTemplate, ...)`
 
-이 두 호출은 컴포넌트 내부의 자식 요소들(예: `inline-text`)을 다시 빌드하게 됩니다.
+These two calls rebuild child elements (e.g., `inline-text`) inside the component.
 
-**문제**: 이미 `DOMRenderer.render()`에서 전체 VNode 트리를 빌드했는데, `updateComponent`에서 다시 빌드하고 있습니다.
+**Problem**: Already built entire VNode tree in `DOMRenderer.render()`, but rebuilding again in `updateComponent`.
 
-### 시나리오 2: slot 처리에서 build 호출
+### Scenario 2: build Call in Slot Processing
 
-`_renderSlotGetChildren` 메서드에서:
+In `_renderSlotGetChildren` method:
 ```typescript
 const childVNode = this.build(childType, child, childBuildOptions);
 ```
 
-slot의 자식 요소들을 처리할 때 `build`를 직접 호출합니다.
+Directly calls `build` when processing slot's child elements.
 
-**문제**: slot이 있는 컴포넌트의 경우, `buildFromElementTemplate` 내부에서 slot을 처리하면서 `build`가 다시 호출됩니다.
+**Problem**: For components with slots, `build` is called again when processing slots inside `buildFromElementTemplate`.
 
-## 해결 방안
+## Solutions
 
-### 방안 1: updateComponent에서 VNode 재사용
+### Solution 1: Reuse VNode in updateComponent
 
-`updateComponent`에서 `buildFromElementTemplate`을 호출하는 대신, 이미 빌드된 VNode를 재사용:
+Instead of calling `buildFromElementTemplate` in `updateComponent`, reuse already built VNode:
 
 ```typescript
-// 현재: buildFromElementTemplate 호출
+// Current: Call buildFromElementTemplate
 const prevVNodeForReconcile = context.builder.buildFromElementTemplate(prevElementTemplate, dataForBuildPrev, prevBuildOptions);
 const nextVNodeForReconcile = context.builder.buildFromElementTemplate(nextElementTemplate, dataForBuildNext, nextBuildOptions);
 
-// 개선: 이미 빌드된 VNode 재사용
-// nextVNode는 reconcileVNodeChildren에서 이미 빌드되었으므로 재사용 가능
-const nextVNodeForReconcile = nextVNode; // 이미 빌드된 VNode
+// Improvement: Reuse already built VNode
+// nextVNode is already built in reconcileVNodeChildren, so can reuse
+const nextVNodeForReconcile = nextVNode; // Already built VNode
 ```
 
-**문제**: `nextVNode`는 컴포넌트의 루트 VNode이지, 컴포넌트 내부의 자식 VNode가 아닙니다.
+**Problem**: `nextVNode` is component's root VNode, not child VNode inside component.
 
-### 방안 2: __isReconciling 플래그로 build 호출 차단
+### Solution 2: Block build Call with __isReconciling Flag
 
-`build` 메서드 내부에서 `__isReconciling` 플래그를 확인하여 재호출 방지:
+Check `__isReconciling` flag inside `build` method to prevent re-call:
 
 ```typescript
 build(nodeType: string, data: ModelData = {}, options?: VNodeBuildOptions): VNode {
-  // __isReconciling이 true이면 build를 건너뛰고 캐시된 VNode 반환
+  // Skip build and return cached VNode if __isReconciling is true
   if ((options as any)?.__isReconciling) {
-    // 캐시된 VNode 반환 또는 최소한의 빌드만 수행
+    // Return cached VNode or perform minimal build only
   }
   // ...
 }
 ```
 
-**문제**: 이렇게 하면 컴포넌트 내부의 자식 요소들이 제대로 빌드되지 않을 수 있습니다.
+**Problem**: Child elements inside component may not be built correctly this way.
 
-### 방안 3: buildFromElementTemplate 최적화
+### Solution 3: Optimize buildFromElementTemplate
 
-`buildFromElementTemplate`이 호출될 때, 이미 빌드된 VNode가 있으면 재사용:
+Reuse already built VNode when `buildFromElementTemplate` is called:
 
 ```typescript
 public buildFromElementTemplate(template: ElementTemplate, data: ModelData, options?: VNodeBuildOptions): VNode {
-  // 캐시 키 생성
+  // Generate cache key
   const cacheKey = `${template.tag}-${JSON.stringify(data)}-${JSON.stringify(options)}`;
   
-  // 캐시 확인
+  // Check cache
   if (this._buildCache?.has(cacheKey)) {
     return this._buildCache.get(cacheKey);
   }
   
-  // 빌드 수행
+  // Perform build
   const vnode = this._buildElement(template, data, options);
   
-  // 캐시 저장
+  // Store in cache
   if (this._buildCache) {
     this._buildCache.set(cacheKey, vnode);
   }
@@ -117,38 +117,37 @@ public buildFromElementTemplate(template: ElementTemplate, data: ModelData, opti
 }
 ```
 
-**문제**: 데이터가 변경되면 캐시가 무효화되어야 하는데, 이를 추적하기 어렵습니다.
+**Problem**: Cache must be invalidated when data changes, but tracking this is difficult.
 
-### 방안 4: updateComponent 호출 조건 개선
+### Solution 4: Improve updateComponent Call Conditions
 
-`updateComponent`가 호출되는 조건을 더 엄격하게 제한:
+Make conditions for calling `updateComponent` stricter:
 
 ```typescript
-// 현재: __isReconciling이 false일 때만 호출
+// Current: Only call when __isReconciling is false
 if (!isReconciling) {
   this.components.updateComponent(prevChildVNode || {} as VNode, childVNode, host, context || ({} as any));
 }
 
-// 개선: 컴포넌트가 실제로 변경되었을 때만 호출
+// Improvement: Only call when component actually changed
 if (!isReconciling && hasComponentChanged(prevChildVNode, childVNode)) {
   this.components.updateComponent(prevChildVNode || {} as VNode, childVNode, host, context || ({} as any));
 }
 ```
 
-**문제**: `hasComponentChanged`를 정확히 판단하기 어렵습니다.
+**Problem**: Difficult to accurately determine `hasComponentChanged`.
 
-## 권장 해결 방안
+## Recommended Solution
 
-**방안 2 + 방안 4 조합**:
+**Combination of Solution 2 + Solution 4**:
 
-1. `updateComponent`에서 `buildFromElementTemplate`을 호출할 때, 이미 빌드된 VNode의 자식들을 재사용
-2. `__isReconciling` 플래그를 `build` 메서드에 전달하여 불필요한 재빌드 방지
-3. slot 처리에서도 `__isReconciling` 플래그를 확인하여 재호출 방지
+1. When calling `buildFromElementTemplate` in `updateComponent`, reuse children of already built VNode
+2. Pass `__isReconciling` flag to `build` method to prevent unnecessary rebuilds
+3. Check `__isReconciling` flag in slot processing to prevent re-calls
 
-## 다음 단계
+## Next Steps
 
-1. `build` 메서드에 `__isReconciling` 플래그 지원 추가
-2. `updateComponent`에서 이미 빌드된 VNode 재사용 로직 추가
-3. slot 처리에서 `__isReconciling` 플래그 확인 로직 추가
-4. 테스트로 검증
-
+1. Add `__isReconciling` flag support to `build` method
+2. Add logic to reuse already built VNode in `updateComponent`
+3. Add logic to check `__isReconciling` flag in slot processing
+4. Verify with tests

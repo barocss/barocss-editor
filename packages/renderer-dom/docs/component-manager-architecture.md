@@ -1,25 +1,25 @@
-# ComponentManager 아키텍처
+# ComponentManager Architecture
 
-## 현재 구조
+## Current Structure
 
-### ComponentManager 생성 위치
+### ComponentManager Creation Location
 
 ```
-DOMRenderer (인스턴스)
-  └── componentManager: ComponentManager (인스턴스 변수)
-  └── builder: VNodeBuilder (componentStateProvider로 ComponentManager 전달)
-  └── reconciler: Reconciler (ComponentManager 전달)
+DOMRenderer (instance)
+  └── componentManager: ComponentManager (instance variable)
+  └── builder: VNodeBuilder (ComponentManager passed as componentStateProvider)
+  └── reconciler: Reconciler (ComponentManager passed)
 ```
 
-**현재 상태:**
-- `ComponentManager`는 `DOMRenderer`의 인스턴스 변수로 존재
-- 각 `DOMRenderer`마다 독립적인 `ComponentManager` 인스턴스
-- `VNodeBuilder`는 `componentStateProvider`로 `ComponentManager` 참조를 받음
-- `Reconciler`는 `ComponentManager`를 직접 받음
+**Current State:**
+- `ComponentManager` exists as instance variable of `DOMRenderer`
+- Each `DOMRenderer` has independent `ComponentManager` instance
+- `VNodeBuilder` receives `ComponentManager` reference as `componentStateProvider`
+- `Reconciler` receives `ComponentManager` directly
 
-### ComponentContext 생성 위치
+### ComponentContext Creation Location
 
-`ComponentContext`는 `ComponentManager.mountComponent()`에서 생성됩니다:
+`ComponentContext` is created in `ComponentManager.mountComponent()`:
 
 ```typescript
 // ComponentManager.mountComponent()
@@ -34,37 +34,37 @@ const componentContext = {
 };
 ```
 
-## context.instance 설정 위치
+## context.instance Setting Location
 
-### 옵션 1: ComponentManager에서 설정 (권장)
+### Option 1: Set in ComponentManager (Recommended)
 
-**장점:**
-- `ComponentManager`가 이미 `componentInstances` Map을 관리하고 있음
-- `BaseComponentState` 인스턴스(`__stateInstance`)도 `ComponentManager`에서 생성/관리
-- `mountComponent()`에서 `componentContext`를 생성하는 시점에 `instance` 설정 가능
+**Advantages:**
+- `ComponentManager` already manages `componentInstances` Map
+- `BaseComponentState` instance (`__stateInstance`) is also created/managed in `ComponentManager`
+- Can set `instance` when creating `componentContext` in `mountComponent()`
 
-**구현:**
+**Implementation:**
 ```typescript
 // ComponentManager.mountComponent()
 const stateInst: BaseComponentState | undefined = (instance as any).__stateInstance;
 
 const componentContext = {
   // ...
-  instance: stateInst,  // BaseComponentState 인스턴스 직접 전달
+  instance: stateInst,  // Pass BaseComponentState instance directly
   // ...
 };
 ```
 
-### 옵션 2: VNodeBuilder에서 설정
+### Option 2: Set in VNodeBuilder
 
-**단점:**
-- `VNodeBuilder`는 VNode 생성만 담당, 컴포넌트 마운트는 모름
-- `ComponentManager`의 인스턴스에 접근하기 어려움
-- `componentStateProvider`는 상태 조회만 가능, 인스턴스 접근은 제한적
+**Disadvantages:**
+- `VNodeBuilder` only handles VNode creation, doesn't know component mounting
+- Difficult to access `ComponentManager`'s instance
+- `componentStateProvider` can only query state, instance access is limited
 
-## 권장 구조
+## Recommended Structure
 
-### ComponentManager가 context.instance 설정
+### ComponentManager Sets context.instance
 
 ```typescript
 // ComponentManager.mountComponent()
@@ -77,49 +77,48 @@ const componentContext = {
   model: instance.model,
   decorators: instance.decorators,
   registry: context.registry,
-  instance: stateInst,  // BaseComponentState 인스턴스
+  instance: stateInst,  // BaseComponentState instance
   setState: (newState) => {
-    // stateInst.set() 호출
-    // 전체 render 트리거 (나중에 구현)
+    // Call stateInst.set()
+    // Trigger full render (to be implemented later)
   },
   // ...
 };
 ```
 
-**이유:**
-1. `ComponentManager`가 이미 `BaseComponentState` 인스턴스를 생성/관리
-2. `componentContext` 생성 시점에 `instance` 설정 가능
-3. `sid` 기반 관리로 일관성 보장
+**Reasons:**
+1. `ComponentManager` already creates/manages `BaseComponentState` instance
+2. Can set `instance` when creating `componentContext`
+3. Ensures consistency with `sid`-based management
 
-## ComponentManager의 위치
+## ComponentManager Location
 
-### 현재: DOMRenderer 인스턴스 변수
+### Current: DOMRenderer Instance Variable
 
-**장점:**
-- 렌더러별로 독립적인 인스턴스 관리
-- 여러 `DOMRenderer` 인스턴스가 각각 관리 가능
+**Advantages:**
+- Independent instance management per renderer
+- Multiple `DOMRenderer` instances can each manage independently
 
-**단점:**
-- 여러 `DOMRenderer` 인스턴스 간 상태 공유 불가
+**Disadvantages:**
+- Cannot share state between multiple `DOMRenderer` instances
 
-### 대안: Global Singleton
+### Alternative: Global Singleton
 
-**장점:**
-- 모든 곳에서 동일한 인스턴스 참조
-- 상태 공유 용이
+**Advantages:**
+- Same instance referenced everywhere
+- Easy state sharing
 
-**단점:**
-- 여러 에디터 인스턴스 사용 시 문제 가능
-- 테스트 시 격리 어려움
+**Disadvantages:**
+- May cause issues when using multiple editor instances
+- Difficult to isolate in tests
 
-## 결론
+## Conclusion
 
-**권장:**
-- `context.instance`는 `ComponentManager.mountComponent()`에서 설정
-- `ComponentManager`는 현재처럼 `DOMRenderer` 인스턴스 변수로 유지
-- `sid` 기반 관리로 같은 `DOMRenderer` 내에서는 일관성 보장
+**Recommended:**
+- `context.instance` is set in `ComponentManager.mountComponent()`
+- `ComponentManager` remains as `DOMRenderer` instance variable as currently
+- `sid`-based management ensures consistency within same `DOMRenderer`
 
-**나중에 구현할 것:**
-- `context.instance.setState()` 호출 시 전체 `render`를 트리거 (부분 업데이트 API 없음)
-- 이는 `Reconciler` 작업 시 함께 구현
-
+**To implement later:**
+- Trigger full `render` when `context.instance.setState()` is called (no partial update API)
+- This will be implemented together with `Reconciler` work

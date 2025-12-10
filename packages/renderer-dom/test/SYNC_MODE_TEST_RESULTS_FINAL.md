@@ -1,6 +1,6 @@
-# 동기 모드 테스트 최종 결과
+# Sync Mode Test Final Results
 
-## ✅ 통과한 테스트
+## ✅ Passing Tests
 
 1. **reconciler-component-updatebysid.test.ts** - ✅ 3 passed
 2. **reconciler-update-flow.test.ts** - ✅ 8 passed
@@ -8,45 +8,44 @@
 4. **reconciler-complex-scenarios.test.ts** - ✅ 8 passed
 5. **reconciler-selection-preservation.test.ts** - ✅ 2 passed
 6. **reconcile-root-basic.test.ts** - ✅ 2 passed
-7. **reconciler-text-vnode.test.ts** - ✅ 4 passed (sid 추가로 수정)
-8. **reconciler-prevvnode-nextvnode.test.ts** - ✅ 15 passed (data-bc-stype 제거, 스타일 세미콜론 수정)
-9. **reconciler-lifecycle.test.ts** - ✅ 6 passed (await 제거)
+7. **reconciler-text-vnode.test.ts** - ✅ 4 passed (fixed by adding sid)
+8. **reconciler-prevvnode-nextvnode.test.ts** - ✅ 15 passed (removed data-bc-stype, fixed style semicolon)
+9. **reconciler-lifecycle.test.ts** - ✅ 6 passed (removed await)
 
-**총 통과**: 138 tests
+**Total passing**: 138 tests
 
-## ❌ 실패한 테스트
+## ❌ Failing Tests
 
 1. **reconciler-component-state-integration.test.ts** - ❌ 5 failed, 2 passed
-   - 컴포넌트 상태 통합 테스트
-   - 동기 모드에서 상태 변경 후 렌더링 타이밍 문제 가능
+   - Component state integration tests
+   - Possible rendering timing issue after state change in sync mode
 
 2. **reconciler-selection-pool.behavior.test.ts** - ❌ 1 failed, 1 passed
-   - Selection 노드 재사용 로직 문제
+   - Selection node reuse logic issue
 
 3. **reconciler-mark-wrapper-reuse.test.ts** - ❌ 3 failed, 5 passed
-   - Mark wrapper 재사용 로직 문제
+   - Mark wrapper reuse logic issue
 
-## 수정 사항
+## Fixes
 
-### 1. `data-bc-stype` 제거
-- 렌더링 시 `data-bc-stype` 속성을 설정하지 않도록 변경
-- 테스트에서 `data-bc-stype` 기대값 제거
+### 1. Removed `data-bc-stype`
+- Changed to not set `data-bc-stype` attribute on render
+- Removed `data-bc-stype` expectations from tests
 
-### 2. `waitForFiber()` 완전 제거
-- 모든 테스트에서 `waitForFiber()` 제거
-- 동기 모드에서는 즉시 완료되므로 불필요
+### 2. Completely Removed `waitForFiber()`
+- Removed `waitForFiber()` from all tests
+- Unnecessary in sync mode as it completes immediately
 
-### 3. `await` 제거
-- 동기 모드에서는 모든 작업이 즉시 완료되므로 `await` 불필요
-- 마이크로태스크 대기 코드 제거
+### 3. Removed `await`
+- Unnecessary in sync mode as all work completes immediately
+- Removed microtask wait code
 
-### 4. 테스트 수정
-- `reconciler-text-vnode.test.ts`: `sid` 추가
-- `reconciler-prevvnode-nextvnode.test.ts`: `data-bc-stype` 제거, 스타일 세미콜론 수정
+### 4. Test Fixes
+- `reconciler-text-vnode.test.ts`: added `sid`
+- `reconciler-prevvnode-nextvnode.test.ts`: removed `data-bc-stype`, fixed style semicolon
 
-## 남은 작업
+## Remaining Work
 
-1. `reconciler-component-state-integration.test.ts` 실패 원인 분석 및 수정
-2. `reconciler-selection-pool.behavior.test.ts` 실패 원인 분석 및 수정
-3. `reconciler-mark-wrapper-reuse.test.ts` 실패 원인 분석 및 수정
-
+1. Analyze and fix failure causes in `reconciler-component-state-integration.test.ts`
+2. Analyze and fix failure causes in `reconciler-selection-pool.behavior.test.ts`
+3. Analyze and fix failure causes in `reconciler-mark-wrapper-reuse.test.ts`

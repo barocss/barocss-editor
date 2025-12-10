@@ -1,104 +1,104 @@
-# Decorator 제거 시 텍스트 분할 문제 분석
+# Decorator Removal Text Splitting Issue Analysis
 
-## 문제 상황
+## Problem Situation
 
-### 테스트 케이스: "decorator 추가 → 제거 → 다시 추가"
+### Test Case: "Add decorator → Remove → Add again"
 
-**3단계: decorator 제거 후 예상 결과**
+**Step 3: Expected result after decorator removal**
 ```
 Expected: "<div><p class="paragraph" data-bc-sid="p-1"><span class="text" data-bc-sid="text-1">Hello World</span></p></div>"
 ```
 
-**실제 결과**
+**Actual Result**
 ```
 Received: "<div><p class="paragraph" data-bc-sid="p-1"><span class="text" data-bc-sid="text-1">Hello World<span>Hello</span><span>World</span></span></p></div>"
 ```
 
-### 문제점
-- Decorator는 제거되었지만, decorator가 생성한 분할된 텍스트 요소(`<span>Hello</span><span>World</span>`)가 DOM에 남아있음
-- 텍스트 노드 "Hello World"와 분할된 요소들이 공존하는 상태
+### Issues
+- Decorator removed, but split text elements (`<span>Hello</span><span>World</span>) created by decorator remain in DOM
+- Text node "Hello World" and split elements coexist
 
-## 분석 관점
+## Analysis Perspective
 
-### 1. Reconcile 입장에서의 관찰
+### 1. Observation from Reconcile Perspective
 
-**핵심 질문**: Reconcile 입장에서는 그냥 VNode가 변경되었을 뿐인가?
+**Core Question**: From Reconcile's perspective, is it just that VNode changed?
 
-- **예**: Reconcile은 VNodeBuilder가 생성한 VNode 트리를 받아서 DOM과 비교하고 업데이트함
-- **문제 가능성**: 
-  1. VNodeBuilder가 decorator 제거 시 올바른 VNode를 생성하지 않았을 수 있음
-  2. Reconcile이 decorator가 생성한 분할된 텍스트 요소를 제거하지 못했을 수 있음
+- **Yes**: Reconcile receives VNode tree created by VNodeBuilder, compares with DOM, and updates
+- **Possible Issues**: 
+  1. VNodeBuilder may not create correct VNode when decorator removed
+  2. Reconcile may not remove split text elements created by decorator
 
-### 2. 가능한 원인
+### 2. Possible Causes
 
-#### 원인 1: VNodeBuilder 문제
-- Decorator가 제거되었을 때 VNodeBuilder가 여전히 분할된 텍스트 구조를 생성
-- 예: `[{ tag: 'span', text: 'Hello' }, { tag: 'span', text: 'World' }]` 형태로 생성
-- Reconcile은 이 VNode를 그대로 처리하므로 분할된 요소가 남음
+#### Cause 1: VNodeBuilder Issue
+- VNodeBuilder still creates split text structure when decorator removed
+- Example: Creates in form `[{ tag: 'span', text: 'Hello' }, { tag: 'span', text: 'World' }]`
+- Reconcile processes this VNode as-is, so split elements remain
 
-#### 원인 2: Reconcile 처리 문제
-- VNodeBuilder가 올바른 VNode를 생성했지만, Reconcile이 이전에 decorator가 생성한 DOM 요소를 제거하지 못함
-- 예: `removeStaleDecorators`가 decorator 요소만 제거하고, decorator가 생성한 분할된 텍스트 요소는 제거하지 않음
+#### Cause 2: Reconcile Processing Issue
+- VNodeBuilder creates correct VNode, but Reconcile cannot remove DOM elements previously created by decorator
+- Example: `removeStaleDecorators` only removes decorator elements, doesn't remove split text elements created by decorator
 
-#### 원인 3: 테스트 케이스 문제
-- 테스트가 잘못된 예상 결과를 가지고 있을 수 있음
-- 실제로는 decorator 제거 시 분할된 텍스트가 남는 것이 정상 동작일 수 있음
+#### Cause 3: Test Case Issue
+- Test may have incorrect expected result
+- Actually, leaving split text when decorator removed may be normal behavior
 
-## 조사 필요 사항
+## Investigation Needed
 
-### 1. VNodeBuilder 동작 확인
-- Decorator가 있을 때: 어떤 VNode 구조를 생성하는가?
-- Decorator가 제거되었을 때: 어떤 VNode 구조를 생성하는가?
-- Decorator가 다시 추가되었을 때: 어떤 VNode 구조를 생성하는가?
+### 1. Verify VNodeBuilder Behavior
+- When decorator exists: What VNode structure does it create?
+- When decorator removed: What VNode structure does it create?
+- When decorator added again: What VNode structure does it create?
 
-### 2. Reconcile 처리 확인
-- Decorator VNode가 children에 포함되어 있을 때: 어떻게 처리되는가?
-- Decorator가 제거되었을 때: 이전 decorator가 생성한 DOM 요소는 어떻게 처리되는가?
-- `removeStaleDecorators` 함수: 어떤 요소를 제거하는가?
+### 2. Verify Reconcile Processing
+- When Decorator VNode included in children: How is it processed?
+- When decorator removed: How are DOM elements previously created by decorator processed?
+- `removeStaleDecorators` function: What elements does it remove?
 
-### 3. DOM 구조 확인
-- Decorator가 있을 때 DOM 구조
-- Decorator가 제거되었을 때 예상 DOM 구조
-- 실제 DOM 구조와의 차이점
+### 3. Verify DOM Structure
+- DOM structure when decorator exists
+- Expected DOM structure when decorator removed
+- Differences with actual DOM structure
 
-## 다음 단계
+## Next Steps
 
-1. **VNodeBuilder 로그 확인**: Decorator 제거 시 어떤 VNode를 생성하는지 확인
-2. **Reconcile 로그 확인**: 생성된 VNode를 어떻게 처리하는지 확인
-3. **DOM 구조 비교**: 예상 DOM과 실제 DOM의 차이점 분석
-4. **원인 특정**: VNodeBuilder 문제인지, Reconcile 문제인지, 테스트 문제인지 판단
+1. **Check VNodeBuilder Logs**: Verify what VNode is created when decorator removed
+2. **Check Reconcile Logs**: Verify how generated VNode is processed
+3. **Compare DOM Structures**: Analyze differences between expected and actual DOM
+4. **Identify Cause**: Determine if VNodeBuilder issue, Reconcile issue, or test issue
 
-## 실제 조사 결과
+## Actual Investigation Results
 
-### 핵심 질문: Reconcile 입장에서는 그냥 VNode가 변경되었을 뿐인가?
+### Core Question: From Reconcile's perspective, is it just that VNode changed?
 
-**답변**: 맞습니다. Reconcile은 VNodeBuilder가 생성한 VNode 트리를 받아서 DOM과 비교하고 업데이트합니다.
+**Answer**: Yes. Reconcile receives VNode tree created by VNodeBuilder, compares with DOM, and updates.
 
-### 가능한 시나리오
+### Possible Scenarios
 
-#### 시나리오 1: VNodeBuilder가 decorator 제거 시 올바른 VNode를 생성하지 않음
-- Decorator가 있을 때: `children: [decoratorVNode, splitTextVNode1, splitTextVNode2, ...]`
-- Decorator가 제거되었을 때: VNodeBuilder가 여전히 분할된 텍스트 구조를 생성
-  - 예: `children: [{ tag: 'span', text: 'Hello' }, { tag: 'span', text: 'World' }]`
-- Reconcile은 이 VNode를 그대로 처리하므로 분할된 요소가 DOM에 남음
+#### Scenario 1: VNodeBuilder Doesn't Create Correct VNode When Decorator Removed
+- When decorator exists: `children: [decoratorVNode, splitTextVNode1, splitTextVNode2, ...]`
+- When decorator removed: VNodeBuilder still creates split text structure
+  - Example: `children: [{ tag: 'span', text: 'Hello' }, { tag: 'span', text: 'World' }]`
+- Reconcile processes this VNode as-is, so split elements remain in DOM
 
-#### 시나리오 2: VNodeBuilder는 올바른 VNode를 생성하지만, Reconcile이 이전 DOM을 제거하지 못함
-- Decorator가 제거되었을 때: VNodeBuilder가 `{ tag: 'span', text: 'Hello World', children: [] }` 생성
-- 하지만 이전에 decorator가 생성한 DOM 요소(`<span>Hello</span><span>World</span>`)가 남아있음
-- `removeStaleDecorators`는 `data-decorator-sid`를 가진 요소만 제거하고, decorator가 생성한 분할된 텍스트 요소는 제거하지 않음
+#### Scenario 2: VNodeBuilder Creates Correct VNode But Reconcile Cannot Remove Previous DOM
+- When decorator removed: VNodeBuilder creates `{ tag: 'span', text: 'Hello World', children: [] }`
+- But DOM elements previously created by decorator (`<span>Hello</span><span>World</span>`) remain
+- `removeStaleDecorators` only removes elements with `data-decorator-sid`, doesn't remove split text elements created by decorator
 
-#### 시나리오 3: 테스트 케이스 문제
-- 테스트가 잘못된 예상 결과를 가지고 있을 수 있음
-- 실제로는 decorator 제거 시 분할된 텍스트가 남는 것이 정상 동작일 수 있음
+#### Scenario 3: Test Case Issue
+- Test may have incorrect expected result
+- Actually, leaving split text when decorator removed may be normal behavior
 
-### 현재 `removeStaleDecorators` 동작
+### Current `removeStaleDecorators` Behavior
 
 ```typescript
 export function removeStaleDecorators(
   fiber: FiberNode,
   deps: FiberReconcileDependencies
 ): void {
-  // 현재 children에서 decoratorSid 수집
+  // Collect decoratorSid from current children
   const expectedDecoratorSids = new Set<string>();
   if (vnode.children) {
     for (const child of vnode.children) {
@@ -111,7 +111,7 @@ export function removeStaleDecorators(
     }
   }
   
-  // DOM에서 decorator 요소 찾기 및 제거
+  // Find and remove decorator elements from DOM
   const decoratorElements = Array.from(host.children).filter(
     (el): el is HTMLElement => {
       if (!(el instanceof HTMLElement)) return false;
@@ -123,56 +123,56 @@ export function removeStaleDecorators(
   for (const decoratorEl of decoratorElements) {
     const decoratorSid = decoratorEl.getAttribute('data-decorator-sid');
     if (decoratorSid && !expectedDecoratorSids.has(decoratorSid)) {
-      // 더 이상 children에 없는 decorator는 제거
+      // Remove decorators no longer in children
       try {
         host.removeChild(decoratorEl);
       } catch {
-        // 이미 제거되었을 수 있음
+        // May already be removed
       }
     }
   }
 }
 ```
 
-**문제점**: 
-- `removeStaleDecorators`는 `data-decorator-sid`를 가진 요소만 제거합니다
-- Decorator가 생성한 분할된 텍스트 요소(`<span>Hello</span>`, `<span>World</span>`)는 `data-decorator-sid`가 없으므로 제거되지 않습니다
-- 이 요소들은 decorator가 텍스트를 분할할 때 생성된 것이지만, decorator VNode 자체는 아닙니다
+**Issues**: 
+- `removeStaleDecorators` only removes elements with `data-decorator-sid`
+- Split text elements (`<span>Hello</span>`, `<span>World</span>`) created by decorator don't have `data-decorator-sid`, so not removed
+- These elements were created when decorator split text, but are not decorator VNode itself
 
-### 해결 방안
+### Solutions
 
-1. **VNodeBuilder 확인**: Decorator 제거 시 VNodeBuilder가 어떤 VNode를 생성하는지 확인
-   - 만약 분할된 텍스트 구조를 생성한다면, VNodeBuilder 수정 필요
-   - 만약 단순 텍스트를 생성한다면, Reconcile 문제
+1. **Verify VNodeBuilder**: Verify what VNode VNodeBuilder creates when decorator removed
+   - If creates split text structure, need to fix VNodeBuilder
+   - If creates simple text, Reconcile issue
 
-2. **Reconcile 개선**: Decorator가 제거되었을 때, decorator가 생성한 분할된 텍스트 요소도 제거
-   - `removeStaleDecorators`를 확장하여 `data-decorator-sid`가 없는 요소 중에서도 decorator가 생성한 것으로 추정되는 요소를 제거
-   - 또는 VNodeBuilder가 decorator 제거 시 올바른 VNode를 생성하도록 보장
+2. **Improve Reconcile**: Remove split text elements created by decorator when decorator removed
+   - Extend `removeStaleDecorators` to remove elements estimated to be created by decorator even without `data-decorator-sid`
+   - Or ensure VNodeBuilder creates correct VNode when decorator removed
 
-3. **테스트 검증**: 테스트 케이스가 올바른지 확인
+3. **Verify Tests**: Verify if test case is correct
 
-## 핵심 인사이트
+## Core Insights
 
-### Reconcile의 관점
-- **Reconcile은 VNodeBuilder의 출력만 처리합니다**
-- VNodeBuilder가 decorator 제거 시 분할된 텍스트 구조를 생성하면, Reconcile은 이를 그대로 DOM에 반영합니다
-- VNodeBuilder가 단순 텍스트를 생성하면, Reconcile은 이를 DOM에 반영하지만, 이전에 decorator가 생성한 DOM 요소는 자동으로 제거되지 않습니다
+### Reconcile's Perspective
+- **Reconcile only processes VNodeBuilder's output**
+- If VNodeBuilder creates split text structure when decorator removed, Reconcile reflects it to DOM as-is
+- If VNodeBuilder creates simple text, Reconcile reflects it to DOM, but DOM elements previously created by decorator are not automatically removed
 
-### 문제의 본질
-**Decorator가 텍스트를 분할할 때 생성한 DOM 요소(`<span>Hello</span>`, `<span>World</span>`)는:**
-1. Decorator VNode 자체가 아님 (따라서 `data-decorator-sid`가 없음)
-2. VNodeBuilder가 decorator 제거 시 단순 텍스트 VNode를 생성하면, 이 요소들은 VNode에 없음
-3. Reconcile은 VNode에 없는 요소를 자동으로 제거하지 않음 (React의 key 기반 매칭과 유사)
-4. `removeStaleDecorators`는 `data-decorator-sid`를 가진 요소만 제거하므로, 이 요소들은 제거되지 않음
+### Nature of Problem
+**DOM elements (`<span>Hello</span>`, `<span>World</span>`) created when decorator split text:**
+1. Not decorator VNode itself (so no `data-decorator-sid`)
+2. If VNodeBuilder creates simple text VNode when decorator removed, these elements don't exist in VNode
+3. Reconcile doesn't automatically remove elements not in VNode (similar to React's key-based matching)
+4. `removeStaleDecorators` only removes elements with `data-decorator-sid`, so these elements are not removed
 
-### 해결책
-1. **VNodeBuilder 수정**: Decorator 제거 시 분할된 텍스트 구조를 생성하지 않도록 보장
-2. **Reconcile 개선**: Decorator 제거 시, decorator가 생성한 분할된 텍스트 요소도 제거하는 로직 추가
-3. **하이브리드 접근**: VNodeBuilder가 올바른 VNode를 생성하도록 보장하고, Reconcile에서도 안전장치로 stale 요소 제거
+### Solutions
+1. **Fix VNodeBuilder**: Ensure VNodeBuilder doesn't create split text structure when decorator removed
+2. **Improve Reconcile**: Add logic to remove split text elements created by decorator when decorator removed
+3. **Hybrid Approach**: Ensure VNodeBuilder creates correct VNode, and Reconcile also removes stale elements as safety measure
 
-## VNodeBuilder 동작 분석
+## VNodeBuilder Behavior Analysis
 
-### `_processDecoratorsForChildren` 로직
+### `_processDecoratorsForChildren` Logic
 
 ```typescript
 private _processDecoratorsForChildren(
@@ -180,7 +180,7 @@ private _processDecoratorsForChildren(
   data: ModelData,
   decorators: Decorator[]
 ): void {
-  // 1. 기존 decorator 노드 제거
+  // 1. Remove existing decorator nodes
   const originalChildren = vnode.children.filter((child: any) => {
     if (isVNode(child)) {
       return !isDecoratorNode(child);
@@ -188,21 +188,21 @@ private _processDecoratorsForChildren(
     return true;
   });
 
-  // 2. 각 child에 대해 decorator 처리
+  // 2. Process decorators for each child
   for (const child of originalChildren) {
-    // ... decorator 처리 로직
+    // ... decorator processing logic
   }
 }
 ```
 
-**중요한 점**:
-- `_processDecoratorsForChildren`은 **decorator 노드만** 제거합니다
-- Decorator가 텍스트를 분할할 때 생성한 분할된 텍스트 VNode는 `originalChildren`에 포함되어 있습니다
-- Decorator가 제거되면, 이 분할된 텍스트 VNode들이 그대로 남아있을 수 있습니다
+**Important Points**:
+- `_processDecoratorsForChildren` only removes **decorator nodes**
+- Split text VNodes created when decorator split text are included in `originalChildren`
+- When decorator removed, these split text VNodes may remain
 
-### 텍스트 분할 시점
+### Text Splitting Timing
 
-텍스트 분할은 `_processDataTemplateChild`에서 발생합니다:
+Text splitting occurs in `_processDataTemplateChild`:
 
 ```typescript
 if ((marks && marks.length > 0) || inlineDecorators.length > 0) {
@@ -212,55 +212,55 @@ if ((marks && marks.length > 0) || inlineDecorators.length > 0) {
 }
 ```
 
-**핵심**: 
-- Decorator가 있으면 `_buildMarkedRunsWithDecorators`가 텍스트를 분할하여 여러 VNode를 생성합니다
-- 이 분할된 VNode들은 `orderedChildren`에 추가됩니다
-- Decorator가 제거되면, `_processDecoratorsForChildren`은 decorator 노드만 제거하고, 분할된 텍스트 VNode는 그대로 남습니다
+**Core**: 
+- When decorator exists, `_buildMarkedRunsWithDecorators` splits text and creates multiple VNodes
+- These split VNodes are added to `orderedChildren`
+- When decorator removed, `_processDecoratorsForChildren` only removes decorator nodes, split text VNodes remain
 
-### 예상되는 문제
+### Expected Problem
 
-**시나리오**: Decorator가 제거되었을 때
-1. VNodeBuilder는 decorator 없이 텍스트를 다시 빌드합니다
-2. `_processDataTemplateChild`에서 `inlineDecorators.length === 0`이므로 분할하지 않고 `currentTextParts.push(resolved)`를 실행합니다
-3. 하지만 이전에 decorator가 생성한 분할된 텍스트 VNode는 `originalChildren`에 남아있을 수 있습니다
-4. `_processDecoratorsForChildren`은 decorator 노드만 제거하므로, 분할된 텍스트 VNode는 그대로 남습니다
+**Scenario**: When decorator removed
+1. VNodeBuilder rebuilds text without decorator
+2. In `_processDataTemplateChild`, `inlineDecorators.length === 0` so doesn't split and executes `currentTextParts.push(resolved)`
+3. But split text VNodes previously created by decorator may remain in `originalChildren`
+4. `_processDecoratorsForChildren` only removes decorator nodes, so split text VNodes remain
 
-**결론**: 
-- VNodeBuilder가 decorator 제거 시 올바른 VNode를 생성하지 않을 가능성이 높습니다
-- 분할된 텍스트 VNode가 `originalChildren`에 남아있어서, decorator 제거 후에도 분할된 구조가 유지됩니다
+**Conclusion**: 
+- High possibility VNodeBuilder doesn't create correct VNode when decorator removed
+- Split text VNodes remain in `originalChildren`, so split structure maintained even after decorator removal
 
-## 핵심 질문 재분석
+## Core Question Re-analysis
 
-### VNodeBuilder에서 VNode는 제대로 생성되고 있는가?
+### Is VNode Properly Created in VNodeBuilder?
 
-**답변**: 확인 필요. VNodeBuilder가 decorator 제거 시 올바른 VNode를 생성하는지 확인해야 합니다.
+**Answer**: Need to verify. Must verify if VNodeBuilder creates correct VNode when decorator removed.
 
-### Reconcile/Fiber 입장
+### Reconcile/Fiber Perspective
 
-- **Reconcile은 VNodeBuilder의 출력만 처리합니다**
-- VNodeBuilder가 올바른 VNode를 생성하면, Reconcile/Fiber는 이를 그대로 DOM에 반영합니다
-- VNodeBuilder가 잘못된 VNode를 생성하면, Reconcile/Fiber도 잘못된 DOM을 생성합니다
+- **Reconcile only processes VNodeBuilder's output**
+- If VNodeBuilder creates correct VNode, Reconcile/Fiber reflects it to DOM as-is
+- If VNodeBuilder creates incorrect VNode, Reconcile/Fiber also creates incorrect DOM
 
-### VNodeBuilder에서 왜 안 지워지는가?
+### Why Not Removed in VNodeBuilder?
 
-**가설 1: `_processDecoratorsForChildren`이 분할된 텍스트 VNode를 제거하지 않음**
-- `_processDecoratorsForChildren`은 decorator 노드만 필터링합니다
-- 분할된 텍스트 VNode는 decorator 노드가 아니므로 `originalChildren`에 남아있습니다
-- `_processInlineDecorators`가 호출되지만, 이미 분할된 텍스트 VNode가 `originalChildren`에 있으면 다시 빌드하지 않을 수 있습니다
+**Hypothesis 1: `_processDecoratorsForChildren` Doesn't Remove Split Text VNodes**
+- `_processDecoratorsForChildren` only filters decorator nodes
+- Split text VNodes are not decorator nodes, so remain in `originalChildren`
+- `_processInlineDecorators` is called, but if split text VNodes already exist in `originalChildren`, may not rebuild
 
-**가설 2: `_processInlineDecorators`가 분할된 텍스트를 다시 합치지 않음**
-- `_processInlineDecorators`는 inline decorator를 처리합니다
-- 하지만 decorator가 제거되었을 때, 이미 분할된 텍스트 VNode를 다시 합치지 않을 수 있습니다
+**Hypothesis 2: `_processInlineDecorators` Doesn't Re-merge Split Text**
+- `_processInlineDecorators` processes inline decorators
+- But when decorator removed, may not re-merge already split text VNodes
 
-**가설 3: VNodeBuilder가 전체를 다시 빌드하지 않음**
-- VNodeBuilder는 `_processDecoratorsForChildren`에서 기존 children을 재사용합니다
-- Decorator가 제거되었을 때, 분할된 텍스트 VNode가 있는 children을 그대로 재사용할 수 있습니다
+**Hypothesis 3: VNodeBuilder Doesn't Rebuild Entirely**
+- VNodeBuilder reuses existing children in `_processDecoratorsForChildren`
+- When decorator removed, may reuse children with split text VNodes as-is
 
-## `_processInlineDecorators` 동작 분석
+## `_processInlineDecorators` Behavior Analysis
 
-### 핵심 문제 발견
+### Core Problem Discovered
 
-`_processDecoratorsForChildren`의 로직을 보면:
+Looking at `_processDecoratorsForChildren` logic:
 
 ```typescript
 for (const child of originalChildren) {
@@ -279,92 +279,92 @@ for (const child of originalChildren) {
 }
 ```
 
-**문제점**:
-- `!childVNode.stype`인 경우 (분할된 텍스트 VNode 등)는 `newChildren.push(child)`로 그대로 추가됩니다
-- `_processInlineDecorators`는 `stype`이 있는 VNode에만 호출됩니다
-- **분할된 텍스트 VNode는 `stype`이 없으므로, decorator 제거 시에도 그대로 남아있습니다**
+**Issues**:
+- When `!childVNode.stype` (split text VNodes, etc.), added as-is with `newChildren.push(child)`
+- `_processInlineDecorators` only called for VNodes with `stype`
+- **Split text VNodes don't have `stype`, so remain as-is when decorator removed**
 
-### `_processInlineDecorators`는 언제 호출되는가?
+### When is `_processInlineDecorators` Called?
 
-1. `_processDecoratorsForChildren`에서 `stype`이 있는 child VNode에 대해 호출됩니다
-2. `_processDecorators`에서도 `stype`이 있는 VNode에 대해 호출됩니다
+1. Called from `_processDecoratorsForChildren` for child VNodes with `stype`
+2. Also called from `_processDecorators` for VNodes with `stype`
 
-**하지만**: 분할된 텍스트 VNode는 `stype`이 없으므로, `_processInlineDecorators`가 호출되지 않습니다!
+**But**: Split text VNodes don't have `stype`, so `_processInlineDecorators` is not called!
 
-### 실제 문제
+### Actual Problem
 
-**시나리오**: Decorator가 제거되었을 때
-1. `_processDecoratorsForChildren`이 호출됩니다
-2. Decorator 노드는 필터링되어 제거됩니다
-3. 하지만 분할된 텍스트 VNode (`{ tag: 'span', text: 'Hello' }`, `{ tag: 'span', text: 'World' }`)는 `stype`이 없으므로:
-   - `!childVNode.stype` 조건에 걸려서 `newChildren.push(child)`로 그대로 추가됩니다
-   - `_processInlineDecorators`가 호출되지 않습니다
-4. 결과: 분할된 텍스트 VNode가 그대로 남아있습니다
+**Scenario**: When decorator removed
+1. `_processDecoratorsForChildren` called
+2. Decorator nodes filtered and removed
+3. But split text VNodes (`{ tag: 'span', text: 'Hello' }`, `{ tag: 'span', text: 'World' }`) don't have `stype`, so:
+   - Caught by `!childVNode.stype` condition, added as-is with `newChildren.push(child)`
+   - `_processInlineDecorators` not called
+4. Result: Split text VNodes remain as-is
 
-**결론**: 
-- **VNodeBuilder가 decorator 제거 시 올바른 VNode를 생성하지 않습니다**
-- 분할된 텍스트 VNode는 `stype`이 없어서 `_processInlineDecorators`가 호출되지 않습니다
-- 따라서 decorator 제거 시에도 분할된 텍스트 VNode가 그대로 남아있습니다
+**Conclusion**: 
+- **VNodeBuilder doesn't create correct VNode when decorator removed**
+- Split text VNodes don't have `stype`, so `_processInlineDecorators` not called
+- Therefore, split text VNodes remain as-is even when decorator removed
 
-## 최종 원인 분석
+## Final Cause Analysis
 
-### 핵심 문제
+### Core Problem
 
-**VNodeBuilder는 decorator 제거 시 전체를 다시 빌드하지 않습니다**
+**VNodeBuilder doesn't rebuild entirely when decorator removed**
 
-1. **`_processDecoratorsForChildren`의 동작**:
-   - Decorator 노드만 필터링하여 제거합니다
-   - 기존 children을 재사용합니다 (`originalChildren`)
-   - `stype`이 없는 VNode (분할된 텍스트 VNode 등)는 그대로 추가합니다
+1. **`_processDecoratorsForChildren` Behavior**:
+   - Only filters and removes decorator nodes
+   - Reuses existing children (`originalChildren`)
+   - Adds VNodes without `stype` (split text VNodes, etc.) as-is
 
-2. **분할된 텍스트 VNode의 특성**:
-   - `stype`이 없습니다 (component VNode가 아님)
-   - Decorator가 텍스트를 분할할 때 생성된 VNode입니다
-   - `{ tag: 'span', text: 'Hello' }` 형태입니다
+2. **Split Text VNode Characteristics**:
+   - Don't have `stype` (not component VNodes)
+   - VNodes created when decorator split text
+   - Form: `{ tag: 'span', text: 'Hello' }`
 
-3. **`_processInlineDecorators`의 한계**:
-   - `stype`이 있는 VNode에만 호출됩니다
-   - 실제로는 아무것도 하지 않습니다 (주석: "Inline decorators are handled by _buildMarkedRunsWithDecorators")
-   - 분할된 텍스트 VNode는 처리되지 않습니다
+3. **`_processInlineDecorators` Limitations**:
+   - Only called for VNodes with `stype`
+   - Actually does nothing (comment: "Inline decorators are handled by _buildMarkedRunsWithDecorators")
+   - Split text VNodes not processed
 
-### 왜 안 지워지는가?
+### Why Not Removed?
 
-**답변**: VNodeBuilder가 decorator 제거 시 전체를 다시 빌드하지 않고, 기존 children을 재사용하기 때문입니다.
+**Answer**: Because VNodeBuilder doesn't rebuild entirely when decorator removed, reuses existing children.
 
-**흐름**:
-1. Decorator가 있을 때: `_buildMarkedRunsWithDecorators`가 텍스트를 분할하여 여러 VNode 생성
-2. Decorator가 제거되었을 때:
-   - `_processDecoratorsForChildren`이 호출됨
-   - Decorator 노드만 필터링하여 제거
-   - 분할된 텍스트 VNode는 `stype`이 없어서 그대로 `newChildren`에 추가됨
-   - `_processInlineDecorators`가 호출되지 않음
-3. 결과: 분할된 텍스트 VNode가 그대로 남아있음
+**Flow**:
+1. When decorator exists: `_buildMarkedRunsWithDecorators` splits text and creates multiple VNodes
+2. When decorator removed:
+   - `_processDecoratorsForChildren` called
+   - Only filters and removes decorator nodes
+   - Split text VNodes don't have `stype`, so added as-is to `newChildren`
+   - `_processInlineDecorators` not called
+3. Result: Split text VNodes remain as-is
 
-### 해결 방안
+### Solutions
 
-1. **VNodeBuilder 수정**: Decorator 제거 시 전체를 다시 빌드
-   - `_processDecoratorsForChildren`에서 분할된 텍스트 VNode를 감지하고 다시 합치기
-   - 또는 decorator 제거 시 해당 VNode의 children을 다시 빌드하기
+1. **Fix VNodeBuilder**: Rebuild entirely when decorator removed
+   - Detect and re-merge split text VNodes in `_processDecoratorsForChildren`
+   - Or rebuild children of that VNode when decorator removed
 
-2. **Reconcile 개선**: VNodeBuilder가 올바른 VNode를 생성하지 못하는 경우를 대비
-   - Decorator 제거 시, 분할된 텍스트 요소를 제거하는 로직 추가
-   - 하지만 이는 근본적인 해결책이 아닙니다 (VNodeBuilder가 올바른 VNode를 생성해야 함)
+2. **Improve Reconcile**: Prepare for cases where VNodeBuilder doesn't create correct VNode
+   - Add logic to remove split text elements when decorator removed
+   - But this is not fundamental solution (VNodeBuilder should create correct VNode)
 
-**권장 해결책**: VNodeBuilder 수정
-- Decorator 제거 시 분할된 텍스트 VNode를 감지하고 다시 합치는 로직 추가
-- 또는 decorator 제거 시 해당 VNode의 children을 다시 빌드하기
+**Recommended Solution**: Fix VNodeBuilder
+- Add logic to detect and re-merge split text VNodes when decorator removed
+- Or rebuild children of that VNode when decorator removed
 
-## 핵심 원칙 재확인
+## Core Principle Re-confirmation
 
-### VNodeBuilder는 단방향으로 VNode를 생성해야 함
+### VNodeBuilder Must Create VNode Unidirectionally
 
-**사용자 피드백**: "vnodebuilder 빌더는 단 방향으로 vnode 를 생성 해야해, 그러니깐 decorator 를 재사용 할 필요가 없는거야"
+**User Feedback**: "vnodebuilder builder should create vnode unidirectionally, so there's no need to reuse decorators"
 
-**답변**: 맞습니다!
+**Answer**: Correct!
 
-### 현재 문제
+### Current Problem
 
-`_processDecoratorsForChildren`이 기존 children을 재사용하고 있습니다:
+`_processDecoratorsForChildren` reuses existing children:
 
 ```typescript
 const originalChildren = vnode.children.filter((child: any) => {
@@ -375,24 +375,23 @@ const originalChildren = vnode.children.filter((child: any) => {
 });
 ```
 
-**문제점**:
-- 기존 `vnode.children`을 재사용합니다
-- Decorator 노드만 필터링하고, 분할된 텍스트 VNode는 그대로 남겨둡니다
-- 이것은 **양방향 업데이트** 방식입니다 (기존 VNode를 수정)
+**Issues**:
+- Reuses existing `vnode.children`
+- Only filters decorator nodes, leaves split text VNodes as-is
+- This is **bidirectional update** approach (modifies existing VNode)
 
-### 올바른 접근
+### Correct Approach
 
-**VNodeBuilder는 항상 model과 decorators를 기반으로 처음부터 VNode를 빌드해야 합니다**
+**VNodeBuilder must always build VNode from scratch based on model and decorators**
 
-1. **단방향 흐름**: Model + Decorators → VNode
-2. **재사용 없음**: 기존 VNode를 재사용하거나 수정하지 않음
-3. **항상 처음부터 빌드**: Decorator가 변경되면 전체를 다시 빌드
+1. **Unidirectional Flow**: Model + Decorators → VNode
+2. **No Reuse**: Don't reuse or modify existing VNodes
+3. **Always Build from Scratch**: Rebuild entirely when decorator changes
 
-### 해결 방안
+### Solutions
 
-**`_processDecoratorsForChildren`을 제거하거나 수정**:
-- 기존 children을 재사용하지 않고, model과 decorators를 기반으로 처음부터 빌드
-- 또는 `_processDecoratorsForChildren`이 호출되기 전에 이미 올바른 VNode가 빌드되어 있어야 함
+**Remove or Modify `_processDecoratorsForChildren`**:
+- Don't reuse existing children, build from scratch based on model and decorators
+- Or correct VNode must already be built before `_processDecoratorsForChildren` is called
 
-**핵심**: VNodeBuilder의 `build()` 메서드는 항상 model과 decorators를 받아서 처음부터 VNode를 빌드해야 합니다. 기존 VNode를 재사용하거나 수정하는 로직은 없어야 합니다.
-
+**Core**: VNodeBuilder's `build()` method must always receive model and decorators and build VNode from scratch. There should be no logic to reuse or modify existing VNodes.

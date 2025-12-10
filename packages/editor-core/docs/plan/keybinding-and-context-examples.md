@@ -1,92 +1,92 @@
-# Keybinding & Context 사용 예시 가이드
+# Keybinding & Context Usage Examples Guide
 
-이 문서는 Barocss Editor의 Keybinding과 Context 시스템을 실제로 사용하는 방법을 다양한 케이스별로 보여줍니다. VS Code, ProseMirror, Slate 등의 에디터를 참고하여 실제 개발 시나리오에 맞는 예시를 제공합니다.
+This document shows how to actually use Barocss Editor's Keybinding and Context systems with various case-by-case examples. It provides examples suitable for real development scenarios by referencing editors like VS Code, ProseMirror, Slate, etc.
 
-## 목차
+## Table of Contents
 
-1. [기본 사용법](#1-기본-사용법)
-2. [Extension에서 Keybinding 등록](#2-extension에서-keybinding-등록)
-3. [Context 기반 조건부 Keybinding](#3-context-기반-조건부-keybinding)
-4. [사용자 커스터마이징](#4-사용자-커스터마이징)
-5. [복잡한 시나리오](#5-복잡한-시나리오)
+1. [Basic Usage](#1-basic-usage)
+2. [Registering Keybindings in Extensions](#2-registering-keybindings-in-extensions)
+3. [Context-Based Conditional Keybindings](#3-context-based-conditional-keybindings)
+4. [User Customization](#4-user-customization)
+5. [Complex Scenarios](#5-complex-scenarios)
 6. [Best Practices](#6-best-practices)
 
 ---
 
-## 1. 기본 사용법
+## 1. Basic Usage
 
-### 1.1 간단한 Keybinding 등록
+### 1.1 Simple Keybinding Registration
 
-가장 기본적인 형태로, 특정 키 조합에 커맨드를 연결합니다.
+Most basic form, connecting commands to specific key combinations.
 
 ```typescript
 import { Editor } from '@barocss/editor-core';
 
-// Editor 인스턴스 생성 후
+// After creating Editor instance
 const editor = new Editor({ /* ... */ });
 
-// 기본 keybinding 등록 (항상 활성)
+// Register basic keybinding (always active)
 editor.keybindings.register({
   key: 'Mod+b',
   command: 'toggleBold'
 });
 
-// 여러 modifier 조합
+// Multiple modifier combinations
 editor.keybindings.register({
   key: 'Ctrl+Shift+z',
   command: 'redo'
 });
 
-// 특수 키
+// Special keys
 editor.keybindings.register({
   key: 'Enter',
   command: 'insertParagraph'
 });
 ```
 
-### 1.2 Command 등록과 연결
+### 1.2 Command Registration and Connection
 
-Keybinding은 반드시 등록된 Command와 연결되어야 합니다.
+Keybindings must be connected to registered Commands.
 
 ```typescript
-// Command 등록
+// Register Command
 editor.registerCommand({
   name: 'toggleBold',
   execute: async (editor: Editor) => {
-    // Bold 토글 로직
+    // Bold toggle logic
     const selection = editor.selection;
-    // ... 실제 구현
+    // ... actual implementation
     return true;
   },
   canExecute: (editor: Editor) => {
-    // 실행 가능 여부 확인
+    // Check if executable
     return editor.selection !== null;
   }
 });
 
-// Keybinding 등록 (위의 Command와 연결)
+// Register Keybinding (connected to above Command)
 editor.keybindings.register({
   key: 'Mod+b',
   command: 'toggleBold'
 });
 ```
 
-### 1.3 Command에 인자 전달
+### 1.3 Passing Arguments to Commands
 
-Keybinding에서 Command로 인자를 전달할 수 있습니다.
+Keybindings can pass arguments to Commands.
 
 ```typescript
-// Command 등록 (인자 받기)
+// Register Command (receive arguments)
 editor.registerCommand({
   name: 'insertHeading',
   execute: async (editor: Editor, args?: { level: number }) => {
     const level = args?.level ?? 1;
-    // Heading 삽입 로직
+    // Heading insertion logic
     return true;
   }
 });
 
-// Keybinding 등록 (인자 포함)
+// Register Keybinding (with arguments)
 editor.keybindings.register({
   key: 'Mod+Alt+1',
   command: 'insertHeading',
@@ -102,11 +102,11 @@ editor.keybindings.register({
 
 ---
 
-## 2. Extension에서 Keybinding 등록
+## 2. Registering Keybindings in Extensions
 
-Extension의 `onCreate` 메서드에서 keybinding을 등록합니다. `source: 'extension'`은 자동으로 설정됩니다.
+Register keybindings in Extension's `onCreate` method. `source: 'extension'` is automatically set.
 
-### 2.1 기본 Extension 패턴
+### 2.1 Basic Extension Pattern
 
 ```typescript
 import { Editor, Extension } from '@barocss/editor-core';
@@ -116,16 +116,16 @@ export class BoldExtension implements Extension {
   priority = 100;
 
   onCreate(editor: Editor): void {
-    // Command 등록
+    // Register Command
     editor.registerCommand({
       name: 'toggleBold',
       execute: async (editor: Editor) => {
-        // Bold 토글 로직
+        // Bold toggle logic
         return true;
       }
     });
 
-    // Keybinding 등록 (source는 자동으로 'extension'으로 설정됨)
+    // Register Keybinding (source automatically set to 'extension')
     editor.keybindings.register({
       key: 'Mod+b',
       command: 'toggleBold',
@@ -134,14 +134,14 @@ export class BoldExtension implements Extension {
   }
 
   onDestroy(_editor: Editor): void {
-    // 정리 작업 (필요시)
+    // Cleanup (if needed)
   }
 }
 ```
 
-### 2.2 옵션 기반 Keybinding
+### 2.2 Option-Based Keybinding
 
-Extension 옵션으로 keybinding을 커스터마이징할 수 있습니다.
+Keybindings can be customized via Extension options.
 
 ```typescript
 export interface BoldExtensionOptions {
@@ -155,7 +155,7 @@ export class BoldExtension implements Extension {
 
   constructor(options: BoldExtensionOptions = {}) {
     this._options = {
-      keyboardShortcut: 'Mod+b', // 기본값
+      keyboardShortcut: 'Mod+b', // Default
       enabled: true,
       ...options
     };
@@ -167,12 +167,12 @@ export class BoldExtension implements Extension {
     editor.registerCommand({
       name: 'toggleBold',
       execute: async (editor: Editor) => {
-        // Bold 토글 로직
+        // Bold toggle logic
         return true;
       }
     });
 
-    // 옵션에서 받은 keyboard shortcut 사용
+    // Use keyboard shortcut from options
     if (this._options.keyboardShortcut) {
       editor.keybindings.register({
         key: this._options.keyboardShortcut,
@@ -183,36 +183,36 @@ export class BoldExtension implements Extension {
   }
 }
 
-// 사용 예시
+// Usage example
 const editor = new Editor({
   extensions: [
     new BoldExtension({
-      keyboardShortcut: 'Mod+Shift+b' // 커스텀 단축키
+      keyboardShortcut: 'Mod+Shift+b' // Custom shortcut
     })
   ]
 });
 ```
 
-### 2.3 여러 Keybinding 등록
+### 2.3 Registering Multiple Keybindings
 
-하나의 Extension에서 여러 keybinding을 등록할 수 있습니다.
+One Extension can register multiple keybindings.
 
 ```typescript
 export class HeadingExtension implements Extension {
   name = 'heading';
 
   onCreate(editor: Editor): void {
-    // Command 등록
+    // Register Command
     editor.registerCommand({
       name: 'insertHeading',
       execute: async (editor: Editor, args?: { level: number }) => {
         const level = args?.level ?? 1;
-        // Heading 삽입 로직
+        // Heading insertion logic
         return true;
       }
     });
 
-    // 여러 keybinding 등록
+    // Register multiple keybindings
     editor.keybindings.register({
       key: 'Mod+Alt+1',
       command: 'insertHeading',
@@ -239,37 +239,37 @@ export class HeadingExtension implements Extension {
 
 ---
 
-## 3. Context 기반 조건부 Keybinding
+## 3. Context-Based Conditional Keybindings
 
-Context를 사용하여 특정 조건에서만 keybinding이 활성화되도록 할 수 있습니다.
+Use Context to activate keybindings only under specific conditions.
 
-### 3.1 기본 Context Key 사용
+### 3.1 Using Default Context Keys
 
-Editor가 제공하는 기본 context key를 사용합니다.
+Use default context keys provided by Editor.
 
 ```typescript
-// Editor가 포커스를 가지고 있고 편집 가능할 때만 활성화
+// Activate only when Editor has focus and is editable
 editor.keybindings.register({
   key: 'Mod+b',
   command: 'toggleBold',
   when: 'editorFocus && editorEditable'
 });
 
-// Selection이 비어있지 않을 때만 활성화
+// Activate only when Selection is not empty
 editor.keybindings.register({
   key: 'Mod+c',
   command: 'copy',
   when: '!selectionEmpty'
 });
 
-// Undo 가능할 때만 활성화
+// Activate only when Undo is possible
 editor.keybindings.register({
   key: 'Mod+z',
   command: 'undo',
   when: 'historyCanUndo && editorEditable'
 });
 
-// 특정 Selection 타입일 때만 활성화
+// Activate only for specific Selection type
 editor.keybindings.register({
   key: 'Mod+d',
   command: 'duplicateNode',
@@ -277,26 +277,26 @@ editor.keybindings.register({
 });
 ```
 
-### 3.2 커스텀 Context Key 설정
+### 3.2 Setting Custom Context Keys
 
-Extension에서 커스텀 context key를 설정하고 사용합니다.
+Set and use custom context keys in Extensions.
 
 ```typescript
 export class ReadOnlyExtension implements Extension {
   name = 'readOnly';
 
   onCreate(editor: Editor): void {
-    // 커스텀 context 설정
+    // Set custom context
     editor.setContext('readOnlyExtension.enabled', false);
 
-    // Context를 사용한 keybinding
+    // Keybinding using Context
     editor.keybindings.register({
       key: 'Mod+s',
       command: 'save',
       when: '!readOnlyExtension.enabled && editorFocus'
     });
 
-    // Read-only 모드 토글 Command
+    // Read-only mode toggle Command
     editor.registerCommand({
       name: 'toggleReadOnly',
       execute: async (editor: Editor) => {
@@ -309,33 +309,33 @@ export class ReadOnlyExtension implements Extension {
 }
 ```
 
-### 3.3 동적 Context 업데이트
+### 3.3 Dynamic Context Updates
 
-Context를 동적으로 업데이트하여 keybinding 활성화 상태를 변경합니다.
+Dynamically update Context to change keybinding activation state.
 
 ```typescript
 export class ModeExtension implements Extension {
   name = 'mode';
 
   onCreate(editor: Editor): void {
-    // 초기 context 설정
+    // Set initial context
     editor.setContext('modeExtension.currentMode', 'edit');
 
-    // Edit 모드에서만 활성화되는 keybinding
+    // Keybinding active only in Edit mode
     editor.keybindings.register({
       key: 'Mod+e',
       command: 'editMode',
       when: 'modeExtension.currentMode == "edit"'
     });
 
-    // Preview 모드에서만 활성화되는 keybinding
+    // Keybinding active only in Preview mode
     editor.keybindings.register({
       key: 'Mod+p',
       command: 'previewMode',
       when: 'modeExtension.currentMode == "preview"'
     });
 
-    // 모드 전환 Command
+    // Mode switching Command
     editor.registerCommand({
       name: 'switchMode',
       execute: async (editor: Editor, args?: { mode: 'edit' | 'preview' }) => {
@@ -348,33 +348,33 @@ export class ModeExtension implements Extension {
 }
 ```
 
-### 3.4 복잡한 조건 조합
+### 3.4 Complex Condition Combinations
 
-여러 context key를 조합하여 복잡한 조건을 만듭니다.
+Combine multiple context keys to create complex conditions.
 
 ```typescript
-// 여러 조건을 AND로 조합
+// Combine multiple conditions with AND
 editor.keybindings.register({
   key: 'Mod+Shift+p',
   command: 'preview',
   when: 'editorFocus && !readOnlyExtension.enabled && modeExtension.currentMode == "markdown"'
 });
 
-// OR 조건 사용
+// Use OR conditions
 editor.keybindings.register({
   key: 'Mod+k',
   command: 'showCommandPalette',
   when: 'editorFocus || commandPaletteExtension.isVisible'
 });
 
-// NOT 조건 사용
+// Use NOT conditions
 editor.keybindings.register({
   key: 'Delete',
   command: 'deleteSelection',
   when: '!selectionEmpty && selectionType == "range"'
 });
 
-// 비교 연산자 사용
+// Use comparison operators
 editor.keybindings.register({
   key: 'Mod+Shift+e',
   command: 'editNode',
@@ -382,63 +382,63 @@ editor.keybindings.register({
 });
 ```
 
-### 3.5 Context 변경 이벤트 구독
+### 3.5 Subscribing to Context Change Events
 
-Context 변경을 감지하여 UI를 업데이트합니다.
+Detect context changes to update UI.
 
-**⚠️ 중요: 초기화 시점 이벤트 누락 문제**
+**⚠️ Important: Initialization timing event loss issue**
 
-`onCreate`에서 `setContext`를 호출하면 이벤트가 발생하지만, 다른 Extension의 `onCreate`가 아직 실행되지 않았을 수 있습니다. 따라서 초기 설정 시점의 이벤트를 놓칠 수 있습니다.
+When `setContext` is called in `onCreate`, events are emitted, but other Extensions' `onCreate` may not have executed yet. Therefore, events at initial setting time may be missed.
 
-**해결 방법**:
-1. **초기 상태 확인**: 리스너 등록 후 현재 값을 확인
-2. **순서 보장**: Extension 등록 순서를 조정
-3. **초기화 패턴**: 리스너 등록 후 초기 상태를 수동으로 동기화
+**Solutions**:
+1. **Check initial state**: Check current value after registering listener
+2. **Guarantee order**: Adjust Extension registration order
+3. **Initialization pattern**: Manually synchronize initial state after registering listener
 
 ```typescript
 export class ToolbarExtension implements Extension {
   name = 'toolbar';
 
   onCreate(editor: Editor): void {
-    // 1. 리스너 등록 (다른 Extension의 onCreate보다 먼저 실행되도록 순서 조정)
+    // 1. Register listener (adjust order to execute before other Extensions' onCreate)
     editor.onContextChange('readOnlyExtension.enabled', ({ value }) => {
       const isReadOnly = value as boolean;
       this.updateToolbarUI(isReadOnly);
     });
 
-    // 2. 초기 상태 확인 (이미 설정되어 있을 수 있음)
+    // 2. Check initial state (may already be set)
     const currentValue = editor.getContext()['readOnlyExtension.enabled'];
     if (currentValue !== undefined) {
       this.updateToolbarUI(currentValue as boolean);
     }
 
-    // 모든 context 변경 구독
+    // Subscribe to all context changes
     editor.on('editor:context.change', (event) => {
       console.log('Context changed:', event.key, event.value);
-      // 전체 UI 업데이트
+      // Update entire UI
     });
   }
 
   private updateToolbarUI(isReadOnly: boolean): void {
-    // Toolbar 버튼 활성화/비활성화
+    // Enable/disable toolbar buttons
   }
 }
 ```
 
-**권장 패턴**: Extension 간 의존성이 있는 경우, Extension 등록 순서를 명시적으로 관리하거나, 초기 상태를 확인하는 패턴을 사용하세요.
+**Recommended pattern**: If there are dependencies between Extensions, explicitly manage Extension registration order or use pattern of checking initial state.
 
 ```typescript
 export class DependentExtension implements Extension {
   name = 'dependent';
-  dependencies = ['providerExtension']; // 의존성 명시
+  dependencies = ['providerExtension']; // Explicit dependency
 
   onCreate(editor: Editor): void {
-    // 리스너 등록
+    // Register listener
     editor.onContextChange('providerExtension.key', ({ value }) => {
       this.handleChange(value);
     });
 
-    // 초기 상태 확인 (providerExtension이 이미 onCreate를 실행했을 수 있음)
+    // Check initial state (providerExtension may have already executed onCreate)
     const initialValue = editor.getContext()['providerExtension.key'];
     if (initialValue !== undefined) {
       this.handleChange(initialValue);
@@ -446,23 +446,23 @@ export class DependentExtension implements Extension {
   }
 
   private handleChange(value: unknown): void {
-    // 변경 처리
+    // Handle change
   }
 }
 ```
 
 ---
 
-## 4. 사용자 커스터마이징
+## 4. User Customization
 
-사용자가 keybinding을 커스터마이징할 수 있도록 합니다.
+Allow users to customize keybindings.
 
-### 4.1 사용자 Keybinding 등록
+### 4.1 Registering User Keybindings
 
-사용자가 직접 keybinding을 등록합니다.
+Users register keybindings directly.
 
 ```typescript
-// 사용자 설정에서 가져온 keybinding
+// Keybindings from user settings
 const userKeybindings = [
   {
     key: 'Mod+Shift+b',
@@ -474,24 +474,24 @@ const userKeybindings = [
   }
 ];
 
-// 사용자 keybinding 등록 (source는 자동으로 'user'로 설정됨)
+// Register user keybindings (source automatically set to 'user')
 userKeybindings.forEach(binding => {
   editor.keybindings.register({
     ...binding,
-    source: 'user' // 명시적으로 지정 가능 (자동 설정됨)
+    source: 'user' // Can explicitly specify (auto-set)
   });
 });
 ```
 
-### 4.2 Keybinding 덮어쓰기
+### 4.2 Overriding Keybindings
 
-사용자가 기본 keybinding을 덮어쓸 수 있습니다.
+Users can override default keybindings.
 
 ```typescript
-// Extension에서 등록된 기본 keybinding
+// Default keybinding registered by Extension
 // Mod+b → toggleBold
 
-// 사용자가 같은 키에 다른 커맨드 등록 (우선순위가 높아서 덮어씀)
+// User registers different command on same key (higher priority, overrides)
 editor.keybindings.register({
   key: 'Mod+b',
   command: 'myCustomBold',
@@ -499,21 +499,21 @@ editor.keybindings.register({
 });
 ```
 
-### 4.3 Keybinding 제거
+### 4.3 Removing Keybindings
 
-특정 keybinding을 제거합니다.
+Remove specific keybindings.
 
 ```typescript
-// Keybinding 제거 (unregister 메서드 사용)
+// Remove keybinding (use unregister method)
 editor.keybindings.unregister({
   key: 'Mod+b',
   command: 'toggleBold'
 });
 ```
 
-### 4.4 설정 파일에서 로드
+### 4.4 Loading from Configuration File
 
-JSON 설정 파일에서 keybinding을 로드합니다.
+Load keybindings from JSON configuration file.
 
 ```typescript
 // keybindings.json
@@ -530,7 +530,7 @@ const keybindingsConfig = [
   }
 ];
 
-// 설정 파일에서 로드하여 등록
+// Load from configuration file and register
 keybindingsConfig.forEach(binding => {
   editor.keybindings.register({
     ...binding,
@@ -541,37 +541,37 @@ keybindingsConfig.forEach(binding => {
 
 ---
 
-## 5. 복잡한 시나리오
+## 5. Complex Scenarios
 
-실제 개발에서 자주 마주치는 복잡한 시나리오들을 다룹니다.
+Covers complex scenarios frequently encountered in actual development.
 
-### 5.1 모드별 다른 Keybinding
+### 5.1 Different Keybindings per Mode
 
-에디터 모드에 따라 다른 keybinding을 활성화합니다.
+Activate different keybindings based on editor mode.
 
 ```typescript
 export class MultiModeExtension implements Extension {
   name = 'multiMode';
 
   onCreate(editor: Editor): void {
-    // 현재 모드 context 설정
+    // Set current mode context
     editor.setContext('multiModeExtension.currentMode', 'normal');
 
-    // Normal 모드 keybinding
+    // Normal mode keybinding
     editor.keybindings.register({
       key: 'i',
       command: 'enterInsertMode',
       when: 'multiModeExtension.currentMode == "normal" && editorFocus'
     });
 
-    // Insert 모드 keybinding
+    // Insert mode keybinding
     editor.keybindings.register({
       key: 'Escape',
       command: 'exitInsertMode',
       when: 'multiModeExtension.currentMode == "insert" && editorFocus'
     });
 
-    // Visual 모드 keybinding
+    // Visual mode keybinding
     editor.keybindings.register({
       key: 'v',
       command: 'enterVisualMode',
@@ -581,9 +581,9 @@ export class MultiModeExtension implements Extension {
 }
 ```
 
-### 5.2 플러그인 활성화/비활성화
+### 5.2 Plugin Activation/Deactivation
 
-플러그인 활성화 상태에 따라 keybinding을 제어합니다.
+Control keybindings based on plugin activation state.
 
 ```typescript
 export class PluginManagerExtension implements Extension {
@@ -591,18 +591,18 @@ export class PluginManagerExtension implements Extension {
   private plugins: Map<string, boolean> = new Map();
 
   onCreate(editor: Editor): void {
-    // 플러그인 활성화 상태를 context로 관리
+    // Manage plugin activation state as context
     this.plugins.set('spellCheck', true);
     editor.setContext('pluginManager.spellCheckEnabled', true);
 
-    // Spell check 플러그인이 활성화되어 있을 때만 활성화
+    // Activate only when spell check plugin is enabled
     editor.keybindings.register({
       key: 'Mod+Shift+s',
       command: 'toggleSpellCheck',
       when: 'pluginManager.spellCheckEnabled && editorFocus'
     });
 
-    // 플러그인 토글 Command
+    // Plugin toggle Command
     editor.registerCommand({
       name: 'togglePlugin',
       execute: async (editor: Editor, args?: { pluginName: string }) => {
@@ -619,9 +619,9 @@ export class PluginManagerExtension implements Extension {
 }
 ```
 
-### 5.3 조건부 Command 실행
+### 5.3 Conditional Command Execution
 
-Context에 따라 Command 실행 로직을 변경합니다.
+Change command execution logic based on Context.
 
 ```typescript
 export class ConditionalCommandExtension implements Extension {
@@ -634,7 +634,7 @@ export class ConditionalCommandExtension implements Extension {
         const context = editor.getContext();
         const selectionType = context['selectionType'] as string;
 
-        // Selection 타입에 따라 다른 동작
+        // Different behavior based on Selection type
         if (selectionType === 'range') {
           return await editor.executeCommand('deleteSelection');
         } else if (selectionType === 'node') {
@@ -659,26 +659,26 @@ export class ConditionalCommandExtension implements Extension {
 }
 ```
 
-### 5.4 다중 Keybinding 체인
+### 5.4 Multiple Keybinding Chains
 
-여러 keybinding을 체인으로 연결하여 복잡한 동작을 만듭니다.
+Chain multiple keybindings to create complex behaviors.
 
 ```typescript
 export class CommandChainExtension implements Extension {
   name = 'commandChain';
 
   onCreate(editor: Editor): void {
-    // 첫 번째 키 입력 상태 관리
+    // Manage first key input state
     editor.setContext('commandChain.waitingForSecondKey', false);
 
-    // 첫 번째 키 입력
+    // First key input
     editor.keybindings.register({
       key: 'Mod+k',
       command: 'startCommandChain',
       when: 'editorFocus && !commandChain.waitingForSecondKey'
     });
 
-    // 두 번째 키 입력 (첫 번째 키 입력 후에만 활성화)
+    // Second key input (active only after first key input)
     editor.keybindings.register({
       key: 'b',
       command: 'applyBold',
@@ -691,12 +691,12 @@ export class CommandChainExtension implements Extension {
       when: 'commandChain.waitingForSecondKey && editorFocus'
     });
 
-    // Command 등록
+    // Register Command
     editor.registerCommand({
       name: 'startCommandChain',
       execute: async (editor: Editor) => {
         editor.setContext('commandChain.waitingForSecondKey', true);
-        // 일정 시간 후 자동으로 해제
+        // Automatically clear after certain time
         setTimeout(() => {
           editor.setContext('commandChain.waitingForSecondKey', false);
         }, 1000);
@@ -707,12 +707,12 @@ export class CommandChainExtension implements Extension {
 }
 ```
 
-### 5.5 Extension 간 Context 공유
+### 5.5 Context Sharing Between Extensions
 
-여러 Extension이 context를 공유하여 협력합니다.
+Multiple Extensions share context to cooperate.
 
 ```typescript
-// Extension A: Context 제공
+// Extension A: Provide Context
 export class ThemeExtension implements Extension {
   name = 'theme';
 
@@ -731,26 +731,26 @@ export class ThemeExtension implements Extension {
   }
 }
 
-// Extension B: Context 사용
+// Extension B: Use Context
 export class SyntaxHighlightExtension implements Extension {
   name = 'syntaxHighlight';
 
   onCreate(editor: Editor): void {
-    // Theme Extension의 context를 사용
+    // Use Theme Extension's context
     editor.keybindings.register({
       key: 'Mod+Shift+t',
       command: 'toggleSyntaxHighlight',
       when: 'themeExtension.currentTheme == "dark" && editorFocus'
     });
 
-    // Context 변경 구독
+    // Subscribe to context changes
     editor.onContextChange('themeExtension.currentTheme', (theme) => {
       this.updateSyntaxHighlight(theme as string);
     });
   }
 
   private updateSyntaxHighlight(theme: string): void {
-    // Syntax highlight 업데이트
+    // Update syntax highlight
   }
 }
 ```
@@ -759,36 +759,36 @@ export class SyntaxHighlightExtension implements Extension {
 
 ## 6. Best Practices
 
-### 6.1 Context Key 네이밍
+### 6.1 Context Key Naming
 
-- **Extension 이름 접두사 사용**: `myExtension.keyName` 형식
-- **camelCase 사용**: `showMyCommand`, `numberOfItems` 등
-- **명확한 이름**: 목적이 명확하게 드러나는 이름 사용
+- **Use Extension name prefix**: Format like `myExtension.keyName`
+- **Use camelCase**: `showMyCommand`, `numberOfItems`, etc.
+- **Clear names**: Use names that clearly show purpose
 
 ```typescript
-// ✅ 좋은 예
+// ✅ Good examples
 editor.setContext('boldExtension.enabled', true);
 editor.setContext('themeExtension.currentTheme', 'dark');
 
-// ❌ 나쁜 예
-editor.setContext('enabled', true); // Extension 이름 없음
-editor.setContext('THEME', 'dark'); // 대문자 사용
+// ❌ Bad examples
+editor.setContext('enabled', true); // No extension name
+editor.setContext('THEME', 'dark'); // Using uppercase
 ```
 
-### 6.2 When Clause 최적화
+### 6.2 When Clause Optimization
 
-- **간단한 조건 우선**: 복잡한 조건은 Command의 `canExecute`에서 처리
-- **자주 사용되는 조건을 먼저 평가**: 성능 최적화
+- **Prioritize simple conditions**: Handle complex conditions in Command's `canExecute`
+- **Evaluate frequently used conditions first**: Performance optimization
 
 ```typescript
-// ✅ 좋은 예: 간단한 조건
+// ✅ Good example: Simple conditions
 editor.keybindings.register({
   key: 'Mod+b',
   command: 'toggleBold',
   when: 'editorFocus && editorEditable'
 });
 
-// ❌ 나쁜 예: 너무 복잡한 조건
+// ❌ Bad example: Too complex conditions
 editor.keybindings.register({
   key: 'Mod+b',
   command: 'toggleBold',
@@ -796,28 +796,28 @@ editor.keybindings.register({
 });
 ```
 
-### 6.3 Source 우선순위 활용
+### 6.3 Utilizing Source Priority
 
-- **Core**: 기본 기능 (undo, redo 등)
-- **Extension**: Extension 기능
-- **User**: 사용자 커스터마이징
+- **Core**: Basic features (undo, redo, etc.)
+- **Extension**: Extension features
+- **User**: User customization
 
 ```typescript
-// Core keybinding (가장 낮은 우선순위)
+// Core keybinding (lowest priority)
 editor.keybindings.register({
   key: 'Mod+z',
   command: 'undo',
   source: 'core'
 });
 
-// Extension keybinding (중간 우선순위)
+// Extension keybinding (medium priority)
 editor.keybindings.register({
   key: 'Mod+z',
   command: 'customUndo',
   source: 'extension'
 });
 
-// User keybinding (가장 높은 우선순위, 덮어씀)
+// User keybinding (highest priority, overrides)
 editor.keybindings.register({
   key: 'Mod+z',
   command: 'myUndo',
@@ -825,42 +825,42 @@ editor.keybindings.register({
 });
 ```
 
-### 6.4 Context 업데이트 타이밍
+### 6.4 Context Update Timing
 
-- **필요할 때만 업데이트**: 불필요한 context 변경은 성능에 영향
-- **일괄 업데이트**: 여러 context를 한 번에 업데이트
+- **Update only when needed**: Unnecessary context changes affect performance
+- **Batch updates**: Update multiple contexts at once
 
 ```typescript
-// ✅ 좋은 예: 필요한 경우에만 업데이트
+// ✅ Good example: Update only when needed
 if (oldValue !== newValue) {
   editor.setContext('myExtension.value', newValue);
 }
 
-// ✅ 좋은 예: 일괄 업데이트
+// ✅ Good example: Batch updates
 editor.setContext('myExtension.value1', value1);
 editor.setContext('myExtension.value2', value2);
-// 두 개의 이벤트가 발생하지만, 필요시 일괄 처리 가능
+// Two events are emitted, but can be batch processed if needed
 
-// ❌ 나쁜 예: 불필요한 업데이트
-editor.setContext('myExtension.value', value); // 같은 값인데도 계속 호출
+// ❌ Bad example: Unnecessary updates
+editor.setContext('myExtension.value', value); // Keep calling even with same value
 ```
 
-### 6.5 Command와 Keybinding 분리
+### 6.5 Separating Commands and Keybindings
 
-- **Command는 비즈니스 로직**: Keybinding과 독립적으로 동작 가능
-- **Keybinding은 단축키 매핑**: 여러 keybinding이 같은 Command를 참조 가능
+- **Commands are business logic**: Can operate independently of Keybindings
+- **Keybindings are shortcut mappings**: Multiple keybindings can reference same Command
 
 ```typescript
-// ✅ 좋은 예: Command와 Keybinding 분리
+// ✅ Good example: Separate Commands and Keybindings
 editor.registerCommand({
   name: 'toggleBold',
   execute: async (editor: Editor) => {
-    // Bold 토글 로직
+    // Bold toggle logic
     return true;
   }
 });
 
-// 여러 keybinding이 같은 Command 참조
+// Multiple keybindings reference same Command
 editor.keybindings.register({
   key: 'Mod+b',
   command: 'toggleBold'
@@ -873,17 +873,17 @@ editor.keybindings.register({
 });
 ```
 
-### 6.6 에러 처리
+### 6.6 Error Handling
 
-- **Command 실행 실패 처리**: `execute` 메서드에서 적절한 에러 처리
-- **canExecute로 사전 검증**: 실행 불가능한 경우 사전에 차단
+- **Handle command execution failures**: Appropriate error handling in `execute` method
+- **Pre-validate with canExecute**: Block in advance if not executable
 
 ```typescript
 editor.registerCommand({
   name: 'deleteNode',
   execute: async (editor: Editor) => {
     try {
-      // 삭제 로직
+      // Delete logic
       return true;
     } catch (error) {
       console.error('Delete failed:', error);
@@ -891,7 +891,7 @@ editor.registerCommand({
     }
   },
   canExecute: (editor: Editor) => {
-    // 실행 가능 여부 사전 검증
+    // Pre-validate executability
     const context = editor.getContext();
     return context['editorFocus'] === true && 
            context['selectionType'] === 'node';
@@ -901,11 +901,10 @@ editor.registerCommand({
 
 ---
 
-## 참고 자료
+## References
 
-- [Keyboard Shortcut Spec](./keyboard-shortcut-spec.md) - Keybinding 시스템 상세 스펙
-- [Context Provider Spec](./context-provider-spec.md) - Context 시스템 상세 스펙
-- [When Expression Spec](./when-expression-spec.md) - When 절 평가 스펙
-- [Keybinding Defaults and Customization](./keybinding-defaults-and-customization.md) - 기본 keybinding 관리 스펙
-- [VS Code Keyboard Shortcuts](https://code.visualstudio.com/docs/configure/keybindings) - VS Code 공식 문서
-
+- [Keyboard Shortcut Spec](./keyboard-shortcut-spec.md) - Detailed keybinding system specification
+- [Context Provider Spec](./context-provider-spec.md) - Detailed context system specification
+- [When Expression Spec](./when-expression-spec.md) - When clause evaluation specification
+- [Keybinding Defaults and Customization](./keybinding-defaults-and-customization.md) - Default keybinding management specification
+- [VS Code Keyboard Shortcuts](https://code.visualstudio.com/docs/configure/keybindings) - VS Code official documentation

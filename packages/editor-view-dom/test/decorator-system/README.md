@@ -1,51 +1,51 @@
 # Decorator System Tests
 
-이 디렉토리는 Decorator 시스템의 기능을 테스트합니다.
+This directory tests Decorator system functionality.
 
-## 테스트 파일들
+## Test Files
 
 ### `decorator-system.test.ts`
-- DecoratorRegistry 기능 테스트
-- DecoratorManager CRUD 작업 테스트
-- Decorator 타입 등록 및 검증
-- 커스텀 렌더러 등록 테스트
-- 이벤트 발생 및 처리 검증
+- DecoratorRegistry functionality tests
+- DecoratorManager CRUD operation tests
+- Decorator type registration and validation
+- Custom renderer registration tests
+- Event emission and handling validation
 
-## Decorator 타입
+## Decorator Types
 
 ### Layer Decorator
-- DOM 구조 변경 없이 CSS 오버레이로 표현
-- 하이라이트, 주석, 어노테이션 등
-- diff에 포함됨
+- Expressed as CSS overlay without DOM structure changes
+- Highlights, comments, annotations, etc.
+- Included in diff
 
 ### Inline Decorator
-- 텍스트 내부에 실제 DOM 위젯 삽입
-- 링크 버튼, 멘션, 커스텀 위젯 등
-- `data-bc-decorator="inline"` 속성으로 diff에서 제외
+- Inserts actual DOM widgets within text
+- Link buttons, mentions, custom widgets, etc.
+- Excluded from diff via `data-bc-decorator="inline"` attribute
 
 ### Block Decorator
-- 블록 레벨에 실제 DOM 위젯 삽입
-- 툴바, 컨텍스트 메뉴, 커스텀 패널 등
-- `data-bc-decorator="block"` 속성으로 diff에서 제외
+- Inserts actual DOM widgets at block level
+- Toolbars, context menus, custom panels, etc.
+- Excluded from diff via `data-bc-decorator="block"` attribute
 
-## 핵심 클래스
+## Core Classes
 
 ### DecoratorRegistry
-- Decorator 타입 및 렌더러 등록 관리
-- 스키마 검증 기능
-- 타입 안전성 보장
+- Manages decorator type and renderer registration
+- Schema validation functionality
+- Type safety
 
 ### DecoratorManager
-- Decorator 인스턴스 CRUD 작업
-- 이벤트 발생 (`decorator:added`, `decorator:updated`, `decorator:removed`)
-- 쿼리 및 필터링 기능
+- CRUD operations for decorator instances
+- Event emission (`decorator:added`, `decorator:updated`, `decorator:removed`)
+- Query and filtering functionality
 
-## 실행 방법
+## How to Run
 
 ```bash
-# Decorator 시스템 테스트 실행
+# Run Decorator system tests
 pnpm test test/decorator-system
 
-# 특정 테스트 파일 실행
+# Run specific test file
 pnpm test test/decorator-system/decorator-system.test.ts
 ```

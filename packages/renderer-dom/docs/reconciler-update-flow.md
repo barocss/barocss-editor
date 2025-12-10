@@ -1,78 +1,78 @@
-# Reconciler 업데이트 플로우 상세 문서
+# Reconciler Update Flow Detailed Document
 
-## 개요
+## Overview
 
-이 문서는 `Reconciler` 클래스에서 `DOMRenderer.render()`를 여러 번 호출할 때 발생하는 업데이트 플로우를 상세히 설명합니다. 특히 decorator가 적용되어 텍스트가 분할되는 경우의 처리 방식을 다룹니다.
+This document details the update flow that occurs when `DOMRenderer.render()` is called multiple times in the `Reconciler` class. It particularly covers handling when decorators are applied and text is split.
 
-## 핵심 요약
+## Core Summary
 
-### data('text') 개념과 Decorator로 인한 텍스트 분할
+### data('text') Concept and Text Splitting by Decorators
 
-**핵심 개념:**
-- `data('text')`는 **템플릿의 children**에 정의됩니다
+**Core Concepts:**
+- `data('text')` is defined in **template's children**
   ```typescript
   define('inline-text', element('span', [data('text')]))
   //                                 ^^^^^^^^^^^^
-  //                                 템플릿의 children에 있음
+  //                                 In template's children
   ```
-- `data('text')`가 처리되면 생성된 VNode들이 **부모 VNode의 children**으로 들어갑니다
-- mark와 decorator가 있으면 분할된 VNode들이 children으로 들어갑니다
+- When `data('text')` is processed, generated VNodes enter **parent VNode's children**
+- If marks and decorators exist, split VNodes enter as children
 
-**중요 원칙:**
-1. **원본 컴포넌트 VNode는 하나만 존재**: `inline-text` (sid: `text-14`) 같은 컴포넌트 VNode는 하나만 존재하며, `sid`를 유지합니다.
-2. **텍스트는 decorator range를 기반으로 분할**: Decorator의 `range` (startOffset, endOffset)는 전체 텍스트를 기준으로 한 절대 위치입니다.
-3. **분할된 텍스트는 원본 컴포넌트의 children으로 들어감**: 분할된 텍스트 VNode들과 decorator VNode는 모두 원본 컴포넌트의 children으로 들어갑니다.
-4. **분할된 텍스트 VNode는 `sid`를 가지지 않음**: 분할된 텍스트 VNode들은 일반 span이며 `sid`를 가지지 않습니다.
+**Important Principles:**
+1. **Original component VNode exists only once**: Component VNodes like `inline-text` (sid: `text-14`) exist only once and maintain `sid`.
+2. **Text is split based on decorator range**: Decorator's `range` (startOffset, endOffset) is an absolute position based on entire text.
+3. **Split text enters original component's children**: Split text VNodes and decorator VNodes all enter original component's children.
+4. **Split text VNodes do not have `sid`**: Split text VNodes are regular spans and do not have `sid`.
 
-**예시:**
-- 원본: `"Hello World"` (sid: `text-14`)
+**Example:**
+- Original: `"Hello World"` (sid: `text-14`)
 - Decorator: `chip-before` (range: [0, 5], position: `before`)
-- 결과 구조:
+- Result structure:
   ```
   {
     sid: 'text-14',
     stype: 'inline-text',
     children: [
       { decoratorSid: 'chip-before', ... },  // decorator VNode
-      { tag: 'span', text: 'Hello' },        // 분할된 텍스트 (sid 없음)
-      { tag: 'span', text: ' World' }       // 분할된 텍스트 (sid 없음)
+      { tag: 'span', text: 'Hello' },        // split text (no sid)
+      { tag: 'span', text: ' World' }       // split text (no sid)
     ]
   }
   ```
 
-### 여러 번 render() 호출 시 동작
+### Behavior on Multiple render() Calls
 
-1. **첫 번째 render()**: decorator 없이 텍스트만 렌더링
-2. **두 번째 render()**: decorator 추가로 텍스트 분할, 원본 컴포넌트 VNode는 `sid`로 정확히 매칭됨
-3. **updateComponent 호출**: 원본 컴포넌트 VNode가 매칭되면 `updateComponent`가 호출됨
-4. **구조 변경 처리**: children 구조가 변경되면 분할된 텍스트 VNode는 새로 생성됨
+1. **First render()**: Render text only without decorator
+2. **Second render()**: Add decorator to split text, original component VNode matches exactly by `sid`
+3. **updateComponent call**: When original component VNode matches, `updateComponent` is called
+4. **Structure change handling**: When children structure changes, split text VNodes are newly created
 
-### ✅ 버그 수정 완료: model.text가 children을 덮어쓰는 문제
+### ✅ Bug Fix Completed: model.text Overwriting children Issue
 
-**문제 (수정 전):**
-- `reconcile()` 메서드에서 `model.text`가 있으면 `reconcileVNodeChildren()` 이후에 children을 모두 지우고 텍스트만 설정했습니다.
-- 결과적으로 decorator가 VNode에는 있지만 DOM에는 렌더링되지 않았습니다.
+**Problem (Before Fix):**
+- `reconcile()` method cleared all children and set only text after `reconcileVNodeChildren()` if `model.text` existed.
+- As a result, decorators existed in VNode but were not rendered to DOM.
 
-**해결:**
-- ✅ children이 있으면 `model.text`를 무시하도록 수정 완료
-- `reconcile()` 메서드와 `reconcileVNodesToDOM()` 메서드 모두 수정
-- 자세한 내용은 4.0절, 5.0절, 8.1절 참조
+**Solution:**
+- ✅ Fixed to ignore `model.text` if children exist
+- Both `reconcile()` method and `reconcileVNodesToDOM()` method fixed
+- See sections 4.0, 5.0, 8.1 for details
 
-## 1. 전체 플로우 개요
+## 1. Overall Flow Overview
 
 ```
 DOMRenderer.render()
   ↓
-VNodeBuilder.build() - Model + Decorators → VNode 트리 생성
+VNodeBuilder.build() - Model + Decorators → VNode tree creation
   ↓
-Reconciler.reconcile() - VNode 트리 → DOM 업데이트
+Reconciler.reconcile() - VNode tree → DOM update
   ↓
-Reconciler.reconcileVNodeChildren() - 자식 VNode 재귀 처리
+Reconciler.reconcileVNodeChildren() - Recursive child VNode processing
   ↓
-ComponentManager.updateComponent() - 컴포넌트 업데이트 (조건부)
+ComponentManager.updateComponent() - Component update (conditional)
 ```
 
-## 2. render() 호출 시 상세 플로우
+## 2. Detailed Flow on render() Call
 
 ### 2.1 DOMRenderer.render()
 
@@ -80,87 +80,87 @@ ComponentManager.updateComponent() - 컴포넌트 업데이트 (조건부)
 render(container: HTMLElement, model: ModelData, decorators: Decorator[] = [], runtime?: Record<string, any>): void
 ```
 
-**단계:**
-1. `VNodeBuilder.build()`로 Model과 Decorators를 기반으로 VNode 트리 생성
-2. `Reconciler.reconcile()` 호출하여 VNode 트리를 DOM에 반영
+**Steps:**
+1. Create VNode tree based on Model and Decorators with `VNodeBuilder.build()`
+2. Call `Reconciler.reconcile()` to reflect VNode tree to DOM
 
-**중요 사항:**
-- decorator는 VNodeBuilder에서 처리되어 VNode 트리에 포함됨
-- 텍스트에 decorator가 적용되면 VNode가 여러 개로 분리됨 (아래 참조)
+**Important Points:**
+- Decorators are processed in VNodeBuilder and included in VNode tree
+- When decorators are applied to text, VNodes are split into multiple (see below)
 
-### 2.2 VNodeBuilder.build() - Decorator 처리
+### 2.2 VNodeBuilder.build() - Decorator Processing
 
-텍스트에 inline decorator가 적용되면 `_buildMarkedRunsWithDecorators()`가 호출되어 텍스트가 분할됩니다.
+When inline decorators are applied to text, `_buildMarkedRunsWithDecorators()` is called to split text.
 
-#### 2.2.1 data('text') 개념과 텍스트 분할 규칙
+#### 2.2.1 data('text') Concept and Text Splitting Rules
 
-**핵심 개념:**
-- `data('text')`는 **템플릿의 children**에 정의됩니다
+**Core Concepts:**
+- `data('text')` is defined in **template's children**
   ```typescript
   define('inline-text', element('span', { className: 'text' }, [data('text')]))
   //                                                              ^^^^^^^^^^^^
-  //                                                              템플릿의 children에 있음
+  //                                                              In template's children
   ```
-- `VNodeBuilder._processChild()`에서 `data('text')`를 처리할 때:
-  1. `model.text` 값을 가져옴
-  2. mark와 decorator가 있으면 `_buildMarkedRunsWithDecorators()` 호출
-  3. 생성된 VNode들을 `orderedChildren.push()`로 추가
-- `VNodeBuilder._buildElement()`에서 최종 설정:
+- When `data('text')` is processed in `VNodeBuilder._processChild()`:
+  1. Get `model.text` value
+  2. If marks and decorators exist, call `_buildMarkedRunsWithDecorators()`
+  3. Add generated VNodes with `orderedChildren.push()`
+- Final setting in `VNodeBuilder._buildElement()`:
   ```typescript
   vnode.children = [...orderedChildren]
   ```
-  → `data('text')`에서 생성된 VNode들이 **부모 VNode의 children**으로 들어감
+  → VNodes generated from `data('text')` enter **parent VNode's children**
 
-**텍스트 분할 규칙:**
-- Decorator의 `range` (startOffset, endOffset)는 **전체 텍스트를 기준**으로 한 절대 위치입니다
-- Decorator range를 기반으로 텍스트를 분할합니다
-- 분할된 텍스트는 **원본 컴포넌트의 children**으로 들어갑니다
-- **원본 컴포넌트 VNode는 하나만 존재**하며, `sid`는 유지됩니다
+**Text Splitting Rules:**
+- Decorator's `range` (startOffset, endOffset) is an **absolute position based on entire text**
+- Text is split based on decorator range
+- Split text enters **original component's children**
+- **Original component VNode exists only once** and maintains `sid`
 
-**예시:**
-- 원본 텍스트: `"Hello World"` (sid: `text-14`, stype: `inline-text`)
+**Example:**
+- Original text: `"Hello World"` (sid: `text-14`, stype: `inline-text`)
 - Decorator: `chip-before` (position: `before`, range: [0, 5])
-  - range [0, 5]는 "Hello World"의 처음 5글자 "Hello"를 의미합니다
+  - range [0, 5] means first 5 characters "Hello" of "Hello World"
 
-**처리 과정:**
+**Processing Steps:**
 
-**단계 1: 템플릿 정의**
+**Step 1: Template Definition**
 ```typescript
 define('inline-text', element('span', { className: 'text' }, [data('text')]))
 //                                                              ^^^^^^^^^^^^
-//                                                              템플릿의 children에 data('text')가 있음
+//                                                              data('text') is in template's children
 ```
 
-**단계 2: VNodeBuilder._buildElement()에서 템플릿 children 처리**
-- `template.children`를 순회하며 `_processChild()` 호출 (673-675번 라인)
-- `data('text')`를 만나면 `_processChild()`에서 처리
+**Step 2: Process Template children in VNodeBuilder._buildElement()**
+- Iterate `template.children` and call `_processChild()` (lines 673-675)
+- When `data('text')` is encountered, process in `_processChild()`
 
-**단계 3: VNodeBuilder._processChild()에서 data('text') 처리** (1011-1127번 라인)
-1. `model.text` 값을 가져옴: `"Hello World"`
-2. mark와 decorator 확인
-3. `_buildMarkedRunsWithDecorators()` 호출:
-   - `splitTextByDecorators("Hello World", [chip-before])` 호출
-     - boundaries: [0, 5, 11] (decorator range의 시작/끝 + 텍스트 끝)
-     - runs 생성:
+**Step 3: Process data('text') in VNodeBuilder._processChild()** (lines 1011-1127)
+1. Get `model.text` value: `"Hello World"`
+2. Check marks and decorators
+3. Call `_buildMarkedRunsWithDecorators()`:
+   - Call `splitTextByDecorators("Hello World", [chip-before])`
+     - boundaries: [0, 5, 11] (decorator range start/end + text end)
+     - Create runs:
        - `{ text: "Hello", start: 0, end: 5, decorator: chip-before }`
        - `{ text: " World", start: 5, end: 11, decorator: undefined }`
-   - 각 run에 대해 VNode 생성:
-     - 첫 번째 run (decorator 있음, position: `before`):
-       - decorator VNode 생성: `{ decoratorSid: 'chip-before', tag: 'span', ... }`
-       - 텍스트 VNode 생성: `{ tag: 'span', text: 'Hello' }` (sid 없음, 일반 span)
+   - Create VNode for each run:
+     - First run (has decorator, position: `before`):
+       - Create decorator VNode: `{ decoratorSid: 'chip-before', tag: 'span', ... }`
+       - Create text VNode: `{ tag: 'span', text: 'Hello' }` (no sid, regular span)
        - `nodes.push(decoratorVNode)`, `nodes.push(inner)`
-     - 두 번째 run (decorator 없음):
-       - 텍스트 VNode 생성: `{ tag: 'span', text: ' World' }` (sid 없음, 일반 span)
+     - Second run (no decorator):
+       - Create text VNode: `{ tag: 'span', text: ' World' }` (no sid, regular span)
        - `nodes.push(inner)`
-4. 생성된 VNode들을 `orderedChildren`에 추가: `orderedChildren.push(n)` (1127번 라인)
+4. Add generated VNodes to `orderedChildren`: `orderedChildren.push(n)` (line 1127)
 
-**단계 4: VNodeBuilder._buildElement()에서 최종 설정** (743-745번 라인)
+**Step 4: Final Setting in VNodeBuilder._buildElement()** (lines 743-745)
 ```typescript
 vnode.children = [...orderedChildren]
 ```
-→ `data('text')`에서 생성된 VNode들이 **부모 VNode의 children**으로 들어감
+→ VNodes generated from `data('text')` enter **parent VNode's children**
 
-**최종 VNode 구조:**
+**Final VNode Structure:**
 ```
 {
   sid: 'text-14',
@@ -168,13 +168,13 @@ vnode.children = [...orderedChildren]
   tag: 'span',
   children: [
     { decoratorSid: 'chip-before', tag: 'span', ... },  // decorator VNode
-    { tag: 'span', text: 'Hello' },                     // 분할된 텍스트 (sid 없음)
-    { tag: 'span', text: ' World' }                    // 분할된 텍스트 (sid 없음)
+    { tag: 'span', text: 'Hello' },                     // split text (no sid)
+    { tag: 'span', text: ' World' }                    // split text (no sid)
   ]
 }
 ```
 
-**최종 DOM 구조:**
+**Final DOM Structure:**
 ```html
 <span class="text" data-bc-sid="text-14" data-bc-stype="inline-text">
   <span class="chip" data-decorator-sid="chip-before" ...>CHIP</span>
@@ -183,18 +183,18 @@ vnode.children = [...orderedChildren]
 </span>
 ```
 
-**중요 사항:**
-- `data('text')`는 **템플릿의 children**에 정의되며, 처리되면 생성된 VNode들이 **부모 VNode의 children**으로 들어갑니다
-- 원본 컴포넌트 VNode (`text-14`)는 **하나만 존재**하며, `sid`를 유지합니다
-- 분할된 텍스트 VNode들은 **일반 span**이며 `sid`를 가지지 않습니다
-- Decorator VNode는 `decoratorSid`를 가지며, 원본 컴포넌트의 children으로 들어갑니다
-- `prevVNodeTree`는 `text-14`의 전체 VNode 구조를 저장하므로, 분할된 구조도 함께 저장됩니다
+**Important Points:**
+- `data('text')` is defined in **template's children**, and when processed, generated VNodes enter **parent VNode's children**
+- Original component VNode (`text-14`) **exists only once** and maintains `sid`
+- Split text VNodes are **regular spans** and do not have `sid`
+- Decorator VNode has `decoratorSid` and enters original component's children
+- `prevVNodeTree` stores entire VNode structure of `text-14`, so split structure is also stored together
 
-**개념 검증:**
-- ✅ `data('text')`는 템플릿의 children에 있음
-- ✅ 처리되면 생성된 VNode들이 부모 VNode의 children으로 들어감
-- ✅ mark와 decorator가 있으면 분할된 VNode들이 children으로 들어감
-- ✅ 이는 올바른 개념입니다!
+**Concept Verification:**
+- ✅ `data('text')` is in template's children
+- ✅ When processed, generated VNodes enter parent VNode's children
+- ✅ If marks and decorators exist, split VNodes enter as children
+- ✅ This is the correct concept!
 
 ### 2.3 Reconciler.reconcile()
 
@@ -202,16 +202,16 @@ vnode.children = [...orderedChildren]
 reconcile(container: HTMLElement, vnode: VNode, model: ModelData, runtime?: RuntimeCtx, decorators?: any[]): void
 ```
 
-**단계:**
-1. Root VNode의 `sid`로 기존 host 찾기 또는 생성
-2. `prevVNode` 가져오기: `this.prevVNodeTree.get(sid)`
-3. Attributes/Styles 업데이트
-4. `prevVNode` 저장: `this.prevVNodeTree.set(sid, { ...rootVNode })`
-5. `reconcileVNodeChildren()` 호출하여 자식 처리
+**Steps:**
+1. Find or create existing host by Root VNode's `sid`
+2. Get `prevVNode`: `this.prevVNodeTree.get(sid)`
+3. Update Attributes/Styles
+4. Store `prevVNode`: `this.prevVNodeTree.set(sid, { ...rootVNode })`
+5. Call `reconcileVNodeChildren()` to process children
 
-**중요 사항:**
-- `prevVNodeTree`는 `sid` 단위로만 저장됨
-- Decorator로 분할된 VNode는 각각 다른 구조를 가지지만, 같은 `sid`를 가질 수 있음
+**Important Points:**
+- `prevVNodeTree` is stored only by `sid` unit
+- VNodes split by decorators can have different structures but can have same `sid`
 
 ### 2.4 Reconciler.reconcileVNodeChildren()
 
@@ -219,14 +219,14 @@ reconcile(container: HTMLElement, vnode: VNode, model: ModelData, runtime?: Runt
 private reconcileVNodeChildren(parent: HTMLElement, prevVNode: VNode | undefined, nextVNode: VNode, context?: any): void
 ```
 
-**단계:**
-1. `nextVNode.children` 순회
-2. 각 child VNode에 대해:
-   - `findChildHost()`로 기존 DOM 요소 찾기
-   - 없으면 새로 생성
-   - 있으면 `updateComponent()` 호출 (조건부)
+**Steps:**
+1. Iterate `nextVNode.children`
+2. For each child VNode:
+   - Find existing DOM element with `findChildHost()`
+   - Create new if not found
+   - Call `updateComponent()` if found (conditional)
 
-**prevVNode 매칭:**
+**prevVNode Matching:**
 ```typescript
 let prevChildVNode: VNode | undefined = undefined;
 if (childVNode.sid) {
@@ -240,32 +240,32 @@ if (childVNode.sid) {
 }
 ```
 
-**실제 구조:**
-- 원본 컴포넌트 VNode (`text-14`)는 하나만 존재하므로, `sid`로 매칭이 정확합니다
-- 분할된 텍스트 VNode들은 `sid`가 없으므로 매칭되지 않으며, 새로 생성됩니다
-- Decorator VNode는 `decoratorSid`로 매칭됩니다
+**Actual Structure:**
+- Original component VNode (`text-14`) exists only once, so matching by `sid` is accurate
+- Split text VNodes do not have `sid`, so they are not matched and are newly created
+- Decorator VNode is matched by `decoratorSid`
 
-**예시:**
-- 이전 렌더 (decorator 없음):
+**Example:**
+- Previous render (no decorator):
   ```
   {
     sid: 'text-14',
-    children: [{ tag: 'span', text: 'Hello World' }]  // 또는 text: 'Hello World'
+    children: [{ tag: 'span', text: 'Hello World' }]  // or text: 'Hello World'
   }
   ```
-- 다음 렌더 (decorator 있음):
+- Next render (with decorator):
   ```
   {
     sid: 'text-14',
     children: [
       { decoratorSid: 'chip-before', tag: 'span', ... },
-      { tag: 'span', text: 'Hello' },      // sid 없음
-      { tag: 'span', text: ' World' }      // sid 없음
+      { tag: 'span', text: 'Hello' },      // no sid
+      { tag: 'span', text: ' World' }      // no sid
     ]
   }
   ```
-- `text-14` VNode 자체는 `sid`로 정확히 매칭됩니다
-- 분할된 텍스트 VNode들은 `sid`가 없으므로 새로 생성됩니다
+- `text-14` VNode itself matches exactly by `sid`
+- Split text VNodes do not have `sid`, so they are newly created
 
 ### 2.5 ComponentManager.updateComponent()
 
@@ -273,18 +273,18 @@ if (childVNode.sid) {
 updateComponent(prevVNode: VNode, nextVNode: VNode, container: HTMLElement, context: ReconcileContext, wip: DOMWorkInProgress): void
 ```
 
-**호출 조건:**
-1. `reconcileVNodeChildren()`에서 기존 host를 찾았을 때
-2. `!isDecorator && childVNode.stype`일 때
-3. `!isReconciling`일 때 (무한 루프 방지)
+**Call Conditions:**
+1. When existing host is found in `reconcileVNodeChildren()`
+2. When `!isDecorator && childVNode.stype`
+3. When `!isReconciling` (prevent infinite loop)
 
-**중요 로직:**
+**Important Logic:**
 ```typescript
 const isReconciling = !!(context as any)?.__isReconciling;
 if (!isReconciling) {
   this.components.updateComponent(prevChildVNode || {} as VNode, childVNode, host, context || ({} as any));
 } else {
-  // __isReconciling이 true면 DOM 속성만 업데이트
+  // If __isReconciling is true, only update DOM attributes
   if (childVNode.attrs) {
     this.dom.updateAttributes(host, prevChildVNode?.attrs, childVNode.attrs);
   }
@@ -294,66 +294,66 @@ if (!isReconciling) {
 }
 ```
 
-**문제점:**
-- `prevChildVNode`가 `undefined`이거나 잘못된 VNode일 수 있음
-- Decorator로 분할된 경우, `prevChildVNode`가 전체 텍스트를 가진 VNode일 수 있음
-- `updateComponent` 내부에서 `prevVNode`와 `nextVNode`를 비교할 때 구조 불일치 발생
+**Issues:**
+- `prevChildVNode` may be `undefined` or invalid VNode
+- When split by decorator, `prevChildVNode` may be VNode with entire text
+- Structure mismatch can occur when comparing `prevVNode` and `nextVNode` inside `updateComponent`
 
-## 3. Decorator로 인한 VNode 분할 처리
+## 3. VNode Splitting by Decorators
 
-### 3.1 분할 과정
+### 3.1 Splitting Process
 
 **VNodeBuilder._buildMarkedRunsWithDecorators():**
-1. 텍스트를 mark 범위로 분할 (marks가 있는 경우)
-2. 각 mark run에 대해 decorator 범위로 다시 분할
-3. 각 decorator run에 대해 VNode 생성
+1. Split text by mark ranges (if marks exist)
+2. Split each mark run again by decorator ranges
+3. Create VNode for each decorator run
 
-**결과:**
-- 원본 컴포넌트 VNode는 하나만 존재하며 `sid`를 유지
-- 분할된 텍스트 VNode들은 일반 span이며 `sid`를 가지지 않음
-- Decorator VNode는 `decoratorSid`를 가짐
-- 모든 VNode는 원본 컴포넌트의 children으로 들어감
+**Result:**
+- Original component VNode exists only once and maintains `sid`
+- Split text VNodes are regular spans and do not have `sid`
+- Decorator VNode has `decoratorSid`
+- All VNodes enter original component's children
 
-### 3.2 Reconciler에서의 처리
+### 3.2 Processing in Reconciler
 
-**현재 방식:**
-- `findChildHost()`는 `sid` 또는 `decoratorSid`로 DOM 요소를 찾음
-- 원본 컴포넌트 VNode는 `sid`로 정확히 매칭됨
-- 분할된 텍스트 VNode들은 `sid`가 없으므로 새로 생성됨
-- Decorator VNode는 `decoratorSid`로 매칭됨
+**Current Approach:**
+- `findChildHost()` finds DOM element by `sid` or `decoratorSid`
+- Original component VNode matches exactly by `sid`
+- Split text VNodes do not have `sid`, so they are newly created
+- Decorator VNode matches by `decoratorSid`
 
-**특징:**
-- 원본 컴포넌트 VNode는 하나만 존재하므로 매칭 문제가 없음
-- 분할된 텍스트 VNode들은 `sid`가 없으므로 항상 새로 생성됨 (이전 DOM 요소 재사용 불가)
-- Decorator VNode는 `decoratorSid`로 정확히 매칭됨
+**Characteristics:**
+- Original component VNode exists only once, so no matching issues
+- Split text VNodes do not have `sid`, so they are always newly created (cannot reuse previous DOM elements)
+- Decorator VNode matches exactly by `decoratorSid`
 
-## 4. 여러 번 render() 호출 시 문제점
+## 4. Issues on Multiple render() Calls
 
-### 4.0 model.text와 children 충돌 문제 (중요)
+### 4.0 model.text and children Conflict Issue (Important)
 
-**문제:**
-`reconcile()` 메서드에서 `model.text`가 있으면 `reconcileVNodeChildren()` 이후에 children을 모두 지우고 텍스트만 설정하는 로직이 있습니다.
+**Problem:**
+There is logic in `reconcile()` method that clears all children and sets only text after `reconcileVNodeChildren()` if `model.text` exists.
 
-**문제 코드:**
+**Problem Code:**
 ```typescript
-// reconcile() 메서드의 152-157번 라인
+// Lines 152-157 of reconcile() method
 this.reconcileVNodeChildren(host, prevVNode, rootVNode, context);
 
-// 루트 모델이 텍스트를 가지는 경우, host의 텍스트를 직접 설정
+// If root model has text, set host text directly
 if ((model as any)?.text !== undefined && (model as any)?.text !== null) {
   const doc = host.ownerDocument || document;
-  while (host.firstChild) host.removeChild(host.firstChild);  // ⚠️ children 모두 삭제!
+  while (host.firstChild) host.removeChild(host.firstChild);  // ⚠️ Delete all children!
   host.appendChild(doc.createTextNode(String((model as any).text)));
 }
 ```
 
-**영향:**
-- Decorator가 적용되어 VNode의 children에 decorator VNode와 분할된 텍스트 VNode가 포함되어 있어도
-- `model.text`가 있으면 children을 모두 지우고 원본 텍스트만 설정됨
-- 결과적으로 decorator가 DOM에 렌더링되지 않음
+**Impact:**
+- Even if decorator VNode and split text VNodes are included in VNode's children when decorator is applied
+- If `model.text` exists, all children are cleared and only original text is set
+- As a result, decorators are not rendered to DOM
 
-**예시:**
-- VNode 구조:
+**Example:**
+- VNode structure:
   ```
   {
     sid: 'text-14',
@@ -365,40 +365,40 @@ if ((model as any)?.text !== undefined && (model as any)?.text !== null) {
   }
   ```
 - Model: `{ sid: 'text-14', text: 'Hello World' }`
-- 결과 DOM: `<span data-bc-sid="text-14">Hello World</span>` (decorator 없음!)
+- Result DOM: `<span data-bc-sid="text-14">Hello World</span>` (no decorator!)
 
-**해결 방안:**
-1. `model.text`가 있어도 VNode에 children이 있으면 children을 우선시
-2. `reconcileVNodeChildren()`의 617-624번 라인처럼 children 체크 로직 추가
-3. 또는 `model.text` 설정 로직을 `reconcileVNodeChildren()` 이전으로 이동
+**Solutions:**
+1. Prioritize children even if `model.text` exists
+2. Add children check logic like lines 617-624 of `reconcileVNodeChildren()`
+3. Or move `model.text` setting logic before `reconcileVNodeChildren()`
 
-**현재 상태:**
-- `reconcileVNodeChildren()` 내부에서는 children이 있으면 model.text를 무시하는 로직이 있음 (617-624번 라인)
-- 하지만 `reconcile()` 메서드에서는 이 체크가 없음
+**Current State:**
+- Inside `reconcileVNodeChildren()`, there is logic to ignore model.text if children exist (lines 617-624)
+- But `reconcile()` method does not have this check
 
-### 4.1 prevVNode 저장 문제
+### 4.1 prevVNode Storage Issue
 
-**현재 구현:**
+**Current Implementation:**
 ```typescript
-// reconcileVNodesToDOM()에서
+// In reconcileVNodesToDOM()
 if (sid) {
   this.prevVNodeTree.set(String(sid), { ...vnode });
 }
 ```
 
-**실제 동작:**
-- `prevVNodeTree`는 `sid` 단위로 전체 VNode 구조를 저장함
-- Decorator로 분할된 경우, 분할된 children 구조도 함께 저장됨
-- 다음 렌더에서 `prevVNode`를 가져올 때 전체 구조를 가져옴
+**Actual Behavior:**
+- `prevVNodeTree` stores entire VNode structure by `sid` unit
+- When split by decorator, split children structure is also stored together
+- When getting `prevVNode` in next render, entire structure is retrieved
 
-**잠재적 문제:**
-- `prevVNode`의 children 구조가 다음 렌더의 children 구조와 다를 수 있음
-- 예: 이전 렌더에는 decorator가 없었고, 다음 렌더에는 decorator가 추가됨
-- 이 경우 `prevChildVNodes`와 `nextChildVNodes`의 구조가 완전히 다름
+**Potential Issues:**
+- `prevVNode`'s children structure may differ from next render's children structure
+- Example: previous render had no decorator, next render has decorator added
+- In this case, `prevChildVNodes` and `nextChildVNodes` structures are completely different
 
-### 4.2 updateComponent 호출 문제
+### 4.2 updateComponent Call Issue
 
-**조건:**
+**Condition:**
 ```typescript
 if (!isDecorator && childVNode.stype) {
   if (!isReconciling) {
@@ -407,14 +407,14 @@ if (!isDecorator && childVNode.stype) {
 }
 ```
 
-**문제:**
-- `prevChildVNode`가 `undefined`이거나 잘못된 VNode일 수 있음
-- `updateComponent` 내부에서 `prevVNode`와 `nextVNode`의 구조가 다를 수 있음
-- Decorator로 분할된 경우, `prevVNode`는 전체 텍스트를 가지고 `nextVNode`는 분할된 텍스트를 가짐
+**Issues:**
+- `prevChildVNode` may be `undefined` or invalid VNode
+- Structure mismatch may occur when comparing `prevVNode` and `nextVNode` inside `updateComponent`
+- When split by decorator, `prevVNode` has entire text and `nextVNode` has split text
 
-### 4.3 DOM 요소 매칭 문제
+### 4.3 DOM Element Matching Issue
 
-**현재 구현:**
+**Current Implementation:**
 ```typescript
 private findChildHost(parent: HTMLElement, vnode: VNode): HTMLElement | null {
   if (isDecorator) {
@@ -432,32 +432,32 @@ private findChildHost(parent: HTMLElement, vnode: VNode): HTMLElement | null {
 }
 ```
 
-**실제 동작:**
-- 원본 컴포넌트 VNode는 `sid`로 정확히 매칭됨 (하나만 존재하므로)
-- 분할된 텍스트 VNode들은 `sid`가 없으므로 항상 새로 생성됨
-- Decorator VNode는 `decoratorSid`로 정확히 매칭됨
+**Actual Behavior:**
+- Original component VNode matches exactly by `sid` (exists only once)
+- Split text VNodes do not have `sid`, so they are always newly created
+- Decorator VNode matches exactly by `decoratorSid`
 
-**잠재적 문제:**
-- 분할된 텍스트 VNode들은 `sid`가 없으므로 이전 DOM 요소를 재사용할 수 없음
-- 매 렌더마다 새로운 DOM 요소가 생성되어 성능 저하 가능
-- 하지만 구조가 변경되면 어차피 재생성이 필요하므로 큰 문제는 아님
+**Potential Issues:**
+- Split text VNodes do not have `sid`, so previous DOM elements cannot be reused
+- New DOM elements may be created every render, potentially causing performance degradation
+- But since structure changed, recreation is needed anyway, so not a major issue
 
-## 5. 해결 방안
+## 5. Solutions
 
-### 5.0 model.text와 children 충돌 해결 (우선순위 높음)
+### 5.0 Resolve model.text and children Conflict (High Priority)
 
-**문제:**
-`reconcile()` 메서드에서 `model.text`가 있으면 children을 무시하고 텍스트만 설정하는 로직이 decorator 렌더링을 방해합니다.
+**Problem:**
+Logic in `reconcile()` method that ignores children and sets only text when `model.text` exists interferes with decorator rendering.
 
-**해결 방안 1: children 우선 체크 추가**
+**Solution 1: Add children Priority Check**
 ```typescript
-// reconcile() 메서드 수정
+// Modify reconcile() method
 this.reconcileVNodeChildren(host, prevVNode, rootVNode, context);
 
-// 루트 모델이 텍스트를 가지는 경우, host의 텍스트를 직접 설정
-// BUT: children이 있으면 children을 우선시 (decorator가 children에 포함됨)
+// If root model has text, set host text directly
+// BUT: Prioritize children if they exist (decorators are included in children)
 if ((model as any)?.text !== undefined && (model as any)?.text !== null) {
-  // children이 있으면 model.text를 무시 (children에 decorator가 포함될 수 있음)
+  // Ignore model.text if children exist (children may include decorators)
   if (!rootVNode.children || rootVNode.children.length === 0) {
     const doc = host.ownerDocument || document;
     while (host.firstChild) host.removeChild(host.firstChild);
@@ -466,13 +466,13 @@ if ((model as any)?.text !== undefined && (model as any)?.text !== null) {
 }
 ```
 
-**해결 방안 2: reconcileVNodesToDOM()에도 동일한 로직 적용**
+**Solution 2: Apply Same Logic to reconcileVNodesToDOM()**
 ```typescript
-// reconcileVNodesToDOM() 메서드의 361-365번 라인 수정
-// 텍스트 모델이 제공되면 호스트 텍스트 보장 (children diff 이후)
-// BUT: children이 있으면 children을 우선시
+// Modify lines 361-365 of reconcileVNodesToDOM() method
+// Ensure host text if text model provided (after children diff)
+// BUT: Prioritize children if they exist
 if (model && (model as any)?.text !== undefined && (model as any)?.text !== null) {
-  // children이 있으면 model.text를 무시
+  // Ignore model.text if children exist
   if (!vnode.children || vnode.children.length === 0) {
     const doc = host.ownerDocument || document;
     while (host.firstChild) host.removeChild(host.firstChild);
@@ -481,53 +481,53 @@ if (model && (model as any)?.text !== undefined && (model as any)?.text !== null
 }
 ```
 
-**해결 방안 3: VNode.text 속성 우선 사용**
-- `model.text` 대신 `vnode.text`를 우선 사용
-- VNodeBuilder가 이미 텍스트를 처리했으므로 model.text는 fallback으로만 사용
+**Solution 3: Prioritize VNode.text Property**
+- Prioritize `vnode.text` instead of `model.text`
+- VNodeBuilder already processed text, so model.text is only used as fallback
 
-### 5.1 prevVNode 저장 개선
+### 5.1 Improve prevVNode Storage
 
-**제안:**
-- `prevVNodeTree`를 `sid` 단위가 아닌 전체 VNode 트리 구조로 저장
-- 또는 분할된 VNode에 대해 별도의 매핑 사용
+**Proposal:**
+- Store `prevVNodeTree` as entire VNode tree structure instead of by `sid` unit
+- Or use separate mapping for split VNodes
 
-**구현 예시:**
+**Implementation Example:**
 ```typescript
-// 전체 VNode 트리 저장
+// Store entire VNode tree
 private prevVNodeTree: Map<string, VNode> = new Map();
-private prevVNodeTreeFull: VNode | null = null; // 전체 트리 저장
+private prevVNodeTreeFull: VNode | null = null; // Store entire tree
 
-// reconcile() 종료 시
+// At end of reconcile()
 this.prevVNodeTreeFull = { ...vnode };
 ```
 
-### 5.2 prevVNode 매칭 개선
+### 5.2 Improve prevVNode Matching
 
-**현재 상태:**
-- 원본 컴포넌트 VNode는 `sid`로 정확히 매칭됨 (문제 없음)
-- 분할된 텍스트 VNode들은 `sid`가 없으므로 매칭되지 않음 (의도된 동작)
-- Decorator VNode는 `decoratorSid`로 정확히 매칭됨 (문제 없음)
+**Current State:**
+- Original component VNode matches exactly by `sid` (no issue)
+- Split text VNodes do not have `sid`, so they are not matched (intended behavior)
+- Decorator VNode matches exactly by `decoratorSid` (no issue)
 
-**개선 제안:**
-- 분할된 텍스트 VNode에 대해 순차적 매칭을 고려할 수 있음
-- 하지만 구조가 변경되면 어차피 재생성이 필요하므로 큰 이점은 없음
-- 현재 구현이 적절함
+**Improvement Proposal:**
+- Consider sequential matching for split text VNodes
+- But since recreation is needed when structure changes anyway, not much benefit
+- Current implementation is appropriate
 
-### 5.3 updateComponent 호출 조건 개선
+### 5.3 Improve updateComponent Call Conditions
 
-**제안:**
-- `prevChildVNode`가 유효한지 확인
-- 구조가 일치하는지 확인 후 `updateComponent` 호출
+**Proposal:**
+- Verify `prevChildVNode` is valid
+- Call `updateComponent` after verifying structure matches
 
-**구현 예시:**
+**Implementation Example:**
 ```typescript
 if (!isDecorator && childVNode.stype) {
   if (!isReconciling) {
-    // prevChildVNode 유효성 확인
+    // Verify prevChildVNode validity
     if (prevChildVNode && prevChildVNode.stype === childVNode.stype) {
       this.components.updateComponent(prevChildVNode, childVNode, host, context || ({} as any));
     } else {
-      // 구조가 다르면 mount/unmount 처리
+      // Handle mount/unmount if structure differs
       if (prevChildVNode) {
         this.components.unmountComponent(prevChildVNode, context);
       }
@@ -537,25 +537,25 @@ if (!isDecorator && childVNode.stype) {
 }
 ```
 
-### 5.4 DOM 요소 매칭 개선
+### 5.4 Improve DOM Element Matching
 
-**현재 상태:**
-- 원본 컴포넌트 VNode는 `sid`로 정확히 매칭됨 (문제 없음)
-- 분할된 텍스트 VNode들은 `sid`가 없으므로 항상 새로 생성됨 (의도된 동작)
-- Decorator VNode는 `decoratorSid`로 정확히 매칭됨 (문제 없음)
+**Current State:**
+- Original component VNode matches exactly by `sid` (no issue)
+- Split text VNodes do not have `sid`, so they are always newly created (intended behavior)
+- Decorator VNode matches exactly by `decoratorSid` (no issue)
 
-**개선 제안:**
-- 분할된 텍스트 VNode에 대해 순차적 매칭을 고려할 수 있음
-- 하지만 구조가 변경되면 어차피 재생성이 필요하므로 큰 이점은 없음
-- 현재 구현이 적절함
+**Improvement Proposal:**
+- Consider sequential matching for split text VNodes
+- But since recreation is needed when structure changes anyway, not much benefit
+- Current implementation is appropriate
 
-**성능 최적화 고려사항:**
-- 분할된 텍스트 VNode에 대해 `key` 속성을 추가하여 매칭 개선 가능
-- 하지만 텍스트 내용이 변경되면 어차피 재생성이 필요하므로 큰 이점은 없음
+**Performance Optimization Considerations:**
+- Can add `key` attribute to split text VNodes to improve matching
+- But since recreation is needed when text content changes anyway, not much benefit
 
-## 6. 디버깅 가이드
+## 6. Debugging Guide
 
-### 6.1 로그 포인트
+### 6.1 Log Points
 
 **Reconciler.reconcileVNodeChildren():**
 ```typescript
@@ -581,57 +581,57 @@ if (componentId === 'text-14') {
 }
 ```
 
-### 6.2 확인 사항
+### 6.2 Verification Items
 
-1. **prevVNode 저장 확인:**
-   - `prevVNodeTree.get(sid)`가 올바른 VNode를 반환하는지
-   - Decorator로 분할된 경우 전체 구조가 저장되는지
+1. **Verify prevVNode Storage:**
+   - Does `prevVNodeTree.get(sid)` return correct VNode?
+   - Is entire structure stored when split by decorator?
 
-2. **prevVNode 매칭 확인:**
-   - `prevChildVNode`가 올바르게 찾아지는지
-   - 원본 컴포넌트 VNode는 `sid`로 정확히 매칭되는지
+2. **Verify prevVNode Matching:**
+   - Is `prevChildVNode` found correctly?
+   - Does original component VNode match exactly by `sid`?
 
-3. **updateComponent 호출 확인:**
-   - `isReconciling` 플래그가 올바르게 설정되는지
-   - `prevChildVNode`가 유효한지
-   - Element template인 경우 updateComponent가 호출되지 않을 수 있음
+3. **Verify updateComponent Call:**
+   - Is `isReconciling` flag set correctly?
+   - Is `prevChildVNode` valid?
+   - For Element templates, updateComponent may not be called
 
-4. **DOM 요소 매칭 확인:**
-   - `findChildHost()`가 올바른 DOM 요소를 찾는지
-   - 원본 컴포넌트 VNode는 `sid`로 정확히 매칭되는지
+4. **Verify DOM Element Matching:**
+   - Does `findChildHost()` find correct DOM element?
+   - Does original component VNode match exactly by `sid`?
 
-5. **model.text와 children 충돌 확인:**
-   - VNode에 children이 있는데도 `model.text`가 children을 덮어쓰는지
-   - Decorator가 VNode에는 있지만 DOM에는 렌더링되지 않는지
-   - Container HTML을 확인하여 children이 실제로 렌더링되었는지 확인
+5. **Verify model.text and children Conflict:**
+   - Does `model.text` overwrite children even when VNode has children?
+   - Do decorators exist in VNode but not rendered to DOM?
+   - Check container HTML to verify children are actually rendered
 
-## 7. 테스트 시나리오
+## 7. Test Scenarios
 
-### 7.1 기본 시나리오
+### 7.1 Basic Scenarios
 
-1. 첫 렌더링 (decorator 없음)
-2. Decorator 추가 후 두 번째 렌더링
-3. Decorator 제거 후 세 번째 렌더링
+1. First render (no decorator)
+2. Second render after adding decorator
+3. Third render after removing decorator
 
-### 7.2 복잡한 시나리오
+### 7.2 Complex Scenarios
 
-1. 여러 decorator 추가/제거
-2. 텍스트 변경과 decorator 변경 동시 발생
-3. 동일한 modelData로 여러 번 render() 호출
+1. Add/remove multiple decorators
+2. Text change and decorator change occur simultaneously
+3. Call render() multiple times with same modelData
 
-### 7.3 문제 재현 시나리오
+### 7.3 Problem Reproduction Scenarios
 
-1. `text-14`에 decorator 추가
-2. 텍스트가 분할되어 원본 컴포넌트의 children 구조가 변경됨
-3. 두 번째 render() 호출 시 `updateComponent`가 호출되지만:
-   - `prevVNode`의 children 구조와 `nextVNode`의 children 구조가 다름
-   - `prevChildVNode` 매칭이 어려울 수 있음
-4. 구조 변경으로 인한 DOM 재생성 발생 가능
+1. Add decorator to `text-14`
+2. Text is split, changing original component's children structure
+3. When second render() is called, `updateComponent` is called but:
+   - `prevVNode`'s children structure differs from `nextVNode`'s children structure
+   - `prevChildVNode` matching may be difficult
+4. DOM recreation may occur due to structure change
 
-### 7.4 model.text와 children 충돌 재현 시나리오
+### 7.4 model.text and children Conflict Reproduction Scenario
 
-1. `text-14`에 decorator 추가
-2. VNodeBuilder가 VNode를 생성:
+1. Add decorator to `text-14`
+2. VNodeBuilder creates VNode:
    ```
    {
      sid: 'text-14',
@@ -642,100 +642,99 @@ if (componentId === 'text-14') {
      ]
    }
    ```
-3. `reconcile()` 메서드 호출:
-   - `reconcileVNodeChildren()` 실행 → children이 DOM에 렌더링됨
-   - 이후 `model.text` 체크 → children을 모두 지우고 텍스트만 설정
-4. 결과: decorator가 DOM에 렌더링되지 않음
+3. Call `reconcile()` method:
+   - Execute `reconcileVNodeChildren()` → children rendered to DOM
+   - Then `model.text` check → clear all children and set only text
+4. Result: decorators not rendered to DOM
 
-**테스트 결과:**
+**Test Results:**
 ```
 Container HTML: <span data-bc-sid="text-14" data-bc-stype="inline-text" class="text">Hello World</span>
-Text element children: []  // children이 모두 삭제됨!
+Text element children: []  // All children deleted!
 ```
 
-## 8. 버그 수정 이력
+## 8. Bug Fix History
 
-### 8.1 model.text가 children을 덮어쓰는 문제 (수정 완료)
+### 8.1 model.text Overwriting children Issue (Fixed)
 
-**위치:** `packages/renderer-dom/src/reconcile/reconciler.ts`
+**Location:** `packages/renderer-dom/src/reconcile/reconciler.ts`
 
-**문제:**
-- `reconcile()` 메서드 (152-157번 라인): `model.text`가 있으면 children을 모두 지우고 텍스트만 설정
-- `reconcileVNodesToDOM()` 메서드 (361-365번 라인): 동일한 문제
+**Problem:**
+- `reconcile()` method (lines 152-157): Clear all children and set only text if `model.text` exists
+- `reconcileVNodesToDOM()` method (lines 361-365): Same issue
 
-**영향:**
-- Decorator가 적용되어 VNode의 children에 포함되어 있어도 DOM에 렌더링되지 않음
-- `model.text`가 있으면 항상 원본 텍스트만 표시됨
+**Impact:**
+- Decorators not rendered to DOM even when included in VNode's children
+- Always shows only original text if `model.text` exists
 
-**해결 상태:**
-- ✅ 수정 완료 (2024년)
-- 수정 내용: children이 있으면 `model.text`를 무시하도록 로직 추가
+**Fix Status:**
+- ✅ Fixed (2024)
+- Fix content: Added logic to ignore `model.text` if children exist
 
-**수정 내용:**
+**Fix Content:**
 ```typescript
-// reconcile() 메서드 수정 (156번 라인)
+// Modify reconcile() method (line 156)
 if (!rootVNode.children || rootVNode.children.length === 0) {
-  // children이 없을 때만 model.text 설정
+  // Set model.text only when children do not exist
 }
 
-// reconcileVNodesToDOM() 메서드 수정 (368번 라인)
+// Modify reconcileVNodesToDOM() method (line 368)
 if (!vnode.children || vnode.children.length === 0) {
-  // children이 없을 때만 model.text 설정
+  // Set model.text only when children do not exist
 }
 ```
 
-**테스트 결과:**
-- ✅ `reconciler-update-flow.test.ts`: 8개 테스트 모두 통과
-- ✅ `vnode-decorator-structure.test.ts`: 5개 테스트 모두 통과
-- ✅ Decorator가 DOM에 올바르게 렌더링됨
+**Test Results:**
+- ✅ `reconciler-update-flow.test.ts`: All 8 tests pass
+- ✅ `vnode-decorator-structure.test.ts`: All 5 tests pass
+- ✅ Decorators render correctly to DOM
 
-## 9. 요약
+## 9. Summary
 
-### 9.1 핵심 발견 사항
+### 9.1 Core Findings
 
-1. **VNode 구조는 올바름**
-   - Decorator가 적용되면 텍스트가 분할되어 원본 컴포넌트의 children으로 들어감
-   - 원본 컴포넌트 VNode는 하나만 존재하며 `sid`를 유지
-   - 분할된 텍스트 VNode는 `sid`가 없음 (일반 span)
+1. **VNode Structure is Correct**
+   - When decorators are applied, text is split and enters original component's children
+   - Original component VNode exists only once and maintains `sid`
+   - Split text VNodes do not have `sid` (regular spans)
 
-2. **Reconciler의 prevVNode 매칭은 정상 작동**
-   - 원본 컴포넌트 VNode는 `sid`로 정확히 매칭됨
-   - Decorator VNode는 `decoratorSid`로 정확히 매칭됨
-   - 분할된 텍스트 VNode는 새로 생성됨 (의도된 동작)
+2. **Reconciler's prevVNode Matching Works Correctly**
+   - Original component VNode matches exactly by `sid`
+   - Decorator VNode matches exactly by `decoratorSid`
+   - Split text VNodes are newly created (intended behavior)
 
-3. **중요한 버그 발견**
-   - `model.text`가 있으면 children을 덮어쓰는 로직이 decorator 렌더링을 방해
-   - VNode에는 decorator가 있지만 DOM에는 렌더링되지 않음
-   - 해결 방안: children 우선 체크 로직 추가 필요
+3. **Important Bug Found**
+   - Logic that overwrites children when `model.text` exists interferes with decorator rendering
+   - Decorators exist in VNode but not rendered to DOM
+   - Solution: Need to add children priority check logic
 
-### 9.2 완료된 작업
+### 9.2 Completed Work
 
-1. **✅ 버그 수정 완료**
-   - `reconcile()` 메서드의 152-161번 라인 수정
-   - `reconcileVNodesToDOM()` 메서드의 364-373번 라인 수정
-   - children이 있으면 `model.text`를 무시하도록 변경
+1. **✅ Bug Fix Completed**
+   - Modified lines 152-161 of `reconcile()` method
+   - Modified lines 364-373 of `reconcileVNodesToDOM()` method
+   - Changed to ignore `model.text` if children exist
 
-2. **✅ 테스트 통과 확인**
-   - `reconciler-update-flow.test.ts`: 8개 테스트 모두 통과
-   - `vnode-decorator-structure.test.ts`: 5개 테스트 모두 통과
-   - Decorator가 DOM에 올바르게 렌더링됨
+2. **✅ Test Pass Confirmation**
+   - `reconciler-update-flow.test.ts`: All 8 tests pass
+   - `vnode-decorator-structure.test.ts`: All 5 tests pass
+   - Decorators render correctly to DOM
 
-3. **추가 검증 (선택사항)**
-   - 다양한 decorator 시나리오 테스트
-   - 성능 테스트 (여러 번 render() 호출)
+3. **Additional Verification (Optional)**
+   - Test various decorator scenarios
+   - Performance tests (multiple render() calls)
 
-## 10. 참고 자료
+## 10. References
 
 - `packages/renderer-dom/src/reconcile/reconciler.ts`
-  - `reconcile()` 메서드: 37-169번 라인
-  - `reconcileVNodesToDOM()` 메서드: 265-390번 라인
-  - `reconcileVNodeChildren()` 메서드: 402-631번 라인
+  - `reconcile()` method: lines 37-169
+  - `reconcileVNodesToDOM()` method: lines 265-390
+  - `reconcileVNodeChildren()` method: lines 402-631
 - `packages/renderer-dom/src/component-manager.ts`
-  - `updateComponent()` 메서드: 911-1163번 라인
+  - `updateComponent()` method: lines 911-1163
 - `packages/renderer-dom/src/vnode/factory.ts`
-  - `_buildMarkedRunsWithDecorators()` 메서드: 2238-2340번 라인
+  - `_buildMarkedRunsWithDecorators()` method: lines 2238-2340
 - `packages/renderer-dom/test/core/vnode-decorator-structure.test.ts`
 - `packages/renderer-dom/test/core/reconciler-update-flow.test.ts`
 - `packages/renderer-dom/test/core/dom-renderer-simple-rerender.test.ts`
 - `packages/renderer-dom/test/core/dom-renderer-multiple-render.test.ts`
-

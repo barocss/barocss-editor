@@ -1,21 +1,21 @@
-# Reconciler 남은 문제 정리
+# Reconciler Remaining Issues Summary
 
-## 현재 상태
+## Current State
 
-### 완료된 수정
-1. ✅ VNode 빌더: `data('text')` 처리 시 collapse 방지
-2. ✅ Reconciler: text-only VNode를 text node로 직접 처리
+### Completed Fixes
+1. ✅ VNode Builder: Prevent collapse when processing `data('text')`
+2. ✅ Reconciler: Process text-only VNode as text node directly
 
-### 남은 문제
+### Remaining Issues
 
-## 문제 1: Mark VNode의 children에 있는 text VNode 처리
+## Issue 1: Processing text VNode in Mark VNode's children
 
-### 증상
-- Mark VNode의 children에 있는 text-only VNode가 DOM에 렌더링되지 않음
-- 예: `<strong class="mark-bold">Bold</strong>`가 `<strong class="mark-bold"></strong>`가 됨
+### Symptoms
+- text-only VNode in Mark VNode's children not rendered to DOM
+- Example: `<strong class="mark-bold">Bold</strong>` becomes `<strong class="mark-bold"></strong>`
 
-### 원인 분석
-1. **VNode 구조** (정상):
+### Cause Analysis
+1. **VNode Structure** (normal):
    ```typescript
    {
      tag: 'strong',
@@ -29,26 +29,26 @@
    }
    ```
 
-2. **재귀 호출 문제**:
-   - `reconcileVNodeChildren`에서 mark VNode를 처리할 때 재귀 호출 `this.reconcileVNodeChildren(host, prevChildVNode, childVNode, context)` 실행
-   - 재귀 호출 내에서 text-only VNode를 체크하는 로직이 있지만, 기존 text node를 찾는 로직이 복잡해서 제대로 작동하지 않음
+2. **Recursive Call Issue**:
+   - When processing mark VNode in `reconcileVNodeChildren`, recursive call `this.reconcileVNodeChildren(host, prevChildVNode, childVNode, context)` executed
+   - Logic to check text-only VNode exists inside recursive call, but logic to find existing text node is complex and doesn't work properly
 
-3. **기존 text node 찾기 로직의 문제**:
-   - 현재 로직은 `childIndex`를 기준으로 이전까지의 text-only VNode 개수를 세어서 text node 인덱스를 계산
-   - 하지만 재귀 호출에서는 `childIndex`가 0부터 시작하므로, 같은 로직을 사용할 수 없음
+3. **Issue with Existing Text Node Finding Logic**:
+   - Current logic counts text-only VNodes up to previous point based on `childIndex` to calculate text node index
+   - But in recursive calls, `childIndex` starts from 0, so cannot use same logic
 
-### 해결 방안
-- 재귀 호출에서도 text-only VNode를 처리할 수 있도록 로직 개선
-- 기존 text node를 찾는 로직을 단순화하거나, 재귀 호출 시에는 항상 새로 생성하도록 수정
+### Solutions
+- Improve logic to process text-only VNode in recursive calls too
+- Simplify logic to find existing text node, or modify to always create new in recursive calls
 
-## 문제 2: Decorator VNode의 text content 중복
+## Issue 2: Decorator VNode's text content duplication
 
-### 증상
-- Decorator VNode의 text content가 중복됨
-- 예: "CHIPCHIP"이 나옴 (예상: "CHIP")
+### Symptoms
+- Decorator VNode's text content duplicated
+- Example: "CHIPCHIP" appears (expected: "CHIP")
 
-### 원인 분석
-1. **Decorator VNode 구조**:
+### Cause Analysis
+1. **Decorator VNode Structure**:
    ```typescript
    {
      tag: 'span',
@@ -62,36 +62,35 @@
    }
    ```
 
-2. **중복 처리 원인**:
-   - Decorator VNode의 children에 있는 text-only VNode가 중복 처리되고 있음
-   - 재귀 호출에서 text-only VNode를 처리할 때, 기존 text node를 찾지 못해서 새로 생성하고, 동시에 다른 로직에서도 text node를 추가하는 것으로 보임
+2. **Duplication Cause**:
+   - text-only VNode in Decorator VNode's children being processed twice
+   - When processing text-only VNode in recursive call, cannot find existing text node so creates new, and another logic also adds text node simultaneously
 
-3. **가능한 원인**:
-   - `reconcileVNodeChildren`에서 text-only VNode를 처리한 후 `nextDomChildren`에 추가
-   - 재귀 호출에서도 같은 text-only VNode를 처리하여 중복 추가
-   - 또는 decorator VNode의 children을 처리할 때 text node가 중복 생성됨
+3. **Possible Causes**:
+   - After processing text-only VNode in `reconcileVNodeChildren`, added to `nextDomChildren`
+   - Same text-only VNode also processed in recursive call, added again
+   - Or text node duplicated when processing decorator VNode's children
 
-### 해결 방안
-- Decorator VNode의 children을 처리할 때 text-only VNode 중복 처리 방지
-- 재귀 호출에서 text-only VNode를 처리할 때, 이미 처리된 text node인지 확인하는 로직 추가
+### Solutions
+- Prevent duplicate processing of text-only VNode when processing Decorator VNode's children
+- Add logic to check if text-only VNode already processed when processing in recursive call
 
-## 테스트 결과
+## Test Results
 
-### 통과한 테스트
-- ✅ `test/core/vnode-data-text-concept.test.ts` - 통과
-- ✅ `test/core/dom-renderer-multiple-render.test.ts` - 5/6 통과
+### Passing Tests
+- ✅ `test/core/vnode-data-text-concept.test.ts` - Pass
+- ✅ `test/core/dom-renderer-multiple-render.test.ts` - 5/6 pass
 
-### 실패한 테스트
-- ❌ `test/core/dom-renderer-multiple-render.test.ts` - 1개 실패 (decorator 중복)
-- ❌ `test/core/mark-decorator-complex.test.ts` - 16개 실패 (mark VNode children 처리)
+### Failing Tests
+- ❌ `test/core/dom-renderer-multiple-render.test.ts` - 1 failure (decorator duplication)
+- ❌ `test/core/mark-decorator-complex.test.ts` - 16 failures (mark VNode children processing)
 
-## 다음 단계
+## Next Steps
 
-1. **Mark VNode children 처리 개선**:
-   - 재귀 호출에서 text-only VNode를 처리할 때 기존 text node를 찾는 로직 개선
-   - 또는 재귀 호출 시에는 항상 새로 생성하도록 수정
+1. **Improve Mark VNode children Processing**:
+   - Improve logic to find existing text node when processing text-only VNode in recursive calls
+   - Or modify to always create new in recursive calls
 
-2. **Decorator 중복 문제 해결**:
-   - Decorator VNode의 children을 처리할 때 text-only VNode 중복 처리 방지
-   - 재귀 호출에서 이미 처리된 text node인지 확인하는 로직 추가
-
+2. **Resolve Decorator Duplication Issue**:
+   - Prevent duplicate processing of text-only VNode when processing Decorator VNode's children
+   - Add logic to check if text node already processed in recursive calls

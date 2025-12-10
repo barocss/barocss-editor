@@ -1,47 +1,47 @@
 # Barocss Schema Specification
 
-## 개요
+## Overview
 
-Barocss Schema는 문서 구조를 정의하고 검증하는 통합 스키마 시스템입니다. ProseMirror의 스키마 개념을 기반으로 하되, Barocss의 요구사항에 맞게 설계되었습니다.
+Barocss Schema is an integrated schema system that defines and validates document structure. It is based on ProseMirror's schema concept but designed for Barocss requirements.
 
-## 핵심 개념
+## Core Concepts
 
-### 통합 스키마 (Unified Schema)
-- **하나의 Schema 인스턴스**가 모든 노드 타입과 마크를 관리
-- **일관된 API**로 노드 생성, 검증, 변환 수행
-- **계층적 구조**로 노드 간 관계와 제약 조건 명확화
+### Unified Schema
+- **One Schema instance** manages all node types and marks
+- **Consistent API** for node creation, validation, and transformation
+- **Hierarchical structure** clarifies relationships and constraints between nodes
 
-### 노드 타입 (Node Types)
-문서의 구조적 요소를 정의합니다.
-- **문서 노드**: 최상위 컨테이너 (doc)
-- **블록 노드**: 단락, 제목, 리스트 등
-- **인라인 노드**: 텍스트, 이미지, 링크 등
+### Node Types
+Defines structural elements of documents.
+- **Document node**: top-level container (doc)
+- **Block nodes**: paragraphs, headings, lists, etc.
+- **Inline nodes**: text, images, links, etc.
 
-### 마크 (Marks)
-텍스트에 적용되는 스타일링 정보를 정의합니다.
-- **텍스트 스타일**: 굵게, 기울임, 밑줄 등
-- **링크**: URL, 제목 등
-- **색상**: 텍스트 색상, 배경색 등
+### Marks
+Defines styling information applied to text.
+- **Text styles**: bold, italic, underline, etc.
+- **Links**: URL, title, etc.
+- **Colors**: text color, background color, etc.
 
-## 스키마 정의
+## Schema Definition
 
-### 기본 구조
+### Basic Structure
 
 ```typescript
 interface SchemaDefinition {
-  topNode?: string; // 기본값: 'doc'
+  topNode?: string; // default: 'doc'
   nodes: Record<string, NodeTypeDefinition>;
   marks?: Record<string, MarkDefinition>;
 }
 ```
 
-### 노드 타입 정의
+### Node Type Definition
 
 ```typescript
 interface NodeTypeDefinition {
   name: string;
   group?: 'block' | 'inline' | 'document';
-  content?: string; // 콘텐츠 모델 (예: 'block+', 'inline*')
+  content?: string; // content model (e.g., 'block+', 'inline*')
   attrs?: Record<string, AttributeDefinition>;
   inline?: boolean;
   selectable?: boolean;
@@ -54,19 +54,19 @@ interface NodeTypeDefinition {
 }
 ```
 
-### 마크 정의
+### Mark Definition
 
 ```typescript
 interface MarkDefinition {
   name: string;
   attrs?: Record<string, AttributeDefinition>;
-  excludes?: string[]; // 함께 사용할 수 없는 다른 marks
-  group?: string; // mark 그룹
-  inclusive?: boolean; // 기본값: true
+  excludes?: string[]; // other marks that cannot be used together
+  group?: string; // mark group
+  inclusive?: boolean; // default: true
 }
 ```
 
-### 속성 정의
+### Attribute Definition
 
 ```typescript
 interface AttributeDefinition {
@@ -80,32 +80,32 @@ interface AttributeDefinition {
 }
 ```
 
-## 콘텐츠 모델
+## Content Model
 
-콘텐츠 모델은 노드가 포함할 수 있는 자식 노드의 구조를 정의합니다.
+The content model defines the structure of child nodes a node can contain.
 
-### 기본 패턴
+### Basic Patterns
 
-- `block+`: 하나 이상의 블록 노드
-- `block*`: 0개 이상의 블록 노드
-- `block?`: 0개 또는 1개의 블록 노드
-- `inline*`: 0개 이상의 인라인 노드
-- `text*`: 0개 이상의 텍스트 노드
+- `block+`: one or more block nodes
+- `block*`: zero or more block nodes
+- `block?`: zero or one block node
+- `inline*`: zero or more inline nodes
+- `text*`: zero or more text nodes
 
-### 복합 패턴
+### Composite Patterns
 
-- `block+ | inline+`: 블록 또는 인라인 노드
-- `(block | inline)*`: 블록과 인라인 노드의 혼합
-- `heading | paragraph`: 특정 노드 타입들
+- `block+ | inline+`: block or inline nodes
+- `(block | inline)*`: mix of block and inline nodes
+- `heading | paragraph`: specific node types
 
-### 그룹 기반
+### Group-based
 
-- `block+`: block 그룹에 속한 노드들
-- `inline*`: inline 그룹에 속한 노드들
+- `block+`: nodes belonging to the block group
+- `inline*`: nodes belonging to the inline group
 
-## 사용 예제
+## Usage Examples
 
-### 1. 기본 스키마 생성
+### 1. Basic Schema Creation
 
 ```typescript
 import { createSchema } from '@barocss/schema';
@@ -113,7 +113,7 @@ import { createSchema } from '@barocss/schema';
 const schema = createSchema('article', {
   topNode: 'doc',
   nodes: {
-    // 문서 노드
+    // Document node
     doc: {
       name: 'doc',
       content: 'block+',
@@ -125,7 +125,7 @@ const schema = createSchema('article', {
       }
     },
     
-    // 단락 노드
+    // Paragraph node
     paragraph: {
       name: 'paragraph',
       content: 'inline*',
@@ -135,7 +135,7 @@ const schema = createSchema('article', {
       }
     },
     
-    // 제목 노드
+    // Heading node
     heading: {
       name: 'heading',
       content: 'inline*',
@@ -149,13 +149,13 @@ const schema = createSchema('article', {
       }
     },
     
-    // 텍스트 노드
+    // Text node
     text: {
       name: 'text',
       group: 'inline'
     },
     
-    // 이미지 노드
+    // Image node
     image: {
       name: 'image',
       group: 'inline',
@@ -170,7 +170,7 @@ const schema = createSchema('article', {
   },
   
   marks: {
-    // 굵게 마크
+    // Bold mark
     bold: {
       name: 'bold',
       attrs: {
@@ -179,17 +179,17 @@ const schema = createSchema('article', {
       group: 'text-style'
     },
     
-    // 기울임 마크
+    // Italic mark
     italic: {
       name: 'italic',
       attrs: {
         style: { type: 'string', default: 'italic' }
       },
       group: 'text-style',
-      excludes: ['bold'] // 굵게와 함께 사용 불가
+      excludes: ['bold'] // cannot be used with bold
     },
     
-    // 밑줄 마크
+    // Underline mark
     underline: {
       name: 'underline',
       attrs: {
@@ -198,7 +198,7 @@ const schema = createSchema('article', {
       group: 'text-style'
     },
     
-    // 링크 마크
+    // Link mark
     link: {
       name: 'link',
       attrs: {
@@ -208,7 +208,7 @@ const schema = createSchema('article', {
       group: 'link'
     },
     
-    // 색상 마크
+    // Color mark
     color: {
       name: 'color',
       attrs: {
@@ -218,7 +218,7 @@ const schema = createSchema('article', {
       group: 'color'
     },
     
-    // 코드 마크
+    // Code mark
     code: {
       name: 'code',
       attrs: {
@@ -230,10 +230,10 @@ const schema = createSchema('article', {
 });
 ```
 
-### 2. 노드 생성
+### 2. Node Creation
 
 ```typescript
-// 문서 생성
+// Create document
 const document = schema.doc([
   schema.node('heading', { level: 1 }, [
     schema.text('Hello World')
@@ -251,7 +251,7 @@ const document = schema.doc([
   ])
 ]);
 
-// 이미지 노드 생성
+// Create image node
 const imageNode = schema.node('image', {
   src: 'https://example.com/image.jpg',
   alt: 'Example image',
@@ -260,13 +260,13 @@ const imageNode = schema.node('image', {
 });
 ```
 
-### 3. 스키마 확장
+### 3. Schema Extension
 
 ```typescript
-// 기존 스키마를 확장하여 새로운 기능 추가
+// Extend existing schema to add new features
 const extendedSchema = createSchema(baseSchema, {
   nodes: {
-    // 새로운 노드 추가
+    // Add new node
     heading: {
       name: 'heading',
       content: 'inline*',
@@ -286,7 +286,7 @@ const extendedSchema = createSchema(baseSchema, {
     }
   },
   marks: {
-    // 새로운 마크 추가
+    // Add new mark
     italic: {
       name: 'italic',
       group: 'text-style',
@@ -304,7 +304,7 @@ const extendedSchema = createSchema(baseSchema, {
   }
 });
 
-// 기존 노드 수정 (새로운 속성 추가)
+// Modify existing node (add new attribute)
 const modifiedSchema = createSchema(baseSchema, {
   nodes: {
     paragraph: {
@@ -313,49 +313,49 @@ const modifiedSchema = createSchema(baseSchema, {
       group: 'block',
       attrs: {
         level: { type: 'number', default: 1 },
-        align: { type: 'string', default: 'left' } // 새로운 속성
+        align: { type: 'string', default: 'left' } // new attribute
       }
     }
   }
 });
 ```
 
-### 4. 검증
+### 4. Validation
 
 ```typescript
-// 노드 검증
+// Node validation
 const nodeValidation = schema.validateNode('heading', {
   type: 'heading',
   attrs: { level: 1 },
   content: []
 });
 
-// 문서 검증
+// Document validation
 const documentValidation = schema.validateDocument(document);
 
-// 마크 검증
+// Mark validation
 const marksValidation = schema.validateMarks([
   { type: 'bold', attrs: { weight: 'bold' } },
   { type: 'link', attrs: { href: 'https://example.com' } }
 ]);
 ```
 
-## API 참조
+## API Reference
 
-### createSchema 함수
+### createSchema Function
 
 ```typescript
-// 새로운 스키마 생성
+// Create new schema
 createSchema(name: string, definition: SchemaDefinition): Schema
 
-// 기존 스키마 확장
+// Extend existing schema
 createSchema(baseSchema: Schema, extensions: SchemaExtensions): Schema
 ```
 
-#### 스키마 확장 사용법
+#### Schema Extension Usage
 
 ```typescript
-// 1. 기본 스키마 생성
+// 1. Create base schema
 const baseSchema = createSchema('article', {
   topNode: 'doc',
   nodes: {
@@ -368,7 +368,7 @@ const baseSchema = createSchema('article', {
   }
 });
 
-// 2. 스키마 확장
+// 2. Extend schema
 const extendedSchema = createSchema(baseSchema, {
   nodes: {
     heading: {
@@ -386,7 +386,7 @@ const extendedSchema = createSchema(baseSchema, {
   }
 });
 
-// 3. 기존 노드 수정
+// 3. Modify existing node
 const modifiedSchema = createSchema(baseSchema, {
   nodes: {
     paragraph: {
@@ -395,35 +395,35 @@ const modifiedSchema = createSchema(baseSchema, {
       group: 'block',
       attrs: {
         level: { type: 'number', default: 1 },
-        align: { type: 'string', default: 'left' } // 새로운 속성 추가
+        align: { type: 'string', default: 'left' } // add new attribute
       }
     }
   }
 });
 ```
 
-### Schema 클래스
+### Schema Class
 
-#### 생성자
+#### Constructor
 ```typescript
 constructor(name: string, definition: SchemaDefinition)
 ```
 
-#### 노드 타입 관리
+#### Node Type Management
 ```typescript
 getNodeType(type: string): NodeTypeDefinition | undefined
 hasNodeType(type: string): boolean
 getNodeTypesByGroup(group: string): NodeTypeDefinition[]
 ```
 
-#### 마크 관리
+#### Mark Management
 ```typescript
 getMarkType(type: string): MarkDefinition | undefined
 hasMarkType(type: string): boolean
 getMarkTypesByGroup(group: string): MarkDefinition[]
 ```
 
-#### 검증
+#### Validation
 ```typescript
 validateAttributes(nodeType: string, attributes: Record<string, any>): ValidationResult
 validateContent(nodeType: string, content: any[]): ValidationResult
@@ -432,14 +432,14 @@ validateNode(node: any): ValidationResult
 validateDocument(document: any): ValidationResult
 ```
 
-#### 노드 생성
+#### Node Creation
 ```typescript
 doc(content?: any[]): any
 node(type: string, attrs?: any, content?: any[]): any
 text(content: string, attrs?: any, marks?: Mark[]): any
 ```
 
-#### 데이터 변환
+#### Data Transformation
 ```typescript
 transform(nodeType: string, data: any): any
 ```
@@ -454,94 +454,94 @@ interface ValidationResult {
 }
 ```
 
-### Validator 클래스
+### Validator Class
 
-`Validator` 클래스는 스키마 기반 검증과 기본 구조적 검증을 제공하는 통합 검증 유틸리티입니다.
+The `Validator` class is an integrated validation utility that provides schema-based validation and basic structural validation.
 
-#### 기본 구조적 검증
+#### Basic Structural Validation
 
 ```typescript
 import { Validator } from '@barocss/schema';
 
-// 노드 구조 검증 (스키마와 무관)
+// Node structure validation (schema-independent)
 const nodeValidation = Validator.validateNodeStructure(node);
 if (!nodeValidation.valid) {
-  console.log('구조적 오류:', nodeValidation.errors);
-  console.log('오류 코드:', nodeValidation.errorCodes);
+  console.log('Structural errors:', nodeValidation.errors);
+  console.log('Error codes:', nodeValidation.errorCodes);
 }
 
-// 문서 구조 검증
+// Document structure validation
 const documentValidation = Validator.validateDocumentStructure(document);
 ```
 
-#### 스키마 기반 검증
+#### Schema-based Validation
 
 ```typescript
-// 스키마를 사용한 노드 검증
+// Node validation with schema
 const schemaValidation = Validator.validateNode(schema, node);
 
-// 스키마를 사용한 문서 검증
+// Document validation with schema
 const documentSchemaValidation = Validator.validateDocument(schema, document);
 ```
 
-#### 에러 코드 시스템
+#### Error Code System
 
-`Validator`는 구조화된 에러 코드를 제공하여 테스트와 오류 처리를 안정화합니다:
+`Validator` provides structured error codes to stabilize testing and error handling:
 
 ```typescript
 import { Validator, VALIDATION_ERRORS } from '@barocss/schema';
 
 const result = Validator.validateNodeStructure(invalidNode);
 
-// 안전한 오류 코드 기반 검증
+// Safe error code-based validation
 if (!result.valid) {
   if (result.errorCodes?.includes(VALIDATION_ERRORS.TEXT_CONTENT_REQUIRED)) {
-    // 텍스트 내용이 필요한 경우 처리
+    // Handle case where text content is required
   }
   if (result.errorCodes?.includes(VALIDATION_ERRORS.NODE_TYPE_UNKNOWN)) {
-    // 알 수 없는 노드 타입 처리
+    // Handle unknown node type
   }
 }
 ```
 
-#### 사용 가능한 에러 코드
+#### Available Error Codes
 
 ```typescript
 const VALIDATION_ERRORS = {
-  // 노드 구조 오류
+  // Node structure errors
   NODE_REQUIRED: 'NODE_REQUIRED',
   NODE_ID_REQUIRED: 'NODE_ID_REQUIRED',
   NODE_TYPE_REQUIRED: 'NODE_TYPE_REQUIRED',
   TEXT_CONTENT_REQUIRED: 'TEXT_CONTENT_REQUIRED',
   
-  // 문서 구조 오류
+  // Document structure errors
   DOCUMENT_REQUIRED: 'DOCUMENT_REQUIRED',
   DOCUMENT_ID_REQUIRED: 'DOCUMENT_ID_REQUIRED',
   DOCUMENT_SCHEMA_REQUIRED: 'DOCUMENT_SCHEMA_REQUIRED',
   DOCUMENT_CONTENT_REQUIRED: 'DOCUMENT_CONTENT_REQUIRED',
   
-  // 스키마 검증 오류
+  // Schema validation errors
   NODE_TYPE_UNKNOWN: 'NODE_TYPE_UNKNOWN',
   CONTENT_REQUIRED_BUT_EMPTY: 'CONTENT_REQUIRED_BUT_EMPTY',
   ATTRIBUTE_INVALID: 'ATTRIBUTE_INVALID',
   ATTRIBUTE_REQUIRED: 'ATTRIBUTE_REQUIRED',
   ATTRIBUTE_TYPE_MISMATCH: 'ATTRIBUTE_TYPE_MISMATCH',
   
-  // 스키마 인스턴스 오류
+  // Schema instance errors
   INVALID_SCHEMA_INSTANCE: 'INVALID_SCHEMA_INSTANCE'
 };
 ```
 
-#### 실제 사용 예제
+#### Real Usage Examples
 
 ```typescript
 import { Validator, VALIDATION_ERRORS, createSchema } from '@barocss/schema';
 
-// 1. 기본 구조적 검증
+// 1. Basic structural validation
 const textNode = {
   id: 'text-1',
   type: 'text',
-  // text와 attributes.content 모두 없음
+  // both text and attributes.content are missing
   attributes: {}
 };
 
@@ -549,7 +549,7 @@ const result = Validator.validateNodeStructure(textNode);
 expect(result.valid).toBe(false);
 expect(result.errorCodes).toContain(VALIDATION_ERRORS.TEXT_CONTENT_REQUIRED);
 
-// 2. 스키마 기반 검증
+// 2. Schema-based validation
 const schema = createSchema('test', {
   topNode: 'document',
   nodes: {
@@ -574,7 +574,7 @@ const invalidTextNode = {
   id: 'text-2',
   type: 'text',
   text: 'Hello',
-  attributes: {} // content 속성 누락
+  attributes: {} // content attribute missing
 };
 
 const validResult = Validator.validateNode(schema, validTextNode);
@@ -584,7 +584,7 @@ expect(validResult.valid).toBe(true);
 expect(invalidResult.valid).toBe(false);
 expect(invalidResult.errorCodes).toContain(VALIDATION_ERRORS.CONTENT_REQUIRED_BUT_EMPTY);
 
-// 3. 문서 검증
+// 3. Document validation
 const document = {
   id: 'doc-1',
   type: 'document',
@@ -598,21 +598,21 @@ const documentResult = Validator.validateDocumentStructure(document);
 expect(documentResult.valid).toBe(true);
 ```
 
-#### 테스트에서의 활용
+#### Usage in Tests
 
 ```typescript
-// 이전 방식 (취약)
+// Old approach (fragile)
 expect(result.errors.some(err => err.includes('Content is required but empty'))).toBe(true);
 
-// 새로운 방식 (안전)
+// New approach (safe)
 expect(result.errorCodes).toContain(VALIDATION_ERRORS.CONTENT_REQUIRED_BUT_EMPTY);
 ```
 
-이 방식의 장점:
-- **안정성**: 오류 메시지가 바뀌어도 테스트가 안전
-- **명확성**: 어떤 종류의 오류인지 명확
-- **유지보수성**: 오류 코드만 관리하면 됨
-- **확장성**: 새로운 오류 타입 추가가 쉬움
+Benefits of this approach:
+- **Stability**: tests remain safe even if error messages change
+- **Clarity**: clear what type of error it is
+- **Maintainability**: only need to manage error codes
+- **Extensibility**: easy to add new error types
 
 ### Mark
 
@@ -629,11 +629,11 @@ interface Mark {
 type SchemaExtensions = Partial<SchemaDefinition>;
 ```
 
-스키마 확장을 위한 부분 정의 타입입니다. 기존 스키마를 확장할 때 사용됩니다.
+A partial definition type for schema extension. Used when extending existing schemas.
 
-## 레지스트리 관리
+## Registry Management
 
-### 전역 레지스트리
+### Global Registry
 
 ```typescript
 import { 
@@ -646,41 +646,41 @@ import {
   clearSchemas
 } from '@barocss/schema';
 
-// 스키마 등록
+// Register schema
 registerSchema(schema);
 
-// 스키마 조회
+// Get schema
 const schema = getSchema('article');
 
-// 모든 스키마 조회
+// Get all schemas
 const allSchemas = getAllSchemas();
 
-// 그룹별 노드 타입 조회
+// Get node types by group
 const blockNodes = getNodeTypesByGroup('block');
 ```
 
-### 에디터 매니저
+### Editor Manager
 
 ```typescript
 import { EditorSchemaManager, createNamespacedSchema } from '@barocss/schema';
 
 const manager = new EditorSchemaManager();
 
-// 에디터 생성
+// Create editors
 const editor1 = manager.createEditor('editor1');
 const editor2 = manager.createEditor('editor2');
 
-// 각 에디터에 스키마 등록
+// Register schemas for each editor
 editor1.register(schema1);
 editor2.register(schema2);
 
-// 네임스페이스 스키마 생성
+// Create namespaced schema
 const namespacedSchema = createNamespacedSchema('blog', 'post', schemaDefinition);
 ```
 
-## 고급 기능
+## Advanced Features
 
-### 커스텀 검증자
+### Custom Validators
 
 ```typescript
 const schema = createSchema('custom', {
@@ -703,7 +703,7 @@ const schema = createSchema('custom', {
 });
 ```
 
-### 함수 기반 필수 속성
+### Function-based Required Attributes
 
 ```typescript
 const schema = createSchema('conditional', {
@@ -724,7 +724,7 @@ const schema = createSchema('conditional', {
 });
 ```
 
-### 객체 스키마
+### Object Schema
 
 ```typescript
 const schema = createSchema('complex', {
@@ -756,34 +756,34 @@ const schema = createSchema('complex', {
 });
 ```
 
-## 성능 고려사항
+## Performance Considerations
 
-### 스키마 캐싱
-- 스키마 인스턴스는 생성 후 재사용 권장
-- 노드 타입과 마크 정의는 내부적으로 Map으로 캐싱
+### Schema Caching
+- Schema instances should be reused after creation
+- Node types and mark definitions are cached internally as Maps
 
-### 검증 최적화
-- 필수 속성 검증을 먼저 수행
-- 커스텀 검증자는 마지막에 실행
-- 오류 발생 시 즉시 중단
+### Validation Optimization
+- Validate required attributes first
+- Custom validators run last
+- Stop immediately on error
 
-### 메모리 관리
-- 사용하지 않는 스키마는 레지스트리에서 제거
-- 에디터 종료 시 관련 스키마 정리
+### Memory Management
+- Remove unused schemas from registry
+- Clean up related schemas when editor closes
 
-## 마이그레이션 가이드
+## Migration Guide
 
-### 기존 단일 노드 스키마에서 통합 스키마로
+### From Single Node Schema to Unified Schema
 
 ```typescript
-// 기존 방식
+// Old approach
 const paragraphSchema = new Schema('paragraph', {
   attributes: { level: { type: 'number', default: 1 } },
   content: 'inline*',
   group: 'block'
 });
 
-// 새로운 방식
+// New approach
 const schema = createSchema('article', {
   topNode: 'doc',
   nodes: {
@@ -797,8 +797,8 @@ const schema = createSchema('article', {
 });
 ```
 
-## 결론
+## Conclusion
 
-Barocss Schema는 문서 구조를 정의하고 검증하는 강력한 시스템입니다. 통합 스키마 방식으로 일관성 있는 API를 제공하며, 확장 가능하고 유지보수하기 쉬운 구조를 가지고 있습니다.
+Barocss Schema is a powerful system for defining and validating document structure. The unified schema approach provides a consistent API and has an extensible, maintainable structure.
 
-ProseMirror의 검증된 개념을 기반으로 하되, Barocss의 특수한 요구사항에 맞게 최적화되어 있습니다.
+It is based on ProseMirror's proven concepts but optimized for Barocss's specific requirements.

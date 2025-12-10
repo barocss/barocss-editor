@@ -1,81 +1,81 @@
-# Barocss Editor 아키텍처 스펙
+# Barocss Editor Architecture Specification
 
-## 1. 개요
+## 1. Overview
 
-Barocss Editor는 **통합 스키마 중심**의 문서 편집 시스템으로, ProseMirror의 장점을 참고하되 우리만의 방식으로 설계되었습니다.
+Barocss Editor is a **unified schema-centric** document editing system, designed with our own approach while drawing from ProseMirror’s strengths.
 
-### 핵심 설계 원칙
-- **통합 스키마**: 하나의 Schema 인스턴스로 모든 노드 타입과 마크 관리
-- **스키마 중심**: 모든 문서 구조는 통합 스키마로 정의
-- **계층적 구조**: Schema → Document → Nodes → Operations → Transactions
-- **타입 안전성**: TypeScript 기반 강타입 시스템
-- **검증 우선**: 모든 작업에 스키마 검증 적용
-- **확장 가능**: 기존 스키마를 쉽게 확장할 수 있는 구조
+### Core Design Principles
+- **Unified schema**: manage all node types and marks with one Schema instance
+- **Schema-centric**: all document structures defined by the unified schema
+- **Hierarchical structure**: Schema → Document → Nodes → Operations → Transactions
+- **Type safety**: TypeScript-based strong typing
+- **Validation-first**: apply schema validation to all operations
+- **Extensible**: easy to extend existing schemas
 
-## 2. 아키텍처 개요
+## 2. Architecture Overview
 
 ```
-통합 Schema (모든 노드 타입과 마크 정의)
+Unified Schema (defines all node types and marks)
   ↓
-Document (스키마 기반 문서 인스턴스)
+Document (schema-based document instance)
   ↓
-Nodes (스키마 규칙을 따르는 노드들)
+Nodes (nodes following schema rules)
   ↓
-Operations (노드 조작 작업들)
+Operations (node manipulation operations)
   ↓
-Transactions (원자적 작업 단위)
+Transactions (atomic operation units)
   ↓
-DataStore (영속성 저장소)
+DataStore (persistence layer)
 ```
 
-## 3. 통합 스키마 시스템
+## 3. Unified Schema System
 
-### 3.1 Schema 클래스
+### 3.1 Schema Class
 
 ```typescript
 interface Schema {
   name: string;
-  topNode: string; // 최상위 노드 타입 (기본값: 'doc')
+  topNode: string; // top-level node type (default: 'doc')
   nodes: Map<string, NodeTypeDefinition>;
   marks: Map<string, MarkDefinition>;
   
-  // 간결한 노드 생성 API
+  // Concise node creation API
   doc(content?: Node[]): Document;
   node(type: string, attrs?: any, content?: Node[]): Node;
   text(content: string, attrs?: any, marks?: Mark[]): Node;
   
-  // 노드 타입 관리
+  // Node type management
   getNodeType(type: string): NodeTypeDefinition | undefined;
   hasNodeType(type: string): boolean;
   getNodeTypesByGroup(group: string): NodeTypeDefinition[];
   
-  // Marks 관리
+  // Mark management
   getMarkType(type: string): MarkDefinition | undefined;
   hasMarkType(type: string): boolean;
   getMarkTypesByGroup(group: string): MarkDefinition[];
   
-  // 검증
+  // Validation
   validateNode(node: Node): ValidationResult;
   validateDocument(document: Document): ValidationResult;
   validateAttributes(nodeType: string, attributes: Record<string, any>): ValidationResult;
   validateContent(nodeType: string, content: any[]): ValidationResult;
   validateMarks(marks: Mark[]): ValidationResult;
   
-  // 변환
+  // Transformation
   transform(nodeType: string, data: any): any;
 }
 ```
 
-### 3.2 통합 스키마 정의
+### 3.2 Unified Schema Definition
 
-Barocss Editor는 **통합 스키마 방식**으로 모든 노드 타입을 하나의 Schema 인스턴스에서 관리합니다. 이를 통해 스키마 간 관계를 명확히 하고 일관성을 보장합니다.
+Barocss Editor uses a **unified schema approach** to manage all node types in one Schema instance, clarifying relationships and ensuring consistency.
 
 ```typescript
-// 통합 스키마 정의
+// Unified schema definition
 const schema = createSchema('article', {
-  topNode: 'doc', // 최상위 노드 타입
+  topNode: 'doc', // top-level node type
   nodes: {
-    // 문서 노드
+    // Document node
     doc: {
       name: 'doc',
       content: 'block+',
@@ -87,7 +87,7 @@ const schema = createSchema('article', {
       }
     },
     
-    // 단락 노드
+    // Paragraph node
     paragraph: {
       name: 'paragraph',
       content: 'inline*',
@@ -98,7 +98,7 @@ const schema = createSchema('article', {
       }
     },
     
-    // 제목 노드
+    // Heading node
     heading: {
       name: 'heading',
       content: 'inline*',
@@ -108,13 +108,13 @@ const schema = createSchema('article', {
       }
     },
     
-    // 텍스트 노드
+    // Text node
     text: {
       name: 'text',
       group: 'inline'
     },
     
-    // 이미지 노드
+    // Image node
     image: {
       name: 'image',
       group: 'inline',
@@ -129,7 +129,7 @@ const schema = createSchema('article', {
   },
   
   marks: {
-    // 굵게 마크
+    // Bold mark
     bold: {
       name: 'bold',
       attrs: {
@@ -138,17 +138,17 @@ const schema = createSchema('article', {
       group: 'text-style'
     },
     
-    // 기울임 마크
+    // Italic mark
     italic: {
       name: 'italic',
       attrs: {
         style: { type: 'string', default: 'italic' }
       },
       group: 'text-style',
-      excludes: ['bold'] // 굵게와 함께 사용 불가
+      excludes: ['bold'] // cannot use with bold
     },
     
-    // 링크 마크
+    // Link mark
     link: {
       name: 'link',
       attrs: {
@@ -158,7 +158,7 @@ const schema = createSchema('article', {
       group: 'link'
     },
     
-    // 색상 마크
+    // Color mark
     color: {
       name: 'color',
       attrs: {
@@ -171,12 +171,12 @@ const schema = createSchema('article', {
 });
 ```
 
-### 3.3 스키마 확장
+### 3.3 Schema Extension
 
-기존 스키마를 쉽게 확장할 수 있습니다:
+You can easily extend existing schemas:
 
 ```typescript
-// 기본 스키마
+// Base schema
 const baseSchema = createSchema('blog', {
   topNode: 'doc',
   nodes: {
@@ -189,7 +189,7 @@ const baseSchema = createSchema('blog', {
   }
 });
 
-// 소셜 미디어 기능 추가
+// Add social media features
 const socialSchema = createSchema(baseSchema, {
   nodes: {
     tweet: {
@@ -220,75 +220,75 @@ const socialSchema = createSchema(baseSchema, {
 });
 ```
 
-## 4. 문서 시스템
+## 4. Document System
 
-### 4.1 Document 인터페이스
+### 4.1 Document Interface
 
 ```typescript
 interface Document {
   id: string;
-  type: string; // 스키마의 topNode와 일치
+  type: string; // matches schema's topNode
   attrs: Record<string, any>;
   content: Node[];
-  schema: Schema; // 스키마 참조
+  schema: Schema; // schema reference
   
-  // 스키마 기반 검증
+  // Schema-based validation
   validate(): ValidationResult;
   
-  // 노드 조회
+  // Node queries
   getNode(id: string): Node | undefined;
   getNodesByType(type: string): Node[];
   
-  // 노드 생성 (스키마 기반)
+  // Node creation (schema-based)
   createNode(type: string, attrs?: any, content?: Node[]): Node;
   
-  // 마크 적용
+  // Mark application
   applyMark(nodeId: string, mark: Mark): ValidationResult;
   removeMark(nodeId: string, markType: string): ValidationResult;
 }
 ```
 
-### 4.2 Node 인터페이스
+### 4.2 Node Interface
 
 ```typescript
 interface Node {
   id: string;
   type: string;
   attrs: Record<string, any>;
-  content?: Node[]; // 컨테이너 노드의 경우
-  text?: string; // 텍스트 노드의 경우
-  marks?: Mark[]; // 텍스트 노드의 마크
-  schema: Schema; // 스키마 참조
+  content?: Node[]; // for container nodes
+  text?: string; // for text nodes
+  marks?: Mark[]; // marks for text nodes
+  schema: Schema; // schema reference
   
-  // 스키마 기반 검증
+  // Schema-based validation
   validate(): ValidationResult;
   
-  // 속성 관리
+  // Attribute management
   getAttribute(name: string): any;
   setAttribute(name: string, value: any): ValidationResult;
   
-  // 마크 관리
+  // Mark management
   addMark(mark: Mark): ValidationResult;
   removeMark(markType: string): ValidationResult;
   hasMark(markType: string): boolean;
 }
 ```
 
-### 4.3 Mark 인터페이스
+### 4.3 Mark Interface
 
 ```typescript
 interface Mark {
   type: string;
   attrs: Record<string, any>;
   
-  // 마크 검증
+  // Mark validation
   validate(schema: Schema): ValidationResult;
 }
 ```
 
-## 5. Operation 시스템
+## 5. Operation System
 
-### 5.1 Operation 기본 구조
+### 5.1 Operation Basic Structure
 
 ```typescript
 interface Operation {
@@ -296,45 +296,45 @@ interface Operation {
   nodeId?: string;
   documentId?: string;
   data?: any;
-  schema: Schema; // 스키마 참조
+  schema: Schema; // schema reference
   
-  // 실행
+  // Execution
   execute(context: OperationContext): Promise<OperationResult>;
   
-  // 검증
+  // Validation
   validate(schema: Schema): ValidationResult;
   
-  // 롤백
+  // Rollback
   rollback(context: OperationContext): Promise<OperationResult>;
 }
 ```
 
-### 5.2 ModelContext (DSL 컨텍스트)
+### 5.2 ModelContext (DSL Context)
 
-Model 레벨 DSL 오퍼레이션은 스키마·노드 생성·ID 생성에 접근 가능한 `ModelContext`를 사용한다.
+Model-level DSL operations use `ModelContext` that provides access to schema, node creation, and ID generation.
 
 ```typescript
 interface ModelContext {
   getNode(nodeId: string): INode | undefined;
   schema?: Schema;
-  // 스키마 기반 INode 생성 (attrs/content 정규화 포함)
+  // Create INode based on schema (includes attrs/content normalization)
   createNode(
     type: string,
     attrs: Record<string, any> | undefined,
     content: any[] | undefined,
     base: { id: string; parentId?: string; text?: string }
   ): INode;
-  // 새 노드 ID 생성 (기본 구현 제공, DataStore 연동 가능)
+  // Generate new node ID (default implementation provided, can integrate with DataStore)
   newId(prefix?: string): string;
 }
 ```
 
-참고: 실제 컨텍스트 인스턴스는 `makeModelContext(store)`로 생성하며, 루트 문서의 `attributes.schema`를 사용해 `schema`를 주입하고 `createNode`/`newId` 기본 구현을 제공한다.
+Note: actual context instances are created via `makeModelContext(store)`, which injects `schema` from the root document’s `attributes.schema` and provides default implementations for `createNode`/`newId`.
 
-### 5.3 텍스트 Operations
+### 5.3 Text Operations
 
 ```typescript
-// 텍스트 삽입
+// Text insertion
 interface TextInsertOperation extends Operation {
   type: 'text.insert';
   nodeId: string;
@@ -345,7 +345,7 @@ interface TextInsertOperation extends Operation {
   };
 }
 
-// 텍스트 선택 영역 교체
+// Replace selected text range
 interface TextReplaceSelectionOperation extends Operation {
   type: 'text.replaceSelection';
   data: {
@@ -358,7 +358,7 @@ interface TextReplaceSelectionOperation extends Operation {
   };
 }
 
-// 텍스트 분할
+// Split text
 interface TextSplitAtSelectionOperation extends Operation {
   type: 'text.splitAtSelection';
   data: {
@@ -367,7 +367,7 @@ interface TextSplitAtSelectionOperation extends Operation {
   };
 }
 
-// 텍스트 병합
+// Merge text
 interface TextMergeForwardOperation extends Operation {
   type: 'text.mergeForward';
   data: {
@@ -376,10 +376,10 @@ interface TextMergeForwardOperation extends Operation {
 }
 ```
 
-### 5.4 블록 Operations
+### 5.4 Block Operations
 
 ```typescript
-// 블록 분할
+// Split block
 interface BlockSplitAtSelectionOperation extends Operation {
   type: 'block.splitAtSelection';
   data: {
@@ -388,7 +388,7 @@ interface BlockSplitAtSelectionOperation extends Operation {
   };
 }
 
-// 블록 병합
+// Merge block
 interface BlockMergeWithNextOperation extends Operation {
   type: 'block.mergeWithNext';
   data: {
@@ -396,7 +396,7 @@ interface BlockMergeWithNextOperation extends Operation {
   };
 }
 
-// 블록 래핑
+// Wrap block
 interface BlockWrapSelectionOperation extends Operation {
   type: 'block.wrapSelection';
   data: {
@@ -407,7 +407,7 @@ interface BlockWrapSelectionOperation extends Operation {
   };
 }
 
-// 블록 언래핑
+// Unwrap block
 interface BlockUnwrapSelectionOperation extends Operation {
   type: 'block.unwrapSelection';
   data: {
@@ -416,10 +416,10 @@ interface BlockUnwrapSelectionOperation extends Operation {
 }
 ```
 
-### 5.5 마크 Operations
+### 5.5 Mark Operations
 
 ```typescript
-// 마크 적용
+// Apply mark
 interface TextApplyMarkOperation extends Operation {
   type: 'text.applyMark';
   data: {
@@ -428,7 +428,7 @@ interface TextApplyMarkOperation extends Operation {
   };
 }
 
-// 마크 제거
+// Remove mark
 interface TextRemoveMarkOperation extends Operation {
   type: 'text.removeMark';
   data: {
@@ -438,7 +438,7 @@ interface TextRemoveMarkOperation extends Operation {
 }
 ```
 
-## 6. Transaction 시스템
+## 6. Transaction System
 
 ### 6.x Selection & Absolute Position (Architecture View)
 
@@ -473,24 +473,24 @@ Constraints
 - Unified Schema validates node/mark attributes after translation
 - Cross-node range operations must maintain parent content integrity
 
-### 6.1 Transaction 정의
+### 6.1 Transaction Definition
 
 ```typescript
 interface Transaction {
   id: string;
-  operations: Operation[]; // 기본 ops로 번역된 단계들의 모음
+  operations: Operation[]; // collection of steps translated to basic ops
   schema: Schema;
   timestamp: Date;
   description?: string;
   metadata?: Record<string, any>;
   
-  // 실행
+  // Execution
   commit(): Promise<TransactionResult>;
   
-  // 롤백
+  // Rollback
   rollback(): Promise<void>;
   
-  // 검증
+  // Validation
   validate(): ValidationResult;
 }
 ```
@@ -501,28 +501,28 @@ interface Transaction {
 interface TransactionBuilder {
   constructor(schema: Schema);
   
-  // 스키마 기반 노드 생성
+  // Schema-based node creation
   createNode(type: string, attrs?: any, content?: Node[]): TransactionBuilder;
   
-  // Operation 추가
+  // Add operation
   addOperation(operation: Operation): TransactionBuilder;
   addOperations(operations: Operation[]): TransactionBuilder;
   
-  // DSL Operation 추가
+  // Add DSL operation
   addOperation(type: string, payload: any): TransactionBuilder;
   
-  // 메타데이터 관리
+  // Metadata management
   setMeta(key: string, value: any): TransactionBuilder;
   getMeta(key: string): any;
   
-  // 조건부 작업
+  // Conditional operations
   if(condition: boolean, callback: (builder: TransactionBuilder) => TransactionBuilder): TransactionBuilder;
   unless(condition: boolean, callback: (builder: TransactionBuilder) => TransactionBuilder): TransactionBuilder;
   
-  // 반복 작업
+  // Iterative operations
   forEach<T>(items: T[], callback: (item: T, builder: TransactionBuilder) => TransactionBuilder): TransactionBuilder;
   
-  // 실행
+  // Execution
   commit(): Promise<TransactionResult>;
 }
 ```
@@ -540,49 +540,49 @@ interface TransactionResult {
 }
 ```
 
-## 7. DataStore 시스템
+## 7. DataStore System
 
-### 7.1 DataStore 역할
+### 7.1 DataStore Role
 
 ```typescript
 interface DataStore {
-  // 스키마 기반 저장
+  // Schema-based storage
   saveDocument(document: Document): Promise<void>;
   saveNode(node: Node): Promise<void>;
   
-  // 스키마 기반 조회
+  // Schema-based queries
   getDocument(id: string): Promise<Document | undefined>;
   getNode(id: string): Promise<Node | undefined>;
   getAllNodes(): Promise<Node[]>;
   getAllDocuments(): Promise<Document[]>;
   
-  // 스키마 검증
+  // Schema validation
   validateDocument(document: Document): ValidationResult;
   validateNode(node: Node): ValidationResult;
   
-  // 히스토리 관리
+  // History management
   getHistory(): Transaction[];
   rollbackToTransaction(transactionId: string): Promise<void>;
 }
 ```
 
-## 8. Model과 Schema 연동
+## 8. Model and Schema Integration
 
-### 8.1 스키마 기반 노드 생성
+### 8.1 Schema-based Node Creation
 
 ```typescript
-// Model에서 Schema를 사용한 노드 생성
+// Node creation using Schema in Model
 class NodeFactory {
   constructor(private schema: Schema) {}
   
   createNode(type: string, options: NodeCreationOptions): Node {
-    // 스키마 검증
+    // Schema validation
     const validation = this.schema.validateAttributes(type, options.attributes || {});
     if (!validation.valid) {
       throw new Error(`Invalid attributes: ${validation.errors.join(', ')}`);
     }
     
-    // 스키마 기반 노드 생성
+    // Schema-based node creation
     return this.schema.node(type, options.attributes, options.content);
   }
   
@@ -596,10 +596,10 @@ class NodeFactory {
 }
 ```
 
-### 8.2 스키마 기반 Operation 실행 (DSL)
+### 8.2 Schema-based Operation Execution (DSL)
 
 ```typescript
-// Operation에서 Schema 검증
+// Schema validation in operations
 class TextInsertOperation implements Operation {
   constructor(
     private nodeId: string,
@@ -610,13 +610,13 @@ class TextInsertOperation implements Operation {
   ) {}
   
   async execute(context: OperationContext): Promise<OperationResult> {
-    // 스키마 검증
+    // Schema validation
     const node = context.getNode(this.nodeId);
     if (!node) {
       return { success: false, errors: ['Node not found'] };
     }
     
-    // 마크 검증
+    // Mark validation
     if (this.marks.length > 0) {
       const marksValidation = this.schema.validateMarks(this.marks);
       if (!marksValidation.valid) {
@@ -624,12 +624,12 @@ class TextInsertOperation implements Operation {
       }
     }
     
-    // 텍스트 삽입 로직 실행
+    // Execute text insertion logic
     // ...
   }
   
   validate(schema: Schema): ValidationResult {
-    // 스키마 기반 검증
+    // Schema-based validation
     const nodeType = schema.getNodeType('text');
     if (!nodeType) {
       return { valid: false, errors: ['Text node type not defined in schema'] };
@@ -640,15 +640,15 @@ class TextInsertOperation implements Operation {
 }
 ```
 
-### 8.3 Transaction에서 Schema 활용
+### 8.3 Schema Usage in Transactions
 
 ```typescript
 class TransactionBuilder {
   constructor(private schema: Schema, private dataStore: DataStore) {}
   
   addOperation(type: string, payload: any): TransactionBuilder {
-    // DSL 등록된 오퍼레이션을 ModelContext 기반으로 실행하고
-    // 기본 create/update/delete 오퍼레이션들로 번역하여 추가한다.
+    // Execute DSL-registered operation using ModelContext and
+    // translate to basic create/update/delete operations
     const ctx = makeModelContext(this.dataStore);
     const { ops } = applyOperation(type, payload, ctx);
     this.operations.push(...ops);
@@ -665,18 +665,18 @@ class TransactionBuilder {
           payload.marks || [],
           this.schema
         );
-      // 다른 operation들...
+      // other operations...
     }
   }
 }
 ```
 
-## 9. 사용 예제
+## 9. Usage Examples
 
-### 9.1 기본 문서 생성
+### 9.1 Basic Document Creation
 
 ```typescript
-// 1. 통합 스키마 정의
+// 1. Define unified schema
 const schema = createSchema('article', {
   topNode: 'doc',
   nodes: {
@@ -689,7 +689,7 @@ const schema = createSchema('article', {
   }
 });
 
-// 2. 문서 생성 (Marks 포함)
+// 2. Create document (with marks)
 const document = schema.doc([
   schema.node('paragraph', {}, [
     schema.text('Hello '),
@@ -699,7 +699,7 @@ const document = schema.doc([
   ])
 ]);
 
-// 3. 편집 작업 (Marks 포함)
+// 3. Edit operations (with marks)
 const transaction = new TransactionBuilder(schema)
   .addOperation('text.insert', { 
     nodeId: 'text-1', 
@@ -710,14 +710,14 @@ const transaction = new TransactionBuilder(schema)
     nodeId: 'text-1',
     mark: { type: 'bold', attrs: { weight: 'bold' } }
   })
-  .setMeta('description', '텍스트 편집 및 스타일링')
+  .setMeta('description', 'Text editing and styling')
   .commit();
 ```
 
-### 9.2 스키마 확장 활용
+### 9.2 Schema Extension Usage
 
 ```typescript
-// 기본 블로그 스키마
+// Base blog schema
 const blogSchema = createSchema('blog', {
   topNode: 'doc',
   nodes: {
@@ -727,7 +727,7 @@ const blogSchema = createSchema('blog', {
   }
 });
 
-// 협업 기능 추가
+// Add collaboration features
 const collaborativeSchema = createSchema(blogSchema, {
   nodes: {
     comment: {
@@ -752,50 +752,50 @@ const collaborativeSchema = createSchema(blogSchema, {
 });
 ```
 
-## 10. 패키지 구조
+## 10. Package Structure
 
 ```
 packages/
-├── schema/           # 통합 스키마 시스템
+├── schema/           # Unified schema system
 │   ├── src/
-│   │   ├── schema.ts      # Schema 클래스
-│   │   ├── types.ts       # 타입 정의
-│   │   ├── validators.ts  # 검증 로직
-│   │   ├── registry.ts    # 레지스트리 관리
+│   │   ├── schema.ts      # Schema class
+│   │   ├── types.ts       # Type definitions
+│   │   ├── validators.ts  # Validation logic
+│   │   ├── registry.ts    # Registry management
 │   │   └── index.ts
 │   └── test/
 │
-├── model/            # 데이터 모델 및 Operations
+├── model/            # Data model and operations
 │   ├── src/
-│   │   ├── operation.ts   # Operation 기본 클래스
-│   │   ├── operations/    # 구체적 Operations
-│   │   ├── transaction.ts # Transaction 시스템
-│   │   ├── node-factory.ts # 스키마 기반 노드 생성
+│   │   ├── operation.ts   # Operation base class
+│   │   ├── operations/    # Concrete operations
+│   │   ├── transaction.ts # Transaction system
+│   │   ├── node-factory.ts # Schema-based node creation
 │   │   └── index.ts
 │   └── test/
 │
-├── datastore/        # 영속성 저장소
+├── datastore/        # Persistence layer
 │   ├── src/
 │   │   ├── data-store.ts
 │   │   └── index.ts
 │   └── test/
 │
-└── renderer-dom/     # DOM 렌더링
+└── renderer-dom/     # DOM rendering
     ├── src/
     │   ├── renderer.ts
     │   └── index.ts
     └── test/
 ```
 
-## 11. 결론
+## 11. Conclusion
 
-Barocss Editor의 통합 스키마 아키텍처는 다음과 같은 장점을 제공합니다:
+Barocss Editor’s unified schema architecture provides the following benefits:
 
-1. **일관성**: 하나의 스키마로 모든 노드 타입과 마크 관리
-2. **확장성**: 기존 스키마를 쉽게 확장할 수 있는 구조
-3. **타입 안전성**: TypeScript 기반 완전한 타입 지원
-4. **검증 우선**: 모든 작업에 스키마 검증 적용
-5. **성능**: 효율적인 스키마 기반 검증과 변환
-6. **유지보수성**: 명확한 계층 구조와 책임 분리
+1. **Consistency**: manage all node types and marks with one schema
+2. **Extensibility**: easy to extend existing schemas
+3. **Type safety**: full TypeScript type support
+4. **Validation-first**: apply schema validation to all operations
+5. **Performance**: efficient schema-based validation and transformation
+6. **Maintainability**: clear hierarchy and separation of concerns
 
-이 아키텍처를 통해 복잡한 문서 편집 기능을 안전하고 효율적으로 구현할 수 있습니다.
+This architecture enables safe and efficient implementation of complex document editing features.

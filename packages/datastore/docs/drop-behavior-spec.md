@@ -1,139 +1,139 @@
-# Drop Behavior 명세
+# Drop Behavior Specification
 
-## 개요
+## Overview
 
-이 문서는 드롭 앤 드롭 시 **드롭 타겟에 소스 노드가 들어올 때의 행위**를 정의합니다.
-
----
-
-## 1. Drop Behavior란?
-
-**Drop Behavior**는 드롭 타겟에 소스 노드를 드롭했을 때 수행되는 행위입니다.
-
-### 핵심 개념
-
-- **드롭 타겟**: 드롭을 받는 노드 (droppable node)
-- **소스 노드**: 드래그되어 드롭되는 노드 (draggable node)
-- **행위**: 드롭 시 수행되는 작업 (Move, Copy, Merge, Transform 등)
-
-### Drop Behavior 타입
-
-#### 1. Move (이동)
-- **의미**: 소스 노드를 원본 위치에서 제거하고 드롭 타겟에 삽입
-- **기본 행위**: 대부분의 경우 기본값
-- **예시**: paragraph를 다른 위치로 이동
-
-#### 2. Copy (복사)
-- **의미**: 소스 노드를 복사하여 드롭 타겟에 삽입 (원본 유지)
-- **사용 케이스**: Ctrl/Cmd + 드래그, 외부에서 드래그
-- **예시**: 이미지를 복사하여 여러 곳에 배치
-
-#### 3. Merge (병합)
-- **의미**: 소스 노드를 드롭 타겟과 병합
-- **사용 케이스**: 텍스트 노드 병합, block 병합
-- **예시**: 텍스트 노드를 다른 텍스트 노드에 드롭하여 병합
-
-#### 4. Transform (변환)
-- **의미**: 소스 노드를 드롭 타겟의 타입에 맞게 변환하여 삽입
-- **사용 케이스**: block을 inline으로 변환, 특정 타입으로 변환
-- **예시**: heading을 paragraph로 변환하여 삽입
-
-#### 5. Wrap (감싸기)
-- **의미**: 소스 노드를 드롭 타겟으로 감싸기
-- **사용 케이스**: block을 다른 block으로 감싸기
-- **예시**: paragraph를 blockQuote로 감싸기
-
-#### 6. Replace (대체)
-- **의미**: 드롭 타겟을 소스 노드로 대체
-- **사용 케이스**: 드롭 타겟을 완전히 교체
-- **예시**: 기존 이미지를 새 이미지로 교체
+This document defines the **behavior when a source node is dropped on a drop target** during drag and drop.
 
 ---
 
-## 2. Drop Behavior 정의 방법
+## 1. What is Drop Behavior?
 
-### 2.1 스키마 vs UI 기준 구분
+**Drop Behavior** is the behavior performed when a source node is dropped on a drop target.
 
-**핵심 원칙**: 
-- **스키마 기준**: 데이터 모델 레벨의 기본 규칙 (일관성, 재사용성)
-- **UI 기준**: 사용자 인터랙션 컨텍스트 (키보드 수정자, 드래그 위치 등)
+### Core Concepts
 
-#### 스키마 기준 정의
-- **Target-Source 조합별 기본 행위**: 어떤 타입의 노드를 어떤 타입의 노드에 드롭할 때의 기본 행위
-- **데이터 무결성 보장**: 스키마 레벨에서 정의하여 일관된 동작 보장
-- **재사용성**: 여러 UI 컨텍스트에서 동일한 규칙 적용
+- **Drop target**: Node that receives the drop (droppable node)
+- **Source node**: Node being dragged and dropped (draggable node)
+- **Behavior**: Action performed during drop (Move, Copy, Merge, Transform, etc.)
 
-#### UI 기준 정의
-- **컨텍스트 정보**: Ctrl/Cmd 키, Shift 키, 드래그 위치 등
-- **사용자 의도 반영**: 키보드 수정자에 따른 행위 변경 (예: Ctrl+드래그 = Copy)
-- **시각적 피드백**: 드롭 가능 여부, 드롭 행위 미리보기
+### Drop Behavior Types
 
-### 2.2 Target-Source 조합별 정의
+#### 1. Move (Move)
+- **Meaning**: Remove source node from original position and insert into drop target
+- **Default behavior**: Default in most cases
+- **Example**: Move paragraph to different location
 
-#### 방법 1: 스키마에 dropBehaviorRules 추가
+#### 2. Copy (Copy)
+- **Meaning**: Copy source node and insert into drop target (keep original)
+- **Use cases**: Ctrl/Cmd + drag, drag from external
+- **Example**: Copy image to place in multiple locations
+
+#### 3. Merge (Merge)
+- **Meaning**: Merge source node with drop target
+- **Use cases**: Text node merge, block merge
+- **Example**: Drop text node on another text node to merge
+
+#### 4. Transform (Transform)
+- **Meaning**: Transform source node to match drop target type and insert
+- **Use cases**: Transform block to inline, transform to specific type
+- **Example**: Transform heading to paragraph and insert
+
+#### 5. Wrap (Wrap)
+- **Meaning**: Wrap source node with drop target
+- **Use cases**: Wrap block with another block
+- **Example**: Wrap paragraph with blockQuote
+
+#### 6. Replace (Replace)
+- **Meaning**: Replace drop target with source node
+- **Use cases**: Completely replace drop target
+- **Example**: Replace existing image with new image
+
+---
+
+## 2. How to Define Drop Behavior
+
+### 2.1 Schema vs UI-Based Distinction
+
+**Core principle**: 
+- **Schema-based**: Basic rules at data model level (consistency, reusability)
+- **UI-based**: User interaction context (keyboard modifiers, drag position, etc.)
+
+#### Schema-Based Definition
+- **Basic behavior per Target-Source combination**: Basic behavior when dropping a node of a certain type on a node of a certain type
+- **Data integrity guarantee**: Defined at schema level to ensure consistent behavior
+- **Reusability**: Apply same rules across multiple UI contexts
+
+#### UI-Based Definition
+- **Context information**: Ctrl/Cmd key, Shift key, drag position, etc.
+- **Reflect user intent**: Change behavior based on keyboard modifiers (e.g., Ctrl+drag = Copy)
+- **Visual feedback**: Drop possibility, drop behavior preview
+
+### 2.2 Definition per Target-Source Combination
+
+#### Method 1: Add dropBehaviorRules to Schema
 
 ```typescript
 interface NodeTypeDefinition {
-  // ... 기존 속성들
+  // ... existing attributes
   /**
-   * Drop Behavior Rules: 소스 노드 타입별 드롭 행위 정의
+   * Drop Behavior Rules: Define drop behavior per source node type
    * 
-   * 구조:
-   * - 키: 소스 노드 타입 (stype) 또는 그룹 (group)
-   * - 값: 드롭 행위 ('move' | 'copy' | 'merge' | 'transform' | 'wrap' | 'replace')
+   * Structure:
+   * - Key: Source node type (stype) or group
+   * - Value: Drop behavior ('move' | 'copy' | 'merge' | 'transform' | 'wrap' | 'replace')
    * 
-   * 예시:
+   * Example:
    * dropBehaviorRules: {
-   *   'inline-text': 'merge',      // inline-text를 드롭하면 병합
-   *   'inline-image': 'copy',      // inline-image를 드롭하면 복사
-   *   'paragraph': 'move',        // paragraph를 드롭하면 이동
-   *   'block': 'move',            // 모든 block 노드를 드롭하면 이동
-   *   '*': 'move'                 // 기본값: 이동
+   *   'inline-text': 'merge',      // Merge when dropping inline-text
+   *   'inline-image': 'copy',      // Copy when dropping inline-image
+   *   'paragraph': 'move',        // Move when dropping paragraph
+   *   'block': 'move',            // Move when dropping all block nodes
+   *   '*': 'move'                 // Default: move
    * }
    */
   dropBehaviorRules?: Record<string, DropBehavior>;
   
   /**
-   * Drop Behavior: 기본 드롭 행위 (dropBehaviorRules가 없을 때 사용)
+   * Drop Behavior: Default drop behavior (used when dropBehaviorRules is not present)
    * 
-   * 타입:
-   * - 'move': 소스 노드를 이동 (기본값)
-   * - 'copy': 소스 노드를 복사
-   * - 'merge': 소스 노드를 병합
-   * - 'transform': 소스 노드를 변환
-   * - 'wrap': 소스 노드를 감싸기
-   * - 'replace': 드롭 타겟을 소스 노드로 대체
-   * - 함수: 동적으로 행위 결정
+   * Types:
+   * - 'move': Move source node (default)
+   * - 'copy': Copy source node
+   * - 'merge': Merge source node
+   * - 'transform': Transform source node
+   * - 'wrap': Wrap source node
+   * - 'replace': Replace drop target with source node
+   * - Function: Determine behavior dynamically
    */
   dropBehavior?: DropBehavior | 
     ((targetNode: INode, sourceNode: INode) => DropBehavior);
 }
 ```
 
-#### 방법 2: 별도 규칙 엔진 (권장)
+#### Method 2: Separate Rule Engine (Recommended)
 
 ```typescript
 /**
  * Drop Behavior Rule Engine
- * Target-Source 조합별 행위를 정의하는 규칙 엔진
+ * Rule engine that defines behavior per Target-Source combination
  */
 interface DropBehaviorRule {
-  targetType: string | string[];  // 타겟 노드 타입 (stype 또는 group)
-  sourceType: string | string[]; // 소스 노드 타입 (stype 또는 group)
+  targetType: string | string[];  // Target node type (stype or group)
+  sourceType: string | string[]; // Source node type (stype or group)
   behavior: DropBehavior | ((targetNode: INode, sourceNode: INode) => DropBehavior);
-  priority?: number; // 우선순위 (높을수록 우선)
+  priority?: number; // Priority (higher is prioritized)
 }
 
-// 규칙 예시
+// Rule examples
 const dropBehaviorRules: DropBehaviorRule[] = [
-  // 텍스트 노드 → 텍스트 노드: 병합
+  // Text node → text node: merge
   {
     targetType: ['inline-text'],
     sourceType: ['inline-text'],
     behavior: 'merge',
     priority: 100
   },
-  // 같은 타입의 block: 이동
+  // Same type blocks: move
   {
     targetType: ['block'],
     sourceType: ['block'],
@@ -142,7 +142,7 @@ const dropBehaviorRules: DropBehaviorRule[] = [
     },
     priority: 50
   },
-  // 기본값: 이동
+  // Default: move
   {
     targetType: '*',
     sourceType: '*',
@@ -152,12 +152,12 @@ const dropBehaviorRules: DropBehaviorRule[] = [
 ];
 ```
 
-#### 방법 3: 매트릭스 형태 정의
+#### Method 3: Matrix Form Definition
 
 ```typescript
 /**
  * Drop Behavior Matrix
- * Target 타입별 Source 타입별 행위 매트릭스
+ * Behavior matrix per Target type per Source type
  */
 type DropBehaviorMatrix = Record<string, Record<string, DropBehavior>>;
 
@@ -166,7 +166,7 @@ const dropBehaviorMatrix: DropBehaviorMatrix = {
     'inline-text': 'merge',
     'inline-image': 'move',
     'paragraph': 'move',
-    '*': 'move'  // 기본값
+    '*': 'move'  // Default
   },
   'heading': {
     'inline-text': 'merge',
@@ -178,36 +178,36 @@ const dropBehaviorMatrix: DropBehaviorMatrix = {
     'block': 'move',
     '*': 'move'
   },
-  '*': {  // 모든 타겟에 대한 기본값
+  '*': {  // Default for all targets
     '*': 'move'
   }
 };
 ```
 
-### 2.3 구현 구조
+### 2.3 Implementation Structure
 
-#### 계층 구조
+#### Layer Structure
 
 ```
 UI Layer (EditorViewDOM)
-  ↓ 컨텍스트 정보 추가 (Ctrl/Cmd 키, 드래그 위치 등)
+  ↓ Add context information (Ctrl/Cmd key, drag position, etc.)
 DataStore Layer (getDropBehavior)
-  ↓ Target-Source 조합 확인
+  ↓ Check Target-Source combination
 Schema Layer (dropBehaviorRules)
-  ↓ 기본 규칙 적용
+  ↓ Apply basic rules
 Default Behavior ('move')
 ```
 
-#### 구현 예시
+#### Implementation Example
 
 ```typescript
 /**
- * 드롭 타겟에 소스 노드를 드롭했을 때의 행위를 결정합니다.
+ * Determines behavior when dropping source node on drop target.
  * 
- * @param targetNodeId 드롭 타겟 노드 ID
- * @param sourceNodeId 소스 노드 ID
- * @param context UI 컨텍스트 (선택적)
- * @returns 드롭 행위
+ * @param targetNodeId Drop target node ID
+ * @param sourceNodeId Source node ID
+ * @param context UI context (optional)
+ * @returns Drop behavior
  */
 getDropBehavior(
   targetNodeId: string, 
@@ -219,80 +219,80 @@ getDropBehavior(
   const sourceNode = this.dataStore.getNode(sourceNodeId);
   
   if (!targetNode || !sourceNode || !schema) {
-    return 'move'; // 기본값
+    return 'move'; // Default
   }
   
   const targetType = schema.getNodeType(targetNode.stype);
   const sourceType = schema.getNodeType(sourceNode.stype);
   
-  // 1. UI 컨텍스트 확인 (최우선)
+  // 1. Check UI context (highest priority)
   if (context?.modifiers?.ctrlKey || context?.modifiers?.metaKey) {
-    return 'copy'; // Ctrl/Cmd + 드래그 = 복사
+    return 'copy'; // Ctrl/Cmd + drag = copy
   }
   
-  // 2. 스키마의 dropBehaviorRules 확인
+  // 2. Check schema's dropBehaviorRules
   if (targetType?.dropBehaviorRules) {
     const rules = targetType.dropBehaviorRules;
     
-    // 소스 타입별 규칙 확인
+    // Check rules per source type
     if (rules[sourceNode.stype]) {
       return rules[sourceNode.stype];
     }
     
-    // 소스 그룹별 규칙 확인
+    // Check rules per source group
     if (sourceType?.group && rules[sourceType.group]) {
       return rules[sourceType.group];
     }
     
-    // 와일드카드 규칙 확인
+    // Check wildcard rules
     if (rules['*']) {
       return rules['*'];
     }
   }
   
-  // 3. 스키마의 dropBehavior 함수 확인
+  // 3. Check schema's dropBehavior function
   if (targetType?.dropBehavior && typeof targetType.dropBehavior === 'function') {
     return targetType.dropBehavior(targetNode, sourceNode);
   }
   
-  // 4. 타입 조합에 따른 기본 규칙
-  // 텍스트 노드 → 텍스트 노드: merge
+  // 4. Basic rules based on type combination
+  // Text node → text node: merge
   if (targetNode.text && sourceNode.text) {
     return 'merge';
   }
   
-  // 같은 타입의 block: move
+  // Same type blocks: move
   if (targetType?.group === 'block' && sourceType?.group === 'block' && 
       targetNode.stype === sourceNode.stype) {
     return 'move';
   }
   
-  // 5. 기본값: move
+  // 5. Default: move
   return 'move';
 }
 ```
 
-#### DropContext 인터페이스
+#### DropContext Interface
 
 ```typescript
 interface DropContext {
   modifiers?: {
-    ctrlKey?: boolean;  // Ctrl 키 (Windows/Linux)
-    metaKey?: boolean;  // Cmd 키 (Mac)
-    shiftKey?: boolean; // Shift 키
-    altKey?: boolean;   // Alt 키
+    ctrlKey?: boolean;  // Ctrl key (Windows/Linux)
+    metaKey?: boolean;  // Cmd key (Mac)
+    shiftKey?: boolean; // Shift key
+    altKey?: boolean;   // Alt key
   };
-  position?: number;    // 드롭 위치
-  dropZone?: 'before' | 'after' | 'inside'; // 드롭 영역
-  sourceOrigin?: 'internal' | 'external';   // 내부/외부 드래그
+  position?: number;    // Drop position
+  dropZone?: 'before' | 'after' | 'inside'; // Drop area
+  sourceOrigin?: 'internal' | 'external';   // Internal/external drag
 }
 ```
 
 ---
 
-## 3. Drop Behavior 구현
+## 3. Drop Behavior Implementation
 
-### 3.1 Move (이동)
+### 3.1 Move (Move)
 
 ```typescript
 function executeMoveBehavior(
@@ -301,12 +301,12 @@ function executeMoveBehavior(
   position: number,
   dataStore: DataStore
 ): void {
-  // moveNode operation 실행
+  // Execute moveNode operation
   dataStore.content.moveNode(sourceNodeId, targetNodeId, position);
 }
 ```
 
-### 3.2 Copy (복사)
+### 3.2 Copy (Copy)
 
 ```typescript
 function executeCopyBehavior(
@@ -315,14 +315,14 @@ function executeCopyBehavior(
   position: number,
   dataStore: DataStore
 ): string {
-  // copyNode operation 실행
+  // Execute copyNode operation
   const newNodeId = dataStore.content.copyNode(sourceNodeId, targetNodeId);
-  // position 조정 (필요시)
+  // Adjust position (if needed)
   return newNodeId;
 }
 ```
 
-### 3.3 Merge (병합)
+### 3.3 Merge (Merge)
 
 ```typescript
 function executeMergeBehavior(
@@ -333,18 +333,18 @@ function executeMergeBehavior(
   const targetNode = dataStore.getNode(targetNodeId);
   const sourceNode = dataStore.getNode(sourceNodeId);
   
-  // 텍스트 노드 병합
+  // Merge text nodes
   if (targetNode.text && sourceNode.text) {
     dataStore.splitMerge.mergeTextNodes(targetNodeId, sourceNodeId);
   }
-  // Block 노드 병합
+  // Merge block nodes
   else if (targetNode.stype === sourceNode.stype) {
     dataStore.splitMerge.mergeBlockNodes(targetNodeId, sourceNodeId);
   }
 }
 ```
 
-### 3.4 Transform (변환)
+### 3.4 Transform (Transform)
 
 ```typescript
 function executeTransformBehavior(
@@ -356,14 +356,14 @@ function executeTransformBehavior(
   const targetNode = dataStore.getNode(targetNodeId);
   const sourceNode = dataStore.getNode(sourceNodeId);
   
-  // 소스 노드를 타겟 타입에 맞게 변환
+  // Transform source node to match target type
   const transformedNode = transformNode(sourceNode, targetNode.stype);
   const newNodeId = dataStore.createNode(transformedNode);
   
-  // 타겟에 삽입
+  // Insert into target
   dataStore.content.addChild(targetNodeId, newNodeId, position);
   
-  // 원본 제거 (필요시)
+  // Remove original (if needed)
   if (sourceNode.parentId) {
     dataStore.content.removeChild(sourceNode.parentId, sourceNodeId);
   }
@@ -372,7 +372,7 @@ function executeTransformBehavior(
 }
 ```
 
-### 3.5 Wrap (감싸기)
+### 3.5 Wrap (Wrap)
 
 ```typescript
 function executeWrapBehavior(
@@ -380,7 +380,7 @@ function executeWrapBehavior(
   sourceNodeId: string,
   dataStore: DataStore
 ): string {
-  // 소스 노드를 타겟 타입으로 감싸기
+  // Wrap source node with target type
   const wrapperNode = {
     stype: targetNode.stype,
     content: [sourceNodeId]
@@ -388,7 +388,7 @@ function executeWrapBehavior(
   
   const wrapperNodeId = dataStore.createNode(wrapperNode);
   
-  // 원본 위치에 삽입
+  // Insert at original position
   if (sourceNode.parentId) {
     const position = dataStore.getNode(sourceNode.parentId)?.content?.indexOf(sourceNodeId);
     dataStore.content.addChild(sourceNode.parentId, wrapperNodeId, position);
@@ -399,7 +399,7 @@ function executeWrapBehavior(
 }
 ```
 
-### 3.6 Replace (대체)
+### 3.6 Replace (Replace)
 
 ```typescript
 function executeReplaceBehavior(
@@ -409,7 +409,7 @@ function executeReplaceBehavior(
 ): void {
   const targetNode = dataStore.getNode(targetNodeId);
   
-  // 타겟 노드를 소스 노드로 대체
+  // Replace target node with source node
   if (targetNode.parentId) {
     const position = dataStore.getNode(targetNode.parentId)?.content?.indexOf(targetNodeId);
     dataStore.content.moveNode(sourceNodeId, targetNode.parentId, position);
@@ -420,29 +420,29 @@ function executeReplaceBehavior(
 
 ---
 
-## 4. Drop Behavior 결정 우선순위
+## 4. Drop Behavior Determination Priority
 
-### 4.1 우선순위 순서
+### 4.1 Priority Order
 
-1. **스키마의 dropBehavior 속성** (최우선)
-   - 타겟 노드 타입에 명시적으로 정의된 경우
-   - 함수인 경우: 동적으로 결정
+1. **Schema's dropBehavior attribute** (highest priority)
+   - When explicitly defined in target node type
+   - If function: Determined dynamically
 
-2. **타입 조합 규칙**
-   - 텍스트 노드 → 텍스트 노드: `merge`
-   - 같은 타입의 block: `move`
-   - block → inline: `transform` 또는 `move`
+2. **Type combination rules**
+   - Text node → text node: `merge`
+   - Same type blocks: `move`
+   - block → inline: `transform` or `move`
 
-3. **기본값**
-   - 그 외의 경우: `move`
+3. **Default**
+   - Otherwise: `move`
 
-### 4.2 구현 예시
+### 4.2 Implementation Example
 
 ```typescript
 getDropBehavior(targetNodeId: string, sourceNodeId: string): DropBehavior {
   const schema = this.dataStore.getActiveSchema();
   if (!schema) {
-    return 'move'; // 기본값
+    return 'move'; // Default
   }
   
   const targetNode = this.dataStore.getNode(targetNodeId);
@@ -455,7 +455,7 @@ getDropBehavior(targetNodeId: string, sourceNodeId: string): DropBehavior {
   const targetType = schema.getNodeType(targetNode.stype);
   const sourceType = schema.getNodeType(sourceNode.stype);
   
-  // 1. 스키마에 명시적으로 정의된 경우
+  // 1. When explicitly defined in schema
   if (targetType?.dropBehavior) {
     if (typeof targetType.dropBehavior === 'function') {
       return targetType.dropBehavior(targetNode, sourceNode);
@@ -463,35 +463,35 @@ getDropBehavior(targetNodeId: string, sourceNodeId: string): DropBehavior {
     return targetType.dropBehavior;
   }
   
-  // 2. 타입 조합에 따른 기본 규칙
-  // 텍스트 노드 → 텍스트 노드: merge
+  // 2. Basic rules based on type combination
+  // Text node → text node: merge
   if (targetNode.text && sourceNode.text) {
     return 'merge';
   }
   
-  // 같은 타입의 block: move
+  // Same type blocks: move
   if (targetType?.group === 'block' && sourceType?.group === 'block' && 
       targetNode.stype === sourceNode.stype) {
     return 'move';
   }
   
-  // 3. 기본값: move
+  // 3. Default: move
   return 'move';
 }
 ```
 
 ---
 
-## 5. 사용 케이스
+## 5. Use Cases
 
-### 5.1 기본 드롭 (Move)
+### 5.1 Basic Drop (Move)
 
 ```typescript
-// paragraph를 다른 위치로 이동
+// Move paragraph to different location
 const behavior = dataStore.getDropBehavior('paragraph-2', 'paragraph-1');
 // behavior: 'move'
 
-// moveNode operation 실행
+// Execute moveNode operation
 await transaction(editor, [
   {
     type: 'moveNode',
@@ -504,14 +504,14 @@ await transaction(editor, [
 ]).commit();
 ```
 
-### 5.2 텍스트 병합 (Merge)
+### 5.2 Text Merge (Merge)
 
 ```typescript
-// 텍스트 노드를 다른 텍스트 노드에 드롭하여 병합
+// Drop text node on another text node to merge
 const behavior = dataStore.getDropBehavior('text-2', 'text-1');
 // behavior: 'merge'
 
-// mergeTextNodes operation 실행
+// Execute mergeTextNodes operation
 await transaction(editor, [
   {
     type: 'mergeTextNodes',
@@ -523,14 +523,14 @@ await transaction(editor, [
 ]).commit();
 ```
 
-### 5.3 이미지 복사 (Copy)
+### 5.3 Image Copy (Copy)
 
 ```typescript
-// 이미지를 복사하여 여러 곳에 배치
+// Copy image to place in multiple locations
 const behavior = dataStore.getDropBehavior('paragraph-2', 'image-1');
-// behavior: 'copy' (스키마에 정의된 경우)
+// behavior: 'copy' (if defined in schema)
 
-// copyNode operation 실행
+// Execute copyNode operation
 await transaction(editor, [
   {
     type: 'copyNode',
@@ -544,57 +544,57 @@ await transaction(editor, [
 
 ---
 
-## 6. 권장 구현 방안
+## 6. Recommended Implementation Approach
 
-### 6.1 스키마 확장 (권장)
+### 6.1 Schema Extension (Recommended)
 
 ```typescript
 interface NodeTypeDefinition {
-  // ... 기존 속성들
+  // ... existing attributes
   
   /**
-   * Drop Behavior Rules: 소스 노드 타입별 드롭 행위 정의
+   * Drop Behavior Rules: Define drop behavior per source node type
    * 
-   * 구조:
-   * - 키: 소스 노드 타입 (stype) 또는 그룹 (group) 또는 와일드카드 ('*')
-   * - 값: 드롭 행위
+   * Structure:
+   * - Key: Source node type (stype) or group or wildcard ('*')
+   * - Value: Drop behavior
    * 
-   * 우선순위:
-   * 1. 소스 타입 (stype) 정확히 일치
-   * 2. 소스 그룹 (group) 일치
-   * 3. 와일드카드 ('*')
+   * Priority:
+   * 1. Exact source type (stype) match
+   * 2. Source group (group) match
+   * 3. Wildcard ('*')
    * 
-   * 예시:
+   * Example:
    * dropBehaviorRules: {
-   *   'inline-text': 'merge',      // inline-text를 드롭하면 병합
-   *   'inline-image': 'copy',      // inline-image를 드롭하면 복사
-   *   'block': 'move',             // 모든 block을 드롭하면 이동
-   *   '*': 'move'                  // 기본값: 이동
+   *   'inline-text': 'merge',      // Merge when dropping inline-text
+   *   'inline-image': 'copy',      // Copy when dropping inline-image
+   *   'block': 'move',             // Move when dropping all blocks
+   *   '*': 'move'                  // Default: move
    * }
    */
   dropBehaviorRules?: Record<string, DropBehavior>;
   
   /**
-   * Drop Behavior: 기본 드롭 행위 (dropBehaviorRules가 없을 때 사용)
-   * 함수인 경우: 동적으로 행위 결정
+   * Drop Behavior: Default drop behavior (used when dropBehaviorRules is not present)
+   * If function: Determine behavior dynamically
    */
   dropBehavior?: DropBehavior | 
     ((targetNode: INode, sourceNode: INode) => DropBehavior);
 }
 ```
 
-### 6.2 DataStore API 추가
+### 6.2 Add DataStore API
 
 ```typescript
-// DataStore에 추가
+// Add to DataStore
 interface DataStore {
   /**
-   * 드롭 타겟에 소스 노드를 드롭했을 때의 행위를 결정합니다.
+   * Determines behavior when dropping source node on drop target.
    * 
-   * @param targetNodeId 드롭 타겟 노드 ID
-   * @param sourceNodeId 소스 노드 ID
-   * @param context UI 컨텍스트 (선택적)
-   * @returns 드롭 행위
+   * @param targetNodeId Drop target node ID
+   * @param sourceNodeId Source node ID
+   * @param context UI context (optional)
+   * @returns Drop behavior
    */
   getDropBehavior(
     targetNodeId: string,
@@ -603,13 +603,13 @@ interface DataStore {
   ): DropBehavior;
   
   /**
-   * 드롭 행위를 실행합니다.
+   * Executes drop behavior.
    * 
-   * @param targetNodeId 드롭 타겟 노드 ID
-   * @param sourceNodeId 소스 노드 ID
-   * @param position 드롭 위치
-   * @param behavior 드롭 행위 (선택적, 없으면 자동 결정)
-   * @param context UI 컨텍스트 (선택적)
+   * @param targetNodeId Drop target node ID
+   * @param sourceNodeId Source node ID
+   * @param position Drop position
+   * @param behavior Drop behavior (optional, auto-determined if not provided)
+   * @param context UI context (optional)
    */
   executeDropBehavior(
     targetNodeId: string,
@@ -621,17 +621,17 @@ interface DataStore {
 }
 ```
 
-### 6.3 UI Layer 통합
+### 6.3 UI Layer Integration
 
 ```typescript
-// EditorViewDOM에서 사용
+// Use in EditorViewDOM
 class EditorViewDOM {
   handleDrop(event: DragEvent): void {
     const targetNodeId = this.getDropTargetNodeId(event);
     const sourceNodeId = this.getDraggedNodeId(event);
     const position = this.getDropPosition(event);
     
-    // UI 컨텍스트 생성
+    // Create UI context
     const context: DropContext = {
       modifiers: {
         ctrlKey: event.ctrlKey,
@@ -644,14 +644,14 @@ class EditorViewDOM {
       sourceOrigin: this.getSourceOrigin(event)
     };
     
-    // 드롭 행위 결정
+    // Determine drop behavior
     const behavior = this.editor.dataStore.getDropBehavior(
       targetNodeId,
       sourceNodeId,
       context
     );
     
-    // 드롭 행위 실행
+    // Execute drop behavior
     await this.editor.dataStore.executeDropBehavior(
       targetNodeId,
       sourceNodeId,
@@ -663,10 +663,10 @@ class EditorViewDOM {
 }
 ```
 
-### 6.2 API 추가
+### 6.2 Add API
 
 ```typescript
-// DataStore에 추가
+// Add to DataStore
 getDropBehavior(targetNodeId: string, sourceNodeId: string): DropBehavior;
 executeDropBehavior(
   targetNodeId: string,
@@ -676,10 +676,10 @@ executeDropBehavior(
 ): Promise<void>;
 ```
 
-### 6.3 확장 가능한 구조
+### 6.3 Extensible Structure
 
 ```typescript
-// Drop Behavior Handler 인터페이스
+// Drop Behavior Handler interface
 interface DropBehaviorHandler {
   canHandle(behavior: DropBehavior): boolean;
   execute(
@@ -690,45 +690,45 @@ interface DropBehaviorHandler {
   ): Promise<void>;
 }
 
-// Handler 등록
+// Register handler
 registerDropBehaviorHandler(behavior: DropBehavior, handler: DropBehaviorHandler);
 ```
 
 ---
 
-## 7. 요약
+## 7. Summary
 
-### Drop Behavior의 정의
+### Definition of Drop Behavior
 
-1. **드롭 타겟에 소스 노드가 들어올 때의 행위**
-2. **스키마 레벨 또는 함수 레벨에서 정의 가능**
-3. **타입 조합에 따른 기본 규칙 적용**
+1. **Behavior when source node is dropped on drop target**
+2. **Can be defined at schema level or function level**
+3. **Basic rules applied based on type combination**
 
-### Drop Behavior 타입
+### Drop Behavior Types
 
-- **Move**: 소스 노드를 이동 (기본값)
-- **Copy**: 소스 노드를 복사
-- **Merge**: 소스 노드를 병합
-- **Transform**: 소스 노드를 변환
-- **Wrap**: 소스 노드를 감싸기
-- **Replace**: 드롭 타겟을 소스 노드로 대체
+- **Move**: Move source node (default)
+- **Copy**: Copy source node
+- **Merge**: Merge source node
+- **Transform**: Transform source node
+- **Wrap**: Wrap source node
+- **Replace**: Replace drop target with source node
 
-### 결정 우선순위
+### Determination Priority
 
-1. **스키마의 dropBehavior 속성** (최우선)
-2. **타입 조합 규칙** (텍스트 병합, 같은 타입 이동 등)
-3. **기본값** (move)
+1. **Schema's dropBehavior attribute** (highest priority)
+2. **Type combination rules** (text merge, same type move, etc.)
+3. **Default** (move)
 
 ---
 
-## 8. 함수 기반 정의 (defineDropBehavior)
+## 8. Function-Based Definition (defineDropBehavior)
 
-### 8.1 defineDropBehavior 패턴
+### 8.1 defineDropBehavior Pattern
 
-기존 `defineOperation` 패턴과 일관성을 유지하면서 Drop Behavior를 정의합니다.
+Defines Drop Behavior while maintaining consistency with existing `defineOperation` pattern.
 
 ```typescript
-// Drop Behavior 정의 함수
+// Drop Behavior definition function
 defineDropBehavior(
   targetType: string | string[],
   behavior: DropBehavior | 
@@ -740,13 +740,13 @@ defineDropBehavior(
 ): void;
 ```
 
-### 8.2 사용 예시
+### 8.2 Usage Examples
 
 ```typescript
-// 기본 드롭 행위 정의
+// Define basic drop behavior
 defineDropBehavior('paragraph', 'move');
 
-// 동적 드롭 행위 정의
+// Define dynamic drop behavior
 defineDropBehavior(
   'paragraph',
   (target, source, context) => {
@@ -761,14 +761,14 @@ defineDropBehavior(
   { priority: 100 }
 );
 
-// 특정 소스 타입에 대한 규칙
+// Rule for specific source type
 defineDropBehavior(
   'paragraph',
   'merge',
   { sourceType: 'inline-text', priority: 200 }
 );
 
-// 여러 타겟 타입에 대한 규칙
+// Rules for multiple target types
 defineDropBehavior(
   ['paragraph', 'heading'],
   'move',
@@ -776,41 +776,41 @@ defineDropBehavior(
 );
 ```
 
-### 8.3 스키마 vs 함수 기반 비교
+### 8.3 Schema vs Function-Based Comparison
 
-| 구분 | 스키마 기반 | 함수 기반 |
-|------|------------|-----------|
-| **명시성** | 높음 (스키마에 직접 정의) | 중간 (별도 등록) |
-| **유연성** | 낮음 (정적 규칙) | 높음 (동적 로직) |
-| **확장성** | 낮음 | 높음 |
-| **일관성** | 높음 (스키마와 함께 관리) | 중간 |
-| **복잡도** | 낮음 | 중간 |
+| Distinction | Schema-Based | Function-Based |
+|-------------|--------------|----------------|
+| **Explicitness** | High (defined directly in schema) | Medium (registered separately) |
+| **Flexibility** | Low (static rules) | High (dynamic logic) |
+| **Extensibility** | Low | High |
+| **Consistency** | High (managed together with schema) | Medium |
+| **Complexity** | Low | Medium |
 
-### 8.4 하이브리드 접근 (권장)
+### 8.4 Hybrid Approach (Recommended)
 
-**기본 규칙**: 스키마의 `dropBehaviorRules` (명시적, 간단한 규칙)
-**복잡한 규칙**: `defineDropBehavior` 함수 (동적, 복잡한 로직)
+**Basic rules**: Schema's `dropBehaviorRules` (explicit, simple rules)
+**Complex rules**: `defineDropBehavior` function (dynamic, complex logic)
 
 ```typescript
-// 1. 스키마에 기본 규칙 정의
+// 1. Define basic rules in schema
 const schema = new Schema('example', {
   nodes: {
     'paragraph': {
       dropBehaviorRules: {
-        'inline-text': 'merge',  // 간단한 규칙
+        'inline-text': 'merge',  // Simple rule
         '*': 'move'
       }
     }
   }
 });
 
-// 2. 복잡한 규칙은 함수로 정의
+// 2. Define complex rules as functions
 defineDropBehavior(
   'paragraph',
   (target, source, context) => {
-    // 복잡한 로직
+    // Complex logic
     if (source.attributes?.locked && !context.modifiers?.shiftKey) {
-      return 'copy'; // 잠긴 노드는 복사만 가능
+      return 'copy'; // Locked nodes can only be copied
     }
     // ...
   },
@@ -820,68 +820,68 @@ defineDropBehavior(
 
 ---
 
-## 9. 다른 에디터들의 접근 방식
+## 9. Approaches from Other Editors
 
 ### 9.1 ProseMirror
 
-**방식**: 플러그인 기반 + 스키마 규칙
+**Approach**: Plugin-based + schema rules
 
 ```typescript
-// ProseMirror는 플러그인으로 드롭 행위 정의
+// ProseMirror defines drop behavior via plugins
 const dropBehaviorPlugin = new Plugin({
   props: {
     handleDrop(view, event, slice, moved) {
-      // 드롭 행위 결정 및 실행
+      // Determine and execute drop behavior
       if (moved) {
-        // 이동
+        // Move
       } else {
-        // 복사
+        // Copy
       }
     }
   }
 });
 ```
 
-**특징:**
-- 플러그인 시스템 활용
-- 스키마의 `content` 정의 기반으로 기본 규칙 적용
-- 커스텀 드롭 행위는 플러그인에서 처리
+**Characteristics:**
+- Utilizes plugin system
+- Applies basic rules based on schema's `content` definition
+- Custom drop behavior handled in plugins
 
 ### 9.2 Slate.js
 
-**방식**: 핸들러 함수 기반
+**Approach**: Handler function-based
 
 ```typescript
-// Slate.js는 핸들러 함수로 드롭 행위 정의
+// Slate.js defines drop behavior via handler functions
 const editor = {
   handlers: {
     onDrop: (event, editor) => {
-      // 드롭 행위 결정 및 실행
+      // Determine and execute drop behavior
       if (event.dataTransfer.effectAllowed === 'copy') {
-        // 복사
+        // Copy
       } else {
-        // 이동
+        // Move
       }
     }
   }
 };
 ```
 
-**특징:**
-- 핸들러 함수 기반
-- 이벤트 기반 처리
-- 유연하지만 일관성 유지가 어려울 수 있음
+**Characteristics:**
+- Handler function-based
+- Event-based processing
+- Flexible but may be difficult to maintain consistency
 
 ### 9.3 TinyMCE
 
-**방식**: 설정 기반 + 플러그인
+**Approach**: Configuration-based + plugins
 
 ```typescript
-// TinyMCE는 설정과 플러그인으로 드롭 행위 정의
+// TinyMCE defines drop behavior via configuration and plugins
 tinymce.init({
   plugins: 'dragdrop',
   dragdrop_config: {
-    behavior: 'move', // 또는 'copy'
+    behavior: 'move', // or 'copy'
     rules: {
       'paragraph': { 'image': 'copy', '*': 'move' }
     }
@@ -889,49 +889,48 @@ tinymce.init({
 });
 ```
 
-**특징:**
-- 설정 기반 기본 동작
-- 플러그인으로 확장
-- 규칙 기반 매칭
+**Characteristics:**
+- Configuration-based default behavior
+- Extensible via plugins
+- Rule-based matching
 
 ---
 
-## 10. 구현 계획
+## 10. Implementation Plan
 
-자세한 구현 계획은 다음 문서를 참고하세요:
-- `packages/datastore/docs/drop-behavior-implementation-plan.md`: 구현 계획 및 단계별 가이드
+For detailed implementation plan, refer to the following document:
+- `packages/datastore/docs/drop-behavior-implementation-plan.md`: Implementation plan and step-by-step guide
 
-### 10.1 구현 순서
+### 10.1 Implementation Order
 
-1. **Phase 1: 기본 구조**
-   - 타입 정의
-   - `defineDropBehavior` Registry 구현
-   - 스키마에 `dropBehaviorRules` 추가
+1. **Phase 1: Basic Structure**
+   - Type definitions
+   - `defineDropBehavior` Registry implementation
+   - Add `dropBehaviorRules` to schema
 
-2. **Phase 2: 기본 규칙**
-   - 기본 드롭 행위 결정 로직
-   - `getDropBehavior` 구현
-   - 기본 규칙 등록
+2. **Phase 2: Basic Rules**
+   - Basic drop behavior determination logic
+   - `getDropBehavior` implementation
+   - Default rule registration
 
-3. **Phase 3: 실행 로직**
-   - `executeDropBehavior` 구현
-   - 각 행위별 실행 함수 구현
+3. **Phase 3: Execution Logic**
+   - `executeDropBehavior` implementation
+   - Implementation of execution functions per behavior
 
-4. **Phase 4: 통합**
-   - DataStore API 노출
-   - UI Layer 통합
-   - 테스트 코드 작성
+4. **Phase 4: Integration**
+   - DataStore API exposure
+   - UI Layer integration
+   - Test code writing
 
 ---
 
-## 11. 참고 자료
+## 11. References
 
-- `packages/datastore/src/operations/content-operations.ts`: moveNode, copyNode 구현
-- `packages/datastore/src/operations/split-merge-operations.ts`: mergeTextNodes, mergeBlockNodes 구현
+- `packages/datastore/src/operations/content-operations.ts`: moveNode, copyNode implementation
+- `packages/datastore/src/operations/split-merge-operations.ts`: mergeTextNodes, mergeBlockNodes implementation
 - `packages/model/src/operations/moveNode.ts`: moveNode operation
 - `packages/model/src/operations/copyNode.ts`: copyNode operation
-- `packages/model/src/operations/define-operation.ts`: Operation 정의 패턴
-- `packages/datastore/docs/droppable-node-spec.md`: Droppable Node 명세
-- `packages/datastore/docs/drop-behavior-implementation-options.md`: 구현 옵션 비교
-- `packages/datastore/docs/drop-behavior-implementation-plan.md`: 구현 계획 및 단계별 가이드
-
+- `packages/model/src/operations/define-operation.ts`: Operation definition pattern
+- `packages/datastore/docs/droppable-node-spec.md`: Droppable Node specification
+- `packages/datastore/docs/drop-behavior-implementation-options.md`: Implementation option comparison
+- `packages/datastore/docs/drop-behavior-implementation-plan.md`: Implementation plan and step-by-step guide

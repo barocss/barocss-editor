@@ -1,343 +1,342 @@
-# 삭제 기능 테스트 시나리오
+# Delete Feature Test Scenarios
 
-이 문서는 삭제 기능을 체계적으로 테스트하기 위한 시나리오를 제공합니다.
+This document provides scenarios for systematically testing the delete feature.
 
-## 테스트 전 확인사항
+## Pre-Test Checklist
 
-1. 브라우저 콘솔 열기 (F12)
-2. Devtool 오른쪽 패널 확인
-3. "Last Input" 탭과 "Model Tree" 탭 준비
+1. Open browser console (F12)
+2. Check Devtool right panel
+3. Prepare "Last Input" tab and "Model Tree" tab
 
 ---
 
-## 테스트 시나리오
+## Test Scenarios
 
-### 1. 기본 Backspace 삭제 (C1)
+### 1. Basic Backspace Delete (C1)
 
-#### 1.1 단일 문자 삭제
-**시나리오**:
-1. "Hello" 텍스트에서 "o" 뒤에 커서를 두고 Backspace 입력
+#### 1.1 Single Character Delete
+**Scenario**:
+1. Place cursor after "o" in "Hello" text and press Backspace
 
-**예상 결과**:
-- 모델: `text: "Hell"`
-- DOM: "Hell" 텍스트 표시
-- 커서: "Hell" 뒤에 위치
+**Expected Result**:
+- Model: `text: "Hell"`
+- DOM: "Hell" text displayed
+- Cursor: positioned after "Hell"
 - Devtool: `case: "C1"`, `inputType: "deleteContentBackward"`, `status: "✓"`
 
-**실제 결과**:
-- [ ] 모델 업데이트: ✅ / ❌
-- [ ] DOM 렌더링: ✅ / ❌
-- [ ] 커서 위치: ✅ / ❌
-- [ ] Devtool 표시: ✅ / ❌
+**Actual Result**:
+- [ ] Model update: ✅ / ❌
+- [ ] DOM rendering: ✅ / ❌
+- [ ] Cursor position: ✅ / ❌
+- [ ] Devtool display: ✅ / ❌
 
-**콘솔 로그 확인**:
+**Console Log Check**:
 ```
 [InputHandler] handleC1: CALLED
 [InputHandler] handleC1: text change { type: 'delete', start: 4, end: 5, text: '' }
 [InputHandler] handleC1: calling deleteText
 ```
 
-**문제점** (있는 경우):
+**Issues** (if any):
 ```
-[문제 설명]
-```
-
----
-
-#### 1.2 여러 문자 삭제 (선택 후 삭제)
-**시나리오**:
-1. "Hello" 텍스트에서 "ell" 선택
-2. Backspace 또는 Delete 입력
-
-**예상 결과**:
-- 모델: `text: "Ho"`
-- DOM: "Ho" 텍스트 표시
-- 커서: "H" 뒤에 위치
-- Devtool: `case: "C1"` 또는 `"C2"`, `status: "✓"`
-
-**실제 결과**:
-- [ ] 모델 업데이트: ✅ / ❌
-- [ ] DOM 렌더링: ✅ / ❌
-- [ ] 커서 위치: ✅ / ❌
-
-**문제점** (있는 경우):
-```
-[문제 설명]
+[Issue description]
 ```
 
 ---
 
-#### 1.3 Mark가 있는 텍스트에서 삭제
-**시나리오**:
-1. "bold and italic" 텍스트 (bold+italic mark)에서 "and" 선택
-2. Backspace 입력
+#### 1.2 Multiple Character Delete (Select then Delete)
+**Scenario**:
+1. Select "ell" in "Hello" text
+2. Press Backspace or Delete
 
-**예상 결과**:
-- 모델: `text: "bold  italic"` (또는 "bold italic"), mark는 조정됨
-- DOM: bold+italic 스타일이 유지됨
-- 커서: "bold " 뒤에 위치
-- Mark가 올바르게 조정됨 (분리되지 않음)
+**Expected Result**:
+- Model: `text: "Ho"`
+- DOM: "Ho" text displayed
+- Cursor: positioned after "H"
+- Devtool: `case: "C1"` or `"C2"`, `status: "✓"`
 
-**실제 결과**:
-- [ ] 모델 업데이트: ✅ / ❌
-- [ ] Mark 조정: ✅ / ❌
-- [ ] DOM 렌더링: ✅ / ❌
-- [ ] 커서 위치: ✅ / ❌
+**Actual Result**:
+- [ ] Model update: ✅ / ❌
+- [ ] DOM rendering: ✅ / ❌
+- [ ] Cursor position: ✅ / ❌
 
-**Devtool에서 Mark 확인**:
-- [ ] Mark가 올바르게 조정되었는지 (M, T, M 형태로 분리되지 않았는지)
-
-**문제점** (있는 경우):
+**Issues** (if any):
 ```
-[문제 설명]
+[Issue description]
 ```
 
 ---
 
-#### 1.4 Range 없는 Mark가 있는 텍스트에서 삭제
-**시나리오**:
-1. `text-bold-after-img` 노드 (range 없는 bold mark)에서 텍스트 일부 삭제
+#### 1.3 Delete in Text with Marks
+**Scenario**:
+1. Select "and" in "bold and italic" text (with bold+italic mark)
+2. Press Backspace
 
-**예상 결과**:
-- 모델: 텍스트가 삭제됨, mark는 그대로 유지 (range 없음)
-- DOM: bold 스타일이 전체에 적용됨
-- Devtool: mark가 분리되지 않고 전체에 적용됨
+**Expected Result**:
+- Model: `text: "bold  italic"` (or "bold italic"), marks adjusted
+- DOM: bold+italic style maintained
+- Cursor: positioned after "bold "
+- Marks correctly adjusted (not split)
 
-**실제 결과**:
-- [ ] 모델 업데이트: ✅ / ❌
-- [ ] Mark 유지 (range 없음): ✅ / ❌
-- [ ] DOM 렌더링: ✅ / ❌
+**Actual Result**:
+- [ ] Model update: ✅ / ❌
+- [ ] Mark adjustment: ✅ / ❌
+- [ ] DOM rendering: ✅ / ❌
+- [ ] Cursor position: ✅ / ❌
 
-**문제점** (있는 경우):
+**Check Marks in Devtool**:
+- [ ] Marks correctly adjusted (not split into M, T, M form)
+
+**Issues** (if any):
 ```
-[문제 설명]
+[Issue description]
 ```
 
 ---
 
-### 2. Delete 키 삭제
+#### 1.4 Delete in Text with Range-less Mark
+**Scenario**:
+1. Delete part of text in `text-bold-after-img` node (bold mark without range)
 
-#### 2.1 단일 문자 삭제 (Delete)
-**시나리오**:
-1. "Hello" 텍스트에서 "H" 앞에 커서를 두고 Delete 입력
+**Expected Result**:
+- Model: text deleted, mark maintained (no range)
+- DOM: bold style applied to entire text
+- Devtool: mark not split, applied to entire text
 
-**예상 결과**:
-- 모델: `text: "ello"`
-- DOM: "ello" 텍스트 표시
-- 커서: "ello" 시작 위치
+**Actual Result**:
+- [ ] Model update: ✅ / ❌
+- [ ] Mark maintained (no range): ✅ / ❌
+- [ ] DOM rendering: ✅ / ❌
+
+**Issues** (if any):
+```
+[Issue description]
+```
+
+---
+
+### 2. Delete Key Delete
+
+#### 2.1 Single Character Delete (Delete)
+**Scenario**:
+1. Place cursor before "H" in "Hello" text and press Delete
+
+**Expected Result**:
+- Model: `text: "ello"`
+- DOM: "ello" text displayed
+- Cursor: at start of "ello"
 - Devtool: `case: "C1"`, `inputType: "deleteContentForward"`
 
-**실제 결과**:
-- [ ] 모델 업데이트: ✅ / ❌
-- [ ] DOM 렌더링: ✅ / ❌
-- [ ] 커서 위치: ✅ / ❌
+**Actual Result**:
+- [ ] Model update: ✅ / ❌
+- [ ] DOM rendering: ✅ / ❌
+- [ ] Cursor position: ✅ / ❌
 
-**문제점** (있는 경우):
+**Issues** (if any):
 ```
-[문제 설명]
+[Issue description]
 ```
 
 ---
 
-### 3. 여러 노드에 걸친 삭제 (C2)
+### 3. Delete Across Multiple Nodes (C2)
 
-#### 3.1 여러 inline-text 노드에 걸친 삭제
-**시나리오**:
-1. 여러 inline-text 노드에 걸쳐 텍스트 선택
-2. Backspace 또는 Delete 입력
+#### 3.1 Delete Across Multiple inline-text Nodes
+**Scenario**:
+1. Select text spanning multiple inline-text nodes
+2. Press Backspace or Delete
 
-**예상 결과**:
-- 모델: 선택된 범위가 삭제됨
-- DOM: 올바르게 렌더링
-- 커서: 삭제된 위치에 위치
+**Expected Result**:
+- Model: selected range deleted
+- DOM: correctly rendered
+- Cursor: positioned at deleted location
 - Devtool: `case: "C2"`, `status: "✓"`
 
-**실제 결과**:
-- [ ] 모델 업데이트: ✅ / ❌
-- [ ] DOM 렌더링: ✅ / ❌
-- [ ] 커서 위치: ✅ / ❌
+**Actual Result**:
+- [ ] Model update: ✅ / ❌
+- [ ] DOM rendering: ✅ / ❌
+- [ ] Cursor position: ✅ / ❌
 
-**콘솔 로그 확인**:
+**Console Log Check**:
 ```
 [InputHandler] handleC2: CALLED
-[InputHandler] handleC2: calling replaceText (또는 deleteText)
+[InputHandler] handleC2: calling replaceText (or deleteText)
 ```
 
-**문제점** (있는 경우):
+**Issues** (if any):
 ```
-[문제 설명]
-```
-
----
-
-### 4. 엣지 케이스
-
-#### 4.1 노드 시작에서 Backspace
-**시나리오**:
-1. 텍스트 노드의 시작에 커서를 두고 Backspace 입력
-
-**예상 결과**:
-- 모델: 이전 노드와 병합되거나 삭제됨 (정책에 따라)
-- DOM: 올바르게 렌더링
-- 커서: 올바른 위치
-
-**실제 결과**:
-- [ ] 모델 업데이트: ✅ / ❌
-- [ ] DOM 렌더링: ✅ / ❌
-- [ ] 커서 위치: ✅ / ❌
-
-**문제점** (있는 경우):
-```
-[문제 설명]
+[Issue description]
 ```
 
 ---
 
-#### 4.2 노드 끝에서 Delete
-**시나리오**:
-1. 텍스트 노드의 끝에 커서를 두고 Delete 입력
+### 4. Edge Cases
 
-**예상 결과**:
-- 모델: 다음 노드와 병합되거나 삭제됨 (정책에 따라)
-- DOM: 올바르게 렌더링
-- 커서: 올바른 위치
+#### 4.1 Backspace at Node Start
+**Scenario**:
+1. Place cursor at start of text node and press Backspace
 
-**실제 결과**:
-- [ ] 모델 업데이트: ✅ / ❌
-- [ ] DOM 렌더링: ✅ / ❌
-- [ ] 커서 위치: ✅ / ❌
+**Expected Result**:
+- Model: merged with previous node or deleted (depending on policy)
+- DOM: correctly rendered
+- Cursor: correct position
 
-**문제점** (있는 경우):
+**Actual Result**:
+- [ ] Model update: ✅ / ❌
+- [ ] DOM rendering: ✅ / ❌
+- [ ] Cursor position: ✅ / ❌
+
+**Issues** (if any):
 ```
-[문제 설명]
-```
-
----
-
-#### 4.3 빈 노드에서 Backspace
-**시나리오**:
-1. 빈 inline-text 노드에 커서를 두고 Backspace 입력
-
-**예상 결과**:
-- 모델: 노드가 삭제되거나 이전 노드와 병합됨
-- DOM: 올바르게 렌더링
-
-**실제 결과**:
-- [ ] 모델 업데이트: ✅ / ❌
-- [ ] DOM 렌더링: ✅ / ❌
-
-**문제점** (있는 경우):
-```
-[문제 설명]
+[Issue description]
 ```
 
 ---
 
-#### 4.4 전체 텍스트 선택 후 삭제
-**시나리오**:
-1. inline-text 노드의 전체 텍스트 선택 (Ctrl+A 또는 드래그)
-2. Backspace 또는 Delete 입력
+#### 4.2 Delete at Node End
+**Scenario**:
+1. Place cursor at end of text node and press Delete
 
-**예상 결과**:
-- 모델: `text: ""` (빈 문자열)
-- DOM: 빈 텍스트 노드 또는 placeholder 표시
-- 커서: 노드 시작 위치
-- Mark는 유지되거나 제거됨 (정책에 따라)
+**Expected Result**:
+- Model: merged with next node or deleted (depending on policy)
+- DOM: correctly rendered
+- Cursor: correct position
 
-**실제 결과**:
-- [ ] 모델 업데이트: ✅ / ❌
-- [ ] DOM 렌더링: ✅ / ❌
-- [ ] 커서 위치: ✅ / ❌
-- [ ] Mark 처리: ✅ / ❌
+**Actual Result**:
+- [ ] Model update: ✅ / ❌
+- [ ] DOM rendering: ✅ / ❌
+- [ ] Cursor position: ✅ / ❌
 
-**문제점** (있는 경우):
+**Issues** (if any):
 ```
-[문제 설명]
+[Issue description]
 ```
 
 ---
 
-### 5. 한글 삭제
+#### 4.3 Backspace in Empty Node
+**Scenario**:
+1. Place cursor in empty inline-text node and press Backspace
 
-#### 5.1 한글 문자 삭제
-**시나리오**:
-1. "안녕하세요" 텍스트에서 "요" 뒤에 커서를 두고 Backspace 입력
+**Expected Result**:
+- Model: node deleted or merged with previous node
+- DOM: correctly rendered
 
-**예상 결과**:
-- 모델: `text: "안녕하세"`
-- DOM: "안녕하세" 텍스트 표시
-- 커서: "안녕하세" 뒤에 위치
-- 유니코드/서로게이트 페어가 올바르게 처리됨
+**Actual Result**:
+- [ ] Model update: ✅ / ❌
+- [ ] DOM rendering: ✅ / ❌
 
-**실제 결과**:
-- [ ] 모델 업데이트: ✅ / ❌
-- [ ] DOM 렌더링: ✅ / ❌
-- [ ] 커서 위치: ✅ / ❌
-- [ ] 유니코드 처리: ✅ / ❌
-
-**문제점** (있는 경우):
+**Issues** (if any):
 ```
-[문제 설명]
+[Issue description]
 ```
 
 ---
 
-#### 5.2 한글 조합 중 삭제
-**시나리오**:
-1. 한글 입력 중 (조합 중) Backspace 입력
+#### 4.4 Delete After Selecting All Text
+**Scenario**:
+1. Select all text in inline-text node (Ctrl+A or drag)
+2. Press Backspace or Delete
 
-**예상 결과**:
-- 모델: 조합이 취소되거나 중간 상태로 업데이트됨
-- DOM: 올바르게 렌더링
-- 커서: 올바른 위치
+**Expected Result**:
+- Model: `text: ""` (empty string)
+- DOM: empty text node or placeholder displayed
+- Cursor: at node start position
+- Marks maintained or removed (depending on policy)
 
-**실제 결과**:
-- [ ] 모델 업데이트: ✅ / ❌
-- [ ] DOM 렌더링: ✅ / ❌
-- [ ] 커서 위치: ✅ / ❌
-- [ ] IME 처리: ✅ / ❌
+**Actual Result**:
+- [ ] Model update: ✅ / ❌
+- [ ] DOM rendering: ✅ / ❌
+- [ ] Cursor position: ✅ / ❌
+- [ ] Mark handling: ✅ / ❌
 
-**문제점** (있는 경우):
+**Issues** (if any):
 ```
-[문제 설명]
+[Issue description]
 ```
 
 ---
 
-## 테스트 결과 요약
+### 5. Hangul Delete
 
-### 성공한 시나리오
-- [ ] 1.1 단일 문자 삭제
-- [ ] 1.2 여러 문자 삭제 (선택 후 삭제)
-- [ ] 1.3 Mark가 있는 텍스트에서 삭제
-- [ ] 1.4 Range 없는 Mark가 있는 텍스트에서 삭제
-- [ ] 2.1 단일 문자 삭제 (Delete)
-- [ ] 3.1 여러 노드에 걸친 삭제
-- [ ] 4.1 노드 시작에서 Backspace
-- [ ] 4.2 노드 끝에서 Delete
-- [ ] 4.3 빈 노드에서 Backspace
-- [ ] 4.4 전체 텍스트 선택 후 삭제
-- [ ] 5.1 한글 문자 삭제
-- [ ] 5.2 한글 조합 중 삭제
+#### 5.1 Hangul Character Delete
+**Scenario**:
+1. Place cursor after "요" in "안녕하세요" text and press Backspace
 
-### 발견된 버그 목록
+**Expected Result**:
+- Model: `text: "안녕하세"`
+- DOM: "안녕하세" text displayed
+- Cursor: positioned after "안녕하세"
+- Unicode/surrogate pairs correctly handled
 
-1. **버그 #1**: [제목]
-   - 시나리오: [어떤 시나리오에서 발생]
-   - 증상: [무엇이 잘못되었는지]
-   - 재현 방법: [어떻게 재현하는지]
-   - 콘솔 로그: [관련 로그]
-   - 예상 원인: [추정되는 원인]
+**Actual Result**:
+- [ ] Model update: ✅ / ❌
+- [ ] DOM rendering: ✅ / ❌
+- [ ] Cursor position: ✅ / ❌
+- [ ] Unicode handling: ✅ / ❌
 
-2. **버그 #2**: [제목]
+**Issues** (if any):
+```
+[Issue description]
+```
+
+---
+
+#### 5.2 Delete During Hangul Composition
+**Scenario**:
+1. Press Backspace while composing Hangul (during composition)
+
+**Expected Result**:
+- Model: composition cancelled or updated to intermediate state
+- DOM: correctly rendered
+- Cursor: correct position
+
+**Actual Result**:
+- [ ] Model update: ✅ / ❌
+- [ ] DOM rendering: ✅ / ❌
+- [ ] Cursor position: ✅ / ❌
+- [ ] IME handling: ✅ / ❌
+
+**Issues** (if any):
+```
+[Issue description]
+```
+
+---
+
+## Test Results Summary
+
+### Successful Scenarios
+- [ ] 1.1 Single character delete
+- [ ] 1.2 Multiple character delete (select then delete)
+- [ ] 1.3 Delete in text with marks
+- [ ] 1.4 Delete in text with range-less mark
+- [ ] 2.1 Single character delete (Delete)
+- [ ] 3.1 Delete across multiple nodes
+- [ ] 4.1 Backspace at node start
+- [ ] 4.2 Delete at node end
+- [ ] 4.3 Backspace in empty node
+- [ ] 4.4 Delete after selecting all text
+- [ ] 5.1 Hangul character delete
+- [ ] 5.2 Delete during Hangul composition
+
+### Discovered Bugs List
+
+1. **Bug #1**: [Title]
+   - Scenario: [Which scenario it occurred in]
+   - Symptom: [What went wrong]
+   - Reproduction: [How to reproduce]
+   - Console log: [Relevant logs]
+   - Suspected cause: [Estimated cause]
+
+2. **Bug #2**: [Title]
    - ...
 
 ---
 
-## 다음 단계
+## Next Steps
 
-테스트 완료 후:
-1. 발견된 버그를 우선순위별로 정리
-2. 각 버그에 대한 수정 계획 수립
-3. 수정 후 재테스트
-
+After completing tests:
+1. Organize discovered bugs by priority
+2. Create fix plan for each bug
+3. Re-test after fixes

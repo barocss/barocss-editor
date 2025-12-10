@@ -1,115 +1,115 @@
-# Reconciler 고급 기능: Fiber, Batching, Suspense
+# Reconciler Advanced Features: Fiber, Batching, Suspense
 
-## 개요
+## Overview
 
-React의 고급 기능들(Fiber Architecture, Batching, Suspense)을 우리 Reconciler에 적용하면 어떻게 되는지 설명합니다.
+Explains how React's advanced features (Fiber Architecture, Batching, Suspense) would apply to our Reconciler.
 
 ---
 
 ## 1. Fiber Architecture
 
-### 현재 상태
+### Current State
 
 ```typescript
-// 현재: 동기적으로 모든 작업 처리
+// Current: Process all work synchronously
 reconcile(container, vnode, model) {
-  // 1. Root VNode 처리
-  // 2. reconcileVNodeChildren (재귀)
-  //    - 모든 children을 한 번에 처리
-  //    - 큰 트리면 브라우저가 멈춤
-  // 3. 완료
+  // 1. Process Root VNode
+  // 2. reconcileVNodeChildren (recursive)
+  //    - Process all children at once
+  //    - Browser freezes with large tree
+  // 3. Complete
 }
 ```
 
-**문제점**:
-- 큰 트리(1000+ 노드)를 reconcile하면 브라우저가 멈춤
-- 사용자 입력이 블로킹됨
-- 애니메이션이 끊김
+**Issues**:
+- Browser freezes when reconciling large tree (1000+ nodes)
+- User input blocked
+- Animations stutter
 
 ---
 
-### Fiber Architecture 적용 후
+### After Fiber Architecture Application
 
 ```typescript
-// Fiber 적용: 작업을 작은 단위로 분할하고 우선순위 조정
+// Fiber applied: Split work into small units and adjust priority
 reconcile(container, vnode, model) {
-  // 1. 작업을 Fiber 단위로 분할
+  // 1. Split work into Fiber units
   const fiberRoot = createFiberRoot(container, vnode);
   
-  // 2. 스케줄러가 우선순위에 따라 처리
+  // 2. Scheduler processes by priority
   scheduler.scheduleWork(fiberRoot, {
-    priority: 'normal', // 또는 'high', 'low'
-    timeout: 5000 // 5초 내에 완료
+    priority: 'normal', // or 'high', 'low'
+    timeout: 5000 // Complete within 5 seconds
   });
   
-  // 3. 브라우저가 다른 작업(사용자 입력, 애니메이션)을 처리할 수 있음
-  // 4. 다음 프레임에서 계속 reconcile
+  // 3. Browser can process other work (user input, animations)
+  // 4. Continue reconcile in next frame
 }
 
-// 스케줄러 내부
+// Scheduler internal
 function workLoop() {
   while (hasWork && !shouldYield()) {
-    // 작은 단위로 작업 처리 (예: 5ms마다 yield)
+    // Process work in small units (e.g., yield every 5ms)
     performUnitOfWork(currentFiber);
   }
   
   if (hasWork) {
-    // 다음 프레임에서 계속
+    // Continue in next frame
     requestIdleCallback(workLoop);
   }
 }
 ```
 
-**변화**:
-- ✅ 큰 트리도 브라우저가 멈추지 않음
-- ✅ 사용자 입력이 즉시 반응
-- ✅ 애니메이션이 부드럽게 동작
-- ✅ 우선순위 기반 렌더링 (중요한 것 먼저)
+**Changes**:
+- ✅ Large trees don't freeze browser
+- ✅ User input responds immediately
+- ✅ Animations run smoothly
+- ✅ Priority-based rendering (important things first)
 
-**예시**:
+**Example**:
 
 ```typescript
-// 현재: 1000개 노드를 한 번에 처리 (100ms 소요, 브라우저 멈춤)
+// Current: Process 1000 nodes at once (100ms, browser freezes)
 reconcile(container, largeVNode, model);
-// → 100ms 동안 브라우저 멈춤
+// → Browser freezes for 100ms
 
-// Fiber 적용 후: 1000개 노드를 20개씩 나눠서 처리
+// After Fiber: Process 1000 nodes in chunks of 20
 reconcile(container, largeVNode, model);
-// → 5ms 처리 → yield → 사용자 입력 처리 → 5ms 처리 → yield → ...
-// → 총 100ms 소요되지만 브라우저가 멈추지 않음
+// → Process 5ms → yield → process user input → process 5ms → yield → ...
+// → Total 100ms but browser doesn't freeze
 ```
 
-**구현 예시**:
+**Implementation Example**:
 
 ```typescript
-// Fiber Node 구조
+// Fiber Node structure
 interface FiberNode {
   vnode: VNode;
   domElement: HTMLElement | null;
   parent: FiberNode | null;
   child: FiberNode | null;
   sibling: FiberNode | null;
-  return: FiberNode | null; // parent와 동일하지만 의미론적으로 다름
+  return: FiberNode | null; // Same as parent but semantically different
   effectTag: 'PLACEMENT' | 'UPDATE' | 'DELETION' | null;
-  alternate: FiberNode | null; // 이전 Fiber (diffing용)
+  alternate: FiberNode | null; // Previous Fiber (for diffing)
 }
 
-// 작업 단위
+// Work unit
 function performUnitOfWork(fiber: FiberNode): FiberNode | null {
-  // 1. 현재 Fiber reconcile
+  // 1. Reconcile current Fiber
   reconcileFiber(fiber);
   
-  // 2. 자식 Fiber 반환 (다음 작업)
+  // 2. Return child Fiber (next work)
   if (fiber.vnode.children) {
     return createChildFiber(fiber, fiber.vnode.children[0]);
   }
   
-  // 3. 형제 Fiber 반환
+  // 3. Return sibling Fiber
   if (fiber.sibling) {
     return fiber.sibling;
   }
   
-  // 4. 부모로 돌아가서 형제 찾기
+  // 4. Go back to parent to find sibling
   let nextFiber = fiber.return;
   while (nextFiber) {
     if (nextFiber.sibling) {
@@ -118,112 +118,112 @@ function performUnitOfWork(fiber: FiberNode): FiberNode | null {
     nextFiber = nextFiber.return;
   }
   
-  return null; // 완료
+  return null; // Complete
 }
 ```
 
-**장점**:
-- 큰 트리에서도 반응성 유지
-- 우선순위 기반 렌더링
-- 중단 가능 (긴급한 작업 처리 가능)
+**Advantages**:
+- Maintains responsiveness even with large trees
+- Priority-based rendering
+- Can be interrupted (can handle urgent work)
 
-**단점**:
-- 복잡도 증가 (Fiber 트리 관리)
-- 오버헤드 발생 (작은 트리에서는 오히려 느릴 수 있음)
-- 구현 난이도 높음
+**Disadvantages**:
+- Increased complexity (Fiber tree management)
+- Overhead (may be slower for small trees)
+- High implementation difficulty
 
-**언제 필요?**:
-- 500+ 노드의 큰 트리
-- 실시간 업데이트가 많은 경우
-- 사용자 입력이 중요한 경우
+**When Needed?**:
+- Large trees with 500+ nodes
+- Many real-time updates
+- User input is important
 
 ---
 
-## 2. Batching (배칭)
+## 2. Batching
 
-### 현재 상태
+### Current State
 
 ```typescript
-// 현재: 각 업데이트를 즉시 처리
+// Current: Process each update immediately
 function updateModel(model: ModelData) {
-  // 1. 모델 업데이트
+  // 1. Update model
   model.text = 'new text';
   
-  // 2. 즉시 reconcile
+  // 2. Reconcile immediately
   reconciler.reconcile(container, vnode, model);
-  // → DOM 업데이트 발생
+  // → DOM update occurs
 }
 
-// 여러 업데이트가 연속으로 발생하면
+// When multiple updates occur consecutively
 updateModel(model1); // reconcile 1
 updateModel(model2); // reconcile 2
 updateModel(model3); // reconcile 3
-// → 3번의 DOM 업데이트 발생
+// → 3 DOM updates occur
 ```
 
-**문제점**:
-- 여러 업데이트가 연속으로 발생하면 불필요한 reconcile 반복
-- 중간 상태가 DOM에 반영됨 (깜빡임)
-- 성능 저하
+**Issues**:
+- Unnecessary reconcile repetition when multiple updates occur consecutively
+- Intermediate states reflected in DOM (flickering)
+- Performance degradation
 
 ---
 
-### Batching 적용 후
+### After Batching Application
 
 ```typescript
-// Batching 적용: 여러 업데이트를 모아서 한 번에 처리
+// Batching applied: Collect multiple updates and process at once
 function updateModel(model: ModelData) {
-  // 1. 모델 업데이트
+  // 1. Update model
   model.text = 'new text';
   
-  // 2. 업데이트를 큐에 추가 (즉시 reconcile하지 않음)
+  // 2. Add update to queue (don't reconcile immediately)
   updateQueue.enqueue({
     container,
     vnode,
     model
   });
   
-  // 3. 다음 프레임에서 배치로 처리
+  // 3. Process in batch in next frame
   scheduleBatchUpdate();
 }
 
-// 배치 처리
+// Batch processing
 function processBatch() {
   const updates = updateQueue.flush();
   
-  // 모든 업데이트를 하나의 VNode로 합침
+  // Merge all updates into one VNode
   const finalVNode = mergeUpdates(updates);
   
-  // 한 번만 reconcile
+  // Reconcile only once
   reconciler.reconcile(container, finalVNode, finalModel);
-  // → 1번의 DOM 업데이트만 발생
+  // → Only 1 DOM update occurs
 }
 ```
 
-**변화**:
-- ✅ 여러 업데이트를 하나로 합쳐서 처리
-- ✅ 중간 상태가 DOM에 반영되지 않음
-- ✅ 성능 향상 (불필요한 reconcile 감소)
+**Changes**:
+- ✅ Combine multiple updates into one for processing
+- ✅ Intermediate states not reflected in DOM
+- ✅ Performance improvement (reduced unnecessary reconciles)
 
-**예시**:
+**Example**:
 
 ```typescript
-// 현재: 3번의 reconcile
+// Current: 3 reconciles
 updateModel(model1); // reconcile 1 (10ms)
 updateModel(model2); // reconcile 2 (10ms)
 updateModel(model3); // reconcile 3 (10ms)
-// → 총 30ms, 3번의 DOM 업데이트
+// → Total 30ms, 3 DOM updates
 
-// Batching 적용 후: 1번의 reconcile
-updateModel(model1); // 큐에 추가
-updateModel(model2); // 큐에 추가
-updateModel(model3); // 큐에 추가
-// → 다음 프레임에서 배치 처리
+// After Batching: 1 reconcile
+updateModel(model1); // Add to queue
+updateModel(model2); // Add to queue
+updateModel(model3); // Add to queue
+// → Process in batch in next frame
 processBatch(); // reconcile 1 (10ms)
-// → 총 10ms, 1번의 DOM 업데이트
+// → Total 10ms, 1 DOM update
 ```
 
-**구현 예시**:
+**Implementation Example**:
 
 ```typescript
 class UpdateQueue {
@@ -235,7 +235,7 @@ class UpdateQueue {
     
     if (!this.scheduled) {
       this.scheduled = true;
-      // 다음 프레임에서 배치 처리
+      // Process in batch in next frame
       requestAnimationFrame(() => this.process());
     }
   }
@@ -245,11 +245,11 @@ class UpdateQueue {
     
     if (this.queue.length === 0) return;
     
-    // 마지막 업데이트만 사용 (이전 업데이트는 무시)
+    // Use only last update (ignore previous updates)
     const lastUpdate = this.queue[this.queue.length - 1];
     this.queue = [];
     
-    // 한 번만 reconcile
+    // Reconcile only once
     reconciler.reconcile(
       lastUpdate.container,
       lastUpdate.vnode,
@@ -266,44 +266,44 @@ class UpdateQueue {
 }
 ```
 
-**장점**:
-- 불필요한 reconcile 감소
-- 중간 상태 방지 (깜빡임 없음)
-- 성능 향상
+**Advantages**:
+- Reduced unnecessary reconciles
+- Prevents intermediate states (no flickering)
+- Performance improvement
 
-**단점**:
-- 지연 시간 증가 (다음 프레임까지 대기)
-- 복잡도 증가 (큐 관리)
+**Disadvantages**:
+- Increased latency (wait until next frame)
+- Increased complexity (queue management)
 
-**언제 필요?**:
-- 빠른 연속 업데이트가 많은 경우
-- 중간 상태를 보여주고 싶지 않은 경우
-- 성능 최적화가 중요한 경우
+**When Needed?**:
+- Many rapid consecutive updates
+- Don't want to show intermediate states
+- Performance optimization is important
 
 ---
 
-## 3. Suspense (복잡함 - 대안 권장)
+## 3. Suspense (Complex - Alternative Recommended)
 
-### ⚠️ Suspense의 문제점
+### ⚠️ Issues with Suspense
 
-Suspense는 **Promise를 throw하고 catch하는 방식**으로 동작하는데, 이는:
-- ❌ 일반적인 JavaScript 패턴과 다름
-- ❌ 이해하기 어려움
-- ❌ 디버깅이 어려움
-- ❌ 타입 안정성이 떨어짐
+Suspense works by **throwing and catching Promises**, which:
+- ❌ Differs from typical JavaScript patterns
+- ❌ Hard to understand
+- ❌ Difficult to debug
+- ❌ Lower type safety
 
 ```typescript
-// Suspense의 동작 방식 (이해하기 어려움)
+// Suspense behavior (hard to understand)
 function MyComponent() {
-  const data = useAsyncData(fetchData); // 내부에서 Promise throw
+  const data = useAsyncData(fetchData); // Throws Promise internally
   return <div>{data}</div>;
 }
 
-// 내부 구현 (복잡함)
+// Internal implementation (complex)
 function useAsyncData(fetcher) {
   const promise = fetcher();
   if (promise.status === 'pending') {
-    throw promise; // Promise를 throw? 🤔
+    throw promise; // Throw Promise? 🤔
   }
   return promise.value;
 }
@@ -311,12 +311,12 @@ function useAsyncData(fetcher) {
 
 ---
 
-### ✅ 더 간단한 대안: 명시적 로딩 상태
+### ✅ Simpler Alternative: Explicit Loading State
 
-**대안 1: 컴포넌트 레벨에서 처리**
+**Alternative 1: Handle at Component Level**
 
 ```typescript
-// 간단하고 직관적
+// Simple and intuitive
 function UserProfile({ userId }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -329,27 +329,27 @@ function UserProfile({ userId }) {
   }, [userId]);
   
   if (loading) {
-    return <Spinner />; // 명시적 로딩 상태
+    return <Spinner />; // Explicit loading state
   }
   
   return <div>{user.name}</div>;
 }
 ```
 
-**장점**:
-- ✅ 이해하기 쉬움
-- ✅ 디버깅이 쉬움
-- ✅ 타입 안정성
-- ✅ 기존 패턴과 일치
+**Advantages**:
+- ✅ Easy to understand
+- ✅ Easy to debug
+- ✅ Type safety
+- ✅ Matches existing patterns
 
 ---
 
-**대안 2: VNodeBuilder에서 비동기 처리**
+**Alternative 2: Async Processing in VNodeBuilder**
 
 ```typescript
-// VNodeBuilder가 비동기 데이터를 처리
+// VNodeBuilder handles async data
 function buildComponent(template, data, options) {
-  // 비동기 데이터가 있으면 로딩 상태 VNode 반환
+  // Return loading state VNode if async data exists
   if (data.isLoading) {
     return {
       tag: 'div',
@@ -357,7 +357,7 @@ function buildComponent(template, data, options) {
     };
   }
   
-  // 데이터가 로드되면 정상 VNode 반환
+  // Return normal VNode when data loaded
   return {
     tag: 'div',
     children: [{ tag: 'div', text: data.value }]
@@ -365,17 +365,17 @@ function buildComponent(template, data, options) {
 }
 ```
 
-**장점**:
-- ✅ Reconciler는 동기적으로만 동작
-- ✅ 비동기 처리는 VNodeBuilder에서
-- ✅ Suspense 없이도 로딩 상태 표시 가능
+**Advantages**:
+- ✅ Reconciler only works synchronously
+- ✅ Async processing in VNodeBuilder
+- ✅ Can show loading state without Suspense
 
 ---
 
-**대안 3: Model 레벨에서 처리 (가장 권장)**
+**Alternative 3: Handle at Model Level (Most Recommended)**
 
 ```typescript
-// Model에 로딩 상태 포함
+// Include loading state in Model
 const model = {
   sid: 'user-profile',
   stype: 'user-profile',
@@ -383,195 +383,194 @@ const model = {
   data: null
 };
 
-// VNodeBuilder가 로딩 상태에 따라 다른 VNode 생성
+// VNodeBuilder creates different VNode based on loading state
 if (model.isLoading) {
-  // 로딩 VNode
+  // Loading VNode
 } else {
-  // 데이터 VNode
+  // Data VNode
 }
 
-// 데이터 로드되면
+// When data loaded
 model.isLoading = false;
 model.data = userData;
-renderer.render(container, model); // 다시 렌더링
+renderer.render(container, model); // Re-render
 ```
 
-**장점**:
-- ✅ 가장 간단함
-- ✅ 기존 시스템과 완벽히 호환
-- ✅ Suspense 불필요
+**Advantages**:
+- ✅ Simplest
+- ✅ Perfectly compatible with existing system
+- ✅ Suspense unnecessary
 
 ---
 
-### 결론: Suspense는 필요 없음
+### Conclusion: Suspense Not Needed
 
-**이유**:
-1. **복잡함**: Promise throw/catch 패턴이 직관적이지 않음
-2. **대안 존재**: 더 간단한 방법으로 같은 효과 가능
-3. **현재 시스템**: 이미 Model 기반으로 동작하므로 로딩 상태를 Model에 포함하면 됨
+**Reasons**:
+1. **Complexity**: Promise throw/catch pattern is not intuitive
+2. **Alternatives Exist**: Same effect possible with simpler methods
+3. **Current System**: Already works based on Model, so include loading state in Model
 
-**권장 방법**:
-- ✅ **Model에 로딩 상태 포함** (가장 간단)
-- ✅ **VNodeBuilder에서 로딩 상태 처리** (유연함)
-- ❌ **Suspense 사용 안 함** (복잡하고 불필요)
-
----
-
-## 4. 실제 적용 시나리오
-
-### 시나리오 1: 큰 문서 편집기
-
-**현재 문제**:
-```
-사용자가 문서를 편집
-→ 1000개 노드 reconcile (100ms)
-→ 브라우저 멈춤
-→ 타이핑이 끊김
-```
-
-**Fiber 적용 후**:
-```
-사용자가 문서를 편집
-→ 1000개 노드를 20개씩 나눠서 처리
-→ 5ms 처리 → yield → 사용자 입력 처리
-→ 타이핑이 부드럽게 동작
-```
+**Recommended Method**:
+- ✅ **Include loading state in Model** (simplest)
+- ✅ **Handle loading state in VNodeBuilder** (flexible)
+- ❌ **Don't use Suspense** (complex and unnecessary)
 
 ---
 
-### 시나리오 2: 빠른 연속 업데이트
+## 4. Actual Application Scenarios
 
-**현재 문제**:
+### Scenario 1: Large Document Editor
+
+**Current Problem**:
 ```
-사용자가 빠르게 타이핑
-→ 'a' 입력 → reconcile
-→ 'b' 입력 → reconcile
-→ 'c' 입력 → reconcile
-→ 깜빡임 발생
+User edits document
+→ Reconcile 1000 nodes (100ms)
+→ Browser freezes
+→ Typing interrupted
 ```
 
-**Batching 적용 후**:
+**After Fiber Application**:
 ```
-사용자가 빠르게 타이핑
-→ 'a', 'b', 'c' 입력 → 모두 큐에 추가
-→ 다음 프레임에서 한 번에 reconcile
-→ 깜빡임 없음
+User edits document
+→ Process 1000 nodes in chunks of 20
+→ Process 5ms → yield → process user input
+→ Typing works smoothly
 ```
 
 ---
 
-### 시나리오 3: 비동기 데이터 로딩
+### Scenario 2: Rapid Consecutive Updates
 
-**현재 문제**:
+**Current Problem**:
 ```
-컴포넌트가 API 데이터 필요
-→ 데이터 로딩 중 아무것도 안 보임
-→ 사용자가 혼란스러움
+User types quickly
+→ Type 'a' → reconcile
+→ Type 'b' → reconcile
+→ Type 'c' → reconcile
+→ Flickering occurs
 ```
 
-**Suspense 적용 후**:
+**After Batching Application**:
 ```
-컴포넌트가 API 데이터 필요
-→ 로딩 중 Spinner 표시
-→ 데이터 로드되면 컴포넌트 표시
-→ 사용자 경험 향상
+User types quickly
+→ Type 'a', 'b', 'c' → all added to queue
+→ Reconcile once in next frame
+→ No flickering
 ```
 
 ---
 
-## 5. 적용 우선순위
+### Scenario 3: Async Data Loading
 
-### 1순위: Batching (가장 쉽고 효과적)
+**Current Problem**:
+```
+Component needs API data
+→ Nothing visible while data loading
+→ User confused
+```
 
-**이유**:
-- 구현이 비교적 간단
-- 즉시 효과를 볼 수 있음
-- 성능 향상이 명확함
-
-**예상 효과**:
-- 빠른 연속 업데이트에서 50-70% 성능 향상
-- 깜빡임 제거
-
----
-
-### 2순위: Fiber Architecture (복잡하지만 강력)
-
-**이유**:
-- 큰 트리에서 필수적
-- 사용자 경험 향상
-- 하지만 구현이 복잡함
-
-**예상 효과**:
-- 큰 트리(1000+ 노드)에서 반응성 유지
-- 브라우저 멈춤 방지
+**After Suspense Application**:
+```
+Component needs API data
+→ Show Spinner while loading
+→ Show component when data loaded
+→ Improved user experience
+```
 
 ---
 
-### 3순위: Suspense (권장하지 않음)
+## 5. Application Priority
 
-**이유**:
-- ❌ Promise throw/catch 패턴이 복잡하고 직관적이지 않음
-- ✅ 더 간단한 대안 존재 (Model에 로딩 상태 포함)
+### Priority 1: Batching (Easiest and Most Effective)
 
-**대안**:
-- Model에 `isLoading` 상태 포함
-- VNodeBuilder에서 로딩 상태에 따라 다른 VNode 생성
-- Suspense 없이도 로딩 상태 표시 가능
+**Reasons**:
+- Relatively simple to implement
+- Immediate visible effect
+- Clear performance improvement
+
+**Expected Effect**:
+- 50-70% performance improvement on rapid consecutive updates
+- Eliminate flickering
 
 ---
 
-## 6. 구현 복잡도 비교
+### Priority 2: Fiber Architecture (Complex but Powerful)
 
-| 기능 | 복잡도 | 예상 시간 | 효과 | 권장 |
+**Reasons**:
+- Essential for large trees
+- Improved user experience
+- But implementation is complex
+
+**Expected Effect**:
+- Maintain responsiveness with large trees (1000+ nodes)
+- Prevent browser freezing
+
+---
+
+### Priority 3: Suspense (Not Recommended)
+
+**Reasons**:
+- ❌ Promise throw/catch pattern is complex and not intuitive
+- ✅ Simpler alternatives exist (include loading state in Model)
+
+**Alternative**:
+- Include `isLoading` state in Model
+- VNodeBuilder creates different VNode based on loading state
+- Can show loading state without Suspense
+
+---
+
+## 6. Implementation Complexity Comparison
+
+| Feature | Complexity | Estimated Time | Effect | Recommended |
 |------|--------|----------|------|------|
-| Batching | ⭐⭐ | 1-2일 | ⭐⭐⭐⭐⭐ | ✅ |
-| Suspense | ⭐⭐⭐⭐⭐ | 3-5일 | ⭐⭐ | ❌ (대안 사용) |
-| Fiber | ⭐⭐⭐⭐⭐ | 2-3주 | ⭐⭐⭐⭐⭐ | ⚠️ (나중에) |
+| Batching | ⭐⭐ | 1-2 days | ⭐⭐⭐⭐⭐ | ✅ |
+| Suspense | ⭐⭐⭐⭐⭐ | 3-5 days | ⭐⭐ | ❌ (use alternative) |
+| Fiber | ⭐⭐⭐⭐⭐ | 2-3 weeks | ⭐⭐⭐⭐⭐ | ⚠️ (later) |
 
 ---
 
-## 7. 결론
+## 7. Conclusion
 
-### 현재 상태
-- ✅ 기본적인 reconcile 동작
-- ✅ React 스타일 매칭 전략
-- ✅ 작은-중간 트리에서 충분히 빠름
+### Current State
+- ✅ Basic reconcile operation
+- ✅ React-style matching strategy
+- ✅ Fast enough for small-medium trees
 
-### 개선이 필요한 경우
+### When Improvement Needed
 
-**Batching이 필요한 경우**:
-- 빠른 연속 업데이트가 많은 경우
-- 깜빡임이 문제가 되는 경우
+**Batching Needed When**:
+- Many rapid consecutive updates
+- Flickering is a problem
 
-**Fiber가 필요한 경우**:
-- 500+ 노드의 큰 트리
-- 실시간 업데이트가 많은 경우
-- 사용자 입력이 중요한 경우
+**Fiber Needed When**:
+- Large trees with 500+ nodes
+- Many real-time updates
+- User input is important
 
-**비동기 데이터가 필요한 경우** (Suspense 대신):
-- ✅ Model에 `isLoading` 상태 포함
-- ✅ VNodeBuilder에서 로딩 상태 처리
-- ❌ Suspense 사용 안 함 (복잡하고 불필요)
+**Async Data Needed When** (instead of Suspense):
+- ✅ Include `isLoading` state in Model
+- ✅ Handle loading state in VNodeBuilder
+- ❌ Don't use Suspense (complex and unnecessary)
 
-### 권장 사항
+### Recommendations
 
-1. **현재는 Batching만 적용**하는 것을 권장
-   - 구현이 간단하고 효과가 명확함
-   - 대부분의 경우 충분함
+1. **Currently recommend applying only Batching**
+   - Simple to implement and clear effect
+   - Sufficient for most cases
 
-2. **Fiber는 나중에 고려**
-   - 큰 트리를 다룰 때 필요
-   - 구현 복잡도가 높음
+2. **Consider Fiber Later**
+   - Needed when handling large trees
+   - High implementation complexity
 
-3. **Suspense는 사용하지 않음**
-   - ❌ 복잡하고 직관적이지 않음
-   - ✅ Model에 로딩 상태 포함하는 것이 더 간단함
+3. **Don't Use Suspense**
+   - ❌ Complex and not intuitive
+   - ✅ Including loading state in Model is simpler
 
 ---
 
-## 참고 자료
+## References
 
 - [React Fiber Architecture](https://github.com/acdlite/react-fiber-architecture)
 - [React Batching](https://react.dev/learn/queueing-a-series-of-state-updates)
 - [React Suspense](https://react.dev/reference/react/Suspense)
-

@@ -1,35 +1,34 @@
-# EditorViewDOM 테스트 파일 목록
+# EditorViewDOM Test File List
 
-## 📁 디렉토리 구조
+## 📁 Directory Structure
 
 ```
 test/
-├── core/              # 핵심 기능 테스트
-├── events/            # 이벤트 처리 테스트
-├── integration/       # 통합 테스트 (renderer-dom 연동)
-└── utils/             # 유틸리티 테스트
+├── core/              # Core functionality tests
+├── events/            # Event handling tests
+├── integration/       # Integration tests (renderer-dom integration)
+└── utils/             # Utility tests
 ```
 
-## 📋 테스트 파일 목록
+## 📋 Test File List
 
-### Core 테스트 (`test/core/`)
-- 핵심 EditorViewDOM 기능 테스트
+### Core Tests (`test/core/`)
+- Core EditorViewDOM functionality tests
 
-### Events 테스트 (`test/events/`)
-- 이벤트 처리 및 브라우저 이벤트 시뮬레이션 테스트
+### Events Tests (`test/events/`)
+- Event handling and browser event simulation tests
 
-### Integration 테스트 (`test/integration/`)
-- renderer-dom과의 통합 테스트
-- 가장 많은 테스트 파일 포함
+### Integration Tests (`test/integration/`)
+- Integration tests with renderer-dom
+- Contains the most test files
 
-### Utils 테스트 (`test/utils/`)
-- 유틸리티 함수 테스트
+### Utils Tests (`test/utils/`)
+- Utility function tests
 
-## 🔍 테스트 실행 계획
+## 🔍 Test Execution Plan
 
-각 테스트 파일을 하나씩 실행하여:
-1. 통과 여부 확인
-2. 실패 원인 분석
-3. 문제점 정리
-4. 수정 사항 기록
-
+Execute each test file one by one to:
+1. Check pass/fail status
+2. Analyze failure causes
+3. Document issues
+4. Record fixes

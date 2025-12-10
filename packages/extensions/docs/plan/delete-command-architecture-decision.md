@@ -1,82 +1,82 @@
-# Delete Command 아키텍처 결정
+# Delete Command Architecture Decision
 
-## 질문
+## Question
 
-Backspace 키가 눌렸을 때:
-1. Core Extension의 Command를 수행
-2. Command는 Transaction을 호출
-3. Transaction 중에 Operation을 수행하면 Editor의 History까지 저장되고 rollback 가능
+When Backspace is pressed:
+1) A Core Extension command runs
+2) The command calls a transaction
+3) During the transaction, operations run, history is recorded, and rollback is possible
 
-**이 시점에 selection 상태를 보고, block 선택인지, inline 선택인지, text 선택인지에 따라 delete를 수행하는 것이 달라질 텐데:**
+**At that point, delete behavior differs by selection (block vs inline vs text):**
 
-- **이건 Command 안에 구현하는게 맞아?**
-- **Transaction 안에 Operation으로 구현하는게 맞아?**
+- **Should this logic live inside the Command?**
+- **Or inside the Transaction/Operation?**
 
 ---
 
-## 아키텍처 원칙
+## Architecture principles
 
-### 레이어 분리
+### Layer separation
 
 ```
 ┌─────────────────────────────────────────┐
 │ View Layer (editor-view-dom)           │
-│ - DOM 이벤트 처리                       │
-│ - DOM ↔ Model 변환                      │
-│ - Command 호출                          │
+│ - Handles DOM events                   │
+│ - DOM ↔ Model conversion               │
+│ - Calls commands                       │
 └─────────────────────────────────────────┘
               ↓
 ┌─────────────────────────────────────────┐
-│ Command Layer (extensions)               │
-│ - 사용자 의도 해석                       │
-│ - Selection 분석                        │
-│ - 어떤 동작을 할지 결정                  │
-│ - Operations 생성                       │
+│ Command Layer (extensions)             │
+│ - Interprets user intent               │
+│ - Analyzes selection                   │
+│ - Decides what action to take          │
+│ - Builds operations                    │
 └─────────────────────────────────────────┘
               ↓
 ┌─────────────────────────────────────────┐
-│ Transaction Layer (model)                │
-│ - Operations 실행                        │
-│ - History 관리                          │
-│ - Rollback 지원                         │
+│ Transaction Layer (model)              │
+│ - Executes operations                  │
+│ - Manages history                      │
+│ - Supports rollback                    │
 └─────────────────────────────────────────┘
               ↓
 ┌─────────────────────────────────────────┐
-│ Operation Layer (model)                 │
-│ - 순수 데이터 변경                       │
-│ - Selection 매핑                        │
-│ - 역연산 (inverse) 생성                 │
+│ Operation Layer (model)                │
+│ - Pure data mutation                   │
+│ - Selection mapping                    │
+│ - Builds inverse                       │
 └─────────────────────────────────────────┘
 ```
 
 ---
 
-## 답변: **Command 안에 구현**
+## Answer: **Implement inside the Command**
 
-### 이유
+### Why
 
-1. **Selection 분석은 사용자 의도 해석**
-   - "사용자가 무엇을 선택했는가?" → Command의 책임
-   - "선택된 것이 block인가, inline인가, text인가?" → Command가 판단
+1) **Selection analysis = user intent interpretation**
+   - “What did the user select?” is the command’s job
+   - Deciding if it’s block/inline/text is the command’s job
 
-2. **Operation은 순수하게 데이터 변경만**
-   - Operation은 "어떻게 변경할지"만 담당
-   - "무엇을 변경할지"는 Command가 결정
+2) **Operation should only mutate data**
+   - Operation handles “how to change data”
+   - Command decides “what to change”
 
-3. **Transaction은 Operations의 실행 컨테이너**
-   - Transaction은 Operations를 순차 실행하고 History 관리
-   - Selection 분석 로직은 Transaction에 포함되지 않음
+3) **Transaction is just an execution container**
+   - Runs operations and manages history
+   - Selection analysis does not belong in the transaction
 
 ---
 
-## 현재 구조 분석
+## Current structure analysis
 
-### 현재 흐름
+### Current flow
 
 ```
 1. InputHandler.handleDelete (View Layer)
    ↓
-2. calculateDeleteRange (View Layer) ← 문제: View Layer에 있음
+2. calculateDeleteRange (View Layer) ← Problem: lives in View Layer
    ↓
 3. editor.executeCommand('delete', { range }) (Command Layer)
    ↓
@@ -84,41 +84,41 @@ Backspace 키가 눌렸을 때:
    ↓
 5. transaction(editor, operations).commit() (Transaction Layer)
    ↓
-6. deleteTextRange / delete Operation 실행 (Operation Layer)
+6. deleteTextRange / delete operations run (Operation Layer)
 ```
 
-### 문제점
+### Issues
 
-- `calculateDeleteRange`가 **View Layer**에 있음
-- Selection 분석 로직이 **View Layer**에 있음
-- Command는 단순히 받은 `range`를 그대로 사용
+- `calculateDeleteRange` is in the **View Layer**
+- Selection analysis lives in the **View Layer**
+- Command simply uses the incoming `range` as-is
 
 ---
 
-## 권장 구조
+## Recommended structure
 
-### 개선된 흐름
+### Improved flow
 
 ```
 1. InputHandler.handleDelete (View Layer)
-   - DOM selection을 Model selection으로 변환
-   - Command 호출 (selection 정보 전달)
+   - Convert DOM selection → Model selection
+   - Call Command (passing selection info)
    ↓
 2. DeleteExtension._executeDelete (Command Layer)
-   - Selection 분석 (block/inline/text 판단)
-   - 삭제 범위 계산
-   - Operations 생성
+   - Analyze selection (block/inline/text)
+   - Compute delete range
+   - Build operations
    ↓
 3. transaction(editor, operations).commit() (Transaction Layer)
    ↓
-4. deleteTextRange / delete Operation 실행 (Operation Layer)
+4. deleteTextRange / delete operations run (Operation Layer)
 ```
 
 ---
 
-## 구현 방안
+## Implementation approach
 
-### 1. Command에서 Selection 분석
+### 1) Analyze selection inside the Command
 
 ```typescript
 // packages/extensions/src/delete.ts
@@ -129,8 +129,8 @@ export class DeleteExtension implements Extension {
   private async _executeDelete(
     editor: Editor,
     payload: { 
-      selection: ModelSelection,  // range 대신 selection 전달
-      inputType?: string          // 방향 정보 (backward/forward)
+      selection: ModelSelection,  // pass selection instead of range
+      inputType?: string          // direction info (backward/forward)
     }
   ): Promise<boolean> {
     const dataStore = (editor as any).dataStore;
@@ -138,10 +138,10 @@ export class DeleteExtension implements Extension {
       return false;
     }
 
-    // 1. Selection 분석
+    // 1) Analyze selection
     const selectionType = this._analyzeSelection(payload.selection, dataStore);
     
-    // 2. Selection 타입에 따라 삭제 범위 계산
+    // 2) Compute delete range by selection type
     let deleteRange: DeleteRange | null = null;
     
     switch (selectionType) {
@@ -171,14 +171,14 @@ export class DeleteExtension implements Extension {
       return false;
     }
 
-    // 3. Operations 생성 및 실행
+    // 3) Build and run operations
     const operations = this._buildDeleteOperations(deleteRange);
     const result = await transaction(editor, operations).commit();
     return result.success;
   }
 
   /**
-   * Selection 타입 분석
+   * Determine selection type
    */
   private _analyzeSelection(
     selection: ModelSelection,
@@ -189,27 +189,25 @@ export class DeleteExtension implements Extension {
       return 'collapsed';
     }
 
-    // Range selection: block/inline/text 판단
+    // Range selection: decide block/inline/text
     const startNode = dataStore.getNode(selection.startNodeId);
     const endNode = dataStore.getNode(selection.endNodeId);
     
-    // Block selection 판단
+    // Block selection?
     if (this._isBlockSelection(selection, dataStore)) {
       return 'block';
     }
 
-    // Inline node selection 판단
+    // Inline node selection?
     if (this._isInlineNodeSelection(selection, dataStore)) {
       return 'inline';
     }
 
-    // Text selection (기본)
+    // Default: text selection
     return 'text';
   }
 
-  /**
-   * Block selection 판단
-   */
+  /** Block selection? */
   private _isBlockSelection(
     selection: ModelSelection,
     dataStore: any
@@ -217,21 +215,16 @@ export class DeleteExtension implements Extension {
     const startNode = dataStore.getNode(selection.startNodeId);
     const endNode = dataStore.getNode(selection.endNodeId);
     
-    // 시작 노드가 블록의 첫 번째 자식이고
-    // 끝 노드가 블록의 마지막 자식이면 블록 선택
-    // TODO: 정확한 로직 구현
+    // If selection spans first-to-last child of a block, consider it block selection
+    // TODO: implement precise logic
     return false;
   }
 
-  /**
-   * Inline node selection 판단
-   */
+  /** Inline node selection? */
   private _isInlineNodeSelection(
     selection: ModelSelection,
     dataStore: any
   ): boolean {
-    // 시작과 끝이 같은 노드이고
-    // 그 노드가 inline 노드이면 inline 선택
     if (selection.startNodeId === selection.endNodeId) {
       const node = dataStore.getNode(selection.startNodeId);
       const schema = (dataStore as any).schema;
@@ -243,46 +236,36 @@ export class DeleteExtension implements Extension {
     return false;
   }
 
-  /**
-   * Block 삭제 범위 계산
-   */
+  /** Block delete range */
   private _calculateBlockDelete(
     selection: ModelSelection,
     dataStore: any
   ): DeleteRange | null {
-    // Block 전체 삭제
     const blockId = this._getBlockId(selection, dataStore);
     if (!blockId) return null;
-    
     return {
       _deleteNode: true,
       nodeId: blockId
     };
   }
 
-  /**
-   * Inline 노드 삭제 범위 계산
-   */
+  /** Inline delete range */
   private _calculateInlineDelete(
     selection: ModelSelection,
     dataStore: any
   ): DeleteRange | null {
-    // Inline 노드 전체 삭제
     return {
       _deleteNode: true,
       nodeId: selection.startNodeId
     };
   }
 
-  /**
-   * Text 삭제 범위 계산
-   */
+  /** Text delete range */
   private _calculateTextDelete(
     selection: ModelSelection,
     inputType: string | undefined,
     dataStore: any
   ): DeleteRange | null {
-    // 선택된 텍스트 범위 삭제
     return {
       startNodeId: selection.startNodeId,
       startOffset: selection.startOffset,
@@ -291,9 +274,7 @@ export class DeleteExtension implements Extension {
     };
   }
 
-  /**
-   * Collapsed 삭제 범위 계산
-   */
+  /** Collapsed delete range */
   private _calculateCollapsedDelete(
     selection: ModelSelection,
     inputType: string | undefined,
@@ -301,9 +282,8 @@ export class DeleteExtension implements Extension {
   ): DeleteRange | null {
     const { startNodeId, startOffset } = selection;
     
-    // 방향에 따라 처리
     if (inputType === 'deleteContentBackward') {
-      // Backspace: 이전 문자 삭제
+      // Backspace
       if (startOffset > 0) {
         return {
           startNodeId,
@@ -312,14 +292,10 @@ export class DeleteExtension implements Extension {
           endOffset: startOffset
         };
       }
-      // 노드 경계: 이전 노드 처리
-      return this._calculateCrossNodeDelete(
-        startNodeId,
-        'backward',
-        dataStore
-      );
+      // Node boundary: handle previous node
+      return this._calculateCrossNodeDelete(startNodeId, 'backward', dataStore);
     } else if (inputType === 'deleteContentForward') {
-      // Delete: 다음 문자 삭제
+      // Delete
       const node = dataStore.getNode(startNodeId);
       const textLength = node?.text?.length || 0;
       if (startOffset < textLength) {
@@ -330,37 +306,30 @@ export class DeleteExtension implements Extension {
           endOffset: startOffset + 1
         };
       }
-      // 노드 경계: 다음 노드 처리
-      return this._calculateCrossNodeDelete(
-        startNodeId,
-        'forward',
-        dataStore
-      );
+      // Node boundary: handle next node
+      return this._calculateCrossNodeDelete(startNodeId, 'forward', dataStore);
     }
     
     return null;
   }
 
-  /**
-   * Cross-node 삭제 범위 계산
-   * (기존 calculateCrossNodeDeleteRange 로직 이동)
-   */
+  /** Cross-node delete range (migrate existing calculateCrossNodeDeleteRange) */
   private _calculateCrossNodeDelete(
     currentNodeId: string,
     direction: 'backward' | 'forward',
     dataStore: any
   ): DeleteRange | null {
-    // 기존 InputHandler.calculateCrossNodeDeleteRange 로직
-    // ...
+    // Move the previous calculateCrossNodeDeleteRange logic here
+    return null;
   }
 }
 ```
 
 ---
 
-## View Layer 변경
+## View Layer changes
 
-### InputHandler 수정
+### Update InputHandler
 
 ```typescript
 // packages/editor-view-dom/src/event-handlers/input-handler.ts
@@ -368,7 +337,7 @@ export class DeleteExtension implements Extension {
 private async handleDelete(event: InputEvent): Promise<void> {
   const inputType = event.inputType;
 
-  // 1. DOM selection을 Model selection으로 변환
+  // 1) Convert DOM selection → Model selection
   const domSelection = window.getSelection();
   if (!domSelection || domSelection.rangeCount === 0) {
     return;
@@ -386,8 +355,8 @@ private async handleDelete(event: InputEvent): Promise<void> {
     return;
   }
 
-  // 2. Command 호출 (selection과 inputType 전달)
-  // Command가 selection을 분석하고 삭제 범위를 계산
+  // 2) Call command (pass selection + inputType)
+  // Command handles selection analysis and delete range computation
   try {
     const success = await this.editor.executeCommand('delete', {
       selection: modelSelection,
@@ -403,16 +372,16 @@ private async handleDelete(event: InputEvent): Promise<void> {
     return;
   }
 
-  // 3. Selection 업데이트는 Transaction의 selectionAfter로 처리
-  // (Command에서 처리하지 않음)
+  // 3) Selection update comes from transaction’s selectionAfter
+  // (not handled inside the command)
 }
 ```
 
 ---
 
-## Operation은 순수하게 데이터 변경만
+## Operation stays pure data mutation
 
-### deleteTextRange Operation
+### `deleteTextRange` operation
 
 ```typescript
 // packages/model/src/operations/deleteTextRange.ts
@@ -421,7 +390,7 @@ defineOperation('deleteTextRange',
   async (operation: any, context: TransactionContext) => {
     const { nodeId, start, end } = operation.payload;
 
-    // 1. DataStore 업데이트 (순수 데이터 변경)
+    // 1) Update DataStore (pure data change)
     const deletedText = context.dataStore.range.deleteText({
       startNodeId: nodeId,
       startOffset: start,
@@ -429,10 +398,10 @@ defineOperation('deleteTextRange',
       endOffset: end
     });
     
-    // 2. Selection 매핑 (자동 처리)
-    // SelectionManager가 자동으로 selection을 조정
+    // 2) Selection mapping (automatic)
+    // SelectionManager adjusts selection automatically
     
-    // 3. 역연산 반환
+    // 3) Return inverse
     return { 
       ok: true, 
       data: deletedText, 
@@ -445,51 +414,47 @@ defineOperation('deleteTextRange',
 );
 ```
 
-**Operation은:**
-- ✅ 받은 payload로 데이터 변경만 수행
-- ✅ Selection 분석하지 않음
-- ✅ 어떤 동작을 할지 결정하지 않음
+**Operation should:**
+- ✅ Only mutate data using the payload
+- ✅ Not analyze selection
+- ✅ Not decide the action
 
 ---
 
-## 정리
+## Summary
 
-### Command의 책임
+### Command responsibilities
+1. ✅ Analyze selection (block/inline/text/collapsed)
+2. ✅ Compute delete range (decide what to delete)
+3. ✅ Build operations (decide what to run)
+4. ✅ Execute transaction
 
-1. ✅ **Selection 분석** (block/inline/text/collapsed 판단)
-2. ✅ **삭제 범위 계산** (어떤 범위를 삭제할지 결정)
-3. ✅ **Operations 생성** (어떤 operations를 실행할지 결정)
-4. ✅ **Transaction 실행**
+### Operation responsibilities
+1. ✅ Pure data mutation (use payload)
+2. ✅ Selection mapping (handled automatically)
+3. ✅ Build inverse (for undo)
 
-### Operation의 책임
-
-1. ✅ **순수 데이터 변경** (받은 payload로 데이터 변경)
-2. ✅ **Selection 매핑** (자동으로 selection 조정)
-3. ✅ **역연산 생성** (undo를 위한 inverse)
-
-### Transaction의 책임
-
-1. ✅ **Operations 실행** (순차 실행)
-2. ✅ **History 관리** (undo/redo)
-3. ✅ **Selection 관리** (selectionBefore/selectionAfter)
+### Transaction responsibilities
+1. ✅ Execute operations (in sequence)
+2. ✅ Manage history (undo/redo)
+3. ✅ Manage selection (selectionBefore/selectionAfter)
 
 ---
 
-## 결론
+## Conclusion
 
-**Selection 분석과 삭제 범위 계산은 Command 안에 구현해야 합니다.**
+**Selection analysis and delete-range computation belong in the Command.**
 
-이유:
-- Selection 분석은 "사용자 의도 해석" → Command의 책임
-- Operation은 "순수 데이터 변경"만 담당
-- Transaction은 "Operations 실행 컨테이너"일 뿐
+Reasons:
+- Selection analysis is user-intent interpretation → Command responsibility
+- Operation handles pure data mutation
+- Transaction is just the container running operations
 
-**현재 구조의 문제:**
-- `calculateDeleteRange`가 View Layer에 있음
-- Command가 단순히 받은 range를 그대로 사용
+**Current issue:**
+- `calculateDeleteRange` lives in the View Layer
+- Command simply uses the passed-in range
 
-**개선 방안:**
-- `calculateDeleteRange` 로직을 Command로 이동
-- View Layer는 DOM selection을 Model selection으로 변환만 수행
-- Command에서 Selection 분석 및 삭제 범위 계산
-
+**Fix:**
+- Move `calculateDeleteRange` logic into the Command
+- View Layer only converts DOM selection → Model selection
+- Command performs selection analysis and delete-range computation

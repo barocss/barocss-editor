@@ -1,53 +1,53 @@
-# i18n 구현 계획
+# i18n Implementation Plan
 
-## 1. 구조 설계
+## 1. Structure Design
 
-### 1.1 패키지 분리
+### 1.1 Package Separation
 
-#### `@barocss/shared` (공용 유틸리티)
-- `replacePlaceholders()` - 플레이스홀더 치환 함수 (범용)
-- `normalizeLocale()` - locale 정규화 함수 (예: 'ko-KR' -> 'ko')
+#### `@barocss/shared` (Common Utilities)
+- `replacePlaceholders()` - Placeholder replacement function (generic)
+- `normalizeLocale()` - Locale normalization function (e.g., 'ko-KR' -> 'ko')
 
-#### `@barocss/editor-core` (i18n 구현)
-- `src/i18n/messages.en.ts` - 영어 메시지 정의
-- `src/i18n/messages.ko.ts` - 한국어 메시지 정의
-- `src/i18n/index.ts` - 메인 구현 (메시지 저장소, API 함수들)
+#### `@barocss/editor-core` (i18n Implementation)
+- `src/i18n/messages.en.ts` - English message definitions
+- `src/i18n/messages.ko.ts` - Korean message definitions
+- `src/i18n/index.ts` - Main implementation (message store, API functions)
 
-### 1.2 파일 구조
+### 1.2 File Structure
 
 ```
 packages/
   shared/
     src/
       i18n/
-        placeholder.ts          # replacePlaceholders 함수
-        locale.ts               # normalizeLocale 함수
+        placeholder.ts          # replacePlaceholders function
+        locale.ts               # normalizeLocale function
         index.ts                # export
-      index.ts                  # shared export에 추가
+      index.ts                  # Add to shared export
   
   editor-core/
     src/
       i18n/
-        messages.en.ts          # 영어 메시지
-        messages.ko.ts          # 한국어 메시지
-        index.ts               # 메인 구현
-      index.ts                  # editor-core export에 추가
+        messages.en.ts          # English messages
+        messages.ko.ts          # Korean messages
+        index.ts               # Main implementation
+      index.ts                  # Add to editor-core export
 ```
 
-## 2. 구현 단계
+## 2. Implementation Steps
 
-### 2.1 1단계: Shared 패키지에 공용 함수 추가
+### 2.1 Step 1: Add Common Functions to Shared Package
 
-**파일**: `packages/shared/src/i18n/placeholder.ts`
+**File**: `packages/shared/src/i18n/placeholder.ts`
 ```typescript
 /**
- * 플레이스홀더 치환
+ * Placeholder replacement
  * 
- * 메시지 문자열의 {key} 형태를 params의 값으로 치환합니다.
+ * Replaces {key} patterns in message strings with values from params.
  * 
- * @param message - 원본 메시지
- * @param params - 치환할 파라미터
- * @returns 치환된 메시지
+ * @param message - Original message
+ * @param params - Parameters to replace
+ * @returns Replaced message
  */
 export function replacePlaceholders(
   message: string,
@@ -64,16 +64,16 @@ export function replacePlaceholders(
 }
 ```
 
-**파일**: `packages/shared/src/i18n/locale.ts`
+**File**: `packages/shared/src/i18n/locale.ts`
 ```typescript
 /**
- * Locale 정규화
+ * Locale normalization
  * 
- * 브라우저 언어 코드를 간단한 locale 코드로 변환합니다.
- * 예: 'ko-KR' -> 'ko', 'en-US' -> 'en'
+ * Converts browser language code to simple locale code.
+ * Example: 'ko-KR' -> 'ko', 'en-US' -> 'en'
  * 
- * @param locale - 언어 코드 (예: 'ko-KR', 'en-US')
- * @returns 정규화된 locale 코드 (예: 'ko', 'en')
+ * @param locale - Language code (e.g., 'ko-KR', 'en-US')
+ * @returns Normalized locale code (e.g., 'ko', 'en')
  */
 export function normalizeLocale(locale: string): string {
   // 'ko-KR' -> 'ko', 'en-US' -> 'en'
@@ -82,13 +82,13 @@ export function normalizeLocale(locale: string): string {
 }
 ```
 
-**파일**: `packages/shared/src/i18n/index.ts`
+**File**: `packages/shared/src/i18n/index.ts`
 ```typescript
 export { replacePlaceholders } from './placeholder';
 export { normalizeLocale } from './locale';
 ```
 
-**파일**: `packages/shared/src/index.ts` (수정)
+**File**: `packages/shared/src/index.ts` (modify)
 ```typescript
 export { IS_MAC, IS_LINUX, IS_WINDOWS } from './platform';
 export { getKeyString } from './key-string';
@@ -96,12 +96,12 @@ export { normalizeKeyString, expandModKey } from './key-binding';
 export { replacePlaceholders, normalizeLocale } from './i18n';
 ```
 
-### 2.2 2단계: Editor-Core에 기본 메시지 파일 생성
+### 2.2 Step 2: Create Basic Message Files in Editor-Core
 
-**파일**: `packages/editor-core/src/i18n/messages.en.ts`
+**File**: `packages/editor-core/src/i18n/messages.en.ts`
 ```typescript
 /**
- * 영어 메시지 정의
+ * English message definitions
  */
 export const messagesEn: Record<string, string> = {
   // Context descriptions
@@ -115,10 +115,10 @@ export const messagesEn: Record<string, string> = {
 };
 ```
 
-**파일**: `packages/editor-core/src/i18n/messages.ko.ts`
+**File**: `packages/editor-core/src/i18n/messages.ko.ts`
 ```typescript
 /**
- * 한국어 메시지 정의
+ * Korean message definitions
  */
 export const messagesKo: Record<string, string> = {
   // Context descriptions
@@ -132,28 +132,28 @@ export const messagesKo: Record<string, string> = {
 };
 ```
 
-### 2.3 3단계: Editor-Core에 메인 구현
+### 2.3 Step 3: Main Implementation in Editor-Core
 
-**파일**: `packages/editor-core/src/i18n/index.ts`
+**File**: `packages/editor-core/src/i18n/index.ts`
 ```typescript
 import { messagesEn } from './messages.en';
 import { messagesKo } from './messages.ko';
 import { replacePlaceholders, normalizeLocale } from '@barocss/shared';
 
-// 내장 언어 (기본 제공)
+// Built-in languages (provided by default)
 const builtinMessages: Record<string, Record<string, string>> = {
   en: messagesEn,
   ko: messagesKo,
 };
 
-// 외부에서 등록된 언어 팩
+// Externally registered language packs
 const externalMessages: Record<string, Record<string, string>> = {};
 
-// 전역 locale 설정
+// Global locale setting
 let defaultLocale: string = 'en';
 
 /**
- * 언어 팩 등록 (외부에서 호출)
+ * Register language pack (called from external)
  */
 export function registerLocaleMessages(
   locale: string,
@@ -163,12 +163,12 @@ export function registerLocaleMessages(
     externalMessages[locale] = {};
   }
   
-  // 기존 메시지와 병합
+  // Merge with existing messages
   Object.assign(externalMessages[locale], messages);
 }
 
 /**
- * 메시지 조회 (플레이스홀더 치환 지원)
+ * Get message (supports placeholder replacement)
  */
 export function getLocalizedMessage(
   id: string,
@@ -178,7 +178,7 @@ export function getLocalizedMessage(
   const effectiveLocale = locale || getDefaultLocale();
   let message: string | undefined;
   
-  // 1. 외부 등록된 언어 팩 확인
+  // 1. Check externally registered language pack
   if (externalMessages[effectiveLocale]) {
     message = externalMessages[effectiveLocale][id];
     if (message) {
@@ -186,7 +186,7 @@ export function getLocalizedMessage(
     }
   }
   
-  // 2. 내장 언어 팩 확인
+  // 2. Check built-in language pack
   const builtin = builtinMessages[effectiveLocale];
   if (builtin) {
     message = builtin[id];
@@ -195,32 +195,32 @@ export function getLocalizedMessage(
     }
   }
   
-  // 3. 영어로 fallback
+  // 3. Fallback to English
   message = builtinMessages.en[id];
   if (message) {
     return replacePlaceholders(message, params);
   }
   
-  // 4. 메시지를 찾을 수 없으면 ID 반환
+  // 4. If message not found, return ID
   return id;
 }
 
 /**
- * 전역 locale 설정
+ * Set global locale
  */
 export function setDefaultLocale(locale: string): void {
   defaultLocale = locale;
 }
 
 /**
- * 전역 locale 조회
+ * Get global locale
  */
 export function getDefaultLocale(): string {
   return defaultLocale;
 }
 
 /**
- * 특정 locale의 메시지가 등록되어 있는지 확인
+ * Check if messages for specific locale are registered
  */
 export function hasLocaleMessages(locale: string): boolean {
   return (
@@ -230,7 +230,7 @@ export function hasLocaleMessages(locale: string): boolean {
 }
 
 /**
- * 언어 팩을 async로 로드하고 등록
+ * Load and register language pack asynchronously
  */
 export async function loadLocaleMessages(
   locale: string,
@@ -247,7 +247,7 @@ export async function loadLocaleMessages(
 }
 
 /**
- * 브라우저 언어 자동 감지
+ * Auto-detect browser language
  */
 function detectBrowserLocale(): string {
   if (typeof navigator !== 'undefined') {
@@ -258,7 +258,7 @@ function detectBrowserLocale(): string {
 }
 
 /**
- * i18n 초기화 (브라우저 언어 자동 감지)
+ * Initialize i18n (auto-detect browser language)
  */
 export function initializeI18n(options?: { autoDetect?: boolean }): void {
   if (options?.autoDetect !== false) {
@@ -267,9 +267,9 @@ export function initializeI18n(options?: { autoDetect?: boolean }): void {
 }
 ```
 
-### 2.4 4단계: Export 추가
+### 2.4 Step 4: Add Exports
 
-**파일**: `packages/editor-core/src/index.ts` (수정)
+**File**: `packages/editor-core/src/index.ts` (modify)
 ```typescript
 export * from './types';
 export { Editor, CommandChain } from './editor';
@@ -292,49 +292,48 @@ export {
 } from './i18n';
 ```
 
-### 2.5 5단계: 테스트 코드 작성
+### 2.5 Step 5: Write Test Code
 
-**파일**: `packages/shared/src/i18n/placeholder.test.ts`
-- `replacePlaceholders` 함수 테스트
+**File**: `packages/shared/src/i18n/placeholder.test.ts`
+- Test `replacePlaceholders` function
 
-**파일**: `packages/shared/src/i18n/locale.test.ts`
-- `normalizeLocale` 함수 테스트
+**File**: `packages/shared/src/i18n/locale.test.ts`
+- Test `normalizeLocale` function
 
-**파일**: `packages/editor-core/test/i18n.test.ts`
-- `getLocalizedMessage` 테스트
-- `registerLocaleMessages` 테스트
-- `setDefaultLocale` / `getDefaultLocale` 테스트
-- `hasLocaleMessages` 테스트
-- `loadLocaleMessages` 테스트 (mock fetch)
-- fallback 동작 테스트
-- 플레이스홀더 치환 테스트
+**File**: `packages/editor-core/test/i18n.test.ts`
+- Test `getLocalizedMessage`
+- Test `registerLocaleMessages`
+- Test `setDefaultLocale` / `getDefaultLocale`
+- Test `hasLocaleMessages`
+- Test `loadLocaleMessages` (mock fetch)
+- Test fallback behavior
+- Test placeholder replacement
 
-## 3. 구현 순서
+## 3. Implementation Order
 
-1. ✅ Shared 패키지에 공용 함수 추가
+1. ✅ Add common functions to Shared package
    - `replacePlaceholders`
    - `normalizeLocale`
-   - 테스트 코드
+   - Test code
 
-2. ✅ Editor-Core에 기본 메시지 파일 생성
+2. ✅ Create basic message files in Editor-Core
    - `messages.en.ts`
    - `messages.ko.ts`
 
-3. ✅ Editor-Core에 메인 구현
+3. ✅ Main implementation in Editor-Core
    - `i18n/index.ts`
 
-4. ✅ Export 추가
+4. ✅ Add exports
    - `shared/src/index.ts`
    - `editor-core/src/index.ts`
 
-5. ✅ 테스트 코드 작성
-   - Shared 테스트
-   - Editor-Core 테스트
+5. ✅ Write test code
+   - Shared tests
+   - Editor-Core tests
 
-## 4. 주의사항
+## 4. Notes
 
-- `loadLocaleMessages`는 `fetch` API를 사용하므로 브라우저 환경에서만 동작
-- Node.js 환경에서는 `node-fetch` 같은 polyfill 필요할 수 있음
-- 테스트에서는 `fetch`를 mock해야 함
-- `initializeI18n`은 Editor 생성 전에 호출하는 것이 좋음
-
+- `loadLocaleMessages` uses `fetch` API, so only works in browser environment
+- May need polyfill like `node-fetch` in Node.js environment
+- Must mock `fetch` in tests
+- Good to call `initializeI18n` before creating Editor

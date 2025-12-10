@@ -1,35 +1,35 @@
-# Transaction vs Extension 아키텍처
+# Transaction vs Extension Architecture
 
-## 현재 구조
+## Current Structure
 
-### 1. **Transaction 시스템** (`@barocss/model`)
+### 1. **Transaction System** (`@barocss/model`)
 
-**위치**: Core 기능 (기본 에디터 기능)
+**Location**: Core functionality (basic editor features)
 
-**구성**:
+**Composition**:
 ```
 @barocss/model
-  ├── TransactionManager      → Transaction 실행 관리
-  ├── transaction() DSL        → Transaction 생성 함수
-  └── operations/              → 기본 Operations
-      ├── insertText           → 텍스트 삽입
-      ├── deleteTextRange      → 텍스트 범위 삭제
-      ├── delete               → 노드 삭제
-      ├── replaceText          → 텍스트 교체
-      └── ... (기타 operations)
+  ├── TransactionManager      → Transaction execution management
+  ├── transaction() DSL        → Transaction creation function
+  └── operations/              → Basic Operations
+      ├── insertText           → Text insertion
+      ├── deleteTextRange      → Text range deletion
+      ├── delete               → Node deletion
+      ├── replaceText          → Text replacement
+      └── ... (other operations)
 ```
 
-**특징**:
-- ✅ **Core 기능**: 모든 에디터에서 사용 가능
-- ✅ **기본 Operations**: `insertText`, `deleteTextRange`, `delete` 등
-- ✅ **History 자동 관리**: TransactionManager가 자동으로 History에 추가
-- ✅ **Extension과 무관**: Transaction은 독립적으로 동작
+**Characteristics**:
+- ✅ **Core functionality**: Available in all editors
+- ✅ **Basic Operations**: `insertText`, `deleteTextRange`, `delete`, etc.
+- ✅ **Automatic History management**: TransactionManager automatically adds to History
+- ✅ **Independent of Extensions**: Transactions operate independently
 
-**사용 예시**:
+**Usage example**:
 ```typescript
 import { transaction, control } from '@barocss/model';
 
-// Transaction 직접 사용 (Extension 없이도 가능)
+// Direct Transaction usage (possible without Extensions)
 await transaction(editor, [
   ...control(nodeId, [
     { type: 'insertText', payload: { pos: 5, text: 'Hello' } }
@@ -39,101 +39,101 @@ await transaction(editor, [
 
 ---
 
-### 2. **Extension 시스템** (`@barocss/extensions`)
+### 2. **Extension System** (`@barocss/extensions`)
 
-**위치**: Extension (bold/italic처럼 외부에서 제공)
+**Location**: Extension (provided externally like bold/italic)
 
-**구성**:
+**Composition**:
 ```
 @barocss/extensions
-  ├── TextExtension           → insertText, deleteText command 등록
-  ├── DeleteExtension         → delete command 등록
-  ├── ParagraphExtension      → paragraph 관련 command
+  ├── TextExtension           → Register insertText, deleteText commands
+  ├── DeleteExtension         → Register delete command
+  ├── ParagraphExtension      → Paragraph-related commands
   ├── BoldExtension           → toggleBold command
   └── ItalicExtension         → toggleItalic command
 ```
 
-**특징**:
-- ✅ **Extension으로 제공**: 사용자가 명시적으로 등록 필요
-- ✅ **Command 래퍼**: Transaction operations를 Command로 래핑
-- ✅ **키보드 단축키**: Extension에서 키보드 이벤트 처리
-- ✅ **편의성**: `editor.executeCommand('delete')` 형태로 사용
+**Characteristics**:
+- ✅ **Provided as Extension**: Users must explicitly register
+- ✅ **Command wrapper**: Wrap Transaction operations as Commands
+- ✅ **Keyboard shortcuts**: Extensions handle keyboard events
+- ✅ **Convenience**: Use as `editor.executeCommand('delete')`
 
-**사용 예시**:
+**Usage example**:
 ```typescript
 import { createCoreExtensions } from '@barocss/extensions';
 
 const editor = new Editor({
-  coreExtensions: createCoreExtensions() // ← 명시적으로 등록
+  coreExtensions: createCoreExtensions() // ← Explicitly register
 });
 
-// Command로 사용 (Extension이 등록되어 있어야 함)
+// Use as Command (Extension must be registered)
 await editor.executeCommand('delete', { range });
 ```
 
 ---
 
-## 아키텍처 비교
+## Architecture Comparison
 
-### ProseMirror 구조
+### ProseMirror Structure
 
 ```
 @prosemirror/state
-  └── Transaction          → Core (기본 기능)
+  └── Transaction          → Core (basic functionality)
 
 @prosemirror/commands
-  └── insertText, delete  → 별도 패키지 (기본 편집 기능)
+  └── insertText, delete  → Separate package (basic editing features)
 
 @prosemirror/example-setup
-  └── baseKeymap          → 별도 패키지 (키보드 단축키)
+  └── baseKeymap          → Separate package (keyboard shortcuts)
 ```
 
-**특징**:
-- Transaction은 **Core**
-- 기본 Command들은 **별도 패키지**
-- 키보드 단축키도 **별도 패키지**
+**Characteristics**:
+- Transaction is **Core**
+- Basic Commands are **separate package**
+- Keyboard shortcuts are also **separate package**
 
 ---
 
-### 우리 에디터 구조
+### Our Editor Structure
 
 ```
 @barocss/model
-  └── Transaction + Operations  → Core (기본 기능)
+  └── Transaction + Operations  → Core (basic functionality)
 
 @barocss/extensions
-  └── TextExtension, DeleteExtension  → Extension (기본 편집 기능)
+  └── TextExtension, DeleteExtension  → Extension (basic editing features)
 ```
 
-**특징**:
-- Transaction은 **Core** (`@barocss/model`)
-- 기본 Command들은 **Extension** (`@barocss/extensions`)
-- 키보드 단축키도 **Extension**에서 처리
+**Characteristics**:
+- Transaction is **Core** (`@barocss/model`)
+- Basic Commands are **Extension** (`@barocss/extensions`)
+- Keyboard shortcuts are also handled in **Extension**
 
 ---
 
-## 핵심 차이점
+## Key Differences
 
 ### Transaction Operations vs Commands
 
-| 구분 | Transaction Operations | Commands (Extension) |
-|------|----------------------|---------------------|
-| **위치** | `@barocss/model` (Core) | `@barocss/extensions` (Extension) |
-| **사용법** | `transaction(editor, [op])` | `editor.executeCommand('name')` |
-| **역할** | 데이터 변경 (저수준) | 사용자 액션 (고수준) |
-| **필수 여부** | 항상 사용 가능 | Extension 등록 필요 |
-| **예시** | `insertText`, `deleteTextRange` | `insertText`, `delete` |
+| Distinction | Transaction Operations | Commands (Extension) |
+|-------------|----------------------|---------------------|
+| **Location** | `@barocss/model` (Core) | `@barocss/extensions` (Extension) |
+| **Usage** | `transaction(editor, [op])` | `editor.executeCommand('name')` |
+| **Role** | Data changes (low-level) | User actions (high-level) |
+| **Required** | Always available | Extension registration required |
+| **Examples** | `insertText`, `deleteTextRange` | `insertText`, `delete` |
 
 ---
 
-## 실제 사용 흐름
+## Actual Usage Flow
 
-### 1. Extension 없이 Transaction 직접 사용
+### 1. Direct Transaction Usage Without Extension
 
 ```typescript
 import { transaction, control } from '@barocss/model';
 
-// Extension 등록 없이도 사용 가능
+// Can use without Extension registration
 await transaction(editor, [
   ...control(nodeId, [
     { type: 'insertText', payload: { pos: 5, text: 'Hello' } }
@@ -141,65 +141,64 @@ await transaction(editor, [
 ]).commit();
 ```
 
-### 2. Extension을 통한 Command 사용
+### 2. Command Usage via Extension
 
 ```typescript
 import { createCoreExtensions } from '@barocss/extensions';
 
 const editor = new Editor({
-  coreExtensions: createCoreExtensions() // Extension 등록
+  coreExtensions: createCoreExtensions() // Register Extension
 });
 
-// Command로 사용 (Extension이 Transaction을 래핑)
+// Use as Command (Extension wraps Transaction)
 await editor.executeCommand('delete', { range });
 ```
 
 ---
 
-## 결론
+## Conclusion
 
-### ✅ **Transaction은 Core 기능**
+### ✅ **Transaction is Core Functionality**
 
-- `@barocss/model`에 포함
-- Extension 등록 없이도 사용 가능
-- 기본 Operations 제공 (`insertText`, `deleteTextRange`, `delete` 등)
+- Included in `@barocss/model`
+- Can be used without Extension registration
+- Provides basic Operations (`insertText`, `deleteTextRange`, `delete`, etc.)
 
-### ✅ **기본 편집 기능은 Extension**
+### ✅ **Basic Editing Features are Extensions**
 
-- `@barocss/extensions`에 포함
-- `TextExtension`, `DeleteExtension` 등
-- Command 형태로 Transaction을 래핑
-- 키보드 단축키 처리 포함
+- Included in `@barocss/extensions`
+- `TextExtension`, `DeleteExtension`, etc.
+- Wrap Transactions as Commands
+- Include keyboard shortcut handling
 
-### ✅ **ProseMirror와 유사한 구조**
+### ✅ **Similar Structure to ProseMirror**
 
-- Transaction은 Core
-- 기본 편집 기능은 별도 패키지 (Extension)
-- 사용자가 명시적으로 등록 필요
+- Transaction is Core
+- Basic editing features are separate package (Extension)
+- Users must explicitly register
 
 ---
 
-## 권장 사용 패턴
+## Recommended Usage Patterns
 
-### 기본 사용 (Extension 사용)
+### Basic Usage (Using Extensions)
 
 ```typescript
 const editor = new Editor({
   coreExtensions: createCoreExtensions()
 });
 
-// Command 사용 (권장)
+// Use Commands (recommended)
 await editor.executeCommand('delete', { range });
 ```
 
-### 고급 사용 (Transaction 직접 사용)
+### Advanced Usage (Direct Transaction Usage)
 
 ```typescript
-// Extension 없이도 Transaction 직접 사용 가능
+// Can use Transaction directly without Extensions
 await transaction(editor, [
   ...control(nodeId, [
     { type: 'insertText', payload: { pos: 5, text: 'Hello' } }
   ])
 ]).commit();
 ```
-

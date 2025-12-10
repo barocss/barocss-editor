@@ -286,9 +286,9 @@ For detailed implementation examples and best practices, see:
 
 ## Portal System
 
-Portal을 사용하여 데코레이터의 tooltip, popup 등을 선언형으로 관리할 수 있습니다.
+You can manage decorator tooltips and popups declaratively using portals.
 
-### Portal 기본 사용법
+### Basic Portal Usage
 
 ```typescript
 defineDecorator('comment', (props, context) => {
@@ -304,14 +304,14 @@ defineDecorator('comment', (props, context) => {
       style: {
         position: 'fixed',
         zIndex: 1001,
-        opacity: ctx.getState('showTooltip') ? 1 : 0
+        opacity: context.getState('showTooltip') ? 1 : 0
       }
     }, [text('Tooltip content')]))
   ]);
 });
 ```
 
-자세한 내용은 [Portal System Specification](../docs/portal-system-spec.md)을 참조하세요.
+For details, see [Portal System Specification](../docs/portal-system-spec.md).
 
 ## Reconcile Exclusion Rules (Updated)
 
@@ -327,6 +327,6 @@ defineDecorator('comment', (props, context) => {
 
 ## Related Documentation
 
-- [Mark & Decorator Specification](mark-and-decorator-spec.md) - Mark와 Decorator 개념 정리
-- [Portal System Specification](../docs/portal-system-spec.md) - Portal 시스템 상세 스펙
-- [BaroCSS Editor API Reference](../docs/api-reference.md) - 전체 API 참조
+- [Mark & Decorator Specification](mark-and-decorator-spec.md) - Mark and Decorator concepts
+- [Portal System Specification](../docs/portal-system-spec.md) - Portal system details
+- [BaroCSS Editor API Reference](../docs/api-reference.md) - Complete API reference

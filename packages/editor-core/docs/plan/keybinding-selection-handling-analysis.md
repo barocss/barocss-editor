@@ -1,10 +1,10 @@
-# Keybinding 시스템에서 Selection 전달 방식 분석
+# Analysis of Selection Passing Method in Keybinding System
 
-## 문제 상황
+## Problem Situation
 
-Backspace/Delete command는 `{ selection: ModelSelection }` 파라미터가 필요합니다.
+Backspace/Delete commands require `{ selection: ModelSelection }` parameter.
 
-현재:
+Current:
 ```typescript
 // editor-view-dom.ts
 handleBackspaceKey(): void {
@@ -13,90 +13,90 @@ handleBackspaceKey(): void {
 }
 ```
 
-keybinding 시스템으로 통합할 때:
+When integrating with keybinding system:
 ```typescript
 // editor-view-dom.ts
 const resolved = this.editor.keybindings.resolve(key);
 if (resolved.length > 0) {
   const { command, args } = resolved[0];
-  // selection을 어떻게 전달할까?
+  // How to pass selection?
   void this.editor.executeCommand(command, args);
 }
 ```
 
-## 옵션 비교
+## Option Comparison
 
-### 옵션 A: Context에 Selection 저장
+### Option A: Store Selection in Context
 
-**구조**:
+**Structure**:
 ```typescript
 // Editor._updateBuiltinContext()
-this._context['selection'] = this.selection; // ModelSelection 객체 저장
+this._context['selection'] = this.selection; // Store ModelSelection object
 
-// Command에서 사용
+// Use in Command
 execute: async (editor: Editor, payload?: any) => {
   const selection = editor.getContext('selection') || editor.selection;
   return await this._executeBackspace(editor, selection);
 }
 ```
 
-**장점**:
-1. ✅ **일관성**: Context는 이미 selection 메타데이터를 관리
-2. ✅ **when 절에서 사용 가능**: `when: 'selection && !selectionEmpty'`
-3. ✅ **자동 업데이트**: `_updateBuiltinContext()`에서 자동으로 최신 상태 유지
-4. ✅ **명시적**: Context에 있다는 것이 명확
+**Advantages**:
+1. ✅ **Consistency**: Context already manages selection metadata
+2. ✅ **Usable in when clauses**: `when: 'selection && !selectionEmpty'`
+3. ✅ **Auto-update**: Automatically maintains latest state in `_updateBuiltinContext()`
+4. ✅ **Explicit**: Clear that it's in Context
 
-**단점**:
-1. ❌ **Context 오염**: Context는 주로 boolean/string 값인데 객체 저장
-2. ❌ **타입 안정성**: Context는 `Record<string, unknown>`이므로 타입 체크 어려움
-3. ❌ **성능**: 매번 context 업데이트 시 selection 객체 복사
-4. ❌ **순환 참조 위험**: Context에 복잡한 객체 저장은 위험할 수 있음
+**Disadvantages**:
+1. ❌ **Context pollution**: Context mainly stores boolean/string values, but storing objects
+2. ❌ **Type safety**: Context is `Record<string, unknown>` so type checking is difficult
+3. ❌ **Performance**: Copy selection object every time context updates
+4. ❌ **Circular reference risk**: Storing complex objects in Context can be risky
 
-**VS Code 방식**:
-- VS Code는 context에 selection 객체를 저장하지 않음
-- 대신 selection의 메타데이터만 context에 저장
+**VS Code approach**:
+- VS Code does not store selection objects in context
+- Instead, only stores selection metadata in context
 
-### 옵션 B: Command가 `editor.selection` 직접 읽기 (권장)
+### Option B: Command Directly Reads `editor.selection` (Recommended)
 
-**구조**:
+**Structure**:
 ```typescript
 // DeleteExtension
 execute: async (editor: Editor, payload?: { selection?: ModelSelection }) => {
-  // payload에 selection이 있으면 사용, 없으면 editor.selection 사용
+  // Use selection from payload if provided, otherwise use editor.selection
   const selection = payload?.selection || editor.selection;
   if (!selection) {
-    return false; // selection이 없으면 실행 불가
+    return false; // Cannot execute without selection
   }
   return await this._executeBackspace(editor, selection);
 }
 ```
 
-**장점**:
-1. ✅ **단순함**: 가장 직접적인 방법
-2. ✅ **타입 안정성**: `editor.selection`은 `ModelSelection | null` 타입
-3. ✅ **성능**: Context 업데이트 오버헤드 없음
-4. ✅ **명확성**: Command가 명시적으로 selection을 요구
-5. ✅ **유연성**: 필요시 payload로 override 가능
-6. ✅ **VS Code와 유사**: VS Code도 command가 내부에서 상태 읽기
+**Advantages**:
+1. ✅ **Simplicity**: Most direct method
+2. ✅ **Type safety**: `editor.selection` is `ModelSelection | null` type
+3. ✅ **Performance**: No context update overhead
+4. ✅ **Clarity**: Command explicitly requires selection
+5. ✅ **Flexibility**: Can override with payload if needed
+6. ✅ **Similar to VS Code**: VS Code also reads state internally in commands
 
-**단점**:
-1. ❌ **when 절에서 사용 불가**: `when: 'selection.startNodeId === ...'` 같은 복잡한 조건 불가
-2. ❌ **명시적이지 않음**: Command 시그니처에 selection이 없어도 사용 가능
+**Disadvantages**:
+1. ❌ **Cannot use in when clauses**: Complex conditions like `when: 'selection.startNodeId === ...'` not possible
+2. ❌ **Not explicit**: Can be used even if selection is not in command signature
 
-**해결 방법**:
-- `when` 절은 메타데이터만 사용 (이미 구현됨: `selectionEmpty`, `selectionType`)
-- Command는 `editor.selection`을 기본값으로 사용하되, payload로 override 가능
+**Solution**:
+- `when` clauses only use metadata (already implemented: `selectionEmpty`, `selectionType`)
+- Commands use `editor.selection` as default but can override with payload
 
-### 옵션 C: Keybinding 시스템에서 자동 전달
+### Option C: Auto-Pass in Keybinding System
 
-**구조**:
+**Structure**:
 ```typescript
 // keybinding.ts resolve()
 const resolved = this.editor.keybindings.resolve(key);
 if (resolved.length > 0) {
   const { command, args } = resolved[0];
   
-  // 특정 command는 자동으로 selection 추가
+  // Automatically add selection for specific commands
   const commandsNeedingSelection = ['backspace', 'deleteForward', 'insertParagraph'];
   if (commandsNeedingSelection.includes(command)) {
     const selection = this._contextProvider?.getContext('selection') || 
@@ -108,58 +108,58 @@ if (resolved.length > 0) {
 }
 ```
 
-**장점**:
-1. ✅ **자동화**: Command가 신경 쓸 필요 없음
-2. ✅ **일관성**: 모든 selection이 필요한 command에 자동 적용
+**Advantages**:
+1. ✅ **Automation**: Commands don't need to worry
+2. ✅ **Consistency**: Automatically applied to all commands needing selection
 
-**단점**:
-1. ❌ **하드코딩**: command 이름을 하드코딩해야 함
-2. ❌ **확장성 제한**: 새로운 command 추가 시 수정 필요
-3. ❌ **복잡성**: keybinding 시스템이 command의 요구사항을 알아야 함
-4. ❌ **결합도 증가**: keybinding 시스템과 command 간 결합도 증가
+**Disadvantages**:
+1. ❌ **Hardcoding**: Must hardcode command names
+2. ❌ **Limited extensibility**: Need to modify when adding new commands
+3. ❌ **Complexity**: Keybinding system must know command requirements
+4. ❌ **Increased coupling**: Increased coupling between keybinding system and commands
 
-### 옵션 D: Context에 Selection ID만 저장
+### Option D: Store Only Selection ID in Context
 
-**구조**:
+**Structure**:
 ```typescript
 // Editor._updateBuiltinContext()
 this._context['selectionId'] = this.selection ? 'current' : null;
-// 또는 selection의 핵심 정보만 저장
+// Or store only core selection information
 this._context['selectionStartNodeId'] = this.selection?.startNodeId;
 this._context['selectionStartOffset'] = this.selection?.startOffset;
 
-// Command에서 사용
+// Use in Command
 execute: async (editor: Editor, payload?: any) => {
-  const selection = editor.selection; // 여전히 직접 읽기
-  // context는 when 절에서만 사용
+  const selection = editor.selection; // Still directly read
+  // context only used in when clauses
 }
 ```
 
-**장점**:
-1. ✅ **Context 경량화**: 객체 대신 원시값만 저장
-2. ✅ **when 절 활용**: `when: 'selectionStartNodeId === "node-1"'`
+**Advantages**:
+1. ✅ **Context lightweight**: Store only primitives instead of objects
+2. ✅ **Utilize when clauses**: `when: 'selectionStartNodeId === "node-1"'`
 
-**단점**:
-1. ❌ **복잡성**: Selection의 모든 정보를 context에 저장하기 어려움
-2. ❌ **중복**: Command는 여전히 `editor.selection` 직접 읽기 필요
+**Disadvantages**:
+1. ❌ **Complexity**: Difficult to store all Selection information in context
+2. ❌ **Duplication**: Commands still need to directly read `editor.selection`
 
-## 권장 사항
+## Recommendations
 
-### 옵션 B (Command가 `editor.selection` 직접 읽기) 권장
+### Option B (Command Directly Reads `editor.selection`) Recommended
 
-**이유**:
-1. **단순하고 명확함**: 가장 직접적인 방법
-2. **타입 안정성**: TypeScript 타입 체크 가능
-3. **성능**: Context 업데이트 오버헤드 없음
-4. **VS Code와 유사**: 검증된 패턴
-5. **유연성**: 필요시 payload로 override 가능
+**Reasons**:
+1. **Simple and clear**: Most direct method
+2. **Type safety**: TypeScript type checking possible
+3. **Performance**: No context update overhead
+4. **Similar to VS Code**: Proven pattern
+5. **Flexibility**: Can override with payload if needed
 
-**구현 방법**:
+**Implementation method**:
 ```typescript
 // DeleteExtension
 execute: async (editor: Editor, payload?: { selection?: ModelSelection }) => {
-  // 1. payload에 selection이 있으면 사용 (명시적 전달)
-  // 2. 없으면 editor.selection 사용 (기본값)
+  // 1. Use selection from payload if provided (explicit passing)
+  // 2. Otherwise use editor.selection (default)
   const selection = payload?.selection || editor.selection;
   
   if (!selection) {
@@ -171,17 +171,17 @@ execute: async (editor: Editor, payload?: { selection?: ModelSelection }) => {
 }
 
 canExecute: (editor: Editor, payload?: any) => {
-  // selection이 있으면 실행 가능
+  // Executable if selection exists
   const selection = payload?.selection || editor.selection;
   return selection != null;
 }
 ```
 
-**keybinding 시스템 통합**:
+**keybinding system integration**:
 ```typescript
 // editor-view-dom.ts
 handleKeydown(event: KeyboardEvent): void {
-  // ... IME 체크 ...
+  // ... IME check ...
   
   const key = getKeyString(event);
   const resolved = this.editor.keybindings.resolve(key);
@@ -190,29 +190,29 @@ handleKeydown(event: KeyboardEvent): void {
     const { command, args } = resolved[0];
     event.preventDefault();
     
-    // Command가 자동으로 editor.selection을 읽음
-    // 필요시 args로 override 가능
+    // Command automatically reads editor.selection
+    // Can override with args if needed
     void this.editor.executeCommand(command, args);
   }
 }
 ```
 
-**Context는 메타데이터만**:
+**Context only stores metadata**:
 - `selectionEmpty`: boolean
 - `selectionType`: 'range' | 'node' | ...
 - `selectionDirection`: 'forward' | 'backward' | null
-- **Selection 객체 자체는 context에 저장하지 않음**
+- **Selection object itself is not stored in context**
 
-## 구현 계획
+## Implementation Plan
 
-### 1단계: DeleteExtension 수정
+### Step 1: Modify DeleteExtension
 
 ```typescript
 // packages/extensions/src/delete.ts
 editor.registerCommand({
   name: 'backspace',
   execute: async (editor: Editor, payload?: { selection?: ModelSelection }) => {
-    // payload에 selection이 있으면 사용, 없으면 editor.selection 사용
+    // Use selection from payload if provided, otherwise use editor.selection
     const selection = payload?.selection || editor.selection;
     if (!selection) {
       return false;
@@ -226,17 +226,17 @@ editor.registerCommand({
 });
 ```
 
-### 2단계: editor-view-dom 수정
+### Step 2: Modify editor-view-dom
 
 ```typescript
 // packages/editor-view-dom/src/editor-view-dom.ts
 handleKeydown(event: KeyboardEvent): void {
-  // ... IME 체크 ...
+  // ... IME check ...
   
   const key = getKeyString(event);
   
-  // Backspace/Delete 직접 처리 제거
-  // 모든 키를 keybinding 시스템으로 통합
+  // Remove direct Backspace/Delete handling
+  // Integrate all keys into keybinding system
   
   const resolved = this.editor.keybindings.resolve(key);
   if (resolved.length > 0) {
@@ -247,29 +247,28 @@ handleKeydown(event: KeyboardEvent): void {
 }
 ```
 
-### 3단계: Context는 메타데이터만 유지
+### Step 3: Context Only Maintains Metadata
 
 ```typescript
 // Editor._updateBuiltinContext()
 this._context['selectionEmpty'] = !this.selection || this.selection.collapsed;
 this._context['selectionType'] = this.selection?.type || null;
 this._context['selectionDirection'] = this.selection?.direction || null;
-// selection 객체 자체는 context에 저장하지 않음
+// Selection object itself is not stored in context
 ```
 
-## 결론
+## Conclusion
 
-**옵션 B (Command가 `editor.selection` 직접 읽기)를 권장합니다.**
+**Option B (Command Directly Reads `editor.selection`) is recommended.**
 
-**이유**:
-1. 단순하고 명확함
-2. 타입 안정성
-3. 성능 최적화
-4. VS Code와 유사한 패턴
-5. Context는 메타데이터만 관리 (경량화)
+**Reasons**:
+1. Simple and clear
+2. Type safety
+3. Performance optimization
+4. Similar pattern to VS Code
+5. Context only manages metadata (lightweight)
 
-**구현 시**:
-- Command는 `payload?.selection || editor.selection` 패턴 사용
-- Context는 selection 메타데이터만 저장
-- `when` 절은 메타데이터만 사용
-
+**When implementing**:
+- Commands use `payload?.selection || editor.selection` pattern
+- Context only stores selection metadata
+- `when` clauses only use metadata

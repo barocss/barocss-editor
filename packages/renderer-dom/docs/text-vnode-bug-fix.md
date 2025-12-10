@@ -1,18 +1,18 @@
-# Text VNode 버그 수정 문서
+# Text VNode Bug Fix Document
 
-## 개요
+## Overview
 
-이 문서는 renderer-dom 패키지에서 발생한 텍스트 렌더링 관련 버그와 그 해결 과정을 정리합니다. 이 버그는 `inline-text` 모델의 텍스트가 VNode 구조에서 올바르게 처리되지 않아 mark와 decorator가 제대로 적용되지 않는 핵심적인 문제였습니다.
+This document summarizes a text rendering-related bug that occurred in the renderer-dom package and its resolution process. This bug was a core issue where text from `inline-text` models was not properly processed in VNode structure, preventing marks and decorators from being applied correctly.
 
-## 문제의 본질
+## Nature of the Problem
 
-### 발견된 버그
+### Discovered Bugs
 
-1. **VNode 구조 오류**: `inline-text` 모델의 텍스트가 부모 VNode의 `text` 속성으로 직접 collapse되어, mark와 decorator가 적용되지 않음
-2. **Reconciler 복잡성**: text-only VNode를 처리하는 로직이 복잡하고 에러가 발생하기 쉬움
-3. **DOM 렌더링 오류**: 텍스트가 예상과 다른 위치에 렌더링되거나 중복되는 현상
+1. **VNode Structure Error**: Text from `inline-text` model collapsed directly into parent VNode's `text` property, preventing marks and decorators from being applied
+2. **Reconciler Complexity**: Logic for processing text-only VNodes was complex and error-prone
+3. **DOM Rendering Error**: Text rendered at unexpected locations or duplicated
 
-### 문제 발생 시나리오
+### Problem Scenario
 
 ```typescript
 // Model
@@ -23,20 +23,20 @@
   marks: [{ type: 'bold', range: [0, 5] }]
 }
 
-// 잘못된 VNode 구조 (버그)
+// Incorrect VNode structure (bug)
 {
   tag: 'span',
   sid: 'text-1',
-  text: 'Hello World',  // ❌ 부모에 text가 직접 들어감
-  children: []          // ❌ mark가 적용되지 않음
+  text: 'Hello World',  // ❌ text directly in parent
+  children: []          // ❌ marks not applied
 }
 
-// 올바른 VNode 구조 (수정 후)
+// Correct VNode structure (after fix)
 {
   tag: 'span',
   sid: 'text-1',
-  text: undefined,     // ✅ 부모에는 text가 없음
-  children: [           // ✅ children에 mark가 적용된 VNode
+  text: undefined,     // ✅ no text in parent
+  children: [           // ✅ children with mark-applied VNodes
     {
       tag: 'strong',
       children: [
@@ -58,76 +58,76 @@
 }
 ```
 
-## 해결 과정
+## Resolution Process
 
-### 1단계: 문제 인식
+### Stage 1: Problem Recognition
 
-**증상**:
-- `inline-text` 모델에 mark를 적용해도 렌더링되지 않음
-- `data('text')`가 처리된 후 텍스트가 부모 VNode의 `text`로 collapse됨
-- VNode에 `text`와 `children`이 동시에 존재하는 잘못된 상태
+**Symptoms**:
+- Marks not rendered even when applied to `inline-text` model
+- Text collapsed to parent VNode's `text` after `data('text')` processing
+- Invalid state where `text` and `children` exist simultaneously in VNode
 
-**원인 분석**:
-- `_buildElement` 메서드에서 단일 텍스트 child를 부모의 `text`로 collapse하는 로직이 `data('text')` 처리와 충돌
-- `data('text')`가 직접 처리된 경우에도 collapse가 발생하여 mark/decorator 적용 불가
+**Cause Analysis**:
+- Logic in `_buildElement` method that collapses single text child to parent's `text` conflicted with `data('text')` processing
+- Collapse occurred even when `data('text')` was directly processed, preventing mark/decorator application
 
-### 2단계: 초기 수정 시도
+### Stage 2: Initial Fix Attempt
 
-**접근 방법**: `data('text')`가 직접 처리된 경우 collapse 방지
+**Approach**: Prevent collapse when `data('text')` is directly processed
 
 ```typescript
 // vnode/factory.ts - _buildElement
 let hasDataTextProcessed = { value: false };
 
-// _processChild에서 data('text') 처리 시 플래그 설정
+// Set flag when processing data('text') in _processChild
 if (isDataText) {
   hasDataTextProcessed.value = true;
   // ...
 }
 
-// collapse 방지
+// Prevent collapse
 if (hasDataTextProcessed.value) {
-  // collapse하지 않음
+  // Don't collapse
 }
 ```
 
-**결과**: 부분적으로 해결되었지만, reconciler에서 text-only VNode 처리 복잡성 문제가 남아있음
+**Result**: Partially resolved, but reconciler's text-only VNode processing complexity issue remained
 
-### 3단계: 근본적 해결 방안
+### Stage 3: Fundamental Solution
 
-**핵심 아이디어**: 모든 텍스트를 `<span>`으로 감싸기
+**Core Idea**: Wrap all text in `<span>`
 
-이 접근의 장점:
-1. **일관성**: 모든 텍스트가 항상 element 내부에 존재
-2. **단순화**: reconciler가 text-only VNode를 별도로 처리할 필요 없음
-3. **최적화**: 에디터 사용 사례에 특화된 구조
+Advantages of this approach:
+1. **Consistency**: All text always exists inside element
+2. **Simplification**: Reconciler doesn't need to handle text-only VNodes separately
+3. **Optimization**: Structure specialized for editor use cases
 
-## 최종 해결 방안
+## Final Solution
 
-### 아키텍처 결정
+### Architecture Decision
 
-**원칙**: "텍스트는 두 가지 경로로 처리된다"
+**Principle**: "Text is processed in two paths"
 
-1. **`data('text')` 처리**: 항상 children에 유지하여 mark/decorator 적용 가능
-2. **일반 텍스트**: `vnode.text`로 collapse하여 성능 최적화
+1. **`data('text')` Processing**: Always kept in children to allow mark/decorator application
+2. **Regular Text**: Collapsed to `vnode.text` for performance optimization
 
-이 결정은 에디터의 특성에 맞춘 최적화입니다:
-- `data('text')`는 mark/decorator 처리를 위해 항상 children에 유지
-- 일반 텍스트는 collapse하여 VNode 구조 단순화
-- 각 경로는 명확히 구분되어 일관된 처리 보장
+This decision is an optimization tailored to editor characteristics:
+- `data('text')` always kept in children for mark/decorator processing
+- Regular text collapsed to simplify VNode structure
+- Each path clearly separated to ensure consistent processing
 
-**자세한 내용**: [`text-rendering-architecture.md`](./text-rendering-architecture.md) 참고
+**Details**: See [`text-rendering-architecture.md`](./text-rendering-architecture.md)
 
-### 구현 변경사항
+### Implementation Changes
 
-#### 1. VNode Builder 수정
+#### 1. VNode Builder Modifications
 
-**파일**: `packages/renderer-dom/src/vnode/factory.ts`
+**File**: `packages/renderer-dom/src/vnode/factory.ts`
 
 ##### `_buildMarkedRunVNode` (line 447-565)
 
 ```typescript
-// 변경 전
+// Before change
 let inner: VNode = {
   attrs: {},
   style: {},
@@ -135,9 +135,9 @@ let inner: VNode = {
   text: String(run?.text ?? '')  // ❌ text-only VNode
 };
 
-// 변경 후
+// After change
 let inner: VNode = {
-  tag: 'span',  // ✅ 항상 span으로 감싸기
+  tag: 'span',  // ✅ Always wrap in span
   attrs: {},
   style: {},
   children: [
@@ -154,7 +154,7 @@ let inner: VNode = {
 ##### `_buildMarkedRunsWithDecorators` (line 2308-2314)
 
 ```typescript
-// 변경 전 (mark가 없는 경우)
+// Before change (when no marks)
 inner = {
   tag: 'span',
   attrs: {},
@@ -163,7 +163,7 @@ inner = {
   text: decoratorRun.text  // ❌ text-only
 };
 
-// 변경 후
+// After change
 inner = {
   tag: 'span',
   attrs: {},
@@ -177,9 +177,9 @@ inner = {
 };
 ```
 
-#### 2. VNode 구조 변화
+#### 2. VNode Structure Changes
 
-**변경 전**:
+**Before Change**:
 ```json
 {
   "tag": "strong",
@@ -192,7 +192,7 @@ inner = {
 }
 ```
 
-**변경 후**:
+**After Change**:
 ```json
 {
   "tag": "strong",
@@ -210,16 +210,16 @@ inner = {
 }
 ```
 
-#### 3. Reconciler 수정
+#### 3. Reconciler Modifications
 
-**파일**: `packages/renderer-dom/src/reconcile/reconciler.ts`
+**File**: `packages/renderer-dom/src/reconcile/reconciler.ts`
 
-##### 3.1. `vnode.text` 처리 추가
+##### 3.1. Added `vnode.text` Processing
 
-VNodeBuilder에서 단일 텍스트 child가 `vnode.text`로 collapse되는 경우를 처리하기 위한 로직이 추가되었습니다:
+Logic added to handle cases where single text child is collapsed to `vnode.text` in VNodeBuilder:
 
 ```typescript
-// reconcileVNodeChildren 시작 부분에 추가
+// Added at start of reconcileVNodeChildren
 if (nextVNode.text !== undefined && (!nextVNode.children || nextVNode.children.length === 0)) {
   const doc = parent.ownerDocument || document;
   const existingTextNode = parent.firstChild && parent.firstChild.nodeType === 3 
@@ -227,10 +227,10 @@ if (nextVNode.text !== undefined && (!nextVNode.children || nextVNode.children.l
     : null;
   
   if (existingTextNode && prevVNode?.text !== undefined) {
-    // 기존 text node 업데이트
+    // Update existing text node
     existingTextNode.textContent = String(nextVNode.text);
   } else {
-    // 새 text node 생성
+    // Create new text node
     while (parent.firstChild) {
       parent.removeChild(parent.firstChild);
     }
@@ -240,30 +240,30 @@ if (nextVNode.text !== undefined && (!nextVNode.children || nextVNode.children.l
 }
 ```
 
-이 로직은 다음 경우를 처리합니다:
-- `element('span', {}, ['Test Component'])` - 문자열 배열 직접 사용
-- `element('span', {}, [text('Test Component')])` - text() 함수 사용
-- `element('span', 'Test Component')` - 문자열 직접 사용 (오버로드)
+This logic handles:
+- `element('span', {}, ['Test Component'])` - Direct string array usage
+- `element('span', {}, [text('Test Component')])` - Using text() function
+- `element('span', 'Test Component')` - Direct string usage (overload)
 
-##### 3.2. text-only VNode 처리 (제거됨)
+##### 3.2. text-only VNode Processing (Removed)
 
-이전에 존재했던 text-only VNode를 별도로 처리하는 복잡한 로직은 제거되었습니다. 이제 모든 텍스트는 `<span>`으로 감싸지거나 `vnode.text`로 처리됩니다:
+Complex logic that previously handled text-only VNodes separately has been removed. Now all text is either wrapped in `<span>` or processed as `vnode.text`:
 
 ```typescript
-// 제거된 코드 (이제 불필요)
-// text-only VNode를 children에서 직접 처리하는 로직은 제거됨
-// 대신 vnode.text로 collapse되거나 span으로 감싸짐
+// Removed code (now unnecessary)
+// Logic that directly processed text-only VNodes from children is removed
+// Instead, collapsed to vnode.text or wrapped in span
 ```
 
-### 4. 텍스트 렌더링 테스트 추가
+### 4. Text Rendering Tests Added
 
-**파일**: `packages/renderer-dom/test/core/vnode-builder-text-rendering.test.ts`
+**File**: `packages/renderer-dom/test/core/vnode-builder-text-rendering.test.ts`
 
-다양한 텍스트 렌더링 방법을 검증하는 새로운 테스트 파일이 추가되었습니다:
+New test file added to verify various text rendering methods:
 
 ```typescript
 describe('VNodeBuilder Text Rendering', () => {
-  // 문자열 배열 직접 사용
+  // Direct string array usage
   it('should render text from string array in element children', () => {
     define('test-component', element('div', {}, [
       element('span', {}, ['Test Component'])
@@ -271,7 +271,7 @@ describe('VNodeBuilder Text Rendering', () => {
     // ...
   });
 
-  // text() 함수 사용
+  // Using text() function
   it('should render text from text() function in element children', () => {
     define('test-component', element('div', {}, [
       element('span', {}, [text('Test Component')])
@@ -279,7 +279,7 @@ describe('VNodeBuilder Text Rendering', () => {
     // ...
   });
 
-  // 문자열 직접 사용 (오버로드)
+  // Direct string usage (overload)
   it('should render text from string parameter (element overload)', () => {
     define('test-component', element('div', {}, [
       element('span', 'Test Component')
@@ -289,154 +289,153 @@ describe('VNodeBuilder Text Rendering', () => {
 });
 ```
 
-이 테스트들은 다음을 검증합니다:
-- ✅ `element('span', {}, ['Test Component'])` - 문자열 배열 직접 사용
-- ✅ `element('span', {}, [text('Test Component')])` - text() 함수 사용
-- ✅ `element('span', 'Test Component')` - 문자열 직접 사용 (오버로드)
-- ✅ 혼합 콘텐츠 (텍스트 + 요소)
-- ✅ 빈 텍스트 처리
+These tests verify:
+- ✅ `element('span', {}, ['Test Component'])` - Direct string array usage
+- ✅ `element('span', {}, [text('Test Component')])` - Using text() function
+- ✅ `element('span', 'Test Component')` - Direct string usage (overload)
+- ✅ Mixed content (text + elements)
+- ✅ Empty text handling
 
-### 5. 기존 테스트 수정
+### 5. Existing Tests Modified
 
-모든 테스트의 기대값을 새로운 VNode 구조에 맞게 수정:
+All tests' expected values modified to match new VNode structure:
 
-**변경 예시**:
+**Change Example**:
 ```html
-<!-- 변경 전 -->
+<!-- Before change -->
 <strong class="mark-bold">Bold</strong>
 
-<!-- 변경 후 -->
+<!-- After change -->
 <strong class="mark-bold"><span>Bold</span></strong>
 ```
 
-**수정된 테스트 파일들**:
+**Modified Test Files**:
 - `mark-decorator-complex.test.ts`
 - `mark-rendering-verification.test.ts`
 - `block-decorator-spec.test.ts`
 - `reconciler-advanced-cases.test.ts`
 - `reconciler-complex-scenarios.test.ts`
 - `reconciler-text-vnode.test.ts`
-- `vnode-builder-text-rendering.test.ts` (신규)
+- `vnode-builder-text-rendering.test.ts` (new)
 
-## 영향 범위
+## Impact Scope
 
-### 긍정적 영향
+### Positive Impact
 
-1. **코드 단순화**
-   - Reconciler의 text-only VNode 처리 로직 제거
-   - VNode 구조가 더 일관적이고 예측 가능
+1. **Code Simplification**
+   - Removed reconciler's text-only VNode processing logic
+   - VNode structure more consistent and predictable
 
-2. **버그 수정**
-   - `inline-text` 모델의 mark/decorator 적용 문제 해결
-   - 텍스트 중복 렌더링 문제 해결
-   - VNode 구조 오류 (text + children 동시 존재) 해결
+2. **Bug Fixes**
+   - Fixed mark/decorator application issue for `inline-text` models
+   - Fixed text duplication rendering issue
+   - Fixed VNode structure error (text + children existing simultaneously)
 
-3. **성능 개선**
-   - Reconciler 로직 단순화로 처리 속도 향상
-   - DOM 조작 최적화
+3. **Performance Improvement**
+   - Faster processing due to reconciler logic simplification
+   - Optimized DOM manipulation
 
-4. **유지보수성 향상**
-   - 일관된 VNode 구조로 디버깅 용이
-   - 새로운 기능 추가 시 예측 가능한 동작
+4. **Maintainability Improvement**
+   - Easier debugging with consistent VNode structure
+   - Predictable behavior when adding new features
 
-### 주의사항
+### Notes
 
-1. **DOM 구조 변화**
-   - 모든 텍스트가 추가 `<span>`으로 감싸짐
-   - CSS 선택자에 영향이 있을 수 있음 (하지만 일반적으로 문제 없음)
+1. **DOM Structure Changes**
+   - All text wrapped in additional `<span>`
+   - May affect CSS selectors (but generally no issues)
 
-2. **테스트 업데이트 필요**
-   - 모든 테스트의 기대값을 새로운 구조에 맞게 수정 완료
+2. **Test Updates Needed**
+   - All tests' expected values modified to match new structure (completed)
 
-## 검증 결과
+## Verification Results
 
-### 테스트 통과 현황
+### Test Pass Status
 
-✅ **모든 주요 테스트 통과**:
-- `reconciler-advanced-cases.test.ts` - 23/23 통과
-- `dom-renderer-multiple-render.test.ts` - 6/6 통과
-- `reconciler-update-flow.test.ts` - 8/8 통과
-- `reconciler-complex-scenarios.test.ts` - 8/8 통과
-- `vnode-builder-verification.test.ts` - 13/13 통과
-- `vnode-complex-marks-decorators.test.ts` - 5/5 통과
-- `reconciler-text-vnode.test.ts` - 4/4 통과
-- `decorator-types.test.ts` - 9/9 통과
-- `mark-decorator-complex.test.ts` - 16/16 통과
-- `mark-rendering-verification.test.ts` - 모든 테스트 통과
-- `vnode-builder-text-rendering.test.ts` - 10/10 통과 (신규)
+✅ **All Major Tests Pass**:
+- `reconciler-advanced-cases.test.ts` - 23/23 pass
+- `dom-renderer-multiple-render.test.ts` - 6/6 pass
+- `reconciler-update-flow.test.ts` - 8/8 pass
+- `reconciler-complex-scenarios.test.ts` - 8/8 pass
+- `vnode-builder-verification.test.ts` - 13/13 pass
+- `vnode-complex-marks-decorators.test.ts` - 5/5 pass
+- `reconciler-text-vnode.test.ts` - 4/4 pass
+- `decorator-types.test.ts` - 9/9 pass
+- `mark-decorator-complex.test.ts` - 16/16 pass
+- `mark-rendering-verification.test.ts` - All tests pass
+- `vnode-builder-text-rendering.test.ts` - 10/10 pass (new)
 
-### 기능 검증
+### Feature Verification
 
-1. ✅ `inline-text` 모델의 텍스트가 올바르게 VNode로 변환됨
-2. ✅ Mark가 텍스트에 올바르게 적용됨
-3. ✅ Inline decorator가 텍스트에 올바르게 적용됨
-4. ✅ Block decorator가 올바르게 렌더링됨
-5. ✅ 여러 번의 render() 호출 시 텍스트가 중복되지 않음
-6. ✅ 복잡한 중첩 구조에서도 텍스트가 올바르게 렌더링됨
-7. ✅ `element('span', {}, ['Test Component'])` - 문자열 배열 직접 사용이 정상 작동
-8. ✅ `element('span', {}, [text('Test Component')])` - text() 함수 사용이 정상 작동
-9. ✅ `element('span', 'Test Component')` - 문자열 직접 사용 (오버로드)이 정상 작동
-10. ✅ `vnode.text`로 collapse된 텍스트가 reconciler에서 올바르게 렌더링됨
+1. ✅ Text from `inline-text` model correctly converted to VNode
+2. ✅ Marks correctly applied to text
+3. ✅ Inline decorators correctly applied to text
+4. ✅ Block decorators correctly rendered
+5. ✅ Text not duplicated on multiple render() calls
+6. ✅ Text correctly rendered even in complex nested structures
+7. ✅ `element('span', {}, ['Test Component'])` - Direct string array usage works correctly
+8. ✅ `element('span', {}, [text('Test Component')])` - Using text() function works correctly
+9. ✅ `element('span', 'Test Component')` - Direct string usage (overload) works correctly
+10. ✅ Text collapsed to `vnode.text` correctly rendered in reconciler
 
-## 아키텍처 결정의 이유
+## Reasons for Architecture Decision
 
-### 왜 모든 텍스트를 `<span>`으로 감쌀까?
+### Why Wrap All Text in `<span>`?
 
-1. **에디터의 특성**
-   - 에디터에서 텍스트는 거의 항상 mark나 decorator와 함께 사용됨
-   - 텍스트만 단독으로 존재하는 경우가 거의 없음
-   - 구조의 일관성이 성능과 유지보수성에 더 중요
+1. **Editor Characteristics**
+   - Text in editors almost always used with marks or decorators
+   - Cases where text exists alone are rare
+   - Structure consistency more important for performance and maintainability
 
-2. **Reconciler 단순화**
-   - text-only VNode를 별도로 처리하는 복잡한 로직 불필요
-   - 모든 VNode가 element를 가지고 있다고 가정 가능
-   - DOM 조작 로직이 더 단순하고 예측 가능
+2. **Reconciler Simplification**
+   - No need for complex logic to handle text-only VNodes separately
+   - Can assume all VNodes have elements
+   - DOM manipulation logic simpler and more predictable
 
-3. **성능 최적화**
-   - 일반적인 reconciler 패턴과 다를 수 있지만, 에디터 사용 사례에 더 적합
-   - 불필요한 조건 분기 제거로 처리 속도 향상
+3. **Performance Optimization**
+   - May differ from typical reconciler patterns, but more suitable for editor use cases
+   - Improved processing speed by removing unnecessary condition branches
 
-4. **유지보수성**
-   - 일관된 구조로 디버깅 용이
-   - 새로운 기능 추가 시 예측 가능한 동작
+4. **Maintainability**
+   - Easier debugging with consistent structure
+   - Predictable behavior when adding new features
 
-## 최근 추가 수정 (2024)
+## Recent Additional Fixes (2024)
 
-### 텍스트 렌더링 버그 수정
+### Text Rendering Bug Fix
 
-**문제**: `element('span', {}, ['Test Component'])`나 `element('span', {}, [text('Test Component')])`에서 텍스트가 렌더링되지 않음
+**Problem**: Text not rendered in `element('span', {}, ['Test Component'])` or `element('span', {}, [text('Test Component')])`
 
-**원인**: 
-- VNodeBuilder에서 단일 텍스트 child가 `vnode.text`로 collapse됨
-- Reconciler의 `reconcileVNodeChildren`에서 `vnode.text`를 처리하지 않음
+**Cause**: 
+- Single text child collapsed to `vnode.text` in VNodeBuilder
+- `reconcileVNodeChildren` in Reconciler doesn't process `vnode.text`
 
-**해결**:
-- `reconcileVNodeChildren` 시작 부분에 `vnode.text` 처리 로직 추가
-- `vnode.text`가 있고 `children`이 없으면 텍스트 노드를 직접 렌더링
+**Solution**:
+- Added `vnode.text` processing logic at start of `reconcileVNodeChildren`
+- Directly render text node if `vnode.text` exists and `children` is empty
 
-**결과**:
-- ✅ `element('span', {}, ['Test Component'])` 정상 작동
-- ✅ `element('span', {}, [text('Test Component')])` 정상 작동
-- ✅ `element('span', 'Test Component')` 정상 작동
-- ✅ 텍스트 렌더링 테스트 추가 (`vnode-builder-text-rendering.test.ts`)
+**Result**:
+- ✅ `element('span', {}, ['Test Component'])` works correctly
+- ✅ `element('span', {}, [text('Test Component')])` works correctly
+- ✅ `element('span', 'Test Component')` works correctly
+- ✅ Text rendering tests added (`vnode-builder-text-rendering.test.ts`)
 
-## 결론
+## Conclusion
 
-이번 버그 수정은 단순한 버그 픽스가 아니라, 에디터의 특성에 맞춘 아키텍처 개선이었습니다. 모든 텍스트를 `<span>`으로 감싸는 결정과 `vnode.text` 처리 로직 추가를 통해:
+This bug fix was not just a simple bug fix, but an architecture improvement tailored to editor characteristics. By deciding to wrap all text in `<span>` and adding `vnode.text` processing logic:
 
-1. ✅ 핵심 버그 해결: `inline-text` 모델의 mark/decorator 적용 문제
-2. ✅ 텍스트 렌더링 버그 해결: 문자열 배열 및 text() 함수 사용 시 텍스트가 정상 렌더링됨
-3. ✅ 코드 단순화: Reconciler 로직 대폭 간소화
-4. ✅ 성능 향상: 불필요한 조건 분기 제거
-5. ✅ 유지보수성 향상: 일관된 VNode 구조
-6. ✅ 테스트 커버리지 향상: 텍스트 렌더링 전용 테스트 추가
+1. ✅ Core Bug Fixed: Mark/decorator application issue for `inline-text` models
+2. ✅ Text Rendering Bug Fixed: Text correctly rendered when using string arrays and text() function
+3. ✅ Code Simplification: Reconciler logic significantly simplified
+4. ✅ Performance Improvement: Removed unnecessary condition branches
+5. ✅ Maintainability Improvement: Consistent VNode structure
+6. ✅ Test Coverage Improvement: Added dedicated text rendering tests
 
-이러한 변경으로 renderer-dom 패키지의 안정성과 유지보수성이 크게 향상되었습니다.
+These changes significantly improved stability and maintainability of the renderer-dom package.
 
-## 참고 문서
+## Reference Documents
 
-- `reconciler-text-vnode-issue.md`: 문제 분석 문서
-- `reconciler-text-vnode-solution.md`: 해결 방안 문서
-- `text-rendering-architecture.md`: 텍스트 렌더링 아키텍처 상세 설명
-- `reconciler-update-flow.md`: Reconciler 업데이트 흐름 문서
-
+- `reconciler-text-vnode-issue.md`: Problem analysis document
+- `reconciler-text-vnode-solution.md`: Solution document
+- `text-rendering-architecture.md`: Detailed text rendering architecture explanation
+- `reconciler-update-flow.md`: Reconciler update flow document

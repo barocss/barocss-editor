@@ -1,14 +1,14 @@
 # Barocss Architecture - Design Principles
 
-## 핵심 설계 원칙
+## Core Design Principles
 
-### 1. VNode vs Reconcile 분리 원칙 ⭐
+### 1. VNode vs Reconcile Separation Principle ⭐
 
-**가장 중요한 아키텍처 원칙**: VNode는 reconcile에서 동적으로 판단되지 않습니다.
+**Most important architecture principle**: VNode is not dynamically determined in reconcile.
 
-#### VNode Build (VNodeBuilder 역할)
+#### VNode Build (VNodeBuilder's Role)
 ```typescript
-// VNodeBuilder는 VNode를 생성만 담당
+// VNodeBuilder only creates VNode
 build(nodeType: string, data: ModelData): VNode {
   const template = this.registry.getTemplate(nodeType);
   const vnode = this._buildElement(template, data);
@@ -16,75 +16,75 @@ build(nodeType: string, data: ModelData): VNode {
 }
 ```
 
-**역할**: "무엇을 렌더링할지" 결정 (Template → VNode)
-**시점**: Render 전에 완료
-**결과**: 완성된 VNode tree
+**Role**: Determines "what to render" (Template → VNode)
+**Timing**: Completed before render
+**Result**: Complete VNode tree
 
-#### Reconcile (DOMReconcile 역할)
+#### Reconcile (DOMReconcile's Role)
 ```typescript
-// DOMReconcile은 이미 만들어진 VNode를 받아서 처리
+// DOMReconcile receives already-created VNode and processes it
 reconcile(prevVNode: VNode | null, nextVNode: VNode | null, 
           container: HTMLElement, context: ReconcileContext): void {
-  // 1. WIP 트리 생성 (nextVNode는 이미 완성됨)
+  // 1. Create WIP tree (nextVNode is already complete)
   const wipTree = this.createWorkInProgressTree(nextVNode, container, prevVNode);
   
-  // 2. 변경사항 감지
+  // 2. Detect changes
   this.workInProgressManager.detectChangesAndAssignPriority(prevVNode, nextVNode);
   
-  // 3. DOM 업데이트
+  // 3. Update DOM
   this.processByPriority(context);
 }
 ```
 
-**역할**: "어떻게 DOM을 업데이트할지" 결정 (VNode → DOM)
-**시점**: Render 중
-**결과**: DOM 변경사항 적용
+**Role**: Determines "how to update DOM" (VNode → DOM)
+**Timing**: During render
+**Result**: DOM changes applied
 
-### 2. 단방향 데이터 흐름
+### 2. Unidirectional Data Flow
 
 ```
-Build Phase (VNode 생성)
+Build Phase (VNode Creation)
   ↓
 DSL → VNodeBuilder → VNode Tree
   ↓
-Reconcile Phase (DOM 업데이트)
+Reconcile Phase (DOM Update)
   ↓
 VNode Tree → DOMReconcile → DOM
 ```
 
-**핵심**: VNode와 DOM 업데이트는 완전히 분리된 단계
+**Core**: VNode and DOM updates are completely separate phases
 
-### 3. 책임 분리 (Separation of Concerns)
+### 3. Separation of Concerns
 
-#### VNodeBuilder의 책임
-- ✅ Template lookup 및 해석
+#### VNodeBuilder's Responsibilities
+- ✅ Template lookup and interpretation
 - ✅ Data binding
 - ✅ Component resolution
-- ✅ 조건부 로직 평가 (`when` 등)
-- ✅ VNode tree 생성
-- ❌ DOM 조작 없음
-- ❌ 이전 상태 기억 없음
+- ✅ Conditional logic evaluation (`when`, etc.)
+- ✅ VNode tree creation
+- ❌ No DOM manipulation
+- ❌ No previous state memory
 
-#### DOMReconcile의 책임
-- ✅ VNode 차이 계산
-- ✅ 변경 최소화
-- ✅ DOM 조작
-- ✅ State 관리 (Component lifecycle)
-- ❌ VNode 생성 없음
-- ❌ Template 해석 없음
+#### DOMReconcile's Responsibilities
+- ✅ VNode difference calculation
+- ✅ Change minimization
+- ✅ DOM manipulation
+- ✅ State management (Component lifecycle)
+- ❌ No VNode creation
+- ❌ No Template interpretation
 
-### 4. 단방향 흐름의 장점
+### 4. Benefits of Unidirectional Flow
 
-#### 예측 가능성
+#### Predictability
 ```typescript
-// 항상 VNode가 먼저 완성됨
-const vnode = builder.build('paragraph', data);  // 완성됨
-reconcile(prevVNode, vnode, container, context); // 이미 완성된 VNode 사용
+// VNode is always completed first
+const vnode = builder.build('paragraph', data);  // completed
+reconcile(prevVNode, vnode, container, context); // uses already-completed VNode
 ```
 
-#### 테스트 용이성
+#### Testability
 ```typescript
-// VNodeBuilder 테스트
+// VNodeBuilder test
 describe('VNodeBuilder', () => {
   it('should build VNode from template', () => {
     const vnode = builder.build('paragraph', { text: 'Hello' });
@@ -93,7 +93,7 @@ describe('VNodeBuilder', () => {
   });
 });
 
-// DOMReconcile 테스트
+// DOMReconcile test
 describe('DOMReconcile', () => {
   it('should update DOM from VNode changes', () => {
     const prevVNode = { tag: 'p', text: 'Old' };
@@ -106,29 +106,29 @@ describe('DOMReconcile', () => {
 });
 ```
 
-#### 순수성 보장
+#### Purity Guarantee
 ```typescript
-// VNodeBuilder는 항상 순수 함수
+// VNodeBuilder is always a pure function
 const vnode = builder.build(type, data);
 const vnode2 = builder.build(type, data);
-expect(vnode).toEqual(vnode2);  // 항상 동일
+expect(vnode).toEqual(vnode2);  // always identical
 ```
 
-### 5. 상태 관리 분리
+### 5. State Management Separation
 
 #### VNodeBuilder: Side-effect Free
 ```typescript
-// VNodeBuilder는 상태를 변경하지 않음
+// VNodeBuilder does not change state
 build(nodeType: string, data: ModelData): VNode {
-  // Template lookup만 수행
-  // State mutation 없음
-  // DOM 조작 없음
+  // Only performs template lookup
+  // No state mutation
+  // No DOM manipulation
 }
 ```
 
 #### DOMReconcile: State Management
 ```typescript
-// DOMReconcile만 상태를 관리
+// Only DOMReconcile manages state
 reconcile(prevVNode, nextVNode, container, context) {
   // Component lifecycle
   this.componentManager.updateComponent(...);
@@ -138,75 +138,75 @@ reconcile(prevVNode, nextVNode, container, context) {
 }
 ```
 
-### 6. 실전 예제
+### 6. Practical Examples
 
-#### 잘못된 설계 (Reconcile에서 VNode 판단)
+#### Bad Design (Determining VNode in Reconcile)
 ```typescript
-// ❌ 나쁜 설계
+// ❌ Bad design
 reconcile(prevVNode, nextVNode, container, context) {
-  const template = this.registry.getTemplate(nextVNode.type);  // ❌ reconcile에서 템플릿 해석
-  const computedVNode = this.buildVNode(template, data);      // ❌ reconcile에서 VNode 생성
+  const template = this.registry.getTemplate(nextVNode.type);  // ❌ template interpretation in reconcile
+  const computedVNode = this.buildVNode(template, data);      // ❌ VNode creation in reconcile
   
-  // ... DOM 업데이트
+  // ... DOM update
 }
 ```
 
-**문제점**:
-- 책임이 섞임
-- 테스트 어려움
-- 예측 불가능
-- 상태 관리 복잡
+**Problems**:
+- Mixed responsibilities
+- Hard to test
+- Unpredictable
+- Complex state management
 
-#### 올바른 설계 (현재 구조)
+#### Good Design (Current Structure)
 ```typescript
-// ✅ 좋은 설계
+// ✅ Good design
 
-// Step 1: VNode 생성 (Render 전)
+// Step 1: VNode creation (before render)
 const vnode = builder.build('paragraph', { text: 'Hello' });
-// → 완성된 VNode tree
+// → Complete VNode tree
 
-// Step 2: Reconcile (Render 중)
+// Step 2: Reconcile (during render)
 reconcile(prevVNode, vnode, container, context);
-// → VNode 차이만 계산하여 DOM 업데이트
+// → Only calculates VNode differences and updates DOM
 ```
 
-**장점**:
-- 명확한 책임 분리
-- 테스트 용이
-- 예측 가능
-- 순수 함수 보장
+**Benefits**:
+- Clear separation of responsibilities
+- Easy to test
+- Predictable
+- Pure function guarantee
 
-### 7. 전체 파이프라인
+### 7. Complete Pipeline
 
 ```
 ┌─────────────────────────────────────────────┐
 │ 1. Build Phase (VNodeBuilder)             │
-│  - "무엇을 렌더링할지" 결정                  │
-│  - Template → VNode                         │
-│  - 순수 함수, side-effect 없음              │
+│  - Determines "what to render"            │
+│  - Template → VNode                        │
+│  - Pure function, no side effects          │
 └────────────────────┬────────────────────────┘
                      │
-                     ▼ 완성된 VNode
+                     ▼ Completed VNode
 ┌─────────────────────────────────────────────┐
 │ 2. Reconcile Phase (DOMReconcile)          │
-│  - "어떻게 업데이트할지" 결정               │
+│  - Determines "how to update"              │
 │  - VNode → DOM                             │
-│  - 상태 관리, DOM 조작                      │
+│  - State management, DOM manipulation      │
 └────────────────────┬────────────────────────┘
                      │
-                     ▼ 최종 DOM
+                     ▼ Final DOM
 ```
 
-### 8. 수학적 표현
+### 8. Mathematical Expression
 
 ```
-// Build Phase (순수 함수)
+// Build Phase (pure function)
 f_template : Template × Data → VNode
 
-// Reconcile Phase (상태를 가진 함수)
+// Reconcile Phase (function with state)
 f_reconcile : VNode × VNode × Container × State → DOM
 
-// 전체 파이프라인
+// Complete pipeline
 render = f_reconcile ∘ f_template
 
 where:
@@ -214,64 +214,61 @@ where:
   f_reconcile has side effects (impure but deterministic)
 ```
 
-### 9. 실전 시나리오
+### 9. Practical Scenario
 
 ```typescript
-// 시나리오: 텍스트 업데이트
+// Scenario: Text update
 
-// 1. Build Phase: VNode 생성
+// 1. Build Phase: VNode creation
 const prevVNode = builder.build('paragraph', { text: 'Old' });
 // → { tag: 'p', text: 'Old' }
 
 const nextVNode = builder.build('paragraph', { text: 'New' });
 // → { tag: 'p', text: 'New' }
 
-// 2. Reconcile Phase: DOM 업데이트
+// 2. Reconcile Phase: DOM update
 reconcile(prevVNode, nextVNode, container, context);
 // → detectChanges(): ['text']
 // → processElementNode(): domNode.textContent = 'New'
-// → finalizeDOMUpdate(): 이미 DOM에 있음, skip append
+// → finalizeDOMUpdate(): already in DOM, skip append
 
-// 결과: <p>Old</p> → <p>New</p>
-// (전체 재생성 없이 텍스트만 변경)
+// Result: <p>Old</p> → <p>New</p>
+// (only text changed, no full regeneration)
 ```
 
-### 10. 핵심 원칙 요약
+### 10. Core Principles Summary
 
-1. **분리**: VNode 생성과 DOM 업데이트는 완전히 분리
-2. **단방향**: Build → Reconcile 순서 보장
-3. **순수성**: VNodeBuilder는 순수 함수
-4. **예측 가능**: VNode는 항상 먼저 완성됨
-5. **책임 명확**: 각 레이어의 역할이 분명함
-6. **테스트 용이**: 각 레이어를 독립적으로 테스트 가능
+1. **Separation**: VNode creation and DOM updates are completely separate
+2. **Unidirectional**: Build → Reconcile order guaranteed
+3. **Purity**: VNodeBuilder is a pure function
+4. **Predictable**: VNode is always completed first
+5. **Clear responsibilities**: Each layer's role is clear
+6. **Easy to test**: Each layer can be tested independently
 
-## 이 원칙이 중요한 이유
+## Why This Principle Matters
 
-### 1. 디버깅 용이성
-- VNode 문제는 Build Phase에서 찾기
-- DOM 문제는 Reconcile Phase에서 찾기
+### 1. Debugging Ease
+- Find VNode issues in Build Phase
+- Find DOM issues in Reconcile Phase
 
-### 2. 성능 최적화
-- VNode 생성은 캐싱 가능 (순수 함수)
-- Reconcile은 변경된 부분만 처리
+### 2. Performance Optimization
+- VNode creation can be cached (pure function)
+- Reconcile only processes changed parts
 
-### 3. 유지보수성
-- 각 레이어의 책임이 명확
-- 변경 영향 범위가 제한적
+### 3. Maintainability
+- Each layer's responsibilities are clear
+- Limited scope of change impact
 
-### 4. 확장성
-- 새로운 템플릿 타입 추가 → VNodeBuilder만 수정
-- 새로운 DOM 조작 추가 → DOMReconcile만 수정
+### 4. Extensibility
+- Add new template type → only modify VNodeBuilder
+- Add new DOM manipulation → only modify DOMReconcile
 
-## 결론
+## Conclusion
 
-**Barocss의 핵심 설계 원칙**: VNode는 reconcile에서 동적으로 판단되지 않습니다.
+**Barocss's core design principle**: VNode is not dynamically determined in reconcile.
 
-이것은:
-- **분리의 원칙** (Separation of Concerns)
-- **단방향 데이터 흐름** (Unidirectional Data Flow)  
-- **순수 함수 우선** (Pure Functions First)
-- **책임의 명확성** (Clear Responsibilities)
-
-를 보장합니다.
-
+This ensures:
+- **Separation of Concerns**
+- **Unidirectional Data Flow**
+- **Pure Functions First**
+- **Clear Responsibilities**

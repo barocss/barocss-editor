@@ -1,25 +1,25 @@
 # Transaction Lock System Specification
 
-## 개요
+## Overview
 
-DataStore 기반의 글로벌 락 및 큐 관리 시스템을 통한 트랜잭션 순서 보장 메커니즘에 대한 명세서입니다.
+This document defines the transaction ordering mechanism that uses DataStore-based global locks and a queue. The system guarantees execution order, prevents concurrency issues, and provides tracing/debugging for lock ownership.
 
-## 목적
+## Goals
 
-- **순서 보장**: 트랜잭션이 시작된 순서대로 완료되도록 보장
-- **동시성 제어**: 한 번에 하나의 트랜잭션만 실행하여 데이터 일관성 유지
-- **FIFO 처리**: First In, First Out 방식으로 트랜잭션 처리
-- **타임아웃 관리**: 무한 대기 방지를 위한 타임아웃 설정
-- **락 추적**: 고유 락 ID를 통한 소유자 추적 및 디버깅 지원
-- **안전한 해제**: 락 ID 검증을 통한 안전한 락 해제
+- **Order guarantee**: transactions finish in the order they start
+- **Concurrency control**: only one transaction executes at a time to keep data consistent
+- **FIFO processing**: First-In, First-Out queueing for transactions
+- **Timeout management**: avoid infinite waits via timeouts
+- **Lock tracing**: unique lock IDs for ownership tracking and debugging
+- **Safe release**: lock ID validation before release
 
-## 아키텍처
+## Architecture
 
-### 1. DataStore 락 관리
+### 1. DataStore lock management
 
 ```typescript
 class DataStore {
-  // 락 상태 관리 (ID 기반)
+  // Lock state (ID-based)
   private _currentLock: {
     lockId: string;
     ownerId: string;
@@ -34,9 +34,9 @@ class DataStore {
     timeoutId: NodeJS.Timeout;
   }> = [];
   
-  private _lockTimeout: number = 5000; // 5초 타임아웃
+  private _lockTimeout: number = 5000; // 5-second timeout
   
-  // 락 통계
+  // Lock stats
   private _lockStats = {
     totalAcquisitions: number;
     totalReleases: number;
@@ -46,75 +46,71 @@ class DataStore {
 }
 ```
 
-### 2. 락 생명주기 (ID 기반)
+### 2. Lock lifecycle (ID-based)
 
 ```
-1. acquireLock(ownerId) 호출
-   ├─ 락이 비어있음 → 고유 락 ID 생성 및 즉시 획득
-   └─ 락이 사용 중 → 큐에 추가 및 대기 (락 ID 생성)
+1. acquireLock(ownerId) is called
+   ├─ If no lock → generate unique lock ID and acquire immediately
+   └─ If locked → create lock ID, enqueue, and wait
 
-2. 트랜잭션 실행
-   ├─ 성공 → commit()
-   └─ 실패 → rollback()
+2. Run transaction
+   ├─ Success → commit()
+   └─ Failure → rollback()
 
-3. releaseLock(lockId) 호출
-   ├─ 락 ID 검증 → 올바른 ID인지 확인
-   ├─ 큐가 비어있음 → 락 해제
-   └─ 큐에 대기 중 → 다음 트랜잭션에게 락 전달
+3. releaseLock(lockId) is called
+   ├─ Validate lock ID
+   ├─ If queue is empty → release lock
+   └─ If queue has waiters → pass lock to next transaction
 ```
 
-## API 명세
+## API
 
-### DataStore 락 API
+### DataStore Lock API
 
 #### `acquireLock(ownerId?: string): Promise<string>`
+Acquire the global lock.
 
-글로벌 락을 획득합니다.
+**Parameters:**
+- `ownerId` (optional): lock owner ID (transaction ID or user ID). Default: `'unknown'`
 
-**매개변수:**
-- `ownerId` (선택사항): 락 소유자 ID (트랜잭션 ID 또는 사용자 ID), 기본값: 'unknown'
+**Behavior:**
+- If unlocked: generate unique lock ID and acquire immediately
+- If locked: generate lock ID, enqueue, and wait
+- Apply timeout (default 5 seconds)
 
-**동작:**
-- 락이 비어있으면 고유 락 ID 생성 및 즉시 획득
-- 락이 사용 중이면 큐에 추가하여 대기 (락 ID 생성)
-- 타임아웃 설정 (기본 5초)
+**Returns:**
+- `Promise<string>`: the lock ID
+- Rejects on timeout
 
-**반환값:**
-- `Promise<string>`: 락 ID 반환
-- `Error`: 타임아웃 시 reject
-
-**예외:**
-- `Lock acquisition timeout after 5000ms for owner {ownerId}`: 타임아웃 발생
+**Errors:**
+- `Lock acquisition timeout after 5000ms for owner {ownerId}`
 
 #### `releaseLock(lockId?: string): void`
+Release the global lock.
 
-글로벌 락을 해제합니다.
+**Parameters:**
+- `lockId` (optional): lock ID to validate before release
 
-**매개변수:**
-- `lockId` (선택사항): 해제할 락 ID (검증용)
+**Behavior:**
+- Validate lock ID when provided
+- Release current lock
+- Hand lock to next queued transaction if any
+- If queue is empty, set lock state to null
 
-**동작:**
-- 락 ID 검증 (제공된 경우)
-- 현재 락 해제
-- 큐에 대기 중인 다음 트랜잭션에게 락 전달
-- 큐가 비어있으면 락 상태를 null로 설정
-
-**예외:**
-- `Lock ID mismatch: expected {expectedId}, got {providedId}`: 락 ID 불일치
+**Errors:**
+- `Lock ID mismatch: expected {expectedId}, got {providedId}`
 
 #### `isLocked(): boolean`
+Check whether the lock is held.
 
-현재 락 상태를 확인합니다.
-
-**반환값:**
-- `true`: 락이 사용 중
-- `false`: 락이 비어있음
+**Returns:**
+- `true`: locked
+- `false`: unlocked
 
 #### `getCurrentLock(): LockInfo | null`
+Return current lock info.
 
-현재 락 정보를 반환합니다.
-
-**반환값:**
+**Returns:**
 ```typescript
 interface LockInfo {
   lockId: string;
@@ -122,21 +118,16 @@ interface LockInfo {
   acquiredAt: number;
 }
 ```
-- `LockInfo`: 현재 락 정보
-- `null`: 락이 비어있음
+- `LockInfo` when locked
+- `null` when unlocked
 
 #### `getQueueLength(): number`
-
-대기 중인 트랜잭션 수를 반환합니다.
-
-**반환값:**
-- `number`: 큐에 대기 중인 트랜잭션 수
+Return the number of waiting transactions.
 
 #### `getQueueInfo(): QueueItem[]`
+Return details of waiting transactions.
 
-대기 중인 트랜잭션 목록을 반환합니다.
-
-**반환값:**
+**Returns:**
 ```typescript
 interface QueueItem {
   lockId: string;
@@ -144,67 +135,59 @@ interface QueueItem {
   waitTime: number;
 }
 ```
-- `QueueItem[]`: 대기 중인 트랜잭션들의 정보
 
 #### `getLockStats(): LockStats`
+Return lock statistics.
 
-락 통계 정보를 반환합니다.
-
-**반환값:**
 ```typescript
 interface LockStats {
-  totalAcquisitions: number;    // 총 락 획득 횟수
-  totalReleases: number;        // 총 락 해제 횟수
-  totalTimeouts: number;        // 총 타임아웃 횟수
-  averageWaitTime: number;      // 평균 대기 시간 (ms)
-  queueLength: number;          // 현재 대기 중인 트랜잭션 수
-  isLocked: boolean;            // 현재 락 상태
-  currentLock: LockInfo | null; // 현재 락 정보
-  queue: QueueItem[];           // 대기 중인 트랜잭션 목록
+  totalAcquisitions: number;    // total lock acquisitions
+  totalReleases: number;        // total releases
+  totalTimeouts: number;        // total timeouts
+  averageWaitTime: number;      // average wait (ms)
+  queueLength: number;          // current queue length
+  isLocked: boolean;            // current lock state
+  currentLock: LockInfo | null; // current lock info
+  queue: QueueItem[];           // queued transactions
 }
 ```
 
 #### `setLockTimeout(timeout: number): void`
-
-락 타임아웃을 설정합니다.
-
-**매개변수:**
-- `timeout`: 타임아웃 시간 (밀리초)
+Set lock timeout in milliseconds.
 
 #### `resetLockStats(): void`
+Reset lock statistics.
 
-락 통계를 초기화합니다.
+### TransactionManager Integration
 
-### TransactionManager 통합
-
-#### 트랜잭션 실행 흐름 (락 ID 기반)
+#### Transaction execution flow (lock ID-based)
 
 ```typescript
 async execute(operations: any[]): Promise<TransactionResult> {
   let lockId: string | null = null;
   
   try {
-    // 1. 글로벌 락 획득
+    // 1. Acquire global lock
     lockId = await this._dataStore.acquireLock('transaction-execution');
 
-    // 2. 트랜잭션 시작
+    // 2. Begin transaction
     this._beginTransaction('DSL Transaction');
 
-    // 3. DataStore overlay 트랜잭션 시작
+    // 3. Begin DataStore overlay transaction
     this._dataStore.begin();
 
-    // 4. 모든 operations 실행 및 결과 수집
+    // 4. Execute all operations and collect results
     const executedOperations: any[] = [];
     for (const operation of operations) {
       const result = await this._executeOperation(operation);
       executedOperations.push(result || operation);
     }
 
-    // 5. overlay 종료 및 커밋
+    // 5. End overlay and commit
     this._dataStore.end();
     this._dataStore.commit();
 
-    // 6. 성공 결과 반환
+    // 6. Return success result
     const result = {
       success: true,
       errors: [],
@@ -212,12 +195,12 @@ async execute(operations: any[]): Promise<TransactionResult> {
       operations: executedOperations
     };
 
-    // 7. 정리
+    // 7. Cleanup
     this._currentTransaction = null;
     return result;
 
   } catch (error: any) {
-    // 에러 발생 시 overlay 롤백
+    // Roll back overlay on error
     try { this._dataStore.rollback(); } catch (_) {}
     
     const transactionId = this._currentTransaction?.sid;
@@ -230,7 +213,7 @@ async execute(operations: any[]): Promise<TransactionResult> {
       operations
     };
   } finally {
-    // 8. 글로벌 락 해제
+    // 8. Release global lock
     if (lockId) {
       this._dataStore.releaseLock(lockId);
     }
@@ -238,30 +221,30 @@ async execute(operations: any[]): Promise<TransactionResult> {
 }
 ```
 
-## 사용 예시
+## Usage Examples
 
-### 1. 기본 사용법 (락 ID 기반)
+### 1. Basic usage (lock ID-based)
 
 ```typescript
-// DataStore 인스턴스 생성
+// Create DataStore instance
 const dataStore = new DataStore();
 
-// 트랜잭션 매니저 생성
+// Create transaction manager
 const transactionManager = new TransactionManager(dataStore);
 
-// DSL을 통한 트랜잭션 실행 (자동으로 락 관리)
+// Run transaction via DSL (lock managed automatically)
 const result = await transaction(editor, [
   create(textNode('inline-text', 'Hello World'))
 ]).commit();
 ```
 
-### 2. 락 상태 모니터링 (향상된 정보)
+### 2. Monitoring lock state (detailed info)
 
 ```typescript
-// 락 상태 확인
+// Check lock state
 console.log('Is locked:', dataStore.isLocked());
 
-// 현재 락 정보 확인
+// Current lock info
 const currentLock = dataStore.getCurrentLock();
 if (currentLock) {
   console.log('Current lock owner:', currentLock.ownerId);
@@ -269,89 +252,86 @@ if (currentLock) {
   console.log('Lock ID:', currentLock.lockId);
 }
 
-// 큐 정보 확인
+// Queue info
 console.log('Queue length:', dataStore.getQueueLength());
 const queueInfo = dataStore.getQueueInfo();
 queueInfo.forEach(item => {
   console.log(`Waiting: ${item.ownerId} (${item.waitTime}ms)`);
 });
 
-// 락 통계 확인
+// Lock statistics
 const stats = dataStore.getLockStats();
 console.log('Lock statistics:', stats);
 ```
 
-### 3. 타임아웃 설정
+### 3. Timeout configuration
 
 ```typescript
-// 타임아웃을 10초로 설정
+// Set timeout to 10 seconds
 dataStore.setLockTimeout(10000);
 
-// 통계 초기화
+// Reset statistics
 dataStore.resetLockStats();
 ```
 
-### 4. 동시 트랜잭션 처리 (락 ID 추적)
+### 4. Concurrent transactions (lock ID tracking)
 
 ```typescript
-// 여러 트랜잭션이 동시에 시작되는 경우
+// Multiple transactions starting simultaneously
 const promises = [
   transaction(editor, [create(textNode('inline-text', 'Text 1'))]).commit(),
   transaction(editor, [create(textNode('inline-text', 'Text 2'))]).commit(),
   transaction(editor, [create(textNode('inline-text', 'Text 3'))]).commit()
 ];
 
-// 순서대로 실행됨 (FIFO)
+// Executed in order (FIFO)
 const results = await Promise.all(promises);
 
-// 각 트랜잭션의 락 정보 확인
+// Check lock info per transaction
 results.forEach((result, index) => {
   console.log(`Transaction ${index + 1} completed:`, result.success);
 });
 ```
 
-### 5. 수동 락 관리 (고급 사용법)
+### 5. Manual lock management (advanced)
 
 ```typescript
-// 수동으로 락 획득/해제
+// Manually acquire/release lock
 const lockId = await dataStore.acquireLock('manual-operation');
 try {
-  // 락이 보호된 작업 수행
+  // Perform protected work
   console.log('Performing protected operation...');
 } finally {
-  // 반드시 락 해제
+  // Always release
   dataStore.releaseLock(lockId);
 }
 ```
 
-## 성능 고려사항
+## Performance Considerations
 
-### 1. 락 오버헤드
+### 1. Lock overhead
+- **Acquire/release**: overhead per transaction
+- **Queue management**: memory for waiting transactions
+- **Timeout handling**: timer management for detection
 
-- **락 획득/해제**: 각 트랜잭션마다 락 관리 오버헤드 발생
-- **큐 관리**: 대기 중인 트랜잭션들의 메모리 사용량
-- **타임아웃 처리**: 타임아웃 감지를 위한 타이머 관리
+### 2. Concurrency limits
+- **Sequential execution**: only one transaction at a time
+- **Wait time**: later transactions must wait
+- **No parallelism**: CPU cores cannot be exploited for concurrency
 
-### 2. 동시성 제한
+### 3. Optimization tips
+- **Minimize lock scope**: protect only what is necessary
+- **Tune timeouts**: choose appropriate timeout values
+- **Monitor stats**: track lock performance metrics
 
-- **순차 실행**: 한 번에 하나의 트랜잭션만 실행 가능
-- **대기 시간**: 나중에 시작된 트랜잭션은 대기해야 함
-- **병렬성 없음**: CPU 멀티코어 활용 불가
+## Error Handling
 
-### 3. 최적화 방안
-
-- **락 범위 최소화**: 필요한 부분만 락으로 보호
-- **타임아웃 조정**: 적절한 타임아웃 값 설정
-- **통계 모니터링**: 락 성능 지표 추적
-
-## 에러 처리
-
-### 1. 타임아웃 에러
+### 1. Timeout errors
 
 ```typescript
 try {
   const lockId = await dataStore.acquireLock('my-operation');
-  // 작업 수행
+  // Work
   dataStore.releaseLock(lockId);
 } catch (error) {
   if (error.message.includes('timeout')) {
@@ -362,7 +342,7 @@ try {
 }
 ```
 
-### 2. 락 해제 실패
+### 2. Lock release failures
 
 ```typescript
 try {
@@ -373,30 +353,30 @@ try {
   } else {
     console.error('Failed to release lock:', error);
   }
-  // 락 상태 복구 로직
+  // Recover lock state if needed
 }
 ```
 
-### 3. 트랜잭션 실패 시 락 해제
+### 3. Always release lock on transaction failure
 
 ```typescript
 let lockId: string | null = null;
 try {
   lockId = await this._dataStore.acquireLock('transaction-sid');
-  // 트랜잭션 실행
+  // Execute transaction
 } catch (error) {
-  // 에러 처리
+  // Handle error
 } finally {
-  // 항상 락 해제 (finally 블록 사용)
+  // Always release in finally
   if (lockId) {
     this._dataStore.releaseLock(lockId);
   }
 }
 ```
 
-## 테스트 시나리오
+## Test Scenarios
 
-### 1. 기본 락 동작 (락 ID 기반)
+### 1. Basic lock behavior (lock ID-based)
 
 ```typescript
 describe('Lock System', () => {
@@ -425,12 +405,12 @@ describe('Lock System', () => {
     ]).commit();
     
     expect(result.success).toBe(true);
-    expect(dataStore.isLocked()).toBe(false); // 락이 자동으로 해제됨
+    expect(dataStore.isLocked()).toBe(false); // Lock automatically released
   });
 });
 ```
 
-### 2. 순서 보장 (락 ID 추적)
+### 2. Order guarantee (lock ID tracking)
 
 ```typescript
 it('should process transactions in order', async () => {
@@ -457,12 +437,12 @@ it('should process transactions in order', async () => {
 });
 ```
 
-### 3. 타임아웃 처리 (락 ID 기반)
+### 3. Timeout handling (lock ID-based)
 
 ```typescript
 it('should timeout when lock is not released', async () => {
   const dataStore = new DataStore();
-  dataStore.setLockTimeout(100); // 100ms 타임아웃
+  dataStore.setLockTimeout(100); // 100ms timeout
   
   const lockId1 = await dataStore.acquireLock('owner-1');
   
@@ -472,65 +452,66 @@ it('should timeout when lock is not released', async () => {
 });
 ```
 
-## 확장 가능성
+## Extensibility
 
-### 1. 세밀한 락 (Fine-grained Locking)
+### 1. Fine-grained locks
 
 ```typescript
-// 노드별 락 관리
+// Per-node lock management
 class NodeLockManager {
   private _nodeLocks = new Map<string, boolean>();
   
   async acquireNodeLock(nodeId: string): Promise<void> {
-    // 특정 노드에 대한 락 획득
+    // Acquire lock for a specific node
   }
   
   releaseNodeLock(nodeId: string): void {
-    // 특정 노드에 대한 락 해제
+    // Release lock for a specific node
   }
 }
 ```
 
-### 2. 우선순위 큐
+### 2. Priority queue
 
 ```typescript
-// 우선순위 기반 트랜잭션 처리
+// Priority-based transaction handling
 class PriorityLockManager {
   private _priorityQueue: Array<{ priority: number; callback: () => void }> = [];
   
   async acquireLock(priority: number = 0): Promise<void> {
-    // 우선순위에 따른 락 획득
+    // Acquire lock based on priority
   }
 }
 ```
 
-### 3. 분산 락
+### 3. Distributed lock
 
 ```typescript
-// 여러 DataStore 인스턴스 간 락 동기화
+// Lock synchronization across multiple DataStore instances
 class DistributedLockManager {
   async acquireDistributedLock(lockId: string): Promise<void> {
-    // 분산 환경에서의 락 관리
+    // Manage locks in a distributed environment
   }
 }
 ```
 
-## 실제 구현과의 연동
+## Integration with Actual Implementation
 
-### TransactionManager에서의 락 사용
+### Using locks in TransactionManager
+
 ```typescript
-// TransactionManager.execute()에서 실제 락 사용
+// Lock usage inside TransactionManager.execute()
 async execute(operations: any[]): Promise<TransactionResult> {
   let lockId: string | null = null;
   
   try {
-    // 1. 글로벌 락 획득 (고정된 ownerId 사용)
+    // 1. Acquire global lock (fixed ownerId)
     lockId = await this._dataStore.acquireLock('transaction-execution');
     
-    // ... 트랜잭션 실행 ...
+    // ... execute transaction ...
     
   } finally {
-    // 8. 글로벌 락 해제 (성공/실패 관계없이 항상 실행)
+    // 8. Always release global lock regardless of success/failure
     if (lockId) {
       this._dataStore.releaseLock(lockId);
     }
@@ -538,27 +519,28 @@ async execute(operations: any[]): Promise<TransactionResult> {
 }
 ```
 
-### DSL과의 통합
+### DSL integration
+
 ```typescript
-// DSL을 통한 트랜잭션 실행 시 자동 락 관리
+// When running transactions via DSL, lock management is automatic
 const result = await transaction(editor, [
   create(textNode('inline-text', 'Hello World'))
 ]).commit();
 
-// 내부적으로 TransactionManager.execute()가 호출되어 락이 자동 관리됨
+// Internally, TransactionManager.execute() handles lock acquisition/release
 ```
 
-## 결론
+## Conclusion
 
-DataStore 기반의 글로벌 락 시스템 (락 ID 기반)은 다음과 같은 장점을 제공합니다:
+The DataStore-based global lock system (ID-based) offers:
 
-1. **순서 보장**: 트랜잭션이 시작된 순서대로 완료
-2. **안전성**: 락 ID 검증을 통한 안전한 락 해제
-3. **추적성**: 고유 락 ID를 통한 소유자 추적 및 디버깅
-4. **일관성**: 데이터 일관성 보장
-5. **모니터링**: 상세한 락 통계 및 큐 정보를 통한 성능 모니터링
-6. **확장성**: 필요에 따라 세밀한 락으로 확장 가능
-7. **디버깅**: 락 소유자 정보를 통한 문제 진단 용이
-8. **자동 관리**: DSL을 통한 트랜잭션에서 락이 자동으로 관리됨
+1. **Order guarantee**: transactions finish in start order
+2. **Safety**: lock ID validation ensures safe release
+3. **Traceability**: unique lock IDs for ownership tracking and debugging
+4. **Consistency**: data remains consistent
+5. **Monitoring**: detailed stats and queue info for performance insight
+6. **Extensibility**: can extend to fine-grained locks when needed
+7. **Debugging**: lock ownership info makes diagnosis easier
+8. **Automatic management**: locks are automatically handled in DSL transactions
 
-이 시스템을 통해 트랜잭션의 순서를 보장하고 데이터 일관성을 유지하면서도, 락 관련 문제를 쉽게 진단하고 해결할 수 있습니다. DSL과의 완벽한 통합으로 개발자는 락 관리에 대해 신경 쓸 필요 없이 트랜잭션을 사용할 수 있습니다.
+With this system, transactions run in order, data stays consistent, and lock-related issues are easy to diagnose. Thanks to DSL integration, developers can rely on automatic lock management while focusing on transaction logic.

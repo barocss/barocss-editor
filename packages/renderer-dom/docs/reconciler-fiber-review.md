@@ -1,281 +1,281 @@
-# Reconciler.ts Fiber 적용 검토 및 개선 방안
+# Reconciler.ts Fiber Application Review and Improvement Plan
 
-## 현재 구조 분석
+## Current Structure Analysis
 
-### 1. reconcile 메서드 구조
+### 1. reconcile Method Structure
 
 ```typescript
 reconcile(container, vnode, model, runtime, decorators) {
-  // 1. rootVNode 찾기/승격 (동기)
-  // 2. host 찾기/생성 (동기)
-  // 3. attrs/style 업데이트 (동기)
-  // 4. Fiber reconcile 호출 (비동기)
-  // 5. model.text 처리 (동기, Fiber reconcile 후)
-  // 6. Portal 클린업 (동기)
+  // 1. rootVNode find/promote (sync)
+  // 2. host find/create (sync)
+  // 3. attrs/style update (sync)
+  // 4. Fiber reconcile call (async)
+  // 5. model.text processing (sync, after Fiber reconcile)
+  // 6. Portal cleanup (sync)
 }
 ```
 
-**문제점**:
-- rootVNode 처리, host 생성/업데이트가 Fiber reconcile 전에 동기적으로 실행됨
-- model.text 처리가 Fiber reconcile 후에 실행되어 순서가 어긋날 수 있음
-- Fiber의 이점(작은 단위로 나눠서 처리)을 제대로 활용하지 못함
+**Issues**:
+- rootVNode processing, host creation/update executed synchronously before Fiber reconcile
+- model.text processing executed after Fiber reconcile, order may be wrong
+- Not properly utilizing Fiber benefits (processing in small units)
 
-### 2. reconcileVNodesToDOM 메서드 구조
+### 2. reconcileVNodesToDOM Method Structure
 
 ```typescript
 reconcileVNodesToDOM(parent, newVNodes, sidToModel, context) {
   for (const vnode of newVNodes) {
-    // 1. host 찾기/생성 (동기)
-    // 2. attrs/style 업데이트 (동기)
-    // 3. Fiber reconcile 호출 (비동기)
-    // 4. model.text 처리 (동기, Fiber reconcile 후)
+    // 1. host find/create (sync)
+    // 2. attrs/style update (sync)
+    // 3. Fiber reconcile call (async)
+    // 4. model.text processing (sync, after Fiber reconcile)
   }
-  // 5. reorder (동기)
-  // 6. stale 제거 (동기)
+  // 5. reorder (sync)
+  // 6. stale removal (sync)
 }
 ```
 
-**문제점**:
-- 각 VNode에 대해 host 찾기/생성, attrs/style 업데이트가 Fiber reconcile 전에 동기적으로 실행됨
-- reorder와 stale 제거가 Fiber reconcile 완료를 기다리지 않고 실행됨
-- Fiber의 비동기 특성을 고려하지 않음
+**Issues**:
+- Host find/create, attrs/style update executed synchronously before Fiber reconcile for each VNode
+- reorder and stale removal executed without waiting for Fiber reconcile completion
+- Not considering Fiber's async nature
 
-### 3. Fiber Scheduler 구조
+### 3. Fiber Scheduler Structure
 
 ```typescript
 workLoop() {
   while (hasWork && !shouldYield()) {
     performUnitOfWork(fiber);
-    // reconcileFiberNode에서 바로 DOM 조작 수행
+    // DOM manipulation performed directly in reconcileFiberNode
   }
   if (hasWork) {
     requestIdleCallback(workLoop);
   } else {
-    commitWork(); // 빈 함수
+    commitWork(); // Empty function
   }
 }
 ```
 
-**문제점**:
-- React Fiber의 두 단계(render phase, commit phase)를 구분하지 않음
-- 현재는 render phase에서 바로 DOM 조작을 수행함
-- commitWork가 빈 함수로, commit phase가 없음
+**Issues**:
+- Doesn't distinguish React Fiber's two phases (render phase, commit phase)
+- Currently performs DOM manipulation directly in render phase
+- commitWork is empty function, no commit phase
 
-### 4. reconcileFiberNode 구조
+### 4. reconcileFiberNode Structure
 
 ```typescript
 reconcileFiberNode(fiber, deps, context) {
-  // 1. Portal 처리
-  // 2. host 찾기/생성
-  // 3. attrs/style 업데이트
-  // 4. vnode.text 처리
-  // 5. primitive text children 처리
-  // 6. 자식 Fiber는 Scheduler가 처리
+  // 1. Portal processing
+  // 2. host find/create
+  // 3. attrs/style update
+  // 4. vnode.text processing
+  // 5. primitive text children processing
+  // 6. Child Fibers processed by Scheduler
 }
 ```
 
-**문제점**:
-- primitive text 처리가 복잡하고, VNode children이 Fiber로 처리되기 전에 실행됨
-- 순서 문제: primitive text를 처리할 때 VNode children이 아직 DOM에 추가되지 않았을 수 있음
+**Issues**:
+- Primitive text processing is complex and executed before VNode children processed by Fiber
+- Order issue: VNode children may not be added to DOM yet when processing primitive text
 
 ---
 
-## React Fiber 원칙과 비교
+## Comparison with React Fiber Principles
 
-### React Fiber의 핵심 원칙
+### React Fiber Core Principles
 
-1. **두 단계 처리 (Render Phase + Commit Phase)**
-   - Render Phase: 변경사항 계산 (DOM 조작 없음)
-   - Commit Phase: DOM 조작 수행 (한 번에)
+1. **Two-Phase Processing (Render Phase + Commit Phase)**
+   - Render Phase: Calculate changes (no DOM manipulation)
+   - Commit Phase: Perform DOM manipulation (all at once)
 
-2. **작은 단위로 나눠서 처리**
-   - 각 Fiber 노드를 개별적으로 처리
-   - 시간 제한(time slice) 내에서만 작업
-   - 브라우저가 다른 작업을 처리할 수 있도록 yield
+2. **Process in Small Units**
+   - Process each Fiber node individually
+   - Work only within time limit (time slice)
+   - Yield so browser can process other work
 
-3. **우선순위 기반 스케줄링**
-   - 높은 우선순위 작업을 먼저 처리
-   - 낮은 우선순위 작업은 나중에 처리
+3. **Priority-Based Scheduling**
+   - Process high priority work first
+   - Process low priority work later
 
-4. **중단 가능한 작업**
-   - 작업을 중단하고 나중에 재개할 수 있음
-   - 이전 작업 결과를 버리고 새로 시작할 수 있음
+4. **Interruptible Work**
+   - Can interrupt work and resume later
+   - Can discard previous work results and start fresh
 
-### 우리 구현과의 차이점
+### Differences from Our Implementation
 
-| React Fiber | 우리 구현 | 문제점 |
+| React Fiber | Our Implementation | Issues |
 |------------|----------|--------|
-| Render Phase (변경사항 계산) | reconcileFiberNode에서 바로 DOM 조작 | DOM 조작이 즉시 실행되어 중단 불가 |
-| Commit Phase (DOM 조작) | 없음 | 변경사항을 한 번에 적용할 수 없음 |
-| 우선순위 기반 스케줄링 | 있음 (FiberPriority) | ✅ 구현됨 |
-| 중단 가능한 작업 | 부분적 | DOM 조작이 즉시 실행되어 중단 불가 |
+| Render Phase (calculate changes) | DOM manipulation directly in reconcileFiberNode | DOM manipulation executed immediately, cannot interrupt |
+| Commit Phase (DOM manipulation) | None | Cannot apply changes all at once |
+| Priority-based scheduling | Exists (FiberPriority) | ✅ Implemented |
+| Interruptible work | Partial | DOM manipulation executed immediately, cannot interrupt |
 
 ---
 
-## 개선 방안
+## Improvement Plans
 
-### 방안 1: 두 단계 처리 도입 (권장)
+### Plan 1: Introduce Two-Phase Processing (Recommended)
 
-#### Render Phase (변경사항 계산)
+#### Render Phase (Calculate Changes)
 ```typescript
 function reconcileFiberNode(fiber: FiberNode, deps: FiberReconcileDependencies, context: any): void {
-  // DOM 조작 없이 변경사항만 계산
-  // effectTag 설정: 'PLACEMENT', 'UPDATE', 'DELETION'
+  // Calculate changes only, no DOM manipulation
+  // Set effectTag: 'PLACEMENT', 'UPDATE', 'DELETION'
   
-  // 1. Portal 처리 (계산만)
-  // 2. host 찾기/생성 필요 여부 계산
-  // 3. attrs/style 변경사항 계산
-  // 4. vnode.text 변경사항 계산
-  // 5. primitive text 변경사항 계산
-  // 6. 자식 Fiber 처리 (재귀)
+  // 1. Portal processing (calculation only)
+  // 2. Calculate if host find/create needed
+  // 3. Calculate attrs/style changes
+  // 4. Calculate vnode.text changes
+  // 5. Calculate primitive text changes
+  // 6. Process child Fibers (recursive)
 }
 ```
 
-#### Commit Phase (DOM 조작)
+#### Commit Phase (DOM Manipulation)
 ```typescript
 function commitFiberNode(fiber: FiberNode, deps: FiberReconcileDependencies): void {
-  // effectTag에 따라 DOM 조작 수행
+  // Perform DOM manipulation according to effectTag
   
   switch (fiber.effectTag) {
     case 'PLACEMENT':
-      // DOM 요소 생성 및 추가
+      // Create and add DOM element
       break;
     case 'UPDATE':
-      // DOM 요소 업데이트
+      // Update DOM element
       break;
     case 'DELETION':
-      // DOM 요소 제거
+      // Remove DOM element
       break;
   }
   
-  // 자식 Fiber commit (재귀)
+  // Commit child Fibers (recursive)
   commitFiberNode(fiber.child, deps);
   commitFiberNode(fiber.sibling, deps);
 }
 ```
 
-**장점**:
-- ✅ 작업을 중단하고 재개할 수 있음
-- ✅ 변경사항을 한 번에 적용할 수 있음
-- ✅ React Fiber 원칙에 부합
+**Advantages**:
+- ✅ Can interrupt and resume work
+- ✅ Can apply changes all at once
+- ✅ Matches React Fiber principles
 
-**단점**:
-- ⚠️ 구현이 복잡함
-- ⚠️ 기존 코드 대폭 수정 필요
+**Disadvantages**:
+- ⚠️ Complex implementation
+- ⚠️ Requires major code modifications
 
-### 방안 2: 현재 구조 유지 + 순서 개선 (간단)
+### Plan 2: Maintain Current Structure + Improve Order (Simple)
 
-#### reconcile 메서드 개선
+#### Improve reconcile Method
 ```typescript
 reconcile(container, vnode, model, runtime, decorators) {
-  // rootVNode 처리도 Fiber로 이동
-  // model.text 처리도 Fiber로 이동
+  // Move rootVNode processing to Fiber too
+  // Move model.text processing to Fiber too
   
   const rootFiber = createFiberTree(container, vnode, prevVNode, context);
-  // rootFiber에 model.text 정보 포함
+  // Include model.text information in rootFiber
   
   reconcileWithFiber(container, rootVNode, prevVNode, context, fiberDeps);
   
-  // Portal 클린업은 Fiber 완료 후 실행 (waitForFiber 필요)
+  // Portal cleanup executed after Fiber completes (need waitForFiber)
 }
 ```
 
-#### reconcileVNodesToDOM 개선
+#### Improve reconcileVNodesToDOM
 ```typescript
 reconcileVNodesToDOM(parent, newVNodes, sidToModel, context) {
-  // 각 VNode를 Fiber로 처리
-  // reorder와 stale 제거는 Fiber 완료 후 실행 (waitForFiber 필요)
+  // Process each VNode with Fiber
+  // Execute reorder and stale removal after Fiber completes (need waitForFiber)
   
   for (const vnode of newVNodes) {
     reconcileWithFiber(host, vnode, prevVNode, reconcileContext, fiberDeps);
   }
   
-  // Fiber 완료 대기
+  // Wait for Fiber completion
   await waitForFiber();
   
-  // reorder와 stale 제거
+  // reorder and stale removal
   reorder(parent, nextHosts);
   removeStale(parent, nextHosts);
 }
 ```
 
-**장점**:
-- ✅ 기존 코드 수정 최소화
-- ✅ 구현이 간단함
+**Advantages**:
+- ✅ Minimal code modifications
+- ✅ Simple implementation
 
-**단점**:
-- ⚠️ 여전히 DOM 조작이 즉시 실행됨
-- ⚠️ 중단 불가능한 작업
+**Disadvantages**:
+- ⚠️ DOM manipulation still executed immediately
+- ⚠️ Work cannot be interrupted
 
-### 방안 3: 하이브리드 접근 (현실적)
+### Plan 3: Hybrid Approach (Realistic)
 
-#### Root 레벨은 동기 처리 유지
+#### Keep Root Level Sync Processing
 ```typescript
 reconcile(container, vnode, model, runtime, decorators) {
-  // Root 레벨 host 찾기/생성은 동기 처리 (필수)
-  // children reconcile만 Fiber로 처리
+  // Root level host find/create sync processing (required)
+  // Only children reconcile processed with Fiber
 }
 ```
 
-#### Children 레벨은 Fiber로 처리
+#### Process Children Level with Fiber
 ```typescript
 reconcileVNodesToDOM(parent, newVNodes, sidToModel, context) {
-  // 각 VNode의 children reconcile만 Fiber로 처리
-  // host 찾기/생성, attrs/style 업데이트는 동기 처리
+  // Only children reconcile processed with Fiber for each VNode
+  // host find/create, attrs/style update sync processing
 }
 ```
 
-**장점**:
-- ✅ 기존 코드와 호환성 유지
-- ✅ children reconcile만 Fiber 이점 활용
+**Advantages**:
+- ✅ Maintains compatibility with existing code
+- ✅ Only children reconcile utilizes Fiber benefits
 
-**단점**:
-- ⚠️ 완전한 Fiber 아키텍처는 아님
-
----
-
-## 권장 개선 사항
-
-### 즉시 개선 가능한 항목
-
-1. **model.text 처리 순서 개선**
-   - 현재: Fiber reconcile 후에 model.text 처리
-   - 개선: Fiber reconcile 내부에서 처리하거나, Fiber 완료 후 처리
-
-2. **reorder와 stale 제거 순서 개선**
-   - 현재: Fiber reconcile 완료를 기다리지 않고 실행
-   - 개선: Fiber 완료 후 실행 (waitForFiber 사용)
-
-3. **primitive text 처리 개선**
-   - 현재: 복잡한 위치 계산 로직
-   - 개선: VNode children이 Fiber로 처리된 후 primitive text 처리
-
-### 장기 개선 항목
-
-1. **두 단계 처리 도입**
-   - Render Phase와 Commit Phase 분리
-   - 중단 가능한 작업 구현
-
-2. **Effect List 도입**
-   - 변경사항을 리스트로 관리
-   - Commit Phase에서 한 번에 적용
-
-3. **Priority 기반 스케줄링 강화**
-   - 현재는 우선순위만 설정하고 실제 스케줄링은 미흡
-   - 높은 우선순위 작업을 먼저 처리하도록 개선
+**Disadvantages**:
+- ⚠️ Not complete Fiber architecture
 
 ---
 
-## 구체적인 문제점과 해결 방안
+## Recommended Improvements
 
-### 문제 1: model.text 처리 순서
+### Immediately Improvable Items
 
-**현재 코드**:
+1. **Improve model.text Processing Order**
+   - Current: model.text processing after Fiber reconcile
+   - Improvement: Process inside Fiber reconcile or after Fiber completes
+
+2. **Improve reorder and Stale Removal Order**
+   - Current: Executed without waiting for Fiber reconcile completion
+   - Improvement: Execute after Fiber completes (use waitForFiber)
+
+3. **Improve Primitive Text Processing**
+   - Current: Complex position calculation logic
+   - Improvement: Process primitive text after VNode children processed by Fiber
+
+### Long-term Improvement Items
+
+1. **Introduce Two-Phase Processing**
+   - Separate Render Phase and Commit Phase
+   - Implement interruptible work
+
+2. **Introduce Effect List**
+   - Manage changes as list
+   - Apply all at once in Commit Phase
+
+3. **Strengthen Priority-Based Scheduling**
+   - Currently only sets priority, actual scheduling insufficient
+   - Improve to process high priority work first
+
+---
+
+## Specific Issues and Solutions
+
+### Issue 1: model.text Processing Order
+
+**Current Code**:
 ```typescript
 // reconciler.ts:164-171
 reconcileWithFiber(host, rootVNode, prevVNode, context, fiberDeps);
 
-// Fiber reconcile 후에 model.text 처리
+// model.text processing after Fiber reconcile
 if ((model as any)?.text !== undefined && (model as any)?.text !== null) {
   if (!rootVNode.children || rootVNode.children.length === 0) {
     while (host.firstChild) host.removeChild(host.firstChild);
@@ -284,28 +284,28 @@ if ((model as any)?.text !== undefined && (model as any)?.text !== null) {
 }
 ```
 
-**문제점**:
-- Fiber reconcile이 비동기로 실행되는데, model.text 처리는 동기적으로 실행됨
-- Fiber reconcile이 완료되기 전에 model.text가 처리될 수 있음
-- children이 Fiber로 처리되는 중에 model.text가 덮어쓸 수 있음
+**Issues**:
+- Fiber reconcile executes asynchronously, but model.text processing executes synchronously
+- model.text may be processed before Fiber reconcile completes
+- model.text may overwrite while children being processed by Fiber
 
-**해결 방안**:
-1. model.text 처리를 Fiber reconcile 내부로 이동
-2. 또는 Fiber 완료 후 처리 (waitForFiber 사용)
+**Solutions**:
+1. Move model.text processing inside Fiber reconcile
+2. Or process after Fiber completes (use waitForFiber)
 
-### 문제 2: reorder와 stale 제거 순서
+### Issue 2: reorder and Stale Removal Order
 
-**현재 코드**:
+**Current Code**:
 ```typescript
 // reconciler.ts:390-402
 for (const vnode of newVNodes) {
   reconcileWithFiber(host, vnode, prevVNode, reconcileContext, fiberDeps);
-  // Fiber reconcile은 비동기로 실행됨
+  // Fiber reconcile executes asynchronously
 }
 
-// Fiber 완료를 기다리지 않고 즉시 실행
+// Execute immediately without waiting for Fiber completion
 reorder(parent, nextHosts);
-// stale 제거도 즉시 실행
+// stale removal also executes immediately
 for (const el of existingHosts) {
   if (!keepSet.has(el)) {
     parent.removeChild(el);
@@ -313,43 +313,43 @@ for (const el of existingHosts) {
 }
 ```
 
-**문제점**:
-- Fiber reconcile이 완료되기 전에 reorder와 stale 제거가 실행됨
-- DOM이 아직 업데이트되지 않은 상태에서 순서를 변경하거나 요소를 제거할 수 있음
+**Issues**:
+- reorder and stale removal executed before Fiber reconcile completes
+- May change order or remove elements when DOM not yet updated
 
-**해결 방안**:
-- Fiber 완료 후 reorder와 stale 제거 실행
-- waitForFiber 사용 또는 FiberScheduler에 완료 콜백 추가
+**Solutions**:
+- Execute reorder and stale removal after Fiber completes
+- Use waitForFiber or add completion callback to FiberScheduler
 
-### 문제 3: primitive text 처리 순서
+### Issue 3: Primitive Text Processing Order
 
-**현재 코드**:
+**Current Code**:
 ```typescript
 // fiber-reconciler.ts:196-266
 for (let i = 0; i < vnode.children.length; i++) {
   const child = vnode.children[i];
   
   if (typeof child === 'string' || typeof child === 'number') {
-    // primitive text 처리
-    // VNode children이 아직 Fiber로 처리되지 않았을 수 있음
+    // primitive text processing
+    // VNode children may not be processed by Fiber yet
   }
 }
 ```
 
-**문제점**:
-- primitive text를 처리할 때 VNode children이 아직 DOM에 추가되지 않았을 수 있음
-- elementCount 계산이 정확하지 않을 수 있음
+**Issues**:
+- VNode children may not be added to DOM yet when processing primitive text
+- elementCount calculation may be inaccurate
 
-**해결 방안**:
-- VNode children이 Fiber로 처리된 후 primitive text 처리
-- 또는 primitive text도 Fiber로 처리 (Text Fiber 노드 생성)
+**Solutions**:
+- Process primitive text after VNode children processed by Fiber
+- Or process primitive text with Fiber too (create Text Fiber node)
 
-### 문제 4: rootVNode 처리와 host 생성
+### Issue 4: rootVNode Processing and Host Creation
 
-**현재 코드**:
+**Current Code**:
 ```typescript
 // reconciler.ts:40-84
-// rootVNode 찾기/승격 (동기)
+// rootVNode find/promote (sync)
 let rootVNode = vnode;
 if ((!rootVNode.tag || ...)) {
   const firstEl = findFirstElementVNode(rootVNode);
@@ -358,7 +358,7 @@ if ((!rootVNode.tag || ...)) {
   }
 }
 
-// host 찾기/생성 (동기)
+// host find/create (sync)
 let host: HTMLElement | null = null;
 if (sid) {
   host = Array.from(container.children).find(...);
@@ -368,53 +368,52 @@ if (!host) {
   container.appendChild(host);
 }
 
-// attrs/style 업데이트 (동기)
+// attrs/style update (sync)
 if (rootVNode.attrs) {
   this.dom.updateAttributes(host, prevVNode?.attrs, rootVNode.attrs);
 }
 
-// 그 다음 Fiber reconcile 호출
+// Then call Fiber reconcile
 reconcileWithFiber(host, rootVNode, prevVNode, context, fiberDeps);
 ```
 
-**문제점**:
-- rootVNode 처리, host 생성, attrs/style 업데이트가 모두 동기적으로 실행됨
-- Fiber의 이점(작은 단위로 나눠서 처리)을 활용하지 못함
+**Issues**:
+- rootVNode processing, host creation, attrs/style update all executed synchronously
+- Not utilizing Fiber benefits (processing in small units)
 
-**해결 방안**:
-- rootVNode도 Fiber로 처리
-- 또는 root 레벨은 동기 처리 유지 (필수적이므로)
+**Solutions**:
+- Process rootVNode with Fiber too
+- Or keep root level sync processing (required)
 
 ---
 
-## 결론
+## Conclusion
 
-현재 구현은 **Fiber의 기본 구조는 갖추고 있지만, React Fiber의 핵심 원칙(두 단계 처리, 중단 가능한 작업)을 완전히 구현하지는 못했습니다**.
+Current implementation **has Fiber's basic structure but doesn't fully implement React Fiber's core principles (two-phase processing, interruptible work)**.
 
-### 즉시 개선 가능한 항목 (우선순위 높음)
+### Immediately Improvable Items (High Priority)
 
-1. ✅ **reorder와 stale 제거 순서 개선**
-   - Fiber 완료 후 실행하도록 수정
-   - waitForFiber 사용 또는 완료 콜백 추가
+1. ✅ **Improve reorder and Stale Removal Order**
+   - Modify to execute after Fiber completes
+   - Use waitForFiber or add completion callback
 
-2. ✅ **model.text 처리 순서 개선**
-   - Fiber reconcile 내부로 이동하거나 완료 후 처리
+2. ✅ **Improve model.text Processing Order**
+   - Move inside Fiber reconcile or process after completion
 
-3. ✅ **primitive text 처리 순서 개선**
-   - VNode children 처리 후 primitive text 처리
+3. ✅ **Improve Primitive Text Processing Order**
+   - Process primitive text after VNode children processing
 
-### 장기 개선 항목 (우선순위 낮음)
+### Long-term Improvement Items (Low Priority)
 
-1. **두 단계 처리 도입**
-   - Render Phase와 Commit Phase 분리
-   - 중단 가능한 작업 구현
+1. **Introduce Two-Phase Processing**
+   - Separate Render Phase and Commit Phase
+   - Implement interruptible work
 
-2. **Effect List 도입**
-   - 변경사항을 리스트로 관리
-   - Commit Phase에서 한 번에 적용
+2. **Introduce Effect List**
+   - Manage changes as list
+   - Apply all at once in Commit Phase
 
-3. **rootVNode 처리도 Fiber로 이동**
-   - 현재는 동기 처리하지만, Fiber로 이동 가능
+3. **Move rootVNode Processing to Fiber Too**
+   - Currently sync processing, but can move to Fiber
 
-**권장 사항**: 즉시 개선 가능한 항목부터 처리하고, 장기적으로는 두 단계 처리 도입을 고려하는 것이 좋습니다.
-
+**Recommendation**: Process immediately improvable items first, and consider introducing two-phase processing in the long term.

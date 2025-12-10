@@ -1,8 +1,8 @@
 # DataStore API Reference
 
-본 문서는 공개 API 시그니처와 주요 동작을 요약한다. 상세 정책은 `datastore-spec.md`를 참조.
+This document summarizes public API signatures and key behaviors. For detailed policies, see `datastore-spec.md`.
 
-## Transaction (수집)
+## Transaction (Collection)
 
 - begin(): void
 - getCollectedOperations(): AtomicOperation[]
@@ -76,17 +76,17 @@
 - traverse(visitors: DocumentVisitor[], options?: VisitorTraversalOptions): Array<{ visitor: DocumentVisitor; result: { visitedCount: number; skippedCount: number; stopped: boolean } }>
 - traverse(...visitors: DocumentVisitor[]): Array<{ visitor: DocumentVisitor; result: { visitedCount: number; skippedCount: number; stopped: boolean } }>
 
-본 문서는 DataStore의 공개 API를 간단 요약합니다. 상세 동작/설계는 `datastore-spec.md`를 참고하세요.
+This document provides a brief summary of DataStore’s public API. For detailed behavior/design, see `datastore-spec.md`.
 
-## 수집(경량 트랜잭션)
+## Collection (Lightweight Transaction)
 - `begin(): void`
 - `getCollectedOperations(): AtomicOperation[]`
 - `end(): AtomicOperation[]`
- - `commit(): void`
- - `rollback(): void`
+- `commit(): void`
+- `rollback(): void`
 
 ### Notes
-- normalizeWhitespace, trimText: 동일 범위를 반복 호출할 때 내용 변화가 없으면 update 오퍼레이션을 발생시키지 않는다.
+- normalizeWhitespace, trimText: when called repeatedly on the same range with no content change, they do not emit update operations.
 
 ## Content
 - `addChild(parentId, child, position?) → string`
@@ -98,45 +98,45 @@
 - `cloneNodeWithChildren(nodeId, newParentId?) → string`
 
 ## Range/Text/Mark
-- 텍스트: `deleteText`, `extractText`, `insertText`, `replaceText`, `copyText`, `moveText`, `duplicateText`
-- 마크: `applyMark`, `removeMark`, `clearFormatting`, `toggleMark`, `constrainMarksToRange`
-- 검색/정규화: `findText`, `getTextLength`, `trimText`, `normalizeWhitespace`, `wrap`, `unwrap`, `replace`, `findAll`, `expandToWord`, `expandToLine`, `normalizeRange`
+- Text: `deleteText`, `extractText`, `insertText`, `replaceText`, `copyText`, `moveText`, `duplicateText`
+- Marks: `applyMark`, `removeMark`, `clearFormatting`, `toggleMark`, `constrainMarksToRange`
+- Search/normalization: `findText`, `getTextLength`, `trimText`, `normalizeWhitespace`, `wrap`, `unwrap`, `replace`, `findAll`, `expandToWord`, `expandToLine`, `normalizeRange`
 
 ## Core/Utility
 - Core: `setNode`, `updateNode`, `deleteNode`, `getNode`, `createNodeWithChildren`
 - Utility: `getAllNodes`, `getAllNodesMap`, `getRootNodeId`, `getNodePath`, `getNodeDepth`, `compareDocumentOrder`, `getNextNode`, `getPreviousNode`, `createDocumentIterator`, `createRangeIterator`, `traverse`
 
-## Operation 타입(JSON)
-단일 op: `{ type, nodeId, timestamp, parentId?, position?, data? }`
-배치: `{ sessionId, version, operations: Operation[] }`
+## Operation Types (JSON)
+Single op: `{ type, nodeId, timestamp, parentId?, position?, data? }`
+Batch: `{ sessionId, version, operations: Operation[] }`
 
-## 1. 개요
+## 1. Overview
 
-이 문서는 DataStore의 모든 API를 체계적으로 정리한 레퍼런스입니다. 각 메서드의 시그니처, 매개변수, 반환값, 사용 예제를 포함합니다.
+This document is a systematic reference of all DataStore APIs, including method signatures, parameters, return values, and usage examples.
 
-## 2. DataStore 클래스
+## 2. DataStore Class
 
-### 2.1 생성자
+### 2.1 Constructor
 
 ```typescript
 constructor(rootNodeId?: string, schema?: Schema, sessionId?: number)
 ```
 
-**매개변수**:
-- `rootNodeId` (optional): 루트 노드 ID
-- `schema` (optional): 기본 스키마
-- `sessionId` (optional): 세션 ID (기본값: 0)
+**Parameters**:
+- `rootNodeId` (optional): root node ID
+- `schema` (optional): default schema
+- `sessionId` (optional): session ID (default: 0)
 
-**예제**:
+**Example**:
 ```typescript
 const dataStore = new DataStore();
 const dataStoreWithSchema = new DataStore('doc-1', schema, 1);
 ```
 
-### 2.2 연산 클래스 접근자
+### 2.2 Operation Class Accessors
 
 ```typescript
-// 각 연산 클래스에 대한 접근자
+// Accessors for each operation class
 readonly core: CoreOperations;
 readonly query: QueryOperations;
 readonly content: ContentOperations;
@@ -154,13 +154,13 @@ readonly utility: UtilityOperations;
 setNode(node: INode, validate: boolean = true): void
 ```
 
-**설명**: 노드를 DataStore에 저장합니다.
+**Description**: Stores a node in DataStore.
 
-**매개변수**:
-- `node`: 저장할 노드
-- `validate`: 스키마 검증 여부 (기본값: true)
+**Parameters**:
+- `node`: node to store
+- `validate`: whether to validate against schema (default: true)
 
-**예제**:
+**Example**:
 ```typescript
 dataStore.setNode({
   id: 'text-1',
@@ -175,14 +175,14 @@ dataStore.setNode({
 getNode(nodeId: string): INode | undefined
 ```
 
-**설명**: ID로 노드를 조회합니다.
+**Description**: Retrieves a node by ID.
 
-**매개변수**:
-- `nodeId`: 조회할 노드 ID
+**Parameters**:
+- `nodeId`: node ID to retrieve
 
-**반환값**: 노드 객체 또는 undefined
+**Returns**: node object or undefined
 
-**예제**:
+**Example**:
 ```typescript
 const node = dataStore.getNode('text-1');
 if (node) {
@@ -196,14 +196,14 @@ if (node) {
 deleteNode(nodeId: string): boolean
 ```
 
-**설명**: 노드를 삭제합니다.
+**Description**: Deletes a node.
 
-**매개변수**:
-- `nodeId`: 삭제할 노드 ID
+**Parameters**:
+- `nodeId`: node ID to delete
 
-**반환값**: 삭제 성공 여부
+**Returns**: whether deletion succeeded
 
-**예제**:
+**Example**:
 ```typescript
 const deleted = dataStore.deleteNode('text-1');
 ```
@@ -214,16 +214,16 @@ const deleted = dataStore.deleteNode('text-1');
 updateNode(nodeId: string, updates: Partial<INode>, validate: boolean = true): { valid: boolean; errors: string[] } | null
 ```
 
-**설명**: 노드를 업데이트합니다.
+**Description**: Updates a node.
 
-**매개변수**:
-- `nodeId`: 업데이트할 노드 ID
-- `updates`: 업데이트할 속성들
-- `validate`: 스키마 검증 여부
+**Parameters**:
+- `nodeId`: node ID to update
+- `updates`: properties to update
+- `validate`: whether to validate against schema
 
-**반환값**: 검증 결과 또는 null (노드가 존재하지 않는 경우)
+**Returns**: validation result or null (if node doesn’t exist)
 
-**예제**:
+**Example**:
 ```typescript
 const result = dataStore.updateNode('text-1', {
   text: 'Updated text',
@@ -237,15 +237,15 @@ const result = dataStore.updateNode('text-1', {
 createNodeWithChildren(node: INode, schema?: Schema): INode
 ```
 
-**설명**: 중첩 구조를 가진 노드를 생성합니다.
+**Description**: Creates a node with nested structure.
 
-**매개변수**:
-- `node`: 생성할 노드 (중첩 구조 포함)
-- `schema`: 사용할 스키마
+**Parameters**:
+- `node`: node to create (with nested structure)
+- `schema`: schema to use
 
-**반환값**: 생성된 노드
+**Returns**: created node
 
-**예제**:
+**Example**:
 ```typescript
 const document = {
   id: 'doc-1',
@@ -276,14 +276,14 @@ const createdDoc = dataStore.createNodeWithChildren(document, schema);
 findNodes(predicate: (node: INode) => boolean): INode[]
 ```
 
-**설명**: 조건을 만족하는 모든 노드를 찾습니다.
+**Description**: Finds all nodes matching a condition.
 
-**매개변수**:
-- `predicate`: 검색 조건 함수
+**Parameters**:
+- `predicate`: search condition function
 
-**반환값**: 조건을 만족하는 노드 배열
+**Returns**: array of matching nodes
 
-**예제**:
+**Example**:
 ```typescript
 const paragraphs = dataStore.findNodes(node => node.type === 'paragraph');
 ```
@@ -294,14 +294,14 @@ const paragraphs = dataStore.findNodes(node => node.type === 'paragraph');
 findNodesByType(type: string): INode[]
 ```
 
-**설명**: 특정 타입의 노드들을 찾습니다.
+**Description**: Finds nodes of a specific type.
 
-**매개변수**:
-- `type`: 노드 타입
+**Parameters**:
+- `type`: node type
 
-**반환값**: 해당 타입의 노드 배열
+**Returns**: array of nodes of that type
 
-**예제**:
+**Example**:
 ```typescript
 const textNodes = dataStore.findNodesByType('inline-text');
 ```
@@ -312,20 +312,20 @@ const textNodes = dataStore.findNodesByType('inline-text');
 findNodesByAttribute(key: string, value: any): INode[]
 ```
 
-**설명**: 특정 속성을 가진 노드들을 찾습니다. 고아 노드 포함 전체 순회를 사용합니다.
+**Description**: Finds nodes with a specific attribute. Uses full traversal including orphan nodes.
 
-**매개변수**:
-- `key`: 속성 키
-- `value`: 속성 값
+**Parameters**:
+- `key`: attribute key
+- `value`: attribute value
 
-**반환값**: 조건을 만족하는 노드 배열 (고아 노드 포함)
+**Returns**: array of matching nodes (including orphans)
 
-**특징**:
-- **전체 순회 사용**: 고아 노드 포함 모든 노드 검색
-- **Overlay-aware**: 현재 상태 반영 (overlay 변경사항 포함)
-- **순서**: Map 순회 순서 (보장되지 않음)
+**Characteristics**:
+- **Full traversal**: searches all nodes including orphans
+- **Overlay-aware**: reflects current state (including overlay changes)
+- **Order**: Map iteration order (not guaranteed)
 
-**예제**:
+**Example**:
 ```typescript
 const boldNodes = dataStore.findNodesByAttribute('class', 'bold');
 ```
@@ -336,19 +336,19 @@ const boldNodes = dataStore.findNodesByAttribute('class', 'bold');
 findNodesByText(text: string): INode[]
 ```
 
-**설명**: 특정 텍스트가 포함된 노드들을 찾습니다. 고아 노드 포함 전체 순회를 사용합니다.
+**Description**: Finds nodes containing specific text. Uses full traversal including orphan nodes.
 
-**매개변수**:
-- `text`: 검색할 텍스트
+**Parameters**:
+- `text`: text to search for
 
-**반환값**: 해당 텍스트가 포함된 노드 배열 (고아 노드 포함)
+**Returns**: array of nodes containing that text (including orphans)
 
-**특징**:
-- **전체 순회 사용**: 고아 노드 포함 모든 노드 검색
-- **Overlay-aware**: 현재 상태 반영 (overlay 변경사항 포함)
-- **순서**: Map 순회 순서 (보장되지 않음)
+**Characteristics**:
+- **Full traversal**: searches all nodes including orphans
+- **Overlay-aware**: reflects current state (including overlay changes)
+- **Order**: Map iteration order (not guaranteed)
 
-**예제**:
+**Example**:
 ```typescript
 const helloNodes = dataStore.findNodesByText('Hello');
 ```
@@ -359,19 +359,19 @@ const helloNodes = dataStore.findNodesByText('Hello');
 findChildrenByParentId(parentId: string): INode[]
 ```
 
-**설명**: 특정 노드의 직접 자식들을 객체 배열로 반환합니다. 직접 접근으로 성능을 최적화합니다.
+**Description**: Returns direct children of a node as an object array. Optimized for performance via direct access.
 
-**매개변수**:
-- `parentId`: 부모 노드 ID
+**Parameters**:
+- `parentId`: parent node ID
 
-**반환값**: 자식 노드들의 배열
+**Returns**: array of child nodes
 
-**특징**:
-- **직접 접근 사용**: 부모 노드의 content 배열 직접 접근
-- **Overlay-aware**: 현재 상태 반영 (overlay 변경사항 포함)
-- **순서**: 문서 순회 순서 (부모가 연결된 경우)
+**Characteristics**:
+- **Direct access**: directly accesses parent node’s content array
+- **Overlay-aware**: reflects current state (including overlay changes)
+- **Order**: document traversal order (if parent is connected)
 
-**예제**:
+**Example**:
 ```typescript
 const children = dataStore.findChildrenByParentId('para-1');
 ```
@@ -382,14 +382,14 @@ const children = dataStore.findChildrenByParentId('para-1');
 getNodeChildrenDeep(nodeId: string): INode[]
 ```
 
-**설명**: 노드의 모든 하위 노드를 재귀적으로 조회합니다.
+**Description**: Recursively retrieves all descendant nodes of a node.
 
-**매개변수**:
-- `nodeId`: 부모 노드 ID
+**Parameters**:
+- `nodeId`: parent node ID
 
-**반환값**: 모든 하위 노드 배열
+**Returns**: array of all descendant nodes
 
-**예제**:
+**Example**:
 ```typescript
 const allDescendants = dataStore.getNodeChildrenDeep('doc-1');
 ```
@@ -400,14 +400,14 @@ const allDescendants = dataStore.getNodeChildrenDeep('doc-1');
 getNodeWithChildren(nodeId: string): INode | null
 ```
 
-**설명**: 노드와 모든 자식을 중첩 구조로 반환합니다.
+**Description**: Returns a node with all children in nested structure.
 
-**매개변수**:
-- `nodeId`: 노드 ID
+**Parameters**:
+- `nodeId`: node ID
 
-**반환값**: 중첩 구조의 노드 또는 null
+**Returns**: node with nested structure or null
 
-**예제**:
+**Example**:
 ```typescript
 const nodeWithChildren = dataStore.getNodeWithChildren('para-1');
 ```
@@ -418,11 +418,11 @@ const nodeWithChildren = dataStore.getNodeWithChildren('para-1');
 getAllNodesWithChildren(): INode[]
 ```
 
-**설명**: 모든 노드를 중첩 구조로 반환합니다.
+**Description**: Returns all nodes in nested structure.
 
-**반환값**: 모든 노드의 중첩 구조 배열
+**Returns**: array of nested structures for all nodes
 
-**예제**:
+**Example**:
 ```typescript
 const allNodes = dataStore.getAllNodesWithChildren();
 ```
@@ -433,20 +433,20 @@ const allNodes = dataStore.getAllNodesWithChildren();
 searchText(query: string): INode[]
 ```
 
-**설명**: 텍스트 내용으로 노드를 검색합니다 (대소문자 구분 없음). 고아 노드 포함 전체 순회를 사용합니다.
+**Description**: Searches nodes by text content (case-insensitive). Uses full traversal including orphan nodes.
 
-**매개변수**:
-- `query`: 검색할 텍스트 (대소문자 구분 없음)
+**Parameters**:
+- `query`: text to search for (case-insensitive)
 
-**반환값**: 해당 텍스트를 포함하는 노드들의 배열 (고아 노드 포함)
+**Returns**: array of nodes containing that text (including orphans)
 
-**특징**:
-- **전체 순회 사용**: 고아 노드 포함 모든 노드 검색
-- **Overlay-aware**: 현재 상태 반영 (overlay 변경사항 포함)
-- **순서**: Map 순회 순서 (보장되지 않음)
-- **대소문자 무시**: 쿼리와 노드 텍스트를 모두 소문자로 변환하여 비교
+**Characteristics**:
+- **Full traversal**: searches all nodes including orphans
+- **Overlay-aware**: reflects current state (including overlay changes)
+- **Order**: Map iteration order (not guaranteed)
+- **Case-insensitive**: converts both query and node text to lowercase for comparison
 
-**예제**:
+**Example**:
 ```typescript
 const helloNodes = dataStore.searchText('hello world');
 ```
@@ -459,16 +459,16 @@ const helloNodes = dataStore.searchText('hello world');
 addChild(parentId: string, child: INode | string, position?: number): string
 ```
 
-**설명**: 부모 노드에 자식을 추가합니다.
+**Description**: Adds a child to a parent node.
 
-**매개변수**:
-- `parentId`: 부모 노드 ID
-- `child`: 추가할 자식 (노드 객체 또는 ID)
-- `position`: 삽입 위치 (기본값: 끝에 추가)
+**Parameters**:
+- `parentId`: parent node ID
+- `child`: child to add (node object or ID)
+- `position`: insertion position (default: append to end)
 
-**반환값**: 추가된 자식의 ID
+**Returns**: ID of added child
 
-**예제**:
+**Example**:
 ```typescript
 const childId = dataStore.addChild('para-1', {
   id: 'text-2',
@@ -483,15 +483,15 @@ const childId = dataStore.addChild('para-1', {
 removeChild(parentId: string, childId: string): boolean
 ```
 
-**설명**: 부모 노드에서 자식을 제거합니다.
+**Description**: Removes a child from a parent node.
 
-**매개변수**:
-- `parentId`: 부모 노드 ID
-- `childId`: 제거할 자식 ID
+**Parameters**:
+- `parentId`: parent node ID
+- `childId`: child ID to remove
 
-**반환값**: 제거 성공 여부
+**Returns**: whether removal succeeded
 
-**예제**:
+**Example**:
 ```typescript
 const removed = dataStore.removeChild('para-1', 'text-1');
 ```
@@ -502,14 +502,14 @@ const removed = dataStore.removeChild('para-1', 'text-1');
 moveNode(nodeId: string, newParentId: string, position?: number): void
 ```
 
-**설명**: 노드를 다른 부모로 이동합니다.
+**Description**: Moves a node to a different parent.
 
-**매개변수**:
-- `nodeId`: 이동할 노드 ID
-- `newParentId`: 새로운 부모 ID
-- `position`: 새로운 위치 (기본값: 끝에 추가)
+**Parameters**:
+- `nodeId`: node ID to move
+- `newParentId`: new parent ID
+- `position`: new position (default: append to end)
 
-**예제**:
+**Example**:
 ```typescript
 dataStore.moveNode('text-1', 'para-2', 1);
 ```
@@ -520,15 +520,15 @@ dataStore.moveNode('text-1', 'para-2', 1);
 copyNode(nodeId: string, newParentId?: string): string
 ```
 
-**설명**: 노드를 복사합니다.
+**Description**: Copies a node.
 
-**매개변수**:
-- `nodeId`: 복사할 노드 ID
-- `newParentId`: 새로운 부모 ID (기본값: 원래 부모)
+**Parameters**:
+- `nodeId`: node ID to copy
+- `newParentId`: new parent ID (default: original parent)
 
-**반환값**: 복사된 노드의 ID
+**Returns**: ID of copied node
 
-**예제**:
+**Example**:
 ```typescript
 const copiedId = dataStore.copyNode('text-1', 'para-2');
 ```
@@ -539,15 +539,15 @@ const copiedId = dataStore.copyNode('text-1', 'para-2');
 cloneNodeWithChildren(nodeId: string, newParentId?: string): string
 ```
 
-**설명**: 노드와 모든 하위 노드를 복사합니다.
+**Description**: Copies a node and all its descendants.
 
-**매개변수**:
-- `nodeId`: 복사할 노드 ID
-- `newParentId`: 새로운 부모 ID
+**Parameters**:
+- `nodeId`: node ID to copy
+- `newParentId`: new parent ID
 
-**반환값**: 복사된 노드의 ID
+**Returns**: ID of copied node
 
-**예제**:
+**Example**:
 ```typescript
 const clonedId = dataStore.cloneNodeWithChildren('para-1', 'doc-2');
 ```
@@ -558,13 +558,13 @@ const clonedId = dataStore.cloneNodeWithChildren('para-1', 'doc-2');
 reorderChildren(parentId: string, childIds: string[]): void
 ```
 
-**설명**: 자식 노드들의 순서를 변경합니다.
+**Description**: Reorders child nodes.
 
-**매개변수**:
-- `parentId`: 부모 노드 ID
-- `childIds`: 새로운 순서의 자식 ID 배열
+**Parameters**:
+- `parentId`: parent node ID
+- `childIds`: array of child IDs in new order
 
-**예제**:
+**Example**:
 ```typescript
 dataStore.reorderChildren('para-1', ['text-3', 'text-1', 'text-2']);
 ```
@@ -575,16 +575,16 @@ dataStore.reorderChildren('para-1', ['text-3', 'text-1', 'text-2']);
 addChildren(parentId: string, children: (INode | string)[], position?: number): string[]
 ```
 
-**설명**: 여러 자식 노드를 일괄 추가합니다.
+**Description**: Adds multiple child nodes in batch.
 
-**매개변수**:
-- `parentId`: 부모 노드 ID
-- `children`: 추가할 자식들
-- `position`: 삽입 위치
+**Parameters**:
+- `parentId`: parent node ID
+- `children`: children to add
+- `position`: insertion position
 
-**반환값**: 추가된 자식들의 ID 배열
+**Returns**: array of IDs of added children
 
-**예제**:
+**Example**:
 ```typescript
 const childIds = dataStore.addChildren('doc-1', [
   { id: 'para-1', type: 'paragraph', content: [] },
@@ -598,15 +598,15 @@ const childIds = dataStore.addChildren('doc-1', [
 removeChildren(parentId: string, childIds: string[]): boolean[]
 ```
 
-**설명**: 여러 자식 노드를 일괄 제거합니다.
+**Description**: Removes multiple child nodes in batch.
 
-**매개변수**:
-- `parentId`: 부모 노드 ID
-- `childIds`: 제거할 자식 ID 배열
+**Parameters**:
+- `parentId`: parent node ID
+- `childIds`: array of child IDs to remove
 
-**반환값**: 각 자식의 제거 성공 여부 배열
+**Returns**: array of removal success status for each child
 
-**예제**:
+**Example**:
 ```typescript
 const results = dataStore.removeChildren('doc-1', ['para-1', 'para-2']);
 ```
@@ -617,15 +617,15 @@ const results = dataStore.removeChildren('doc-1', ['para-1', 'para-2']);
 moveChildren(fromParentId: string, toParentId: string, childIds: string[], position?: number): void
 ```
 
-**설명**: 여러 자식 노드를 일괄 이동합니다.
+**Description**: Moves multiple child nodes in batch.
 
-**매개변수**:
-- `fromParentId`: 원래 부모 ID
-- `toParentId`: 새로운 부모 ID
-- `childIds`: 이동할 자식 ID 배열
-- `position`: 새로운 위치
+**Parameters**:
+- `fromParentId`: original parent ID
+- `toParentId`: new parent ID
+- `childIds`: array of child IDs to move
+- `position`: new position
 
-**예제**:
+**Example**:
 ```typescript
 dataStore.moveChildren('doc-1', 'doc-2', ['para-1', 'para-2'], 0);
 ```
@@ -638,15 +638,15 @@ dataStore.moveChildren('doc-1', 'doc-2', ['para-1', 'para-2'], 0);
 splitTextNode(nodeId: string, splitPosition: number): string
 ```
 
-**설명**: 텍스트 노드를 지정된 위치에서 분할합니다.
+**Description**: Splits a text node at the specified position.
 
-**매개변수**:
-- `nodeId`: 분할할 텍스트 노드 ID
-- `splitPosition`: 분할 위치
+**Parameters**:
+- `nodeId`: text node ID to split
+- `splitPosition`: split position
 
-**반환값**: 새로 생성된 오른쪽 노드의 ID
+**Returns**: ID of newly created right node
 
-**예제**:
+**Example**:
 ```typescript
 const newTextId = dataStore.splitTextNode('text-1', 5);
 // "Hello World" → "Hello" + " World"
@@ -658,15 +658,15 @@ const newTextId = dataStore.splitTextNode('text-1', 5);
 mergeTextNodes(leftNodeId: string, rightNodeId: string): string
 ```
 
-**설명**: 두 텍스트 노드를 병합합니다.
+**Description**: Merges two text nodes.
 
-**매개변수**:
-- `leftNodeId`: 왼쪽 노드 ID
-- `rightNodeId`: 오른쪽 노드 ID
+**Parameters**:
+- `leftNodeId`: left node ID
+- `rightNodeId`: right node ID
 
-**반환값**: 병합된 노드의 ID (왼쪽 노드)
+**Returns**: ID of merged node (left node)
 
-**예제**:
+**Example**:
 ```typescript
 const mergedId = dataStore.mergeTextNodes('text-1', 'text-2');
 // "Hello" + " World" → "Hello World"
@@ -678,15 +678,15 @@ const mergedId = dataStore.mergeTextNodes('text-1', 'text-2');
 splitBlockNode(nodeId: string, splitPosition: number): string
 ```
 
-**설명**: 블록 노드를 지정된 위치에서 분할합니다.
+**Description**: Splits a block node at the specified position.
 
-**매개변수**:
-- `nodeId`: 분할할 블록 노드 ID
-- `splitPosition`: 분할 위치 (자식 인덱스)
+**Parameters**:
+- `nodeId`: block node ID to split
+- `splitPosition`: split position (child index)
 
-**반환값**: 새로 생성된 오른쪽 노드의 ID
+**Returns**: ID of newly created right node
 
-**예제**:
+**Example**:
 ```typescript
 const newBlockId = dataStore.splitBlockNode('para-1', 2);
 ```
@@ -697,15 +697,15 @@ const newBlockId = dataStore.splitBlockNode('para-1', 2);
 mergeBlockNodes(leftNodeId: string, rightNodeId: string): string
 ```
 
-**설명**: 두 블록 노드를 병합합니다.
+**Description**: Merges two block nodes.
 
-**매개변수**:
-- `leftNodeId`: 왼쪽 노드 ID
-- `rightNodeId`: 오른쪽 노드 ID
+**Parameters**:
+- `leftNodeId`: left node ID
+- `rightNodeId`: right node ID
 
-**반환값**: 병합된 노드의 ID (왼쪽 노드)
+**Returns**: ID of merged node (left node)
 
-**예제**:
+**Example**:
 ```typescript
 const mergedId = dataStore.mergeBlockNodes('para-1', 'para-2');
 ```
@@ -716,16 +716,16 @@ const mergedId = dataStore.mergeBlockNodes('para-1', 'para-2');
 splitTextRange(nodeId: string, startPosition: number, endPosition: number): string
 ```
 
-**설명**: 텍스트 노드의 특정 범위를 분할합니다.
+**Description**: Splits a specific range of a text node.
 
-**매개변수**:
-- `nodeId`: 분할할 텍스트 노드 ID
-- `startPosition`: 시작 위치
-- `endPosition`: 끝 위치
+**Parameters**:
+- `nodeId`: text node ID to split
+- `startPosition`: start position
+- `endPosition`: end position
 
-**반환값**: 중간에 생성된 노드의 ID
+**Returns**: ID of middle node created
 
-**예제**:
+**Example**:
 ```typescript
 const middleNodeId = dataStore.splitTextRange('text-1', 3, 8);
 // "Hello World" → "Hel" + "lo Wo" + "rld"
@@ -737,14 +737,14 @@ const middleNodeId = dataStore.splitTextRange('text-1', 3, 8);
 autoMergeTextNodes(nodeId: string): string
 ```
 
-**설명**: 노드와 양쪽 인접한 텍스트 노드를 자동으로 병합합니다.
+**Description**: Automatically merges a node with adjacent text nodes on both sides.
 
-**매개변수**:
-- `nodeId`: 중앙 노드 ID
+**Parameters**:
+- `nodeId`: center node ID
 
-**반환값**: 병합된 노드의 ID
+**Returns**: ID of merged node
 
-**예제**:
+**Example**:
 ```typescript
 const mergedId = dataStore.autoMergeTextNodes('text-2');
 ```
@@ -755,16 +755,16 @@ const mergedId = dataStore.autoMergeTextNodes('text-2');
 insertText(nodeId: string, position: number, text: string): string
 ```
 
-**설명**: 텍스트 노드에 텍스트를 삽입합니다.
+**Description**: Inserts text into a text node.
 
-**매개변수**:
-- `nodeId`: 텍스트 노드 ID
-- `position`: 삽입 위치
-- `text`: 삽입할 텍스트
+**Parameters**:
+- `nodeId`: text node ID
+- `position`: insertion position
+- `text`: text to insert
 
-**반환값**: 수정된 노드의 ID
+**Returns**: ID of modified node
 
-**예제**:
+**Example**:
 ```typescript
 const newTextId = dataStore.insertText('text-1', 5, ' Beautiful');
 // "Hello World" → "Hello Beautiful World"
@@ -776,16 +776,16 @@ const newTextId = dataStore.insertText('text-1', 5, ' Beautiful');
 deleteTextRange(nodeId: string, startPosition: number, endPosition: number): string
 ```
 
-**설명**: 텍스트 노드에서 특정 범위를 삭제합니다.
+**Description**: Deletes a specific range from a text node.
 
-**매개변수**:
-- `nodeId`: 텍스트 노드 ID
-- `startPosition`: 시작 위치
-- `endPosition`: 끝 위치
+**Parameters**:
+- `nodeId`: text node ID
+- `startPosition`: start position
+- `endPosition`: end position
 
-**반환값**: 수정된 노드의 ID
+**Returns**: ID of modified node
 
-**예제**:
+**Example**:
 ```typescript
 const newTextId = dataStore.deleteTextRange('text-1', 5, 11);
 // "Hello World" → "Hello"
@@ -797,21 +797,21 @@ const newTextId = dataStore.deleteTextRange('text-1', 5, 11);
 replaceTextRange(nodeId: string, startPosition: number, endPosition: number, newText: string): string
 ```
 
-**설명**: 텍스트 노드에서 특정 범위를 새로운 텍스트로 교체합니다.
+**Description**: Replaces a specific range in a text node with new text.
 
-**매개변수**:
-- `nodeId`: 텍스트 노드 ID
-- `startPosition`: 시작 위치
-- `endPosition`: 끝 위치
-- `newText`: 교체할 새로운 텍스트
+**Parameters**:
+- `nodeId`: text node ID
+- `startPosition`: start position
+- `endPosition`: end position
+- `newText`: new text to replace with
 
-**반환값**: 교체된 원본 텍스트
+**Returns**: replaced original text
 
-**예제**:
+**Example**:
 ```typescript
 const replacedText = dataStore.replaceTextRange('text-1', 6, 11, 'Universe');
 // "Hello World" → "Hello Universe"
-// 반환값: "World"
+// Returns: "World"
 ```
 
 ## 7. MarkOperations
@@ -822,12 +822,12 @@ const replacedText = dataStore.replaceTextRange('text-1', 6, 11, 'Universe');
 normalizeMarks(nodeId: string): void
 ```
 
-**설명**: 노드의 마크를 정규화합니다.
+**Description**: Normalizes marks on a node.
 
-**매개변수**:
-- `nodeId`: 정규화할 노드 ID
+**Parameters**:
+- `nodeId`: node ID to normalize
 
-**예제**:
+**Example**:
 ```typescript
 dataStore.normalizeMarks('text-1');
 ```
@@ -838,11 +838,11 @@ dataStore.normalizeMarks('text-1');
 normalizeAllMarks(): number
 ```
 
-**설명**: 모든 노드의 마크를 정규화합니다.
+**Description**: Normalizes marks on all nodes.
 
-**반환값**: 정규화된 노드 수
+**Returns**: number of normalized nodes
 
-**예제**:
+**Example**:
 ```typescript
 const normalizedCount = dataStore.normalizeAllMarks();
 ```
@@ -858,14 +858,14 @@ getMarkStatistics(nodeId: string): {
 }
 ```
 
-**설명**: 노드의 마크 통계를 조회합니다.
+**Description**: Retrieves mark statistics for a node.
 
-**매개변수**:
-- `nodeId`: 통계를 조회할 노드 ID
+**Parameters**:
+- `nodeId`: node ID to get statistics for
 
-**반환값**: 마크 통계 객체
+**Returns**: mark statistics object
 
-**예제**:
+**Example**:
 ```typescript
 const stats = dataStore.getMarkStatistics('text-1');
 console.log(`Total marks: ${stats.totalMarks}`);
@@ -877,14 +877,14 @@ console.log(`Total marks: ${stats.totalMarks}`);
 removeEmptyMarks(nodeId: string): number
 ```
 
-**설명**: 노드의 빈 마크를 제거합니다.
+**Description**: Removes empty marks from a node.
 
-**매개변수**:
-- `nodeId`: 빈 마크를 제거할 노드 ID
+**Parameters**:
+- `nodeId`: node ID to remove empty marks from
 
-**반환값**: 제거된 마크 수
+**Returns**: number of marks removed
 
-**예제**:
+**Example**:
 ```typescript
 const removedCount = dataStore.removeEmptyMarks('text-1');
 ```
@@ -897,17 +897,17 @@ const removedCount = dataStore.removeEmptyMarks('text-1');
 deleteMultiNodeRange(startNodeId: string, startOffset: number, endNodeId: string, endOffset: number): string
 ```
 
-**설명**: 여러 노드에 걸친 텍스트를 삭제합니다.
+**Description**: Deletes text spanning multiple nodes.
 
-**매개변수**:
-- `startNodeId`: 시작 노드 ID
-- `startOffset`: 시작 오프셋
-- `endNodeId`: 끝 노드 ID
-- `endOffset`: 끝 오프셋
+**Parameters**:
+- `startNodeId`: start node ID
+- `startOffset`: start offset
+- `endNodeId`: end node ID
+- `endOffset`: end offset
 
-**반환값**: 삭제된 내용의 ID
+**Returns**: ID of deleted content
 
-**예제**:
+**Example**:
 ```typescript
 const deletedContent = dataStore.deleteMultiNodeRange('text-1', 5, 'text-3', 10);
 ```
@@ -918,16 +918,16 @@ const deletedContent = dataStore.deleteMultiNodeRange('text-1', 5, 'text-3', 10)
 insertTextAtMultiNodeRange(startNodeId: string, startOffset: number, endNodeId: string, endOffset: number, text: string): void
 ```
 
-**설명**: 여러 노드에 걸친 위치에 텍스트를 삽입합니다.
+**Description**: Inserts text at a position spanning multiple nodes.
 
-**매개변수**:
-- `startNodeId`: 시작 노드 ID
-- `startOffset`: 시작 오프셋
-- `endNodeId`: 끝 노드 ID
-- `endOffset`: 끝 오프셋
-- `text`: 삽입할 텍스트
+**Parameters**:
+- `startNodeId`: start node ID
+- `startOffset`: start offset
+- `endNodeId`: end node ID
+- `endOffset`: end offset
+- `text`: text to insert
 
-**예제**:
+**Example**:
 ```typescript
 dataStore.insertTextAtMultiNodeRange('text-1', 5, 'text-3', 10, 'New content');
 ```
@@ -938,17 +938,17 @@ dataStore.insertTextAtMultiNodeRange('text-1', 5, 'text-3', 10, 'New content');
 extractMultiNodeRange(startNodeId: string, startOffset: number, endNodeId: string, endOffset: number): string
 ```
 
-**설명**: 여러 노드에 걸친 텍스트를 추출합니다.
+**Description**: Extracts text spanning multiple nodes.
 
-**매개변수**:
-- `startNodeId`: 시작 노드 ID
-- `startOffset`: 시작 오프셋
-- `endNodeId`: 끝 노드 ID
-- `endOffset`: 끝 오프셋
+**Parameters**:
+- `startNodeId`: start node ID
+- `startOffset`: start offset
+- `endNodeId`: end node ID
+- `endOffset`: end offset
 
-**반환값**: 추출된 텍스트의 ID
+**Returns**: ID of extracted text
 
-**예제**:
+**Example**:
 ```typescript
 const extractedText = dataStore.extractMultiNodeRange('text-1', 0, 'text-3', 5);
 ```
@@ -959,16 +959,16 @@ const extractedText = dataStore.extractMultiNodeRange('text-1', 0, 'text-3', 5);
 applyMarkToMultiNodeRange(startNodeId: string, startOffset: number, endNodeId: string, endOffset: number, mark: IMark): void
 ```
 
-**설명**: 여러 노드에 걸친 범위에 마크를 적용합니다.
+**Description**: Applies a mark to a range spanning multiple nodes.
 
-**매개변수**:
-- `startNodeId`: 시작 노드 ID
-- `startOffset`: 시작 오프셋
-- `endNodeId`: 끝 노드 ID
-- `endOffset`: 끝 오프셋
-- `mark`: 적용할 마크
+**Parameters**:
+- `startNodeId`: start node ID
+- `startOffset`: start offset
+- `endNodeId`: end node ID
+- `endOffset`: end offset
+- `mark`: mark to apply
 
-**예제**:
+**Example**:
 ```typescript
 dataStore.applyMarkToMultiNodeRange('text-1', 0, 'text-3', 5, {
   type: 'bold',
@@ -982,16 +982,16 @@ dataStore.applyMarkToMultiNodeRange('text-1', 0, 'text-3', 5, {
 removeMarkFromMultiNodeRange(startNodeId: string, startOffset: number, endNodeId: string, endOffset: number, markType: string): void
 ```
 
-**설명**: 여러 노드에 걸친 범위에서 마크를 제거합니다.
+**Description**: Removes a mark from a range spanning multiple nodes.
 
-**매개변수**:
-- `startNodeId`: 시작 노드 ID
-- `startOffset`: 시작 오프셋
-- `endNodeId`: 끝 노드 ID
-- `endOffset`: 끝 오프셋
-- `markType`: 제거할 마크 타입
+**Parameters**:
+- `startNodeId`: start node ID
+- `startOffset`: start offset
+- `endNodeId`: end node ID
+- `endOffset`: end offset
+- `markType`: mark type to remove
 
-**예제**:
+**Example**:
 ```typescript
 dataStore.removeMarkFromMultiNodeRange('text-1', 0, 'text-3', 5, 'bold');
 ```
@@ -1004,11 +1004,11 @@ dataStore.removeMarkFromMultiNodeRange('text-1', 0, 'text-3', 5, 'bold');
 getNodeCount(): number
 ```
 
-**설명**: 전체 노드 수를 조회합니다.
+**Description**: Retrieves total node count.
 
-**반환값**: 노드 수
+**Returns**: node count
 
-**예제**:
+**Example**:
 ```typescript
 const totalNodes = dataStore.getNodeCount();
 ```
@@ -1019,11 +1019,11 @@ const totalNodes = dataStore.getNodeCount();
 clone(): DataStore
 ```
 
-**설명**: DataStore를 복제합니다.
+**Description**: Clones DataStore.
 
-**반환값**: 복제된 DataStore 인스턴스
+**Returns**: cloned DataStore instance
 
-**예제**:
+**Example**:
 ```typescript
 const clonedStore = dataStore.clone();
 ```
@@ -1034,11 +1034,11 @@ const clonedStore = dataStore.clone();
 getAllNodes(): INode[]
 ```
 
-**설명**: 모든 노드를 조회합니다.
+**Description**: Retrieves all nodes.
 
-**반환값**: 모든 노드 배열
+**Returns**: array of all nodes
 
-**예제**:
+**Example**:
 ```typescript
 const allNodes = dataStore.getAllNodes();
 ```
@@ -1049,11 +1049,11 @@ const allNodes = dataStore.getAllNodes();
 getAllNodesMap(): Map<string, INode>
 ```
 
-**설명**: 모든 노드의 Map을 반환합니다.
+**Description**: Returns a Map of all nodes.
 
-**반환값**: 노드 Map
+**Returns**: node Map
 
-**예제**:
+**Example**:
 ```typescript
 const nodesMap = dataStore.getAllNodesMap();
 ```
@@ -1064,14 +1064,14 @@ const nodesMap = dataStore.getAllNodesMap();
 hasNode(nodeId: string): boolean
 ```
 
-**설명**: 노드 존재 여부를 확인합니다.
+**Description**: Checks if a node exists.
 
-**매개변수**:
-- `nodeId`: 확인할 노드 ID
+**Parameters**:
+- `nodeId`: node ID to check
 
-**반환값**: 존재 여부
+**Returns**: existence status
 
-**예제**:
+**Example**:
 ```typescript
 const exists = dataStore.hasNode('text-1');
 ```
@@ -1082,14 +1082,14 @@ const exists = dataStore.hasNode('text-1');
 getChildCount(nodeId: string): number
 ```
 
-**설명**: 노드의 자식 수를 조회합니다.
+**Description**: Retrieves child count of a node.
 
-**매개변수**:
-- `nodeId`: 부모 노드 ID
+**Parameters**:
+- `nodeId`: parent node ID
 
-**반환값**: 자식 수
+**Returns**: child count
 
-**예제**:
+**Example**:
 ```typescript
 const childCount = dataStore.getChildCount('para-1');
 ```
@@ -1100,14 +1100,14 @@ const childCount = dataStore.getChildCount('para-1');
 isLeafNode(nodeId: string): boolean
 ```
 
-**설명**: 노드가 리프 노드인지 확인합니다.
+**Description**: Checks if a node is a leaf node.
 
-**매개변수**:
-- `nodeId`: 확인할 노드 ID
+**Parameters**:
+- `nodeId`: node ID to check
 
-**반환값**: 리프 노드 여부
+**Returns**: whether it’s a leaf node
 
-**예제**:
+**Example**:
 ```typescript
 const isLeaf = dataStore.isLeafNode('text-1');
 ```
@@ -1118,14 +1118,14 @@ const isLeaf = dataStore.isLeafNode('text-1');
 isRootNode(nodeId: string): boolean
 ```
 
-**설명**: 노드가 루트 노드인지 확인합니다.
+**Description**: Checks if a node is the root node.
 
-**매개변수**:
-- `nodeId`: 확인할 노드 ID
+**Parameters**:
+- `nodeId`: node ID to check
 
-**반환값**: 루트 노드 여부
+**Returns**: whether it’s the root node
 
-**예제**:
+**Example**:
 ```typescript
 const isRoot = dataStore.isRootNode('doc-1');
 ```
@@ -1136,15 +1136,15 @@ const isRoot = dataStore.isRootNode('doc-1');
 isDescendant(nodeId: string, ancestorId: string): boolean
 ```
 
-**설명**: 노드가 다른 노드의 후손인지 확인합니다.
+**Description**: Checks if a node is a descendant of another node.
 
-**매개변수**:
-- `nodeId`: 확인할 노드 ID
-- `ancestorId`: 조상 노드 ID
+**Parameters**:
+- `nodeId`: node ID to check
+- `ancestorId`: ancestor node ID
 
-**반환값**: 후손 여부
+**Returns**: whether it’s a descendant
 
-**예제**:
+**Example**:
 ```typescript
 const isDescendant = dataStore.isDescendant('text-1', 'doc-1');
 ```
@@ -1155,14 +1155,14 @@ const isDescendant = dataStore.isDescendant('text-1', 'doc-1');
 getNodePath(nodeId: string): string[]
 ```
 
-**설명**: 노드의 경로를 조회합니다.
+**Description**: Retrieves the path of a node.
 
-**매개변수**:
-- `nodeId`: 경로를 조회할 노드 ID
+**Parameters**:
+- `nodeId`: node ID to get path for
 
-**반환값**: 경로 배열 (루트부터 해당 노드까지)
+**Returns**: path array (from root to the node)
 
-**예제**:
+**Example**:
 ```typescript
 const path = dataStore.getNodePath('text-1');
 // ['doc-1', 'para-1', 'text-1']
@@ -1174,14 +1174,14 @@ const path = dataStore.getNodePath('text-1');
 getNodeDepth(nodeId: string): number
 ```
 
-**설명**: 노드의 깊이를 조회합니다.
+**Description**: Retrieves the depth of a node.
 
-**매개변수**:
-- `nodeId`: 깊이를 조회할 노드 ID
+**Parameters**:
+- `nodeId`: node ID to get depth for
 
-**반환값**: 깊이 (루트는 0)
+**Returns**: depth (root is 0)
 
-**예제**:
+**Example**:
 ```typescript
 const depth = dataStore.getNodeDepth('text-1'); // 2
 ```
@@ -1192,14 +1192,14 @@ const depth = dataStore.getNodeDepth('text-1'); // 2
 getAllDescendants(nodeId: string): INode[]
 ```
 
-**설명**: 노드의 모든 후손을 조회합니다.
+**Description**: Retrieves all descendants of a node.
 
-**매개변수**:
-- `nodeId`: 부모 노드 ID
+**Parameters**:
+- `nodeId`: parent node ID
 
-**반환값**: 모든 후손 노드 배열
+**Returns**: array of all descendant nodes
 
-**예제**:
+**Example**:
 ```typescript
 const descendants = dataStore.getAllDescendants('doc-1');
 ```
@@ -1210,14 +1210,14 @@ const descendants = dataStore.getAllDescendants('doc-1');
 getAllAncestors(nodeId: string): INode[]
 ```
 
-**설명**: 노드의 모든 조상을 조회합니다.
+**Description**: Retrieves all ancestors of a node.
 
-**매개변수**:
-- `nodeId`: 조상을 조회할 노드 ID
+**Parameters**:
+- `nodeId`: node ID to get ancestors for
 
-**반환값**: 모든 조상 노드 배열
+**Returns**: array of all ancestor nodes
 
-**예제**:
+**Example**:
 ```typescript
 const ancestors = dataStore.getAllAncestors('text-1');
 ```
@@ -1228,14 +1228,14 @@ const ancestors = dataStore.getAllAncestors('text-1');
 getSiblings(nodeId: string): INode[]
 ```
 
-**설명**: 노드의 형제 노드들을 조회합니다.
+**Description**: Retrieves sibling nodes of a node.
 
-**매개변수**:
-- `nodeId`: 형제를 조회할 노드 ID
+**Parameters**:
+- `nodeId`: node ID to get siblings for
 
-**반환값**: 형제 노드 배열
+**Returns**: array of sibling nodes
 
-**예제**:
+**Example**:
 ```typescript
 const siblings = dataStore.getSiblings('text-1');
 ```
@@ -1246,14 +1246,14 @@ const siblings = dataStore.getSiblings('text-1');
 getSiblingIndex(nodeId: string): number
 ```
 
-**설명**: 노드의 형제 중 인덱스를 조회합니다.
+**Description**: Retrieves the index of a node among its siblings.
 
-**매개변수**:
-- `nodeId`: 인덱스를 조회할 노드 ID
+**Parameters**:
+- `nodeId`: node ID to get index for
 
-**반환값**: 형제 중 인덱스 (0부터 시작)
+**Returns**: index among siblings (0-based)
 
-**예제**:
+**Example**:
 ```typescript
 const index = dataStore.getSiblingIndex('text-1'); // 0, 1, 2...
 ```
@@ -1264,19 +1264,19 @@ const index = dataStore.getSiblingIndex('text-1'); // 0, 1, 2...
 restoreFromSnapshot(nodes: Map<string, INode>, rootNodeId?: string, version: number = 1): void
 ```
 
-**설명**: 스냅샷에서 DataStore를 복원합니다.
+**Description**: Restores DataStore from a snapshot.
 
-**매개변수**:
-- `nodes`: 노드 Map
-- `rootNodeId`: 루트 노드 ID
-- `version`: 버전 번호
+**Parameters**:
+- `nodes`: node Map
+- `rootNodeId`: root node ID
+- `version`: version number
 
-**예제**:
+**Example**:
 ```typescript
 dataStore.restoreFromSnapshot(snapshot, 'doc-1', 1);
 ```
 
-## 10. 이벤트 시스템
+## 10. Event System
 
 ### 10.1 onOperation
 
@@ -1284,15 +1284,15 @@ dataStore.restoreFromSnapshot(snapshot, 'doc-1', 1);
 onOperation(callback: (operation: AtomicOperation) => void, operationType?: string): () => void
 ```
 
-**설명**: Operation 이벤트를 구독합니다.
+**Description**: Subscribes to operation events.
 
-**매개변수**:
-- `callback`: 이벤트 콜백 함수
-- `operationType`: 특정 타입만 구독 (선택사항)
+**Parameters**:
+- `callback`: event callback function
+- `operationType`: subscribe to specific type only (optional)
 
-**반환값**: 구독 해제 함수
+**Returns**: unsubscribe function
 
-**예제**:
+**Example**:
 ```typescript
 const unsubscribe = dataStore.onOperation((operation) => {
   console.log('Operation:', operation.type, operation.nodeId);
@@ -1305,17 +1305,17 @@ const unsubscribe = dataStore.onOperation((operation) => {
 offOperation(callback: (operation: AtomicOperation) => void): void
 ```
 
-**설명**: Operation 이벤트 구독을 해제합니다.
+**Description**: Unsubscribes from operation events.
 
-**매개변수**:
-- `callback`: 구독 해제할 콜백 함수
+**Parameters**:
+- `callback`: callback function to unsubscribe
 
-**예제**:
+**Example**:
 ```typescript
 dataStore.offOperation(handler);
 ```
 
-## 11. 스키마 관리
+## 11. Schema Management
 
 ### 11.1 registerSchema
 
@@ -1323,12 +1323,12 @@ dataStore.offOperation(handler);
 registerSchema(schema: Schema): void
 ```
 
-**설명**: 스키마를 등록합니다.
+**Description**: Registers a schema.
 
-**매개변수**:
-- `schema`: 등록할 스키마
+**Parameters**:
+- `schema`: schema to register
 
-**예제**:
+**Example**:
 ```typescript
 dataStore.registerSchema(schema);
 ```
@@ -1339,12 +1339,12 @@ dataStore.registerSchema(schema);
 setActiveSchema(schema: Schema): void
 ```
 
-**설명**: 활성 스키마를 설정합니다.
+**Description**: Sets the active schema.
 
-**매개변수**:
-- `schema`: 활성화할 스키마
+**Parameters**:
+- `schema`: schema to activate
 
-**예제**:
+**Example**:
 ```typescript
 dataStore.setActiveSchema(schema);
 ```
@@ -1355,11 +1355,11 @@ dataStore.setActiveSchema(schema);
 getActiveSchema(): Schema | undefined
 ```
 
-**설명**: 활성 스키마를 조회합니다.
+**Description**: Retrieves the active schema.
 
-**반환값**: 활성 스키마 또는 undefined
+**Returns**: active schema or undefined
 
-**예제**:
+**Example**:
 ```typescript
 const activeSchema = dataStore.getActiveSchema();
 ```
@@ -1370,15 +1370,15 @@ const activeSchema = dataStore.getActiveSchema();
 validateNode(node: INode, schema?: Schema): ValidationResult
 ```
 
-**설명**: 노드를 스키마로 검증합니다.
+**Description**: Validates a node against a schema.
 
-**매개변수**:
-- `node`: 검증할 노드
-- `schema`: 사용할 스키마 (기본값: 활성 스키마)
+**Parameters**:
+- `node`: node to validate
+- `schema`: schema to use (default: active schema)
 
-**반환값**: 검증 결과
+**Returns**: validation result
 
-**예제**:
+**Example**:
 ```typescript
 const result = dataStore.validateNode(node, schema);
 if (!result.valid) {
@@ -1388,4 +1388,4 @@ if (!result.valid) {
 
 ---
 
-이 API 레퍼런스는 DataStore의 모든 공개 메서드를 다룹니다. 더 자세한 사용 예제는 [DataStore Usage Scenarios](./datastore-usage-scenarios.md)를 참조하세요.
+This API reference covers all public methods of DataStore. For more detailed usage examples, see [DataStore Usage Scenarios](./datastore-usage-scenarios.md).

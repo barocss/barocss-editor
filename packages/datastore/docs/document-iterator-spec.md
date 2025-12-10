@@ -1,67 +1,67 @@
-# DocumentIterator 순환 로직 명세서
+# DocumentIterator Traversal Logic Specification
 
-## 개요
+## Overview
 
-`DocumentIterator`는 문서 구조를 순회하기 위한 반복자(iterator) 클래스입니다. 이 문서는 `DocumentIterator`의 내부 동작 원리와 순환 로직에 대해 상세히 설명합니다.
+`DocumentIterator` is an iterator class for traversing document structures. This document provides detailed explanations of the internal operation principles and traversal logic of `DocumentIterator`.
 
-### 성능 vs 완전성 정책
+### Performance vs Completeness Policy
 
-QueryOperations에서 DocumentIterator와 전체 순회 방식을 적절히 조합하여 사용하는 정책:
+Policy for appropriately combining DocumentIterator and full traversal in QueryOperations:
 
-#### DocumentIterator 사용 (성능 우선)
-- **findNodesByType**: 타입 필터링으로 효율적
-- **findChildrenByParentId**: 직접 접근으로 효율적  
-- **findNodesByDepth**: 깊이 제한으로 효율적
+#### Using DocumentIterator (Performance Priority)
+- **findNodesByType**: Efficient with type filtering
+- **findChildrenByParentId**: Efficient with direct access
+- **findNodesByDepth**: Efficient with depth limiting
 
-#### 전체 순회 사용 (완전성 우선)
-- **findNodes**: 고아 노드 포함 모든 노드 검색
-- **findRootNodes**: 고아 노드도 루트로 간주
-- **findNodesByAttribute**: 속성 검색 (고아 노드 포함)
-- **findNodesByText**: 텍스트 검색 (고아 노드 포함)
-- **searchText**: 텍스트 검색 (고아 노드 포함)
+#### Using Full Traversal (Completeness Priority)
+- **findNodes**: Search all nodes including orphan nodes
+- **findRootNodes**: Consider orphan nodes as roots too
+- **findNodesByAttribute**: Attribute search (including orphan nodes)
+- **findNodesByText**: Text search (including orphan nodes)
+- **searchText**: Text search (including orphan nodes)
 
-이 정책은 데이터 무결성 검사, 정리 작업, 디버깅 시 고아 노드까지 찾아야 하는 요구사항과 일반적인 성능 최적화 요구사항을 모두 만족합니다.
+This policy satisfies both requirements: finding orphan nodes for data integrity checks, cleanup tasks, and debugging, and general performance optimization requirements.
 
-## 목차
+## Table of Contents
 
-1. [기본 개념](#기본-개념)
-2. [순환 알고리즘](#순환-알고리즘)
-3. [상태 관리](#상태-관리)
-4. [필터링 시스템](#필터링-시스템)
-5. [역순 순회](#역순-순회)
-6. [범위 기반 순회](#범위-기반-순회)
-7. [Visitor 패턴](#visitor-패턴)
-8. [성능 최적화](#성능-최적화)
-9. [사용 예제](#사용-예제)
+1. [Basic Concepts](#basic-concepts)
+2. [Traversal Algorithm](#traversal-algorithm)
+3. [State Management](#state-management)
+4. [Filtering System](#filtering-system)
+5. [Reverse Traversal](#reverse-traversal)
+6. [Range-Based Traversal](#range-based-traversal)
+7. [Visitor Pattern](#visitor-pattern)
+8. [Performance Optimization](#performance-optimization)
+9. [Usage Examples](#usage-examples)
 
-## 기본 개념
+## Basic Concepts
 
-### 문서 순서 (Document Order)
+### Document Order
 
-문서 순서는 **깊이 우선 순회(Depth-First Traversal)**를 기반으로 합니다:
+Document order is based on **Depth-First Traversal**:
 
 ```
 Document
 ├── Heading 1
-│   └── InlineText "제목"
+│   └── InlineText "Title"
 ├── Paragraph 1
-│   ├── InlineText "첫 번째"
-│   ├── InlineText "두 번째"
-│   └── InlineText "세 번째"
+│   ├── InlineText "First"
+│   ├── InlineText "Second"
+│   └── InlineText "Third"
 └── List
     ├── ListItem 1
     │   └── Paragraph
-    │       └── InlineText "항목 1"
+    │       └── InlineText "Item 1"
     └── ListItem 2
         └── Paragraph
-            └── InlineText "항목 2"
+            └── InlineText "Item 2"
 ```
 
-**순회 순서**: Document → Heading 1 → InlineText "제목" → Paragraph 1 → InlineText "첫 번째" → InlineText "두 번째" → InlineText "세 번째" → List → ListItem 1 → Paragraph → InlineText "항목 1" → ListItem 2 → Paragraph → InlineText "항목 2"
+**Traversal order**: Document → Heading 1 → InlineText "Title" → Paragraph 1 → InlineText "First" → InlineText "Second" → InlineText "Third" → List → ListItem 1 → Paragraph → InlineText "Item 1" → ListItem 2 → Paragraph → InlineText "Item 2"
 
-### Iterator 인터페이스
+### Iterator Interface
 
-`DocumentIterator`는 JavaScript의 표준 `IterableIterator<string>` 인터페이스를 구현합니다:
+`DocumentIterator` implements JavaScript's standard `IterableIterator<string>` interface:
 
 ```typescript
 interface IterableIterator<T> {
@@ -70,110 +70,110 @@ interface IterableIterator<T> {
 }
 ```
 
-## 순환 알고리즘
+## Traversal Algorithm
 
-### 1. 기본 순회 알고리즘 (정방향)
+### 1. Basic Traversal Algorithm (Forward)
 
 ```mermaid
 flowchart TD
-    A[Iterator 시작] --> B{현재 노드 존재?}
-    B -->|No| C[순회 완료]
-    B -->|Yes| D[노드 검증]
-    D --> E{중복 방문?}
-    E -->|Yes| F[다음 노드로 이동]
-    E -->|No| G{깊이 제한 초과?}
+    A[Iterator start] --> B{Current node exists?}
+    B -->|No| C[Traversal complete]
+    B -->|Yes| D[Node validation]
+    D --> E{Already visited?}
+    E -->|Yes| F[Move to next node]
+    E -->|No| G{Depth limit exceeded?}
     G -->|Yes| F
-    G -->|No| H{타입 필터 통과?}
+    G -->|No| H{Type filter pass?}
     H -->|No| F
-    H -->|Yes| I{사용자 필터 통과?}
+    H -->|Yes| I{User filter pass?}
     I -->|No| F
-    I -->|Yes| J{중단 조건?}
+    I -->|Yes| J{Stop condition?}
     J -->|Yes| C
-    J -->|No| K[방문 표시]
-    K --> L[현재 노드 반환]
-    L --> M[다음 노드로 이동]
+    J -->|No| K[Mark as visited]
+    K --> L[Return current node]
+    L --> M[Move to next node]
     M --> B
-    F --> N[getNextNode 호출]
+    F --> N[Call getNextNode]
     N --> B
 ```
 
-### 2. getNextNode 알고리즘
+### 2. getNextNode Algorithm
 
 ```mermaid
 flowchart TD
-    A[getNextNode 시작] --> B{현재 노드 존재?}
-    B -->|No| C[null 반환]
-    B -->|Yes| D{자식 노드 존재?}
-    D -->|Yes| E[첫 번째 자식 반환]
-    D -->|No| F[다음 형제 찾기]
-    F --> G{형제 존재?}
-    G -->|Yes| H[다음 형제 반환]
-    G -->|No| I[부모로 이동]
-    I --> J{부모 존재?}
+    A[getNextNode start] --> B{Current node exists?}
+    B -->|No| C[Return null]
+    B -->|Yes| D{Child nodes exist?}
+    D -->|Yes| E[Return first child]
+    D -->|No| F[Find next sibling]
+    F --> G{Sibling exists?}
+    G -->|Yes| H[Return next sibling]
+    G -->|No| I[Move to parent]
+    I --> J{Parent exists?}
     J -->|No| C
-    J -->|Yes| K[부모의 다음 형제 찾기]
-    K --> L{부모의 형제 존재?}
-    L -->|Yes| M[부모의 형제 반환]
+    J -->|Yes| K[Find parent's next sibling]
+    K --> L{Parent's sibling exists?}
+    L -->|Yes| M[Return parent's sibling]
     L -->|No| I
 ```
 
-### 3. getPreviousNode 알고리즘
+### 3. getPreviousNode Algorithm
 
 ```mermaid
 flowchart TD
-    A[getPreviousNode 시작] --> B{현재 노드 존재?}
-    B -->|No| C[null 반환]
-    B -->|Yes| D{이전 형제 존재?}
-    D -->|Yes| E[이전 형제의 마지막 자손 찾기]
-    E --> F[마지막 자손 반환]
-    D -->|No| G[부모로 이동]
-    G --> H{부모 존재?}
+    A[getPreviousNode start] --> B{Current node exists?}
+    B -->|No| C[Return null]
+    B -->|Yes| D{Previous sibling exists?}
+    D -->|Yes| E[Find last descendant of previous sibling]
+    E --> F[Return last descendant]
+    D -->|No| G[Move to parent]
+    G --> H{Parent exists?}
     H -->|No| C
-    H -->|Yes| I[부모 반환]
+    H -->|Yes| I[Return parent]
 ```
 
-## 상태 관리
+## State Management
 
-### Iterator 상태
+### Iterator State
 
 ```typescript
 class DocumentIterator {
-  private currentId: string | null;        // 현재 순회 중인 노드 ID
-  private visited = new Set<string>();     // 방문한 노드 ID 집합
-  private options: Required<DocumentIteratorOptions>; // 순회 옵션
+  private currentId: string | null;        // Currently traversing node ID
+  private visited = new Set<string>();     // Set of visited node IDs
+  private options: Required<DocumentIteratorOptions>; // Traversal options
 }
 ```
 
-### 상태 전환
+### State Transitions
 
 ```mermaid
 stateDiagram-v2
-    [*] --> 초기화: Iterator 생성
-    초기화 --> 순회중: next() 호출
-    순회중 --> 검증중: 노드 발견
-    검증중 --> 필터링중: 중복 방문 아님
-    필터링중 --> 반환중: 필터 통과
-    반환중 --> 순회중: 다음 노드로 이동
-    검증중 --> 순회중: 중복 방문
-    필터링중 --> 순회중: 필터 실패
-    순회중 --> 완료: 더 이상 노드 없음
-    반환중 --> 완료: 중단 조건 만족
-    완료 --> [*]
+    [*] --> Initialized: Iterator creation
+    Initialized --> Traversing: next() called
+    Traversing --> Validating: Node found
+    Validating --> Filtering: Not duplicate visit
+    Filtering --> Returning: Filter passed
+    Returning --> Traversing: Move to next node
+    Validating --> Traversing: Duplicate visit
+    Filtering --> Traversing: Filter failed
+    Traversing --> Completed: No more nodes
+    Returning --> Completed: Stop condition met
+    Completed --> [*]
 ```
 
-## 필터링 시스템
+## Filtering System
 
-### 1. 타입 필터
+### 1. Type Filter
 
 ```typescript
 interface TypeFilter {
-  type?: string;           // 단일 타입
-  types?: string[];        // 여러 타입
-  excludeTypes?: string[]; // 제외할 타입들
+  type?: string;           // Single type
+  types?: string[];        // Multiple types
+  excludeTypes?: string[]; // Types to exclude
 }
 ```
 
-**필터링 로직**:
+**Filtering logic**:
 ```typescript
 private matchesTypeFilter(node: any): boolean {
   const { filter } = this.options;
@@ -194,31 +194,31 @@ private matchesTypeFilter(node: any): boolean {
 }
 ```
 
-### 2. 사용자 정의 필터
+### 2. Custom Filter
 
 ```typescript
 customFilter?: (nodeId: string, node: any) => boolean;
 ```
 
-### 3. 중단 조건
+### 3. Stop Condition
 
 ```typescript
 shouldStop?: (nodeId: string, node: any) => boolean;
 ```
 
-## 역순 순회
+## Reverse Traversal
 
-### 역순 순회 초기화
+### Reverse Traversal Initialization
 
 ```mermaid
 flowchart TD
-    A[역순 Iterator 생성] --> B[findLastNode 호출]
-    B --> C[문서의 마지막 노드 찾기]
-    C --> D[마지막 노드를 시작점으로 설정]
-    D --> E[역순 순회 시작]
+    A[Create reverse Iterator] --> B[Call findLastNode]
+    B --> C[Find last node in document]
+    C --> D[Set last node as start point]
+    D --> E[Start reverse traversal]
 ```
 
-### findLastNode 알고리즘
+### findLastNode Algorithm
 
 ```typescript
 private findLastNode(): string | null {
@@ -234,152 +234,152 @@ private findLastNode(): string | null {
 }
 ```
 
-### 역순 순회 로직
+### Reverse Traversal Logic
 
 ```mermaid
 flowchart TD
-    A["역순 next() 호출"] --> B{현재 노드 존재?}
-    B -->|No| C[순회 완료]
-    B -->|Yes| D[노드 검증]
-    D --> E{중복 방문?}
-    E -->|Yes| F[이전 노드로 이동]
-    E -->|No| G{깊이 제한 초과?}
+    A["Reverse next() called"] --> B{Current node exists?}
+    B -->|No| C[Traversal complete]
+    B -->|Yes| D[Node validation]
+    D --> E{Already visited?}
+    E -->|Yes| F[Move to previous node]
+    E -->|No| G{Depth limit exceeded?}
     G -->|Yes| F
-    G -->|No| H{타입 필터 통과?}
+    G -->|No| H{Type filter pass?}
     H -->|No| F
-    H -->|Yes| I{사용자 필터 통과?}
+    H -->|Yes| I{User filter pass?}
     I -->|No| F
-    I -->|Yes| J{중단 조건?}
+    I -->|Yes| J{Stop condition?}
     J -->|Yes| C
-    J -->|No| K[방문 표시]
-    K --> L[현재 노드 반환]
-    L --> M[이전 노드로 이동]
+    J -->|No| K[Mark as visited]
+    K --> L[Return current node]
+    L --> M[Move to previous node]
     M --> B
-    F --> N[getPreviousNode 호출]
+    F --> N[Call getPreviousNode]
     N --> B
 ```
 
-## 범위 기반 순회
+## Range-Based Traversal
 
-### 개요
+### Overview
 
-범위 기반 순회는 문서의 특정 부분만을 효율적으로 순회하는 기능입니다. 전체 문서를 순회하지 않고 지정된 시작 노드와 끝 노드 사이의 노드들만 순회합니다.
+Range-based traversal is a feature for efficiently traversing only specific parts of a document. It traverses only nodes between a specified start node and end node without traversing the entire document.
 
-### DocumentRange 인터페이스
+### DocumentRange Interface
 
 ```typescript
 interface DocumentRange {
-  /** 시작 노드 ID */
+  /** Start node ID */
   startNodeId: string;
-  /** 끝 노드 ID */
+  /** End node ID */
   endNodeId: string;
-  /** 시작 노드 포함 여부 (기본값: true) */
+  /** Whether to include start node (default: true) */
   includeStart?: boolean;
-  /** 끝 노드 포함 여부 (기본값: true) */
+  /** Whether to include end node (default: true) */
   includeEnd?: boolean;
 }
 ```
 
-### 범위 체크 알고리즘
+### Range Check Algorithm
 
 ```mermaid
 flowchart TD
-    A[범위 체크 시작] --> B{범위 설정됨?}
-    B -->|No| C[모든 노드 허용]
-    B -->|Yes| D{시작 노드?}
+    A[Range check start] --> B{Range set?}
+    B -->|No| C[Allow all nodes]
+    B -->|Yes| D{Start node?}
     D -->|Yes| E{includeStart?}
-    E -->|Yes| F[허용]
-    E -->|No| G[거부]
-    D -->|No| H{끝 노드?}
+    E -->|Yes| F[Allow]
+    E -->|No| G[Reject]
+    D -->|No| H{End node?}
     H -->|Yes| I{includeEnd?}
     I -->|Yes| F
     I -->|No| G
-    H -->|No| J[문서 순서 비교]
-    J --> K{시작 노드보다 앞?}
+    H -->|No| J[Compare document order]
+    J --> K{Before start node?}
     K -->|Yes| G
-    K -->|No| L{끝 노드보다 뒤?}
+    K -->|No| L{After end node?}
     L -->|Yes| G
     L -->|No| F
 ```
 
-### 범위 체크 구현
+### Range Check Implementation
 
 ```typescript
 private isInRange(nodeId: string): boolean {
-  // 범위가 설정되지 않은 경우 모든 노드 허용
+  // Allow all nodes if range is not set
   if (!this.options.range || !this.rangeStartId || !this.rangeEndId) {
     return true;
   }
 
   const { includeStart = true, includeEnd = true } = this.options.range;
 
-  // 시작 노드 체크
+  // Check start node
   if (nodeId === this.rangeStartId) {
     return includeStart;
   }
 
-  // 끝 노드 체크
+  // Check end node
   if (nodeId === this.rangeEndId) {
     return includeEnd;
   }
 
-  // 범위 내 노드인지 확인
+  // Check if node is within range
   const comparison = this.dataStore.utility.compareDocumentOrder(nodeId, this.rangeStartId);
   const endComparison = this.dataStore.utility.compareDocumentOrder(nodeId, this.rangeEndId);
 
-  // 시작 노드보다 앞에 있으면 범위 밖
+  // Outside range if before start node
   if (comparison < 0) {
     return false;
   }
 
-  // 끝 노드보다 뒤에 있으면 범위 밖
+  // Outside range if after end node
   if (endComparison > 0) {
     return false;
   }
 
-  // 범위 내에 있음
+  // Within range
   return true;
 }
 ```
 
-### 범위 기반 순회의 장점
+### Advantages of Range-Based Traversal
 
-1. **메모리 효율성**: 필요한 범위만 순회하여 메모리 사용량 최적화
-2. **성능 최적화**: 전체 문서를 스캔하지 않고 지정된 범위만 처리
-3. **정확한 제어**: 특정 섹션이나 구간만 정확히 처리 가능
-4. **유연한 경계 설정**: 시작/끝 노드 포함/제외 옵션 제공
+1. **Memory Efficiency**: Optimize memory usage by traversing only the needed range
+2. **Performance Optimization**: Process only the specified range without scanning the entire document
+3. **Precise Control**: Process only specific sections or intervals accurately
+4. **Flexible Boundary Settings**: Provide options to include/exclude start/end nodes
 
-### 범위 기반 순회 vs 전체 순회
+### Range-Based Traversal vs Full Traversal
 
-| 특징 | 범위 기반 순회 | 전체 순회 |
-|------|----------------|-----------|
-| 순회 범위 | 지정된 범위만 | 전체 문서 |
-| 메모리 사용량 | 낮음 | 높음 |
-| 성능 | 빠름 | 상대적으로 느림 |
-| 제어 정확도 | 높음 | 낮음 |
-| 사용 사례 | 특정 섹션 처리 | 전체 문서 분석 |
+| Feature | Range-Based Traversal | Full Traversal |
+|---------|----------------------|----------------|
+| Traversal Range | Only specified range | Entire document |
+| Memory Usage | Low | High |
+| Performance | Fast | Relatively slow |
+| Control Precision | High | Low |
+| Use Cases | Process specific sections | Analyze entire document |
 
-## 성능 최적화
+## Performance Optimization
 
-### 1. 방문 추적 최적화
+### 1. Visit Tracking Optimization
 
-- `Set<string>`을 사용하여 O(1) 방문 확인
-- 중복 방문 방지로 무한 루프 방지
+- Use `Set<string>` for O(1) visit confirmation
+- Prevent infinite loops by preventing duplicate visits
 
-### 2. 조기 종료 최적화
+### 2. Early Exit Optimization
 
-- 깊이 제한 초과 시 즉시 다음 노드로 이동
-- 필터 실패 시 즉시 다음 노드로 이동
-- 중단 조건 만족 시 즉시 순회 종료
+- Immediately move to next node when depth limit exceeded
+- Immediately move to next node when filter fails
+- Immediately end traversal when stop condition met
 
-### 3. 메모리 최적화
+### 3. Memory Optimization
 
-- 노드 객체를 직접 저장하지 않고 ID만 저장
-- 필요할 때만 `dataStore.getNode()`로 노드 조회
+- Store only IDs, not node objects directly
+- Look up nodes with `dataStore.getNode()` only when needed
 
-## 사용 예제
+## Usage Examples
 
-### 1. 기본 순회
+### 1. Basic Traversal
 
 ```typescript
 const iterator = dataStore.createDocumentIterator();
@@ -390,7 +390,7 @@ for (const nodeId of iterator) {
 }
 ```
 
-### 2. 타입 필터링
+### 2. Type Filtering
 
 ```typescript
 const textIterator = dataStore.createDocumentIterator({
@@ -403,7 +403,7 @@ for (const nodeId of textIterator) {
 }
 ```
 
-### 3. 깊이 제한
+### 3. Depth Limiting
 
 ```typescript
 const shallowIterator = dataStore.createDocumentIterator({
@@ -412,11 +412,11 @@ const shallowIterator = dataStore.createDocumentIterator({
 
 for (const nodeId of shallowIterator) {
   const node = dataStore.getNode(nodeId);
-  console.log(`${nodeId}: ${node.type} (깊이: ${dataStore.getNodePath(nodeId).length})`);
+  console.log(`${nodeId}: ${node.type} (depth: ${dataStore.getNodePath(nodeId).length})`);
 }
 ```
 
-### 4. 역순 순회
+### 4. Reverse Traversal
 
 ```typescript
 const reverseIterator = dataStore.createDocumentIterator({
@@ -429,7 +429,7 @@ for (const nodeId of reverseIterator) {
 }
 ```
 
-### 5. 조건부 순회
+### 5. Conditional Traversal
 
 ```typescript
 const conditionalIterator = dataStore.createDocumentIterator({
@@ -444,95 +444,95 @@ for (const nodeId of conditionalIterator) {
 }
 ```
 
-### 6. 범위 기반 순회
+### 6. Range-Based Traversal
 
 ```typescript
-// 기본 범위 순회
+// Basic range traversal
 const rangeIterator = dataStore.createRangeIterator('0:2', '0:6');
 for (const nodeId of rangeIterator) {
   const node = dataStore.getNode(nodeId);
   console.log(`${nodeId}: ${node.type}`);
 }
 
-// 경계 제외 옵션
+// Boundary exclusion options
 const excludeBoundsIterator = dataStore.createRangeIterator('0:2', '0:6', {
   includeStart: false,
   includeEnd: false
 });
 
-// 필터링과 함께 사용
+// Use with filtering
 const filteredRangeIterator = dataStore.createRangeIterator('0:2', '0:6', {
   filter: { type: 'inline-text' }
 });
 
-// 편의 메서드 사용
+// Use convenience methods
 const nodesInRange = dataStore.getNodesInRange('0:2', '0:6');
 const count = dataStore.getRangeNodeCount('0:2', '0:6');
 ```
 
-### 7. 유틸리티 메서드 사용
+### 7. Utility Method Usage
 
 ```typescript
 const iterator = dataStore.createDocumentIterator();
 
-// 모든 노드를 배열로 수집
+// Collect all nodes into array
 const allNodes = iterator.toArray();
 
-// 조건에 맞는 첫 번째 노드 찾기
+// Find first node matching condition
 const firstHeading = iterator.find((nodeId, node) => node.type === 'heading');
 
-// 조건에 맞는 모든 노드 찾기
+// Find all nodes matching condition
 const allHeadings = iterator.findAll((nodeId, node) => node.type === 'heading');
 
-// 조건이 만족되는 동안만 수집
+// Collect only while condition is met
 const firstSection = iterator.takeWhile((nodeId, node) => node.type !== 'heading');
 
-// 통계 정보 수집
+// Collect statistics
 const stats = iterator.getStats();
-console.log(`총 노드 수: ${stats.total}`);
-console.log(`타입별 분포:`, stats.byType);
-console.log(`깊이별 분포:`, stats.byDepth);
+console.log(`Total nodes: ${stats.total}`);
+console.log(`Distribution by type:`, stats.byType);
+console.log(`Distribution by depth:`, stats.byDepth);
 ```
 
-### 8. 범위 기반 유틸리티 메서드
+### 8. Range-Based Utility Methods
 
 ```typescript
 const rangeIterator = dataStore.createRangeIterator('0:2', '0:6');
 
-// 범위 내의 모든 노드를 배열로 수집
+// Collect all nodes in range into array
 const rangeNodes = rangeIterator.getNodesInRange();
 
-// 범위 내의 노드 개수 확인
+// Check node count in range
 const rangeCount = rangeIterator.getRangeNodeCount();
 
-// 범위 정보 확인
+// Check range information
 const rangeInfo = rangeIterator.getRangeInfo();
-console.log(`시작: ${rangeInfo.start}, 끝: ${rangeInfo.end}`);
-console.log(`시작 포함: ${rangeInfo.includeStart}, 끝 포함: ${rangeInfo.includeEnd}`);
+console.log(`Start: ${rangeInfo.start}, End: ${rangeInfo.end}`);
+console.log(`Include start: ${rangeInfo.includeStart}, Include end: ${rangeInfo.includeEnd}`);
 ```
 
-## 복잡도 분석
+## Complexity Analysis
 
-### 시간 복잡도
+### Time Complexity
 
-- **전체 순회**: O(n) - n은 문서의 총 노드 수
-- **범위 기반 순회**: O(r) - r은 범위 내 노드 수 (r ≤ n)
-- **노드 검색**: O(1) - DataStore의 Map 기반 조회
-- **방문 확인**: O(1) - Set 기반 조회
-- **필터링**: O(1) - 단순 조건 확인
-- **범위 체크**: O(1) - 문서 순서 비교
+- **Full traversal**: O(n) - n is total number of nodes in document
+- **Range-based traversal**: O(r) - r is number of nodes in range (r ≤ n)
+- **Node lookup**: O(1) - Map-based lookup in DataStore
+- **Visit confirmation**: O(1) - Set-based lookup
+- **Filtering**: O(1) - Simple condition check
+- **Range check**: O(1) - Document order comparison
 
-### 공간 복잡도
+### Space Complexity
 
-- **전체 순회 방문 추적**: O(n) - 최악의 경우 모든 노드 방문
-- **범위 기반 순회 방문 추적**: O(r) - 범위 내 노드만 방문 (r ≤ n)
-- **옵션 저장**: O(1) - 고정 크기
-- **현재 상태**: O(1) - 단일 노드 ID만 저장
-- **범위 정보**: O(1) - 시작/끝 노드 ID만 저장
+- **Full traversal visit tracking**: O(n) - Worst case visits all nodes
+- **Range-based traversal visit tracking**: O(r) - Only visits nodes in range (r ≤ n)
+- **Option storage**: O(1) - Fixed size
+- **Current state**: O(1) - Only stores single node ID
+- **Range information**: O(1) - Only stores start/end node IDs
 
-## 에러 처리
+## Error Handling
 
-### 1. 존재하지 않는 노드
+### 1. Non-existent Node
 
 ```typescript
 const node = this.dataStore.getNode(this.currentId);
@@ -542,7 +542,7 @@ if (!node) {
 }
 ```
 
-### 2. 순환 참조 방지
+### 2. Circular Reference Prevention
 
 ```typescript
 if (this.visited.has(this.currentId)) {
@@ -551,19 +551,19 @@ if (this.visited.has(this.currentId)) {
 }
 ```
 
-### 3. 무한 루프 방지
+### 3. Infinite Loop Prevention
 
-- 방문 추적으로 중복 방문 방지
-- 깊이 제한으로 과도한 깊이 방지
-- 중단 조건으로 조기 종료 지원
+- Prevent duplicate visits with visit tracking
+- Prevent excessive depth with depth limiting
+- Support early exit with stop conditions
 
-## 확장성
+## Extensibility
 
-### 1. 새로운 필터 타입 추가
+### 1. Adding New Filter Types
 
 ```typescript
 interface ExtendedFilter {
-  // 기존 필터들...
+  // Existing filters...
   attributeFilter?: {
     key: string;
     value: any;
@@ -572,7 +572,7 @@ interface ExtendedFilter {
 }
 ```
 
-### 2. 새로운 순회 전략 추가
+### 2. Adding New Traversal Strategies
 
 ```typescript
 interface TraversalStrategy {
@@ -581,7 +581,7 @@ interface TraversalStrategy {
 }
 ```
 
-### 3. 성능 모니터링
+### 3. Performance Monitoring
 
 ```typescript
 interface PerformanceMetrics {
@@ -591,85 +591,85 @@ interface PerformanceMetrics {
 }
 ```
 
-## 결론
+## Conclusion
 
-`DocumentIterator`는 문서 구조를 효율적이고 유연하게 순회할 수 있는 강력한 도구입니다. 깊이 우선 순회를 기반으로 하면서도 다양한 필터링과 최적화 기법을 통해 실용적인 문서 순회 기능을 제공합니다.
+`DocumentIterator` is a powerful tool for efficiently and flexibly traversing document structures. Based on depth-first traversal, it provides practical document traversal functionality through various filtering and optimization techniques.
 
-주요 특징:
-- **표준 Iterator 인터페이스** 구현
-- **다양한 필터링 옵션** 제공
-- **역순 순회** 지원
-- **범위 기반 순회** 지원 (메모리 효율적)
-- **성능 최적화** 적용
-- **유틸리티 메서드** 제공
-- **확장 가능한 구조** 설계
+Key features:
+- Implements **standard Iterator interface**
+- Provides **various filtering options**
+- Supports **reverse traversal**
+- Supports **range-based traversal** (memory efficient)
+- Applies **performance optimizations**
+- Provides **utility methods**
+- Designed with **extensible structure**
 
-### 범위 기반 순회의 실용성
+### Practicality of Range-Based Traversal
 
-범위 기반 순회는 다음과 같은 실제 사용 사례에서 매우 유용합니다:
+Range-based traversal is very useful in the following real-world use cases:
 
-1. **섹션별 편집**: 특정 섹션(예: 제목부터 다음 제목까지)만 편집
-2. **선택 영역 처리**: 사용자가 선택한 텍스트 범위만 처리
-3. **성능 최적화**: 대용량 문서에서 필요한 부분만 처리
-4. **협업 기능**: 특정 사용자의 편집 범위만 동기화
-5. **검색 및 교체**: 특정 범위 내에서만 검색/교체 수행
+1. **Section-by-section editing**: Edit only specific sections (e.g., from heading to next heading)
+2. **Selection area processing**: Process only text ranges selected by users
+3. **Performance optimization**: Process only needed parts in large documents
+4. **Collaboration features**: Synchronize only specific users' edit ranges
+5. **Search and replace**: Perform search/replace only within specific ranges
 
-이러한 기능들을 통해 `DocumentIterator`는 단순한 문서 순회를 넘어서 실용적이고 효율적인 문서 처리 도구로 발전했습니다.
+Through these features, `DocumentIterator` has evolved beyond simple document traversal into a practical and efficient document processing tool.
 
-## 7. Visitor 패턴
+## 7. Visitor Pattern
 
-### 7.1 Visitor 패턴 개요
+### 7.1 Visitor Pattern Overview
 
-Visitor 패턴은 문서 구조의 각 요소에 대해 수행할 연산을 정의하는 디자인 패턴입니다. Iterator로는 순회만 가능하지만, Visitor 패턴을 사용하면 순회하면서 다양한 연산을 수행할 수 있습니다.
+The Visitor pattern is a design pattern for defining operations to perform on each element of a document structure. While Iterator only allows traversal, using the Visitor pattern allows performing various operations while traversing.
 
-### 7.2 Visitor 인터페이스
+### 7.2 Visitor Interface
 
 ```typescript
 interface DocumentVisitor {
-  /** 노드 방문 시 호출 (필수) */
+  /** Called when visiting node (required) */
   visit(nodeId: string, node: any, context?: any): void | boolean;
   
-  /** 노드 진입 시 호출 (선택) */
+  /** Called when entering node (optional) */
   enter?(nodeId: string, node: any, context?: any): void;
   
-  /** 노드 종료 시 호출 (선택) */
+  /** Called when exiting node (optional) */
   exit?(nodeId: string, node: any, context?: any): void;
   
-  /** 하위 트리 방문 여부 결정 (선택) */
+  /** Determine whether to visit subtree (optional) */
   shouldVisitChildren?(nodeId: string, node: any): boolean;
 }
 ```
 
-### 7.3 Visitor 순회 옵션
+### 7.3 Visitor Traversal Options
 
 ```typescript
 interface VisitorTraversalOptions {
-  /** 시작 노드 ID (기본값: 루트 노드) */
+  /** Start node ID (default: root node) */
   startNodeId?: string;
-  /** 역순 순회 여부 */
+  /** Whether to traverse in reverse */
   reverse?: boolean;
-  /** 최대 깊이 제한 */
+  /** Maximum depth limit */
   maxDepth?: number;
-  /** 노드 타입 필터 */
+  /** Node type filter */
   filter?: {
     type?: string;
     types?: string[];
     excludeTypes?: string[];
   };
-  /** 사용자 정의 필터 함수 */
+  /** Custom filter function */
   customFilter?: (nodeId: string, node: any) => boolean;
-  /** 순회 중단 조건 */
+  /** Stop condition during traversal */
   shouldStop?: (nodeId: string, node: any) => boolean;
-  /** 순회 범위 제한 */
+  /** Range limit for traversal */
   range?: DocumentRange;
-  /** 컨텍스트 객체 */
+  /** Context object */
   context?: any;
 }
 ```
 
-### 7.4 Visitor 패턴 사용법
+### 7.4 Visitor Pattern Usage
 
-#### 기본 사용법
+#### Basic Usage
 
 ```typescript
 const visitor: DocumentVisitor = {
@@ -688,7 +688,7 @@ const result = dataStore.traverse(visitor);
 console.log(result); // { visitedCount: 5, skippedCount: 0, stopped: false }
 ```
 
-#### 텍스트 추출 Visitor
+#### Text Extraction Visitor
 
 ```typescript
 class TextExtractor implements DocumentVisitor {
@@ -710,7 +710,7 @@ dataStore.traverse(textExtractor);
 const allTexts = textExtractor.getTexts();
 ```
 
-#### 링크 수집 Visitor
+#### Link Collection Visitor
 
 ```typescript
 class LinkCollector implements DocumentVisitor {
@@ -735,7 +735,7 @@ class LinkCollector implements DocumentVisitor {
 }
 ```
 
-#### 구조 분석 Visitor
+#### Structure Analysis Visitor
 
 ```typescript
 class StructureAnalyzer implements DocumentVisitor {
@@ -743,7 +743,7 @@ class StructureAnalyzer implements DocumentVisitor {
   private nodeDepths: Record<string, number> = {};
 
   visit(nodeId: string, node: any) {
-    // 노드의 실제 깊이 계산
+    // Calculate actual depth of node
     let depth = 1;
     let currentId = node.parentId;
     while (currentId) {
@@ -769,78 +769,78 @@ class StructureAnalyzer implements DocumentVisitor {
 }
 ```
 
-### 7.5 여러 Visitor 순차 실행 및 오버로드 시그니처
+### 7.5 Sequential Execution of Multiple Visitors and Overload Signatures
 
 ```typescript
 const textExtractor = new TextExtractor();
 const linkCollector = new LinkCollector();
 const nodeCounter = new NodeCounter();
 
-// 가변 인자로 여러 visitor 실행
-// traverse 오버로드
-// - traverse(visitor, options?) -> 단일 결과
-// - traverse([v1, v2], options?) -> 각 visitor 결과 배열
-// - traverse(v1, v2, ...) -> 각 visitor 결과 배열
+// Execute multiple visitors with variadic arguments
+// traverse overloads
+// - traverse(visitor, options?) -> single result
+// - traverse([v1, v2], options?) -> array of each visitor result
+// - traverse(v1, v2, ...) -> array of each visitor result
 
 const results = dataStore.traverse(textExtractor, linkCollector, nodeCounter);
 
-console.log('텍스트:', textExtractor.getTexts());
-console.log('링크:', linkCollector.getLinks());
-console.log('노드 수:', nodeCounter.getCount());
+console.log('Texts:', textExtractor.getTexts());
+console.log('Links:', linkCollector.getLinks());
+console.log('Node count:', nodeCounter.getCount());
 
-// 배열로도 가능
+// Also possible with array
 const results2 = dataStore.traverse([textExtractor, linkCollector]);
 
-// 옵션 제공 예시
+// Example with options
 const singleResult = dataStore.traverse(textExtractor, { maxDepth: 2 });
 const multiResults = dataStore.traverse([textExtractor, linkCollector], { reverse: true });
 ```
 
-#### 사용 예제
+#### Usage Examples
 
 ```typescript
-// 단일 visitor
+// Single visitor
 const result = dataStore.traverse(visitor);
 
-// 단일 visitor + 옵션
+// Single visitor + options
 const result2 = dataStore.traverse(visitor, { maxDepth: 3 });
 
-// 다중 visitor (가변 인자)
+// Multiple visitors (variadic arguments)
 const results = dataStore.traverse(visitor1, visitor2, visitor3);
 
-// 다중 visitor + 옵션
+// Multiple visitors + options
 const results2 = dataStore.traverse(visitor1, visitor2, { maxDepth: 3 });
 
-// 배열로 다중 visitor
+// Multiple visitors with array
 const results3 = dataStore.traverse([visitor1, visitor2]);
 
-// 배열 + 옵션
+// Array + options
 const results4 = dataStore.traverse([visitor1, visitor2], { maxDepth: 3 });
 ```
 
-### 7.6 Visitor 패턴의 장점
+### 7.6 Advantages of Visitor Pattern
 
-1. **확장성**: 새로운 연산을 추가할 때 기존 코드를 수정하지 않음
-2. **분리**: 데이터 구조와 연산 로직을 분리
-3. **재사용성**: Visitor를 다른 문서에서도 재사용 가능
-4. **조합성**: 여러 Visitor를 조합하여 복잡한 연산 수행
-5. **유연성**: 조건부 방문, 중단, 스킵 등 다양한 제어 가능
+1. **Extensibility**: Add new operations without modifying existing code
+2. **Separation**: Separate data structure and operation logic
+3. **Reusability**: Reuse Visitor in other documents
+4. **Composability**: Combine multiple Visitors to perform complex operations
+5. **Flexibility**: Various controls like conditional visits, stopping, skipping
 
-### 7.7 복잡도 분석
+### 7.7 Complexity Analysis
 
-- **시간 복잡도**: O(n) - 각 노드를 한 번씩 방문
-- **공간 복잡도**: O(1) - Visitor 상태만 저장
-- **메모리 사용량**: 최소화 - 이터레이터 패턴 사용
+- **Time complexity**: O(n) - Visit each node once
+- **Space complexity**: O(1) - Only store Visitor state
+- **Memory usage**: Minimized - uses iterator pattern
 
-### 7.8 Visitor 패턴의 실용성
+### 7.8 Practicality of Visitor Pattern
 
-Visitor 패턴은 다음과 같은 실용적인 사용 사례에서 매우 유용합니다:
+The Visitor pattern is very useful in the following practical use cases:
 
-1. **텍스트 추출**: 문서에서 모든 텍스트 내용 추출
-2. **링크 수집**: 문서 내 모든 링크 정보 수집
-3. **마크 분석**: 텍스트 포맷팅 정보 분석
-4. **구조 분석**: 문서의 계층 구조 분석
-5. **통계 수집**: 노드 타입별 통계, 텍스트 통계 등
-6. **조건부 검색**: 특정 조건을 만족하는 노드 검색
+1. **Text extraction**: Extract all text content from document
+2. **Link collection**: Collect all link information in document
+3. **Mark analysis**: Analyze text formatting information
+4. **Structure analysis**: Analyze hierarchical structure of document
+5. **Statistics collection**: Statistics by node type, text statistics, etc.
+6. **Conditional search**: Search for nodes satisfying specific conditions
 
-이러한 기능들을 통해 `DocumentIterator`와 `Visitor` 패턴은 현대적인 에디터 시스템에서 필수적인 문서 순회 및 처리 도구로 활용될 수 있습니다.
+Through these features, `DocumentIterator` and the `Visitor` pattern can be utilized as essential document traversal and processing tools in modern editor systems.

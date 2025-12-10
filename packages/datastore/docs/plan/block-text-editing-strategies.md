@@ -1,57 +1,57 @@
-# Block 노드 내부 텍스트 편집 전략
+# Block Node Internal Text Editing Strategies
 
-## 개요
+## Overview
 
-이 문서는 `codeBlock`, `mathBlock`(수식), `formula` 등 `.text` 필드를 가지고 있지만 `group: 'block'`인 노드의 편집 방식을 다룹니다. 다른 에디터들의 접근 방식을 분석하고, Barocss Editor에서의 해결 방안을 제시합니다.
-
----
-
-## 1. 문제 상황
-
-### 1.1 특수한 Block 노드들
-
-다음과 같은 노드들은 특수한 편집 요구사항을 가집니다:
-
-- **codeBlock**: 코드 편집 (구문 강조, 자동 완성 등)
-- **mathBlock**: 수식 편집 (LaTeX, MathML 등)
-- **formula**: 수식 편집 (Excel 스타일)
-- **table**: 테이블 편집 (셀 편집)
-- **canvas**: 캔버스 편집 (그리기 도구)
-
-**공통 특징:**
-- `group: 'block'` (block 노드)
-- `.text` 필드 또는 내부 텍스트 포함
-- **일반 텍스트 편집과는 다른 편집 방식 필요**
-
-### 1.2 현재 Barocss Editor의 동작
-
-**현재 상태:**
-- `_isEditableNode`는 `group: 'block'`이면 `false` 반환
-- `getPreviousEditableNode` / `getNextEditableNode`에서 건너뜀
-- **커서로 탐색 불가능**
-
-**문제:**
-- codeBlock 내부 텍스트를 편집하려면?
-- 수식 블록을 편집하려면?
-- 다른 편집기를 제공해야 하는가?
+This document covers editing methods for nodes that have a `.text` field but are `group: 'block'`, such as `codeBlock`, `mathBlock` (formula), and `formula`. It analyzes approaches from other editors and presents solutions for Barocss Editor.
 
 ---
 
-## 2. 다른 에디터들의 접근 방식
+## 1. Problem Situation
+
+### 1.1 Special Block Nodes
+
+The following nodes have special editing requirements:
+
+- **codeBlock**: Code editing (syntax highlighting, autocomplete, etc.)
+- **mathBlock**: Formula editing (LaTeX, MathML, etc.)
+- **formula**: Formula editing (Excel style)
+- **table**: Table editing (cell editing)
+- **canvas**: Canvas editing (drawing tools)
+
+**Common characteristics:**
+- `group: 'block'` (block node)
+- Contains `.text` field or internal text
+- **Requires different editing method than general text editing**
+
+### 1.2 Current Barocss Editor Behavior
+
+**Current state:**
+- `_isEditableNode` returns `false` if `group: 'block'`
+- Skipped in `getPreviousEditableNode` / `getNextEditableNode`
+- **Cannot navigate with cursor**
+
+**Problems:**
+- How to edit text inside codeBlock?
+- How to edit formula block?
+- Do we need to provide a different editor?
+
+---
+
+## 2. Approaches from Other Editors
 
 ### 2.1 ProseMirror
 
-**방식:**
-- **코드 블록 내부 편집 허용**: `contentEditable`을 유지하되, 특수한 입력 핸들러 제공
-- **구문 강조**: 별도의 하이라이터와 통합 (CodeMirror 등)
-- **수식**: 별도의 수식 에디터 컴포넌트 (KaTeX, MathQuill 등)
+**Approach:**
+- **Allow editing inside code block**: Maintain `contentEditable` but provide special input handler
+- **Syntax highlighting**: Integrate with separate highlighter (CodeMirror, etc.)
+- **Formula**: Separate formula editor component (KaTeX, MathQuill, etc.)
 
-**특징:**
-- Block 노드 내부에 커서 진입 가능
-- 하지만 특수한 입력 처리가 필요
-- 플러그인 시스템으로 확장 가능
+**Characteristics:**
+- Can enter cursor inside Block node
+- But special input processing needed
+- Extensible with plugin system
 
-**예시:**
+**Example:**
 ```typescript
 // ProseMirror code block
 {
@@ -60,78 +60,78 @@
     { type: 'text', text: 'const x = 1;' }
   ]
 }
-// 내부 텍스트 편집 가능, 하지만 특수한 입력 처리 필요
+// Internal text can be edited, but special input processing needed
 ```
 
 ### 2.2 Notion
 
-**방식:**
-- **하이브리드 접근**: 
-  - 클릭하면 전체 블록 선택 (Node Selection)
-  - 더블 클릭 또는 Enter 키로 내부 편집 모드 전환
-  - 편집 모드에서는 별도의 에디터 UI 제공
+**Approach:**
+- **Hybrid approach**: 
+  - Click to select entire block (Node Selection)
+  - Double click or Enter to switch to internal edit mode
+  - Provide separate editor UI in edit mode
 
-**특징:**
-- 코드 블록: CodeMirror 통합
-- 수식 블록: LaTeX 에디터 통합
-- 테이블: 셀별 편집 모드
+**Characteristics:**
+- Code block: CodeMirror integration
+- Formula block: LaTeX editor integration
+- Table: Cell-by-cell edit mode
 
-**예시:**
+**Example:**
 ```
-1. 코드 블록 클릭 → 전체 선택
-2. 더블 클릭 또는 Enter → 편집 모드
-3. CodeMirror 에디터 표시
-4. Esc 또는 블록 외부 클릭 → 편집 모드 종료
+1. Click code block → Full selection
+2. Double click or Enter → Edit mode
+3. CodeMirror editor displayed
+4. Esc or click outside block → Exit edit mode
 ```
 
 ### 2.3 Google Docs
 
-**방식:**
-- **인라인 편집**: 코드 블록 내부에 직접 커서 진입 가능
-- **특수 포맷팅**: 코드 블록은 단순히 스타일링된 텍스트
-- **수식**: 별도의 수식 에디터 (Equation Editor)
+**Approach:**
+- **Inline editing**: Can directly enter cursor inside code block
+- **Special formatting**: Code block is simply styled text
+- **Formula**: Separate formula editor (Equation Editor)
 
-**특징:**
-- Block 노드 내부 텍스트를 일반 텍스트처럼 편집
-- 특수 기능(구문 강조 등)은 제한적
+**Characteristics:**
+- Edit Block node internal text like general text
+- Special features (syntax highlighting, etc.) are limited
 
 ### 2.4 Slate.js
 
-**방식:**
-- **커스텀 에디터 컴포넌트**: Block 노드에 커스텀 렌더러 연결
-- **별도 에디터 인스턴스**: CodeMirror, Monaco Editor 등 통합
-- **이벤트 위임**: Block 노드 클릭 시 커스텀 에디터 활성화
+**Approach:**
+- **Custom editor component**: Connect custom renderer to Block node
+- **Separate editor instance**: Integrate CodeMirror, Monaco Editor, etc.
+- **Event delegation**: Activate custom editor when Block node is clicked
 
-**특징:**
-- Block 노드 자체는 편집 불가능
-- 클릭 시 별도 에디터 UI 표시
-- 에디터와 모델 동기화 필요
+**Characteristics:**
+- Block node itself is not editable
+- Display separate editor UI when clicked
+- Need to synchronize editor and model
 
 ### 2.5 Draft.js
 
-**방식:**
-- **커스텀 블록 렌더러**: Block 노드마다 커스텀 컴포넌트
-- **별도 에디터**: 코드 블록은 CodeMirror, 수식은 MathQuill
-- **상태 관리**: Block 내부 상태를 별도로 관리
+**Approach:**
+- **Custom block renderer**: Custom component for each Block node
+- **Separate editor**: CodeMirror for code block, MathQuill for formula
+- **State management**: Manage Block internal state separately
 
-**특징:**
-- Block 노드는 "원자적"으로 취급
-- 내부 편집은 별도 에디터에서 처리
-- 모델과 에디터 간 동기화 필요
+**Characteristics:**
+- Block nodes treated as "atomic"
+- Internal editing handled in separate editor
+- Need synchronization between model and editor
 
 ---
 
-## 3. Barocss Editor 해결 방안
+## 3. Barocss Editor Solutions
 
-### 3.1 옵션 1: Editable Block 노드 지원 (추천)
+### 3.1 Option 1: Support Editable Block Nodes (Recommended)
 
-**개념:**
-- `group: 'block'`이지만 `.text` 필드가 있으면 "Editable Block"으로 분류
-- 내부 텍스트 편집 가능하지만, 특수한 입력 처리 필요
+**Concept:**
+- If `group: 'block'` but has `.text` field, classify as "Editable Block"
+- Internal text can be edited, but special input processing needed
 
-**구현:**
+**Implementation:**
 ```typescript
-// _isEditableNode 수정
+// Modify _isEditableNode
 private _isEditableNode(nodeId: string): boolean {
   const node = this.dataStore.getNode(nodeId);
   if (!node) return false;
@@ -142,17 +142,17 @@ private _isEditableNode(nodeId: string): boolean {
     if (nodeType) {
       const group = nodeType.group;
       
-      // Editable Block: block이지만 editable=true이면 편집 가능
+      // Editable Block: editable if block but editable=true
       if (group === 'block' && nodeType.editable === true) {
-        // .text 필드가 있어야 편집 가능
+        // Must have .text field to be editable
         if (node.text !== undefined && typeof node.text === 'string') {
-          return true; // 편집 가능한 block
+          return true; // Editable block
         }
         return false;
       }
       
       if (group === 'block' || group === 'document') {
-        return false; // 일반 block은 편집 불가능
+        return false; // Regular blocks are not editable
       }
       if (group === 'inline') {
         return true;
@@ -160,17 +160,17 @@ private _isEditableNode(nodeId: string): boolean {
     }
   }
   
-  // ... 나머지 로직
+  // ... rest of logic
 }
 ```
 
-**스키마 정의:**
+**Schema definition:**
 ```typescript
 {
   'codeBlock': {
     name: 'codeBlock',
     group: 'block',
-    editable: true, // 내부 텍스트 편집 가능
+    editable: true, // Internal text can be edited
     content: 'text*',
     attrs: {
       language: { type: 'string', default: 'text' }
@@ -188,30 +188,30 @@ private _isEditableNode(nodeId: string): boolean {
 }
 ```
 
-**장점:**
-- 커서로 탐색 가능
-- 기존 `getPreviousEditableNode` 로직 재사용
-- 특수 입력 처리는 별도 Extension에서 처리
+**Advantages:**
+- Can navigate with cursor
+- Reuse existing `getPreviousEditableNode` logic
+- Special input processing handled in separate Extension
 
-**단점:**
-- Block 노드 내부 편집 시 특수한 입력 처리 필요
-- 구문 강조, 자동 완성 등은 별도 구현 필요
+**Disadvantages:**
+- Need special input processing when editing inside Block node
+- Need separate implementation for syntax highlighting, autocomplete, etc.
 
-### 3.2 옵션 2: 별도 에디터 컴포넌트 (Notion 스타일)
+### 3.2 Option 2: Separate Editor Component (Notion Style)
 
-**개념:**
-- Block 노드는 편집 불가능 (현재와 동일)
-- 클릭/더블 클릭 시 별도 에디터 UI 표시
-- External Component 시스템 활용
+**Concept:**
+- Block nodes are not editable (same as current)
+- Display separate editor UI on click/double click
+- Utilize External Component system
 
-**구현:**
+**Implementation:**
 ```typescript
-// codeBlock 렌더러
+// codeBlock renderer
 define('codeBlock', (model) => {
   const isEditing = model.metadata?.isEditing || false;
   
   if (isEditing) {
-    // 편집 모드: CodeMirror 에디터 표시
+    // Edit mode: Display CodeMirror editor
     return element('div', { 
       className: 'code-block-editor',
       'data-bc-component': 'codeMirror',
@@ -219,7 +219,7 @@ define('codeBlock', (model) => {
         value: model.text,
         language: model.attributes.language,
         onChange: (newText) => {
-          // 모델 업데이트
+          // Update model
           editor.executeCommand('updateNode', {
             nodeId: model.sid,
             updates: { text: newText }
@@ -228,7 +228,7 @@ define('codeBlock', (model) => {
       })
     });
   } else {
-    // 표시 모드: 하이라이트된 코드 표시
+    // Display mode: Show highlighted code
     return element('pre', { className: 'code-block' }, [
       element('code', { 'data-language': model.attributes.language }, [
         text(model.text)
@@ -238,45 +238,45 @@ define('codeBlock', (model) => {
 });
 ```
 
-**사용자 인터랙션:**
-1. 코드 블록 클릭 → 전체 선택 (Node Selection)
-2. 더블 클릭 또는 Enter → `isEditing: true` 설정
-3. CodeMirror 에디터 표시
-4. Esc 또는 외부 클릭 → `isEditing: false` 설정
+**User interaction:**
+1. Click code block → Full selection (Node Selection)
+2. Double click or Enter → Set `isEditing: true`
+3. Display CodeMirror editor
+4. Esc or click outside → Set `isEditing: false`
 
-**장점:**
-- 강력한 에디터 기능 (구문 강조, 자동 완성 등)
-- 기존 에디터 라이브러리 재사용 가능
-- Block 노드 구조 유지
+**Advantages:**
+- Powerful editor features (syntax highlighting, autocomplete, etc.)
+- Can reuse existing editor libraries
+- Maintain Block node structure
 
-**단점:**
-- 모델과 에디터 간 동기화 필요
-- 편집 모드 전환 로직 필요
-- External Component 시스템 활용 필요
+**Disadvantages:**
+- Need synchronization between model and editor
+- Need edit mode switching logic
+- Need to utilize External Component system
 
-### 3.3 옵션 3: 하이브리드 접근 (추천)
+### 3.3 Option 3: Hybrid Approach (Recommended)
 
-**개념:**
-- **일반 편집**: 커서로 탐색 가능 (옵션 1)
-- **고급 편집**: 더블 클릭 시 별도 에디터 (옵션 2)
-- 사용자가 선택 가능
+**Concept:**
+- **General editing**: Can navigate with cursor (Option 1)
+- **Advanced editing**: Display separate editor on double click (Option 2)
+- User can choose
 
-**구현:**
+**Implementation:**
 ```typescript
-// 스키마 정의
+// Schema definition
 {
   'codeBlock': {
     name: 'codeBlock',
     group: 'block',
-    editable: true,        // 기본 편집 가능
-    advancedEditor: 'codeMirror', // 고급 에디터 타입
+    editable: true,        // Basic editing possible
+    advancedEditor: 'codeMirror', // Advanced editor type
     attrs: {
       language: { type: 'string', default: 'text' }
     }
   }
 }
 
-// 편집 모드 전환
+// Edit mode switching
 editor.registerCommand({
   name: 'toggleBlockEditor',
   execute: (editor, payload: { nodeId: string }) => {
@@ -285,7 +285,7 @@ editor.registerCommand({
     
     const nodeType = editor.schema.getNodeType(node.stype);
     if (nodeType?.advancedEditor) {
-      // 고급 에디터 모드로 전환
+      // Switch to advanced editor mode
       editor.setNodeMetadata(payload.nodeId, { 
         isEditing: true,
         editorType: nodeType.advancedEditor
@@ -297,47 +297,47 @@ editor.registerCommand({
 });
 ```
 
-**사용자 경험:**
-1. **기본 모드**: 커서로 탐색 가능, 일반 텍스트 편집
-2. **더블 클릭**: 고급 에디터 모드 전환
-3. **고급 모드**: CodeMirror, MathQuill 등 전문 에디터 표시
+**User experience:**
+1. **Basic mode**: Can navigate with cursor, general text editing
+2. **Double click**: Switch to advanced editor mode
+3. **Advanced mode**: Display professional editors like CodeMirror, MathQuill, etc.
 
-**장점:**
-- 유연성: 사용자가 편집 방식 선택
-- 기본 편집은 간단하게
-- 고급 기능은 전문 에디터 활용
+**Advantages:**
+- Flexibility: User can choose editing method
+- Basic editing is simple
+- Utilize professional editors for advanced features
 
 ---
 
-## 4. 구체적인 구현 방안
+## 4. Specific Implementation Plans
 
-### 4.1 codeBlock 편집
+### 4.1 codeBlock Editing
 
-#### 방안 A: 기본 텍스트 편집 (간단)
+#### Plan A: Basic Text Editing (Simple)
 
 ```typescript
-// _isEditableNode에서 editable 지원
+// Support editable in _isEditableNode
 if (group === 'block' && node.text !== undefined && nodeType.editable) {
-  return true; // 편집 가능
+  return true; // Editable
 }
 
-// 편집 시 일반 텍스트 편집과 동일하게 처리
-// 구문 강조는 렌더링 시에만 적용 (읽기 전용)
+// Process same as general text editing when editing
+// Syntax highlighting applied only during rendering (read-only)
 ```
 
-**장점:**
-- 구현 간단
-- 커서 탐색 가능
-- 기존 로직 재사용
+**Advantages:**
+- Simple implementation
+- Can navigate with cursor
+- Reuse existing logic
 
-**단점:**
-- 구문 강조는 읽기 전용
-- 자동 완성 등 고급 기능 없음
+**Disadvantages:**
+- Syntax highlighting is read-only
+- No advanced features like autocomplete
 
-#### 방안 B: CodeMirror 통합 (고급)
+#### Plan B: CodeMirror Integration (Advanced)
 
 ```typescript
-// External Component로 CodeMirror 통합
+// Integrate CodeMirror as External Component
 registry.registerComponent('codeMirror', {
   mount(container, props) {
     const editor = CodeMirror(container, {
@@ -364,42 +364,42 @@ registry.registerComponent('codeMirror', {
 });
 ```
 
-**장점:**
-- 전문적인 코드 편집 기능
-- 구문 강조, 자동 완성 등
+**Advantages:**
+- Professional code editing features
+- Syntax highlighting, autocomplete, etc.
 
-**단점:**
-- 구현 복잡
-- 모델 동기화 필요
+**Disadvantages:**
+- Complex implementation
+- Need model synchronization
 
-### 4.2 mathBlock 편집
+### 4.2 mathBlock Editing
 
-#### 방안 A: LaTeX 텍스트 편집
+#### Plan A: LaTeX Text Editing
 
 ```typescript
-// 기본 텍스트 편집 (LaTeX 소스)
+// Basic text editing (LaTeX source)
 {
   stype: 'mathBlock',
   text: 'E=mc^2',
   attributes: { engine: 'katex' }
 }
 
-// 렌더링 시 KaTeX로 수식 렌더링
-// 편집 시에는 LaTeX 소스 편집
+// Render formula with KaTeX during rendering
+// Edit LaTeX source when editing
 ```
 
-**장점:**
-- 구현 간단
-- LaTeX 소스 직접 편집
+**Advantages:**
+- Simple implementation
+- Direct LaTeX source editing
 
-**단점:**
-- 시각적 수식 편집 불가능
-- LaTeX 문법 학습 필요
+**Disadvantages:**
+- Cannot edit formula visually
+- Need to learn LaTeX syntax
 
-#### 방안 B: MathQuill 통합 (고급)
+#### Plan B: MathQuill Integration (Advanced)
 
 ```typescript
-// MathQuill 에디터 통합
+// Integrate MathQuill editor
 registry.registerComponent('mathQuill', {
   mount(container, props) {
     const mathField = MQ.MathField(container, {
@@ -418,18 +418,18 @@ registry.registerComponent('mathQuill', {
 });
 ```
 
-**장점:**
-- 시각적 수식 편집
-- LaTeX 자동 변환
+**Advantages:**
+- Visual formula editing
+- Automatic LaTeX conversion
 
-**단점:**
-- 구현 복잡
-- MathQuill 라이브러리 의존성
+**Disadvantages:**
+- Complex implementation
+- MathQuill library dependency
 
-### 4.3 formula 편집 (Excel 스타일)
+### 4.3 formula Editing (Excel Style)
 
 ```typescript
-// Excel 스타일 수식 편집
+// Excel style formula editing
 {
   stype: 'formula',
   text: '=SUM(A1:A10)',
@@ -439,100 +439,100 @@ registry.registerComponent('mathQuill', {
   }
 }
 
-// 별도 수식 에디터 필요
-// 셀 참조 자동 완성, 수식 검증 등
+// Need separate formula editor
+// Cell reference autocomplete, formula validation, etc.
 ```
 
 ---
 
-## 5. 추천 구현 전략
+## 5. Recommended Implementation Strategy
 
-### 5.1 단계별 구현
+### 5.1 Phased Implementation
 
-#### Phase 1: 기본 지원 (현재)
-- ✅ Block 노드는 편집 불가능 (건너뜀)
-- ✅ 내부 inline 노드만 편집 가능
+#### Phase 1: Basic Support (Current)
+- ✅ Block nodes are not editable (skipped)
+- ✅ Only internal inline nodes are editable
 
-#### Phase 2: Editable Block 지원
-- `editable: true` 속성 추가
-- `_isEditableNode`에서 editable 확인
-- 기본 텍스트 편집 지원
+#### Phase 2: Editable Block Support
+- Add `editable: true` attribute
+- Check `editable` in `_isEditableNode`
+- Support basic text editing
 
-#### Phase 3: 고급 에디터 통합
-- External Component 시스템 활용
-- CodeMirror, MathQuill 등 통합
-- 편집 모드 전환 로직
+#### Phase 3: Advanced Editor Integration
+- Utilize External Component system
+- Integrate CodeMirror, MathQuill, etc.
+- Edit mode switching logic
 
-### 5.2 스키마 확장
+### 5.2 Schema Extension
 
 ```typescript
 interface NodeTypeDefinition {
   name: string;
   group?: 'block' | 'inline' | 'document';
-  editable?: boolean;        // block이지만 내부 텍스트 편집 가능
-  advancedEditor?: string;        // 고급 에디터 타입 (codeMirror, mathQuill 등)
+  editable?: boolean;        // Block but internal text can be edited
+  advancedEditor?: string;        // Advanced editor type (codeMirror, mathQuill, etc.)
   content?: string;
   attrs?: Record<string, AttributeDefinition>;
   // ...
 }
 ```
 
-### 5.3 편집 모드 관리
+### 5.3 Edit Mode Management
 
-**중요: 편집 상태는 메모리에만 저장**
+**Important: Edit state is stored only in memory**
 
-편집 상태(`isEditing`, `editorType` 등)는 **영구 저장되지 않습니다**. 대신 `ComponentManager`의 `BaseComponentState`에 저장됩니다.
+Edit state (`isEditing`, `editorType`, etc.) is **not permanently stored**. Instead, it is stored in `ComponentManager`'s `BaseComponentState`.
 
-**구조:**
+**Structure:**
 ```typescript
-// INode.metadata: 영구 저장용 (예: loadedAt, lastEditedBy 등)
+// INode.metadata: For permanent storage (e.g., loadedAt, lastEditedBy, etc.)
 interface INode {
   metadata?: {
-    loadedAt?: string;           // 영구 저장
-    lastEditedBy?: string;        // 영구 저장
+    loadedAt?: string;           // Permanent storage
+    lastEditedBy?: string;        // Permanent storage
     // ...
   };
 }
 
-// ComponentManager의 BaseComponentState: 일시적 상태 (메모리만)
+// ComponentManager's BaseComponentState: Temporary state (memory only)
 ComponentManager
   └── componentInstances: Map<string, ComponentInstance>
         └── key: sid
         └── value: ComponentInstance
               └── __stateInstance: BaseComponentState
                     └── data: {
-                          isEditing?: boolean;      // 편집 모드 여부 (메모리만)
-                          editorType?: string;      // 사용 중인 에디터 타입 (메모리만)
+                          isEditing?: boolean;      // Edit mode status (memory only)
+                          editorType?: string;      // Editor type in use (memory only)
                           // ...
                         }
 ```
 
-**편집 상태 접근:**
+**Accessing edit state:**
 ```typescript
-// ComponentManager를 통해 편집 상태 접근
-// EditorViewDOM에서 ComponentManager 접근 (내부 메서드)
+// Access edit state through ComponentManager
+// Access ComponentManager from EditorViewDOM (internal method)
 const componentManager = (editorViewDOM as any)._domRenderer?.getComponentManager();
 if (!componentManager) {
   console.warn('ComponentManager not available');
   return;
 }
 
-// 특정 노드의 ComponentInstance 가져오기
+// Get ComponentInstance for specific node
 const instance = componentManager.getComponentInstance(nodeId);
 const state = instance?.__stateInstance;
 
 if (state) {
-  // 편집 상태 확인
+  // Check edit state
   const isEditing = state.get('isEditing') || false;
   const editorType = state.get('editorType');
   
-  // 편집 상태 설정
+  // Set edit state
   state.set({ 
     isEditing: true, 
     editorType: 'codeMirror' 
   });
   
-  // 편집 상태 해제
+  // Clear edit state
   state.set({ 
     isEditing: false,
     editorType: undefined
@@ -540,9 +540,9 @@ if (state) {
 }
 ```
 
-**편집 상태 관리 유틸리티 함수 예시:**
+**Edit state management utility function example:**
 ```typescript
-// Extension 또는 Command에서 사용
+// Use in Extension or Command
 function toggleBlockEditorMode(
   editor: Editor, 
   nodeId: string, 
@@ -561,10 +561,10 @@ function toggleBlockEditorMode(
   const isEditing = state.get('isEditing') || false;
   
   if (isEditing) {
-    // 편집 모드 종료
+    // Exit edit mode
     state.set({ isEditing: false, editorType: undefined });
   } else {
-    // 편집 모드 시작
+    // Start edit mode
     state.set({ isEditing: true, editorType: editorType || 'default' });
   }
   
@@ -574,87 +574,86 @@ function toggleBlockEditorMode(
 
 ---
 
-## 6. 사용자 경험 시나리오
+## 6. User Experience Scenarios
 
-### 6.1 codeBlock 편집
+### 6.1 codeBlock Editing
 
-**시나리오 1: 기본 편집**
+**Scenario 1: Basic Editing**
 ```
-1. 코드 블록에 커서 이동 (화살표 키)
-2. 텍스트 입력/삭제 가능
-3. 구문 강조는 렌더링 시에만 적용
-```
-
-**시나리오 2: 고급 편집**
-```
-1. 코드 블록 더블 클릭
-2. CodeMirror 에디터 표시
-3. 구문 강조, 자동 완성 등 사용 가능
-4. Esc 또는 외부 클릭으로 종료
+1. Move cursor to code block (arrow keys)
+2. Can input/delete text
+3. Syntax highlighting applied only during rendering
 ```
 
-### 6.2 mathBlock 편집
+**Scenario 2: Advanced Editing**
+```
+1. Double click code block
+2. CodeMirror editor displayed
+3. Can use syntax highlighting, autocomplete, etc.
+4. Exit with Esc or click outside
+```
 
-**시나리오 1: LaTeX 편집**
+### 6.2 mathBlock Editing
+
+**Scenario 1: LaTeX Editing**
 ```
-1. 수식 블록에 커서 이동
-2. LaTeX 소스 직접 편집: E=mc^{2}
-3. 렌더링 시 수식으로 표시
+1. Move cursor to formula block
+2. Directly edit LaTeX source: E=mc^{2}
+3. Display as formula during rendering
 ```
 
-**시나리오 2: 시각적 편집**
+**Scenario 2: Visual Editing**
 ```
-1. 수식 블록 더블 클릭
-2. MathQuill 에디터 표시
-3. 시각적으로 수식 편집
-4. LaTeX로 자동 변환
+1. Double click formula block
+2. MathQuill editor displayed
+3. Edit formula visually
+4. Automatically convert to LaTeX
 ```
 
 ---
 
-## 7. 구현 체크리스트
+## 7. Implementation Checklist
 
-### Phase 1: Editable Block 기본 지원
-- [ ] 스키마에 `editable` 속성 추가
-- [ ] `_isEditableNode`에서 `editable` 확인
-- [ ] `getPreviousEditableNode` / `getNextEditableNode`에서 editable 포함
-- [ ] 기본 텍스트 편집 테스트
+### Phase 1: Basic Editable Block Support
+- [ ] Add `editable` attribute to schema
+- [ ] Check `editable` in `_isEditableNode`
+- [ ] Include editable in `getPreviousEditableNode` / `getNextEditableNode`
+- [ ] Test basic text editing
 
-### Phase 2: 편집 모드 전환
-- [ ] 노드 메타데이터에 `isEditing` 상태 관리
-- [ ] 더블 클릭 이벤트 처리
-- [ ] 편집 모드 전환 Command
-- [ ] UI 상태 업데이트
+### Phase 2: Edit Mode Switching
+- [ ] Manage `isEditing` state in node metadata
+- [ ] Handle double click event
+- [ ] Edit mode switching Command
+- [ ] Update UI state
 
-### Phase 3: 고급 에디터 통합
-- [ ] External Component 시스템 확장
-- [ ] CodeMirror 통합
-- [ ] MathQuill 통합
-- [ ] 모델 동기화 로직
+### Phase 3: Advanced Editor Integration
+- [ ] Extend External Component system
+- [ ] CodeMirror integration
+- [ ] MathQuill integration
+- [ ] Model synchronization logic
 
 ---
 
-## 8. 참고 자료
+## 8. References
 
 - ProseMirror Code Block: https://prosemirror.net/docs/guide/#code
-- Notion Code Block: 사용자 경험 관찰
+- Notion Code Block: User experience observation
 - Slate.js Custom Blocks: https://docs.slatejs.org/concepts/10-customizing-editor
 - CodeMirror: https://codemirror.net/
 - MathQuill: http://mathquill.com/
 
 ---
 
-## 9. 결론
+## 9. Conclusion
 
-**추천 방안: 하이브리드 접근**
+**Recommended approach: Hybrid approach**
 
-1. **기본 편집**: `editable: true`로 커서 탐색 및 기본 텍스트 편집 지원
-2. **고급 편집**: 더블 클릭 시 External Component로 전문 에디터 표시
-3. **사용자 선택**: 사용자가 편집 방식을 선택할 수 있음
+1. **Basic editing**: Support cursor navigation and basic text editing with `editable: true`
+2. **Advanced editing**: Display professional editor with External Component on double click
+3. **User choice**: User can choose editing method
 
-이 방식은:
-- ✅ 기본 편집은 간단하게
-- ✅ 고급 기능은 전문 에디터 활용
-- ✅ 유연한 확장성
-- ✅ 기존 시스템과의 호환성
-
+This approach:
+- ✅ Basic editing is simple
+- ✅ Utilize professional editors for advanced features
+- ✅ Flexible extensibility
+- ✅ Compatibility with existing system

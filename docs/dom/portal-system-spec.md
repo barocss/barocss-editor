@@ -1,72 +1,72 @@
 # Portal System Specification
 
-## 개요
+## Overview
 
-Portal 시스템은 `renderer-dom`의 선언형 템플릿 시스템을 확장하여, 컴포넌트나 데코레이터에서 다른 DOM 컨테이너(예: `document.body`)에 UI를 렌더링할 수 있게 해주는 기능입니다.
+The Portal system extends `renderer-dom`'s declarative template system, allowing components or decorators to render UI to other DOM containers (e.g., `document.body`).
 
-## 목표
+## Goals
 
-- **선언형**: Portal을 템플릿 내에서 선언적으로 정의
-- **상태 통합**: Portal의 표시/숨김을 컴포넌트 상태와 연동
-- **범용성**: `define`과 `defineDecorator` 모두에서 사용 가능
-- **일관성**: 기존 `renderer-dom` 철학과 일치
-- **단순성**: Portal은 렌더링 위치만 결정, 스타일은 `element`에서 처리
-- **독립성**: 같은 target을 공유하는 여러 Portal이 서로 간섭하지 않음
-- **상태 보존**: Portal 업데이트 시 기존 DOM 상태(포커스, 스크롤 등) 보존
-- **성능 최적화**: reconcile 기반 업데이트로 불필요한 DOM 조작 최소화
+- **Declarative**: define Portal declaratively within templates
+- **State integration**: link Portal show/hide with component state
+- **Versatility**: usable in both `define` and `defineDecorator`
+- **Consistency**: aligns with existing `renderer-dom` philosophy
+- **Simplicity**: Portal only determines rendering location, styles handled by `element`
+- **Independence**: multiple Portals sharing the same target do not interfere
+- **State preservation**: preserve existing DOM state (focus, scroll, etc.) on Portal update
+- **Performance optimization**: minimize unnecessary DOM manipulation via reconcile-based updates
 
-## 설계 원칙
+## Design Principles
 
-### 1. 단일 책임 원칙
-- **Portal**: 렌더링 위치만 결정
-- **Element**: 스타일과 레이아웃 처리
+### 1. Single Responsibility Principle
+- **Portal**: only determines rendering location
+- **Element**: handles styles and layout
 
-### 2. 선언형 우선
-- 모든 UI 요소를 템플릿 내에서 선언
-- 상태와 렌더링이 한 곳에서 관리
+### 2. Declarative First
+- Declare all UI elements within templates
+- Manage state and rendering in one place
 
-### 3. 일관성 유지
-- 기존 `element` 스타일 시스템과 동일한 방식
-- Portal도 일반 템플릿과 동일한 렌더링 과정
+### 3. Maintain Consistency
+- Same approach as existing `element` style system
+- Portal follows the same rendering process as regular templates
 
-### 4. Portal 컨테이너 독립성
-- 각 Portal은 고유한 컨테이너를 가짐
-- Portal ID 기반으로 독립적 관리
-- 같은 target을 공유해도 서로 간섭하지 않음
+### 4. Portal Container Independence
+- Each Portal has its own container
+- Independent management based on Portal ID
+- No interference even when sharing the same target
 
-### 5. 기존 DOM 보호
-- Portal target의 기존 내용을 건드리지 않음
-- Portal 컨테이너만 추가하여 기존 DOM 구조 보존
+### 5. Preserve Existing DOM
+- Do not touch existing content of Portal target
+- Preserve existing DOM structure by only adding Portal containers
 
-## API 설계
+## API Design
 
-### Portal DSL 함수
+### Portal DSL Function
 
 ```typescript
 portal(target: HTMLElement, template: RenderTemplate): PortalTemplate
 ```
 
-**매개변수:**
-- `target: HTMLElement` - Portal이 렌더링될 DOM 컨테이너
-- `template: RenderTemplate` - Portal에 렌더링할 템플릿
+**Parameters:**
+- `target: HTMLElement` - DOM container where Portal will be rendered
+- `template: RenderTemplate` - template to render in Portal
 
-**반환값:**
-- `PortalTemplate` - Portal 템플릿 객체
+**Return value:**
+- `PortalTemplate` - Portal template object
 
-### Portal 템플릿 타입
+### Portal Template Type
 
 ```typescript
 interface PortalTemplate {
   type: 'portal';
   target: HTMLElement;
   template: RenderTemplate;
-  portalId?: string; // 고유 Portal 식별자
+  portalId?: string; // unique Portal identifier
 }
 ```
 
-### Portal 컨테이너 구조
+### Portal Container Structure
 
-Portal 시스템은 각 Portal에 대해 독립적인 컨테이너를 생성합니다:
+The Portal system creates independent containers for each Portal:
 
 ```html
 <!-- Target element with existing content -->
@@ -84,16 +84,16 @@ Portal 시스템은 각 Portal에 대해 독립적인 컨테이너를 생성합�
 </div>
 ```
 
-**Portal 컨테이너 속성:**
-- `data-portal`: Portal의 고유 식별자
-- `data-portal-container="true"`: Portal 컨테이너임을 나타내는 마커
-- `style="position: relative"`: Portal 콘텐츠의 위치 기준점
+**Portal container attributes:**
+- `data-portal`: unique identifier for Portal
+- `data-portal-container="true"`: marker indicating Portal container
+- `style="position: relative"`: positioning reference point for Portal content
 
-### 상태 관리 Context 확장
+### State Management Context Extension
 
 ```typescript
 interface ComponentContext {
-  // 기존...
+  // existing...
   initState: (key: string, value: any) => void;
   getState: (key: string) => any;
   setState: (key: string, value: any) => void;
@@ -101,24 +101,24 @@ interface ComponentContext {
 }
 ```
 
-#### 상태 관리 메서드 동작
+#### State Management Method Behavior
 
-- **`initState(key, value)`**: 컴포넌트 마운트 시에만 호출 가능. 초기 상태를 설정합니다.
-- **`getState(key)`**: 현재 상태 값을 반환합니다.
-- **`setState(key, value)`**: 상태를 업데이트하고 **자동으로 컴포넌트를 리렌더링**합니다.
-- **`toggleState(key)`**: boolean 상태를 토글하고 **자동으로 컴포넌트를 리렌더링**합니다.
+- **`initState(key, value)`**: callable only on component mount. Sets initial state.
+- **`getState(key)`**: returns current state value.
+- **`setState(key, value)`**: updates state and **automatically re-renders component**.
+- **`toggleState(key)`**: toggles boolean state and **automatically re-renders component**.
 
-#### 리렌더링 메커니즘
+#### Re-rendering Mechanism
 
-`setState`와 `toggleState` 호출 시:
-1. 컴포넌트 인스턴스의 상태가 업데이트됩니다
-2. `instance.component.update()` 메서드가 자동으로 호출됩니다
-3. 새로운 템플릿이 생성되고 DOM이 업데이트됩니다
-4. 포털 내용도 함께 리렌더링됩니다
+When `setState` and `toggleState` are called:
+1. Component instance state is updated
+2. `instance.component.update()` is automatically called
+3. New template is generated and DOM is updated
+4. Portal content is also re-rendered
 
-## 사용 예시
+## Usage Examples
 
-### 1. 기본 Portal 사용
+### 1. Basic Portal Usage
 
 ```typescript
 define('my-component', (ctx) => {
@@ -143,7 +143,7 @@ define('my-component', (ctx) => {
 });
 ```
 
-### 1-1. 상태 기반 Portal 제어
+### 1-1. State-based Portal Control
 
 ```typescript
 define('interactive-portal-component', (props, ctx) => {
@@ -154,7 +154,7 @@ define('interactive-portal-component', (props, ctx) => {
   return element('div', {}, [
     text('Interactive Portal Demo'),
     
-    // 버튼들
+    // Buttons
     element('div', { style: { margin: '10px 0' } }, [
       element('button', {
         onClick: () => ctx.toggleState('showTooltip')
@@ -169,7 +169,7 @@ define('interactive-portal-component', (props, ctx) => {
       }, [text('Increment Counter')])
     ]),
     
-    // 상태 기반 Portal
+    // State-based Portal
     when(
       (data) => !!data.showTooltip,
       portal(
@@ -197,7 +197,7 @@ define('interactive-portal-component', (props, ctx) => {
 });
 ```
 
-### 1-1. 조건부 Portal 사용
+### 1-1. Conditional Portal Usage
 
 ```typescript
 define('conditional-portal-component', (props, ctx) => {
@@ -217,7 +217,7 @@ define('conditional-portal-component', (props, ctx) => {
 });
 ```
 
-### 1-2. 데이터 바인딩 Portal 사용
+### 1-2. Data Binding Portal Usage
 
 ```typescript
 define('data-bound-portal-component', (props, ctx) => {
@@ -238,7 +238,7 @@ define('data-bound-portal-component', (props, ctx) => {
 });
 ```
 
-### 1-3. 중첩 컴포넌트 Portal 사용
+### 1-3. Nested Component Portal Usage
 
 ```typescript
 // Define child component
@@ -264,7 +264,7 @@ define('portal-parent', (props, ctx) => {
 });
 ```
 
-### 2. 데코레이터에서 Portal 사용
+### 2. Using Portal in Decorator
 
 ```typescript
 defineDecorator('comment', (ctx) => {
@@ -326,7 +326,7 @@ defineDecorator('comment', (ctx) => {
 });
 ```
 
-### 3. 동적 Portal 생성
+### 3. Dynamic Portal Creation
 
 ```typescript
 define('dynamic-portal', (ctx) => {
@@ -358,7 +358,7 @@ define('dynamic-portal', (ctx) => {
 });
 ```
 
-### 4. 복잡한 Portal 조합
+### 4. Complex Portal Combinations
 
 ```typescript
 defineDecorator('rich-comment', (ctx) => {
@@ -427,7 +427,7 @@ defineDecorator('rich-comment', (ctx) => {
 });
 ```
 
-### 5. 같은 Target을 공유하는 여러 Portal
+### 5. Multiple Portals Sharing the Same Target
 
 ```typescript
 define('multi-portal-component', (props, ctx) => {
@@ -528,15 +528,15 @@ define('multi-portal-component', (props, ctx) => {
 });
 ```
 
-**특징:**
-- 모든 Portal이 `document.body`를 target으로 사용
-- 각 Portal은 고유한 ID로 독립적으로 관리
-- Portal 간 서로 간섭하지 않음
-- 기존 DOM 내용을 보존
+**Features:**
+- All Portals use `document.body` as target
+- Each Portal is independently managed with a unique ID
+- Portals do not interfere with each other
+- Preserve existing DOM content
 
-## 아키텍처 및 흐름
+## Architecture and Flow
 
-### Portal 렌더링 흐름
+### Portal Rendering Flow
 
 ```mermaid
 graph TD
@@ -564,7 +564,7 @@ graph TD
     R --> S[Portal Content in DOM]
 ```
 
-### Portal 생명주기
+### Portal Lifecycle
 
 ```mermaid
 stateDiagram-v2
@@ -590,7 +590,7 @@ stateDiagram-v2
     TargetCleared --> [*]
 ```
 
-### Portal 타겟 평가
+### Portal Target Evaluation
 
 ```mermaid
 graph LR
@@ -608,7 +608,7 @@ graph LR
     H --> I[Portal Rendering]
 ```
 
-### 컴포넌트와 Portal 통합
+### Component and Portal Integration
 
 ```mermaid
 graph TD
@@ -637,77 +637,77 @@ graph TD
     I --> P[Element in Component]
 ```
 
-### 상태 관리와 Portal 리렌더링
+### State Management and Portal Re-rendering
 
 ```mermaid
 sequenceDiagram
-    participant User as 사용자
-    participant Button as 버튼
+    participant User as User
+    participant Button as Button
     participant Context as ComponentContext
     participant Registry as RendererRegistry
     participant Component as Component Instance
     participant Portal as Portal Content
     
-    User->>Button: 클릭
-    Button->>Context: onClick 핸들러 실행
-    Context->>Context: setState/toggleState 호출
+    User->>Button: Click
+    Button->>Context: Execute onClick handler
+    Context->>Context: Call setState/toggleState
     Context->>Registry: setState(id, newState)
-    Registry->>Component: instance.state 업데이트
-    Registry->>Component: instance.component.update() 호출
-    Component->>Component: 새로운 템플릿 생성
-    Component->>Component: DOM 요소 교체
-    Component->>Portal: 포털 내용 리렌더링
-    Portal->>User: 업데이트된 UI 표시
+    Registry->>Component: Update instance.state
+    Registry->>Component: Call instance.component.update()
+    Component->>Component: Generate new template
+    Component->>Component: Replace DOM element
+    Component->>Portal: Re-render portal content
+    Portal->>User: Display updated UI
 ```
 
-## 성능 고려사항
+## Performance Considerations
 
-### 1. Portal 인스턴스 관리
-- Portal 컨테이너 재사용
-- 불필요한 DOM 조작 최소화
-- 메모리 누수 방지
-- **Portal ID 기반 관리**: 고유 ID로 Portal 컨테이너 식별 및 재사용
+### 1. Portal Instance Management
+- Reuse Portal containers
+- Minimize unnecessary DOM manipulation
+- Prevent memory leaks
+- **Portal ID-based management**: identify and reuse Portal containers via unique ID
 
-### 2. 렌더링 최적화
-- Portal 내용 변경 시에만 재렌더링
-- 상태 변경 시 효율적인 업데이트
-- **상태 기반 리렌더링**: `setState`/`toggleState` 호출 시에만 컴포넌트 업데이트
-- **reconcile 기반 업데이트**: Portal 업데이트 시 전체를 다시 그리지 않고 필요한 부분만 업데이트
+### 2. Rendering Optimization
+- Re-render only when Portal content changes
+- Efficient updates on state changes
+- **State-based re-rendering**: update component only when `setState`/`toggleState` is called
+- **reconcile-based updates**: update only necessary parts on Portal update, not full redraw
 
-### 3. 상태 관리 최적화
-- **자동 리렌더링**: 상태 변경 시 자동으로 컴포넌트와 포털이 업데이트
-- **상태 격리**: 각 컴포넌트 인스턴스의 상태가 독립적으로 관리
-- **효율적인 업데이트**: 변경된 상태만 업데이트하고 DOM은 최소한으로 조작
-- **UI 상태 보존**: Portal 업데이트 시 입력 포커스, 스크롤 위치 등 기존 DOM 상태 보존
+### 3. State Management Optimization
+- **Automatic re-rendering**: component and portal update automatically on state change
+- **State isolation**: each component instance's state is managed independently
+- **Efficient updates**: update only changed state and minimize DOM manipulation
+- **UI state preservation**: preserve existing DOM state (input focus, scroll position, etc.) on Portal update
 
-### 4. Portal 컨테이너 최적화
-- **독립적 관리**: 각 Portal이 고유한 컨테이너를 가져 서로 간섭하지 않음
-- **기존 DOM 보호**: Portal target의 기존 내용을 건드리지 않음
-- **컨테이너 재사용**: Portal ID 기반으로 기존 컨테이너 재사용
+### 4. Portal Container Optimization
+- **Independent management**: each Portal has its own container, no interference
+- **Preserve existing DOM**: do not touch existing content of Portal target
+- **Container reuse**: reuse existing containers based on Portal ID
 
-### 5. 이벤트 처리
-- Portal 내부 이벤트 버블링 처리
-- 외부 클릭 감지 및 처리
-- **상태 변경 이벤트**: 사용자 상호작용에 따른 상태 변경과 자동 리렌더링
+### 5. Event Handling
+- Handle event bubbling within Portal
+- Detect and handle external clicks
+- **State change events**: state changes from user interaction and automatic re-rendering
 
-## 마이그레이션 가이드
+## Migration Guide
 
-### 기존 수동 Portal 관리에서 선언형 Portal로
+### From Manual Portal Management to Declarative Portal
 
-**Before (수동 관리):**
+**Before (Manual Management):**
 ```typescript
 class CommentManager {
   showTooltip(commentId: string, event: MouseEvent) {
     const tooltip = document.createElement('div');
     tooltip.className = 'comment-tooltip';
     tooltip.style.position = 'fixed';
-    // ... 스타일 설정
+    // ... set styles
     document.body.appendChild(tooltip);
   }
 }
 ```
 
-**After (선언형 Portal):**
+**After (Declarative Portal):**
 ```typescript
 defineDecorator('comment', (ctx) => {
   ctx.initState('showTooltip', false);
@@ -727,31 +727,31 @@ defineDecorator('comment', (ctx) => {
 });
 ```
 
-## 구현 상태
+## Implementation Status
 
-### ✅ 완료된 기능
-- **기본 Portal 렌더링**
+### ✅ Completed Features
+- **Basic Portal rendering**
 - **Portal reconcile**
-- **에러 케이스 처리**
-- **조건부 렌더링 & 데이터 바인딩**
-- **간단한 Portal**
-- **중첩 컴포넌트 지원**
-- **Portal 업데이트 및 제거**
-- **Portal 타겟 변경**
-- **동적 템플릿 재평가**
-- **다중 조건부 Portal 관리**
-- **동적 타겟 선택**
-- **복잡한 중첩 구조 업데이트**
-- **같은 target을 공유하는 여러 Portal 지원**
-- **Portal 간섭 방지 및 독립적 관리**
-- **기존 DOM 내용 보존**
-- **reconcile 기반 Portal 업데이트**
-- **UI 상태 보존 (포커스, 스크롤 등)**
-- **Portal 컨테이너 특별 처리**
-- **복잡한 Portal 상호작용**
-- **빠른 Portal 업데이트 안정성**
+- **Error case handling**
+- **Conditional rendering & data binding**
+- **Simple Portal**
+- **Nested component support**
+- **Portal update and removal**
+- **Portal target change**
+- **Dynamic template re-evaluation**
+- **Multiple conditional Portal management**
+- **Dynamic target selection**
+- **Complex nested structure updates**
+- **Multiple Portals sharing same target support**
+- **Portal interference prevention and independent management**
+- **Preserve existing DOM content**
+- **reconcile-based Portal updates**
+- **UI state preservation (focus, scroll, etc.)**
+- **Portal container special handling**
+- **Complex Portal interactions**
+- **Fast Portal update stability**
 
-## 관련 문서
+## Related Documentation
 
 - [Renderer DOM Specification](renderer-dom-spec.md)
 - [Decorator Implementation Guide](decorator-implementation-guide.md)

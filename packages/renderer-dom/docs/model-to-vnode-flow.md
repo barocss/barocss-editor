@@ -1,62 +1,62 @@
-# Model to VNode 데이터 흐름
+# Model to VNode Data Flow
 
-## 개요
+## Overview
 
-모델 데이터가 VNode를 거쳐 DOM에 렌더링되는 과정:
+Process of model data being rendered to DOM through VNode:
 
 ```
 Model (attributes) → VNode (attrs) → DOM (attributes)
 ```
 
-## 상세 흐름
+## Detailed Flow
 
-### 1. Model 데이터 구조
+### 1. Model Data Structure
 
 ```typescript
 const model = {
   type: 'button',
-  attributes: {           // ← 모델의 attributes 필드
+  attributes: {           // ← Model's attributes field
     id: 'button-1',
     title: 'Click me'
   }
 };
 ```
 
-### 2. VNode 생성 과정
+### 2. VNode Creation Process
 
-#### Step 1: Template 정의
+#### Step 1: Template Definition
 ```typescript
 define('button', element('button', { 
-  id: attr('id'),        // ← attr() 함수는 DataTemplate 객체 생성
+  id: attr('id'),        // ← attr() function creates DataTemplate object
   title: attr('title'),
 }, [text('Click me')]));
 ```
 
-#### Step 2: VNode 생성 (`factory.ts`)
+#### Step 2: VNode Creation (`factory.ts`)
 ```typescript
 private _setAttributes(vnode: VNode, attributes: Record<string, any>, data: ModelData): void {
   Object.entries(attributes).forEach(([key, value]) => {
     if (value && (value as any).type === 'data') {
-      // DataTemplate 객체 처리
+      // DataTemplate object processing
       const dt = value as any;
       const v = dt.getter ? dt.getter(data) : this._getDataValue(data, dt.path);
       resolvedValue = v === undefined || v === null ? dt.defaultValue : v;
       
-      // vnode.attrs에 저장 ← 여기서 attrs가 됨!
+      // Store in vnode.attrs ← attrs is created here!
       vnode.attrs![key] = resolvedValue;
     }
   });
 }
 ```
 
-**중요**: 모델의 `attributes` 필드 → VNode의 `attrs` 필드로 변환됨
+**Important**: Model's `attributes` field → VNode's `attrs` field conversion
 
-### 3. VNode 데이터 구조
+### 3. VNode Data Structure
 
 ```typescript
 const vnode: VNode = {
   tag: 'button',
-  attrs: {              // ← VNode의 attrs 필드
+  attrs: {              // ← VNode's attrs field
     id: 'button-1',
     title: 'Click me'
   },
@@ -64,37 +64,37 @@ const vnode: VNode = {
 };
 ```
 
-### 4. DOM 렌더링
+### 4. DOM Rendering
 
-VNode의 `attrs`가 DOM의 `attributes`로 변환됨:
+VNode's `attrs` are converted to DOM's `attributes`:
 
 ```typescript
 // DOMOperations.updateAttributes
 function updateAttributes(element: HTMLElement, attrs: Record<string, any>): void {
   for (const [key, value] of Object.entries(attrs)) {
-    element.setAttribute(key, value);  // ← DOM attributes로 변환
+    element.setAttribute(key, value);  // ← Convert to DOM attributes
   }
 }
 ```
 
-## 매핑 관계
+## Mapping Relationship
 
-| 레벨 | 필드명 | 예시 |
+| Level | Field Name | Example |
 |------|--------|------|
 | Model | `attributes` | `{ id: 'button-1', title: 'Click me' }` |
 | VNode | `attrs` | `{ id: 'button-1', title: 'Click me' }` |
 | DOM | `attributes` | `HTMLButtonElement { attributes: { id: '...', title: '...' } }` |
 
-## 변경 감지
+## Change Detection
 
-Reconciliation 시 변경 감지:
+Change detection during Reconciliation:
 
 ```typescript
 // DOMProcessor.processElementNode
-const prevAttrs = wip.previousVNode?.attrs || {};  // ← 이전 VNode의 attrs
-const nextAttrs = vnode.attrs || {};               // ← 현재 VNode의 attrs
+const prevAttrs = wip.previousVNode?.attrs || {};  // ← Previous VNode's attrs
+const nextAttrs = vnode.attrs || {};               // ← Current VNode's attrs
 
-// 변경된 속성만 추출
+// Extract only changed attributes
 const changedAttrs: Record<string, any> = {};
 const allKeys = new Set([...Object.keys(prevAttrs), ...Object.keys(nextAttrs)]);
 
@@ -105,11 +105,10 @@ for (const key of allKeys) {
 }
 ```
 
-## 핵심 정리
+## Core Summary
 
-1. **Model**: `model.attributes` → 데이터가 오는 소스
-2. **VNode**: `vnode.attrs` → VNode에 저장되는 형식
-3. **DOM**: `element.attributes` → 실제 DOM 요소의 속성
+1. **Model**: `model.attributes` → Source of data
+2. **VNode**: `vnode.attrs` → Format stored in VNode
+3. **DOM**: `element.attributes` → Actual DOM element's attributes
 
-모델의 `attributes`가 VNode의 `attrs`가 되고, 이것이 DOM의 `attributes`가 됩니다!
-
+Model's `attributes` becomes VNode's `attrs`, which becomes DOM's `attributes`!

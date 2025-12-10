@@ -1,28 +1,28 @@
 # Operation Inverse Specification
 
-## 개요
+## Overview
 
-이 문서는 BaroCSS 에디터의 오퍼레이션과 그 역함수(inverse) 관계를 정의합니다. 모든 오퍼레이션은 실행 가능한 역함수를 가져야 하며, 이를 통해 undo/redo 기능을 구현합니다.
+This document defines the forward operations and their inverse counterparts in the BaroCSS editor. Every operation must provide an executable inverse to support undo/redo.
 
-## 역함수 구현 원칙
+## Principles for Inverse Implementation
 
-### 1. DSL 형태 사용
+### 1. Use DSL form
 ```typescript
-// ❌ 객체 형태
+// ❌ Plain object
 inverse: { type: 'setText', payload: { nodeId, text: prevText } }
 
-// ✅ DSL 형태  
+// ✅ DSL form
 inverse: setText(nodeId, prevText)
 ```
 
-### 2. 상태 저장 패턴
+### 2. Save previous state before execution
 ```typescript
-// 실행 전 이전 상태 저장
+// Save previous state
 const prevText = node.text ?? '';
 const prevAttrs = { ...node.attributes };
 const prevMarks = [...(node.marks ?? [])];
 
-// 실행 후 역함수 반환 (OperationExecuteResult 구조)
+// Return inverse in OperationExecuteResult
 return {
   ok: true,
   data: updatedNode,
@@ -30,91 +30,91 @@ return {
 };
 ```
 
-### 3. OperationExecuteResult 구조
-모든 operation은 다음 구조로 결과를 반환해야 합니다:
+### 3. OperationExecuteResult structure
+All operations must return this shape:
 ```typescript
 interface OperationExecuteResult {
   ok: boolean;
-  data: any;        // 업데이트된 노드 또는 결과 데이터
-  inverse: {        // 역함수 operation 정의
+  data: any;        // updated node or result data
+  inverse: {        // inverse operation
     type: string;
     payload: any;
   };
 }
 ```
 
-### 3. 최소 정보 원칙
-역함수는 이전 상태를 완전히 복원하는데 필요한 최소한의 정보만 저장합니다.
+### 4. Minimal data
+Store only the data required to fully restore the previous state.
 
-## 오퍼레이션별 역함수 매핑
+## Inverse Mapping by Operation
 
-### 텍스트 조작 오퍼레이션
+### Text operations
 
-| 원본 오퍼레이션 | 역함수 | 매개변수 | 설명 |
+| Forward | Inverse | Parameters | Description |
 |---|---|---|---|
-| `setText(nodeId, text)` | `setText(nodeId, prevText)` | `prevText: string` | 이전 텍스트로 복원 |
-| `insertText(nodeId, pos, text)` | `deleteTextRange(nodeId, pos, pos + text.length)` | `pos: number, length: number` | 삽입된 텍스트 삭제 |
-| `deleteTextRange(nodeId, start, end)` | `insertText(nodeId, start, deletedText)` | `start: number, deletedText: string` | 삭제된 텍스트 재삽입 |
-| `replaceText(nodeId, start, end, newText)` | `replaceText(nodeId, start, start + newText.length, prevText)` | `start: number, prevText: string` | 이전 텍스트로 교체 |
+| `setText(nodeId, text)` | `setText(nodeId, prevText)` | `prevText: string` | restore previous text |
+| `insertText(nodeId, pos, text)` | `deleteTextRange(nodeId, pos, pos + text.length)` | `pos: number, length: number` | remove inserted text |
+| `deleteTextRange(nodeId, start, end)` | `insertText(nodeId, start, deletedText)` | `start: number, deletedText: string` | reinsert deleted text |
+| `replaceText(nodeId, start, end, newText)` | `replaceText(nodeId, start, start + newText.length, prevText)` | `start: number, prevText: string` | replace with previous text |
 
-### 노드 구조 오퍼레이션
+### Node structure operations
 
-| 원본 오퍼레이션 | 역함수 | 매개변수 | 설명 |
+| Forward | Inverse | Parameters | Description |
 |---|---|---|---|
-| `create(node)` | `delete(nodeId)` | `nodeId: string` | 생성된 노드 삭제 |
-| `delete(nodeId)` | `create(prevNode)` | `prevNode: INode` | 삭제된 노드 재생성 |
-| `moveNode(nodeId, newParentId, newIndex)` | `moveNode(nodeId, prevParentId, prevIndex)` | `prevParentId: string, prevIndex: number` | 이전 위치로 이동 |
-| `addChild(parentId, child, index)` | `removeChild(parentId, index)` | `index: number` | 추가된 자식 제거 |
-| `removeChild(parentId, index)` | `addChild(parentId, removedChild, index)` | `removedChild: INode, index: number` | 제거된 자식 재추가 |
+| `create(node)` | `delete(nodeId)` | `nodeId: string` | delete created node |
+| `delete(nodeId)` | `create(prevNode)` | `prevNode: INode` | recreate deleted node |
+| `moveNode(nodeId, newParentId, newIndex)` | `moveNode(nodeId, prevParentId, prevIndex)` | `prevParentId: string, prevIndex: number` | move back to previous location |
+| `addChild(parentId, child, index)` | `removeChild(parentId, index)` | `index: number` | remove added child |
+| `removeChild(parentId, index)` | `addChild(parentId, removedChild, index)` | `removedChild: INode, index: number` | re-add removed child |
 
-### 속성/마크 오퍼레이션
+### Attribute/mark operations
 
-| 원본 오퍼레이션 | 역함수 | 매개변수 | 설명 |
+| Forward | Inverse | Parameters | Description |
 |---|---|---|---|
-| `setAttrs(nodeId, attrs)` | `setAttrs(nodeId, prevAttrs)` | `prevAttrs: Record<string, any>` | 이전 속성으로 복원 |
-| `setMarks(nodeId, marks)` | `setMarks(nodeId, prevMarks)` | `prevMarks: IMark[]` | 이전 마크로 복원 |
-| `applyMark(nodeId, mark, range)` | `removeMark(nodeId, mark.type, range)` | `mark.type: string, range: [number, number]` | 적용된 마크 제거 |
-| `removeMark(nodeId, markType, range)` | `applyMark(nodeId, prevMark, range)` | `prevMark: IMark, range: [number, number]` | 제거된 마크 재적용 |
-| `toggleMark(nodeId, markType, range)` | `toggleMark(nodeId, markType, range)` | `markType: string, range: [number, number]` | 토글은 자기 역함수 |
+| `setAttrs(nodeId, attrs)` | `setAttrs(nodeId, prevAttrs)` | `prevAttrs: Record<string, any>` | restore previous attributes |
+| `setMarks(nodeId, marks)` | `setMarks(nodeId, prevMarks)` | `prevMarks: IMark[]` | restore previous marks |
+| `applyMark(nodeId, mark, range)` | `removeMark(nodeId, mark.type, range)` | `mark.type: string, range: [number, number]` | remove applied mark |
+| `removeMark(nodeId, markType, range)` | `applyMark(nodeId, prevMark, range)` | `prevMark: IMark, range: [number, number]` | reapply removed mark |
+| `toggleMark(nodeId, markType, range)` | `toggleMark(nodeId, markType, range)` | `markType: string, range: [number, number]` | toggle is self-inverse |
 
-### 래핑/언래핑 오퍼레이션
+### Wrapping/unwrapping operations
 
-| 원본 오퍼레이션 | 역함수 | 매개변수 | 설명 |
+| Forward | Inverse | Parameters | Description |
 |---|---|---|---|
-| `wrap(nodeId, wrapperType, attrs)` | `unwrap(wrapperNodeId)` | `wrapperNodeId: string` | 래퍼 노드 언래핑 |
-| `unwrap(nodeId)` | `wrap(prevParentId, prevWrapperType, prevAttrs)` | `prevParentId: string, prevWrapperType: string, prevAttrs: any` | 이전 래퍼로 재래핑 |
+| `wrap(nodeId, wrapperType, attrs)` | `unwrap(wrapperNodeId)` | `wrapperNodeId: string` | unwrap wrapper node |
+| `unwrap(nodeId)` | `wrap(prevParentId, prevWrapperType, prevAttrs)` | `prevParentId: string, prevWrapperType: string, prevAttrs: any` | re-wrap with previous wrapper |
 
-### 선택 오퍼레이션
+### Selection operations
 
-| 원본 오퍼레이션 | 역함수 | 매개변수 | 설명 |
+| Forward | Inverse | Parameters | Description |
 |---|---|---|---|
-| `selectRange(startNodeId, startOffset, endNodeId, endOffset)` | `selectRange(prevStartNodeId, prevStartOffset, prevEndNodeId, prevEndOffset)` | 이전 선택으로 복원 |
-| `selectNode(nodeId)` | `selectRange(prevStartNodeId, prevStartOffset, prevEndNodeId, prevEndOffset)` | 이전 선택으로 복원 |
-| `clearSelection()` | `selectRange(prevStartNodeId, prevStartOffset, prevEndNodeId, prevEndOffset)` | 이전 선택으로 복원 |
+| `selectRange(startNodeId, startOffset, endNodeId, endOffset)` | `selectRange(prevStartNodeId, prevStartOffset, prevEndNodeId, prevEndOffset)` | restore previous selection |
+| `selectNode(nodeId)` | `selectRange(prevStartNodeId, prevStartOffset, prevEndNodeId, prevEndOffset)` | restore previous selection |
+| `clearSelection()` | `selectRange(prevStartNodeId, prevStartOffset, prevEndNodeId, prevEndOffset)` | restore previous selection |
 
-## 역함수 실행 흐름
+## Inverse Execution Flow
 
-### 1. 정방향 실행
+### 1. Forward execution
 ```typescript
 const result = await operation.execute(operation, context);
-// result.inverse에 역함수 정보 저장
+// result.inverse holds inverse info
 ```
 
-### 2. 역방향 실행 (Undo)
+### 2. Backward execution (Undo)
 ```typescript
 const inverseResult = await inverseOperation.execute(inverseOperation, context);
-// 이전 상태로 복원
+// Restores previous state
 ```
 
-### 3. 재역방향 실행 (Redo)
+### 3. Forward again (Redo)
 ```typescript
 const redoResult = await originalOperation.execute(originalOperation, context);
-// 원래 상태로 복원
+// Restores original forward state
 ```
 
-## 구현 예시
+## Implementation Examples
 
-### setText 오퍼레이션
+### `setText`
 ```typescript
 defineOperation('setText', async (operation: any, context: TransactionContext) => {
   const { nodeId, text } = operation.payload;
@@ -126,12 +126,12 @@ defineOperation('setText', async (operation: any, context: TransactionContext) =
   return {
     ok: true,
     data: context.dataStore.getNode(nodeId),
-    inverse: setText(nodeId, prevText)  // DSL 형태
+    inverse: setText(nodeId, prevText)  // DSL form
   };
 });
 ```
 
-### insertText 오퍼레이션
+### `insertText`
 ```typescript
 defineOperation('insertText', async (operation: any, context: TransactionContext) => {
   const { nodeId, pos, text } = operation.payload;
@@ -141,66 +141,66 @@ defineOperation('insertText', async (operation: any, context: TransactionContext
   return {
     ok: true,
     data: context.dataStore.getNode(nodeId),
-    inverse: deleteTextRange(nodeId, pos, pos + text.length)  // DSL 형태
+    inverse: deleteTextRange(nodeId, pos, pos + text.length)  // DSL form
   };
 });
 ```
 
-## 특수 케이스
+## Special Cases
 
-### 1. 자기 역함수 (Self-Inverse)
-- `toggleMark`: 토글은 두 번 실행하면 원래 상태로 돌아감
-- `clearSelection`: 선택 해제 후 다시 해제는 의미 없음
+### 1. Self-inverse
+- `toggleMark`: toggling twice returns to original state
+- `clearSelection`: clearing twice has no further effect
 
-### 2. 복합 역함수
-일부 오퍼레이션은 여러 단계의 역함수가 필요할 수 있습니다:
+### 2. Composite inverses
+Some operations need multi-step inverses:
 ```typescript
-// 예: splitNode의 역함수는 mergeNode
+// Example: inverse of splitNode is mergeNode
 inverse: mergeNode(leftNodeId, rightNodeId)
 ```
 
-### 3. 조건부 역함수
-일부 오퍼레이션은 실행 조건에 따라 다른 역함수를 가질 수 있습니다:
+### 3. Conditional inverses
+Some operations choose inverse based on conditions:
 ```typescript
-// 예: 조건에 따라 다른 역함수
+// Example: different inverse depending on condition
 inverse: condition ? operationA(params) : operationB(params)
 ```
 
-## 검증 규칙
+## Validation Rules
 
-### 1. 역함수 존재성
-모든 오퍼레이션은 유효한 역함수를 반환해야 합니다.
+### 1. Inverse must exist
+Every operation must return a valid inverse.
 
-### 2. 역함수 실행 가능성
-역함수는 현재 컨텍스트에서 실행 가능해야 합니다.
+### 2. Inverse must be executable
+The inverse must be runnable in the current context.
 
-### 3. 상태 일관성
-역함수 실행 후 원래 상태와 동일해야 합니다.
+### 3. State consistency
+After running the inverse, state should match the original state.
 
-## 테스트 전략
+## Test Strategy
 
-### 1. 단위 테스트
+### 1. Unit tests
 ```typescript
 test('setText inverse should restore previous text', async () => {
   const originalText = 'Hello';
   const newText = 'World';
   
-  // 정방향 실행
+  // Forward
   const result = await setText(nodeId, newText);
   expect(result.data.text).toBe(newText);
   
-  // 역방향 실행
+  // Inverse
   const inverseResult = await result.inverse.execute(result.inverse, context);
   expect(inverseResult.data.text).toBe(originalText);
 });
 ```
 
-### 2. 통합 테스트
+### 2. Integration tests
 ```typescript
 test('operation-inverse roundtrip should maintain state', async () => {
   const initialState = captureState();
   
-  // 정방향 + 역방향 실행
+  // Forward + inverse
   const result = await operation.execute(operation, context);
   await result.inverse.execute(result.inverse, context);
   
@@ -209,52 +209,50 @@ test('operation-inverse roundtrip should maintain state', async () => {
 });
 ```
 
-## 성능 고려사항
+## Performance Considerations
 
-### 1. 메모리 사용량
-역함수에 저장되는 데이터 크기를 최소화합니다.
+### 1. Memory
+Keep inverse data minimal.
 
-### 2. 실행 속도
-역함수 실행이 원본 오퍼레이션과 유사한 성능을 가져야 합니다.
+### 2. Speed
+Inverse execution should be comparable to forward execution.
 
-### 3. 중첩 오퍼레이션
-복잡한 오퍼레이션의 경우 역함수도 복잡해질 수 있으므로 적절한 추상화가 필요합니다.
+### 3. Nested operations
+Complex operations can lead to complex inverses; abstract appropriately.
 
-## 단순한 역함수 시스템
+## Simple Inverse System
 
-### 핵심 원리
+### Key principle
+The inverse focuses on **reversing data changes only**. Selection is preserved by default, with simple clamping when needed.
 
-역함수는 **데이터 변경만 되돌리는 것**에 집중합니다. Selection은 기본적으로 유지되며, 필요시 간단한 클램프만 적용합니다.
+### How to implement
 
-### 역함수 구현 방식
-
-#### 1. 단순한 DSL 형태
+#### 1. Simple DSL form
 ```typescript
-// setText의 역함수
+// setText inverse
 inverse: setText(nodeId, prevText)
 
-// insertText의 역함수  
+// insertText inverse
 inverse: deleteTextRange(nodeId, pos, pos + text.length)
 
-// deleteTextRange의 역함수
+// deleteTextRange inverse
 inverse: insertText(nodeId, start, deletedText)
 ```
 
-#### 2. Selection 기본 유지
+#### 2. Keep selection as-is
 ```typescript
-// TransactionManager에서 역함수 실행 시
+// TransactionManager executing inverses
 async executeInverse(inverseOps: any[], context: TransactionContext) {
   for (const inverseOp of inverseOps) {
     await this._executeOperation(inverseOp, context);
-    // selection은 기본적으로 유지, 필요시 간단한 클램프만
+    // selection is preserved; only simple clamping when needed
   }
 }
 ```
 
-### 구현 예시
-
+#### 3. Examples
 ```typescript
-// setText 오퍼레이션
+// setText
 defineOperation('setText', async (operation: any, context: TransactionContext) => {
   const { nodeId, text } = operation.payload;
   const node = context.dataStore.getNode(nodeId);
@@ -265,11 +263,11 @@ defineOperation('setText', async (operation: any, context: TransactionContext) =
   return {
     ok: true,
     data: context.dataStore.getNode(nodeId),
-    inverse: setText(nodeId, prevText)  // 단순한 DSL 형태
+    inverse: setText(nodeId, prevText)
   };
 });
 
-// insertText 오퍼레이션
+// insertText
 defineOperation('insertText', async (operation: any, context: TransactionContext) => {
   const { nodeId, pos, text } = operation.payload;
   
@@ -278,18 +276,16 @@ defineOperation('insertText', async (operation: any, context: TransactionContext
   return {
     ok: true,
     data: context.dataStore.getNode(nodeId),
-    inverse: deleteTextRange(nodeId, pos, pos + text.length)  // 단순한 DSL 형태
+    inverse: deleteTextRange(nodeId, pos, pos + text.length)
   };
 });
 ```
 
-### Selection 처리
-
+#### 4. Selection clamping
 ```typescript
-// TransactionManager에서 기본 클램프만 적용
+// TransactionManager applies simple clamping
 class TransactionManager {
   private _clampSelection(selection: SelectionContext, dataStore: DataStore) {
-    // 간단한 클램프만 적용
     const anchorNode = dataStore.getNode(selection.current.anchorId);
     const focusNode = dataStore.getNode(selection.current.focusId);
     
@@ -310,105 +306,74 @@ class TransactionManager {
 }
 ```
 
-### 장점
+### Benefits
+1. **Simplicity**: no complex selection mapping logic
+2. **Predictability**: inverse results are clear
+3. **Performance**: no selection computation overhead
+4. **Consistency**: same approach for all operations
+5. **Maintainability**: simple structure makes debugging easy
 
-1. **단순성**: 복잡한 selection 매핑 로직 불필요
-2. **예측 가능성**: 역함수 실행 결과가 명확
-3. **성능**: selection 계산 오버헤드 없음
-4. **일관성**: 모든 오퍼레이션이 동일한 방식
-5. **유지보수성**: 간단한 구조로 디버깅과 수정이 용이
+## Approaches in Other Editors
 
-## 다른 에디터들의 접근 방식
+### 1. Google Docs
+**Approach**: Operational Transform (OT) + selection mapping
+- Track all changes as operations
+- Manage selection as relative positions, not absolute
+- Resolve conflicts in collaboration by transforming operations
 
-### 1. **Google Docs**
+**Pros**: optimized for real-time collaboration; handles selection conflicts well
+**Cons**: high implementation complexity; requires complex sync under network latency
 
-**방식**: Operational Transform (OT) + Selection 매핑
-- 모든 변경사항을 operation으로 추적
-- Selection은 절대 위치가 아닌 상대적 위치로 관리
-- 동시편집 시 operation을 변환하여 충돌 해결
+### 2. Notion
+**Approach**: block-based + selection preservation
+- Manage content as blocks
+- Track selection as block ID + offset
+- Undo/redo restores selection if block exists; otherwise moves to nearest block
 
-**장점**:
-- 실시간 동시편집에 최적화
-- Selection 충돌 해결이 잘 됨
+**Pros**: clear block structure; simpler selection restore
+**Cons**: hard to restore selection if a block is deleted; limits in complex text edits
 
-**단점**:
-- 구현 복잡도가 높음
-- 네트워크 지연 시 복잡한 동기화 필요
+### 3. VS Code
+**Approach**: model-based + selection mapping
+- Track all changes as model changes
+- Manage selection by model positions
+- Map selection during undo/redo based on model changes
 
-### 2. **Notion**
+**Pros**: accurate selection restore; handles complex text edits well
+**Cons**: complex model tracking; performance tuning is harder
 
-**방식**: 블록 기반 + Selection 보존
-- 모든 콘텐츠를 블록 단위로 관리
-- Selection은 블록 ID + 오프셋으로 추적
-- Undo/Redo 시 블록이 존재하면 selection 복원, 없으면 가장 가까운 블록으로 이동
+### 4. ProseMirror
+**Approach**: Transform-based + selection mapping
+- Track all changes as transforms
+- Manage selection as document positions
+- Use inverse transforms for undo
 
-**장점**:
-- 블록 기반으로 구조가 명확
-- Selection 복원이 상대적으로 단순
+**Pros**: mathematically precise inverses; accurate selection mapping
+**Cons**: transform concept is complex; steeper learning curve
 
-**단점**:
-- 블록 삭제 시 selection 복원이 어려움
-- 복잡한 텍스트 조작에서 한계
+### 5. Slate.js
+**Approach**: immutable data + selection preservation
+- Track changes as immutable data
+- Manage selection as path + offset
+- Undo/redo fully restores previous state
 
-### 3. **VS Code**
+**Pros**: simple state management; easy debugging
+**Cons**: higher memory usage; performance issues on large documents
 
-**방식**: 모델 기반 + Selection 매핑 함수
-- 모든 변경사항을 모델 변경으로 추적
-- Selection은 모델 위치 기반으로 관리
-- Undo/Redo 시 모델 변경에 따른 selection 매핑
+## BaroCSS Choice
 
-**장점**:
-- 정확한 selection 복원
-- 복잡한 텍스트 조작도 잘 처리
+BaroCSS chooses a **simple inverse system**:
 
-**단점**:
-- 모델 변경 추적이 복잡
-- 성능 최적화가 어려움
+**Reasons:**
+1. **Simplicity**: no complex selection mapping
+2. **Predictability**: clear inverse outcomes
+3. **Performance**: no selection overhead
+4. **Consistency**: same approach for all operations
+5. **Maintainability**: easy debugging and fixes
 
-### 4. **ProseMirror**
-
-**방식**: Transform 기반 + Selection 매핑
-- 모든 변경사항을 transform으로 추적
-- Selection은 document position으로 관리
-- Transform의 역함수로 undo 구현
-
-**장점**:
-- 수학적으로 정확한 역함수
-- Selection 매핑이 정확함
-
-**단점**:
-- Transform 개념이 복잡
-- 학습 곡선이 가파름
-
-### 5. **Slate.js**
-
-**방식**: Immutable Data + Selection 보존
-- 모든 변경사항을 immutable data로 추적
-- Selection은 path + offset으로 관리
-- Undo/Redo 시 이전 상태로 완전 복원
-
-**장점**:
-- 상태 관리가 단순
-- 디버깅이 쉬움
-
-**단점**:
-- 메모리 사용량이 큼
-- 대용량 문서에서 성능 이슈
-
-## BaroCSS의 선택
-
-BaroCSS는 **단순한 역함수 시스템**을 선택했습니다:
-
-### 이유:
-1. **단순성**: 복잡한 selection 매핑 로직 불필요
-2. **예측 가능성**: 역함수 실행 결과가 명확
-3. **성능**: selection 계산 오버헤드 없음
-4. **일관성**: 모든 오퍼레이션이 동일한 방식
-5. **유지보수성**: 간단한 구조로 디버깅과 수정이 용이
-
-### 구현 전략:
+**Implementation strategy:**
 ```typescript
-// 1. 개별 오퍼레이션에서 단순한 역함수 DSL만 정의
+// 1. Define simple inverse DSL per operation
 defineOperation('setText', async (operation, context) => {
   const { nodeId, text } = operation.payload;
   const prevText = node.text ?? '';
@@ -418,27 +383,27 @@ defineOperation('setText', async (operation, context) => {
   return {
     ok: true,
     data: result,
-    inverse: setText(nodeId, prevText)  // 단순한 DSL 형태
+    inverse: setText(nodeId, prevText)
   };
 });
 
-// 2. TransactionManager에서 기본 클램프만 적용
+// 2. TransactionManager: simple clamping only
 async executeInverse(inverseOps: any[], context: TransactionContext) {
   for (const inverseOp of inverseOps) {
     await this._executeOperation(inverseOp, context);
-    // selection은 기본적으로 유지, 필요시 간단한 클램프만
+    // selection preserved; only simple clamping if needed
   }
 }
 
-// 3. Selection은 사용자가 직접 조정
-// 복잡한 자동 매핑 없이 기본 유지
+// 3. Selection can be adjusted by the user when needed
+// No complex automatic mapping
 ```
 
-이 방식은 구현이 간단하고 예측 가능하며, 동시편집 환경에서도 안정적으로 작동합니다.
+This approach is simple, predictable, and stable even in collaborative environments.
 
-## 오퍼레이션-역함수 관계 다이어그램
+## Operation–Inverse Diagrams
 
-### 텍스트 조작 오퍼레이션 관계도
+### Text operations
 
 ```mermaid
 graph TD
@@ -457,7 +422,7 @@ graph TD
     H --> H1["replaceText(nodeId, start, start+length, prevText)"]
 ```
 
-### 노드 구조 오퍼레이션 관계도
+### Node structure operations
 
 ```mermaid
 graph TD
@@ -479,7 +444,7 @@ graph TD
     J --> J1["addChild(parentId, removedChild, index)"]
 ```
 
-### 속성/마크 오퍼레이션 관계도
+### Attribute/mark operations
 
 ```mermaid
 graph TD
@@ -501,7 +466,7 @@ graph TD
     J --> J1["toggleMark(nodeId, markType, range)"]
 ```
 
-### 래핑/언래핑 오퍼레이션 관계도
+### Wrapping/unwrapping operations
 
 ```mermaid
 graph TD
@@ -514,7 +479,7 @@ graph TD
     D --> D1["wrap(prevParentId, prevWrapperType, prevAttrs)"]
 ```
 
-### 선택 오퍼레이션 관계도
+### Selection operations
 
 ```mermaid
 graph TD
@@ -530,7 +495,7 @@ graph TD
     F --> F1["selectRange(prevStartNodeId, prevStartOffset, prevEndNodeId, prevEndOffset)"]
 ```
 
-## 역함수 실행 흐름 다이어그램
+## Inverse Execution Flow Diagram
 
 ```mermaid
 sequenceDiagram
@@ -559,7 +524,7 @@ sequenceDiagram
     TM-->>U: Undo Complete
 ```
 
-## 오퍼레이션 카테고리별 역함수 매트릭스
+## Operation–Inverse Matrix by Category
 
 ```mermaid
 graph LR
@@ -596,26 +561,25 @@ graph LR
         SE2[selectNode] --> SE2I[selectRange]
         SE3[clearSelection] --> SE3I[selectRange]
     end
-    ```
+```
 
 ## 8. Implementation Notes
 
-### 8.1 Operation Registration
-모든 inverse operations은 해당 forward operation과 함께 `register-operations.ts`에서 등록되어야 합니다:
+### 8.1 Operation registration
+All inverse operations must be registered alongside their forward operations in `register-operations.ts`:
 
 ```typescript
 // register-operations.ts
 import './create';    // create + delete inverse
 import './update';    // update + update inverse  
 import './setText';   // setText + setText inverse
-// ... 기타 operations
+// ... other operations
 ```
 
-### 8.2 Testing Inverse Operations
-Inverse operations 테스트 시 주의사항:
+### 8.2 Testing inverse operations
 
 ```typescript
-// ✅ 올바른 테스트 패턴
+// ✅ Correct testing pattern
 const forwardResult = await transaction(editor, [
   create(textNode('inline-text', 'Hello'))
 ]).commit();
@@ -625,39 +589,39 @@ const inverseResult = await transaction(editor, [
   { type: 'delete', payload: { nodeId } }
 ]).commit();
 
-// 결과 검증
+// Validate results
 expect(forwardResult.success).toBe(true);
 expect(inverseResult.success).toBe(true);
 expect(dataStore.getNode(nodeId)).toBeUndefined();
 ```
 
-### 8.3 Common Implementation Issues
+### 8.3 Common implementation issues
 
-#### 8.3.1 Operation Not Registered
+#### 8.3.1 Operation not registered
 ```
 Error: Unknown operation type: update
 ```
-**해결방법:** `register-operations.ts`에 해당 operation import 추가
+**Solution:** add the operation import to `register-operations.ts`.
 
-#### 8.3.2 Incorrect Payload Structure
+#### 8.3.2 Incorrect payload structure
 ```typescript
-// ❌ 잘못된 방법
+// ❌ Incorrect
 defineOperation('setText', async (operation, context) => {
-  const { nodeId, text } = operation; // 직접 접근
+  const { nodeId, text } = operation; // direct access
 });
 
-// ✅ 올바른 방법  
+// ✅ Correct
 defineOperation('setText', async (operation, context) => {
-  const { nodeId, text } = operation.payload; // payload에서 추출
+  const { nodeId, text } = operation.payload; // pull from payload
 });
 ```
 
-#### 8.3.3 Missing OperationExecuteResult Structure
+#### 8.3.3 Missing OperationExecuteResult shape
 ```typescript
-// ❌ 잘못된 방법
+// ❌ Incorrect
 return updatedNode;
 
-// ✅ 올바른 방법
+// ✅ Correct
 return {
   ok: true,
   data: updatedNode,

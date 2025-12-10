@@ -1,46 +1,46 @@
 # Operation-Selection Integration Specification
 
-## 1. 개요
+## 1. Overview
 
-이 문서는 Barocss Model에서 **Operation 실행과 Selection 관리의 통합**에 대한 명확한 스펙을 정의합니다. 현재 각 Operation마다 Selection 처리가 일관되지 않은 문제를 해결하고, 중앙집중식으로 Selection을 관리하는 방안을 제시합니다.
+This document defines a clear specification for **integration of Operation execution and Selection management** in Barocss Model. It addresses the current issue of inconsistent Selection handling across operations and proposes a centralized approach to Selection management.
 
-## 2. 현재 문제점
+## 2. Current Issues
 
-### 2.1 일관성 부족
-- **Selection 관련 Operations**: `selectRange`, `selectNode`, `clearSelection`만 직접 처리
-- **텍스트 Operations**: `text` operation만 Selection 자동 매핑
-- **대부분의 Operations**: `create`, `update`, `delete`, `split`, `merge` 등은 Selection 처리 없음
-- **사용자 경험**: Operation 타입에 따라 Selection 동작이 다름
+### 2.1 Lack of Consistency
+- **Selection-related Operations**: only `selectRange`, `selectNode`, `clearSelection` handle directly
+- **Text Operations**: only `text` operation has automatic Selection mapping
+- **Most Operations**: `create`, `update`, `delete`, `split`, `merge`, etc. have no Selection handling
+- **User experience**: Selection behavior differs by operation type
 
-### 2.2 중복 코드
-- `text` operation에만 Selection 매핑 로직 존재
-- 다른 Operations는 Selection 처리 로직 없음
-- 새로운 Operation 추가 시 Selection 처리 여부 결정 필요
+### 2.2 Code Duplication
+- Selection mapping logic exists only in `text` operation
+- Other operations have no Selection handling logic
+- Need to decide Selection handling when adding new operations
 
-### 2.3 복잡성
-- `text` operation만 DataStore + Selection 둘 다 관리
-- Selection 관련 Operations는 Selection만 관리
-- 나머지 Operations는 DataStore만 관리
-- 일관되지 않은 책임 분산
+### 2.3 Complexity
+- Only `text` operation manages both DataStore + Selection
+- Selection-related operations manage only Selection
+- Remaining operations manage only DataStore
+- Inconsistent responsibility distribution
 
-## 3. 설계 원칙
+## 3. Design Principles
 
-### 3.1 단일 책임 원칙
-- **Operation**: 데이터 변경에만 집중
-- **Model Layer**: Operation + Selection 조합 관리
+### 3.1 Single Responsibility Principle
+- **Operation**: focus only on data changes
+- **Model Layer**: manage combination of Operation + Selection
 
-### 3.2 중앙집중식 처리
-- 모든 Operation 후에 Selection 자동 매핑
-- 일관된 Selection 정책 적용
-- 중복 코드 제거
+### 3.2 Centralized Processing
+- Automatic Selection mapping after all operations
+- Apply consistent Selection policies
+- Remove code duplication
 
-### 3.3 확장성
-- 새로운 Operation 추가 시 Selection 처리 자동화
-- Selection 정책 변경이 쉬움
+### 3.3 Extensibility
+- Automatic Selection handling when adding new operations
+- Easy to change Selection policies
 
-## 4. 아키텍처
+## 4. Architecture
 
-### 4.1 전체 구조
+### 4.1 Overall Structure
 
 ```mermaid
 graph TB
@@ -61,40 +61,40 @@ graph TB
     style C fill:#e8f5e8
 ```
 
-### 4.2 핵심 컴포넌트
+### 4.2 Core Components
 
 #### A. TransactionManager
-- Operation 실행과 Selection 관리를 조합
-- 모든 Operation 후에 Selection 자동 매핑
-- PositionMapping 계산 및 적용
+- Combines operation execution and Selection management
+- Automatic Selection mapping after all operations
+- Calculate and apply PositionMapping
 
 #### B. Operation Layer
-- 순수하게 데이터 변경에만 집중
-- Selection 처리 로직 제거
-- DataStore 메서드 호출
+- Focus purely on data changes
+- Remove Selection handling logic
+- Call DataStore methods
 
 #### C. SelectionManager
-- Selection 상태 관리
-- Selection 매핑 및 업데이트
-- Position 기반 Selection 처리
+- Manage Selection state
+- Selection mapping and updates
+- Position-based Selection handling
 
-## 5. 구현 방안
+## 5. Implementation Approach
 
-### 5.1 핵심 설계 원칙
+### 5.1 Core Design Principles
 
-#### **사용자 액션 vs 외부 동기화 구분**
-- **사용자 액션**: Transaction → Operations → DataStore + Selection 매핑
-- **외부 동기화**: DataStore만 업데이트 (Selection 변경 없음)
+#### **Distinguish User Actions vs External Synchronization**
+- **User actions**: Transaction → Operations → DataStore + Selection mapping
+- **External synchronization**: update only DataStore (no Selection change)
 
-#### **Operation의 역할**
-- **데이터 처리**: DataStore 업데이트
-- **Selection 매핑**: 즉시 SelectionManager 업데이트
-- **단순함**: accumulated 로직 불필요
+#### **Operation Role**
+- **Data processing**: update DataStore
+- **Selection mapping**: immediately update SelectionManager
+- **Simplicity**: no accumulated logic needed
 
-### 5.2 defineOperation 확장
+### 5.2 defineOperation Extension
 
 ```typescript
-// defineOperation에 Selection 매핑 기능 추가
+// Add Selection mapping to defineOperation
 export function defineOperation<T extends TransactionOperation>(
   name: string, 
   executor: (operation: T, context: TransactionContext) => Promise<void | INode>
@@ -105,22 +105,22 @@ export function defineOperation<T extends TransactionOperation>(
   });
 }
 
-// Operation 정의 인터페이스
+// Operation definition interface
 export interface OperationDefinition {
   name: string;
   execute: <T extends TransactionOperation>(operation: T, context: TransactionContext) => Promise<void | INode>;
 }
 ```
 
-### 5.3 Operation 구현 패턴
+### 5.3 Operation Implementation Pattern
 
 ```typescript
-// Operation은 데이터 + Selection 매핑을 모두 처리
+// Operations handle both data + Selection mapping
 defineOperation('insertText', async (operation: InsertTextOperation, context: TransactionContext) => {
-  // 1. DataStore 업데이트
+  // 1. Update DataStore
   context.dataStore.insertText(operation.nodeId, operation.position, operation.text);
   
-  // 2. Selection 매핑 및 즉시 업데이트
+  // 2. Map Selection and update immediately
   const currentSelection = context.selectionManager.getCurrentSelection();
   if (currentSelection) {
     const newSelection = SelectionMappingUtils.shiftAfterInsert(currentSelection, operation);
@@ -129,10 +129,10 @@ defineOperation('insertText', async (operation: InsertTextOperation, context: Tr
 });
 
 defineOperation('delete', async (operation: DeleteOperation, context: TransactionContext) => {
-  // 1. DataStore 업데이트
+  // 1. Update DataStore
   context.dataStore.deleteNode(operation.nodeId);
   
-  // 2. Selection 매핑 및 즉시 업데이트
+  // 2. Map Selection and update immediately
   const currentSelection = context.selectionManager.getCurrentSelection();
   if (currentSelection) {
     const newSelection = SelectionMappingUtils.clearSelection(currentSelection, operation);
@@ -141,7 +141,7 @@ defineOperation('delete', async (operation: DeleteOperation, context: Transactio
 });
 ```
 
-### 5.4 TransactionManager 수정
+### 5.4 TransactionManager Modification
 
 ```typescript
 class TransactionManager {
@@ -150,53 +150,53 @@ class TransactionManager {
   private _schema: Schema;
 
   async executeTransaction(operations: TransactionOperation[]): Promise<void> {
-    // 각 Operation을 순차적으로 실행
-    // (각 Operation에서 데이터 + Selection을 모두 처리)
+    // Execute each operation sequentially
+    // (each operation handles both data + Selection)
     for (const operation of operations) {
       await this._executeOperationInternal(operation);
     }
     
-    // 마지막 Operation의 Selection 결과가 최종 상태
-    // (별도의 accumulated 로직 불필요)
+    // Final operation's Selection result is the final state
+    // (no separate accumulated logic needed)
   }
 
-  // 외부 동기화용 (Selection 변경 없음)
+  // For external synchronization (no Selection change)
   async applyExternalChanges(dataStoreOperations: DataStoreOperation[]): Promise<void> {
     for (const operation of dataStoreOperations) {
-      // DataStore만 업데이트
+      // Update only DataStore
       this._dataStore.applyOperation(operation);
-      // Selection 변경 없음
+      // No Selection change
     }
   }
 }
 ```
 
-### 5.5 동시편집 지원
+### 5.5 Collaborative Editing Support
 
 ```typescript
-// 사용자 액션 (현재 편집하는 유저)
+// User action (currently editing user)
 class UserActionManager {
   async executeUserAction(operations: TransactionOperation[]): Promise<void> {
-    // Transaction → Operations → DataStore + Selection 매핑
+    // Transaction → Operations → DataStore + Selection mapping
     await this._transactionManager.executeTransaction(operations);
   }
 }
 
-// 외부 동기화 (다른 사용자/CRDT)
+// External synchronization (other users/CRDT)
 class ExternalSyncManager {
   async applyExternalChanges(dataStoreOperations: DataStoreOperation[]): Promise<void> {
-    // DataStore만 업데이트 (Selection 변경 없음)
+    // Update only DataStore (no Selection change)
     await this._transactionManager.applyExternalChanges(dataStoreOperations);
   }
 }
 ```
 
-### 5.6 Selection 매핑 유틸리티
+### 5.6 Selection Mapping Utilities
 
 ```typescript
-// 공통 Selection 매핑 유틸리티 함수들
+// Common Selection mapping utility functions
 export class SelectionMappingUtils {
-  // 삽입 후 Selection 이동
+  // Move Selection after insertion
   static shiftAfterInsert(
     currentSelection: Selection, 
     operation: { nodeId: string; position: number; text: string }
@@ -213,7 +213,7 @@ export class SelectionMappingUtils {
     return currentSelection;
   }
   
-  // 삭제 후 Selection 이동
+  // Move Selection after deletion
   static collapseToStart(
     currentSelection: Selection,
     operation: { nodeId: string; start: number; end: number }
@@ -227,7 +227,7 @@ export class SelectionMappingUtils {
     };
   }
   
-  // 분할 후 Selection 이동
+  // Move Selection after split
   static moveToSplitPoint(
     currentSelection: Selection,
     operation: { nodeId: string; splitPosition: number }
@@ -241,18 +241,18 @@ export class SelectionMappingUtils {
     };
   }
   
-  // Selection 클리어
+  // Clear Selection
   static clearSelection(
     currentSelection: Selection,
     operation: { nodeId: string }
   ): Selection | null {
     if (currentSelection.nodeId === operation.nodeId) {
-      return null; // Selection 클리어
+      return null; // Clear Selection
     }
     return currentSelection;
   }
   
-  // Selection 유지
+  // Preserve Selection
   static preserveSelection(
     currentSelection: Selection,
     operation: any
@@ -262,98 +262,98 @@ export class SelectionMappingUtils {
 }
 ```
 
-## 6. Operation별 Selection 매핑 규칙
+## 6. Selection Mapping Rules by Operation
 
-### 6.1 텍스트 편집 Operations
-- **insertText**: 삽입 위치 이후 Selection 이동 (`shiftAfterInsert`)
-- **deleteTextRange**: 삭제 범위 시작으로 Selection 이동 (`collapseToStart`)
-- **setText**: 텍스트 전체 교체, Selection 범위 조정 필요
-- **addMark**: 마크 추가, Selection 영향 없음 (`preserveSelection`)
+### 6.1 Text Editing Operations
+- **insertText**: move Selection after insertion position (`shiftAfterInsert`)
+- **deleteTextRange**: move Selection to deletion range start (`collapseToStart`)
+- **setText**: replace entire text, need to adjust Selection range
+- **addMark**: add mark, no Selection impact (`preserveSelection`)
 
-### 6.2 노드 구조 Operations
-- **create**: 새 노드 생성 시 Selection 영향 없음 (`preserveSelection`)
-- **update**: 노드 속성 변경, Selection 영향 없음 (`preserveSelection`)
-- **delete**: 노드 삭제 시 Selection 클리어 (`clearSelection`)
-- **addChild**: 부모 노드의 content 배열 변경, Selection 영향 없음 (`preserveSelection`)
+### 6.2 Node Structure Operations
+- **create**: no Selection impact when creating new node (`preserveSelection`)
+- **update**: change node attributes, no Selection impact (`preserveSelection`)
+- **delete**: clear Selection when deleting node (`clearSelection`)
+- **addChild**: change parent node's content array, no Selection impact (`preserveSelection`)
 
-### 6.3 분할/병합 Operations
-- **splitText**: 분할 지점으로 Selection 이동 (`moveToSplitPoint`)
-- **mergeText**: 병합 지점으로 Selection 이동 (`moveToMergePoint`)
-- **splitNode**: 노드 분할 시 Selection 조정
-- **mergeNode**: 노드 병합 시 Selection 조정
+### 6.3 Split/Merge Operations
+- **splitText**: move Selection to split point (`moveToSplitPoint`)
+- **mergeText**: move Selection to merge point (`moveToMergePoint`)
+- **splitNode**: adjust Selection when splitting node
+- **mergeNode**: adjust Selection when merging node
 
-### 6.4 Selection 관련 Operations
-- **selectRange**: Selection 범위 설정 (직접 처리)
-- **selectNode**: 노드 선택 (직접 처리)
-- **clearSelection**: Selection 클리어 (직접 처리)
+### 6.4 Selection-related Operations
+- **selectRange**: set Selection range (handle directly)
+- **selectNode**: select node (handle directly)
+- **clearSelection**: clear Selection (handle directly)
 
-## 7. Selection 정책
+## 7. Selection Policies
 
-### 7.1 사용자 액션 vs 외부 동기화
-1. **사용자 액션**: Operation에서 데이터 + Selection 매핑을 모두 처리
-2. **외부 동기화**: DataStore만 업데이트 (Selection 변경 없음)
+### 7.1 User Actions vs External Synchronization
+1. **User actions**: operations handle both data + Selection mapping
+2. **External synchronization**: update only DataStore (no Selection change)
 
-### 7.2 매핑 규칙
-- **텍스트 삽입**: 삽입 위치 이후 Selection 이동 (`shiftAfterInsert`)
-- **텍스트 삭제**: 삭제 범위 시작으로 Selection 이동 (`collapseToStart`)
-- **노드 삭제**: Selection 클리어 (`clearSelection`)
-- **노드 분할**: 분할 지점으로 Selection 이동 (`moveToSplitPoint`)
-- **노드 병합**: 병합 지점으로 Selection 이동 (`moveToMergePoint`)
+### 7.2 Mapping Rules
+- **Text insertion**: move Selection after insertion position (`shiftAfterInsert`)
+- **Text deletion**: move Selection to deletion range start (`collapseToStart`)
+- **Node deletion**: clear Selection (`clearSelection`)
+- **Node split**: move Selection to split point (`moveToSplitPoint`)
+- **Node merge**: move Selection to merge point (`moveToMergePoint`)
 
-## 8. 구현 단계
+## 8. Implementation Phases
 
-### Phase 1: Operation 수정
-1. Operation에서 데이터 + Selection 매핑을 모두 처리하도록 수정
-2. `SelectionMappingUtils` 클래스 구현
-3. 각 Operation에 Selection 매핑 로직 추가
+### Phase 1: Operation Modification
+1. Modify operations to handle both data + Selection mapping
+2. Implement `SelectionMappingUtils` class
+3. Add Selection mapping logic to each operation
 
-### Phase 2: TransactionManager 수정
-1. 단순히 Operations를 순차 실행하도록 수정
-2. 외부 동기화용 `applyExternalChanges` 메서드 추가
-3. 사용자 액션과 외부 동기화 구분
+### Phase 2: TransactionManager Modification
+1. Modify to simply execute operations sequentially
+2. Add `applyExternalChanges` method for external synchronization
+3. Distinguish user actions and external synchronization
 
-### Phase 3: 동시편집 지원
-1. `UserActionManager` 구현
-2. `ExternalSyncManager` 구현
-3. CRDT와의 통합
+### Phase 3: Collaborative Editing Support
+1. Implement `UserActionManager`
+2. Implement `ExternalSyncManager`
+3. Integrate with CRDT
 
-### Phase 4: 테스트 및 검증
-1. 각 Operation별 Selection 매핑 테스트
-2. 동시편집 시나리오 테스트
-3. 복잡한 Transaction 조합 테스트
+### Phase 4: Testing and Verification
+1. Test Selection mapping for each operation
+2. Test collaborative editing scenarios
+3. Test complex transaction combinations
 
-## 9. 예상 효과
+## 9. Expected Effects
 
-### 9.1 동시편집 지원
-- 사용자 액션과 외부 동기화를 명확히 구분
-- CRDT와 완벽하게 호환
-- Selection이 올바르게 동기화됨
+### 9.1 Collaborative Editing Support
+- Clear distinction between user actions and external synchronization
+- Perfect compatibility with CRDT
+- Selection synchronizes correctly
 
-### 9.2 단순성 향상
-- Operation에서 데이터 + Selection을 모두 처리
-- accumulated 로직 불필요
-- TransactionManager가 단순해짐
+### 9.2 Improved Simplicity
+- Operations handle both data + Selection
+- No accumulated logic needed
+- TransactionManager becomes simpler
 
-### 9.3 유지보수성 향상
-- Selection 로직이 Operation에 집중
-- 각 Operation의 책임이 명확해짐
-- 코드 중복 제거
+### 9.3 Improved Maintainability
+- Selection logic concentrated in operations
+- Clear responsibility for each operation
+- Code duplication removed
 
-### 9.4 확장성 향상
-- 새로운 Operation 추가 시 Selection 매핑만 추가
-- 동적 스키마 지원
-- 공통 유틸리티로 재사용성 향상
+### 9.4 Improved Extensibility
+- Add only Selection mapping when adding new operations
+- Support dynamic schemas
+- Improved reusability with common utilities
 
-## 10. 결론
+## 10. Conclusion
 
-**Operation에서 데이터 + Selection 매핑을 모두 처리**함으로써 **동시편집을 지원하는 일관성 있는 시스템**을 구축할 수 있습니다.
+By having **operations handle both data + Selection mapping**, we can build a **consistent system that supports collaborative editing**.
 
-### 핵심 장점:
-- ✅ **동시편집 지원**: 사용자 액션과 외부 동기화를 명확히 구분
-- ✅ **단순성**: accumulated 로직 불필요, TransactionManager 단순화
-- ✅ **CRDT 호환**: DataStore 기반으로 Selection 자동 동기화
-- ✅ **확장성**: 새로운 Operation 추가 시 Selection 매핑만 추가
+### Key Benefits:
+- ✅ **Collaborative editing support**: clear distinction between user actions and external synchronization
+- ✅ **Simplicity**: no accumulated logic needed, simplified TransactionManager
+- ✅ **CRDT compatibility**: automatic Selection synchronization based on DataStore
+- ✅ **Extensibility**: add only Selection mapping when adding new operations
 
-이 방식으로 구현하면 **동시편집 환경에서도 Selection이 올바르게 관리**되고, **CRDT와 완벽하게 호환**되는 시스템을 만들 수 있습니다.
+Implementing this way enables **correct Selection management even in collaborative editing environments** and creates a system that is **perfectly compatible with CRDT**.
 
-이 스펙을 바탕으로 단계적으로 구현을 진행하면, 현재의 문제점들을 해결하고 더 나은 사용자 경험을 제공할 수 있을 것입니다.
+By implementing step by step based on this spec, we can resolve current issues and provide a better user experience.

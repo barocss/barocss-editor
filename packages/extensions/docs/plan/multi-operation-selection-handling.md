@@ -1,14 +1,14 @@
-# 여러 Operations에서 Selection 처리 방법
+# Handling Selection Across Multiple Operations
 
-## 문제 상황
+## Problem
 
-**Operations는 여러 개가 transaction 안에서 수행될 수 있어서, 개별 operation마다 selection을 지정할 수 있도록 한 것인데, 우리는 어떻게 해야 하는가?**
+**Operations can run in a transaction as a list. Each operation can change selection, but how do we manage selection consistently?**
 
 ---
 
-## 현재 구조 분석
+## Current structure analysis
 
-### 1. Transaction 내 여러 Operations 실행
+### 1) Multiple operations in a transaction
 
 ```typescript
 // packages/model/src/transaction.ts
@@ -16,29 +16,29 @@
 async execute(operations: (TransactionOperation | OpFunction)[]): Promise<TransactionResult> {
   const context = createTransactionContext(
     this._dataStore, 
-    this._editor.selectionManager.clone(),  // ← SelectionManager 클론
+    this._editor.selectionManager.clone(),  // selection manager clone
     this._schema!
   );
   
-  // 여러 operations 순차 실행
+  // run multiple ops sequentially
   for (const operation of operations) {
     await this._executeOperation(operation, context);
-    // 각 operation이 context.selectionManager를 변경할 수 있음
+    // each op can mutate context.selectionManager
   }
   
-  // 하지만 selectionAfter를 반환하지 않음!
+  // but selectionAfter is not returned!
   return { success: true, operations: executedOperations };
 }
 ```
 
-**현재 상태:**
-- `context.selectionManager.clone()`을 사용하여 SelectionManager 클론
-- 각 operation이 `context.selectionManager`를 직접 변경 가능
-- 하지만 `selectionAfter`가 명시적으로 계산/반환되지 않음
+**Current state:**
+- Uses `context.selectionManager.clone()`
+- Each op can mutate `context.selectionManager`
+- But no explicit `selectionAfter` is returned
 
 ---
 
-### 2. 각 Operation에서 Selection 변경
+### 2) Selection changes inside operations
 
 ```typescript
 // packages/model/src/operations/delete.ts
@@ -46,28 +46,26 @@ async execute(operations: (TransactionOperation | OpFunction)[]): Promise<Transa
 defineOperation('delete', 
   async (operation: any, context: TransactionContext) => {
     // ...
-    
-    // 선택된 노드 삭제 시 selection 클리어
+    // clear selection if deleted node was selected
     const currentSel = context.selectionManager.getCurrentSelection?.();
     if (currentSel && (currentSel.anchorId === nodeId || currentSel.focusId === nodeId)) {
-      context.selectionManager.clearSelection();  // ← 직접 변경
+      context.selectionManager.clearSelection();  // direct mutation
     }
-    
     // ...
   }
 );
 ```
 
-**문제점:**
-- 각 operation이 `context.selectionManager`를 직접 변경
-- Transaction 완료 후 최종 selection 상태를 알 수 없음
-- `selectionAfter`가 명시적으로 계산되지 않음
+**Issues:**
+- Each op mutates `context.selectionManager` directly
+- Transaction doesn’t know final selection
+- `selectionAfter` is not explicitly computed/returned
 
 ---
 
-## 문서 스펙 (`selection-mapping-spec.md`)
+## Intended design (`selection-mapping-spec.md`)
 
-### 의도된 구조
+### Target structure
 
 ```typescript
 // TransactionManager
@@ -77,34 +75,31 @@ const selection = makeSelectionContext(before, current, dataStore);
 
 for (const op of ops) {
   await def.execute(op, { dataStore, schema, selection });
-  // 각 operation이 context.selection.set*으로 current를 갱신
+  // each op updates selection.current via selection.set*
 }
 
 return { selectionBefore: before, selectionAfter: current };
 ```
 
-**핵심:**
-- `context.selection`에 `before`와 `current`를 제공
-- 각 operation이 `context.selection.set*`으로 `current`를 갱신
-- TransactionManager가 최종 `current`를 `selectionAfter`로 반환
+**Key points:**
+- `context.selection` holds `before` and `current`
+- Ops call `selection.set*` to update `current`
+- TransactionManager returns final `current` as `selectionAfter`
 
 ---
 
-## 해결 방안
+## Solution
 
-### 방안 1: 로컬 Selection 방식 (문서 스펙 준수, 권장)
+### Option 1: Local SelectionContext (spec-aligned, recommended)
 
-#### 1. `TransactionContext`에 `selection` 추가
+#### 1. Add `selection` to `TransactionContext`
 
 ```typescript
 // packages/model/src/types.ts
 
 export interface SelectionContext {
-  // 트랜잭션 시작 시점의 스냅샷
-  before: ModelSelection;
-  // 오퍼레이션들이 갱신하는 현재 값(최종 SelectionAfter)
-  current: ModelSelection;
-  // 유틸: 안전 보정 메서드
+  before: ModelSelection;   // snapshot at transaction start
+  current: ModelSelection;  // mutable; becomes selectionAfter
   setSelection(next: ModelSelection): void;
   setCaret(nodeId: string, offset: number): void;
   setRange(aId: string, aOff: number, fId: string, fOff: number): void;
@@ -113,12 +108,12 @@ export interface SelectionContext {
 export interface TransactionContext {
   dataStore: DataStore;
   selectionManager: SelectionManager;
-  selection: SelectionContext;  // ← 추가
+  selection: SelectionContext;  // ← new
   schema?: any;
 }
 ```
 
-#### 2. `createTransactionContext` 수정
+#### 2. Update `createTransactionContext`
 
 ```typescript
 // packages/model/src/create-transaction-context.ts
@@ -128,18 +123,14 @@ export function createTransactionContext(
   selectionManager: SelectionManager,
   schema: Schema
 ): TransactionContext {
-  // Selection 스냅샷
   const before = selectionManager.getCurrentSelection() || null;
   const current = before ? { ...before } : null;
   
-  // SelectionContext 생성
   const selection: SelectionContext = {
     before: before!,
     current: current!,
     setSelection: (next: ModelSelection) => {
-      if (current) {
-        Object.assign(current, next);
-      }
+      if (current) Object.assign(current, next);
     },
     setCaret: (nodeId: string, offset: number) => {
       if (current) {
@@ -161,16 +152,11 @@ export function createTransactionContext(
     }
   };
   
-  return {
-    dataStore,
-    selectionManager,
-    selection,  // ← 추가
-    schema
-  };
+  return { dataStore, selectionManager, selection, schema };
 }
 ```
 
-#### 3. Operation에서 `context.selection` 사용
+#### 3. Ops use `context.selection`
 
 ```typescript
 // packages/model/src/operations/deleteTextRange.ts
@@ -178,8 +164,6 @@ export function createTransactionContext(
 defineOperation('deleteTextRange', 
   async (operation: any, context: TransactionContext) => {
     const { nodeId, start, end } = operation.payload;
-    
-    // 1. DataStore 업데이트
     const deletedText = context.dataStore.range.deleteText({
       startNodeId: nodeId,
       startOffset: start,
@@ -187,33 +171,18 @@ defineOperation('deleteTextRange',
       endOffset: end
     });
     
-    // 2. Selection 매핑 (context.selection.current 직접 수정)
+    // Update selection offsets
     if (context.selection?.current) {
       const sel = context.selection.current;
-      
-      // anchor 처리
       if (sel.anchorId === nodeId) {
-        if (sel.anchorOffset >= start && sel.anchorOffset < end) {
-          // 삭제 범위 내 → start로 클램프
-          sel.anchorOffset = start;
-        } else if (sel.anchorOffset >= end) {
-          // 삭제 범위 이후 → 시프트
-          sel.anchorOffset -= (end - start);
-        }
+        if (sel.anchorOffset >= start && sel.anchorOffset < end) sel.anchorOffset = start;
+        else if (sel.anchorOffset >= end) sel.anchorOffset -= (end - start);
       }
-      
-      // focus 처리 (동일한 로직)
       if (sel.focusId === nodeId) {
-        if (sel.focusOffset >= start && sel.focusOffset < end) {
-          sel.focusOffset = start;
-        } else if (sel.focusOffset >= end) {
-          sel.focusOffset -= (end - start);
-        }
+        if (sel.focusOffset >= start && sel.focusOffset < end) sel.focusOffset = start;
+        else if (sel.focusOffset >= end) sel.focusOffset -= (end - start);
       }
-      
-      // Collapsed 상태 업데이트
-      sel.collapsed = sel.anchorId === sel.focusId && 
-                      sel.anchorOffset === sel.focusOffset;
+      sel.collapsed = sel.anchorId === sel.focusId && sel.anchorOffset === sel.focusOffset;
     }
     
     return {
@@ -225,166 +194,138 @@ defineOperation('deleteTextRange',
 );
 ```
 
-#### 4. TransactionManager에서 `selectionAfter` 반환
+#### 4. TransactionManager returns `selectionAfter`
 
 ```typescript
 // packages/model/src/transaction.ts
 
 async execute(operations: (TransactionOperation | OpFunction)[]): Promise<TransactionResult> {
-  // ...
-  
   const context = createTransactionContext(
     this._dataStore, 
     this._editor.selectionManager.clone(),
     this._schema!
   );
-  
-  // Selection 스냅샷
   const selectionBefore = context.selection.before;
-  
-  // Operations 실행
+
   for (const operation of operations) {
     await this._executeOperation(operation, context);
-    // 각 operation이 context.selection.current를 갱신
   }
-  
-  // 최종 selection 상태
+
   const selectionAfter = context.selection.current;
-  
+
   return {
     success: true,
     errors: [],
     transactionId: this._currentTransaction!.sid,
     operations: executedOperations,
-    selectionBefore,  // ← 추가
-    selectionAfter    // ← 추가
+    selectionBefore,
+    selectionAfter
   };
 }
 ```
 
 ---
 
-### 방안 2: SelectionManager 클론 방식 (현재 구현 개선)
-
-#### 개선된 구조
+### Option 2: Clone SelectionManager (improved current approach)
 
 ```typescript
-// packages/model/src/transaction.ts
-
 async execute(operations: (TransactionOperation | OpFunction)[]): Promise<TransactionResult> {
-  // ...
-  
-  // Selection 스냅샷
   const selectionBefore = this._editor.selectionManager.getCurrentSelection();
-  
-  // SelectionManager 클론 (로컬 변경용)
   const clonedSelectionManager = this._editor.selectionManager.clone();
-  
+
   const context = createTransactionContext(
     this._dataStore, 
-    clonedSelectionManager,  // ← 클론 사용
+    clonedSelectionManager,
     this._schema!
   );
-  
-  // Operations 실행
+
   for (const operation of operations) {
     await this._executeOperation(operation, context);
-    // 각 operation이 context.selectionManager를 변경
   }
-  
-  // 최종 selection 상태
+
   const selectionAfter = clonedSelectionManager.getCurrentSelection();
-  
+
   return {
     success: true,
     errors: [],
     transactionId: this._currentTransaction!.sid,
     operations: executedOperations,
-    selectionBefore,  // ← 추가
-    selectionAfter    // ← 추가
+    selectionBefore,
+    selectionAfter
   };
 }
 ```
 
-**장점:**
-- 현재 구조와 호환
-- `SelectionManager`의 기존 API 활용
+**Pros**:
+- Minimal change; uses existing SelectionManager API
 
-**단점:**
-- `SelectionManager.clone()`이 제대로 구현되어 있어야 함
-- Selection 변경이 명시적이지 않음
-
----
-
-## 권장 방안: **방안 1 (로컬 Selection 방식)**
-
-### 이유
-
-1. **문서 스펙 준수**
-   - `selection-mapping-spec.md`의 의도와 일치
-   - 명확한 `before`/`current` 구조
-
-2. **명시적 Selection 관리**
-   - 각 operation이 `context.selection.set*`으로 명시적으로 변경
-   - TransactionManager가 최종 상태를 명확히 반환
-
-3. **테스트 용이성**
-   - `selectionBefore`/`selectionAfter`를 명시적으로 확인 가능
-   - 각 operation의 selection 변경을 추적 가능
+**Cons**:
+- Depends on `SelectionManager.clone()` correctness
+- Selection mutations are not explicit
 
 ---
 
-## 구현 예시
+## Recommendation: Option 1 (local SelectionContext)
 
-### 여러 Operations에서 Selection 처리
+### Reasons
+
+1) **Spec alignment**
+   - Matches `selection-mapping-spec.md` intent
+   - Clear `before`/`current` structure
+
+2) **Explicit selection management**
+   - Ops call `selection.set*` to update `current`
+   - TransactionManager returns final `current` cleanly
+
+3) **Testability**
+   - `selectionBefore`/`selectionAfter` can be asserted directly
+   - Selection changes per op are traceable
+
+---
+
+## Example: selection across multiple operations
 
 ```typescript
-// 예시: deleteTextRange + insertText
-
+// Example: deleteTextRange + insertText
 await transaction(editor, [
-  // Operation 1: 텍스트 삭제
   control('text-1', [
     { type: 'deleteTextRange', payload: { start: 5, end: 10 } }
   ]),
-  // Operation 2: 텍스트 삽입
   control('text-1', [
     { type: 'insertText', payload: { pos: 5, text: 'new' } }
   ])
 ]).commit();
 
-// 처리 순서:
-// 1. deleteTextRange: context.selection.current의 offset 조정
-//    - offset >= 5 && offset < 10 → 5로 클램프
-//    - offset >= 10 → offset - 5로 시프트
-// 2. insertText: context.selection.current의 offset 조정
-//    - offset >= 5 → offset + 3으로 시프트
-// 3. 최종 selectionAfter = context.selection.current
+// Processing order:
+// 1. deleteTextRange: adjust selection offsets
+//    - if offset in [5,10): clamp to 5
+//    - if offset >= 10: shift by -(10-5)
+// 2. insertText: adjust selection offsets
+//    - if offset >= 5: shift by +3
+// 3. Final selectionAfter = selection.current
 ```
 
 ---
 
-## 정리
+## Summary
 
-### 현재 문제
+### Current issues
+- ❌ No explicit `selectionAfter`
+- ❌ Selection mutations per op aren’t tracked
+- ❌ `TransactionResult` lacks `selectionBefore`/`selectionAfter`
 
-1. ❌ `selectionAfter`가 명시적으로 계산되지 않음
-2. ❌ 각 operation의 selection 변경이 추적되지 않음
-3. ❌ `TransactionResult`에 `selectionBefore`/`selectionAfter`가 없음
-
-### 해결 방안
-
-1. ✅ `TransactionContext`에 `selection: SelectionContext` 추가
-2. ✅ 각 operation이 `context.selection.set*`으로 `current` 갱신
-3. ✅ TransactionManager가 최종 `current`를 `selectionAfter`로 반환
-4. ✅ `TransactionResult`에 `selectionBefore`/`selectionAfter` 추가
+### Fixes
+- ✅ Add `selection: SelectionContext` to `TransactionContext`
+- ✅ Ops update `current` via `selection.set*`
+- ✅ TransactionManager returns `selectionBefore`/`selectionAfter`
+- ✅ Add these to `TransactionResult`
 
 ---
 
-## 다음 단계
+## Next steps
 
-1. `SelectionContext` 인터페이스 정의
-2. `createTransactionContext` 수정
-3. 각 operation 수정 (`deleteTextRange`, `insertText`, `delete` 등)
-4. TransactionManager 수정
-5. `TransactionResult` 타입 수정
-
+1) Define `SelectionContext` interface
+2) Update `createTransactionContext`
+3) Update operations (`deleteTextRange`, `insertText`, `delete`, etc.)
+4) Update TransactionManager
+5) Update `TransactionResult` type

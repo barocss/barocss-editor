@@ -1,6 +1,6 @@
-# Renderer 비동기 처리 고려사항
+# Renderer Async Processing Considerations
 
-## 현재 상태
+## Current State
 
 ### 1. DOMRenderer.render()
 ```typescript
@@ -11,126 +11,126 @@ render(
   runtime?: Record<string, any>,
   selection?: { ... }
 ): void {
-  // VNode 빌드 (동기)
+  // VNode build (synchronous)
   const vnode = this.builder.build(model.stype, model, { ... });
   
-  // Reconcile (비동기 - Fiber 기반)
+  // Reconcile (async - Fiber-based)
   this.reconciler.reconcile(container, vnode, model, runtime, decorators, selection);
-  // ⚠️ reconcile은 즉시 반환되지만, 실제 DOM 업데이트는 비동기로 진행됨
+  // ⚠️ reconcile returns immediately, but actual DOM update proceeds asynchronously
 }
 ```
 
 ### 2. Reconciler.reconcile()
 ```typescript
 reconcile(...): void {
-  // Fiber 기반 reconcile (비동기)
+  // Fiber-based reconcile (async)
   reconcileWithFiber(container, rootVNode, prevVNode, context, fiberDeps, () => {
-    // 완료 콜백
+    // Completion callback
   });
-  // ⚠️ 즉시 반환되지만, 실제 작업은 Fiber Scheduler가 비동기로 처리
+  // ⚠️ Returns immediately, but actual work is processed asynchronously by Fiber Scheduler
 }
 ```
 
-## 문제점
+## Issues
 
-1. **테스트 코드에서 await 사용**
+1. **Using await in test code**
    ```typescript
-   await editorView.render(model as any); // ❌ render()는 void 반환
+   await editorView.render(model as any); // ❌ render() returns void
    ```
 
-2. **완료 시점을 알 수 없음**
-   - `render()` 호출 후 즉시 반환되지만, 실제 DOM 업데이트는 아직 진행 중일 수 있음
-   - 테스트에서 DOM 상태를 확인하려면 `waitForFiber()` 같은 유틸리티가 필요
+2. **Cannot know completion time**
+   - `render()` returns immediately after call, but actual DOM update may still be in progress
+   - Tests need utilities like `waitForFiber()` to check DOM state
 
-3. **React와의 차이점**
-   - React 18: `createRoot().render()`는 동기 함수지만, 내부적으로는 비동기 처리
-   - 하지만 React는 `flushSync()` 같은 동기 버전도 제공
+3. **Difference from React**
+   - React 18: `createRoot().render()` is synchronous function, but internally processes asynchronously
+   - But React also provides synchronous version like `flushSync()`
 
-## 해결 방안
+## Solutions
 
-### 방안 1: 현재 구조 유지 (권장)
+### Option 1: Maintain Current Structure (Recommended)
 
-**장점**:
-- ✅ 기존 API 호환성 유지
-- ✅ React와 유사한 패턴
-- ✅ 호출자가 완료를 기다릴 필요가 없는 경우가 많음
+**Advantages**:
+- ✅ Maintains existing API compatibility
+- ✅ Similar pattern to React
+- ✅ Caller often doesn't need to wait for completion
 
-**단점**:
-- ⚠️ 완료를 기다려야 하는 경우 유틸리티 필요 (`waitForFiber()`)
-- ⚠️ 테스트 코드에서 매번 `await waitForFiber()` 호출 필요
+**Disadvantages**:
+- ⚠️ Need utility (`waitForFiber()`) when completion must be waited
+- ⚠️ Test code needs to call `await waitForFiber()` every time
 
-**사용 예시**:
+**Usage Example**:
 ```typescript
-// 일반 사용
-renderer.render(container, model); // 즉시 반환, 비동기로 처리
+// Normal usage
+renderer.render(container, model); // Returns immediately, processed asynchronously
 
-// 테스트에서 완료 대기
+// Wait for completion in tests
 renderer.render(container, model);
-await waitForFiber(); // Fiber 완료 대기
+await waitForFiber(); // Wait for Fiber completion
 expect(container.innerHTML).toBe('...');
 ```
 
-### 방안 2: render()를 비동기로 변경
+### Option 2: Change render() to Async
 
-**장점**:
-- ✅ 완료 시점을 명확히 알 수 있음
-- ✅ 테스트 코드가 간단해짐 (`await render()`)
-- ✅ Promise 체이닝 가능
+**Advantages**:
+- ✅ Can clearly know completion time
+- ✅ Test code becomes simpler (`await render()`)
+- ✅ Promise chaining possible
 
-**단점**:
-- ⚠️ 기존 API 변경 (breaking change)
-- ⚠️ 모든 호출부 수정 필요
-- ⚠️ 완료를 기다릴 필요가 없는 경우에도 await 필요
+**Disadvantages**:
+- ⚠️ Breaking change to existing API
+- ⚠️ Need to modify all call sites
+- ⚠️ Need await even when completion doesn't need to be waited
 
-**사용 예시**:
+**Usage Example**:
 ```typescript
-// 일반 사용
-await renderer.render(container, model); // 완료 대기
+// Normal usage
+await renderer.render(container, model); // Wait for completion
 
-// 테스트
+// Tests
 await renderer.render(container, model);
-expect(container.innerHTML).toBe('...'); // 완료 후 확인
+expect(container.innerHTML).toBe('...'); // Check after completion
 ```
 
-### 방안 3: 하이브리드 접근 (동기 + 비동기 버전)
+### Option 3: Hybrid Approach (Synchronous + Async Version)
 
-**장점**:
-- ✅ 기존 API 호환성 유지
-- ✅ 필요시 비동기 버전 사용 가능
-- ✅ 유연성
+**Advantages**:
+- ✅ Maintains existing API compatibility
+- ✅ Can use async version when needed
+- ✅ Flexibility
 
-**단점**:
-- ⚠️ API 복잡도 증가
-- ⚠️ 두 가지 패턴 혼재 가능
+**Disadvantages**:
+- ⚠️ Increased API complexity
+- ⚠️ Two patterns may coexist
 
-**사용 예시**:
+**Usage Example**:
 ```typescript
-// 동기 버전 (기존)
-renderer.render(container, model); // 즉시 반환
+// Synchronous version (existing)
+renderer.render(container, model); // Returns immediately
 
-// 비동기 버전 (새로 추가)
-await renderer.renderAsync(container, model); // 완료 대기
+// Async version (newly added)
+await renderer.renderAsync(container, model); // Wait for completion
 ```
 
-## 권장 사항
+## Recommendations
 
-### 즉시 적용: 방안 1 유지
+### Immediate Application: Maintain Option 1
 
-현재 구조를 유지하되, 테스트 코드를 수정:
+Maintain current structure but modify test code:
 
 ```typescript
-// 테스트 코드 수정
+// Modify test code
 renderer.render(container, model);
-await waitForFiber(); // Fiber 완료 대기
+await waitForFiber(); // Wait for Fiber completion
 expect(container.innerHTML).toBe('...');
 ```
 
-### 장기 개선: 방안 3 고려
+### Long-term Improvement: Consider Option 3
 
-필요시 비동기 버전 추가:
+Add async version when needed:
 
 ```typescript
-// DOMRenderer에 추가
+// Add to DOMRenderer
 async renderAsync(
   container: HTMLElement,
   model: ModelData,
@@ -142,21 +142,20 @@ async renderAsync(
   
   return new Promise<void>((resolve) => {
     this.reconciler.reconcile(container, vnode, model, runtime, decorators, selection, () => {
-      resolve(); // Fiber 완료 시 resolve
+      resolve(); // Resolve when Fiber completes
     });
   });
 }
 ```
 
-## 결론
+## Conclusion
 
-**현재는 방안 1을 유지하는 것을 권장합니다:**
-1. 기존 API 호환성 유지
-2. React와 유사한 패턴
-3. 대부분의 경우 완료를 기다릴 필요 없음
-4. 테스트에서만 `waitForFiber()` 사용
+**Currently recommend maintaining Option 1:**
+1. Maintains existing API compatibility
+2. Similar pattern to React
+3. Most cases don't need to wait for completion
+4. Use `waitForFiber()` only in tests
 
-**필요시 방안 3을 추가:**
-- 완료를 기다려야 하는 특수한 경우를 위해 `renderAsync()` 메서드 추가
-- 기존 `render()`는 그대로 유지
-
+**Add Option 3 when needed:**
+- Add `renderAsync()` method for special cases that need to wait for completion
+- Keep existing `render()` as is

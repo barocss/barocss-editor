@@ -197,7 +197,7 @@ export function copy(context: OperationContext, range: ModelSelection): CopyResu
 }
 ```
 
-**DSL 함수**:
+**DSL Function**:
 ```typescript
 // packages/model/src/operations-dsl/copy.ts
 
@@ -238,7 +238,7 @@ export function paste(
 }
 ```
 
-**DSL 함수**:
+**DSL Function**:
 ```typescript
 // packages/model/src/operations-dsl/paste.ts
 
@@ -282,7 +282,7 @@ export function cut(context: OperationContext, range: ModelSelection): CutResult
 }
 ```
 
-**DSL 함수**:
+**DSL Function**:
 ```typescript
 // packages/model/src/operations-dsl/cut.ts
 
@@ -570,7 +570,7 @@ Clipboard (text/html → Converter → INode[]):
   [inline-text: "Test"]
 
 Operation:
-- "Test"를 caret 위치(Hello와 World 사이)에 삽입
+- Insert "Test" at caret position (between Hello and World)
 
 After:
 [paragraph]
@@ -597,7 +597,7 @@ Clipboard (html/markdown → Converter → INode[]):
   [paragraph-B: "BBB"]
 
 Operation:
-- selection.start 기준으로 paragraph-2 앞에 A, B 삽입
+- Insert A, B before paragraph-2 based on selection.start
 
 After:
 [paragraph-1]
@@ -625,7 +625,7 @@ Clipboard:
   [inline-text: "TEST"]
 
 Operation:
-- 선택된 범위를 삭제하고 "TEST" 삽입
+- Delete selected range and insert "TEST"
 
 After:
 [paragraph]
@@ -644,14 +644,14 @@ Before:
   [inline-text: "[AAA]"]
 [paragraph-2]
   [inline-text: "[BBB]"]
-// selection: paragraph-1 끝 ~ paragraph-2 끝
+// selection: paragraph-1 end ~ paragraph-2 end
 
 Clipboard:
   [paragraph-X: "X"]
 
 Operation:
-- paragraph-1, paragraph-2 삭제
-- paragraph-X 삽입
+- Delete paragraph-1, paragraph-2
+- Insert paragraph-X
 
 After:
 [paragraph-X]

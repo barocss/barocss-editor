@@ -1,59 +1,59 @@
-# Command 아키텍처 가이드
+# Command Architecture Guide
 
-## 개요
+## Overview
 
-이 문서는 Command의 책임, 구조, 그리고 구현 전략에 대한 종합 가이드입니다.
-
----
-
-## 핵심 원칙
-
-### 1. Command는 Operations를 조합한다
-
-**Command에서 operations를 조합하는 것이 맞습니다.**
-
-- ✅ Command는 "사용자 의도 해석" + "Operations 조합"의 책임
-- ✅ 다른 에디터들(ProseMirror, Slate, Tiptap)도 동일한 패턴 사용
-- ✅ Command는 Extension에 정의되고, operations를 조합하여 transaction 실행
-
-### 2. 비즈니스 로직은 View Layer에 있다
-
-**Command는 이미 정해진 operation을 잘 조합하는 것에 집중해야 합니다.**
-
-- ✅ 비즈니스 로직: View Layer에서 처리 (어떤 범위를 삭제할지, 어떤 Command를 호출할지)
-- ✅ 조합 로직: Command에서 처리 (받은 payload를 보고 operations 조합)
-- ❌ Command에 비즈니스 로직 포함하지 않음
-
-### 3. Command는 명확한 책임을 가진다
-
-**한 Command에 너무 많은 역할을 주는 것보다, 각 Command가 명확한 책임을 가지는 것이 더 나음**
-
-- ✅ 이해하기 쉬움
-- ✅ 테스트하기 쉬움
-- ✅ 유지보수하기 쉬움
+This document is a comprehensive guide on Command responsibilities, structure, and implementation strategies.
 
 ---
 
-## 레이어별 책임
+## Core Principles
+
+### 1. Commands Compose Operations
+
+**It is correct for Commands to compose operations.**
+
+- ✅ Commands have responsibility for "interpreting user intent" + "composing operations"
+- ✅ Other editors (ProseMirror, Slate, Tiptap) use the same pattern
+- ✅ Commands are defined in Extensions and compose operations to execute transactions
+
+### 2. Business Logic is in the View Layer
+
+**Commands should focus on composing already-defined operations well.**
+
+- ✅ Business logic: handled in View Layer (which range to delete, which Command to call)
+- ✅ Composition logic: handled in Command (compose operations based on received payload)
+- ❌ Do not include business logic in Command
+
+### 3. Commands Have Clear Responsibilities
+
+**It's better for each Command to have a clear responsibility than to give one Command too many roles**
+
+- ✅ Easy to understand
+- ✅ Easy to test
+- ✅ Easy to maintain
+
+---
+
+## Responsibilities by Layer
 
 ### View Layer (editor-view-dom)
 
-**책임**:
-1. ✅ 비즈니스 로직 처리 (어떤 범위를 삭제할지, 어떤 Command를 호출할지)
-2. ✅ DOM 이벤트 처리
-3. ✅ DOM ↔ Model 변환
-4. ✅ Command 호출
-5. ❌ Operations 조합하지 않음
+**Responsibilities**:
+1. ✅ Handle business logic (which range to delete, which Command to call)
+2. ✅ Handle DOM events
+3. ✅ DOM ↔ Model conversion
+4. ✅ Call Commands
+5. ❌ Do not compose operations
 
-**예시**:
+**Example**:
 ```typescript
 // packages/editor-view-dom/src/event-handlers/input-handler.ts
 
 private async handleDelete(event: InputEvent): Promise<void> {
-  // 1. 비즈니스 로직: 삭제 범위 계산
+  // 1. Business logic: calculate delete range
   const contentRange = this.calculateDeleteRange(modelSelection, inputType, currentNodeId);
   
-  // 2. 비즈니스 로직: 어떤 Command를 호출할지 결정
+  // 2. Business logic: decide which Command to call
   if (contentRange._deleteNode && contentRange.nodeId) {
     await this.editor.executeCommand('deleteNode', { nodeId: contentRange.nodeId });
   } else if (contentRange.startNodeId !== contentRange.endNodeId) {
@@ -68,18 +68,18 @@ private async handleDelete(event: InputEvent): Promise<void> {
 
 ### Command Layer (extensions)
 
-**책임**:
-1. ✅ Operations 조합 (받은 payload를 보고 operations 조합)
-2. ✅ Transaction 실행
-3. ❌ 비즈니스 로직 포함하지 않음
+**Responsibilities**:
+1. ✅ Compose operations (compose operations based on received payload)
+2. ✅ Execute transactions
+3. ❌ Do not include business logic
 
-**예시**:
+**Example**:
 ```typescript
 // packages/extensions/src/delete.ts
 
 export class DeleteExtension implements Extension {
   onCreate(editor: Editor): void {
-    // 분리된 Command들
+    // Separated Commands
     editor.registerCommand({
       name: 'deleteNode',
       execute: async (editor: Editor, payload: { nodeId: string }) => {
@@ -95,7 +95,7 @@ export class DeleteExtension implements Extension {
     });
   }
 
-  // 각 Command는 명확한 책임만 가짐
+  // Each Command has only clear responsibilities
   private async _executeDeleteNode(editor: Editor, nodeId: string): Promise<boolean> {
     const operations = [{ type: 'delete', payload: { nodeId } }];
     const result = await transaction(editor, operations).commit();
@@ -124,137 +124,137 @@ export class DeleteExtension implements Extension {
 
 ### Operation Layer (model)
 
-**책임**:
-1. ✅ 순수 데이터 변경
-2. ✅ Selection 매핑
-3. ✅ 역연산 생성
-4. ❌ 비즈니스 로직 포함하지 않음
+**Responsibilities**:
+1. ✅ Pure data changes
+2. ✅ Selection mapping
+3. ✅ Inverse operation generation
+4. ❌ Do not include business logic
 
-**예시**:
+**Example**:
 ```typescript
 // packages/model/src/operations/deleteTextRange.ts
 
 defineOperation('deleteTextRange', async (operation, context) => {
   const { nodeId, start, end } = operation.payload;
   
-  // 1. DataStore 업데이트
+  // 1. Update DataStore
   const deletedText = context.dataStore.range.deleteText({...});
   
-  // 2. Selection 매핑
+  // 2. Selection mapping
   if (context.selection?.current) {
-    // context.selection.current 갱신
+    // Update context.selection.current
   }
   
-  // 3. 역연산 반환
+  // 3. Return inverse operation
   return { ok: true, data: deletedText, inverse: {...} };
 });
 ```
 
 ---
 
-## Command 분리 전략
+## Command Separation Strategy
 
-### 분리 기준
+### Separation Criteria
 
-Command를 분리해야 하는 경우:
+Separate Commands when:
 
-1. **다른 operation 사용**: 다른 operation을 사용하는 경우
+1. **Different operations used**: when different operations are used
    ```typescript
-   // 분리 필요
+   // Separation needed
    editor.executeCommand('deleteNode', { nodeId });      // delete operation
    editor.executeCommand('deleteText', { range });        // deleteTextRange operation
    ```
 
-2. **다른 로직**: 다른 비즈니스 로직이 필요한 경우
+2. **Different logic**: when different business logic is needed
    ```typescript
-   // 분리 필요
-   editor.executeCommand('deleteNode', { nodeId });           // 노드 전체 삭제
-   editor.executeCommand('deleteCrossNode', { range });       // Cross-node 삭제
+   // Separation needed
+   editor.executeCommand('deleteNode', { nodeId });           // delete entire node
+   editor.executeCommand('deleteCrossNode', { range });       // Cross-node deletion
    ```
 
-### 분리하지 않아도 되는 경우
+### Cases Where Separation is Not Needed
 
-1. **단순한 변형**: 같은 operation을 다른 파라미터로 호출하는 경우
+1. **Simple variations**: when calling the same operation with different parameters
    ```typescript
-   // 분리 불필요
+   // Separation not needed
    editor.executeCommand('insertText', { text: 'hello' });
    editor.executeCommand('insertText', { text: 'world' });
    ```
 
-2. **의미적으로 동일**: 사용자 관점에서 같은 동작인 경우
+2. **Semantically identical**: when the same action from user perspective
    ```typescript
-   // 분리 불필요 (둘 다 텍스트 삭제)
+   // Separation not needed (both delete text)
    editor.executeCommand('deleteText', { range: range1 });
    editor.executeCommand('deleteText', { range: range2 });
    ```
 
 ---
 
-## 구분: 비즈니스 로직 vs 조합 로직
+## Distinction: Business Logic vs Composition Logic
 
-### 비즈니스 로직 (View Layer)
+### Business Logic (View Layer)
 
-**"무엇을 할지 결정"**
-- selection 분석
-- inputType 분석
-- 노드 경계 처리
-- 삭제 범위 계산
-- `_deleteNode` 플래그 설정
-- 어떤 Command를 호출할지 결정
+**"Decide what to do"**
+- Selection analysis
+- inputType analysis
+- Node boundary handling
+- Delete range calculation
+- `_deleteNode` flag setting
+- Decide which Command to call
 
-**위치**: `InputHandler.calculateDeleteRange()`, `InputHandler.handleDelete()`
-
----
-
-### 조합 로직 (Command)
-
-**"어떻게 조합할지 결정"**
-- 받은 payload의 구조를 보고 operations 조합
-- 여러 operations를 순서대로 조합
-
-**위치**: `DeleteExtension._buildDeleteOperations()`
-
-**차이점**:
-- 비즈니스 로직: "무엇을 할지" 결정 (View Layer)
-- 조합 로직: "어떻게 조합할지" 결정 (Command)
+**Location**: `InputHandler.calculateDeleteRange()`, `InputHandler.handleDelete()`
 
 ---
 
-## 다른 에디터들의 패턴
+### Composition Logic (Command)
+
+**"Decide how to compose"**
+- Compose operations based on received payload structure
+- Compose multiple operations in order
+
+**Location**: `DeleteExtension._buildDeleteOperations()`
+
+**Difference**:
+- Business logic: "decide what to do" (View Layer)
+- Composition logic: "decide how to compose" (Command)
+
+---
+
+## Patterns in Other Editors
 
 ### ProseMirror
 
 ```typescript
-// ProseMirror의 Command 예시
+// ProseMirror Command example
 const deleteSelection = (state: EditorState, dispatch?: (tr: Transaction) => void) => {
   if (state.selection.empty) return false;
   
   if (dispatch) {
-    // Command에서 직접 transaction 조작
+    // Command directly manipulates transaction
     const tr = state.tr;
-    tr.deleteSelection();  // ← Transaction에 operation 추가
+    tr.deleteSelection();  // ← Add operation to Transaction
     dispatch(tr);
   }
   return true;
 };
 ```
 
-**특징**:
-- Command가 **Transaction을 직접 조작**
-- Command가 **operations를 추가**
-- Command가 **transaction을 dispatch**
+**Features**:
+- Command **directly manipulates Transaction**
+- Command **adds operations**
+- Command **dispatches transaction**
 
 ---
 
 ### Slate.js
 
 ```typescript
-// Slate의 Command 예시
+// Slate Command example
 const deleteBackward = (editor: Editor) => {
   const { selection } = editor;
   
   if (selection) {
-    // Command에서 직접 transform 조작
+    // Command directly manipulates transform
     Transforms.delete(editor, {
       at: selection,
       unit: 'character',
@@ -264,21 +264,21 @@ const deleteBackward = (editor: Editor) => {
 };
 ```
 
-**특징**:
-- Command가 **Transform을 직접 조작**
-- Command가 **operations를 추가**
+**Features**:
+- Command **directly manipulates Transform**
+- Command **adds operations**
 
 ---
 
 ### Tiptap
 
 ```typescript
-// Tiptap의 Command 예시
+// Tiptap Command example
 const deleteSelection = () => ({ state, dispatch }: CommandProps) => {
   if (state.selection.empty) return false;
   
   if (dispatch) {
-    // Command에서 직접 transaction 조작
+    // Command directly manipulates transaction
     const tr = state.tr;
     tr.deleteSelection();
     dispatch(tr);
@@ -287,47 +287,47 @@ const deleteSelection = () => ({ state, dispatch }: CommandProps) => {
 };
 ```
 
-**특징**:
-- Command가 **Transaction을 직접 조작**
-- Command가 **operations를 추가**
+**Features**:
+- Command **directly manipulates Transaction**
+- Command **adds operations**
 
 ---
 
-## 구현 예시
+## Implementation Examples
 
-### Before: 통합 Command (문제점)
+### Before: Unified Command (Problems)
 
 ```typescript
-// ❌ 하나의 Command로 여러 케이스 처리
+// ❌ One Command handles multiple cases
 editor.registerCommand({
   name: 'delete',
   execute: async (editor: Editor, payload: { range: ContentRange }) => {
-    // 여러 케이스를 하나의 Command에서 처리
+    // Handle multiple cases in one Command
     if (range._deleteNode && range.nodeId) {
-      // 노드 전체 삭제
+      // Delete entire node
     } else if (range.startNodeId !== range.endNodeId) {
-      // Cross-node 삭제
+      // Cross-node deletion
     } else {
-      // 단일 노드 삭제
+      // Single node deletion
     }
   }
 });
 ```
 
-**문제점**:
-- 하나의 Command가 너무 많은 역할을 가짐
-- 테스트하기 어려움 (여러 케이스를 모두 테스트해야 함)
-- 이해하기 어려움 (어떤 케이스가 실행되는지 명확하지 않음)
+**Problems**:
+- One Command has too many roles
+- Hard to test (must test all cases)
+- Hard to understand (unclear which case executes)
 
 ---
 
-### After: 분리된 Command (권장)
+### After: Separated Commands (Recommended)
 
 ```typescript
-// ✅ 분리된 Command들
+// ✅ Separated Commands
 export class DeleteExtension implements Extension {
   onCreate(editor: Editor): void {
-    // 1. 노드 전체 삭제
+    // 1. Delete entire node
     editor.registerCommand({
       name: 'deleteNode',
       execute: async (editor: Editor, payload: { nodeId: string }) => {
@@ -335,7 +335,7 @@ export class DeleteExtension implements Extension {
       }
     });
 
-    // 2. Cross-node 텍스트 삭제
+    // 2. Cross-node text deletion
     editor.registerCommand({
       name: 'deleteCrossNode',
       execute: async (editor: Editor, payload: { range: ContentRange }) => {
@@ -343,7 +343,7 @@ export class DeleteExtension implements Extension {
       }
     });
 
-    // 3. 단일 노드 텍스트 삭제
+    // 3. Single node text deletion
     editor.registerCommand({
       name: 'deleteText',
       execute: async (editor: Editor, payload: { range: ContentRange }) => {
@@ -352,7 +352,7 @@ export class DeleteExtension implements Extension {
     });
   }
 
-  // 각 Command는 명확한 책임만 가짐
+  // Each Command has only clear responsibilities
   private async _executeDeleteNode(editor: Editor, nodeId: string): Promise<boolean> {
     const operations = [{ type: 'delete', payload: { nodeId } }];
     const result = await transaction(editor, operations).commit();
@@ -360,7 +360,7 @@ export class DeleteExtension implements Extension {
   }
 
   private async _executeDeleteCrossNode(editor: Editor, range: ContentRange): Promise<boolean> {
-    // Cross-node operations 조합
+    // Compose Cross-node operations
     const operations = this._buildCrossNodeDeleteOperations(range);
     const result = await transaction(editor, operations).commit();
     return result.success;
@@ -384,70 +384,69 @@ export class DeleteExtension implements Extension {
 }
 ```
 
-**장점**:
-- ✅ 각 Command가 명확한 책임을 가짐
-- ✅ 테스트하기 쉬움 (각 Command를 독립적으로 테스트)
-- ✅ 이해하기 쉬움 (Command 이름만 봐도 무엇을 하는지 명확)
+**Advantages**:
+- ✅ Each Command has clear responsibilities
+- ✅ Easy to test (test each Command independently)
+- ✅ Easy to understand (clear what each Command does from name)
 
 ---
 
-## 아키텍처 다이어그램
+## Architecture Diagram
 
 ```
 ┌─────────────────────────────────────────┐
 │ View Layer (editor-view-dom)           │
-│ - DOM 이벤트 처리                       │
-│ - 비즈니스 로직 (어떤 Command 호출할지)   │
-│ - Command 호출                          │
+│ - DOM event handling                    │
+│ - Business logic (which Command to call)│
+│ - Command invocation                    │
 └─────────────────────────────────────────┘
               ↓
 ┌─────────────────────────────────────────┐
 │ Command Layer (extensions)               │
-│ - Operations 조합                        │
-│ - Transaction 실행                       │
+│ - Compose operations                    │
+│ - Execute transactions                  │
 └─────────────────────────────────────────┘
               ↓
 ┌─────────────────────────────────────────┐
 │ Transaction Layer (model)                │
-│ - Operations 실행                        │
-│ - History 관리                          │
-│ - Rollback 지원                         │
+│ - Execute operations                    │
+│ - History management                    │
+│ - Rollback support                     │
 └─────────────────────────────────────────┘
               ↓
 ┌─────────────────────────────────────────┐
 │ Operation Layer (model)                 │
-│ - 순수 데이터 변경                       │
-│ - Selection 매핑                        │
-│ - 역연산 (inverse) 생성                 │
+│ - Pure data changes                     │
+│ - Selection mapping                     │
+│ - Inverse operation generation          │
 └─────────────────────────────────────────┘
 ```
 
 ---
 
-## 정리
+## Summary
 
-### Command의 책임
+### Command Responsibilities
 
-1. ✅ **Operations 조합**: 받은 payload를 보고 operations를 조합
-2. ✅ **Transaction 실행**: `transaction(editor, operations).commit()`
-3. ❌ **비즈니스 로직**: "무엇을 할지 결정"은 Command의 책임이 아님
+1. ✅ **Compose operations**: compose operations based on received payload
+2. ✅ **Execute transactions**: `transaction(editor, operations).commit()`
+3. ❌ **Business logic**: "decide what to do" is not Command's responsibility
 
-### View Layer의 책임
+### View Layer Responsibilities
 
-1. ✅ **비즈니스 로직**: "무엇을 할지 결정"
-2. ✅ **Command 호출**: 적절한 Command를 적절한 payload로 호출
-3. ❌ **Operations 조합**: View Layer의 책임이 아님
+1. ✅ **Business logic**: "decide what to do"
+2. ✅ **Command invocation**: call appropriate Command with appropriate payload
+3. ❌ **Compose operations**: not View Layer's responsibility
 
-### Command 분리 원칙
+### Command Separation Principles
 
-1. ✅ **명확한 책임**: 각 Command는 하나의 명확한 작업만 수행
-2. ✅ **독립적 테스트**: 각 Command를 독립적으로 테스트 가능
-3. ✅ **이해하기 쉬움**: Command 이름만 봐도 무엇을 하는지 명확
+1. ✅ **Clear responsibilities**: each Command performs only one clear task
+2. ✅ **Independent testing**: each Command can be tested independently
+3. ✅ **Easy to understand**: clear what each Command does from name
 
 ---
 
-## 참고 문서
+## References
 
-- `packages/extensions/docs/text-input-command-migration.md`: 텍스트 입력 Command 마이그레이션 계획
-- `packages/editor-view-dom/docs/input-delete-flow-summary.md`: 입력 및 삭제 플로우 요약
-
+- `packages/extensions/docs/text-input-command-migration.md`: text input Command migration plan
+- `packages/editor-view-dom/docs/input-delete-flow-summary.md`: input and delete flow summary

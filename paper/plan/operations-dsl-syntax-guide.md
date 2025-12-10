@@ -1,24 +1,24 @@
 # Operations DSL Syntax Guide
 
-## 개요
+## Overview
 
-Barocss Editor의 Operations DSL은 선언적 방식으로 에디터 작업을 수행할 수 있는 도메인 특화 언어입니다. 이 가이드는 모든 DSL 함수들의 문법과 사용법을 정리합니다.
+The Barocss Editor Operations DSL is a domain-specific language that lets you perform editor actions declaratively. This guide summarizes the syntax and usage of every DSL function.
 
-## 목차
+## Table of Contents
 
-1. [기본 구조](#1-기본-구조)
-2. [노드 생성 DSL](#2-노드-생성-dsl)
-3. [노드 조작 DSL](#3-노드-조작-dsl)
-4. [텍스트 조작 DSL](#4-텍스트-조작-dsl)
-5. [마크 조작 DSL](#5-마크-조작-dsl)
-6. [구조 조작 DSL](#6-구조-조작-dsl)
-7. [선택 영역 DSL](#7-선택-영역-dsl)
+1. [Basic Structure](#1-basic-structure)
+2. [Node Creation DSL](#2-node-creation-dsl)
+3. [Node Manipulation DSL](#3-node-manipulation-dsl)
+4. [Text Manipulation DSL](#4-text-manipulation-dsl)
+5. [Mark Manipulation DSL](#5-mark-manipulation-dsl)
+6. [Structure Manipulation DSL](#6-structure-manipulation-dsl)
+7. [Selection DSL](#7-selection-dsl)
 8. [Control DSL](#8-control-dsl)
-9. [사용 예시](#9-사용-예시)
+9. [Examples](#9-examples)
 
-## 1. 기본 구조
+## 1. Basic Structure
 
-### 1.1 Transaction 내에서 사용
+### 1.1 Use inside a Transaction
 
 ```typescript
 const result = await transaction(editor, [
@@ -26,618 +26,618 @@ const result = await transaction(editor, [
 ]).commit();
 ```
 
-### 1.2 DSL 함수 분류
+### 1.2 DSL Function Categories
 
-- **직접 호출**: `operationName(params)` - 모든 DSL 함수 지원
-- **Control 체인**: `control(target, [operationName(params)])` - 일부 DSL 함수만 지원
+- **Direct call**: `operationName(params)` — supported by all DSL functions
+- **Control chain**: `control(target, [operationName(params)])` — supported by only some DSL functions
 
-### 1.3 Control 체인 지원 여부
+### 1.3 Control Chain Support
 
-**Control 체인을 지원하는 DSL**:
-- 노드 조작: `moveNode`, `copyNode`, `cloneNodeWithChildren`
-- 텍스트 조작: `insertText`, `replaceText`, `deleteTextRange`, `wrap`, `unwrap`, `indent`, `outdent`
-- 마크 조작: `applyMark`, `removeMark`, `toggleMark`, `updateMark`
-- 구조 조작: `addChild`, `removeChild`, `removeChildren`, `reorderChildren`, `moveChildren`
-- 선택 영역: `selectRange`, `selectNode`
+**DSL that support control chains:**
+- Node manipulation: `moveNode`, `copyNode`, `cloneNodeWithChildren`
+- Text manipulation: `insertText`, `replaceText`, `deleteTextRange`, `wrap`, `unwrap`, `indent`, `outdent`
+- Mark manipulation: `applyMark`, `removeMark`, `toggleMark`, `updateMark`
+- Structure manipulation: `addChild`, `removeChild`, `removeChildren`, `reorderChildren`, `moveChildren`
+- Selection: `selectRange`, `selectNode`
 
-**Control 체인을 지원하지 않는 DSL**:
-- 노드 생성: `create`, `deleteOp` - 새 노드 생성/삭제이므로 특정 노드를 대상으로 하지 않음
-- 선택 영역: `clearSelection` - 전역적인 선택 영역 해제이므로 특정 노드를 대상으로 하지 않음
+**DSL that do not support control chains:**
+- Node creation: `create`, `deleteOp` — creates or deletes nodes; not tied to an existing node target
+- Selection: `clearSelection` — clears selection globally, not per node
 
-## 2. 노드 생성 DSL
+## 2. Node Creation DSL
 
 ### 2.1 `create(node, options?)`
 
-**목적**: 새 노드 생성
+**Purpose**: create a new node
 
-**문법**:
+**Syntax**:
 ```typescript
 create(node: INode, options?: any)
 ```
 
-**매개변수**:
-- `node`: 생성할 노드 객체
-- `options`: 선택적 옵션
+**Parameters**:
+- `node`: node object to create
+- `options`: optional settings
 
-**특징**: 
-- `control` 체인을 지원하지 않음 (직접 호출만 가능)
-- 새 노드를 생성하므로 특정 노드를 대상으로 하지 않음
+**Notes**:
+- Does **not** support `control` chains (direct call only)
+- Creates a new node, so there is no existing target node
 
-**사용 예시**:
+**Examples**:
 ```typescript
-// 기본 사용
+// Basic
 create(textNode('inline-text', 'Hello World'))
 
-// 옵션과 함께
+// With options
 create(textNode('inline-text', 'Hello'), { autoFocus: true })
 ```
 
 ### 2.2 `deleteOp(nodeId)`
 
-**목적**: 노드 삭제
+**Purpose**: delete a node
 
-**문법**:
+**Syntax**:
 ```typescript
 deleteOp(nodeId: string)
 ```
 
-**매개변수**:
-- `nodeId`: 삭제할 노드의 ID
+**Parameters**:
+- `nodeId`: ID of the node to delete
 
-**특징**: 
-- `control` 체인을 지원하지 않음 (직접 호출만 가능)
-- 삭제할 노드 ID를 직접 지정해야 함
+**Notes**:
+- Does **not** support `control` chains (direct call only)
+- You must specify the node ID to delete
 
-**사용 예시**:
+**Example**:
 ```typescript
 deleteOp('node-123')
 ```
 
-## 3. 노드 조작 DSL
+## 3. Node Manipulation DSL
 
 ### 3.1 `moveNode(nodeId, newParentId, position?)`
 
-**목적**: 노드를 다른 부모로 이동
+**Purpose**: move a node to another parent
 
-**문법**:
+**Syntax**:
 ```typescript
 moveNode(nodeId: string, newParentId: string, position?: number)
 ```
 
-**매개변수**:
-- `nodeId`: 이동할 노드 ID
-- `newParentId`: 새로운 부모 노드 ID
-- `position`: 삽입 위치 (선택)
+**Parameters**:
+- `nodeId`: node to move
+- `newParentId`: target parent node ID
+- `position`: insert position (optional)
 
-**사용 예시**:
+**Examples**:
 ```typescript
-// Control 체인: child-sid를 new-parent-sid로 이동
+// Control chain: move child-sid under new-parent-sid
 control('child-sid', [moveNode('new-parent-sid', 0)])
 
-// 직접 호출: node-123을 parent-456로 이동
+// Direct call: move node-123 under parent-456
 moveNode('node-123', 'parent-456', 2)
 ```
 
 ### 3.2 `copyNode(nodeId, newParentId?)`
 
-**목적**: 노드 복사
+**Purpose**: copy a node
 
-**문법**:
+**Syntax**:
 ```typescript
 copyNode(nodeId: string, newParentId?: string)
 ```
 
-**매개변수**:
-- `nodeId`: 복사할 노드 ID
-- `newParentId`: 새로운 부모 노드 ID (선택)
+**Parameters**:
+- `nodeId`: node to copy
+- `newParentId`: new parent ID (optional)
 
-**사용 예시**:
+**Examples**:
 ```typescript
-// Control 체인: source-node-sid를 복사해서 target-parent-sid에 추가
+// Control chain: copy source-node-sid and append to target-parent-sid
 control('source-node-sid', [copyNode('target-parent-sid')])
 
-// 직접 호출: node-123을 복사해서 parent-456에 추가
+// Direct call: copy node-123 into parent-456
 copyNode('node-123', 'parent-456')
 ```
 
 ### 3.3 `cloneNodeWithChildren(nodeId, newParentId?)`
 
-**목적**: 노드와 자식들을 모두 복사
+**Purpose**: copy a node and all its children
 
-**문법**:
+**Syntax**:
 ```typescript
 cloneNodeWithChildren(nodeId: string, newParentId?: string)
 ```
 
-**매개변수**:
-- `nodeId`: 복사할 노드 ID
-- `newParentId`: 새로운 부모 노드 ID (선택)
+**Parameters**:
+- `nodeId`: node to clone
+- `newParentId`: new parent ID (optional)
 
-**사용 예시**:
+**Examples**:
 ```typescript
-// Control 체인: source-node-sid를 자식들과 함께 복사해서 target-parent-sid에 추가
+// Control chain: clone source-node-sid with children to target-parent-sid
 control('source-node-sid', [cloneNodeWithChildren('target-parent-sid')])
 
-// 직접 호출: node-123을 자식들과 함께 복사해서 parent-456에 추가
+// Direct call: clone node-123 with children into parent-456
 cloneNodeWithChildren('node-123', 'parent-456')
 ```
 
-## 4. 텍스트 조작 DSL
+## 4. Text Manipulation DSL
 
 ### 4.1 `insertText(pos, text)` / `insertText(nodeId, pos, text)`
 
-**목적**: 텍스트 삽입
+**Purpose**: insert text
 
-**문법**:
+**Syntax**:
 ```typescript
-// Control 체인에서 사용
+// In control chain
 insertText(pos: number, text: string)
 
-// 직접 호출
+// Direct call
 insertText(nodeId: string, pos: number, text: string)
 ```
 
-**매개변수**:
-- `pos`: 삽입 위치
-- `text`: 삽입할 텍스트
-- `nodeId`: 대상 노드 ID (직접 호출 시)
+**Parameters**:
+- `pos`: insert position
+- `text`: text to insert
+- `nodeId`: target node ID (for direct call)
 
-**사용 예시**:
+**Examples**:
 ```typescript
-// Control 체인
+// Control chain
 control('node-sid', [insertText(5, 'Hello')])
 
-// 직접 호출
+// Direct call
 insertText('node-123', 5, 'Hello')
 ```
 
 ### 4.2 `replaceText(start, end, newText)` / `replaceText(nodeId, start, end, newText)`
 
-**목적**: 텍스트 교체
+**Purpose**: replace text
 
-**문법**:
+**Syntax**:
 ```typescript
-// Control 체인에서 사용
+// In control chain
 replaceText(start: number, end: number, newText: string)
 
-// 직접 호출
+// Direct call
 replaceText(nodeId: string, start: number, end: number, newText: string)
 ```
 
-**매개변수**:
-- `start`: 시작 위치
-- `end`: 끝 위치
-- `newText`: 새로운 텍스트
-- `nodeId`: 대상 노드 ID (직접 호출 시)
+**Parameters**:
+- `start`: start position
+- `end`: end position
+- `newText`: replacement text
+- `nodeId`: target node ID (for direct call)
 
-**사용 예시**:
+**Examples**:
 ```typescript
-// Control 체인
+// Control chain
 control('node-sid', [replaceText(0, 5, 'Hello')])
 
-// 직접 호출
+// Direct call
 replaceText('node-123', 0, 5, 'Hello')
 ```
 
 ### 4.3 `deleteTextRange(start, end)` / `deleteTextRange(nodeId, start, end)`
 
-**목적**: 텍스트 범위 삭제
+**Purpose**: delete a text range
 
-**문법**:
+**Syntax**:
 ```typescript
-// Control 체인에서 사용
+// In control chain
 deleteTextRange(start: number, end: number)
 
-// 직접 호출
+// Direct call
 deleteTextRange(nodeId: string, start: number, end: number)
 ```
 
-**매개변수**:
-- `start`: 시작 위치
-- `end`: 끝 위치
-- `nodeId`: 대상 노드 ID (직접 호출 시)
+**Parameters**:
+- `start`: start position
+- `end`: end position
+- `nodeId`: target node ID (for direct call)
 
-**사용 예시**:
+**Examples**:
 ```typescript
-// Control 체인
+// Control chain
 control('node-sid', [deleteTextRange(0, 5)])
 
-// 직접 호출
+// Direct call
 deleteTextRange('node-123', 0, 5)
 ```
 
 ### 4.4 `wrap(start, end, prefix, suffix)` / `wrap(nodeId, start, end, prefix, suffix)`
 
-**목적**: 텍스트를 접두/접미 문자열로 감싸기
+**Purpose**: wrap text with prefix/suffix strings
 
-**문법**:
+**Syntax**:
 ```typescript
-// Control 체인에서 사용
+// In control chain
 wrap(start: number, end: number, prefix: string, suffix: string)
 
-// 직접 호출
+// Direct call
 wrap(nodeId: string, start: number, end: number, prefix: string, suffix: string)
 ```
 
-**매개변수**:
-- `start`: 시작 위치
-- `end`: 끝 위치
-- `prefix`: 접두 문자열
-- `suffix`: 접미 문자열
-- `nodeId`: 대상 노드 ID (직접 호출 시)
+**Parameters**:
+- `start`: start position
+- `end`: end position
+- `prefix`: prefix string
+- `suffix`: suffix string
+- `nodeId`: target node ID (for direct call)
 
-**사용 예시**:
+**Examples**:
 ```typescript
-// Control 체인
+// Control chain
 control('node-sid', [wrap(0, 5, '**', '**')])
 
-// 직접 호출
+// Direct call
 wrap('node-123', 0, 5, '**', '**')
 ```
 
 ### 4.5 `unwrap(start, end, prefix, suffix)` / `unwrap(nodeId, start, end, prefix, suffix)`
 
-**목적**: 텍스트에서 접두/접미 문자열 제거
+**Purpose**: remove prefix/suffix strings from text
 
-**문법**:
+**Syntax**:
 ```typescript
-// Control 체인에서 사용
+// In control chain
 unwrap(start: number, end: number, prefix: string, suffix: string)
 
-// 직접 호출
+// Direct call
 unwrap(nodeId: string, start: number, end: number, prefix: string, suffix: string)
 ```
 
-**매개변수**:
-- `start`: 시작 위치
-- `end`: 끝 위치
-- `prefix`: 제거할 접두 문자열
-- `suffix`: 제거할 접미 문자열
-- `nodeId`: 대상 노드 ID (직접 호출 시)
+**Parameters**:
+- `start`: start position
+- `end`: end position
+- `prefix`: prefix to remove
+- `suffix`: suffix to remove
+- `nodeId`: target node ID (for direct call)
 
-**사용 예시**:
+**Examples**:
 ```typescript
-// Control 체인
+// Control chain
 control('node-sid', [unwrap(0, 7, '**', '**')])
 
-// 직접 호출
+// Direct call
 unwrap('node-123', 0, 7, '**', '**')
 ```
 
 ### 4.6 `indent(start, end, indentStr?)` / `indent(nodeId, start, end, indentStr?)`
 
-**목적**: 텍스트 들여쓰기
+**Purpose**: indent text
 
-**문법**:
+**Syntax**:
 ```typescript
-// Control 체인에서 사용
+// In control chain
 indent(start: number, end: number, indentStr?: string)
 
-// 직접 호출
+// Direct call
 indent(nodeId: string, start: number, end: number, indentStr?: string)
 ```
 
-**매개변수**:
-- `start`: 시작 위치
-- `end`: 끝 위치
-- `indentStr`: 들여쓰기 문자열 (기본값: '  ')
-- `nodeId`: 대상 노드 ID (직접 호출 시)
+**Parameters**:
+- `start`: start position
+- `end`: end position
+- `indentStr`: indent string (default `'  ')
+- `nodeId`: target node ID (for direct call)
 
-**사용 예시**:
+**Examples**:
 ```typescript
-// Control 체인
+// Control chain
 control('node-sid', [indent(0, 10, '  ')])
 
-// 직접 호출
+// Direct call
 indent('node-123', 0, 10, '  ')
 ```
 
 ### 4.7 `outdent(start, end, indentStr?)` / `outdent(nodeId, start, end, indentStr?)`
 
-**목적**: 텍스트 내어쓰기
+**Purpose**: outdent text
 
-**문법**:
+**Syntax**:
 ```typescript
-// Control 체인에서 사용
+// In control chain
 outdent(start: number, end: number, indentStr?: string)
 
-// 직접 호출
+// Direct call
 outdent(nodeId: string, start: number, end: number, indentStr?: string)
 ```
 
-**매개변수**:
-- `start`: 시작 위치
-- `end`: 끝 위치
-- `indentStr`: 제거할 들여쓰기 문자열 (기본값: '  ')
-- `nodeId`: 대상 노드 ID (직접 호출 시)
+**Parameters**:
+- `start`: start position
+- `end`: end position
+- `indentStr`: indent string to remove (default `'  ')
+- `nodeId`: target node ID (for direct call)
 
-**사용 예시**:
+**Examples**:
 ```typescript
-// Control 체인
+// Control chain
 control('node-sid', [outdent(0, 10, '  ')])
 
-// 직접 호출
+// Direct call
 outdent('node-123', 0, 10, '  ')
 ```
 
-## 5. 마크 조작 DSL
+## 5. Mark Manipulation DSL
 
 ### 5.1 `applyMark(start, end, markType, attrs?)` / `applyMark(nodeId, start, end, markType, attrs?)`
 
-**목적**: 텍스트에 마크 적용
+**Purpose**: apply a mark to text
 
-**문법**:
+**Syntax**:
 ```typescript
-// Control 체인에서 사용
+// In control chain
 applyMark(start: number, end: number, markType: string, attrs?: any)
 
-// 직접 호출
+// Direct call
 applyMark(nodeId: string, start: number, end: number, markType: string, attrs?: any)
 ```
 
-**매개변수**:
-- `start`: 시작 위치
-- `end`: 끝 위치
-- `markType`: 마크 타입
-- `attrs`: 마크 속성 (선택)
-- `nodeId`: 대상 노드 ID (직접 호출 시)
+**Parameters**:
+- `start`: start position
+- `end`: end position
+- `markType`: mark type
+- `attrs`: mark attributes (optional)
+- `nodeId`: target node ID (for direct call)
 
-**사용 예시**:
+**Examples**:
 ```typescript
-// Control 체인
+// Control chain
 control('node-sid', [applyMark(0, 5, 'bold', { weight: 'bold' })])
 
-// 직접 호출
+// Direct call
 applyMark('node-123', 0, 5, 'bold', { weight: 'bold' })
 ```
 
 ### 5.2 `removeMark(markType, range)` / `removeMark(nodeId, markType, range)`
 
-**목적**: 텍스트에서 마크 제거
+**Purpose**: remove a mark from text
 
-**문법**:
+**Syntax**:
 ```typescript
-// Control 체인에서 사용
+// In control chain
 removeMark(markType: string, range: { start: number; end: number })
 
-// 직접 호출
+// Direct call
 removeMark(nodeId: string, markType: string, range: { start: number; end: number })
 ```
 
-**매개변수**:
-- `markType`: 제거할 마크 타입
-- `range`: 마크 제거 범위
-- `nodeId`: 대상 노드 ID (직접 호출 시)
+**Parameters**:
+- `markType`: mark type to remove
+- `range`: removal range
+- `nodeId`: target node ID (for direct call)
 
-**사용 예시**:
+**Examples**:
 ```typescript
-// Control 체인
+// Control chain
 control('node-sid', [removeMark('bold', { start: 0, end: 5 })])
 
-// 직접 호출
+// Direct call
 removeMark('node-123', 'bold', { start: 0, end: 5 })
 ```
 
 ### 5.3 `toggleMark(markType, range, attrs?)` / `toggleMark(nodeId, markType, range, attrs?)`
 
-**목적**: 마크 토글 (있으면 제거, 없으면 적용)
+**Purpose**: toggle a mark (add if missing, remove if present)
 
-**문법**:
+**Syntax**:
 ```typescript
-// Control 체인에서 사용
+// In control chain
 toggleMark(markType: string, range: { start: number; end: number }, attrs?: any)
 
-// 직접 호출
+// Direct call
 toggleMark(nodeId: string, markType: string, range: { start: number; end: number }, attrs?: any)
 ```
 
-**매개변수**:
-- `markType`: 토글할 마크 타입
-- `range`: 토글 범위
-- `attrs`: 마크 속성 (선택)
-- `nodeId`: 대상 노드 ID (직접 호출 시)
+**Parameters**:
+- `markType`: mark type to toggle
+- `range`: toggle range
+- `attrs`: mark attributes (optional)
+- `nodeId`: target node ID (for direct call)
 
-**사용 예시**:
+**Examples**:
 ```typescript
-// Control 체인
+// Control chain
 control('node-sid', [toggleMark('bold', { start: 0, end: 5 })])
 
-// 직접 호출
+// Direct call
 toggleMark('node-123', 'bold', { start: 0, end: 5 })
 ```
 
 ### 5.4 `updateMark(markType, range, newAttrs)` / `updateMark(nodeId, markType, range, newAttrs)`
 
-**목적**: 기존 마크의 속성 업데이트
+**Purpose**: update attributes of an existing mark
 
-**문법**:
+**Syntax**:
 ```typescript
-// Control 체인에서 사용
+// In control chain
 updateMark(markType: string, range: { start: number; end: number }, newAttrs: any)
 
-// 직접 호출
+// Direct call
 updateMark(nodeId: string, markType: string, range: { start: number; end: number }, newAttrs: any)
 ```
 
-**매개변수**:
-- `markType`: 업데이트할 마크 타입
-- `range`: 마크 범위
-- `newAttrs`: 새로운 마크 속성
-- `nodeId`: 대상 노드 ID (직접 호출 시)
+**Parameters**:
+- `markType`: mark type to update
+- `range`: mark range
+- `newAttrs`: new attributes
+- `nodeId`: target node ID (for direct call)
 
-**사용 예시**:
+**Examples**:
 ```typescript
-// Control 체인
+// Control chain
 control('node-sid', [updateMark('bold', { start: 0, end: 5 }, { weight: 'bolder' })])
 
-// 직접 호출
+// Direct call
 updateMark('node-123', 'bold', { start: 0, end: 5 }, { weight: 'bolder' })
 ```
 
-## 6. 구조 조작 DSL
+## 6. Structure Manipulation DSL
 
 ### 6.1 `addChild(child, position?)` / `addChild(parentId, child, position?)`
 
-**목적**: 자식 노드 추가
+**Purpose**: add a child node
 
-**문법**:
+**Syntax**:
 ```typescript
-// Control 체인에서 사용
+// In control chain
 addChild(child: INode, position?: number)
 
-// 직접 호출
+// Direct call
 addChild(parentId: string, child: INode, position?: number)
 ```
 
-**매개변수**:
-- `child`: 추가할 자식 노드
-- `position`: 삽입 위치 (선택)
-- `parentId`: 부모 노드 ID (직접 호출 시)
+**Parameters**:
+- `child`: child node to add
+- `position`: insert position (optional)
+- `parentId`: parent node ID (for direct call)
 
-**사용 예시**:
+**Examples**:
 ```typescript
-// Control 체인
+// Control chain
 control('parent-sid', [addChild(textNode('inline-text', 'New child'), 0)])
 
-// 직접 호출
+// Direct call
 addChild('parent-123', textNode('inline-text', 'New child'), 0)
 ```
 
 ### 6.2 `removeChild(childId)` / `removeChild(parentId, childId)`
 
-**목적**: 자식 노드 제거
+**Purpose**: remove a child node
 
-**문법**:
+**Syntax**:
 ```typescript
-// Control 체인에서 사용
+// In control chain
 removeChild(childId: string)
 
-// 직접 호출
+// Direct call
 removeChild(parentId: string, childId: string)
 ```
 
-**매개변수**:
-- `childId`: 제거할 자식 노드 ID
-- `parentId`: 부모 노드 ID (직접 호출 시)
+**Parameters**:
+- `childId`: ID of child to remove
+- `parentId`: parent node ID (for direct call)
 
-**사용 예시**:
+**Examples**:
 ```typescript
-// Control 체인
+// Control chain
 control('parent-sid', [removeChild('child-123')])
 
-// 직접 호출
+// Direct call
 removeChild('parent-123', 'child-123')
 ```
 
 ### 6.3 `removeChildren(childIds)` / `removeChildren(parentId, childIds)`
 
-**목적**: 여러 자식 노드 제거
+**Purpose**: remove multiple child nodes
 
-**문법**:
+**Syntax**:
 ```typescript
-// Control 체인에서 사용
+// In control chain
 removeChildren(childIds: string[])
 
-// 직접 호출
+// Direct call
 removeChildren(parentId: string, childIds: string[])
 ```
 
-**매개변수**:
-- `childIds`: 제거할 자식 노드 ID 배열
-- `parentId`: 부모 노드 ID (직접 호출 시)
+**Parameters**:
+- `childIds`: array of child IDs to remove
+- `parentId`: parent node ID (for direct call)
 
-**사용 예시**:
+**Examples**:
 ```typescript
-// Control 체인
+// Control chain
 control('parent-sid', [removeChildren(['child-1', 'child-2', 'child-3'])])
 
-// 직접 호출
+// Direct call
 removeChildren('parent-123', ['child-1', 'child-2', 'child-3'])
 ```
 
 ### 6.4 `reorderChildren(childIds)` / `reorderChildren(parentId, childIds)`
 
-**목적**: 자식 노드 순서 변경
+**Purpose**: reorder children
 
-**문법**:
+**Syntax**:
 ```typescript
-// Control 체인에서 사용
+// In control chain
 reorderChildren(childIds: string[])
 
-// 직접 호출
+// Direct call
 reorderChildren(parentId: string, childIds: string[])
 ```
 
-**매개변수**:
-- `childIds`: 새로운 순서의 자식 노드 ID 배열
-- `parentId`: 부모 노드 ID (직접 호출 시)
+**Parameters**:
+- `childIds`: array of child IDs in the new order
+- `parentId`: parent node ID (for direct call)
 
-**사용 예시**:
+**Examples**:
 ```typescript
-// Control 체인
+// Control chain
 control('parent-sid', [reorderChildren(['child-3', 'child-1', 'child-2'])])
 
-// 직접 호출
+// Direct call
 reorderChildren('parent-123', ['child-3', 'child-1', 'child-2'])
 ```
 
 ### 6.5 `moveChildren(toParentId, childIds, position?)` / `moveChildren(fromParentId, toParentId, childIds, position?)`
 
-**목적**: 자식 노드들을 다른 부모로 이동
+**Purpose**: move children to another parent
 
-**문법**:
+**Syntax**:
 ```typescript
-// Control 체인에서 사용
+// In control chain
 moveChildren(toParentId: string, childIds: string[], position?: number)
 
-// 직접 호출
+// Direct call
 moveChildren(fromParentId: string, toParentId: string, childIds: string[], position?: number)
 ```
 
-**매개변수**:
-- `toParentId`: 대상 부모 노드 ID
-- `childIds`: 이동할 자식 노드 ID 배열
-- `position`: 삽입 위치 (선택)
-- `fromParentId`: 원본 부모 노드 ID (직접 호출 시)
+**Parameters**:
+- `toParentId`: target parent ID
+- `childIds`: array of child IDs to move
+- `position`: insert position (optional)
+- `fromParentId`: original parent ID (for direct call)
 
-**사용 예시**:
+**Examples**:
 ```typescript
-// Control 체인
+// Control chain
 control('from-parent-sid', [moveChildren('to-parent-sid', ['child-1', 'child-2'], 0)])
 
-// 직접 호출
+// Direct call
 moveChildren('from-parent-123', 'to-parent-456', ['child-1', 'child-2'], 0)
 ```
 
-## 7. 선택 영역 DSL
+## 7. Selection DSL
 
 ### 7.1 `selectRange(anchor, focus)` / `selectRange(nodeId, anchor, focus)`
 
-**목적**: 텍스트 범위 선택
+**Purpose**: select a text range
 
-**문법**:
+**Syntax**:
 ```typescript
-// Control 체인에서 사용
+// In control chain
 selectRange(anchor: { nodeId: string; offset: number }, focus: { nodeId: string; offset: number })
 
-// 직접 호출
+// Direct call
 selectRange(nodeId: string, anchor: { nodeId: string; offset: number }, focus: { nodeId: string; offset: number })
 ```
 
-**매개변수**:
-- `anchor`: 선택 시작점
-- `focus`: 선택 끝점
-- `nodeId`: 대상 노드 ID (직접 호출 시)
+**Parameters**:
+- `anchor`: selection start
+- `focus`: selection end
+- `nodeId`: target node ID (for direct call)
 
-**사용 예시**:
+**Examples**:
 ```typescript
-// Control 체인
+// Control chain
 control('node-sid', [selectRange(
   { nodeId: 'node-1', offset: 0 },
   { nodeId: 'node-1', offset: 5 }
 )])
 
-// 직접 호출
+// Direct call
 selectRange('node-123', 
   { nodeId: 'node-1', offset: 0 },
   { nodeId: 'node-1', offset: 5 }
@@ -646,45 +646,45 @@ selectRange('node-123',
 
 ### 7.2 `selectNode()` / `selectNode(nodeId)`
 
-**목적**: 노드 전체 선택
+**Purpose**: select an entire node
 
-**문법**:
+**Syntax**:
 ```typescript
-// Control 체인에서 사용
+// In control chain
 selectNode()
 
-// 직접 호출
+// Direct call
 selectNode(nodeId: string)
 ```
 
-**매개변수**:
-- `nodeId`: 선택할 노드 ID (직접 호출 시)
+**Parameters**:
+- `nodeId`: node to select (for direct call)
 
-**사용 예시**:
+**Examples**:
 ```typescript
-// Control 체인
+// Control chain
 control('node-sid', [selectNode()])
 
-// 직접 호출
+// Direct call
 selectNode('node-123')
 ```
 
 ### 7.3 `clearSelection()`
 
-**목적**: 선택 영역 해제
+**Purpose**: clear selection
 
-**문법**:
+**Syntax**:
 ```typescript
 clearSelection()
 ```
 
-**매개변수**: 없음
+**Parameters**: none
 
-**특징**: 
-- `control` 체인을 지원하지 않음 (직접 호출만 가능)
-- 전역적인 선택 영역 해제이므로 특정 노드를 대상으로 하지 않음
+**Notes**:
+- Does **not** support `control` chains (direct call only)
+- Global selection clear; no specific node target
 
-**사용 예시**:
+**Example**:
 ```typescript
 clearSelection()
 ```
@@ -693,27 +693,27 @@ clearSelection()
 
 ### 8.1 `control(target, actions)`
 
-**목적**: 여러 작업을 특정 노드에 대해 연속 실행
+**Purpose**: run multiple actions sequentially on a specific node
 
-**문법**:
+**Syntax**:
 ```typescript
 control(target: string, actions: Array<{ type: string; payload?: any }>)
 ```
 
-**매개변수**:
-- `target`: 대상 노드 ID
-- `actions`: 실행할 작업 배열
+**Parameters**:
+- `target`: target node ID
+- `actions`: list of actions to execute
 
-**사용 예시**:
+**Examples**:
 ```typescript
-// 여러 작업을 한 번에
+// Run multiple actions at once
 control('node-sid', [
   setText('New text'),
   setAttrs({ color: 'red' }),
   applyMark(0, 5, 'bold')
 ])
 
-// 복잡한 작업 체인
+// Complex action chain
 control('parent-sid', [
   addChild(textNode('inline-text', 'New child'), 0),
   removeChild('old-child-sid'),
@@ -721,28 +721,28 @@ control('parent-sid', [
 ])
 ```
 
-## 9. 사용 예시
+## 9. Examples
 
-### 9.1 기본 텍스트 편집
+### 9.1 Basic text editing
 
 ```typescript
 const result = await transaction(editor, [
-  // 텍스트 삽입
+  // Insert text
   insertText('node-123', 5, 'Hello'),
   
-  // 텍스트 교체
+  // Replace text
   replaceText('node-123', 0, 5, 'Hi'),
   
-  // 마크 적용
+  // Apply mark
   applyMark('node-123', 0, 2, 'bold', { weight: 'bold' })
 ]).commit();
 ```
 
-### 9.2 Control 체인 사용
+### 9.2 Using control chain
 
 ```typescript
 const result = await transaction(editor, [
-  // 여러 작업을 한 노드에 대해 연속 실행
+  // Run multiple actions on one node
   control('node-123', [
     setText('Updated text'),
     setAttrs({ color: 'blue', size: 'large' }),
@@ -752,44 +752,44 @@ const result = await transaction(editor, [
 ]).commit();
 ```
 
-### 9.3 구조 조작
+### 9.3 Structure manipulation
 
 ```typescript
 const result = await transaction(editor, [
-  // 노드 생성
+  // Create node
   create(textNode('inline-text', 'New node')),
   
-  // 자식 추가
+  // Add children
   control('parent-123', [
     addChild(textNode('inline-text', 'Child 1'), 0),
     addChild(textNode('inline-text', 'Child 2'), 1)
   ]),
   
-  // 자식 순서 변경
+  // Reorder children
   control('parent-123', [
     reorderChildren(['child-2', 'child-1'])
   ])
 ]).commit();
 ```
 
-### 9.4 복합 작업
+### 9.4 Composite operations
 
 ```typescript
 const result = await transaction(editor, [
-  // 텍스트 편집
+  // Text editing
   control('text-node-123', [
     replaceText(0, 10, 'New content'),
     applyMark(0, 4, 'bold'),
     wrap(0, 4, '**', '**')
   ]),
   
-  // 구조 변경
+  // Structural changes
   control('parent-456', [
     removeChild('old-child'),
     addChild(textNode('inline-text', 'New child'), 0)
   ]),
   
-  // 선택 영역 설정
+  // Set selection
   selectRange(
     { nodeId: 'text-node-123', offset: 0 },
     { nodeId: 'text-node-123', offset: 4 }
@@ -799,4 +799,4 @@ const result = await transaction(editor, [
 
 ---
 
-이 가이드는 Barocss Editor의 모든 Operations DSL 문법을 정리한 것입니다. 각 DSL 함수의 목적, 문법, 매개변수, 사용 예시를 포함하여 개발자가 쉽게 참조할 수 있도록 구성했습니다.
+This guide summarizes all Operations DSL syntax for Barocss Editor. It provides the purpose, syntax, parameters, and examples for each DSL function so developers can reference them quickly.

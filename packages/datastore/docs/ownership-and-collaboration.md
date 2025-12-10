@@ -1,96 +1,96 @@
-# 소유권, 부분 소유권, AI와 동시편집의 관계
+# Ownership, Partial Ownership, and the Relationship with AI and Collaborative Editing
 
-## 1. 서론
+## 1. Introduction
 
-### 문제 정의
+### Problem Definition
 
-동시 편집 환경에서 여러 사용자와 AI 에이전트가 동시에 문서를 편집할 때, 다음 질문들이 발생합니다:
+In collaborative editing environments where multiple users and AI agents edit documents simultaneously, the following questions arise:
 
-1. **소유권**: 노드를 "누가 만들었는지"를 추적해야 하는가?
-2. **부분 소유권**: 텍스트 노드의 일부만 수정된 경우 소유권은 어떻게 되는가?
-3. **AI의 역할**: AI가 생성한 노드와 사용자가 생성한 노드를 구분해야 하는가?
-4. **동시편집 충돌**: 여러 agent/사용자가 같은 노드를 수정할 때 어떻게 처리하는가?
+1. **Ownership**: Should we track "who created" a node?
+2. **Partial Ownership**: What happens to ownership when only part of a text node is modified?
+3. **AI's Role**: Should we distinguish between nodes created by AI and nodes created by users?
+4. **Collaborative Editing Conflicts**: How do we handle cases where multiple agents/users modify the same node?
 
-### 핵심 원칙
+### Core Principle
 
-**"소유권"은 노드의 속성이 아니라 Operation의 속성이다.**
+**"Ownership" is a property of Operations, not a property of nodes.**
 
-노드는 여러 번 수정될 수 있고, 각 수정마다 다른 agent/사용자가 작업할 수 있습니다. 따라서 "노드의 소유자"라는 개념 자체가 의미가 없습니다.
+Nodes can be modified multiple times, and each modification can be done by different agents/users. Therefore, the concept of "owner of a node" itself is meaningless.
 
 ---
 
-## 2. 소유권 개념의 한계
+## 2. Limitations of the Ownership Concept
 
-### 2.1 노드는 여러 번 수정될 수 있음
+### 2.1 Nodes Can Be Modified Multiple Times
 
-**시나리오:**
+**Scenario:**
 
 ```
-1. 사용자 A가 노드 생성
+1. User A creates node
    - node.sid = '0:1'
    - node.text = 'Hello'
 
-2. 사용자 B가 노드 수정
-   - node.sid = '0:1' (같은 노드)
+2. User B modifies node
+   - node.sid = '0:1' (same node)
    - node.text = 'Hello World'
 
-3. AI 에이전트가 노드 수정
-   - node.sid = '0:1' (같은 노드)
+3. AI agent modifies node
+   - node.sid = '0:1' (same node)
    - node.text = 'Hello AI World'
 
-4. 사용자 A가 다시 수정
-   - node.sid = '0:1' (같은 노드)
+4. User A modifies again
+   - node.sid = '0:1' (same node)
    - node.text = 'Hello AI World!'
 ```
 
-**문제:**
-- 같은 노드가 여러 번 수정됨
-- 각 수정마다 다른 agent/사용자
-- "노드의 소유자"를 정의할 수 없음
+**Problem:**
+- Same node is modified multiple times
+- Different agent/user for each modification
+- Cannot define "owner of node"
 
-### 2.2 텍스트 노드의 부분 수정
+### 2.2 Partial Modification of Text Nodes
 
-**시나리오:**
+**Scenario:**
 
 ```
-초기 상태:
+Initial state:
 - node.sid = '0:1'
 - node.text = 'Hello World'
 
-사용자 A가 일부만 수정:
-- node.text = 'Hello AI World'  (중간에 'AI' 삽입)
+User A modifies part:
+- node.text = 'Hello AI World'  (inserts 'AI' in the middle)
 
-AI가 일부만 수정:
-- node.text = 'Hello AI Beautiful World'  ('AI' 뒤에 'Beautiful' 삽입)
+AI modifies part:
+- node.text = 'Hello AI Beautiful World'  (inserts 'Beautiful' after 'AI')
 
-사용자 B가 일부만 수정:
-- node.text = 'Hello AI Beautiful World!'  (끝에 '!' 추가)
+User B modifies part:
+- node.text = 'Hello AI Beautiful World!'  (adds '!' at the end)
 ```
 
-**문제:**
-- 텍스트의 일부만 수정됨
-- 어떤 부분이 누구의 것인지 추적 불가
-- "노드의 소유자" 개념으로는 해결 불가
+**Problem:**
+- Only part of text is modified
+- Cannot track which part belongs to whom
+- Cannot solve with "owner of node" concept
 
-### 2.3 결론: 노드 레벨 소유권은 불가능
+### 2.3 Conclusion: Node-Level Ownership is Impossible
 
-**이유:**
-1. 노드는 여러 번 수정될 수 있음
-2. 각 수정마다 다른 agent/사용자
-3. 텍스트 노드의 일부만 수정될 수도 있음
-4. "노드의 소유자"라는 개념 자체가 의미 없음
+**Reasons:**
+1. Nodes can be modified multiple times
+2. Different agent/user for each modification
+3. Only part of text node may be modified
+4. The concept of "owner of node" itself is meaningless
 
-**해결:**
-- 노드 자체에는 소유자 정보 없음
-- 소유자 정보는 Operation 레벨에서만 관리
+**Solution:**
+- No owner information in node itself
+- Owner information is managed only at Operation level
 
 ---
 
-## 3. Operation 레벨 소유권
+## 3. Operation-Level Ownership
 
-### 3.1 핵심 개념
+### 3.1 Core Concept
 
-**"누가 무엇을 했는지"는 Operation 이벤트에서만 추적합니다.**
+**"Who did what" is tracked only in Operation events.**
 
 ```typescript
 interface AtomicOperation {
@@ -101,7 +101,7 @@ interface AtomicOperation {
   parentId?: string;
   position?: number;
   
-  // 소유자 정보 (Operation 레벨)
+  // Owner information (Operation level)
   owner?: {
     type: 'user' | 'agent';
     id: string;
@@ -110,7 +110,7 @@ interface AtomicOperation {
 }
 ```
 
-### 3.2 DataStore에서 Operation 생성
+### 3.2 Operation Creation in DataStore
 
 ```typescript
 export class DataStore {
@@ -131,7 +131,7 @@ export class DataStore {
   }
   
   /**
-   * Operation 생성 시 소유자 정보 자동 포함
+   * Automatically include owner information when creating Operation
    */
   emitOperation(operation: AtomicOperation): void {
     const operationWithOwner: AtomicOperation = {
@@ -143,22 +143,22 @@ export class DataStore {
       } : undefined
     };
     
-    // overlay에 기록
+    // Record in overlay
     if (this._overlay && this._overlay.isActive()) {
       (this._overlay as any).recordOperation(operationWithOwner);
     }
     
-    // 이벤트 발생
+    // Emit event
     this._eventEmitter.emit('operation', operationWithOwner);
   }
 }
 ```
 
-### 3.3 이력 추적
+### 3.3 History Tracking
 
 ```typescript
 /**
- * Operation 이벤트 리스너로 이력 추적
+ * Track history with Operation event listener
  */
 class OperationHistory {
   private history: Array<{
@@ -174,7 +174,7 @@ class OperationHistory {
   }> = [];
   
   /**
-   * Operation 이벤트 수신
+   * Receive Operation event
    */
   onOperation(operation: AtomicOperation): void {
     this.history.push({
@@ -187,7 +187,7 @@ class OperationHistory {
   }
   
   /**
-   * 특정 노드의 변경 이력 조회
+   * Get change history for specific node
    */
   getByNodeId(nodeId: string): Array<{
     operation: string;
@@ -204,7 +204,7 @@ class OperationHistory {
   }
   
   /**
-   * 노드의 생성자 조회
+   * Get creator of node
    */
   getCreator(nodeId: string): { type: 'user' | 'agent'; id: string } | undefined {
     const history = this.getByNodeId(nodeId);
@@ -213,7 +213,7 @@ class OperationHistory {
   }
   
   /**
-   * 노드의 마지막 수정자 조회
+   * Get last editor of node
    */
   getLastEditor(nodeId: string): { type: 'user' | 'agent'; id: string } | undefined {
     const history = this.getByNodeId(nodeId);
@@ -225,36 +225,36 @@ class OperationHistory {
 
 ---
 
-## 4. 부분 소유권 (Partial Ownership)
+## 4. Partial Ownership
 
-### 4.1 문제 정의
+### 4.1 Problem Definition
 
-텍스트 노드의 일부만 수정되는 경우, "어떤 부분이 누구의 것인지"를 추적해야 할까요?
+When only part of a text node is modified, should we track "which part belongs to whom"?
 
-**예시:**
+**Example:**
 ```
-초기: 'Hello World'
-사용자 A: 'Hello AI World' (중간에 'AI' 삽입)
-AI: 'Hello AI Beautiful World' ('AI' 뒤에 'Beautiful' 삽입)
-사용자 B: 'Hello AI Beautiful World!' (끝에 '!' 추가)
+Initial: 'Hello World'
+User A: 'Hello AI World' (inserts 'AI' in the middle)
+AI: 'Hello AI Beautiful World' (inserts 'Beautiful' after 'AI')
+User B: 'Hello AI Beautiful World!' (adds '!' at the end)
 ```
 
-### 4.2 해결 방안: 부분 소유권은 추적하지 않음
+### 4.2 Solution: Do Not Track Partial Ownership
 
-**이유:**
-1. **복잡도**: 텍스트의 각 문자마다 소유자를 추적하는 것은 비현실적
-2. **의미 없음**: 최종 결과물만 중요하며, 중간 과정의 소유권은 중요하지 않음
-3. **성능**: 부분 소유권 추적은 성능 오버헤드가 큼
+**Reasons:**
+1. **Complexity**: Tracking owner for each character of text is unrealistic
+2. **No meaning**: Only the final result matters, ownership of intermediate steps is not important
+3. **Performance**: Tracking partial ownership has significant performance overhead
 
-**대안:**
-- Operation 레벨에서만 추적
-- "누가 무엇을 했는지"만 기록
-- 텍스트의 특정 부분의 소유권은 추적하지 않음
+**Alternative:**
+- Track only at Operation level
+- Record only "who did what"
+- Do not track ownership of specific parts of text
 
-### 4.3 Operation 레벨 추적으로 충분
+### 4.3 Operation-Level Tracking is Sufficient
 
 ```typescript
-// Operation 이력으로 추적
+// Track with Operation history
 const history = operationHistory.getByNodeId('0:1');
 // [
 //   { operation: 'create', owner: { type: 'user', id: 'alice' }, timestamp: 1000 },
@@ -263,41 +263,41 @@ const history = operationHistory.getByNodeId('0:1');
 //   { operation: 'update', owner: { type: 'user', id: 'bob' }, timestamp: 4000, data: { text: 'Hello AI Beautiful World!' } }
 // ]
 
-// "누가 무엇을 했는지"는 추적 가능
-// 하지만 "어떤 부분이 누구의 것인지"는 추적하지 않음
+// "Who did what" can be tracked
+// But "which part belongs to whom" is not tracked
 ```
 
 ---
 
-## 5. AI와 동시편집의 관계
+## 5. Relationship Between AI and Collaborative Editing
 
-### 5.1 AI는 편집 주체
+### 5.1 AI is an Editing Agent
 
-**핵심 원칙:**
-- AI는 편집의 주체일 뿐
-- AI가 만든 노드와 사용자가 만든 노드를 구분할 필요 없음
-- 노드 자체에는 AI/사용자 구분 없음
+**Core Principle:**
+- AI is just an editing agent
+- No need to distinguish between nodes created by AI and nodes created by users
+- No AI/user distinction in node itself
 
-### 5.2 AI 작업 흐름
+### 5.2 AI Workflow
 
 ```typescript
-// AI가 노드를 생성하는 과정
+// Process of AI creating node
 
-// 1. AI DataStore 생성
+// 1. Create AI DataStore
 const aiStore = new DataStore(
   undefined, schema, 1,
   { type: 'agent', id: 'ai-writer' }
 );
 
-// 2. 노드 생성
+// 2. Create node
 const node = aiStore.createNodeWithChildren({
   stype: 'paragraph',
   content: [{ stype: 'inline-text', text: 'AI generated text' }]
 });
 
-// node.sid = '1:1' (일반 노드와 동일, AI 표시 없음)
+// node.sid = '1:1' (same as regular node, no AI indicator)
 
-// 3. Operation 이벤트
+// 3. Operation event
 // {
 //   type: 'create',
 //   nodeId: '1:1',
@@ -305,39 +305,39 @@ const node = aiStore.createNodeWithChildren({
 // }
 ```
 
-### 5.3 AI와 사용자의 동시 작업
+### 5.3 Simultaneous Work by AI and Users
 
-**시나리오:**
+**Scenario:**
 
 ```typescript
-// 사용자 A가 노드 생성
+// User A creates node
 const userStore = new DataStore(undefined, schema, 0, { type: 'user', id: 'alice' });
 const node = userStore.createNodeWithChildren({ stype: 'paragraph', content: [...] });
 // node.sid = '0:1'
 // Operation: { type: 'create', nodeId: '0:1', owner: { type: 'user', id: 'alice' } }
 
-// 동시에 AI가 다른 노드 생성
+// AI creates different node simultaneously
 const aiStore = new DataStore(undefined, schema, 1, { type: 'agent', id: 'ai-writer' });
 const aiNode = aiStore.createNodeWithChildren({ stype: 'paragraph', content: [...] });
 // aiNode.sid = '1:2'
 // Operation: { type: 'create', nodeId: '1:2', owner: { type: 'agent', id: 'ai-writer' } }
 
-// 노드 자체는 구분 불가 (둘 다 일반 노드)
-// 하지만 Operation 이력으로는 구분 가능
+// Nodes themselves cannot be distinguished (both are regular nodes)
+// But can be distinguished with Operation history
 ```
 
-### 5.4 AI 작업의 우선순위
+### 5.4 Priority of AI Work
 
-**원칙:**
-- AI 결과물은 낮은 우선순위
-- 사용자 작업이 항상 우선
-- 충돌 시 사용자 작업이 AI 작업을 덮어씀
+**Principle:**
+- AI results have low priority
+- User work always takes priority
+- User work overwrites AI work on conflict
 
-**구현:**
+**Implementation:**
 
 ```typescript
 /**
- * 충돌 해결 (Operation 이력 기반)
+ * Conflict resolution (based on Operation history)
  */
 function resolveConflict(
   node1: INode,
@@ -350,7 +350,7 @@ function resolveConflict(
   const lastEditor1 = history1[history1.length - 1]?.owner;
   const lastEditor2 = history2[history2.length - 1]?.owner;
   
-  // 사용자 > AI 우선순위
+  // User > AI priority
   if (lastEditor1?.type === 'user' && lastEditor2?.type === 'agent') {
     return node1;
   }
@@ -358,7 +358,7 @@ function resolveConflict(
     return node2;
   }
   
-  // 같은 타입이면 최신 것 우선
+  // If same type, latest takes priority
   const timestamp1 = history1[history1.length - 1]?.timestamp || 0;
   const timestamp2 = history2[history2.length - 1]?.timestamp || 0;
   return timestamp1 > timestamp2 ? node1 : node2;
@@ -367,34 +367,34 @@ function resolveConflict(
 
 ---
 
-## 6. Decorator와의 관계
+## 6. Relationship with Decorators
 
-### 6.1 Decorator는 별도 채널
+### 6.1 Decorators are a Separate Channel
 
-**핵심 원칙:**
-- Decorator는 Selection과 동일한 패턴으로 별도 채널로 관리
-- DocumentModel (OT/CRDT)과 EditorModel (Presence/Session) 분리
+**Core Principle:**
+- Decorators are managed as a separate channel with the same pattern as Selection
+- Separate DocumentModel (OT/CRDT) and EditorModel (Presence/Session)
 
-### 6.2 채널 구조
+### 6.2 Channel Structure
 
 ```
-DocumentModel (OT/CRDT 채널)
+DocumentModel (OT/CRDT channel)
   ↓
-  텍스트, 구조, Marks 변경
-  (무거운 데이터, 충돌 해결 필요)
-  Operation 레벨에서 소유자 정보 포함
+  Text, structure, Marks changes
+  (Heavy data, needs conflict resolution)
+  Owner information included at Operation level
 
-EditorModel (Presence/Session 채널)
-  ├─ Selection 변경
-  │   (경량 데이터, 실시간 동기화)
-  └─ Decorator 변경
-      (경량 데이터, 실시간 동기화)
-      소유자 정보 포함 (owner 필드)
+EditorModel (Presence/Session channel)
+  ├─ Selection changes
+  │   (Lightweight data, real-time sync)
+  └─ Decorator changes
+      (Lightweight data, real-time sync)
+      Owner information included (owner field)
 ```
 
-### 6.3 Decorator의 소유자 정보
+### 6.3 Owner Information in Decorators
 
-**Decorator는 EditorModel 레벨이므로 소유자 정보를 포함합니다:**
+**Since Decorators are at EditorModel level, they include owner information:**
 
 ```typescript
 interface Decorator {
@@ -404,7 +404,7 @@ interface Decorator {
   target: DecoratorTarget;
   data?: Record<string, any>;
   
-  // 소유자 정보 (EditorModel 레벨이므로 포함)
+  // Owner information (included because EditorModel level)
   owner?: {
     userId: string;
     agentId?: string;
@@ -414,29 +414,29 @@ interface Decorator {
 }
 ```
 
-**이유:**
-- Decorator는 임시 UI 상태 (EditorModel)
-- 노드와 달리 여러 번 수정되지 않음
-- 생성 → 업데이트 → 제거의 단순한 생명주기
-- 소유자 정보가 의미 있음
+**Reasons:**
+- Decorators are temporary UI state (EditorModel)
+- Unlike nodes, they are not modified multiple times
+- Simple lifecycle: create → update → remove
+- Owner information is meaningful
 
-### 6.4 Decorator와 노드의 차이
+### 6.4 Difference Between Decorators and Nodes
 
-| 항목 | 노드 (DocumentModel) | Decorator (EditorModel) |
+| Item | Node (DocumentModel) | Decorator (EditorModel) |
 |------|---------------------|------------------------|
-| 소유자 정보 | 없음 (Operation 레벨) | 있음 (owner 필드) |
-| 수정 빈도 | 여러 번 수정 가능 | 단순 생명주기 |
-| 저장 | 영구 저장 | 임시 상태 |
-| 채널 | OT/CRDT | Presence/Session |
+| Owner information | None (Operation level) | Yes (owner field) |
+| Modification frequency | Can be modified multiple times | Simple lifecycle |
+| Storage | Permanent storage | Temporary state |
+| Channel | OT/CRDT | Presence/Session |
 
 ---
 
-## 7. 실무 시나리오
+## 7. Practical Scenarios
 
-### 7.1 시나리오 1: 사용자와 AI가 동시에 작업
+### 7.1 Scenario 1: User and AI Work Simultaneously
 
 ```typescript
-// 사용자 A가 노드 생성
+// User A creates node
 const userStore = new DataStore(undefined, schema, 0, { type: 'user', id: 'alice' });
 const node1 = userStore.createNodeWithChildren({
   stype: 'paragraph',
@@ -445,7 +445,7 @@ const node1 = userStore.createNodeWithChildren({
 // node1.sid = '0:1'
 // Operation: { type: 'create', nodeId: '0:1', owner: { type: 'user', id: 'alice' } }
 
-// AI가 다른 노드 생성
+// AI creates different node
 const aiStore = new DataStore(undefined, schema, 1, { type: 'agent', id: 'ai-writer' });
 const node2 = aiStore.createNodeWithChildren({
   stype: 'paragraph',
@@ -454,16 +454,16 @@ const node2 = aiStore.createNodeWithChildren({
 // node2.sid = '1:2'
 // Operation: { type: 'create', nodeId: '1:2', owner: { type: 'agent', id: 'ai-writer' } }
 
-// 노드 자체는 구분 불가 (둘 다 일반 노드)
-// 하지만 Operation 이력으로는 구분 가능
+// Nodes themselves cannot be distinguished (both are regular nodes)
+// But can be distinguished with Operation history
 const creator1 = operationHistory.getCreator('0:1');  // { type: 'user', id: 'alice' }
 const creator2 = operationHistory.getCreator('1:2');  // { type: 'agent', id: 'ai-writer' }
 ```
 
-### 7.2 시나리오 2: 여러 사용자가 같은 노드 수정
+### 7.2 Scenario 2: Multiple Users Modify Same Node
 
 ```typescript
-// 사용자 A가 노드 생성
+// User A creates node
 const userAStore = new DataStore(undefined, schema, 0, { type: 'user', id: 'alice' });
 const node = userAStore.createNodeWithChildren({
   stype: 'paragraph',
@@ -472,19 +472,19 @@ const node = userAStore.createNodeWithChildren({
 // node.sid = '0:1'
 // Operation: { type: 'create', nodeId: '0:1', owner: { type: 'user', id: 'alice' } }
 
-// 사용자 B가 노드 수정
+// User B modifies node
 const userBStore = new DataStore(undefined, schema, 1, { type: 'user', id: 'bob' });
 userBStore.updateNode('0:1', { text: 'Hello World' });
-// node.sid = '0:1' (여전히 같음)
+// node.sid = '0:1' (still same)
 // Operation: { type: 'update', nodeId: '0:1', owner: { type: 'user', id: 'bob' } }
 
-// AI가 노드 수정
+// AI modifies node
 const aiStore = new DataStore(undefined, schema, 2, { type: 'agent', id: 'ai-writer' });
 aiStore.updateNode('0:1', { text: 'Hello AI World' });
-// node.sid = '0:1' (여전히 같음)
+// node.sid = '0:1' (still same)
 // Operation: { type: 'update', nodeId: '0:1', owner: { type: 'agent', id: 'ai-writer' } }
 
-// 이력 조회
+// Query history
 const history = operationHistory.getByNodeId('0:1');
 // [
 //   { operation: 'create', owner: { type: 'user', id: 'alice' }, timestamp: 1000 },
@@ -492,14 +492,14 @@ const history = operationHistory.getByNodeId('0:1');
 //   { operation: 'update', owner: { type: 'agent', id: 'ai-writer' }, timestamp: 3000 }
 // ]
 
-// 노드 자체에는 소유자 정보 없음
-// 하지만 Operation 이력으로는 모든 변경 추적 가능
+// Node itself has no owner information
+// But all changes can be tracked with Operation history
 ```
 
-### 7.3 시나리오 3: 텍스트 일부만 수정
+### 7.3 Scenario 3: Only Part of Text Modified
 
 ```typescript
-// 초기 상태
+// Initial state
 const node = userStore.createNodeWithChildren({
   stype: 'paragraph',
   content: [{ stype: 'inline-text', text: 'Hello World' }]
@@ -507,66 +507,66 @@ const node = userStore.createNodeWithChildren({
 // node.sid = '0:1'
 // Operation: { type: 'create', nodeId: '0:1', owner: { type: 'user', id: 'alice' } }
 
-// 사용자 A가 중간에 삽입
+// User A inserts in middle
 userStore.updateNode('0:1', { text: 'Hello AI World' });
 // Operation: { type: 'update', nodeId: '0:1', owner: { type: 'user', id: 'alice' }, data: { text: 'Hello AI World' } }
 
-// AI가 중간에 삽입
+// AI inserts in middle
 aiStore.updateNode('0:1', { text: 'Hello AI Beautiful World' });
 // Operation: { type: 'update', nodeId: '0:1', owner: { type: 'agent', id: 'ai-writer' }, data: { text: 'Hello AI Beautiful World' } }
 
-// 사용자 B가 끝에 추가
+// User B adds at end
 userBStore.updateNode('0:1', { text: 'Hello AI Beautiful World!' });
 // Operation: { type: 'update', nodeId: '0:1', owner: { type: 'user', id: 'bob' }, data: { text: 'Hello AI Beautiful World!' } }
 
-// 부분 소유권은 추적하지 않음
-// "누가 무엇을 했는지"만 Operation 이력으로 추적
+// Partial ownership is not tracked
+// Only "who did what" is tracked with Operation history
 ```
 
-### 7.4 시나리오 4: AI가 Decorator 사용
+### 7.4 Scenario 4: AI Uses Decorator
 
 ```typescript
-// AI가 작업 시작 - Decorator 추가
+// AI starts work - add Decorator
 const decoratorId = editorView.addDecorator({
   sid: 'ai-work-1',
   stype: 'comment',
   category: 'block',
   target: { sid: 'paragraph-1' },
   position: 'after',
-  data: { text: 'AI가 작업 중...' }
+  data: { text: 'AI is working...' }
 });
 
-// Decorator는 EditorModel 레벨이므로 소유자 정보 포함 가능
-// (하지만 현재는 별도 RemoteDecoratorManager에서 관리)
+// Decorators are EditorModel level, so can include owner information
+// (But currently managed in separate RemoteDecoratorManager)
 
-// AI 작업 완료 - 모델 업데이트
+// AI completes work - update model
 aiStore.updateNode('paragraph-1', { 
   content: [...existingContent, newParagraph] 
 });
 // Operation: { type: 'update', nodeId: 'paragraph-1', owner: { type: 'agent', id: 'ai-writer' } }
 
-// Decorator 제거
+// Remove Decorator
 editorView.removeDecorator(decoratorId);
 ```
 
 ---
 
-## 8. 동시편집 환경에서의 통합
+## 8. Integration in Collaborative Editing Environment
 
-### 8.1 Operation 브로드캐스트
+### 8.1 Operation Broadcasting
 
 ```typescript
 /**
- * 동시 편집 브로드캐스트 메시지
+ * Collaborative editing broadcast message
  */
 type CollaborationMessage = 
-  // DocumentModel 변경 (OT/CRDT)
+  // DocumentModel changes (OT/CRDT)
   | {
       type: 'operation';
-      operation: AtomicOperation;  // owner 정보 포함
+      operation: AtomicOperation;  // includes owner information
       version: number;
     }
-  // EditorModel 변경 (Presence/Session)
+  // EditorModel changes (Presence/Session)
   | {
       type: 'selection-update';
       userId: string;
@@ -583,22 +583,22 @@ type CollaborationMessage =
     };
 ```
 
-### 8.2 충돌 해결 전략
+### 8.2 Conflict Resolution Strategy
 
 ```typescript
 /**
- * Operation 기반 충돌 해결
+ * Operation-based conflict resolution
  */
 class ConflictResolver {
   /**
-   * 두 Operation의 충돌 해결
+   * Resolve conflict between two Operations
    */
   resolveOperations(
     op1: AtomicOperation,
     op2: AtomicOperation,
     operationHistory: OperationHistory
   ): AtomicOperation {
-    // 사용자 > AI 우선순위
+    // User > AI priority
     if (op1.owner?.type === 'user' && op2.owner?.type === 'agent') {
       return op1;
     }
@@ -606,12 +606,12 @@ class ConflictResolver {
       return op2;
     }
     
-    // 같은 타입이면 최신 것 우선
+    // If same type, latest takes priority
     return op1.timestamp > op2.timestamp ? op1 : op2;
   }
   
   /**
-   * 노드 충돌 해결 (Operation 이력 기반)
+   * Resolve node conflict (based on Operation history)
    */
   resolveNodeConflict(
     node1: INode,
@@ -624,7 +624,7 @@ class ConflictResolver {
     const lastEditor1 = history1[history1.length - 1]?.owner;
     const lastEditor2 = history2[history2.length - 1]?.owner;
     
-    // 사용자 > AI 우선순위
+    // User > AI priority
     if (lastEditor1?.type === 'user' && lastEditor2?.type === 'agent') {
       return node1;
     }
@@ -632,7 +632,7 @@ class ConflictResolver {
       return node2;
     }
     
-    // 같은 타입이면 최신 것 우선
+    // If same type, latest takes priority
     const timestamp1 = history1[history1.length - 1]?.timestamp || 0;
     const timestamp2 = history2[history2.length - 1]?.timestamp || 0;
     return timestamp1 > timestamp2 ? node1 : node2;
@@ -642,9 +642,9 @@ class ConflictResolver {
 
 ---
 
-## 9. 구현 가이드
+## 9. Implementation Guide
 
-### 9.1 DataStore 수정
+### 9.1 DataStore Modification
 
 ```typescript
 export class DataStore {
@@ -665,7 +665,7 @@ export class DataStore {
   }
   
   /**
-   * 노드 ID 생성 (기존 형식 유지)
+   * Generate node ID (maintain existing format)
    */
   generateId(): string {
     DataStore._globalCounter++;
@@ -673,7 +673,7 @@ export class DataStore {
   }
   
   /**
-   * Operation 생성 시 소유자 정보 자동 포함
+   * Automatically include owner information when creating Operation
    */
   emitOperation(operation: AtomicOperation): void {
     const operationWithOwner: AtomicOperation = {
@@ -694,7 +694,7 @@ export class DataStore {
 }
 ```
 
-### 9.2 AtomicOperation 타입 확장
+### 9.2 AtomicOperation Type Extension
 
 ```typescript
 export interface AtomicOperation {
@@ -705,7 +705,7 @@ export interface AtomicOperation {
   parentId?: string;
   position?: number;
   
-  // 소유자 정보 (선택적)
+  // Owner information (optional)
   owner?: {
     type: 'user' | 'agent';
     id: string;
@@ -714,11 +714,11 @@ export interface AtomicOperation {
 }
 ```
 
-### 9.3 OperationHistory 구현
+### 9.3 OperationHistory Implementation
 
 ```typescript
 /**
- * Operation 이력 관리
+ * Operation history management
  */
 export class OperationHistory {
   private history: Array<{
@@ -734,7 +734,7 @@ export class OperationHistory {
   }> = [];
   
   /**
-   * Operation 이벤트 수신
+   * Receive Operation event
    */
   onOperation(operation: AtomicOperation): void {
     this.history.push({
@@ -747,7 +747,7 @@ export class OperationHistory {
   }
   
   /**
-   * 특정 노드의 변경 이력 조회
+   * Get change history for specific node
    */
   getByNodeId(nodeId: string): Array<{
     operation: string;
@@ -764,7 +764,7 @@ export class OperationHistory {
   }
   
   /**
-   * 노드의 생성자 조회
+   * Get creator of node
    */
   getCreator(nodeId: string): { type: 'user' | 'agent'; id: string } | undefined {
     const history = this.getByNodeId(nodeId);
@@ -773,7 +773,7 @@ export class OperationHistory {
   }
   
   /**
-   * 노드의 마지막 수정자 조회
+   * Get last editor of node
    */
   getLastEditor(nodeId: string): { type: 'user' | 'agent'; id: string } | undefined {
     const history = this.getByNodeId(nodeId);
@@ -782,7 +782,7 @@ export class OperationHistory {
   }
   
   /**
-   * 특정 사용자가 생성한 노드 조회
+   * Get nodes created by specific user
    */
   getNodesByCreator(ownerId: string): string[] {
     return this.history
@@ -791,7 +791,7 @@ export class OperationHistory {
   }
   
   /**
-   * 특정 사용자가 수정한 노드 조회
+   * Get nodes edited by specific user
    */
   getNodesByEditor(ownerId: string): string[] {
     return this.history
@@ -803,75 +803,74 @@ export class OperationHistory {
 
 ---
 
-## 10. 요약 및 결론
+## 10. Summary and Conclusion
 
-### 10.1 핵심 원칙
+### 10.1 Core Principles
 
-1. **노드 레벨 소유권은 사용하지 않음**
-   - 노드는 여러 번 수정될 수 있음
-   - 각 수정마다 다른 agent/사용자
-   - "노드의 소유자" 개념 자체가 의미 없음
+1. **Do not use node-level ownership**
+   - Nodes can be modified multiple times
+   - Different agent/user for each modification
+   - The concept of "owner of node" itself is meaningless
 
-2. **소유자 정보는 Operation 레벨에서만 관리**
-   - Operation 이벤트에 소유자 정보 포함
-   - Operation 이력으로 모든 변경 추적
+2. **Owner information is managed only at Operation level**
+   - Include owner information in Operation events
+   - Track all changes with Operation history
 
-3. **부분 소유권은 추적하지 않음**
-   - 텍스트의 일부만 수정되는 경우도 Operation 레벨에서만 추적
-   - 텍스트의 특정 부분의 소유권은 추적하지 않음
+3. **Do not track partial ownership**
+   - Track only at Operation level even when only part of text is modified
+   - Do not track ownership of specific parts of text
 
-4. **AI는 편집 주체일 뿐**
-   - AI가 만든 노드와 사용자가 만든 노드를 구분할 필요 없음
-   - 노드 자체에는 AI/사용자 구분 없음
-   - Operation 이력으로만 구분 가능
+4. **AI is just an editing agent**
+   - No need to distinguish between nodes created by AI and nodes created by users
+   - No AI/user distinction in node itself
+   - Can only be distinguished with Operation history
 
-5. **Decorator는 별도 채널**
-   - EditorModel 레벨이므로 소유자 정보 포함 가능
-   - Selection과 동일한 패턴으로 별도 채널 관리
+5. **Decorators are a separate channel**
+   - Can include owner information because EditorModel level
+   - Managed as separate channel with same pattern as Selection
 
-### 10.2 구조
+### 10.2 Structure
 
 ```
-DocumentModel (OT/CRDT 채널)
-  ├─ 노드 (INode)
-  │   └─ sid: '0:1' (소유자 정보 없음)
+DocumentModel (OT/CRDT channel)
+  ├─ Node (INode)
+  │   └─ sid: '0:1' (no owner information)
   │
-  └─ Operation 이벤트
+  └─ Operation events
       └─ owner: { type: 'user' | 'agent', id: string }
-          (소유자 정보는 여기에만)
+          (owner information only here)
 
-EditorModel (Presence/Session 채널)
+EditorModel (Presence/Session channel)
   ├─ Selection
-  │   └─ 별도 채널로 관리
+  │   └─ Managed as separate channel
   │
   └─ Decorator
       └─ owner: { userId, agentId?, sessionId }
-          (소유자 정보 포함)
+          (includes owner information)
 ```
 
-### 10.3 구현 체크리스트
+### 10.3 Implementation Checklist
 
-- [ ] DataStore 생성자에 `owner` 옵션 추가
-- [ ] `emitOperation()`에서 소유자 정보 자동 포함
-- [ ] `AtomicOperation` 타입에 `owner` 필드 추가
-- [ ] OperationHistory 클래스 구현
-- [ ] Operation 이벤트 리스너로 이력 추적
-- [ ] 충돌 해결 로직 구현 (사용자 > AI 우선순위)
+- [ ] Add `owner` option to DataStore constructor
+- [ ] Automatically include owner information in `emitOperation()`
+- [ ] Add `owner` field to `AtomicOperation` type
+- [ ] Implement OperationHistory class
+- [ ] Track history with Operation event listener
+- [ ] Implement conflict resolution logic (User > AI priority)
 
-### 10.4 최종 결론
+### 10.4 Final Conclusion
 
-**"소유권"은 노드의 속성이 아니라 Operation의 속성입니다.**
+**"Ownership" is a property of Operations, not a property of nodes.**
 
-- 노드는 순수하게 "무엇"만 담음
-- "누가 무엇을 했는지"는 Operation 이력에서만 추적
-- 부분 소유권은 추적하지 않음
-- AI와 사용자의 구분은 Operation 레벨에서만
-- Decorator는 별도 채널로 관리하며 소유자 정보 포함
+- Nodes purely contain only "what"
+- "Who did what" is tracked only in Operation history
+- Do not track partial ownership
+- Distinction between AI and users only at Operation level
+- Decorators managed as separate channel and include owner information
 
-이렇게 하면:
-- ✅ 모델 순수성 유지
-- ✅ 완전한 이력 추적 가능
-- ✅ 동시편집 환경에서 충돌 해결 가능
-- ✅ AI와 사용자의 자연스러운 협업
-- ✅ 개념적 정확성
-
+This way:
+- ✅ Maintain model purity
+- ✅ Enable complete history tracking
+- ✅ Resolve conflicts in collaborative editing environments
+- ✅ Natural collaboration between AI and users
+- ✅ Conceptual accuracy

@@ -1,20 +1,20 @@
 # React Commit Phase vs Current Implementation
 
-## React의 Commit Phase 순서
+## React's Commit Phase Order
 
-React는 commit phase에서 **3단계**로 나눕니다:
+React divides commit phase into **3 stages**:
 
-1. **Before Mutation**: DOM 조작 전 처리
-2. **Mutation**: DOM 조작 (insertBefore, removeChild 등)
-3. **Layout**: DOM 조작 후 처리 (layout effects)
+1. **Before Mutation**: Processing before DOM manipulation
+2. **Mutation**: DOM manipulation (insertBefore, removeChild, etc.)
+3. **Layout**: Processing after DOM manipulation (layout effects)
 
-각 단계는 **child -> sibling 순서**로 순회합니다.
+Each stage traverses in **child -> sibling order**.
 
-## 현재 구현의 문제점
+## Current Implementation Issues
 
-### 1. commitFiberTree 순회 순서
+### 1. commitFiberTree Traversal Order
 
-현재 구현:
+Current implementation:
 ```typescript
 export function commitFiberTree(rootFiber, deps, context) {
   let currentFiber = rootFiber;
@@ -32,7 +32,7 @@ export function commitFiberTree(rootFiber, deps, context) {
       continue;
     }
     
-    // 부모로 돌아가서 형제 찾기
+    // Go back to parent to find sibling
     currentFiber = currentFiber.return;
     while (currentFiber && !currentFiber.sibling) {
       currentFiber = currentFiber.return;
@@ -44,9 +44,9 @@ export function commitFiberTree(rootFiber, deps, context) {
 }
 ```
 
-**문제**: 이 순회는 child -> sibling 순서로 진행되지만, **같은 레벨의 형제들을 순서대로 처리하지 않습니다**.
+**Issue**: This traversal proceeds in child -> sibling order, but **does not process siblings at the same level in order**.
 
-예를 들어:
+For example:
 ```
 RootFiber
   └─ child: Fiber0
@@ -54,19 +54,19 @@ RootFiber
           └─ sibling: Fiber2
 ```
 
-현재 순회:
+Current traversal:
 1. RootFiber commit
 2. Fiber0 commit
-3. Fiber0.child가 없으므로 Fiber0.sibling (Fiber1) commit
-4. Fiber1.child가 없으므로 Fiber1.sibling (Fiber2) commit
+3. Fiber0 has no child, so commit Fiber0.sibling (Fiber1)
+4. Fiber1 has no child, so commit Fiber1.sibling (Fiber2)
 
-이것은 올바른 순서입니다! 하지만 문제는 **이전 형제를 찾는 로직**에 있습니다.
+This is the correct order! But the issue is in the **logic to find previous sibling**.
 
-### 2. commitFiberNode에서 이전 형제 찾기
+### 2. Finding Previous Sibling in commitFiberNode
 
-현재 구현:
+Current implementation:
 ```typescript
-// 이전 형제 Fiber를 직접 찾아서 domElement.nextSibling을 referenceNode로 사용
+// Find previous sibling Fiber directly and use domElement.nextSibling as referenceNode
 let referenceNode: Node | null = null;
 if (fiber.index > 0 && fiber.parentFiber) {
   let prevSiblingFiber = fiber.parentFiber.child;
@@ -79,45 +79,44 @@ if (fiber.index > 0 && fiber.parentFiber) {
 }
 ```
 
-**문제**: 
-- `fiber.index`는 VNode children 배열의 인덱스입니다.
-- 하지만 Fiber sibling 관계는 primitive text를 제외한 VNode만 포함할 수 있습니다.
-- 따라서 `fiber.index - 1`로 이전 형제 Fiber를 찾을 수 없습니다.
+**Issue**: 
+- `fiber.index` is the index in VNode children array.
+- But Fiber sibling relationship may only include VNodes excluding primitive text.
+- Therefore, cannot find previous sibling Fiber with `fiber.index - 1`.
 
-**해결책**: 
-- VNode children 배열을 기준으로 이전 형제를 찾아야 합니다.
-- 하지만 commit phase에서는 이미 모든 Fiber가 render phase를 거쳤으므로, 이전 형제 Fiber의 `domElement`가 설정되어 있어야 합니다.
-- **하지만 이전 형제가 아직 commit되지 않았을 수 있습니다!**
+**Solution**: 
+- Must find previous sibling based on VNode children array.
+- But in commit phase, all Fibers have already gone through render phase, so previous sibling Fiber's `domElement` should be set.
+- **But previous sibling may not have been committed yet!**
 
-### 3. React의 방식
+### 3. React's Approach
 
-React는 commit phase에서:
-1. **Before Mutation**: 모든 Fiber를 순회하면서 DOM 조작 전 처리
-2. **Mutation**: 모든 Fiber를 순회하면서 DOM 조작 (insertBefore 등)
-3. **Layout**: 모든 Fiber를 순회하면서 DOM 조작 후 처리
+React in commit phase:
+1. **Before Mutation**: Traverse all Fibers for processing before DOM manipulation
+2. **Mutation**: Traverse all Fibers for DOM manipulation (insertBefore, etc.)
+3. **Layout**: Traverse all Fibers for processing after DOM manipulation
 
-각 단계에서 **child -> sibling 순서**로 순회하므로, 이전 형제는 이미 처리되었을 것입니다.
+Since each stage traverses in **child -> sibling order**, previous sibling should already be processed.
 
-하지만 React는 **이전 형제의 domElement.nextSibling**을 사용하지 않고, **부모의 childNodes를 직접 참조**합니다.
+But React does not use **previous sibling's domElement.nextSibling**, but **directly references parent's childNodes**.
 
-## 올바른 해결책
+## Correct Solution
 
-React 방식:
-1. commit phase에서 child -> sibling 순서로 순회
-2. 각 Fiber를 commit할 때, **이전 형제가 이미 commit되었으므로** `domElement`가 설정되어 있을 것
-3. 하지만 `insertBefore`를 사용할 때는 **이전 형제의 `nextSibling`**을 사용하는 것이 아니라, **부모의 childNodes를 직접 참조**해야 합니다.
+React approach:
+1. Traverse in child -> sibling order in commit phase
+2. When committing each Fiber, **previous sibling has already been committed**, so `domElement` should be set
+3. But when using `insertBefore`, should **directly reference parent's childNodes** rather than using **previous sibling's `nextSibling`**.
 
-현재 구현의 문제:
-- `fiber.index`로 이전 형제를 찾으려고 시도
-- 하지만 Fiber sibling 관계와 VNode children 순서가 일치하지 않을 수 있음
+Current implementation issue:
+- Attempts to find previous sibling with `fiber.index`
+- But Fiber sibling relationship and VNode children order may not match
 
-**해결책**: 
-- commit phase에서 이전 형제를 찾을 때, **VNode children 배열을 기준으로** 이전 형제 Fiber를 찾아야 합니다.
-- 또는 **부모의 childNodes를 직접 참조**하여 올바른 위치를 찾아야 합니다.
+**Solution**: 
+- When finding previous sibling in commit phase, must find previous sibling Fiber based on **VNode children array**.
+- Or must **directly reference parent's childNodes** to find correct position.
 
-## 권장 수정 사항
+## Recommended Modifications
 
-1. **commitFiberTree 순회 순서 확인**: child -> sibling 순서가 올바른지 확인
-2. **이전 형제 찾기 로직 수정**: VNode children 배열을 기준으로 이전 형제 Fiber 찾기
-3. **referenceNode 계산**: 이전 형제의 `domElement.nextSibling` 대신, 부모의 childNodes를 직접 참조
-
+1. **Verify commitFiberTree traversal order**: Verify that child -> sibling order is correct
+2. **Fix previous sibling finding logic**: Find previous sibling Fiber based on VNode children array
+3. **Calculate referenceNode**: Directly reference parent's childNodes instead of previous sibling's `domElement.nextSibling`

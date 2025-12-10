@@ -1,15 +1,15 @@
 # Barocss Reconcile Architecture Overview
 
-> **참고**: 이 문서는 기본 개요입니다. 더 자세한 내용은 다음 문서들을 참고하세요:
-> - [`architecture-design-principles.md`](./architecture-design-principles.md) - 핵심 설계 원칙 ⭐
-> - [`architecture-practical-examples.md`](./architecture-practical-examples.md) - 실전 예제
-> - [`architecture-mathematical-model.md`](./architecture-mathematical-model.md) - 수학적 모델
-> - [`architecture-flow-diagram.md`](./architecture-flow-diagram.md) - 플로우 다이어그램
-> - [`architecture-summary.md`](./architecture-summary.md) - 빠른 참조
+> **Note**: This document is a basic overview. For more details, see:
+> - [`architecture-design-principles.md`](./architecture-design-principles.md) - Core design principles ⭐
+> - [`architecture-practical-examples.md`](./architecture-practical-examples.md) - Practical examples
+> - [`architecture-mathematical-model.md`](./architecture-mathematical-model.md) - Mathematical model
+> - [`architecture-flow-diagram.md`](./architecture-flow-diagram.md) - Flow diagram
+> - [`architecture-summary.md`](./architecture-summary.md) - Quick reference
 
-## 전체 아키텍처
+## Overall Architecture
 
-Barocss는 **DSL → VNode → Reconcile → DOM** 구조로 동작합니다.
+Barocss operates with the **DSL → VNode → Reconcile → DOM** structure.
 
 ```
 Model Data
@@ -27,7 +27,7 @@ DOM
 
 ### 1.1 DSL (Domain Specific Language)
 
-DSL은 renderer에 등록된 템플릿 정의입니다:
+DSL is template definitions registered in the renderer:
 
 ```typescript
 interface ElementTemplate {
@@ -48,17 +48,17 @@ interface DataTemplate {
 }
 ```
 
-### 1.2 VNodeBuilder의 역할
+### 1.2 VNodeBuilder's Role
 
-`VNodeBuilder`는 DSL 템플릿을 VNode로 변환합니다:
+`VNodeBuilder` converts DSL templates to VNode:
 
 ```typescript
 class VNodeBuilder {
   build(nodeType: string, data: ModelData): VNode {
-    // 1. Registry에서 템플릿 조회
+    // 1. Look up template from Registry
     const template = this.registry.getTemplate(nodeType);
     
-    // 2. 템플릿 타입에 따라 VNode 생성
+    // 2. Create VNode based on template type
     if (template.type === 'element') {
       return this._buildElement(template, data);
     } else if (template.type === 'component') {
@@ -84,13 +84,13 @@ class VNodeBuilder {
 }
 ```
 
-**핵심 동작**:
-- `data('text')` → 텍스트 노드
-- `component({ ... })` → 컴포넌트 VNode
-- `each(data('items'))` → 반복 VNode 생성
-- `when(data('show'))` → 조건부 평가 (build time)
+**Core operations**:
+- `data('text')` → text node
+- `component({ ... })` → component VNode
+- `each(data('items'))` → repeated VNode creation
+- `when(data('show'))` → conditional evaluation (build time)
 
-### 1.3 VNode 구조
+### 1.3 VNode Structure
 
 ```typescript
 interface VNode {
@@ -114,36 +114,36 @@ interface VNode {
 
 ## 2. VNode → DOM (Reconcile)
 
-### 2.1 Reconcile의 목적
+### 2.1 Purpose of Reconcile
 
-**Reconcile**은 두 VNode 트리(`prevVNode`, `nextVNode`)를 비교하여 실제 DOM에 최소한의 변경만 적용하는 과정입니다.
+**Reconcile** is the process of comparing two VNode trees (`prevVNode`, `nextVNode`) and applying only minimal changes to the actual DOM.
 
 ```typescript
 reconcile(prevVNode: VNode | null, nextVNode: VNode | null, 
           container: HTMLElement, context: ReconcileContext): void
 ```
 
-### 2.2 Reconcile 단계
+### 2.2 Reconcile Steps
 
 ```
-1. WIP Tree 생성
-   └─ nextVNode와 prevVNode를 기반으로 WIP 트리 생성
+1. Create WIP Tree
+   └─ Create WIP tree based on nextVNode and prevVNode
 
-2. 변경사항 감지
-   └─ ChangeDetection: tag, attrs, children 등 변경 여부 판단
-   └─ 우선순위 할당: IMMEDIATE, HIGH, NORMAL, LOW, IDLE
+2. Detect Changes
+   └─ ChangeDetection: determine if tag, attrs, children, etc. changed
+   └─ Assign priority: IMMEDIATE, HIGH, NORMAL, LOW, IDLE
 
-3. 우선순위별 처리
-   └─ processByPriority(): 우선순위 큐에서 WIP를 순차 처리
-   └─ processWorkInProgress(): WIP 타입에 따라 처리
+3. Process by Priority
+   └─ processByPriority(): process WIPs sequentially from priority queue
+   └─ processWorkInProgress(): process based on WIP type
       ├─ text: processTextNode
       ├─ element: processElementNode
       ├─ component: ComponentManager
       └─ portal: PortalManager
 
-4. DOM 업데이트 실행
-   └─ finalizeDOMUpdate(): DOM에 실제 변경 적용
-   └─ 중복 방지: isAlreadyInDOM 체크
+4. Execute DOM Updates
+   └─ finalizeDOMUpdate(): apply actual changes to DOM
+   └─ Prevent duplicates: isAlreadyInDOM check
 ```
 
 #### Reconcile High-level Flow (Mermaid)
@@ -161,9 +161,9 @@ graph TD
     H --> I[finalizeDOMUpdate]
 ```
 
-> Note: 렌더 큐는 "WIP 처리 직후" 적재되고 마지막에 일괄 finalize 됩니다.
+> Note: Render queue is loaded "immediately after WIP processing" and batch-finalized at the end.
 
-### 2.3 Work In Progress (WIP) 패턴
+### 2.3 Work In Progress (WIP) Pattern
 
 ```typescript
 interface DOMWorkInProgress {
@@ -172,7 +172,7 @@ interface DOMWorkInProgress {
   vnode: VNode;
   previousVNode?: VNode;
   
-  domNode?: Node;           // 실제 DOM 노드
+  domNode?: Node;           // Actual DOM node
   parent?: DOMWorkInProgress;
   children: DOMWorkInProgress[];
   
@@ -183,16 +183,16 @@ interface DOMWorkInProgress {
 }
 ```
 
-### 2.4 주요 클래스 구조
+### 2.4 Main Class Structure
 
 ```
-DOMReconcile (메인 orchestrator)
-├─ WorkInProgressManager: WIP 트리 생성 및 관리
-├─ ChangeDetection: 변경사항 감지
-├─ DOMProcessor: DOM 조작 (insert/update/remove)
-├─ ComponentManager: 컴포넌트 라이프사이클
-├─ PortalManager: Portal 렌더링
-└─ DOMOperations: DOM 생성/수정 유틸리티
+DOMReconcile (main orchestrator)
+├─ WorkInProgressManager: WIP tree creation and management
+├─ ChangeDetection: change detection
+├─ DOMProcessor: DOM manipulation (insert/update/remove)
+├─ ComponentManager: component lifecycle
+├─ PortalManager: portal rendering
+└─ DOMOperations: DOM creation/modification utilities
 ```
 
 #### Module Interaction (Mermaid)
@@ -222,16 +222,16 @@ sequenceDiagram
     W->>O: finalizeDOMUpdate(wip, container)
 ```
 
-## 3. 처리 흐름 상세
+## 3. Detailed Processing Flow
 
-### 3.1 VNodeBuilder → DOM 흐름
+### 3.1 VNodeBuilder → DOM Flow
 
 ```
 Model: { stype: 'paragraph', text: 'Hello' }
     ↓
 VNodeBuilder.build('paragraph', model)
     ↓
-Registry에서 템플릿 조회
+Look up template from Registry
     ↓
 _buildElement(template, model)
     ↓
@@ -239,7 +239,7 @@ VNode: { tag: 'p', text: 'Hello', attrs: {...} }
     ↓
 DOMReconcile.reconcile(null, vnode, container, context)
     ↓
-WIP Tree 생성
+Create WIP Tree
     ↓
 processElementNode(wip)
     ↓
@@ -250,7 +250,7 @@ finalizeDOMUpdate()
 DOM: <p>Hello</p>
 ```
 
-### 3.2 Update 흐름 (Reconcile)
+### 3.2 Update Flow (Reconcile)
 
 ```
 1. prevVNode: { tag: 'p', text: 'Old' }
@@ -258,7 +258,7 @@ DOM: <p>Hello</p>
     ↓
 DOMReconcile.reconcile(prevVNode, nextVNode, container, context)
     ↓
-WIP Tree 생성
+Create WIP Tree
   - wip: { vnode: nextVNode, previousVNode: prevVNode, ... }
     ↓
 ChangeDetection.detectVNodeChanges()
@@ -274,7 +274,7 @@ finalizeDOMUpdate(wip)
 DOM: <p>New</p>
 ```
 
-### 3.3 Children Reconcile 흐름
+### 3.3 Children Reconcile Flow
 
 ```
 prevChildren: [{tag: 'p', text: 'First'}]
@@ -316,14 +316,14 @@ graph LR
     G --> H[finalizeDOMUpdate guards skip duplicates]
 ```
 
-> 규칙: key는 형제 범위에서 유일해야 하며, 혼합 목록에서는 keyed를 우선 재배치한 후 unkeyed를 인덱스로 맞춥니다.
+> Rule: Keys must be unique within sibling scope, and in mixed lists, keyed items are reordered first, then unkeyed items are aligned by index.
 
-## 4. 컴포넌트 처리
+## 4. Component Processing
 
-### 4.1 컴포넌트 VNode 생성
+### 4.1 Component VNode Creation
 
 ```typescript
-// VNodeBuilder에서
+// In VNodeBuilder
 private _buildComponent(template: ComponentTemplate, data: ModelData): VNode {
   const componentInstance = this.getOrCreateInstance(template.type, data);
   
@@ -340,7 +340,7 @@ private _buildComponent(template: ComponentTemplate, data: ModelData): VNode {
 }
 ```
 
-### 4.2 컴포넌트 Reconcile
+### 4.2 Component Reconcile
 
 ```
 VNode with component
@@ -349,14 +349,14 @@ processComponentNode(wip)
     ↓
 ComponentManager.mountComponent() or updateComponent()
     ↓
-Component instance 생성/업데이트
+Create/update component instance
     ↓
-Component의 자체 reconcile 호출
+Call component's own reconcile
     ↓
-DOM 업데이트
+DOM update
 ```
 
-## 5. Portal 처리
+## 5. Portal Processing
 
 ### 5.1 Portal VNode
 
@@ -380,11 +380,11 @@ processPortalNode(wip)
     ↓
 PortalManager.insertPortal()
     ↓
-generatePortalId() → stable ID 생성
+generatePortalId() → create stable ID
     ↓
 renderPortalContent() or updatePortalContent()
     ↓
-DOM target에 content 렌더링
+Render content to DOM target
 ```
 
 #### Portal Flow (Mermaid)
@@ -414,7 +414,7 @@ graph TD
     D2 --> M2[done]
 ```
 
-## 6. 핵심 개념
+## 6. Core Concepts
 
 ### 6.1 Change Detection
 
@@ -438,17 +438,17 @@ class ChangeDetection {
 
 ```typescript
 enum DOMRenderPriority {
-  IMMEDIATE = 1,  // 사용자 입력, 애니메이션
-  HIGH = 2,       // 레이아웃 변경
-  NORMAL = 3,     // 일반 업데이트
-  LOW = 4,        // 배경 작업
-  IDLE = 5        // 유휴 시간
+  IMMEDIATE = 1,  // User input, animations
+  HIGH = 2,       // Layout changes
+  NORMAL = 3,     // General updates
+  LOW = 4,        // Background work
+  IDLE = 5        // Idle time
 }
 ```
 
-### 6.3 Children Reconcile 로직
+### 6.3 Children Reconcile Logic
 
-**핵심**: reconcilChildren에서 생성/교체된 DOM 노드를 child WIP의 domNode에 설정해야 함.
+**Core**: DOM nodes created/replaced in reconcilChildren must be set to child WIP's domNode.
 
 ```typescript
 private reconcileChildren(wip: DOMWorkInProgress, 
@@ -457,11 +457,11 @@ private reconcileChildren(wip: DOMWorkInProgress,
   // ... loop through prevChildren and nextChildren
   
   if (!prevChild) {
-    // 새 자식 추가
+    // Add new child
     const newNode = this.createNewDOMNode(nextChild);
     domNode.insertBefore(newNode, referenceNode);
     
-    // 중요: child WIP의 domNode 설정
+    // Important: set child WIP's domNode
     const childWip = wip.children[nextIndex];
     if (childWip) {
       childWip.domNode = newNode;
@@ -470,31 +470,31 @@ private reconcileChildren(wip: DOMWorkInProgress,
 }
 ```
 
-## 7. 파일 구조 (패키지 분리 업데이트)
+## 7. File Structure (Package Separation Update)
 
 ```
 packages/
-├─ schema/            # DSL/Schema 정의 및 등록소(Registry)
-├─ model/             # VNode 타입, 모델 타입, 데이터 구조
-├─ renderer-dom/      # DOM 대상 Reconcile & Renderer
-│  ├─ dom-renderer.ts            # High-level renderer (DSL→VNode→reconcile 진입점)
-│  ├─ dom-reconcile.ts           # WIP 기반 메인 Reconcile orchestrator
-│  ├─ work-in-progress.ts        # WIP 인터페이스/우선순위
-│  ├─ work-in-progress-manager.ts# WIP 트리/큐/통계
-│  ├─ change-detection.ts        # 변경 감지
-│  ├─ dom-processor.ts           # DOM 조작(텍스트/엘리먼트/children 디스패치)
-│  ├─ key-based-reconciler.ts    # keyed children 재사용/이동
-│  ├─ component-manager.ts       # 컴포넌트 라이프사이클(컨텍스트/외부)
-│  ├─ portal-manager.ts          # 포털 처리(생성/업데이트/정리)
-│  └─ dom-operations.ts          # DOM 생성/속성/스타일 유틸리티
-└─ datastore/          # 데이터 스토어
+├─ schema/            # DSL/Schema definitions and registry
+├─ model/             # VNode types, model types, data structures
+├─ renderer-dom/      # DOM target Reconcile & Renderer
+│  ├─ dom-renderer.ts            # High-level renderer (DSL→VNode→reconcile entry point)
+│  ├─ dom-reconcile.ts           # WIP-based main Reconcile orchestrator
+│  ├─ work-in-progress.ts        # WIP interface/priority
+│  ├─ work-in-progress-manager.ts# WIP tree/queue/statistics
+│  ├─ change-detection.ts        # Change detection
+│  ├─ dom-processor.ts           # DOM manipulation (text/element/children dispatch)
+│  ├─ key-based-reconciler.ts    # keyed children reuse/move
+│  ├─ component-manager.ts       # Component lifecycle (contextual/external)
+│  ├─ portal-manager.ts          # Portal handling (create/update/cleanup)
+│  └─ dom-operations.ts          # DOM creation/attribute/style utilities
+└─ datastore/          # Data store
 ```
 
-> 분리 원칙: DSL/Schema(모델→템플릿 해석), Model(VNode 타입), Renderer(Reconcile 구현)를 명확히 분리하여 교체 가능성을 높입니다.
+> Separation principle: Clearly separate DSL/Schema (model→template interpretation), Model (VNode types), and Renderer (Reconcile implementation) to increase replaceability.
 
-## 8. 사용 예제
+## 8. Usage Examples
 
-### 8.1 기본 렌더링
+### 8.1 Basic Rendering
 
 ```typescript
 const renderer = new DOMRenderer(registry);
@@ -503,7 +503,7 @@ const model = { stype: 'paragraph', text: 'Hello' };
 renderer.render(container, model);
 ```
 
-### 8.2 수동 Reconcile
+### 8.2 Manual Reconcile
 
 ```typescript
 const prevVNode = { tag: 'p', text: 'Old' };
@@ -513,7 +513,7 @@ const context = createReconcileContext({ ... });
 domReconcile.reconcile(prevVNode, nextVNode, container, context);
 ```
 
-### 8.3 업데이트
+### 8.3 Update
 
 ```typescript
 // First render
@@ -524,64 +524,63 @@ model.items.push(newItem);
 renderer.render(container, model);  // reconcile happens
 ```
 
-## 9. 성능 최적화
+## 9. Performance Optimization
 
-1. **WIP 패턴**: 변경사항을 일괄 처리하여 불필요한 DOM 조작 최소화
-2. **Priority Queue**: 우선순위 기반 처리로 중요한 업데이트 우선 수행
-3. **Change Detection**: 변경된 부분만 업데이트
-4. **Children Reconcile**: React-style reconciliation으로 효율적인 DOM 업데이트
+1. **WIP Pattern**: Batch process changes to minimize unnecessary DOM manipulation
+2. **Priority Queue**: Process important updates first based on priority
+3. **Change Detection**: Only update changed parts
+4. **Children Reconcile**: Efficient DOM updates with React-style reconciliation
 
-## 10. 핵심 규칙
+## 10. Core Rules
 
-1. **VNodeBuilder**는 데이터를 VNode로 변환만 담당
-2. **DOMReconcile**은 VNode 차이를 DOM 변경으로 변환
-3. **WIP 패턴**으로 실제 변경을 일괄 처리
-4. **children reconcile**에서 생성된 DOM 노드는 child WIP의 domNode에 설정
-5. **finalizeDOMUpdate**에서 중복 append 방지 (`isAlreadyInDOM` 체크)
+1. **VNodeBuilder** only converts data to VNode
+2. **DOMReconcile** converts VNode differences to DOM changes
+3. **WIP Pattern** batches actual changes
+4. DOM nodes created in **children reconcile** are set to child WIP's domNode
+5. **finalizeDOMUpdate** prevents duplicate append (`isAlreadyInDOM` check)
 
-## 11. 확장 가능한 Reconcile 레이어 (Canvas/Three 등)
+## 11. Extensible Reconcile Layer (Canvas/Three, etc.)
 
-### 11.1 목표
-- DOM 이외 대상(WebCanvas, WebGL/Three 등)을 동일한 WIP 기반 파이프라인으로 처리할 수 있도록 Reconcile 레이어를 플러그형으로 확장.
+### 11.1 Goal
+- Extend Reconcile layer as pluggable to handle non-DOM targets (WebCanvas, WebGL/Three, etc.) with the same WIP-based pipeline.
 
-### 11.2 공통 인터페이스(개념)
+### 11.2 Common Interface (Concept)
 ```typescript
 interface ReconcileAdapter<TContainer, TNode> {
   createContext(args: any): ReconcileContext;
   reconcile(prev: VNode | null, next: VNode | null, container: TContainer, ctx: ReconcileContext): void;
-  // 선택: adapter 전용 Operations (예: draw, material update 등)
+  // Optional: adapter-specific Operations (e.g., draw, material update, etc.)
 }
 ```
 
-### 11.3 구조 개요 (Mermaid)
+### 11.3 Structure Overview (Mermaid)
 ```mermaid
 graph TD
     A[DSL/Schema] --> B[VNodeBuilder]
     B --> C[VNode Tree]
-    C --> D{Adapter 선택}
+    C --> D{Adapter Selection}
     D -- DOM --> E[DOMReconcile]
-    D -- Canvas --> F[CanvasReconcile (계획)]
-    D -- Three --> G[ThreeReconcile (계획)]
+    D -- Canvas --> F[CanvasReconcile (planned)]
+    D -- Three --> G[ThreeReconcile (planned)]
     E --> H[DOM]
     F --> I[Canvas 2D API]
     G --> J[WebGL/Three Scene]
 ```
 
-### 11.4 DOMReconcile와의 공통점/차이
-- 공통점: WIP 트리 생성, 변경 감지, 우선순위 큐, 렌더 큐/최종 커밋 흐름은 동일.
-- 차이: Operations 계층이 대상별로 상이함
-  - DOM: `createElementNS`, `setAttributeNS`, `insertBefore` 등
-  - Canvas: path/state 스택 관리, draw 커맨드 배치, 레이어 합성
-  - Three: Scene/Material/Geometry 생성/폐기, Object3D attach/detach
+### 11.4 Commonalities/Differences with DOMReconcile
+- Common: WIP tree creation, change detection, priority queue, render queue/final commit flow are the same.
+- Differences: Operations layer differs by target
+  - DOM: `createElementNS`, `setAttributeNS`, `insertBefore`, etc.
+  - Canvas: path/state stack management, batch draw commands, layer composition
+  - Three: Scene/Material/Geometry creation/disposal, Object3D attach/detach
 
-### 11.5 마이그레이션 시 지침
-- WIP/ChangeDetection/우선순위 큐는 최대한 공통화하고, 실제 커밋(Operations)만 대상별로 구현
-- key/unkeyed children 처리 철학 유지(재사용 우선, 필요 시 이동)
-- 포털 유사 개념은 대상별 컨테이너/레이어로 매핑(예: Canvas 레이어, Three Scene 노드)
+### 11.5 Migration Guidelines
+- Maximize commonality in WIP/ChangeDetection/priority queue, only implement actual commit (Operations) per target
+- Maintain key/unkeyed children handling philosophy (reuse first, move if needed)
+- Map portal-like concepts to target-specific containers/layers (e.g., Canvas layers, Three Scene nodes)
 
-### 11.6 현재 DOMReconcile 주요 결정 요약(문서 반영됨)
-- 혼합 keyed/unkeyed: keyed 우선 재배치 → unkeyed 인덱스 정합
-- excludeDecorators: `data-decorator='true'`는 옵션 활성 시 스킵 (root reconcile과 reconcileChildren 모두 적용)
-- 네임스페이스: SVG/MathML cross-nesting 지원(createElementNS/setAttributeNS)
-- 중복 삽입 방지: `__barocss_inserted`/`isAlreadyInDOM` 가드
-
+### 11.6 Current DOMReconcile Key Decisions Summary (Documented)
+- Mixed keyed/unkeyed: keyed items reordered first → unkeyed index alignment
+- excludeDecorators: `data-decorator='true'` is skipped when option is active (applies to both root reconcile and reconcileChildren)
+- Namespace: SVG/MathML cross-nesting support (createElementNS/setAttributeNS)
+- Duplicate insertion prevention: `__barocss_inserted`/`isAlreadyInDOM` guards

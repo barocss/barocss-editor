@@ -1,10 +1,10 @@
 # When Expression Parser Spec (`@barocss/editor-core`)
 
-## 개요
+## Overview
 
-`when-expression` 파서는 VS Code의 when clause 스펙을 기반으로 구현된 조건식 평가 엔진입니다. Keybinding의 `when` 속성에서 사용되며, context key를 기반으로 불리언 표현식을 평가합니다.
+The `when-expression` parser is a conditional expression evaluation engine implemented based on VS Code's when clause specification. It is used in the `when` property of Keybindings and evaluates boolean expressions based on context keys.
 
-**참고**: [VS Code When Clause Contexts](https://code.visualstudio.com/api/references/when-clause-contexts)
+**Reference**: [VS Code When Clause Contexts](https://code.visualstudio.com/api/references/when-clause-contexts)
 
 ---
 
@@ -12,7 +12,7 @@
 
 ### `evaluateWhenExpression(expr: string, context: Record<string, unknown>): boolean`
 
-when 표현식을 평가하여 불리언 값을 반환합니다.
+Evaluates a when expression and returns a boolean value.
 
 ```typescript
 import { evaluateWhenExpression } from '@barocss/editor-core';
@@ -27,34 +27,34 @@ const result = evaluateWhenExpression('editorFocus && editorEditable', context);
 // true
 ```
 
-**파라미터**:
-- `expr`: 평가할 when 표현식 문자열
-- `context`: context key와 값의 맵핑 객체
+**Parameters**:
+- `expr`: When expression string to evaluate
+- `context`: Mapping object of context keys and values
 
-**반환값**: 표현식 평가 결과 (`true` 또는 `false`)
+**Returns**: Expression evaluation result (`true` or `false`)
 
-**특수 케이스**:
-- 빈 문자열 또는 공백만 있는 경우: 항상 `true` 반환
-- 정의되지 않은 context key: `false`로 간주
+**Special cases**:
+- Empty string or only whitespace: Always returns `true`
+- Undefined context key: Treated as `false`
 
 ---
 
-## 지원하는 연산자
+## Supported Operators
 
-### 1. Logical Operators (논리 연산자)
+### 1. Logical Operators
 
-| 연산자 | 기호 | 예시 | 우선순위 |
-|--------|------|------|----------|
-| Not | `!` | `!editorFocus` | 높음 |
-| And | `&&` | `editorFocus && editorEditable` | 중간 |
-| Or | `\|\|` | `editorFocus \|\| editorEditable` | 낮음 |
+| Operator | Symbol | Example | Priority |
+|----------|--------|---------|----------|
+| Not | `!` | `!editorFocus` | High |
+| And | `&&` | `editorFocus && editorEditable` | Medium |
+| Or | `\|\|` | `editorFocus \|\| editorEditable` | Low |
 
-**우선순위 규칙**:
+**Priority rules**:
 - `!` > `&&` > `||`
-- 예: `!foo && bar` → `(!foo) && bar`
-- 예: `foo || bar && baz` → `foo || (bar && baz)`
+- Example: `!foo && bar` → `(!foo) && bar`
+- Example: `foo || bar && baz` → `foo || (bar && baz)`
 
-**예시**:
+**Examples**:
 ```typescript
 evaluateWhenExpression('editorFocus && editorEditable', {
   editorFocus: true,
@@ -73,21 +73,21 @@ evaluateWhenExpression('editorFocus || editorEditable', {
 
 ---
 
-### 2. Equality Operators (동등 연산자)
+### 2. Equality Operators
 
-| 연산자 | 기호 | 예시 |
-|--------|------|------|
+| Operator | Symbol | Example |
+|----------|--------|---------|
 | Equality | `==` | `selectionType == 'range'` |
 | Inequality | `!=` | `selectionType != 'node'` |
 
-**참고**: `===`와 `!==`도 지원하며, `==`와 `!=`와 동일하게 동작합니다.
+**Note**: `===` and `!==` are also supported and behave the same as `==` and `!=`.
 
-**문자열 리터럴**:
-- 단일 따옴표(`'`)로 감싸야 합니다
-- 공백이 포함된 문자열도 따옴표로 감싸야 합니다
-- 이스케이프: `\'` (따옴표), `\\` (백슬래시)
+**String literals**:
+- Must be wrapped in single quotes (`'`)
+- Strings with spaces must also be wrapped in quotes
+- Escape: `\'` (quote), `\\` (backslash)
 
-**예시**:
+**Examples**:
 ```typescript
 evaluateWhenExpression("selectionType == 'range'", {
   selectionType: 'range'
@@ -104,26 +104,26 @@ evaluateWhenExpression("selectionType == 'It\\'s a test'", {
 
 ---
 
-### 3. Comparison Operators (비교 연산자)
+### 3. Comparison Operators
 
-| 연산자 | 기호 | 예시 | 주의사항 |
-|--------|------|------|----------|
-| Greater than | `>` | `workspaceFolderCount > 1` | 좌우 공백 필요 |
-| Greater than or equal | `>=` | `workspaceFolderCount >= 1` | 좌우 공백 필요 |
-| Less than | `<` | `workspaceFolderCount < 2` | 좌우 공백 필요 |
-| Less than or equal | `<=` | `workspaceFolderCount <= 2` | 좌우 공백 필요 |
+| Operator | Symbol | Example | Notes |
+|----------|--------|---------|-------|
+| Greater than | `>` | `workspaceFolderCount > 1` | Requires spaces on both sides |
+| Greater than or equal | `>=` | `workspaceFolderCount >= 1` | Requires spaces on both sides |
+| Less than | `<` | `workspaceFolderCount < 2` | Requires spaces on both sides |
+| Less than or equal | `<=` | `workspaceFolderCount <= 2` | Requires spaces on both sides |
 
-**동작**:
-- 좌우 피연산자를 숫자로 변환하여 비교합니다
-- 숫자가 아닌 경우 `false`를 반환합니다
+**Behavior**:
+- Converts left and right operands to numbers for comparison
+- Returns `false` if not numbers
 
-**숫자 리터럴 지원**:
-- 정수: `1`, `42`, `100`
-- 소수점: `0.5`, `1.5`, `10.99`
-- `.5` 형식 (0 생략): `.5`는 `0.5`로 해석됩니다
-- context 값도 소수점 숫자를 지원합니다
+**Number literal support**:
+- Integers: `1`, `42`, `100`
+- Decimals: `0.5`, `1.5`, `10.99`
+- `.5` format (0 omitted): `.5` is interpreted as `0.5`
+- Context values also support decimal numbers
 
-**예시**:
+**Examples**:
 ```typescript
 evaluateWhenExpression('workspaceFolderCount > 1', {
   workspaceFolderCount: 2
@@ -133,16 +133,16 @@ evaluateWhenExpression('workspaceFolderCount >= 1', {
   workspaceFolderCount: 1
 }); // true
 
-// 소수점 숫자 리터럴
+// Decimal number literals
 evaluateWhenExpression('progress > 0.5', {
   progress: 0.75
 }); // true
 
 evaluateWhenExpression('progress > .5', {
   progress: 0.6
-}); // true (.5는 0.5로 해석)
+}); // true (.5 is interpreted as 0.5)
 
-// context 값이 소수점인 경우
+// Context value is decimal
 evaluateWhenExpression('progress > 0', {
   progress: 0.1
 }); // true
@@ -157,27 +157,27 @@ evaluateWhenExpression('workspaceFolderCount < 2', {
 
 evaluateWhenExpression('editorFocus > 1', {
   editorFocus: true
-}); // false (비숫자 비교)
+}); // false (non-numeric comparison)
 ```
 
 ---
 
-### 4. Match Operator (정규식 매칭)
+### 4. Match Operator (Regex Matching)
 
-| 연산자 | 기호 | 예시 |
-|--------|------|------|
+| Operator | Symbol | Example |
+|----------|--------|---------|
 | Matches | `=~` | `resourceFilename =~ /docker/` |
 
-**정규식 리터럴 형식**:
-- `/pattern/flags` 형식
-- 플래그: `i` (case-insensitive), `s` (dotall), `m` (multiline), `u` (unicode)
-- `g`, `y` 플래그는 무시됩니다
+**Regex literal format**:
+- `/pattern/flags` format
+- Flags: `i` (case-insensitive), `s` (dotall), `m` (multiline), `u` (unicode)
+- `g`, `y` flags are ignored
 
-**이스케이프 규칙**:
-- JSON 문자열에서는 백슬래시를 이중 이스케이프해야 합니다
-- 예: `/file:\/\/\/` → JSON에서는 `"/file:\\/\\//"`
+**Escape rules**:
+- In JSON strings, backslashes must be double-escaped
+- Example: `/file:\/\/\/` → `"/file:\\/\\//"` in JSON
 
-**예시**:
+**Examples**:
 ```typescript
 evaluateWhenExpression("resourceFilename =~ /docker/", {
   resourceFilename: 'docker-compose.yml'
@@ -198,28 +198,28 @@ evaluateWhenExpression("resourceScheme =~ /file:\\/\\//", {
 
 ---
 
-### 5. In / Not In Operators (멤버십 연산자)
+### 5. In / Not In Operators (Membership Operators)
 
-| 연산자 | 기호 | 예시 |
-|--------|------|------|
+| Operator | Symbol | Example |
+|----------|--------|---------|
 | In | `in` | `resourceFilename in supportedFolders` |
 | Not in | `not in` | `resourceFilename not in supportedFolders` |
 
-**동작**:
-- 좌측 값이 우측 배열/객체에 포함되어 있는지 확인합니다
-- 배열: `Array.includes()` 사용
-- 객체: `in` 연산자 사용 (키 존재 여부)
-- 배열/객체가 아닌 경우 `false` 반환
+**Behavior**:
+- Checks if left value is included in right array/object
+- Arrays: Uses `Array.includes()`
+- Objects: Uses `in` operator (key existence check)
+- Returns `false` if not array/object
 
-**예시**:
+**Examples**:
 ```typescript
-// 배열
+// Array
 evaluateWhenExpression("resourceFilename in supportedFolders", {
   resourceFilename: 'test',
   supportedFolders: ['test', 'foo', 'bar']
 }); // true
 
-// 객체
+// Object
 evaluateWhenExpression("resourceFilename in supportedFolders", {
   resourceFilename: 'test',
   supportedFolders: { test: true, foo: 'anything', bar: 123 }
@@ -234,7 +234,7 @@ evaluateWhenExpression("resourceFilename not in supportedFolders", {
 
 ---
 
-## 리터럴
+## Literals
 
 ### Boolean Literals
 
@@ -245,7 +245,7 @@ evaluateWhenExpression('false', {}); // false
 
 ### String Literals
 
-단일 따옴표로 감싼 문자열:
+Strings wrapped in single quotes:
 
 ```typescript
 evaluateWhenExpression("selectionType == 'range'", {
@@ -255,30 +255,30 @@ evaluateWhenExpression("selectionType == 'range'", {
 
 ### Number Literals
 
-정수 및 소수점 숫자를 지원합니다:
+Supports integers and decimal numbers:
 
-**지원 형식**:
-- 정수: `1`, `42`, `100`
-- 소수점: `0.5`, `1.5`, `10.99`
-- `.5` 형식 (0 생략): `.5`는 `0.5`로 자동 해석됩니다 (VS Code 호환)
+**Supported formats**:
+- Integers: `1`, `42`, `100`
+- Decimals: `0.5`, `1.5`, `10.99`
+- `.5` format (0 omitted): `.5` is automatically interpreted as `0.5` (VS Code compatible)
 
-**예시**:
+**Examples**:
 ```typescript
-// 정수
+// Integer
 evaluateWhenExpression('workspaceFolderCount > 1', {
   workspaceFolderCount: 2
 }); // true
 
-// 소수점 숫자 리터럴
+// Decimal number literals
 evaluateWhenExpression('progress > 0.5', {
   progress: 0.75
 }); // true
 
 evaluateWhenExpression('progress > .5', {
   progress: 0.6
-}); // true (.5는 0.5로 해석)
+}); // true (.5 is interpreted as 0.5)
 
-// context 값이 소수점인 경우
+// Context value is decimal
 evaluateWhenExpression('progress > 0', {
   progress: 0.1
 }); // true
@@ -287,7 +287,7 @@ evaluateWhenExpression('0.5 < progress', {
   progress: 0.75
 }); // true
 
-// 양쪽 모두 소수점
+// Both sides are decimals
 evaluateWhenExpression('progress > 0.3', {
   progress: 0.7
 }); // true
@@ -295,9 +295,9 @@ evaluateWhenExpression('progress > 0.3', {
 
 ---
 
-## 괄호 (Parentheses)
+## Parentheses
 
-괄호를 사용하여 연산자 우선순위를 조정할 수 있습니다:
+Parentheses can be used to adjust operator precedence:
 
 ```typescript
 evaluateWhenExpression('(editorFocus || editorEditable) && selectionEmpty', {
@@ -316,7 +316,7 @@ evaluateWhenExpression('!(editorFocus || editorEditable)', {
 
 ## Context Keys
 
-Context key는 `context` 객체에서 조회됩니다:
+Context keys are looked up from the `context` object:
 
 ```typescript
 const context = {
@@ -330,15 +330,15 @@ const context = {
 evaluateWhenExpression('editorFocus && !selectionEmpty', context);
 ```
 
-**정의되지 않은 key**:
-- `undefined` 또는 존재하지 않는 key는 `false`로 간주됩니다
-- `null` 값도 `false`로 간주됩니다
+**Undefined keys**:
+- `undefined` or non-existent keys are treated as `false`
+- `null` values are also treated as `false`
 
 ---
 
-## 복잡한 표현식 예시
+## Complex Expression Examples
 
-### VS Code 스타일 when clause
+### VS Code Style When Clause
 
 ```typescript
 evaluateWhenExpression("debuggersAvailable && !inDebugMode", {
@@ -347,7 +347,7 @@ evaluateWhenExpression("debuggersAvailable && !inDebugMode", {
 }); // true
 ```
 
-### 에디터 포커스 및 편집 가능 여부 체크
+### Editor Focus and Editability Check
 
 ```typescript
 evaluateWhenExpression("editorFocus && editorEditable && !selectionEmpty", {
@@ -357,7 +357,7 @@ evaluateWhenExpression("editorFocus && editorEditable && !selectionEmpty", {
 }); // true
 ```
 
-### 선택 타입 체크
+### Selection Type Check
 
 ```typescript
 evaluateWhenExpression("selectionType == 'range' && editorFocus", {
@@ -372,16 +372,16 @@ evaluateWhenExpression("selectionType == 'node' || selectionType == 'multi-node'
 
 ---
 
-## 엣지 케이스
+## Edge Cases
 
-### 빈 문자열
+### Empty String
 
 ```typescript
-evaluateWhenExpression('', {}); // true (항상 true)
-evaluateWhenExpression('   ', {}); // true (공백만 있어도 true)
+evaluateWhenExpression('', {}); // true (always true)
+evaluateWhenExpression('   ', {}); // true (true even with only whitespace)
 ```
 
-### 정의되지 않은 context key
+### Undefined Context Key
 
 ```typescript
 evaluateWhenExpression('undefinedKey', {}); // false
@@ -390,7 +390,7 @@ evaluateWhenExpression('undefinedKey || editorFocus', {
 }); // true
 ```
 
-### null 값
+### Null Value
 
 ```typescript
 evaluateWhenExpression('nullKey', {
@@ -399,22 +399,22 @@ evaluateWhenExpression('nullKey', {
 
 evaluateWhenExpression("nullKey == null", {
   nullKey: null
-}); // true (문자열 'null'과 비교)
+}); // true (compares with string 'null')
 ```
 
 ---
 
-## 구현 위치
+## Implementation Location
 
-- **소스 코드**: `packages/editor-core/src/when-expression.ts`
-- **테스트 코드**: `packages/editor-core/test/when-expression.test.ts`
-- **사용처**: `KeybindingRegistry`의 `when` 조건 평가
+- **Source code**: `packages/editor-core/src/when-expression.ts`
+- **Test code**: `packages/editor-core/test/when-expression.test.ts`
+- **Usage**: `when` condition evaluation in `KeybindingRegistry`
 
 ---
 
-## VS Code 스펙 호환성
+## VS Code Spec Compatibility
 
-이 파서는 VS Code의 when clause 스펙을 기반으로 구현되었으며, 다음 기능을 지원합니다:
+This parser is implemented based on VS Code's when clause specification and supports the following features:
 
 ✅ Logical operators (`!`, `&&`, `||`)  
 ✅ Equality operators (`==`, `!=`, `===`, `!==`)  
@@ -426,14 +426,13 @@ evaluateWhenExpression("nullKey == null", {
 ✅ Number literals  
 ✅ Boolean literals (`true`, `false`)  
 
-**차이점**:
-- VS Code의 일부 context key (예: `editorLangId`, `resourceExtname`)는 `editor-core`에 포함되지 않습니다
-- `editor-core`는 에디터 내부 상태에만 집중합니다
+**Differences**:
+- Some VS Code context keys (e.g., `editorLangId`, `resourceExtname`) are not included in `editor-core`
+- `editor-core` focuses only on internal editor state
 
 ---
 
-## 관련 문서
+## Related Documents
 
-- [Keyboard Shortcut Spec](./keyboard-shortcut-spec.md) - Keybinding 시스템 전체 스펙
-- [VS Code When Clause Contexts](https://code.visualstudio.com/api/references/when-clause-contexts) - VS Code 공식 문서
-
+- [Keyboard Shortcut Spec](./keyboard-shortcut-spec.md) - Complete Keybinding system specification
+- [VS Code When Clause Contexts](https://code.visualstudio.com/api/references/when-clause-contexts) - VS Code official documentation

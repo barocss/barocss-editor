@@ -1,37 +1,37 @@
-# React DSL 스펙 문서
+# React DSL Specification
 
-## 📋 개요
+## 📋 Overview
 
-React DSL(Domain Specific Language)은 Zero Editor에서 React 컴포넌트를 사용하여 노드 타입별 렌더러를 정의하기 위한 도메인 특화 언어입니다. JSX 문법과 React Hooks를 활용하여 직관적이고 강력한 렌더러를 작성할 수 있습니다.
+React DSL (Domain Specific Language) is a domain-specific language for defining node-type-specific renderers using React components in Zero Editor. It leverages JSX syntax and React Hooks to write intuitive and powerful renderers.
 
-## 🎯 설계 목표
+## 🎯 Design Goals
 
-### 1. **React 친화적**
-- JSX 문법 사용
-- React Hooks 지원
-- 기존 React 지식 활용
+### 1. **React-friendly**
+- Use JSX syntax
+- Support React Hooks
+- Leverage existing React knowledge
 
-### 2. **타입 안전성**
-- TypeScript 완벽 지원
-- 컴파일 타임 오류 검출
-- 자동 완성 및 리팩토링 지원
+### 2. **Type Safety**
+- Full TypeScript support
+- Compile-time error detection
+- Autocomplete and refactoring support
 
-### 3. **성능 최적화**
-- React.memo, useMemo 등 활용
-- 가상 DOM 기반 최적화
-- 지연 렌더링 지원
+### 3. **Performance Optimization**
+- Leverage React.memo, useMemo, etc.
+- Virtual DOM-based optimization
+- Support lazy rendering
 
-### 4. **확장성**
-- Context API 지원
-- 커스텀 훅 재사용
-- 플러그인 시스템과 통합
+### 4. **Extensibility**
+- Support Context API
+- Reuse custom hooks
+- Integrate with plugin system
 
-## 🏗️ 핵심 개념
+## 🏗️ Core Concepts
 
-### 1. **렌더러 정의**
+### 1. **Renderer Definition**
 
 ```typescript
-// 기본 문법
+// Basic syntax
 function rendererReact<T = any>(
   nodeType: TNodeType, 
   component: React.ComponentType<T>
@@ -45,10 +45,10 @@ interface ReactRendererDefinition {
 }
 ```
 
-### 2. **컴포넌트 타입**
+### 2. **Component Types**
 
 ```typescript
-// 기본 컴포넌트 props
+// Basic component props
 interface BaseNodeProps {
   data: any;
   isSelected?: boolean;
@@ -59,7 +59,7 @@ interface BaseNodeProps {
   onDelete?: (nodeId: string) => void;
 }
 
-// 특정 노드 타입 props
+// Specific node type props
 interface TextNodeProps extends BaseNodeProps {
   data: {
     id: string;
@@ -77,7 +77,7 @@ interface TextNodeProps extends BaseNodeProps {
 ### 3. **Context API**
 
 ```typescript
-// 에디터 컨텍스트
+// Editor context
 interface EditorContextType {
   theme: 'light' | 'dark';
   readOnly: boolean;
@@ -104,12 +104,12 @@ const useEditor = () => {
 };
 ```
 
-## 📝 사용 예시
+## 📝 Usage Examples
 
-### 1. **기본 렌더러 정의**
+### 1. **Basic Renderer Definition**
 
 ```typescript
-// 텍스트 렌더러
+// Text renderer
 const TextRenderer: React.FC<TextNodeProps> = ({ data, isSelected, onSelect }) => {
   const { theme } = useEditor();
   
@@ -137,7 +137,7 @@ const TextRenderer: React.FC<TextNodeProps> = ({ data, isSelected, onSelect }) =
 
 const textRenderer = rendererReact<TextNodeProps>('text', TextRenderer);
 
-// 문단 렌더러
+// Paragraph renderer
 const ParagraphRenderer: React.FC<ParagraphNodeProps> = ({ data, isSelected, onSelect }) => {
   const { theme, readOnly } = useEditor();
   
@@ -168,10 +168,10 @@ const ParagraphRenderer: React.FC<ParagraphNodeProps> = ({ data, isSelected, onS
 const paragraphRenderer = rendererReact<ParagraphNodeProps>('paragraph', ParagraphRenderer);
 ```
 
-### 2. **커스텀 훅 활용**
+### 2. **Custom Hook Usage**
 
 ```typescript
-// 선택 상태 훅
+// Selection state hook
 const useNodeSelection = (nodeId: string) => {
   const { selection } = useEditor();
   const [isSelected, setIsSelected] = useState(false);
@@ -189,7 +189,7 @@ const useNodeSelection = (nodeId: string) => {
   return isSelected;
 };
 
-// 노드 액션 훅
+// Node action hook
 const useNodeActions = (nodeId: string) => {
   const { actions, readOnly } = useEditor();
   
@@ -208,7 +208,7 @@ const useNodeActions = (nodeId: string) => {
   return { handleClick, handleEdit, handleDelete };
 };
 
-// 스타일 훅
+// Style hook
 const useNodeStyle = (attributes: any) => {
   const { theme } = useEditor();
   
@@ -220,7 +220,7 @@ const useNodeStyle = (attributes: any) => {
   }), [attributes.bold, attributes.italic, attributes.color, theme]);
 };
 
-// 훅을 사용한 텍스트 렌더러
+// Text renderer using hooks
 const TextRenderer: React.FC<TextNodeProps> = ({ data }) => {
   const isSelected = useNodeSelection(data.sid);
   const { handleClick } = useNodeActions(data.sid);
@@ -238,10 +238,10 @@ const TextRenderer: React.FC<TextNodeProps> = ({ data }) => {
 };
 ```
 
-### 3. **복합 렌더러**
+### 3. **Composite Renderer**
 
 ```typescript
-// 이미지 렌더러
+// Image renderer
 const ImageRenderer: React.FC<ImageNodeProps> = ({ data, isSelected, onSelect }) => {
   const { theme } = useEditor();
   const [isLoaded, setIsLoaded] = useState(false);
@@ -295,7 +295,7 @@ const ImageRenderer: React.FC<ImageNodeProps> = ({ data, isSelected, onSelect })
 
 const imageRenderer = rendererReact<ImageNodeProps>('image', ImageRenderer);
 
-// 링크 렌더러
+// Link renderer
 const LinkRenderer: React.FC<LinkNodeProps> = ({ data, isSelected, onSelect }) => {
   const { theme } = useEditor();
   
@@ -330,10 +330,10 @@ const LinkRenderer: React.FC<LinkNodeProps> = ({ data, isSelected, onSelect }) =
 const linkRenderer = rendererReact<LinkNodeProps>('link', LinkRenderer);
 ```
 
-### 4. **리스트 렌더러**
+### 4. **List Renderer**
 
 ```typescript
-// 리스트 아이템 렌더러
+// List item renderer
 const ListItemRenderer: React.FC<ListItemNodeProps> = ({ data, isSelected, onSelect }) => {
   const { theme } = useEditor();
   
@@ -361,7 +361,7 @@ const ListItemRenderer: React.FC<ListItemNodeProps> = ({ data, isSelected, onSel
 
 const listItemRenderer = rendererReact<ListItemNodeProps>('listItem', ListItemRenderer);
 
-// 리스트 렌더러
+// List renderer
 const ListRenderer: React.FC<ListNodeProps> = ({ data, isSelected, onSelect }) => {
   const { theme } = useEditor();
   
@@ -389,10 +389,10 @@ const ListRenderer: React.FC<ListNodeProps> = ({ data, isSelected, onSelect }) =
 const listRenderer = rendererReact<ListNodeProps>('list', ListRenderer);
 ```
 
-### 5. **테이블 렌더러**
+### 5. **Table Renderer**
 
 ```typescript
-// 테이블 셀 렌더러
+// Table cell renderer
 const TableCellRenderer: React.FC<TableCellNodeProps> = ({ data, isSelected, onSelect }) => {
   const { theme } = useEditor();
   
@@ -423,7 +423,7 @@ const TableCellRenderer: React.FC<TableCellNodeProps> = ({ data, isSelected, onS
 
 const tableCellRenderer = rendererReact<TableCellNodeProps>('tableCell', TableCellRenderer);
 
-// 테이블 행 렌더러
+// Table row renderer
 const TableRowRenderer: React.FC<TableRowNodeProps> = ({ data, isSelected, onSelect }) => {
   const { theme } = useEditor();
   
@@ -445,7 +445,7 @@ const TableRowRenderer: React.FC<TableRowNodeProps> = ({ data, isSelected, onSel
 
 const tableRowRenderer = rendererReact<TableRowNodeProps>('tableRow', TableRowRenderer);
 
-// 테이블 렌더러
+// Table renderer
 const TableRenderer: React.FC<TableNodeProps> = ({ data, isSelected, onSelect }) => {
   const { theme } = useEditor();
   
@@ -474,12 +474,12 @@ const TableRenderer: React.FC<TableNodeProps> = ({ data, isSelected, onSelect })
 const tableRenderer = rendererReact<TableNodeProps>('table', TableRenderer);
 ```
 
-## 🔧 고급 기능
+## 🔧 Advanced Features
 
 ### 1. **Context Provider**
 
 ```typescript
-// 에디터 프로바이더
+// Editor provider
 const EditorProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [readOnly, setReadOnly] = useState(false);
@@ -488,7 +488,7 @@ const EditorProvider: React.FC<{ children: React.ReactNode }> = ({ children }) =
   const selection = {
     isSelected: (nodeId: string) => selectedNodes.has(nodeId),
     getSelectionRange: (nodeId: string) => {
-      // 선택 범위 로직
+      // Selection range logic
       return null;
     }
   };
@@ -498,11 +498,11 @@ const EditorProvider: React.FC<{ children: React.ReactNode }> = ({ children }) =
       setSelectedNodes(new Set([nodeId]));
     },
     onNodeEdit: (nodeId: string) => {
-      // 편집 로직
+      // Edit logic
       console.log('Edit node:', nodeId);
     },
     onNodeDelete: (nodeId: string) => {
-      // 삭제 로직
+      // Delete logic
       console.log('Delete node:', nodeId);
     }
   };
@@ -522,10 +522,10 @@ const EditorProvider: React.FC<{ children: React.ReactNode }> = ({ children }) =
 };
 ```
 
-### 2. **성능 최적화**
+### 2. **Performance Optimization**
 
 ```typescript
-// React.memo로 최적화된 컴포넌트
+// Component optimized with React.memo
 const OptimizedTextRenderer = React.memo<TextNodeProps>(({ data, isSelected, onSelect }) => {
   const { theme } = useEditor();
   
@@ -551,7 +551,7 @@ const OptimizedTextRenderer = React.memo<TextNodeProps>(({ data, isSelected, onS
   );
 });
 
-// useMemo로 계산 최적화
+// Optimize computation with useMemo
 const ComplexRenderer: React.FC<ComplexNodeProps> = ({ data }) => {
   const { theme } = useEditor();
   
@@ -582,41 +582,41 @@ const ComplexRenderer: React.FC<ComplexNodeProps> = ({ data }) => {
 };
 ```
 
-### 3. **렌더러 등록 및 관리**
+### 3. **Renderer Registration and Management**
 
 ```typescript
-// React 렌더러 레지스트리
+// React renderer registry
 class ReactRendererRegistry {
   private _renderers = new Map<TNodeType, ReactRendererDefinition>();
   
-  // 렌더러 등록
+  // Register renderer
   register(renderer: ReactRendererDefinition): void {
     this._renderers.set(renderer.nodeType, renderer);
   }
   
-  // 렌더러 가져오기
+  // Get renderer
   get(nodeType: TNodeType): ReactRendererDefinition | undefined {
     return this._renderers.get(nodeType);
   }
   
-  // 모든 렌더러 가져오기
+  // Get all renderers
   getAll(): ReactRendererDefinition[] {
     return Array.from(this._renderers.values());
   }
 }
 
-// React 렌더러 팩토리
+// React renderer factory
 class ReactRendererFactory {
   constructor(private registry: ReactRendererRegistry) {}
   
-  // 렌더러 생성
+  // Create renderer
   createRenderer(nodeType: TNodeType, data: any): HTMLElement {
     const renderer = this.registry.get(nodeType);
     if (!renderer) {
       throw new Error(`React renderer for node type '${nodeType}' not found`);
     }
     
-    // React 컴포넌트를 DOM으로 렌더링
+    // Render React component to DOM
     const container = document.createElement('div');
     const root = createRoot(container);
     
@@ -628,39 +628,39 @@ class ReactRendererFactory {
 }
 ```
 
-## 📊 사용 예시
+## 📊 Usage Examples
 
-### 완전한 React 렌더러 설정
+### Complete React Renderer Setup
 
 ```typescript
-// 1. 렌더러 정의
+// 1. Define renderers
 const textRenderer = rendererReact<TextNodeProps>('text', TextRenderer);
 const paragraphRenderer = rendererReact<ParagraphNodeProps>('paragraph', ParagraphRenderer);
 const imageRenderer = rendererReact<ImageNodeProps>('image', ImageRenderer);
 const linkRenderer = rendererReact<LinkNodeProps>('link', LinkRenderer);
 
-// 2. 렌더러 등록
+// 2. Register renderers
 const registry = new ReactRendererRegistry();
 registry.register(textRenderer);
 registry.register(paragraphRenderer);
 registry.register(imageRenderer);
 registry.register(linkRenderer);
 
-// 3. 렌더러 팩토리 생성
+// 3. Create renderer factory
 const factory = new ReactRendererFactory(registry);
 
-// 4. 에디터 프로바이더로 감싸기
+// 4. Wrap with editor provider
 const App: React.FC = () => {
   return (
     <EditorProvider>
       <div className="editor">
-        {/* 에디터 컨텐츠 */}
+        {/* Editor content */}
       </div>
     </EditorProvider>
   );
 };
 
-// 5. 렌더링
+// 5. Render
 const data = {
   id: 'para-1',
   type: 'paragraph',
@@ -679,25 +679,25 @@ const element = factory.createRenderer('paragraph', data);
 document.body.appendChild(element);
 ```
 
-## 📚 API 레퍼런스
+## 📚 API Reference
 
-### 핵심 함수
+### Core Functions
 
 ```typescript
-// React 렌더러 생성
+// Create React renderer
 function rendererReact<T = any>(
   nodeType: TNodeType, 
   component: React.ComponentType<T>
 ): ReactRendererDefinition;
 
-// 렌더러 등록
+// Register renderer
 function registerReactRenderer(definition: ReactRendererDefinition): void;
 
 // Context Hook
 function useEditor(): EditorContextType;
 ```
 
-### 타입 정의
+### Type Definitions
 
 ```typescript
 interface ReactRendererDefinition {
@@ -732,12 +732,12 @@ interface EditorContextType {
 }
 ```
 
-## 🔍 예제
+## 🔍 Examples
 
-### 커스텀 훅을 사용한 고급 렌더러
+### Advanced Renderer Using Custom Hooks
 
 ```typescript
-// 커스텀 훅
+// Custom hook
 const useNodeState = (nodeId: string) => {
   const { selection } = useEditor();
   const [isSelected, setIsSelected] = useState(false);
@@ -756,7 +756,7 @@ const useNodeState = (nodeId: string) => {
   return { isSelected, isHovered, setIsHovered };
 };
 
-// 고급 텍스트 렌더러
+// Advanced text renderer
 const AdvancedTextRenderer: React.FC<TextNodeProps> = ({ data, onSelect }) => {
   const { theme, readOnly } = useEditor();
   const { isSelected, isHovered, setIsHovered } = useNodeState(data.sid);
@@ -792,4 +792,4 @@ const AdvancedTextRenderer: React.FC<TextNodeProps> = ({ data, onSelect }) => {
 const advancedTextRenderer = rendererReact<TextNodeProps>('text', AdvancedTextRenderer);
 ```
 
-이렇게 React DSL을 통해 React의 강력한 기능들을 활용하여 직관적이고 성능이 뛰어난 렌더러를 만들 수 있습니다.
+This React DSL enables you to create intuitive and performant renderers by leveraging React's powerful features.

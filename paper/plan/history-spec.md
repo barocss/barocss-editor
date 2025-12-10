@@ -2,7 +2,7 @@
 
 ## Overview
 
-History 시스템은 Barocss Editor에서 사용자의 작업을 추적하고 Undo/Redo 기능을 제공합니다. 본 문서는 DSL 우선 아키텍처(transaction(editor, ops).commit())와 TransactionManager.execute() 흐름에 맞춘 책임 분리와 데이터 포맷을 정의합니다.
+The History system tracks user actions in Barocss Editor and provides Undo/Redo. This document defines responsibility separation and data formats aligned with the DSL-first architecture (`transaction(editor, ops).commit()`) and the `TransactionManager.execute()` flow.
 
 ## Core Concepts
 
@@ -14,33 +14,33 @@ User Action → Transaction(DSL) → TransactionManager.execute → HistoryManag
                          DataStore(begin/commit/rollback)
 ```
 
-- HistoryManager 소유: editor-core
-- Model(TransactionManager)은 commit 직후 HistoryEntry 생성을 위한 훅/이벤트만 노출
-- DataStore는 락/오버레이/커밋 일관성을 제공. History 데이터 소스는 TransactionManager 결과
+- HistoryManager ownership: `editor-core`
+- Model (TransactionManager) exposes hooks/events only for HistoryEntry creation after commit
+- DataStore provides lock/overlay/commit consistency. History data source is TransactionManager results
 
 ### 2. History Entry Types
 
 #### Snapshot History
-- 전체 문서 상태를 스냅샷으로 저장
-- 정확한 복원이 가능하지만 메모리 사용량이 큼
+- Stores full document state as snapshots
+- Enables accurate restore but uses more memory
 
 #### Delta History
-- 변경사항만 저장하는 델타 방식
-- 메모리 효율적이지만 복원 시 계산 필요
+- Stores only changes (delta)
+- Memory-efficient but requires computation on restore
 
 #### Hybrid History
-- 중요한 지점은 스냅샷, 그 사이는 델타
-- 메모리와 성능의 균형
+- Snapshots at important points, deltas in between
+- Balances memory and performance
 
 ### 3. History Granularity
 
 ```typescript
 enum HistoryGranularity {
-  CHARACTER = 'character',    // 문자 단위
-  WORD = 'word',            // 단어 단위
-  SENTENCE = 'sentence',    // 문장 단위
-  PARAGRAPH = 'paragraph',  // 문단 단위
-  TRANSACTION = 'transaction' // 트랜잭션 단위
+  CHARACTER = 'character',    // character level
+  WORD = 'word',            // word level
+  SENTENCE = 'sentence',    // sentence level
+  PARAGRAPH = 'paragraph',  // paragraph level
+  TRANSACTION = 'transaction' // transaction level
 }
 ```
 
@@ -50,62 +50,62 @@ enum HistoryGranularity {
 
 ```typescript
 class HistoryManager {
-  // 히스토리 관리
+  // History management
   pushHistory(entry: HistoryEntry): void;
   undo(): Promise<HistoryEntry | null>;
   redo(): Promise<HistoryEntry | null>;
   
-  // 히스토리 조회
+  // History query
   getHistory(): HistoryEntry[];
   getHistoryAt(index: number): HistoryEntry | null;
   getCurrentIndex(): number;
   
-  // 히스토리 제어
+  // History control
   clearHistory(): void;
   clearRedoHistory(): void;
   setMaxHistorySize(size: number): void;
   
-  // 상태 확인
+  // State check
   canUndo(): boolean;
   canRedo(): boolean;
   getHistorySize(): number;
 }
 ```
 
-### HistoryEntry (TransactionManager 결과 정규화)
+### HistoryEntry (normalized TransactionManager result)
 
 ```typescript
 interface HistoryEntry {
   id: string;                     // history entry id
-  transactionId: string;          // TransactionManager가 부여한 id
+  transactionId: string;          // id assigned by TransactionManager
   startedAt: number;              // ms
   endedAt: number;                // ms
   durationMs: number;
   success: boolean;
   description?: string;
 
-  // Transaction operations 원본 및 결과(순서 보존)
+  // Original transaction operations and results (order preserved)
   operations: Array<{
     type: string;
     payload?: Record<string, any>;
-    result: any;                  // defineOperation.execute 반환값
-    inverse?: any;                // optional: 역연산 데이터(있으면 undo에 사용)
+    result: any;                  // return value from defineOperation.execute
+    inverse?: any;                // optional: inverse data (used for undo if present)
   }>;
 
-  // 선택 상태 (있을 때)
+  // Selection state (when present)
   selectionBefore?: DocumentSelection;
   selectionAfter?: DocumentSelection;
 
-  // 환경/호환성 정보
-  schemaVersion?: string;         // @barocss/schema 기준
+  // Environment/compatibility info
+  schemaVersion?: string;         // based on @barocss/schema
   dataStoreVersion?: string;
   editorVersion?: string;
 
-  // 메타
+  // Metadata
   metadata?: {
     userId?: string;
-    groupKey?: string;            // 입력 병합 그룹핑 키
-    origin?: 'user' | 'remote' | 'system'; // 트랜잭션 출처
+    groupKey?: string;            // input merge grouping key
+    origin?: 'user' | 'remote' | 'system'; // transaction source
   };
 }
 
@@ -136,13 +136,13 @@ interface HistoryCommand {
 ```typescript
 interface DeltaOperation {
   type: 'insert' | 'delete' | 'update' | 'move';
-  path: string;           // 노드 경로 (예: "0.1.2")
-  data?: any;            // 삽입/업데이트할 데이터
-  oldData?: any;         // 이전 데이터 (업데이트/삭제 시)
-  position?: number;     // 삽입/이동 위치
+  path: string;           // node path (e.g., "0.1.2")
+  data?: any;            // data to insert/update
+  oldData?: any;         // previous data (for update/delete)
+  position?: number;     // insert/move position
 }
 
-// 예시 델타 연산들
+// Example delta operations
 const insertOperation: DeltaOperation = {
   type: 'insert',
   path: '0.1',
@@ -168,13 +168,13 @@ const updateOperation: DeltaOperation = {
 
 ```typescript
 interface DeltaCompression {
-  // 연속된 동일 타입 연산 병합
+  // Merge consecutive same-type operations
   mergeOperations(operations: DeltaOperation[]): DeltaOperation[];
   
-  // 중복 데이터 제거
+  // Remove duplicate data
   deduplicateData(delta: HistoryDelta): HistoryDelta;
   
-  // 압축 알고리즘 적용
+  // Apply compression algorithm
   compress(delta: HistoryDelta): CompressedDelta;
   decompress(compressed: CompressedDelta): HistoryDelta;
 }
@@ -186,14 +186,14 @@ interface DeltaCompression {
 
 ```typescript
 interface SnapshotStrategy {
-  // 스냅샷 생성 주기
+  // Snapshot creation interval
   interval: 'every_n_operations' | 'time_based' | 'size_based';
   threshold: number;
   
-  // 스냅샷 압축
+  // Snapshot compression
   compression: 'none' | 'gzip' | 'lz4' | 'custom';
   
-  // 스냅샷 정리
+  // Snapshot cleanup
   cleanup: {
     maxSnapshots: number;
     retentionPeriod: number; // days
@@ -205,16 +205,16 @@ interface SnapshotStrategy {
 
 ```typescript
 class IncrementalSnapshotManager {
-  // 기본 스냅샷 생성
+  // Create base snapshot
   createBaseSnapshot(document: Document): DocumentSnapshot;
   
-  // 증분 스냅샷 생성
+  // Create incremental snapshot
   createIncrementalSnapshot(
     baseSnapshot: DocumentSnapshot,
     changes: DeltaOperation[]
   ): DocumentSnapshot;
   
-  // 스냅샷 복원
+  // Restore snapshot
   restoreSnapshot(snapshot: DocumentSnapshot): Document;
 }
 ```
@@ -245,15 +245,15 @@ interface CommandResult {
 
 ```typescript
 class CommandHistoryManager {
-  // 명령 실행
+  // Execute command
   executeCommand(command: Command): Promise<CommandResult>;
   
-  // 명령 히스토리
+  // Command history
   getCommandHistory(): Command[];
   getUndoableCommands(): Command[];
   getRedoableCommands(): Command[];
   
-  // 명령 그룹핑
+  // Command grouping
   groupCommands(commands: Command[]): CommandGroup;
   executeCommandGroup(group: CommandGroup): Promise<CommandResult>;
 }
@@ -265,14 +265,14 @@ class CommandHistoryManager {
 
 ```typescript
 interface MemoryManagement {
-  // 히스토리 크기 제한
+  // History size limit
   maxHistorySize: number;
   maxMemoryUsage: number; // MB
   
-  // 압축 전략
+  // Compression strategy
   compressionStrategy: 'immediate' | 'lazy' | 'background';
   
-  // 가비지 컬렉션
+  // Garbage collection
   garbageCollection: {
     enabled: boolean;
     interval: number; // ms
@@ -285,15 +285,15 @@ interface MemoryManagement {
 
 ```typescript
 class LazyHistoryManager {
-  // 지연 로딩
+  // Lazy loading
   loadHistoryEntry(id: string): Promise<HistoryEntry>;
   preloadHistoryEntries(ids: string[]): Promise<void>;
   
-  // 캐싱
+  // Caching
   cacheHistoryEntry(entry: HistoryEntry): void;
   getCachedEntry(id: string): HistoryEntry | null;
   
-  // 백그라운드 처리
+  // Background processing
   processHistoryInBackground(): void;
 }
 ```
@@ -303,7 +303,7 @@ class LazyHistoryManager {
 ### 1. Transaction Integration (model → editor-core)
 
 ```typescript
-// model/TransactionManager 내부 개요
+// Overview inside model/TransactionManager
 async execute(ops) {
   const startedAt = Date.now();
   try {
@@ -320,7 +320,7 @@ async execute(ops) {
       selectionBefore: maybeSelectionBefore,
       selectionAfter: maybeSelectionAfter,
       schemaVersion: schema?.name,
-      origin: 'user' | 'remote' | 'system', // REQUIRED: 호출 측에서 지정
+      origin: 'user' | 'remote' | 'system', // REQUIRED: specified by caller
     } satisfies HistoryEntry);
     return ok;
   } catch (e) {
@@ -345,72 +345,73 @@ async execute(ops) {
 
 ```typescript
 interface HistoryWithSelection extends HistoryEntry {
-  // 선택 상태 저장
+  // Store selection state
   selection: DocumentSelection;
   
-  // 선택 상태 복원
+  // Restore selection state
   restoreSelection(): void;
 }
 ```
 
 ### 3. Schema Integration
+
 ## Deletion/Tombstone Policy
 
-### 1. 소프트 삭제 원칙
-- 삭제는 물리 삭제가 아니라 "detach + tombstone"으로 처리한다.
-  - detach: 부모 `content`에서 노드 ID를 제거하여 논리 트리에서 분리
-  - tombstone: 노드 객체는 DataStore에 남기고 `removed=true`, `removedAt`, `removedBy` 메타를 기록
-- 물리 삭제는 GC 정책에 따라 별도 시점에 수행(오래된 tombstone 정리)
+### 1. Soft Delete Principle
+- Deletion is handled as "detach + tombstone", not physical deletion.
+  - detach: remove node ID from parent `content` to detach from logical tree
+  - tombstone: keep node object in DataStore and record `removed=true`, `removedAt`, `removedBy` metadata
+- Physical deletion is performed separately per GC policy (cleanup of old tombstones)
 
-노드 상태 필드
-- `removed: boolean` (기본 false)
+Node state fields:
+- `removed: boolean` (default false)
 - `removedAt?: number`
 - `removedBy?: string`
 
-### 2. DataStore/조회 규칙
-- 기본 조회: `removed=false` 노드만 반환하고 트리 순회/검증/렌더에 참여
-- 관리/복원용 조회: `includeRemoved=true` 옵션으로 tombstone 포함 접근 허용
-- API 예: `getNode(id)`(기본), `getNodeIncludingRemoved(id)`(옵션)
- - content 조작/탐색: 항상 `removed=false` 집합만 대상으로 동작
+### 2. DataStore/Query Rules
+- Default queries: return only `removed=false` nodes and participate in tree traversal/validation/rendering
+- Management/restore queries: allow access including tombstones with `includeRemoved=true` option
+- API example: `getNode(id)` (default), `getNodeIncludingRemoved(id)` (option)
+- Content manipulation/traversal: always operates on `removed=false` set only
 
-### 3. Operation/Undo 연계
-- delete operation 실행 시:
-  - 원래 `parentId`, `siblingIndex`(혹은 content index)를 inverse 데이터로 보존
-  - parent.content에서 detach + 대상 노드에 `removed=true` 설정
+### 3. Operation/Undo Integration
+- When delete operation executes:
+  - Preserve original `parentId`, `siblingIndex` (or content index) in inverse data
+  - Detach from parent.content + set `removed=true` on target node
 - undo(delete):
-  - `removed=false`로 복구 후 parent.content의 원래 index로 재삽입
-  - 필요 시 sibling 재정렬/검증
+  - Restore `removed=false` and reinsert at original index in parent.content
+  - Reorder/validate siblings if needed
 
-inverse 최소 스키마 예시
+Inverse minimal schema example:
 ```ts
 type DeleteInverse = {
   nodeId: string;
   parentId: string;
   index: number;
-  // 선택적: 복원 정확도 향상을 위한 힌트
+  // Optional: hints for improved restore accuracy
   prevSiblingId?: string;
   nextSiblingId?: string;
 };
 ```
 
-### 4. 렌더링/선택
-- 렌더러: `removed=true` 노드는 스킵
-- Selection remap: 대상이 tombstone이면 가장 가까운 유효 노드로 이동(앞/뒤 우선순위 규칙 명시)
+### 4. Rendering/Selection
+- Renderer: skip `removed=true` nodes
+- Selection remap: if target is a tombstone, move to nearest valid node (specify forward/backward priority rules)
 
-선택 리맵 규칙(권장)
-- 캐럿(단일 지점): 먼저 다음 유효 텍스트 노드 → 없으면 이전 유효 텍스트 노드
-- 범위: start/end 각각 위 규칙 적용; 결과가 동일 노드가 되면 정상화
+Selection remap rules (recommended):
+- Caret (single point): first try next valid text node → if none, previous valid text node
+- Range: apply above rule to start/end each; normalize if result is the same node
 
-### 5. 동기화/충돌
-- tombstone 유지로 원격 복원/중복 삭제 충돌 완화
-- 정책: `removedAt` 비교, 최근 기록 우선 또는 서버 권위 정책 등 선택 가능
- - OT/CRDT: tombstone은 캐주얼티 추적에 유리. 복원 시점/승자 정책을 명확화
+### 5. Synchronization/Conflicts
+- Tombstone retention mitigates remote restore/duplicate delete conflicts
+- Policy: compare `removedAt`, prefer recent record or server authority policy, etc.
+- OT/CRDT: tombstones help with causality tracking. Clarify restore timing/winner policy
 
-### 6. GC 정책(옵션)
-- 기준: 경과 시간, 히스토리 확정 여부(redo 불가), 외부 동기화 커밋 여부
-- 수행: 백그라운드에서 tombstone 물리 삭제 및 인덱스/캐시 정리
+### 6. GC Policy (optional)
+- Criteria: elapsed time, history finalization (redo impossible), external sync commit status
+- Execution: physically delete tombstones in background and clean up indices/caches
 
-GC 의사코드
+GC pseudocode:
 ```ts
 for (const node of allNodesIncludingRemoved()) {
   if (!node.removed) continue;
@@ -420,26 +421,25 @@ for (const node of allNodesIncludingRemoved()) {
 }
 ```
 
-### 7. 스키마/검증
-- `removed=true` 노드는 구조 검증 대상에서 제외(또는 별도 규칙 적용)
-- validate 시 옵션 `includeRemoved=false` 기본값
+### 7. Schema/Validation
+- `removed=true` nodes are excluded from structure validation (or apply separate rules)
+- Validation uses default `includeRemoved=false` option
 
-### 8. API 영향 요약
-- `getNode(id)` → removed 제외 (기본)
-- `getNodeIncludingRemoved(id)` → tombstone 포함(내부/관리용)
-- `listChildren(parentId)` → removed 제외
-- `listChildrenIncludingRemoved(parentId)` → tombstone 포함
-
+### 8. API Impact Summary
+- `getNode(id)` → excludes removed (default)
+- `getNodeIncludingRemoved(id)` → includes tombstones (internal/management)
+- `listChildren(parentId)` → excludes removed
+- `listChildrenIncludingRemoved(parentId)` → includes tombstones
 
 ```typescript
 class SchemaAwareHistory {
-  // 스키마 변경 감지
+  // Detect schema changes
   onSchemaChange(oldSchema: Schema, newSchema: Schema): void;
   
-  // 스키마 호환성 검사
+  // Check schema compatibility
   validateHistoryCompatibility(entry: HistoryEntry): boolean;
   
-  // 스키마 마이그레이션
+  // Migrate history entry
   migrateHistoryEntry(entry: HistoryEntry, targetSchema: Schema): HistoryEntry;
 }
 ```
@@ -450,13 +450,13 @@ class SchemaAwareHistory {
 
 ```typescript
 interface CollaborativeHistory {
-  // 사용자별 히스토리 분리
+  // Separate history per user
   userHistories: Map<string, HistoryEntry[]>;
   
-  // 충돌 해결
+  // Conflict resolution
   resolveConflicts(conflicts: HistoryConflict[]): HistoryEntry[];
   
-  // 실시간 동기화
+  // Real-time synchronization
   syncHistory(remoteHistory: HistoryEntry[]): void;
 }
 ```
@@ -465,13 +465,13 @@ interface CollaborativeHistory {
 
 ```typescript
 interface HistoryAnalytics {
-  // 사용 패턴 분석
+  // Analyze usage patterns
   analyzeUsagePatterns(): UsagePattern[];
   
-  // 성능 메트릭
+  // Performance metrics
   getPerformanceMetrics(): PerformanceMetrics;
   
-  // 에러 분석
+  // Error analysis
   analyzeErrors(): ErrorReport[];
 }
 
@@ -487,13 +487,13 @@ interface UsagePattern {
 
 ```typescript
 interface HistoryExport {
-  // 히스토리 내보내기
+  // Export history
   exportHistory(format: 'json' | 'xml' | 'binary'): string | Buffer;
   
-  // 히스토리 가져오기
+  // Import history
   importHistory(data: string | Buffer, format: 'json' | 'xml' | 'binary'): void;
   
-  // 선택적 내보내기
+  // Selective export
   exportHistoryRange(startIndex: number, endIndex: number): HistoryEntry[];
 }
 ```
@@ -501,45 +501,41 @@ interface HistoryExport {
 ## Testing Strategy
 
 ### 1. Unit Tests
-
-- 개별 히스토리 엔트리 테스트
-- 델타 연산 테스트
-- 압축/압축 해제 테스트
+- Individual history entry tests
+- Delta operation tests
+- Compression/decompression tests
 
 ### 2. Integration Tests
-
-- Transaction과의 통합 테스트(락, 실패 롤백 포함)
-- Selection과의 통합 테스트
-- Schema와의 통합 테스트
- - Origin 필터링 테스트: origin = 'user'만 HistoryManager에 기록, 'remote'/'system'은 무시
+- Integration with Transaction (including lock, failure rollback)
+- Integration with Selection
+- Integration with Schema
+- Origin filtering tests: record only `origin = 'user'` in HistoryManager, ignore 'remote'/'system'
 
 ### 3. Performance Tests
-
-- 대용량 히스토리 처리 테스트
-- 메모리 사용량 테스트
-- Undo/Redo 성능 테스트
+- Large history processing tests
+- Memory usage tests
+- Undo/Redo performance tests
 
 ### 4. Stress Tests
-
-- 동시 사용자 테스트
-- 장시간 사용 테스트
-- 메모리 부족 상황 테스트
+- Concurrent user tests
+- Long-duration usage tests
+- Out-of-memory scenario tests
 
 ## Configuration
 
 ```typescript
 interface HistoryConfig {
-  // 기본 설정
+  // Basic settings
   maxHistorySize: number;
   snapshotInterval: number;
   compressionEnabled: boolean;
   
-  // 성능 설정
+  // Performance settings
   lazyLoading: boolean;
   backgroundProcessing: boolean;
   memoryThreshold: number;
   
-  // 고급 설정
+  // Advanced settings
   collaborativeMode: boolean;
   analyticsEnabled: boolean;
   exportEnabled: boolean;
@@ -549,22 +545,19 @@ interface HistoryConfig {
 ## Future Enhancements
 
 ### 1. AI-Powered History
-
-- 사용자 패턴 학습
-- 자동 히스토리 정리
-- 스마트 Undo/Redo
+- Learn user patterns
+- Automatic history cleanup
+- Smart Undo/Redo
 
 ### 2. Cloud History
-
-- 클라우드 히스토리 동기화
-- 오프라인 히스토리 캐싱
-- 다중 디바이스 지원
+- Cloud history synchronization
+- Offline history caching
+- Multi-device support
 
 ### 3. Version Control Integration
-
-- Git과의 통합
-- 브랜치 기반 히스토리
-- 머지 충돌 해결
+- Git integration
+- Branch-based history
+- Merge conflict resolution
 
 ## End-to-End Flow Diagram
 
@@ -598,7 +591,7 @@ interface HistoryConfig {
                │
                ▼
 ┌────────────────────────────────────────────────────────────────────────────┐
-│                           editor-core: HistoryManager                       │
+│                           editor-core: HistoryManager                        │
 ├────────────────────────────────────────────────────────────────────────────┤
 │ on 'transaction:committed' → if metadata.origin === 'user' then push(entry) │
 │ - grouping(compaction): merge typing within window (e.g., 500ms)            │

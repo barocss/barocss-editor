@@ -1,92 +1,90 @@
-## 입력 처리 구현 가이드 (이벤트 → DOM → 모델 통합)
+## Input Handling Implementation Guide (Event → DOM → Model Integration)
 
-이 문서는 다음 두 설계 문서를 **실제 코드에 어떻게 적용할지**를 정리한다.
+This document organizes how to apply the following two design documents to actual code.
 
 - `input-event-editing-plan.md`  
 - `dom-to-model-sync-cases.md`
 
-목표:
-- 어떤 **패키지 / 클래스 / 함수**를 사용해서  
-  `브라우저 입력 → DOM → MutationObserver → DataStore → render` 흐름을 구현할지 명확히 한다.
+Goals:
+- Clearly specify which **package / class / function** to use to implement the `browser input → DOM → MutationObserver → DataStore → render` flow.
 
 ---
 
-## 1. 전역 아키텍처 개요
+## 1. Global Architecture Overview
 
-### 1.1 계층별 책임
+### 1.1 Responsibilities by Layer
 
 - `apps/editor-test/src/main.ts`
-  - 데모/테스트용 앱 부트스트랩, `Editor` + `EditorViewDOM` 생성.
+  - Demo/test app bootstrap, create `Editor` + `EditorViewDOM`.
 
 - `packages/editor-core`
-  - `Editor` (명령/History/이벤트 허브)
-  - `DataStore` (문서/marks/decorators/RangeOperations)
-  - `Command`/`Extension` 시스템
+  - `Editor` (command/History/event hub)
+  - `DataStore` (document/marks/decorators/RangeOperations)
+  - `Command`/`Extension` system
 
 - `packages/editor-view-dom`
-  - `EditorViewDOM` (DOM 기반 뷰 + 이벤트 레이어)
-  - `InputHandlerImpl` (입력 이벤트 → DOM/모델 동기화)
-  - SelectionManager (DOM selection ↔ 모델 selection)
-  - MutationObserver 래퍼 (`mutation-observer-manager.ts`)
-  - Keymap/KeyBinding (키 이벤트 처리)
+  - `EditorViewDOM` (DOM-based view + event layer)
+  - `InputHandlerImpl` (input events → DOM/model sync)
+  - SelectionManager (DOM selection ↔ model selection)
+  - MutationObserver wrapper (`mutation-observer-manager.ts`)
+  - Keymap/KeyBinding (key event handling)
 
 - `packages/dom-observer`
-  - 저수준 `MutationObserver` 도우미 (브라우저 DOM 변경 수집)
+  - Low-level `MutationObserver` helper (collects browser DOM changes)
 
 - `packages/datastore`
   - `RangeOperations.replaceText` / `deleteText` / DecoratorOperations
-  - mark 연산/정규화
+  - mark operations/normalization
 
-렌더링/리컨실은 이미 구현되어 있으므로,  
-여기서는 “**입력 → DOM → 모델 patch → render 트리거**”에 집중한다.
+Rendering/reconciliation is already implemented, so we focus on "**input → DOM → model patch → render trigger**" here.
 
 ---
 
-## 2. 입력 이벤트 레이어 구현 (EditorViewDOM)
+## 2. Input Event Layer Implementation (EditorViewDOM)
 
-### 2.1 핵심 클래스: `EditorViewDOM`
+### 2.1 Core Class: `EditorViewDOM`
 
-위치:
+Location:
 - `packages/editor-view-dom/src/editor-view-dom.ts`
 
-역할:
-- 실제 DOM 노드(`contenteditable` root)에 대한 이벤트 리스너를 등록.
-- `InputHandlerImpl`, SelectionManager, KeymapManager를 생성/연결.
-- `editor.emit('editor:content.change', ...)` 를 받아 render를 트리거.
+Role:
+- Registers event listeners on actual DOM node (`contenteditable` root).
+- Creates/connects `InputHandlerImpl`, SelectionManager, KeymapManager.
+- Receives `editor.emit('editor:content.change', ...)` and triggers render.
 
-필수 구현/정리 포인트:
+Required implementation/cleanup points:
 
-1. **이벤트 리스너 등록**
-   - `setupEventListeners()` 내부에서 다음을 DOM root에 등록:
+1. **Event Listener Registration**
+   - Register the following on DOM root inside `setupEventListeners()`:
      - `beforeinput`
      - `keydown`
-     - `selectionchange` (보통 `document` 기준)
-   - 각 이벤트는 `InputHandlerImpl` 또는 KeyBindingManager로 전달.
+     - `selectionchange` (usually on `document`)
+   - Each event is passed to `InputHandlerImpl` or KeyBindingManager.
 
-2. **SelectionManager 연동**
-   - DOM selection 변경 시:
-     - DOM → 모델 selection 변환 (이미 구현된 selection 유틸 사용)
+2. **SelectionManager Integration**
+   - On DOM selection change:
+     - Convert DOM → model selection (use existing selection utils)
      - `editor.selectionManager.setSelection(modelSelection)`
      - `editor.emit('editor:selection.change', { selection })`
 
-3. **MutationObserverManager 연동**
-   - `EditorViewDOM` 생성 시 `MutationObserverManager` 인스턴스를 만들고,
-   - content root와 연동하여 DOM-origin 변경을 `InputHandlerImpl`에게 전달.
+3. **MutationObserverManager Integration**
+   - Create `MutationObserverManager` instance when `EditorViewDOM` is created,
+   - Connect with content root to pass DOM-origin changes to `InputHandlerImpl`.
 
 ---
 
-## 3. InputHandler 구현 (브라우저 이벤트 → DOM/모델)
+## 3. InputHandler Implementation (Browser Events → DOM/Model)
 
-### 3.1 클래스: `InputHandlerImpl`
+### 3.1 Class: `InputHandlerImpl`
 
-위치:
+Location:
 - `packages/editor-view-dom/src/event-handlers/input-handler.ts`
 
-역할:
-- `beforeinput` / `keydown` / MutationObserver 3가지 소스를 모두 받아서,  
-  `input-event-editing-plan.md` 에 정의된 파이프라인을 실행한다.
+Role:
+- Receives all three sources: `beforeinput` / `keydown` / MutationObserver,  
+  and executes the pipeline defined in `input-event-editing-plan.md`.
 
-권장 인터페이스(이미 일부 존재):
+Recommended interface (partially exists):
 
 ```ts
 export class InputHandlerImpl {
@@ -102,111 +100,110 @@ export class InputHandlerImpl {
 }
 ```
 
-### 3.2 `handleBeforeInput` 구현 지침
+### 3.2 `handleBeforeInput` Implementation Guidelines
 
-문서 참조: `input-event-editing-plan.md` 4장, 6장
+Reference: `input-event-editing-plan.md` chapters 4, 6
 
-- 처리 대상:
-  - `insertParagraph`, `insertLineBreak`, `historyUndo`, `historyRedo` 등 **구조 변경/히스토리**만 담당.
-- 단계:
-  1. `event.inputType` 스위치:
-     - 구조 변경이면 `event.preventDefault()`
-     - 텍스트 입력/삭제 등은 **prevent 하지 않고** 브라우저에 맡김.
-  2. SelectionManager에서 최신 모델 selection 획득.
-  3. DataStore/Command 호출:
-     - `insertParagraph` → ParagraphExtension/Block 관련 command (`editor.executeCommand('insertParagraph')`)  
-       또는 직접 `dataStore.range.splitNode(...)`.
-     - `insertLineBreak` → `dataStore.range.insertText(..., '\n')` 또는 line-break 노드 삽입.
+- Handles:
+  - Only **structure changes/history** like `insertParagraph`, `insertLineBreak`, `historyUndo`, `historyRedo`.
+- Steps:
+  1. Switch on `event.inputType`:
+     - If structure change, `event.preventDefault()`
+     - For text input/deletion, **do not prevent** and let browser handle.
+  2. Get latest model selection from SelectionManager.
+  3. Call DataStore/Command:
+     - `insertParagraph` → ParagraphExtension/Block-related command (`editor.executeCommand('insertParagraph')`)  
+       or directly `dataStore.range.splitNode(...)`.
+     - `insertLineBreak` → `dataStore.range.insertText(..., '\n')` or insert line-break node.
      - `historyUndo/Redo` → `editor.history.undo()/redo()`.
-  4. `editor.render()` + selection 복원.
+  4. `editor.render()` + restore selection.
 
-### 3.3 `handleKeyDown` 구현 지침
+### 3.3 `handleKeyDown` Implementation Guidelines
 
-- 역할:
-  - `KeyBindingManager`를 통해 단축키(Command) 처리 (Bold/Italic/Undo/Redo 등).
-  - `getKeyString(event)`로 문자열 키 생성 → `keyBindingManager.getBindings(key)`.
-- 구현 위치:
-  - Key parsing: `EditorViewDOM` 내부의 `getKeyString` 유틸 or 별도 유틸.
-  - Binding 조회/실행: 향후 `KeyBindingManager` 구현 시 이쪽으로 위임.
+- Role:
+  - Handle shortcuts (Commands) via `KeyBindingManager` (Bold/Italic/Undo/Redo, etc.).
+  - Generate string key with `getKeyString(event)` → `keyBindingManager.getBindings(key)`.
+- Implementation location:
+  - Key parsing: `getKeyString` util inside `EditorViewDOM` or separate util.
+  - Binding lookup/execution: delegate to `KeyBindingManager` when implemented.
 
-### 3.4 `handleDomMutations` 구현 지침
+### 3.4 `handleDomMutations` Implementation Guidelines
 
-문서 참조: `dom-to-model-sync-cases.md`
+Reference: `dom-to-model-sync-cases.md`
 
-- 역할:
-  - DOM-origin 변경(C1~C4 + 8.x 케이스)을 분류하고,  
-    해당하는 DataStore 연산(`replaceText`, `deleteText`, marks/decorators 조정 등)을 호출.
-- 흐름:
-  1. `mutations` 를 순회하여 `characterData` / `childList` 중심으로 정리.
-  2. 각 mutation에 대해:
-     - 대상 노드의 `data-bc-sid`로 **어떤 모델 노드**에 해당하는지 찾기.
-     - DOM selection/이전 selection 정보와 결합하여  
-       C1/C2/C3/C4/8.x 중 어떤 케이스인지 판정.
-  3. 케이스별로:
+- Role:
+  - Classify DOM-origin changes (C1~C4 + 8.x cases),  
+    and call corresponding DataStore operations (`replaceText`, `deleteText`, marks/decorators adjustment, etc.).
+- Flow:
+  1. Iterate `mutations` and organize around `characterData` / `childList`.
+  2. For each mutation:
+     - Find which model node corresponds via target node's `data-bc-sid`.
+     - Combine with DOM selection/previous selection info to determine which case (C1/C2/C3/C4/8.x).
+  3. By case:
      - C1/C2 → `dataStore.range.replaceText(contentRange, newText)`
-     - C3 → 가능하면 command 패턴 인식(`insertParagraph`, `mergeBlock` 등), 아니면 fallback 텍스트 흡수.
-     - C4 → 스타일/태그를 marks/decorators로 매핑.
-  4. 모델 patch 후:
-     - 필요 시 `editor.render()` 호출
-     - SelectionManager를 통해 selection 동기화.
+     - C3 → Try to recognize command pattern (`insertParagraph`, `mergeBlock`, etc.), otherwise fallback to text absorption.
+     - C4 → Map styles/tags to marks/decorators.
+  4. After model patch:
+     - Call `editor.render()` if needed
+     - Sync selection via SelectionManager.
 
 ---
 
-## 4. DOM → 모델 동기화에 사용하는 핵심 API
+## 4. Core APIs for DOM → Model Synchronization
 
-### 4.1 DataStore: 텍스트/마크/데코레이터 연산
+### 4.1 DataStore: Text/Mark/Decorator Operations
 
-위치:
+Location:
 - `packages/datastore/src/operations/range-operations.ts`
 
-핵심 함수:
+Core functions:
 - `range.replaceText(contentRange, newText)`
-  - 텍스트 변경의 대부분(C1/C2/IME 최종 결과, 붙여넣기, 자동 교정)을 이 하나로 처리.
-  - 내부에서:
-    - marks 범위 조정/병합 (`mark-operations`)
-    - decorators 범위 조정 (`DecoratorOperations`)
-    - normalize 옵션으로 중복/빈 marks 정리
+  - Handles most text changes (C1/C2/IME final result, paste, auto-correction) with this one.
+  - Internally:
+    - Adjusts/merges mark ranges (`mark-operations`)
+    - Adjusts decorator ranges (`DecoratorOperations`)
+    - Cleans duplicate/empty marks with normalize option
 - `range.deleteText(contentRange)`
-  - Backspace/Delete/단어 삭제 등 C2/C3 일부에 사용.
+  - Used for some C2/C3 cases like Backspace/Delete/word deletion.
 
 ### 4.2 SelectionManager
 
-위치:
-- `packages/editor-core` (Selection 상태)
-- `packages/editor-view-dom` (DOM ↔ 모델 변환 유틸)
+Location:
+- `packages/editor-core` (Selection state)
+- `packages/editor-view-dom` (DOM ↔ model conversion utils)
 
-역할:
-- `selectionchange` 시 DOM selection → 모델 selection 변환
-- render 후 모델 selection → DOM selection 복원
-- C2/C3/C4 판정 시 **contentRange 계산의 기준**이 된다.
+Role:
+- Converts DOM selection → model selection on `selectionchange`
+- Restores model selection → DOM selection after render
+- Serves as the basis for `contentRange` calculation when determining C2/C3/C4.
 
-### 4.3 dom-observer (저수준 MutationObserver)
+### 4.3 dom-observer (Low-level MutationObserver)
 
-위치:
+Location:
 - `packages/dom-observer`
 - `packages/editor-view-dom/src/mutation-observer/mutation-observer-manager.ts`
 
-역할:
-- 실제 `MutationObserver`를 만들고, 등록된 콜백으로 변경 사항을 전달.
-- `EditorViewDOM` / `InputHandlerImpl` 에서 이 콜백을 받아 `handleDomMutations` 호출.
+Role:
+- Creates actual `MutationObserver` and passes changes to registered callbacks.
+- `EditorViewDOM` / `InputHandlerImpl` receive this callback and call `handleDomMutations`.
 
 ---
 
-## 5. 케이스 분류 로직을 둘 위치
+## 5. Where to Place Case Classification Logic
 
-문서 기준:
-- 케이스 정의: `dom-to-model-sync-cases.md` (C1~C4, 8.x)
+Reference:
+- Case definitions: `dom-to-model-sync-cases.md` (C1~C4, 8.x)
 
-구현 위치 제안:
+Implementation location proposal:
 
-1. **헬퍼 모듈 추가**
-   - 파일 예시: `packages/editor-view-dom/src/dom-sync/dom-change-classifier.ts`
-   - 책임:
+1. **Add Helper Module**
+   - Example file: `packages/editor-view-dom/src/dom-sync/dom-change-classifier.ts`
+   - Responsibility:
      - `classifyDomChange(mutations, selection, modelSnapshot) → { type: 'C1' | 'C2' | 'C3' | 'C4' | 'AUTO_LINK' | ... , payload }`
-     - InputHandler는 이 결과만 보고 DataStore/Command를 호출.
+     - InputHandler only looks at this result and calls DataStore/Command.
 
-2. **InputHandlerImpl에서 사용**
-   - `handleDomMutations` 내부:
+2. **Use in InputHandlerImpl**
+   - Inside `handleDomMutations`:
 
    ```ts
    const classification = classifyDomChange(mutations, selectionManager.current, dataStoreSnapshot);
@@ -217,61 +214,58 @@ export class InputHandlerImpl {
        dataStore.range.replaceText(classification.contentRange, classification.newText);
        break;
      case 'C3':
-       // insertParagraph / mergeBlock 등 command 실행
+       // Execute commands like insertParagraph / mergeBlock
        break;
      case 'C4':
-       // marks/decorators 업데이트
+       // Update marks/decorators
        break;
      // ...
    }
    ```
 
-이렇게 하면, 케이스 정의(문서)와 실제 구현 사이의 연결 지점을 한 파일에서 관리할 수 있다.
+This way, the connection point between case definitions (document) and actual implementation can be managed in one file.
 
 ---
 
-## 6. IME/한글 입력과의 연결
+## 6. Connection with IME/Korean Input
 
-문서 참조:
-- `input-event-editing-plan.md` 7장 (IME 입력 처리 전략)
+References:
+- `input-event-editing-plan.md` chapter 7 (IME input handling strategy)
 - `input-rendering-race-condition.md`
 - `dom-to-model-sync-cases.md` 8.5
 
-구현 포인트:
+Implementation points:
 
-1. composition 이벤트는 사용하지 않지만:
-   - `beforeinput` 의 `insertCompositionText` / `insertText` 를  
-     “조합 중/조합 완료” 힌트로만 사용.
-2. MutationObserver에서는:
-   - 조합 **중간** 변경은 가능한 무시하거나 보류.
-   - 조합 **완료** 시점의 최종 DOM 텍스트만 C1/C2 경로로 `replaceText`.
-3. SelectionManager는:
-   - 조합 완료 후 selection을 정확히 모델 selection으로 옮기고,
-   - render 후 다시 DOM selection으로 복원.
+1. Composition events are not used, but:
+   - Use `beforeinput`'s `insertCompositionText` / `insertText` only as hints for "composing/composition complete".
+2. In MutationObserver:
+   - Ignore or defer intermediate changes during composition.
+   - Only sync final DOM text at composition completion via C1/C2 path with `replaceText`.
+3. SelectionManager:
+   - After composition completes, move selection accurately to model selection,
+   - Restore to DOM selection after render.
 
-핵심은:
-- **IME 중간 상태는 최대한 건드리지 않고**,  
-  최종 결과만 DOM → 모델로 동기화한다는 점이다.
+Key point:
+- **Do not interfere with IME intermediate state as much as possible**,  
+  and only synchronize final results from DOM → model.
 
 ---
 
-## 7. 구현 순서 (실제 작업용 체크리스트)
+## 7. Implementation Order (Practical Checklist)
 
-1. `EditorViewDOM`에서 이벤트/MutationObserver/SelectionManager 연결 구조 정리
-2. `InputHandlerImpl`에:
-   - `handleBeforeInput`, `handleKeyDown`, `handleDomMutations` 3개 진입점 정리
-3. `dom-change-classifier.ts` (또는 유사 모듈) 추가:
-   - C1~C4 + 8.x 케이스 분류 헬퍼 구현
-4. DataStore 연산 경로 확인:
-   - `range.replaceText`, `deleteText`, marks/decorators 정규화
-5. 간단한 시나리오부터 테스트:
-   - C1: 단일 inline 텍스트 입력/삭제
-   - C2: 넓은 selection + 덮어쓰기
-   - C3: Enter/Backspace 통한 단락 분리/병합 (`beforeinput` 경로)
-   - C4: 붙여넣기 + 기본 mark 변환
-6. IME/한글 입력, 자동 교정/링크, DnD 등 엣지 케이스 순차 검증
+1. Organize event/MutationObserver/SelectionManager connection structure in `EditorViewDOM`
+2. In `InputHandlerImpl`:
+   - Organize 3 entry points: `handleBeforeInput`, `handleKeyDown`, `handleDomMutations`
+3. Add `dom-change-classifier.ts` (or similar module):
+   - Implement C1~C4 + 8.x case classification helper
+4. Verify DataStore operation paths:
+   - `range.replaceText`, `deleteText`, marks/decorators normalization
+5. Test from simple scenarios:
+   - C1: single inline text input/deletion
+   - C2: wide selection + overwrite
+   - C3: paragraph split/merge via Enter/Backspace (`beforeinput` path)
+   - C4: paste + basic mark conversion
+6. Sequentially verify edge cases: IME/Korean input, auto-correction/links, DnD, etc.
 
-이 가이드는 설계 문서(`input-event-editing-plan.md`, `dom-to-model-sync-cases.md`)와  
-실제 코드 구조를 하나의 흐름으로 연결하기 위한 “브릿지 문서”로 사용한다.
-
+This guide serves as a "bridge document" to connect design documents (`input-event-editing-plan.md`, `dom-to-model-sync-cases.md`) with actual code structure into one flow.
 

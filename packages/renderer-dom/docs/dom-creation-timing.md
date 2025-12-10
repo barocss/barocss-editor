@@ -1,15 +1,15 @@
-# DOM 생성/속성 커밋 시점 (React 동일 흐름)
+# DOM Creation/Attribute Commit Timing (Same Flow as React)
 
-## 전체 개요
+## Overall Overview
 
-| 단계 | Render Phase (`renderFiberNode`) | Commit Phase (`commitFiberNode`) |
+| Phase | Render Phase (`renderFiberNode`) | Commit Phase (`commitFiberNode`) |
 | --- | --- | --- |
-| DOM 생성 | Text/Host DOM **생성만** 수행 (삽입 없음) | 이미 생성된 DOM을 부모에 삽입/재배치 |
-| 속성/스타일 | **설정하지 않음** | `dom.updateAttributes` / `dom.updateStyles` 호출 |
-| 텍스트 | Text node 생성만 수행 | `handleVNodeTextProperty` 등으로 최종 텍스트 반영 |
-| 순서 결정 | Fiber 트리 정보만 준비 | `getHostSibling`으로 다음 형제 DOM 찾은 뒤 `insertBefore` |
+| DOM Creation | Only **create** Text/Host DOM (no insertion) | Insert/reposition already created DOM to parent |
+| Attributes/Styles | **Not set** | Call `dom.updateAttributes` / `dom.updateStyles` |
+| Text | Only create text node | Apply final text via `handleVNodeTextProperty`, etc. |
+| Order Determination | Only prepare Fiber tree information | Find next sibling DOM with `getHostSibling` then `insertBefore` |
 
-## Render Phase 세부 (React `completeWork`와 동일)
+## Render Phase Details (Same as React `completeWork`)
 
 ```typescript
 if (prevVNode?.meta?.domElement) {
@@ -31,35 +31,35 @@ vnode.meta.domElement = domElement;
 fiber.domElement = domElement;
 ```
 
-- DOM은 **미리 만들어 두지만 부모에 붙이지 않음**
-- 속성/스타일도 이 단계에서는 부여하지 않음 (필요 최소한의 식별자만 세팅)
+- DOM is **created in advance but not attached to parent**
+- Attributes/styles are not set at this phase (only minimal identifiers set)
 
-## Commit Phase 세부 (React `commitPlacement` + `commitUpdate`)
+## Commit Phase Details (React `commitPlacement` + `commitUpdate`)
 
 ```typescript
 if (fiber.effectTag === 'PLACEMENT') {
   const parent = fiber.parentFiber.domElement;
   let before = getHostSibling(fiber);
   if (before && before.parentNode !== parent) before = null;
-  parent.insertBefore(domElement, before); // 삽입만 수행
+  parent.insertBefore(domElement, before); // Only insertion
 }
 
 if (domElement instanceof HTMLElement) {
-  dom.updateAttributes(domElement, prevVNode?.attrs, vnode.attrs); // Insert / Update / Delete 모두 이 함수가 diff
+  dom.updateAttributes(domElement, prevVNode?.attrs, vnode.attrs); // Insert / Update / Delete all handled by this function via diff
   dom.updateStyles(domElement, prevVNode?.style, vnode.style);
 }
 
 if (domElement instanceof HTMLElement && vnode.text && !vnode.children) {
-  handleVNodeTextProperty(domElement, vnode, prevVNode); // 텍스트 속성 커밋
+  handleVNodeTextProperty(domElement, vnode, prevVNode); // Text property commit
 }
 ```
 
-- **삽입(Placement)**: `insertBefore`만 수행. React처럼 `getHostSibling`을 사용해 다음 형제 DOM을 찾아 reference node로 사용.
-- **속성/스타일 커밋**: `dom.updateAttributes`/`updateStyles`가 Insert/Update/Delete 개념을 모두 담당 (이전 값과 비교해 부족분은 `removeAttribute` 등으로 삭제).
-- **텍스트 업데이트**: `handleVNodeTextProperty`가 node 내부 텍스트만 갱신.
-- **Deletion**: DOM 노드 자체를 제거하면 속성/텍스트도 함께 사라짐.
+- **Insertion (Placement)**: Only `insertBefore` is performed. Uses `getHostSibling` like React to find next sibling DOM and use as reference node.
+- **Attribute/Style Commit**: `dom.updateAttributes`/`updateStyles` handle Insert/Update/Delete concepts (compare with previous values and remove missing ones with `removeAttribute`, etc.).
+- **Text Update**: `handleVNodeTextProperty` only updates text inside node.
+- **Deletion**: Removing DOM node itself also removes attributes/text together.
 
-## `getHostSibling` (React 알고리즘)
+## `getHostSibling` (React Algorithm)
 
 ```typescript
 let sibling = fiber.sibling;
@@ -77,14 +77,13 @@ while (sibling) {
 return null;
 ```
 
-- Render Phase에서 이미 DOM을 생성해 두었기 때문에 commit 시점에 바로 reference node를 얻을 수 있음.
-- reference node가 부모에 속하지 않으면 `null`로 강등해 `appendChild`와 동일하게 처리 (React도 같은 방식을 사용).
+- Since DOM is already created in Render Phase, reference node can be obtained immediately at commit time.
+- If reference node does not belong to parent, downgrade to `null` to handle same as `appendChild` (React uses same approach).
 
-## 속성 Insert / Update / Delete 개념
+## Attribute Insert / Update / Delete Concepts
 
-- **Insert**: 새 DOM 요소가 Placement될 때 `dom.updateAttributes(undefined, newAttrs)`가 모든 속성을 초기 세팅.
-- **Update**: 기존 요소의 attrs/style을 이전 값과 비교해 변경된 부분만 적용.
-- **Delete**: 이전엔 있었지만 이번엔 없는 속성/스타일은 `removeAttribute`/스타일 초기화로 처리. 노드 자체가 삭제되면 속성도 함께 사라짐.
+- **Insert**: When new DOM element is Placement'd, `dom.updateAttributes(undefined, newAttrs)` sets all attributes initially.
+- **Update**: Compare existing element's attrs/style with previous values and apply only changed parts.
+- **Delete**: Attributes/styles that existed before but not now are handled with `removeAttribute`/style reset. If node itself is deleted, attributes disappear together.
 
-> **결론:** Render Phase에서 DOM을 “준비”만 하고, Commit Phase에서 삽입/속성/스타일/텍스트/삭제를 모두 처리하므로 React와 완전히 동일한 흐름을 가지게 되었습니다.
-
+> **Conclusion:** Render Phase only "prepares" DOM, and Commit Phase handles insertion/attributes/styles/text/deletion, so it follows the exact same flow as React.

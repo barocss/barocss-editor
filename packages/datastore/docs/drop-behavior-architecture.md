@@ -1,56 +1,56 @@
-# Drop Behavior 아키텍처 설계
+# Drop Behavior Architecture Design
 
-## 문제 제기
+## Problem Statement
 
-Drop Behavior 규칙을 어디에 정의해야 할까?
+Where should Drop Behavior rules be defined?
 
-- **스키마에 정의?** → 스키마는 데이터 모델 정의인데, UI 로직을 포함하는 게 맞나?
-- **editor-view-dom에 정의?** → 각 에디터 인스턴스마다 정의해야 하는데, 스키마 재사용 시 규칙도 따로 정의해야 하나?
-- **하이브리드?** → 스키마는 기본 규칙만, editor-view-dom에서 추가/오버라이드?
+- **Define in schema?** → Schema is for data model definition, is it appropriate to include UI logic?
+- **Define in editor-view-dom?** → Need to define for each editor instance, but do we need to define rules separately when reusing schema?
+- **Hybrid?** → Schema only has basic rules, editor-view-dom adds/overrides?
 
 ---
 
-## 아키텍처 분석
+## Architecture Analysis
 
-### 현재 구조
+### Current Structure
 
 ```
 Editor (editor-core)
   ├── DataStore (datastore)
-  │   └── Schema (schema) - registerSchema()로 등록
+  │   └── Schema (schema) - registered with registerSchema()
   └── EditorViewDOM (editor-view-dom)
-      └── Editor 참조
+      └── References Editor
 ```
 
-**특징:**
-- `Schema`는 `DataStore`에 등록됨 (`registerSchema`)
-- `EditorViewDOM`은 `Editor`를 참조하여 `dataStore`에 접근
-- 스키마는 에디터 인스턴스별로 다를 수 있음
+**Characteristics:**
+- `Schema` is registered in `DataStore` (`registerSchema`)
+- `EditorViewDOM` accesses `dataStore` by referencing `Editor`
+- Schema can differ per editor instance
 
-### Drop Behavior 사용 흐름
+### Drop Behavior Usage Flow
 
 ```
-사용자 드래그 & 드롭
+User drag & drop
   ↓
 EditorViewDOM.handleDrop()
   ↓
 DataStore.getDropBehavior(targetNodeId, sourceNodeId, context)
   ↓
-규칙 매칭 (어디서?)
+Rule matching (where?)
   ↓
-DropBehavior 반환
+Return DropBehavior
 ```
 
-**핵심 질문:** 규칙 매칭은 어디서 일어나야 하나?
+**Core question:** Where should rule matching occur?
 
 ---
 
-## 설계 옵션 비교
+## Design Option Comparison
 
-### 옵션 1: 스키마에만 정의 (순수 스키마 중심)
+### Option 1: Define Only in Schema (Pure Schema-Centric)
 
 ```typescript
-// 스키마 정의 시
+// When defining schema
 const schema = createSchema('example', {
   nodes: {
     'paragraph': {
@@ -62,30 +62,30 @@ const schema = createSchema('example', {
   }
 });
 
-// EditorViewDOM에서 사용
+// Use in EditorViewDOM
 const behavior = dataStore.getDropBehavior(targetId, sourceId, context);
-// → 스키마의 dropBehaviorRules만 확인
+// → Only check schema's dropBehaviorRules
 ```
 
-**장점:**
-- 스키마와 함께 정의되어 일관성 있음
-- 스키마별로 다른 규칙 가능
-- 스키마 재사용 시 규칙도 함께 재사용
+**Advantages:**
+- Consistent as defined together with schema
+- Different rules possible per schema
+- Rules also reused when schema is reused
 
-**단점:**
-- 스키마가 UI 로직을 포함하게 됨
-- 동적 규칙 정의가 어려움
-- 에디터 인스턴스별 커스터마이징이 어려움
+**Disadvantages:**
+- Schema includes UI logic
+- Difficult to define dynamic rules
+- Difficult to customize per editor instance
 
 ---
 
-### 옵션 2: editor-view-dom에만 정의 (순수 UI 중심)
+### Option 2: Define Only in editor-view-dom (Pure UI-Centric)
 
 ```typescript
-// EditorViewDOM 초기화 시
+// At EditorViewDOM initialization
 class EditorViewDOM {
   constructor(editor: Editor, options: EditorViewDOMOptions) {
-    // 드롭 규칙 정의
+    // Define drop rules
     defineDropBehavior('paragraph', 'move');
     defineDropBehavior('paragraph', (target, source, ctx) => {
       if (source.stype === 'inline-text') return 'merge';
@@ -94,41 +94,41 @@ class EditorViewDOM {
   }
 }
 
-// 사용
+// Usage
 const behavior = dataStore.getDropBehavior(targetId, sourceId, context);
-// → defineDropBehavior 레지스트리만 확인
+// → Only check defineDropBehavior registry
 ```
 
-**장점:**
-- UI 로직이 UI 레이어에 있음
-- 에디터 인스턴스별 커스터마이징 가능
-- 스키마는 순수하게 데이터 모델만 정의
+**Advantages:**
+- UI logic is in UI layer
+- Can customize per editor instance
+- Schema purely defines data model only
 
-**단점:**
-- 스키마 재사용 시 규칙도 따로 정의해야 함
-- 기본 규칙도 매번 정의해야 함
-- 스키마와 규칙의 일관성 보장 어려움
+**Disadvantages:**
+- Need to define rules separately when reusing schema
+- Need to define basic rules every time
+- Difficult to ensure consistency between schema and rules
 
 ---
 
-### 옵션 3: 하이브리드 (권장) ⭐
+### Option 3: Hybrid (Recommended) ⭐
 
-**원칙:**
-1. **스키마는 기본 규칙만 제공** (선택적, 권장)
-   - 스키마 정의 시 "이 노드 타입은 이런 드롭 행위를 기본으로 가진다"는 힌트
-   - 스키마 재사용 시 기본 동작 보장
-2. **defineDropBehavior는 어디서든 정의 가능** (글로벌 레지스트리)
-   - editor-view-dom 초기화 시
-   - 확장(Extension)에서
-   - 애플리케이션 레벨에서
-3. **우선순위: defineDropBehavior > 스키마 > 기본값**
+**Principles:**
+1. **Schema provides basic rules only** (optional, recommended)
+   - Hints that "this node type has this drop behavior by default" when defining schema
+   - Ensures basic behavior when schema is reused
+2. **defineDropBehavior can be defined anywhere** (global registry)
+   - At editor-view-dom initialization
+   - In Extension
+   - At application level
+3. **Priority: defineDropBehavior > schema > default**
 
 ```typescript
-// 1. 스키마에 기본 규칙 정의 (선택적)
+// 1. Define basic rules in schema (optional)
 const schema = createSchema('example', {
   nodes: {
     'paragraph': {
-      dropBehaviorRules: {  // 기본 규칙 (힌트)
+      dropBehaviorRules: {  // Basic rules (hints)
         'inline-text': 'merge',
         '*': 'move'
       }
@@ -136,118 +136,118 @@ const schema = createSchema('example', {
   }
 });
 
-// 2. EditorViewDOM에서 추가/오버라이드 (선택적)
+// 2. Add/override in EditorViewDOM (optional)
 class EditorViewDOM {
   constructor(editor: Editor, options: EditorViewDOMOptions) {
-    // 특정 에디터 인스턴스만의 규칙
+    // Rules specific to this editor instance
     defineDropBehavior('paragraph', (target, source, ctx) => {
       if (ctx.modifiers?.shiftKey) {
-        return 'copy'; // Shift + 드래그 = 복사
+        return 'copy'; // Shift + drag = copy
       }
-      // 스키마 규칙으로 폴백
-      return null; // null 반환 시 다음 우선순위 확인
+      // Fallback to schema rules
+      return null; // Return null to check next priority
     }, { priority: 200 });
   }
 }
 
-// 3. DataStore.getDropBehavior()에서 우선순위 기반 매칭
+// 3. Priority-based matching in DataStore.getDropBehavior()
 getDropBehavior(targetId, sourceId, context) {
-  // 1. defineDropBehavior 확인 (최우선)
-  // 2. 스키마 dropBehaviorRules 확인
-  // 3. 기본 규칙 (타입 조합)
-  // 4. 기본값 (move)
+  // 1. Check defineDropBehavior (highest priority)
+  // 2. Check schema dropBehaviorRules
+  // 3. Basic rules (type combinations)
+  // 4. Default (move)
 }
 ```
 
-**장점:**
-- 스키마는 기본 규칙만 제공 (선택적)
-- UI 레이어에서 추가/오버라이드 가능
-- 스키마 재사용 시 기본 동작 보장
-- 에디터 인스턴스별 커스터마이징 가능
-- 확장성과 유연성 균형
+**Advantages:**
+- Schema provides basic rules only (optional)
+- UI layer can add/override
+- Ensures basic behavior when schema is reused
+- Can customize per editor instance
+- Balance between extensibility and flexibility
 
-**단점:**
-- 구현이 약간 복잡함 (우선순위 관리)
+**Disadvantages:**
+- Slightly complex implementation (priority management)
 
 ---
 
-## 권장 설계: 하이브리드 접근법
+## Recommended Design: Hybrid Approach
 
-### 3.1 스키마의 역할
+### 3.1 Schema's Role
 
-**스키마는 "기본 규칙 힌트"만 제공**
+**Schema provides "basic rule hints" only**
 
 ```typescript
 interface NodeTypeDefinition {
   /**
-   * Drop Behavior Rules: 소스 노드 타입별 기본 드롭 행위
+   * Drop Behavior Rules: Basic drop behavior per source node type
    * 
-   * 이 규칙은 "기본값"으로 사용되며, defineDropBehavior로 오버라이드 가능
+   * These rules are used as "defaults" and can be overridden by defineDropBehavior
    * 
-   * 사용 시나리오:
-   * - 스키마 정의 시 "이 노드 타입은 이런 기본 동작을 가진다"는 힌트 제공
-   * - 스키마 재사용 시 기본 동작 보장
-   * - 특정 에디터 인스턴스에서 다른 규칙이 필요하면 defineDropBehavior로 오버라이드
+   * Usage scenarios:
+   * - Provide hints that "this node type has this basic behavior" when defining schema
+   * - Ensure basic behavior when schema is reused
+   * - Override with defineDropBehavior if different rules needed for specific editor instance
    * 
-   * 예시:
+   * Example:
    * dropBehaviorRules: {
-   *   'inline-text': 'merge',      // inline-text를 드롭하면 병합
-   *   'inline-image': 'copy',      // inline-image를 드롭하면 복사
-   *   'block': 'move',             // 모든 block을 드롭하면 이동
-   *   '*': 'move'                  // 기본값: 이동
+   *   'inline-text': 'merge',      // Merge when dropping inline-text
+   *   'inline-image': 'copy',      // Copy when dropping inline-image
+   *   'block': 'move',             // Move when dropping all blocks
+   *   '*': 'move'                  // Default: move
    * }
    */
   dropBehaviorRules?: Record<string, DropBehavior>;
 }
 ```
 
-**스키마에 정의하는 이유:**
-- 스키마는 "이 노드 타입이 어떤 동작을 기본으로 가져야 하는가"를 정의하는 곳
-- `editable`, `selectable`, `draggable`, `droppable` 같은 속성과 일관성
-- 스키마 재사용 시 기본 동작 보장
+**Reasons to define in schema:**
+- Schema is where "what basic behavior should this node type have" is defined
+- Consistent with attributes like `editable`, `selectable`, `draggable`, `droppable`
+- Ensures basic behavior when schema is reused
 
-**하지만:**
-- 스키마 규칙은 "기본값"일 뿐, 필수 아님
-- `defineDropBehavior`로 언제든 오버라이드 가능
+**However:**
+- Schema rules are just "defaults", not required
+- Can be overridden with `defineDropBehavior` anytime
 
-### 3.2 defineDropBehavior의 역할
+### 3.2 defineDropBehavior's Role
 
-**defineDropBehavior는 "동적 규칙" 정의**
+**defineDropBehavior defines "dynamic rules"**
 
 ```typescript
-// 어디서든 정의 가능
+// Can be defined anywhere
 defineDropBehavior(
   'paragraph',
   (target, source, context) => {
-    // 복잡한 로직
+    // Complex logic
     if (context.modifiers?.shiftKey) return 'copy';
     if (source.attributes?.locked) return 'copy';
-    return null; // null 반환 시 다음 우선순위 확인
+    return null; // Return null to check next priority
   },
   { priority: 200 }
 );
 ```
 
-**사용 시나리오:**
-- EditorViewDOM 초기화 시 에디터별 규칙
-- Extension에서 도메인별 규칙
-- 애플리케이션 레벨에서 비즈니스 로직 규칙
+**Usage scenarios:**
+- Editor-specific rules at EditorViewDOM initialization
+- Domain-specific rules in Extension
+- Business logic rules at application level
 
-### 3.3 우선순위
+### 3.3 Priority
 
 ```
-1. UI 컨텍스트 (Ctrl/Cmd = copy) - 최우선
-2. defineDropBehavior 규칙 (동적 규칙)
-3. 스키마 dropBehaviorRules (기본 규칙)
-4. 타입 조합 기본 규칙 (내장 규칙)
-5. 기본값 (move/insert)
+1. UI context (Ctrl/Cmd = copy) - highest priority
+2. defineDropBehavior rules (dynamic rules)
+3. Schema dropBehaviorRules (basic rules)
+4. Type combination basic rules (built-in rules)
+5. Default (move/insert)
 ```
 
 ---
 
-## 구현 예시
+## Implementation Example
 
-### 스키마 정의 (기본 규칙)
+### Schema Definition (Basic Rules)
 
 ```typescript
 const schema = createSchema('example', {
@@ -256,36 +256,36 @@ const schema = createSchema('example', {
       name: 'paragraph',
       group: 'block',
       content: 'inline*',
-      // 기본 규칙 (선택적)
+      // Basic rules (optional)
       dropBehaviorRules: {
-        'inline-text': 'merge',  // 텍스트는 병합
-        '*': 'move'              // 기본값: 이동
+        'inline-text': 'merge',  // Merge text
+        '*': 'move'              // Default: move
       }
     },
     'heading': {
       name: 'heading',
       group: 'block',
       content: 'inline*',
-      // 규칙 없음 → 기본값 사용
+      // No rules → use defaults
     }
   }
 });
 ```
 
-### EditorViewDOM에서 추가 규칙
+### Add Rules in EditorViewDOM
 
 ```typescript
 class EditorViewDOM {
   constructor(editor: Editor, options: EditorViewDOMOptions) {
-    // 특정 에디터 인스턴스만의 규칙
+    // Rules specific to this editor instance
     defineDropBehavior(
       'paragraph',
       (target, source, context) => {
-        // Shift + 드래그 = 복사
+        // Shift + drag = copy
         if (context.modifiers?.shiftKey) {
           return 'copy';
         }
-        // null 반환 시 스키마 규칙 확인
+        // Return null to check schema rules
         return null;
       },
       { priority: 200 }
@@ -294,7 +294,7 @@ class EditorViewDOM {
 }
 ```
 
-### DataStore.getDropBehavior 구현
+### DataStore.getDropBehavior Implementation
 
 ```typescript
 getDropBehavior(
@@ -307,12 +307,12 @@ getDropBehavior(
   const schema = this._activeSchema;
   const targetType = schema?.getNodeType?.(targetNode.stype);
   
-  // 1. UI 컨텍스트 (최우선)
+  // 1. UI context (highest priority)
   if (context?.modifiers?.ctrlKey || context?.modifiers?.metaKey) {
     return 'copy';
   }
   
-  // 2. defineDropBehavior 규칙 확인
+  // 2. Check defineDropBehavior rules
   const registeredBehavior = globalDropBehaviorRegistry.get(
     targetNode.stype,
     sourceNode.stype,
@@ -321,11 +321,11 @@ getDropBehavior(
     context
   );
   
-  if (registeredBehavior !== null) {  // null이 아니면 반환
+  if (registeredBehavior !== null) {  // Return if not null
     return registeredBehavior;
   }
   
-  // 3. 스키마 dropBehaviorRules 확인
+  // 3. Check schema dropBehaviorRules
   if (targetType?.dropBehaviorRules) {
     const rules = targetType.dropBehaviorRules;
     if (rules[sourceNode.stype]) {
@@ -336,45 +336,44 @@ getDropBehavior(
     }
   }
   
-  // 4. 타입 조합 기본 규칙
-  // 5. 기본값
+  // 4. Type combination basic rules
+  // 5. Default
   return this._getDefaultDropBehavior(targetNode, sourceNode, context);
 }
 ```
 
 ---
 
-## 결론
+## Conclusion
 
-### 스키마에 정의하는 이유
+### Reasons to Define in Schema
 
-1. **일관성**: `editable`, `selectable`, `draggable`, `droppable` 같은 속성과 일관성
-2. **재사용성**: 스키마 재사용 시 기본 동작 보장
-3. **명확성**: "이 노드 타입은 이런 기본 동작을 가진다"는 힌트
+1. **Consistency**: Consistent with attributes like `editable`, `selectable`, `draggable`, `droppable`
+2. **Reusability**: Ensures basic behavior when schema is reused
+3. **Clarity**: Hints that "this node type has this basic behavior"
 
-### 하지만 스키마만으로는 부족한 이유
+### Why Schema Alone is Insufficient
 
-1. **동적 규칙**: 복잡한 로직은 함수로 정의해야 함
-2. **커스터마이징**: 에디터 인스턴스별 다른 규칙 필요
-3. **확장성**: Extension이나 애플리케이션 레벨에서 규칙 추가 필요
+1. **Dynamic rules**: Complex logic needs to be defined as functions
+2. **Customization**: Different rules needed per editor instance
+3. **Extensibility**: Need to add rules at Extension or application level
 
-### 하이브리드 접근법의 장점
+### Advantages of Hybrid Approach
 
-- **스키마**: 기본 규칙 힌트 (선택적)
-- **defineDropBehavior**: 동적 규칙, 커스터마이징 (필요 시)
-- **우선순위**: defineDropBehavior > 스키마 > 기본값
+- **Schema**: Basic rule hints (optional)
+- **defineDropBehavior**: Dynamic rules, customization (when needed)
+- **Priority**: defineDropBehavior > schema > default
 
-이렇게 하면:
-- 스키마는 순수하게 데이터 모델 정의에 집중 (기본 규칙은 힌트)
-- UI 레이어는 필요 시 규칙 추가/오버라이드 가능
-- 스키마 재사용 시 기본 동작 보장
-- 에디터 인스턴스별 커스터마이징 가능
+This way:
+- Schema focuses purely on data model definition (basic rules are hints)
+- UI layer can add/override rules when needed
+- Ensures basic behavior when schema is reused
+- Can customize per editor instance
 
 ---
 
-## 참고 자료
+## References
 
-- `packages/datastore/docs/drop-behavior-spec.md`: Drop Behavior 명세
-- `packages/datastore/docs/drop-behavior-implementation-plan.md`: 구현 계획
-- `packages/datastore/docs/drop-behavior-implementation-options.md`: 구현 옵션 비교
-
+- `packages/datastore/docs/drop-behavior-spec.md`: Drop Behavior specification
+- `packages/datastore/docs/drop-behavior-implementation-plan.md`: Implementation plan
+- `packages/datastore/docs/drop-behavior-implementation-options.md`: Implementation option comparison

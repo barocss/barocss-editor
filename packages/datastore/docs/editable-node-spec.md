@@ -1,256 +1,256 @@
-# Editable Node 명세
+# Editable Node Specification
 
-## 개요
+## Overview
 
-이 문서는 "Editable Node"의 정의, 용도, 판단 기준을 명확히 정의합니다.
-
----
-
-## 1. Editable Node란?
-
-**Editable Node**는 **커서로 탐색 가능한 노드**입니다. 즉, Backspace, Delete, 화살표 키 등의 편집 명령으로 이전/다음 노드를 찾을 수 있는 노드입니다.
-
-### 핵심 개념
-
-- **커서로 탐색 가능**: `getPreviousEditableNode` / `getNextEditableNode`로 이전/다음 노드를 찾을 수 있음
-- **편집 명령 적용**: Backspace, Delete, 화살표 키 등의 편집 명령이 적용되는 노드
-- **Selection 대상**: Range Selection 또는 Node Selection의 대상이 될 수 있음
-
-### 중요한 구분: Editable vs Selectable
-
-#### Editable Node (커서로 탐색 가능)
-- **텍스트 노드**: `.text` 필드가 있는 노드 (offset 기반 커서 이동 가능)
-- **Inline 노드**: `group: 'inline'`인 노드 (atom 노드 포함)
-- **특징**: Backspace/Delete/화살표 키로 탐색 가능
-
-#### Selectable Node (클릭으로 선택 가능)
-- **Block 노드**: paragraph, heading, table 등
-- **특징**: 
-  - 클릭하면 Node Selection으로 선택 가능
-  - 하지만 Backspace/Delete/화살표 키로는 탐색 불가능 (editable node가 아님)
-  - Block 노드 자체는 편집 명령으로 탐색할 수 없고, 내부의 inline 노드만 탐색 가능
-
-### Selection 방식의 차이
-
-Editable Node는 노드 타입에 따라 다른 Selection 방식을 사용합니다:
-
-#### 텍스트 노드 (Text Nodes)
-- **Range Selection**: offset 기반으로 커서를 둘 수 있음
-- 예: `{ type: 'range', startNodeId: 'text-1', startOffset: 5, endOffset: 5 }`
-
-#### Inline Atom 노드 (Inline Atomic Nodes)
-- **Node Selection**: 노드 전체를 선택 (offset 없음)
-- 예: `{ type: 'node', nodeId: 'image-1' }`
-
-### Editable Node가 아닌 것
-
-- **Block 노드**: `paragraph`, `heading`, `table`, `codeBlock` 등
-  - 클릭하면 선택 가능하지만, 편집 명령으로 탐색할 수 없음
-  - 내부의 inline 노드들은 편집 가능하지만, block 노드 자체는 편집 불가능
-- **Document 노드**: 최상위 컨테이너 (편집 대상이 아님)
+This document clearly defines the definition, purpose, and criteria for "Editable Node".
 
 ---
 
-## 2. Editable Node 판단 기준
+## 1. What is an Editable Node?
 
-### 2.1 우선순위 기반 판단
+**Editable Node** is a **node that can be navigated with cursor**. That is, a node where previous/next nodes can be found with edit commands like Backspace, Delete, arrow keys, etc.
 
-`_isEditableNode(nodeId)` 함수는 다음 순서로 판단합니다:
+### Core Concepts
 
-#### 1단계: 스키마 Group 확인 (최우선)
+- **Navigable with cursor**: Can find previous/next nodes with `getPreviousEditableNode` / `getNextEditableNode`
+- **Edit commands apply**: Nodes where edit commands like Backspace, Delete, arrow keys apply
+- **Selection target**: Can be the target of Range Selection or Node Selection
+
+### Important Distinction: Editable vs Selectable
+
+#### Editable Node (navigable with cursor)
+- **Text node**: Node with `.text` field (can move cursor based on offset)
+- **Inline node**: Node with `group: 'inline'` (including atom nodes)
+- **Characteristics**: Navigable with Backspace/Delete/arrow keys
+
+#### Selectable Node (selectable by clicking)
+- **Block node**: paragraph, heading, table, etc.
+- **Characteristics**: 
+  - Can be selected as Node Selection when clicked
+  - But not navigable with Backspace/Delete/arrow keys (not editable node)
+  - Block node itself cannot be navigated with edit commands, only internal inline nodes can be navigated
+
+### Differences in Selection Methods
+
+Editable Node uses different selection methods depending on node type:
+
+#### Text Nodes
+- **Range Selection**: Can place cursor based on offset
+- Example: `{ type: 'range', startNodeId: 'text-1', startOffset: 5, endOffset: 5 }`
+
+#### Inline Atomic Nodes
+- **Node Selection**: Select entire node (no offset)
+- Example: `{ type: 'node', nodeId: 'image-1' }`
+
+### What is Not an Editable Node
+
+- **Block node**: `paragraph`, `heading`, `table`, `codeBlock`, etc.
+  - Can be selected when clicked, but cannot be navigated with edit commands
+  - Internal inline nodes are editable, but block node itself is not editable
+- **Document node**: Top-level container (not an editing target)
+
+---
+
+## 2. Editable Node Criteria
+
+### 2.1 Priority-Based Determination
+
+The `_isEditableNode(nodeId)` function determines in the following order:
+
+#### Step 1: Check Schema Group (Highest Priority)
 
 ```typescript
-// 스키마에서 노드 타입의 group 확인
+// Check node type's group from schema
 const nodeType = schema.getNodeType(node.stype);
 const group = nodeType?.group;
 
-// Editable Block: block이지만 editable=true이면 편집 가능
+// Editable Block: editable if block but editable=true
 if (group === 'block' && nodeType.editable === true) {
-  // .text 필드가 있어야 편집 가능
+  // Must have .text field to be editable
   if (node.text !== undefined && typeof node.text === 'string') {
-    return true; // 편집 가능한 block
+    return true; // Editable block
   }
   return false;
 }
 
 if (group === 'block' || group === 'document') {
-  return false; // 편집 불가능
+  return false; // Not editable
 }
 if (group === 'inline') {
-  return true; // 편집 가능
+  return true; // Editable
 }
 ```
 
-**예시:**
-- `paragraph` (group: 'block') → **편집 불가능**
-- `codeBlock` (group: 'block', editable: true, .text 필드 있음) → **편집 가능**
-- `.text` 필드가 있는 노드 (group: 'inline') → **편집 가능**
-- `group: 'inline'`인 노드 → **편집 가능**
+**Examples:**
+- `paragraph` (group: 'block') → **Not editable**
+- `codeBlock` (group: 'block', editable: true, has .text field) → **Editable**
+- Node with `.text` field (group: 'inline') → **Editable**
+- Node with `group: 'inline'` → **Editable**
 
-#### 2단계: stype 접두사 확인 (폴백)
+#### Step 2: Check stype Prefix (Fallback)
 
 ```typescript
-// 'inline-' 접두사가 있으면 inline 노드로 간주
+// If has 'inline-' prefix, treat as inline node
 if (node.stype && node.stype.startsWith('inline-')) {
-  return true; // 편집 가능
+  return true; // Editable
 }
 ```
 
-**예시:**
-- `stype`이 `'inline-'` 접두사를 가지는 노드 → **편집 가능**
-- 스키마 정보가 없을 때의 폴백 로직
+**Examples:**
+- Node with `stype` starting with `'inline-'` prefix → **Editable**
+- Fallback logic when schema info is not available
 
-#### 3단계: Block 노드 추정 (폴백)
+#### Step 3: Estimate Block Node (Fallback)
 
 ```typescript
-// content가 있고 text 필드가 없으면 block으로 간주
+// If has content and no text field, treat as block
 if (node.content && node.text === undefined) {
-  return false; // 편집 불가능
+  return false; // Not editable
 }
 ```
 
-#### 4단계: .text 필드 확인
+#### Step 4: Check .text Field
 
 ```typescript
-// .text 필드가 있고 문자열 타입이면 텍스트 노드
-// 주의: codeBlock처럼 .text 필드가 있어도 group이 'block'이면 이미 1단계에서 false 반환됨
+// If has .text field and is string type, it's a text node
+// Note: Even if has .text field like codeBlock, if group is 'block', already returned false in step 1
 if (node.text !== undefined && typeof node.text === 'string') {
-  return true; // 편집 가능
+  return true; // Editable
 }
 ```
 
-**예시:**
-- `.text` 필드가 있고 문자열 타입인 노드 → **편집 가능**
-- `codeBlock`처럼 `.text` 필드가 있어도 `group: 'block'`이면 이미 1단계에서 false 반환
+**Examples:**
+- Node with `.text` field and string type → **Editable**
+- Even if has `.text` field like `codeBlock`, if `group: 'block'`, already returned false in step 1
 
-#### 5단계: 기본값 (안전하게 true)
+#### Step 5: Default (Safely true)
 
 ```typescript
-// 그 외의 경우는 편집 가능한 노드로 간주 (안전하게 true)
+// Otherwise treat as editable node (safely true)
 return true;
 ```
 
 ---
 
-## 3. Editable Node의 종류
+## 3. Types of Editable Nodes
 
-### 3.1 텍스트 노드 (Text Nodes)
+### 3.1 Text Nodes
 
-**판단 기준:**
-- `.text` 필드가 있고 `typeof node.text === 'string'`
-- `group: 'inline'` (또는 스키마 정보 없을 때 폴백 로직)
+**Criteria:**
+- Has `.text` field and `typeof node.text === 'string'`
+- `group: 'inline'` (or fallback logic when schema info is not available)
 
-**특징:**
-- 커서를 텍스트 내부에 둘 수 있음
-- 텍스트 편집(삽입, 삭제) 가능
-- Range Selection 사용 (offset 기반)
+**Characteristics:**
+- Can place cursor inside text
+- Can edit text (insert, delete)
+- Uses Range Selection (offset-based)
 
-**예시:**
+**Example:**
 ```typescript
 {
-  stype: 'inline-text', // stype은 중요하지 않음
-  text: 'Hello World'   // .text 필드가 있으면 텍스트 노드로 판단
+  stype: 'inline-text', // stype is not important
+  text: 'Hello World'   // If has .text field, treated as text node
 }
-// 또는
+// Or
 {
-  stype: 'custom-text-node', // 다른 stype이어도
-  text: 'Hello World'         // .text 필드가 있으면 텍스트 노드
+  stype: 'custom-text-node', // Even different stype
+  text: 'Hello World'         // If has .text field, it's a text node
 }
 ```
 
-**사용 케이스:**
-- 텍스트 입력
-- Backspace/Delete로 문자 삭제
-- 화살표 키로 커서 이동
+**Use cases:**
+- Text input
+- Delete characters with Backspace/Delete
+- Move cursor with arrow keys
 
-### 3.2 Inline Atom 노드 (Inline Atomic Nodes)
+### 3.2 Inline Atom Nodes
 
-**판단 기준:**
-- `group: 'inline'` (스키마에서 확인)
-- `atom: true` (스키마에서 확인)
-- `.text` 필드 없음
+**Criteria:**
+- `group: 'inline'` (checked from schema)
+- `atom: true` (checked from schema)
+- No `.text` field
 
-**특징:**
-- 원자적(atomic) 노드로, 내부 편집 불가능
-- 노드 전체를 선택/삭제할 수 있음
-- Node Selection 사용 (offset 없음)
+**Characteristics:**
+- Atomic node, cannot edit internally
+- Can select/delete entire node
+- Uses Node Selection (no offset)
 
-**예시:**
+**Example:**
 ```typescript
 {
-  stype: 'inline-image', // stype은 중요하지 않음
+  stype: 'inline-image', // stype is not important
   attributes: { src: 'image.jpg', alt: 'Image' }
-  // .text 필드 없음
-  // 스키마 정의: { group: 'inline', atom: true }
+  // No .text field
+  // Schema definition: { group: 'inline', atom: true }
 }
-// 또는
+// Or
 {
-  stype: 'custom-atom-node', // 다른 stype이어도
+  stype: 'custom-atom-node', // Even different stype
   attributes: { ... }
-  // 스키마 정의: { group: 'inline', atom: true }이면 atom 노드
+  // If schema definition is { group: 'inline', atom: true }, it's an atom node
 }
 ```
 
-**사용 케이스:**
-- Backspace로 노드 전체 삭제
-- 화살표 키로 노드를 건너뛰고 이동
-- 노드 선택 (Node Selection)
+**Use cases:**
+- Delete entire node with Backspace
+- Skip node and move with arrow keys
+- Select node (Node Selection)
 
-### 3.3 기타 Inline 노드
+### 3.3 Other Inline Nodes
 
-**판단 기준:**
-- `group: 'inline'` (스키마에서 확인)
-- `.text` 필드 없음
-- `atom: false` 또는 `atom` 속성 없음
+**Criteria:**
+- `group: 'inline'` (checked from schema)
+- No `.text` field
+- `atom: false` or no `atom` attribute
 
-**특징:**
-- Inline 노드이지만 텍스트 노드도 atom 노드도 아님
-- 링크, 멘션, 버튼 등
+**Characteristics:**
+- Inline node but neither text node nor atom node
+- Links, mentions, buttons, etc.
 
-**예시:**
+**Example:**
 ```typescript
 {
-  stype: 'inline-link', // 또는 다른 inline 노드
+  stype: 'inline-link', // Or other inline node
   attributes: { href: 'https://example.com' }
-  // 스키마: { group: 'inline' }
+  // Schema: { group: 'inline' }
 }
 ```
 
-**사용 케이스:**
-- Backspace/Delete로 노드 삭제
-- 화살표 키로 탐색
+**Use cases:**
+- Delete node with Backspace/Delete
+- Navigate with arrow keys
 
 ---
 
-## 4. Editable Node가 아닌 것
+## 4. What is Not an Editable Node
 
-### 4.1 Block 노드
+### 4.1 Block Node
 
-**특징:**
+**Characteristics:**
 - `group: 'block'`
-- 내부에 inline 노드들을 포함
-- 커서를 직접 둘 수 없음 (내부의 inline 노드에만 커서 가능)
+- Contains inline nodes internally
+- Cannot place cursor directly (cursor only possible in internal inline nodes)
 
-**예시:**
+**Example:**
 ```typescript
 {
   stype: 'paragraph',
-  content: ['text-1', 'text-2'] // 내부의 text 노드들이 편집 가능
+  content: ['text-1', 'text-2'] // Internal text nodes are editable
 }
 ```
 
-**동작:**
-- `getPreviousEditableNode` / `getNextEditableNode`에서 **건너뜀**
-- 내부의 inline 노드들을 찾아서 반환
+**Behavior:**
+- **Skipped** in `getPreviousEditableNode` / `getNextEditableNode`
+- Finds and returns internal inline nodes
 
-### 4.2 Document 노드
+### 4.2 Document Node
 
-**특징:**
+**Characteristics:**
 - `group: 'document'`
-- 최상위 컨테이너
-- 편집 대상이 아님
+- Top-level container
+- Not an editing target
 
-**예시:**
+**Example:**
 ```typescript
 {
   stype: 'document',
@@ -258,20 +258,20 @@ return true;
 }
 ```
 
-### 4.3 특수 케이스: Editable Block (codeBlock, mathBlock 등)
+### 4.3 Special Case: Editable Block (codeBlock, mathBlock, etc.)
 
-**개념:**
-- `group: 'block'`이지만 `.text` 필드를 가질 수 있음
-- `editableBlock: true` 속성을 설정하면 **편집 가능**한 block 노드가 됨
+**Concept:**
+- `group: 'block'` but can have `.text` field
+- If `editableBlock: true` attribute is set, becomes **editable** block node
 
-**예시:**
+**Example:**
 ```typescript
-// 스키마 정의
+// Schema definition
 {
   'codeBlock': {
     name: 'codeBlock',
     group: 'block',
-    editable: true,  // 편집 가능한 block
+    editable: true,  // Editable block
     content: 'text*',
     attrs: {
       language: { type: 'string', default: 'text' }
@@ -279,97 +279,97 @@ return true;
   }
 }
 
-// 노드 인스턴스
+// Node instance
 {
   stype: 'codeBlock',
-  text: 'const x = 1;', // .text 필드가 있고
-  // editable: true이므로 편집 가능
+  text: 'const x = 1;', // Has .text field and
+  // editable: true so editable
 }
 ```
 
-**판단 로직:**
-1. 1단계(스키마 Group 확인)에서 `group: 'block'` 확인
-2. `editable: true`이고 `.text` 필드가 있으면 → **편집 가능**
-3. 그렇지 않으면 → **편집 불가능**
+**Determination logic:**
+1. Check `group: 'block'` in step 1 (Schema Group check)
+2. If `editable: true` and has `.text` field → **Editable**
+3. Otherwise → **Not editable**
 
-**사용 케이스:**
-- `codeBlock`: 코드 편집
-- `mathBlock`: 수식 편집
-- `formula`: Excel 스타일 수식 편집
+**Use cases:**
+- `codeBlock`: Code editing
+- `mathBlock`: Formula editing
+- `formula`: Excel style formula editing
 
-**자세한 내용:**
-- 편집 상태 관리, 고급 에디터 통합 등은 `block-text-editing-strategies.md` 참고
+**Details:**
+- For edit state management, advanced editor integration, etc., refer to `block-text-editing-strategies.md`
 
 ---
 
-## 5. 사용 케이스
+## 5. Use Cases
 
-### 5.1 Backspace 키 처리
+### 5.1 Backspace Key Handling
 
-**목적:** 이전 편집 가능한 노드를 찾아서 처리
+**Purpose:** Find previous editable node and handle
 
-**동작:**
+**Behavior:**
 ```typescript
-// Offset 0에서 Backspace
+// Backspace at offset 0
 const prevEditableNodeId = dataStore.getPreviousEditableNode(currentNodeId);
 
 if (prevEditableNodeId) {
-  // 이전 편집 가능한 노드 처리
-  // - 텍스트 노드: 마지막 문자 삭제 또는 병합
-  // - Inline atom 노드: 노드 전체 삭제
+  // Handle previous editable node
+  // - Text node: Delete last character or merge
+  // - Inline atom node: Delete entire node
 }
 ```
 
-**예시:**
+**Example:**
 ```
 Before:
 [paragraph-1: "Hello"] [paragraph-2: "World"]
-                        ↑ 커서 (paragraph-2의 text-2 offset 0)
+                        ↑ cursor (text-2 offset 0 in paragraph-2)
 
-Backspace 입력:
+Backspace input:
 → getPreviousEditableNode('text-2') 
-→ 'text-1' 반환 (paragraph-1의 마지막 텍스트)
-→ 블록 병합 또는 문자 삭제
+→ Returns 'text-1' (last text in paragraph-1)
+→ Block merge or character deletion
 ```
 
-### 5.2 Delete 키 처리
+### 5.2 Delete Key Handling
 
-**목적:** 다음 편집 가능한 노드를 찾아서 처리
+**Purpose:** Find next editable node and handle
 
-**동작:**
+**Behavior:**
 ```typescript
-// 텍스트 끝에서 Delete
+// Delete at end of text
 const nextEditableNodeId = dataStore.getNextEditableNode(currentNodeId);
 
 if (nextEditableNodeId) {
-  // 다음 편집 가능한 노드 처리
+  // Handle next editable node
 }
 ```
 
-### 5.3 화살표 키 처리
+### 5.3 Arrow Key Handling
 
-**목적:** 이전/다음 편집 가능한 노드로 커서 이동
+**Purpose:** Move cursor to previous/next editable node
 
-**동작:**
+**Behavior:**
 ```typescript
-// 왼쪽 화살표 키
+// Left arrow key
 const prevEditableNodeId = dataStore.getPreviousEditableNode(currentNodeId);
 if (prevEditableNodeId) {
-  // 커서를 이전 노드로 이동
+  // Move cursor to previous node
 }
 
-// 오른쪽 화살표 키
+// Right arrow key
 const nextEditableNodeId = dataStore.getNextEditableNode(currentNodeId);
 if (nextEditableNodeId) {
-  // 커서를 다음 노드로 이동
+  // Move cursor to next node
 }
 ```
 
 ---
 
-## 6. 판단 로직 상세
+## 6. Detailed Determination Logic
 
-### 6.1 _isEditableNode 구현
+### 6.1 _isEditableNode Implementation
 
 ```typescript
 private _isEditableNode(nodeId: string): boolean {
@@ -378,93 +378,93 @@ private _isEditableNode(nodeId: string): boolean {
     return false;
   }
 
-  // 1. 스키마에서 group 확인 (우선순위 높음)
+  // 1. Check group from schema (high priority)
   const schema = this.dataStore.getActiveSchema();
   if (schema) {
     try {
       const nodeType = schema.getNodeType(node.stype);
       if (nodeType) {
         const group = nodeType.group;
-        // block 또는 document 노드는 편집 불가능
+        // block or document nodes are not editable
         if (group === 'block' || group === 'document') {
           return false;
         }
-        // inline 노드는 편집 가능
+        // inline nodes are editable
         if (group === 'inline') {
           return true;
         }
       }
     } catch (error) {
-      // 스키마 조회 실패 시 계속 진행
+      // Continue if schema lookup fails
     }
   }
 
-  // 2. 스키마 정보가 없으면 stype으로 추정
-  // 'inline-' 접두사가 있으면 inline 노드로 간주
+  // 2. Estimate from stype if no schema info
+  // If has 'inline-' prefix, treat as inline node
   if (node.stype && node.stype.startsWith('inline-')) {
     return true;
   }
 
-  // 3. block 노드로 추정 (content가 있고 text 필드가 없으면 block으로 간주)
+  // 3. Estimate block node (if has content and no text field, treat as block)
   if (node.content && node.text === undefined) {
     return false;
   }
 
-  // 4. 텍스트 노드 (.text 필드가 있고, block이 아닌 경우)
-  // 주의: codeBlock처럼 .text 필드가 있어도 group이 'block'이면 이미 위에서 false 반환됨
+  // 4. Text node (.text field exists, and not block)
+  // Note: Even if has .text field like codeBlock, if group is 'block', already returned false above
   if (node.text !== undefined && typeof node.text === 'string') {
     return true;
   }
 
-  // 5. 그 외의 경우는 편집 가능한 노드로 간주 (안전하게 true)
+  // 5. Otherwise treat as editable node (safely true)
   return true;
 }
 ```
 
-### 6.2 판단 순서의 중요성
+### 6.2 Importance of Determination Order
 
-**왜 스키마 Group을 먼저 확인하는가?**
+**Why check Schema Group first?**
 
-1. **정확성**: 스키마 정의가 가장 정확한 정보
-2. **codeBlock 케이스**: `.text` 필드가 있어도 `group: 'block'`이면 편집 불가능
-3. **일관성**: 스키마 기반 판단이 가장 신뢰할 수 있음
+1. **Accuracy**: Schema definition is the most accurate information
+2. **codeBlock case**: Even if has `.text` field, if `group: 'block'`, not editable
+3. **Consistency**: Schema-based determination is most reliable
 
-**예시:**
+**Example:**
 ```typescript
-// codeBlock은 .text 필드를 가지지만 block 노드
+// codeBlock has .text field but is a block node
 {
   stype: 'codeBlock',
   text: 'const x = 1;',
-  // group: 'block' (스키마 정의)
+  // group: 'block' (schema definition)
 }
 
-// 판단 과정:
-// 1단계: group === 'block' → false 반환 (편집 불가능)
-// 2단계: .text 필드 확인까지 도달하지 않음
+// Determination process:
+// Step 1: group === 'block' → return false (not editable)
+// Step 2: Does not reach .text field check
 ```
 
 ---
 
 ## 7. Edge Cases
 
-### 7.1 빈 Block 노드
+### 7.1 Empty Block Node
 
-**상황:**
+**Situation:**
 ```typescript
 {
   stype: 'paragraph',
-  content: [] // 빈 paragraph
+  content: [] // Empty paragraph
 }
 ```
 
-**동작:**
-- Block 노드이므로 `_isEditableNode` → `false`
-- `getPreviousEditableNode` / `getNextEditableNode`에서 건너뜀
-- 이전/다음 편집 가능한 노드를 찾아서 반환
+**Behavior:**
+- Block node so `_isEditableNode` → `false`
+- Skipped in `getPreviousEditableNode` / `getNextEditableNode`
+- Finds and returns previous/next editable node
 
-### 7.2 중첩된 Block 구조
+### 7.2 Nested Block Structure
 
-**상황:**
+**Situation:**
 ```typescript
 {
   stype: 'blockQuote',
@@ -472,21 +472,21 @@ private _isEditableNode(nodeId: string): boolean {
     {
       stype: 'paragraph',
       content: [
-        { stype: 'inline-text', text: 'Quote' } // .text 필드가 있는 노드
+        { stype: 'inline-text', text: 'Quote' } // Node with .text field
       ]
     }
   ]
 }
 ```
 
-**동작:**
-- `blockQuote` (block) → 건너뜀
-- `paragraph` (block) → 건너뜀
-- `.text` 필드가 있는 노드 → **편집 가능** (반환)
+**Behavior:**
+- `blockQuote` (block) → skip
+- `paragraph` (block) → skip
+- Node with `.text` field → **Editable** (return)
 
-### 7.3 Table 구조
+### 7.3 Table Structure
 
-**상황:**
+**Situation:**
 ```typescript
 {
   stype: 'table',
@@ -497,7 +497,7 @@ private _isEditableNode(nodeId: string): boolean {
         {
           stype: 'tableCell',
           content: [
-            { stype: 'inline-text', text: 'Cell Text' } // .text 필드가 있는 노드
+            { stype: 'inline-text', text: 'Cell Text' } // Node with .text field
           ]
         }
       ]
@@ -506,25 +506,25 @@ private _isEditableNode(nodeId: string): boolean {
 }
 ```
 
-**동작:**
-- `table` (block) → 건너뜀
-- `tableRow` (block) → 건너뜀
-- `tableCell` (block) → 건너뜀
-- `.text` 필드가 있는 노드 → **편집 가능** (반환)
+**Behavior:**
+- `table` (block) → skip
+- `tableRow` (block) → skip
+- `tableCell` (block) → skip
+- Node with `.text` field → **Editable** (return)
 
 ---
 
-## 8. 선택(Selection)과의 관계
+## 8. Relationship with Selection
 
 ### 8.1 Range Selection
 
-**Editable Node 내에서:**
-- 텍스트 노드: offset 기반 범위 선택 가능
-- Inline atom 노드: 노드 전체 선택 (offset 없음)
+**Within Editable Node:**
+- Text node: Can select range based on offset
+- Inline atom node: Select entire node (no offset)
 
-**예시:**
+**Example:**
 ```typescript
-// 텍스트 노드 범위 선택
+// Text node range selection
 {
   type: 'range',
   startNodeId: 'text-1',
@@ -533,7 +533,7 @@ private _isEditableNode(nodeId: string): boolean {
   endOffset: 10
 }
 
-// Inline image 노드 선택
+// Inline image node selection
 {
   type: 'node',
   nodeId: 'image-1'
@@ -542,19 +542,19 @@ private _isEditableNode(nodeId: string): boolean {
 
 ### 8.2 Node Selection
 
-**Editable Node 전체 선택:**
-- Inline atom 노드: 노드 전체 선택
-- 텍스트 노드: 전체 텍스트 범위 선택
+**Select Entire Editable Node:**
+- Inline atom node: Select entire node
+- Text node: Select entire text range
 
-**예시:**
+**Example:**
 ```typescript
-// Inline image 노드 선택
+// Inline image node selection
 {
   type: 'node',
   nodeId: 'image-1'
 }
 
-// 텍스트 노드 전체 선택 (Range로 변환)
+// Text node entire selection (converted to Range)
 {
   type: 'range',
   startNodeId: 'text-1',
@@ -566,101 +566,100 @@ private _isEditableNode(nodeId: string): boolean {
 
 ---
 
-## 9. Editable vs Selectable 구분
+## 9. Editable vs Selectable Distinction
 
-### 9.1 핵심 구분
+### 9.1 Core Distinction
 
-| 구분 | Editable Node | Selectable Node (Block) |
-|------|--------------|------------------------|
-| **탐색 방법** | 커서로 탐색 (Backspace/Delete/화살표 키) | 클릭으로 선택 |
-| **편집 명령** | `getPreviousEditableNode` / `getNextEditableNode`로 탐색 가능 | 탐색 불가능 (내부 inline 노드만 탐색 가능) |
-| **Selection** | Range 또는 Node Selection | Node Selection만 |
-| **예시** | `.text` 필드가 있는 노드, `group: 'inline'`인 노드 | `group: 'block'`인 노드 |
+| Distinction | Editable Node | Selectable Node (Block) |
+|-------------|---------------|------------------------|
+| **Navigation method** | Navigate with cursor (Backspace/Delete/arrow keys) | Select by clicking |
+| **Edit commands** | Navigable with `getPreviousEditableNode` / `getNextEditableNode` | Not navigable (only internal inline nodes can be navigated) |
+| **Selection** | Range or Node Selection | Node Selection only |
+| **Examples** | Nodes with `.text` field, nodes with `group: 'inline'` | Nodes with `group: 'block'` |
 
-### 9.2 왜 Block 노드는 Editable Node가 아닌가?
+### 9.2 Why are Block Nodes Not Editable Nodes?
 
-**이유:**
-- Block 노드는 **컨테이너** 역할을 함
-- 실제 편집 대상은 내부의 inline 노드들
-- Block 노드 자체를 Backspace/Delete로 탐색하는 것은 의미가 없음
+**Reason:**
+- Block nodes serve as **containers**
+- Actual editing targets are internal inline nodes
+- Navigating block node itself with Backspace/Delete is meaningless
 
-**예시:**
+**Example:**
 ```
 [paragraph-1: "Hello"]
 [paragraph-2: "World"]
-         ↑ 커서 (paragraph-2의 text 노드 offset 0)
+         ↑ cursor (text node offset 0 in paragraph-2)
 
-Backspace 입력:
+Backspace input:
 → getPreviousEditableNode('text-2')
-→ 'text-1' 반환 (paragraph-1의 마지막 텍스트)
-→ Block 병합 또는 문자 삭제
+→ Returns 'text-1' (last text in paragraph-1)
+→ Block merge or character deletion
 
-Block 노드 자체를 탐색하는 것이 아니라,
-내부의 inline 노드를 탐색하는 것
+Not navigating block node itself,
+but navigating internal inline nodes
 ```
 
-### 9.3 Block 노드 선택은?
+### 9.3 What About Block Node Selection?
 
-**Block 노드는 Selectable:**
-- 사용자가 클릭하면 Node Selection으로 선택 가능
-- 하지만 편집 명령으로는 탐색 불가능
+**Block Nodes are Selectable:**
+- Can be selected as Node Selection when user clicks
+- But not navigable with edit commands
 
-**예시:**
+**Example:**
 ```typescript
-// 사용자가 paragraph를 클릭
+// User clicks paragraph
 {
   type: 'node',
   nodeId: 'paragraph-1'
 }
 
-// 하지만 Backspace/Delete/화살표 키로는 탐색 불가능
-// → getPreviousEditableNode('paragraph-1')는 내부의 inline 노드를 찾음
+// But not navigable with Backspace/Delete/arrow keys
+// → getPreviousEditableNode('paragraph-1') finds internal inline nodes
 ```
 
 ---
 
-## 10. 요약
+## 10. Summary
 
-### Editable Node의 정의
+### Definition of Editable Node
 
-1. **커서로 탐색 가능한 노드** (Backspace/Delete/화살표 키)
-2. **편집 명령으로 이전/다음 노드를 찾을 수 있는 노드**
-3. **Block 노드가 아닌 노드** (block 노드는 내부의 inline 노드만 편집 가능)
+1. **Node navigable with cursor** (Backspace/Delete/arrow keys)
+2. **Node where previous/next nodes can be found with edit commands**
+3. **Node that is not a block node** (block nodes can only edit internal inline nodes)
 
-### 핵심 구분
+### Core Distinction
 
-- **Editable Node**: 커서로 탐색 가능 (텍스트, inline)
-- **Selectable Node**: 클릭으로 선택 가능 (block 포함)
-- **Block 노드**: 클릭하면 선택 가능하지만, 편집 명령으로는 탐색 불가능
+- **Editable Node**: Navigable with cursor (text, inline)
+- **Selectable Node**: Selectable by clicking (including blocks)
+- **Block Node**: Can be selected when clicked, but not navigable with edit commands
 
-### 판단 기준 (우선순위)
+### Criteria (Priority)
 
-1. **스키마 Group** (최우선)
-   - `group: 'block'` + `editable: true` + `.text` 필드 있음 → **편집 가능** (Editable Block)
-   - `group: 'block'` 또는 `'document'` → 편집 불가능
-   - `group: 'inline'` → 편집 가능
-2. **stype 접두사** (폴백)
-   - `'inline-'` 접두사 → 편집 가능
-3. **Block 추정** (폴백)
-   - `content` 있고 `.text` 없으면 편집 불가능
-4. **.text 필드**
-   - 있으면 편집 가능 (단, 이미 block으로 판단된 경우 제외)
-5. **기본값**
-   - 그 외는 편집 가능 (안전하게 true)
+1. **Schema Group** (highest priority)
+   - `group: 'block'` + `editable: true` + has `.text` field → **Editable** (Editable Block)
+   - `group: 'block'` or `'document'` → Not editable
+   - `group: 'inline'` → Editable
+2. **stype prefix** (fallback)
+   - `'inline-'` prefix → Editable
+3. **Block estimation** (fallback)
+   - Has `content` and no `.text` → Not editable
+4. **.text field**
+   - If exists, editable (except if already determined as block)
+5. **Default**
+   - Otherwise editable (safely true)
 
-### 주요 사용처
+### Main Usage
 
-- `getPreviousEditableNode`: Backspace, 왼쪽 화살표 키
-- `getNextEditableNode`: Delete, 오른쪽 화살표 키
-- Selection 관리: Range Selection의 대상 노드
+- `getPreviousEditableNode`: Backspace, left arrow key
+- `getNextEditableNode`: Delete, right arrow key
+- Selection management: Target nodes for Range Selection
 
 ---
 
-## 10. 참고 자료
+## 10. References
 
-- `packages/datastore/src/operations/utility-operations.ts`: `_isEditableNode` 구현
-- `packages/datastore/test/get-editable-node.test.ts`: 테스트 케이스
-- `packages/extensions/src/delete.ts`: Backspace 로직에서 사용
-- `packages/datastore/docs/block-text-editing-strategies.md`: Block 노드 내부 텍스트 편집 전략 (codeBlock, mathBlock 등)
-- `packages/datastore/docs/selectable-node-spec.md`: Selectable Node 명세 (클릭으로 선택 가능한 노드)
-
+- `packages/datastore/src/operations/utility-operations.ts`: `_isEditableNode` implementation
+- `packages/datastore/test/get-editable-node.test.ts`: Test cases
+- `packages/extensions/src/delete.ts`: Used in Backspace logic
+- `packages/datastore/docs/block-text-editing-strategies.md`: Block node internal text editing strategies (codeBlock, mathBlock, etc.)
+- `packages/datastore/docs/selectable-node-spec.md`: Selectable Node specification (nodes selectable by clicking)

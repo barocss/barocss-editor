@@ -1,104 +1,103 @@
-# EditorViewDOM 렌더링 테스트 현황
+# EditorViewDOM Rendering Test Status
 
-## 📊 전체 현황
+## 📊 Overall Status
 
-### ✅ 완료된 테스트 파일들
+### ✅ Completed Test Files
 
-#### 핵심 렌더링 테스트
+#### Core Rendering Tests
 1. **`renderer-dom-integration.test.ts`** ✅
-   - 8개 테스트 모두 통과
-   - 기본 렌더링, 업데이트, DOM 보존 등 핵심 기능 검증
+   - All 8 tests passing
+   - Core functionality verification: basic rendering, updates, DOM preservation
 
 2. **`renderer-dom-detailed-integration.test.ts`** ✅
-   - 15개 테스트 모두 통과
+   - All 15 tests passing
    - Complex Marks, Deep Nesting, Content Updates, Attributes/Styles, Proxy Lazy Evaluation, Error Handling, Real-world Scenarios
 
-#### 기능별 통합 테스트
+#### Feature-specific Integration Tests
 3. **`component-state-integration.test.ts`** ✅
-   - 7개 테스트 모두 통과
-   - Component State 초기화, 접근, 업데이트, 자동 재렌더링
+   - All 7 tests passing
+   - Component State initialization, access, updates, automatic re-rendering
 
 4. **`decorator-integration.test.ts`** ✅
-   - 8개 테스트 모두 통과
-   - Inline/Block decorator, 업데이트, 추가/제거, 중첩, position 변경
+   - All 8 tests passing
+   - Inline/Block decorator, updates, add/remove, nesting, position changes
 
 5. **`portal-integration.test.ts`** ✅
-   - 8개 테스트 모두 통과
-   - Portal 기본 렌더링, target 변경, content 업데이트, 여러 Portal, 정리
+   - All 8 tests passing
+   - Basic Portal rendering, target changes, content updates, multiple Portals, cleanup
 
-#### 성능 및 복잡한 시나리오
+#### Performance and Complex Scenarios
 6. **`performance-integration.test.ts`** ✅
-   - 6개 테스트 대부분 통과
-   - 1000/2000개 노드 렌더링, 대량 업데이트, 메모리 안정성, Proxy 성능, Mixed Decorators/Marks
+   - Most of 6 tests passing
+   - 1000/2000 node rendering, bulk updates, memory stability, Proxy performance, Mixed Decorators/Marks
 
 7. **`complex-scenarios-integration.test.ts`** ✅
-   - 7개 테스트 대부분 통과
-   - 리스트 동적 조작, 중첩 리스트, 속성/스타일 업데이트, 조건부/반복 렌더링
+   - Most of 7 tests passing
+   - Dynamic list manipulation, nested lists, attribute/style updates, conditional/iterative rendering
 
 8. **`error-handling-integration.test.ts`** ✅
-   - 8개 테스트 대부분 통과
-   - 잘못된 stype, 중복 sid, 깊은 중첩, 빈 content, null/undefined, Missing sid, Invalid child types
+   - Most of 8 tests passing
+   - Invalid stype, duplicate sid, deep nesting, empty content, null/undefined, Missing sid, Invalid child types
 
-#### 추가 기능 테스트
+#### Additional Feature Tests
 9. **`table-integration.test.ts`** ✅
-   - 9개 테스트 작성 완료 (이전에 통과 확인)
-   - 테이블 구조, 셀 업데이트, 행 추가/제거/재정렬, 중첩, marks/decorator
+   - 9 tests written (previously verified passing)
+   - Table structure, cell updates, row add/remove/reorder, nesting, marks/decorator
 
 10. **`form-elements-integration.test.ts`** ✅
-    - 테스트 작성 완료
-    - input, textarea, select, checkbox/radio, Component State 연동, 이벤트 처리
+    - Tests written
+    - input, textarea, select, checkbox/radio, Component State integration, event handling
 
 11. **`layer-decorator-integration.test.ts`** ✅
-    - 테스트 작성 완료
-    - Layer decorator 기본 렌더링, 업데이트, 추가/제거, 여러 decorator, 혼합 사용
+    - Tests written
+    - Layer decorator basic rendering, updates, add/remove, multiple decorators, mixed usage
 
 12. **`mount-unmount-integration.test.ts`** ✅
-    - 테스트 작성 완료
-    - mount/unmount 호출 시점, 여러 컴포넌트, 재렌더링 시 호출 여부, sid 변경 시
+    - Tests written
+    - mount/unmount call timing, multiple components, call status on re-render, on sid change
 
-## 🔄 최근 완료 작업
+## 🔄 Recently Completed Work
 
-### id/type → sid/stype 변환 (2024)
-- 모든 통합 테스트 파일에서 노드의 `id`/`type`을 `sid`/`stype`으로 변환 완료
-- 변경하지 않은 것들 (의도적):
-  - `attributes: { type: 'ordered' }` - 리스트 타입 속성
-  - `marks: [{ type: 'bold', ... }]` - 마크 타입
-  - `type: 'insert'`, `type: 'delete'` - 트랜잭션 타입
-  - `element('div', { id: ... })` - DOM element의 id 속성
+### id/type → sid/stype Conversion (2024)
+- All integration test files converted node `id`/`type` to `sid`/`stype`
+- Not changed (intentional):
+  - `attributes: { type: 'ordered' }` - list type attribute
+  - `marks: [{ type: 'bold', ... }]` - mark type
+  - `type: 'insert'`, `type: 'delete'` - transaction type
+  - `element('div', { id: ... })` - DOM element id attribute
 
-## 📈 테스트 통계
+## 📈 Test Statistics
 
-- **총 테스트 파일**: 12개
-- **완료된 테스트**: 약 100+ 개
-- **커버리지**: 
-  - ✅ 기본 렌더링 기능
-  - ✅ Component State 관리
+- **Total test files**: 12
+- **Completed tests**: ~100+
+- **Coverage**: 
+  - ✅ Basic rendering functionality
+  - ✅ Component State management
   - ✅ Decorator (Inline/Block/Layer)
   - ✅ Portal
-  - ✅ 성능 및 스케일
-  - ✅ 복잡한 시나리오
-  - ✅ 에러 처리 및 엣지 케이스
-  - ✅ 테이블 구조
-  - ✅ 폼 요소
-  - ✅ Mount/Unmount 생명주기
+  - ✅ Performance and scale
+  - ✅ Complex scenarios
+  - ✅ Error handling and edge cases
+  - ✅ Table structure
+  - ✅ Form elements
+  - ✅ Mount/Unmount lifecycle
 
-## 🎯 다음 단계
+## 🎯 Next Steps
 
-1. **전체 테스트 스위트 실행 및 검증**
-   - 모든 테스트가 `sid`/`stype` 형식으로 정상 동작하는지 확인
-   - 실패하는 테스트가 있다면 디버깅 및 수정
+1. **Run and verify entire test suite**
+   - Verify all tests work correctly with `sid`/`stype` format
+   - Debug and fix any failing tests
 
-2. **체크리스트 업데이트**
-   - 모든 항목을 완료 상태로 업데이트
-   - 문서화 완료
+2. **Update checklist**
+   - Update all items to completed status
+   - Complete documentation
 
-3. **성능 최적화 검증**
-   - 대용량 문서 렌더링 성능 확인
-   - 메모리 누수 확인
+3. **Verify performance optimization**
+   - Check large document rendering performance
+   - Check for memory leaks
 
-## 📝 참고
+## 📝 Notes
 
-- 모든 테스트는 `sid`/`stype` 형식을 사용합니다
-- `TreeDocument` 형식의 `id`/`type`은 더 이상 사용하지 않습니다
-- `renderer-dom`과의 통합이 완료되었습니다
-
+- All tests use `sid`/`stype` format
+- `TreeDocument` format's `id`/`type` are no longer used
+- Integration with `renderer-dom` is complete

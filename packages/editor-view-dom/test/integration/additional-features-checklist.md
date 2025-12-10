@@ -1,60 +1,59 @@
-# renderer-dom 연동 추가 기능 테스트 체크리스트
+# renderer-dom Integration Additional Feature Test Checklist
 
-## 📋 테스트 항목
+## 📋 Test Items
 
-### 1. BaseComponentState.mount/unmount 호출 확인 ✅ (테스트 작성 완료, 디버깅 필요)
-- [x] mount() 호출 시점 확인 (컴포넌트가 DOM에 마운트될 때) - 테스트 작성 완료, 컴포넌트 렌더링 이슈
-- [x] unmount() 호출 시점 확인 (컴포넌트가 DOM에서 제거될 때) - 테스트 작성 완료, 컴포넌트 렌더링 이슈
-- [x] 여러 컴포넌트의 독립적인 mount/unmount - 테스트 작성 완료, 컴포넌트 렌더링 이슈
-- [x] 재렌더링 시 mount/unmount 호출 여부 확인 (호출되지 않아야 함) - 테스트 작성 완료, 컴포넌트 렌더링 이슈
-- [x] sid 변경 시 unmount → mount 호출 확인 - 테스트 작성 완료, 컴포넌트 렌더링 이슈
+### 1. BaseComponentState.mount/unmount Call Verification ✅ (tests written, debugging needed)
+- [x] Verify mount() call timing (when component is mounted to DOM) - tests written, component rendering issue
+- [x] Verify unmount() call timing (when component is removed from DOM) - tests written, component rendering issue
+- [x] Independent mount/unmount for multiple components - tests written, component rendering issue
+- [x] Verify mount/unmount call status on re-render (should not be called) - tests written, component rendering issue
+- [x] Verify unmount → mount call on sid change - tests written, component rendering issue
 
-**참고**: 
-- ComponentManager에서 `stateInstHook.mount()`와 `stateInstHook.unmount()`를 호출하는 것을 확인함
-- 하지만 BaseComponentState.mount/unmount는 현재 TODO 상태
-- 테스트 파일 작성 완료: `mount-unmount-integration.test.ts`
-- 컴포넌트가 렌더링되지 않는 문제 발견 (디버깅 필요)
+**Note**: 
+- Confirmed that ComponentManager calls `stateInstHook.mount()` and `stateInstHook.unmount()`
+- However, BaseComponentState.mount/unmount are currently TODO
+- Test file written: `mount-unmount-integration.test.ts`
+- Component rendering issue found (debugging needed)
 
-### 2. Layer decorator 렌더링 테스트 ✅ (테스트 작성 완료)
-- [x] Layer decorator 기본 렌더링 (layers.decorator 레이어에 렌더링) - 테스트 작성 완료
-- [x] Layer decorator position 업데이트 - 테스트 작성 완료
-- [x] Layer decorator 추가/제거 - 테스트 작성 완료
-- [x] 여러 Layer decorator 동시 렌더링 - 테스트 작성 완료
-- [x] Layer decorator와 inline/block decorator 혼합 사용 - 테스트 작성 완료
+### 2. Layer Decorator Rendering Tests ✅ (tests written)
+- [x] Basic Layer decorator rendering (rendered in layers.decorator layer) - tests written
+- [x] Layer decorator position updates - tests written
+- [x] Layer decorator add/remove - tests written
+- [x] Multiple Layer decorators rendered simultaneously - tests written
+- [x] Mixed Layer decorator with inline/block decorators - tests written
 
-**참고**: 
-- 테스트 파일 작성 완료: `layer-decorator-integration.test.ts`
-- 일부 테스트에서 컴포넌트 렌더링 이슈 발견 (디버깅 필요)
+**Note**: 
+- Test file written: `layer-decorator-integration.test.ts`
+- Component rendering issues found in some tests (debugging needed)
 
-### 3. 테이블 구조 렌더링 테스트 ✅ (테스트 작성 완료)
-- [x] 기본 테이블 구조 렌더링 (table > tbody > tr > td) - 테스트 작성 완료
-- [x] 테이블 셀 내용 업데이트 - 테스트 작성 완료
-- [x] 테이블 행 추가/제거 - 테스트 작성 완료
-- [x] 테이블 행 재정렬 - 테스트 작성 완료
-- [x] 중첩된 테이블 구조 - 테스트 작성 완료
-- [x] 테이블에 marks/decorator 적용 - 테스트 작성 완료
+### 3. Table Structure Rendering Tests ✅ (tests written)
+- [x] Basic table structure rendering (table > tbody > tr > td) - tests written
+- [x] Table cell content updates - tests written
+- [x] Table row add/remove - tests written
+- [x] Table row reordering - tests written
+- [x] Nested table structures - tests written
+- [x] Apply marks/decorator to table - tests written
 
-**참고**: 
-- 테스트 파일 작성 완료: `table-integration.test.ts`
-- 테이블 템플릿 등록 필요 (table, tbody, tr, td, th)
-- 일부 테스트에서 렌더링 이슈 발견 (디버깅 필요)
+**Note**: 
+- Test file written: `table-integration.test.ts`
+- Table templates need to be registered (table, tbody, tr, td, th)
+- Rendering issues found in some tests (debugging needed)
 
-### 4. 폼 요소 렌더링 테스트 ✅ (테스트 작성 완료)
-- [x] input 요소 렌더링 및 값 업데이트 - 테스트 작성 완료
-- [x] textarea 요소 렌더링 및 값 업데이트 - 테스트 작성 완료
-- [x] select 요소 렌더링 및 선택값 변경 - 테스트 작성 완료
-- [x] checkbox/radio 요소 렌더링 및 상태 변경 - 테스트 작성 완료
-- [x] 폼 요소와 Component State 연동 - 테스트 작성 완료
-- [x] 폼 요소 이벤트 처리 (onChange 등) - 테스트 작성 완료
+### 4. Form Element Rendering Tests ✅ (tests written)
+- [x] input element rendering and value updates - tests written
+- [x] textarea element rendering and value updates - tests written
+- [x] select element rendering and selected value changes - tests written
+- [x] checkbox/radio element rendering and state changes - tests written
+- [x] Form element integration with Component State - tests written
+- [x] Form element event handling (onChange, etc.) - tests written
 
-**참고**: 
-- 테스트 파일 작성 완료: `form-elements-integration.test.ts`
-- 폼 요소 템플릿 등록 필요 (input, textarea, select, option, checkbox, radio)
-- 일부 테스트에서 렌더링 이슈 발견 (디버깅 필요)
+**Note**: 
+- Test file written: `form-elements-integration.test.ts`
+- Form element templates need to be registered (input, textarea, select, option, checkbox, radio)
+- Rendering issues found in some tests (debugging needed)
 
-## 📊 진행 상황
+## 📊 Progress
 
-- **완료**: 4/4 항목 (테스트 작성 완료)
-- **디버깅 필요**: 모든 테스트 파일에서 컴포넌트 렌더링 이슈 발견
-- **대기**: 디버깅 및 테스트 통과 확인
-
+- **Completed**: 4/4 items (tests written)
+- **Debugging needed**: component rendering issues found in all test files
+- **Waiting**: debugging and test pass verification

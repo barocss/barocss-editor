@@ -1,21 +1,21 @@
 # Editor Core Specification
 
-## 1. 개요
+## 1. Overview
 
-`editor-core`는 에디터의 모든 데이터와 로직을 관리하는 핵심 패키지입니다. UI와 플랫폼에 독립적으로 동작하며, 순수한 에디터 상태 관리와 명령어 시스템을 제공합니다. React, DOM, 또는 다른 플랫폼에서 동일한 에디터 로직을 재사용할 수 있도록 설계되었습니다.
+`editor-core` is the core package that manages all editor data and logic. It operates independently of UI and platform concerns, providing pure editor state management and a command system. It is designed so the same editor logic can be reused across React, DOM, or other platforms.
 
-## 2. 설계 목표
+## 2. Design Goals
 
-- **플랫폼 독립성**: UI 프레임워크에 의존하지 않는 순수 로직
-- **상태 중앙화**: 모든 에디터 상태를 중앙에서 관리
-- **명령어 시스템**: 확장 가능한 명령어 기반 API
-- **이벤트 기반**: 상태 변경을 이벤트로 알림
-- **확장성**: 플러그인과 확장을 통한 기능 추가
-- **테스트 용이성**: 순수 함수와 명확한 인터페이스
+- **Platform independence**: pure logic that does not depend on UI frameworks
+- **Centralized state**: manage all editor state centrally
+- **Command system**: extensible command-based API
+- **Event-driven**: notify changes via events
+- **Extensibility**: add features through plugins and extensions
+- **Testability**: pure functions and clear interfaces
 
-## 3. 아키텍처
+## 3. Architecture
 
-### 3.1 전체 구조
+### 3.1 Overall Structure
 ```mermaid
 graph TB
     A[Editor Core] --> B[Document State]
@@ -41,76 +41,76 @@ graph TB
     style G fill:#e0f2f1
 ```
 
-### 3.2 핵심 컴포넌트
+### 3.2 Core Components
 
-#### A. Document State (문서 상태)
-- 현재 문서의 모든 노드와 구조
-- `@barocss/model`과의 통합
-- 문서 변경 감지 및 이벤트 발생
+#### A. Document State
+- All nodes and structure of the current document
+- Integration with `@barocss/model`
+- Detect document changes and emit events
 
-#### B. Selection State (선택 상태)
-- 현재 커서 위치 및 선택 영역
-- 선택 변경 감지 및 이벤트 발생
-- 선택 유효성 검증
+#### B. Selection State
+- Current cursor position and selection range
+- Detect selection changes and emit events
+- Validate selections
 
-#### C. Command System (명령어 시스템)
-- 확장 가능한 명령어 등록 및 실행
-- 명령어 체이닝 지원
-- 명령어 실행 전후 훅
+#### C. Command System
+- Extensible command registration and execution
+- Supports command chaining
+- Hooks before and after command execution
 
-#### D. Event System (이벤트 시스템)
-- 상태 변경 이벤트 발생
-- 외부 구독자에게 알림
-- 이벤트 필터링 및 변환
+#### D. Event System
+- Emit state change events
+- Notify external subscribers
+- Event filtering and transformation
 
-#### E. History Manager (히스토리 관리)
-- Undo/Redo 스택 관리
-- 트랜잭션 기반 히스토리
-- 히스토리 제한 및 최적화
+#### E. History Manager
+- Manage Undo/Redo stacks
+- Transaction-based history
+- History limits and optimization
 
-#### F. Extension System (확장 시스템)
-- 플러그인 등록 및 관리
-- 확장 간 의존성 관리
-- 확장 생명주기 관리
+#### F. Extension System
+- Register and manage plugins
+- Manage dependencies between extensions
+- Manage extension lifecycle
 
-## 4. 핵심 API
+## 4. Key APIs
 
-### 4.1 Editor 클래스
+### 4.1 Editor Class
 
 ```typescript
 export class Editor {
-  // 상태 접근
+  // State access
   get document(): DocumentState;
   get selection(): SelectionState;
   get isFocused(): boolean;
   get isEditable(): boolean;
   
-  // 명령어 실행
+  // Command execution
   chain(): CommandChain;
   executeCommand(command: string, payload?: any): boolean;
   canExecuteCommand(command: string, payload?: any): boolean;
   
-  // 상태 변경
+  // State changes
   setContent(content: DocumentState): void;
   updateSelection(selection: SelectionState): void;
   setEditable(editable: boolean): void;
   
-  // 이벤트 관리
+  // Event management
   on(event: string, callback: Function): void;
   off(event: string, callback: Function): void;
   emit(event: string, data?: any): void;
   
-  // 확장 관리
+  // Extension management
   use(extension: Extension): void;
   unuse(extension: Extension): void;
   
-  // 히스토리
+  // History
   undo(): void;
   redo(): void;
   canUndo(): boolean;
   canRedo(): boolean;
   
-  // 생명주기
+  // Lifecycle
   destroy(): void;
 }
 
@@ -154,12 +154,12 @@ export interface Mark {
 
 ```typescript
 export interface SelectionState {
-  anchor: number;        // 선택 시작 위치
-  head: number;          // 선택 끝 위치
-  empty: boolean;        // 빈 선택 여부
-  from: number;          // 선택 시작 (anchor와 head 중 작은 값)
-  to: number;            // 선택 끝 (anchor와 head 중 큰 값)
-  ranges: SelectionRange[]; // 다중 선택 지원
+  anchor: number;        // selection start
+  head: number;          // selection end
+  empty: boolean;        // whether selection is empty
+  from: number;          // min(anchor, head)
+  to: number;            // max(anchor, head)
+  ranges: SelectionRange[]; // multi-selection support
 }
 
 export interface SelectionRange {
@@ -187,7 +187,7 @@ export class CommandChain {
   
   constructor(editor: Editor);
   
-  // 명령어 추가
+  // Add commands
   insertText(text: string): CommandChain;
   deleteSelection(): CommandChain;
   toggleBold(): CommandChain;
@@ -196,7 +196,7 @@ export class CommandChain {
   insertParagraph(): CommandChain;
   focus(): CommandChain;
   
-  // 실행
+  // Execute
   run(): boolean;
   canRun(): boolean;
 }
@@ -210,32 +210,32 @@ export interface Extension {
   priority?: number;
   dependencies?: string[];
   
-  // 생명주기
+  // Lifecycle
   onBeforeCreate?(editor: Editor): void;
   onCreate?(editor: Editor): void;
   onDestroy?(editor: Editor): void;
   
-  // 명령어 등록
+  // Command registration
   commands?: Command[];
   
-  // 이벤트 처리
+  // Event handling
   onTransaction?(editor: Editor, transaction: Transaction): void;
   onSelectionChange?(editor: Editor, selection: SelectionState): void;
   onContentChange?(editor: Editor, content: DocumentState): void;
   
-  // 상태 확장
+  // State extension
   addState?: (editor: Editor) => any;
   addStorage?: (editor: Editor) => any;
 }
 
-// 기본 확장들
+// Basic extensions
 export class BoldExtension implements Extension {
   name = 'bold';
   commands = [
     {
       name: 'toggleBold',
       execute: (editor: Editor) => {
-        // Bold 토글 로직
+        // Bold toggle logic
         return true;
       }
     }
@@ -248,7 +248,7 @@ export class ItalicExtension implements Extension {
     {
       name: 'toggleItalic',
       execute: (editor: Editor) => {
-        // Italic 토글 로직
+        // Italic toggle logic
         return true;
       }
     }
@@ -256,44 +256,44 @@ export class ItalicExtension implements Extension {
 }
 ```
 
-## 5. 이벤트 시스템
+## 5. Event System
 
-### 5.1 이벤트 타입
+### 5.1 Event Types
 
 ```typescript
 export interface EditorEvents {
-  // 문서 이벤트
+  // Document events
   'contentChange': { content: DocumentState; transaction: Transaction };
   'nodeCreate': { node: Node; position: number };
   'nodeUpdate': { node: Node; oldNode: Node };
   'nodeDelete': { node: Node; position: number };
   
-  // 선택 이벤트
+  // Selection events
   'selectionChange': { selection: SelectionState; oldSelection: SelectionState };
   'focus': { selection: SelectionState };
   'blur': { selection: SelectionState };
   
-  // 명령어 이벤트
+  // Command events
   'commandExecute': { command: string; payload?: any; success: boolean };
   'commandBefore': { command: string; payload?: any };
   'commandAfter': { command: string; payload?: any; success: boolean };
   
-  // 히스토리 이벤트
+  // History events
   'historyChange': { canUndo: boolean; canRedo: boolean };
   'undo': { transaction: Transaction };
   'redo': { transaction: Transaction };
   
-  // 확장 이벤트
+  // Extension events
   'extensionAdd': { extension: Extension };
   'extensionRemove': { extension: Extension };
   
-  // 생명주기 이벤트
+  // Lifecycle events
   'create': { editor: Editor };
   'destroy': { editor: Editor };
 }
 ```
 
-### 5.2 이벤트 사용 예시
+### 5.2 Event Usage Examples
 
 ```typescript
 const editor = new Editor({
@@ -301,29 +301,29 @@ const editor = new Editor({
   extensions: [BoldExtension, ItalicExtension]
 });
 
-// 문서 변경 감지
+// Detect content changes
 editor.on('contentChange', ({ content, transaction }) => {
-  console.log('문서가 변경되었습니다:', content);
-  // 자동 저장, 실시간 협업 등
+  console.log('Document changed:', content);
+  // Auto-save, real-time collaboration, etc.
 });
 
-// 선택 변경 감지
+// Detect selection changes
 editor.on('selectionChange', ({ selection, oldSelection }) => {
-  console.log('선택이 변경되었습니다:', selection);
-  // 툴바 상태 업데이트, 버블 메뉴 표시 등
+  console.log('Selection changed:', selection);
+  // Update toolbar state, show bubble menu, etc.
 });
 
-// 명령어 실행 감지
+// Detect command execution
 editor.on('commandExecute', ({ command, payload, success }) => {
   if (success) {
-    console.log(`명령어 ${command}가 성공적으로 실행되었습니다`);
+    console.log(`Command ${command} executed successfully`);
   }
 });
 ```
 
-## 6. Model 통합
+## 6. Model Integration
 
-### 6.1 Model 연동
+### 6.1 Model Integration
 
 ```typescript
 export class Editor {
@@ -331,17 +331,17 @@ export class Editor {
   private transactionManager: TransactionManager;
   
   constructor(options: EditorOptions) {
-    // Model 초기화
+    // Initialize Model
     this.model = new Model(options.model);
     this.transactionManager = new TransactionManager(this.model);
     
-    // Model 이벤트 구독
+    // Subscribe to Model events
     this.setupModelEventHandling();
   }
   
   private setupModelEventHandling(): void {
     this.transactionManager.on('transaction_commit', (event) => {
-      // Model 변경을 Editor 이벤트로 변환
+      // Convert Model changes to Editor events
       this.emit('contentChange', {
         content: this.model.getDocument(),
         transaction: event.transaction
@@ -349,30 +349,30 @@ export class Editor {
     });
   }
   
-  // 트랜잭션 실행
+  // Execute transaction
   executeTransaction(transaction: Transaction): void {
     this.transactionManager.execute(transaction);
   }
 }
 ```
 
-### 6.2 Document 동기화
+### 6.2 Document Synchronization
 
 ```typescript
 export class Editor {
-  // Model에서 Document 가져오기
+  // Get Document from Model
   get document(): DocumentState {
     return this.model.getDocument();
   }
   
-  // Document 설정
+  // Set Document
   setContent(content: DocumentState): void {
     const transaction = this.model.createTransaction();
     transaction.replaceDocument(content);
     this.executeTransaction(transaction);
   }
   
-  // 부분 업데이트
+  // Partial update
   updateNode(nodeId: string, updates: Partial<Node>): void {
     const transaction = this.model.createTransaction();
     transaction.updateNode(nodeId, updates);
@@ -381,15 +381,15 @@ export class Editor {
 }
 ```
 
-## 7. 사용 예시
+## 7. Usage Examples
 
-### 7.1 기본 사용법
+### 7.1 Basic Usage
 
 ```typescript
 import { Editor } from '@barocss/editor-core';
 import { BoldExtension, ItalicExtension } from '@barocss/editor-core/extensions';
 
-// 에디터 생성
+// Create editor
 const editor = new Editor({
   content: {
     type: 'document',
@@ -411,12 +411,12 @@ const editor = new Editor({
   editable: true
 });
 
-// 이벤트 구독
+// Subscribe to events
 editor.on('contentChange', ({ content }) => {
-  console.log('문서 변경:', content);
+  console.log('Document changed:', content);
 });
 
-// 명령어 실행
+// Execute commands
 editor.chain()
   .focus()
   .insertText('Hello ')
@@ -424,16 +424,16 @@ editor.chain()
   .insertText('World')
   .run();
 
-// 상태 확인
-console.log('현재 문서:', editor.document);
-console.log('현재 선택:', editor.selection);
-console.log('포커스 상태:', editor.isFocused);
+// Check state
+console.log('Current document:', editor.document);
+console.log('Current selection:', editor.selection);
+console.log('Focus state:', editor.isFocused);
 ```
 
-### 7.2 확장 개발
+### 7.2 Extension Development
 
 ```typescript
-// 커스텀 확장 개발
+// Custom extension development
 export class LinkExtension implements Extension {
   name = 'link';
   
@@ -448,7 +448,7 @@ export class LinkExtension implements Extension {
           return false;
         }
         
-        // 링크 설정 로직
+        // Link application logic
         const transaction = editor.model.createTransaction();
         transaction.addMark(selection.from, selection.to, {
           type: 'link',
@@ -465,24 +465,24 @@ export class LinkExtension implements Extension {
   ];
   
   onCreate(editor: Editor): void {
-    // 확장 초기화
-    console.log('LinkExtension이 초기화되었습니다');
+    // Extension initialization
+    console.log('LinkExtension initialized');
   }
 }
 
-// 확장 사용
+// Using extension
 const editor = new Editor({
   extensions: [BoldExtension, ItalicExtension, LinkExtension]
 });
 
-// 링크 설정
+// Set link
 editor.executeCommand('setLink', { url: 'https://example.com' });
 ```
 
-### 7.3 플랫폼별 래퍼
+### 7.3 Platform-specific Wrappers
 
 ```typescript
-// DOM 플랫폼용 래퍼
+// DOM platform wrapper
 export class DOMEditorWrapper {
   private editor: Editor;
   private element: HTMLElement;
@@ -495,20 +495,20 @@ export class DOMEditorWrapper {
   }
   
   private setupDOMIntegration(): void {
-    // DOM 이벤트를 Editor 명령어로 변환
+    // Convert DOM events to Editor commands
     this.element.addEventListener('input', (e) => {
       const transaction = this.createTransactionFromInput(e);
       this.editor.executeTransaction(transaction);
     });
     
-    // Editor 이벤트를 DOM 업데이트로 변환
+    // Convert Editor events to DOM updates
     this.editor.on('contentChange', ({ content }) => {
       this.renderContent(content);
     });
   }
 }
 
-// React 플랫폼용 래퍼
+// React platform wrapper
 export function useEditor(options: EditorOptions) {
   const [editor] = useState(() => new Editor(options));
   const [document, setDocument] = useState(editor.document);
@@ -536,9 +536,9 @@ export function useEditor(options: EditorOptions) {
 }
 ```
 
-## 8. 성능 최적화
+## 8. Performance Optimization
 
-### 8.1 배치 업데이트
+### 8.1 Batch Updates
 
 ```typescript
 export class Editor {
@@ -566,7 +566,7 @@ export class Editor {
 }
 ```
 
-### 8.2 메모이제이션
+### 8.2 Memoization
 
 ```typescript
 export class Editor {
@@ -587,9 +587,9 @@ export class Editor {
 }
 ```
 
-## 9. 테스트 전략
+## 9. Test Strategy
 
-### 9.1 단위 테스트
+### 9.1 Unit Tests
 
 ```typescript
 describe('Editor', () => {
@@ -611,7 +611,7 @@ describe('Editor', () => {
     });
   });
   
-  it('문서 내용을 올바르게 설정한다', () => {
+  it('sets document content correctly', () => {
     const newContent = {
       type: 'document',
       content: [
@@ -627,12 +627,12 @@ describe('Editor', () => {
     expect(editor.document).toEqual(newContent);
   });
   
-  it('명령어를 올바르게 실행한다', () => {
+  it('executes commands correctly', () => {
     const result = editor.executeCommand('toggleBold');
     expect(result).toBe(true);
   });
   
-  it('이벤트를 올바르게 발생시킨다', () => {
+  it('emits events correctly', () => {
     const callback = jest.fn();
     editor.on('contentChange', callback);
     
@@ -645,25 +645,25 @@ describe('Editor', () => {
 });
 ```
 
-### 9.2 통합 테스트
+### 9.2 Integration Tests
 
 ```typescript
 describe('Editor Integration', () => {
-  it('전체 워크플로우가 올바르게 동작한다', () => {
+  it('handles full workflow correctly', () => {
     const editor = new Editor({
       extensions: [BoldExtension, ItalicExtension]
     });
     
-    // 1. 텍스트 삽입
+    // 1. Insert text
     editor.chain().insertText('Hello ').run();
     
-    // 2. Bold 적용
+    // 2. Apply Bold
     editor.chain().toggleBold().run();
     
-    // 3. 추가 텍스트 삽입
+    // 3. Insert additional text
     editor.chain().insertText('World').run();
     
-    // 4. 결과 확인
+    // 4. Verify result
     const document = editor.document;
     expect(document.content[0].content[0].marks).toContainEqual({
       type: 'bold',
@@ -673,9 +673,9 @@ describe('Editor Integration', () => {
 });
 ```
 
-## 10. 확장성
+## 10. Extensibility
 
-### 10.1 플러그인 아키텍처
+### 10.1 Plugin Architecture
 
 ```typescript
 export interface Plugin {
@@ -700,10 +700,10 @@ export class PluginManager {
       throw new Error(`Plugin ${plugin.name} is already installed`);
     }
     
-    // 의존성 확인
+    // Check dependencies
     this.checkDependencies(plugin);
     
-    // 플러그인 설치
+    // Install plugin
     plugin.install(this.editor);
     this.plugins.set(plugin.name, plugin);
   }
@@ -720,7 +720,7 @@ export class PluginManager {
 }
 ```
 
-### 10.2 커스텀 명령어
+### 10.2 Custom Commands
 
 ```typescript
 export class CustomCommandExtension implements Extension {
@@ -747,15 +747,15 @@ export class CustomCommandExtension implements Extension {
   ];
   
   private getLineText(editor: Editor, position: number): string {
-    // 라인 텍스트 추출 로직
+    // Line text extraction logic
     return '';
   }
 }
 ```
 
-## 11. 에러 처리
+## 11. Error Handling
 
-### 11.1 명령어 실행 에러
+### 11.1 Command Execution Errors
 
 ```typescript
 export class Editor {
@@ -785,7 +785,7 @@ export class Editor {
 }
 ```
 
-### 11.2 확장 에러
+### 11.2 Extension Errors
 
 ```typescript
 export class Editor {
@@ -803,19 +803,19 @@ export class Editor {
 }
 ```
 
-## 12. 마이그레이션 가이드
+## 12. Migration Guide
 
-### 12.1 기존 에디터에서 마이그레이션
+### 12.1 Migration from Existing Editor
 
 ```typescript
-// 기존 방식 (통합 에디터)
+// Existing approach (monolithic editor)
 const editor = new EditorViewDOM(container, {
   schema: mySchema,
   model: myModel,
   store: myStore
 });
 
-// 새로운 방식 (분리된 아키텍처)
+// New approach (separated architecture)
 const editor = new Editor({
   content: myContent,
   extensions: [BoldExtension, ItalicExtension]
@@ -829,15 +829,15 @@ const domEditor = new DOMEditor({
 });
 ```
 
-## 13. 마일스톤
+## 13. Milestones
 
-1. **기본 Editor 클래스**: 핵심 상태 관리 및 API 구현
-2. **명령어 시스템**: 확장 가능한 명령어 등록 및 실행
-3. **이벤트 시스템**: 상태 변경 이벤트 발생 및 구독
-4. **확장 시스템**: 플러그인 아키텍처 및 기본 확장
-5. **Model 통합**: @barocss/model과의 완전한 통합
-6. **히스토리 관리**: Undo/Redo 기능 구현
-7. **성능 최적화**: 배치 업데이트 및 메모이제이션
-8. **테스트 완성**: 단위 테스트 및 통합 테스트
-9. **문서화**: API 문서 및 사용 가이드
-10. **플러그인 생태계**: 기본 플러그인 라이브러리
+1. **Core Editor class**: implement core state management and API
+2. **Command system**: extensible command registration and execution
+3. **Event system**: emit and subscribe to state change events
+4. **Extension system**: plugin architecture and basic extensions
+5. **Model integration**: full integration with @barocss/model
+6. **History management**: implement Undo/Redo
+7. **Performance optimization**: batch updates and memoization
+8. **Test completeness**: unit and integration tests
+9. **Documentation**: API docs and usage guides
+10. **Plugin ecosystem**: basic plugin library

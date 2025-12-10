@@ -1,6 +1,6 @@
-## 부록: 오버레이 경로와 공백 연산 메모
+## Appendix: Overlay Path and Whitespace Operation Notes
 
-### A. 오버레이 읽기/쓰기 경로 다이어그램
+### A. Overlay Read/Write Path Diagram
 
 ```mermaid
 flowchart TD
@@ -16,7 +16,7 @@ flowchart TD
   B -- end only --> OP[return opBuffer]
 ```
 
-### B. 트랜잭션 수명주기 (요약)
+### B. Transaction Lifecycle (Summary)
 
 ```mermaid
 sequenceDiagram
@@ -30,60 +30,60 @@ sequenceDiagram
   DS-->>C: base updated (commit) / overlay cleared (rollback)
 ```
 
-### C. Whitespace 연산 멱등성 규칙
-- normalizeWhitespace, trimText: 동일 범위를 반복 호출해도 내용 변화가 없으면 update 오퍼레이션을 발생시키지 않는다.
+### C. Whitespace Operation Idempotency Rule
+- normalizeWhitespace, trimText: when called repeatedly on the same range with no content change, they do not emit update operations.
 
 # DataStore Structure Specification
 
-## 핵심 정책(요약)
+## Core Policies (Summary)
 
-- Root 보호: 현재 루트 노드는 `deleteNode`, `deleteDocument`로 삭제 불가. 시도 시 에러.
-- Overlay 트랜잭션: `begin()` 이후 연산은 overlay에 수집되고 `commit()`에서 순서대로 반영(create → update → move → delete). `rollback()`은 overlay 폐기.
-- Operation 이벤트: overlay 활성 여부와 무관하게 모든 원자 연산 이벤트 발행. 페이로드는 불변 취급.
-- No-op 억제: `updateNode`는 전달된 모든 필드가 기존 값과 deep-equal이면 쓰기를 생략(성공 반환). 배열/객체 포함.
-- Content 업데이트: `updates.content`가 있으면 검증 우회 후 직접 반영(내부는 ID 배열).
-- Attributes 병합: `updateNode`는 기존 attributes와 shallow-merge. 타입 변경 금지.
-- Alias(overlay-scoped): `$alias`는 overlay 맵에 등록 후 저장 시 제거. `resolveAlias`는 id/alias를 실제 id로 해석.
+- Root protection: current root node cannot be deleted via `deleteNode`, `deleteDocument`. Attempts return an error.
+- Overlay transaction: operations after `begin()` are collected in overlay and applied in order on `commit()` (create → update → move → delete). `rollback()` discards overlay.
+- Operation events: emit atomic operation events regardless of overlay state. Payloads are treated as immutable.
+- No-op suppression: `updateNode` skips writes (returns success) if all provided fields are deep-equal to existing values. Includes arrays/objects.
+- Content update: if `updates.content` exists, bypass validation and apply directly (internally it’s an ID array).
+- Attributes merge: `updateNode` shallow-merges with existing attributes. Type changes are forbidden.
+- Alias (overlay-scoped): `$alias` is registered in overlay map and removed on save. `resolveAlias` resolves id/alias to actual id.
 
-## 1. 개요
+## 1. Overview
 
-DataStore는 Barocss Model의 핵심 데이터 저장소로, ID 기반의 Map 구조를 사용하여 노드와 문서를 효율적으로 관리합니다. 계층적 구조를 유지하면서도 O(1) 접근 성능을 제공하는 하이브리드 아키텍처를 채택했습니다.
+DataStore is the core data storage for Barocss Model, using an ID-based Map structure to manage nodes and documents efficiently. It adopts a hybrid architecture that maintains hierarchical structure while providing O(1) access performance.
 
-## 2. 핵심 개념
+## 2. Core Concepts
 
-### 2.1 ID 기반 Map 구조
-- **원리**: 모든 노드를 `Map<string, INode>` 형태로 저장
-- **장점**: O(1) 접근 시간, 메모리 효율성, 확장성
-- **관계 관리**: `parentId`와 `content` 배열을 통한 계층 구조 유지
+### 2.1 ID-based Map Structure
+- **Principle**: store all nodes as `Map<string, INode>`
+- **Benefits**: O(1) access time, memory efficiency, scalability
+- **Relationship management**: maintain hierarchy via `parentId` and `content` arrays
 
-### 2.2 하이브리드 아키텍처
-- **내부**: ID 기반 Map으로 저장 (성능 최적화)
-- **외부**: 트리 구조로 노출 (사용자 친화적)
-- **변환**: 자동 변환 메서드를 통한 양방향 변환
+### 2.2 Hybrid Architecture
+- **Internal**: stored as ID-based Map (performance optimized)
+- **External**: exposed as tree structure (user-friendly)
+- **Conversion**: bidirectional conversion via automatic conversion methods
 
-### 2.3 Figma 스타일 ID 시스템
-- **형태**: `[sessionId]:[counter]` (예: "0:1", "0:2", "1:3")
-- **장점**: 매우 짧고 읽기 쉬움, 세션별 그룹화
-- **전역 카운터**: DataStore 인스턴스 간 중복 방지
+### 2.3 Figma-style ID System
+- **Format**: `[sessionId]:[counter]` (e.g., "0:1", "0:2", "1:3")
+- **Benefits**: very short and readable, grouped by session
+- **Global counter**: prevents duplicates across DataStore instances
 
-### 2.4 원자적 Operation 시스템
-- **이벤트 기반**: 모든 변경사항을 Operation으로 추적
-- **타입**: create, update, delete, move
-불변식
-- `type ∈ {create, update, delete, move}`
-- `nodeId !== ''`
-- `move.position` 제공 시 `position ≥ 0`
+### 2.4 Atomic Operation System
+- **Event-based**: tracks all changes as operations
+- **Types**: create, update, delete, move
+- Invariants:
+  - `type ∈ {create, update, delete, move}`
+  - `nodeId !== ''`
+  - If `move.position` is provided, `position ≥ 0`
 
-- **실시간 추적**: 외부 시스템(CRDT 등)과의 동기화 지원
+- **Real-time tracking**: supports synchronization with external systems (CRDT, etc.)
 
-### 2.5 Selection과 데이터의 분리
-- **원칙**: selection(에디터 커서/범위)은 UI/세션 상태로서 데이터 동기화와 분리
-- **전송**: selection은 presence/세션 채널 등 별도 경량 채널로 전달(`anchorId/anchorOffset/focusId/focusOffset`)
-- **리맵**: 데이터 변경 후 selection remap은 로컬에서 처리(오퍼레이션 payload에는 포함하지 않음)
+### 2.5 Separation of Selection and Data
+- **Principle**: selection (editor caret/range) is UI/session state, separate from data synchronization
+- **Transmission**: selection is sent via a separate lightweight channel (presence/session channel) as `anchorId/anchorOffset/focusId/focusOffset`
+- **Remap**: selection remap after data changes is handled locally (not included in operation payload)
 
-## 3. 아키텍처
+## 3. Architecture
 
-### 3.1 핵심 구성 요소
+### 3.1 Core Components
 
 ```
 DataStore
@@ -95,8 +95,8 @@ DataStore
 ├── _eventEmitter: EventEmitter
 ├── _globalCounter: number (static)
 ├── _sessionId: number
-├── DocumentIterator: 문서 순회 시스템
-└── 연산 클래스들
+├── DocumentIterator: document traversal system
+└── Operation classes
     ├── core: CoreOperations
     ├── query: QueryOperations
     ├── content: ContentOperations
@@ -112,170 +112,170 @@ EventEmitter
 └── emit(event, ...args)
 ```
 
-### 3.2 연산 클래스 구조
+### 3.2 Operation Class Structure
 
-DataStore의 기능을 7개의 전문 연산 클래스로 분리하여 모듈화했습니다:
+DataStore functionality is modularized into 7 specialized operation classes:
 
 #### 3.2.1 CoreOperations
-- **목적**: 기본 CRUD 기능 제공
-- **주요 메서드**: `setNode`, `getNode`, `deleteNode`, `updateNode`, `createNodeWithChildren`
-- **특징**: 스키마 검증, ID 생성, 원자적 연산 지원
+- **Purpose**: provides basic CRUD
+- **Main methods**: `setNode`, `getNode`, `deleteNode`, `updateNode`, `createNodeWithChildren`
+- **Characteristics**: schema validation, ID generation, atomic operations
 
 #### 3.2.2 QueryOperations
-- **목적**: 검색 및 조회 기능 제공
-- **주요 메서드**: `findNodes`, `findNodesByType`, `findNodesByAttribute`, `findChildrenByParentId`, `searchText`
-- **특징**: 조건부 검색, 중첩 구조 조회, 텍스트 검색
-- **성능 정책**: DocumentIterator(성능 우선)와 전체 순회(완전성 우선) 조합 사용
+- **Purpose**: provides search and query
+- **Main methods**: `findNodes`, `findNodesByType`, `findNodesByAttribute`, `findChildrenByParentId`, `searchText`
+- **Characteristics**: conditional search, nested structure queries, text search
+- **Performance policy**: combines DocumentIterator (performance-first) and full traversal (completeness-first)
 
 #### 3.2.3 ContentOperations
-- **목적**: 부모-자식 관계 관리
-- **주요 메서드**: `addChild`, `removeChild`, `moveNode`, `copyNode`, `reorderChildren`
-- **특징**: 계층 구조 조작, 노드 이동/복사, 일괄 처리
+- **Purpose**: manages parent-child relationships
+- **Main methods**: `addChild`, `removeChild`, `moveNode`, `copyNode`, `reorderChildren`
+- **Characteristics**: hierarchy manipulation, node move/copy, batch processing
 
 #### 3.2.4 SplitMergeOperations
-- **목적**: 텍스트/블록 분할/병합
-- **주요 메서드**: `splitTextNode`, `mergeTextNodes`, `splitBlockNode`, `mergeBlockNodes`
-- **특징**: 텍스트 편집 지원, 마크 보존, 자동 병합
+- **Purpose**: text/block split/merge
+- **Main methods**: `splitTextNode`, `mergeTextNodes`, `splitBlockNode`, `mergeBlockNodes`
+- **Characteristics**: text editing support, mark preservation, auto-merge
 
 #### 3.2.5 MarkOperations
-- **목적**: 마크 정규화 및 통계
-- **주요 메서드**: `normalizeMarks`, `getMarkStatistics`, `removeEmptyMarks`
-- **특징**: 마크 중복 제거, 겹침 병합, 통계 제공
+- **Purpose**: mark normalization and statistics
+- **Main methods**: `normalizeMarks`, `getMarkStatistics`, `removeEmptyMarks`
+- **Characteristics**: mark deduplication, overlap merging, statistics
 
 #### 3.2.6 MultiNodeRangeOperations
-- **목적**: 다중 노드 범위 작업
-- **주요 메서드**: `deleteMultiNodeRange`, `insertTextAtMultiNodeRange`, `applyMarkToMultiNodeRange`
-- **특징**: 여러 노드에 걸친 작업, 복잡한 텍스트 조작
+- **Purpose**: multi-node range operations
+- **Main methods**: `deleteMultiNodeRange`, `insertTextAtMultiNodeRange`, `applyMarkToMultiNodeRange`
+- **Characteristics**: operations spanning multiple nodes, complex text manipulation
 
 #### 3.2.7 UtilityOperations
-- **목적**: 유틸리티 기능 제공
-- **주요 메서드**: `getNodeCount`, `clone`, `getAllNodes`, `getNodePath`, `isDescendant`
-- **특징**: 데이터 분석, 복제, 관계 검사
+- **Purpose**: provides utility functions
+- **Main methods**: `getNodeCount`, `clone`, `getAllNodes`, `getNodePath`, `isDescendant`
+- **Characteristics**: data analysis, cloning, relationship checks
 
-### 3.3 데이터 흐름
+### 3.3 Data Flow
 
 ```
-1. 외부 중첩 객체 입력
+1. External nested object input
    ↓
-2. ID 할당 (재귀적)
+2. ID assignment (recursive)
    ↓
-3. 스키마 검증
+3. Schema validation
    ↓
-4. DataStore 형식으로 변환
+4. Convert to DataStore format
    ↓
-5. Map에 저장
+5. Store in Map
    ↓
-6. Operation 이벤트 발생
+6. Emit operation events
 ```
 
-## 4. 핵심 인터페이스
+## 4. Core Interfaces
 
-### 4.1 INode 인터페이스
+### 4.1 INode Interface
 ```typescript
 interface INode {
-  id: string;                    // 고유 식별자
-  type: string;                  // 노드 타입
-  text?: string;                 // 텍스트 내용 (텍스트 노드)
-  content?: string[];            // 자식 노드 ID 배열
-  parentId?: string;             // 부모 노드 ID
-  attributes?: Record<string, any>; // 속성
-  marks?: IMark[];               // 마크 배열
-  version?: number;              // 버전 정보
+  id: string;                    // unique identifier
+  type: string;                  // node type
+  text?: string;                 // text content (text nodes)
+  content?: string[];            // child node ID array
+  parentId?: string;             // parent node ID
+  attributes?: Record<string, any>; // attributes
+  marks?: IMark[];               // mark array
+  version?: number;              // version info
 }
 ```
 
-### 4.2 IMark 인터페이스
+### 4.2 IMark Interface
 ```typescript
 interface IMark {
-  type: string;                  // 마크 타입 (bold, italic 등)
-  range: [number, number];       // 적용 범위 [start, end]
-  attributes?: Record<string, any>; // 마크 속성
+  type: string;                  // mark type (bold, italic, etc.)
+  range: [number, number];       // application range [start, end]
+  attributes?: Record<string, any>; // mark attributes
 }
 ```
 
-## 6. Operation 수집과 이벤트 모델
+## 6. Operation Collection and Event Model
 
-### 6.1 원자적 Operation 타입(요약)
+### 6.1 Atomic Operation Types (Summary)
 
-- 공통 규약
-  - 공통 필드: `type`, `nodeId`, `timestamp`
-  - 선택 필드: `parentId`, `position`, `data`
-  - `data`는 post-state 스냅샷(변경 후 상태)을 담습니다(특히 create/update).
+- Common convention
+  - Common fields: `type`, `nodeId`, `timestamp`
+  - Optional fields: `parentId`, `position`, `data`
+  - `data` holds post-state snapshot (state after change), especially for create/update.
 
 - create
-  - 의미: 새 노드가 생성됨
-  - 필드: `type: "create"`, `nodeId`, `timestamp`, `data`(필수)
+  - Meaning: new node created
+  - Fields: `type: "create"`, `nodeId`, `timestamp`, `data` (required)
   - `data`: `{ type, attributes?, text?, content?, parentId? }`
-  - 비고: 부모 연결이 함께 일어나면 parent의 `content`는 별도 `update`로 수집될 수 있음
+  - Note: if parent connection happens together, parent’s `content` may be collected as a separate `update`
 
 - update
-  - 의미: 기존 노드의 속성/텍스트/자식 배열 변경
-  - 필드: `type: "update"`, `nodeId`, `timestamp`, `data`(필수)
-  - `data`: 변경 후 스냅샷(전체 혹은 변경된 필드 집합, 구현은 전체 스냅샷 권장)
-  - 비고: `content` 변경도 update로 수집
+  - Meaning: change to existing node’s attributes/text/child array
+  - Fields: `type: "update"`, `nodeId`, `timestamp`, `data` (required)
+  - `data`: post-change snapshot (full or changed field set; implementation should prefer full snapshot)
+  - Note: `content` changes are also collected as update
 
 - delete
-  - 의미: 노드 삭제(부모 content에서의 제거 포함)
-  - 필드: `type: "delete"`, `nodeId`, `timestamp`, `parentId?`
-  - 비고: 필요하면 상위 레이어에서 tombstone 처리 가능
+  - Meaning: node deletion (includes removal from parent content)
+  - Fields: `type: "delete"`, `nodeId`, `timestamp`, `parentId?`
+  - Note: upper layers can handle tombstones if needed
 
 - move
-  - 의미: 위치/순서 변경(부모/포지션 이동, 동일 부모 내 reorder 포함)
-  - 필드: `type: "move"`, `nodeId`, `timestamp`, `parentId`(필수), `position?`
-  - 비고: 순서 변경은 move 시퀀스로 표현
+  - Meaning: position/order change (parent/position move, reorder within same parent)
+  - Fields: `type: "move"`, `nodeId`, `timestamp`, `parentId` (required), `position?`
+  - Note: order changes are expressed as move sequences
 
-모든 변경은 위 4가지 중 하나로 수집됩니다. 복합 동작은 다수의 원자 op 시퀀스로 기록됩니다.
+All changes are collected as one of the above 4 types. Composite actions are recorded as sequences of multiple atomic ops.
 
-### 6.2 수집/트랜잭션 API(begin/end/commit/rollback)
+### 6.2 Collection/Transaction API (begin/end/commit/rollback)
 
-DataStore는 항상 활성화된 `TransactionalOverlay`를 사용합니다. `begin/end`는 오퍼레이션 수집 버퍼를 관리하고, `commit/rollback`은 오버레이의 반영/폐기를 제어합니다.
+DataStore always uses an active `TransactionalOverlay`. `begin/end` manages operation collection buffers; `commit/rollback` controls overlay application/discard.
 
 ```ts
-// 수집 시작: opBuffer 초기화(오버레이는 유지)
+// Start collection: initialize opBuffer (overlay persists)
 dataStore.begin();
-// 여러 create/update/delete/move 수행 (모든 쓰기는 오버레이에만 반영)
-const ops = dataStore.end();  // 수집 종료: 누적된 op 목록 반환(버퍼 초기화)
+// Perform multiple create/update/delete/move (all writes reflect only in overlay)
+const ops = dataStore.end();  // End collection: return accumulated op list (buffer cleared)
 
-// 커밋: 오버레이 상태를 base에 적용하고 오버레이를 초기화
+// Commit: apply overlay state to base and clear overlay
 dataStore.commit();
 
-// 롤백: 오버레이의 변경분 및 opBuffer 폐기(베이스는 변동 없음)
+// Rollback: discard overlay changes and opBuffer (base unchanged)
 dataStore.rollback();
 
-// 진행 중 중간 확인
+// Check progress mid-way
 const current = dataStore.getCollectedOperations();
 ```
 
-오퍼레이션 수집이 비활성인 경우에도 오버레이는 항상-on이며, `operation` 이벤트는 즉시 emit됩니다. 수집 중(begin~end)에는 emit 대신 버퍼에 push됩니다.
+Even when operation collection is inactive, overlay is always-on, and `operation` events are emitted immediately. During collection (begin~end), ops are pushed to buffer instead of being emitted.
 
-### 6.3 동작별 수집 규칙
+### 6.3 Collection Rules by Operation
 
-- 텍스트/마크/범위 유틸: 내부적으로 update를 유발 → update로 수집
-- Content 이동
-  - moveNode / moveChildren: 위치 변경을 명시적 move로 수집
-  - reorderChildren: 동일 부모 내 순서를 변경할 때, 요소별 새 위치에 대한 move 시퀀스로 수집
-- 생성/삭제
-  - setNode(create) / deleteNode(delete)로 수집
-- 복사/복제
-  - copyNode: 신규 노드에 대해 per-node create, 부모 content 변경은 parent update로 수집 (move는 발생시키지 않음)
-  - cloneNodeWithChildren: 각 노드별 per-node create, 복제 노드의 content/부모 연결은 update로 수집 (move 없음)
+- Text/mark/range utils: internally trigger update → collected as update
+- Content movement
+  - moveNode / moveChildren: position changes collected as explicit move
+  - reorderChildren: when reordering within same parent, collected as move sequence per element for new positions
+- Create/delete
+  - Collected as setNode(create) / deleteNode(delete)
+- Copy/clone
+  - copyNode: per-node create for new nodes, parent content changes collected as parent update (no move)
+  - cloneNodeWithChildren: per-node create for each node, cloned node’s content/parent links collected as update (no move)
 
-### 6.4 begin/end/commit/rollback 권장 사용 시점
+### 6.4 Recommended Usage Timing for begin/end/commit/rollback
 
 - begin():
-  - 사용자 상호작용 단위(키 입력 시퀀스, 드래그-드롭, 붙여넣기 등) 시작 시 호출하여 해당 동작에서 발생하는 op를 하나의 배치로 수집합니다.
-  - Undo/Redo 단위, CRDT 배치 단위와 일치시키는 것을 권장합니다.
+  - Call at the start of a user interaction unit (key input sequence, drag-drop, paste, etc.) to collect ops from that action as one batch.
+  - Recommended to align with Undo/Redo units, CRDT batch units.
 - end():
-  - 해당 상호작용이 완료되면 호출하여 수집된 op를 상위 레이어로 반환합니다.
+  - Call when the interaction completes to return collected ops to upper layers.
 - commit():
-  - 모델 업데이트 시점에 호출하여 오버레이의 변경분을 베이스 스토어에 반영합니다.
-  - 일반적으로 상위 `TransactionManager`에서 `end()`로 수집한 op를 네트워크로 전파한 직후에 수행합니다.
+  - Call at model update time to apply overlay changes to base store.
+  - Typically performed by upper `TransactionManager` immediately after propagating ops collected via `end()` to the network.
 - rollback():
-  - 상호작용 취소, 검증 실패, 충돌 감지 등의 경우 오버레이 변경분을 폐기합니다.
+  - Discard overlay changes on interaction cancellation, validation failure, conflict detection, etc.
 
-전제: `TransactionManager`가 트랜잭션 구간(begin~commit/rollback) 동안 전역 write 락을 보장하여 외부 쓰기와의 경합을 방지합니다.
+Prerequisite: `TransactionManager` ensures a global write lock during transaction period (begin~commit/rollback) to prevent contention with external writes.
 
-### 6.5 수집/커밋 시나리오 예시
+### 6.5 Collection/Commit Scenario Example
 
 ```ts
 dataStore.begin();
@@ -283,26 +283,26 @@ dataStore.begin();
 dataStore.updateNode(textId, { text: 'Hello World' }, false);
 // create + parent update
 const newTextId = dataStore.addChild(paragraphId, { type: 'inline-text', text: '!' });
-// move (부모 변경)
+// move (parent change)
 dataStore.moveNode(newTextId, otherParagraphId, 0);
-// delete (부모 content 제거 포함)
+// delete (includes parent content removal)
 dataStore.removeChild(paragraphId, newTextId);
 dataStore.deleteNode(newTextId);
 const ops = dataStore.end();
 // ops: [update, create, move, delete, ...]
 ```
 
-### 6.6 적용 순서와 일관성
+### 6.6 Application Order and Consistency
 
-- 생성(create)은 부모 → 자식 순으로 배출되어 재구성이 용이합니다.
-- 위치 변경(move)은 대상 노드와 부모/포지션 정보가 함께 제공됩니다.
-- 복제/복사 시 트리 전체를 한 번에가 아니라 per-node create로 기록하여 CRDT/리플레이 친화성을 유지합니다.
+- Creates (create) are emitted parent → child order for easy reconstruction.
+- Position changes (move) include target node and parent/position info together.
+- For copy/clone, record entire tree as per-node create rather than all at once to maintain CRDT/replay friendliness.
 
-### 6.7 이벤트 스트림과 배치
+### 6.7 Event Stream and Batching
 
-### 6.8 CRDT 연계를 위한 JSON 스펙
+### 6.8 JSON Spec for CRDT Integration
 
-- 단일 Operation JSON(공통 구조)
+- Single Operation JSON (common structure)
 
 ```json
 {
@@ -321,17 +321,17 @@ const ops = dataStore.end();
 }
 ```
 
-## 7. DataStore 공개 API (추가/변경 요약)
+## 7. DataStore Public API (Additional/Changed Summary)
 
-### 7.1 수집(트랜잭션 경량 API)
+### 7.1 Collection (Lightweight Transaction API)
 
-- `begin(): void` 수집 시작
-- `getCollectedOperations(): AtomicOperation[]` 현재 누적분 조회(복사본)
-- `end(): AtomicOperation[]` 수집 종료 및 누적분 반환(버퍼 초기화)
+- `begin(): void` start collection
+- `getCollectedOperations(): AtomicOperation[]` query current accumulated ops (copy)
+- `end(): AtomicOperation[]` end collection and return accumulated ops (buffer cleared)
 
-### 7.2 Range/Text/Mark 유틸 (RangeOperations 위임)
+### 7.2 Range/Text/Mark Utils (Delegates to RangeOperations)
 
-- 텍스트
+- Text
   - `deleteText(contentRange)` → string
   - `extractText(contentRange)` → string
   - `insertText(contentRange, text)` → string
@@ -340,14 +340,14 @@ const ops = dataStore.end();
   - `moveText(fromRange, toRange)` → string
   - `duplicateText(contentRange)` → string
 
-- 마크/포맷팅
+- Mark/formatting
   - `applyMark(contentRange, mark)` → mark
   - `removeMark(contentRange, markType)` → number
   - `clearFormatting(contentRange)` → number
   - `toggleMark(contentRange, markType, attrs?)` → void
   - `constrainMarksToRange(contentRange)` → number
 
-- 검색/정규화
+- Search/normalization
   - `findText(contentRange, searchText)` → number
   - `getTextLength(contentRange)` → number
   - `trimText(contentRange)` → number
@@ -360,22 +360,22 @@ const ops = dataStore.end();
   - `expandToLine(contentRange)` → ContentRange
   - `normalizeRange(contentRange)` → ContentRange
 
-### 7.3 Content 관리 (변경 포인트)
+### 7.3 Content Management (Change Points)
 
-- `addChild(parentId, child, position?)` → string (create+parent update 수집)
-- `removeChild(parentId, childId)` → boolean (delete 수집)
-- `reorderChildren(parentId, childIds)` → void (동일 부모 내 각 항목에 대해 move 시퀀스 수집)
-- `moveNode(nodeId, newParentId, position?)` → void (move 수집)
-- `moveChildren(fromParentId, toParentId, childIds, position?)` → void (각 항목에 대해 move 수집)
-- `copyNode(nodeId, newParentId?)` → string (복사 노드 per-node create + parent update, move 없음)
-- `cloneNodeWithChildren(nodeId, newParentId?)` → string (트리 전체 per-node create + content/parent update, move 없음)
+- `addChild(parentId, child, position?)` → string (collects create+parent update)
+- `removeChild(parentId, childId)` → boolean (collects delete)
+- `reorderChildren(parentId, childIds)` → void (collects move sequence per item for same-parent reorder)
+- `moveNode(nodeId, newParentId, position?)` → void (collects move)
+- `moveChildren(fromParentId, toParentId, childIds, position?)` → void (collects move per item)
+- `copyNode(nodeId, newParentId?)` → string (per-node create for copied nodes + parent update, no move)
+- `cloneNodeWithChildren(nodeId, newParentId?)` → string (per-node create for entire tree + content/parent update, no move)
 
-### 7.4 Core/Utility (요약)
+### 7.4 Core/Utility (Summary)
 
 - Core: `setNode`, `updateNode`, `deleteNode`, `getNode`, `createNodeWithChildren`
-- Utility: `getAllNodes`, `getAllNodesMap`, `getRootNodeId`, `getNodePath`, `getNodeDepth`, `compareDocumentOrder`, `getNextNode`, `getPreviousNode`, `createDocumentIterator`, `createRangeIterator`, `traverse`, 등
+- Utility: `getAllNodes`, `getAllNodesMap`, `getRootNodeId`, `getNodePath`, `getNodeDepth`, `compareDocumentOrder`, `getNextNode`, `getPreviousNode`, `createDocumentIterator`, `createRangeIterator`, `traverse`, etc.
 
-- create(JSON 예시)
+- create (JSON example)
 
 ```json
 {
@@ -390,7 +390,7 @@ const ops = dataStore.end();
 }
 ```
 
-- update(JSON 예시)
+- update (JSON example)
 
 ```json
 {
@@ -405,7 +405,7 @@ const ops = dataStore.end();
 }
 ```
 
-- delete(JSON 예시)
+- delete (JSON example)
 
 ```json
 {
@@ -416,7 +416,7 @@ const ops = dataStore.end();
 }
 ```
 
-- move(JSON 예시)
+- move (JSON example)
 
 ```json
 {
@@ -428,7 +428,7 @@ const ops = dataStore.end();
 }
 ```
 
-- 배치(트랜잭션) 전달 포맷
+- Batch (transaction) delivery format
 
 ```json
 {
@@ -443,7 +443,7 @@ const ops = dataStore.end();
 }
 ```
 
-- JSON Schema(요약)
+- JSON Schema (Summary)
 
 ```json
 {
@@ -474,15 +474,15 @@ const ops = dataStore.end();
 ```
 
 
-- 수집 모드가 아닐 때: 단건 emit(`operation` 이벤트)
-- 수집 모드일 때: begin~end 사이에 버퍼에 누적 후, end() 반환값으로 일괄 전달(상위 레이어에서 배치 커밋 이벤트로 래핑 가능)
+- When not in collection mode: single emit (`operation` event)
+- When in collection mode: accumulate in buffer between begin~end, then deliver in batch via end() return value (upper layers can wrap as batch commit event)
 
-### 4.3 Document 인터페이스
+### 4.3 Document Interface
 ```typescript
 interface Document {
   id: string;
   type: 'document';
-  content: string[];             // 루트 노드 ID 배열
+  content: string[];             // root node ID array
   attributes?: Record<string, any>;
   metadata?: {
     title?: string;
@@ -494,17 +494,17 @@ interface Document {
 }
 ```
 
-## 5. DocumentIterator 시스템
+## 5. DocumentIterator System
 
-### 5.1 개요
+### 5.1 Overview
 
-DocumentIterator는 문서 구조를 효율적으로 순회하기 위한 반복자(iterator) 시스템입니다. Depth-First 순회를 기본으로 하며, 다양한 필터링과 범위 제한 기능을 제공합니다.
+DocumentIterator is an iterator system for efficiently traversing document structure. It uses depth-first traversal by default and provides various filtering and range limiting features.
 
-### 5.2 핵심 기능
+### 5.2 Core Features
 
-#### 5.2.1 기본 순회
+#### 5.2.1 Basic Traversal
 ```typescript
-// 기본 문서 순회
+// Basic document traversal
 const iterator = dataStore.createDocumentIterator();
 for (const nodeId of iterator) {
   const node = dataStore.getNode(nodeId);
@@ -512,22 +512,22 @@ for (const nodeId of iterator) {
 }
 ```
 
-#### 5.2.2 필터링
+#### 5.2.2 Filtering
 ```typescript
-// 특정 타입만 순회
+// Traverse only specific types
 const headingIterator = dataStore.createDocumentIterator({
   filter: { type: 'heading' }
 });
 
-// 여러 타입 제외
+// Exclude multiple types
 const textIterator = dataStore.createDocumentIterator({
   filter: { excludeTypes: ['document', 'list'] }
 });
 ```
 
-#### 5.2.3 범위 제한
+#### 5.2.3 Range Limiting
 ```typescript
-// 특정 범위 내 노드만 순회
+// Traverse only nodes within specific range
 const rangeIterator = dataStore.createDocumentIterator({
   range: {
     startNodeId: 'heading-1',
@@ -536,17 +536,17 @@ const rangeIterator = dataStore.createDocumentIterator({
 });
 ```
 
-#### 5.2.4 깊이 제한
+#### 5.2.4 Depth Limiting
 ```typescript
-// 최대 깊이 제한
+// Limit maximum depth
 const shallowIterator = dataStore.createDocumentIterator({
   maxDepth: 2
 });
 ```
 
-### 5.3 Visitor 패턴
+### 5.3 Visitor Pattern
 
-#### 5.3.1 기본 Visitor
+#### 5.3.1 Basic Visitor
 ```typescript
 interface DocumentVisitor {
   visit(nodeId: string, node: any, context?: any): void | boolean;
@@ -556,9 +556,9 @@ interface DocumentVisitor {
 }
 ```
 
-#### 5.3.2 사용 예제
+#### 5.3.2 Usage Example
 ```typescript
-// 텍스트 추출 Visitor
+// Text extraction visitor
 class TextExtractor implements DocumentVisitor {
   private texts: string[] = [];
 
@@ -573,15 +573,15 @@ class TextExtractor implements DocumentVisitor {
   }
 }
 
-// Visitor 실행
+// Execute visitor
 const extractor = new TextExtractor();
 dataStore.traverse(extractor);
 const allTexts = extractor.getTexts();
 ```
 
-#### 5.3.3 다중 Visitor
+#### 5.3.3 Multiple Visitors
 ```typescript
-// 여러 Visitor를 동시에 실행
+// Execute multiple visitors simultaneously
 const textExtractor = new TextExtractor();
 const linkCollector = new LinkCollector();
 const nodeCounter = new NodeCounter();
@@ -589,30 +589,30 @@ const nodeCounter = new NodeCounter();
 dataStore.traverse(textExtractor, linkCollector, nodeCounter);
 ```
 
-### 5.4 유틸리티 메서드
+### 5.4 Utility Methods
 
 ```typescript
-// 배열로 변환
+// Convert to array
 const allNodes = dataStore.createDocumentIterator().toArray();
 
-// 조건에 맞는 첫 번째 노드 찾기
+// Find first node matching condition
 const firstHeading = dataStore.createDocumentIterator({
   filter: { type: 'heading' }
 }).find();
 
-// 조건에 맞는 모든 노드 찾기
+// Find all nodes matching condition
 const allHeadings = dataStore.createDocumentIterator({
   filter: { type: 'heading' }
 }).findAll();
 ```
 
-## 6. Range 기반 연산
+## 6. Range-based Operations
 
-### 6.1 Range 개념
+### 6.1 Range Concept
 
-DataStore의 Range 연산은 두 가지 레벨로 구분됩니다:
+DataStore range operations are divided into two levels:
 
-#### 6.1.1 Node Range (노드 범위)
+#### 6.1.1 Node Range
 ```typescript
 interface DocumentRange {
   startNodeId: string;
@@ -621,268 +621,268 @@ interface DocumentRange {
   includeEnd?: boolean;
 }
 ```
-- **용도**: DocumentIterator의 순회 범위 지정
-- **특징**: 노드 단위로만 범위 지정
+- **Use**: specify traversal range for DocumentIterator
+- **Characteristic**: range specified only at node level
 
-#### 6.1.2 Text Range (텍스트 범위)
+#### 6.1.2 Text Range
 ```typescript
 interface TextRange {
   startNodeId: string;
-  startOffset: number;  // 텍스트 내 문자 위치
+  startOffset: number;  // character position within text
   endNodeId: string;
-  endOffset: number;    // 텍스트 내 문자 위치
+  endOffset: number;    // character position within text
 }
 ```
-- **용도**: DataStore 연산의 정확한 텍스트 처리
-- **특징**: 문자 단위까지 정확한 위치 지정
+- **Use**: precise text handling in DataStore operations
+- **Characteristic**: precise position down to character level
 
-### 6.2 Range 연산 아키텍처
+### 6.2 Range Operation Architecture
 
-#### 6.2.1 역할 분담
-- **DocumentIterator**: Node Range를 사용한 노드 순회
-- **DataStore Operations**: Text Range를 사용한 정확한 텍스트 처리
+#### 6.2.1 Role Separation
+- **DocumentIterator**: node traversal using Node Range
+- **DataStore Operations**: precise text handling using Text Range
 
 #### 6.2.2 createRangeIterator API
 ```typescript
-// createRangeIterator 메서드 시그니처
+// createRangeIterator method signature
 createRangeIterator(
   range: DocumentRange,
   options?: DocumentIteratorOptions
 ): DocumentIterator
 
-// 사용 예제
+// Usage example
 const rangeIterator = dataStore.createRangeIterator(
   { startNodeId: 'node1', endNodeId: 'node2' },
   { filter: { type: 'inline-text' } }
 );
 ```
 
-#### 6.2.3 처리 흐름
+#### 6.2.3 Processing Flow
 ```typescript
-// 방식 1: 기본 DocumentIterator 활용
-// 1. TextRange를 NodeRange로 변환
+// Approach 1: Using basic DocumentIterator
+// 1. Convert TextRange to NodeRange
 const nodeRange = calculateNodeRange(textRange);
 
-// 2. DocumentIterator로 범위 내 노드들 수집
+// 2. Collect nodes in range via DocumentIterator
 const nodesInRange = Array.from(
   dataStore.createDocumentIterator({ range: nodeRange })
 );
 
-// 3. 각 노드에서 정확한 텍스트 범위 처리
+// 3. Process exact text range in each node
 processTextRangeInNodes(nodesInRange, textRange);
 
-// 방식 2: createRangeIterator 활용 (권장)
-// 1. TextRange를 NodeRange로 변환
+// Approach 2: Using createRangeIterator (recommended)
+// 1. Convert TextRange to NodeRange
 const nodeRange = calculateNodeRange(textRange);
 
-// 2. createRangeIterator로 직접 순회
+// 2. Traverse directly with createRangeIterator
 const rangeIterator = dataStore.createRangeIterator(nodeRange);
 
-// 3. 순회하면서 즉시 처리
+// 3. Process immediately while traversing
 for (const nodeId of rangeIterator) {
   processNodeInTextRange(nodeId, textRange);
 }
 ```
 
-### 6.3 Range 연산 예제
+### 6.3 Range Operation Examples
 
-#### 6.3.1 기본 DocumentIterator 활용
+#### 6.3.1 Using Basic DocumentIterator
 ```typescript
 deleteTextRange(textRange: TextRange) {
-  // 1. 범위 내 노드들 수집
+  // 1. Collect nodes in range
   const nodeRange = this.calculateNodeRange(textRange);
   const nodesInRange = Array.from(
     this.createDocumentIterator({ range: nodeRange })
   );
   
-  // 2. 각 노드에서 텍스트 범위 삭제
+  // 2. Delete text range in each node
   this.processTextRangeInNodes(nodesInRange, textRange);
 }
 
 insertTextAtRange(textRange: TextRange, text: string) {
-  // 1. 범위 내 노드들 수집
+  // 1. Collect nodes in range
   const nodeRange = this.calculateNodeRange(textRange);
   const nodesInRange = Array.from(
     this.createDocumentIterator({ range: nodeRange })
   );
   
-  // 2. 삽입 위치 찾기 및 텍스트 삽입
+  // 2. Find insertion position and insert text
   this.insertTextInNodes(nodesInRange, textRange, text);
 }
 ```
 
-#### 6.3.2 createRangeIterator 활용 (권장 방식)
+#### 6.3.2 Using createRangeIterator (Recommended)
 ```typescript
-// createRangeIterator를 직접 활용한 더 효율적인 방식
+// More efficient approach using createRangeIterator directly
 deleteTextRange(textRange: TextRange) {
-  // 1. TextRange를 NodeRange로 변환
+  // 1. Convert TextRange to NodeRange
   const nodeRange = this.calculateNodeRange(textRange);
   
-  // 2. createRangeIterator로 범위 내 노드들 순회
+  // 2. Traverse nodes in range with createRangeIterator
   const rangeIterator = this.createRangeIterator(nodeRange);
   
-  // 3. 순회하면서 텍스트 범위 처리
+  // 3. Process text range while traversing
   for (const nodeId of rangeIterator) {
     this.processNodeInTextRange(nodeId, textRange);
   }
 }
 
 insertTextAtRange(textRange: TextRange, text: string) {
-  // 1. TextRange를 NodeRange로 변환
+  // 1. Convert TextRange to NodeRange
   const nodeRange = this.calculateNodeRange(textRange);
   
-  // 2. createRangeIterator로 범위 내 노드들 순회
+  // 2. Traverse nodes in range with createRangeIterator
   const rangeIterator = this.createRangeIterator(nodeRange);
   
-  // 3. 순회하면서 텍스트 삽입 처리
+  // 3. Process text insertion while traversing
   for (const nodeId of rangeIterator) {
     this.insertTextInNode(nodeId, textRange, text);
   }
 }
 
 replaceTextRange(textRange: TextRange, newText: string) {
-  // 1. TextRange를 NodeRange로 변환
+  // 1. Convert TextRange to NodeRange
   const nodeRange = this.calculateNodeRange(textRange);
   
-  // 2. createRangeIterator로 범위 내 노드들 순회
+  // 2. Traverse nodes in range with createRangeIterator
   const rangeIterator = this.createRangeIterator(nodeRange);
   
-  // 3. 순회하면서 텍스트 교체 처리
+  // 3. Process text replacement while traversing
   for (const nodeId of rangeIterator) {
     this.replaceTextInNode(nodeId, textRange, newText);
   }
 }
 ```
 
-#### 6.3.3 createRangeIterator의 장점
+#### 6.3.3 Benefits of createRangeIterator
 ```typescript
-// 1. 메모리 효율성: 배열로 변환하지 않고 직접 순회
+// 1. Memory efficiency: direct traversal without array conversion
 const rangeIterator = this.createRangeIterator(nodeRange);
 for (const nodeId of rangeIterator) {
-  // 각 노드를 즉시 처리
+  // Process each node immediately
   this.processNode(nodeId);
 }
 
-// 2. 조기 종료 가능: 조건에 맞으면 순회 중단
+// 2. Early termination: stop traversal if condition met
 const rangeIterator = this.createRangeIterator(nodeRange);
 for (const nodeId of rangeIterator) {
   if (this.shouldStopProcessing(nodeId)) {
-    break; // 순회 중단
+    break; // stop traversal
   }
   this.processNode(nodeId);
 }
 
-// 3. 필터링과 조합: 범위 + 타입 필터
+// 3. Combine with filtering: range + type filter
 const headingRangeIterator = this.createRangeIterator(nodeRange, {
   filter: { type: 'heading' }
 });
 
-// 4. 깊이 제한과 조합: 범위 + 깊이 제한
+// 4. Combine with depth limiting: range + depth limit
 const shallowRangeIterator = this.createRangeIterator(nodeRange, {
   maxDepth: 2
 });
 ```
 
-### 6.4 장점
+### 6.4 Benefits
 
-#### 6.4.1 효율성
-- **일괄 처리**: 범위 내 노드들을 한 번에 수집
-- **최적화된 순회**: DocumentIterator의 검증된 알고리즘 활용
-- **중복 방지**: 동일한 노드를 여러 번 방문하지 않음
-- **메모리 효율성**: `createRangeIterator`로 배열 변환 없이 직접 순회
-- **조기 종료**: 조건에 맞으면 순회를 즉시 중단 가능
+#### 6.4.1 Efficiency
+- **Batch processing**: collect nodes in range at once
+- **Optimized traversal**: leverages DocumentIterator’s proven algorithm
+- **No duplicates**: doesn’t visit same node multiple times
+- **Memory efficiency**: direct traversal with `createRangeIterator` without array conversion
+- **Early termination**: can stop traversal immediately if condition met
 
-#### 6.4.2 일관성
-- **통일된 순회**: 모든 Range 연산이 동일한 순회 로직 사용
-- **예측 가능성**: DocumentIterator의 순서 보장
-- **재사용성**: 검증된 순회 알고리즘 재사용
-- **API 일관성**: `createRangeIterator`로 범위 순회 API 통일
+#### 6.4.2 Consistency
+- **Unified traversal**: all range operations use same traversal logic
+- **Predictability**: DocumentIterator order guarantees
+- **Reusability**: reuses proven traversal algorithm
+- **API consistency**: unifies range traversal API with `createRangeIterator`
 
-#### 6.4.3 확장성
-- **새로운 연산**: DocumentIterator 기반으로 쉽게 추가
-- **고급 기능**: 필터링, 조건부 처리 등 활용 가능
-- **성능 최적화**: Iterator의 최적화 혜택 자동 적용
-- **조합 가능성**: 범위 + 필터링 + 깊이 제한 등 다양한 옵션 조합
+#### 6.4.3 Extensibility
+- **New operations**: easy to add based on DocumentIterator
+- **Advanced features**: can leverage filtering, conditional processing, etc.
+- **Performance optimization**: automatically benefits from Iterator optimizations
+- **Combinability**: combine range + filtering + depth limiting and other options
 
-#### 6.4.4 createRangeIterator 특화 장점
-- **직관적 API**: 범위 순회를 위한 전용 메서드
-- **옵션 조합**: 범위와 다른 옵션들을 자연스럽게 조합
-- **성능 최적화**: 범위 순회에 특화된 최적화
-- **코드 가독성**: 의도가 명확한 API 사용
+#### 6.4.4 Specialized Benefits of createRangeIterator
+- **Intuitive API**: dedicated method for range traversal
+- **Option combination**: naturally combines range with other options
+- **Performance optimization**: specialized optimizations for range traversal
+- **Code readability**: clear intent with dedicated API
 
-## 7. 성능 특성
+## 7. Performance Characteristics
 
-### 7.1 시간 복잡도
-- **노드 조회**: O(1) - Map 기반
-- **노드 저장**: O(1) - Map 기반
-- **노드 삭제**: O(1) - Map 기반
-- **자식 조회**: O(k) - k는 자식 개수
-- **검색**: O(n) - n은 전체 노드 개수
-- **트리 순회**: O(n) - n은 노드 개수
-- **DocumentIterator 순회**: O(n) - n은 순회 대상 노드 개수
-- **Range 기반 순회**: O(k) - k는 범위 내 노드 개수
-- **createRangeIterator**: O(k) - k는 범위 내 노드 개수
-- **Visitor 패턴**: O(n) - n은 방문한 노드 개수
+### 7.1 Time Complexity
+- **Node lookup**: O(1) - Map-based
+- **Node storage**: O(1) - Map-based
+- **Node deletion**: O(1) - Map-based
+- **Child lookup**: O(k) - k is number of children
+- **Search**: O(n) - n is total node count
+- **Tree traversal**: O(n) - n is node count
+- **DocumentIterator traversal**: O(n) - n is number of nodes traversed
+- **Range-based traversal**: O(k) - k is number of nodes in range
+- **createRangeIterator**: O(k) - k is number of nodes in range
+- **Visitor pattern**: O(n) - n is number of nodes visited
 
-### 7.2 공간 복잡도
-- **기본 저장**: O(n) - n은 노드 개수
-- **중첩 구조**: O(n) - ID 참조로 최적화
-- **마크 저장**: O(m) - m은 마크 개수
+### 7.2 Space Complexity
+- **Basic storage**: O(n) - n is node count
+- **Nested structure**: O(n) - optimized with ID references
+- **Mark storage**: O(m) - m is mark count
 
-### 7.3 메모리 최적화
-- **구조적 공유**: 변경되지 않은 부분 공유
-- **지연 로딩**: 필요시에만 로드
-- **압축 저장**: 중복 데이터 제거
+### 7.3 Memory Optimization
+- **Structural sharing**: share unchanged parts
+- **Lazy loading**: load only when needed
+- **Compressed storage**: remove duplicate data
 
-## 8. Query 최적화 전략
+## 8. Query Optimization Strategy
 
-### 8.1 성능 vs 완전성 정책
+### 8.1 Performance vs Completeness Policy
 
-QueryOperations는 성능과 완전성 사이의 균형을 고려하여 두 가지 접근 방식을 사용합니다:
+QueryOperations uses two approaches to balance performance and completeness:
 
-#### DocumentIterator 사용 (성능 우선)
-- **findNodesByType**: 타입 필터링으로 효율적 순회
-- **findChildrenByParentId**: 부모의 content 배열 직접 접근
-- **findNodesByDepth**: 깊이 제한으로 불필요한 순회 방지
+#### Using DocumentIterator (Performance-first)
+- **findNodesByType**: efficient traversal with type filtering
+- **findChildrenByParentId**: direct access to parent’s content array
+- **findNodesByDepth**: prevents unnecessary traversal with depth limiting
 
-#### 전체 순회 사용 (완전성 우선)
-- **findNodes**: 고아 노드 포함 모든 노드 검색
-- **findRootNodes**: 고아 노드도 루트로 간주
-- **findNodesByAttribute**: 속성 검색 (고아 노드 포함)
-- **findNodesByText**: 텍스트 검색 (고아 노드 포함)
-- **searchText**: 텍스트 검색 (고아 노드 포함)
+#### Using Full Traversal (Completeness-first)
+- **findNodes**: searches all nodes including orphans
+- **findRootNodes**: treats orphans as roots
+- **findNodesByAttribute**: attribute search (including orphans)
+- **findNodesByText**: text search (including orphans)
+- **searchText**: text search (including orphans)
 
-### 8.2 최적화 전략
+### 8.2 Optimization Strategies
 
-#### 8.2.1 성능 우선 시나리오
-- 일반적인 검색 작업
-- 대용량 문서에서의 빠른 조회
-- UI 반응성이 중요한 경우
+#### 8.2.1 Performance-first Scenarios
+- General search operations
+- Fast queries in large documents
+- When UI responsiveness is important
 
-#### 8.2.2 완전성 우선 시나리오
-- 데이터 무결성 검사
-- 정리 작업 및 디버깅
-- 고아 노드 감지가 필요한 경우
+#### 8.2.2 Completeness-first Scenarios
+- Data integrity checks
+- Cleanup and debugging
+- When orphan node detection is needed
 
-## 9. 확장성
+## 9. Extensibility
 
-### 9.1 수평적 확장
-- **새로운 노드 타입**: 스키마 확장으로 지원
-- **새로운 마크 타입**: 마크 시스템 확장
-- **새로운 속성**: attributes 필드 활용
+### 9.1 Horizontal Extension
+- **New node types**: supported via schema extension
+- **New mark types**: mark system extension
+- **New attributes**: leverage attributes field
 
-### 9.2 수직적 확장
-- **깊은 중첩**: 재귀적 구조 지원
-- **대용량 문서**: ID 기반 참조로 효율적 관리
-- **복잡한 관계**: 다중 참조 지원
+### 9.2 Vertical Extension
+- **Deep nesting**: supports recursive structures
+- **Large documents**: efficient management with ID-based references
+- **Complex relationships**: supports multiple references
 
-## 10. 관련 문서
+## 10. Related Documents
 
-- [DataStore Operations Specification](./datastore-operations-spec.md) - 연산 클래스별 상세 기능
-- [DocumentIterator Specification](../packages/datastore/docs/document-iterator-spec.md) - DocumentIterator 상세 명세
-- [DataStore Usage Scenarios](./datastore-usage-scenarios.md) - 시나리오별 사용법
-- [DataStore API Reference](./datastore-api-reference.md) - API 레퍼런스
+- [DataStore Operations Specification](./datastore-operations-spec.md) - detailed functionality by operation class
+- [DocumentIterator Specification](../packages/datastore/docs/document-iterator-spec.md) - detailed DocumentIterator spec
+- [DataStore Usage Scenarios](./datastore-usage-scenarios.md) - usage by scenario
+- [DataStore API Reference](./datastore-api-reference.md) - API reference
 
 ---
 
-이 스펙은 Barocss DataStore 시스템의 핵심 아키텍처와 기본 개념을 다룹니다. 상세한 사용법과 API 레퍼런스는 관련 문서를 참조하세요.
+This spec covers the core architecture and basic concepts of the Barocss DataStore system. For detailed usage and API reference, see related documents.

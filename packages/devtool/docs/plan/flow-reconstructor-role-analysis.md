@@ -1,15 +1,15 @@
-# FlowReconstructor 역할 분석
+# FlowReconstructor Role Analysis
 
-## 질문: FlowReconstructor가 필요한가?
+## Question: Is FlowReconstructor Needed?
 
-`AutoTracer`가 이미 `traceId`, `spanId`, `parentSpanId`를 포함한 완전한 이벤트를 발생시키는데, `FlowReconstructor`가 필요한가?
+`AutoTracer` already emits complete events including `traceId`, `spanId`, `parentSpanId`. Is `FlowReconstructor` needed?
 
 ---
 
-## AutoTracer가 제공하는 것
+## What AutoTracer Provides
 
 ```typescript
-// AutoTracer가 발생시키는 이벤트
+// Events emitted by AutoTracer
 editor:trace.start {
   traceId: 'trace-1',
   spanId: 'span-1',
@@ -29,23 +29,23 @@ editor:trace.end {
 }
 ```
 
-**이미 포함된 정보**:
-- ✅ traceId (플로우 ID)
-- ✅ spanId (실행 단위 ID)
-- ✅ parentSpanId (부모 관계)
+**Already included information**:
+- ✅ traceId (flow ID)
+- ✅ spanId (execution unit ID)
+- ✅ parentSpanId (parent relationship)
 - ✅ operationName, className, package
 - ✅ timestamp, duration
 
 ---
 
-## FlowReconstructor의 역할
+## FlowReconstructor's Role
 
-### 옵션 1: FlowReconstructor 제거 (단순화)
+### Option 1: Remove FlowReconstructor (Simplification)
 
-**접근**: `AutoTracer` 이벤트를 직접 UI에 표시
+**Approach**: Display `AutoTracer` events directly in UI
 
 ```typescript
-// Devtool에서 직접 이벤트 수집
+// Collect events directly in Devtool
 class Devtool {
   private traces: Map<string, Trace> = new Map();
   
@@ -80,93 +80,93 @@ class Devtool {
 }
 ```
 
-**장점**:
-- ✅ 구조 단순화
-- ✅ 중간 레이어 제거
-- ✅ 직접적인 이벤트 처리
+**Advantages**:
+- ✅ Simplified structure
+- ✅ Remove intermediate layer
+- ✅ Direct event handling
 
-**단점**:
-- ⚠️ Devtool 클래스가 비대해질 수 있음
-- ⚠️ 플로우 재구성 로직이 Devtool에 섞임
+**Disadvantages**:
+- ⚠️ Devtool class may become large
+- ⚠️ Flow reconstruction logic mixed in Devtool
 
 ---
 
-### 옵션 2: FlowReconstructor 유지 (관심사 분리)
+### Option 2: Keep FlowReconstructor (Separation of Concerns)
 
-**접근**: `FlowReconstructor`는 플로우 재구성 전용
+**Approach**: `FlowReconstructor` is dedicated to flow reconstruction
 
 ```typescript
-// FlowReconstructor의 역할
+// FlowReconstructor's role
 class FlowReconstructor {
-  // 1. 이벤트 수집 및 버퍼링
+  // 1. Event collection and buffering
   handleTraceEvent(type: string, data: any): void { }
   
-  // 2. 완료 상태 확인
+  // 2. Completion status check
   isCompleted(traceId: string): boolean { }
   
-  // 3. 완료된 플로우만 반환
+  // 3. Return only completed flows
   getCompletedFlows(limit: number): ExecutionFlow[] { }
   
-  // 4. 플로우 검색 및 필터링
+  // 4. Flow search and filtering
   searchFlows(query: string): ExecutionFlow[] { }
   filterFlows(package?: string, operation?: string): ExecutionFlow[] { }
   
-  // 5. 플로우 통계
+  // 5. Flow statistics
   getFlowStatistics(): { total: number; completed: number; avgDuration: number } { }
 }
 ```
 
-**장점**:
-- ✅ 관심사 분리 (플로우 재구성 로직 분리)
-- ✅ 재사용 가능 (다른 곳에서도 사용 가능)
-- ✅ 테스트 용이
-- ✅ 확장성 (검색, 필터링, 통계 등)
+**Advantages**:
+- ✅ Separation of concerns (flow reconstruction logic separated)
+- ✅ Reusable (can be used elsewhere)
+- ✅ Easy to test
+- ✅ Extensible (search, filtering, statistics, etc.)
 
-**단점**:
-- ⚠️ 추가 레이어 (약간의 복잡도)
-
----
-
-## 결론: FlowReconstructor는 선택적
-
-### 시나리오 1: 단순한 경우 (FlowReconstructor 제거)
-
-**조건**:
-- 플로우 목록만 표시
-- 완료 상태 확인만 필요
-- 검색/필터링 불필요
-
-**구조**:
-```
-Devtool
-├── AutoTracer (이벤트 발생)
-└── Devtool (이벤트 수집 및 UI 표시)
-```
-
-### 시나리오 2: 복잡한 경우 (FlowReconstructor 유지)
-
-**조건**:
-- 플로우 검색/필터링 필요
-- 플로우 통계 필요
-- 플로우 분석 기능 필요
-- 다른 곳에서도 플로우 재구성 로직 재사용
-
-**구조**:
-```
-Devtool
-├── AutoTracer (이벤트 발생)
-├── FlowReconstructor (플로우 재구성 및 분석)
-└── DevtoolUI (UI 표시)
-```
+**Disadvantages**:
+- ⚠️ Additional layer (slight complexity)
 
 ---
 
-## 권장안: 단계적 접근
+## Conclusion: FlowReconstructor is Optional
 
-### Phase 1: FlowReconstructor 없이 시작
+### Scenario 1: Simple Case (Remove FlowReconstructor)
+
+**Conditions**:
+- Only display flow list
+- Only need completion status check
+- No search/filtering needed
+
+**Structure**:
+```
+Devtool
+├── AutoTracer (emit events)
+└── Devtool (collect events and display UI)
+```
+
+### Scenario 2: Complex Case (Keep FlowReconstructor)
+
+**Conditions**:
+- Need flow search/filtering
+- Need flow statistics
+- Need flow analysis features
+- Reuse flow reconstruction logic elsewhere
+
+**Structure**:
+```
+Devtool
+├── AutoTracer (emit events)
+├── FlowReconstructor (flow reconstruction and analysis)
+└── DevtoolUI (display UI)
+```
+
+---
+
+## Recommendation: Phased Approach
+
+### Phase 1: Start Without FlowReconstructor
 
 ```typescript
-// Devtool에서 직접 이벤트 수집
+// Collect events directly in Devtool
 class Devtool {
   private traces: Map<string, Trace> = new Map();
   
@@ -191,12 +191,12 @@ class Devtool {
 }
 ```
 
-### Phase 2: 필요시 FlowReconstructor 추가
+### Phase 2: Add FlowReconstructor When Needed
 
-검색, 필터링, 통계 등이 필요해지면 그때 `FlowReconstructor`를 추가:
+When search, filtering, statistics, etc. are needed, add `FlowReconstructor`:
 
 ```typescript
-// 복잡한 기능이 필요할 때만 추가
+// Add only when complex features are needed
 class FlowReconstructor {
   searchFlows(query: string): ExecutionFlow[] { }
   filterFlows(package?: string): ExecutionFlow[] { }
@@ -207,36 +207,35 @@ class FlowReconstructor {
 
 ---
 
-## 최종 권장안
+## Final Recommendation
 
-**초기 구현**: FlowReconstructor 없이 시작
+**Initial Implementation**: Start without FlowReconstructor
 
-**이유**:
-1. `AutoTracer`가 이미 완전한 정보 제공
-2. 단순한 수집 로직은 Devtool에 포함 가능
-3. 필요시 리팩토링으로 분리 가능
+**Reasons**:
+1. `AutoTracer` already provides complete information
+2. Simple collection logic can be included in Devtool
+3. Can be separated via refactoring when needed
 
-**구조**:
+**Structure**:
 ```
 Devtool
-├── AutoTracer (이벤트 발생)
+├── AutoTracer (emit events)
 └── Devtool
-    ├── traces: Map<string, Trace> (이벤트 수집)
-    ├── _handleTraceStart/End (플로우 재구성)
-    └── DevtoolUI (UI 표시)
+    ├── traces: Map<string, Trace> (collect events)
+    ├── _handleTraceStart/End (flow reconstruction)
+    └── DevtoolUI (display UI)
 ```
 
-**나중에 필요하면**:
-- 검색/필터링 기능 추가 시 `FlowReconstructor`로 리팩토링
-- 통계/분석 기능 추가 시 `FlowReconstructor`로 리팩토링
+**When needed later**:
+- Refactor to `FlowReconstructor` when adding search/filtering features
+- Refactor to `FlowReconstructor` when adding statistics/analysis features
 
 ---
 
-## 정리
+## Summary
 
-**FlowReconstructor는 선택적**:
-- ✅ 단순한 경우: Devtool에서 직접 처리
-- ✅ 복잡한 경우: FlowReconstructor로 분리
+**FlowReconstructor is optional**:
+- ✅ Simple case: Handle directly in Devtool
+- ✅ Complex case: Separate with FlowReconstructor
 
-**초기 구현**: FlowReconstructor 없이 시작하고, 필요시 추가
-
+**Initial Implementation**: Start without FlowReconstructor, add when needed

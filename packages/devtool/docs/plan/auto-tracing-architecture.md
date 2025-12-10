@@ -1,74 +1,74 @@
-# 자동 추적 아키텍처 (Auto-Tracing Architecture)
+# Auto-Tracing Architecture
 
-## 개요
+## Overview
 
-RUM (Real User Monitoring) 솔루션의 자동 추적 패턴을 참고하여, 에디터의 실행 플로우를 자동으로 모니터링하는 표준화된 시스템을 설계합니다.
-
----
-
-## RUM 솔루션 패턴 분석
-
-### 주요 RUM 솔루션들의 공통 패턴
-
-1. **자동 계측 (Auto Instrumentation)**
-   - 함수 호출을 자동으로 가로채서 추적
-   - 코드 변경 최소화
-   - 성능 오버헤드 최소화
-
-2. **컨텍스트 전파 (Context Propagation)**
-   - 실행 컨텍스트에 trace ID 자동 주입
-   - 비동기 호출 체인에서도 컨텍스트 유지
-
-3. **이벤트 기반 수집**
-   - 모든 추적 정보를 이벤트로 수집
-   - 중앙 집중식 분석 및 시각화
-
-4. **선택적 활성화**
-   - 개발 모드에서만 활성화
-   - 프로덕션에서는 비활성화 가능
+Designing a standardized system for automatically monitoring editor execution flows by referencing the auto-tracing pattern of RUM (Real User Monitoring) solutions.
 
 ---
 
-## 아키텍처 설계
+## RUM Solution Pattern Analysis
 
-### 1. 계층 구조
+### Common Patterns in Major RUM Solutions
+
+1. **Auto Instrumentation**
+   - Automatically intercept function calls to trace
+   - Minimize code changes
+   - Minimize performance overhead
+
+2. **Context Propagation**
+   - Automatically inject trace ID into execution context
+   - Maintain context in async call chains
+
+3. **Event-Based Collection**
+   - Collect all trace information as events
+   - Centralized analysis and visualization
+
+4. **Selective Activation**
+   - Activate only in development mode
+   - Can be disabled in production
+
+---
+
+## Architecture Design
+
+### 1. Layer Structure
 
 ```
 ┌─────────────────────────────────────────┐
-│         Devtool (수집 및 시각화)          │
+│         Devtool (Collection & Visualization) │
 └─────────────────────────────────────────┘
                     ↑
 ┌─────────────────────────────────────────┐
-│    AutoTracer (자동 추적 엔진)           │
-│  - 함수 래핑                              │
-│  - 컨텍스트 관리                           │
-│  - 이벤트 발생                             │
+│    AutoTracer (Auto Tracing Engine)     │
+│  - Function wrapping                     │
+│  - Context management                    │
+│  - Event emission                        │
 └─────────────────────────────────────────┘
                     ↑
 ┌─────────────────────────────────────────┐
-│    Editor Core (비즈니스 로직)           │
-│  - Command 실행                           │
-│  - Transaction 실행                       │
-│  - Operation 실행                         │
+│    Editor Core (Business Logic)         │
+│  - Command execution                     │
+│  - Transaction execution                 │
+│  - Operation execution                   │
 └─────────────────────────────────────────┘
 ```
 
-### 2. 핵심 컴포넌트
+### 2. Core Components
 
 #### 2.1 AutoTracer
 
-**역할**: 자동으로 함수 호출을 가로채서 추적
+**Role**: Automatically intercept function calls to trace
 
 ```typescript
 // packages/devtool/src/auto-tracer.ts
 
 export interface TraceContext {
-  traceId: string;              // 전체 플로우 ID
-  spanId: string;                // 현재 실행 단위 ID
-  parentSpanId?: string;         // 부모 실행 단위 ID
-  operationName: string;         // 함수/명령 이름
-  startTime: number;             // 시작 시간
-  tags?: Record<string, any>;    // 추가 메타데이터
+  traceId: string;              // Overall flow ID
+  spanId: string;                // Current execution unit ID
+  parentSpanId?: string;         // Parent execution unit ID
+  operationName: string;         // Function/command name
+  startTime: number;             // Start time
+  tags?: Record<string, any>;    // Additional metadata
 }
 
 export class AutoTracer {
@@ -81,25 +81,25 @@ export class AutoTracer {
   }
 
   /**
-   * 자동 추적 활성화
+   * Enable auto tracing
    */
   enable(): void {
     if (this.enabled) return;
     this.enabled = true;
     
-    // Editor Core 계측
+    // Instrument Editor Core
     this._instrumentEditor();
     this._instrumentInputHandler();
     this._instrumentCommands();
     
-    // 다중 패키지 계측
+    // Instrument multiple packages
     this._instrumentDataStore();
     this._instrumentModel();
     this._instrumentRendererDOM();
   }
 
   /**
-   * 자동 추적 비활성화
+   * Disable auto tracing
    */
   disable(): void {
     this.enabled = false;
@@ -107,18 +107,18 @@ export class AutoTracer {
   }
 
   /**
-   * Editor 메서드 계측
+   * Instrument Editor methods
    */
   private _instrumentEditor(): void {
     const editor = this.editor as any;
     
-    // executeCommand 래핑
+    // Wrap executeCommand
     const originalExecuteCommand = editor.executeCommand.bind(editor);
     editor.executeCommand = this._wrapCommandExecution(originalExecuteCommand);
   }
 
   /**
-   * InputHandler 메서드 계측
+   * Instrument InputHandler methods
    */
   private _instrumentInputHandler(): void {
     const viewDOM = (this.editor as any)._viewDOM;
@@ -147,21 +147,21 @@ export class AutoTracer {
   }
 
   /**
-   * Command 메서드 계측
+   * Instrument Command methods
    */
   private _instrumentCommands(): void {
-    // Extension의 Command execute 메서드 자동 래핑
-    // (필요시 구현)
+    // Automatically wrap Extension Command execute methods
+    // (implement if needed)
   }
 
   /**
-   * DataStore 패키지 계측
+   * Instrument DataStore package
    */
   private _instrumentDataStore(): void {
     const dataStore = (this.editor as any).dataStore;
     if (!dataStore) return;
 
-    // CoreOperations 메서드 계측
+    // Instrument CoreOperations methods
     if (dataStore.coreOperations) {
       const methods = [
         'setNode',
@@ -182,7 +182,7 @@ export class AutoTracer {
       });
     }
 
-    // RangeOperations 메서드 계측
+    // Instrument RangeOperations methods
     if (dataStore.range) {
       const methods = [
         'replaceText',
@@ -202,7 +202,7 @@ export class AutoTracer {
       });
     }
 
-    // MarkOperations 메서드 계측
+    // Instrument MarkOperations methods
     if (dataStore.marks) {
       const methods = [
         'setMarks',
@@ -225,13 +225,13 @@ export class AutoTracer {
   }
 
   /**
-   * Model 패키지 계측
+   * Instrument Model package
    */
   private _instrumentModel(): void {
     const transactionManager = (this.editor as any).transactionManager;
     if (!transactionManager) return;
 
-    // TransactionManager.execute 계측
+    // Instrument TransactionManager.execute
     const originalExecute = transactionManager.execute.bind(transactionManager);
     transactionManager.execute = this._wrapAsyncFunction(
       originalExecute,
@@ -239,18 +239,18 @@ export class AutoTracer {
       'TransactionManager'
     );
 
-    // Operation 실행 계측 (defineOperation으로 등록된 operations)
-    // (런타임에 동적으로 래핑)
+    // Instrument Operation execution (operations registered with defineOperation)
+    // (dynamically wrap at runtime)
   }
 
   /**
-   * RendererDOM 패키지 계측
+   * Instrument RendererDOM package
    */
   private _instrumentRendererDOM(): void {
     const viewDOM = (this.editor as any)._viewDOM;
     if (!viewDOM) return;
 
-    // DOMRenderer 계측
+    // Instrument DOMRenderer
     const domRenderer = viewDOM._domRenderer;
     if (domRenderer) {
       const originalRender = domRenderer.render.bind(domRenderer);
@@ -260,7 +260,7 @@ export class AutoTracer {
         'DOMRenderer'
       );
 
-      // Reconciler 계측
+      // Instrument Reconciler
       if (domRenderer._reconciler) {
         const originalReconcile = domRenderer._reconciler.reconcile.bind(domRenderer._reconciler);
         domRenderer._reconciler.reconcile = this._wrapAsyncFunction(
@@ -270,7 +270,7 @@ export class AutoTracer {
         );
       }
 
-      // VNodeBuilder 계측
+      // Instrument VNodeBuilder
       if (domRenderer._vnodeBuilder) {
         const originalBuild = domRenderer._vnodeBuilder.build.bind(domRenderer._vnodeBuilder);
         domRenderer._vnodeBuilder.build = this._wrapFunction(
@@ -286,13 +286,13 @@ export class AutoTracer {
 
 ---
 
-### 3. 함수 래핑 전략
+### 3. Function Wrapping Strategy
 
-#### 3.1 동기 함수 래핑
+#### 3.1 Synchronous Function Wrapping
 
 ```typescript
 /**
- * 동기 함수 래핑
+ * Wrap synchronous function
  */
   private _wrapFunction<T extends (...args: any[]) => any>(
     fn: T,
@@ -309,18 +309,18 @@ export class AutoTracer {
     const startTime = performance.now();
 
     try {
-      // 함수 시작 이벤트
+      // Function start event
       this._emitTraceStart(traceContext, args);
 
-      // 원본 함수 실행
+      // Execute original function
       const result = fn(...args);
 
-      // 함수 종료 이벤트
+      // Function end event
       this._emitTraceEnd(traceContext, result, performance.now() - startTime);
 
       return result;
     } catch (error) {
-      // 에러 이벤트
+      // Error event
       this._emitTraceError(traceContext, error, performance.now() - startTime);
       throw error;
     } finally {
@@ -330,11 +330,11 @@ export class AutoTracer {
 }
 ```
 
-#### 3.2 비동기 함수 래핑
+#### 3.2 Async Function Wrapping
 
 ```typescript
 /**
- * 비동기 함수 래핑 (Promise 지원)
+ * Wrap async function (Promise support)
  */
   private _wrapAsyncFunction<T extends (...args: any[]) => Promise<any>>(
     fn: T,
@@ -351,18 +351,18 @@ export class AutoTracer {
     const startTime = performance.now();
 
     try {
-      // 함수 시작 이벤트
+      // Function start event
       this._emitTraceStart(traceContext, args);
 
-      // 원본 함수 실행
+      // Execute original function
       const result = await fn(...args);
 
-      // 함수 종료 이벤트
+      // Function end event
       this._emitTraceEnd(traceContext, result, performance.now() - startTime);
 
       return result;
     } catch (error) {
-      // 에러 이벤트
+      // Error event
       this._emitTraceError(traceContext, error, performance.now() - startTime);
       throw error;
     } finally {
@@ -374,15 +374,15 @@ export class AutoTracer {
 
 ---
 
-### 4. 컨텍스트 관리 및 자동 ID 부여
+### 4. Context Management and Automatic ID Assignment
 
-#### 4.1 RUM 스타일 호출 연관관계 추적
+#### 4.1 RUM-Style Call Relationship Tracking
 
-**핵심**: 모든 함수 호출에 자동으로 `traceId`와 `spanId`를 부여하여 호출 연관관계를 자동으로 추적
+**Core**: Automatically assign `traceId` and `spanId` to all function calls to automatically track call relationships
 
 ```typescript
 /**
- * Trace Context 생성 (자동 ID 부여)
+ * Create Trace Context (automatic ID assignment)
  */
 private _createTraceContext(
   operationName: string,
@@ -390,32 +390,32 @@ private _createTraceContext(
   parentSpanId?: string,
   fn?: Function
 ): TraceContext {
-  // 1. 부모 컨텍스트 확인
+  // 1. Check parent context
   const parentContext = parentSpanId 
     ? this.activeTraces.get(parentSpanId)
-    : this._getCurrentContext(); // 스택에서 자동으로 부모 찾기
+    : this._getCurrentContext(); // Automatically find parent from stack
   
-  // 2. traceId 결정: 부모가 있으면 같은 traceId 사용, 없으면 새로 생성
+  // 2. Determine traceId: use same traceId if parent exists, create new if not
   const traceId = parentContext?.traceId || this._generateTraceId();
   
-  // 3. spanId 생성: 고유한 실행 단위 ID
+  // 3. Generate spanId: unique execution unit ID
   const spanId = this._generateSpanId();
 
-  // 4. 컨텍스트 생성
+  // 4. Create context
   const context: TraceContext = {
     traceId,
     spanId,
-    parentSpanId: parentContext?.spanId, // 부모 spanId 자동 연결
+    parentSpanId: parentContext?.spanId, // Automatically connect parent spanId
     operationName,
     startTime: performance.now(),
     tags: {
       className,
-      package: this._detectPackage(className, fn), // 패키지 자동 감지 (스택 트레이스 활용)
+      package: this._detectPackage(className, fn), // Auto-detect package (using stack trace)
       timestamp: Date.now()
     }
   };
 
-  // 5. 활성 컨텍스트 스택에 추가
+  // 5. Add to active context stack
   this._pushContext(context);
   this.activeTraces.set(spanId, context);
   
@@ -423,17 +423,17 @@ private _createTraceContext(
 }
 
   /**
-   * 패키지 자동 감지 (다양한 방법 시도)
+   * Auto-detect package (try various methods)
    */
   private _detectPackage(className?: string, fn?: Function): string {
     const detectionMethod = this.options.packageDetection || 'auto';
 
-    // 방법 1: 런타임 메타데이터 확인 (가장 정확, 명시적)
+    // Method 1: Check runtime metadata (most accurate, explicit)
     if (fn && (fn as any).__package) {
       return (fn as any).__package;
     }
 
-    // 방법 2: 스택 트레이스에서 파일 경로 추출 (정확하지만 제한적)
+    // Method 2: Extract file path from stack trace (accurate but limited)
     if (detectionMethod === 'stack' || detectionMethod === 'auto') {
       if (fn) {
         const packageFromStack = this._detectPackageFromStack(fn);
@@ -443,7 +443,7 @@ private _createTraceContext(
       }
     }
 
-    // 방법 3: 클래스 이름으로 패키지 추론 (폴백)
+    // Method 3: Infer package from class name (fallback)
     if (detectionMethod === 'name' || detectionMethod === 'auto') {
       if (className) {
         const packageFromName = this._detectPackageFromClassName(className);
@@ -453,10 +453,10 @@ private _createTraceContext(
       }
     }
 
-    // 방법 4: 명시적 패키지 목록 확인
+    // Method 4: Check explicit package list
     if (this.options.instrumentPackages && this.options.instrumentPackages.length > 0) {
-      // instrumentPackages에 지정된 패키지 중 하나를 반환
-      // (실제로는 더 정교한 매칭 필요)
+      // Return one of packages specified in instrumentPackages
+      // (more sophisticated matching needed in practice)
       return this.options.instrumentPackages[0];
     }
 
@@ -464,11 +464,11 @@ private _createTraceContext(
   }
 
   /**
-   * 스택 트레이스에서 패키지 감지
+   * Detect package from stack trace
    */
   private _detectPackageFromStack(fn: Function): string | null {
     try {
-      // Error.stack을 이용하여 호출 스택 추출
+      // Extract call stack using Error.stack
       const originalError = Error;
       Error = class extends originalError {
         constructor() {
@@ -482,20 +482,20 @@ private _createTraceContext(
       
       if (!stack) return null;
 
-      // 스택에서 파일 경로 추출
-      // 예: "at InputHandler.handleDelete (packages/editor-view-dom/src/input-handler.ts:123:45)"
+      // Extract file path from stack
+      // Example: "at InputHandler.handleDelete (packages/editor-view-dom/src/input-handler.ts:123:45)"
       const stackLines = stack.split('\n');
       
       for (const line of stackLines) {
-        // packages/ 패턴 찾기
+        // Find packages/ pattern
         const packageMatch = line.match(/packages\/([^/]+)\//);
         if (packageMatch) {
           const packageName = packageMatch[1];
-          // 패키지 이름을 @barocss/ 형식으로 변환
+          // Convert package name to @barocss/ format
           return `@barocss/${packageName}`;
         }
 
-        // node_modules/@barocss/ 패턴 찾기
+        // Find node_modules/@barocss/ pattern
         const nodeModulesMatch = line.match(/node_modules\/@barocss\/([^/]+)\//);
         if (nodeModulesMatch) {
           return `@barocss/${nodeModulesMatch[1]}`;
@@ -504,16 +504,16 @@ private _createTraceContext(
 
       return null;
     } catch (error) {
-      // 스택 추출 실패 시 null 반환
+      // Return null if stack extraction fails
       return null;
     }
   }
 
   /**
-   * 클래스 이름으로 패키지 추론 (폴백)
+   * Infer package from class name (fallback)
    */
   private _detectPackageFromClassName(className: string): string {
-    // 클래스 이름 패턴 매칭 (기존 로직)
+    // Class name pattern matching (existing logic)
     if (className.includes('InputHandler') || className.includes('EditorViewDOM')) {
       return '@barocss/editor-view-dom';
     }
@@ -534,23 +534,23 @@ private _createTraceContext(
   }
 ```
 
-#### 4.2 스택 기반 컨텍스트 관리
+#### 4.2 Stack-Based Context Management
 
 ```typescript
 /**
- * 컨텍스트 스택 관리 (호출 체인 추적)
+ * Context stack management (call chain tracking)
  */
 private contextStack: TraceContext[] = [];
 
 /**
- * 컨텍스트 스택에 추가
+ * Add to context stack
  */
 private _pushContext(context: TraceContext): void {
   this.contextStack.push(context);
 }
 
 /**
- * 현재 활성 컨텍스트 가져오기 (스택 최상단)
+ * Get current active context (stack top)
  */
 private _getCurrentContext(): TraceContext | null {
   return this.contextStack.length > 0 
@@ -559,7 +559,7 @@ private _getCurrentContext(): TraceContext | null {
 }
 
 /**
- * 컨텍스트 스택에서 제거
+ * Remove from context stack
  */
 private _popContext(spanId: string): void {
   const index = this.contextStack.findIndex(ctx => ctx.spanId === spanId);
@@ -569,7 +569,7 @@ private _popContext(spanId: string): void {
 }
 
 /**
- * 컨텍스트 정리
+ * Cleanup trace context
  */
 private _cleanupTraceContext(spanId: string): void {
   this._popContext(spanId);
@@ -577,38 +577,38 @@ private _cleanupTraceContext(spanId: string): void {
 }
 ```
 
-#### 4.3 자동 ID 부여 메커니즘
+#### 4.3 Automatic ID Assignment Mechanism
 
-**RUM 솔루션과 동일한 방식**:
+**Same approach as RUM solutions**:
 
-1. **최상위 호출**: 새로운 `traceId` 생성
-2. **하위 호출**: 부모의 `traceId` 상속
-3. **각 함수 호출**: 고유한 `spanId` 생성
-4. **부모-자식 관계**: `parentSpanId`로 자동 연결
+1. **Top-level call**: Create new `traceId`
+2. **Child call**: Inherit parent's `traceId`
+3. **Each function call**: Generate unique `spanId`
+4. **Parent-child relationship**: Automatically connect via `parentSpanId`
 
 ```typescript
-// 예시: handleDelete → executeCommand → Transaction → Operation
+// Example: handleDelete → executeCommand → Transaction → Operation
 
-// 1. handleDelete 시작
+// 1. handleDelete start
 traceId: 'trace-1', spanId: 'span-1', parentSpanId: undefined
 
-// 2. executeCommand 시작 (handleDelete 내부)
-traceId: 'trace-1', spanId: 'span-2', parentSpanId: 'span-1'  // 같은 traceId, 부모는 span-1
+// 2. executeCommand start (inside handleDelete)
+traceId: 'trace-1', spanId: 'span-2', parentSpanId: 'span-1'  // Same traceId, parent is span-1
 
-// 3. Transaction 시작 (executeCommand 내부)
-traceId: 'trace-1', spanId: 'span-3', parentSpanId: 'span-2'  // 같은 traceId, 부모는 span-2
+// 3. Transaction start (inside executeCommand)
+traceId: 'trace-1', spanId: 'span-3', parentSpanId: 'span-2'  // Same traceId, parent is span-2
 
-// 4. Operation 시작 (Transaction 내부)
-traceId: 'trace-1', spanId: 'span-4', parentSpanId: 'span-3'  // 같은 traceId, 부모는 span-3
+// 4. Operation start (inside Transaction)
+traceId: 'trace-1', spanId: 'span-4', parentSpanId: 'span-3'  // Same traceId, parent is span-3
 ```
 
-이렇게 하면 **모든 호출이 자동으로 연관관계가 추적**됩니다.
+This way, **all calls are automatically tracked with relationships**.
 
 ---
 
-### 5. 이벤트 발생
+### 5. Event Emission
 
-#### 5.1 Trace 이벤트 타입
+#### 5.1 Trace Event Types
 
 ```typescript
 // packages/devtool/src/types.ts
@@ -645,11 +645,11 @@ export interface TraceErrorEvent {
 }
 ```
 
-#### 5.2 이벤트 발생 메서드
+#### 5.2 Event Emission Methods
 
 ```typescript
 /**
- * Trace 시작 이벤트 발생
+ * Emit trace start event
  */
 private _emitTraceStart(context: TraceContext, input?: any): void {
   this.editor.emit('editor:trace.start', {
@@ -664,7 +664,7 @@ private _emitTraceStart(context: TraceContext, input?: any): void {
 }
 
 /**
- * Trace 종료 이벤트 발생
+ * Emit trace end event
  */
 private _emitTraceEnd(
   context: TraceContext,
@@ -682,7 +682,7 @@ private _emitTraceEnd(
 }
 
 /**
- * Trace 에러 이벤트 발생
+ * Emit trace error event
  */
 private _emitTraceError(
   context: TraceContext,
@@ -706,13 +706,13 @@ private _emitTraceError(
 
 ---
 
-### 6. 기존 이벤트와의 통합
+### 6. Integration with Existing Events
 
-#### 6.1 Command 이벤트와 연결
+#### 6.1 Connection with Command Events
 
 ```typescript
 /**
- * Command 실행 래핑
+ * Wrap command execution
  */
 private _wrapCommandExecution(
   originalExecuteCommand: (command: string, payload?: any) => Promise<boolean>
@@ -749,11 +749,11 @@ private _wrapCommandExecution(
 }
 ```
 
-#### 6.2 Transaction 이벤트와 연결
+#### 6.2 Connection with Transaction Events
 
 ```typescript
 /**
- * Transaction 실행 래핑
+ * Wrap transaction execution
  */
 private _wrapTransactionExecution(
   originalExecute: (operations: any[]) => Promise<any>
@@ -801,9 +801,9 @@ private _wrapTransactionExecution(
 
 ---
 
-### 7. Devtool 통합
+### 7. Devtool Integration
 
-#### 7.1 FlowReconstructor 업데이트
+#### 7.1 FlowReconstructor Update
 
 ```typescript
 // packages/devtool/src/flow-reconstructor.ts
@@ -812,7 +812,7 @@ export class FlowReconstructor {
   private traces: Map<string, ExecutionFlow> = new Map();
 
   /**
-   * Trace 이벤트 처리
+   * Handle trace event
    */
   handleTraceEvent(type: string, data: any): void {
     if (type === 'editor:trace.start') {
@@ -825,7 +825,7 @@ export class FlowReconstructor {
   }
 
   /**
-   * Trace 시작 처리
+   * Handle trace start
    */
   private _handleTraceStart(data: TraceStartEvent): void {
     const flow = this._getOrCreateFlow(data.traceId);
@@ -841,7 +841,7 @@ export class FlowReconstructor {
   }
 
   /**
-   * Trace 종료 처리
+   * Handle trace end
    */
   private _handleTraceEnd(data: TraceEndEvent): void {
     const flow = this._getOrCreateFlow(data.traceId);
@@ -855,7 +855,7 @@ export class FlowReconstructor {
   }
 
   /**
-   * Flow 가져오기 또는 생성
+   * Get or create flow
    */
   private _getOrCreateFlow(traceId: string): ExecutionFlow {
     if (!this.traces.has(traceId)) {
@@ -869,13 +869,13 @@ export class FlowReconstructor {
   }
 
   /**
-   * 완료된 Flow 가져오기
+   * Get completed flow
    */
   getCompletedFlow(traceId: string): ExecutionFlow | undefined {
     const flow = this.traces.get(traceId);
     if (!flow) return undefined;
 
-    // 모든 span이 종료되었는지 확인
+    // Check if all spans are completed
     const allCompleted = flow.spans.every(s => s.endTime !== undefined);
     return allCompleted ? flow : undefined;
   }
@@ -884,9 +884,9 @@ export class FlowReconstructor {
 
 ---
 
-### 8. 사용 예시
+### 8. Usage Examples
 
-#### 8.1 Devtool 초기화
+#### 8.1 Devtool Initialization
 
 ```typescript
 // packages/devtool/src/devtool.ts
@@ -898,18 +898,18 @@ export class Devtool {
   constructor(options: DevtoolOptions) {
     this.editor = options.editor;
     
-    // AutoTracer 초기화
+    // Initialize AutoTracer
     this.autoTracer = new AutoTracer(this.editor);
     
-    // FlowReconstructor 초기화
+    // Initialize FlowReconstructor
     this.flowReconstructor = new FlowReconstructor();
     
-    // 자동 추적 활성화
+    // Enable auto tracing
     if (options.enableAutoTracing !== false) {
       this.autoTracer.enable();
     }
     
-    // Trace 이벤트 리스너 설정
+    // Setup trace event listeners
     this.setupTraceListeners();
   }
 
@@ -929,44 +929,44 @@ export class Devtool {
 }
 ```
 
-#### 8.2 코드 변경 없이 자동 추적
+#### 8.2 Auto Tracing Without Code Changes
 
 ```typescript
 // packages/editor-view-dom/src/event-handlers/input-handler.ts
 
-// 기존 코드 (변경 없음)
+// Existing code (no changes)
 private async handleDelete(event: InputEvent): Promise<void> {
-  // ... 기존 로직 ...
+  // ... existing logic ...
   await this.editor.executeCommand('deleteText', { range });
-  // ... 기존 로직 ...
+  // ... existing logic ...
 }
 
-// AutoTracer가 자동으로 래핑하여 추적:
-// 1. handleDelete 시작 → editor:trace.start
-// 2. executeCommand 시작 → editor:trace.start (parent: handleDelete)
-// 3. executeCommand 종료 → editor:trace.end
-// 4. handleDelete 종료 → editor:trace.end
+// AutoTracer automatically wraps to trace:
+// 1. handleDelete start → editor:trace.start
+// 2. executeCommand start → editor:trace.start (parent: handleDelete)
+// 3. executeCommand end → editor:trace.end
+// 4. handleDelete end → editor:trace.end
 ```
 
 ---
 
-### 9. 성능 고려사항
+### 9. Performance Considerations
 
-#### 9.1 선택적 활성화
+#### 9.1 Selective Activation
 
 ```typescript
-// 개발 모드에서만 활성화
+// Activate only in development mode
 if (process.env.NODE_ENV === 'development') {
   devtool.enableAutoTracing();
 }
 ```
 
-#### 9.2 샘플링
+#### 9.2 Sampling
 
 ```typescript
-// 일부 Trace만 수집 (성능 최적화)
+// Collect only some traces (performance optimization)
 class AutoTracer {
-  private samplingRate: number = 1.0; // 100% (개발 모드), 0.1 (프로덕션)
+  private samplingRate: number = 1.0; // 100% (dev mode), 0.1 (production)
 
   shouldTrace(): boolean {
     return Math.random() < this.samplingRate;
@@ -977,18 +977,18 @@ class AutoTracer {
       if (!this.shouldTrace()) {
         return fn(...args);
       }
-      // ... 추적 로직 ...
+      // ... tracing logic ...
     };
   }
 }
 ```
 
-#### 9.3 비동기 이벤트 발생
+#### 9.3 Async Event Emission
 
 ```typescript
-// 이벤트 발생을 비동기로 처리 (메인 스레드 블로킹 방지)
+// Process event emission asynchronously (prevent main thread blocking)
 private _emitTraceStart(context: TraceContext, input?: any): void {
-  // requestIdleCallback 또는 setTimeout 사용
+  // Use requestIdleCallback or setTimeout
   if ('requestIdleCallback' in window) {
     requestIdleCallback(() => {
       this.editor.emit('editor:trace.start', { ... });
@@ -1003,9 +1003,9 @@ private _emitTraceStart(context: TraceContext, input?: any): void {
 
 ---
 
-### 10. 표준화된 인터페이스
+### 10. Standardized Interface
 
-#### 10.1 Trace 인터페이스
+#### 10.1 Trace Interface
 
 ```typescript
 // packages/devtool/src/types.ts
@@ -1039,7 +1039,7 @@ export interface ExecutionFlow extends Trace {
 }
 ```
 
-#### 10.2 AutoTracer 인터페이스
+#### 10.2 AutoTracer Interface
 
 ```typescript
 // packages/devtool/src/auto-tracer.ts
@@ -1048,7 +1048,7 @@ export interface AutoTracerOptions {
   enabled?: boolean;
   samplingRate?: number;
   maxTraces?: number;
-  excludePatterns?: string[]; // 추적 제외할 함수 이름 패턴
+  excludePatterns?: string[]; // Function name patterns to exclude from tracing
 }
 
 export interface AutoTracer {
@@ -1062,81 +1062,80 @@ export interface AutoTracer {
 
 ---
 
-### 11. 구현 단계
+### 11. Implementation Phases
 
-#### Phase 1: 기본 AutoTracer 구현
-- [ ] AutoTracer 클래스 구현
-- [ ] 함수 래핑 로직 구현
-- [ ] Trace Context 관리 구현
-- [ ] 기본 이벤트 발생 구현
+#### Phase 1: Basic AutoTracer Implementation
+- [ ] Implement AutoTracer class
+- [ ] Implement function wrapping logic
+- [ ] Implement Trace Context management
+- [ ] Implement basic event emission
 
-#### Phase 2: Editor 통합
-- [ ] Editor 메서드 계측
-- [ ] InputHandler 메서드 계측
-- [ ] Command 실행 계측
+#### Phase 2: Editor Integration
+- [ ] Instrument Editor methods
+- [ ] Instrument InputHandler methods
+- [ ] Instrument Command execution
 
-#### Phase 3: Devtool 통합
-- [ ] FlowReconstructor 구현
-- [ ] Trace 이벤트 리스너 설정
-- [ ] 플로우 시각화 UI 구현
+#### Phase 3: Devtool Integration
+- [ ] Implement FlowReconstructor
+- [ ] Setup trace event listeners
+- [ ] Implement flow visualization UI
 
-#### Phase 4: 고급 기능
-- [ ] 샘플링 지원
-- [ ] 성능 최적화
-- [ ] 필터링 및 검색 기능
+#### Phase 4: Advanced Features
+- [ ] Support sampling
+- [ ] Performance optimization
+- [ ] Filtering and search features
 
 ---
 
-## 정리
+## Summary
 
-### 핵심 원칙
+### Core Principles
 
-1. ✅ **코드 변경 최소화**: 자동 계측으로 개발자가 코드를 수정할 필요 없음
-2. ✅ **표준화된 인터페이스**: RUM 패턴 준수 (traceId, spanId, parentSpanId)
-3. ✅ **자동 ID 부여**: 모든 함수 호출에 자동으로 traceId/spanId 부여하여 호출 연관관계 추적
-4. ✅ **컨텍스트 전파**: 스택 기반으로 비동기 호출 체인에서도 컨텍스트 유지
-5. ✅ **다중 패키지 지원**: datastore, model, renderer-dom 등 모든 패키지 자동 계측
-6. ✅ **선택적 활성화**: 개발 모드에서만 활성화, 성능 오버헤드 최소화
+1. ✅ **Minimize code changes**: Auto instrumentation, no need for developers to modify code
+2. ✅ **Standardized interface**: Follow RUM pattern (traceId, spanId, parentSpanId)
+3. ✅ **Automatic ID assignment**: Automatically assign traceId/spanId to all function calls to track call relationships
+4. ✅ **Context propagation**: Maintain context in async call chains using stack-based approach
+5. ✅ **Multi-package support**: Auto instrument all packages like datastore, model, renderer-dom
+6. ✅ **Selective activation**: Activate only in development mode, minimize performance overhead
 
-### RUM 스타일 호출 연관관계 추적
+### RUM-Style Call Relationship Tracking
 
-**자동 ID 부여 메커니즘**:
-- 최상위 호출: 새로운 `traceId` 생성
-- 하위 호출: 부모의 `traceId` 상속
-- 각 함수 호출: 고유한 `spanId` 생성
-- 부모-자식 관계: `parentSpanId`로 자동 연결
+**Automatic ID assignment mechanism**:
+- Top-level call: Create new `traceId`
+- Child call: Inherit parent's `traceId`
+- Each function call: Generate unique `spanId`
+- Parent-child relationship: Automatically connect via `parentSpanId`
 
-**스택 기반 컨텍스트 관리**:
-- 함수 호출 시 스택에 추가
-- 함수 종료 시 스택에서 제거
-- 현재 활성 컨텍스트는 스택 최상단
+**Stack-based context management**:
+- Add to stack on function call
+- Remove from stack on function end
+- Current active context is stack top
 
-### 다중 패키지 모니터링
+### Multi-Package Monitoring
 
-**지원 패키지**:
-- `@barocss/editor-core`: Command 실행
-- `@barocss/editor-view-dom`: 입력 처리
-- `@barocss/datastore`: 데이터 변경
-- `@barocss/model`: Transaction 및 Operation
-- `@barocss/renderer-dom`: 렌더링 및 Reconciliation
-- `@barocss/extensions`: Extension 실행
+**Supported packages**:
+- `@barocss/editor-core`: Command execution
+- `@barocss/editor-view-dom`: Input processing
+- `@barocss/datastore`: Data changes
+- `@barocss/model`: Transaction and Operation
+- `@barocss/renderer-dom`: Rendering and Reconciliation
+- `@barocss/extensions`: Extension execution
 
-**패키지 자동 감지**:
-- 클래스 이름으로 패키지 자동 추론
-- 이벤트에 `package` 태그 자동 추가
-- Devtool UI에서 패키지별 색상 구분
+**Package auto-detection**:
+- Auto-infer package from class name
+- Automatically add `package` tag to events
+- Color-code by package in Devtool UI
 
-### 장점
+### Advantages
 
-- ✅ **개발자가 코드를 수정할 필요 없음**: 자동 계측
-- ✅ **표준화된 방식으로 일관성 유지**: RUM 패턴 준수
-- ✅ **전체 플로우 추적**: 모든 패키지의 호출이 하나의 traceId로 연결
-- ✅ **성능 오버헤드 최소화**: 선택적 활성화, 샘플링 지원
-- ✅ **확장 가능한 구조**: 새로운 패키지 추가 시 자동 감지
+- ✅ **No need for developers to modify code**: Auto instrumentation
+- ✅ **Maintain consistency with standardized approach**: Follow RUM pattern
+- ✅ **Track entire flow**: All package calls connected with one traceId
+- ✅ **Minimize performance overhead**: Selective activation, sampling support
+- ✅ **Extensible structure**: Auto-detect when new packages are added
 
-### 다음 단계
+### Next Steps
 
-1. **AutoTracer 기본 구현**: 스택 기반 컨텍스트 관리, 자동 ID 부여
-2. **다중 패키지 계측**: DataStore, Model, RendererDOM 자동 계측
-3. **Devtool UI 통합**: 패키지별 색상 구분, 호출 체인 시각화
-
+1. **Basic AutoTracer implementation**: Stack-based context management, automatic ID assignment
+2. **Multi-package instrumentation**: Auto instrument DataStore, Model, RendererDOM
+3. **Devtool UI integration**: Color-code by package, visualize call chain

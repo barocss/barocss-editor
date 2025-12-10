@@ -98,7 +98,7 @@ sequenceDiagram
   TM-->>EV: transaction committed
   EV->>R: render(prevVNode, nextVNode)
   R->>R: build(VNode) per DSL rules (see DSL spec)
-  R->>EV: DOM 동기화 완료
+  R->>EV: DOM synchronization complete
 ```
 
 Key points:
@@ -138,7 +138,7 @@ Implications:
 - Selection: DOM Selection ↔ Model absolute-position conversion. See `paper/dom-selection-sync-spec.md`.
 - Hydration/SSR: server and client use the same DSL rules to build VNodes; outputs should be structurally equivalent (keys/order preserved).
 
-### 6.1 SSR/Hydration 파이프라인 다이어그램
+### 6.1 SSR/Hydration Pipeline Diagram
 
 ```mermaid
 flowchart TB

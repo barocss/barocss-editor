@@ -1,12 +1,12 @@
-# Portal 사용 사례 및 패턴
+# Portal Use Cases and Patterns
 
-## 개요
+## Overview
 
-이 문서는 BaroCSS Editor의 Portal 시스템을 활용한 실제 사용 사례와 모범 사례를 제공합니다. 모달, 툴팁, 드롭다운 등 일반적인 UI 패턴들을 Portal로 구현하는 방법을 설명합니다.
+This document provides real use cases and best practices for using BaroCSS Editor's Portal system. It explains how to implement common UI patterns like modals, tooltips, and dropdowns using Portals.
 
-## 1. 모달 (Modal)
+## 1. Modal
 
-### 기본 모달
+### Basic Modal
 
 ```typescript
 define('modal-component', (props, ctx) => {
@@ -59,7 +59,7 @@ define('modal-component', (props, ctx) => {
 });
 ```
 
-### 동적 모달 콘텐츠
+### Dynamic Modal Content
 
 ```typescript
 define('dynamic-modal', (props, ctx) => {
@@ -157,9 +157,9 @@ define('dynamic-modal', (props, ctx) => {
 });
 ```
 
-## 2. 툴팁 (Tooltip)
+## 2. Tooltip
 
-### 기본 툴팁
+### Basic Tooltip
 
 ```typescript
 define('tooltip-component', (props, ctx) => {
@@ -209,7 +209,7 @@ define('tooltip-component', (props, ctx) => {
 });
 ```
 
-### 동적 툴팁 콘텐츠
+### Dynamic Tooltip Content
 
 ```typescript
 define('dynamic-tooltip', (props, ctx) => {
@@ -279,9 +279,9 @@ define('dynamic-tooltip', (props, ctx) => {
 });
 ```
 
-## 3. 드롭다운 (Dropdown)
+## 3. Dropdown
 
-### 기본 드롭다운
+### Basic Dropdown
 
 ```typescript
 define('dropdown-component', (props, ctx) => {
@@ -361,7 +361,7 @@ define('dropdown-component', (props, ctx) => {
 });
 ```
 
-### 검색 가능한 드롭다운
+### Searchable Dropdown
 
 ```typescript
 define('searchable-dropdown', (props, ctx) => {
@@ -464,9 +464,9 @@ define('searchable-dropdown', (props, ctx) => {
 });
 ```
 
-## 4. 알림 (Notification)
+## 4. Notification
 
-### 토스트 알림
+### Toast Notification
 
 ```typescript
 define('notification-system', (props, ctx) => {
@@ -477,7 +477,7 @@ define('notification-system', (props, ctx) => {
     const notification = { id, message, type, timestamp: Date.now() };
     ctx.setState('notifications', [...ctx.getState('notifications'), notification]);
     
-    // 3초 후 자동 제거
+    // Auto-remove after 3 seconds
     setTimeout(() => {
       ctx.setState('notifications', 
         ctx.getState('notifications').filter((n: any) => n.sid !== id)
@@ -506,7 +506,7 @@ define('notification-system', (props, ctx) => {
       }, [text('Info')])
     ]),
     
-    // 알림 Portal
+    // Notification Portal
     portal(document.body, element('div', {
       className: 'notification-container',
       style: {
@@ -553,9 +553,9 @@ define('notification-system', (props, ctx) => {
 });
 ```
 
-## 5. 사이드바 (Sidebar)
+## 5. Sidebar
 
-### 슬라이딩 사이드바
+### Sliding Sidebar
 
 ```typescript
 define('sidebar-component', (props, ctx) => {
@@ -582,7 +582,7 @@ define('sidebar-component', (props, ctx) => {
       }
     }, [text('Toggle Sidebar')]),
     
-    // 사이드바 오버레이
+    // Sidebar overlay
     when(ctx.getState('isOpen'),
       portal(document.body, element('div', {
         className: 'sidebar-overlay',
@@ -658,12 +658,12 @@ define('sidebar-component', (props, ctx) => {
 });
 ```
 
-## 6. Portal과 상태 관리 패턴
+## 6. Portal and State Management Patterns
 
-### 전역 상태 관리
+### Global State Management
 
 ```typescript
-// 전역 상태 관리자
+// Global state manager
 class PortalStateManager {
   private static instance: PortalStateManager;
   private state: Map<string, any> = new Map();
@@ -701,7 +701,7 @@ class PortalStateManager {
   }
 }
 
-// 전역 상태를 사용하는 Portal 컴포넌트
+// Portal component using global state
 define('global-state-portal', (props, ctx) => {
   const stateManager = PortalStateManager.getInstance();
   
@@ -711,7 +711,7 @@ define('global-state-portal', (props, ctx) => {
     ctx.setState('localValue', value);
   };
   
-  // 전역 상태 구독
+  // Subscribe to global state
   stateManager.subscribe('globalMessage', handleGlobalChange);
   
   return element('div', [
@@ -736,10 +736,10 @@ define('global-state-portal', (props, ctx) => {
 });
 ```
 
-### Portal 간 통신
+### Portal-to-Portal Communication
 
 ```typescript
-// Portal 간 통신을 위한 이벤트 시스템
+// Event system for Portal-to-Portal communication
 class PortalEventBus {
   private static instance: PortalEventBus;
   private events: Map<string, Set<Function>> = new Map();
@@ -767,7 +767,7 @@ class PortalEventBus {
   }
 }
 
-// 발신자 Portal
+// Sender Portal
 define('sender-portal', (props, ctx) => {
   const eventBus = PortalEventBus.getInstance();
   
@@ -795,7 +795,7 @@ define('sender-portal', (props, ctx) => {
   ]);
 });
 
-// 수신자 Portal
+// Receiver Portal
 define('receiver-portal', (props, ctx) => {
   const eventBus = PortalEventBus.getInstance();
   
@@ -825,9 +825,9 @@ define('receiver-portal', (props, ctx) => {
 });
 ```
 
-## 7. Portal 접근성 고려사항
+## 7. Portal Accessibility Considerations
 
-### 키보드 네비게이션
+### Keyboard Navigation
 
 ```typescript
 define('accessible-modal', (props, ctx) => {
@@ -931,7 +931,7 @@ define('accessible-modal', (props, ctx) => {
 });
 ```
 
-### 스크린 리더 지원
+### Screen Reader Support
 
 ```typescript
 define('screen-reader-portal', (props, ctx) => {
@@ -940,7 +940,7 @@ define('screen-reader-portal', (props, ctx) => {
   const announce = (message: string) => {
     ctx.setState('announcement', message);
     
-    // 3초 후 공지 제거
+    // Remove announcement after 3 seconds
     setTimeout(() => {
       ctx.setState('announcement', '');
     }, 3000);
@@ -951,7 +951,7 @@ define('screen-reader-portal', (props, ctx) => {
       onClick: () => announce('Button clicked successfully!')
     }, [text('Click me')]),
     
-    // 스크린 리더 전용 공지 영역
+    // Screen reader-only announcement area
     portal(document.body, element('div', {
       'aria-live': 'polite',
       'aria-atomic': 'true',
@@ -969,9 +969,9 @@ define('screen-reader-portal', (props, ctx) => {
 });
 ```
 
-## 8. 성능 최적화 패턴
+## 8. Performance Optimization Patterns
 
-### Portal 지연 로딩
+### Portal Lazy Loading
 
 ```typescript
 define('lazy-portal', (props, ctx) => {
@@ -980,7 +980,7 @@ define('lazy-portal', (props, ctx) => {
   
   const loadPortalContent = () => {
     if (!ctx.getState('isLoaded')) {
-      // 무거운 콘텐츠 로딩 시뮬레이션
+      // Simulate heavy content loading
       setTimeout(() => {
         ctx.setState('isLoaded', true);
       }, 1000);
@@ -1046,14 +1046,14 @@ define('lazy-portal', (props, ctx) => {
 });
 ```
 
-### Portal 메모이제이션
+### Portal Memoization
 
 ```typescript
 define('memoized-portal', (props, ctx) => {
   ctx.initState('isOpen', false);
   ctx.initState('data', null);
   
-  // 데이터가 변경되지 않으면 Portal 재렌더링 방지
+  // Prevent Portal re-rendering if data hasn't changed
   const memoizedPortalContent = () => {
     if (!ctx.getState('data')) {
       return null;
@@ -1075,7 +1075,7 @@ define('memoized-portal', (props, ctx) => {
   };
   
   const loadData = () => {
-    // 데이터 로딩 시뮬레이션
+    // Simulate data loading
     setTimeout(() => {
       ctx.setState('data', { timestamp: Date.now(), value: 'memoized data' });
     }, 500);
@@ -1098,23 +1098,23 @@ define('memoized-portal', (props, ctx) => {
 });
 ```
 
-## 9. 모범 사례 요약
+## 9. Best Practices Summary
 
-### Portal 사용 시 고려사항
+### Considerations When Using Portals
 
-1. **고유 ID 사용**: 여러 Portal이 같은 target을 공유할 때 고유한 ID를 지정
-2. **상태 보존**: Portal 업데이트 시 DOM 상태(포커스, 스크롤 등) 보존
-3. **접근성**: 키보드 네비게이션과 스크린 리더 지원
-4. **성능**: 불필요한 Portal 렌더링 방지 및 지연 로딩 활용
-5. **메모리 관리**: 사용하지 않는 Portal 정리
-6. **이벤트 처리**: Portal 내부 이벤트 버블링과 외부 클릭 처리
+1. **Use unique IDs**: specify unique IDs when multiple Portals share the same target
+2. **Preserve state**: preserve DOM state (focus, scroll, etc.) on Portal update
+3. **Accessibility**: support keyboard navigation and screen readers
+4. **Performance**: prevent unnecessary Portal rendering and use lazy loading
+5. **Memory management**: clean up unused Portals
+6. **Event handling**: handle event bubbling within Portal and external clicks
 
-### 권장 패턴
+### Recommended Patterns
 
-- **조건부 렌더링**: `when`을 사용하여 필요할 때만 Portal 렌더링
-- **상태 관리**: Portal 상태를 컴포넌트 상태와 연동
-- **이벤트 시스템**: Portal 간 통신을 위한 이벤트 버스 활용
-- **접근성**: ARIA 속성과 키보드 네비게이션 지원
-- **성능**: Portal ID 기반 컨테이너 재사용
+- **Conditional rendering**: use `when` to render Portal only when needed
+- **State management**: link Portal state with component state
+- **Event system**: use event bus for Portal-to-Portal communication
+- **Accessibility**: support ARIA attributes and keyboard navigation
+- **Performance**: reuse containers based on Portal ID
 
-이러한 패턴들을 활용하면 Portal 시스템을 효과적으로 사용할 수 있습니다.
+These patterns help you use the Portal system effectively.

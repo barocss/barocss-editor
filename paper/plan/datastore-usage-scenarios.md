@@ -1,20 +1,20 @@
 # DataStore Usage Scenarios
 
-## 1. 개요
+## 1. Overview
 
-이 문서는 DataStore를 사용하여 다양한 시나리오를 구현하는 방법을 보여줍니다. 각 시나리오는 실제 사용 사례를 기반으로 하며, 필요한 연산 클래스와 메서드를 명시합니다.
+This document shows how to implement various scenarios using DataStore. Each scenario is based on real use cases and specifies the required operation classes and methods.
 
-## 2. 기본 문서 편집
+## 2. Basic Document Editing
 
-### 2.1 새 문서 생성
+### 2.1 Creating a New Document
 
-#### 시나리오: 빈 문서에서 시작하여 구조화된 문서 생성
+#### Scenario: Start from an empty document and create a structured document
 
 ```typescript
 import { DataStore } from '@barocss/datastore';
 import { Schema } from '@barocss/schema';
 
-// 1. DataStore 초기화
+// 1. Initialize DataStore
 const dataStore = new DataStore();
 const schema = new Schema('document', {
   nodes: {
@@ -29,7 +29,7 @@ const schema = new Schema('document', {
 });
 dataStore.registerSchema(schema);
 
-// 2. 문서 구조 생성
+// 2. Create document structure
 const document = {
   id: 'doc-1',
   type: 'document',
@@ -49,128 +49,128 @@ const document = {
   ]
 };
 
-// 3. 중첩 구조를 DataStore에 저장
+// 3. Store nested structure in DataStore
 const createdDoc = dataStore.createNodeWithChildren(document, schema);
 console.log('Document created:', createdDoc.sid);
 ```
 
-**사용 연산 클래스**: `CoreOperations` (createNodeWithChildren)
+**Operation class used**: `CoreOperations` (createNodeWithChildren)
 
-### 2.2 텍스트 편집 (Range 기반)
+### 2.2 Text Editing (Range-based)
 
-#### 시나리오: 사용자가 텍스트를 입력하고 편집하는 과정
+#### Scenario: User inputs and edits text
 
 ```typescript
 const r = (s: number, e: number) => ({ startNodeId: 'text-1', startOffset: s, endNodeId: 'text-1', endOffset: e });
 
-// 텍스트 삽입 (사용자가 " Beautiful"을 입력)
+// Text insertion (user types " Beautiful")
 dataStore.insertText(r(5, 5), ' Beautiful');
 // "Hello World" → "Hello Beautiful World"
 
-// 텍스트 삭제 (사용자가 "Beautiful "를 선택하고 삭제)
+// Text deletion (user selects "Beautiful " and deletes)
 dataStore.deleteText(r(5, 15));
 // "Hello Beautiful World" → "Hello World"
 
-// 텍스트 교체 (사용자가 "World"를 선택하고 "Universe"로 교체)
+// Text replacement (user selects "World" and replaces with "Universe")
 dataStore.replaceText(r(6, 11), 'Universe');
 // "Hello World" → "Hello Universe"
 
-// 텍스트 분할 (사용자가 Enter 키를 누름)
+// Text split (user presses Enter)
 const newTextId = dataStore.splitTextNode('text-1', 5);
 // "Hello World" → "Hello" + " World"
 
-// 텍스트 병합 (사용자가 Backspace 키를 누름)
+// Text merge (user presses Backspace)
 const mergedId = dataStore.mergeTextNodes('text-1', 'text-2');
 // "Hello" + " World" → "Hello World"
 ```
 
-**사용 연산 클래스**: `SplitMergeOperations`
+**Operation class used**: `SplitMergeOperations`
 
-### 2.3 포맷팅 적용 (Range 기반)
+### 2.3 Formatting Application (Range-based)
 
-#### 시나리오: 사용자가 텍스트를 선택하고 포맷팅을 적용
+#### Scenario: User selects text and applies formatting
 
 ```typescript
 const mr = (s: number, e: number) => ({ startNodeId: 'text-1', startOffset: s, endNodeId: 'text-1', endOffset: e });
 
-// 마크 적용/제거/정리
+// Apply/remove/clear marks
 dataStore.applyMark(mr(0, 5), { type: 'bold' });
 dataStore.removeMark(mr(0, 5), 'bold');
 dataStore.clearFormatting(mr(0, 11));
 
-// 마크 정규화 (편집 후 정리)
+// Mark normalization (cleanup after editing)
 dataStore.normalizeMarks('text-1');
 ```
 
-**사용 연산 클래스**: `MarkOperations`
+**Operation class used**: `MarkOperations`
 
-## 3. 고급 문서 조작
+## 3. Advanced Document Manipulation
 
-### 3.1 노드 이동 및 복사 (수집/커밋 예시 포함)
+### 3.1 Node Move and Copy (includes collection/commit example)
 
-#### 시나리오: 사용자가 문단을 드래그하여 다른 위치로 이동/복사
+#### Scenario: User drags a paragraph to move/copy to another location
 
 ```typescript
 dataStore.begin();
 
-// 문단을 다른 문서로 이동 (move)
+// Move paragraph to another document (move)
 dataStore.moveNode('paragraph-1', 'document-2', 2);
 
-// 문단을 복사하여 다른 위치에 붙여넣기 (create + parent update)
+// Copy paragraph and paste to another location (create + parent update)
 const copiedId = dataStore.copyNode('paragraph-1', 'document-2');
 
-// 전체 서브트리 복사 (각 노드 per-node create + content/parent update)
+// Copy entire subtree (per-node create for each node + content/parent update)
 const clonedId = dataStore.cloneNodeWithChildren('paragraph-1', 'document-3');
 
-// 여러 문단을 일괄 이동 (각 항목 move)
+// Move multiple paragraphs in batch (move per item)
 dataStore.moveChildren('doc-1', 'doc-2', ['para-1', 'para-2'], 0);
 
 const ops = dataStore.end();
-// ops에 create/update/delete/move가 순서대로 수집됨
+// ops contains create/update/delete/move in order
 
-// CRDT 전송 등 외부 처리 후 베이스 반영
+// Apply to base after external processing (e.g., CRDT transmission)
 dataStore.commit();
 ```
 
-**사용 연산 클래스**: `ContentOperations`
+**Operation class used**: `ContentOperations`
 
-### 3.2 범위 기반 텍스트/마크 작업
+### 3.2 Range-based Text/Mark Operations
 
-#### 시나리오: 사용자가 여러 문단에 걸쳐 텍스트를 선택하고 조작
+#### Scenario: User selects text spanning multiple paragraphs and manipulates it
 
 ```typescript
 const range = { startNodeId: 'text-1', startOffset: 5, endNodeId: 'text-3', endOffset: 10 };
 
-// 여러 노드에 걸친 텍스트 삭제
+// Delete text spanning multiple nodes
 const deletedContent = dataStore.deleteText(range);
 
-// 여러 노드에 걸친 텍스트 교체
+// Replace text spanning multiple nodes
 dataStore.replaceText(range, 'New content from clipboard');
 
-// 여러 노드에 걸친 마크 적용/제거
+// Apply/remove marks spanning multiple nodes
 dataStore.applyMark(range, { type: 'bold' });
 dataStore.removeMark(range, 'bold');
 ```
 
-**사용 연산 클래스**: `RangeOperations`
+**Operation class used**: `RangeOperations`
 
-## 4. 검색 및 분석
+## 4. Search and Analysis
 
-### 4.1 조건부 검색
+### 4.1 Conditional Search
 
-#### 시나리오: 문서에서 특정 조건을 만족하는 노드들을 찾기
+#### Scenario: Find nodes in document that match specific conditions
 
 ```typescript
-// 모든 문단 찾기
+// Find all paragraphs
 const paragraphs = dataStore.findNodesByType('paragraph');
 
-// 특정 클래스를 가진 텍스트 찾기
+// Find text with specific class
 const boldTexts = dataStore.findNodesByAttribute('class', 'bold');
 
-// 특정 텍스트가 포함된 노드 찾기
+// Find nodes containing specific text
 const helloNodes = dataStore.findNodesByText('Hello');
 
-// 복합 조건 검색 (중요한 문단 중에서 "urgent"가 포함된 것)
+// Complex condition search (important paragraphs containing "urgent")
 const urgentImportantParagraphs = dataStore.findNodes(node => 
   node.type === 'paragraph' && 
   node.attributes?.class === 'important' &&
@@ -178,77 +178,77 @@ const urgentImportantParagraphs = dataStore.findNodes(node =>
 );
 ```
 
-**사용 연산 클래스**: `QueryOperations`
+**Operation class used**: `QueryOperations`
 
-### 4.2 계층 구조 분석
+### 4.2 Hierarchy Analysis
 
-#### 시나리오: 문서의 구조를 분석하고 탐색
+#### Scenario: Analyze and navigate document structure
 
 ```typescript
-// 특정 노드의 자식들을 객체 배열로 조회
+// Get children of a node as object array
 const children = dataStore.getNodeChildren('para-1');
 children.forEach(child => {
   console.log(`Child: ${child.type} - ${child.text}`);
 });
 
-// 문서의 모든 하위 노드를 재귀적으로 조회
+// Recursively get all descendant nodes of document
 const allDescendants = dataStore.getNodeChildrenDeep('doc-1');
 
-// 특정 노드의 경로 조회 (어디에 위치하는지)
+// Get path of a specific node (where it's located)
 const path = dataStore.getNodePath('text-1');
 console.log('Node path:', path); // ['doc-1', 'para-1', 'text-1']
 
-// 특정 노드의 모든 조상 조회
+// Get all ancestors of a specific node
 const ancestors = dataStore.getAllAncestors('text-1');
 ancestors.forEach(ancestor => {
   console.log(`Ancestor: ${ancestor.type}`);
 });
 ```
 
-**사용 연산 클래스**: `QueryOperations`, `UtilityOperations`
+**Operation class used**: `QueryOperations`, `UtilityOperations`
 
-## 5. 데이터 관리
+## 5. Data Management
 
-### 5.1 일괄 작업
+### 5.1 Batch Operations
 
-#### 시나리오: 여러 노드를 한 번에 처리하는 작업
+#### Scenario: Process multiple nodes at once
 
 ```typescript
-// 여러 문단을 한 번에 생성
+// Create multiple paragraphs at once
 const nodeIds = dataStore.addChildren('doc-1', [
   { id: 'para-1', type: 'paragraph', content: [] },
   { id: 'para-2', type: 'paragraph', content: [] },
   { id: 'para-3', type: 'paragraph', content: [] }
 ]);
 
-// 여러 노드를 한 번에 삭제
+// Delete multiple nodes at once
 const results = dataStore.removeChildren('doc-1', ['para-1', 'para-2']);
 
-// 여러 노드를 다른 부모로 이동
+// Move multiple nodes to different parent
 dataStore.moveChildren('doc-1', 'doc-2', ['para-1', 'para-2'], 0);
 
-// 자식 노드들의 순서를 한 번에 변경
+// Change order of child nodes at once
 dataStore.reorderChildren('doc-1', ['para-3', 'para-1', 'para-2']);
 ```
 
-**사용 연산 클래스**: `ContentOperations`
+**Operation class used**: `ContentOperations`
 
-### 5.2 데이터 통계 및 분석
+### 5.2 Data Statistics and Analysis
 
-#### 시나리오: 문서의 상태를 분석하고 통계를 수집
+#### Scenario: Analyze document state and collect statistics
 
 ```typescript
-// 전체 노드 수 조회
+// Get total node count
 const totalNodes = dataStore.getNodeCount();
 console.log(`Total nodes: ${totalNodes}`);
 
-// 특정 노드의 마크 통계
+// Mark statistics for a specific node
 const markStats = dataStore.getMarkStatistics('text-1');
 console.log(`Total marks: ${markStats.totalMarks}`);
 console.log(`Overlapping marks: ${markStats.overlappingMarks}`);
 console.log(`Empty marks: ${markStats.emptyMarks}`);
 
-// 노드 관계 검사
+// Node relationship checks
 const isChild = dataStore.isDescendant('text-1', 'para-1');
 const isLeaf = dataStore.isLeafNode('text-1');
 const isRoot = dataStore.isRootNode('doc-1');
@@ -256,55 +256,55 @@ const isRoot = dataStore.isRootNode('doc-1');
 console.log(`Is child: ${isChild}, Is leaf: ${isLeaf}, Is root: ${isRoot}`);
 ```
 
-**사용 연산 클래스**: `UtilityOperations`, `MarkOperations`
+**Operation class used**: `UtilityOperations`, `MarkOperations`
 
-## 6. 실시간 동기화
+## 6. Real-time Synchronization
 
-### 6.1 Operation 이벤트 구독
+### 6.1 Operation Event Subscription
 
-#### 시나리오: CRDT 시스템과의 실시간 동기화
+#### Scenario: Real-time synchronization with CRDT system
 
 ```typescript
-// 모든 Operation 이벤트 구독
+// Subscribe to all operation events
 dataStore.onOperation((operation) => {
   console.log('Operation:', operation.type, operation.nodeId);
   
-  // CRDT 시스템에 전송
+  // Send to CRDT system
   crdtSystem.applyOperation(operation);
 });
 
-// 특정 타입의 Operation만 구독
+// Subscribe only to specific operation types
 dataStore.onOperation((operation) => {
   if (operation.type === 'create') {
     console.log('New node created:', operation.nodeId);
-    // UI 업데이트
+    // Update UI
     updateUI(operation.nodeId);
   }
 }, 'create');
 
-// Operation 구독 해제
+// Unsubscribe from operation events
 const unsubscribe = dataStore.onOperation(handler);
 dataStore.offOperation(unsubscribe);
 ```
 
-### 6.3 트랜잭션/오버레이 사용 요약(배경 포함)
-- 왜 오버레이인가: 편집 중 변경을 base에 바로 적용하지 않고, 트랜잭션 로컬로 모아 커밋 시 반영하면
-  - 성능: 변경된 노드만 COW 복제(구조적 공유) → 대형 문서에서도 begin 비용 O(1)에 근접
-  - 일관성: 읽기 경로가 overlay 우선이라 즉시 일관된 결과 확인 가능
-  - 동기화: begin/end로 수집한 원자 op 배치를 CRDT/네트워크 전송 단위로 사용하기 용이
-  - 격리: 전역 write 락 전제 하 외부 쓰기와 경합 최소화
-- 배경 이론(간단 요약):
-  - Copy-on-Write/Shadow Paging: 변경 시점 복제, 커밋 시 루트 스위칭
-  - MVCC 스냅샷: 트랜잭션별 읽기 일관성
-  - 영속 자료구조: 구조적 공유로 변경 경로만 복제
-  - OverlayFS 모델: 상위 레이어 우선 읽기, 상위 레이어에 쓰기
+### 6.3 Transaction/Overlay Usage Summary (with background)
+- Why overlay: by collecting edits in transaction-local overlay and applying on commit instead of applying to base immediately:
+  - Performance: COW copy (structural sharing) only for changed nodes → begin cost approaches O(1) even in large documents
+  - Consistency: read path prioritizes overlay, so results are immediately consistent
+  - Synchronization: atomic op batches collected via begin/end are easy to use as CRDT/network transmission units
+  - Isolation: minimizes contention with external writes under global write lock
+- Background theory (brief summary):
+  - Copy-on-Write/Shadow Paging: copy on change, root switching on commit
+  - MVCC snapshot: read consistency per transaction
+  - Persistent data structures: copy only change paths via structural sharing
+  - OverlayFS model: upper layer priority for reads, writes to upper layer
 
-### 6.2 외부 변경사항 적용
+### 6.2 Apply External Changes
 
-#### 시나리오: 다른 클라이언트에서 온 변경사항을 적용
+#### Scenario: Apply changes from another client
 
 ```typescript
-// 외부에서 받은 Operation 적용
+// Apply operation received from external source
 const externalOperation = {
   type: 'create',
   nodeId: 'external-node',
@@ -316,63 +316,63 @@ const externalOperation = {
   }
 };
 
-// Operation을 DataStore에 적용
+// Apply operation to DataStore
 dataStore.setNode(externalOperation.node);
 
-// 변경사항이 자동으로 이벤트로 발생하여 UI 업데이트
+// Changes automatically emit events to update UI
 ```
 
-## 7. 성능 최적화
+## 7. Performance Optimization
 
-### 7.1 마크 정규화
+### 7.1 Mark Normalization
 
-#### 시나리오: 문서 편집 후 마크를 정리하여 성능 향상
+#### Scenario: Clean up marks after document editing to improve performance
 
 ```typescript
-// 개별 노드의 마크 정규화
+// Normalize marks on individual node
 dataStore.normalizeMarks('text-1');
 
-// 전체 문서의 마크 정규화 (주기적으로 실행)
+// Normalize marks on entire document (run periodically)
 const normalizedCount = dataStore.normalizeAllMarks();
 console.log(`Normalized ${normalizedCount} nodes`);
 
-// 빈 마크 제거
+// Remove empty marks
 const removedCount = dataStore.removeEmptyMarks('text-1');
 console.log(`Removed ${removedCount} empty marks`);
 ```
 
-**사용 연산 클래스**: `MarkOperations`
+**Operation class used**: `MarkOperations`
 
-### 7.2 데이터 복제 및 백업
+### 7.2 Data Cloning and Backup
 
-#### 시나리오: 문서의 백업을 생성하고 복원
+#### Scenario: Create and restore document backups
 
 ```typescript
-// DataStore 전체 복제 (백업 생성)
+// Clone entire DataStore (create backup)
 const backupStore = dataStore.clone();
 
-// 스냅샷 생성 (더 가벼운 백업)
+// Create snapshot (lighter backup)
 const snapshot = dataStore.getAllNodesMap();
 
-// 스냅샷에서 복원 (백업에서 복구)
+// Restore from snapshot (recover from backup)
 const newStore = new DataStore();
 newStore.restoreFromSnapshot(snapshot, 'doc-1', 1);
 
-// 특정 시점으로 되돌리기
+// Revert to specific point in time
 const historicalSnapshot = getHistoricalSnapshot(timestamp);
 dataStore.restoreFromSnapshot(historicalSnapshot, 'doc-1', 1);
 ```
 
-**사용 연산 클래스**: `UtilityOperations`
+**Operation class used**: `UtilityOperations`
 
-## 8. 고급 사용 사례
+## 8. Advanced Use Cases
 
-### 8.1 문서 템플릿 시스템
+### 8.1 Document Template System
 
-#### 시나리오: 미리 정의된 템플릿을 사용하여 문서 생성
+#### Scenario: Create documents using pre-defined templates
 
 ```typescript
-// 템플릿 정의
+// Template definition
 const documentTemplate = {
   id: 'template-doc',
   type: 'document',
@@ -402,10 +402,10 @@ const documentTemplate = {
   ]
 };
 
-// 템플릿에서 새 문서 생성
+// Create new document from template
 const newDoc = dataStore.createNodeWithChildren(documentTemplate, schema);
 
-// 템플릿 노드들을 실제 사용할 노드로 교체
+// Replace template nodes with actual usage nodes
 const titleNode = dataStore.getNode('template-title-text');
 if (titleNode) {
   titleNode.text = 'My New Document';
@@ -413,19 +413,19 @@ if (titleNode) {
 }
 ```
 
-### 8.2 협업 편집 시스템
+### 8.2 Collaborative Editing System
 
-#### 시나리오: 여러 사용자가 동시에 문서를 편집
+#### Scenario: Multiple users editing document simultaneously
 
 ```typescript
-// 사용자 A의 변경사항
+// User A's changes
 const userAOperation = {
   type: 'update',
   nodeId: 'text-1',
   updates: { text: 'User A edited this' }
 };
 
-// 사용자 B의 변경사항
+// User B's changes
 const userBOperation = {
   type: 'insertText',
   nodeId: 'text-1',
@@ -433,32 +433,32 @@ const userBOperation = {
   text: 'User B added this'
 };
 
-// 충돌 해결을 위한 Operation 순서 관리
+// Manage operation order for conflict resolution
 const operationQueue = [userAOperation, userBOperation];
 
-// 순차적으로 적용
+// Apply sequentially
 for (const operation of operationQueue) {
   dataStore.updateNode(operation.nodeId, operation.updates);
 }
 ```
 
-### 8.3 문서 버전 관리
+### 8.3 Document Version Management
 
-#### 시나리오: 문서의 버전을 추적하고 관리
+#### Scenario: Track and manage document versions
 
 ```typescript
-// 현재 버전 저장
+// Save current version
 const currentVersion = dataStore.getVersion();
 const currentSnapshot = dataStore.getAllNodesMap();
 
-// 버전 히스토리에 저장
+// Store in version history
 versionHistory.set(currentVersion, {
   snapshot: currentSnapshot,
   timestamp: Date.now(),
   author: 'current-user'
 });
 
-// 특정 버전으로 되돌리기
+// Revert to specific version
 const targetVersion = 5;
 const targetSnapshot = versionHistory.get(targetVersion);
 if (targetSnapshot) {
@@ -470,14 +470,14 @@ if (targetSnapshot) {
 }
 ```
 
-## 9. 디버깅 및 개발
+## 9. Debugging and Development
 
-### 9.1 데이터 구조 검사
+### 9.1 Data Structure Inspection
 
-#### 시나리오: 개발 중 데이터 구조를 검사하고 디버깅
+#### Scenario: Inspect and debug data structure during development
 
 ```typescript
-// 모든 노드의 구조 출력
+// Print structure of all nodes
 const allNodes = dataStore.getAllNodes();
 allNodes.forEach(node => {
   console.log(`Node ${node.sid}:`, {
@@ -488,11 +488,11 @@ allNodes.forEach(node => {
   });
 });
 
-// 특정 노드의 상세 정보
+// Detailed info for specific node
 const nodeDetails = dataStore.getNodeWithChildren('para-1');
 console.log('Node with children:', JSON.stringify(nodeDetails, null, 2));
 
-// 노드 관계 검사
+// Node relationship checks
 const path = dataStore.getNodePath('text-1');
 const ancestors = dataStore.getAllAncestors('text-1');
 const descendants = dataStore.getAllDescendants('para-1');
@@ -502,12 +502,12 @@ console.log('Ancestors:', ancestors.map(n => n.sid));
 console.log('Descendants:', descendants.map(n => n.sid));
 ```
 
-### 9.2 성능 모니터링
+### 9.2 Performance Monitoring
 
-#### 시나리오: 애플리케이션의 성능을 모니터링
+#### Scenario: Monitor application performance
 
 ```typescript
-// Operation 이벤트를 통한 성능 모니터링
+// Performance monitoring via operation events
 let operationCount = 0;
 const startTime = Date.now();
 
@@ -520,7 +520,7 @@ dataStore.onOperation((operation) => {
   }
 });
 
-// 메모리 사용량 모니터링
+// Memory usage monitoring
 const nodeCount = dataStore.getNodeCount();
 const memoryUsage = process.memoryUsage();
 console.log(`Nodes: ${nodeCount}, Memory: ${memoryUsage.heapUsed / 1024 / 1024}MB`);
@@ -528,4 +528,4 @@ console.log(`Nodes: ${nodeCount}, Memory: ${memoryUsage.heapUsed / 1024 / 1024}M
 
 ---
 
-이 문서는 DataStore를 사용하여 다양한 시나리오를 구현하는 방법을 보여줍니다. 더 자세한 API 정보는 [DataStore API Reference](./datastore-api-reference.md)를 참조하세요.
+This document shows how to implement various scenarios using DataStore. For more detailed API information, see [DataStore API Reference](./datastore-api-reference.md).

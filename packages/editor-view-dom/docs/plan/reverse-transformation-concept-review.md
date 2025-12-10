@@ -1,238 +1,237 @@
-# 역변환 기반 편집 알고리즘 개념 검토
+# Reverse Transformation-Based Editing Algorithm Concept Review
 
-## 현재 접근 방식 요약
+## Current Approach Summary
 
-우리는 **DOM → Model 역변환** 방식으로 contenteditable 편집을 처리합니다:
-
-```
-사용자 편집 (DOM)
-  ↓
-MutationObserver 감지
-  ↓
-DOM에서 텍스트 재구성 (reconstructModelTextFromRuns)
-  ↓
-편집 위치 파악 (convertDOMToModelPosition)
-  ↓
-Mark/Decorator 범위 조정 (adjustMarkRanges, adjustDecoratorRanges)
-  ↓
-Model 업데이트 (text_replace 트랜잭션)
-  ↓
-렌더러가 DOM 재렌더링
-```
-
-## 이 방식이 적합한 이유
-
-### ✅ 장점
-
-1. **contenteditable과의 자연스러운 통합**
-   - 브라우저의 네이티브 편집 기능을 그대로 활용
-   - 복사/붙여넣기, 드래그 앤 드롭 등이 자동으로 작동
-   - IME 입력, 자동완성 등 브라우저 기능 활용 가능
-
-2. **단일 소스 오브 트루스 (Single Source of Truth)**
-   - DOM이 실제 편집이 발생하는 곳
-   - DOM을 기준으로 하면 동기화 문제가 적음
-   - Model은 DOM의 "역변환" 결과로 항상 최신 상태 보장
-
-3. **명시적 제어**
-   - `adjustMarkRanges`, `adjustDecoratorRanges`로 명시적으로 범위 조정
-   - 로직이 명확하고 디버깅이 쉬움
-   - 커스터마이징이 자유로움
-
-4. **유연성**
-   - 다양한 DOM 구조에 대응 가능
-   - Mark와 Decorator의 복잡한 중첩 처리 가능
-
-### ⚠️ 잠재적 문제점과 해결 방안
-
-#### 1. **편집 위치 추정의 부정확성**
-
-**문제:**
-- 공통 접두사 방식은 복잡한 편집에서 부정확할 수 있음
-- 예: `"abc"` → `"xyz"` (완전 교체)의 경우 editPosition = 0이지만 실제로는 전체 교체
-
-**현재 해결:**
-- Selection API로 편집 위치를 먼저 시도
-- 실패 시 공통 접두사로 fallback
-- 대부분의 경우 잘 작동함
-
-**개선 방안:**
-- LCS (Longest Common Subsequence) 알고리즘 사용
-- `@barocss/text-analyzer`의 `analyzeTextChanges` 활용 가능
-- 우선순위: 중간 (현재도 충분히 작동)
-
-#### 2. **여러 text node 동시 변경**
-
-**문제:**
-- MutationObserver는 개별 text node의 변경만 감지
-- 여러 text node가 동시에 변경되면 여러 번 호출됨
-
-**현재 해결:**
-- 매번 전체 텍스트를 재구성하여 최종 상태 보장
-- `handleEfficientEdit`가 한 번만 호출되도록 보장
-
-**개선 방안:**
-- 배치 처리: 짧은 시간 내 여러 변경을 모아서 한 번에 처리
-- 우선순위: 낮음 (현재 방식도 충분히 작동)
-
-#### 3. **성능 이슈**
-
-**문제:**
-- 매번 Text Run Index를 구축 (O(n) where n = text nodes)
-- 전체 텍스트 재구성
-
-**현재 해결:**
-- inline-text 노드 내 text node 개수가 보통 적음 (10개 이하)
-- 성능 영향이 미미함
-- 캐싱 제거로 정확성 향상
-
-**개선 방안:**
-- beforeinput 이벤트로 편집 위치 미리 파악 (캐싱)
-- 우선순위: 중간 (성능 향상)
-
-#### 4. **유니코드 처리**
-
-**문제:**
-- 이모지, 결합 문자 등 복합 문자의 경우 범위 조정이 정확하지 않을 수 있음
-- UTF-16 서로게이트 페어 처리 필요
-
-**현재 해결:**
-- JavaScript 문자열은 UTF-16 기반이므로 대부분의 경우 자동 처리
-- 일반적인 사용에서는 문제 없음
-
-**개선 방안:**
-- `Array.from(text)`로 유니코드 문자 단위 계산
-- 우선순위: 낮음 (대부분의 경우 현재 방식으로 충분)
-
-#### 5. **DOM과 Model의 불일치 가능성**
-
-**문제:**
-- DOM이 변경되었지만 Model 업데이트가 실패한 경우
-- Model과 DOM이 불일치할 수 있음
-
-**현재 해결:**
-- 렌더러가 항상 Model을 기준으로 DOM을 재렌더링
-- Model 업데이트 후 자동으로 DOM 동기화
-
-**개선 방안:**
-- 주기적인 동기화 검증 (선택적)
-- 우선순위: 낮음 (렌더러가 자동 처리)
-
-## 다른 접근 방식과의 비교
-
-### Model → DOM (단방향) 방식
-
-**예시:** ProseMirror, Slate, Draft.js
+We handle contenteditable editing using **DOM → Model reverse transformation**:
 
 ```
-사용자 편집 (Model)
+User editing (DOM)
   ↓
-Transaction/Operation 생성
+MutationObserver detection
   ↓
-Model 업데이트
+Reconstruct text from DOM (reconstructModelTextFromRuns)
   ↓
-DOM 재렌더링
+Identify edit position (convertDOMToModelPosition)
+  ↓
+Adjust Mark/Decorator ranges (adjustMarkRanges, adjustDecoratorRanges)
+  ↓
+Model update (text_replace transaction)
+  ↓
+Renderer re-renders DOM
 ```
 
-**장점:**
-- Model이 항상 정확
-- 편집 위치가 명확
-- 범위 조정이 자동
+## Why This Approach is Suitable
 
-**단점:**
-- contenteditable의 네이티브 기능 활용 어려움
-- 복사/붙여넣기, 드래그 앤 드롭 등 수동 구현 필요
-- IME 입력 처리 복잡
+### ✅ Advantages
 
-### DOM → Model (역변환) 방식 (우리 방식)
+1. **Natural integration with contenteditable**
+   - Leverages browser's native editing features as-is
+   - Copy/paste, drag and drop work automatically
+   - Can utilize IME input, autocomplete, and other browser features
 
-**장점:**
-- contenteditable과 자연스러운 통합
-- 브라우저 기능 활용 가능
-- 유연성
+2. **Single Source of Truth**
+   - DOM is where actual editing occurs
+   - Using DOM as reference reduces synchronization issues
+   - Model always reflects latest state as "reverse transformation" result of DOM
 
-**단점:**
-- 역변환 로직 필요
-- 편집 위치 추정의 부정확성 가능
-- 범위 조정을 수동으로 처리
+3. **Explicit control**
+   - Explicitly adjust ranges with `adjustMarkRanges`, `adjustDecoratorRanges`
+   - Logic is clear and easy to debug
+   - Highly customizable
 
-## 결론: 이 방식이 적합한가?
+4. **Flexibility**
+   - Can handle various DOM structures
+   - Can handle complex nesting of Marks and Decorators
 
-### ✅ **적합한 경우:**
+### ⚠️ Potential Issues and Solutions
 
-1. **contenteditable 기반 에디터**
-   - 브라우저의 네이티브 편집 기능을 최대한 활용하고 싶을 때
-   - 복사/붙여넣기, 드래그 앤 드롭 등이 자동으로 작동해야 할 때
+#### 1. **Inaccuracy in Edit Position Estimation**
 
-2. **복잡한 Mark/Decorator 구조**
-   - 여러 레벨의 중첩이 필요할 때
-   - 동적으로 구조가 변경될 때
+**Problem:**
+- Common prefix approach can be inaccurate in complex edits
+- Example: `"abc"` → `"xyz"` (complete replacement) has editPosition = 0 but is actually full replacement
 
-3. **명시적 제어가 필요한 경우**
-   - 범위 조정 로직을 커스터마이징하고 싶을 때
-   - 디버깅이 쉬운 구조가 필요할 때
+**Current solution:**
+- Try Selection API first for edit position
+- Fallback to common prefix if fails
+- Works well in most cases
 
-### ⚠️ **주의가 필요한 경우:**
+**Improvement:**
+- Use LCS (Longest Common Subsequence) algorithm
+- Can utilize `@barocss/text-analyzer`'s `analyzeTextChanges`
+- Priority: Medium (current approach works sufficiently)
 
-1. **대용량 텍스트**
-   - 매우 긴 텍스트의 경우 성능 이슈 가능
-   - 해결: 가상화 (virtualization) 또는 청크 단위 처리
+#### 2. **Simultaneous Changes to Multiple Text Nodes**
 
-2. **복잡한 편집 시나리오**
-   - 여러 노드에 걸친 편집
-   - 해결: 배치 처리 또는 트랜잭션 그룹화
+**Problem:**
+- MutationObserver only detects individual text node changes
+- When multiple text nodes change simultaneously, called multiple times
 
-3. **실시간 협업**
-   - 여러 사용자가 동시에 편집하는 경우
-   - 해결: Operational Transform (OT) 또는 CRDT 통합
+**Current solution:**
+- Reconstruct entire text each time to ensure final state
+- Ensure `handleEfficientEdit` is called only once
 
-## 개선 권장 사항
+**Improvement:**
+- Batch processing: collect multiple changes within short time and process together
+- Priority: Low (current approach works sufficiently)
 
-### 즉시 개선 (높은 우선순위)
+#### 3. **Performance Issues**
 
-1. ✅ **범위 조정 로직의 엣지 케이스 처리** (완료)
-   - 삭제가 mark 범위를 완전히 지우는 경우
-   - 편집 위치가 범위 경계에 있는 경우
+**Problem:**
+- Build Text Run Index every time (O(n) where n = text nodes)
+- Reconstruct entire text
 
-2. ✅ **에러 처리 강화** (완료)
-   - textNode가 DOM에서 제거된 경우
-   - runs가 비어있는 경우
-   - editPosition 유효성 검사
+**Current solution:**
+- Number of text nodes within inline-text node is usually small (10 or less)
+- Performance impact is minimal
+- Removed caching for improved accuracy
 
-### 점진적 개선 (중간 우선순위)
+**Improvement:**
+- Use beforeinput event to identify edit position in advance (caching)
+- Priority: Medium (performance improvement)
 
-3. **편집 위치 추정의 정확성 개선**
-   - LCS/Diff 알고리즘 사용
-   - `analyzeTextChanges` 활용
+#### 4. **Unicode Handling**
 
-4. **beforeinput 이벤트 활용**
-   - 편집 위치 미리 파악
-   - 성능 향상
+**Problem:**
+- Range adjustment may be inaccurate for complex characters like emojis, combining characters
+- Need to handle UTF-16 surrogate pairs
 
-### 선택적 개선 (낮은 우선순위)
+**Current solution:**
+- JavaScript strings are UTF-16 based, so mostly handled automatically
+- No issues in general use
 
-5. **여러 text node 동시 변경 처리**
-   - 배치 처리
-   - 현재 방식도 충분히 작동
+**Improvement:**
+- Calculate in Unicode character units using `Array.from(text)`
+- Priority: Low (current approach sufficient for most cases)
 
-6. **유니코드 처리 개선**
-   - 복합 문자 처리
-   - 대부분의 경우 현재 방식으로 충분
+#### 5. **Possible DOM and Model Mismatch**
 
-## 최종 평가
+**Problem:**
+- DOM changed but Model update failed
+- Model and DOM may become inconsistent
 
-### ✅ **이 방식으로 진행해도 됩니다**
+**Current solution:**
+- Renderer always re-renders DOM based on Model
+- Automatically synchronizes DOM after Model update
 
-**이유:**
-1. **contenteditable 기반 에디터에 적합**: 브라우저의 네이티브 기능을 최대한 활용
-2. **명시적 제어**: 로직이 명확하고 디버깅이 쉬움
-3. **유연성**: 다양한 DOM 구조와 Mark/Decorator 중첩 처리 가능
-4. **안정성**: 주요 엣지 케이스 처리 완료, 에러 처리 강화
+**Improvement:**
+- Periodic synchronization verification (optional)
+- Priority: Low (renderer handles automatically)
 
-**주의사항:**
-- 편집 위치 추정의 정확성은 대부분의 경우 충분하지만, 복잡한 편집에서는 개선 여지가 있음
-- 성능은 현재 충분하지만, 대용량 텍스트에서는 최적화 필요할 수 있음
+## Comparison with Other Approaches
 
-**결론:**
-현재 접근 방식은 contenteditable 기반 에디터에 적합하며, 주요 개선 사항을 적용했으므로 안정적으로 사용할 수 있습니다. 추가 개선은 실제 사용 중 발견되는 문제에 따라 점진적으로 진행하면 됩니다.
+### Model → DOM (Unidirectional) Approach
 
+**Examples:** ProseMirror, Slate, Draft.js
+
+```
+User editing (Model)
+  ↓
+Create Transaction/Operation
+  ↓
+Update Model
+  ↓
+Re-render DOM
+```
+
+**Advantages:**
+- Model is always accurate
+- Edit position is clear
+- Range adjustment is automatic
+
+**Disadvantages:**
+- Difficult to utilize contenteditable's native features
+- Need to manually implement copy/paste, drag and drop, etc.
+- IME input handling is complex
+
+### DOM → Model (Reverse Transformation) Approach (Our Approach)
+
+**Advantages:**
+- Natural integration with contenteditable
+- Can utilize browser features
+- Flexibility
+
+**Disadvantages:**
+- Need reverse transformation logic
+- Possible inaccuracy in edit position estimation
+- Need to manually handle range adjustment
+
+## Conclusion: Is This Approach Suitable?
+
+### ✅ **Suitable Cases:**
+
+1. **contenteditable-based editor**
+   - When you want to maximize use of browser's native editing features
+   - When copy/paste, drag and drop should work automatically
+
+2. **Complex Mark/Decorator structure**
+   - When multiple levels of nesting are needed
+   - When structure changes dynamically
+
+3. **When explicit control is needed**
+   - When you want to customize range adjustment logic
+   - When easy-to-debug structure is needed
+
+### ⚠️ **Cases Requiring Caution:**
+
+1. **Large text**
+   - Performance issues possible with very long text
+   - Solution: virtualization or chunk-based processing
+
+2. **Complex edit scenarios**
+   - Edits spanning multiple nodes
+   - Solution: batch processing or transaction grouping
+
+3. **Real-time collaboration**
+   - When multiple users edit simultaneously
+   - Solution: integrate Operational Transform (OT) or CRDT
+
+## Recommended Improvements
+
+### Immediate Improvements (High Priority)
+
+1. ✅ **Edge case handling in range adjustment logic** (completed)
+   - When deletion completely removes mark range
+   - When edit position is at range boundary
+
+2. ✅ **Enhanced error handling** (completed)
+   - When textNode is removed from DOM
+   - When runs are empty
+   - EditPosition validity check
+
+### Gradual Improvements (Medium Priority)
+
+3. **Improve accuracy of edit position estimation**
+   - Use LCS/Diff algorithm
+   - Utilize `analyzeTextChanges`
+
+4. **Utilize beforeinput event**
+   - Identify edit position in advance
+   - Performance improvement
+
+### Optional Improvements (Low Priority)
+
+5. **Handle simultaneous changes to multiple text nodes**
+   - Batch processing
+   - Current approach works sufficiently
+
+6. **Improve Unicode handling**
+   - Complex character handling
+   - Current approach sufficient for most cases
+
+## Final Assessment
+
+### ✅ **You can proceed with this approach**
+
+**Reasons:**
+1. **Suitable for contenteditable-based editor**: Maximizes use of browser's native features
+2. **Explicit control**: Logic is clear and easy to debug
+3. **Flexibility**: Can handle various DOM structures and Mark/Decorator nesting
+4. **Stability**: Major edge cases handled, error handling enhanced
+
+**Cautions:**
+- Edit position estimation accuracy is sufficient in most cases, but has room for improvement in complex edits
+- Performance is currently sufficient, but optimization may be needed for large text
+
+**Conclusion:**
+Current approach is suitable for contenteditable-based editors, and with major improvements applied, can be used stably. Additional improvements can be made gradually based on issues discovered during actual use.

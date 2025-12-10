@@ -1,17 +1,17 @@
-# Reconcile 테스트 체크리스트 (Fiber 전환 후)
+# Reconcile Test Checklist (After Fiber Migration)
 
-## 테스트 목록
+## Test List
 
-### ✅ 이미 Fiber 대응 완료
-- [x] `reconcile-root-basic.test.ts` - waitForFiber 추가됨
-- [x] `reconciler-component-updatebysid.test.ts` - waitForFiber 추가됨
-- [x] `reconciler-update-flow.test.ts` - waitForFiber 추가됨
-- [x] `reconciler-advanced-cases.test.ts` - waitForFiber 추가됨
+### ✅ Already Fiber-Compatible
+- [x] `reconcile-root-basic.test.ts` - waitForFiber added
+- [x] `reconciler-component-updatebysid.test.ts` - waitForFiber added
+- [x] `reconciler-update-flow.test.ts` - waitForFiber added
+- [x] `reconciler-advanced-cases.test.ts` - waitForFiber added
 
-### 🔍 검증 필요 (Fiber 비동기 처리 확인)
-- [x] `reconciler-verification.test.ts` - 일부 수정 완료 (38 failed, 52 passed)
-- [x] `reconciler-complex-scenarios.test.ts` - 일부 수정 완료 (8 failed) - DOM 구조 문제 발견
-- [x] `reconciler-lifecycle.test.ts` - 일부 수정 완료 (4 failed, 2 passed)
+### 🔍 Needs Verification (Fiber Async Handling Check)
+- [x] `reconciler-verification.test.ts` - partially fixed (38 failed, 52 passed)
+- [x] `reconciler-complex-scenarios.test.ts` - partially fixed (8 failed) - DOM structure issue found
+- [x] `reconciler-lifecycle.test.ts` - partially fixed (4 failed, 2 passed)
 - [ ] `reconciler-errors.test.ts`
 - [ ] `reconciler-portal.test.ts`
 - [ ] `reconciler-prevvnode-nextvnode.test.ts`
@@ -22,18 +22,18 @@
 - [ ] `reconciler-selection-pool.behavior.test.ts`
 - [ ] `reconciler-selection-preservation.test.ts`
 
-### ⚠️ 발견된 문제
-1. **DOM 구조 오류**: `reconciler-complex-scenarios.test.ts`에서 DOM 구조가 예상과 다르게 렌더링됨
-   - 원인: Fiber 비동기 처리로 인한 순서 문제 또는 reorder 로직 문제 가능
-   - 해결 필요: `reconcileVNodesToDOM`의 reorder 로직 확인
+### ⚠️ Issues Found
+1. **DOM Structure Error**: DOM structure rendered differently than expected in `reconciler-complex-scenarios.test.ts`
+   - Cause: possible order issue from Fiber async handling or reorder logic problem
+   - Action needed: verify reorder logic in `reconcileVNodesToDOM`
 
-### 🧪 Fiber 전용 테스트
-- [x] `fiber-reconciler.test.ts` - Fiber 구조 테스트
-- [x] `fiber-scheduler.test.ts` - Fiber 스케줄러 테스트
-- [x] `fiber-tree.test.ts` - Fiber 트리 생성 테스트
-- [x] `reconciler-fiber-integration.test.ts` - Fiber 통합 테스트
+### 🧪 Fiber-Specific Tests
+- [x] `fiber-reconciler.test.ts` - Fiber structure tests
+- [x] `fiber-scheduler.test.ts` - Fiber scheduler tests
+- [x] `fiber-tree.test.ts` - Fiber tree creation tests
+- [x] `reconciler-fiber-integration.test.ts` - Fiber integration tests
 
-### 🔧 유틸리티 테스트 (Fiber와 직접 관련 없음)
+### 🔧 Utility Tests (Not Directly Related to Fiber)
 - [ ] `reconcile-utils-host-management.test.ts`
 - [ ] `reconcile-utils-text-node-handlers.test.ts`
 - [ ] `reconcile-utils-portal-handler.test.ts`
@@ -41,28 +41,27 @@
 - [ ] `reconcile-utils-meta-utils.test.ts`
 - [ ] `reconcile-utils-vnode-utils.test.ts`
 - [ ] `reconcile-utils-dom-utils.test.ts`
-- [ ] `reconcile-utils-pre-clean.test.ts` (제거됨 - 사용 안 함)
+- [ ] `reconcile-utils-pre-clean.test.ts` (removed - not used)
 
-## 검증 항목
+## Verification Items
 
-각 테스트에서 확인해야 할 사항:
+What to check in each test:
 
-1. **비동기 처리 확인**
-   - `renderer.render()` 또는 `reconciler.reconcile()` 호출 후
-   - `await waitForFiber()` 추가 필요 여부 확인
+1. **Async Handling Check**
+   - After calling `renderer.render()` or `reconciler.reconcile()`
+   - Check if `await waitForFiber()` needs to be added
 
-2. **DOM 업데이트 타이밍**
-   - DOM 조작 후 즉시 확인하는 경우 → `waitForFiber()` 필요
-   - 이미 충분한 시간이 지난 후 확인하는 경우 → 불필요할 수 있음
+2. **DOM Update Timing**
+   - When checking immediately after DOM manipulation → `waitForFiber()` needed
+   - When checking after sufficient time has passed → may not be needed
 
-3. **테스트 실패 원인 분석**
-   - Fiber 비동기 처리로 인한 타이밍 이슈인지
-   - 실제 로직 오류인지 구분
+3. **Test Failure Cause Analysis**
+   - Distinguish whether it's a timing issue from Fiber async handling
+   - Or an actual logic error
 
-## 실행 순서
+## Execution Order
 
-1. 각 테스트 파일 실행
-2. 실패한 테스트 분석
-3. `waitForFiber()` 추가 또는 로직 수정
-4. 재실행하여 통과 확인
-
+1. Run each test file
+2. Analyze failed tests
+3. Add `waitForFiber()` or fix logic
+4. Re-run to verify pass

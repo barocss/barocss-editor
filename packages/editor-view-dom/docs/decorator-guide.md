@@ -1,19 +1,19 @@
-# Decorator 사용 가이드
+# Decorator Usage Guide
 
-## 개요
+## Overview
 
-Decorator는 EditorModel 레벨의 임시 UI 상태로, 문서에 시각적 효과나 메타데이터를 추가하는 데 사용됩니다. Decorator는 **선택적 타입 시스템(Opt-in)**을 지원하여, 타입 정의 없이도 사용할 수 있지만, 필요할 때 타입을 정의하여 검증과 기본값 적용을 활성화할 수 있습니다.
+Decorators are temporary UI states at the EditorModel level, used to add visual effects or metadata to documents. Decorators support an **opt-in type system**, allowing use without type definitions, but you can define types when needed to enable validation and default value application.
 
-## 빠른 시작
+## Quick Start
 
-### 1. 기본 설정
+### 1. Basic Setup
 
 ```typescript
 import { Editor } from '@barocss/editor-core';
 import { EditorViewDOM } from '@barocss/editor-view-dom';
 import { defineDecorator, element, text } from '@barocss/dsl';
 
-// 에디터 초기화
+// Initialize editor
 const container = document.getElementById('editor');
 const editor = new Editor({ dataStore: new DataStore() });
 const view = new EditorViewDOM(editor, { 
@@ -22,10 +22,10 @@ const view = new EditorViewDOM(editor, {
 });
 ```
 
-### 2. 첫 번째 Decorator 만들기
+### 2. Create Your First Decorator
 
 ```typescript
-// 1. 템플릿 정의 (선택적)
+// 1. Define template (optional)
 defineDecorator('my-comment', element('div', {
   className: 'my-comment',
   style: {
@@ -41,7 +41,7 @@ defineDecorator('my-comment', element('div', {
   }
 }, [text('💬 Comment')]));
 
-// 2. Decorator 추가
+// 2. Add decorator
 view.addDecorator({
   sid: 'comment-1',
   stype: 'my-comment',
@@ -54,16 +54,16 @@ view.addDecorator({
   data: { content: 'This is a comment' }
 });
 
-// 3. 렌더링
+// 3. Render
 view.render();
 ```
 
-## 기본 사용법
+## Basic Usage
 
-### 타입 정의 없이 사용 (빠른 프로토타이핑)
+### Using Without Type Definition (Quick Prototyping)
 
 ```typescript
-// 타입 정의 없이 바로 사용 가능
+// Can be used immediately without type definition
 view.addDecorator({
   sid: 'd1',
   stype: 'highlight',
@@ -80,16 +80,16 @@ view.addDecorator({
 });
 ```
 
-**특징:**
-- 타입 정의 없이 즉시 사용 가능
-- 기본 필드 검증만 수행 (sid, category, stype 필수)
-- 데이터 스키마 검증 없음
-- 기본값 적용 없음
+**Features:**
+- Can be used immediately without type definition
+- Only basic field validation (sid, category, stype required)
+- No data schema validation
+- No default value application
 
-### 타입 정의와 함께 사용 (프로덕션)
+### Using With Type Definition (Production)
 
 ```typescript
-// 1. 앱 초기화 시 타입 정의
+// 1. Define type at app initialization
 view.defineDecoratorType('highlight', 'inline', {
   description: 'Highlight decorator',
   dataSchema: {
@@ -98,7 +98,7 @@ view.defineDecoratorType('highlight', 'inline', {
   }
 });
 
-// 2. 런타임에 인스턴스 추가
+// 2. Add instance at runtime
 view.addDecorator({
   sid: 'd1',
   stype: 'highlight',
@@ -109,22 +109,22 @@ view.addDecorator({
     endOffset: 10
   },
   data: {
-    color: 'red'  // opacity는 기본값 0.3 자동 적용
+    color: 'red'  // opacity automatically applies default value 0.3
   }
 });
 ```
 
-**특징:**
-- 데이터 스키마 검증 수행
-- 기본값 자동 적용
-- 타입 안정성 보장
-- 잘못된 데이터 시 에러 발생
+**Features:**
+- Data schema validation
+- Automatic default value application
+- Type safety
+- Errors on invalid data
 
-## Decorator 카테고리
+## Decorator Categories
 
 ### Inline Decorator
 
-텍스트 범위에 적용되는 decorator입니다. 텍스트 내부에 삽입됩니다.
+Decorators applied to text ranges. Inserted within text.
 
 ```typescript
 view.addDecorator({
@@ -140,14 +140,14 @@ view.addDecorator({
 });
 ```
 
-**특징:**
-- 텍스트 내부에 `span` 태그로 렌더링
-- 텍스트와 함께 흐름
-- 이벤트 핸들러 지원
+**Features:**
+- Rendered as `span` tag within text
+- Flows with text
+- Supports event handlers
 
 ### Block Decorator
 
-블록 노드에 적용되는 decorator입니다. 블록 레벨로 삽입됩니다.
+Decorators applied to block nodes. Inserted at block level.
 
 ```typescript
 view.addDecorator({
@@ -161,27 +161,27 @@ view.addDecorator({
 });
 ```
 
-**특징:**
-- 블록 레벨에 `div` 태그로 렌더링
-- `before` 또는 `after` 위치로 삽입
-- 이벤트 핸들러 지원
+**Features:**
+- Rendered as `div` tag at block level
+- Inserted at `before` or `after` position
+- Supports event handlers
 
 ### Layer Decorator
 
-레이어에 오버레이되는 decorator입니다. 문서 위에 절대 위치로 표시됩니다.
+Decorators overlaid on layers. Displayed at absolute positions above the document.
 
-**특징:**
-- **Overlay 형태**: `position: absolute`로 동작
-- **target은 선택사항**: 커서, selection 같은 overlay는 target 없이 `data.position`만으로 위치 지정
-- **컨테이너**: `layers.decorator` 레이어에 렌더링 (전체 컨테이너를 덮는 overlay)
+**Features:**
+- **Overlay form**: works with `position: absolute`
+- **target is optional**: overlays like cursor and selection can specify position with only `data.position` without target
+- **Container**: rendered in `layers.decorator` layer (overlay covering entire container)
 
 ```typescript
-// 커서나 selection 같은 overlay (target 불필요)
+// Overlay like cursor or selection (target not needed)
 view.addDecorator({
   sid: 'cursor-1',
   stype: 'cursor',
   category: 'layer',
-  // target은 선택사항: overlay 형태로 동작
+  // target is optional: works as overlay
   data: {
     position: {
       top: 10,
@@ -193,7 +193,7 @@ view.addDecorator({
   }
 });
 
-// 특정 노드와 연관된 comment (target 사용 가능)
+// Comment associated with specific node (target can be used)
 view.addDecorator({
   sid: 'comment-1',
   stype: 'comment',
@@ -210,20 +210,20 @@ view.addDecorator({
 });
 ```
 
-**특징:**
-- 절대 위치로 배치
-- 문서 구조와 독립적
-- Z-index로 레이어 관리
-- 이벤트 핸들러 지원
+**Features:**
+- Positioned absolutely
+- Independent of document structure
+- Managed with z-index layers
+- Supports event handlers
 
-## 템플릿 정의
+## Template Definition
 
-### 기본 템플릿
+### Basic Template
 
 ```typescript
 import { defineDecorator, element, text, slot } from '@barocss/dsl';
 
-// 댓글 인디케이터
+// Comment indicator
 defineDecorator('comment', element('div', {
   className: 'barocss-comment-indicator',
   style: {
@@ -241,7 +241,7 @@ defineDecorator('comment', element('div', {
   }
 }, [text('💬')]));
 
-// 하이라이트
+// Highlight
 defineDecorator('highlight', element('span', {
   className: 'barocss-highlight',
   style: {
@@ -249,17 +249,17 @@ defineDecorator('highlight', element('span', {
     border: '1px solid rgba(255, 193, 7, 0.45)',
     borderRadius: '4px'
   }
-}, [slot('text')]));  // 타겟 텍스트가 여기에 삽입됨
+}, [slot('text')]));  // Target text is inserted here
 ```
 
-### 이벤트 처리
+### Event Handling
 
 ```typescript
 defineDecorator('interactive-widget', element('div', {
   className: 'barocss-interactive-widget',
-  style: { /* 스타일 */ },
+  style: { /* styles */ },
   
-  // 마우스 이벤트
+  // Mouse events
   onMouseEnter: (e: MouseEvent) => {
     console.log('Mouse entered');
   },
@@ -268,7 +268,7 @@ defineDecorator('interactive-widget', element('div', {
     e.stopPropagation();
   },
   
-  // 키보드 이벤트
+  // Keyboard events
   onKeyDown: (e: KeyboardEvent) => {
     if (e.key === 'Enter') {
       console.log('Enter pressed');
@@ -277,28 +277,28 @@ defineDecorator('interactive-widget', element('div', {
 }, [text('Widget')]));
 ```
 
-## 타입 정의
+## Type Definition
 
-### 기본 구조
+### Basic Structure
 
 ```typescript
 view.defineDecoratorType(
-  type: string,                    // 타입 이름 (예: 'highlight')
-  category: 'layer' | 'inline' | 'block',  // 카테고리
+  type: string,                    // type name (e.g., 'highlight')
+  category: 'layer' | 'inline' | 'block',  // category
   schema: {
-    description?: string;          // 타입 설명 (선택적)
-    dataSchema?: {                 // 데이터 스키마 (선택적)
+    description?: string;          // type description (optional)
+    dataSchema?: {                 // data schema (optional)
       [fieldName: string]: {
         type: 'string' | 'number' | 'boolean' | 'array' | 'object';
-        required?: boolean;         // 필수 필드 여부
-        default?: any;              // 기본값
+        required?: boolean;         // required field
+        default?: any;              // default value
       };
     };
   }
 );
 ```
 
-### 예제: 복잡한 타입 정의
+### Example: Complex Type Definition
 
 ```typescript
 view.defineDecoratorType('comment', 'layer', {
@@ -306,7 +306,7 @@ view.defineDecoratorType('comment', 'layer', {
   dataSchema: {
     text: {
       type: 'string',
-      required: true  // 필수 필드
+      required: true  // required field
     },
     author: {
       type: 'string',
@@ -314,7 +314,7 @@ view.defineDecoratorType('comment', 'layer', {
     },
     timestamp: {
       type: 'number',
-      default: () => Date.now()  // 함수로 동적 기본값
+      default: () => Date.now()  // dynamic default via function
     },
     position: {
       type: 'object',
@@ -328,9 +328,9 @@ view.defineDecoratorType('comment', 'layer', {
 });
 ```
 
-## Decorator 관리
+## Decorator Management
 
-### 추가
+### Add
 
 ```typescript
 view.addDecorator({
@@ -340,46 +340,46 @@ view.addDecorator({
   target: { sid: 't1', startOffset: 0, endOffset: 5 },
   data: { color: 'yellow' }
 });
-// 자동으로 render() 호출됨
+// render() is automatically called
 ```
 
-### 업데이트
+### Update
 
 ```typescript
 view.updateDecorator('d1', {
   data: { color: 'red' }
 });
-// 자동으로 render() 호출됨
+// render() is automatically called
 ```
 
-### 제거
+### Remove
 
 ```typescript
 view.removeDecorator('d1');
-// 자동으로 render() 호출됨
+// render() is automatically called
 ```
 
-### 조회
+### Query
 
 ```typescript
-// 모든 decorator 조회
+// Get all decorators
 const allDecorators = view.decoratorManager.getAll();
 
-// 특정 decorator 조회
+// Get specific decorator
 const decorator = view.decoratorManager.get('d1');
 
-// 특정 노드의 decorator 조회
+// Get decorators for specific node
 const nodeDecorators = view.decoratorManager.getByTarget('text-1');
 ```
 
-## 협업 환경
+## Collaborative Environment
 
-### 원격 Decorator 관리
+### Remote Decorator Management
 
-다른 사용자나 AI 에이전트의 decorator를 관리합니다.
+Manages decorators from other users or AI agents.
 
 ```typescript
-// 원격 decorator 추가
+// Add remote decorator
 view.remoteDecoratorManager.setRemoteDecorator(
   {
     sid: 'remote-1',
@@ -391,28 +391,28 @@ view.remoteDecoratorManager.setRemoteDecorator(
   { userId: 'user-2', sessionId: 'session-2' }
 );
 
-// 특정 사용자의 decorator 제거
+// Remove decorators by specific user
 view.remoteDecoratorManager.removeByOwner('user-2');
 
-// 모든 원격 decorator 조회
+// Get all remote decorators
 const remoteDecorators = view.remoteDecoratorManager.getAll();
 ```
 
-### 채널 분리
+### Channel Separation
 
-Decorator는 Selection과 동일하게 별도 채널로 관리됩니다:
+Decorators are managed in a separate channel, same as Selection:
 
-- **DocumentModel 변경**: OT/CRDT 채널 (무거운 데이터)
-- **Decorator 변경**: Presence/Session 채널 (경량 데이터, 실시간 동기화)
+- **DocumentModel changes**: OT/CRDT channel (heavy data)
+- **Decorator changes**: Presence/Session channel (lightweight data, real-time sync)
 
-자세한 내용은 [Decorator 통합 가이드](./decorator-integration.md)를 참조하세요.
+For details, see [Decorator Integration Guide](./decorator-integration.md).
 
-## 실제 사용 시나리오
+## Real Usage Scenarios
 
-### 시나리오 1: 빠른 프로토타이핑
+### Scenario 1: Quick Prototyping
 
 ```typescript
-// 타입 정의 없이 바로 사용
+// Use immediately without type definition
 view.addDecorator({
   sid: 'temp-1',
   stype: 'quick-highlight',
@@ -422,10 +422,10 @@ view.addDecorator({
 });
 ```
 
-### 시나리오 2: 프로덕션 환경
+### Scenario 2: Production Environment
 
 ```typescript
-// 앱 초기화 시 모든 타입 정의
+// Define all types at app initialization
 view.defineDecoratorType('highlight', 'inline', {
   dataSchema: {
     color: { type: 'string', default: 'yellow' },
@@ -440,20 +440,20 @@ view.defineDecoratorType('comment', 'layer', {
   }
 });
 
-// 런타임에 안전하게 사용
+// Use safely at runtime
 view.addDecorator({
   sid: 'prod-1',
   stype: 'highlight',
   category: 'inline',
   target: { sid: 't1', startOffset: 0, endOffset: 10 },
-  data: { color: 'red' }  // opacity는 기본값 적용
+  data: { color: 'red' }  // opacity applies default value
 });
 ```
 
-### 시나리오 3: 플러그인 시스템
+### Scenario 3: Plugin System
 
 ```typescript
-// 플러그인이 자체 decorator 타입 정의
+// Plugin defines its own decorator types
 class MyPlugin {
   initialize(view: EditorViewDOM) {
     view.defineDecoratorType('plugin-widget', 'block', {
@@ -480,38 +480,37 @@ class MyPlugin {
 }
 ```
 
-## 검증 동작 비교
+## Validation Behavior Comparison
 
-| 상황 | 기본 필드 검증 | 데이터 스키마 검증 | 기본값 적용 |
-|------|---------------|------------------|-----------|
-| 타입 정의 없음 | ✅ 수행 | ❌ 없음 | ❌ 없음 |
-| 타입 정의 있음 | ✅ 수행 | ✅ 수행 | ✅ 수행 |
+| Situation | Basic Field Validation | Data Schema Validation | Default Value Application |
+|-----------|----------------------|----------------------|-------------------------|
+| No type definition | ✅ Performed | ❌ None | ❌ None |
+| Type definition exists | ✅ Performed | ✅ Performed | ✅ Performed |
 
-## 주의사항
+## Notes
 
-1. **타입 정의는 앱 초기화 시 수행 권장**
-   - 런타임에 타입을 정의해도 되지만, 일관성을 위해 초기화 시 정의하는 것이 좋습니다.
+1. **Define types at app initialization (recommended)**
+   - Types can be defined at runtime, but defining at initialization is better for consistency.
 
-2. **타입 정의는 선택적**
-   - 모든 decorator 타입을 정의할 필요는 없습니다.
-   - 필요한 타입만 선택적으로 정의하세요.
+2. **Type definition is optional**
+   - You don't need to define all decorator types.
+   - Define only the types you need.
 
-3. **기본값은 함수로 동적 생성 가능**
+3. **Defaults can be dynamically generated via functions**
    ```typescript
    dataSchema: {
      timestamp: {
        type: 'number',
-       default: () => Date.now()  // 매번 새로운 값
+       default: () => Date.now()  // new value each time
      }
    }
    ```
 
-4. **자동 렌더링**
-   - `addDecorator()`, `updateDecorator()`, `removeDecorator()` 호출 시 자동으로 `render()`가 호출됩니다.
+4. **Automatic rendering**
+   - `render()` is automatically called when `addDecorator()`, `updateDecorator()`, or `removeDecorator()` is called.
 
-## 관련 문서
+## Related Documentation
 
-- [Decorator 아키텍처](./decorator-architecture.md) - 시스템 아키텍처 및 설계 원칙
-- [Decorator 통합 가이드](./decorator-integration.md) - AI 통합 및 협업 환경
-- [Pattern & Custom Decorator 예제](./decorator-pattern-and-custom-examples.md) - Pattern과 Custom Decorator 상세 예제
-
+- [Decorator Architecture](./decorator-architecture.md) - system architecture and design principles
+- [Decorator Integration Guide](./decorator-integration.md) - AI integration and collaborative environments
+- [Pattern & Custom Decorator Examples](./decorator-pattern-and-custom-examples.md) - detailed examples for Pattern and Custom Decorators

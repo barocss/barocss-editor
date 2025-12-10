@@ -1,202 +1,202 @@
-# Model Traversal API 목록
+# Model Traversal API List
 
-모델 순회 및 탐색을 위한 유틸리티 함수 목록입니다.
+List of utility functions for model traversal and navigation.
 
-## 목차
+## Table of Contents
 
-1. [기본 조회 함수](#기본-조회-함수)
-2. [계층 구조 탐색](#계층-구조-탐색)
-3. [형제 노드 탐색](#형제-노드-탐색)
-4. [문서 순서 순회](#문서-순서-순회)
-5. [조건부 탐색](#조건부-탐색)
-6. [트리 순회](#트리-순회)
-7. [상태 확인](#상태-확인)
-8. [통계 및 정보](#통계-및-정보)
-9. [범위 조회](#범위-조회)
+1. [Basic Lookup Functions](#basic-lookup-functions)
+2. [Hierarchical Structure Navigation](#hierarchical-structure-navigation)
+3. [Sibling Node Navigation](#sibling-node-navigation)
+4. [Document Order Traversal](#document-order-traversal)
+5. [Conditional Search](#conditional-search)
+6. [Tree Traversal](#tree-traversal)
+7. [Status Check](#status-check)
+8. [Statistics and Information](#statistics-and-information)
+9. [Range Queries](#range-queries)
 
 ---
 
-## 기본 조회 함수
+## Basic Lookup Functions
 
 ### `hasNode(nodeId: string): boolean`
-- **설명**: 노드 존재 여부 확인
-- **반환**: 노드가 존재하면 `true`, 없으면 `false`
-- **복잡도**: O(1)
+- **Description**: Check if node exists
+- **Returns**: `true` if node exists, `false` otherwise
+- **Complexity**: O(1)
 
 ### `getNode(nodeId: string): INode | undefined`
-- **설명**: 노드 조회 (DataStore 기본 메서드)
-- **반환**: 노드 객체 또는 `undefined`
-- **복잡도**: O(1)
+- **Description**: Lookup node (DataStore basic method)
+- **Returns**: Node object or `undefined`
+- **Complexity**: O(1)
 
 ### `getRootNode(): INode | undefined`
-- **설명**: 루트 노드 조회 (DataStore 기본 메서드)
-- **반환**: 루트 노드 객체 또는 `undefined`
-- **복잡도**: O(1)
+- **Description**: Lookup root node (DataStore basic method)
+- **Returns**: Root node object or `undefined`
+- **Complexity**: O(1)
 
 ---
 
-## 계층 구조 탐색
+## Hierarchical Structure Navigation
 
 ### `getParent(nodeId: string): INode | undefined`
-- **설명**: 부모 노드 조회
-- **반환**: 부모 노드 객체 또는 `undefined` (루트 노드이거나 부모 없음)
-- **복잡도**: O(1)
+- **Description**: Lookup parent node
+- **Returns**: Parent node object or `undefined` (root node or no parent)
+- **Complexity**: O(1)
 
 ### `getChildren(nodeId: string): INode[]`
-- **설명**: 직접 자식 노드들 조회
-- **반환**: 자식 노드 배열 (직접 자식만, 중첩 자손 제외)
-- **복잡도**: O(n) (n = 자식 개수)
+- **Description**: Lookup direct child nodes
+- **Returns**: Array of child nodes (direct children only, nested descendants excluded)
+- **Complexity**: O(n) (n = number of children)
 
 ### `getFirstChild(nodeId: string): string | null`
-- **설명**: 첫 번째 자식 노드 조회
-- **반환**: 첫 번째 자식 노드 ID 또는 `null` (자식이 없음)
-- **복잡도**: O(1)
+- **Description**: Lookup first child node
+- **Returns**: First child node ID or `null` (no children)
+- **Complexity**: O(1)
 
 ### `getLastChild(nodeId: string): string | null`
-- **설명**: 마지막 자식 노드 조회
-- **반환**: 마지막 자식 노드 ID 또는 `null` (자식이 없음)
-- **복잡도**: O(1)
+- **Description**: Lookup last child node
+- **Returns**: Last child node ID or `null` (no children)
+- **Complexity**: O(1)
 
 ### `getChildCount(nodeId: string): number`
-- **설명**: 직접 자식 노드 개수 조회
-- **반환**: 자식 노드 개수 (0 이상)
-- **복잡도**: O(1)
+- **Description**: Lookup direct child node count
+- **Returns**: Number of child nodes (0 or more)
+- **Complexity**: O(1)
 
 ### `getAllDescendants(nodeId: string): INode[]`
-- **설명**: 모든 자손 노드들 조회 (재귀적)
-- **반환**: 자손 노드 배열 (직접 자식 + 중첩 자손 모두)
-- **복잡도**: O(n) (n = 자손 개수)
+- **Description**: Lookup all descendant nodes (recursive)
+- **Returns**: Array of descendant nodes (direct children + all nested descendants)
+- **Complexity**: O(n) (n = number of descendants)
 
 ### `getAllAncestors(nodeId: string): INode[]`
-- **설명**: 모든 조상 노드들 조회 (루트까지)
-- **반환**: 조상 노드 배열 (부모 → 루트 순서)
-- **복잡도**: O(d) (d = 깊이)
+- **Description**: Lookup all ancestor nodes (up to root)
+- **Returns**: Array of ancestor nodes (parent → root order)
+- **Complexity**: O(d) (d = depth)
 
 ### `getNodePath(nodeId: string): string[]`
-- **설명**: 노드 경로 조회 (루트부터 현재 노드까지)
-- **반환**: 노드 ID 배열 (루트 → 현재 노드 순서)
-- **복잡도**: O(d) (d = 깊이)
+- **Description**: Lookup node path (from root to current node)
+- **Returns**: Array of node IDs (root → current node order)
+- **Complexity**: O(d) (d = depth)
 
 ### `getNodeDepth(nodeId: string): number`
-- **설명**: 노드 깊이 조회 (루트 = 0)
-- **반환**: 깊이 값 (0 이상)
-- **복잡도**: O(d) (d = 깊이)
+- **Description**: Lookup node depth (root = 0)
+- **Returns**: Depth value (0 or more)
+- **Complexity**: O(d) (d = depth)
 
 ### `isDescendant(nodeId: string, ancestorId: string): boolean`
-- **설명**: 노드가 특정 조상의 자손인지 확인
-- **반환**: 자손이면 `true`, 아니면 `false`
-- **복잡도**: O(d) (d = 깊이)
+- **Description**: Check if node is descendant of specific ancestor
+- **Returns**: `true` if descendant, `false` otherwise
+- **Complexity**: O(d) (d = depth)
 
 ### `getCommonAncestor(nodeId1: string, nodeId2: string): string | null`
-- **설명**: 두 노드의 공통 조상 찾기 (Lowest Common Ancestor)
-- **반환**: 공통 조상 노드 ID 또는 `null` (공통 조상 없음)
-- **복잡도**: O(d) (d = 깊이)
-- **참고**: 한 노드가 다른 노드의 조상이면 그 조상을 반환
+- **Description**: Find common ancestor of two nodes (Lowest Common Ancestor)
+- **Returns**: Common ancestor node ID or `null` (no common ancestor)
+- **Complexity**: O(d) (d = depth)
+- **Note**: Returns that ancestor if one node is ancestor of the other
 
 ### `getDistance(nodeId1: string, nodeId2: string): number`
-- **설명**: 두 노드 간의 거리 계산
-- **반환**: 두 노드 간 거리 (공통 조상까지의 경로 합), 없으면 `-1`
-- **복잡도**: O(d) (d = 깊이)
-- **참고**: 같은 노드면 `0`, 공통 조상이 없으면 `-1`
+- **Description**: Calculate distance between two nodes
+- **Returns**: Distance between two nodes (sum of paths to common ancestor), or `-1` if none
+- **Complexity**: O(d) (d = depth)
+- **Note**: Returns `0` if same node, `-1` if no common ancestor
 
 ---
 
-## 형제 노드 탐색
+## Sibling Node Navigation
 
 ### `getSiblings(nodeId: string): INode[]`
-- **설명**: 모든 형제 노드들 조회 (자기 자신 제외)
-- **반환**: 형제 노드 배열
-- **복잡도**: O(n) (n = 형제 개수)
+- **Description**: Lookup all sibling nodes (excluding self)
+- **Returns**: Array of sibling nodes
+- **Complexity**: O(n) (n = number of siblings)
 
 ### `getSiblingIndex(nodeId: string): number`
-- **설명**: 형제 노드에서의 인덱스 조회
-- **반환**: 인덱스 (0-based, 없으면 -1)
-- **복잡도**: O(n) (n = 형제 개수)
+- **Description**: Lookup index among sibling nodes
+- **Returns**: Index (0-based, -1 if not found)
+- **Complexity**: O(n) (n = number of siblings)
 
 ### `getPreviousSibling(nodeId: string): string | null`
-- **설명**: 같은 부모의 이전 형제 노드 조회
-- **반환**: 이전 형제 노드 ID 또는 `null` (첫 번째 형제이거나 없음)
-- **복잡도**: O(n) (n = 형제 개수)
+- **Description**: Lookup previous sibling node with same parent
+- **Returns**: Previous sibling node ID or `null` (first sibling or none)
+- **Complexity**: O(n) (n = number of siblings)
 
 ### `getNextSibling(nodeId: string): string | null`
-- **설명**: 같은 부모의 다음 형제 노드 조회
-- **반환**: 다음 형제 노드 ID 또는 `null` (마지막 형제이거나 없음)
-- **복잡도**: O(n) (n = 형제 개수)
+- **Description**: Lookup next sibling node with same parent
+- **Returns**: Next sibling node ID or `null` (last sibling or none)
+- **Complexity**: O(n) (n = number of siblings)
 
 ### `getFirstSibling(nodeId: string): string | null`
-- **설명**: 같은 부모의 첫 번째 형제 노드 조회
-- **반환**: 첫 번째 형제 노드 ID 또는 `null` (형제가 없거나 없음)
-- **복잡도**: O(1)
+- **Description**: Lookup first sibling node with same parent
+- **Returns**: First sibling node ID or `null` (no siblings or none)
+- **Complexity**: O(1)
 
 ### `getLastSibling(nodeId: string): string | null`
-- **설명**: 같은 부모의 마지막 형제 노드 조회
-- **반환**: 마지막 형제 노드 ID 또는 `null` (형제가 없거나 없음)
-- **복잡도**: O(1)
+- **Description**: Lookup last sibling node with same parent
+- **Returns**: Last sibling node ID or `null` (no siblings or none)
+- **Complexity**: O(1)
 
 ---
 
-## 문서 순서 순회
+## Document Order Traversal
 
 ### `getNextNode(nodeId: string): string | null`
-- **설명**: 문서 순서상 다음 노드 조회 (자식 우선, 형제, 부모의 형제 순)
-- **반환**: 다음 노드 ID 또는 `null` (마지막 노드)
-- **복잡도**: O(1) ~ O(d) (d = 깊이)
+- **Description**: Lookup next node in document order (child first, sibling, parent's sibling order)
+- **Returns**: Next node ID or `null` (last node)
+- **Complexity**: O(1) ~ O(d) (d = depth)
 
-**동작 방식**:
-1. 자식 노드가 있으면 첫 번째 자식 반환
-2. 형제 노드가 있으면 다음 형제 반환
-3. 부모의 다음 형제 찾기 (재귀적)
-4. 없으면 `null`
+**Behavior**:
+1. If child nodes exist, return first child
+2. If sibling nodes exist, return next sibling
+3. Find parent's next sibling (recursive)
+4. Return `null` if none
 
 ### `getPreviousNode(nodeId: string): string | null`
-- **설명**: 문서 순서상 이전 노드 조회 (형제의 마지막 자손, 부모 순)
-- **반환**: 이전 노드 ID 또는 `null` (첫 번째 노드)
-- **복잡도**: O(1) ~ O(d) (d = 깊이)
+- **Description**: Lookup previous node in document order (sibling's last descendant, parent order)
+- **Returns**: Previous node ID or `null` (first node)
+- **Complexity**: O(1) ~ O(d) (d = depth)
 
-**동작 방식**:
-1. 이전 형제 노드가 있으면 그 형제의 마지막 자손 반환
-2. 부모 노드 반환
-3. 없으면 `null`
+**Behavior**:
+1. If previous sibling node exists, return that sibling's last descendant
+2. Return parent node
+3. Return `null` if none
 
 ### `compareDocumentOrder(nodeId1: string, nodeId2: string): number`
-- **설명**: 두 노드의 문서 순서 비교
-- **반환**: 
-  - `-1`: nodeId1이 nodeId2보다 앞에 있음
-  - `0`: 같은 노드
-  - `1`: nodeId1이 nodeId2보다 뒤에 있음
-- **복잡도**: O(d) (d = 깊이)
+- **Description**: Compare document order of two nodes
+- **Returns**: 
+  - `-1`: nodeId1 is before nodeId2
+  - `0`: same node
+  - `1`: nodeId1 is after nodeId2
+- **Complexity**: O(d) (d = depth)
 
 ---
 
-## 조건부 탐색
+## Conditional Search
 
 ### `find(predicate: (nodeId: string, node: INode) => boolean): string | null`
-- **설명**: 조건에 맞는 첫 번째 노드 찾기
-- **반환**: 노드 ID 또는 `null` (없음)
-- **복잡도**: O(n) (n = 전체 노드 개수)
+- **Description**: Find first node matching condition
+- **Returns**: Node ID or `null` (not found)
+- **Complexity**: O(n) (n = total number of nodes)
 
 ### `findAll(predicate: (nodeId: string, node: INode) => boolean): string[]`
-- **설명**: 조건에 맞는 모든 노드 찾기
-- **반환**: 노드 ID 배열
-- **복잡도**: O(n) (n = 전체 노드 개수)
+- **Description**: Find all nodes matching condition
+- **Returns**: Array of node IDs
+- **Complexity**: O(n) (n = total number of nodes)
 
 ---
 
-## 트리 순회
+## Tree Traversal
 
 ### `createDocumentIterator(options?: DocumentIteratorOptions): DocumentIterator`
-- **설명**: 문서 순회를 위한 Iterator 생성
-- **반환**: `DocumentIterator` 인스턴스
-- **옵션**:
-  - `startNodeId`: 시작 노드 ID (기본값: 루트)
-  - `reverse`: 역순 순회 여부
-  - `maxDepth`: 최대 깊이 제한
-  - `filter`: 타입 필터
-  - `customFilter`: 사용자 정의 필터
-  - `shouldStop`: 중단 조건
-  - `range`: 순회 범위 제한
+- **Description**: Create Iterator for document traversal
+- **Returns**: `DocumentIterator` instance
+- **Options**:
+  - `startNodeId`: Start node ID (default: root)
+  - `reverse`: Whether to traverse in reverse
+  - `maxDepth`: Maximum depth limit
+  - `filter`: Type filter
+  - `customFilter`: Custom filter
+  - `shouldStop`: Stop condition
+  - `range`: Traversal range limit
 
-**사용 예시**:
+**Usage example**:
 ```typescript
 const iterator = dataStore.createDocumentIterator({
   filter: { type: 'inline-text' },
@@ -205,150 +205,150 @@ const iterator = dataStore.createDocumentIterator({
 
 for (const nodeId of iterator) {
   const node = dataStore.getNode(nodeId);
-  // 처리...
+  // Process...
 }
 ```
 
 ### `traverse(visitor: DocumentVisitor, options?: VisitorTraversalOptions): TraversalResult`
-- **설명**: Visitor 패턴을 사용한 문서 순회
-- **반환**: 순회 결과 (`visitedCount`, `skippedCount`, `stopped`)
-- **Visitor 인터페이스**:
+- **Description**: Document traversal using Visitor pattern
+- **Returns**: Traversal result (`visitedCount`, `skippedCount`, `stopped`)
+- **Visitor interface**:
   - `enter?(nodeId: string, node: INode, context?: any): void`
   - `visit(nodeId: string, node: INode, context?: any): void | boolean`
   - `exit?(nodeId: string, node: INode, context?: any): void`
   - `shouldVisitChildren?(nodeId: string, node: INode): boolean`
 
-**사용 예시**:
+**Usage example**:
 ```typescript
 const result = dataStore.traverse({
   visit: (nodeId, node) => {
     console.log(`Visiting: ${nodeId}`);
-    return true; // 계속 순회
+    return true; // Continue traversal
   },
   shouldVisitChildren: (nodeId, node) => {
-    return node.stype !== 'inline-text'; // inline-text의 자식은 스킵
+    return node.stype !== 'inline-text'; // Skip children of inline-text
   }
 });
 ```
 
 ---
 
-## 상태 확인
+## Status Check
 
 ### `isRootNode(nodeId: string): boolean`
-- **설명**: 루트 노드 여부 확인
-- **반환**: 루트 노드이면 `true`, 아니면 `false`
-- **복잡도**: O(1)
+- **Description**: Check if root node
+- **Returns**: `true` if root node, `false` otherwise
+- **Complexity**: O(1)
 
 ### `isLeafNode(nodeId: string): boolean`
-- **설명**: 리프 노드 여부 확인 (자식이 없는 노드)
-- **반환**: 리프 노드이면 `true`, 아니면 `false`
-- **복잡도**: O(1)
+- **Description**: Check if leaf node (node with no children)
+- **Returns**: `true` if leaf node, `false` otherwise
+- **Complexity**: O(1)
 
 ---
 
-## 통계 및 정보
+## Statistics and Information
 
 ### `getNodeCount(): number`
-- **설명**: 전체 노드 개수 조회
-- **반환**: 노드 개수
-- **복잡도**: O(1)
+- **Description**: Lookup total node count
+- **Returns**: Number of nodes
+- **Complexity**: O(1)
 
 ### `getAllNodes(): INode[]`
-- **설명**: 모든 노드 조회
-- **반환**: 노드 배열
-- **복잡도**: O(n) (n = 전체 노드 개수)
+- **Description**: Lookup all nodes
+- **Returns**: Array of nodes
+- **Complexity**: O(n) (n = total number of nodes)
 
 ### `getAllNodesMap(): Map<string, INode>`
-- **설명**: 모든 노드를 Map으로 조회
-- **반환**: 노드 Map (ID → 노드)
-- **복잡도**: O(n) (n = 전체 노드 개수)
+- **Description**: Lookup all nodes as Map
+- **Returns**: Node Map (ID → node)
+- **Complexity**: O(n) (n = total number of nodes)
 
 ### `getStats(): NodeStats`
-- **설명**: 노드 통계 조회
-- **반환**: 통계 객체
-  - `total`: 전체 노드 개수
-  - `byType`: 타입별 노드 개수
-  - `byDepth`: 깊이별 노드 개수
-- **복잡도**: O(n) (n = 전체 노드 개수)
+- **Description**: Lookup node statistics
+- **Returns**: Statistics object
+  - `total`: Total number of nodes
+  - `byType`: Number of nodes by type
+  - `byDepth`: Number of nodes by depth
+- **Complexity**: O(n) (n = total number of nodes)
 
 ---
 
-## 범위 조회
+## Range Queries
 
 ### `getNodesInRange(): string[]`
-- **설명**: 범위 내 노드들 조회 (설정된 범위 기준)
-- **반환**: 노드 ID 배열
-- **복잡도**: O(n) (n = 범위 내 노드 개수)
+- **Description**: Lookup nodes in range (based on set range)
+- **Returns**: Array of node IDs
+- **Complexity**: O(n) (n = number of nodes in range)
 
 ### `getRangeNodeCount(): number`
-- **설명**: 범위 내 노드 개수 조회
-- **반환**: 노드 개수
-- **복잡도**: O(n) (n = 범위 내 노드 개수)
+- **Description**: Lookup node count in range
+- **Returns**: Number of nodes
+- **Complexity**: O(n) (n = number of nodes in range)
 
 ### `getRangeInfo(): RangeInfo | null`
-- **설명**: 범위 정보 조회
-- **반환**: 범위 정보 객체 또는 `null`
-  - `start`: 시작 노드 ID
-  - `end`: 끝 노드 ID
-  - `includeStart`: 시작 노드 포함 여부
-  - `includeEnd`: 끝 노드 포함 여부
-- **복잡도**: O(1)
+- **Description**: Lookup range information
+- **Returns**: Range information object or `null`
+  - `start`: Start node ID
+  - `end`: End node ID
+  - `includeStart`: Whether to include start node
+  - `includeEnd`: Whether to include end node
+- **Complexity**: O(1)
 
 ---
 
-## 함수 분류 요약
+## Function Classification Summary
 
-### ✅ 구현 완료
-- ✅ 기본 조회 함수 (hasNode, getNode, getRootNode)
-- ✅ 계층 구조 탐색 (getParent, getChildren, getFirstChild, getLastChild, getAllDescendants, getAllAncestors, getNodePath, getNodeDepth, isDescendant, getCommonAncestor, getDistance)
-- ✅ 형제 노드 탐색 (getSiblings, getSiblingIndex, getPreviousSibling, getNextSibling, getFirstSibling, getLastSibling)
-- ✅ 문서 순서 순회 (getNextNode, getPreviousNode, compareDocumentOrder)
-- ✅ 조건부 탐색 (find, findAll)
-- ✅ 트리 순회 (createDocumentIterator, traverse)
-- ✅ 상태 확인 (isRootNode, isLeafNode)
-- ✅ 통계 및 정보 (getNodeCount, getAllNodes, getAllNodesMap, getStats)
-- ✅ 범위 조회 (getNodesInRange, getRangeNodeCount, getRangeInfo)
+### ✅ Implementation Complete
+- ✅ Basic lookup functions (hasNode, getNode, getRootNode)
+- ✅ Hierarchical structure navigation (getParent, getChildren, getFirstChild, getLastChild, getAllDescendants, getAllAncestors, getNodePath, getNodeDepth, isDescendant, getCommonAncestor, getDistance)
+- ✅ Sibling node navigation (getSiblings, getSiblingIndex, getPreviousSibling, getNextSibling, getFirstSibling, getLastSibling)
+- ✅ Document order traversal (getNextNode, getPreviousNode, compareDocumentOrder)
+- ✅ Conditional search (find, findAll)
+- ✅ Tree traversal (createDocumentIterator, traverse)
+- ✅ Status check (isRootNode, isLeafNode)
+- ✅ Statistics and information (getNodeCount, getAllNodes, getAllNodesMap, getStats)
+- ✅ Range queries (getNodesInRange, getRangeNodeCount, getRangeInfo)
 
-### ✅ 최근 추가된 함수
-- ✅ `getFirstChild` - 첫 번째 자식 노드 조회
-- ✅ `getLastChild` - 마지막 자식 노드 조회
-- ✅ `getFirstSibling` - 첫 번째 형제 노드 조회
-- ✅ `getLastSibling` - 마지막 형제 노드 조회
-- ✅ `getCommonAncestor` - 두 노드의 공통 조상 찾기
-- ✅ `getDistance` - 두 노드 간 거리 계산
+### ✅ Recently Added Functions
+- ✅ `getFirstChild` - Lookup first child node
+- ✅ `getLastChild` - Lookup last child node
+- ✅ `getFirstSibling` - Lookup first sibling node
+- ✅ `getLastSibling` - Lookup last sibling node
+- ✅ `getCommonAncestor` - Find common ancestor of two nodes
+- ✅ `getDistance` - Calculate distance between two nodes
 
-### 🔄 개선 가능 영역
-- [ ] 성능 최적화: 형제 탐색 함수들의 O(n) 복잡도를 O(1)로 개선 (인덱스 캐싱)
+### 🔄 Areas for Improvement
+- [ ] Performance optimization: Improve O(n) complexity of sibling navigation functions to O(1) (index caching)
 
 ---
 
-## 사용 예시
+## Usage Examples
 
-### 형제 노드 탐색
+### Sibling Node Navigation
 ```typescript
-// 이전 형제 찾기
+// Find previous sibling
 const prevSiblingId = dataStore.getPreviousSibling('text-2');
 if (prevSiblingId) {
   const prevSibling = dataStore.getNode(prevSiblingId);
   console.log('Previous sibling:', prevSibling);
 }
 
-// 다음 형제 찾기
+// Find next sibling
 const nextSiblingId = dataStore.getNextSibling('text-2');
 if (nextSiblingId) {
   const nextSibling = dataStore.getNode(nextSiblingId);
   console.log('Next sibling:', nextSibling);
 }
 
-// 첫 번째 형제 찾기
+// Find first sibling
 const firstSiblingId = dataStore.getFirstSibling('text-2');
 if (firstSiblingId) {
   const firstSibling = dataStore.getNode(firstSiblingId);
   console.log('First sibling:', firstSibling);
 }
 
-// 마지막 형제 찾기
+// Find last sibling
 const lastSiblingId = dataStore.getLastSibling('text-2');
 if (lastSiblingId) {
   const lastSibling = dataStore.getNode(lastSiblingId);
@@ -356,16 +356,16 @@ if (lastSiblingId) {
 }
 ```
 
-### 자식 노드 탐색
+### Child Node Navigation
 ```typescript
-// 첫 번째 자식 찾기
+// Find first child
 const firstChildId = dataStore.getFirstChild('paragraph-1');
 if (firstChildId) {
   const firstChild = dataStore.getNode(firstChildId);
   console.log('First child:', firstChild);
 }
 
-// 마지막 자식 찾기
+// Find last child
 const lastChildId = dataStore.getLastChild('paragraph-1');
 if (lastChildId) {
   const lastChild = dataStore.getNode(lastChildId);
@@ -373,23 +373,23 @@ if (lastChildId) {
 }
 ```
 
-### 공통 조상 및 거리 계산
+### Common Ancestor and Distance Calculation
 ```typescript
-// 공통 조상 찾기
+// Find common ancestor
 const commonAncestorId = dataStore.getCommonAncestor('text-1', 'text-3');
 if (commonAncestorId) {
   const commonAncestor = dataStore.getNode(commonAncestorId);
   console.log('Common ancestor:', commonAncestor);
 }
 
-// 두 노드 간 거리 계산
+// Calculate distance between two nodes
 const distance = dataStore.getDistance('text-1', 'text-3');
-console.log('Distance:', distance); // 공통 조상까지의 경로 합
+console.log('Distance:', distance); // Sum of paths to common ancestor
 ```
 
-### 문서 순서 순회
+### Document Order Traversal
 ```typescript
-// 다음 노드 찾기 (자식 우선)
+// Find next node (child first)
 let currentNodeId = 'paragraph-1';
 while (currentNodeId) {
   const node = dataStore.getNode(currentNodeId);
@@ -398,22 +398,22 @@ while (currentNodeId) {
 }
 ```
 
-### 조건부 탐색
+### Conditional Search
 ```typescript
-// 특정 타입의 노드 찾기
+// Find node of specific type
 const textNodeId = dataStore.find((nodeId, node) => {
   return node.stype === 'inline-text' && node.text?.includes('hello');
 });
 
-// 모든 텍스트 노드 찾기
+// Find all text nodes
 const textNodeIds = dataStore.findAll((nodeId, node) => {
   return node.stype === 'inline-text';
 });
 ```
 
-### 트리 순회
+### Tree Traversal
 ```typescript
-// Iterator 사용
+// Use Iterator
 const iterator = dataStore.createDocumentIterator({
   filter: { type: 'inline-text' },
   maxDepth: 2
@@ -424,18 +424,17 @@ for (const nodeId of iterator) {
   console.log('Visiting:', nodeId, node);
 }
 
-// Visitor 패턴 사용
+// Use Visitor pattern
 dataStore.traverse({
   enter: (nodeId, node) => {
     console.log('Entering:', nodeId);
   },
   visit: (nodeId, node) => {
     console.log('Visiting:', nodeId);
-    return true; // 계속 순회
+    return true; // Continue traversal
   },
   exit: (nodeId, node) => {
     console.log('Exiting:', nodeId);
   }
 });
 ```
-

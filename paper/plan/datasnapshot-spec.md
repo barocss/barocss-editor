@@ -1,29 +1,29 @@
 # DataSnapshot Structure Specification
 
-## 1. 개요
+## 1. Overview
 
-DataSnapshot은 Barocss Transaction 시스템의 핵심 구성 요소로, Immutable State 패턴을 구현하는 핵심 클래스입니다. DataStore의 현재 상태를 깊은 복사하여 격리된 작업 공간을 제공하며, Transaction의 원자성을 보장합니다.
+DataSnapshot is a core component of the Barocss Transaction system, implementing the Immutable State pattern. It provides an isolated workspace by deep-copying the current state of DataStore, ensuring transaction atomicity.
 
-## 2. 핵심 개념
+## 2. Core Concepts
 
 ### 2.1 Immutable State Pattern
-- **원리**: 원본 데이터를 직접 수정하지 않고 스냅샷을 생성하여 작업
-- **장점**: 안전한 롤백, 동시성 제어, 예측 가능한 동작
-- **구현**: 깊은 복사를 통한 완전한 격리
+- **Principle**: work with snapshots instead of mutating original data
+- **Benefits**: safe rollback, concurrency control, predictable behavior
+- **Implementation**: complete isolation via deep copy
 
-### 2.2 스냅샷 격리
-- **격리**: 원본 DataStore와 완전히 분리된 작업 공간
-- **독립성**: 스냅샷에서의 변경이 원본에 영향을 주지 않음
-- **원자성**: 모든 작업이 성공하거나 모두 실패
+### 2.2 Snapshot Isolation
+- **Isolation**: workspace completely separate from original DataStore
+- **Independence**: changes in snapshot don’t affect the original
+- **Atomicity**: all operations succeed or all fail
 
-### 2.3 변경사항 추적
-- **추적**: 스냅샷에서 수행된 모든 변경사항 추적
-- **검증**: 각 변경사항의 유효성 검사
-- **커밋**: 성공 시에만 원본에 반영
+### 2.3 Change Tracking
+- **Tracking**: track all changes made in the snapshot
+- **Validation**: validate each change
+- **Commit**: apply to original only on success
 
-## 3. 아키텍처
+## 3. Architecture
 
-### 3.1 핵심 구성 요소
+### 3.1 Core Components
 
 ```
 DataStoreSnapshot
@@ -42,24 +42,24 @@ ChangeRecord
 └── timestamp: Date
 ```
 
-### 3.2 데이터 흐름
+### 3.2 Data Flow
 
 ```
-1. DataStoreSnapshot 생성
+1. Create DataStoreSnapshot
    ↓
-2. 원본 DataStore 깊은 복사
+2. Deep copy original DataStore
    ↓
-3. Operation 적용
+3. Apply operations
    ↓
-4. Validation 수행
+4. Run validation
    ↓
-5. 성공 시: 원본에 반영
-   실패 시: 스냅샷 폐기
+5. On success: apply to original
+   On failure: discard snapshot
 ```
 
-## 4. DataStoreSnapshot 클래스
+## 4. DataStoreSnapshot Class
 
-### 4.1 기본 구조
+### 4.1 Basic Structure
 
 ```typescript
 class DataStoreSnapshot {
@@ -75,19 +75,19 @@ class DataStoreSnapshot {
     this._version = originalStore.getVersion();
     this._rootNodeId = originalStore.getRootNodeId();
     
-    // 원본 DataStore의 모든 노드 복사
+    // Copy all nodes from original DataStore
     this._copyNodesFromOriginal();
     
-    // 원본 DataStore의 모든 문서 복사
+    // Copy all documents from original DataStore
     this._copyDocumentsFromOriginal();
   }
 }
 ```
 
-### 4.2 스냅샷 생성
+### 4.2 Snapshot Creation
 
 ```typescript
-// 원본 DataStore에서 노드 복사
+// Copy nodes from original DataStore
 private _copyNodesFromOriginal(): void {
   const originalNodes = this._originalStore.getAllNodesMap();
   for (const [id, node] of originalNodes) {
@@ -95,7 +95,7 @@ private _copyNodesFromOriginal(): void {
   }
 }
 
-// 원본 DataStore에서 문서 복사
+// Copy documents from original DataStore
 private _copyDocumentsFromOriginal(): void {
   const originalDocuments = this._originalStore.getAllDocuments();
   for (const doc of originalDocuments) {
@@ -103,11 +103,11 @@ private _copyDocumentsFromOriginal(): void {
   }
 }
 
-// 노드 깊은 복사
+// Deep clone node
 private _deepCloneNode(node: INode): INode {
   const cloned = JSON.parse(JSON.stringify(node));
   
-  // Date 필드들을 Date 객체로 복원
+  // Restore Date fields as Date objects
   if (cloned.createdAt) {
     cloned.createdAt = new Date(cloned.createdAt);
   }
@@ -118,11 +118,11 @@ private _deepCloneNode(node: INode): INode {
   return cloned;
 }
 
-// 문서 깊은 복사
+// Deep clone document
 private _deepCloneDocument(document: Document): Document {
   const cloned = JSON.parse(JSON.stringify(document));
   
-  // Date 필드들을 Date 객체로 복원
+  // Restore Date fields as Date objects
   if (cloned.createdAt) {
     cloned.createdAt = new Date(cloned.createdAt);
   }
@@ -134,12 +134,12 @@ private _deepCloneDocument(document: Document): Document {
 }
 ```
 
-## 5. Operation 적용
+## 5. Operation Application
 
-### 5.1 Operation 실행
+### 5.1 Operation Execution
 
 ```typescript
-// Operation 적용
+// Apply operation
 applyOperation(operation: TransactionOperation): ValidationResult | null {
   try {
     switch (operation.type) {
@@ -167,34 +167,34 @@ applyOperation(operation: TransactionOperation): ValidationResult | null {
 }
 ```
 
-### 5.2 노드 작업
+### 5.2 Node Operations
 
-#### 5.2.1 노드 생성
+#### 5.2.1 Node Creation
 
 ```typescript
 private _createNode(node: INode): ValidationResult | null {
-  // 노드 ID 중복 검사
+  // Check for duplicate node ID
   if (this._nodes.has(node.sid)) {
     return { valid: false, errors: [`Node with id '${node.sid}' already exists`] };
   }
   
-  // 노드 검증
+  // Validate node
   const validation = IntegrityValidator.validateNode(node);
   if (!validation.valid) {
     return validation;
   }
   
-  // 노드 저장
+  // Store node
   this._nodes.set(node.sid, this._deepCloneNode(node));
   
-  // 변경사항 기록
+  // Record change
   this._recordChange('create', node.sid, undefined, node);
   
-  return null; // 성공
+  return null; // success
 }
 ```
 
-#### 5.2.2 노드 업데이트
+#### 5.2.2 Node Update
 
 ```typescript
 private _updateNode(nodeId: string, updates: Partial<INode>): ValidationResult | null {
@@ -203,26 +203,26 @@ private _updateNode(nodeId: string, updates: Partial<INode>): ValidationResult |
     return { valid: false, errors: [`Node with id '${nodeId}' not found`] };
   }
   
-  // 업데이트된 노드 생성
+  // Create updated node
   const updatedNode = { ...existingNode, ...updates, updatedAt: new Date() };
   
-  // 노드 검증
+  // Validate node
   const validation = IntegrityValidator.validateNode(updatedNode);
   if (!validation.valid) {
     return validation;
   }
   
-  // 노드 업데이트
+  // Update node
   this._nodes.set(nodeId, updatedNode);
   
-  // 변경사항 기록
+  // Record change
   this._recordChange('update', nodeId, existingNode, updatedNode);
   
-  return null; // 성공
+  return null; // success
 }
 ```
 
-#### 5.2.3 노드 삭제
+#### 5.2.3 Node Deletion
 
 ```typescript
 private _deleteNode(nodeId: string): ValidationResult | null {
@@ -231,39 +231,39 @@ private _deleteNode(nodeId: string): ValidationResult | null {
     return { valid: false, errors: [`Node with id '${nodeId}' not found`] };
   }
   
-  // 노드 삭제
+  // Delete node
   this._nodes.delete(nodeId);
   
-  // 변경사항 기록
+  // Record change
   this._recordChange('delete', nodeId, existingNode, undefined);
   
-  return null; // 성공
+  return null; // success
 }
 ```
 
-### 5.3 문서 작업
+### 5.3 Document Operations
 
-#### 5.3.1 문서 생성
+#### 5.3.1 Document Creation
 
 ```typescript
 private _createDocument(document: Document): ValidationResult | null {
-  // 문서 ID 중복 검사
+  // Check for duplicate document ID
   if (this._documents.has(document.sid)) {
     return { valid: false, errors: [`Document with id '${document.sid}' already exists`] };
   }
   
-  // 문서 검증
+  // Validate document
   const validation = IntegrityValidator.validateDocument(document);
   if (!validation.valid) {
     return validation;
   }
   
-  // 문서를 루트 노드로 처리
+  // Treat document as root node
   if (document.sid && !this._nodes.has(document.sid)) {
-    // content가 INode[]인 경우 처리
+    // Handle content as INode[]
     let contentIds: string[] = [];
     if (document.content && Array.isArray(document.content)) {
-      // 각 노드를 저장하고 ID를 수집
+      // Store each node and collect IDs
       for (const node of document.content) {
         this._nodes.set(node.sid, this._deepCloneNode(node));
         contentIds.push(node.sid);
@@ -289,14 +289,14 @@ private _createDocument(document: Document): ValidationResult | null {
     this._rootNodeId = document.sid;
   }
   
-  // 문서 저장
+  // Store document
   this._documents.set(document.sid, this._deepCloneDocument(document));
   
-  return null; // 성공
+  return null; // success
 }
 ```
 
-#### 5.3.2 문서 업데이트
+#### 5.3.2 Document Update
 
 ```typescript
 private _updateDocument(documentId: string, updates: Partial<Document>): ValidationResult | null {
@@ -305,33 +305,33 @@ private _updateDocument(documentId: string, updates: Partial<Document>): Validat
     return { valid: false, errors: [`Document with id '${documentId}' not found`] };
   }
 
-  // content 업데이트 처리
+  // Handle content update
   if (updates.content && Array.isArray(updates.content)) {
-    // 기존 content 노드들을 삭제 (선택적)
+    // Optionally delete existing content nodes
     if (rootNode.content) {
       for (const childId of rootNode.content) {
         this._nodes.delete(childId);
       }
     }
 
-    // Document.content는 INode[]이므로 각 노드를 저장하고 ID를 contentIds로 변환
+    // Document.content is INode[], so store each node and convert to contentIds
     const contentIds: string[] = [];
     for (const node of updates.content) {
-      // 노드를 저장
+      // Store node
       this._nodes.set(node.sid, this._deepCloneNode(node));
       contentIds.push(node.sid);
     }
-    updates.content = contentIds; // content를 ID 배열로 설정
+    updates.content = contentIds; // set content as ID array
   }
 
   const updatedNode = { ...rootNode, ...updates, updatedAt: new Date() };
   this._nodes.set(documentId, updatedNode);
   
-  return null; // 성공
+  return null; // success
 }
 ```
 
-#### 5.3.3 문서 삭제
+#### 5.3.3 Document Deletion
 
 ```typescript
 private _deleteDocument(documentId: string): ValidationResult | null {
@@ -340,22 +340,22 @@ private _deleteDocument(documentId: string): ValidationResult | null {
     return { valid: false, errors: [`Document with id '${documentId}' not found`] };
   }
   
-  // 문서 삭제
+  // Delete document
   this._nodes.delete(documentId);
   this._documents.delete(documentId);
   
-  // 루트 노드 ID 초기화
+  // Clear root node ID
   if (this._rootNodeId === documentId) {
     this._rootNodeId = undefined;
   }
   
-  return null; // 성공
+  return null; // success
 }
 ```
 
-## 6. 변경사항 추적
+## 6. Change Tracking
 
-### 6.1 ChangeRecord 인터페이스
+### 6.1 ChangeRecord Interface
 
 ```typescript
 interface ChangeRecord {
@@ -367,7 +367,7 @@ interface ChangeRecord {
 }
 ```
 
-### 6.2 변경사항 기록
+### 6.2 Recording Changes
 
 ```typescript
 private _recordChange(
@@ -386,20 +386,20 @@ private _recordChange(
 }
 ```
 
-### 6.3 변경사항 조회
+### 6.3 Querying Changes
 
 ```typescript
-// 모든 변경사항 조회
+// Get all changes
 getChanges(): ChangeRecord[] {
   return [...this._changes];
 }
 
-// 특정 노드의 변경사항 조회
+// Get changes for a specific node
 getNodeChanges(nodeId: string): ChangeRecord[] {
   return this._changes.filter(change => change.nodeId === nodeId);
 }
 
-// 변경사항 통계
+// Change statistics
 getChangeStats(): { total: number; byType: Record<string, number> } {
   const byType: Record<string, number> = {};
   
@@ -414,40 +414,40 @@ getChangeStats(): { total: number; byType: Record<string, number> } {
 }
 ```
 
-## 7. 원본 DataStore 복원
+## 7. Restoring to Original DataStore
 
-### 7.1 복원 메서드
+### 7.1 Restore Method
 
 ```typescript
-// 원본 DataStore에 복원
+// Restore to original DataStore
 restoreTo(store: DataStore): void {
-  // 기존 DataStore 초기화
+  // Clear existing DataStore
   store.clear();
   
-  // 스냅샷의 노드들로 복원
+  // Restore from snapshot nodes
   for (const [id, node] of this._nodes) {
     store.setNode(node);
   }
   
-  // 스냅샷의 문서들로 복원
+  // Restore from snapshot documents
   for (const [id, doc] of this._documents) {
-    store.saveDocument(doc, false); // 검증 건너뛰기
+    store.saveDocument(doc, false); // skip validation
   }
   
-  // 루트 노드 ID 설정
+  // Set root node ID
   if (this._rootNodeId) {
     store.setRootNodeId(this._rootNodeId);
   }
   
-  // 버전 증가
+  // Increment version
   store.version = this._version + 1;
 }
 ```
 
-### 7.2 스냅샷 폐기
+### 7.2 Discarding Snapshot
 
 ```typescript
-// 스냅샷 폐기
+// Discard snapshot
 discard(): void {
   this._nodes.clear();
   this._documents.clear();
@@ -457,34 +457,34 @@ discard(): void {
 }
 ```
 
-## 8. 검증 시스템
+## 8. Validation System
 
-### 8.1 Validator 클래스 통합
+### 8.1 Validator Class Integration
 
-DataSnapshot은 `@barocss/schema`의 `Validator` 클래스를 사용하여 포괄적인 검증을 수행합니다.
+DataSnapshot uses the `Validator` class from `@barocss/schema` for comprehensive validation.
 
-#### 구조적 검증
+#### Structural Validation
 
 ```typescript
 import { Validator, VALIDATION_ERRORS } from '@barocss/schema';
 
-// 노드 구조 검증
+// Validate node structure
 const nodeValidation = Validator.validateNodeStructure(node);
 if (!nodeValidation.valid) {
   console.error('Node structure validation failed:', nodeValidation.errorCodes);
 }
 
-// 문서 구조 검증
+// Validate document structure
 const documentValidation = Validator.validateDocumentStructure(document);
 if (!documentValidation.valid) {
   console.error('Document structure validation failed:', documentValidation.errorCodes);
 }
 ```
 
-#### 스키마 기반 검증
+#### Schema-based Validation
 
 ```typescript
-// 스키마가 있는 경우 스키마 기반 검증
+// Schema-based validation if schema exists
 if (schema) {
   const schemaValidation = Validator.validateNode(schema, node);
   if (!schemaValidation.valid) {
@@ -493,32 +493,32 @@ if (schema) {
 }
 ```
 
-#### 에러 코드 활용
+#### Error Code Usage
 
 ```typescript
-// 안전한 오류 처리
+// Safe error handling
 const result = Validator.validateNodeStructure(node);
 if (!result.valid) {
   if (result.errorCodes?.includes(VALIDATION_ERRORS.TEXT_CONTENT_REQUIRED)) {
-    // 텍스트 내용 누락 처리
+    // Handle missing text content
   }
   if (result.errorCodes?.includes(VALIDATION_ERRORS.NODE_TYPE_UNKNOWN)) {
-    // 알 수 없는 노드 타입 처리
+    // Handle unknown node type
   }
 }
 ```
 
-### 8.2 스냅샷 검증
+### 8.2 Snapshot Validation
 
 ```typescript
-// 스냅샷 전체 검증
+// Validate entire snapshot
 validateSnapshot(): ValidationResult {
   const errors: string[] = [];
   const errorCodes: string[] = [];
   
-  // 모든 노드 검증
+  // Validate all nodes
   for (const [id, node] of this._nodes) {
-    // 1. 구조적 검증
+    // 1. Structural validation
     const structuralValidation = Validator.validateNodeStructure(node);
     if (!structuralValidation.valid) {
       errors.push(...structuralValidation.errors.map(err => `Node ${id}: ${err}`));
@@ -527,7 +527,7 @@ validateSnapshot(): ValidationResult {
       }
     }
     
-    // 2. 스키마 기반 검증 (스키마가 있는 경우)
+    // 2. Schema-based validation (if schema exists)
     const schema = this.getSchema();
     if (schema) {
       const schemaValidation = Validator.validateNode(schema, node);
@@ -540,9 +540,9 @@ validateSnapshot(): ValidationResult {
     }
   }
   
-  // 모든 문서 검증
+  // Validate all documents
   for (const [id, doc] of this._documents) {
-    // 1. 문서 구조 검증
+    // 1. Document structure validation
     const documentValidation = Validator.validateDocumentStructure(doc);
     if (!documentValidation.valid) {
       errors.push(...documentValidation.errors.map(err => `Document ${id}: ${err}`));
@@ -551,7 +551,7 @@ validateSnapshot(): ValidationResult {
       }
     }
     
-    // 2. 스키마 기반 문서 검증 (스키마가 있는 경우)
+    // 2. Schema-based document validation (if schema exists)
     const schema = this.getSchema();
     if (schema) {
       const schemaDocumentValidation = Validator.validateDocument(schema, doc);
@@ -564,7 +564,7 @@ validateSnapshot(): ValidationResult {
     }
   }
   
-  // 참조 무결성 검증
+  // Reference integrity validation
   const referenceValidation = this._validateReferences();
   if (!referenceValidation.valid) {
     errors.push(...referenceValidation.errors);
@@ -577,19 +577,19 @@ validateSnapshot(): ValidationResult {
 }
 ```
 
-### 8.2 참조 무결성 검증
+### 8.3 Reference Integrity Validation
 
 ```typescript
 private _validateReferences(): ValidationResult {
   const errors: string[] = [];
   
   for (const [id, node] of this._nodes) {
-    // parentId 참조 검증
+    // Validate parentId reference
     if (node.parentId && !this._nodes.has(node.parentId)) {
       errors.push(`Node ${id} references non-existent parent ${node.parentId}`);
     }
     
-    // content 참조 검증
+    // Validate content references
     if (node.content) {
       for (const childId of node.content) {
         if (!this._nodes.has(childId)) {
@@ -606,9 +606,9 @@ private _validateReferences(): ValidationResult {
 }
 ```
 
-## 9. 성능 최적화
+## 9. Performance Optimization
 
-### 9.1 지연 복사
+### 9.1 Lazy Copy
 
 ```typescript
 class LazyDataStoreSnapshot extends DataStoreSnapshot {
@@ -617,12 +617,12 @@ class LazyDataStoreSnapshot extends DataStoreSnapshot {
 
   constructor(originalStore: DataStore) {
     super(originalStore);
-    // 초기에는 빈 상태로 시작
+    // Start empty initially
     this._nodes.clear();
     this._documents.clear();
   }
 
-  // 노드 접근 시 지연 복사
+  // Lazy copy on node access
   getNode(nodeId: string): INode | undefined {
     if (!this._copiedNodes.has(nodeId)) {
       const originalNode = this._originalStore.getNode(nodeId);
@@ -635,7 +635,7 @@ class LazyDataStoreSnapshot extends DataStoreSnapshot {
     return this._nodes.get(nodeId);
   }
 
-  // 문서 접근 시 지연 복사
+  // Lazy copy on document access
   getDocument(documentId: string): Document | undefined {
     if (!this._copiedDocuments.has(documentId)) {
       const originalDoc = this._originalStore.getDocument(documentId);
@@ -650,14 +650,14 @@ class LazyDataStoreSnapshot extends DataStoreSnapshot {
 }
 ```
 
-### 9.2 메모리 사용량 모니터링
+### 9.2 Memory Usage Monitoring
 
 ```typescript
 class MemoryOptimizedSnapshot extends DataStoreSnapshot {
   private _maxMemoryUsage: number = 100 * 1024 * 1024; // 100MB
   private _currentMemoryUsage: number = 0;
 
-  // 메모리 사용량 체크
+  // Check memory usage
   checkMemoryUsage(): { current: number; max: number; percentage: number } {
     const percentage = (this._currentMemoryUsage / this._maxMemoryUsage) * 100;
     
@@ -668,7 +668,7 @@ class MemoryOptimizedSnapshot extends DataStoreSnapshot {
     };
   }
 
-  // 메모리 사용량 업데이트
+  // Update memory usage
   private _updateMemoryUsage(): void {
     this._currentMemoryUsage = this._estimateMemoryUsage();
     
@@ -677,7 +677,7 @@ class MemoryOptimizedSnapshot extends DataStoreSnapshot {
     }
   }
 
-  // 메모리 사용량 추정
+  // Estimate memory usage
   private _estimateMemoryUsage(): number {
     let totalSize = 0;
     
@@ -692,30 +692,31 @@ class MemoryOptimizedSnapshot extends DataStoreSnapshot {
     return totalSize;
   }
 
-  // 사용되지 않는 데이터 정리
+  // Clean up unused data
   private _cleanupUnusedData(): void {
-    // 사용되지 않는 노드들 찾기
+    // Find unused nodes
     const unusedNodes = this._findUnusedNodes();
     
-    // 노드들 삭제
+    // Delete nodes
     for (const nodeId of unusedNodes) {
       this._nodes.delete(nodeId);
     }
     
-    // 메모리 사용량 재계산
+    // Recalculate memory usage
     this._updateMemoryUsage();
   }
 }
-## 12. 비용/지연 복제 노트(요약)
-
-- 전체 복제 비용: O(N) 노드/문서 직렬화 비용. 대형 문서에서 초기 스냅샷 비용이 커질 수 있음.
-- Lazy 복제 포인트: getNode/getDocument 접근 시점에 개별 복제. 초기 비용 감소, 접근 패턴에 따라 편차.
-- 권장: 기본은 eager 스냅샷, 성능 이슈가 측정되면 LazyDataStoreSnapshot 전환 고려.
 ```
 
-## 10. 테스트 전략
+## 10. Cost/Lazy Copy Notes (Summary)
 
-### 10.1 단위 테스트
+- Full copy cost: O(N) node/document serialization cost. Initial snapshot cost can be high for large documents.
+- Lazy copy point: copy individual items on `getNode`/`getDocument` access. Reduces initial cost; variance depends on access patterns.
+- Recommendation: default to eager snapshot; consider `LazyDataStoreSnapshot` if performance issues are measured.
+
+## 11. Test Strategy
+
+### 11.1 Unit Tests
 
 ```typescript
 describe('DataStoreSnapshot Tests', () => {
@@ -743,8 +744,8 @@ describe('DataStoreSnapshot Tests', () => {
       const newSnapshot = new DataStoreSnapshot(dataStore);
       const snapshotNode = newSnapshot.getNode(node.sid);
       
-      expect(snapshotNode).not.toBe(node); // 다른 객체
-      expect(snapshotNode).toEqual(node); // 같은 내용
+      expect(snapshotNode).not.toBe(node); // different object
+      expect(snapshotNode).toEqual(node); // same content
     });
   });
 
@@ -758,7 +759,7 @@ describe('DataStoreSnapshot Tests', () => {
       };
       
       const result = snapshot.applyOperation(operation);
-      expect(result).toBeNull(); // 성공
+      expect(result).toBeNull(); // success
       expect(snapshot.getNode(node.sid)).toBeDefined();
     });
 
@@ -774,14 +775,14 @@ describe('DataStoreSnapshot Tests', () => {
       };
       
       const result = newSnapshot.applyOperation(operation);
-      expect(result).toBeNull(); // 성공
+      expect(result).toBeNull(); // success
       expect(newSnapshot.getNode(node.sid)?.text).toBe('Updated');
     });
   });
 });
 ```
 
-### 10.2 통합 테스트
+### 11.2 Integration Tests
 
 ```typescript
 describe('DataStoreSnapshot Integration Tests', () => {
@@ -801,13 +802,13 @@ describe('DataStoreSnapshot Integration Tests', () => {
       data: node
     };
     
-    // 스냅샷에 변경사항 적용
+    // Apply changes to snapshot
     snapshot.applyOperation(operation);
     
-    // 원본에 복원
+    // Restore to original
     snapshot.restoreTo(dataStore);
     
-    // 원본에 변경사항이 반영되었는지 확인
+    // Verify changes are reflected in original
     expect(dataStore.getNode(node.sid)).toBeDefined();
   });
 
@@ -817,7 +818,7 @@ describe('DataStoreSnapshot Integration Tests', () => {
     
     const newSnapshot = new DataStoreSnapshot(dataStore);
     
-    // 여러 작업 수행
+    // Perform multiple operations
     const operations = [
       { type: 'create', nodeId: 'node-1', data: createTestNode() },
       { type: 'update', nodeId: 'node-1', data: { text: 'Updated' } },
@@ -826,38 +827,38 @@ describe('DataStoreSnapshot Integration Tests', () => {
     
     for (const operation of operations) {
       const result = newSnapshot.applyOperation(operation);
-      expect(result).toBeNull(); // 성공
+      expect(result).toBeNull(); // success
     }
     
-    // 데이터 무결성 확인
+    // Verify data integrity
     const validation = newSnapshot.validateSnapshot();
     expect(validation.valid).toBe(true);
   });
 });
 ```
 
-## 11. 확장 계획
+## 12. Extension Plans
 
-### 11.1 향후 추가 예정 기능
+### 12.1 Planned Features
 
-- **증분 스냅샷**: 변경된 부분만 추적하는 스냅샷
-- **압축 스냅샷**: 메모리 사용량 최적화
-- **분산 스냅샷**: 여러 DataStore 간 스냅샷
-- **스냅샷 히스토리**: 스냅샷 버전 관리
+- **Incremental snapshots**: track only changed parts
+- **Compressed snapshots**: optimize memory usage
+- **Distributed snapshots**: snapshots across multiple DataStores
+- **Snapshot history**: snapshot version management
 
-### 11.2 고급 기능
+### 12.2 Advanced Features
 
-- **스냅샷 병합**: 여러 스냅샷의 병합
-- **스냅샷 분할**: 큰 스냅샷의 분할
-- **스냅샷 압축**: 오래된 스냅샷의 압축
-- **스냅샷 복제**: 스냅샷의 복제
+- **Snapshot merge**: merge multiple snapshots
+- **Snapshot split**: split large snapshots
+- **Snapshot compression**: compress old snapshots
+- **Snapshot replication**: replicate snapshots
 
 ---
 
-이 스펙은 Barocss DataSnapshot 시스템의 현재 구현을 기반으로 작성되었으며, 향후 확장 계획과 개선사항을 포함하고 있습니다.
+This spec is based on the current implementation of the Barocss DataSnapshot system and includes future extension plans and improvements.
 
-## 6. 업데이트 사항(최종 구현)
-- 스냅샷은 기본 오퍼레이션(create/update/delete/createDocument/updateDocument/deleteDocument)만 직접 적용한다.
-- 커스텀 Operation은 TransactionManager에서 실행 후 결과를 기본 오퍼레이션으로 번역하여 스냅샷에 적용한다.
-- 무결성 위주의 검증을 수행하며, 루트 스키마가 있으면 최소한의 타입 검증을 보조적으로 수행한다.
-- `restoreTo(DataStore)`로 원자 커밋, 실패 시 스냅샷 폐기.
+## 13. Update Notes (Final Implementation)
+- Snapshots apply only basic operations (create/update/delete/createDocument/updateDocument/deleteDocument) directly.
+- Custom operations are executed in TransactionManager, then translated to basic operations for snapshot application.
+- Validation focuses on integrity; if a root schema exists, minimal type validation is performed as a supplement.
+- Atomic commit via `restoreTo(DataStore)`; discard snapshot on failure.

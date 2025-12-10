@@ -1,25 +1,25 @@
-# Reconcile 테스트 실행 결과
+# Reconcile Test Execution Results
 
-## 테스트 파일 목록
+## Test File List
 
 ### Core Reconciler Tests
-1. ✅ **reconcile-root-basic.test.ts** - 통과 (2 tests)
-2. ✅ **reconciler-verification.test.ts** - 통과 (90 tests)
-3. ✅ **reconciler-complex-scenarios.test.ts** - 통과 (8 tests)
-4. ✅ **reconciler-lifecycle.test.ts** - 통과 (6 tests)
-5. ⚠️ **reconciler-advanced-cases.test.ts** - 매우 느림 (3 passed, 20 pending) - 무한 루프 의심
+1. ✅ **reconcile-root-basic.test.ts** - passing (2 tests)
+2. ✅ **reconciler-verification.test.ts** - passing (90 tests)
+3. ✅ **reconciler-complex-scenarios.test.ts** - passing (8 tests)
+4. ✅ **reconciler-lifecycle.test.ts** - passing (6 tests)
+5. ⚠️ **reconciler-advanced-cases.test.ts** - very slow (3 passed, 20 pending) - suspected infinite loop
 6. ⏳ reconciler-component-state-integration.test.ts
-7. ❌ **reconciler-component-updatebysid.test.ts** - 1 실패 (2 passed, 1 failed)
-8. ✅ **reconciler-errors.test.ts** - 통과
+7. ❌ **reconciler-component-updatebysid.test.ts** - 1 failed (2 passed, 1 failed)
+8. ✅ **reconciler-errors.test.ts** - passing
 9. ⏳ reconciler-fiber-integration.test.ts
 10. ⏳ reconciler-mark-wrapper-reuse.test.ts
 11. ⏳ reconciler-performance.test.ts
-12. ✅ **reconciler-portal.test.ts** - 통과
+12. ✅ **reconciler-portal.test.ts** - passing
 13. ⏳ reconciler-prevvnode-nextvnode.test.ts
 14. ⏳ reconciler-selection-pool.behavior.test.ts
 15. ⏳ reconciler-selection-preservation.test.ts
-16. ❌ **reconciler-text-vnode.test.ts** - 4 실패 (1 passed, 4 failed)
-17. ❌ **reconciler-update-flow.test.ts** - 1 실패 (7 passed, 1 failed)
+16. ❌ **reconciler-text-vnode.test.ts** - 4 failed (1 passed, 4 failed)
+17. ❌ **reconciler-update-flow.test.ts** - 1 failed (7 passed, 1 failed)
 
 ### Reconcile Utils Tests
 18. ⏳ reconcile-utils-dom-utils.test.ts
@@ -36,9 +36,9 @@
 27. ⏳ fiber-scheduler.test.ts
 28. ⏳ fiber-tree.test.ts
 
-## 실행 결과 요약
+## Execution Results Summary
 
-### 통과한 테스트 (5개)
+### Passing Tests (5)
 - reconcile-root-basic.test.ts
 - reconciler-verification.test.ts (90 tests)
 - reconciler-complex-scenarios.test.ts (8 tests)
@@ -46,48 +46,48 @@
 - reconciler-errors.test.ts
 - reconciler-portal.test.ts
 
-### 실패한 테스트 (3개)
+### Failing Tests (3)
 
 #### 1. reconciler-update-flow.test.ts
-- **실패**: `should store prevVNode after first render`
-- **원인**: `prevVNode`가 저장되지 않음 (Fiber 비동기 처리 문제 가능)
+- **Failed**: `should store prevVNode after first render`
+- **Cause**: `prevVNode` not stored (possible Fiber async handling issue)
 
 #### 2. reconciler-component-updatebysid.test.ts
-- **실패**: `updates only target subtree via updateBySid`
-- **원인**: DOM이 제대로 렌더링되지 않음 (`waitForFiber()`가 충분하지 않을 수 있음)
+- **Failed**: `updates only target subtree via updateBySid`
+- **Cause**: DOM not properly rendered (`waitForFiber()` may not be sufficient)
 
 #### 3. reconciler-text-vnode.test.ts
-- **실패**: 4개 테스트 실패
+- **Failed**: 4 tests failed
   - `should render text VNode inside mark VNode correctly`
   - `should render multiple text VNodes inside mark VNode correctly`
   - `should render text VNode inside decorator VNode correctly`
   - `should handle text VNode in nested structure correctly`
-- **원인**: DOM 요소가 렌더링되지 않음 (Fiber 비동기 처리 문제)
+- **Cause**: DOM elements not rendered (Fiber async handling issue)
 
-### 문제가 있는 테스트 (1개)
+### Problematic Tests (1)
 
 #### reconciler-advanced-cases.test.ts
-- **상태**: 매우 느림 (397초 소요, 3개만 통과)
-- **문제**: 무한 루프 또는 매우 느린 실행
-- **원인**: `waitForFiber()` 함수가 제대로 작동하지 않거나, 일부 테스트에서 무한 루프 발생
+- **Status**: very slow (397 seconds, only 3 passed)
+- **Problem**: infinite loop or very slow execution
+- **Cause**: `waitForFiber()` function not working properly, or infinite loop in some tests
 
-## 발견된 문제
+## Issues Found
 
-1. **`waitForFiber()` 함수 문제**
-   - 현재 구현이 테스트 환경에서 제대로 작동하지 않음
-   - DOM이 렌더링되기 전에 테스트가 실행됨
+1. **`waitForFiber()` Function Issue**
+   - Current implementation does not work properly in test environment
+   - Tests run before DOM is rendered
 
-2. **Fiber 비동기 처리**
-   - `prevVNode` 저장이 비동기 처리로 인해 지연됨
-   - DOM 렌더링이 완료되기 전에 테스트가 실행됨
+2. **Fiber Async Handling**
+   - `prevVNode` storage delayed due to async handling
+   - Tests run before DOM rendering completes
 
 3. **reconciler-advanced-cases.test.ts**
-   - 일부 테스트에서 무한 루프 또는 매우 느린 실행
-   - 추가 조사 필요
+   - Infinite loop or very slow execution in some tests
+   - Needs further investigation
 
-## 전체 테스트 결과 (최종)
+## Overall Test Results (Final)
 
-### 통과한 테스트 (14개)
+### Passing Tests (14)
 - ✅ reconcile-root-basic.test.ts (2 tests)
 - ✅ reconciler-verification.test.ts (90 tests)
 - ✅ reconciler-complex-scenarios.test.ts (8 tests)
@@ -107,116 +107,115 @@
 - ✅ fiber-tree.test.ts (10 tests)
 - ✅ reconciler-fiber-integration.test.ts (2 tests)
 
-### 실패한 테스트 (8개)
+### Failing Tests (8)
 
 #### 1. reconciler-update-flow.test.ts
-- **실패**: `should store prevVNode after first render`
-- **원인**: `prevVNode`가 저장되지 않음 (Fiber 비동기 처리 문제)
+- **Failed**: `should store prevVNode after first render`
+- **Cause**: `prevVNode` not stored (Fiber async handling issue)
 
 #### 2. reconciler-component-updatebysid.test.ts
-- **실패**: `updates only target subtree via updateBySid`
-- **원인**: DOM이 제대로 렌더링되지 않음
+- **Failed**: `updates only target subtree via updateBySid`
+- **Cause**: DOM not properly rendered
 
 #### 3. reconciler-text-vnode.test.ts
-- **실패**: 4개 테스트 실패
+- **Failed**: 4 tests failed
   - `should render text VNode inside mark VNode correctly`
   - `should render multiple text VNodes inside mark VNode correctly`
   - `should render text VNode inside decorator VNode correctly`
   - `should handle text VNode in nested structure correctly`
-- **원인**: DOM 요소가 렌더링되지 않음
+- **Cause**: DOM elements not rendered
 
 #### 4. reconciler-component-state-integration.test.ts
-- **실패**: 2개 테스트 실패
+- **Failed**: 2 tests failed
   - `emits changeState and then updates subtree manually to reflect new state`
   - `should rebuild only when nextVNode is missing or empty`
-- **원인**: DOM 렌더링 문제 및 mountComponent 호출 문제
+- **Cause**: DOM rendering issues and mountComponent call issues
 
 #### 5. reconciler-prevvnode-nextvnode.test.ts
-- **실패**: 2개 테스트 실패
+- **Failed**: 2 tests failed
   - `should match elements by sid across renders`
   - `should create new element when sid changes`
-- **원인**: `data-bc-stype` 속성이 렌더링되지 않음
+- **Cause**: `data-bc-stype` attribute not rendered
 
 #### 6. reconciler-mark-wrapper-reuse.test.ts
-- **실패**: 여러 테스트 실패 (정확한 개수 확인 필요)
-- **원인**: DOM 렌더링 문제
+- **Failed**: multiple tests failed (exact count needs verification)
+- **Cause**: DOM rendering issues
 
 #### 7. reconciler-selection-pool.behavior.test.ts
-- **실패**: `does not let non-selection run steal selectionTextNode even when using pool`
-- **원인**: 텍스트 노드가 렌더링되지 않음
+- **Failed**: `does not let non-selection run steal selectionTextNode even when using pool`
+- **Cause**: text node not rendered
 
 #### 8. reconciler-selection-preservation.test.ts
-- **실패**: `reuses existing selection Text node when run is tagged (split into two runs)`
-- **원인**: DOM 요소가 렌더링되지 않음
+- **Failed**: `reuses existing selection Text node when run is tagged (split into two runs)`
+- **Cause**: DOM element not rendered
 
 #### 9. reconciler-performance.test.ts
-- **실패**: 1개 테스트 실패
-- **원인**: children 개수가 예상과 다름
+- **Failed**: 1 test failed
+- **Cause**: children count differs from expected
 
-### 문제가 있는 테스트 (1개)
+### Problematic Tests (1)
 
 #### reconciler-advanced-cases.test.ts
-- **상태**: 매우 느림 (397초 소요, 3개만 통과)
-- **문제**: 무한 루프 또는 매우 느린 실행
+- **Status**: very slow (397 seconds, only 3 passed)
+- **Problem**: infinite loop or very slow execution
 
-## 수정 진행 상황
+## Fix Progress
 
-### ✅ 동기 모드 구현 완료
+### ✅ Sync Mode Implementation Complete
 
-**구현 내용**:
-- FiberScheduler에 동기 모드 추가
-- 테스트 환경 자동 감지 (process.env.VITEST, NODE_ENV === 'test')
-- 테스트 환경에서는 자동으로 동기 모드 활성화
-- 프로덕션 환경에서는 비동기 모드 유지
+**Implementation**:
+- Added sync mode to FiberScheduler
+- Automatic test environment detection (process.env.VITEST, NODE_ENV === 'test')
+- Automatically activates sync mode in test environment
+- Maintains async mode in production environment
 
-**결과**:
-- `waitForFiber()` 제거 가능
-- 테스트 코드 간소화
-- React와 유사한 패턴
+**Results**:
+- Can remove `waitForFiber()`
+- Simplified test code
+- Similar pattern to React
 
-### 수정 완료된 테스트
-1. ✅ **reconciler-component-updatebysid.test.ts** - `waitForFiber()` 제거, 동기 모드로 통과
-2. ✅ **reconciler-update-flow.test.ts** - `waitForFiber()` 제거, 동기 모드로 통과
-3. ✅ **reconciler-selection-pool.behavior.test.ts** - `waitForFiber()` 제거, 동기 모드로 통과
-4. ✅ **reconcile-root-basic.test.ts** - `waitForFiber()` 제거, 동기 모드로 통과
-5. ✅ **reconciler-lifecycle.test.ts** - `waitForFiber()` 제거, 동기 모드로 통과
+### Fixed Tests
+1. ✅ **reconciler-component-updatebysid.test.ts** - removed `waitForFiber()`, passing in sync mode
+2. ✅ **reconciler-update-flow.test.ts** - removed `waitForFiber()`, passing in sync mode
+3. ✅ **reconciler-selection-pool.behavior.test.ts** - removed `waitForFiber()`, passing in sync mode
+4. ✅ **reconcile-root-basic.test.ts** - removed `waitForFiber()`, passing in sync mode
+5. ✅ **reconciler-lifecycle.test.ts** - removed `waitForFiber()`, passing in sync mode
 
-### 남은 실패한 테스트
+### Remaining Failing Tests
 
 #### 1. reconciler-text-vnode.test.ts
-- **상태**: 4개 테스트 실패 (DOM 요소가 렌더링되지 않음)
-- **원인**: `reconciler.reconcile()` 직접 호출 시 Fiber 완료를 기다리지 않음
-- **조치**: `waitForFiber()` 추가했으나 여전히 실패 - 추가 조사 필요
+- **Status**: 4 tests failed (DOM elements not rendered)
+- **Cause**: when calling `reconciler.reconcile()` directly, does not wait for Fiber completion
+- **Action**: added `waitForFiber()` but still failing - needs further investigation
 
 #### 2. reconciler-prevvnode-nextvnode.test.ts
-- **상태**: 2개 테스트 실패 (`data-bc-stype` 속성이 렌더링되지 않음)
-- **원인**: DOM 속성 설정 문제 (Fiber 비동기 처리와 무관)
-- **조치**: 로직 문제로 보임 - 추가 조사 필요
+- **Status**: 2 tests failed (`data-bc-stype` attribute not rendered)
+- **Cause**: DOM attribute setting issue (unrelated to Fiber async handling)
+- **Action**: appears to be logic issue - needs further investigation
 
 #### 3. reconciler-component-state-integration.test.ts
-- **상태**: 1개 테스트 실패 (`mountComponent`가 호출되어서는 안 되는데 호출됨)
-- **원인**: 로직 문제
-- **조치**: 추가 조사 필요
+- **Status**: 1 test failed (`mountComponent` called when it should not be)
+- **Cause**: logic issue
+- **Action**: needs further investigation
 
 #### 4. reconciler-selection-preservation.test.ts
-- **상태**: 1개 테스트 실패
-- **원인**: Selection 노드 재사용 로직 문제
-- **조치**: 추가 조사 필요
+- **Status**: 1 test failed
+- **Cause**: selection node reuse logic issue
+- **Action**: needs further investigation
 
 #### 5. reconciler-performance.test.ts
-- **상태**: 4개 테스트 실패
-- **원인**: children 개수가 예상과 다름
-- **조치**: 추가 조사 필요
+- **Status**: 4 tests failed
+- **Cause**: children count differs from expected
+- **Action**: needs further investigation
 
 #### 6. reconciler-advanced-cases.test.ts
-- **상태**: 매우 느림 (397초 소요, 3개만 통과)
-- **문제**: 무한 루프 또는 매우 느린 실행
-- **조치**: 추가 조사 필요
+- **Status**: very slow (397 seconds, only 3 passed)
+- **Problem**: infinite loop or very slow execution
+- **Action**: needs further investigation
 
-## 다음 단계
+## Next Steps
 
-1. 남은 실패한 테스트들 분석 및 수정
-2. `reconciler-text-vnode.test.ts`의 DOM 렌더링 문제 해결
-3. `reconciler-prevvnode-nextvnode.test.ts`의 `data-bc-stype` 속성 문제 해결
-4. `reconciler-advanced-cases.test.ts` 성능 문제 해결
-
+1. Analyze and fix remaining failing tests
+2. Fix DOM rendering issue in `reconciler-text-vnode.test.ts`
+3. Fix `data-bc-stype` attribute issue in `reconciler-prevvnode-nextvnode.test.ts`
+4. Fix performance issue in `reconciler-advanced-cases.test.ts`

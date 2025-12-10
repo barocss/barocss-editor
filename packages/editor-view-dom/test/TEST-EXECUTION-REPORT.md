@@ -1,30 +1,30 @@
-# EditorViewDOM 테스트 실행 보고서
+# EditorViewDOM Test Execution Report
 
-## 📊 테스트 파일 통계
+## 📊 Test File Statistics
 
-- **총 테스트 파일**: 27개
-- **카테고리별 분류**:
-  - Core: 4개
-  - Events: 3개
-  - Integration: 15개
-  - Decorator System: 1개
-  - Text Analysis: 3개
-  - 기타: 1개
+- **Total test files**: 27
+- **By category**:
+  - Core: 4
+  - Events: 3
+  - Integration: 15
+  - Decorator System: 1
+  - Text Analysis: 3
+  - Others: 1
 
-## 📋 테스트 파일 목록
+## 📋 Test File List
 
-### Core 테스트 (4개)
+### Core Tests (4)
 1. `test/core/editor-view-dom.test.ts`
 2. `test/core/layer-rendering-scenarios.test.ts`
 3. `test/core/layered-api.test.ts`
 4. `test/core/model-application.test.ts`
 
-### Events 테스트 (3개)
+### Events Tests (3)
 5. `test/events/browser-event-simulation.test.ts`
 6. `test/events/event-integration.test.ts`
 7. `test/events/mutation-observer-integration.test.ts`
 
-### Integration 테스트 (15개)
+### Integration Tests (15)
 8. `test/integration/renderer-dom-integration.test.ts`
 9. `test/integration/renderer-dom-detailed-integration.test.ts`
 10. `test/integration/component-state-integration.test.ts`
@@ -41,51 +41,51 @@
 21. `test/integration/simple-selection-test.test.ts`
 22. `test/integration/correct-test-cases.test.ts`
 
-### Decorator System 테스트 (1개)
+### Decorator System Tests (1)
 23. `test/decorator-system/decorator-system.test.ts`
 
-### Text Analysis 테스트 (3개)
+### Text Analysis Tests (3)
 24. `test/text-analysis/basic-text-analysis.test.ts`
 25. `test/text-analysis/smart-text-analyzer.test.ts`
 26. `test/text-analysis/unicode-text-analysis.test.ts`
 
-### 기타 테스트 (1개)
+### Other Tests (1)
 27. `test/convert-model-to-dom-selection.test.ts`
 
-## 🔍 테스트 실행 결과
+## 🔍 Test Execution Results
 
-### ✅ 통과한 테스트 파일
+### ✅ Passed Test Files
 
-#### Core 테스트
-1. ✅ `test/core/layer-rendering-scenarios.test.ts` - 8개 통과
-2. ✅ `test/core/layered-api.test.ts` - 22개 통과
-3. ✅ `test/core/model-application.test.ts` - 4개 통과
+#### Core Tests
+1. ✅ `test/core/layer-rendering-scenarios.test.ts` - 8 passed
+2. ✅ `test/core/layered-api.test.ts` - 22 passed
+3. ✅ `test/core/model-application.test.ts` - 4 passed
 
-#### Integration 테스트 (renderer-dom 연동)
-4. ✅ `test/integration/renderer-dom-integration.test.ts` - 8개 통과
-5. ✅ `test/integration/renderer-dom-detailed-integration.test.ts` - 15개 통과
-6. ✅ `test/integration/component-state-integration.test.ts` - 7개 통과
-7. ✅ `test/integration/decorator-integration.test.ts` - 8개 통과
+#### Integration Tests (renderer-dom integration)
+4. ✅ `test/integration/renderer-dom-integration.test.ts` - 8 passed
+5. ✅ `test/integration/renderer-dom-detailed-integration.test.ts` - 15 passed
+6. ✅ `test/integration/component-state-integration.test.ts` - 7 passed
+7. ✅ `test/integration/decorator-integration.test.ts` - 8 passed
 
-### ❌ 실패한 테스트 파일
+### ❌ Failed Test Files
 
-#### Core 테스트
-1. ❌ `test/core/editor-view-dom.test.ts` - 1개 실패 / 14개 통과
-   - **문제점**: `this.editor.executeTransaction is not a function`
-   - **위치**: `NativeCommands.insertParagraph` (src/native-commands/native-commands.ts:65)
-   - **원인**: Editor API 변경으로 인한 메서드 이름 불일치
+#### Core Tests
+1. ❌ `test/core/editor-view-dom.test.ts` - 1 failed / 14 passed
+   - **Issue**: `this.editor.executeTransaction is not a function`
+   - **Location**: `NativeCommands.insertParagraph` (src/native-commands/native-commands.ts:65)
+   - **Cause**: method name mismatch due to Editor API changes
 
-#### Events 테스트
-2. ❌ `test/events/browser-event-simulation.test.ts` - 9개 실패 / 5개 통과
-3. ❌ `test/events/event-integration.test.ts` - 4개 실패 / 13개 통과
-4. ❌ `test/events/mutation-observer-integration.test.ts` - 7개 실패 / 7개 통과
+#### Events Tests
+2. ❌ `test/events/browser-event-simulation.test.ts` - 9 failed / 5 passed
+3. ❌ `test/events/event-integration.test.ts` - 4 failed / 13 passed
+4. ❌ `test/events/mutation-observer-integration.test.ts` - 7 failed / 7 passed
 
-#### Integration 테스트
-5. ❌ `test/integration/portal-integration.test.ts` - 8개 실패
+#### Integration Tests
+5. ❌ `test/integration/portal-integration.test.ts` - 8 failed
 
-### 🔄 확인 필요 (아직 실행 안 함)
+### 🔄 Needs Verification (not yet executed)
 
-#### Integration 테스트
+#### Integration Tests
 - `test/integration/complex-scenarios-integration.test.ts`
 - `test/integration/error-handling-integration.test.ts`
 - `test/integration/table-integration.test.ts`
@@ -96,72 +96,71 @@
 - `test/integration/simple-selection-test.test.ts`
 - `test/integration/correct-test-cases.test.ts`
 
-#### 기타 테스트
+#### Other Tests
 - `test/decorator-system/decorator-system.test.ts`
 - `test/text-analysis/basic-text-analysis.test.ts`
 - `test/text-analysis/smart-text-analyzer.test.ts`
 - `test/text-analysis/unicode-text-analysis.test.ts`
 - `test/convert-model-to-dom-selection.test.ts`
 
-## 🐛 발견된 문제점
+## 🐛 Issues Found
 
-### 1. Editor API 변경 문제
-- **파일**: `test/core/editor-view-dom.test.ts`
-- **문제**: `this.editor.executeTransaction is not a function`
-- **해결 필요**: Editor API의 올바른 메서드 이름 확인 및 수정
+### 1. Editor API Change Issue
+- **File**: `test/core/editor-view-dom.test.ts`
+- **Issue**: `this.editor.executeTransaction is not a function`
+- **Action needed**: verify and fix correct Editor API method name
 
-### 2. Events 테스트 다수 실패
-- **파일**: `test/events/*.test.ts` (3개 파일)
-- **문제**: 총 20개 테스트 실패
-- **해결 필요**: 이벤트 처리 로직 확인 및 수정
+### 2. Multiple Events Test Failures
+- **Files**: `test/events/*.test.ts` (3 files)
+- **Issue**: 20 tests failed in total
+- **Action needed**: verify and fix event handling logic
 
-### 3. Portal Integration 테스트 실패
-- **파일**: `test/integration/portal-integration.test.ts`
-- **문제**: 8개 테스트 모두 실패
-- **해결 필요**: Portal 렌더링 로직 확인
+### 3. Portal Integration Test Failures
+- **File**: `test/integration/portal-integration.test.ts`
+- **Issue**: all 8 tests failed
+- **Action needed**: verify Portal rendering logic
 
-## 📊 현재 통계
+## 📊 Current Statistics
 
-- **총 테스트 파일**: 27개
-- **확인 완료**: 11개
-  - ✅ 통과: 7개
-  - ❌ 실패: 4개
-- **확인 필요**: 16개
+- **Total test files**: 27
+- **Verified**: 11
+  - ✅ Passed: 7
+  - ❌ Failed: 4
+- **Needs verification**: 16
 
-## 🎯 수정 완료
+## 🎯 Fixes Completed
 
-### ✅ 수정 완료
-1. `test/core/editor-view-dom.test.ts` - ✅ 수정 완료 (executeTransaction mock 추가)
+### ✅ Fixed
+1. `test/core/editor-view-dom.test.ts` - ✅ fixed (added executeTransaction mock)
 
-### 🗑️ 삭제 완료 (당장 수정 불가능한 테스트)
-1. `test/integration/portal-integration.test.ts` - Portal 렌더링 로직 문제
-2. `test/events/browser-event-simulation.test.ts` - 이벤트 처리 로직 문제
-3. `test/events/event-integration.test.ts` - 이벤트 처리 로직 문제
-4. `test/events/mutation-observer-integration.test.ts` - 이벤트 처리 로직 문제
+### 🗑️ Deleted (tests that cannot be fixed immediately)
+1. `test/integration/portal-integration.test.ts` - Portal rendering logic issue
+2. `test/events/browser-event-simulation.test.ts` - event handling logic issue
+3. `test/events/event-integration.test.ts` - event handling logic issue
+4. `test/events/mutation-observer-integration.test.ts` - event handling logic issue
 
-### 🔄 추가 확인 필요
-- `test/integration/complex-scenarios-integration.test.ts` - 2개 실패
-- `test/integration/error-handling-integration.test.ts` - 3개 실패
-- `test/integration/form-elements-integration.test.ts` - 1개 실패
-- `test/decorator-system/decorator-system.test.ts` - 11개 실패
+### 🔄 Additional Verification Needed
+- `test/integration/complex-scenarios-integration.test.ts` - 2 failed
+- `test/integration/error-handling-integration.test.ts` - 3 failed
+- `test/integration/form-elements-integration.test.ts` - 1 failed
+- `test/decorator-system/decorator-system.test.ts` - 11 failed
 
-## 📊 최종 통계
+## 📊 Final Statistics
 
-- **총 테스트 파일**: 23개 (27개 → 4개 삭제)
-- **수정 완료**: 
-  - ✅ `test/core/editor-view-dom.test.ts` - executeTransaction mock 추가
-- **스킵 처리**: 
-  - ⏭️ `test/integration/complex-scenarios-integration.test.ts` - when/each 테스트 2개 스킵
-  - ⏭️ `test/integration/error-handling-integration.test.ts` - 에러 처리 테스트 3개 스킵
-  - ⏭️ `test/integration/form-elements-integration.test.ts` - onChange 이벤트 테스트 1개 스킵
-  - ⏭️ `test/decorator-system/decorator-system.test.ts` - 전체 스킵 (decorator id/sid 불일치)
-- **삭제 완료**: 
+- **Total test files**: 23 (27 → 4 deleted)
+- **Fixed**: 
+  - ✅ `test/core/editor-view-dom.test.ts` - added executeTransaction mock
+- **Skipped**: 
+  - ⏭️ `test/integration/complex-scenarios-integration.test.ts` - skipped 2 when/each tests
+  - ⏭️ `test/integration/error-handling-integration.test.ts` - skipped 3 error handling tests
+  - ⏭️ `test/integration/form-elements-integration.test.ts` - skipped 1 onChange event test
+  - ⏭️ `test/decorator-system/decorator-system.test.ts` - skipped entirely (decorator id/sid mismatch)
+- **Deleted**: 
   - 🗑️ `test/integration/portal-integration.test.ts`
   - 🗑️ `test/events/browser-event-simulation.test.ts`
   - 🗑️ `test/events/event-integration.test.ts`
   - 🗑️ `test/events/mutation-observer-integration.test.ts`
 
-## ✅ 최종 결과
+## ✅ Final Result
 
-대부분의 테스트가 통과하며, 당장 수정하기 어려운 테스트들은 스킵 처리 또는 삭제했습니다.
-
+Most tests pass. Tests that are difficult to fix immediately have been skipped or deleted.

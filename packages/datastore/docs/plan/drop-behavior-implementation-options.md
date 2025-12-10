@@ -1,17 +1,17 @@
-# Drop Behavior 구현 옵션 비교
+# Drop Behavior Implementation Options Comparison
 
-## 개요
+## Overview
 
-이 문서는 Drop Behavior를 정의하는 다양한 방법을 비교하고, 다른 에디터들의 접근 방식을 분석합니다.
+This document compares various methods for defining Drop Behavior and analyzes approaches from other editors.
 
 ---
 
-## 1. 구현 방법 비교
+## 1. Implementation Method Comparison
 
-### 방법 1: 스키마 기반 정의 (Static)
+### Method 1: Schema-based Definition (Static)
 
 ```typescript
-// 스키마에 직접 정의
+// Define directly in schema
 const schema = new Schema('example', {
   nodes: {
     'paragraph': {
@@ -26,24 +26,24 @@ const schema = new Schema('example', {
 });
 ```
 
-**장점:**
-- 명시적이고 직관적
-- 스키마와 함께 관리되어 일관성 유지
-- 타입 안정성
+**Advantages:**
+- Explicit and intuitive
+- Managed together with schema, maintaining consistency
+- Type safety
 
-**단점:**
-- 복잡한 로직 표현이 어려움
-- 동적 결정이 제한적
-- 확장성이 낮음
+**Disadvantages:**
+- Difficult to express complex logic
+- Limited dynamic decisions
+- Low extensibility
 
-### 방법 2: 함수 기반 정의 (Dynamic) - 권장
+### Method 2: Function-based Definition (Dynamic) - Recommended
 
 ```typescript
-// defineDropBehavior 패턴
+// defineDropBehavior pattern
 defineDropBehavior(
   'paragraph',
   (targetNode: INode, sourceNode: INode, context: DropContext) => {
-    // 동적 로직
+    // Dynamic logic
     if (sourceNode.stype === 'inline-text') {
       return 'merge';
     }
@@ -55,20 +55,20 @@ defineDropBehavior(
 );
 ```
 
-**장점:**
-- 복잡한 로직 표현 가능
-- 동적 결정 가능
-- 컨텍스트 활용 가능
-- 확장성 높음
+**Advantages:**
+- Can express complex logic
+- Can make dynamic decisions
+- Can utilize context
+- High extensibility
 
-**단점:**
-- 스키마와 분리되어 관리
-- 타입 안정성이 낮을 수 있음
+**Disadvantages:**
+- Managed separately from schema
+- May have lower type safety
 
-### 방법 3: 하이브리드 (스키마 + 함수)
+### Method 3: Hybrid (Schema + Function)
 
 ```typescript
-// 스키마에 함수 참조
+// Function reference in schema
 const schema = new Schema('example', {
   nodes: {
     'paragraph': {
@@ -81,78 +81,78 @@ const schema = new Schema('example', {
 });
 ```
 
-**장점:**
-- 스키마와 함수의 장점 결합
-- 명시적이면서도 유연함
+**Advantages:**
+- Combines advantages of schema and function
+- Explicit yet flexible
 
-**단점:**
-- 구현 복잡도 증가
+**Disadvantages:**
+- Increased implementation complexity
 
 ---
 
-## 2. 다른 에디터들의 접근 방식
+## 2. Approaches from Other Editors
 
 ### 2.1 ProseMirror
 
-**방식**: 플러그인 기반 + 스키마 규칙
+**Approach**: Plugin-based + schema rules
 
 ```typescript
-// ProseMirror는 플러그인으로 드롭 행위 정의
+// ProseMirror defines drop behavior via plugins
 const dropBehaviorPlugin = new Plugin({
   props: {
     handleDrop(view, event, slice, moved) {
-      // 드롭 행위 결정 및 실행
+      // Determine and execute drop behavior
       if (moved) {
-        // 이동
+        // Move
       } else {
-        // 복사
+        // Copy
       }
     }
   }
 });
 ```
 
-**특징:**
-- 플러그인 시스템 활용
-- 스키마의 `content` 정의 기반으로 기본 규칙 적용
-- 커스텀 드롭 행위는 플러그인에서 처리
+**Characteristics:**
+- Utilizes plugin system
+- Applies basic rules based on schema's `content` definition
+- Custom drop behavior handled in plugins
 
 ### 2.2 Slate.js
 
-**방식**: 핸들러 함수 기반
+**Approach**: Handler function-based
 
 ```typescript
-// Slate.js는 핸들러 함수로 드롭 행위 정의
+// Slate.js defines drop behavior via handler functions
 const editor = {
   // ...
   handlers: {
     onDrop: (event, editor) => {
-      // 드롭 행위 결정 및 실행
+      // Determine and execute drop behavior
       if (event.dataTransfer.effectAllowed === 'copy') {
-        // 복사
+        // Copy
       } else {
-        // 이동
+        // Move
       }
     }
   }
 };
 ```
 
-**특징:**
-- 핸들러 함수 기반
-- 이벤트 기반 처리
-- 유연하지만 일관성 유지가 어려울 수 있음
+**Characteristics:**
+- Handler function-based
+- Event-based processing
+- Flexible but may be difficult to maintain consistency
 
 ### 2.3 TinyMCE
 
-**방식**: 설정 기반 + 플러그인
+**Approach**: Configuration-based + plugins
 
 ```typescript
-// TinyMCE는 설정과 플러그인으로 드롭 행위 정의
+// TinyMCE defines drop behavior via configuration and plugins
 tinymce.init({
   plugins: 'dragdrop',
   dragdrop_config: {
-    behavior: 'move', // 또는 'copy'
+    behavior: 'move', // or 'copy'
     rules: {
       'paragraph': { 'image': 'copy', '*': 'move' }
     }
@@ -160,45 +160,45 @@ tinymce.init({
 });
 ```
 
-**특징:**
-- 설정 기반 기본 동작
-- 플러그인으로 확장
-- 규칙 기반 매칭
+**Characteristics:**
+- Configuration-based default behavior
+- Extensible via plugins
+- Rule-based matching
 
 ### 2.4 Draft.js
 
-**방식**: 핸들러 함수 기반
+**Approach**: Handler function-based
 
 ```typescript
-// Draft.js는 핸들러 함수로 드롭 행위 정의
+// Draft.js defines drop behavior via handler functions
 const editor = {
   handleDrop: (selection, dataTransfer) => {
-    // 드롭 행위 결정 및 실행
+    // Determine and execute drop behavior
     // ...
   }
 };
 ```
 
-**특징:**
-- 핸들러 함수 기반
-- 이벤트 기반 처리
+**Characteristics:**
+- Handler function-based
+- Event-based processing
 
 ---
 
-## 3. 권장 구현 방식
+## 3. Recommended Implementation Approach
 
-### 3.1 defineDropBehavior 패턴 (권장)
+### 3.1 defineDropBehavior Pattern (Recommended)
 
-기존 `defineOperation` 패턴과 일관성을 유지하면서 Drop Behavior를 정의합니다.
+Defines Drop Behavior while maintaining consistency with existing `defineOperation` pattern.
 
 ```typescript
-// Drop Behavior 정의 인터페이스
+// Drop Behavior definition interface
 export interface DropBehaviorDefinition {
-  targetType: string | string[];  // 타겟 노드 타입
-  sourceType?: string | string[]; // 소스 노드 타입 (선택적, 없으면 모든 소스)
+  targetType: string | string[];  // Target node type
+  sourceType?: string | string[]; // Source node type (optional, all sources if not provided)
   behavior: DropBehavior | 
     ((targetNode: INode, sourceNode: INode, context: DropContext) => DropBehavior);
-  priority?: number; // 우선순위
+  priority?: number; // Priority
 }
 
 // Global Drop Behavior Registry
@@ -215,7 +215,7 @@ class GlobalDropBehaviorRegistry {
         this.behaviors.set(targetType, []);
       }
       this.behaviors.get(targetType)!.push(definition);
-      // priority로 정렬
+      // Sort by priority
       this.behaviors.get(targetType)!.sort((a, b) => 
         (b.priority || 0) - (a.priority || 0)
       );
@@ -225,7 +225,7 @@ class GlobalDropBehaviorRegistry {
   get(targetType: string, sourceType: string): DropBehaviorDefinition | undefined {
     const behaviors = this.behaviors.get(targetType) || [];
     return behaviors.find(b => {
-      if (!b.sourceType) return true; // 와일드카드
+      if (!b.sourceType) return true; // Wildcard
       const sourceTypes = Array.isArray(b.sourceType) ? b.sourceType : [b.sourceType];
       return sourceTypes.includes(sourceType) || sourceTypes.includes('*');
     });
@@ -234,7 +234,7 @@ class GlobalDropBehaviorRegistry {
 
 export const globalDropBehaviorRegistry = new GlobalDropBehaviorRegistry();
 
-// Drop Behavior 정의 함수
+// Drop Behavior definition function
 export function defineDropBehavior(
   targetType: string | string[],
   behavior: DropBehavior | 
@@ -253,13 +253,13 @@ export function defineDropBehavior(
 }
 ```
 
-### 3.2 사용 예시
+### 3.2 Usage Examples
 
 ```typescript
-// 기본 드롭 행위 정의
+// Define basic drop behavior
 defineDropBehavior('paragraph', 'move');
 
-// 소스 타입별 드롭 행위 정의
+// Define drop behavior per source type
 defineDropBehavior(
   'paragraph',
   (target, source, context) => {
@@ -274,14 +274,14 @@ defineDropBehavior(
   { priority: 100 }
 );
 
-// 특정 소스 타입에 대한 규칙
+// Rule for specific source type
 defineDropBehavior(
   'paragraph',
   'merge',
   { sourceType: 'inline-text', priority: 200 }
 );
 
-// 여러 타겟 타입에 대한 규칙
+// Rules for multiple target types
 defineDropBehavior(
   ['paragraph', 'heading'],
   'move',
@@ -289,10 +289,10 @@ defineDropBehavior(
 );
 ```
 
-### 3.3 DataStore 통합
+### 3.3 DataStore Integration
 
 ```typescript
-// DataStore에서 사용
+// Use in DataStore
 getDropBehavior(
   targetNodeId: string,
   sourceNodeId: string,
@@ -305,12 +305,12 @@ getDropBehavior(
     return 'move';
   }
   
-  // 1. UI 컨텍스트 확인 (최우선)
+  // 1. Check UI context (highest priority)
   if (context?.modifiers?.ctrlKey || context?.modifiers?.metaKey) {
     return 'copy';
   }
   
-  // 2. 등록된 Drop Behavior 확인
+  // 2. Check registered Drop Behavior
   const definition = globalDropBehaviorRegistry.get(
     targetNode.stype,
     sourceNode.stype
@@ -323,7 +323,7 @@ getDropBehavior(
     return definition.behavior;
   }
   
-  // 3. 스키마의 dropBehaviorRules 확인
+  // 3. Check schema's dropBehaviorRules
   const schema = this.getActiveSchema();
   if (schema) {
     const targetType = schema.getNodeType(targetNode.stype);
@@ -341,72 +341,72 @@ getDropBehavior(
     }
   }
   
-  // 4. 타입 조합 기본 규칙
+  // 4. Type combination basic rules
   if (targetNode.text && sourceNode.text) {
     return 'merge';
   }
   
-  // 5. 기본값
+  // 5. Default
   return 'move';
 }
 ```
 
 ---
 
-## 4. 비교표
+## 4. Comparison Table
 
-| 방법 | 명시성 | 유연성 | 확장성 | 일관성 | 복잡도 |
-|------|--------|--------|--------|--------|--------|
-| 스키마 기반 | 높음 | 낮음 | 낮음 | 높음 | 낮음 |
-| 함수 기반 | 중간 | 높음 | 높음 | 중간 | 중간 |
-| 하이브리드 | 높음 | 높음 | 높음 | 높음 | 높음 |
+| Method | Explicitness | Flexibility | Extensibility | Consistency | Complexity |
+|--------|--------------|-------------|---------------|-------------|------------|
+| Schema-based | High | Low | Low | High | Low |
+| Function-based | Medium | High | High | Medium | Medium |
+| Hybrid | High | High | High | High | High |
 
 ---
 
-## 5. 최종 권장사항
+## 5. Final Recommendations
 
-### 5.1 계층적 접근
+### 5.1 Hierarchical Approach
 
-1. **기본 규칙**: 스키마의 `dropBehaviorRules` (명시적, 간단한 규칙)
-2. **복잡한 규칙**: `defineDropBehavior` 함수 (동적, 복잡한 로직)
-3. **UI 컨텍스트**: 최우선 적용 (Ctrl/Cmd 키 등)
+1. **Basic rules**: Schema's `dropBehaviorRules` (explicit, simple rules)
+2. **Complex rules**: `defineDropBehavior` function (dynamic, complex logic)
+3. **UI context**: Applied with highest priority (Ctrl/Cmd keys, etc.)
 
-### 5.2 구현 순서
+### 5.2 Implementation Order
 
-1. 스키마에 `dropBehaviorRules` 추가 (간단한 규칙)
-2. `defineDropBehavior` 함수 구현 (복잡한 규칙)
-3. DataStore에 `getDropBehavior` API 추가
-4. UI Layer에서 컨텍스트 전달
+1. Add `dropBehaviorRules` to schema (simple rules)
+2. Implement `defineDropBehavior` function (complex rules)
+3. Add `getDropBehavior` API to DataStore
+4. Pass context from UI Layer
 
-### 5.3 예시 구조
+### 5.3 Example Structure
 
 ```typescript
-// 1. 스키마에 기본 규칙 정의
+// 1. Define basic rules in schema
 const schema = new Schema('example', {
   nodes: {
     'paragraph': {
       dropBehaviorRules: {
-        'inline-text': 'merge',  // 간단한 규칙
+        'inline-text': 'merge',  // Simple rule
         '*': 'move'
       }
     }
   }
 });
 
-// 2. 복잡한 규칙은 함수로 정의
+// 2. Define complex rules as functions
 defineDropBehavior(
   'paragraph',
   (target, source, context) => {
-    // 복잡한 로직
+    // Complex logic
     if (source.attributes?.locked && !context.modifiers?.shiftKey) {
-      return 'copy'; // 잠긴 노드는 복사만 가능
+      return 'copy'; // Locked nodes can only be copied
     }
     // ...
   },
   { priority: 100 }
 );
 
-// 3. DataStore에서 사용
+// 3. Use in DataStore
 const behavior = dataStore.getDropBehavior(
   targetNodeId,
   sourceNodeId,
@@ -416,10 +416,9 @@ const behavior = dataStore.getDropBehavior(
 
 ---
 
-## 6. 참고 자료
+## 6. References
 
-- `packages/model/src/operations/define-operation.ts`: Operation 정의 패턴
-- ProseMirror: 플러그인 기반 드롭 처리
-- Slate.js: 핸들러 함수 기반 드롭 처리
-- TinyMCE: 설정 기반 드롭 처리
-
+- `packages/model/src/operations/define-operation.ts`: Operation definition pattern
+- ProseMirror: Plugin-based drop handling
+- Slate.js: Handler function-based drop handling
+- TinyMCE: Configuration-based drop handling

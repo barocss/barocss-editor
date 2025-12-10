@@ -1,19 +1,19 @@
-# 동기 모드 테스트 결과
+# Sync Mode Test Results
 
-## 구현 완료
+## Implementation Complete
 
-### 1. 동기 모드 구현
-- ✅ FiberScheduler에 동기 모드 추가
-- ✅ 테스트 환경 자동 감지 (`test/setup.ts` 추가)
-- ✅ `vitest.config.ts`에 setupFiles 설정
+### 1. Sync Mode Implementation
+- ✅ Added sync mode to FiberScheduler
+- ✅ Automatic test environment detection (`test/setup.ts` added)
+- ✅ setupFiles configured in `vitest.config.ts`
 
-### 2. `waitForFiber()` 제거
-- ✅ 모든 테스트 파일에서 `waitForFiber()` 제거
-- ✅ `async/await` 제거 (동기 모드이므로 불필요)
+### 2. `waitForFiber()` Removal
+- ✅ Removed `waitForFiber()` from all test files
+- ✅ Removed `async/await` (unnecessary in sync mode)
 
-## 테스트 결과 (동기 모드)
+## Test Results (Sync Mode)
 
-### ✅ 통과한 테스트
+### ✅ Passing Tests
 
 1. **reconciler-component-updatebysid.test.ts** - ✅ 3 passed
 2. **reconciler-update-flow.test.ts** - ✅ 8 passed
@@ -22,47 +22,46 @@
 5. **reconciler-selection-preservation.test.ts** - ✅ 2 passed
 6. **reconcile-root-basic.test.ts** - ✅ 2 passed
 
-**총 통과**: 113 tests
+**Total passing**: 113 tests
 
-### ❌ 실패한 테스트
+### ❌ Failing Tests
 
 1. **reconciler-text-vnode.test.ts** - ❌ 4 failed
-   - DOM 요소가 렌더링되지 않음
-   - `reconciler.reconcile()` 직접 호출 시 문제 가능
+   - DOM elements not rendered
+   - Possible issue when calling `reconciler.reconcile()` directly
 
 2. **reconciler-selection-pool.behavior.test.ts** - ❌ 1 failed, 1 passed
-   - Selection 노드 재사용 로직 문제
+   - Selection node reuse logic issue
 
 3. **reconciler-prevvnode-nextvnode.test.ts** - ❌ 13 failed, 2 passed
-   - `data-bc-stype` 속성이 렌더링되지 않음
-   - 로직 문제 (동기 모드와 무관)
+   - `data-bc-stype` attribute not rendered
+   - Logic issue (unrelated to sync mode)
 
 4. **reconciler-mark-wrapper-reuse.test.ts** - ❌ 3 failed, 5 passed
-   - Mark wrapper 재사용 로직 문제
+   - Mark wrapper reuse logic issue
 
 5. **reconciler-component-state-integration.test.ts** - ❌ no tests
-   - 테스트 파일에 문제 있음 (컴파일 에러 가능)
+   - Test file has issues (possible compile error)
 
 6. **reconciler-lifecycle.test.ts** - ❌ no tests
-   - 테스트 파일에 문제 있음 (컴파일 에러 가능)
+   - Test file has issues (possible compile error)
 
-7. **reconciler-performance.test.ts** - ⏸️ 확인 필요
-   - 실행 시간이 오래 걸림
+7. **reconciler-performance.test.ts** - ⏸️ needs verification
+   - Takes long to run
 
-## 요약
+## Summary
 
-### 성공
-- ✅ 동기 모드 구현 완료
-- ✅ `waitForFiber()` 완전 제거
-- ✅ 113개 테스트 통과
+### Success
+- ✅ Sync mode implementation complete
+- ✅ `waitForFiber()` completely removed
+- ✅ 113 tests passing
 
-### 남은 문제
-- ❌ 21개 테스트 실패 (로직 문제, 동기 모드와 무관)
-- ❌ 2개 테스트 파일 컴파일 에러
+### Remaining Issues
+- ❌ 21 tests failing (logic issues, unrelated to sync mode)
+- ❌ 2 test files with compile errors
 
-## 다음 단계
+## Next Steps
 
-1. 실패한 테스트들의 로직 문제 해결
-2. 컴파일 에러 수정
-3. `reconciler-performance.test.ts` 확인
-
+1. Fix logic issues in failing tests
+2. Fix compile errors
+3. Verify `reconciler-performance.test.ts`

@@ -1,274 +1,274 @@
-ㅗ 이# Draggable Node 명세
+# Draggable Node Specification
 
-## 개요
+## Overview
 
-이 문서는 "Draggable Node"의 정의, 용도, 판단 기준을 명확히 정의합니다.
-
----
-
-## 1. Draggable Node란?
-
-**Draggable Node**는 **드래그 앤 드롭으로 이동 가능한 노드**입니다. 즉, 사용자가 마우스로 노드를 드래그하여 다른 위치로 이동시킬 수 있는 노드입니다.
-
-### 핵심 개념
-
-- **드래그 앤 드롭 가능**: 사용자가 노드를 드래그하여 다른 위치로 이동 가능
-- **노드 이동**: `moveNode` operation을 통해 노드의 부모나 위치 변경
-- **편집 명령과는 독립적**: Editable Node, Selectable Node와는 별개 개념
-
-### 중요한 구분: Editable vs Selectable vs Draggable
-
-#### Editable Node (커서로 탐색 가능)
-- **텍스트 노드**: `.text` 필드가 있는 노드
-- **Inline 노드**: `group: 'inline'`인 노드
-- **Editable Block**: `group: 'block'` + `editable: true` + `.text` 필드 있음
-- **특징**: Backspace/Delete/화살표 키로 탐색 가능
-
-#### Selectable Node (클릭으로 선택 가능)
-- **Block 노드**: paragraph, heading, table 등
-- **Inline 노드**: inline-image, inline-link 등
-- **텍스트 노드**: inline-text 등
-- **특징**: 클릭하면 Node Selection 또는 Range Selection으로 선택 가능
-
-#### Draggable Node (드래그로 이동 가능)
-- **Block 노드**: paragraph, heading, table 등 (기본적으로 드래그 가능)
-- **Inline 노드**: inline-image, inline-link 등 (기본적으로 드래그 가능)
-- **텍스트 노드**: inline-text 등 (기본적으로 드래그 가능)
-- **특징**: 
-  - 드래그 앤 드롭으로 노드 이동 가능
-  - `draggable: false`로 명시하면 드래그 불가능
-  - Editable Node, Selectable Node와는 별개 (드래그 가능하지만 선택 불가능할 수 있음)
+This document clearly defines the definition, purpose, and criteria for "Draggable Node".
 
 ---
 
-## 2. Draggable Node 판단 기준
+## 1. What is a Draggable Node?
 
-### 2.1 우선순위 기반 판단
+**Draggable Node** is a **node that can be moved via drag and drop**. That is, a node that users can drag with mouse to move to a different location.
 
-`_isDraggableNode(nodeId)` 함수는 다음 순서로 판단합니다:
+### Core Concepts
 
-#### 1단계: 스키마 Group 확인 (최우선)
+- **Drag and drop possible**: Users can drag node to move to different location
+- **Node movement**: Change node's parent or position via `moveNode` operation
+- **Independent of edit commands**: Separate concept from Editable Node, Selectable Node
+
+### Important Distinction: Editable vs Selectable vs Draggable
+
+#### Editable Node (navigable with cursor)
+- **Text node**: Node with `.text` field
+- **Inline node**: Node with `group: 'inline'`
+- **Editable Block**: `group: 'block'` + `editable: true` + has `.text` field
+- **Characteristics**: Navigable with Backspace/Delete/arrow keys
+
+#### Selectable Node (selectable by clicking)
+- **Block node**: paragraph, heading, table, etc.
+- **Inline node**: inline-image, inline-link, etc.
+- **Text node**: inline-text, etc.
+- **Characteristics**: Can be selected as Node Selection or Range Selection when clicked
+
+#### Draggable Node (movable by dragging)
+- **Block node**: paragraph, heading, table, etc. (draggable by default)
+- **Inline node**: inline-image, inline-link, etc. (draggable by default)
+- **Text node**: inline-text, etc. (draggable by default)
+- **Characteristics**: 
+  - Can move node via drag and drop
+  - Not draggable if explicitly set to `draggable: false`
+  - Separate from Editable Node, Selectable Node (can be draggable but not selectable)
+
+---
+
+## 2. Draggable Node Criteria
+
+### 2.1 Priority-Based Determination
+
+The `_isDraggableNode(nodeId)` function determines in the following order:
+
+#### Step 1: Check Schema Group (Highest Priority)
 
 ```typescript
-// 스키마에서 노드 타입의 group 확인
+// Check node type's group from schema
 const nodeType = schema.getNodeType(node.stype);
 const group = nodeType?.group;
 
-// document 노드는 항상 드래그 불가능
+// document node is always not draggable
 if (group === 'document') {
   return false;
 }
 
-// draggable 속성이 명시적으로 false이면 드래그 불가능
+// If draggable attribute is explicitly false, not draggable
 if (nodeType.draggable === false) {
   return false;
 }
 
-// 그 외의 경우는 드래그 가능 (기본값 true)
+// Otherwise draggable (default true)
 return true;
 ```
 
-**예시:**
-- `paragraph` (group: 'block') → **드래그 가능**
-- `inline-image` (group: 'inline') → **드래그 가능**
-- `inline-text` (group: 'inline') → **드래그 가능**
-- `document` (group: 'document') → **드래그 불가능**
-- `fixedBlock` (group: 'block', draggable: false) → **드래그 불가능**
+**Examples:**
+- `paragraph` (group: 'block') → **Draggable**
+- `inline-image` (group: 'inline') → **Draggable**
+- `inline-text` (group: 'inline') → **Draggable**
+- `document` (group: 'document') → **Not draggable**
+- `fixedBlock` (group: 'block', draggable: false) → **Not draggable**
 
-#### 2단계: stype 확인 (폴백)
+#### Step 2: Check stype (Fallback)
 
 ```typescript
-// stype이 'document'이면 드래그 불가능
+// If stype is 'document', not draggable
 if (node.stype === 'document') {
   return false;
 }
 ```
 
-#### 3단계: 기본값 (안전하게 true)
+#### Step 3: Default (Safely true)
 
 ```typescript
-// 그 외의 경우는 드래그 가능 (안전하게 true)
+// Otherwise draggable (safely true)
 return true;
 ```
 
 ---
 
-## 3. Draggable Node의 종류
+## 3. Types of Draggable Nodes
 
-### 3.1 Block 노드
+### 3.1 Block Node
 
-**판단 기준:**
-- `group: 'block'` (스키마에서 확인)
-- `draggable: false`가 아니면 드래그 가능
+**Criteria:**
+- `group: 'block'` (checked from schema)
+- Draggable if not `draggable: false`
 
-**특징:**
-- 드래그 앤 드롭으로 다른 위치로 이동 가능
-- Block 전체가 이동됨 (내부 노드 포함)
-- Editable Node가 아님 (편집 명령으로 탐색 불가능)
+**Characteristics:**
+- Can move to different location via drag and drop
+- Entire block moves (including internal nodes)
+- Not Editable Node (not navigable with edit commands)
 
-**예시:**
+**Example:**
 ```typescript
 {
   stype: 'paragraph',
   content: ['text-1', 'text-2']
-  // 스키마 정의: { group: 'block' }
+  // Schema definition: { group: 'block' }
 }
-// 사용자가 paragraph를 드래그하면:
+// When user drags paragraph:
 // moveNode({ nodeId: 'paragraph-1', newParentId: 'document', position: 2 })
 ```
 
-**사용 케이스:**
-- Block 순서 변경
-- Block을 다른 부모로 이동
-- Block 복사 및 이동
+**Use cases:**
+- Change block order
+- Move block to different parent
+- Copy and move block
 
-### 3.2 Inline Atom 노드
+### 3.2 Inline Atom Node
 
-**판단 기준:**
-- `group: 'inline'` (스키마에서 확인)
-- `atom: true` (스키마에서 확인)
-- `.text` 필드 없음
-- `draggable: false`가 아니면 드래그 가능
+**Criteria:**
+- `group: 'inline'` (checked from schema)
+- `atom: true` (checked from schema)
+- No `.text` field
+- Draggable if not `draggable: false`
 
-**특징:**
-- 드래그 앤 드롭으로 다른 위치로 이동 가능
-- 노드 전체가 이동됨 (offset 없음)
-- Editable Node임 (편집 명령으로 탐색 가능)
+**Characteristics:**
+- Can move to different location via drag and drop
+- Entire node moves (no offset)
+- Is Editable Node (navigable with edit commands)
 
-**예시:**
+**Example:**
 ```typescript
 {
   stype: 'inline-image',
   attributes: { src: 'image.jpg', alt: 'Image' }
-  // 스키마 정의: { group: 'inline', atom: true }
+  // Schema definition: { group: 'inline', atom: true }
 }
-// 사용자가 inline-image를 드래그하면:
+// When user drags inline-image:
 // moveNode({ nodeId: 'image-1', newParentId: 'paragraph-2', position: 1 })
 ```
 
-**사용 케이스:**
-- 이미지 위치 변경
-- 이미지를 다른 paragraph로 이동
-- 이미지 복사 및 이동
+**Use cases:**
+- Change image position
+- Move image to different paragraph
+- Copy and move image
 
-### 3.3 텍스트 노드
+### 3.3 Text Node
 
-**판단 기준:**
-- `.text` 필드가 있고 `typeof node.text === 'string'`
-- `group: 'inline'` (스키마에서 확인)
-- `draggable: false`가 아니면 드래그 가능
+**Criteria:**
+- Has `.text` field and `typeof node.text === 'string'`
+- `group: 'inline'` (checked from schema)
+- Draggable if not `draggable: false`
 
-**특징:**
-- 드래그 앤 드롭으로 다른 위치로 이동 가능
-- 텍스트 노드 전체가 이동됨
-- Editable Node임 (편집 명령으로 탐색 가능)
+**Characteristics:**
+- Can move to different location via drag and drop
+- Entire text node moves
+- Is Editable Node (navigable with edit commands)
 
-**예시:**
+**Example:**
 ```typescript
 {
   stype: 'inline-text',
   text: 'Hello World'
-  // 스키마 정의: { group: 'inline' }
+  // Schema definition: { group: 'inline' }
 }
-// 사용자가 텍스트 노드를 드래그하면:
+// When user drags text node:
 // moveNode({ nodeId: 'text-1', newParentId: 'paragraph-2', position: 0 })
 ```
 
-**사용 케이스:**
-- 텍스트 노드 위치 변경
-- 텍스트를 다른 paragraph로 이동
-- 텍스트 복사 및 이동
+**Use cases:**
+- Change text node position
+- Move text to different paragraph
+- Copy and move text
 
-### 3.4 Editable Block 노드
+### 3.4 Editable Block Node
 
-**판단 기준:**
-- `group: 'block'` (스키마에서 확인)
-- `editable: true` (스키마에서 확인)
-- `.text` 필드 있음
-- `draggable: false`가 아니면 드래그 가능
+**Criteria:**
+- `group: 'block'` (checked from schema)
+- `editable: true` (checked from schema)
+- Has `.text` field
+- Draggable if not `draggable: false`
 
-**특징:**
-- 드래그 앤 드롭으로 다른 위치로 이동 가능
-- Editable Node임 (편집 명령으로 탐색 가능)
+**Characteristics:**
+- Can move to different location via drag and drop
+- Is Editable Node (navigable with edit commands)
 
-**예시:**
+**Example:**
 ```typescript
 {
   stype: 'codeBlock',
   text: 'const x = 1;'
-  // 스키마 정의: { group: 'block', editable: true }
+  // Schema definition: { group: 'block', editable: true }
 }
-// 사용자가 codeBlock을 드래그하면:
+// When user drags codeBlock:
 // moveNode({ nodeId: 'codeBlock-1', newParentId: 'document', position: 3 })
 ```
 
 ---
 
-## 4. Draggable Node가 아닌 것
+## 4. What is Not a Draggable Node
 
-### 4.1 Document 노드
+### 4.1 Document Node
 
-**특징:**
+**Characteristics:**
 - `group: 'document'`
-- 최상위 컨테이너
-- 드래그 대상이 아님
+- Top-level container
+- Not a drag target
 
-**예시:**
+**Example:**
 ```typescript
 {
   stype: 'document',
   content: ['paragraph-1', 'paragraph-2']
 }
-// document 노드는 드래그 불가능
+// document node is not draggable
 ```
 
-### 4.2 draggable: false인 노드
+### 4.2 Node with draggable: false
 
-**특징:**
-- 스키마에서 `draggable: false`로 명시
-- 드래그해도 이동되지 않음
-- 고정된 UI 요소나 시스템 노드에 사용
+**Characteristics:**
+- Explicitly set to `draggable: false` in schema
+- Does not move even when dragged
+- Used for fixed UI elements or system nodes
 
-**예시:**
+**Example:**
 ```typescript
-// 스키마 정의
+// Schema definition
 {
   'fixedBlock': {
     name: 'fixedBlock',
     group: 'block',
-    draggable: false  // 드래그 불가능
+    draggable: false  // Not draggable
   }
 }
 ```
 
 ---
 
-## 5. 사용 케이스
+## 5. Use Cases
 
-### 5.1 드래그 앤 드롭으로 노드 이동
+### 5.1 Move Node via Drag and Drop
 
-**시나리오**: 사용자가 paragraph를 드래그하여 다른 위치로 이동
+**Scenario**: User drags paragraph to move to different location
 
 ```
 Before:
 [paragraph-1: "Hello"]
 [paragraph-2: "World"]
 [paragraph-3: "Foo"]
-         ↑ 드래그
+         ↑ drag
 
 After:
 [paragraph-1: "Hello"]
 [paragraph-3: "Foo"]
-[paragraph-2: "World"]  ← 이동됨
+[paragraph-2: "World"]  ← moved
 
 Operation: moveNode({ nodeId: 'paragraph-2', newParentId: 'document', position: 2 })
 ```
 
-**동작:**
+**Behavior:**
 ```typescript
-// 사용자가 paragraph를 드래그
+// User drags paragraph
 if (dataStore.isDraggableNode('paragraph-2')) {
-  // moveNode operation 실행
+  // Execute moveNode operation
   await transaction(editor, [
     {
       type: 'moveNode',
@@ -282,28 +282,28 @@ if (dataStore.isDraggableNode('paragraph-2')) {
 }
 ```
 
-### 5.2 드래그 앤 드롭으로 이미지 이동
+### 5.2 Move Image via Drag and Drop
 
-**시나리오**: 사용자가 inline-image를 드래그하여 다른 paragraph로 이동
+**Scenario**: User drags inline-image to move to different paragraph
 
 ```
 Before:
 [paragraph-1: "Hello"] [image-1] [text-2: "World"]
-                        ↑ 드래그
+                        ↑ drag
 [paragraph-2: "Foo"]
 
 After:
 [paragraph-1: "Hello"] [text-2: "World"]
-[paragraph-2: "Foo"] [image-1]  ← 이동됨
+[paragraph-2: "Foo"] [image-1]  ← moved
 
 Operation: moveNode({ nodeId: 'image-1', newParentId: 'paragraph-2', position: 1 })
 ```
 
-**동작:**
+**Behavior:**
 ```typescript
-// 사용자가 inline-image를 드래그
+// User drags inline-image
 if (dataStore.isDraggableNode('image-1')) {
-  // moveNode operation 실행
+  // Execute moveNode operation
   await transaction(editor, [
     {
       type: 'moveNode',
@@ -317,42 +317,42 @@ if (dataStore.isDraggableNode('image-1')) {
 }
 ```
 
-### 5.3 드래그 불가능한 노드 처리
+### 5.3 Handle Non-Draggable Node
 
-**시나리오**: 사용자가 draggable: false인 노드를 드래그 시도
+**Scenario**: User attempts to drag node with draggable: false
 
 ```
 Before:
 [fixedBlock: "Fixed Content"]
-         ↑ 드래그 시도
+         ↑ drag attempt
 
 After:
-[fixedBlock: "Fixed Content"]  ← 이동되지 않음
+[fixedBlock: "Fixed Content"]  ← does not move
 
-동작: 드래그 이벤트 무시 또는 시각적 피드백 제공
+Behavior: Ignore drag event or provide visual feedback
 ```
 
-**동작:**
+**Behavior:**
 ```typescript
-// 사용자가 노드를 드래그 시도
+// User attempts to drag node
 function handleDragStart(nodeId: string) {
   if (!dataStore.isDraggableNode(nodeId)) {
-    // 드래그 불가능한 노드
+    // Non-draggable node
     event.preventDefault();
-    // 시각적 피드백 제공 (예: 커서 변경, 툴팁 표시)
+    // Provide visual feedback (e.g., change cursor, show tooltip)
     return;
   }
   
-  // 드래그 가능한 노드: 드래그 시작
+  // Draggable node: start drag
   // ...
 }
 ```
 
 ---
 
-## 6. 판단 로직 상세
+## 6. Detailed Determination Logic
 
-### 6.1 _isDraggableNode 구현
+### 6.1 _isDraggableNode Implementation
 
 ```typescript
 private _isDraggableNode(nodeId: string): boolean {
@@ -361,7 +361,7 @@ private _isDraggableNode(nodeId: string): boolean {
     return false;
   }
   
-  // 1. 스키마에서 group 확인 (최우선)
+  // 1. Check group from schema (highest priority)
   const schema = this.dataStore.getActiveSchema();
   if (schema) {
     try {
@@ -369,106 +369,106 @@ private _isDraggableNode(nodeId: string): boolean {
       if (nodeType) {
         const group = nodeType.group;
         
-        // document 노드는 항상 드래그 불가능
+        // document node is always not draggable
         if (group === 'document') {
           return false;
         }
         
-        // draggable 속성이 명시적으로 false이면 드래그 불가능
+        // If draggable attribute is explicitly false, not draggable
         if (nodeType.draggable === false) {
           return false;
         }
         
-        // 그 외의 경우는 드래그 가능 (기본값 true)
+        // Otherwise draggable (default true)
         return true;
       }
     } catch (error) {
-      // 스키마 조회 실패 시 계속 진행
+      // Continue if schema lookup fails
     }
   }
   
-  // 2. 스키마 정보가 없으면 기본적으로 드래그 가능 (document 제외)
+  // 2. If no schema info, draggable by default (except document)
   if (node.stype === 'document') {
     return false;
   }
   
-  // 3. 그 외의 경우는 드래그 가능 (안전하게 true)
+  // 3. Otherwise draggable (safely true)
   return true;
 }
 ```
 
-### 6.2 판단 순서의 중요성
+### 6.2 Importance of Determination Order
 
-**왜 스키마 Group을 먼저 확인하는가?**
+**Why check Schema Group first?**
 
-1. **정확성**: 스키마 정의가 가장 정확한 정보
-2. **명시적 제어**: `draggable: false`로 명시적으로 제어 가능
-3. **일관성**: 스키마 기반으로 일관된 동작 보장
+1. **Accuracy**: Schema definition is the most accurate information
+2. **Explicit control**: Can explicitly control with `draggable: false`
+3. **Consistency**: Ensures consistent behavior based on schema
 
 ---
 
-## 7. Editable vs Selectable vs Draggable 비교
+## 7. Editable vs Selectable vs Draggable Comparison
 
-### 7.1 핵심 구분
+### 7.1 Core Distinction
 
-| 구분 | Editable Node | Selectable Node | Draggable Node |
-|------|--------------|----------------|----------------|
-| **탐색 방법** | 커서로 탐색 (Backspace/Delete/화살표 키) | 클릭으로 선택 | 드래그로 이동 |
-| **편집 명령** | `getPreviousEditableNode` / `getNextEditableNode`로 탐색 가능 | 탐색 불가능 | 탐색 불가능 |
-| **Selection** | Range 또는 Node Selection | Node Selection 또는 Range Selection | Selection과 무관 |
-| **예시** | `.text` 필드가 있는 노드, `group: 'inline'`인 노드, `editable: true`인 block | `group: 'block'`인 노드, `group: 'inline'`인 노드, 모든 노드 (document 제외) | 모든 노드 (document, `draggable: false` 제외) |
+| Distinction | Editable Node | Selectable Node | Draggable Node |
+|-------------|---------------|-----------------|----------------|
+| **Navigation method** | Navigate with cursor (Backspace/Delete/arrow keys) | Select by clicking | Move by dragging |
+| **Edit commands** | Navigable with `getPreviousEditableNode` / `getNextEditableNode` | Not navigable | Not navigable |
+| **Selection** | Range or Node Selection | Node Selection or Range Selection | Independent of Selection |
+| **Examples** | Nodes with `.text` field, nodes with `group: 'inline'`, blocks with `editable: true` | Nodes with `group: 'block'`, nodes with `group: 'inline'`, all nodes (except document) | All nodes (except document, `draggable: false`) |
 
-### 7.2 관계
+### 7.2 Relationship
 
 **Venn Diagram:**
 ```
-Draggable Node (가장 넓음)
+Draggable Node (widest)
   ├── Selectable Node
-  │     └── Editable Node (가장 좁음)
-  └── Non-Selectable Draggable (드래그 가능하지만 선택 불가능)
+  │     └── Editable Node (narrowest)
+  └── Non-Selectable Draggable (draggable but not selectable)
 ```
 
-**예시:**
-- **Editable Node**: 텍스트 노드, inline 노드, editable block
-  - 모두 Selectable Node
-  - 모두 Draggable Node
-- **Selectable Node (Non-Editable)**: 일반 block 노드
-  - Editable Node가 아님
+**Examples:**
+- **Editable Node**: Text node, inline node, editable block
+  - All are Selectable Nodes
+  - All are Draggable Nodes
+- **Selectable Node (Non-Editable)**: Regular block node
+  - Not Editable Node
   - Draggable Node
-- **Draggable Node (Non-Selectable)**: 드래그 가능하지만 선택 불가능한 노드 (현재는 없음)
-  - Editable Node가 아님
-  - Selectable Node가 아님
+- **Draggable Node (Non-Selectable)**: Node that is draggable but not selectable (currently none)
+  - Not Editable Node
+  - Not Selectable Node
 
 ---
 
-## 8. 주요 사용처
+## 8. Main Usage
 
-### 8.1 드래그 앤 드롭 이벤트 처리
+### 8.1 Drag and Drop Event Handling
 
 ```typescript
-// 사용자가 노드를 드래그 시작했을 때
+// When user starts dragging node
 function handleDragStart(nodeId: string) {
   if (dataStore.isDraggableNode(nodeId)) {
-    // 드래그 가능한 노드: 드래그 시작
+    // Draggable node: start drag
     const node = dataStore.getNode(nodeId);
     event.dataTransfer.setData('text/plain', nodeId);
-    // 드래그 시각적 피드백 제공
+    // Provide drag visual feedback
   } else {
-    // 드래그 불가능한 노드: 드래그 차단
+    // Non-draggable node: block drag
     event.preventDefault();
   }
 }
 
-// 사용자가 노드를 드롭했을 때
+// When user drops node
 function handleDrop(targetNodeId: string, position: number, draggedNodeId: string) {
-  // 드래그되는 노드가 draggable인지 확인
+  // Check if dragged node is draggable
   if (!dataStore.isDraggableNode(draggedNodeId)) {
     return;
   }
   
-  // 드롭 타겟이 droppable이고 특정 노드를 받을 수 있는지 확인
+  // Check if drop target is droppable and can receive specific node
   if (dataStore.canDropNode(targetNodeId, draggedNodeId)) {
-    // moveNode operation 실행
+    // Execute moveNode operation
     await transaction(editor, [
       {
         type: 'moveNode',
@@ -483,13 +483,13 @@ function handleDrop(targetNodeId: string, position: number, draggedNodeId: strin
 }
 ```
 
-### 8.2 드래그 가능한 노드 목록 조회
+### 8.2 Query Draggable Node List
 
 ```typescript
-// 문서 내 모든 드래그 가능한 노드 조회
+// Query all draggable nodes in document
 const draggableNodes = dataStore.getDraggableNodes();
 
-// Block 노드만 조회
+// Query only block nodes
 const blockNodes = dataStore.getDraggableNodes({
   includeBlocks: true,
   includeInline: false,
@@ -497,60 +497,59 @@ const blockNodes = dataStore.getDraggableNodes({
 });
 ```
 
-### 8.3 드래그 가능 여부 확인
+### 8.3 Check Draggability
 
 ```typescript
-// 특정 노드가 드래그 가능한지 확인
+// Check if specific node is draggable
 if (dataStore.isDraggableNode(nodeId)) {
-  // 드래그 UI 활성화 (예: 드래그 핸들 표시)
+  // Enable drag UI (e.g., show drag handle)
   element.setAttribute('draggable', 'true');
 } else {
-  // 드래그 UI 비활성화
+  // Disable drag UI
   element.setAttribute('draggable', 'false');
 }
 ```
 
 ---
 
-## 9. 요약
+## 9. Summary
 
-### Draggable Node의 정의
+### Definition of Draggable Node
 
-1. **드래그 앤 드롭으로 이동 가능한 노드** (마우스 드래그)
-2. **moveNode operation의 대상이 될 수 있는 노드**
-3. **Document 노드가 아닌 노드** (기본적으로 모든 노드는 드래그 가능)
+1. **Node that can be moved via drag and drop** (mouse drag)
+2. **Node that can be the target of moveNode operation**
+3. **Node that is not a document node** (basically all nodes are draggable)
 
-### 핵심 구분
+### Core Distinction
 
-- **Editable Node**: 커서로 탐색 가능 (텍스트, inline, editable block)
-- **Selectable Node**: 클릭으로 선택 가능 (block, inline, 텍스트 모두)
-- **Draggable Node**: 드래그로 이동 가능 (block, inline, 텍스트 모두, document 제외)
+- **Editable Node**: Navigable with cursor (text, inline, editable block)
+- **Selectable Node**: Selectable by clicking (all blocks, inline, text)
+- **Draggable Node**: Movable by dragging (all blocks, inline, text, except document)
 
-### 판단 기준 (우선순위)
+### Criteria (Priority)
 
-1. **스키마 Group** (최우선)
-   - `group: 'document'` → 드래그 불가능
-   - `draggable: false` → 드래그 불가능
-   - 그 외 → 드래그 가능 (기본값 true)
-2. **stype 확인** (폴백)
-   - `stype === 'document'` → 드래그 불가능
-3. **기본값**
-   - 그 외는 드래그 가능 (안전하게 true)
+1. **Schema Group** (highest priority)
+   - `group: 'document'` → Not draggable
+   - `draggable: false` → Not draggable
+   - Otherwise → Draggable (default true)
+2. **stype check** (fallback)
+   - `stype === 'document'` → Not draggable
+3. **Default**
+   - Otherwise draggable (safely true)
 
-### 주요 사용처
+### Main Usage
 
-- 드래그 앤 드롭 이벤트 처리: 노드 드래그 시작/종료 시 드래그 가능 여부 확인
-- moveNode operation: 드래그 가능한 노드만 이동 가능
-- 드래그 UI: 드래그 가능한 노드에만 드래그 핸들 표시
+- Drag and drop event handling: Check if node is draggable when drag starts/ends
+- moveNode operation: Only draggable nodes can be moved
+- Drag UI: Show drag handle only on draggable nodes
 
 ---
 
-## 10. 참고 자료
+## 10. References
 
-- `packages/datastore/src/operations/utility-operations.ts`: `_isDraggableNode` 구현
-- `packages/datastore/test/get-editable-node.test.ts`: 테스트 케이스
-- `packages/datastore/docs/editable-node-spec.md`: Editable Node 명세
-- `packages/datastore/docs/selectable-node-spec.md`: Selectable Node 명세
-- `packages/datastore/docs/droppable-node-spec.md`: Droppable Node 명세 (드롭 타겟)
-- `packages/model/src/operations/moveNode.ts`: moveNode operation 구현
-
+- `packages/datastore/src/operations/utility-operations.ts`: `_isDraggableNode` implementation
+- `packages/datastore/test/get-editable-node.test.ts`: Test cases
+- `packages/datastore/docs/editable-node-spec.md`: Editable Node specification
+- `packages/datastore/docs/selectable-node-spec.md`: Selectable Node specification
+- `packages/datastore/docs/droppable-node-spec.md`: Droppable Node specification (drop target)
+- `packages/model/src/operations/moveNode.ts`: moveNode operation implementation

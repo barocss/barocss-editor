@@ -1,30 +1,30 @@
 # History System Specification
 
-## 개요
+## Overview
 
-Barocss Editor의 History System은 사용자의 편집 작업을 추적하고 실행 취소/다시 실행 기능을 제공하는 핵심 시스템입니다. 동시편집(협업 편집)을 지원하기 위해 Checkpoint 시스템을 제거하고 단순화된 History 시스템을 제공합니다. 이 시스템은 `editor-core` 패키지의 `HistoryManager`와 `Editor` 클래스를 통해 구현됩니다.
+The History System in Barocss Editor tracks user editing actions and provides undo/redo. To support collaborative editing, the Checkpoint system was removed in favor of a simplified History system. This system is implemented via the `HistoryManager` and `Editor` classes in the `editor-core` package.
 
-## 아키텍처
+## Architecture
 
-### 핵심 컴포넌트
+### Core Components
 
 1. **HistoryManager** (`editor-core/src/history-manager.ts`)
-   - 히스토리 엔트리 저장 및 관리
-   - 실행 취소/다시 실행 로직
-   - 히스토리 크기 제한 및 동적 조정
-   - 히스토리 압축 및 메모리 최적화
-   - 상태 검증 및 무결성 보장
+   - Stores and manages history entries
+   - Undo/redo logic
+   - History size limits and dynamic adjustment
+   - History compression and memory optimization
+   - State validation and integrity
 
 2. **Editor** (`editor-core/src/editor.ts`)
-   - HistoryManager 인스턴스 관리
-   - History 관련 API 제공
-   - TransactionManager와의 통합
+   - Manages HistoryManager instance
+   - Provides History APIs
+   - Integrates with TransactionManager
 
 3. **TransactionManager** (`model/src/transaction.ts`)
-   - 성공한 트랜잭션을 HistoryManager에 자동 추가
-   - 역함수 operations 수집 및 저장
+   - Automatically adds successful transactions to HistoryManager
+   - Collects and stores inverse operations
 
-### 데이터 흐름
+### Data Flow
 
 ```mermaid
 graph TD
@@ -51,104 +51,104 @@ graph TD
 ### Editor History Methods
 
 #### `undo(): Promise<boolean>`
-실행 취소를 수행합니다.
+Performs undo.
 
 ```typescript
 const success = await editor.undo();
 if (success) {
-  console.log('실행 취소 완료');
+  console.log('Undo completed');
 } else {
-  console.log('실행 취소할 작업이 없음');
+  console.log('No operation to undo');
 }
 ```
 
 #### `redo(): Promise<boolean>`
-다시 실행을 수행합니다.
+Performs redo.
 
 ```typescript
 const success = await editor.redo();
 if (success) {
-  console.log('다시 실행 완료');
+  console.log('Redo completed');
 } else {
-  console.log('다시 실행할 작업이 없음');
+  console.log('No operation to redo');
 }
 ```
 
 #### `canUndo(): boolean`
-실행 취소 가능 여부를 확인합니다.
+Checks if undo is possible.
 
 ```typescript
 if (editor.canUndo()) {
-  // 실행 취소 버튼 활성화
+  // Enable undo button
   undoButton.disabled = false;
 }
 ```
 
 #### `canRedo(): boolean`
-다시 실행 가능 여부를 확인합니다.
+Checks if redo is possible.
 
 ```typescript
 if (editor.canRedo()) {
-  // 다시 실행 버튼 활성화
+  // Enable redo button
   redoButton.disabled = false;
 }
 ```
 
 
 #### `getHistoryStats(): HistoryStats`
-히스토리 통계 정보를 반환합니다.
+Returns history statistics.
 
 ```typescript
 const stats = editor.getHistoryStats();
-console.log(`총 엔트리: ${stats.totalEntries}`);
-console.log(`현재 인덱스: ${stats.currentIndex}`);
-console.log(`실행 취소 가능: ${stats.canUndo}`);
-console.log(`다시 실행 가능: ${stats.canRedo}`);
+console.log(`Total entries: ${stats.totalEntries}`);
+console.log(`Current index: ${stats.currentIndex}`);
+console.log(`Can undo: ${stats.canUndo}`);
+console.log(`Can redo: ${stats.canRedo}`);
 ```
 
 #### `clearHistory(): void`
-히스토리를 초기화합니다.
+Clears history.
 
 ```typescript
 editor.clearHistory();
-console.log('히스토리가 초기화되었습니다');
+console.log('History cleared');
 ```
 
 #### `compressHistory(): void`
-연속된 유사한 작업들을 압축하여 메모리 사용량을 최적화합니다.
+Compresses consecutive similar operations to optimize memory usage.
 
 ```typescript
-// 연속된 텍스트 작업 후 압축
+// Compress after consecutive text operations
 await editor.transaction([setText('node1', 'Hello')]).commit();
 await editor.transaction([setText('node1', 'Hello World')]).commit();
 await editor.transaction([setText('node1', 'Hello World!')]).commit();
 
-editor.compressHistory(); // 3개 작업을 1개로 압축
+editor.compressHistory(); // Compress 3 operations into 1
 ```
 
 #### `resizeHistory(maxSize: number): void`
-히스토리 크기를 동적으로 조정합니다.
+Dynamically adjusts history size.
 
 ```typescript
-// 히스토리 크기를 50개로 축소
+// Reduce history size to 50
 editor.resizeHistory(50);
 ```
 
 #### `getHistoryMemoryUsage(): number`
-현재 히스토리의 메모리 사용량을 바이트 단위로 반환합니다.
+Returns current history memory usage in bytes.
 
 ```typescript
 const memoryUsage = editor.getHistoryMemoryUsage();
-console.log(`히스토리 메모리 사용량: ${memoryUsage} bytes`);
+console.log(`History memory usage: ${memoryUsage} bytes`);
 ```
 
 #### `validateHistory(): { isValid: boolean; errors: string[] }`
-히스토리 상태의 무결성을 검증합니다.
+Validates history integrity.
 
 ```typescript
 const validation = editor.validateHistory();
 if (!validation.isValid) {
-  console.error('히스토리 무결성 오류:', validation.errors);
+  console.error('History integrity errors:', validation.errors);
 }
 ```
 
@@ -158,150 +158,150 @@ if (!validation.isValid) {
 
 ```typescript
 interface HistoryManagerOptions {
-  maxSize?: number;           // 최대 히스토리 크기 (기본값: 100)
+  maxSize?: number;           // Maximum history size (default: 100)
 }
 ```
 
-#### 사용 예시
+#### Usage Example
 
 ```typescript
 const editor = new Editor({
   history: {
-    maxSize: 50           // 최대 50개 히스토리 엔트리
+    maxSize: 50           // Maximum 50 history entries
   }
 });
 ```
 
-## History Entry 구조
+## History Entry Structure
 
 ### HistoryEntry Interface
 
 ```typescript
 interface HistoryEntry {
-  id: string;                    // 고유 식별자
-  timestamp: Date;               // 생성 시간
-  operations: TransactionOperation[];      // 실행된 operations
-  inverseOperations: TransactionOperation[]; // 역함수 operations
-  description?: string;          // 설명 (선택사항)
-  metadata?: Record<string, any>; // 추가 메타데이터 (선택사항)
+  id: string;                    // unique identifier
+  timestamp: Date;               // creation time
+  operations: TransactionOperation[];      // executed operations
+  inverseOperations: TransactionOperation[]; // inverse operations
+  description?: string;          // description (optional)
+  metadata?: Record<string, any>; // additional metadata (optional)
 }
 ```
 
-### History Entry 생성 과정
+### History Entry Creation Process
 
-1. **트랜잭션 실행**: `TransactionManager.execute()` 호출
-2. **Operations 실행**: 각 operation의 `execute()` 메서드 호출
-3. **Inverse 수집**: 각 operation의 `inverse` 속성 수집
-4. **History Entry 생성**: `HistoryManager.push()` 호출
-5. **저장**: 히스토리 배열에 추가
+1. **Transaction execution**: call `TransactionManager.execute()`
+2. **Operations execution**: call `execute()` for each operation
+3. **Inverse collection**: collect `inverse` from each operation
+4. **History entry creation**: call `HistoryManager.push()`
+5. **Storage**: add to history array
 
-## 히스토리 추가 규칙
+## History Addition Rules
 
-### 자동 추가되는 경우
+### Automatically Added
 
-- 트랜잭션이 성공적으로 완료된 경우
-- 실행된 operations가 1개 이상인 경우
-- undo/redo 플래그가 설정되지 않은 경우
+- When transaction completes successfully
+- When at least one operation executed
+- When undo/redo flag is not set
 
-### 제외되는 경우
+### Excluded Cases
 
 ```typescript
 private _shouldAddToHistory(operations: TransactionOperation[]): boolean {
-  // 빈 operations는 히스토리에 추가하지 않음
+  // Empty operations are not added to history
   if (operations.length === 0) return false;
   
-  // undo/redo operation은 히스토리에 추가하지 않음
+  // undo/redo operations are not added to history
   if (this._isUndoRedoOperation) return false;
   
   return true;
 }
 ```
 
-### Undo/Redo 중복 방지
+### Preventing Undo/Redo Duplication
 
-undo/redo 작업은 히스토리에 추가되지 않도록 플래그 기반으로 제어됩니다:
+Undo/redo actions are controlled via flags to prevent history addition:
 
 ```typescript
-// Editor의 undo/redo 메서드에서
+// In Editor's undo/redo methods
 Editor.prototype.undo = async function(): Promise<boolean> {
   const entry = this._historyManager.undo();
   if (!entry) return false;
 
   try {
-    // undo/redo 플래그 설정
+    // Set undo/redo flag
     this._transactionManager._isUndoRedoOperation = true;
     
-    // 역함수 operations 실행
+    // Execute inverse operations
     const result = await this._transactionManager.execute(entry.inverseOperations);
     return result.success;
   } finally {
-    // 플래그 해제
+    // Clear flag
     this._transactionManager._isUndoRedoOperation = false;
   }
 };
 ```
 
 
-## 성능 고려사항
+## Performance Considerations
 
-### 메모리 사용량
+### Memory Usage
 
-- 히스토리 엔트리는 전체 operation과 inverse를 저장
-- `maxSize` 설정으로 메모리 사용량 제한
-- 오래된 엔트리는 자동 삭제
-- `compressHistory()`로 연속된 유사 작업 압축
-- `getHistoryMemoryUsage()`로 메모리 사용량 모니터링
+- History entries store full operations and inverses
+- `maxSize` limits memory usage
+- Old entries are automatically deleted
+- `compressHistory()` compresses consecutive similar operations
+- `getHistoryMemoryUsage()` monitors memory usage
 
-### 실행 성능
+### Execution Performance
 
-- 히스토리 추가는 트랜잭션 완료 후 비동기 처리
-- undo/redo는 새로운 트랜잭션으로 실행
-- 히스토리 압축으로 메모리 사용량 최적화
-- 동적 크기 조정으로 필요에 따라 히스토리 크기 조절
+- History addition is asynchronous after transaction completion
+- Undo/redo run as new transactions
+- History compression optimizes memory usage
+- Dynamic size adjustment allows runtime history size changes
 
-### 최적화 기능
+### Optimization Features
 
-#### 히스토리 압축
+#### History Compression
 ```typescript
-// 연속된 텍스트 작업 압축
+// Compress consecutive text operations
 editor.compressHistory();
 ```
 
-#### 메모리 모니터링
+#### Memory Monitoring
 ```typescript
 const memoryUsage = editor.getHistoryMemoryUsage();
-if (memoryUsage > 1024 * 1024) { // 1MB 초과 시
-  editor.resizeHistory(50); // 크기 축소
+if (memoryUsage > 1024 * 1024) { // Exceeds 1MB
+  editor.resizeHistory(50); // Reduce size
 }
 ```
 
-#### 상태 검증
+#### State Validation
 ```typescript
 const validation = editor.validateHistory();
 if (!validation.isValid) {
-  console.warn('히스토리 무결성 문제:', validation.errors);
+  console.warn('History integrity issues:', validation.errors);
 }
 ```
 
-## 에러 처리
+## Error Handling
 
-### Undo/Redo 실패
+### Undo/Redo Failure
 
 ```typescript
 try {
   const success = await editor.undo();
   if (!success) {
-    console.log('실행 취소할 작업이 없습니다');
+    console.log('No operation to undo');
   }
 } catch (error) {
-  console.error('실행 취소 중 오류 발생:', error);
+  console.error('Error during undo:', error);
 }
 ```
 
 
-## 테스트
+## Testing
 
-### 단위 테스트
+### Unit Tests
 
 ```typescript
 describe('History System', () => {
@@ -314,21 +314,21 @@ describe('History System', () => {
   });
 
   it('should undo/redo operations', async () => {
-    // 트랜잭션 실행
+    // Execute transaction
     await editor.transaction([
       create(textNode('paragraph', 'Hello'))
     ]).commit();
 
     expect(editor.canUndo()).toBe(true);
     
-    // 실행 취소
+    // Undo
     const undone = await editor.undo();
     expect(undone).toBe(true);
     expect(editor.canRedo()).toBe(true);
   });
 
   it('should compress history', async () => {
-    // 연속된 작업 수행
+    // Perform consecutive operations
     await editor.transaction([setText('node1', 'Hello')]).commit();
     await editor.transaction([setText('node1', 'Hello World')]).commit();
     await editor.transaction([setText('node1', 'Hello World!')]).commit();
@@ -361,113 +361,113 @@ describe('History System', () => {
 });
 ```
 
-## 마이그레이션 가이드
+## Migration Guide
 
-### 기존 코드에서 History 사용
+### Using History in Existing Code
 
 ```typescript
-// 기존 코드
+// Existing code
 const editor = new Editor();
 
-// History 기능 추가
+// Add History functionality
 const editor = new Editor({
   history: {
     maxSize: 100
   }
 });
 
-// History API 사용
+// Use History API
 await editor.undo();
 await editor.redo();
 ```
 
-## 제한사항
+## Limitations
 
-1. **메모리 사용량**: 히스토리 엔트리는 메모리를 사용 (압축 기능으로 완화)
-2. **성능**: 대량의 operations는 undo/redo 성능에 영향
-3. **동시성**: 동시 undo/redo는 지원하지 않음
-4. **외부 상태**: 에디터 외부 상태는 히스토리에 포함되지 않음
-5. **압축 제한**: 모든 유형의 작업이 압축 가능한 것은 아님
+1. **Memory usage**: history entries consume memory (mitigated by compression)
+2. **Performance**: large numbers of operations affect undo/redo performance
+3. **Concurrency**: simultaneous undo/redo is not supported
+4. **External state**: state outside the editor is not included in history
+5. **Compression limits**: not all operation types can be compressed
 
-## 구현된 고급 기능
+## Implemented Advanced Features
 
-### ✅ 히스토리 압축
-- 연속된 유사한 작업들을 하나로 합쳐 메모리 사용량 감소
-- `compressHistory()` 메서드로 수동 압축 가능
+### ✅ History Compression
+- Merges consecutive similar operations to reduce memory usage
+- Manual compression via `compressHistory()` method
 
 ```typescript
-// 연속된 텍스트 작업 압축 예시
+// Example: compress consecutive text operations
 await editor.transaction([setText('node1', 'Hello')]).commit();
 await editor.transaction([setText('node1', 'Hello World')]).commit();
 await editor.transaction([setText('node1', 'Hello World!')]).commit();
 
-// 3개 작업을 1개로 압축
+// Compress 3 operations into 1
 editor.compressHistory();
 ```
 
-### ✅ 메모리 모니터링
-- `getHistoryMemoryUsage()`로 실시간 메모리 사용량 추적
-- 대용량 히스토리 관리에 유용
+### ✅ Memory Monitoring
+- Track real-time memory usage with `getHistoryMemoryUsage()`
+- Useful for managing large histories
 
 ```typescript
-// 메모리 사용량 모니터링
+// Monitor memory usage
 const memoryUsage = editor.getHistoryMemoryUsage();
-console.log(`현재 히스토리 메모리 사용량: ${(memoryUsage / 1024).toFixed(2)} KB`);
+console.log(`Current history memory usage: ${(memoryUsage / 1024).toFixed(2)} KB`);
 
-// 메모리 임계값 초과 시 압축
-if (memoryUsage > 1024 * 1024) { // 1MB 초과
+// Compress when memory threshold exceeded
+if (memoryUsage > 1024 * 1024) { // Exceeds 1MB
   editor.compressHistory();
 }
 ```
 
-### ✅ 동적 크기 조정
-- `resizeHistory()`로 런타임에 히스토리 크기 조정
-- 메모리 상황에 따라 유연한 대응 가능
+### ✅ Dynamic Size Adjustment
+- Adjust history size at runtime with `resizeHistory()`
+- Flexible response to memory conditions
 
 ```typescript
-// 메모리 부족 시 히스토리 크기 축소
-if (memoryUsage > 512 * 1024) { // 512KB 초과
-  editor.resizeHistory(25); // 25개로 축소
+// Reduce history size when memory is low
+if (memoryUsage > 512 * 1024) { // Exceeds 512KB
+  editor.resizeHistory(25); // Reduce to 25
 }
 
-// 메모리 여유 시 히스토리 크기 확장
-if (memoryUsage < 100 * 1024) { // 100KB 미만
-  editor.resizeHistory(100); // 100개로 확장
+// Expand history size when memory is available
+if (memoryUsage < 100 * 1024) { // Below 100KB
+  editor.resizeHistory(100); // Expand to 100
 }
 ```
 
-### ✅ 상태 검증
-- `validateHistory()`로 히스토리 무결성 검증
-- 데이터 손상 방지 및 디버깅 지원
+### ✅ State Validation
+- Validate history integrity with `validateHistory()`
+- Prevents data corruption and aids debugging
 
 ```typescript
-// 정기적인 히스토리 무결성 검사
+// Regular history integrity checks
 const validation = editor.validateHistory();
 if (!validation.isValid) {
-  console.error('히스토리 무결성 오류:', validation.errors);
-  // 필요시 히스토리 초기화
+  console.error('History integrity errors:', validation.errors);
+  // Clear history if needed
   editor.clearHistory();
 }
 ```
 
-### ✅ Undo/Redo 중복 방지
-- 플래그 기반으로 undo/redo 작업이 히스토리에 추가되지 않도록 제어
-- 히스토리 오염 방지
+### ✅ Undo/Redo Duplication Prevention
+- Flag-based control prevents undo/redo operations from being added to history
+- Prevents history pollution
 
 ```typescript
-// undo/redo는 히스토리에 추가되지 않음
-await editor.undo(); // 이 작업은 히스토리에 추가되지 않음
-await editor.redo(); // 이 작업도 히스토리에 추가되지 않음
+// undo/redo are not added to history
+await editor.undo(); // This operation is not added to history
+await editor.redo(); // This operation is also not added to history
 
-// 새로운 작업은 정상적으로 히스토리에 추가됨
+// New operations are normally added to history
 await editor.transaction([setText('node1', 'New content')]).commit();
 ```
 
-## 실제 사용 시나리오
+## Real-world Usage Scenarios
 
-### 대용량 문서 편집
+### Large Document Editing
 ```typescript
-// 대용량 문서 편집 시 메모리 관리
+// Memory management when editing large documents
 class LargeDocumentEditor {
   private editor: Editor;
   private memoryThreshold = 5 * 1024 * 1024; // 5MB
@@ -481,13 +481,13 @@ class LargeDocumentEditor {
   async performOperation(operations: any[]) {
     await this.editor.transaction(operations).commit();
     
-    // 메모리 사용량 체크
+    // Check memory usage
     const memoryUsage = this.editor.getHistoryMemoryUsage();
     if (memoryUsage > this.memoryThreshold) {
-      // 압축 시도
+      // Try compression
       this.editor.compressHistory();
       
-      // 여전히 임계값 초과 시 크기 축소
+      // Reduce size if still over threshold
       const newMemoryUsage = this.editor.getHistoryMemoryUsage();
       if (newMemoryUsage > this.memoryThreshold) {
         this.editor.resizeHistory(100);
@@ -497,71 +497,71 @@ class LargeDocumentEditor {
 }
 ```
 
-### 실시간 협업 에디터
+### Real-time Collaborative Editor
 ```typescript
-// 협업 에디터에서 히스토리 관리
+// History management in collaborative editor
 class CollaborativeEditor {
   private editor: Editor;
 
   constructor() {
     this.editor = new Editor({
-      history: { maxSize: 50 } // 협업에서는 작은 히스토리 유지
+      history: { maxSize: 50 } // Keep small history in collaboration
     });
   }
 
-  // 정기적인 히스토리 정리
+  // Regular history maintenance
   startHistoryMaintenance() {
     setInterval(() => {
-      // 무결성 검사
+      // Integrity check
       const validation = this.editor.validateHistory();
       if (!validation.isValid) {
-        console.warn('히스토리 무결성 문제 감지:', validation.errors);
+        console.warn('History integrity issue detected:', validation.errors);
         this.editor.clearHistory();
         return;
       }
 
-      // 메모리 사용량 체크
+      // Check memory usage
       const memoryUsage = this.editor.getHistoryMemoryUsage();
-      if (memoryUsage > 1024 * 1024) { // 1MB 초과
+      if (memoryUsage > 1024 * 1024) { // Exceeds 1MB
         this.editor.compressHistory();
       }
-    }, 30000); // 30초마다 실행
+    }, 30000); // Run every 30 seconds
   }
 }
 ```
 
-### 모바일 환경 최적화
+### Mobile Environment Optimization
 ```typescript
-// 모바일 환경에서 메모리 최적화
+// Memory optimization in mobile environment
 class MobileEditor {
   private editor: Editor;
 
   constructor() {
     this.editor = new Editor({
-      history: { maxSize: 20 } // 모바일에서는 작은 히스토리
+      history: { maxSize: 20 } // Small history on mobile
     });
   }
 
-  // 메모리 압박 시 히스토리 정리
+  // Clean up history on memory pressure
   handleMemoryPressure() {
-    // 즉시 압축
+    // Compress immediately
     this.editor.compressHistory();
     
-    // 크기 축소
+    // Reduce size
     this.editor.resizeHistory(10);
     
-    // 메모리 사용량 확인
+    // Check memory usage
     const memoryUsage = this.editor.getHistoryMemoryUsage();
-    console.log(`히스토리 메모리 사용량: ${memoryUsage} bytes`);
+    console.log(`History memory usage: ${memoryUsage} bytes`);
   }
 }
 ```
 
-## 향후 개선 사항
+## Future Improvements
 
-1. **지연 로딩**: 필요할 때만 히스토리 엔트리 로드
-2. **고급 압축**: 더 복잡한 패턴의 작업 압축
-3. **분산**: 여러 에디터 인스턴스 간 히스토리 공유
-4. **백업/복원**: 히스토리 상태의 영구 저장 및 복원
-5. **자동 압축**: 메모리 임계값 도달 시 자동 압축
-6. **압축 전략**: 작업 유형별 최적화된 압축 알고리즘
+1. **Lazy loading**: load history entries only when needed
+2. **Advanced compression**: compress more complex operation patterns
+3. **Distribution**: share history across multiple editor instances
+4. **Backup/restore**: persistent storage and restore of history state
+5. **Auto compression**: automatic compression when memory threshold is reached
+6. **Compression strategies**: operation-type-specific optimized compression algorithms

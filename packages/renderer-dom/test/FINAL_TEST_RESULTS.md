@@ -1,6 +1,6 @@
-# 동기 모드 테스트 최종 결과
+# Sync Mode Test Final Results
 
-## ✅ 통과한 테스트 (144개)
+## ✅ Passing Tests (144)
 
 1. **reconciler-component-updatebysid.test.ts** - ✅ 3 passed
 2. **reconciler-update-flow.test.ts** - ✅ 8 passed
@@ -13,60 +13,59 @@
 9. **reconciler-lifecycle.test.ts** - ✅ 6 passed
 10. **reconciler-component-state-integration.test.ts** - ✅ 6 passed, 1 failed
 
-**총 통과**: 144 tests
+**Total passing**: 144 tests
 
-## ❌ 실패한 테스트 (5개)
+## ❌ Failing Tests (5)
 
 1. **reconciler-component-state-integration.test.ts** - ❌ 1 failed
    - `should rebuild only when nextVNode is missing or empty`
-   - `mountComponent`가 호출되어서는 안 되는데 호출됨
-   - 로직 문제 (동기 모드와 무관)
+   - `mountComponent` called when it should not be
+   - Logic issue (unrelated to sync mode)
 
 2. **reconciler-selection-pool.behavior.test.ts** - ❌ 1 failed
    - `does not let non-selection run steal selectionTextNode even when using pool`
-   - Selection 노드 재사용 로직 문제
-   - 로직 문제 (동기 모드와 무관)
+   - Selection node reuse logic issue
+   - Logic issue (unrelated to sync mode)
 
 3. **reconciler-mark-wrapper-reuse.test.ts** - ❌ 3 failed
-   - `should reuse mark wrapper span when text changes` - 텍스트 중복 렌더링
-   - `should reuse mark wrapper span when text changes (with actual mark rendering)` - 빈 텍스트
-   - `should reuse nested mark wrappers (bold + italic)` - DOM 요소 없음
-   - Mark wrapper 재사용 로직 문제
-   - 로직 문제 (동기 모드와 무관)
+   - `should reuse mark wrapper span when text changes` - duplicate text rendering
+   - `should reuse mark wrapper span when text changes (with actual mark rendering)` - empty text
+   - `should reuse nested mark wrappers (bold + italic)` - no DOM element
+   - Mark wrapper reuse logic issue
+   - Logic issue (unrelated to sync mode)
 
-## 주요 수정 사항
+## Major Fixes
 
-### 1. 동기 모드 구현
-- ✅ FiberScheduler에 동기 모드 추가
-- ✅ 테스트 환경 자동 감지 (`test/setup.ts`)
-- ✅ `vitest.config.ts`에 setupFiles 설정
+### 1. Sync Mode Implementation
+- ✅ Added sync mode to FiberScheduler
+- ✅ Automatic test environment detection (`test/setup.ts`)
+- ✅ setupFiles configured in `vitest.config.ts`
 
-### 2. `waitForFiber()` 완전 제거
-- ✅ 모든 테스트에서 `waitForFiber()` 제거
-- ✅ 동기 모드에서는 즉시 완료되므로 불필요
+### 2. Completely Removed `waitForFiber()`
+- ✅ Removed `waitForFiber()` from all tests
+- ✅ Unnecessary in sync mode as it completes immediately
 
-### 3. `data-bc-stype` 제거
-- ✅ 렌더링 시 `data-bc-stype` 속성 설정하지 않음
-- ✅ 테스트에서 `data-bc-stype` 기대값 제거
+### 3. Removed `data-bc-stype`
+- ✅ Do not set `data-bc-stype` attribute on render
+- ✅ Removed `data-bc-stype` expectations from tests
 
-### 4. `queueMicrotask` 대기 추가
-- ✅ `changeState` 이벤트는 `queueMicrotask`를 사용하므로 대기 필요
-- ✅ 관련 테스트에 `await new Promise(resolve => queueMicrotask(resolve))` 추가
+### 4. Added `queueMicrotask` Wait
+- ✅ `changeState` event uses `queueMicrotask`, so wait needed
+- ✅ Added `await new Promise(resolve => queueMicrotask(resolve))` to related tests
 
-### 5. 테스트 수정
-- ✅ `reconciler-text-vnode.test.ts`: `sid` 추가
-- ✅ `reconciler-prevvnode-nextvnode.test.ts`: 스타일 세미콜론 수정
-- ✅ `reconciler-lifecycle.test.ts`: `await` 제거 (동기 모드)
-- ✅ `reconciler-component-state-integration.test.ts`: `queueMicrotask` 대기 추가
+### 5. Test Fixes
+- ✅ `reconciler-text-vnode.test.ts`: added `sid`
+- ✅ `reconciler-prevvnode-nextvnode.test.ts`: fixed style semicolon
+- ✅ `reconciler-lifecycle.test.ts`: removed `await` (sync mode)
+- ✅ `reconciler-component-state-integration.test.ts`: added `queueMicrotask` wait
 
-## 결론
+## Conclusion
 
-- ✅ **동기 모드 구현 완료**: 테스트 환경에서 자동으로 동기 모드 활성화
-- ✅ **144개 테스트 통과**: 대부분의 테스트가 동기 모드로 정상 작동
-- ❌ **5개 테스트 실패**: 동기 모드와 무관한 로직 문제
+- ✅ **Sync mode implementation complete**: automatically activates sync mode in test environment
+- ✅ **144 tests passing**: most tests work correctly in sync mode
+- ❌ **5 tests failing**: logic issues unrelated to sync mode
 
-남은 실패한 테스트들은 동기 모드와 무관한 로직 문제입니다:
-- 컴포넌트 마운트/업데이트 로직
-- Selection 노드 재사용 로직
-- Mark wrapper 재사용 로직
-
+Remaining failing tests are logic issues unrelated to sync mode:
+- Component mount/update logic
+- Selection node reuse logic
+- Mark wrapper reuse logic
