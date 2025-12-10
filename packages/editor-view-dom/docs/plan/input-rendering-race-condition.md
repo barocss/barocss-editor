@@ -1,187 +1,187 @@
-# 입력 중 렌더링과 Selection 변경의 Race Condition 해결
+# Resolving Race Condition Between Rendering and Selection Changes During Input
 
-## 문제 상황
+## Problem Situation
 
-### Race Condition 발생 시나리오
+### Race Condition Occurrence Scenario
 
 ```
-사용자 입력 중:
-1. 브라우저가 DOM에 텍스트 변경 적용 (contentEditable)
+During user input:
+1. Browser applies text changes to DOM (contentEditable)
    ↓
-2. MutationObserver가 변경 감지
+2. MutationObserver detects changes
    ↓
-3. InputHandler가 모델 업데이트
+3. InputHandler updates model
    ↓
-4. editor:content.change 이벤트 발생
+4. editor:content.change event occurs
    ↓
-5. EditorViewDOM.render() 호출 (동시에)
+5. EditorViewDOM.render() called (simultaneously)
    ↓
-6. Selection 변경 이벤트 발생 (동시에)
+6. Selection change event occurs (simultaneously)
    ↓
-❌ 문제: 렌더링과 Selection 변경이 동시에 발생하여 충돌
+❌ Problem: Rendering and Selection changes occur simultaneously, causing conflict
 ```
 
-**핵심 문제:**
-- 입력 중에 렌더링이 발생하면 DOM이 재생성됨
-- 동시에 Selection이 변경되면 잘못된 위치로 이동
-- 사용자 입력이 방해받거나 사라질 수 있음
+**Core Problems:**
+- If rendering occurs during input, DOM is recreated
+- If Selection changes simultaneously, it moves to wrong position
+- User input can be interrupted or disappear
 
 ---
 
-## 현재 해결 방안
+## Current Solutions
 
-### 1. skipRender 옵션으로 입력 중 렌더링 차단
+### 1. Block Rendering During Input with skipRender Option
 
-**구현 위치:** `packages/editor-view-dom/src/event-handlers/input-handler.ts`
+**Implementation Location:** `packages/editor-view-dom/src/event-handlers/input-handler.ts`
 
 ```typescript
-// commitPendingImmediate()에서
+// In commitPendingImmediate()
 this.editor.emit('editor:content.change', {
-  skipRender: true, // 필수: MutationObserver 변경은 render() 호출 안 함
+  skipRender: true, // Required: MutationObserver changes do not call render()
   from: 'MutationObserver',
   transaction: { type: 'text_replace', nodeId }
 });
 ```
 
-**동작:**
-- MutationObserver에서 감지한 characterData 변경은 `skipRender: true`로 설정
-- 입력 중에는 모델만 업데이트하고 DOM 렌더링은 하지 않음
-- 브라우저가 이미 DOM을 직접 업데이트했으므로 추가 렌더링 불필요
+**Behavior:**
+- characterData changes detected by MutationObserver are set with `skipRender: true`
+- During input, only model is updated, DOM rendering is not performed
+- Browser already directly updated DOM, so additional rendering unnecessary
 
-### 2. editor:content.change 핸들러에서 skipRender 체크
+### 2. Check skipRender in editor:content.change Handler
 
-**구현 위치:** `packages/editor-view-dom/src/editor-view-dom.ts`
+**Implementation Location:** `packages/editor-view-dom/src/editor-view-dom.ts`
 
 ```typescript
 this.editor.on('editor:content.change', (e: any) => {
-  // 렌더링 중이면 무시 (무한루프 방지)
+  // Ignore if rendering (prevent infinite loop)
   if (this._isRendering) {
     return;
   }
   
-  // skipRender: true인 경우 렌더링 건너뛰기
-  // MutationObserver에서 감지한 characterData 변경은 입력 중이므로
-  // 렌더링을 지연시켜 selection과의 race condition을 방지
+  // Skip rendering if skipRender: true
+  // characterData changes detected by MutationObserver are during input, so
+  // delay rendering to prevent race condition with selection
   if (e?.skipRender) {
     return;
   }
   
-  // 외부 변경(model-change)만 렌더링
+  // Only render external changes (model-change)
   this.render();
 });
 ```
 
-**동작:**
-- `skipRender: true`인 경우 렌더링을 건너뜀
-- 외부 변경(model-change)만 렌더링 수행
-- 입력 중에는 렌더링과 Selection 변경의 race condition이 발생하지 않음
+**Behavior:**
+- Skip rendering if `skipRender: true`
+- Only perform rendering for external changes (model-change)
+- Race condition between rendering and Selection changes does not occur during input
 
-### 3. 입력 종료 시 재렌더링 제거
+### 3. Remove Re-rendering on Input End
 
-**구현 위치:** `packages/editor-view-dom/src/editor-view-dom.ts`
+**Implementation Location:** `packages/editor-view-dom/src/editor-view-dom.ts`
 
 ```typescript
 private _onInputEnd(): void {
   this._inputEndDebounceTimer = window.setTimeout(() => {
-    // editingNodes 초기화만 수행
+    // Only initialize editingNodes
     this._editingNodes.clear();
-    // 재렌더링은 하지 않음
-    // - 입력 중에는 브라우저가 DOM을 직접 업데이트
-    // - 우리는 모델만 업데이트 (skipRender: true)
-    // - 입력이 끝난 후 재렌더링하면 selection과 충돌할 수 있음
+    // Do not re-render
+    // - Browser directly updates DOM during input
+    // - We only update model (skipRender: true)
+    // - Re-rendering after input ends can conflict with selection
   }, 500);
 }
 ```
 
-**동작:**
-- 입력 종료 시 재렌더링을 하지 않음
-- 브라우저가 이미 DOM을 업데이트했으므로 추가 렌더링 불필요
-- 모델 변경사항은 이미 반영되어 있음
+**Behavior:**
+- Do not re-render on input end
+- Browser already updated DOM, so additional rendering unnecessary
+- Model changes are already reflected
 
 ---
 
-## 전체 흐름도
+## Overall Flow Diagram
 
-### Mermaid 다이어그램: 입력 중 (CharacterData 변경)
+### Mermaid Diagram: During Input (CharacterData Change)
 
 ```mermaid
 sequenceDiagram
-    participant User as 사용자
-    participant Browser as 브라우저
+    participant User as User
+    participant Browser as Browser
     participant MO as MutationObserver
     participant IH as InputHandler
     participant Editor as Editor
     participant EVD as EditorViewDOM
 
-    User->>Browser: 키보드 입력
-    Browser->>Browser: DOM 업데이트 (contentEditable)
-    Browser->>Browser: Selection 자동 유지
-    Browser->>MO: characterData 변경 감지
+    User->>Browser: Keyboard input
+    Browser->>Browser: DOM update (contentEditable)
+    Browser->>Browser: Selection automatically maintained
+    Browser->>MO: characterData change detected
     MO->>IH: handleTextContentChange()
-    IH->>IH: DOM에서 전체 텍스트 재구성
-    IH->>IH: handleEfficientEdit() - 변경 분석
-    IH->>IH: Mark 범위 자동 조정
+    IH->>IH: Reconstruct full text from DOM
+    IH->>IH: handleEfficientEdit() - change analysis
+    IH->>IH: Automatically adjust Mark ranges
     IH->>Editor: executeTransaction()
-    Editor->>Editor: 모델 업데이트 (텍스트 + marks)
+    Editor->>Editor: Model update (text + marks)
     Editor->>EVD: editor:content.change (skipRender: true)
-    EVD->>EVD: skipRender 체크
-    EVD->>EVD: 렌더링 건너뜀 ✅
-    Note over EVD: Selection 변경 없음 ✅
+    EVD->>EVD: Check skipRender
+    EVD->>EVD: Skip rendering ✅
+    Note over EVD: No Selection change ✅
 ```
 
-### Mermaid 다이어그램: 외부 변경 (Model Change)
+### Mermaid Diagram: External Change (Model Change)
 
 ```mermaid
 sequenceDiagram
-    participant External as 외부 (AI/동시편집)
+    participant External as External (AI/Collaborative Editing)
     participant Editor as Editor
     participant EVD as EditorViewDOM
     participant DOM as DOM
 
     External->>Editor: executeTransaction()
-    Editor->>Editor: 모델 업데이트
+    Editor->>Editor: Model update
     Editor->>EVD: editor:content.change (skipRender: false)
-    EVD->>EVD: skipRender 체크
-    EVD->>EVD: render() 호출 ✅
-    EVD->>DOM: DOM 업데이트
-    EVD->>EVD: Selection 복원 ✅
+    EVD->>EVD: Check skipRender
+    EVD->>EVD: Call render() ✅
+    EVD->>DOM: DOM update
+    EVD->>EVD: Restore Selection ✅
 ```
 
-### Mermaid 다이어그램: 입력 상태 전환
+### Mermaid Diagram: Input State Transition
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Idle: 초기 상태
+    [*] --> Idle: Initial state
     
-    Idle --> InputStart: 사용자 입력 시작
-    InputStart --> Inputting: 입력 중
-    Inputting --> Inputting: 계속 입력 (skipRender: true)
-    Inputting --> InputEnd: 입력 일시정지 (500ms)
-    InputEnd --> Idle: editingNodes 초기화
+    Idle --> InputStart: User input starts
+    InputStart --> Inputting: Inputting
+    Inputting --> Inputting: Continue input (skipRender: true)
+    Inputting --> InputEnd: Input paused (500ms)
+    InputEnd --> Idle: Initialize editingNodes
     
-    Idle --> ExternalChange: 외부 변경 감지
-    ExternalChange --> Rendering: render() 호출
-    Rendering --> Idle: 렌더링 완료
+    Idle --> ExternalChange: External change detected
+    ExternalChange --> Rendering: Call render()
+    Rendering --> Idle: Rendering complete
     
-    Inputting --> IMEComposing: IME 조합 시작
-    IMEComposing --> IMEComposing: 조합 중 (skipRender: true)
-    IMEComposing --> Inputting: 조합 완료
+    Inputting --> IMEComposing: IME composition starts
+    IMEComposing --> IMEComposing: Composing (skipRender: true)
+    IMEComposing --> Inputting: Composition complete
 ```
 
-### Mermaid 다이어그램: 의사결정 흐름
+### Mermaid Diagram: Decision Flow
 
 ```mermaid
 flowchart TD
-    Start([editor:content.change 이벤트]) --> CheckRendering{렌더링 중?}
-    CheckRendering -->|Yes| Skip1[건너뜀]
+    Start([editor:content.change event]) --> CheckRendering{Rendering?}
+    CheckRendering -->|Yes| Skip1[Skip]
     CheckRendering -->|No| CheckSkipRender{skipRender?}
     CheckSkipRender -->|true| CheckFrom{from?}
-    CheckFrom -->|MutationObserver| Skip2[렌더링 건너뜀 ✅]
-    CheckFrom -->|model-change| Render[render() 호출 ✅]
+    CheckFrom -->|MutationObserver| Skip2[Skip rendering ✅]
+    CheckFrom -->|model-change| Render[Call render() ✅]
     CheckSkipRender -->|false| Render
     CheckSkipRender -->|undefined| Render
     
-    Skip1 --> End([종료])
+    Skip1 --> End([End])
     Skip2 --> End
     Render --> End
     
@@ -192,66 +192,66 @@ flowchart TD
 
 ---
 
-## 시나리오별 동작 표
+## Behavior Table by Scenario
 
-| 시나리오 | 이벤트 소스 | skipRender | 렌더링 | Selection | 결과 |
+| Scenario | Event Source | skipRender | Rendering | Selection | Result |
 |---------|------------|-----------|--------|----------|------|
-| **기본 입력** |
-| 사용자 입력 (characterData) | MutationObserver | `true` | ❌ 건너뜀 | ✅ 브라우저가 유지 | ✅ Race condition 없음 |
-| 사용자 입력 + Selection 이동 (Shift+Arrow) | MutationObserver | `true` | ❌ 건너뜀 | ✅ 브라우저가 유지 | ✅ Selection 이동이 브라우저에 의해 안전하게 적용 |
-| 백스페이스/Delete 키 입력 | MutationObserver | `true` | ❌ 건너뜀 | ✅ 브라우저가 유지 | ✅ 텍스트 삭제 후 Selection 유지 |
-| **IME 입력** |
-| IME 조합 중 | MutationObserver | `true` | ❌ 건너뜀 | ✅ 브라우저가 유지 | ✅ 조합 완료 후 처리 |
-| IME 조합 완료 | MutationObserver | `true` | ❌ 건너뜀 | ✅ 브라우저가 유지 | ✅ 최종 텍스트만 모델 반영 |
-| **외부 변경** |
-| 외부 변경 (model-change) | Editor | `false` | ✅ 수행 | ✅ 복원 | ✅ 정상 동작 |
-| 외부 Decorator 변경 (예: 댓글, AI 강조) | Editor | `false` | ✅ 수행 | ✅ 복원 | ✅ Marks/Decorators 업데이트 후 Selection 유지 |
-| 외부 Selection 동기화 (협업 사용자) | Editor | `false` | ✅ 수행 후 Selection 복원 | ✅ 로컬 Selection 보존, remote Selection은 별도 레이어에 반영 | ✅ 협업 시 Selection 충돌 없음 |
-| **복사/붙여넣기** |
-| 붙여넣기 (paste) → 텍스트만 변경 | MutationObserver | `true` | ❌ 건너뜀 | ✅ 브라우저가 유지 | ✅ 텍스트만 추가, Selection 유지 |
-| 붙여넣기 (paste) → DOM 구조 변경 | MutationObserver | `true` (텍스트), `false` (구조) | 텍스트만 변경 시 ❌, 구조 변경 시 ✅ | 텍스트 변경 시 브라우저 유지, 구조 변경 시 렌더 후 복원 | ✅ paste 내용에 따라 안전하게 처리 |
-| 복사 (copy) | - | - | - | ✅ 브라우저가 처리 | ✅ Selection 기반 복사 |
-| **선택 및 입력** |
-| 드래그 선택 후 입력 | MutationObserver | `true` | ❌ 건너뜀 | ✅ 브라우저가 유지 | ✅ 드래그 선택 영역이 그대로 유지된 상태에서 입력 반영 |
-| Range 선택 후 입력 (텍스트 교체) | MutationObserver | `true` | ❌ 건너뜀 | ✅ 브라우저가 유지 | ✅ 선택된 텍스트가 삭제되고 새 텍스트 삽입 |
-| **Mark 토글** |
-| Bold/Italic 토글 (Mod+B, Mod+I) | Editor | `false` | ✅ 수행 | ✅ 복원 | ✅ Mark 적용 후 Selection 유지 |
-| Mark 토글 중 입력 | MutationObserver | `true` | ❌ 건너뜀 | ✅ 브라우저가 유지 | ✅ 입력과 Mark 토글이 독립적으로 처리 |
+| **Basic Input** |
+| User input (characterData) | MutationObserver | `true` | ❌ Skip | ✅ Browser maintains | ✅ No race condition |
+| User input + Selection move (Shift+Arrow) | MutationObserver | `true` | ❌ Skip | ✅ Browser maintains | ✅ Selection move safely applied by browser |
+| Backspace/Delete key input | MutationObserver | `true` | ❌ Skip | ✅ Browser maintains | ✅ Selection maintained after text deletion |
+| **IME Input** |
+| IME composition in progress | MutationObserver | `true` | ❌ Skip | ✅ Browser maintains | ✅ Process after composition completes |
+| IME composition complete | MutationObserver | `true` | ❌ Skip | ✅ Browser maintains | ✅ Only final text reflected to model |
+| **External Changes** |
+| External change (model-change) | Editor | `false` | ✅ Perform | ✅ Restore | ✅ Normal operation |
+| External Decorator change (e.g., comments, AI highlights) | Editor | `false` | ✅ Perform | ✅ Restore | ✅ Selection maintained after Marks/Decorators update |
+| External Selection sync (collaborative user) | Editor | `false` | ✅ Perform then restore Selection | ✅ Preserve local Selection, remote Selection reflected in separate layer | ✅ No Selection conflict during collaboration |
+| **Copy/Paste** |
+| Paste → text only change | MutationObserver | `true` | ❌ Skip | ✅ Browser maintains | ✅ Only text added, Selection maintained |
+| Paste → DOM structure change | MutationObserver | `true` (text), `false` (structure) | ❌ if text only, ✅ if structure | Browser maintains if text change, restore after render if structure change | ✅ Safely handled according to paste content |
+| Copy | - | - | - | ✅ Browser handles | ✅ Selection-based copy |
+| **Selection and Input** |
+| Input after drag selection | MutationObserver | `true` | ❌ Skip | ✅ Browser maintains | ✅ Input reflected while drag selection area maintained |
+| Input after Range selection (text replacement) | MutationObserver | `true` | ❌ Skip | ✅ Browser maintains | ✅ Selected text deleted and new text inserted |
+| **Mark Toggle** |
+| Bold/Italic toggle (Mod+B, Mod+I) | Editor | `false` | ✅ Perform | ✅ Restore | ✅ Selection maintained after Mark applied |
+| Input during Mark toggle | MutationObserver | `true` | ❌ Skip | ✅ Browser maintains | ✅ Input and Mark toggle handled independently |
 | **Undo/Redo** |
-| Undo (Mod+Z) | Editor | `false` | ✅ 수행 | ✅ 복원 | ✅ 이전 상태로 복원, Selection 복원 |
-| Redo (Mod+Shift+Z) | Editor | `false` | ✅ 수행 | ✅ 복원 | ✅ 다음 상태로 복원, Selection 복원 |
-| Undo 중 입력 | MutationObserver | `true` | ❌ 건너뜀 | ✅ 브라우저가 유지 | ✅ 입력이 우선, Undo는 취소 |
-| **다중 입력** |
-| 여러 노드 동시 입력 | MutationObserver | `true` | ❌ 건너뜀 | ✅ 브라우저가 유지 | ✅ 각 노드 독립적으로 처리 |
-| 입력 중 다른 노드로 포커스 이동 | MutationObserver | `true` | ❌ 건너뜀 | ✅ 브라우저가 유지 | ✅ 포커스 이동 후 입력 처리 |
+| Undo (Mod+Z) | Editor | `false` | ✅ Perform | ✅ Restore | ✅ Restore to previous state, Selection restored |
+| Redo (Mod+Shift+Z) | Editor | `false` | ✅ Perform | ✅ Restore | ✅ Restore to next state, Selection restored |
+| Input during Undo | MutationObserver | `true` | ❌ Skip | ✅ Browser maintains | ✅ Input takes priority, Undo cancelled |
+| **Multiple Input** |
+| Simultaneous input in multiple nodes | MutationObserver | `true` | ❌ Skip | ✅ Browser maintains | ✅ Each node handled independently |
+| Focus move to different node during input | MutationObserver | `true` | ❌ Skip | ✅ Browser maintains | ✅ Input handled after focus move |
 | **Cross-node Selection** |
-| 여러 노드에 걸친 Selection 후 입력 | MutationObserver | `true` | ❌ 건너뜀 | ✅ 브라우저가 유지 | ✅ 첫 번째 노드에 입력, Selection 축소 |
-| 여러 노드에 걸친 Selection 후 삭제 | MutationObserver | `true` | ❌ 건너뜀 | ✅ 브라우저가 유지 | ✅ 선택된 모든 노드의 텍스트 삭제 |
-| **특수 키 입력** |
-| Home/End 키 (라인 시작/끝 이동) | - | - | - | ✅ 브라우저가 처리 | ✅ Selection만 이동, 입력 없음 |
-| PageUp/PageDown 키 (페이지 이동) | - | - | - | ✅ 브라우저가 처리 | ✅ Selection만 이동, 입력 없음 |
-| Ctrl+Arrow (단어 단위 이동) | - | - | - | ✅ 브라우저가 처리 | ✅ Selection만 이동, 입력 없음 |
-| 특수 키 입력 후 즉시 텍스트 입력 | MutationObserver | `true` | ❌ 건너뜀 | ✅ 브라우저가 유지 | ✅ 특수 키 이동 후 입력 정상 처리 |
-| **포커스 및 탭** |
-| 입력 중 다른 노드로 포커스 이동 | MutationObserver | `true` | ❌ 건너뜀 | ✅ 브라우저가 유지 | ✅ 포커스 이동 후 입력 처리 |
-| 입력 중 다른 탭으로 전환 | MutationObserver | `true` | ❌ 건너뜀 | ✅ 브라우저가 유지 | ✅ 탭 전환 시 입력 중단, 복귀 시 재개 |
-| 입력 중 다른 애플리케이션으로 전환 후 복귀 | MutationObserver | `true` | ❌ 건너뜀 | ✅ 브라우저가 유지 | ✅ 포커스 복귀 시 입력 상태 유지 |
-| **비 텍스트 요소** |
-| 이미지 삽입 (drag & drop) | Editor | `false` | ✅ 수행 | ✅ 복원 | ✅ 이미지 삽입 후 Selection 복원 |
-| 이미지 삽입 (paste) | MutationObserver | `false` | ✅ 수행 | ✅ 복원 | ✅ 이미지 붙여넣기 후 Selection 복원 |
-| Embed 요소 삽입 | Editor | `false` | ✅ 수행 | ✅ 복원 | ✅ Embed 삽입 후 Selection 복원 |
-| **스크롤 및 레이아웃** |
-| 입력 중 스크롤 발생 | MutationObserver | `true` | ❌ 건너뜀 | ✅ 브라우저가 유지 | ✅ 스크롤과 입력 독립적으로 처리 |
-| 입력 중 창 크기 변경 | MutationObserver | `true` | ❌ 건너뜀 | ✅ 브라우저가 유지 | ✅ 레이아웃 변경과 입력 독립적으로 처리 |
-| 입력 중 미디어 쿼리 트리거 | MutationObserver | `true` | ❌ 건너뜀 | ✅ 브라우저가 유지 | ✅ 스타일 변경과 입력 독립적으로 처리 |
-| **에러 및 예외** |
-| 입력 중 네트워크 에러 (협업) | MutationObserver | `true` | ❌ 건너뜀 | ✅ 브라우저가 유지 | ✅ 로컬 입력은 정상 처리, 동기화는 재시도 |
-| 입력 중 모델 검증 실패 | MutationObserver | `true` | ❌ 건너뜀 | ✅ 브라우저가 유지 | ✅ 입력은 유지, 모델 업데이트만 실패 |
-| 입력 중 렌더링 에러 | MutationObserver | `true` | ❌ 건너뜀 | ✅ 브라우저가 유지 | ✅ 입력은 정상, 에러는 별도 처리 |
-| **특수 케이스** |
-| 입력 종료 | - | - | ❌ 재렌더링 없음 | ✅ 브라우저가 유지 | ✅ 충돌 없음 |
-| 입력 중 외부 변경 감지 (다른 노드) | Editor | `false` | ✅ 수행 | ✅ 복원 | ✅ 다른 노드는 업데이트, 입력 중인 노드는 브라우저가 DOM을 직접 관리하므로 영향 없음 |
-| 렌더링 중 입력 감지 | MutationObserver | `true` | ❌ 건너뜀 (렌더링 중 체크) | ✅ 브라우저가 유지 | ✅ 무한루프 방지 |
+| Input after Selection spanning multiple nodes | MutationObserver | `true` | ❌ Skip | ✅ Browser maintains | ✅ Input in first node, Selection shrinks |
+| Delete after Selection spanning multiple nodes | MutationObserver | `true` | ❌ Skip | ✅ Browser maintains | ✅ Text deleted from all selected nodes |
+| **Special Key Input** |
+| Home/End keys (move to line start/end) | - | - | - | ✅ Browser handles | ✅ Only Selection moves, no input |
+| PageUp/PageDown keys (page movement) | - | - | - | ✅ Browser handles | ✅ Only Selection moves, no input |
+| Ctrl+Arrow (word-by-word movement) | - | - | - | ✅ Browser handles | ✅ Only Selection moves, no input |
+| Text input immediately after special key | MutationObserver | `true` | ❌ Skip | ✅ Browser maintains | ✅ Input normally handled after special key movement |
+| **Focus and Tabs** |
+| Focus move to different node during input | MutationObserver | `true` | ❌ Skip | ✅ Browser maintains | ✅ Input handled after focus move |
+| Switch to different tab during input | MutationObserver | `true` | ❌ Skip | ✅ Browser maintains | ✅ Input paused on tab switch, resumes on return |
+| Switch to different application and return during input | MutationObserver | `true` | ❌ Skip | ✅ Browser maintains | ✅ Input state maintained on focus return |
+| **Non-text Elements** |
+| Image insertion (drag & drop) | Editor | `false` | ✅ Perform | ✅ Restore | ✅ Selection restored after image insertion |
+| Image insertion (paste) | MutationObserver | `false` | ✅ Perform | ✅ Restore | ✅ Selection restored after image paste |
+| Embed element insertion | Editor | `false` | ✅ Perform | ✅ Restore | ✅ Selection restored after Embed insertion |
+| **Scroll and Layout** |
+| Scroll during input | MutationObserver | `true` | ❌ Skip | ✅ Browser maintains | ✅ Scroll and input handled independently |
+| Window resize during input | MutationObserver | `true` | ❌ Skip | ✅ Browser maintains | ✅ Layout change and input handled independently |
+| Media query trigger during input | MutationObserver | `true` | ❌ Skip | ✅ Browser maintains | ✅ Style change and input handled independently |
+| **Errors and Exceptions** |
+| Network error during input (collaboration) | MutationObserver | `true` | ❌ Skip | ✅ Browser maintains | ✅ Local input handled normally, sync retried |
+| Model validation failure during input | MutationObserver | `true` | ❌ Skip | ✅ Browser maintains | ✅ Input maintained, only model update fails |
+| Rendering error during input | MutationObserver | `true` | ❌ Skip | ✅ Browser maintains | ✅ Input normal, error handled separately |
+| **Special Cases** |
+| Input end | - | - | ❌ No re-render | ✅ Browser maintains | ✅ No conflict |
+| External change detected during input (different node) | Editor | `false` | ✅ Perform | ✅ Restore | ✅ Different nodes updated, no impact on input node as browser directly manages DOM |
+| Input detected during rendering | MutationObserver | `true` | ❌ Skip (check during rendering) | ✅ Browser maintains | ✅ Prevent infinite loop |
 
 ---
 

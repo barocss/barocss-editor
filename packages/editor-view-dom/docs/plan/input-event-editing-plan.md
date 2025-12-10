@@ -1,414 +1,414 @@
-# 브라우저 입력 이벤트 → 편집 기능 매핑 계획
+# Browser Input Events → Editing Features Mapping Plan
 
-## 1. 목표
-- 브라우저에서 발생하는 입력 관련 이벤트를 구조화하여 모델/뷰 편집 기능에 연결한다.
-- 각 이벤트가 어떤 데이터와 상태를 필요로 하는지 명확히 정의하고, 처리 순서를 일관되게 유지한다.
-- IME/붙여넣기/특수키 등 다양한 시나리오를 커버할 수 있는 공통 레이어를 마련한다.
-- **한글 입력 깨짐을 최소화하기 위해 브라우저의 기본 동작을 최대한 활용한다.**
-
----
-
-## 2. 핵심 원칙
-
-### 2.1 사용하지 않는 이벤트
-- ❌ **`input` 이벤트**: 사용하지 않음. MutationObserver와 중복되며, DOM 변경 후 발생하여 타이밍 이슈 발생 가능.
-- ❌ **`compositionstart/update/end` 이벤트**: 사용하지 않음. 브라우저가 자동으로 처리하도록 두어 한글 입력 깨짐을 방지.
-
-### 2.2 사용하는 이벤트
-- ✅ **`beforeinput`**: 구조 변경(`insertParagraph`, `insertLineBreak`)만 감지하여 `preventDefault()` 처리. 나머지는 브라우저가 자동 처리하도록 둠.
-- ✅ **`keydown`**: 단축키, 브라우저가 `inputType`을 제공하지 않는 특수 키 조합(예: Ctrl+B, Ctrl+Z, Enter fallback 등) 처리.
-- ✅ **`selectionchange`**: DOM selection이 바뀔 때 모델 selection과 동기화.
-- ✅ **`MutationObserver`**: **주요 처리 레이어**. DOM 변경을 감지하여 모델 업데이트. 브라우저가 자동으로 DOM을 변경한 후 이를 감지.
-
-### 2.3 핵심 처리 전략
-
-**일반 텍스트 입력/삭제**:
-- `beforeinput`에서 `preventDefault()` 하지 않음
-- 브라우저가 자동으로 DOM 변경
-- `MutationObserver`가 DOM 변경 감지 → 모델 업데이트
-
-**구조 변경 (insertParagraph, insertLineBreak)**:
-- `beforeinput`에서 `preventDefault()` 함
-- 모델을 먼저 변경
-- 렌더링으로 DOM 업데이트
-- Selection 업데이트
+## 1. Goals
+- Structure input-related events that occur in the browser and connect them to model/view editing features.
+- Clearly define what data and state each event requires, and maintain consistent processing order.
+- Establish a common layer that can cover various scenarios such as IME/paste/special keys.
+- **Maximize use of browser default behavior to minimize Hangul input corruption.**
 
 ---
 
-## 3. 이벤트 소스별 역할
+## 2. Core Principles
 
-| 이벤트 | 목적 | 비고 |
+### 2.1 Events Not Used
+- ❌ **`input` event**: Not used. Overlaps with MutationObserver and occurs after DOM changes, which can cause timing issues.
+- ❌ **`compositionstart/update/end` events**: Not used. Let the browser handle them automatically to prevent Hangul input corruption.
+
+### 2.2 Events Used
+- ✅ **`beforeinput`**: Only detects structural changes (`insertParagraph`, `insertLineBreak`) and handles with `preventDefault()`. Let the browser handle the rest automatically.
+- ✅ **`keydown`**: Handles shortcuts and special key combinations that the browser doesn't provide `inputType` for (e.g., Ctrl+B, Ctrl+Z, Enter fallback, etc.).
+- ✅ **`selectionchange`**: Synchronizes model selection when DOM selection changes.
+- ✅ **`MutationObserver`**: **Primary processing layer**. Detects DOM changes and updates the model. Detects changes after the browser automatically modifies the DOM.
+
+### 2.3 Core Processing Strategy
+
+**General text input/deletion**:
+- Do not call `preventDefault()` in `beforeinput`
+- Browser automatically changes DOM
+- `MutationObserver` detects DOM changes → model update
+
+**Structural changes (insertParagraph, insertLineBreak)**:
+- Call `preventDefault()` in `beforeinput`
+- Change model first
+- Update DOM through rendering
+- Update Selection
+
+---
+
+## 3. Role by Event Source
+
+| Event | Purpose | Notes |
 | --- | --- | --- |
-| `beforeinput` | **구조 변경만 감지**: `insertParagraph`, `insertLineBreak` 등 구조 변경 시에만 `preventDefault()` 후 모델 먼저 변경. 나머지는 브라우저가 자동 처리하도록 둠. | 구조 변경만 처리. 텍스트 입력/삭제는 처리하지 않음. |
-| `keydown / keyup` | 단축키, 브라우저가 `inputType`을 제공하지 않는 특수 키 조합(예: Ctrl+B, Ctrl+Z, Enter fallback 등) 처리. | beforeinput 부족 시 보완. |
-| `selectionchange` | DOM selection이 바뀔 때 모델 selection과 동기화. SelectionManager 업데이트 후 `editor:selection.change` emit. | 상시 구독. |
-| `MutationObserver` | **주요 처리 레이어**: 브라우저가 자동으로 변경한 DOM을 감지하여 모델 업데이트. 텍스트 입력/삭제의 대부분을 여기서 처리. | 주요 처리 레이어. |
+| `beforeinput` | **Only detects structural changes**: Only for structural changes like `insertParagraph`, `insertLineBreak`, calls `preventDefault()` and changes model first. Let the browser handle the rest automatically. | Only handles structural changes. Does not handle text input/deletion. |
+| `keydown / keyup` | Handles shortcuts and special key combinations that the browser doesn't provide `inputType` for (e.g., Ctrl+B, Ctrl+Z, Enter fallback, etc.). | Complements when beforeinput is insufficient. |
+| `selectionchange` | Synchronizes model selection when DOM selection changes. Updates SelectionManager and emits `editor:selection.change`. | Always subscribed. |
+| `MutationObserver` | **Primary processing layer**: Detects DOM changes made automatically by the browser and updates the model. Handles most text input/deletion here. | Primary processing layer. |
 
 ---
 
-## 4. beforeinput inputType 매핑 테이블
+## 4. beforeinput inputType Mapping Table
 
-### 4.1 텍스트 입력 관련
+### 4.1 Text Input Related
 
-| inputType | 키/동작 | 편집 동작 | DataStore 연산 | Selection 상태 | 브라우저 지원 |
+| inputType | Key/Action | Editing Action | DataStore Operation | Selection State | Browser Support |
 | --- | --- | --- | --- | --- | --- |
-| `insertText` | 일반 문자 입력 (a-z, 0-9, 한글 등) | **MutationObserver에서 처리**: DOM 변경 감지 후 모델 업데이트 | `dataStore.range.replaceText(contentRange, text)` | collapsed 또는 range | ✅ Chrome, Firefox, Safari, Edge |
-| `insertCompositionText` | IME 중간 입력 (한글 조합 중) | **브라우저가 자동 처리하도록 두고, MutationObserver에서 최종 결과만 감지** | `dataStore.range.replaceText(contentRange, text)` (최종 결과만) | collapsed | ✅ Chrome, Firefox, Safari, Edge |
-| `insertFromPaste` | Ctrl+V / Cmd+V | **MutationObserver에서 처리**: 붙여넣기된 텍스트를 DOM에서 감지 후 모델 업데이트 | `dataStore.range.replaceText(contentRange, pastedText)` | collapsed 또는 range | ✅ Chrome, Firefox, Safari, Edge |
-| `insertFromDrop` | 드래그 앤 드롭 | **MutationObserver에서 처리**: 드롭된 텍스트를 DOM에서 감지 후 모델 업데이트 | `dataStore.range.replaceText(contentRange, droppedText)` | collapsed 또는 range | ✅ Chrome, Firefox, Safari, Edge |
-| `insertFromYank` | 일부 에디터의 yank 동작 | **MutationObserver에서 처리**: 텍스트 삽입 | `dataStore.range.replaceText(contentRange, text)` | collapsed 또는 range | ⚠️ 제한적 지원 |
+| `insertText` | General character input (a-z, 0-9, Hangul, etc.) | **Handled in MutationObserver**: Detect DOM changes and update model | `dataStore.range.replaceText(contentRange, text)` | collapsed or range | ✅ Chrome, Firefox, Safari, Edge |
+| `insertCompositionText` | IME intermediate input (during Hangul composition) | **Let browser handle automatically, MutationObserver only detects final result** | `dataStore.range.replaceText(contentRange, text)` (final result only) | collapsed | ✅ Chrome, Firefox, Safari, Edge |
+| `insertFromPaste` | Ctrl+V / Cmd+V | **Handled in MutationObserver**: Detect pasted text from DOM and update model | `dataStore.range.replaceText(contentRange, pastedText)` | collapsed or range | ✅ Chrome, Firefox, Safari, Edge |
+| `insertFromDrop` | Drag and drop | **Handled in MutationObserver**: Detect dropped text from DOM and update model | `dataStore.range.replaceText(contentRange, droppedText)` | collapsed or range | ✅ Chrome, Firefox, Safari, Edge |
+| `insertFromYank` | Some editors' yank action | **Handled in MutationObserver**: Text insertion | `dataStore.range.replaceText(contentRange, text)` | collapsed or range | ⚠️ Limited support |
 
-#### 상세 처리 흐름
+#### Detailed Processing Flow
 
-**`insertText` (일반 텍스트 입력)**:
-1. 브라우저가 자동으로 DOM에 텍스트 삽입
-2. `MutationObserver`가 `characterData` 또는 `childList` 변경 감지
-3. `handleTextContentChange(oldValue, newValue, target)` 호출
-4. `dataStore.range.replaceText(contentRange, insertedText)` 실행
-   - `contentRange`: 현재 selection 범위
-   - `insertedText`: 삽입된 텍스트 (DOM에서 추출)
-   - marks/decorators 자동 조정
-5. `editor.emit('editor:content.change', { skipRender: true })` 발생
+**`insertText` (General text input)**:
+1. Browser automatically inserts text into DOM
+2. `MutationObserver` detects `characterData` or `childList` changes
+3. Call `handleTextContentChange(oldValue, newValue, target)`
+4. Execute `dataStore.range.replaceText(contentRange, insertedText)`
+   - `contentRange`: Current selection range
+   - `insertedText`: Inserted text (extracted from DOM)
+   - marks/decorators automatically adjusted
+5. Emit `editor.emit('editor:content.change', { skipRender: true })`
 
-**`insertCompositionText` (IME 입력)**:
-1. 브라우저가 자동으로 IME 조합 중간 단계 처리
-2. `MutationObserver`가 중간 변경 감지하지만 보류 (composition 중)
-3. IME 입력 완료 후 최종 텍스트 변경 감지
-4. `dataStore.range.replaceText(contentRange, finalText)` 실행
-5. `editor.emit('editor:content.change', { skipRender: true })` 발생
+**`insertCompositionText` (IME input)**:
+1. Browser automatically handles IME composition intermediate steps
+2. `MutationObserver` detects intermediate changes but defers (during composition)
+3. Detect final text change after IME input completes
+4. Execute `dataStore.range.replaceText(contentRange, finalText)`
+5. Emit `editor.emit('editor:content.change', { skipRender: true })`
 
-### 4.2 구조 변경 관련
+### 4.2 Structural Changes Related
 
-| inputType | 키/동작 | 편집 동작 | DataStore 연산 | Selection 상태 | 브라우저 지원 |
+| inputType | Key/Action | Editing Action | DataStore Operation | Selection State | Browser Support |
 | --- | --- | --- | --- | --- | --- |
-| `insertParagraph` | Enter | **beforeinput에서 preventDefault() 후 처리**: 블록 분리, 새 paragraph 생성 | `dataStore.range.splitNode(nodeId, position)` + `dataStore.core.setNode(newParagraphNode)` | collapsed | ✅ Chrome, Firefox, Safari, Edge |
-| `insertLineBreak` | Shift+Enter | **beforeinput에서 preventDefault() 후 처리**: soft break 노드 삽입 | `dataStore.range.insertText(contentRange, '\n')` 또는 inline break 노드 삽입 | collapsed | ✅ Chrome, Firefox, Safari, Edge |
-| `insertOrderedList` | 브라우저 단축키 | **MutationObserver에서 처리**: ordered list 삽입 | `dataStore.core.setNode(orderedListNode)` | collapsed 또는 range | ✅ Chrome, Firefox, Safari, Edge |
-| `insertUnorderedList` | 브라우저 단축키 | **MutationObserver에서 처리**: unordered list 삽입 | `dataStore.core.setNode(unorderedListNode)` | collapsed 또는 range | ✅ Chrome, Firefox, Safari, Edge |
-| `insertHorizontalRule` | 브라우저 단축키 | **MutationObserver에서 처리**: horizontal rule 삽입 | `dataStore.core.setNode(horizontalRuleNode)` | collapsed | ✅ Chrome, Firefox, Safari, Edge |
+| `insertParagraph` | Enter | **Handle after preventDefault() in beforeinput**: Block split, create new paragraph | `dataStore.range.splitNode(nodeId, position)` + `dataStore.core.setNode(newParagraphNode)` | collapsed | ✅ Chrome, Firefox, Safari, Edge |
+| `insertLineBreak` | Shift+Enter | **Handle after preventDefault() in beforeinput**: Insert soft break node | `dataStore.range.insertText(contentRange, '\n')` or insert inline break node | collapsed | ✅ Chrome, Firefox, Safari, Edge |
+| `insertOrderedList` | Browser shortcut | **Handled in MutationObserver**: Insert ordered list | `dataStore.core.setNode(orderedListNode)` | collapsed or range | ✅ Chrome, Firefox, Safari, Edge |
+| `insertUnorderedList` | Browser shortcut | **Handled in MutationObserver**: Insert unordered list | `dataStore.core.setNode(unorderedListNode)` | collapsed or range | ✅ Chrome, Firefox, Safari, Edge |
+| `insertHorizontalRule` | Browser shortcut | **Handled in MutationObserver**: Insert horizontal rule | `dataStore.core.setNode(horizontalRuleNode)` | collapsed | ✅ Chrome, Firefox, Safari, Edge |
 
-#### 상세 처리 흐름
+#### Detailed Processing Flow
 
-**`insertParagraph` (Enter 키)**:
-1. `beforeinput` 이벤트에서 `event.preventDefault()` 실행
-2. 현재 selection 위치 확인 (`selectionManager.current`)
-3. **모델 먼저 변경**:
-   - `dataStore.range.splitNode(currentNodeId, cursorPosition)` 실행
-     - 현재 노드를 커서 위치에서 분할
-     - 왼쪽 부분은 기존 노드 유지
-     - 오른쪽 부분은 새 노드로 생성
-   - 새 paragraph 노드 생성: `dataStore.core.setNode(newParagraphNode)`
-   - 부모 노드의 `content` 배열에 새 paragraph 삽입
-4. **렌더링**: `editor.render()` 호출하여 DOM 업데이트
-5. **Selection 업데이트**: 새 paragraph의 시작 위치로 selection 이동
+**`insertParagraph` (Enter key)**:
+1. Execute `event.preventDefault()` in `beforeinput` event
+2. Check current selection position (`selectionManager.current`)
+3. **Change model first**:
+   - Execute `dataStore.range.splitNode(currentNodeId, cursorPosition)`
+     - Split current node at cursor position
+     - Keep left part as existing node
+     - Create right part as new node
+   - Create new paragraph node: `dataStore.core.setNode(newParagraphNode)`
+   - Insert new paragraph into parent node's `content` array
+4. **Rendering**: Call `editor.render()` to update DOM
+5. **Selection update**: Move selection to start of new paragraph
    - `selectionManager.setSelection({ nodeId: newParagraphId, offset: 0 })`
    - `editor.emit('editor:selection.change', { selection })`
 
 **`insertLineBreak` (Shift+Enter)**:
-1. `beforeinput` 이벤트에서 `event.preventDefault()` 실행
-2. 현재 selection 위치 확인
-3. **모델 먼저 변경**:
-   - 옵션 1: 텍스트에 `\n` 삽입
+1. Execute `event.preventDefault()` in `beforeinput` event
+2. Check current selection position
+3. **Change model first**:
+   - Option 1: Insert `\n` into text
      - `dataStore.range.insertText(contentRange, '\n')`
-   - 옵션 2: inline break 노드 삽입
-     - `dataStore.core.setNode(breakNode)` (예: `{ type: 'line-break' }`)
-4. **렌더링**: `editor.render()` 호출
-5. **Selection 업데이트**: break 노드 다음 위치로 이동
+   - Option 2: Insert inline break node
+     - `dataStore.core.setNode(breakNode)` (e.g., `{ type: 'line-break' }`)
+4. **Rendering**: Call `editor.render()`
+5. **Selection update**: Move to position after break node
 
-### 4.3 삭제 관련
+### 4.3 Deletion Related
 
-| inputType | 키/동작 | 편집 동작 | DataStore 연산 | Selection 상태 | 브라우저 지원 |
+| inputType | Key/Action | Editing Action | DataStore Operation | Selection State | Browser Support |
 | --- | --- | --- | --- | --- | --- |
-| `deleteContentBackward` | Backspace | **MutationObserver에서 처리**: DOM에서 삭제된 텍스트 감지 후 모델 업데이트 | `dataStore.range.deleteText(contentRange)` | collapsed 또는 range | ✅ Chrome, Firefox, Safari, Edge |
-| `deleteContentForward` | Delete | **MutationObserver에서 처리**: forward 방향 삭제 | `dataStore.range.deleteText(contentRange)` | collapsed 또는 range | ✅ Chrome, Firefox, Safari, Edge |
-| `deleteWordBackward` | Option+Backspace (Mac) / Ctrl+Backspace (Windows) | **MutationObserver에서 처리**: 단어 범위 삭제 | `dataStore.range.deleteText(expandedContentRange)` | collapsed | ✅ Chrome, Firefox, Safari, Edge |
-| `deleteWordForward` | Option+Delete (Mac) / Ctrl+Delete (Windows) | **MutationObserver에서 처리**: 단어 범위 삭제 | `dataStore.range.deleteText(expandedContentRange)` | collapsed | ✅ Chrome, Firefox, Safari, Edge |
-| `deleteSoftLineBackward` | 브라우저별 구현 | **MutationObserver에서 처리**: soft line 단위 삭제 | `dataStore.range.deleteText(softLineRange)` | collapsed | ⚠️ 브라우저별 차이 |
-| `deleteSoftLineForward` | 브라우저별 구현 | **MutationObserver에서 처리**: soft line 단위 삭제 | `dataStore.range.deleteText(softLineRange)` | collapsed | ⚠️ 브라우저별 차이 |
-| `deleteHardLineBackward` | 브라우저별 구현 | **MutationObserver에서 처리**: hard line 단위 삭제 | `dataStore.range.deleteText(hardLineRange)` | collapsed | ⚠️ 브라우저별 차이 |
-| `deleteHardLineForward` | 브라우저별 구현 | **MutationObserver에서 처리**: hard line 단위 삭제 | `dataStore.range.deleteText(hardLineRange)` | collapsed | ⚠️ 브라우저별 차이 |
-| `deleteByDrag` | 드래그로 선택 후 삭제 | **MutationObserver에서 처리**: 선택된 범위 삭제 | `dataStore.range.deleteText(contentRange)` | range | ✅ Chrome, Firefox, Safari, Edge |
-| `deleteByCut` | Ctrl+X / Cmd+X | **MutationObserver에서 처리**: 선택된 범위 삭제 및 클립보드 복사 | `dataStore.range.deleteText(contentRange)` | range | ✅ Chrome, Firefox, Safari, Edge |
+| `deleteContentBackward` | Backspace | **Handled in MutationObserver**: Detect deleted text from DOM and update model | `dataStore.range.deleteText(contentRange)` | collapsed or range | ✅ Chrome, Firefox, Safari, Edge |
+| `deleteContentForward` | Delete | **Handled in MutationObserver**: Forward direction deletion | `dataStore.range.deleteText(contentRange)` | collapsed or range | ✅ Chrome, Firefox, Safari, Edge |
+| `deleteWordBackward` | Option+Backspace (Mac) / Ctrl+Backspace (Windows) | **Handled in MutationObserver**: Word range deletion | `dataStore.range.deleteText(expandedContentRange)` | collapsed | ✅ Chrome, Firefox, Safari, Edge |
+| `deleteWordForward` | Option+Delete (Mac) / Ctrl+Delete (Windows) | **Handled in MutationObserver**: Word range deletion | `dataStore.range.deleteText(expandedContentRange)` | collapsed | ✅ Chrome, Firefox, Safari, Edge |
+| `deleteSoftLineBackward` | Browser-specific implementation | **Handled in MutationObserver**: Soft line unit deletion | `dataStore.range.deleteText(softLineRange)` | collapsed | ⚠️ Browser differences |
+| `deleteSoftLineForward` | Browser-specific implementation | **Handled in MutationObserver**: Soft line unit deletion | `dataStore.range.deleteText(softLineRange)` | collapsed | ⚠️ Browser differences |
+| `deleteHardLineBackward` | Browser-specific implementation | **Handled in MutationObserver**: Hard line unit deletion | `dataStore.range.deleteText(hardLineRange)` | collapsed | ⚠️ Browser differences |
+| `deleteHardLineForward` | Browser-specific implementation | **Handled in MutationObserver**: Hard line unit deletion | `dataStore.range.deleteText(hardLineRange)` | collapsed | ⚠️ Browser differences |
+| `deleteByDrag` | Select then delete by drag | **Handled in MutationObserver**: Delete selected range | `dataStore.range.deleteText(contentRange)` | range | ✅ Chrome, Firefox, Safari, Edge |
+| `deleteByCut` | Ctrl+X / Cmd+X | **Handled in MutationObserver**: Delete selected range and copy to clipboard | `dataStore.range.deleteText(contentRange)` | range | ✅ Chrome, Firefox, Safari, Edge |
 
-#### 상세 처리 흐름
+#### Detailed Processing Flow
 
 **`deleteContentBackward` (Backspace)**:
-1. 브라우저가 자동으로 DOM에서 텍스트 삭제
-2. `MutationObserver`가 `characterData` 또는 `childList` 변경 감지
-3. `handleTextContentChange(oldValue, newValue, target)` 호출
-4. 삭제 범위 계산:
-   - collapsed selection인 경우: 커서 앞의 문자 삭제 (유니코드, surrogate pair 고려)
-   - range selection인 경우: 선택된 범위 삭제
-5. `dataStore.range.deleteText(contentRange)` 실행
-   - `contentRange`: 삭제할 범위
-   - marks/decorators 자동 조정 (split/trim/shift)
-6. `editor.emit('editor:content.change', { skipRender: true })` 발생
+1. Browser automatically deletes text from DOM
+2. `MutationObserver` detects `characterData` or `childList` changes
+3. Call `handleTextContentChange(oldValue, newValue, target)`
+4. Calculate deletion range:
+   - If collapsed selection: Delete character before cursor (considering Unicode, surrogate pairs)
+   - If range selection: Delete selected range
+5. Execute `dataStore.range.deleteText(contentRange)`
+   - `contentRange`: Range to delete
+   - marks/decorators automatically adjusted (split/trim/shift)
+6. Emit `editor.emit('editor:content.change', { skipRender: true })`
 
 **`deleteContentForward` (Delete)**:
-- `deleteContentBackward`와 동일한 흐름
-- 차이점: 커서 뒤의 문자 삭제
+- Same flow as `deleteContentBackward`
+- Difference: Delete character after cursor
 
 **`deleteWordBackward` (Option+Backspace)**:
-1. 브라우저가 자동으로 단어 범위까지 확장하여 삭제
-2. `MutationObserver`가 변경 감지
-3. 삭제된 단어 범위 계산
-4. `dataStore.range.deleteText(expandedContentRange)` 실행
+1. Browser automatically expands to word range and deletes
+2. `MutationObserver` detects changes
+3. Calculate deleted word range
+4. Execute `dataStore.range.deleteText(expandedContentRange)`
 
-### 4.4 포맷 관련
+### 4.4 Format Related
 
-| inputType | 키/동작 | 편집 동작 | DataStore 연산 | Selection 상태 | 브라우저 지원 | 중요 사항 |
+| inputType | Key/Action | Editing Action | DataStore Operation | Selection State | Browser Support | Important Notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| `formatBold` | Ctrl+B / Cmd+B | **MutationObserver에서 처리**: DOM에서 포맷 변경 감지 후 모델 업데이트 | `dataStore.range.toggleMark(contentRange, { stype: 'bold' })` | **range만** (collapsed에서는 발생하지 않음) | ✅ Chrome, Firefox, Safari, Edge | ⚠️ **collapsed selection에서는 발생하지 않음** |
-| `formatItalic` | Ctrl+I / Cmd+I | **MutationObserver에서 처리**: DOM에서 포맷 변경 감지 | `dataStore.range.toggleMark(contentRange, { stype: 'italic' })` | **range만** | ✅ Chrome, Firefox, Safari, Edge | ⚠️ **collapsed selection에서는 발생하지 않음** |
-| `formatUnderline` | Ctrl+U / Cmd+U | **MutationObserver에서 처리**: DOM에서 포맷 변경 감지 | `dataStore.range.toggleMark(contentRange, { stype: 'underline' })` | **range만** | ✅ Chrome, Firefox, Safari, Edge | ⚠️ **collapsed selection에서는 발생하지 않음** |
-| `formatStrikeThrough` | 브라우저 단축키 | **MutationObserver에서 처리**: DOM에서 포맷 변경 감지 | `dataStore.range.toggleMark(contentRange, { stype: 'strikeThrough' })` | **range만** | ✅ Chrome, Firefox, Safari, Edge | ⚠️ **collapsed selection에서는 발생하지 않음** |
-| `formatSuperscript` | 브라우저 단축키 | **MutationObserver에서 처리**: DOM에서 포맷 변경 감지 | `dataStore.range.toggleMark(contentRange, { stype: 'superscript' })` | **range만** | ⚠️ 제한적 지원 | |
-| `formatSubscript` | 브라우저 단축키 | **MutationObserver에서 처리**: DOM에서 포맷 변경 감지 | `dataStore.range.toggleMark(contentRange, { stype: 'subscript' })` | **range만** | ⚠️ 제한적 지원 | |
-| `formatRemove` | 브라우저 단축키 | **MutationObserver에서 처리**: 모든 포맷 제거 | `dataStore.range.clearMarks(contentRange)` | range | ⚠️ 제한적 지원 | |
-| `formatJustifyFull` | 브라우저 단축키 | **MutationObserver에서 처리**: justify 정렬 | `dataStore.core.updateNode(nodeId, { attributes: { align: 'justify' } })` | collapsed 또는 range | ⚠️ 제한적 지원 | |
-| `formatJustifyCenter` | 브라우저 단축키 | **MutationObserver에서 처리**: center 정렬 | `dataStore.core.updateNode(nodeId, { attributes: { align: 'center' } })` | collapsed 또는 range | ⚠️ 제한적 지원 | |
-| `formatJustifyRight` | 브라우저 단축키 | **MutationObserver에서 처리**: right 정렬 | `dataStore.core.updateNode(nodeId, { attributes: { align: 'right' } })` | collapsed 또는 range | ⚠️ 제한적 지원 | |
-| `formatJustifyLeft` | 브라우저 단축키 | **MutationObserver에서 처리**: left 정렬 | `dataStore.core.updateNode(nodeId, { attributes: { align: 'left' } })` | collapsed 또는 range | ⚠️ 제한적 지원 | |
-| `formatIndent` | Tab / 브라우저 단축키 | **MutationObserver에서 처리**: 들여쓰기 증가 | `dataStore.core.updateNode(nodeId, { attributes: { indent: currentIndent + 1 } })` | collapsed 또는 range | ⚠️ 브라우저별 차이 | |
-| `formatOutdent` | Shift+Tab / 브라우저 단축키 | **MutationObserver에서 처리**: 들여쓰기 감소 | `dataStore.core.updateNode(nodeId, { attributes: { indent: Math.max(0, currentIndent - 1) } })` | collapsed 또는 range | ⚠️ 브라우저별 차이 | |
+| `formatBold` | Ctrl+B / Cmd+B | **Handled in MutationObserver**: Detect format changes from DOM and update model | `dataStore.range.toggleMark(contentRange, { stype: 'bold' })` | **range only** (does not occur with collapsed) | ✅ Chrome, Firefox, Safari, Edge | ⚠️ **Does not occur with collapsed selection** |
+| `formatItalic` | Ctrl+I / Cmd+I | **Handled in MutationObserver**: Detect format changes from DOM | `dataStore.range.toggleMark(contentRange, { stype: 'italic' })` | **range only** | ✅ Chrome, Firefox, Safari, Edge | ⚠️ **Does not occur with collapsed selection** |
+| `formatUnderline` | Ctrl+U / Cmd+U | **Handled in MutationObserver**: Detect format changes from DOM | `dataStore.range.toggleMark(contentRange, { stype: 'underline' })` | **range only** | ✅ Chrome, Firefox, Safari, Edge | ⚠️ **Does not occur with collapsed selection** |
+| `formatStrikeThrough` | Browser shortcut | **Handled in MutationObserver**: Detect format changes from DOM | `dataStore.range.toggleMark(contentRange, { stype: 'strikeThrough' })` | **range only** | ✅ Chrome, Firefox, Safari, Edge | ⚠️ **Does not occur with collapsed selection** |
+| `formatSuperscript` | Browser shortcut | **Handled in MutationObserver**: Detect format changes from DOM | `dataStore.range.toggleMark(contentRange, { stype: 'superscript' })` | **range only** | ⚠️ Limited support | |
+| `formatSubscript` | Browser shortcut | **Handled in MutationObserver**: Detect format changes from DOM | `dataStore.range.toggleMark(contentRange, { stype: 'subscript' })` | **range only** | ⚠️ Limited support | |
+| `formatRemove` | Browser shortcut | **Handled in MutationObserver**: Remove all formats | `dataStore.range.clearMarks(contentRange)` | range | ⚠️ Limited support | |
+| `formatJustifyFull` | Browser shortcut | **Handled in MutationObserver**: Justify alignment | `dataStore.core.updateNode(nodeId, { attributes: { align: 'justify' } })` | collapsed or range | ⚠️ Limited support | |
+| `formatJustifyCenter` | Browser shortcut | **Handled in MutationObserver**: Center alignment | `dataStore.core.updateNode(nodeId, { attributes: { align: 'center' } })` | collapsed or range | ⚠️ Limited support | |
+| `formatJustifyRight` | Browser shortcut | **Handled in MutationObserver**: Right alignment | `dataStore.core.updateNode(nodeId, { attributes: { align: 'right' } })` | collapsed or range | ⚠️ Limited support | |
+| `formatJustifyLeft` | Browser shortcut | **Handled in MutationObserver**: Left alignment | `dataStore.core.updateNode(nodeId, { attributes: { align: 'left' } })` | collapsed or range | ⚠️ Limited support | |
+| `formatIndent` | Tab / Browser shortcut | **Handled in MutationObserver**: Increase indentation | `dataStore.core.updateNode(nodeId, { attributes: { indent: currentIndent + 1 } })` | collapsed or range | ⚠️ Browser differences | |
+| `formatOutdent` | Shift+Tab / Browser shortcut | **Handled in MutationObserver**: Decrease indentation | `dataStore.core.updateNode(nodeId, { attributes: { indent: Math.max(0, currentIndent - 1) } })` | collapsed or range | ⚠️ Browser differences | |
 
-#### 상세 처리 흐름
+#### Detailed Processing Flow
 
 **`formatBold` (Ctrl+B / Cmd+B)**:
-1. 브라우저가 자동으로 DOM에 `<strong>` 또는 `<b>` 태그 추가/제거
-2. `MutationObserver`가 `attributes` 또는 `childList` 변경 감지
-3. 변경된 범위와 포맷 타입 확인
-4. `dataStore.range.toggleMark(contentRange, { stype: 'bold' })` 실행
-   - `contentRange`: 포맷이 적용된 텍스트 범위
-   - 기존에 bold가 있으면 제거, 없으면 추가
-   - `dataStore.marks.toggleMark()` 내부적으로 호출
-5. `editor.emit('editor:content.change', { skipRender: true })` 발생
+1. Browser automatically adds/removes `<strong>` or `<b>` tags in DOM
+2. `MutationObserver` detects `attributes` or `childList` changes
+3. Check changed range and format type
+4. Execute `dataStore.range.toggleMark(contentRange, { stype: 'bold' })`
+   - `contentRange`: Text range where format is applied
+   - Remove bold if exists, add if not
+   - Internally calls `dataStore.marks.toggleMark()`
+5. Emit `editor.emit('editor:content.change', { skipRender: true })`
 
-**`formatItalic`, `formatUnderline` 등**:
-- `formatBold`와 동일한 흐름
-- 차이점: `stype` 값만 다름 (`'italic'`, `'underline'` 등)
+**`formatItalic`, `formatUnderline`, etc.**:
+- Same flow as `formatBold`
+- Difference: Only `stype` value differs (`'italic'`, `'underline'`, etc.)
 
-**`formatRemove` (모든 포맷 제거)**:
-1. 브라우저가 자동으로 DOM에서 포맷 태그 제거
-2. `MutationObserver`가 변경 감지
-3. `dataStore.range.clearMarks(contentRange)` 실행
-   - 선택된 범위의 모든 marks 제거
+**`formatRemove` (Remove all formats)**:
+1. Browser automatically removes format tags from DOM
+2. `MutationObserver` detects changes
+3. Execute `dataStore.range.clearMarks(contentRange)`
+   - Remove all marks in selected range
 
-### 4.5 히스토리 관련
+### 4.5 History Related
 
-| inputType | 키/동작 | 편집 동작 | DataStore 연산 | Selection 상태 | 브라우저 지원 | 중요 사항 |
+| inputType | Key/Action | Editing Action | DataStore Operation | Selection State | Browser Support | Important Notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| `historyUndo` | Ctrl+Z / Cmd+Z | **beforeinput에서 preventDefault() 후 처리**: 에디터 history 시스템에 연결 | `editor.history.undo()` (내부적으로 DataStore 상태 복원) | collapsed 또는 range | ✅ Chrome, Firefox, Safari, Edge | ⚠️ OS 기본 undo와 충돌 가능 |
-| `historyRedo` | Ctrl+Shift+Z / Cmd+Shift+Z | **beforeinput에서 preventDefault() 후 처리**: 에디터 history 시스템에 연결 | `editor.history.redo()` (내부적으로 DataStore 상태 복원) | collapsed 또는 range | ✅ Chrome, Firefox, Safari, Edge | ⚠️ OS 기본 redo와 충돌 가능 |
+| `historyUndo` | Ctrl+Z / Cmd+Z | **Handle after preventDefault() in beforeinput**: Connect to editor history system | `editor.history.undo()` (internally restores DataStore state) | collapsed or range | ✅ Chrome, Firefox, Safari, Edge | ⚠️ May conflict with OS default undo |
+| `historyRedo` | Ctrl+Shift+Z / Cmd+Shift+Z | **Handle after preventDefault() in beforeinput**: Connect to editor history system | `editor.history.redo()` (internally restores DataStore state) | collapsed or range | ✅ Chrome, Firefox, Safari, Edge | ⚠️ May conflict with OS default redo |
 
-#### 상세 처리 흐름
+#### Detailed Processing Flow
 
 **`historyUndo` (Ctrl+Z / Cmd+Z)**:
-1. `beforeinput` 이벤트에서 `event.preventDefault()` 실행
-2. `editor.history.undo()` 호출
-   - HistoryManager가 이전 상태로 복원
-   - 내부적으로 `dataStore`의 이전 상태로 되돌림
-   - TransactionalOverlay를 사용하여 원자적 복원
-3. **렌더링**: `editor.render()` 호출하여 DOM 업데이트
-4. **Selection 업데이트**: 이전 상태의 selection으로 복원
+1. Execute `event.preventDefault()` in `beforeinput` event
+2. Call `editor.history.undo()`
+   - HistoryManager restores previous state
+   - Internally reverts `dataStore` to previous state
+   - Uses TransactionalOverlay for atomic restoration
+3. **Rendering**: Call `editor.render()` to update DOM
+4. **Selection update**: Restore to previous state's selection
 
 **`historyRedo` (Ctrl+Shift+Z / Cmd+Shift+Z)**:
-- `historyUndo`와 동일한 흐름
-- 차이점: `editor.history.redo()` 호출
+- Same flow as `historyUndo`
+- Difference: Call `editor.history.redo()`
 
-### 4.6 기타
+### 4.6 Others
 
-| inputType | 키/동작 | 편집 동작 | Selection 상태 | 브라우저 지원 |
+| inputType | Key/Action | Editing Action | Selection State | Browser Support |
 | --- | --- | --- | --- | --- |
-| `insertReplacementText` | 자동완성/교정 | 교정 텍스트 삽입 | collapsed 또는 range | ⚠️ 제한적 지원 |
-| `insertFromComposition` | IME 최종 입력 | IME 입력 완료 후 텍스트 삽입 | collapsed | ⚠️ 브라우저별 차이 |
+| `insertReplacementText` | Autocomplete/correction | Insert corrected text | collapsed or range | ⚠️ Limited support |
+| `insertFromComposition` | IME final input | Insert text after IME input completes | collapsed | ⚠️ Browser differences |
 
 ---
 
-### 4.7 브라우저별 차이점 및 주의사항
+### 4.7 Browser Differences and Notes
 
-#### Chrome/Edge (Chromium 기반)
-- ✅ 대부분의 `inputType` 지원
-- ✅ `formatBold`, `formatItalic` 등 포맷 관련 `inputType` 잘 지원
-- ⚠️ `formatBold`는 **range selection에서만 발생** (collapsed에서는 발생하지 않음)
-- ✅ `historyUndo`, `historyRedo` 지원
+#### Chrome/Edge (Chromium-based)
+- ✅ Supports most `inputType`s
+- ✅ Well supports format-related `inputType`s like `formatBold`, `formatItalic`
+- ⚠️ `formatBold` **only occurs with range selection** (does not occur with collapsed)
+- ✅ Supports `historyUndo`, `historyRedo`
 
 #### Firefox
-- ✅ 대부분의 `inputType` 지원
-- ⚠️ 일부 포맷 관련 `inputType`이 Chrome보다 제한적일 수 있음
-- ⚠️ `formatBold`는 **range selection에서만 발생** (collapsed에서는 발생하지 않음)
-- ✅ `historyUndo`, `historyRedo` 지원
+- ✅ Supports most `inputType`s
+- ⚠️ Some format-related `inputType`s may be more limited than Chrome
+- ⚠️ `formatBold` **only occurs with range selection** (does not occur with collapsed)
+- ✅ Supports `historyUndo`, `historyRedo`
 
 #### Safari
-- ⚠️ 일부 `inputType` 지원이 제한적
-- ⚠️ `formatBold` 등 포맷 관련 `inputType`이 Chrome보다 제한적일 수 있음
-- ⚠️ `formatBold`는 **range selection에서만 발생** (collapsed에서는 발생하지 않음)
-- ⚠️ `historyUndo`, `historyRedo` 지원이 불안정할 수 있음
+- ⚠️ Support for some `inputType`s is limited
+- ⚠️ Format-related `inputType`s like `formatBold` may be more limited than Chrome
+- ⚠️ `formatBold` **only occurs with range selection** (does not occur with collapsed)
+- ⚠️ Support for `historyUndo`, `historyRedo` may be unstable
 
-#### 공통 주의사항
-1. **포맷 관련 `inputType`은 range selection에서만 발생**
-   - `formatBold`, `formatItalic` 등은 텍스트가 선택된 상태(range)에서만 발생
-   - collapsed selection(커서만 있는 상태)에서는 발생하지 않음
-   - 따라서 collapsed 상태에서 포맷을 적용하려면 `keydown` 이벤트로 처리해야 함
+#### Common Notes
+1. **Format-related `inputType`s only occur with range selection**
+   - `formatBold`, `formatItalic`, etc. only occur when text is selected (range)
+   - Do not occur with collapsed selection (cursor only)
+   - Therefore, to apply format in collapsed state, must handle with `keydown` event
 
-2. **브라우저별 `inputType` 지원 차이**
-   - Safari는 일부 `inputType`을 지원하지 않을 수 있음
-   - 따라서 `keydown` fallback이 필수적
+2. **Browser differences in `inputType` support**
+   - Safari may not support some `inputType`s
+   - Therefore, `keydown` fallback is essential
 
-3. **히스토리 관련 `inputType`**
-   - `historyUndo`, `historyRedo`는 OS 기본 undo/redo와 충돌할 수 있음
-   - 에디터 자체 history 시스템을 사용하려면 `preventDefault()` 후 자체 로직 실행 필요
+3. **History-related `inputType`s**
+   - `historyUndo`, `historyRedo` may conflict with OS default undo/redo
+   - To use editor's own history system, must execute own logic after `preventDefault()`
 
 ---
 
-## 5. 단축키 및 Hook 시스템
+## 5. Shortcuts and Hook System
 
-### 5.1 KeyBinding 시스템
+### 5.1 KeyBinding System
 
-**결정**: **`KeyBinding`만 사용**. 별도의 hook 개념은 제공하지 않음.
+**Decision**: **Use only `KeyBinding`**. Do not provide separate hook concept.
 
-**이유**:
-1. 다른 에디터들(ProseMirror, Slate, Lexical 등)도 `inputType` hook을 제공하지 않음
-2. 브라우저 호환성 문제 (Safari 제한적 지원)
-3. 키 조합을 직접 파싱하는 것이 더 유연하고 제어 가능
-4. 기존 `KeymapManager`와의 일관성 유지
-5. `KeyBinding`에 이미 `before`/`after` hook이 포함되어 있어 별도 hook 개념 불필요
+**Reasons**:
+1. Other editors (ProseMirror, Slate, Lexical, etc.) also do not provide `inputType` hooks
+2. Browser compatibility issues (Safari limited support)
+3. Directly parsing key combinations is more flexible and controllable
+4. Maintain consistency with existing `KeymapManager`
+5. `KeyBinding` already includes `before`/`after` hooks, so separate hook concept is unnecessary
 
-**KeyBinding 구조**:
+**KeyBinding Structure**:
 
 ```ts
 interface KeyBinding {
-  // 단축키 식별자 (Key 기반만)
-  key: string;           // 예: 'Ctrl+B', 'Enter', 'Cmd+B'
+  // Shortcut identifier (Key-based only)
+  key: string;           // e.g., 'Ctrl+B', 'Enter', 'Cmd+B'
   
-  // Command 연결 (선택사항)
-  command?: string;       // 예: 'bold.toggle'
-  commandPayload?: any;   // Command에 전달할 payload
+  // Command connection (optional)
+  command?: string;       // e.g., 'bold.toggle'
+  commandPayload?: any;   // Payload to pass to command
   
-  // 또는 직접 handler (Command 없이 사용 가능)
+  // Or direct handler (can be used without command)
   handler?: () => void;
   
-  // Hook 지원
+  // Hook support
   before?: (event: KeyboardEvent, context: EditorContext) => boolean | void;
   after?: (event: KeyboardEvent, context: EditorContext, result: any) => void;
   
-  // 우선순위 (낮을수록 먼저 실행)
+  // Priority (lower executes first)
   priority?: number;
 }
 ```
 
-**처리 순서**:
-1. `keydown` 이벤트 발생
-2. `KeyBinding`의 `before` hook 확인 및 실행
-3. `command` 또는 `handler` 실행
-4. `KeyBinding`의 `after` hook 실행
+**Processing Order**:
+1. `keydown` event occurs
+2. Check and execute `KeyBinding`'s `before` hook
+3. Execute `command` or `handler`
+4. Execute `KeyBinding`'s `after` hook
 
-### 5.2 단축키 처리 흐름
+### 5.2 Shortcut Processing Flow
 
-단축키가 있는 행위들은 다음 순서로 처리됩니다:
+Actions with shortcuts are processed in the following order:
 
-1. **KeyBinding의 before hook**: 외부에서 단축키를 가로채서 다른 행위를 수행할 수 있음
-2. **기본 동작**: Hook이 처리하지 않은 경우 기본 동작 수행
-3. **Key 기반 Hook (after)**: 기본 동작 완료 후 추가 처리
+1. **KeyBinding's before hook**: External code can intercept shortcuts to perform different actions
+2. **Default action**: Perform default action if hook doesn't handle it
+3. **Key-based Hook (after)**: Additional processing after default action completes
 
-### 5.3 외부에서 단축키 가로채기
+### 5.3 Intercepting Shortcuts from External Code
 
-**예시 1**: `Ctrl+B` (Bold 토글)를 커스터마이징
+**Example 1**: Customize `Ctrl+B` (Bold toggle)
 
 ```ts
-// KeyBinding으로 hook 등록 (Command 없이 handler만 사용)
+// Register hook with KeyBinding (use handler only without command)
 keyBindingManager.registerBinding({
-  key: 'Ctrl+B', // 또는 'Cmd+B' (플랫폼별)
+  key: 'Ctrl+B', // or 'Cmd+B' (platform-specific)
   handler: () => {
-    // 커스텀 Bold 동작
+    // Custom Bold action
     performCustomBoldAction(editor);
   },
   before: (event, context) => {
-    // 조건부로 기본 동작 스킵
+    // Conditionally skip default action
     if (shouldUseCustomBold(context)) {
       event.preventDefault();
-      return true; // handler 실행, 기본 동작 스킵
+      return true; // Execute handler, skip default action
     }
   },
   after: (event, context, result) => {
-    // Bold 토글 후 로깅
+    // Log after Bold toggle
     logBoldAction(context, result);
   },
   priority: 100
 });
 ```
 
-**예시 2**: `Enter` 키 (단락 삽입)를 커스터마이징
+**Example 2**: Customize `Enter` key (paragraph insertion)
 
 ```ts
-// KeyBinding으로 hook 등록
+// Register hook with KeyBinding
 keyBindingManager.registerBinding({
   key: 'Enter',
   handler: () => {
-    // 코드 블록 내에서는 커스텀 동작
+    // Custom action inside code block
     if (isInCodeBlock(editor)) {
       insertCodeBlockLineBreak(editor);
     } else {
-      // 기본 동작 (기존 Command 실행)
+      // Default action (execute existing command)
       editor.executeCommand('insertParagraph');
     }
   },
   before: (event, context) => {
-    // 코드 블록 내에서는 기본 동작 스킵
+    // Skip default action inside code block
     if (isInCodeBlock(context)) {
       event.preventDefault();
-      return true; // handler 실행, 기본 동작 스킵
+      return true; // Execute handler, skip default action
     }
   },
   after: (event, context, result) => {
-    // 단락 삽입 후 로깅
+    // Log after paragraph insertion
     analytics.track('paragraph_inserted', { result });
   },
   priority: 100
 });
 ```
 
-**예시 3**: Command와 연결된 단축키에 추가 처리만 (로깅)
+**Example 3**: Only add additional processing (logging) to shortcut connected to command
 
 ```ts
-// 기존 Command는 그대로 사용하고, 추가 처리만
+// Use existing command as-is, only add additional processing
 keyBindingManager.registerBinding({
   key: 'Ctrl+B',
-  command: 'bold.toggle', // 기존 Command 사용
+  command: 'bold.toggle', // Use existing command
   after: (event, context, result) => {
-    // Command 실행 후 로깅만 추가
+    // Only add logging after command execution
     analytics.track('bold_toggled', { result });
   },
-  priority: 2000 // Command 실행 후 실행
+  priority: 2000 // Execute after command execution
 });
 ```
 
-### 5.4 Hook 실행 순서
+### 5.4 Hook Execution Order
 
-#### keydown 이벤트 처리
+#### keydown Event Handling
 
 ```ts
 function handleKeyDown(event: KeyboardEvent) {
-  const key = getKeyString(event); // 예: 'Ctrl+B', 'Enter'
+  const key = getKeyString(event); // e.g., 'Ctrl+B', 'Enter'
   
-  // KeyBinding 찾기
+  // Find KeyBinding
   const bindings = keyBindingManager.getBindings(key).sort((a, b) => 
     (a.priority || 1000) - (b.priority || 1000)
   );
   
-  // before hooks 실행
+  // Execute before hooks
   for (const binding of bindings) {
     if (binding.before) {
       const result = binding.before(event, editorContext);
       if (result === true) {
-        // 기본 동작 스킵 (하지만 handler나 command는 실행 가능)
-        // binding.handler 또는 binding.command 실행
+        // Skip default action (but handler or command can still execute)
+        // Execute binding.handler or binding.command
         if (binding.handler) {
           binding.handler();
         } else if (binding.command) {
           editor.executeCommand(binding.command, binding.commandPayload);
         }
-        // after hooks 실행
+        // Execute after hooks
         for (const b of bindings) {
           b.after?.(event, editorContext, null);
         }
@@ -417,7 +417,7 @@ function handleKeyDown(event: KeyboardEvent) {
     }
   }
   
-  // 기본 동작 수행 (Command 또는 handler)
+  // Perform default action (command or handler)
   let defaultResult = null;
   for (const binding of bindings) {
     if (binding.command) {
@@ -429,7 +429,7 @@ function handleKeyDown(event: KeyboardEvent) {
     }
   }
   
-  // after hooks 실행
+  // Execute after hooks
   for (const binding of bindings) {
     if (binding.after) {
       binding.after(event, editorContext, defaultResult);
@@ -438,141 +438,141 @@ function handleKeyDown(event: KeyboardEvent) {
 }
 ```
 
-#### 처리 흐름
+#### Processing Flow
 
 ```
-사용자 입력 (예: Enter 키)
+User input (e.g., Enter key)
   ↓
-keydown 이벤트 발생
-  ├─ key: 'Enter' 확인
-  ├─ Key 기반 hook의 before 실행
-  ├─ 기본 동작 수행 또는 스킵
-  └─ Key 기반 hook의 after 실행
+keydown event occurs
+  ├─ Check key: 'Enter'
+  ├─ Execute Key-based hook's before
+  ├─ Perform or skip default action
+  └─ Execute Key-based hook's after
 ```
 
-### 5.5 Key 기반 Hook 사용 가이드
+### 5.5 Key-based Hook Usage Guide
 
-#### Key 기반 Hook 사용
+#### Using Key-based Hooks
 
-✅ **모든 단축키는 Key 기반으로 처리**:
-- `keydown` 이벤트에서 키 조합을 직접 파싱
-- 플랫폼별 차이 처리 (Ctrl vs Cmd)
-- 모든 selection 상태에서 동일하게 동작
+✅ **All shortcuts are handled Key-based**:
+- Directly parse key combinations in `keydown` event
+- Handle platform differences (Ctrl vs Cmd)
+- Work consistently across all selection states
 
-**예시**:
+**Example**:
 ```ts
-// Enter 키 → 단락 삽입 (Command 연결)
+// Enter key → Insert paragraph (connect to command)
 keyBindingManager.bindCommand('Enter', 'insertParagraph');
 
-// 또는 추가 처리와 함께
+// Or with additional processing
 keyBindingManager.registerBinding({
   key: 'Enter',
   command: 'insertParagraph',
   before: (event, context) => { /* ... */ }
 });
 
-// Ctrl+B → Bold 토글 (모든 selection 상태)
+// Ctrl+B → Bold toggle (all selection states)
 keyBindingManager.bindCommand('Ctrl+B', 'bold.toggle');
 keyBindingManager.bindCommand('Cmd+B', 'bold.toggle');
 ```
 
-#### 플랫폼별 키 처리
+#### Platform-specific Key Handling
 
 ```ts
-// 플랫폼 자동 감지
+// Automatic platform detection
 const modifier = navigator.platform.includes('Mac') ? 'Cmd' : 'Ctrl';
 keyBindingManager.bindCommand(`${modifier}+B`, 'bold.toggle');
 
-// 또는 명시적으로 둘 다 등록
+// Or explicitly register both
 keyBindingManager.bindCommand('Ctrl+B', 'bold.toggle'); // Windows/Linux
 keyBindingManager.bindCommand('Cmd+B', 'bold.toggle'); // macOS
 ```
 
-### 5.6 다른 에디터들의 처리 방식 (참고)
+### 5.6 How Other Editors Handle This (Reference)
 
-#### 조사 결과
+#### Research Results
 
-**대부분의 에디터들은 `inputType` hook을 제공하지 않음**:
+**Most editors do not provide `inputType` hooks**:
 
-1. **ProseMirror**: `keydown` 이벤트 기반 `Keymap` 플러그인 사용
-2. **Slate.js**: `beforeinput` 이벤트 사용하지만 `inputType` hook은 제공하지 않음
-3. **Lexical (Meta)**: `keydown` 이벤트 기반 처리
-4. **Tiptap**: ProseMirror 기반이므로 `keydown` 이벤트 사용
-5. **Quill**: `keydown` 이벤트 기반 처리
+1. **ProseMirror**: Uses `keydown` event-based `Keymap` plugin
+2. **Slate.js**: Uses `beforeinput` event but does not provide `inputType` hooks
+3. **Lexical (Meta)**: `keydown` event-based handling
+4. **Tiptap**: Based on ProseMirror, so uses `keydown` event
+5. **Quill**: `keydown` event-based handling
 
-#### 왜 inputType hook을 제공하지 않는가?
+#### Why Don't They Provide inputType Hooks?
 
-1. **브라우저 호환성 문제**: Safari에서 제한적 지원
-2. **기존 시스템과의 통합 어려움**: 대부분의 에디터가 이미 `keydown` 기반 시스템 구축
-3. **세밀한 제어 필요**: 키 조합을 직접 파싱하는 것이 더 유연함
+1. **Browser compatibility issues**: Limited support in Safari
+2. **Integration difficulties with existing systems**: Most editors already have `keydown`-based systems
+3. **Need for fine-grained control**: Directly parsing key combinations is more flexible
 
-#### 우리의 결정
+#### Our Decision
 
-**Key 기반 hook만 제공**:
-- 다른 에디터들과 동일한 접근법
-- 브라우저 호환성 최대화
-- 기존 `KeymapManager`와의 일관성 유지
-- 모든 selection 상태에서 동일하게 동작
+**Provide only Key-based hooks**:
+- Same approach as other editors
+- Maximize browser compatibility
+- Maintain consistency with existing `KeymapManager`
+- Work consistently across all selection states
 
 ---
 
-### 5.7 KeymapManager와 Command 시스템 통합
+### 5.7 KeymapManager and Command System Integration
 
-#### 현재 상태
+#### Current State
 
 **KeymapManager** (`packages/editor-view-dom/src/keymap/keymap-manager.ts`):
-- ✅ 이미 존재함
-- 단순한 `key → handler` 매핑
-- `register(key: string, handler: () => void)` 형태
-- Command와 직접 연결되지 않음
+- ✅ Already exists
+- Simple `key → handler` mapping
+- `register(key: string, handler: () => void)` form
+- Not directly connected to commands
 
-**Command 시스템** (`packages/editor-core/src/editor.ts`):
-- `registerCommand({ name, execute, before, after })` 형태
-- Extension에서 command 등록
-- 단축키와 직접 연결되지 않음
+**Command System** (`packages/editor-core/src/editor.ts`):
+- `registerCommand({ name, execute, before, after })` form
+- Commands registered in extensions
+- Not directly connected to shortcuts
 
-#### 통합 필요성
+#### Integration Need
 
-✅ **단축키 → Command 연결이 필요함**:
-- Extension에서 command를 등록하고, 단축키로 실행할 수 있어야 함
-- KeymapManager가 Command를 호출하도록 통합 필요
-- Hook 시스템과 Command 시스템을 함께 사용할 수 있어야 함
+✅ **Shortcut → Command connection is needed**:
+- Extensions should be able to register commands and execute them via shortcuts
+- Need to integrate KeymapManager to call commands
+- Should be able to use hook system and command system together
 
-#### 통합 방안: KeyBindingManager
+#### Integration Approach: KeyBindingManager
 
-**Option 1: KeymapManager 확장 (권장)**
+**Option 1: Extend KeymapManager (Recommended)**
 
 ```ts
 interface KeyBinding {
-  // 단축키 식별자 (Key 기반만)
-  key: string;           // 예: 'Ctrl+B', 'Enter', 'Cmd+B'
+  // Shortcut identifier (Key-based only)
+  key: string;           // e.g., 'Ctrl+B', 'Enter', 'Cmd+B'
   
-  // Command 연결
-  command?: string;       // 예: 'bold.toggle'
-  commandPayload?: any;   // Command에 전달할 payload
+  // Command connection
+  command?: string;       // e.g., 'bold.toggle'
+  commandPayload?: any;   // Payload to pass to command
   
-  // 또는 직접 handler (기존 KeymapManager 호환)
+  // Or direct handler (compatible with existing KeymapManager)
   handler?: () => void;
   
-  // Hook 지원
+  // Hook support
   before?: (event: KeyboardEvent, context: EditorContext) => boolean | void;
   after?: (event: KeyboardEvent, context: EditorContext, result: any) => void;
   
-  // 우선순위
+  // Priority
   priority?: number;
 }
 
 interface KeyBindingManager extends KeymapManager {
-  // KeyBinding 등록
-  registerBinding(binding: KeyBinding): () => void; // unregister 함수 반환
+  // Register KeyBinding
+  registerBinding(binding: KeyBinding): () => void; // Returns unregister function
   
-  // Command와 단축키 연결 (편의 메서드)
+  // Connect command to shortcut (convenience method)
   bindCommand(key: string, command: string, payload?: any): void;
   
-  // 등록된 binding 조회
+  // Query registered bindings
   getBindings(key?: string): KeyBinding[];
   
-  // 기존 KeymapManager API 유지 (하위 호환성)
+  // Maintain existing KeymapManager API (backward compatibility)
   register(key: string, handler: () => void): void;
   getHandler(key: string): (() => void) | undefined;
   remove(key: string): void;
@@ -580,10 +580,10 @@ interface KeyBindingManager extends KeymapManager {
 }
 ```
 
-**사용 예시**:
+**Usage Example**:
 
 ```ts
-// Extension에서 Command 등록
+// Register command in extension
 editor.registerCommand({
   name: 'bold.toggle',
   before: (editor, payload) => {
@@ -597,18 +597,18 @@ editor.registerCommand({
   }
 });
 
-// KeyBindingManager로 단축키와 Command 연결
+// Connect shortcut to command with KeyBindingManager
 keyBindingManager.bindCommand('Ctrl+B', 'bold.toggle');
 keyBindingManager.bindCommand('Cmd+B', 'bold.toggle'); // macOS
 
-// 또는 더 세밀한 제어
+// Or with more fine-grained control
 keyBindingManager.registerBinding({
   key: 'Ctrl+B',
   command: 'bold.toggle',
   before: (event, context) => {
     if (!canToggleBold(context)) {
       event.preventDefault();
-      return true; // Command 실행 스킵
+      return true; // Skip command execution
     }
   },
   after: (event, context, result) => {
@@ -618,45 +618,45 @@ keyBindingManager.registerBinding({
 });
 ```
 
-**처리 흐름**:
+**Processing Flow**:
 
 ```
-사용자 입력 (예: Ctrl+B)
+User input (e.g., Ctrl+B)
   ↓
-keydown 이벤트 (key: 'Ctrl+B')
-  ├─ KeyBinding의 before hook 실행
-  ├─ Command의 before hook 실행
-  ├─ Command의 execute 실행
-  ├─ Command의 after hook 실행
-  └─ KeyBinding의 after hook 실행
+keydown event (key: 'Ctrl+B')
+  ├─ Execute KeyBinding's before hook
+  ├─ Execute Command's before hook
+  ├─ Execute Command's execute
+  ├─ Execute Command's after hook
+  └─ Execute KeyBinding's after hook
 ```
 
-**실행 순서**:
-1. KeyBinding `before` hook (Key 기반)
+**Execution Order**:
+1. KeyBinding `before` hook (Key-based)
 2. Command `before` hook
 3. Command `execute`
 4. Command `after` hook
 5. KeyBinding `after` hook
 
-#### 기존 KeymapManager와의 호환성
+#### Compatibility with Existing KeymapManager
 
-기존 `KeymapManager` API는 유지하되, 내부적으로 `KeyBindingManager`를 사용:
+Maintain existing `KeymapManager` API but use `KeyBindingManager` internally:
 
 ```ts
-// 기존 API (하위 호환성)
+// Existing API (backward compatibility)
 keymapManager.register('Ctrl+B', () => {
   editor.executeCommand('bold.toggle');
 });
 
-// 새로운 API (Command 직접 연결)
+// New API (direct command connection)
 keyBindingManager.bindCommand('Ctrl+B', 'bold.toggle');
 ```
 
-### 5.8 Extension 기반 Keymap 등록
+### 5.8 Extension-based Keymap Registration
 
-#### 현재 문제점
+#### Current Issues
 
-현재 `EditorViewDOM`에서 일일이 키를 등록하고 있음:
+Currently registering keys one by one in `EditorViewDOM`:
 
 ```ts
 // editor-view-dom.ts
@@ -664,17 +664,17 @@ this.keymapManager.register('Ctrl+b', () => this.toggleBold());
 this.keymapManager.register('Cmd+b', () => this.toggleBold());
 this.keymapManager.register('Ctrl+i', () => this.toggleItalic());
 this.keymapManager.register('Cmd+i', () => this.toggleItalic());
-// ... 반복
+// ... repeated
 ```
 
-**문제점**:
-- 플랫폼별 키 조합을 일일이 등록해야 함 (Ctrl vs Cmd)
-- Extension이 추가될 때마다 `EditorViewDOM`을 수정해야 함
-- Command와 단축키의 연결이 분산되어 있음
+**Issues**:
+- Must register platform-specific key combinations one by one (Ctrl vs Cmd)
+- Must modify `EditorViewDOM` every time an extension is added
+- Connection between commands and shortcuts is scattered
 
-#### 해결 방안: Extension 기반 등록
+#### Solution: Extension-based Registration
 
-**Extension에서 직접 keymap 등록**:
+**Register keymap directly in Extension**:
 
 ```ts
 // packages/editor-core/src/extensions/bold.ts
@@ -682,11 +682,11 @@ export class BoldExtension implements Extension {
   name = 'bold';
   
   onCreate(editor: Editor): void {
-    // Command 등록
+    // Register command
     editor.registerCommand({
       name: 'bold.toggle',
       execute: (editor) => {
-        // Bold 토글 로직
+        // Bold toggle logic
         return true;
       },
       canExecute: (editor) => {
@@ -694,15 +694,15 @@ export class BoldExtension implements Extension {
       }
     });
     
-    // KeyBinding 등록 (Extension에서 직접)
+    // Register KeyBinding (directly in extension)
     const keyBindingManager = editor._viewDOM?._keyBindingManager;
     if (keyBindingManager) {
-      // 플랫폼 자동 감지
+      // Automatic platform detection
       const modKey = navigator.platform.includes('Mac') ? 'Cmd' : 'Ctrl';
       
       keyBindingManager.bindCommand(`${modKey}+B`, 'bold.toggle');
       
-      // 또는 명시적으로 둘 다 등록
+      // Or explicitly register both
       keyBindingManager.bindCommand('Ctrl+B', 'bold.toggle');
       keyBindingManager.bindCommand('Cmd+B', 'bold.toggle');
     }
@@ -710,45 +710,45 @@ export class BoldExtension implements Extension {
 }
 ```
 
-**장점**:
-- Extension이 자신의 Command와 단축키를 함께 관리
-- `EditorViewDOM` 수정 불필요
-- Extension 추가/제거 시 자동으로 keymap도 추가/제거
+**Advantages**:
+- Extension manages its own commands and shortcuts together
+- No need to modify `EditorViewDOM`
+- Keymap automatically added/removed when extension is added/removed
 
-#### KeyProfile 개념 (선택사항)
+#### KeyProfile Concept (Optional)
 
-**KeyProfile**: 사용자나 환경에 따라 다른 키 매핑을 적용할 수 있는 프로파일 시스템
+**KeyProfile**: Profile system that can apply different key mappings based on user or environment
 
-**위지윅 에디터의 Vim 모드 지원 현황**:
+**WYSIWYG Editor Vim Mode Support Status**:
 
-| 에디터 타입 | Vim 모드 지원 | 비고 |
-|------------|--------------|------|
-| **코드 에디터** (VS Code, Sublime Text, Atom) | ✅ 제공 | 코드 편집용이므로 vim 모드가 일반적 |
-| **전통적인 WYSIWYG** (Google Docs, Notion, Word Online) | ❌ 제공하지 않음 | GUI 중심, 모달 편집 방식과 맞지 않음 |
-| **라이브러리 기반** (ProseMirror, Tiptap, Slate.js) | ⚠️ 제한적 | 공식적으로 제공하지 않지만, 커뮤니티 플러그인 존재 가능 |
-| **마크다운 에디터** (Typora, Obsidian) | ⚠️ 일부 제공 | 마크다운 모드에서는 vim 스타일 단축키 제공하는 경우 있음 |
+| Editor Type | Vim Mode Support | Notes |
+|------------|-----------------|-------|
+| **Code Editors** (VS Code, Sublime Text, Atom) | ✅ Provided | Common for code editing |
+| **Traditional WYSIWYG** (Google Docs, Notion, Word Online) | ❌ Not provided | GUI-centric, doesn't match modal editing style |
+| **Library-based** (ProseMirror, Tiptap, Slate.js) | ⚠️ Limited | Not officially provided, but community plugins may exist |
+| **Markdown Editors** (Typora, Obsidian) | ⚠️ Some provide | Some provide vim-style shortcuts in markdown mode |
 
-**결론**:
-- **전통적인 WYSIWYG 에디터**는 vim 모드를 제공하지 않는 것이 일반적
-- **코드 에디터**는 vim 모드가 표준 기능
-- **라이브러리 기반 에디터**는 커뮤니티 플러그인으로 구현 가능하지만, 공식 지원은 드묾
-- **우리 에디터**는 KeyProfile 시스템으로 vim 모드를 선택적으로 제공 가능 (초기 구현에서는 선택사항)
+**Conclusion**:
+- **Traditional WYSIWYG editors** generally do not provide vim mode
+- **Code editors** have vim mode as standard feature
+- **Library-based editors** can be implemented via community plugins, but official support is rare
+- **Our editor** can optionally provide vim mode through KeyProfile system (optional in initial implementation)
 
-**사용 사례**:
-1. **기본 프로파일**: 표준 단축키 (Ctrl+B, Ctrl+I 등)
-2. **Vim 프로파일**: Vim 스타일 단축키 (예: `i` = insert mode, `dd` = delete line) - **선택사항**
-3. **Emacs 프로파일**: Emacs 스타일 단축키 (예: `Ctrl+X Ctrl+S` = save) - **선택사항**
-4. **사용자 커스텀 프로파일**: 사용자가 직접 정의한 단축키
+**Use Cases**:
+1. **Default profile**: Standard shortcuts (Ctrl+B, Ctrl+I, etc.)
+2. **Vim profile**: Vim-style shortcuts (e.g., `i` = insert mode, `dd` = delete line) - **Optional**
+3. **Emacs profile**: Emacs-style shortcuts (e.g., `Ctrl+X Ctrl+S` = save) - **Optional**
+4. **User custom profile**: Shortcuts defined directly by user
 
-**구현 방식**:
+**Implementation Approach**:
 
 ```ts
 interface KeyProfile {
   name: string;
-  keymaps: Record<string, string>; // key -> command 매핑
+  keymaps: Record<string, string>; // key -> command mapping
 }
 
-// 기본 프로파일
+// Default profile
 const defaultProfile: KeyProfile = {
   name: 'default',
   keymaps: {
@@ -759,7 +759,7 @@ const defaultProfile: KeyProfile = {
   }
 };
 
-// Vim 프로파일
+// Vim profile
 const vimProfile: KeyProfile = {
   name: 'vim',
   keymaps: {
@@ -770,58 +770,58 @@ const vimProfile: KeyProfile = {
   }
 };
 
-// KeyBindingManager에 프로파일 적용
+// Apply profile to KeyBindingManager
 keyBindingManager.loadProfile(defaultProfile);
-// 또는
+// or
 keyBindingManager.loadProfile(vimProfile);
 ```
 
-**모드 전환 기능**:
+**Mode Switching Feature**:
 
 ```ts
 interface KeyBindingManager {
-  // 프로파일 로드
+  // Load profile
   loadProfile(profile: KeyProfile): void;
   
-  // 현재 프로파일 조회
+  // Get current profile
   getCurrentProfile(): KeyProfile | null;
   
-  // 프로파일 전환
+  // Switch profile
   switchProfile(profileName: string): void;
   
-  // 사용 가능한 프로파일 목록
+  // List available profiles
   getAvailableProfiles(): KeyProfile[];
   
-  // 프로파일 등록
+  // Register profile
   registerProfile(profile: KeyProfile): void;
 }
 
-// 사용 예시
+// Usage example
 keyBindingManager.registerProfile(defaultProfile);
 keyBindingManager.registerProfile(vimProfile);
 keyBindingManager.registerProfile(emacsProfile);
 
-// 프로파일 전환
-keyBindingManager.switchProfile('vim'); // Vim 모드로 전환
-keyBindingManager.switchProfile('default'); // 기본 모드로 전환
+// Switch profile
+keyBindingManager.switchProfile('vim'); // Switch to Vim mode
+keyBindingManager.switchProfile('default'); // Switch to default mode
 ```
 
-**Vim 모드의 경우 추가 고려사항**:
+**Additional Considerations for Vim Mode**:
 
-Vim은 모달 편집기이므로 단순 키 매핑만으로는 부족합니다:
+Vim is a modal editor, so simple key mapping alone is insufficient:
 
 ```ts
-// Vim 모드 상태 관리
+// Vim mode state management
 interface VimModeState {
   mode: 'normal' | 'insert' | 'visual' | 'command';
-  pendingKeys: string[]; // 다중 키 명령어 (예: 'dd', 'yy')
+  pendingKeys: string[]; // Multi-key commands (e.g., 'dd', 'yy')
 }
 
-// Vim 프로파일은 모드별로 다른 키 매핑 필요
+// Vim profile needs different key mappings per mode
 const vimProfile: KeyProfile = {
   name: 'vim',
   keymaps: {
-    // Normal 모드
+    // Normal mode
     'i': 'vim.enterInsertMode',
     'v': 'vim.enterVisualMode',
     'dd': 'deleteLine',
@@ -829,7 +829,7 @@ const vimProfile: KeyProfile = {
     'p': 'paste',
     // ...
   },
-  // 모드별 키 매핑 분리
+  // Separate key mappings by mode
   modeKeymaps: {
     normal: {
       'i': 'vim.enterInsertMode',
@@ -838,7 +838,7 @@ const vimProfile: KeyProfile = {
     },
     insert: {
       'Escape': 'vim.enterNormalMode',
-      // 일반 텍스트 입력은 그대로
+      // Regular text input remains as-is
     },
     visual: {
       'd': 'delete',
@@ -850,14 +850,14 @@ const vimProfile: KeyProfile = {
 };
 ```
 
-**모드 전환 시 주의사항**:
+**Notes When Switching Modes**:
 
-1. **상태 초기화**: 모드 전환 시 pending keys 초기화
-2. **UI 피드백**: 현재 모드 표시 (예: 상태바에 "NORMAL", "INSERT" 표시)
-3. **기본 동작 복원**: 모드 전환 시 이전 모드의 키 바인딩 제거
-4. **Extension 호환성**: Extension이 등록한 키 바인딩과의 충돌 처리
+1. **State initialization**: Initialize pending keys when switching modes
+2. **UI feedback**: Display current mode (e.g., show "NORMAL", "INSERT" in status bar)
+3. **Restore default behavior**: Remove previous mode's key bindings when switching modes
+4. **Extension compatibility**: Handle conflicts with key bindings registered by extensions
 
-**구현 예시**:
+**Implementation Example**:
 
 ```ts
 class KeyBindingManagerImpl {
@@ -865,10 +865,10 @@ class KeyBindingManagerImpl {
   private registeredProfiles: Map<string, KeyProfile> = new Map();
   
   loadProfile(profile: KeyProfile): void {
-    // 기존 키 바인딩 제거
+    // Remove existing key bindings
     this.clear();
     
-    // 새 프로파일의 키 바인딩 등록
+    // Register new profile's key bindings
     for (const [key, command] of Object.entries(profile.keymaps)) {
       this.bindCommand(key, command);
     }
@@ -899,19 +899,19 @@ class KeyBindingManagerImpl {
 }
 ```
 
-**다른 에디터들의 키 바인딩 관리 방식**:
+**How Other Editors Manage Key Bindings**:
 
-| 에디터 | 키 바인딩 관리 방식 | 프로파일 지원 | 비고 |
-|--------|-------------------|--------------|------|
-| **VS Code** | `keybindings.json` 파일 기반 | ✅ 키 바인딩 프로파일 (예: Vim, Emacs) | JSON 파일로 관리, 확장 프로그램으로 프로파일 제공 |
-| **ProseMirror** | `prosemirror-keymap` 플러그인 | ❌ 프로파일 없음 | 플러그인 단위로 키맵 등록, 런타임 전환 불가 |
-| **Tiptap** | ProseMirror 기반 | ❌ 프로파일 없음 | Extension에서 키맵 등록 |
-| **Slate.js** | 플러그인/Extension 기반 | ❌ 프로파일 없음 | 각 플러그인이 자체 키맵 관리 |
-| **Sublime Text** | `.sublime-keymap` 파일 | ✅ 키맵 파일별 프로파일 | 플랫폼별 키맵 파일 (Default, Linux, OSX, Windows) |
-| **Atom** | `keymap.cson` 파일 | ✅ 키맵 파일별 프로파일 | CoffeeScript Object Notation 파일 |
-| **Vim/Neovim** | `.vimrc` / `init.vim` | ✅ 설정 파일별 프로파일 | 모달 편집기, 모드별 키맵 |
+| Editor | Key Binding Management | Profile Support | Notes |
+|--------|----------------------|----------------|-------|
+| **VS Code** | `keybindings.json` file-based | ✅ Key binding profiles (e.g., Vim, Emacs) | Managed via JSON file, profiles provided by extensions |
+| **ProseMirror** | `prosemirror-keymap` plugin | ❌ No profiles | Register keymaps per plugin, cannot switch at runtime |
+| **Tiptap** | ProseMirror-based | ❌ No profiles | Register keymaps in extensions |
+| **Slate.js** | Plugin/Extension-based | ❌ No profiles | Each plugin manages its own keymap |
+| **Sublime Text** | `.sublime-keymap` file | ✅ Profile per keymap file | Platform-specific keymap files (Default, Linux, OSX, Windows) |
+| **Atom** | `keymap.cson` file | ✅ Profile per keymap file | CoffeeScript Object Notation file |
+| **Vim/Neovim** | `.vimrc` / `init.vim` | ✅ Profile per config file | Modal editor, keymap per mode |
 
-**VS Code의 키 바인딩 관리**:
+**VS Code's Key Binding Management**:
 
 ```json
 // keybindings.json
@@ -928,24 +928,24 @@ class KeyBindingManagerImpl {
 ]
 ```
 
-- JSON 파일로 키 바인딩 관리
-- 확장 프로그램이 키 바인딩 추가 가능
-- Vim 확장 프로그램이 별도 키맵 제공 (프로파일 개념)
+- Manage key bindings via JSON file
+- Extensions can add key bindings
+- Vim extension provides separate keymap (profile concept)
 
-**ProseMirror의 키맵 관리**:
+**ProseMirror's Keymap Management**:
 
 ```ts
 import { keymap } from 'prosemirror-keymap';
 import { baseKeymap } from 'prosemirror-commands';
 
-// 키맵 플러그인 등록
+// Register keymap plugin
 const keymapPlugin = keymap({
   'Mod+b': toggleBold,
   'Mod+i': toggleItalic,
   // ...
 });
 
-// 여러 키맵 병합
+// Merge multiple keymaps
 const allKeymaps = keymap([
   ...baseKeymap,
   customKeymap,
@@ -953,11 +953,11 @@ const allKeymaps = keymap([
 ]);
 ```
 
-- 플러그인 단위로 키맵 등록
-- 여러 키맵을 병합하여 사용
-- 런타임에 프로파일 전환 불가 (플러그인 재등록 필요)
+- Register keymaps per plugin
+- Merge multiple keymaps for use
+- Cannot switch profiles at runtime (requires plugin re-registration)
 
-**Sublime Text의 키맵 프로파일**:
+**Sublime Text's Keymap Profiles**:
 
 ```
 Default (Linux).sublime-keymap
@@ -965,58 +965,58 @@ Default (OSX).sublime-keymap
 Default (Windows).sublime-keymap
 ```
 
-- 플랫폼별 키맵 파일 자동 선택
-- 사용자 키맵 파일로 오버라이드 가능
-- 프로파일 전환은 파일 교체 방식
+- Automatically select platform-specific keymap file
+- Can override with user keymap file
+- Profile switching via file replacement
 
-**우리 에디터의 접근법**:
+**Our Editor's Approach**:
 
-우리는 **하이브리드 접근법**을 사용:
+We use a **hybrid approach**:
 
-1. **Extension 기반 등록** (기본): ProseMirror/Tiptap과 유사
-   - Extension에서 키맵 자동 등록
-   - 코드와 함께 관리
+1. **Extension-based registration** (default): Similar to ProseMirror/Tiptap
+   - Extensions automatically register keymaps
+   - Managed together with code
 
-2. **KeyProfile 시스템** (선택사항): VS Code/Sublime Text와 유사
-   - 런타임에 프로파일 전환 가능
-   - 사용자 커스터마이징 지원
-   - Vim/Emacs 등 특수 모드 지원
+2. **KeyProfile system** (optional): Similar to VS Code/Sublime Text
+   - Can switch profiles at runtime
+   - Supports user customization
+   - Supports special modes like Vim/Emacs
 
-**장점**:
-- Extension 개발자는 간단하게 키맵 등록 (ProseMirror 방식)
-- 사용자는 프로파일로 커스터마이징 가능 (VS Code 방식)
-- 두 가지 방식을 모두 지원하여 유연성 확보
+**Advantages**:
+- Extension developers can easily register keymaps (ProseMirror style)
+- Users can customize via profiles (VS Code style)
+- Supports both approaches for flexibility
 
-**KeyProfile vs 일일이 등록**:
+**KeyProfile vs One-by-One Registration**:
 
-| 방식 | 장점 | 단점 | 권장 사용 |
-|------|------|------|----------|
-| **Extension 기반 등록** | - Extension과 단축키가 함께 관리됨<br>- 자동으로 추가/제거됨<br>- 코드가 분산되지 않음 | - Extension이 keyBindingManager에 접근해야 함 | ✅ **권장**: 기본 방식 |
-| **일일이 등록** | - 간단함<br>- 명시적 | - 플랫폼별 키를 일일이 등록해야 함<br>- Extension 추가 시 수정 필요 | ❌ 비권장 |
-| **KeyProfile** | - 사용자 커스터마이징 가능<br>- 여러 프로파일 전환 가능<br>- Vim/Emacs 등 특수 에디터 스타일 지원 | - 구현 복잡도 증가<br>- 기본 사용에는 불필요 | ⚠️ **선택사항**: 사용자 커스터마이징이 필요한 경우만 |
+| Approach | Advantages | Disadvantages | Recommended Use |
+|----------|-----------|---------------|----------------|
+| **Extension-based registration** | - Shortcuts managed together with extension<br>- Automatically added/removed<br>- Code not scattered | - Extension must access keyBindingManager | ✅ **Recommended**: Default approach |
+| **One-by-one registration** | - Simple<br>- Explicit | - Must register platform-specific keys one by one<br>- Must modify when extension is added | ❌ Not recommended |
+| **KeyProfile** | - User customization possible<br>- Can switch between multiple profiles<br>- Supports special editor styles like Vim/Emacs | - Increased implementation complexity<br>- Unnecessary for basic use | ⚠️ **Optional**: Only when user customization is needed |
 
-**결론**:
-- **기본**: Extension 기반 등록 사용 (일일이 등록하지 않음)
-- **KeyProfile**: 사용자 커스터마이징이 필요한 경우에만 추가 (초기 구현에서는 선택사항)
+**Conclusion**:
+- **Default**: Use extension-based registration (do not register one by one)
+- **KeyProfile**: Add only when user customization is needed (optional in initial implementation)
 
-### 5.9 Command 매개변수 전달
+### 5.9 Command Parameter Passing
 
-**단축키에 Command를 매핑할 때 매개변수도 전달 가능**:
+**Can pass parameters when mapping command to shortcut**:
 
 ```ts
-// 매개변수 없이
+// Without parameters
 keyBindingManager.bindCommand('Ctrl+B', 'bold.toggle');
 
-// 매개변수와 함께
+// With parameters
 keyBindingManager.bindCommand('Ctrl+Shift+B', 'bold.toggle', { 
   weight: 'bold' 
 });
 
-// 또는 registerBinding 사용
+// Or use registerBinding
 keyBindingManager.registerBinding({
   key: 'Ctrl+1',
   command: 'heading.set',
-  commandPayload: { level: 1 } // Command의 execute(editor, payload)로 전달됨
+  commandPayload: { level: 1 } // Passed to Command's execute(editor, payload)
 });
 
 keyBindingManager.registerBinding({
@@ -1026,81 +1026,81 @@ keyBindingManager.registerBinding({
 });
 ```
 
-**Command에서 매개변수 사용**:
+**Using parameters in Command**:
 
 ```ts
-// Extension에서 Command 등록
+// Register command in extension
 editor.registerCommand({
   name: 'heading.set',
   execute: (editor, payload?: { level: number }) => {
     const level = payload?.level ?? 1;
-    // heading 설정 로직
+    // Heading setting logic
     return true;
   }
 });
 
-// 단축키로 실행 시
+// When executed via shortcut
 // Ctrl+1 → execute(editor, { level: 1 })
 // Ctrl+2 → execute(editor, { level: 2 })
 ```
 
-**동일한 Command, 다른 매개변수로 여러 단축키 등록 가능**:
+**Can register multiple shortcuts with same command but different parameters**:
 
 ```ts
-// Extension에서 여러 단축키 등록
+// Register multiple shortcuts in extension
 keyBindingManager.bindCommand('Ctrl+1', 'heading.set', { level: 1 });
 keyBindingManager.bindCommand('Ctrl+2', 'heading.set', { level: 2 });
 keyBindingManager.bindCommand('Ctrl+3', 'heading.set', { level: 3 });
 // ...
 ```
 
-#### 구현 고려사항
+#### Implementation Considerations
 
-1. **KeyBindingManager는 KeymapManager를 확장**
-   - 기존 코드 호환성을 위해 확장 형태 권장
-   - `KeymapManagerImpl`을 `KeyBindingManagerImpl`로 확장
+1. **KeyBindingManager extends KeymapManager**
+   - Recommend extension form for compatibility with existing code
+   - Extend `KeymapManagerImpl` to `KeyBindingManagerImpl`
 
-2. **Hook 시스템 통합**
-   - KeyBinding의 `before`/`after` hook이 Command의 `before`/`after` hook과 함께 실행
-   - 실행 순서: KeyBinding before → Command before → Command execute → Command after → KeyBinding after
+2. **Hook System Integration**
+   - KeyBinding's `before`/`after` hooks execute together with Command's `before`/`after` hooks
+   - Execution order: KeyBinding before → Command before → Command execute → Command after → KeyBinding after
 
-3. **Extension에서의 사용**
-   - Extension에서 command 등록 시 자동으로 단축키 바인딩 가능
-   - 또는 Extension에서 명시적으로 단축키 바인딩 등록
+3. **Usage in Extensions**
+   - Can automatically bind shortcuts when registering commands in extensions
+   - Or explicitly register shortcut bindings in extensions
 
 ---
 
-## 6. 처리 파이프라인
+## 6. Processing Pipeline
 
-### 6.1 전체 흐름
-1. **beforeinput 구조 변경 감지** (구조 변경만 처리)  
-   - `insertParagraph`, `insertLineBreak` 등 구조 변경 시에만 `preventDefault()` 후 처리.  
-   - 처리 순서: 모델 먼저 변경 → 렌더링 → selection 업데이트.  
-   - 나머지 `inputType`은 브라우저가 자동 처리하도록 둠.
+### 6.1 Overall Flow
+1. **beforeinput structural change detection** (only handle structural changes)  
+   - Only for structural changes like `insertParagraph`, `insertLineBreak`, handle after `preventDefault()`.  
+   - Processing order: Change model first → render → update selection.  
+   - Let browser handle remaining `inputType`s automatically.
 
-2. **MutationObserver** (주요 처리 레이어)  
-   - 브라우저가 자동으로 변경한 DOM을 감지하여 모델 업데이트.  
-   - 텍스트 입력/삭제의 대부분을 여기서 처리.  
-   - IME 입력 완료 후 최종 텍스트 변경도 여기서 감지.
+2. **MutationObserver** (primary processing layer)  
+   - Detect DOM changes made automatically by browser and update model.  
+   - Handle most text input/deletion here.  
+   - Also detect final text changes after IME input completes.
 
-3. **keydown fallback** (보조 처리)  
-   - `Meta/Control` 조합 단축키 (Bold, Italic, Underline 등)  
-   - `Enter`/`Backspace` 등에서 일부 브라우저가 `inputType`을 제공하지 않을 경우 수동 처리.  
-   - **`event.isComposing` 체크는 하되, composition 이벤트는 직접 처리하지 않음.**
+3. **keydown fallback** (auxiliary processing)  
+   - `Meta/Control` combination shortcuts (Bold, Italic, Underline, etc.)  
+   - Manual handling when some browsers don't provide `inputType` for `Enter`/`Backspace`, etc.  
+   - **Check `event.isComposing` but do not directly handle composition events.**
 
-### 6.2 의사코드
+### 6.2 Pseudocode
 ```ts
 function handleBeforeInput(event: InputEvent) {
-  // 구조 변경만 처리, 나머지는 브라우저가 자동 처리하도록 둠
+  // Only handle structural changes, let browser handle the rest automatically
   
-  // 구조 변경: preventDefault 후 모델 먼저 변경 → 렌더링 → selection
+  // Structural changes: preventDefault then change model first → render → selection
   if (event.inputType === 'insertParagraph' || 
       event.inputType === 'insertLineBreak') {
     event.preventDefault();
     
     const selection = selectionManager.ensureModelSelection();
     
-    // 1. 모델 먼저 변경
+    // 1. Change model first
     let result;
     if (event.inputType === 'insertParagraph') {
       result = splitBlock(selection);
@@ -1108,10 +1108,10 @@ function handleBeforeInput(event: InputEvent) {
       result = insertLineBreak(selection);
     }
     
-    // 2. 렌더링 (DOM 업데이트)
+    // 2. Rendering (DOM update)
     editor.render();
     
-    // 3. Selection 업데이트
+    // 3. Selection update
     const newSelection = calculateNewSelection(selection);
     selectionManager.setSelection(newSelection);
     editor.emit('editor:selection.change', { selection: newSelection });
@@ -1119,7 +1119,7 @@ function handleBeforeInput(event: InputEvent) {
     return;
   }
   
-  // 히스토리 관련 (에디터 자체 history 사용 시)
+  // History related (when using editor's own history)
   if (event.inputType === 'historyUndo') {
     event.preventDefault();
     editor.history.undo();
@@ -1132,63 +1132,63 @@ function handleBeforeInput(event: InputEvent) {
     return;
   }
   
-  // 나머지는 preventDefault 하지 않음
-  // 브라우저가 자동으로 DOM 변경하고, MutationObserver가 감지하여 모델 업데이트
+  // Do not preventDefault for the rest
+  // Browser automatically changes DOM, MutationObserver detects and updates model
 }
 
 function handleMutationObserver(event: MutationEvent) {
-  // 브라우저가 자동으로 변경한 DOM을 감지하여 모델 업데이트
-  // 텍스트 입력/삭제의 대부분을 여기서 처리
+  // Detect DOM changes made automatically by browser and update model
+  // Handle most text input/deletion here
   
   if (event.type === 'characterData' || event.type === 'childList') {
     const textNodeId = resolveModelTextNodeId(event.target);
     if (textNodeId) {
-      // DOM 변경을 모델에 반영
+      // Reflect DOM changes to model
       updateModelFromDOMChange(textNodeId, event.oldValue, event.newValue);
     }
   }
 }
 
 function handleKeyDown(event: KeyboardEvent) {
-  // composition 중이어도 특수 키는 처리 가능 (단축키 등)
-  // 단, 텍스트 입력 관련 키는 브라우저에 맡김
+  // Special keys can be handled even during composition (shortcuts, etc.)
+  // But leave text input-related keys to browser
   
-  const key = getKeyString(event); // 예: 'Ctrl+B', 'Enter'
+  const key = getKeyString(event); // e.g., 'Ctrl+B', 'Enter'
   
-  // KeyBindingManager에서 binding 찾기
+  // Find binding in KeyBindingManager
   const bindings = keyBindingManager.getBindings(key);
   const sortedBindings = bindings.sort((a, b) => 
     (a.priority || 1000) - (b.priority || 1000)
   );
   
-  // before hooks 실행
+  // Execute before hooks
   for (const binding of sortedBindings) {
     if (binding.before) {
       const result = binding.before(event, editorContext);
       if (result === true) {
-        // Hook이 처리했으므로 기본 동작 스킵
-        // after hooks는 실행하지 않음 (기본 동작이 없으므로)
+        // Hook handled it, so skip default action
+        // Do not execute after hooks (no default action)
         return;
       }
     }
   }
   
-  // 기본 동작 수행
+  // Perform default action
   let defaultResult = null;
   
-  // Command가 연결된 경우
+  // If command is connected
   for (const binding of sortedBindings) {
     if (binding.command) {
       defaultResult = await editor.executeCommand(binding.command, binding.commandPayload);
-      break; // 첫 번째 command만 실행
+      break; // Only execute first command
     } else if (binding.handler) {
-      // 기존 handler 방식
+      // Existing handler approach
       binding.handler();
       break;
     }
   }
   
-  // KeymapManager에서 기본 handler 찾기 (fallback)
+  // Find default handler in KeymapManager (fallback)
   if (!defaultResult && !sortedBindings.some(b => b.command || b.handler)) {
     const handler = keymapManager.getHandler(key);
     if (handler) {
@@ -1196,7 +1196,7 @@ function handleKeyDown(event: KeyboardEvent) {
     }
   }
   
-  // after hooks 실행
+  // Execute after hooks
   for (const binding of sortedBindings) {
     if (binding.after) {
       binding.after(event, editorContext, defaultResult);
@@ -1204,75 +1204,75 @@ function handleKeyDown(event: KeyboardEvent) {
   }
 }
 
-// composition 이벤트는 사용하지 않음
-// 브라우저가 자동으로 처리하고, MutationObserver가 최종 결과를 감지
+// Do not use composition events
+// Browser handles automatically, MutationObserver detects final result
 ```
 
 ---
 
-## 7. IME 입력 처리 전략 (composition 이벤트 미사용)
+## 7. IME Input Processing Strategy (No Composition Events)
 
-### 6.1 핵심 원칙
-- **composition 이벤트(`compositionstart/update/end`)는 사용하지 않음**
-- 브라우저가 자동으로 IME 입력을 처리하도록 두어 한글 입력 깨짐을 방지
-- `beforeinput`의 `insertCompositionText` 또는 `insertText`로 처리
-- 최종 결과는 `MutationObserver`가 감지하여 모델 업데이트
+### 7.1 Core Principles
+- **Do not use composition events (`compositionstart/update/end`)**
+- Let browser automatically handle IME input to prevent Hangul input corruption
+- Handle via `beforeinput`'s `insertCompositionText` or `insertText`
+- MutationObserver detects final result and updates model
 
-### 6.2 처리 흐름
-1. **사용자가 한글 입력 시작**
-   - 브라우저가 자동으로 composition 상태 관리
-   - `beforeinput` 이벤트 발생 (`insertCompositionText` 또는 `insertText`)
-   - **우리는 `preventDefault()` 하지 않고 브라우저가 자동 처리하도록 둠**
+### 7.2 Processing Flow
+1. **User starts Hangul input**
+   - Browser automatically manages composition state
+   - `beforeinput` event occurs (`insertCompositionText` or `insertText`)
+   - **We do not call `preventDefault()` and let browser handle automatically**
 
-2. **입력 중간 단계**
-   - 브라우저가 자동으로 DOM 업데이트
-   - `MutationObserver`가 변경 감지하지만, composition 중이면 무시 또는 보류
+2. **Intermediate input stage**
+   - Browser automatically updates DOM
+   - `MutationObserver` detects changes but ignores or defers if composition is active
 
-3. **입력 완료**
-   - 브라우저가 최종 텍스트를 DOM에 반영
-   - `MutationObserver`가 최종 텍스트 변경을 감지
-   - 모델 업데이트 (`dataStore.range.replaceText`)
+3. **Input completion**
+   - Browser reflects final text to DOM
+   - `MutationObserver` detects final text change
+   - Model update (`dataStore.range.replaceText`)
 
-### 6.3 장점
-- 브라우저의 기본 IME 처리를 활용하여 한글 입력 깨짐 최소화
-- composition 이벤트의 복잡한 상태 관리 불필요
-- 브라우저별 차이를 신경 쓸 필요 없음
-
----
-
-## 8. Selection 동기화
-- `selectionchange` 이벤트에서 DOM Selection → Model Selection 변환 (`DOMSelectionHandlerImpl` 재사용).
-- `editor.selectionManager.setSelection(modelSelection)` 호출 후 `editor.emit('editor:selection.change', { selection })`.
-- beforeinput/keydown 처리 전에도 SelectionManager 상태를 최신으로 유지해야 정확한 범위를 편집할 수 있음.
+### 7.3 Advantages
+- Minimize Hangul input corruption by leveraging browser's default IME handling
+- No need for complex state management of composition events
+- No need to worry about browser differences
 
 ---
 
-## 9. MutationObserver 역할 (주요 처리 레이어)
-- **주 목적**: 브라우저가 자동으로 변경한 DOM을 감지하여 모델 업데이트
-- **텍스트 입력/삭제의 대부분을 여기서 처리**
-- **IME 입력 완료 후 최종 텍스트 변경 감지**
-- 구조 변경(`insertParagraph`, `insertLineBreak`)은 `beforeinput`에서 이미 처리되므로 스킵
+## 8. Selection Synchronization
+- Convert DOM Selection → Model Selection in `selectionchange` event (reuse `DOMSelectionHandlerImpl`).
+- Call `editor.selectionManager.setSelection(modelSelection)` then `editor.emit('editor:selection.change', { selection })`.
+- Must keep SelectionManager state up-to-date even before beforeinput/keydown processing to edit accurate ranges.
 
-### 9.1 처리 로직
+---
+
+## 9. MutationObserver Role (Primary Processing Layer)
+- **Main purpose**: Detect DOM changes made automatically by browser and update model
+- **Handle most text input/deletion here**
+- **Detect final text changes after IME input completes**
+- Skip structural changes (`insertParagraph`, `insertLineBreak`) as they are already handled in `beforeinput`
+
+### 9.1 Processing Logic
 ```ts
 function handleTextContentChange(oldValue: string | null, newValue: string | null, target: Node) {
-  // 구조 변경은 beforeinput에서 이미 처리되었으므로 스킵
+  // Skip structural changes as they are already handled in beforeinput
   if (isStructuralChange(target)) {
     return;
   }
   
-  // 렌더링 중 발생하는 DOM 변경은 무시 (무한루프 방지)
+  // Ignore DOM changes during rendering (prevent infinite loop)
   if (editor.isRendering) {
     return;
   }
   
-  // 브라우저가 자동으로 변경한 DOM을 모델에 반영
+  // Reflect DOM changes made automatically by browser to model
   const textNodeId = resolveModelTextNodeId(target);
   if (textNodeId) {
-    // DOM 변경을 모델에 반영
+    // Reflect DOM changes to model
     updateModelFromDOMChange(textNodeId, oldValue, newValue);
     
-    // skipRender: true로 이벤트 발생 (무한루프 방지)
+    // Emit event with skipRender: true (prevent infinite loop)
     editor.emit('editor:content.change', {
       skipRender: true,
       from: 'MutationObserver',
@@ -1284,63 +1284,63 @@ function handleTextContentChange(oldValue: string | null, newValue: string | nul
 
 ---
 
-## 10. 데이터 조작 API
-- **텍스트 편집**: `dataStore.range.replaceText(contentRange, newText)`  
-  - marks/decorators 자동 조정.
-- **노드 삭제/삽입**: `dataStore.deleteNode`, `dataStore.insertNode`, `transactionManager` 활용.
-- **마크 토글**: `editor.chain().toggleMark('bold')` 또는 직접 `dataStore.marks.toggleMark`.
-- **블록 분리**: `splitBlock(selection)` 구현 (현재 커서 블록을 분할하고 새 노드 삽입).
+## 10. Data Manipulation API
+- **Text editing**: `dataStore.range.replaceText(contentRange, newText)`  
+  - marks/decorators automatically adjusted.
+- **Node deletion/insertion**: Use `dataStore.deleteNode`, `dataStore.insertNode`, `transactionManager`.
+- **Mark toggle**: `editor.chain().toggleMark('bold')` or directly `dataStore.marks.toggleMark`.
+- **Block split**: Implement `splitBlock(selection)` (split current cursor block and insert new node).
 
 ---
 
-## 11. 구현 순서 제안
-1. **이벤트 핸들러 스캐폴딩**  
-   - `packages/editor-view-dom/src/event-handlers`에 `beforeinput-handler.ts`, `keydown-handler.ts` 추가.
-   - **`composition-handler.ts`는 생성하지 않음** (composition 이벤트 미사용).
+## 11. Suggested Implementation Order
+1. **Event handler scaffolding**  
+   - Add `beforeinput-handler.ts`, `keydown-handler.ts` to `packages/editor-view-dom/src/event-handlers`.
+   - **Do not create `composition-handler.ts`** (composition events not used).
 
-2. **Selection 헬퍼**  
-   - DOM selection → Model selection 변환 유틸 (`selection-handler.ts`) 재사용.
-   - handleBeforeInput 내부에서 항상 최신 selection 확보.
+2. **Selection helper**  
+   - Reuse DOM selection → Model selection conversion utility (`selection-handler.ts`).
+   - Always ensure latest selection inside handleBeforeInput.
 
-3. **beforeinput handler map 구현**  
-   - `insertText`부터 구현하여 텍스트 편집 기본 동작 확보.
-   - `insertCompositionText`는 `insertText`와 동일하게 처리 (브라우저가 자동 처리).
+3. **Implement beforeinput handler map**  
+   - Start with `insertText` to establish basic text editing behavior.
+   - Handle `insertCompositionText` same as `insertText` (browser handles automatically).
 
 4. **Enter/Shift+Enter/Backspace**  
-   - 엔터(단락 분리), 소프트 브레이크, Backspace 특수 케이스 처리.
+   - Handle special cases: Enter (paragraph split), soft break, Backspace.
 
-5. **붙여넣기/드롭**  
-   - clipboard 데이터 파싱, 드롭 데이터 처리.
+5. **Paste/drop**  
+   - Parse clipboard data, handle drop data.
 
-6. **MutationObserver 안전망 강화**  
-   - beforeinput에서 처리된 변경과 구분하는 로직 추가.
-   - IME 입력 완료 후 최종 텍스트 변경 감지 로직 개선.
+6. **Strengthen MutationObserver safety net**  
+   - Add logic to distinguish changes handled in beforeinput.
+   - Improve logic to detect final text changes after IME input completes.
 
-7. **단축키/명령**  
-   - Bold/Italic/Tabs 등의 keydown 처리 및 command 시스템 연계.
+7. **Shortcuts/commands**  
+   - Handle keydown for Bold/Italic/Tabs, etc., and link with command system.
 
-8. **테스트**  
-   - beforeinput 기반 단위 테스트 (Vitest + jsdom)  
-   - 통합 테스트: 사용자 시나리오 (Enter, Backspace, 붙여넣기, **한글 입력**).
+8. **Testing**  
+   - Unit tests based on beforeinput (Vitest + jsdom)  
+   - Integration tests: User scenarios (Enter, Backspace, paste, **Hangul input**).
 
 ---
 
-## 12. KeyBinding 시스템 구현 고려사항
+## 12. KeyBinding System Implementation Considerations
 
-### 12.1 KeyBinding 등록 API
+### 12.1 KeyBinding Registration API
 
 ```ts
 interface KeyBindingManager {
-  // KeyBinding 등록
-  registerBinding(binding: KeyBinding): () => void; // unregister 함수 반환
+  // Register KeyBinding
+  registerBinding(binding: KeyBinding): () => void; // Returns unregister function
   
-  // Command와 단축키 연결 (편의 메서드)
+  // Connect command to shortcut (convenience method)
   bindCommand(key: string, command: string, payload?: any): void;
   
-  // 등록된 binding 조회
+  // Query registered bindings
   getBindings(key?: string): KeyBinding[];
   
-  // 기존 KeymapManager API 유지 (하위 호환성)
+  // Maintain existing KeymapManager API (backward compatibility)
   register(key: string, handler: () => void): void;
   getHandler(key: string): (() => void) | undefined;
   remove(key: string): void;
@@ -1348,21 +1348,21 @@ interface KeyBindingManager {
 }
 ```
 
-### 12.2 Hook 우선순위
+### 12.2 Hook Priority
 
-- 낮은 `priority` 값이 먼저 실행됨
-- 기본 동작은 `priority: 1000`으로 간주
-- 외부 hook은 `priority: 100` (기본 동작 전) 또는 `priority: 2000` (기본 동작 후) 권장
+- Lower `priority` values execute first
+- Default action is considered `priority: 1000`
+- External hooks recommended: `priority: 100` (before default) or `priority: 2000` (after default)
 
-### 12.3 Hook과 기본 동작의 관계
+### 12.3 Relationship Between Hooks and Default Action
 
-- `before` hook이 `true`를 반환하면 기본 동작 스킵 (하지만 `handler`나 `command`는 실행 가능)
-- `before` hook이 `false` 또는 `undefined`를 반환하면 기본 동작 수행
-- `after` hook은 항상 실행됨 (기본 동작 성공 여부와 무관)
+- If `before` hook returns `true`, skip default action (but `handler` or `command` can still execute)
+- If `before` hook returns `false` or `undefined`, perform default action
+- `after` hook always executes (regardless of default action success)
 
-### 12.4 외부에서 단축키 가로채기 시나리오
+### 12.4 External Shortcut Interception Scenarios
 
-**시나리오 1: 커스텀 Bold 동작**
+**Scenario 1: Custom Bold Action**
 ```ts
 keyBindingManager.registerBinding({
   key: 'Ctrl+B',
@@ -1372,13 +1372,13 @@ keyBindingManager.registerBinding({
   before: (event, context) => {
     if (context.selection.isCollapsed && shouldUseCustomBold(context)) {
       event.preventDefault();
-      return true; // handler 실행, 기본 동작 스킵
+      return true; // Execute handler, skip default action
     }
   }
 });
 ```
 
-**시나리오 2: Enter 키 커스터마이징**
+**Scenario 2: Enter Key Customization**
 ```ts
 keyBindingManager.registerBinding({
   key: 'Enter',
@@ -1392,46 +1392,46 @@ keyBindingManager.registerBinding({
   before: (event, context) => {
     if (isInCodeBlock(context)) {
       event.preventDefault();
-      return true; // handler 실행, 기본 동작 스킵
+      return true; // Execute handler, skip default action
     }
   }
 });
 ```
 
-**시나리오 3: 로깅 및 분석 (Command는 그대로 사용)**
+**Scenario 3: Logging and Analytics (Use Command as-is)**
 ```ts
 keyBindingManager.registerBinding({
   key: 'Ctrl+Z',
-  command: 'history.undo', // 기존 Command 사용
+  command: 'history.undo', // Use existing command
   after: (event, context, result) => {
     analytics.track('undo_performed', {
       success: result,
       timestamp: Date.now()
     });
   },
-  priority: 2000 // Command 실행 후 실행
+  priority: 2000 // Execute after command execution
 });
 ```
 
 ---
 
-## 13. 키 입력 처리 세부사항
+## 13. Key Input Processing Details
 
-### 13.1 키 문자열 파싱 (`getKeyString`)
+### 13.1 Key String Parsing (`getKeyString`)
 
-**구현**:
+**Implementation**:
 
 ```ts
 function getKeyString(event: KeyboardEvent): string {
   const modifiers = [];
   
-  // Modifier 키 순서: Ctrl, Cmd, Alt, Shift
+  // Modifier key order: Ctrl, Cmd, Alt, Shift
   if (event.ctrlKey) modifiers.push('Ctrl');
-  if (event.metaKey) modifiers.push('Cmd'); // macOS의 Command 키
+  if (event.metaKey) modifiers.push('Cmd'); // macOS Command key
   if (event.altKey) modifiers.push('Alt');
   if (event.shiftKey) modifiers.push('Shift');
   
-  // 키 이름 정규화
+  // Normalize key name
   const key = normalizeKeyName(event.key);
   
   return modifiers.length > 0 
@@ -1440,27 +1440,27 @@ function getKeyString(event: KeyboardEvent): string {
 }
 
 function normalizeKeyName(key: string): string {
-  // 키 이름 정규화 규칙
+  // Key name normalization rules
   const keyMap: Record<string, string> = {
     ' ': 'Space',
     'ArrowUp': 'Up',
     'ArrowDown': 'Down',
     'ArrowLeft': 'Left',
     'ArrowRight': 'Right',
-    // 필요시 추가
+    // Add as needed
   };
   
   return keyMap[key] || key;
 }
 ```
 
-**키 문자열 형식 규칙**:
-- Modifier 순서: `Ctrl`, `Cmd`, `Alt`, `Shift` 순서로 정렬
-- 키 이름: 대문자로 시작 (예: `B`, `Enter`, `Space`)
-- 구분자: `+` 사용 (예: `Ctrl+B`, `Shift+Enter`)
-- 단일 키: Modifier 없으면 키 이름만 (예: `Enter`, `Backspace`)
+**Key String Format Rules**:
+- Modifier order: Sort in order `Ctrl`, `Cmd`, `Alt`, `Shift`
+- Key name: Start with uppercase (e.g., `B`, `Enter`, `Space`)
+- Separator: Use `+` (e.g., `Ctrl+B`, `Shift+Enter`)
+- Single key: Key name only if no modifier (e.g., `Enter`, `Backspace`)
 
-**예시**:
+**Examples**:
 ```ts
 // Ctrl+B → 'Ctrl+B'
 // Cmd+B → 'Cmd+B'
@@ -1469,172 +1469,173 @@ function normalizeKeyName(key: string): string {
 // Space → 'Space'
 ```
 
-### 13.2 플랫폼별 키 매핑
+### 13.2 Platform-specific Key Mapping
 
-**Modifier 키 매핑**:
+**Modifier Key Mapping**:
 
-| 플랫폼 | Ctrl | Meta/Cmd | Alt | Shift |
-|--------|------|----------|-----|-------|
-| Windows/Linux | `Ctrl` | `Cmd` (일부 브라우저) | `Alt` | `Shift` |
+| Platform | Ctrl | Meta/Cmd | Alt | Shift |
+|----------|------|----------|-----|-------|
+| Windows/Linux | `Ctrl` | `Cmd` (some browsers) | `Alt` | `Shift` |
 | macOS | `Ctrl` | `Cmd` | `Option` (Alt) | `Shift` |
 
-**주의사항**:
-- macOS에서 `metaKey`는 Command 키를 의미
-- Windows/Linux에서 `metaKey`는 일반적으로 `false`
-- `navigator.platform` 또는 `navigator.userAgent`로 플랫폼 감지
+**Notes**:
+- `metaKey` means Command key on macOS
+- `metaKey` is generally `false` on Windows/Linux
+- Detect platform via `navigator.platform` or `navigator.userAgent`
 
-**플랫폼 감지 예시**:
+**Platform Detection Example**:
 ```ts
 function isMac(): boolean {
   return navigator.platform.toUpperCase().includes('MAC') ||
          navigator.userAgent.toUpperCase().includes('MAC');
 }
 
-// 사용
+// Usage
 const modKey = isMac() ? 'Cmd' : 'Ctrl';
 ```
 
-### 13.3 키 이벤트 필터링
+### 13.3 Key Event Filtering
 
-**처리하지 않아야 하는 키 이벤트**:
+**Key events that should not be processed**:
 
-1. **Composition 중인 텍스트 입력 키**:
+1. **Text input keys during composition**:
    ```ts
    if (event.isComposing && isTextInputKey(event.key)) {
-     return; // 브라우저가 자동 처리하도록 둠
+     return; // Let browser handle automatically
    }
    ```
 
-2. **에디터 외부 포커스**:
+2. **Editor external focus**:
    ```ts
    if (!editor.isFocused()) {
-     return; // 에디터가 포커스되지 않았으면 무시
+     return; // Ignore if editor is not focused
    }
    ```
 
-3. **시스템 단축키**:
+3. **System shortcuts**:
    ```ts
-   // 일부 시스템 단축키는 브라우저가 처리
-   // 예: Cmd+Q (macOS 종료), Ctrl+W (창 닫기)
-   // preventDefault()로 막을 수 없음
+   // Some system shortcuts are handled by browser
+   // e.g., Cmd+Q (macOS quit), Ctrl+W (close window)
+   // Cannot be blocked with preventDefault()
    ```
+```
 
-**텍스트 입력 키 판별**:
+**Text Input Key Detection**:
 ```ts
 function isTextInputKey(key: string): boolean {
-  // 길이가 1인 키는 일반적으로 텍스트 입력
+  // Keys with length 1 are generally text input
   if (key.length === 1) return true;
   
-  // 특수 키는 텍스트 입력이 아님
+  // Special keys are not text input
   const specialKeys = ['Enter', 'Backspace', 'Delete', 'Tab', 'Escape', 
                        'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
   return !specialKeys.includes(key);
 }
 ```
 
-### 13.4 키 바인딩 등록 규칙
+### 13.4 Key Binding Registration Rules
 
-**중복 등록 처리**:
-- 동일한 `key`로 여러 `KeyBinding` 등록 가능
-- `priority`로 실행 순서 결정
-- 첫 번째로 실행된 `command`/`handler`만 실행 (나머지는 스킵)
+**Duplicate Registration Handling**:
+- Can register multiple `KeyBinding`s with same `key`
+- Execution order determined by `priority`
+- Only first executed `command`/`handler` runs (rest skipped)
 
-**키 문자열 대소문자**:
-- 키 이름은 대문자로 정규화 (예: `B`, `Enter`)
-- Modifier는 첫 글자만 대문자 (예: `Ctrl`, `Cmd`, `Shift`)
-- 등록 시 대소문자 구분하지 않음 (내부적으로 정규화)
+**Key String Case**:
+- Key names normalized to uppercase (e.g., `B`, `Enter`)
+- Modifiers only first letter uppercase (e.g., `Ctrl`, `Cmd`, `Shift`)
+- Case-insensitive on registration (normalized internally)
 
-**잘못된 키 문자열 처리**:
+**Invalid Key String Handling**:
 ```ts
-// 잘못된 형식 예시
-'ctrl+b'  // 소문자 → 정규화하여 'Ctrl+B'로 변환
-'Ctrl + B' // 공백 포함 → 공백 제거하여 'Ctrl+B'로 변환
-'B+Ctrl'  // 순서 잘못 → 정규화하여 'Ctrl+B'로 변환
+// Invalid format examples
+'ctrl+b'  // lowercase → normalized to 'Ctrl+B'
+'Ctrl + B' // contains space → remove space to 'Ctrl+B'
+'B+Ctrl'  // wrong order → normalized to 'Ctrl+B'
 ```
 
-### 13.5 beforeinput과 keydown의 관계
+### 13.5 Relationship Between beforeinput and keydown
 
-**처리 순서**:
+**Processing Order**:
 
 ```
-사용자 입력
+User input
   ↓
-beforeinput 이벤트 발생
-  ├─ 구조 변경 (insertParagraph, insertLineBreak) → preventDefault() 후 처리
-  ├─ 히스토리 (historyUndo, historyRedo) → preventDefault() 후 처리
-  └─ 나머지 → preventDefault() 하지 않음
+beforeinput event occurs
+  ├─ Structural changes (insertParagraph, insertLineBreak) → handle after preventDefault()
+  ├─ History (historyUndo, historyRedo) → handle after preventDefault()
+  └─ Rest → do not preventDefault()
   ↓
-keydown 이벤트 발생
-  ├─ beforeinput에서 preventDefault() 했으면 → KeyBinding만 실행 (Command 실행 안 함)
-  └─ preventDefault() 안 했으면 → KeyBinding 실행 (Command 실행)
+keydown event occurs
+  ├─ If preventDefault() in beforeinput → only execute KeyBinding (do not execute Command)
+  └─ If preventDefault() not called → execute KeyBinding (execute Command)
 ```
 
-**주의사항**:
-- `beforeinput`에서 `preventDefault()` 하면 `keydown`에서도 기본 동작이 막힘
-- `keydown`에서 `preventDefault()` 해도 `beforeinput`의 기본 동작은 이미 실행됨
-- 구조 변경은 `beforeinput`에서 처리, 단축키는 `keydown`에서 처리
+**Notes**:
+- If `preventDefault()` in `beforeinput`, default action is also blocked in `keydown`
+- If `preventDefault()` in `keydown`, `beforeinput`'s default action has already executed
+- Structural changes handled in `beforeinput`, shortcuts handled in `keydown`
 
-### 13.6 에러 처리
+### 13.6 Error Handling
 
-**예외 상황**:
+**Exception Cases**:
 
-1. **존재하지 않는 Command**:
+1. **Non-existent Command**:
    ```ts
    keyBindingManager.bindCommand('Ctrl+B', 'nonexistent.command');
-   // executeCommand 시 에러 발생 → 에러 로깅 후 무시
+   // Error occurs on executeCommand → log error and ignore
    ```
 
-2. **잘못된 키 문자열**:
+2. **Invalid key string**:
    ```ts
    keyBindingManager.bindCommand('Invalid+Key', 'bold.toggle');
-   // 정규화 시도 후 등록, 매칭 실패 시 무시
+   // Attempt normalization then register, ignore on matching failure
    ```
 
-3. **중복 등록**:
+3. **Duplicate registration**:
    ```ts
-   // 동일한 key로 여러 번 등록 가능
-   // priority로 실행 순서 결정
+   // Can register multiple times with same key
+   // Execution order determined by priority
    ```
 
-## 14. 향후 고려사항
-- undo/redo: OS 기본 undo를 disable하고 에디터 history만 사용하도록 할지 결정.
-- inputType 커버리지: 브라우저별 차이를 대비한 fallback (특히 Safari).
-- 접근성: selection 변경 시 스크린리더 호환성 확인.
-- KeyBinding 시스템: KeyBinding 시스템 구현 및 테스트.
-- IME 입력 안정성: MutationObserver가 IME 입력 완료를 정확히 감지하는지 지속적으로 모니터링.
-- 키 바인딩 충돌 해결: 동일한 키에 여러 바인딩이 등록된 경우 사용자에게 알림.
-- 키 바인딩 커스터마이징 UI: 사용자가 단축키를 변경할 수 있는 UI 제공.
+## 14. Future Considerations
+- undo/redo: Decide whether to disable OS default undo and use only editor history.
+- inputType coverage: Fallback for browser differences (especially Safari).
+- Accessibility: Verify screen reader compatibility when selection changes.
+- KeyBinding system: Implement and test KeyBinding system.
+- IME input stability: Continuously monitor whether MutationObserver accurately detects IME input completion.
+- Key binding conflict resolution: Notify user when multiple bindings registered for same key.
+- Key binding customization UI: Provide UI for users to change shortcuts.
 
 ---
 
-## 13. 핵심 요약
+## 15. Core Summary
 
-### 사용하는 이벤트
-- ✅ `beforeinput`: **구조 변경만 처리** (`insertParagraph`, `insertLineBreak`)
-- ✅ `keydown`: 단축키 및 특수 키 처리 (fallback)
-- ✅ `selectionchange`: Selection 동기화
-- ✅ `MutationObserver`: **주요 처리 레이어** (텍스트 입력/삭제 대부분 처리)
+### Events Used
+- ✅ `beforeinput`: **Only handle structural changes** (`insertParagraph`, `insertLineBreak`)
+- ✅ `keydown`: Handle shortcuts and special keys (fallback)
+- ✅ `selectionchange`: Selection synchronization
+- ✅ `MutationObserver`: **Primary processing layer** (handles most text input/deletion)
 
-### 사용하지 않는 이벤트
-- ❌ `input`: 사용하지 않음
-- ❌ `compositionstart/update/end`: 사용하지 않음 (브라우저가 자동 처리)
+### Events Not Used
+- ❌ `input`: Not used
+- ❌ `compositionstart/update/end`: Not used (browser handles automatically)
 
-### 처리 전략
-1. **일반 텍스트 입력/삭제**: 
-   - `beforeinput`에서 `preventDefault()` 하지 않음
-   - 브라우저가 자동으로 DOM 변경
-   - `MutationObserver`가 DOM 변경 감지 → 모델 업데이트
+### Processing Strategy
+1. **General text input/deletion**: 
+   - Do not call `preventDefault()` in `beforeinput`
+   - Browser automatically changes DOM
+   - `MutationObserver` detects DOM changes → model update
 
-2. **구조 변경 (`insertParagraph`, `insertLineBreak`)**:
-   - `beforeinput`에서 `preventDefault()` 함
-   - 모델 먼저 변경 → 렌더링 → selection 업데이트
+2. **Structural changes (`insertParagraph`, `insertLineBreak`)**:
+   - Call `preventDefault()` in `beforeinput`
+   - Change model first → render → update selection
 
-3. **IME 입력 처리**:
-   - 브라우저가 자동으로 IME 입력을 처리하도록 둠
-   - 최종 결과는 `MutationObserver`가 감지하여 모델 업데이트
-   - **한글 입력 깨짐을 최소화하기 위한 핵심 전략**
+3. **IME input processing**:
+   - Let browser automatically handle IME input
+   - MutationObserver detects final result and updates model
+   - **Core strategy to minimize Hangul input corruption**
 
 ---
 
-이 계획을 바탕으로 이벤트 레이어와 편집 기능을 단계적으로 구현하면, 브라우저 입력과 모델 편집 사이의 동기화를 안정적으로 확립할 수 있으며, 특히 한글 입력의 안정성을 보장할 수 있다.
+By implementing the event layer and editing features step by step based on this plan, we can establish stable synchronization between browser input and model editing, and especially ensure stability of Hangul input.
 

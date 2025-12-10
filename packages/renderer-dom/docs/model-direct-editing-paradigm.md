@@ -1,10 +1,10 @@
-# 모델 직접 편집 패러다임: ContentEditable 없는 리치 텍스트 에디터 설계
+# Model-Direct Editing Paradigm: Rich Text Editor Design Without ContentEditable
 
 ## Abstract
 
-본 논문은 ContentEditable 기반 리치 텍스트 에디터의 근본적인 한계를 분석하고, **모델 직접 편집(Model-Direct Editing) 패러다임**을 제안합니다. 기존 에디터들은 ContentEditable의 Selection/Cursor 핸들링 어려움을 해결하기 위해 복잡한 보완 메커니즘(Text Node Pool, Selection 복원 등)을 도입하지만, 이는 근본적인 해결책이 아닙니다.
+This paper analyzes the fundamental limitations of ContentEditable-based rich text editors and proposes the **Model-Direct Editing Paradigm**. Existing editors introduce complex workaround mechanisms (Text Node Pool, Selection restoration, etc.) to solve ContentEditable's Selection/Cursor handling difficulties, but these are not fundamental solutions.
 
-본 논문은 **ContentEditable을 완전히 제거**하고, AI가 모델을 직접 변경하듯이 **사용자 입력을 모델 변경으로 직접 변환**하는 새로운 편집 인터페이스를 제안합니다. 이는 키보드/마우스 입력을 ContentEditable을 거치지 않고 모델 변경 이벤트로 변환하여, Selection/Cursor 관리의 복잡성을 근본적으로 제거합니다.
+This paper proposes **completely removing ContentEditable** and a new editing interface that **directly converts user input to model changes**, just as AI directly changes the model. This converts keyboard/mouse input to model change events without going through ContentEditable, fundamentally eliminating the complexity of Selection/Cursor management.
 
 **Keywords**: Model-Direct Editing, ContentEditable Alternative, Rich Text Editor, Selection Management, Cursor Handling, Direct Manipulation
 
@@ -12,171 +12,171 @@
 
 ## 1. Introduction
 
-### 1.1 ContentEditable의 근본적인 문제
+### 1.1 Fundamental Problems of ContentEditable
 
-ContentEditable 기반 리치 텍스트 에디터는 다음과 같은 근본적인 문제에 직면합니다:
+ContentEditable-based rich text editors face the following fundamental problems:
 
-1. **Selection/Cursor 핸들링의 복잡성**
-   - 브라우저 Selection API는 DOM Node에 대한 직접 참조를 유지
-   - DOM 변경 시 Selection이 깨지기 쉬움
-   - 복잡한 보완 메커니즘(Text Node Pool, Selection 복원 등) 필요
+1. **Complexity of Selection/Cursor Handling**
+   - Browser Selection API maintains direct references to DOM Nodes
+   - Selection easily breaks when DOM changes
+   - Complex workaround mechanisms needed (Text Node Pool, Selection restoration, etc.)
 
-2. **이중 상태 관리**
-   - DOM 상태와 모델 상태를 동기화해야 함
-   - MutationObserver를 통한 DOM → 모델 변환
-   - 모델 → DOM 렌더링
-   - 동기화 실패 시 버그 발생
+2. **Dual State Management**
+   - Must synchronize DOM state and model state
+   - DOM → model conversion via MutationObserver
+   - Model → DOM rendering
+   - Bugs occur when synchronization fails
 
-3. **IME(Input Method Editor) 호환성**
-   - 한글, 일본어 등 조합형 입력의 복잡한 처리
-   - Composition 이벤트와 DOM 변경의 타이밍 이슈
-   - 브라우저마다 다른 동작
+3. **IME (Input Method Editor) Compatibility**
+   - Complex handling of composition-based input like Hangul, Japanese
+   - Timing issues between composition events and DOM changes
+   - Different behavior across browsers
 
-4. **접근성(Accessibility) 문제**
-   - 스크린 리더와의 호환성
-   - 키보드 네비게이션
-   - 복잡한 DOM 구조에서의 접근성 저하
+4. **Accessibility Issues**
+   - Compatibility with screen readers
+   - Keyboard navigation
+   - Reduced accessibility in complex DOM structures
 
-### 1.2 기존 해결 방안의 한계
+### 1.2 Limitations of Existing Solutions
 
-기존 에디터들은 ContentEditable의 문제를 해결하기 위해 다양한 보완 메커니즘을 도입했습니다:
+Existing editors have introduced various workaround mechanisms to solve ContentEditable's problems:
 
-- **Text Node Pool**: Selection이 있는 Text Node를 보존하여 Selection 안정성 확보
-- **Selection 복원**: DOM 업데이트 후 Selection을 복원
-- **MutationObserver**: DOM 변경을 감지하여 모델 동기화
-- **Per-Character Rendering**: 각 문자를 별도 DOM 요소로 렌더링하여 Selection 안정성 향상
+- **Text Node Pool**: Preserve Text Nodes with Selection to ensure Selection stability
+- **Selection restoration**: Restore Selection after DOM updates
+- **MutationObserver**: Detect DOM changes to synchronize model
+- **Per-Character Rendering**: Render each character as separate DOM element to improve Selection stability
 
-하지만 이러한 접근법들은 모두 **ContentEditable의 근본적인 문제를 우회하는 것**일 뿐, 근본적인 해결책이 아닙니다.
+However, these approaches are all **workarounds for ContentEditable's fundamental problems**, not fundamental solutions.
 
-### 1.3 새로운 관점: 사람 vs AI의 편집 방식
+### 1.3 New Perspective: Human vs AI Editing Approaches
 
-**AI의 편집 방식**:
-- ContentEditable을 사용하지 않음
-- 모델을 직접 변경 (insert, delete, update)
-- Selection/Cursor는 모델의 offset으로 표현
-- DOM은 단순히 모델의 렌더링 결과
+**AI's Editing Approach**:
+- Does not use ContentEditable
+- Directly changes model (insert, delete, update)
+- Selection/Cursor expressed as model offset
+- DOM is simply rendering result of model
 
-**사람의 편집 방식 (현재)**:
-- ContentEditable을 통해 키보드/마우스 입력을 받음
-- 브라우저가 DOM을 직접 변경
-- MutationObserver가 DOM 변경을 감지하여 모델 동기화
-- Selection/Cursor는 브라우저 Selection API에 의존
+**Human's Editing Approach (Current)**:
+- Receives keyboard/mouse input through ContentEditable
+- Browser directly changes DOM
+- MutationObserver detects DOM changes to synchronize model
+- Selection/Cursor depends on browser Selection API
 
-**핵심 질문**: 사람도 AI처럼 모델을 직접 편집할 수 있다면?
+**Core Question**: What if humans could also directly edit the model like AI?
 
 ---
 
 ## 2. Problem Statement
 
-### 2.1 ContentEditable이 필요한 이유
+### 2.1 Why ContentEditable is Needed
 
-ContentEditable을 사용하는 이유는 **사용자가 키보드/마우스로 직접 텍스트를 입력하고 편집할 수 있게 하기 위함**입니다. 하지만 이것이 ContentEditable을 사용해야 하는 **유일한 이유**는 아닙니다.
+ContentEditable is used **to allow users to directly input and edit text with keyboard/mouse**. However, this is not the **only reason** to use ContentEditable.
 
-### 2.2 ContentEditable의 실제 역할
+### 2.2 Actual Role of ContentEditable
 
-ContentEditable은 다음과 같은 역할을 합니다:
+ContentEditable serves the following roles:
 
-1. **키보드 입력 수신**: 사용자가 키를 누르면 브라우저가 DOM에 텍스트를 삽입
-2. **마우스 클릭 처리**: 클릭 위치에 커서를 배치
-3. **텍스트 선택**: 드래그로 텍스트 범위 선택
-4. **IME 입력**: 조합형 입력 처리
+1. **Receive keyboard input**: When user presses a key, browser inserts text into DOM
+2. **Handle mouse clicks**: Place cursor at click position
+3. **Text selection**: Select text range by dragging
+4. **IME input**: Handle composition-based input
 
-하지만 이러한 기능들은 모두 **ContentEditable 없이도 구현 가능**합니다:
+However, all these features **can be implemented without ContentEditable**:
 
-- **키보드 입력**: `keydown`, `keypress`, `input` 이벤트로 수신 가능
-- **마우스 클릭**: `click`, `mousedown` 이벤트로 위치 계산 가능
-- **텍스트 선택**: `mousedown`, `mousemove`, `mouseup` 이벤트로 구현 가능
-- **IME 입력**: `compositionstart`, `compositionupdate`, `compositionend` 이벤트로 처리 가능
+- **Keyboard input**: Can receive via `keydown`, `keypress`, `input` events
+- **Mouse clicks**: Can calculate position via `click`, `mousedown` events
+- **Text selection**: Can implement via `mousedown`, `mousemove`, `mouseup` events
+- **IME input**: Can handle via `compositionstart`, `compositionupdate`, `compositionend` events
 
-### 2.3 ContentEditable의 진짜 문제
+### 2.3 The Real Problem with ContentEditable
 
-ContentEditable의 진짜 문제는 **브라우저가 DOM을 직접 변경**한다는 것입니다:
+The real problem with ContentEditable is that **the browser directly changes the DOM**:
 
-1. 사용자가 키를 누름
-2. 브라우저가 DOM에 텍스트를 삽입
-3. 에디터가 MutationObserver로 DOM 변경을 감지
-4. 에디터가 모델을 업데이트
-5. 에디터가 DOM을 다시 렌더링
+1. User presses a key
+2. Browser inserts text into DOM
+3. Editor detects DOM changes via MutationObserver
+4. Editor updates model
+5. Editor re-renders DOM
 
-이 과정에서 **이중 상태 관리**와 **동기화 문제**가 발생합니다.
+This process causes **dual state management** and **synchronization problems**.
 
 ---
 
 ## 3. Proposed Solution: Model-Direct Editing Paradigm
 
-### 3.1 핵심 아이디어
+### 3.1 Core Idea
 
-**ContentEditable을 완전히 제거**하고, **사용자 입력을 모델 변경으로 직접 변환**합니다:
+**Completely remove ContentEditable** and **directly convert user input to model changes**:
 
-1. 사용자가 키를 누름
-2. 에디터가 입력 이벤트를 받음
-3. 에디터가 **모델을 직접 변경** (insert, delete, update)
-4. 에디터가 DOM을 렌더링 (단방향 데이터 흐름)
+1. User presses a key
+2. Editor receives input event
+3. Editor **directly changes model** (insert, delete, update)
+4. Editor renders DOM (unidirectional data flow)
 
-이렇게 하면:
-- **Selection/Cursor는 모델의 offset으로 관리** (브라우저 Selection API 불필요)
-- **DOM은 모델의 렌더링 결과** (단방향 데이터 흐름)
-- **동기화 문제 제거** (단일 소스 of truth)
+This results in:
+- **Selection/Cursor managed as model offset** (browser Selection API unnecessary)
+- **DOM is rendering result of model** (unidirectional data flow)
+- **Synchronization problems eliminated** (single source of truth)
 
-### 3.2 AI vs 사람의 편집 방식 통합
+### 3.2 Unifying AI vs Human Editing Approaches
 
-**AI의 편집 방식**:
+**AI's Editing Approach**:
 ```typescript
-// AI는 모델을 직접 변경
+// AI directly changes model
 editor.insertText(modelOffset, "Hello");
 editor.deleteText(modelOffset, 5);
 editor.applyMark(modelOffset, 5, "bold");
 ```
 
-**사람의 편집 방식 (제안)**:
+**Human's Editing Approach (Proposed)**:
 ```typescript
-// 사람도 모델을 직접 변경 (키보드 입력을 모델 변경으로 변환)
+// Humans also directly change model (convert keyboard input to model changes)
 handleKeydown(event: KeyboardEvent) {
-  const modelOffset = this.getCursorOffset(); // 모델의 offset
+  const modelOffset = this.getCursorOffset(); // Model offset
   if (event.key === 'a') {
-    this.editor.insertText(modelOffset, 'a'); // 모델 직접 변경
+    this.editor.insertText(modelOffset, 'a'); // Direct model change
   }
 }
 ```
 
-**차이점**: AI는 프로그래밍 방식으로 모델을 변경하고, 사람은 키보드/마우스 입력을 모델 변경으로 변환합니다.
+**Difference**: AI changes model programmatically, while humans convert keyboard/mouse input to model changes.
 
-### 3.3 ContentEditable 없는 편집 인터페이스
+### 3.3 Editing Interface Without ContentEditable
 
 ```typescript
 class ModelDirectEditor {
   private model: Model;
-  private cursorOffset: number = 0; // 모델의 offset
+  private cursorOffset: number = 0; // Model offset
   
-  // ContentEditable 없이 키보드 입력 처리
+  // Handle keyboard input without ContentEditable
   handleKeydown(event: KeyboardEvent): void {
-    event.preventDefault(); // 브라우저 기본 동작 방지
+    event.preventDefault(); // Prevent browser default behavior
     
     if (event.key.length === 1) {
-      // 일반 문자 입력
+      // General character input
       this.model.insertText(this.cursorOffset, event.key);
       this.cursorOffset += event.key.length;
     } else if (event.key === 'Backspace') {
-      // 백스페이스
+      // Backspace
       if (this.cursorOffset > 0) {
         this.model.deleteText(this.cursorOffset - 1, 1);
         this.cursorOffset -= 1;
       }
     } else if (event.key === 'ArrowLeft') {
-      // 왼쪽 화살표
+      // Left arrow
       this.cursorOffset = Math.max(0, this.cursorOffset - 1);
     } else if (event.key === 'ArrowRight') {
-      // 오른쪽 화살표
+      // Right arrow
       this.cursorOffset = Math.min(this.model.getLength(), this.cursorOffset + 1);
     }
     
-    // 모델 변경 후 DOM 렌더링
+    // Render DOM after model change
     this.render();
-    // 커서 위치 업데이트
+    // Update cursor position
     this.updateCursor();
   }
   
-  // ContentEditable 없이 마우스 클릭 처리
+  // Handle mouse clicks without ContentEditable
   handleClick(event: MouseEvent): void {
     const domOffset = this.getOffsetFromPoint(event.clientX, event.clientY);
     const modelOffset = this.convertDOMOffsetToModel(domOffset);
@@ -184,7 +184,7 @@ class ModelDirectEditor {
     this.updateCursor();
   }
   
-  // ContentEditable 없이 텍스트 선택 처리
+  // Handle text selection without ContentEditable
   handleMouseDown(event: MouseEvent): void {
     this.selectionStart = this.getOffsetFromPoint(event.clientX, event.clientY);
   }
@@ -198,10 +198,10 @@ class ModelDirectEditor {
   }
   
   handleMouseUp(event: MouseEvent): void {
-    // 선택 완료
+    // Selection complete
   }
   
-  // IME 입력 처리
+  // IME input handling
   handleCompositionStart(event: CompositionEvent): void {
     this.isComposing = true;
     this.compositionText = '';
@@ -209,19 +209,19 @@ class ModelDirectEditor {
   
   handleCompositionUpdate(event: CompositionEvent): void {
     this.compositionText = event.data;
-    // 조합 중인 텍스트를 임시로 표시
+    // Temporarily display text being composed
     this.renderComposition();
   }
   
   handleCompositionEnd(event: CompositionEvent): void {
     this.isComposing = false;
-    // 조합 완료된 텍스트를 모델에 삽입
+    // Insert completed composition text into model
     this.model.insertText(this.cursorOffset, event.data);
     this.cursorOffset += event.data.length;
     this.render();
   }
   
-  // 커서 위치 업데이트 (DOM에 커서 표시)
+  // Update cursor position (display cursor in DOM)
   updateCursor(): void {
     const cursorElement = this.getCursorElement();
     const position = this.getCursorPosition(this.cursorOffset);
@@ -231,19 +231,19 @@ class ModelDirectEditor {
 }
 ```
 
-### 3.4 모델 기반 Selection/Cursor 관리
+### 3.4 Model-based Selection/Cursor Management
 
 ```typescript
 interface ModelSelection {
-  anchor: number;  // 모델의 offset
-  focus: number;   // 모델의 offset
+  anchor: number;  // Model offset
+  focus: number;   // Model offset
 }
 
 class ModelDirectEditor {
   private selection: ModelSelection | null = null;
   private cursorOffset: number = 0;
   
-  // Selection은 모델의 offset으로 관리
+  // Selection managed as model offset
   getSelection(): ModelSelection | null {
     return this.selection;
   }
@@ -253,7 +253,7 @@ class ModelDirectEditor {
     this.renderSelection();
   }
   
-  // Cursor는 모델의 offset으로 관리
+  // Cursor managed as model offset
   getCursorOffset(): number {
     return this.cursorOffset;
   }
@@ -263,19 +263,19 @@ class ModelDirectEditor {
     this.updateCursor();
   }
   
-  // DOM에 Selection 표시
+  // Display Selection in DOM
   renderSelection(): void {
     if (!this.selection) return;
     
-    // 모델의 offset을 DOM 위치로 변환
+    // Convert model offset to DOM position
     const startPos = this.getDOMPosition(this.selection.anchor);
     const endPos = this.getDOMPosition(this.selection.focus);
     
-    // Selection을 시각적으로 표시
+    // Visually display Selection
     this.highlightSelection(startPos, endPos);
   }
   
-  // DOM에 Cursor 표시
+  // Display Cursor in DOM
   updateCursor(): void {
     const position = this.getDOMPosition(this.cursorOffset);
     this.cursorElement.style.left = `${position.x}px`;
@@ -288,66 +288,66 @@ class ModelDirectEditor {
 
 ## 4. Implementation Strategy
 
-### 4.1 키보드 입력 처리
+### 4.1 Keyboard Input Handling
 
 ```typescript
 class ModelDirectEditor {
   private container: HTMLElement;
   
   setup(): void {
-    // ContentEditable 없이 키보드 이벤트 수신
+    // Receive keyboard events without ContentEditable
     this.container.addEventListener('keydown', (e) => this.handleKeydown(e));
-    this.container.setAttribute('tabindex', '0'); // 포커스 가능하게 설정
+    this.container.setAttribute('tabindex', '0'); // Make focusable
   }
   
   handleKeydown(event: KeyboardEvent): void {
-    // 브라우저 기본 동작 방지 (ContentEditable이 없으므로)
+    // Prevent browser default behavior (no ContentEditable)
     event.preventDefault();
     
     const key = event.key;
     const modelOffset = this.cursorOffset;
     
     if (key.length === 1 && !event.ctrlKey && !event.metaKey) {
-      // 일반 문자 입력
+      // General character input
       this.model.insertText(modelOffset, key);
       this.cursorOffset += key.length;
     } else if (key === 'Backspace') {
-      // 백스페이스
+      // Backspace
       if (modelOffset > 0) {
         this.model.deleteText(modelOffset - 1, 1);
         this.cursorOffset -= 1;
       }
     } else if (key === 'Delete') {
-      // Delete 키
+      // Delete key
       if (modelOffset < this.model.getLength()) {
         this.model.deleteText(modelOffset, 1);
       }
     } else if (key === 'ArrowLeft') {
-      // 왼쪽 화살표
+      // Left arrow
       this.cursorOffset = Math.max(0, modelOffset - 1);
     } else if (key === 'ArrowRight') {
-      // 오른쪽 화살표
+      // Right arrow
       this.cursorOffset = Math.min(this.model.getLength(), modelOffset + 1);
     } else if (key === 'ArrowUp') {
-      // 위쪽 화살표 (라인 이동)
+      // Up arrow (line movement)
       this.cursorOffset = this.moveCursorUp(modelOffset);
     } else if (key === 'ArrowDown') {
-      // 아래쪽 화살표 (라인 이동)
+      // Down arrow (line movement)
       this.cursorOffset = this.moveCursorDown(modelOffset);
     } else if (key === 'Enter') {
-      // Enter 키 (줄바꿈)
+      // Enter key (line break)
       this.model.insertText(modelOffset, '\n');
       this.cursorOffset += 1;
     }
     
-    // 모델 변경 후 렌더링
+    // Render after model change
     this.render();
     this.updateCursor();
   }
 }
 ```
 
-### 4.2 마우스 입력 처리
+### 4.2 Mouse Input Handling
 
 ```typescript
 class ModelDirectEditor {
@@ -361,14 +361,14 @@ class ModelDirectEditor {
   }
   
   handleMouseDown(event: MouseEvent): void {
-    // 클릭 위치의 모델 offset 계산
+    // Calculate model offset at click position
     const modelOffset = this.getModelOffsetFromPoint(event.clientX, event.clientY);
     
     if (event.shiftKey && this.selection) {
-      // Shift + 클릭: Selection 확장
+      // Shift + click: Extend selection
       this.setSelection(this.selection.anchor, modelOffset);
     } else {
-      // 일반 클릭: Cursor 이동
+      // Normal click: Move cursor
       this.cursorOffset = modelOffset;
       this.selection = null;
       this.isSelecting = true;
@@ -381,7 +381,7 @@ class ModelDirectEditor {
   
   handleMouseMove(event: MouseEvent): void {
     if (this.isSelecting && this.selectionStart !== null) {
-      // 드래그 중: Selection 업데이트
+      // During drag: Update selection
       const modelOffset = this.getModelOffsetFromPoint(event.clientX, event.clientY);
       this.setSelection(this.selectionStart, modelOffset);
     }
@@ -391,19 +391,19 @@ class ModelDirectEditor {
     this.isSelecting = false;
   }
   
-  // DOM 좌표를 모델 offset으로 변환
+  // Convert DOM coordinates to model offset
   getModelOffsetFromPoint(x: number, y: number): number {
-    // DOM에서 가장 가까운 텍스트 위치 찾기
+    // Find nearest text position in DOM
     const range = document.caretRangeFromPoint(x, y);
     if (!range) return 0;
     
-    // DOM 위치를 모델 offset으로 변환
+    // Convert DOM position to model offset
     return this.convertDOMPositionToModel(range.startContainer, range.startOffset);
   }
 }
 ```
 
-### 4.3 IME 입력 처리
+### 4.3 IME Input Handling
 
 ```typescript
 class ModelDirectEditor {
@@ -422,34 +422,34 @@ class ModelDirectEditor {
     this.compositionText = '';
     this.compositionOffset = this.cursorOffset;
     
-    // 조합 중인 텍스트를 임시로 표시할 위치 저장
+    // Store position to temporarily display text being composed
   }
   
   handleCompositionUpdate(event: CompositionEvent): void {
     this.compositionText = event.data;
     
-    // 조합 중인 텍스트를 임시로 렌더링
+    // Temporarily render text being composed
     this.renderComposition(this.compositionOffset, this.compositionText);
   }
   
   handleCompositionEnd(event: CompositionEvent): void {
     this.isComposing = false;
     
-    // 조합 완료된 텍스트를 모델에 삽입
+    // Insert completed composition text into model
     if (this.compositionText) {
       this.model.insertText(this.compositionOffset, this.compositionText);
       this.cursorOffset = this.compositionOffset + this.compositionText.length;
     }
     
-    // 조합 텍스트 제거 및 정상 렌더링
+    // Remove composition text and render normally
     this.clearComposition();
     this.render();
     this.updateCursor();
   }
   
-  // 조합 중인 텍스트를 임시로 표시
+  // Temporarily display text being composed
   renderComposition(offset: number, text: string): void {
-    // 조합 텍스트를 하이라이트하여 표시
+    // Display composition text with highlight
     const compositionElement = this.createCompositionElement(text);
     const position = this.getDOMPosition(offset);
     compositionElement.style.position = 'absolute';
@@ -460,7 +460,7 @@ class ModelDirectEditor {
 }
 ```
 
-### 4.4 커서 및 Selection 시각화
+### 4.4 Cursor and Selection Visualization
 
 ```typescript
 class ModelDirectEditor {
@@ -468,7 +468,7 @@ class ModelDirectEditor {
   private selectionOverlay: HTMLElement;
   
   setup(): void {
-    // 커서 요소 생성
+    // Create cursor element
     this.cursorElement = document.createElement('div');
     this.cursorElement.className = 'editor-cursor';
     this.cursorElement.style.cssText = `
@@ -481,7 +481,7 @@ class ModelDirectEditor {
     `;
     this.container.appendChild(this.cursorElement);
     
-    // Selection 오버레이 생성
+    // Create selection overlay
     this.selectionOverlay = document.createElement('div');
     this.selectionOverlay.className = 'editor-selection';
     this.selectionOverlay.style.cssText = `
@@ -492,7 +492,7 @@ class ModelDirectEditor {
     this.container.appendChild(this.selectionOverlay);
   }
   
-  // 커서 위치 업데이트
+  // Update cursor position
   updateCursor(): void {
     const position = this.getDOMPosition(this.cursorOffset);
     this.cursorElement.style.left = `${position.x}px`;
@@ -500,7 +500,7 @@ class ModelDirectEditor {
     this.cursorElement.style.height = `${position.height}px`;
   }
   
-  // Selection 표시
+  // Display selection
   renderSelection(): void {
     if (!this.selection) {
       this.selectionOverlay.style.display = 'none';
@@ -510,29 +510,29 @@ class ModelDirectEditor {
     const startPos = this.getDOMPosition(this.selection.anchor);
     const endPos = this.getDOMPosition(this.selection.focus);
     
-    // Selection 영역 계산
+    // Calculate selection area
     if (startPos.y === endPos.y) {
-      // 같은 라인
+      // Same line
       this.selectionOverlay.style.left = `${startPos.x}px`;
       this.selectionOverlay.style.top = `${startPos.y}px`;
       this.selectionOverlay.style.width = `${endPos.x - startPos.x}px`;
       this.selectionOverlay.style.height = `${startPos.height}px`;
     } else {
-      // 여러 라인 (복잡한 계산 필요)
+      // Multiple lines (complex calculation needed)
       // ...
     }
     
     this.selectionOverlay.style.display = 'block';
   }
   
-  // 모델 offset을 DOM 위치로 변환
+  // Convert model offset to DOM position
   getDOMPosition(modelOffset: number): { x: number; y: number; height: number } {
-    // 모델의 offset을 DOM의 텍스트 위치로 변환
-    // 텍스트 레이아웃 정보를 사용하여 정확한 위치 계산
+    // Convert model offset to DOM text position
+    // Calculate accurate position using text layout information
     const textNode = this.findTextNodeAtOffset(modelOffset);
     const offsetInNode = modelOffset - textNode.startOffset;
     
-    // Range API를 사용하여 정확한 위치 계산
+    // Calculate accurate position using Range API
     const range = document.createRange();
     range.setStart(textNode.domNode, offsetInNode);
     range.setEnd(textNode.domNode, offsetInNode);
@@ -553,98 +553,98 @@ class ModelDirectEditor {
 
 ## 5. Advantages and Challenges
 
-### 5.1 장점
+### 5.1 Advantages
 
-#### 5.1.1 Selection/Cursor 관리의 단순화
+#### 5.1.1 Simplified Selection/Cursor Management
 
-- **모델 기반 관리**: Selection/Cursor가 모델의 offset으로 관리되어 복잡한 DOM 참조 불필요
-- **브라우저 의존성 제거**: 브라우저 Selection API에 의존하지 않음
-- **일관성 보장**: 모든 브라우저에서 동일한 동작
+- **Model-based management**: Selection/Cursor managed as model offset, no need for complex DOM references
+- **Remove browser dependency**: Does not depend on browser Selection API
+- **Consistency guaranteed**: Same behavior across all browsers
 
-#### 5.1.2 단방향 데이터 흐름
+#### 5.1.2 Unidirectional Data Flow
 
-- **단일 소스 of truth**: 모델이 유일한 상태 소스
-- **동기화 문제 제거**: DOM과 모델 간 동기화 불필요
-- **예측 가능한 동작**: 모델 변경 → DOM 렌더링의 단순한 흐름
+- **Single source of truth**: Model is the only state source
+- **Eliminate synchronization problems**: No need to synchronize between DOM and model
+- **Predictable behavior**: Simple flow of model change → DOM rendering
 
-#### 5.1.3 성능 향상
+#### 5.1.3 Performance Improvement
 
-- **불필요한 DOM 조작 제거**: MutationObserver 불필요
-- **최적화된 렌더링**: 모델 변경만 렌더링하면 됨
-- **메모리 효율**: Text Node Pool 등 복잡한 메커니즘 불필요
+- **Remove unnecessary DOM manipulation**: MutationObserver unnecessary
+- **Optimized rendering**: Only need to render model changes
+- **Memory efficiency**: Complex mechanisms like Text Node Pool unnecessary
 
-#### 5.1.4 접근성 향상
+#### 5.1.4 Improved Accessibility
 
-- **완전한 제어**: 커서/Selection의 시각적 표현을 완전히 제어 가능
-- **스크린 리더 호환**: ARIA 속성으로 접근성 향상 가능
-- **키보드 네비게이션**: 모든 키보드 동작을 직접 구현 가능
+- **Complete control**: Can fully control visual representation of cursor/Selection
+- **Screen reader compatibility**: Can improve accessibility with ARIA attributes
+- **Keyboard navigation**: Can directly implement all keyboard behaviors
 
-### 5.2 도전 과제
+### 5.2 Challenges
 
-#### 5.2.1 IME의 근본적인 한계 ⚠️
+#### 5.2.1 Fundamental Limitations of IME ⚠️
 
-**가장 큰 문제**: ContentEditable 없이 IME를 완전히 구현하는 것은 **거의 불가능**합니다.
+**Biggest problem**: Fully implementing IME without ContentEditable is **nearly impossible**.
 
-**IME가 제공하는 기능들**:
-1. **조합 중인 텍스트의 시각적 표시**: 브라우저가 자동으로 처리
-   - 한글 입력 시 "ㅎㅏㄴ" → "한" 조합 과정 표시
-   - 일본어 입력 시 히라가나 → 한자 변환 과정 표시
-   - 이는 OS 레벨의 IME 엔진과 브라우저가 협력하여 처리
+**Features IME provides**:
+1. **Visual display of text being composed**: Browser handles automatically
+   - Shows composition process for Hangul input: "ㅎㅏㄴ" → "한"
+   - Shows conversion process for Japanese input: hiragana → kanji
+   - This is handled by cooperation between OS-level IME engine and browser
 
-2. **IME 후보 단어 선택 UI**: OS 레벨에서 제공
-   - 한자 후보 목록
-   - 단어 추천 목록
-   - 이는 브라우저가 ContentEditable 요소에 대해 자동으로 표시
+2. **IME candidate word selection UI**: Provided at OS level
+   - Kanji candidate list
+   - Word suggestion list
+   - Browser automatically displays this for ContentEditable elements
 
-3. **커서 위치 자동 조정**: 브라우저가 조합 중인 텍스트 길이에 맞춰 자동 조정
-   - 조합 중인 텍스트가 길어지면 커서가 자동으로 이동
-   - 조합 취소 시 커서 위치 복원
+3. **Automatic cursor position adjustment**: Browser automatically adjusts to length of text being composed
+   - Cursor automatically moves when composed text becomes longer
+   - Cursor position restored when composition is cancelled
 
-4. **조합 취소/완료 처리**: 브라우저와 OS가 협력하여 처리
-   - ESC 키로 조합 취소
-   - Enter 키로 조합 완료
+4. **Composition cancel/completion handling**: Handled by cooperation between browser and OS
+   - ESC key cancels composition
+   - Enter key completes composition
 
-**문제점**:
-- ContentEditable 없이는 이러한 기능들을 직접 구현할 수 없음
-- Composition 이벤트만으로는 IME의 모든 기능을 재현 불가능
-- OS 레벨의 IME UI와 통합 불가능
-- 사용자 경험이 크게 저하됨
+**Problems**:
+- Cannot directly implement these features without ContentEditable
+- Cannot reproduce all IME features with composition events alone
+- Cannot integrate with OS-level IME UI
+- User experience significantly degraded
 
-**결론**: IME 입력을 위해서는 **ContentEditable이 필수적**입니다.
+**Conclusion**: **ContentEditable is essential** for IME input.
 
-#### 5.2.2 복잡한 구현
+#### 5.2.2 Complex Implementation
 
-- **모든 입력 처리**: 키보드, 마우스, IME 등 모든 입력을 직접 처리해야 함
-- **커서/Selection 시각화**: DOM 위치 계산 및 시각적 표현 구현 필요
-- **텍스트 레이아웃**: 정확한 커서 위치 계산을 위한 레이아웃 정보 필요
+- **All input handling**: Must directly handle all inputs: keyboard, mouse, IME, etc.
+- **Cursor/Selection visualization**: Need to implement DOM position calculation and visual representation
+- **Text layout**: Need layout information for accurate cursor position calculation
 
-#### 5.2.3 브라우저 호환성
+#### 5.2.3 Browser Compatibility
 
-- **텍스트 입력**: 일부 브라우저에서 특수 문자 입력 처리 어려움
-- **접근성**: 스크린 리더와의 호환성 검증 필요
+- **Text input**: Difficulty handling special character input in some browsers
+- **Accessibility**: Need to verify compatibility with screen readers
 
-#### 5.2.3 사용자 경험
+#### 5.2.4 User Experience
 
-- **기존 습관**: 사용자가 ContentEditable에 익숙함
-- **복사/붙여넣기**: 클립보드 API와의 통합 필요
-- **드래그 앤 드롭**: 파일 드롭 등 추가 기능 구현 필요
+- **Existing habits**: Users are familiar with ContentEditable
+- **Copy/paste**: Need integration with Clipboard API
+- **Drag and drop**: Need to implement additional features like file drop
 
-### 5.3 하이브리드 접근법: IME만 ContentEditable 사용
+### 5.3 Hybrid Approach: Use ContentEditable Only for IME
 
-IME의 한계를 고려할 때, **하이브리드 접근법**이 가장 현실적입니다. 하지만 **기술적 제약**이 있습니다:
+Considering IME limitations, a **hybrid approach** is most practical. However, there are **technical constraints**:
 
-#### 5.3.0 기술적 제약: IME만 ContentEditable 사용의 어려움 ⚠️
+#### 5.3.0 Technical Constraints: Difficulty of Using ContentEditable Only for IME ⚠️
 
-**문제점**:
-1. **compositionstart는 이미 늦음**: `compositionstart` 이벤트가 발생할 때는 이미 IME가 시작된 후입니다. 이 시점에 포커스를 이동하는 것은 이미 늦을 수 있습니다.
-2. **IME는 포커스된 요소에서 시작**: IME는 현재 포커스된 요소에서 시작됩니다. ContentEditable이 아닌 요소에서는 IME가 제대로 작동하지 않을 수 있습니다.
-3. **IME UI 위치**: IME 후보 단어 선택 UI는 포커스된 ContentEditable 요소 근처에 표시됩니다. 숨겨진 요소에 포커스가 있으면 UI가 잘못된 위치에 표시될 수 있습니다.
+**Problems**:
+1. **compositionstart is already too late**: When `compositionstart` event occurs, IME has already started. Moving focus at this point may already be too late.
+2. **IME starts from focused element**: IME starts from currently focused element. IME may not work properly in non-ContentEditable elements.
+3. **IME UI position**: IME candidate word selection UI is displayed near the focused ContentEditable element. If focus is on a hidden element, UI may be displayed in wrong location.
 
-**결론**: IME만 별도의 ContentEditable 요소에서 처리하는 것은 **기술적으로 어렵습니다**.
+**Conclusion**: Handling IME only in a separate ContentEditable element is **technically difficult**.
 
-#### 5.3.1 현실적인 접근법: 메인 영역을 ContentEditable로 두되 일반 입력은 막기
+#### 5.3.1 Practical Approach: Keep Main Area as ContentEditable but Block General Input
 
-가장 현실적인 방법은 **메인 편집 영역 자체를 ContentEditable로 두되, 일반 입력은 preventDefault로 막고 모델 직접 편집으로 처리**하는 것입니다:
+The most practical method is **keeping the main editing area itself as ContentEditable, but blocking general input with preventDefault and handling with model-direct editing**:
 
 ```typescript
 class HybridEditor {
@@ -652,176 +652,176 @@ class HybridEditor {
   private isComposing: boolean = false;
   
   setup(): void {
-    // 메인 편집 영역: ContentEditable 활성화 (IME를 위해 필요)
+    // Main editing area: Activate ContentEditable (needed for IME)
     this.container.contentEditable = 'true';
     
-    // 일반 입력은 preventDefault로 막고 모델 직접 편집
+    // Block general input with preventDefault and handle with model-direct editing
     this.setupModelDirectEditing();
     
-    // IME 입력은 ContentEditable에서 자연스럽게 처리
+    // IME input handled naturally in ContentEditable
     this.setupIMEHandling();
   }
   
   setupModelDirectEditing(): void {
-    // 일반 키보드 입력 처리
+    // Handle general keyboard input
     this.container.addEventListener('keydown', (e) => {
-      // IME 조합 중이면 ContentEditable에 맡김
+      // If IME composing, leave to ContentEditable
       if (this.isComposing) {
-        return; // ContentEditable이 처리하도록 함
+        return; // Let ContentEditable handle
       }
       
-      // 일반 입력은 preventDefault로 막고 모델 직접 편집
+      // Block general input with preventDefault and handle with model-direct editing
       if (this.isNormalInput(e)) {
         e.preventDefault();
         this.handleKeydown(e);
       }
     });
     
-    // input 이벤트는 무시 (모델 직접 편집으로 처리했으므로)
+    // Ignore input event (already handled with model-direct editing)
     this.container.addEventListener('input', (e) => {
       if (!this.isComposing) {
         e.preventDefault();
-        // 이미 모델 직접 편집으로 처리했으므로 무시
+        // Already handled with model-direct editing, so ignore
       }
     });
   }
   
   setupIMEHandling(): void {
-    // IME 조합 시작: ContentEditable이 처리하도록 함
+    // IME composition start: Let ContentEditable handle
     this.container.addEventListener('compositionstart', (e) => {
       this.isComposing = true;
-      // ⚠️ 중요: IME 조합 중에는 DOM 변경을 막아야 함
-      this.pauseRendering = true; // 렌더링 일시 중지
-      // ContentEditable이 IME를 처리하도록 함
+      // ⚠️ Important: Must prevent DOM changes during IME composition
+      this.pauseRendering = true; // Pause rendering
+      // Let ContentEditable handle IME
     });
     
-    // IME 조합 중: ContentEditable이 처리
+    // IME composition in progress: ContentEditable handles
     this.container.addEventListener('compositionupdate', (e) => {
-      // 조합 중인 텍스트는 ContentEditable이 표시
-      // ⚠️ 중요: 이 시점에 DOM을 변경하면 IME가 깨질 수 있음
-      // 필요시 모델에도 반영 (선택적, 하지만 DOM은 변경하지 않음)
+      // ContentEditable displays text being composed
+      // ⚠️ Important: Changing DOM at this point may break IME
+      // Optionally reflect to model (but do not change DOM)
     });
     
-    // IME 조합 완료: ContentEditable에서 완료된 텍스트를 모델로 동기화
+    // IME composition complete: Synchronize completed text from ContentEditable to model
     this.container.addEventListener('compositionend', (e) => {
       this.isComposing = false;
       
-      // ContentEditable의 변경사항을 모델로 동기화
+      // Synchronize ContentEditable changes to model
       this.syncDOMToModel();
       
-      // 렌더링 재개
+      // Resume rendering
       this.pauseRendering = false;
       
-      // ContentEditable 초기화 (모델 기반으로 다시 렌더링)
+      // Initialize ContentEditable (re-render based on model)
       this.render();
     });
   }
   
-  // 렌더링 시 IME 조합 중인지 확인
+  // Check if IME is composing when rendering
   render(): void {
-    // ⚠️ 중요: IME 조합 중에는 렌더링하지 않음
+    // ⚠️ Important: Do not render during IME composition
     if (this.isComposing || this.pauseRendering) {
-      return; // IME가 깨지지 않도록 렌더링 건너뜀
+      return; // Skip rendering to prevent IME from breaking
     }
     
-    // 정상 렌더링
+    // Normal rendering
     // ...
   }
   
   isNormalInput(event: KeyboardEvent): boolean {
-    // IME가 아닌 일반 입력인지 확인
+    // Check if it's general input, not IME
     const key = event.key;
     
-    // 화살표 키, 기능 키 등은 ContentEditable에 맡김 (선택적)
+    // Leave arrow keys, function keys, etc. to ContentEditable (optional)
     if (key.startsWith('Arrow') || key === 'Home' || key === 'End') {
-      return false; // ContentEditable이 처리
+      return false; // ContentEditable handles
     }
     
-    // 일반 문자 입력
+    // General character input
     if (key.length === 1 && !event.ctrlKey && !event.metaKey) {
-      return true; // 모델 직접 편집
+      return true; // Model-direct editing
     }
     
-    // Backspace, Delete 등
+    // Backspace, Delete, etc.
     if (key === 'Backspace' || key === 'Delete') {
-      return true; // 모델 직접 편집
+      return true; // Model-direct editing
     }
     
     return false;
   }
   
   syncDOMToModel(): void {
-    // ContentEditable에서 IME로 입력된 텍스트를 모델로 동기화
+    // Synchronize text entered via IME in ContentEditable to model
     const domText = this.container.textContent || '';
     const modelText = this.model.getText();
     
     if (domText !== modelText) {
-      // 텍스트 변경 감지 및 모델 업데이트
-      // (MutationObserver 또는 text-analyzer 사용)
+      // Detect text changes and update model
+      // (use MutationObserver or text-analyzer)
       this.applyTextChanges(domText, modelText);
     }
   }
 }
 ```
 
-**장점**:
-- ✅ IME는 ContentEditable에서 자연스럽게 작동
-- ✅ 일반 입력은 모델 직접 편집으로 처리 (선택적)
-- ✅ IME UI가 올바른 위치에 표시됨
+**Advantages**:
+- ✅ IME works naturally in ContentEditable
+- ✅ General input handled with model-direct editing (optional)
+- ✅ IME UI displayed in correct location
 
-**단점**:
-- ⚠️ 메인 영역이 ContentEditable이므로 여전히 일부 문제 발생 가능
-- ⚠️ 일반 입력과 IME 입력을 구분하는 로직 필요
-- ⚠️ DOM과 모델 동기화 필요 (IME 입력 시)
+**Disadvantages**:
+- ⚠️ Main area is ContentEditable, so some problems may still occur
+- ⚠️ Need logic to distinguish general input and IME input
+- ⚠️ Need DOM and model synchronization (when IME input occurs)
 
-#### 5.3.2 IME 조합 중 DOM 변경 방지 ⚠️
+#### 5.3.2 Prevent DOM Changes During IME Composition ⚠️
 
-**핵심 문제**: IME 입력 도중에 DOM을 변경하면 IME가 깨질 수 있습니다.
+**Core problem**: Changing DOM during IME input can break IME.
 
-**시나리오**:
-1. 사용자가 한글을 입력 중 (IME 조합 중)
-2. 다른 곳에서 모델이 업데이트됨 (예: 협업 편집, 자동 완성 등)
-3. 렌더링이 발생하여 DOM이 변경됨
-4. **IME가 깨짐** ❌
+**Scenario**:
+1. User is entering Hangul (IME composition in progress)
+2. Model is updated elsewhere (e.g., collaborative editing, autocomplete, etc.)
+3. Rendering occurs and DOM changes
+4. **IME breaks** ❌
 
-**해결 방안**:
+**Solution**:
 
 ```typescript
 class HybridEditor {
   private isComposing: boolean = false;
-  private pendingRenders: (() => void)[] = []; // 대기 중인 렌더링
+  private pendingRenders: (() => void)[] = []; // Pending renders
   
   setupIMEHandling(): void {
     this.container.addEventListener('compositionstart', () => {
       this.isComposing = true;
-      // IME 조합 중에는 렌더링 일시 중지
+      // Pause rendering during IME composition
     });
     
     this.container.addEventListener('compositionend', () => {
       this.isComposing = false;
       
-      // 대기 중인 렌더링 실행
+      // Execute pending renders
       this.flushPendingRenders();
     });
   }
   
   render(): void {
-    // ⚠️ 중요: IME 조합 중에는 렌더링하지 않음
+    // ⚠️ Important: Do not render during IME composition
     if (this.isComposing) {
-      // 렌더링을 대기열에 추가
+      // Add render to queue
       this.pendingRenders.push(() => {
-        // 실제 렌더링 로직
+        // Actual rendering logic
         this.doRender();
       });
       return;
     }
     
-    // 정상 렌더링
+    // Normal rendering
     this.doRender();
   }
   
   flushPendingRenders(): void {
-    // IME 조합 완료 후 대기 중인 렌더링 실행
+    // Execute pending renders after IME composition completes
     while (this.pendingRenders.length > 0) {
       const renderFn = this.pendingRenders.shift();
       renderFn?.();
@@ -830,56 +830,56 @@ class HybridEditor {
 }
 ```
 
-**주의사항**:
-- IME 조합 중에는 **절대 DOM을 변경하지 않아야 함**
-- 다른 컴포넌트나 이벤트에서도 렌더링을 트리거할 수 있으므로, 모든 렌더링 경로에서 IME 상태를 확인해야 함
-- 모델 업데이트는 가능하지만, DOM 렌더링은 IME 조합 완료 후에만 수행
+**Notes**:
+- **Must never change DOM during IME composition**
+- Other components or events can also trigger rendering, so must check IME state in all rendering paths
+- Model updates are possible, but DOM rendering only after IME composition completes
 
-#### 5.3.3 대안: 항상 ContentEditable 사용하되 모델 직접 편집 최대화
+#### 5.3.3 Alternative: Always Use ContentEditable but Maximize Model-Direct Editing
 
-또 다른 접근법은 **항상 ContentEditable을 사용하되, 일반 입력도 모델 직접 편집으로 처리**하는 것입니다:
+Another approach is **always using ContentEditable, but handling general input with model-direct editing**:
 
 ```typescript
 class HybridEditor {
   private container: HTMLElement;
   
   setup(): void {
-    // 항상 ContentEditable 활성화 (IME를 위해)
+    // Always activate ContentEditable (for IME)
     this.container.contentEditable = 'true';
     
-    // 모든 입력을 모델 직접 편집으로 처리
+    // Handle all input with model-direct editing
     this.container.addEventListener('keydown', (e) => {
-      e.preventDefault(); // 브라우저 기본 동작 방지
-      this.handleKeydown(e); // 모델 직접 편집
+      e.preventDefault(); // Prevent browser default behavior
+      this.handleKeydown(e); // Model-direct editing
     });
     
-    // input 이벤트 무시
+    // Ignore input event
     this.container.addEventListener('input', (e) => {
       e.preventDefault();
     });
     
-    // IME는 ContentEditable이 처리하도록 함
+    // Let ContentEditable handle IME
     this.container.addEventListener('compositionstart', () => {
-      // IME 조합 중에는 모델 직접 편집 비활성화
-      // ContentEditable이 IME를 처리
+      // Disable model-direct editing during IME composition
+      // ContentEditable handles IME
     });
     
     this.container.addEventListener('compositionend', (e) => {
-      // IME 완료된 텍스트를 모델에 반영
+      // Reflect IME-completed text to model
       const text = e.data;
       this.model.insertText(this.cursorOffset, text);
       this.cursorOffset += text.length;
       
-      // ContentEditable 초기화 및 모델 기반 렌더링
+      // Initialize ContentEditable and render based on model
       this.render();
     });
   }
 }
 ```
 
-이 방법은 **모든 입력을 모델 직접 편집으로 처리하되, IME만 ContentEditable에 맡기는** 하이브리드 방식입니다.
+This method is a hybrid approach that **handles all input with model-direct editing, but leaves only IME to ContentEditable**.
 
-#### 5.3.4 동적 ContentEditable 전환 (대안)
+#### 5.3.4 Dynamic ContentEditable Switching (Alternative)
 
 ```typescript
 class HybridEditor {
@@ -887,11 +887,11 @@ class HybridEditor {
   private useContentEditable: boolean = false;
   
   setup(): void {
-    // 기본적으로 모델 직접 편집 모드
+    // Default to model-direct editing mode
     this.container.contentEditable = 'false';
     this.setupModelDirectEditing();
     
-    // IME 감지 시 ContentEditable로 전환
+    // Switch to ContentEditable when IME detected
     this.container.addEventListener('compositionstart', () => {
       this.switchToContentEditable();
     });
@@ -907,55 +907,55 @@ class HybridEditor {
     this.useContentEditable = true;
     this.container.contentEditable = 'true';
     
-    // 현재 모델 상태를 DOM에 반영
+    // Reflect current model state to DOM
     this.syncModelToDOM();
     
-    // Selection 복원
+    // Restore selection
     this.restoreSelection();
   }
   
   switchToModelDirectEditing(): void {
     if (!this.useContentEditable) return;
     
-    // DOM 변경을 모델로 동기화
+    // Synchronize DOM changes to model
     this.syncDOMToModel();
     
     this.useContentEditable = false;
     this.container.contentEditable = 'false';
     
-    // 모델 직접 편집 모드로 전환
+    // Switch to model-direct editing mode
     this.setupModelDirectEditing();
   }
   
   syncDOMToModel(): void {
-    // ContentEditable에서 변경된 내용을 모델로 동기화
+    // Synchronize changes from ContentEditable to model
     const domText = this.container.textContent || '';
     const modelText = this.model.getText();
     
     if (domText !== modelText) {
-      // 텍스트 변경 감지 및 모델 업데이트
+      // Detect text changes and update model
       this.applyTextChanges(domText, modelText);
     }
   }
   
   syncModelToDOM(): void {
-    // 모델 상태를 DOM에 반영
+    // Reflect model state to DOM
     this.render();
   }
 }
 ```
 
-#### 5.3.5 IME 전용 숨겨진 요소 (비권장)
+#### 5.3.5 Hidden Element for IME Only (Not Recommended)
 
 ```typescript
 class HybridEditor {
   private imeProxy: HTMLElement;
   
   setup(): void {
-    // 메인 편집 영역: 모델 직접 편집
+    // Main editing area: Model-direct editing
     this.container.contentEditable = 'false';
     
-    // IME 전용 프록시 요소 (완전히 숨김)
+    // IME-only proxy element (completely hidden)
     this.imeProxy = document.createElement('div');
     this.imeProxy.contentEditable = 'true';
     this.imeProxy.style.cssText = `
@@ -967,31 +967,31 @@ class HybridEditor {
     `;
     document.body.appendChild(this.imeProxy);
     
-    // IME 입력 시 프록시로 리다이렉트
+    // Redirect to proxy on IME input
     this.setupIMERedirect();
   }
   
   setupIMERedirect(): void {
-    // 메인 영역에서 IME 시작 감지
+    // Detect IME start in main area
     this.container.addEventListener('compositionstart', (e) => {
-      // 프록시 요소로 포커스 이동
+      // Move focus to proxy element
       this.imeProxy.focus();
       
-      // 프록시에서 IME 처리
+      // Handle IME in proxy
       this.imeProxy.addEventListener('compositionend', (e) => {
         const text = e.data;
         
-        // 모델에 삽입
+        // Insert into model
         this.model.insertText(this.cursorOffset, text);
         this.cursorOffset += text.length;
         
-        // 프록시 초기화
+        // Initialize proxy
         this.imeProxy.textContent = '';
         
-        // 메인 영역으로 포커스 복귀
+        // Return focus to main area
         this.container.focus();
         
-        // 렌더링
+        // Render
         this.render();
       }, { once: true });
     });
@@ -999,104 +999,104 @@ class HybridEditor {
 }
 ```
 
-#### 5.3.6 하이브리드 접근법의 장단점
+#### 5.3.6 Advantages and Disadvantages of Hybrid Approach
 
-**장점**:
-- ✅ IME의 모든 기능 활용 가능
-- ✅ 일반 입력은 모델 직접 편집의 장점 활용
-- ✅ Selection/Cursor 관리 단순화 (IME 입력 시에만 복잡)
+**Advantages**:
+- ✅ Can utilize all IME features
+- ✅ General input leverages advantages of model-direct editing
+- ✅ Simplified Selection/Cursor management (complex only during IME input)
 
-**단점**:
-- ⚠️ 두 가지 모드 간 전환 로직 필요
-- ⚠️ IME 입력 시에만 ContentEditable의 문제 발생
-- ⚠️ **IME 조합 중 DOM 변경 금지**: IME 입력 도중 DOM을 변경하면 IME가 깨질 수 있음
-- ⚠️ 구현 복잡도 증가
+**Disadvantages**:
+- ⚠️ Need logic to switch between two modes
+- ⚠️ ContentEditable problems occur only during IME input
+- ⚠️ **Prohibit DOM changes during IME composition**: Changing DOM during IME input can break IME
+- ⚠️ Increased implementation complexity
 
-**결론**: 
-- **기술적 제약**: IME만 별도의 ContentEditable 요소에서 처리하는 것은 어렵습니다.
-- **현실적인 해결책**: 메인 영역을 ContentEditable로 두되, 일반 입력은 모델 직접 편집으로 처리하고 IME만 ContentEditable에 맡기는 방식이 가장 현실적입니다.
-- **트레이드오프**: 완전한 모델 직접 편집의 장점을 포기하되, IME 지원을 보장합니다.
-
----
-
-## 6. IME 처리 전략 비교
-
-### 6.1 완전한 ContentEditable 제거 (비현실적)
-
-**방식**: ContentEditable을 완전히 제거하고 Composition 이벤트만으로 IME 처리
-
-**문제점**:
-- ❌ OS 레벨 IME UI와 통합 불가능
-- ❌ 조합 중인 텍스트의 시각적 표시를 직접 구현해야 함
-- ❌ 후보 단어 선택 UI를 직접 구현해야 함
-- ❌ 커서 위치 자동 조정을 직접 구현해야 함
-- ❌ 사용자 경험이 크게 저하됨
-
-**결론**: **비현실적** - IME 지원이 필요한 언어(한글, 일본어, 중국어 등)에서는 사용 불가능
-
-### 6.2 하이브리드 접근법 (권장)
-
-**방식**: 
-- 메인 영역: ContentEditable 활성화 (IME를 위해 필요)
-- 일반 입력: preventDefault로 막고 모델 직접 편집으로 처리
-- IME 입력: ContentEditable이 자연스럽게 처리
-
-**장점**:
-- ✅ IME의 모든 기능 활용 가능
-- ✅ IME UI가 올바른 위치에 표시됨
-- ✅ 일반 입력은 모델 직접 편집의 장점 활용 (선택적)
-
-**단점**:
-- ⚠️ 메인 영역이 ContentEditable이므로 여전히 일부 문제 발생 가능
-- ⚠️ 일반 입력과 IME 입력을 구분하는 로직 필요
-- ⚠️ DOM과 모델 동기화 필요 (IME 입력 시)
-- ⚠️ **IME 조합 중 DOM 변경 금지**: IME 입력 도중 다른 곳에서 모델이 업데이트되어 렌더링이 발생하면 IME가 깨질 수 있음. 모든 렌더링 경로에서 IME 상태를 확인해야 함.
-- ⚠️ 완전한 모델 직접 편집의 장점을 완전히 활용할 수 없음
-
-**결론**: **권장** - IME 지원이 필요한 경우 가장 현실적인 접근법. 완전한 모델 직접 편집의 장점을 포기하되, IME 지원을 보장합니다.
-
-### 6.3 완전한 ContentEditable 사용 (기존 방식)
-
-**방식**: 모든 입력을 ContentEditable로 처리
-
-**장점**:
-- ✅ IME 완벽 지원
-- ✅ 브라우저 네이티브 기능 활용
-
-**단점**:
-- ❌ Selection/Cursor 관리 복잡
-- ❌ 이중 상태 관리
-- ❌ 동기화 문제
-
-**결론**: 기존 방식 - ContentEditable의 모든 문제를 안고 감
+**Conclusion**: 
+- **Technical constraints**: Handling IME only in a separate ContentEditable element is difficult.
+- **Practical solution**: Most practical approach is keeping main area as ContentEditable, but handling general input with model-direct editing and leaving only IME to ContentEditable.
+- **Trade-off**: Sacrifice advantages of complete model-direct editing, but guarantee IME support.
 
 ---
 
-## 7. ProseMirror의 IME 처리 방식
+## 6. IME Processing Strategy Comparison
 
-ProseMirror는 실제로 사용되는 ContentEditable 기반 에디터로서, IME 입력 도중 DOM 변경 문제를 어떻게 처리하는지 살펴보겠습니다.
+### 6.1 Complete ContentEditable Removal (Impractical)
 
-### 7.1 ProseMirror의 IME 보호 전략
+**Approach**: Completely remove ContentEditable and handle IME only with Composition events
 
-**핵심 원칙**: **IME 입력이 진행되는 동안 DOM을 변경하지 않음**
+**Problems**:
+- ❌ Cannot integrate with OS-level IME UI
+- ❌ Must directly implement visual display of text being composed
+- ❌ Must directly implement candidate word selection UI
+- ❌ Must directly implement automatic cursor position adjustment
+- ❌ User experience significantly degraded
 
-ProseMirror는 다음과 같은 전략을 사용합니다:
+**Conclusion**: **Impractical** - Cannot be used for languages requiring IME support (Hangul, Japanese, Chinese, etc.)
 
-1. **IME 조합 중 DOM 변경 금지**
-   - `compositionstart` 이벤트에서 IME 조합 시작을 감지
-   - IME 조합 중에는 커서 주변의 DOM을 변경하지 않음
-   - 특히 Chrome 브라우저에서 IME 입력 중 DOM 변경이 발생하면 텍스트 중복 등의 문제가 발생할 수 있음
+### 6.2 Hybrid Approach (Recommended)
 
-2. **모델 업데이트 지연**
-   - IME 조합 중에는 모델 트랜잭션을 완전히 차단
-   - 변경사항을 pending에 저장
-   - `compositionend` 이벤트에서 조합 완료된 텍스트를 모델에 반영
+**Approach**: 
+- Main area: Activate ContentEditable (needed for IME)
+- General input: Block with preventDefault and handle with model-direct editing
+- IME input: ContentEditable handles naturally
 
-3. **렌더링 일시 중지**
-   - IME 조합 중에는 렌더링을 건너뜀
-   - 다른 곳에서 모델이 업데이트되어도 DOM 렌더링을 하지 않음
+**Advantages**:
+- ✅ Can utilize all IME features
+- ✅ IME UI displayed in correct location
+- ✅ General input leverages advantages of model-direct editing (optional)
 
-### 7.2 ProseMirror 스타일 구현 예제
+**Disadvantages**:
+- ⚠️ Main area is ContentEditable, so some problems may still occur
+- ⚠️ Need logic to distinguish general input and IME input
+- ⚠️ Need DOM and model synchronization (when IME input occurs)
+- ⚠️ **Prohibit DOM changes during IME composition**: If model is updated elsewhere during IME input and rendering occurs, IME may break. Must check IME state in all rendering paths.
+- ⚠️ Cannot fully utilize advantages of complete model-direct editing
+
+**Conclusion**: **Recommended** - Most practical approach when IME support is needed. Sacrifice advantages of complete model-direct editing, but guarantee IME support.
+
+### 6.3 Complete ContentEditable Usage (Existing Approach)
+
+**Approach**: Handle all input with ContentEditable
+
+**Advantages**:
+- ✅ Perfect IME support
+- ✅ Utilize browser native features
+
+**Disadvantages**:
+- ❌ Complex Selection/Cursor management
+- ❌ Dual state management
+- ❌ Synchronization problems
+
+**Conclusion**: Existing approach - Accepts all problems of ContentEditable
+
+---
+
+## 7. ProseMirror's IME Processing Approach
+
+ProseMirror is a ContentEditable-based editor actually in use. Let's examine how it handles DOM change problems during IME input.
+
+### 7.1 ProseMirror's IME Protection Strategy
+
+**Core principle**: **Do not change DOM while IME input is in progress**
+
+ProseMirror uses the following strategies:
+
+1. **Prohibit DOM changes during IME composition**
+   - Detect IME composition start in `compositionstart` event
+   - Do not change DOM around cursor during IME composition
+   - Especially in Chrome browser, if DOM changes occur during IME input, problems like text duplication can occur
+
+2. **Delay model updates**
+   - Completely block model transactions during IME composition
+   - Store changes in pending
+   - Reflect composition-completed text to model in `compositionend` event
+
+3. **Pause rendering**
+   - Skip rendering during IME composition
+   - Do not perform DOM rendering even if model is updated elsewhere
+
+### 7.2 ProseMirror-Style Implementation Example
 
 ```typescript
 class ProseMirrorStyleEditor {
@@ -1104,13 +1104,13 @@ class ProseMirrorStyleEditor {
   private pendingChanges: Array<{ textNodeId: string; oldText: string; newText: string }> = [];
   
   setupIMEHandling(): void {
-    // IME 조합 시작
+    // IME composition start
     this.container.addEventListener('compositionstart', () => {
       this.isComposing = true;
-      // IME 조합 중에는 DOM 변경을 완전히 차단
+      // Completely block DOM changes during IME composition
     });
     
-    // MutationObserver에서 텍스트 변경 감지
+    // Detect text changes in MutationObserver
     this.observer = new MutationObserver((mutations) => {
       for (const mutation of mutations) {
         if (mutation.type === 'characterData') {
@@ -1125,124 +1125,124 @@ class ProseMirrorStyleEditor {
     const newText = (mutation.target as Text).data;
     const textNodeId = this.resolveTextNodeId(mutation.target);
     
-    // ⚠️ 중요: 조합 중에는 모델 트랜잭션을 완전히 차단하고 브라우저에 맡김
+    // ⚠️ Important: Completely block model transactions during composition and leave to browser
     if (this.isComposing) {
-      // 조합 중 변경사항을 pending에 저장
+      // Store composition changes in pending
       this.pendingChanges.push({
         textNodeId,
         oldText,
         newText
       });
-      // 조합 종료 누락 대비: 400ms 무입력 시 커밋
+      // Guard against missing composition end: commit after 400ms of no input
       if (this.pendingTimer) clearTimeout(this.pendingTimer);
       this.pendingTimer = setTimeout(() => {
         this.commitPendingChanges();
       }, 400);
-      return; // 모델 업데이트 차단
+      return; // Block model update
     }
     
-    // 조합이 아닐 때만 모델 업데이트
+    // Only update model when not composing
     this.applyTextChanges(textNodeId, oldText, newText);
   }
   
-  // IME 조합 완료
+  // IME composition complete
   handleCompositionEnd(event: CompositionEvent): void {
     this.isComposing = false;
     
-    // pending된 변경사항을 모델에 반영
+    // Reflect pending changes to model
     this.commitPendingChanges();
   }
   
   commitPendingChanges(): void {
-    // pending된 모든 변경사항을 모델에 반영
+    // Reflect all pending changes to model
     for (const change of this.pendingChanges) {
       this.applyTextChanges(change.textNodeId, change.oldText, change.newText);
     }
     this.pendingChanges = [];
   }
   
-  // 렌더링 시 IME 조합 중인지 확인
+  // Check if IME is composing when rendering
   render(): void {
-    // ⚠️ 중요: IME 조합 중에는 렌더링하지 않음
+    // ⚠️ Important: Do not render during IME composition
     if (this.isComposing) {
-      return; // ProseMirror도 동일한 전략 사용
+      return; // ProseMirror uses same strategy
     }
     
-    // 정상 렌더링
+    // Normal rendering
     // ...
   }
 }
 ```
 
-### 7.3 ProseMirror의 한계
+### 7.3 ProseMirror's Limitations
 
-ProseMirror도 완벽하지 않습니다:
+ProseMirror is also not perfect:
 
-1. **Chrome 브라우저의 문제**
-   - Chrome에서 IME 입력 중 DOM 변경이 발생하면 텍스트 중복 등의 문제가 발생할 수 있음
-   - ProseMirror는 이를 방지하기 위해 IME 조합 중 DOM 변경을 완전히 차단
+1. **Chrome Browser Problems**
+   - In Chrome, if DOM changes occur during IME input, problems like text duplication can occur
+   - ProseMirror completely blocks DOM changes during IME composition to prevent this
 
-2. **렌더링 지연**
-   - IME 조합 중에는 다른 곳에서 모델이 업데이트되어도 렌더링하지 않음
-   - 조합 완료 후에야 모든 변경사항이 반영됨
+2. **Rendering Delay**
+   - Does not render even if model is updated elsewhere during IME composition
+   - All changes are reflected only after composition completes
 
-3. **Selection 관리의 복잡성**
-   - 여전히 ContentEditable을 사용하므로 Selection 관리가 복잡함
-   - Text Node Pool 등의 메커니즘 필요
+3. **Selection Management Complexity**
+   - Still uses ContentEditable, so Selection management is complex
+   - Needs mechanisms like Text Node Pool
 
-### 7.4 시사점
+### 7.4 Implications
 
-ProseMirror의 접근법은 본 논문에서 제안하는 하이브리드 접근법과 유사합니다:
+ProseMirror's approach is similar to the hybrid approach proposed in this paper:
 
-- ✅ **IME 조합 중 DOM 변경 금지**: 본 논문의 제안과 동일
-- ✅ **렌더링 일시 중지**: 본 논문의 제안과 동일
-- ⚠️ **여전히 ContentEditable 사용**: 완전한 모델 직접 편집은 아님
+- ✅ **Prohibit DOM changes during IME composition**: Same as this paper's proposal
+- ✅ **Pause rendering**: Same as this paper's proposal
+- ⚠️ **Still uses ContentEditable**: Not complete model-direct editing
 
-**차이점**:
-- ProseMirror: 모든 입력을 ContentEditable로 처리
-- 본 논문의 제안: 일반 입력은 모델 직접 편집, IME만 ContentEditable
+**Differences**:
+- ProseMirror: Handles all input with ContentEditable
+- This paper's proposal: General input with model-direct editing, only IME with ContentEditable
 
 ---
 
 ## 8. Comparison with Existing Approaches
 
-### 8.1 ContentEditable 기반 에디터
+### 8.1 ContentEditable-based Editors
 
-**장점**:
-- 브라우저 네이티브 기능 활용
-- 구현이 상대적으로 간단
+**Advantages**:
+- Utilize browser native features
+- Relatively simple implementation
 
-**단점**:
-- Selection/Cursor 관리 복잡
-- 이중 상태 관리
-- 동기화 문제
+**Disadvantages**:
+- Complex Selection/Cursor management
+- Dual state management
+- Synchronization problems
 
-### 8.2 Model-Direct Editing (순수)
+### 8.2 Model-Direct Editing (Pure)
 
-**장점**:
-- Selection/Cursor 관리 단순
-- 단방향 데이터 흐름
-- 완전한 제어
+**Advantages**:
+- Simple Selection/Cursor management
+- Unidirectional data flow
+- Complete control
 
-**단점**:
-- 모든 입력 처리 직접 구현 필요
-- 복잡한 구현
+**Disadvantages**:
+- Need to directly implement all input handling
+- Complex implementation
 
-### 8.3 하이브리드 접근법 (권장)
+### 8.3 Hybrid Approach (Recommended)
 
-**장점**:
-- 필요에 따라 ContentEditable 사용
-- 점진적 마이그레이션 가능
+**Advantages**:
+- Use ContentEditable as needed
+- Can migrate gradually
 
-**단점**:
-- 두 가지 방식을 모두 지원해야 함
-- 복잡도 증가
+**Disadvantages**:
+- Must support both approaches
+- Increased complexity
 
 ---
 
 ## 9. Implementation Example
 
-### 9.1 기본 구조 (하이브리드)
+### 9.1 Basic Structure (Hybrid)
 
 ```typescript
 class ModelDirectEditor {
@@ -1260,11 +1260,11 @@ class ModelDirectEditor {
   }
   
   setup(): void {
-    // ContentEditable 비활성화
+    // Disable ContentEditable
     this.container.contentEditable = 'false';
     this.container.setAttribute('tabindex', '0');
     
-    // 이벤트 리스너 등록
+    // Register event listeners
     this.container.addEventListener('keydown', (e) => this.handleKeydown(e));
     this.container.addEventListener('mousedown', (e) => this.handleMouseDown(e));
     this.container.addEventListener('mousemove', (e) => this.handleMouseMove(e));
@@ -1273,11 +1273,11 @@ class ModelDirectEditor {
     this.container.addEventListener('compositionupdate', (e) => this.handleCompositionUpdate(e));
     this.container.addEventListener('compositionend', (e) => this.handleCompositionEnd(e));
     
-    // 커서 및 Selection 시각화 설정
+    // Setup cursor and Selection visualization
     this.setupVisualization();
   }
   
-  // 모델 변경 후 렌더링
+  // Render after model change
   render(): void {
     this.renderer.render(this.model);
     this.updateCursor();
@@ -1286,53 +1286,53 @@ class ModelDirectEditor {
 }
 ```
 
-### 9.2 사용 예제
+### 9.2 Usage Example
 
 ```typescript
-// 에디터 생성
+// Create editor
 const editor = new ModelDirectEditor(document.getElementById('editor'));
 
-// 모델 직접 변경 (AI처럼)
+// Directly change model (like AI)
 editor.model.insertText(0, 'Hello');
 editor.model.insertText(5, ' World');
 editor.model.applyMark(0, 11, 'bold');
 
-// 사용자 입력 (키보드)
-// 사용자가 'a' 키를 누르면
-// → handleKeydown에서 모델 직접 변경
-// → render() 호출
-// → 커서 위치 업데이트
+// User input (keyboard)
+// When user presses 'a' key
+// → Direct model change in handleKeydown
+// → Call render()
+// → Update cursor position
 
-// Selection 관리
-editor.setSelection(0, 5); // "Hello" 선택
-editor.setCursorOffset(11); // 커서를 끝으로 이동
+// Selection management
+editor.setSelection(0, 5); // Select "Hello"
+editor.setCursorOffset(11); // Move cursor to end
 ```
 
 ---
 
 ## 10. Alternative Paradigm: Graphic Editor Style Document Composition
 
-### 10.1 새로운 관점: 문서 편집 vs 문서 구성
+### 10.1 New Perspective: Document Editing vs Document Composition
 
-기존의 ContentEditable 기반 에디터는 **문서를 편집**하는 관점입니다:
-- 사용자가 텍스트를 직접 입력하고 수정
-- ContentEditable을 통해 브라우저가 DOM을 직접 변경
-- Selection/Cursor 관리의 복잡성
+Existing ContentEditable-based editors take a **document editing** perspective:
+- Users directly input and modify text
+- Browser directly changes DOM through ContentEditable
+- Complexity of Selection/Cursor management
 
-하지만 **그래픽 에디터(Figma, Sketch 등)처럼 문서를 구성**하는 관점도 있습니다:
-- 왼쪽: 트리 구조 (문서 구조)
-- 오른쪽: 속성 창 (선택한 요소의 속성)
-- 중앙: 멀티 도큐먼트 편집 가능한 빌보드 형태의 거대한 판
+However, there is also a perspective of **composing documents like graphic editors (Figma, Sketch, etc.)**:
+- Left: Tree structure (document structure)
+- Right: Properties panel (properties of selected element)
+- Center: Large board in billboard form that can edit multiple documents
 
-이 접근법은 ContentEditable의 문제를 **완전히 우회**할 수 있습니다.
+This approach can **completely bypass** ContentEditable's problems.
 
-### 10.2 그래픽 에디터 스타일 문서 편집기
+### 10.2 Graphic Editor-Style Document Editor
 
 ```typescript
 interface DocumentEditorLayout {
-  leftPanel: DocumentTree;      // 문서 구조 트리
-  centerPanel: Canvas;          // 빌보드 형태의 편집 영역
-  rightPanel: PropertyPanel;    // 선택한 요소의 속성
+  leftPanel: DocumentTree;      // Document structure tree
+  centerPanel: Canvas;          // Billboard-style editing area
+  rightPanel: PropertyPanel;    // Properties of selected element
 }
 
 class GraphicStyleDocumentEditor {
@@ -1340,20 +1340,20 @@ class GraphicStyleDocumentEditor {
   private model: DocumentModel;
   
   setup(): void {
-    // 왼쪽: 문서 구조 트리
+    // Left: Document structure tree
     this.layout.leftPanel = new DocumentTree({
       model: this.model,
       onSelect: (nodeId) => this.selectNode(nodeId)
     });
     
-    // 중앙: 빌보드 형태의 편집 영역
+    // Center: Billboard-style editing area
     this.layout.centerPanel = new Canvas({
       model: this.model,
       onSelect: (nodeId) => this.selectNode(nodeId),
       onDrag: (nodeId, position) => this.moveNode(nodeId, position)
     });
     
-    // 오른쪽: 속성 창
+    // Right: Properties panel
     this.layout.rightPanel = new PropertyPanel({
       selectedNode: this.selectedNode,
       onUpdate: (properties) => this.updateNodeProperties(properties)
@@ -1367,14 +1367,14 @@ class GraphicStyleDocumentEditor {
   }
   
   updateNodeProperties(properties: Record<string, any>): void {
-    // 모델 직접 변경 (ContentEditable 없음)
+    // Direct model change (no ContentEditable)
     this.model.updateNode(this.selectedNode.id, properties);
     this.layout.centerPanel.render();
   }
 }
 ```
 
-### 10.3 빌보드 형태의 편집 영역
+### 10.3 Billboard-Style Editing Area
 
 ```typescript
 class Canvas {
@@ -1384,10 +1384,10 @@ class Canvas {
   private pan: { x: number; y: number } = { x: 0, y: 0 };
   
   setup(): void {
-    // ContentEditable 없음
+    // No ContentEditable
     this.container.contentEditable = 'false';
     
-    // 빌보드 형태의 거대한 편집 영역
+    // Large editing area in billboard form
     this.container.style.cssText = `
       width: 100%;
       height: 100%;
@@ -1396,12 +1396,12 @@ class Canvas {
       background: #f5f5f5;
     `;
     
-    // 멀티 도큐먼트 편집 가능
+    // Enable multi-document editing
     this.setupMultiDocumentEditing();
   }
   
   render(): void {
-    // 모델 기반 렌더링 (단방향 데이터 흐름)
+    // Model-based rendering (unidirectional data flow)
     const documents = this.model.getDocuments();
     
     for (const doc of documents) {
@@ -1414,7 +1414,7 @@ class Canvas {
   }
   
   renderDocument(doc: Document): HTMLElement {
-    // 문서를 렌더링 (ContentEditable 없음)
+    // Render document (no ContentEditable)
     const docElement = document.createElement('div');
     docElement.className = 'document';
     docElement.style.cssText = `
@@ -1425,7 +1425,7 @@ class Canvas {
       padding: 40px;
     `;
     
-    // 문서 내용 렌더링
+    // Render document content
     const content = this.renderContent(doc.content);
     docElement.appendChild(content);
     
@@ -1437,11 +1437,11 @@ class Canvas {
     
     for (const node of content) {
       if (node.type === 'text') {
-        // 텍스트 노드: ContentEditable 없이 렌더링
+        // Text node: Render without ContentEditable
         const textElement = this.renderTextNode(node);
         contentElement.appendChild(textElement);
       } else if (node.type === 'heading') {
-        // 제목 노드
+        // Heading node
         const headingElement = this.renderHeading(node);
         contentElement.appendChild(headingElement);
       }
@@ -1456,12 +1456,12 @@ class Canvas {
     textElement.textContent = node.text;
     textElement.setAttribute('data-node-id', node.id);
     
-    // 클릭 시 선택
+    // Select on click
     textElement.addEventListener('click', () => {
       this.selectNode(node.id);
     });
     
-    // 더블 클릭 시 편집 모드
+    // Enter edit mode on double click
     textElement.addEventListener('dblclick', () => {
       this.enterEditMode(node.id);
     });
@@ -1470,12 +1470,12 @@ class Canvas {
   }
   
   enterEditMode(nodeId: string): void {
-    // 편집 모드: 인라인 편집기 표시
+    // Edit mode: Show inline editor
     const node = this.model.getNode(nodeId);
     const editor = new InlineEditor({
       node,
       onSave: (text) => {
-        // 모델 직접 변경
+        // Direct model change
         this.model.updateNode(nodeId, { text });
         this.render();
       }
@@ -1486,7 +1486,7 @@ class Canvas {
 }
 ```
 
-### 10.4 인라인 편집기 (선택적 ContentEditable)
+### 10.4 Inline Editor (Optional ContentEditable)
 
 ```typescript
 class InlineEditor {
@@ -1494,78 +1494,78 @@ class InlineEditor {
   private editor: HTMLElement;
   
   show(): void {
-    // 편집 모드에서만 ContentEditable 사용
+    // Use ContentEditable only in edit mode
     this.editor = document.createElement('div');
     this.editor.contentEditable = 'true';
     this.editor.textContent = this.node.text;
     
-    // 편집 완료 시 모델 업데이트
+    // Update model on edit completion
     this.editor.addEventListener('blur', () => {
       const newText = this.editor.textContent || '';
       this.onSave(newText);
       this.hide();
     });
     
-    // ESC 키로 취소
+    // Cancel with ESC key
     this.editor.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         this.hide();
       }
     });
     
-    // 노드 위치에 표시
+    // Display at node position
     const nodeElement = document.querySelector(`[data-node-id="${this.node.id}"]`);
     nodeElement?.replaceWith(this.editor);
     this.editor.focus();
   }
   
   hide(): void {
-    // 편집 모드 종료
+    // Exit edit mode
     this.editor.remove();
   }
 }
 ```
 
-### 10.5 장점
+### 10.5 Advantages
 
-1. **ContentEditable 문제 완전 우회**
-   - 일반 편집 시 ContentEditable 사용 안 함
-   - 인라인 편집 모드에서만 선택적으로 사용
-   - Selection/Cursor 관리 복잡성 제거
+1. **Completely Bypass ContentEditable Problems**
+   - Do not use ContentEditable during general editing
+   - Use selectively only in inline edit mode
+   - Eliminate Selection/Cursor management complexity
 
-2. **문서 구조 시각화**
-   - 트리 구조로 문서 구조를 명확히 표시
-   - 계층 구조 이해 용이
+2. **Document Structure Visualization**
+   - Clearly display document structure as tree structure
+   - Easy to understand hierarchical structure
 
-3. **멀티 도큐먼트 편집**
-   - 여러 문서를 동시에 편집 가능
-   - 빌보드 형태로 자유롭게 배치
+3. **Multi-Document Editing**
+   - Can edit multiple documents simultaneously
+   - Freely arrange in billboard form
 
-4. **속성 기반 편집**
-   - 선택한 요소의 속성을 명확히 표시
-   - 속성 변경이 모델 직접 변경으로 처리
+4. **Property-Based Editing**
+   - Clearly display properties of selected element
+   - Property changes handled as direct model changes
 
-5. **AI와의 통합 용이**
-   - AI가 모델을 직접 변경 가능
-   - 사람도 속성 창을 통해 모델 변경
+5. **Easy Integration with AI**
+   - AI can directly change model
+   - Humans can also change model through properties panel
 
-### 10.6 단점
+### 10.6 Disadvantages
 
-1. **기존 습관과의 차이**
-   - 사용자가 기존 에디터에 익숙함
-   - 학습 곡선 존재
+1. **Difference from Existing Habits**
+   - Users are familiar with existing editors
+   - Learning curve exists
 
-2. **텍스트 입력의 불편함**
-   - 더블 클릭으로 편집 모드 진입 필요
-   - 연속적인 텍스트 입력이 불편할 수 있음
+2. **Inconvenience of Text Input**
+   - Need to enter edit mode by double-clicking
+   - Continuous text input may be inconvenient
 
-3. **복잡한 구현**
-   - 트리, 캔버스, 속성 창 등 여러 컴포넌트 필요
-   - 레이아웃 관리 복잡
+3. **Complex Implementation**
+   - Need multiple components: tree, canvas, properties panel, etc.
+   - Layout management complex
 
-### 10.7 하이브리드 접근법
+### 10.7 Hybrid Approach
 
-일반 텍스트 편집과 그래픽 에디터 스타일을 결합할 수 있습니다:
+Can combine general text editing and graphic editor style:
 
 ```typescript
 class HybridDocumentEditor {
@@ -1575,87 +1575,87 @@ class HybridDocumentEditor {
     this.mode = mode;
     
     if (mode === 'text') {
-      // 일반 텍스트 편집 모드
+      // General text editing mode
       this.showTextEditor();
     } else {
-      // 그래픽 에디터 스타일 모드
+      // Graphic editor style mode
       this.showGraphicEditor();
     }
   }
   
   showTextEditor(): void {
-    // ContentEditable 기반 텍스트 편집기
-    // (하이브리드 접근법: 일반 입력은 모델 직접 편집, IME만 ContentEditable)
+    // ContentEditable-based text editor
+    // (Hybrid approach: general input with model-direct editing, only IME with ContentEditable)
   }
   
   showGraphicEditor(): void {
-    // 그래픽 에디터 스타일 편집기
-    // (ContentEditable 거의 사용 안 함)
+    // Graphic editor style editor
+    // (Almost no ContentEditable usage)
   }
 }
 ```
 
-### 10.8 시사점
+### 10.8 Implications
 
-그래픽 에디터 스타일 접근법은:
-- ✅ ContentEditable의 문제를 완전히 우회
-- ✅ 문서 구조를 시각적으로 표현
-- ✅ AI와 사람의 편집 방식을 통합
-- ⚠️ 기존 사용자 습관과의 차이
-- ⚠️ 연속적인 텍스트 입력의 불편함
+Graphic editor style approach:
+- ✅ Completely bypasses ContentEditable problems
+- ✅ Visually represents document structure
+- ✅ Unifies AI and human editing approaches
+- ⚠️ Difference from existing user habits
+- ⚠️ Inconvenience of continuous text input
 
-**결론**: 문서를 "편집"하는 것이 아니라 "구성"하는 관점으로 전환하면, ContentEditable의 문제를 근본적으로 해결할 수 있습니다. 특히 복잡한 문서 구조를 다루거나 멀티 도큐먼트 편집이 필요한 경우에 유용합니다.
+**Conclusion**: By shifting perspective from "editing" documents to "composing" them, we can fundamentally solve ContentEditable's problems. Particularly useful when dealing with complex document structures or when multi-document editing is needed.
 
 ---
 
 ## 11. Future Work
 
-### 11.1 완전한 구현
+### 11.1 Complete Implementation
 
-- 모든 키보드 단축키 지원
-- 복사/붙여넣기 완전 구현
-- 드래그 앤 드롭 지원
-- 접근성 완전 지원
+- Support all keyboard shortcuts
+- Complete copy/paste implementation
+- Drag and drop support
+- Complete accessibility support
 
-### 11.2 성능 최적화
+### 11.2 Performance Optimization
 
-- 가상 스크롤링
-- 렌더링 최적화
-- 메모리 관리
+- Virtual scrolling
+- Rendering optimization
+- Memory management
 
-### 11.3 사용자 경험 개선
+### 11.3 User Experience Improvement
 
-- 커서 애니메이션
-- Selection 시각화 개선
-- IME 입력 경험 개선
+- Cursor animation
+- Improved Selection visualization
+- Improved IME input experience
 
 ---
 
 ## 12. Conclusion
 
-본 논문은 ContentEditable 기반 리치 텍스트 에디터의 근본적인 한계를 분석하고, **Model-Direct Editing 패러다임**을 제안했습니다. 
+This paper analyzed the fundamental limitations of ContentEditable-based rich text editors and proposed the **Model-Direct Editing Paradigm**.
 
-**핵심 발견**: IME(Input Method Editor) 지원이 필요한 경우, ContentEditable을 완전히 제거하는 것은 **비현실적**입니다. IME는 OS 레벨과 브라우저의 협력이 필요한 복잡한 시스템이며, 이를 직접 구현하는 것은 거의 불가능합니다.
+**Core Finding**: When IME (Input Method Editor) support is needed, completely removing ContentEditable is **impractical**. IME is a complex system requiring cooperation between OS level and browser, and directly implementing it is nearly impossible.
 
-**제안하는 해결책**: **하이브리드 접근법**을 제안합니다:
-- **일반 입력**: ContentEditable 없이 모델 직접 편집 (Selection/Cursor 관리 단순화)
-- **IME 입력**: ContentEditable 사용 (IME 전용 요소 또는 동적 전환)
+**Proposed Solution**: Propose a **hybrid approach**:
+- **General input**: Model-direct editing without ContentEditable (simplified Selection/Cursor management)
+- **IME input**: Use ContentEditable (IME-only element or dynamic switching)
 
-이 접근법은 일반 입력의 장점을 활용하면서도 IME의 모든 기능을 지원할 수 있습니다.
+This approach can support all IME features while leveraging advantages of general input.
 
-**핵심 기여**:
-1. **ContentEditable의 근본적인 문제 분석**: Selection/Cursor 핸들링의 복잡성과 이중 상태 관리 문제
-2. **IME의 한계 명확화**: ContentEditable 없이 IME를 완전히 구현하는 것은 비현실적임을 분석
-3. **하이브리드 패러다임 제안**: 일반 입력은 모델 직접 편집, IME 입력만 ContentEditable 사용
-4. **구현 전략 제시**: IME 전용 요소 또는 동적 ContentEditable 전환 방법
-5. **ProseMirror 비교 분석**: 실제 사용되는 에디터의 IME 처리 방식 분석
-6. **그래픽 에디터 스타일 대안 제안**: 문서를 "편집"하는 것이 아니라 "구성"하는 관점으로 전환
+**Core Contributions**:
+1. **Analysis of ContentEditable's fundamental problems**: Complexity of Selection/Cursor handling and dual state management problems
+2. **Clarification of IME limitations**: Analysis that completely implementing IME without ContentEditable is impractical
+3. **Hybrid paradigm proposal**: Model-direct editing for general input, ContentEditable only for IME input
+4. **Implementation strategy presentation**: Methods for IME-only element or dynamic ContentEditable switching
+5. **ProseMirror comparative analysis**: Analysis of IME processing approach of actually used editor
+6. **Graphic editor style alternative proposal**: Shift perspective from "editing" documents to "composing" them
 
-**최종 제안**:
-- **단기**: 하이브리드 접근법 (일반 입력은 모델 직접 편집, IME만 ContentEditable)
-- **장기**: 그래픽 에디터 스타일 문서 구성기 (ContentEditable 거의 사용 안 함)
+**Final Proposal**:
+- **Short-term**: Hybrid approach (model-direct editing for general input, ContentEditable only for IME)
+- **Long-term**: Graphic editor style document composer (almost no ContentEditable usage)
 
-이 접근법들은 ContentEditable의 한계를 최소화하거나 완전히 우회할 수 있는 현실적인 해결책을 제시합니다.
+These approaches present practical solutions that can minimize or completely bypass ContentEditable's limitations.
 
 ---
 
