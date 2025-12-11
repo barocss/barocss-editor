@@ -255,327 +255,327 @@ flowchart TD
 
 ---
 
-## 상세 시나리오 설명
+## Detailed Scenario Descriptions
 
-### 시나리오 1: 사용자 입력 (characterData)
+### Scenario 1: User Input (characterData)
 
-**상황:** 사용자가 일반 텍스트를 입력하는 경우
+**Situation:** When user inputs general text
 
-**흐름:**
-1. 브라우저가 DOM에 텍스트 추가
-2. MutationObserver가 characterData 변경 감지
-3. InputHandler가 모델 업데이트
-4. `skipRender: true`로 렌더링 차단
-5. Selection은 브라우저가 자동으로 유지
+**Flow:**
+1. Browser adds text to DOM
+2. MutationObserver detects characterData change
+3. InputHandler updates model
+4. Block rendering with `skipRender: true`
+5. Selection automatically maintained by browser
 
-**결과:** ✅ Race condition 없음, 입력이 부드럽게 진행됨
+**Result:** ✅ No race condition, input proceeds smoothly
 
-### 시나리오 2: Selection 이동 중 입력 (Shift+Arrow)
+### Scenario 2: Input During Selection Move (Shift+Arrow)
 
-**상황:** 사용자가 Shift+Arrow로 텍스트를 선택하면서 입력하는 경우
+**Situation:** When user selects text with Shift+Arrow while inputting
 
-**특징:**
-- Selection 변경은 브라우저가 직접 처리
-- 입력과 Selection 변경이 동시에 발생하지만 브라우저가 안전하게 처리
-- `skipRender: true`로 렌더링이 발생하지 않아 충돌 없음
+**Characteristics:**
+- Selection changes handled directly by browser
+- Input and Selection changes occur simultaneously but browser handles safely
+- No rendering occurs with `skipRender: true`, so no conflict
 
-**결과:** ✅ Selection 이동과 입력이 모두 정상 동작
+**Result:** ✅ Both Selection move and input work normally
 
-### 시나리오 3: 백스페이스/Delete 키 입력
+### Scenario 3: Backspace/Delete Key Input
 
-**상황:** 사용자가 백스페이스 또는 Delete 키로 텍스트를 삭제하는 경우
+**Situation:** When user deletes text with Backspace or Delete key
 
-**흐름:**
-1. 브라우저가 DOM에서 텍스트 삭제
-2. MutationObserver가 characterData 변경 감지
-3. InputHandler가 모델 업데이트
-4. `skipRender: true`로 렌더링 차단
-5. Selection은 삭제 후 위치로 자동 이동
+**Flow:**
+1. Browser deletes text from DOM
+2. MutationObserver detects characterData change
+3. InputHandler updates model
+4. Block rendering with `skipRender: true`
+5. Selection automatically moves to position after deletion
 
-**결과:** ✅ 텍스트 삭제 후 Selection이 올바른 위치에 유지됨
+**Result:** ✅ Selection maintained at correct position after text deletion
 
-### 시나리오 4: IME 조합 중
+### Scenario 4: IME Composition in Progress
 
-**상황:** 한국어, 일본어, 중국어 등 IME를 사용하여 입력하는 경우
+**Situation:** When inputting using IME for languages like Korean, Japanese, Chinese
 
-**특징:**
-- 조합 중간 상태 (예: "ㅎㅏㄴ" → "한")는 여러 번 DOM 변경 발생
-- 모든 변경에 `skipRender: true` 적용
-- 조합 완료 후 최종 텍스트만 모델에 반영
+**Characteristics:**
+- Intermediate composition states (e.g., "ㅎㅏㄴ" → "한") cause multiple DOM changes
+- `skipRender: true` applied to all changes
+- Only final text reflected to model after composition completes
 
-**결과:** ✅ 조합 중 렌더링이 발생하지 않아 부드러운 입력 경험
+**Result:** ✅ No rendering during composition, smooth input experience
 
-### 시나리오 5: 붙여넣기 (Paste)
+### Scenario 5: Paste
 
-**상황:** 사용자가 클립보드에서 텍스트를 붙여넣는 경우
+**Situation:** When user pastes text from clipboard
 
-**케이스 A: 단순 텍스트 붙여넣기**
-- MutationObserver가 characterData 변경 감지
-- `skipRender: true`로 렌더링 차단
-- 브라우저가 DOM과 Selection을 직접 처리
+**Case A: Simple text paste**
+- MutationObserver detects characterData change
+- Block rendering with `skipRender: true`
+- Browser directly handles DOM and Selection
 
-**케이스 B: 복잡한 구조 붙여넣기 (HTML, Mark 등)**
-- DOM 구조가 변경될 수 있음
-- 구조 변경 시 `skipRender: false`로 렌더링 수행
-- Selection은 렌더링 후 복원
+**Case B: Complex structure paste (HTML, Mark, etc.)**
+- DOM structure may change
+- Perform rendering with `skipRender: false` when structure changes
+- Selection restored after rendering
 
-**결과:** ✅ 붙여넣기 내용에 따라 적절하게 처리
+**Result:** ✅ Handled appropriately according to paste content
 
-### 시나리오 6: 드래그 선택 후 입력
+### Scenario 6: Input After Drag Selection
 
-**상황:** 사용자가 마우스로 텍스트를 드래그하여 선택한 후 입력하는 경우
+**Situation:** When user drags text with mouse to select, then inputs
 
-**흐름:**
-1. 드래그로 텍스트 선택 (브라우저가 처리)
-2. 선택된 영역에 텍스트 입력
-3. 브라우저가 선택된 텍스트를 삭제하고 새 텍스트 삽입
-4. MutationObserver가 변경 감지
-5. `skipRender: true`로 렌더링 차단
+**Flow:**
+1. Select text by dragging (handled by browser)
+2. Input text in selected area
+3. Browser deletes selected text and inserts new text
+4. MutationObserver detects change
+5. Block rendering with `skipRender: true`
 
-**결과:** ✅ 선택된 영역이 교체되고 Selection이 올바른 위치에 유지됨
+**Result:** ✅ Selected area replaced and Selection maintained at correct position
 
-### 시나리오 7: Mark 토글 (Bold/Italic)
+### Scenario 7: Mark Toggle (Bold/Italic)
 
-**상황:** 사용자가 Mod+B 또는 Mod+I로 Mark를 토글하는 경우
+**Situation:** When user toggles Mark with Mod+B or Mod+I
 
-**흐름:**
-1. 키보드 단축키 감지
-2. Editor가 모델에서 Mark 토글
-3. `skipRender: false`로 렌더링 수행
-4. DOM이 Mark 상태로 업데이트
-5. Selection 복원
+**Flow:**
+1. Keyboard shortcut detected
+2. Editor toggles Mark in model
+3. Perform rendering with `skipRender: false`
+4. DOM updated to Mark state
+5. Selection restored
 
-**특징:**
-- Mark 토글은 Editor 레벨에서 처리
-- 렌더링이 필요하므로 `skipRender: false`
-- 입력과는 독립적으로 처리
+**Characteristics:**
+- Mark toggle handled at Editor level
+- Rendering needed, so `skipRender: false`
+- Handled independently from input
 
-**결과:** ✅ Mark가 적용되고 Selection이 유지됨
+**Result:** ✅ Mark applied and Selection maintained
 
-### 시나리오 8: Undo/Redo
+### Scenario 8: Undo/Redo
 
-**상황:** 사용자가 Mod+Z로 Undo 또는 Mod+Shift+Z로 Redo하는 경우
+**Situation:** When user performs Undo with Mod+Z or Redo with Mod+Shift+Z
 
-**흐름:**
-1. 키보드 단축키 감지
-2. Editor가 히스토리에서 이전/다음 상태 복원
-3. `skipRender: false`로 렌더링 수행
-4. DOM이 이전/다음 상태로 업데이트
-5. Selection 복원
+**Flow:**
+1. Keyboard shortcut detected
+2. Editor restores previous/next state from history
+3. Perform rendering with `skipRender: false`
+4. DOM updated to previous/next state
+5. Selection restored
 
-**특징:**
-- 히스토리 기반 상태 복원
-- 렌더링이 필요하므로 `skipRender: false`
-- Selection도 함께 복원
+**Characteristics:**
+- History-based state restoration
+- Rendering needed, so `skipRender: false`
+- Selection also restored
 
-**결과:** ✅ 이전/다음 상태로 복원되고 Selection이 올바른 위치에 유지됨
+**Result:** ✅ Restored to previous/next state and Selection maintained at correct position
 
-### 시나리오 9: 입력 중 외부 변경 감지 (다른 노드)
+### Scenario 9: External Change Detected During Input (Different Node)
 
-**상황:** 사용자가 노드 A에서 입력 중일 때 AI나 다른 사용자가 노드 B를 변경하는 경우
+**Situation:** When AI or another user changes node B while user is inputting in node A
 
-**현재 구현:**
-- 입력 중인 노드는 `_editingNodes`에 추가됨
-- 외부 변경은 `skipRender: false`로 렌더링 수행
-- 다른 노드의 변경은 정상적으로 렌더링됨
-- 입력 중인 노드는 브라우저가 DOM을 직접 관리하므로 영향 없음
+**Current Implementation:**
+- Node being input is added to `_editingNodes`
+- External changes perform rendering with `skipRender: false`
+- Changes to other nodes render normally
+- Node being input has no impact as browser directly manages DOM
 
-**결과:** ✅ 다른 노드는 업데이트되고, 입력 중인 노드는 영향 없음
+**Result:** ✅ Other nodes updated, no impact on node being input
 
-### 시나리오 10: 여러 노드 동시 입력
+### Scenario 10: Simultaneous Input in Multiple Nodes
 
-**상황:** 사용자가 여러 노드에서 빠르게 입력하는 경우
+**Situation:** When user inputs quickly in multiple nodes
 
-**특징:**
-- 각 노드의 입력은 독립적으로 처리
-- 각각 `skipRender: true`로 렌더링 차단
-- `_editingNodes`에 여러 노드가 포함될 수 있음
+**Characteristics:**
+- Input in each node handled independently
+- Each blocks rendering with `skipRender: true`
+- Multiple nodes can be included in `_editingNodes`
 
-**결과:** ✅ 각 노드가 독립적으로 처리되어 충돌 없음
+**Result:** ✅ Each node handled independently, no conflicts
 
-### 시나리오 11: Cross-node Selection 입력
+### Scenario 11: Cross-node Selection Input
 
-**상황:** 사용자가 여러 inline-text 노드에 걸쳐 텍스트를 선택한 후 입력하는 경우
+**Situation:** When user selects text spanning multiple inline-text nodes, then inputs
 
-**흐름:**
-1. 여러 노드에 걸친 Selection 생성 (드래그 또는 Shift+Arrow)
-2. 선택된 영역에 텍스트 입력
-3. 브라우저가 첫 번째 노드에 입력하고 Selection 축소
-4. MutationObserver가 첫 번째 노드의 변경만 감지
-5. `skipRender: true`로 렌더링 차단
+**Flow:**
+1. Create Selection spanning multiple nodes (drag or Shift+Arrow)
+2. Input text in selected area
+3. Browser inputs in first node and shrinks Selection
+4. MutationObserver detects only first node's change
+5. Block rendering with `skipRender: true`
 
-**특징:**
-- 여러 노드에 걸친 Selection은 브라우저가 자동으로 처리
-- 입력은 첫 번째 노드에만 적용됨
-- Selection은 입력 후 첫 번째 노드의 입력 위치로 축소
+**Characteristics:**
+- Selection spanning multiple nodes handled automatically by browser
+- Input applied only to first node
+- Selection shrinks to input position in first node after input
 
-**결과:** ✅ 여러 노드 Selection 후 입력이 정상적으로 처리됨
+**Result:** ✅ Input after multi-node Selection handled normally
 
-### 시나리오 12: 특수 키 입력 (Home/End, Ctrl+Arrow)
+### Scenario 12: Special Key Input (Home/End, Ctrl+Arrow)
 
-**상황:** 사용자가 Home, End, Ctrl+Arrow 등 Selection만 이동시키는 키를 입력하는 경우
+**Situation:** When user inputs keys that only move Selection, like Home, End, Ctrl+Arrow
 
-**특징:**
-- 특수 키는 DOM 변경을 일으키지 않음
-- Selection만 이동
-- MutationObserver가 감지하지 않음
-- `editor:content.change` 이벤트 발생하지 않음
+**Characteristics:**
+- Special keys do not cause DOM changes
+- Only Selection moves
+- MutationObserver does not detect
+- `editor:content.change` event does not occur
 
-**특수 키 입력 후 즉시 텍스트 입력:**
-1. 특수 키로 Selection 이동
-2. 즉시 텍스트 입력
-3. MutationObserver가 텍스트 변경만 감지
-4. `skipRender: true`로 렌더링 차단
+**Text input immediately after special key:**
+1. Move Selection with special key
+2. Input text immediately
+3. MutationObserver detects only text change
+4. Block rendering with `skipRender: true`
 
-**결과:** ✅ 특수 키 이동 후 입력이 정상적으로 처리됨
+**Result:** ✅ Input after special key movement handled normally
 
-### 시나리오 13: 입력 중 포커스 이동
+### Scenario 13: Focus Move During Input
 
-**상황:** 사용자가 입력 중에 다른 노드로 포커스를 이동하는 경우
+**Situation:** When user moves focus to different node during input
 
-**흐름:**
-1. 노드 A에서 입력 중
-2. 마우스 클릭 또는 키보드로 노드 B로 포커스 이동
-3. 노드 B에서 입력 시작
-4. 각 노드의 입력은 독립적으로 처리
+**Flow:**
+1. Inputting in node A
+2. Move focus to node B with mouse click or keyboard
+3. Start input in node B
+4. Input in each node handled independently
 
-**특징:**
-- 포커스 이동은 브라우저가 처리
-- 이전 노드의 입력은 완료된 것으로 간주
-- 새 노드의 입력은 새로운 입력으로 처리
+**Characteristics:**
+- Focus move handled by browser
+- Previous node's input considered complete
+- New node's input handled as new input
 
-**결과:** ✅ 포커스 이동 후 입력이 정상적으로 처리됨
+**Result:** ✅ Input after focus move handled normally
 
-### 시나리오 14: 입력 중 탭 전환
+### Scenario 14: Tab Switch During Input
 
-**상황:** 사용자가 입력 중에 브라우저 탭을 전환하는 경우
+**Situation:** When user switches browser tab during input
 
-**흐름:**
-1. 노드에서 입력 중
-2. 다른 탭으로 전환 (Alt+Tab 또는 탭 클릭)
-3. 입력이 일시 중단됨
-4. 원래 탭으로 복귀
-5. 입력 재개 가능
+**Flow:**
+1. Inputting in node
+2. Switch to different tab (Alt+Tab or tab click)
+3. Input paused
+4. Return to original tab
+5. Input can resume
 
-**특징:**
-- 탭 전환 시 브라우저가 포커스를 잃음
-- 입력은 일시 중단되지만 DOM은 유지됨
-- 탭 복귀 시 포커스와 Selection이 유지됨
+**Characteristics:**
+- Browser loses focus on tab switch
+- Input paused but DOM maintained
+- Focus and Selection maintained on tab return
 
-**결과:** ✅ 탭 전환 후 복귀 시 입력 상태가 유지됨
+**Result:** ✅ Input state maintained on tab switch and return
 
-### 시나리오 15: 비 텍스트 요소 삽입 (이미지, Embed)
+### Scenario 15: Non-text Element Insertion (Image, Embed)
 
-**상황:** 사용자가 이미지나 Embed 요소를 삽입하는 경우
+**Situation:** When user inserts image or Embed element
 
-**케이스 A: Drag & Drop으로 이미지 삽입**
-1. 이미지를 드래그하여 에디터에 드롭
-2. Editor가 모델에 이미지 노드 추가
-3. `skipRender: false`로 렌더링 수행
-4. DOM에 이미지 요소 추가
-5. Selection 복원
+**Case A: Image insertion via Drag & Drop**
+1. Drag image and drop on editor
+2. Editor adds image node to model
+3. Perform rendering with `skipRender: false`
+4. Add image element to DOM
+5. Restore Selection
 
-**케이스 B: Paste로 이미지 삽입**
-1. 클립보드에서 이미지 붙여넣기
-2. 브라우저가 DOM에 이미지 추가
-3. MutationObserver가 childList 변경 감지
-4. Editor가 모델 업데이트
-5. `skipRender: false`로 렌더링 수행 (구조 변경)
+**Case B: Image insertion via Paste**
+1. Paste image from clipboard
+2. Browser adds image to DOM
+3. MutationObserver detects childList change
+4. Editor updates model
+5. Perform rendering with `skipRender: false` (structure change)
 
-**결과:** ✅ 이미지/Embed 삽입 후 Selection이 올바른 위치에 유지됨
+**Result:** ✅ Selection maintained at correct position after image/Embed insertion
 
-### 시나리오 16: 입력 중 스크롤/레이아웃 변경
+### Scenario 16: Scroll/Layout Change During Input
 
-**상황:** 사용자가 입력 중에 스크롤하거나 창 크기를 변경하는 경우
+**Situation:** When user scrolls or resizes window during input
 
-**특징:**
-- 스크롤은 DOM 변경을 일으키지 않음
-- MutationObserver가 감지하지 않음
-- 입력과 스크롤이 독립적으로 처리됨
-- 브라우저가 자동으로 입력 영역을 화면에 유지
+**Characteristics:**
+- Scroll does not cause DOM changes
+- MutationObserver does not detect
+- Input and scroll handled independently
+- Browser automatically keeps input area on screen
 
-**창 크기 변경:**
-- 레이아웃 재계산 발생
-- 하지만 DOM 구조는 변경되지 않음
-- 입력은 계속 진행됨
+**Window resize:**
+- Layout recalculation occurs
+- But DOM structure does not change
+- Input continues
 
-**결과:** ✅ 스크롤/레이아웃 변경과 입력이 독립적으로 처리됨
+**Result:** ✅ Scroll/layout changes and input handled independently
 
-### 시나리오 17: 입력 중 에러 발생
+### Scenario 17: Error During Input
 
-**상황:** 입력 중에 네트워크 에러나 모델 검증 실패가 발생하는 경우
+**Situation:** When network error or model validation failure occurs during input
 
-**케이스 A: 네트워크 에러 (협업)**
-1. 사용자가 입력 중
-2. 협업 서버와의 동기화 실패
-3. 로컬 입력은 정상 처리 (`skipRender: true`)
-4. 동기화는 재시도 큐에 추가
+**Case A: Network error (collaboration)**
+1. User inputting
+2. Synchronization with collaboration server fails
+3. Local input handled normally (`skipRender: true`)
+4. Synchronization added to retry queue
 
-**케이스 B: 모델 검증 실패**
-1. 사용자가 입력 중
-2. 모델 업데이트 시 검증 실패
-3. 입력은 DOM에 반영됨 (브라우저가 처리)
-4. 모델 업데이트만 실패
-5. 사용자는 입력을 계속할 수 있음
+**Case B: Model validation failure**
+1. User inputting
+2. Validation fails on model update
+3. Input reflected to DOM (handled by browser)
+4. Only model update fails
+5. User can continue inputting
 
-**결과:** ✅ 에러 발생 시에도 입력은 정상적으로 처리됨
+**Result:** ✅ Input handled normally even when errors occur
 
 
-### Mermaid 다이어그램: 복잡한 시나리오
+### Mermaid Diagrams: Complex Scenarios
 
-#### 붙여넣기 시나리오
+#### Paste Scenario
 
 ```mermaid
 sequenceDiagram
-    participant User as 사용자
-    participant Browser as 브라우저
+    participant User as User
+    participant Browser as Browser
     participant MO as MutationObserver
     participant IH as InputHandler
     participant Editor as Editor
     participant EVD as EditorViewDOM
 
     User->>Browser: Paste (Ctrl+V)
-    Browser->>Browser: DOM 구조 변경 감지
-    alt 단순 텍스트
-        Browser->>MO: characterData 변경
+    Browser->>Browser: Detect DOM structure change
+    alt Simple text
+        Browser->>MO: characterData change
         MO->>IH: handleTextContentChange()
         IH->>Editor: executeTransaction()
         Editor->>EVD: editor:content.change (skipRender: true)
-        EVD->>EVD: 렌더링 건너뜀 ✅
-    else 복잡한 구조 (HTML, Mark)
-        Browser->>MO: childList 변경
+        EVD->>EVD: Skip rendering ✅
+    else Complex structure (HTML, Mark)
+        Browser->>MO: childList change
         MO->>IH: handleTextContentChange()
         IH->>Editor: executeTransaction()
         Editor->>EVD: editor:content.change (skipRender: false)
-        EVD->>EVD: render() 호출 ✅
-        EVD->>Browser: DOM 업데이트
+        EVD->>EVD: Call render() ✅
+        EVD->>Browser: DOM update
     end
 ```
 
-#### Mark 토글 시나리오
+#### Mark Toggle Scenario
 
 ```mermaid
 sequenceDiagram
-    participant User as 사용자
+    participant User as User
     participant EVD as EditorViewDOM
     participant Editor as Editor
     participant Model as Model
     participant DOM as DOM
 
-    User->>EVD: Mod+B (Bold 토글)
+    User->>EVD: Mod+B (Bold toggle)
     EVD->>Editor: toggleMark('bold')
-    Editor->>Model: Mark 상태 변경
+    Editor->>Model: Change Mark state
     Editor->>EVD: editor:content.change (skipRender: false)
-    EVD->>EVD: render() 호출 ✅
-    EVD->>DOM: DOM 업데이트 (Mark 적용)
-    EVD->>EVD: Selection 복원 ✅
+    EVD->>EVD: Call render() ✅
+    EVD->>DOM: DOM update (Mark applied)
+    EVD->>EVD: Restore Selection ✅
 ```
 
-#### Undo/Redo 시나리오
+#### Undo/Redo Scenario
 
 ```mermaid
 sequenceDiagram
-    participant User as 사용자
+    participant User as User
     participant EVD as EditorViewDOM
     participant Editor as Editor
     participant History as History
@@ -583,274 +583,274 @@ sequenceDiagram
 
     User->>EVD: Mod+Z (Undo)
     EVD->>Editor: undo()
-    Editor->>History: 이전 상태 가져오기
-    History->>Editor: 이전 모델 상태
-    Editor->>Model: 모델 복원
+    Editor->>History: Get previous state
+    History->>Editor: Previous model state
+    Editor->>Model: Restore model
     Editor->>EVD: editor:content.change (skipRender: false)
-    EVD->>EVD: render() 호출 ✅
-    EVD->>DOM: DOM 업데이트 (이전 상태)
-    EVD->>EVD: Selection 복원 ✅
+    EVD->>EVD: Call render() ✅
+    EVD->>DOM: DOM update (previous state)
+    EVD->>EVD: Restore Selection ✅
 ```
 
-#### 입력 중 외부 변경 시나리오 (현재 vs 향후)
+#### External Change During Input Scenario (Current vs Future)
 
 ```mermaid
 sequenceDiagram
-    participant User as 사용자
-    participant AI as AI/외부
+    participant User as User
+    participant AI as AI/External
     participant MO as MutationObserver
     participant Editor as Editor
     participant EVD as EditorViewDOM
 
-    User->>MO: 입력 중 (노드 A)
-    MO->>Editor: 모델 업데이트 (skipRender: true)
-    AI->>Editor: 외부 변경 (노드 B)
+    User->>MO: Inputting (node A)
+    MO->>Editor: Model update (skipRender: true)
+    AI->>Editor: External change (node B)
     Editor->>EVD: editor:content.change (skipRender: false)
-    EVD->>EVD: render() 호출 ✅
-    Note over EVD: 노드 B는 업데이트됨, 노드 A는 브라우저가 DOM을 직접 관리하므로 영향 없음
+    EVD->>EVD: Call render() ✅
+    Note over EVD: Node B updated, node A unaffected as browser directly manages DOM
 ```
 
-#### Cross-node Selection 입력 시나리오
+#### Cross-node Selection Input Scenario
 
 ```mermaid
 sequenceDiagram
-    participant User as 사용자
-    participant Browser as 브라우저
+    participant User as User
+    participant Browser as Browser
     participant MO as MutationObserver
     participant IH as InputHandler
     participant Editor as Editor
 
-    User->>Browser: 여러 노드에 걸친 Selection (드래그)
-    Browser->>Browser: Selection 생성 (nodeA + nodeB)
-    User->>Browser: 텍스트 입력
-    Browser->>Browser: 첫 번째 노드에 입력, Selection 축소
-    Browser->>MO: characterData 변경 (nodeA만)
+    User->>Browser: Selection spanning multiple nodes (drag)
+    Browser->>Browser: Create Selection (nodeA + nodeB)
+    User->>Browser: Text input
+    Browser->>Browser: Input in first node, shrink Selection
+    Browser->>MO: characterData change (nodeA only)
     MO->>IH: handleTextContentChange() (nodeA)
-    IH->>Editor: executeTransaction() (nodeA만)
-    Editor->>Editor: 모델 업데이트 (nodeA만)
-    Note over Editor: nodeB는 변경되지 않음
+    IH->>Editor: executeTransaction() (nodeA only)
+    Editor->>Editor: Model update (nodeA only)
+    Note over Editor: nodeB not changed
 ```
 
-#### 특수 키 입력 후 텍스트 입력 시나리오
+#### Special Key Input Followed by Text Input Scenario
 
 ```mermaid
 sequenceDiagram
-    participant User as 사용자
-    participant Browser as 브라우저
+    participant User as User
+    participant Browser as Browser
     participant MO as MutationObserver
     participant IH as InputHandler
     participant Editor as Editor
 
-    User->>Browser: Home 키 (라인 시작으로 이동)
-    Browser->>Browser: Selection 이동 (입력 없음)
-    Note over Browser: MutationObserver 감지 안 함
-    User->>Browser: 텍스트 입력
-    Browser->>Browser: DOM 업데이트
-    Browser->>MO: characterData 변경
+    User->>Browser: Home key (move to line start)
+    Browser->>Browser: Move Selection (no input)
+    Note over Browser: MutationObserver does not detect
+    User->>Browser: Text input
+    Browser->>Browser: DOM update
+    Browser->>MO: characterData change
     MO->>IH: handleTextContentChange()
     IH->>Editor: executeTransaction()
-    Editor->>Editor: 모델 업데이트 (skipRender: true)
+    Editor->>Editor: Model update (skipRender: true)
 ```
 
-#### 비 텍스트 요소 삽입 시나리오
+#### Non-text Element Insertion Scenario
 
 ```mermaid
 sequenceDiagram
-    participant User as 사용자
-    participant Browser as 브라우저
+    participant User as User
+    participant Browser as Browser
     participant MO as MutationObserver
     participant Editor as Editor
     participant EVD as EditorViewDOM
 
-    User->>Browser: 이미지 드롭 (Drag & Drop)
-    Browser->>Editor: 이미지 데이터 전달
-    Editor->>Editor: 모델에 이미지 노드 추가
+    User->>Browser: Image drop (Drag & Drop)
+    Browser->>Editor: Pass image data
+    Editor->>Editor: Add image node to model
     Editor->>EVD: editor:content.change (skipRender: false)
-    EVD->>EVD: render() 호출 ✅
-    EVD->>Browser: DOM에 이미지 요소 추가
-    EVD->>EVD: Selection 복원 ✅
+    EVD->>EVD: Call render() ✅
+    EVD->>Browser: Add image element to DOM
+    EVD->>EVD: Restore Selection ✅
     
-    alt Paste로 이미지 삽입
-        User->>Browser: Paste (이미지)
-        Browser->>Browser: DOM에 이미지 추가
-        Browser->>MO: childList 변경 감지
-        MO->>Editor: 구조 변경 알림
-        Editor->>Editor: 모델 업데이트
+    alt Image insertion via Paste
+        User->>Browser: Paste (image)
+        Browser->>Browser: Add image to DOM
+        Browser->>MO: Detect childList change
+        MO->>Editor: Notify structure change
+        Editor->>Editor: Model update
         Editor->>EVD: editor:content.change (skipRender: false)
-        EVD->>EVD: render() 호출 ✅
+        EVD->>EVD: Call render() ✅
     end
 ```
 
-#### 입력 중 에러 발생 시나리오
+#### Error During Input Scenario
 
 ```mermaid
 sequenceDiagram
-    participant User as 사용자
-    participant Browser as 브라우저
+    participant User as User
+    participant Browser as Browser
     participant MO as MutationObserver
     participant IH as InputHandler
     participant Editor as Editor
-    participant Network as 네트워크
+    participant Network as Network
 
-    User->>Browser: 입력 중
-    Browser->>MO: characterData 변경
+    User->>Browser: Inputting
+    Browser->>MO: characterData change
     MO->>IH: handleTextContentChange()
     IH->>Editor: executeTransaction()
-    Editor->>Network: 동기화 시도
-    Network-->>Editor: 네트워크 에러 ❌
-    Editor->>Editor: 로컬 모델 업데이트 (성공)
+    Editor->>Network: Attempt synchronization
+    Network-->>Editor: Network error ❌
+    Editor->>Editor: Local model update (success)
     Editor->>Editor: editor:content.change (skipRender: true)
-    Note over Editor: 로컬 입력은 정상 처리
-    Note over Editor: 동기화는 재시도 큐에 추가
+    Note over Editor: Local input handled normally
+    Note over Editor: Synchronization added to retry queue
 ```
 
 ---
 
-## 핵심 원칙
+## Core Principles
 
-### 1. 입력 중에는 렌더링하지 않음
+### 1. Do Not Render During Input
 
-**이유:**
-- 브라우저가 이미 DOM을 직접 업데이트함 (contentEditable)
-- 추가 렌더링은 불필요하고 Selection과 충돌할 수 있음
-- 모델만 업데이트하면 충분함
+**Reason:**
+- Browser already directly updates DOM (contentEditable)
+- Additional rendering unnecessary and can conflict with Selection
+- Updating only model is sufficient
 
-**구현:**
-- `skipRender: true`로 설정
-- `editor:content.change` 핸들러에서 체크하여 렌더링 건너뜀
+**Implementation:**
+- Set `skipRender: true`
+- Check in `editor:content.change` handler and skip rendering
 
-### 2. 외부 변경만 렌더링
+### 2. Only Render External Changes
 
-**이유:**
-- 외부 변경은 모델만 변경되고 DOM은 아직 업데이트되지 않음
-- 렌더링이 필요함
+**Reason:**
+- External changes only change model, DOM not yet updated
+- Rendering needed
 
-**구현:**
-- `skipRender: false` (또는 undefined)
-- `editor:content.change` 핸들러에서 렌더링 수행
+**Implementation:**
+- `skipRender: false` (or undefined)
+- Perform rendering in `editor:content.change` handler
 
-### 3. 입력 종료 시 재렌더링 없음
+### 3. No Re-rendering on Input End
 
-**이유:**
-- 브라우저가 이미 DOM을 업데이트했음
-- 재렌더링하면 Selection과 충돌할 수 있음
-- 모델 변경사항은 이미 반영되어 있음
+**Reason:**
+- Browser already updated DOM
+- Re-rendering can conflict with Selection
+- Model changes already reflected
 
-**구현:**
-- `_onInputEnd()`에서 재렌더링 제거
-- `_editingNodes`만 초기화
+**Implementation:**
+- Remove re-rendering in `_onInputEnd()`
+- Only initialize `_editingNodes`
 
 ---
 
-## 타임라인 다이어그램
+## Timeline Diagrams
 
-### Mermaid Gantt: 입력 중 (정상 동작)
+### Mermaid Gantt: During Input (Normal Operation)
 
 ```mermaid
 gantt
-    title 입력 중 타임라인 (정상 동작)
+    title Timeline During Input (Normal Operation)
     dateFormat X
     axisFormat %Ls
     
-    section 브라우저
-    DOM 업데이트 + Selection 유지 :0, 10
+    section Browser
+    DOM update + Selection maintain :0, 10
     
     section MutationObserver
-    변경 감지 :10, 5
+    Change detection :10, 5
     
     section InputHandler
-    모델 업데이트 :15, 10
+    Model update :15, 10
     
     section EditorViewDOM
-    skipRender 체크 :25, 5
-    렌더링 건너뜀 :30, 0
+    Check skipRender :25, 5
+    Skip rendering :30, 0
 ```
 
-### Mermaid Gantt: 외부 변경 (정상 동작)
+### Mermaid Gantt: External Change (Normal Operation)
 
 ```mermaid
 gantt
-    title 외부 변경 타임라인 (정상 동작)
+    title External Change Timeline (Normal Operation)
     dateFormat X
     axisFormat %Ls
     
     section Editor
-    모델 업데이트 :0, 10
+    Model update :0, 10
     
     section EditorViewDOM
-    skipRender 체크 :10, 5
-    render() 호출 :15, 20
+    Check skipRender :10, 5
+    Call render() :15, 20
     
     section DOM
-    DOM 업데이트 :20, 10
-    Selection 복원 :30, 5
+    DOM update :20, 10
+    Restore Selection :30, 5
 ```
 
-### Mermaid Gantt: Race Condition 발생 시나리오 (해결 전)
+### Mermaid Gantt: Race Condition Occurrence Scenario (Before Fix)
 
 ```mermaid
 gantt
-    title Race Condition 발생 시나리오 (해결 전)
+    title Race Condition Occurrence Scenario (Before Fix)
     dateFormat X
     axisFormat %Ls
     
-    section 브라우저
-    DOM 업데이트 :0, 10
+    section Browser
+    DOM update :0, 10
     
     section MutationObserver
-    변경 감지 :10, 5
+    Change detection :10, 5
     
     section InputHandler
-    모델 업데이트 :15, 10
+    Model update :15, 10
     
     section EditorViewDOM
-    render() 호출 (동시) :20, 20
+    Call render() (simultaneous) :20, 20
     
     section Selection
-    Selection 변경 (동시) :20, 15
+    Selection change (simultaneous) :20, 15
     
-    section 충돌
-    ❌ 충돌 발생 :25, 10
+    section Conflict
+    ❌ Conflict occurs :25, 10
 ```
 
-### Mermaid Gantt: Race Condition 해결 후
+### Mermaid Gantt: After Race Condition Fix
 
 ```mermaid
 gantt
-    title Race Condition 해결 후
+    title After Race Condition Fix
     dateFormat X
     axisFormat %Ls
     
-    section 브라우저
-    DOM 업데이트 + Selection 유지 :0, 10
+    section Browser
+    DOM update + Selection maintain :0, 10
     
     section MutationObserver
-    변경 감지 :10, 5
+    Change detection :10, 5
     
     section InputHandler
-    모델 업데이트 :15, 10
+    Model update :15, 10
     
     section EditorViewDOM
-    skipRender 체크 :25, 5
-    ✅ 렌더링 건너뜀 :30, 0
+    Check skipRender :25, 5
+    ✅ Skip rendering :30, 0
     
     section Selection
-    ✅ 변경 없음 (브라우저 유지) :0, 35
+    ✅ No change (browser maintains) :0, 35
 ```
 
 ---
 
-## 구현 세부사항
+## Implementation Details
 
-### 1. InputHandler에서 skipRender 설정
+### 1. Set skipRender in InputHandler
 
-**파일:** `packages/editor-view-dom/src/event-handlers/input-handler.ts`
+**File:** `packages/editor-view-dom/src/event-handlers/input-handler.ts`
 
 ```typescript
-// commitPendingImmediate()에서
+// In commitPendingImmediate()
 console.log('[Input] commitPendingImmediate: emit editor:content.change (skipRender=true, from=MutationObserver)', { nodeId });
 this.editor.emit('editor:content.change', {
-  skipRender: true, // 필수: MutationObserver 변경은 render() 호출 안 함
+  skipRender: true, // Required: MutationObserver changes do not call render()
   from: 'MutationObserver',
   transaction: {
     type: 'text_replace',
@@ -859,18 +859,18 @@ this.editor.emit('editor:content.change', {
 });
 ```
 
-### 2. EditorViewDOM에서 skipRender 체크
+### 2. Check skipRender in EditorViewDOM
 
-**파일:** `packages/editor-view-dom/src/editor-view-dom.ts`
+**File:** `packages/editor-view-dom/src/editor-view-dom.ts`
 
 ```typescript
 this.editor.on('editor:content.change', (e: any) => {
-  // 렌더링 중이면 무시 (무한루프 방지)
+  // Ignore if rendering (prevent infinite loop)
   if (this._isRendering) {
     return;
   }
   
-  // skipRender: true인 경우 렌더링 건너뛰기
+  // Skip rendering if skipRender: true
   if (e?.skipRender) {
     console.log('[EditorViewDOM] content.change: SKIP (skipRender=true)', {
       from: e?.from || 'unknown',
@@ -880,223 +880,223 @@ this.editor.on('editor:content.change', (e: any) => {
     return;
   }
   
-  // 외부 변경만 렌더링
+  // Only render external changes
   this.render();
 });
 ```
 
-### 3. 입력 종료 시 재렌더링 제거
+### 3. Remove Re-rendering on Input End
 
-**파일:** `packages/editor-view-dom/src/editor-view-dom.ts`
+**File:** `packages/editor-view-dom/src/editor-view-dom.ts`
 
 ```typescript
 private _onInputEnd(): void {
   this._inputEndDebounceTimer = window.setTimeout(() => {
-    // editingNodes 초기화만 수행
+    // Only initialize editingNodes
     this._editingNodes.clear();
     console.log('[EditorViewDOM] Input ended, editingNodes cleared');
-    // 재렌더링은 하지 않음
+    // Do not re-render
   }, 500);
 }
 ```
 
 ---
 
-## 검증 체크리스트
+## Verification Checklist
 
-### ✅ 입력 중 렌더링 차단
-- [x] `skipRender: true` 설정
-- [x] `editor:content.change` 핸들러에서 체크
-- [x] 렌더링 건너뜀 확인
+### ✅ Block Rendering During Input
+- [x] Set `skipRender: true`
+- [x] Check in `editor:content.change` handler
+- [x] Confirm rendering skipped
 
-### ✅ Selection 보존
-- [x] 입력 중에는 브라우저가 Selection 유지
-- [x] 렌더링이 발생하지 않으므로 Selection 변경 없음
-- [x] Race condition 없음
+### ✅ Preserve Selection
+- [x] Browser maintains Selection during input
+- [x] No Selection change as rendering does not occur
+- [x] No race condition
 
-### ✅ 외부 변경 처리
-- [x] `skipRender: false`인 경우 렌더링 수행
-- [x] DOM이 모델 상태로 업데이트
-- [x] Selection 복원
+### ✅ Handle External Changes
+- [x] Perform rendering if `skipRender: false`
+- [x] DOM updated to model state
+- [x] Selection restored
 
-### ✅ 입력 종료 처리
-- [x] 재렌더링 없음
-- [x] `_editingNodes` 초기화
-- [x] 충돌 없음
-
----
-
-## 주의사항
-
-### 1. skipRender는 MutationObserver 변경에만 적용
-
-**올바른 사용:**
-- ✅ MutationObserver에서 감지한 characterData 변경: `skipRender: true`
-- ✅ 외부 변경 (model-change): `skipRender: false` (또는 undefined)
-
-**잘못된 사용:**
-- ❌ 모든 변경에 `skipRender: true`: 외부 변경이 반영되지 않음
-- ❌ 모든 변경에 `skipRender: false`: 입력 중 race condition 발생
-
-### 2. 입력 종료 시 재렌더링 불필요
-
-**이유:**
-- 브라우저가 이미 DOM을 업데이트했음
-- 모델 변경사항은 이미 반영되어 있음
-- 재렌더링하면 Selection과 충돌할 수 있음
-
-### 3. IME 조합 중 처리
-
-**현재 구현:**
-- IME 조합 중에도 `skipRender: true`로 처리
-- 조합 완료 후 `commitPendingImmediate()` 호출
-- 조합 완료 후에도 `skipRender: true` 유지
-
-### 4. Cross-node Selection 처리
-
-**특징:**
-- 여러 노드에 걸친 Selection은 브라우저가 자동으로 처리
-- 입력은 첫 번째 노드에만 적용됨
-- Selection은 입력 후 첫 번째 노드의 입력 위치로 축소
-
-**주의:**
-- 여러 노드에 걸친 Selection 후 입력 시, 나머지 노드는 변경되지 않음
-- 사용자가 의도한 동작과 다를 수 있음 (향후 개선 가능)
-
-### 5. 비 텍스트 요소 삽입
-
-**특징:**
-- 이미지나 Embed 삽입은 DOM 구조 변경을 일으킴
-- `skipRender: false`로 렌더링 수행
-- Selection은 삽입된 요소 다음으로 이동
-
-**주의:**
-- Drag & Drop과 Paste의 처리 방식이 다를 수 있음
-- 복잡한 구조의 붙여넣기는 추가 검증 필요
-
-### 6. 입력 중 에러 처리
-
-**원칙:**
-- 에러 발생 시에도 사용자 입력은 보호되어야 함
-- 로컬 입력은 정상 처리, 에러는 별도 처리
-- 사용자는 입력을 계속할 수 있어야 함
-
-**구현:**
-- 네트워크 에러: 로컬 입력은 처리, 동기화는 재시도
-- 모델 검증 실패: DOM 입력은 유지, 모델 업데이트만 실패
-- 렌더링 에러: 입력은 정상, 에러는 별도 로깅
-
+### ✅ Input End Handling
+- [x] No re-rendering
+- [x] Initialize `_editingNodes`
+- [x] No conflicts
 
 ---
 
-## 관련 문서
+## Notes
 
-- `TEXT_INPUT_DATA_FLOW.md` - 텍스트 입력 시 데이터 변경 흐름
-- `TEXT_INPUT_FLOW.md` - EditorViewDOM 글자 입력 반응 흐름
-- `protecting-user-input-from-external-changes.md` - 사용자 입력 보호 (AI/동시편집)
+### 1. skipRender Only Applies to MutationObserver Changes
+
+**Correct Usage:**
+- ✅ characterData changes detected by MutationObserver: `skipRender: true`
+- ✅ External changes (model-change): `skipRender: false` (or undefined)
+
+**Incorrect Usage:**
+- ❌ `skipRender: true` for all changes: External changes not reflected
+- ❌ `skipRender: false` for all changes: Race condition occurs during input
+
+### 2. Re-rendering Unnecessary on Input End
+
+**Reason:**
+- Browser already updated DOM
+- Model changes already reflected
+- Re-rendering can conflict with Selection
+
+### 3. IME Composition Handling
+
+**Current Implementation:**
+- Also handle with `skipRender: true` during IME composition
+- Call `commitPendingImmediate()` after composition completes
+- Maintain `skipRender: true` even after composition completes
+
+### 4. Cross-node Selection Handling
+
+**Characteristics:**
+- Selection spanning multiple nodes handled automatically by browser
+- Input applied only to first node
+- Selection shrinks to input position in first node after input
+
+**Note:**
+- When inputting after Selection spanning multiple nodes, remaining nodes not changed
+- May differ from user intent (can be improved in future)
+
+### 5. Non-text Element Insertion
+
+**Characteristics:**
+- Image or Embed insertion causes DOM structure changes
+- Perform rendering with `skipRender: false`
+- Selection moves to after inserted element
+
+**Note:**
+- Drag & Drop and Paste handling may differ
+- Additional validation needed for complex structure paste
+
+### 6. Error Handling During Input
+
+**Principle:**
+- User input must be protected even when errors occur
+- Local input handled normally, errors handled separately
+- User must be able to continue inputting
+
+**Implementation:**
+- Network error: Handle local input, retry synchronization
+- Model validation failure: Maintain DOM input, only model update fails
+- Rendering error: Input normal, error logged separately
+
 
 ---
 
-## 요약
+## Related Documents
 
-### 해결된 문제
+- `TEXT_INPUT_DATA_FLOW.md` - Data change flow during text input
+- `TEXT_INPUT_FLOW.md` - EditorViewDOM character input response flow
+- `protecting-user-input-from-external-changes.md` - User input protection (AI/collaborative editing)
 
-1. **입력 중 렌더링과 Selection 변경의 Race Condition**
-   - 입력 중 렌더링이 발생하지 않음 (`skipRender: true`)
-   - Selection은 브라우저가 자동으로 유지
-   - 충돌 없이 부드러운 입력 경험
+---
 
-2. **입력 종료 시 불필요한 재렌더링**
-   - 입력 종료 시 재렌더링 제거
-   - 브라우저가 이미 DOM을 업데이트했으므로 추가 렌더링 불필요
-   - Selection과의 충돌 방지
+## Summary
 
-### 핵심 메커니즘
+### Resolved Problems
 
-1. **skipRender 옵션**
-   - MutationObserver 변경: `skipRender: true` (렌더링 차단)
-   - 외부 변경: `skipRender: false` (렌더링 수행)
+1. **Race Condition Between Rendering and Selection Changes During Input**
+   - No rendering occurs during input (`skipRender: true`)
+   - Selection automatically maintained by browser
+   - Smooth input experience without conflicts
 
-2. **브라우저 의존**
-   - 입력 중 DOM 업데이트는 브라우저가 직접 처리
-   - Selection 유지도 브라우저가 자동으로 처리
-   - 우리는 모델만 업데이트
+2. **Unnecessary Re-rendering on Input End**
+   - Removed re-rendering on input end
+   - Additional rendering unnecessary as browser already updated DOM
+   - Prevent conflicts with Selection
 
-3. **이벤트 소스 구분**
+### Core Mechanisms
+
+1. **skipRender Option**
+   - MutationObserver changes: `skipRender: true` (block rendering)
+   - External changes: `skipRender: false` (perform rendering)
+
+2. **Browser Dependency**
+   - Browser directly handles DOM updates during input
+   - Browser automatically maintains Selection
+   - We only update model
+
+3. **Event Source Distinction**
    - `from: 'MutationObserver'` → `skipRender: true`
    - `from: 'model-change'` → `skipRender: false`
 
-### 지원되는 시나리오
+### Supported Scenarios
 
-**기본 입력**
-- ✅ 기본 입력 (characterData)
-- ✅ Selection 이동 중 입력 (Shift+Arrow)
-- ✅ 백스페이스/Delete 키 입력
-- ✅ 특수 키 입력 (Home/End, Ctrl+Arrow 등)
+**Basic Input**
+- ✅ Basic input (characterData)
+- ✅ Input during Selection move (Shift+Arrow)
+- ✅ Backspace/Delete key input
+- ✅ Special key input (Home/End, Ctrl+Arrow, etc.)
 
-**IME 입력**
-- ✅ IME 조합 (한국어, 일본어, 중국어)
-- ✅ IME 조합 완료
+**IME Input**
+- ✅ IME composition (Korean, Japanese, Chinese)
+- ✅ IME composition completion
 
-**외부 변경**
-- ✅ 외부 변경 (model-change)
-- ✅ 외부 Decorator 변경 (댓글, AI 강조 등)
-- ✅ 외부 Selection 동기화 (협업 사용자)
+**External Changes**
+- ✅ External changes (model-change)
+- ✅ External Decorator changes (comments, AI highlights, etc.)
+- ✅ External Selection synchronization (collaborative users)
 
-**복사/붙여넣기**
-- ✅ 붙여넣기 (단순 텍스트 및 복잡한 구조)
-- ✅ 복사 (copy)
+**Copy/Paste**
+- ✅ Paste (simple text and complex structures)
+- ✅ Copy
 
-**선택 및 입력**
-- ✅ 드래그 선택 후 입력
-- ✅ Range 선택 후 입력 (텍스트 교체)
-- ✅ Cross-node Selection 입력 (여러 노드에 걸친 선택)
+**Selection and Input**
+- ✅ Input after drag selection
+- ✅ Input after Range selection (text replacement)
+- ✅ Cross-node Selection input (selection spanning multiple nodes)
 
-**Mark 토글**
-- ✅ Mark 토글 (Bold, Italic 등)
-- ✅ Mark 토글 중 입력
+**Mark Toggle**
+- ✅ Mark toggle (Bold, Italic, etc.)
+- ✅ Input during Mark toggle
 
 **Undo/Redo**
 - ✅ Undo (Mod+Z)
 - ✅ Redo (Mod+Shift+Z)
-- ✅ Undo 중 입력
+- ✅ Input during Undo
 
-**다중 입력**
-- ✅ 여러 노드 동시 입력
-- ✅ 입력 중 다른 노드로 포커스 이동
+**Multiple Input**
+- ✅ Simultaneous input in multiple nodes
+- ✅ Focus move to different node during input
 
-**비 텍스트 요소**
-- ✅ 이미지 삽입 (drag & drop, paste)
-- ✅ Embed 요소 삽입
+**Non-text Elements**
+- ✅ Image insertion (drag & drop, paste)
+- ✅ Embed element insertion
 
-**스크롤 및 레이아웃**
-- ✅ 입력 중 스크롤 발생
-- ✅ 입력 중 창 크기 변경
-- ✅ 입력 중 미디어 쿼리 트리거
+**Scroll and Layout**
+- ✅ Scroll during input
+- ✅ Window resize during input
+- ✅ Media query trigger during input
 
-**에러 및 예외**
-- ✅ 입력 중 네트워크 에러 (협업)
-- ✅ 입력 중 모델 검증 실패
-- ✅ 입력 중 렌더링 에러
+**Errors and Exceptions**
+- ✅ Network error during input (collaboration)
+- ✅ Model validation failure during input
+- ✅ Rendering error during input
 
-**특수 케이스**
-- ✅ 입력 종료
-- ✅ 입력 중 외부 변경 감지 (다른 노드)
-- ✅ 렌더링 중 입력 감지
+**Special Cases**
+- ✅ Input end
+- ✅ External change detected during input (different node)
+- ✅ Input detected during rendering
 
 ---
 
-## 변경 이력
+## Change History
 
-### 2024-01-XX: Race Condition 해결
+### 2024-01-XX: Race Condition Resolution
 
-**변경 사항:**
-1. `skipRender: true` 옵션으로 입력 중 렌더링 차단
-2. `editor:content.change` 핸들러에서 `skipRender` 체크 추가
-3. `_onInputEnd()`에서 재렌더링 제거
+**Changes:**
+1. Block rendering during input with `skipRender: true` option
+2. Add `skipRender` check in `editor:content.change` handler
+3. Remove re-rendering in `_onInputEnd()`
 
-**효과:**
-- ✅ 입력 중 렌더링과 Selection 변경의 race condition 해결
-- ✅ 사용자 입력이 방해받지 않음
-- ✅ Selection이 안정적으로 유지됨
+**Effects:**
+- ✅ Resolved race condition between rendering and Selection changes during input
+- ✅ User input not interrupted
+- ✅ Selection stably maintained
 

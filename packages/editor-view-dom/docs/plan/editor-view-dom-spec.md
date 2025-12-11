@@ -1,38 +1,38 @@
-# editor-view-dom 스펙 문서
+# editor-view-dom Specification
 
-본 문서는 `@barocss/editor-view-dom` 패키지의 기술 스펙이다. 구현과 테스트는 본 문서를 기준으로 한다.
+This document is the technical specification for the `@barocss/editor-view-dom` package. Implementation and tests are based on this document.
 
-## 목차
+## Table of Contents
 
-1. [아키텍처 개요](#1-아키텍처-개요)
-2. [레이어 시스템](#2-레이어-시스템)
-3. [renderer-dom 통합](#3-renderer-dom-통합)
-4. [이벤트 핸들러 시스템](#4-이벤트-핸들러-시스템)
-5. [Decorator 시스템](#5-decorator-시스템)
-6. [skipNodes 기능](#6-skipnodes-기능)
-7. [Keymap 시스템](#7-keymap-시스템)
+1. [Architecture Overview](#1-architecture-overview)
+2. [Layer System](#2-layer-system)
+3. [renderer-dom Integration](#3-renderer-dom-integration)
+4. [Event Handler System](#4-event-handler-system)
+5. [Decorator System](#5-decorator-system)
+6. [skipNodes Feature](#6-skipnodes-feature)
+7. [Keymap System](#7-keymap-system)
 8. [Native Commands](#8-native-commands)
-9. [Selection 관리](#9-selection-관리)
-10. [생명주기](#10-생명주기)
-11. [오류 처리](#11-오류-처리)
-12. [성능 요구사항](#12-성능-요구사항)
+9. [Selection Management](#9-selection-management)
+10. [Lifecycle](#10-lifecycle)
+11. [Error Handling](#11-error-handling)
+12. [Performance Requirements](#12-performance-requirements)
 
 ---
 
-## 1. 아키텍처 개요
+## 1. Architecture Overview
 
-### 1.1 역할과 책임
+### 1.1 Roles and Responsibilities
 
-`EditorViewDOM`은 `editor-core`와 브라우저 DOM 사이의 브리지 역할을 한다.
+`EditorViewDOM` acts as the bridge between `editor-core` and the browser DOM.
 
-**주요 책임:**
-- `editor-core`의 모델 데이터를 DOM으로 렌더링
-- 사용자 입력(DOM 이벤트)을 모델 변경으로 변환
-- Selection 관리 (DOM ↔ Model)
-- Decorator 시스템 관리
-- 레이어 시스템 관리 (5개 레이어)
+**Key responsibilities:**
+- Render `editor-core` model data to DOM
+- Convert user input (DOM events) into model changes
+- Manage selection (DOM ↔ Model)
+- Manage decorator system
+- Manage layer system (5 layers)
 
-### 1.2 전체 아키텍처
+### 1.2 Overall Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -50,13 +50,13 @@
 │  │  Event Handlers                                    │    │
 │  │  - InputHandler (input, beforeinput, composition) │    │
 │  │  - SelectionHandler (DOM ↔ Model)                 │    │
-│  │  - MutationObserverManager (DOM 변경 감지)         │    │
+│  │  - MutationObserverManager (DOM change detection) │    │
 │  └────────────────────────────────────────────────────┘    │
 │                          │                                   │
 │                          ▼                                   │
 │  ┌────────────────────────────────────────────────────┐    │
 │  │  renderer-dom Integration                          │    │
-│  │  - DOMRenderer (Content 레이어)                    │    │
+│  │  - DOMRenderer (Content layer)                    │    │
 │  │  - DOMRenderer (Decorator/Selection/Context/Custom)│    │
 │  │  - RendererRegistry                                 │    │
 │  └────────────────────────────────────────────────────┘    │
@@ -70,95 +70,95 @@
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 1.3 데이터 흐름
+### 1.3 Data Flow
 
-#### 렌더링 흐름 (Model → DOM)
+#### Rendering Flow (Model → DOM)
 
 ```
-Editor.getDocumentProxy() 또는 외부 ModelData
+Editor.getDocumentProxy() or external ModelData
     │
-    ├─ ModelData 형식 (sid, stype 사용)
+    ├─ ModelData format (uses sid, stype)
     │
     ▼
 EditorViewDOM.render()
     │
-    ├─ Decorator 데이터 수집 (dataStore.getAllDecorators())
+    ├─ Collect decorator data (dataStore.getAllDecorators())
     │
     ▼
 DOMRenderer.render(container, modelData, decorators, skipNodes)
     │
     ├─ VNodeBuilder: ModelData → VNode Tree
-    ├─ Reconciler: VNode Tree → DOM diff (skipNodes 적용)
-    └─ DOMOperations: DOM 업데이트
+    ├─ Reconciler: VNode Tree → DOM diff (apply skipNodes)
+    └─ DOMOperations: DOM update
     │
     ▼
 layers.content (contentEditable)
 ```
 
-#### 입력 흐름 (DOM → Model)
+#### Input Flow (DOM → Model)
 
 ```
-사용자 입력 (DOM 이벤트)
+User input (DOM events)
     │
     ├─ InputHandler.handleInput()
-    │  └─ beforeInput 이벤트 처리
+    │  └─ handle beforeInput event
     │
     ├─ MutationObserverManager
-    │  └─ DOM 변경 감지
+    │  └─ Detect DOM changes
     │
     ▼
 InputHandler.handleTextContentChange()
     │
-    ├─ SmartTextAnalyzer: DOM 변경 → TextChange
+    ├─ SmartTextAnalyzer: DOM change → TextChange
     │
     ▼
 Editor.executeTransaction()
     │
-    ├─ 모델 업데이트
+    ├─ model update
     │
     ▼
-editor:content.change 이벤트
+editor:content.change event
     │
     ▼
-EditorViewDOM.render() (skipNodes 적용)
+EditorViewDOM.render() (apply skipNodes)
 ```
 
-### 1.4 핵심 원칙
+### 1.4 Core Principles
 
-- **레이어 분리**: 5개의 독립적인 레이어로 UI 요소를 분리
-- **renderer-dom 통합**: 모든 렌더링은 `renderer-dom`을 통해 수행
-- **이벤트 기반**: DOM 이벤트를 모델 변경으로 변환
-- **skipNodes 보호**: 사용자 입력 중인 노드는 외부 변경으로부터 보호
-- **모델 우선**: 모델이 항상 단일 소스 오브 트루스 (Single Source of Truth)
+- **Layer separation**: split UI into 5 independent layers
+- **renderer-dom integration**: all rendering goes through `renderer-dom`
+- **Event-driven**: convert DOM events into model changes
+- **skipNodes protection**: nodes being edited are protected from external changes
+- **Model-first**: model is always the Single Source of Truth
 
 ---
 
-## 2. 레이어 시스템
+## 2. Layer System
 
-### 2.1 레이어 구조
+### 2.1 Layer Structure
 
-`EditorViewDOM`은 5개의 독립적인 레이어를 사용한다:
+`EditorViewDOM` uses 5 independent layers:
 
 ```
 Container (position: relative)
 ├─ Layer 1: Content (z-index: 1)
 │  └─ contentEditable = true
-│  └─ renderer-dom이 여기에 렌더링
+│  └─ renderer-dom renders here
 │
 ├─ Layer 2: Decorator (z-index: 10)
-│  └─ layer 카테고리 decorator들
+│  └─ layer category decorators
 │
 ├─ Layer 3: Selection (z-index: 100)
-│  └─ 선택 영역 표시
+│  └─ selection indicators
 │
 ├─ Layer 4: Context (z-index: 200)
-│  └─ 툴팁, 컨텍스트 메뉴
+│  └─ tooltips, context menus
 │
 └─ Layer 5: Custom (z-index: 1000)
-   └─ 커스텀 오버레이
+   └─ custom overlay
 ```
 
-### 2.2 레이어별 특성
+### 2.2 Layer Characteristics
 
 | Layer | Z-Index | Position | Pointer Events | Purpose | Diff Included |
 |-------|---------|----------|----------------|---------|---------------|
@@ -168,11 +168,11 @@ Container (position: relative)
 | **Context** | 200 | `absolute` | ❌ Disabled | Context menus, tooltips | ❌ No |
 | **Custom** | 1000 | `absolute` | ❌ Disabled | User-defined overlays | ❌ No |
 
-*일부 decorator 요소(inline/block widgets)는 pointer events를 활성화할 수 있음
+*Some decorator elements (inline/block widgets) may enable pointer events
 
-### 2.3 레이어 생성
+### 2.3 Layer Creation
 
-레이어는 `EditorViewDOM` 생성자에서 자동으로 생성된다:
+Layers are automatically created in the `EditorViewDOM` constructor:
 
 ```typescript
 const view = new EditorViewDOM(editor, {
@@ -185,12 +185,12 @@ const view = new EditorViewDOM(editor, {
     decorator: {
       className: 'my-decorators'
     },
-    // ... 기타 레이어 설정
+    // ... other layer configs
   }
 });
 ```
 
-### 2.4 레이어 접근
+### 2.4 Layer Access
 
 ```typescript
 view.layers.content      // HTMLElement - contentEditable layer
@@ -202,36 +202,36 @@ view.layers.custom       // HTMLElement - custom overlay layer
 
 ---
 
-## 3. renderer-dom 통합
+## 3. renderer-dom Integration
 
-### 3.1 DOMRenderer 인스턴스
+### 3.1 DOMRenderer Instances
 
-`EditorViewDOM`은 여러 개의 `DOMRenderer` 인스턴스를 사용한다:
+`EditorViewDOM` uses multiple `DOMRenderer` instances:
 
-- **`_domRenderer`**: Content 레이어용 (Selection 보존 활성화)
-- **`_decoratorRenderer`**: Decorator 레이어용
-- **`_selectionRenderer`**: Selection 레이어용
-- **`_contextRenderer`**: Context 레이어용
-- **`_customRenderer`**: Custom 레이어용
+- **`_domRenderer`**: for Content layer (Selection preservation enabled)
+- **`_decoratorRenderer`**: for Decorator layer
+- **`_selectionRenderer`**: for Selection layer
+- **`_contextRenderer`**: for Context layer
+- **`_customRenderer`**: for Custom layer
 
-각 `DOMRenderer`는 독립적인 `prevVNodeTree`를 유지한다.
+Each `DOMRenderer` maintains its own `prevVNodeTree`.
 
-### 3.2 렌더링 흐름
+### 3.2 Rendering Flow
 
 ```typescript
 // EditorViewDOM.render()
 render(tree?: ModelData, options?: { sync?: boolean }): void {
-  // 1. 모델 데이터 가져오기
+  // 1. fetch model data
   const modelData = tree || this.editor.getDocumentProxy();
   
-  // 2. Decorator 데이터 수집
+  // 2. collect decorator data
   const allDecorators = this.editor.dataStore.getAllDecorators();
   const decoratorData = allDecorators.map(d => convertToDecoratorData(d));
   
-  // 3. Selection 컨텍스트 준비
+  // 3. prepare selection context
   const selectionContext = this.selectionHandler.getSelectionContext();
   
-  // 4. Content 레이어 렌더링 (동기)
+  // 4. render content layer (sync)
   this._domRenderer?.render(
     this.layers.content,
     modelData,
@@ -241,29 +241,29 @@ render(tree?: ModelData, options?: { sync?: boolean }): void {
     { skipNodes: this._editingNodes.size > 0 ? this._editingNodes : undefined }
   );
   
-  // 5. 다른 레이어들 렌더링 (requestAnimationFrame 이후)
+  // 5. render other layers (after requestAnimationFrame)
   // ...
 }
 ```
 
-### 3.3 데이터 형식
+### 3.3 Data Format
 
-**모든 데이터는 ModelData 형식 (sid, stype 사용)**:
+**All data is in ModelData format (uses sid, stype):**
 
 ```typescript
 {
-  sid: 'doc-1',           // 노드 식별자 (필수)
-  stype: 'document',      // 노드 타입 (필수)
-  content: [...],         // 자식 노드 배열
-  text: '...',            // 텍스트 내용 (선택적)
-  marks: [...],           // 텍스트 마크
-  attributes: {...}        // 노드 속성
+  sid: 'doc-1',           // node identifier (required)
+  stype: 'document',      // node type (required)
+  content: [...],         // child node array
+  text: '...',            // text content (optional)
+  marks: [...],           // text marks
+  attributes: {...}        // node attributes
 }
 ```
 
-**변환 없이 직접 사용**: 모든 데이터는 이미 ModelData 형식이므로 변환 없이 `renderer-dom`에 전달한다.
+**Use directly without conversion**: data is already ModelData, so pass to `renderer-dom` as-is.
 
-### 3.4 Decorator 데이터 변환
+### 3.4 Decorator Data Conversion
 
 ```typescript
 function convertToDecoratorData(decorator: any): DecoratorData {
@@ -284,83 +284,83 @@ function convertToDecoratorData(decorator: any): DecoratorData {
 
 ---
 
-## 4. 이벤트 핸들러 시스템
+## 4. Event Handler System
 
 ### 4.1 InputHandler
 
-**역할**: 사용자 입력 처리 (텍스트 입력, IME 조합)
+**Role**: Handle user input (text input, IME composition)
 
-**주요 메서드:**
-- `handleInput(event: InputEvent)`: input 이벤트 처리
-- `handleBeforeInput(event: InputEvent)`: beforeInput 이벤트 처리
-- `handleTextContentChange(oldValue, newValue, target)`: MutationObserver에서 호출, 모델 업데이트
-- `handleCompositionStart/Update/End()`: IME 조합 처리
+**Key methods:**
+- `handleInput(event: InputEvent)`: handle input event
+- `handleBeforeInput(event: InputEvent)`: handle beforeInput event
+- `handleTextContentChange(oldValue, newValue, target)`: called from MutationObserver to update model
+- `handleCompositionStart/Update/End()`: handle IME composition
 
-**동작 흐름:**
+**Flow:**
 ```
-DOM 변경 (MutationObserver)
+DOM change (MutationObserver)
     │
     ▼
 InputHandler.handleTextContentChange()
     │
-    ├─ SmartTextAnalyzer: DOM 변경 → TextChange
+    ├─ SmartTextAnalyzer: DOM change → TextChange
     │
     ▼
 Editor.executeTransaction()
     │
-    ├─ 모델 업데이트
+    ├─ model update
     │
     ▼
-editor:content.change 이벤트
+editor:content.change event
     │
     ▼
-EditorViewDOM.render() (skipNodes 적용)
+EditorViewDOM.render() (apply skipNodes)
 ```
 
 ### 4.2 SelectionHandler
 
-**역할**: DOM Selection ↔ Model Selection 변환
+**Role**: Convert DOM Selection ↔ Model Selection
 
-**주요 메서드:**
-- `convertDOMSelectionToModel(sel: Selection)`: DOM → Model 변환
-- `convertModelSelectionToDOM(sel: ModelSelection)`: Model → DOM 변환
+**Key methods:**
+- `convertDOMSelectionToModel(sel: Selection)`: DOM → Model
+- `convertModelSelectionToDOM(sel: ModelSelection)`: Model → DOM
 
-**동작:**
-- `selectionchange` 이벤트 발생 시 DOM Selection을 Model Selection으로 변환
-- `editor:selection.model` 이벤트 발생 시 Model Selection을 DOM Selection으로 변환
+**Behavior:**
+- On `selectionchange`, convert DOM Selection to Model Selection
+- On `editor:selection.model`, convert Model Selection to DOM Selection
 
 ### 4.3 MutationObserverManager
 
-**역할**: DOM 변경 감지
+**Role**: Detect DOM changes
 
-**주요 기능:**
-- 텍스트 변경 감지 (`onTextChange`)
-- 구조 변경 감지 (`onStructureChange`)
-- 속성 변경 감지 (`onAttributeChange`)
+**Key features:**
+- Detect text changes (`onTextChange`)
+- Detect structural changes (`onStructureChange`)
+- Detect attribute changes (`onAttributeChange`)
 
-**보호 메커니즘:**
-- `_isRendering` 플래그로 렌더링 중 발생하는 DOM 변경은 무시 (무한루프 방지)
+**Protection:**
+- `_isRendering` flag ignores DOM changes during rendering (prevents infinite loop)
 
-### 4.4 이벤트 리스너 설정
+### 4.4 Event Listener Setup
 
 ```typescript
 private setupEventListeners(): void {
-  // 입력 이벤트
+  // Input events
   this.contentEditableElement.addEventListener('input', this.handleInput.bind(this));
   this.contentEditableElement.addEventListener('beforeinput', this.handleBeforeInput.bind(this));
   this.contentEditableElement.addEventListener('keydown', this.handleKeydown.bind(this));
   this.contentEditableElement.addEventListener('paste', this.handlePaste.bind(this));
   this.contentEditableElement.addEventListener('drop', this.handleDrop.bind(this));
   
-  // 조합 이벤트 (IME)
+  // Composition events (IME)
   this.contentEditableElement.addEventListener('compositionstart', this.handleCompositionStart.bind(this));
   this.contentEditableElement.addEventListener('compositionupdate', this.handleCompositionUpdate.bind(this));
   this.contentEditableElement.addEventListener('compositionend', this.handleCompositionEnd.bind(this));
   
-  // 선택 이벤트
+  // Selection events
   document.addEventListener('selectionchange', this.handleSelectionChange.bind(this));
   
-  // 포커스 이벤트
+  // Focus events
   this.contentEditableElement.addEventListener('focus', this.handleFocus.bind(this));
   this.contentEditableElement.addEventListener('blur', this.handleBlur.bind(this));
 }
@@ -368,26 +368,26 @@ private setupEventListeners(): void {
 
 ---
 
-## 5. Decorator 시스템
+## 5. Decorator System
 
-### 5.1 Decorator 카테고리
+### 5.1 Decorator Categories
 
-1. **Layer Decorator**: CSS/overlay-only representation (diff에 포함)
-2. **Inline Decorator**: 텍스트 내부에 삽입되는 DOM 위젯 (diff에서 제외)
-3. **Block Decorator**: 블록 레벨에서 삽입되는 DOM 위젯 (diff에서 제외)
+1. **Layer Decorator**: CSS/overlay-only representation (included in diff)
+2. **Inline Decorator**: DOM widgets inserted inside text (excluded from diff)
+3. **Block Decorator**: DOM widgets inserted at block level (excluded from diff)
 
-### 5.2 Decorator 관리자
+### 5.2 Decorator Managers
 
-- **`DecoratorRegistry`**: Decorator 타입과 renderer 등록
-- **`DecoratorManager`**: Decorator CRUD 작업
-- **`RemoteDecoratorManager`**: 원격 Decorator 관리
-- **`PatternDecoratorConfigManager`**: 패턴 기반 Decorator 설정 관리
-- **`DecoratorGeneratorManager`**: 함수 기반 Decorator 생성 관리
+- **`DecoratorRegistry`**: Register decorator types and renderers
+- **`DecoratorManager`**: Decorator CRUD
+- **`RemoteDecoratorManager`**: Manage remote decorators
+- **`PatternDecoratorConfigManager`**: Manage pattern-based decorator configs
+- **`DecoratorGeneratorManager`**: Manage function-based decorator generation
 
-### 5.3 Decorator 렌더링
+### 5.3 Decorator Rendering
 
 ```typescript
-// Decorator 추가
+// Add decorator
 view.decoratorManager.add({
   id: 'highlight-1',
   category: 'layer',
@@ -396,28 +396,28 @@ view.decoratorManager.add({
   data: { backgroundColor: 'yellow' }
 });
 
-// Decorator 렌더링은 render() 호출 시 자동으로 수행됨
+// Decorator rendering is automatic on render()
 view.render();
 ```
 
 ---
 
-## 6. skipNodes 기능
+## 6. skipNodes Feature
 
-### 6.1 목적
+### 6.1 Purpose
 
-사용자 입력 중인 노드를 외부 변경(AI, 동시편집)으로부터 보호한다.
+Protect nodes under user input from external changes (AI, collaboration).
 
-### 6.2 동작 원리
+### 6.2 How It Works
 
 ```typescript
-// 입력 시작 시
+// On input start
 private _onInputStart(): void {
   const sids = this._getEditingNodeSids();
   sids.forEach(sid => this._editingNodes.add(sid));
 }
 
-// 입력 종료 시 (디바운싱)
+// On input end (debounced)
 private _onInputEnd(): void {
   if (this._inputEndDebounceTimer) {
     clearTimeout(this._inputEndDebounceTimer);
@@ -425,13 +425,13 @@ private _onInputEnd(): void {
   
   this._inputEndDebounceTimer = window.setTimeout(() => {
     this._editingNodes.clear();
-    // skipNodes 없이 재렌더링하여 최신 모델 반영
+    // Re-render without skipNodes to reflect latest model
     this.render();
-  }, 300); // 300ms 디바운싱
+  }, 300); // 300ms debounce
 }
 ```
 
-### 6.3 렌더링에 적용
+### 6.3 Apply to Rendering
 
 ```typescript
 this._domRenderer?.render(
@@ -444,57 +444,57 @@ this._domRenderer?.render(
 );
 ```
 
-### 6.4 동작 흐름
+### 6.4 Flow
 
 ```
-1. 사용자 입력 시작
-   → _onInputStart() → editingNodes에 추가
+1. User input starts  
+   → _onInputStart() → add to editingNodes
 
-2. 외부 변경 발생 (AI, 동시편집)
-   → 모델 업데이트 (항상 수행)
-   → render({ skipNodes: editingNodes })
-   → DOM 업데이트 스킵 (입력 중인 노드 보호)
+2. External change occurs (AI, collaboration)  
+   → model update (always)  
+   → render({ skipNodes: editingNodes })  
+   → skip DOM update (protect editing nodes)
 
-3. 사용자 입력 종료
-   → _onInputEnd() → editingNodes 제거 (300ms 디바운싱)
-   → render() (skipNodes 없음)
-   → DOM 업데이트 (최신 모델 반영)
+3. User input ends  
+   → _onInputEnd() → remove editingNodes (300ms debounce)  
+   → render() (no skipNodes)  
+   → DOM update (reflect latest model)
 ```
 
-### 6.5 핸들러와의 관계
+### 6.5 Relation to Handlers
 
-**핵심**: `skipNodes`는 렌더링 단계의 개념이며, 핸들러들은 모델 업데이트를 담당하므로 `skipNodes`와 무관하다.
+**Key point**: `skipNodes` is a rendering concept; handlers update the model and are unaffected by `skipNodes`.
 
-- **InputHandler**: 모델 업데이트는 항상 수행 (skipNodes와 무관)
-- **SelectionHandler**: Selection 변환만 담당 (skipNodes와 무관)
-- **MutationObserverManager**: DOM 변경 감지만 담당 (이미 `_isRendering`으로 보호)
+- **InputHandler**: Always updates model (independent of skipNodes)
+- **SelectionHandler**: Only handles selection conversion (independent of skipNodes)
+- **MutationObserverManager**: Only detects DOM changes (already protected by `_isRendering`)
 
 ---
 
-## 7. Keymap 시스템
+## 7. Keymap System
 
-### 7.1 기본 키맵
+### 7.1 Default keymap
 
 ```typescript
-// 포맷팅
+// Formatting
 Ctrl+B / Cmd+B → toggleBold()
 Ctrl+I / Cmd+I → toggleItalic()
 Ctrl+U / Cmd+U → toggleUnderline()
 
-// 편집
+// Editing
 Enter → insertParagraph()
 Shift+Enter → insertLineBreak()
 
-// 히스토리
+// History
 Ctrl+Z / Cmd+Z → historyUndo()
 Ctrl+Y / Cmd+Y → historyRedo()
 Ctrl+Shift+Z / Cmd+Shift+Z → historyRedo()
 
-// 선택
+// Selection
 Ctrl+A / Cmd+A → selectAll()
 ```
 
-### 7.2 커스텀 키맵 등록
+### 7.2 Register custom keymap
 
 ```typescript
 view.keymapManager.register('Ctrl+Shift+h', () => {
@@ -510,33 +510,33 @@ view.keymapManager.register('Ctrl+/', () => {
 
 ## 8. Native Commands
 
-### 8.1 지원 명령
+### 8.1 Supported commands
 
 ```typescript
-// 텍스트 삽입/삭제
+// Text insert/delete
 view.insertText('Hello world');
 view.insertParagraph();
 view.deleteSelection();
 
-// 히스토리
+// History
 view.historyUndo();
 view.historyRedo();
 
-// 포맷팅
+// Formatting
 view.toggleBold();
 view.toggleItalic();
 view.toggleUnderline();
 ```
 
-### 8.2 동작 원리
+### 8.2 How it works
 
-모든 Native Command는 `editor-core`의 명령 시스템을 통해 모델을 업데이트하고, 이후 `render()`가 자동으로 호출된다.
+All Native Commands update the model via `editor-core` command system, then `render()` is called automatically.
 
 ---
 
-## 9. Selection 관리
+## 9. Selection Management
 
-### 9.1 DOM ↔ Model 변환
+### 9.1 DOM ↔ Model conversion
 
 ```typescript
 // DOM Selection → Model Selection
@@ -552,52 +552,52 @@ view.selectionHandler.convertModelSelectionToDOM({
 });
 ```
 
-### 9.2 Selection 이벤트
+### 9.2 Selection events
 
 ```typescript
-// DOM Selection 변경 시
+// On DOM Selection change
 view.on('editor:selection.change', (data) => {
   console.log('Model selection:', data.selection);
 });
 
-// Model Selection 변경 시
+// On Model Selection change
 editor.on('editor:selection.model', (sel) => {
-  // DOM Selection으로 변환하여 적용
+  // Convert to DOM Selection and apply
 });
 ```
 
 ---
 
-## 10. 생명주기
+## 10. Lifecycle
 
-### 10.1 초기화
+### 10.1 Initialization
 
 ```typescript
 const view = new EditorViewDOM(editor, {
   container: document.getElementById('editor-container'),
   registry: getGlobalRegistry(),
   autoRender: true,
-  initialTree: { ... } // 선택적
+  initialTree: { ... } // optional
 });
 ```
 
-**초기화 순서:**
-1. 레이어 구조 생성
-2. Decorator 시스템 초기화
-3. 이벤트 핸들러 초기화
-4. Keymap 설정
-5. 이벤트 리스너 설정
-6. MutationObserver 설정
-7. 렌더러 설정
-8. `autoRender`가 true이고 `initialTree`가 있으면 자동 렌더링
+**Initialization order:**
+1. Create layer structure
+2. Initialize decorator system
+3. Initialize event handlers
+4. Configure keymap
+5. Set up event listeners
+6. Set up MutationObserver
+7. Set up renderers
+8. If `autoRender` is true and `initialTree` exists, render automatically
 
-### 10.2 렌더링
+### 10.2 Rendering
 
 ```typescript
-// 전체 문서 렌더링
+// Render entire document
 view.render();
 
-// 특정 모델 데이터로 렌더링
+// Render with specific model data
 view.render({
   sid: 'doc1',
   stype: 'document',
@@ -605,68 +605,68 @@ view.render({
 });
 ```
 
-### 10.3 정리
+### 10.3 Teardown
 
 ```typescript
 view.destroy();
 ```
 
-**정리 작업:**
-- 이벤트 리스너 제거
-- MutationObserver 해제
-- Decorator 정리
-- 키맵 정리
-- 렌더러 정리
+**Cleanup tasks:**
+- Remove event listeners
+- Disconnect MutationObserver
+- Clean decorators
+- Clean keymap
+- Clean renderers
 
 ---
 
-## 11. 오류 처리
+## 11. Error Handling
 
-### 11.1 렌더링 오류
+### 11.1 Rendering errors
 
 ```typescript
 try {
   this._domRenderer?.render(...);
 } catch (error) {
   console.error('[EditorViewDOM] Error rendering content:', error);
-  // Content 렌더링 실패해도 decorator는 렌더링 시도
+  // Even if content rendering fails, still try rendering decorators
 }
 ```
 
-### 11.2 모델 검증
+### 11.2 Model validation
 
-- `stype` 필드가 없으면 에러 발생 (필수 필드)
-- `sid` 필드가 없으면 에러 발생 (필수 필드)
-- 템플릿이 등록되지 않은 `stype`은 에러 발생
+- Error if `stype` field is missing (required)
+- Error if `sid` field is missing (required)
+- Error if template for `stype` is not registered
 
-### 11.3 Decorator 변환 실패
+### 11.3 Decorator conversion failure
 
-Decorator 변환 실패는 경고만 출력하고 계속 진행한다.
-
----
-
-## 12. 성능 요구사항
-
-### 12.1 렌더링 성능
-
-- 대용량 문서(5000+ 노드)에서도 렌더링 시간 < 100ms
-- `skipNodes`를 통한 부분 업데이트로 입력 중 성능 유지
-
-### 12.2 이벤트 처리 성능
-
-- 입력 이벤트 처리 < 1ms
-- Selection 변경 처리 < 16ms (60fps)
-
-### 12.3 메모리 사용
-
-- Proxy 기반 lazy evaluation으로 초기 로딩 시간 및 메모리 사용량 최적화
-- 레이어별 독립적인 `prevVNodeTree`로 메모리 사용량 증가 (필요한 트레이드오프)
+Decorator conversion failure logs a warning and continues.
 
 ---
 
-## 참고 자료
+## 12. Performance Requirements
 
-- [renderer-dom 명세](../../renderer-dom/docs/renderer-dom-spec.md)
-- [renderer-dom 통합 명세](./renderer-dom-integration-spec.md)
-- [skipNodes 핸들러 통합 가이드](./skipnodes-handlers-integration.md)
+### 12.1 Rendering performance
+
+- Rendering time < 100ms even for large documents (5000+ nodes)
+- Maintain input-time performance via partial updates with `skipNodes`
+
+### 12.2 Event handling performance
+
+- Input event handling < 1ms
+- Selection change handling < 16ms (60fps)
+
+### 12.3 Memory usage
+
+- Proxy-based lazy evaluation optimizes initial load time and memory footprint
+- Independent `prevVNodeTree` per layer increases memory usage (necessary trade-off)
+
+---
+
+## References
+
+- [renderer-dom specification](../../renderer-dom/docs/renderer-dom-spec.md)
+- [renderer-dom integration spec](./renderer-dom-integration-spec.md)
+- [skipNodes handlers integration guide](./skipnodes-handlers-integration.md)
 

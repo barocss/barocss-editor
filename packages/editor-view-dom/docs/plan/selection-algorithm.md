@@ -1,32 +1,32 @@
-# Selection 처리 알고리즘
+# Selection Processing Algorithm
 
-## 개요
+## Overview
 
-이 문서는 Editor의 Model과 DOM 간 Selection 동기화를 위한 알고리즘과 데이터 구조를 설명합니다. 특히 텍스트 노드 분할, offset 매핑, selection 변환 알고리즘을 다룹니다.
+This document explains algorithms and data structures for synchronizing Selection between Editor's Model and DOM. It particularly covers text node splitting, offset mapping, and selection conversion algorithms.
 
-## 1. 텍스트 관리 아키텍처
+## 1. Text Management Architecture
 
-### 1.1 Model 레벨 텍스트 표현
+### 1.1 Model-Level Text Representation
 
-**단일 연속 문자열 (Flat Text Model)**
+**Single Continuous String (Flat Text Model)**
 
-Model에서는 텍스트를 하나의 연속된 문자열로 관리합니다:
+Model manages text as a single continuous string:
 
 ```
 Model Text: "bold and italic"
             └─ offset: 0 ──────────────── 15 ─┘
 ```
 
-**특징:**
-- 단일 노드에 하나의 텍스트 문자열
-- Offset은 0부터 시작하는 연속된 정수
-- Mark는 텍스트 범위 `[start, end)`로 표현
+**Characteristics:**
+- Single text string per node
+- Offset is continuous integer starting from 0
+- Marks expressed as text range `[start, end)`
 
-### 1.2 DOM 레벨 텍스트 표현
+### 1.2 DOM-Level Text Representation
 
-**분할된 텍스트 노드 (Fragmented Text DOM)**
+**Split Text Nodes (Fragmented Text DOM)**
 
-DOM에서는 mark/decorator로 인해 텍스트가 여러 개의 text node로 분할됩니다:
+In DOM, text is split into multiple text nodes due to marks/decorators:
 
 ```
 DOM Structure:
@@ -37,46 +37,46 @@ DOM Structure:
 </span>
 ```
 
-**특징:**
-- 각 text node는 독립적인 offset 공간을 가짐
-- Mark wrapper로 인해 구조가 중첩됨
-- Decorator는 시각적 표현만 담당 (selection 계산에서 제외)
+**Characteristics:**
+- Each text node has independent offset space
+- Structure is nested due to mark wrappers
+- Decorators only handle visual representation (excluded from selection calculation)
 
-### 1.3 매핑 문제
+### 1.3 Mapping Problem
 
-**문제:**
-- Model offset `10`은 어느 DOM text node의 어느 offset인가?
-- DOM text node의 offset `3`은 Model offset 몇인가?
+**Problem:**
+- Which DOM text node and which offset does Model offset `10` correspond to?
+- What is the Model offset for DOM text node offset `3`?
 
-**해결:**
-- Text Run Index를 사용하여 양방향 매핑
-- 각 text node의 Model offset 범위를 기록
+**Solution:**
+- Use Text Run Index for bidirectional mapping
+- Record Model offset range for each text node
 
-## 2. Text Run Index 알고리즘
+## 2. Text Run Index Algorithm
 
-### 2.1 데이터 구조
+### 2.1 Data Structure
 
 ```
 TextRun {
-  domTextNode: Text        // 실제 DOM text node 참조
-  start: number           // Model offset 시작 (inclusive)
-  end: number             // Model offset 끝 (exclusive)
+  domTextNode: Text        // Reference to actual DOM text node
+  start: number           // Model offset start (inclusive)
+  end: number             // Model offset end (exclusive)
 }
 
 ContainerRuns {
-  runs: TextRun[]         // 텍스트 노드 순서대로 정렬된 배열
-  total: number          // 전체 텍스트 길이 (마지막 run의 end)
-  byNode: Map<Text, {start, end}>  // 역방향 조회 맵 (선택적)
+  runs: TextRun[]         // Array sorted by text node order
+  total: number          // Total text length (last run's end)
+  byNode: Map<Text, {start, end}>  // Reverse lookup map (optional)
 }
 ```
 
-### 2.2 Text Run Index 생성 알고리즘
+### 2.2 Text Run Index Generation Algorithm
 
-**입력:**
-- `container`: `data-bc-sid` 속성을 가진 컨테이너 요소
-- `excludePredicate`: 제외할 요소 판단 함수 (decorator 등)
+**Input:**
+- `container`: Container element with `data-bc-sid` attribute
+- `excludePredicate`: Function to determine elements to exclude (decorators, etc.)
 
-**알고리즘:**
+**Algorithm:**
 
 ```
 1. runs = []
@@ -95,12 +95,12 @@ ContainerRuns {
 14.    
 15.  ELSE IF child IS Element:
 16.    IF excludePredicate(child) IS TRUE:
-17.      CONTINUE  // decorator 등 제외
+17.      CONTINUE  // Exclude decorators, etc.
 18.    
-19.    // TreeWalker로 내부의 모든 text node 수집
+19.    // Collect all text nodes inside using TreeWalker
 20.    walker = createTreeWalker(child, SHOW_TEXT, {
 21.      acceptNode: (node) => {
-22.        IF node의 부모 중 decorator가 있으면:
+22.        IF decorator exists among node's parents:
 23.          RETURN REJECT
 24.        RETURN ACCEPT
 25.      }
@@ -119,21 +119,21 @@ ContainerRuns {
 38. RETURN { runs, total, byNode }
 ```
 
-**시간 복잡도:** O(n) where n = text node 개수
+**Time Complexity:** O(n) where n = number of text nodes
 
-**공간 복잡도:** O(n)
+**Space Complexity:** O(n)
 
-### 2.3 Model Offset → DOM Offset 변환 알고리즘
+### 2.3 Model Offset → DOM Offset Conversion Algorithm
 
-**입력:**
-- `runs`: TextRun 배열 (start 기준 정렬됨)
-- `modelOffset`: Model offset 값
+**Input:**
+- `runs`: TextRun array (sorted by start)
+- `modelOffset`: Model offset value
 
-**알고리즘:**
+**Algorithm:**
 
 ```
 1. IF modelOffset < 0 OR modelOffset > runs.total:
-2.   RETURN null  // 범위 밖
+2.   RETURN null  // Out of range
 3.
 4. IF modelOffset == runs.total:
 5.   lastRun = runs[runs.length - 1]
@@ -142,7 +142,7 @@ ContainerRuns {
 8.     offset: lastRun.domTextNode.textContent.length
 9.   }
 10.
-11. // Binary Search로 적절한 run 찾기
+11. // Find appropriate run using Binary Search
 12. runIndex = binarySearchRun(runs, modelOffset)
 13. IF runIndex == -1:
 14.   RETURN null
@@ -156,7 +156,7 @@ ContainerRuns {
 22. }
 ```
 
-**Binary Search 알고리즘:**
+**Binary Search Algorithm:**
 
 ```
 binarySearchRun(runs, offset):
@@ -179,71 +179,71 @@ binarySearchRun(runs, offset):
 17. RETURN ans
 ```
 
-**시간 복잡도:** O(log n)
+**Time Complexity:** O(log n)
 
-### 2.4 DOM Offset → Model Offset 변환 알고리즘
+### 2.4 DOM Offset → Model Offset Conversion Algorithm
 
-**입력:**
-- `runs`: TextRun 배열
+**Input:**
+- `runs`: TextRun array
 - `textNode`: DOM text node
-- `domOffset`: DOM text node 내의 offset
+- `domOffset`: Offset within DOM text node
 
-**알고리즘:**
+**Algorithm:**
 
 ```
-1. // 역방향 맵 사용 (O(1))
+1. // Use reverse map (O(1))
 2. IF runs.byNode EXISTS:
 3.   runInfo = runs.byNode.get(textNode)
 4.   IF runInfo EXISTS:
 5.     RETURN runInfo.start + min(domOffset, runInfo.end - runInfo.start)
 6.
-7. // 역방향 맵이 없으면 선형 탐색 (O(n))
+7. // Linear search if reverse map doesn't exist (O(n))
 8. FOR EACH run IN runs:
 9.   IF run.domTextNode == textNode:
 10.    localOffset = min(domOffset, run.end - run.start)
 11.    RETURN run.start + localOffset
 12.
-13. RETURN 0  // 찾지 못함
+13. RETURN 0  // Not found
 ```
 
-**시간 복잡도:** O(1) (역방향 맵 사용) 또는 O(n) (선형 탐색)
+**Time Complexity:** O(1) (using reverse map) or O(n) (linear search)
 
-## 3. Selection 변환 알고리즘
+## 3. Selection Conversion Algorithm
 
-### 3.1 Model Selection → DOM Selection 변환
+### 3.1 Model Selection → DOM Selection Conversion
 
-**입력:**
+**Input:**
 - `modelSelection`: `{ startNodeId, startOffset, endNodeId, endOffset, type: 'range' }`
 
-**알고리즘:**
+**Algorithm:**
 
 ```
-1. // 1. 컨테이너 요소 찾기
+1. // 1. Find container elements
 2. startContainer = findElementBySid(modelSelection.startNodeId)
 3. endContainer = findElementBySid(modelSelection.endNodeId)
 4. 
 5. IF startContainer == null OR endContainer == null:
 6.   RETURN FAILURE
 7.
-8. // 2. 텍스트 컨테이너 찾기 (상위로 올라가며 탐색)
+8. // 2. Find text containers (search upward)
 9. startTextContainer = findBestContainer(startContainer)
 10. endTextContainer = findBestContainer(endContainer)
 11.
 12. IF startTextContainer == null OR endTextContainer == null:
 13.   RETURN FAILURE
 14.
-15. // 3. Text Run Index 생성
+15. // 3. Generate Text Run Index
 16. startRuns = buildTextRunIndex(startTextContainer)
 17. endRuns = buildTextRunIndex(endTextContainer)
 18.
-19. // 4. Model offset → DOM offset 변환
+19. // 4. Convert Model offset → DOM offset
 20. startDOMRange = findDOMRangeFromModelOffset(startRuns, modelSelection.startOffset)
 21. endDOMRange = findDOMRangeFromModelOffset(endRuns, modelSelection.endOffset)
 22.
 23. IF startDOMRange == null OR endDOMRange == null:
 24.   RETURN FAILURE
 25.
-26. // 5. DOM Selection 설정
+26. // 5. Set DOM Selection
 27. selection = window.getSelection()
 28. selection.removeAllRanges()
 29. 
@@ -255,36 +255,36 @@ binarySearchRun(runs, offset):
 35. RETURN SUCCESS
 ```
 
-**findBestContainer 알고리즘:**
+**findBestContainer Algorithm:**
 
 ```
 findBestContainer(element):
 1. current = element
 2. 
-3. // 상위로 올라가며 텍스트 컨테이너 찾기
+3. // Find text container by going upward
 4. WHILE current != null:
 5.   IF current IS text container:
 6.     RETURN current
 7.   current = current.parentElement.closest('[data-bc-sid]')
 8.
-9. // 텍스트 컨테이너가 없으면 최초 요소 반환
+9. // Return original element if no text container found
 10. IF element.getAttribute('data-bc-sid') != null:
 11.   RETURN element
 12.
 13. RETURN null
 ```
 
-### 3.2 DOM Selection → Model Selection 변환
+### 3.2 DOM Selection → Model Selection Conversion
 
-**입력:**
-- `domSelection`: 브라우저 Selection 객체
+**Input:**
+- `domSelection`: Browser Selection object
 
-**알고리즘:**
+**Algorithm:**
 
 ```
 1. range = domSelection.getRangeAt(0)
 2. 
-3. // 1. 컨테이너 요소 찾기
+3. // 1. Find container elements
 4. startContainer = findBestContainer(range.startContainer)
 5. endContainer = findBestContainer(range.endContainer)
 6. 
@@ -297,11 +297,11 @@ findBestContainer(element):
 13. IF startNodeId == null OR endNodeId == null:
 14.   RETURN { type: 'none' }
 15.
-16. // 2. Text Run Index 생성
+16. // 2. Generate Text Run Index
 17. startRuns = buildTextRunIndex(startContainer)
 18. endRuns = (startContainer == endContainer) ? startRuns : buildTextRunIndex(endContainer)
 19.
-20. // 3. DOM offset → Model offset 변환
+20. // 3. Convert DOM offset → Model offset
 21. startModelOffset = convertDOMOffsetToModelOffset(
 22.   startContainer, 
 23.   range.startContainer, 
@@ -315,10 +315,10 @@ findBestContainer(element):
 31.   endRuns
 32. )
 33.
-34. // 4. Selection 방향 결정
+34. // 4. Determine selection direction
 35. direction = determineSelectionDirection(domSelection, startContainer, endContainer, startModelOffset, endModelOffset)
 36.
-37. // 5. 통일된 ModelSelection 형식으로 정규화
+37. // 5. Normalize to unified ModelSelection format
 38. modelSelection = normalizeSelection(startNodeId, startModelOffset, endNodeId, endModelOffset)
 39.
 40. RETURN {
@@ -328,41 +328,41 @@ findBestContainer(element):
 44. }
 ```
 
-**convertDOMOffsetToModelOffset 알고리즘:**
+**convertDOMOffsetToModelOffset Algorithm:**
 
 ```
 convertDOMOffsetToModelOffset(container, domNode, domOffset, runs):
 1. IF domNode IS Text Node:
-2.   // 역방향 맵 사용
+2.   // Use reverse map
 3.   runInfo = runs.byNode.get(domNode)
 4.   IF runInfo EXISTS:
 5.     localOffset = clamp(domOffset, 0, runInfo.end - runInfo.start)
 6.     RETURN runInfo.start + localOffset
 7.   
-8.   // 역방향 맵이 없으면 binary search
-9.   // (실제로는 byNode 맵을 항상 생성하므로 이 경로는 거의 사용되지 않음)
+8.   // Binary search if reverse map doesn't exist
+9.   // (This path is rarely used as byNode map is always created)
 10.  RETURN binarySearchAndConvert(runs, domNode, domOffset)
 11.
 12. ELSE IF domNode IS Element:
-13.   // Element의 child index를 사용하여 경계 텍스트 노드 찾기
+13.   // Find boundary text node using element's child index
 14.   boundaryText = findTextAtElementBoundary(container, domNode, domOffset)
 15.   IF boundaryText != null:
 16.     runInfo = runs.byNode.get(boundaryText)
-17.     RETURN runInfo.start  // 또는 runInfo.end (경계에 따라)
+17.     RETURN runInfo.start  // or runInfo.end (depending on boundary)
 18.
 19. RETURN 0
 ```
 
-## 4. 텍스트 노드 분할 규칙
+## 4. Text Node Splitting Rules
 
-### 4.1 Mark로 인한 분할
+### 4.1 Splitting Due to Marks
 
-**규칙:**
-- 각 mark는 독립적인 wrapper 요소를 생성
-- Mark가 겹치면 중첩된 구조 생성
-- 각 wrapper 내부의 text node는 독립적으로 관리
+**Rules:**
+- Each mark creates independent wrapper element
+- Overlapping marks create nested structure
+- Text nodes inside each wrapper are managed independently
 
-**예시:**
+**Example:**
 
 ```
 Model: "bold and italic" (marks: bold[0-14], italic[0-14])
@@ -370,12 +370,12 @@ Model: "bold and italic" (marks: bold[0-14], italic[0-14])
 DOM:
 <span data-bc-sid="text-1">
   <b>
-    <i>bold and italic</i>  ← 하나의 text node
+    <i>bold and italic</i>  ← single text node
   </b>
 </span>
 ```
 
-**중첩된 경우:**
+**Nested Case:**
 
 ```
 Model: "bold and italic" (marks: bold[0-9], italic[9-14])
@@ -387,120 +387,120 @@ DOM:
 </span>
 ```
 
-### 4.2 Decorator로 인한 분할
+### 4.2 Splitting Due to Decorators
 
-**규칙:**
-- Decorator는 시각적 표현만 담당
-- Selection 계산에서 제외됨
-- Decorator 하위의 text node는 수집하지 않음
+**Rules:**
+- Decorators only handle visual representation
+- Excluded from selection calculation
+- Don't collect text nodes under decorators
 
-**예시:**
+**Example:**
 
 ```
 <span data-bc-sid="text-1">
-  <span data-decorator-sid="dec-1">decorator</span>  ← 제외
-  <b>bold</b>                                         ← 포함
+  <span data-decorator-sid="dec-1">decorator</span>  ← excluded
+  <b>bold</b>                                         ← included
 </span>
 ```
 
-### 4.3 Text Run Index 생성 시 고려사항
+### 4.3 Considerations When Generating Text Run Index
 
-**포함:**
-- `data-bc-sid` 직접 자식인 text node
-- Mark wrapper 내부의 text node
-- 중첩된 mark 구조의 모든 text node
+**Include:**
+- Text nodes that are direct children of `data-bc-sid`
+- Text nodes inside mark wrappers
+- All text nodes in nested mark structures
 
-**제외:**
-- Decorator 하위의 text node
-- `data-bc-decorator` 속성을 가진 요소 하위
-- `data-decorator-sid` 속성을 가진 요소 하위
+**Exclude:**
+- Text nodes under decorators
+- Elements with `data-bc-decorator` attribute and their children
+- Elements with `data-decorator-sid` attribute and their children
 
-## 5. Selection 동기화 타이밍
+## 5. Selection Synchronization Timing
 
-### 5.1 Model → DOM 동기화 타이밍
+### 5.1 Model → DOM Synchronization Timing
 
-**문제:**
-- 렌더링이 완료되기 전에 selection을 적용하면 DOM이 아직 업데이트되지 않음
-- Text Run Index가 오래된 DOM을 기반으로 생성될 수 있음
+**Problem:**
+- Applying selection before rendering completes means DOM not yet updated
+- Text Run Index may be generated based on stale DOM
 
-**해결:**
+**Solution:**
 
 ```
-1. Model 변경 발생
+1. Model change occurs
    ↓
-2. Transaction 실행
+2. Execute transaction
    ↓
-3. selectionAfter 계산
+3. Calculate selectionAfter
    ↓
 4. editor.updateSelection(selectionAfter)
    ↓
-5. _pendingModelSelection에 저장
+5. Store in _pendingModelSelection
    ↓
-6. render() 호출
+6. Call render()
    ↓
-7. reconcile() 실행 (DOM 업데이트)
+7. Execute reconcile() (DOM update)
    ↓
-8. reconcile 완료 콜백 호출
+8. Call reconcile completion callback
    ↓
-9. applyModelSelectionWithRetry() 실행
+9. Execute applyModelSelectionWithRetry()
    ↓
-10. Text Run Index 생성 (최신 DOM 기반)
+10. Generate Text Run Index (based on latest DOM)
     ↓
-11. DOM Selection 적용
+11. Apply DOM Selection
 ```
 
-**핵심:** 렌더링 완료 후에만 selection 적용
+**Core:** Apply selection only after rendering completes
 
-### 5.2 DOM → Model 동기화 타이밍
+### 5.2 DOM → Model Synchronization Timing
 
-**문제:**
-- 프로그래밍 방식의 selection 변경도 `selectionchange` 이벤트를 발생시킴
-- 무한 루프 방지 필요
+**Problem:**
+- Programmatic selection changes also trigger `selectionchange` event
+- Need to prevent infinite loop
 
-**해결:**
+**Solution:**
 
 ```
-1. DOM Selection 변경
+1. DOM Selection changes
    ↓
-2. selectionchange 이벤트 발생
+2. selectionchange event occurs
    ↓
-3. _isProgrammaticChange 플래그 확인
+3. Check _isProgrammaticChange flag
    ↓
 4. IF _isProgrammaticChange == true:
-      RETURN  // 무시
+      RETURN  // Ignore
    ↓
 5. convertDOMSelectionToModel()
    ↓
 6. editor.updateSelection(modelSelection)
    ↓
-7. _isProgrammaticChange = false (다음 이벤트 루프에서)
+7. _isProgrammaticChange = false (in next event loop)
 ```
 
-**핵심:** 프로그래밍 방식 변경과 사용자 변경 구분
+**Core:** Distinguish programmatic changes from user changes
 
-## 6. 성능 최적화
+## 6. Performance Optimization
 
-### 6.1 Text Run Index 생성 전략
+### 6.1 Text Run Index Generation Strategy
 
-**현재 전략: 캐시 없이 매번 새로 생성**
+**Current Strategy: Generate new each time without cache**
 
-**이유:**
-- DOM이 변경되면 Text Run Index도 무효화되어야 함
-- 캐시 무효화 로직이 복잡함 (어떤 요소가 변경되었는지 추적 필요)
-- Text Run Index 생성 비용이 크지 않음:
-  - 일반적으로 inline-text 노드 하나당 text run은 몇 개 정도
-  - TreeWalker 순회는 O(n) where n = text node 개수
-  - Selection 변환은 사용자 입력 시점에만 발생하므로 빈도가 높지 않음
+**Reasons:**
+- Text Run Index must be invalidated when DOM changes
+- Cache invalidation logic is complex (need to track which elements changed)
+- Text Run Index generation cost is not high:
+  - Generally a few text runs per inline-text node
+  - TreeWalker traversal is O(n) where n = number of text nodes
+  - Selection conversion only occurs at user input time, so frequency is not high
 
-**구현:**
+**Implementation:**
 
 ```
 getTextRunsForContainer(container):
   containerId = container.getAttribute('data-bc-sid')
   
-  // 매번 새로 생성 (캐시 사용 안 함)
+  // Generate new each time (no cache)
   runs = buildTextRunIndex(container, containerId, {
-    buildReverseMap: true,      // 역방향 맵 생성
+    buildReverseMap: true,      // Generate reverse map
     excludePredicate: isDecorator,
     normalizeWhitespace: false
   })
@@ -508,56 +508,56 @@ getTextRunsForContainer(container):
   RETURN runs
 ```
 
-**성능 분석:**
-- Text Run Index 생성: O(n) where n = text node 개수
-- 일반적인 inline-text 노드: text run 1~5개 정도
-- Selection 변환 빈도: 사용자 입력 시점에만 발생 (낮음)
-- 결론: 캐시 없이도 충분히 빠름
+**Performance Analysis:**
+- Text Run Index generation: O(n) where n = number of text nodes
+- Typical inline-text node: about 1~5 text runs
+- Selection conversion frequency: Only occurs at user input time (low)
+- Conclusion: Fast enough without cache
 
-**캐싱을 고려할 경우:**
-- Reconcile 완료 시점에 변경된 요소의 캐시만 무효화
-- MutationObserver와 연동하여 DOM 변경 감지 시 자동 무효화
-- 하지만 현재는 복잡도 대비 이점이 크지 않아 캐시를 사용하지 않음
+**If Considering Caching:**
+- Invalidate cache only for changed elements at reconcile completion
+- Integrate with MutationObserver for automatic invalidation on DOM changes
+- But currently not using cache as benefits don't outweigh complexity
 
-### 6.2 역방향 맵 사용
+### 6.2 Reverse Map Usage
 
-**전략:**
-- Text node → Model offset 범위 매핑
-- O(1) 조회 가능 (선형 탐색 O(n) 대비)
+**Strategy:**
+- Map text node → Model offset range
+- O(1) lookup possible (vs linear search O(n))
 
-**구현:**
+**Implementation:**
 
 ```
 byNode = Map<Text, { start: number, end: number }>()
 
-// 생성 시
+// On creation
 FOR EACH run IN runs:
   byNode.set(run.domTextNode, { start: run.start, end: run.end })
 
-// 조회 시
+// On lookup
 convertDOMOffsetToModelOffset(textNode, domOffset):
   runInfo = byNode.get(textNode)  // O(1)
   IF runInfo:
     RETURN runInfo.start + clamp(domOffset, 0, runInfo.end - runInfo.start)
 ```
 
-**현재 구현 상태:**
-- ✅ `buildReverseMap: true` 옵션으로 생성됨
-- ✅ `getTextRunsForContainer`에서 항상 역방향 맵 생성
-- ✅ `convertDOMOffsetToModelOffset`에서 활용됨
+**Current Implementation Status:**
+- ✅ Generated with `buildReverseMap: true` option
+- ✅ Always generates reverse map in `getTextRunsForContainer`
+- ✅ Used in `convertDOMOffsetToModelOffset`
 
-**성능 비교:**
-- 역방향 맵 사용: O(1)
-- 선형 탐색: O(n) where n = text run 개수
-- Binary Search: O(log n) (Model offset → DOM offset 변환 시)
+**Performance Comparison:**
+- Reverse map usage: O(1)
+- Linear search: O(n) where n = number of text runs
+- Binary Search: O(log n) (for Model offset → DOM offset conversion)
 
-### 6.3 Binary Search 활용
+### 6.3 Binary Search Utilization
 
-**전략:**
-- TextRun 배열은 start 기준 정렬됨
-- Model offset → DOM offset 변환 시 O(log n)
+**Strategy:**
+- TextRun array is sorted by start
+- O(log n) for Model offset → DOM offset conversion
 
-**구현:**
+**Implementation:**
 
 ```
 binarySearchRun(runs, modelOffset):
@@ -573,72 +573,72 @@ binarySearchRun(runs, modelOffset):
     ELSE IF modelOffset >= run.end:
       lo = mid + 1
     ELSE:
-      RETURN mid  // 찾음
+      RETURN mid  // Found
   
-  RETURN -1  // 찾지 못함
+  RETURN -1  // Not found
 ```
 
-**현재 구현 상태:**
-- ✅ `binarySearchRun` 함수 구현됨
-- ✅ `findDOMRangeFromModelOffset`에서 활용됨
+**Current Implementation Status:**
+- ✅ `binarySearchRun` function implemented
+- ✅ Used in `findDOMRangeFromModelOffset`
 
-**성능 비교:**
+**Performance Comparison:**
 - Binary Search: O(log n)
-- 선형 탐색: O(n)
+- Linear search: O(n)
 
-### 6.2 추가 최적화 방안
+### 6.2 Additional Optimization Approaches
 
-#### 6.2.1 Lazy Text Run Index 생성
+#### 6.2.1 Lazy Text Run Index Generation
 
-**전략:**
-- Selection 변환이 필요할 때만 생성
-- 불필요한 생성 방지
+**Strategy:**
+- Generate only when selection conversion needed
+- Prevent unnecessary generation
 
-**현재 상태:**
-- ✅ 이미 구현됨 (요청 시 생성)
+**Current Status:**
+- ✅ Already implemented (generate on demand)
 
-#### 6.2.2 Incremental 업데이트 (향후 개선)
+#### 6.2.2 Incremental Update (Future Improvement)
 
-**전략:**
-- DOM 변경이 작은 경우 전체 재생성 대신 증분 업데이트
-- 복잡도가 높아 현재는 전체 재생성 사용
+**Strategy:**
+- Incremental update instead of full regeneration for small DOM changes
+- Currently using full regeneration due to high complexity
 
-**향후 개선 방안:**
-- Text node 추가/삭제만 감지하여 해당 run만 업데이트
-- Mark 변경으로 인한 구조 변경은 전체 재생성 유지
-- 하지만 현재는 생성 비용이 낮아 전체 재생성으로 충분함
+**Future Improvement Approaches:**
+- Detect only text node additions/deletions and update only that run
+- Keep full regeneration for structure changes due to mark changes
+- But currently generation cost is low, so full regeneration is sufficient
 
-## 7. 엣지 케이스 처리
+## 7. Edge Case Handling
 
-### 7.1 빈 텍스트 노드
+### 7.1 Empty Text Nodes
 
-**처리:**
-- `textContent.length == 0`인 text node는 skip
-- Run에 포함하지 않음
+**Handling:**
+- Skip text nodes where `textContent.length == 0`
+- Don't include in runs
 
-### 7.2 범위 밖 offset
+### 7.2 Out-of-Range Offset
 
-**처리:**
-- `modelOffset < 0`: 첫 번째 run의 start로 클램프
-- `modelOffset > total`: 마지막 run의 end로 클램프
+**Handling:**
+- `modelOffset < 0`: Clamp to first run's start
+- `modelOffset > total`: Clamp to last run's end
 
-### 7.3 여러 노드에 걸친 Selection
+### 7.3 Selection Spanning Multiple Nodes
 
-**처리:**
-- startNodeId와 endNodeId가 다른 경우
-- 각각 독립적으로 Text Run Index 생성
-- 각각 Model offset → DOM offset 변환
+**Handling:**
+- When startNodeId and endNodeId differ
+- Generate Text Run Index independently for each
+- Convert Model offset → DOM offset for each
 
-### 7.4 Collapsed Selection (커서)
+### 7.4 Collapsed Selection (Cursor)
 
-**처리:**
-- `startOffset == endOffset`인 경우
-- start와 end가 같은 DOM 위치로 변환
-- `range.collapsed = true`로 설정
+**Handling:**
+- When `startOffset == endOffset`
+- Convert start and end to same DOM position
+- Set `range.collapsed = true`
 
-## 8. 데이터 흐름 다이어그램
+## 8. Data Flow Diagrams
 
-### 8.1 전체 흐름
+### 8.1 Complete Flow
 
 ```
 ┌─────────────┐
@@ -659,27 +659,27 @@ binarySearchRun(runs, modelOffset):
 │ _pendingSelection │
 └──────┬───────────┘
        │
-       │ render() 완료 후
+       │ After render() completes
        ↓
 ┌──────────────────┐
 │ Text Run Index   │
-│    생성          │
+│    Generation    │
 └──────┬───────────┘
        │
        │ Model offset → DOM offset
        ↓
 ┌──────────────────┐
 │  DOM Selection   │
-│     적용         │
+│     Applied      │
 └──────────────────┘
 ```
 
-### 8.2 역방향 흐름
+### 8.2 Reverse Flow
 
 ```
 ┌──────────────────┐
 │  DOM Selection   │
-│   (사용자 변경)   │
+│  (User Change)   │
 └──────┬───────────┘
        │
        │ selectionchange
@@ -688,7 +688,7 @@ binarySearchRun(runs, modelOffset):
 │ SelectionHandler │
 └──────┬───────────┘
        │
-       │ Text Run Index 생성
+       │ Generate Text Run Index
        ↓
 ┌──────────────────┐
 │ DOM offset →     │
@@ -703,25 +703,25 @@ binarySearchRun(runs, modelOffset):
 └─────────────┘
 ```
 
-## 9. 핵심 원칙
+## 9. Core Principles
 
-### 9.1 단일 진실의 원천 (Single Source of Truth)
+### 9.1 Single Source of Truth
 
-- **Model이 진실의 원천**: 모든 selection 상태는 Model에 저장
-- **DOM은 표현**: DOM selection은 Model selection의 시각적 표현일 뿐
+- **Model is source of truth**: All selection state stored in Model
+- **DOM is representation**: DOM selection is just visual representation of Model selection
 
-### 9.2 일관성 보장
+### 9.2 Consistency Guarantee
 
-- **통일된 형식**: 모든 selection은 `{ startNodeId, startOffset, endNodeId, endOffset }` 형식 사용
-- **양방향 변환**: Model ↔ DOM 변환이 항상 가능해야 함
+- **Unified format**: All selections use `{ startNodeId, startOffset, endNodeId, endOffset }` format
+- **Bidirectional conversion**: Model ↔ DOM conversion must always be possible
 
-### 9.3 타이밍 관리
+### 9.3 Timing Management
 
-- **렌더링 완료 후 적용**: DOM이 업데이트된 후에만 selection 적용
-- **프로그래밍 변경 구분**: 무한 루프 방지
+- **Apply after rendering completes**: Apply selection only after DOM is updated
+- **Distinguish programmatic changes**: Prevent infinite loop
 
-### 9.4 정확성 우선
+### 9.4 Accuracy First
 
-- **trim() 사용 안 함**: 실제 DOM offset과 정확히 매칭
-- **모든 text node 수집**: mark/decorator로 분할된 모든 text node 포함
+- **Don't use trim()**: Match actual DOM offset exactly
+- **Collect all text nodes**: Include all text nodes split by marks/decorators
 

@@ -1,27 +1,27 @@
-# Batching과 Fiber 구현 개념
+# Batching and Fiber Implementation Concepts
 
-## 개요
+## Overview
 
-Batching과 Fiber를 우리 시스템에 어떻게 구현할 수 있는지 구체적인 개념과 코드 예시를 설명합니다.
-
----
-
-## 1. Batching 구현
-
-### 개념
-
-**목적**: 여러 업데이트를 모아서 한 번에 처리하여 불필요한 reconcile을 줄임
-
-**핵심 아이디어**:
-1. 업데이트를 큐에 모음
-2. 다음 프레임에서 배치로 처리
-3. 마지막 업데이트만 사용 (이전 업데이트는 무시)
+This document explains how we can implement Batching and Fiber in our system with concrete concepts and code examples.
 
 ---
 
-### 구현 방법
+## 1. Batching Implementation
 
-#### Step 1: UpdateQueue 클래스 생성
+### Concept
+
+**Goal**: Collect multiple updates and process them at once to reduce unnecessary reconciliation.
+
+**Key ideas**:
+1. Gather updates into a queue
+2. Process as a batch on the next frame
+3. Use only the latest update (drop earlier ones)
+
+---
+
+### Implementation Approach
+
+#### Step 1: Create UpdateQueue class
 
 ```typescript
 // packages/renderer-dom/src/reconcile/batching.ts
@@ -44,31 +44,31 @@ export class UpdateQueue {
   }
   
   /**
-   * 업데이트를 큐에 추가
-   * 여러 번 호출되어도 다음 프레임에서 한 번만 처리
+   * Enqueue an update
+   * Even if called multiple times, process only once in next frame
    */
   enqueue(update: PendingUpdate): void {
-    // 같은 container의 이전 업데이트를 제거 (마지막 것만 유지)
+    // Remove previous updates for same container (keep the latest)
     this.queue = this.queue.filter(u => u.container !== update.container);
     this.queue.push(update);
     
-    // 아직 스케줄되지 않았으면 스케줄
+    // Schedule if not scheduled yet
     if (!this.scheduled) {
       this.scheduled = true;
-      // 다음 프레임에서 배치 처리
+      // Batch process in next frame
       requestAnimationFrame(() => this.process());
     }
   }
   
   /**
-   * 큐에 있는 모든 업데이트를 처리
+   * Process all updates in the queue
    */
   private process(): void {
     this.scheduled = false;
     
     if (this.queue.length === 0) return;
     
-    // 모든 업데이트를 처리
+    // Process all updates
     const updates = [...this.queue];
     this.queue = [];
     
@@ -84,12 +84,12 @@ export class UpdateQueue {
   }
   
   /**
-   * 강제로 즉시 처리 (테스트용 또는 긴급한 경우)
+   * Force immediate processing (for tests or urgent cases)
    */
   flush(): void {
     if (this.scheduled) {
-      // requestAnimationFrame 취소는 불가능하므로
-      // process를 즉시 호출하고 scheduled 플래그를 false로
+      // Cannot cancel requestAnimationFrame
+      // Call process immediately and reset scheduled flag
       this.scheduled = false;
     }
     this.process();
@@ -99,14 +99,14 @@ export class UpdateQueue {
 
 ---
 
-#### Step 2: Reconciler에 Batching 통합
+#### Step 2: Integrate Batching into Reconciler
 
 ```typescript
 // packages/renderer-dom/src/reconcile/reconciler.ts
 
 export class Reconciler {
   private updateQueue: UpdateQueue;
-  private batchingEnabled: boolean = true; // 기본값: 활성화
+  private batchingEnabled: boolean = true; // default: enabled
   
   constructor(
     private registry: RendererRegistry,
@@ -114,13 +114,13 @@ export class Reconciler {
     private dom: DOMOperations,
     private components: ComponentManager
   ) {
-    // UpdateQueue 생성 (자기 자신을 전달)
+    // Create UpdateQueue (pass self)
     this.updateQueue = new UpdateQueue(this);
   }
   
   /**
-   * Batching을 사용하여 reconcile
-   * 여러 번 호출되어도 다음 프레임에서 한 번만 처리
+   * Reconcile using batching
+   * Even if called multiple times, process once next frame
    */
   reconcile(
     container: HTMLElement,
@@ -129,7 +129,7 @@ export class Reconciler {
     runtime?: RuntimeCtx,
     decorators?: any[]
   ): void {
-    // Batching이 활성화되어 있으면 큐에 추가
+    // If batching enabled, enqueue
     if (this.batchingEnabled) {
       this.updateQueue.enqueue({
         container,
@@ -141,13 +141,13 @@ export class Reconciler {
       return;
     }
     
-    // Batching이 비활성화되어 있으면 즉시 처리
+    // If batching disabled, process immediately
     this.reconcileImmediate(container, vnode, model, runtime, decorators);
   }
   
   /**
-   * 즉시 reconcile (내부 메서드)
-   * Batching을 사용하지 않고 바로 처리
+   * Immediate reconcile (internal)
+   * Process without batching
    */
   private reconcileImmediate(
     container: HTMLElement,
@@ -156,19 +156,19 @@ export class Reconciler {
     runtime?: RuntimeCtx,
     decorators?: any[]
   ): void {
-    // 기존 reconcile 로직
-    // ... (현재 reconcile 메서드의 내용)
+    // Existing reconcile logic
+    // ... (current reconcile content)
   }
   
   /**
-   * Batching 활성화/비활성화
+   * Enable/disable batching
    */
   setBatchingEnabled(enabled: boolean): void {
     this.batchingEnabled = enabled;
   }
   
   /**
-   * 큐에 있는 업데이트를 강제로 즉시 처리
+   * Force process queued updates immediately
    */
   flush(): void {
     this.updateQueue.flush();
@@ -178,7 +178,7 @@ export class Reconciler {
 
 ---
 
-#### Step 3: DOMRenderer에서 사용
+#### Step 3: Use from DOMRenderer
 
 ```typescript
 // packages/renderer-dom/src/dom-renderer.ts
@@ -192,16 +192,16 @@ export class DOMRenderer {
     decorators: Decorator[] = [],
     runtime?: Record<string, any>
   ): void {
-    // VNode 빌드
+    // Build VNode
     const vnode = this.builder.build(model.stype, model, { decorators });
     
-    // Reconciler의 reconcile 호출 (내부적으로 Batching 처리)
+    // Call reconciler.reconcile (handles batching internally)
     this.reconciler.reconcile(container, vnode, model, runtime, decorators);
-    // → 여러 번 호출되어도 다음 프레임에서 한 번만 처리됨
+    // → Even if called multiple times, processed once next frame
   }
   
   /**
-   * 강제로 즉시 렌더링 (Batching 우회)
+   * Force immediate render (bypass batching)
    */
   renderImmediate(
     container: HTMLElement,
@@ -209,18 +209,18 @@ export class DOMRenderer {
     decorators: Decorator[] = [],
     runtime?: Record<string, any>
   ): void {
-    // Batching 비활성화
+    // Disable batching
     this.reconciler.setBatchingEnabled(false);
     
-    // 렌더링
+    // Render
     this.render(container, model, decorators, runtime);
     
-    // Batching 다시 활성화
+    // Re-enable batching
     this.reconciler.setBatchingEnabled(true);
   }
   
   /**
-   * 큐에 있는 업데이트를 강제로 즉시 처리
+   * Force immediate processing of queued updates
    */
   flush(): void {
     this.reconciler.flush();
@@ -230,80 +230,80 @@ export class DOMRenderer {
 
 ---
 
-### 사용 예시
+### Usage
 
 ```typescript
-// 빠른 연속 업데이트
-renderer.render(container, model1); // 큐에 추가
-renderer.render(container, model2); // 큐에 추가 (model1 제거)
-renderer.render(container, model3); // 큐에 추가 (model2 제거)
-// → 다음 프레임에서 model3만 reconcile (1번)
+// Rapid consecutive updates
+renderer.render(container, model1); // enqueue
+renderer.render(container, model2); // enqueue (drops model1)
+renderer.render(container, model3); // enqueue (drops model2)
+// → Next frame reconciles only model3 (once)
 
-// 강제로 즉시 처리
-renderer.flush(); // 큐에 있는 모든 업데이트 즉시 처리
+// Force immediate processing
+renderer.flush(); // process all queued updates immediately
 ```
 
 ---
 
-### 장단점
+### Pros / Cons
 
-**장점**:
-- ✅ 불필요한 reconcile 감소
-- ✅ 깜빡임 제거
-- ✅ 성능 향상
+**Pros**:
+- ✅ Reduce unnecessary reconcile
+- ✅ Remove flicker
+- ✅ Improve performance
 
-**단점**:
-- ⚠️ 지연 시간 증가 (다음 프레임까지 대기)
-- ⚠️ 복잡도 증가 (큐 관리)
-
----
-
-## 2. Fiber Architecture 구현
-
-### 개념
-
-**목적**: 큰 트리를 작은 단위로 나눠서 처리하여 브라우저가 멈추지 않도록 함
-
-**핵심 아이디어**:
-1. VNode 트리를 Fiber 트리로 변환
-2. 작업을 작은 단위로 분할
-3. 브라우저가 다른 작업을 처리할 수 있도록 yield
-4. 다음 프레임에서 계속 처리
+**Cons**:
+- ⚠️ Adds latency (wait until next frame)
+- ⚠️ Adds complexity (queue management)
 
 ---
 
-### 구현 방법
+## 2. Fiber Architecture Implementation
 
-#### Step 1: Fiber Node 구조
+### Concept
+
+**Goal**: Split large trees into small units so the browser doesn’t freeze.
+
+**Key ideas**:
+1. Convert VNode tree to Fiber tree
+2. Break work into small units
+3. Yield to let browser handle other tasks
+4. Continue next frame
+
+---
+
+### Implementation Details
+
+#### Step 1: Fiber Node structure
 
 ```typescript
 // packages/renderer-dom/src/reconcile/fiber.ts
 
 interface FiberNode {
-  // VNode 정보
+  // VNode info
   vnode: VNode;
   prevVNode: VNode | undefined;
   
-  // DOM 정보
+  // DOM info
   domElement: HTMLElement | null;
   parent: HTMLElement;
   
-  // Fiber 트리 구조
-  parent: FiberNode | null;      // 부모 Fiber
-  child: FiberNode | null;         // 첫 번째 자식 Fiber
-  sibling: FiberNode | null;       // 다음 형제 Fiber
-  return: FiberNode | null;        // 작업 완료 후 돌아갈 Fiber (보통 parent와 같음)
+  // Fiber tree structure
+  parent: FiberNode | null;      // parent fiber
+  child: FiberNode | null;         // first child fiber
+  sibling: FiberNode | null;       // next sibling fiber
+  return: FiberNode | null;        // fiber to return to after work (usually parent)
   
-  // 작업 상태
+  // Work state
   effectTag: 'PLACEMENT' | 'UPDATE' | 'DELETION' | null;
-  alternate: FiberNode | null;     // 이전 Fiber (diffing용)
+  alternate: FiberNode | null;     // previous fiber (for diffing)
   
-  // 컨텍스트
+  // Context
   context: any;
 }
 
 /**
- * VNode 트리를 Fiber 트리로 변환
+ * Convert VNode tree to Fiber tree
  */
 function createFiberTree(
   parent: HTMLElement,
@@ -326,7 +326,7 @@ function createFiberTree(
     context
   };
   
-  // 자식 Fiber 생성
+  // Create child fibers
   if (vnode.children && vnode.children.length > 0) {
     let prevSibling: FiberNode | null = null;
     
@@ -335,7 +335,7 @@ function createFiberTree(
       
       if (typeof child === 'object' && child !== null) {
         const childFiber = createFiberTree(
-          parent, // 실제 parent는 reconcile 후 결정
+          parent, // actual parent decided after reconcile
           child as VNode,
           prevVNode?.children?.[i] as VNode | undefined,
           context,
@@ -359,7 +359,7 @@ function createFiberTree(
 
 ---
 
-#### Step 2: 작업 루프 (Work Loop)
+#### Step 2: Work Loop
 
 ```typescript
 // packages/renderer-dom/src/reconcile/fiber-scheduler.ts
@@ -369,7 +369,7 @@ export class FiberScheduler {
   private nextUnitOfWork: FiberNode | null = null;
   private reconciler: Reconciler;
   
-  // 시간 제한 (5ms마다 yield)
+  // Time slice (yield every ~5ms)
   private timeSlice = 5; // milliseconds
   
   constructor(reconciler: Reconciler) {
@@ -377,7 +377,7 @@ export class FiberScheduler {
   }
   
   /**
-   * Fiber 작업 시작
+   * Start fiber work
    */
   scheduleWork(rootFiber: FiberNode): void {
     this.nextUnitOfWork = rootFiber;
@@ -385,52 +385,52 @@ export class FiberScheduler {
   }
   
   /**
-   * 작업 루프
-   * 작은 단위로 작업을 처리하고 yield
+   * Work loop
+   * Process small units and yield
    */
   private workLoop(): void {
     const startTime = performance.now();
     
     while (this.nextUnitOfWork && this.shouldYield(startTime)) {
-      // 단위 작업 수행
+      // Do a unit of work
       this.nextUnitOfWork = this.performUnitOfWork(this.nextUnitOfWork);
     }
     
-    // 아직 작업이 남아있으면 다음 프레임에서 계속
+    // If work remains, continue next frame
     if (this.nextUnitOfWork) {
       requestIdleCallback(() => this.workLoop(), { timeout: 5 });
     } else {
-      // 모든 작업 완료
+      // All work done
       this.commitWork();
     }
   }
   
   /**
-   * 시간 제한 체크
+   * Check time slice
    */
   private shouldYield(startTime: number): boolean {
     return performance.now() - startTime < this.timeSlice;
   }
   
   /**
-   * 단위 작업 수행
-   * 하나의 Fiber를 reconcile하고 다음 Fiber 반환
+   * Perform one unit of work
+   * Reconcile one Fiber and return the next Fiber
    */
   private performUnitOfWork(fiber: FiberNode): FiberNode | null {
-    // 1. 현재 Fiber reconcile
+    // 1. Reconcile current Fiber
     this.reconcileFiber(fiber);
     
-    // 2. 자식이 있으면 자식 반환 (다음 작업)
+    // 2. If child exists, go child (next work)
     if (fiber.child) {
       return fiber.child;
     }
     
-    // 3. 형제가 있으면 형제 반환
+    // 3. If sibling exists, go sibling
     if (fiber.sibling) {
       return fiber.sibling;
     }
     
-    // 4. 부모로 돌아가서 형제 찾기
+    // 4. Walk up to parent to find sibling
     let nextFiber = fiber.return;
     while (nextFiber) {
       if (nextFiber.sibling) {
@@ -439,39 +439,39 @@ export class FiberScheduler {
       nextFiber = nextFiber.return;
     }
     
-    return null; // 완료
+    return null; // done
   }
   
   /**
    * Fiber reconcile
    */
   private reconcileFiber(fiber: FiberNode): void {
-    // 기존 reconcileVNodeChildren 로직 사용
-    // 하지만 DOM에 즉시 반영하지 않고 effectTag만 설정
+    // Use existing reconcileVNodeChildren logic
+    // But do not commit to DOM immediately; only set effectTag
     if (!fiber.domElement) {
-      // 새로 생성해야 함
+      // Needs creation
       fiber.effectTag = 'PLACEMENT';
     } else if (fiber.vnode !== fiber.prevVNode) {
-      // 업데이트 필요
+      // Needs update
       fiber.effectTag = 'UPDATE';
     }
     
-    // children은 나중에 처리 (performUnitOfWork에서)
+    // Children handled later in performUnitOfWork
   }
   
   /**
-   * 모든 작업 완료 후 DOM에 반영
+   * Apply to DOM after all work completes
    */
   private commitWork(): void {
-    // Fiber 트리를 순회하면서 effectTag에 따라 DOM 조작
-    // 이 부분은 기존 reconcile 로직과 유사
+    // Traverse Fiber tree and manipulate DOM by effectTag
+    // Similar to existing reconcile logic
   }
 }
 ```
 
 ---
 
-#### Step 3: Reconciler에 Fiber 통합
+#### Step 3: Integrate Fiber into Reconciler
 
 ```typescript
 // packages/renderer-dom/src/reconcile/reconciler.ts
@@ -481,11 +481,11 @@ export class Reconciler {
   private fiberEnabled: boolean = false;
   
   constructor(...) {
-    // Fiber는 선택적이므로 기본값은 false
+    // Fiber is optional; default false
   }
   
   /**
-   * Fiber를 사용하여 reconcile
+   * Reconcile using Fiber
    */
   reconcile(
     container: HTMLElement,
@@ -502,7 +502,7 @@ export class Reconciler {
   }
   
   /**
-   * Fiber를 사용한 reconcile
+   * Reconcile with Fiber
    */
   private reconcileWithFiber(
     container: HTMLElement,
@@ -511,11 +511,11 @@ export class Reconciler {
     runtime?: RuntimeCtx,
     decorators?: any[]
   ): void {
-    // 1. Fiber 트리 생성
+    // 1. Create Fiber tree
     const context = this.buildContext(runtime, decorators);
     const rootFiber = createFiberTree(container, vnode, undefined, context);
     
-    // 2. Fiber Scheduler로 작업 시작
+    // 2. Start work via Fiber Scheduler
     if (!this.fiberScheduler) {
       this.fiberScheduler = new FiberScheduler(this);
     }
@@ -524,7 +524,7 @@ export class Reconciler {
   }
   
   /**
-   * Fiber 활성화/비활성화
+   * Enable/disable Fiber
    */
   setFiberEnabled(enabled: boolean): void {
     this.fiberEnabled = enabled;
@@ -534,71 +534,71 @@ export class Reconciler {
 
 ---
 
-### Fiber 동작 흐름
+### Fiber Flow
 
 ```
-1. reconcile 호출
+1. Call reconcile
    ↓
-2. VNode 트리를 Fiber 트리로 변환
+2. Convert VNode tree to Fiber tree
    ↓
-3. Fiber Scheduler가 작업 시작
+3. Fiber Scheduler starts work
    ↓
-4. workLoop 시작
+4. Start workLoop
    ↓
-5. performUnitOfWork (5ms 동안)
+5. performUnitOfWork (for ~5ms)
    - Fiber 1 reconcile
    - Fiber 2 reconcile
    - ...
-   - 5ms 경과 → yield
+   - After 5ms → yield
    ↓
-6. 브라우저가 다른 작업 처리 (사용자 입력, 애니메이션)
+6. Browser handles other tasks (user input, animations)
    ↓
-7. 다음 프레임에서 workLoop 계속
+7. Continue workLoop next frame
    ↓
-8. 모든 Fiber 처리 완료
+8. Finish all Fibers
    ↓
-9. commitWork (DOM에 반영)
+9. commitWork (apply to DOM)
 ```
 
 ---
 
-### 장단점
+### Pros / Cons
 
-**장점**:
-- ✅ 큰 트리에서도 브라우저가 멈추지 않음
-- ✅ 사용자 입력이 즉시 반응
-- ✅ 애니메이션이 부드럽게 동작
+**Pros**:
+- ✅ Browser doesn’t freeze on large trees
+- ✅ User input stays responsive
+- ✅ Animations remain smooth
 
-**단점**:
-- ⚠️ 복잡도 증가 (Fiber 트리 관리)
-- ⚠️ 오버헤드 발생 (작은 트리에서는 오히려 느릴 수 있음)
-- ⚠️ 구현 난이도 높음
-
----
-
-## 3. Batching + Fiber 조합
-
-### 개념
-
-Batching과 Fiber를 함께 사용하면:
-1. 여러 업데이트를 배치로 모음 (Batching)
-2. 배치된 업데이트를 작은 단위로 처리 (Fiber)
+**Cons**:
+- ⚠️ Increased complexity (Fiber tree management)
+- ⚠️ Overhead (may be slower on small trees)
+- ⚠️ Higher implementation difficulty
 
 ---
 
-### 구현 예시
+## 3. Batching + Fiber Combination
+
+### Concept
+
+Using Batching and Fiber together:
+1. Batch multiple updates (Batching)
+2. Process the batched update in small units (Fiber)
+
+---
+
+### Implementation example
 
 ```typescript
-// UpdateQueue에서 Fiber 사용
+// Use Fiber inside UpdateQueue
 class UpdateQueue {
   process(): void {
     const updates = [...this.queue];
     this.queue = [];
     
-    // 마지막 업데이트만 사용
+    // Use only the last update
     const lastUpdate = updates[updates.length - 1];
     
-    // Fiber를 사용하여 처리
+    // Process with Fiber
     if (this.reconciler.isFiberEnabled()) {
       this.reconciler.reconcileWithFiber(
         lastUpdate.container,
@@ -616,74 +616,74 @@ class UpdateQueue {
 
 ---
 
-## 4. 실제 적용 전략
+## 4. Practical Rollout Strategy
 
-### Phase 1: Batching만 적용 (1-2일)
+### Phase 1: Apply Batching only (1-2 days)
 
-**이유**:
-- 구현이 간단함
-- 즉시 효과를 볼 수 있음
-- 대부분의 경우 충분함
+**Why**:
+- Simple to implement
+- Immediate benefit
+- Enough for most cases
 
-**구현**:
-1. `UpdateQueue` 클래스 생성
-2. `Reconciler`에 Batching 통합
-3. `DOMRenderer`에서 사용
-
----
-
-### Phase 2: Fiber 적용 (나중에, 필요할 때)
-
-**조건**:
-- 500+ 노드의 큰 트리를 다룰 때
-- 사용자 입력이 중요한 경우
-- 성능 문제가 발생할 때
-
-**구현**:
-1. `FiberNode` 인터페이스 정의
-2. `FiberScheduler` 클래스 생성
-3. `Reconciler`에 Fiber 통합
-4. 선택적으로 활성화/비활성화 가능
+**Steps**:
+1. Create `UpdateQueue`
+2. Integrate Batching into `Reconciler`
+3. Use from `DOMRenderer`
 
 ---
 
-## 5. 코드 구조
+### Phase 2: Apply Fiber (later, when needed)
+
+**When**:
+- Handling large trees (500+ nodes)
++- User input is critical
++- Performance issues occur
+
+**Steps**:
+1. Define `FiberNode` interface
+2. Create `FiberScheduler` class
+3. Integrate Fiber into `Reconciler`
+4. Allow optional enable/disable
+
+---
+
+## 5. Code Structure
 
 ```
 packages/renderer-dom/src/reconcile/
-├── reconciler.ts          # 기존 (Batching/Fiber 통합)
-├── batching.ts            # 새로 추가 (UpdateQueue)
-├── fiber.ts               # 새로 추가 (FiberNode, createFiberTree)
-└── fiber-scheduler.ts     # 새로 추가 (FiberScheduler)
+├── reconciler.ts          # existing (Batching/Fiber integrated)
+├── batching.ts            # newly added (UpdateQueue)
+├── fiber.ts               # newly added (FiberNode, createFiberTree)
+└── fiber-scheduler.ts     # newly added (FiberScheduler)
 ```
 
 ---
 
-## 6. 사용 예시
+## 6. Usage Examples
 
-### Batching만 사용
+### Batching only
 
 ```typescript
 const renderer = new DOMRenderer(registry);
 
-// Batching 활성화 (기본값)
+// Batching enabled (default)
 renderer.render(container, model1);
 renderer.render(container, model2);
 renderer.render(container, model3);
-// → 다음 프레임에서 model3만 reconcile
+// → Next frame reconciles only model3
 
-// 강제로 즉시 처리
+// Force immediate processing
 renderer.flush();
 ```
 
-### Fiber만 사용
+### Fiber only
 
 ```typescript
 const reconciler = new Reconciler(...);
 reconciler.setFiberEnabled(true);
 
 reconciler.reconcile(container, largeVNode, model);
-// → 큰 트리를 작은 단위로 나눠서 처리
+// → Processes large tree in small units
 ```
 
 ### Batching + Fiber
@@ -695,60 +695,60 @@ renderer.setFiberEnabled(true);
 renderer.render(container, model1);
 renderer.render(container, model2);
 renderer.render(container, model3);
-// → 다음 프레임에서 model3를 Fiber로 처리
+// → Next frame processes model3 with Fiber
 ```
 
 ---
 
-## 7. 성능 비교
+## 7. Performance Comparison
 
-### 현재 (Batching/Fiber 없음)
-
-```
-1000개 노드 reconcile: 100ms
-→ 브라우저 멈춤
-→ 사용자 입력 지연
-```
-
-### Batching만 적용
+### Current (no Batching/Fiber)
 
 ```
-1000개 노드 reconcile: 100ms
-→ 하지만 여러 업데이트를 하나로 합침
-→ 깜빡임 제거
+Reconcile 1000 nodes: 100ms  
+→ Browser freeze  
+→ User input lag
 ```
 
-### Fiber만 적용
+### Batching only
 
 ```
-1000개 노드를 20개씩 나눠서 처리: 5ms × 50 = 100ms
-→ 브라우저가 멈추지 않음
-→ 사용자 입력 즉시 반응
+Reconcile 1000 nodes: 100ms  
+→ But multiple updates merged into one  
+→ Removes flicker
+```
+
+### Fiber only
+
+```
+Process 1000 nodes in chunks of 20: 5ms × 50 = 100ms
+→ Browser doesn’t freeze
+→ User input responds immediately
 ```
 
 ### Batching + Fiber
 
 ```
-여러 업데이트를 배치로 모음
-→ 큰 트리를 작은 단위로 처리
-→ 최적의 성능
+Batch multiple updates
+→ Process large tree in small units
+→ Optimal performance
 ```
 
 ---
 
-## 8. 결론
+## 8. Conclusion
 
 ### Batching
-- **구현**: 간단 (1-2일)
-- **효과**: 명확함 (50-70% 성능 향상)
-- **권장**: 즉시 적용
+- **Implementation**: simple (1-2 days)
+- **Impact**: clear (50-70% perf gain)
+- **Recommendation**: apply immediately
 
 ### Fiber
-- **구현**: 복잡 (2-3주)
-- **효과**: 큰 트리에서 필수
-- **권장**: 나중에 필요할 때
+- **Implementation**: complex (2-3 weeks)
+- **Impact**: essential for large trees
+- **Recommendation**: add later when needed
 
-### 조합
-- **Batching + Fiber**: 최적의 성능
-- **단계적 적용**: 먼저 Batching, 나중에 Fiber
+### Combined
+- **Batching + Fiber**: optimal performance
+- **Phased rollout**: Batching first, Fiber later
 

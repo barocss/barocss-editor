@@ -1,29 +1,29 @@
-# 텍스트 렌더링 아키텍처
+# Text Rendering Architecture
 
-## 개요
+## Overview
 
-이 문서는 renderer-dom의 텍스트 렌더링 아키텍처를 설명합니다. 텍스트는 두 가지 경로로 처리되며, 각각의 목적과 사용 사례가 다릅니다.
+This document explains the text rendering architecture of renderer-dom. Text is processed through two paths, each with different purposes and use cases.
 
-## 핵심 원칙
+## Core Principles
 
-### 1. `data('text')` 처리: 항상 children에 유지
+### 1. `data('text')` Processing: Always Keep in Children
 
-**원칙**: `data('text')`가 직접 처리된 경우, 텍스트는 항상 children에 유지되어 mark와 decorator가 적용될 수 있도록 합니다.
+**Principle**: When `data('text')` is directly processed, text is always kept in children so that marks and decorators can be applied.
 
-**이유**:
-- `data('text')`는 모델의 텍스트를 가져오며, mark와 decorator가 적용될 수 있음
-- 텍스트가 여러 VNode로 분할될 수 있음 (mark 범위에 따라)
-- 텍스트가 collapse되면 mark/decorator 적용 불가
+**Reasons**:
+- `data('text')` retrieves text from model, and marks and decorators can be applied
+- Text can be split into multiple VNodes (depending on mark ranges)
+- If text is collapsed, marks/decorators cannot be applied
 
-**처리 과정**:
+**Processing Flow**:
 ```typescript
 // Template: element('span', {}, [data('text')])
 // Model: { text: 'Hello', marks: [{ type: 'bold', range: [0, 5] }] }
 
-// VNode 구조
+// VNode Structure
 {
   tag: 'span',
-  children: [  // ✅ 항상 children에 유지
+  children: [  // ✅ Always kept in children
     {
       tag: 'strong',
       children: [
@@ -39,110 +39,110 @@
 }
 ```
 
-### 2. 일반 텍스트: `vnode.text`로 collapse 가능
+### 2. General Text: Can Collapse to `vnode.text`
 
-**원칙**: 일반 텍스트 (문자열 배열, text() 함수)는 단일 텍스트 child인 경우 `vnode.text`로 collapse하여 성능을 최적화합니다.
+**Principle**: General text (string arrays, text() function) is collapsed to `vnode.text` when it's a single text child to optimize performance.
 
-**이유**:
-- mark/decorator가 적용되지 않는 단순 텍스트
-- collapse하여 VNode 구조를 단순화
-- reconciler에서 `vnode.text`를 직접 처리하여 효율적
+**Reasons**:
+- Simple text without marks/decorators applied
+- Collapse to simplify VNode structure
+- Efficient processing by reconciler directly handling `vnode.text`
 
-**처리 과정**:
+**Processing Flow**:
 ```typescript
 // Template: element('span', {}, ['Test Component'])
-// 또는: element('span', {}, [text('Test Component')])
+// Or: element('span', {}, [text('Test Component')])
 
-// VNode 구조 (collapse됨)
+// VNode Structure (collapsed)
 {
   tag: 'span',
-  text: 'Test Component',  // ✅ vnode.text로 collapse
+  text: 'Test Component',  // ✅ Collapsed to vnode.text
   children: []
 }
 
-// Reconciler에서 처리
+// Processing in Reconciler
 if (nextVNode.text !== undefined && (!nextVNode.children || nextVNode.children.length === 0)) {
   parent.appendChild(doc.createTextNode(String(nextVNode.text)));
 }
 ```
 
-## 두 가지 경로의 구분
+## Distinction Between Two Paths
 
-### 경로 1: `data('text')` 처리
+### Path 1: `data('text')` Processing
 
-**조건**: `hasDataTextProcessed.value === true`
+**Condition**: `hasDataTextProcessed.value === true`
 
-**특징**:
-- 항상 children에 유지
-- mark/decorator 처리 가능
-- 텍스트가 여러 VNode로 분할될 수 있음
-- 항상 `<span>`으로 감싸짐 (mark/decorator 처리 후)
+**Characteristics**:
+- Always kept in children
+- Can process marks/decorators
+- Text can be split into multiple VNodes
+- Always wrapped in `<span>` (after mark/decorator processing)
 
-**사용 사례**:
-- `inline-text` 모델의 텍스트 렌더링
-- 모델의 `text` 속성을 사용하는 모든 경우
-- mark나 decorator가 적용될 수 있는 텍스트
+**Use Cases**:
+- Text rendering of `inline-text` model
+- All cases using model's `text` property
+- Text that can have marks or decorators applied
 
-### 경로 2: 일반 텍스트
+### Path 2: General Text
 
-**조건**: `hasDataTextProcessed.value === false` && 단일 텍스트 child
+**Condition**: `hasDataTextProcessed.value === false` && single text child
 
-**특징**:
-- `vnode.text`로 collapse 가능
-- mark/decorator 처리 불가
-- reconciler에서 직접 처리
-- DOM에 텍스트 노드로 직접 렌더링
+**Characteristics**:
+- Can collapse to `vnode.text`
+- Cannot process marks/decorators
+- Directly processed by reconciler
+- Directly rendered as text node in DOM
 
-**사용 사례**:
-- `element('span', {}, ['Test Component'])` - 문자열 배열 직접 사용
-- `element('span', {}, [text('Test Component')])` - text() 함수 사용
-- `element('span', 'Test Component')` - 문자열 직접 사용 (오버로드)
-- 정적 텍스트나 라벨 등
+**Use Cases**:
+- `element('span', {}, ['Test Component'])` - Direct string array usage
+- `element('span', {}, [text('Test Component')])` - text() function usage
+- `element('span', 'Test Component')` - Direct string usage (overload)
+- Static text or labels, etc.
 
-## 아키텍처 결정의 이유
+## Reasons for Architectural Decisions
 
-### 왜 두 가지 경로를 사용하는가?
+### Why Use Two Paths?
 
-1. **성능 최적화**
-   - 단순 텍스트는 collapse하여 VNode 구조 단순화
-   - 불필요한 DOM 요소 생성 방지
+1. **Performance Optimization**
+   - Collapse simple text to simplify VNode structure
+   - Prevent unnecessary DOM element creation
 
-2. **유연성**
-   - `data('text')`는 mark/decorator 처리를 위해 항상 children에 유지
-   - 일반 텍스트는 성능을 위해 collapse 가능
+2. **Flexibility**
+   - `data('text')` always kept in children for mark/decorator processing
+   - General text can collapse for performance
 
-3. **일관성**
-   - `data('text')`는 항상 동일한 방식으로 처리 (children에 유지)
-   - 일반 텍스트는 항상 동일한 방식으로 처리 (collapse 가능)
+3. **Consistency**
+   - `data('text')` always processed the same way (kept in children)
+   - General text always processed the same way (can collapse)
 
-### 잠재적 문제와 해결
+### Potential Issues and Solutions
 
-**문제**: 두 가지 경로가 존재하여 복잡해 보일 수 있음
+**Issue**: Two paths may seem complex
 
-**해결**:
-- 명확한 구분: `data('text')` vs 일반 텍스트
-- 일관된 처리: 각 경로는 항상 동일한 방식으로 처리
-- 문서화: 이 문서로 아키텍처를 명확히 설명
+**Solution**:
+- Clear distinction: `data('text')` vs general text
+- Consistent processing: Each path always processed the same way
+- Documentation: Clearly explain architecture with this document
 
-## 구현 세부사항
+## Implementation Details
 
 ### VNodeBuilder
 
-**파일**: `packages/renderer-dom/src/vnode/factory.ts`
+**File**: `packages/renderer-dom/src/vnode/factory.ts`
 
 #### `_buildElement` (line 746-765)
 
 ```typescript
-// data('text') 처리 여부 확인
+// Check if data('text') is processed
 if (orderedChildren.length === 1 && 
     !orderedChildren[0].tag && 
     orderedChildren[0].text !== undefined && 
     !hasDataTextProcessed.value) {
-  // 일반 텍스트: collapse
+  // General text: collapse
   vnode.text = String(orderedChildren[0].text);
   vnode.children = [];
 } else if (orderedChildren.length > 0) {
-  // data('text') 또는 복잡한 구조: children에 유지
+  // data('text') or complex structure: keep in children
   vnode.children = [...orderedChildren];
 }
 ```
@@ -150,7 +150,7 @@ if (orderedChildren.length === 1 &&
 #### `_processChild` (line 1029-1032)
 
 ```typescript
-// data('text') 처리 시 플래그 설정
+// Set flag when data('text') is processed
 if (child.path === 'text' && hasDataTextProcessed) {
   hasDataTextProcessed.value = true;
 }
@@ -158,65 +158,65 @@ if (child.path === 'text' && hasDataTextProcessed) {
 
 ### Reconciler
 
-**파일**: `packages/renderer-dom/src/reconcile/reconciler.ts`
+**File**: `packages/renderer-dom/src/reconcile/reconciler.ts`
 
 #### `reconcileVNodeChildren` (line 423-442)
 
 ```typescript
-// vnode.text 처리 (collapse된 텍스트)
+// Process vnode.text (collapsed text)
 if (nextVNode.text !== undefined && 
     (!nextVNode.children || nextVNode.children.length === 0)) {
-  // 텍스트 노드로 직접 렌더링
+  // Directly render as text node
   parent.appendChild(doc.createTextNode(String(nextVNode.text)));
   return;
 }
 
-// children 처리 (data('text') 또는 복잡한 구조)
+// Process children (data('text') or complex structure)
 // ...
 ```
 
-## 테스트 커버리지
+## Test Coverage
 
-### 텍스트 렌더링 테스트
+### Text Rendering Tests
 
-**파일**: `packages/renderer-dom/test/core/vnode-builder-text-rendering.test.ts`
+**File**: `packages/renderer-dom/test/core/vnode-builder-text-rendering.test.ts`
 
-다음 시나리오를 검증:
-- ✅ `element('span', {}, ['Test Component'])` - 문자열 배열 직접 사용
-- ✅ `element('span', {}, [text('Test Component')])` - text() 함수 사용
-- ✅ `element('span', 'Test Component')` - 문자열 직접 사용 (오버로드)
-- ✅ 혼합 콘텐츠 (텍스트 + 요소)
-- ✅ 빈 텍스트 처리
+Validates following scenarios:
+- ✅ `element('span', {}, ['Test Component'])` - Direct string array usage
+- ✅ `element('span', {}, [text('Test Component')])` - text() function usage
+- ✅ `element('span', 'Test Component')` - Direct string usage (overload)
+- ✅ Mixed content (text + elements)
+- ✅ Empty text handling
 
-### Mark/Decorator 테스트
+### Mark/Decorator Tests
 
-**파일**: `packages/renderer-dom/test/core/mark-decorator-complex.test.ts`
+**File**: `packages/renderer-dom/test/core/mark-decorator-complex.test.ts`
 
-다음 시나리오를 검증:
-- ✅ `data('text')` 처리 시 mark 적용
-- ✅ `data('text')` 처리 시 decorator 적용
-- ✅ 복잡한 mark/decorator 조합
+Validates following scenarios:
+- ✅ Mark application when `data('text')` is processed
+- ✅ Decorator application when `data('text')` is processed
+- ✅ Complex mark/decorator combinations
 
-## ContentEditable에서의 동작
+## Behavior in ContentEditable
 
-### 실시간 텍스트 입력 시나리오
+### Real-time Text Input Scenario
 
-contenteditable 상태에서 사용자가 텍스트를 입력할 때:
+When user types text in contenteditable state:
 
-1. **사용자 입력** → DOM이 직접 변경됨
-2. **MutationObserver 감지** → InputHandler 처리
-3. **모델 업데이트** → mark/decorator 범위 자동 조정
-4. **Renderer 재렌더링** → reconciler.reconcile() 호출
-5. **Reconciler 업데이트** → prevVNode와 nextVNode 비교하여 DOM 업데이트
+1. **User Input** → DOM is directly changed
+2. **MutationObserver Detects** → InputHandler processes
+3. **Model Update** → mark/decorator ranges automatically adjusted
+4. **Renderer Re-renders** → reconciler.reconcile() called
+5. **Reconciler Updates** → Compare prevVNode and nextVNode to update DOM
 
-### Reconciler의 효율적 업데이트
+### Efficient Updates in Reconciler
 
-**sid 기반 매칭**:
+**sid-based Matching**:
 ```typescript
-// findChildHost: sid로 기존 DOM 요소 찾기
+// findChildHost: Find existing DOM element by sid
 let host = this.findChildHost(parent, childVNode);
 if (!host && childVNode.sid) {
-  // 전역 검색 (cross-parent move 지원)
+  // Global search (supports cross-parent move)
   const global = parent.ownerDocument?.querySelector(
     `[data-bc-sid="${childVNode.sid}"]`
   ) as HTMLElement | null;
@@ -224,38 +224,38 @@ if (!host && childVNode.sid) {
 }
 ```
 
-**prevVNode 비교**:
+**prevVNode Comparison**:
 ```typescript
-// prevVNodeTree에서 이전 상태 가져오기
+// Get previous state from prevVNodeTree
 const prevVNode = sid ? this.prevVNodeTree.get(String(sid)) : undefined;
 
-// 변경된 부분만 업데이트
+// Update only changed parts
 if (childVNode.attrs) {
   this.dom.updateAttributes(host, prevChildVNode?.attrs, childVNode.attrs);
 }
 ```
 
-### Mark/Decorator 적용 보장
+### Mark/Decorator Application Guarantee
 
-**`data('text')` 처리 경로**:
-- 텍스트 입력 시 모델이 업데이트됨
-- `data('text')`는 항상 children에 유지되므로 mark/decorator 적용 가능
-- VNodeBuilder가 새로운 mark/decorator 구조 생성
-- Reconciler가 sid 기반으로 기존 요소를 찾아 업데이트
+**`data('text')` Processing Path**:
+- Model is updated when text is input
+- `data('text')` is always kept in children, so marks/decorators can be applied
+- VNodeBuilder creates new mark/decorator structure
+- Reconciler finds and updates existing elements based on sid
 
-**예시 시나리오**:
+**Example Scenario**:
 ```typescript
-// 1. 초기 상태
+// 1. Initial State
 Model: { text: 'Hello', marks: [{ type: 'bold', range: [0, 5] }] }
 DOM: <span><strong><span>Hello</span></strong></span>
 
-// 2. 사용자가 ' World' 입력
-DOM (사용자 입력): <span><strong><span>Hello</span></strong> World</span>
+// 2. User types ' World'
+DOM (User Input): <span><strong><span>Hello</span></strong> World</span>
 
-// 3. MutationObserver 감지 → 모델 업데이트
+// 3. MutationObserver Detects → Model Update
 Model: { text: 'Hello World', marks: [{ type: 'bold', range: [0, 5] }] }
 
-// 4. Renderer 재렌더링
+// 4. Renderer Re-renders
 VNode: {
   tag: 'span',
   children: [
@@ -264,61 +264,61 @@ VNode: {
   ]
 }
 
-// 5. Reconciler 업데이트
-// - 기존 <strong> 요소는 sid로 찾아서 유지
-// - 새 <span> 요소는 추가
-// - DOM 구조가 올바르게 업데이트됨
+// 5. Reconciler Updates
+// - Existing <strong> element found by sid and kept
+// - New <span> element added
+// - DOM structure correctly updated
 ```
 
-### 성능 고려사항
+### Performance Considerations
 
-**장점**:
-1. ✅ **sid 기반 매칭**: 기존 DOM 요소를 효율적으로 찾아 재사용
-2. ✅ **prevVNode 비교**: 변경된 부분만 업데이트
-3. ✅ **일관된 구조**: mark/decorator가 항상 동일한 방식으로 처리
+**Advantages**:
+1. ✅ **sid-based Matching**: Efficiently find and reuse existing DOM elements
+2. ✅ **prevVNode Comparison**: Update only changed parts
+3. ✅ **Consistent Structure**: marks/decorators always processed the same way
 
-**주의사항**:
-1. ⚠️ **전체 VNode 트리 재빌드**: 매번 VNodeBuilder가 전체 트리를 다시 빌드
-   - 하지만 mark/decorator 처리는 필수이므로 불가피
-2. ⚠️ **DOM 조작 최소화**: reconciler가 기존 요소를 재사용하여 최소한의 DOM 조작
-3. ⚠️ **커서 위치 보존**: editor-view-dom에서 별도로 처리 (reconciler 범위 밖)
+**Notes**:
+1. ⚠️ **Full VNode Tree Rebuild**: VNodeBuilder rebuilds entire tree each time
+   - But mark/decorator processing is necessary, so unavoidable
+2. ⚠️ **Minimize DOM Manipulation**: Reconciler reuses existing elements for minimal DOM manipulation
+3. ⚠️ **Cursor Position Preservation**: Handled separately in editor-view-dom (outside reconciler scope)
 
-### Selection 보존 문제 및 해결 방안
+### Selection Preservation Issues and Solutions
 
-**핵심 문제**:
-contenteditable에서 사용자가 텍스트를 입력할 때:
-1. 사용자 입력 → DOM이 직접 변경됨 (브라우저 selection이 특정 text node를 가리킴)
-2. MutationObserver 감지 → 모델 업데이트
-3. `editor.executeTransaction()` 호출
-4. 이벤트 리스너가 `render()` 호출
-5. **Reconciler가 DOM 업데이트 → Text Node가 삭제/재생성 → Selection이 깨짐** ⚠️
+**Core Problem**:
+When user types text in contenteditable:
+1. User Input → DOM is directly changed (browser selection points to specific text node)
+2. MutationObserver Detects → Model update
+3. `editor.executeTransaction()` called
+4. Event listener calls `render()`
+5. **Reconciler Updates DOM → Text Node Deleted/Recreated → Selection Breaks** ⚠️
 
-**브라우저 Selection의 한계**:
-- 브라우저 selection은 DOM 노드에 대한 직접 참조를 유지
-- 노드가 삭제되면 selection이 깨짐
-- Selection 복원은 불안정하고 브라우저마다 동작이 다를 수 있음
-- **따라서 Selection을 복원하는 것보다, Selection이 있는 Text Node를 보존하는 것이 근본적인 해결책**
+**Browser Selection Limitations**:
+- Browser selection maintains direct reference to DOM node
+- Selection breaks when node is deleted
+- Selection restoration is unstable and behavior varies by browser
+- **Therefore, preserving Text Node with selection is the fundamental solution rather than restoring selection**
 
-**ContentEditable의 특성**:
-1. **한 번에 하나의 text node만 편집됨**: 키 입력 시 특정 text node만 변경
-2. **다른 text node는 바뀌지 않음**: 편집 중이 아닌 text node는 그대로 유지
-3. **Mark/Decorator 범위만 조정**: text node 구조는 유지하고 mark/decorator의 range/offset만 업데이트
+**ContentEditable Characteristics**:
+1. **Only one text node edited at a time**: Only specific text node changes on key input
+2. **Other text nodes don't change**: Text nodes not being edited remain unchanged
+3. **Only Mark/Decorator ranges adjusted**: Keep text node structure and only update mark/decorator range/offset
 
-**해결 방안: Text Node Pool 및 Selection 보호**
+**Solution: Text Node Pool and Selection Protection**
 
-#### 1. Text Node Pool 개념
+#### 1. Text Node Pool Concept
 
-Reconciler가 text node를 재사용하여 selection이 깨지지 않도록 함:
+Reconciler reuses text nodes to prevent selection from breaking:
 
 ```typescript
 // reconciler.ts
 private reconcileVNodeChildren(parent: HTMLElement, prevVNode: VNode | undefined, nextVNode: VNode, context?: any, isRecursive: boolean = false): void {
-  // 1. Selection이 있는 text node 찾기
+  // 1. Find text nodes with selection
   const selection = window.getSelection();
   const activeTextNodes = new Set<Text>();
   if (selection && selection.rangeCount > 0) {
     const range = selection.getRangeAt(0);
-    // Selection이 가리키는 text node 수집
+    // Collect text nodes pointed to by selection
     if (range.startContainer.nodeType === Node.TEXT_NODE) {
       activeTextNodes.add(range.startContainer as Text);
     }
@@ -327,23 +327,23 @@ private reconcileVNodeChildren(parent: HTMLElement, prevVNode: VNode | undefined
     }
   }
   
-  // 2. Text node 재사용 로직
+  // 2. Text node reuse logic
   for (let childIndex = 0; childIndex < childVNodes.length; childIndex++) {
     const child = childVNodes[childIndex];
     
-    // Text-only VNode 처리
+    // Text-only VNode processing
     if (typeof child === 'object' && child !== null && 
         !(child as VNode).tag && (child as VNode).text !== undefined) {
       const childVNode = child as VNode;
       const childNodes = Array.from(parent.childNodes);
       
-      // 기존 text node 찾기 (위치 기반 또는 selection 기반)
+      // Find existing text node (position-based or selection-based)
       let existingTextNode: Text | null = null;
       
-      // 우선순위 1: Selection이 있는 text node (절대 보호)
+      // Priority 1: Text node with selection (absolute protection)
       for (const textNode of activeTextNodes) {
         if (textNode.parentNode === parent) {
-          // 같은 parent에 있고, 위치가 맞으면 재사용
+          // Reuse if same parent and position matches
           const index = childNodes.indexOf(textNode);
           if (index === childIndex || (index === -1 && childIndex === 0)) {
             existingTextNode = textNode;
@@ -352,7 +352,7 @@ private reconcileVNodeChildren(parent: HTMLElement, prevVNode: VNode | undefined
         }
       }
       
-      // 우선순위 2: 같은 위치의 기존 text node
+      // Priority 2: Existing text node at same position
       if (!existingTextNode && childIndex < childNodes.length) {
         const nodeAtIndex = childNodes[childIndex];
         if (nodeAtIndex && nodeAtIndex.nodeType === 3) {
@@ -361,11 +361,11 @@ private reconcileVNodeChildren(parent: HTMLElement, prevVNode: VNode | undefined
       }
       
       if (existingTextNode) {
-        // 기존 text node 재사용 (textContent만 업데이트)
+        // Reuse existing text node (only update textContent)
         existingTextNode.textContent = String(childVNode.text);
         nextDomChildren.push(existingTextNode);
       } else {
-        // 새 text node 생성 (selection이 없는 경우만)
+        // Create new text node (only when no selection)
         const textNode = doc.createTextNode(String(childVNode.text));
         const referenceNode = childIndex < childNodes.length ? childNodes[childIndex] : null;
         parent.insertBefore(textNode, referenceNode);
@@ -374,18 +374,18 @@ private reconcileVNodeChildren(parent: HTMLElement, prevVNode: VNode | undefined
       continue;
     }
     
-    // Element VNode 처리 (mark/decorator 구조)
-    // ... 기존 로직 ...
+    // Element VNode processing (mark/decorator structure)
+    // ... existing logic ...
   }
   
-  // 3. Stale 노드 제거 (하지만 selection이 있는 text node는 보호)
+  // 3. Remove stale nodes (but protect text nodes with selection)
   this.removeStale(parent, new Set(nextDomChildren), context, prevMap, activeTextNodes);
 }
 ```
 
-#### 2. Selection이 있는 Text Node 보호
+#### 2. Protect Text Nodes with Selection
 
-`removeStale`에서 selection이 있는 text node는 절대 삭제하지 않음:
+`removeStale` never deletes text nodes with selection:
 
 ```typescript
 // reconciler.ts
@@ -399,16 +399,16 @@ private removeStale(
   const children = Array.from(parent.childNodes);
   for (const ch of children) {
     if (!keep.has(ch as HTMLElement | Text)) {
-      // Selection이 있는 text node는 절대 삭제하지 않음
+      // Never delete text nodes with selection
       if (ch.nodeType === 3 && protectedTextNodes?.has(ch as Text)) {
         console.log('[Reconciler] Protected text node from removal (has selection)');
         continue;
       }
       
-      // Text 노드는 lifecycle 처리 불필요
+      // Text nodes don't need lifecycle processing
       if (ch.nodeType === 1) { // Element node
         const element = ch as HTMLElement;
-        // ... unmount 로직 ...
+        // ... unmount logic ...
       }
       parent.removeChild(ch);
     }
@@ -416,72 +416,72 @@ private removeStale(
 }
 ```
 
-#### 3. Mark/Decorator 구조 변경 시 Text Node 보존
+#### 3. Preserve Text Nodes When Mark/Decorator Structure Changes
 
-Mark/decorator 구조가 변경되어도 실제 text node는 재사용:
+Reuse actual text nodes even when mark/decorator structure changes:
 
 ```typescript
 // reconciler.ts
-// Mark/decorator 구조가 변경되어도:
+// Even if mark/decorator structure changes:
 // - <span><strong><span>Hello</span></strong></span>
 // - <span><em><span>Hello</span></em></span>
-// 위와 같이 구조가 바뀌어도 "Hello" text node는 재사용
+// The "Hello" text node is reused even if structure changes
 
 private reconcileVNodeChildren(parent: HTMLElement, prevVNode: VNode | undefined, nextVNode: VNode, context?: any, isRecursive: boolean = false): void {
-  // ... selection 보호 로직 ...
+  // ... selection protection logic ...
   
-  // Mark/decorator 구조 변경 시:
-  // 1. 기존 text node를 찾아서 재사용
-  // 2. 부모 요소(mark/decorator)만 변경
-  // 3. text node는 그대로 유지하여 selection 보존
+  // When mark/decorator structure changes:
+  // 1. Find and reuse existing text node
+  // 2. Only change parent elements (mark/decorator)
+  // 3. Keep text node as-is to preserve selection
 }
 ```
 
-**구현 전략**:
+**Implementation Strategy**:
 
-1. **Text Node 매핑**: VNode와 실제 DOM text node를 매핑하여 추적
-2. **Selection 감지**: `reconcileVNodeChildren` 시작 시 selection이 있는 text node 수집
-3. **재사용 우선순위**:
-   - Selection이 있는 text node (최우선)
-   - 같은 위치의 기존 text node
-   - 새 text node 생성 (최후)
-4. **Stale 제거 보호**: `removeStale`에서 selection이 있는 text node는 절대 삭제하지 않음
+1. **Text Node Mapping**: Track by mapping VNode to actual DOM text node
+2. **Selection Detection**: Collect text nodes with selection at start of `reconcileVNodeChildren`
+3. **Reuse Priority**:
+   - Text node with selection (highest priority)
+   - Existing text node at same position
+   - Create new text node (last resort)
+4. **Stale Removal Protection**: `removeStale` never deletes text nodes with selection
 
-**장점**:
-- ✅ Selection이 깨지지 않음 (text node가 삭제되지 않으므로)
-- ✅ 브라우저 selection 복원 불필요 (원본 노드가 유지됨)
-- ✅ ContentEditable 특성에 맞음 (편집 중인 text node만 변경)
-- ✅ Mark/Decorator 범위 조정 가능 (text node는 유지하고 구조만 변경)
+**Advantages**:
+- ✅ Selection doesn't break (text node not deleted)
+- ✅ Browser selection restoration unnecessary (original node maintained)
+- ✅ Matches ContentEditable characteristics (only text node being edited changes)
+- ✅ Can adjust Mark/Decorator ranges (keep text node and only change structure)
 
-**주의사항**:
-- ⚠️ Text node가 너무 많아지면 메모리 문제 가능 (하지만 일반적으로 문제 없음)
-- ⚠️ Mark/decorator 구조 변경 시 text node 위치 조정 필요
-- ⚠️ Selection이 있는 text node의 textContent만 업데이트하고 구조는 유지해야 함
+**Notes**:
+- ⚠️ Memory issues possible if too many text nodes (but generally not a problem)
+- ⚠️ Text node position adjustment needed when mark/decorator structure changes
+- ⚠️ Must only update textContent of text node with selection and maintain structure
 
-### 결론
+### Conclusion
 
-현재 아키텍처는 **contenteditable에서의 실시간 텍스트 입력을 잘 지원**하지만, **selection 보존**은 추가 개선이 필요합니다:
+Current architecture **well supports real-time text input in contenteditable**, but **selection preservation** needs additional improvement:
 
-1. ✅ **Mark/Decorator 적용**: `data('text')`는 항상 children에 유지되어 mark/decorator가 올바르게 적용됨
-2. ✅ **효율적 업데이트**: sid 기반 매칭과 prevVNode 비교로 최소한의 DOM 조작
-3. ✅ **일관성**: 텍스트 입력 시에도 동일한 VNode 구조 유지
-4. ✅ **안정성**: 기존 DOM 요소를 재사용하여 불필요한 재생성 방지
-5. ⚠️ **Selection 보존**: 현재 `applyModelSelectionWithRetry()`로 복원 시도하지만, reconciler 업데이트 중 selection이 깨질 수 있음 (개선 필요)
+1. ✅ **Mark/Decorator Application**: `data('text')` always kept in children so marks/decorators are correctly applied
+2. ✅ **Efficient Updates**: Minimal DOM manipulation with sid-based matching and prevVNode comparison
+3. ✅ **Consistency**: Same VNode structure maintained even during text input
+4. ✅ **Stability**: Reuse existing DOM elements to prevent unnecessary recreation
+5. ⚠️ **Selection Preservation**: Currently attempts restoration with `applyModelSelectionWithRetry()`, but selection can break during reconciler updates (needs improvement)
 
-## 결론
+## Conclusion
 
-현재 아키텍처는 **두 가지 경로를 명확히 구분**하여:
+Current architecture **clearly distinguishes two paths**:
 
-1. ✅ **성능 최적화**: 단순 텍스트는 collapse하여 효율적 처리
-2. ✅ **유연성**: `data('text')`는 mark/decorator 처리를 위해 항상 children에 유지
-3. ✅ **일관성**: 각 경로는 항상 동일한 방식으로 처리
-4. ✅ **명확성**: 문서로 아키텍처를 명확히 설명
-5. ✅ **ContentEditable 지원**: 실시간 텍스트 입력 시에도 mark/decorator가 올바르게 적용됨
+1. ✅ **Performance Optimization**: Efficiently process simple text by collapsing
+2. ✅ **Flexibility**: `data('text')` always kept in children for mark/decorator processing
+3. ✅ **Consistency**: Each path always processed the same way
+4. ✅ **Clarity**: Clearly explain architecture with documentation
+5. ✅ **ContentEditable Support**: Marks/decorators correctly applied even during real-time text input
 
-이 접근 방식은 에디터의 특성에 맞으며, 성능과 유지보수성을 모두 고려한 최적의 해결책입니다.
+This approach matches editor characteristics and is an optimal solution considering both performance and maintainability.
 
-## 참고 문서
+## References
 
-- `text-vnode-bug-fix.md`: 버그 수정 과정과 전체적인 개념
-- `reconciler-text-vnode-solution.md`: 해결 방안 문서
+- `text-vnode-bug-fix.md`: Bug fix process and overall concepts
+- `reconciler-text-vnode-solution.md`: Solution document
 

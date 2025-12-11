@@ -1,37 +1,37 @@
-# 노드 경계 삭제 처리 (Cross-Node Deletion)
+# Cross-Node Deletion Handling
 
-## 개요
+## Overview
 
-노드 경계에서 삭제(Backspace/Delete)를 처리할 때, 현재 노드 내부가 아닌 이전/다음 노드와의 상호작용이 필요합니다.
+When handling deletion (Backspace/Delete) at node boundaries, interaction with previous/next nodes is needed, not just within the current node.
 
 ---
 
-## 시나리오
+## Scenarios
 
-### 시나리오 1: 노드 시작 위치에서 Backspace
+### Scenario 1: Backspace at Node Start Position
 
-**상황**: 
-- 커서가 `inline-text` 노드의 시작 위치(offset 0)에 있음
-- 사용자가 Backspace 키 입력
+**Situation**: 
+- Cursor is at start position (offset 0) of `inline-text` node
+- User presses Backspace key
 
-**예시**:
+**Example**:
 ```
 [text-1: "Hello"] [text-2: "World"]
-                    ↑ 커서 (offset 0)
+                    ↑ cursor (offset 0)
 ```
 
-**처리 방법**:
-1. **이전 노드가 같은 부모의 형제이고 `.text` 필드를 가진 경우**:
-   - 이전 노드의 마지막 문자 삭제
-   - 이전 노드가 비어있으면 이전 노드 삭제 후 현재 노드와 병합 (선택적)
+**Processing Method**:
+1. **If previous node is a sibling with same parent and has `.text` field**:
+   - Delete last character of previous node
+   - If previous node is empty, delete previous node and merge with current node (optional)
 
-2. **이전 노드가 `.text` 필드가 없는 inline 노드인 경우**:
-   - 이전 노드 전체 삭제 (예: inline-image)
+2. **If previous node is an inline node without `.text` field**:
+   - Delete entire previous node (e.g., inline-image)
 
-3. **이전 노드가 block 노드이거나 다른 부모인 경우**:
-   - 아무 동작도 하지 않음
+3. **If previous node is a block node or has different parent**:
+   - Do nothing
 
-**구현 로직**:
+**Implementation Logic**:
 ```typescript
 if (startOffset === 0) {
   const prevNodeId = dataStore.getPreviousNode(startNodeId);
@@ -40,9 +40,9 @@ if (startOffset === 0) {
     const prevParent = dataStore.getParent(prevNodeId);
     const currentParent = dataStore.getParent(startNodeId);
     
-    // 같은 부모의 형제인지 확인
+    // Check if sibling with same parent
     if (prevParent?.sid === currentParent?.sid) {
-      // .text 필드가 있는 경우: 문자 삭제
+      // If has .text field: delete character
       if (prevNode?.text !== undefined && typeof prevNode.text === 'string') {
         const prevTextLength = prevNode.text.length;
         if (prevTextLength > 0) {
@@ -53,45 +53,45 @@ if (startOffset === 0) {
             endOffset: prevTextLength
           };
         }
-        // 이전 노드가 비어있으면 병합 (선택적)
-        // TODO: 노드 병합 구현
+        // If previous node is empty, merge (optional)
+        // TODO: Implement node merge
       } else {
-        // .text 필드가 없는 경우: 노드 전체 삭제
+        // If no .text field: delete entire node
         return { _deleteNode: true, nodeId: prevNodeId };
       }
     }
   }
-  // 이전 노드가 없거나 조건 불만족: 아무 동작도 하지 않음
+  // No previous node or condition not met: do nothing
   return null;
 }
 ```
 
 ---
 
-### 시나리오 2: 노드 끝 위치에서 Delete
+### Scenario 2: Delete at Node End Position
 
-**상황**:
-- 커서가 `inline-text` 노드의 끝 위치(offset === text.length)에 있음
-- 사용자가 Delete 키 입력
+**Situation**:
+- Cursor is at end position (offset === text.length) of `inline-text` node
+- User presses Delete key
 
-**예시**:
+**Example**:
 ```
 [text-1: "Hello"] [text-2: "World"]
-         ↑ 커서 (offset 5, text.length === 5)
+         ↑ cursor (offset 5, text.length === 5)
 ```
 
-**처리 방법**:
-1. **다음 노드가 같은 부모의 형제이고 `.text` 필드를 가진 경우**:
-   - 다음 노드의 첫 문자 삭제
-   - 다음 노드가 비어있으면 다음 노드 삭제 후 현재 노드와 병합 (선택적)
+**Processing Method**:
+1. **If next node is a sibling with same parent and has `.text` field**:
+   - Delete first character of next node
+   - If next node is empty, delete next node and merge with current node (optional)
 
-2. **다음 노드가 `.text` 필드가 없는 inline 노드인 경우**:
-   - 다음 노드 전체 삭제 (예: inline-image)
+2. **If next node is an inline node without `.text` field**:
+   - Delete entire next node (e.g., inline-image)
 
-3. **다음 노드가 block 노드이거나 다른 부모인 경우**:
-   - 아무 동작도 하지 않음
+3. **If next node is a block node or has different parent**:
+   - Do nothing
 
-**구현 로직**:
+**Implementation Logic**:
 ```typescript
 const node = dataStore.getNode(startNodeId);
 const textLength = node?.text?.length || 0;
@@ -102,9 +102,9 @@ if (startOffset >= textLength) {
     const nextParent = dataStore.getParent(nextNodeId);
     const currentParent = dataStore.getParent(startNodeId);
     
-    // 같은 부모의 형제인지 확인
+    // Check if sibling with same parent
     if (nextParent?.sid === currentParent?.sid) {
-      // .text 필드가 있는 경우: 문자 삭제
+      // If has .text field: delete character
       if (nextNode?.text !== undefined && typeof nextNode.text === 'string') {
         if (nextNode.text.length > 0) {
           return {
@@ -114,351 +114,351 @@ if (startOffset >= textLength) {
             endOffset: 1
           };
         }
-        // 다음 노드가 비어있으면 병합 (선택적)
-        // TODO: 노드 병합 구현
+        // If next node is empty, merge (optional)
+        // TODO: Implement node merge
       } else {
-        // .text 필드가 없는 경우: 노드 전체 삭제
+        // If no .text field: delete entire node
         return { _deleteNode: true, nodeId: nextNodeId };
       }
     }
   }
-  // 다음 노드가 없거나 조건 불만족: 아무 동작도 하지 않음
+  // No next node or condition not met: do nothing
   return null;
 }
 ```
 
 ---
 
-## 규칙 정리
+## Rule Summary
 
-### 1. 형제 노드 확인
+### 1. Sibling Node Verification
 
-**조건**:
-- 이전/다음 노드가 같은 부모를 가져야 함
-- 이전/다음 노드가 block 노드가 아니어야 함
+**Conditions**:
+- Previous/next node must have same parent
+- Previous/next node must not be a block node
 
-**이유**:
-- 다른 부모의 노드는 다른 블록이므로 병합하면 안 됨
-- block 노드는 블록 경계이므로 삭제 대상이 아님
+**Reason**:
+- Nodes with different parents are different blocks and should not be merged
+- Block nodes are block boundaries and not deletion targets
 
-### 2. 삭제 우선순위
+### 2. Deletion Priority
 
-1. **이전/다음 노드의 문자 삭제** (우선)
-   - 같은 부모의 형제이고 `.text` 필드를 가진 경우
-   - 노드가 비어있지 않은 경우
+1. **Delete character from previous/next node** (priority)
+   - If sibling with same parent and has `.text` field
+   - If node is not empty
 
-2. **이전/다음 노드 전체 삭제**
-   - 같은 부모의 형제이지만 `.text` 필드가 없는 경우 (예: inline-image)
-   - 노드 전체를 삭제
+2. **Delete entire previous/next node**
+   - If sibling with same parent but no `.text` field (e.g., inline-image)
+   - Delete entire node
 
-3. **노드 병합** (선택적, Phase 2)
-   - 이전/다음 노드가 비어있는 경우
-   - 현재 노드와 병합
+3. **Node merge** (optional, Phase 2)
+   - If previous/next node is empty
+   - Merge with current node
 
-4. **아무 동작도 하지 않음** (fallback)
-   - 이전/다음 노드가 없거나 조건 불만족
-   - block 노드인 경우
+4. **Do nothing** (fallback)
+   - No previous/next node or condition not met
+   - If block node
 
-### 3. 노드 병합 vs 문자 삭제
+### 3. Node Merge vs Character Deletion
 
-**문자 삭제를 우선하는 이유**:
-- 사용자 기대: "이전/다음 노드의 문자를 삭제하고 싶다"
-- 노드 병합은 부수 효과가 큼 (marks, decorators 등)
+**Why prioritize character deletion**:
+- User expectation: "I want to delete characters from previous/next node"
+- Node merge has large side effects (marks, decorators, etc.)
 
-**노드 병합이 필요한 경우**:
-- 이전/다음 노드가 이미 비어있는 경우
-- 사용자가 명시적으로 노드 병합을 원하는 경우 (예: 빈 줄 삭제)
-
----
-
-## 구현 계획
-
-### Phase 1: 기본 구현 (현재)
-
-1. ✅ 노드 시작 위치에서 Backspace: 이전 노드의 마지막 문자 삭제
-2. ✅ 노드 끝 위치에서 Delete: 다음 노드의 첫 문자 삭제
-3. ✅ 형제 노드 확인 로직
-4. ✅ 조건 불만족 시 fallback (아무 동작도 하지 않음)
-
-### Phase 2: 노드 병합 (향후)
-
-1. 이전/다음 노드가 비어있을 때 병합
-2. 병합 시 marks, decorators 처리
-3. 병합 후 selection 위치 조정
+**When node merge is needed**:
+- When previous/next node is already empty
+- When user explicitly wants node merge (e.g., delete empty line)
 
 ---
 
-## 예외 케이스
+## Implementation Plan
 
-### 케이스 1: 이전/다음 노드가 다른 타입
+### Phase 1: Basic Implementation (Current)
 
-#### 1-1. inline-image 같은 단일 inline 노드
+1. ✅ Backspace at node start: Delete last character of previous node
+2. ✅ Delete at node end: Delete first character of next node
+3. ✅ Sibling node verification logic
+4. ✅ Fallback when condition not met (do nothing)
 
-**예시**:
+### Phase 2: Node Merge (Future)
+
+1. Merge when previous/next node is empty
+2. Handle marks, decorators during merge
+3. Adjust selection position after merge
+
+---
+
+## Exception Cases
+
+### Case 1: Previous/Next Node is Different Type
+
+#### 1-1. Single inline node like inline-image
+
+**Example**:
 ```
 [text-1: "Hello"] [image-1] [text-2: "World"]
-                    ↑ 커서 (text-2의 offset 0)
+                    ↑ cursor (text-2 offset 0)
 ```
 
-**처리**: 
-- Backspace: `image-1` 노드 전체 삭제
-- Delete: `image-1` 노드 전체 삭제 (text-1의 끝에서)
+**Processing**: 
+- Backspace: Delete entire `image-1` node
+- Delete: Delete entire `image-1` node (from text-1 end)
 
-**구현**:
-- `calculateCrossNodeDeleteRange`가 `{ _deleteNode: true, nodeId: 'image-1' }` 반환
-- `handleDelete`에서 `dataStore.deleteNode('image-1')` 호출
+**Implementation**:
+- `calculateCrossNodeDeleteRange` returns `{ _deleteNode: true, nodeId: 'image-1' }`
+- `handleDelete` calls `dataStore.deleteNode('image-1')`
 
-#### 1-2. block 노드
+#### 1-2. Block node
 
-**예시**:
-```
-[paragraph-1 > text-1: "Hello"]
-[paragraph-2 > text-2: "World"]
-                    ↑ 커서 (paragraph-2의 text-2 시작)
-```
-
-**처리**: 아무 동작도 하지 않음 (블록 경계이므로)
-
-### 케이스 2: 이전/다음 노드가 다른 부모
-
-**예시**:
+**Example**:
 ```
 [paragraph-1 > text-1: "Hello"]
 [paragraph-2 > text-2: "World"]
-                    ↑ 커서 (paragraph-2의 text-2 시작)
+                    ↑ cursor (paragraph-2 text-2 start)
 ```
 
-**처리**: 아무 동작도 하지 않음 (다른 블록이므로 병합하면 안 됨)
+**Processing**: Do nothing (block boundary)
 
-### 케이스 3: 이전/다음 노드가 비어있음
+### Case 2: Previous/Next Node Has Different Parent
 
-**예시**:
+**Example**:
+```
+[paragraph-1 > text-1: "Hello"]
+[paragraph-2 > text-2: "World"]
+                    ↑ cursor (paragraph-2 text-2 start)
+```
+
+**Processing**: Do nothing (different block, should not merge)
+
+### Case 3: Previous/Next Node is Empty
+
+**Example**:
 ```
 [text-1: ""] [text-2: "World"]
-              ↑ 커서
+              ↑ cursor
 ```
 
-**처리**: 
-- Phase 1: 아무 동작도 하지 않음
-- Phase 2: 노드 병합 (향후 구현)
+**Processing**: 
+- Phase 1: Do nothing
+- Phase 2: Node merge (future implementation)
 
 ---
 
-## 테스트 시나리오
+## Test Scenarios
 
-### 테스트 1: 기본 Backspace (노드 시작)
+### Test 1: Basic Backspace (Node Start)
 ```
-초기: [text-1: "Hello"] [text-2: "World"]
-커서: text-2의 offset 0
-동작: Backspace
-예상: [text-1: "Hell"] [text-2: "World"]
-```
-
-### 테스트 2: 기본 Delete (노드 끝)
-```
-초기: [text-1: "Hello"] [text-2: "World"]
-커서: text-1의 offset 5 (끝)
-동작: Delete
-예상: [text-1: "Hello"] [text-2: "orld"]
+Initial: [text-1: "Hello"] [text-2: "World"]
+Cursor: text-2 offset 0
+Action: Backspace
+Expected: [text-1: "Hell"] [text-2: "World"]
 ```
 
-### 테스트 3: 이전 노드가 다른 타입
+### Test 2: Basic Delete (Node End)
 ```
-초기: [text-1: "Hello"] [image-1] [text-2: "World"]
-커서: text-2의 offset 0
-동작: Backspace
-예상: 변화 없음
+Initial: [text-1: "Hello"] [text-2: "World"]
+Cursor: text-1 offset 5 (end)
+Action: Delete
+Expected: [text-1: "Hello"] [text-2: "orld"]
 ```
 
-### 테스트 4: 이전 노드가 다른 부모
+### Test 3: Previous Node is Different Type
 ```
-초기: [paragraph-1 > text-1: "Hello"]
+Initial: [text-1: "Hello"] [image-1] [text-2: "World"]
+Cursor: text-2 offset 0
+Action: Backspace
+Expected: No change
+```
+
+### Test 4: Previous Node Has Different Parent
+```
+Initial: [paragraph-1 > text-1: "Hello"]
       [paragraph-2 > text-2: "World"]
-커서: text-2의 offset 0
-동작: Backspace
-예상: 변화 없음
+Cursor: text-2 offset 0
+Action: Backspace
+Expected: No change
 ```
 
-### 테스트 5: 이전 노드가 비어있음
+### Test 5: Previous Node is Empty
 ```
-초기: [text-1: ""] [text-2: "World"]
-커서: text-2의 offset 0
-동작: Backspace
-예상: Phase 1 - 변화 없음, Phase 2 - 노드 병합
+Initial: [text-1: ""] [text-2: "World"]
+Cursor: text-2 offset 0
+Action: Backspace
+Expected: Phase 1 - No change, Phase 2 - Node merge
 ```
 
 ---
 
-## 다른 에디터들의 구현 방식
+## Implementation Approaches in Other Editors
 
 ### 1. ProseMirror
 
-**접근 방식**: Model-First, Transaction 기반
+**Approach**: Model-First, Transaction-based
 
-**노드 경계 삭제 처리**:
-- `deleteContentBackward`/`deleteContentForward`를 `beforeinput`에서 감지
-- `preventDefault()` 후 Transaction으로 모델 변경
-- ProseMirror의 `delete` 명령은 자동으로 노드 경계를 처리:
-  - 이전 노드의 마지막 문자 삭제
-  - 빈 노드 자동 병합
-  - block 경계에서는 아무 동작도 하지 않음
+**Cross-node deletion handling**:
+- Detect `deleteContentBackward`/`deleteContentForward` in `beforeinput`
+- `preventDefault()` then change model with Transaction
+- ProseMirror's `delete` command automatically handles node boundaries:
+  - Delete last character of previous node
+  - Automatically merge empty nodes
+  - Do nothing at block boundaries
 
-**구현 예시**:
+**Implementation Example**:
 ```typescript
-// ProseMirror는 내부적으로 노드 경계를 자동 처리
+// ProseMirror automatically handles node boundaries internally
 const tr = state.tr.delete(selection.from, selection.to);
-// delete 명령이 자동으로:
-// - 이전/다음 노드의 문자 삭제
-// - 빈 노드 병합
-// - block 경계 처리
+// delete command automatically:
+// - Deletes characters from previous/next nodes
+// - Merges empty nodes
+// - Handles block boundaries
 dispatch(tr);
 ```
 
-**특징**:
-- Transaction 시스템이 노드 경계를 자동으로 처리
-- 사용자가 명시적으로 노드 경계를 처리할 필요 없음
-- Schema 기반으로 노드 타입 확인
+**Characteristics**:
+- Transaction system automatically handles node boundaries
+- Users don't need to explicitly handle node boundaries
+- Node type verification based on Schema
 
 ---
 
 ### 2. Slate.js
 
-**접근 방식**: Model-First, Transforms API
+**Approach**: Model-First, Transforms API
 
-**노드 경계 삭제 처리**:
-- `beforeinput`에서 `preventDefault()`
-- `Transforms.delete()`가 노드 경계를 처리:
-  - 이전/다음 노드의 문자 삭제
-  - 빈 노드 병합 (선택적)
-  - block 경계에서는 아무 동작도 하지 않음
+**Cross-node deletion handling**:
+- `preventDefault()` in `beforeinput`
+- `Transforms.delete()` handles node boundaries:
+  - Delete characters from previous/next nodes
+  - Merge empty nodes (optional)
+  - Do nothing at block boundaries
 
-**구현 예시**:
+**Implementation Example**:
 ```typescript
-// Slate는 Transforms API로 노드 경계 처리
+// Slate handles node boundaries with Transforms API
 Transforms.delete(editor, {
   at: selection,
-  // 내부적으로 이전/다음 노드 처리
-  // 빈 노드 병합 옵션 제공
+  // Internally handles previous/next nodes
+  // Provides empty node merge option
 });
 ```
 
-**특징**:
-- Transforms API가 노드 경계를 자동 처리
-- React 기반이므로 모델 변경 후 자동 리렌더링
-- 노드 병합은 옵션으로 제공
+**Characteristics**:
+- Transforms API automatically handles node boundaries
+- React-based, so automatic re-render after model change
+- Node merge provided as option
 
 ---
 
 ### 3. Lexical
 
-**접근 방식**: Model-First, Selection API
+**Approach**: Model-First, Selection API
 
-**노드 경계 삭제 처리**:
-- `beforeinput`에서 `preventDefault()`
-- `$getSelection().removeText()`가 노드 경계를 처리:
-  - 이전/다음 노드의 문자 삭제
-  - 빈 노드 병합
-  - block 경계에서는 아무 동작도 하지 않음
+**Cross-node deletion handling**:
+- `preventDefault()` in `beforeinput`
+- `$getSelection().removeText()` handles node boundaries:
+  - Delete characters from previous/next nodes
+  - Merge empty nodes
+  - Do nothing at block boundaries
 
-**구현 예시**:
+**Implementation Example**:
 ```typescript
-// Lexical은 Selection API로 노드 경계 처리
+// Lexical handles node boundaries with Selection API
 editor.update(() => {
   const selection = $getSelection();
   if (selection) {
     selection.removeText();
-    // removeText()가 자동으로:
-    // - 이전/다음 노드의 문자 삭제
-    // - 빈 노드 병합
+    // removeText() automatically:
+    // - Deletes characters from previous/next nodes
+    // - Merges empty nodes
   }
 });
 ```
 
-**특징**:
-- Selection API가 노드 경계를 자동 처리
-- 내부적으로 노드 타입 확인 및 처리
-- React 기반이므로 모델 변경 후 자동 리렌더링
+**Characteristics**:
+- Selection API automatically handles node boundaries
+- Internally verifies and processes node types
+- React-based, so automatic re-render after model change
 
 ---
 
 ### 4. Quill
 
-**접근 방식**: 하이브리드 (Delta 모델 + DOM)
+**Approach**: Hybrid (Delta model + DOM)
 
-**노드 경계 삭제 처리**:
-- 일부는 `beforeinput` 사용, 일부는 MutationObserver 사용
-- Delta 모델을 기반으로 노드 경계 처리:
-  - 이전/다음 노드의 문자 삭제
-  - 빈 노드 병합 (선택적)
+**Cross-node deletion handling**:
+- Uses `beforeinput` for some, MutationObserver for others
+- Handles node boundaries based on Delta model:
+  - Delete characters from previous/next nodes
+  - Merge empty nodes (optional)
 
-**특징**:
-- Delta 모델이 노드 경계를 처리
-- DOM과 모델의 동기화가 복잡할 수 있음
-
----
-
-## 비교 요약
-
-| 에디터 | 접근 방식 | 노드 경계 처리 | 빈 노드 병합 | block 경계 처리 |
-|--------|----------|---------------|-------------|----------------|
-| **ProseMirror** | Model-First | Transaction 자동 처리 | 자동 | 아무 동작 안 함 |
-| **Slate.js** | Model-First | Transforms API 자동 처리 | 옵션 | 아무 동작 안 함 |
-| **Lexical** | Model-First | Selection API 자동 처리 | 자동 | 아무 동작 안 함 |
-| **Quill** | 하이브리드 | Delta 모델 처리 | 선택적 | 아무 동작 안 함 |
-| **우리 에디터** | 하이브리드 | 명시적 처리 (`.text` 필드 기반) | Phase 2 예정 | Schema 기반 확인 |
+**Characteristics**:
+- Delta model handles node boundaries
+- DOM and model synchronization can be complex
 
 ---
 
-## 공통 패턴
+## Comparison Summary
 
-### 1. Model-First 접근
-- 대부분의 에디터가 Model-First 접근 방식 채택
-- `beforeinput`에서 `preventDefault()` 후 모델 변경
-- 모델 변경 후 DOM 업데이트
-
-### 2. 자동 노드 경계 처리
-- 대부분의 에디터가 노드 경계를 자동으로 처리
-- 사용자가 명시적으로 노드 경계를 처리할 필요 없음
-- 내부 API가 이전/다음 노드 처리
-
-### 3. 빈 노드 병합
-- 대부분의 에디터가 빈 노드 병합 지원
-- ProseMirror, Lexical: 자동 병합
-- Slate: 옵션으로 제공
-
-### 4. Block 경계 처리
-- 모든 에디터가 block 경계에서는 아무 동작도 하지 않음
-- Block은 독립적인 단위이므로 병합하지 않음
-
-### 5. Schema 기반 타입 확인
-- 대부분의 에디터가 Schema를 통해 노드 타입 확인
-- 우리 에디터는 `.text` 필드 존재 여부로 판단 (커스텀 schema 대응)
+| Editor | Approach | Node Boundary Handling | Empty Node Merge | Block Boundary Handling |
+|--------|----------|----------------------|------------------|------------------------|
+| **ProseMirror** | Model-First | Transaction auto-handling | Automatic | Do nothing |
+| **Slate.js** | Model-First | Transforms API auto-handling | Option | Do nothing |
+| **Lexical** | Model-First | Selection API auto-handling | Automatic | Do nothing |
+| **Quill** | Hybrid | Delta model handling | Optional | Do nothing |
+| **Our Editor** | Hybrid | Explicit handling (`.text` field-based) | Phase 2 planned | Schema-based verification |
 
 ---
 
-## 우리 에디터의 차별점
+## Common Patterns
 
-### 1. `.text` 필드 기반 판단
-- 다른 에디터: Schema의 노드 타입 이름으로 판단
-- 우리 에디터: `.text` 필드 존재 여부로 판단
-- **이유**: 커스텀 schema 대응 (inline-text, inline-image 등이 모두 커스텀)
+### 1. Model-First Approach
+- Most editors adopt Model-First approach
+- `preventDefault()` in `beforeinput` then change model
+- Update DOM after model change
 
-### 2. 명시적 노드 경계 처리
-- 다른 에디터: 내부 API가 자동 처리
-- 우리 에디터: `calculateCrossNodeDeleteRange`로 명시적 처리
-- **이유**: 더 세밀한 제어 가능
+### 2. Automatic Node Boundary Handling
+- Most editors automatically handle node boundaries
+- Users don't need to explicitly handle node boundaries
+- Internal APIs handle previous/next nodes
 
-### 3. 하이브리드 접근
-- 다른 에디터: 대부분 Model-First
-- 우리 에디터: 텍스트 입력은 DOM-First, 삭제는 Model-First
-- **이유**: IME 입력 안정성
+### 3. Empty Node Merge
+- Most editors support empty node merge
+- ProseMirror, Lexical: Automatic merge
+- Slate: Provided as option
+
+### 4. Block Boundary Handling
+- All editors do nothing at block boundaries
+- Blocks are independent units, so should not be merged
+
+### 5. Schema-based Type Verification
+- Most editors verify node types through Schema
+- Our editor judges by `.text` field existence (custom schema support)
 
 ---
 
-## 참고
+## Our Editor's Differences
 
-- `DataStore.getPreviousNode(nodeId)`: 이전 노드 ID 반환
-- `DataStore.getNextNode(nodeId)`: 다음 노드 ID 반환
-- `DataStore.getParent(nodeId)`: 부모 노드 반환
-- `DataStore.getNode(nodeId)`: 노드 정보 반환
+### 1. `.text` Field-based Judgment
+- Other editors: Judge by node type name in Schema
+- Our editor: Judge by `.text` field existence
+- **Reason**: Custom schema support (inline-text, inline-image, etc. are all custom)
+
+### 2. Explicit Node Boundary Handling
+- Other editors: Internal APIs automatically handle
+- Our editor: Explicit handling with `calculateCrossNodeDeleteRange`
+- **Reason**: Enables finer control
+
+### 3. Hybrid Approach
+- Other editors: Mostly Model-First
+- Our editor: Text input is DOM-First, deletion is Model-First
+- **Reason**: IME input stability
+
+---
+
+## References
+
+- `DataStore.getPreviousNode(nodeId)`: Returns previous node ID
+- `DataStore.getNextNode(nodeId)`: Returns next node ID
+- `DataStore.getParent(nodeId)`: Returns parent node
+- `DataStore.getNode(nodeId)`: Returns node information
 

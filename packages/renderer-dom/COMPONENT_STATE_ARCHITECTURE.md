@@ -1,184 +1,184 @@
-# 컴포넌트 상태 관리 아키텍처 분석
+# Component State Management Architecture Analysis
 
-## 현재 문제점
+## Current Issues
 
-### 1. Props vs Model 누적 문제
+### 1. Props vs Model Accumulation Problem
 
-**현재 구조:**
+**Current Structure:**
 ```typescript
 // VNodeBuilder._buildComponent
 const effectiveProps = Object.keys(props).length === 0 ? { ...data } : props;
-// props가 없으면 전체 data(stype/sid 포함)를 props로 사용
+// If props is empty, use entire data (including stype/sid) as props
 
 // ComponentManager.mountComponent
-instance.props = vnode.component.props || {};  // data가 props로 전파됨
+instance.props = vnode.component.props || {};  // data propagates to props
 
 // componentContext
 const componentContext = {
-  props: instance.props,  // stype/sid가 포함된 전체 모델 데이터
+  props: instance.props,  // entire model data including stype/sid
   state: instance.state,
-  // model이 별도로 분리되지 않음
+  // model is not separated
 };
 ```
 
-**문제점:**
-- `props`와 `model`이 분리되지 않아 `props`에 모델 메타데이터(stype/sid/type)가 누적
-- 컴포넌트 템플릿 함수에서 `props`와 `model`을 구분할 수 없음
-- 내부 element 빌드 시 sanitize로 제거하지만, 근본 원인은 해결되지 않음
-- `effectiveProps`로 통합하여 전달하면 더욱 혼란스러움
+**Problems:**
+- `props` and `model` are not separated, causing model metadata (stype/sid/type) to accumulate in `props`
+- Component template functions cannot distinguish between `props` and `model`
+- Sanitize removes them during internal element build, but root cause is not resolved
+- Passing unified `effectiveProps` is even more confusing
 
-### 2. 컴포넌트 상태 변경 시 동기화 문제
+### 2. Synchronization Problem on Component State Change
 
-**현재 구조:**
+**Current Structure:**
 ```typescript
-// ComponentManager.setState (103-146줄)
+// ComponentManager.setState (lines 103-146)
 setState: (newState) => {
   instance.state = { ...instance.state, ...newState };
-  // 로컬 reconcile만 수행
+  // Only performs local reconcile
   reconcileFunc(prevVNode, nextVNode, instance.element, reconcileContext);
 }
 ```
 
-**문제점:**
-- 컴포넌트 내부 상태 변경 시 로컬 reconcile만 수행
-- 외부 모델 변경과 동기화되지 않음
-- 예: 컴포넌트가 `count: 1`로 변경했는데, 외부에서 `items` 배열이 바뀌면 반영 안 됨
+**Problems:**
+- Only performs local reconcile on component internal state change
+- Not synchronized with external model changes
+- Example: Component changes `count: 1`, but if `items` array changes externally, it is not reflected
 
-**사용자 제안 시나리오:**
+**User Proposed Scenario:**
 ```
-컴포넌트 내부 상태 변경:
-  props + model + state → 하나로 구조화 → 해당 영역만 렌더링
+Component internal state change:
+  props + model + state → structure as one → render only that area
 
-외부 모델 변경:
-  상위/하위 모델이 바뀌면 컴포넌트 내부 상태와 충돌 가능
-  → 전체 재렌더링이 필요
+External model change:
+  If parent/child model changes, may conflict with component internal state
+  → Full re-render needed
 ```
 
-## 제안된 해결책
+## Proposed Solutions
 
-### 1. Props vs Context 분리
+### 1. Props vs Context Separation
 
-**핵심 개념:**
-- `props`: 순수 전달 데이터만 (컴포넌트 API 인터페이스)
-- `context`: 모델 데이터 + 상태 관리 (내부 사용)
-- 컴포넌트 정의: `(props, context) => ElementTemplate`
+**Core Concept:**
+- `props`: Pure passed data only (component API interface)
+- `context`: Model data + state management (internal use)
+- Component definition: `(props, context) => ElementTemplate`
 
-**구조 변경:**
+**Structure Change:**
 ```typescript
 // ComponentManager.mountComponent
 const componentContext = {
   id: componentId,
   state: instance.state,
-  // props는 순수 전달 데이터만 (stype/sid 제외)
-  props: sanitizedProps,  // stype/sid/type 제거된 순수 props
-  // context.model에만 모델 데이터 담기
-  model: instance.model,  // 원본 모델 데이터 (stype/sid 포함)
+  // props is pure passed data only (excluding stype/sid)
+  props: sanitizedProps,  // pure props with stype/sid/type removed
+  // model data only in context.model
+  model: instance.model,  // original model data (including stype/sid)
   registry: context.registry,
   setState: (newState) => { /* ... */ },
   getState: () => instance.state,
   // ...
 };
 
-// 컴포넌트 템플릿 함수
+// Component template function
 define('counter', (props, context) => {
-  // props: 순수 전달 데이터 (예: { label: 'Count' })
-  // context.model: 모델 데이터 (예: { stype: 'counter', sid: 'c1', items: [...] })
-  // context.state: 컴포넌트 내부 상태 (예: { count: 0 })
+  // props: pure passed data (e.g., { label: 'Count' })
+  // context.model: model data (e.g., { stype: 'counter', sid: 'c1', items: [...] })
+  // context.state: component internal state (e.g., { count: 0 })
   return element('div', [text(String(context.state.count))]);
 });
 ```
 
-**장점:**
-- 명확한 책임 분리: props는 API, model은 데이터 소스
-- stype/sid 전파 방지: props는 순수 데이터만
-- 컴포넌트 재사용성 향상: props 인터페이스가 명확
+**Advantages:**
+- Clear responsibility separation: props is API, model is data source
+- Prevents stype/sid propagation: props is pure data only
+- Improved component reusability: props interface is clear
 
-**단점:**
-- 기존 코드 마이그레이션 필요
-- 컴포넌트 템플릿에서 `context.model` 접근 필요
+**Disadvantages:**
+- Requires existing code migration
+- Components need to access `context.model` in templates
 
-### 2. 전체 재렌더링 전략
+### 2. Full Re-rendering Strategy
 
-**핵심 개념:**
-- 컴포넌트 내부 상태 변경 시 전체 앱을 다시 렌더링
-- 외부 모델 변경과 내부 상태를 하나로 통합하여 일관성 보장
-- Reconcile 알고리즘으로 실제 변경된 부분만 DOM 업데이트 (성능 최적화)
+**Core Concept:**
+- Re-render entire app when component internal state changes
+- Integrate external model changes and internal state into one for consistency
+- Update only actually changed parts in DOM with Reconcile algorithm (performance optimization)
 
-#### 2.1 전체 재렌더링 플로우
+#### 2.1 Full Re-rendering Flow
 
 ```
-[컴포넌트 내부 상태 변경]
+[Component Internal State Change]
   ↓
 ComponentManager.setState({ count: 1 })
   ↓
 instance.state = { ...instance.state, count: 1 }
   ↓
-onRerenderCallback() 호출
+Call onRerenderCallback()
   ↓
 DOMRenderer.rerender()
   ↓
-[전체 재빌드]
-  lastModel + lastDecorators 사용
+[Full Rebuild]
+  Use lastModel + lastDecorators
   ↓
 DOMRenderer.build(lastModel, lastDecorators)
   ↓
-VNodeBuilder.build() - 전체 VNode 트리 재생성
-  ├─ ComponentManager에서 기존 인스턴스 상태 참조
-  ├─ props + model + state 통합
-  └─ 컴포넌트 템플릿 함수 재실행 (최신 상태 반영)
+VNodeBuilder.build() - Regenerate entire VNode tree
+  ├─ Reference existing instance state from ComponentManager
+  ├─ Integrate props + model + state
+  └─ Re-execute component template function (reflect latest state)
   ↓
 DOMRenderer.render(container, newVNode)
   ↓
 DOMReconcile.reconcile(prevVNode, newVNode, container)
   ├─ Virtual DOM diffing
-  ├─ 실제 변경된 부분만 DOM 업데이트
-  ├─ 컴포넌트 인스턴스 재사용 (id 기반 매칭)
-  └─ 불필요한 업데이트 최소화
+  ├─ Update only actually changed parts in DOM
+  ├─ Reuse component instances (id-based matching)
+  └─ Minimize unnecessary updates
   ↓
-[DOM 업데이트 완료]
+[DOM Update Complete]
 ```
 
-#### 2.2 구현 구조
+#### 2.2 Implementation Structure
 
-**ComponentManager.setState 변경:**
+**ComponentManager.setState Change:**
 ```typescript
-// ComponentManager.mountComponent 내부
+// Inside ComponentManager.mountComponent
 const componentContext = {
   id: componentId,
   state: instance.state,
   props: sanitizedProps,
-  model: instance.model,  // 원본 모델 데이터 저장
+  model: instance.model,  // Store original model data
   registry: context.registry,
   setState: (newState: Record<string, any>) => {
-    // 상태 업데이트
+    // Update state
     instance.state = { ...instance.state, ...newState };
     
-    // 전체 재렌더링 트리거
+    // Trigger full re-render
     if (this.onRerenderCallback) {
-      this.onRerenderCallback();  // DOMRenderer.rerender() 호출
+      this.onRerenderCallback();  // Call DOMRenderer.rerender()
     }
   },
   // ...
 };
 ```
 
-**DOMRenderer.rerender() 복원:**
+**DOMRenderer.rerender() Restoration:**
 ```typescript
-// DOMRenderer 클래스에 추가
+// Add to DOMRenderer class
 private rerenderCallback: (() => void) | null = null;
 
 constructor(registry?: RendererRegistry, _options?: DOMRendererOptions) {
-  // ... 기존 초기화 코드 ...
+  // ... existing initialization code ...
   
-  // ComponentManager에 rerender 콜백 등록
+  // Register rerender callback with ComponentManager
   this.componentManager.setOnRerenderCallback(() => {
     this.rerender();
   });
 }
 
 /**
- * 전체 재렌더링 수행
- * 저장된 lastModel과 lastDecorators를 사용하여 전체 앱을 다시 렌더링
+ * Perform full re-render
+ * Re-render entire app using stored lastModel and lastDecorators
  */
 rerender(): void {
   if (!this.lastModel || !this.rootElement) {
@@ -186,29 +186,29 @@ rerender(): void {
     return;
   }
   
-  // 전체 VNode 트리 재빌드 (컴포넌트 상태 반영)
+  // Rebuild entire VNode tree (reflect component state)
   const newVNode = this.build(this.lastModel, this.lastDecorators || []);
   
-  // Reconcile을 통한 효율적 DOM 업데이트
+  // Efficient DOM update through Reconcile
   this.render(this.rootElement, newVNode);
 }
 ```
 
-**VNodeBuilder에서 컴포넌트 빌드 시 상태 통합:**
+**State Integration When Building Component in VNodeBuilder:**
 ```typescript
-// VNodeBuilder._buildComponent 내부
+// Inside VNodeBuilder._buildComponent
 private _buildComponent(template: ComponentTemplate, data: ModelData, ...): VNode {
-  // 컴포넌트 인스턴스 ID 생성
+  // Generate component instance ID
   const componentId = this.generateComponentId(vnode);
   
-  // ComponentManager에서 기존 인스턴스 가져오기 (있으면)
+  // Get existing instance from ComponentManager (if exists)
   const existingInstance = this.componentStateProvider?.getComponentInstance?.(componentId);
   
-  // Props와 Model 분리
-  const sanitizedProps = this.sanitizeProps(props);  // stype/sid/type 제거
-  const modelData = { ...data };  // 원본 모델 데이터 (stype/sid 포함)
+  // Separate Props and Model
+  const sanitizedProps = this.sanitizeProps(props);  // Remove stype/sid/type
+  const modelData = { ...data };  // Original model data (including stype/sid)
   
-  // 인스턴스가 있으면 기존 상태 사용, 없으면 새로 생성
+  // Use existing state if instance exists, otherwise create new
   const instance = existingInstance || {
     id: componentId,
     props: sanitizedProps,
@@ -218,26 +218,26 @@ private _buildComponent(template: ComponentTemplate, data: ModelData, ...): VNod
     mounted: false
   };
   
-  // Context 생성 (props, model, state 분리)
+  // Create Context (separate props, model, state)
   const ctx = {
     id: componentId,
-    props: sanitizedProps,      // 순수 props (stype/sid 제외)
-    model: instance.model,       // 원본 모델 (stype/sid 포함)
-    state: instance.state,       // 내부 상태
+    props: sanitizedProps,      // Pure props (excluding stype/sid)
+    model: instance.model,       // Original model (including stype/sid)
+    state: instance.state,       // Internal state
     registry: this.registry,
-    setState: (newState) => { /* ComponentManager에서 처리 */ },
+    setState: (newState) => { /* Handled by ComponentManager */ },
     getState: () => instance.state,
     // ...
   };
   
-  // 컴포넌트 템플릿 함수 실행 (props, context만 전달)
+  // Execute component template function (pass only props, context)
   const elementTemplate = component.template(sanitizedProps, ctx);
   
-  // 내부 element 빌드 (stype/sid 제거된 safeData 사용)
-  const safeData = sanitizedProps;  // props만 사용 (stype/sid 이미 제거됨)
+  // Build internal element (use safeData with stype/sid removed)
+  const safeData = sanitizedProps;  // Use only props (stype/sid already removed)
   const internalVNode = this._buildElement(elementTemplate, safeData);
   
-  // 컴포넌트 래퍼 VNode 반환
+  // Return component wrapper VNode
   return {
     tag: 'div',
     attrs: {
@@ -247,17 +247,17 @@ private _buildComponent(template: ComponentTemplate, data: ModelData, ...): VNod
     },
     component: {
       name: template.name,
-      props: sanitizedProps,  // 순수 props만 저장
-      model: modelData        // 원본 모델 별도 저장
+      props: sanitizedProps,  // Store only pure props
+      model: modelData        // Store original model separately
     },
     children: [internalVNode]
   };
 }
 ```
 
-#### 2.3 컴포넌트 인스턴스 재사용 메커니즘
+#### 2.3 Component Instance Reuse Mechanism
 
-**인스턴스 ID 기반 매칭:**
+**Instance ID-based Matching:**
 ```typescript
 // ComponentManager.generateComponentId
 private generateComponentId(vnode: VNode): string {
@@ -265,7 +265,7 @@ private generateComponentId(vnode: VNode): string {
   const sid = (vnode.attrs as any)?.['data-bc-sid'];
   const key = (vnode.component as any)?.key;
   
-  // 안정적인 ID 생성: key > sid > name + props hash
+  // Generate stable ID: key > sid > name + props hash
   if (key) {
     return `${componentName}-${key}`;
   }
@@ -273,17 +273,17 @@ private generateComponentId(vnode: VNode): string {
     return `${componentName}-${sid}`;
   }
   
-  // Props 기반 해시 (동일한 props면 동일한 인스턴스)
+  // Props-based hash (same props = same instance)
   const propsHash = this.generatePropsHash(vnode.component?.props || {});
   return `${componentName}-${propsHash}`;
 }
 
-// 인스턴스 저장 및 조회
+// Instance storage and lookup
 private componentInstances: Map<string, ComponentInstance> = new Map();
 
 getComponentInstance(id: string): ComponentInstance | undefined {
   const ref = this.componentInstances.get(id);
-  return ref?.deref?.() || ref;  // WeakRef 지원
+  return ref?.deref?.() || ref;  // WeakRef support
 }
 
 setComponentInstance(id: string, instance: ComponentInstance): void {
@@ -291,76 +291,76 @@ setComponentInstance(id: string, instance: ComponentInstance): void {
 }
 ```
 
-**Reconcile 시 인스턴스 재사용:**
+**Instance Reuse During Reconcile:**
 ```typescript
-// DOMReconcile.reconcile 내부
+// Inside DOMReconcile.reconcile
 if (detectVNodeType(nextVNode) === 'component') {
   const componentId = this.generateComponentId(nextVNode);
   const existingInstance = this.componentManager.getComponentInstance(componentId);
   
   if (existingInstance && prevVNode) {
-    // 기존 인스턴스 업데이트 (상태 유지)
+    // Update existing instance (maintain state)
     this.componentManager.updateComponent(prevVNode, nextVNode, container, context, wip);
   } else {
-    // 새 인스턴스 마운트
+    // Mount new instance
     const host = this.componentManager.mountComponent(nextVNode, container, context);
   }
 }
 ```
 
-#### 2.4 상태 통합 전략
+#### 2.4 State Integration Strategy
 
-**데이터 흐름:**
+**Data Flow:**
 ```
-[외부 모델]
+[External Model]
 model = { stype: 'counter', sid: 'c1', items: [...] }
   ↓
-[Props 분리]
-sanitizedProps = { items: [...] }  // stype/sid 제거
-modelData = { stype: 'counter', sid: 'c1', items: [...] }  // 원본 보존
+[Props Separation]
+sanitizedProps = { items: [...] }  // Remove stype/sid
+modelData = { stype: 'counter', sid: 'c1', items: [...] }  // Preserve original
   ↓
-[컴포넌트 인스턴스]
+[Component Instance]
 instance = {
   props: sanitizedProps,
   model: modelData,
-  state: { count: 0 }  // 내부 상태
+  state: { count: 0 }  // Internal state
 }
   ↓
-[템플릿 함수에 전달]
+[Pass to Template Function]
 props = sanitizedProps  // { items: [...] }
 context = {
-  props: sanitizedProps,   // 순수 props
-  model: instance.model,    // 원본 모델 (stype/sid 포함)
-  state: instance.state     // 내부 상태
+  props: sanitizedProps,   // Pure props
+  model: instance.model,    // Original model (including stype/sid)
+  state: instance.state     // Internal state
 }
   ↓
-[템플릿 함수]
+[Template Function]
 define('counter', (props, context) => {
-  // props: 순수 전달 데이터 (stype/sid 제외)
-  // context.props: 순수 props (동일)
-  // context.model: 원본 모델 (stype/sid 포함)
-  // context.state: 내부 상태
+  // props: pure passed data (excluding stype/sid)
+  // context.props: pure props (same)
+  // context.model: original model (including stype/sid)
+  // context.state: internal state
   
   return element('div', [
-    text(String(context.state.count)),  // 내부 상태
-    text(context.model.items.length)    // 외부 모델
+    text(String(context.state.count)),  // Internal state
+    text(context.model.items.length)    // External model
   ]);
 });
 ```
 
-#### 2.5 성능 최적화 전략
+#### 2.5 Performance Optimization Strategy
 
-**1. Reconcile 알고리즘 활용:**
-- Virtual DOM diffing으로 실제 변경된 부분만 DOM 업데이트
-- 컴포넌트 인스턴스는 재사용 (상태 유지)
-- 불필요한 DOM 조작 최소화
+**1. Leverage Reconcile Algorithm:**
+- Update only actually changed parts in DOM with Virtual DOM diffing
+- Reuse component instances (maintain state)
+- Minimize unnecessary DOM manipulation
 
-**2. 컴포넌트 인스턴스 캐싱:**
+**2. Component Instance Caching:**
 ```typescript
 // ComponentManager
 private componentInstances: Map<string, WeakRef<ComponentInstance>> = new Map();
 
-// WeakRef 사용으로 메모리 누수 방지
+// Prevent memory leaks with WeakRef
 setComponentInstance(id: string, instance: ComponentInstance): void {
   this.componentInstances.set(id, new WeakRef(instance));
 }
@@ -371,7 +371,7 @@ getComponentInstance(id: string): ComponentInstance | undefined {
   
   const instance = ref.deref?.() || ref;
   if (!instance) {
-    // WeakRef가 해제된 경우 제거
+    // Remove if WeakRef is released
     this.componentInstances.delete(id);
     return undefined;
   }
@@ -379,18 +379,18 @@ getComponentInstance(id: string): ComponentInstance | undefined {
 }
 ```
 
-**3. 배치 업데이트:**
+**3. Batch Updates:**
 ```typescript
-// 여러 컴포넌트의 setState가 연속 호출되면 한 번만 재렌더링
+// Re-render only once if multiple components' setState are called consecutively
 private rerenderScheduled: boolean = false;
 
 setState: (newState) => {
   instance.state = { ...instance.state, ...newState };
   
-  // 배치 업데이트 스케줄링
+  // Schedule batch update
   if (!this.rerenderScheduled) {
     this.rerenderScheduled = true;
-    // 다음 프레임에 한 번만 실행
+    // Execute only once in next frame
     requestAnimationFrame(() => {
       if (this.onRerenderCallback) {
         this.onRerenderCallback();
@@ -401,9 +401,9 @@ setState: (newState) => {
 };
 ```
 
-**4. 불필요한 재빌드 방지:**
+**4. Prevent Unnecessary Rebuilds:**
 ```typescript
-// VNodeBuilder에서 props/model/state가 실제로 변경되었는지 확인
+// Check if props/model/state actually changed in VNodeBuilder
 private shouldRebuildComponent(
   prevProps: any,
   nextProps: any,
@@ -412,7 +412,7 @@ private shouldRebuildComponent(
   prevState: any,
   nextState: any
 ): boolean {
-  // 얕은 비교로 변경 여부 확인
+  // Check for changes with shallow comparison
   return (
     !shallowEqual(prevProps, nextProps) ||
     !shallowEqual(prevModel, nextModel) ||
@@ -421,190 +421,190 @@ private shouldRebuildComponent(
 }
 ```
 
-#### 2.6 시나리오별 동작 예시
+#### 2.6 Behavior Examples by Scenario
 
-**시나리오 1: 컴포넌트 내부 상태 변경**
+**Scenario 1: Component Internal State Change**
 ```typescript
-// 초기 렌더링
+// Initial render
 const model = { stype: 'counter', sid: 'c1' };
 const vnode = renderer.build(model, []);
 renderer.render(container, vnode);
 // DOM: <div data-bc-sid="c1">0</div>
 
-// 컴포넌트 내부에서 setState
+// setState inside component
 ctx.setState({ count: 1 });
-// → ComponentManager.setState 호출
-// → onRerenderCallback() 호출
-// → DOMRenderer.rerender() 호출
-// → 전체 VNode 트리 재빌드 (instance.state.count = 1 반영)
-// → Reconcile로 실제 변경된 부분만 DOM 업데이트
+// → Call ComponentManager.setState
+// → Call onRerenderCallback()
+// → Call DOMRenderer.rerender()
+// → Rebuild entire VNode tree (reflect instance.state.count = 1)
+// → Update only actually changed parts in DOM with Reconcile
 // DOM: <div data-bc-sid="c1">1</div>
 ```
 
-**시나리오 2: 외부 모델 변경과 내부 상태 동기화**
+**Scenario 2: External Model Change and Internal State Synchronization**
 ```typescript
-// 초기 상태
+// Initial state
 const model1 = { stype: 'list', sid: 'l1', items: [1, 2, 3] };
 const vnode1 = renderer.build(model1, []);
 renderer.render(container, vnode1);
-// 컴포넌트 내부 상태: { selected: 0 }
+// Component internal state: { selected: 0 }
 
-// 컴포넌트 내부에서 setState
+// setState inside component
 ctx.setState({ selected: 1 });
-// → 전체 재렌더링 트리거
+// → Trigger full re-render
 
-// 동시에 외부 모델도 변경
+// External model also changes simultaneously
 const model2 = { stype: 'list', sid: 'l1', items: [4, 5, 6] };
 const vnode2 = renderer.build(model2, []);
 renderer.render(container, vnode2);
-// → 전체 재렌더링 (model2 + 내부 상태 { selected: 1 } 모두 반영)
-// → 외부 모델 변경과 내부 상태가 완전히 동기화됨
+// → Full re-render (reflect both model2 + internal state { selected: 1 })
+// → External model change and internal state are fully synchronized
 ```
 
-**시나리오 3: 여러 컴포넌트 인스턴스**
+**Scenario 3: Multiple Component Instances**
 ```typescript
-// 여러 컴포넌트가 동시에 상태 변경
+// Multiple components change state simultaneously
 counter1.setState({ count: 1 });
 counter2.setState({ count: 2 });
 counter3.setState({ count: 3 });
 
-// 배치 업데이트로 한 번만 재렌더링
-// → requestAnimationFrame으로 스케줄링
-// → 한 번의 reconcile로 모든 변경사항 반영
+// Re-render only once with batch update
+// → Scheduled with requestAnimationFrame
+// → Reflect all changes in single reconcile
 ```
 
-#### 2.7 트레이드오프 분석
+#### 2.7 Trade-off Analysis
 
-**장점:**
-1. **완전한 동기화**: 외부 모델 변경과 내부 상태가 항상 일관성 유지
-2. **단순한 아키텍처**: 부분 렌더링 경계 관리 불필요
-3. **예측 가능성**: 전체 모델이 단일 소스 (Single Source of Truth)
-4. **디버깅 용이**: 전체 상태를 한 번에 확인 가능
+**Advantages:**
+1. **Complete Synchronization**: External model changes and internal state always maintain consistency
+2. **Simple Architecture**: No need to manage partial rendering boundaries
+3. **Predictability**: Entire model is single source (Single Source of Truth)
+4. **Easy Debugging**: Can check entire state at once
 
-**단점:**
-1. **성능 오버헤드**: 전체 VNode 트리 재빌드 (하지만 reconcile로 최적화)
-2. **상태 관리 복잡성**: 컴포넌트 인스턴스 재사용 보장 필수
-3. **메모리 사용**: 전체 VNode 트리를 메모리에 유지
+**Disadvantages:**
+1. **Performance Overhead**: Rebuild entire VNode tree (but optimized with reconcile)
+2. **State Management Complexity**: Must guarantee component instance reuse
+3. **Memory Usage**: Keep entire VNode tree in memory
 
-**성능 측정:**
-- Reconcile 알고리즘으로 실제 변경된 부분만 DOM 업데이트
-- 컴포넌트 인스턴스 재사용으로 상태 유지 (메모리 효율적)
-- 배치 업데이트로 불필요한 재렌더링 방지
-- 예상 성능: 일반적인 앱에서 충분히 빠름 (React/Vue와 유사한 수준)
+**Performance Measurement:**
+- Update only actually changed parts in DOM with Reconcile algorithm
+- Maintain state with component instance reuse (memory efficient)
+- Prevent unnecessary re-renders with batch updates
+- Expected performance: Sufficiently fast in typical apps (similar to React/Vue level)
 
-#### 2.8 구현 체크리스트
+#### 2.8 Implementation Checklist
 
-- [ ] `DOMRenderer.rerender()` 메서드 복원
-- [ ] `ComponentManager.setOnRerenderCallback()` 구현
-- [ ] `ComponentManager.setState`에서 `onRerenderCallback()` 호출
-- [ ] 컴포넌트 인스턴스 재사용 메커니즘 (id 기반 매칭)
-- [ ] Props와 Model 분리 (인스턴스에 별도 저장)
-- [ ] 배치 업데이트 스케줄링 (requestAnimationFrame)
-- [ ] 불필요한 재빌드 방지 (shallowEqual 비교)
-- [ ] 성능 테스트 및 최적화
+- [ ] Restore `DOMRenderer.rerender()` method
+- [ ] Implement `ComponentManager.setOnRerenderCallback()`
+- [ ] Call `onRerenderCallback()` in `ComponentManager.setState`
+- [ ] Component instance reuse mechanism (id-based matching)
+- [ ] Separate Props and Model (store separately in instance)
+- [ ] Batch update scheduling (requestAnimationFrame)
+- [ ] Prevent unnecessary rebuilds (shallowEqual comparison)
+- [ ] Performance testing and optimization
 
-## 비교 분석
+## Comparative Analysis
 
-### 현재 구조 (로컬 reconcile)
+### Current Structure (Local Reconcile)
 
-**장점:**
-- 성능: 부분 업데이트만 수행
-- 빠른 반응: 컴포넌트 내부 변경만 즉시 반영
+**Advantages:**
+- Performance: Only performs partial updates
+- Fast Response: Immediately reflects only component internal changes
 
-**단점:**
-- 동기화 문제: 외부 모델 변경과 충돌
-- 복잡성: props/model/state 경계 관리 어려움
-- 상태 불일치: 내부 상태와 외부 모델이 따로 놈
+**Disadvantages:**
+- Synchronization Problem: Conflicts with external model changes
+- Complexity: Difficult to manage props/model/state boundaries
+- State Inconsistency: Internal state and external model are separate
 
-### 제안된 구조 (전체 재렌더링)
+### Proposed Structure (Full Re-rendering)
 
-**장점:**
-- 일관성: props + model + state가 항상 동기화
-- 단순성: 부분 렌더링 경계 관리 불필요
-- 예측 가능성: 전체 모델이 단일 소스
+**Advantages:**
+- Consistency: props + model + state always synchronized
+- Simplicity: No need to manage partial rendering boundaries
+- Predictability: Entire model is single source
 
-**단점:**
-- 성능: 전체 앱 재렌더링 (하지만 reconcile로 최적화)
-- 상태 관리: 컴포넌트 인스턴스 재사용 필수
+**Disadvantages:**
+- Performance: Re-render entire app (but optimized with reconcile)
+- State Management: Component instance reuse required
 
-## 권장 방향
+## Recommended Direction
 
-### 1단계: Props vs Context 분리 (즉시 적용 가능)
+### Step 1: Props vs Context Separation (Can Apply Immediately)
 
-**변경 사항:**
-- `componentContext`에서 `props`와 `model` 분리
-- `props`: 순수 전달 데이터만 (stype/sid 제외)
-- `context.model`: 원본 모델 데이터 (stype/sid 포함)
-- 컴포넌트 템플릿에서 `context.model` 접근
+**Changes:**
+- Separate `props` and `model` in `componentContext`
+- `props`: Pure passed data only (excluding stype/sid)
+- `context.model`: Original model data (including stype/sid)
+- Access `context.model` in component templates
 
-**효과:**
-- stype/sid 전파 문제 해결
-- 컴포넌트 API 인터페이스 명확화
-- 기존 로컬 reconcile 유지 가능
+**Effects:**
+- Resolve stype/sid propagation problem
+- Clarify component API interface
+- Can maintain existing local reconcile
 
-### 2단계: 전체 재렌더링 전략 (선택적)
+### Step 2: Full Re-rendering Strategy (Optional)
 
-**조건:**
-- 성능이 충분히 좋은 경우 (reconcile 최적화 확인)
-- 외부 모델 변경과 내부 상태 동기화가 중요한 경우
+**Conditions:**
+- When performance is sufficiently good (verify reconcile optimization)
+- When synchronization between external model changes and internal state is important
 
-**변경 사항:**
-- `setState`에서 `onRerenderCallback()` 호출
-- `DOMRenderer.rerender()` 복원
-- 컴포넌트 인스턴스 재사용 보장 (id 기반 매칭)
+**Changes:**
+- Call `onRerenderCallback()` in `setState`
+- Restore `DOMRenderer.rerender()`
+- Guarantee component instance reuse (id-based matching)
 
-**효과:**
-- 완전한 동기화 보장
-- 단순한 아키텍처
-- 예측 가능한 동작
+**Effects:**
+- Guarantee complete synchronization
+- Simple architecture
+- Predictable behavior
 
-## 결론
+## Conclusion
 
-1. **Props vs Context 분리는 필수**: stype/sid 전파 문제를 근본적으로 해결
-2. **전체 재렌더링은 선택적**: 성능과 동기화 요구사항에 따라 결정
-3. **하이브리드 접근 가능**: 초기에는 로컬 reconcile 유지, 필요 시 전체 재렌더링으로 전환
+1. **Props vs Context separation is essential**: Fundamentally resolves stype/sid propagation problem
+2. **Full re-rendering is optional**: Decide based on performance and synchronization requirements
+3. **Hybrid approach possible**: Maintain local reconcile initially, transition to full re-rendering when needed
 
-## 전역 상태 및 서비스 접근 설계
+## Global State and Service Access Design
 
-### 문제 정의
+### Problem Definition
 
-현재 컴포넌트는 다음 3가지만 접근 가능:
-- `props`: 순수 전달 데이터 (컴포넌트 API)
-- `context.model`: 해당 컴포넌트의 모델 데이터 (stype/sid 포함)
-- `context.state`: 컴포넌트 내부 상태
+Currently, components can only access the following 3 things:
+- `props`: Pure passed data (component API)
+- `context.model`: That component's model data (including stype/sid)
+- `context.state`: Component internal state
 
-**하지만 컴포넌트 내부에서 필요한 것들:**
-- Editor 인스턴스 접근 (명령 실행, 이벤트 구독 등)
-- 전체 모델 트리 접근 (루트 모델 조회)
-- 전역 서비스 접근 (데이터 스토어, 선택 관리자, 스키마 등)
-- 전역 상태 관리 (여러 컴포넌트 간 공유 상태)
+**But what components need internally:**
+- Editor instance access (command execution, event subscription, etc.)
+- Entire model tree access (root model lookup)
+- Global service access (data store, selection manager, schema, etc.)
+- Global state management (shared state across multiple components)
 
-**핵심 원칙:**
-- 전역 상태는 Editor의 전역 서비스를 통해 관리
-- 컴포넌트 간 상태 공유는 Editor/DataStore를 통해
-- 상위 컴포넌트의 private state 직접 참조는 지양
+**Core Principles:**
+- Manage global state through Editor's global services
+- Share state between components through Editor/DataStore
+- Avoid direct reference to parent component's private state
 
-### 전역 서비스 접근 설계 (권장)
+### Global Service Access Design (Recommended)
 
-#### Registry 확장을 통한 전역 서비스 접근
+#### Global Service Access Through Registry Extension
 
-**핵심 개념:**
-- Editor와 전역 서비스를 Registry에 확장
-- 컴포넌트는 `context.registry.getService()`로 접근
-- 중앙 집중식 관리로 전역 상태 일관성 보장
+**Core Concept:**
+- Extend Registry with Editor and global services
+- Components access via `context.registry.getService()`
+- Ensure global state consistency through centralized management
 
-**구조:**
+**Structure:**
 ```typescript
 interface ComponentContext {
-  // 기존 필드들
+  // Existing fields
   id: string;
   props: ComponentProps;
   model: ModelData;
   state: ComponentState;
   
-  // Registry 확장 (전역 서비스)
+  // Registry extension (global services)
   registry: RendererRegistry & {
-    // Editor 및 전역 서비스
+    // Editor and global services
     getEditor(): Editor | null;
     getDataStore(): DataStore | null;
     getSelectionManager(): SelectionManager | null;
@@ -612,14 +612,14 @@ interface ComponentContext {
     getRootModel(): ModelData | null;
   };
   
-  // 편의 메서드
+  // Convenience methods
   getEditor(): Editor | null;
 }
 ```
 
-**구현:**
+**Implementation:**
 ```typescript
-// DOMRenderer 생성 시
+// When creating DOMRenderer
 class DOMRenderer {
   private lastModel: ModelData | null = null;
   private editor?: Editor;
@@ -627,7 +627,7 @@ class DOMRenderer {
   constructor(registry?: RendererRegistry, editor?: Editor) {
     this.editor = editor;
     
-    // Registry 확장
+    // Extend Registry
     const extendedRegistry = {
       ...registry,
       getEditor: () => this.editor || null,
@@ -641,13 +641,13 @@ class DOMRenderer {
   }
   
   build(model: ModelData, decorators: DecoratorData[] = []): VNode {
-    this.lastModel = model;  // 루트 모델 저장
+    this.lastModel = model;  // Store root model
     return this.builder.build(model.stype, model, { decorators });
   }
 }
 ```
 
-**ComponentManager에서 Registry 확장 사용:**
+**Using Registry Extension in ComponentManager:**
 ```typescript
 // ComponentManager.mountComponent
 const componentContext: ComponentContext = {
@@ -656,14 +656,14 @@ const componentContext: ComponentContext = {
   model: instance.model,
   state: instance.state,
   
-  // Registry 확장 (전역 서비스)
+  // Registry extension (global services)
   registry: {
     ...context.registry,
-    // Registry의 확장 메서드들이 이미 포함됨
-    // getEditor, getDataStore 등 사용 가능
+    // Registry extension methods already included
+    // getEditor, getDataStore, etc. available
   },
   
-  // 편의 메서드
+  // Convenience methods
   getEditor: () => context.registry.getEditor?.(),
   
   setState: (newState) => { /* ... */ },
@@ -671,21 +671,21 @@ const componentContext: ComponentContext = {
 };
 ```
 
-**핵심 개념:**
-- 전역 서비스는 Registry로 접근 (대부분의 경우 충분)
-- 상위 컴포넌트 접근은 실제로 거의 필요 없음
-- 필요하면 명시적으로 찾기 (React처럼 가장 가까운 것)
+**Core Concept:**
+- Access global services through Registry (sufficient in most cases)
+- Parent component access is rarely actually needed
+- Find explicitly if needed (like React, find closest one)
 
-**사용 예시:**
+**Usage Examples:**
 
 ```typescript
-// 전역 서비스 접근 (일반적인 사용)
+// Global service access (common usage)
 define('editor-toolbar', (props, context) => {
   const editor = context.getEditor();
   const dataStore = context.registry.getDataStore();
   const rootModel = context.registry.getRootModel();
   
-  // Editor 명령 실행
+  // Execute Editor command
   return element('div', [
     element('button', {
       onClick: () => {
@@ -698,12 +698,12 @@ define('editor-toolbar', (props, context) => {
   ]);
 });
 
-// 전역 상태 접근 (DataStore 사용)
+// Global state access (using DataStore)
 define('status-bar', (props, context) => {
   const editor = context.getEditor();
   const dataStore = context.registry.getDataStore();
   
-  // DataStore에서 전역 상태 읽기
+  // Read global state from DataStore
   const selection = dataStore?.getSelection();
   const wordCount = dataStore?.getWordCount();
   
@@ -713,7 +713,7 @@ define('status-bar', (props, context) => {
   ]);
 });
 
-// 전역 상태 업데이트
+// Global state update
 define('button-group', (props, context) => {
   const editor = context.getEditor();
   const dataStore = context.registry.getDataStore();
@@ -721,9 +721,9 @@ define('button-group', (props, context) => {
   return element('div', [
     element('button', {
       onClick: () => {
-        // Editor를 통해 전역 상태 업데이트
+        // Update global state through Editor
         editor?.executeCommand('toggleBold');
-        // 또는 DataStore 직접 업데이트
+        // Or update DataStore directly
         dataStore?.setState({ boldActive: true });
       }
     }, [text('Bold')])
@@ -731,85 +731,85 @@ define('button-group', (props, context) => {
 });
 ```
 
-**전역 상태 관리 패턴:**
+**Global State Management Patterns:**
 
-1. **Editor를 통한 상태 관리 (권장)**
+1. **State Management Through Editor (Recommended)**
    ```typescript
-   // Editor의 명령 시스템 사용
+   // Use Editor's command system
    editor.executeCommand('bold');
    editor.executeCommand('toggleBold');
    ```
 
-2. **DataStore를 통한 상태 관리**
+2. **State Management Through DataStore**
    ```typescript
-   // DataStore 직접 접근
+   // Direct DataStore access
    const state = dataStore.getState();
    dataStore.setState({ boldActive: true });
    ```
 
-3. **선택 관리자 사용**
+3. **Using Selection Manager**
    ```typescript
    const selection = selectionManager.getSelection();
    selectionManager.setSelection(range);
    ```
 
-**장점:**
-- 단순한 구조: Registry 확장만으로 모든 전역 서비스 접근
-- 중앙 집중식 관리: Editor, DataStore 등이 한 곳에서 관리
-- 성능 오버헤드 적음: 컨텍스트 체인 없이 직접 접근
-- 타입 안정성: TypeScript로 타입 체크 가능
-- 일관성 보장: 전역 상태가 항상 동기화됨
+**Advantages:**
+- Simple structure: Access all global services with just Registry extension
+- Centralized management: Editor, DataStore, etc. managed in one place
+- Low performance overhead: Direct access without context chain
+- Type safety: Type checking possible with TypeScript
+- Consistency guarantee: Global state always synchronized
 
-**핵심 원칙:**
-- 전역 상태는 Editor의 전역 서비스를 통해 관리
-- 컴포넌트 간 상태 공유는 Editor/DataStore를 통해
-- 컴포넌트의 private state는 `context.state`로 관리
-- 전역 상태는 `context.registry.getService()`로 접근
+**Core Principles:**
+- Manage global state through Editor's global services
+- Share state between components through Editor/DataStore
+- Manage component's private state with `context.state`
+- Access global state via `context.registry.getService()`
 
-### 권장 방향
+### Recommended Direction
 
-**Registry 확장을 통한 전역 서비스 접근**을 권장합니다:
+**Global Service Access Through Registry Extension** is recommended:
 
-1. **전역 서비스 접근**: Registry 확장으로 통일
-   - `context.getEditor()` - Editor 인스턴스
-   - `context.registry.getDataStore()` - 데이터 스토어
-   - `context.registry.getSelectionManager()` - 선택 관리자
-   - `context.registry.getSchema()` - 스키마
-   - `context.registry.getRootModel()` - 루트 모델
-   - **대부분의 경우 이것만으로 충분**
+1. **Global Service Access**: Unified through Registry extension
+   - `context.getEditor()` - Editor instance
+   - `context.registry.getDataStore()` - Data store
+   - `context.registry.getSelectionManager()` - Selection manager
+   - `context.registry.getSchema()` - Schema
+   - `context.registry.getRootModel()` - Root model
+   - **This is sufficient in most cases**
 
-2. **전역 상태 관리 패턴**:
-   - Editor 명령 시스템 사용 (권장)
-   - DataStore 직접 접근
-   - 선택 관리자 사용
-   - 모든 컴포넌트에서 동일한 방식으로 접근 가능
+2. **Global State Management Patterns**:
+   - Use Editor command system (recommended)
+   - Direct DataStore access
+   - Use selection manager
+   - All components can access in the same way
 
-3. **컴포넌트 상태 관리**:
-   - 컴포넌트 내부 상태: `context.state`, `context.setState()`
-   - 전역 상태: `context.registry.getService()`를 통해 접근
-   - 명확한 책임 분리: 컴포넌트 state vs 전역 state
+3. **Component State Management**:
+   - Component internal state: `context.state`, `context.setState()`
+   - Global state: Access via `context.registry.getService()`
+   - Clear responsibility separation: component state vs global state
 
-**핵심 인사이트:**
-- 전역 상태는 Editor의 전역 서비스를 통해 관리
-- 컴포넌트 간 상태 공유는 Editor/DataStore를 통해
-- 컴포넌트의 private state는 `context.state`로 관리
-- 상위 컴포넌트의 private state 직접 참조는 지양
+**Core Insights:**
+- Manage global state through Editor's global services
+- Share state between components through Editor/DataStore
+- Manage component's private state with `context.state`
+- Avoid direct reference to parent component's private state
 
-### 구현 우선순위
+### Implementation Priority
 
-1. ✅ **Props vs Context 분리** (즉시)
-   - `componentContext` 구조 변경
-   - `props`와 `model` 분리
-   - 컴포넌트 템플릿 업데이트
+1. ✅ **Props vs Context Separation** (Immediate)
+   - Change `componentContext` structure
+   - Separate `props` and `model`
+   - Update component templates
 
-2. ⚠️ **전역 서비스 접근** (다음 단계)
-   - Registry 확장 (전역 서비스)
-   - DOMRenderer에서 Editor 주입
-   - ComponentManager에서 Registry 확장 사용
-   - 전역 상태 관리 패턴 정립
+2. ⚠️ **Global Service Access** (Next Step)
+   - Registry extension (global services)
+   - Inject Editor in DOMRenderer
+   - Use Registry extension in ComponentManager
+   - Establish global state management patterns
 
-3. ⚠️ **전체 재렌더링** (검토 후 결정)
-   - 성능 테스트
-   - reconcile 최적화 확인
-   - 필요 시 적용
+3. ⚠️ **Full Re-rendering** (Decide After Review)
+   - Performance testing
+   - Verify reconcile optimization
+   - Apply if needed
 

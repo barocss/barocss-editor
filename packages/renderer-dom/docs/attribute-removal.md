@@ -161,22 +161,6 @@ element.removeAttribute('class');
 element.className = '';
 ```
 
-## React와의 비교
-
-### React의 속성 삭제
-
-React는 `commitUpdate`에서:
-1. 이전 props와 새 props를 비교
-2. 이전 props에 있지만 새 props에 없는 속성 제거
-3. `removeAttribute` 또는 `removeAttributeNS` 사용
-
-### 현재 구현
-
-현재 구현은 React와 동일:
-1. `updateAttributes`에서 `prevAttrs`와 `nextAttrs` 비교
-2. 이전 속성에 있지만 새 속성에 없는 속성 제거
-3. `removeAttributeWithNamespace` 사용 (namespace 지원)
-
 ## 스타일 삭제
 
 스타일도 동일한 방식으로 처리:

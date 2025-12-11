@@ -1,340 +1,340 @@
-# Reconciler 개선 가능한 부분
+# Reconciler Improvement Opportunities
 
-## 개요
+## Overview
 
-현재 Reconciler 구현을 분석하여 성능, 메모리, 코드 품질 측면에서 개선할 수 있는 부분들을 정리합니다.
+This document analyzes the current Reconciler implementation and organizes areas for improvement in terms of performance, memory, and code quality.
 
 ---
 
-## 1. 성능 최적화
+## 1. Performance Optimization
 
-### 1.1 DOM 쿼리 최적화
+### 1.1 DOM Query Optimization
 
-**현재 문제**:
+**Current Problem**:
 ```typescript
-// host-finding.ts: 여러 번 querySelector 호출
+// host-finding.ts: Multiple querySelector calls
 const global = parent.ownerDocument?.querySelector(`[data-bc-sid="${childVNode.sid}"]`);
 const globalDeco = parent.ownerDocument?.querySelector(`[data-decorator-sid="${childVNode.decoratorSid}"]`);
 
-// dom-utils.ts: Array.from으로 children을 매번 가져옴
+// dom-utils.ts: Getting children with Array.from every time
 const bySid = Array.from(parent.children).find((el: Element) => 
   el.getAttribute('data-bc-sid') === sid
 );
 ```
 
-**개선 방안**:
-- **SID 기반 인덱스 맵 구축**: reconcile 시작 시 `sid → element` 맵을 한 번만 구축
-- **캐싱**: 자주 사용되는 DOM 쿼리 결과를 캐시
-- **querySelector 대신 직접 순회**: 작은 children 배열에서는 직접 순회가 더 빠름
+**Improvement Approach**:
+- **Build SID-based index map**: Build `sid → element` map only once at reconcile start
+- **Caching**: Cache frequently used DOM query results
+- **Direct iteration instead of querySelector**: Direct iteration is faster for small children arrays
 
-**예상 성능 향상**: 10-20% (큰 트리에서)
+**Expected Performance Improvement**: 10-20% (in large trees)
 
 ---
 
-### 1.2 prevChildToElement 맵 구축 최적화
+### 1.2 prevChildToElement Map Building Optimization
 
-**현재 문제**:
+**Current Problem**:
 ```typescript
-// reconciler.ts: 매번 Array.from으로 childNodes 가져옴
+// reconciler.ts: Getting childNodes with Array.from every time
 const parentChildren = Array.from(parent.childNodes);
 for (let i = 0; i < prevChildVNodes.length && i < parentChildren.length; i++) {
   prevChildToElement.set(prevChildVNodes[i], parentChildren[i]);
 }
 ```
 
-**개선 방안**:
-- **Lazy evaluation**: 필요한 경우에만 맵 구축
-- **인덱스 기반 직접 접근**: `parent.childNodes[i]` 직접 사용 (Array.from 제거)
+**Improvement Approach**:
+- **Lazy evaluation**: Build map only when needed
+- **Index-based direct access**: Use `parent.childNodes[i]` directly (remove Array.from)
 
-**예상 성능 향상**: 5-10% (많은 children이 있을 때)
+**Expected Performance Improvement**: 5-10% (when there are many children)
 
 ---
 
-### 1.3 reorder 함수 최적화
+### 1.3 reorder Function Optimization
 
-**현재 문제**:
+**Current Problem**:
 ```typescript
-// dom-utils.ts: 매번 Array.from으로 childNodes를 다시 가져옴
+// dom-utils.ts: Getting childNodes again with Array.from every time
 for (let i = 0; i < ordered.length; i++) {
-  const currentNow = Array.from(parent.childNodes); // 매번 새로 가져옴
+  const currentNow = Array.from(parent.childNodes); // Getting new every time
   if (currentNow[i] !== want) {
     parent.insertBefore(want, referenceNode);
   }
 }
 ```
 
-**개선 방안**:
-- **변경 추적**: 실제로 이동이 필요한 요소만 이동
-- **배치 이동**: 여러 요소를 한 번에 이동
-- **현재 위치 캐싱**: 이동 전에 현재 위치를 한 번만 계산
+**Improvement Approach**:
+- **Change tracking**: Move only elements that actually need to move
+- **Batch moves**: Move multiple elements at once
+- **Current position caching**: Calculate current position only once before moving
 
-**예상 성능 향상**: 15-25% (순서 변경이 많을 때)
+**Expected Performance Improvement**: 15-25% (when there are many order changes)
 
 ---
 
-### 1.4 console.log 제거 또는 조건부 실행
+### 1.4 Remove or Conditionally Execute console.log
 
-**현재 문제**:
+**Current Problem**:
 ```typescript
-// reconciler.ts: 프로덕션에서도 항상 실행
+// reconciler.ts: Always executed even in production
 console.log('[Reconciler] reconcileVNodeChildren: START', {...});
 console.log('[Reconciler] reconcileVNodeChildren: processing child', {...});
 ```
 
-**개선 방안**:
-- **개발 모드에서만 실행**: `if (__DEV__)` 조건 추가
-- **로깅 레벨**: 로깅 레벨에 따라 선택적 실행
-- **성능 측정**: 성능 측정용 로그는 별도로 분리
+**Improvement Approach**:
+- **Execute only in dev mode**: Add `if (__DEV__)` condition
+- **Logging level**: Selective execution based on logging level
+- **Performance measurement**: Separate performance measurement logs
 
-**예상 성능 향상**: 5-15% (많은 로그가 있을 때)
+**Expected Performance Improvement**: 5-15% (when there are many logs)
 
 ---
 
-### 1.5 중복 계산 제거
+### 1.5 Remove Duplicate Calculations
 
-**현재 문제**:
+**Current Problem**:
 ```typescript
-// child-processing.ts: prevChildVNode를 여러 번 찾음
-const prevChildVNode = findPrevChildVNode(...); // 한 번 찾음
+// child-processing.ts: Finding prevChildVNode multiple times
+const prevChildVNode = findPrevChildVNode(...); // Found once
 updateHostElement(..., prevChildVNode, ...);
-// 하지만 updateHostElement 내부에서도 다시 찾을 수 있음
+// But updateHostElement may also find it again internally
 ```
 
-**개선 방안**:
-- **이미 최적화됨**: `prevChildVNode`를 한 번만 찾아서 재사용 ✅
-- **추가 최적화**: 자주 사용되는 값들을 변수에 저장
+**Improvement Approach**:
+- **Already optimized**: `prevChildVNode` found only once and reused ✅
+- **Additional optimization**: Store frequently used values in variables
 
 ---
 
-## 2. 메모리 최적화
+## 2. Memory Optimization
 
-### 2.1 prevVNodeTree 메모리 누수 방지
+### 2.1 Prevent prevVNodeTree Memory Leak
 
-**현재 문제**:
+**Current Problem**:
 ```typescript
-// reconciler.ts: prevVNodeTree가 계속 커질 수 있음
+// reconciler.ts: prevVNodeTree can keep growing
 private prevVNodeTree: Map<string, VNode> = new Map();
-// 언마운트된 컴포넌트의 prevVNode가 계속 남아있을 수 있음
+// prevVNode of unmounted components may remain
 ```
 
-**개선 방안**:
-- **WeakMap 사용**: DOM 요소가 제거되면 자동으로 가비지 컬렉션
-- **정기적 클린업**: 사용하지 않는 prevVNode 정기적으로 제거
-- **언마운트 시 정리**: unmountRoot에서 prevVNodeTree 정리
+**Improvement Approach**:
+- **Use WeakMap**: Automatic garbage collection when DOM elements are removed
+- **Regular cleanup**: Periodically remove unused prevVNodes
+- **Cleanup on unmount**: Clean prevVNodeTree in unmountRoot
 
-**예상 메모리 절약**: 20-30% (장시간 실행 시)
+**Expected Memory Savings**: 20-30% (during long-running execution)
 
 ---
 
-### 2.2 prevChildToElement 맵 크기 제한
+### 2.2 Limit prevChildToElement Map Size
 
-**현재 문제**:
+**Current Problem**:
 ```typescript
-// reconciler.ts: 모든 prevChildVNode에 대해 맵 구축
+// reconciler.ts: Build map for all prevChildVNodes
 const prevChildToElement = new Map();
 for (let i = 0; i < prevChildVNodes.length && i < parentChildren.length; i++) {
   prevChildToElement.set(prevChildVNodes[i], parentChildren[i]);
 }
-// 큰 트리에서는 맵이 매우 커질 수 있음
+// Map can become very large in large trees
 ```
 
-**개선 방안**:
-- **Lazy 맵 구축**: 필요한 경우에만 맵 구축
-- **WeakMap 사용**: 가능한 경우 WeakMap 사용
-- **맵 크기 제한**: 일정 크기 이상이면 맵을 정리
+**Improvement Approach**:
+- **Lazy map building**: Build map only when needed
+- **Use WeakMap**: Use WeakMap when possible
+- **Limit map size**: Clean map if it exceeds certain size
 
 ---
 
-## 3. 코드 품질 개선
+## 3. Code Quality Improvement
 
-### 3.1 타입 안정성 향상
+### 3.1 Improve Type Safety
 
-**현재 문제**:
+**Current Problem**:
 ```typescript
-// 여러 곳에서 any 사용
+// Using any in multiple places
 const childVNode = child as VNode;
 const prevChildVNode = prevChild as VNode;
 ```
 
-**개선 방안**:
-- **타입 가드 함수**: `isVNode`, `isStringOrNumber` 등 사용
-- **타입 단언 최소화**: 가능한 한 타입 추론 활용
-- **strict 모드**: TypeScript strict 모드 활성화
+**Improvement Approach**:
+- **Type guard functions**: Use `isVNode`, `isStringOrNumber`, etc.
+- **Minimize type assertions**: Use type inference as much as possible
+- **Strict mode**: Enable TypeScript strict mode
 
 ---
 
-### 3.2 에러 처리 개선
+### 3.2 Improve Error Handling
 
-**현재 문제**:
+**Current Problem**:
 ```typescript
-// 여러 곳에서 try-catch로 에러를 무시
+// Errors ignored with try-catch in multiple places
 try { parent.removeChild(ch); } catch {}
 ```
 
-**개선 방안**:
-- **에러 로깅**: 최소한 에러를 로그로 기록
-- **에러 타입별 처리**: 예상 가능한 에러와 예상 불가능한 에러 구분
-- **에러 복구**: 가능한 경우 에러 복구 로직 추가
+**Improvement Approach**:
+- **Error logging**: At minimum, log errors
+- **Error type-specific handling**: Distinguish expected vs unexpected errors
+- **Error recovery**: Add error recovery logic when possible
 
 ---
 
-### 3.3 함수 분리 및 재사용성
+### 3.3 Function Separation and Reusability
 
-**현재 상태**:
-- 이미 많은 함수가 분리되어 있음 ✅
-- 하지만 일부 함수가 여전히 길고 복잡함
+**Current Status**:
+- Many functions already separated ✅
+- But some functions are still long and complex
 
-**개선 방안**:
-- **더 작은 함수로 분리**: 50줄 이상인 함수는 분리 고려
-- **공통 로직 추출**: 중복되는 로직을 함수로 추출
-- **유틸리티 함수 추가**: 자주 사용되는 패턴을 유틸리티로
-
----
-
-## 4. React 스타일 개선
-
-### 4.1 Fiber Architecture 도입 (선택적)
-
-**현재**: 동기적으로 모든 작업 처리
-
-**개선 방안**:
-- **작업 분할**: 큰 트리를 작은 단위로 분할
-- **우선순위 조정**: 중요한 업데이트를 먼저 처리
-- **중단 가능**: 긴 작업을 중단하고 다른 작업 처리 가능
-
-**장점**:
-- 큰 트리에서도 반응성 유지
-- 우선순위 기반 렌더링
-
-**단점**:
-- 복잡도 증가
-- 오버헤드 발생 가능
-
-**권장**: 현재는 필요 없지만, 나중에 큰 트리를 다룰 때 고려
+**Improvement Approach**:
+- **Separate into smaller functions**: Consider separating functions over 50 lines
+- **Extract common logic**: Extract duplicated logic into functions
+- **Add utility functions**: Make frequently used patterns into utilities
 
 ---
 
-### 4.2 Batching 도입 (선택적)
+## 4. React-style Improvements
 
-**현재**: 각 업데이트를 즉시 처리
+### 4.1 Introduce Fiber Architecture (Optional)
 
-**개선 방안**:
-- **업데이트 큐**: 여러 업데이트를 큐에 모음
-- **배치 처리**: 한 번에 여러 업데이트 처리
-- **디바운싱**: 짧은 시간 내 여러 업데이트를 하나로 합침
+**Current**: Process all work synchronously
 
-**장점**:
-- 불필요한 렌더링 감소
-- 성능 향상
+**Improvement Approach**:
+- **Work splitting**: Split large tree into smaller units
+- **Priority adjustment**: Process important updates first
+- **Interruptible**: Can interrupt long work and process other work
 
-**단점**:
-- 지연 시간 증가
-- 복잡도 증가
+**Advantages**:
+- Maintain responsiveness even in large trees
+- Priority-based rendering
 
-**권장**: 현재는 필요 없지만, 나중에 많은 업데이트가 있을 때 고려
+**Disadvantages**:
+- Increased complexity
+- Possible overhead
 
----
-
-### 4.3 Suspense 지원 (선택적)
-
-**현재**: 비동기 컴포넌트 지원 없음
-
-**개선 방안**:
-- **비동기 컴포넌트**: Promise를 반환하는 컴포넌트 지원
-- **로딩 상태**: 로딩 중일 때 fallback UI 표시
-- **에러 바운더리**: 에러 발생 시 에러 UI 표시
-
-**권장**: 필요할 때만 도입
+**Recommendation**: Not needed now, but consider when handling large trees later
 
 ---
 
-## 5. 구체적인 개선 제안
+### 4.2 Introduce Batching (Optional)
 
-### 우선순위 높음 (즉시 개선 가능)
+**Current**: Process each update immediately
 
-1. **console.log 조건부 실행**
-   - 개발 모드에서만 실행
-   - 즉시 적용 가능
-   - 성능 향상: 5-15%
+**Improvement Approach**:
+- **Update queue**: Collect multiple updates in queue
+- **Batch processing**: Process multiple updates at once
+- **Debouncing**: Combine multiple updates within short time into one
 
-2. **DOM 쿼리 최적화**
-   - SID 기반 인덱스 맵 구축
-   - querySelector 대신 직접 순회
-   - 성능 향상: 10-20%
+**Advantages**:
+- Reduce unnecessary rendering
+- Performance improvement
 
-3. **prevVNodeTree 메모리 관리**
-   - 언마운트 시 정리
-   - 정기적 클린업
-   - 메모리 절약: 20-30%
+**Disadvantages**:
+- Increased latency
+- Increased complexity
 
-### 우선순위 중간 (점진적 개선)
+**Recommendation**: Not needed now, but consider when there are many updates later
 
-4. **reorder 함수 최적화**
-   - 변경 추적
-   - 배치 이동
-   - 성능 향상: 15-25%
+---
 
-5. **타입 안정성 향상**
-   - 타입 가드 함수 사용
-   - any 제거
-   - 코드 품질 향상
+### 4.3 Suspense Support (Optional)
 
-6. **에러 처리 개선**
-   - 에러 로깅
-   - 에러 타입별 처리
-   - 안정성 향상
+**Current**: No async component support
 
-### 우선순위 낮음 (나중에 고려)
+**Improvement Approach**:
+- **Async components**: Support components that return Promise
+- **Loading state**: Show fallback UI while loading
+- **Error boundary**: Show error UI on error
+
+**Recommendation**: Introduce only when needed
+
+---
+
+## 5. Specific Improvement Proposals
+
+### High Priority (Can improve immediately)
+
+1. **Conditional console.log execution**
+   - Execute only in dev mode
+   - Can apply immediately
+   - Performance improvement: 5-15%
+
+2. **DOM query optimization**
+   - Build SID-based index map
+   - Direct iteration instead of querySelector
+   - Performance improvement: 10-20%
+
+3. **prevVNodeTree memory management**
+   - Cleanup on unmount
+   - Regular cleanup
+   - Memory savings: 20-30%
+
+### Medium Priority (Gradual improvement)
+
+4. **reorder function optimization**
+   - Change tracking
+   - Batch moves
+   - Performance improvement: 15-25%
+
+5. **Improve type safety**
+   - Use type guard functions
+   - Remove any
+   - Code quality improvement
+
+6. **Improve error handling**
+   - Error logging
+   - Error type-specific handling
+   - Stability improvement
+
+### Low Priority (Consider later)
 
 7. **Fiber Architecture**
-   - 복잡도 증가
-   - 현재는 필요 없음
+   - Increased complexity
+   - Not needed currently
 
 8. **Batching**
-   - 복잡도 증가
-   - 현재는 필요 없음
+   - Increased complexity
+   - Not needed currently
 
 9. **Suspense**
-   - 필요할 때만 도입
+   - Introduce only when needed
 
 ---
 
-## 6. 성능 측정
+## 6. Performance Measurement
 
-### 현재 성능 (예상)
+### Current Performance (Estimated)
 
-- **시간 복잡도**: O(n) (n = VNode 수)
-- **공간 복잡도**: O(n) (prevVNodeTree, 맵 등)
-- **실제 성능**: 중간 크기 트리 (100-1000 노드)에서 10-50ms
+- **Time complexity**: O(n) (n = number of VNodes)
+- **Space complexity**: O(n) (prevVNodeTree, maps, etc.)
+- **Actual performance**: 10-50ms for medium-sized trees (100-1000 nodes)
 
-### 개선 후 예상 성능
+### Expected Performance After Improvement
 
-- **시간 복잡도**: O(n) (동일)
-- **공간 복잡도**: O(n) (동일, 하지만 메모리 사용량 감소)
-- **실제 성능**: 20-40% 향상 예상
+- **Time complexity**: O(n) (same)
+- **Space complexity**: O(n) (same, but memory usage reduced)
+- **Actual performance**: Expected 20-40% improvement
 
 ---
 
-## 7. 구현 계획
+## 7. Implementation Plan
 
-### Phase 1: 즉시 개선 (1-2일)
-1. console.log 조건부 실행
-2. DOM 쿼리 최적화 (SID 맵 구축)
-3. prevVNodeTree 메모리 관리
+### Phase 1: Immediate Improvement (1-2 days)
+1. Conditional console.log execution
+2. DOM query optimization (SID map building)
+3. prevVNodeTree memory management
 
-### Phase 2: 점진적 개선 (1주)
-4. reorder 함수 최적화
-5. 타입 안정성 향상
-6. 에러 처리 개선
+### Phase 2: Gradual Improvement (1 week)
+4. reorder function optimization
+5. Improve type safety
+6. Improve error handling
 
-### Phase 3: 장기 개선 (필요 시)
+### Phase 3: Long-term Improvement (when needed)
 7. Fiber Architecture
 8. Batching
 9. Suspense
 
 ---
 
-## 8. 참고 자료
+## 8. References
 
 - [React Performance Optimization](https://react.dev/learn/render-and-commit)
 - [DOM Performance Best Practices](https://developer.mozilla.org/en-US/docs/Web/API/Document_Object_Model/Performance)

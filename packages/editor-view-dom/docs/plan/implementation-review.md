@@ -1,160 +1,160 @@
-# 입력 처리 구현 종합 점검 결과
+# Input Processing Implementation Comprehensive Review Results
 
-## 1. 구현 상태 요약
+## 1. Implementation Status Summary
 
-### ✅ 완전히 구현된 항목
+### ✅ Fully Implemented Items
 
-#### 1.1 이벤트 핸들러 (InputHandlerImpl)
-- ✅ `handleBeforeInput`: 구조 변경(`insertParagraph`, `insertLineBreak`) 및 히스토리(`historyUndo`, `historyRedo`) 처리
-- ✅ `handleKeyDown`: 키 이벤트 로깅 및 향후 KeyBindingManager 통합 지점 준비
-- ✅ `handleDomMutations`: MutationObserver 변경사항 처리 및 케이스 분류
+#### 1.1 Event Handlers (InputHandlerImpl)
+- ✅ `handleBeforeInput`: Handles structural changes (`insertParagraph`, `insertLineBreak`) and history (`historyUndo`, `historyRedo`)
+- ✅ `handleKeyDown`: Key event logging and preparation for future KeyBindingManager integration
+- ✅ `handleDomMutations`: Processes MutationObserver changes and case classification
 
-#### 1.2 DOM 변경 분류기 (dom-change-classifier)
-- ✅ `classifyDomChange`: C1/C2/C3/C4 케이스 분류
-- ✅ `classifyC1`: 단일 inline-text 텍스트 변경 분류
-- ✅ `classifyC2`: 여러 inline-text에 걸친 텍스트 변경 분류
-- ✅ `classifyC3`: 블록 구조 변경 분류
-- ✅ `classifyC4`: 마크/스타일/데코레이터 변경 분류
+#### 1.2 DOM Change Classifier (dom-change-classifier)
+- ✅ `classifyDomChange`: C1/C2/C3/C4 case classification
+- ✅ `classifyC1`: Single inline-text text change classification
+- ✅ `classifyC2`: Text change classification spanning multiple inline-text
+- ✅ `classifyC3`: Block structure change classification
+- ✅ `classifyC4`: Mark/style/decorator change classification
 
-#### 1.3 InputHint 시스템
-- ✅ `updateInsertHintFromBeforeInput`: beforeinput에서 Insert Range 힌트 계산
-- ✅ `getValidInsertHint`: InputHint 유효성 검사 (IME 조합 중 무시, 시간 초과 무시)
-- ✅ `classifyC1`에서 InputHint 활용하여 contentRange 보정
-- ✅ `classifyC2`에서 InputHint 활용하여 contentRange 보정
+#### 1.3 InputHint System
+- ✅ `updateInsertHintFromBeforeInput`: Calculate Insert Range hint from beforeinput
+- ✅ `getValidInsertHint`: InputHint validation (ignore during IME composition, ignore timeout)
+- ✅ Use InputHint in `classifyC1` to correct contentRange
+- ✅ Use InputHint in `classifyC2` to correct contentRange
 
-#### 1.4 케이스별 처리 (handleC1/C2/C3)
-- ✅ `handleC1`: 단일 inline-text 텍스트 변경 처리 (`replaceText`/`deleteText`)
-- ✅ `handleC2`: 여러 inline-text에 걸친 텍스트 변경 처리 (기본 구현)
-- ✅ `handleC3`: 블록 구조 변경 처리 (command 실행, fallback 준비)
+#### 1.4 Case-by-Case Processing (handleC1/C2/C3)
+- ✅ `handleC1`: Single inline-text text change processing (`replaceText`/`deleteText`)
+- ✅ `handleC2`: Text change processing spanning multiple inline-text (basic implementation)
+- ✅ `handleC3`: Block structure change processing (command execution, fallback preparation)
 
-#### 1.5 디버깅 정보 (LastInputDebug)
-- ✅ `handleC1`에서 LastInputDebug 생성 및 `editor:content.change` 이벤트에 포함
-- ✅ `handleC2`에서 LastInputDebug 생성 및 `editor:content.change` 이벤트에 포함
-- ✅ `handleC3`에서 LastInputDebug 생성 및 `editor:content.change` 이벤트에 포함
-- ✅ 규칙 검증: `classifiedContentRange`와 `appliedContentRange` 비교
+#### 1.5 Debugging Information (LastInputDebug)
+- ✅ Generate LastInputDebug in `handleC1` and include in `editor:content.change` event
+- ✅ Generate LastInputDebug in `handleC2` and include in `editor:content.change` event
+- ✅ Generate LastInputDebug in `handleC3` and include in `editor:content.change` event
+- ✅ Rule validation: Compare `classifiedContentRange` and `appliedContentRange`
 
-#### 1.6 Devtool 연동
-- ✅ `Devtool.patchEditorEmit`에서 `inputDebug` 감지
-- ✅ `DevtoolUI.updateLastInputDebug`로 UI 업데이트
-- ✅ "Last Input" 패널에 상태 표시 (✓/⚠/○, case, inputType, Hint 사용 여부, ranges, notes)
+#### 1.6 Devtool Integration
+- ✅ Detect `inputDebug` in `Devtool.patchEditorEmit`
+- ✅ Update UI with `DevtoolUI.updateLastInputDebug`
+- ✅ Display status in "Last Input" panel (✓/⚠/○, case, inputType, Hint usage, ranges, notes)
 
-#### 1.7 이벤트 연결 (EditorViewDOM)
+#### 1.7 Event Connections (EditorViewDOM)
 - ✅ `beforeinput` → `InputHandlerImpl.handleBeforeInput`
-- ✅ `keydown` → `InputHandlerImpl.handleKeyDown` (로깅) + `EditorViewDOM.handleKeydown` (실제 처리)
+- ✅ `keydown` → `InputHandlerImpl.handleKeyDown` (logging) + `EditorViewDOM.handleKeydown` (actual processing)
 - ✅ `MutationObserver` → `InputHandlerImpl.handleDomMutations`
 
 ---
 
-## 2. 부분적으로 구현된 항목 (TODO)
+## 2. Partially Implemented Items (TODO)
 
-### 2.1 handleC2: 여러 노드에 걸친 정확한 처리
-**위치**: `packages/editor-view-dom/src/event-handlers/input-handler.ts:380`
+### 2.1 handleC2: Accurate Processing Across Multiple Nodes
+**Location**: `packages/editor-view-dom/src/event-handlers/input-handler.ts:380`
 ```typescript
-// 여러 노드에 걸친 경우, 간단히 첫 번째 노드만 처리
-// TODO: 여러 노드에 걸친 정확한 처리 구현 필요
+// For cases spanning multiple nodes, simply process only first node
+// TODO: Need to implement accurate processing across multiple nodes
 const nodeId = classified.contentRange.startNodeId;
 ```
 
-**문제점**:
-- 현재는 첫 번째 노드만 처리하고 있음
-- 여러 노드에 걸친 텍스트 변경 시 정확한 범위 계산이 필요
+**Issues**:
+- Currently only processing first node
+- Need accurate range calculation for text changes spanning multiple nodes
 
-**권장 해결책**:
-- `dataStore.range.replaceText`가 여러 노드에 걸친 범위를 지원하는지 확인
-- 지원하지 않으면 `deleteText` + `insertText` 조합으로 처리
+**Recommended Solution**:
+- Check if `dataStore.range.replaceText` supports ranges spanning multiple nodes
+- If not supported, handle with `deleteText` + `insertText` combination
 
-### 2.2 classifyC2: 여러 노드에 걸친 모델 텍스트 추출
-**위치**: `packages/editor-view-dom/src/dom-sync/dom-change-classifier.ts:367`
+### 2.2 classifyC2: Model Text Extraction Across Multiple Nodes
+**Location**: `packages/editor-view-dom/src/dom-sync/dom-change-classifier.ts:367`
 ```typescript
-// 모델에서 이전 텍스트 추출 (selection 범위)
-// TODO: 여러 노드에 걸친 범위의 모델 텍스트를 추출하는 로직 필요
-// 현재는 간단히 첫 번째 노드의 텍스트만 사용
+// Extract previous text from model (selection range)
+// TODO: Need logic to extract model text for range spanning multiple nodes
+// Currently simply using text from first node only
 const prevText = startModelNode.text || '';
 ```
 
-**문제점**:
-- 여러 노드에 걸친 범위의 모델 텍스트를 추출하는 로직이 없음
-- `prevText`가 첫 번째 노드의 텍스트만 포함
+**Issues**:
+- No logic to extract model text for range spanning multiple nodes
+- `prevText` only contains text from first node
 
-**권장 해결책**:
-- `dataStore`에서 여러 노드에 걸친 범위의 텍스트를 추출하는 유틸 함수 추가
-- 또는 `reconstructModelTextFromDOM`을 여러 노드에 걸쳐 확장
+**Recommended Solution**:
+- Add utility function in `dataStore` to extract text for range spanning multiple nodes
+- Or extend `reconstructModelTextFromDOM` across multiple nodes
 
-### 2.3 classifyC2: DOM offset을 모델 offset으로 변환
-**위치**: `packages/editor-view-dom/src/dom-sync/dom-change-classifier.ts:419`
+### 2.3 classifyC2: Convert DOM offset to Model offset
+**Location**: `packages/editor-view-dom/src/dom-sync/dom-change-classifier.ts:419`
 ```typescript
-// DOM selection 기반으로 offset 계산 (부정확할 수 있음)
-// TODO: DOM offset을 모델 offset으로 정확히 변환하는 로직 필요
+// Calculate offset based on DOM selection (may be inaccurate)
+// TODO: Need logic to accurately convert DOM offset to model offset
 ```
 
-**문제점**:
-- DOM selection의 offset을 모델 offset으로 정확히 변환하는 로직이 없음
-- mark/decorator로 인해 DOM 구조와 모델 구조가 다를 수 있음
+**Issues**:
+- No logic to accurately convert DOM selection offset to model offset
+- DOM structure and model structure may differ due to marks/decorators
 
-**권장 해결책**:
-- `edit-position-converter.ts`에 DOM offset → 모델 offset 변환 함수 추가
-- mark/decorator를 고려한 정확한 변환 로직 구현
+**Recommended Solution**:
+- Add DOM offset → model offset conversion function in `edit-position-converter.ts`
+- Implement accurate conversion logic considering marks/decorators
 
-### 2.4 handleC3: Fallback 정책
-**위치**: `packages/editor-view-dom/src/event-handlers/input-handler.ts:546`
+### 2.4 handleC3: Fallback Policy
+**Location**: `packages/editor-view-dom/src/event-handlers/input-handler.ts:546`
 ```typescript
-// TODO: fallback 구현
-// 1. block 구조는 버리고 텍스트와 허용 인라인 요소만 평탄화
-// 2. block 경계를 모델 규칙에 맞게 재구성
-// 3. dataStore.range.replaceText + block 삽입 command 조합으로 모델 patch
+// TODO: Implement fallback
+// 1. Discard block structure and flatten only text and allowed inline elements
+// 2. Reconstruct block boundaries according to model rules
+// 3. Patch model with dataStore.range.replaceText + block insertion command combination
 ```
 
-**문제점**:
-- command로 표현 불가능한 C3 케이스에 대한 fallback이 구현되지 않음
-- 브라우저가 만든 DOM 구조를 모델로 안전하게 변환하는 로직 필요
+**Issues**:
+- Fallback for C3 cases that cannot be expressed as commands not implemented
+- Need logic to safely convert DOM structure created by browser to model
 
-**권장 해결책**:
-- `dom-to-model-sync-cases.md`의 C3 fallback 정책 참고
-- 텍스트와 허용 인라인 요소만 추출하여 평탄화
-- block 경계를 모델 규칙에 맞게 재구성
+**Recommended Solution**:
+- Refer to C3 fallback policy in `dom-to-model-sync-cases.md`
+- Extract and flatten only text and allowed inline elements
+- Reconstruct block boundaries according to model rules
 
-### 2.5 KeyBindingManager 통합
-**위치**: `packages/editor-view-dom/src/event-handlers/input-handler.ts:107`
+### 2.5 KeyBindingManager Integration
+**Location**: `packages/editor-view-dom/src/event-handlers/input-handler.ts:107`
 ```typescript
-// TODO: KeyBindingManager 도입 시, keydown 처리 로직을 이 메서드로 옮긴다.
-// 현재는 EditorViewDOM.handleKeydown에서 keymapManager를 통해 처리
+// TODO: When KeyBindingManager is introduced, move keydown processing logic to this method.
+// Currently processed through keymapManager in EditorViewDOM.handleKeydown
 ```
 
-**문제점**:
-- 문서에서는 KeyBindingManager를 언급하지만, 실제로는 KeymapManager 사용 중
-- `handleKeyDown`이 로깅만 하고 실제 처리는 `EditorViewDOM.handleKeydown`에서 수행
+**Issues**:
+- Documents mention KeyBindingManager but actually using KeymapManager
+- `handleKeyDown` only logs, actual processing performed in `EditorViewDOM.handleKeydown`
 
-**권장 해결책**:
-- `input-event-editing-plan.md`의 KeyBindingManager 설계에 따라 구현
-- 또는 현재 KeymapManager를 KeyBindingManager로 확장
+**Recommended Solution**:
+- Implement according to KeyBindingManager design in `input-event-editing-plan.md`
+- Or extend current KeymapManager to KeyBindingManager
 
 ---
 
-## 3. 논리적 오류 및 개선점
+## 3. Logical Errors and Improvements
 
-### 3.1 InputHint 생명주기 관리
-**현재 구현**: ✅ 올바르게 구현됨
-- C1/C2/C3 성공 시 `_pendingInsertHint = null`로 초기화
-- `getValidInsertHint`에서 IME 조합 중/시간 초과 시 무시
+### 3.1 InputHint Lifecycle Management
+**Current Implementation**: ✅ Correctly implemented
+- Initialize `_pendingInsertHint = null` on C1/C2/C3 success
+- Ignore during IME composition/timeout in `getValidInsertHint`
 
-**개선점**: 없음
+**Improvements**: None
 
-### 3.2 handleC1의 contentRange 계산
-**현재 구현**: 
-- `analyzeTextChanges`로 diff 계산
-- `change.start`/`change.end`를 사용하여 `contentRange` 생성
+### 3.2 handleC1 contentRange Calculation
+**Current Implementation**: 
+- Calculate diff with `analyzeTextChanges`
+- Create `contentRange` using `change.start`/`change.end`
 
-**잠재적 문제**:
-- `analyzeTextChanges`의 `selectionOffset`이 정확하지 않을 수 있음
-- InputHint가 있으면 `classified.contentRange`를 사용해야 하는데, `analyzeTextChanges` 결과를 사용하고 있음
+**Potential Issues**:
+- `analyzeTextChanges`'s `selectionOffset` may be inaccurate
+- Should use `classified.contentRange` when InputHint exists, but using `analyzeTextChanges` result
 
-**권장 개선**:
+**Recommended Improvement**:
 ```typescript
-// InputHint가 있고 정확하면 우선 사용
+// Prioritize InputHint if available and accurate
 if (classified.contentRange && classified.metadata?.usedInputHint) {
   contentRange = classified.contentRange;
 } else {
-  // analyzeTextChanges 결과 사용
+  // Use analyzeTextChanges result
   contentRange = {
     startNodeId: classified.nodeId,
     startOffset: change.start,
@@ -164,164 +164,164 @@ if (classified.contentRange && classified.metadata?.usedInputHint) {
 }
 ```
 
-### 3.3 handleC2의 contentRange 계산
-**현재 구현**:
-- `classified.contentRange`를 그대로 사용
+### 3.3 handleC2 contentRange Calculation
+**Current Implementation**:
+- Use `classified.contentRange` as-is
 
-**잠재적 문제**:
-- `analyzeTextChanges`를 사용하지 않아서 정확한 diff를 계산하지 않음
-- 여러 노드에 걸친 경우 `startOffset`/`endOffset`이 부정확할 수 있음
+**Potential Issues**:
+- Not using `analyzeTextChanges` so not calculating accurate diff
+- `startOffset`/`endOffset` may be inaccurate for cases spanning multiple nodes
 
-**권장 개선**:
-- `analyzeTextChanges`를 여러 노드에 걸쳐 확장
-- 또는 `classified.contentRange`를 신뢰하되, 검증 로직 추가
+**Recommended Improvement**:
+- Extend `analyzeTextChanges` across multiple nodes
+- Or trust `classified.contentRange` but add validation logic
 
-### 3.4 C3의 command 실행 후 render
-**현재 구현**: ✅ 올바르게 구현됨
+### 3.4 C3 Render After Command Execution
+**Current Implementation**: ✅ Correctly implemented
 ```typescript
 this.editor.emit('editor:content.change', {
-  skipRender: false, // render 필요
+  skipRender: false, // render needed
   from: 'MutationObserver-C3-command',
   // ...
 });
 ```
 
-**설명**:
-- C3는 구조 변경이므로 `skipRender: false`로 설정하여 render 필요
-- 브라우저가 만든 DOM은 무시하고, command 결과로 다시 render
+**Explanation**:
+- C3 is structural change, so set `skipRender: false` to require render
+- Ignore DOM created by browser, re-render with command result
 
-### 3.5 composition 이벤트 리스너
-**현재 구현**:
-- `EditorViewDOM`에서 `compositionstart`/`compositionupdate`/`compositionend` 리스너 등록
-- 하지만 `InputHandlerImpl`에서는 실제로 사용하지 않음 (빈 메서드)
+### 3.5 Composition Event Listeners
+**Current Implementation**:
+- Register `compositionstart`/`compositionupdate`/`compositionend` listeners in `EditorViewDOM`
+- But not actually used in `InputHandlerImpl` (empty methods)
 
-**문서와의 불일치**:
-- `input-event-editing-plan.md`에서는 "composition 이벤트는 사용하지 않음"이라고 명시
-- 하지만 리스너는 여전히 등록되어 있음
+**Documentation Mismatch**:
+- `input-event-editing-plan.md` states "composition events are not used"
+- But listeners are still registered
 
-**권장 개선**:
-- 리스너 제거 또는 명확한 주석 추가
-- 또는 `_isComposing` 상태만 업데이트하고 실제 처리는 MutationObserver에 맡김
+**Recommended Improvement**:
+- Remove listeners or add clear comments
+- Or only update `_isComposing` state and leave actual processing to MutationObserver
 
 ---
 
-## 4. Devtool 연동 상태
+## 4. Devtool Integration Status
 
-### ✅ 완전히 구현됨
+### ✅ Fully Implemented
 
-#### 4.1 데이터 흐름
-1. `handleC1`/`handleC2`/`handleC3`에서 `LastInputDebug` 생성
-2. `editor:content.change` 이벤트에 `inputDebug` 포함
-3. `Devtool.patchEditorEmit`에서 `inputDebug` 감지
-4. `DevtoolUI.updateLastInputDebug`로 UI 업데이트
+#### 4.1 Data Flow
+1. Generate `LastInputDebug` in `handleC1`/`handleC2`/`handleC3`
+2. Include `inputDebug` in `editor:content.change` event
+3. Detect `inputDebug` in `Devtool.patchEditorEmit`
+4. Update UI with `DevtoolUI.updateLastInputDebug`
 
-#### 4.2 표시 정보
-- ✅ 상태 아이콘 (✓/⚠/○)
-- ✅ 케이스 (C1/C2/C3)
+#### 4.2 Display Information
+- ✅ Status icon (✓/⚠/○)
+- ✅ Case (C1/C2/C3)
 - ✅ inputType
-- ✅ InputHint 사용 여부
+- ✅ InputHint usage
 - ✅ classifiedContentRange
 - ✅ appliedContentRange
-- ✅ 규칙 위반 시 notes
+- ✅ notes on rule violations
 
-#### 4.3 검증 로직
-- ✅ `classifiedContentRange`와 `appliedContentRange` 비교
-- ✅ 불일치 시 `status: 'mismatch'` 및 `notes`에 상세 메시지
+#### 4.3 Validation Logic
+- ✅ Compare `classifiedContentRange` and `appliedContentRange`
+- ✅ On mismatch, set `status: 'mismatch'` and detailed message in `notes`
 
 ---
 
-## 5. 문서와 실제 구현의 불일치
+## 5. Documentation and Implementation Mismatches
 
 ### 5.1 KeyBindingManager vs KeymapManager
-**문서**: `input-event-editing-plan.md`에서 KeyBindingManager 설계
-**실제**: KeymapManager 사용 중
+**Documentation**: KeyBindingManager design in `input-event-editing-plan.md`
+**Actual**: Using KeymapManager
 
-**권장 조치**:
-- KeyBindingManager 구현 또는
-- 문서 업데이트하여 현재 KeymapManager 사용 명시
+**Recommended Action**:
+- Implement KeyBindingManager or
+- Update documentation to state current KeymapManager usage
 
-### 5.2 composition 이벤트
-**문서**: "composition 이벤트는 사용하지 않음"
-**실제**: 리스너는 등록되어 있지만 실제로는 사용하지 않음
+### 5.2 Composition Events
+**Documentation**: "composition events are not used"
+**Actual**: Listeners registered but not actually used
 
-**권장 조치**:
-- 리스너 제거 또는
-- 주석 추가하여 "상태 추적용으로만 사용, 실제 처리는 MutationObserver에 맡김" 명시
+**Recommended Action**:
+- Remove listeners or
+- Add comment stating "only used for state tracking, actual processing left to MutationObserver"
 
-### 5.3 handleKeyDown의 역할
-**문서**: KeyBindingManager를 통한 단축키 처리
-**실제**: 로깅만 하고 실제 처리는 `EditorViewDOM.handleKeydown`에서 수행
+### 5.3 handleKeyDown Role
+**Documentation**: Shortcut processing through KeyBindingManager
+**Actual**: Only logs, actual processing performed in `EditorViewDOM.handleKeydown`
 
-**권장 조치**:
-- 문서 업데이트하여 현재 구조 명시 또는
-- KeyBindingManager 구현 후 `handleKeyDown`으로 이동
-
----
-
-## 6. 우선순위별 개선 사항
-
-### 🔴 높은 우선순위
-1. **handleC2: 여러 노드에 걸친 정확한 처리**
-   - 여러 노드에 걸친 텍스트 변경 시 정확한 범위 계산 필요
-   - 현재는 첫 번째 노드만 처리하여 데이터 손실 가능
-
-2. **classifyC2: 여러 노드에 걸친 모델 텍스트 추출**
-   - `prevText`가 첫 번째 노드만 포함하여 diff 계산이 부정확할 수 있음
-
-### 🟡 중간 우선순위
-3. **classifyC2: DOM offset을 모델 offset으로 변환**
-   - mark/decorator로 인한 DOM/모델 구조 차이 고려 필요
-
-4. **handleC3: Fallback 정책**
-   - command로 표현 불가능한 C3 케이스 처리 필요
-
-### 🟢 낮은 우선순위
-5. **KeyBindingManager 통합**
-   - 현재 KeymapManager로도 동작하므로 급하지 않음
-
-6. **composition 이벤트 리스너 정리**
-   - 실제로는 사용하지 않으므로 정리 필요
+**Recommended Action**:
+- Update documentation to state current structure or
+- Move to `handleKeyDown` after KeyBindingManager implementation
 
 ---
 
-## 7. 테스트 시나리오 검증 필요 항목
+## 6. Improvements by Priority
 
-### 7.1 기본 시나리오
-- ✅ C1: 단일 inline-text 텍스트 입력/삭제
-- ⚠️ C2: 여러 inline-text에 걸친 텍스트 변경 (부분 구현)
-- ⚠️ C3: 블록 구조 변경 (command 실행은 되지만 fallback 미구현)
+### 🔴 High Priority
+1. **handleC2: Accurate Processing Across Multiple Nodes**
+   - Need accurate range calculation for text changes spanning multiple nodes
+   - Currently only processing first node, possible data loss
 
-### 7.2 InputHint 시나리오
-- ✅ 기본 `insertText`에서 InputHint 사용
-- ⚠️ 넓은 selection + 덮어쓰기에서 InputHint 사용 (C2 부분 구현으로 인해 제한적)
-- ✅ IME 조합 중 InputHint 무시
+2. **classifyC2: Model Text Extraction Across Multiple Nodes**
+   - `prevText` only includes first node, diff calculation may be inaccurate
 
-### 7.3 Devtool 검증
-- ✅ LastInputDebug 표시
-- ✅ 상태 아이콘 표시
-- ✅ ranges 비교 및 불일치 감지
+### 🟡 Medium Priority
+3. **classifyC2: Convert DOM offset to Model offset**
+   - Need to consider DOM/model structure differences due to marks/decorators
 
----
+4. **handleC3: Fallback Policy**
+   - Need to handle C3 cases that cannot be expressed as commands
 
-## 8. 결론
+### 🟢 Low Priority
+5. **KeyBindingManager Integration**
+   - Not urgent as current KeymapManager works
 
-### ✅ 잘 구현된 부분
-1. 핵심 이벤트 처리 흐름 (beforeinput → MutationObserver → 모델 업데이트)
-2. InputHint 시스템 (beforeinput에서 계산, C1/C2에서 활용)
-3. Devtool 연동 (LastInputDebug 생성 및 표시)
-4. C1 케이스 처리 (단일 inline-text 텍스트 변경)
-
-### ⚠️ 개선이 필요한 부분
-1. C2 케이스: 여러 노드에 걸친 정확한 처리
-2. C3 케이스: Fallback 정책 구현
-3. DOM offset → 모델 offset 변환 로직
-
-### 📝 문서 업데이트 필요
-1. KeyBindingManager vs KeymapManager 명확화
-2. composition 이벤트 리스너 사용 목적 명시
-3. handleKeyDown의 현재 역할 명시
+6. **Composition Event Listener Cleanup**
+   - Need cleanup as not actually used
 
 ---
 
-**최종 평가**: 핵심 기능은 잘 구현되어 있으며, C2/C3의 일부 엣지 케이스 처리가 남아있습니다. Devtool 연동은 완벽하게 구현되어 있어 디버깅에 유용합니다.
+## 7. Test Scenario Validation Needed Items
+
+### 7.1 Basic Scenarios
+- ✅ C1: Single inline-text text input/deletion
+- ⚠️ C2: Text changes spanning multiple inline-text (partially implemented)
+- ⚠️ C3: Block structure changes (command execution works but fallback not implemented)
+
+### 7.2 InputHint Scenarios
+- ✅ InputHint usage in basic `insertText`
+- ⚠️ InputHint usage in wide selection + overwrite (limited due to C2 partial implementation)
+- ✅ InputHint ignored during IME composition
+
+### 7.3 Devtool Validation
+- ✅ LastInputDebug display
+- ✅ Status icon display
+- ✅ Range comparison and mismatch detection
+
+---
+
+## 8. Conclusion
+
+### ✅ Well Implemented Parts
+1. Core event processing flow (beforeinput → MutationObserver → model update)
+2. InputHint system (calculated from beforeinput, used in C1/C2)
+3. Devtool integration (LastInputDebug generation and display)
+4. C1 case processing (single inline-text text changes)
+
+### ⚠️ Parts Needing Improvement
+1. C2 case: Accurate processing across multiple nodes
+2. C3 case: Fallback policy implementation
+3. DOM offset → model offset conversion logic
+
+### 📝 Documentation Updates Needed
+1. Clarify KeyBindingManager vs KeymapManager
+2. Specify composition event listener usage purpose
+3. Specify current role of handleKeyDown
+
+---
+
+**Final Assessment**: Core features are well implemented, with some edge case handling remaining for C2/C3. Devtool integration is perfectly implemented and useful for debugging.
 

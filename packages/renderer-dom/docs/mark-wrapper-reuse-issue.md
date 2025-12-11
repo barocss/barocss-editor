@@ -1,78 +1,78 @@
-# Mark Wrapper 재사용 문제 분석
+# Mark Wrapper Reuse Issue Analysis
 
-## 현재 상태
+## Current Status
 
-### 통과한 테스트
-- ✅ `fiber-find-host-mark-wrapper.test.ts` (2개 테스트 통과)
-- ✅ `fiber-mark-wrapper-reuse.test.ts` (6개 테스트 통과)
-- ✅ `fiber-process-primitive-text-mark-wrapper.test.ts` (2개 테스트 통과)
-- ✅ `fiber-create-fiber-tree-mark-wrapper.test.ts` (2개 테스트 통과)
+### Passing Tests
+- ✅ `fiber-find-host-mark-wrapper.test.ts` (2 tests passing)
+- ✅ `fiber-mark-wrapper-reuse.test.ts` (6 tests passing)
+- ✅ `fiber-process-primitive-text-mark-wrapper.test.ts` (2 tests passing)
+- ✅ `fiber-create-fiber-tree-mark-wrapper.test.ts` (2 tests passing)
 
-**총 12개 단위 테스트 모두 통과**
+**All 12 unit tests passing**
 
-### 실패한 테스트
-- ❌ `reconciler-mark-wrapper-reuse.test.ts` (7개 실패, 3개 통과)
+### Failing Tests
+- ❌ `reconciler-mark-wrapper-reuse.test.ts` (7 failing, 3 passing)
 
-## 실패 원인 분석
+## Failure Cause Analysis
 
-### 문제 1: 텍스트 중복 (`'HelloHello World'`)
+### Problem 1: Text Duplication (`'HelloHello World'`)
 
-**증상:**
+**Symptom:**
 ```
 Expected: "Hello World"
 Received: "HelloHello World"
 ```
 
-**원인:**
-- `processPrimitiveTextChildren`이 기존 텍스트 노드를 제거하지 않고 새 텍스트 노드를 추가함
-- `handlePrimitiveTextChild`가 기존 텍스트 노드를 찾지 못하거나, 찾았지만 업데이트하지 않고 새로 생성함
+**Cause:**
+- `processPrimitiveTextChildren` adds new text node without removing existing one
+- `handlePrimitiveTextChild` fails to find existing text node or finds it but doesn't update and creates new one
 
-**관련 코드:**
+**Related Code:**
 - `packages/renderer-dom/src/reconcile/fiber/fiber-reconciler.ts:745-780` (`processPrimitiveTextChildren`)
 - `packages/renderer-dom/src/reconcile/utils/text-node-handlers.ts:60-127` (`handlePrimitiveTextChild`)
 
-**예상 시나리오:**
-1. 초기 렌더링: mark wrapper에 `'Hello'` 텍스트 노드 생성
-2. 업데이트: `processPrimitiveTextChildren` 호출
-3. `handlePrimitiveTextChild('Hello World', 0)` 호출
-4. 기존 텍스트 노드를 찾지 못하거나, 찾았지만 업데이트하지 않고 새 텍스트 노드 생성
-5. 결과: `'Hello'` + `'Hello World'` = `'HelloHello World'`
+**Expected Scenario:**
+1. Initial render: Create `'Hello'` text node in mark wrapper
+2. Update: Call `processPrimitiveTextChildren`
+3. Call `handlePrimitiveTextChild('Hello World', 0)`
+4. Fail to find existing text node or find it but don't update and create new text node
+5. Result: `'Hello'` + `'Hello World'` = `'HelloHello World'`
 
-### 문제 2: Mark Wrapper가 null (`updatedMarkWrapper === null`)
+### Problem 2: Mark Wrapper is null (`updatedMarkWrapper === null`)
 
-**증상:**
+**Symptom:**
 ```
 Expected: <HTMLElement>
 Received: null
 ```
 
-**원인:**
-- `reconcileFiberNode`가 mark wrapper를 재사용하지 못하고 새로 생성하거나 제거함
-- `prevVNode`가 `undefined`일 때 `findHostForChildVNode`가 mark wrapper를 찾지 못함
+**Cause:**
+- `reconcileFiberNode` fails to reuse mark wrapper and creates new one or removes it
+- `findHostForChildVNode` fails to find mark wrapper when `prevVNode` is `undefined`
 
-**관련 코드:**
+**Related Code:**
 - `packages/renderer-dom/src/reconcile/fiber/fiber-reconciler.ts:126-577` (`reconcileFiberNode`)
 - `packages/renderer-dom/src/reconcile/utils/host-finding.ts:27-234` (`findHostForChildVNode`)
 - `packages/renderer-dom/src/reconcile/utils/dom-utils.ts:16-68` (`findChildHost`)
 
-**예상 시나리오:**
-1. 초기 렌더링: mark wrapper DOM 요소 생성 (`<span class="mark-bold">Hello</span>`)
-2. 업데이트: `reconcileFiberNode` 호출
-3. `prevVNode`가 `undefined` (로그: `prevVNodeExists: false`)
-4. `prevChildVNodes`가 빈 배열 (`prevChildVNodesCount: 0`)
-5. `findHostForChildVNode` 호출:
-   - Strategy 1 (Key-based): 실패 (vnodeId가 없음)
-   - Strategy 2 (Type-based): 실패 (prevChildVNodes가 비어있음)
-   - Strategy 3 (Index-based): `findChildHost` 호출하지만 실패
-6. `createHostElement` 호출하여 새 DOM 요소 생성
-7. 기존 mark wrapper는 `removeStaleChildren`에서 제거됨
-8. 결과: `updatedMarkWrapper === null`
+**Expected Scenario:**
+1. Initial render: Create mark wrapper DOM element (`<span class="mark-bold">Hello</span>`)
+2. Update: Call `reconcileFiberNode`
+3. `prevVNode` is `undefined` (log: `prevVNodeExists: false`)
+4. `prevChildVNodes` is empty array (`prevChildVNodesCount: 0`)
+5. Call `findHostForChildVNode`:
+   - Strategy 1 (Key-based): Fails (no vnodeId)
+   - Strategy 2 (Type-based): Fails (prevChildVNodes is empty)
+   - Strategy 3 (Index-based): Calls `findChildHost` but fails
+6. Call `createHostElement` to create new DOM element
+7. Existing mark wrapper removed in `removeStaleChildren`
+8. Result: `updatedMarkWrapper === null`
 
-### 문제 3: `prevVNode`가 `undefined`인 이유
+### Problem 3: Why `prevVNode` is `undefined`
 
-**로그 분석:**
+**Log Analysis:**
 ```
-[reconcileFiberNode] prevVNode 정보: {
+[reconcileFiberNode] prevVNode info: {
   prevVNodeExists: false,
   prevVNodeSid: undefined,
   prevVNodeHasDomElement: false,
@@ -81,113 +81,113 @@ Received: null
   prevChildVNodesDetails: [],
 ```
 
-**원인:**
-- `createFiberTree`에서 mark wrapper의 `prevChildVNode`를 찾지 못함
-- `prevVNode?.children?.[i]`로 인덱스 매칭을 시도하지만, 인덱스가 맞지 않거나 `prevVNode.children`이 비어있음
+**Cause:**
+- `createFiberTree` fails to find mark wrapper's `prevChildVNode`
+- Attempts index matching with `prevVNode?.children?.[i]` but index doesn't match or `prevVNode.children` is empty
 
-**관련 코드:**
-- `packages/renderer-dom/src/reconcile/fiber/fiber-tree.ts:64-79` (`createFiberTree`의 `prevChildVNode` 찾기)
+**Related Code:**
+- `packages/renderer-dom/src/reconcile/fiber/fiber-tree.ts:64-79` (Finding `prevChildVNode` in `createFiberTree`)
 
-**예상 시나리오:**
-1. 첫 번째 렌더링: `createFiberTree` 호출, `prevVNode = undefined`
-2. 두 번째 렌더링: `createFiberTree` 호출
-3. 부모 VNode (text-1)의 `prevVNode`는 있지만, mark wrapper의 `prevChildVNode`를 찾지 못함
-4. 인덱스 매칭 실패: `prevVNode?.children?.[i]`가 `undefined`
-5. 결과: mark wrapper Fiber의 `prevVNode = undefined`
+**Expected Scenario:**
+1. First render: Call `createFiberTree`, `prevVNode = undefined`
+2. Second render: Call `createFiberTree`
+3. Parent VNode (text-1) has `prevVNode` but fails to find mark wrapper's `prevChildVNode`
+4. Index matching fails: `prevVNode?.children?.[i]` is `undefined`
+5. Result: mark wrapper Fiber's `prevVNode = undefined`
 
-## 해결 방안
+## Solutions
 
-### 방안 1: `handlePrimitiveTextChild` 수정
+### Solution 1: Fix `handlePrimitiveTextChild`
 
-**문제:** 기존 텍스트 노드를 찾지 못하거나, 찾았지만 업데이트하지 않고 새로 생성함
+**Problem:** Fails to find existing text node or finds it but doesn't update and creates new one
 
-**해결:**
-1. `handlePrimitiveTextChild`에서 기존 텍스트 노드를 먼저 찾기
-2. 찾았으면 업데이트, 못 찾았으면 새로 생성
-3. 기존 텍스트 노드가 있으면 제거 후 새로 생성 (또는 업데이트)
+**Solution:**
+1. Find existing text node first in `handlePrimitiveTextChild`
+2. Update if found, create new if not found
+3. Remove existing text node if present, then create new (or update)
 
-**수정 위치:**
+**Modification Location:**
 - `packages/renderer-dom/src/reconcile/utils/text-node-handlers.ts:60-127`
 
-### 방안 2: `findChildHost`의 클래스 매칭 개선
+### Solution 2: Improve Class Matching in `findChildHost`
 
-**문제:** `prevVNode`가 없을 때 `findChildHost`가 mark wrapper를 찾지 못함
+**Problem:** `findChildHost` fails to find mark wrapper when `prevVNode` is absent
 
-**해결:**
-1. `findChildHost`에서 클래스 매칭 로직 개선
-2. 인덱스 매칭 실패 시, 모든 자식 요소를 순회하며 클래스 매칭 시도
-3. `usedDomElements`를 고려하여 이미 사용된 요소는 제외
+**Solution:**
+1. Improve class matching logic in `findChildHost`
+2. When index matching fails, iterate all child elements and attempt class matching
+3. Consider `usedDomElements` to exclude already used elements
 
-**수정 위치:**
+**Modification Location:**
 - `packages/renderer-dom/src/reconcile/utils/dom-utils.ts:42-65`
 
-### 방안 3: `createFiberTree`의 `prevChildVNode` 찾기 개선
+### Solution 3: Improve `prevChildVNode` Finding in `createFiberTree`
 
-**문제:** 인덱스 매칭이 실패하여 `prevChildVNode`를 찾지 못함
+**Problem:** Index matching fails and `prevChildVNode` is not found
 
-**해결:**
-1. 인덱스 매칭 실패 시, 태그와 클래스로 매칭 시도
-2. `prevVNode.children`을 순회하며 같은 태그와 클래스를 가진 VNode 찾기
+**Solution:**
+1. When index matching fails, attempt matching by tag and class
+2. Iterate `prevVNode.children` to find VNode with same tag and class
 
-**수정 위치:**
+**Modification Location:**
 - `packages/renderer-dom/src/reconcile/fiber/fiber-tree.ts:64-79`
 
-## 테스트 진행 방법
+## Testing Approach
 
-### 1단계: 문제 재현 및 디버깅
+### Step 1: Reproduce Problem and Debug
 
 ```bash
-# 실패하는 테스트만 실행
+# Run only failing tests
 cd packages/renderer-dom
 pnpm test:run test/core/reconciler-mark-wrapper-reuse.test.ts -t "should reuse mark wrapper span when text changes"
 ```
 
-**확인 사항:**
-1. `prevVNode`가 `undefined`인지 확인
-   - 로그: `prevVNodeExists: false`
-   - 원인: `createFiberTree`에서 `prevChildVNode`를 찾지 못함
-2. `findHostForChildVNode`가 호출되는지 확인
-   - 로그: `[findHostForChildVNode] prevChildVNode를 찾지 못함`
-   - 원인: `prevChildVNodes`가 비어있어 Strategy 1, 2 실패
-3. `findChildHost`가 호출되는지 확인
-   - 로그: `[findHostForChildVNode] 전역 검색 실패`
-   - 원인: Strategy 3의 `findChildHost`가 mark wrapper를 찾지 못함
-4. `processPrimitiveTextChildren`이 호출되는지 확인
-   - 로그: 없음 (디버그 로그 추가 필요)
-   - 원인: `fiber.child`가 없을 때만 호출됨
-5. `handlePrimitiveTextChild`가 기존 텍스트 노드를 찾는지 확인
-   - 로그: 없음 (디버그 로그 추가 필요)
-   - 원인: `childIndex` 위치에 텍스트 노드가 없으면 새로 생성
+**Check Items:**
+1. Check if `prevVNode` is `undefined`
+   - Log: `prevVNodeExists: false`
+   - Cause: `createFiberTree` fails to find `prevChildVNode`
+2. Check if `findHostForChildVNode` is called
+   - Log: `[findHostForChildVNode] Failed to find prevChildVNode`
+   - Cause: Strategy 1, 2 fail because `prevChildVNodes` is empty
+3. Check if `findChildHost` is called
+   - Log: `[findHostForChildVNode] Global search failed`
+   - Cause: Strategy 3's `findChildHost` fails to find mark wrapper
+4. Check if `processPrimitiveTextChildren` is called
+   - Log: None (need to add debug log)
+   - Cause: Only called when `fiber.child` is absent
+5. Check if `handlePrimitiveTextChild` finds existing text node
+   - Log: None (need to add debug log)
+   - Cause: Creates new if no text node at `childIndex` position
 
-### 2단계: 단위 테스트로 개별 함수 검증
+### Step 2: Verify Individual Functions with Unit Tests
 
 ```bash
-# 각 함수별 테스트 실행
+# Run tests for each function
 pnpm test:run test/core/fiber-find-host-mark-wrapper.test.ts
 pnpm test:run test/core/fiber-process-primitive-text-mark-wrapper.test.ts
 pnpm test:run test/core/fiber-create-fiber-tree-mark-wrapper.test.ts
 ```
 
-**확인 사항:**
-1. 각 함수가 예상대로 동작하는지 확인
-   - ✅ `findHostForChildVNode`: Strategy 2, 3 모두 통과
-   - ✅ `processPrimitiveTextChildren`: 텍스트 업데이트 통과
-   - ✅ `createFiberTree`: `prevVNode` 설정 통과
-2. 엣지 케이스 (prevVNode가 없는 경우) 처리 확인
-   - ⚠️ `prevVNode`가 없을 때 `findChildHost`가 mark wrapper를 찾는지 확인 필요
-   - ⚠️ `prevVNode`가 없을 때 `handlePrimitiveTextChild`가 기존 텍스트 노드를 찾는지 확인 필요
+**Check Items:**
+1. Verify each function works as expected
+   - ✅ `findHostForChildVNode`: Both Strategy 2, 3 pass
+   - ✅ `processPrimitiveTextChildren`: Text update passes
+   - ✅ `createFiberTree`: `prevVNode` setting passes
+2. Verify edge case handling (when prevVNode is absent)
+   - ⚠️ Need to verify `findChildHost` finds mark wrapper when `prevVNode` is absent
+   - ⚠️ Need to verify `handlePrimitiveTextChild` finds existing text node when `prevVNode` is absent
 
-### 3단계: 수정 및 검증
+### Step 3: Modify and Verify
 
-**수정 순서:**
+**Modification Order:**
 
-#### 3-1. `handlePrimitiveTextChild` 수정 (텍스트 중복 문제)
+#### 3-1. Fix `handlePrimitiveTextChild` (Text Duplication Problem)
 
-**문제:**
-- `childIndex` 위치에 텍스트 노드가 없으면 새로 생성
-- 기존 텍스트 노드를 찾지 못하면 중복 생성
+**Problem:**
+- Creates new if no text node at `childIndex` position
+- Creates duplicate if fails to find existing text node
 
-**수정 방안:**
+**Modification Approach:**
 ```typescript
 // packages/renderer-dom/src/reconcile/utils/text-node-handlers.ts
 export function handlePrimitiveTextChild(
@@ -202,7 +202,7 @@ export function handlePrimitiveTextChild(
     const childNodes = Array.from(parent.childNodes);
     let textNodeToUse: Text | null = null;
     
-    // childIndex 위치에 text node가 있는지 확인
+    // Check if text node exists at childIndex position
     if (childIndex < childNodes.length) {
       const nodeAtIndex = childNodes[childIndex];
       if (nodeAtIndex && nodeAtIndex.nodeType === Node.TEXT_NODE) {
@@ -210,34 +210,34 @@ export function handlePrimitiveTextChild(
       }
     }
     
-    // IMPORTANT: childIndex 위치에 텍스트 노드가 없으면, 
-    // 모든 텍스트 노드를 확인하여 재사용 가능한 것 찾기
+    // IMPORTANT: If no text node at childIndex position,
+    // check all text nodes to find reusable one
     if (!textNodeToUse) {
       for (const node of childNodes) {
         if (node.nodeType === Node.TEXT_NODE) {
           textNodeToUse = node as Text;
-          break; // 첫 번째 텍스트 노드 재사용
+          break; // Reuse first text node
         }
       }
     }
     
-    // ... 나머지 로직
+    // ... rest of logic
   }
 }
 ```
 
-**테스트:**
+**Test:**
 ```bash
 pnpm test:run test/core/fiber-process-primitive-text-mark-wrapper.test.ts
 ```
 
-#### 3-2. `findChildHost` 수정 (mark wrapper 찾기 문제)
+#### 3-2. Fix `findChildHost` (Mark Wrapper Finding Problem)
 
-**문제:**
-- `childIndex` 위치의 요소만 확인
-- 인덱스가 맞지 않으면 찾지 못함
+**Problem:**
+- Only checks element at `childIndex` position
+- Fails to find if index doesn't match
 
-**수정 방안:**
+**Modification Approach:**
 ```typescript
 // packages/renderer-dom/src/reconcile/utils/dom-utils.ts
 export function findChildHost(
@@ -246,13 +246,13 @@ export function findChildHost(
   childIndex?: number,
   usedDomElements?: Set<HTMLElement>
 ): HTMLElement | null {
-  // ... 기존 로직 ...
+  // ... existing logic ...
   
-  // Fallback: sid가 없는 경우 (예: mark wrapper span)
+  // Fallback: When sid is absent (e.g., mark wrapper span)
   if (childIndex !== undefined && vnode.tag && !vnode.decoratorSid) {
     const children = Array.from(parent.children);
     
-    // IMPORTANT: childIndex 위치의 요소를 먼저 확인
+    // IMPORTANT: Check element at childIndex position first
     if (childIndex < children.length) {
       const candidate = children[childIndex] as HTMLElement;
       if (candidate && candidate.tagName.toLowerCase() === vnode.tag.toLowerCase()) {
@@ -276,7 +276,7 @@ export function findChildHost(
       }
     }
     
-    // IMPORTANT: childIndex 위치에서 찾지 못하면, 모든 자식 요소를 순회
+    // IMPORTANT: If not found at childIndex position, iterate all child elements
     for (const candidate of children) {
       if (usedDomElements && usedDomElements.has(candidate as HTMLElement)) {
         continue;
@@ -303,21 +303,21 @@ export function findChildHost(
 }
 ```
 
-**테스트:**
+**Test:**
 ```bash
 pnpm test:run test/core/fiber-find-host-mark-wrapper.test.ts
 ```
 
-#### 3-3. `createFiberTree` 수정 (prevChildVNode 찾기 문제)
+#### 3-3. Fix `createFiberTree` (prevChildVNode Finding Problem)
 
-**문제:**
-- 인덱스 매칭만 시도
-- 인덱스가 맞지 않으면 `prevChildVNode`를 찾지 못함
+**Problem:**
+- Only attempts index matching
+- Fails to find `prevChildVNode` if index doesn't match
 
-**수정 방안:**
+**Modification Approach:**
 ```typescript
 // packages/renderer-dom/src/reconcile/fiber/fiber-tree.ts
-// prevChildVNode 찾기: sid로 매칭 (인덱스 매칭보다 더 정확)
+// Find prevChildVNode: Match by sid (more accurate than index matching)
 let prevChildVNode: VNode | undefined;
 const childId = childVNode.sid || childVNode.decoratorSid;
 if (childId && prevVNode?.children) {
@@ -329,72 +329,72 @@ if (childId && prevVNode?.children) {
     }
   );
 }
-// Fallback: 인덱스로 매칭
+// Fallback: Match by index
 if (!prevChildVNode) {
   prevChildVNode = prevVNode?.children?.[i] as VNode | undefined;
 }
-// IMPORTANT: 인덱스 매칭도 실패하면, 태그와 클래스로 매칭 시도
+// IMPORTANT: If index matching also fails, attempt matching by tag and class
 if (!prevChildVNode && prevVNode?.children && childVNode.tag && !childVNode.decoratorSid) {
   prevChildVNode = prevVNode.children.find(
     (c): c is VNode => {
       if (typeof c !== 'object' || c === null) return false;
       if (c.tag !== childVNode.tag) return false;
-      if (c.decoratorSid) return false; // decorator VNode는 제외
-      // 클래스 매칭
+      if (c.decoratorSid) return false; // Exclude decorator VNode
+      // Class matching
       if (childVNode.attrs?.class || childVNode.attrs?.className) {
         const vnodeClasses = normalizeClasses(childVNode.attrs.class || childVNode.attrs.className);
         const prevClasses = normalizeClasses(c.attrs?.class || c.attrs?.className);
         return vnodeClasses.every(cls => prevClasses.includes(cls));
       }
-      return true; // 클래스가 없으면 태그만으로 매칭
+      return true; // Match by tag only if no class
     }
   );
 }
 ```
 
-**테스트:**
+**Test:**
 ```bash
 pnpm test:run test/core/fiber-create-fiber-tree-mark-wrapper.test.ts
 ```
 
-**각 수정 후 통합 테스트:**
+**Integration test after each modification:**
 ```bash
 pnpm test:run test/core/reconciler-mark-wrapper-reuse.test.ts
 ```
 
-### 4단계: 전체 테스트 실행
+### Step 4: Run All Tests
 
 ```bash
-# 모든 reconcile 관련 테스트 실행
+# Run all reconcile-related tests
 pnpm test:run test/core/*reconcile*.test.ts
 
-# 모든 fiber 관련 테스트 실행
+# Run all fiber-related tests
 pnpm test:run test/core/fiber-*.test.ts
 ```
 
-## 디버깅 팁
+## Debugging Tips
 
-### 로그 활성화
+### Enable Logging
 
-테스트 환경에서 디버그 로그를 활성화하려면:
+To enable debug logs in test environment:
 
 ```typescript
-// test 파일에서
+// In test file
 (globalThis as any).__DEBUG_RECONCILE__ = true;
 ```
 
-### 주요 로그 포인트
+### Key Log Points
 
-1. `[reconcileFiberNode] prevVNode 정보` - prevVNode 상태 확인
-   - `prevVNodeExists: false` → `prevVNode`가 없음
-   - `prevChildVNodesCount: 0` → `prevChildVNodes`가 비어있음
-2. `[findHostForChildVNode] prevChildVNode를 찾지 못함` - Strategy 1, 2 실패
-3. `[findHostForChildVNode] 전역 검색 실패` - Strategy 3 실패
-4. `[processPrimitiveTextChildren]` - 텍스트 처리 확인 (로그 추가 필요)
+1. `[reconcileFiberNode] prevVNode info` - Check prevVNode status
+   - `prevVNodeExists: false` → `prevVNode` is absent
+   - `prevChildVNodesCount: 0` → `prevChildVNodes` is empty
+2. `[findHostForChildVNode] Failed to find prevChildVNode` - Strategy 1, 2 failed
+3. `[findHostForChildVNode] Global search failed` - Strategy 3 failed
+4. `[processPrimitiveTextChildren]` - Check text processing (need to add log)
 
-### 디버그 로그 추가
+### Add Debug Logs
 
-`processPrimitiveTextChildren`에 로그 추가:
+Add logs to `processPrimitiveTextChildren`:
 
 ```typescript
 // packages/renderer-dom/src/reconcile/fiber/fiber-reconciler.ts
@@ -420,11 +420,11 @@ export function processPrimitiveTextChildren(
     });
   }
   
-  // ... 나머지 로직
+    // ... rest of logic
 }
 ```
 
-`handlePrimitiveTextChild`에 로그 추가:
+Add logs to `handlePrimitiveTextChild`:
 
 ```typescript
 // packages/renderer-dom/src/reconcile/utils/text-node-handlers.ts
@@ -448,16 +448,16 @@ export function handlePrimitiveTextChild(
     });
   }
   
-  // ... 나머지 로직
+    // ... rest of logic
 }
 ```
 
-### DOM 구조 확인
+### Check DOM Structure
 
-테스트 중간에 DOM 구조를 확인하려면:
+To check DOM structure during test:
 
 ```typescript
-console.log('DOM 구조:', container.innerHTML);
+console.log('DOM structure:', container.innerHTML);
 console.log('Mark wrapper:', container.querySelector('span.mark-bold'));
 console.log('Text nodes:', Array.from(container.querySelectorAll('*')).map(el => ({
   tag: el.tagName,
@@ -470,22 +470,22 @@ console.log('Text nodes:', Array.from(container.querySelectorAll('*')).map(el =>
 })));
 ```
 
-## 예상 결과
+## Expected Results
 
-### 성공 시나리오
+### Success Scenario
 
-1. 초기 렌더링: `<span class="mark-bold">Hello</span>` 생성
-2. 업데이트: 
-   - `findHostForChildVNode`가 기존 mark wrapper 찾기
-   - `processPrimitiveTextChildren`이 기존 텍스트 노드 업데이트
-   - 결과: `<span class="mark-bold">Hello World</span>` (같은 DOM 요소)
+1. Initial render: Create `<span class="mark-bold">Hello</span>`
+2. Update: 
+   - `findHostForChildVNode` finds existing mark wrapper
+   - `processPrimitiveTextChildren` updates existing text node
+   - Result: `<span class="mark-bold">Hello World</span>` (same DOM element)
 
-### 실패 시나리오 (현재)
+### Failure Scenario (Current)
 
-1. 초기 렌더링: `<span class="mark-bold">Hello</span>` 생성
-2. 업데이트:
-   - `findHostForChildVNode`가 기존 mark wrapper를 찾지 못함
-   - 새 mark wrapper 생성 또는 기존 것 제거
-   - `processPrimitiveTextChildren`이 새 텍스트 노드 추가
-   - 결과: `null` 또는 `'HelloHello World'`
+1. Initial render: Create `<span class="mark-bold">Hello</span>`
+2. Update:
+   - `findHostForChildVNode` fails to find existing mark wrapper
+   - Create new mark wrapper or remove existing one
+   - `processPrimitiveTextChildren` adds new text node
+   - Result: `null` or `'HelloHello World'`
 

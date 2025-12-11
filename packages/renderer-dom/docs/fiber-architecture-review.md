@@ -1,170 +1,170 @@
-# Fiber 아키텍처 재검토
+# Fiber Architecture Review
 
-## React의 Reconciliation 구조
+## React's Reconciliation Structure
 
-### React의 핵심 원칙
+### React's Core Principles
 
-React는 **순수한 reconciliation 로직**만 담당하며, domain 지식을 가지지 않습니다:
+React handles **pure reconciliation logic only** and has no domain knowledge:
 
-1. **Key 기반 매칭 (Primary Strategy)**
+1. **Key-based Matching (Primary Strategy)**
    ```javascript
-   // React는 key prop을 사용하여 요소를 식별
+   // React uses key prop to identify elements
    <div key="item-1">Item 1</div>
    <div key="item-2">Item 2</div>
    
-   // Reconciliation 시:
-   // 1. 같은 key를 가진 요소를 찾아서 재사용
-   // 2. key가 없거나 다르면 새로 생성
+   // During reconciliation:
+   // 1. Find element with same key and reuse
+   // 2. Create new if key is missing or different
    ```
 
-2. **Type + Index 기반 Fallback (Secondary Strategy)**
+2. **Type + Index-based Fallback (Secondary Strategy)**
    ```javascript
-   // key가 없는 경우, 같은 타입(태그)과 인덱스로 매칭
-   // <div> → <div> (같은 인덱스) → 재사용
-   // <div> → <span> (다른 타입) → 새로 생성
+   // When key is missing, match by same type (tag) and index
+   // <div> → <div> (same index) → reuse
+   // <div> → <span> (different type) → create new
    ```
 
-3. **Children 기준으로만 비교**
+3. **Compare Only by Children**
    ```javascript
-   // React는 전역 검색을 하지 않음
-   // 현재 부모의 children만 확인
+   // React does not perform global search
+   // Only checks current parent's children
    function reconcileChildren(parent, newChildren, prevChildren) {
-     // parent.children 배열에서만 검색
-     // 전역 querySelector 없음
+     // Search only in parent.children array
+     // No global querySelector
    }
    ```
 
-4. **Cross-parent Move 처리**
+4. **Cross-parent Move Handling**
    ```javascript
-   // React는 요소가 다른 부모로 이동하면:
-   // 1. 이전 위치에서 제거 (unmount)
-   // 2. 새 위치에서 생성 (mount)
-   // 전역 검색으로 재사용하지 않음
+   // When React element moves to different parent:
+   // 1. Remove from previous location (unmount)
+   // 2. Create at new location (mount)
+   // Does not reuse via global search
    ```
 
-### React의 Reconciliation 알고리즘
+### React's Reconciliation Algorithm
 
 ```javascript
-// React의 reconciliation (의사 코드)
+// React's reconciliation (pseudocode)
 function reconcileChild(parent, newChild, prevChild, index) {
-  // 1. Key 매칭 (가장 우선)
+  // 1. Key matching (highest priority)
   if (newChild.key && prevChild?.key === newChild.key) {
-    // 같은 key → 재사용
+    // Same key → reuse
     return updateElement(prevChild.domElement, newChild);
   }
   
-  // 2. Type + Index 매칭 (key가 없는 경우)
+  // 2. Type + Index matching (when key is missing)
   if (!newChild.key && prevChild && 
       prevChild.type === newChild.type && 
       prevChild.index === index) {
-    // 같은 타입 + 같은 인덱스 → 재사용
+    // Same type + same index → reuse
     return updateElement(prevChild.domElement, newChild);
   }
   
-  // 3. 매칭 실패 → 새로 생성
+  // 3. Matching failed → create new
   return createElement(newChild);
 }
 ```
 
-### React의 Domain 지식 분리
+### React's Domain Knowledge Separation
 
-React는 **어떤 domain 개념도 모릅니다**:
+React **does not know any domain concepts**:
 
 ```javascript
-// React는 이런 것들을 모름:
-// - "이것은 decorator다"
-// - "이것은 mark wrapper다"
-// - "이것은 특별한 컴포넌트다"
+// React does not know:
+// - "This is a decorator"
+// - "This is a mark wrapper"
+// - "This is a special component"
 
-// React는 오직 다음만 확인:
-// - key: 요소 식별자
-// - type: 컴포넌트 타입 (함수, 클래스, 태그명)
-// - props: 속성
-// - children: 자식 요소들
+// React only checks:
+// - key: Element identifier
+// - type: Component type (function, class, tag name)
+// - props: Attributes
+// - children: Child elements
 ```
 
-### React의 전역 검색 부재
+### React's Absence of Global Search
 
-React는 **전역 검색을 하지 않습니다**:
+React **does not perform global search**:
 
 ```javascript
-// React는 이런 것을 하지 않음:
+// React does not do:
 // ❌ document.querySelectorAll('[key="item-1"]')
 // ❌ parent.ownerDocument.querySelectorAll(...)
 
-// React는 오직 다음만 확인:
+// React only checks:
 // ✅ parent.children[index]
-// ✅ prevChildren 배열에서 key로 찾기
+// ✅ Find by key in prevChildren array
 ```
 
-## 우리 프로젝트와 React 비교
+## Comparison with Our Project
 
-### 유사점
+### Similarities
 
-| 항목 | React | 우리 프로젝트 |
-|------|------|--------------|
-| Fiber 기반 아키텍처 | ✅ | ✅ |
-| 우선순위 기반 스케줄링 | ✅ | ✅ |
-| 비동기 렌더링 | ✅ | ✅ |
-| Key 기반 매칭 | ✅ | ✅ (sid/decoratorSid) |
+| Item | React | Our Project |
+|------|------|-------------|
+| Fiber-based architecture | ✅ | ✅ |
+| Priority-based scheduling | ✅ | ✅ |
+| Async rendering | ✅ | ✅ |
+| Key-based matching | ✅ | ✅ (sid/decoratorSid) |
 
-### 차이점
+### Differences
 
-| 항목 | React | 우리 프로젝트 (현재) | 우리 프로젝트 (목표) |
+| Item | React | Our Project (Current) | Our Project (Goal) |
 |------|------|---------------------|-------------------|
-| Domain 지식 | ❌ 없음 | ⚠️ 있음 (decoratorSid 직접 사용) | ❌ 없음 |
-| 전역 검색 | ❌ 없음 | ⚠️ 있음 (querySelectorAll) | ❌ 없음 |
-| Cross-parent Move | 새로 생성 | 전역 검색으로 재사용 | 새로 생성 |
-| Children 기준 비교 | ✅ | ⚠️ 부분적 | ✅ |
+| Domain knowledge | ❌ None | ⚠️ Present (direct decoratorSid usage) | ❌ None |
+| Global search | ❌ None | ⚠️ Present (querySelectorAll) | ❌ None |
+| Cross-parent Move | Create new | Reuse via global search | Create new |
+| Children-based comparison | ✅ | ⚠️ Partial | ✅ |
 
-## 문제점 분석
+## Problem Analysis
 
-### 1. Domain 지식 누수 (Domain Knowledge Leakage)
+### 1. Domain Knowledge Leakage
 
-#### 현재 문제
+#### Current Problem
 
-Fiber reconciler가 `mark`와 `decorator`라는 domain 개념을 직접 알고 있음:
+Fiber reconciler directly knows domain concepts like `mark` and `decorator`:
 
 ```typescript
 // fiber-reconciler.ts
 if (vnode.decoratorSid && prevVNode.decoratorSid !== vnode.decoratorSid) {
-  // decoratorSid가 다르면 재사용하지 않음
+  // Don't reuse if decoratorSid differs
 }
 
 // fiber-tree.ts
 if (!prevChildVNode && prevVNode?.children && childVNode.tag && !childVNode.decoratorSid) {
-  // decorator VNode는 제외
+  // Exclude decorator VNode
 }
 ```
 
-#### 문제점
+#### Issues
 
-1. **책임 분리 위반**
-   - Fiber는 VNodeBuilder가 만든 결과물을 그대로 reconcile만 해야 함
-   - `decoratorSid`, `decoratorStype` 같은 domain 개념을 알면 안 됨
-   - VNodeBuilder가 이미 올바른 VNode 구조를 만들었으므로, Fiber는 그 구조를 그대로 따라가면 됨
+1. **Separation of Concerns Violation**
+   - Fiber should only reconcile what VNodeBuilder created
+   - Should not know domain concepts like `decoratorSid`, `decoratorStype`
+   - VNodeBuilder already created correct VNode structure, so Fiber should just follow it
 
-2. **유지보수성 저하**
-   - Domain 로직이 변경되면 Fiber도 함께 수정해야 함
-   - Fiber는 순수한 reconciliation 로직이어야 함
+2. **Maintainability Degradation**
+   - When domain logic changes, Fiber must also be modified
+   - Fiber should be pure reconciliation logic
 
-3. **테스트 복잡도 증가**
-   - Domain 개념을 테스트해야 함
-   - Fiber 자체의 로직 테스트가 어려워짐
+3. **Increased Test Complexity**
+   - Must test domain concepts
+   - Testing Fiber's own logic becomes difficult
 
-#### 올바른 접근
+#### Correct Approach
 
-Fiber는 VNode의 구조적 속성만 확인해야 함:
-- `sid`: VNode 식별자 (어떤 domain인지 몰라도 됨)
-- `tag`: DOM 태그명
-- `attrs`: 속성
-- `children`: 자식 VNode들
+Fiber should only check VNode's structural properties:
+- `sid`: VNode identifier (doesn't need to know which domain)
+- `tag`: DOM tag name
+- `attrs`: Attributes
+- `children`: Child VNodes
 
-`decoratorSid`는 VNodeBuilder가 이미 올바르게 설정했으므로, Fiber는 그냥 `sid`처럼 사용하면 됨.
+Since VNodeBuilder already set `decoratorSid` correctly, Fiber can just use it like `sid`.
 
-### 2. 전역 검색 문제 (Global Search Problem)
+### 2. Global Search Problem
 
-#### 현재 문제
+#### Current Problem
 
 ```typescript
 // fiber-reconciler.ts (line 301)
@@ -178,93 +178,93 @@ const allMatches = parent.ownerDocument?.querySelectorAll(
 ) || [];
 ```
 
-#### 문제점
+#### Issues
 
-1. **성능 문제**
-   - 전체 문서를 검색하는 것은 비용이 큼
-   - DOM 트리가 클수록 느려짐
+1. **Performance Problem**
+   - Searching entire document is expensive
+   - Slower as DOM tree grows larger
 
-2. **의도하지 않은 재사용**
-   - 다른 부모 아래에 있는 요소를 재사용할 수 있음
-   - 같은 `sid`를 가진 요소가 다른 위치에 있으면 잘못 매칭될 수 있음
+2. **Unintended Reuse**
+   - Can reuse elements under different parents
+   - Elements with same `sid` in different locations can be incorrectly matched
 
-3. **복잡도 증가**
-   - `usedDomElements`로 이미 사용된 요소를 추적해야 함
-   - 전역 검색이 실패했을 때의 fallback 로직이 복잡해짐
+3. **Increased Complexity**
+   - Must track already used elements with `usedDomElements`
+   - Fallback logic when global search fails becomes complex
 
-#### 올바른 접근
+#### Correct Approach
 
-**Children 기준으로만 비교하고, 없으면 새로 만들기**
+**Compare only by children, create new if not found**
 
-1. **현재 부모의 children만 확인**
-   - `parent.children` 배열에서만 검색
-   - `prevVNode.children`과 `vnode.children`을 비교
+1. **Check only current parent's children**
+   - Search only in `parent.children` array
+   - Compare `prevVNode.children` and `vnode.children`
 
-2. **매칭 실패 시 새로 생성**
-   - 전역 검색 없이 바로 새 요소 생성
-   - sid의 위치가 바뀌었으면 새로 만드는 것이 맞음
+2. **Create new on matching failure**
+   - Create new element immediately without global search
+   - If sid's location changed, creating new is correct
 
-3. **단순한 로직**
-   - 복잡한 `usedDomElements` 추적 불필요
-   - 전역 검색 fallback 불필요
+3. **Simple logic**
+   - No need for complex `usedDomElements` tracking
+   - No need for global search fallback
 
-## 개선 방향
+## Improvement Direction
 
-### 1. Domain 지식 제거
+### 1. Remove Domain Knowledge
 
 #### Before
 
 ```typescript
-// decoratorSid를 직접 확인
+// Directly check decoratorSid
 if (vnode.decoratorSid && prevVNode.decoratorSid !== vnode.decoratorSid) {
-  // 재사용하지 않음
+  // Don't reuse
 }
 ```
 
 #### After
 
 ```typescript
-// VNode의 식별자만 확인 (어떤 domain인지 몰라도 됨)
-const vnodeId = vnode.sid || vnode.decoratorSid; // decoratorSid도 그냥 sid처럼 사용
+// Only check VNode identifier (don't need to know which domain)
+const vnodeId = vnode.sid || vnode.decoratorSid; // Use decoratorSid just like sid
 const prevVNodeId = prevVNode?.sid || prevVNode?.decoratorSid;
 
 if (vnodeId && prevVNodeId && vnodeId !== prevVNodeId) {
-  // ID가 다르면 재사용하지 않음
+  // Don't reuse if ID differs
 }
 ```
 
-또는 더 나은 방법:
+Or better approach:
 
 ```typescript
-// VNode의 고유 식별자 추출 함수
+// Function to extract VNode's unique identifier
 function getVNodeId(vnode: VNode): string | undefined {
-  return vnode.sid || vnode.decoratorSid; // domain 개념 없이 그냥 ID
+  return vnode.sid || vnode.decoratorSid; // Just ID, no domain concept
 }
 
-// 사용
+// Usage
 const vnodeId = getVNodeId(vnode);
 const prevVNodeId = getVNodeId(prevVNode);
 if (vnodeId && prevVNodeId && vnodeId !== prevVNodeId) {
-  // ID가 다르면 재사용하지 않음
+  // Don't reuse if ID differs
 }
 ```
 
-### 2. 전역 검색 제거
+### 2. Remove Global Search
 
 #### Before
 
 ```typescript
-// 1. prevVNode.meta.domElement 확인
+// 1. Check prevVNode.meta.domElement
 if (prevVNode?.meta?.domElement) {
   host = prevVNode.meta.domElement;
 }
 
-// 2. findHostForChildVNode로 찾기 (전역 검색 포함)
+// 2. Find via findHostForChildVNode (includes global search)
 if (!host) {
   host = findHostForChildVNode(...);
 }
 
-// 3. 전역 검색 fallback
+// 3. Global search fallback
 if (!host) {
   const allMatches = parent.ownerDocument?.querySelectorAll(...);
   // ...
@@ -274,23 +274,23 @@ if (!host) {
 #### After
 
 ```typescript
-// 1. prevVNode.meta.domElement 확인 (가장 우선)
+// 1. Check prevVNode.meta.domElement (highest priority)
 if (prevVNode?.meta?.domElement instanceof HTMLElement) {
   host = prevVNode.meta.domElement;
 }
 
-// 2. 현재 부모의 children에서만 찾기 (전역 검색 없음)
+// 2. Find only in current parent's children (no global search)
 if (!host) {
   host = findHostInParentChildren(parent, vnode, prevVNode, childIndex);
 }
 
-// 3. 찾지 못하면 새로 생성 (전역 검색 없음)
+// 3. Create new if not found (no global search)
 if (!host) {
   host = createHostElement(parent, vnode, childIndex, ...);
 }
 ```
 
-#### findHostInParentChildren 구현
+#### findHostInParentChildren Implementation
 
 ```typescript
 function findHostInParentChildren(
@@ -301,7 +301,7 @@ function findHostInParentChildren(
 ): HTMLElement | null {
   const vnodeId = getVNodeId(vnode);
   
-  // 1. prevVNode.children에서 같은 ID를 가진 VNode 찾기
+  // 1. Find VNode with same ID in prevVNode.children
   if (prevVNode?.children && vnodeId) {
     const prevChildVNode = prevVNode.children.find(
       (c): c is VNode => {
@@ -312,7 +312,7 @@ function findHostInParentChildren(
     );
     
     if (prevChildVNode?.meta?.domElement instanceof HTMLElement) {
-      // prevChildVNode의 domElement가 현재 parent의 자식인지 확인
+      // Check if prevChildVNode's domElement is child of current parent
       const domEl = prevChildVNode.meta.domElement;
       if (domEl.parentElement === parent) {
         return domEl;
@@ -320,7 +320,7 @@ function findHostInParentChildren(
     }
   }
   
-  // 2. parent.children에서 같은 ID를 가진 요소 찾기
+  // 2. Find element with same ID in parent.children
   if (vnodeId) {
     const children = Array.from(parent.children);
     for (const child of children) {
@@ -333,11 +333,11 @@ function findHostInParentChildren(
     }
   }
   
-  // 3. 인덱스 기반 매칭 (mark wrapper 등 sid가 없는 경우)
+  // 3. Index-based matching (for mark wrapper etc. without sid)
   if (childIndex < parent.children.length) {
     const candidate = parent.children[childIndex] as HTMLElement;
     if (candidate && candidate.tagName.toLowerCase() === (vnode.tag || '').toLowerCase()) {
-      // 클래스 매칭 (mark wrapper)
+      // Class matching (mark wrapper)
       if (vnode.attrs?.class || vnode.attrs?.className) {
         const vnodeClasses = normalizeClasses(vnode.attrs.class || vnode.attrs.className);
         const candidateClasses = candidate.className ? candidate.className.split(/\s+/).filter(Boolean) : [];
@@ -354,111 +354,111 @@ function findHostInParentChildren(
 }
 ```
 
-## 개선 효과
+## Improvement Effects
 
-### 1. 단순성 (Simplicity)
+### 1. Simplicity
 
-- Domain 지식 제거로 Fiber 로직이 단순해짐
-- 전역 검색 제거로 복잡한 추적 로직 불필요
+- Fiber logic simplified by removing domain knowledge
+- Complex tracking logic unnecessary by removing global search
 
-### 2. 성능 (Performance)
+### 2. Performance
 
-- 전역 검색 제거로 DOM 쿼리 비용 감소
-- Children만 확인하므로 빠름
+- DOM query cost reduced by removing global search
+- Fast because only checking children
 
-### 3. 정확성 (Correctness)
+### 3. Correctness
 
-- 의도하지 않은 재사용 방지
-- Children 기준으로만 비교하므로 더 정확
+- Prevents unintended reuse
+- More accurate by comparing only by children
 
-### 4. 유지보수성 (Maintainability)
+### 4. Maintainability
 
-- Domain 로직 변경이 Fiber에 영향 없음
-- Fiber는 순수한 reconciliation 로직만 담당
+- Domain logic changes don't affect Fiber
+- Fiber handles only pure reconciliation logic
 
-## 마이그레이션 계획
+## Migration Plan
 
-### Phase 1: Domain 지식 제거
+### Phase 1: Remove Domain Knowledge
 
-1. `decoratorSid` 직접 참조 제거
-2. `getVNodeId()` 함수로 통일
-3. Domain 개념 없이 VNode 구조만 확인
+1. Remove direct `decoratorSid` references
+2. Unify with `getVNodeId()` function
+3. Check only VNode structure without domain concepts
 
-### Phase 2: 전역 검색 제거
+### Phase 2: Remove Global Search
 
-1. `querySelectorAll` 제거
-2. `findHostInParentChildren` 구현
-3. Children 기준으로만 비교
+1. Remove `querySelectorAll`
+2. Implement `findHostInParentChildren`
+3. Compare only by children
 
-### Phase 3: 테스트 및 검증
+### Phase 3: Testing and Verification
 
-1. 기존 테스트 통과 확인
-2. 성능 측정
-3. Edge case 테스트
+1. Verify existing tests pass
+2. Performance measurement
+3. Edge case testing
 
-## 예상되는 문제점
+## Expected Issues
 
 ### 1. Cross-parent Move
 
-**문제**: sid가 다른 부모로 이동한 경우
+**Problem**: When sid moves to different parent
 
-**현재**: 전역 검색으로 찾아서 재사용
+**Current**: Find and reuse via global search
 
-**개선 후**: 새로 생성
+**After improvement**: Create new
 
-**해결책**: 
-- Cross-parent move는 드문 경우
-- 새로 만드는 것이 더 안전하고 단순
-- VNodeBuilder가 이미 올바른 구조를 만들었으므로, Fiber는 그대로 따라가면 됨
+**Solution**: 
+- Cross-parent move is rare
+- Creating new is safer and simpler
+- VNodeBuilder already created correct structure, so Fiber should just follow it
 
-### 2. Mark Wrapper 재사용
+### 2. Mark Wrapper Reuse
 
-**문제**: sid가 없는 mark wrapper 재사용
+**Problem**: Reusing mark wrapper without sid
 
-**해결책**: 
-- 인덱스 + 태그 + 클래스로 매칭
-- `findHostInParentChildren`에서 처리
+**Solution**: 
+- Match by index + tag + class
+- Handle in `findHostInParentChildren`
 
-## React와의 정렬 (Alignment with React)
+## Alignment with React
 
-### React의 원칙을 따르면
+### Following React's Principles
 
-1. **Domain 지식 제거**
-   - React처럼 순수한 reconciliation만 수행
-   - `decoratorSid`를 `sid`처럼 일반적인 식별자로 취급
+1. **Remove Domain Knowledge**
+   - Perform pure reconciliation like React
+   - Treat `decoratorSid` as general identifier like `sid`
 
-2. **전역 검색 제거**
-   - React처럼 children 기준으로만 비교
-   - Cross-parent move는 새로 생성
+2. **Remove Global Search**
+   - Compare only by children like React
+   - Create new for cross-parent move
 
-3. **단순한 매칭 전략**
-   - Key (sid/decoratorSid) 기반 매칭
-   - Type + Index 기반 fallback
-   - 복잡한 추적 로직 불필요
+3. **Simple Matching Strategy**
+   - Key (sid/decoratorSid) based matching
+   - Type + Index based fallback
+   - No need for complex tracking logic
 
-### React 스타일의 개선된 코드
+### React-style Improved Code
 
 ```typescript
-// React 스타일의 reconciliation
+// React-style reconciliation
 function reconcileFiberNode(fiber: FiberNode, deps: FiberReconcileDependencies) {
   const vnode = fiber.vnode;
   const prevVNode = fiber.prevVNode;
   const parent = fiber.parent;
   
-  // 1. Key 기반 매칭 (React의 key prop)
-  const vnodeId = getVNodeId(vnode); // sid || decoratorSid (domain 개념 없음)
+  // 1. Key-based matching (React's key prop)
+  const vnodeId = getVNodeId(vnode); // sid || decoratorSid (no domain concept)
   const prevVNodeId = getVNodeId(prevVNode);
   
   let host: HTMLElement | null = null;
   
-  // 1-1. prevVNode.meta.domElement 확인 (가장 우선)
+  // 1-1. Check prevVNode.meta.domElement (highest priority)
   if (prevVNode?.meta?.domElement instanceof HTMLElement) {
     if (vnodeId && prevVNodeId && vnodeId === prevVNodeId) {
       host = prevVNode.meta.domElement;
     }
   }
   
-  // 1-2. prevVNode.children에서 같은 key 찾기
+  // 1-2. Find same key in prevVNode.children
   if (!host && prevVNode?.children && vnodeId) {
     const prevChildVNode = prevVNode.children.find(
       (c): c is VNode => {
@@ -468,19 +468,19 @@ function reconcileFiberNode(fiber: FiberNode, deps: FiberReconcileDependencies) 
     );
     if (prevChildVNode?.meta?.domElement instanceof HTMLElement) {
       const domEl = prevChildVNode.meta.domElement;
-      // 현재 parent의 자식인지 확인 (전역 검색 없음)
+      // Check if child of current parent (no global search)
       if (domEl.parentElement === parent) {
         host = domEl;
       }
     }
   }
   
-  // 2. Type + Index 기반 Fallback (React 스타일)
+  // 2. Type + Index based Fallback (React style)
   if (!host && prevVNode?.children) {
     const prevChild = prevVNode.children[fiber.index];
     if (prevChild && typeof prevChild === 'object') {
       const prevChildVNode = prevChild as VNode;
-      // 같은 타입(태그) + 같은 인덱스
+      // Same type (tag) + same index
       if (prevChildVNode.tag === vnode.tag) {
         if (prevChildVNode.meta?.domElement instanceof HTMLElement) {
           const domEl = prevChildVNode.meta.domElement;
@@ -492,36 +492,36 @@ function reconcileFiberNode(fiber: FiberNode, deps: FiberReconcileDependencies) 
     }
   }
   
-  // 3. 매칭 실패 → 새로 생성 (React 스타일)
+  // 3. Matching failed → create new (React style)
   if (!host) {
     host = createHostElement(parent, vnode, fiber.index, deps);
   }
   
-  // 4. DOM 업데이트
+  // 4. Update DOM
   updateHostElement(host, vnode, deps);
   
-  // 5. meta.domElement 저장 (다음 reconciliation을 위해)
+  // 5. Store meta.domElement (for next reconciliation)
   vnode.meta = vnode.meta || {};
   vnode.meta.domElement = host;
 }
 ```
 
-## 결론
+## Conclusion
 
-Fiber는 **React처럼 순수한 reconciliation 로직**이어야 하며:
+Fiber should be **pure reconciliation logic like React**:
 
-1. **Domain 지식 제거** (React처럼)
-   - `decoratorSid`를 일반적인 식별자로 취급
-   - Domain 개념(mark, decorator)을 알면 안 됨
+1. **Remove Domain Knowledge** (like React)
+   - Treat `decoratorSid` as general identifier
+   - Should not know domain concepts (mark, decorator)
 
-2. **전역 검색 제거** (React처럼)
-   - Children 기준으로만 비교
-   - Cross-parent move는 새로 생성
+2. **Remove Global Search** (like React)
+   - Compare only by children
+   - Create new for cross-parent move
 
-3. **단순한 매칭 전략** (React처럼)
-   - Key (sid/decoratorSid) 기반 매칭
-   - Type + Index 기반 fallback
-   - 복잡한 추적 로직 불필요
+3. **Simple Matching Strategy** (like React)
+   - Key (sid/decoratorSid) based matching
+   - Type + Index based fallback
+   - No need for complex tracking logic
 
-이렇게 하면 React와 유사한 수준의 **단순하고, 빠르고, 정확한 reconciliation**이 가능합니다.
+This enables **simple, fast, and accurate reconciliation** similar to React's level.
 

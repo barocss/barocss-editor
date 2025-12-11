@@ -1,175 +1,175 @@
-# Reconciler 상세 동작 흐름
+# Reconciler Detailed Operation Flow
 
-## 목차
-1. [개요](#개요)
-2. [핵심 개념](#핵심-개념)
-3. [전체 흐름도](#전체-흐름도)
-4. [주요 메서드 상세](#주요-메서드-상세)
-5. [유틸리티 함수 역할](#유틸리티-함수-역할)
-6. [데이터 구조](#데이터-구조)
-7. [중요한 패턴과 전략](#중요한-패턴과-전략)
-
----
-
-## 개요
-
-Reconciler는 VNode 트리를 실제 DOM으로 변환하고, 이전 VNode 트리와 비교하여 최소한의 DOM 업데이트만 수행하는 핵심 컴포넌트입니다.
-
-### 주요 목표
-- **효율성**: 불필요한 DOM 조작 최소화
-- **정확성**: VNode 트리를 정확하게 DOM으로 반영
-- **재사용성**: 기존 DOM 요소를 최대한 재사용
-- **순수성**: Selection 보존 등 외부 관심사와 분리
+## Table of Contents
+1. [Overview](#overview)
+2. [Core Concepts](#core-concepts)
+3. [Complete Flow Diagram](#complete-flow-diagram)
+4. [Main Methods Details](#main-methods-details)
+5. [Utility Function Roles](#utility-function-roles)
+6. [Data Structures](#data-structures)
+7. [Important Patterns and Strategies](#important-patterns-and-strategies)
 
 ---
 
-## 핵심 개념
+## Overview
+
+Reconciler is a core component that converts VNode trees into actual DOM and performs minimal DOM updates by comparing with previous VNode trees.
+
+### Main Goals
+- **Efficiency**: Minimize unnecessary DOM manipulation
+- **Accuracy**: Accurately reflect VNode tree in DOM
+- **Reusability**: Maximize reuse of existing DOM elements
+- **Purity**: Separate from external concerns like Selection preservation
+
+---
+
+## Core Concepts
 
 ### 1. VNode (Virtual Node)
-- DOM 요소의 추상화 표현
-- `tag`, `attrs`, `style`, `children`, `text` 등의 속성 포함
-- `sid` (stable ID): 컴포넌트를 식별하는 고유 ID
-- `decoratorSid`: 데코레이터를 식별하는 ID
-- `meta.domElement`: 실제 DOM 요소에 대한 참조
+- Abstract representation of DOM elements
+- Contains properties like `tag`, `attrs`, `style`, `children`, `text`
+- `sid` (stable ID): Unique ID identifying component
+- `decoratorSid`: ID identifying decorator
+- `meta.domElement`: Reference to actual DOM element
 
 ### 2. prevVNode vs nextVNode
-- **prevVNode**: 이전 렌더링 사이클의 VNode (prevVNodeTree에 저장)
-- **nextVNode**: 현재 렌더링할 VNode (VNodeBuilder가 생성)
-- 두 VNode를 비교하여 변경사항만 DOM에 반영
+- **prevVNode**: VNode from previous rendering cycle (stored in prevVNodeTree)
+- **nextVNode**: VNode to render now (created by VNodeBuilder)
+- Compare two VNodes to reflect only changes in DOM
 
 ### 3. Host Element
-- VNode가 실제로 렌더링되는 DOM 요소
-- `data-bc-sid` 속성으로 컴포넌트 식별
-- `data-decorator-sid` 속성으로 데코레이터 식별
+- DOM element where VNode is actually rendered
+- Component identified by `data-bc-sid` attribute
+- Decorator identified by `data-decorator-sid` attribute
 
-### 4. Reconciliation (조정)
-- prevVNode와 nextVNode를 비교하여 DOM을 업데이트하는 과정
-- 재사용 가능한 DOM 요소는 재사용하고, 변경된 부분만 업데이트
+### 4. Reconciliation
+- Process of updating DOM by comparing prevVNode and nextVNode
+- Reuse reusable DOM elements and update only changed parts
 
 ---
 
-## 전체 흐름도
+## Complete Flow Diagram
 
 ```
 reconcile(container, vnode, model)
     │
-    ├─ 1. Root VNode 처리
-    │   ├─ findFirstElementVNode: 첫 엘리먼트 찾기
-    │   ├─ Host 찾기/생성 (sid 기반)
-    │   └─ Attributes/Styles 업데이트
+    ├─ 1. Root VNode Processing
+    │   ├─ findFirstElementVNode: Find first element
+    │   ├─ Find/Create Host (sid-based)
+    │   └─ Update Attributes/Styles
     │
-    ├─ 2. Context 구축
-    │   ├─ Registry, Builder 전달
-    │   └─ Portal 방문 집합 초기화
+    ├─ 2. Context Construction
+    │   ├─ Pass Registry, Builder
+    │   └─ Initialize Portal visited set
     │
-    └─ 3. reconcileVNodeChildren (재귀)
+    └─ 3. reconcileVNodeChildren (recursive)
         │
-        ├─ 3-1. vnode.text 처리 (handleVNodeTextProperty)
-        │   └─ text만 있고 children이 없으면 텍스트 노드로 직접 렌더링
+        ├─ 3-1. vnode.text Processing (handleVNodeTextProperty)
+        │   └─ Direct text node rendering if only text and no children
         │
-        ├─ 3-2. prevChildToElement 맵 구축
-        │   └─ prevChildVNode → DOM 요소 매핑
+        ├─ 3-2. Build prevChildToElement Map
+        │   └─ prevChildVNode → DOM element mapping
         │
         ├─ 3-3. Pre-clean (removeStaleEarly)
-        │   └─ 예상되지 않는 요소 제거 (unmount 포함)
+        │   └─ Remove unexpected elements (including unmount)
         │
-        ├─ 3-4. 각 Child 처리 (processChildVNode)
+        ├─ 3-4. Process Each Child (processChildVNode)
         │   │
         │   ├─ Primitive text (string/number)
         │   │   └─ handlePrimitiveTextChild
         │   │
-        │   ├─ Text-only VNode (tag 없고 text만)
+        │   ├─ Text-only VNode (no tag, only text)
         │   │   └─ handleTextOnlyVNode
         │   │
         │   ├─ Portal VNode
-        │   │   └─ handlePortalVNode (외부 타겟에 렌더링)
+        │   │   └─ handlePortalVNode (render to external target)
         │   │
         │   └─ Element VNode
-        │       ├─ Host 찾기 (findHostForChildVNode)
-        │       │   ├─ SID 기반 매칭
-        │       │   ├─ 구조적 매칭
-        │       │   └─ 인덱스 기반 fallback
+        │       ├─ Find Host (findHostForChildVNode)
+        │       │   ├─ SID-based matching
+        │       │   ├─ Structural matching
+        │       │   └─ Index-based fallback
         │       │
-        │       ├─ Host 생성/업데이트
-        │       │   ├─ createHostElement (새로 생성)
-        │       │   └─ updateHostElement (기존 업데이트)
+        │       ├─ Create/Update Host
+        │       │   ├─ createHostElement (create new)
+        │       │   └─ updateHostElement (update existing)
         │       │
-        │       ├─ Attributes/Styles 업데이트
+        │       ├─ Update Attributes/Styles
         │       │
-        │       ├─ Text content 처리
-        │       │   ├─ vnode.text 처리
-        │       │   ├─ model.text 처리
+        │       ├─ Text Content Processing
+        │       │   ├─ vnode.text processing
+        │       │   ├─ model.text processing
         │       │   └─ handleTextVNodeInChildren
         │       │
-        │       └─ 재귀 reconcile (reconcileVNodeChildren)
+        │       └─ Recursive reconcile (reconcileVNodeChildren)
         │
-        ├─ 3-5. 순서 정렬 (reorder)
-        │   └─ nextDomChildren 순서대로 DOM 재배치
+        ├─ 3-5. Order Sorting (reorder)
+        │   └─ Reorder DOM according to nextDomChildren order
         │
-        ├─ 3-6. Meta 전송 (transferMetaFromPrevToNext)
-        │   └─ prevVNode.meta → nextVNode.meta (domElement 참조 보존)
+        ├─ 3-6. Meta Transfer (transferMetaFromPrevToNext)
+        │   └─ prevVNode.meta → nextVNode.meta (preserve domElement reference)
         │
-        └─ 3-7. Stale 제거 (removeStale)
-            └─ keep Set에 없는 요소 제거 (unmount 포함)
+        └─ 3-7. Stale Removal (removeStale)
+            └─ Remove elements not in keep Set (including unmount)
 ```
 
 ---
 
-## 주요 메서드 상세
+## Main Methods Details
 
 ### 1. `reconcile(container, vnode, model, runtime?, decorators?)`
 
-**목적**: 루트 레벨에서 VNode 트리를 DOM으로 변환
+**Purpose**: Convert VNode tree to DOM at root level
 
-**단계**:
+**Steps**:
 
-1. **Root VNode 준비**
+1. **Root VNode Preparation**
    ```typescript
-   // tag가 없거나 div인 경우, 첫 엘리먼트를 루트로 승격
+   // If no tag or div, promote first element to root
    if (!rootVNode.tag || rootVNode.tag === 'div') {
      const firstEl = findFirstElementVNode(rootVNode);
      if (firstEl) rootVNode = firstEl;
    }
    ```
 
-2. **Host 찾기/생성**
+2. **Find/Create Host**
    ```typescript
-   // sid 기반으로 기존 host 찾기
+   // Find existing host based on sid
    const sid = vnode.sid || model.sid;
    let host = container.querySelector(`[data-bc-sid="${sid}"]`);
    
    if (!host) {
-     // 새로 생성
+     // Create new
      host = dom.createSimpleElement(rootVNode.tag, container);
      dom.setAttribute(host, 'data-bc-sid', sid);
    } else if (host.tagName !== rootVNode.tag) {
-     // 태그 변경 시 교체
+     // Replace if tag changed
      const replacement = dom.createSimpleElement(rootVNode.tag, container);
      container.replaceChild(replacement, host);
      host = replacement;
    }
    ```
 
-3. **Attributes/Styles 업데이트**
+3. **Update Attributes/Styles**
    ```typescript
    const prevVNode = prevVNodeTree.get(sid);
    dom.updateAttributes(host, prevVNode?.attrs, rootVNode.attrs);
    dom.updateStyles(host, prevVNode?.style, rootVNode.style);
    ```
 
-4. **Children 재귀 처리**
+4. **Recursive Children Processing**
    ```typescript
    reconcileVNodeChildren(host, prevVNode, rootVNode, context);
    ```
 
-5. **prevVNode 저장**
+5. **Store prevVNode**
    ```typescript
    prevVNodeTree.set(sid, rootVNode);
    ```
 
-6. **Portal 클린업**
+6. **Portal Cleanup**
    ```typescript
-   // 방문하지 않은 portal 제거
+   // Remove unvisited portals
    for (const [pid, entry] of portalHostsById) {
      if (!visited.has(pid)) {
        entry.host.parentElement?.removeChild(entry.host);
@@ -182,22 +182,22 @@ reconcile(container, vnode, model)
 
 ### 2. `reconcileVNodeChildren(parent, prevVNode, nextVNode, context)`
 
-**목적**: VNode의 children을 재귀적으로 DOM으로 변환
+**Purpose**: Recursively convert VNode's children to DOM
 
-**핵심 단계**:
+**Core Steps**:
 
-#### Step 1: vnode.text 처리
+#### Step 1: vnode.text Processing
 ```typescript
 if (handleVNodeTextProperty(parent, nextVNode, prevVNode)) {
-  return; // text만 있고 children이 없으면 여기서 종료
+  return; // Exit here if only text and no children
 }
 ```
 
-**동작**:
-- `nextVNode.text`가 있고 `children`이 없으면 텍스트 노드로 직접 렌더링
-- 기존 텍스트 노드 재사용 (MutationObserver 트리거 최소화)
+**Behavior**:
+- If `nextVNode.text` exists and no `children`, render directly as text node
+- Reuse existing text node (minimize MutationObserver triggers)
 
-#### Step 2: prevChildToElement 맵 구축
+#### Step 2: Build prevChildToElement Map
 ```typescript
 const prevChildToElement = new Map<VNode | string | number, HTMLElement | Text>();
 for (let i = 0; i < prevChildVNodes.length && i < parentChildren.length; i++) {
@@ -205,26 +205,26 @@ for (let i = 0; i < prevChildVNodes.length && i < parentChildren.length; i++) {
 }
 ```
 
-**목적**: 
-- SID가 없는 요소들(mark wrapper 등)을 재사용하기 위한 매핑
-- prevChildVNode → 실제 DOM 요소
+**Purpose**: 
+- Mapping to reuse elements without SID (mark wrapper, etc.)
+- prevChildVNode → actual DOM element
 
 #### Step 3: Pre-clean
 ```typescript
 removeStaleEarly(parent, childVNodes, prevChildVNodes, components, context);
 ```
 
-**동작**:
-- 예상되지 않는 `data-bc-sid`를 가진 요소 제거
-- unmountComponent 호출하여 컴포넌트 lifecycle 처리
+**Behavior**:
+- Remove elements with unexpected `data-bc-sid`
+- Call unmountComponent to handle component lifecycle
 
-**예시**:
+**Example**:
 ```typescript
-// childVNodes에 'sid1', 'sid3'만 있는 경우
-// parent에 'sid2' 요소가 있으면 제거
+// If childVNodes only has 'sid1', 'sid3'
+// Remove 'sid2' element if present in parent
 ```
 
-#### Step 4: 각 Child 처리
+#### Step 4: Process Each Child
 ```typescript
 for (let childIndex = 0; childIndex < childVNodes.length; childIndex++) {
   const domNode = processChildVNode(
@@ -241,216 +241,216 @@ for (let childIndex = 0; childIndex < childVNodes.length; childIndex++) {
 }
 ```
 
-**processChildVNode의 동작**:
+**processChildVNode Behavior**:
 1. Primitive text → `handlePrimitiveTextChild`
 2. Text-only VNode → `handleTextOnlyVNode`
-3. Portal VNode → `handlePortalVNode` (null 반환)
+3. Portal VNode → `handlePortalVNode` (returns null)
 4. Element VNode:
-   - Host 찾기 (`findHostForChildVNode`)
-   - Host 생성/업데이트 (`createHostElement` / `updateHostElement`)
-   - Attributes/Styles 업데이트
-   - Text content 처리
-   - 재귀 reconcile
+   - Find Host (`findHostForChildVNode`)
+   - Create/Update Host (`createHostElement` / `updateHostElement`)
+   - Update Attributes/Styles
+   - Process text content
+   - Recursive reconcile
 
-#### Step 5: 순서 정렬
+#### Step 5: Order Sorting
 ```typescript
 reorder(parent, nextDomChildren);
 ```
 
-**동작**:
-- `nextDomChildren` 배열의 순서대로 DOM 재배치
-- `insertBefore`를 사용하여 올바른 위치로 이동
+**Behavior**:
+- Reorder DOM according to `nextDomChildren` array order
+- Use `insertBefore` to move to correct position
 
-#### Step 6: Meta 전송
+#### Step 6: Meta Transfer
 ```typescript
 transferMetaFromPrevToNext(prevVNode, nextVNode);
 ```
 
-**목적**:
-- `prevVNode.meta.domElement`를 `nextVNode.meta.domElement`로 전송
-- DOM 요소 참조를 보존하여 다음 렌더링에서 재사용 가능
-- 재귀적으로 children의 meta도 전송
+**Purpose**:
+- Transfer `prevVNode.meta.domElement` to `nextVNode.meta.domElement`
+- Preserve DOM element reference for reuse in next rendering
+- Recursively transfer children's meta as well
 
-#### Step 7: Stale 제거
+#### Step 7: Stale Removal
 ```typescript
 removeStale(parent, new Set(nextDomChildren), context, prevMap, expectedSids);
 ```
 
-**동작**:
-- `keep` Set에 없는 요소 제거
-- `expectedSids`에 없는 요소 강제 제거
-- unmountComponent 호출
+**Behavior**:
+- Remove elements not in `keep` Set
+- Force remove elements not in `expectedSids`
+- Call unmountComponent
 
 ---
 
-## 유틸리티 함수 역할
+## Utility Function Roles
 
-### VNode 유틸리티 (`vnode-utils.ts`)
+### VNode Utilities (`vnode-utils.ts`)
 
 #### `findFirstElementVNode(node)`
-- VNode 트리에서 첫 번째 element VNode 찾기
-- 루트 VNode가 placeholder일 때 사용
+- Find first element VNode in VNode tree
+- Used when root VNode is a placeholder
 
 #### `normalizeClasses(classValue)`
-- 다양한 형식의 class 값을 배열로 정규화
-- 지원 형식: string, array, object (class-names 스타일)
+- Normalize various class value formats to array
+- Supported formats: string, array, object (class-names style)
 
 #### `vnodeStructureMatches(prev, next)`
-- 두 VNode의 구조가 일치하는지 확인
-- 비교 항목: tag, class, children count
-- SID가 없는 요소(mark wrapper) 매칭에 사용
+- Check if two VNodes have matching structure
+- Comparison items: tag, class, children count
+- Used for matching elements without SID (mark wrapper)
 
 ---
 
-### DOM 유틸리티 (`dom-utils.ts`)
+### DOM Utilities (`dom-utils.ts`)
 
 #### `findChildHost(parent, vnode, childIndex?)`
-- parent의 direct children 중에서 vnode에 해당하는 host 찾기
-- 전략:
-  1. `data-bc-sid` 또는 `data-decorator-sid` 기반 매칭
-  2. 인덱스와 태그 기반 fallback
+- Find host corresponding to vnode among parent's direct children
+- Strategy:
+  1. Match based on `data-bc-sid` or `data-decorator-sid`
+  2. Fallback based on index and tag
 
 #### `queryHost(parent, sid)`
-- `:scope > [data-bc-sid="${sid}"]` 셀렉터로 direct child 찾기
+- Find direct child with `:scope > [data-bc-sid="${sid}"]` selector
 
 #### `reorder(parent, ordered)`
-- `ordered` 배열의 순서대로 DOM children 재배치
-- `insertBefore`를 사용하여 최소한의 이동만 수행
+- Reorder DOM children according to `ordered` array order
+- Use `insertBefore` to perform minimal moves
 
 ---
 
-### Meta 유틸리티 (`meta-utils.ts`)
+### Meta Utilities (`meta-utils.ts`)
 
 #### `transferMetaFromPrevToNext(prevVNode, nextVNode)`
-- `prevVNode.meta`를 `nextVNode.meta`로 전송
-- 특히 `meta.domElement` 참조 보존
-- 재귀적으로 children의 meta도 전송
-- 조건:
-  - 구조가 일치하거나
-  - SID가 일치하거나
-  - decoratorSid가 일치
+- Transfer `prevVNode.meta` to `nextVNode.meta`
+- Especially preserve `meta.domElement` reference
+- Recursively transfer children's meta as well
+- Conditions:
+  - Structure matches, or
+  - SID matches, or
+  - decoratorSid matches
 
 ---
 
-### Text Node 핸들러 (`text-node-handlers.ts`)
+### Text Node Handlers (`text-node-handlers.ts`)
 
 #### `handleVNodeTextProperty(parent, nextVNode, prevVNode)`
-- `vnode.text`가 있고 `children`이 없을 때 처리
-- 기존 텍스트 노드 재사용 (MutationObserver 트리거 최소화)
+- Handle when `vnode.text` exists and no `children`
+- Reuse existing text node (minimize MutationObserver triggers)
 
 #### `handlePrimitiveTextChild(parent, child)`
-- Primitive text (string/number) 처리
-- 첫 번째 텍스트 노드 재사용
+- Handle primitive text (string/number)
+- Reuse first text node
 
 #### `handleTextOnlyVNode(parent, childVNode, childIndex, context)`
-- Text-only VNode (tag 없고 text만) 처리
-- 위치 조정 포함
+- Handle text-only VNode (no tag, only text)
+- Includes position adjustment
 
 #### `updateHostTextContent(host, text)`
-- Host element의 텍스트 콘텐츠 업데이트
-- 기존 텍스트 노드 재사용
+- Update host element's text content
+- Reuse existing text node
 
 ---
 
 ### Host Finding (`host-finding.ts`)
 
 #### `findHostForChildVNode(parent, childVNode, childIndex, prevChildVNodes, prevChildToElement)`
-- Child VNode에 해당하는 기존 host 찾기
-- 전략 (우선순위 순):
-  1. **SID 기반 매칭** (parent 내부)
-  2. **전역 SID 검색** (cross-parent move 지원)
-  3. **구조적 매칭** (같은 인덱스)
-  4. **전체 구조적 매칭** (다른 인덱스)
-  5. **인덱스 기반 fallback**
+- Find existing host corresponding to child VNode
+- Strategy (priority order):
+  1. **SID-based matching** (within parent)
+  2. **Global SID search** (supports cross-parent move)
+  3. **Structural matching** (same index)
+  4. **Full structural matching** (different index)
+  5. **Index-based fallback**
 
 #### `findPrevChildVNode(childVNode, childIndex, prevChildVNodes)`
-- 현재 childVNode에 해당하는 prevChildVNode 찾기
-- 전략:
-  1. SID 기반 매칭
-  2. decoratorSid 기반 매칭
-  3. 구조적 매칭 (같은 인덱스)
+- Find prevChildVNode corresponding to current childVNode
+- Strategy:
+  1. SID-based matching
+  2. decoratorSid-based matching
+  3. Structural matching (same index)
 
 ---
 
 ### Host Management (`host-management.ts`)
 
 #### `createHostElement(parent, childVNode, childIndex, dom, components, context)`
-- 새로운 host element 생성
-- `data-bc-sid` 또는 `data-decorator-*` 속성 설정
-- 올바른 위치에 삽입
-- Component lifecycle: `mountComponent` 호출
+- Create new host element
+- Set `data-bc-sid` or `data-decorator-*` attributes
+- Insert at correct position
+- Component lifecycle: Call `mountComponent`
 
 #### `updateHostElement(host, parent, childVNode, childIndex, prevChildVNode, prevChildVNodes, dom, components, context)`
-- 기존 host element 업데이트
-- 위치 조정 (다른 parent로 이동 또는 같은 parent 내 재배치)
-- Decorator 속성 업데이트
-- Component lifecycle: `updateComponent` 호출
-  - `__isReconciling` 플래그로 무한 루프 방지
+- Update existing host element
+- Position adjustment (move to different parent or reorder within same parent)
+- Update decorator attributes
+- Component lifecycle: Call `updateComponent`
+  - Prevent infinite loop with `__isReconciling` flag
 
 ---
 
 ### Child Processing (`child-processing.ts`)
 
 #### `processChildVNode(...)`
-- 단일 child VNode를 처리하여 DOM node 반환
-- 처리 순서:
+- Process single child VNode and return DOM node
+- Processing order:
   1. Primitive text → Text node
   2. Text-only VNode → Text node
-  3. Portal VNode → null (외부 타겟에 렌더링)
+  3. Portal VNode → null (render to external target)
   4. Element VNode:
-     - Host 찾기/생성/업데이트
-     - Attributes/Styles 업데이트
-     - Text content 처리
-     - 재귀 reconcile
-     - Cleanup (stray text nodes 제거)
+     - Find/Create/Update Host
+     - Update Attributes/Styles
+     - Process text content
+     - Recursive reconcile
+     - Cleanup (remove stray text nodes)
 
 #### `handleTextVNodeInChildren(host, childVNode)`
-- `vnode.text`가 없지만 children에 text-only VNode가 있을 때 처리
-- Block decorator 필터링
+- Handle when `vnode.text` doesn't exist but text-only VNode exists in children
+- Block decorator filtering
 
 #### `cleanupStrayTextNodes(host, childVNode)`
-- Element children이 있을 때 stray text nodes 제거
-- 예외: text VNode가 children에 있으면 제거하지 않음
+- Remove stray text nodes when element children exist
+- Exception: Don't remove if text VNode exists in children
 
 ---
 
 ### Pre-clean (`pre-clean.ts`)
 
 #### `removeStaleEarly(parent, childVNodes, prevChildVNodes, components, context)`
-- 예상되지 않는 요소를 미리 제거
-- `desiredChildSids`에 없는 `data-bc-sid` 요소 제거
-- unmountComponent 호출
+- Remove unexpected elements early
+- Remove `data-bc-sid` elements not in `desiredChildSids`
+- Call unmountComponent
 
 ---
 
 ### Portal Handler (`portal-handler.ts`)
 
 #### `handlePortalVNode(childVNode, dom, reconcileFunc, currentVisitedPortalIds, portalHostsById)`
-- Portal VNode 처리
-- 외부 타겟에 portal host 생성/찾기
-- Portal content를 host에 reconcile
-- Portal ID 추적 (클린업용)
+- Handle Portal VNode
+- Create/Find portal host in external target
+- Reconcile portal content to host
+- Track Portal ID (for cleanup)
 
 ---
 
-## 데이터 구조
+## Data Structures
 
-### Reconciler 인스턴스 변수
+### Reconciler Instance Variables
 
 ```typescript
 class Reconciler {
-  // prevVNode 트리 저장 (sid → prevVNode)
+  // Store prevVNode tree (sid → prevVNode)
   private prevVNodeTree: Map<string, VNode> = new Map();
   
-  // portal 관리: portalId → { target, host }
+  // Portal management: portalId → { target, host }
   private portalHostsById: Map<string, { target: HTMLElement, host: HTMLElement }> = new Map();
   
-  // 현재 렌더에서 방문된 portalId 집합
+  // Set of portalIds visited in current render
   private currentVisitedPortalIds: Set<string> | null = null;
 }
 ```
 
-### Context 구조
+### Context Structure
 
 ```typescript
 const context = {
@@ -460,46 +460,46 @@ const context = {
   decorators: Decorator[],
   getComponent: (name: string) => Component,
   reconcile: (vnode, container, reconcileContext) => void,
-  __isReconciling?: boolean  // 무한 루프 방지 플래그
+  __isReconciling?: boolean  // Flag to prevent infinite loop
 };
 ```
 
-### prevChildToElement 맵
+### prevChildToElement Map
 
 ```typescript
-// prevChildVNode → DOM element 매핑
+// prevChildVNode → DOM element mapping
 const prevChildToElement = new Map<VNode | string | number, HTMLElement | Text>();
 
-// 사용 목적:
-// - SID가 없는 요소(mark wrapper) 재사용
-// - 구조적 매칭 시 DOM 요소 참조
+// Usage purpose:
+// - Reuse elements without SID (mark wrapper)
+// - DOM element reference for structural matching
 ```
 
 ---
 
-## 중요한 패턴과 전략
+## Important Patterns and Strategies
 
-### 1. DOM 요소 재사용 전략
+### 1. DOM Element Reuse Strategy
 
-#### SID 기반 재사용 (최우선)
+#### SID-based Reuse (Highest Priority)
 ```typescript
-// Component나 Decorator는 SID로 고유하게 식별
+// Components or Decorators are uniquely identified by SID
 if (childVNode.sid) {
   host = parent.querySelector(`[data-bc-sid="${childVNode.sid}"]`);
 }
 ```
 
-#### 구조적 매칭 (SID 없을 때)
+#### Structural Matching (When No SID)
 ```typescript
-// Mark wrapper 등 SID가 없는 요소는 구조로 매칭
+// Elements without SID (mark wrapper, etc.) are matched by structure
 if (vnodeStructureMatches(prevChildVNode, childVNode)) {
   host = prevChildVNode.meta.domElement;
 }
 ```
 
-#### 인덱스 기반 Fallback
+#### Index-based Fallback
 ```typescript
-// 마지막 수단: 같은 인덱스의 같은 태그 재사용
+// Last resort: Reuse same tag at same index
 if (childIndex < parent.children.length) {
   const candidate = parent.children[childIndex];
   if (candidate.tagName === childVNode.tag) {
@@ -508,90 +508,90 @@ if (childIndex < parent.children.length) {
 }
 ```
 
-### 2. Text Node 재사용 전략
+### 2. Text Node Reuse Strategy
 
-**목적**: MutationObserver 트리거 최소화
+**Purpose**: Minimize MutationObserver triggers
 
 ```typescript
-// 기존 텍스트 노드 재사용
+// Reuse existing text node
 const existingTextNode = parent.firstChild;
 if (existingTextNode && existingTextNode.nodeType === 3) {
   if (existingTextNode.textContent !== expectedText) {
-    existingTextNode.textContent = expectedText;  // 내용만 변경
+    existingTextNode.textContent = expectedText;  // Only change content
   }
-  return existingTextNode;  // 재사용
+  return existingTextNode;  // Reuse
 }
 ```
 
-### 3. 무한 루프 방지
+### 3. Infinite Loop Prevention
 
-**문제**: `updateComponent`가 내부에서 `reconcile`을 호출하면 무한 루프 발생
+**Problem**: Infinite loop occurs if `updateComponent` calls `reconcile` internally
 
-**해결**: `__isReconciling` 플래그 사용
+**Solution**: Use `__isReconciling` flag
 
 ```typescript
 if (context.__isReconciling) {
-  // updateComponent 호출하지 않고 DOM만 직접 업데이트
+  // Don't call updateComponent, directly update DOM only
   dom.updateAttributes(host, prevVNode.attrs, nextVNode.attrs);
 } else {
-  // 정상적으로 updateComponent 호출
+  // Normally call updateComponent
   components.updateComponent(prevVNode, nextVNode, host, context);
 }
 ```
 
-### 4. Portal 처리
+### 4. Portal Handling
 
-**특징**: Portal은 현재 parent 아래에 DOM을 생성하지 않음
+**Characteristic**: Portal does not create DOM under current parent
 
 ```typescript
 if (handlePortalVNode(...)) {
-  return null;  // nextDomChildren에 추가하지 않음
+  return null;  // Don't add to nextDomChildren
 }
 ```
 
-**동작**:
-1. Portal target에 host 생성/찾기
-2. Portal content를 host에 reconcile
-3. Portal ID 추적 (클린업용)
+**Behavior**:
+1. Create/Find host in Portal target
+2. Reconcile portal content to host
+3. Track Portal ID (for cleanup)
 
-### 5. Meta 전송 패턴
+### 5. Meta Transfer Pattern
 
-**목적**: DOM 요소 참조를 다음 렌더링에서 재사용
+**Purpose**: Reuse DOM element reference in next rendering
 
 ```typescript
 // prevVNode.meta.domElement → nextVNode.meta.domElement
 transferMetaFromPrevToNext(prevVNode, nextVNode);
 
-// 재귀적으로 children의 meta도 전송
-// 조건: 구조 일치 또는 SID 일치
+// Recursively transfer children's meta as well
+// Condition: Structure matches or SID matches
 ```
 
-### 6. Stale 제거 전략
+### 6. Stale Removal Strategy
 
-**두 단계 제거**:
+**Two-stage Removal**:
 
-1. **Pre-clean** (reconcileVNodeChildren 시작 시)
-   - 예상되지 않는 요소를 미리 제거
-   - `desiredChildSids`에 없는 요소 제거
+1. **Pre-clean** (at start of reconcileVNodeChildren)
+   - Remove unexpected elements early
+   - Remove elements not in `desiredChildSids`
 
-2. **Final Clean** (reconcileVNodeChildren 종료 시)
-   - `keep` Set에 없는 요소 제거
-   - `expectedSids`에 없는 요소 강제 제거
+2. **Final Clean** (at end of reconcileVNodeChildren)
+   - Remove elements not in `keep` Set
+   - Force remove elements not in `expectedSids`
 
-### 7. 순서 보장
+### 7. Order Guarantee
 
-**reorder 함수**:
-- `nextDomChildren` 배열의 순서대로 DOM 재배치
-- `insertBefore`를 사용하여 최소한의 이동만 수행
+**reorder function**:
+- Reorder DOM according to `nextDomChildren` array order
+- Use `insertBefore` to perform minimal moves
 
 ---
 
-## 예시: 전체 흐름
+## Example: Complete Flow
 
-### 시나리오: 간단한 텍스트 업데이트
+### Scenario: Simple Text Update
 
 ```
-초기 상태:
+Initial State:
   VNode: { tag: 'div', sid: 'root', children: [
     { tag: 'span', text: 'Hello' }
   ]}
@@ -599,103 +599,103 @@ transferMetaFromPrevToNext(prevVNode, nextVNode);
          <span>Hello</span>
        </div>
 
-업데이트:
+Update:
   VNode: { tag: 'div', sid: 'root', children: [
     { tag: 'span', text: 'World' }
   ]}
 ```
 
-**처리 과정**:
+**Processing Steps**:
 
-1. `reconcile` 호출
-   - Root host 찾기: `data-bc-sid="root"` 요소
-   - Attributes/Styles 업데이트 (변경 없음)
+1. Call `reconcile`
+   - Find root host: `data-bc-sid="root"` element
+   - Update Attributes/Styles (no changes)
 
-2. `reconcileVNodeChildren` 호출
-   - `handleVNodeTextProperty`: false (children 있음)
-   - `prevChildToElement` 맵 구축
-   - `removeStaleEarly`: 실행 (변경 없음)
+2. Call `reconcileVNodeChildren`
+   - `handleVNodeTextProperty`: false (has children)
+   - Build `prevChildToElement` map
+   - `removeStaleEarly`: execute (no changes)
 
-3. `processChildVNode` 호출
-   - `findHostForChildVNode`: 구조적 매칭으로 `<span>` 찾기
-   - `updateHostElement`: 위치 확인 (변경 없음)
-   - `updateHostTextContent`: 'Hello' → 'World' 업데이트
-   - 재귀 reconcile: children 없음
+3. Call `processChildVNode`
+   - `findHostForChildVNode`: Find `<span>` by structural matching
+   - `updateHostElement`: Check position (no changes)
+   - `updateHostTextContent`: Update 'Hello' → 'World'
+   - Recursive reconcile: no children
 
-4. `reorder`: 순서 확인 (변경 없음)
-5. `transferMetaFromPrevToNext`: meta 전송
-6. `removeStale`: stale 제거 (변경 없음)
+4. `reorder`: Check order (no changes)
+5. `transferMetaFromPrevToNext`: Transfer meta
+6. `removeStale`: Remove stale (no changes)
 
-**결과**:
-- `<span>` 요소 재사용
-- 텍스트 노드 재사용 (내용만 변경)
-- 최소한의 DOM 조작
-
----
-
-## 성능 최적화 전략
-
-### 1. DOM 조작 최소화
-- 기존 요소 재사용
-- 텍스트 노드 재사용
-- 불필요한 DOM 조작 방지
-
-### 2. MutationObserver 트리거 최소화
-- 텍스트 노드 재사용 (내용만 변경)
-- 불필요한 DOM 업데이트 방지
-
-### 3. 효율적인 매칭
-- SID 기반 매칭 (O(1))
-- 구조적 매칭 (필요할 때만)
-- 인덱스 기반 fallback
-
-### 4. 재귀 호출 최적화
-- `__isReconciling` 플래그로 무한 루프 방지
-- 불필요한 재렌더링 방지
+**Result**:
+- Reuse `<span>` element
+- Reuse text node (only content changed)
+- Minimal DOM manipulation
 
 ---
 
-## 디버깅 팁
+## Performance Optimization Strategies
 
-### 1. 로그 활용
+### 1. Minimize DOM Manipulation
+- Reuse existing elements
+- Reuse text nodes
+- Prevent unnecessary DOM manipulation
+
+### 2. Minimize MutationObserver Triggers
+- Reuse text nodes (only change content)
+- Prevent unnecessary DOM updates
+
+### 3. Efficient Matching
+- SID-based matching (O(1))
+- Structural matching (only when needed)
+- Index-based fallback
+
+### 4. Recursive Call Optimization
+- Prevent infinite loop with `__isReconciling` flag
+- Prevent unnecessary re-rendering
+
+---
+
+## Debugging Tips
+
+### 1. Use Logs
 - `[Reconciler] reconcile: START/END`
 - `[Reconciler] reconcileVNodeChildren: START/END`
 - `[Reconciler] reconcileVNodeChildren: processing child`
 
-### 2. 단위 테스트
-- 각 유틸리티 함수는 독립적으로 테스트 가능
-- 문제 발생 시 해당 함수만 테스트하여 원인 파악
+### 2. Unit Tests
+- Each utility function can be tested independently
+- When issues occur, test only that function to identify cause
 
-### 3. DOM 상태 확인
-- `prevVNodeTree`에 저장된 이전 상태 확인
-- `meta.domElement` 참조 확인
+### 3. Check DOM State
+- Check previous state stored in `prevVNodeTree`
+- Check `meta.domElement` reference
 
 ---
 
-## 주의사항
+## Notes
 
-### 1. SID는 절대 생성하지 않음
-- SID는 항상 model에서 가져옴
-- 절대 임의로 생성하지 않음
+### 1. Never Generate SID
+- SID is always retrieved from model
+- Never generate arbitrarily
 
-### 2. Portal 클린업
-- 렌더 종료 시 방문하지 않은 portal 제거
-- 메모리 누수 방지
+### 2. Portal Cleanup
+- Remove unvisited portals at end of render
+- Prevent memory leaks
 
 ### 3. Component Lifecycle
-- mount/update/unmount 올바른 순서로 호출
-- 에러 처리 포함
+- Call mount/update/unmount in correct order
+- Include error handling
 
-### 4. Text Node 재사용
-- MutationObserver 트리거 최소화를 위해 재사용
-- 내용이 같으면 업데이트하지 않음
+### 4. Text Node Reuse
+- Reuse to minimize MutationObserver triggers
+- Don't update if content is same
 
 ---
 
-## 참고 자료
+## References
 
-- [VNode 구조 예시](./vnode-structure-examples.md)
-- [Reconciler 분석](./reconciler-analysis.md)
+- [VNode Structure Examples](./vnode-structure-examples.md)
+- [Reconciler Analysis](./reconciler-analysis.md)
 - [Component Update Flow](./component-update-flow.md)
 - [Text Rendering Architecture](./text-rendering-architecture.md)
 

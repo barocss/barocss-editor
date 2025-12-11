@@ -1,438 +1,438 @@
-# 입력 처리 수동 테스트 시나리오
+# Manual Test Scenarios for Input Processing
 
-이 문서는 브라우저에서 실제로 입력 기능을 테스트하기 위한 체계적인 시나리오를 제공합니다.
+This document provides systematic scenarios for testing input functionality in the browser.
 
-## 테스트 환경
+## Test Environment
 
-- 브라우저: Chrome, Firefox, Safari (각각 테스트)
-- 테스트 앱: `apps/editor-test/src/main.ts`
-- Devtool: 오른쪽 패널에서 실시간 모델 상태 확인
-
----
-
-## 테스트 체크리스트
-
-각 테스트를 수행한 후 다음을 확인:
-- [ ] 모델이 올바르게 업데이트되었는지 (Devtool에서 확인)
-- [ ] DOM이 올바르게 렌더링되었는지 (브라우저에서 확인)
-- [ ] 커서 위치가 올바른지
-- [ ] Mark가 올바르게 유지/조정되었는지
-- [ ] Devtool의 "Last Input" 패널에 올바른 정보가 표시되는지
+- Browser: Chrome, Firefox, Safari (test each)
+- Test App: `apps/editor-test/src/main.ts`
+- Devtool: Check real-time model state in right panel
 
 ---
 
-## 1. 기본 텍스트 입력 (C1)
+## Test Checklist
 
-### 1.1 단일 inline-text에 텍스트 입력
-**시나리오**:
-1. 빈 inline-text 노드에 커서를 두고 "Hello" 입력
+After performing each test, verify:
+- [ ] Model updated correctly (check in Devtool)
+- [ ] DOM rendered correctly (check in browser)
+- [ ] Cursor position is correct
+- [ ] Marks maintained/adjusted correctly
+- [ ] Correct information displayed in Devtool's "Last Input" panel
 
-**예상 결과**:
-- 모델: `text: "Hello"`
-- DOM: "Hello" 텍스트 표시
-- 커서: "Hello" 뒤에 위치
+---
+
+## 1. Basic Text Input (C1)
+
+### 1.1 Text Input in Single inline-text
+**Scenario**:
+1. Place cursor in empty inline-text node and type "Hello"
+
+**Expected Result**:
+- Model: `text: "Hello"`
+- DOM: "Hello" text displayed
+- Cursor: Positioned after "Hello"
 - Devtool: `case: "C1"`, `inputType: "insertText"`
 
-**실제 결과**:
-- [ ] 모델 업데이트: ✅ / ❌
-- [ ] DOM 렌더링: ✅ / ❌
-- [ ] 커서 위치: ✅ / ❌
-- [ ] Devtool 표시: ✅ / ❌
+**Actual Result**:
+- [ ] Model update: ✅ / ❌
+- [ ] DOM rendering: ✅ / ❌
+- [ ] Cursor position: ✅ / ❌
+- [ ] Devtool display: ✅ / ❌
 
-**문제점** (있는 경우):
+**Issues** (if any):
 ```
-[문제 설명]
-```
-
----
-
-### 1.2 Mark가 있는 텍스트에 입력
-**시나리오**:
-1. "bold and italic" 텍스트 (bold+italic mark) 중간에 커서를 두고 "x" 입력
-
-**예상 결과**:
-- 모델: 텍스트가 "bold xand italic"로 변경, mark는 전체에 유지
-- DOM: bold+italic 스타일이 유지됨
-- 커서: "x" 뒤에 위치
-- Devtool: `case: "C1"`, mark가 분리되지 않음
-
-**실제 결과**:
-- [ ] 모델 업데이트: ✅ / ❌
-- [ ] DOM 렌더링: ✅ / ❌
-- [ ] Mark 유지: ✅ / ❌
-- [ ] 커서 위치: ✅ / ❌
-
-**문제점** (있는 경우):
-```
-[문제 설명]
+[Issue description]
 ```
 
 ---
 
-### 1.3 Range 없는 Mark가 있는 텍스트에 입력
-**시나리오**:
-1. `text-bold-after-img` 노드 (range 없는 bold mark)에 텍스트 입력
+### 1.2 Input in Text with Marks
+**Scenario**:
+1. Place cursor in middle of "bold and italic" text (bold+italic mark) and type "x"
 
-**예상 결과**:
-- 모델: 텍스트 추가, mark는 그대로 유지 (range 없음)
-- DOM: bold 스타일이 전체에 적용됨
-- Devtool: mark가 분리되지 않고 전체에 적용됨
+**Expected Result**:
+- Model: Text changes to "bold xand italic", marks maintained across entire text
+- DOM: bold+italic style maintained
+- Cursor: Positioned after "x"
+- Devtool: `case: "C1"`, marks not split
 
-**실제 결과**:
-- [ ] 모델 업데이트: ✅ / ❌
-- [ ] Mark 유지 (range 없음): ✅ / ❌
-- [ ] DOM 렌더링: ✅ / ❌
+**Actual Result**:
+- [ ] Model update: ✅ / ❌
+- [ ] DOM rendering: ✅ / ❌
+- [ ] Mark maintenance: ✅ / ❌
+- [ ] Cursor position: ✅ / ❌
 
-**문제점** (있는 경우):
+**Issues** (if any):
 ```
-[문제 설명]
+[Issue description]
 ```
 
 ---
 
-### 1.4 텍스트 삭제 (Backspace)
-**시나리오**:
-1. "Hello" 텍스트에서 "o" 뒤에 커서를 두고 Backspace 입력
+### 1.3 Input in Text with Range-less Marks
+**Scenario**:
+1. Input text in `text-bold-after-img` node (bold mark without range)
 
-**예상 결과**:
-- 모델: `text: "Hell"`
-- DOM: "Hell" 텍스트 표시
-- 커서: "Hell" 뒤에 위치
+**Expected Result**:
+- Model: Text added, mark maintained as-is (no range)
+- DOM: bold style applied to entire text
+- Devtool: mark not split and applied to entire text
+
+**Actual Result**:
+- [ ] Model update: ✅ / ❌
+- [ ] Mark maintenance (no range): ✅ / ❌
+- [ ] DOM rendering: ✅ / ❌
+
+**Issues** (if any):
+```
+[Issue description]
+```
+
+---
+
+### 1.4 Text Deletion (Backspace)
+**Scenario**:
+1. Place cursor after "o" in "Hello" text and press Backspace
+
+**Expected Result**:
+- Model: `text: "Hell"`
+- DOM: "Hell" text displayed
+- Cursor: Positioned after "Hell"
 - Devtool: `case: "C1"`, `inputType: "deleteContentBackward"`
 
-**실제 결과**:
-- [ ] 모델 업데이트: ✅ / ❌
-- [ ] DOM 렌더링: ✅ / ❌
-- [ ] 커서 위치: ✅ / ❌
+**Actual Result**:
+- [ ] Model update: ✅ / ❌
+- [ ] DOM rendering: ✅ / ❌
+- [ ] Cursor position: ✅ / ❌
 
-**문제점** (있는 경우):
+**Issues** (if any):
 ```
-[문제 설명]
+[Issue description]
 ```
 
 ---
 
-## 2. 여러 노드에 걸친 텍스트 변경 (C2)
+## 2. Text Changes Spanning Multiple Nodes (C2)
 
-### 2.1 넓은 Selection + 덮어쓰기
-**시나리오**:
-1. 여러 inline-text 노드에 걸쳐 텍스트 선택
-2. "New Text" 입력
+### 2.1 Wide Selection + Overwrite
+**Scenario**:
+1. Select text spanning multiple inline-text nodes
+2. Type "New Text"
 
-**예상 결과**:
-- 모델: 선택된 범위가 "New Text"로 교체
-- DOM: 올바르게 렌더링
-- 커서: "New Text" 뒤에 위치
+**Expected Result**:
+- Model: Selected range replaced with "New Text"
+- DOM: Rendered correctly
+- Cursor: Positioned after "New Text"
 - Devtool: `case: "C2"`
 
-**실제 결과**:
-- [ ] 모델 업데이트: ✅ / ❌
-- [ ] DOM 렌더링: ✅ / ❌
-- [ ] 커서 위치: ✅ / ❌
+**Actual Result**:
+- [ ] Model update: ✅ / ❌
+- [ ] DOM rendering: ✅ / ❌
+- [ ] Cursor position: ✅ / ❌
 
-**문제점** (있는 경우):
+**Issues** (if any):
 ```
-[문제 설명]
-```
-
----
-
-### 2.2 여러 노드에 걸친 삭제
-**시나리오**:
-1. 여러 inline-text 노드에 걸쳐 텍스트 선택
-2. Delete 또는 Backspace 입력
-
-**예상 결과**:
-- 모델: 선택된 범위가 삭제됨
-- DOM: 올바르게 렌더링
-- 커서: 삭제된 위치에 위치
-
-**실제 결과**:
-- [ ] 모델 업데이트: ✅ / ❌
-- [ ] DOM 렌더링: ✅ / ❌
-- [ ] 커서 위치: ✅ / ❌
-
-**문제점** (있는 경우):
-```
-[문제 설명]
+[Issue description]
 ```
 
 ---
 
-## 3. 구조 변경 (C3)
+### 2.2 Deletion Spanning Multiple Nodes
+**Scenario**:
+1. Select text spanning multiple inline-text nodes
+2. Press Delete or Backspace
 
-### 3.1 Enter 키 (insertParagraph)
-**시나리오**:
-1. 텍스트 중간에 커서를 두고 Enter 입력
+**Expected Result**:
+- Model: Selected range deleted
+- DOM: Rendered correctly
+- Cursor: Positioned at deleted location
 
-**예상 결과**:
-- 모델: 새로운 paragraph 노드가 생성됨
-- DOM: 새로운 줄이 생성됨
-- 커서: 새 paragraph의 시작 위치
+**Actual Result**:
+- [ ] Model update: ✅ / ❌
+- [ ] DOM rendering: ✅ / ❌
+- [ ] Cursor position: ✅ / ❌
+
+**Issues** (if any):
+```
+[Issue description]
+```
+
+---
+
+## 3. Structure Changes (C3)
+
+### 3.1 Enter Key (insertParagraph)
+**Scenario**:
+1. Place cursor in middle of text and press Enter
+
+**Expected Result**:
+- Model: New paragraph node created
+- DOM: New line created
+- Cursor: Positioned at start of new paragraph
 - Devtool: `case: "C3"`, `inputType: "insertParagraph"`
 
-**실제 결과**:
-- [ ] 모델 업데이트: ✅ / ❌
-- [ ] DOM 렌더링: ✅ / ❌
-- [ ] 커서 위치: ✅ / ❌
+**Actual Result**:
+- [ ] Model update: ✅ / ❌
+- [ ] DOM rendering: ✅ / ❌
+- [ ] Cursor position: ✅ / ❌
 
-**문제점** (있는 경우):
+**Issues** (if any):
 ```
-[문제 설명]
+[Issue description]
 ```
 
 ---
 
 ### 3.2 Shift+Enter (insertLineBreak)
-**시나리오**:
-1. 텍스트 중간에 커서를 두고 Shift+Enter 입력
+**Scenario**:
+1. Place cursor in middle of text and press Shift+Enter
 
-**예상 결과**:
-- 모델: line break가 삽입됨 (또는 같은 paragraph 내 줄바꿈)
-- DOM: 줄바꿈 표시
-- 커서: 줄바꿈 뒤에 위치
+**Expected Result**:
+- Model: Line break inserted (or line break within same paragraph)
+- DOM: Line break displayed
+- Cursor: Positioned after line break
 
-**실제 결과**:
-- [ ] 모델 업데이트: ✅ / ❌
-- [ ] DOM 렌더링: ✅ / ❌
-- [ ] 커서 위치: ✅ / ❌
+**Actual Result**:
+- [ ] Model update: ✅ / ❌
+- [ ] DOM rendering: ✅ / ❌
+- [ ] Cursor position: ✅ / ❌
 
-**문제점** (있는 경우):
+**Issues** (if any):
 ```
-[문제 설명]
-```
-
----
-
-## 4. 한글 입력 (IME)
-
-### 4.1 기본 한글 입력
-**시나리오**:
-1. 빈 텍스트에 "안녕하세요" 입력
-
-**예상 결과**:
-- 모델: `text: "안녕하세요"`
-- DOM: "안녕하세요" 텍스트 표시
-- 커서: "안녕하세요" 뒤에 위치
-- Devtool: `case: "C1"`, IME 조합 중간 상태는 무시됨
-
-**실제 결과**:
-- [ ] 모델 업데이트: ✅ / ❌
-- [ ] DOM 렌더링: ✅ / ❌
-- [ ] 커서 위치: ✅ / ❌
-- [ ] IME 처리: ✅ / ❌
-
-**문제점** (있는 경우):
-```
-[문제 설명]
+[Issue description]
 ```
 
 ---
 
-### 4.2 Mark가 있는 텍스트에 한글 입력
-**시나리오**:
-1. "bold and italic" 텍스트 (bold+italic mark) 중간에 커서를 두고 "안녕" 입력
+## 4. Hangul Input (IME)
 
-**예상 결과**:
-- 모델: 텍스트가 "bold 안녕and italic"로 변경, mark는 유지
-- DOM: bold+italic 스타일이 유지됨
-- 커서: "안녕" 뒤에 위치
-- Mark가 분리되지 않음
+### 4.1 Basic Hangul Input
+**Scenario**:
+1. Type "안녕하세요" in empty text
 
-**실제 결과**:
-- [ ] 모델 업데이트: ✅ / ❌
-- [ ] Mark 유지: ✅ / ❌
-- [ ] DOM 렌더링: ✅ / ❌
-- [ ] 커서 위치: ✅ / ❌
+**Expected Result**:
+- Model: `text: "안녕하세요"`
+- DOM: "안녕하세요" text displayed
+- Cursor: Positioned after "안녕하세요"
+- Devtool: `case: "C1"`, IME composition intermediate states ignored
 
-**문제점** (있는 경우):
+**Actual Result**:
+- [ ] Model update: ✅ / ❌
+- [ ] DOM rendering: ✅ / ❌
+- [ ] Cursor position: ✅ / ❌
+- [ ] IME handling: ✅ / ❌
+
+**Issues** (if any):
 ```
-[문제 설명]
-```
-
----
-
-## 5. 붙여넣기
-
-### 5.1 일반 텍스트 붙여넣기
-**시나리오**:
-1. 외부에서 "Pasted Text" 복사
-2. 에디터에 붙여넣기
-
-**예상 결과**:
-- 모델: "Pasted Text"가 삽입됨
-- DOM: 올바르게 렌더링
-- 커서: 붙여넣은 텍스트 뒤에 위치
-- Devtool: `case: "C2"` 또는 `"C1"`, `inputType: "insertFromPaste"`
-
-**실제 결과**:
-- [ ] 모델 업데이트: ✅ / ❌
-- [ ] DOM 렌더링: ✅ / ❌
-- [ ] 커서 위치: ✅ / ❌
-
-**문제점** (있는 경우):
-```
-[문제 설명]
+[Issue description]
 ```
 
 ---
 
-### 5.2 Mark가 있는 텍스트에 붙여넣기
-**시나리오**:
-1. "bold and italic" 텍스트 (bold+italic mark) 중간에 커서를 두고 텍스트 붙여넣기
+### 4.2 Hangul Input in Text with Marks
+**Scenario**:
+1. Place cursor in middle of "bold and italic" text (bold+italic mark) and type "안녕"
 
-**예상 결과**:
-- 모델: 붙여넣은 텍스트가 삽입됨
-- Mark는 붙여넣은 텍스트에도 적용될 수 있음 (정책에 따라)
-- DOM: 올바르게 렌더링
+**Expected Result**:
+- Model: Text changes to "bold 안녕and italic", marks maintained
+- DOM: bold+italic style maintained
+- Cursor: Positioned after "안녕"
+- Marks not split
 
-**실제 결과**:
-- [ ] 모델 업데이트: ✅ / ❌
-- [ ] Mark 처리: ✅ / ❌
-- [ ] DOM 렌더링: ✅ / ❌
+**Actual Result**:
+- [ ] Model update: ✅ / ❌
+- [ ] Mark maintenance: ✅ / ❌
+- [ ] DOM rendering: ✅ / ❌
+- [ ] Cursor position: ✅ / ❌
 
-**문제점** (있는 경우):
+**Issues** (if any):
 ```
-[문제 설명]
-```
-
----
-
-## 6. Devtool 검증
-
-### 6.1 Last Input 패널 확인
-**시나리오**:
-1. 텍스트 입력 후 Devtool의 "Last Input" 패널 확인
-
-**확인 사항**:
-- [ ] `case`가 올바르게 표시되는지 (C1, C2, C3 등)
-- [ ] `inputType`이 올바르게 표시되는지
-- [ ] `usedInputHint`가 올바르게 표시되는지
-- [ ] `contentRange`가 올바르게 표시되는지
-- [ ] `status` 아이콘이 올바른지 (✓/⚠/○)
-
-**문제점** (있는 경우):
-```
-[문제 설명]
+[Issue description]
 ```
 
 ---
 
-### 6.2 Model Tree 업데이트 확인
-**시나리오**:
-1. 텍스트 입력 후 Devtool의 "Model Tree" 탭 확인
+## 5. Paste
 
-**확인 사항**:
-- [ ] 텍스트가 올바르게 업데이트되는지
-- [ ] Mark가 올바르게 표시되는지 (M, D, T)
-- [ ] Selection이 올바르게 표시되는지
+### 5.1 Plain Text Paste
+**Scenario**:
+1. Copy "Pasted Text" from external source
+2. Paste into editor
 
-**문제점** (있는 경우):
+**Expected Result**:
+- Model: "Pasted Text" inserted
+- DOM: Rendered correctly
+- Cursor: Positioned after pasted text
+- Devtool: `case: "C2"` or `"C1"`, `inputType: "insertFromPaste"`
+
+**Actual Result**:
+- [ ] Model update: ✅ / ❌
+- [ ] DOM rendering: ✅ / ❌
+- [ ] Cursor position: ✅ / ❌
+
+**Issues** (if any):
 ```
-[문제 설명]
-```
-
----
-
-## 7. 엣지 케이스
-
-### 7.1 빈 노드에 입력
-**시나리오**:
-1. 빈 inline-text 노드에 커서를 두고 텍스트 입력
-
-**예상 결과**:
-- 모델: 텍스트가 추가됨
-- DOM: 텍스트가 표시됨
-
-**실제 결과**:
-- [ ] 모델 업데이트: ✅ / ❌
-- [ ] DOM 렌더링: ✅ / ❌
-
-**문제점** (있는 경우):
-```
-[문제 설명]
+[Issue description]
 ```
 
 ---
 
-### 7.2 노드 끝에서 입력
-**시나리오**:
-1. 텍스트 노드의 마지막에 커서를 두고 텍스트 입력
+### 5.2 Paste in Text with Marks
+**Scenario**:
+1. Place cursor in middle of "bold and italic" text (bold+italic mark) and paste text
 
-**예상 결과**:
-- 모델: 텍스트가 추가됨
-- DOM: 텍스트가 표시됨
-- 커서: 올바른 위치
+**Expected Result**:
+- Model: Pasted text inserted
+- Marks may be applied to pasted text (depending on policy)
+- DOM: Rendered correctly
 
-**실제 결과**:
-- [ ] 모델 업데이트: ✅ / ❌
-- [ ] DOM 렌더링: ✅ / ❌
-- [ ] 커서 위치: ✅ / ❌
+**Actual Result**:
+- [ ] Model update: ✅ / ❌
+- [ ] Mark handling: ✅ / ❌
+- [ ] DOM rendering: ✅ / ❌
 
-**문제점** (있는 경우):
+**Issues** (if any):
 ```
-[문제 설명]
-```
-
----
-
-### 7.3 노드 시작에서 Backspace
-**시나리오**:
-1. 텍스트 노드의 시작에 커서를 두고 Backspace 입력
-
-**예상 결과**:
-- 모델: 이전 노드와 병합되거나 삭제됨 (정책에 따라)
-- DOM: 올바르게 렌더링
-
-**실제 결과**:
-- [ ] 모델 업데이트: ✅ / ❌
-- [ ] DOM 렌더링: ✅ / ❌
-
-**문제점** (있는 경우):
-```
-[문제 설명]
+[Issue description]
 ```
 
 ---
 
-## 테스트 결과 요약
+## 6. Devtool Verification
 
-### 성공한 시나리오
-- [ ] 1.1 단일 inline-text에 텍스트 입력
-- [ ] 1.2 Mark가 있는 텍스트에 입력
-- [ ] 1.3 Range 없는 Mark가 있는 텍스트에 입력
-- [ ] 1.4 텍스트 삭제 (Backspace)
-- [ ] 2.1 넓은 Selection + 덮어쓰기
-- [ ] 2.2 여러 노드에 걸친 삭제
-- [ ] 3.1 Enter 키 (insertParagraph)
+### 6.1 Last Input Panel Check
+**Scenario**:
+1. Check Devtool's "Last Input" panel after text input
+
+**Check Items**:
+- [ ] `case` displayed correctly (C1, C2, C3, etc.)
+- [ ] `inputType` displayed correctly
+- [ ] `usedInputHint` displayed correctly
+- [ ] `contentRange` displayed correctly
+- [ ] `status` icon correct (✓/⚠/○)
+
+**Issues** (if any):
+```
+[Issue description]
+```
+
+---
+
+### 6.2 Model Tree Update Check
+**Scenario**:
+1. Check Devtool's "Model Tree" tab after text input
+
+**Check Items**:
+- [ ] Text updated correctly
+- [ ] Marks displayed correctly (M, D, T)
+- [ ] Selection displayed correctly
+
+**Issues** (if any):
+```
+[Issue description]
+```
+
+---
+
+## 7. Edge Cases
+
+### 7.1 Input in Empty Node
+**Scenario**:
+1. Place cursor in empty inline-text node and input text
+
+**Expected Result**:
+- Model: Text added
+- DOM: Text displayed
+
+**Actual Result**:
+- [ ] Model update: ✅ / ❌
+- [ ] DOM rendering: ✅ / ❌
+
+**Issues** (if any):
+```
+[Issue description]
+```
+
+---
+
+### 7.2 Input at Node End
+**Scenario**:
+1. Place cursor at end of text node and input text
+
+**Expected Result**:
+- Model: Text added
+- DOM: Text displayed
+- Cursor: Correct position
+
+**Actual Result**:
+- [ ] Model update: ✅ / ❌
+- [ ] DOM rendering: ✅ / ❌
+- [ ] Cursor position: ✅ / ❌
+
+**Issues** (if any):
+```
+[Issue description]
+```
+
+---
+
+### 7.3 Backspace at Node Start
+**Scenario**:
+1. Place cursor at start of text node and press Backspace
+
+**Expected Result**:
+- Model: Merged with previous node or deleted (depending on policy)
+- DOM: Rendered correctly
+
+**Actual Result**:
+- [ ] Model update: ✅ / ❌
+- [ ] DOM rendering: ✅ / ❌
+
+**Issues** (if any):
+```
+[Issue description]
+```
+
+---
+
+## Test Results Summary
+
+### Successful Scenarios
+- [ ] 1.1 Text input in single inline-text
+- [ ] 1.2 Input in text with marks
+- [ ] 1.3 Input in text with range-less marks
+- [ ] 1.4 Text deletion (Backspace)
+- [ ] 2.1 Wide selection + overwrite
+- [ ] 2.2 Deletion spanning multiple nodes
+- [ ] 3.1 Enter key (insertParagraph)
 - [ ] 3.2 Shift+Enter (insertLineBreak)
-- [ ] 4.1 기본 한글 입력
-- [ ] 4.2 Mark가 있는 텍스트에 한글 입력
-- [ ] 5.1 일반 텍스트 붙여넣기
-- [ ] 5.2 Mark가 있는 텍스트에 붙여넣기
-- [ ] 6.1 Last Input 패널 확인
-- [ ] 6.2 Model Tree 업데이트 확인
-- [ ] 7.1 빈 노드에 입력
-- [ ] 7.2 노드 끝에서 입력
-- [ ] 7.3 노드 시작에서 Backspace
+- [ ] 4.1 Basic Hangul input
+- [ ] 4.2 Hangul input in text with marks
+- [ ] 5.1 Plain text paste
+- [ ] 5.2 Paste in text with marks
+- [ ] 6.1 Last Input panel check
+- [ ] 6.2 Model Tree update check
+- [ ] 7.1 Input in empty node
+- [ ] 7.2 Input at node end
+- [ ] 7.3 Backspace at node start
 
-### 발견된 버그 목록
+### Found Bugs List
 
-1. **버그 #1**: [제목]
-   - 시나리오: [어떤 시나리오에서 발생]
-   - 증상: [무엇이 잘못되었는지]
-   - 재현 방법: [어떻게 재현하는지]
-   - 예상 원인: [추정되는 원인]
+1. **Bug #1**: [Title]
+   - Scenario: [Which scenario it occurs in]
+   - Symptom: [What went wrong]
+   - Reproduction: [How to reproduce]
+   - Suspected cause: [Estimated cause]
 
-2. **버그 #2**: [제목]
+2. **Bug #2**: [Title]
    - ...
 
 ---
 
-## 다음 단계
+## Next Steps
 
-테스트 완료 후:
-1. 발견된 버그를 우선순위별로 정리
-2. 각 버그에 대한 수정 계획 수립
-3. 수정 후 재테스트
+After test completion:
+1. Organize found bugs by priority
+2. Create fix plan for each bug
+3. Re-test after fixes
 
