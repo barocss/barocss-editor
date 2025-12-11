@@ -1,65 +1,62 @@
-# Decorator 통합 가이드
+# Decorator Integration Guide
 
-## 개요
+## Overview
 
-이 문서는 Decorator 시스템을 AI 통합 및 협업 환경에서 사용하는 방법을 설명합니다.
+This document explains how to use the Decorator system in AI-integrated and collaborative environments. The tone assumes a top computer science expert explaining to people who do not know much about programming but want to build an editor: clear, detailed, and approachable.
 
-## 핵심 원칙
+## Core Principles
 
-### Decorator는 AI와 무관한 일반 도구
+### Decorators are general UI tools, not AI-specific
 
-**Decorator는 AI 전용 기능이 아니다.**
+- Decorators are ordinary UI display tools.
+- AI is just an editor user; it reuses the same decorators.
+- AI can show work-in-progress states using existing decorators.
+- When AI finishes, it updates the model and removes the decorator.
+- There is no special AI-only capability inside decorators themselves.
 
-- Decorator는 일반적인 UI 표시 도구
-- AI는 편집의 주체일 뿐
-- AI가 작업 상태를 표시하기 위해 기존 decorator를 사용
-- AI 작업 완료 후 모델 업데이트로 끝
+### AI workflow pattern
 
-### AI의 작업 흐름
+1) Start: add a decorator with `addDecorator()` (use any standard decorator type).  
+2) In progress: update the decorator via `updateDecorator(id, updates)`.  
+3) Finish: update the model, then remove the decorator with `removeDecorator(id)`.
 
-1. **작업 시작**: `addDecorator()`로 decorator 추가 (일반 decorator 사용)
-2. **작업 진행**: `updateDecorator(id, updates)`로 decorator 업데이트
-3. **작업 완료**: 모델 업데이트 + `removeDecorator(id)`로 decorator 제거
+## AI Integration
 
-**Decorator 자체에는 AI 관련 특별한 기능이 없다.**
-
-## AI 통합
-
-### 기본 시나리오: AI가 텍스트 생성
+### Basic scenario: AI generates text
 
 ```typescript
-// AI가 새로운 문단을 생성하는 과정
+// AI generates a new paragraph
 
-// 1단계: 작업 시작 전에 decorator 추가
-// 일반 comment decorator를 사용하여 "생성 중" 표시
+// Step 1: before work starts, add a decorator
+// Use a normal comment decorator to show "generating"
 const workingDecorator: Decorator = {
   sid: 'work-indicator-1',
-  stype: 'comment',  // 일반 comment decorator
+  stype: 'comment',  // normal comment decorator
   category: 'block',
   target: {
     sid: 'paragraph-1'
   },
-  position: 'after',  // paragraph-1 다음에 생성 예정
+  position: 'after',  // will be placed after paragraph-1
   data: {
-    text: 'AI가 새로운 문단을 생성하고 있습니다...'
+    text: 'AI is generating a new paragraph...'
   }
 };
 
-// Decorator 추가하고 ID 받기
+// Add decorator and get ID
 const decoratorId = view.addDecorator(workingDecorator);
 
-// 2단계: AI 작업 수행 (비동기)
-// 작업 진행 중 decorator 업데이트 가능
+// Step 2: run AI task (async)
+// You can update while it runs
 view.updateDecorator(decoratorId, {
   data: {
-    text: 'AI가 생성 중... 50%'
+    text: 'AI generating... 50%'
   }
 });
 
 const newParagraph = await aiGenerateParagraph();
 
-// 3단계: 작업 완료
-// - 모델 업데이트 (실제 컨텐츠 삽입)
+// Step 3: finish work
+// - Update the model (insert the real content)
 editor.transaction([
   insertContent('paragraph-1', 'after', {
     sid: 'paragraph-2',
@@ -74,20 +71,20 @@ editor.transaction([
   })
 ]).commit();
 
-// - Decorator 제거
+// - Remove the decorator
 view.removeDecorator(decoratorId);
 ```
 
-### AI가 기존 텍스트 편집
+### AI edits existing text
 
 ```typescript
-// AI가 기존 텍스트를 개선하는 과정
+// AI improves an existing text snippet
 
-// 1단계: 편집할 영역에 decorator 추가
-// 일반 highlight decorator를 사용하여 "편집 중" 표시
+// Step 1: add a decorator to the area to edit
+// Use a normal highlight decorator to show "editing"
 const editingDecorator: Decorator = {
   sid: 'work-indicator-2',
-  stype: 'highlight',  // 일반 highlight decorator
+  stype: 'highlight',  // normal highlight decorator
   category: 'inline',
   target: {
     sid: 'text-1',
@@ -95,102 +92,102 @@ const editingDecorator: Decorator = {
     endOffset: 30
   },
   data: {
-    message: 'AI가 이 부분을 개선하고 있습니다...'
+    message: 'AI is improving this part...'
   }
 };
 
 const decoratorId = view.addDecorator(editingDecorator);
 
-// 2단계: AI 작업 수행
-// 진행 중 업데이트 가능
+// Step 2: run AI task
+// You can update progress
 view.updateDecorator(decoratorId, {
   data: {
-    message: 'AI가 개선 중... 80%'
+    message: 'AI improving... 80%'
   }
 });
 
 const improvedText = await aiImproveText('text-1', 10, 30);
 
-// 3단계: 작업 완료
-// - 모델 업데이트 (텍스트 교체)
+// Step 3: finish work
+// - Update the model (replace text)
 editor.transaction([
   updateText('text-1', 10, 30, improvedText)
 ]).commit();
 
-// - Decorator 제거
+// - Remove the decorator
 view.removeDecorator(decoratorId);
 ```
 
-### Block Decorator의 Position 설명
+### Block decorator position options
 
 ```typescript
-// Block decorator의 position 옵션
+// Position options for block decorators
 
-// 1. 'before': target의 형제로 앞에 삽입
+// 1. 'before': insert as a sibling before the target
 const beforeDecorator: Decorator = {
   category: 'block',
   target: { sid: 'paragraph-1' },
-  position: 'before'  // paragraph-1 앞에 삽입
+  position: 'before'  // inserted before paragraph-1
 };
 
-// 2. 'after': target의 형제로 뒤에 삽입
+// 2. 'after': insert as a sibling after the target
 const afterDecorator: Decorator = {
   category: 'block',
   target: { sid: 'paragraph-1' },
-  position: 'after'  // paragraph-1 뒤에 삽입
+  position: 'after'  // inserted after paragraph-1
 };
 
-// 3. 'inside-start': target의 첫 번째 자식으로 삽입
+// 3. 'inside-start': insert as the first child of the target
 const insideStartDecorator: Decorator = {
   category: 'block',
   target: { sid: 'section-1' },
-  position: 'inside-start'  // section-1의 첫 번째 자식으로 삽입
+  position: 'inside-start'  // first child of section-1
 };
 
-// 4. 'inside-end': target의 마지막 자식으로 삽입
+// 4. 'inside-end': insert as the last child of the target
 const insideEndDecorator: Decorator = {
   category: 'block',
   target: { sid: 'section-1' },
-  position: 'inside-end'  // section-1의 마지막 자식으로 삽입
+  position: 'inside-end'  // last child of section-1
 };
 
-// 예시: AI가 section 하위에 paragraph 생성
+// Example: AI creates a paragraph under a section
 const aiWorkDecorator: Decorator = {
   sid: 'ai-work-1',
   stype: 'comment',
   category: 'block',
   target: { sid: 'section-1' },
-  position: 'inside-end',  // section-1의 마지막 자식으로 들어감
-  data: { text: 'AI가 생성 중...' }
+  position: 'inside-end',  // appended to the end of section-1
+  data: { text: 'AI is generating...' }
 };
 ```
 
-### AI 작업 관리 헬퍼
+### AI work helper
 
 ```typescript
 /**
- * AI 작업을 관리하는 간단한 헬퍼
- * Decorator는 그냥 일반 도구로 사용
+ * Simple helper to manage AI work
+ * Decorators are just ordinary tools here
  */
 export class AIWorkManager {
   constructor(private view: EditorViewDOM) {}
   
   /**
-   * AI 작업 시작
-   * - 일반 decorator를 사용하여 작업 상태 표시
+   * Start AI work
+   * - Use a normal decorator to show working state
    * @returns decorator ID
    */
   startWork(
     workType: 'generate' | 'edit' | 'analyze',
     target: DecoratorTarget,
     position?: DecoratorPosition,
-    message: string = 'AI가 작업 중...'
+    message: string = 'AI is working...'
   ): string {
-    // 적절한 decorator 타입 선택
+    // Pick decorator type and category
     const decoratorType = this.getDecoratorTypeForWork(workType);
     const category = this.getCategoryForWork(workType);
     
-    // 일반 decorator 생성
+    // Create a normal decorator
     const decorator: Decorator = {
       sid: `ai-work-${Date.now()}`,
       stype: decoratorType,
@@ -204,21 +201,21 @@ export class AIWorkManager {
       }
     };
     
-    // Decorator 추가하고 ID 반환
+    // Add decorator and return ID
     return this.view.addDecorator(decorator);
   }
   
   /**
-   * AI 작업 진행 중 업데이트
+   * Update AI work in progress
    */
   updateWork(decoratorId: string, updates: Partial<Decorator>): void {
     this.view.updateDecorator(decoratorId, updates);
   }
   
   /**
-   * AI 작업 완료
-   * - 모델 업데이트
-   * - Decorator 제거
+   * Complete AI work
+   * - Update the model
+   * - Remove the decorator
    */
   completeWork(
     decoratorId: string,
@@ -227,17 +224,16 @@ export class AIWorkManager {
     const decorator = this.view.decoratorManager.get(decoratorId);
     if (!decorator) return;
     
-    // 모델 업데이트
+    // Update model
     const updatedModel = modelUpdate(this.getModel(decorator.target));
     this.updateModel(decorator.target, updatedModel);
     
-    // Decorator 제거
+    // Remove decorator
     this.view.removeDecorator(decoratorId);
   }
   
   /**
-   * AI 작업 취소
-   * - Decorator만 제거
+   * Cancel AI work (remove decorator only)
    */
   cancelWork(decoratorId: string): void {
     this.view.removeDecorator(decoratorId);
@@ -246,11 +242,11 @@ export class AIWorkManager {
   private getDecoratorTypeForWork(workType: string): string {
     switch (workType) {
       case 'generate':
-        return 'comment';  // 생성 중 표시
+        return 'comment';  // show generating
       case 'edit':
-        return 'highlight'; // 편집 중 표시
+        return 'highlight'; // show editing
       case 'analyze':
-        return 'overlay';   // 분석 중 표시
+        return 'overlay';   // show analyzing
       default:
         return 'comment';
     }
@@ -271,55 +267,55 @@ export class AIWorkManager {
 }
 ```
 
-## 협업 환경
+## Collaboration
 
-### 핵심 원칙: Selection과 동일한 패턴
+### Key principle: same pattern as selection
 
-**Decorator는 Selection과 동일하게 별도 채널로 관리됩니다.**
+Decorators are managed on a separate lightweight channel just like selection.
 
-### DocumentModel vs EditorModel 분리
+### Separation of DocumentModel vs EditorModel
 
 ```typescript
-// DocumentModel (공유 가능)
-- 문서 내용 (텍스트, 구조)
-- Marks (서식 정보)
-- 네트워크를 통해 동기화
-- 저장소에 저장
+// DocumentModel (shareable)
+- Document content (text, structure)
+- Marks (formatting)
+- Synced over the network
+- Stored in persistence
 
-// EditorModel (로컬 + 별도 채널)
-- Selection (커서/범위)
-- Decorators (주석, 하이라이트 등)
-- 별도 경량 채널로 전달
-- 로컬 상태 + 원격 상태 분리 관리
+// EditorModel (local + separate channel)
+- Selection (cursor/range)
+- Decorators (comments, highlights, overlays, etc.)
+- Delivered via a lightweight channel
+- Local state and remote state managed separately
 ```
 
-### 채널 분리 구조
+### Channel separation structure
 
 ```
 ┌─────────────────────────────────────┐
 │     DocumentModel (OT/CRDT)        │
-│  - 텍스트, 구조, Marks              │
-│  - 무거운 데이터                    │
-│  - 충돌 해결 필요                   │
+│  - Text, structure, Marks          │
+│  - Heavier data                    │
+│  - Needs conflict resolution       │
 └─────────────────────────────────────┘
               ↓
-        [네트워크 전송]
+        [Network sync]
 
 ┌─────────────────────────────────────┐
 │  EditorModel (Presence/Session)     │
-│  - Selection (별도 채널)            │
-│  - Decorators (별도 채널)           │
-│  - 경량 데이터                      │
-│  - 실시간 동기화                    │
+│  - Selection (separate channel)     │
+│  - Decorators (separate channel)    │
+│  - Lightweight data                 │
+│  - Real-time sync                   │
 └─────────────────────────────────────┘
 ```
 
-### 원격 Decorator 관리
+### Managing remote decorators
 
-다른 사용자나 AI 에이전트의 decorator를 관리합니다.
+Handle decorators from other users or AI agents.
 
 ```typescript
-// 원격 decorator 추가
+// Add a remote decorator
 view.remoteDecoratorManager.setRemoteDecorator(
   {
     sid: 'remote-1',
@@ -331,18 +327,18 @@ view.remoteDecoratorManager.setRemoteDecorator(
   { userId: 'user-2', sessionId: 'session-2' }
 );
 
-// 특정 사용자의 decorator 제거
+// Remove decorators of a specific user
 view.remoteDecoratorManager.removeByOwner('user-2');
 
-// 모든 원격 decorator 조회
+// Get all remote decorators
 const remoteDecorators = view.remoteDecoratorManager.getAll();
 ```
 
-### 동시 편집 시스템 통합
+### Collaboration system integration
 
 ```typescript
 /**
- * 동시 편집 시스템과 Decorator 통합
+ * Integrate decorators with a collaboration system
  */
 export class CollaborativeDecoratorManager {
   private editorView: EditorViewDOM;
@@ -352,20 +348,18 @@ export class CollaborativeDecoratorManager {
     this.editorView = editorView;
     this.collaborationClient = new CollaborationClient();
     
-    // 브로드캐스트 메시지 수신
+    // Listen for broadcast messages
     this.collaborationClient.on('message', (message: CollaborationMessage) => {
       this.handleRemoteMessage(message);
     });
   }
   
   /**
-   * 로컬 decorator 추가 (브로드캐스트 포함)
+   * Add local decorator (and broadcast)
    */
   addLocalDecorator(decorator: Decorator): string {
-    // 로컬에 추가
     const sid = this.editorView.addDecorator(decorator);
     
-    // 다른 클라이언트에 브로드캐스트
     this.collaborationClient.broadcast({
       type: 'decorator-add',
       decorator,
@@ -379,25 +373,21 @@ export class CollaborativeDecoratorManager {
   }
   
   /**
-   * 외부 메시지 처리
+   * Handle incoming messages
    */
   private handleRemoteMessage(message: CollaborationMessage): void {
     switch (message.type) {
       case 'decorator-add':
-        // 외부 decorator 추가
         this.editorView.remoteDecoratorManager.setRemoteDecorator(
           message.decorator,
           message.owner
         );
-        // 재렌더링
         this.editorView.render();
         break;
         
       case 'decorator-update':
-        // 외부 decorator 업데이트
         const existing = this.editorView.remoteDecoratorManager
           .get(message.sid);
-        
         if (existing && existing.owner?.userId === message.owner.userId) {
           this.editorView.remoteDecoratorManager.setRemoteDecorator(
             { ...existing, ...message.updates },
@@ -408,7 +398,6 @@ export class CollaborativeDecoratorManager {
         break;
         
       case 'decorator-remove':
-        // 외부 decorator 제거
         this.editorView.remoteDecoratorManager.removeRemoteDecorator(
           message.sid
         );
@@ -416,7 +405,6 @@ export class CollaborativeDecoratorManager {
         break;
         
       case 'user-disconnect':
-        // 사용자 연결 해제 시 해당 사용자의 decorator 모두 제거
         this.editorView.remoteDecoratorManager.removeByOwner(
           message.userId
         );
@@ -427,22 +415,21 @@ export class CollaborativeDecoratorManager {
 }
 ```
 
-### 브로드캐스트 메시지 타입
+### Broadcast message types
 
 ```typescript
 /**
- * 동시 편집 브로드캐스트 메시지
- * Selection과 동일한 경량 채널 사용
+ * Lightweight collaboration messages (same channel pattern as selection)
  */
 type CollaborationMessage = 
-  // Selection 메시지 (참고)
+  // Selection message (reference)
   | {
       type: 'selection-update';
       userId: string;
       selection: ModelSelection;
       timestamp: number;
     }
-  // Decorator 메시지 (동일한 패턴)
+  // Decorator messages (same pattern)
   | {
       type: 'decorator-add';
       decorator: Decorator;
@@ -468,15 +455,15 @@ type CollaborationMessage =
     };
 ```
 
-## 시각적 구분
+## Visual differentiation
 
-### 외부 Decorator 시각화
+### Visualizing external decorators
 
-외부 사용자/AI의 decorator는 시각적으로 구분할 수 있어야 합니다:
+External users or AI decorators should be visually distinct.
 
 ```typescript
 /**
- * Decorator 렌더링 시 소유자 정보 표시
+ * Render decorator with owner info
  */
 function renderDecorator(decorator: Decorator): VNode {
   const isRemote = decorator.source === 'remote';
@@ -496,10 +483,7 @@ function renderDecorator(decorator: Decorator): VNode {
       ].join(' ')
     },
     children: [
-      // Decorator 내용
       renderDecoratorContent(decorator),
-      
-      // 외부 decorator인 경우 소유자 표시
       isRemote ? {
         tag: 'span',
         attrs: { class: 'decorator-owner-badge' },
@@ -512,21 +496,21 @@ function renderDecorator(decorator: Decorator): VNode {
 }
 ```
 
-### CSS 스타일링
+### CSS styling
 
 ```css
-/* 외부 decorator 스타일 */
+/* Remote decorator style */
 .decorator-remote {
   opacity: 0.8;
-  border-left: 3px solid #2196F3; /* 파란색으로 구분 */
+  border-left: 3px solid #2196F3; /* blue for remote */
 }
 
-/* AI decorator 스타일 */
+/* AI decorator style */
 .decorator-ai {
-  border-left-color: #FF9800; /* 주황색으로 구분 */
+  border-left-color: #FF9800; /* orange for AI */
 }
 
-/* 소유자 배지 */
+/* Owner badge */
 .decorator-owner-badge {
   font-size: 10px;
   color: #666;
@@ -534,13 +518,13 @@ function renderDecorator(decorator: Decorator): VNode {
 }
 ```
 
-## 예시 시나리오
+## Example scenarios
 
-### 시나리오 1: 외부 사용자가 decorator 추가
+### Scenario 1: External user adds a decorator
 
 ```typescript
-// 외부 사용자 A가 decorator 추가
-// → 브로드캐스트 메시지 수신
+// External user A adds a decorator
+// → Broadcast message received
 {
   type: 'decorator-add',
   decorator: {
@@ -548,7 +532,7 @@ function renderDecorator(decorator: Decorator): VNode {
     stype: 'comment',
     category: 'inline',
     target: { sid: 'text-1', startOffset: 0, endOffset: 10 },
-    data: { text: '외부 사용자 A의 코멘트' }
+    data: { text: 'Comment from external user A' }
   },
   owner: {
     userId: 'user-a',
@@ -556,21 +540,21 @@ function renderDecorator(decorator: Decorator): VNode {
   }
 }
 
-// → RemoteDecoratorManager에 추가
+// → Added to RemoteDecoratorManager
 view.remoteDecoratorManager.setRemoteDecorator(
   decorator,
   owner
 );
 
-// → 재렌더링
+// → Re-render
 view.render();
-// → 외부 decorator가 파란색 테두리로 표시됨
+// → External decorator shows with blue border
 ```
 
-### 시나리오 2: 외부 AI가 decorator 추가
+### Scenario 2: External AI adds a decorator
 
 ```typescript
-// 외부 사용자 B의 AI가 decorator 추가
+// External user B's AI adds a decorator
 {
   type: 'decorator-add',
   decorator: {
@@ -579,7 +563,7 @@ view.render();
     category: 'block',
     target: { sid: 'paragraph-1' },
     position: 'after',
-    data: { text: '외부 AI가 작업 중...' }
+    data: { text: 'External AI is working...' }
   },
   owner: {
     userId: 'user-b',
@@ -588,62 +572,61 @@ view.render();
   }
 }
 
-// → 외부 AI decorator가 주황색 테두리로 표시됨
-// → "AI: ai-writer" 배지 표시
+// → External AI decorator shows with orange border
+// → Badge text: "AI: ai-writer"
 ```
 
-### 시나리오 3: 사용자 연결 해제
+### Scenario 3: User disconnects
 
 ```typescript
-// 사용자 A가 연결 해제
+// User A disconnects
 {
   type: 'user-disconnect',
   userId: 'user-a'
 }
 
-// → 사용자 A의 모든 decorator 제거
+// → Remove all decorators owned by user A
 view.remoteDecoratorManager.removeByOwner('user-a');
 
-// → 재렌더링
+// → Re-render
 view.render();
 ```
 
-## 요약
+## Summary
 
-### 핵심 포인트
+### Key points
 
-1. **Selection과 동일한 패턴**: Decorator는 Selection처럼 별도 채널로 관리
-2. **DocumentModel과 분리**: DocumentModel 변경(OT/CRDT)과 EditorModel 변경(Presence/Session) 분리
-3. **로컬/외부 분리**: Selection 정보처럼 decorator도 로컬과 외부를 분리 관리
-4. **통합 렌더링**: 렌더링 시 모든 decorator 통합하여 표시
-5. **소유자 정보**: 각 decorator에 소유자 정보 포함
-6. **시각적 구분**: 외부 decorator는 시각적으로 구분
-7. **자동 동기화**: 브로드캐스트를 통한 자동 동기화
+1. Same pattern as selection: decorators live on a separate channel.  
+2. Separate from DocumentModel: OT/CRDT data vs Presence/Session data.  
+3. Local vs remote separation: manage decorator ownership like selection.  
+4. Unified rendering: merge all decorators at render time.  
+5. Owner info: attach owner metadata to each decorator.  
+6. Visual cues: distinguish remote (and AI) decorators visibly.  
+7. Auto-sync: broadcast changes immediately.
 
-### 채널 구조
+### Channel structure
 
 ```
-DocumentModel (OT/CRDT 채널)
+DocumentModel (OT/CRDT channel)
   ↓
-  텍스트, 구조, Marks 변경
-  (무거운 데이터, 충돌 해결 필요)
+  Text, structure, Marks changes
+  (heavier data, needs conflict resolution)
 
-EditorModel (Presence/Session 채널)
-  ├─ Selection 변경
-  │   (경량 데이터, 실시간 동기화)
-  └─ Decorator 변경
-      (경량 데이터, 실시간 동기화)
+EditorModel (Presence/Session channel)
+  ├─ Selection changes
+  │   (lightweight, real-time)
+  └─ Decorator changes
+      (lightweight, real-time)
 ```
 
-### 구현 원칙
+### Implementation principles
 
-1. **별도 전송**: Decorator는 operation payload에 포함하지 않음
-2. **경량 채널**: Presence/Session 채널 사용 (Selection과 동일)
-3. **실시간 동기화**: 변경 즉시 브로드캐스트
-4. **로컬 우선**: 로컬 변경은 즉시 반영, 원격 변경은 별도 관리
+1. Send separately: do not include decorators in operation payloads.  
+2. Lightweight channel: use Presence/Session (same as selection).  
+3. Real-time sync: broadcast immediately.  
+4. Local-first: apply locally right away; manage remote separately.
 
-## 관련 문서
+## Related docs
 
-- [Decorator 사용 가이드](./decorator-guide.md) - 기본 사용법 및 예제
-- [Decorator 아키텍처](./decorator-architecture.md) - 시스템 아키텍처 및 설계 원칙
-
+- `./decorator-guide.md` — basic usage and examples.  
+- `./decorator-architecture.md` — system architecture and design principles.

@@ -1,129 +1,129 @@
-# EditorViewDOM 글자 입력 반응 흐름
+# EditorViewDOM Text Input Flow
 
-## 전체 흐름 개요
+## End-to-end overview
 
 ```
-사용자 키보드 입력
+User keyboard input
     ↓
-브라우저 이벤트 발생 (input, beforeinput, compositionstart/update/end)
+Browser events fire (input, beforeinput, compositionstart/update/end)
     ↓
-EditorViewDOM 이벤트 핸들러 (handleInput, handleCompositionStart 등)
+EditorViewDOM event handlers (handleInput, handleCompositionStart, ...)
     ↓
-브라우저가 DOM에 텍스트 변경 적용
+Browser applies text change to DOM
     ↓
-MutationObserver가 DOM 변경 감지
+MutationObserver detects DOM change
     ↓
-InputHandler.handleTextContentChange() 호출
+InputHandler.handleTextContentChange() runs
     ↓
-handleEfficientEdit()로 텍스트 변경 분석 및 marks/decorators 조정
+handleEfficientEdit() analyzes text change and adjusts marks/decorators
     ↓
-Editor.executeTransaction()으로 모델 업데이트
+Editor.executeTransaction() updates the model
     ↓
-Editor가 'editor:content.change' 이벤트 발생
+Editor emits 'editor:content.change'
     ↓
-EditorViewDOM이 render() 호출하여 재렌더링
+EditorViewDOM calls render() and re-renders
 ```
 
-## 단계별 상세 설명
+## Step-by-step details
 
-### 1. 이벤트 리스너 등록 (초기화)
+### 1. Event listener setup (init)
 
-**위치**: `setupEventListeners()` (line 244-290)
+**Location**: `setupEventListeners()` (line 244-290)
 
 ```typescript
-// 입력 이벤트
+// Input events
 this.contentEditableElement.addEventListener('input', this.handleInput.bind(this));
 this.contentEditableElement.addEventListener('beforeinput', this.handleBeforeInput.bind(this));
 this.contentEditableElement.addEventListener('keydown', this.handleKeydown.bind(this));
 
-// 조합 이벤트 (IME - 한국어, 일본어, 중국어 입력)
+// Composition events (IME: Korean, Japanese, Chinese input)
 this.contentEditableElement.addEventListener('compositionstart', this.handleCompositionStart.bind(this));
 this.contentEditableElement.addEventListener('compositionupdate', this.handleCompositionUpdate.bind(this));
 this.contentEditableElement.addEventListener('compositionend', this.handleCompositionEnd.bind(this));
 
-// 콘텐츠 변경 시 재렌더링
+// Re-render on content change
 this.editor.on('editor:content.change', (e: any) => {
-  if (this._isComposing) return; // IME 조합 중에는 재렌더링 건너뜀
+  if (this._isComposing) return; // skip during IME composition
   this.render();
   this.applyModelSelectionWithRetry();
 });
 ```
 
-**MutationObserver 설정** (line 95):
+**MutationObserver setup** (line 95):
 ```typescript
 this.mutationObserverManager.setup(this.contentEditableElement);
 ```
 
-### 2. 사용자 입력 감지
+### 2. Detect user input
 
-#### 2-1. 일반 텍스트 입력 (영문, 숫자 등)
+#### 2-1. Plain text input (Latin letters, numbers, etc.)
 
-**흐름**:
-1. 사용자가 키보드 입력
-2. 브라우저가 `input` 이벤트 발생
-3. `handleInput()` 호출 (line 344-346)
+**Flow:**
+1. User types
+2. Browser fires `input`
+3. `handleInput()` runs (line 344-346)
    ```typescript
    handleInput(event: InputEvent): void {
-     this.inputHandler.handleInput(event); // 단순 로깅용
+     this.inputHandler.handleInput(event); // logging only
    }
    ```
-4. 브라우저가 DOM에 텍스트 변경 적용
+4. Browser applies the text change to the DOM
 
-#### 2-2. IME 입력 (한국어, 일본어, 중국어)
+#### 2-2. IME input (Korean, Japanese, Chinese)
 
-**흐름**:
+**Flow:**
 1. `compositionstart` → `handleCompositionStart()` (line 352-356)
-   - `_isComposing = true` 설정
-   - 모델 업데이트 차단 시작
+   - set `_isComposing = true`
+   - block model updates while composing
 
 2. `compositionupdate` → `handleCompositionUpdate()` (line 358-361)
-   - 조합 중간 상태 (예: "ㅎㅏㄴ" → "한")
-   - 모델 업데이트 하지 않음
+   - intermediate states (e.g., "ㅎㅏㄴ" → "han")
+   - do not update the model yet
 
 3. `compositionend` → `handleCompositionEnd()` (line 363-370)
-   - `_isComposing = false` 설정
-   - 보류된 변경사항 커밋
-   - 재렌더링 및 selection 복원
+   - set `_isComposing = false`
+   - commit pending changes
+   - re-render and restore selection
 
-### 3. DOM 변경 감지 (MutationObserver)
+### 3. DOM change detection (MutationObserver)
 
-**위치**: `mutation-observer-manager.ts`
+**Location**: `mutation-observer-manager.ts`
 
 ```typescript
-// MutationObserver가 DOM 변경 감지
+// MutationObserver detects DOM change
 onTextChange: (event: any) => {
-  // InputHandler로 전달
+  // Forward to InputHandler
   this.inputHandler.handleTextContentChange(
-    event.oldText, 
-    event.newText, 
+    event.oldText,
+    event.newText,
     event.target
   );
 }
 ```
 
-**특징**:
-- 브라우저가 DOM에 변경을 적용한 **후**에 감지
-- `oldText`와 `newText`를 비교하여 변경사항 파악
-- `target` 노드에서 `data-bc-sid` 속성으로 모델 노드 식별 (로깅용, 실제 추출은 InputHandler에서)
+**Key points:**
+- Fires **after** the browser applies DOM changes
+- Compares `oldText` vs `newText` to find changes
+- Uses `data-bc-sid` on `target` to identify the model node (logging; actual extraction happens in InputHandler)
 
-**로그**:
+**Log example:**
 ```
 [MO] onTextChange {
   oldText: "Hello",
   newText: "HelloW",
-  nodeId: "text-7",        // 로깅용 (실제 추출은 InputHandler에서)
-  nodeType: "inline-text" // 로깅용
+  nodeId: "text-7",        // logging
+  nodeType: "inline-text"  // logging
 }
 ```
 
-### 4. 텍스트 변경 처리 (InputHandler)
+### 4. Text change handling (InputHandler)
 
-**위치**: `event-handlers/input-handler.ts` → `handleTextContentChange()` (line 74-239)
+**Location**: `event-handlers/input-handler.ts` → `handleTextContentChange()` (line 74-239)
 
-#### 4-1. 사전 검증 (순차적 체크)
+#### 4-1. Pre-checks (sequential guards)
 
 ```typescript
-// 1. filler <br> 체크 (커서 안정화)
+// 1. filler <br> check (cursor stabilization)
 if (target.nodeType === Node.ELEMENT_NODE) {
   const el = target as Element;
   const hasFiller = el.querySelector('br[data-bc-filler="true"]');
@@ -133,52 +133,52 @@ if (target.nodeType === Node.ELEMENT_NODE) {
   }
 }
 
-// 2. 텍스트 변경 없음
+// 2. No text change
 if (oldText === newText) {
   console.log('[Input] SKIP: no text change');
   return;
 }
 
-// 3. 모델 노드 ID 확인 (closest('[data-bc-sid]') 사용)
+// 3. Ensure model node ID (using closest('[data-bc-sid]'))
 const textNodeId = this.resolveModelTextNodeId(target);
 if (!textNodeId) {
   console.log('[Input] SKIP: untracked text (no nodeId)');
-  return; // 추적 불가능한 텍스트
+  return; // not trackable
 }
 
-// 4. IME 조합 중인지 확인
+// 4. Check IME composition state
 if (this.isComposing) {
   console.log('[Input] SKIP: composition in progress, storing pending');
-  // pending에 저장하고 나중에 처리
+  // store pending and process later
   this.pendingTextNodeId = textNodeId;
   this.pendingOldText = oldText;
   this.pendingNewText = newText;
-  // 조합 종료 누락 대비: 400ms 무입력 시 커밋
+  // fallback commit if compositionend is missed
   this.pendingTimer = setTimeout(() => this.commitPendingImmediate(), 400);
   return;
 }
 
-// 5. Range 선택이 아닌지 확인 (collapsed만 처리)
+// 5. Only handle collapsed selections
 if (selection.length !== 0) {
   console.log('[Input] SKIP: range selection (not collapsed)');
   return;
 }
 
-// 6. 활성 텍스트 노드 확인 (커서 튀는 현상 방지)
-// activeTextNodeId가 null이면 체크하지 않음 (초기 입력 시)
+// 6. Verify active text node (avoid cursor jumping)
+// if activeTextNodeId is null, skip this check (initial input)
 if (this.activeTextNodeId && textNodeId && textNodeId !== this.activeTextNodeId) {
   console.log('[Input] SKIP: inactive node');
   return;
 }
 ```
 
-#### 4-1-1. resolveModelTextNodeId() - nodeId 추출
+#### 4-1-1. resolveModelTextNodeId() - extract nodeId
 
-**위치**: `event-handlers/input-handler.ts` → `resolveModelTextNodeId()` (line 349-371)
+**Location**: `event-handlers/input-handler.ts` → `resolveModelTextNodeId()` (line 349-371)
 
 ```typescript
 private resolveModelTextNodeId(target: Node): string | null {
-  // Text 노드면 parentElement, Element면 그대로 사용
+  // If Text node, use parentElement; if Element, use as-is
   let el: Element | null = null;
   if (target.nodeType === Node.TEXT_NODE) {
     el = (target.parentElement as Element | null);
@@ -188,7 +188,7 @@ private resolveModelTextNodeId(target: Node): string | null {
   
   if (!el) return null;
   
-  // closest()를 사용하여 가장 가까운 data-bc-sid 속성을 가진 요소 찾기
+  // Use closest() to find nearest element with data-bc-sid
   const foundEl = el.closest('[data-bc-sid]');
   if (foundEl) {
     return foundEl.getAttribute('data-bc-sid');
@@ -198,15 +198,15 @@ private resolveModelTextNodeId(target: Node): string | null {
 }
 ```
 
-**핵심**:
-- `closest('[data-bc-sid]')`를 사용하여 부모 요소를 따라 올라가며 `data-bc-sid` 속성을 가진 첫 번째 요소를 찾음
-- `data-bc-stype` 체크 없이 단순히 `data-bc-sid`만 확인
-- 네이티브 DOM API를 사용하여 효율적이고 간단함
+**Key points:**
+- Uses `closest('[data-bc-sid]')` to walk up parents and find the first element with `data-bc-sid`
+- No `data-bc-stype` check, only `data-bc-sid`
+- Simple and efficient via native DOM API
 
-#### 4-2. 모델 데이터 가져오기
+#### 4-2. Fetch model data
 
 ```typescript
-// 모델에서 현재 노드 정보 가져오기
+// Fetch current node info from the model
 const modelNode = (this.editor as any).dataStore?.getNode?.(textNodeId);
 if (!modelNode) {
   console.log('[Input] SKIP: model node not found');
@@ -224,47 +224,47 @@ console.log('[Input] model data retrieved', {
 });
 ```
 
-**핵심**:
-- `dataStore.getNode(textNodeId)`로 모델 노드 조회
-- 노드가 없으면 early return
-- 텍스트, marks, decorators 정보 수집
+**Key points:**
+- Lookup via `dataStore.getNode(textNodeId)`
+- Early return if missing
+- Collect text, marks, decorators
 
-#### 4-3. 효율적인 편집 처리
+#### 4-3. Efficient edit handling
 
-**위치**: `utils/efficient-edit-handler.ts` → `handleEfficientEdit()`
+**Location**: `utils/efficient-edit-handler.ts` → `handleEfficientEdit()`
 
 ```typescript
 const editResult = handleEfficientEdit(
-  textNode,        // DOM 텍스트 노드
-  oldText,         // DOM 변경 전 텍스트
-  newText,         // DOM 변경 후 텍스트
-  oldModelText,    // 모델의 원본 텍스트
-  modelMarks,      // 모델의 marks
-  decorators       // 모델의 decorators
+  textNode,        // DOM text node
+  oldText,         // text before DOM change
+  newText,         // text after DOM change
+  oldModelText,    // original model text
+  modelMarks,      // model marks
+  decorators       // model decorators
 );
 ```
 
-**동작**:
-1. DOM 텍스트 노드에서 전체 텍스트 재구성
-2. 변경 위치 감지 (공통 prefix/suffix 비교)
-3. Marks 범위 자동 조정 (텍스트 삽입/삭제에 따라)
-4. Decorators 범위 자동 조정 (텍스트 삽입/삭제에 따라)
-5. 새로운 텍스트, 조정된 marks, 조정된 decorators 반환
+**Behavior:**
+1. Reconstruct full text from the DOM text node
+2. Detect change region (common prefix/suffix)
+3. Auto-adjust mark ranges on insert/delete
+4. Auto-adjust decorator ranges on insert/delete
+5. Return new text, adjusted marks/decorators
 
-**반환값**:
+**Return value:**
 ```typescript
 {
-  newText: string;              // 최종 텍스트
-  adjustedMarks: MarkRange[];   // 조정된 marks
-  adjustedDecorators: DecoratorRange[]; // 조정된 decorators
-  editInfo: TextEdit;           // 편집 정보
+  newText: string;
+  adjustedMarks: MarkRange[];
+  adjustedDecorators: DecoratorRange[];
+  editInfo: TextEdit;
 }
 ```
 
-#### 4-4. 모델 업데이트 (트랜잭션 실행)
+#### 4-4. Model update (transaction)
 
 ```typescript
-// 효율적인 변경 감지 (JSON.stringify 대신 최적화된 함수 사용)
+// Efficient mark change detection (faster than JSON.stringify)
 const marksChanged = marksChangedEfficient(modelMarks, editResult.adjustedMarks);
 
 console.log('[Input] executing transaction', {
@@ -273,18 +273,17 @@ console.log('[Input] executing transaction', {
   marksChanged
 });
 
-// 텍스트 및 Marks 업데이트 (한 번에 처리)
+// Update text and marks together
 this.editor.executeTransaction({
   type: 'text_replace',
   nodeId: textNodeId,
   start: 0,
   end: oldModelText.length,
   text: editResult.newText,
-  // marks가 변경된 경우에만 포함
   ...(marksChanged ? { marks: editResult.adjustedMarks } : {})
 });
 
-// Decorators 업데이트 (변경된 경우만)
+// Update decorators if changed
 const decoratorsChanged = JSON.stringify(editResult.adjustedDecorators) !== JSON.stringify(decorators);
 if (decoratorsChanged && (this.editor as any).updateDecorators) {
   console.log('[Input] updating decorators', { count: editResult.adjustedDecorators.length });
@@ -294,119 +293,119 @@ if (decoratorsChanged && (this.editor as any).updateDecorators) {
 console.log('[Input] handleTextContentChange END - transaction executed');
 ```
 
-**핵심**:
-- `marksChangedEfficient()` 함수로 marks 변경 여부를 효율적으로 감지
-- marks가 변경된 경우에만 트랜잭션에 포함 (성능 최적화)
-- Decorators는 별도로 업데이트 (변경된 경우만)
+**Key points:**
+- `marksChangedEfficient()` detects mark changes without heavy stringify
+- Include marks in the transaction only when changed
+- Decorators update is separate and conditional
 
-### 5. Editor 트랜잭션 처리
+### 5. Editor transaction handling
 
-**위치**: `packages/editor-core/src/editor.ts` → `executeTransaction()`
+**Location**: `packages/editor-core/src/editor.ts` → `executeTransaction()`
 
 ```typescript
 executeTransaction(transaction: Transaction): void {
-  // 1. 모델에 변경사항 적용
+  // 1. Apply changes to the model
   this._applyBasicTransaction(transaction);
   
-  // 2. 히스토리에 추가
+  // 2. Add to history
   this._addToHistory(this._document);
   
-  // 3. 이벤트 발생
+  // 3. Emit events
   this.emit('transactionExecuted', { transaction });
   this.emit('editor:content.change', { content: this.document, transaction });
   
-  // 4. Selection 변경 시 이벤트 발생
+  // 4. Emit selection change when provided
   if (transaction.selectionAfter) {
     this.emit('editor:selection.model', transaction.selectionAfter);
   }
 }
 ```
 
-### 6. 재렌더링 (EditorViewDOM)
+### 6. Re-render (EditorViewDOM)
 
-**위치**: `editor-view-dom.ts` → `render()` (line 803-1022)
+**Location**: `editor-view-dom.ts` → `render()` (line 803-1022)
 
-**트리거**: `editor:content.change` 이벤트 (line 274-283)
+**Trigger**: `editor:content.change` (line 274-283)
 
 ```typescript
 this.editor.on('editor:content.change', (e: any) => {
   if (this._isComposing) {
-    // IME 조합 중에는 재렌더링 건너뜀
+    // skip re-render during IME composition
     return;
   }
   
-  // 전체 재렌더링 (diff 기반)
+  // Full re-render (diff-based)
   this.render();
   
-  // Selection 복원
+  // Restore selection
   this.applyModelSelectionWithRetry();
 });
 ```
 
-**render() 동작**:
-1. 모델 데이터 가져오기 (`editor.getDocumentProxy()`)
-2. Decorators 수집 (로컬 + 원격 + generator)
-3. Selection 정보 수집 (보존용)
-4. Content 레이어 렌더링 (동기)
-5. 다른 레이어들 렌더링 (비동기, requestAnimationFrame)
+**render() behavior:**
+1. Fetch model data (`editor.getDocumentProxy()`)
+2. Collect decorators (local + remote + generator)
+3. Collect selection info (for preservation)
+4. Render content layer (sync)
+5. Render other layers (async, requestAnimationFrame)
 
-## 특수 케이스
+## Special cases
 
-### IME 조합 중 처리
+### IME composition
 
-**문제**: IME 입력 중에는 브라우저가 여러 번 DOM을 변경하지만, 최종 완성된 텍스트만 모델에 반영해야 함
+**Problem:** Browser mutates DOM multiple times during IME; only the final composed text should update the model.
 
-**해결**:
-1. `compositionstart`에서 `_isComposing = true` 설정
-2. `handleTextContentChange`에서 조합 중이면 pending에 저장
-3. `compositionend`에서 `commitPendingImmediate()` 호출하여 최종 텍스트만 모델에 반영
-4. `editor:content.change` 이벤트 핸들러에서도 `_isComposing` 체크하여 재렌더링 차단
+**Solution:**
+1. Set `_isComposing = true` at `compositionstart`
+2. In `handleTextContentChange`, store pending while composing
+3. At `compositionend`, call `commitPendingImmediate()` to apply final text
+4. In the `editor:content.change` handler, skip re-render when `_isComposing`
 
-### Range 선택 시 처리
+### Range selection
 
-**문제**: 텍스트가 선택된 상태에서 입력하면 선택된 텍스트가 삭제되고 새 텍스트가 삽입됨
+**Problem:** If text is selected, typing deletes the selection and inserts new text.
 
-**해결**:
+**Solution:**
 ```typescript
-// collapsed selection만 처리 (선택된 텍스트가 없는 경우)
+// Handle only collapsed selections
 if (selection.length !== 0) {
   this.editor.emit('editor:input.skip_range_selection', selection);
   return;
 }
 ```
 
-**참고**: Range 선택 시 삭제/삽입은 `NativeCommands`에서 처리됨
+**Note:** Range delete/insert is handled in `NativeCommands`.
 
-### Marks/Decorators 자동 조정
+### Auto-adjusting marks/decorators
 
-**문제**: 텍스트 중간에 삽입/삭제하면 marks와 decorators의 범위가 어긋남
+**Problem:** Insert/delete in the middle shifts mark/decorator ranges.
 
-**해결**: `handleEfficientEdit()`에서:
-1. 변경 위치 감지 (공통 prefix/suffix 비교)
-2. Marks 범위 조정 (삽입된 텍스트 길이만큼 offset 증가)
-3. Decorators 범위 조정 (삽입된 텍스트 길이만큼 offset 증가)
+**Solution:** `handleEfficientEdit()`
+1. Detect change region (common prefix/suffix)
+2. Adjust mark ranges by inserted length
+3. Adjust decorator ranges by inserted length
 
-**예시**:
+**Example:**
 ```
-원본: "Hello [bold]World[/bold]"
+Original: "Hello [bold]World[/bold]"
       (marks: [{type: 'bold', start: 6, end: 11}])
 
-"Hello " 뒤에 "Beautiful " 삽입
+Insert "Beautiful " after "Hello "
 → "Hello Beautiful [bold]World[/bold]"
 → marks: [{type: 'bold', start: 16, end: 21}]  // +10 offset
 ```
 
-## 핵심 포인트
+## Key takeaways
 
-1. **이중 감지 방지**: `input` 이벤트는 로깅용, 실제 처리는 MutationObserver
-2. **nodeId 추출**: `closest('[data-bc-sid]')`를 사용하여 간단하고 효율적으로 추출
-3. **IME 지원**: 조합 중에는 모델 업데이트 차단, 완료 후에만 반영
-4. **효율적인 편집**: LCP/LCS 알고리즘으로 변경 위치 정확히 감지
-5. **자동 조정**: Marks와 Decorators 범위 자동 조정으로 수동 관리 불필요
-6. **재렌더링 최적화**: IME 조합 중 재렌더링 차단으로 성능 향상
-7. **상세한 로깅**: 각 단계마다 디버깅 로그를 출력하여 문제 추적 용이
+1. **Avoid double handling**: `input` is logging only; MutationObserver drives processing.
+2. **Node ID extraction**: `closest('[data-bc-sid]')` is simple and fast.
+3. **IME support**: Block model updates during composition; commit only when done.
+4. **Efficient edit detection**: Uses LCP/LCS-style detection for precise ranges.
+5. **Auto adjustment**: Marks and decorators shift automatically; no manual fixes.
+6. **Render optimization**: Skip re-render while composing to avoid churn.
+7. **Verbose logging**: Stepwise logs make debugging straightforward.
 
-## 로그 흐름 (정상적인 경우)
+## Log flow (normal case)
 
 ```
 1. [MO] onTextChange {oldText, newText, nodeId, nodeType}
@@ -432,15 +431,14 @@ if (selection.length !== 0) {
 11. [Input] handleTextContentChange END - transaction executed
 ```
 
-## 문제 진단 체크리스트
+## Debug checklist
 
-각 단계에서 로그가 나타나지 않으면 해당 단계에서 문제 발생:
+If a log is missing, the issue is at that stage:
 
-- ❌ `[MO] onTextChange` 없음 → MutationObserver 미설정 또는 작동 안 함
-- ❌ `[Input] resolved textNodeId`에서 `textNodeId: null` → `data-bc-sid` 속성 없음
-- ❌ `[Input] SKIP: composition in progress` → IME 조합 중 (정상, pending에 저장됨)
-- ❌ `[Input] SKIP: range selection` → Range 선택 중 (정상, NativeCommands에서 처리)
-- ❌ `[Input] SKIP: inactive node` → `activeTextNodeId`가 설정되지 않음
-- ❌ `[Input] executing transaction` 없음 → 위의 SKIP 중 하나에 걸림
-- ❌ `[EditorViewDOM] content.change` 없음 → 트랜잭션이 실행되지 않음
-
+- ❌ No `[MO] onTextChange` → MutationObserver not set or not firing
+- ❌ `textNodeId: null` in `[Input] resolved textNodeId` → missing `data-bc-sid`
+- ❌ `[Input] SKIP: composition in progress` → IME (expected; stored pending)
+- ❌ `[Input] SKIP: range selection` → range input path (expected; handled by NativeCommands)
+- ❌ `[Input] SKIP: inactive node` → `activeTextNodeId` not matching
+- ❌ No `[Input] executing transaction` → hit one of the SKIP guards
+- ❌ No `[EditorViewDOM] content.change` → transaction did not execute
