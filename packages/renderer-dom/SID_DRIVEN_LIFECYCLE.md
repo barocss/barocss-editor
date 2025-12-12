@@ -33,7 +33,7 @@ Priority: `sid` > `key` > index within siblings
    - Store instance: `instances.set(sid, instance)`
 
 3) Update
-   - 트리 업데이트와 별개로 “sid-지정 업데이트”를 1급으로 지원:
+   - Support "sid-specified updates" as first-class, separate from tree updates:
      - Model change: `updateBySid(sid, nextModel | patch)` → Rebuild/partial reconcile with instance context
      - Decorator change: `updateDecoratorsBySid(sid, decorators)` → Reapply only text/layer/block ranges
    - Preserve state if same `sid`, replace if `stype` changes

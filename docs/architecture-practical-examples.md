@@ -1,27 +1,27 @@
 # Barocss Architecture - Practical Examples
 
-## 실제 사용 예제
+## Real-world usage examples
 
-### 1. 기본 템플릿 정의
+### 1. Basic template definition
 
 ```typescript
 import { element, data, when, component } from '@barocss/dsl';
 import { renderer, define } from '@barocss/dsl';
 
-// 1. DSL로 템플릿 정의 (순수 함수)
+// 1. Define template with DSL (pure function)
 const paragraphTemplate = element('p', 
   { className: data('className') }, 
   [data('text')]
 );
 
-// 2. 조건부 렌더링
+// 2. Conditional rendering
 const conditionalTemplate = when(
   (data) => data('show') === true,
   element('div', {}, [data('content')]),
   element('div', {}, [data('elseContent')])
 );
 
-// 3. 컴포넌트 정의
+// 3. Component definition
 const buttonComponent = element('button',
   { 
     className: data('className'),
@@ -30,50 +30,50 @@ const buttonComponent = element('button',
   [data('label')]
 );
 
-// 4. Registry에 등록
+// 4. Register in Registry
 define('paragraph', paragraphTemplate);
 define('button', buttonComponent);
 ```
 
-### 2. 실제 렌더링 과정
+### 2. Actual rendering process
 
 ```typescript
 import { DOMRenderer } from '@barocss/renderer-dom';
 import { define, element, data } from '@barocss/dsl';
 
-// 템플릿 정의
+// Define template
 define('paragraph', element('p', {}, [data('text')]));
 
-// Renderer 생성
+// Create Renderer
 const renderer = new DOMRenderer();
 
-// Model 데이터
+// Model data
 const model = { stype: 'paragraph', text: 'Hello World' };
 
-// 첫 렌더링
+// First render
 const container = document.getElementById('app');
 renderer.render(container, model);
-// 결과: <p>Hello World</p>
+// Result: <p>Hello World</p>
 
-// 업데이트
+// Update
 model.text = 'Updated Text';
 renderer.render(container, model);
-// 결과: <p>Updated Text</p> (이전 텍스트를 업데이트)
+// Result: <p>Updated Text</p> (updates previous text)
 ```
 
-### 3. 복잡한 템플릿 예제
+### 3. Complex template example
 
 ```typescript
 import { element, data, component, when, slot } from '@barocss/dsl';
 import { define } from '@barocss/dsl';
 
-// 리스트 아이템
+// List item
 define('listItem', element('li', 
   { className: data('className') },
   [data('content')]
 ));
 
-// 리스트
+// List
 define('list', element('ul',
   { className: data('className') },
   [
@@ -87,7 +87,7 @@ define('list', element('ul',
   ]
 ));
 
-// 조건부 카드
+// Conditional card
 define('card', when(
   (data) => data('expanded') === true,
   element('div', 
@@ -104,7 +104,7 @@ define('card', when(
   )
 ));
 
-// 컴포넌트
+// Component
 define('modal', component('dialog', 
   {
     open: data('isOpen'),
@@ -122,7 +122,7 @@ define('modal', component('dialog',
 ));
 ```
 
-### 4. 데이터 흐름 예제
+### 4. Data flow example
 
 ```typescript
 // Model
@@ -134,14 +134,14 @@ const blogPost = {
   published: true
 };
 
-// 템플릿 (Registry에 등록됨)
+// Template (registered in Registry)
 define('article', element('article',
   {
     className: 'blog-post',
     'data-author': data('author')
   },
   [
-    // 조건부 퍼블리시 표시
+    // Conditional publish indicator
     when(
       (d) => d('published') === true,
       element('span', { className: 'published' }, ['Published'])
@@ -151,11 +151,11 @@ define('article', element('article',
   ]
 ));
 
-// 렌더링
+// Rendering
 const renderer = new DOMRenderer();
 renderer.render(container, blogPost);
 
-// 결과 DOM:
+// Result DOM:
 // <article class="blog-post" data-author="John Doe">
 //   <span class="published">Published</span>
 //   <h1>Understanding Reconcile</h1>
@@ -163,19 +163,19 @@ renderer.render(container, blogPost);
 // </article>
 ```
 
-### 5. 업데이트 시나리오
+### 5. Update scenario
 
 ```typescript
-// 첫 렌더링
+// First render
 const initialModel = { stype: 'paragraph', text: 'First' };
 renderer.render(container, initialModel);
 // DOM: <p>First</p>
 
-// 데이터 변경
+// Data change
 const updatedModel = { stype: 'paragraph', text: 'Second' };
 renderer.render(container, updatedModel);
 
-// Reconcile 과정:
+// Reconcile process:
 // 1. prevVNode: { tag: 'p', text: 'First' }
 // 2. nextVNode: { tag: 'p', text: 'Second' }
 // 3. detectChanges(): ['text']
@@ -184,10 +184,10 @@ renderer.render(container, updatedModel);
 // DOM: <p>Second</p>
 ```
 
-### 6. Children 추가 시나리오
+### 6. Children addition scenario
 
 ```typescript
-// 첫 렌더링
+// First render
 const initialModel = {
   stype: 'div',
   items: ['Item 1']
@@ -196,7 +196,7 @@ const initialModel = {
 renderer.render(container, initialModel);
 // DOM: <div><p>Item 1</p></div>
 
-// 아이템 추가
+// Add item
 updatedModel.items.push('Item 2');
 
 renderer.render(container, {
@@ -204,7 +204,7 @@ renderer.render(container, {
   items: ['Item 1', 'Item 2']
 });
 
-// Reconcile 과정:
+// Reconcile process:
 // prevChildren: [{tag:'p', text:'Item 1'}]
 // nextChildren: [{tag:'p', text:'Item 1'}, {tag:'p', text:'Item 2'}]
 //
@@ -216,10 +216,10 @@ renderer.render(container, {
 // DOM: <div><p>Item 1</p><p>Item 2</p></div>
 ```
 
-### 7. 컴포넌트 예제
+### 7. Component example
 
 ```typescript
-// Counter 컴포넌트 정의
+// Counter component definition
 const counterComponent = element('div', 
   { className: 'counter' },
   [
@@ -237,7 +237,7 @@ const counterComponent = element('div',
 
 define('counter', counterComponent);
 
-// 사용
+// Usage
 const model = {
   stype: 'counter',
   count: 0,
@@ -248,12 +248,12 @@ const model = {
 renderer.render(container, model);
 ```
 
-### 8. Portal 예제
+### 8. Portal example
 
 ```typescript
 import { portal, element, data } from '@barocss/dsl';
 
-// Portal 정의
+// Portal definition
 define('modal', element('div',
   {},
   [
@@ -269,7 +269,7 @@ define('modal', element('div',
   ]
 ));
 
-// 사용
+// Usage
 const model = {
   stype: 'modal',
   title: 'My Modal',
@@ -277,13 +277,13 @@ const model = {
 };
 
 renderer.render(container, model);
-// Portal content는 'modal-root'로 렌더링됨
+// Portal content is rendered to 'modal-root'
 ```
 
-## 전체 파이프라인 실전 예제
+## Complete pipeline practical example
 
 ```typescript
-// 1. DSL로 템플릿 정의
+// 1. Define template with DSL
 import { define, element, data, when, component } from '@barocss/dsl';
 import { DOMRenderer } from '@barocss/renderer-dom';
 
@@ -300,10 +300,10 @@ define('blogPost', element('article',
   ]
 ));
 
-// 2. Renderer 생성
+// 2. Create Renderer
 const renderer = new DOMRenderer();
 
-// 3. Model 준비
+// 3. Prepare Model
 const blogModel = {
   stype: 'blogPost',
   className: 'post-featured',
@@ -313,40 +313,39 @@ const blogModel = {
   author: 'Jane Smith'
 };
 
-// 4. 렌더링
+// 4. Render
 const container = document.getElementById('app');
 renderer.render(container, blogModel);
 
-// 5. 업데이트
+// 5. Update
 blogModel.title = 'Advanced Barocss Patterns';
 blogModel.content = 'Updated content...';
 renderer.render(container, blogModel);
-// → Reconcile이 변경된 부분만 업데이트
+// → Reconcile updates only changed parts
 ```
 
-## 함수형 파이프라인 시각화
+## Functional pipeline visualization
 
 ```typescript
-// DSL 함수
+// DSL function
 const template = element('p', {}, [data('text')]);
 
-// VNodeBuilder 함수
+// VNodeBuilder function
 const vnode = f_template(template, { text: 'Hello' });
 // → { tag: 'p', text: 'Hello', ... }
 
-// DOMReconcile 함수
+// DOMReconcile function
 const dom = f_reconcile(prevVNode, vnode, container);
-// → DOM 조작: <p>Hello</p>
+// → DOM manipulation: <p>Hello</p>
 
-// 전체 함수 합성
+// Complete function composition
 render = f_reconcile ∘ f_template ∘ f_dsl
 ```
 
-## 핵심 포인트
+## Key points
 
-1. **DSL은 순수 함수**: 모든 빌더 함수는 side-effect 없음
-2. **합성 가능**: `element()` 안에 `data()`, `when()` 등을 중첩 가능
-3. **Registry**: 템플릿은 Registry에 등록되어 재사용
-4. **자동 Reconcile**: 업데이트 시 변경된 부분만 DOM 조작
-5. **타입 안전성**: TypeScript로 타입 안전성 보장
-
+1. **DSL is pure functions**: All builder functions have no side effects
+2. **Composable**: Can nest `data()`, `when()`, etc. inside `element()`
+3. **Registry**: Templates are registered in Registry for reuse
+4. **Automatic Reconcile**: Updates only manipulate changed DOM parts
+5. **Type safety**: Type safety guaranteed with TypeScript

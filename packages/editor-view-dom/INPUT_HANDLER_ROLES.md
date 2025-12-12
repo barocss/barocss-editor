@@ -1,263 +1,262 @@
-# InputHandler와 EfficientEditHandler 역할 분리
+# InputHandler and EfficientEditHandler Role Separation
 
-## 개요
+## Overview
 
-텍스트 입력 처리는 두 개의 레이어로 분리되어 있습니다:
+Text input processing is split into two layers:
 
-1. **`input-handler.ts`** (InputHandlerImpl): 이벤트 처리 및 상태 관리 레이어
-2. **`efficient-edit-handler.ts`** (handleEfficientEdit): 텍스트 변경 분석 및 범위 조정 레이어
+1. **`input-handler.ts`** (InputHandlerImpl): Event handling and state management layer
+2. **`efficient-edit-handler.ts`** (handleEfficientEdit): Text change analysis and range adjustment layer
 
-## 역할 분리 원칙
+## Role separation principles
 
-### 책임 분리 (Separation of Concerns)
+### Separation of concerns
 
-- **InputHandler**: "언제", "어떤 조건에서" 처리할지 결정
-- **EfficientEditHandler**: "어떻게" 텍스트 변경을 분석하고 조정할지 처리
+- **InputHandler**: Decides "when" and "under what conditions" to process
+- **EfficientEditHandler**: Handles "how" to analyze and adjust text changes
 
 ---
 
 ## 1. `input-handler.ts` (InputHandlerImpl)
 
-### 역할: 이벤트 처리 및 상태 관리
+### Role: Event handling and state management
 
-**주요 책임**:
-1. DOM 이벤트 수신 및 필터링
-2. IME 조합 상태 관리
-3. Pending 상태 관리 (조합 중 변경사항 보류)
-4. Selection 검증 및 활성 노드 추적
-5. 트랜잭션 실행 및 이벤트 발생
+**Main responsibilities:**
+1. Receive and filter DOM events
+2. Manage IME composition state
+3. Manage pending state (defer changes during composition)
+4. Validate selection and track active nodes
+5. Execute transactions and emit events
 
-### 주요 메서드
+### Main methods
 
 #### `handleTextContentChange(oldValue, newValue, target)`
-**역할**: MutationObserver에서 호출되는 진입점
+**Role**: Entry point called from MutationObserver
 
-**처리 흐름**:
+**Processing flow:**
 ```
-1. 사전 검증
-   - filler <br> 체크
-   - sid 추출 (resolveModelTextNodeId)
-   - 모델 노드 존재 확인
+1. Pre-validation
+   - Check for filler <br>
+   - Extract sid (resolveModelTextNodeId)
+   - Verify model node exists
 
-2. 상태 기반 필터링
-   - IME 조합 중? → pending에 저장
-   - Range 선택? → 건너뜀
-   - 비활성 노드? → 건너뜀
+2. State-based filtering
+   - IME composing? → store in pending
+   - Range selection? → skip
+   - Inactive node? → skip
 
-3. 모델 데이터 수집
-   - oldModelText (sid 기준)
+3. Collect model data
+   - oldModelText (by sid)
    - modelMarks
    - decorators
 
-4. EfficientEditHandler 호출
-   - handleEfficientEdit()로 변경 분석 위임
+4. Call EfficientEditHandler
+   - Delegate change analysis to handleEfficientEdit()
 
-5. 트랜잭션 실행
+5. Execute transaction
    - editor.executeTransaction()
-   - decorators 업데이트
+   - Update decorators
 ```
 
-**핵심 포인트**:
-- `oldValue`/`newValue`는 개별 text node의 값이지만, 실제 비교는 하지 않음
-- sid 기준 전체 텍스트 비교는 `handleEfficientEdit`에서 수행
-- 상태 관리 (composing, pending, activeTextNodeId)가 핵심
+**Key points:**
+- `oldValue`/`newValue` are individual text node values, but not actually compared
+- sid-based full text comparison is done in `handleEfficientEdit`
+- State management (composing, pending, activeTextNodeId) is core
 
 #### `handleCompositionStart/Update/End()`
-**역할**: IME 조합 상태 관리
+**Role**: Manage IME composition state
 
-- `compositionstart`: `isComposing = true`, pending 초기화
-- `compositionupdate`: 아무 작업 안 함 (브라우저에 맡김)
-- `compositionend`: `isComposing = false`, `commitPendingImmediate()` 호출
+- `compositionstart`: `isComposing = true`, reset pending
+- `compositionupdate`: Do nothing (let browser handle)
+- `compositionend`: `isComposing = false`, call `commitPendingImmediate()`
 
 #### `commitPendingImmediate()`
-**역할**: IME 조합 중 보류된 변경사항 처리
+**Role**: Process deferred changes during IME composition
 
-- pending에 저장된 변경사항을 `handleEfficientEdit`로 처리
-- 조합 완료 후 최종 텍스트만 모델에 반영
+- Process pending changes via `handleEfficientEdit`
+- Apply only final text to model after composition completes
 
 #### `resolveModelTextNodeId(target)`
-**역할**: DOM 노드에서 sid 추출
+**Role**: Extract sid from DOM node
 
-- `closest('[data-bc-sid]')` 사용
-- Text 노드면 parentElement, Element면 그대로 사용
+- Use `closest('[data-bc-sid]')`
+- If Text node, use parentElement; if Element, use as-is
 
-### 상태 변수
+### State variables
 
 ```typescript
-private isComposing = false;              // IME 조합 중 여부
-private activeTextNodeId: string | null; // 현재 활성 텍스트 노드 (커서 위치)
-private pendingTextNodeId: string | null; // 보류 중인 노드 ID
-private pendingOldText: string;          // 보류 중인 이전 텍스트
-private pendingNewText: string;          // 보류 중인 새 텍스트
-private pendingTimer: any;               // 보류 타이머 (400ms)
+private isComposing = false;              // IME composition in progress
+private activeTextNodeId: string | null; // Current active text node (cursor position)
+private pendingTextNodeId: string | null; // Pending node ID
+private pendingOldText: string;          // Pending old text
+private pendingNewText: string;          // Pending new text
+private pendingTimer: any;               // Pending timer (400ms)
 ```
 
 ---
 
 ## 2. `efficient-edit-handler.ts` (handleEfficientEdit)
 
-### 역할: 텍스트 변경 분석 및 범위 조정
+### Role: Text change analysis and range adjustment
 
-**주요 책임**:
-1. sid 기준 전체 텍스트 재구성
-2. text-analyzer를 사용한 정확한 변경 범위 계산
-3. Selection offset을 Model offset으로 정규화
-4. Marks/Decorators 범위 자동 조정
+**Main responsibilities:**
+1. Reconstruct full text by sid
+2. Compute precise change ranges using text-analyzer
+3. Normalize Selection offset to Model offset
+4. Auto-adjust Marks/Decorators ranges
 
-### 주요 함수
+### Main functions
 
 #### `handleEfficientEdit(textNode, oldValue, newValue, oldModelText, modelMarks, decorators)`
-**역할**: 텍스트 변경 분석 및 조정
+**Role**: Analyze and adjust text changes
 
-**처리 흐름**:
+**Processing flow:**
 ```
-1. sid 추출
-   - findInlineTextNode()로 inline-text 노드 찾기
-   - data-bc-sid 속성 추출
+1. Extract sid
+   - Find inline-text node with findInlineTextNode()
+   - Extract data-bc-sid attribute
 
-2. Text Run Index 구축
-   - buildTextRunIndex()로 모든 text node 수집
-   - mark/decorator로 분리된 여러 text node를 하나로 합치기
+2. Build Text Run Index
+   - Collect all text nodes with buildTextRunIndex()
+   - Merge multiple text nodes split by marks/decorators into one
 
-3. sid 기준 전체 텍스트 재구성
-   - reconstructModelTextFromRuns()로 모든 text node 합치기
-   - oldModelText vs newText 비교
+3. Reconstruct full text by sid
+   - Merge all text nodes with reconstructModelTextFromRuns()
+   - Compare oldModelText vs newText
 
-4. Selection offset 정규화
-   - DOM offset → Model offset 변환
-   - convertDOMToModelPosition() 사용
+4. Normalize Selection offset
+   - Convert DOM offset → Model offset
+   - Use convertDOMToModelPosition()
 
-5. text-analyzer 호출
-   - analyzeTextChanges()로 정확한 변경 범위 계산
-   - LCP/LCS + Selection 바이어싱 적용
+5. Call text-analyzer
+   - Compute precise change range with analyzeTextChanges()
+   - Apply LCP/LCS + Selection biasing
 
-6. TextChange → TextEdit 변환
-   - createEditInfoFromTextChange()로 변환
-   - marks/decorators 범위 조정
+6. Convert TextChange → TextEdit
+   - Convert with createEditInfoFromTextChange()
+   - Adjust marks/decorators ranges
 ```
 
-**핵심 포인트**:
-- `oldValue`/`newValue`는 사용하지 않음 (참고용)
-- 항상 sid 기준 전체 텍스트로 비교
-- text-analyzer의 고급 알고리즘 활용
+**Key points:**
+- `oldValue`/`newValue` are not used (reference only)
+- Always compare using sid-based full text
+- Leverage text-analyzer's advanced algorithms
 
 #### `createEditInfoFromTextChange(...)`
-**역할**: TextChange를 TextEdit로 변환
+**Role**: Convert TextChange to TextEdit
 
-- `TextChange` (text-analyzer 결과) → `TextEdit` (시스템 내부 형식)
-- `adjustMarkRanges()` / `adjustDecoratorRanges()` 호출
+- `TextChange` (text-analyzer result) → `TextEdit` (internal system format)
+- Call `adjustMarkRanges()` / `adjustDecoratorRanges()`
 
 #### `reconstructModelTextFromRuns(runs)`
-**역할**: Text Run Index에서 전체 텍스트 재구성
+**Role**: Reconstruct full text from Text Run Index
 
-- 모든 text node의 `textContent`를 순서대로 합치기
-- mark/decorator로 분리된 여러 text node를 하나의 텍스트로 통합
+- Merge all text node `textContent` in order
+- Unify multiple text nodes split by marks/decorators into one text
 
 ---
 
-## 데이터 흐름
+## Data flow
 
 ```
-MutationObserver 감지
+MutationObserver detects
     ↓
 InputHandler.handleTextContentChange()
     ↓
-[상태 검증 및 필터링]
-    - IME 조합 중? → pending 저장
-    - Range 선택? → 건너뜀
-    - 비활성 노드? → 건너뜀
+[State validation and filtering]
+    - IME composing? → store pending
+    - Range selection? → skip
+    - Inactive node? → skip
     ↓
-[모델 데이터 수집]
-    - oldModelText (sid 기준)
+[Collect model data]
+    - oldModelText (by sid)
     - modelMarks
     - decorators
     ↓
 EfficientEditHandler.handleEfficientEdit()
     ↓
-[sid 기준 전체 텍스트 재구성]
-    - buildTextRunIndex() → 모든 text node 수집
-    - reconstructModelTextFromRuns() → 전체 텍스트 합치기
+[Reconstruct full text by sid]
+    - buildTextRunIndex() → collect all text nodes
+    - reconstructModelTextFromRuns() → merge full text
     ↓
-[Selection 정규화]
-    - DOM offset → Model offset 변환
+[Normalize Selection]
+    - Convert DOM offset → Model offset
     ↓
-[text-analyzer 호출]
-    - analyzeTextChanges() → LCP/LCS + Selection 바이어싱
+[Call text-analyzer]
+    - analyzeTextChanges() → LCP/LCS + Selection biasing
     ↓
-[범위 조정]
+[Adjust ranges]
     - adjustMarkRanges()
     - adjustDecoratorRanges()
     ↓
-[결과 반환]
+[Return result]
     - newText
     - adjustedMarks
     - adjustedDecorators
     - editInfo
     ↓
-InputHandler에서 트랜잭션 실행
+InputHandler executes transaction
     - editor.executeTransaction()
-    - decorators 업데이트
+    - Update decorators
 ```
 
 ---
 
-## 핵심 차이점
+## Key differences
 
-| 항목 | InputHandler | EfficientEditHandler |
+| Item | InputHandler | EfficientEditHandler |
 |------|-------------|---------------------|
-| **책임** | "언제", "어떤 조건에서" | "어떻게" 분석하고 조정 |
-| **입력** | DOM 이벤트, MutationObserver | sid, oldModelText, modelMarks |
-| **상태 관리** | ✅ (composing, pending, activeNodeId) | ❌ (순수 함수) |
-| **필터링** | ✅ (조합 중, Range 선택, 비활성 노드) | ❌ |
-| **텍스트 분석** | ❌ | ✅ (LCP/LCS, Selection 바이어싱) |
-| **범위 조정** | ❌ | ✅ (marks/decorators) |
-| **트랜잭션 실행** | ✅ | ❌ |
+| **Responsibility** | "when", "under what conditions" | "how" to analyze and adjust |
+| **Input** | DOM events, MutationObserver | sid, oldModelText, modelMarks |
+| **State management** | ✅ (composing, pending, activeNodeId) | ❌ (pure function) |
+| **Filtering** | ✅ (composing, Range selection, inactive node) | ❌ |
+| **Text analysis** | ❌ | ✅ (LCP/LCS, Selection biasing) |
+| **Range adjustment** | ❌ | ✅ (marks/decorators) |
+| **Transaction execution** | ✅ | ❌ |
 
 ---
 
-## 설계 원칙
+## Design principles
 
-### 1. 단일 책임 원칙 (SRP)
-- **InputHandler**: 이벤트 처리 및 상태 관리만 담당
-- **EfficientEditHandler**: 텍스트 분석 및 범위 조정만 담당
+### 1. Single Responsibility Principle (SRP)
+- **InputHandler**: Handles only event processing and state management
+- **EfficientEditHandler**: Handles only text analysis and range adjustment
 
-### 2. 관심사 분리
-- **상태 관리** vs **순수 계산**
-- **조건 검증** vs **데이터 변환**
+### 2. Separation of concerns
+- **State management** vs **pure computation**
+- **Condition validation** vs **data transformation**
 
-### 3. 재사용성
-- `handleEfficientEdit`는 순수 함수로 설계되어 다른 곳에서도 재사용 가능
-- `InputHandler`는 Editor 인스턴스에 종속적
+### 3. Reusability
+- `handleEfficientEdit` is designed as a pure function, reusable elsewhere
+- `InputHandler` is tied to Editor instance
 
-### 4. 테스트 용이성
-- `EfficientEditHandler`는 순수 함수이므로 단위 테스트가 쉬움
-- `InputHandler`는 상태 관리 로직이 복잡하지만, 각 메서드별로 테스트 가능
-
----
-
-## 개선 포인트
-
-### 현재 구조의 장점
-1. ✅ 명확한 책임 분리
-2. ✅ EfficientEditHandler의 재사용성
-3. ✅ text-analyzer 패키지 활용
-4. ✅ IME 조합 처리 안정성
-
-### 잠재적 개선 사항
-1. `InputHandler`에서 `analyzeTextChanges` import는 사용하지 않음 (제거 가능)
-2. `commitPendingImmediate`에서도 `handleEfficientEdit`를 사용하므로 일관성 유지
-3. 에러 처리 및 로깅 일관성 개선 가능
+### 4. Testability
+- `EfficientEditHandler` is a pure function, easy to unit test
+- `InputHandler` has complex state logic, but each method can be tested separately
 
 ---
 
-## 요약
+## Improvement points
 
-- **InputHandler**: "언제 처리할지" 결정하는 **게이트키퍼**
-- **EfficientEditHandler**: "어떻게 분석할지" 처리하는 **분석 엔진**
+### Current structure advantages
+1. ✅ Clear responsibility separation
+2. ✅ EfficientEditHandler reusability
+3. ✅ Leverages text-analyzer package
+4. ✅ Stable IME composition handling
 
-이러한 분리로 인해:
-- 코드 가독성 향상
-- 테스트 용이성 향상
-- 유지보수성 향상
-- 재사용성 향상
+### Potential improvements
+1. `InputHandler` imports `analyzeTextChanges` but doesn't use it (can be removed)
+2. `commitPendingImmediate` also uses `handleEfficientEdit`, maintaining consistency
+3. Error handling and logging consistency can be improved
 
+---
+
+## Summary
+
+- **InputHandler**: **Gatekeeper** that decides "when to process"
+- **EfficientEditHandler**: **Analysis engine** that handles "how to analyze"
+
+This separation leads to:
+- Better code readability
+- Easier testing
+- Better maintainability
+- Better reusability

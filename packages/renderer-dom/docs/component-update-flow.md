@@ -1,59 +1,59 @@
-# Component 업데이트 플로우
+# Component Update Flow
 
 ## Abstract
 
-본 문서는 Component 상태 변경 시 전체 재렌더링을 통한 일관성 있는 업데이트 플로우를 설명합니다. 
+This document explains the consistent update flow through full re-rendering when Component state changes.
 
-**핵심 원칙**: 
-- **Model + Props + State = 하나의 "문서"**: 이 세 가지가 합쳐져서 완전한 문서를 구성
-- 항상 최상위부터 전체 VNode 트리를 빌드
-- 전체 VNode 트리를 reconcile하여 DOM에 적용
-- 컴포넌트 하나만 업데이트하지 않음
+**Core principles:**
+- **Model + Props + State = one "document"**: These three together form the complete document.
+- Always build the entire VNode tree from the top.
+- Reconcile the entire VNode tree to apply to the DOM.
+- Do not update a single component in isolation.
 
-Component 내부 state 변경 시 `changeState` 이벤트를 통해 `DOMRenderer`가 **최상위부터 전체 VNode 트리를 다시 빌드**하고, `updateComponent`에서는 이미 빌드된 `nextVNode`를 재사용하여 중복 빌드를 방지합니다.
+When a Component's internal state changes, a `changeState` event triggers `DOMRenderer` to **rebuild the entire VNode tree from the top**. In `updateComponent`, the already-built `nextVNode` is reused to avoid duplicate builds.
 
-## 1. 전체 플로우 개요
+## 1. Overall flow
 
 ```
-Component State 변경
+Component State Change
   ↓
 BaseComponentState.set()
   ↓
 ComponentManager.emit('changeState')
   ↓
-DOMRenderer (changeState 이벤트 리스너)
+DOMRenderer (changeState event listener)
   ↓
-DOMRenderer.render() (최상위부터 전체 재렌더링)
+DOMRenderer.render() (full re-render from top)
   ↓
-VNodeBuilder.build() (최상위부터 전체 VNode 트리 빌드, Component state 포함)
+VNodeBuilder.build() (build entire VNode tree from top, including Component state)
   ↓
-Reconciler.reconcile() (전체 VNode 트리 reconcile)
+Reconciler.reconcile() (reconcile entire VNode tree)
   ↓
-ComponentManager.updateComponent() (각 컴포넌트에 대해 호출)
+ComponentManager.updateComponent() (called for each component)
   ↓
-nextVNode 재사용 (중복 빌드 없음)
+Reuse nextVNode (no duplicate build)
 ```
 
-**중요**: 
-- ✅ 항상 최상위부터 전체 VNode 트리를 빌드
-- ✅ 전체 VNode 트리를 reconcile하여 DOM에 적용
-- ❌ 컴포넌트 하나만 업데이트하지 않음
+**Important:**
+- ✅ Always build the entire VNode tree from the top.
+- ✅ Reconcile the entire VNode tree to apply to the DOM.
+- ❌ Do not update a single component in isolation.
 
-## 2. 상세 플로우
+## 2. Detailed flow
 
-### 2.1 Component State 변경
+### 2.1 Component state change
 
-Component 내부에서 state를 변경하는 방법:
+How to change state inside a Component:
 
 ```typescript
-// 방법 1: BaseComponentState.set() 사용
+// Method 1: Use BaseComponentState.set()
 class MyComponentState extends BaseComponentState {
   increment() {
     this.set({ count: this.get('count') + 1 });
   }
 }
 
-// 방법 2: ComponentContext.setState() 사용
+// Method 2: Use ComponentContext.setState()
 const MyComponent = (props, ctx) => {
   return element('div', [
     element('button', {
@@ -63,9 +63,9 @@ const MyComponent = (props, ctx) => {
 };
 ```
 
-### 2.2 BaseComponentState.set() → changeState 이벤트
+### 2.2 BaseComponentState.set() → changeState event
 
-**파일**: `packages/renderer-dom/src/state/base-component-state.ts`
+**File**: `packages/renderer-dom/src/state/base-component-state.ts`
 
 ```typescript
 set(patch: Record<string, any>): void {
@@ -82,19 +82,19 @@ set(patch: Record<string, any>): void {
 }
 ```
 
-**동작**:
-1. Component state 데이터 업데이트
-2. `ComponentManager.emit('changeState', sid, data)` 호출
+**Behavior:**
+1. Update Component state data.
+2. Call `ComponentManager.emit('changeState', sid, data)`.
 
-### 2.3 ComponentManager.emit() → DOMRenderer 리스너
+### 2.3 ComponentManager.emit() → DOMRenderer listener
 
-**파일**: `packages/renderer-dom/src/dom-renderer.ts`
+**File**: `packages/renderer-dom/src/dom-renderer.ts`
 
 ```typescript
 constructor(registry?: RendererRegistry, _options?: DOMRendererOptions) {
   // ...
   
-  // 상태 변경 이벤트 수신 → 전체 재렌더 (모델은 동일, 상태만 변경됨)
+  // Receive state change event → full re-render (model unchanged, only state changed)
   this.componentManager.on('changeState', (_sid: string) => {
     if (!this.rootElement || !this.lastModel) return;
     if (this.renderScheduled) return;
@@ -109,15 +109,15 @@ constructor(registry?: RendererRegistry, _options?: DOMRendererOptions) {
 }
 ```
 
-**동작**:
-1. `changeState` 이벤트 수신
-2. `renderScheduled` 플래그로 중복 스케줄링 방지
-3. `queueMicrotask`로 다음 이벤트 루프에서 전체 재렌더링 실행
-4. `lastModel`, `lastDecorators`, `lastRuntime` 사용 (모델은 동일, 상태만 변경)
+**Behavior:**
+1. Receive `changeState` event.
+2. Use `renderScheduled` flag to prevent duplicate scheduling.
+3. Schedule full re-render in the next event loop via `queueMicrotask`.
+4. Use `lastModel`, `lastDecorators`, `lastRuntime` (model unchanged, only state changed).
 
-### 2.4 DOMRenderer.render() → 전체 VNode 트리 빌드
+### 2.4 DOMRenderer.render() → build entire VNode tree
 
-**파일**: `packages/renderer-dom/src/dom-renderer.ts`
+**File**: `packages/renderer-dom/src/dom-renderer.ts`
 
 ```typescript
 render(
@@ -151,15 +151,15 @@ render(
 }
 ```
 
-**동작**:
-1. `VNodeBuilder.build()` 호출하여 전체 VNode 트리 빌드
-2. `VNodeBuilder`는 `componentStateProvider`를 통해 Component state에 접근
-3. Component state가 반영된 VNode 트리 생성
-4. `Reconciler.reconcile()` 호출하여 DOM 업데이트
+**Behavior:**
+1. Call `VNodeBuilder.build()` to build the entire VNode tree.
+2. `VNodeBuilder` accesses Component state via `componentStateProvider`.
+3. Create VNode tree with Component state reflected.
+4. Call `Reconciler.reconcile()` to update the DOM.
 
-### 2.5 VNodeBuilder.build() → Component State 접근
+### 2.5 VNodeBuilder.build() → access Component state
 
-**파일**: `packages/renderer-dom/src/vnode/factory.ts`
+**File**: `packages/renderer-dom/src/vnode/factory.ts`
 
 ```typescript
 private _getComponentStateForBuild(template: ComponentTemplate, data: ModelData, props: Record<string, any>): Record<string, any> {
@@ -178,14 +178,14 @@ private _getComponentStateForBuild(template: ComponentTemplate, data: ModelData,
 }
 ```
 
-**동작**:
-1. Component 템플릿 빌드 시 `componentStateProvider`를 통해 state 조회
-2. Component state를 `dataForBuild`에 포함
-3. Component 템플릿 함수 호출 시 state가 반영된 context 전달
+**Behavior:**
+1. When building a Component template, query state via `componentStateProvider`.
+2. Include Component state in `dataForBuild`.
+3. Pass context with state reflected when calling the Component template function.
 
-### 2.6 Reconciler.reconcile() → Component 업데이트
+### 2.6 Reconciler.reconcile() → Component update
 
-**파일**: `packages/renderer-dom/src/reconcile/reconciler.ts`
+**File**: `packages/renderer-dom/src/reconcile/reconciler.ts`
 
 ```typescript
 private reconcileVNodeChildren(parent: HTMLElement, prevVNode: VNode | undefined, nextVNode: VNode, context?: any, isRecursive: boolean = false): void {
@@ -194,7 +194,7 @@ private reconcileVNodeChildren(parent: HTMLElement, prevVNode: VNode | undefined
   for (let childIndex = 0; childIndex < childVNodes.length; childIndex++) {
     const childVNode = childVNodes[childIndex];
     
-    // Component VNode인 경우 updateComponent 호출
+    // If Component VNode, call updateComponent
     if (!isDecorator && childVNode.stype) {
       const isReconciling = !!(context as any)?.__isReconciling;
       
@@ -211,21 +211,21 @@ private reconcileVNodeChildren(parent: HTMLElement, prevVNode: VNode | undefined
 }
 ```
 
-**동작**:
-1. VNode 트리를 순회하며 Component VNode 발견
-2. `ComponentManager.updateComponent()` 호출
-3. `__isReconciling` 플래그로 재귀 호출 방지
+**Behavior:**
+1. Traverse the VNode tree and find Component VNodes.
+2. Call `ComponentManager.updateComponent()`.
+3. Use `__isReconciling` flag to prevent recursive calls.
 
-### 2.7 ComponentManager.updateComponent() → nextVNode 재사용
+### 2.7 ComponentManager.updateComponent() → reuse nextVNode
 
-**파일**: `packages/renderer-dom/src/component-manager.ts`
+**File**: `packages/renderer-dom/src/component-manager.ts`
 
 ```typescript
 public updateComponent(prevVNode: VNode, nextVNode: VNode, container: HTMLElement, context: ReconcileContext, wip: DOMWorkInProgress): void {
-  // __isReconciling 플래그가 설정되어 있으면 updateComponent를 건너뜀
+  // Skip updateComponent if __isReconciling flag is set
   const isReconciling = !!(context as any)?.__isReconciling;
   if (isReconciling) {
-    // DOM 속성만 업데이트 (build 없이)
+    // Only update DOM attributes (no build)
     if (nextVNode.attrs) {
       const dom = (context as any)?.dom;
       if (dom && container) {
@@ -237,16 +237,16 @@ public updateComponent(prevVNode: VNode, nextVNode: VNode, container: HTMLElemen
   
   // ...
   
-  // 일관성 있는 전체 빌드 패턴:
-  // VNodeBuilder가 이미 전체 VNode 트리를 빌드했으므로, updateComponent에서는 nextVNode를 그대로 재사용
-  // Component state 변경 시 changeState 이벤트 → DOMRenderer.render() 전체 재렌더링
-  // 따라서 nextVNode는 이미 DOMRenderer.render()에서 state를 반영해서 빌드되었음
-  // updateComponent에서는 buildFromElementTemplate을 호출하지 않고 nextVNode를 재사용
+  // Consistent full build pattern:
+  // VNodeBuilder already built the entire VNode tree, so updateComponent reuses nextVNode as-is
+  // Component state change → changeState event → DOMRenderer.render() full re-render
+  // Therefore nextVNode was already built in DOMRenderer.render() with state reflected
+  // updateComponent does not call buildFromElementTemplate and reuses nextVNode
   const prevVNodeForReconcile = prevVNode || instance.vnode || {} as VNode;
   const nextVNodeForReconcile = nextVNode;
   
-  // nextVNode가 없거나 비어있는 경우는 VNodeBuilder의 책임이므로 여기서 처리하지 않음
-  // 만약 nextVNode가 비어있다면 VNodeBuilder.build()에서 문제가 발생한 것이므로 에러를 발생시켜야 함
+  // If nextVNode is missing or empty, that's VNodeBuilder's responsibility, not handled here
+  // If nextVNode is empty, there was a problem in VNodeBuilder.build(), so we should error
   if (!nextVNodeForReconcile) {
     console.error(`[ComponentManager.updateComponent] nextVNode is missing for component ${componentId}. This should not happen if VNodeBuilder.build() is working correctly.`);
   }
@@ -260,7 +260,7 @@ public updateComponent(prevVNode: VNode, nextVNode: VNode, container: HTMLElemen
       data: instance.state,
       __internal: true,
       prevVNode: prevVNodeForReconcile,
-      __isReconciling: true  // 재귀 호출 방지
+      __isReconciling: true  // prevent recursive calls
     } as any;
     reconcileFunc(nextVNodeForReconcile as any, instance.element, reconcileContext);
     instance.vnode = nextVNodeForReconcile;
@@ -268,43 +268,43 @@ public updateComponent(prevVNode: VNode, nextVNode: VNode, container: HTMLElemen
 }
 ```
 
-**핵심 로직**:
-1. **`nextVNode`는 항상 `VNodeBuilder.build()`에서 이미 빌드되었으므로 그대로 재사용**
-2. **`buildFromElementTemplate`을 호출하지 않음** (중복 빌드 방지)
-3. `reconcileFunc`를 호출하여 DOM 업데이트
-4. `__isReconciling` 플래그로 재귀 호출 방지
+**Core logic:**
+1. **`nextVNode` is always already built in `VNodeBuilder.build()`, so reuse it as-is.**
+2. **Do not call `buildFromElementTemplate`** (prevents duplicate builds).
+3. Call `reconcileFunc` to update the DOM.
+4. Use `__isReconciling` flag to prevent recursive calls.
 
-**중요**: `VNodeBuilder`가 전체 VNode 트리를 빌드하는 책임을 가지므로, `updateComponent`에서 다시 빌드할 필요가 없습니다. 이는 일관성 있는 전체 빌드 패턴을 보장합니다.
+**Important**: Since `VNodeBuilder` is responsible for building the entire VNode tree, `updateComponent` does not need to build again. This ensures a consistent full build pattern.
 
-## 3. 일관성 있는 전체 빌드 패턴
+## 3. Consistent full build pattern
 
-### 3.1 핵심 원칙
+### 3.1 Core principles
 
-**모든 업데이트는 전체 빌드 패턴을 따릅니다:**
+**All updates follow the full build pattern:**
 
-1. **Component state 변경** → `changeState` 이벤트 → `DOMRenderer.render()` 전체 재렌더링
-2. **Model 변경** → `DOMRenderer.render()` 직접 호출
-3. **Props 변경** → `DOMRenderer.render()` 직접 호출
+1. **Component state change** → `changeState` event → `DOMRenderer.render()` full re-render.
+2. **Model change** → direct call to `DOMRenderer.render()`.
+3. **Props change** → direct call to `DOMRenderer.render()`.
 
-### 3.2 중복 빌드 방지
+### 3.2 Preventing duplicate builds
 
-**이전 구조 (일관성 없음)**:
-- Component state 변경 → 전체 재렌더링
-- `updateComponent`에서 `stateChanged` 체크 후 다시 빌드 (중복)
+**Previous structure (inconsistent):**
+- Component state change → full re-render.
+- `updateComponent` checks `stateChanged` and rebuilds (duplicate).
 
-**현재 구조 (일관성 있음)**:
-- Component state 변경 → 전체 재렌더링
-- `updateComponent`에서 `nextVNode` 재사용 (중복 없음)
+**Current structure (consistent):**
+- Component state change → full re-render.
+- `updateComponent` reuses `nextVNode` (no duplicate).
 
-### 3.3 예외 케이스 제거
+### 3.3 Removing exception cases
 
-**이전 구조**: `nextVNode`가 없거나 children이 없을 때 `buildFromElementTemplate` 호출
+**Previous structure**: Call `buildFromElementTemplate` when `nextVNode` is missing or has no children.
 
-**현재 구조**: `VNodeBuilder`가 전체 VNode 트리를 빌드하는 책임을 가지므로, `updateComponent`에서는 `nextVNode`를 그대로 재사용합니다. `nextVNode`가 비어있는 경우는 `VNodeBuilder.build()`에서 문제가 발생한 것이므로 에러를 로깅합니다.
+**Current structure**: Since `VNodeBuilder` is responsible for building the entire VNode tree, `updateComponent` reuses `nextVNode` as-is. If `nextVNode` is empty, that indicates a problem in `VNodeBuilder.build()`, so we log an error.
 
-## 4. 성능 최적화
+## 4. Performance optimizations
 
-### 4.1 renderScheduled 플래그
+### 4.1 renderScheduled flag
 
 ```typescript
 if (this.renderScheduled) return;
@@ -315,60 +315,60 @@ queueMicrotask(() => {
 });
 ```
 
-**목적**: 빠른 연속 state 변경 시 중복 렌더링 방지
+**Purpose**: Prevent duplicate renders when state changes rapidly in succession.
 
-### 4.2 queueMicrotask 사용
+### 4.2 Using queueMicrotask
 
-**목적**: 
-- 동기적 state 변경들을 배치 처리
-- 다음 이벤트 루프에서 한 번만 렌더링
+**Purpose:**
+- Batch synchronous state changes.
+- Render once in the next event loop.
 
-### 4.3 Text Node Pool 재사용
+### 4.3 Text Node Pool reuse
 
-**목적**: 
-- DOM Text Node 재사용으로 Selection 안정성 보장
-- 불필요한 DOM 생성/삭제 방지
+**Purpose:**
+- Ensure Selection stability by reusing DOM Text Nodes.
+- Avoid unnecessary DOM creation/deletion.
 
-## 5. 테스트 커버리지
+## 5. Test coverage
 
-### 5.1 관련 테스트 파일
+### 5.1 Related test files
 
 1. **`test/components/component-rerender.test.ts`**
-   - Component 재렌더링 기본 테스트
-   - `setState` 호출 시 state 업데이트 검증
-   - 여러 Component 인스턴스의 독립적인 state 관리 검증
+   - Basic Component re-render tests.
+   - Verify state update when `setState` is called.
+   - Verify independent state management across multiple Component instances.
 
 2. **`test/core/reconciler-component-state-integration.test.ts`**
-   - `changeState` 이벤트와 수동 업데이트 테스트
-   - ComponentManager.emit('changeState') 시뮬레이션
-   - 전체 재렌더링 후 DOM 업데이트 검증
+   - Tests for `changeState` event and manual updates.
+   - Simulate `ComponentManager.emit('changeState')`.
+   - Verify DOM update after full re-render.
 
 3. **`test/core/reconciler-component-updatebysid.test.ts`**
-   - Component 업데이트 테스트 (updateBySid 메서드)
+   - Component update tests (updateBySid method).
 
 4. **`test/core/reconciler-verification.test.ts`**
-   - Component 업데이트 검증 테스트
-   - Component 마운트/언마운트/속성 변경 검증
+   - Component update verification tests.
+   - Verify Component mount/unmount/attribute changes.
 
-### 5.2 테스트 커버리지 분석
+### 5.2 Test coverage analysis
 
-**현재 커버리지**:
-- ✅ Component state 변경 (`setState`)
-- ✅ Component 재렌더링
-- ✅ 여러 Component 인스턴스의 독립적인 state
-- ✅ `changeState` 이벤트 시뮬레이션
-- ✅ Component 마운트/언마운트
-- ✅ Component 속성 변경
+**Current coverage:**
+- ✅ Component state change (`setState`).
+- ✅ Component re-render.
+- ✅ Independent state across multiple Component instances.
+- ✅ `changeState` event simulation.
+- ✅ Component mount/unmount.
+- ✅ Component attribute changes.
 
-**부족한 테스트**:
-- ❌ `changeState` 이벤트가 자동으로 `DOMRenderer.render()`를 트리거하는지 검증
-- ❌ `updateComponent`에서 `nextVNode` 재사용 검증
-- ❌ `renderScheduled` 플래그로 중복 렌더링 방지 검증
-- ❌ `queueMicrotask`를 통한 배치 처리 검증
+**Missing tests:**
+- ❌ Verify that `changeState` event automatically triggers `DOMRenderer.render()`.
+- ❌ Verify `nextVNode` reuse in `updateComponent`.
+- ❌ Verify duplicate render prevention with `renderScheduled` flag.
+- ❌ Verify batch processing via `queueMicrotask`.
 
-### 5.3 권장 추가 테스트
+### 5.3 Recommended additional tests
 
-다음 테스트 케이스를 추가하는 것을 권장합니다:
+We recommend adding the following test cases:
 
 ```typescript
 describe('Component State Change Flow', () => {
@@ -401,10 +401,9 @@ describe('Component State Change Flow', () => {
 });
 ```
 
-## 6. 요약
+## 6. Summary
 
-1. **Component state 변경**은 항상 `changeState` 이벤트를 통해 전체 재렌더링을 트리거합니다.
-2. **DOMRenderer.render()**는 전체 VNode 트리를 다시 빌드하며, Component state를 반영합니다.
-3. **ComponentManager.updateComponent()**는 이미 빌드된 `nextVNode`를 재사용하여 중복 빌드를 방지합니다.
-4. 이 패턴은 **일관성 있는 전체 빌드**를 보장하며, 모든 업데이트가 동일한 플로우를 따릅니다.
-
+1. **Component state changes** always trigger full re-render via `changeState` event.
+2. **DOMRenderer.render()** rebuilds the entire VNode tree, reflecting Component state.
+3. **ComponentManager.updateComponent()** reuses the already-built `nextVNode` to prevent duplicate builds.
+4. This pattern ensures **consistent full builds**, and all updates follow the same flow.

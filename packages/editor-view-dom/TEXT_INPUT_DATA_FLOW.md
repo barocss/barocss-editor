@@ -1,105 +1,105 @@
-# 텍스트 입력 시 데이터 변경 흐름
+# Text Input Data Change Flow
 
-## 전체 흐름도
+## Overall flow
 
 ```
-사용자 입력 (키보드)
+User input (keyboard)
     ↓
-DOM 변경 (ContentEditable)
+DOM change (ContentEditable)
     ↓
-MutationObserver 감지
+MutationObserver detects
     ↓
 InputHandler.handleTextContentChange()
     ↓
-handleEfficientEdit() - 텍스트 분석 & mark/decorator 조정
+handleEfficientEdit() - text analysis & mark/decorator adjustment
     ↓
-Editor.executeTransaction() - 트랜잭션 실행
+Editor.executeTransaction() - execute transaction
     ↓
-_applyBasicTransaction() - 실제 모델 업데이트
+_applyBasicTransaction() - actual model update
     ↓
-editor:content.change 이벤트 발생
+editor:content.change event fires
     ↓
-EditorViewDOM.render() - 재렌더링
+EditorViewDOM.render() - re-render
 ```
 
-## 단계별 상세 설명
+## Step-by-step details
 
-### 1단계: MutationObserver가 DOM 변경 감지
+### Step 1: MutationObserver detects DOM change
 
-**파일**: `packages/editor-view-dom/src/mutation-observer/mutation-observer-manager.ts`
+**File**: `packages/editor-view-dom/src/mutation-observer/mutation-observer-manager.ts`
 
 ```typescript
 onTextChange: (event: any) => {
-  // DOM에서 텍스트 변경 감지
+  // Detect text change from DOM
   const info = {
-    oldText: event.oldText,      // 변경 전 텍스트 (개별 text node)
-    newText: event.newText,      // 변경 후 텍스트 (개별 text node)
+    oldText: event.oldText,      // Text before change (individual text node)
+    newText: event.newText,      // Text after change (individual text node)
     nodeId: (t && t.getAttribute && t.getAttribute('data-bc-sid')) || ...,
     nodeType: (t && t.getAttribute && t.getAttribute('data-bc-stype')) || ...
   };
   console.log('[MO] onTextChange', info);
   
-  // InputHandler로 전달
+  // Forward to InputHandler
   this.inputHandler.handleTextContentChange(event.oldText, event.newText, event.target);
 }
 ```
 
-**중요**: `oldText`/`newText`는 **개별 text node**의 값입니다. 하지만 실제 비교는 `sid` 기준 **전체 텍스트**로 해야 합니다.
+**Important**: `oldText`/`newText` are values of **individual text nodes**. But actual comparison must use **full text** by `sid`.
 
 ---
 
-### 2단계: InputHandler가 변경 처리
+### Step 2: InputHandler processes change
 
-**파일**: `packages/editor-view-dom/src/event-handlers/input-handler.ts`
+**File**: `packages/editor-view-dom/src/event-handlers/input-handler.ts`
 
-#### 2-1. 기본 검증 및 필터링
+#### 2-1. Basic validation and filtering
 
 ```typescript
 handleTextContentChange(oldValue: string | null, newValue: string | null, target: Node): void {
-  // 1. filler <br> 체크 (커서 안정화)
+  // 1. Check for filler <br> (cursor stabilization)
   if (target.nodeType === Node.ELEMENT_NODE) {
     const el = target as Element;
     const hasFiller = el.querySelector('br[data-bc-filler="true"]');
-    if (hasFiller) return; // 건너뜀
+    if (hasFiller) return; // skip
   }
 
-  // 2. textNodeId 추출 (data-bc-sid)
+  // 2. Extract textNodeId (data-bc-sid)
   const textNodeId = this.resolveModelTextNodeId(target);
-  if (!textNodeId) return; // 추적 불가능한 텍스트
+  if (!textNodeId) return; // untrackable text
 
-  // 3. IME 조합 중인지 체크
+  // 3. Check if IME composing
   if (this.isComposing) {
-    // 조합 중에는 pending에 저장하고 나중에 처리
+    // Store in pending during composition for later processing
     this.pendingTextNodeId = textNodeId;
     this.pendingOldText = oldValue || '';
     this.pendingNewText = newValue || '';
     return;
   }
 
-  // 4. Range 선택 체크 (collapsed만 처리)
+  // 4. Check Range selection (only handle collapsed)
   if (selection.length !== 0) return;
 
-  // 5. 활성 노드 체크 (커서 튀는 현상 방지)
+  // 5. Check active node (prevent cursor jumping)
   if (this.activeTextNodeId && textNodeId !== this.activeTextNodeId) return;
 }
 ```
 
-#### 2-2. 모델 데이터 가져오기
+#### 2-2. Get model data
 
 ```typescript
-  // 모델에서 현재 노드 정보 가져오기
+  // Get current node info from model
   const modelNode = (this.editor as any).dataStore?.getNode?.(textNodeId);
   if (!modelNode) return;
 
-  const oldModelText = modelNode.text || '';  // 모델의 전체 텍스트
+  const oldModelText = modelNode.text || '';  // Model's full text
   
-  // Marks 정규화 (IMark → MarkRange 변환)
+  // Normalize Marks (IMark → MarkRange conversion)
   const rawMarks = modelNode.marks || [];
   const modelMarks: MarkRange[] = rawMarks
     .filter((mark: any) => mark && (mark.type || mark.stype))
     .map((mark: any) => {
-      const markType = mark.type || mark.stype; // IMark는 stype, MarkRange는 type
-      // range가 없으면 전체 텍스트 범위로 설정
+      const markType = mark.type || mark.stype; // IMark uses stype, MarkRange uses type
+      // If range is missing, set to full text range
       if (!mark.range || !Array.isArray(mark.range) || mark.range.length !== 2) {
         return {
           type: markType,
@@ -117,17 +117,17 @@ handleTextContentChange(oldValue: string | null, newValue: string | null, target
   const decorators = (this.editor as any).getDecorators?.() || [];
 ```
 
-**중요**: 
-- `oldModelText`는 **모델의 전체 텍스트**입니다 (sid 기준).
-- `oldValue`/`newValue`는 **개별 text node**의 값이므로 비교에 사용하지 않습니다.
+**Important:**
+- `oldModelText` is the **model's full text** (by sid).
+- `oldValue`/`newValue` are **individual text node** values, so not used for comparison.
 
 ---
 
-### 3단계: handleEfficientEdit로 텍스트 분석
+### Step 3: Analyze text with handleEfficientEdit
 
-**파일**: `packages/editor-view-dom/src/utils/efficient-edit-handler.ts`
+**File**: `packages/editor-view-dom/src/utils/efficient-edit-handler.ts`
 
-#### 3-1. DOM에서 전체 텍스트 재구성
+#### 3-1. Reconstruct full text from DOM
 
 ```typescript
 export function handleEfficientEdit(
@@ -141,36 +141,36 @@ export function handleEfficientEdit(
   adjustedDecorators: DecoratorRange[];
   editInfo: TextEdit;
 } | null {
-  // 1. inline-text 노드 찾기 (sid 추출)
+  // 1. Find inline-text node (extract sid)
   const inlineTextNode = findInlineTextNode(textNode);
   const nodeId = inlineTextNode.getAttribute('data-bc-sid');
   
-  // 2. Text Run Index 구축
-  // sid 기반 하위의 모든 text node를 수집
+  // 2. Build Text Run Index
+  // Collect all text nodes under sid
   const runs = buildTextRunIndex(inlineTextNode, nodeId, {
     buildReverseMap: true,
     normalizeWhitespace: false
   });
   
-  // 3. DOM에서 sid 기준 전체 텍스트 재구성
-  // 모든 text node를 합쳐서 재구성
+  // 3. Reconstruct full text by sid from DOM
+  // Reconstruct by merging all text nodes
   const newText = reconstructModelTextFromRuns(runs);
   
-  // 4. sid 기준 텍스트 비교
+  // 4. Compare text by sid
   if (newText === oldModelText) {
-    return null; // 변경 없음
+    return null; // No change
   }
 ```
 
-**핵심**: 
-- `oldModelText`: 모델의 전체 텍스트 (비교 대상)
-- `newText`: DOM에서 재구성한 전체 텍스트 (변경 후)
-- **개별 text node가 아닌 전체 텍스트로 비교**합니다.
+**Key:**
+- `oldModelText`: Model's full text (comparison target)
+- `newText`: Full text reconstructed from DOM (after change)
+- **Compare using full text, not individual text nodes**.
 
-#### 3-2. Selection Offset 정규화
+#### 3-2. Normalize Selection offset
 
 ```typescript
-  // 5. Selection offset을 Model offset으로 정규화
+  // 5. Normalize Selection offset to Model offset
   const selection = window.getSelection();
   let selectionOffset: number = 0;
   let selectionLength: number = 0;
@@ -182,7 +182,7 @@ export function handleEfficientEdit(
         textNode: range.startContainer as Text,
         offset: range.startOffset  // DOM offset
       };
-      // DOM offset → Model offset 변환
+      // Convert DOM offset → Model offset
       const modelPos = convertDOMToModelPosition(domPosition, inlineTextNode);
       if (modelPos) {
         selectionOffset = modelPos.offset;  // Model offset (normalized)
@@ -191,12 +191,12 @@ export function handleEfficientEdit(
   }
 ```
 
-**핵심**: DOM의 `offset`은 mark/decorator로 인해 모델 `offset`과 다를 수 있으므로, **Text Run Index를 사용하여 정규화**합니다.
+**Key**: DOM `offset` may differ from model `offset` due to marks/decorators, so **normalize using Text Run Index**.
 
-#### 3-3. 텍스트 변경 분석 (LCP/LCS 알고리즘)
+#### 3-3. Analyze text changes (LCP/LCS algorithm)
 
 ```typescript
-  // 6. text-analyzer의 analyzeTextChanges 사용
+  // 6. Use text-analyzer's analyzeTextChanges
   const textChanges = analyzeTextChanges({
     oldText: oldModelText,
     newText: newText,
@@ -205,10 +205,10 @@ export function handleEfficientEdit(
   });
   
   if (textChanges.length === 0) {
-    return null; // 변경사항 없음
+    return null; // No changes
   }
   
-  // 첫 번째 TextChange를 TextEdit로 변환
+  // Convert first TextChange to TextEdit
   const firstChange = textChanges[0];
   return createEditInfoFromTextChange(
     nodeId,
@@ -222,13 +222,13 @@ export function handleEfficientEdit(
 }
 ```
 
-**핵심**: `@barocss/text-analyzer` 패키지의 `analyzeTextChanges` 함수를 사용하여:
-- LCP/LCS 알고리즘으로 정확한 변경 범위 계산
-- Selection 바이어싱으로 사용자 의도 반영
-- 유니코드 정규화 (NFC)
-- 안전한 문자 분할
+**Key**: Uses `@barocss/text-analyzer` package's `analyzeTextChanges` function to:
+- Compute precise change ranges with LCP/LCS algorithm
+- Reflect user intent with Selection biasing
+- Normalize Unicode (NFC)
+- Safe character splitting
 
-#### 3-4. Mark/Decorator 범위 조정
+#### 3-4. Adjust Mark/Decorator ranges
 
 ```typescript
 function createEditInfoFromTextChange(
@@ -245,21 +245,21 @@ function createEditInfoFromTextChange(
   adjustedDecorators: DecoratorRange[];
   editInfo: TextEdit;
 } {
-  // TextChange를 TextEdit로 변환
+  // Convert TextChange to TextEdit
   const editInfo: TextEdit = {
     nodeId,
     oldText,
     newText,
-    editPosition: textChange.start,  // 정확한 시작 위치
+    editPosition: textChange.start,  // Precise start position
     editType: textChange.type,       // 'insert' | 'delete' | 'replace'
     insertedLength: textChange.text.length,
     deletedLength: textChange.end - textChange.start
   };
   
-  // Mark 범위 조정 (편집 위치에 따라 자동 조정)
+  // Adjust Mark ranges (auto-adjust by edit position)
   const adjustedMarks = adjustMarkRanges(modelMarks, editInfo);
   
-  // Decorator 범위 조정
+  // Adjust Decorator ranges
   const adjustedDecorators = adjustDecoratorRanges(decorators, nodeId, editInfo);
   
   return {
@@ -271,47 +271,47 @@ function createEditInfoFromTextChange(
 }
 ```
 
-**핵심**: 
-- 텍스트 편집에 따라 **marks와 decorators의 범위를 자동으로 조정**합니다.
-- 예: "Hello **World**"에서 "World" 앞에 "New "를 입력하면, bold mark의 범위가 `[6, 11]` → `[10, 15]`로 이동합니다.
+**Key:**
+- **Auto-adjust marks and decorators ranges** based on text edits.
+- Example: In "Hello **World**", typing "New " before "World" moves bold mark range from `[6, 11]` → `[10, 15]`.
 
 ---
 
-### 4단계: Editor 트랜잭션 실행
+### Step 4: Execute Editor transaction
 
-**파일**: `packages/editor-view-dom/src/event-handlers/input-handler.ts`
+**File**: `packages/editor-view-dom/src/event-handlers/input-handler.ts`
 
 ```typescript
-  // 텍스트 및 Marks 업데이트 트랜잭션 (한 번에 처리)
+  // Text and Marks update transaction (handled together)
   const marksChanged = marksChangedEfficient(modelMarks, editResult.adjustedMarks);
   
-  // 전체 텍스트 교체 방식 (start=0, end=전체길이, text=새텍스트)
+  // Full text replace approach (start=0, end=fullLength, text=newText)
   this.editor.executeTransaction({
     type: 'text_replace',
     nodeId: textNodeId,
     start: 0,
-    end: oldModelText.length,  // 전체 텍스트 길이
-    text: editResult.newText,  // 새로운 전체 텍스트
-    // marks가 변경된 경우에만 포함
+    end: oldModelText.length,  // Full text length
+    text: editResult.newText,  // New full text
+    // Include marks only if changed
     ...(marksChanged ? { marks: editResult.adjustedMarks } : {})
   } as any);
 
-  // Decorators 업데이트 (변경된 경우만)
+  // Update Decorators (only if changed)
   const decoratorsChanged = JSON.stringify(editResult.adjustedDecorators) !== JSON.stringify(decorators);
   if (decoratorsChanged && (this.editor as any).updateDecorators) {
     (this.editor as any).updateDecorators(editResult.adjustedDecorators);
   }
 ```
 
-**핵심**: 
-- `text_replace` 트랜잭션으로 텍스트와 marks를 한 번에 업데이트합니다.
-- Decorators는 별도로 업데이트합니다.
+**Key:**
+- Update text and marks together with `text_replace` transaction.
+- Update decorators separately.
 
 ---
 
-### 5단계: 실제 모델 업데이트
+### Step 5: Actual model update
 
-**파일**: `packages/editor-core/src/editor.ts`
+**File**: `packages/editor-core/src/editor.ts`
 
 #### 5-1. executeTransaction
 
@@ -322,14 +322,14 @@ executeTransaction(transaction: Transaction): void {
     // Lightweight model mutation bridge for demo
     this._applyBasicTransaction(transaction as any);
     
-    // 문서 변경 시 히스토리에 추가
+    // Add to history on document change
     this._addToHistory(this._document);
     
     this.emit('transactionExecuted', { transaction });
-    // 콘텐츠 변경 이벤트 발생
+    // Emit content change event
     this.emit('editor:content.change', { content: this.document, transaction });
     
-    // 모델 selection이 트랜잭션에 포함된 경우
+    // If model selection is included in transaction
     const selAfter = (transaction as any)?.selectionAfter;
     if (selAfter) {
       this.emit('editor:selection.model', selAfter as any);
@@ -341,7 +341,7 @@ executeTransaction(transaction: Transaction): void {
 }
 ```
 
-#### 5-2. _applyBasicTransaction (실제 데이터 변경)
+#### 5-2. _applyBasicTransaction (actual data change)
 
 ```typescript
 private _applyBasicTransaction(tx: any): void {
@@ -357,43 +357,43 @@ private _applyBasicTransaction(tx: any): void {
     const end: number = tx.end ?? start;
     const insertText: string = tx.text ?? '';
     
-    // 텍스트 교체 계산
-    // input-handler에서는 start=0, end=전체길이, text=새텍스트로 보내므로
-    // 실제로는 전체 교체가 됨: oldText.slice(0, 0) + newText + oldText.slice(전체길이) = newText
+    // Compute text replacement
+    // input-handler sends start=0, end=fullLength, text=newText, so
+    // actually full replacement: oldText.slice(0, 0) + newText + oldText.slice(fullLength) = newText
     const newText = oldText.slice(0, start) + insertText + oldText.slice(end);
     
-    // 노드 업데이트 (텍스트 + marks)
+    // Update node (text + marks)
     const updatedNode: any = {
       ...node,
       text: newText,
       metadata: { ...(node as any).metadata, updatedAt: new Date() }
     };
     
-    // Marks 업데이트 (제공된 경우)
+    // Update Marks (if provided)
     if (tx.marks !== undefined) {
-      // MarkRange 형식 그대로 저장 (DataStore가 정규화 처리)
+      // Store MarkRange format as-is (DataStore handles normalization)
       updatedNode.marks = tx.marks;
     }
     
-    // DataStore에 저장
+    // Save to DataStore
     this._dataStore?.setNode?.(updatedNode);
   }
 }
 ```
 
-**핵심**: 
-- `dataStore.setNode()`로 노드 전체 업데이트 (텍스트 + marks)
-- `tx.marks`는 `MarkRange[]` 형식 그대로 저장 (DataStore가 필요시 정규화)
-- 실제로는 `MarkRange` (type 사용)가 그대로 저장되지만, DataStore에서 읽을 때 `IMark` (stype 사용)로 변환될 수 있음
+**Key:**
+- Update entire node (text + marks) with `dataStore.setNode()`
+- `tx.marks` is stored as `MarkRange[]` format (DataStore normalizes if needed)
+- `MarkRange` (uses type) is stored as-is, but DataStore may convert to `IMark` (uses stype) when reading
 
 ---
 
-### 6단계: 재렌더링
+### Step 6: Re-render
 
-**파일**: `packages/editor-view-dom/src/editor-view-dom.ts`
+**File**: `packages/editor-view-dom/src/editor-view-dom.ts`
 
 ```typescript
-// editor:content.change 이벤트 핸들러
+// editor:content.change event handler
 this.editor.on('editor:content.change' as any, (e: any) => {
   if (this._isComposing) {
     console.log('[EditorViewDOM] content.change (composing=true) skip render');
@@ -401,41 +401,41 @@ this.editor.on('editor:content.change' as any, (e: any) => {
   }
   console.log('[EditorViewDOM] content.change -> render with diff');
   this.render();
-  // 렌더 후 selection 재적용 시도
+  // Try to reapply selection after render
   this.applyModelSelectionWithRetry();
 });
 ```
 
-**핵심**: 
-- `editor:content.change` 이벤트가 발생하면 `render()` 호출
-- IME 조합 중에는 재렌더링 건너뜀 (브라우저에 맡김)
+**Key:**
+- Call `render()` when `editor:content.change` event fires
+- Skip re-render during IME composition (let browser handle)
 
 ---
 
-## 데이터 구조 변환 요약
+## Data structure conversion summary
 
 ### 1. IMark (DataStore) ↔ MarkRange (EditorViewDOM)
 
 ```typescript
 // IMark (DataStore)
 interface IMark {
-  stype: string;              // ← type이 아니라 stype
+  stype: string;              // ← uses stype, not type
   attrs?: Record<string, any>;
   range?: [number, number];   // ← optional
 }
 
 // MarkRange (EditorViewDOM)
 interface MarkRange {
-  type: string;                // ← stype이 아니라 type
-  range: [number, number];    // ← 필수
+  type: string;                // ← uses type, not stype
+  range: [number, number];    // ← required
   attrs?: Record<string, any>;
 }
 
-// 변환 로직 (input-handler.ts)
+// Conversion logic (input-handler.ts)
 const modelMarks: MarkRange[] = rawMarks
   .filter((mark: any) => mark && (mark.type || mark.stype))
   .map((mark: any) => {
-    const markType = mark.type || mark.stype; // IMark는 stype, MarkRange는 type
+    const markType = mark.type || mark.stype; // IMark uses stype, MarkRange uses type
     return {
       type: markType,
       range: mark.range || [0, oldModelText.length],
@@ -444,10 +444,10 @@ const modelMarks: MarkRange[] = rawMarks
   });
 ```
 
-### 2. 트랜잭션 실행 시 역변환
+### 2. Reverse conversion on transaction execution
 
 ```typescript
-// _applyBasicTransaction에서
+// In _applyBasicTransaction
 if (tx.marks !== undefined) {
   const marks = tx.marks.map((m: any) => ({
     stype: m.type,  // MarkRange.type → IMark.stype
@@ -460,26 +460,26 @@ if (tx.marks !== undefined) {
 
 ---
 
-## 예시 시나리오
+## Example scenario
 
-### 시나리오: "Hello **World**"에서 "World" 앞에 "New " 입력
+### Scenario: Type "New " before "World" in "Hello **World**"
 
-1. **MutationObserver 감지**
+1. **MutationObserver detects**
    - `oldText`: "World"
    - `newText`: "New World"
-   - `target`: `<span class="mark-bold">World</span>` 내부의 Text Node
+   - `target`: Text Node inside `<span class="mark-bold">World</span>`
 
-2. **InputHandler 처리**
-   - `textNodeId`: "text-bold" (inline-text의 sid)
-   - `oldModelText`: "Hello World" (모델의 전체 텍스트)
+2. **InputHandler processes**
+   - `textNodeId`: "text-bold" (inline-text's sid)
+   - `oldModelText`: "Hello World" (model's full text)
    - `modelMarks`: `[{ type: 'bold', range: [6, 11] }]`
 
-3. **handleEfficientEdit 분석**
-   - `newText`: "Hello New World" (DOM에서 재구성)
+3. **handleEfficientEdit analyzes**
+   - `newText`: "Hello New World" (reconstructed from DOM)
    - `textChanges`: `[{ type: 'insert', start: 6, end: 6, text: 'New ' }]`
-   - `adjustedMarks`: `[{ type: 'bold', range: [10, 15] }]` (범위 자동 조정)
+   - `adjustedMarks`: `[{ type: 'bold', range: [10, 15] }]` (ranges auto-adjusted)
 
-4. **트랜잭션 실행**
+4. **Execute transaction**
    ```typescript
    editor.executeTransaction({
      type: 'text_replace',
@@ -491,22 +491,21 @@ if (tx.marks !== undefined) {
    });
    ```
 
-5. **모델 업데이트**
+5. **Model update**
    - `dataStore.updateNode('text-bold', { text: 'Hello New World' })`
    - `dataStore.marks.setMarks('text-bold', [{ stype: 'bold', range: [10, 15] }])`
 
-6. **재렌더링**
-   - `editor:content.change` 이벤트 발생
-   - `EditorViewDOM.render()` 호출
-   - DOM이 새로운 모델 상태로 업데이트됨
+6. **Re-render**
+   - `editor:content.change` event fires
+   - `EditorViewDOM.render()` called
+   - DOM updates to new model state
 
 ---
 
-## 핵심 원칙
+## Core principles
 
-1. **sid 기준 전체 텍스트 비교**: 개별 text node가 아닌 `sid` 기준 전체 텍스트로 비교
-2. **Selection Offset 정규화**: DOM offset을 Model offset으로 변환
-3. **자동 범위 조정**: 텍스트 편집에 따라 marks/decorators 범위 자동 조정
-4. **LCP/LCS 알고리즘**: 정확한 변경 범위 계산
-5. **IME 처리**: 조합 중에는 pending에 저장하고 나중에 처리
-
+1. **Compare full text by sid**: Compare by `sid`-based full text, not individual text nodes
+2. **Normalize Selection offset**: Convert DOM offset to Model offset
+3. **Auto-adjust ranges**: Auto-adjust marks/decorators ranges based on text edits
+4. **LCP/LCS algorithm**: Compute precise change ranges
+5. **IME handling**: Store in pending during composition and process later

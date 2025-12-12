@@ -117,34 +117,34 @@ Goal: Decide DOM mutations using only prevVNode ↔ nextVNode, with a Work-In-Pr
 
 - Hierarchy
   - `wip.parent: WIP | null` — parent WIP (null for root).
-  - `wip.children: WIP[]` — nextVNode.children와 동일한 트리 구조(순서는 orderIndex로 동일).
+  - `wip.children: WIP[]` — same tree structure as nextVNode.children (order matches orderIndex).
 
 - Ordering
-  - `wip.orderIndex: number` — 부모의 next children에서의 위치(0..n-1).
-  - 형제 순회는 항상 `orderIndex` 오름차순으로 수행.
+  - `wip.orderIndex: number` — position among parent's next children (0..n-1).
+  - Sibling traversal always follows `orderIndex` ascending order.
 
 - DOM binding (sink only)
-  - `wip.domNode: Node | null` — 이 WIP가 소유하는 실제 DOM 노드(없으면 finalize에서 생성).
-  - finalize 전에는 DOM을 소스로 사용하지 않으며 쿼리하지 않는다.
+  - `wip.domNode: Node | null` — actual DOM node owned by this WIP (created in finalize if missing).
+  - Before finalize, DOM is not used as source and is not queried.
 
 - Lifecycle flags
-  - `wip.needsUpdate: boolean` — attrs/text/children 변경이 감지된 경우.
-  - `wip.isRendered: boolean` — Process 단계 완료 표식.
-  - `wip.toDelete?: boolean` — prev에는 존재하나 next에는 없는 keyed child를 제거 대상으로 표시.
+  - `wip.needsUpdate: boolean` — set when attrs/text/children changes are detected.
+  - `wip.isRendered: boolean` — marker for Process phase completion.
+  - `wip.toDelete?: boolean` — marks keyed children that exist in prev but not in next for removal.
 
 - Data flow per phase
-  1) Build: prev/next 매칭 → 트리 연결(parent/children) → orderIndex 부여 → toDelete 마킹
-  2) Process: attrs/text/children 변경 계산 → needsUpdate 설정(단, DOM 미접근)
-  3) Finalize: 부모 단위로 children을 orderIndex 정렬 →
-     - ensure domNode (없으면 생성)
-     - 이전 형제 domNode 기반으로 insertBefore 계산(첫 자식은 부모의 첫 위치로)
-     - needsUpdate인 경우 attrs/text 적용
-     - toDelete인 keyed 노드는 해당 domNode를 제거
+  1) Build: prev/next matching → tree linking (parent/children) → assign orderIndex → mark toDelete
+  2) Process: compute attrs/text/children changes → set needsUpdate (no DOM access)
+  3) Finalize: sort children by orderIndex per parent →
+     - ensure domNode (create if missing)
+     - compute insertBefore based on previous sibling domNode (first child goes to parent's first position)
+     - apply attrs/text if needsUpdate
+     - remove domNode for keyed nodes marked toDelete
 
 - Guarantees
-  - 부모-자식-형제 관계와 orderIndex만으로 최종 DOM 상태가 결정된다.
-  - 동일 부모의 형제 순서는 children 배열과 orderIndex에서 유도되며, 기존 DOM 순서에 의존하지 않는다.
-  - 재사용(identity)은 오직 `wip.domNode`를 통해 보장된다.
+  - Final DOM state is determined solely by parent-child-sibling relationships and orderIndex.
+  - Sibling order under the same parent is derived from children array and orderIndex, not from existing DOM order.
+  - Reuse (identity) is guaranteed only through `wip.domNode`.
 
 ---
 
