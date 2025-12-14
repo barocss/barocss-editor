@@ -7,7 +7,7 @@ import { Editor } from '@barocss/editor-core';
 
 export interface Transaction {
   sid: string;
-  operations: TransactionOperation[];
+  operations: (TransactionOperation | OpFunction)[];
   timestamp: Date;
   description?: string;
 }
@@ -146,6 +146,20 @@ export class TransactionManager {
         content: (this._editor as any).document, 
         transaction: result 
       });
+      
+      // After hooks: Call extension onTransaction handlers
+      const extensions = (this._editor as any).getSortedExtensions?.() || [];
+      if (extensions.length > 0) {
+        const transactionForHooks: Transaction = {
+          sid: this._currentTransaction!.sid,
+          operations: executedOperations,
+          timestamp: this._currentTransaction!.timestamp,
+          description: this._currentTransaction!.description
+        };
+        extensions.forEach(ext => {
+          ext.onTransaction?.(this._editor, transactionForHooks);
+        });
+      }
       
       // Pass selectionAfter to updateSelection
       // Store in SelectionManager + emit editor:selection.model event

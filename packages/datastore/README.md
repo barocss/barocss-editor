@@ -625,8 +625,6 @@ graph TB
 For production use, consider using collaboration adapter packages which provide ready-to-use adapters for popular CRDT/OT libraries:
 
 - **[@barocss/collaboration-yjs](../collaboration-yjs/README.md)**: Yjs WebSocket-based real-time collaboration
-- **[@barocss/collaboration-automerge](../collaboration-automerge/README.md)**: Automerge conflict-free replicated data types
-- **[@barocss/collaboration-yorkie](../collaboration-yorkie/README.md)**: Yorkie self-hosted or cloud-based collaboration
 - **[@barocss/collaboration-liveblocks](../collaboration-liveblocks/README.md)**: Liveblocks managed collaboration infrastructure
 
 All adapters are built on top of [`@barocss/collaboration`](../collaboration/README.md) which provides the core interfaces and base adapter.

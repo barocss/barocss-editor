@@ -1,0 +1,24 @@
+{
+  "id": "basic-usage",
+  "title": "Basic Usage",
+  "description": "This guide walks you through creating a basic editor step by step, explaining each component and why it's needed.",
+  "source": "@site/docs/basic-usage.md",
+  "sourceDirName": ".",
+  "slug": "/basic-usage",
+  "permalink": "/docs/basic-usage",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/basic-usage.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Quick Start",
+    "permalink": "/docs/quick-start"
+  },
+  "next": {
+    "title": "Schema & Model",
+    "permalink": "/docs/concepts/schema-and-model"
+  }
+}

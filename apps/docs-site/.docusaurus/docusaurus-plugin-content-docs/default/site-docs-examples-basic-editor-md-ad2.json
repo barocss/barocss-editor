@@ -1,0 +1,24 @@
+{
+  "id": "examples/basic-editor",
+  "title": "Basic Editor Example",
+  "description": "A simple editor with paragraph and text formatting. This is the most basic example showing the minimal setup required.",
+  "source": "@site/docs/examples/basic-editor.md",
+  "sourceDirName": "examples",
+  "slug": "/examples/basic-editor",
+  "permalink": "/docs/examples/basic-editor",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/examples/basic-editor.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Advanced Extension Patterns",
+    "permalink": "/docs/guides/advanced-extensions"
+  },
+  "next": {
+    "title": "Custom Extensions Example",
+    "permalink": "/docs/examples/custom-extensions"
+  }
+}

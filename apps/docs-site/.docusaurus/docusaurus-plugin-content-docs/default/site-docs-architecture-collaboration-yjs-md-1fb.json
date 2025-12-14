@@ -1,0 +1,24 @@
+{
+  "id": "architecture/collaboration-yjs",
+  "title": "@barocss/collaboration-yjs",
+  "description": "Yjs adapter for Barocss Editor collaboration.",
+  "source": "@site/docs/architecture/collaboration-yjs.md",
+  "sourceDirName": "architecture",
+  "slug": "/architecture/collaboration-yjs",
+  "permalink": "/docs/architecture/collaboration-yjs",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/architecture/collaboration-yjs.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "@barocss/collaboration",
+    "permalink": "/docs/architecture/collaboration"
+  },
+  "next": {
+    "title": "@barocss/collaboration-liveblocks",
+    "permalink": "/docs/architecture/collaboration-liveblocks"
+  }
+}

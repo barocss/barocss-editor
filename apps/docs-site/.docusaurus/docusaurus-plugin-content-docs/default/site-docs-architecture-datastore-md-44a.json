@@ -1,0 +1,24 @@
+{
+  "id": "architecture/datastore",
+  "title": "@barocss/datastore",
+  "description": "The DataStore package provides transactional, schema-aware node storage with a normalized data structure. It's the single source of truth for your document data.",
+  "source": "@site/docs/architecture/datastore.md",
+  "sourceDirName": "architecture",
+  "slug": "/architecture/datastore",
+  "permalink": "/docs/architecture/datastore",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/architecture/datastore.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "@barocss/schema",
+    "permalink": "/docs/architecture/schema"
+  },
+  "next": {
+    "title": "@barocss/model",
+    "permalink": "/docs/architecture/model"
+  }
+}

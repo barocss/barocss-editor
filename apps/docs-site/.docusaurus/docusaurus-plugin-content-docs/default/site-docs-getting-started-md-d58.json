@@ -1,0 +1,15 @@
+{
+  "id": "getting-started",
+  "title": "Getting Started",
+  "description": "Welcome to Barocss Editor! This guide will help you get started.",
+  "source": "@site/docs/getting-started.md",
+  "sourceDirName": ".",
+  "slug": "/getting-started",
+  "permalink": "/docs/getting-started",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/getting-started.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {}
+}

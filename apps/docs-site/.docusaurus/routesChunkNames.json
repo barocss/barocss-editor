@@ -1,0 +1,209 @@
+{
+  "/__docusaurus/debug-5ff": {
+    "__comp": "__comp---theme-debug-config-23-a-2ff",
+    "__context": {
+      "plugin": "plugin---docusaurus-debugb-38-ad3"
+    }
+  },
+  "/__docusaurus/debug/config-5ba": {
+    "__comp": "__comp---theme-debug-config-23-a-2ff",
+    "__context": {
+      "plugin": "plugin---docusaurus-debugb-38-ad3"
+    }
+  },
+  "/__docusaurus/debug/content-a2b": {
+    "__comp": "__comp---theme-debug-contentba-8-ce7",
+    "__context": {
+      "plugin": "plugin---docusaurus-debugb-38-ad3"
+    },
+    "__props": "__props---docusaurus-debug-content-3-c-0-be2"
+  },
+  "/__docusaurus/debug/globalData-c3c": {
+    "__comp": "__comp---theme-debug-global-dataede-0fa",
+    "__context": {
+      "plugin": "plugin---docusaurus-debugb-38-ad3"
+    }
+  },
+  "/__docusaurus/debug/metadata-156": {
+    "__comp": "__comp---theme-debug-site-metadata-68-e-3d4",
+    "__context": {
+      "plugin": "plugin---docusaurus-debugb-38-ad3"
+    }
+  },
+  "/__docusaurus/debug/registry-88c": {
+    "__comp": "__comp---theme-debug-registry-679-501",
+    "__context": {
+      "plugin": "plugin---docusaurus-debugb-38-ad3"
+    }
+  },
+  "/__docusaurus/debug/routes-000": {
+    "__comp": "__comp---theme-debug-routes-946-699",
+    "__context": {
+      "plugin": "plugin---docusaurus-debugb-38-ad3"
+    }
+  },
+  "/docs-51c": {
+    "__comp": "__comp---theme-docs-root-5-e-9-0b6",
+    "__context": {
+      "plugin": "plugin---docsaba-d7c"
+    }
+  },
+  "/docs-818": {
+    "__comp": "__comp---theme-doc-version-roota-7-b-5de",
+    "__props": "__props---docs-005-788"
+  },
+  "/docs-794": {
+    "__comp": "__comp---theme-doc-roota-94-67a"
+  },
+  "/docs/api/reference-a17": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-api-reference-47-b-47e"
+  },
+  "/docs/architecture/collaboration-007": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-architecture-collaborationf-87-794"
+  },
+  "/docs/architecture/collaboration-liveblocks-224": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-architecture-collaboration-liveblockse-3-c-1de"
+  },
+  "/docs/architecture/collaboration-yjs-a9f": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-architecture-collaboration-yjs-1-fb-690"
+  },
+  "/docs/architecture/converter-216": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-architecture-converter-548-6de"
+  },
+  "/docs/architecture/datastore-446": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-architecture-datastore-44-a-843"
+  },
+  "/docs/architecture/devtool-fc7": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-architecture-devtool-094-1bf"
+  },
+  "/docs/architecture/dom-observer-1e2": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-architecture-dom-observerbdc-205"
+  },
+  "/docs/architecture/dsl-2ca": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-architecture-dslfd-8-dcc"
+  },
+  "/docs/architecture/editor-core-05d": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-architecture-editor-core-232-28f"
+  },
+  "/docs/architecture/editor-view-dom-30e": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-architecture-editor-view-domb-1-b-6f0"
+  },
+  "/docs/architecture/extensions-715": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-architecture-extensions-7-d-7-49c"
+  },
+  "/docs/architecture/model-f1a": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-architecture-model-0-e-2-a99"
+  },
+  "/docs/architecture/overview-833": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-architecture-overview-0-b-1-a4c"
+  },
+  "/docs/architecture/packages-82a": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-architecture-packagesa-56-80e"
+  },
+  "/docs/architecture/practical-examples-8f7": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-architecture-practical-examplesbe-7-47c"
+  },
+  "/docs/architecture/renderer-dom-4f4": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-architecture-renderer-dome-1-f-5db"
+  },
+  "/docs/architecture/schema-351": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-architecture-schema-9-a-6-4c9"
+  },
+  "/docs/architecture/shared-c6d": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-architecture-shared-647-ff8"
+  },
+  "/docs/architecture/text-analyzer-d02": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-architecture-text-analyzer-4-c-5-b0c"
+  },
+  "/docs/basic-usage-0a3": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-basic-usage-3-c-1-10c"
+  },
+  "/docs/concepts/decorators-d16": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-concepts-decorators-207-bb4"
+  },
+  "/docs/concepts/dsl-templates-23a": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-concepts-dsl-templates-390-c36"
+  },
+  "/docs/concepts/editor-core-2af": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-concepts-editor-core-9-ab-bb3"
+  },
+  "/docs/concepts/editor-view-dom-43f": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-concepts-editor-view-dom-592-48f"
+  },
+  "/docs/concepts/rendering-a28": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-concepts-renderingaeb-b52"
+  },
+  "/docs/concepts/schema-and-model-af1": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-concepts-schema-and-model-1-ab-8d3"
+  },
+  "/docs/examples/basic-editor-23f": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-examples-basic-editorad-2-b2a"
+  },
+  "/docs/examples/custom-extensions-2e9": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-examples-custom-extensions-304-129"
+  },
+  "/docs/examples/decorators-d6a": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-examples-decorators-01-f-0af"
+  },
+  "/docs/guides/advanced-extensions-ae4": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-guides-advanced-extensionsab-4-970"
+  },
+  "/docs/guides/custom-operations-787": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-guides-custom-operations-8-ca-d5e"
+  },
+  "/docs/guides/extension-design-bb1": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-guides-extension-design-229-031"
+  },
+  "/docs/installation-b74": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-installation-3-b-8-7c6"
+  },
+  "/docs/introduction-f7d": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-introductiona-09-6b4"
+  },
+  "/docs/quick-start-b74": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-quick-start-72-e-2df"
+  },
+  "/-e5f": {
+    "__comp": "__comp---site-src-pages-index-tsx-1-df-d3e",
+    "__context": {
+      "plugin": "plugin---a-74-9d6"
+    },
+    "config": "config---5-e-9-4f3"
+  }
+}

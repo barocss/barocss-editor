@@ -1,0 +1,24 @@
+{
+  "id": "concepts/editor-core",
+  "title": "Editor Core",
+  "description": "Editor Core is the central coordinator of the Barocss editor. It manages commands, selection, keybindings, extensions, and provides the context that all editor operations need.",
+  "source": "@site/docs/concepts/editor-core.md",
+  "sourceDirName": "concepts",
+  "slug": "/concepts/editor-core",
+  "permalink": "/docs/concepts/editor-core",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/concepts/editor-core.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Rendering",
+    "permalink": "/docs/concepts/rendering"
+  },
+  "next": {
+    "title": "Editor View DOM",
+    "permalink": "/docs/concepts/editor-view-dom"
+  }
+}

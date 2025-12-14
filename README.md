@@ -29,8 +29,6 @@ Each package has its own README with detailed documentation:
 - [`@barocss/devtool`](./packages/devtool/README.md) - Developer tool UI for inspecting editor events, selection, transactions, and datastore state
 - [`@barocss/collaboration`](./packages/collaboration/README.md) - Core collaboration interfaces and base adapter
 - [`@barocss/collaboration-yjs`](./packages/collaboration-yjs/README.md) - Yjs adapter for collaborative editing
-- [`@barocss/collaboration-automerge`](./packages/collaboration-automerge/README.md) - Automerge adapter for collaborative editing
-- [`@barocss/collaboration-yorkie`](./packages/collaboration-yorkie/README.md) - Yorkie adapter for collaborative editing
 - [`@barocss/collaboration-liveblocks`](./packages/collaboration-liveblocks/README.md) - Liveblocks adapter for collaborative editing
 - [`@barocss/shared`](./packages/shared/README.md) - Shared utilities and constants (platform detection, key normalization, shared helpers)
 - [`@barocss/dom-observer`](./packages/dom-observer/README.md) - DOM mutation observer utilities used by `editor-view-dom` and devtools

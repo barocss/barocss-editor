@@ -441,7 +441,7 @@ where:
                      │
                      ↓
 ┌─────────────────────────────────────────────────────────────┐
-│ Template → VNode (packages/vnode)                            │
+│ Template → VNode (packages/renderer-dom)                     │
 │  - VNodeBuilder: Template × Data → VNode                   │
 │  - Pure function, deterministic                             │
 │  - Output: VNode Tree                                        │

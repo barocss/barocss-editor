@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Barocss Editor Documentation</title>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+  <meta name="description" content="Barocss Editor - A powerful document editor with DSL-based rendering">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/docsify@4/lib/themes/vue.css">
+  <style>
+    /* 커스텀 스타일 */
+    :root {
+      --theme-color: #3b82f6;
+    }
+    
+    /* 에디터 데모 컨테이너 */
+    .editor-demo {
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      min-height: 300px;
+      padding: 1rem;
+      margin: 1rem 0;
+      background: white;
+    }
+    
+    /* 에디터 스타일 */
+    .editor-demo .document {
+      line-height: 1.6;
+    }
+    
+    .editor-demo .heading {
+      margin: 1.5em 0 0.5em 0;
+      font-weight: 600;
+    }
+    
+    .editor-demo .heading h1 {
+      font-size: 2em;
+      color: #333;
+    }
+    
+    .editor-demo .heading h2 {
+      font-size: 1.5em;
+      color: #444;
+    }
+    
+    .editor-demo .paragraph {
+      margin: 0.5em 0;
+    }
+    
+    .editor-demo .text {
+      display: inline;
+    }
+    
+    .editor-demo .mark-bold {
+      font-weight: bold;
+    }
+    
+    .editor-demo .mark-italic {
+      font-style: italic;
+    }
+    
+    .editor-demo .barocss-editor-content {
+      outline: none;
+    }
+    
+    .editor-demo .barocss-editor-content:focus {
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">Loading...</div>
+  <script>
+    window.$docsify = {
+      name: 'Barocss Editor',
+      repo: 'https://github.com/barocss/barocss-editor',
+      loadSidebar: true,
+      subMaxLevel: 2,
+      coverpage: false,
+      homepage: 'README.md',
+      search: {
+        maxAge: 86400000,
+        paths: 'auto',
+        placeholder: 'Search',
+        noData: 'No Results!',
+        depth: 6
+      },
+      plugins: [
+        function(hook, vm) {
+          // 에디터 데모 초기화
+          hook.doneEach(function() {
+            initEditorDemos();
+          });
+        }
+      ]
+    }
+    
+    // 에디터 데모 초기화 함수
+    function initEditorDemos() {
+      const demos = document.querySelectorAll('.editor-demo');
+      demos.forEach((container, index) => {
+        if (!container.dataset.initialized) {
+          container.dataset.initialized = 'true';
+          
+          // 에디터 번들이 로드되었는지 확인
+          if (typeof window.initEditorDemo === 'function') {
+            try {
+              window.initEditorDemo(container);
+            } catch (error) {
+              console.error('Failed to initialize editor:', error);
+              container.innerHTML = `
+                <div style="padding: 2rem; text-align: center; color: #ef4444; border: 1px dashed #fca5a5; border-radius: 4px;">
+                  <p><strong>Error loading editor</strong></p>
+                  <p style="font-size: 0.875rem; margin-top: 0.5rem;">${error.message || 'Unknown error'}</p>
+                </div>
+              `;
+            }
+          } else {
+            // 번들이 아직 로드되지 않음
+            container.innerHTML = `
+              <div style="padding: 2rem; text-align: center; color: #64748b; border: 1px dashed #cbd5e1; border-radius: 4px;">
+                <p>Loading editor...</p>
+                <p style="font-size: 0.875rem; margin-top: 0.5rem;">
+                  If this message persists, the editor bundle may not be built. Run <code>pnpm build:demo</code>.
+                </p>
+              </div>
+            `;
+            
+            // 번들이 나중에 로드될 수 있으므로 재시도
+            setTimeout(() => {
+              if (typeof window.initEditorDemo === 'function' && !container.querySelector('.document')) {
+                try {
+                  window.initEditorDemo(container);
+                } catch (error) {
+                  console.error('Failed to initialize editor on retry:', error);
+                }
+              }
+            }, 1000);
+          }
+        }
+      });
+    }
+  </script>
+  <!-- Editor Demo Bundle (load before Docsify) -->
+  <script src="./editor-demo.iife.js"></script>
+  <!-- Docsify (load after editor bundle) -->
+  <script src="//cdn.jsdelivr.net/npm/docsify@4"></script>
+  <script src="//cdn.jsdelivr.net/npm/docsify/lib/plugins/search.min.js"></script>
+  <!-- Prism.js language support (load AFTER Docsify) -->
+  <script src="//cdn.jsdelivr.net/npm/prismjs@1/components/prism-typescript.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/prismjs@1/components/prism-javascript.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/prismjs@1/components/prism-json.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/prismjs@1/components/prism-bash.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/prismjs@1/components/prism-markdown.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/prismjs@1/components/prism-css.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/prismjs@1/components/prism-html.min.js"></script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+{
+  "id": "concepts/rendering",
+  "title": "Rendering",
+  "description": "Rendering is the process of converting your model data into DOM elements using DSL templates. Barocss uses an efficient reconciliation algorithm similar to React.",
+  "source": "@site/docs/concepts/rendering.md",
+  "sourceDirName": "concepts",
+  "slug": "/concepts/rendering",
+  "permalink": "/docs/concepts/rendering",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/concepts/rendering.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "DSL Templates",
+    "permalink": "/docs/concepts/dsl-templates"
+  },
+  "next": {
+    "title": "Editor Core",
+    "permalink": "/docs/concepts/editor-core"
+  }
+}

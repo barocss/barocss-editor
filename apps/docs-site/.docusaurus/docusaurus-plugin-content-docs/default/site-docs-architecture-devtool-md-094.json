@@ -1,0 +1,24 @@
+{
+  "id": "architecture/devtool",
+  "title": "@barocss/devtool",
+  "description": "Development tools for Barocss Editor - visualize editor structure and events in real-time.",
+  "source": "@site/docs/architecture/devtool.md",
+  "sourceDirName": "architecture",
+  "slug": "/architecture/devtool",
+  "permalink": "/docs/architecture/devtool",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/architecture/devtool.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "@barocss/dom-observer",
+    "permalink": "/docs/architecture/dom-observer"
+  },
+  "next": {
+    "title": "Practical Examples",
+    "permalink": "/docs/architecture/practical-examples"
+  }
+}

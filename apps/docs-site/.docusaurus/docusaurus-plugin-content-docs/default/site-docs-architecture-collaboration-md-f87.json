@@ -1,0 +1,24 @@
+{
+  "id": "architecture/collaboration",
+  "title": "@barocss/collaboration",
+  "description": "Core collaboration interfaces and base adapter for Barocss Editor. Provides the foundation for integrating with CRDT/OT libraries.",
+  "source": "@site/docs/architecture/collaboration.md",
+  "sourceDirName": "architecture",
+  "slug": "/architecture/collaboration",
+  "permalink": "/docs/architecture/collaboration",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/architecture/collaboration.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "@barocss/text-analyzer",
+    "permalink": "/docs/architecture/text-analyzer"
+  },
+  "next": {
+    "title": "@barocss/collaboration-yjs",
+    "permalink": "/docs/architecture/collaboration-yjs"
+  }
+}

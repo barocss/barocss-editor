@@ -1,0 +1,24 @@
+{
+  "id": "architecture/schema",
+  "title": "@barocss/schema",
+  "description": "The schema package defines the structure and validation rules for your documents. It's the foundation of Barocss Editor's type-safe document model.",
+  "source": "@site/docs/architecture/schema.md",
+  "sourceDirName": "architecture",
+  "slug": "/architecture/schema",
+  "permalink": "/docs/architecture/schema",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/architecture/schema.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Architecture Overview",
+    "permalink": "/docs/architecture/overview"
+  },
+  "next": {
+    "title": "@barocss/datastore",
+    "permalink": "/docs/architecture/datastore"
+  }
+}

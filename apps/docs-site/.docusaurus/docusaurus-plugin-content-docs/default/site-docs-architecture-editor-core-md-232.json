@@ -1,0 +1,24 @@
+{
+  "id": "architecture/editor-core",
+  "title": "@barocss/editor-core",
+  "description": "The Editor-Core package provides the core editor logic: selection management, keybinding, context, and transaction orchestration. It's the central coordinator for all editor operations.",
+  "source": "@site/docs/architecture/editor-core.md",
+  "sourceDirName": "architecture",
+  "slug": "/architecture/editor-core",
+  "permalink": "/docs/architecture/editor-core",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/architecture/editor-core.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "@barocss/renderer-dom",
+    "permalink": "/docs/architecture/renderer-dom"
+  },
+  "next": {
+    "title": "@barocss/editor-view-dom",
+    "permalink": "/docs/architecture/editor-view-dom"
+  }
+}

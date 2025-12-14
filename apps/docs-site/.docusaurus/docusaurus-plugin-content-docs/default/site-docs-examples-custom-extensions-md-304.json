@@ -1,0 +1,24 @@
+{
+  "id": "examples/custom-extensions",
+  "title": "Custom Extensions Example",
+  "description": "This example shows how to create a custom extension that adds a \"Insert Hello\" command to the editor.",
+  "source": "@site/docs/examples/custom-extensions.md",
+  "sourceDirName": "examples",
+  "slug": "/examples/custom-extensions",
+  "permalink": "/docs/examples/custom-extensions",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/examples/custom-extensions.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Basic Editor Example",
+    "permalink": "/docs/examples/basic-editor"
+  },
+  "next": {
+    "title": "Decorators Example",
+    "permalink": "/docs/examples/decorators"
+  }
+}

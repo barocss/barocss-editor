@@ -1,0 +1,24 @@
+{
+  "id": "concepts/dsl-templates",
+  "title": "DSL Templates",
+  "description": "DSL (Domain-Specific Language) templates define how your model data is rendered to the DOM. They are pure functions that make rendering predictable and testable.",
+  "source": "@site/docs/concepts/dsl-templates.md",
+  "sourceDirName": "concepts",
+  "slug": "/concepts/dsl-templates",
+  "permalink": "/docs/concepts/dsl-templates",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/concepts/dsl-templates.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Schema & Model",
+    "permalink": "/docs/concepts/schema-and-model"
+  },
+  "next": {
+    "title": "Rendering",
+    "permalink": "/docs/concepts/rendering"
+  }
+}

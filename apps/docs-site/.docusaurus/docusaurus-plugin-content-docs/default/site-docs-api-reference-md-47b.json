@@ -1,0 +1,20 @@
+{
+  "id": "api/reference",
+  "title": "BaroCSS Editor API Reference",
+  "description": "Portal API",
+  "source": "@site/docs/api/reference.md",
+  "sourceDirName": "api",
+  "slug": "/api/reference",
+  "permalink": "/docs/api/reference",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/api/reference.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Decorators Example",
+    "permalink": "/docs/examples/decorators"
+  }
+}

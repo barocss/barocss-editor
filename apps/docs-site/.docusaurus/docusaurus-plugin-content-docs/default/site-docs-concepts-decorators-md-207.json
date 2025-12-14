@@ -1,0 +1,24 @@
+{
+  "id": "concepts/decorators",
+  "title": "Decorators",
+  "description": "Decorators are temporary UI elements that don't affect the document model. They're a core feature of Editor View DOM (not an extension) and are used for visual feedback, highlights, comments, and other temporary overlays.",
+  "source": "@site/docs/concepts/decorators.md",
+  "sourceDirName": "concepts",
+  "slug": "/concepts/decorators",
+  "permalink": "/docs/concepts/decorators",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/concepts/decorators.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Editor View DOM",
+    "permalink": "/docs/concepts/editor-view-dom"
+  },
+  "next": {
+    "title": "Architecture Overview",
+    "permalink": "/docs/architecture/overview"
+  }
+}

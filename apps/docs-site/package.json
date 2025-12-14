@@ -1,0 +1,59 @@
+{
+  "name": "@barocss/docs-site",
+  "version": "0.1.0",
+  "description": "Barocss Editor Developer Documentation Site",
+  "private": true,
+  "scripts": {
+    "docusaurus": "docusaurus",
+    "dev": "docusaurus start",
+    "build": "docusaurus build",
+    "swizzle": "docusaurus swizzle",
+    "deploy": "docusaurus deploy",
+    "clear": "docusaurus clear",
+    "serve": "docusaurus serve",
+    "write-translations": "docusaurus write-translations",
+    "write-heading-ids": "docusaurus write-heading-ids"
+  },
+  "dependencies": {
+    "@barocss/datastore": "workspace:*",
+    "@barocss/dom-observer": "workspace:*",
+    "@barocss/dsl": "workspace:*",
+    "@barocss/editor-core": "workspace:*",
+    "@barocss/editor-view-dom": "workspace:*",
+    "@barocss/extensions": "workspace:*",
+    "@barocss/model": "workspace:*",
+    "@barocss/renderer-dom": "workspace:*",
+    "@barocss/schema": "workspace:*",
+    "@barocss/shared": "workspace:*",
+    "@barocss/text-analyzer": "workspace:*",
+    "@docusaurus/core": "^3.7.0",
+    "@docusaurus/preset-classic": "^3.7.0",
+    "@mdx-js/react": "^3.0.0",
+    "clsx": "^2.1.1",
+    "mermaid": "^11.12.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@docusaurus/module-type-aliases": "^3.7.0",
+    "@docusaurus/tsconfig": "^3.7.0",
+    "@docusaurus/types": "^3.7.0",
+    "tsconfig-paths-webpack-plugin": "^4.2.0",
+    "typescript": "^5.9.3"
+  },
+  "browserslist": {
+    "production": [
+      ">0.5%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 3 chrome version",
+      "last 3 firefox version",
+      "last 3 safari version"
+    ]
+  },
+  "engines": {
+    "node": ">=18.0"
+  }
+}

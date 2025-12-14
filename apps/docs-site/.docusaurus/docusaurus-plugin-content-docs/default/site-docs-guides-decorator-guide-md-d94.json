@@ -1,0 +1,24 @@
+{
+  "id": "guides/decorator-guide",
+  "title": "Decorator Guide",
+  "description": "Decorators are temporary UI elements that don't affect the document model. They're managed by the view layer (editor-view-dom) and used for visual feedback, highlights, comments, and other temporary overlays.",
+  "source": "@site/docs/guides/decorator-guide.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/decorator-guide",
+  "permalink": "/docs/guides/decorator-guide",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/guides/decorator-guide.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Extension Design Guide",
+    "permalink": "/docs/guides/extension-design"
+  },
+  "next": {
+    "title": "Basic Editor Example",
+    "permalink": "/docs/examples/basic-editor"
+  }
+}

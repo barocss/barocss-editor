@@ -107,7 +107,7 @@ DSL (element, data, when)
 1. DSL Layer (packages/dsl)
    - Template builder (pure function)
    
-2. VNode Layer (packages/vnode)
+2. VNode Layer (packages/renderer-dom)
    - Template → VNode conversion
    
 3. Renderer Layer (packages/renderer-dom)

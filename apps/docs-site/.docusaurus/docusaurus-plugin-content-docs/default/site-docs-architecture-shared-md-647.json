@@ -1,0 +1,24 @@
+{
+  "id": "architecture/shared",
+  "title": "@barocss/shared",
+  "description": "Shared utilities and constants used across Barocss Editor packages.",
+  "source": "@site/docs/architecture/shared.md",
+  "sourceDirName": "architecture",
+  "slug": "/architecture/shared",
+  "permalink": "/docs/architecture/shared",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/architecture/shared.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "@barocss/extensions",
+    "permalink": "/docs/architecture/extensions"
+  },
+  "next": {
+    "title": "@barocss/text-analyzer",
+    "permalink": "/docs/architecture/text-analyzer"
+  }
+}

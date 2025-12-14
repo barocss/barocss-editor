@@ -1,0 +1,24 @@
+{
+  "id": "guides/advanced-extensions",
+  "title": "Advanced Extension Patterns",
+  "description": "This guide covers advanced patterns for building complex extensions, including multiple commands, command chaining, and integration with other editor features.",
+  "source": "@site/docs/guides/advanced-extensions.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/advanced-extensions",
+  "permalink": "/docs/guides/advanced-extensions",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/guides/advanced-extensions.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Custom Operations Guide",
+    "permalink": "/docs/guides/custom-operations"
+  },
+  "next": {
+    "title": "Basic Editor Example",
+    "permalink": "/docs/examples/basic-editor"
+  }
+}

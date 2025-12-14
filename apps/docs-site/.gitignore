@@ -1,0 +1,4 @@
+node_modules/
+dist/
+*.log
+# Note: editor-demo.iife.js should be committed for GitHub Pages

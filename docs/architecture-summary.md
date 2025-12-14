@@ -14,7 +14,7 @@ Model → DSL → VNodeBuilder → VNode → DOMReconcile → DOM
 1. DSL Layer (packages/dsl)
    └─ element('p', {...}, [data('text')]) → Template
 
-2. VNode Builder (packages/vnode)  
+2. VNode Builder (packages/renderer-dom)
    └─ Template × Data → VNode
 
 3. DOM Reconcile (packages/renderer-dom)
@@ -38,7 +38,7 @@ All builders are pure functions (Pure Functions)
 **Input**: Builder parameters
 **Output**: Template
 
-### 2. VNodeBuilder (packages/vnode)
+### 2. VNodeBuilder (packages/renderer-dom)
 **Role**: Convert DSL templates to VNode
 
 - Template lookup from Registry

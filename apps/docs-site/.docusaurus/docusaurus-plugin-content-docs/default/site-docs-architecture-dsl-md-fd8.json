@@ -1,0 +1,24 @@
+{
+  "id": "architecture/dsl",
+  "title": "@barocss/dsl",
+  "description": "The DSL package provides a template definition layer with functional DSL builders. It's how you define how your model data is rendered to the DOM.",
+  "source": "@site/docs/architecture/dsl.md",
+  "sourceDirName": "architecture",
+  "slug": "/architecture/dsl",
+  "permalink": "/docs/architecture/dsl",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/architecture/dsl.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "@barocss/model",
+    "permalink": "/docs/architecture/model"
+  },
+  "next": {
+    "title": "@barocss/renderer-dom",
+    "permalink": "/docs/architecture/renderer-dom"
+  }
+}

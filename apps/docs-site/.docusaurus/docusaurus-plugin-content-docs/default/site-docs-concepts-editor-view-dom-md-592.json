@@ -1,0 +1,24 @@
+{
+  "id": "concepts/editor-view-dom",
+  "title": "Editor View DOM",
+  "description": "Editor View DOM (@barocss/editor-view-dom) is the view layer that connects the Editor to the DOM. It handles user input, selection synchronization, and triggers rendering.",
+  "source": "@site/docs/concepts/editor-view-dom.md",
+  "sourceDirName": "concepts",
+  "slug": "/concepts/editor-view-dom",
+  "permalink": "/docs/concepts/editor-view-dom",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/concepts/editor-view-dom.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Editor Core",
+    "permalink": "/docs/concepts/editor-core"
+  },
+  "next": {
+    "title": "Decorators",
+    "permalink": "/docs/concepts/decorators"
+  }
+}

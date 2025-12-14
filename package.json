@@ -10,6 +10,8 @@
   "scripts": {
     "build": "pnpm -r build",
     "dev": "pnpm -r dev",
+    "dev:docs": "pnpm --filter @barocss/docs-site dev",
+    "build:docs": "pnpm --filter @barocss/docs-site build:demo",
     "dev:site": "pnpm --filter @barocss/editor-test dev",
     "dev:decorator": "pnpm --filter @barocss/editor-decorator-test dev",
     "test": "pnpm -r test",

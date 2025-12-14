@@ -1,0 +1,24 @@
+{
+  "id": "architecture/text-analyzer",
+  "title": "@barocss/text-analyzer",
+  "description": "Smart text change analyzer with LCP/LCS algorithm and selection bias for accurate text difference calculation.",
+  "source": "@site/docs/architecture/text-analyzer.md",
+  "sourceDirName": "architecture",
+  "slug": "/architecture/text-analyzer",
+  "permalink": "/docs/architecture/text-analyzer",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/architecture/text-analyzer.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "@barocss/shared",
+    "permalink": "/docs/architecture/shared"
+  },
+  "next": {
+    "title": "@barocss/collaboration",
+    "permalink": "/docs/architecture/collaboration"
+  }
+}

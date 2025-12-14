@@ -14,23 +14,17 @@ graph TB
     
     subgraph "Adapter Packages"
         D["@barocss/collaboration-yjs"]
-        E["@barocss/collaboration-automerge"]
-        F["@barocss/collaboration-yorkie"]
         G["@barocss/collaboration-liveblocks"]
     end
     
     A --> B
     B --> D
-    B --> E
-    B --> F
     B --> G
     
     style A fill:#e1f5ff
     style B fill:#fff4e1
     style C fill:#e8f5e9
     style D fill:#f3e5f5
-    style E fill:#fce4ec
-    style F fill:#fff9c4
     style G fill:#e0f2f1
 ```
 
@@ -76,8 +70,6 @@ This package provides the core interfaces and base adapter that all collaboratio
 This package provides the core interfaces and base adapter. For specific CRDT/OT library integrations, use the corresponding adapter package:
 
 - [`@barocss/collaboration-yjs`](../collaboration-yjs/README.md) - Yjs integration
-- [`@barocss/collaboration-automerge`](../collaboration-automerge/README.md) - Automerge integration
-- [`@barocss/collaboration-yorkie`](../collaboration-yorkie/README.md) - Yorkie integration
 - [`@barocss/collaboration-liveblocks`](../collaboration-liveblocks/README.md) - Liveblocks integration
 
 ## Creating Custom Adapters

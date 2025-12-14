@@ -1,0 +1,24 @@
+{
+  "id": "guides/custom-operations",
+  "title": "Custom Operations Guide",
+  "description": "Operations are the atomic units of document modification. While extensions use operations through transactions, you can also create your own custom operations for domain-specific needs.",
+  "source": "@site/docs/guides/custom-operations.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/custom-operations",
+  "permalink": "/docs/guides/custom-operations",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/guides/custom-operations.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Extension Design Guide",
+    "permalink": "/docs/guides/extension-design"
+  },
+  "next": {
+    "title": "Advanced Extension Patterns",
+    "permalink": "/docs/guides/advanced-extensions"
+  }
+}

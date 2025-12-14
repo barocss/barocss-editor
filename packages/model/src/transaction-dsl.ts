@@ -1,5 +1,5 @@
 import type { Editor } from '@barocss/editor-core';
-import { TransactionManager, type TransactionResult } from './transaction';
+import { TransactionManager, type TransactionResult, type Transaction } from './transaction';
 import type { DataStore, INode } from '@barocss/datastore';
 import { Schema } from '@barocss/schema';
 import type { TransactionContext } from './types';
@@ -92,10 +92,45 @@ class TransactionBuilderImpl implements TransactionBuilder {
     this.ops = ops;
   }
   async commit(): Promise<TransactionResult> {
+    // Before hooks: Allow extensions to intercept and modify transaction
+    let finalOps = this.ops;
+    
+    // Get extensions sorted by priority
+    const extensions = (this.editor as any).getSortedExtensions?.() || [];
+    
+    for (const ext of extensions) {
+      if (ext.onBeforeTransaction) {
+        // Create Transaction object for extension
+        const transaction: Transaction = {
+          sid: `tx-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          operations: finalOps,
+          timestamp: new Date()
+        };
+        
+        const result = ext.onBeforeTransaction(this.editor, transaction);
+        
+        // Check if cancelled
+        if (result === null) {
+          return {
+            success: false,
+            errors: [`Transaction cancelled by extension: ${ext.name}`],
+            operations: [],
+            data: undefined,
+            transactionId: undefined
+          };
+        }
+        
+        // Use modified operations if provided
+        if (result && result.operations) {
+          finalOps = result.operations as (TransactionOperation | OpFunction)[];
+        }
+      }
+    }
+    
     // Pass OpFunction and regular operations directly to TransactionManager
     // Let TransactionManager handle them at execution time
     const tm = new TransactionManager(this.editor);
-    return tm.execute(this.ops);
+    return tm.execute(finalOps);
   }
 }
 

@@ -1,0 +1,24 @@
+{
+  "id": "architecture/converter",
+  "title": "@barocss/converter",
+  "description": "Pluggable document format converter for converting between external formats and the Barocss Editor model format.",
+  "source": "@site/docs/architecture/converter.md",
+  "sourceDirName": "architecture",
+  "slug": "/architecture/converter",
+  "permalink": "/docs/architecture/converter",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/architecture/converter.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "@barocss/editor-view-dom",
+    "permalink": "/docs/architecture/editor-view-dom"
+  },
+  "next": {
+    "title": "@barocss/extensions",
+    "permalink": "/docs/architecture/extensions"
+  }
+}

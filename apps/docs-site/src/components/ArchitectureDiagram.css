@@ -1,0 +1,36 @@
+.architecture-diagram {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 0;
+}
+
+.mermaid-container {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  background: var(--ifm-background-surface-color);
+  border-radius: 8px;
+  padding: 2rem;
+  overflow-x: auto;
+  width: 100%;
+}
+
+.mermaid-container .mermaid {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+/* Mermaid diagram styling */
+.mermaid-container svg {
+  width: 100%;
+  height: auto;
+  max-width: none;
+}
+
+@media (max-width: 768px) {
+  .mermaid-container {
+    padding: 1rem;
+    min-height: 300px;
+  }
+}

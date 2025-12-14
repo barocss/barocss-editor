@@ -1,0 +1,24 @@
+{
+  "id": "concepts/schema-and-model",
+  "title": "Schema & Model",
+  "description": "Barocss Editor uses a schema-first approach where you define the structure of your document, and all operations work on a model that conforms to that schema.",
+  "source": "@site/docs/concepts/schema-and-model.md",
+  "sourceDirName": "concepts",
+  "slug": "/concepts/schema-and-model",
+  "permalink": "/docs/concepts/schema-and-model",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/concepts/schema-and-model.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Basic Usage",
+    "permalink": "/docs/basic-usage"
+  },
+  "next": {
+    "title": "DSL Templates",
+    "permalink": "/docs/concepts/dsl-templates"
+  }
+}

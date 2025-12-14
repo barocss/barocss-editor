@@ -1,0 +1,24 @@
+{
+  "id": "guides/extension-design",
+  "title": "Extension Design Guide",
+  "description": "Extensions are the primary way to add custom functionality to Barocss Editor. This guide explains how to create extensions step by step.",
+  "source": "@site/docs/guides/extension-design.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/extension-design",
+  "permalink": "/docs/guides/extension-design",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/guides/extension-design.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Practical Examples",
+    "permalink": "/docs/architecture/practical-examples"
+  },
+  "next": {
+    "title": "Custom Operations Guide",
+    "permalink": "/docs/guides/custom-operations"
+  }
+}

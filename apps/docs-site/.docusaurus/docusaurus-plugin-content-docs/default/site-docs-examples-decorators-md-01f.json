@@ -1,0 +1,24 @@
+{
+  "id": "examples/decorators",
+  "title": "Decorators Example",
+  "description": "This example demonstrates how to use decorators to add temporary UI elements like highlights, comments, and selection indicators.",
+  "source": "@site/docs/examples/decorators.md",
+  "sourceDirName": "examples",
+  "slug": "/examples/decorators",
+  "permalink": "/docs/examples/decorators",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/examples/decorators.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Custom Extensions Example",
+    "permalink": "/docs/examples/custom-extensions"
+  },
+  "next": {
+    "title": "BaroCSS Editor API Reference",
+    "permalink": "/docs/api/reference"
+  }
+}

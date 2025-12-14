@@ -1,0 +1,24 @@
+{
+  "id": "architecture/overview",
+  "title": "Architecture Overview",
+  "description": "Barocss Editor uses a model-first, DSL-first architecture. All operations work on a model, and everything (templates, marks, decorators, operations) is defined using DSL.",
+  "source": "@site/docs/architecture/overview.md",
+  "sourceDirName": "architecture",
+  "slug": "/architecture/overview",
+  "permalink": "/docs/architecture/overview",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/architecture/overview.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Decorators",
+    "permalink": "/docs/concepts/decorators"
+  },
+  "next": {
+    "title": "@barocss/schema",
+    "permalink": "/docs/architecture/schema"
+  }
+}

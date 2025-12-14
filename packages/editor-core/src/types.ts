@@ -217,7 +217,23 @@ export interface Extension {
   // Command registration
   commands?: Command[];
   
-  // Event handling
+  // Before hooks (intercept and modify)
+  onBeforeTransaction?(editor: Editor, transaction: Transaction): Transaction | null | void;
+  // - Transaction 반환: 수정된 transaction 사용
+  // - null 반환: transaction 취소
+  // - void: 그대로 진행
+  
+  onBeforeSelectionChange?(editor: Editor, selection: SelectionState): SelectionState | null | void;
+  // - Selection 반환: 다른 selection으로 교체
+  // - null 반환: selection 변경 취소
+  // - void: 그대로 진행
+  
+  onBeforeContentChange?(editor: Editor, content: DocumentState): DocumentState | null | void;
+  // - Content 반환: 다른 content로 교체
+  // - null 반환: content 변경 취소
+  // - void: 그대로 진행
+  
+  // Event handling (after hooks)
   onTransaction?(editor: Editor, transaction: Transaction): void;
   onSelectionChange?(editor: Editor, selection: SelectionState): void;
   onContentChange?(editor: Editor, content: DocumentState): void;

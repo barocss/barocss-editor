@@ -1,0 +1,207 @@
+{
+  "docusaurus-plugin-content-docs": {
+    "default": {
+      "path": "/docs",
+      "versions": [
+        {
+          "name": "current",
+          "label": "Next",
+          "isLast": true,
+          "path": "/docs",
+          "mainDocId": "introduction",
+          "docs": [
+            {
+              "id": "api/reference",
+              "path": "/docs/api/reference",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "architecture/collaboration",
+              "path": "/docs/architecture/collaboration",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "architecture/collaboration-liveblocks",
+              "path": "/docs/architecture/collaboration-liveblocks",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "architecture/collaboration-yjs",
+              "path": "/docs/architecture/collaboration-yjs",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "architecture/converter",
+              "path": "/docs/architecture/converter",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "architecture/datastore",
+              "path": "/docs/architecture/datastore",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "architecture/devtool",
+              "path": "/docs/architecture/devtool",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "architecture/dom-observer",
+              "path": "/docs/architecture/dom-observer",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "architecture/dsl",
+              "path": "/docs/architecture/dsl",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "architecture/editor-core",
+              "path": "/docs/architecture/editor-core",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "architecture/editor-view-dom",
+              "path": "/docs/architecture/editor-view-dom",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "architecture/extensions",
+              "path": "/docs/architecture/extensions",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "architecture/model",
+              "path": "/docs/architecture/model",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "architecture/overview",
+              "path": "/docs/architecture/overview",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "architecture/packages",
+              "path": "/docs/architecture/packages"
+            },
+            {
+              "id": "architecture/practical-examples",
+              "path": "/docs/architecture/practical-examples",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "architecture/renderer-dom",
+              "path": "/docs/architecture/renderer-dom",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "architecture/schema",
+              "path": "/docs/architecture/schema",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "architecture/shared",
+              "path": "/docs/architecture/shared",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "architecture/text-analyzer",
+              "path": "/docs/architecture/text-analyzer",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "basic-usage",
+              "path": "/docs/basic-usage",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "concepts/decorators",
+              "path": "/docs/concepts/decorators",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "concepts/dsl-templates",
+              "path": "/docs/concepts/dsl-templates",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "concepts/editor-core",
+              "path": "/docs/concepts/editor-core",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "concepts/editor-view-dom",
+              "path": "/docs/concepts/editor-view-dom",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "concepts/rendering",
+              "path": "/docs/concepts/rendering",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "concepts/schema-and-model",
+              "path": "/docs/concepts/schema-and-model",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "examples/basic-editor",
+              "path": "/docs/examples/basic-editor",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "examples/custom-extensions",
+              "path": "/docs/examples/custom-extensions",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "examples/decorators",
+              "path": "/docs/examples/decorators",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "guides/advanced-extensions",
+              "path": "/docs/guides/advanced-extensions",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "guides/custom-operations",
+              "path": "/docs/guides/custom-operations",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "guides/extension-design",
+              "path": "/docs/guides/extension-design",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "installation",
+              "path": "/docs/installation",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "introduction",
+              "path": "/docs/introduction",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "quick-start",
+              "path": "/docs/quick-start",
+              "sidebar": "tutorialSidebar"
+            }
+          ],
+          "draftIds": [],
+          "sidebars": {
+            "tutorialSidebar": {
+              "link": {
+                "path": "/docs/introduction",
+                "label": "introduction"
+              }
+            }
+          }
+        }
+      ],
+      "breadcrumbs": true
+    }
+  }
+}

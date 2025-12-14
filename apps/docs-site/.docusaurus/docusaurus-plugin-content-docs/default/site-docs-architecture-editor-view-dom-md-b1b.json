@@ -1,0 +1,24 @@
+{
+  "id": "architecture/editor-view-dom",
+  "title": "@barocss/editor-view-dom",
+  "description": "The Editor-View-DOM package provides the view layer that connects the Editor to the DOM. It handles user input, selection synchronization, and triggers rendering.",
+  "source": "@site/docs/architecture/editor-view-dom.md",
+  "sourceDirName": "architecture",
+  "slug": "/architecture/editor-view-dom",
+  "permalink": "/docs/architecture/editor-view-dom",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/architecture/editor-view-dom.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "@barocss/editor-core",
+    "permalink": "/docs/architecture/editor-core"
+  },
+  "next": {
+    "title": "@barocss/converter",
+    "permalink": "/docs/architecture/converter"
+  }
+}

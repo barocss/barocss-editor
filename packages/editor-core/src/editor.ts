@@ -205,23 +205,80 @@ export class Editor implements ContextProvider {
   }
 
   setContent(content: DocumentState): void {
-    this._document = this._convertFromDocumentState(content);
-    this.emit('editor:content.change', { content, transaction: null });
+    // Before hooks: Allow extensions to intercept and modify content
+    let finalContent = content;
+    const extensions = this.getSortedExtensions();
+    
+    for (const ext of extensions) {
+      if (ext.onBeforeContentChange) {
+        const result = ext.onBeforeContentChange(this, finalContent);
+        
+        // Check if cancelled
+        if (result === null) {
+          console.warn(`Content change cancelled by extension: ${ext.name}`);
+          return;
+        }
+        
+        // Use modified content if provided
+        if (result) {
+          finalContent = result;
+        }
+      }
+    }
+    
+    this._document = this._convertFromDocumentState(finalContent);
+    this.emit('editor:content.change', { content: finalContent, transaction: null });
+    
+    // After hooks
+    extensions.forEach(ext => {
+      ext.onContentChange?.(this, finalContent);
+    });
   }
 
   updateSelection(selection: SelectionState | any): void {
+    // Before hooks: Allow extensions to intercept and modify selection
+    let finalSelection = selection;
+    const extensions = this.getSortedExtensions();
+    
+    for (const ext of extensions) {
+      if (ext.onBeforeSelectionChange) {
+        const result = ext.onBeforeSelectionChange(this, finalSelection);
+        
+        // Check if cancelled
+        if (result === null) {
+          console.warn(`Selection change cancelled by extension: ${ext.name}`);
+          return;
+        }
+        
+        // Use modified selection if provided
+        if (result) {
+          finalSelection = result;
+        }
+      }
+    }
+    
     // ModelSelection format (type: 'range')
-    if (selection && selection.type === 'range') {
-      this._selectionManager.setSelection(selection);
+    if (finalSelection && finalSelection.type === 'range') {
+      this._selectionManager.setSelection(finalSelection);
       this._updateBuiltinContext();
       // View restores DOM selection after render()
-      this.emit('editor:selection.model', selection);
+      this.emit('editor:selection.model', finalSelection);
+      
+      // After hooks
+      extensions.forEach(ext => {
+        ext.onSelectionChange?.(this, finalSelection);
+      });
       return;
     }
     
     // SelectionState format (legacy behavior)
     this._updateBuiltinContext();
-    this.emit('editor:selection.change', { selection, oldSelection: this.selection });
+    this.emit('editor:selection.change', { selection: finalSelection, oldSelection: this.selection });
+    
+    // After hooks
+    extensions.forEach(ext => {
+      ext.onSelectionChange?.(this, finalSelection);
+    });
   }
 
   setContentEditableElement(element: HTMLElement): void {
@@ -473,8 +530,20 @@ export class Editor implements ContextProvider {
       this._extensions.delete(extension.name);
       this.emit('extension:remove', { extension });
     } catch (error) {
-      console.error(`Error uninstalling extension ${extension.name}:`, error);
+      console.error(`Error removing extension ${extension.name}:`, error);
+      throw error;
     }
+  }
+
+  /**
+   * Get extensions sorted by priority (lower values execute first)
+   */
+  getSortedExtensions(): Extension[] {
+    return Array.from(this._extensions.values()).sort((a, b) => {
+      const priorityA = a.priority ?? 100;
+      const priorityB = b.priority ?? 100;
+      return priorityA - priorityB;
+    });
   }
 
   registerCommand(command: Command): void {

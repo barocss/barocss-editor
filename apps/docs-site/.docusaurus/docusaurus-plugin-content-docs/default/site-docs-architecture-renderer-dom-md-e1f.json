@@ -1,0 +1,24 @@
+{
+  "id": "architecture/renderer-dom",
+  "title": "@barocss/renderer-dom",
+  "description": "The Renderer-DOM package provides DOM rendering from model using templates with efficient reconciliation. It converts your model data into DOM elements.",
+  "source": "@site/docs/architecture/renderer-dom.md",
+  "sourceDirName": "architecture",
+  "slug": "/architecture/renderer-dom",
+  "permalink": "/docs/architecture/renderer-dom",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/architecture/renderer-dom.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "@barocss/dsl",
+    "permalink": "/docs/architecture/dsl"
+  },
+  "next": {
+    "title": "@barocss/editor-core",
+    "permalink": "/docs/architecture/editor-core"
+  }
+}

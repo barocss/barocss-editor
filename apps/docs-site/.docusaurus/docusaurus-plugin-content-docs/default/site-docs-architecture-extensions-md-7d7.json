@@ -1,0 +1,24 @@
+{
+  "id": "architecture/extensions",
+  "title": "@barocss/extensions",
+  "description": "The Extensions package provides extension functionality for Barocss Editor. Extensions allow you to add new commands, keybindings, and features to the editor.",
+  "source": "@site/docs/architecture/extensions.md",
+  "sourceDirName": "architecture",
+  "slug": "/architecture/extensions",
+  "permalink": "/docs/architecture/extensions",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/architecture/extensions.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "@barocss/converter",
+    "permalink": "/docs/architecture/converter"
+  },
+  "next": {
+    "title": "@barocss/shared",
+    "permalink": "/docs/architecture/shared"
+  }
+}

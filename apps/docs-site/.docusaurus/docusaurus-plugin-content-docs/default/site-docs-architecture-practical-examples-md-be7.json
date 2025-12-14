@@ -1,0 +1,24 @@
+{
+  "id": "architecture/practical-examples",
+  "title": "Practical Examples",
+  "description": "This document shows how the different packages work together in real-world scenarios, demonstrating the complete architecture in action.",
+  "source": "@site/docs/architecture/practical-examples.md",
+  "sourceDirName": "architecture",
+  "slug": "/architecture/practical-examples",
+  "permalink": "/docs/architecture/practical-examples",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/architecture/practical-examples.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "@barocss/devtool",
+    "permalink": "/docs/architecture/devtool"
+  },
+  "next": {
+    "title": "Extension Design Guide",
+    "permalink": "/docs/guides/extension-design"
+  }
+}

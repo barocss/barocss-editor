@@ -1,0 +1,24 @@
+{
+  "id": "architecture/dom-observer",
+  "title": "@barocss/dom-observer",
+  "description": "DOM mutation observer with text change detection and collaborative editing support.",
+  "source": "@site/docs/architecture/dom-observer.md",
+  "sourceDirName": "architecture",
+  "slug": "/architecture/dom-observer",
+  "permalink": "/docs/architecture/dom-observer",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/architecture/dom-observer.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "@barocss/collaboration-liveblocks",
+    "permalink": "/docs/architecture/collaboration-liveblocks"
+  },
+  "next": {
+    "title": "@barocss/devtool",
+    "permalink": "/docs/architecture/devtool"
+  }
+}

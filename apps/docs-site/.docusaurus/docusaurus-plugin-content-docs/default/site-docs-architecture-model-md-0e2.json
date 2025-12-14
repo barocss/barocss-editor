@@ -1,0 +1,24 @@
+{
+  "id": "architecture/model",
+  "title": "@barocss/model",
+  "description": "The Model package provides high-level model operations and a transaction DSL for editing operations. It's the abstraction layer over DataStore operations.",
+  "source": "@site/docs/architecture/model.md",
+  "sourceDirName": "architecture",
+  "slug": "/architecture/model",
+  "permalink": "/docs/architecture/model",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/architecture/model.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "@barocss/datastore",
+    "permalink": "/docs/architecture/datastore"
+  },
+  "next": {
+    "title": "@barocss/dsl",
+    "permalink": "/docs/architecture/dsl"
+  }
+}

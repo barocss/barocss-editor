@@ -1,0 +1,24 @@
+{
+  "id": "architecture/collaboration-liveblocks",
+  "title": "@barocss/collaboration-liveblocks",
+  "description": "Liveblocks adapter for Barocss Editor collaboration.",
+  "source": "@site/docs/architecture/collaboration-liveblocks.md",
+  "sourceDirName": "architecture",
+  "slug": "/architecture/collaboration-liveblocks",
+  "permalink": "/docs/architecture/collaboration-liveblocks",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/architecture/collaboration-liveblocks.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "@barocss/collaboration-yjs",
+    "permalink": "/docs/architecture/collaboration-yjs"
+  },
+  "next": {
+    "title": "@barocss/dom-observer",
+    "permalink": "/docs/architecture/dom-observer"
+  }
+}

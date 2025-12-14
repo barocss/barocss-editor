@@ -1,0 +1,15 @@
+{
+  "id": "architecture/packages",
+  "title": "Package Overview",
+  "description": "This document provides an overview of all Barocss Editor packages. For detailed information about each package, see the individual package documentation in the Packages section.",
+  "source": "@site/docs/architecture/packages.md",
+  "sourceDirName": "architecture",
+  "slug": "/architecture/packages",
+  "permalink": "/docs/architecture/packages",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/architecture/packages.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {}
+}

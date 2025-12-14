@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document explains the relationships and separation of responsibilities between `@barocss/dsl`, `@barocss/vnode`, and `@barocss/renderer-dom` packages in the new architecture.
+This document explains the relationships and separation of responsibilities between `@barocss/dsl` and `@barocss/renderer-dom` packages in the new architecture.
 
 ## Core Architecture Principles
 
@@ -60,9 +60,9 @@ define('button', (props, context) => {
 - **Secondary mapping (update)**: Remap with external Model data (`props`, `model`)
 - Component must be able to handle both internal state and external data
 
-### 2. `@barocss/vnode` - ~~Virtual Node Types & Utilities~~ (Integrated into renderer-dom)
+### 2. VNode (Integrated into `@barocss/renderer-dom`)
 
-**Role:** (Moved inside renderer-dom package)
+**Role:** (Part of renderer-dom package)
 - VNode type definitions
 - VNode-related utility functions
 - Decorator types and processing logic
@@ -358,9 +358,9 @@ const vnode = domRenderer.build(model, decorators);
 - `editor-view-dom` → `renderer-dom`
 
 **Changes:**
-- ~~`@barocss/vnode` package removed~~ (Integrated into renderer-dom)
+- VNode functionality integrated into `renderer-dom`
 - VNode types/utilities exported from `renderer-dom`
-- VNodeBuilder moved to `renderer-dom` internal module
+- VNodeBuilder is part of `renderer-dom` internal module
 
 ## API Usage Examples
 
