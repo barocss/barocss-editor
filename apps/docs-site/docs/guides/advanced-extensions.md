@@ -8,7 +8,8 @@ This guide covers advanced patterns for building complex extensions, including m
 2. [Command Chaining](#command-chaining)
 3. [Extension Options](#extension-options)
 4. [Integration Patterns](#integration-patterns)
-5. [Extension Lifecycle](#extension-lifecycle)
+5. [Before Hooks (Intercepting Changes)](#before-hooks-intercepting-changes)
+6. [Extension Lifecycle](#extension-lifecycle)
 
 ---
 
@@ -277,48 +278,380 @@ export class ContextAwareExtension implements Extension {
 
 ### Using Editor Events
 
-Extensions can listen to editor events:
+**Important:** Only core model changes (Transaction, Selection, Content) are provided as hooks. For all other changes, use `editor.on()` events.
+
+Extensions can listen to editor events for non-core changes:
 
 ```typescript
 export class EventListenerExtension implements Extension {
   name = 'event-listener';
+  private _cleanup: (() => void)[] = [];
   
   onCreate(editor: Editor): void {
-    // Listen to editor events
-    editor.on('editor:content.change', (data: any) => {
-      console.log('Content changed:', data);
-      // React to content changes
-    });
+    // Node events (not available as hooks)
+    const nodeCreateHandler = (data: any) => {
+      console.log('Node created:', data.node);
+    };
+    editor.on('editor:node.create', nodeCreateHandler);
+    this._cleanup.push(() => editor.off('editor:node.create', nodeCreateHandler));
     
-    editor.on('editor:selection.change', (data: any) => {
-      console.log('Selection changed:', data);
-      // React to selection changes
-    });
+    // Command events (not available as hooks)
+    const commandHandler = (data: any) => {
+      console.log('Command executed:', data.command);
+    };
+    editor.on('editor:command.execute', commandHandler);
+    this._cleanup.push(() => editor.off('editor:command.execute', commandHandler));
     
-    // Register commands
-    editor.registerCommand({
-      name: 'myCommand',
-      execute: (editor: Editor) => {
-        // Command implementation
-        return true;
-      }
+    // History events (not available as hooks)
+    const historyHandler = (data: any) => {
+      console.log('History changed:', data.canUndo, data.canRedo);
+    };
+    editor.on('editor:history.change', historyHandler);
+    this._cleanup.push(() => editor.off('editor:history.change', historyHandler));
+    
+    // Alternative: Use events for core model changes (more flexible, less type-safe)
+    const contentHandler = (data: any) => {
+      console.log('Content changed:', data.content);
+    };
+    editor.on('editor:content.change', contentHandler);
+    this._cleanup.push(() => editor.off('editor:content.change', contentHandler));
+    
+    // Custom events
+    editor.on('plugin:myPlugin.action', (data: any) => {
+      console.log('Custom event:', data);
     });
   }
   
-  onDestroy(editor: Editor): void {
-    // Cleanup: Remove event listeners if needed
-    // Note: Editor handles cleanup automatically
+  onDestroy(_editor: Editor): void {
+    // Cleanup event listeners
+    this._cleanup.forEach(cleanup => cleanup());
+    this._cleanup = [];
   }
 }
 ```
 
 **Available events:**
-- `editor:content.change` - Document content changed
-- `editor:selection.change` - Selection changed
-- `editor:command.execute` - Command executed
-- `editor:history.change` - History state changed
-- `extension:add` - Extension added
-- `extension:remove` - Extension removed
+- **Core model changes** (also available as hooks):
+  - `editor:content.change` - Document content changed
+  - `editor:selection.change` - Selection changed
+  
+- **Other changes** (events only):
+  - `editor:node.create` - Node created
+  - `editor:node.update` - Node updated
+  - `editor:node.delete` - Node deleted
+  - `editor:command.execute` - Command executed
+  - `editor:command.before` - Before command execution
+  - `editor:command.after` - After command execution
+  - `editor:history.change` - History state changed
+  - `editor:history.undo` - Undo performed
+  - `editor:history.redo` - Redo performed
+  - `editor:editable.change` - Editable state changed
+  - `editor:selection.focus` - Selection focused
+  - `editor:selection.blur` - Selection blurred
+  - `error:selection` - Selection error
+  - `error:command` - Command error
+  - `error:extension` - Extension error
+  - `extension:add` - Extension added
+  - `extension:remove` - Extension removed
+  - `plugin:${string}` - Custom plugin events
+  - `user:${string}` - Custom user events
+
+---
+
+## Before Hooks (Intercepting Changes)
+
+Before hooks allow extensions to **intercept and modify** transactions, selections, and content changes **before** they are applied. This enables powerful features like read-only enforcement, content sanitization, auto-formatting, and more.
+
+### onBeforeTransaction
+
+Intercept and modify transactions before they are committed:
+
+```typescript
+export class ReadOnlyExtension implements Extension {
+  name = 'readOnly';
+  priority = 10; // High priority (executes first)
+  
+  onCreate(editor: Editor): void {
+    editor.setContext('readOnly', true);
+  }
+  
+  onBeforeTransaction(
+    editor: Editor, 
+    transaction: Transaction
+  ): Transaction | null {
+    // Cancel transaction if read-only
+    if (editor.getContext('readOnly')) {
+      return null; // Cancel transaction
+    }
+    return transaction; // Allow to proceed
+  }
+}
+```
+
+**Return values:**
+- `Transaction` - Use modified transaction (operations can be changed)
+- `null` - Cancel transaction
+- `void` - Proceed with original transaction
+
+### onBeforeSelectionChange
+
+Intercept and modify selection changes:
+
+```typescript
+export class SelectionNormalizeExtension implements Extension {
+  name = 'selectionNormalize';
+  priority = 20;
+  
+  onBeforeSelectionChange(
+    editor: Editor,
+    selection: SelectionState
+  ): SelectionState | null {
+    // Normalize selection to block boundaries
+    const normalized = this._normalizeToBlock(editor, selection);
+    
+    if (normalized.startNodeId !== selection.startNodeId) {
+      return normalized; // Use normalized selection
+    }
+    
+    return selection; // Proceed with original
+  }
+  
+  private _normalizeToBlock(
+    editor: Editor,
+    selection: SelectionState
+  ): SelectionState {
+    // Normalization logic
+    // ...
+    return selection;
+  }
+}
+```
+
+### onBeforeContentChange
+
+Intercept and modify content changes:
+
+```typescript
+export class ContentSanitizeExtension implements Extension {
+  name = 'contentSanitize';
+  priority = 5; // Very high priority
+  
+  onBeforeContentChange(
+    editor: Editor,
+    content: DocumentState
+  ): DocumentState | null {
+    // Sanitize content (remove malicious code, etc.)
+    const sanitized = this._sanitize(content);
+    
+    if (sanitized !== content) {
+      return sanitized; // Use sanitized content
+    }
+    
+    return content; // Proceed with original
+  }
+  
+  private _sanitize(content: DocumentState): DocumentState {
+    // Sanitization logic
+    // ...
+    return content;
+  }
+}
+```
+
+### Complete Example: Auto-Format Extension
+
+```typescript
+export class AutoFormatExtension implements Extension {
+  name = 'autoFormat';
+  priority = 50;
+  
+  onBeforeTransaction(
+    editor: Editor,
+    transaction: Transaction
+  ): Transaction | null {
+    const newOps: TransactionOperation[] = [];
+    
+    for (const op of transaction.operations) {
+      if (op.type === 'insertText') {
+        // Auto-format URLs to links
+        const urlMatch = op.payload?.text?.match(/https?:\/\/[^\s]+/);
+        if (urlMatch) {
+          // Add link mark
+          newOps.push(op);
+          newOps.push({
+            type: 'addMark',
+            payload: {
+              nodeId: op.payload.nodeId,
+              mark: { type: 'link', attrs: { href: urlMatch[0] } },
+              range: [op.payload.offset, op.payload.offset + urlMatch[0].length]
+            }
+          });
+          continue;
+        }
+      }
+      newOps.push(op);
+    }
+    
+    // Return modified transaction if changed
+    if (newOps.length !== transaction.operations.length) {
+      return {
+        ...transaction,
+        operations: newOps
+      };
+    }
+    
+    return transaction;
+  }
+}
+```
+
+### Extension Priority
+
+Extensions are executed in **priority order** (lower values execute first):
+
+```typescript
+export class ExtensionA implements Extension {
+  name = 'extensionA';
+  priority = 10; // Executes first
+}
+
+export class ExtensionB implements Extension {
+  name = 'extensionB';
+  priority = 20; // Executes after ExtensionA
+}
+
+export class ExtensionC implements Extension {
+  name = 'extensionC';
+  // No priority = defaults to 100 (executes last)
+}
+```
+
+**Execution flow:**
+1. Extension A's `onBeforeTransaction` is called
+2. Extension B receives the result from Extension A
+3. Extension C receives the result from Extension B
+4. If any extension returns `null`, transaction is cancelled
+
+### Use Cases
+
+**1. Read-Only Enforcement**
+```typescript
+onBeforeTransaction(editor, transaction) {
+  if (editor.getContext('readOnly')) {
+    return null; // Cancel all transactions
+  }
+  return transaction;
+}
+```
+
+**2. Content Sanitization**
+```typescript
+onBeforeTransaction(editor, transaction) {
+  const sanitized = sanitizeOperations(transaction.operations);
+  return { ...transaction, operations: sanitized };
+}
+```
+
+**3. Auto-Formatting**
+```typescript
+onBeforeTransaction(editor, transaction) {
+  const formatted = autoFormatOperations(transaction.operations);
+  return { ...transaction, operations: formatted };
+}
+```
+
+**4. Change Tracking**
+```typescript
+onBeforeTransaction(editor, transaction) {
+  // Add metadata
+  return {
+    ...transaction,
+    metadata: {
+      ...transaction.metadata,
+      userId: this.userId,
+      timestamp: Date.now()
+    }
+  };
+}
+```
+
+**5. Collaborative Editing Protection**
+```typescript
+onBeforeTransaction(editor, transaction) {
+  // Block external changes to active node
+  if (this.activeNodeId && affectsNode(transaction, this.activeNodeId)) {
+    return null; // Cancel
+  }
+  return transaction;
+}
+```
+
+### After Hooks
+
+After hooks are called **after** changes are applied (for notification only):
+
+```typescript
+export class LoggingExtension implements Extension {
+  name = 'logging';
+  
+  // Called after transaction is committed
+  onTransaction(editor: Editor, transaction: Transaction): void {
+    console.log('Transaction committed:', transaction.sid);
+  }
+  
+  // Called after selection changes
+  onSelectionChange(editor: Editor, selection: SelectionState): void {
+    console.log('Selection changed:', selection);
+  }
+  
+  // Called after content changes
+  onContentChange(editor: Editor, content: DocumentState): void {
+    console.log('Content changed');
+  }
+}
+```
+
+**Note:** After hooks cannot modify or cancel changes - they are for notification only.
+
+**Alternative:** You can also use events instead of after hooks for more flexibility:
+
+```typescript
+export class LoggingExtension implements Extension {
+  onCreate(editor: Editor): void {
+    // Use events instead of after hooks
+    editor.on('editor:content.change', (data) => {
+      console.log('Content changed:', data.content);
+    });
+    
+    editor.on('editor:selection.change', (data) => {
+      console.log('Selection changed:', data.selection);
+    });
+  }
+}
+```
+
+### When to Use Hooks vs Events
+
+**Use Hooks for:**
+- ✅ **Before hooks**: When you need to intercept/modify (Transaction, Selection, Content)
+- ✅ **After hooks**: When you need type safety for core model changes
+
+**Use Events for:**
+- ✅ **Everything else**: Node changes, Command execution, History, Errors, etc.
+- ✅ **Custom events**: Plugin-specific or user-defined events
+
+**Core Model Changes (Hooks):**
+- Transaction
+- Selection
+- Content
+
+**Other Changes (Events):**
+- Node create/update/delete
+- Command execute
+- History change
+- Editable change
+- Errors
+- Extension lifecycle
 
 ---
 
@@ -614,3 +947,9 @@ onDestroy(editor: Editor): void {
 - [Custom Operations Guide](./custom-operations) - Creating custom operations
 - [Core Concepts: Editor Core](../concepts/editor-core) - Editor core concepts
 - [Architecture: Extensions](../architecture/extensions) - Extension package details
+
+## Additional Resources
+
+For more detailed use cases and safety analysis of Before hooks, see:
+- [Before Hooks Use Cases](./before-hooks-use-cases) - Comprehensive use case examples
+- [Before Hooks Safety Analysis](./before-hooks-safety-analysis) - Safety and implementation details

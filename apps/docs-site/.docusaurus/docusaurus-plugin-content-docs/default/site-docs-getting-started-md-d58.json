@@ -1,7 +1,7 @@
 {
   "id": "getting-started",
   "title": "Getting Started",
-  "description": "Welcome to Barocss Editor! This guide will help you get started.",
+  "description": "Use this page as the entry point into the Barocss Editor documentation.",
   "source": "@site/docs/getting-started.md",
   "sourceDirName": ".",
   "slug": "/getting-started",
@@ -11,5 +11,9 @@
   "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/getting-started.md",
   "tags": [],
   "version": "current",
-  "frontMatter": {}
+  "frontMatter": {
+    "id": "getting-started",
+    "title": "Getting Started",
+    "sidebar_label": "Getting Started"
+  }
 }

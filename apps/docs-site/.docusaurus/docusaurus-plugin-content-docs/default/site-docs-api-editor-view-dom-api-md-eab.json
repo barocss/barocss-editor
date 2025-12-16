@@ -1,0 +1,24 @@
+{
+  "id": "api/editor-view-dom-api",
+  "title": "Editor View DOM API",
+  "description": "The Editor View DOM API provides the EditorViewDOM class that connects the Editor to the DOM, handling rendering, event handling, and decorator management.",
+  "source": "@site/docs/api/editor-view-dom-api.md",
+  "sourceDirName": "api",
+  "slug": "/api/editor-view-dom-api",
+  "permalink": "/docs/api/editor-view-dom-api",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/api/editor-view-dom-api.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Editor Core API",
+    "permalink": "/docs/api/editor-core-api"
+  },
+  "next": {
+    "title": "DSL API",
+    "permalink": "/docs/api/dsl-api"
+  }
+}

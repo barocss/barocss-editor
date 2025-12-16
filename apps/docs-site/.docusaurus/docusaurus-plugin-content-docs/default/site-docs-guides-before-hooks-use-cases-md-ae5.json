@@ -1,0 +1,15 @@
+{
+  "id": "guides/before-hooks-use-cases",
+  "title": "Before Hooks 사용 사례 분석",
+  "description": "개요",
+  "source": "@site/docs/guides/before-hooks-use-cases.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/before-hooks-use-cases",
+  "permalink": "/docs/guides/before-hooks-use-cases",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/guides/before-hooks-use-cases.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {}
+}

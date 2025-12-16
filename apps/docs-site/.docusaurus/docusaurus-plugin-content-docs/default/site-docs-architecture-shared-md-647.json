@@ -11,14 +11,5 @@
   "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/architecture/shared.md",
   "tags": [],
   "version": "current",
-  "frontMatter": {},
-  "sidebar": "tutorialSidebar",
-  "previous": {
-    "title": "@barocss/extensions",
-    "permalink": "/docs/architecture/extensions"
-  },
-  "next": {
-    "title": "@barocss/text-analyzer",
-    "permalink": "/docs/architecture/text-analyzer"
-  }
+  "frontMatter": {}
 }

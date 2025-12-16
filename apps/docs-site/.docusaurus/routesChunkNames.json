@@ -42,22 +42,82 @@
       "plugin": "plugin---docusaurus-debugb-38-ad3"
     }
   },
-  "/docs-51c": {
+  "/docs-040": {
     "__comp": "__comp---theme-docs-root-5-e-9-0b6",
     "__context": {
       "plugin": "plugin---docsaba-d7c"
     }
   },
-  "/docs-818": {
+  "/docs-286": {
     "__comp": "__comp---theme-doc-version-roota-7-b-5de",
     "__props": "__props---docs-005-788"
   },
-  "/docs-794": {
+  "/docs-e5e": {
     "__comp": "__comp---theme-doc-roota-94-67a"
+  },
+  "/docs/api/collaboration-api-f11": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-api-collaboration-apicdd-67f"
+  },
+  "/docs/api/converter-api-3a5": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-api-converter-apicdf-3f4"
+  },
+  "/docs/api/datastore-api-8e7": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-api-datastore-api-4-c-5-4ae"
+  },
+  "/docs/api/datastore-operations-785": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-api-datastore-operations-3-bd-232"
+  },
+  "/docs/api/dsl-api-e0b": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-api-dsl-api-2-dd-cf7"
+  },
+  "/docs/api/editor-core-api-887": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-api-editor-core-apief-5-e71"
+  },
+  "/docs/api/editor-view-dom-api-900": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-api-editor-view-dom-apieab-2db"
+  },
+  "/docs/api/extensions-api-0af": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-api-extensions-api-9-d-8-c8a"
+  },
+  "/docs/api/model-api-74a": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-api-model-api-4-da-cbb"
+  },
+  "/docs/api/model-operation-dsl-00a": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-api-model-operation-dsl-3-cf-073"
+  },
+  "/docs/api/model-operations-653": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-api-model-operations-119-55e"
+  },
+  "/docs/api/operation-selection-guide-397": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-api-operation-selection-guide-43-f-bc6"
+  },
+  "/docs/api/operations-overview-432": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-api-operations-overview-66-a-fb4"
   },
   "/docs/api/reference-a17": {
     "__comp": "__comp---theme-doc-item-178-a40",
     "content": "content---docs-api-reference-47-b-47e"
+  },
+  "/docs/api/renderer-dom-api-ef2": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-api-renderer-dom-api-3-a-5-f4d"
+  },
+  "/docs/api/schema-api-d74": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-api-schema-apie-60-0d6"
   },
   "/docs/architecture/collaboration-007": {
     "__comp": "__comp---theme-doc-item-178-a40",
@@ -83,7 +143,7 @@
     "__comp": "__comp---theme-doc-item-178-a40",
     "content": "content---docs-architecture-devtool-094-1bf"
   },
-  "/docs/architecture/dom-observer-1e2": {
+  "/docs/architecture/dom-observer-d7e": {
     "__comp": "__comp---theme-doc-item-178-a40",
     "content": "content---docs-architecture-dom-observerbdc-205"
   },
@@ -127,7 +187,7 @@
     "__comp": "__comp---theme-doc-item-178-a40",
     "content": "content---docs-architecture-schema-9-a-6-4c9"
   },
-  "/docs/architecture/shared-c6d": {
+  "/docs/architecture/shared-4c4": {
     "__comp": "__comp---theme-doc-item-178-a40",
     "content": "content---docs-architecture-shared-647-ff8"
   },
@@ -175,13 +235,29 @@
     "__comp": "__comp---theme-doc-item-178-a40",
     "content": "content---docs-examples-decorators-01-f-0af"
   },
+  "/docs/getting-started-eba": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-getting-startedd-58-f94"
+  },
   "/docs/guides/advanced-extensions-ae4": {
     "__comp": "__comp---theme-doc-item-178-a40",
     "content": "content---docs-guides-advanced-extensionsab-4-970"
   },
+  "/docs/guides/before-hooks-safety-analysis-a5f": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-guides-before-hooks-safety-analysisb-94-4c7"
+  },
+  "/docs/guides/before-hooks-use-cases-8c5": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-guides-before-hooks-use-casesae-5-397"
+  },
   "/docs/guides/custom-operations-787": {
     "__comp": "__comp---theme-doc-item-178-a40",
     "content": "content---docs-guides-custom-operations-8-ca-d5e"
+  },
+  "/docs/guides/decorator-guide-4b2": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-guides-decorator-guided-94-274"
   },
   "/docs/guides/extension-design-bb1": {
     "__comp": "__comp---theme-doc-item-178-a40",

@@ -11,8 +11,83 @@
           "mainDocId": "introduction",
           "docs": [
             {
+              "id": "api/collaboration-api",
+              "path": "/docs/api/collaboration-api",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "api/converter-api",
+              "path": "/docs/api/converter-api",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "api/datastore-api",
+              "path": "/docs/api/datastore-api",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "api/datastore-operations",
+              "path": "/docs/api/datastore-operations",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "api/dsl-api",
+              "path": "/docs/api/dsl-api",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "api/editor-core-api",
+              "path": "/docs/api/editor-core-api",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "api/editor-view-dom-api",
+              "path": "/docs/api/editor-view-dom-api",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "api/extensions-api",
+              "path": "/docs/api/extensions-api",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "api/model-api",
+              "path": "/docs/api/model-api",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "api/model-operation-dsl",
+              "path": "/docs/api/model-operation-dsl",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "api/model-operations",
+              "path": "/docs/api/model-operations",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "api/operation-selection-guide",
+              "path": "/docs/api/operation-selection-guide",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "api/operations-overview",
+              "path": "/docs/api/operations-overview",
+              "sidebar": "tutorialSidebar"
+            },
+            {
               "id": "api/reference",
               "path": "/docs/api/reference",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "api/renderer-dom-api",
+              "path": "/docs/api/renderer-dom-api",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "api/schema-api",
+              "path": "/docs/api/schema-api",
               "sidebar": "tutorialSidebar"
             },
             {
@@ -47,8 +122,7 @@
             },
             {
               "id": "architecture/dom-observer",
-              "path": "/docs/architecture/dom-observer",
-              "sidebar": "tutorialSidebar"
+              "path": "/docs/architecture/dom-observer"
             },
             {
               "id": "architecture/dsl",
@@ -101,8 +175,7 @@
             },
             {
               "id": "architecture/shared",
-              "path": "/docs/architecture/shared",
-              "sidebar": "tutorialSidebar"
+              "path": "/docs/architecture/shared"
             },
             {
               "id": "architecture/text-analyzer",
@@ -160,14 +233,30 @@
               "sidebar": "tutorialSidebar"
             },
             {
+              "id": "getting-started",
+              "path": "/docs/getting-started"
+            },
+            {
               "id": "guides/advanced-extensions",
               "path": "/docs/guides/advanced-extensions",
               "sidebar": "tutorialSidebar"
             },
             {
+              "id": "guides/before-hooks-safety-analysis",
+              "path": "/docs/guides/before-hooks-safety-analysis"
+            },
+            {
+              "id": "guides/before-hooks-use-cases",
+              "path": "/docs/guides/before-hooks-use-cases"
+            },
+            {
               "id": "guides/custom-operations",
               "path": "/docs/guides/custom-operations",
               "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "guides/decorator-guide",
+              "path": "/docs/guides/decorator-guide"
             },
             {
               "id": "guides/extension-design",

@@ -14,8 +14,8 @@
   "frontMatter": {},
   "sidebar": "tutorialSidebar",
   "previous": {
-    "title": "@barocss/shared",
-    "permalink": "/docs/architecture/shared"
+    "title": "@barocss/extensions",
+    "permalink": "/docs/architecture/extensions"
   },
   "next": {
     "title": "@barocss/collaboration",

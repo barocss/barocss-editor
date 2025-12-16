@@ -1,0 +1,24 @@
+{
+  "id": "api/renderer-dom-api",
+  "title": "Renderer DOM API",
+  "description": "The Renderer DOM API provides the rendering layer that converts models to DOM using VNode reconciliation.",
+  "source": "@site/docs/api/renderer-dom-api.md",
+  "sourceDirName": "api",
+  "slug": "/api/renderer-dom-api",
+  "permalink": "/docs/api/renderer-dom-api",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/api/renderer-dom-api.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "DataStore API",
+    "permalink": "/docs/api/datastore-api"
+  },
+  "next": {
+    "title": "Converter API",
+    "permalink": "/docs/api/converter-api"
+  }
+}

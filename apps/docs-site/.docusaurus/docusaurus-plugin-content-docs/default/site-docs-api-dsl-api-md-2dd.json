@@ -1,0 +1,24 @@
+{
+  "id": "api/dsl-api",
+  "title": "DSL API",
+  "description": "The DSL (Domain-Specific Language) API provides declarative template functions for building UI components. All templates defined with define() are automatically converted to components.",
+  "source": "@site/docs/api/dsl-api.md",
+  "sourceDirName": "api",
+  "slug": "/api/dsl-api",
+  "permalink": "/docs/api/dsl-api",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/api/dsl-api.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Editor View DOM API",
+    "permalink": "/docs/api/editor-view-dom-api"
+  },
+  "next": {
+    "title": "Schema API",
+    "permalink": "/docs/api/schema-api"
+  }
+}

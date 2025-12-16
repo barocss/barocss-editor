@@ -18,7 +18,7 @@
     "permalink": "/docs/architecture/converter"
   },
   "next": {
-    "title": "@barocss/shared",
-    "permalink": "/docs/architecture/shared"
+    "title": "@barocss/text-analyzer",
+    "permalink": "/docs/architecture/text-analyzer"
   }
 }

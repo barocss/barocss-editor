@@ -4,17 +4,17 @@ import type * as Preset from '@docusaurus/preset-classic';
 import TsconfigPathsPlugin from 'tsconfig-paths-webpack-plugin';
 import path from 'path';
 
+const isProd = process.env.NODE_ENV === 'production';
+
 const config: Config = {
   title: 'Barocss Editor',
   tagline: 'A powerful document editor with DSL-based rendering',
   favicon: 'img/favicon.ico',
 
-  // Set the production url of your site here
-  url: 'https://barocss.github.io',
-  // Set the /<baseUrl>/ pathname under which your site is served
-  // For GitHub pages. If you don't have a custom domain, use /<projectName>/
-  // Local development: use '/', GitHub Pages: use '/barocss-editor/'
-  baseUrl: process.env.NODE_ENV === 'production' ? '/barocss-editor/' : '/',
+  // Site URL: use custom domain in production, localhost in development
+  url: isProd ? 'https://editor.barocss.com' : 'http://localhost:3000',
+  // Pathname under which the site is served. With a custom domain, this is always '/'.
+  baseUrl: '/',
 
   // GitHub pages deployment config.
   organizationName: 'barocss',
@@ -24,6 +24,9 @@ const config: Config = {
   markdown: {
     mermaid: true,
   },
+
+  // Mermaid theme for diagram rendering
+  themes: ['@docusaurus/theme-mermaid'],
 
   // Even if you don't use internationalization, you can use this field to set
   // useful metadata like html lang.
@@ -102,7 +105,7 @@ const config: Config = {
             },
             {
               label: 'API Reference',
-              to: '/docs/api',
+              to: '/docs/api/reference',
             },
           ],
         },

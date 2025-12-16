@@ -1,0 +1,22 @@
+{
+  "id": "api/collaboration-api",
+  "title": "Collaboration API",
+  "description": "Core interfaces for building and using collaboration adapters, plus base behaviors shared by Yjs/Liveblocks adapters.",
+  "source": "@site/docs/api/collaboration-api.md",
+  "sourceDirName": "api",
+  "slug": "/api/collaboration-api",
+  "permalink": "/docs/api/collaboration-api",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/api/collaboration-api.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {
+    "title": "Collaboration API"
+  },
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Extensions API",
+    "permalink": "/docs/api/extensions-api"
+  }
+}

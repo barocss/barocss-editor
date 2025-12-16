@@ -185,10 +185,22 @@ export class Editor implements ContextProvider {
         return false;
       }
 
+      // Emit before event
+      this.emit('editor:command.before', { command, payload });
+      
+      // Call before hook (Command 내부 메서드)
       commandDef.before?.(this, payload);
+      
+      // Execute command
       const result = await commandDef.execute(this, payload);
+      
+      // Call after hook (Command 내부 메서드)
       commandDef.after?.(this, payload);
-
+      
+      // Emit after event
+      this.emit('editor:command.after', { command, payload, success: result });
+      
+      // Emit execute event
       this.emit('editor:command.execute', { command, payload, success: result });
       return result;
     } catch (error) {

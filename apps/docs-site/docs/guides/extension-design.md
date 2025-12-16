@@ -31,12 +31,29 @@ interface Extension {
   name: string;              // Unique extension identifier
   priority?: number;         // Execution priority (lower = earlier)
   
+  // Lifecycle
   onCreate?(editor: Editor): void;    // Called when editor is created
   onDestroy?(editor: Editor): void;   // Called when editor is destroyed
   
+  // Command registration
   commands?: Command[];      // Commands provided by this extension
+  
+  // Before hooks (intercept and modify core model changes)
+  // Only core model changes (Transaction, Selection, Content) are provided as hooks.
+  // Other changes should use editor.on() events.
+  onBeforeTransaction?(editor: Editor, transaction: Transaction): Transaction | null | void;
+  onBeforeSelectionChange?(editor: Editor, selection: SelectionState): SelectionState | null | void;
+  onBeforeContentChange?(editor: Editor, content: DocumentState): DocumentState | null | void;
+  
+  // After hooks (notification for core model changes)
+  // For type safety. Alternatively, you can use editor.on() events.
+  onTransaction?(editor: Editor, transaction: Transaction): void;
+  onSelectionChange?(editor: Editor, selection: SelectionState): void;
+  onContentChange?(editor: Editor, content: DocumentState): void;
 }
 ```
+
+**Note:** Only core model changes (Transaction, Selection, Content) are provided as hooks. For other changes (Node, Command, History, etc.), use `editor.on()` events.
 
 ### Extension Lifecycle
 

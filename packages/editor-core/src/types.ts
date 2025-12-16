@@ -217,7 +217,9 @@ export interface Extension {
   // Command registration
   commands?: Command[];
   
-  // Before hooks (intercept and modify)
+  // Before hooks (intercept and modify core model changes)
+  // Only core model changes (Transaction, Selection, Content) are provided as hooks.
+  // Other changes (Node, Command, History, etc.) should use editor.on() events.
   onBeforeTransaction?(editor: Editor, transaction: Transaction): Transaction | null | void;
   // - Transaction 반환: 수정된 transaction 사용
   // - null 반환: transaction 취소
@@ -233,7 +235,8 @@ export interface Extension {
   // - null 반환: content 변경 취소
   // - void: 그대로 진행
   
-  // Event handling (after hooks)
+  // After hooks (notification for core model changes)
+  // For type safety. Alternatively, you can use editor.on() events for more flexibility.
   onTransaction?(editor: Editor, transaction: Transaction): void;
   onSelectionChange?(editor: Editor, selection: SelectionState): void;
   onContentChange?(editor: Editor, content: DocumentState): void;

@@ -1,0 +1,24 @@
+{
+  "id": "api/model-operations",
+  "title": "Model Operations API",
+  "description": "Model operations are business logic implementations that use DataStore operations. They handle selection mapping, inverse operations for undo/redo, and transaction context.",
+  "source": "@site/docs/api/model-operations.md",
+  "sourceDirName": "api",
+  "slug": "/api/model-operations",
+  "permalink": "/docs/api/model-operations",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/api/model-operations.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "DataStore Operations API",
+    "permalink": "/docs/api/datastore-operations"
+  },
+  "next": {
+    "title": "Model Operation DSL API",
+    "permalink": "/docs/api/model-operation-dsl"
+  }
+}

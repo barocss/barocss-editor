@@ -1,0 +1,15 @@
+{
+  "id": "guides/before-hooks-safety-analysis",
+  "title": "Before Hooks 안전성 분석",
+  "description": "현재 Transaction 구조",
+  "source": "@site/docs/guides/before-hooks-safety-analysis.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/before-hooks-safety-analysis",
+  "permalink": "/docs/guides/before-hooks-safety-analysis",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/guides/before-hooks-safety-analysis.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {}
+}

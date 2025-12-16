@@ -2165,11 +2165,7 @@ export class VNodeBuilder {
           const absStart = (markRun.start ?? 0) + (decoratorRun.start ?? 0);
           const absEnd = (markRun.start ?? 0) + (decoratorRun.end ?? decoratorRun.start ?? 0);
           if (selCtx.modelOffset >= absStart && selCtx.modelOffset < absEnd) {
-            // Do not expose as DOM attribute, only mark in VNode meta
-            (inner as any).meta = (inner as any).meta || {};
-            (inner as any).meta.isSelectionRun = true;
-            (inner as any).meta.selectionAnchorOffset = selCtx.modelOffset - absStart;
-            (inner as any).meta.selectionAbsStart = absStart;
+            // NOTE: selection anchoring meta was unused downstream; keep node creation unchanged
           }
         }
 
@@ -2469,10 +2465,11 @@ export class VNodeBuilder {
     
     // Build element from template
     const vnode = this._buildElement(elementTemplate, componentData, buildOptions);
-    vnode.attrs = vnode.attrs || {} as any;
+    const attrs: Record<string, any> = vnode.attrs || {};
+    vnode.attrs = attrs;
     
     // Apply component identity attributes
-    assignComponentIdentityAttrs(vnode.attrs, template.name, mergedData, { defaultStype: (componentData as any)?.type ?? 'component' }, (id) => this.ensureUniqueId(id));
+    assignComponentIdentityAttrs(attrs, template.name, mergedData, { defaultStype: (componentData as any)?.type ?? 'component' }, (id) => this.ensureUniqueId(id));
     
     // Attach component info with separated props and model
     attachComponentInfoWithSeparatedData(

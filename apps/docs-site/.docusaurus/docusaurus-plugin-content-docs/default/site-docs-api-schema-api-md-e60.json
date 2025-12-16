@@ -1,0 +1,24 @@
+{
+  "id": "api/schema-api",
+  "title": "Schema API",
+  "description": "The Schema API provides schema definition, validation, and management for document structure.",
+  "source": "@site/docs/api/schema-api.md",
+  "sourceDirName": "api",
+  "slug": "/api/schema-api",
+  "permalink": "/docs/api/schema-api",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/api/schema-api.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "DSL API",
+    "permalink": "/docs/api/dsl-api"
+  },
+  "next": {
+    "title": "Model API",
+    "permalink": "/docs/api/model-api"
+  }
+}

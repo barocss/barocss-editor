@@ -1,0 +1,24 @@
+{
+  "id": "api/editor-core-api",
+  "title": "Editor Core API",
+  "description": "The Editor Core API provides the main Editor class and related interfaces for managing editor state, commands, extensions, and events.",
+  "source": "@site/docs/api/editor-core-api.md",
+  "sourceDirName": "api",
+  "slug": "/api/editor-core-api",
+  "permalink": "/docs/api/editor-core-api",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/api/editor-core-api.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "BaroCSS Editor API Reference",
+    "permalink": "/docs/api/reference"
+  },
+  "next": {
+    "title": "Editor View DOM API",
+    "permalink": "/docs/api/editor-view-dom-api"
+  }
+}

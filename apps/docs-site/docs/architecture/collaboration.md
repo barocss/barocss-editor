@@ -1,3 +1,94 @@
+---
+title: '@barocss/collaboration'
+sidebar_label: '@barocss/collaboration'
+---
+
+# @barocss/collaboration
+
+Core interfaces and base adapter for connecting Barocss `DataStore` to CRDT/OT backends. All concrete adapters (Yjs, Liveblocks) extend this package.
+
+## Role in Architecture
+
+- Listens to `DataStore` `emitOperation` events and forwards atomic operations to the backend.
+- Applies remote operations back to `DataStore` while preventing circular re-emission.
+- Provides shared config (client/user metadata, debug, transformOperation) and lifecycle (`connect / disconnect`).
+
+## Operation Flow
+
+```mermaid
+sequenceDiagram
+    participant DataStore
+    participant BaseAdapter
+    participant Backend
+
+    DataStore->>BaseAdapter: emitOperation(AtomicOperation)
+    BaseAdapter->>Backend: sendOperation(op)
+    Backend-->>BaseAdapter: remote op
+    BaseAdapter->>BaseAdapter: isRemoteOperation?
+    BaseAdapter->>DataStore: applyOperationToDataStore(op)  Note over BaseAdapter,DataStore: Temporarily detach listener to avoid loops
+```
+
+## Key Interfaces
+
+- `CollaborationAdapter`
+  - `connect(dataStore): Promise<void>`
+  - `disconnect(): Promise<void>`
+  - `isConnected(): boolean`
+  - `sendOperation(op): Promise<void>`
+  - `receiveOperation(op): Promise<void>`
+  - `getDocumentState(): Promise<INode | null>`
+  - `setDocumentState(root: INode): Promise<void>`
+
+- `AdapterConfig`
+  - `clientId?: string`
+  - `user?: { id: string; name?: string; color?: string; avatar?: string }`
+  - `debug?: boolean`
+  - `transformOperation?: (op: AtomicOperation) => AtomicOperation`
+
+## BaseAdapter Hooks (for implementers)
+
+- `doConnect() / doDisconnect()`
+- `doSendOperation(op)`
+- `doReceiveOperation(op)`
+- `doGetDocumentState() / doSetDocumentState(root)`
+- Helpers: `applyOperationToDataStore(op)`, `isRemoteOperation(op)`, `handleLocalOperation(op)`
+
+## Implementing a Custom Adapter (sketch)
+
+```ts
+class CustomAdapter extends BaseAdapter {
+  constructor(private backend: YourBackend, config?: AdapterConfig) {
+    super(config);
+  }
+
+  protected async doConnect() {
+    await this.backend.connect();
+    this.backend.on('remote-op', (op) => this.receiveOperation(op));
+  }
+
+  protected async doSendOperation(op) {
+    await this.backend.send(op);
+  }
+
+  protected async doReceiveOperation(op) {
+    await this.applyOperationToDataStore(op);
+  }
+
+  protected async doGetDocumentState() {
+    return this.backend.loadAsINode();
+  }
+
+  protected async doSetDocumentState(root: INode) {
+    await this.backend.saveFromINode(root);
+  }
+}
+```
+
+## When to Use
+
+- Building a new collaborative backend.
+- Extending existing adapters with extra metadata (`transformOperation`).
+- Adding presence/awareness on top of a CRDT/OT layer.
 # @barocss/collaboration
 
 Core collaboration interfaces and base adapter for Barocss Editor. Provides the foundation for integrating with CRDT/OT libraries.

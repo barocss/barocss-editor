@@ -1,0 +1,24 @@
+{
+  "id": "api/converter-api",
+  "title": "Converter API",
+  "description": "The Converter API provides format conversion between external formats (HTML, Markdown, LaTeX, Office HTML, Google Docs HTML, Notion HTML) and the Barocss Editor model format.",
+  "source": "@site/docs/api/converter-api.md",
+  "sourceDirName": "api",
+  "slug": "/api/converter-api",
+  "permalink": "/docs/api/converter-api",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/api/converter-api.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Renderer DOM API",
+    "permalink": "/docs/api/renderer-dom-api"
+  },
+  "next": {
+    "title": "Extensions API",
+    "permalink": "/docs/api/extensions-api"
+  }
+}

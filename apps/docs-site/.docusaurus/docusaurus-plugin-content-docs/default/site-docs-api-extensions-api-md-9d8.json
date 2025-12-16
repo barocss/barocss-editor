@@ -1,0 +1,24 @@
+{
+  "id": "api/extensions-api",
+  "title": "Extensions API",
+  "description": "The Extensions API provides built-in extensions and helper functions for creating extension sets.",
+  "source": "@site/docs/api/extensions-api.md",
+  "sourceDirName": "api",
+  "slug": "/api/extensions-api",
+  "permalink": "/docs/api/extensions-api",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/api/extensions-api.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Converter API",
+    "permalink": "/docs/api/converter-api"
+  },
+  "next": {
+    "title": "Collaboration API",
+    "permalink": "/docs/api/collaboration-api"
+  }
+}

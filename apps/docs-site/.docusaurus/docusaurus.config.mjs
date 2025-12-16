@@ -7,7 +7,7 @@ export default {
   "title": "Barocss Editor",
   "tagline": "A powerful document editor with DSL-based rendering",
   "favicon": "img/favicon.ico",
-  "url": "https://barocss.github.io",
+  "url": "http://localhost:3000",
   "baseUrl": "/",
   "organizationName": "barocss",
   "projectName": "barocss-editor",
@@ -29,6 +29,9 @@ export default {
       "onBrokenMarkdownImages": "throw"
     }
   },
+  "themes": [
+    "@docusaurus/theme-mermaid"
+  ],
   "i18n": {
     "defaultLocale": "en",
     "locales": [
@@ -89,7 +92,7 @@ export default {
             },
             {
               "label": "API Reference",
-              "to": "/docs/api"
+              "to": "/docs/api/reference"
             }
           ]
         },
@@ -339,6 +342,13 @@ export default {
     "tableOfContents": {
       "minHeadingLevel": 2,
       "maxHeadingLevel": 3
+    },
+    "mermaid": {
+      "theme": {
+        "dark": "dark",
+        "light": "default"
+      },
+      "options": {}
     }
   },
   "baseUrlIssueBanner": true,
@@ -369,7 +379,6 @@ export default {
     "static"
   ],
   "customFields": {},
-  "themes": [],
   "scripts": [],
   "headTags": [],
   "stylesheets": [],

@@ -1,0 +1,24 @@
+{
+  "id": "api/operations-overview",
+  "title": "Operations Overview",
+  "description": "Operations in Barocss Editor are organized in three layers: DSL, Model, and DataStore. Understanding this hierarchy helps you choose the right operation for your needs.",
+  "source": "@site/docs/api/operations-overview.md",
+  "sourceDirName": "api",
+  "slug": "/api/operations-overview",
+  "permalink": "/docs/api/operations-overview",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/api/operations-overview.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Model API",
+    "permalink": "/docs/api/model-api"
+  },
+  "next": {
+    "title": "Operation Selection Guide",
+    "permalink": "/docs/api/operation-selection-guide"
+  }
+}

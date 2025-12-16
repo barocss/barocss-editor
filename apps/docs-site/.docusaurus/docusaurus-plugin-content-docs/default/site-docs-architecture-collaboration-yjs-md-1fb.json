@@ -1,7 +1,7 @@
 {
   "id": "architecture/collaboration-yjs",
   "title": "@barocss/collaboration-yjs",
-  "description": "Yjs adapter for Barocss Editor collaboration.",
+  "description": "@barocss/collaboration-yjs connects DataStore to Yjs (Y.Doc + provider) for CRDT-based realtime sync.",
   "source": "@site/docs/architecture/collaboration-yjs.md",
   "sourceDirName": "architecture",
   "slug": "/architecture/collaboration-yjs",
@@ -11,7 +11,10 @@
   "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/architecture/collaboration-yjs.md",
   "tags": [],
   "version": "current",
-  "frontMatter": {},
+  "frontMatter": {
+    "title": "@barocss/collaboration-yjs",
+    "sidebar_label": "@barocss/collaboration-yjs"
+  },
   "sidebar": "tutorialSidebar",
   "previous": {
     "title": "@barocss/collaboration",

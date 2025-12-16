@@ -16,5 +16,9 @@
   "previous": {
     "title": "Decorators Example",
     "permalink": "/docs/examples/decorators"
+  },
+  "next": {
+    "title": "Editor Core API",
+    "permalink": "/docs/api/editor-core-api"
   }
 }

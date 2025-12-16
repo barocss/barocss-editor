@@ -29,6 +29,11 @@
     },
     "webpack-config-plugin": {
       "type": "local"
+    },
+    "docusaurus-theme-mermaid": {
+      "type": "package",
+      "name": "@docusaurus/theme-mermaid",
+      "version": "3.9.2"
     }
   }
 }

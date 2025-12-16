@@ -1,0 +1,24 @@
+{
+  "id": "api/model-api",
+  "title": "Model API",
+  "description": "The Model API provides high-level model operations, transaction DSL, and operation definitions.",
+  "source": "@site/docs/api/model-api.md",
+  "sourceDirName": "api",
+  "slug": "/api/model-api",
+  "permalink": "/docs/api/model-api",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/api/model-api.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Schema API",
+    "permalink": "/docs/api/schema-api"
+  },
+  "next": {
+    "title": "Operations Overview",
+    "permalink": "/docs/api/operations-overview"
+  }
+}

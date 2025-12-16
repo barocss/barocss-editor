@@ -1,0 +1,24 @@
+{
+  "id": "api/model-operation-dsl",
+  "title": "Model Operation DSL API",
+  "description": "DSL (Domain-Specific Language) helpers provide a simple, declarative API for defining operations. They return { type, payload } objects that are used in transactions.",
+  "source": "@site/docs/api/model-operation-dsl.md",
+  "sourceDirName": "api",
+  "slug": "/api/model-operation-dsl",
+  "permalink": "/docs/api/model-operation-dsl",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/api/model-operation-dsl.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Model Operations API",
+    "permalink": "/docs/api/model-operations"
+  },
+  "next": {
+    "title": "DataStore API",
+    "permalink": "/docs/api/datastore-api"
+  }
+}

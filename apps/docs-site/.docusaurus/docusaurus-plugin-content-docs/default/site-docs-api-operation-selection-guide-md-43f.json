@@ -1,0 +1,24 @@
+{
+  "id": "api/operation-selection-guide",
+  "title": "Operation Selection Guide",
+  "description": "This guide helps you choose the right operation for your needs based on the operation hierarchy.",
+  "source": "@site/docs/api/operation-selection-guide.md",
+  "sourceDirName": "api",
+  "slug": "/api/operation-selection-guide",
+  "permalink": "/docs/api/operation-selection-guide",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/api/operation-selection-guide.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Operations Overview",
+    "permalink": "/docs/api/operations-overview"
+  },
+  "next": {
+    "title": "DataStore Operations API",
+    "permalink": "/docs/api/datastore-operations"
+  }
+}

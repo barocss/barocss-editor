@@ -1,0 +1,24 @@
+{
+  "id": "api/datastore-operations",
+  "title": "DataStore Operations API",
+  "description": "DataStore operations are low-level operations that directly manipulate the DataStore with overlay and lock support. They are organized into logical classes.",
+  "source": "@site/docs/api/datastore-operations.md",
+  "sourceDirName": "api",
+  "slug": "/api/datastore-operations",
+  "permalink": "/docs/api/datastore-operations",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/api/datastore-operations.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Operation Selection Guide",
+    "permalink": "/docs/api/operation-selection-guide"
+  },
+  "next": {
+    "title": "Model Operations API",
+    "permalink": "/docs/api/model-operations"
+  }
+}

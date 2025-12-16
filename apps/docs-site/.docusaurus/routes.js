@@ -39,19 +39,109 @@ export default [
   },
   {
     path: '/docs',
-    component: ComponentCreator('/docs', '51c'),
+    component: ComponentCreator('/docs', '040'),
     routes: [
       {
         path: '/docs',
-        component: ComponentCreator('/docs', '818'),
+        component: ComponentCreator('/docs', '286'),
         routes: [
           {
             path: '/docs',
-            component: ComponentCreator('/docs', '794'),
+            component: ComponentCreator('/docs', 'e5e'),
             routes: [
+              {
+                path: '/docs/api/collaboration-api',
+                component: ComponentCreator('/docs/api/collaboration-api', 'f11'),
+                exact: true,
+                sidebar: "tutorialSidebar"
+              },
+              {
+                path: '/docs/api/converter-api',
+                component: ComponentCreator('/docs/api/converter-api', '3a5'),
+                exact: true,
+                sidebar: "tutorialSidebar"
+              },
+              {
+                path: '/docs/api/datastore-api',
+                component: ComponentCreator('/docs/api/datastore-api', '8e7'),
+                exact: true,
+                sidebar: "tutorialSidebar"
+              },
+              {
+                path: '/docs/api/datastore-operations',
+                component: ComponentCreator('/docs/api/datastore-operations', '785'),
+                exact: true,
+                sidebar: "tutorialSidebar"
+              },
+              {
+                path: '/docs/api/dsl-api',
+                component: ComponentCreator('/docs/api/dsl-api', 'e0b'),
+                exact: true,
+                sidebar: "tutorialSidebar"
+              },
+              {
+                path: '/docs/api/editor-core-api',
+                component: ComponentCreator('/docs/api/editor-core-api', '887'),
+                exact: true,
+                sidebar: "tutorialSidebar"
+              },
+              {
+                path: '/docs/api/editor-view-dom-api',
+                component: ComponentCreator('/docs/api/editor-view-dom-api', '900'),
+                exact: true,
+                sidebar: "tutorialSidebar"
+              },
+              {
+                path: '/docs/api/extensions-api',
+                component: ComponentCreator('/docs/api/extensions-api', '0af'),
+                exact: true,
+                sidebar: "tutorialSidebar"
+              },
+              {
+                path: '/docs/api/model-api',
+                component: ComponentCreator('/docs/api/model-api', '74a'),
+                exact: true,
+                sidebar: "tutorialSidebar"
+              },
+              {
+                path: '/docs/api/model-operation-dsl',
+                component: ComponentCreator('/docs/api/model-operation-dsl', '00a'),
+                exact: true,
+                sidebar: "tutorialSidebar"
+              },
+              {
+                path: '/docs/api/model-operations',
+                component: ComponentCreator('/docs/api/model-operations', '653'),
+                exact: true,
+                sidebar: "tutorialSidebar"
+              },
+              {
+                path: '/docs/api/operation-selection-guide',
+                component: ComponentCreator('/docs/api/operation-selection-guide', '397'),
+                exact: true,
+                sidebar: "tutorialSidebar"
+              },
+              {
+                path: '/docs/api/operations-overview',
+                component: ComponentCreator('/docs/api/operations-overview', '432'),
+                exact: true,
+                sidebar: "tutorialSidebar"
+              },
               {
                 path: '/docs/api/reference',
                 component: ComponentCreator('/docs/api/reference', 'a17'),
+                exact: true,
+                sidebar: "tutorialSidebar"
+              },
+              {
+                path: '/docs/api/renderer-dom-api',
+                component: ComponentCreator('/docs/api/renderer-dom-api', 'ef2'),
+                exact: true,
+                sidebar: "tutorialSidebar"
+              },
+              {
+                path: '/docs/api/schema-api',
+                component: ComponentCreator('/docs/api/schema-api', 'd74'),
                 exact: true,
                 sidebar: "tutorialSidebar"
               },
@@ -93,9 +183,8 @@ export default [
               },
               {
                 path: '/docs/architecture/dom-observer',
-                component: ComponentCreator('/docs/architecture/dom-observer', '1e2'),
-                exact: true,
-                sidebar: "tutorialSidebar"
+                component: ComponentCreator('/docs/architecture/dom-observer', 'd7e'),
+                exact: true
               },
               {
                 path: '/docs/architecture/dsl',
@@ -158,9 +247,8 @@ export default [
               },
               {
                 path: '/docs/architecture/shared',
-                component: ComponentCreator('/docs/architecture/shared', 'c6d'),
-                exact: true,
-                sidebar: "tutorialSidebar"
+                component: ComponentCreator('/docs/architecture/shared', '4c4'),
+                exact: true
               },
               {
                 path: '/docs/architecture/text-analyzer',
@@ -229,16 +317,36 @@ export default [
                 sidebar: "tutorialSidebar"
               },
               {
+                path: '/docs/getting-started',
+                component: ComponentCreator('/docs/getting-started', 'eba'),
+                exact: true
+              },
+              {
                 path: '/docs/guides/advanced-extensions',
                 component: ComponentCreator('/docs/guides/advanced-extensions', 'ae4'),
                 exact: true,
                 sidebar: "tutorialSidebar"
               },
               {
+                path: '/docs/guides/before-hooks-safety-analysis',
+                component: ComponentCreator('/docs/guides/before-hooks-safety-analysis', 'a5f'),
+                exact: true
+              },
+              {
+                path: '/docs/guides/before-hooks-use-cases',
+                component: ComponentCreator('/docs/guides/before-hooks-use-cases', '8c5'),
+                exact: true
+              },
+              {
                 path: '/docs/guides/custom-operations',
                 component: ComponentCreator('/docs/guides/custom-operations', '787'),
                 exact: true,
                 sidebar: "tutorialSidebar"
+              },
+              {
+                path: '/docs/guides/decorator-guide',
+                component: ComponentCreator('/docs/guides/decorator-guide', '4b2'),
+                exact: true
               },
               {
                 path: '/docs/guides/extension-design',

@@ -14,8 +14,8 @@
   "frontMatter": {},
   "sidebar": "tutorialSidebar",
   "previous": {
-    "title": "@barocss/dom-observer",
-    "permalink": "/docs/architecture/dom-observer"
+    "title": "@barocss/collaboration-liveblocks",
+    "permalink": "/docs/architecture/collaboration-liveblocks"
   },
   "next": {
     "title": "Practical Examples",

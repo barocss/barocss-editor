@@ -57,5 +57,5 @@ That's it! You now have a working editor. Try typing in the editor container.
 ## What's Next?
 
 - **[Basic Usage](basic-usage)** - Learn the step-by-step process in detail
-- **[Core Concepts](../concepts/schema-and-model)** - Understand schema and model
-- **[Architecture](../architecture/overview)** - Learn how everything fits together
+- **[Core Concepts](concepts/schema-and-model)** - Understand schema and model
+- **[Architecture](architecture/overview)** - Learn how everything fits together

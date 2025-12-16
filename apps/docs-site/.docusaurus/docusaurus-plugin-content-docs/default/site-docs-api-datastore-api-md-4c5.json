@@ -1,0 +1,24 @@
+{
+  "id": "api/datastore-api",
+  "title": "DataStore API",
+  "description": "The DataStore API provides the core storage layer for managing nodes, transactions, and schema validation.",
+  "source": "@site/docs/api/datastore-api.md",
+  "sourceDirName": "api",
+  "slug": "/api/datastore-api",
+  "permalink": "/docs/api/datastore-api",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/api/datastore-api.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Model Operation DSL API",
+    "permalink": "/docs/api/model-operation-dsl"
+  },
+  "next": {
+    "title": "Renderer DOM API",
+    "permalink": "/docs/api/renderer-dom-api"
+  }
+}

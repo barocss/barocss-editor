@@ -47,7 +47,7 @@ const schema = createSchema('my-doc', {
 });
 ```
 
-**Why?** The schema ensures all document operations are valid and type-safe. Learn more in [Schema & Model](../concepts/schema-and-model).
+**Why?** The schema ensures all document operations are valid and type-safe. Learn more in [Schema & Model](concepts/schema-and-model).
 
 ### 2. Define Templates
 
@@ -71,7 +71,7 @@ define('inline-text', element('span', {
 ]));
 ```
 
-**Why?** Templates separate data (model) from presentation (DOM). Learn more in [DSL Templates](../concepts/dsl-templates).
+**Why?** Templates separate data (model) from presentation (DOM). Learn more in [DSL Templates](concepts/dsl-templates).
 
 ### 3. Create DataStore
 
@@ -83,7 +83,7 @@ import { DataStore } from '@barocss/datastore';
 const dataStore = new DataStore(undefined, schema);
 ```
 
-**Why?** DataStore provides schema-aware storage, transactions, and undo/redo. Learn more in [Schema & Model](../concepts/schema-and-model).
+**Why?** DataStore provides schema-aware storage, transactions, and undo/redo. Learn more in [Schema & Model](concepts/schema-and-model).
 
 ### 4. Create Editor
 
@@ -100,7 +100,7 @@ const editor = new Editor({
 });
 ```
 
-**Why?** The Editor coordinates all operations and manages the editor state. Learn more in [Architecture: Editor-Core](../architecture/editor-core).
+**Why?** The Editor coordinates all operations and manages the editor state. Learn more in [Architecture: Editor-Core](architecture/editor-core).
 
 ### 5. Create View
 
@@ -114,7 +114,7 @@ const view = new EditorViewDOM(editor, container);
 view.mount();
 ```
 
-**Why?** The View synchronizes selection, handles input, and triggers rendering. Learn more in [Architecture: Editor-View-DOM](../architecture/editor-view-dom).
+**Why?** The View synchronizes selection, handles input, and triggers rendering. Learn more in [Architecture: Editor-View-DOM](architecture/editor-view-dom).
 
 ## Complete Example
 
@@ -160,6 +160,6 @@ view.mount();
 
 ## Next Steps
 
-- **[Core Concepts](../concepts/schema-and-model)** - Deep dive into schema and model
-- **[Architecture](../architecture/overview)** - Understand the complete architecture
-- **[Extending](../guides/extension-design)** - Learn how to add custom features
+- **[Core Concepts](concepts/schema-and-model)** - Deep dive into schema and model
+- **[Architecture](architecture/overview)** - Understand the complete architecture
+- **[Extending](guides/extension-design)** - Learn how to add custom features
