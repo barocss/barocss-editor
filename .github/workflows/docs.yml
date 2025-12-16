@@ -36,10 +36,7 @@ jobs:
       
       - name: Install dependencies
         run: pnpm install
-      
-      - name: Build packages
-        run: pnpm build
-      
+            
       - name: Build docs
         working-directory: apps/docs-site
         run: pnpm build
