@@ -20,6 +20,63 @@
   --homepage-heading-color: var(--ifm-heading-color);
 }
 
+/* Global typography tweaks for documentation pages */
+main .markdown {
+  max-width: 860px;
+  margin: 0 auto;
+  font-size: 0.98rem;
+  line-height: 1.7;
+}
+
+main .markdown h1,
+main .markdown h2,
+main .markdown h3 {
+  letter-spacing: -0.01em;
+}
+
+main .markdown h1 {
+  font-size: 2.4rem;
+  margin-bottom: 1.2rem;
+}
+
+main .markdown h2 {
+  font-size: 1.6rem;
+  margin-top: 2.4rem;
+  margin-bottom: 0.9rem;
+}
+
+main .markdown h3 {
+  font-size: 1.25rem;
+  margin-top: 1.8rem;
+  margin-bottom: 0.6rem;
+}
+
+main .markdown p {
+  margin-bottom: 0.9rem;
+}
+
+main .markdown ul,
+main .markdown ol {
+  margin-top: 0.4rem;
+  margin-bottom: 0.9rem;
+}
+
+/* Code blocks and inline code */
+.theme-code-block {
+  border-radius: 8px;
+  border: 1px solid var(--ifm-color-emphasis-200);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+}
+
+.theme-code-block pre {
+  font-size: 0.9rem;
+}
+
+.markdown code {
+  border-radius: 4px;
+  padding: 0.1rem 0.3rem;
+}
+
 /* Light mode - explicit white background */
 html:not([data-theme='dark']),
 html[data-theme='light'] {
@@ -213,9 +270,25 @@ html[data-theme='light'] #__docusaurus {
   background-color: var(--ifm-background-color);
 }
 
-.navbar,
+/* Navbar and footer */
+.navbar {
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.06);
+}
+
 .footer {
   background-color: var(--ifm-background-surface-color);
+  border-top: 1px solid var(--ifm-color-emphasis-200);
+}
+
+/* Sidebar category caret icon size (collapsed + expanded) */
+.menu__link--sublist-caret::after {
+  /* default (expanded) direction + smaller size */
+  transform: scale(0.75) rotateZ(0deg);
+}
+
+.menu__list-item--collapsed .menu__link--sublist-caret::after {
+  /* collapsed state uses the same 90deg rotation as the base theme, but scaled down */
+  transform: scale(0.75) rotateZ(90deg);
 }
 
 /* Footer layout styles */
