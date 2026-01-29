@@ -1375,13 +1375,57 @@ const result = renderDocument(initialTree);`
     container: devtoolContainer || undefined,
   });
   (window as any).devtool = devtool;
-  
+
   console.log('[editor-test] Devtool initialized with Auto Tracing enabled');
-  
-  // const toggleBoldButton = document.getElementById('toggle-bold');
-  // toggleBoldButton?.addEventListener('click', () => {
-  //   editor.executeCommand('toggleBold');
-  // });
+
+  // Toolbar for manual testing (Bold, Italic, Heading, Paragraph, etc.)
+  // Click + save/restore selection: on mousedown (on each format button) save selection; on click restore then run command.
+  const toolbarEl = document.getElementById('editor-toolbar');
+  if (toolbarEl) {
+    let savedSelection: any = null;
+    const contentLayer = view.layers?.content;
+    const commands: { label: string; command: string; title?: string }[] = [
+      { label: 'B', command: 'toggleBold', title: 'Bold (Ctrl+B)' },
+      { label: 'I', command: 'toggleItalic', title: 'Italic (Ctrl+I)' },
+      { label: 'H1', command: 'setHeading1', title: 'Heading 1' },
+      { label: 'H2', command: 'setHeading2', title: 'Heading 2' },
+      { label: 'H3', command: 'setHeading3', title: 'Heading 3' },
+      { label: 'P', command: 'setParagraph', title: 'Paragraph' },
+    ];
+    commands.forEach(({ label, command, title }) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = label;
+      if (title) btn.title = title;
+      btn.addEventListener('mousedown', () => {
+        const sel = (editor as any).selection;
+        savedSelection = sel ? { ...sel } : null;
+      });
+      btn.addEventListener('click', () => {
+        if (contentLayer) contentLayer.focus();
+        if (savedSelection) (editor as any).updateSelection?.(savedSelection);
+        (editor as any).executeCommand?.(command);
+        savedSelection = null;
+      });
+      toolbarEl.appendChild(btn);
+    });
+    const sep = document.createElement('span');
+    sep.className = 'toolbar-sep';
+    sep.setAttribute('aria-hidden', 'true');
+    toolbarEl.appendChild(sep);
+    const undoBtn = document.createElement('button');
+    undoBtn.type = 'button';
+    undoBtn.textContent = 'Undo';
+    undoBtn.title = 'Undo (Ctrl+Z)';
+    undoBtn.addEventListener('click', () => (editor as any).undo?.());
+    toolbarEl.appendChild(undoBtn);
+    const redoBtn = document.createElement('button');
+    redoBtn.type = 'button';
+    redoBtn.textContent = 'Redo';
+    redoBtn.title = 'Redo (Ctrl+Shift+Z)';
+    redoBtn.addEventListener('click', () => (editor as any).redo?.());
+    toolbarEl.appendChild(redoBtn);
+  }
 
   // // Model coordinate-based selection test buttons
   // const testSelectionButton = document.getElementById('test-selection');

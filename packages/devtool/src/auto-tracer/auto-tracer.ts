@@ -168,17 +168,31 @@ export class AutoTracer {
       const startTime = performance.now();
 
       try {
-        // Trace start event
+        // Trace start: executeCommand (root)
         self._emitTraceStart(traceContext, { command, payload });
 
-        // Execute original function (maintain this binding)
-        const result = await original.call(this, command, payload);
+        // Child span: command.execute so "what ran inside" is visible in the same trace
+        const commandContext = self.contextManager.createContext(
+          'command.execute',
+          'Editor',
+          '@barocss/editor-core',
+          traceContext.spanId
+        );
+        const commandStartTime = performance.now();
+        self._emitTraceStart(commandContext, { command, payload });
 
-        // Trace end event
-        self._emitTraceEnd(traceContext, result, performance.now() - startTime);
-        self.contextManager.cleanupContext(traceContext.spanId);
-
-        return result;
+        try {
+          const result = await original.call(this, command, payload);
+          self._emitTraceEnd(commandContext, result, performance.now() - commandStartTime);
+          self.contextManager.cleanupContext(commandContext.spanId);
+          self._emitTraceEnd(traceContext, result, performance.now() - startTime);
+          self.contextManager.cleanupContext(traceContext.spanId);
+          return result;
+        } catch (cmdErr) {
+          self._emitTraceError(commandContext, cmdErr as Error, performance.now() - commandStartTime);
+          self.contextManager.cleanupContext(commandContext.spanId);
+          throw cmdErr;
+        }
       } catch (error) {
         self._emitTraceError(traceContext, error as Error, performance.now() - startTime);
         self.contextManager.cleanupContext(traceContext.spanId);
@@ -485,14 +499,27 @@ export class AutoTracer {
       const startTime = performance.now();
       
       try {
-        // Trace start event
-        self._emitTraceStart(traceContext, { operations });
+        // Trace start: summarize operations so flow is readable
+        const inputSummary = {
+          operationsCount: operations?.length ?? 0,
+          operationTypes: operations?.slice(0, 30).map((o: any) => o?.type ?? '(op)').filter(Boolean) as string[],
+        };
+        self._emitTraceStart(traceContext, inputSummary);
         
         // Execute original function (maintain this binding)
         const result = await originalExecute.call(this, operations);
         
-        // Trace end event
-        self._emitTraceEnd(traceContext, result, performance.now() - startTime);
+        // Trace end: same summary as instrumentation-targets outputSerializer
+        const outputSummary = result && typeof result === 'object'
+          ? {
+              success: result.success,
+              errors: result.errors,
+              operationsCount: result.operations?.length ?? 0,
+              selectionBefore: result.selectionBefore ? { startNodeId: result.selectionBefore.startNodeId, startOffset: result.selectionBefore.startOffset, endNodeId: result.selectionBefore.endNodeId, endOffset: result.selectionBefore.endOffset } : null,
+              selectionAfter: result.selectionAfter ? { startNodeId: result.selectionAfter.startNodeId, startOffset: result.selectionAfter.startOffset, endNodeId: result.selectionAfter.endNodeId, endOffset: result.selectionAfter.endOffset } : null,
+            }
+          : result;
+        self._emitTraceEnd(traceContext, outputSummary, performance.now() - startTime);
         self.contextManager.cleanupContext(traceContext.spanId);
         
         return result;

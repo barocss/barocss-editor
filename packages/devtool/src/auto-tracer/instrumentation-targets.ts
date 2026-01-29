@@ -1,8 +1,15 @@
 /**
- * Fixed list of monitoring targets
- * 
- * To monitor new packages/classes, explicitly add them here.
- * AutoTracer automatically wraps functions based on this list for tracking.
+ * Fixed list of monitoring targets for Execution Flow
+ *
+ * When executeCommand runs, the trace shows (in order):
+ * - Editor.executeCommand (root)
+ * - Editor.command.execute (child: which command + payload)
+ * - TransactionManager.execute (child: operations count + types, if commit path is used)
+ * - DataStore: CoreOperations, RangeOperations, MarkOperations (when transaction runs ops)
+ * - EditorViewDOM: render, convertModelSelectionToDOM, convertDOMSelectionToModel
+ * - Renderer: DOMRenderer.render, Reconciler.reconcile, DOMOperations
+ *
+ * To add more visibility, add a class/methods here and ensure _findInstance() can resolve the instance.
  */
 
 export interface InstrumentationTarget {

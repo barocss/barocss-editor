@@ -84,6 +84,3 @@ public
 # Temporary folders
 tmp/
 temp/
-
-# Cursor files
-.cursor/

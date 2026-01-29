@@ -44,8 +44,12 @@ defineOperation('applyMark', async (operation: any, context: TransactionContext)
   try {
     const payload = operation.payload;
     if (!payload) throw new Error('Operation payload is required');
+    const markType = payload.markType;
+    const attrs = payload.attrs;
+
+    // 전체 범위(selection): DataStore.range.applyMark에 위임 (단일/복수 노드 동일 처리)
     if ('range' in payload) {
-      const { range, markType, attrs } = payload;
+      const { range } = payload;
       const { startNodeId, endNodeId, startOffset, endOffset } = range;
       const startNode = context.dataStore.getNode(startNodeId);
       const endNode = context.dataStore.getNode(endNodeId);
@@ -55,34 +59,17 @@ defineOperation('applyMark', async (operation: any, context: TransactionContext)
         throw new Error('Range endpoints must be text nodes');
       }
       if (typeof startOffset !== 'number' || typeof endOffset !== 'number') throw new Error('Invalid range');
-      if (startNodeId === endNodeId) {
-        // same-node: delegate to marks.setMarks for fast path
-        const res = context.dataStore.marks.setMarks(startNodeId, [
-          ...((startNode.marks as any[]) || []),
-          { type: markType, attrs, range: [startOffset, endOffset] as [number, number] }
-        ]);
-        if (!res || res.valid !== true) throw new Error(res?.errors?.[0] || 'Apply mark failed');
-        return context.dataStore.getNode(startNodeId);
+      if (!context.dataStore.range || typeof context.dataStore.range.applyMark !== 'function') {
+        throw new Error('DataStore.range.applyMark is not available');
       }
-      // cross-node without relying on iterator: apply to start tail and end head
-      const startLen = (startNode.text as string).length;
-      const endLen = (endNode.text as string).length;
-      const startRange: [number, number] = [Math.max(0, Math.min(startOffset, startLen)), startLen];
-      const endRange: [number, number] = [0, Math.max(0, Math.min(endOffset, endLen))];
-      const res1 = context.dataStore.marks.setMarks(startNodeId, [
-        ...((startNode.marks as any[]) || []),
-        { type: markType, attrs, range: startRange }
-      ]);
-      if (!res1 || res1.valid !== true) throw new Error(res1?.errors?.[0] || 'Apply mark failed');
-      const freshEndNode = context.dataStore.getNode(endNodeId);
-      const res2 = context.dataStore.marks.setMarks(endNodeId, [
-        ...((freshEndNode?.marks as any[]) || []),
-        { type: markType, attrs, range: endRange }
-      ]);
-      if (!res2 || res2.valid !== true) throw new Error(res2?.errors?.[0] || 'Apply mark failed');
-      return context.dataStore.getNode(endNodeId);
+      const contentRange = { type: 'range' as const, startNodeId, startOffset, endNodeId, endOffset };
+      const mark = { stype: markType, attrs };
+      context.dataStore.range.applyMark(contentRange, mark);
+      return context.dataStore.getNode(startNodeId === endNodeId ? startNodeId : endNodeId);
     }
-    const { nodeId, start, end, markType, attrs } = payload;
+
+    // 단일 노드(nodeId + start + end): marks.setMarks로 적용 (inverse 반환용)
+    const { nodeId, start, end } = payload;
     const node = context.dataStore.getNode(nodeId);
     if (!node) throw new Error(`Node not found: ${nodeId}`);
     if (typeof node.text !== 'string') throw new Error(`Node ${nodeId} is not a text node`);
@@ -91,7 +78,7 @@ defineOperation('applyMark', async (operation: any, context: TransactionContext)
     }
     const res = context.dataStore.marks.setMarks(nodeId, [
       ...((node.marks as any[]) || []),
-      { type: markType, attrs, range: [start, end] as [number, number] }
+      { stype: markType, attrs, range: [start, end] as [number, number] }
     ]);
     if (!res || res.valid !== true) throw new Error(res?.errors?.[0] || 'Apply mark failed');
     
