@@ -13,9 +13,9 @@ import type { TransactionContext } from '../types';
 export const moveBlockUp = defineOperationDSL(
   (nodeId?: string) => {
     if (nodeId) {
-      return { type: 'moveBlockUp', payload: { nodeId } };
+      return { type: 'moveBlockUp', payload: { nodeId } } as any;
     }
-    return { type: 'moveBlockUp', payload: {} };
+    return { type: 'moveBlockUp', payload: {} } as any;
   },
   { atom: false, category: 'content' }
 );

@@ -1,5 +1,5 @@
 import type { TransactionContext } from '../types';
-import type { INode } from '../types';
+import type { INode } from '@barocss/datastore';
 
 // Operation definition interface
 export interface OperationDefinition {

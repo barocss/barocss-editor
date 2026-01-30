@@ -12,10 +12,10 @@ export const setAttrs = defineOperationDSL(
   (...args: [Record<string, any>] | [string, Record<string, any>]) => {
     if (args.length === 1) {
       const [attrs] = args;
-      return { type: 'setAttrs', payload: { attrs } };
+      return { type: 'setAttrs', payload: { attrs } } as any;
     }
     const [nodeId, attrs] = args as [string, Record<string, any>];
-    return { type: 'setAttrs', payload: { nodeId, attrs } };
+    return { type: 'setAttrs', payload: { nodeId, attrs } } as any;
   },
   { atom: true, category: 'attributes' }
 );

@@ -1,6 +1,6 @@
 import { Editor, Extension } from '@barocss/editor-core';
 import type { ModelSelection } from '@barocss/editor-core';
-import { transaction, control } from '@barocss/model';
+import { transaction, control, insertText, deleteTextRange } from '@barocss/model';
 
 export interface TextExtensionOptions {
   enabled?: boolean;
@@ -82,40 +82,24 @@ export class TextExtension implements Extension {
   }
 
   /**
-   * Build insert operations
+   * Build insert operations (DSL: insertText(pos, text) inside control)
    */
   private _buildInsertTextOperations(
     range: ModelSelection,
     text: string
-  ): any[] {
-    return [
-      ...control(range.startNodeId, [
-        {
-          type: 'insertText',
-          payload: {
-            pos: range.startOffset,
-            text: text
-          }
-        }
-      ])
-    ];
+  ): ReturnType<typeof control> {
+    return control(range.startNodeId, [
+      insertText(range.startOffset, text)
+    ]);
   }
 
   /**
-   * Build delete operations
+   * Build delete operations (DSL: deleteTextRange(start, end) inside control)
    */
-  private _buildDeleteTextOperations(range: ModelSelection): any[] {
-    return [
-      ...control(range.startNodeId, [
-        {
-          type: 'deleteTextRange',
-          payload: {
-            start: range.startOffset,
-            end: range.endOffset
-          }
-        }
-      ])
-    ];
+  private _buildDeleteTextOperations(range: ModelSelection): ReturnType<typeof control> {
+    return control(range.startNodeId, [
+      deleteTextRange(range.startOffset, range.endOffset)
+    ]);
   }
 }
 

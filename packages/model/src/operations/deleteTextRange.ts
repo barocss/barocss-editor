@@ -40,6 +40,7 @@ defineOperation('deleteTextRange',
 
       // 1) DataStore update: delete range [startPosition, endPosition) within single node
       const deletedText = context.dataStore.range.deleteText({
+        type: 'range',
         startNodeId: nodeId,
         startOffset: start,
         endNodeId: nodeId,

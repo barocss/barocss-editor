@@ -44,6 +44,7 @@ export class EditorViewDOM implements IEditorViewDOM {
   private _editingNodes: Set<string> = new Set();
   private _inputEndDebounceTimer: number | null = null;
   private _pendingRenderTimer: number | null = null;
+  private _boundHandleCompositionStart: ((e: CompositionEvent) => void) | null = null;
   // Internal renderer (renderer-dom wrapper)
   private _rendererRegistry?: RendererRegistry;
   private _domRenderer?: DOMRenderer; // For Content layer (existing)
@@ -246,13 +247,14 @@ export class EditorViewDOM implements IEditorViewDOM {
     this.contentEditableElement.addEventListener('input', this.handleInput.bind(this) as EventListener);
     this.contentEditableElement.addEventListener('beforeinput', this.handleBeforeInput.bind(this));
     this.contentEditableElement.addEventListener('keydown', this.handleKeydown.bind(this));
+    this._boundHandleCompositionStart = this.handleCompositionStart.bind(this);
+    this.contentEditableElement.addEventListener('compositionstart', this._boundHandleCompositionStart);
     this.contentEditableElement.addEventListener('paste', this.handlePaste.bind(this));
     this.contentEditableElement.addEventListener('drop', this.handleDrop.bind(this));
     
-    // Composition events (IME) - not used
-    // Track IME composition state using isComposing property of beforeinput event
-    // Actual processing is handled by MutationObserver, so composition event listener is unnecessary
-    
+    // compositionstart: block IME when selection is not in inline-text (see handleCompositionStart)
+    // IME state also tracked via beforeinput.isComposing; MutationObserver handles actual input
+
     // Selection events
     document.addEventListener('selectionchange', this.handleSelectionChange.bind(this));
     
@@ -327,9 +329,51 @@ export class EditorViewDOM implements IEditorViewDOM {
     this.inputHandler.handleBeforeInput(event);
   }
 
-  // composition event handler removed
+  /**
+   * Block composition (IME) when selection is not inside inline-text.
+   * Safari: blocking at compositionstart avoids Korean input attaching to wrong region.
+   * See docs/editable-regions-and-contenteditable-strategy.md §3.4.
+   */
+  handleCompositionStart(event: CompositionEvent): void {
+    if (!this.isSelectionInsideEditableText(window.getSelection() ?? undefined)) {
+      event.preventDefault();
+    }
+  }
+
+  // composition event handler: see setupEventListeners (handleCompositionStart)
   // Track IME composition state using isComposing property of beforeinput event
   // Actual processing is handled by MutationObserver
+
+  /**
+   * Returns true if the selection (or current DOM selection) is entirely inside
+   * inline-text nodes. Used to restrict character input to editable text only.
+   * See docs/editable-regions-and-contenteditable-strategy.md §3.
+   */
+  isSelectionInsideEditableText(domSelection?: Selection): boolean {
+    const sel = domSelection ?? window.getSelection();
+    if (!sel || sel.rangeCount === 0) return false;
+    if (!sel.anchorNode || !this.contentEditableElement.contains(sel.anchorNode)) return false;
+    if (sel.focusNode && !this.contentEditableElement.contains(sel.focusNode)) return false;
+
+    const dataStore = (this.editor as any).dataStore;
+    if (!dataStore?.getNode) return false;
+
+    const checkNode = (node: Node | null): boolean => {
+      if (!node) return false;
+      const el = node.nodeType === Node.TEXT_NODE ? (node.parentElement as Element | null) : (node as Element);
+      if (!el) return false;
+      const found = el.closest('[data-bc-sid]');
+      if (!found) return false;
+      const sid = found.getAttribute('data-bc-sid');
+      if (!sid) return false;
+      const modelNode = dataStore.getNode(sid);
+      if (!modelNode) return false;
+      const stype = (modelNode as { stype?: string }).stype ?? (modelNode as { type?: string }).type;
+      return stype === 'inline-text';
+    };
+
+    return checkNode(sel.anchorNode) && checkNode(sel.focusNode ?? sel.anchorNode);
+  }
 
   handleKeydown(event: KeyboardEvent): void {
     // Delegate to InputHandler first for future KeyBindingManager integration
@@ -341,6 +385,14 @@ export class EditorViewDOM implements IEditorViewDOM {
     // - Leave composition string modifications (Enter/Backspace, etc.) to IME/browser
     // - Model structure changes are only handled in MutationObserver/C1/C2/C3 path after compositionend
     if (this._isComposing) {
+      return;
+    }
+
+    // Restrict character input to inline-text only. Block when selection is not in editable text.
+    // Skip when keyCode 229 (IME may be handling). See docs/editable-regions-and-contenteditable-strategy.md §3.
+    const isCharacterKey = event.key.length === 1 && !['Enter', 'Tab', 'Escape'].includes(event.key) && !event.ctrlKey && !event.metaKey;
+    if (isCharacterKey && event.keyCode !== 229 && !this.isSelectionInsideEditableText()) {
+      event.preventDefault();
       return;
     }
 
@@ -727,7 +779,10 @@ export class EditorViewDOM implements IEditorViewDOM {
     this.contentEditableElement.removeEventListener('input', this.handleInput.bind(this) as EventListener);
     this.contentEditableElement.removeEventListener('beforeinput', this.handleBeforeInput.bind(this));
     this.contentEditableElement.removeEventListener('keydown', this.handleKeydown.bind(this));
-    // composition event listener is not registered, so removal not needed
+    if (this._boundHandleCompositionStart) {
+      this.contentEditableElement.removeEventListener('compositionstart', this._boundHandleCompositionStart);
+      this._boundHandleCompositionStart = null;
+    }
     this.contentEditableElement.removeEventListener('paste', this.handlePaste.bind(this));
     this.contentEditableElement.removeEventListener('drop', this.handleDrop.bind(this));
     

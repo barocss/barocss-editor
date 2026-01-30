@@ -406,7 +406,8 @@ export class RangeOperations {
     // After deletion, startNodeId still exists and startOffset is valid
     // (it becomes the end of the remaining text in start node).
     const deletedText = this.deleteText(contentRange);
-    const insertRange = {
+    const insertRange: ModelSelection = {
+      type: 'range',
       startNodeId: contentRange.startNodeId,
       startOffset: contentRange.startOffset,
       endNodeId: contentRange.startNodeId,
@@ -465,6 +466,7 @@ export class RangeOperations {
       if (newInsert > currentLen) newInsert = currentLen;
       if (newInsert < 0) newInsert = 0;
       adjustedToRange = {
+        type: 'range' as const,
         startNodeId: toRange.startNodeId,
         startOffset: newInsert,
         endNodeId: toRange.endNodeId,
@@ -487,7 +489,8 @@ export class RangeOperations {
    */
   duplicateText(contentRange: ModelSelection): string {
     const textToDuplicate = this.extractText(contentRange);
-    const insertRange = {
+    const insertRange: ModelSelection = {
+      type: 'range',
       startNodeId: contentRange.endNodeId,
       startOffset: contentRange.endOffset,
       endNodeId: contentRange.endNodeId,
@@ -820,7 +823,9 @@ export class RangeOperations {
       const baseEnd = end + (prefixInside ? prefix.length : (prefixOutside ? prefix.length : 0));
       newEnd = suffixOutside ? Math.min(text.length, baseEnd + suffix.length) : baseEnd;
     }
-    const expandedRange = sameNode ? { startNodeId: contentRange.startNodeId, startOffset: newStart, endNodeId: contentRange.endNodeId, endOffset: newEnd } : contentRange;
+    const expandedRange: ModelSelection = sameNode
+      ? { type: 'range', startNodeId: contentRange.startNodeId, startOffset: newStart, endNodeId: contentRange.endNodeId, endOffset: newEnd }
+      : contentRange;
     let segment = sameNode && text ? text.substring(expandedRange.startOffset, expandedRange.endOffset) : value;
     if (segment.startsWith(prefix)) segment = segment.substring(prefix.length);
     if (segment.endsWith(suffix)) segment = segment.substring(0, segment.length - suffix.length);
@@ -956,6 +961,7 @@ export class RangeOperations {
     const startDelta = firstBreak === -1 ? 0 : 0;
     const endDelta = 0;
     return {
+      type: 'range' as const,
       startNodeId: contentRange.startNodeId,
       startOffset: contentRange.startOffset + startDelta,
       endNodeId: contentRange.endNodeId,

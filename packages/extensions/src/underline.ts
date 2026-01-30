@@ -1,5 +1,5 @@
 import { Editor, Extension, type ModelSelection } from '@barocss/editor-core';
-import { transaction, control, toggleMark } from '@barocss/model';
+import { transaction, toggleMark } from '@barocss/model';
 
 export interface UnderlineExtensionOptions {
   enabled?: boolean;
@@ -9,9 +9,7 @@ export interface UnderlineExtensionOptions {
  * UnderlineExtension
  *
  * - Provides `toggleUnderline` command.
- * - Current implementation scope:
- *   - Only generates underline mark toggle operation for range selection within the same text node.
- *   - Does not yet handle selection spanning multiple nodes.
+ * - Uses model toggleMark with full range (single- and cross-node).
  */
 export class UnderlineExtension implements Extension {
   name = 'underline';
@@ -29,7 +27,6 @@ export class UnderlineExtension implements Extension {
   onCreate(editor: Editor): void {
     if (!this._options.enabled) return;
 
-    // Register underline toggle command
     (editor as any).registerCommand({
       name: 'toggleUnderline',
       execute: async (ed: Editor, payload?: { selection?: ModelSelection }) => {
@@ -41,9 +38,7 @@ export class UnderlineExtension implements Extension {
     });
   }
 
-  onDestroy(_editor: Editor): void {
-    // Add cleanup work here if needed
-  }
+  onDestroy(_editor: Editor): void {}
 
   private async _executeToggleUnderline(
     editor: Editor,
@@ -53,42 +48,14 @@ export class UnderlineExtension implements Extension {
       return false;
     }
 
-    const dataStore = (editor as any).dataStore;
-    if (!dataStore) {
-      console.error('[UnderlineExtension] dataStore not found');
-      return false;
-    }
-
-    // Does not yet handle RangeSelection spanning multiple nodes
-    if (selection.startNodeId !== selection.endNodeId) {
-      return false;
-    }
-
-    const node = dataStore.getNode(selection.startNodeId);
-    if (!node || typeof node.text !== 'string') {
-      return false;
-    }
-
-    const text = node.text as string;
-    const { startOffset, endOffset } = selection;
-
-    if (
-      typeof startOffset !== 'number' ||
-      typeof endOffset !== 'number' ||
-      startOffset < 0 ||
-      endOffset > text.length ||
-      startOffset >= endOffset
-    ) {
-      return false;
-    }
-
-    const ops = [
-      ...control(selection.startNodeId, [
-        toggleMark('underline', [startOffset, endOffset])
-      ])
-    ];
-
-    const result = await transaction(editor, ops).commit();
+    const op = toggleMark(
+      selection.startNodeId,
+      selection.startOffset,
+      selection.endNodeId,
+      selection.endOffset,
+      'underline'
+    );
+    const result = await transaction(editor, [op]).commit();
     return result.success;
   }
 }

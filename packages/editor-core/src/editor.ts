@@ -562,7 +562,7 @@ export class Editor implements ContextProvider {
     this._commands.set(command.name, command);
   }
 
-  undo(): void {
+  undo(): Promise<boolean> {
     try {
       if (this._historyIndex > 0) {
         this._historyIndex--;
@@ -572,13 +572,16 @@ export class Editor implements ContextProvider {
           canUndo: this.canUndo(), 
           canRedo: this.canRedo() 
         });
+        return Promise.resolve(true);
       }
+      return Promise.resolve(false);
     } catch (error) {
       console.error('Undo failed:', error);
+      return Promise.resolve(false);
     }
   }
 
-  redo(): void {
+  redo(): Promise<boolean> {
     try {
       if (this._historyIndex < this._history.length - 1) {
         this._historyIndex++;
@@ -588,9 +591,12 @@ export class Editor implements ContextProvider {
           canUndo: this.canUndo(), 
           canRedo: this.canRedo() 
         });
+        return Promise.resolve(true);
       }
+      return Promise.resolve(false);
     } catch (error) {
       console.error('Redo failed:', error);
+      return Promise.resolve(false);
     }
   }
 
@@ -792,7 +798,7 @@ export class Editor implements ContextProvider {
   private _convertToDocumentState(document: any): DocumentState {
     return {
       type: 'document',
-      content: (document.content || []).map(node => this._convertNode(node)),
+      content: (document.content || []).map((node: any) => this._convertNode(node)),
       version: document.version,
       createdAt: document.metadata?.createdAt || new Date(),
       updatedAt: document.metadata?.updatedAt || new Date()
@@ -983,6 +989,11 @@ declare module './editor' {
     get historyManager(): HistoryManager;
 
     /**
+     * Access TransactionManager instance (internal use)
+     */
+    get transactionManager(): TransactionManager;
+
+    /**
      * Execute transaction
      */
     transaction(operations: any[]): any;
@@ -1009,90 +1020,86 @@ declare module './editor' {
   }
 }
 
-Editor.prototype.undo = async function(): Promise<boolean> {
-  const entry = this._historyManager.undo();
+Editor.prototype.undo = async function(this: Editor): Promise<boolean> {
+  const entry = this.historyManager.undo();
   if (!entry) return false;
 
   try {
-    // Set undo/redo flag
-    this._transactionManager._isUndoRedoOperation = true;
-    
-    // Execute inverse operations
-    const result = await this._transactionManager.execute(entry.inverseOperations);
+    this.transactionManager._isUndoRedoOperation = true;
+    const result = await this.transactionManager.execute(entry.inverseOperations);
     return result.success;
   } catch (error) {
     console.error('[Editor] undo failed:', error);
     return false;
   } finally {
-    // Clear flag
-    this._transactionManager._isUndoRedoOperation = false;
+    this.transactionManager._isUndoRedoOperation = false;
   }
 };
 
-Editor.prototype.redo = async function(): Promise<boolean> {
-  const entry = this._historyManager.redo();
+Editor.prototype.redo = async function(this: Editor): Promise<boolean> {
+  const entry = this.historyManager.redo();
   if (!entry) return false;
 
   try {
-    // Set undo/redo flag
-    this._transactionManager._isUndoRedoOperation = true;
-    
-    // Execute original operations
-    const result = await this._transactionManager.execute(entry.operations);
+    this.transactionManager._isUndoRedoOperation = true;
+    const result = await this.transactionManager.execute(entry.operations);
     return result.success;
   } catch (error) {
     console.error('[Editor] redo failed:', error);
     return false;
   } finally {
-    // Clear flag
-    this._transactionManager._isUndoRedoOperation = false;
+    this.transactionManager._isUndoRedoOperation = false;
   }
 };
 
-Editor.prototype.canUndo = function(): boolean {
-  return this._historyManager.canUndo();
+Editor.prototype.canUndo = function(this: Editor): boolean {
+  return this.historyManager.canUndo();
 };
 
-Editor.prototype.canRedo = function(): boolean {
-  return this._historyManager.canRedo();
+Editor.prototype.canRedo = function(this: Editor): boolean {
+  return this.historyManager.canRedo();
 };
 
-
-Editor.prototype.getHistoryStats = function() {
-  return this._historyManager.getStats();
+Editor.prototype.getHistoryStats = function(this: Editor) {
+  return this.historyManager.getStats();
 };
 
-Editor.prototype.clearHistory = function(): void {
-  this._historyManager.clear();
+Editor.prototype.clearHistory = function(this: Editor): void {
+  this.historyManager.clear();
 };
 
 Object.defineProperty(Editor.prototype, 'historyManager', {
-  get: function() {
-    return this._historyManager;
+  get: function(this: Editor) {
+    return (this as any)._historyManager;
   }
 });
 
-Editor.prototype.transaction = function(operations: any[]) {
-  // Return TransactionBuilder
+Object.defineProperty(Editor.prototype, 'transactionManager', {
+  get: function(this: Editor) {
+    return (this as any)._transactionManager;
+  }
+});
+
+Editor.prototype.transaction = function(this: Editor, operations: any[]) {
   return {
     commit: async () => {
-      return await this._transactionManager.execute(operations);
+      return await this.transactionManager.execute(operations);
     }
   };
 };
 
-Editor.prototype.compressHistory = function(): void {
-  this._historyManager.compress();
+Editor.prototype.compressHistory = function(this: Editor): void {
+  this.historyManager.compress();
 };
 
-Editor.prototype.resizeHistory = function(maxSize: number): void {
-  this._historyManager.resize(maxSize);
+Editor.prototype.resizeHistory = function(this: Editor, maxSize: number): void {
+  this.historyManager.resize(maxSize);
 };
 
-Editor.prototype.getHistoryMemoryUsage = function(): number {
-  return this._historyManager.getMemoryUsage();
+Editor.prototype.getHistoryMemoryUsage = function(this: Editor): number {
+  return this.historyManager.getMemoryUsage();
 };
 
-Editor.prototype.validateHistory = function(): { isValid: boolean; errors: string[] } {
-  return this._historyManager.validate();
+Editor.prototype.validateHistory = function(this: Editor): { isValid: boolean; errors: string[] } {
+  return this.historyManager.validate();
 };

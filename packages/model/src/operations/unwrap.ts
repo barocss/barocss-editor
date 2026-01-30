@@ -24,22 +24,6 @@ import type { TransactionContext } from '../types';
  * - 노드 존재/타입(텍스트) 검증 및 범위 검증 후 실패 시 예외.
  */
 
-type UnwrapOperationPayload =
-  | {
-      type: 'unwrap';
-      nodeId: string;
-      start: number;
-      end: number;
-      prefix: string;
-      suffix: string;
-    }
-  | {
-      type: 'unwrap';
-      range: { startNodeId: string; startOffset: number; endNodeId: string; endOffset: number };
-      prefix: string;
-      suffix: string;
-    };
-
 defineOperation('unwrap', async (operation: any, context: TransactionContext) => {
   try {
     const payload = operation.payload;
@@ -73,6 +57,7 @@ defineOperation('unwrap', async (operation: any, context: TransactionContext) =>
     if (segment.startsWith(prefix)) segment = segment.substring(prefix.length);
     if (segment.endsWith(suffix)) segment = segment.substring(0, segment.length - suffix.length);
     context.dataStore.range.replaceText({
+      type: 'range',
       startNodeId: nodeId,
       startOffset: start,
       endNodeId: nodeId,

@@ -17,7 +17,7 @@ defineOperation('removeChildren', async (operation: any, context: TransactionCon
   const parent = context.dataStore.getNode(parentId);
   if (!parent) throw new Error(`Parent not found: ${parentId}`);
   // capture removed children nodes for inverse
-  const removed = (childIds || []).map((id) => context.dataStore.getNode(id));
+  const removed = (childIds || []).map((id: string) => context.dataStore.getNode(id));
   const results = context.dataStore.content.removeChildren(parentId, childIds);
   return {
     ok: true,

@@ -79,7 +79,7 @@ defineOperation('delete',
         if (candidate) {
           context.dataStore.setRootNodeId(candidate.sid!);
         } else {
-          context.dataStore.setRootNodeId(undefined);
+          (context.dataStore as any).setRootNodeId(undefined);
         }
       }
       // Selection default policy: SelectionManager handles clamping/clearing as needed

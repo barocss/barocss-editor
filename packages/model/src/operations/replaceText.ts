@@ -24,20 +24,6 @@ import type { TransactionContext } from '../types';
  * - This implementation strictly checks node existence and throws clear exceptions for non-existent nodes/invalid ranges.
  */
 
-type ReplaceTextOperationPayload =
-  | {
-      type: 'replaceText';
-      nodeId: string;
-      start: number;
-      end: number;
-      newText: string;
-    }
-  | {
-      type: 'replaceText';
-      range: { startNodeId: string; startOffset: number; endNodeId: string; endOffset: number };
-      newText: string;
-    };
-
 defineOperation('replaceText', async (operation: any, context: TransactionContext) => {
   try {
     // operation is in the form { type: 'replaceText', payload: { ... } }
@@ -62,7 +48,8 @@ defineOperation('replaceText', async (operation: any, context: TransactionContex
       // Store the original text for inverse operation
       const originalText = context.dataStore.range.extractText(range);
       
-      const deleted = context.dataStore.range.replaceText(range, newText);
+      const rangeWithType = { type: 'range' as const, ...range };
+      const deleted = context.dataStore.range.replaceText(rangeWithType, newText);
       return {
         ok: true,
         data: deleted,
@@ -82,6 +69,7 @@ defineOperation('replaceText', async (operation: any, context: TransactionContex
     const prevText = (node.text as string).substring(start, end);
     
     const deleted = context.dataStore.range.replaceText({
+      type: 'range',
       startNodeId: nodeId,
       startOffset: start,
       endNodeId: nodeId,

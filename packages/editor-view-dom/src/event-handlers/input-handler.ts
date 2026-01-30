@@ -851,6 +851,15 @@ export class InputHandlerImpl implements InputHandler {
       this.editor.emit('editor:input.node_not_found', { textNodeId });
       return;
     }
+    // Text is always rendered under inline-text span. If closest [data-bc-sid] is not inline-text,
+    // the text node was created at a boundary (e.g. directly under a block). Do not update model.
+    // See docs/input-and-composition-review.md §5.4.
+    const nodeType = (modelNode as { stype?: string }).stype ?? (modelNode as { type?: string }).type;
+    if (nodeType !== 'inline-text') {
+      console.log('[Input] handleTextContentChange: SKIP - boundary text (closest sid is not inline-text)', { textNodeId, nodeType });
+      this.editor.emit('editor:input.boundary_text', { target, textNodeId, nodeType, oldValue, newValue });
+      return;
+    }
 
     const oldModelText = modelNode.text || '';
     // Normalize modelNode.marks to MarkRange[] format

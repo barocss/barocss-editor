@@ -19,7 +19,7 @@ defineOperation('mergeBlockNodes', async (operation: any, context: TransactionCo
   const right = context.dataStore.getNode(rightNodeId);
   if (!left) throw new Error(`Node not found: ${leftNodeId}`);
   if (!right) throw new Error(`Node not found: ${rightNodeId}`);
-  if (left.type !== right.type) throw new Error(`Cannot merge different node types: ${left.type} and ${right.type}`);
+  if (left.stype !== right.stype) throw new Error(`Cannot merge different node types: ${left.stype} and ${right.stype}`);
 
   const leftChildrenCount = Array.isArray((left as any).content) ? (left as any).content.length : 0;
   const mergedNodeId = context.dataStore.splitMerge.mergeBlockNodes(leftNodeId, rightNodeId);

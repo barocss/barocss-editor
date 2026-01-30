@@ -19,6 +19,7 @@ import './setAttrs';
 import './setMarks';
 import './insertText';
 import './deleteTextRange';
+import './deleteRange';
 import './replaceText';
 import './create';
 import './delete';

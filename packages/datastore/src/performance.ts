@@ -31,7 +31,7 @@ export class CachedDataStore extends DataStore {
   }
   saveNode(node: INode, validate: boolean = true): any {
     const result = super.saveNode(node as any, validate);
-    if (result === null) this._cache.set(node.sid, { data: node, timestamp: Date.now() });
+    if (result === null && node.sid) this._cache.set(node.sid, { data: node, timestamp: Date.now() });
     return result;
   }
   invalidateCache(id?: string): void { id ? this._cache.delete(id) : this._cache.clear(); }

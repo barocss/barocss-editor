@@ -6,6 +6,7 @@ export * from './outdentText';
 export * from './create';
 export * from './delete';
 export * from './deleteTextRange';
+export * from './deleteRange';
 export * from './insertText';
 export * from './addChild';
 export * from './removeChild';

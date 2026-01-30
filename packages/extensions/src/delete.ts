@@ -1,6 +1,6 @@
 import { Editor, Extension } from '@barocss/editor-core';
 import type { ModelSelection } from '@barocss/editor-core';
-import { transaction, control } from '@barocss/model';
+import { transaction, control, deleteRange, deleteOp, deleteTextRange } from '@barocss/model';
 
 /**
  * Delete Extension Options
@@ -131,30 +131,20 @@ export class DeleteExtension implements Extension {
 
   /**
    * Cross-node text deletion
-   * 
-   * Current: directly calls dataStore.range.deleteText
-   * Future: convert to transaction operation
-   * 
+   *
    * @param editor Editor instance
    * @param range Range to delete (spans multiple nodes)
    * @returns Success status
    */
   private async _executeDeleteCrossNode(editor: Editor, range: ModelSelection): Promise<boolean> {
-    const dataStore = (editor as any).dataStore;
-    if (!dataStore) {
-      console.error('[DeleteExtension] dataStore not found');
-      return false;
-    }
-
-    // Current: directly call dataStore.range.deleteText
-    // TODO: convert to transaction operation
-    try {
-      dataStore.range.deleteText(range);
-      return true;
-    } catch (error) {
-      console.error('[DeleteExtension] deleteCrossNode failed', error);
-      return false;
-    }
+    const op = deleteRange({
+      startNodeId: range.startNodeId,
+      startOffset: range.startOffset,
+      endNodeId: range.endNodeId,
+      endOffset: range.endOffset
+    });
+    const result = await transaction(editor, [op]).commit();
+    return result.success;
   }
 
   /**
@@ -171,32 +161,19 @@ export class DeleteExtension implements Extension {
   }
 
   /**
-   * 노드 전체 삭제 operations 생성
+   * 노드 전체 삭제 operations 생성 (DSL: deleteOp(nodeId))
    */
-  private _buildDeleteNodeOperations(nodeId: string): any[] {
-    return [
-      {
-        type: 'delete',
-        payload: { nodeId }
-      }
-    ];
+  private _buildDeleteNodeOperations(nodeId: string): ReturnType<typeof deleteOp>[] {
+    return [deleteOp(nodeId)];
   }
 
   /**
-   * 텍스트 삭제 operations 생성
+   * 텍스트 삭제 operations 생성 (DSL: deleteTextRange(start, end) inside control)
    */
-  private _buildDeleteTextOperations(range: ModelSelection): any[] {
-    return [
-      ...control(range.startNodeId, [
-        {
-          type: 'deleteTextRange',
-          payload: {
-            start: range.startOffset,
-            end: range.endOffset
-          }
-        }
-      ])
-    ];
+  private _buildDeleteTextOperations(range: ModelSelection): ReturnType<typeof control> {
+    return control(range.startNodeId, [
+      deleteTextRange(range.startOffset, range.endOffset)
+    ]);
   }
 
   /**

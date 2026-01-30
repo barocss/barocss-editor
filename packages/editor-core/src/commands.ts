@@ -1,4 +1,4 @@
-import { INode } from '@barocss/model';
+import type { INode } from '@barocss/datastore';
 import { DocumentState, SelectionState } from './types';
 
 export class CommandManager {

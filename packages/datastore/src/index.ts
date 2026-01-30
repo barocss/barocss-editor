@@ -1,4 +1,4 @@
-export type { INode, RootDocument, Document, ValidationResult } from './types';
+export type { INode, IMark, RootDocument, Document, ValidationResult } from './types';
 export * from './data-store.js';
 export * from './validators.ts';
 export * from './loader.js';

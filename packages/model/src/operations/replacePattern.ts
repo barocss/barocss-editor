@@ -72,7 +72,7 @@ defineOperation('replacePattern', async (operation: ReplacePatternOperationPaylo
         original.replace(rx, () => { count += 1; return replacement; });
       }
       if (count > 0) {
-        context.dataStore.range.replaceText({ startNodeId: nodeId, startOffset: start, endNodeId: nodeId, endOffset: end }, original.replace(pattern as any, replacement));
+        context.dataStore.range.replaceText({ type: 'range', startNodeId: nodeId, startOffset: start, endNodeId: nodeId, endOffset: end }, original.replace(pattern as any, replacement));
       }
     }
     return count;

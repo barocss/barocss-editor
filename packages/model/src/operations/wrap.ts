@@ -24,22 +24,6 @@ import type { TransactionContext } from '../types';
  * - 노드 존재/타입(텍스트) 검증 및 범위 검증 후 실패 시 예외.
  */
 
-type WrapOperationPayload =
-  | {
-      type: 'wrap';
-      nodeId: string;
-      start: number;
-      end: number;
-      prefix: string;
-      suffix: string;
-    }
-  | {
-      type: 'wrap';
-      range: { startNodeId: string; startOffset: number; endNodeId: string; endOffset: number };
-      prefix: string;
-      suffix: string;
-    };
-
 defineOperation('wrap', async (operation: any, context: TransactionContext) => {
   try {
     const payload = operation.payload;
@@ -69,6 +53,7 @@ defineOperation('wrap', async (operation: any, context: TransactionContext) => {
     const original = (node.text as string).substring(start, end);
     const wrapped = `${prefix}${original}${suffix}`;
     const deleted = context.dataStore.range.replaceText({
+      type: 'range',
       startNodeId: nodeId,
       startOffset: start,
       endNodeId: nodeId,

@@ -1,6 +1,6 @@
 import { defineOperation } from './define-operation';
 import type { TransactionContext } from '../types';
-import type { INode } from '../types';
+import type { INode } from '@barocss/datastore';
 
 export interface CopyResult {
   json: INode[];

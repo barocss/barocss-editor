@@ -127,7 +127,8 @@ describe('EditorViewDOM', () => {
       const result = editorViewDOM.insertText('test text');
       
       expect(result).toBeUndefined(); // void method
-      expect(editorViewDOM.layers.content.textContent).toContain('test text');
+      // Mock editor does not update DOM; assert command was invoked instead
+      expect(mockEditor.executeCommand).toHaveBeenCalledWith('insertText', expect.objectContaining({ text: 'test text' }));
     });
 
     it('insertParagraph 명령이 올바르게 실행되어야 함', () => {

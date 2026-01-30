@@ -423,9 +423,10 @@ export class ContentOperations {
     }
 
     // Change order: move current node to previous position
-    const newContent = [...parent.content];
-    const [movedNode] = newContent.splice(currentIndex, 1);
-    newContent.splice(currentIndex - 1, 0, movedNode);
+    const raw = [...parent.content];
+    const [movedNode] = raw.splice(currentIndex, 1);
+    raw.splice(currentIndex - 1, 0, movedNode);
+    const newContent = raw.map((c): string => (typeof c === 'string' ? c : (c.sid ?? '')));
 
     this.reorderChildren(node.parentId, newContent);
     return true;
@@ -461,9 +462,10 @@ export class ContentOperations {
     }
 
     // Change order: move current node to next position
-    const newContent = [...parent.content];
-    const [movedNode] = newContent.splice(currentIndex, 1);
-    newContent.splice(currentIndex + 1, 0, movedNode);
+    const raw = [...parent.content];
+    const [movedNode] = raw.splice(currentIndex, 1);
+    raw.splice(currentIndex + 1, 0, movedNode);
+    const newContent = raw.map((c): string => (typeof c === 'string' ? c : (c.sid ?? '')));
 
     this.reorderChildren(node.parentId, newContent);
     return true;

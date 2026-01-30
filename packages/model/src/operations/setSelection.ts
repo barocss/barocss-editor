@@ -15,17 +15,18 @@ export interface SetSelectionOperation {
   };
 }
 
-// Set Selection (anchor/head format)
+// Set Selection (anchor/head format → ModelSelection)
 defineOperation('setSelection', async (operation: SetSelectionOperation, context: TransactionContext) => {
   const { anchor, head } = operation.payload;
-  
-  // Update selection in TransactionContext
+  const collapsed = anchor.nodeId === head.nodeId && anchor.offset === head.offset;
   context.selection.current = {
-    anchor,
-    head,
-    empty: anchor.nodeId === head.nodeId && anchor.offset === head.offset
+    type: 'range',
+    startNodeId: anchor.nodeId,
+    startOffset: anchor.offset,
+    endNodeId: head.nodeId,
+    endOffset: head.offset,
+    collapsed
   };
-  
   return {
     ok: true,
     data: context.selection.current

@@ -72,44 +72,46 @@ export class TransactionManager {
       
       for (const operation of operations) {
         const result = await this._executeOperation(operation, context);
+        type OpWithResult = TransactionOperation & { result?: { ok: boolean; error?: string; inverse?: unknown } };
         if (Array.isArray(result)) {
           // Check result of each operation if array
-          for (const op of result) {
+          for (const op of result as OpWithResult[]) {
             if (op.result && op.result.ok === false) {
               // Abort transaction if operation failed
               this._dataStore.end();
               return {
                 success: false,
-                error: op.result.error || 'Operation failed',
+                errors: [op.result.error || 'Operation failed'],
                 operations: executedOperations,
                 selectionBefore,
                 selectionAfter: context.selection.current
               };
             }
           }
-          executedOperations.push(...result);
+          executedOperations.push(...(result as TransactionOperation[]));
           // Collect inverse of each operation
-          result.forEach(op => {
+          (result as OpWithResult[]).forEach(op => {
             if (op.result?.inverse) {
-              inverseOperations.push(op.result.inverse);
+              inverseOperations.push(op.result.inverse as TransactionOperation);
             }
           });
         } else if (result) {
+          const single = result as OpWithResult;
           // Check result if single operation
-          if (result.result && result.result.ok === false) {
+          if (single.result && single.result.ok === false) {
             // Abort transaction if operation failed
             this._dataStore.end();
             return {
               success: false,
-              error: result.result.error || 'Operation failed',
+              errors: [single.result.error || 'Operation failed'],
               operations: executedOperations,
               selectionBefore,
               selectionAfter: context.selection.current
             };
           }
-          executedOperations.push(result);
-          if (result.result?.inverse) {
-            inverseOperations.push(result.result.inverse);
+          executedOperations.push(single as TransactionOperation);
+          if (single.result?.inverse) {
+            inverseOperations.push(single.result.inverse as TransactionOperation);
           }
         }
       }
@@ -156,7 +158,7 @@ export class TransactionManager {
           timestamp: this._currentTransaction!.timestamp,
           description: this._currentTransaction!.description
         };
-        extensions.forEach(ext => {
+        extensions.forEach((ext: { onTransaction?: (editor: Editor, transaction: Transaction) => void }) => {
           ext.onTransaction?.(this._editor, transactionForHooks);
         });
       }
@@ -207,7 +209,7 @@ export class TransactionManager {
     const transactionId = `tx-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     
     this._currentTransaction = {
-      id: transactionId,
+      sid: transactionId,
       operations: [],
       timestamp: new Date(),
       description

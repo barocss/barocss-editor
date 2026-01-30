@@ -19,7 +19,7 @@ defineOperation('moveChildren', async (operation: any, context: TransactionConte
   if (!from) throw new Error(`Parent not found: ${fromParentId}`);
   if (!to) throw new Error(`Parent not found: ${toParentId}`);
   // capture previous positions for inverse
-  const prevPositions = (childIds || []).map((id) => {
+  const prevPositions = (childIds || []).map((id: string) => {
     const parentId = (context.dataStore.getNode(id) as any)?.parentId;
     const parent = parentId ? (context.dataStore.getNode(parentId) as any) : undefined;
     const pos = Array.isArray(parent?.content) ? parent.content.indexOf(id) : undefined;

@@ -1,5 +1,5 @@
 import type { Schema } from '@barocss/schema';
-import type { INode } from '../types';
+import type { INode } from '@barocss/datastore';
 
 interface BaseNodeFields {
   sid: string;

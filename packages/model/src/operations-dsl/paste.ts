@@ -1,5 +1,5 @@
 import { defineOperationDSL } from '../operations/define-operation-dsl';
-import type { INode } from '../types';
+import type { INode } from '@barocss/datastore';
 
 export const paste = defineOperationDSL(
   (nodes: INode[], range: any) => ({

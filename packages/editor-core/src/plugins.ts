@@ -1,4 +1,4 @@
-import { Editor } from './types';
+import type { Editor } from './editor';
 
 export interface EditorPlugin {
   name: string;

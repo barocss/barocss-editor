@@ -1,7 +1,7 @@
 import type { Editor } from '@barocss/editor-core';
 import { TransactionManager, type TransactionResult, type Transaction } from './transaction';
-import type { DataStore, INode } from '@barocss/datastore';
-import { Schema } from '@barocss/schema';
+import type { INode } from '@barocss/datastore';
+import type { IMark } from '@barocss/datastore';
 import type { TransactionContext } from './types';
 
 // ---- Spec Types (minimal) ----
@@ -54,12 +54,12 @@ export function textNode(
   
   // If third parameter is array, it's marks; if object, it's attributes
   if (Array.isArray(marksOrAttributes)) {
-    // If marks exist
-    result.marks = marksOrAttributes.map(mark => ({
-      type: mark.type,
+    // If marks exist (IMark uses stype)
+    result.marks = marksOrAttributes.map((mark: MarkDescriptor & { stype?: string }) => ({
+      stype: mark.stype ?? mark.type,
       attrs: mark.attrs,
       range: mark.range
-    }));
+    })) as IMark[];
     
     // If fourth parameter exists, it's attributes
     if (attributes) {
@@ -74,9 +74,9 @@ export function textNode(
 }
 
 export function mark(stype: string, attrs?: Record<string, any>): MarkDescriptor {
-  // Extract range from attrs if present
+  // Extract range from attrs if present (MarkDescriptor uses type for DSL)
   const { range, ...otherAttrs } = attrs || {};
-  return { stype, attrs: otherAttrs, range };
+  return { type: stype, attrs: otherAttrs, range };
 }
 
 // ---- Transaction (per spec) ----

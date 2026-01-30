@@ -280,7 +280,7 @@ export class SelectionManager {
     
     // Select from first text node to last in root node
     const allNodes = this._dataStore.getAllNodes();
-    const textNodes = allNodes.filter(node => node.text !== undefined);
+    const textNodes = allNodes.filter((node: { text?: string }) => node.text !== undefined);
     
     if (textNodes.length === 0) {
       return;
@@ -645,6 +645,63 @@ export class SelectionManager {
    */
   setDataStore(dataStore: any): void {
     this._dataStore = dataStore;
+  }
+
+  /**
+   * Set range selection (alias for setSelection with range)
+   */
+  setRange(rangeSelection: ModelSelection | null): void {
+    this.setSelection(rangeSelection);
+  }
+
+  /**
+   * Set node selection
+   */
+  setNode(nodeSelection: { type: 'node'; nodeId?: string; startNodeId?: string } | null): void {
+    if (!nodeSelection) {
+      this.setSelection(null);
+      return;
+    }
+    const nodeId = nodeSelection.nodeId ?? nodeSelection.startNodeId;
+    if (!nodeId) {
+      this.setSelection(null);
+      return;
+    }
+    this.setSelection({
+      type: 'node',
+      startNodeId: nodeId,
+      startOffset: 0,
+      endNodeId: nodeId,
+      endOffset: 0
+    });
+  }
+
+  /**
+   * Set selection by absolute position (alias for setSelection)
+   */
+  setAbsolutePos(absoluteSelection: ModelSelection | null): void {
+    this.setSelection(absoluteSelection);
+  }
+
+  /**
+   * Set contentEditable element (no-op in model-only SelectionManager; DOM handled in editor-view-dom)
+   */
+  setContentEditableElement(_element: HTMLElement | null): void {
+    // Model-only: DOM selection sync is handled by EditorViewDOM
+  }
+
+  /**
+   * Whether current selection is inside contentEditable (model-only: true when selection exists)
+   */
+  isSelectionInContentEditable(): boolean {
+    return !this.isEmpty();
+  }
+
+  /**
+   * Clean up (clear selection; no DOM listeners in model-only)
+   */
+  destroy(): void {
+    this.clearSelection();
   }
 
   /**

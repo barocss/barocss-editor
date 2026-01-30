@@ -14,10 +14,10 @@ export const transformNode = defineOperationDSL(
   (...args: [string, (Record<string, any>)?] | [string, string, (Record<string, any>)?]) => {
     if (args.length >= 2 && typeof args[1] === 'string') {
       const [nodeId, newType, newAttrs] = args as [string, string, (Record<string, any>)?];
-      return { type: 'transformNode', payload: { nodeId, newType, newAttrs } };
+      return { type: 'transformNode', payload: { nodeId, newType, newAttrs } } as any;
     }
     const [newType, newAttrs] = args as [string, (Record<string, any>)?];
-    return { type: 'transformNode', payload: { newType, newAttrs } };
+    return { type: 'transformNode', payload: { newType, newAttrs } } as any;
   },
   { atom: false, category: 'content' }
 );

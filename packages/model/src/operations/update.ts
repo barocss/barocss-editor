@@ -1,7 +1,11 @@
 import { defineOperation } from './define-operation';
-import type { UpdateOperation } from './index';
 import type { TransactionContext } from '../types';
 import { defineOperationDSL } from './define-operation-dsl';
+
+interface UpdateOperation {
+  type: 'update';
+  payload: { nodeId: string; data: Record<string, unknown> };
+}
 
 /**
  * Node update operation

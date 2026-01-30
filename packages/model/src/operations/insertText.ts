@@ -54,6 +54,7 @@ defineOperation('insertText',
       // 1) DataStore update: insert at pos position within single node
       //    Construct range as start=end=pos and call DataStore.range.insertText
       const insertedText = context.dataStore.range.insertText({
+        type: 'range',
         startNodeId: nodeId,
         startOffset: pos,
         endNodeId: nodeId,
