@@ -362,6 +362,15 @@ export class ReactInputHandler {
     if (resolved?.length) {
       const { command, args } = resolved[0];
       event.preventDefault();
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0) {
+        try {
+          const modelSel = this.selectionHandler.convertDOMSelectionToModel(sel);
+          if (modelSel && modelSel.type === 'range') this.editor.updateSelection?.(modelSel);
+        } catch {
+          // ignore conversion errors
+        }
+      }
       void this.editor.executeCommand(command, args ?? {});
     }
   }
@@ -673,6 +682,7 @@ export class ReactInputHandler {
       void this.editor.executeCommand('insertParagraph', {}).catch(() => {});
       return;
     }
+    this.editor.updateSelection?.(modelSelection);
     void this.editor.executeCommand('insertParagraph', { selection: modelSelection }).catch(() => {});
   }
 

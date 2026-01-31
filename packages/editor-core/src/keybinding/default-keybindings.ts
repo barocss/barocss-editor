@@ -199,7 +199,18 @@ export const DEFAULT_KEYBINDINGS: Keybinding[] = [
     command: 'setParagraph',
     when: 'editorFocus && editorEditable'
   },
-  
+  // List (bullet / ordered)
+  {
+    key: 'Mod+Shift+8',
+    command: 'toggleBulletList',
+    when: 'editorFocus && editorEditable'
+  },
+  {
+    key: 'Mod+Shift+7',
+    command: 'toggleOrderedList',
+    when: 'editorFocus && editorEditable'
+  },
+
   // Block movement (up/down)
   {
     key: 'Alt+ArrowUp',

@@ -50,6 +50,8 @@ This document states the **contract and behavior** of `@barocss/model`: transact
 ### 3.3 Concrete spec per operation
 
 - **insertParagraph**: payload (blockType?, selectionAlias?). Behavior: insert new block at position derived from selection (end, start, or split); set lastCreatedBlock so selectionAfter is caret in the new block’s first text node. Exec tests: `packages/model/test/operations/insertParagraph.exec.test.ts`.
+- **toggleList** (or **wrapInList**): payload (listType: 'bullet' | 'ordered'). Behavior: wrap current block(s) in a list node (with listItem children), or unwrap if selection is already inside a list. Set lastCreatedBlock so selectionAfter is caret in the focused list item’s first text node. Exec tests: `packages/model/test/operations/toggleList.exec.test.ts` (or wrapInList).
+- **splitListItem**: payload (optional). Behavior: when selection is inside a list item (e.g. in a paragraph), insert a new list item after the current one (with empty block) and set lastCreatedBlock so selectionAfter is caret in the new list item’s first text node. If not inside a list item, may no-op or delegate to insertParagraph. Exec tests: `packages/model/test/operations/splitListItem.exec.test.ts`.
 - **insertText**, **deleteTextRange**, **toggleMark**, **setNode**, etc.: each has an exec test under `packages/model/test/operations/<name>.exec.test.ts`. Those tests are the **concrete spec** for inputs, outputs, and invariants.
 
 When adding or changing an operation: update its exec test to assert the new behavior, then update this SPEC (and `docs/specs/editor.md` if user-visible semantics change).

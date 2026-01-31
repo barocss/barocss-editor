@@ -27,6 +27,8 @@ export * from './toggleMark';
 export * from './removeMark';
 export * from './wrap';
 export * from './unwrap';
+export * from './wrapInList';
+export * from './splitListItem';
 export * from './applyMark';
 export * from './copy';
 export * from './paste';

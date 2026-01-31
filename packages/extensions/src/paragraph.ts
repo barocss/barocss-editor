@@ -1,5 +1,5 @@
 import { Editor, Extension, type ModelSelection } from '@barocss/editor-core';
-import { transaction, control, transformNode, insertParagraph as insertParagraphOp } from '@barocss/model';
+import { transaction, control, transformNode, insertParagraph as insertParagraphOp, splitListItem as splitListItemOp } from '@barocss/model';
 
 export interface ParagraphExtensionOptions {
   enabled?: boolean;
@@ -199,8 +199,28 @@ export class ParagraphExtension implements Extension {
     } else if (!selection.collapsed) {
       return [];
     }
-    ops.push(insertParagraphOp('same'));
+    if (this._isSelectionInsideListItem(dataStore, selection)) {
+      ops.push(splitListItemOp());
+    } else {
+      ops.push(insertParagraphOp('same'));
+    }
     return ops;
+  }
+
+  private _isSelectionInsideListItem(dataStore: any, selection: ModelSelection): boolean {
+    if (selection.type !== 'range') return false;
+    let node = dataStore.getNode(selection.startNodeId);
+    if (!node) return false;
+    if ((node as { stype?: string }).stype === 'inline-text') {
+      const parentId = (node as { parentId?: string }).parentId;
+      if (!parentId) return false;
+      node = dataStore.getNode(dataStore.resolveAlias?.(parentId) ?? parentId);
+    }
+    if (!node) return false;
+    const parentId = (node as { parentId?: string }).parentId;
+    if (!parentId) return false;
+    const parent = dataStore.getNode(dataStore.resolveAlias?.(parentId) ?? parentId);
+    return (parent as { stype?: string })?.stype === 'listItem';
   }
 }
 

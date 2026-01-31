@@ -36,6 +36,8 @@ import './updateMark';
 import './applyMark';
 import './wrap';
 import './unwrap';
+import './wrapInList';
+import './splitListItem';
 import './indentNode';
 import './outdentNode';
 import './indentText';

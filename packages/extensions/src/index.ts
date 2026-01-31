@@ -11,6 +11,7 @@ export * from './underline';
 export * from './strikethrough';
 export * from './move-block';
 export * from './escape';
+export * from './list';
 
 // Import classes
 import { TextExtension } from './text';
@@ -25,6 +26,7 @@ import { IndentExtension } from './indent';
 import { UnderlineExtension } from './underline';
 import { MoveBlockExtension } from './move-block';
 import { CopyPasteExtension } from './copy-paste';
+import { ListExtension } from './list';
 import type { Extension } from '@barocss/editor-core';
 
 // Core Extension (required extensions that are always included by default)
@@ -45,13 +47,14 @@ export function createCoreExtensions(): Extension[] {
 }
 
 // Convenience functions
-// Additional Extensions (Bold, Italic, Heading)
+// Additional Extensions (Bold, Italic, Heading, List)
 // Note: Core Extensions are automatically registered in Editor constructor, so they are excluded here
 export function createBasicExtensions(): Extension[] {
   return [
     new BoldExtension(),
     new ItalicExtension(),
-    new HeadingExtension()
+    new HeadingExtension(),
+    new ListExtension()
   ];
 }
 
