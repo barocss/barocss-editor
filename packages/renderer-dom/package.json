@@ -38,7 +38,8 @@
     "test:run": "vitest run"
   },
   "dependencies": {
-    "@barocss/dsl": "workspace:*"
+    "@barocss/dsl": "workspace:*",
+    "@barocss/text-run-index": "workspace:*"
   },
   "devDependencies": {
     "@types/jsdom": "^21.1.7",

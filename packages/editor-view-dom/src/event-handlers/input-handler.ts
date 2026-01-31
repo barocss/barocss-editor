@@ -1,5 +1,5 @@
 import { InputHandler, IEditorViewDOM } from '../types';
-import { Editor } from '@barocss/editor-core';
+import { Editor, type ModelSelection } from '@barocss/editor-core';
 import { handleEfficientEdit } from '../utils/efficient-edit-handler';
 import { type MarkRange } from '../utils/edit-position-converter';
 import { classifyDomChange, type ClassifiedChange, type InputHint } from '../dom-sync/dom-change-classifier';
@@ -168,7 +168,8 @@ export class InputHandlerImpl implements InputHandler {
     const inputHint = this.getValidInsertHint(isComposing);
 
     // Include model selection information in ClassifyOptions
-    const modelSelectionInfo = modelSelection && modelSelection.type === 'range' ? {
+    const modelSelectionInfo: ModelSelection | undefined = modelSelection && modelSelection.type === 'range' ? {
+      type: 'range',
       startNodeId: modelSelection.startNodeId,
       startOffset: modelSelection.startOffset,
       endNodeId: modelSelection.endNodeId,
@@ -1123,12 +1124,111 @@ export class InputHandlerImpl implements InputHandler {
       return;
     }
 
-    // 4) Generate Insert Range hint for Insert-type inputTypes
+    // 4) getTargetRanges() path for insert types: define input region before browser modifies DOM
+    const handledByGetTargetRanges = this.tryHandleInsertViaGetTargetRanges(event);
+    if (handledByGetTargetRanges) {
+      this._pendingInsertHint = null;
+      return;
+    }
+
+    // 5) Generate Insert Range hint for Insert-type inputTypes (fallback when getTargetRanges unused)
     this.updateInsertHintFromBeforeInput(event);
 
-    // 5) For the rest (text input, etc.), let browser handle automatically,
+    // 6) For the rest (text input, etc.), let browser handle automatically,
     //    and MutationObserver detects DOM changes to update the model.
     console.log('[InputHandler] handleBeforeInput: ALLOW (will be handled by MutationObserver)', { inputType });
+  }
+
+  /**
+   * Try to handle insert-type beforeinput using getTargetRanges().
+   * If getTargetRanges is available and the target range maps to inline-text, we preventDefault,
+   * update model only (replaceText), then trigger render and update selection.
+   * Returns true if the event was handled (caller should return); false to fall back to MutationObserver path.
+   */
+  private tryHandleInsertViaGetTargetRanges(event: InputEvent): boolean {
+    const inputType = event.inputType;
+    const insertTypes = new Set<string>(['insertText', 'insertFromPaste', 'insertReplacementText']);
+    if (!insertTypes.has(inputType)) return false;
+
+    // During IME composition use existing path (MutationObserver + hint)
+    if (event.isComposing) return false;
+
+    const getTargetRanges = (event as InputEvent & { getTargetRanges?: () => StaticRange[] }).getTargetRanges;
+    if (typeof getTargetRanges !== 'function') return false;
+
+    const ranges = getTargetRanges.call(event);
+    if (!ranges?.length) return false;
+
+    const staticRange = ranges[0];
+    const modelRange = this.editorViewDOM.convertStaticRangeToModel?.(staticRange) ?? null;
+    if (!modelRange || modelRange.type !== 'range') return false;
+
+    const dataStore = this.editor.dataStore;
+    if (!dataStore) return false;
+
+    const startNode = dataStore.getNode(modelRange.startNodeId);
+    const endNode = dataStore.getNode(modelRange.endNodeId);
+    const isEditable =
+      startNode?.stype === 'inline-text' &&
+      endNode?.stype === 'inline-text';
+
+    if (!isEditable) {
+      event.preventDefault();
+      this.editor.emit('editor:input.boundary_text', {
+        target: event.target,
+        textNodeId: null,
+        nodeType: startNode?.stype ?? endNode?.stype ?? 'unknown',
+        reason: 'getTargetRanges range not in inline-text'
+      });
+      return true;
+    }
+
+    const text = event.data ?? '';
+    const rangeForReplace: ModelSelection = {
+      type: 'range',
+      startNodeId: modelRange.startNodeId,
+      startOffset: modelRange.startOffset,
+      endNodeId: modelRange.endNodeId,
+      endOffset: modelRange.endOffset
+    };
+
+    event.preventDefault();
+
+    this.editor.executeCommand('replaceText', { range: rangeForReplace, text }).then((success) => {
+      if (!success) {
+        console.warn('[InputHandler] tryHandleInsertViaGetTargetRanges: replaceText failed');
+        return;
+      }
+      const textLen = text.length;
+      const newCaret: ModelSelection = {
+        type: 'range',
+        startNodeId: modelRange.startNodeId,
+        startOffset: modelRange.startOffset + textLen,
+        endNodeId: modelRange.startNodeId,
+        endOffset: modelRange.startOffset + textLen
+      };
+      this.editor.updateSelection(newCaret);
+      this.editor.emit('editor:content.change', {
+        skipRender: false,
+        from: 'getTargetRanges',
+        content: (this.editor as any).document,
+        transaction: { type: 'text_replace', range: rangeForReplace }
+      });
+      // Restore DOM selection after render (same as handleDelete)
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          try {
+            (this.editorViewDOM as any).convertModelSelectionToDOM?.(newCaret);
+          } catch (err) {
+            console.warn('[InputHandler] tryHandleInsertViaGetTargetRanges: failed to restore DOM selection', err);
+          }
+        });
+      });
+    }).catch((err) => {
+      console.error('[InputHandler] tryHandleInsertViaGetTargetRanges: replaceText error', err);
+    });
+
+    return true;
   }
 
   /**
@@ -1175,7 +1275,8 @@ export class InputHandlerImpl implements InputHandler {
       return;
     }
 
-    const contentRange = {
+    const contentRange: ModelSelection = {
+      type: 'range',
       startNodeId: modelSelection.startNodeId,
       startOffset: modelSelection.startOffset,
       endNodeId: modelSelection.endNodeId,
@@ -1192,7 +1293,7 @@ export class InputHandlerImpl implements InputHandler {
     console.log('[InputHandler] updateInsertHintFromBeforeInput: hint updated', {
       inputType,
       contentRange,
-      hasText: !!this._pendingInsertHint.text
+      hasText: !!this._pendingInsertHint?.text
     });
   }
 

@@ -78,3 +78,13 @@ apps/docs-site/
 ├── docusaurus.config.ts    # Docusaurus configuration
 └── sidebars.ts            # Sidebar navigation
 ```
+
+## Agent and documentation plan
+
+This site is the **published** user/developer docs. It fits into the full flow: **spec → implementation → documentation → test → verify**.
+
+- **When to update**: New operation → `docs/api/model-operations.md` (and model-operation-dsl, architecture/model if needed). New concept/guide/example → `docs/concepts/`, `docs/guides/`, or `docs/examples/` and `sidebars.ts`. Spec or API change → update the page that describes that behavior.
+- **Where to add what**: API reference → `docs/api/`; package roles → `docs/architecture/`; how-to → `docs/guides/`; runnable examples → `docs/examples/`. Always add new docs to `sidebars.ts` in the right category.
+- **Build and verify**: From repo root, `pnpm --filter @barocss/docs-site build` or `pnpm dev:docs` to preview. Push to `main` triggers `.github/workflows/docs.yml` to build and deploy to GitHub Pages.
+
+Full plan (when/what to update, checklist for new operations) is in **`docs/docs-site-integration.md`** (repo root). Agent entry point and feature loop including documentation: **`.cursor/AGENTS.md`**.

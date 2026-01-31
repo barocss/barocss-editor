@@ -80,6 +80,16 @@ export function mark(stype: string, attrs?: Record<string, any>): MarkDescriptor
 }
 
 // ---- Transaction (per spec) ----
+
+/** Options for transaction execution. */
+export interface TransactionOptions {
+  /**
+   * When true (default), selectionAfter is applied to View (SelectionManager + DOM/React).
+   * When false, selection is not applied to View (e.g. remote sync, programmatic change).
+   */
+  applySelectionToView?: boolean;
+}
+
 export interface TransactionBuilder {
   commit(): Promise<TransactionResult>;
 }
@@ -87,9 +97,11 @@ export interface TransactionBuilder {
 class TransactionBuilderImpl implements TransactionBuilder {
   private editor: Editor;
   private ops: (TransactionOperation | OpFunction)[];
-  constructor(editor: Editor, ops: (TransactionOperation | OpFunction)[]) {
+  private options: TransactionOptions | undefined;
+  constructor(editor: Editor, ops: (TransactionOperation | OpFunction)[], options?: TransactionOptions) {
     this.editor = editor;
     this.ops = ops;
+    this.options = options;
   }
   async commit(): Promise<TransactionResult> {
     // Before hooks: Allow extensions to intercept and modify transaction
@@ -128,16 +140,18 @@ class TransactionBuilderImpl implements TransactionBuilder {
     }
     
     // Pass OpFunction and regular operations directly to TransactionManager
-    // Let TransactionManager handle them at execution time
     const tm = new TransactionManager(this.editor);
-    return tm.execute(finalOps);
+    return tm.execute(finalOps, this.options);
   }
 }
 
-export function transaction(editor: Editor, operations: (TransactionOperation | TransactionOperation[] | OpFunction)[]): TransactionBuilder {
-  // Flatten array using flat()
+export function transaction(
+  editor: Editor,
+  operations: (TransactionOperation | TransactionOperation[] | OpFunction)[],
+  options?: TransactionOptions
+): TransactionBuilder {
   const flattenedOps = operations.flat();
-  return new TransactionBuilderImpl(editor, flattenedOps);
+  return new TransactionBuilderImpl(editor, flattenedOps, options);
 }
 
 // ---- Functional DSL ----

@@ -9,6 +9,7 @@ export * from './deleteTextRange';
 export * from './deleteRange';
 export * from './insertText';
 export * from './addChild';
+export * from './insertParagraph';
 export * from './removeChild';
 export * from './removeChildren';
 export * from './moveChildren';

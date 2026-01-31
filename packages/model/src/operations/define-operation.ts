@@ -1,10 +1,13 @@
 import type { TransactionContext } from '../types';
 import type { INode } from '@barocss/datastore';
 
+/** Result shape when operation returns { ok, data?, inverse?, selectionAfter? }. */
+export type OperationResult = void | INode | { ok?: boolean; data?: unknown; inverse?: unknown; selectionAfter?: { nodeId: string; offset: number } };
+
 // Operation definition interface
 export interface OperationDefinition {
   name: string;
-  execute: <T extends any>(operation: T, context: TransactionContext) => Promise<void | INode>;
+  execute: <T extends any>(operation: T, context: TransactionContext) => Promise<OperationResult>;
   mapSelection?: <T extends any>(operation: T, context: TransactionContext) => any;
 }
 
@@ -34,7 +37,7 @@ export const globalOperationRegistry = new GlobalOperationRegistry();
 // Operation definition function
 export function defineOperation<T extends any>(
   name: string, 
-  executor: (operation: T, context: TransactionContext) => Promise<void | INode>,
+  executor: (operation: T, context: TransactionContext) => Promise<OperationResult>,
   selectionMapper?: (operation: T, context: TransactionContext) => any
 ): void {
   globalOperationRegistry.register(name, { 

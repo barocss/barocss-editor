@@ -19,6 +19,3 @@ export type {
   TextChangeAnalysisOptions,
   TextDifference
 } from './types';
-
-// Re-export for convenience
-export { analyzeTextChanges as analyze } from './smart-text-analyzer';

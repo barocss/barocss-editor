@@ -17,6 +17,13 @@ vi.mock('@barocss/model', () => {
     transformNode: (newType: string) => ({
       type: 'transformNode',
       payload: { newType }
+    }),
+    insertParagraph: (blockType?: 'paragraph' | 'same', selectionAlias?: string) => ({
+      type: 'insertParagraph',
+      payload: {
+        ...(blockType != null && { blockType }),
+        ...(selectionAlias != null && { selectionAlias })
+      }
     })
   };
 });
@@ -138,6 +145,113 @@ describe('ParagraphExtension - setParagraph', () => {
     const result = await cmd.execute(editor, { selection });
     expect(result).toBe(true);
     // Transaction is not called because it's a no-op
+    expect(commitMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('ParagraphExtension - insertParagraph', () => {
+  beforeEach(() => {
+    recordedTransactions.length = 0;
+    commitMock.mockReset();
+    commitMock.mockResolvedValue({ success: true });
+  });
+
+  it('collapsed selection: transaction에 insertParagraph(same) 한 개만 넣는다', async () => {
+    const schema = {
+      getNodeType: (stype: string) => {
+        if (stype === 'paragraph') return { group: 'block' };
+        if (stype === 'inline-text') return { group: 'inline' };
+        return null;
+      }
+    };
+    const dataStore = {
+      getNode: (id: string) => {
+        if (id === 'text-1') {
+          return { sid: 'text-1', stype: 'inline-text', text: 'Hi', parentId: 'para-1' };
+        }
+        if (id === 'para-1') {
+          return { sid: 'para-1', stype: 'paragraph', content: ['text-1'], parentId: 'doc-1' };
+        }
+        return null;
+      },
+      getActiveSchema: () => schema
+    };
+    const editor = createFakeEditor(dataStore, schema);
+    const ext = new ParagraphExtension();
+    ext.onCreate(editor);
+
+    const cmd = (editor as any).__getCommand('insertParagraph');
+    const selection: ModelSelection = {
+      type: 'range',
+      startNodeId: 'text-1',
+      startOffset: 2,
+      endNodeId: 'text-1',
+      endOffset: 2,
+      collapsed: true,
+      direction: 'none'
+    };
+
+    const result = await cmd.execute(editor, { selection });
+    expect(result).toBe(true);
+    expect(commitMock).toHaveBeenCalledTimes(1);
+    expect(recordedTransactions).toHaveLength(1);
+    const ops = recordedTransactions[0];
+    expect(ops).toHaveLength(1);
+    expect(ops[0]).toEqual({ type: 'insertParagraph', payload: { blockType: 'same' } });
+  });
+
+  it('range (same node): deleteTextRange 후 insertParagraph(same) 두 개 넣는다', async () => {
+    const schema = {
+      getNodeType: (stype: string) => {
+        if (stype === 'paragraph') return { group: 'block' };
+        if (stype === 'inline-text') return { group: 'inline' };
+        return null;
+      }
+    };
+    const dataStore = {
+      getNode: (id: string) => {
+        if (id === 'text-1') {
+          return { sid: 'text-1', stype: 'inline-text', text: 'Hello', parentId: 'para-1' };
+        }
+        if (id === 'para-1') {
+          return { sid: 'para-1', stype: 'paragraph', content: ['text-1'], parentId: 'doc-1' };
+        }
+        return null;
+      },
+      getActiveSchema: () => schema
+    };
+    const editor = createFakeEditor(dataStore, schema);
+    const ext = new ParagraphExtension();
+    ext.onCreate(editor);
+
+    const cmd = (editor as any).__getCommand('insertParagraph');
+    const selection: ModelSelection = {
+      type: 'range',
+      startNodeId: 'text-1',
+      startOffset: 1,
+      endNodeId: 'text-1',
+      endOffset: 4,
+      collapsed: false,
+      direction: 'forward'
+    };
+
+    const result = await cmd.execute(editor, { selection });
+    expect(result).toBe(true);
+    expect(recordedTransactions).toHaveLength(1);
+    const ops = recordedTransactions[0];
+    expect(ops).toHaveLength(2);
+    expect(ops[0]).toEqual({ type: 'deleteTextRange', payload: { start: 1, end: 4 } });
+    expect(ops[1]).toEqual({ type: 'insertParagraph', payload: { blockType: 'same' } });
+  });
+
+  it('selection 없으면 실행하지 않고 false 반환', async () => {
+    const editor = createFakeEditor({ getNode: () => null, getActiveSchema: () => null });
+    const ext = new ParagraphExtension();
+    ext.onCreate(editor);
+    const cmd = (editor as any).__getCommand('insertParagraph');
+
+    const result = await cmd.execute(editor, {});
+    expect(result).toBe(false);
     expect(commitMock).not.toHaveBeenCalled();
   });
 });

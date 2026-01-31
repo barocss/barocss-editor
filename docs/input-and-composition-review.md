@@ -101,6 +101,69 @@
 - **DOM이 이미 바뀐 뒤**에 “어디가 바뀌었는지”를 **DOM만 보고** 추론하는 현재 방식은, **model–DOM이 1:1이 아닐 때** 오차가 날 수 있다.
 - **beforeinput + getTargetRanges()**로 **영향받을 범위를 먼저** 받고, **그 범위를 model 좌표로만 해석**해서 **model만 수정**하고 **우리 render**로 DOM을 다시 그리면, **“여러 자식 DOM = 하나의 model”** 구조에서도 **입력을 올바른 model 위치에** 반영할 수 있다.
 
+### 4.1 getTargetRanges()로 입력 영역 정하는 구체 절차
+
+**API 요약**
+
+- `InputEvent.getTargetRanges()`: **beforeinput** 시점에 호출. 이벤트가 **취소되지 않을 때** 변경될 **DOM 범위**를 [`StaticRange`](https://developer.mozilla.org/en-US/docs/Web/API/StaticRange) 배열로 반환.
+- `contenteditable`에서 `insertText` / `insertReplacementText` / `deleteContentBackward` 등은 보통 **길이 1** 배열을 반환(영향받을 한 범위).
+- `input`/`textarea` 또는 `historyUndo`/`historyRedo`에서는 **빈 배열** 반환.
+
+**절차 (insertText / insertReplacementText 기준)**
+
+1. **beforeinput** 리스너에서 `inputType`이 `insertText`, `insertReplacementText`, `insertFromPaste` 등인지 확인.
+2. **`event.getTargetRanges()`** 호출.
+   - 미지원 시 `undefined` 또는 빈 배열 → 기존처럼 `window.getSelection()`으로 대체하거나 MutationObserver 경로 유지.
+3. **첫 번째 StaticRange** 사용:
+   - `range.startContainer`, `range.startOffset`, `range.endContainer`, `range.endOffset`은 **DOM이 아직 바뀌기 전**의 "영향받을 구간".
+4. **StaticRange → model range 변환**:
+   - `startContainer`에서 `closest('[data-bc-sid]')`로 **시작 노드의 model 노드(sid)** 확보.
+   - 해당 노드가 **inline-text**인지 스키마/모델로 확인.
+   - 같은 방식으로 `endContainer`로 **끝 model 노드** 확보.
+   - 각 노드 내 **텍스트 기준 offset** 계산: 해당 노드의 텍스트 자식만 순회하면서 `startOffset`/`endOffset`을 **문자 단위 offset**으로 변환.
+   - 결과: `{ startNodeId, startOffset, endNodeId, endOffset }` (+ `type: 'range'`).
+5. **입력 영역 허용 여부 결정**:
+   - 변환된 model range의 **startNodeId / endNodeId**가 모두 **inline-text**이면 "편집 가능 영역".
+   - 그렇지 않으면(블록만 있거나, sid 없음) "입력 불가" → **preventDefault()** 하고 **model 갱신 없이** 끝내거나, 기존 정책(예: keydown/compositionstart 차단)과 동일하게 처리.
+6. **preventDefault + model만 갱신**:
+   - `event.preventDefault()`.
+   - `event.data`(삽입 텍스트)와 변환된 model range로 **replaceText(range, event.data)** 실행.
+   - **editor:content.change** 등으로 **우리 render**만 호출 → DOM은 우리가 그린 구조로만 갱신.
+
+**deleteContentBackward / deleteContentForward**
+
+- 동일하게 `getTargetRanges()`로 **삭제될 범위**를 StaticRange로 받음.
+- 위와 같은 **StaticRange → model range** 변환 후, 해당 구간이 **inline-text** 안이면 **preventDefault** + **deleteText(range)**(또는 범위에 맞는 delete command) 실행 후 **우리 render**.
+
+**의사 코드 (insertText)**
+
+```text
+function handleBeforeInputInsert(event: InputEvent) {
+  const ranges = event.getTargetRanges?.();
+  if (!ranges?.length) return; // 폴백: selection 또는 MutationObserver
+
+  const sr = ranges[0];
+  const modelRange = staticRangeToModelRange(sr); // startNodeId, startOffset, endNodeId, endOffset
+  if (!modelRange) return;
+
+  const startNode = getNode(modelRange.startNodeId);
+  const endNode   = getNode(modelRange.endNodeId);
+  if (startNode?.stype !== 'inline-text' || endNode?.stype !== 'inline-text') {
+    event.preventDefault();
+    return; // 입력 불가 영역
+  }
+
+  event.preventDefault();
+  replaceText({ type: 'range', ...modelRange }, event.data ?? '');
+  triggerRender();
+}
+```
+
+**정리**
+
+- **입력 영역을 정한다** = getTargetRanges()로 "브라우저가 바꾸려는 DOM 범위"를 받고, 이를 **model range**로 변환한 뒤, 그 range가 **허용된 노드 타입(예: inline-text)** 안에 있는지 검사하는 것.
+- 허용되면 **preventDefault** 후 **model만 갱신**하고 **우리 render**로 DOM을 갱신하면, "브라우저가 만든 DOM 구조"에 의존하지 않고 **항상 우리가 정한 영역**에서만 입력이 반영된다.
+
 ---
 
 ## 5. 이미 변경된 DOM이 우리 구조와 다를 때 어떻게 대응할지

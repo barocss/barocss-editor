@@ -26,6 +26,7 @@ export function createTransactionContext(
     dataStore,
     selectionManager,
     selection: selectionContext,
-    schema
+    schema,
+    lastCreatedBlock: undefined
   };
 }

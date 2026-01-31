@@ -110,54 +110,72 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
     }
 
     const range = selection.getRangeAt(0);
-    const startContainer = range.startContainer;
-    const endContainer = range.endContainer;
-    const startOffset = range.startOffset;
-    const endOffset = range.endOffset;
+    const boundaries = this._convertRangeBoundariesToModel(
+      range.startContainer,
+      range.startOffset,
+      range.endContainer,
+      range.endOffset
+    );
+    if (!boundaries) return { type: 'none' };
 
-    // Find closest element with data-bc-sid (prioritize text container)
+    const { startNodeId, startModelOffset, endNodeId, endModelOffset } = boundaries;
+    const startNode = this.findBestContainer(range.startContainer);
+    const endNode = this.findBestContainer(range.endContainer);
+    const direction = startNode && endNode
+      ? this.determineSelectionDirection(selection, startNode, endNode, startModelOffset, endModelOffset)
+      : 'forward';
+
+    const modelSelection = fromDOMSelection(startNodeId, startModelOffset, endNodeId, endModelOffset, 'range');
+    return { ...modelSelection, direction };
+  }
+
+  /**
+   * Convert StaticRange (e.g. from InputEvent.getTargetRanges()) to ModelSelection.
+   * Used for beforeinput + getTargetRanges() path to get the DOM range that would be affected before the browser modifies it.
+   */
+  convertStaticRangeToModel(staticRange: StaticRange): { type: 'range'; startNodeId: string; startOffset: number; endNodeId: string; endOffset: number; direction?: 'forward' | 'backward' | 'none' } | null {
+    const boundaries = this._convertRangeBoundariesToModel(
+      staticRange.startContainer,
+      staticRange.startOffset,
+      staticRange.endContainer,
+      staticRange.endOffset
+    );
+    if (!boundaries) return null;
+
+    const { startNodeId, startModelOffset, endNodeId, endModelOffset } = boundaries;
+    const modelSelection = fromDOMSelection(startNodeId, startModelOffset, endNodeId, endModelOffset, 'range');
+    return { ...modelSelection, type: 'range' as const, direction: 'forward' as const };
+  }
+
+  /**
+   * Convert range boundaries (start/end container + offset) to model node ids and offsets.
+   * Shared by convertDOMSelectionToModel and convertStaticRangeToModel.
+   */
+  private _convertRangeBoundariesToModel(
+    startContainer: Node,
+    startOffset: number,
+    endContainer: Node,
+    endOffset: number
+  ): { startNodeId: string; startModelOffset: number; endNodeId: string; endModelOffset: number } | null {
     const startNode = this.findBestContainer(startContainer);
     const endNode = this.findBestContainer(endContainer);
 
-    if (!startNode || !endNode) {
-      return { type: 'none' };
-    }
+    if (!startNode || !endNode) return null;
 
     const startNodeId = startNode.getAttribute('data-bc-sid');
     const endNodeId = endNode.getAttribute('data-bc-sid');
 
-    if (!startNodeId || !endNodeId) {
-      return { type: 'none' };
-    }
+    if (!startNodeId || !endNodeId) return null;
 
-    // Check if node actually exists in Model
-    if (!this.nodeExistsInModel(startNodeId) || !this.nodeExistsInModel(endNodeId)) {
-      console.warn('[SelectionHandler] Node does not exist in model:', {
-        startNodeId,
-        endNodeId,
-        startExists: this.nodeExistsInModel(startNodeId),
-        endExists: this.nodeExistsInModel(endNodeId)
-      });
-      return { type: 'none' };
-    }
+    if (!this.nodeExistsInModel(startNodeId) || !this.nodeExistsInModel(endNodeId)) return null;
 
-    // Calculate global offset based on Text Run Index
     const startRuns = this.ensureRuns(startNode, startNodeId);
     const endRuns = startNode === endNode ? startRuns : this.ensureRuns(endNode, endNodeId);
 
     const startModelOffset = this.convertOffsetWithRuns(startNode, startContainer, startOffset, startRuns, false);
     const endModelOffset = this.convertOffsetWithRuns(endNode, endContainer, endOffset, endRuns, true);
 
-    // Determine Selection direction
-    const direction = this.determineSelectionDirection(selection, startNode, endNode, startModelOffset, endModelOffset);
-
-    // Normalize using fromDOMSelection (returns unified ModelSelection format)
-    const modelSelection = fromDOMSelection(startNodeId, startModelOffset, endNodeId, endModelOffset, 'range');
-    
-    return {
-      ...modelSelection,
-      direction // Overwrite direction with value calculated from determineSelectionDirection
-    };
+    return { startNodeId, startModelOffset, endNodeId, endModelOffset };
   }
 
   private findClosestDataNode(node: Node): Element | null {

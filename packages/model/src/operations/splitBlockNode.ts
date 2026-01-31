@@ -18,10 +18,18 @@ defineOperation('splitBlockNode', async (operation: any, context: TransactionCon
   if (!node) throw new Error(`Node not found: ${nodeId}`);
   if (!Array.isArray(node.content)) throw new Error('Node has no content to split');
   const newNodeId = context.dataStore.splitMerge.splitBlockNode(nodeId, splitPosition);
+  const newBlock = context.dataStore.getNode(newNodeId);
+  const firstTextNodeId =
+    newBlock && Array.isArray(newBlock.content) && newBlock.content[0]
+      ? (newBlock.content[0] as string)
+      : null;
+  context.lastCreatedBlock = { blockId: newNodeId, firstTextNodeId };
+  const selectionTargetNodeId = firstTextNodeId ?? newNodeId;
   return {
     ok: true,
     data: newNodeId,
-    inverse: { type: 'mergeBlockNodes', payload: { leftNodeId: nodeId, rightNodeId: newNodeId } }
+    inverse: { type: 'mergeBlockNodes', payload: { leftNodeId: nodeId, rightNodeId: newNodeId } },
+    selectionAfter: { nodeId: selectionTargetNodeId, offset: 0 }
   };
 });
 

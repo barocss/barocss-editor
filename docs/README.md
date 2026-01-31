@@ -63,10 +63,18 @@ renderer.render(container, model);
 
 ## 🔗 Related Documents
 
+### specs/ Folder
+- **`specs/README.md`** - How specs are organized (editor-wide vs package-level), when to update, how agents use them
+- **`specs/editor.md`** - Editor-wide spec: document model, selection semantics, operation semantics
+- Package specs: **`packages/<name>/SPEC.md`** (e.g. `packages/model/SPEC.md`) - per-package contract and invariants
+
 ### dom/ Folder
 - `portal-system-spec.md` - Portal system specification
 - `portal-use-cases.md` - Portal use cases
 - `decorator-implementation-guide.md` - Decorator implementation guide
+
+### Docs-site integration (agent flow)
+- **`docs-site-integration.md`** - How apps/docs-site fits into the full loop: spec → implementation → documentation → test → verify. When to update docs-site, where to add api/architecture/guides/examples, build/verify.
 
 ### Others
 - `api-reference.md` - API reference

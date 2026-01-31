@@ -3,6 +3,7 @@ import './setNode';
 import './moveNode';
 import './reorderChildren';
 import './addChild';
+import './insertParagraph';
 import './removeChild';
 import './moveChildren';
 import './removeChildren';

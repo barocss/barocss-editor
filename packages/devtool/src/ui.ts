@@ -151,15 +151,13 @@ export class DevtoolUI {
    * Update model tree display with efficient diff algorithm
    */
   updateModelTree(tree: ModelTreeNode | null): void {
-    const container = document.getElementById('tree-container');
+    const container = this.container.querySelector('#tree-container') as HTMLElement | null;
     if (!container) return;
 
     if (!tree) {
-      if (this.previousTree) {
-        container.innerHTML = '<div class="devtool-empty">No model data available</div>';
-        this.previousTree = null;
-        this.nodeElementMap.clear();
-      }
+      container.innerHTML = '<div class="devtool-empty">No model data available</div>';
+      this.previousTree = null;
+      this.nodeElementMap.clear();
       return;
     }
 

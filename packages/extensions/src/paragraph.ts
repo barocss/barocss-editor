@@ -1,5 +1,5 @@
 import { Editor, Extension, type ModelSelection } from '@barocss/editor-core';
-import { transaction, control, transformNode } from '@barocss/model';
+import { transaction, control, transformNode, insertParagraph as insertParagraphOp } from '@barocss/model';
 
 export interface ParagraphExtensionOptions {
   enabled?: boolean;
@@ -100,7 +100,7 @@ export class ParagraphExtension implements Extension {
       ])
     ];
 
-    const result = await transaction(editor, ops).commit();
+    const result = await transaction(editor, ops, { applySelectionToView: true }).commit();
     return result.success;
   }
 
@@ -121,7 +121,7 @@ export class ParagraphExtension implements Extension {
       return false;
     }
 
-    const result = await transaction(editor, ops).commit();
+    const result = await transaction(editor, ops, { applySelectionToView: true }).commit();
     return result.success;
   }
 
@@ -164,213 +164,42 @@ export class ParagraphExtension implements Extension {
   }
 
   /**
-   * Builds operation sequence needed for insertParagraph.
-   *
-   * Current implementation scope:
-   * - collapsed range:
-   *   - In single text node + single child paragraph:
-   *     - Middle of text: splitTextNode + splitBlockNode
-   *     - End of text: add empty paragraph of same type after
-   *     - Start of text: add empty paragraph of same type before
-   * - RangeSelection within same text node:
-   *   - After deleteTextRange, reuse above logic based on collapsed selection
-   * - RangeSelection spanning multiple nodes:
-   *   - Does not generate operations at current stage (returns empty array)
+   * Builds operation sequence for insertParagraph.
+   * insertParagraph is selection-based (reads context.selection.current in the transaction).
+   * Collapsed: insertParagraph(). Range (same node): deleteTextRange then insertParagraph().
    */
   private _buildInsertParagraphOperations(
     editor: Editor,
     selection: ModelSelection
   ): any[] {
     const dataStore = (editor as any).dataStore;
-    if (!dataStore) {
-      console.error('[ParagraphExtension] dataStore not found');
-      return [];
-    }
-
-    if (selection.type !== 'range') {
-      return [];
-    }
+    if (!dataStore) return [];
+    if (selection.type !== 'range') return [];
 
     const ops: any[] = [];
-
-    // 1) Handle RangeSelection
-    if (!selection.collapsed) {
-      // RangeSelection within same text node
-      if (selection.startNodeId === selection.endNodeId) {
-        const node = dataStore.getNode(selection.startNodeId);
-        if (!node || typeof node.text !== 'string') {
-          return [];
-        }
-        const text = node.text as string;
-        const { startOffset, endOffset } = selection;
-        if (
-          typeof startOffset !== 'number' ||
-          typeof endOffset !== 'number' ||
-          startOffset < 0 ||
-          endOffset > text.length ||
-          startOffset >= endOffset
-        ) {
-          return [];
-        }
-
-        // deleteTextRange operation
-        ops.push(
-          ...control(selection.startNodeId, [
-            {
-              type: 'deleteTextRange',
-              payload: {
-                start: startOffset,
-                end: endOffset
-              }
-            }
-          ])
-        );
-
-        // Assume caret is at startOffset after deletion and reuse collapsed logic
-        const newTextLength = text.length - (endOffset - startOffset);
-        const collapsedOffset = startOffset;
-
-        const collapsedOps = this._buildCollapsedParagraphOps(
-          dataStore,
-          selection.startNodeId,
-          collapsedOffset,
-          newTextLength
-        );
-        return ops.concat(collapsedOps);
+    if (!selection.collapsed && selection.startNodeId === selection.endNodeId) {
+      const node = dataStore.getNode(selection.startNodeId);
+      if (!node || typeof node.text !== 'string') return [];
+      const text = node.text as string;
+      const { startOffset, endOffset } = selection;
+      if (
+        typeof startOffset !== 'number' ||
+        typeof endOffset !== 'number' ||
+        startOffset < 0 ||
+        endOffset > text.length ||
+        startOffset >= endOffset
+      ) {
+        return [];
       }
-
-      // RangeSelection spanning multiple nodes is not yet handled in transaction-based Enter.
-      // (Will be extended after securing same Range deletion logic as Backspace/Delete)
-      return [];
-    }
-
-    // 2) collapsed case
-    const node = dataStore.getNode(selection.startNodeId);
-    if (!node || typeof node.text !== 'string') {
-      return [];
-    }
-
-    const text = node.text as string;
-    return this._buildCollapsedParagraphOps(
-      dataStore,
-      selection.startNodeId,
-      selection.startOffset,
-      text.length
-    );
-  }
-
-  /**
-   * Operation sequence for Enter behavior in collapsed state
-   *
-   * - Middle of text: splitTextNode + splitBlockNode
-   * - End of text: add empty paragraph of same type after under parent (doc)
-   * - Start of text: add empty paragraph of same type before under parent (doc)
-   */
-  private _buildCollapsedParagraphOps(
-    dataStore: any,
-    textNodeId: string,
-    offset: number,
-    textLength: number
-  ): any[] {
-    const ops: any[] = [];
-
-    const textNode = dataStore.getNode(textNodeId);
-    if (!textNode || typeof textNode.text !== 'string') {
-      return [];
-    }
-
-    const parentBlock = dataStore.getParent(textNodeId);
-    if (!parentBlock || !Array.isArray(parentBlock.content)) {
-      return [];
-    }
-
-    const isSingleTextChild =
-      parentBlock.content.length === 1 && parentBlock.content[0] === textNodeId;
-
-    // 1) Enter at middle of text: splitTextNode + splitBlockNode
-    if (isSingleTextChild && offset > 0 && offset < textLength) {
       ops.push(
-        ...control(textNodeId, [
-          {
-            type: 'splitTextNode',
-            payload: { splitPosition: offset }
-          }
-        ]),
-        ...control(parentBlock.sid, [
-          {
-            type: 'splitBlockNode',
-            payload: { splitPosition: 1 }
-          }
+        ...control(selection.startNodeId, [
+          { type: 'deleteTextRange', payload: { start: startOffset, end: endOffset } }
         ])
       );
-      return ops;
+    } else if (!selection.collapsed) {
+      return [];
     }
-
-    // 2) Enter at end of block: add empty block of same type after current block
-    if (offset === textLength) {
-      const grandParent = parentBlock.parentId
-        ? dataStore.getNode(parentBlock.parentId)
-        : null;
-      if (!grandParent || !Array.isArray(grandParent.content)) {
-        return [];
-      }
-
-      const idx = grandParent.content.indexOf(parentBlock.sid);
-      if (idx === -1) {
-        return [];
-      }
-
-      const newBlock = {
-        stype: parentBlock.stype,
-        attributes: { ...(parentBlock.attributes || {}) },
-        content: []
-      } as any;
-
-      ops.push({
-        type: 'addChild',
-        payload: {
-          parentId: grandParent.sid,
-          child: newBlock,
-          position: idx + 1
-        }
-      });
-
-      return ops;
-    }
-
-    // 3) Enter at start of block: add empty block of same type before current block
-    if (offset === 0) {
-      const grandParent = parentBlock.parentId
-        ? dataStore.getNode(parentBlock.parentId)
-        : null;
-      if (!grandParent || !Array.isArray(grandParent.content)) {
-        return [];
-      }
-
-      const idx = grandParent.content.indexOf(parentBlock.sid);
-      if (idx === -1) {
-        return [];
-      }
-
-      const newBlock = {
-        stype: parentBlock.stype,
-        attributes: { ...(parentBlock.attributes || {}) },
-        content: []
-      } as any;
-
-      ops.push({
-        type: 'addChild',
-        payload: {
-          parentId: grandParent.sid,
-          child: newBlock,
-          position: idx
-        }
-      });
-
-      return ops;
-    }
-
-    // Other cases not yet implemented
+    ops.push(insertParagraphOp('same'));
     return ops;
   }
 }

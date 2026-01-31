@@ -918,6 +918,14 @@ export class EditorViewDOM implements IEditorViewDOM {
     return this.selectionHandler.convertDOMSelectionToModel(sel);
   }
 
+  /**
+   * Convert StaticRange (from InputEvent.getTargetRanges()) to ModelSelection.
+   * Used for beforeinput + getTargetRanges() path to define input region before browser modifies DOM.
+   */
+  convertStaticRangeToModel(staticRange: StaticRange) {
+    return this.selectionHandler.convertStaticRangeToModel(staticRange);
+  }
+
   // External render API
   render(tree?: ModelData | any, options?: { sync?: boolean }): void {
     if (!this._domRenderer) {
@@ -1011,7 +1019,7 @@ export class EditorViewDOM implements IEditorViewDOM {
     }
     
     // Integrate all decorators (local + remote + generator)
-    const allDecorators = [...localDecorators, ...remoteDecorators, ...generatorDecorators];
+    const allDecorators = [...localDecorators, ...remoteDecorators, ...generatorDecorators] as Decorator[];
     
     // 4. Collect selection information (for Content layer rendering)
     const selection = window.getSelection();

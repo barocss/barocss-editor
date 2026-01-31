@@ -25,12 +25,22 @@ Each skill’s `description` includes **when to use it (WHEN)** so the agent can
 
 ---
 
+## Cross-cutting flow skills
+
+| Skill directory | Scope | Purpose |
+|-----------------|-------|---------|
+| `selection-application` | Model → Editor Core → View | How selection is applied after a transaction; `applySelectionToView`; `updateSelection` and `editor:selection.model` flow |
+| `model-operation-creation` | packages/model | Add new operation + DSL + exec test + browser E2E; defineOperation, defineOperationDSL, selectionAfter, $alias; then pnpm test:e2e:react |
+
+---
+
 ## App skills (editor test apps)
 
 These skills apply to the apps in `apps/` that run and test the editor in the browser.
 
 | Skill directory | App | Purpose |
 |-----------------|-----|---------|
-| `app-editor-test` | apps/editor-test | Full editor integration, Playwright E2E, bootstrap, Devtool |
+| `app-editor-test` | apps/editor-test | Full editor (DOM view), Playwright E2E, bootstrap, Devtool; `pnpm test:e2e` |
+| `app-editor-react` | apps/editor-react | React editor, Playwright E2E로 datastore→model→operation→extension→editor-view 기능 검증; `pnpm test:e2e:react` |
 | `app-editor-decorator-test` | apps/editor-decorator-test | Decorator system (layer/inline/block, pattern, defineDecorator) |
 | `app-docs-site` | apps/docs-site | Docusaurus docs, embedded editor demo (initEditorDemo) |

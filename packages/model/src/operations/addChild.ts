@@ -17,10 +17,17 @@ defineOperation('addChild', async (operation: any, context: TransactionContext) 
   const parent = context.dataStore.getNode(actualParentId);
   if (!parent) throw new Error(`Parent not found: ${actualParentId}`);
   const childId = context.dataStore.content.addChild(actualParentId, child, position);
-  
+  const addedNode = context.dataStore.getNode(childId);
+  const firstTextNodeId =
+    addedNode && Array.isArray(addedNode.content) && addedNode.content[0]
+      ? (addedNode.content[0] as string)
+      : null;
+  context.lastCreatedBlock = { blockId: childId, firstTextNodeId };
+  const selectionTargetNodeId = firstTextNodeId ?? childId;
   return {
     ok: true,
-    data: context.dataStore.getNode(childId),
-    inverse: { type: 'removeChild', payload: { parentId: actualParentId, childId } }
+    data: addedNode,
+    inverse: { type: 'removeChild', payload: { parentId: actualParentId, childId } },
+    selectionAfter: { nodeId: selectionTargetNodeId, offset: 0 }
   };
 });

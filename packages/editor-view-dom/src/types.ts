@@ -78,6 +78,7 @@ export interface IEditorViewDOM {
   
   // Selection conversion
   convertDOMSelectionToModel?(sel: Selection): any;
+  convertStaticRangeToModel?(staticRange: StaticRange): { type: 'range'; startNodeId: string; startOffset: number; endNodeId: string; endOffset: number; direction?: 'forward' | 'backward' | 'none' } | null;
   convertModelSelectionToDOM?(sel: any): void;
   
   // Browser native commands (delegated to Model-first Commands)

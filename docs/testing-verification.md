@@ -10,7 +10,31 @@ This document describes how and to what extent the editor can be tested, and how
 |-------|--------|------|---------|
 | **Unit** | `packages/*/test/` | Vitest | DataStore, model ops, DSL, schema, renderer-dom, editor-view-dom units, text-analyzer, converter, etc. |
 | **Integration** | `packages/editor-view-dom/test/integration/` | Vitest (jsdom) | EditorViewDOM + renderer-dom, decorators, selection mapping, mutation observer, mount/unmount. |
-| **E2E** | `apps/editor-test/tests/` | Playwright | Full app in browser: content layer, DOM structure, visible text. |
+| **E2E (DOM)** | `apps/editor-test/tests/` | Playwright | Full app in browser (EditorViewDOM): content layer, DOM structure, visible text. |
+| **E2E (React)** | `apps/editor-react/tests/` | Playwright | Full app in browser (EditorView React): content layer, insertParagraph 등 기능 검증. |
+
+---
+
+## 1.1 Full-stack layers and browser functional testing
+
+기능 하나를 넣거나 바꿀 때 다음 레이어를 순서대로 설정한 뒤, **실제 브라우저에서 기능 테스트**로 검증한다.
+
+| 순서 | 레이어 | 위치 | 역할 |
+|------|--------|------|------|
+| 1 | **datastore** | `packages/datastore` | 노드 저장/조회, content API, lock, overlay, $alias 등. |
+| 2 | **model** | `packages/model` | operation 정의, DSL, transaction, selection 해석. |
+| 3 | **operation** | `packages/model/src/operations`, `operations-dsl` | `defineOperation` + `defineOperationDSL`, exec 테스트. |
+| 4 | **extension** | `packages/extensions` | command 등록, keybinding → command, transaction에 operation 넣어 실행. |
+| 5 | **editor-view** | `packages/editor-view-dom` 또는 `editor-view-react` | 입력/키 → command 호출, selection 변환, DOM/React 렌더. |
+
+**브라우저 기능 테스트 실행**
+
+- **React 기준**: `pnpm test:e2e:react` (또는 `pnpm --filter @barocss/editor-react test:e2e`)  
+  - `apps/editor-react`: EditorView(React) + createCoreExtensions, 포트 5175.
+- **DOM 기준**: `pnpm test:e2e` (또는 `pnpm --filter @barocss/editor-test test:e2e`)  
+  - `apps/editor-test`: EditorViewDOM + createCoreExtensions, 포트 5173.
+
+datastore, model, operation, extension, editor-view 중 하나라도 건드렸으면 해당 기능에 맞는 E2E 스펙을 추가·수정한 뒤 위 명령으로 통과하는지 확인한다.
 
 ---
 
@@ -72,20 +96,32 @@ pnpm --filter @barocss/editor-view-dom test:integration
 
 ### 2.4 E2E (Playwright)
 
-Dev server must be reachable at `http://localhost:5173` (see `apps/editor-test/playwright.config.ts`). Either start it manually or let Playwright start it:
+**React 앱 (기능 테스트 권장)**  
+레포 루트에서:
 
 ```bash
-cd apps/editor-test
+pnpm test:e2e:react
+```
+
+또는 `apps/editor-react`에서: `pnpm test:e2e`. 포트 5175, `reuseExistingServer: true`.
+
+**DOM 앱 (editor-test)**  
+레포 루트에서:
+
+```bash
 pnpm test:e2e
 ```
 
-Headed (see browser):
+또는 `cd apps/editor-test && pnpm test:e2e`. 포트 5173.
+
+Headed (브라우저 창으로 확인):
 
 ```bash
-pnpm test:e2e:headed
+cd apps/editor-react && pnpm test:e2e:headed
+cd apps/editor-test  && pnpm test:e2e:headed
 ```
 
-Playwright config starts the app with `pnpm dev` and port 5173 if no server is already running (`reuseExistingServer: true`). If the web server fails to be ready within 60s, start it manually in another terminal (`pnpm dev` in apps/editor-test) then run `pnpm test:e2e` again.
+Playwright가 `pnpm dev`로 앱을 띄우고, 60초 안에 준비되지 않으면 터미널에서 해당 앱을 먼저 `pnpm dev` 한 뒤 다시 E2E를 실행하면 된다.
 
 ---
 
@@ -104,59 +140,82 @@ Playwright config starts the app with `pnpm dev` and port 5173 if no server is a
 
 - Mount/unmount, renderer-dom integration, decorator integration (layer/inline/block), selection mapping, mutation observer, pattern/custom decorators, component state, tables, error handling, performance smoke.
 
-### 3.3 E2E (editor-test)
+### 3.3 E2E (editor-test, DOM)
 
-- **Current spec**: `tests/editor-view.spec.ts` – one describe “EditorViewDOM rendering”, one test:
+- **Current spec**: `tests/editor-view.spec.ts` – EditorViewDOM 렌더링:
   - Content layer visible (`[data-bc-layer="content"]`).
-  - No document wrapper under content (`[data-bc-stype="document"]` count 0).
-  - Exactly 2 paragraphs and 2 “text” nodes.
-  - Text contains “Hello, EditorViewDOM!” and “Type here to test.”
+  - No document wrapper under content.
+  - 2 paragraphs, “BaroCSS Editor Demo”, “Rich Text Features”, “This is a ”, “bold text”, “italic text” 등 초기 문서와 일치.
 
-**Problem**: The app’s initial content in `apps/editor-test/src/main.ts` is different: headings “BaroCSS Editor Demo”, “Rich Text Features”, then paragraphs with “This is a ”, “bold text”, “italic text”, etc. So this E2E test does **not** match the current app and will fail until either:
+### 3.4 E2E (editor-react, React)
 
-- The spec is updated to assert the **current** initial content (e.g. “BaroCSS Editor Demo”, “Rich Text Features”, paragraph structure and text), or  
-- A dedicated E2E fixture is added (e.g. minimal document with “Hello, EditorViewDOM!” and “Type here to test.”) and the test runs against that.
+- **Current spec**: `tests/insertParagraph.spec.ts` – insertParagraph 기능:
+  - Content layer visible, 초기 paragraph 2개.
+  - 첫 번째 paragraph 클릭(포커스) 후 Enter 입력.
+  - paragraph 개수 3개로 증가하는지 검증 (datastore → model → operation → extension → editor-view 전체 경로).
 
 ---
 
-## 4. Implementation verification checklist
+## 4. Problem verification (practical)
+
+How to verify that a change or fix is correct, in a fixed order.
+
+### 4.0 Where to look
+
+- **Step-by-step by scenario** (new feature / bug fix / E2E-only): **`.cursor/AGENTS.md`** § “Verification by scenario (step-by-step)”.
+- **When a test fails** (unit vs E2E, what to do next): **`.cursor/AGENTS.md`** § “When something fails”.
+- **Manual checks in the browser** (insert paragraph, typing, block type, marks): **`.cursor/AGENTS.md`** § “Manual verification (what to check in the browser)”.
+
+Summary:
+
+1. **New feature**: Run new operation exec test → full model tests → extension tests (if added) → E2E → optional manual check.
+2. **Bug fix**: Run affected package tests → fix or add tests → run extensions if touched → E2E → manual reproduction of the bug scenario to confirm fix.
+3. **E2E-only**: Run E2E; if app content or DOM changed, update spec selectors/assertions to match.
+
+If a **unit test fails**: fix in that package and re-run until it passes; do not run E2E until unit passes.  
+If **E2E fails**: run unit tests for the same feature first; if unit passes, treat as DOM/timing/selector and adjust the spec or run E2E in headed mode to inspect.
+
+---
+
+## 5. Implementation verification checklist
 
 Use this to verify that an implementation is covered and working.
 
-### 4.1 Data and model
+### 5.1 Data and model
 
 - [ ] **DataStore**: `pnpm --filter @barocss/datastore test:run` – transactions, overlay, lock, content, marks, iterators.
 - [ ] **Model operations**: `pnpm --filter @barocss/model test:run` – all relevant ops (insertText, toggleMark, transformNode, etc.) and transaction DSL.
 - [ ] **Schema**: `pnpm --filter @barocss/schema test:run` – schema creation and validation.
 
-### 4.2 Rendering
+### 5.2 Rendering
 
 - [ ] **DSL**: `pnpm --filter @barocss/dsl test:run` – templates, registry.
 - [ ] **Renderer-dom**: `pnpm --filter @barocss/renderer-dom test:run` – VNode build, reconcile, marks, decorators.
 - [ ] **Editor-view-dom (core + integration)**: `pnpm --filter @barocss/editor-view-dom test:run` – layers, decorators, selection, integration tests.
 
-### 4.3 Input and text
+### 5.3 Input and text
 
 - [ ] **Text analyzer**: `pnpm --filter @barocss/text-analyzer test:run` – LCP/LCS, selection bias.
 - [ ] **Editor-view-dom (events/text-analysis)**: input handler and text-analysis test groups.
 
-### 4.4 Editor and extensions
+### 5.4 Editor and extensions
 
 - [ ] **Editor-core**: `pnpm --filter @barocss/editor-core test:run` – selection, commands.
 - [ ] **Extensions**: `pnpm --filter @barocss/extensions test:run` – extension and command behavior.
 
-### 4.5 Full stack in browser
+### 5.5 Full stack in browser
 
-- [ ] **Manual**: Run `pnpm dev:site` (or `pnpm --filter @barocss/editor-test dev`), open http://localhost:5173, type, use shortcuts, paste, check Devtool.
-- [ ] **E2E**: Fix `editor-view.spec.ts` to match current app (or E2E fixture), then run `cd apps/editor-test && pnpm test:e2e`.
+- [ ] **Manual**: Run `pnpm dev:site` (DOM) or `pnpm --filter @barocss/editor-react dev` (React), open 해당 포트, 입력/단축키/붙여넣기, Devtool 확인.
+- [ ] **E2E (React)**: `pnpm test:e2e:react` — editor-react 앱에서 insertParagraph 등 기능 검증.
+- [ ] **E2E (DOM)**: `pnpm test:e2e` — editor-test 앱에서 content layer, 초기 문서 구조·텍스트 검증.
 
-### 4.6 Optional: decorator app
+### 5.6 Optional: decorator app
 
 - [ ] **Manual**: Run `pnpm dev:decorator`, check layer/inline/block and pattern decorators.
 
 ---
 
-## 5. E2E spec and initial content
+## 6. E2E spec and initial content
 
 The E2E spec `editor-view.spec.ts` has been updated to match the **current** initial content in `apps/editor-test/src/main.ts`: it asserts content layer visible, no document wrapper under content, two paragraphs, and visible strings “BaroCSS Editor Demo”, “Rich Text Features”, “This is a ”, “bold text”, “italic text”.
 
@@ -164,8 +223,9 @@ If you change the initial tree or schema in main.ts, update the spec assertions 
 
 ---
 
-## 6. References
+## 7. References
 
 - **Unit/integration patterns**: `paper/testing-guide.md` (transaction DSL, control, op(), mocks, debugging).
 - **E2E config**: `apps/editor-test/playwright.config.ts` (port 5173, `pnpm dev`).
 - **App bootstrap**: `apps/editor-test/src/main.ts` (initial tree, schema, templates).
+- **GitHub (CI, PR, deploy)**: `docs/github-agent-integration.md`.

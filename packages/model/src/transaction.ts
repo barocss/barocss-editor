@@ -44,7 +44,10 @@ export class TransactionManager {
   /**
    * Execute transaction (core functionality)
    */
-  async execute(operations: (TransactionOperation | OpFunction)[]): Promise<TransactionResult> {
+  async execute(
+    operations: (TransactionOperation | OpFunction)[],
+    options?: { applySelectionToView?: boolean }
+  ): Promise<TransactionResult> {
     let lockId: string | null = null;
     
     try {
@@ -69,15 +72,16 @@ export class TransactionManager {
       // 4. Execute all operations and collect results (OpFunction is handled in _executeOperation)
       const executedOperations: TransactionOperation[] = [];
       const inverseOperations: TransactionOperation[] = [];
-      
+      type OpWithResult = TransactionOperation & {
+        result?: { ok?: boolean; error?: string; inverse?: unknown; selectionAfter?: { nodeId: string; offset: number } };
+      };
+      let lastSelectionAfter: { nodeId: string; offset: number } | null = null;
+
       for (const operation of operations) {
         const result = await this._executeOperation(operation, context);
-        type OpWithResult = TransactionOperation & { result?: { ok: boolean; error?: string; inverse?: unknown } };
         if (Array.isArray(result)) {
-          // Check result of each operation if array
           for (const op of result as OpWithResult[]) {
             if (op.result && op.result.ok === false) {
-              // Abort transaction if operation failed
               this._dataStore.end();
               return {
                 success: false,
@@ -87,9 +91,9 @@ export class TransactionManager {
                 selectionAfter: context.selection.current
               };
             }
+            if (op.result?.selectionAfter) lastSelectionAfter = op.result.selectionAfter;
           }
           executedOperations.push(...(result as TransactionOperation[]));
-          // Collect inverse of each operation
           (result as OpWithResult[]).forEach(op => {
             if (op.result?.inverse) {
               inverseOperations.push(op.result.inverse as TransactionOperation);
@@ -97,9 +101,7 @@ export class TransactionManager {
           });
         } else if (result) {
           const single = result as OpWithResult;
-          // Check result if single operation
           if (single.result && single.result.ok === false) {
-            // Abort transaction if operation failed
             this._dataStore.end();
             return {
               success: false,
@@ -109,10 +111,24 @@ export class TransactionManager {
               selectionAfter: context.selection.current
             };
           }
+          if (single.result?.selectionAfter) lastSelectionAfter = single.result.selectionAfter;
           executedOperations.push(single as TransactionOperation);
           if (single.result?.inverse) {
             inverseOperations.push(single.result.inverse as TransactionOperation);
           }
+        }
+      }
+
+      // 5. Selection resolution (after all operations, before commit)
+      // Prefer selectionAfter from operation result (nodeId may be $alias; resolve via resolveAlias).
+      if (context.selection.current) {
+        if (lastSelectionAfter) {
+          const nodeId = this._dataStore.resolveAlias(lastSelectionAfter.nodeId);
+          context.selection.setCaret(nodeId, lastSelectionAfter.offset);
+        } else if (context.lastCreatedBlock) {
+          const nodeId =
+            context.lastCreatedBlock.firstTextNodeId ?? context.lastCreatedBlock.blockId;
+          context.selection.setCaret(nodeId, 0);
         }
       }
 
@@ -163,9 +179,10 @@ export class TransactionManager {
         });
       }
       
-      // Pass selectionAfter to updateSelection
-      // Store in SelectionManager + emit editor:selection.model event
-      if (selectionAfter) {
+      // Pass selectionAfter to updateSelection only when applySelectionToView !== false
+      // (e.g. skip for remote sync or programmatic change)
+      const applySelectionToView = options?.applySelectionToView !== false;
+      if (selectionAfter && applySelectionToView) {
         this._editor.updateSelection(selectionAfter);
       }
 
