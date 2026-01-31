@@ -69,7 +69,15 @@ Operations are defined in `@barocss/model`; their concrete inputs/outputs and in
 - **Behavior**: Removes content in the given range or backward from the caret. Selection is updated to the resulting position.
 - **Guarantee**: **selectionAfter** is valid and points into a text node when the resulting block still has text.
 
-### 3.4 Other operations
+### 3.4 List operations (bullet / ordered list)
+
+- **Schema**: The editor schema may define `list` (content: listItem+, attrs: type = "bullet" | "ordered") and `listItem` (content: block+). When present, list blocks are the unit of bullet/numbered list in the UI.
+- **toggleList / wrapInList** (or equivalent): Wrap the current block(s) in a list (bullet or ordered), or unwrap if the selection is already inside a list. Input: list type (bullet | ordered); selection from context. Output: document change; **selectionAfter** in a text node of the focused list item.
+- **splitListItem**: When the caret is inside a list item (e.g. in its paragraph’s text), create a new list item after the current one (with an empty paragraph or block), and move the caret into that new item’s first text node. Behavior is analogous to insertParagraph but in list context. **Guarantee**: **selectionAfter** places the caret in a **text node** of the new list item (so that the next keypress goes into that text). Exec tests must assert this (e.g. selectionAfter.nodeId is a text node id).
+
+If the schema does not define list/listItem, these operations are not applicable; the implementation checklist should add schema nodes when the app schema is extended for lists.
+
+### 3.5 Other operations
 
 - **toggleMark**, **setNode**, **transformNode**, etc.: each has inputs/outputs and invariants defined in the model package. Extension commands compose these operations; the view maps input events to commands. For each operation, the model’s exec tests and `packages/model/SPEC.md` are the source of truth.
 
@@ -79,7 +87,8 @@ Operations are defined in `@barocss/model`; their concrete inputs/outputs and in
 
 - **Typing**: Input events (e.g. insertText, deleteContentBackward) are mapped to model operations by the editor-view; the model updates the document and produces **selectionAfter**; the view applies the selection to the DOM so the caret is in the right place.
 - **Enter (insert paragraph)**: Command runs insertParagraph (or equivalent); a new block is inserted and the caret moves into its text node so that typing continues there.
-- **Block type / marks**: Commands run the corresponding model operations; the document and selection are updated; the view re-renders and applies selection.
+- **Enter (in list item)**: When the caret is inside a list item, the command runs splitListItem (or equivalent); a new list item is created and the caret moves into its text node.
+- **Block type / list / marks**: Commands run the corresponding model operations (setNode, toggleList, toggleMark, etc.); the document and selection are updated; the view re-renders and applies selection.
 
 E2E tests (e.g. `apps/editor-react/tests/`) assert this behavior in the browser. When changing semantics, update the editor spec, the model spec (or operation spec), and the tests together.
 
