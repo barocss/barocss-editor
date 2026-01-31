@@ -41,6 +41,16 @@ Agents can automate up to **PR creation**; **merge** and **release** are typical
 - Use the "Verification" section in the template as the checklist to run before opening a PR.
 - Optionally reference the issue in the PR (e.g. "Closes #123").
 
+### 2.4 Rule: no open issues → research and create issues
+
+When there are **no open GitHub issues**, the agent must not stop. It must:
+
+1. **Research Agent**: Start new research (e.g. other editors, features we could add), then produce a report and **draft issue(s)** (title + body).
+2. **Backlog Agent**: Create GitHub issue(s) from those drafts (`gh issue create` or equivalent).
+3. Then treat the **first created (or first open) issue** as the current task and run the full flow (Spec → Implementation → … → PR).
+
+See `.cursor/AGENTS.md` § 규칙 (Rules) and § Single command step 1 "Nothing found".
+
 ---
 
 ## 3. Branch and PR

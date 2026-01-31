@@ -4,6 +4,60 @@ This repo is a **platform for building editors**. When adding or changing a feat
 
 ---
 
+## 시작하기 (코드 없이)
+
+우리가 만든 플로우만으로 시작하려면, **아래 순서**만 따라하면 된다.
+
+### 1. 할 일이 하나 있어야 한다 (백로그 = GitHub 이슈)
+
+- **열린 이슈가 이미 있으면** → 2번으로.
+- **열린 이슈가 없으면** → 먼저 이슈를 하나 만든다.
+  - **에이전트로 진행할 때**: "이번에 해야할을 알려주고 진행해줘"라고 하면, 에이전트가 **규칙**에 따라 새 자료 조사를 시작하고 필요한 것들을 이슈로 남긴 뒤 첫 이슈를 진행한다. (Research Agent → Backlog Agent → 이슈 생성 → 진행.)
+  - **직접 만들 때**: GitHub에서 **New issue** → "Feature (model / extension / E2E)" 또는 "Bug fix" 템플릿 선택 → 제목·본문 채우고 생성.
+  - 또는 에이전트에게: **"Act as Backlog Agent. 이슈 만들어줘: [원하는 기능 한 줄]."** (예: "이슈 만들어줘: insertList 기능 추가")
+
+### 2. 한 문장으로 진행 시키기
+
+에이전트에게 이렇게만 말한다:
+
+- **"이번에 해야할을 알려주고 진행해줘"**  
+  (또는 "할 일 알려주고 진행해줘" / "What needs to be done? Proceed.")
+
+에이전트가 **열린 이슈 중 첫 번째**를 골라서:
+
+1. **"이번에 할 일: [이슈 제목] (issue #N)"** 이라고 알려주고  
+2. **Spec → Implementation → Test → E2E → GitHub** 순서로 진행한다.  
+   (이슈가 버그 수정이면 Implementation부터, E2E만 추가면 그에 맞게 진행.)
+
+코드는 보지 않아도 된다. 에이전트가 스펙·구현·테스트·문서·PR까지 처리한다.
+
+### 3. (선택) 아이디어부터 넣고 싶을 때
+
+- **"Act as Research Agent. 다른 에디터 조사해서 우리에 추가할 만한 기능 알려줘."**  
+  → 보고서 + 이슈 초안이 나오면, 그걸 바탕으로 Backlog Agent로 이슈 생성.
+- 그 다음 **"이번에 해야할을 알려주고 진행해줘"** 로 진행.
+
+### 4. 다른 역할만 쓰고 싶을 때
+
+- **README 정리**: "Act as README Agent. README 업데이트해줘." / "패키지 README 맞춰줘."
+- **문서 사이트만**: "Act as Docs Agent. docs만 업데이트해줘."
+- **PR 리뷰**: "Act as Review Agent. 이 PR 리뷰해줘."
+- **릴리스**: "Act as Release Agent. 릴리스 해줘."
+- **의존성/보안**: "Act as Security Agent. 의존성 업데이트해줘." / "보안 점검해줘."
+- **리팩터만**: "Act as Refactor Agent. [패키지명] 패키지 리팩터해줘."
+
+역할 전체 목록과 호출 방법: 아래 "Agent roles (sub-agents)" 섹션과 **`docs/agent-roles-and-orchestration.md`**.
+
+---
+
+## 규칙 (Rules)
+
+- **GitHub에 열린 이슈가 없을 때**: 새 자료 조사를 시작하고, 우리에게 필요한 것들을 이슈로 남긴다. 이슈가 없다고 해서 멈추지 않는다. (Research Agent → Backlog Agent로 이슈 생성 → 생성된 첫 이슈로 진행.)
+- **백로그 = GitHub 이슈**: 로컬 백로그 파일은 사용하지 않는다. 할 일은 항상 열린 이슈에서 가져온다.
+- **한 번에 한 이슈**: "이번에 해야할을 알려주고 진행해줘"에서는 열린 이슈 중 하나(첫 번째 또는 `next` 라벨)만 골라 전체 플로우(Spec → Implementation → … → PR)를 진행한다.
+
+---
+
 ## Single command: "이번에 해야할을 알려주고 진행해줘"
 
 When the user says **"이번에 해야할을 알려주고 진행해줘"** (or "What needs to be done? Proceed." / "할 일 알려주고 진행해줘"), do the following in order.
@@ -13,7 +67,11 @@ When the user says **"이번에 해야할을 알려주고 진행해줘"** (or "W
 **Backlog = GitHub issues.** Use open issues as the backlog.
 
 1. **List open issues**: `gh issue list --state open --limit 10`. Pick the **first open issue** (or one labeled `next` if you use that). The issue title + body is the task.
-2. **Nothing found**: If there are no open issues, or `gh` is not available, reply: "할 일이 없습니다. GitHub에 이슈를 만들어 주세요. (예: New issue → Feature / Bug fix / E2E 템플릿)" and stop.
+2. **Nothing found (열린 이슈 없음)**: 이슈가 없으면 **멈추지 말고** 아래를 수행한다.
+   - **Research Agent**: 다른 에디터·자료를 조사하고, 우리 에디터에 추가하면 좋을 기능·개선을 제안한다. 보고서 + **이슈 초안**(제목·본문)을 출력한다. (예: ProseMirror / Slate / Lexical / TipTap 등 리스트·블록·입력 처리 비교, 우리에 넣을 만한 항목 추천.)
+   - **Backlog Agent**: Research Agent가 낸 이슈 초안을 바탕으로 GitHub에 **이슈를 생성**한다. (`gh issue create` 또는 웹으로 생성.) 생성된 이슈 중 **첫 번째**를 이번 할 일로 선택한다.
+   - **이후**: step 2(Report)로 가서 "이번에 할 일: [첫 번째 이슈 제목] (issue #N)"라고 알린 뒤 step 3(Proceed)로 진행한다.
+   - **`gh`를 쓸 수 없을 때**: Research Agent만 실행하고, 이슈 초안(제목·본문)을 사용자에게 보여준 뒤 "위 초안으로 GitHub에서 New issue를 만들어 주시면, 다음에 '이번에 해야할을 알려주고 진행해줘'로 진행할 수 있습니다."라고 안내한다.
 
 ### 2. Report
 
