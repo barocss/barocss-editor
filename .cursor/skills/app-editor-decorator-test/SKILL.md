@@ -9,7 +9,7 @@ description: Decorator-focused test app (layer, inline, block, pattern decorator
 
 - **Purpose**: Test the EditorViewDOM decorator system in isolation. Schema includes `decorators` (comment, highlight, linkDecorator, status) with dataSchema and render position. No Playwright; dev/preview only.
 - **Entry**: `src/main.ts` → `bootstrap()`: createSchema (with decorators), DataStore, Editor, extensions, define/defineMark/defineDecorator, EditorViewDOM, then `addDecorators()` to attach target, pattern, and custom-generator decorators.
-- **Decorator types**: (1) **Target decorators**: fixed target (node or range), e.g. comment, highlight, linkDecorator, status; (2) **Pattern decorators**: URL, email, color-chip with pattern + createDecorator; (3) **Custom generator**: function that returns decorators from model/text (e.g. "테스트" → chip); (4) **Inline before/after**: chip before "Hello", chip after "World" on text-14.
+- **Decorator types**: (1) **Target decorators**: fixed target (node or range), e.g. comment, highlight, linkDecorator, status; (2) **Pattern decorators**: URL, email, color-chip with pattern + createDecorator; (3) **Custom generator**: function that returns decorators from model/text (e.g. "test" → chip); (4) **Inline before/after**: chip before "Hello", chip after "World" on text-14.
 - **Templates**: `defineDecorator(name, template)` for comment, comment-tooltip, comment-popup, highlight, linkDecorator, status, url-link, email-link, color-chip, chip. Portal usage in `portal-test` node (define with portal(document.body, ...)).
 - **Sample data**: `src/decorator-samples.ts` exports sample decorator data (comments, highlights, etc.); main.ts uses its own `addDecorators()` list rather than importing decorator-samples for the live UI.
 

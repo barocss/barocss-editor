@@ -4,15 +4,15 @@ This doc defines **role-based sub-agents** so that work can be split and run in 
 
 ---
 
-## 0. Single entry: "이번에 해야할을 알려주고 진행해줘"
+## 0. Single entry: "What needs to be done? Proceed."
 
-When the user says **"이번에 해야할을 알려주고 진행해줘"** (or "What needs to be done? Proceed."), the agent should:
+When the user says **"What needs to be done? Proceed."** (or equivalent), the agent should:
 
-1. **Determine next task**: **Backlog = GitHub issues.** List open issues (`gh issue list --state open`). Pick the first open issue (or one labeled `next`). **If none (열린 이슈 없음)**: do **not** stop. Run **Research Agent** (다른 에디터·자료 조사, 우리에게 필요한 것 제안, 이슈 초안 출력) → **Backlog Agent** (초안을 바탕으로 GitHub 이슈 생성) → pick the **first new issue**, then continue to step 2. If `gh` is not available, run Research Agent only and show draft issue bodies so the user can create issues manually.
-2. **Report**: "이번에 할 일: [issue title] (issue #N)".
+1. **Determine next task**: **Backlog = GitHub issues.** List open issues (`gh issue list --state open`). Pick the first open issue (or one labeled `next`). **If none (no open issues)**: do **not** stop. Run **Research Agent** (research other editors and materials, suggest what we need, output draft issues) → **Backlog Agent** (create GitHub issues from draft) → pick the **first new issue**, then continue to step 2. If `gh` is not available, run Research Agent only and show draft issue bodies so the user can create issues manually.
+2. **Report**: "Current task: [issue title] (issue #N)".
 3. **Proceed**: Run the full flow for that task (Spec → Implementation → Test → E2E → GitHub, or Implementation → Test → E2E → GitHub if the issue already has a checklist). Use the role definitions in this doc (§2). Do not stop between roles unless a handback is needed (e.g. tests fail). When the PR is merged with "Closes #N", the issue is closed automatically.
 
-Full procedure is in **`.cursor/AGENTS.md`** § "Single command: 이번에 해야할을 알려주고 진행해줘".
+Full procedure is in **`.cursor/AGENTS.md`** § "Single command: What needs to be done? Proceed.".
 
 ---
 
@@ -32,7 +32,7 @@ Full procedure is in **`.cursor/AGENTS.md`** § "Single command: 이번에 해�
 | **Release** | Package release (changeset, version, publish) | User request or post-merge | Version PR or npm publish | — |
 | **Security** | Dependency / security | User request or schedule | Audit report, dependency update PR | — |
 | **Refactor** | Refactoring only (no new features) | User request or scope | Refactored code; Test Agent must pass after | Test |
-| **Validation** | Internal logic validation (package tests in order) | User request or "내부 로직 검증해줘" | Per-package test:run in order; pass/fail report; fix or escalate | — |
+| **Validation** | Internal logic validation (package tests in order) | User request or "Validate internal logic" | Per-package test:run in order; pass/fail report; fix or escalate | — |
 | **README** | README only (root + packages/*/README.md) | User request or new package/feature | Updated root README.md, updated packages/*/README.md | — |
 
 ---
@@ -137,13 +137,13 @@ Full procedure is in **`.cursor/AGENTS.md`** § "Single command: 이번에 해�
 **Focus**: GitHub issue lifecycle as backlog — create, label, order, triage. Does not implement or write spec/code.
 
 **Input**:
-- User request (e.g. “이슈 만들어줘: insertList 기능”, “백로그 정리해줘”, “다음에 할 이슈에 next 라벨 달아줘”, “열린 이슈 목록 보여줘”).
+- User request (e.g. “Create an issue: add insertList”, “Triage backlog”, “Add next label to the issue to do next”, “List open issues”).
 - Optionally: Research Agent report (draft issue bodies) to turn into issues.
 
 **Output**:
 - **New issues**: Create issues from `.github/ISSUE_TEMPLATE/` (feature / bug_fix / e2e_test). Fill title and body from user or from Research draft.
 - **Labels**: Add or remove labels (e.g. `next`, `backlog`, `priority:high`) to order or triage.
-- **Report**: List open issues with labels (e.g. “Open: #5 next, #6 #7 backlog”). Optionally suggest “다음에 할 일: #5”.
+- **Report**: List open issues with labels (e.g. “Open: #5 next, #6 #7 backlog”). Optionally suggest “Next task: #5”.
 
 **Handoff**: Spec Agent or Implementation Agent consumes issues. Backlog Agent does **not** implement or write spec docs.
 
@@ -156,11 +156,11 @@ Full procedure is in **`.cursor/AGENTS.md`** § "Single command: 이번에 해�
 **Focus**: Research other editors and suggest new features to add. Does not implement or write code.
 
 **Input**:
-- User request (e.g. “다른 에디터 조사해서 우리에 추가할 만한 기능 알려줘”, “list 편집 기능 다른 에디터에서 어떻게 하는지 조사해줘”, “ProseMirror / Slate / Lexical / TipTap 중 리스트 기능 비교해줘”).
+- User request (e.g. “Research other editors and suggest features we could add”, “Research how other editors handle list editing”, “Compare list features in ProseMirror / Slate / Lexical / TipTap”).
 
 **Output**:
 - **Report** (markdown or comment): Editors reviewed, features found, recommendation (what to add, priority, brief rationale). Optionally: draft issue title + body for each suggestion so Backlog Agent or user can create issues.
-- Does **not** create issues directly unless user asks (e.g. “조사해서 이슈까지 만들어줘” → then coordinate with Backlog Agent or create via `gh issue create`).
+- Does **not** create issues directly unless user asks (e.g. “Research and create issues” → then coordinate with Backlog Agent or create via `gh issue create`).
 
 **Handoff**: Report → user (to decide) or Backlog Agent (to create issues from suggestions). Research Agent does **not** implement.
 
@@ -173,7 +173,7 @@ Full procedure is in **`.cursor/AGENTS.md`** § "Single command: 이번에 해�
 **Focus**: Documentation only — update `apps/docs-site` (api, architecture, guides, examples) when spec or code changed. Does not implement or write spec/code.
 
 **Input**:
-- User request (e.g. “docs만 업데이트해줘”, “api/model-operations 문서 맞춰줘”).
+- User request (e.g. “Update docs only”, “Align api/model-operations docs”).
 - Spec or code change (e.g. new operation added; Docs Agent syncs docs-site to match).
 
 **Output**:
@@ -207,7 +207,7 @@ Full procedure is in **`.cursor/AGENTS.md`** § "Single command: 이번에 해�
 **Focus**: Package release — changeset add, version-packages, publish (npm). Separate from GitHub Agent (merge/deploy docs).
 
 **Input**:
-- User request (e.g. “릴리스 해줘”, “버전 올리고 publish 해줘”) or trigger after merge to `main`.
+- User request (e.g. “Release”, “Bump version and publish”) or trigger after merge to `main`.
 
 **Output**:
 - **Changeset**: Run `pnpm changeset` (or add changeset file) to describe the change and version bump type.
@@ -225,7 +225,7 @@ Full procedure is in **`.cursor/AGENTS.md`** § "Single command: 이번에 해�
 **Focus**: Dependency and security — audit, suggest or apply updates. Does not implement features.
 
 **Input**:
-- User request (e.g. “의존성 업데이트해줘”, “보안 점검해줘”) or schedule (e.g. weekly).
+- User request (e.g. “Update dependencies”, “Security audit”) or schedule (e.g. weekly).
 
 **Output**:
 - **Audit**: Run `pnpm audit`; report vulnerabilities and suggest fixes.
@@ -242,7 +242,7 @@ Full procedure is in **`.cursor/AGENTS.md`** § "Single command: 이번에 해�
 **Focus**: Refactoring only — improve structure, naming, patterns without changing behavior. No new features. Test Agent must pass after.
 
 **Input**:
-- User request (e.g. “이 패키지 리팩터해줘”, “model 패키지 네이밍 정리해줘”) or scope (e.g. `packages/model`).
+- User request (e.g. “Refactor this package”, “Clean up naming in model package”) or scope (e.g. `packages/model`).
 
 **Output**:
 - **Refactored code**: Same behavior, improved structure/naming/patterns. Run `pnpm --filter @barocss/<package> test:run` after; if fail, fix or hand back. Does **not** add new features or change spec.
@@ -258,7 +258,7 @@ Full procedure is in **`.cursor/AGENTS.md`** § "Single command: 이번에 해�
 **Focus**: README documentation only — root **README.md** and per-package **packages/*/README.md**. Important for open source: first impression, package discovery, usage. Does not implement or change spec/code; does not touch apps/docs-site (that is Docs Agent).
 
 **Input**:
-- User request (e.g. “README 업데이트해줘”, “패키지 README 맞춰줘”, “루트 README에 새 패키지 추가해줘”).
+- User request (e.g. “Update README”, “Align package READMEs”, “Add new package to root README”).
 - New package or feature (sync root README packages list and package README to match current API/usage).
 
 **Output**:
@@ -276,7 +276,7 @@ Full procedure is in **`.cursor/AGENTS.md`** § "Single command: 이번에 해�
 **Focus**: Internal logic validation — run package tests in dependency order so that each package’s behavior is verified before adding features. Uses **`docs/internal-logic-validation.md`** as the single source of order and scope. Does not add features or change spec; only runs tests and fixes or reports failures.
 
 **Input**:
-- User request (e.g. “내부 로직 검증해줘”, “Act as Validation Agent. 내부 로직 검증해줘”, “패키지별 테스트 순서대로 돌려줘”).
+- User request (e.g. “Validate internal logic”, “Act as Validation Agent. Validate internal logic”, “Run package tests in order”).
 - **`docs/internal-logic-validation.md`**: validation order (shared → schema → … → devtool), per-package scope, and run commands.
 
 **Output**:
@@ -285,7 +285,7 @@ Full procedure is in **`.cursor/AGENTS.md`** § "Single command: 이번에 해�
 - **Report**: Pass/fail per package. If fail: fix the code or test in that package and re-run; or escalate (e.g. “model tests fail: …”).
 - **No new features**: Validation Agent does **not** implement new behavior or change specs; it only validates existing logic with tests.
 
-**Handoff**: None. When all packages in scope pass, validation is done. If the user asked for “내부 로직 검증 후 기능 추가”, hand off to Spec/Implementation Agent after validation passes.
+**Handoff**: None. When all packages in scope pass, validation is done. If the user asked for “validate then add features”, hand off to Spec/Implementation Agent after validation passes.
 
 **References**: **`docs/internal-logic-validation.md`** (validation order, per-package scope, run commands), `.cursor/AGENTS.md` § Where to do what (Internal logic validation), `docs/testing-verification.md`.
 
@@ -330,20 +330,20 @@ User / Trigger
 
 ---
 
-### 3.1 Orchestrator: parallel vs serial (여러 sub-agent 분리)
+### 3.1 Orchestrator: parallel vs serial (splitting work across sub-agents)
 
-**오케스트레이터**가 여러 sub-agent에게 일을 나눌 때:
+When the **orchestrator** splits work across sub-agents:
 
-| 구간 | 병렬 여부 | 이유 |
-|------|-----------|------|
-| **Research** | ✅ 병렬 OK | 읽기 전용(다른 에디터·자료 조사). N명이 각자 주제 받아 보고서/이슈 초안 출력 → 오케스트레이터가 합쳐서 이슈 3개 등 선정. |
-| **Backlog** | 직렬 권장 | Research 결과를 모은 뒤 이슈 생성. 한 번에 한 Backlog Agent가 이슈 생성. |
-| **Spec** | 이슈당 1명 | 이슈 N개면 Spec N번 호출 가능하지만, 출력이 같은 docs/specs를 건드리면 충돌. 이슈별로 직렬 또는 파일/스코프 나눠서 할당. |
-| **Implementation** | ❌ 직렬 권장 | 동시에 같은 repo/같은 패키지 수정 시 충돌·스타일 불일치. **한 번에 한 이슈(한 브랜치)** 씩 Implementation → Test → E2E → GitHub. |
-| **Test** | 조건부 | 서로 다른 패키지/다른 spec 파일만 담당하면 병렬 가능. 같은 `*.spec.ts`/같은 패키지면 직렬. |
-| **E2E** | 조건부 | 이슈별로 다른 `*.spec.ts` 추가면 병렬 가능. 같은 파일 수정 시 직렬. |
+| Phase | Parallel? | Reason |
+|-------|-----------|--------|
+| **Research** | ✅ Parallel OK | Read-only (other editors, materials). N agents each take a topic and output report/draft issues → orchestrator merges and picks e.g. 3 issues. |
+| **Backlog** | Serial preferred | After Research results are collected, create issues. One Backlog Agent creates issues at a time. |
+| **Spec** | One per issue | N issues can trigger N Spec calls, but touching the same docs/specs causes conflicts. Serial per issue or split by file/scope. |
+| **Implementation** | ❌ Serial preferred | Editing the same repo/package concurrently causes conflicts and style drift. **One issue (one branch)** at a time: Implementation → Test → E2E → GitHub. |
+| **Test** | Conditional | Parallel if different packages/spec files. Serial if same `*.spec.ts` or same package. |
+| **E2E** | Conditional | Parallel if different `*.spec.ts` per issue. Serial if editing the same file. |
 
-**권장 패턴**: 오케스트레이터가 (1) Research 3명 병렬 → 결과 조합 → 이슈 3개 선정 (2) 이슈 1 → Spec → Implementation → Test → E2E → GitHub (3) 이슈 2 동일 (4) 이슈 3 동일. **구현은 이슈당 직렬.** 자료 조사만 병렬로 돌리고, 실제 코드/테스트는 이슈 단위로 한 에이전트씩 순차 진행하면 소스 유지에 유리하다.
+**Recommended pattern**: Orchestrator (1) runs 3 Research agents in parallel → merge results → pick e.g. 3 issues (2) Issue 1 → Spec → Implementation → Test → E2E → GitHub (3) Issue 2 same (4) Issue 3 same. **Implementation is serial per issue.** Run research in parallel; run code/tests one issue per agent in sequence for easier source maintenance.
 
 ---
 
@@ -360,14 +360,14 @@ Invoke by **role name** so the agent behaves as that role only:
 | **Test Agent** | “Act as **Test Agent**. For the current branch: run unit tests for [packages]. If any fail, add or fix tests (or report that Implementation must fix). Do not run E2E or open PR.” |
 | **E2E Agent** | “Act as **E2E Agent**. For the current branch: run E2E (pnpm test:e2e:react). Add or update E2E spec if needed. Report pass/fail. Do not open PR.” |
 | **GitHub Agent** | “Act as **GitHub Agent**. For the current branch (unit + E2E passed): open PR with template, link issue #N. Do not edit spec or code.” |
-| **Backlog Agent** | "Act as **Backlog Agent**. [이슈 만들어줘 / 백로그 정리해줘 / 열린 이슈 목록 보여줘]. Do not implement or write spec." |
-| **Research Agent** | "Act as **Research Agent**. [다른 에디터 조사해서 추가할 만한 기능 알려줘]. Output report; optionally draft issue bodies. Do not implement." |
-| **Docs Agent** | "Act as **Docs Agent**. [docs만 업데이트해줘 / api 문서 맞춰줘]. Update apps/docs-site only; do not implement or change spec/code." |
-| **Review Agent** | "Act as **Review Agent**. [이 PR 리뷰해줘 / 이 브랜치 리뷰해줘]. Check against spec, patterns, tests; output review comment. Do not implement or merge." |
-| **Release Agent** | "Act as **Release Agent**. [릴리스 해줘 / 버전 올리고 publish 해줘]. Run changeset, version-packages, release. Do not implement or merge PR." |
-| **Security Agent** | "Act as **Security Agent**. [의존성 업데이트해줘 / 보안 점검해줘]. Run pnpm audit; suggest or open PR for dependency updates. Do not implement features." |
-| **Refactor Agent** | "Act as **Refactor Agent**. [이 패키지 리팩터해줘 / model 패키지 네이밍 정리해줘]. Improve structure/naming only; no new features. Run tests after. Do not open PR." |
-| **README Agent** | "Act as **README Agent**. [README 업데이트해줘 / 패키지 README 맞춰줘 / 루트 README에 새 패키지 추가해줘]. Update root README.md and packages/*/README.md only; do not implement or touch apps/docs-site." |
+| **Backlog Agent** | "Act as **Backlog Agent**. [Create an issue / Triage backlog / List open issues]. Do not implement or write spec." |
+| **Research Agent** | "Act as **Research Agent**. [Research other editors and suggest features]. Output report; optionally draft issue bodies. Do not implement." |
+| **Docs Agent** | "Act as **Docs Agent**. [Update docs only / Align api docs]. Update apps/docs-site only; do not implement or change spec/code." |
+| **Review Agent** | "Act as **Review Agent**. [Review this PR / Review this branch]. Check against spec, patterns, tests; output review comment. Do not implement or merge." |
+| **Release Agent** | "Act as **Release Agent**. [Release / Bump version and publish]. Run changeset, version-packages, release. Do not implement or merge PR." |
+| **Security Agent** | "Act as **Security Agent**. [Update dependencies / Security audit]. Run pnpm audit; suggest or open PR for dependency updates. Do not implement features." |
+| **Refactor Agent** | "Act as **Refactor Agent**. [Refactor this package / Clean up naming in model package]. Improve structure/naming only; no new features. Run tests after. Do not open PR." |
+| **README Agent** | "Act as **README Agent**. [Update README / Align package READMEs / Add new package to root README]. Update root README.md and packages/*/README.md only; do not implement or touch apps/docs-site." |
 
 The **orchestrator** (human or another agent) can run these in sequence: first Spec, then Implementation, then Test, then E2E, then GitHub. Backlog, Research, Docs, Review, Release, Security, Refactor, README are invoked when the user wants to manage issues, get feature suggestions, update docs only, review PR, release, audit deps, refactor, or update READMEs.
 

@@ -41,6 +41,6 @@ These skills apply to the apps in `apps/` that run and test the editor in the br
 | Skill directory | App | Purpose |
 |-----------------|-----|---------|
 | `app-editor-test` | apps/editor-test | Full editor (DOM view), Playwright E2E, bootstrap, Devtool; `pnpm test:e2e` |
-| `app-editor-react` | apps/editor-react | React editor, Playwright E2E로 datastore→model→operation→extension→editor-view 기능 검증; `pnpm test:e2e:react` |
+| `app-editor-react` | apps/editor-react | React editor, Playwright E2E validates datastore→model→operation→extension→editor-view; `pnpm test:e2e:react` |
 | `app-editor-decorator-test` | apps/editor-decorator-test | Decorator system (layer/inline/block, pattern, defineDecorator) |
 | `app-docs-site` | apps/docs-site | Docusaurus docs, embedded editor demo (initEditorDemo) |

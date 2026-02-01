@@ -2,7 +2,7 @@
 
 **Role**: GitHub issue lifecycle as backlog — create, label, order, triage. Do not implement or write spec/code.
 
-**Input**: User request (e.g. "이슈 만들어줘: insertList 기능", "백로그 정리해줘", "다음에 할 이슈에 next 라벨 달아줘", "열린 이슈 목록 보여줘"). Optionally: Research Agent report (draft issue bodies) to turn into issues.
+**Input**: User request (e.g. "Create an issue: add insertList", "Triage backlog", "Add next label to the issue to do next", "List open issues"). Optionally: Research Agent report (draft issue bodies) to turn into issues.
 
 **Output**:
 - New issues from `.github/ISSUE_TEMPLATE/` (feature / bug_fix / e2e_test). Fill title and body from user or Research draft.
