@@ -12,9 +12,9 @@ vi.mock('@barocss/model', () => {
       recordedTransactions.push(operations);
       return { commit: commitMock };
     },
-    // control is used for wrapping operations in single node text deletion,
-    // so just return the internal operations array as is
-    control: (_nodeId: string, ops: any[]) => ops
+    control: (_nodeId: string, ops: any[]) => ops,
+    deleteTextRange: (start: number, end: number) => ({ type: 'deleteTextRange', payload: { start, end } }),
+    deleteOp: (nodeId: string) => ({ type: 'delete', payload: { nodeId } })
   };
 });
 
