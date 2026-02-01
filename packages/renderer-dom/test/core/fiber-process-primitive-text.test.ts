@@ -1,20 +1,23 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { processPrimitiveTextChildren, reconcileFiberNode, FiberReconcileDependencies } from '../../src/reconcile/fiber/fiber-reconciler';
+import { processPrimitiveTextChildren, renderFiberNode, commitFiberTree, FiberReconcileDependencies } from '../../src/reconcile/fiber/fiber-reconciler';
 import { createFiberTree } from '../../src/reconcile/fiber/fiber-tree';
 import { FiberNode } from '../../src/reconcile/fiber/types';
 import { VNode } from '../../src/vnode/types';
 import { DOMOperations } from '../../src/dom-operations';
 import { ComponentManager } from '../../src/component-manager';
 
-// Helper function: recursively process all Fibers
-function reconcileAllFibers(fiber: FiberNode, deps: FiberReconcileDependencies, context: any): void {
-  reconcileFiberNode(fiber, deps, context);
-  
-  let childFiber = fiber.child;
-  while (childFiber) {
-    reconcileAllFibers(childFiber, deps, context);
-    childFiber = childFiber.sibling;
+// Helper: render phase for all fibers (depth-first), then commit
+function renderAndCommitAllFibers(fiber: FiberNode, deps: FiberReconcileDependencies, context: any): void {
+  function visit(f: FiberNode) {
+    renderFiberNode(f, deps, context);
+    let childFiber = f.child;
+    while (childFiber) {
+      visit(childFiber);
+      childFiber = childFiber.sibling;
+    }
   }
+  visit(fiber);
+  commitFiberTree(fiber, deps, context);
 }
 
 describe('processPrimitiveTextChildren - Unit Test', () => {
@@ -60,7 +63,7 @@ describe('processPrimitiveTextChildren - Unit Test', () => {
       };
 
       const fiber = createFiberTree(container, vnode, undefined, {});
-      reconcileAllFibers(fiber, deps, {});
+      renderAndCommitAllFibers(fiber, deps, {});
 
       // Verify domElement and primitiveTextChildren
       expect(fiber.domElement).toBeDefined();
@@ -96,7 +99,7 @@ describe('processPrimitiveTextChildren - Unit Test', () => {
       };
 
       const fiber = createFiberTree(container, vnode, undefined, {});
-      reconcileAllFibers(fiber, deps, {});
+      renderAndCommitAllFibers(fiber, deps, {});
 
       // Verify domElement is set
       expect(fiber.domElement).toBeDefined();
@@ -139,7 +142,7 @@ describe('processPrimitiveTextChildren - Unit Test', () => {
       };
 
       const fiber = createFiberTree(container, vnode, undefined, {});
-      reconcileAllFibers(fiber, deps, {});
+      renderAndCommitAllFibers(fiber, deps, {});
 
       const beforeCount = container.childNodes.length;
       processPrimitiveTextChildren(fiber, deps);
