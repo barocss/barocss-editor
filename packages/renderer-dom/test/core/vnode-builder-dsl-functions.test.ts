@@ -68,22 +68,21 @@ describe('VNodeBuilder DSL Functions', () => {
       const model = { stype: 'boolean-cond', sid: 'c3' };
       const vnode = builder.build('boolean-cond', model);
       
-      // Text may be included in children or collapsed into text property
-      const checkText = (vnode: any, expected: string): boolean => {
-        if (vnode.text === expected) return true;
-        if (Array.isArray(vnode.children)) {
-          return vnode.children.some((ch: any) => 
-            ch === expected || (typeof ch === 'string' && ch.includes(expected))
-          );
+      // Text may be in vnode.text, direct children, or nested (e.g. text VNode with .text)
+      const hasText = (vnode: any, expected: string): boolean => {
+        if (vnode?.text === expected) return true;
+        if (typeof vnode === 'string' && vnode.includes(expected)) return true;
+        if (Array.isArray(vnode?.children)) {
+          return vnode.children.some((ch: any) => hasText(ch, expected) || ch === expected);
         }
         return false;
       };
-      
-      const always = (vnode.children as any[]).find((c: any) => 
-        c?.tag === 'span' && (checkText(c, 'Always') || c.text === 'Always')
+
+      const always = (vnode.children as any[]).find((c: any) =>
+        c?.tag === 'span' && hasText(c, 'Always')
       );
-      const never = (vnode.children as any[]).find((c: any) => 
-        c?.tag === 'span' && (checkText(c, 'Never') || c.text === 'Never')
+      const never = (vnode.children as any[]).find((c: any) =>
+        c?.tag === 'span' && hasText(c, 'Never')
       );
       
       expect(always).toBeTruthy();
