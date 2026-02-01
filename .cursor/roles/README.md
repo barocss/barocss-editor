@@ -6,7 +6,8 @@ Each file in this directory defines one **role** for sub-agent invocation. When 
 |------|------|--------|
 | **BACKLOG_AGENT.md** | Backlog Agent | GitHub issue lifecycle as backlog (create, label, order, triage). No implement, no spec. |
 | **RESEARCH_AGENT.md** | Research Agent | Research other editors, suggest new features (report, draft issue bodies). No implement. |
-| **SPEC_AGENT.md** | Spec Agent | Spec and feature definition (issue, spec docs, implementation checklist). No code. |
+| **SPEC_AGENT.md** | Spec Agent | Spec and feature definition (per issue: issue, spec docs, implementation checklist). No code. |
+| **SPEC_ORCHESTRATION_AGENT.md** | Spec Orchestration Agent | Full spec creation and validation; keeps spec as source of truth so tests stay safe. No implementation, no E2E. |
 | **IMPLEMENTATION_AGENT.md** | Implementation Agent | Implement spec (branch, code, exec tests, docs-site). No E2E, no PR. |
 | **TEST_AGENT.md** | Test Agent | Unit tests and results. No E2E, no PR. |
 | **E2E_AGENT.md** | E2E Agent | E2E spec and browser run. No PR. |
@@ -19,6 +20,6 @@ Each file in this directory defines one **role** for sub-agent invocation. When 
 | **VALIDATION_AGENT.md** | Validation Agent | Internal logic validation: run package tests in order per `docs/internal-logic-validation.md`. No new features, no spec. |
 | **README_AGENT.md** | README Agent | README only (root + packages/*/README.md). No implement, no apps/docs-site. |
 
-**Flow**: Spec → Implementation → Test → E2E → GitHub. Backlog feeds issues; Research feeds report → user or Backlog. Docs, Review, Release, Security, Refactor, Validation, README are on-demand (docs only, review PR, release, audit deps, refactor). Handback to Implementation when tests fail due to code.
+**Flow**: Spec → Implementation → Test → E2E → GitHub. Spec Orchestration can run on demand (create/update full specs, validate alignment) so spec stays the source of truth and tests stay safe. Backlog feeds issues; Research feeds report → user or Backlog. Docs, Review, Release, Security, Refactor, Validation, README are on-demand. Handback to Implementation when tests fail due to code.
 
 **Orchestration**: Manual (“Act as X Agent …”) or trigger-based (issue labels, PR events); see `docs/agent-roles-and-orchestration.md` §4.

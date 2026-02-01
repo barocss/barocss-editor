@@ -131,7 +131,15 @@ For each package, **what to validate** and **which tests to use** are described 
   From repo root or workspace: `pnpm -r test:run` (when each package has a `test:run` script).  
   Optionally reflect the order in this doc in CI scripts or checklists.
 
-### 3.1 When a package has no test files
+### 3.1 Spec-first when a test fails
+
+When a test fails, **consult the spec before changing code**. The failure may be due to a wrong or outdated test, not a wrong implementation.
+
+1. **Locate the spec**: `docs/specs/`, `packages/<name>/SPEC.md`, or package docs (e.g. `packages/renderer-dom/docs/renderer-dom-spec.md`).
+2. **Compare**: If the spec describes behavior X and the test expects Y, treat the spec as source of truth and fix the test (or update the spec if it is wrong, then fix code/test).
+3. See **AGENTS.md** §7.1 for full steps.
+
+### 3.2 When a package has no test files
 
 When a package has a `test` or `test:run` script but **no test files** and vitest exits with "No test files found", the agent must **create at least one test file** in that package, then re-run `test:run`.
 
@@ -139,7 +147,7 @@ When a package has a `test` or `test:run` script but **no test files** and vites
 - **Content**: Import the package entry or a core module and add at least one test that verifies behavior (e.g. instance creation, method call, return value). Describe only concrete facts and observed behavior.
 - **Re-run**: After adding the test file, run `pnpm --filter @barocss/<package> test:run` again until it passes.
 
-### 3.2 Always create issues first (mandatory)
+### 3.3 Always create issues first (mandatory)
 
 When doing internal logic validation, **always** create GitHub issues for failures before any fix. Do **not** fix or open a PR until issues exist.
 

@@ -47,6 +47,7 @@ No need to read code. The agent handles spec, implementation, tests, docs, and P
 - **Release**: "Act as Release Agent. Release."
 - **Dependencies / security**: "Act as Security Agent. Update dependencies." / "Security audit."
 - **Refactor only**: "Act as Refactor Agent. Refactor [package name]."
+- **Spec orchestration** (full spec creation and validation): "Act as Spec Orchestration Agent. Create/update full specs and validate." Keeps spec as source of truth so tests stay safe.
 
 Full role list and invocation: see "Agent roles (sub-agents)" below and **`docs/agent-roles-and-orchestration.md`**. For splitting/parallel vs serial: **`docs/agent-roles-and-orchestration.md`** §3.1.
 
@@ -104,13 +105,14 @@ If the user only said "What needs to be done? Proceed." with no other context, u
 
 ## Agent roles (sub-agents)
 
-Work can be split by **role** so that different agents (or the same agent acting as different roles) handle spec, implementation, tests, E2E, and GitHub. Full definitions, inputs/outputs, handoff, and orchestration are in **`docs/agent-roles-and-orchestration.md`**.
+Work can be split by **role** so that different agents (or the same agent acting as different roles) handle spec, implementation, tests, E2E, and GitHub. Full definitions, inputs/outputs, handoff, and orchestration are in **`docs/agent-roles-and-orchestration.md`**. **Order and connections (diagrams)**: see **`docs/agent-roles-and-orchestration.md`** §3.0 (Mermaid flowcharts: main flow, handbacks, Spec Orchestration, on-demand agents).
 
 | Role | Focus | Input | Output |
 |------|--------|--------|--------|
 | **Backlog** | GitHub issue lifecycle as backlog | User request (create/triage/order) | New issues, labels, issue list report |
 | **Research** | Research other editors, suggest new features | User request (topic or "what to add") | Report (editors, features, recommendations), draft issue bodies |
-| **Spec** | Spec and feature definition | User request, existing specs | Issue (optional), spec docs, implementation checklist |
+| **Spec** | Spec and feature definition (per issue) | User request, existing specs | Issue (optional), spec docs, implementation checklist |
+| **Spec Orchestration** | Full spec creation and validation | User request or schedule | Updated docs/specs + package SPECs, validation report (spec ↔ implementation ↔ test). Keeps spec as single source of truth so tests stay safe. |
 | **Implementation** | Implement defined spec | Issue + spec + checklist | Branch, code (model, extension, view), exec tests, docs-site |
 | **Test** | Unit and scenario tests | Branch + code | Unit test code/results; pass or hand back to Implementation |
 | **E2E** | Browser E2E and behavior | Branch + unit pass | E2E spec/results; pass or hand back to Implementation |
@@ -123,7 +125,9 @@ Work can be split by **role** so that different agents (or the same agent acting
 | **Validation** | Internal logic validation (package tests in order) | User request or "Validate internal logic" | Per-package test:run in order; pass/fail report; fix or escalate |
 | **README** | README only (root + packages/*/README.md) | User request or new package/feature | Updated root README.md, updated packages/*/README.md |
 
-**How to invoke by role**: Say “Act as **Spec Agent** …” (e.g. "Create an issue", "Triage backlog" for Backlog; "Research other editors and suggest features" for Research), or Implementation / Test / E2E / GitHub Agent) and give the input (e.g. “For issue #123, implement per the checklist”). Each role only does its scope; handoff is defined in the doc above. **Role files**: **`.cursor/roles/`** — `BACKLOG_AGENT.md`, `RESEARCH_AGENT.md`, `SPEC_AGENT.md`, `IMPLEMENTATION_AGENT.md`, `TEST_AGENT.md`, `E2E_AGENT.md`, `GITHUB_AGENT.md`, `DOCS_AGENT.md`, `REVIEW_AGENT.md`, `RELEASE_AGENT.md`, `SECURITY_AGENT.md`, `REFACTOR_AGENT.md`, `VALIDATION_AGENT.md`, `README_AGENT.md` (short scope per role; @-mention when invoking). For **automation**, use triggers (e.g. issue labels `spec-ready`, `ready-for-test`, `unit-pass`, `e2e-pass`) as the contract; see `docs/agent-roles-and-orchestration.md` §4.2.
+**Spec Orchestration** should always be available: it orchestrates full spec creation and validation so that specs remain the single source of truth and test code stays safe. Invoke when you need to create/update all specs or validate that implementation and tests align with specs.
+
+**How to invoke by role**: Say “Act as **Spec Agent** …” (e.g. "Create an issue", "Triage backlog" for Backlog; "Research other editors and suggest features" for Research), or Implementation / Test / E2E / GitHub Agent) and give the input (e.g. “For issue #123, implement per the checklist”). Each role only does its scope; handoff is defined in the doc above. **Role files**: **`.cursor/roles/`** — `BACKLOG_AGENT.md`, `RESEARCH_AGENT.md`, `SPEC_AGENT.md`, `SPEC_ORCHESTRATION_AGENT.md`, `IMPLEMENTATION_AGENT.md`, `TEST_AGENT.md`, `E2E_AGENT.md`, `GITHUB_AGENT.md`, `DOCS_AGENT.md`, `REVIEW_AGENT.md`, `RELEASE_AGENT.md`, `SECURITY_AGENT.md`, `REFACTOR_AGENT.md`, `VALIDATION_AGENT.md`, `README_AGENT.md` (short scope per role; @-mention when invoking). For **automation**, use triggers (e.g. issue labels `spec-ready`, `ready-for-test`, `unit-pass`, `e2e-pass`) as the contract; see `docs/agent-roles-and-orchestration.md` §4.2.
 
 ---
 
@@ -289,13 +293,29 @@ Use this when you need a fixed sequence to confirm the change.
 
 ### 7. When something fails
 
+**Spec-first rule**: When a test fails, **check the spec before changing code**. The failure may be due to a wrong or outdated test, not a wrong implementation. See **§7.1 Spec verification when tests fail** below.
+
 | Failure | What to do |
 |--------|------------|
-| **Unit test fails** in a package | Fix the code or the test in that package; re-run `pnpm --filter @barocss/<package> test:run` until it passes. Do not run E2E until unit passes. |
-| **Package has no test files** (vitest reports "No test files found") | Create a minimal test file in that package (e.g. `test/<name>.test.ts` with one smoke test that imports and asserts core behavior). Then re-run `pnpm --filter @barocss/<package> test:run`. See **`docs/internal-logic-validation.md`** §3.1. |
+| **Unit test fails** in a package | 1) **Consult spec first** (see §7.1). 2) If spec matches implementation and test expects something else, fix the test. 3) If spec is wrong or unclear, update the spec, then fix code or test. 4) Re-run `pnpm --filter @barocss/<package> test:run` until it passes. Do not run E2E until unit passes. |
+| **Package has no test files** (vitest reports "No test files found") | Create a minimal test file in that package (e.g. `test/<name>.test.ts` with one smoke test that imports and asserts core behavior). Then re-run `pnpm --filter @barocss/<package> test:run`. See **`docs/internal-logic-validation.md`** §3.2. |
 | **E2E fails** (e.g. selector, timeout) | 1) Run unit tests for the same feature (model + extensions); if unit passes, the issue is likely DOM/timing or selector. 2) Run E2E in headed mode (`pnpm --filter @barocss/editor-react test:e2e -- --headed`) and watch the run; adjust selectors or waits in the spec. 3) If the app’s initial content changed, update the spec to match. |
 | **Only one E2E file fails** | Run that file alone: `pnpm --filter @barocss/editor-react test:e2e -- tests/<name>.spec.ts`; fix assertions or selectors in that file. |
 | **Manual behavior wrong** but tests pass | Add or extend a unit test (e.g. exec test) or E2E test that asserts the expected behavior; then fix the implementation until the new test passes. |
+
+#### 7.1 Spec verification when tests fail
+
+Before fixing a failing test by changing implementation or test:
+
+1. **Locate the spec** for the failing behavior:
+   - Editor-wide: **`docs/specs/editor.md`**, **`docs/specs/README.md`**
+   - Package-level: **`packages/<name>/SPEC.md`** (e.g. `packages/model/SPEC.md`)
+   - Package docs: **`packages/<name>/docs/`** or **`packages/<name>/README.md`** (e.g. `packages/renderer-dom/docs/renderer-dom-spec.md`)
+2. **Compare**: Does the spec describe the same behavior the test expects? If the spec says X and the test expects Y, treat the **spec as the source of truth** and fix the test to match the spec (unless the spec is clearly wrong or outdated).
+3. **If the spec is wrong or missing**: Update the spec first (issue, `docs/specs/` or `packages/<name>/SPEC.md`), then fix code or test so that implementation and tests align with the updated spec.
+4. **If the spec is correct and the implementation disagrees**: Fix the implementation and keep the test.
+
+This avoids changing correct code when the test was written against a different (or outdated) understanding of the behavior.
 
 ### 8. Manual verification (what to check in the browser)
 

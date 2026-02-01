@@ -22,7 +22,8 @@ Full procedure is in **`.cursor/AGENTS.md`** § "Single command: What needs to b
 |------|--------|--------|--------|-----------|
 | **Backlog** | GitHub issue lifecycle as backlog | User request (create/triage/order) | New issues, labels, issue list report | Spec / Implementation (consume issues) |
 | **Research** | Research other editors, suggest new features | User request (topic or "what to add") | Report (editors, features, recommendations), draft issue bodies | User / Backlog Agent (create issues) |
-| **Spec** | Spec and feature definition | User request, existing docs/specs | Issue (optional), spec docs, checklist for Implementation | Implementation |
+| **Spec** | Spec and feature definition (per issue) | User request, existing docs/specs | Issue (optional), spec docs, checklist for Implementation | Implementation |
+| **Spec Orchestration** | Full spec creation and validation | User request or schedule | Updated docs/specs + package SPECs, validation report (spec ↔ implementation ↔ test) | Spec / Test / Implementation (consume specs) |
 | **Implementation** | Implement defined spec/feature | Issue + spec (docs/specs, package SPEC) | Code (model, extension, view), exec tests, docs-site updates | Test |
 | **Test** | Unit and scenario tests | Code from Implementation | Unit test code/updates, test run results | E2E (if unit pass) |
 | **E2E** | Browser E2E and behavior guarantee | Code + unit test results | E2E spec/updates, E2E run results | GitHub (if E2E pass) |
@@ -86,8 +87,9 @@ Full procedure is in **`.cursor/AGENTS.md`** § "Single command: What needs to b
 
 **Output**:
 - **Test code**: Add or update unit tests (e.g. exec tests, extension tests) so that the spec and behavior are covered. Fix failing tests by changing tests or escalating to Implementation (e.g. spec violation).
+- **Spec-first when tests fail**: Before changing code or test, consult the spec for the failing behavior (`docs/specs/`, `packages/<name>/SPEC.md`, package docs). If the spec says X and the test expects Y, treat the spec as source of truth and fix the test (or update the spec if wrong, then fix code/test). See **AGENTS.md** §7.1.
 - **No test files**: If a touched package has a `test`/`test:run` script but vitest exits with "No test files found", create a minimal test file in that package (e.g. one smoke test that imports and asserts core behavior), then re-run `test:run` for that package.
-- **Test results**: Run `pnpm --filter @barocss/<package> test:run` for each touched package. Report pass/fail. If fail, fix or hand back to Implementation.
+- **Test results**: Run `pnpm --filter @barocss/<package> test:run` for each touched package. Report pass/fail. If fail, consult spec first (above), then fix or hand back to Implementation.
 
 **Handoff**: If all unit tests pass, E2E Agent runs. If tests fail and the failure is in implementation, hand back to Implementation Agent. Test Agent does **not** run E2E or open PRs.
 
@@ -291,6 +293,27 @@ Full procedure is in **`.cursor/AGENTS.md`** § "Single command: What needs to b
 
 ---
 
+### 2.15 Spec Orchestration Agent
+
+**Focus**: Full spec creation and validation orchestration. Ensures specs exist, are complete, and that implementation and tests align with them. Keeps spec as the single source of truth so test code stays safe. Does not implement features or run E2E; only creates/updates spec docs and validates alignment.
+
+**Input**:
+- User request (e.g. “Act as Spec Orchestration Agent. Create/update full specs and validate.”, “Validate specs against implementation and tests”).
+- Existing `docs/specs/`, `packages/*/SPEC.md`, package docs (e.g. `packages/renderer-dom/docs/renderer-dom-spec.md`).
+
+**Output**:
+- **Full spec creation/update**: Ensure editor-wide specs (`docs/specs/editor.md`, `docs/specs/README.md`) and package-level specs (`packages/<name>/SPEC.md` or package docs) exist and are complete. Create or update missing or outdated spec docs. No implementation code.
+- **Spec validation**: Check that implementation and tests align with specs (e.g. for each package, does code and test match what SPEC.md says?). Produce a validation report: aligned / misaligned (with package and behavior). For misalignments: create GitHub issues or update spec or hand off to Implementation/Test Agent with a concrete checklist.
+- **Report**: Summary of spec coverage (what is specified, what is missing) and alignment (spec vs implementation vs test). This gives Test Agent and Implementation Agent a safe baseline: when tests fail, they consult these specs first (AGENTS.md §7.1).
+
+**Handoff**: Spec Agent (per-issue spec) and Implementation/Test Agent consume updated specs. Spec Orchestration does **not** write implementation or run E2E; it only orchestrates spec creation and validation.
+
+**When to run**: On demand (“Create/update full specs and validate”) or periodically (e.g. before Validation Agent runs) so that spec remains the source of truth and tests stay safe.
+
+**References**: `docs/specs/README.md`, `docs/specs/editor.md`, `packages/*/SPEC.md`, `.cursor/AGENTS.md` §7.1 (Spec verification when tests fail).
+
+---
+
 ## 3. Flow (sequence)
 
 ```
@@ -328,6 +351,92 @@ User / Trigger
 
 **Backlog Agent** and **Research Agent** sit outside this flow: Backlog feeds issues (→ Spec/Implementation); Research feeds a report (→ user or Backlog to create issues).
 
+### 3.0 Agent order and connections (diagrams)
+
+**Main feature flow** — order and handbacks:
+
+```mermaid
+flowchart LR
+  subgraph main["Main flow (per issue)"]
+    direction LR
+    Spec["Spec Agent"]
+    Impl["Implementation Agent"]
+    Test["Test Agent"]
+    E2E["E2E Agent"]
+    GitHub["GitHub Agent"]
+    Spec --> Impl --> Test --> E2E --> GitHub
+    Test -.->|"fail: hand back"| Impl
+    E2E -.->|"fail: hand back"| Impl
+  end
+  User["User / Trigger"] --> Spec
+  Backlog["Backlog Agent"] -->|issues| Spec
+  Backlog -->|issues| Impl
+  Research["Research Agent"] -->|draft issues| Backlog
+  User --> Research
+  User --> Backlog
+```
+
+**All agents and connections** — main flow, on-demand, and spec orchestration:
+
+```mermaid
+flowchart TB
+  subgraph flow["Feature flow (sequence)"]
+    direction TB
+    S["Spec"]
+    I["Implementation"]
+    T["Test"]
+    E["E2E"]
+    G["GitHub"]
+    S --> I --> T --> E --> G
+    T -.->|hand back| I
+    E -.->|hand back| I
+  end
+
+  subgraph feed["Feed / input"]
+    U["User"]
+    B["Backlog"]
+    R["Research"]
+    U --> B
+    U --> R
+    R --> B
+    B --> S
+    B --> I
+  end
+
+  subgraph orchestration["Spec & validation (on-demand)"]
+    SO["Spec Orchestration"]
+    SO -.->|"specs →"| S
+    SO -.->|"specs →"| I
+    SO -.->|"specs →"| T
+    U --> SO
+  end
+
+  subgraph ondemand["On-demand only"]
+    V["Validation"]
+    D["Docs"]
+    Rev["Review"]
+    Rel["Release"]
+    Sec["Security"]
+    Ref["Refactor"]
+    Read["README"]
+    U --> V
+    U --> D
+    U --> Rev
+    U --> Rel
+    U --> Sec
+    U --> Ref
+    U --> Read
+    Ref --> T
+  end
+```
+
+| Connection | Meaning |
+|------------|--------|
+| **A → B** | Normal order: A runs first, output goes to B. |
+| **A -.-> B** | Handback or optional feed: on failure A hands back to B; or A’s output is consumed by B when invoked. |
+| **User → X** | Agent X is invoked by user (or trigger) on demand. |
+| **Spec Orchestration → Spec / Implementation / Test** | Spec Orchestration updates specs; Spec, Implementation, and Test use those specs when they run. |
+
 ---
 
 ### 3.1 Orchestrator: parallel vs serial (splitting work across sub-agents)
@@ -356,6 +465,7 @@ Invoke by **role name** so the agent behaves as that role only:
 | Role | Say / prompt |
 |------|----------------|
 | **Spec Agent** | “Act as **Spec Agent**. For [feature/fix]: create or update the issue and spec docs (docs/specs, package SPEC). Output an implementation checklist for Implementation Agent. Do not write code.” |
+| **Spec Orchestration Agent** | "Act as **Spec Orchestration Agent**. Create/update full specs (docs/specs, package SPECs) and validate that implementation and tests align with specs. Report alignment and misalignments. Do not write implementation or run E2E." |
 | **Implementation Agent** | “Act as **Implementation Agent**. For issue #N (or spec in docs/specs): implement per the checklist. Create branch, add operation + DSL + exec test, extension, docs-site. Do not run E2E or open PR.” |
 | **Test Agent** | “Act as **Test Agent**. For the current branch: run unit tests for [packages]. If any fail, add or fix tests (or report that Implementation must fix). Do not run E2E or open PR.” |
 | **E2E Agent** | “Act as **E2E Agent**. For the current branch: run E2E (pnpm test:e2e:react). Add or update E2E spec if needed. Report pass/fail. Do not open PR.” |
@@ -389,7 +499,8 @@ Implementation details (e.g. GitHub Actions, Cursor Rules, or external orchestra
 
 Per-role scope is in **`.cursor/roles/`** so that “Act as X Agent” can @-mention the right file:
 
-- **SPEC_AGENT.md** — Spec and feature definition only; no code.
+- **SPEC_AGENT.md** — Spec and feature definition (per issue); no code.
+- **SPEC_ORCHESTRATION_AGENT.md** — Full spec creation and validation; keeps spec as source of truth so tests stay safe.
 - **IMPLEMENTATION_AGENT.md** — Implement spec; no E2E, no PR.
 - **TEST_AGENT.md** — Unit tests only; no E2E, no PR.
 - **E2E_AGENT.md** — E2E spec and run only; no PR.
