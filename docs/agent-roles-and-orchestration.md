@@ -32,6 +32,7 @@ Full procedure is in **`.cursor/AGENTS.md`** § "Single command: 이번에 해�
 | **Release** | Package release (changeset, version, publish) | User request or post-merge | Version PR or npm publish | — |
 | **Security** | Dependency / security | User request or schedule | Audit report, dependency update PR | — |
 | **Refactor** | Refactoring only (no new features) | User request or scope | Refactored code; Test Agent must pass after | Test |
+| **Validation** | Internal logic validation (package tests in order) | User request or "내부 로직 검증해줘" | Per-package test:run in order; pass/fail report; fix or escalate | — |
 | **README** | README only (root + packages/*/README.md) | User request or new package/feature | Updated root README.md, updated packages/*/README.md | — |
 
 ---
@@ -266,6 +267,25 @@ Full procedure is in **`.cursor/AGENTS.md`** § "Single command: 이번에 해�
 **Handoff**: None. README Agent does **not** implement, change spec/code, or edit apps/docs-site.
 
 **References**: Root `README.md`, `packages/*/README.md`, `packages/*/SPEC.md` (for package contract summary), `docs/docs-site-integration.md` (docs-site is separate; README is repo-level).
+
+---
+
+### 2.14 Validation Agent
+
+**Focus**: Internal logic validation — run package tests in dependency order so that each package’s behavior is verified before adding features. Uses **`docs/internal-logic-validation.md`** as the single source of order and scope. Does not add features or change spec; only runs tests and fixes or reports failures.
+
+**Input**:
+- User request (e.g. “내부 로직 검증해줘”, “Act as Validation Agent. 내부 로직 검증해줘”, “패키지별 테스트 순서대로 돌려줘”).
+- **`docs/internal-logic-validation.md`**: validation order (shared → schema → … → devtool), per-package scope, and run commands.
+
+**Output**:
+- **Test runs**: For each package in the documented order, run `pnpm --filter @barocss/<package> test:run`. If a package has no `test:run`, skip or note.
+- **Report**: Pass/fail per package. If fail: fix the code or test in that package and re-run; or escalate (e.g. “model tests fail: …”).
+- **No new features**: Validation Agent does **not** implement new behavior or change specs; it only validates existing logic with tests.
+
+**Handoff**: None. When all packages in scope pass, validation is done. If the user asked for “내부 로직 검증 후 기능 추가”, hand off to Spec/Implementation Agent after validation passes.
+
+**References**: **`docs/internal-logic-validation.md`** (validation order, per-package scope, run commands), `.cursor/AGENTS.md` § Where to do what (Internal logic validation), `docs/testing-verification.md`.
 
 ---
 

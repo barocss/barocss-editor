@@ -1,6 +1,6 @@
 # Agent roles
 
-Each file in this directory defines one **role** for sub-agent invocation. When you say “Act as **Backlog Agent**” (or Research / Spec / Implementation / Test / E2E / GitHub / Docs / Review / Release / Security / Refactor / README Agent), read the corresponding file and **`docs/agent-roles-and-orchestration.md`** for full scope, inputs, outputs, and handoff.
+Each file in this directory defines one **role** for sub-agent invocation. When you say “Act as **Backlog Agent**” (or Research / Spec / Implementation / Test / E2E / GitHub / Docs / Review / Release / Security / Refactor / Validation / README Agent), read the corresponding file and **`docs/agent-roles-and-orchestration.md`** for full scope, inputs, outputs, and handoff.
 
 | File | Role | Focus |
 |------|------|--------|
@@ -16,8 +16,9 @@ Each file in this directory defines one **role** for sub-agent invocation. When 
 | **RELEASE_AGENT.md** | Release Agent | Package release (changeset, version, publish). No implement, no merge. |
 | **SECURITY_AGENT.md** | Security Agent | Dependency/security. No feature implement. |
 | **REFACTOR_AGENT.md** | Refactor Agent | Refactoring only; no new features. Test Agent runs after. |
+| **VALIDATION_AGENT.md** | Validation Agent | Internal logic validation: run package tests in order per `docs/internal-logic-validation.md`. No new features, no spec. |
 | **README_AGENT.md** | README Agent | README only (root + packages/*/README.md). No implement, no apps/docs-site. |
 
-**Flow**: Spec → Implementation → Test → E2E → GitHub. Backlog feeds issues; Research feeds report → user or Backlog. Docs, Review, Release, Security, Refactor, README are on-demand (docs only, review PR, release, audit deps, refactor). Handback to Implementation when tests fail due to code.
+**Flow**: Spec → Implementation → Test → E2E → GitHub. Backlog feeds issues; Research feeds report → user or Backlog. Docs, Review, Release, Security, Refactor, Validation, README are on-demand (docs only, review PR, release, audit deps, refactor). Handback to Implementation when tests fail due to code.
 
 **Orchestration**: Manual (“Act as X Agent …”) or trigger-based (issue labels, PR events); see `docs/agent-roles-and-orchestration.md` §4.

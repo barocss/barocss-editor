@@ -122,11 +122,12 @@ A **“How to give commands”** section with a table and examples lives in **`.
 ## 5. References
 
 - **Agent entry point and command phrasing**: `.cursor/AGENTS.md`
+- **Internal logic validation (패키지별 검증 순서·테스트)**: `docs/internal-logic-validation.md` — 패키지별 검증 순서(shared → … → devtool), 검증 범위, 테스트 실행. "내부 로직 검증해줘" / Validation Agent 시 이 문서를 따른다.
 - **Specs (editor-wide and package-level)**: `docs/specs/README.md`, `docs/specs/editor.md`, `packages/model/SPEC.md`
 - **Testing and verification**: `docs/testing-verification.md`
 - **GitHub integration (issue, PR, CI, merge, deploy)**: `docs/github-agent-integration.md`
 - **Docs-site (spec → implementation → documentation → test → verify)**: `docs/docs-site-integration.md`
-- **Agent roles and orchestration (Spec / Implementation / Test / E2E / GitHub)**: `docs/agent-roles-and-orchestration.md`
+- **Agent roles and orchestration (Spec / Implementation / Test / E2E / GitHub / Validation)**: `docs/agent-roles-and-orchestration.md`
 - **Skills list and roles**: `.cursor/skills/README.md`
 - **Operation-add pattern**: `.cursor/skills/model-operation-creation/SKILL.md`
 - **Package relationships**: `docs/architecture-package-relationships.md`

@@ -39,6 +39,8 @@ This repo is a **platform for building editors**. When adding or changing a feat
 
 ### 4. 다른 역할만 쓰고 싶을 때
 
+- **내부 로직 검증**: "Act as Validation Agent. 내부 로직 검증해줘." / "내부 로직 검증해줘."  
+  → **`docs/internal-logic-validation.md`** 순서대로 패키지별 `test:run` 실행, 실패 시 수정 또는 보고. 기능 추가 전에 내부 로직을 단단히 할 때 사용.
 - **README 정리**: "Act as README Agent. README 업데이트해줘." / "패키지 README 맞춰줘."
 - **문서 사이트만**: "Act as Docs Agent. docs만 업데이트해줘."
 - **PR 리뷰**: "Act as Review Agent. 이 PR 리뷰해줘."
@@ -117,9 +119,10 @@ Work can be split by **role** so that different agents (or the same agent acting
 | **Release** | Package release (changeset, version, publish) | User request or post-merge | Version PR or npm publish |
 | **Security** | Dependency / security | User request or schedule | Audit report, dependency update PR |
 | **Refactor** | Refactoring only (no new features) | User request or scope | Refactored code; Test Agent must pass after |
+| **Validation** | Internal logic validation (package tests in order) | User request or "내부 로직 검증해줘" | Per-package test:run in order; pass/fail report; fix or escalate |
 | **README** | README only (root + packages/*/README.md) | User request or new package/feature | Updated root README.md, updated packages/*/README.md |
 
-**How to invoke by role**: Say “Act as **Spec Agent** …” (e.g. "이슈 만들어줘", "백로그 정리해줘" for Backlog; "다른 에디터 조사해서 추가할 만한 기능 알려줘" for Research), or Implementation / Test / E2E / GitHub Agent) and give the input (e.g. “For issue #123, implement per the checklist”). Each role only does its scope; handoff is defined in the doc above. **Role files**: **`.cursor/roles/`** — `BACKLOG_AGENT.md`, `RESEARCH_AGENT.md`, `SPEC_AGENT.md`, `IMPLEMENTATION_AGENT.md`, `TEST_AGENT.md`, `E2E_AGENT.md`, `GITHUB_AGENT.md`, `DOCS_AGENT.md`, `REVIEW_AGENT.md`, `RELEASE_AGENT.md`, `SECURITY_AGENT.md`, `REFACTOR_AGENT.md`, `README_AGENT.md` (short scope per role; @-mention when invoking). For **automation**, use triggers (e.g. issue labels `spec-ready`, `ready-for-test`, `unit-pass`, `e2e-pass`) as the contract; see `docs/agent-roles-and-orchestration.md` §4.2.
+**How to invoke by role**: Say “Act as **Spec Agent** …” (e.g. "이슈 만들어줘", "백로그 정리해줘" for Backlog; "다른 에디터 조사해서 추가할 만한 기능 알려줘" for Research), or Implementation / Test / E2E / GitHub Agent) and give the input (e.g. “For issue #123, implement per the checklist”). Each role only does its scope; handoff is defined in the doc above. **Role files**: **`.cursor/roles/`** — `BACKLOG_AGENT.md`, `RESEARCH_AGENT.md`, `SPEC_AGENT.md`, `IMPLEMENTATION_AGENT.md`, `TEST_AGENT.md`, `E2E_AGENT.md`, `GITHUB_AGENT.md`, `DOCS_AGENT.md`, `REVIEW_AGENT.md`, `RELEASE_AGENT.md`, `SECURITY_AGENT.md`, `REFACTOR_AGENT.md`, `VALIDATION_AGENT.md`, `README_AGENT.md` (short scope per role; @-mention when invoking). For **automation**, use triggers (e.g. issue labels `spec-ready`, `ready-for-test`, `unit-pass`, `e2e-pass`) as the contract; see `docs/agent-roles-and-orchestration.md` §4.2.
 
 ---
 
@@ -136,6 +139,8 @@ Details on layers, patterns, and verification are in **`docs/platform-for-agent.
 
 ## Where to do what
 
+- **Internal logic validation (패키지별 검증 순서·테스트)**: **`docs/internal-logic-validation.md`**  
+  - 패키지별 검증 순서(shared → schema → … → devtool), 각 패키지에서 검증할 내부 로직, 테스트 실행 방법. "내부 로직 검증해줘" / "Act as Validation Agent" 시 이 문서를 따른다.
 - **Package / app / flow skills**: **`.cursor/skills/README.md`**  
   - Which skill to use per package, cross-cutting flows (e.g. adding operations, selection), and app roles (editor-test, editor-react) in a table.
 - **Adding an operation**: **`.cursor/skills/model-operation-creation/SKILL.md`**  
@@ -162,6 +167,7 @@ When you ask the agent to change this repo, phrase the request so the agent know
 | Add **only E2E** for existing behavior | “Add an E2E test in editor-react for toggleBold: select text, press Mod+b, assert bold.” | Add or extend `apps/editor-react/tests/*.spec.ts`, run `pnpm test:e2e:react`. |
 | **Fix or change** one layer | “In insertParagraph, ensure selectionAfter.nodeId is always a text node.” | Edit the relevant package (e.g. model), run that package’s tests and, if needed, E2E. |
 | **Verify** after changes | “Run unit tests for model and extensions and then E2E for React.” | Run `pnpm --filter @barocss/model test:run`, `pnpm --filter @barocss/extensions test:run`, then `pnpm test:e2e:react`. |
+| **Internal logic validation** (패키지별 검증) | "내부 로직 검증해줘." / "Act as Validation Agent. 내부 로직 검증해줘." | Follow **`docs/internal-logic-validation.md`**: run `pnpm --filter @barocss/<package> test:run` in the documented order (shared → schema → … → devtool); report pass/fail; fix or escalate. |
 
 ### What to include in a command
 
