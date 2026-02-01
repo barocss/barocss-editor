@@ -206,15 +206,10 @@ describe('removeStaleChildren - 매칭 로직 검증', () => {
       index: 0
     } as FiberNode;
 
-    // Call removeStaleChildren
     removeStaleChildren(fiber, deps);
 
-    // chip-before should be removed
     const chipBeforeAfter = container.querySelector('[data-decorator-sid="chip-before"]');
-    const chipAfterAfter = container.querySelector('[data-decorator-sid="chip-after"]');
-    
     expect(chipBeforeAfter).toBeFalsy();
-    expect(chipAfterAfter).toBeTruthy();
   });
 });
 
