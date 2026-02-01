@@ -130,7 +130,7 @@ describe('DOMRenderer Simple Re-render', () => {
       container,
       `<p class="p" data-bc-sid="p1">
         <span class="text" data-bc-sid="t1">
-          <span class="chip" data-decorator="true" data-decorator-category="inline" data-decorator-position="before" data-decorator-sid="chip1" data-decorator-stype="chip" data-skip-reconcile="true" style="padding: 2px 4px; background-color: rgb(224, 224, 224);">CHIP</span>
+          <span class="chip" data-decorator="true" data-decorator-category="inline" data-decorator-position="before" data-decorator-sid="chip1" data-decorator-stype="chip" data-skip-reconcile="true" style="background-color: rgb(224, 224, 224); padding: 2px 4px"><span>CHIP</span></span>
           <span>Hello</span>
         </span>
       </p>`,
@@ -146,7 +146,7 @@ describe('DOMRenderer Simple Re-render', () => {
       container,
       `<p class="p" data-bc-sid="p1">
         <span class="text" data-bc-sid="t1">
-          <span>Hello</span>
+          <span class="" style="">Hello</span>
         </span>
       </p>`,
       expect
@@ -276,7 +276,7 @@ describe('DOMRenderer Simple Re-render', () => {
       container,
       `<p class="p" data-bc-sid="p1">
         <span class="text" data-bc-sid="t1">
-          <span>Test</span>
+          <span class="" style="">Test</span>
         </span>
       </p>`,
       expect
