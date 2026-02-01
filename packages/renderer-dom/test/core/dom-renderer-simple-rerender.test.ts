@@ -146,7 +146,7 @@ describe('DOMRenderer Simple Re-render', () => {
       container,
       `<p class="p" data-bc-sid="p1">
         <span class="text" data-bc-sid="t1">
-          <span class="" style="">Hello</span>
+          <span class>Hello</span>
         </span>
       </p>`,
       expect
@@ -276,7 +276,7 @@ describe('DOMRenderer Simple Re-render', () => {
       container,
       `<p class="p" data-bc-sid="p1">
         <span class="text" data-bc-sid="t1">
-          <span class="" style="">Test</span>
+          <span class>Test</span>
         </span>
       </p>`,
       expect
