@@ -143,21 +143,16 @@ describe('DataStore Lock System', () => {
       expect(stats.totalTimeouts).toBe(0);
     });
 
-    it.skip('should track timeout statistics', async () => {
-      // TODO: Enable after fixing timeout logic
+    it('should track timeout statistics', async () => {
+      // Isolate from previous tests' timers (e.g. releaseLock from "should not timeout when lock is released in time")
+      await new Promise(r => setTimeout(r, 60));
       dataStore.setLockTimeout(50); // 50ms timeout
       
       // Acquire first lock (don't release)
       await dataStore.acquireLock();
       
-      // Attempt to acquire second lock (timeout occurs)
-      const promise = dataStore.acquireLock();
-      
-      // Wait for timeout to occur
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // Verify timeout occurred
-      await expect(promise).rejects.toThrow('timeout');
+      // Second acquire times out (await rejection so timeout callback runs)
+      await expect(dataStore.acquireLock()).rejects.toThrow(/timeout/);
       
       const stats = dataStore.getLockStats();
       expect(stats.totalTimeouts).toBe(1);
