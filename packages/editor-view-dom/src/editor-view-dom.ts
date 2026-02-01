@@ -926,6 +926,27 @@ export class EditorViewDOM implements IEditorViewDOM {
     return this.selectionHandler.convertStaticRangeToModel(staticRange);
   }
 
+  /**
+   * Recursively validate that every node in the tree has a registered renderer for its stype.
+   * Throws if any node's stype is not found in the registry.
+   */
+  private _validateTreeStypes(node: any, registry: RendererRegistry): void {
+    if (!node || typeof node !== 'object') return;
+    const stype = node.stype;
+    if (stype != null && stype !== '') {
+      const def = registry.get(stype);
+      if (!def) {
+        throw new Error(`Renderer for node type '${stype}' not found`);
+      }
+    }
+    const content = node.content;
+    if (Array.isArray(content)) {
+      for (const child of content) {
+        this._validateTreeStypes(child, registry);
+      }
+    }
+  }
+
   // External render API
   render(tree?: ModelData | any, options?: { sync?: boolean }): void {
     if (!this._domRenderer) {
@@ -962,6 +983,9 @@ export class EditorViewDOM implements IEditorViewDOM {
         const msg = '[EditorViewDOM] Invalid tree format: missing sid (required)';
         console.error(msg);
         throw new Error(msg);
+      }
+      if (this._rendererRegistry) {
+        this._validateTreeStypes(tree, this._rendererRegistry);
       }
       // Use directly without conversion
       modelData = tree as ModelData;
