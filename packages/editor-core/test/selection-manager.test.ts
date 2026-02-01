@@ -1,37 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { SelectionManager } from '../src/selection-manager';
 import { DataStore } from '@barocss/datastore';
-import { 
-  SelectionError, 
-  NodeNotFoundError, 
-  InvalidOffsetError, 
-  ConversionError, 
-  DOMAccessError 
-} from '../src/types';
-
-// Set up Mock DOM environment
-const createMockElement = (tagName: string, attributes: Record<string, string> = {}): HTMLElement => {
-  const element = document.createElement(tagName);
-  Object.entries(attributes).forEach(([key, value]) => {
-    element.setAttribute(key, value);
-  });
-  return element;
-};
-
-const createMockTextNode = (text: string): Text => {
-  return document.createTextNode(text);
-};
 
 describe('SelectionManager', () => {
   let selectionManager: SelectionManager;
-  let contentEditableElement: HTMLElement;
   let dataStore: DataStore;
 
   beforeEach(() => {
-    // Initialize DOM environment
     document.body.innerHTML = '';
-    
-    // Create Mock DataStore
+
     dataStore = {
       getNode: vi.fn(),
       getNodes: vi.fn(),
@@ -43,42 +20,13 @@ describe('SelectionManager', () => {
       unsubscribe: vi.fn()
     } as any;
 
-    // Create contentEditable element
-    contentEditableElement = createMockElement('div', {
-      'contenteditable': 'true',
-      'data-bc-sid': 'root-1',
-      'data-bc-stype': 'document'
-    });
+    selectionManager = new SelectionManager({ dataStore });
 
-    // Add child elements
-    const paragraph = createMockElement('p', {
-      'data-bc-sid': 'p-1',
-      'data-bc-stype': 'paragraph'
-    });
-    paragraph.appendChild(createMockTextNode('Hello World'));
-    contentEditableElement.appendChild(paragraph);
-
-    const heading = createMockElement('h1', {
-      'data-bc-sid': 'h1-1',
-      'data-bc-stype': 'heading'
-    });
-    heading.appendChild(createMockTextNode('Title'));
-    contentEditableElement.appendChild(heading);
-
-    document.body.appendChild(contentEditableElement);
-
-    // Create SelectionManager
-    selectionManager = new SelectionManager({
-      contentEditableElement,
-      dataStore
-    });
-
-    // Set up Mock DataStore responses
     (dataStore.getNode as any).mockImplementation((nodeId: string) => {
       const mockNodes: Record<string, any> = {
-        'root-1': { id: 'root-1', type: 'document' },
-        'p-1': { id: 'p-1', type: 'paragraph' },
-        'h1-1': { id: 'h1-1', type: 'heading' }
+        'root-1': { sid: 'root-1', stype: 'document' },
+        'p-1': { sid: 'p-1', stype: 'paragraph', text: 'Hello World' },
+        'h1-1': { sid: 'h1-1', stype: 'heading', text: 'Title' }
       };
       return mockNodes[nodeId] || null;
     });
@@ -89,346 +37,264 @@ describe('SelectionManager', () => {
     document.body.innerHTML = '';
   });
 
-  describe('초기화', () => {
-    it('빈 선택 상태로 초기화되어야 함', () => {
-      const selection = selectionManager.selection;
-      expect(selection.empty).toBe(true);
-      expect(selection.anchorNode).toBeNull();
-      expect(selection.focusNode).toBeNull();
-      expect(selection.textContent).toBe('');
+  describe('Initialization', () => {
+    it('should initialize with empty selection', () => {
+      expect(selectionManager.getCurrentSelection()).toBeNull();
+      expect(selectionManager.isEmpty()).toBe(true);
+    });
+  });
+
+  describe('setSelection / getCurrentSelection', () => {
+    it('should set and get range selection', () => {
+      const range = {
+        type: 'range' as const,
+        startNodeId: 'p-1',
+        startOffset: 0,
+        endNodeId: 'p-1',
+        endOffset: 5
+      };
+      selectionManager.setSelection(range);
+      expect(selectionManager.getCurrentSelection()).toEqual(range);
+      expect(selectionManager.isEmpty()).toBe(false);
     });
 
-    it('contentEditableElement 설정 시 이벤트 리스너가 등록되어야 함', () => {
-      const addEventListenerSpy = vi.spyOn(document, 'addEventListener');
-      const elementAddEventListenerSpy = vi.spyOn(contentEditableElement, 'addEventListener');
-      
-      selectionManager.setContentEditableElement(contentEditableElement);
-      
-      expect(addEventListenerSpy).toHaveBeenCalledWith('selectionchange', expect.any(Function));
-      expect(elementAddEventListenerSpy).toHaveBeenCalledWith('focus', expect.any(Function));
-      expect(elementAddEventListenerSpy).toHaveBeenCalledWith('blur', expect.any(Function));
+    it('should set and get null selection', () => {
+      selectionManager.setSelection({
+        type: 'range',
+        startNodeId: 'p-1',
+        startOffset: 0,
+        endNodeId: 'p-1',
+        endOffset: 5
+      });
+      selectionManager.setSelection(null);
+      expect(selectionManager.getCurrentSelection()).toBeNull();
+      expect(selectionManager.isEmpty()).toBe(true);
     });
   });
 
   describe('setRange', () => {
-    it('유효한 Model Range를 DOM Selection으로 변환해야 함', () => {
+    it('should set range selection via setRange', () => {
       const rangeSelection = {
+        type: 'range' as const,
         startNodeId: 'p-1',
-        startOffset: 0,
-        endNodeId: 'p-1',
-        endOffset: 1  // For Element nodes, only 0 or 1 are allowed
-      };
-
-      selectionManager.setRange(rangeSelection);
-
-      const selection = window.getSelection();
-      expect(selection).toBeTruthy();
-      expect(selection?.rangeCount).toBeGreaterThan(0);
-    });
-
-    it('존재하지 않는 노드 ID에 대해 NodeNotFoundError를 발생시켜야 함', () => {
-      const errorHandler = vi.fn();
-      selectionManager.setErrorHandler(errorHandler);
-
-      const rangeSelection = {
-        startNodeId: 'non-existent',
         startOffset: 0,
         endNodeId: 'p-1',
         endOffset: 5
       };
-
       selectionManager.setRange(rangeSelection);
-
-      expect(errorHandler).toHaveBeenCalledWith(
-        expect.objectContaining({
-          code: 'CONVERSION_ERROR'
-        })
-      );
-    });
-
-    it('잘못된 오프셋에 대해 InvalidOffsetError를 발생시켜야 함', () => {
-      const errorHandler = vi.fn();
-      selectionManager.setErrorHandler(errorHandler);
-
-      const rangeSelection = {
-        startNodeId: 'p-1',
-        startOffset: 999, // Invalid offset
-        endNodeId: 'p-1',
-        endOffset: 5
-      };
-
-      selectionManager.setRange(rangeSelection);
-
-      expect(errorHandler).toHaveBeenCalledWith(
-        expect.objectContaining({
-          code: 'CONVERSION_ERROR'
-        })
-      );
+      expect(selectionManager.getCurrentSelection()).toEqual(rangeSelection);
     });
   });
 
   describe('setNode', () => {
-    it('유효한 Model Node를 DOM Selection으로 변환해야 함', () => {
-      const nodeSelection = {
-        nodeId: 'p-1',
-        selectAll: true
-      };
-
-      selectionManager.setNode(nodeSelection);
-
-      const selection = window.getSelection();
-      expect(selection).toBeTruthy();
-      expect(selection?.rangeCount).toBeGreaterThan(0);
+    it('should set node selection via setNode', () => {
+      selectionManager.setNode({ nodeId: 'p-1', selectAll: true });
+      const sel = selectionManager.getCurrentSelection();
+      expect(sel).not.toBeNull();
+      expect(sel!.type).toBe('node');
+      expect(sel!.startNodeId).toBe('p-1');
+      expect(sel!.endNodeId).toBe('p-1');
     });
 
-    it('selectAll이 false일 때 노드 앞에 커서를 설정해야 함', () => {
-      const nodeSelection = {
-        nodeId: 'p-1',
-        selectAll: false
-      };
-
-      selectionManager.setNode(nodeSelection);
-
-      const selection = window.getSelection();
-      expect(selection).toBeTruthy();
-      expect(selection?.rangeCount).toBeGreaterThan(0);
+    it('should clear selection when setNode(null)', () => {
+      selectionManager.setNode({ nodeId: 'p-1' });
+      selectionManager.setNode(null);
+      expect(selectionManager.getCurrentSelection()).toBeNull();
     });
   });
 
   describe('setAbsolutePos', () => {
-    it('절대 위치를 DOM Selection으로 변환해야 함', () => {
+    it('should set selection via setAbsolutePos', () => {
       const absoluteSelection = {
-        anchor: 0,
-        head: 5
+        type: 'range' as const,
+        startNodeId: 'p-1',
+        startOffset: 0,
+        endNodeId: 'p-1',
+        endOffset: 5
       };
-
       selectionManager.setAbsolutePos(absoluteSelection);
-
-      const selection = window.getSelection();
-      expect(selection).toBeTruthy();
-      expect(selection?.rangeCount).toBeGreaterThan(0);
+      expect(selectionManager.getCurrentSelection()).toEqual(absoluteSelection);
     });
   });
 
-  describe('DOM Selection 변환', () => {
-    it('DOM Selection을 SelectionState로 변환해야 함', () => {
-      // Simulate text selection in DOM
-      const textNode = contentEditableElement.querySelector('p')?.firstChild as Text;
-      expect(textNode).toBeTruthy();
-
-      const range = document.createRange();
-      range.setStart(textNode, 0);
-      range.setEnd(textNode, 5);
-
-      const selection = window.getSelection();
-      selection?.removeAllRanges();
-      selection?.addRange(range);
-
-      // Simulate selectionchange event
-      const selectionChangeEvent = new Event('selectionchange');
-      document.dispatchEvent(selectionChangeEvent);
-
-      const currentSelection = selectionManager.selection;
-      expect(currentSelection.anchorNode).toBe(textNode);
-      expect(currentSelection.anchorOffset).toBe(0);
-      expect(currentSelection.focusNode).toBe(textNode);
-      expect(currentSelection.focusOffset).toBe(5);
-      expect(currentSelection.textContent).toBe('Hello');
-      expect(currentSelection.nodeId).toBe('p-1');
-      expect(currentSelection.nodeType).toBe('paragraph');
-    });
-
-    it('빈 선택일 때 빈 SelectionState를 반환해야 함', () => {
-      const selection = window.getSelection();
-      selection?.removeAllRanges();
-
-      const selectionChangeEvent = new Event('selectionchange');
-      document.dispatchEvent(selectionChangeEvent);
-
-      const currentSelection = selectionManager.selection;
-      expect(currentSelection.empty).toBe(true);
-      expect(currentSelection.textContent).toBe('');
-    });
-  });
-
-  describe('에러 처리', () => {
-    it('에러 핸들러가 설정되면 에러를 전달해야 함', () => {
-      const errorHandler = vi.fn();
-      selectionManager.setErrorHandler(errorHandler);
-
-      // Attempt to select non-existent node
-      const rangeSelection = {
-        startNodeId: 'non-existent',
+  describe('clearSelection', () => {
+    it('should clear model selection', () => {
+      selectionManager.setSelection({
+        type: 'range',
+        startNodeId: 'p-1',
         startOffset: 0,
         endNodeId: 'p-1',
         endOffset: 5
-      };
-
-      selectionManager.setRange(rangeSelection);
-
-      expect(errorHandler).toHaveBeenCalled();
-    });
-
-    it('에러 핸들러가 없으면 콘솔에 에러를 출력해야 함', () => {
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-      // Attempt to select non-existent node
-      const rangeSelection = {
-        startNodeId: 'non-existent',
-        startOffset: 0,
-        endNodeId: 'p-1',
-        endOffset: 5
-      };
-
-      selectionManager.setRange(rangeSelection);
-
-      expect(consoleSpy).toHaveBeenCalledWith(
-        'SelectionManager Error:',
-        expect.any(SelectionError)
-      );
-
-      consoleSpy.mockRestore();
-    });
-  });
-
-  describe('이벤트 처리', () => {
-    it('selectionChange 이벤트를 발생시켜야 함', () => {
-      const selectionChangeHandler = vi.fn();
-      selectionManager.on('selectionChange', selectionChangeHandler);
-
-      // Simulate text selection in DOM
-      const textNode = contentEditableElement.querySelector('p')?.firstChild as Text;
-      const range = document.createRange();
-      range.setStart(textNode, 0);
-      range.setEnd(textNode, 5);
-
-      const selection = window.getSelection();
-      selection?.removeAllRanges();
-      selection?.addRange(range);
-
-      // Simulate selectionchange event
-      const selectionChangeEvent = new Event('selectionchange');
-      document.dispatchEvent(selectionChangeEvent);
-
-      expect(selectionChangeHandler).toHaveBeenCalledWith(
-        expect.objectContaining({
-          selection: expect.any(Object),
-          oldSelection: expect.any(Object)
-        })
-      );
-    });
-
-    it('focus 이벤트를 발생시켜야 함', () => {
-      const focusHandler = vi.fn();
-      selectionManager.on('focus', focusHandler);
-
-      const focusEvent = new Event('focus');
-      contentEditableElement.dispatchEvent(focusEvent);
-
-      expect(focusHandler).toHaveBeenCalledWith(
-        expect.objectContaining({
-          selection: expect.any(Object)
-        })
-      );
-    });
-
-    it('blur 이벤트를 발생시켜야 함', () => {
-      const blurHandler = vi.fn();
-      selectionManager.on('blur', blurHandler);
-
-      const blurEvent = new Event('blur');
-      contentEditableElement.dispatchEvent(blurEvent);
-
-      expect(blurHandler).toHaveBeenCalledWith(
-        expect.objectContaining({
-          selection: expect.any(Object)
-        })
-      );
-    });
-  });
-
-  describe('유틸리티 메서드', () => {
-    it('clearSelection이 선택을 지워야 함', () => {
-      // First set selection
-      const textNode = contentEditableElement.querySelector('p')?.firstChild as Text;
-      const range = document.createRange();
-      range.setStart(textNode, 0);
-      range.setEnd(textNode, 5);
-
-      const selection = window.getSelection();
-      selection?.removeAllRanges();
-      selection?.addRange(range);
-
-      expect(selection?.rangeCount).toBeGreaterThan(0);
-
-      // Clear selection
+      });
       selectionManager.clearSelection();
+      expect(selectionManager.getCurrentSelection()).toBeNull();
+      expect(selectionManager.isEmpty()).toBe(true);
+    });
+  });
 
-      expect(selection?.rangeCount).toBe(0);
+  describe('isSelectionInContentEditable', () => {
+    it('should return true when selection exists', () => {
+      selectionManager.setSelection({
+        type: 'range',
+        startNodeId: 'p-1',
+        startOffset: 0,
+        endNodeId: 'p-1',
+        endOffset: 5
+      });
+      expect(selectionManager.isSelectionInContentEditable()).toBe(true);
     });
 
-    it('isSelectionInContentEditable이 올바르게 작동해야 함', () => {
-      // Selection inside contentEditable
-      const textNode = contentEditableElement.querySelector('p')?.firstChild as Text;
-      const range = document.createRange();
-      range.setStart(textNode, 0);
-      range.setEnd(textNode, 5);
-
-      const selection = window.getSelection();
-      selection?.removeAllRanges();
-      selection?.addRange(range);
-
-      expect(selectionManager.isSelectionInContentEditable()).toBe(true);
-
-      // Clear selection
-      selection?.removeAllRanges();
+    it('should return false when selection is empty', () => {
+      selectionManager.clearSelection();
       expect(selectionManager.isSelectionInContentEditable()).toBe(false);
     });
   });
 
-  describe('텍스트가 없는 노드 처리', () => {
-    it('이미지 노드에 대해 올바른 오프셋을 처리해야 함', () => {
-      // Add image node
-      const img = createMockElement('img', {
-        'data-bc-sid': 'img-1',
-        'data-bc-stype': 'image'
+  describe('State checks', () => {
+    it('should report isInNode correctly', () => {
+      selectionManager.setSelection({
+        type: 'range',
+        startNodeId: 'p-1',
+        startOffset: 0,
+        endNodeId: 'p-1',
+        endOffset: 5
       });
-      contentEditableElement.appendChild(img);
+      expect(selectionManager.isInNode('p-1')).toBe(true);
+      expect(selectionManager.isInNode('h1-1')).toBe(false);
+    });
 
-      // Add image node to Mock DataStore
-      (dataStore.getNode as any).mockImplementation((nodeId: string) => {
-        const mockNodes: Record<string, any> = {
-          'root-1': { id: 'root-1', type: 'document' },
-          'p-1': { id: 'p-1', type: 'paragraph' },
-          'h1-1': { id: 'h1-1', type: 'heading' },
-          'img-1': { id: 'img-1', type: 'image' }
-        };
-        return mockNodes[nodeId] || null;
+    it('should report isAtPosition correctly', () => {
+      selectionManager.setSelection({
+        type: 'range',
+        startNodeId: 'p-1',
+        startOffset: 3,
+        endNodeId: 'p-1',
+        endOffset: 3
       });
+      expect(selectionManager.isAtPosition('p-1', 3)).toBe(true);
+      expect(selectionManager.isAtPosition('p-1', 0)).toBe(false);
+    });
 
-      const nodeSelection = {
-        nodeId: 'img-1',
-        selectAll: false
-      };
+    it('should report isInRange correctly', () => {
+      selectionManager.setSelection({
+        type: 'range',
+        startNodeId: 'p-1',
+        startOffset: 2,
+        endNodeId: 'p-1',
+        endOffset: 5
+      });
+      expect(selectionManager.isInRange('p-1', 0, 10)).toBe(true);
+      expect(selectionManager.isInRange('p-1', 0, 3)).toBe(false);
+    });
 
-      selectionManager.setNode(nodeSelection);
+    it('should report getLength and isCollapsed correctly', () => {
+      selectionManager.setSelection({
+        type: 'range',
+        startNodeId: 'p-1',
+        startOffset: 0,
+        endNodeId: 'p-1',
+        endOffset: 5
+      });
+      expect(selectionManager.getLength()).toBe(5);
+      expect(selectionManager.isCollapsed()).toBe(false);
 
-      const selection = window.getSelection();
-      expect(selection).toBeTruthy();
-      expect(selection?.rangeCount).toBeGreaterThan(0);
+      selectionManager.moveTo('p-1', 3);
+      expect(selectionManager.getLength()).toBe(0);
+      expect(selectionManager.isCollapsed()).toBe(true);
     });
   });
 
-  describe('정리', () => {
-    it('destroy 시 모든 리스너가 정리되어야 함', () => {
-      const removeEventListenerSpy = vi.spyOn(document, 'removeEventListener');
-      const elementRemoveEventListenerSpy = vi.spyOn(contentEditableElement, 'removeEventListener');
+  describe('moveTo / selectRange / extendTo', () => {
+    it('should moveTo collapsed position', () => {
+      selectionManager.moveTo('p-1', 2);
+      const sel = selectionManager.getCurrentSelection();
+      expect(sel).not.toBeNull();
+      expect(sel!.startNodeId).toBe('p-1');
+      expect(sel!.startOffset).toBe(2);
+      expect(sel!.endNodeId).toBe('p-1');
+      expect(sel!.endOffset).toBe(2);
+    });
 
+    it('should selectRange', () => {
+      selectionManager.selectRange('p-1', 0, 5);
+      const sel = selectionManager.getCurrentSelection();
+      expect(sel).not.toBeNull();
+      expect(sel!.startOffset).toBe(0);
+      expect(sel!.endOffset).toBe(5);
+    });
+
+    it('should extendTo', () => {
+      selectionManager.moveTo('p-1', 0);
+      selectionManager.extendTo('p-1', 5);
+      const sel = selectionManager.getCurrentSelection();
+      expect(sel).not.toBeNull();
+      expect(sel!.startOffset).toBe(0);
+      expect(sel!.endOffset).toBe(5);
+    });
+  });
+
+  describe('collapseToStart / collapseToEnd', () => {
+    it('should collapseToStart', () => {
+      selectionManager.selectRange('p-1', 2, 5);
+      selectionManager.collapseToStart();
+      const sel = selectionManager.getCurrentSelection();
+      expect(sel!.startOffset).toBe(2);
+      expect(sel!.endOffset).toBe(2);
+    });
+
+    it('should collapseToEnd', () => {
+      selectionManager.selectRange('p-1', 2, 5);
+      selectionManager.collapseToEnd();
+      const sel = selectionManager.getCurrentSelection();
+      expect(sel!.startOffset).toBe(5);
+      expect(sel!.endOffset).toBe(5);
+    });
+  });
+
+  describe('selectNode', () => {
+    it('should select entire node text', () => {
+      selectionManager.selectNode('p-1');
+      const sel = selectionManager.getCurrentSelection();
+      expect(sel).not.toBeNull();
+      expect(sel!.startNodeId).toBe('p-1');
+      expect(sel!.endNodeId).toBe('p-1');
+      expect(sel!.startOffset).toBe(0);
+      expect(sel!.endOffset).toBe(11); // "Hello World".length
+    });
+
+    it('should throw when node not found', () => {
+      expect(() => selectionManager.selectNode('non-existent')).toThrow('Node not found');
+    });
+  });
+
+  describe('clone', () => {
+    it('should clone selection state', () => {
+      selectionManager.setSelection({
+        type: 'range',
+        startNodeId: 'p-1',
+        startOffset: 0,
+        endNodeId: 'p-1',
+        endOffset: 5
+      });
+      const cloned = selectionManager.clone();
+      expect(cloned.getCurrentSelection()).toEqual(selectionManager.getCurrentSelection());
+      cloned.clearSelection();
+      expect(selectionManager.getCurrentSelection()).not.toBeNull();
+      expect(cloned.getCurrentSelection()).toBeNull();
+    });
+  });
+
+  describe('destroy', () => {
+    it('should clear selection on destroy', () => {
+      selectionManager.setSelection({
+        type: 'range',
+        startNodeId: 'p-1',
+        startOffset: 0,
+        endNodeId: 'p-1',
+        endOffset: 5
+      });
       selectionManager.destroy();
-
-      expect(removeEventListenerSpy).toHaveBeenCalledWith('selectionchange', expect.any(Function));
-      expect(elementRemoveEventListenerSpy).toHaveBeenCalledWith('focus', expect.any(Function));
-      expect(elementRemoveEventListenerSpy).toHaveBeenCalledWith('blur', expect.any(Function));
+      expect(selectionManager.getCurrentSelection()).toBeNull();
     });
   });
 });
