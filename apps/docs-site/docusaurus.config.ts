@@ -123,7 +123,7 @@ const config: Config = {
           ],
         },
       ],
-      copyright: `Copyright © ${new Date().getFullYear()} Barocss Editor. Built with Docusaurus.`,
+      copyright: `Copyright © ${new Date().getFullYear()} Barocss Editor. Documentation built with Docusaurus.`,
     },
     prism: {
       theme: prismThemes.github,
