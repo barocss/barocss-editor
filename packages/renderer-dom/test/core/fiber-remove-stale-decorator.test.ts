@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createFiberTree } from '../../src/reconcile/fiber/fiber-tree';
-import { reconcileFiberNode, removeStaleChildren, FiberReconcileDependencies } from '../../src/reconcile/fiber/fiber-reconciler';
+import { renderFiberNode, commitFiberTree, removeStaleChildren, FiberReconcileDependencies } from '../../src/reconcile/fiber/fiber-reconciler';
 import { FiberNode } from '../../src/reconcile/fiber/types';
 import { VNode } from '../../src/vnode/types';
 import { DOMOperations } from '../../src/dom-operations';
@@ -8,7 +8,7 @@ import { ComponentManager } from '../../src/component-manager';
 
 // Helper function: Process all Fibers recursively
 function reconcileAllFibers(fiber: FiberNode, deps: FiberReconcileDependencies, context: any): void {
-  reconcileFiberNode(fiber, deps, context);
+  renderFiberNode(fiber, deps, context);
   
   // Process child Fibers
   let childFiber = fiber.child;
@@ -90,8 +90,9 @@ describe('removeStaleChildren - Decorator VNode 제거 방지', () => {
 
       const fiber = createFiberTree(container, vnode, undefined, {});
       reconcileAllFibers(fiber, deps, {});
+      commitFiberTree(fiber, deps, {});
 
-      // Call removeStaleChildren
+      // Call removeStaleChildren (must not remove decorators still present in VNode)
       removeStaleChildren(fiber, deps);
 
       const decoratorElements = container.querySelectorAll('[data-decorator-sid="d-highlight"]');
@@ -135,12 +136,13 @@ describe('removeStaleChildren - Decorator VNode 제거 방지', () => {
 
       const fiber = createFiberTree(container, vnode, undefined, {});
       reconcileAllFibers(fiber, deps, {});
+      commitFiberTree(fiber, deps, {});
 
       // Verify DOM elements before calling removeStaleChildren
       const beforeRemove = container.querySelectorAll('[data-decorator-sid="d-highlight"]');
       expect(beforeRemove.length).toBe(3);
 
-      // Call removeStaleChildren
+      // Call removeStaleChildren (must not remove decorators still present in VNode)
       removeStaleChildren(fiber, deps);
 
       // All decorator elements should be maintained after calling removeStaleChildren
@@ -184,11 +186,12 @@ describe('removeStaleChildren - Decorator VNode 제거 방지', () => {
 
       const fiber = createFiberTree(container, vnode, undefined, {});
       reconcileAllFibers(fiber, deps, {});
+      commitFiberTree(fiber, deps, {});
 
       // Verify 2 decorator elements are created in DOM
       const decoratorElements = container.querySelectorAll('[data-decorator-sid="d-highlight"]');
       // eslint-disable-next-line no-console
-      console.log('[TEST] reconcileAllFibers 후:', {
+      console.log('[TEST] reconcileAllFibers + commitFiberTree 후:', {
         decoratorElementsCount: decoratorElements.length,
         containerHTML: container.innerHTML,
         containerChildrenCount: container.children.length,
