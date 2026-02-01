@@ -6,7 +6,7 @@ import { define, element, defineDecorator, getGlobalRegistry, slot, text, data }
 import type { ModelData } from '@barocss/dsl';
 import { expectHTML } from '../utils/html';
 
-describe.skip('Inline Position Decorator (before/after)', () => {
+describe('Inline Position Decorator (before/after)', () => {
   let view: EditorViewDOM;
   let editor: Editor;
   let registry: ReturnType<typeof getGlobalRegistry>;
@@ -78,9 +78,9 @@ describe.skip('Inline Position Decorator (before/after)', () => {
     expectHTML(
       view.layers.content,
       `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">
-        <div class="document" data-bc-sid="doc1" data-bc-stype="document">
-          <p class="paragraph" data-bc-sid="p1" data-bc-stype="paragraph">
-            <span class="text" data-bc-sid="t1" data-bc-stype="inline-text">
+        <div class="document" data-bc-sid="doc1">
+          <p class="paragraph" data-bc-sid="p1">
+            <span class="text" data-bc-sid="t1">
               <span class="chip" data-decorator="true" data-decorator-category="inline" data-decorator-position="before" data-decorator-sid="chip-before" data-decorator-stype="chip" data-skip-reconcile="true" style="display: inline-block; background-color: rgb(227, 242, 253); color: rgb(25, 118, 210); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 500; margin: 0px 2px;">CHIP</span>
               <span>Hello</span>
               <span>World</span>
@@ -128,9 +128,9 @@ describe.skip('Inline Position Decorator (before/after)', () => {
     expectHTML(
       view.layers.content,
       `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">
-        <div class="document" data-bc-sid="doc1" data-bc-stype="document">
-          <p class="paragraph" data-bc-sid="p1" data-bc-stype="paragraph">
-            <span class="text" data-bc-sid="t1" data-bc-stype="inline-text">
+        <div class="document" data-bc-sid="doc1">
+          <p class="paragraph" data-bc-sid="p1">
+            <span class="text" data-bc-sid="t1">
               <span>Hello</span>
               <span>World</span>
               <span class="chip" data-decorator="true" data-decorator-category="inline" data-decorator-position="after" data-decorator-sid="chip-after" data-decorator-stype="chip" data-skip-reconcile="true" style="display: inline-block; background-color: rgb(227, 242, 253); color: rgb(25, 118, 210); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 500; margin: 0px 2px;">CHIP</span>
@@ -187,12 +187,11 @@ describe.skip('Inline Position Decorator (before/after)', () => {
     expectHTML(
       view.layers.content,
       `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">
-        <div class="document" data-bc-sid="doc1" data-bc-stype="document">
-          <p class="paragraph" data-bc-sid="p1" data-bc-stype="paragraph">
-            <span class="text" data-bc-sid="t1" data-bc-stype="inline-text">
+        <div class="document" data-bc-sid="doc1">
+          <p class="paragraph" data-bc-sid="p1">
+            <span class="text" data-bc-sid="t1">
               <span class="chip" data-decorator="true" data-decorator-category="inline" data-decorator-position="before" data-decorator-sid="chip-before" data-decorator-stype="chip" data-skip-reconcile="true" style="display: inline-block; background-color: rgb(227, 242, 253); color: rgb(25, 118, 210); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 500; margin: 0px 2px;">CHIP</span>
               <span>Hello</span>
-              <span></span>
               <span>World</span>
               <span class="chip" data-decorator="true" data-decorator-category="inline" data-decorator-position="after" data-decorator-sid="chip-after" data-decorator-stype="chip" data-skip-reconcile="true" style="display: inline-block; background-color: rgb(227, 242, 253); color: rgb(25, 118, 210); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 500; margin: 0px 2px;">CHIP</span>
             </span>
