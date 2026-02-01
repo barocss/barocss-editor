@@ -259,7 +259,7 @@ describe('EditorViewDOM + renderer-dom Error Handling Integration', () => {
       );
     });
 
-    it.skip('handles invalid child types gracefully', () => {
+    it('handles invalid child types gracefully', () => {
       const tree: any = {
         sid: 'doc1',
         stype: 'document',
