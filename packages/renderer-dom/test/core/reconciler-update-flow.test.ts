@@ -70,11 +70,9 @@ describe('Reconciler Update Flow', () => {
 
       renderer.render(container, model);
 
-      // Verify stored in prevVNodeTree
-      const prevVNode = (reconciler as any).prevVNodeTree.get('text-14');
-      expect(prevVNode).toBeTruthy();
-      expect(prevVNode.sid).toBe('text-14');
-      expect(prevVNode.stype).toBe('inline-text');
+      // Reconciler uses Fiber alternate, not prevVNodeTree; verify observable: DOM has element with sid
+      const el = container.querySelector('[data-bc-sid="text-14"]');
+      expect(el).toBeTruthy();
     });
 
     it('should match prevVNode by sid when decorator is added', async () => {
@@ -86,8 +84,8 @@ describe('Reconciler Update Flow', () => {
 
       // First render
       renderer.render(container, model);
-      const prevVNode1 = (reconciler as any).prevVNodeTree.get('text-14');
-      expect(prevVNode1).toBeTruthy();
+      const el1 = container.querySelector('[data-bc-sid="text-14"]');
+      expect(el1).toBeTruthy();
 
       // Second render after adding decorator
       const decorators: Decorator[] = [
@@ -106,15 +104,11 @@ describe('Reconciler Update Flow', () => {
       ];
       renderer.render(container, model, decorators);
 
-      // Verify prevVNode is updated
-      const prevVNode2 = (reconciler as any).prevVNodeTree.get('text-14');
-      expect(prevVNode2).toBeTruthy();
-      expect(prevVNode2.sid).toBe('text-14');
-      
-      // Verify children structure is changed
-      expect(prevVNode2.children).toBeTruthy();
-      expect(Array.isArray(prevVNode2.children)).toBe(true);
-      expect(prevVNode2.children.length).toBeGreaterThan(0);
+      // Reconciler uses Fiber alternate; verify observable: same sid element and decorator in DOM
+      const el2 = container.querySelector('[data-bc-sid="text-14"]');
+      expect(el2).toBeTruthy();
+      const decoratorEl = container.querySelector('[data-decorator-sid="chip-before"]');
+      expect(decoratorEl).toBeTruthy();
     });
   });
 
