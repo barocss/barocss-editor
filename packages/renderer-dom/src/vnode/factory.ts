@@ -2022,7 +2022,9 @@ export class VNodeBuilder {
       // elementTemplate.attributes are props
       // _buildElement: template.attributes are props, model is runtime data
       const vnode = this._buildElement(elementTemplate, model, options);
-      // After attachComponentInfo, set sid and marks at top level
+      // Set stype so _applySidToVNode can set sid (attachComponentInfo sets stype later; we need it here for sid)
+      vnode.stype = nodeType;
+      // After stype is set, set sid and marks at top level
       this._applySidToVNode(vnode, model, options);
       // Element-based: no wrapper, do not assign component marker
       // Filter decorators for this specific node before attaching

@@ -281,13 +281,13 @@ describe('Full Document VNode Verification', () => {
     
     expect(vnode).toBeTruthy();
     expect(vnode.children).toBeTruthy();
-    
-    // Current builder does not materialize block decorators as children nodes, but stores them in top-level decorators metadata
-    expect(Array.isArray((vnode as any).decorators)).toBe(true);
-    const hasBlockDecorator = ((vnode as any).decorators as any[]).some((d: any) =>
-      d && d.category === 'block' && d.position === 'after' && d.sid === 'd2' && d.target?.sid === 'p-1'
+
+    // Builder materializes block decorators as sibling VNodes (after the paragraph)
+    const children = vnode.children as any[];
+    const hasBlockDecoratorNode = children.some(
+      (c: any) => c && typeof c === 'object' && c.attrs?.['data-decorator-sid'] === 'd2'
     );
-    expect(hasBlockDecorator).toBe(true);
+    expect(hasBlockDecoratorNode).toBe(true);
   });
 
   it('should build VNode for complex nested structure with overlapping marks', () => {
