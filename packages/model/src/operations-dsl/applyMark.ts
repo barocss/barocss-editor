@@ -55,7 +55,7 @@ export const applyMark = defineOperationDSL(
     // cross-node: (startId, startOffset, endId, endOffset, markType, attrs?)
     if (args.length >= 5 && typeof args[0] === 'string' && typeof args[2] === 'string' && typeof args[4] === 'string') {
       const [startId, startOffset, endId, endOffset, markType, attrs] = args as [string, number, string, number, string, (Record<string, any>)?];
-      return { type: 'applyMark', payload: { range: { startNodeId: startId, startOffset, endNodeId: endId, endOffset }, markType, attrs } } as unknown as ApplyMarkOperationPayload;
+      return { type: 'applyMark', payload: { range: { type: 'range' as const, startNodeId: startId, startOffset, endNodeId: endId, endOffset }, markType, attrs } } as unknown as ApplyMarkOperationPayload;
     }
     // direct single-node: (nodeId, start, end, markType, attrs?)
     const [nodeId, start, end, markType, attrs] = args as [string, number, number, string, (Record<string, any>)?];

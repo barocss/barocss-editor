@@ -27,25 +27,25 @@ describe('replacePattern operation (exec)', () => {
   });
 
   it('replaces pattern in single-node range', async () => {
-    dataStore.setNode({ id: 't', type: 'inline-text', text: 'foo bar foo' });
+    dataStore.setNode({ sid: 't', stype: 'inline-text', text: 'foo bar foo' });
     const op = globalOperationRegistry.get('replacePattern');
-    const count = await op!.execute({ type: 'replacePattern', nodeId: 't', start: 0, end: 11, pattern: /foo/g, replacement: 'baz' } as any, context);
-    expect(count).toBeGreaterThan(0);
+    const result = await op!.execute({ type: 'replacePattern', nodeId: 't', start: 0, end: 11, pattern: /foo/g, replacement: 'baz' } as any, context) as { ok?: boolean; data?: number };
+    expect(result?.data).toBeGreaterThan(0);
     expect(dataStore.getNode('t')?.text).toBe('baz bar baz');
   });
 
   it('replaces pattern across nodes via range payload', async () => {
-    dataStore.setNode({ id: 'root', type: 'paragraph', content: ['a', 'b'] } as any);
-    dataStore.setNode({ id: 'a', type: 'inline-text', text: 'hello ', parentId: 'root' });
-    dataStore.setNode({ id: 'b', type: 'inline-text', text: 'world', parentId: 'root' });
+    dataStore.setNode({ sid: 'root', stype: 'paragraph', content: ['a', 'b'] } as any);
+    dataStore.setNode({ sid: 'a', stype: 'inline-text', text: 'hello ', parentId: 'root' });
+    dataStore.setNode({ sid: 'b', stype: 'inline-text', text: 'world', parentId: 'root' });
     // Ensure iterator traverses the tree starting from this parent
     dataStore.setRoot('root');
     const op = globalOperationRegistry.get('replacePattern');
     const rng = { type: 'range' as const, startNodeId: 'a', startOffset: 0, endNodeId: 'b', endOffset: 5 };
     const before = dataStore.range.extractText(rng);
     expect(before).toBe('hello world');
-    const count = await op!.execute({ type: 'replacePattern', range: rng, pattern: /(hello|world)/g, replacement: 'X' } as any, context);
-    expect(count).toBeGreaterThanOrEqual(0);
+    const result = await op!.execute({ type: 'replacePattern', range: rng, pattern: /(hello|world)/g, replacement: 'X' } as any, context) as { ok?: boolean; data?: number };
+    expect(result?.data).toBeGreaterThanOrEqual(0);
     const after = dataStore.range.extractText(rng);
     expect(after).toBe('X X');
   });

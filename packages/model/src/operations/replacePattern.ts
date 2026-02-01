@@ -96,7 +96,7 @@ export const replacePattern = defineOperationDSL(
     // cross-node
     if (args.length === 6 && typeof args[0] === 'string' && typeof args[2] === 'string') {
       const [startId, startOffset, endId, endOffset, pattern, replacement] = args as [string, number, string, number, (string | RegExp), string];
-      return { type: 'replacePattern', payload: { range: { startNodeId: startId, startOffset, endNodeId: endId, endOffset }, pattern, replacement } } as unknown as ReplacePatternOperationPayload;
+      return { type: 'replacePattern', payload: { range: { type: 'range' as const, startNodeId: startId, startOffset, endNodeId: endId, endOffset }, pattern, replacement } } as unknown as ReplacePatternOperationPayload;
     }
     // direct single-node
     const [nodeId, start, end, pattern, replacement] = args as [string, number, number, (string | RegExp), string];

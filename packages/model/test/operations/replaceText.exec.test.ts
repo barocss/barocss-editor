@@ -24,7 +24,7 @@ describe('replaceText operation (exec)', () => {
   });
 
   it('replaces text in single node range and returns deleted segment', async () => {
-    dataStore.setNode({ id: 't1', type: 'inline-text', text: 'Hello World' });
+    dataStore.setNode({ sid: 't1', stype: 'inline-text', text: 'Hello World' });
     const op = globalOperationRegistry.get('replaceText');
     const result = await op!.execute({ type: 'replaceText', payload: { nodeId: 't1', start: 6, end: 11, newText: 'Barocss' } } as any, context);
     expect(result.data).toBe('World');
@@ -38,14 +38,14 @@ describe('replaceText operation (exec)', () => {
   });
 
   it('throws on invalid range', async () => {
-    dataStore.setNode({ id: 't1', type: 'inline-text', text: 'ABC' });
+    dataStore.setNode({ sid: 't1', stype: 'inline-text', text: 'ABC' });
     const op = globalOperationRegistry.get('replaceText');
     await expect(op!.execute({ type: 'replaceText', payload: { nodeId: 't1', start: 3, end: 2, newText: 'X' } } as any, context)).rejects.toThrow('Invalid range');
   });
 
   it('supports cross-node replacement via range payload', async () => {
-    dataStore.setNode({ id: 'a', type: 'inline-text', text: 'Hello ' });
-    dataStore.setNode({ id: 'b', type: 'inline-text', text: 'World' });
+    dataStore.setNode({ sid: 'a', stype: 'inline-text', text: 'Hello ' });
+    dataStore.setNode({ sid: 'b', stype: 'inline-text', text: 'World' });
     // DataStore is prepared to work with delete+insert in branches other than fast-path even without parent content connection
     const op = globalOperationRegistry.get('replaceText');
     const result = await op!.execute({
