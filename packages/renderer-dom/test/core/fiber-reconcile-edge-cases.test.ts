@@ -179,16 +179,6 @@ describe('reconcileWithFiber - Edge Cases', () => {
 
       reconcileWithFiber(container, vnode, undefined, {}, deps);
 
-      // eslint-disable-next-line no-console
-      console.log('Container HTML:', container.innerHTML);
-      // eslint-disable-next-line no-console
-      console.log('All decorator elements:', Array.from(container.querySelectorAll('[data-decorator-sid="d-highlight"]')).map(el => ({
-        tag: el.tagName,
-        parent: el.parentElement?.tagName,
-        text: el.textContent,
-        innerHTML: el.innerHTML
-      })));
-
       // Decorator element should exist
       // NOTE: Current reconciler may create separate decorator elements for text nodes in children
       const decoratorElements = container.querySelectorAll('[data-decorator-sid="d-highlight"]');

@@ -767,13 +767,18 @@ export function removeStaleChildren(
   const components = deps.components;
   const context = deps.context || {};
   
-  // Remove unused DOM elements
+  // Remove unused DOM elements only (do not remove Text nodes)
+  // Text nodes are managed by handleVNodeTextProperty and processPrimitiveTextChildren,
+  // and are not in usedDomElements (no Fiber for primitive/vnode.text).
   for (const childNode of childNodes) {
     if (usedDomElements.has(childNode as HTMLElement | Text)) {
       continue; // Keep used elements
     }
-    
-    // Remove unused DOM elements
+    if (childNode.nodeType === Node.TEXT_NODE) {
+      continue; // Keep text nodes (vnode.text or primitive text children)
+    }
+
+    // Remove unused DOM elements (HTMLElement only)
     if (childNode instanceof HTMLElement) {
       // Component unmount (only if sid exists)
       const sid = childNode.getAttribute(DOMAttribute.BC_SID);
@@ -797,13 +802,13 @@ export function removeStaleChildren(
           }
         }
         }
-        }
       }
-    
+
       try {
-      host.removeChild(childNode);
+        host.removeChild(childNode);
       } catch {
         // May have already been removed
+      }
     }
   }
 }
