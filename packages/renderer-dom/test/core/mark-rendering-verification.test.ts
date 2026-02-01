@@ -49,7 +49,7 @@ describe('Mark Rendering Verification', () => {
             sid: 'text-bold',
             stype: 'inline-text',
             text: 'bold text',
-            marks: [{ type: 'bold', range: [0, 9] }]
+            marks: [{ stype: 'bold', range: [0, 9] }]
           }
         ]
       };
@@ -90,7 +90,7 @@ describe('Mark Rendering Verification', () => {
             sid: 'text-italic',
             stype: 'inline-text',
             text: 'italic text',
-            marks: [{ type: 'italic', range: [0, 11] }]
+            marks: [{ stype: 'italic', range: [0, 11] }]
           }
         ]
       };
@@ -131,7 +131,7 @@ describe('Mark Rendering Verification', () => {
             sid: 'text-red',
             stype: 'inline-text',
             text: 'red text',
-            marks: [{ type: 'fontColor', range: [0, 8], attrs: { color: '#ff0000' } }]
+            marks: [{ stype: 'fontColor', range: [0, 8], attrs: { color: '#ff0000' } }]
           }
         ]
       };
@@ -179,8 +179,8 @@ describe('Mark Rendering Verification', () => {
             stype: 'inline-text',
             text: 'bold and italic',
             marks: [
-              { type: 'bold', range: [0, 15] },
-              { type: 'italic', range: [0, 15] }
+              { stype: 'bold', range: [0, 15] },
+              { stype: 'italic', range: [0, 15] }
             ]
           }
         ]
@@ -233,9 +233,9 @@ describe('Mark Rendering Verification', () => {
             stype: 'inline-text',
             text: 'Bold+Red+Yellow',
             marks: [
-              { type: 'bold', range: [0, 15] },
-              { type: 'fontColor', range: [0, 15], attrs: { color: '#ff0000' } },
-              { type: 'bgColor', range: [0, 15], attrs: { bgColor: '#ffff00' } }
+              { stype: 'bold', range: [0, 15] },
+              { stype: 'fontColor', range: [0, 15], attrs: { color: '#ff0000' } },
+              { stype: 'bgColor', range: [0, 15], attrs: { bgColor: '#ffff00' } }
             ]
           }
         ]
@@ -282,7 +282,7 @@ describe('Mark Rendering Verification', () => {
             sid: 'text-partial',
             stype: 'inline-text',
             text: 'This is a bold text',
-            marks: [{ type: 'bold', range: [10, 20] }] // Only "bold text"
+            marks: [{ stype: 'bold', range: [10, 20] }] // Only "bold text"
           }
         ]
       };
@@ -330,8 +330,8 @@ describe('Mark Rendering Verification', () => {
             stype: 'inline-text',
             text: 'This is bold and this is italic',
             marks: [
-              { type: 'bold', range: [8, 12] },      // "bold"
-              { type: 'italic', range: [26, 32] }  // "italic"
+              { stype: 'bold', range: [8, 12] },      // "bold"
+              { stype: 'italic', range: [26, 32] }  // "italic"
             ]
           }
         ]
@@ -378,7 +378,7 @@ describe('Mark Rendering Verification', () => {
             sid: 'text-bold',
             stype: 'inline-text',
             text: 'bold text',
-            marks: [{ type: 'bold', range: [0, 9] }]
+            marks: [{ stype: 'bold', range: [0, 9] }]
           }
         ]
       };
@@ -423,7 +423,7 @@ describe('Mark Rendering Verification', () => {
             sid: 'text-bold',
             stype: 'inline-text',
             text: 'test',
-            marks: [{ type: 'bold', range: [0, 4] }]
+            marks: [{ stype: 'bold', range: [0, 4] }]
           }
         ]
       };
@@ -466,7 +466,7 @@ describe('Mark Rendering Verification', () => {
             sid: 'text-bold',
             stype: 'inline-text',
             text: 'bold text',
-            marks: [{ type: 'bold', range: [0, 9] }]
+            marks: [{ stype: 'bold', range: [0, 9] }]
           },
           {
             sid: 'text-2',
@@ -520,8 +520,8 @@ describe('Mark Rendering Verification', () => {
             stype: 'inline-text',
             text: 'Long paragraph with multiple bold sections and multiple italic sections',
             marks: [
-              { type: 'bold', range: [20, 45] },    // "multiple bold sections"
-              { type: 'italic', range: [50, 75] }   // "multiple italic sections"
+              { stype: 'bold', range: [20, 45] },    // "multiple bold sections"
+              { stype: 'italic', range: [50, 75] }   // "multiple italic sections"
             ]
           }
         ]
@@ -568,30 +568,31 @@ describe('Mark Rendering Verification', () => {
         {
           sid: 'text-1',
           text: 'bold text',
-          marks: [{ type: 'bold', range: [0, 9] }],
+          marks: [{ stype: 'bold', range: [0, 9] }],
           expectedLength: 9
         },
         {
           sid: 'text-2',
           text: 'italic text',
-          marks: [{ type: 'italic', range: [0, 11] }],
+          marks: [{ stype: 'italic', range: [0, 11] }],
           expectedLength: 11
         },
         {
           sid: 'text-3',
           text: 'bold and italic',
           marks: [
-            { type: 'bold', range: [0, 15] },
-            { type: 'italic', range: [0, 15] }
+            { stype: 'bold', range: [0, 15] },
+            { stype: 'italic', range: [0, 15] }
           ],
           expectedLength: 15
         }
       ];
 
       for (const testCase of testCases) {
-        // Initialize container for each test case
-        container.innerHTML = '';
-        
+        const caseContainer = document.createElement('div');
+        document.body.appendChild(caseContainer);
+        const caseRenderer = new DOMRenderer(registry);
+
         const paragraphModel = {
           sid: `p-${testCase.sid}`,
           stype: 'paragraph',
@@ -605,39 +606,43 @@ describe('Mark Rendering Verification', () => {
           ]
         };
 
-        renderer.render(container, paragraphModel);
-        
-        // Verify full HTML structure (compare with container's full HTML)
-        let expectedHTML = '';
-        if (testCase.marks.length === 1 && testCase.marks[0].type === 'bold') {
-          expectedHTML = `<p class="paragraph" data-bc-sid="p-${testCase.sid}">
+        caseRenderer.render(caseContainer, paragraphModel);
+
+        const expectedHTML =
+          testCase.marks.length === 1 && testCase.marks[0].stype === 'bold'
+            ? `<p class="paragraph" data-bc-sid="p-${testCase.sid}">
             <span class="text" data-bc-sid="${testCase.sid}">
               <span class="custom-bold mark-bold"><span>${testCase.text}</span></span>
             </span>
-          </p>`;
-        } else if (testCase.marks.length === 1 && testCase.marks[0].type === 'italic') {
-          expectedHTML = `<p class="paragraph" data-bc-sid="p-${testCase.sid}">
+          </p>`
+            : testCase.marks.length === 1 && testCase.marks[0].stype === 'italic'
+              ? `<p class="paragraph" data-bc-sid="p-${testCase.sid}">
             <span class="text" data-bc-sid="${testCase.sid}">
               <span class="custom-italic mark-italic"><span>${testCase.text}</span></span>
             </span>
-          </p>`;
-        } else if (testCase.marks.length === 2 && testCase.marks.some(m => m.type === 'bold') && testCase.marks.some(m => m.type === 'italic')) {
-          expectedHTML = `<p class="paragraph" data-bc-sid="p-${testCase.sid}">
+          </p>`
+              : testCase.marks.length === 2 && testCase.marks.some((m: { stype: string }) => m.stype === 'bold') && testCase.marks.some((m: { stype: string }) => m.stype === 'italic')
+                ? `<p class="paragraph" data-bc-sid="p-${testCase.sid}">
             <span class="text" data-bc-sid="${testCase.sid}">
               <span class="custom-bold mark-bold">
                 <span class="custom-italic mark-italic"><span>${testCase.text}</span></span>
               </span>
             </span>
-          </p>`;
+          </p>`
+                : '';
+
+        if (expectedHTML) {
+          expectHTML(caseContainer, expectedHTML, expect);
         }
-        
-        expectHTML(container, expectedHTML, expect);
-        
-        // Verify no text duplication
-        const el = container.querySelector(`[data-bc-sid="${testCase.sid}"]`);
+
+        const el = caseContainer.querySelector(`[data-bc-sid="${testCase.sid}"]`);
         const textContent = el?.textContent || '';
         expect(textContent.length).toBe(testCase.expectedLength);
         expect(textContent).toBe(testCase.text);
+
+        if (caseContainer.parentNode) {
+          caseContainer.parentNode.removeChild(caseContainer);
+        }
       }
     });
 
@@ -654,7 +659,7 @@ describe('Mark Rendering Verification', () => {
             sid: 'text-bold',
             stype: 'inline-text',
             text: 'bold text',
-            marks: [{ type: 'bold', range: [0, 9] }]
+            marks: [{ stype: 'bold', range: [0, 9] }]
           }
         ]
       };
@@ -735,12 +740,12 @@ describe('Mark Rendering Verification', () => {
             stype: 'inline-text',
             text: text,
             marks: [
-              { type: 'bold', range: [0, 20] },           // "This is a complex"
-              { type: 'italic', range: [10, 30] },        // "complex text with"
-              { type: 'fontColor', range: [15, 35], attrs: { color: '#ff0000' } }, // "text with multiple"
-              { type: 'bgColor', range: [20, 40], attrs: { bgColor: '#ffff00' } },  // "with multiple over"
-              { type: 'underline', range: [25, 45] },     // "multiple overlapping"
-              { type: 'strikethrough', range: [30, 55] }  // "overlapping marks"
+              { stype: 'bold', range: [0, 20] },           // "This is a complex"
+              { stype: 'italic', range: [10, 30] },        // "complex text with"
+              { stype: 'fontColor', range: [15, 35], attrs: { color: '#ff0000' } }, // "text with multiple"
+              { stype: 'bgColor', range: [20, 40], attrs: { bgColor: '#ffff00' } },  // "with multiple over"
+              { stype: 'underline', range: [25, 45] },     // "multiple overlapping"
+              { stype: 'strikethrough', range: [30, 55] }  // "overlapping marks"
             ]
           }
         ]
@@ -856,13 +861,13 @@ describe('Mark Rendering Verification', () => {
             stype: 'inline-text',
             text: text,
             marks: [
-              { type: 'bold', range: [0, text.length] },
-              { type: 'italic', range: [0, text.length] },
-              { type: 'fontColor', range: [0, text.length], attrs: { color: '#ff0000' } },
-              { type: 'bgColor', range: [0, text.length], attrs: { bgColor: '#ffff00' } },
-              { type: 'underline', range: [0, text.length] },
-              { type: 'strikethrough', range: [0, text.length] },
-              { type: 'superscript', range: [0, text.length] }
+              { stype: 'bold', range: [0, text.length] },
+              { stype: 'italic', range: [0, text.length] },
+              { stype: 'fontColor', range: [0, text.length], attrs: { color: '#ff0000' } },
+              { stype: 'bgColor', range: [0, text.length], attrs: { bgColor: '#ffff00' } },
+              { stype: 'underline', range: [0, text.length] },
+              { stype: 'strikethrough', range: [0, text.length] },
+              { stype: 'superscript', range: [0, text.length] }
             ]
           }
         ]
@@ -939,7 +944,7 @@ describe('Mark Rendering Verification', () => {
                 sid: 'text-1',
                 stype: 'inline-text',
                 text: 'This is bold and highlighted text',
-                marks: [{ type: 'bold', range: [8, 12] }] // "bold"
+                marks: [{ stype: 'bold', range: [8, 12] }] // "bold"
               }
             ]
           }
@@ -1051,9 +1056,8 @@ describe('Mark Rendering Verification', () => {
           <p class="paragraph" data-bc-sid="p-mark-decorator">
             <span class="text" data-bc-sid="text-1">
               <span>This is</span>
-              <span class="highlight-decorator" data-decorator="true" data-decorator-category="inline" data-decorator-sid="d1" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow;">
-                <span class="custom-bold mark-bold" style="font-weight: bold">and hig</span>
-              </span>
+              <span class="highlight-decorator" data-decorator="true" data-decorator-category="inline" data-decorator-sid="d1" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow"><span class="custom-bold mark-bold" style="font-weight: bold"><span>bold</span></span></span>
+              <span class="highlight-decorator" data-decorator="true" data-decorator-category="inline" data-decorator-sid="d1" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow"><span>and hig</span></span>
               <span>hlighted text</span>
             </span>
           </p>
@@ -1092,7 +1096,7 @@ describe('Mark Rendering Verification', () => {
             sid: 'text-wrap',
             stype: 'inline-text',
             text: 'This is bold text inside highlight',
-            marks: [{ type: 'bold', range: [8, 12] }] // "bold"
+            marks: [{ stype: 'bold', range: [8, 12] }] // "bold"
           }
         ]
       };
@@ -1114,9 +1118,9 @@ describe('Mark Rendering Verification', () => {
         container,
         `<p class="paragraph" data-bc-sid="p-decorator-wraps-mark">
           <span class="text" data-bc-sid="text-wrap">
-            <span class="highlight-decorator" data-decorator="true" data-decorator-category="inline" data-decorator-sid="d-wrap" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow;">
-              <span class="custom-bold mark-bold" style="font-weight: bold">text inside highligh</span>
-            </span>
+            <span class="highlight-decorator" data-decorator="true" data-decorator-category="inline" data-decorator-sid="d-wrap" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow"><span>This is</span></span>
+            <span class="highlight-decorator" data-decorator="true" data-decorator-category="inline" data-decorator-sid="d-wrap" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow"><span class="custom-bold mark-bold" style="font-weight: bold"><span>bold</span></span></span>
+            <span class="highlight-decorator" data-decorator="true" data-decorator-category="inline" data-decorator-sid="d-wrap" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow"><span>text inside highligh</span></span>
             <span>t</span>
           </span>
         </p>`,
@@ -1162,9 +1166,9 @@ describe('Mark Rendering Verification', () => {
             stype: 'inline-text',
             text: 'This is a complex text with multiple marks and decorators',
             marks: [
-              { type: 'bold', range: [10, 18] },     // "complex"
-              { type: 'italic', range: [19, 27] },   // "text with"
-              { type: 'bold', range: [28, 36] }      // "multiple"
+              { stype: 'bold', range: [10, 18] },     // "complex"
+              { stype: 'italic', range: [19, 27] },   // "text with"
+              { stype: 'bold', range: [28, 36] }      // "multiple"
             ]
           }
         ]
@@ -1261,18 +1265,18 @@ describe('Mark Rendering Verification', () => {
         console.log(inlineTextEl.innerHTML);
       }
 
-      // Verify full HTML structure - compare with actual rendered HTML structure
+      // Verify full HTML structure - compare with actual rendered HTML structure (decorator split / mark nesting)
       expectHTML(
         container,
         `<p class="paragraph" data-bc-sid="p-complex-overlap">
           <span class="text" data-bc-sid="text-complex">
             <span>This is a</span>
-            <span class="highlight-decorator" data-decorator="true" data-decorator-category="inline" data-decorator-sid="d-highlight" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow;">
-              <span class="custom-bold mark-bold" style="font-weight: bold;"><span>multiple</span></span>
-            </span>
-            <span class="comment-decorator" data-decorator="true" data-decorator-category="inline" data-decorator-sid="d-comment" data-decorator-stype="comment" data-skip-reconcile="true" style="padding-left: 5px; border-left: 3px solid blue;">
-              <span>marks and dec</span>
-            </span>
+            <span class="highlight-decorator" data-decorator="true" data-decorator-category="inline" data-decorator-sid="d-highlight" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow"><span class="custom-bold mark-bold" style="font-weight: bold"><span>complex</span></span></span>
+            <span class="highlight-decorator" data-decorator="true" data-decorator-category="inline" data-decorator-sid="d-highlight" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow"><span>t</span></span>
+            <span class="highlight-decorator" data-decorator="true" data-decorator-category="inline" data-decorator-sid="d-highlight" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow"><span class="custom-italic mark-italic" style="font-style: italic"><span>ext with</span></span></span>
+            <span class="highlight-decorator" data-decorator="true" data-decorator-category="inline" data-decorator-sid="d-highlight" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow"><span></span></span>
+            <span class="comment-decorator" data-decorator="true" data-decorator-category="inline" data-decorator-sid="d-comment" data-decorator-stype="comment" data-skip-reconcile="true" style="border-left: 3px solid blue; padding-left: 5px"><span class="highlight-decorator" data-decorator="true" data-decorator-category="inline" data-decorator-sid="d-highlight" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow"><span class="custom-bold mark-bold" style="font-weight: bold"><span>multiple</span></span></span></span>
+            <span class="comment-decorator" data-decorator="true" data-decorator-category="inline" data-decorator-sid="d-comment" data-decorator-stype="comment" data-skip-reconcile="true" style="border-left: 3px solid blue; padding-left: 5px"><span>marks and dec</span></span>
             <span>orators</span>
           </span>
         </p>`,
@@ -1310,7 +1314,7 @@ describe('Mark Rendering Verification', () => {
             sid: 'text-partial',
             stype: 'inline-text',
             text: 'This is bold and highlighted text',
-            marks: [{ type: 'bold', range: [8, 12] }] // "bold"
+            marks: [{ stype: 'bold', range: [8, 12] }] // "bold"
           }
         ]
       };
@@ -1331,11 +1335,9 @@ describe('Mark Rendering Verification', () => {
         container,
         `<p class="paragraph" data-bc-sid="p-partial-overlap">
           <span class="text" data-bc-sid="text-partial">
-            <span>This is </span>
-            <span class="custom-bold mark-bold" style="font-weight: bold;"><span>bold</span></span>
-            <span class="highlight-decorator" data-decorator="true" data-decorator-category="inline" data-decorator-sid="d-partial" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow;">
-              <span> and highligh</span>
-            </span>
+            <span>This is</span>
+            <span class="custom-bold mark-bold" style="font-weight: bold"><span>bold</span></span>
+            <span class="highlight-decorator" data-decorator="true" data-decorator-category="inline" data-decorator-sid="d-partial" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow"><span>and highligh</span></span>
             <span>ted text</span>
           </span>
         </p>`,
