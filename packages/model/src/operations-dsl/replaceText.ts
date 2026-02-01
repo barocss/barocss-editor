@@ -23,7 +23,7 @@ type ReplaceTextOperationPayload =
     }
   | {
       type: 'replaceText';
-      range: { startNodeId: string; startOffset: number; endNodeId: string; endOffset: number };
+      range: { type: 'range'; startNodeId: string; startOffset: number; endNodeId: string; endOffset: number };
       newText: string;
     }
   | {
@@ -43,7 +43,7 @@ export const replaceText = defineOperationDSL(
     // cross-node: (startId, startOffset, endId, endOffset, newText)
     if (args.length === 5 && typeof args[0] === 'string' && typeof args[2] === 'string') {
       const [startId, startOffset, endId, endOffset, newText] = args as [string, number, string, number, string];
-      return { type: 'replaceText', payload: { range: { startNodeId: startId, startOffset, endNodeId: endId, endOffset }, newText } } as unknown as ReplaceTextOperationPayload;
+      return { type: 'replaceText', payload: { range: { type: 'range' as const, startNodeId: startId, startOffset, endNodeId: endId, endOffset }, newText } } as unknown as ReplaceTextOperationPayload;
     }
     // direct single-node: (nodeId, start, end, newText)
     const [nodeId, start, end, newText] = args as [string, number, number, string];

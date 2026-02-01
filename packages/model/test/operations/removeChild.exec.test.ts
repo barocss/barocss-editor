@@ -27,8 +27,8 @@ describe('removeChild operation (exec)', () => {
   });
 
   it('removes child from parent', async () => {
-    dataStore.setNode({ id: 'p', type: 'paragraph', content: ['t'] } as any);
-    dataStore.setNode({ id: 't', type: 'inline-text', text: 'X', parentId: 'p' });
+    dataStore.setNode({ sid: 'p', stype: 'paragraph', content: ['t'] } as any);
+    dataStore.setNode({ sid: 't', stype: 'inline-text', text: 'X', parentId: 'p' });
     const op = globalOperationRegistry.get('removeChild');
     const result = await op!.execute({ type: 'removeChild', payload: { parentId: 'p', childId: 't' } } as any, context);
     expect(result.data?.content).toEqual([]);

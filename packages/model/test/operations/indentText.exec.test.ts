@@ -27,10 +27,10 @@ describe('indentText operation (exec)', () => {
   });
 
   it('indents lines in a single node range (default two spaces)', async () => {
-    // Connect node to tree (parent required)
     const rootId = 'root';
     dataStore.setNode({ sid: rootId, stype: 'document', content: ['t1'] });
     dataStore.setNode({ sid: 't1', stype: 'inline-text', text: 'A\nB', parentId: rootId });
+    dataStore.setRootNodeId(rootId);
     const op = globalOperationRegistry.get('indentText');
     const res = await op!.execute({ type: 'indentText', payload: { nodeId: 't1', start: 0, end: 3 } } as any, context);
     expect(res.ok).toBe(true);

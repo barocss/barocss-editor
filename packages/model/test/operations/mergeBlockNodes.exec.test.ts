@@ -27,11 +27,11 @@ describe('mergeBlockNodes operation (exec)', () => {
   });
 
   it('merges two adjacent blocks of same type', async () => {
-    const a = { id: 'a', type: 'paragraph', content: [] } as any;
-    const b = { id: 'b', type: 'paragraph', content: [] } as any;
+    const a = { sid: 'a', stype: 'paragraph', content: [] } as any;
+    const b = { sid: 'b', stype: 'paragraph', content: [] } as any;
     dataStore.setNode(a);
     dataStore.setNode(b);
-    dataStore.setNode({ id: 'root', type: 'paragraph', content: ['a', 'b'] } as any);
+    dataStore.setNode({ sid: 'root', stype: 'paragraph', content: ['a', 'b'] } as any);
 
     const op = globalOperationRegistry.get('mergeBlockNodes');
     const result = await op!.execute({ type: 'mergeBlockNodes', payload: { leftNodeId: 'a', rightNodeId: 'b' } } as any, context);
@@ -39,8 +39,8 @@ describe('mergeBlockNodes operation (exec)', () => {
   });
 
   it('throws on different types', async () => {
-    dataStore.setNode({ id: 'a', type: 'paragraph', content: [] } as any);
-    dataStore.setNode({ id: 'b', type: 'inline-text', text: '' } as any);
+    dataStore.setNode({ sid: 'a', stype: 'paragraph', content: [] } as any);
+    dataStore.setNode({ sid: 'b', stype: 'inline-text', text: '' } as any);
     const op = globalOperationRegistry.get('mergeBlockNodes');
     await expect(op!.execute({ type: 'mergeBlockNodes', payload: { leftNodeId: 'a', rightNodeId: 'b' } } as any, context)).rejects.toThrow();
   });

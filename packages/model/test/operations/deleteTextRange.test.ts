@@ -48,8 +48,8 @@ describe('deleteTextRange operation', () => {
     it('should delete text range', async () => {
       // Create text node
       const textNode = {
-        id: 'text-1',
-        type: 'inline-text',
+        sid: 'text-1',
+        stype: 'inline-text',
         text: 'Hello Beautiful World',
         parentId: 'para-1'
       };
@@ -70,8 +70,8 @@ describe('deleteTextRange operation', () => {
 
     it('should delete text at the beginning', async () => {
       const textNode = {
-        id: 'text-1',
-        type: 'inline-text',
+        sid: 'text-1',
+        stype: 'inline-text',
         text: 'Hello World',
         parentId: 'para-1'
       };
@@ -89,8 +89,8 @@ describe('deleteTextRange operation', () => {
 
     it('should delete text at the end', async () => {
       const textNode = {
-        id: 'text-1',
-        type: 'inline-text',
+        sid: 'text-1',
+        stype: 'inline-text',
         text: 'Hello World',
         parentId: 'para-1'
       };
@@ -120,8 +120,8 @@ describe('deleteTextRange operation', () => {
     it('should adjust selection when deleting overlapping range', async () => {
       // Create text node
       const textNode = {
-        id: 'text-1',
-        type: 'inline-text',
+        sid: 'text-1',
+        stype: 'inline-text',
         text: 'Hello Beautiful World',
         parentId: 'para-1'
       };
@@ -144,8 +144,8 @@ describe('deleteTextRange operation', () => {
 
     it('should shift selection when deleting before selection', async () => {
       const textNode = {
-        id: 'text-1',
-        type: 'inline-text',
+        sid: 'text-1',
+        stype: 'inline-text',
         text: 'Hello Beautiful World',
         parentId: 'para-1'
       };
@@ -168,8 +168,8 @@ describe('deleteTextRange operation', () => {
 
     it('should not affect selection when deleting after selection', async () => {
       const textNode = {
-        id: 'text-1',
-        type: 'inline-text',
+        sid: 'text-1',
+        stype: 'inline-text',
         text: 'Hello Beautiful World',
         parentId: 'para-1'
       };
@@ -192,8 +192,8 @@ describe('deleteTextRange operation', () => {
 
     it('should not affect selection of different node', async () => {
       const textNode = {
-        id: 'text-1',
-        type: 'inline-text',
+        sid: 'text-1',
+        stype: 'inline-text',
         text: 'Hello Beautiful World',
         parentId: 'para-1'
       };
@@ -216,8 +216,8 @@ describe('deleteTextRange operation', () => {
 
     it('should handle null selection gracefully', async () => {
       const textNode = {
-        id: 'text-1',
-        type: 'inline-text',
+        sid: 'text-1',
+        stype: 'inline-text',
         text: 'Hello Beautiful World',
         parentId: 'para-1'
       };

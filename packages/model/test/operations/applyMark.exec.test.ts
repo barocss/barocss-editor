@@ -24,29 +24,29 @@ describe('applyMark operation (exec)', () => {
   });
 
   it('applies mark in a single node range', async () => {
-    dataStore.setNode({ id: 't1', type: 'inline-text', text: 'Hello World' });
+    dataStore.setNode({ sid: 't1', stype: 'inline-text', text: 'Hello World' });
     const op = globalOperationRegistry.get('applyMark');
     const result = await op!.execute({ type: 'applyMark', payload: { nodeId: 't1', start: 0, end: 5, markType: 'bold' } } as any, context);
-    expect(result.data?.marks).toEqual([{ type: 'bold', range: [0, 5] }]);
+    expect(result.data?.marks).toEqual([{ stype: 'bold', range: [0, 5] }]);
   });
 
   it('applies mark across nodes via range payload', async () => {
-    dataStore.setNode({ id: 'a', type: 'inline-text', text: 'Hello ' });
-    dataStore.setNode({ id: 'b', type: 'inline-text', text: 'World' });
+    dataStore.setNode({ sid: 'a', stype: 'inline-text', text: 'Hello ' });
+    dataStore.setNode({ sid: 'b', stype: 'inline-text', text: 'World' });
     const op = globalOperationRegistry.get('applyMark');
     await op!.execute({ type: 'applyMark', payload: { range: { type: 'range' as const, startNodeId: 'a', startOffset: 3, endNodeId: 'b', endOffset: 2 }, markType: 'italic' } } as any, context);
-    expect(dataStore.getNode('a')?.marks).toEqual([{ type: 'italic', range: [3, 6] }]);
-    expect(dataStore.getNode('b')?.marks).toEqual([{ type: 'italic', range: [0, 2] }]);
+    expect(dataStore.getNode('a')?.marks).toEqual([{ stype: 'italic', range: [3, 6] }]);
+    expect(dataStore.getNode('b')?.marks).toEqual([{ stype: 'italic', range: [0, 2] }]);
   });
 
   it('throws on invalid range', async () => {
-    dataStore.setNode({ id: 't1', type: 'inline-text', text: 'ABC' });
+    dataStore.setNode({ sid: 't1', stype: 'inline-text', text: 'ABC' });
     const op = globalOperationRegistry.get('applyMark');
     await expect(op!.execute({ type: 'applyMark', payload: { nodeId: 't1', start: 2, end: 2, markType: 'bold' } } as any, context)).rejects.toThrow('Invalid range');
   });
 
   it('throws when endpoint node does not exist', async () => {
-    dataStore.setNode({ id: 't1', type: 'inline-text', text: 'ABC' });
+    dataStore.setNode({ sid: 't1', stype: 'inline-text', text: 'ABC' });
     const op = globalOperationRegistry.get('applyMark');
     await expect(op!.execute({ type: 'applyMark', payload: { range: { type: 'range' as const, startNodeId: 't1', startOffset: 0, endNodeId: 'nope', endOffset: 1 }, markType: 'bold' } } as any, context)).rejects.toThrow('Node not found: nope');
   });

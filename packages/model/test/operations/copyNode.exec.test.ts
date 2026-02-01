@@ -27,8 +27,8 @@ describe('copyNode operation (exec)', () => {
   });
 
   it('copies node and inserts into new parent', async () => {
-    dataStore.setNode({ id: 'p', type: 'paragraph', content: [] } as any);
-    dataStore.setNode({ id: 't', type: 'inline-text', text: 'X' });
+    dataStore.setNode({ sid: 'p', stype: 'paragraph', content: [] } as any);
+    dataStore.setNode({ sid: 't', stype: 'inline-text', text: 'X' });
     const op = globalOperationRegistry.get('copyNode');
     const newNode = await op!.execute({ type: 'copyNode', payload: { nodeId: 't', newParentId: 'p' } } as any, context);
     const p = dataStore.getNode('p');

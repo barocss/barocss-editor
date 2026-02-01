@@ -27,9 +27,9 @@ describe('addChild operation (exec)', () => {
   });
 
   it('adds child at position', async () => {
-    dataStore.setNode({ id: 'p', type: 'paragraph', content: [] } as any);
+    dataStore.setNode({ sid: 'p', stype: 'paragraph', content: [] } as any);
     const op = globalOperationRegistry.get('addChild');
-    const childNode = { type: 'inline-text', text: 'X' } as any;
+    const childNode = { stype: 'inline-text', text: 'X' } as any;
     const result = await op!.execute({ type: 'addChild', payload: { parentId: 'p', child: childNode, position: 0 } } as any, context);
     expect(result.data?.text).toBe('X');
     const p = dataStore.getNode('p');

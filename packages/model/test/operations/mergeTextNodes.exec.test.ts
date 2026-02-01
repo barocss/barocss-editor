@@ -27,10 +27,10 @@ describe('mergeTextNodes operation (exec)', () => {
   });
 
   it('merges two adjacent text nodes', async () => {
-    dataStore.setNode({ id: 'a', type: 'inline-text', text: 'Hello ' });
-    dataStore.setNode({ id: 'b', type: 'inline-text', text: 'World' });
+    dataStore.setNode({ sid: 'a', stype: 'inline-text', text: 'Hello ' });
+    dataStore.setNode({ sid: 'b', stype: 'inline-text', text: 'World' });
     const parentId = 'p1';
-    dataStore.setNode({ id: parentId, type: 'paragraph', content: ['a', 'b'] } as any);
+    dataStore.setNode({ sid: parentId, stype: 'paragraph', content: ['a', 'b'] } as any);
     const op = globalOperationRegistry.get('mergeTextNodes');
     const result = await op!.execute({ type: 'mergeTextNodes', payload: { leftNodeId: 'a', rightNodeId: 'b' } } as any, context);
     expect(typeof result.data).toBe('string');
@@ -42,8 +42,8 @@ describe('mergeTextNodes operation (exec)', () => {
   });
 
   it('throws when nodes are not text', async () => {
-    dataStore.setNode({ id: 'a', type: 'paragraph', content: [] } as any);
-    dataStore.setNode({ id: 'b', type: 'paragraph', content: [] } as any);
+    dataStore.setNode({ sid: 'a', stype: 'paragraph', content: [] } as any);
+    dataStore.setNode({ sid: 'b', stype: 'paragraph', content: [] } as any);
     const op = globalOperationRegistry.get('mergeTextNodes');
     await expect(op!.execute({ type: 'mergeTextNodes', payload: { leftNodeId: 'a', rightNodeId: 'b' } } as any, context)).rejects.toThrow();
   });

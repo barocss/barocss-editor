@@ -27,9 +27,9 @@ describe('moveNode operation (exec)', () => {
   });
 
   it('moves node to new parent at a position', async () => {
-    dataStore.setNode({ id: 'p1', type: 'paragraph', content: [] } as any);
-    dataStore.setNode({ id: 'p2', type: 'paragraph', content: [] } as any);
-    dataStore.setNode({ id: 't', type: 'inline-text', text: 'X', parentId: 'p1' });
+    dataStore.setNode({ sid: 'p1', stype: 'paragraph', content: [] } as any);
+    dataStore.setNode({ sid: 'p2', stype: 'paragraph', content: [] } as any);
+    dataStore.setNode({ sid: 't', stype: 'inline-text', text: 'X', parentId: 'p1' });
     const op = globalOperationRegistry.get('moveNode');
     await op!.execute({ type: 'moveNode', payload: { nodeId: 't', newParentId: 'p2', position: 0 } } as any, context);
     const p2 = dataStore.getNode('p2');
@@ -37,7 +37,7 @@ describe('moveNode operation (exec)', () => {
   });
 
   it('throws when new parent does not exist', async () => {
-    dataStore.setNode({ id: 't', type: 'inline-text', text: 'X' });
+    dataStore.setNode({ sid: 't', stype: 'inline-text', text: 'X' });
     const op = globalOperationRegistry.get('moveNode');
     await expect(op!.execute({ type: 'moveNode', payload: { nodeId: 't', newParentId: 'nope' } } as any, context)).rejects.toThrow('Parent not found');
   });

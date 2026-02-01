@@ -27,10 +27,10 @@ describe('reorderChildren operation (exec)', () => {
   });
 
   it('reorders children by specific ids', async () => {
-    dataStore.setNode({ id: 'p', type: 'paragraph', content: ['a', 'b', 'c'] } as any);
-    dataStore.setNode({ id: 'a', type: 'inline-text', text: 'A' });
-    dataStore.setNode({ id: 'b', type: 'inline-text', text: 'B' });
-    dataStore.setNode({ id: 'c', type: 'inline-text', text: 'C' });
+    dataStore.setNode({ sid: 'p', stype: 'paragraph', content: ['a', 'b', 'c'] } as any);
+    dataStore.setNode({ sid: 'a', stype: 'inline-text', text: 'A' });
+    dataStore.setNode({ sid: 'b', stype: 'inline-text', text: 'B' });
+    dataStore.setNode({ sid: 'c', stype: 'inline-text', text: 'C' });
     const op = globalOperationRegistry.get('reorderChildren');
     await op!.execute({ type: 'reorderChildren', payload: { parentId: 'p', childIds: ['c', 'a', 'b'] } } as any, context);
     const p = dataStore.getNode('p');
