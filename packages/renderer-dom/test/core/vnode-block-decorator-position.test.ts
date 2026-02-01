@@ -50,16 +50,16 @@ describe('Block Decorator Position', () => {
     expect(vnode.children).toBeTruthy();
     
     const children = vnode.children as any[];
-    const blockDecorator = children.find(c => 
-      typeof c === 'object' && 
-      c.decoratorCategory === 'block'
+    const blockDecorator = children.find((c: any) =>
+      typeof c === 'object' &&
+      (c.decoratorCategory === 'block' || c.attrs?.['data-decorator-category'] === 'block')
     );
-    
+
     expect(blockDecorator).toBeTruthy();
-    expect(blockDecorator.decoratorPosition).toBe('before');
-    expect(blockDecorator.decoratorSid).toBe('d1');
-    expect(blockDecorator.decoratorStype).toBe('comment');
-    expect(blockDecorator.decoratorCategory).toBe('block');
+    expect(blockDecorator.decoratorPosition ?? blockDecorator.attrs?.['data-decorator-position']).toBe('before');
+    expect(blockDecorator.decoratorSid ?? blockDecorator.attrs?.['data-decorator-sid']).toBe('d1');
+    expect(blockDecorator.decoratorStype ?? blockDecorator.attrs?.['data-decorator-stype']).toBe('comment');
+    expect(blockDecorator.decoratorCategory ?? blockDecorator.attrs?.['data-decorator-category']).toBe('block');
   });
 
   it('should use default position when position is not provided', () => {
@@ -92,14 +92,14 @@ describe('Block Decorator Position', () => {
     expect(vnode.children).toBeTruthy();
     
     const children = vnode.children as any[];
-    const blockDecorator = children.find(c => 
-      typeof c === 'object' && 
-      c.decoratorCategory === 'block'
+    const blockDecorator = children.find((c: any) =>
+      typeof c === 'object' &&
+      (c.decoratorCategory === 'block' || c.attrs?.['data-decorator-category'] === 'block')
     );
-    
+
     expect(blockDecorator).toBeTruthy();
     // Use default 'after' if position is not provided
-    expect(blockDecorator.decoratorPosition).toBe('after');
+    expect(blockDecorator.decoratorPosition ?? blockDecorator.attrs?.['data-decorator-position']).toBe('after');
   });
 
   it('should apply before position correctly', () => {
@@ -134,8 +134,8 @@ describe('Block Decorator Position', () => {
     // If before position, decorator should be added before paragraph
     const firstChild = children[0];
     expect(firstChild).toBeTruthy();
-    expect(firstChild.decoratorSid).toBe('d3');
-    expect(firstChild.decoratorPosition).toBe('before');
+    expect(firstChild.decoratorSid ?? firstChild.attrs?.['data-decorator-sid']).toBe('d3');
+    expect(firstChild.decoratorPosition ?? firstChild.attrs?.['data-decorator-position']).toBe('before');
   });
 
   it('should apply after position correctly', () => {
@@ -170,8 +170,8 @@ describe('Block Decorator Position', () => {
     // If after position, decorator should be added after paragraph
     const lastChild = children[children.length - 1];
     expect(lastChild).toBeTruthy();
-    expect(lastChild.decoratorSid).toBe('d4');
-    expect(lastChild.decoratorPosition).toBe('after');
+    expect(lastChild.decoratorSid ?? lastChild.attrs?.['data-decorator-sid']).toBe('d4');
+    expect(lastChild.decoratorPosition ?? lastChild.attrs?.['data-decorator-position']).toBe('after');
   });
 });
 
