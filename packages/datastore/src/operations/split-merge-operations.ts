@@ -359,7 +359,7 @@ export class SplitMergeOperations {
     const firstSplitId = this.splitTextNode(nodeId, startPosition);
     
     // Second split: at (endPosition - startPosition)
-    const secondSplitId = this.splitTextNode(firstSplitId, endPosition - startPosition);
+    this.splitTextNode(firstSplitId, endPosition - startPosition);
 
     return firstSplitId;
   }

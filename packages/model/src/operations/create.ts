@@ -17,7 +17,7 @@ import type { INode } from '@barocss/datastore';
  */
 defineOperation('create', 
   async (operation: any, context: TransactionContext) => {
-  const { node: originalNode, options } = operation.payload as { node: INode; options?: any };
+  const { node: originalNode, options: _options } = operation.payload as { node: INode; options?: any };
   // Copy original node to use (prevent reference issues)
   const node = JSON.parse(JSON.stringify(originalNode));
   

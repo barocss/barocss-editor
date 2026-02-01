@@ -30,13 +30,13 @@ function getCurrentBlockFromSelection(
   return { blockId: parent.sid, block: parent, parentId: grandParent.sid, parent: grandParent, blockIndex };
 }
 
-defineOperation('wrapInBlockquote', async (operation: { type: string; payload: Record<string, unknown> }, context: TransactionContext) => {
+defineOperation('wrapInBlockquote', async (_operation: { type: string; payload: Record<string, unknown> }, context: TransactionContext) => {
   const dataStore = context.dataStore;
   const schema = context.schema;
   const selection = context.selection.current;
   const resolved = getCurrentBlockFromSelection(dataStore, schema, selection);
   if (!resolved) throw new Error('wrapInBlockquote: no selection or selection does not resolve to a block');
-  const { blockId, block, parentId, parent, blockIndex } = resolved;
+  const { blockId, block: _block, parentId, parent, blockIndex } = resolved;
   const currentSelectionNodeId = selection?.startNodeId ?? null;
   const currentSelectionOffset = typeof selection?.startOffset === 'number' ? selection.startOffset : 0;
 

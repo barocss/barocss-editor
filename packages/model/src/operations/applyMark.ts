@@ -40,7 +40,7 @@ type ApplyMarkOperationPayload =
       attrs?: Record<string, any>;
     };
 
-defineOperation('applyMark', async (operation: any, context: TransactionContext) => {
+defineOperation('applyMark', async (operation: { payload: ApplyMarkOperationPayload }, context: TransactionContext) => {
   try {
     const payload = operation.payload;
     if (!payload) throw new Error('Operation payload is required');

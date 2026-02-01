@@ -37,7 +37,7 @@ export interface TextEdit {
  * but provides logic to automatically adjust decorator ranges during text editing.
  */
 export class DecoratorOperations {
-  constructor(private dataStore: DataStore) {}
+  constructor(_dataStore: DataStore) {}
 
   /**
    * Adjust decorator ranges according to text editing

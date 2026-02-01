@@ -43,7 +43,7 @@ export class QueryOperations {
     // Always iterate through all nodes (including orphaned nodes)
     // DocumentIterator only traverses nodes connected to root,
     // so must iterate through entire node map to find orphaned nodes
-    for (const [id, node] of this.dataStore.getNodes()) {
+    for (const [id, _node] of this.dataStore.getNodes()) {
       const n = this.dataStore.getNode(id);
       if (n && predicate(n)) {
         results.push(n);
@@ -193,7 +193,7 @@ export class QueryOperations {
     const results: INode[] = [];
     
     // Always iterate through all nodes (including orphaned nodes)
-    for (const [id, node] of this.dataStore.getNodes()) {
+    for (const [id, _node] of this.dataStore.getNodes()) {
       const n = this.dataStore.getNode(id);
       if (n && n.text && n.text.toLowerCase().includes(lowerQuery)) {
         results.push(n);

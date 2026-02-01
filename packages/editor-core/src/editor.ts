@@ -92,6 +92,10 @@ export class Editor implements ContextProvider {
     return this._dataStore as DataStore;
   }
 
+  get transactionManager(): TransactionManager {
+    return this._transactionManager;
+  }
+
   get isFocused(): boolean {
     return this._isFocused;
   }
@@ -989,11 +993,6 @@ declare module './editor' {
     get historyManager(): HistoryManager;
 
     /**
-     * Access TransactionManager instance (internal use)
-     */
-    get transactionManager(): TransactionManager;
-
-    /**
      * Execute transaction
      */
     transaction(operations: any[]): any;
@@ -1071,12 +1070,6 @@ Editor.prototype.clearHistory = function(this: Editor): void {
 Object.defineProperty(Editor.prototype, 'historyManager', {
   get: function(this: Editor) {
     return (this as any)._historyManager;
-  }
-});
-
-Object.defineProperty(Editor.prototype, 'transactionManager', {
-  get: function(this: Editor) {
-    return (this as any)._transactionManager;
   }
 });
 

@@ -497,7 +497,7 @@ export class UtilityOperations {
   getNodeCount(): number {
     // Count all nodes in the store, including orphaned nodes
     let total = 0;
-    for (const [id, node] of this.dataStore.getNodes()) {
+    for (const [id, _node] of this.dataStore.getNodes()) {
       // getNode filters overlay-deleted nodes
       if (this.dataStore.getNode(id)) {
         total++;
@@ -522,7 +522,7 @@ export class UtilityOperations {
     // For cases where nodes might not be connected to roots (orphaned nodes),
     // we need to iterate through all nodes in the store, not just from roots
     const result: INode[] = [];
-    for (const [id, node] of this.dataStore.getNodes()) {
+    for (const [id, _node] of this.dataStore.getNodes()) {
       // getNode filters overlay-deleted nodes
       const n = this.dataStore.getNode(id);
       if (n) {
@@ -2029,7 +2029,7 @@ export class UtilityOperations {
   private _getDefaultDropBehavior(
     targetNode: INode,
     sourceNode: INode,
-    context: DropContext
+    _context: DropContext
   ): DropBehavior {
     // Default type combination rules
     // 1. Text node → Text node: merge
@@ -2250,7 +2250,6 @@ export class DocumentIterator implements IterableIterator<string> {
   private options: Required<DocumentIteratorOptions>;
   private rangeStartId: string | null = null;
   private rangeEndId: string | null = null;
-  private inRange = false;
 
   constructor(
     private dataStore: any,
@@ -2552,7 +2551,7 @@ export class DocumentIterator implements IterableIterator<string> {
     }
 
     let count = 0;
-    for (const nodeId of this) {
+    for (const _nodeId of this) {
       count++;
     }
     return count;

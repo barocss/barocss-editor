@@ -18,7 +18,7 @@ type OutdentTextOperationPayload =
   | { type: 'outdentText'; nodeId: string; start: number; end: number; indent?: string }
   | { type: 'outdentText'; range: ModelSelection; indent?: string };
 
-defineOperation('outdentText', async (operation: any, context: TransactionContext) => {
+defineOperation('outdentText', async (operation: { payload: OutdentTextOperationPayload }, context: TransactionContext) => {
   try {
     const payload = operation.payload;
     const indent = payload.indent ?? '  ';

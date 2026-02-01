@@ -79,43 +79,43 @@ export class SelectionMappingUtils {
    */
   static preserveSelection(
     currentSelection: ModelSelection,
-    operation: any
+    _operation: unknown
   ): ModelSelection | null {
     return currentSelection;
   }
-  
+
   /**
-   * Adjust Selection after range deletion
+   * Adjust Selection after range deletion (same-node only).
    * Adjusts Selection after deleting a specific range.
    */
   static adjustForRangeDelete(
-    currentSelection: Selection,
+    currentSelection: ModelSelection,
     operation: { nodeId: string; startPosition: number; endPosition: number }
-  ): Selection | null {
-    if (currentSelection.nodeId !== operation.nodeId) return currentSelection;
-    
+  ): ModelSelection | null {
+    if (currentSelection.startNodeId !== operation.nodeId || currentSelection.endNodeId !== operation.nodeId) {
+      return currentSelection;
+    }
+
     const deleteLength = operation.endPosition - operation.startPosition;
-    
-    // If Selection overlaps with deletion range
-    if (currentSelection.start >= operation.startPosition && 
-        currentSelection.start < operation.endPosition) {
-      // Move to deletion range start
+    const startOff = currentSelection.startOffset;
+    const endOff = currentSelection.endOffset;
+
+    if (startOff >= operation.startPosition && startOff < operation.endPosition) {
       return {
         ...currentSelection,
-        start: operation.startPosition,
-        end: operation.startPosition
+        startOffset: operation.startPosition,
+        endOffset: operation.startPosition
       };
     }
-    
-    // Adjust offset if Selection is after deletion range
-    if (currentSelection.start >= operation.endPosition) {
+
+    if (startOff >= operation.endPosition) {
       return {
         ...currentSelection,
-        start: currentSelection.start - deleteLength,
-        end: currentSelection.end - deleteLength
+        startOffset: startOff - deleteLength,
+        endOffset: endOff - deleteLength
       };
     }
-    
+
     return currentSelection;
   }
 }

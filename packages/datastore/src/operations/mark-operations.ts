@@ -199,7 +199,6 @@ export class MarkOperations {
       };
     }
 
-    const textLength = node.text?.length || 0;
     const markTypes: Record<string, number> = {};
     let overlappingMarks = 0;
     let emptyMarks = 0;

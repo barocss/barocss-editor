@@ -66,7 +66,7 @@ defineOperation('wrapInList', async (operation: { type: string; payload: WrapInL
   if (!resolved) {
     throw new Error('wrapInList: no selection or selection does not resolve to a block');
   }
-  const { blockId, block, parentId, parent, blockIndex } = resolved;
+  const { blockId, block: _block, parentId, parent, blockIndex } = resolved;
 
   const currentSelectionNodeId = selection?.startNodeId ?? null;
   const currentSelectionOffset = typeof selection?.startOffset === 'number' ? selection.startOffset : 0;

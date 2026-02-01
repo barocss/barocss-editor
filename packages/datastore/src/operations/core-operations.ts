@@ -205,7 +205,6 @@ export class CoreOperations {
         };
       }
     } else {
-      const overlay = (this.dataStore as any)._overlay;
       // Always perform base update
       this.setNode(updatedNode, false);
       // op recording is centrally handled in _emitOperation

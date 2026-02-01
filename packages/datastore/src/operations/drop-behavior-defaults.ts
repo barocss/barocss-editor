@@ -1,4 +1,4 @@
-import { defineDropBehavior } from './drop-behavior-registry';
+import { defineDropBehavior as _defineDropBehavior } from './drop-behavior-registry';
 
 /**
  * Register default drop behavior rules.

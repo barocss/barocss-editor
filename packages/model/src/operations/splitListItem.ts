@@ -93,7 +93,7 @@ function getLastTextNodeInBlock(dataStore: any, blockId: string): { sid: string;
   return last;
 }
 
-defineOperation('splitListItem', async (operation: { type: string; payload: Record<string, unknown> }, context: TransactionContext) => {
+defineOperation('splitListItem', async (_operation: { type: string; payload: Record<string, unknown> }, context: TransactionContext) => {
   const dataStore = context.dataStore;
   const schema = context.schema;
   const selection = context.selection.current;

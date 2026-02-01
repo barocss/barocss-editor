@@ -29,6 +29,8 @@ export class RangeOperations {
     return rangeText;
   }
 
+  /** Reserved for same-node insert path. Unused until wired. */
+  // @ts-expect-error TS6133 - private method reserved for future use
   private insertTextInNode(nodeId: string, contentRange: ModelSelection, text: string): void {
     const node = this.dataStore.getNode(nodeId);
     if (!node || typeof node.text !== 'string') return;
@@ -111,7 +113,6 @@ export class RangeOperations {
           // Update marks for start node
           let updatedMarks = startNode.marks ? [...startNode.marks] : [];
           if (updatedMarks && updatedMarks.length > 0) {
-            const delta = -(startText.length - startOffset);
             const resultMarks: any[] = [];
             for (const m of updatedMarks) {
               const [ms0, me0] = (m as any).range || [0, startText.length];
@@ -897,7 +898,7 @@ export class RangeOperations {
   indent(contentRange: ModelSelection, indent: string = '  '): string {
     const text = this.extractText(contentRange);
     if (text.length === 0) return '';
-    const transformed = text.replace(/(^|\n)/g, (m, g1) => g1 + indent);
+    const transformed = text.replace(/(^|\n)/g, (_m, g1) => g1 + indent);
     this.replaceText(contentRange, transformed);
     return transformed;
   }
@@ -916,7 +917,7 @@ export class RangeOperations {
     if (text.length === 0) return '';
     const escaped = indent.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const rx = new RegExp(`(^|\\n)${escaped}`, 'g');
-    const transformed = text.replace(rx, (m, g1) => g1);
+    const transformed = text.replace(rx, (_m, g1) => g1);
     this.replaceText(contentRange, transformed);
     return transformed;
   }
@@ -957,7 +958,6 @@ export class RangeOperations {
   expandToLine(contentRange: ModelSelection): ModelSelection {
     const value = this.extractText(contentRange);
     const firstBreak = value.indexOf('\n');
-    const lastBreak = value.lastIndexOf('\n');
     const startDelta = firstBreak === -1 ? 0 : 0;
     const endDelta = 0;
     return {

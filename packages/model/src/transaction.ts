@@ -14,6 +14,11 @@ export interface Transaction {
 
 import type { ModelSelection } from '@barocss/editor-core';
 
+/** Mapping from old absolute range to new range after document change (e.g. for selection remap). */
+export interface PositionMapping {
+  mapRange(start: number, end: number): [number, number];
+}
+
 export interface TransactionResult {
   success: boolean;
   errors: string[];
