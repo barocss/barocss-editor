@@ -1,18 +1,16 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { removeStaleChildren, FiberReconcileDependencies, reconcileFiberNode } from '../../src/reconcile/fiber/fiber-reconciler';
+import { removeStaleChildren, FiberReconcileDependencies, renderFiberNode, commitFiberTree } from '../../src/reconcile/fiber/fiber-reconciler';
 import { createFiberTree } from '../../src/reconcile/fiber/fiber-tree';
 import { FiberNode } from '../../src/reconcile/fiber/types';
 import { VNode } from '../../src/vnode/types';
 import { DOMOperations } from '../../src/dom-operations';
 import { ComponentManager } from '../../src/component-manager';
 
-// Helper function: Process all Fibers recursively
-function reconcileAllFibers(fiber: FiberNode, deps: FiberReconcileDependencies, context: any): void {
-  reconcileFiberNode(fiber, deps, context);
-  
+function renderAllFibers(fiber: FiberNode, deps: FiberReconcileDependencies, context: any): void {
+  renderFiberNode(fiber, deps, context);
   let childFiber = fiber.child;
   while (childFiber) {
-    reconcileAllFibers(childFiber, deps, context);
+    renderAllFibers(childFiber, deps, context);
     childFiber = childFiber.sibling;
   }
 }
@@ -71,7 +69,8 @@ describe('removeStaleChildren - 단위 테스트', () => {
       };
 
       const fiber = createFiberTree(container, vnode, undefined, {});
-      reconcileAllFibers(fiber, deps, {});
+      renderAllFibers(fiber, deps, {});
+      commitFiberTree(fiber, deps, {});
 
       // Verify 2 decorator elements are created in DOM
       const beforeRemove = container.querySelectorAll('[data-decorator-sid="d-highlight"]');
@@ -121,7 +120,8 @@ describe('removeStaleChildren - 단위 테스트', () => {
       };
 
       const fiber = createFiberTree(container, vnode, undefined, {});
-      reconcileAllFibers(fiber, deps, {});
+      renderAllFibers(fiber, deps, {});
+      commitFiberTree(fiber, deps, {});
 
       // Call removeStaleChildren
       removeStaleChildren(fiber, deps);
