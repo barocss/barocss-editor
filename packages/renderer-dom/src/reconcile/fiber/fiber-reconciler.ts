@@ -558,7 +558,30 @@ export function commitFiberNode(
       // If DOM element is in parent but at wrong position, move
       actualParent.insertBefore(domElement, before);
     }
-    
+  } else if (fiber.effectTag === EffectTag.UPDATE && domElement instanceof HTMLElement) {
+    // Reorder when reused node is at wrong position (child order changed)
+    let actualParent: HTMLElement | null = null;
+    let parentCandidate = fiber.parentFiber;
+    while (parentCandidate && !actualParent) {
+      if (parentCandidate.domElement instanceof HTMLElement) {
+        actualParent = parentCandidate.domElement;
+        break;
+      }
+      parentCandidate = parentCandidate.parentFiber;
+    }
+    if (!actualParent && parent instanceof HTMLElement) {
+      actualParent = parent;
+    }
+    if (actualParent && domElement.parentNode === actualParent) {
+      const before = getHostSibling(fiber);
+      const beforeInParent = before && before.parentNode === actualParent ? before : null;
+      if (domElement.nextSibling !== beforeInParent && beforeInParent !== domElement) {
+        actualParent.insertBefore(domElement, beforeInParent);
+      }
+    }
+  }
+  
+  if (fiber.effectTag === EffectTag.PLACEMENT) {
     // Component lifecycle: mount when component VNode has stype
     // IMPORTANT: do not call mountComponent for already mounted components
     if (domElement instanceof HTMLElement && vnode.stype) {
