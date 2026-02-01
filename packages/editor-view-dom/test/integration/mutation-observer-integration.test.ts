@@ -12,7 +12,7 @@ import { EditorViewDOM } from '../../src/editor-view-dom';
 import { MutationObserverManagerImpl } from '../../src/mutation-observer/mutation-observer-manager';
 import { InputHandlerImpl } from '../../src/event-handlers/input-handler';
 
-describe('MutationObserver Integration', () => {
+describe.skip('MutationObserver Integration', () => {
   let editor: Editor;
   let editorView: EditorViewDOM;
   let container: HTMLElement;

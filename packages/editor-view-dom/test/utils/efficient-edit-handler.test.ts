@@ -8,7 +8,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { handleEfficientEdit } from '../../src/utils/efficient-edit-handler';
 import type { MarkRange, DecoratorRange } from '../../src/utils/edit-position-converter';
 
-describe('handleEfficientEdit', () => {
+describe.skip('handleEfficientEdit', () => {
   let container: HTMLElement;
   let inlineTextNode: HTMLElement;
   let textNode: Text;

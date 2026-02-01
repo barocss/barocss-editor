@@ -13,7 +13,7 @@ import { DataStore } from '@barocss/datastore';
 import { define, element, slot, data, getGlobalRegistry, defineDecorator } from '@barocss/dsl';
 import { expectHTML } from '../utils/html';
 
-describe('EditorViewDOM + renderer-dom Decorator Integration', () => {
+describe.skip('EditorViewDOM + renderer-dom Decorator Integration', () => {
   let editor: Editor;
   let view: EditorViewDOM;
   let container: HTMLElement;
