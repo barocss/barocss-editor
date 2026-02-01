@@ -11,5 +11,5 @@
 
 ## Related
 
-- Issue: (link or "none")
+- Issue: (link or "none"). **If this PR addresses an issue, add "Closes #N" below so the issue is closed when this PR is merged.**
 - Ref: `.cursor/AGENTS.md` (verification by scenario), `docs/testing-verification.md`

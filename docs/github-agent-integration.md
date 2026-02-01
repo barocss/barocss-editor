@@ -39,7 +39,7 @@ Agents can automate up to **PR creation**; **merge** and **release** are typical
 
 - Read the issue (title + body) to know scope: feature / fix / E2E-only.
 - Use the "Verification" section in the template as the checklist to run before opening a PR.
-- Optionally reference the issue in the PR (e.g. "Closes #123").
+- When opening a PR for an issue, **include "Closes #N" (or "Fixes #N") in the PR body** so that when the PR is merged, GitHub automatically closes the issue.
 
 ### 2.4 Rule: no open issues → research and create issues
 
@@ -75,7 +75,7 @@ git checkout -b feat/insert-list origin/main
 ### 3.2 PR template
 
 - **File**: `.github/PULL_REQUEST_TEMPLATE.md`
-- When opening a PR, fill: **What changed**, **Verification** (what was run), **Related** (issue link).
+- When opening a PR, fill: **What changed**, **Verification** (what was run), **Related** (issue link). If the PR addresses an issue, **include "Closes #N" in the PR body** so the issue is closed when the PR is merged.
 - CI runs on every push to the PR branch: lint, type-check, unit tests, E2E (React).
 
 ### 3.3 Opening a PR (agent or human)

@@ -125,7 +125,7 @@ Full procedure is in **`.cursor/AGENTS.md`** § "Single command: What needs to b
 
 **Output**:
 - **Push branch**: Push the branch (`git push origin <branch>`). Do **not** merge the branch into `main` locally and push `main`.
-- **PR**: Open PR from branch to `main` using `.github/PULL_REQUEST_TEMPLATE.md` (what changed, verification checklist, issue link). Use `gh pr create` (or GitHub web UI).
+- **PR**: Open PR from branch to `main` using `.github/PULL_REQUEST_TEMPLATE.md` (what changed, verification checklist). **Include "Closes #N" in the PR body** so the issue is closed when the PR is merged. Use `gh pr create` (or GitHub web UI).
 - **Merge via PR**: When CI passes (and optional review), merge the PR on GitHub (merge button or `gh pr merge`). Do **not** run `git merge <branch> main` locally and push `main`.
 - **Deploy**: Docs deploy via `.github/workflows/docs.yml` on push to `main`. Package release via changesets + `pnpm release` when desired (see `docs/github-agent-integration.md`).
 

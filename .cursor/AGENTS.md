@@ -97,9 +97,9 @@ Run the **full flow** for that task, in role order:
 - **Implementation Agent**: Create branch, implement per checklist (model → extension → docs-site). Do not run E2E or open PR.
 - **Test Agent**: Run unit tests for touched packages; fix or hand back to Implementation if fail.
 - **E2E Agent**: Run `pnpm test:e2e:react` (or `pnpm test:e2e`); add/update E2E spec if needed; report pass/fail.
-- **GitHub Agent**: Open PR with template, link issue. Do not edit spec or code.
+- **GitHub Agent**: Open PR with template; **include "Closes #N" in the PR body** so the issue is closed when the PR is merged. Do not edit spec or code.
 
-If the user only said "What needs to be done? Proceed." with no other context, use the **first open issue** and run the full flow. After each role, continue to the next role without asking unless a handback is needed (e.g. tests fail → fix or report). When the PR is merged, the issue is closed (e.g. "Closes #N"); no separate backlog file to update.
+If the user only said "What needs to be done? Proceed." with no other context, use the **first open issue** and run the full flow. After each role, continue to the next role without asking unless a handback is needed (e.g. tests fail → fix or report). **PR body must include "Closes #N" (or "Fixes #N")** so that when the PR is merged, GitHub automatically closes the issue; no separate backlog file to update.
 
 ---
 
