@@ -15,12 +15,25 @@ import type { INode } from '@barocss/datastore';
  * 3. Perform schema validation
  * 4. Emit atomic Operation events
  */
+/** Normalize payload node: id→sid, type→stype so DataStore and DSL callers can use either. */
+function normalizeNodeForStore(n: any): void {
+  if (n == null || typeof n !== 'object') return;
+  if (n.id !== undefined && n.sid === undefined) n.sid = n.id;
+  if (n.type !== undefined && n.stype === undefined) n.stype = n.type;
+  if (Array.isArray(n.content)) {
+    for (const c of n.content) {
+      if (c && typeof c === 'object') normalizeNodeForStore(c);
+    }
+  }
+}
+
 defineOperation('create', 
   async (operation: any, context: TransactionContext) => {
   const { node: originalNode, options: _options } = operation.payload as { node: INode; options?: any };
   // Copy original node to use (prevent reference issues)
   const node = JSON.parse(JSON.stringify(originalNode));
-  
+  normalizeNodeForStore(node);
+
   try {
     // 1. DataStore update (use INode directly)
     const schema = context.dataStore.getActiveSchema();

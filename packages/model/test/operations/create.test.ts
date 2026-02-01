@@ -67,7 +67,7 @@ describe('create operation', () => {
     const createdNode = dataStore.getNode('test-node-1');
     expect(createdNode).toBeDefined();
     expect(createdNode!.sid).toBe('test-node-1');
-    expect(createdNode!.type).toBe('inline-text');
+    expect(createdNode!.stype).toBe('inline-text');
     expect(createdNode!.text).toBe('Hello World');
   });
 
@@ -116,13 +116,13 @@ describe('create operation', () => {
     const result = await createOperation!.execute({ type: 'create', payload: { node: nestedNode } } as any, context);
 
     expect(result.ok).toBe(true);
-    expect(result.data.type).toBe('paragraph');
+    expect(result.data.stype).toBe('paragraph');
     expect(result.data.content).toHaveLength(1);
     
     // Verify child node
     const childId = result.data.content[0];
     const childNode = dataStore.getNode(childId);
-    expect(childNode?.type).toBe('inline-text');
+    expect(childNode?.stype).toBe('inline-text');
     expect(childNode?.text).toBe('Hello World');
     expect(childNode?.parentId).toBe(result.data.sid);
   });
@@ -149,7 +149,7 @@ describe('create operation', () => {
 
     // Verify root node was created
     expect(result.data?.sid).toBeDefined();
-    expect(result.data?.type).toBe('paragraph');
+    expect(result.data?.stype).toBe('paragraph');
     expect(result.data?.content).toHaveLength(2);
 
     // Verify child nodes were created
@@ -157,12 +157,12 @@ describe('create operation', () => {
     const child2 = dataStore.getNode(result.data!.content![1]);
     
     expect(child1).toBeDefined();
-    expect(child1!.type).toBe('inline-text');
+    expect(child1!.stype).toBe('inline-text');
     expect(child1!.text).toBe('Hello');
     expect(child1!.parentId).toBe(result.data!.sid);
 
     expect(child2).toBeDefined();
-    expect(child2!.type).toBe('inline-text');
+    expect(child2!.stype).toBe('inline-text');
     expect(child2!.text).toBe('World');
     expect(child2!.parentId).toBe(result.data!.sid);
   });
@@ -261,7 +261,7 @@ describe('create operation', () => {
     const result = await createOperation!.execute({ type: 'create', payload: { node: validNode } } as any, context);
 
     expect(result.data).toBeDefined();
-    expect(result.data?.type).toBe('document');
+    expect(result.data?.stype).toBe('document');
     expect(result.data?.content).toHaveLength(1);
   });
 

@@ -27,10 +27,10 @@ describe('autoMergeTextNodes operation (exec)', () => {
   });
 
   it('auto merges adjacent text nodes around a target node', async () => {
-    dataStore.setNode({ id: 'p', type: 'paragraph', content: ['a', 't', 'b'] } as any);
-    dataStore.setNode({ id: 'a', type: 'inline-text', text: 'A' });
-    dataStore.setNode({ id: 't', type: 'inline-text', text: 'T' });
-    dataStore.setNode({ id: 'b', type: 'inline-text', text: 'B' });
+    dataStore.setNode({ sid: 'p', stype: 'paragraph', content: ['a', 't', 'b'] } as any);
+    dataStore.setNode({ sid: 'a', stype: 'inline-text', text: 'A' });
+    dataStore.setNode({ sid: 't', stype: 'inline-text', text: 'T' });
+    dataStore.setNode({ sid: 'b', stype: 'inline-text', text: 'B' });
     const op = globalOperationRegistry.get('autoMergeTextNodes');
     const result = await op!.execute({ type: 'autoMergeTextNodes', payload: { nodeId: 't' } } as any, context);
     expect(typeof result.data).toBe('string');

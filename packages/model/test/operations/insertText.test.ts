@@ -48,8 +48,8 @@ describe('insertText operation', () => {
     it('should insert text at specified position', async () => {
       // Create text node
       const textNode = {
-        id: 'text-1',
-        type: 'inline-text',
+        sid: 'text-1',
+        stype: 'inline-text',
         text: 'Hello World',
         parentId: 'para-1'
       };
@@ -78,8 +78,8 @@ describe('insertText operation', () => {
 
     it('should insert text at the beginning', async () => {
       const textNode = {
-        id: 'text-1',
-        type: 'inline-text',
+        sid: 'text-1',
+        stype: 'inline-text',
         text: 'World',
         parentId: 'para-1'
       };
@@ -101,8 +101,8 @@ describe('insertText operation', () => {
 
     it('should insert text at the end', async () => {
       const textNode = {
-        id: 'text-1',
-        type: 'inline-text',
+        sid: 'text-1',
+        stype: 'inline-text',
         text: 'Hello',
         parentId: 'para-1'
       };
@@ -139,8 +139,8 @@ describe('insertText operation', () => {
     it('should shift selection after insert', async () => {
       // Create text node
       const textNode = {
-        id: 'text-1',
-        type: 'inline-text',
+        sid: 'text-1',
+        stype: 'inline-text',
         text: 'Hello World',
         parentId: 'para-1'
       };
@@ -166,8 +166,8 @@ describe('insertText operation', () => {
 
     it('should not shift selection if insert is after selection', async () => {
       const textNode = {
-        id: 'text-1',
-        type: 'inline-text',
+        sid: 'text-1',
+        stype: 'inline-text',
         text: 'Hello World',
         parentId: 'para-1'
       };
@@ -193,8 +193,8 @@ describe('insertText operation', () => {
 
     it('should not affect selection of different node', async () => {
       const textNode = {
-        id: 'text-1',
-        type: 'inline-text',
+        sid: 'text-1',
+        stype: 'inline-text',
         text: 'Hello World',
         parentId: 'para-1'
       };
@@ -220,8 +220,8 @@ describe('insertText operation', () => {
 
     it('should handle null selection gracefully', async () => {
       const textNode = {
-        id: 'text-1',
-        type: 'inline-text',
+        sid: 'text-1',
+        stype: 'inline-text',
         text: 'Hello World',
         parentId: 'para-1'
       };

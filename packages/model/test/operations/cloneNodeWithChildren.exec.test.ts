@@ -27,8 +27,8 @@ describe('cloneNodeWithChildren operation (exec)', () => {
   });
 
   it('clones node with children into a parent', async () => {
-    dataStore.setNode({ id: 'p', type: 'paragraph', content: ['t'] } as any);
-    dataStore.setNode({ id: 't', type: 'inline-text', text: 'X', parentId: 'p' });
+    dataStore.setNode({ sid: 'p', stype: 'paragraph', content: ['t'] } as any);
+    dataStore.setNode({ sid: 't', stype: 'inline-text', text: 'X', parentId: 'p' });
     const op = globalOperationRegistry.get('cloneNodeWithChildren');
     const newNode = await op!.execute({ type: 'cloneNodeWithChildren', payload: { nodeId: 'p' } } as any, context);
     expect(newNode).toBeTruthy();

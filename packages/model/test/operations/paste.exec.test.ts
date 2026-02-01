@@ -1,12 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import { DataStore } from '@barocss/datastore';
 import type { INode } from '@barocss/datastore';
+import { SelectionManager } from '@barocss/editor-core';
 import { transaction } from '../../src';
 import { paste } from '../../src/operations-dsl';
 
 describe('paste operation', () => {
   it('inserts nodes after startNode and returns new selection', async () => {
     const ds = new DataStore();
+    const selectionManager = new SelectionManager({ dataStore: ds });
 
     const rootId = ds.generateId();
     const aId = ds.generateId();
@@ -35,11 +37,13 @@ describe('paste operation', () => {
       direction: 'forward'
     };
 
-    const result = await transaction(
-      { dataStore: ds } as any,
+    const builder = transaction(
+      { dataStore: ds, selectionManager } as any,
       (ctrl) => ctrl(range as any, [paste(nodes as any, range as any)])
     );
+    const result = await builder.commit();
 
+    expect(result.success).toBe(true);
     const root = ds.getNode(rootId)!;
     const ids = root.content as string[];
     expect(ids.length).toBe(4);
@@ -48,9 +52,9 @@ describe('paste operation', () => {
     expect(ds.getNode(ids[2])!.text).toBe('B2');
     expect(ds.getNode(ids[3])!.text).toBe('C');
 
-    const opResult = (result as any)[0];
-    expect(opResult.data.insertedNodeIds.length).toBe(2);
-    expect(opResult.data.newSelection).not.toBeNull();
+    const firstOp = result.operations?.[0] as { result?: { data?: { insertedNodeIds?: string[]; newSelection?: unknown } } };
+    expect(firstOp?.result?.data?.insertedNodeIds?.length).toBe(2);
+    expect(firstOp?.result?.data?.newSelection).not.toBeNull();
   });
 });
 

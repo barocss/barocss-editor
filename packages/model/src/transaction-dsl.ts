@@ -147,10 +147,11 @@ class TransactionBuilderImpl implements TransactionBuilder {
 
 export function transaction(
   editor: Editor,
-  operations: (TransactionOperation | TransactionOperation[] | OpFunction)[],
+  operations: (TransactionOperation | TransactionOperation[] | OpFunction)[] | OpFunction,
   options?: TransactionOptions
 ): TransactionBuilder {
-  const flattenedOps = operations.flat();
+  const ops = Array.isArray(operations) ? operations : [operations];
+  const flattenedOps = ops.flat();
   return new TransactionBuilderImpl(editor, flattenedOps, options);
 }
 

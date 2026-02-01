@@ -51,8 +51,8 @@ describe('delete operation', () => {
   it('should delete a node', async () => {
     // Create node for testing
     const node = {
-      id: 'test-node',
-      type: 'inline-text',
+      sid: 'test-node',
+      stype: 'inline-text',
       text: 'Hello World',
       attributes: { class: null }
     };
@@ -73,8 +73,8 @@ describe('delete operation', () => {
   it('should delete child nodes recursively', async () => {
     // Create parent node
     const parentNode = {
-      id: 'parent-node',
-      type: 'paragraph',
+      sid: 'parent-node',
+      stype: 'paragraph',
       content: ['child-1', 'child-2'],
       attributes: {}
     };
@@ -82,14 +82,14 @@ describe('delete operation', () => {
 
     // Create child nodes
     const child1 = {
-      id: 'child-1',
-      type: 'inline-text',
+      sid: 'child-1',
+      stype: 'inline-text',
       text: 'Child 1',
       parentId: 'parent-node'
     };
     const child2 = {
-      id: 'child-2',
-      type: 'inline-text',
+      sid: 'child-2',
+      stype: 'inline-text',
       text: 'Child 2',
       parentId: 'parent-node'
     };
@@ -111,8 +111,8 @@ describe('delete operation', () => {
   it('should remove node from parent content array', async () => {
     // Create parent node
     const parentNode = {
-      id: 'parent-node',
-      type: 'paragraph',
+      sid: 'parent-node',
+      stype: 'paragraph',
       content: ['child-1', 'child-2'],
       attributes: {}
     };
@@ -120,8 +120,8 @@ describe('delete operation', () => {
 
     // Create child node
     const childNode = {
-      id: 'child-1',
-      type: 'inline-text',
+      sid: 'child-1',
+      stype: 'inline-text',
       text: 'Child 1',
       parentId: 'parent-node'
     };
@@ -141,8 +141,8 @@ describe('delete operation', () => {
   it('should throw error when trying to delete root node (root is immutable)', async () => {
     // Create root node
     const rootNode = {
-      id: 'root-node',
-      type: 'inline-text',
+      sid: 'root-node',
+      stype: 'inline-text',
       text: 'Root content'
     };
     dataStore.setNode(rootNode);
@@ -150,8 +150,8 @@ describe('delete operation', () => {
 
     // Create other node
     const otherNode = {
-      id: 'other-node',
-      type: 'inline-text',
+      sid: 'other-node',
+      stype: 'inline-text',
       text: 'Other content'
     };
     dataStore.setNode(otherNode);
@@ -168,8 +168,8 @@ describe('delete operation', () => {
   it('should not clear root node; deleting root is forbidden', async () => {
     // Create root node
     const rootNode = {
-      id: 'root-node',
-      type: 'inline-text',
+      sid: 'root-node',
+      stype: 'inline-text',
       text: 'Root content'
     };
     dataStore.setNode(rootNode);
@@ -196,8 +196,8 @@ describe('delete operation', () => {
            it('should clear selection when deleting selected node', async () => {
              // Create text node
              const textNode = {
-               id: 'text-1',
-               type: 'inline-text',
+               sid: 'text-1',
+               stype: 'inline-text',
                text: 'Hello World',
                parentId: 'para-1'
              };
@@ -216,22 +216,21 @@ describe('delete operation', () => {
              const deleteOperation = globalOperationRegistry.get('delete');
              await deleteOperation!.execute(operation, context);
              
-             // Verify selection is cleared
-             const finalSelection = selectionManager.getCurrentSelection();
-             expect(finalSelection).toBeNull();
+             // Verify selection is cleared in context (selectionManager is updated only when using TransactionManager)
+             expect(context.selection.current).toBeNull();
            });
 
            it('should preserve selection when deleting different node', async () => {
              // Create two text nodes
              const textNode1 = {
-               id: 'text-1',
-               type: 'inline-text',
+               sid: 'text-1',
+               stype: 'inline-text',
                text: 'Hello World',
                parentId: 'para-1'
              };
              const textNode2 = {
-               id: 'text-2',
-               type: 'inline-text',
+               sid: 'text-2',
+               stype: 'inline-text',
                text: 'Goodbye World',
                parentId: 'para-1'
              };
@@ -259,8 +258,8 @@ describe('delete operation', () => {
            it('should handle null selection gracefully', async () => {
              // Create text node
              const textNode = {
-               id: 'text-1',
-               type: 'inline-text',
+               sid: 'text-1',
+               stype: 'inline-text',
                text: 'Hello World',
                parentId: 'para-1'
              };

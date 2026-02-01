@@ -27,11 +27,11 @@ describe('moveChildren operation (exec)', () => {
   });
 
   it('moves multiple children to another parent', async () => {
-    dataStore.setNode({ id: 'p1', type: 'paragraph', content: ['a', 'b', 'c'] } as any);
-    dataStore.setNode({ id: 'p2', type: 'paragraph', content: [] } as any);
-    dataStore.setNode({ id: 'a', type: 'inline-text', text: 'A', parentId: 'p1' });
-    dataStore.setNode({ id: 'b', type: 'inline-text', text: 'B', parentId: 'p1' });
-    dataStore.setNode({ id: 'c', type: 'inline-text', text: 'C', parentId: 'p1' });
+    dataStore.setNode({ sid: 'p1', stype: 'paragraph', content: ['a', 'b', 'c'] } as any);
+    dataStore.setNode({ sid: 'p2', stype: 'paragraph', content: [] } as any);
+    dataStore.setNode({ sid: 'a', stype: 'inline-text', text: 'A', parentId: 'p1' });
+    dataStore.setNode({ sid: 'b', stype: 'inline-text', text: 'B', parentId: 'p1' });
+    dataStore.setNode({ sid: 'c', stype: 'inline-text', text: 'C', parentId: 'p1' });
     const op = globalOperationRegistry.get('moveChildren');
     await op!.execute({ type: 'moveChildren', payload: { fromParentId: 'p1', toParentId: 'p2', childIds: ['b', 'c'], position: 0 } } as any, context);
     const p2 = dataStore.getNode('p2');
@@ -39,7 +39,7 @@ describe('moveChildren operation (exec)', () => {
   });
 
   it('throws when toParent does not exist', async () => {
-    dataStore.setNode({ id: 'p1', type: 'paragraph', content: [] } as any);
+    dataStore.setNode({ sid: 'p1', stype: 'paragraph', content: [] } as any);
     const op = globalOperationRegistry.get('moveChildren');
     await expect(op!.execute({ type: 'moveChildren', payload: { fromParentId: 'p1', toParentId: 'nope', childIds: [] } } as any, context)).rejects.toThrow('Parent not found');
   });

@@ -27,10 +27,10 @@ describe('removeChildren operation (exec)', () => {
   });
 
   it('removes multiple children from parent', async () => {
-    dataStore.setNode({ id: 'p', type: 'paragraph', content: ['a', 'b', 'c'] } as any);
-    dataStore.setNode({ id: 'a', type: 'inline-text', text: 'A', parentId: 'p' });
-    dataStore.setNode({ id: 'b', type: 'inline-text', text: 'B', parentId: 'p' });
-    dataStore.setNode({ id: 'c', type: 'inline-text', text: 'C', parentId: 'p' });
+    dataStore.setNode({ sid: 'p', stype: 'paragraph', content: ['a', 'b', 'c'] } as any);
+    dataStore.setNode({ sid: 'a', stype: 'inline-text', text: 'A', parentId: 'p' });
+    dataStore.setNode({ sid: 'b', stype: 'inline-text', text: 'B', parentId: 'p' });
+    dataStore.setNode({ sid: 'c', stype: 'inline-text', text: 'C', parentId: 'p' });
     const op = globalOperationRegistry.get('removeChildren');
     await op!.execute({ type: 'removeChildren', payload: { parentId: 'p', childIds: ['a', 'c'] } } as any, context);
     const p = dataStore.getNode('p');
