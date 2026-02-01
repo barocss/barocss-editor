@@ -27,6 +27,11 @@ This directory and the linked package specs define **what the editor and each pa
 - **`packages/model/SPEC.md`** — Model: transaction, operations (inputs/outputs, invariants), selection resolution. Exec tests in `packages/model/test/operations/*.exec.test.ts` are the concrete spec for each operation.
 - Other packages: add `packages/<name>/SPEC.md` when the package has a clear contract (API, invariants, or behavior that other packages or tests rely on). List new specs here and in `.cursor/AGENTS.md`.
 
+### Package specs (in package directories)
+
+- **`packages/renderer-dom/docs/renderer-dom-spec.md`** — renderer-dom: VNode, reconciliation, marks, decorators.
+- **`packages/renderer-react/docs/renderer-react-spec.md`** — renderer-react: DSL→React, selection considerations, marks, tests, implementation plan.
+
 ### Existing docs that act as specs
 
 - **`docs/dom/portal-system-spec.md`** — Portal system (renderer-dom): goals, API, behavior.

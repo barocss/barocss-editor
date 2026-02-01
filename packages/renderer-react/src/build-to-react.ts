@@ -118,7 +118,7 @@ function flattenChildren(children: ElementChild[], data: ModelData): ElementChil
 
 /**
  * Build ReactNode from (registry, nodeType, model).
- * Uses registry.getComponent(nodeType) to get template; resolves element/slot/data to React.
+ * Uses registry.get(nodeType) to get definition (define() stores in _renderers); resolves element/slot/data to React.
  */
 export function buildToReact(
   registry: RendererRegistry,
@@ -126,12 +126,13 @@ export function buildToReact(
   model: ModelData,
   options?: { contextStub?: Partial<ComponentContext> }
 ): ReactNode {
-  const component = registry.getComponent?.(nodeType);
-  if (!component) {
+  const def = (registry as any).get?.(nodeType);
+  if (!def || !def.template) {
     throw new Error(`[renderer-react] No renderer for node type '${nodeType}'. Register with define().`);
   }
 
-  if ((component as any).managesDOM === true) {
+  const templateOrComponent = def.template;
+  if ((templateOrComponent as any)?.managesDOM === true) {
     return createElement('div', {
       key: (model as any).sid,
       'data-bc-sid': (model as any).sid,
@@ -140,7 +141,7 @@ export function buildToReact(
     }, 'Component');
   }
 
-  let template = (component as any).template;
+  let template = templateOrComponent;
   if (typeof template === 'function') {
     const ctx = options?.contextStub ?? makeMinimalContext(registry);
     template = (template as ContextualComponent)({}, model, ctx as ComponentContext);

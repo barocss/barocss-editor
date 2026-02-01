@@ -15,7 +15,9 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite build --watch",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test": "vitest",
+    "test:run": "vitest run"
   },
   "peerDependencies": {
     "react": ">=18.0.0"
@@ -32,7 +34,8 @@
     "react-dom": "^19.0.0",
     "typescript": "^5.9.3",
     "vite": "^5.4.21",
-    "vite-plugin-dts": "^3.9.1"
+    "vite-plugin-dts": "^3.9.1",
+    "vitest": "^4.0.7"
   },
   "keywords": ["renderer", "react", "dsl", "editor"],
   "author": "Barocss Team",
