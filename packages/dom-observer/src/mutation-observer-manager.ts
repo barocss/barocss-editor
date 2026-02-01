@@ -15,7 +15,6 @@ import { MutationObserverManager, MutationObserverOptions, DOMStructureChangeEve
  */
 export class MutationObserverManagerImpl implements MutationObserverManager {
   private observer: MutationObserver | null = null;
-  private contentEditableElement: HTMLElement | null = null;
   private eventHandlers: {
     onStructureChange?: (event: DOMStructureChangeEvent) => void;
     onNodeUpdate?: (event: NodeUpdateEvent) => void;
@@ -31,8 +30,6 @@ export class MutationObserverManagerImpl implements MutationObserverManager {
    * @param options - MutationObserver 옵션 (선택사항)
    */
   setup(contentEditableElement: HTMLElement, options?: MutationObserverOptions): void {
-    this.contentEditableElement = contentEditableElement;
-    
     const defaultOptions: MutationObserverOptions = {
       childList: true,
       subtree: true,
@@ -45,17 +42,6 @@ export class MutationObserverManagerImpl implements MutationObserverManager {
     };
 
     this.observer = new MutationObserver((mutations) => {
-      // 디버깅: MutationObserver 콜백 호출 확인
-      const characterDataMutations = mutations.filter(m => m.type === 'characterData');
-      const childListMutations = mutations.filter(m => m.type === 'childList');
-      
-      // childList mutation에서 텍스트 노드 변경 확인
-      const childListWithTextNodes = childListMutations.filter(m => {
-        const hasTextNodes = Array.from(m.addedNodes).some(n => n.nodeType === Node.TEXT_NODE) ||
-                             Array.from(m.removedNodes).some(n => n.nodeType === Node.TEXT_NODE);
-        return hasTextNodes;
-      });
-      
       mutations.forEach((mutation) => {
         this.handleMutation(mutation);
       });
@@ -72,7 +58,6 @@ export class MutationObserverManagerImpl implements MutationObserverManager {
       this.observer.disconnect();
       this.observer = null;
     }
-    this.contentEditableElement = null;
   }
 
   /**
@@ -131,8 +116,8 @@ export class MutationObserverManagerImpl implements MutationObserverManager {
         const newText = target.textContent || '';
         
         const event: TextChangeEvent = {
-          oldText: oldText || undefined,
-          newText: newText,
+          oldText: oldText || null,
+          newText: newText ?? null,
           target: target
         };
         
@@ -170,11 +155,7 @@ export class MutationObserverManagerImpl implements MutationObserverManager {
    */
   private handleTextContentChange(mutation: MutationRecord): void {
     const target = mutation.target;
-    
-    // 디버깅: handleTextContentChange 호출 확인
-    // 텍스트 입력 시점 확인: oldText와 newText가 다르면 사용자 입력
-    const isUserInput = mutation.oldValue !== target.textContent;
-    
+
     // data-bc-sid 속성을 가진 요소의 텍스트 변경만 처리
     const dataNode = this.findClosestDataNode(target);
     
@@ -183,8 +164,8 @@ export class MutationObserverManagerImpl implements MutationObserverManager {
     }
 
     const event: TextChangeEvent = {
-      oldText: mutation.oldValue,
-      newText: target.textContent,
+      oldText: mutation.oldValue ?? null,
+      newText: target.textContent ?? null,
       target: target
     };
 
