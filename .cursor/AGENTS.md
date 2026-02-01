@@ -333,6 +333,8 @@ If any of these fail, add or adjust a test (unit or E2E) that reproduces the fai
 
 ## GitHub: issue → PR → merge → deploy
 
+**Rule: do not merge locally.** Flow is: create branch → commit → **push branch** → **open PR** → **merge via PR** (on GitHub or `gh pr merge`). Do not run `git merge <branch> main` and push main; that skips the PR and CI on the PR branch.
+
 To run the same flow with GitHub (issues, PRs, CI, merge, deploy):
 
 - **Issue templates**: `.github/ISSUE_TEMPLATE/` (feature, bug fix, E2E-only). Use when creating an issue so the agent (or you) has a clear scope and verification checklist.
