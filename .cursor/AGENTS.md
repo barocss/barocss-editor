@@ -46,7 +46,7 @@ This repo is a **platform for building editors**. When adding or changing a feat
 - **의존성/보안**: "Act as Security Agent. 의존성 업데이트해줘." / "보안 점검해줘."
 - **리팩터만**: "Act as Refactor Agent. [패키지명] 패키지 리팩터해줘."
 
-역할 전체 목록과 호출 방법: 아래 "Agent roles (sub-agents)" 섹션과 **`docs/agent-roles-and-orchestration.md`**.
+역할 전체 목록과 호출 방법: 아래 "Agent roles (sub-agents)" 섹션과 **`docs/agent-roles-and-orchestration.md`**. 여러 sub-agent 분리·병렬 vs 직렬: **`docs/agent-roles-and-orchestration.md`** §3.1.
 
 ---
 
@@ -55,6 +55,7 @@ This repo is a **platform for building editors**. When adding or changing a feat
 - **GitHub에 열린 이슈가 없을 때**: 새 자료 조사를 시작하고, 우리에게 필요한 것들을 이슈로 남긴다. 이슈가 없다고 해서 멈추지 않는다. (Research Agent → Backlog Agent로 이슈 생성 → 생성된 첫 이슈로 진행.)
 - **백로그 = GitHub 이슈**: 로컬 백로그 파일은 사용하지 않는다. 할 일은 항상 열린 이슈에서 가져온다.
 - **한 번에 한 이슈**: "이번에 해야할을 알려주고 진행해줘"에서는 열린 이슈 중 하나(첫 번째 또는 `next` 라벨)만 골라 전체 플로우(Spec → Implementation → … → PR)를 진행한다.
+- **화면(채팅) 토큰 최소화**: 에이전트는 채팅에 긴 설명을 쓰지 않는다. 꼭 필요한 내용은 **이슈 본문, 커밋 메시지, PR 설명/코멘트, docs, docs/specs, apps/docs-site**에 남긴다. 응답은 한두 문장·불릿 수준으로 끝낸다.
 
 ---
 
