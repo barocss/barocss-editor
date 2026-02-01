@@ -189,12 +189,24 @@ export function createFiberTree(
           }
         }
         
-        // Get prevChildVNode from alternate, or from prevVNode.children by index when no alternate
+        // Get prevChildVNode from alternate, or from prevVNode.children (by sid then by index) when no alternate
         let prevChildVNode: VNode | undefined = prevChildAlternate?.vnode;
-        if (!prevChildVNode && actualPrevVNode?.children && i < actualPrevVNode.children.length) {
-          const prevChild = actualPrevVNode.children[i];
-          if (typeof prevChild === 'object' && prevChild !== null && 'tag' in prevChild) {
-            prevChildVNode = prevChild as VNode;
+        if (!prevChildVNode && actualPrevVNode?.children) {
+          if (effectiveChildId) {
+            for (const prevChild of actualPrevVNode.children) {
+              if (typeof prevChild !== 'object' || prevChild === null || !('tag' in prevChild)) continue;
+              const prevId = getVNodeId(prevChild as VNode);
+              if (prevId === effectiveChildId && !matchedPrevChildVNodes.has(prevChild as VNode)) {
+                prevChildVNode = prevChild as VNode;
+                break;
+              }
+            }
+          }
+          if (!prevChildVNode && i < actualPrevVNode.children.length) {
+            const prevChild = actualPrevVNode.children[i];
+            if (typeof prevChild === 'object' && prevChild !== null && 'tag' in prevChild && !matchedPrevChildVNodes.has(prevChild as VNode)) {
+              prevChildVNode = prevChild as VNode;
+            }
           }
         }
 
