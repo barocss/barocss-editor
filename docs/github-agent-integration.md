@@ -55,6 +55,8 @@ See `.cursor/AGENTS.md` § Rules and § Single command step 1 "Nothing found".
 
 ## 3. Branch and PR
 
+**Rule: do not merge locally.** Always: create branch → commit → **push branch** → **open PR** → **merge via PR** (on GitHub or `gh pr merge`). Do **not** run `git checkout main && git merge <branch>` and push `main`; that skips the PR and CI on the PR branch.
+
 ### 3.1 Branch naming
 
 - **Feature**: `feat/<short-name>` (e.g. `feat/insert-list`, `feat/wrap-blockquote`).
@@ -80,14 +82,18 @@ git checkout -b feat/insert-list origin/main
 
 After implementing and verifying locally:
 
-```bash
-git add -A
-git commit -m "feat(model,extensions): add insertList operation and E2E"
-git push origin feat/insert-list
-gh pr create --base main --head feat/insert-list --title "Add insertList (model + extension + E2E)" --body "See template checklist."
-```
-
-Or use GitHub web UI: **Compare & pull request** and fill the template.
+1. **Push the branch** (do not merge into main locally):
+   ```bash
+   git add -A
+   git commit -m "feat(model,extensions): add insertList operation and E2E"
+   git push origin feat/insert-list
+   ```
+2. **Open a PR** (do not merge the branch into main and push main):
+   ```bash
+   gh pr create --base main --head feat/insert-list --title "Add insertList (model + extension + E2E)" --body "See template checklist."
+   ```
+   Or use GitHub web UI: **Compare & pull request** and fill the template.
+3. **Merge via PR** when CI passes: use GitHub "Merge" button or `gh pr merge <number>`.
 
 ---
 
@@ -146,10 +152,10 @@ Or use GitHub web UI: **Compare & pull request** and fill the template.
 1. **Input**: User creates an issue (or says "add insertList" → agent creates an issue from the feature template).
 2. **Branch**: Agent creates `feat/insert-list` from `main`.
 3. **Implement**: Agent follows `.cursor/AGENTS.md` (model → extension → E2E) and runs verification (exec test → model test → extensions test → E2E).
-4. **Commit & push**: Agent commits and pushes to `feat/insert-list`.
-5. **PR**: Agent opens a PR with title and body from `.github/PULL_REQUEST_TEMPLATE.md`, referencing the issue.
-6. **CI**: GitHub Actions run lint, type-check, unit tests, E2E. Agent or user fixes any failures and pushes.
-7. **Merge**: Human (or automation) merges the PR to `main`.
+4. **Commit & push branch**: Agent commits and **pushes the branch** (`git push origin feat/insert-list`). Do **not** merge the branch into main locally.
+5. **PR**: Agent opens a PR with title and body from `.github/PULL_REQUEST_TEMPLATE.md`, referencing the issue (e.g. "Closes #123").
+6. **CI**: GitHub Actions run on the PR branch. Agent or user fixes any failures and pushes to the same branch.
+7. **Merge via PR**: Human (or automation) merges the PR to `main` on GitHub (merge button or `gh pr merge`). Do **not** merge locally and push main.
 8. **Deploy**: Docs deploy automatically if docs changed; packages are published when maintainers run the changeset flow and `pnpm release`.
 
 ---

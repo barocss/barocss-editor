@@ -124,11 +124,12 @@ Full procedure is in **`.cursor/AGENTS.md`** § "Single command: What needs to b
 - Optionally: issue number to link (e.g. Closes #123).
 
 **Output**:
-- **PR**: Open PR from branch to `main` using `.github/PULL_REQUEST_TEMPLATE.md` (what changed, verification checklist, issue link). Push and `gh pr create` (or equivalent).
-- **Merge**: When CI passes (and optional review), merge PR (human or automation with write access).
+- **Push branch**: Push the branch (`git push origin <branch>`). Do **not** merge the branch into `main` locally and push `main`.
+- **PR**: Open PR from branch to `main` using `.github/PULL_REQUEST_TEMPLATE.md` (what changed, verification checklist, issue link). Use `gh pr create` (or GitHub web UI).
+- **Merge via PR**: When CI passes (and optional review), merge the PR on GitHub (merge button or `gh pr merge`). Do **not** run `git merge <branch> main` locally and push `main`.
 - **Deploy**: Docs deploy via `.github/workflows/docs.yml` on push to `main`. Package release via changesets + `pnpm release` when desired (see `docs/github-agent-integration.md`).
 
-**Handoff**: None. After merge, deploy runs automatically (docs). GitHub Agent does **not** edit specs or implementation.
+**Handoff**: None. After merge, deploy runs automatically (docs). GitHub Agent does **not** edit specs or implementation; does **not** merge locally and push main.
 
 **References**: `docs/github-agent-integration.md`, `.github/PULL_REQUEST_TEMPLATE.md`, `.github/workflows/ci.yml`, `.github/workflows/docs.yml`.
 
