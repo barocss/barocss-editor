@@ -40,13 +40,17 @@ describe('DSL Create Operations', () => {
       _dataStore: dataStore,
       getActiveSchema: () => schema,
       selectionManager: {
+        getCurrentSelection: () => null,
         clone: () => ({
           getCurrentSelection: () => null,
+          setSelection: () => {},
           selectRange: () => {},
           selectNode: () => {},
           clearSelection: () => {}
         })
-      }
+      },
+      historyManager: { push: () => {} },
+      emit: () => {}
     };
   });
 
@@ -61,7 +65,7 @@ describe('DSL Create Operations', () => {
       expect(result.success).toBe(true);
       expect(result.operations).toHaveLength(1);
       expect(result.operations?.[0].type).toBe('create');
-      expect(result.operations?.[0].result.data.type).toBe('paragraph');
+      expect(result.operations?.[0].result.data.stype).toBe('paragraph');
       // Filter out undefined values from content array
       const validContent = result.operations?.[0].result.data.content.filter((item: any) => item !== undefined);
       expect(validContent).toHaveLength(1);
@@ -74,7 +78,7 @@ describe('DSL Create Operations', () => {
       // Get the actual child node from DataStore
       const childNode = dataStore.getNode(childNodeId);
       expect(childNode).toBeDefined();
-      expect(childNode?.type).toBe('inline-text');
+      expect(childNode?.stype).toBe('inline-text');
       expect(childNode?.text).toBe('Hello World');
       expect(childNode?.sid).toBeDefined();
     });
@@ -92,7 +96,7 @@ describe('DSL Create Operations', () => {
       expect(result.success).toBe(true);
       expect(result.operations).toHaveLength(1);
       expect(result.operations?.[0].type).toBe('create');
-      expect(result.operations?.[0].result.data.type).toBe('paragraph');
+      expect(result.operations?.[0].result.data.stype).toBe('paragraph');
       
       // Filter out undefined values from content array
       const validContent = result.operations?.[0].result.data.content.filter((item: any) => item !== undefined);
@@ -105,7 +109,7 @@ describe('DSL Create Operations', () => {
       // Get the actual child node from DataStore
       const childNode = dataStore.getNode(childNodeId);
       expect(childNode).toBeDefined();
-      expect(childNode?.type).toBe('inline-text');
+      expect(childNode?.stype).toBe('inline-text');
       expect(childNode?.text).toBe('text text');
     });
 
@@ -124,7 +128,7 @@ describe('DSL Create Operations', () => {
       expect(result.success).toBe(true);
       expect(result.operations).toHaveLength(1);
       expect(result.operations?.[0].type).toBe('create');
-      expect(result.operations?.[0].result.data.type).toBe('paragraph');
+      expect(result.operations?.[0].result.data.stype).toBe('paragraph');
       
       // Filter out undefined values from content array
       const validContent = result.operations?.[0].result.data.content.filter((item: any) => item !== undefined);
@@ -136,9 +140,9 @@ describe('DSL Create Operations', () => {
       const child3 = dataStore.getNode(validContent[2]);
       
       expect(child1?.text).toBe('Hello ');
-      expect(child1?.marks).toEqual([{ type: 'italic', attrs: {}, range: undefined }]);
+      expect(child1?.marks).toEqual([{ stype: 'italic', attrs: {}, range: undefined }]);
       expect(child2?.text).toBe('World');
-      expect(child2?.marks).toEqual([{ type: 'bold', attrs: {}, range: undefined }]);
+      expect(child2?.marks).toEqual([{ stype: 'bold', attrs: {}, range: undefined }]);
       expect(child3?.text).toBe('!');
       expect(child3?.marks).toEqual([]);
     });
@@ -158,7 +162,7 @@ describe('DSL Create Operations', () => {
       expect(result.success).toBe(true);
       expect(result.operations).toHaveLength(1);
       expect(result.operations?.[0].type).toBe('create');
-      expect(result.operations?.[0].result.data.type).toBe('heading');
+      expect(result.operations?.[0].result.data.stype).toBe('heading');
       expect(result.operations?.[0].result.data.attributes.level).toBe(1);
     });
 
@@ -173,7 +177,7 @@ describe('DSL Create Operations', () => {
       expect(result.success).toBe(true);
       expect(result.operations).toHaveLength(1);
       expect(result.operations?.[0].type).toBe('create');
-      expect(result.operations?.[0].result.data.type).toBe('codeBlock');
+      expect(result.operations?.[0].result.data.stype).toBe('codeBlock');
       expect(result.operations?.[0].result.data.attributes.language).toBe('typescript');
       expect(result.operations?.[0].result.data.text).toBe('const x = 1;');
     });
@@ -195,7 +199,7 @@ describe('DSL Create Operations', () => {
       expect(result.success).toBe(true);
       expect(result.operations).toHaveLength(1);
       expect(result.operations?.[0].type).toBe('create');
-      expect(result.operations?.[0].result.data.type).toBe('list');
+      expect(result.operations?.[0].result.data.stype).toBe('list');
       expect(result.operations?.[0].result.data.attributes.type).toBe('bullet');
     });
   });
@@ -214,7 +218,7 @@ describe('DSL Create Operations', () => {
       expect(result.success).toBe(true);
       expect(result.operations).toHaveLength(1);
       expect(result.operations?.[0].type).toBe('create');
-      expect(result.operations?.[0].result.data.type).toBe('heading');
+      expect(result.operations?.[0].result.data.stype).toBe('heading');
       expect(result.operations?.[0].result.data.attributes.level).toBe(1);
       
       // Filter out undefined values from content array
@@ -223,7 +227,7 @@ describe('DSL Create Operations', () => {
       
       // Get the actual child node from DataStore
       const childNode = dataStore.getNode(validContent[0]);
-      expect(childNode?.type).toBe('inline-text');
+      expect(childNode?.stype).toBe('inline-text');
       expect(childNode?.text).toBe('Deep Heading Text');
     });
 
@@ -253,7 +257,7 @@ describe('DSL Create Operations', () => {
       expect(result.success).toBe(true);
       expect(result.operations).toHaveLength(1);
       expect(result.operations?.[0].type).toBe('create');
-      expect(result.operations?.[0].result.data.type).toBe('list');
+      expect(result.operations?.[0].result.data.stype).toBe('list');
       
       // Filter out undefined values from content array
       const validContent = result.operations?.[0].result.data.content.filter((item: any) => item !== undefined);
@@ -261,13 +265,13 @@ describe('DSL Create Operations', () => {
       
       // Get the second list item and verify it contains a nested list
       const secondListItem = dataStore.getNode(validContent[1]);
-      expect(secondListItem?.type).toBe('listItem');
+      expect(secondListItem?.stype).toBe('listItem');
       
       const nestedContent = secondListItem?.content?.filter((item: any) => item !== undefined);
       expect(nestedContent).toHaveLength(1);
       
       const nestedList = dataStore.getNode(nestedContent?.[0] as unknown as string);
-      expect(nestedList?.type).toBe('list');
+      expect(nestedList?.stype).toBe('list');
     });
   });
 
@@ -293,7 +297,7 @@ describe('DSL Create Operations', () => {
       // Get the actual child node from DataStore
       const childNode = dataStore.getNode(validContent[0]);
       expect(childNode?.text).toBe('Hello');
-      expect(childNode?.marks).toEqual([{ type: 'bold', attrs: {}, range: undefined }]);
+      expect(childNode?.marks).toEqual([{ stype: 'bold', attrs: {}, range: undefined }]);
     });
 
     it('should create text with multiple marks', async () => {
@@ -319,9 +323,9 @@ describe('DSL Create Operations', () => {
       // Get the actual child node from DataStore
       const childNode = dataStore.getNode(validContent[0]);
       expect(childNode?.marks).toHaveLength(2);
-      expect(childNode?.marks?.[0]?.type).toBe('bold');
+      expect(childNode?.marks?.[0]?.stype).toBe('bold');
       expect(childNode?.marks?.[0]?.attrs?.weight).toBe('bold');
-      expect(childNode?.marks?.[1]?.type).toBe('italic');
+      expect(childNode?.marks?.[1]?.stype).toBe('italic');
       expect(childNode?.marks?.[1]?.attrs?.style).toBe('italic');
     });
 
@@ -346,7 +350,7 @@ describe('DSL Create Operations', () => {
       
       // Get the actual child node from DataStore
       const childNode = dataStore.getNode(validContent[0]);
-      expect(childNode?.marks?.[0]?.type).toBe('link');
+      expect(childNode?.marks?.[0]?.stype).toBe('link');
       expect(childNode?.marks?.[0]?.attrs?.href).toBe('https://example.com');
       expect(childNode?.marks?.[0]?.attrs?.title).toBe('Example');
     });
@@ -363,7 +367,7 @@ describe('DSL Create Operations', () => {
       }
       expect(result.success).toBe(true);
       expect(result.operations).toHaveLength(1);
-      expect(result.operations?.[0].result.data.type).toBe('pageBreak');
+      expect(result.operations?.[0].result.data.stype).toBe('pageBreak');
     });
 
     it('should create inline image with attributes', async () => {
@@ -385,7 +389,7 @@ describe('DSL Create Operations', () => {
       
       // Get the actual child node from DataStore
       const childNode = dataStore.getNode(validContent[0]);
-      expect(childNode?.type).toBe('inline-image');
+      expect(childNode?.stype).toBe('inline-image');
       expect(childNode?.attributes?.src).toBe('image.jpg');
       expect(childNode?.attributes?.alt).toBe('Sample image');
     });

@@ -43,7 +43,9 @@ describe('DSL Scenarios', () => {
       dataStore,
       _dataStore: dataStore,
       getActiveSchema: () => schema,
-      selectionManager
+      selectionManager,
+      historyManager: { push: () => {} },
+      emit: () => {}
     };
   });
 
@@ -58,7 +60,7 @@ describe('DSL Scenarios', () => {
       expect(result.success).toBe(true);
       expect(result.operations).toHaveLength(1);
       expect(result.operations?.[0].type).toBe('create');
-      expect(result.operations?.[0].result.data.type).toBe('paragraph');
+      expect(result.operations?.[0].result.data.stype).toBe('paragraph');
       
       // Filter out undefined values from content array
       const validContent = result.operations?.[0].result.data.content.filter((item: any) => item !== undefined);
@@ -66,7 +68,7 @@ describe('DSL Scenarios', () => {
       
       // Get the actual child node from DataStore
       const childNode = dataStore.getNode(validContent[0]);
-      expect(childNode?.type).toBe('inline-text');
+      expect(childNode?.stype).toBe('inline-text');
       expect(childNode?.text).toBe('Hello World');
     });
 
@@ -80,7 +82,7 @@ describe('DSL Scenarios', () => {
       expect(result.success).toBe(true);
       expect(result.operations).toHaveLength(1);
       expect(result.operations?.[0].type).toBe('create');
-      expect(result.operations?.[0].result.data.type).toBe('heading');
+      expect(result.operations?.[0].result.data.stype).toBe('heading');
       expect(result.operations?.[0].result.data.attributes.level).toBe(1);
       
       // Filter out undefined values from content array
@@ -89,7 +91,7 @@ describe('DSL Scenarios', () => {
       
       // Get the actual child node from DataStore
       const childNode = dataStore.getNode(validContent[0]);
-      expect(childNode?.type).toBe('inline-text');
+      expect(childNode?.stype).toBe('inline-text');
       expect(childNode?.text).toBe('Document Title');
     });
 
@@ -105,7 +107,7 @@ describe('DSL Scenarios', () => {
       expect(result.success).toBe(true);
       expect(result.operations).toHaveLength(1);
       expect(result.operations?.[0].type).toBe('create');
-      expect(result.operations?.[0].result.data.type).toBe('paragraph');
+      expect(result.operations?.[0].result.data.stype).toBe('paragraph');
       
       // Filter out undefined values from content array
       const validContent = result.operations?.[0].result.data.content.filter((item: any) => item !== undefined);
@@ -113,10 +115,10 @@ describe('DSL Scenarios', () => {
       
       // Get the actual child node from DataStore
       const childNode = dataStore.getNode(validContent[0]);
-      expect(childNode?.type).toBe('inline-text');
+      expect(childNode?.stype).toBe('inline-text');
       expect(childNode?.text).toBe('Bold text');
       expect(childNode?.marks).toHaveLength(1);
-      expect(childNode?.marks?.[0].type).toBe('bold');
+      expect(childNode?.marks?.[0].stype).toBe('bold');
     });
   });
 
@@ -218,7 +220,7 @@ describe('DSL Scenarios', () => {
       expect(result.success).toBe(true);
       expect(result.operations).toHaveLength(1);
       expect(result.operations?.[0].type).toBe('create');
-      expect(result.operations?.[0].result.data.type).toBe('list');
+      expect(result.operations?.[0].result.data.stype).toBe('list');
       expect(result.operations?.[0].result.data.attributes.type).toBe('bullet');
       
       // Filter out undefined values from content array
@@ -227,18 +229,18 @@ describe('DSL Scenarios', () => {
       
       // Get the actual child nodes from DataStore
       const firstListItem = dataStore.getNode(validContent[0]);
-      expect(firstListItem?.type).toBe('listItem');
+      expect(firstListItem?.stype).toBe('listItem');
       
       const firstListItemContent = firstListItem?.content?.filter((item: any) => item !== undefined);
       expect(firstListItemContent).toHaveLength(1);
       
       const firstParagraph = dataStore.getNode(firstListItemContent?.[0] as string);
-      expect(firstParagraph?.type).toBe('paragraph');
+      expect(firstParagraph?.stype).toBe('paragraph');
       const firstParagraphContent = firstParagraph?.content?.filter((item: any) => item !== undefined);
       expect(firstParagraphContent).toHaveLength(1);
       
       const firstInlineText = dataStore.getNode(firstParagraphContent?.[0] as string);
-      expect(firstInlineText?.type).toBe('inline-text');
+      expect(firstInlineText?.stype).toBe('inline-text');
       expect(firstInlineText?.text).toBe('First item');
     });
 
@@ -257,7 +259,7 @@ describe('DSL Scenarios', () => {
       expect(result.success).toBe(true);
       expect(result.operations).toHaveLength(1);
       expect(result.operations?.[0].type).toBe('create');
-      expect(result.operations?.[0].result.data.type).toBe('blockquote');
+      expect(result.operations?.[0].result.data.stype).toBe('blockquote');
       
       // Filter out undefined values from content array
       const validContent = result.operations?.[0].result.data.content.filter((item: any) => item !== undefined);
@@ -265,17 +267,17 @@ describe('DSL Scenarios', () => {
       
       // Get the actual child node from DataStore
       const paragraphNode = dataStore.getNode(validContent[0]);
-      expect(paragraphNode?.type).toBe('paragraph');
+      expect(paragraphNode?.stype).toBe('paragraph');
       
       const paragraphContent = paragraphNode?.content?.filter((item: any) => item !== undefined);
       expect(paragraphContent).toHaveLength(2);
       
       const firstInlineText = dataStore.getNode(paragraphContent?.[0] as string);
-      expect(firstInlineText?.type).toBe('inline-text');
+      expect(firstInlineText?.stype).toBe('inline-text');
       expect(firstInlineText?.text).toBe('Quote text with ');
       
       const secondInlineText = dataStore.getNode(paragraphContent?.[1] as string);
-      expect(secondInlineText?.type).toBe('inline-text');
+      expect(secondInlineText?.stype).toBe('inline-text');
       expect(secondInlineText?.text).toBe('emphasis');
     });
 
@@ -287,7 +289,7 @@ describe('DSL Scenarios', () => {
       expect(result.success).toBe(true);
       expect(result.operations).toHaveLength(1);
       expect(result.operations?.[0].type).toBe('create');
-      expect(result.operations?.[0].result.data.type).toBe('codeBlock');
+      expect(result.operations?.[0].result.data.stype).toBe('codeBlock');
       expect(result.operations?.[0].result.data.attributes.language).toBe('typescript');
       expect(result.operations?.[0].result.data.text).toBe('const x = 1;');
     });
@@ -304,7 +306,7 @@ describe('DSL Scenarios', () => {
       expect(result.success).toBe(true);
       expect(result.operations).toHaveLength(3);
       expect(result.operations?.[0].type).toBe('create');
-      expect(result.operations?.[0].result.data.type).toBe('paragraph');
+      expect(result.operations?.[0].result.data.stype).toBe('paragraph');
       
       // Filter out undefined values from content array
       const validContent0 = result.operations?.[0].result.data.content.filter((item: any) => item !== undefined);
@@ -312,10 +314,10 @@ describe('DSL Scenarios', () => {
       
       // Get the actual child node from DataStore
       const childNode0 = dataStore.getNode(validContent0[0]);
-      expect(childNode0?.type).toBe('inline-text');
+      expect(childNode0?.stype).toBe('inline-text');
       expect(childNode0?.text).toBe('First');
       expect(result.operations?.[1].type).toBe('create');
-      expect(result.operations?.[1].result.data.type).toBe('paragraph');
+      expect(result.operations?.[1].result.data.stype).toBe('paragraph');
       
       // Filter out undefined values from content array
       const validContent1 = result.operations?.[1].result.data.content.filter((item: any) => item !== undefined);
@@ -323,10 +325,10 @@ describe('DSL Scenarios', () => {
       
       // Get the actual child node from DataStore
       const childNode1 = dataStore.getNode(validContent1[0]);
-      expect(childNode1?.type).toBe('inline-text');
+      expect(childNode1?.stype).toBe('inline-text');
       expect(childNode1?.text).toBe('Second');
       expect(result.operations?.[2].type).toBe('create');
-      expect(result.operations?.[2].result.data.type).toBe('paragraph');
+      expect(result.operations?.[2].result.data.stype).toBe('paragraph');
       
       // Filter out undefined values from content array
       const validContent2 = result.operations?.[2].result.data.content.filter((item: any) => item !== undefined);
@@ -334,7 +336,7 @@ describe('DSL Scenarios', () => {
       
       // Get the actual child node from DataStore
       const childNode2 = dataStore.getNode(validContent2[0]);
-      expect(childNode2?.type).toBe('inline-text');
+      expect(childNode2?.stype).toBe('inline-text');
       expect(childNode2?.text).toBe('Third');
     });
 
@@ -358,7 +360,7 @@ describe('DSL Scenarios', () => {
       expect(result.success).toBe(true);
       expect(result.operations).toHaveLength(2);
       expect(result.operations?.[0].type).toBe('create');
-      expect(result.operations?.[0].result.data.type).toBe('paragraph');
+      expect(result.operations?.[0].result.data.stype).toBe('paragraph');
       
       // Filter out undefined values from content array
       const validContent = result.operations?.[0].result.data.content.filter((item: any) => item !== undefined);
@@ -366,7 +368,7 @@ describe('DSL Scenarios', () => {
       
       // Get the actual child node from DataStore
       const childNode = dataStore.getNode(validContent[0]);
-      expect(childNode?.type).toBe('inline-text');
+      expect(childNode?.stype).toBe('inline-text');
       expect(childNode?.text).toBe('New paragraph');
       
       expect(result.operations?.[1].type).toBe('setText');
@@ -389,7 +391,7 @@ describe('DSL Scenarios', () => {
       expect(result.success).toBe(true);
       expect(result.operations).toHaveLength(1);
       expect(result.operations?.[0].type).toBe('create');
-      expect(result.operations?.[0].result.data.type).toBe('paragraph');
+      expect(result.operations?.[0].result.data.stype).toBe('paragraph');
       
       // Filter out undefined values from content array
       const validContent = result.operations?.[0].result.data.content.filter((item: any) => item !== undefined);
@@ -397,11 +399,11 @@ describe('DSL Scenarios', () => {
       
       // Get the actual child node from DataStore
       const childNode = dataStore.getNode(validContent[0]);
-      expect(childNode?.type).toBe('inline-text');
+      expect(childNode?.stype).toBe('inline-text');
       expect(childNode?.text).toBe('Bold and italic text');
       expect(childNode?.marks).toHaveLength(2);
-      expect(childNode?.marks?.[0].type).toBe('bold');
-      expect(childNode?.marks?.[1].type).toBe('italic');
+      expect(childNode?.marks?.[0].stype).toBe('bold');
+      expect(childNode?.marks?.[1].stype).toBe('italic');
     });
 
     it('should create link with href attribute', async () => {
@@ -416,17 +418,17 @@ describe('DSL Scenarios', () => {
       expect(result.success).toBe(true);
       expect(result.operations).toHaveLength(1);
       expect(result.operations?.[0].type).toBe('create');
-      expect(result.operations?.[0].result.data.type).toBe('paragraph');
+      expect(result.operations?.[0].result.data.stype).toBe('paragraph');
       // Filter out undefined values from content array
       const validContent = result.operations?.[0].result.data.content.filter((item: any) => item !== undefined);
       expect(validContent).toHaveLength(1);
       
       // Get the actual child node from DataStore
       const childNode = dataStore.getNode(validContent[0]);
-      expect(childNode?.type).toBe('inline-text');
+      expect(childNode?.stype).toBe('inline-text');
       expect(childNode?.text).toBe('Click here');
       expect(childNode?.marks).toHaveLength(1);
-      expect(childNode?.marks?.[0].type).toBe('link');
+      expect(childNode?.marks?.[0].stype).toBe('link');
       expect(childNode?.marks?.[0]?.attrs?.href).toBe('https://example.com');
       expect(childNode?.marks?.[0]?.attrs?.title).toBe('Example');
     });
@@ -443,7 +445,7 @@ describe('DSL Scenarios', () => {
       expect(result.success).toBe(true);
       expect(result.operations).toHaveLength(1);
       expect(result.operations?.[0].type).toBe('create');
-      expect(result.operations?.[0].result.data.type).toBe('paragraph');
+      expect(result.operations?.[0].result.data.stype).toBe('paragraph');
       
       // Filter out undefined values from content array
       const validContent = result.operations?.[0].result.data.content.filter((item: any) => item !== undefined);
@@ -451,10 +453,10 @@ describe('DSL Scenarios', () => {
       
       // Get the actual child node from DataStore
       const childNode = dataStore.getNode(validContent[0]);
-      expect(childNode?.type).toBe('inline-text');
+      expect(childNode?.stype).toBe('inline-text');
       expect(childNode?.text).toBe('This is bold text');
       expect(childNode?.marks).toHaveLength(1);
-      expect(childNode?.marks?.[0].type).toBe('bold');
+      expect(childNode?.marks?.[0].stype).toBe('bold');
       expect(childNode?.marks?.[0].range).toEqual([8, 12]);
     });
   });
@@ -476,7 +478,7 @@ describe('DSL Scenarios', () => {
       expect(result.success).toBe(true);
       expect(result.operations).toHaveLength(2);
       expect(result.operations?.[0].type).toBe('create');
-      expect(result.operations?.[0].result.data.type).toBe('paragraph');
+      expect(result.operations?.[0].result.data.stype).toBe('paragraph');
       
       // Filter out undefined values from content array
       const validContent0 = result.operations?.[0].result.data.content.filter((item: any) => item !== undefined);
@@ -484,10 +486,10 @@ describe('DSL Scenarios', () => {
       
       // Get the actual child node from DataStore
       const childNode0 = dataStore.getNode(validContent0[0]);
-      expect(childNode0?.type).toBe('inline-text');
+      expect(childNode0?.stype).toBe('inline-text');
       expect(childNode0?.text).toBe('First');
       expect(result.operations?.[1].type).toBe('create');
-      expect(result.operations?.[1].result.data.type).toBe('paragraph');
+      expect(result.operations?.[1].result.data.stype).toBe('paragraph');
       
       // Filter out undefined values from content array
       const validContent1 = result.operations?.[1].result.data.content.filter((item: any) => item !== undefined);
@@ -495,7 +497,7 @@ describe('DSL Scenarios', () => {
       
       // Get the actual child node from DataStore
       const childNode1 = dataStore.getNode(validContent1[0]);
-      expect(childNode1?.type).toBe('inline-text');
+      expect(childNode1?.stype).toBe('inline-text');
       expect(childNode1?.text).toBe('Second');
     });
   });
@@ -533,7 +535,7 @@ describe('DSL Scenarios', () => {
 
       expect(result.success).toBe(true);
       expect(result.operations).toHaveLength(3);
-      expect(result.operations?.[0].result.data.type).toBe('heading');
+      expect(result.operations?.[0].result.data.stype).toBe('heading');
       
       // Filter out undefined values from content array
       const validContent0 = result.operations?.[0].result.data.content.filter((item: any) => item !== undefined);
@@ -541,9 +543,9 @@ describe('DSL Scenarios', () => {
       
       // Get the actual child node from DataStore
       const childNode0 = dataStore.getNode(validContent0[0]);
-      expect(childNode0?.type).toBe('inline-text');
+      expect(childNode0?.stype).toBe('inline-text');
       expect(childNode0?.text).toBe('Article Title');
-      expect(result.operations?.[1].result.data.type).toBe('paragraph');
+      expect(result.operations?.[1].result.data.stype).toBe('paragraph');
       
       // Filter out undefined values from content array
       const validContent1 = result.operations?.[1].result.data.content.filter((item: any) => item !== undefined);
@@ -551,24 +553,24 @@ describe('DSL Scenarios', () => {
       
       // Get the actual child nodes from DataStore
       const childNode1_0 = dataStore.getNode(validContent1[0]);
-      expect(childNode1_0?.type).toBe('inline-text');
+      expect(childNode1_0?.stype).toBe('inline-text');
       expect(childNode1_0?.text).toBe('This is an ');
       const childNode1_1 = dataStore.getNode(validContent1[1]);
-      expect(childNode1_1?.type).toBe('inline-text');
+      expect(childNode1_1?.stype).toBe('inline-text');
       expect(childNode1_1?.text).toBe('important');
       
       const childNode1_2 = dataStore.getNode(validContent1[2]);
-      expect(childNode1_2?.type).toBe('inline-text');
+      expect(childNode1_2?.stype).toBe('inline-text');
       expect(childNode1_2?.text).toBe(' paragraph with a ');
       
       const childNode1_3 = dataStore.getNode(validContent1[3]);
-      expect(childNode1_3?.type).toBe('inline-text');
+      expect(childNode1_3?.stype).toBe('inline-text');
       expect(childNode1_3?.text).toBe('link');
       
       const childNode1_4 = dataStore.getNode(validContent1[4]);
-      expect(childNode1_4?.type).toBe('inline-text');
+      expect(childNode1_4?.stype).toBe('inline-text');
       expect(childNode1_4?.text).toBe('.');
-      expect(result.operations?.[2].result.data.type).toBe('list');
+      expect(result.operations?.[2].result.data.stype).toBe('list');
       expect(result.operations?.[2].result.data.attributes.type).toBe('bullet');
       
       // Filter out undefined values from content array
@@ -576,19 +578,19 @@ describe('DSL Scenarios', () => {
       expect(validContent2).toHaveLength(2);
       // Get the actual child nodes from DataStore
       const firstListItem = dataStore.getNode(validContent2[0]);
-      expect(firstListItem?.type).toBe('listItem');
+      expect(firstListItem?.stype).toBe('listItem');
       
       const firstListItemContent = firstListItem?.content?.filter((item: any) => item !== undefined);
       expect(firstListItemContent).toHaveLength(1);
       
       const firstParagraph = dataStore.getNode(firstListItemContent?.[0] as string);
-      expect(firstParagraph?.type).toBe('paragraph');
+      expect(firstParagraph?.stype).toBe('paragraph');
       
       const firstParagraphContent = firstParagraph?.content?.filter((item: any) => item !== undefined);
       expect(firstParagraphContent).toHaveLength(1);
       
       const firstInlineText = dataStore.getNode(firstParagraphContent?.[0] as string  );
-      expect(firstInlineText?.type).toBe('inline-text');
+      expect(firstInlineText?.stype).toBe('inline-text');
     });
 
     it('should create a code tutorial structure', async () => {
@@ -611,7 +613,7 @@ describe('DSL Scenarios', () => {
 
       expect(result.success).toBe(true);
       expect(result.operations).toHaveLength(4);
-      expect(result.operations?.[0].result.data.type).toBe('heading');
+      expect(result.operations?.[0].result.data.stype).toBe('heading');
       
       // Filter out undefined values from content array
       const validContent0 = result.operations?.[0].result.data.content.filter((item: any) => item !== undefined);
@@ -619,9 +621,9 @@ describe('DSL Scenarios', () => {
       
       // Get the actual child node from DataStore
       const childNode0 = dataStore.getNode(validContent0[0]);
-      expect(childNode0?.type).toBe('inline-text');
+      expect(childNode0?.stype).toBe('inline-text');
       expect(childNode0?.text).toBe('JavaScript Tutorial');
-      expect(result.operations?.[1].result.data.type).toBe('paragraph');
+      expect(result.operations?.[1].result.data.stype).toBe('paragraph');
       
       // Filter out undefined values from content array
       const validContent1 = result.operations?.[1].result.data.content.filter((item: any) => item !== undefined);
@@ -629,11 +631,11 @@ describe('DSL Scenarios', () => {
       
       // Get the actual child node from DataStore
       const childNode1 = dataStore.getNode(validContent1[0]);
-      expect(childNode1?.type).toBe('inline-text');
+      expect(childNode1?.stype).toBe('inline-text');
       expect(childNode1?.text).toBe('Here is a simple function:');
-      expect(result.operations?.[2].result.data.type).toBe('codeBlock');
+      expect(result.operations?.[2].result.data.stype).toBe('codeBlock');
       expect(result.operations?.[2].result.data.text).toBe('function hello() {\n  console.log("Hello World");\n}');
-      expect(result.operations?.[3].result.data.type).toBe('paragraph');
+      expect(result.operations?.[3].result.data.stype).toBe('paragraph');
       
       // Filter out undefined values from content array
       const validContent3 = result.operations?.[3].result.data.content.filter((item: any) => item !== undefined);
@@ -641,14 +643,14 @@ describe('DSL Scenarios', () => {
       
       // Get the actual child nodes from DataStore
       const childNode3_0 = dataStore.getNode(validContent3[0]);
-      expect(childNode3_0?.type).toBe('inline-text');
+      expect(childNode3_0?.stype).toBe('inline-text');
       expect(childNode3_0?.text).toBe('This function will output ');
       const childNode3_1 = dataStore.getNode(validContent3[1]);
-      expect(childNode3_1?.type).toBe('inline-text');
+      expect(childNode3_1?.stype).toBe('inline-text');
       expect(childNode3_1?.text).toBe('Hello World');
       
       const childNode3_2 = dataStore.getNode(validContent3[2]);
-      expect(childNode3_2?.type).toBe('inline-text');
+      expect(childNode3_2?.stype).toBe('inline-text');
       expect(childNode3_2?.text).toBe(' to the console.');
     });
   });

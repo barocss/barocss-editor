@@ -8,7 +8,7 @@ describe('DSL Basic Syntax', () => {
       const result = node('paragraph');
       
       expect(result).toEqual({
-        type: 'paragraph'
+        stype: 'paragraph'
       });
     });
 
@@ -16,7 +16,7 @@ describe('DSL Basic Syntax', () => {
       const result = node('paragraph', { class: 'content' });
       
       expect(result).toEqual({
-        type: 'paragraph',
+        stype: 'paragraph',
         attributes: { class: 'content' }
       });
     });
@@ -28,11 +28,11 @@ describe('DSL Basic Syntax', () => {
       ]);
       
       expect(result).toEqual({
-        type: 'paragraph',
+        stype: 'paragraph',
         attributes: {},
         content: [
-          { type: 'inline-text', text: 'Hello' },
-          { type: 'inline-text', text: 'World' }
+          { stype: 'inline-text', text: 'Hello' },
+          { stype: 'inline-text', text: 'World' }
         ]
       });
     });
@@ -43,10 +43,10 @@ describe('DSL Basic Syntax', () => {
       ]);
       
       expect(result).toEqual({
-        type: 'heading',
+        stype: 'heading',
         attributes: { level: 1 },
         content: [
-          { type: 'inline-text', text: 'Title' }
+          { stype: 'inline-text', text: 'Title' }
         ]
       });
     });
@@ -55,7 +55,7 @@ describe('DSL Basic Syntax', () => {
       const result = node('paragraph', {}, []);
       
       expect(result).toEqual({
-        type: 'paragraph',
+        stype: 'paragraph',
         attributes: {},
         content: []
       });
@@ -67,9 +67,9 @@ describe('DSL Basic Syntax', () => {
       ]);
       
       expect(result).toEqual({
-        type: 'paragraph',
+        stype: 'paragraph',
         content: [
-          { type: 'inline-text', text: 'Text' }
+          { stype: 'inline-text', text: 'Text' }
         ]
       });
     });
@@ -85,18 +85,18 @@ describe('DSL Basic Syntax', () => {
       ]);
       
       expect(result).toEqual({
-        type: 'list',
+        stype: 'list',
         attributes: { type: 'ordered' },
         content: [
           {
-            type: 'listItem',
+            stype: 'listItem',
             attributes: {},
-            content: [{ type: 'inline-text', text: 'First item' }]
+            content: [{ stype: 'inline-text', text: 'First item' }]
           },
           {
-            type: 'listItem',
+            stype: 'listItem',
             attributes: {},
-            content: [{ type: 'inline-text', text: 'Second item' }]
+            content: [{ stype: 'inline-text', text: 'Second item' }]
           }
         ]
       });
@@ -108,7 +108,7 @@ describe('DSL Basic Syntax', () => {
       const result = textNode('inline-text', 'Hello World');
       
       expect(result).toEqual({
-        type: 'inline-text',
+        stype: 'inline-text',
         text: 'Hello World'
       });
     });
@@ -117,7 +117,7 @@ describe('DSL Basic Syntax', () => {
       const result = textNode('inline-text', 'Hello', { class: 'highlight' });
       
       expect(result).toEqual({
-        type: 'inline-text',
+        stype: 'inline-text',
         text: 'Hello',
         attributes: { class: 'highlight' }
       });
@@ -127,9 +127,9 @@ describe('DSL Basic Syntax', () => {
       const result = textNode('inline-text', 'Bold text', [mark('bold')]);
       
       expect(result).toEqual({
-        type: 'inline-text',
+        stype: 'inline-text',
         text: 'Bold text',
-        marks: [{ type: 'bold', attrs: {}, range: undefined }]
+        marks: [{ stype: 'bold', attrs: {}, range: undefined }]
       });
     });
 
@@ -137,10 +137,10 @@ describe('DSL Basic Syntax', () => {
       const result = textNode('inline-text', 'Styled text', [mark('bold')], { class: 'highlight' });
       
       expect(result).toEqual({
-        type: 'inline-text',
+        stype: 'inline-text',
         text: 'Styled text',
         attributes: { class: 'highlight' },
-        marks: [{ type: 'bold', attrs: {}, range: undefined }]
+        marks: [{ stype: 'bold', attrs: {}, range: undefined }]
       });
     });
 
@@ -148,7 +148,7 @@ describe('DSL Basic Syntax', () => {
       const result = textNode('codeBlock', 'const x = 1;', { language: 'javascript' });
       
       expect(result).toEqual({
-        type: 'codeBlock',
+        stype: 'codeBlock',
         text: 'const x = 1;',
         attributes: { language: 'javascript' }
       });
@@ -161,11 +161,11 @@ describe('DSL Basic Syntax', () => {
       ]);
       
       expect(result).toEqual({
-        type: 'inline-text',
+        stype: 'inline-text',
         text: 'Bold and italic',
         marks: [
-          { type: 'bold', attrs: {}, range: undefined },
-          { type: 'italic', attrs: {}, range: undefined }
+          { stype: 'bold', attrs: {}, range: undefined },
+          { stype: 'italic', attrs: {}, range: undefined }
         ]
       });
     });
@@ -313,7 +313,7 @@ describe('DSL Basic Syntax', () => {
         type: 'create',
         payload: {
           node: {
-            type: 'inline-text',
+            stype: 'inline-text',
             text: 'Hello'
           },
           options: undefined
@@ -332,11 +332,11 @@ describe('DSL Basic Syntax', () => {
         type: 'create',
         payload: {
           node: {
-            type: 'paragraph',
+            stype: 'paragraph',
             attributes: { class: 'content' },
             content: [
-              { type: 'inline-text', text: 'Hello' },
-              { type: 'inline-text', text: 'World' }
+              { stype: 'inline-text', text: 'Hello' },
+              { stype: 'inline-text', text: 'World' }
             ]
           },
           options: undefined
@@ -352,7 +352,7 @@ describe('DSL Basic Syntax', () => {
         type: 'create',
         payload: {
           node: {
-            type: 'inline-text',
+            stype: 'inline-text',
             text: 'Hello'
           },
           options: { position: 'after' }
@@ -368,9 +368,9 @@ describe('DSL Basic Syntax', () => {
         type: 'create',
         payload: {
           node: {
-            type: 'inline-text',
+            stype: 'inline-text',
             text: 'Bold text',
-            marks: [{ type: 'bold', attrs: {}, range: undefined }]
+            marks: [{ stype: 'bold', attrs: {}, range: undefined }]
           },
           options: undefined
         }
@@ -392,27 +392,27 @@ describe('DSL Basic Syntax', () => {
       ]);
       
       expect(result).toEqual({
-        type: 'document',
+        stype: 'document',
         attributes: {},
         content: [
           {
-            type: 'heading',
+            stype: 'heading',
             attributes: { level: 1 },
             content: [
-              { type: 'inline-text', text: 'Title' }
+              { stype: 'inline-text', text: 'Title' }
             ]
           },
           {
-            type: 'paragraph',
+            stype: 'paragraph',
             attributes: {},
             content: [
-              { type: 'inline-text', text: 'Content with ' },
+              { stype: 'inline-text', text: 'Content with ' },
               {
-                type: 'inline-text',
+                stype: 'inline-text',
                 text: 'bold',
-                marks: [{ type: 'bold', attrs: {}, range: undefined }]
+                marks: [{ stype: 'bold', attrs: {}, range: undefined }]
               },
-              { type: 'inline-text', text: ' text' }
+              { stype: 'inline-text', text: ' text' }
             ]
           }
         ]
@@ -426,11 +426,11 @@ describe('DSL Basic Syntax', () => {
       ]);
       
       expect(result).toEqual({
-        type: 'inline-text',
+        stype: 'inline-text',
         text: 'Styled text',
         marks: [
-          { type: 'bold', attrs: { weight: 'bold' }, range: undefined },
-          { type: 'italic', attrs: { style: 'italic' }, range: undefined }
+          { stype: 'bold', attrs: { weight: 'bold' }, range: undefined },
+          { stype: 'italic', attrs: { style: 'italic' }, range: undefined }
         ]
       });
     });
