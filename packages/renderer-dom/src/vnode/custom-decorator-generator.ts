@@ -5,8 +5,7 @@
  * editor-view-dom에서 이 인터페이스를 구현하여 사용할 수 있습니다.
  */
 
-import type { Decorator } from '../types';
-import type { ModelData } from '@barocss/editor-core';
+import type { Decorator, ModelData } from '../types';
 
 /**
  * Custom Decorator Generator 인터페이스

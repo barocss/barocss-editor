@@ -346,7 +346,7 @@ export function commitFiberTree(
     
     // Return to parent to find sibling
     // Also perform parent's post-processing when returning (all children committed)
-    let parentFiber = currentFiber.return;
+    let parentFiber: FiberNode | null = currentFiber.return;
     while (parentFiber && !parentFiber.sibling) {
       // Perform parent's post-processing
       if (parentFiber.primitiveTextChildren && parentFiber.primitiveTextChildren.length > 0) {
@@ -520,7 +520,7 @@ export function commitFiberNode(
           tag: fiber.parentFiber?.vnode?.tag,
           text: fiber.parentFiber?.vnode?.text
         },
-        parentNodeType: actualParent?.nodeType,
+        parentNodeType: actualParent != null ? (actualParent as Node).nodeType : undefined,
         parentNodeValue: (actualParent as any)?.nodeValue
       });
     }
@@ -708,8 +708,9 @@ export function removeStaleChildren(
   const usedDomElements = new Set<HTMLElement | Text>();
   const collectDomElements = (f: FiberNode | null) => {
     while (f) {
-      if (f.domElement instanceof HTMLElement || f.domElement instanceof Text) {
-        usedDomElements.add(f.domElement);
+      const el = f.domElement;
+      if (el instanceof HTMLElement || el instanceof Text) {
+        usedDomElements.add(el);
       }
       // Also collect children recursively (handle nested structures)
       if (f.child) {
@@ -779,7 +780,7 @@ export function processPrimitiveTextChildren(
   }
   
   const host = fiber.domElement;
-  if (!host) {
+  if (!host || !(host instanceof HTMLElement)) {
     return;
   }
   

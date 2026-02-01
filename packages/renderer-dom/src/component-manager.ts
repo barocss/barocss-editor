@@ -8,7 +8,7 @@
 import { VNode, DOMAttribute } from './vnode/types';
 import { isExternalComponent, isContextualComponent } from './vnode/utils/vnode-guards';
 import { ComponentStateProvider } from './vnode/factory';
-import { ReconcileContext, ComponentInstance, ComponentProps } from './types';
+import { ReconcileContext, ComponentInstance, ComponentProps, ModelData } from './types';
 import { StateRegistry } from './state/state-registry';
 import { BaseComponentState } from './state/base-component-state';
 import { logger, LogCategory } from './utils/logger';

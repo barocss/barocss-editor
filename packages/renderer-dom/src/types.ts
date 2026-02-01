@@ -34,6 +34,8 @@ export type {
 import type { Decorator } from './vnode/decorator';
 import type { BaseComponentState } from './state/base-component-state';
 
+export type { Decorator } from './vnode/decorator';
+
 export type ClassNameType = string | string[] | Record<string, boolean> | Array<string | Record<string, boolean> | Array<string | Record<string, boolean>>>;
 
 // Enhanced type-safe element attributes

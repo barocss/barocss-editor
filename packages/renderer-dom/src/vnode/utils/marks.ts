@@ -66,8 +66,10 @@ export function splitTextByMarks(text: string, marks: TextMark[] | undefined | n
     // IMPORTANT: do not automatically add mark-{stype} class
     // Only use className explicitly defined by user
     for (const m of rangedMarks) {
-      const s = clamp(m.range[0] ?? 0, 0, len);
-      const e = clamp(m.range[1] ?? 0, 0, len);
+      const r = m.range;
+      if (r == null) continue;
+      const s = clamp(r[0] ?? 0, 0, len);
+      const e = clamp(r[1] ?? 0, 0, len);
       if (e <= s) continue;
       if (s < end && e > start) {
         const markStype = (m as any).stype;
