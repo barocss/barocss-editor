@@ -282,7 +282,7 @@ Full procedure is in **`.cursor/AGENTS.md`** § "Single command: What needs to b
 **Output**:
 - **Test runs**: For each package in the documented order, run `pnpm --filter @barocss/<package> test:run`. If a package has no `test:run`, skip or note.
 - **No test files**: If a package has a `test`/`test:run` script but vitest exits with "No test files found", create a minimal test file in that package (e.g. one smoke test that imports and asserts core behavior), then re-run `test:run` for that package.
-- **Report**: Pass/fail per package. If fail: fix the code or test in that package and re-run; or escalate (e.g. “model tests fail: …”).
+- **Report**: Pass/fail per package. Before fixing: create GitHub issues for each failing package (title + body with failure summary). Do not fix until issues exist. Then proceed per issue: branch → fix → verify → commit → PR → merge (see docs/github-agent-integration.md). If escalate (e.g. “model tests fail: …”).
 - **No new features**: Validation Agent does **not** implement new behavior or change specs; it only validates existing logic with tests.
 
 **Handoff**: None. When all packages in scope pass, validation is done. If the user asked for “validate then add features”, hand off to Spec/Implementation Agent after validation passes.
