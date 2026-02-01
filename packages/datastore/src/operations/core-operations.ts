@@ -224,8 +224,12 @@ export class CoreOperations {
   createNodeWithChildren(node: INode, schema?: Schema): INode {
     const targetSchema = schema || this.dataStore.getActiveSchema();
     
-    // 1. Initialize globalCounter to current node count
-    (this.dataStore.constructor as any)._globalCounter = this.dataStore.getNodes().size;
+    // 1. Initialize globalCounter to current node count only when creating a root (no parentId).
+    // When parentId is set (e.g. deserializeNodes inserting under existing parent), do not reset
+    // so each call gets a unique id and overlay/main store size does not cause id reuse.
+    if (node.parentId == null) {
+      (this.dataStore.constructor as any)._globalCounter = this.dataStore.getNodes().size;
+    }
     
     // 2. Assign IDs to all nested objects (recursively)
     this._assignIdsRecursively(node);
