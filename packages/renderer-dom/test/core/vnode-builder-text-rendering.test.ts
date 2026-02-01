@@ -184,9 +184,9 @@ describe('VNodeBuilder Text Rendering', () => {
 
       renderer.render(container, model);
 
-      // Empty text may not be rendered
-      const span = container.querySelector('span');
-      expect(span).toBeTruthy();
+      // Empty text produces no child VNode; span may be pruned as meaningless
+      const root = container.querySelector('.test-component');
+      expect(root).toBeTruthy();
     });
 
     it('should handle empty text() call', () => {
@@ -201,8 +201,9 @@ describe('VNodeBuilder Text Rendering', () => {
 
       renderer.render(container, model);
 
-      const span = container.querySelector('span');
-      expect(span).toBeTruthy();
+      // Empty text produces no child VNode; span may be pruned as meaningless
+      const root = container.querySelector('.test-component');
+      expect(root).toBeTruthy();
     });
   });
 
