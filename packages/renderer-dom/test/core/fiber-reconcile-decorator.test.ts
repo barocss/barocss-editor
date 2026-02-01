@@ -1,19 +1,16 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createFiberTree } from '../../src/reconcile/fiber/fiber-tree';
-import { reconcileFiberNode, FiberReconcileDependencies } from '../../src/reconcile/fiber/fiber-reconciler';
+import { renderFiberNode, commitFiberTree, FiberReconcileDependencies } from '../../src/reconcile/fiber/fiber-reconciler';
 import { FiberNode } from '../../src/reconcile/fiber/types';
 import { VNode } from '../../src/vnode/types';
 import { DOMOperations } from '../../src/dom-operations';
 import { ComponentManager } from '../../src/component-manager';
 
-// Helper function: Process all Fibers recursively
-function reconcileAllFibers(fiber: FiberNode, deps: FiberReconcileDependencies, context: any): void {
-  reconcileFiberNode(fiber, deps, context);
-  
-  // Process child Fibers
+function renderAllFibers(fiber: FiberNode, deps: FiberReconcileDependencies, context: any): void {
+  renderFiberNode(fiber, deps, context);
   let childFiber = fiber.child;
   while (childFiber) {
-    reconcileAllFibers(childFiber, deps, context);
+    renderAllFibers(childFiber, deps, context);
     childFiber = childFiber.sibling;
   }
 }
@@ -65,7 +62,8 @@ describe('reconcileFiberNode - Decorator VNode 처리', () => {
       };
 
       const fiber = createFiberTree(container, decoratorVNode, undefined, {});
-      reconcileFiberNode(fiber, deps, {});
+      renderFiberNode(fiber, deps, {});
+      commitFiberTree(fiber, deps, {});
 
       const decoratorEl = container.querySelector('[data-decorator-sid="d-highlight"]');
       expect(decoratorEl).toBeDefined();
@@ -110,7 +108,8 @@ describe('reconcileFiberNode - Decorator VNode 처리', () => {
       };
 
       const fiber = createFiberTree(container, parentVNode, undefined, {});
-      reconcileAllFibers(fiber, deps, {});
+      renderAllFibers(fiber, deps, {});
+      commitFiberTree(fiber, deps, {});
 
       const decoratorElements = container.querySelectorAll('[data-decorator-sid="d-highlight"]');
       // eslint-disable-next-line no-console
@@ -155,21 +154,20 @@ describe('reconcileFiberNode - Decorator VNode 처리', () => {
 
       const fiber = createFiberTree(container, parentVNode, undefined, {});
       
-      // Process first child Fiber
       let childFiber = fiber.child;
       expect(childFiber).toBeDefined();
-      reconcileAllFibers(childFiber!, deps, {});
+      renderAllFibers(childFiber!, deps, {});
+      commitFiberTree(fiber, deps, {});
       
-      // Verify first decorator element is created
       const firstDecorator = container.querySelector('[data-decorator-sid="d-highlight"]');
       expect(firstDecorator).toBeDefined();
       expect(firstDecorator?.textContent).toBe('first');
       expect(childFiber!.domElement).toBe(firstDecorator);
 
-      // Process second child Fiber
       childFiber = childFiber!.sibling;
       expect(childFiber).toBeDefined();
-      reconcileAllFibers(childFiber!, deps, {});
+      renderAllFibers(childFiber!, deps, {});
+      commitFiberTree(fiber, deps, {});
       
       // Verify second decorator element is created
       const allDecorators = container.querySelectorAll('[data-decorator-sid="d-highlight"]');
