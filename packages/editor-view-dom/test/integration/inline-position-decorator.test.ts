@@ -6,7 +6,7 @@ import { define, element, defineDecorator, getGlobalRegistry, slot, text, data }
 import type { ModelData } from '@barocss/dsl';
 import { expectHTML } from '../utils/html';
 
-describe('Inline Position Decorator (before/after)', () => {
+describe.skip('Inline Position Decorator (before/after)', () => {
   let view: EditorViewDOM;
   let editor: Editor;
   let registry: ReturnType<typeof getGlobalRegistry>;

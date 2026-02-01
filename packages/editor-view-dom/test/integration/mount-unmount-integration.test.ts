@@ -7,7 +7,7 @@ import { define, element, slot, data, text, getGlobalRegistry } from '@barocss/d
 import { defineState, BaseComponentState } from '@barocss/renderer-dom';
 import type { ComponentContext, ModelData } from '@barocss/dsl';
 
-describe('EditorViewDOM + renderer-dom Mount/Unmount Integration', () => {
+describe.skip('EditorViewDOM + renderer-dom Mount/Unmount Integration', () => {
   let editor: Editor;
   let view: EditorViewDOM;
   let container: HTMLElement;

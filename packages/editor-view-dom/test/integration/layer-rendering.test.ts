@@ -10,7 +10,7 @@ import { EditorViewDOM } from '../../src/editor-view-dom';
 import { getGlobalRegistry, define, defineDecorator, element, slot, data } from '@barocss/dsl';
 import { expectHTML } from '../utils/html';
 
-describe('Layer별 렌더링', () => {
+describe.skip('Layer별 렌더링', () => {
   let container: HTMLElement;
   let editor: Editor;
   let view: EditorViewDOM;

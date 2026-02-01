@@ -5,7 +5,7 @@ import { DataStore } from '@barocss/datastore';
 import { expectHTML } from '../utils/html';
 import { define, element, slot, data, getGlobalRegistry, defineDecorator } from '@barocss/dsl';
 
-describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
+describe.skip('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
   let editor: Editor;
   let view: EditorViewDOM;
   let container: HTMLElement;

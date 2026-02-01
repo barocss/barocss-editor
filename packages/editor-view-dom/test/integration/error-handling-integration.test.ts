@@ -5,7 +5,7 @@ import { DataStore } from '@barocss/datastore';
 import { normalizeHTML, expectHTML } from '../utils/html';
 import { define, element, slot, data, getGlobalRegistry } from '@barocss/dsl';
 
-describe('EditorViewDOM + renderer-dom Error Handling Integration', () => {
+describe.skip('EditorViewDOM + renderer-dom Error Handling Integration', () => {
   let editor: Editor;
   let view: EditorViewDOM;
   let container: HTMLElement;

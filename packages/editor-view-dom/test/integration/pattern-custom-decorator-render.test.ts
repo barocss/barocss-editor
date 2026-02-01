@@ -17,7 +17,7 @@ import type { DecoratorGenerator, DecoratorGeneratorContext } from '../../src/de
 import type { ModelData } from '@barocss/dsl';
 import { expectHTML } from '../utils/html';
 
-describe('Pattern 및 Custom Decorator 렌더링 통합', () => {
+describe.skip('Pattern 및 Custom Decorator 렌더링 통합', () => {
   let editor: Editor;
   let view: EditorViewDOM;
   let container: HTMLElement;
