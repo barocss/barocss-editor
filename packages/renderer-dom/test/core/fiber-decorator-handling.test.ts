@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createFiberTree } from '../../src/reconcile/fiber/fiber-tree';
-import { removeStaleChildren, FiberReconcileDependencies, reconcileWithFiber, reconcileFiberNode } from '../../src/reconcile/fiber/fiber-reconciler';
+import { removeStaleChildren, FiberReconcileDependencies, reconcileWithFiber } from '../../src/reconcile/fiber/fiber-reconciler';
+import type { FiberNode } from '../../src/reconcile/fiber/types';
 import { VNode } from '../../src/vnode/types';
 import { DOMOperations } from '../../src/dom-operations';
 import { ComponentManager } from '../../src/component-manager';
@@ -110,7 +111,7 @@ describe('Fiber Decorator Handling', () => {
   });
 
   describe('reconcileFiberNode - decorator VNode DOM 렌더링', () => {
-    it('decoratorSid를 가진 VNode를 DOM 요소로 렌더링해야 함', () => {
+    it('decoratorSid를 가진 VNode를 DOM 요소로 렌더링해야 함', async () => {
       const decoratorVNode: VNode = {
         tag: 'span',
         attrs: {
@@ -129,15 +130,16 @@ describe('Fiber Decorator Handling', () => {
         ]
       };
 
-      const fiber = createFiberTree(container, decoratorVNode, undefined, {});
-      reconcileFiberNode(fiber, deps, {});
+      await new Promise<void>((res) => {
+        reconcileWithFiber(container, decoratorVNode, undefined, {}, deps, res);
+      });
 
       const decoratorEl = container.querySelector('[data-decorator-sid="d-highlight"]');
       expect(decoratorEl).toBeDefined();
       expect(decoratorEl?.getAttribute('class')).toBe('highlight-decorator');
     });
 
-    it('같은 decoratorSid를 가진 여러 VNode를 모두 DOM으로 렌더링해야 함', () => {
+    it('같은 decoratorSid를 가진 여러 VNode를 모두 DOM으로 렌더링해야 함', async () => {
       const parentVNode: VNode = {
         tag: 'span',
         sid: 'text-1',
@@ -172,21 +174,15 @@ describe('Fiber Decorator Handling', () => {
         ]
       };
 
-      const fiber = createFiberTree(container, parentVNode, undefined, {});
-      reconcileFiberNode(fiber, deps, {});
-
-      // Process all child Fibers
-      let childFiber = fiber.child;
-      while (childFiber) {
-        reconcileFiberNode(childFiber, deps, {});
-        childFiber = childFiber.sibling;
-      }
+      await new Promise<void>((res) => {
+        reconcileWithFiber(container, parentVNode, undefined, {}, deps, res);
+      });
 
       const decoratorElements = container.querySelectorAll('[data-decorator-sid="d-highlight"]');
       expect(decoratorElements.length).toBe(3);
     });
 
-    it('decoratorSid가 있는 VNode는 일반 span을 재사용하지 않아야 함', () => {
+    it('decoratorSid가 있는 VNode는 일반 span을 재사용하지 않아야 함', async () => {
       // Create normal span first
       const normalSpan = document.createElement('span');
       normalSpan.textContent = 'normal';
@@ -210,8 +206,9 @@ describe('Fiber Decorator Handling', () => {
         ]
       };
 
-      const fiber = createFiberTree(container, decoratorVNode, undefined, {});
-      reconcileFiberNode(fiber, deps, {});
+      await new Promise<void>((res) => {
+        reconcileWithFiber(container, decoratorVNode, undefined, {}, deps, res);
+      });
 
       // Normal span should remain unchanged
       expect(container.children.length).toBe(2);
@@ -222,7 +219,7 @@ describe('Fiber Decorator Handling', () => {
   });
 
   describe('removeStaleChildren - decorator VNode 제거 방지', () => {
-    it('현재 VNode children에 있는 decorator VNode는 제거하지 않아야 함', () => {
+    it('현재 VNode children에 있는 decorator VNode는 제거하지 않아야 함', async () => {
       // Initial rendering
       const initialVNode: VNode = {
         tag: 'span',
@@ -238,14 +235,9 @@ describe('Fiber Decorator Handling', () => {
         ]
       };
 
-      const fiber = createFiberTree(container, initialVNode, undefined, {});
-      reconcileFiberNode(fiber, deps, {});
-      
-      let childFiber = fiber.child;
-      while (childFiber) {
-        reconcileFiberNode(childFiber, deps, {});
-        childFiber = childFiber.sibling;
-      }
+      await new Promise<void>((res) => {
+        reconcileWithFiber(container, initialVNode, undefined, {}, deps, res);
+      });
 
       // Verify decorator element is created in DOM
       let decoratorEl = container.querySelector('[data-decorator-sid="d-highlight"]');
@@ -266,24 +258,23 @@ describe('Fiber Decorator Handling', () => {
         ]
       };
 
-      const newFiber = createFiberTree(container, sameVNode, initialVNode, {});
-      reconcileFiberNode(newFiber, deps, {});
-      
-      childFiber = newFiber.child;
-      while (childFiber) {
-        reconcileFiberNode(childFiber, deps, {});
-        childFiber = childFiber.sibling;
-      }
+      let newFiber: FiberNode;
+      await new Promise<void>((res) => {
+        reconcileWithFiber(container, sameVNode, initialVNode, {}, deps, (f) => {
+          newFiber = f;
+          res();
+        });
+      });
 
       // Call removeStaleChildren
-      removeStaleChildren(newFiber, deps);
+      removeStaleChildren(newFiber!, deps);
 
       // Decorator element should still exist
       decoratorEl = container.querySelector('[data-decorator-sid="d-highlight"]');
       expect(decoratorEl).toBeDefined();
     });
 
-    it('같은 decoratorSid를 가진 여러 VNode가 모두 제거되지 않아야 함', () => {
+    it('같은 decoratorSid를 가진 여러 VNode가 모두 제거되지 않아야 함', async () => {
       const vnode: VNode = {
         tag: 'span',
         sid: 'text-1',
@@ -318,17 +309,16 @@ describe('Fiber Decorator Handling', () => {
         ]
       };
 
-      const fiber = createFiberTree(container, vnode, undefined, {});
-      reconcileFiberNode(fiber, deps, {});
-      
-      let childFiber = fiber.child;
-      while (childFiber) {
-        reconcileFiberNode(childFiber, deps, {});
-        childFiber = childFiber.sibling;
-      }
+      let rootFiber: FiberNode;
+      await new Promise<void>((res) => {
+        reconcileWithFiber(container, vnode, undefined, {}, deps, (f) => {
+          rootFiber = f;
+          res();
+        });
+      });
 
       // Call removeStaleChildren
-      removeStaleChildren(fiber, deps);
+      removeStaleChildren(rootFiber!, deps);
 
       const decoratorElements = container.querySelectorAll('[data-decorator-sid="d-highlight"]');
       expect(decoratorElements.length).toBe(3);
