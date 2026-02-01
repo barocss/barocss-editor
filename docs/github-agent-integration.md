@@ -49,7 +49,7 @@ When there are **no open GitHub issues**, the agent must not stop. It must:
 2. **Backlog Agent**: Create GitHub issue(s) from those drafts (`gh issue create` or equivalent).
 3. Then treat the **first created (or first open) issue** as the current task and run the full flow (Spec → Implementation → … → PR).
 
-See `.cursor/AGENTS.md` § 규칙 (Rules) and § Single command step 1 "Nothing found".
+See `.cursor/AGENTS.md` § Rules and § Single command step 1 "Nothing found".
 
 ---
 

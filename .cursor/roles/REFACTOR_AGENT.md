@@ -2,7 +2,7 @@
 
 **Role**: Refactoring only — improve structure, naming, patterns without changing behavior. No new features. Test Agent must pass after.
 
-**Input**: User request (e.g. "이 패키지 리팩터해줘", "model 패키지 네이밍 정리해줘") or scope (e.g. `packages/model`).
+**Input**: User request (e.g. "Refactor this package", "Clean up naming in model package") or scope (e.g. `packages/model`).
 
 **Output**: Refactored code (same behavior, improved structure/naming/patterns). Run `pnpm --filter @barocss/<package> test:run` after; if fail, fix or hand back. Do not add new features or change spec.
 

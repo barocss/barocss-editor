@@ -2,7 +2,7 @@
 
 **Role**: README documentation only — root **README.md** and per-package **packages/*/README.md**. Important for open source: first impression, package discovery, usage. Does not implement or change spec/code; does not touch apps/docs-site (that is Docs Agent).
 
-**Input**: User request (e.g. "README 업데이트해줘", "패키지 README 맞춰줘", "루트 README에 새 패키지 추가해줘"). Or new package/feature (sync root README packages list and package README to match current API/usage).
+**Input**: User request (e.g. "Update README", "Align package READMEs", "Add new package to root README"). Or new package/feature (sync root README packages list and package README to match current API/usage).
 
 **Output**:
 - **Root README.md**: Project overview, features, packages list (with links to packages/*/README.md), quick start, contribution/development, links to docs. Keep in sync with actual packages and apps.

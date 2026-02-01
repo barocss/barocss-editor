@@ -4,81 +4,82 @@ This repo is a **platform for building editors**. When adding or changing a feat
 
 ---
 
-## 시작하기 (코드 없이)
+## Getting started (no code)
 
-우리가 만든 플로우만으로 시작하려면, **아래 순서**만 따라하면 된다.
+To start with the flow only, follow the **steps below** in order.
 
-### 1. 할 일이 하나 있어야 한다 (백로그 = GitHub 이슈)
+### 1. Have one task (backlog = GitHub issue)
 
-- **열린 이슈가 이미 있으면** → 2번으로.
-- **열린 이슈가 없으면** → 먼저 이슈를 하나 만든다.
-  - **에이전트로 진행할 때**: "이번에 해야할을 알려주고 진행해줘"라고 하면, 에이전트가 **규칙**에 따라 새 자료 조사를 시작하고 필요한 것들을 이슈로 남긴 뒤 첫 이슈를 진행한다. (Research Agent → Backlog Agent → 이슈 생성 → 진행.)
-  - **직접 만들 때**: GitHub에서 **New issue** → "Feature (model / extension / E2E)" 또는 "Bug fix" 템플릿 선택 → 제목·본문 채우고 생성.
-  - 또는 에이전트에게: **"Act as Backlog Agent. 이슈 만들어줘: [원하는 기능 한 줄]."** (예: "이슈 만들어줘: insertList 기능 추가")
+- **If there is already an open issue** → go to step 2.
+- **If there is no open issue** → create one first.
+  - **With the agent**: Say "What needs to be done? Proceed." and the agent will run Research Agent → Backlog Agent → create issue(s) → proceed with the first issue.
+  - **Manually**: On GitHub, **New issue** → choose "Feature (model / extension / E2E)" or "Bug fix" template → fill title and body.
+  - Or tell the agent: **"Act as Backlog Agent. Create an issue: [one-line description]."** (e.g. "Create an issue: add insertList")
 
-### 2. 한 문장으로 진행 시키기
+### 2. Proceed with one sentence
 
-에이전트에게 이렇게만 말한다:
+Tell the agent:
 
-- **"이번에 해야할을 알려주고 진행해줘"**  
-  (또는 "할 일 알려주고 진행해줘" / "What needs to be done? Proceed.")
+- **"What needs to be done? Proceed."**  
+  (or "What needs to be done? Proceed." if the user prefers.)
 
-에이전트가 **열린 이슈 중 첫 번째**를 골라서:
+The agent will pick the **first open issue** and:
 
-1. **"이번에 할 일: [이슈 제목] (issue #N)"** 이라고 알려주고  
-2. **Spec → Implementation → Test → E2E → GitHub** 순서로 진행한다.  
-   (이슈가 버그 수정이면 Implementation부터, E2E만 추가면 그에 맞게 진행.)
+1. Report **"Current task: [issue title] (issue #N)"**  
+2. Run **Spec → Implementation → Test → E2E → GitHub** in order.  
+   (For a bug fix, start from Implementation; for E2E-only, run the matching flow.)
 
-코드는 보지 않아도 된다. 에이전트가 스펙·구현·테스트·문서·PR까지 처리한다.
+No need to read code. The agent handles spec, implementation, tests, docs, and PR.
 
-### 3. (선택) 아이디어부터 넣고 싶을 때
+### 3. (Optional) Start from ideas
 
-- **"Act as Research Agent. 다른 에디터 조사해서 우리에 추가할 만한 기능 알려줘."**  
-  → 보고서 + 이슈 초안이 나오면, 그걸 바탕으로 Backlog Agent로 이슈 생성.
-- 그 다음 **"이번에 해야할을 알려주고 진행해줘"** 로 진행.
+- **"Act as Research Agent. Research other editors and suggest features we could add."**  
+  → You get a report + draft issue(s); use Backlog Agent to create issues from the draft.
+- Then say **"What needs to be done? Proceed."**
 
-### 4. 다른 역할만 쓰고 싶을 때
+### 4. Use a single role only
 
-- **내부 로직 검증**: "Act as Validation Agent. 내부 로직 검증해줘." / "내부 로직 검증해줘."  
-  → **`docs/internal-logic-validation.md`** 순서대로 패키지별 `test:run` 실행, 실패 시 수정 또는 보고. 기능 추가 전에 내부 로직을 단단히 할 때 사용.
-- **README 정리**: "Act as README Agent. README 업데이트해줘." / "패키지 README 맞춰줘."
-- **문서 사이트만**: "Act as Docs Agent. docs만 업데이트해줘."
-- **PR 리뷰**: "Act as Review Agent. 이 PR 리뷰해줘."
-- **릴리스**: "Act as Release Agent. 릴리스 해줘."
-- **의존성/보안**: "Act as Security Agent. 의존성 업데이트해줘." / "보안 점검해줘."
-- **리팩터만**: "Act as Refactor Agent. [패키지명] 패키지 리팩터해줘."
+- **Internal logic validation**: "Act as Validation Agent. Validate internal logic."  
+  → Follow **`docs/internal-logic-validation.md`**: run `test:run` per package in order; fix or report on failure. Use before adding features.
+- **README**: "Act as README Agent. Update README." / "Align package READMEs."
+- **Docs site only**: "Act as Docs Agent. Update docs only."
+- **PR review**: "Act as Review Agent. Review this PR."
+- **Release**: "Act as Release Agent. Release."
+- **Dependencies / security**: "Act as Security Agent. Update dependencies." / "Security audit."
+- **Refactor only**: "Act as Refactor Agent. Refactor [package name]."
 
-역할 전체 목록과 호출 방법: 아래 "Agent roles (sub-agents)" 섹션과 **`docs/agent-roles-and-orchestration.md`**. 여러 sub-agent 분리·병렬 vs 직렬: **`docs/agent-roles-and-orchestration.md`** §3.1.
-
----
-
-## 규칙 (Rules)
-
-- **GitHub에 열린 이슈가 없을 때**: 새 자료 조사를 시작하고, 우리에게 필요한 것들을 이슈로 남긴다. 이슈가 없다고 해서 멈추지 않는다. (Research Agent → Backlog Agent로 이슈 생성 → 생성된 첫 이슈로 진행.)
-- **백로그 = GitHub 이슈**: 로컬 백로그 파일은 사용하지 않는다. 할 일은 항상 열린 이슈에서 가져온다.
-- **한 번에 한 이슈**: "이번에 해야할을 알려주고 진행해줘"에서는 열린 이슈 중 하나(첫 번째 또는 `next` 라벨)만 골라 전체 플로우(Spec → Implementation → … → PR)를 진행한다.
-- **화면(채팅) 토큰 최소화**: 에이전트는 채팅에 긴 설명을 쓰지 않는다. 꼭 필요한 내용은 **이슈 본문, 커밋 메시지, PR 설명/코멘트, docs, docs/specs, apps/docs-site**에 남긴다. 응답은 한두 문장·불릿 수준으로 끝낸다.
+Full role list and invocation: see "Agent roles (sub-agents)" below and **`docs/agent-roles-and-orchestration.md`**. For splitting/parallel vs serial: **`docs/agent-roles-and-orchestration.md`** §3.1.
 
 ---
 
-## Single command: "이번에 해야할을 알려주고 진행해줘"
+## Rules
 
-When the user says **"이번에 해야할을 알려주고 진행해줘"** (or "What needs to be done? Proceed." / "할 일 알려주고 진행해줘"), do the following in order.
+- **English only**: All agent output (commit messages, PR/issue titles and body, comments, documentation, chat replies) must be in **English**. Do not use Korean or other languages unless the user explicitly requests it.
+- **No open issues**: When there are no open GitHub issues, do not stop. Run Research Agent (gather ideas, suggest features), then Backlog Agent to create issue(s); proceed with the first created issue.
+- **Backlog = GitHub issues**: Do not use local backlog files. Work always comes from open issues.
+- **One issue at a time**: For "What needs to be done? Proceed.", pick a single open issue (first or labeled `next`) and run the full flow (Spec → Implementation → … → PR).
+- **Minimize chat tokens**: Keep chat replies short (one or two sentences or bullets). Put detail in **issue body, commit message, PR description/comments, docs, docs/specs, apps/docs-site**.
+
+---
+
+## Single command: "What needs to be done? Proceed."
+
+When the user says **"What needs to be done? Proceed."** (or equivalent), do the following in order.
 
 ### 1. Determine "what needs to be done"
 
 **Backlog = GitHub issues.** Use open issues as the backlog.
 
 1. **List open issues**: `gh issue list --state open --limit 10`. Pick the **first open issue** (or one labeled `next` if you use that). The issue title + body is the task.
-2. **Nothing found (열린 이슈 없음)**: 이슈가 없으면 **멈추지 말고** 아래를 수행한다.
-   - **Research Agent**: 다른 에디터·자료를 조사하고, 우리 에디터에 추가하면 좋을 기능·개선을 제안한다. 보고서 + **이슈 초안**(제목·본문)을 출력한다. (예: ProseMirror / Slate / Lexical / TipTap 등 리스트·블록·입력 처리 비교, 우리에 넣을 만한 항목 추천.)
-   - **Backlog Agent**: Research Agent가 낸 이슈 초안을 바탕으로 GitHub에 **이슈를 생성**한다. (`gh issue create` 또는 웹으로 생성.) 생성된 이슈 중 **첫 번째**를 이번 할 일로 선택한다.
-   - **이후**: step 2(Report)로 가서 "이번에 할 일: [첫 번째 이슈 제목] (issue #N)"라고 알린 뒤 step 3(Proceed)로 진행한다.
-   - **`gh`를 쓸 수 없을 때**: Research Agent만 실행하고, 이슈 초안(제목·본문)을 사용자에게 보여준 뒤 "위 초안으로 GitHub에서 New issue를 만들어 주시면, 다음에 '이번에 해야할을 알려주고 진행해줘'로 진행할 수 있습니다."라고 안내한다.
+2. **Nothing found (no open issues)**: Do **not** stop. Run:
+   - **Research Agent**: Research other editors and materials; suggest features or improvements for our editor. Output a report + **draft issue(s)** (title + body). (e.g. compare ProseMirror / Slate / Lexical / TipTap list/block/input handling; recommend items to add.)
+   - **Backlog Agent**: Create GitHub issue(s) from the Research draft (`gh issue create` or web). Pick the **first** created issue as the current task.
+   - **Then**: Go to step 2 (Report), say "Current task: [first issue title] (issue #N)", then step 3 (Proceed).
+   - **When `gh` is not available**: Run Research Agent only; show the user the draft issue(s) and say: "Create a New issue on GitHub from the draft above, then run 'What needs to be done? Proceed.' again."
 
 ### 2. Report
 
-Reply with one short line: **"이번에 할 일: [issue title] (issue #N)"** (e.g. "이번에 할 일: Add insertList (issue #5)"). Then continue to step 3.
+Reply with one short line: **"Current task: [issue title] (issue #N)"** (e.g. "Current task: Add insertList (issue #5)"). Then continue to step 3.
 
 ### 3. Proceed
 
@@ -97,7 +98,7 @@ Run the **full flow** for that task, in role order:
 - **E2E Agent**: Run `pnpm test:e2e:react` (or `pnpm test:e2e`); add/update E2E spec if needed; report pass/fail.
 - **GitHub Agent**: Open PR with template, link issue. Do not edit spec or code.
 
-If the user only said "이번에 해야할을 알려주고 진행해줘" with no other context, use the **first open issue** and run the full flow. After each role, continue to the next role without asking unless a handback is needed (e.g. tests fail → fix or report). When the PR is merged, the issue is closed (e.g. "Closes #N"); no separate backlog file to update.
+If the user only said "What needs to be done? Proceed." with no other context, use the **first open issue** and run the full flow. After each role, continue to the next role without asking unless a handback is needed (e.g. tests fail → fix or report). When the PR is merged, the issue is closed (e.g. "Closes #N"); no separate backlog file to update.
 
 ---
 
@@ -119,10 +120,10 @@ Work can be split by **role** so that different agents (or the same agent acting
 | **Release** | Package release (changeset, version, publish) | User request or post-merge | Version PR or npm publish |
 | **Security** | Dependency / security | User request or schedule | Audit report, dependency update PR |
 | **Refactor** | Refactoring only (no new features) | User request or scope | Refactored code; Test Agent must pass after |
-| **Validation** | Internal logic validation (package tests in order) | User request or "내부 로직 검증해줘" | Per-package test:run in order; pass/fail report; fix or escalate |
+| **Validation** | Internal logic validation (package tests in order) | User request or "Validate internal logic" | Per-package test:run in order; pass/fail report; fix or escalate |
 | **README** | README only (root + packages/*/README.md) | User request or new package/feature | Updated root README.md, updated packages/*/README.md |
 
-**How to invoke by role**: Say “Act as **Spec Agent** …” (e.g. "이슈 만들어줘", "백로그 정리해줘" for Backlog; "다른 에디터 조사해서 추가할 만한 기능 알려줘" for Research), or Implementation / Test / E2E / GitHub Agent) and give the input (e.g. “For issue #123, implement per the checklist”). Each role only does its scope; handoff is defined in the doc above. **Role files**: **`.cursor/roles/`** — `BACKLOG_AGENT.md`, `RESEARCH_AGENT.md`, `SPEC_AGENT.md`, `IMPLEMENTATION_AGENT.md`, `TEST_AGENT.md`, `E2E_AGENT.md`, `GITHUB_AGENT.md`, `DOCS_AGENT.md`, `REVIEW_AGENT.md`, `RELEASE_AGENT.md`, `SECURITY_AGENT.md`, `REFACTOR_AGENT.md`, `VALIDATION_AGENT.md`, `README_AGENT.md` (short scope per role; @-mention when invoking). For **automation**, use triggers (e.g. issue labels `spec-ready`, `ready-for-test`, `unit-pass`, `e2e-pass`) as the contract; see `docs/agent-roles-and-orchestration.md` §4.2.
+**How to invoke by role**: Say “Act as **Spec Agent** …” (e.g. "Create an issue", "Triage backlog" for Backlog; "Research other editors and suggest features" for Research), or Implementation / Test / E2E / GitHub Agent) and give the input (e.g. “For issue #123, implement per the checklist”). Each role only does its scope; handoff is defined in the doc above. **Role files**: **`.cursor/roles/`** — `BACKLOG_AGENT.md`, `RESEARCH_AGENT.md`, `SPEC_AGENT.md`, `IMPLEMENTATION_AGENT.md`, `TEST_AGENT.md`, `E2E_AGENT.md`, `GITHUB_AGENT.md`, `DOCS_AGENT.md`, `REVIEW_AGENT.md`, `RELEASE_AGENT.md`, `SECURITY_AGENT.md`, `REFACTOR_AGENT.md`, `VALIDATION_AGENT.md`, `README_AGENT.md` (short scope per role; @-mention when invoking). For **automation**, use triggers (e.g. issue labels `spec-ready`, `ready-for-test`, `unit-pass`, `e2e-pass`) as the contract; see `docs/agent-roles-and-orchestration.md` §4.2.
 
 ---
 
@@ -139,8 +140,8 @@ Details on layers, patterns, and verification are in **`docs/platform-for-agent.
 
 ## Where to do what
 
-- **Internal logic validation (패키지별 검증 순서·테스트)**: **`docs/internal-logic-validation.md`**  
-  - 패키지별 검증 순서(shared → schema → … → devtool), 각 패키지에서 검증할 내부 로직, 테스트 실행 방법. "내부 로직 검증해줘" / "Act as Validation Agent" 시 이 문서를 따른다.
+- **Internal logic validation (per-package order and tests)**: **`docs/internal-logic-validation.md`**  
+  - Validation order (shared → schema → … → devtool), what to validate per package, how to run tests. Follow this doc when "Validate internal logic" / "Act as Validation Agent".
 - **Package / app / flow skills**: **`.cursor/skills/README.md`**  
   - Which skill to use per package, cross-cutting flows (e.g. adding operations, selection), and app roles (editor-test, editor-react) in a table.
 - **Adding an operation**: **`.cursor/skills/model-operation-creation/SKILL.md`**  
@@ -167,7 +168,7 @@ When you ask the agent to change this repo, phrase the request so the agent know
 | Add **only E2E** for existing behavior | “Add an E2E test in editor-react for toggleBold: select text, press Mod+b, assert bold.” | Add or extend `apps/editor-react/tests/*.spec.ts`, run `pnpm test:e2e:react`. |
 | **Fix or change** one layer | “In insertParagraph, ensure selectionAfter.nodeId is always a text node.” | Edit the relevant package (e.g. model), run that package’s tests and, if needed, E2E. |
 | **Verify** after changes | “Run unit tests for model and extensions and then E2E for React.” | Run `pnpm --filter @barocss/model test:run`, `pnpm --filter @barocss/extensions test:run`, then `pnpm test:e2e:react`. |
-| **Internal logic validation** (패키지별 검증) | "내부 로직 검증해줘." / "Act as Validation Agent. 내부 로직 검증해줘." | Follow **`docs/internal-logic-validation.md`**: run `pnpm --filter @barocss/<package> test:run` in the documented order (shared → schema → … → devtool); report pass/fail; fix or escalate. |
+| **Internal logic validation** (per-package) | "Validate internal logic." / "Act as Validation Agent. Validate internal logic." | Follow **`docs/internal-logic-validation.md`**: run `pnpm --filter @barocss/<package> test:run` in the documented order (shared → schema → … → devtool); report pass/fail; fix or escalate. |
 
 ### What to include in a command
 
