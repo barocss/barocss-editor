@@ -36,6 +36,16 @@ export interface FiberReconcileDependencies {
 }
 
 /**
+ * Get decorator identity (data-decorator-sid) from VNode (attrs or top-level decoratorSid).
+ */
+function getDecoratorSid(node: VNode | undefined): string | undefined {
+  if (!node || typeof node !== 'object') return undefined;
+  const fromAttrs = (node as VNode & { attrs?: Record<string, unknown> }).attrs?.[DOMAttribute.DECORATOR_SID];
+  if (fromAttrs !== undefined && fromAttrs !== null) return String(fromAttrs);
+  return (node as VNode & { decoratorSid?: string }).decoratorSid;
+}
+
+/**
  * Check Props changes via shallow comparison
  */
 function arePropsEqual(prev: any, next: any): boolean {
@@ -242,11 +252,18 @@ export function renderFiberNode(
     : null;
   const nextType = isTextVNode(vnode) ? 'text' : isHostVNode(vnode) ? 'host' : 'unknown';
   const typeChanged = prevType !== null && prevType !== nextType;
-  
+
+  // Host nodes with different decorator identity must not reuse DOM (create new element)
+  const prevDecoratorSid = getDecoratorSid(prevVNode);
+  const nextDecoratorSid = getDecoratorSid(vnode);
+  const decoratorIdentityChanged =
+    isHostVNode(vnode) &&
+    (prevDecoratorSid !== undefined || nextDecoratorSid !== undefined) &&
+    prevDecoratorSid !== nextDecoratorSid;
   
   // 4. Determine effectTag (calculation only, no DOM manipulation)
   // PLACEMENT if no prevVNode, PLACEMENT if type changed (remove existing DOM then create new), UPDATE otherwise
-  if (!prevVNode || typeChanged) {
+  if (!prevVNode || typeChanged || decoratorIdentityChanged) {
     fiber.effectTag = EffectTag.PLACEMENT;
   } else {
     fiber.effectTag = EffectTag.UPDATE;
@@ -254,11 +271,12 @@ export function renderFiberNode(
   
   // 5. Create or find DOM element (React style: create DOM in Render Phase)
   // In Render Phase, create DOM but do not insert
-  // IMPORTANT: If type changed, do not reuse existing DOM, create new
+  // IMPORTANT: If type changed or decorator identity changed, do not reuse existing DOM, create new
   let domElement: HTMLElement | Text | null = null;
   
-  // Find existing DOM element (from prevVNode, reuse only if type is same)
-  if (prevVNode?.meta?.domElement && !typeChanged) {
+  const cannotReuse = typeChanged || decoratorIdentityChanged;
+  // Find existing DOM element (from prevVNode, reuse only if type and decorator identity are same)
+  if (prevVNode?.meta?.domElement && !cannotReuse) {
     domElement = prevVNode.meta.domElement as HTMLElement | Text;
   } else {
     // Create new DOM element (insertion performed in commit phase)
