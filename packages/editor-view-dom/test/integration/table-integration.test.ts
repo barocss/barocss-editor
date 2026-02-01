@@ -5,7 +5,7 @@ import { DataStore } from '@barocss/datastore';
 import { normalizeHTML, expectHTML } from '../utils/html';
 import { define, element, slot, data } from '@barocss/dsl';
 
-describe.skip('EditorViewDOM + renderer-dom Table Integration', () => {
+describe('EditorViewDOM + renderer-dom Table Integration', () => {
   let editor: Editor;
   let view: EditorViewDOM;
   let container: HTMLElement;
@@ -764,17 +764,17 @@ describe.skip('EditorViewDOM + renderer-dom Table Integration', () => {
 
       view.render(tree);
 
-      // Verify full rendering result
+      // Verify full rendering result (content layer omits data-bc-stype on nodes)
       expectHTML(
         view.layers.content,
         `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">
-          <div class="document" data-bc-sid="doc1" data-bc-stype="document">
+          <div class="document" data-bc-sid="doc1">
             <div data-decorator-category="block" data-decorator-missing-renderer="highlight" data-decorator-position="before" data-decorator-sid="decorator1" data-decorator-stype="highlight"></div>
-            <table class="barocss-table" data-bc-sid="table1" data-bc-stype="table">
-              <tbody class="barocss-tbody" data-bc-sid="tbody1" data-bc-stype="tbody">
-                <tr class="barocss-tr" data-bc-sid="tr1" data-bc-stype="tr">
-                  <td class="barocss-td" data-bc-sid="td1" data-bc-stype="td">
-                    <span class="text" data-bc-sid="t1" data-bc-stype="inline-text"></span>
+            <table class="barocss-table" data-bc-sid="table1">
+              <tbody class="barocss-tbody" data-bc-sid="tbody1">
+                <tr class="barocss-tr" data-bc-sid="tr1">
+                  <td class="barocss-td" data-bc-sid="td1">
+                    <span class="text" data-bc-sid="t1"><span>Cell Content</span></span>
                   </td>
                 </tr>
               </tbody>
