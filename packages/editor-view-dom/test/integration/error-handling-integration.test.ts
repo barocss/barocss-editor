@@ -56,8 +56,7 @@ describe('EditorViewDOM + renderer-dom Error Handling Integration', () => {
       }).toThrow('[EditorViewDOM] Invalid tree format: missing stype (required)');
     });
 
-    it.skip('handles unregistered stype gracefully', () => {
-      // Renderer does not throw for unregistered node type; validation not implemented
+    it('handles unregistered stype gracefully', () => {
       const tree: TreeDocument = {
         sid: 'doc1',
         stype: 'document',
