@@ -232,9 +232,9 @@ describe('DSL Functions Tests', () => {
       // Since define() now wraps ElementTemplate as ComponentTemplate, we need to call the component function
       if (definition.template.type === 'component' && typeof definition.template.component === 'function') {
         const elementTemplate = definition.template.component({}, {} as any);
-        expect(elementTemplate.attributes?.className).toBe('mark-bold mark-bold');
+        expect(elementTemplate.attributes?.className).toBe('mark-bold');
       } else {
-        expect(definition.template.attributes?.className).toBe('mark-bold mark-bold');
+        expect(definition.template.attributes?.className).toBe('mark-bold');
       }
     });
 
@@ -250,9 +250,9 @@ describe('DSL Functions Tests', () => {
       // Since define() now wraps ElementTemplate as ComponentTemplate, we need to call the component function
       if (definition.template.type === 'component' && typeof definition.template.component === 'function') {
         const elementTemplate = definition.template.component({}, {} as any);
-        expect(elementTemplate.attributes?.className).toBe('mark-italic mark-italic');
+        expect(elementTemplate.attributes?.className).toBe('mark-italic');
       } else {
-        expect(definition.template.attributes?.className).toBe('mark-italic mark-italic');
+        expect(definition.template.attributes?.className).toBe('mark-italic');
       }
     });
   });
