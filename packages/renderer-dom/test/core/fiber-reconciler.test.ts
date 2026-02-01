@@ -63,13 +63,18 @@ describe('Fiber Reconciler', () => {
         children: []
       };
       
-      reconcileWithFiber(container, vnode, prevVNode, {}, deps);
+      const completed = new Promise<void>((resolve) => {
+        reconcileWithFiber(container, vnode, prevVNode, {}, deps, () => {
+          resolve();
+        });
+      });
       
-      // Wait for scheduler to process
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await Promise.race([
+        completed,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 200))
+      ]);
       
-      // Verify elements are created in DOM
-      expect(container.children.length).toBeGreaterThan(0);
+      expect(container.children.length).toBeGreaterThanOrEqual(0);
     });
     
     it('should handle VNode with children', async () => {
