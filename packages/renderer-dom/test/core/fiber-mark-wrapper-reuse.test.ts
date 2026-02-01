@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createFiberTree } from '../../src/reconcile/fiber/fiber-tree';
-import { reconcileFiberNode, FiberReconcileDependencies, processPrimitiveTextChildren } from '../../src/reconcile/fiber/fiber-reconciler';
+import { renderFiberNode, commitFiberTree, FiberReconcileDependencies, processPrimitiveTextChildren } from '../../src/reconcile/fiber/fiber-reconciler';
 import { findHostForChildVNode } from '../../src/reconcile/utils/host-finding';
 import { FiberNode } from '../../src/reconcile/fiber/types';
 import { VNode } from '../../src/vnode/types';
@@ -122,8 +122,9 @@ describe('Fiber - Mark Wrapper 재사용', () => {
     // Create Fiber with createFiberTree (primitiveTextChildren is correctly set)
     const fiber = createFiberTree(textEl, vnode, prevVNode, {});
 
-    // Call reconcileFiberNode
-    reconcileFiberNode(fiber, deps, {});
+    // Render phase then commit phase (reconcileFiberNode was removed; use renderFiberNode + commitFiberTree)
+    renderFiberNode(fiber, deps, {});
+    commitFiberTree(fiber, deps, {});
 
     // Call processPrimitiveTextChildren (automatically called in actual reconcileWithFiber)
     processPrimitiveTextChildren(fiber, deps);
@@ -296,8 +297,9 @@ describe('Fiber - Mark Wrapper 재사용', () => {
     // Create Fiber with createFiberTree
     const fiber = createFiberTree(textEl, vnode, prevVNode, {});
     
-    // Call reconcileFiberNode
-    reconcileFiberNode(fiber, deps, {});
+    // Render phase then commit phase (reconcileFiberNode was removed; use renderFiberNode + commitFiberTree)
+    renderFiberNode(fiber, deps, {});
+    commitFiberTree(fiber, deps, {});
     
     // Call processPrimitiveTextChildren (automatically called in actual reconcileWithFiber)
     processPrimitiveTextChildren(fiber, deps);
