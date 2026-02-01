@@ -62,6 +62,8 @@ describe('paste operation', () => {
     const ids = root.content as string[];
     expect(ids.length).toBe(4);
     expect(ds.getNode(ids[0])!.text).toBe('A');
+    expect(ds.getNode(ids[1])!.text).toBe('B1');
+    expect(ds.getNode(ids[2])!.text).toBe('B2');
     expect(ds.getNode(ids[3])!.text).toBe('C');
 
     const firstOp = result.operations?.[0] as { result?: { insertedNodeIds?: string[]; newSelection?: unknown } };

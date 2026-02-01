@@ -95,7 +95,7 @@ export class SerializationOperations {
       newIds.push(created.sid!);
     }
 
-    // Insert new ids into parent.content
+    // Insert new ids into parent.content (preserve input order: first node at insertAt, second at insertAt+1, ...)
     content.splice(insertAt, 0, ...newIds);
     this.dataStore.updateNode(targetParentId, { content });
 
