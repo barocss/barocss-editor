@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { DataStore } from '@barocss/datastore';
 import { Schema } from '@barocss/schema';
-import { transaction, node } from '../../src/transaction-dsl';
+import { transaction, node, textNode } from '../../src/transaction-dsl';
 import { create } from '../../src/operations-dsl/create';
 import { SelectionManager } from '@barocss/editor-core';
 import { TransactionManager } from '../../src/transaction';
@@ -32,7 +32,6 @@ describe('Transaction Commit', () => {
     dataStore = new DataStore(undefined, schema);
     const selectionManager = new SelectionManager({ dataStore });
 
-    // Mock DataStore methods to track calls
     originalAcquireLock = dataStore.acquireLock;
     originalReleaseLock = dataStore.releaseLock;
     originalBegin = dataStore.begin;
@@ -40,22 +39,24 @@ describe('Transaction Commit', () => {
     originalCommit = dataStore.commit;
     originalRollback = dataStore.rollback;
 
-    dataStore.acquireLock = vi.fn().mockResolvedValue('lock-sid-123');
-    dataStore.releaseLock = vi.fn().mockResolvedValue(undefined);
-    dataStore.begin = vi.fn().mockReturnValue(undefined);
-    dataStore.end = vi.fn().mockReturnValue(undefined);
-    dataStore.commit = vi.fn().mockReturnValue(undefined);
-    dataStore.rollback = vi.fn().mockReturnValue(undefined);
+    dataStore.acquireLock = vi.fn().mockImplementation(() => Promise.resolve('lock-sid-123'));
+    dataStore.releaseLock = vi.fn().mockImplementation(() => Promise.resolve(undefined));
+    dataStore.begin = vi.fn().mockImplementation(originalBegin);
+    dataStore.end = vi.fn().mockImplementation(originalEnd);
+    dataStore.commit = vi.fn().mockImplementation(originalCommit);
+    dataStore.rollback = vi.fn().mockImplementation(originalRollback);
 
     mockEditor = {
       dataStore,
       _dataStore: dataStore,
-      selectionManager
+      selectionManager,
+      emit: vi.fn(),
+      updateSelection: vi.fn(),
+      historyManager: { push: vi.fn() }
     };
   });
 
   afterEach(() => {
-    // Restore original methods
     dataStore.acquireLock = originalAcquireLock;
     dataStore.releaseLock = originalReleaseLock;
     dataStore.begin = originalBegin;
@@ -67,7 +68,7 @@ describe('Transaction Commit', () => {
   describe('TransactionManager Integration', () => {
     it('should use TransactionManager for commit', async () => {
       const builder = transaction(mockEditor, [
-        create(node('inline-text', 'Hello World'))
+        create(textNode('inline-text', 'Hello World'))
       ]);
 
       const result = await builder.commit();
@@ -81,23 +82,23 @@ describe('Transaction Commit', () => {
 
     it('should pass operations to TransactionManager', async () => {
       const operations = [
-        create(node('inline-text', 'Hello')),
-        create(node('inline-text', 'World'))
+        create(textNode('inline-text', 'Hello')),
+        create(textNode('inline-text', 'World'))
       ];
 
       const builder = transaction(mockEditor, operations);
       const result = await builder.commit();
 
-      // operations now include result field; compare types and payload.node
-      expect(result.operations?.map(o => ({ type: o.type, nodeType: o.payload.node.type })))
-        .toEqual(operations.map(o => ({ type: o.type, nodeType: (o as any).payload.node.type })));
+      // operations now include result field; compare types and payload.node.stype
+      expect(result.operations?.map(o => ({ type: o.type, nodeType: o.payload.node.stype })))
+        .toEqual(operations.map(o => ({ type: o.type, nodeType: (o as any).payload.node.stype })));
     });
   });
 
   describe('Lock Management', () => {
     it('should acquire lock before transaction', async () => {
       const builder = transaction(mockEditor, [
-        create(node('inline-text', 'Test'))
+        create(textNode('inline-text', 'Test'))
       ]);
 
       await builder.commit();
@@ -107,7 +108,7 @@ describe('Transaction Commit', () => {
 
     it('should release lock after transaction', async () => {
       const builder = transaction(mockEditor, [
-        create(node('inline-text', 'Test'))
+        create(textNode('inline-text', 'Test'))
       ]);
 
       await builder.commit();
@@ -123,7 +124,7 @@ describe('Transaction Commit', () => {
       });
 
       const builder = transaction(mockEditor, [
-        create(node('inline-text', 'Test'))
+        create(textNode('inline-text', 'Test'))
       ]);
 
       const result = await builder.commit();
@@ -139,7 +140,7 @@ describe('Transaction Commit', () => {
   describe('DataStore Transaction Lifecycle', () => {
     it('should call begin() before operations', async () => {
       const builder = transaction(mockEditor, [
-        create(node('inline-text', 'Test'))
+        create(textNode('inline-text', 'Test'))
       ]);
 
       await builder.commit();
@@ -149,7 +150,7 @@ describe('Transaction Commit', () => {
 
     it('should call end() and commit() after successful operations', async () => {
       const builder = transaction(mockEditor, [
-        create(node('inline-text', 'Test'))
+        create(textNode('inline-text', 'Test'))
       ]);
 
       await builder.commit();
@@ -166,7 +167,7 @@ describe('Transaction Commit', () => {
       });
 
       const builder = transaction(mockEditor, [
-        create(node('inline-text', 'Test'))
+        create(textNode('inline-text', 'Test'))
       ]);
 
       await builder.commit();
@@ -181,7 +182,7 @@ describe('Transaction Commit', () => {
   describe('Schema Propagation', () => {
     it('should set schema on TransactionManager', async () => {
       const builder = transaction(mockEditor, [
-        create(node('inline-text', 'Test'))
+        create(textNode('inline-text', 'Test'))
       ]);
 
       const result = await builder.commit();
@@ -201,7 +202,7 @@ describe('Transaction Commit', () => {
       });
 
       const builder = transaction(mockEditor, [
-        create(node('inline-text', 'Test'))
+        create(textNode('inline-text', 'Test'))
       ]);
 
       const result = await builder.commit();
@@ -217,7 +218,7 @@ describe('Transaction Commit', () => {
       dataStore.acquireLock = vi.fn().mockRejectedValue(new Error('Lock acquisition failed'));
 
       const builder = transaction(mockEditor, [
-        create(node('inline-text', 'Test'))
+        create(textNode('inline-text', 'Test'))
       ]);
 
       const result = await builder.commit();
@@ -230,7 +231,7 @@ describe('Transaction Commit', () => {
   describe('Transaction Result', () => {
     it('should return success result for valid operations', async () => {
       const builder = transaction(mockEditor, [
-        create(node('inline-text', 'Hello World'))
+        create(textNode('inline-text', 'Hello World'))
       ]);
 
       const result = await builder.commit();

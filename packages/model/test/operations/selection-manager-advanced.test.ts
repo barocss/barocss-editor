@@ -37,15 +37,15 @@ describe('SelectionManager Advanced Features', () => {
       }
     });
 
-    dataStore = new DataStore();
+    dataStore = new DataStore(undefined, schema);
     selectionManager = new SelectionManager({ dataStore });
 
-    // Set up test nodes
-    dataStore.setNode({ id: 'doc-1', type: 'document', content: ['para-1', 'para-2'] });
-    dataStore.setNode({ id: 'para-1', type: 'paragraph', content: ['text-1'] });
-    dataStore.setNode({ id: 'text-1', type: 'inline-text', text: 'Hello World', parentId: 'para-1' });
-    dataStore.setNode({ id: 'para-2', type: 'paragraph', content: ['text-2'] });
-    dataStore.setNode({ id: 'text-2', type: 'inline-text', text: 'Goodbye Universe', parentId: 'para-2' });
+    // Set up test nodes (DataStore uses sid/stype)
+    dataStore.setNode({ sid: 'doc-1', stype: 'document', content: ['para-1', 'para-2'] });
+    dataStore.setNode({ sid: 'para-1', stype: 'paragraph', content: ['text-1'] });
+    dataStore.setNode({ sid: 'text-1', stype: 'inline-text', text: 'Hello World', parentId: 'para-1' });
+    dataStore.setNode({ sid: 'para-2', stype: 'paragraph', content: ['text-2'] });
+    dataStore.setNode({ sid: 'text-2', stype: 'inline-text', text: 'Goodbye Universe', parentId: 'para-2' });
     
     // Clear selection before each test
     selectionManager.clearSelection();
@@ -57,6 +57,7 @@ describe('SelectionManager Advanced Features', () => {
       
       const selection = selectionManager.getCurrentSelection();
       expect(selection).toEqual({
+        type: 'range',
         startNodeId: 'text-1',
         startOffset: 0,
         endNodeId: 'text-1',
@@ -75,12 +76,12 @@ describe('SelectionManager Advanced Features', () => {
     it('should select all text from first to last node', () => {
       selectionManager.selectAll();
       const selection = selectionManager.getCurrentSelection();
-      // selectAll behavior: select from first to last node
       expect(selection).toEqual({
+        type: 'range',
         startNodeId: 'text-1',
         startOffset: 0,
         endNodeId: 'text-2',
-        endOffset: 16 // "Another text".length
+        endOffset: 16 // "Goodbye Universe".length
       });
     });
   });
@@ -92,6 +93,7 @@ describe('SelectionManager Advanced Features', () => {
       
       const selection = selectionManager.getCurrentSelection();
       expect(selection).toEqual({
+        type: 'range',
         startNodeId: 'text-1',
         startOffset: 0,
         endNodeId: 'text-1',
@@ -105,6 +107,7 @@ describe('SelectionManager Advanced Features', () => {
       
       const selection = selectionManager.getCurrentSelection();
       expect(selection).toEqual({
+        type: 'range',
         startNodeId: 'text-1',
         startOffset: 5,
         endNodeId: 'text-1',
@@ -120,6 +123,7 @@ describe('SelectionManager Advanced Features', () => {
       
       const selection = selectionManager.getCurrentSelection();
       expect(selection).toEqual({
+        type: 'range',
         startNodeId: 'text-1',
         startOffset: 0,
         endNodeId: 'text-1',
@@ -133,6 +137,7 @@ describe('SelectionManager Advanced Features', () => {
       
       const selection = selectionManager.getCurrentSelection();
       expect(selection).toEqual({
+        type: 'range',
         startNodeId: 'text-1',
         startOffset: 11, // "Hello World".length
         endNodeId: 'text-1',
@@ -148,6 +153,7 @@ describe('SelectionManager Advanced Features', () => {
       
       const selection = selectionManager.getCurrentSelection();
       expect(selection).toEqual({
+        type: 'range',
         startNodeId: 'text-1',
         startOffset: 8,
         endNodeId: 'text-1',
@@ -161,6 +167,7 @@ describe('SelectionManager Advanced Features', () => {
       
       const selection = selectionManager.getCurrentSelection();
       expect(selection).toEqual({
+        type: 'range',
         startNodeId: 'text-1',
         startOffset: 5,
         endNodeId: 'text-1',
@@ -175,6 +182,7 @@ describe('SelectionManager Advanced Features', () => {
       
       const selection = selectionManager.getCurrentSelection();
       expect(selection).toEqual({
+        type: 'range',
         startNodeId: 'text-1',
         startOffset: 0,
         endNodeId: 'text-1',
@@ -187,6 +195,7 @@ describe('SelectionManager Advanced Features', () => {
       
       const selection = selectionManager.getCurrentSelection();
       expect(selection).toEqual({
+        type: 'range',
         startNodeId: 'text-1',
         startOffset: 0,
         endNodeId: 'text-1',
@@ -201,6 +210,7 @@ describe('SelectionManager Advanced Features', () => {
       
       const selection = selectionManager.getCurrentSelection();
       expect(selection).toEqual({
+        type: 'range',
         startNodeId: 'text-1',
         startOffset: 5,
         endNodeId: 'text-1',
@@ -212,12 +222,13 @@ describe('SelectionManager Advanced Features', () => {
   describe('selectLine', () => {
     it('should select line containing position', () => {
       // Add line breaks to text
-      dataStore.setNode({ id: 'text-3', type: 'inline-text', text: 'Line 1\nLine 2\nLine 3', parentId: 'para-1' });
+      dataStore.setNode({ sid: 'text-3', stype: 'inline-text', text: 'Line 1\nLine 2\nLine 3', parentId: 'para-1' });
       
       selectionManager.selectLine('text-3', 8); // Inside "Line 2"
       
       const selection = selectionManager.getCurrentSelection();
       expect(selection).toEqual({
+        type: 'range',
         startNodeId: 'text-3',
         startOffset: 7, // Start of "Line 2"
         endNodeId: 'text-3',
@@ -275,6 +286,7 @@ describe('SelectionManager Advanced Features', () => {
       
       const selection = selectionManager.getCurrentSelection();
       expect(selection).toEqual({
+        type: 'range',
         startNodeId: 'text-1',
         startOffset: 2,
         endNodeId: 'text-1',
