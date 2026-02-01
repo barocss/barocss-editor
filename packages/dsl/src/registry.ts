@@ -42,9 +42,18 @@ export class RendererRegistry {
     this._renderers.set(renderer.nodeType, renderer);
   }
   
-  // get() is removed - use getComponent() instead
-  // Everything defined with define() is component-only, so only use getComponent()
-  
+  /**
+   * Get renderer definition by node type.
+   * Returns from _renderers (node/component templates) or _components (external components).
+   */
+  get(nodeType: TNodeType): RendererDefinition | undefined {
+    const def = this._renderers.get(nodeType);
+    if (def) return def;
+    const comp = this.getComponent(nodeType);
+    if (comp) return { type: 'renderer', nodeType, template: comp };
+    return undefined;
+  }
+
   // Get all renderers (deprecated - use getComponent instead)
   getAll(): RendererDefinition[] {
     return Array.from(this._renderers.values());
