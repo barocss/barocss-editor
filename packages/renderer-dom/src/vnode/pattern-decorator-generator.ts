@@ -221,7 +221,8 @@ export class PatternDecoratorGenerator {
     for (const patternDecorator of patternDecorators) {
       // 같은 범위의 기존 decorator가 있으면 스킵 (기존 decorator 우선)
       const hasOverlap = existingDecorators.some(existing => {
-        if (existing.target.sid !== nodeId) return false;
+        const targetSid = 'sid' in existing.target ? existing.target.sid : undefined;
+        if (targetSid !== nodeId) return false;
         const existingStart = existing.target.startOffset || 0;
         const existingEnd = existing.target.endOffset || 0;
         const patternStart = patternDecorator.target.startOffset || 0;

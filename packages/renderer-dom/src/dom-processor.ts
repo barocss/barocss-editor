@@ -391,7 +391,7 @@ export class DOMProcessor {
           }
           
           // 추가/업데이트할 스타일
-          this.domOperations.updateStyles(htmlElement, nextStyles);
+          this.domOperations.updateStyles(htmlElement, undefined, nextStyles);
         }
         
         // domNode를 wip에 설정
@@ -407,7 +407,7 @@ export class DOMProcessor {
       const nextAttrs = vnode.attrs || {};
       this.domOperations.updateAttributesWithRemoval(htmlElement, nextAttrs as any);
       const nextStyles = vnode.style || {};
-      this.domOperations.updateStyles(htmlElement, nextStyles as any);
+      this.domOperations.updateStyles(htmlElement, undefined, nextStyles as any);
     }
 
     // 컴포넌트 변경 처리는 ComponentManager 경로에서 수행되므로 여기서는 처리하지 않음
@@ -644,14 +644,14 @@ export class DOMProcessor {
    * 속성 업데이트
    */
   public updateAttributes(element: HTMLElement, attrs: Record<string, any>): void {
-    this.domOperations.updateAttributes(element, attrs);
+    this.domOperations.updateAttributes(element, undefined, attrs);
   }
 
   /**
    * 스타일 업데이트
    */
   public updateStyles(element: HTMLElement, styles: Record<string, any>): void {
-    this.domOperations.updateStyles(element, styles);
+    this.domOperations.updateStyles(element, undefined, styles);
   }
 
   /**

@@ -27,7 +27,7 @@ export interface FiberNode {
   prevVNode: VNode | undefined;
   
   // DOM info
-  domElement: HTMLElement | null;
+  domElement: HTMLElement | Text | null;
   parent: HTMLElement; // Actual DOM parent
   
   // Fiber tree structure

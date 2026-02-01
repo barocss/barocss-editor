@@ -34,7 +34,7 @@ export function getHostSibling(fiber: FiberNode): Node | null {
     
     // If sibling doesn't have DOM node, find first DOM node among children
     if (sibling.child) {
-      let childFiber = sibling.child;
+      let childFiber: FiberNode | null = sibling.child;
       while (childFiber) {
         if (childFiber.domElement) {
           return childFiber.domElement;
