@@ -77,11 +77,11 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
             text: 'Bold italic text with decorator',
             marks: [
               {
-                type: 'bold',
+                stype: 'bold',
                 range: [0, 4] // "Bold"
               },
               {
-                type: 'italic',
+                stype: 'italic',
                 range: [5, 11] // "italic"
               }
             ]
@@ -111,7 +111,7 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
         container,
         `<p class="paragraph" data-bc-sid="p-1">
           <span class="text" data-bc-sid="text-1">
-            <span class="chip" data-decorator="true" data-decorator-category="inline" data-decorator-position="before" data-decorator-sid="chip-1" data-decorator-stype="chip" data-skip-reconcile="true" style="display: inline-block; padding: 2px 6px; background-color: rgb(224, 224, 224); border-radius: 4px; font-size: 12px; margin: 0px 2px;">CHIP</span>
+            <span class="chip" data-decorator="true" data-decorator-category="inline" data-decorator-position="before" data-decorator-sid="chip-1" data-decorator-stype="chip" data-skip-reconcile="true" style="display: inline-block; padding: 2px 6px; background-color: rgb(224, 224, 224); border-radius: 4px; font-size: 12px; margin: 0px 2px;"><span>CHIP</span></span>
             <strong class="mark-bold"><span>Bold</span></strong>
             <em class="mark-italic"><span>italic</span></em>
             <span>text with decorator</span>
@@ -132,11 +132,11 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
             text: 'Bold and italic text',
             marks: [
               {
-                type: 'bold',
+                stype: 'bold',
                 range: [0, 4] // "Bold"
               },
               {
-                type: 'italic',
+                stype: 'italic',
                 range: [9, 15] // "italic"
               }
             ]
@@ -178,11 +178,11 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
         container,
         `<p class="paragraph" data-bc-sid="p-1">
           <span class="text" data-bc-sid="text-1">
-            <span class="chip" data-decorator="true" data-decorator-category="inline" data-decorator-position="before" data-decorator-sid="chip-1" data-decorator-stype="chip" data-skip-reconcile="true" style="display: inline-block; padding: 2px 6px; background-color: rgb(224, 224, 224); border-radius: 4px; font-size: 12px; margin: 0px 2px;">CHIP</span>
+            <span class="chip" data-decorator="true" data-decorator-category="inline" data-decorator-position="before" data-decorator-sid="chip-1" data-decorator-stype="chip" data-skip-reconcile="true" style="display: inline-block; padding: 2px 6px; background-color: rgb(224, 224, 224); border-radius: 4px; font-size: 12px; margin: 0px 2px;"><span>CHIP</span></span>
             <strong class="mark-bold"><span>Bold</span></strong>
             <span>and</span>
             <em class="mark-italic"><span>italic</span></em>
-            <span class="badge" data-decorator="true" data-decorator-category="inline" data-decorator-position="after" data-decorator-sid="badge-1" data-decorator-stype="badge" data-skip-reconcile="true" style="display: inline-block; padding: 1px 4px; background-color: rgb(255, 107, 107); color: white; border-radius: 3px; font-size: 10px; margin: 0px 1px;">BADGE</span>
+            <span class="badge" data-decorator="true" data-decorator-category="inline" data-decorator-position="after" data-decorator-sid="badge-1" data-decorator-stype="badge" data-skip-reconcile="true" style="display: inline-block; padding: 1px 4px; background-color: rgb(255, 107, 107); color: white; border-radius: 3px; font-size: 10px; margin: 0px 1px;"><span>BADGE</span></span>
             <span>text</span>
           </span>
         </p>`,
@@ -201,7 +201,7 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
             text: 'Bold text with decorator inside',
             marks: [
               {
-                type: 'bold',
+                stype: 'bold',
                 range: [0, 9] // "Bold text"
               }
             ]
@@ -232,7 +232,7 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
         `<p class="paragraph" data-bc-sid="p-1">
           <span class="text" data-bc-sid="text-1">
             <strong class="mark-bold"><span>Bold</span></strong>
-            <span class="chip" data-decorator="true" data-decorator-category="inline" data-decorator-position="before" data-decorator-sid="chip-1" data-decorator-stype="chip" data-skip-reconcile="true" style="display: inline-block; padding: 2px 6px; background-color: rgb(224, 224, 224); border-radius: 4px; font-size: 12px; margin: 0px 2px;">CHIP</span>
+            <span class="chip" data-decorator="true" data-decorator-category="inline" data-decorator-position="before" data-decorator-sid="chip-1" data-decorator-stype="chip" data-skip-reconcile="true" style="display: inline-block; padding: 2px 6px; background-color: rgb(224, 224, 224); border-radius: 4px; font-size: 12px; margin: 0px 2px;"><span>CHIP</span></span>
             <strong class="mark-bold"><span>text</span></strong>
             <span>with decorator inside</span>
           </span>
@@ -252,15 +252,15 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
             text: 'Bold italic link text with multiple decorators',
             marks: [
               {
-                type: 'bold',
+                stype: 'bold',
                 range: [0, 4] // "Bold"
               },
               {
-                type: 'italic',
+                stype: 'italic',
                 range: [5, 11] // "italic"
               },
               {
-                type: 'link',
+                stype: 'link',
                 range: [12, 16] // "link"
               }
             ]
@@ -302,11 +302,11 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
         container,
         `<p class="paragraph" data-bc-sid="p-1">
           <span class="text" data-bc-sid="text-1">
-            <span class="chip" data-decorator="true" data-decorator-category="inline" data-decorator-position="before" data-decorator-sid="chip-1" data-decorator-stype="chip" data-skip-reconcile="true" style="display: inline-block; padding: 2px 6px; background-color: rgb(224, 224, 224); border-radius: 4px; font-size: 12px; margin: 0px 2px;">CHIP</span>
+            <span class="chip" data-decorator="true" data-decorator-category="inline" data-decorator-position="before" data-decorator-sid="chip-1" data-decorator-stype="chip" data-skip-reconcile="true" style="display: inline-block; padding: 2px 6px; background-color: rgb(224, 224, 224); border-radius: 4px; font-size: 12px; margin: 0px 2px;"><span>CHIP</span></span>
             <strong class="mark-bold"><span>Bold</span></strong>
             <em class="mark-italic"><span>italic</span></em>
             <a class="mark-link" href="#"><span>link</span></a>
-            <span class="badge" data-decorator="true" data-decorator-category="inline" data-decorator-position="after" data-decorator-sid="badge-1" data-decorator-stype="badge" data-skip-reconcile="true" style="display: inline-block; padding: 1px 4px; background-color: rgb(255, 107, 107); color: white; border-radius: 3px; font-size: 10px; margin: 0px 1px;">BADGE</span>
+            <span class="badge" data-decorator="true" data-decorator-category="inline" data-decorator-position="after" data-decorator-sid="badge-1" data-decorator-stype="badge" data-skip-reconcile="true" style="display: inline-block; padding: 1px 4px; background-color: rgb(255, 107, 107); color: white; border-radius: 3px; font-size: 10px; margin: 0px 1px;"><span>BADGE</span></span>
             <span>text with multiple decorators</span>
           </span>
         </p>`,
@@ -327,11 +327,11 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
             text: 'Bold and italic text',
             marks: [
               {
-                type: 'bold',
+                stype: 'bold',
                 range: [0, 4] // "Bold"
               },
               {
-                type: 'italic',
+                stype: 'italic',
                 range: [0, 4] // Overlaps with "Bold"
               }
             ]
@@ -367,15 +367,15 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
             text: 'Bold italic link text',
             marks: [
               {
-                type: 'bold',
+                stype: 'bold',
                 range: [0, 4] // "Bold"
               },
               {
-                type: 'italic',
+                stype: 'italic',
                 range: [0, 4] // Overlaps with "Bold"
               },
               {
-                type: 'link',
+                stype: 'link',
                 range: [0, 4] // Overlaps with "Bold"
               }
             ]
@@ -413,15 +413,15 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
             text: 'Bold italic and link text',
             marks: [
               {
-                type: 'bold',
+                stype: 'bold',
                 range: [0, 4] // "Bold"
               },
               {
-                type: 'italic',
+                stype: 'italic',
                 range: [5, 11] // "italic"
               },
               {
-                type: 'link',
+                stype: 'link',
                 range: [16, 20] // "link"
               }
             ]
@@ -458,11 +458,11 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
             text: 'Bold italic text with decorator',
             marks: [
               {
-                type: 'bold',
+                stype: 'bold',
                 range: [0, 4] // "Bold"
               },
               {
-                type: 'italic',
+                stype: 'italic',
                 range: [0, 4] // Overlaps with "Bold"
               }
             ]
@@ -492,7 +492,7 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
         container,
         `<p class="paragraph" data-bc-sid="p-1">
           <span class="text" data-bc-sid="text-1">
-            <span class="chip" data-decorator="true" data-decorator-category="inline" data-decorator-position="before" data-decorator-sid="chip-1" data-decorator-stype="chip" data-skip-reconcile="true" style="display: inline-block; padding: 2px 6px; background-color: rgb(224, 224, 224); border-radius: 4px; font-size: 12px; margin: 0px 2px;">CHIP</span>
+            <span class="chip" data-decorator="true" data-decorator-category="inline" data-decorator-position="before" data-decorator-sid="chip-1" data-decorator-stype="chip" data-skip-reconcile="true" style="display: inline-block; padding: 2px 6px; background-color: rgb(224, 224, 224); border-radius: 4px; font-size: 12px; margin: 0px 2px;"><span>CHIP</span></span>
             <strong class="mark-bold">
               <em class="mark-italic"><span>Bold</span></em>
             </strong>
@@ -514,19 +514,19 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
             text: 'This is bold italic and link text with code',
             marks: [
               {
-                type: 'bold',
+                stype: 'bold',
                 range: [8, 12] // "bold"
               },
               {
-                type: 'italic',
+                stype: 'italic',
                 range: [8, 12] // Overlaps with "bold"
               },
               {
-                type: 'link',
+                stype: 'link',
                 range: [13, 19] // "italic"
               },
               {
-                type: 'code',
+                stype: 'code',
                 range: [34, 38] // "code"
               }
             ]
@@ -566,15 +566,15 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
             text: 'Hello World',
             marks: [
               {
-                type: 'bold',
+                stype: 'bold',
                 range: [0, 2] // "He"
               },
               {
-                type: 'bold',
+                stype: 'bold',
                 range: [5, 7] // "Wo"
               },
               {
-                type: 'italic',
+                stype: 'italic',
                 range: [0, 10] // "Hello Worl" (covers almost entire text)
               }
             ]
@@ -617,19 +617,19 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
             text: 'This is a test text',
             marks: [
               {
-                type: 'bold',
+                stype: 'bold',
                 range: [0, 4] // "This"
               },
               {
-                type: 'bold',
+                stype: 'bold',
                 range: [8, 9] // "a"
               },
               {
-                type: 'bold',
+                stype: 'bold',
                 range: [10, 14] // "test"
               },
               {
-                type: 'italic',
+                stype: 'italic',
                 range: [0, 15] // "This is a test " (almost entire)
               }
             ]
@@ -672,27 +672,27 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
             text: 'Bold italic link text',
             marks: [
               {
-                type: 'bold',
+                stype: 'bold',
                 range: [0, 4] // "Bold"
               },
               {
-                type: 'bold',
+                stype: 'bold',
                 range: [12, 16] // "link"
               },
               {
-                type: 'italic',
+                stype: 'italic',
                 range: [5, 11] // "italic"
               },
               {
-                type: 'italic',
+                stype: 'italic',
                 range: [12, 16] // "link" (overlaps with bold)
               },
               {
-                type: 'link',
+                stype: 'link',
                 range: [0, 4] // "Bold" (overlaps with bold)
               },
               {
-                type: 'link',
+                stype: 'link',
                 range: [12, 16] // "link" (overlaps with bold, italic)
               }
             ]
@@ -735,15 +735,15 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
             text: 'Hello World',
             marks: [
               {
-                type: 'bold',
+                stype: 'bold',
                 range: [0, 2] // "He"
               },
               {
-                type: 'bold',
+                stype: 'bold',
                 range: [5, 7] // "Wo"
               },
               {
-                type: 'italic',
+                stype: 'italic',
                 range: [0, 10] // "Hello Worl"
               }
             ]
@@ -785,7 +785,7 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
         container,
         `<p class="paragraph" data-bc-sid="p-1">
           <span class="text" data-bc-sid="text-1">
-            <span class="chip" data-decorator="true" data-decorator-category="inline" data-decorator-position="before" data-decorator-sid="chip-1" data-decorator-stype="chip" data-skip-reconcile="true" style="display: inline-block; padding: 2px 6px; background-color: rgb(224, 224, 224); border-radius: 4px; font-size: 12px; margin: 0px 2px;">CHIP</span>
+            <span class="chip" data-decorator="true" data-decorator-category="inline" data-decorator-position="before" data-decorator-sid="chip-1" data-decorator-stype="chip" data-skip-reconcile="true" style="display: inline-block; padding: 2px 6px; background-color: rgb(224, 224, 224); border-radius: 4px; font-size: 12px; margin: 0px 2px;"><span>CHIP</span></span>
             <strong class="mark-bold">
               <em class="mark-italic"><span>He</span></em>
             </strong>
@@ -793,7 +793,7 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
             <strong class="mark-bold">
               <em class="mark-italic"><span>W</span></em>
             </strong>
-            <span class="badge" data-decorator="true" data-decorator-category="inline" data-decorator-position="after" data-decorator-sid="badge-1" data-decorator-stype="badge" data-skip-reconcile="true" style="display: inline-block; padding: 1px 4px; background-color: rgb(255, 107, 107); color: white; border-radius: 3px; font-size: 10px; margin: 0px 1px;">BADGE</span>
+            <span class="badge" data-decorator="true" data-decorator-category="inline" data-decorator-position="after" data-decorator-sid="badge-1" data-decorator-stype="badge" data-skip-reconcile="true" style="display: inline-block; padding: 1px 4px; background-color: rgb(255, 107, 107); color: white; border-radius: 3px; font-size: 10px; margin: 0px 1px;"><span>BADGE</span></span>
             <em class="mark-italic"><span>orl</span></em>
             <span>d</span>
           </span>
@@ -819,7 +819,7 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
                 text: 'First paragraph with bold',
                 marks: [
                   {
-                    type: 'bold',
+                    stype: 'bold',
                     range: [6, 10] // "with"
                   }
                 ]
@@ -836,7 +836,7 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
                 text: 'Second paragraph with italic',
                 marks: [
                   {
-                    type: 'italic',
+                    stype: 'italic',
                     range: [6, 10] // "with"
                   }
                 ]
@@ -853,7 +853,7 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
                 text: 'Third paragraph with link',
                 marks: [
                   {
-                    type: 'link',
+                    stype: 'link',
                     range: [6, 10] // "with"
                   }
                 ]
@@ -898,7 +898,7 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
         `<div class="document" data-bc-sid="doc-1">
           <p class="paragraph" data-bc-sid="p-1">
             <span class="text" data-bc-sid="text-1">
-              <span class="chip" data-decorator="true" data-decorator-category="inline" data-decorator-position="before" data-decorator-sid="chip-1" data-decorator-stype="chip" data-skip-reconcile="true" style="display: inline-block; padding: 2px 6px; background-color: rgb(224, 224, 224); border-radius: 4px; font-size: 12px; margin: 0px 2px;">CHIP</span>
+              <span class="chip" data-decorator="true" data-decorator-category="inline" data-decorator-position="before" data-decorator-sid="chip-1" data-decorator-stype="chip" data-skip-reconcile="true" style="display: inline-block; padding: 2px 6px; background-color: rgb(224, 224, 224); border-radius: 4px; font-size: 12px; margin: 0px 2px;"><span>CHIP</span></span>
               <span>First</span>
               <strong class="mark-bold"><span>para</span></strong>
               <span>graph with bold</span>
@@ -906,7 +906,7 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
           </p>
           <p class="paragraph" data-bc-sid="p-2">
             <span class="text" data-bc-sid="text-2">
-              <span class="badge" data-decorator="true" data-decorator-category="inline" data-decorator-position="before" data-decorator-sid="badge-2" data-decorator-stype="badge" data-skip-reconcile="true" style="display: inline-block; padding: 1px 4px; background-color: rgb(255, 107, 107); border-radius: 3px; color: white; font-size: 10px; margin: 0px 1px;">BADGE</span>
+              <span class="badge" data-decorator="true" data-decorator-category="inline" data-decorator-position="before" data-decorator-sid="badge-2" data-decorator-stype="badge" data-skip-reconcile="true" style="display: inline-block; padding: 1px 4px; background-color: rgb(255, 107, 107); border-radius: 3px; color: white; font-size: 10px; margin: 0px 1px;"><span>BADGE</span></span>
               <span>Second</span>
               <em class="mark-italic"><span>par</span></em>
               <span>agraph with italic</span>
@@ -941,15 +941,15 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
                 text: 'This is bold text with a link and code',
                 marks: [
                   {
-                    type: 'bold',
+                    stype: 'bold',
                     range: [8, 12] // "bold"
                   },
                   {
-                    type: 'link',
+                    stype: 'link',
                     range: [25, 29] // "link"
                   },
                   {
-                    type: 'code',
+                    stype: 'code',
                     range: [34, 38] // "code"
                   }
                 ]
@@ -995,13 +995,13 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
           <p class="paragraph" data-bc-sid="p-1">
             <span class="text" data-bc-sid="text-1">
               <span>This is</span>
-              <span class="chip" data-decorator="true" data-decorator-category="inline" data-decorator-position="before" data-decorator-sid="chip-1" data-decorator-stype="chip" data-skip-reconcile="true" style="display: inline-block; padding: 2px 6px; background-color: rgb(224, 224, 224); border-radius: 4px; font-size: 12px; margin: 0px 2px;">CHIP</span>
+              <span class="chip" data-decorator="true" data-decorator-category="inline" data-decorator-position="before" data-decorator-sid="chip-1" data-decorator-stype="chip" data-skip-reconcile="true" style="background-color: rgb(224, 224, 224); border-radius: 4px; display: inline-block; font-size: 12px; margin: 0px 2px; padding: 2px 6px"><span>CHIP</span></span>
               <strong class="mark-bold"><span>bold</span></strong>
               <span>text with a</span>
               <a class="mark-link" href="#"><span>link</span></a>
               <span>and</span>
               <code class="mark-code"><span>code</span></code>
-              <span class="badge" data-decorator="true" data-decorator-category="inline" data-decorator-position="after" data-decorator-sid="badge-1" data-decorator-stype="badge" data-skip-reconcile="true" style="display: inline-block; padding: 1px 4px; background-color: rgb(255, 107, 107); color: white; border-radius: 3px; font-size: 10px; margin: 0px 1px;">BADGE</span>
+              <span class="badge" data-decorator="true" data-decorator-category="inline" data-decorator-position="after" data-decorator-sid="badge-1" data-decorator-stype="badge" data-skip-reconcile="true" style="background-color: rgb(255, 107, 107); border-radius: 3px; color: white; display: inline-block; font-size: 10px; margin: 0px 1px; padding: 1px 4px"><span>BADGE</span></span>
             </span>
           </p>
         </div>`,
@@ -1020,7 +1020,7 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
             text: 'Bold text with decorator',
             marks: [
               {
-                type: 'bold',
+                stype: 'bold',
                 range: [0, 4] // "Bold"
               }
             ]
@@ -1061,9 +1061,9 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
         container,
         `<p class="paragraph" data-bc-sid="p-1">
           <span class="text" data-bc-sid="text-1">
-            <span class="chip" data-decorator="true" data-decorator-category="inline" data-decorator-position="before" data-decorator-sid="chip-1" data-decorator-stype="chip" data-skip-reconcile="true" style="display: inline-block; padding: 2px 6px; background-color: rgb(224, 224, 224); border-radius: 4px; font-size: 12px; margin: 0px 2px;">CHIP</span>
+            <span class="chip" data-decorator="true" data-decorator-category="inline" data-decorator-position="before" data-decorator-sid="chip-1" data-decorator-stype="chip" data-skip-reconcile="true" style="display: inline-block; padding: 2px 6px; background-color: rgb(224, 224, 224); border-radius: 4px; font-size: 12px; margin: 0px 2px;"></span>
             <strong class="mark-bold"><span>Bold</span></strong>
-            <span> text with decorator</span>
+            <span>text with decorator</span>
           </span>
         </p>`,
         expect
