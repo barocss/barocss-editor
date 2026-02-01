@@ -104,8 +104,8 @@ describe('Block Decorator 스펙 및 테스트', () => {
       expectHTML(
         container,
         `<div class="document" data-bc-sid="doc-1">
-          <div class="comment-decorator" data-decorator="true" data-decorator-category="block" data-decorator-position="before" data-decorator-sid="comment-1" data-decorator-stype="comment" data-skip-reconcile="true" style="background-color: rgb(240, 240, 240); border-left: 3px solid blue; margin: 10px 0px; padding-left: 5px">COMMENT</div>
-          <p class="paragraph" data-bc-sid="p-1">This is a paragraph with a comment before it.</p>
+          <div class="comment-decorator" data-decorator="true" data-decorator-category="block" data-decorator-position="before" data-decorator-sid="comment-1" data-decorator-stype="comment" data-skip-reconcile="true" style="background-color: rgb(240, 240, 240); border-left: 3px solid blue; margin: 10px 0px; padding-left: 5px"><span>COMMENT</span></div>
+          <p class="paragraph" data-bc-sid="p-1"><span>This is a paragraph with a comment before it.</span></p>
         </div>`,
         expect
       );
@@ -152,8 +152,8 @@ describe('Block Decorator 스펙 및 테스트', () => {
       expectHTML(
         container,
         `<div class="document" data-bc-sid="doc-1">
-          <p class="paragraph" data-bc-sid="p-1">This is a paragraph with a comment after it.</p>
-          <div class="comment-decorator" data-decorator="true" data-decorator-category="block" data-decorator-position="after" data-decorator-sid="comment-1" data-decorator-stype="comment" data-skip-reconcile="true" style="background-color: rgb(240, 240, 240); border-left: 3px solid blue; margin: 10px 0px; padding-left: 5px">COMMENT</div>
+          <p class="paragraph" data-bc-sid="p-1"><span>This is a paragraph with a comment after it.</span></p>
+          <div class="comment-decorator" data-decorator="true" data-decorator-category="block" data-decorator-position="after" data-decorator-sid="comment-1" data-decorator-stype="comment" data-skip-reconcile="true" style="background-color: rgb(240, 240, 240); border-left: 3px solid blue; margin: 10px 0px; padding-left: 5px"><span>COMMENT</span></div>
         </div>`,
         expect
       );
@@ -213,9 +213,9 @@ describe('Block Decorator 스펙 및 테스트', () => {
       expectHTML(
         container,
         `<div class="document" data-bc-sid="doc-1">
-          <div class="comment-decorator" data-decorator="true" data-decorator-category="block" data-decorator-position="before" data-decorator-sid="comment-1" data-decorator-stype="comment" data-skip-reconcile="true" style="background-color: rgb(240, 240, 240); border-left: 3px solid blue; margin: 10px 0px; padding-left: 5px">COMMENT</div>
-          <p class="paragraph" data-bc-sid="p-1">This paragraph should have its text rendered correctly even with block decorators.</p>
-          <div class="note-decorator" data-decorator="true" data-decorator-category="block" data-decorator-position="after" data-decorator-sid="note-1" data-decorator-stype="note" data-skip-reconcile="true" style="background-color: rgb(240, 255, 240); border-left: 3px solid green; margin: 10px 0px; padding-left: 5px">NOTE</div>
+          <div class="comment-decorator" data-decorator="true" data-decorator-category="block" data-decorator-position="before" data-decorator-sid="comment-1" data-decorator-stype="comment" data-skip-reconcile="true" style="background-color: rgb(240, 240, 240); border-left: 3px solid blue; margin: 10px 0px; padding-left: 5px"><span>COMMENT</span></div>
+          <p class="paragraph" data-bc-sid="p-1"><span>This paragraph should have its text rendered correctly even with block decorators.</span></p>
+          <div class="note-decorator" data-decorator="true" data-decorator-category="block" data-decorator-position="after" data-decorator-sid="note-1" data-decorator-stype="note" data-skip-reconcile="true" style="background-color: rgb(240, 255, 240); border-left: 3px solid green; margin: 10px 0px; padding-left: 5px"><span>NOTE</span></div>
         </div>`,
         expect
       );
@@ -275,10 +275,10 @@ describe('Block Decorator 스펙 및 테스트', () => {
       expectHTML(
         container,
         `<div class="document" data-bc-sid="doc-1">
-          <div class="comment-decorator" data-decorator="true" data-decorator-category="block" data-decorator-position="before" data-decorator-sid="comment-1" data-decorator-stype="comment" data-skip-reconcile="true" style="background-color: rgb(240, 240, 240); border-left: 3px solid blue; margin: 10px 0px; padding-left: 5px">COMMENT</div>
-          <div class="note-decorator" data-decorator="true" data-decorator-category="block" data-decorator-position="before" data-decorator-sid="note-1" data-decorator-stype="note" data-skip-reconcile="true" style="background-color: rgb(240, 255, 240); border-left: 3px solid green; margin: 10px 0px; padding-left: 5px">NOTE</div>
-          <p class="paragraph" data-bc-sid="p-1">Paragraph with multiple block decorators.</p>
-          <div class="comment-decorator" data-decorator="true" data-decorator-category="block" data-decorator-position="after" data-decorator-sid="comment-2" data-decorator-stype="comment" data-skip-reconcile="true" style="background-color: rgb(240, 240, 240); border-left: 3px solid blue; margin: 10px 0px; padding-left: 5px">COMMENT</div>
+          <div class="comment-decorator" data-decorator="true" data-decorator-category="block" data-decorator-position="before" data-decorator-sid="comment-1" data-decorator-stype="comment" data-skip-reconcile="true" style="background-color: rgb(240, 240, 240); border-left: 3px solid blue; margin: 10px 0px; padding-left: 5px"><span>COMMENT</span></div>
+          <div class="note-decorator" data-decorator="true" data-decorator-category="block" data-decorator-position="before" data-decorator-sid="note-1" data-decorator-stype="note" data-skip-reconcile="true" style="background-color: rgb(240, 255, 240); border-left: 3px solid green; margin: 10px 0px; padding-left: 5px"><span>NOTE</span></div>
+          <p class="paragraph" data-bc-sid="p-1"><span>Paragraph with multiple block decorators.</span></p>
+          <div class="comment-decorator" data-decorator="true" data-decorator-category="block" data-decorator-position="after" data-decorator-sid="comment-2" data-decorator-stype="comment" data-skip-reconcile="true" style="background-color: rgb(240, 240, 240); border-left: 3px solid blue; margin: 10px 0px; padding-left: 5px"><span>COMMENT</span></div>
         </div>`,
         expect
       );
@@ -335,10 +335,10 @@ describe('Block Decorator 스펙 및 테스트', () => {
       expectHTML(
         container,
         `<div class="document" data-bc-sid="doc-1">
-          <div class="comment-decorator" data-decorator="true" data-decorator-category="block" data-decorator-position="before" data-decorator-sid="comment-1" data-decorator-stype="comment" data-skip-reconcile="true" style="background-color: rgb(240, 240, 240); border-left: 3px solid blue; margin: 10px 0px; padding-left: 5px">COMMENT</div>
-          <p class="paragraph" data-bc-sid="p-1">First paragraph</p>
-          <p class="paragraph" data-bc-sid="p-2">Second paragraph</p>
-          <div class="note-decorator" data-decorator="true" data-decorator-category="block" data-decorator-position="after" data-decorator-sid="note-1" data-decorator-stype="note" data-skip-reconcile="true" style="background-color: rgb(240, 255, 240); border-left: 3px solid green; margin: 10px 0px; padding-left: 5px">NOTE</div>
+          <div class="comment-decorator" data-decorator="true" data-decorator-category="block" data-decorator-position="before" data-decorator-sid="comment-1" data-decorator-stype="comment" data-skip-reconcile="true" style="background-color: rgb(240, 240, 240); border-left: 3px solid blue; margin: 10px 0px; padding-left: 5px"><span>COMMENT</span></div>
+          <p class="paragraph" data-bc-sid="p-1"><span>First paragraph</span></p>
+          <p class="paragraph" data-bc-sid="p-2"><span>Second paragraph</span></p>
+          <div class="note-decorator" data-decorator="true" data-decorator-category="block" data-decorator-position="after" data-decorator-sid="note-1" data-decorator-stype="note" data-skip-reconcile="true" style="background-color: rgb(240, 255, 240); border-left: 3px solid green; margin: 10px 0px; padding-left: 5px"><span>NOTE</span></div>
         </div>`,
         expect
       );
