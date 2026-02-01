@@ -51,7 +51,7 @@ defineOperation('replacePattern', async (operation: ReplacePatternOperationPaylo
           context.dataStore.range.replaceText(range, replaced);
         }
       }
-      return count;
+      return { ok: true, data: count };
     }
     const { nodeId, start, end, pattern, replacement } = operation as any;
     const node = context.dataStore.getNode(nodeId);
@@ -75,7 +75,7 @@ defineOperation('replacePattern', async (operation: ReplacePatternOperationPaylo
         context.dataStore.range.replaceText({ type: 'range', startNodeId: nodeId, startOffset: start, endNodeId: nodeId, endOffset: end }, original.replace(pattern as any, replacement));
       }
     }
-    return count;
+    return { ok: true, data: count };
   } catch (e) {
     throw new Error(`Failed to replace by pattern: ${e instanceof Error ? e.message : 'Unknown error'}`);
   }

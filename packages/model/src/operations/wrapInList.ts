@@ -72,16 +72,22 @@ defineOperation('wrapInList', async (operation: { type: string; payload: WrapInL
   const currentSelectionOffset = typeof selection?.startOffset === 'number' ? selection.startOffset : 0;
 
   if (parent.stype === 'listItem') {
-    const list = dataStore.getNode(dataStore.resolveAlias(parent.parentId));
+    const parentListId = parent.parentId;
+    if (parentListId == null) throw new Error('wrapInList: listItem has no parent');
+    const list = dataStore.getNode(dataStore.resolveAlias(parentListId));
     if (!list || list.stype !== 'list' || !Array.isArray(list.content)) {
       throw new Error('wrapInList: listItem parent is not a list');
     }
-    const docId = dataStore.resolveAlias(list.parentId);
+    const listParentId = list.parentId;
+    if (listParentId == null) throw new Error('wrapInList: list has no parent');
+    const docId = dataStore.resolveAlias(listParentId);
     const doc = dataStore.getNode(docId);
     if (!doc || !Array.isArray(doc.content)) {
       throw new Error('wrapInList: list has no document parent');
     }
-    const listIndexInDoc = doc.content.indexOf(list.sid);
+    const listSid = list.sid;
+    if (listSid == null) throw new Error('wrapInList: list has no sid');
+    const listIndexInDoc = doc.content.indexOf(listSid);
     if (listIndexInDoc === -1) throw new Error('wrapInList: list not in document');
 
     const listItemIds = list.content as string[];
@@ -96,7 +102,7 @@ defineOperation('wrapInList', async (operation: { type: string; payload: WrapInL
         insertPos += 1;
       }
     }
-    dataStore.content.removeChild(docId, list.sid);
+    dataStore.content.removeChild(docId, listSid);
 
     return {
       ok: true,

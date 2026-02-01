@@ -9,7 +9,7 @@ export interface WrapInListOperation {
   payload: WrapInListPayload;
 }
 
-export interface WrapInListPayload {
+export interface WrapInListPayload extends Record<string, unknown> {
   listType?: 'bullet' | 'ordered';
 }
 
