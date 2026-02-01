@@ -422,11 +422,10 @@ describe('EditorViewDOM + renderer-dom Detailed Integration', () => {
         // No stype
         content: []
       };
-      
-      // Should throw error or show warning
+
       expect(() => {
         view.render(tree);
-      }).not.toThrow(); // Or appropriate error handling
+      }).toThrow('[EditorViewDOM] Invalid tree format: missing stype (required)');
     });
 
     it('handles invalid tree structure', () => {
