@@ -5,7 +5,7 @@ import { DataStore } from '@barocss/datastore';
 import { normalizeHTML } from '../utils/html';
 import { define, element, slot, data, getGlobalRegistry } from '@barocss/dsl';
 
-describe.skip('EditorViewDOM + renderer-dom Performance Integration', () => {
+describe('EditorViewDOM + renderer-dom Performance Integration', () => {
   let editor: Editor;
   let view: EditorViewDOM;
   let container: HTMLElement;
@@ -54,7 +54,7 @@ describe.skip('EditorViewDOM + renderer-dom Performance Integration', () => {
         content: [
           {
             sid: `t${i}`,
-            stype: 'text',
+            stype: 'inline-text',
             text: `Paragraph ${i}`
           }
         ]
@@ -90,7 +90,7 @@ describe.skip('EditorViewDOM + renderer-dom Performance Integration', () => {
         content: [
           {
             sid: `t${i}`,
-            stype: 'text',
+            stype: 'inline-text',
             text: `Paragraph ${i}`
           }
         ]
@@ -124,7 +124,7 @@ describe.skip('EditorViewDOM + renderer-dom Performance Integration', () => {
         content: [
           {
             sid: `t${i}`,
-            stype: 'text',
+            stype: 'inline-text',
             text: `Initial ${i}`
           }
         ]
@@ -147,7 +147,7 @@ describe.skip('EditorViewDOM + renderer-dom Performance Integration', () => {
         content: [
           {
             sid: `t${i}`,
-            stype: 'text',
+            stype: 'inline-text',
             text: `Updated ${i}`
           }
         ]
@@ -186,7 +186,7 @@ describe.skip('EditorViewDOM + renderer-dom Performance Integration', () => {
           content: [
             {
               sid: `t${i}`,
-              stype: 'text',
+              stype: 'inline-text',
               text: `Paragraph ${i}`
             }
           ]
@@ -227,7 +227,7 @@ describe.skip('EditorViewDOM + renderer-dom Performance Integration', () => {
         content: [
           {
             sid: `t${i}`,
-            stype: 'text',
+            stype: 'inline-text',
             text: `Paragraph ${i}`
           }
         ]
@@ -264,8 +264,8 @@ describe.skip('EditorViewDOM + renderer-dom Performance Integration', () => {
       if (contentLayer) {
         const html = normalizeHTML(contentLayer as Element);
         // Proxy document's sid is generated at load time, so may differ from doc-proxy
-        // At least verify document is rendered
-        expect(html).toContain('data-bc-stype="document"');
+        // Content layer omits data-bc-stype; verify document and middle content are rendered
+        expect(html).toContain('class="document"');
         expect(html).toContain('Paragraph 250'); // Verify middle content
       } else {
         // If content layer doesn't exist, at least verify container has content
