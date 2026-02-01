@@ -17,7 +17,7 @@ import type { DecoratorGenerator, DecoratorGeneratorContext } from '../../src/de
 import type { ModelData } from '@barocss/dsl';
 import { expectHTML } from '../utils/html';
 
-describe.skip('Pattern 및 Custom Decorator 렌더링 통합', () => {
+describe('Pattern 및 Custom Decorator 렌더링 통합', () => {
   let editor: Editor;
   let view: EditorViewDOM;
   let container: HTMLElement;
@@ -536,9 +536,9 @@ describe.skip('Pattern 및 Custom Decorator 렌더링 통합', () => {
       expectHTML(
         view.layers.content,
         `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">
-          <div class="document" data-bc-sid="doc-b1" data-bc-stype="document">
-            <p class="paragraph" data-bc-sid="p-b1" data-bc-stype="paragraph">
-              <span class="text" data-bc-sid="t-b1" data-bc-stype="inline-text">
+          <div class="document" data-bc-sid="doc-b1">
+            <p class="paragraph" data-bc-sid="p-b1">
+              <span class="text" data-bc-sid="t-b1">
                 <span class="chip" data-decorator="true" data-decorator-category="inline" data-decorator-position="before" data-decorator-sid="chip-t-b1-0-5" data-decorator-stype="chip" data-skip-reconcile="true"></span>
                 <span>Hello</span>
                 <span>World</span>
@@ -598,9 +598,9 @@ describe.skip('Pattern 및 Custom Decorator 렌더링 통합', () => {
       expectHTML(
         view.layers.content,
         `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">
-          <div class="document" data-bc-sid="doc-a1" data-bc-stype="document">
-            <p class="paragraph" data-bc-sid="p-a1" data-bc-stype="paragraph">
-              <span class="text" data-bc-sid="t-a1" data-bc-stype="inline-text">
+          <div class="document" data-bc-sid="doc-a1">
+            <p class="paragraph" data-bc-sid="p-a1">
+              <span class="text" data-bc-sid="t-a1">
                 <span>Hello</span>
                 <span class="chip" data-decorator="true" data-decorator-category="inline" data-decorator-position="after" data-decorator-sid="chip-t-a1-0-5" data-decorator-stype="chip" data-skip-reconcile="true"></span>
                 <span>World</span>
@@ -685,9 +685,9 @@ describe.skip('Pattern 및 Custom Decorator 렌더링 통합', () => {
       expectHTML(
         view.layers.content,
         `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">
-          <div class="document" data-bc-sid="doc1" data-bc-stype="document">
-            <p class="paragraph" data-bc-sid="p1" data-bc-stype="paragraph">
-              <span class="text" data-bc-sid="t1" data-bc-stype="inline-text">Hello World</span>
+          <div class="document" data-bc-sid="doc1">
+            <p class="paragraph" data-bc-sid="p1">
+              <span class="text" data-bc-sid="t1"><span>Hello World</span></span>
             </p>
           </div>
         </div>`,
@@ -820,10 +820,10 @@ describe.skip('Pattern 및 Custom Decorator 렌더링 통합', () => {
       expectHTML(
         view.layers.content,
         `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">
-          <div class="document" data-bc-sid="doc1" data-bc-stype="document">
-            <p class="paragraph" data-bc-sid="p1" data-bc-stype="paragraph">
-              <span class="text" data-bc-sid="t1" data-bc-stype="inline-text">Hello World</span>
-              <span class="text" data-bc-sid="t2" data-bc-stype="inline-text">Another text</span>
+          <div class="document" data-bc-sid="doc1">
+            <p class="paragraph" data-bc-sid="p1">
+              <span class="text" data-bc-sid="t1"><span>Hello World</span></span>
+              <span class="text" data-bc-sid="t2"><span>Another text</span></span>
             </p>
           </div>
         </div>`,
