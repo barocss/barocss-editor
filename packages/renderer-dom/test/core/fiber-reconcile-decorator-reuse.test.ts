@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createFiberTree } from '../../src/reconcile/fiber/fiber-tree';
-import { reconcileFiberNode, FiberReconcileDependencies } from '../../src/reconcile/fiber/fiber-reconciler';
+import { renderFiberNode, commitFiberTree, FiberReconcileDependencies } from '../../src/reconcile/fiber/fiber-reconciler';
 import { FiberNode } from '../../src/reconcile/fiber/types';
 import { VNode } from '../../src/vnode/types';
 import { DOMOperations } from '../../src/dom-operations';
@@ -105,26 +105,14 @@ describe('reconcileFiberNode - Decorator 재사용 방지', () => {
       index: 1
     } as FiberNode;
 
-    // Call reconcileFiberNode
-    reconcileFiberNode(chipAfterFiber, deps, {});
+    // Render phase then commit phase (reconcileFiberNode was removed; use renderFiberNode + commitFiberTree)
+    renderFiberNode(chipAfterFiber, deps, {});
+    commitFiberTree(chipAfterFiber, deps, {});
 
     // chip-after VNode should not reuse chip-before DOM element
     // (should create new DOM element or not reuse chip-before)
     const chipBeforeAfter = textEl.querySelector('[data-decorator-sid="chip-before"]');
     const chipAfter = textEl.querySelector('[data-decorator-sid="chip-after"]');
-    
-    // eslint-disable-next-line no-console
-    console.log('After reconcileFiberNode:', {
-      chipBeforeExists: !!chipBeforeAfter,
-      chipAfterExists: !!chipAfter,
-      chipBeforeDecoratorSid: chipBeforeAfter?.getAttribute('data-decorator-sid'),
-      chipAfterDecoratorSid: chipAfter?.getAttribute('data-decorator-sid'),
-      textElChildren: Array.from(textEl.children).map(el => ({
-        tag: el.tagName,
-        decoratorSid: el.getAttribute('data-decorator-sid'),
-        text: el.textContent
-      }))
-    });
 
     // chip-before should not be changed to chip-after
     // (chip-before should remain, chip-after should be newly created)
