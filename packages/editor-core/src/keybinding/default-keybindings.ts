@@ -210,6 +210,11 @@ export const DEFAULT_KEYBINDINGS: Keybinding[] = [
     command: 'toggleOrderedList',
     when: 'editorFocus && editorEditable'
   },
+  {
+    key: 'Mod+Shift+b',
+    command: 'toggleBlockquote',
+    when: 'editorFocus && editorEditable'
+  },
 
   // Block movement (up/down)
   {
