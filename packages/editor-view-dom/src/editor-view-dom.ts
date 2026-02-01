@@ -927,6 +927,23 @@ export class EditorViewDOM implements IEditorViewDOM {
   }
 
   /**
+   * Recursively sanitize content arrays: keep only valid child nodes (non-null, object, with stype).
+   * Invalid entries (null, undefined, primitives) are removed so the renderer does not receive them.
+   */
+  private _sanitizeTreeContent(node: any): void {
+    if (!node || typeof node !== 'object') return;
+    const content = node.content;
+    if (Array.isArray(content)) {
+      node.content = content.filter(
+        (c: any) => c != null && typeof c === 'object' && c.stype != null
+      );
+      for (const child of node.content) {
+        this._sanitizeTreeContent(child);
+      }
+    }
+  }
+
+  /**
    * Recursively validate that every node in the tree has a registered renderer for its stype.
    * Throws if any node's stype is not found in the registry.
    */
@@ -987,6 +1004,7 @@ export class EditorViewDOM implements IEditorViewDOM {
       if (this._rendererRegistry) {
         this._validateTreeStypes(tree, this._rendererRegistry);
       }
+      this._sanitizeTreeContent(tree);
       // Use directly without conversion
       modelData = tree as ModelData;
     } else {
