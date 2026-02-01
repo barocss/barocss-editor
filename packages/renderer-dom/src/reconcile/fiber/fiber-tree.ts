@@ -189,10 +189,15 @@ export function createFiberTree(
           }
         }
         
-        // Get prevChildVNode from alternate (for backward compatibility)
-        const prevChildVNode = prevChildAlternate?.vnode;
-        
-        
+        // Get prevChildVNode from alternate, or from prevVNode.children by index when no alternate
+        let prevChildVNode: VNode | undefined = prevChildAlternate?.vnode;
+        if (!prevChildVNode && actualPrevVNode?.children && i < actualPrevVNode.children.length) {
+          const prevChild = actualPrevVNode.children[i];
+          if (typeof prevChild === 'object' && prevChild !== null && 'tag' in prevChild) {
+            prevChildVNode = prevChild as VNode;
+          }
+        }
+
         // React-style: add matched alternate Fiber to tracking (prevent duplicate matching)
         if (prevChildAlternate) {
           matchedAlternateFibers.add(prevChildAlternate);
