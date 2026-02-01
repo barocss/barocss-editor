@@ -285,6 +285,13 @@ export function renderFiberNode(
           }
         }
       }
+      // VNode top-level decorator identity: copy to DOM as data-decorator-* attributes
+      if ((vnode as VNode & { decoratorSid?: string }).decoratorSid != null) {
+        dom.setAttribute(domElement, DOMAttribute.DECORATOR_SID, String((vnode as VNode & { decoratorSid?: string }).decoratorSid));
+      }
+      if ((vnode as VNode & { decoratorStype?: string }).decoratorStype != null) {
+        dom.setAttribute(domElement, DOMAttribute.DECORATOR_STYPE, String((vnode as VNode & { decoratorStype?: string }).decoratorStype));
+      }
     }
   }
   
@@ -618,10 +625,26 @@ export function commitFiberNode(
   // Update attributes and styles (only if HTMLElement)
   // Optimization: only call update if changed
   if (domElement instanceof HTMLElement) {
-    if (vnode.attrs) {
-      const prevAttrs = prevVNode?.attrs;
-      if (!arePropsEqual(prevAttrs, vnode.attrs)) {
-        dom.updateAttributes(domElement, prevAttrs, vnode.attrs);
+    // Effective attrs: vnode.attrs + VNode top-level decorator identity (data-decorator-sid, data-decorator-stype)
+    const effectiveAttrs: Record<string, string> = { ...(vnode.attrs || {}) };
+    const vnodeWithDecorator = vnode as VNode & { decoratorSid?: string; decoratorStype?: string };
+    if (vnodeWithDecorator.decoratorSid != null) {
+      effectiveAttrs[DOMAttribute.DECORATOR_SID] = String(vnodeWithDecorator.decoratorSid);
+    }
+    if (vnodeWithDecorator.decoratorStype != null) {
+      effectiveAttrs[DOMAttribute.DECORATOR_STYPE] = String(vnodeWithDecorator.decoratorStype);
+    }
+    const prevEffectiveAttrs: Record<string, string> = { ...(prevVNode?.attrs || {}) };
+    const prevWithDecorator = prevVNode as (VNode & { decoratorSid?: string; decoratorStype?: string }) | undefined;
+    if (prevWithDecorator?.decoratorSid != null) {
+      prevEffectiveAttrs[DOMAttribute.DECORATOR_SID] = String(prevWithDecorator.decoratorSid);
+    }
+    if (prevWithDecorator?.decoratorStype != null) {
+      prevEffectiveAttrs[DOMAttribute.DECORATOR_STYPE] = String(prevWithDecorator.decoratorStype);
+    }
+    if (Object.keys(effectiveAttrs).length > 0 || Object.keys(prevEffectiveAttrs).length > 0) {
+      if (!arePropsEqual(prevEffectiveAttrs, effectiveAttrs)) {
+        dom.updateAttributes(domElement, prevEffectiveAttrs, effectiveAttrs);
       }
     }
     if (vnode.style) {
