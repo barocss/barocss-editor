@@ -954,12 +954,14 @@ export class EditorViewDOM implements IEditorViewDOM {
     if (tree) {
       // Model passed from outside - already in ModelData format (uses sid, stype)
       if (!tree.stype) {
-        console.error('[EditorViewDOM] Invalid tree format: missing stype (required)');
-        return;
+        const msg = '[EditorViewDOM] Invalid tree format: missing stype (required)';
+        console.error(msg);
+        throw new Error(msg);
       }
       if (!tree.sid) {
-        console.error('[EditorViewDOM] Invalid tree format: missing sid (required)');
-        return;
+        const msg = '[EditorViewDOM] Invalid tree format: missing sid (required)';
+        console.error(msg);
+        throw new Error(msg);
       }
       // Use directly without conversion
       modelData = tree as ModelData;

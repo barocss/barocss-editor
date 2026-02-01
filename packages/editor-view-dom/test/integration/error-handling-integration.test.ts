@@ -43,7 +43,7 @@ describe('EditorViewDOM + renderer-dom Error Handling Integration', () => {
   });
 
   describe('Invalid stype Handling', () => {
-    it.skip('handles missing stype gracefully', () => {
+    it('handles missing stype gracefully', () => {
       const tree: any = {
         sid: 'doc1',
         // No stype
@@ -57,6 +57,7 @@ describe('EditorViewDOM + renderer-dom Error Handling Integration', () => {
     });
 
     it.skip('handles unregistered stype gracefully', () => {
+      // Renderer does not throw for unregistered node type; validation not implemented
       const tree: TreeDocument = {
         sid: 'doc1',
         stype: 'document',
@@ -69,7 +70,6 @@ describe('EditorViewDOM + renderer-dom Error Handling Integration', () => {
         ]
       };
       
-      // Error occurs in VNodeBuilder if stype is missing
       expect(() => {
         view.render(tree);
       }).toThrow('Renderer for node type \'unknown-type\' not found');
