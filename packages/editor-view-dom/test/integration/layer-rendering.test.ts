@@ -10,7 +10,7 @@ import { EditorViewDOM } from '../../src/editor-view-dom';
 import { getGlobalRegistry, define, defineDecorator, element, slot, data } from '@barocss/dsl';
 import { expectHTML } from '../utils/html';
 
-describe.skip('Layer별 렌더링', () => {
+describe('Layer별 렌더링', () => {
   let container: HTMLElement;
   let editor: Editor;
   let view: EditorViewDOM;
@@ -81,9 +81,9 @@ describe.skip('Layer별 렌더링', () => {
     expectHTML(
       view.layers.content,
       `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">
-  <div class="document" data-bc-sid="doc1" data-bc-stype="document">
-    <p class="paragraph" data-bc-sid="p1" data-bc-stype="paragraph">
-      <span class="inline-text" data-bc-sid="t1" data-bc-stype="inline-text">Hello World</span>
+  <div class="document" data-bc-sid="doc1">
+    <p class="paragraph" data-bc-sid="p1">
+      <span class="inline-text" data-bc-sid="t1"><span>Hello World</span></span>
     </p>
   </div>
 </div>`,
@@ -136,7 +136,6 @@ describe.skip('Layer별 렌더링', () => {
   <div 
     class="cursor" 
     data-bc-sid="cursor-1" 
-    data-bc-stype="cursor" 
     data-decorator="true" 
     data-skip-reconcile="true" 
     style="position: absolute; width: 2px; height: 18px; background: blue;">
@@ -192,9 +191,9 @@ describe.skip('Layer별 렌더링', () => {
     expectHTML(
       view.layers.content,
       `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">
-  <div class="document" data-bc-sid="doc1" data-bc-stype="document">
-    <p class="paragraph" data-bc-sid="p1" data-bc-stype="paragraph">
-      <span class="inline-text" data-bc-sid="t1" data-bc-stype="inline-text">
+  <div class="document" data-bc-sid="doc1">
+    <p class="paragraph" data-bc-sid="p1">
+      <span class="inline-text" data-bc-sid="t1">
         <span class="highlight" data-decorator="true" data-decorator-category="inline" data-decorator-sid="highlight-1" data-decorator-stype="highlight" data-skip-reconcile="true" style="background: yellow;"><span>Hello</span></span>
     <span>World</span>
       </span>
@@ -272,9 +271,9 @@ describe.skip('Layer별 렌더링', () => {
     expectHTML(
       view.layers.content,
       `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">
-  <div class="document" data-bc-sid="doc1" data-bc-stype="document">
-    <p class="paragraph" data-bc-sid="p1" data-bc-stype="paragraph">
-      <span class="inline-text" data-bc-sid="t1" data-bc-stype="inline-text">
+  <div class="document" data-bc-sid="doc1">
+    <p class="paragraph" data-bc-sid="p1">
+      <span class="inline-text" data-bc-sid="t1">
         <span class="highlight" data-decorator="true" data-decorator-category="inline" data-decorator-sid="highlight-1" data-decorator-stype="highlight" data-skip-reconcile="true" style="background: yellow;"><span>Hello</span></span>
     <span>World</span>
       </span>
@@ -294,7 +293,6 @@ describe.skip('Layer별 렌더링', () => {
   <div 
     class="cursor" 
     data-bc-sid="cursor-1" 
-    data-bc-stype="cursor" 
     data-decorator="true" 
     data-skip-reconcile="true" 
     style="position: absolute; width: 2px; height: 18px; background: blue;">
