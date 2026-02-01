@@ -6,14 +6,14 @@
 
 import { describe, it, expect } from 'vitest';
 import { createTextVNode, createSpanWrapper, createMarkWrapper, createElementVNode } from '../../src/vnode/utils/vnode-creators';
-import { VNode } from '../../src/vnode/types';
+import { VNode, VNodeTag } from '../../src/vnode/types';
 
 describe('VNode Creator Functions', () => {
   describe('createTextVNode', () => {
     it('should create text-only VNode with text property', () => {
       const vnode = createTextVNode('Hello');
-      
-      expect(vnode.tag).toBeUndefined();
+      // Implementation uses VNodeTag.TEXT ('#text') for text VNodes
+      expect(vnode.tag).toBe(VNodeTag.TEXT);
       expect(vnode.text).toBe('Hello');
       expect(vnode.children).toEqual([]);
       expect(vnode.attrs).toEqual({});
