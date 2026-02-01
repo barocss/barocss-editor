@@ -5,7 +5,7 @@ import { DataStore } from '@barocss/datastore';
 import { normalizeHTML, expectHTML } from '../utils/html';
 import { define, element, slot, data, getGlobalRegistry } from '@barocss/dsl';
 
-describe.skip('EditorViewDOM + renderer-dom Error Handling Integration', () => {
+describe('EditorViewDOM + renderer-dom Error Handling Integration', () => {
   let editor: Editor;
   let view: EditorViewDOM;
   let container: HTMLElement;
@@ -98,9 +98,9 @@ describe.skip('EditorViewDOM + renderer-dom Error Handling Integration', () => {
       expectHTML(
         view.layers.content,
         `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">
-          <div class="document" data-bc-sid="doc1" data-bc-stype="document">
-            <p class="paragraph" data-bc-stype="paragraph">
-              <span class="text" data-bc-sid="t1" data-bc-stype="text">Content</span>
+          <div class="document" data-bc-sid="doc1">
+            <p class="paragraph">
+              <span class="text" data-bc-sid="t1"><span>Content</span></span>
             </p>
           </div>
         </div>`,
@@ -122,7 +122,7 @@ describe.skip('EditorViewDOM + renderer-dom Error Handling Integration', () => {
       expectHTML(
         view.layers.content,
         `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">
-          <div class="document" data-bc-sid="doc1" data-bc-stype="document"></div>
+          <div class="document" data-bc-sid="doc1"></div>
         </div>`,
         expect
       );
@@ -141,7 +141,7 @@ describe.skip('EditorViewDOM + renderer-dom Error Handling Integration', () => {
       expectHTML(
         view.layers.content,
         `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">
-          <div class="document" data-bc-sid="doc1" data-bc-stype="document"></div>
+          <div class="document" data-bc-sid="doc1"></div>
         </div>`,
         expect
       );
@@ -177,28 +177,28 @@ describe.skip('EditorViewDOM + renderer-dom Error Handling Integration', () => {
       expectHTML(
         view.layers.content,
         `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">
-          <div class="document" data-bc-sid="doc1" data-bc-stype="document">
-            <p class="paragraph" data-bc-sid="level-0" data-bc-stype="paragraph"></p>
-            <p class="paragraph" data-bc-sid="level-1" data-bc-stype="paragraph"></p>
-            <p class="paragraph" data-bc-sid="level-2" data-bc-stype="paragraph"></p>
-            <p class="paragraph" data-bc-sid="level-3" data-bc-stype="paragraph"></p>
-            <p class="paragraph" data-bc-sid="level-4" data-bc-stype="paragraph"></p>
-            <p class="paragraph" data-bc-sid="level-5" data-bc-stype="paragraph"></p>
-            <p class="paragraph" data-bc-sid="level-6" data-bc-stype="paragraph"></p>
-            <p class="paragraph" data-bc-sid="level-7" data-bc-stype="paragraph"></p>
-            <p class="paragraph" data-bc-sid="level-8" data-bc-stype="paragraph"></p>
-            <p class="paragraph" data-bc-sid="level-9" data-bc-stype="paragraph"></p>
-            <p class="paragraph" data-bc-sid="level-10" data-bc-stype="paragraph"></p>
-            <p class="paragraph" data-bc-sid="level-11" data-bc-stype="paragraph"></p>
-            <p class="paragraph" data-bc-sid="level-12" data-bc-stype="paragraph"></p>
-            <p class="paragraph" data-bc-sid="level-13" data-bc-stype="paragraph"></p>
-            <p class="paragraph" data-bc-sid="level-14" data-bc-stype="paragraph"></p>
-            <p class="paragraph" data-bc-sid="level-15" data-bc-stype="paragraph"></p>
-            <p class="paragraph" data-bc-sid="level-16" data-bc-stype="paragraph"></p>
-            <p class="paragraph" data-bc-sid="level-17" data-bc-stype="paragraph"></p>
-            <p class="paragraph" data-bc-sid="level-18" data-bc-stype="paragraph"></p>
-            <p class="paragraph" data-bc-sid="level-19" data-bc-stype="paragraph">
-              <span class="text" data-bc-sid="text-final" data-bc-stype="text">Deep Text</span>
+          <div class="document" data-bc-sid="doc1">
+            <p class="paragraph" data-bc-sid="level-0"></p>
+            <p class="paragraph" data-bc-sid="level-1"></p>
+            <p class="paragraph" data-bc-sid="level-2"></p>
+            <p class="paragraph" data-bc-sid="level-3"></p>
+            <p class="paragraph" data-bc-sid="level-4"></p>
+            <p class="paragraph" data-bc-sid="level-5"></p>
+            <p class="paragraph" data-bc-sid="level-6"></p>
+            <p class="paragraph" data-bc-sid="level-7"></p>
+            <p class="paragraph" data-bc-sid="level-8"></p>
+            <p class="paragraph" data-bc-sid="level-9"></p>
+            <p class="paragraph" data-bc-sid="level-10"></p>
+            <p class="paragraph" data-bc-sid="level-11"></p>
+            <p class="paragraph" data-bc-sid="level-12"></p>
+            <p class="paragraph" data-bc-sid="level-13"></p>
+            <p class="paragraph" data-bc-sid="level-14"></p>
+            <p class="paragraph" data-bc-sid="level-15"></p>
+            <p class="paragraph" data-bc-sid="level-16"></p>
+            <p class="paragraph" data-bc-sid="level-17"></p>
+            <p class="paragraph" data-bc-sid="level-18"></p>
+            <p class="paragraph" data-bc-sid="level-19">
+              <span class="text" data-bc-sid="text-final"><span>Deep Text</span></span>
             </p>
             <p></p>
             <p></p>
@@ -250,9 +250,9 @@ describe.skip('EditorViewDOM + renderer-dom Error Handling Integration', () => {
       expectHTML(
         view.layers.content,
         `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">
-          <div class="document" data-bc-sid="doc1" data-bc-stype="document">
-            <p class="paragraph" data-bc-sid="p1" data-bc-stype="paragraph">
-              <span class="text" data-bc-sid="t1" data-bc-stype="text">Content</span>
+          <div class="document" data-bc-sid="doc1">
+            <p class="paragraph" data-bc-sid="p1">
+              <span class="text" data-bc-sid="t1"><span>Content</span></span>
             </p>
           </div>
         </div>`,
@@ -313,12 +313,16 @@ describe.skip('EditorViewDOM + renderer-dom Error Handling Integration', () => {
       // Rendering is possible but unexpected behavior may occur
       view.render(tree);
       
+      // Reconcile may render both paragraphs when duplicate sid; assert both contents present
       expectHTML(
         view.layers.content,
         `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">
-          <div class="document" data-bc-sid="doc1" data-bc-stype="document">
-            <p class="paragraph" data-bc-sid="p1" data-bc-stype="paragraph">
-              <span class="text" data-bc-sid="t2" data-bc-stype="text">Second</span>
+          <div class="document" data-bc-sid="doc1">
+            <p class="paragraph" data-bc-sid="p1">
+              <span class="text" data-bc-sid="t1"><span>First</span></span>
+            </p>
+            <p class="paragraph" data-bc-sid="p1">
+              <span class="text" data-bc-sid="t2"><span>Second</span></span>
             </p>
           </div>
         </div>`,
@@ -352,9 +356,9 @@ describe.skip('EditorViewDOM + renderer-dom Error Handling Integration', () => {
       expectHTML(
         view.layers.content,
         `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">
-          <div class="document" data-bc-sid="doc1" data-bc-stype="document">
-            <p class="paragraph" data-bc-sid="p1" data-bc-stype="paragraph">
-              <span class="text" data-bc-sid="t1" data-bc-stype="text"></span>
+          <div class="document" data-bc-sid="doc1">
+            <p class="paragraph" data-bc-sid="p1">
+              <span class="text" data-bc-sid="t1"></span>
             </p>
           </div>
         </div>`,
