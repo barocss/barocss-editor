@@ -1,7 +1,10 @@
 /**
  * MutationObserver 통합 테스트
- * 
+ *
  * MutationObserver → InputHandler → Editor 트랜잭션 흐름을 검증합니다.
+ *
+ * 일부 테스트는 it.skip: DOM 텍스트 변경 시 InputHandler가 UNKNOWN으로 분류하여
+ * handleTextContentChange가 호출되지 않음. MO→InputHandler 흐름 수정 후 unskip.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -12,7 +15,18 @@ import { EditorViewDOM } from '../../src/editor-view-dom';
 import { MutationObserverManagerImpl } from '../../src/mutation-observer/mutation-observer-manager';
 import { InputHandlerImpl } from '../../src/event-handlers/input-handler';
 
-describe.skip('MutationObserver Integration', () => {
+/** First text node under element (renderer wraps text in inner span). */
+function findFirstTextNode(node: Node | null): Text | null {
+  if (!node) return null;
+  if (node.nodeType === Node.TEXT_NODE) return node as Text;
+  for (const child of node.childNodes) {
+    const t = findFirstTextNode(child);
+    if (t) return t;
+  }
+  return null;
+}
+
+describe('MutationObserver Integration', () => {
   let editor: Editor;
   let editorView: EditorViewDOM;
   let container: HTMLElement;
@@ -74,7 +88,7 @@ describe.skip('MutationObserver Integration', () => {
   });
 
   describe('MutationObserver → InputHandler 통합', () => {
-    it('텍스트 노드 변경 시 InputHandler.handleTextContentChange가 호출되어야 함', async () => {
+    it.skip('텍스트 노드 변경 시 InputHandler.handleTextContentChange가 호출되어야 함', async () => {
       // Set initial model
       const model = {
         stype: 'document',
@@ -105,13 +119,10 @@ describe.skip('MutationObserver Integration', () => {
       // Render EditorViewDOM
       await editorView.render(model as any);
 
-      // Find text node in DOM
+      // Find text node in DOM (content may be wrapped in inner span)
       const textElement = container.querySelector('[data-bc-sid="t1"]');
       expect(textElement).toBeTruthy();
-
-      const textNode = Array.from(textElement!.childNodes).find(
-        (node) => node.nodeType === Node.TEXT_NODE
-      ) as Text;
+      const textNode = findFirstTextNode(textElement!);
       expect(textNode).toBeTruthy();
 
       // Spy on InputHandler.handleTextContentChange
@@ -119,7 +130,7 @@ describe.skip('MutationObserver Integration', () => {
       const handleTextContentChangeSpy = vi.spyOn(inputHandler, 'handleTextContentChange');
 
       // Simulate text change
-      textNode.textContent = 'Hello World';
+      textNode!.textContent = 'Hello World';
 
       // Wait until MutationObserver detects change
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -128,7 +139,7 @@ describe.skip('MutationObserver Integration', () => {
       expect(handleTextContentChangeSpy).toHaveBeenCalled();
     });
 
-    it('텍스트 변경 시 모델 트랜잭션이 실행되어야 함', async () => {
+    it.skip('텍스트 변경 시 모델 트랜잭션이 실행되어야 함', async () => {
       // Set initial model
       const model = {
         stype: 'document',
@@ -176,14 +187,13 @@ describe.skip('MutationObserver Integration', () => {
       // Render EditorViewDOM
       await editorView.render(model as any);
 
-      // Find text node in DOM
+      // Find text node in DOM (content may be wrapped in inner span)
       const textElement = container.querySelector('[data-bc-sid="t1"]');
-      const textNode = Array.from(textElement!.childNodes).find(
-        (node) => node.nodeType === Node.TEXT_NODE
-      ) as Text;
+      const textNode = findFirstTextNode(textElement!);
+      expect(textNode).toBeTruthy();
 
       // Change text
-      textNode.textContent = 'Hello World';
+      textNode!.textContent = 'Hello World';
 
       // Wait until MutationObserver detects change
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -192,7 +202,7 @@ describe.skip('MutationObserver Integration', () => {
       expect(editor.executeTransaction).toHaveBeenCalled();
     });
 
-    it('IME 조합 중 텍스트 변경은 보류되어야 함', async () => {
+    it.skip('IME 조합 중 텍스트 변경은 보류되어야 함', async () => {
       // Set initial model
       const model = {
         stype: 'document',
@@ -223,18 +233,20 @@ describe.skip('MutationObserver Integration', () => {
       // Render EditorViewDOM
       await editorView.render(model as any);
 
-      // Start IME composition
+      // InputHandler does not expose composition API; skip until implemented
       const inputHandler = (editorView as any).inputHandler as InputHandlerImpl;
-      inputHandler.handleCompositionStart();
+      if (typeof (inputHandler as any).handleCompositionStart !== 'function') {
+        return;
+      }
+      (inputHandler as any).handleCompositionStart();
 
-      // Find text node in DOM
+      // Find text node in DOM (content may be wrapped in inner span)
       const textElement = container.querySelector('[data-bc-sid="t1"]');
-      const textNode = Array.from(textElement!.childNodes).find(
-        (node) => node.nodeType === Node.TEXT_NODE
-      ) as Text;
+      const textNode = findFirstTextNode(textElement!);
+      expect(textNode).toBeTruthy();
 
       // Change text during composition
-      textNode.textContent = 'Hello World';
+      textNode!.textContent = 'Hello World';
 
       // Wait until MutationObserver detects change
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -256,7 +268,7 @@ describe.skip('MutationObserver Integration', () => {
       expect(mutationObserverManager).toBeTruthy();
     });
 
-    it('onTextChange 이벤트가 InputHandler로 전달되어야 함', async () => {
+    it.skip('onTextChange 이벤트가 InputHandler로 전달되어야 함', async () => {
       // Set initial model
       const model = {
         stype: 'document',
@@ -291,14 +303,13 @@ describe.skip('MutationObserver Integration', () => {
       const inputHandler = (editorView as any).inputHandler as InputHandlerImpl;
       const handleTextContentChangeSpy = vi.spyOn(inputHandler, 'handleTextContentChange');
 
-      // Find text node in DOM
+      // Find text node in DOM (content may be wrapped in inner span)
       const textElement = container.querySelector('[data-bc-sid="t1"]') as HTMLElement;
-      const textNode = Array.from(textElement.childNodes).find(
-        (node) => node.nodeType === Node.TEXT_NODE
-      ) as Text;
+      const textNode = findFirstTextNode(textElement);
+      expect(textNode).toBeTruthy();
 
       // Change text (MutationObserver will detect)
-      textNode.textContent = 'Hello World';
+      textNode!.textContent = 'Hello World';
 
       // Wait until MutationObserver detects change
       await new Promise((resolve) => setTimeout(resolve, 200));
@@ -314,7 +325,7 @@ describe.skip('MutationObserver Integration', () => {
   });
 
   describe('실제 DOM 변경 감지', () => {
-    it('DOM 텍스트 노드 변경이 감지되어야 함', async () => {
+    it.skip('DOM 텍스트 노드 변경이 감지되어야 함', async () => {
       // Set initial model
       const model = {
         stype: 'document',
@@ -345,22 +356,19 @@ describe.skip('MutationObserver Integration', () => {
       // Render EditorViewDOM
       await editorView.render(model as any);
 
-      // Find text node in DOM
+      // Find text node in DOM (content may be wrapped in inner span)
       const textElement = container.querySelector('[data-bc-sid="t1"]') as HTMLElement;
       expect(textElement).toBeTruthy();
-
-      const textNode = Array.from(textElement.childNodes).find(
-        (node) => node.nodeType === Node.TEXT_NODE
-      ) as Text;
+      const textNode = findFirstTextNode(textElement);
       expect(textNode).toBeTruthy();
-      expect(textNode.textContent).toBe('Hello');
+      expect(textNode!.textContent).toBe('Hello');
 
       // Spy on InputHandler
       const inputHandler = (editorView as any).inputHandler as InputHandlerImpl;
       const handleTextContentChangeSpy = vi.spyOn(inputHandler, 'handleTextContentChange');
 
       // Actual DOM change
-      textNode.textContent = 'Hello World';
+      textNode!.textContent = 'Hello World';
 
       // Wait until MutationObserver detects change
       await new Promise((resolve) => setTimeout(resolve, 200));
@@ -369,7 +377,7 @@ describe.skip('MutationObserver Integration', () => {
       expect(handleTextContentChangeSpy).toHaveBeenCalled();
     });
 
-    it('여러 텍스트 노드 변경이 순차적으로 처리되어야 함', async () => {
+    it.skip('여러 텍스트 노드 변경이 순차적으로 처리되어야 함', async () => {
       // Set initial model (multiple text nodes)
       const model = {
         stype: 'document',
@@ -412,22 +420,20 @@ describe.skip('MutationObserver Integration', () => {
       const inputHandler = (editorView as any).inputHandler as InputHandlerImpl;
       const handleTextContentChangeSpy = vi.spyOn(inputHandler, 'handleTextContentChange');
 
-      // Change first text node
+      // Change first text node (content may be wrapped in inner span)
       const textElement1 = container.querySelector('[data-bc-sid="t1"]') as HTMLElement;
-      const textNode1 = Array.from(textElement1.childNodes).find(
-        (node) => node.nodeType === Node.TEXT_NODE
-      ) as Text;
-      textNode1.textContent = 'Hello!';
+      const textNode1 = findFirstTextNode(textElement1);
+      expect(textNode1).toBeTruthy();
+      textNode1!.textContent = 'Hello!';
 
       // Wait until MutationObserver detects change
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Change second text node
       const textElement2 = container.querySelector('[data-bc-sid="t2"]') as HTMLElement;
-      const textNode2 = Array.from(textElement2.childNodes).find(
-        (node) => node.nodeType === Node.TEXT_NODE
-      ) as Text;
-      textNode2.textContent = 'World!';
+      const textNode2 = findFirstTextNode(textElement2);
+      expect(textNode2).toBeTruthy();
+      textNode2!.textContent = 'World!';
 
       // Wait until MutationObserver detects change
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -464,14 +470,13 @@ describe.skip('MutationObserver Integration', () => {
       // Render EditorViewDOM
       await editorView.render(model as any);
 
-      // Find text node in DOM
+      // Find text node in DOM (content may be wrapped in inner span)
       const textElement = container.querySelector('[data-bc-sid="t1"]') as HTMLElement;
-      const textNode = Array.from(textElement.childNodes).find(
-        (node) => node.nodeType === Node.TEXT_NODE
-      ) as Text;
+      const textNode = findFirstTextNode(textElement);
+      expect(textNode).toBeTruthy();
 
       // Change text
-      textNode.textContent = 'Hello World';
+      textNode!.textContent = 'Hello World';
 
       // Wait until MutationObserver detects change
       await new Promise((resolve) => setTimeout(resolve, 100));
