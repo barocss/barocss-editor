@@ -308,6 +308,23 @@ User / Trigger
 
 ---
 
+### 3.1 Orchestrator: parallel vs serial (여러 sub-agent 분리)
+
+**오케스트레이터**가 여러 sub-agent에게 일을 나눌 때:
+
+| 구간 | 병렬 여부 | 이유 |
+|------|-----------|------|
+| **Research** | ✅ 병렬 OK | 읽기 전용(다른 에디터·자료 조사). N명이 각자 주제 받아 보고서/이슈 초안 출력 → 오케스트레이터가 합쳐서 이슈 3개 등 선정. |
+| **Backlog** | 직렬 권장 | Research 결과를 모은 뒤 이슈 생성. 한 번에 한 Backlog Agent가 이슈 생성. |
+| **Spec** | 이슈당 1명 | 이슈 N개면 Spec N번 호출 가능하지만, 출력이 같은 docs/specs를 건드리면 충돌. 이슈별로 직렬 또는 파일/스코프 나눠서 할당. |
+| **Implementation** | ❌ 직렬 권장 | 동시에 같은 repo/같은 패키지 수정 시 충돌·스타일 불일치. **한 번에 한 이슈(한 브랜치)** 씩 Implementation → Test → E2E → GitHub. |
+| **Test** | 조건부 | 서로 다른 패키지/다른 spec 파일만 담당하면 병렬 가능. 같은 `*.spec.ts`/같은 패키지면 직렬. |
+| **E2E** | 조건부 | 이슈별로 다른 `*.spec.ts` 추가면 병렬 가능. 같은 파일 수정 시 직렬. |
+
+**권장 패턴**: 오케스트레이터가 (1) Research 3명 병렬 → 결과 조합 → 이슈 3개 선정 (2) 이슈 1 → Spec → Implementation → Test → E2E → GitHub (3) 이슈 2 동일 (4) 이슈 3 동일. **구현은 이슈당 직렬.** 자료 조사만 병렬로 돌리고, 실제 코드/테스트는 이슈 단위로 한 에이전트씩 순차 진행하면 소스 유지에 유리하다.
+
+---
+
 ## 4. How to invoke (manual vs trigger-based)
 
 ### 4.1 Manual invocation (human or coordinator)
