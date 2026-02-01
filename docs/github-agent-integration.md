@@ -10,7 +10,7 @@ This doc describes how to tie the editor development flow (and AI agents) to Git
 |------|-----|------|
 | **Issue** | User or agent | Create an issue from a template (feature / bug / E2E). Agent uses it as the spec. |
 | **Branch** | Agent | Create branch from `main` (e.g. `feat/insert-list`, `fix/insert-paragraph-selection`). |
-| **Implement** | Agent | Follow `.cursor/AGENTS.md` feature loop; run verification (`.cursor/AGENTS.md` § How to verify). |
+| **Implement** | Agent | Follow `.cursor/AGENTS.md` feature loop; run verification (`.cursor/AGENTS.md` § How to verify). If a package has a test script but no test files ("No test files found"), create a minimal test file per **`docs/internal-logic-validation.md`** §3.1, then re-run verification. |
 | **PR** | Agent | Push branch, open PR with template filled; CI runs automatically. |
 | **Merge** | Human or automation | Merge when CI passes (and optional review). |
 | **Deploy** | GitHub Actions | Docs deploy on push to `main`; package release via changesets (see below). |

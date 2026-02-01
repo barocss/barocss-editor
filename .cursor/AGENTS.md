@@ -291,6 +291,7 @@ Use this when you need a fixed sequence to confirm the change.
 | Failure | What to do |
 |--------|------------|
 | **Unit test fails** in a package | Fix the code or the test in that package; re-run `pnpm --filter @barocss/<package> test:run` until it passes. Do not run E2E until unit passes. |
+| **Package has no test files** (vitest reports "No test files found") | Create a minimal test file in that package (e.g. `test/<name>.test.ts` with one smoke test that imports and asserts core behavior). Then re-run `pnpm --filter @barocss/<package> test:run`. See **`docs/internal-logic-validation.md`** §3.1. |
 | **E2E fails** (e.g. selector, timeout) | 1) Run unit tests for the same feature (model + extensions); if unit passes, the issue is likely DOM/timing or selector. 2) Run E2E in headed mode (`pnpm --filter @barocss/editor-react test:e2e -- --headed`) and watch the run; adjust selectors or waits in the spec. 3) If the app’s initial content changed, update the spec to match. |
 | **Only one E2E file fails** | Run that file alone: `pnpm --filter @barocss/editor-react test:e2e -- tests/<name>.spec.ts`; fix assertions or selectors in that file. |
 | **Manual behavior wrong** but tests pass | Add or extend a unit test (e.g. exec test) or E2E test that asserts the expected behavior; then fix the implementation until the new test passes. |
