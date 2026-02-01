@@ -25,8 +25,8 @@ describe('DOMRenderer Component State', () => {
 
   describe('Component state (new spec)', () => {
     it('renders initial value and updates on re-render', () => {
-      define('counter', ((_props: any, _model: any) => {
-        return element('div', {}, []);
+      define('counter', ((_props: any, model: any) => {
+        return element('div', {}, [String(model?.text ?? '')]);
       }) as any);
 
       const m1 = { stype: 'counter', sid: 'cnt1', text: '0' } as any;
@@ -66,7 +66,7 @@ describe('DOMRenderer Component State', () => {
     });
 
     it('separates props from model (HTML only)', () => {
-      define('display', ((_props: any, _model: any) => element('div', {}, [])) as any);
+      define('display', ((_props: any, model: any) => element('div', {}, [String(model?.text ?? '')])) as any);
 
       const info = 'props.label:Test|model.sid:disp1';
       const m = { stype: 'display', sid: 'disp1', label: 'Test', value: 42, text: info } as any;
@@ -91,7 +91,7 @@ describe('DOMRenderer Component State', () => {
     });
 
     it('complex object rendering via model-only', () => {
-      define('form', ((_p: any, _m: any) => element('div', {}, [])) as any);
+      define('form', ((_p: any, model: any) => element('div', {}, [String(model?.text ?? '')])) as any);
       const status = 'draft';
       const cnt = 0;
       const m = { stype: 'form', sid: 'form1', submitted: false, errors: [], text: `${status}:${cnt}` } as any;
@@ -101,7 +101,7 @@ describe('DOMRenderer Component State', () => {
     });
 
     it('updates when model changes (HTML compare)', () => {
-      define('display2', ((_p: any, _m: any) => element('div', {}, [])) as any);
+      define('display2', ((_p: any, model: any) => element('div', {}, [String(model?.text ?? '')])) as any);
       const m1 = { stype: 'display2', sid: 'disp2', text: 'Initial' } as any;
       renderer.render(container, m1);
       const h1 = normalizeHTML(container.firstElementChild as Element);
@@ -113,7 +113,7 @@ describe('DOMRenderer Component State', () => {
     });
 
     it('handles nested objects (HTML)', () => {
-      define('list', ((_props: any, _ctx: any) => element('div', {}, [])) as any);
+      define('list', ((_props: any, model: any) => element('div', {}, [String(model?.text ?? '')])) as any);
       const m = { stype: 'list', sid: 'list1', text: '2/2' } as any;
       renderer.render(container, m);
       const html = normalizeHTML(container.firstElementChild as Element);
