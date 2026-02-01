@@ -5,19 +5,14 @@ import { StrikeThroughExtension } from '../src/strikethrough';
 const recordedTransactions: any[][] = [];
 const commitMock = vi.fn();
 
-vi.mock('@barocss/model', () => {
+vi.mock('@barocss/model', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@barocss/model')>();
   return {
+    ...actual,
     transaction: (_editor: Editor, operations: any[]) => {
       recordedTransactions.push(operations);
-      return {
-        commit: commitMock
-      };
-    },
-    control: (_nodeId: string, ops: any[]) => ops,
-    toggleMark: (markType: string, range: [number, number]) => ({
-      type: 'toggleMark',
-      payload: { markType, range }
-    })
+      return { commit: commitMock };
+    }
   };
 });
 
@@ -78,7 +73,10 @@ describe('StrikeThroughExtension - toggleStrikeThrough', () => {
     expect(ops).toEqual([
       {
         type: 'toggleMark',
-        payload: { markType: 'strikethrough', range: [2, 7] }
+        payload: {
+          range: { startNodeId: 'text-1', startOffset: 2, endNodeId: 'text-1', endOffset: 7 },
+          markType: 'strikethrough'
+        }
       }
     ]);
   });
