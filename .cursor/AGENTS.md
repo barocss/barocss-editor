@@ -65,7 +65,7 @@ Full role list and invocation: see "Agent roles (sub-agents)" below and **`docs/
 
 ## Single command: "What needs to be done? Proceed."
 
-When the user says **"What needs to be done? Proceed."** (or equivalent), do the following in order.
+When the user says **"What needs to be done? Proceed."** or **"Proceed with the next task."** or **"다음 할일 진행해줘"** (or equivalent), do the following in order. **Always run spec verification first** (step 3 below) before the full flow.
 
 ### 1. Determine "what needs to be done"
 
@@ -83,6 +83,14 @@ When the user says **"What needs to be done? Proceed."** (or equivalent), do the
 Reply with one short line: **"Current task: [issue title] (issue #N)"** (e.g. "Current task: Add insertList (issue #5)"). Then continue to step 3.
 
 ### 3. Proceed
+
+**Spec verification first**: Before (or as part of) the full flow, run **spec verification** so that the next task starts from a known-good state and failures are interpreted against the spec.
+
+1. **Run tests for the scope of the current task**:
+   - **If the current issue targets a specific package** (e.g. issue title contains "renderer-dom", "fix(test): renderer-dom", or a package name), run **that package's tests only**: `pnpm --filter @barocss/<package> test -- --run` (e.g. `pnpm --filter @barocss/renderer-dom test -- --run`). This focuses spec verification on the package in scope.
+   - **Otherwise**: Run tests for the repo (`pnpm test`) or per-package in order per **`docs/internal-logic-validation.md`**.
+2. **If any test fails**: Follow **§7.1 Spec verification when tests fail** — locate the spec for the failing behavior (`docs/specs/`, `packages/<name>/SPEC.md`), compare spec vs test expectation, treat spec as source of truth, then fix the test or the implementation. Do not change code or test without consulting the spec first.
+3. **Then** run the full flow for the current task (issue) in role order.
 
 Run the **full flow** for that task, in role order:
 

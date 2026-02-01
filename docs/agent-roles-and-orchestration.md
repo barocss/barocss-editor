@@ -6,11 +6,12 @@ This doc defines **role-based sub-agents** so that work can be split and run in 
 
 ## 0. Single entry: "What needs to be done? Proceed."
 
-When the user says **"What needs to be done? Proceed."** (or equivalent), the agent should:
+When the user says **"What needs to be done? Proceed."** or **"Proceed with the next task."** or **"다음 할일 진행해줘"** (or equivalent), the agent should:
 
 1. **Determine next task**: **Backlog = GitHub issues.** List open issues (`gh issue list --state open`). Pick the first open issue (or one labeled `next`). **If none (no open issues)**: do **not** stop. Run **Research Agent** (research other editors and materials, suggest what we need, output draft issues) → **Backlog Agent** (create GitHub issues from draft) → pick the **first new issue**, then continue to step 2. If `gh` is not available, run Research Agent only and show draft issue bodies so the user can create issues manually.
 2. **Report**: "Current task: [issue title] (issue #N)".
-3. **Proceed**: Run the full flow for that task (Spec → Implementation → Test → E2E → GitHub, or Implementation → Test → E2E → GitHub if the issue already has a checklist). Use the role definitions in this doc (§2). Do not stop between roles unless a handback is needed (e.g. tests fail). When the PR is merged with "Closes #N", the issue is closed automatically.
+3. **Spec verification first**: Before the full flow, run **spec verification**: run tests for the scope of the current task. If the issue targets a specific package (e.g. "fix(test): renderer-dom — foo.test.ts"), run **that package's tests only**: `pnpm --filter @barocss/<package> test -- --run` (e.g. `pnpm --filter @barocss/renderer-dom test -- --run`). Otherwise run full repo tests (`pnpm test`) or per-package in order per `docs/internal-logic-validation.md`. If any test fails, consult the spec for the failing behavior (`docs/specs/`, `packages/<name>/SPEC.md`) and follow the spec-first rule (fix test if test is wrong, fix code if spec is correct and code is wrong). See **AGENTS.md** §7.1.
+4. **Proceed**: Run the full flow for that task (Spec → Implementation → Test → E2E → GitHub, or Implementation → Test → E2E → GitHub if the issue already has a checklist). Use the role definitions in this doc (§2). Do not stop between roles unless a handback is needed (e.g. tests fail). When the PR is merged with "Closes #N", the issue is closed automatically.
 
 Full procedure is in **`.cursor/AGENTS.md`** § "Single command: What needs to be done? Proceed.".
 

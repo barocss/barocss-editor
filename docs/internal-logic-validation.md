@@ -157,6 +157,16 @@ When doing internal logic validation, **always** create GitHub issues for failur
 
 Validation flow: **run tests in order → report pass/fail → create issues for every failure (mandatory) → fix per issue (branch, fix, verify, commit, PR, merge)**.
 
+### 3.4 Spec verification documentation
+
+How to record spec verification so agents and humans stay aligned:
+
+- **Docs (recommended for process)**: Write **when** to run verification, **order** (e.g. per-package or full), and **how** to interpret failures (spec-first rule). Keep in AGENTS.md, agent-roles-and-orchestration.md, and this doc. Docs are the single place for workflow and handoffs.
+- **Don'ts (recommended for mistakes to avoid)**: Record **do-not** rules (e.g. "do not change code without consulting spec first", "do not merge locally"). Short, scannable lists in AGENTS.md or a dedicated "Don'ts" section reduce repeated mistakes.
+- **Comments (use sparingly in code)**: Use comments only for **non-obvious "why"** (e.g. why this assertion matches the spec, why this shape). Avoid long or obvious comments; they go stale. Prefer updating the spec or test description over commenting around the code.
+
+Prefer **docs + don'ts** for spec verification; use **comments** only where the code would be misleading without them.
+
 ---
 
 ## 4. Summary
