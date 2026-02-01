@@ -106,9 +106,9 @@ describe('VNodeBuilder Edge Cases and Error Handling', () => {
       const vnode = builder.build('paragraph', model, { decorators });
       
       expect(vnode).toBeTruthy();
-      // Fallback decorator VNode should be created
-      const hasDecorator = (vnode.children as any[]).some((child: any) => 
-        child.decoratorSid === 'd1'
+      // Fallback decorator VNode should be created (sid in decoratorSid or attrs)
+      const hasDecorator = (vnode.children as any[]).some((child: any) =>
+        child.decoratorSid === 'd1' || child.attrs?.['data-decorator-sid'] === 'd1'
       );
       expect(hasDecorator).toBe(true);
     });
@@ -123,7 +123,7 @@ describe('VNodeBuilder Edge Cases and Error Handling', () => {
         stype: 'paragraph', 
         sid: 'p1', 
         text: 'Hello',
-        marks: [{ type: 'bold', range: [0, 100] }] // Exceeds text length (5)
+        marks: [{ stype: 'bold', range: [0, 100] }] // Exceeds text length (5)
       };
       
       const vnode = builder.build('paragraph', model);
@@ -141,7 +141,7 @@ describe('VNodeBuilder Edge Cases and Error Handling', () => {
         stype: 'paragraph', 
         sid: 'p1', 
         text: 'Hello',
-        marks: [{ type: 'bold', range: [-5, 3] }] // Negative range
+        marks: [{ stype: 'bold', range: [-5, 3] }] // Negative range
       };
       
       const vnode = builder.build('paragraph', model);
@@ -159,7 +159,7 @@ describe('VNodeBuilder Edge Cases and Error Handling', () => {
         stype: 'paragraph', 
         sid: 'p1', 
         text: 'Hello',
-        marks: [{ type: 'bold', range: [5, 2] }] // start > end
+        marks: [{ stype: 'bold', range: [5, 2] }] // start > end
       };
       
       const vnode = builder.build('paragraph', model);
@@ -317,22 +317,22 @@ describe('VNodeBuilder Edge Cases and Error Handling', () => {
       defineMark('bold', element('strong', {}, [data('text')]));
       defineMark('italic', element('em', {}, [data('text')]));
       
-      const model = { 
-        stype: 'paragraph', 
-        sid: 'p1', 
+      const model = {
+        stype: 'paragraph',
+        sid: 'p1',
         text: 'Hello',
         marks: [
-          { type: 'bold', range: [0, 5] },
-          { type: 'italic', range: [0, 5] } // Same range
+          { stype: 'bold', range: [0, 5] },
+          { stype: 'italic', range: [0, 5] }
         ]
       };
-      
+
       const vnode = builder.build('paragraph', model);
-      
+
       expect(vnode).toBeTruthy();
       expect(vnode.children).toBeTruthy();
       // Both marks should be applied (nested structure)
-      const hasBold = (vnode.children as any[]).some((child: any) => 
+      const hasBold = (vnode.children as any[]).some((child: any) =>
         child.tag === 'strong'
       );
       expect(hasBold).toBe(true);
@@ -346,7 +346,7 @@ describe('VNodeBuilder Edge Cases and Error Handling', () => {
         stype: 'paragraph', 
         sid: 'p1', 
         text: 'Hello',
-        marks: [{ type: 'bold', range: [2, 2] }] // Empty range
+        marks: [{ stype: 'bold', range: [2, 2] }] // Empty range
       };
       
       const vnode = builder.build('paragraph', model);
