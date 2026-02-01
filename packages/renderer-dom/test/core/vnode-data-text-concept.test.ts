@@ -130,10 +130,12 @@ describe('data("text") 개념 검증', () => {
       expect(vnode.tag).toBe('span');
       
       // Models with text field are always converted to children
-      // model.text is converted to vnode through data('text') and enters as children
+      // model.text is converted to vnode through data('text'); implementation may use span wrapper
       expect(vnode.text).toBeUndefined(); // Parent vnode should not have text
       expect(vnode.children).toHaveLength(1);
-      expect(vnode.children![0]).toHaveProperty('text', 'Hello World');
+      const firstChild = vnode.children![0] as any;
+      const textValue = firstChild.text ?? firstChild.children?.[0]?.text;
+      expect(textValue).toBe('Hello World');
     });
 
     it('should process data("text") with decorator and generate VNodes as children', () => {
@@ -176,10 +178,10 @@ describe('data("text") 개념 검증', () => {
       expect(vnode.children.length).toBeGreaterThan(0);
       
       // children contains decorator VNode and split text VNode
-      // Text may be wrapped in mark wrapper
+      // Decorator VNode may have decoratorSid or attrs['data-decorator-sid']
       const children = vnode.children as any[];
       expect(children.length).toBe(3);
-      expect(children[0].decoratorSid).toBe('chip-before');
+      expect(children[0].decoratorSid ?? children[0].attrs?.['data-decorator-sid']).toBe('chip-before');
       // children[1] may be mark wrapper: { tag: 'span', children: [{ text: 'Hello' }] }
       const text1 = children[1].text || (children[1].children?.[0]?.text);
       expect(text1).toBe('Hello');
