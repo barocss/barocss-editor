@@ -11,7 +11,7 @@ describe('Mark Range Verification', () => {
   it('should correctly split text by mark range [0, 16] for "yellow background" (17 chars)', () => {
     const text = 'yellow background';
     const marks = [{
-      type: 'bgColor',
+      stype: 'bgColor',
       range: [0, 16] as [number, number],
       attrs: { bgColor: '#ffff00' }
     }];
@@ -60,7 +60,7 @@ describe('Mark Range Verification', () => {
   it('should correctly split text by mark range [0, 18] for "yellow bㅁackground" (18 chars)', () => {
     const text = 'yellow bㅁackground';
     const marks = [{
-      type: 'bgColor',
+      stype: 'bgColor',
       range: [0, 18] as [number, number],
       attrs: { bgColor: '#ffff00' }
     }];
@@ -100,7 +100,7 @@ describe('Mark Range Verification', () => {
   it('should handle mark range that covers entire text', () => {
     const text = 'yellow background';
     const marks = [{
-      type: 'bgColor',
+      stype: 'bgColor',
       range: [0, text.length] as [number, number],
       attrs: { bgColor: '#ffff00' }
     }];
