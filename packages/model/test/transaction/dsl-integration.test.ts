@@ -440,7 +440,7 @@ describe('DSL Integration Tests', () => {
       expect(result.errors.length).toBeGreaterThan(0);
     });
 
-    it.skip('should handle empty and null values in operations', async () => {
+    it('should handle empty and null values in operations', async () => {
       const createResult = await transaction(mockEditor, [
         create(node('paragraph', {}, [createTextNode('inline-text', '')]))
       ]).commit();
