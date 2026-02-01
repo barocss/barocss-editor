@@ -17,6 +17,7 @@ Skills in this directory are **per-package**. The agent uses them when working o
 | `package-extensions` | @barocss/extensions | Extension interface, command registration |
 | `package-model` | @barocss/model | Transaction DSL, document operations |
 | `package-renderer-dom` | @barocss/renderer-dom | DSL → DOM rendering |
+| `package-renderer-react` | @barocss/renderer-react | DSL → React (ModelData + Registry → ReactNode); spec in package docs |
 | `package-schema` | @barocss/schema | Document schema definition |
 | `package-shared` | @barocss/shared | Platform, key string, i18n |
 | `package-text-analyzer` | @barocss/text-analyzer | Text change analysis (LCP/LCS) |
