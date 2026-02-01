@@ -2,13 +2,30 @@ import { describe, it, expect } from 'vitest';
 import { DataStore } from '@barocss/datastore';
 import type { INode } from '@barocss/datastore';
 import { SelectionManager } from '@barocss/editor-core';
+import { Schema } from '@barocss/schema';
 import { transaction, control } from '../../src';
 import { copy } from '../../src/operations-dsl';
 
+function createMockEditor(dataStore: DataStore, selectionManager: SelectionManager, schema: Schema) {
+  return {
+    dataStore,
+    selectionManager,
+    getActiveSchema: () => schema,
+    historyManager: { push: () => {} },
+    emit: () => {},
+    updateSelection: () => {}
+  };
+}
+
 describe('copy operation', () => {
   it('returns json and text for given range', async () => {
-    const ds = new DataStore();
+    const schema = new Schema('test', {
+      nodes: { 'paragraph': { name: 'paragraph', content: 'inline-text*' }, 'inline-text': { name: 'inline-text', content: 'text*' } },
+      marks: {}
+    });
+    const ds = new DataStore(undefined, schema);
     const selectionManager = new SelectionManager({ dataStore: ds });
+    const editor = createMockEditor(ds, selectionManager, schema);
     const rootId = ds.generateId();
     const t1 = ds.generateId();
     const t2 = ds.generateId();
@@ -20,6 +37,7 @@ describe('copy operation', () => {
     } as INode);
     ds.setNodeInternal({ sid: t1, stype: 'inline-text', text: 'Hello ', parentId: rootId } as INode);
     ds.setNodeInternal({ sid: t2, stype: 'inline-text', text: 'World', parentId: rootId } as INode);
+    ds.setRootNodeId(rootId);
 
     const range = {
       type: 'range',
@@ -31,16 +49,13 @@ describe('copy operation', () => {
       direction: 'forward'
     };
 
-    const builder = transaction(
-      { dataStore: ds, selectionManager } as any,
-      (ctrl) => ctrl(range as any, [copy(range as any)])
-    );
+    const builder = transaction(editor as any, [copy(range as any)]);
     const result = await builder.commit();
 
     expect(result.success).toBe(true);
-    const firstOp = result.operations?.[0] as { result?: { data?: { json?: unknown[]; text?: string } } };
-    expect(firstOp?.result?.data?.json).toBeInstanceOf(Array);
-    expect(firstOp?.result?.data?.text).toBe('Hello World');
+    const firstOp = result.operations?.[0] as { result?: { json?: unknown[]; text?: string } };
+    expect(firstOp?.result?.json).toBeInstanceOf(Array);
+    expect(firstOp?.result?.text).toBe('Hello World');
   });
 });
 

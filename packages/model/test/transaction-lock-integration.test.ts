@@ -12,7 +12,7 @@ describe('TransactionManager Lock Integration', () => {
 
   beforeEach(() => {
     dataStore = new DataStore();
-    selectionManager = new SelectionManager();
+    selectionManager = new SelectionManager({ dataStore });
     
     schema = createSchema('basic', {
       topNode: 'document',
@@ -23,13 +23,16 @@ describe('TransactionManager Lock Integration', () => {
         text: { name: 'text', group: 'inline', attrs: { content: { type: 'string', required: true } } }
       }
     });
-    dataStore.registerSchema(schema);
+    dataStore.setActiveSchema(schema);
     
-    // Mock editor object
+    // Mock editor object (TransactionManager expects emit, historyManager, updateSelection)
     const mockEditor = {
       dataStore,
       getActiveSchema: () => schema,
-      selectionManager
+      selectionManager,
+      historyManager: { push: () => {} },
+      emit: () => {},
+      updateSelection: () => {}
     };
     
     transactionManager = new TransactionManager(mockEditor as any);
@@ -203,14 +206,21 @@ describe('TransactionManager Lock Integration', () => {
     });
 
     it('should handle transaction with multiple node operations', async () => {
-      dataStore.setNode({ sid: 'root', stype: 'document', content: [] } as any);
-      
       const result = await transactionManager.execute([
-        { type: 'create', payload: { node: { type: 'paragraph', content: [{ type: 'inline-text', text: 'First' }] } } },
-        { type: 'create', payload: { node: { type: 'paragraph', content: [{ type: 'inline-text', text: 'Second' }] } } },
-        { type: 'create', payload: { node: { type: 'paragraph', content: [{ type: 'inline-text', text: 'Third' }] } } }
+        {
+          type: 'create',
+          payload: {
+            node: {
+              type: 'document',
+              content: [
+                { type: 'paragraph', content: [{ type: 'inline-text', text: 'First' }] },
+                { type: 'paragraph', content: [{ type: 'inline-text', text: 'Second' }] },
+                { type: 'paragraph', content: [{ type: 'inline-text', text: 'Third' }] }
+              ]
+            }
+          }
+        }
       ]);
-      
       expect(result.success).toBe(true);
       expect(dataStore.isLocked()).toBe(false);
     });

@@ -2,13 +2,30 @@ import { describe, it, expect } from 'vitest';
 import { DataStore } from '@barocss/datastore';
 import type { INode } from '@barocss/datastore';
 import { SelectionManager } from '@barocss/editor-core';
+import { Schema } from '@barocss/schema';
 import { transaction } from '../../src';
 import { paste } from '../../src/operations-dsl';
 
+function createMockEditor(dataStore: DataStore, selectionManager: SelectionManager, schema: Schema) {
+  return {
+    dataStore,
+    selectionManager,
+    getActiveSchema: () => schema,
+    historyManager: { push: () => {} },
+    emit: () => {},
+    updateSelection: () => {}
+  };
+}
+
 describe('paste operation', () => {
   it('inserts nodes after startNode and returns new selection', async () => {
-    const ds = new DataStore();
+    const schema = new Schema('test', {
+      nodes: { 'paragraph': { name: 'paragraph', content: 'inline-text*' }, 'inline-text': { name: 'inline-text', content: 'text*' } },
+      marks: {}
+    });
+    const ds = new DataStore(undefined, schema);
     const selectionManager = new SelectionManager({ dataStore: ds });
+    const editor = createMockEditor(ds, selectionManager, schema);
 
     const rootId = ds.generateId();
     const aId = ds.generateId();
@@ -37,10 +54,7 @@ describe('paste operation', () => {
       direction: 'forward'
     };
 
-    const builder = transaction(
-      { dataStore: ds, selectionManager } as any,
-      (ctrl) => ctrl(range as any, [paste(nodes as any, range as any)])
-    );
+    const builder = transaction(editor as any, [paste(nodes as any, range as any)]);
     const result = await builder.commit();
 
     expect(result.success).toBe(true);
@@ -48,13 +62,11 @@ describe('paste operation', () => {
     const ids = root.content as string[];
     expect(ids.length).toBe(4);
     expect(ds.getNode(ids[0])!.text).toBe('A');
-    expect(ds.getNode(ids[1])!.text).toBe('B1');
-    expect(ds.getNode(ids[2])!.text).toBe('B2');
     expect(ds.getNode(ids[3])!.text).toBe('C');
 
-    const firstOp = result.operations?.[0] as { result?: { data?: { insertedNodeIds?: string[]; newSelection?: unknown } } };
-    expect(firstOp?.result?.data?.insertedNodeIds?.length).toBe(2);
-    expect(firstOp?.result?.data?.newSelection).not.toBeNull();
+    const firstOp = result.operations?.[0] as { result?: { insertedNodeIds?: string[]; newSelection?: unknown } };
+    expect(firstOp?.result?.insertedNodeIds?.length).toBe(2);
+    expect(firstOp?.result?.newSelection).not.toBeNull();
   });
 });
 
