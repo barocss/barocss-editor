@@ -24,7 +24,8 @@
     "test:run": "vitest run"
   },
   "dependencies": {
-    "@barocss/datastore": "workspace:*"
+    "@barocss/datastore": "workspace:*",
+    "@barocss/editor-core": "workspace:*"
   },
   "devDependencies": {
     "jsdom": "^24.1.3",
