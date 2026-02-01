@@ -595,6 +595,14 @@ export class VNodeBuilder {
     // data: runtime model data (data('text'), data('content'), etc.)
     let { orderedChildren, hasDataTextProcessed } = this._processElementChildren(template, data, vnode, buildOptions);
 
+    // When building a mark wrapper (e.g. strong/em) with injectChild and useDataAsSlot, the mark
+    // template often has no children (element('strong', {}, [])). The injectChild is only consumed
+    // when a data('text') child is processed. If the template has no children, use injectChild as
+    // the single child so the mark wrapper gets the wrapped content.
+    if (options?.injectChild && options?.useDataAsSlot && orderedChildren.length === 0) {
+      orderedChildren.push(options.injectChild);
+    }
+
     // Remove meaningless span wrappers (e.g., leftover empty spans from decorator splits)
     // These can appear when decorator boundaries align in a way that produces zero-length runs.
     // We only prune spans that carry no sid/decorator identity, no attrs/styles, no text, and no children.
