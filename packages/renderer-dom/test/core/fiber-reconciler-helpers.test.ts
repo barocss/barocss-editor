@@ -184,7 +184,7 @@ describe('Fiber Reconciler Helpers', () => {
       expect(vnode.sid).toBe('p-1'); // Keep existing id
     });
 
-    it('should not generate sid when vnode has no stype', () => {
+    it('when vnode has no stype but has tag, generates host sid (tag-index) for stability', () => {
       const vnode: VNode = {
         tag: 'div'
       };
@@ -209,7 +209,8 @@ describe('Fiber Reconciler Helpers', () => {
 
       generateVNodeIdIfNeeded(vnode, fiber, components);
 
-      expect(vnode.sid).toBeUndefined();
+      expect(vnode.sid).toBeDefined();
+      expect(vnode.sid).toMatch(/^div-\d+$/);
     });
   });
 
