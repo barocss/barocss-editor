@@ -12,6 +12,7 @@ export * from './strikethrough';
 export * from './move-block';
 export * from './escape';
 export * from './list';
+export * from './blockquote';
 
 // Import classes
 import { TextExtension } from './text';
@@ -27,6 +28,7 @@ import { UnderlineExtension } from './underline';
 import { MoveBlockExtension } from './move-block';
 import { CopyPasteExtension } from './copy-paste';
 import { ListExtension } from './list';
+import { BlockquoteExtension } from './blockquote';
 import type { Extension } from '@barocss/editor-core';
 
 // Core Extension (required extensions that are always included by default)
@@ -54,7 +56,8 @@ export function createBasicExtensions(): Extension[] {
     new BoldExtension(),
     new ItalicExtension(),
     new HeadingExtension(),
-    new ListExtension()
+    new ListExtension(),
+    new BlockquoteExtension()
   ];
 }
 

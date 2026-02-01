@@ -77,7 +77,11 @@ Operations are defined in `@barocss/model`; their concrete inputs/outputs and in
 
 If the schema does not define list/listItem, these operations are not applicable; the implementation checklist should add schema nodes when the app schema is extended for lists.
 
-### 3.5 Other operations
+### 3.5 Blockquote
+
+- **wrapInBlockquote**: Wrap the current block in a blockquote (blockQuote > block), or unwrap if already inside a blockquote. **selectionAfter**: caret stays in the same text node.
+
+### 3.6 Other operations
 
 - **toggleMark**, **setNode**, **transformNode**, etc.: each has inputs/outputs and invariants defined in the model package. Extension commands compose these operations; the view maps input events to commands. For each operation, the model’s exec tests and `packages/model/SPEC.md` are the source of truth.
 

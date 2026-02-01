@@ -29,6 +29,7 @@ export * from './wrap';
 export * from './unwrap';
 export * from './wrapInList';
 export * from './splitListItem';
+export * from './wrapInBlockquote';
 export * from './applyMark';
 export * from './copy';
 export * from './paste';
