@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useRef, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import type { ReactSelectionHandler } from './selection-handler';
 import type { ReactInputHandler } from './input-handler';
@@ -83,6 +83,12 @@ export function EditorViewContextProvider({ editor, children }: { editor: Editor
     },
     [mutationObserverManager]
   );
+
+  useEffect(() => {
+    const onSelectionChange = () => selectionHandler.handleSelectionChange();
+    document.addEventListener('selectionchange', onSelectionChange);
+    return () => document.removeEventListener('selectionchange', onSelectionChange);
+  }, [selectionHandler]);
 
   const value = useMemo<EditorViewContextValue>(
     () => ({

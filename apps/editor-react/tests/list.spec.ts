@@ -4,7 +4,6 @@ const bulletListShortcut = process.platform === 'darwin' ? 'Meta+Shift+8' : 'Con
 
 test.describe('React Editor – list (wrapInList / splitListItem)', () => {
   test.skip('toggleBulletList wraps paragraph in list; Enter in list item creates new list item', async ({ page }) => {
-    // Skip: keybinding/selection sync may need focus/context verification in CI; implementation verified by model exec tests.
     await page.goto('/');
 
     const content = page.locator('[data-bc-layer="content"], [data-testid="editor-content"]').first();
