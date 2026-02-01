@@ -48,13 +48,17 @@ export class Reconciler {
       return;
     }
     
-    // Change rootVNode (promote first element to root)
+    // Change rootVNode (promote first element to root only when root has no sid and a single element child — unwrap single wrapper)
     let rootVNode = vnode;
-    if ((!rootVNode.tag || String(rootVNode.tag).toLowerCase() === 'div') && Array.isArray(rootVNode.children) && rootVNode.children.length > 0) {
-      const firstEl = findFirstElementVNode(rootVNode);
-      if (firstEl) {
-        // Promote first element to root (deep copy including children)
-        rootVNode = firstEl as VNode;
+    if (!sid && (!rootVNode.tag || String(rootVNode.tag).toLowerCase() === 'div') && Array.isArray(rootVNode.children) && rootVNode.children.length > 0) {
+      const directElementCount = rootVNode.children.filter(
+        (c): c is VNode => typeof c === 'object' && c !== null && 'tag' in c && !!(c as VNode).tag
+      ).length;
+      if (directElementCount === 1) {
+        const firstEl = findFirstElementVNode(rootVNode);
+        if (firstEl) {
+          rootVNode = firstEl as VNode;
+        }
       }
     }
     
