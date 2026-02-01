@@ -36,13 +36,17 @@ describe('DSL Control Operations', () => {
       _dataStore: dataStore,
       getActiveSchema: () => schema,
       selectionManager: {
+        getCurrentSelection: () => null,
         clone: () => ({
           getCurrentSelection: () => null,
+          setSelection: () => {},
           selectRange: () => {},
           selectNode: () => {},
           clearSelection: () => {}
         })
-      }
+      },
+      historyManager: { push: () => {} },
+      emit: () => {}
     };
   });
 
@@ -382,14 +386,14 @@ describe('DSL Control Operations', () => {
 
       const controlResult = await transaction(mockEditor, [
         ...control(paragraphId, [
-          { type: 'addChild', payload: { child: { type: 'inline-text', text: 'New child' } } }
+          { type: 'addChild', payload: { child: { stype: 'inline-text', text: 'New child' } } }
         ])
       ]).commit();
 
       expect(controlResult.success).toBe(true);
       expect(controlResult.operations?.[0].type).toBe('addChild');
       expect(controlResult.operations?.[0].payload.nodeId).toBe(paragraphId);
-      expect(controlResult.operations?.[0].payload.child.type).toBe('inline-text');
+      expect(controlResult.operations?.[0].payload.child.stype).toBe('inline-text');
       expect(controlResult.operations?.[0].payload.child.text).toBe('New child');
     });
 
