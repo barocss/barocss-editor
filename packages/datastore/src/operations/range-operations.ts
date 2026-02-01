@@ -30,7 +30,6 @@ export class RangeOperations {
   }
 
   /** Reserved for same-node insert path. Unused until wired. */
-  // @ts-expect-error TS6133 - private method reserved for future use
   private insertTextInNode(nodeId: string, contentRange: ModelSelection, text: string): void {
     const node = this.dataStore.getNode(nodeId);
     if (!node || typeof node.text !== 'string') return;

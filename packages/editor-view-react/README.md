@@ -59,12 +59,24 @@ import { EditorView } from '@barocss/editor-view-react';
 
 ## Testing
 
+Unit tests (Vitest, jsdom, @testing-library/react):
+
+```bash
+pnpm --filter @barocss/editor-view-react test:run
+```
+
+Tests cover: EditorView and EditorViewLayer (root, content layer, overlay layers, children), EditorViewContext (Provider value, useEditorViewContext throw, useOptionalEditorViewContext), ReactSelectionHandler (isSelectionInsideEditableText, setProgrammaticChange), ReactMutationObserverManager (setup/disconnect, batch), dom-sync (findClosestInlineTextNode, reconstructModelTextFromDOM). See `packages/editor-view-react/docs/editor-view-react-spec.md` and `docs/SPEC_VERIFICATION.md`.
+
+To run the React app that uses EditorView:
+
 ```bash
 pnpm --filter @barocss/editor-react dev
 ```
 
 ## See also
 
+- **packages/editor-view-react/docs/editor-view-react-spec.md** — Full spec: goals, architecture, API, context, layers, selection/input, DOM sync, MutationObserver, test strategy.
+- **packages/editor-view-react/docs/SPEC_VERIFICATION.md** — Spec vs implementation verification and checklist.
 - **packages/renderer-react** — DSL → ReactNode.
 - **packages/editor-view-dom** — DOM view layer (EditorViewDOM).
 - **docs/renderer-react-and-editor-react.md** — Design.
