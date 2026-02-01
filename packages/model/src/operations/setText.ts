@@ -61,7 +61,8 @@ export const setText = defineOperationDSL((...args: [string] | [string, string])
 // Runtime operation implementation
 defineOperation('setText', async (operation: any, context: TransactionContext) => {
   const { nodeId, text } = operation.payload;
-  if (!text) throw new Error('Text is required for setText operation');
+  if (text === undefined || text === null) throw new Error('Text is required for setText operation');
+  if (typeof text !== 'string') throw new Error('Text must be a string');
   const node = context.dataStore.getNode(nodeId);
   if (!node) throw new Error(`Node not found: ${nodeId}`);
   
