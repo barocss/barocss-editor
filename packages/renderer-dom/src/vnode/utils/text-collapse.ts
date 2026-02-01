@@ -25,7 +25,10 @@ export function shouldCollapseTextChild(
   );
   
   // Check if the single text child has inline decorators (which would prevent collapse)
-  const singleTextChild = nonDecoratorChildren.length === 1 && !nonDecoratorChildren[0].tag && nonDecoratorChildren[0].text !== undefined;
+  // Text VNode may have tag '#text' or no tag; treat both as text-only
+  const first = nonDecoratorChildren[0] as any;
+  const isTextOnly = first && (first.tag === undefined || first.tag === '#text') && first.text !== undefined;
+  const singleTextChild = nonDecoratorChildren.length === 1 && isTextOnly;
   const hasInlineDecorators = singleTextChild && (
     (nonDecoratorChildren[0] as any).decorators?.length > 0
   );
