@@ -131,6 +131,14 @@
   루트 또는 워크스페이스에서 `pnpm -r test:run` (각 패키지 script에 `test:run`이 있을 때).  
   필요하면 `docs/internal-logic-validation.md` 순서를 CI 스크립트나 체크리스트에 반영한다.
 
+### 3.1 패키지에 테스트 파일이 없을 때
+
+패키지에 `test` 또는 `test:run` 스크립트가 있는데 **테스트 파일이 없어** vitest가 "No test files found"로 종료하는 경우, 에이전트는 **해당 패키지에 최소 한 개의 테스트 파일을 생성**한 뒤 `test:run`을 다시 실행한다.
+
+- **위치**: 해당 패키지의 `test/` 또는 `tests/` 디렉터리 (기존 패키지 규칙 따름). 예: `packages/dom-observer/test/mutation-observer-manager.test.ts`.
+- **내용**: 패키지 진입점 또는 핵심 모듈을 import하고, 동작이 있음을 검증하는 최소 한 개의 테스트(예: 인스턴스 생성·메서드 호출·반환값 검증). 구체적 사실과 동작 결과만 기술한다.
+- **재실행**: 테스트 파일 추가 후 `pnpm --filter @barocss/<패키지> test:run`을 다시 실행해 통과할 때까지 진행한다.
+
 ---
 
 ## 4. 정리

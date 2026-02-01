@@ -86,6 +86,7 @@ Full procedure is in **`.cursor/AGENTS.md`** § "Single command: 이번에 해�
 
 **Output**:
 - **Test code**: Add or update unit tests (e.g. exec tests, extension tests) so that the spec and behavior are covered. Fix failing tests by changing tests or escalating to Implementation (e.g. spec violation).
+- **No test files**: If a touched package has a `test`/`test:run` script but vitest exits with "No test files found", create a minimal test file in that package (e.g. one smoke test that imports and asserts core behavior), then re-run `test:run` for that package.
 - **Test results**: Run `pnpm --filter @barocss/<package> test:run` for each touched package. Report pass/fail. If fail, fix or hand back to Implementation.
 
 **Handoff**: If all unit tests pass, E2E Agent runs. If tests fail and the failure is in implementation, hand back to Implementation Agent. Test Agent does **not** run E2E or open PRs.
@@ -280,6 +281,7 @@ Full procedure is in **`.cursor/AGENTS.md`** § "Single command: 이번에 해�
 
 **Output**:
 - **Test runs**: For each package in the documented order, run `pnpm --filter @barocss/<package> test:run`. If a package has no `test:run`, skip or note.
+- **No test files**: If a package has a `test`/`test:run` script but vitest exits with "No test files found", create a minimal test file in that package (e.g. one smoke test that imports and asserts core behavior), then re-run `test:run` for that package.
 - **Report**: Pass/fail per package. If fail: fix the code or test in that package and re-run; or escalate (e.g. “model tests fail: …”).
 - **No new features**: Validation Agent does **not** implement new behavior or change specs; it only validates existing logic with tests.
 
