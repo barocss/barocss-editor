@@ -139,6 +139,16 @@ When a package has a `test` or `test:run` script but **no test files** and vites
 - **Content**: Import the package entry or a core module and add at least one test that verifies behavior (e.g. instance creation, method call, return value). Describe only concrete facts and observed behavior.
 - **Re-run**: After adding the test file, run `pnpm --filter @barocss/<package> test:run` again until it passes.
 
+### 3.2 Always create issues first (mandatory)
+
+When doing internal logic validation, **always** create GitHub issues for failures before any fix. Do **not** fix or open a PR until issues exist.
+
+1. **Run tests** in the order above; collect pass/fail per package.
+2. **Create GitHub issues** for each failing package (or one parent issue with a checklist). Each issue: title (e.g. `fix(test): dsl — registry.get and defineMark expectations`), body with failure summary (which tests fail, error messages or assertions).
+3. **Then proceed** per issue: branch → fix → verify (`test:run` for that package) → commit → PR → merge (see `docs/github-agent-integration.md`).
+
+Validation flow: **run tests in order → report pass/fail → create issues for every failure (mandatory) → fix per issue (branch, fix, verify, commit, PR, merge)**.
+
 ---
 
 ## 4. Summary
