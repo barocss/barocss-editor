@@ -13,20 +13,19 @@ The packages below do not depend on other `@barocss/*` packages, or depend only 
 | **1** | **shared** | none | Utils, constants, key strings via unit tests |
 | **2** | **schema** | none | Schema definition, getNodeType, groups |
 | **3** | **text-analyzer** | none | Text change analysis, Unicode analysis tests |
-| **4** | **text-run-index** | none | Text run index, offset conversion tests |
-| **5** | **dsl** | none | DSL functions, registry, template builders |
-| **6** | **datastore** | schema, model(types) | CRUD, transaction, lock, overlay, marks, queries |
-| **7** | **converter** | datastore | Conversion, load/save logic |
-| **8** | **dom-observer** | text-analyzer | MutationObserver, change classification |
-| **9** | **renderer-dom** | dsl, text-run-index | Reconciler, VNode↔DOM mapping, mark render |
-| **10** | **renderer-react** | dsl | React build, renderer behavior |
-| **11** | **model** | datastore, editor-core(types), schema | Transaction, DSL, operation execution |
-| **12** | **editor-core** | datastore, model, renderer-dom, shared, schema | Keybindings, context, command execution, selectionManager |
-| **13** | **extensions** | editor-core, model, converter | Extension commands, before/after hooks |
-| **14** | **editor-view-dom** | dsl, datastore, dom-observer, editor-core, renderer-dom, schema, shared, text-analyzer | Input, selection, DOM sync |
-| **15** | **editor-view-react** | dsl, editor-core, renderer-react, shared, text-analyzer, text-run-index | EditorView, selection, input-handler (add tests as needed) |
-| **16** | **collaboration** | datastore | Collaboration adapter, sync |
-| **17** | **devtool** | editor-core, model | Tracing, UI integration (optional) |
+| **4** | **dsl** | none | DSL functions, registry, template builders |
+| **5** | **datastore** | schema, model(types) | CRUD, transaction, lock, overlay, marks, queries |
+| **6** | **converter** | datastore | Conversion, load/save logic |
+| **7** | **dom-observer** | text-analyzer | MutationObserver, change classification |
+| **8** | **renderer-dom** | dsl, shared | Reconciler, VNode↔DOM mapping, mark render |
+| **9** | **renderer-react** | dsl | React build, renderer behavior |
+| **10** | **model** | datastore, editor-core(types), schema | Transaction, DSL, operation execution |
+| **11** | **editor-core** | datastore, model, renderer-dom, shared, schema | Keybindings, context, command execution, selectionManager |
+| **12** | **extensions** | editor-core, model, converter | Extension commands, before/after hooks |
+| **13** | **editor-view-dom** | dsl, datastore, dom-observer, editor-core, renderer-dom, schema, shared, text-analyzer | Input, selection, DOM sync |
+| **14** | **editor-view-react** | dsl, editor-core, renderer-react, shared, text-analyzer | EditorView, selection, input-handler (add tests as needed) |
+| **15** | **collaboration** | datastore | Collaboration adapter, sync |
+| **16** | **devtool** | editor-core, model | Tracing, UI integration (optional) |
 
 ---
 
@@ -37,8 +36,8 @@ For each package, **what to validate** and **which tests to use** are described 
 ### Tier 0 (no external deps)
 
 - **shared**  
-  - Validate: key strings, constants, shared types, util functions  
-  - Tests: unit tests for input/output and edge cases  
+  - Validate: key strings, constants, shared types, util functions, decorator types, text-run-index API (`buildTextRunIndex`, `binarySearchRun`, offset↔DOM mapping)  
+  - Tests: unit tests for input/output and edge cases; `packages/shared` including text-run-index tests  
 
 - **schema**  
   - Validate: schema registration, getNodeType, group, content rules  
@@ -47,10 +46,6 @@ For each package, **what to validate** and **which tests to use** are described 
 - **text-analyzer**  
   - Validate: `analyzeTextChanges`, Unicode/composing-char handling  
   - Tests: `packages/text-analyzer/test/` (smart-text-analyzer, unicode-text-analysis)  
-
-- **text-run-index**  
-  - Validate: `buildTextRunIndex`, `binarySearchRun`, offset↔DOM mapping  
-  - Tests: add tests in package then `test:run`  
 
 - **dsl**  
   - Validate: DSL functions, registry, template builders  
@@ -172,6 +167,6 @@ Prefer **docs + don'ts** for spec verification; use **comments** only where the 
 ## 4. Summary
 
 - **Internal logic validation**: Following the **1→2→…→17 order** above lets you validate upper packages with lower ones already stable.  
-- **Test usage**: **Reuse** existing vitest tests; add unit tests where coverage is low (e.g. editor-view-react, text-run-index, renderer-react).  
+- **Test usage**: **Reuse** existing vitest tests; add unit tests where coverage is low (e.g. editor-view-react, renderer-react).  
 - **Feature work**: Proceed only after the packages touched by the feature pass validation (tests pass).  
 - **E2E**: Re-enable list/block E2E after the view layer (keydown, beforeinput wiring, etc.) is stable.

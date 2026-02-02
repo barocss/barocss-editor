@@ -13,7 +13,7 @@ This document records the result of verifying the implementation against `editor
 |--------------|----------|--------|
 | §1 Goals and Scope | ✅ | Same Editor/DataStore; renderer-react; no editor-view-dom dependency. |
 | §2 Architecture pipeline | ✅ | EditorViewContextProvider → selectionHandler, inputHandler, mutationObserverManager; EditorView → ContentLayer + overlay layers. |
-| §2 Dependencies | ✅ | dsl, editor-core, renderer-react, shared, text-analyzer, text-run-index; no editor-view-dom. |
+| §2 Dependencies | ✅ | dsl, editor-core, renderer-react, shared, text-analyzer (text-run-index API from shared); no editor-view-dom. |
 
 ---
 
@@ -56,7 +56,7 @@ This document records the result of verifying the implementation against `editor
 |--------------|----------|--------|
 | §7.1 DOM → Model | ✅ | Test: setProgrammaticChange(true) causes handleSelectionChange to skip updateSelection. |
 | §7.2 Model → DOM | ✅ | Implementation: editor:selection.model → requestAnimationFrame ×2 → convertModelSelectionToDOM. |
-| §7.3 ReactSelectionHandler | ✅ | Test: isSelectionInsideEditableText returns false when empty, true when inside inline-text node; setProgrammaticChange behavior. convertDOMSelectionToModel not tested (requires full DOM + text-run-index). |
+| §7.3 ReactSelectionHandler | ✅ | Test: isSelectionInsideEditableText returns false when empty, true when inside inline-text node; setProgrammaticChange behavior. convertDOMSelectionToModel not tested (requires full DOM + shared text-run-index). |
 
 ---
 

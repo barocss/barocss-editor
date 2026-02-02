@@ -69,7 +69,7 @@ EditorView (composite)
 - **@barocss/renderer-react**: ReactRenderer.
 - **@barocss/shared**: getKeyString.
 - **@barocss/text-analyzer**: analyzeTextChanges.
-- **@barocss/text-run-index**: buildTextRunIndex, binarySearchRun, ContainerRuns.
+- **@barocss/shared**: buildTextRunIndex, binarySearchRun, ContainerRuns (text-run-index API).
 - **react**, **react-dom**: Context, hooks, DOM refs.
 
 No dependency on **editor-view-dom** or **renderer-dom**.

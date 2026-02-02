@@ -499,9 +499,6 @@ importers:
       '@barocss/text-analyzer':
         specifier: workspace:*
         version: link:../text-analyzer
-      '@barocss/text-run-index':
-        specifier: workspace:*
-        version: link:../text-run-index
     devDependencies:
       '@testing-library/react':
         specifier: ^16.0.0
@@ -595,9 +592,9 @@ importers:
       '@barocss/dsl':
         specifier: workspace:*
         version: link:../dsl
-      '@barocss/text-run-index':
+      '@barocss/shared':
         specifier: workspace:*
-        version: link:../text-run-index
+        version: link:../shared
     devDependencies:
       '@types/jsdom':
         specifier: ^21.1.7
@@ -699,8 +696,6 @@ importers:
       vitest:
         specifier: ^1.6.1
         version: 1.6.1(@types/node@20.19.30)(@vitest/ui@1.6.1)
-
-  packages/text-run-index: {}
 
 packages:
 

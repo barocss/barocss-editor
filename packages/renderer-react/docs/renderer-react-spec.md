@@ -87,7 +87,7 @@ ModelData + RendererRegistry
 | **Decorators** | VNode decorator metadata, pattern/custom decorators, layer rendering | Same: `build(model, decorators)`, inline/block/layer in same tree (defineDecorator) |
 | **Component state** | ComponentManager, mount/update/unmount, state registry | Stub or minimal; full state can be added later |
 | **Portals** | Portal handler in reconciler | Out of scope initially |
-| **Dependencies** | dsl, text-run-index, etc. | dsl only (+ React peer) |
+| **Dependencies** | dsl, shared (text-run-index re-export in view layer) | dsl only (+ React peer) |
 
 **Summary**: renderer-react is “DSL → React” only. No VNode, no DOM reconciliation, no selection preservation inside the package. Parity is in “same model + same registry → same logical structure (elements, slots, data, marks)”. Stability (keys, data-bc-sid) is so that the view layer and React can keep DOM stable and apply selection correctly.
 

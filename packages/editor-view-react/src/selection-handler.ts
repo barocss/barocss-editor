@@ -4,7 +4,7 @@ import {
   buildTextRunIndex,
   binarySearchRun,
   type ContainerRuns,
-} from '@barocss/text-run-index';
+} from '@barocss/shared';
 
 export type ModelSelection =
   | { type: 'none' }
