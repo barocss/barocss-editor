@@ -8,7 +8,7 @@ import type { PatternDecoratorConfig, DecoratorGenerator } from '@barocss/shared
 import { DecoratorRegistry, DecoratorPrebuilder, type Decorator, type DecoratorQueryOptions, type DecoratorModel } from './decorator';
 import { DOMRenderer } from '@barocss/renderer-dom';
 import { RendererRegistry } from '@barocss/dsl';
-import type { DecoratorExportData } from './types';
+import type { DecoratorExportData, LoadDecoratorsPatternFunctions } from './types';
 import { getKeyString } from '@barocss/shared';
 
 export class EditorViewDOM implements IEditorViewDOM {
@@ -1839,26 +1839,7 @@ export class EditorViewDOM implements IEditorViewDOM {
    * }
    * ```
    */
-  loadDecorators(
-    data: DecoratorExportData,
-    patternFunctions?: Record<string, {
-      extractData: (match: RegExpMatchArray) => Record<string, any>;
-      createDecorator: (
-        nodeId: string,
-        startOffset: number,
-        endOffset: number,
-        extractedData: Record<string, any>
-      ) => {
-        sid: string;
-        target: {
-          sid: string;
-          startOffset: number;
-          endOffset: number;
-        };
-        data?: Record<string, any>;
-      };
-    }>
-  ): void {
+  loadDecorators(data: DecoratorExportData, patternFunctions?: LoadDecoratorsPatternFunctions): void {
     // Remove all existing decorators
     this.decoratorManager.clear();
     this.patternDecoratorConfigManager.clear();

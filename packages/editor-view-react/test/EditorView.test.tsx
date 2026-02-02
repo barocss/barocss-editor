@@ -128,6 +128,20 @@ describe('EditorView', () => {
     expect(d).toBeTruthy();
     expect((d as { data?: { color?: string } }).data?.color).toBe('yellow');
   });
+
+  it('ref.addDecorator accepts DecoratorGenerator and registers it', () => {
+    const editor = mockEditor();
+    const ref = createRef<any>();
+    render(<EditorView ref={ref} editor={editor} />);
+    const generator = {
+      sid: 'gen-1',
+      generate: () => [],
+    };
+    act(() => {
+      ref.current.addDecorator(generator);
+    });
+    expect(ref.current.decoratorGeneratorManager?.getGenerator('gen-1')).toBe(generator);
+  });
 });
 
 describe('EditorViewLayer', () => {

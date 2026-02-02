@@ -96,7 +96,7 @@ No dependency on **editor-view-dom** or **renderer-dom**.
 | useEditorViewContext | Hook | Returns EditorViewContextValue; throws if not inside Provider. |
 | useOptionalEditorViewContext | Hook | Returns value or null. |
 | createMutationObserverManager | Function | (onMutations) => ReactMutationObserverManager. |
-| Types | — | EditorViewOptions, EditorViewProps, EditorViewContentLayerOptions, EditorViewLayerOptions, EditorViewLayersConfig, EditorViewLayerType, EditorViewViewState, EditorViewContextValue, ReactMutationObserverManager. |
+| Types | — | EditorViewOptions, EditorViewProps, EditorViewRef, EditorViewHandle, EditorViewContentLayerOptions, EditorViewLayerOptions, EditorViewLayersConfig, EditorViewLayerType, DecoratorExportData, LoadDecoratorsPatternFunctions, DecoratorQueryOptions, DecoratorTypeSchema, ModelSelection, EditorViewViewState, EditorViewContextValue, ReactMutationObserverManager. |
 
 ### 3.2 EditorView Props
 
@@ -107,9 +107,25 @@ No dependency on **editor-view-dom** or **renderer-dom**.
   - **layers**: EditorViewLayersConfig — content?, decorator?, selection?, context?, custom? (optional className/style overrides; all four overlay layers are always rendered).
 - **children**: ReactNode (rendered inside CustomLayer after overlay decorators).
 
-Decorators are managed internally; use ref.addDecorator / ref.removeDecorator / ref.getDecorators when using a ref on EditorView.
+Decorators are managed internally; use the ref API (EditorViewHandle) when using a ref on EditorView.
 
-### 3.3 EditorViewContentLayer Props
+### 3.3 EditorView ref (EditorViewHandle)
+
+When using `ref` on EditorView, the following are exposed (parity with editor-view-dom where applicable):
+
+- **addDecorator(decorator: Decorator | DecoratorGenerator)** — Add a target decorator or register a DecoratorGenerator (function-based decorators). Generators are registered with `decoratorGeneratorManager` and their output is included in merged decorators.
+- **removeDecorator(id)**, **updateDecorator(id, updates)** — Remove or update a decorator by id.
+- **getDecorators(options?: DecoratorQueryOptions)** — Return merged decorators (local + remote + pattern-generated + generator-generated), optionally filtered/sorted by category, type, nodeId, enabledOnly, sortBy, sortOrder.
+- **getDecorator(id)** — Return a single decorator or generator by id (searches merged, then local, then remote).
+- **exportDecorators()**, **loadDecorators(data, patternFunctions?)** — Serialize/restore target and pattern decorators; pattern functions provided at load time for pattern logic.
+- **contentEditableElement** — HTMLElement | null (content-editable root).
+- **convertModelSelectionToDOM(sel)**, **convertDOMSelectionToModel(selection)**, **convertStaticRangeToModel(staticRange)** — Selection conversion between model and DOM/StaticRange.
+- **defineDecoratorType(type, category, schema)** — Register a decorator type schema (DecoratorTypeSchema) for validation and defaults when adding decorators; uses shared DecoratorSchemaRegistry.
+- **decoratorManager**, **remoteDecoratorManager**, **patternDecoratorConfigManager**, **decoratorGeneratorManager** — Refs to the shared manager instances (nullable).
+
+Types: `DecoratorExportData`, `LoadDecoratorsPatternFunctions`, `DecoratorQueryOptions`, `DecoratorTypeSchema`, `ModelSelection` are exported from the package (re-exported from `@barocss/shared` where applicable).
+
+### 3.4 EditorViewContentLayer Props
 
 - **options**: Optional.
   - **registry**: RendererRegistry (default getGlobalRegistry()).
@@ -118,7 +134,7 @@ Decorators are managed internally; use ref.addDecorator / ref.removeDecorator / 
 
 Decorators are taken from internal DecoratorManager (context); no options.decorators or getDecorators. Editor is taken from EditorViewContext only.
 
-### 3.4 EditorViewLayer Props
+### 3.5 EditorViewLayer Props
 
 - **layer**: 'decorator' | 'selection' | 'context' | 'custom'.
 - **className**: Optional string.
@@ -127,7 +143,7 @@ Decorators are taken from internal DecoratorManager (context); no options.decora
 
 Default classNames and zIndex per layer: decorator (barocss-editor-decorators, 10), selection (barocss-editor-selection, 100), context (barocss-editor-context, 200), custom (barocss-editor-custom, 1000). Position absolute, pointer-events: none.
 
-### 3.5 EditorView Static Subcomponents
+### 3.6 EditorView Static Subcomponents
 
 - **EditorView.ContentLayer** = EditorViewContentLayer.
 - **EditorView.Layer** = EditorViewLayer (generic; pass layer prop).
