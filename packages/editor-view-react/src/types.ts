@@ -2,6 +2,7 @@ import type { Editor } from '@barocss/editor-core';
 import type { RendererRegistry } from '@barocss/dsl';
 import type {
   Decorator,
+  DecoratorGenerator,
   DecoratorManager,
   RemoteDecoratorManager,
   PatternDecoratorConfigManager,
@@ -29,7 +30,7 @@ export type ModelSelection =
 
 /** Imperative handle for EditorView: decorator management and selection/convenience APIs. */
 export interface EditorViewHandle {
-  addDecorator(decorator: Decorator): void;
+  addDecorator(decorator: Decorator | DecoratorGenerator): void;
   removeDecorator(id: string): void;
   updateDecorator(id: string, updates: Partial<Decorator>): void;
   getDecorators(options?: DecoratorQueryOptions): Decorator[];

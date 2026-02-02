@@ -80,6 +80,14 @@ const EditorViewRoot = forwardRef<EditorViewRef, { options: EditorViewProps['opt
         if (!apiRef.current) {
           apiRef.current = {
             addDecorator(decorator) {
+              if ('generate' in decorator) {
+                decoratorGeneratorManagerRef.current?.registerGenerator(
+                  decorator as import('@barocss/shared').DecoratorGenerator,
+                  bumpDecoratorVersion
+                );
+                bumpDecoratorVersion();
+                return;
+              }
               decoratorManagerRef.current?.add(decorator);
             },
             removeDecorator(id) {

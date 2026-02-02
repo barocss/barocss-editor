@@ -1,6 +1,16 @@
 import { Editor } from '@barocss/editor-core';
 import type { RendererRegistry, ModelData } from '@barocss/dsl';
+import type {
+  DecoratorExportData,
+  LoadDecoratorsPatternFunctions,
+  DecoratorQueryOptions,
+  DecoratorTypeSchema,
+  Decorator,
+  DecoratorGenerator,
+} from '@barocss/shared';
 // TreeDocument is removed - use ModelData (sid, stype) directly
+
+export type { DecoratorExportData, LoadDecoratorsPatternFunctions };
 
 export interface LayerConfiguration {
   contentEditable?: {
@@ -99,21 +109,8 @@ export interface IEditorViewDOM {
   render(tree?: ModelData | any): void;        // ModelData format (uses sid, stype) or exported from editor
   
   // Decorator management API
-  getDecorators?(options?: any): any[];        // Query decorator list
-  
-  // Decorator type definition (optional)
-  defineDecoratorType(
-    type: string,
-    category: 'layer' | 'inline' | 'block',
-    schema: {
-      description?: string;
-      dataSchema?: Record<string, {
-        type: 'string' | 'number' | 'boolean' | 'array' | 'object';
-        required?: boolean;
-        default?: any;
-      }>;
-    }
-  ): void;
+  getDecorators?(options?: DecoratorQueryOptions): (Decorator | DecoratorGenerator)[];
+  defineDecoratorType(type: string, category: 'layer' | 'inline' | 'block', schema: DecoratorTypeSchema): void;
   
   // Lifecycle
   destroy(): void;
@@ -161,29 +158,4 @@ export interface TextChangeAnalysisOptions {
     beforeText?: string;    // Leading context
     afterText?: string;     // Trailing context
   };
-}
-
-/**
- * Decorator Export/Import 타입
- */
-export interface DecoratorExportData {
-  version: string;
-  targetDecorators: Array<{
-    sid: string;
-    stype: string;
-    category: 'layer' | 'inline' | 'block';
-    data?: Record<string, any>;
-    target: any;
-    enabled?: boolean;
-  }>;
-  patternDecorators: Array<{
-    sid: string;  // Unified from id → sid
-    stype: string;
-    category: 'inline' | 'block' | 'layer';
-    pattern: { source: string; flags: string }; // RegExp converted to string
-    priority?: number;
-    enabled?: boolean;
-    // extractData and createDecorator are functions, so excluded
-    // Functions provided in patternFunctions parameter are used on load
-  }>;
 }

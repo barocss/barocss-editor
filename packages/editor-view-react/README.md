@@ -48,9 +48,11 @@ import { EditorView } from '@barocss/editor-view-react';
 
 ## API
 
-- **EditorView** — Composite view. Props: `editor`, `options?` (registry, className, layers), `children?` (custom layer content).
+- **EditorView** — Composite view. Props: `editor`, `options?` (registry, className, layers), `children?` (custom layer content). Supports `ref` for imperative handle (EditorViewHandle).
 - **EditorView.ContentLayer** — Props: `options?` (registry, className, editable). Editor is from EditorViewContext (use inside EditorView).
 - **EditorView.Layer** — Props: `layer` ('decorator' | 'selection' | 'context' | 'custom'), `className?`, `style?`, `children?`.
+
+**Ref API (EditorViewHandle)** — When using `ref` on EditorView: `addDecorator(Decorator | DecoratorGenerator)`, `removeDecorator`, `updateDecorator`, `getDecorators(options?)`, `getDecorator`, `exportDecorators`, `loadDecorators`, `contentEditableElement`, `convertModelSelectionToDOM`, `convertDOMSelectionToModel`, `convertStaticRangeToModel`, `defineDecoratorType`, and refs to `decoratorManager`, `remoteDecoratorManager`, `patternDecoratorConfigManager`, `decoratorGeneratorManager`. See editor-view-react-spec.md § 3.3.
 
 ## Docs
 
