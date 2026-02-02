@@ -7,9 +7,26 @@ import { defineParser, defineConverter } from '../api';
 export function registerDefaultHTMLRules(): void {
   // === Parser Rules (HTML → Model) ===
   
-  // Paragraph
+  // Paragraph (including optional data-placeholder for empty-block hint; preserve other data-*)
   defineParser('paragraph', 'html', {
-    parseDOM: [{ tag: 'p' }]
+    parseDOM: [
+      {
+        tag: 'p',
+        getAttrs: (node) => {
+          const el = node as Element;
+          const attrs: Record<string, string> = {};
+          const placeholder = el.getAttribute?.('data-placeholder');
+          if (placeholder != null) attrs.placeholder = placeholder;
+          for (const name of el.getAttributeNames?.() ?? []) {
+            if (name.startsWith('data-')) {
+              const val = el.getAttribute(name);
+              if (val != null) attrs[name] = val;
+            }
+          }
+          return attrs;
+        }
+      }
+    ]
   });
   
   // Heading
@@ -128,6 +145,27 @@ export function registerDefaultHTMLRules(): void {
     ]
   });
 
+  // Emoji (standard schema inline atom: shortcode?, unicode?)
+  defineParser('emoji', 'html', {
+    parseDOM: [
+      {
+        tag: 'span',
+        getAttrs: (node) => {
+          const el = node as Element;
+          if (!el.getAttribute?.('data-emoji')) return null;
+          const shortcode = el.getAttribute('data-shortcode') ?? undefined;
+          const unicode = el.getAttribute('data-unicode') ?? undefined;
+          const textContent = el.textContent?.trim();
+          return {
+            shortcode: shortcode || undefined,
+            unicode: unicode || textContent || undefined
+          };
+        },
+        priority: 110
+      }
+    ]
+  });
+
   // Image
   defineParser('image', 'html', {
     parseDOM: [
@@ -146,12 +184,12 @@ export function registerDefaultHTMLRules(): void {
 
   // === Converter Rules (Model → HTML) ===
   
-  // Paragraph
+  // Paragraph (optional data-placeholder for empty-block hint)
   defineConverter('paragraph', 'html', {
     convert: (node) => {
-      // Content conversion is handled recursively inside HTMLConverter
-      // Here, only return placeholder (actual conversion performed in HTMLConverter._convertContentToHTML)
-      return '<p>PLACEHOLDER_CONTENT</p>';
+      const placeholder = node.attributes?.placeholder;
+      const attr = placeholder != null ? ` data-placeholder="${escapeHTML(String(placeholder))}"` : '';
+      return `<p${attr}>PLACEHOLDER_CONTENT</p>`;
     }
   });
   
@@ -222,6 +260,19 @@ export function registerDefaultHTMLRules(): void {
       const isHeader = node.attributes?.header === true;
       const tag = isHeader ? 'th' : 'td';
       return `<${tag}>PLACEHOLDER_CONTENT</${tag}>`;
+    }
+  });
+
+  // Emoji (standard schema: shortcode?, unicode?)
+  defineConverter('emoji', 'html', {
+    convert: (node) => {
+      const attrs = node.attributes || {};
+      const shortcode = attrs.shortcode != null ? String(attrs.shortcode) : '';
+      const unicode = attrs.unicode != null ? String(attrs.unicode) : '';
+      const dShort = shortcode ? ` data-shortcode="${escapeHTML(shortcode)}"` : '';
+      const dUnicode = unicode ? ` data-unicode="${escapeHTML(unicode)}"` : '';
+      const inner = unicode || shortcode || '';
+      return `<span data-emoji${dShort}${dUnicode}>${escapeHTML(inner)}</span>`;
     }
   });
 

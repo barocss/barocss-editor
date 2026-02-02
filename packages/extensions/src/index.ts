@@ -13,6 +13,7 @@ export * from './move-block';
 export * from './escape';
 export * from './list';
 export * from './blockquote';
+export * from './emoji';
 
 // Import classes
 import { TextExtension } from './text';
