@@ -6,6 +6,7 @@ import {
   RemoteDecoratorManager,
   PatternDecoratorConfigManager,
   DecoratorGeneratorManager,
+  DecoratorSchemaRegistry,
   runPatternFromModel,
 } from '@barocss/shared';
 import type { ReactSelectionHandler } from './selection-handler';
@@ -32,12 +33,15 @@ export interface EditorViewContextValue {
   inputHandler: ReactInputHandler;
   mutationObserverManager: ReactMutationObserverManager;
   setContentEditableElement: (el: HTMLElement | null) => void;
+  /** Ref to content-editable root (set by ContentLayer on mount). */
+  contentEditableRef: React.RefObject<HTMLElement | null>;
   decoratorManagerRef: React.RefObject<DecoratorManager | null>;
+  decoratorSchemaRegistryRef: React.RefObject<DecoratorSchemaRegistry | null>;
   remoteDecoratorManagerRef: React.RefObject<RemoteDecoratorManager | null>;
   patternDecoratorConfigManagerRef: React.RefObject<PatternDecoratorConfigManager | null>;
   decoratorGeneratorManagerRef: React.RefObject<DecoratorGeneratorManager | null>;
-  /** Merged decorators for rendering: local + remote + pattern-from-model + generator-from-model. */
   getMergedDecorators: (model: unknown) => Decorator[];
+  bumpDecoratorVersion: () => void;
   decoratorVersion: number;
 }
 
@@ -67,9 +71,13 @@ export function EditorViewContextProvider({ editor, children }: { editor: Editor
   const contentEditableRef = useRef<HTMLElement | null>(null);
   const getContentEditableElement = useCallback(() => contentEditableRef.current, []);
 
+  const decoratorSchemaRegistryRef = useRef<DecoratorSchemaRegistry | null>(null);
+  if (decoratorSchemaRegistryRef.current === null) {
+    decoratorSchemaRegistryRef.current = new DecoratorSchemaRegistry();
+  }
   const decoratorManagerRef = useRef<DecoratorManager | null>(null);
   if (decoratorManagerRef.current === null) {
-    decoratorManagerRef.current = new DecoratorManager();
+    decoratorManagerRef.current = new DecoratorManager(decoratorSchemaRegistryRef.current);
   }
   const remoteDecoratorManagerRef = useRef<RemoteDecoratorManager | null>(null);
   if (remoteDecoratorManagerRef.current === null) {
@@ -159,7 +167,7 @@ export function EditorViewContextProvider({ editor, children }: { editor: Editor
       if (contentEditableRef.current) {
         mutationObserverManager.disconnect();
       }
-      contentEditableRef.current = el;
+      (contentEditableRef as React.MutableRefObject<HTMLElement | null>).current = el;
       if (el) {
         mutationObserverManager.setup(el);
       }
@@ -181,11 +189,14 @@ export function EditorViewContextProvider({ editor, children }: { editor: Editor
       inputHandler,
       mutationObserverManager,
       setContentEditableElement,
+      contentEditableRef,
       decoratorManagerRef,
+      decoratorSchemaRegistryRef,
       remoteDecoratorManagerRef,
       patternDecoratorConfigManagerRef,
       decoratorGeneratorManagerRef,
       getMergedDecorators,
+      bumpDecoratorVersion,
       decoratorVersion,
     }),
     [
@@ -195,11 +206,14 @@ export function EditorViewContextProvider({ editor, children }: { editor: Editor
       inputHandler,
       mutationObserverManager,
       setContentEditableElement,
+      contentEditableRef,
       decoratorManagerRef,
+      decoratorSchemaRegistryRef,
       remoteDecoratorManagerRef,
       patternDecoratorConfigManagerRef,
       decoratorGeneratorManagerRef,
       getMergedDecorators,
+      bumpDecoratorVersion,
       decoratorVersion,
     ]
   );

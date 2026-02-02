@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { EditorViewDOM } from '../../src/editor-view-dom.js';
+import { EditorViewDOM } from '../../src/editor-view-dom';
 
 // Mock Editor
 const mockEditor = {

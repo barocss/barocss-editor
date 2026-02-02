@@ -3,7 +3,7 @@
  * editor-view-react can use no validator (pass undefined).
  */
 
-import type { Decorator } from './types.js';
+import type { Decorator } from './types';
 
 export interface IDecoratorValidator {
   validateDecorator(decorator: Decorator): { valid: boolean; errors: string[] };

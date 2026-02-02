@@ -6,15 +6,43 @@ import type {
   RemoteDecoratorManager,
   PatternDecoratorConfigManager,
   DecoratorGeneratorManager,
+  DecoratorExportData,
+  LoadDecoratorsPatternFunctions,
+  DecoratorQueryOptions,
+  DecoratorTypeSchema,
 } from '@barocss/shared';
 
-/** Imperative handle for EditorView: decorator management and remote/pattern/generator managers. */
+export type { DecoratorExportData, LoadDecoratorsPatternFunctions, DecoratorQueryOptions, DecoratorTypeSchema };
+
+/** Model selection type for convert* APIs. */
+export type ModelSelection =
+  | { type: 'none' }
+  | {
+      type: 'range';
+      startNodeId: string;
+      startOffset: number;
+      endNodeId: string;
+      endOffset: number;
+      direction?: 'forward' | 'backward' | 'none';
+    }
+  | { type: 'node'; nodeId: string };
+
+/** Imperative handle for EditorView: decorator management and selection/convenience APIs. */
 export interface EditorViewHandle {
   addDecorator(decorator: Decorator): void;
   removeDecorator(id: string): void;
   updateDecorator(id: string, updates: Partial<Decorator>): void;
-  /** Merged decorators (local + remote + pattern-from-doc + generator-from-doc). */
-  getDecorators(): Decorator[];
+  getDecorators(options?: DecoratorQueryOptions): Decorator[];
+  getDecorator(id: string): Decorator | undefined;
+  exportDecorators(): DecoratorExportData;
+  loadDecorators(data: DecoratorExportData, patternFunctions?: LoadDecoratorsPatternFunctions): void;
+  /** Content-editable root element (null until mounted). */
+  contentEditableElement: HTMLElement | null;
+  convertModelSelectionToDOM(sel: ModelSelection | null | undefined): void;
+  convertDOMSelectionToModel(selection: Selection): ModelSelection;
+  /** Converts a StaticRange (e.g. from getRangeAt) to model selection, or null if not resolvable. */
+  convertStaticRangeToModel(staticRange: StaticRange): ModelSelection | null;
+  defineDecoratorType(type: string, category: 'layer' | 'inline' | 'block', schema: DecoratorTypeSchema): void;
   decoratorManager: DecoratorManager | null;
   remoteDecoratorManager: RemoteDecoratorManager | null;
   patternDecoratorConfigManager: PatternDecoratorConfigManager | null;

@@ -5,8 +5,8 @@
  * Used by editor-view-dom and editor-view-react.
  */
 
-import type { Decorator } from './types.js';
-import { EventEmitter } from './event-emitter.js';
+import type { Decorator } from './types';
+import { EventEmitter } from './event-emitter';
 
 export interface DecoratorOwner {
   userId: string;

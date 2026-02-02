@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, act } from '@testing-library/react';
+import { createRef } from 'react';
 import {
   EditorView,
   EditorViewLayer,
@@ -83,6 +84,49 @@ describe('EditorView', () => {
     const customLayer = container.querySelector('[data-bc-layer="custom"]');
     expect(customLayer).toBeTruthy();
     expect(screen.getByTestId('custom-child').textContent).toBe('Custom');
+  });
+
+  it('ref exposes getDecorator, contentEditableElement, exportDecorators, loadDecorators, convertModelSelectionToDOM, convertDOMSelectionToModel, convertStaticRangeToModel, defineDecoratorType', () => {
+    const editor = mockEditor();
+    const ref = createRef<any>();
+    render(<EditorView ref={ref} editor={editor} />);
+    const api = ref.current;
+    expect(api).toBeTruthy();
+    expect(typeof api.getDecorator).toBe('function');
+    expect(typeof api.exportDecorators).toBe('function');
+    expect(typeof api.loadDecorators).toBe('function');
+    expect(typeof api.convertModelSelectionToDOM).toBe('function');
+    expect(typeof api.convertDOMSelectionToModel).toBe('function');
+    expect(typeof api.convertStaticRangeToModel).toBe('function');
+    expect(typeof api.defineDecoratorType).toBe('function');
+    expect(api.getDecorator('nonexistent')).toBeUndefined();
+    const exported = api.exportDecorators();
+    expect(exported.version).toBe('1.0.0');
+    expect(Array.isArray(exported.targetDecorators)).toBe(true);
+    expect(Array.isArray(exported.patternDecorators)).toBe(true);
+    expect(api.contentEditableElement).toBe(screen.getByTestId('editor-content'));
+  });
+
+  it('ref.defineDecoratorType registers type; addDecorator applies schema defaults', () => {
+    const editor = mockEditor();
+    const ref = createRef<any>();
+    render(<EditorView ref={ref} editor={editor} />);
+    ref.current.defineDecoratorType('highlight', 'layer', {
+      dataSchema: { color: { type: 'string', default: 'yellow' } },
+    });
+    act(() => {
+      ref.current.addDecorator({
+        sid: 'd1',
+        stype: 'highlight',
+        category: 'layer',
+        data: {},
+      });
+    });
+    const list = ref.current.getDecorators();
+    expect(list.length).toBeGreaterThanOrEqual(1);
+    const d = list.find((x: { sid: string }) => x.sid === 'd1');
+    expect(d).toBeTruthy();
+    expect((d as { data?: { color?: string } }).data?.color).toBe('yellow');
   });
 });
 

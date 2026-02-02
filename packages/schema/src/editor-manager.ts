@@ -1,5 +1,5 @@
-import { SchemaRegistry } from './registry.js';
-import { createSchema } from './schema.js';
+import { SchemaRegistry } from './registry';
+import { createSchema } from './schema';
 import type { SchemaDefinition } from './types';
 
 /**

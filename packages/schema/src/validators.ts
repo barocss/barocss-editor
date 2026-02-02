@@ -1,4 +1,4 @@
-import { Schema } from './schema.js';
+import { Schema } from './schema';
 import { ValidationResult, AttributeDefinition, ValidationErrorCode } from './types';
 import { VALIDATION_ERRORS } from './types';
 

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { Validator } from '../src/validators.js';
-import { createSchema } from '../src/schema.js';
+import { Validator } from '../src/validators';
+import { createSchema } from '../src/schema';
 import type { SchemaDefinition } from '../src/types';
 
 describe('Schema Validators', () => {

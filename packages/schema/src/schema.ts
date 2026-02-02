@@ -1,5 +1,5 @@
 import { SchemaDefinition, AttributeDefinition, ValidationResult, NodeTypeDefinition, MarkDefinition, Mark, SchemaExtensions } from './types';
-import { Validator } from './validators.js';
+import { Validator } from './validators';
 
 export class Schema {
   public topNode: string;

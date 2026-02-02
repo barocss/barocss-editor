@@ -4,7 +4,7 @@
  * 텍스트에서 패턴을 검색하여 decorator를 자동으로 생성합니다.
  */
 
-import type { Decorator } from '../vnode/decorator/types.js';
+import type { Decorator } from '../vnode/decorator/types';
 
 /**
  * 패턴 매칭 결과에서 추출된 데이터

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { SchemaRegistry, registerSchema, getSchema, getAllSchemas, getNodeTypesByGroup, getNodeTypesByGroupInSchema, removeSchema, hasSchema, clearSchemas } from '../src/registry.js';
-import { createSchema } from '../src/schema.js';
+import { SchemaRegistry, registerSchema, getSchema, getAllSchemas, getNodeTypesByGroup, getNodeTypesByGroupInSchema, removeSchema, hasSchema, clearSchemas } from '../src/registry';
+import { createSchema } from '../src/schema';
 import type { SchemaDefinition } from '../src/types';
 
 describe('SchemaRegistry', () => {

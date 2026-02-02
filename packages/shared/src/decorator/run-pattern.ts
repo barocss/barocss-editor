@@ -2,8 +2,8 @@
  * Run pattern configs against (nodeId, text) or model; return Decorator[] (shared).
  */
 
-import type { Decorator } from './types.js';
-import type { PatternDecoratorConfig } from './pattern-decorator-config-manager.js';
+import type { Decorator } from './types';
+import type { PatternDecoratorConfig } from './pattern-decorator-config-manager';
 
 export function runPatternConfigs(
   nodeId: string,

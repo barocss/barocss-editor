@@ -1,6 +1,14 @@
 import { forwardRef, useImperativeHandle, useRef } from 'react';
 import type { RendererRegistry } from '@barocss/dsl';
-import type { EditorViewProps, EditorViewOverlayLayerProps, EditorViewRef } from './types';
+import type {
+  EditorViewProps,
+  EditorViewOverlayLayerProps,
+  EditorViewRef,
+  DecoratorExportData,
+  LoadDecoratorsPatternFunctions,
+  ModelSelection,
+} from './types';
+import type { DecoratorQueryOptions } from '@barocss/shared';
 import { EditorViewContentLayer } from './EditorViewContentLayer';
 import { EditorViewLayer } from './EditorViewLayer';
 import { EditorViewOverlayLayerContent } from './EditorViewOverlayLayerContent';
@@ -54,11 +62,15 @@ const EditorViewRoot = forwardRef<EditorViewRef, { options: EditorViewProps['opt
   function EditorViewRoot({ options = {}, children }, ref) {
     const {
       editor,
+      selectionHandler,
+      contentEditableRef,
       decoratorManagerRef,
+      decoratorSchemaRegistryRef,
       remoteDecoratorManagerRef,
       patternDecoratorConfigManagerRef,
       decoratorGeneratorManagerRef,
       getMergedDecorators,
+      bumpDecoratorVersion,
     } = useEditorViewContext();
     const apiRef = useRef<EditorViewRef | null>(null);
 
@@ -80,9 +92,113 @@ const EditorViewRoot = forwardRef<EditorViewRef, { options: EditorViewProps['opt
             updateDecorator(id, updates) {
               decoratorManagerRef.current?.update(id, updates);
             },
-            getDecorators() {
+            getDecorators(options?: DecoratorQueryOptions) {
               const model = editor.getDocumentProxy?.() ?? null;
-              return getMergedDecorators(model);
+              let list = getMergedDecorators(model);
+              if (options?.enabledOnly !== false) {
+                list = list.filter((d) => d.enabled !== false);
+              }
+              if (options?.category) list = list.filter((d) => d.category === options.category);
+              if (options?.type) list = list.filter((d) => d.stype === options.type);
+              if (options?.nodeId) {
+                list = list.filter((d) => {
+                  const t = d.target;
+                  if (!t) return false;
+                  const sid = 'sid' in t ? t.sid : undefined;
+                  const startSid = 'startSid' in t ? t.startSid : undefined;
+                  const endSid = 'endSid' in t ? t.endSid : undefined;
+                  return sid === options.nodeId || startSid === options.nodeId || endSid === options.nodeId;
+                });
+              }
+              const sortBy = options?.sortBy ?? 'id';
+              const order = options?.sortOrder ?? 'asc';
+              if (sortBy) {
+                const mult = order === 'desc' ? -1 : 1;
+                list = [...list].sort((a, b) => {
+                  const av = sortBy === 'id' ? a.sid : sortBy === 'type' ? a.stype : a.category;
+                  const bv = sortBy === 'id' ? b.sid : sortBy === 'type' ? b.stype : b.category;
+                  return av.localeCompare(bv) * mult;
+                });
+              }
+              return list;
+            },
+            getDecorator(id) {
+              const merged = getMergedDecorators(editor.getDocumentProxy?.() ?? null);
+              const found = merged.find((d) => d.sid === id);
+              if (found) return found;
+              const local = decoratorManagerRef.current?.get(id);
+              if (local) return local;
+              return remoteDecoratorManagerRef.current?.get(id);
+            },
+            exportDecorators(): DecoratorExportData {
+              const targetDecorators = (decoratorManagerRef.current?.getAll() ?? [])
+                .filter((d) => d.decoratorType !== 'pattern')
+                .map((d) => {
+                  const { decoratorType, ...rest } = d;
+                  return rest;
+                }) as DecoratorExportData['targetDecorators'];
+              const patternConfigs = patternDecoratorConfigManagerRef.current?.getConfigs() ?? [];
+              const patternDecorators = patternConfigs
+                .filter((c) => c.pattern instanceof RegExp)
+                .map((c) => ({
+                  sid: c.sid,
+                  stype: c.stype,
+                  category: c.category,
+                  pattern: { source: (c.pattern as RegExp).source, flags: (c.pattern as RegExp).flags },
+                  priority: c.priority,
+                  enabled: c.enabled,
+                }));
+              return { version: '1.0.0', targetDecorators, patternDecorators };
+            },
+            loadDecorators(data: DecoratorExportData, patternFunctions?: LoadDecoratorsPatternFunctions) {
+              decoratorManagerRef.current?.clear();
+              remoteDecoratorManagerRef.current?.clear();
+              patternDecoratorConfigManagerRef.current?.clear();
+              decoratorGeneratorManagerRef.current?.clear();
+              for (const d of data.targetDecorators) {
+                decoratorManagerRef.current?.add({
+                  ...d,
+                  decoratorType: 'target',
+                } as import('@barocss/shared').Decorator);
+              }
+              for (const p of data.patternDecorators) {
+                const fns = patternFunctions?.[p.sid];
+                if (!fns) {
+                  console.warn(`[EditorView] Pattern '${p.sid}' functions not provided; skipping.`);
+                  continue;
+                }
+                const pattern = new RegExp(p.pattern.source, p.pattern.flags);
+                patternDecoratorConfigManagerRef.current?.addConfig({
+                  sid: p.sid,
+                  stype: p.stype,
+                  category: p.category,
+                  pattern,
+                  extractData: fns.extractData,
+                  createDecorator: fns.createDecorator,
+                  priority: p.priority,
+                  enabled: p.enabled,
+                });
+              }
+              bumpDecoratorVersion();
+            },
+            get contentEditableElement() {
+              return contentEditableRef.current ?? null;
+            },
+            convertModelSelectionToDOM(sel: ModelSelection | null | undefined) {
+              selectionHandler.convertModelSelectionToDOM(sel as Parameters<typeof selectionHandler.convertModelSelectionToDOM>[0]);
+            },
+            convertDOMSelectionToModel(selection: Selection): ModelSelection {
+              return selectionHandler.convertDOMSelectionToModel(selection) as ModelSelection;
+            },
+            convertStaticRangeToModel(staticRange: StaticRange): ModelSelection | null {
+              return selectionHandler.convertStaticRangeToModel(staticRange) as ModelSelection | null;
+            },
+            defineDecoratorType(type, category, schema) {
+              const reg = decoratorSchemaRegistryRef.current;
+              if (!reg) return;
+              if (category === 'layer') reg.registerLayerType(type, schema);
+              else if (category === 'inline') reg.registerInlineType(type, schema);
+              else reg.registerBlockType(type, schema);
             },
             get decoratorManager() {
               return decoratorManagerRef.current ?? null;
@@ -102,11 +218,15 @@ const EditorViewRoot = forwardRef<EditorViewRef, { options: EditorViewProps['opt
       },
       [
         editor,
+        selectionHandler,
+        contentEditableRef,
         decoratorManagerRef,
+        decoratorSchemaRegistryRef,
         remoteDecoratorManagerRef,
         patternDecoratorConfigManagerRef,
         decoratorGeneratorManagerRef,
         getMergedDecorators,
+        bumpDecoratorVersion,
       ]
     );
 

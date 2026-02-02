@@ -8,7 +8,7 @@ import {
   Decorator,
   DecoratorTypeSchema,
   DecoratorRenderer
-} from './types.js';
+} from './types';
 
 /**
  * DecoratorRegistry 클래스
