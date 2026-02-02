@@ -536,6 +536,9 @@ importers:
       '@barocss/converter':
         specifier: workspace:*
         version: link:../converter
+      '@barocss/datastore':
+        specifier: workspace:*
+        version: link:../datastore
       '@barocss/editor-core':
         specifier: workspace:*
         version: link:../editor-core

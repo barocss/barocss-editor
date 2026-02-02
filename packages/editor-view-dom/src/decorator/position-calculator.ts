@@ -27,10 +27,12 @@ export class PositionCalculator {
     }
 
     const target = decorator.target;
-    
+    const targetSid = 'sid' in target ? target.sid : target.startSid;
+
     // Block decorator: entire element area
-    if (target.startOffset === undefined && target.endOffset === undefined) {
-      const rect = this.domQuery.getBoundingRect(target.sid);
+    if (('sid' in target ? target.startOffset === undefined && target.endOffset === undefined : false) ||
+        ('startSid' in target && target.startOffset === undefined && target.endOffset === undefined)) {
+      const rect = this.domQuery.getBoundingRect(targetSid);
       if (!rect) return null;
       
       // Support 'before' / 'after' relative placement (for block target)
@@ -62,20 +64,15 @@ export class PositionCalculator {
       };
     }
     
-    // Inline decorator: text range
-    if (target.startOffset !== undefined && target.endOffset !== undefined) {
-      const startPos = this.domQuery.calculateTextPosition(
-        target.sid,
-        target.startOffset
-      );
-      const endPos = this.domQuery.calculateTextPosition(
-        target.sid,
-        target.endOffset
-      );
-      
+    // Inline decorator: text range (single-node or range target)
+    const startOff = 'sid' in target ? target.startOffset : target.startOffset;
+    const endOff = 'sid' in target ? target.endOffset : target.endOffset;
+    if (startOff !== undefined && endOff !== undefined) {
+      const startPos = this.domQuery.calculateTextPosition(targetSid, startOff);
+      const endPos = this.domQuery.calculateTextPosition(targetSid, endOff);
+
       if (!startPos || !endPos) return null;
-      
-      // If same line
+
       if (Math.abs(startPos.top - endPos.top) < 1) {
         return {
           top: startPos.top,
@@ -84,9 +81,8 @@ export class PositionCalculator {
           height: startPos.height
         };
       }
-      
-      // If multiple lines: from start of first line to end of last line
-      const elementRect = this.domQuery.getBoundingRect(target.sid);
+
+      const elementRect = this.domQuery.getBoundingRect(targetSid);
       if (!elementRect) return null;
       
       const startRect = {

@@ -120,7 +120,7 @@ export abstract class BaseAdapter implements CollaborationAdapter {
    * Check if an operation is from remote sync
    * Override this to implement custom detection logic
    */
-  protected isRemoteOperation(operation: AtomicOperation): boolean {
+  protected isRemoteOperation(_operation: AtomicOperation): boolean {
     // Default: assume all operations are local
     // Subclasses should override this
     return false;

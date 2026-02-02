@@ -19,11 +19,12 @@ export class DecoratorProcessor {
    * Handles both single-node and cross-node decorators
    */
   getDecoratorRange(d: Decorator): { start?: number; end?: number } {
-    if ('sid' in d.target) {
-      return { start: d.target.startOffset, end: d.target.endOffset };
-    } else {
-      return { start: d.target.startOffset, end: d.target.endOffset };
+    const target = d.target;
+    if (!target) return { start: undefined, end: undefined };
+    if ('sid' in target) {
+      return { start: target.startOffset, end: target.endOffset };
     }
+    return { start: target.startOffset, end: target.endOffset };
   }
 
   /**

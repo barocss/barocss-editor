@@ -6,11 +6,13 @@
  * Layer/Inline/Block별로 다른 렌더링 전략 사용
  */
 
-import {
-  Decorator,
-  InlineDecorator,
-  BlockDecorator
-} from './types';
+import type { Decorator, DecoratorTarget, InlineDecorator, BlockDecorator } from './types';
+
+function getTargetNodeId(target: DecoratorTarget): string | null {
+  if (!target) return null;
+  if ('sid' in target) return target.sid;
+  return target.startSid;
+}
 import { DecoratorRegistry } from './decorator-registry';
 import { DecoratorManager } from '@barocss/shared';
 import { DecoratorVisibilityManager, VisibilityState } from './visibility-manager';
@@ -106,7 +108,7 @@ export class DecoratorRenderer {
       'data-bc-decorator-sid': data('decoratorId'),
       'data-bc-decorator-stype': data('decoratorType')
     }, [
-      when(data('hasContent'), 
+      when((d: unknown) => Boolean((d as Record<string, unknown>)?.hasContent),
         element('div', {
           className: 'barocss-decorator-content'
         }, [
@@ -214,7 +216,7 @@ export class DecoratorRenderer {
     }
     
     // Determine renderer name
-    const rendererName = decorator.renderer || this.getDefaultRendererName(decorator);
+    const rendererName = this.getDefaultRendererName(decorator);
     
     // Check if renderer exists
     if (!this.rendererRegistry.has(rendererName)) {
@@ -223,11 +225,9 @@ export class DecoratorRenderer {
     }
     
     try {
-      // Convert data
       const decoratorData = this.convertDecoratorData(decorator);
-      
-      // DOM rendering (using renderer-dom)
-      this.domRenderer.render(rendererName, container, decoratorData);
+      const model = { stype: rendererName, sid: decorator.sid, ...decoratorData } as import('@barocss/dsl').ModelData;
+      this.domRenderer.render(container, model, []);
       
       // Find rendered element
       const renderedElement = container.querySelector(`[data-bc-decorator-sid="${decorator.sid}"]`) as HTMLElement;
@@ -256,26 +256,28 @@ export class DecoratorRenderer {
    * Convert Decorator data
    */
   private convertDecoratorData(decorator: Decorator): any {
+    const data = decorator.data ?? {};
     const baseData = {
       decoratorId: decorator.sid,
       decoratorType: decorator.stype,
-      decoratorStyles: decorator.data.styles || {},
-      decoratorAttributes: decorator.data.attributes || {},
-      content: decorator.data.content || '',
-      hasContent: !!(decorator.data.content && decorator.data.content.trim())
+      decoratorStyles: (data.styles as Record<string, unknown>) ?? {},
+      decoratorAttributes: (data.attributes as Record<string, unknown>) ?? {},
+      content: (data.content as string) ?? '',
+      hasContent: !!((data.content as string) && String(data.content).trim())
     };
 
     // Add position information for Layer Decorator
-    if (decorator.category === 'layer' && decorator.data.position) {
+    const pos = data.position as { top?: number; left?: number; width?: number; height?: number } | undefined;
+    if (decorator.category === 'layer' && pos) {
       return {
         ...baseData,
         decoratorStyles: {
           ...baseData.decoratorStyles,
           position: 'absolute',
-          top: `${decorator.data.position.top}px`,
-          left: `${decorator.data.position.left}px`,
-          width: `${decorator.data.position.width}px`,
-          height: `${decorator.data.position.height}px`,
+          top: `${pos.top ?? 0}px`,
+          left: `${pos.left ?? 0}px`,
+          width: `${pos.width ?? 0}px`,
+          height: `${pos.height ?? 0}px`,
           pointerEvents: 'none'
         }
       };
@@ -338,27 +340,28 @@ export class DecoratorRenderer {
    * Inline Decorator target container
    */
   private getInlineTargetContainer(decorator: InlineDecorator): HTMLElement | null {
-    const targetElement = this.findTargetElement(decorator.target.nodeId);
+    const nodeId = getTargetNodeId(decorator.target);
+    if (!nodeId) return null;
+    const targetElement = this.findTargetElement(nodeId);
     if (!targetElement) return null;
-    
-    // Insert at specific position within text node
-    // Actual implementation requires more sophisticated position calculation
     return targetElement;
   }
-  
+
   /**
    * Block Decorator target container
    */
   private getBlockTargetContainer(decorator: BlockDecorator): HTMLElement | null {
-    const targetElement = this.findTargetElement(decorator.target.nodeId);
+    const nodeId = getTargetNodeId(decorator.target);
+    if (!nodeId) return null;
+    const targetElement = this.findTargetElement(nodeId);
     if (!targetElement) return null;
-    
-    // Determine insert position based on position
-    switch (decorator.target.position) {
+    switch (decorator.position) {
       case 'before':
       case 'after':
         return targetElement.parentElement;
-      case 'wrap':
+      case 'overlay':
+      case 'inside-start':
+      case 'inside-end':
         return targetElement;
       default:
         return targetElement.parentElement;

@@ -165,7 +165,7 @@ export function adjustMarkRanges(
       // Mark range completely deleted → remove (handled in filter)
       return {
         ...mark,
-        range: [0, 0]  // Set invalid range to remove in filter
+        range: [0, 0] as [number, number]  // Set invalid range to remove in filter
       };
     }
     
@@ -174,7 +174,7 @@ export function adjustMarkRanges(
       // Move entire mark range
       return {
         ...mark,
-        range: [start + delta, end + delta]
+        range: [start + delta, end + delta] as [number, number]
       };
     }
     
@@ -187,13 +187,13 @@ export function adjustMarkRanges(
         const deletedInMark = Math.min(editEnd, end) - Math.max(editPosition, start);
         return {
           ...mark,
-          range: [start, end + delta]
+          range: [start, end + delta] as [number, number]
         };
       }
       // Case where only insert or delete ends outside mark range
       return {
         ...mark,
-        range: [start, end + delta]
+        range: [start, end + delta] as [number, number]
       };
     }
     
@@ -466,14 +466,16 @@ export function analyzeDOMEditAndAdjustRanges(
     insertedLength > 0 && deletedLength > 0 ? 'replace' :
     insertedLength > 0 ? 'insert' : 'delete';
   
+  const pos = detectedEditPosition || 0;
   const editInfo: TextEdit = {
     nodeId,
     oldText: oldModelText,
     newText,
-    editPosition: detectedEditPosition || 0,
+    editPosition: pos,
     editType,
     insertedLength,
-    deletedLength
+    deletedLength,
+    insertedText: insertedLength > 0 ? newText.slice(pos, pos + insertedLength) : ''
   };
   
   // 4. Mark range adjustment must be provided by caller (get marks from editor.dataStore)
@@ -564,14 +566,16 @@ export function handleContentEditableEdit(
     insertedLength > 0 && deletedLength > 0 ? 'replace' :
     insertedLength > 0 ? 'insert' : 'delete';
   
+  const pos = editPosition || 0;
   const editInfo: TextEdit = {
     nodeId,
     oldText: oldModelText,
     newText,
-    editPosition: editPosition || 0,
+    editPosition: pos,
     editType,
     insertedLength,
-    deletedLength
+    deletedLength,
+    insertedText: insertedLength > 0 ? newText.slice(pos, pos + insertedLength) : ''
   };
   
   // 5. Adjust mark ranges

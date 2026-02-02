@@ -1,5 +1,5 @@
 import { BaseAdapter } from '@barocss/collaboration';
-import type { DataStore, AtomicOperation } from '@barocss/datastore';
+import type { AtomicOperation } from '@barocss/datastore';
 import type { INode } from '@barocss/datastore';
 import type { AdapterConfig } from '@barocss/collaboration';
 
@@ -101,7 +101,7 @@ export class LiveblocksAdapter extends BaseAdapter {
       return null;
     }
 
-    return this.dataStore.getRootNode();
+    return this.dataStore.getRootNode() ?? null;
   }
 
   protected async doSetDocumentState(rootNode: INode): Promise<void> {
@@ -116,7 +116,7 @@ export class LiveblocksAdapter extends BaseAdapter {
     });
   }
 
-  protected isRemoteOperation(operation: AtomicOperation): boolean {
+  protected isRemoteOperation(_operation: AtomicOperation): boolean {
     return this.isApplyingRemote;
   }
 

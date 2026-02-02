@@ -1,4 +1,5 @@
-import { Editor, ModelSelection, type ModelData } from '@barocss/editor-core';
+import { Editor, ModelSelection } from '@barocss/editor-core';
+import type { ModelData } from '@barocss/dsl';
 import { IEditorViewDOM, EditorViewDOMOptions, LayerConfiguration } from './types';
 import { InputHandlerImpl } from './event-handlers/input-handler';
 import { DOMSelectionHandlerImpl } from './event-handlers/selection-handler';
@@ -1747,7 +1748,7 @@ export class EditorViewDOM implements IEditorViewDOM {
     
     // Retrieve pattern decorator config
     const configs = this.patternDecoratorConfigManager.getConfigs();
-    const config = configs.find(c => c.id === id);
+    const config = configs.find(c => c.sid === id);
     if (config) {
       return this._convertPatternConfigToDecorator(config);
     }
@@ -1779,17 +1780,21 @@ export class EditorViewDOM implements IEditorViewDOM {
     
     // Pattern decorator configs (functions excluded)
     const patternConfigs = this.patternDecoratorConfigManager.getConfigs();
-    const patternDecorators = patternConfigs.map(config => ({
-      sid: config.sid,
-      stype: config.stype,
-      category: config.category,
-      pattern: {
-        source: config.pattern.source,
-        flags: config.pattern.flags
-      },
-      priority: config.priority,
-      enabled: config.enabled
-    }));
+    const patternDecorators = patternConfigs.map(config => {
+      const p = config.pattern;
+      const serialized =
+        typeof p === 'function'
+          ? { source: '', flags: 'g' }
+          : { source: p.source, flags: p.flags };
+      return {
+        sid: config.sid,
+        stype: config.stype,
+        category: config.category,
+        pattern: serialized,
+        priority: config.priority,
+        enabled: config.enabled
+      };
+    });
     
     return {
       version: '1.0.0',
@@ -1849,8 +1854,9 @@ export class EditorViewDOM implements IEditorViewDOM {
     for (const decorator of data.targetDecorators) {
       this.decoratorManager.add({
         ...decorator,
-        decoratorType: 'target'
-      }); // Return as-is without conversion (includes stype)
+        decoratorType: 'target',
+        target: decorator.target as import('@barocss/shared').DecoratorTarget | undefined
+      });
     }
     
     // Load pattern decorator settings

@@ -45,7 +45,8 @@ export interface Decorator {
   stype: string; // decorator type (comment, highlight, color-picker, etc.)
   category: 'layer' | 'inline' | 'block';
   data?: Record<string, any>;
-  target: DecoratorTarget;
+  /** inline/block: required at runtime; layer: optional (overlay). */
+  target?: DecoratorTarget;
   /**
    * Layer target to render
    * - 'content': Content layer (default for inline/block decorator)

@@ -38,7 +38,7 @@ export class TextExtension implements Extension {
       }) => {
         return await this._executeReplaceText(editor, payload.range, payload.text);
       },
-      canExecute: (editor: Editor, payload?: any) => {
+      canExecute: (_editor: Editor, payload?: any) => {
         return payload?.range != null && payload?.text != null;
       }
     });

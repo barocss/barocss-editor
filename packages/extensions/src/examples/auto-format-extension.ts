@@ -29,15 +29,15 @@ export class AutoFormatExtension implements Extension {
     };
   }
   
-  onCreate(editor: Editor): void {
+  onCreate(_editor: Editor): void {
     if (!this._options.enabled) {
       return;
     }
     // Extension is ready
   }
-  
+
   onBeforeTransaction(
-    editor: Editor,
+    _editor: Editor,
     transaction: Transaction
   ): Transaction | null {
     if (!this._options.enabled) {

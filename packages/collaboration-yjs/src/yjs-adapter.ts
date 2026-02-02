@@ -1,5 +1,5 @@
 import { BaseAdapter } from '@barocss/collaboration';
-import type { DataStore, AtomicOperation } from '@barocss/datastore';
+import type { AtomicOperation } from '@barocss/datastore';
 import type { INode } from '@barocss/datastore';
 import type { AdapterConfig } from '@barocss/collaboration';
 
@@ -107,7 +107,7 @@ export class YjsAdapter extends BaseAdapter {
       return null;
     }
 
-    return this.dataStore.getRootNode();
+    return this.dataStore.getRootNode() ?? null;
   }
 
   protected async doSetDocumentState(rootNode: INode): Promise<void> {
@@ -116,7 +116,7 @@ export class YjsAdapter extends BaseAdapter {
     this.ymap.set('root', yjsData);
   }
 
-  protected isRemoteOperation(operation: AtomicOperation): boolean {
+  protected isRemoteOperation(_operation: AtomicOperation): boolean {
     return this.isApplyingRemote;
   }
 
@@ -158,7 +158,7 @@ export class YjsAdapter extends BaseAdapter {
   /**
    * Handle Yjs update and convert to AtomicOperations
    */
-  private handleYjsUpdate(update: Uint8Array): void {
+  private handleYjsUpdate(_update: Uint8Array): void {
     // Decode Yjs update and extract operations
     // This is a simplified version - full implementation would
     // properly decode Yjs updates and convert them to AtomicOperations

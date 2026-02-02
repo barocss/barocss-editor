@@ -11,6 +11,12 @@ export interface TraceContext {
   operationName: string;         // 함수/명령 이름
   startTime: number;            // 시작 시간
   tags?: Record<string, any>;   // 추가 메타데이터
+  /** Class name from instrumentation target (also in tags.className). */
+  className?: string;
+  /** Package name from instrumentation target (also in tags.package). */
+  package?: string;
+  /** Serialized input for this span (set when trace starts). */
+  input?: any;
 }
 
 export class TraceContextManager {
@@ -44,6 +50,8 @@ export class TraceContextManager {
       parentSpanId: parentContext?.spanId,
       operationName,
       startTime: performance.now(),
+      className,
+      package: packageName,
       tags: {
         className,
         package: packageName,

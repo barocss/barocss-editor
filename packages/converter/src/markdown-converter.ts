@@ -58,7 +58,6 @@ class SimpleMarkdownParser {
    */
   private _parseInline(text: string): any[] {
     const children: any[] = [];
-    let currentIndex = 0;
     
     // Find **bold** or *italic* patterns
     const patterns = [
@@ -205,7 +204,7 @@ export class MarkdownConverter {
     // Query AST conversion rules
     const allRules = this._getAllASTConverterRules('markdown');
     
-    for (const { stype, rules } of allRules) {
+    for (const { stype: _stype, rules } of allRules) {
       for (const rule of rules) {
         const node = rule.convert(astNode, (child: any) => this._convertASTNode(child));
         if (node) {
