@@ -2,19 +2,18 @@ import { useEffect, useMemo, useRef } from 'react';
 import { DataStore } from '@barocss/datastore';
 import { Editor } from '@barocss/editor-core';
 import { Devtool } from '@barocss/devtool';
-import { createSchema } from '@barocss/schema';
+import { createSchema, getStandardSchemaDefinition } from '@barocss/schema';
 import { getGlobalRegistry } from '@barocss/dsl';
 import { createCoreExtensions, createBasicExtensions } from '@barocss/extensions';
 import { EditorView } from '@barocss/editor-view-react';
 import { registerRenderers } from './register-renderers';
 import { initialTree } from './document-data';
-import { editorTestSchemaConfig } from './schema';
 
 export function App() {
   registerRenderers();
 
   const editor = useMemo(() => {
-    const schema = createSchema('editor-react', editorTestSchemaConfig);
+    const schema = createSchema('editor-react', getStandardSchemaDefinition());
     const dataStore = new DataStore(undefined, schema);
     const coreExtensions = createCoreExtensions();
     const basicExtensions = createBasicExtensions();
