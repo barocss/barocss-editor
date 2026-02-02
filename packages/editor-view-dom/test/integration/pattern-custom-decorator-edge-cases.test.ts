@@ -10,7 +10,7 @@ import { Editor } from '@barocss/editor-core';
 import { EditorViewDOM } from '../../src/editor-view-dom';
 import { DataStore } from '@barocss/datastore';
 import { define, element, slot, data, getGlobalRegistry, defineDecorator } from '@barocss/dsl';
-import type { DecoratorGenerator, DecoratorGeneratorContext } from '../../src/decorator/decorator-generator';
+import type { DecoratorGenerator, DecoratorGeneratorContext } from '@barocss/shared';
 import type { ModelData } from '@barocss/dsl';
 
 describe('Pattern 및 Custom Decorator Edge Cases', () => {

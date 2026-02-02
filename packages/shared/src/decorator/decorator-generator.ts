@@ -1,16 +1,18 @@
 /**
- * Decorator generator: function-based decorator creation.
- * Used for dynamic decorators from model/text analysis.
+ * Decorator generator: function-based decorator creation (shared).
+ * Used by editor-view-dom and editor-view-react.
  */
 
-import type { Decorator } from '@barocss/shared';
-import type { ModelData } from '@barocss/dsl';
+import type { Decorator } from './types.js';
+
+/** Model shape for generator: optional text, content/children for traversal. */
+export type GeneratorModelLike = Record<string, unknown>;
 
 export interface DecoratorGenerator {
   sid: string;
   name?: string;
   generate(
-    model: ModelData,
+    model: GeneratorModelLike,
     text: string | null,
     context?: DecoratorGeneratorContext
   ): Decorator[];
@@ -20,9 +22,9 @@ export interface DecoratorGenerator {
 }
 
 export interface DecoratorGeneratorContext {
-  documentModel?: ModelData;
-  parentModel?: ModelData;
-  siblings?: ModelData[];
+  documentModel?: GeneratorModelLike;
+  parentModel?: GeneratorModelLike;
+  siblings?: GeneratorModelLike[];
   [key: string]: unknown;
 }
 
@@ -77,7 +79,7 @@ export class DecoratorGeneratorManager {
   }
 
   generateDecorators(
-    model: ModelData,
+    model: GeneratorModelLike,
     text: string | null,
     context?: DecoratorGeneratorContext
   ): Decorator[] {
