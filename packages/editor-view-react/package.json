@@ -28,8 +28,7 @@
     "@barocss/editor-core": "workspace:*",
     "@barocss/renderer-react": "workspace:*",
     "@barocss/shared": "workspace:*",
-    "@barocss/text-analyzer": "workspace:*",
-    "@barocss/text-run-index": "workspace:*"
+    "@barocss/text-analyzer": "workspace:*"
   },
   "devDependencies": {
     "@testing-library/react": "^16.0.0",

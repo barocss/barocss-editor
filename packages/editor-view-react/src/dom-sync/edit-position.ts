@@ -1,8 +1,8 @@
 /**
  * DOM ↔ model position utilities for MutationObserver path.
- * Ported from editor-view-dom edit-position-converter; uses @barocss/text-run-index.
+ * Ported from editor-view-dom edit-position-converter; uses @barocss/shared text-run-index.
  */
-import { buildTextRunIndex } from '@barocss/text-run-index';
+import { buildTextRunIndex } from '@barocss/shared';
 
 export function findClosestInlineTextNode(node: Node): Element | null {
   let current: Node | null = node;

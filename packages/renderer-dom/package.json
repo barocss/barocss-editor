@@ -39,7 +39,7 @@
   },
   "dependencies": {
     "@barocss/dsl": "workspace:*",
-    "@barocss/text-run-index": "workspace:*"
+    "@barocss/shared": "workspace:*"
   },
   "devDependencies": {
     "@types/jsdom": "^21.1.7",
