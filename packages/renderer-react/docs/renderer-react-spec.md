@@ -36,7 +36,8 @@ This document defines the spec for `@barocss/renderer-react`: goals, concepts, d
 |----------|--------------------------------------|
 | ModelData → ReactNode from registry + stype | DOM reconciliation, fiber, commit phase |
 | element / slot / data resolution | Selection preservation (editor-view-react or app) |
-| Marks: splitTextByMarks + getMarkRenderer → wrapped elements | Decorators (layer/inline/block) — future |
+| Marks: splitTextByMarks + getMarkRenderer → wrapped elements | Component state (mount/update/unmount) — future |
+| Decorators: inline/block/layer in same tree (build(model, decorators), defineDecorator) | Portals |
 | data-bc-sid, data-bc-stype on root of each node | Component state (mount/update/unmount) — future |
 | External/contextual component stub (placeholder or thin bridge) | Portals |
 | Key stability (sid as key) for React reconciliation | Actual DOM selection restore |
@@ -83,7 +84,7 @@ ModelData + RendererRegistry
 | **Reconciliation** | Custom fiber: render phase + commit phase, sid-based matching | React’s own reconciliation (key = sid) |
 | **Selection** | Optional selection context + TextNodePool; restore after commit | No selection logic; view must apply selection after render (e.g. editor-view-react) |
 | **Marks** | VNodeBuilder splits text by marks, builds mark wrappers; reconciler commits | splitTextByMarks + getMarkRenderer; build mark wrappers with React.createElement |
-| **Decorators** | VNode decorator metadata, pattern/custom decorators, layer rendering | Not in initial scope; can be added later |
+| **Decorators** | VNode decorator metadata, pattern/custom decorators, layer rendering | Same: `build(model, decorators)`, inline/block/layer in same tree (defineDecorator) |
 | **Component state** | ComponentManager, mount/update/unmount, state registry | Stub or minimal; full state can be added later |
 | **Portals** | Portal handler in reconciler | Out of scope initially |
 | **Dependencies** | dsl, text-run-index, etc. | dsl only (+ React peer) |
@@ -200,7 +201,7 @@ function buildToReact(
 
 | Feature | Current | Future |
 |---------|---------|--------|
-| Decorators (inline/block/layer) | Not implemented | Define API: decorator list passed in? Rendered in same tree or overlay? |
+| Decorators (inline/block/layer) | Implemented: `build(model, decorators)`, same tree as content (defineDecorator) | Pattern/custom decorator generators (future) |
 | Component state (mount/update/unmount) | Stub only | ComponentManager-like state in React (e.g. useRef/useState per sid) |
 | Portals | No | Optional portal(target, node) support |
 | when() / each() | **Not supported**. Templates with `when()` or `each()` do not throw; conditional/iterated content is not rendered (processChildren does not handle `type === 'conditional'` or `type === 'each'`). | Add if parity with renderer-dom is required. |
@@ -293,7 +294,7 @@ function buildToReact(
 
 ### Phase 5: Optional extensions — Future
 
-- [ ] Decorators: define API (e.g. decorators array passed to build) and implement inline or layer decorators.
+- [x] Decorators: `build(model, decorators)`; inline/block/layer in same tree (defineDecorator).
 - [ ] Component state: define API (e.g. state registry per sid) and implement with React state/refs.
 
 ---

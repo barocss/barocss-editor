@@ -189,3 +189,61 @@ React만으로도 **"이 노드만 바뀌었을 때 이 노드에 해당하는 �
 - **현재**: 매 content 변경마다 **전체 트리를 처음부터 끝까지 다시 만들고**, React가 **전체 트리를 diff**한다. DOM 갱신은 key 덕분에 최소화되지만, **연산량은 노드 수에 비례**한다.
 - **React만으로 ProseMirror 스타일 제어 가능 여부**: **가능하다.** "노드 단위 구독 + NodeView(sid)" 패턴으로 가면, **바뀐 노드에 해당하는 부분만** 다시 그리도록 제어할 수 있다.
 - **도입 시점**: 문서가 작으면 현재 방식만으로도 충분할 수 있다. 문서가 커서 "한 글자 바꿀 때마다 전체 트리 생성이 부담"이 되는 시점에, §9의 노드 단위 구독 구조를 검토하면 된다.
+
+---
+
+## 10. 참고: smoores.dev — Why I rebuilt ProseMirror's renderer in React
+
+[Why I rebuilt ProseMirror's renderer in React](https://smoores.dev/post/why_i_rebuilt_prosemirror_view/) (NYT Oak 팀, 2025)은 React와 ProseMirror를 함께 쓸 때 생기는 “이음 seam” 문제와, 결국 ProseMirror 뷰를 React로 다시 만든 과정을 정리한 글이다. 우리 구조와 다른 점이 많지만, **참고할 만한 점**만 정리한다.
+
+### 10.1 React vs ProseMirror 업데이트 사이클
+
+- **React**: 렌더 단계(가상 DOM 전체 재계산) → 커밋 단계(diff 후 최소 DOM 갱신). 단방향; React가 관리하는 DOM을 라이프사이클 밖에서 수정하면 커밋 단계에서 되돌아간다.
+- **ProseMirror**: 렌더와 커밋을 한 번에, 동기적으로 수행. 브라우저가 먼저 변경을 처리한 뒤 문서를 검사하는 식으로, 엄격한 단방향이 아니다.
+
+**우리**: 콘텐츠 DOM은 React가 전부 그린다(한 개 contenteditable + 전체 React 트리). ProseMirror의 EditorView처럼 “별도 뷰가 DOM을 직접 갱신”하는 구조가 아니라서, “React가 그린 DOM을 ProseMirror가 덮어쓴다” 같은 충돌은 없다. 대신 “렌더 후에만 selection 적용” 등 **타이밍**을 맞추는 게 중요하다(우리는 rAF×2로 처리).
+
+### 10.2 “렌더 단계에서 DOM/뷰 상태 읽기” 금지
+
+- 글에서: EditorState를 React state로 올리면 툴팁 등은 동작하지만, **타이핑 시 커서가 깨진다**. `view.coordsAtPos(position)`을 **렌더 단계**에서 호출하기 때문 — 아직 커밋이 끝나지 않아 DOM이 갱신 전이다.
+- 대응: DOM/좌표를 쓰는 로직은 **effect**(layoutEffect)로 옮겨서, **커밋 단계가 끝난 뒤**에만 실행되게 한다.
+
+**우리**: selection 적용을 `editor:selection.model` 구독 + **requestAnimationFrame ×2**로 하고 있어서, “React 커밋이 끝난 뒤”에 DOM selection을 건드린다. 즉, “렌더 중이 아니라 effect/다음 프레임에서 DOM 읽기·쓰기”라는 점에서 같은 원칙을 따른다.
+
+### 10.3 Effect 순서와 “뷰가 갱신된 뒤에만”
+
+- 글에서: 툴팁의 layoutEffect에서 `view.coordsAtPos()`를 써도, **ProseMirror 쪽 layoutEffect가 자식보다 나중에** 돌아서, 그 시점에는 아직 EditorView DOM이 갱신되지 않았다.
+- 대응: **자식 컴포넌트의 layoutEffect를 “EditorView가 DOM을 갱신한 뒤”로 미루는 시스템**이 필요하다. @nytimes/react-prosemirror에서는 EditorView를 context에 숨기고, `useEditorEffect` 같은 훅으로 “뷰 갱신 후”에만 실행되게 했다.
+
+**우리**: 콘텐츠 DOM이 전부 React 소유라서 “ProseMirror가 나중에 DOM 갱신”이라는 순서 문제는 없다. 다만 **선택/좌표를 쓰는 모든 코드**는 “React 커밋 이후”에 돌아야 한다는 점은 동일하다. 우리는 rAF×2와 `skipApplyModelSelectionToDOM` 등으로 그 경계를 맞춘다.
+
+### 10.4 State tearing (두 버전의 상태)
+
+- 글에서: 렌더 단계에서 **React state**를 보면 최신이고, **EditorView.state**를 보면 이전(방금 전 DOM과 맞는) 버전이라, 둘을 섞어 쓰면 “한 번 걸러서만 반영” 같은 버그가 난다.
+- 대응: ProseMirror 상태는 **React 상태와 맞을 때만** 읽도록 제한한다.
+
+**우리**: “문서”는 `documentSnapshot` 하나만 있고, selection은 model → DOM만 적용하므로, “React state vs ProseMirror state” 이원화는 없다. 다만 **나중에** 노드 단위 구독(§9)을 도입하면, “어떤 sid가 바뀌었는지”와 “스토어에서 읽은 노드”가 한 프레임 안에서 어긋나지 않게 설계해야 한다는 교훈으로 쓸 수 있다.
+
+### 10.5 Node view를 한 React 트리로
+
+- 글에서: NodeView마다 `createRoot(dom)`으로 별도 React 트리를 만들면, 트리들이 분리되어 context 공유가 안 되고, DOM 갱신 시점도 예측하기 어렵다.
+- 대응: **React Portal**로 NodeView를 **ProseMirror를 감싼 부모와 같은 React 트리**에 두고, 부모→자식 context 전달이 되게 했다.
+
+**우리**: 이미 **한 개 contenteditable + 한 개 React 트리**로 문서 전체를 그리므로, “여러 개의 분리된 React 트리” 문제는 없다. 노드 단위 구독(§9)을 해도, NodeView(sid)는 같은 트리 안의 컴포넌트로 두면 된다.
+
+### 10.6 v2: ProseMirror 뷰를 React로 다시 구현
+
+- 글에서: layoutEffect에서 EditorView를 갱신하는 한, state tearing을 완전히 없애기 어렵다. 그래서 **EditorView를 서브클래스**해서 `pureSetProps`(렌더 중 호출 가능, 부수 효과 없음)와 `runPendingEffects`(effect에서 부수 효과 실행)로 나누고, **실제 DOM 갱신은 React가 하도록** ProseMirror의 view descriptor 갱신을 no-op으로 막았다. selection/좌표 등은 view descriptor 구조를 그대로 써서 `coordsAtPos` 등이 동작하게 했다.
+- 결과: [@handlewithcare/react-prosemirror](https://github.com/handlewithcarecollective/react-prosemirror) — state tearing 제거, SSR 가능, 긴 문서에서도 성능 확보.
+
+**우리**: 우리는 처음부터 **콘텐츠 DOM을 React가 그리는** 구조라서, “ProseMirror view를 React로 대체”한 것과는 다르다. 공통점은 **“선택/좌표에 필요한 구조는 유지하고, 실제 DOM 갱신은 React에 맡긴다”**는 점이다. 우리는 view descriptor 대신 **sid + data-bc-sid + text-run-index**로 selection을 해석하고, “갱신”은 전부 React 렌더로 처리한다.
+
+### 10.7 우리가 참고할 수 있는 요약
+
+| 글에서 나온 점 | 우리 적용 |
+|----------------|-----------|
+| 렌더 단계에서 DOM/뷰 상태 읽지 말 것 | selection 적용을 rAF×2로 “커밋 이후”로 미룸 (§4, §7). |
+| effect 순서: “뷰 갱신 후”에만 자식 effect | 우리는 콘텐츠가 전부 React 소유라 동일 이슈 없음; selection/입력만 “타이밍” 맞추면 됨. |
+| state tearing 방지 | 단일 documentSnapshot; 노드 구독 도입 시 “바뀐 sid”와 읽은 데이터 일치시키는 설계 필요. |
+| NodeView를 한 React 트리로 | 이미 한 트리; §9 도입 시에도 NodeView(sid)는 같은 트리 안에 두면 됨. |
+| “선택/구조는 유지, DOM 갱신은 React” | data-bc-sid + selection apply after render; DOM은 전부 React가 그림. |

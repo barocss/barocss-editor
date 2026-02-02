@@ -1,6 +1,7 @@
 /**
  * DSL → React: interpret RendererRegistry + ModelData and produce ReactNode directly.
  * No VNode; same DSL templates (element/slot/data) as renderer-dom, output is React.
+ * Decorators (inline/block/layer) are rendered in the same tree as content, matching renderer-dom.
  */
 import * as React from 'react';
 import type {
@@ -14,9 +15,23 @@ import type {
 } from '@barocss/dsl';
 import { splitTextByMarks } from './utils/marks';
 import type { TextRun } from './utils/marks';
+import type { Decorator } from './decorator/types';
+import {
+  findDecoratorsForNode,
+  findInlineDecorators,
+  categorizeDecorators,
+  splitTextByDecorators,
+  convertDecoratorRangesToMarkRunRelative,
+} from './decorator/processor';
 
-const { createElement } = React;
+const { createElement, cloneElement } = React;
 type ReactNode = React.ReactNode;
+
+export interface BuildOptions {
+  contextStub?: Partial<ComponentContext>;
+  decorators?: Decorator[];
+  sid?: string;
+}
 
 function getDataValue(data: ModelData, path: string): unknown {
   return path.split('.').reduce((obj: any, key) => obj?.[key], data);
@@ -119,12 +134,13 @@ function flattenChildren(children: ElementChild[], data: ModelData): ElementChil
 /**
  * Build ReactNode from (registry, nodeType, model).
  * Uses registry.get(nodeType) to get definition (define() stores in _renderers); resolves element/slot/data to React.
+ * When options.decorators is provided, inline/block/layer decorators are rendered in the same tree as content (parity with renderer-dom).
  */
 export function buildToReact(
   registry: RendererRegistry,
   nodeType: string,
   model: ModelData,
-  options?: { contextStub?: Partial<ComponentContext> }
+  options?: BuildOptions
 ): ReactNode {
   const def = (registry as any).get?.(nodeType);
   if (!def || !def.template) {
@@ -141,20 +157,22 @@ export function buildToReact(
     }, 'Component');
   }
 
+  const opts: BuildOptions = { ...options, sid: (model as any).sid };
+
   let template = templateOrComponent;
   if (typeof template === 'function') {
-    const ctx = options?.contextStub ?? makeMinimalContext(registry);
+    const ctx = opts.contextStub ?? makeMinimalContext(registry);
     template = (template as ContextualComponent)({}, model, ctx as ComponentContext);
   }
 
   if (isElementTemplate(template)) {
-    return buildElement(registry, template, model);
+    return buildElement(registry, template, model, opts);
   }
   if (isComponentTemplate(template) && typeof template.component === 'function') {
-    const ctx = options?.contextStub ?? makeMinimalContext(registry);
+    const ctx = opts.contextStub ?? makeMinimalContext(registry);
     const resolved = template.component({}, model, ctx as ComponentContext);
     if (isElementTemplate(resolved)) {
-      return buildElement(registry, resolved, model);
+      return buildElement(registry, resolved, model, opts);
     }
   }
   return null;
@@ -177,10 +195,15 @@ function makeMinimalContext(registry: RendererRegistry): Partial<ComponentContex
   };
 }
 
-function buildElement(registry: RendererRegistry, template: ElementTemplate, model: ModelData): ReactNode {
+function buildElement(
+  registry: RendererRegistry,
+  template: ElementTemplate,
+  model: ModelData,
+  options?: BuildOptions
+): ReactNode {
   const tag = resolveTag(template.tag as string | ((d: ModelData) => string), model);
   const attrs = resolveAttrs(template.attributes as Record<string, unknown>, model);
-  const children = processChildren(registry, template.children ?? [], model);
+  const children = processChildren(registry, template.children ?? [], model, options);
 
   const props: Record<string, unknown> = {
     ...attrs,
@@ -190,6 +213,50 @@ function buildElement(registry: RendererRegistry, template: ElementTemplate, mod
   };
 
   return createElement(tag, props, ...children);
+}
+
+/** Build a single decorator as ReactNode. Template from registry.get(decorator.stype) or getComponent(decorator.stype). */
+function buildDecoratorToReact(registry: RendererRegistry, decorator: Decorator): ReactNode {
+  const def = (registry as any).get?.(decorator.stype);
+  const comp = (registry as any).getComponent?.(decorator.stype);
+  const templateOrComponent = def?.template ?? comp;
+  if (!templateOrComponent) {
+    return createElement('div', {
+      key: decorator.sid,
+      'data-decorator-sid': decorator.sid,
+      'data-decorator-stype': decorator.stype,
+      'data-decorator-category': decorator.category,
+      'data-decorator-missing-renderer': decorator.stype,
+    });
+  }
+  const data: ModelData = (decorator.data ?? {}) as ModelData;
+  let template = templateOrComponent;
+  if (typeof template === 'function') {
+    const ctx = makeMinimalContext(registry);
+    template = (template as ContextualComponent)({}, data, ctx as ComponentContext);
+  }
+  if (!isElementTemplate(template)) {
+    return createElement('div', {
+      key: decorator.sid,
+      'data-decorator-sid': decorator.sid,
+      'data-decorator-stype': decorator.stype,
+      'data-decorator-category': decorator.category,
+    });
+  }
+  const node = buildElement(registry, template, data, { decorators: [] });
+  const position =
+    decorator.position ?? (decorator.category !== 'inline' ? 'after' : undefined);
+  const decoratorProps: Record<string, unknown> = {
+    key: decorator.sid,
+    'data-decorator-sid': decorator.sid,
+    'data-decorator-stype': decorator.stype,
+    'data-decorator-category': decorator.category,
+  };
+  if (position) decoratorProps['data-decorator-position'] = position;
+  if (React.isValidElement(node) && typeof node === 'object' && node.props) {
+    return cloneElement(node as React.ReactElement<Record<string, unknown>>, decoratorProps);
+  }
+  return createElement('span', decoratorProps, node);
 }
 
 /** Resolve mark template to ElementTemplate (defineMark stores as ComponentTemplate that returns element). */
@@ -230,9 +297,16 @@ function buildMarkRunToReact(
   return inner;
 }
 
-function processChildren(registry: RendererRegistry, children: ElementChild[], model: ModelData): ReactNode[] {
+function processChildren(
+  registry: RendererRegistry,
+  children: ElementChild[],
+  model: ModelData,
+  options?: BuildOptions
+): ReactNode[] {
   const flat = flattenChildren(children, model);
   const out: ReactNode[] = [];
+  const decorators = options?.decorators ?? [];
+  const sid = options?.sid ?? (model as any).sid;
 
   for (const c of flat) {
     if (typeof c === 'string' || typeof c === 'number') {
@@ -247,8 +321,32 @@ function processChildren(registry: RendererRegistry, children: ElementChild[], m
       if (Array.isArray(content)) {
         for (const childModel of content) {
           const stype = (childModel as any).stype;
+          const childSid = (childModel as any).sid;
           if (stype) {
-            out.push(buildToReact(registry, stype, childModel as ModelData));
+            const childNode = buildToReact(registry, stype, childModel as ModelData, {
+              ...options,
+              decorators,
+            });
+            if (childSid && decorators.length > 0) {
+              const childDecorators = findDecoratorsForNode(childSid, decorators);
+              const categorized = categorizeDecorators(childDecorators);
+              const blockLayer = [...categorized.block, ...categorized.layer];
+              if (blockLayer.length > 0) {
+                const beforeNodes: ReactNode[] = [];
+                const afterNodes: ReactNode[] = [];
+                for (const d of blockLayer) {
+                  const node = buildDecoratorToReact(registry, d);
+                  const pos = d.position ?? 'after';
+                  if (pos === 'before') beforeNodes.push(node);
+                  else afterNodes.push(node);
+                }
+                out.push(...beforeNodes, childNode, ...afterNodes);
+              } else {
+                out.push(childNode);
+              }
+            } else {
+              out.push(childNode);
+            }
           }
         }
       }
@@ -260,16 +358,64 @@ function processChildren(registry: RendererRegistry, children: ElementChild[], m
       const v = value !== undefined && value !== null ? value : dt.defaultValue;
       const text = v !== undefined && v !== null ? String(v) : '';
       const marks = (model as any).marks as Array<{ stype: string; range?: [number, number] }> | undefined;
-      if (Array.isArray(marks) && marks.length > 0 && (dt.path === 'text' || (dt.path == null && typeof v === 'string'))) {
+      const isTextData = dt.path === 'text' || (dt.path == null && typeof v === 'string');
+      const inlineDecorators = sid ? findInlineDecorators(sid, decorators) : [];
+      if (
+        isTextData &&
+        (Array.isArray(marks) && marks.length > 0 || inlineDecorators.length > 0)
+      ) {
+        const markRuns =
+          Array.isArray(marks) && marks.length > 0
+            ? splitTextByMarks(text, marks)
+            : [{ start: 0, end: text.length, text, types: [] as string[] }];
+        const sidBase = (model as any).sid ?? '';
+        for (let ri = 0; ri < markRuns.length; ri++) {
+          const markRun = markRuns[ri];
+          const relativeDecorators = convertDecoratorRangesToMarkRunRelative(
+            inlineDecorators,
+            { start: markRun.start, end: markRun.end, text: markRun.text }
+          );
+          const decoratorRuns = splitTextByDecorators(markRun.text, relativeDecorators);
+          for (const dr of decoratorRuns) {
+            if (!dr.text) continue;
+            const inner =
+              markRun.types?.length
+                ? buildMarkRunToReact(
+                    registry,
+                    { ...markRun, text: dr.text, start: dr.start, end: dr.end },
+                    model,
+                    `${sidBase}_r${ri}`
+                  )
+                : dr.text;
+            const toProcess = dr.decorators ?? (dr.decorator ? [dr.decorator] : []);
+            if (toProcess.length === 0) {
+              out.push(inner);
+              continue;
+            }
+            const before = toProcess.filter((d) => d.category === 'inline' && d.position === 'before');
+            const after = toProcess.filter((d) => d.category === 'inline' && d.position === 'after');
+            const overlay = toProcess.filter(
+              (d) => !(d.category === 'inline' && (d.position === 'before' || d.position === 'after'))
+            );
+            for (const d of before) out.push(buildDecoratorToReact(registry, d));
+            let wrapped: ReactNode = inner;
+            for (const d of overlay) {
+              const decNode = buildDecoratorToReact(registry, d);
+              wrapped = React.isValidElement(decNode)
+                ? React.cloneElement(decNode as React.ReactElement<{ children?: ReactNode }>, {}, wrapped)
+                : createElement('span', { key: d.sid, 'data-decorator-sid': d.sid }, wrapped);
+            }
+            out.push(wrapped);
+            for (const d of after) out.push(buildDecoratorToReact(registry, d));
+          }
+        }
+      } else if (Array.isArray(marks) && marks.length > 0 && isTextData) {
         const runs = splitTextByMarks(text, marks);
-        const sid = (model as any).sid ?? '';
+        const sidBase = (model as any).sid ?? '';
         for (let ri = 0; ri < runs.length; ri++) {
           const run = runs[ri];
-          if (!run.types || run.types.length === 0) {
-            out.push(run.text);
-          } else {
-            out.push(buildMarkRunToReact(registry, run, model, `${sid}_r${ri}`));
-          }
+          if (!run.types || run.types.length === 0) out.push(run.text);
+          else out.push(buildMarkRunToReact(registry, run, model, `${sidBase}_r${ri}`));
         }
       } else {
         out.push(text);
@@ -277,10 +423,16 @@ function processChildren(registry: RendererRegistry, children: ElementChild[], m
       continue;
     }
     if (t === 'element') {
-      out.push(buildElement(registry, c as ElementTemplate, model));
+      out.push(buildElement(registry, c as ElementTemplate, model, options));
       continue;
     }
   }
 
   return out;
+}
+
+/** Build overlay layer content from a list of decorators (for decorator/selection/context/custom layers). */
+export function buildOverlayDecorators(registry: RendererRegistry, decorators: Decorator[]): ReactNode {
+  if (!decorators?.length) return null;
+  return createElement(React.Fragment, null, ...decorators.map((d) => buildDecoratorToReact(registry, d)));
 }

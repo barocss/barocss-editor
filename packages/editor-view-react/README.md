@@ -52,6 +52,11 @@ import { EditorView } from '@barocss/editor-view-react';
 - **EditorView.ContentLayer** — Props: `options?` (registry, className, editable). Editor is from EditorViewContext (use inside EditorView).
 - **EditorView.Layer** — Props: `layer` ('decorator' | 'selection' | 'context' | 'custom'), `className?`, `style?`, `children?`.
 
+## Docs
+
+- **editor-view-react-spec.md** — API, context, layers, selection/input flow, tests.
+- **layers-spec.md** — Layer roles (content, decorator, selection, context, custom) and `layerTarget` routing; how to use selection/context/custom layers.
+
 ## Requirements
 
 - **Editor** from `@barocss/editor-core` (with `getDocumentProxy()`, `on`/`off` for `editor:content.change`).

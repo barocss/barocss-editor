@@ -1,51 +1,143 @@
-import type { EditorViewProps, EditorViewOverlayLayerProps } from './types';
+import { forwardRef, useImperativeHandle, useRef } from 'react';
+import type { RendererRegistry } from '@barocss/dsl';
+import type { EditorViewProps, EditorViewOverlayLayerProps, EditorViewRef } from './types';
 import { EditorViewContentLayer } from './EditorViewContentLayer';
 import { EditorViewLayer } from './EditorViewLayer';
-import { EditorViewContextProvider } from './EditorViewContext';
+import { EditorViewOverlayLayerContent } from './EditorViewOverlayLayerContent';
+import { EditorViewContextProvider, useEditorViewContext } from './EditorViewContext';
+
+interface OverlaySlotProps {
+  registry?: RendererRegistry;
+  className?: string;
+  style?: React.CSSProperties;
+}
+
+function DecoratorLayerSlot({ registry, className, style }: OverlaySlotProps) {
+  return (
+    <EditorViewLayer layer="decorator" className={className} style={style}>
+      <EditorViewOverlayLayerContent layer="decorator" registry={registry} />
+    </EditorViewLayer>
+  );
+}
+function SelectionLayerSlot({ registry, className, style }: OverlaySlotProps) {
+  return (
+    <EditorViewLayer layer="selection" className={className} style={style}>
+      <EditorViewOverlayLayerContent layer="selection" registry={registry} />
+    </EditorViewLayer>
+  );
+}
+function ContextLayerSlot({ registry, className, style }: OverlaySlotProps) {
+  return (
+    <EditorViewLayer layer="context" className={className} style={style}>
+      <EditorViewOverlayLayerContent layer="context" registry={registry} />
+    </EditorViewLayer>
+  );
+}
+function CustomLayerSlot({
+  registry,
+  className,
+  style,
+  children,
+}: OverlaySlotProps & { children?: React.ReactNode }) {
+  return (
+    <EditorViewLayer layer="custom" className={className} style={style}>
+      <EditorViewOverlayLayerContent layer="custom" registry={registry} />
+      {children}
+    </EditorViewLayer>
+  );
+}
 
 /**
- * EditorView: composite view that renders content layer and optional overlay layers.
- * Provides EditorViewContext (selectionHandler, inputHandler, mutationObserverManager, viewState) so layers share view state.
- * Layers can be configured via options.layers or composed by using EditorView.ContentLayer / EditorView.DecoratorLayer etc.
+ * Inner root: lives inside EditorViewContextProvider, exposes ref API (addDecorator, removeDecorator, getDecorators).
  */
-export function EditorView({ editor, options = {}, children }: EditorViewProps) {
-  const { className: containerClassName = '', layers: layersConfig } = options;
+const EditorViewRoot = forwardRef<EditorViewRef, { options: EditorViewProps['options']; children: EditorViewProps['children'] }>(
+  function EditorViewRoot({ options = {}, children }, ref) {
+    const { decoratorManagerRef } = useEditorViewContext();
+    const apiRef = useRef<EditorViewRef | null>(null);
 
-  const contentOptions = {
-    registry: options.registry,
-    className: 'barocss-editor-content',
-    editable: true,
-    ...layersConfig?.content,
-  };
+    useImperativeHandle(
+      ref,
+      () => {
+        if (!apiRef.current) {
+          apiRef.current = {
+            addDecorator(decorator) {
+              decoratorManagerRef.current?.add(decorator);
+            },
+            removeDecorator(id) {
+              try {
+                decoratorManagerRef.current?.remove(id);
+              } catch {
+                // ignore if not found
+              }
+            },
+            updateDecorator(id, updates) {
+              decoratorManagerRef.current?.update(id, updates);
+            },
+            getDecorators() {
+              return decoratorManagerRef.current?.getAll() ?? [];
+            },
+            get decoratorManager() {
+              return decoratorManagerRef.current ?? null;
+            },
+          };
+        }
+        return apiRef.current;
+      },
+      [decoratorManagerRef]
+    );
 
-  return (
-    <EditorViewContextProvider editor={editor}>
+    const { className: containerClassName = '', layers: layersConfig } = options;
+    const contentOptions = {
+      registry: options.registry,
+      className: 'barocss-editor-content',
+      editable: true,
+      ...layersConfig?.content,
+    };
+
+    return (
       <div
         className={containerClassName}
         style={{ position: 'relative', overflow: 'hidden' }}
         data-editor-view="true"
       >
         <EditorViewContentLayer options={contentOptions} />
-      {layersConfig?.decorator && (
-        <EditorView.DecoratorLayer className={layersConfig.decorator.className} style={layersConfig.decorator.style} />
-      )}
-      {layersConfig?.selection && (
-        <EditorView.SelectionLayer className={layersConfig.selection.className} style={layersConfig.selection.style} />
-      )}
-      {layersConfig?.context && (
-        <EditorView.ContextLayer className={layersConfig.context.className} style={layersConfig.context.style} />
-      )}
-      {(layersConfig?.custom || children) && (
-        <EditorView.CustomLayer className={layersConfig?.custom?.className} style={layersConfig?.custom?.style}>
+        <DecoratorLayerSlot
+          registry={options.registry}
+          className={layersConfig?.decorator?.className}
+          style={layersConfig?.decorator?.style}
+        />
+        <SelectionLayerSlot
+          registry={options.registry}
+          className={layersConfig?.selection?.className}
+          style={layersConfig?.selection?.style}
+        />
+        <ContextLayerSlot
+          registry={options.registry}
+          className={layersConfig?.context?.className}
+          style={layersConfig?.context?.style}
+        />
+        <CustomLayerSlot
+          registry={options.registry}
+          className={layersConfig?.custom?.className}
+          style={layersConfig?.custom?.style}
+        >
           {children}
-        </EditorView.CustomLayer>
-      )}
+        </CustomLayerSlot>
       </div>
+    );
+  }
+);
+
+const EditorViewBase = forwardRef<EditorViewRef, EditorViewProps>(function EditorView(
+  { editor, options = {}, children },
+  ref
+) {
+  return (
+    <EditorViewContextProvider editor={editor}>
+      <EditorViewRoot ref={ref} options={options} children={children} />
     </EditorViewContextProvider>
   );
-}
-
-EditorView.ContentLayer = EditorViewContentLayer;
+});
 
 function createOverlayLayer(layer: 'decorator' | 'selection' | 'context' | 'custom') {
   return function OverlayLayer({ className, style, children }: EditorViewOverlayLayerProps) {
@@ -57,10 +149,12 @@ function createOverlayLayer(layer: 'decorator' | 'selection' | 'context' | 'cust
   };
 }
 
-EditorView.DecoratorLayer = createOverlayLayer('decorator');
-EditorView.SelectionLayer = createOverlayLayer('selection');
-EditorView.ContextLayer = createOverlayLayer('context');
-EditorView.CustomLayer = createOverlayLayer('custom');
-
-/** Generic overlay layer (pass layer prop when you need a dynamic type). */
-EditorView.Layer = EditorViewLayer;
+/** EditorView with ref (addDecorator, removeDecorator, getDecorators) and static layer components. */
+export const EditorView = Object.assign(EditorViewBase, {
+  ContentLayer: EditorViewContentLayer,
+  DecoratorLayer: createOverlayLayer('decorator'),
+  SelectionLayer: createOverlayLayer('selection'),
+  ContextLayer: createOverlayLayer('context'),
+  CustomLayer: createOverlayLayer('custom'),
+  Layer: EditorViewLayer,
+});

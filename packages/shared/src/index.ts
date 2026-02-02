@@ -9,3 +9,4 @@ export { getKeyString } from './key-string';
 export { normalizeKeyString, expandModKey } from './key-binding';
 export { replacePlaceholders, normalizeLocale } from './i18n';
 
+export * from './decorator';
