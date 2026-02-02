@@ -1,16 +1,21 @@
 import type { Editor } from '@barocss/editor-core';
 import type { RendererRegistry } from '@barocss/dsl';
 import type { Decorator, DecoratorManager } from '@barocss/shared';
+import type { RemoteDecoratorManager } from '@barocss/shared';
+import type { PatternDecoratorConfigManager } from './decorator';
+import type { DecoratorGeneratorManager } from './decorator';
 
-/** Imperative handle for EditorView: internal decorator management (addDecorator, removeDecorator, updateDecorator, getDecorators). */
+/** Imperative handle for EditorView: decorator management and remote/pattern/generator managers. */
 export interface EditorViewHandle {
   addDecorator(decorator: Decorator): void;
   removeDecorator(id: string): void;
-  /** Update decorator by id; throws if not found. */
   updateDecorator(id: string, updates: Partial<Decorator>): void;
+  /** Merged decorators (local + remote + pattern-from-doc + generator-from-doc). */
   getDecorators(): Decorator[];
-  /** Internal DecoratorManager; null until mounted. */
   decoratorManager: DecoratorManager | null;
+  remoteDecoratorManager: RemoteDecoratorManager | null;
+  patternDecoratorConfigManager: PatternDecoratorConfigManager | null;
+  decoratorGeneratorManager: DecoratorGeneratorManager | null;
 }
 
 export type EditorViewLayerType = 'decorator' | 'selection' | 'context' | 'custom';

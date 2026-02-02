@@ -15,7 +15,7 @@ export function EditorViewContentLayer({ options = {} }: EditorViewContentLayerP
     selectionHandler,
     viewStateRef,
     setContentEditableElement,
-    decoratorManagerRef,
+    getMergedDecorators,
     decoratorVersion,
   } = useEditorViewContext();
   const { className = '', editable = true, registry } = options;
@@ -63,14 +63,17 @@ export function EditorViewContentLayer({ options = {} }: EditorViewContentLayerP
     [registry]
   );
 
-  const decorators = decoratorManagerRef.current?.getAll() ?? [];
+  const decorators = useMemo(
+    () => getMergedDecorators(documentSnapshot),
+    [documentSnapshot, getMergedDecorators, decoratorVersion]
+  );
 
   const content = useMemo(() => {
     if (documentSnapshot == null) return null;
     const model = documentSnapshot as { stype?: string };
     if (!model.stype) return null;
     return renderer.build(model, decorators);
-  }, [documentSnapshot, renderer, decorators, decoratorVersion]);
+  }, [documentSnapshot, renderer, decorators]);
 
   return (
     <div
