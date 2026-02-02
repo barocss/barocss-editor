@@ -24,6 +24,7 @@ export * from './replaceText';
 export * from './cloneNodeWithChildren';
 export * from './copyNode';
 export * from './toggleMark';
+export * from './updateMark';
 export * from './removeMark';
 export * from './wrap';
 export * from './unwrap';

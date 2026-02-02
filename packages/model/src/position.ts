@@ -88,6 +88,46 @@ export class PositionCalculator {
   }
 
   /**
+   * Returns the total document size (number of positions in the linear model).
+   * Same counting as findNodeByAbsolutePosition: node boundaries + text length.
+   * Returns 0 when there is no root or the store is empty.
+   *
+   * @returns Total size (last valid position index + 1)
+   *
+   * @example
+   * ```typescript
+   * const size = calculator.getDocumentSize();
+   * // 42 - document has 42 positions (0..41)
+   * ```
+   */
+  getDocumentSize(): number {
+    let currentOffset = 0;
+
+    const traverse = (nodeId: string): void => {
+      const node = this._dataStore.getNode(nodeId);
+      if (!node) return;
+
+      currentOffset += 1; // node start
+
+      if (node.text) currentOffset += node.text.length;
+
+      if (node.content) {
+        for (const childId of node.content) {
+          traverse(childId as string);
+        }
+      }
+
+      currentOffset += 1; // node end
+    };
+
+    const rootNode = this._dataStore.getRootNode();
+    if (!rootNode) return 0;
+
+    traverse(rootNode.sid!);
+    return currentOffset;
+  }
+
+  /**
    * Converts nodeId + offset to absolute position.
    * 
    * This method converts the given node ID and offset within that node

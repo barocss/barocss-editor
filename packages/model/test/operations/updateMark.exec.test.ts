@@ -5,6 +5,7 @@ import { DataStore } from '@barocss/datastore';
 import { SelectionManager } from '@barocss/editor-core';
 import { createTransactionContext } from '../../src/create-transaction-context';
 import { Schema } from '@barocss/schema';
+import { updateMark as updateMarkDsl } from '../../src/operations-dsl/updateMark';
 
 describe('updateMark operation (exec)', () => {
   let dataStore: DataStore;
@@ -47,6 +48,17 @@ describe('updateMark operation (exec)', () => {
     const op = globalOperationRegistry.get('updateMark');
     await expect(op!.execute({ type: 'updateMark', payload: { nodeId: 't1', markType: 'bold', range: [3, 2], newAttrs: {} } } as any, context))
       .rejects.toThrow();
+  });
+
+  describe('updateMark DSL', () => {
+    it('builds descriptor (control: markType, range, newAttrs)', () => {
+      const dsl = updateMarkDsl('bold', [0, 5], { b: 2 });
+      expect(dsl).toEqual({ type: 'updateMark', payload: { markType: 'bold', range: [0, 5], newAttrs: { b: 2 } } });
+    });
+    it('builds descriptor (direct: nodeId, markType, range, newAttrs)', () => {
+      const dsl = updateMarkDsl('t1', 'bold', [0, 5], { b: 2 });
+      expect(dsl).toEqual({ type: 'updateMark', payload: { nodeId: 't1', markType: 'bold', range: [0, 5], newAttrs: { b: 2 } } });
+    });
   });
 });
 
