@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { getGlobalRegistry } from '@barocss/dsl';
 import { ReactRenderer } from '@barocss/renderer-react';
 import { useEditorViewContext } from './EditorViewContext';
@@ -12,19 +12,31 @@ export interface EditorViewOverlayLayerContentProps {
 }
 
 /**
- * Renders overlay layer content by filtering decorators by layerTarget and building them with ReactRenderer.buildOverlayDecorators.
- * Matches editor-view-dom: decorator/selection/context/custom layers get their subset of decorators rendered.
+ * Renders overlay layer content by filtering merged decorators by layerTarget and building them with ReactRenderer.buildOverlayDecorators.
+ * Uses getMergedDecorators(document) so remote, pattern, and generator decorators are included.
  */
 export function EditorViewOverlayLayerContent({ layer, registry: registryProp }: EditorViewOverlayLayerContentProps) {
-  const { decoratorManagerRef, decoratorVersion } = useEditorViewContext();
+  const { editor, getMergedDecorators, decoratorVersion } = useEditorViewContext();
+  const [documentSnapshot, setDocumentSnapshot] = useState<unknown>(() => editor.getDocumentProxy?.() ?? null);
+
+  useEffect(() => {
+    const onContent = () => setDocumentSnapshot(editor.getDocumentProxy?.() ?? null);
+    editor.on?.('editor:content.change', onContent);
+    setDocumentSnapshot(editor.getDocumentProxy?.() ?? null);
+    return () => editor.off?.('editor:content.change', onContent);
+  }, [editor]);
+
   const renderer = useMemo(
     () => new ReactRenderer(registryProp ?? getGlobalRegistry()),
     [registryProp]
   );
-  const decorators = decoratorManagerRef.current?.getAll() ?? [];
+  const decorators = useMemo(
+    () => getMergedDecorators(documentSnapshot),
+    [documentSnapshot, getMergedDecorators, decoratorVersion]
+  );
   const filtered = useMemo(
     () => decorators.filter((d) => (d.layerTarget ?? 'content') === layer),
-    [decorators, layer, decoratorVersion]
+    [decorators, layer]
   );
   return <>{renderer.buildOverlayDecorators(filtered)}</>;
 }

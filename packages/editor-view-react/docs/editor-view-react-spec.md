@@ -193,15 +193,14 @@ See **layers-spec.md** for layerTarget semantics and how selection/context/custo
 ### 6.2 ReactRenderer
 
 - useMemo(() => new ReactRenderer(registry ?? getGlobalRegistry()), [registry]).
-- decorators = decoratorManagerRef.current?.getAll() ?? [] (from context).
+- decorators = getMergedDecorators(documentSnapshot) (local + remote + pattern-from-model + generator-from-model).
 - content = useMemo(() => documentSnapshot != null && model.stype ? renderer.build(model, decorators) : null, [documentSnapshot, renderer, decorators]).
 - Same registry and model shape as renderer-dom for parity (sid, stype, content, text, marks, decorators).
 
 ### 6.3 Decorator source and updates (vs editor-view-dom)
 
-- **editor-view-dom**: Decorators live **inside** the view (DecoratorManager, RemoteDecoratorManager, DecoratorGeneratorManager, PatternDecoratorConfigManager). When render() is called (e.g. on content change or after addDecorator/updateDecorator/removeDecorator), the view reads decorators from these managers and passes them to DOMRenderer.render(container, model, allDecorators, …). No decorators passed from outside each time.
-- **editor-view-react**: Decorators are **passed from outside** via options (options.layers.content.decorators or options.layers.content.getDecorators). When decorators change, the **parent** (app) must re-render with new options so the content layer receives the new list. This is the normal React pattern: the app (or a store/context) holds decorator state; when that state changes, the app re-renders and passes new props. **Passing new options each time decorators change is correct and intended.**
-- **getDecorators**: Optional callback options.getDecorators?.() is called on each render and takes precedence over options.decorators when both are set. Use when the source is a store or context: the parent re-renders when the store updates, and getDecorators() returns the current list. Does not avoid re-renders — something (parent or subscription) must trigger a re-render when decorators change.
+- **editor-view-dom**: Decorators live **inside** the view (DecoratorManager, RemoteDecoratorManager, DecoratorGeneratorManager, PatternDecoratorConfigManager). When render() is called, the view reads decorators from these managers and passes them to DOMRenderer.render(container, model, allDecorators, …).
+- **editor-view-react**: Same: decorators live **inside** the view. Context holds DecoratorManager, RemoteDecoratorManager, PatternDecoratorConfigManager, DecoratorGeneratorManager. Content and overlay layers use **getMergedDecorators(model)** (local + remote + pattern-from-model + generator-from-model). Ref exposes addDecorator, removeDecorator, updateDecorator, getDecorators(), and the four managers. No decorators passed from outside via options.
 
 ### 6.4 Contenteditable
 

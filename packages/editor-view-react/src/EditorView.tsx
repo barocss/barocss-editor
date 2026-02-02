@@ -52,7 +52,14 @@ function CustomLayerSlot({
  */
 const EditorViewRoot = forwardRef<EditorViewRef, { options: EditorViewProps['options']; children: EditorViewProps['children'] }>(
   function EditorViewRoot({ options = {}, children }, ref) {
-    const { decoratorManagerRef } = useEditorViewContext();
+    const {
+      editor,
+      decoratorManagerRef,
+      remoteDecoratorManagerRef,
+      patternDecoratorConfigManagerRef,
+      decoratorGeneratorManagerRef,
+      getMergedDecorators,
+    } = useEditorViewContext();
     const apiRef = useRef<EditorViewRef | null>(null);
 
     useImperativeHandle(
@@ -74,16 +81,33 @@ const EditorViewRoot = forwardRef<EditorViewRef, { options: EditorViewProps['opt
               decoratorManagerRef.current?.update(id, updates);
             },
             getDecorators() {
-              return decoratorManagerRef.current?.getAll() ?? [];
+              const model = editor.getDocumentProxy?.() ?? null;
+              return getMergedDecorators(model);
             },
             get decoratorManager() {
               return decoratorManagerRef.current ?? null;
+            },
+            get remoteDecoratorManager() {
+              return remoteDecoratorManagerRef.current ?? null;
+            },
+            get patternDecoratorConfigManager() {
+              return patternDecoratorConfigManagerRef.current ?? null;
+            },
+            get decoratorGeneratorManager() {
+              return decoratorGeneratorManagerRef.current ?? null;
             },
           };
         }
         return apiRef.current;
       },
-      [decoratorManagerRef]
+      [
+        editor,
+        decoratorManagerRef,
+        remoteDecoratorManagerRef,
+        patternDecoratorConfigManagerRef,
+        decoratorGeneratorManagerRef,
+        getMergedDecorators,
+      ]
     );
 
     const { className: containerClassName = '', layers: layersConfig } = options;

@@ -1,6 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Editor } from '@barocss/editor-core';
-import { DecoratorManager } from '@barocss/shared';
+import type { Decorator } from '@barocss/shared';
+import { DecoratorManager, RemoteDecoratorManager } from '@barocss/shared';
+import {
+  PatternDecoratorConfigManager,
+  DecoratorGeneratorManager,
+  runPatternFromModel,
+} from './decorator';
 import type { ReactSelectionHandler } from './selection-handler';
 import type { ReactInputHandler } from './input-handler';
 import type { ReactMutationObserverManager } from './mutation-observer-manager';
@@ -25,9 +31,12 @@ export interface EditorViewContextValue {
   inputHandler: ReactInputHandler;
   mutationObserverManager: ReactMutationObserverManager;
   setContentEditableElement: (el: HTMLElement | null) => void;
-  /** Internal decorator manager (uncontrolled mode). Stable ref. */
   decoratorManagerRef: React.RefObject<DecoratorManager | null>;
-  /** Increments when decoratorManager emits added/updated/removed; used to trigger content re-render. */
+  remoteDecoratorManagerRef: React.RefObject<RemoteDecoratorManager | null>;
+  patternDecoratorConfigManagerRef: React.RefObject<PatternDecoratorConfigManager | null>;
+  decoratorGeneratorManagerRef: React.RefObject<DecoratorGeneratorManager | null>;
+  /** Merged decorators for rendering: local + remote + pattern-from-model + generator-from-model. */
+  getMergedDecorators: (model: unknown) => Decorator[];
   decoratorVersion: number;
 }
 
@@ -61,19 +70,68 @@ export function EditorViewContextProvider({ editor, children }: { editor: Editor
   if (decoratorManagerRef.current === null) {
     decoratorManagerRef.current = new DecoratorManager();
   }
+  const remoteDecoratorManagerRef = useRef<RemoteDecoratorManager | null>(null);
+  if (remoteDecoratorManagerRef.current === null) {
+    remoteDecoratorManagerRef.current = new RemoteDecoratorManager();
+  }
+  const patternDecoratorConfigManagerRef = useRef<PatternDecoratorConfigManager | null>(null);
+  if (patternDecoratorConfigManagerRef.current === null) {
+    patternDecoratorConfigManagerRef.current = new PatternDecoratorConfigManager();
+  }
+  const decoratorGeneratorManagerRef = useRef<DecoratorGeneratorManager | null>(null);
+  if (decoratorGeneratorManagerRef.current === null) {
+    decoratorGeneratorManagerRef.current = new DecoratorGeneratorManager();
+  }
+
   const [decoratorVersion, setDecoratorVersion] = useState(0);
+  const bumpDecoratorVersion = useCallback(() => setDecoratorVersion((v) => v + 1), []);
+
   useEffect(() => {
     const manager = decoratorManagerRef.current;
     if (!manager) return;
-    const bump = () => setDecoratorVersion((v) => v + 1);
-    manager.on('decorator:added', bump);
-    manager.on('decorator:updated', bump);
-    manager.on('decorator:removed', bump);
+    manager.on('decorator:added', bumpDecoratorVersion);
+    manager.on('decorator:updated', bumpDecoratorVersion);
+    manager.on('decorator:removed', bumpDecoratorVersion);
     return () => {
-      manager.off('decorator:added', bump);
-      manager.off('decorator:updated', bump);
-      manager.off('decorator:removed', bump);
+      manager.off('decorator:added', bumpDecoratorVersion);
+      manager.off('decorator:updated', bumpDecoratorVersion);
+      manager.off('decorator:removed', bumpDecoratorVersion);
     };
+  }, [bumpDecoratorVersion]);
+
+  useEffect(() => {
+    const remote = remoteDecoratorManagerRef.current;
+    if (!remote) return;
+    remote.on('change', bumpDecoratorVersion);
+    return () => remote.off('change', bumpDecoratorVersion);
+  }, [bumpDecoratorVersion]);
+
+  const getMergedDecorators = useCallback((model: unknown): Decorator[] => {
+    const local = decoratorManagerRef.current?.getAll() ?? [];
+    const remote = remoteDecoratorManagerRef.current?.getAll() ?? [];
+    const patternConfigs = patternDecoratorConfigManagerRef.current?.getConfigs(true) ?? [];
+    const patternDecorators = runPatternFromModel(model as Record<string, unknown>, patternConfigs);
+    const genManager = decoratorGeneratorManagerRef.current;
+    let generatorDecorators: Decorator[] = [];
+    if (genManager && model && typeof model === 'object') {
+      const doc = model as Record<string, unknown>;
+      const traverse = (node: Record<string, unknown>): void => {
+        const text = typeof node.text === 'string' ? node.text : null;
+        generatorDecorators.push(
+          ...genManager.generateDecorators(node as Parameters<DecoratorGeneratorManager['generateDecorators']>[0], text, {
+            documentModel: doc,
+          })
+        );
+        const children = (node.children ?? node.content) as Record<string, unknown>[] | undefined;
+        if (Array.isArray(children)) {
+          for (const child of children) {
+            if (child && typeof child === 'object') traverse(child);
+          }
+        }
+      };
+      traverse(doc);
+    }
+    return [...local, ...remote, ...patternDecorators, ...generatorDecorators];
   }, []);
 
   const selectionHandler = useMemo(
@@ -123,6 +181,10 @@ export function EditorViewContextProvider({ editor, children }: { editor: Editor
       mutationObserverManager,
       setContentEditableElement,
       decoratorManagerRef,
+      remoteDecoratorManagerRef,
+      patternDecoratorConfigManagerRef,
+      decoratorGeneratorManagerRef,
+      getMergedDecorators,
       decoratorVersion,
     }),
     [
@@ -133,6 +195,10 @@ export function EditorViewContextProvider({ editor, children }: { editor: Editor
       mutationObserverManager,
       setContentEditableElement,
       decoratorManagerRef,
+      remoteDecoratorManagerRef,
+      patternDecoratorConfigManagerRef,
+      decoratorGeneratorManagerRef,
+      getMergedDecorators,
       decoratorVersion,
     ]
   );
