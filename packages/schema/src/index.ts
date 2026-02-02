@@ -39,3 +39,6 @@ export {
   createEditorManager,
   editorManager
 } from './editor-manager';
+
+// Standard schema presets (spec: docs/specs/standard-schema.md)
+export { getMinimalSchemaDefinition, getStandardSchemaDefinition } from './standard-schema';
