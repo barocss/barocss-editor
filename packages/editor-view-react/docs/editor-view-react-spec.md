@@ -306,7 +306,13 @@ Default classNames and zIndex per layer: decorator (barocss-editor-decorators, 1
 
 ---
 
-## 11. Out of Scope and Future
+## 11. References and analysis
+
+- **React editing view analysis**: `packages/renderer-react/docs/editing-view-react-analysis.md` — comparison with ProseMirror/Lexical/TipTap, risks (cursor, IME, reconciliation), and improvements (skipNextRenderFromMO, E2E).
+
+---
+
+## 12. Out of Scope and Future
 
 | Feature | Current | Future |
 |---------|---------|--------|
