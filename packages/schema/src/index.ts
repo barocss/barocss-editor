@@ -42,3 +42,6 @@ export {
 
 // Standard schema presets (spec: docs/specs/standard-schema.md)
 export { getMinimalSchemaDefinition, getStandardSchemaDefinition } from './standard-schema';
+
+// Figma-like reference schema (spec: docs/specs/standard-schema.md §9.1)
+export { getFigmaLikeSchemaDefinition } from './figma-like-schema';

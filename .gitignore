@@ -84,3 +84,6 @@ public
 # Temporary folders
 tmp/
 temp/
+
+# Vite cache / timestamp artifacts
+*.timestamp-*.mjs
