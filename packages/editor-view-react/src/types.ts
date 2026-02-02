@@ -1,9 +1,12 @@
 import type { Editor } from '@barocss/editor-core';
 import type { RendererRegistry } from '@barocss/dsl';
-import type { Decorator, DecoratorManager } from '@barocss/shared';
-import type { RemoteDecoratorManager } from '@barocss/shared';
-import type { PatternDecoratorConfigManager } from './decorator';
-import type { DecoratorGeneratorManager } from './decorator';
+import type {
+  Decorator,
+  DecoratorManager,
+  RemoteDecoratorManager,
+  PatternDecoratorConfigManager,
+  DecoratorGeneratorManager,
+} from '@barocss/shared';
 
 /** Imperative handle for EditorView: decorator management and remote/pattern/generator managers. */
 export interface EditorViewHandle {

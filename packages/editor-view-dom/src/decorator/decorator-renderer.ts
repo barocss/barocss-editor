@@ -12,7 +12,7 @@ import {
   BlockDecorator
 } from './types.js';
 import { DecoratorRegistry } from './decorator-registry.js';
-import { DecoratorManager } from './decorator-manager.js';
+import { DecoratorManager } from '@barocss/shared';
 import { DecoratorVisibilityManager, VisibilityState } from './visibility-manager.js';
 import { DOMRenderer } from '@barocss/renderer-dom';
 import { RendererRegistry, renderer, element, data, when } from '@barocss/dsl';

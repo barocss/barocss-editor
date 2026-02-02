@@ -26,12 +26,3 @@ export type {
   EditorViewLayersConfig,
   EditorViewLayerType,
 } from './types';
-export {
-  PatternDecoratorConfigManager,
-  DecoratorGeneratorManager,
-  runPatternConfigs,
-  runPatternFromModel,
-  type PatternDecoratorConfig,
-  type DecoratorGenerator,
-  type DecoratorGeneratorContext,
-} from './decorator';

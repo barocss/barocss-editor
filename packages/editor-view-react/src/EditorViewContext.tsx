@@ -1,12 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import type { Decorator } from '@barocss/shared';
-import { DecoratorManager, RemoteDecoratorManager } from '@barocss/shared';
 import {
+  DecoratorManager,
+  RemoteDecoratorManager,
   PatternDecoratorConfigManager,
   DecoratorGeneratorManager,
   runPatternFromModel,
-} from './decorator';
+} from '@barocss/shared';
 import type { ReactSelectionHandler } from './selection-handler';
 import type { ReactInputHandler } from './input-handler';
 import type { ReactMutationObserverManager } from './mutation-observer-manager';

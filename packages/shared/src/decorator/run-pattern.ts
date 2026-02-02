@@ -1,9 +1,8 @@
 /**
- * Run pattern configs against (nodeId, text) and return Decorator[].
- * Same semantics as renderer-dom PatternDecoratorGenerator.generateDecoratorsFromText.
+ * Run pattern configs against (nodeId, text) or model; return Decorator[] (shared).
  */
 
-import type { Decorator } from '@barocss/shared';
+import type { Decorator } from './types.js';
 import type { PatternDecoratorConfig } from './pattern-decorator-config-manager.js';
 
 export function runPatternConfigs(
@@ -75,7 +74,7 @@ export function runPatternConfigs(
           category: d.category ?? config.category,
           layerTarget: d.layerTarget,
           target: d.target,
-          data: (d.data ?? {}) as Record<string, unknown>,
+          data: d.data ?? {},
         });
       }
     }
@@ -85,25 +84,22 @@ export function runPatternConfigs(
 }
 
 /** Model node shape for traversal (content or children, sid or id). */
-type ModelLike = Record<string, unknown> & {
+export type PatternModelLike = Record<string, unknown> & {
   sid?: string;
   id?: string;
   text?: string;
-  content?: ModelLike[];
-  children?: ModelLike[];
+  content?: PatternModelLike[];
+  children?: PatternModelLike[];
 };
 
-/**
- * Walk model and run pattern configs on every text node; return all pattern decorators.
- */
 export function runPatternFromModel(
-  model: ModelLike | null,
+  model: PatternModelLike | null,
   configs: PatternDecoratorConfig[]
 ): Decorator[] {
   if (!model || configs.length === 0) return [];
   const out: Decorator[] = [];
 
-  function traverse(node: ModelLike): void {
+  function traverse(node: PatternModelLike): void {
     const nodeId = (node.sid ?? node.id) as string | undefined;
     const text = typeof node.text === 'string' ? node.text : undefined;
     if (nodeId && text) {
@@ -112,7 +108,7 @@ export function runPatternFromModel(
     const children = node.content ?? node.children;
     if (Array.isArray(children)) {
       for (const child of children) {
-        if (child && typeof child === 'object') traverse(child as ModelLike);
+        if (child && typeof child === 'object') traverse(child as PatternModelLike);
       }
     }
   }

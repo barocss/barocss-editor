@@ -3,10 +3,9 @@ import { IEditorViewDOM, EditorViewDOMOptions, LayerConfiguration } from './type
 import { InputHandlerImpl } from './event-handlers/input-handler';
 import { DOMSelectionHandlerImpl } from './event-handlers/selection-handler';
 import { MutationObserverManagerImpl } from './mutation-observer/mutation-observer-manager';
-import { DecoratorRegistry, DecoratorManager, DecoratorPrebuilder, type Decorator, type DecoratorQueryOptions, type DecoratorModel } from './decorator/index.js';
-import { RemoteDecoratorManager } from './decorator/remote-decorator-manager.js';
-import { PatternDecoratorConfigManager, type PatternDecoratorConfig } from './decorator/pattern-decorator-config-manager.js';
-import { DecoratorGeneratorManager, type DecoratorGenerator } from './decorator/decorator-generator.js';
+import { DecoratorManager, RemoteDecoratorManager, PatternDecoratorConfigManager, DecoratorGeneratorManager } from '@barocss/shared';
+import type { PatternDecoratorConfig, DecoratorGenerator } from '@barocss/shared';
+import { DecoratorRegistry, DecoratorPrebuilder, type Decorator, type DecoratorQueryOptions, type DecoratorModel } from './decorator/index.js';
 import { DOMRenderer } from '@barocss/renderer-dom';
 import { RendererRegistry } from '@barocss/dsl';
 import type { DecoratorExportData } from './types';

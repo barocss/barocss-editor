@@ -1,6 +1,6 @@
 /**
- * Pattern-based decorator configuration manager.
- * Manages pattern configs and passes them to the pattern runner for execution.
+ * Pattern-based decorator configuration (shared).
+ * Used by editor-view-dom and editor-view-react.
  */
 
 /**
