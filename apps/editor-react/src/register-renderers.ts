@@ -1,13 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // @ts-nocheck - same define/defineMark as editor-test
-import { define, element, slot, data, defineMark, attr } from '@barocss/dsl';
+import { define, element, slot, data, defineMark, attr, text } from '@barocss/dsl';
 
 /** Same define/defineMark as editor-test for comparison. */
 export function registerRenderers(): void {
   // define is immediately registered in global registry
   define('document', element('div', {className: 'document'}, [slot('content')]));
   define('heading', element((model: any) => `h${model.attributes.level || 1}`, { className: 'heading' }, [slot('content')]));
-  define('paragraph', element('p', {className: 'paragraph'}, [slot('content')]));
+  define('paragraph', element('p', { className: 'paragraph', 'data-placeholder': attr('placeholder', '') }, [slot('content')]));
   // New blocks: blockQuote, pullQuote, codeFence, pageBreak, section, columns/column, toc, footnoteDef
   define('blockQuote', element('blockquote', { className: 'block-quote' }, [slot('content')]));
   define('pullQuote', element('blockquote', { className: 'pull-quote' }, [slot('content')]));
@@ -33,6 +33,13 @@ export function registerRenderers(): void {
       alt: attr('alt', '') 
     })
   );
+
+  define('emoji', element('span', {
+    className: 'emoji',
+    'data-emoji': 'true',
+    'data-shortcode': attr('shortcode', ''),
+    'data-unicode': attr('unicode', ''),
+  }, [text((d: any) => (d?.attributes?.unicode ?? d?.attributes?.shortcode ?? ''))]));
   
   // New node types - add one by one
   

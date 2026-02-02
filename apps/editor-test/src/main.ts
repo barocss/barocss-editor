@@ -2,8 +2,8 @@ import { DataStore } from '@barocss/datastore';
 import { Editor } from '@barocss/editor-core';
 import { createCoreExtensions, createBasicExtensions } from '@barocss/extensions';
 import { buildTextRunIndex, EditorViewDOM } from '@barocss/editor-view-dom';
-import { createSchema } from '@barocss/schema';
-import { define, element, slot, data, when, defineMark, getGlobalRegistry, attr } from '@barocss/dsl';
+import { createSchema, getStandardSchemaDefinition } from '@barocss/schema';
+import { define, element, slot, data, when, defineMark, getGlobalRegistry, attr, text } from '@barocss/dsl';
 import { Devtool } from '@barocss/devtool';
 // debug overlay disabled
 
@@ -22,93 +22,7 @@ function bootstrap() {
   }
   container.setAttribute('data-bootstrap-executed', 'true');
 
-  const schema = createSchema("test", {
-    topNode: "document",
-    nodes: {
-      document: { name: "document", group: "document", content: "block+" },
-      heading: { name: "heading", group: "block", content: "inline*", attrs: { level: { type: "number", required: true } } },
-      paragraph: { name: "paragraph", group: "block", content: "inline*" },
-      blockQuote: { name: "blockQuote", group: "block", content: "block+" },
-      pullQuote: { name: "pullQuote", group: "block", content: "inline*" },
-      codeBlock: { name: "codeBlock", group: "block", content: "text*", attrs: { language: { type: "string", required: false } } },
-      horizontalRule: { name: "horizontalRule", group: "block", atom: true },
-      pageBreak: { name: "pageBreak", group: "block", atom: true },
-      docSection: { name: "docSection", group: "block", content: "block+" },
-      columns: { name: "columns", group: "block", content: "column+" },
-      column: { name: "column", group: "block", content: "block+", attrs: { width: { type: "string", required: false } } },
-      toc: { name: "toc", group: "block", atom: true },
-      footnoteDef: { name: "footnoteDef", group: "block", content: "inline*", attrs: { id: { type: "string", required: true } } },
-      list: { name: "list", group: "block", content: "listItem+", attrs: { type: { type: "string", default: "bullet" } } },
-      listItem: { name: "listItem", group: "block", content: "block+" },
-      taskItem: { name: "taskItem", group: "block", content: "inline*", attrs: { checked: { type: "boolean", default: false } } },
-      callout: { name: "callout", group: "block", content: "block+", attrs: { type: { type: "string", default: "info" }, title: { type: "string", required: false } } },
-      bFigure: { name: "bFigure", group: "block", content: "(inline-image|bTable|codeBlock|mediaEmbed|mediaVideo|mediaAudio)+ bFigcaption?" },
-      bFigcaption: { name: "bFigcaption", group: "block", content: "inline*" },
-      bDetails: { name: "bDetails", group: "block", content: "bSummary block+" },
-      bSummary: { name: "bSummary", group: "block", content: "inline*" },
-      descList: { name: "descList", group: "block", content: "(descTerm descDef)+" },
-      descTerm: { name: "descTerm", group: "block", content: "inline+" },
-      descDef: { name: "descDef", group: "block", content: "block+" },
-      mathInline: { name: "mathInline", group: "inline", atom: true, attrs: { tex: { type: "string", required: true }, engine: { type: "string", default: "katex" } } },
-      mathBlock: { name: "mathBlock", group: "block", atom: true, attrs: { tex: { type: "string", required: true }, engine: { type: "string", default: "katex" } } },
-      mediaVideo: { name: "mediaVideo", group: "block", atom: true, attrs: { src: { type: "string", required: true }, poster: { type: "string", required: false }, controls: { type: "boolean", default: true } } },
-      mediaAudio: { name: "mediaAudio", group: "block", atom: true, attrs: { src: { type: "string", required: true }, controls: { type: "boolean", default: true } } },
-      mediaEmbed: { name: "mediaEmbed", group: "block", atom: true, attrs: { provider: { type: "string", required: true }, id: { type: "string", required: true }, title: { type: "string", required: false } } },
-      hardBreak: { name: "hardBreak", group: "inline", atom: true },
-      // External component (chart)
-      chart: { name: "chart", group: "block", atom: true, attrs: { title: { type: "string", required: false }, values: { type: "string", required: true } } },
-      // Word-processor style additions
-      docHeader: { name: "docHeader", group: "block", content: "inline*" },
-      docFooter: { name: "docFooter", group: "block", content: "inline*" },
-      bibliography: { name: "bibliography", group: "block", content: "block*" },
-      commentThread: { name: "commentThread", group: "block", content: "inline*", attrs: { id: { type: "string", required: true } } },
-      endnoteDef: { name: "endnoteDef", group: "block", content: "inline*", attrs: { id: { type: "string", required: true } } },
-      indexBlock: { name: "indexBlock", group: "block", content: "block*" },
-      // Fields as inline atoms
-      fieldPageNumber: { name: "fieldPageNumber", group: "inline", atom: true },
-      fieldPageCount: { name: "fieldPageCount", group: "inline", atom: true },
-      fieldDateTime: { name: "fieldDateTime", group: "inline", atom: true, attrs: { format: { type: "string", required: false } } },
-      fieldDocTitle: { name: "fieldDocTitle", group: "inline", atom: true },
-      fieldAuthor: { name: "fieldAuthor", group: "inline", atom: true },
-      // Bookmark anchor as inline atom
-      bookmarkAnchor: { name: "bookmarkAnchor", group: "inline", atom: true, attrs: { id: { type: "string", required: true } } },
-      bTable: { name: "bTable", group: "block", content: "(bTableHeader)? bTableBody+ (bTableFooter)?", attrs: { caption: { type: "string", required: false } } },
-      bTableHeader: { name: "bTableHeader", group: "block", content: "bTableHeaderCell+" },
-      bTableBody: { name: "bTableBody", group: "block", content: "bTableRow+" },
-      bTableFooter: { name: "bTableFooter", group: "block", content: "bTableRow+" },
-      bTableHeaderCell: { name: "bTableHeaderCell", group: "block", content: "inline*", attrs: { colspan: { type: "number", default: 1 }, rowspan: { type: "number", default: 1 } } },
-      bTableRow: { name: "bTableRow", group: "block", content: "bTableCell+" },
-      bTableCell: { name: "bTableCell", group: "block", content: "inline*", attrs: { colspan: { type: "number", default: 1 }, rowspan: { type: "number", default: 1 } } },
-      'inline-image': { name: 'inline-image', group: 'inline', atom: true, attrs: { src: { type: 'string', required: true }, alt: { type: 'string', required: false } } },
-      'inline-text': { name: 'inline-text', group: 'inline' },
-    },
-    marks: {
-      bold: { name: "bold", group: "text-style", attrs: { weight: { type: "string", default: "bold" } } },
-      italic: { name: "italic", group: "text-style", attrs: { style: { type: "string", default: "italic" } } },
-      fontColor: { name: "fontColor", group: "text-style", attrs: { color: { type: "string", default: "#000000" } } },
-      bgColor: { name: "bgColor", group: "text-style", attrs: { bgColor: { type: "string", default: "#ffff00" } } },
-      underline: { name: "underline", group: "text-style", attrs: { style: { type: "string", default: "underline" } } },
-      strikethrough: { name: "strikethrough", group: "text-style", attrs: { style: { type: "string", default: "line-through" } } },
-      code: { name: "code", group: "text-style", attrs: { language: { type: "string", default: "text" } } },
-      link: { name: "link", group: "text-style", attrs: { href: { type: "string", required: true }, title: { type: "string", required: false } } },
-      highlight: { name: "highlight", group: "text-style", attrs: { color: { type: "string", default: "#ffff00" } } },
-      fontSize: { name: "fontSize", group: "text-style", attrs: { size: { type: "string", default: "14px" } } },
-      fontFamily: { name: "fontFamily", group: "text-style", attrs: { family: { type: "string", default: "Arial" } } },
-      subscript: { name: "subscript", group: "text-style", attrs: { position: { type: "string", default: "sub" } } },
-      superscript: { name: "superscript", group: "text-style", attrs: { position: { type: "string", default: "super" } } },
-      smallCaps: { name: "smallCaps", group: "text-style", attrs: { variant: { type: "string", default: "small-caps" } } },
-      letterSpacing: { name: "letterSpacing", group: "text-style", attrs: { spacing: { type: "string", default: "0.1em" } } },
-      wordSpacing: { name: "wordSpacing", group: "text-style", attrs: { spacing: { type: "string", default: "0.2em" } } },
-      lineHeight: { name: "lineHeight", group: "text-style", attrs: { height: { type: "string", default: "1.5" } } },
-      textShadow: { name: "textShadow", group: "text-style", attrs: { shadow: { type: "string", default: "1px 1px 2px rgba(0,0,0,0.3)" } } },
-      border: { name: "border", group: "text-style", attrs: { style: { type: "string", default: "solid" }, width: { type: "string", default: "1px" }, color: { type: "string", default: "#000000" } } },
-      spanLang: { name: "spanLang", group: "text-style", attrs: { lang: { type: "string", required: true }, dir: { type: "string", required: false } } },
-      kbd: { name: "kbd", group: "text-style" },
-      mention: { name: "mention", group: "text-style", attrs: { id: { type: "string", required: true } } },
-      spoiler: { name: "spoiler", group: "text-style", attrs: { revealed: { type: "boolean", default: false } } },
-      footnoteRef: { name: "footnoteRef", group: "text-style", attrs: { id: { type: "string", required: true } } },
-    },
-  });
+  const schema = createSchema("test", getStandardSchemaDefinition());
   const dataStore = new DataStore(undefined, schema);
   const initialTree = {
     sid: 'doc-1',
@@ -806,7 +720,7 @@ const result = renderDocument(initialTree);`
   // define is immediately registered in global registry
   define('document', element('div', {className: 'document'}, [slot('content')]));
   define('heading', element((model: any) => `h${model.attributes.level || 1}`, { className: 'heading' }, [slot('content')]));
-  define('paragraph', element('p', {className: 'paragraph'}, [slot('content')]));
+  define('paragraph', element('p', { className: 'paragraph', 'data-placeholder': attr('placeholder', '') }, [slot('content')]));
   // New blocks: blockQuote, pullQuote, codeFence, pageBreak, section, columns/column, toc, footnoteDef
   define('blockQuote', element('blockquote', { className: 'block-quote' }, [slot('content')]));
   define('pullQuote', element('blockquote', { className: 'pull-quote' }, [slot('content')]));
@@ -832,6 +746,12 @@ const result = renderDocument(initialTree);`
       alt: attr('alt', '') 
     })
   );
+  define('emoji', element('span', {
+    className: 'emoji',
+    'data-emoji': 'true',
+    'data-shortcode': attr('shortcode', ''),
+    'data-unicode': attr('unicode', ''),
+  }, [text((d: any) => (d?.attributes?.unicode ?? d?.attributes?.shortcode ?? ''))]));
   
   // New node types - add one by one
   

@@ -215,6 +215,38 @@ Location: `packages/schema/src/standard-schema.ts` (or `presets/standard-schema.
 - **Extend from minimal**: `createSchema(getMinimalSchema(), { nodes: { heading: { ... } }, marks: { link: { ... } } })` to add a few types without pulling the full set.
 - **Custom app schema**: Define a full `SchemaDefinition` and pass to `createSchema('app', definition)`. Document the delta from standard in app docs if relevant.
 
+### 9.1 Nested / multi-domain schemas (e.g. document + vector)
+
+Barocss uses **one schema per editor**. There is no runtime concept of "nested schemas" (one Schema instance inside another). Multiple domains (document, vector, diagram, etc.) are expressed as **one flat schema** that includes all node types from all domains; **content expressions** restrict where each type can appear.
+
+**Pattern: document + vector**
+
+1. **Define the vector "sub-schema" as node types** (no separate Schema instance):
+   - `vectorCanvas`: block that contains vector content; `group: 'block'`, `content: 'vectorLayer+'` so it can sit in document and contain layers.
+   - `vectorLayer`: `content: '(vectorPath | vectorGroup)*'` (or similar).
+   - `vectorPath`, `vectorGroup`, etc.: vector-only types; do **not** put them in `group: 'block'` so they cannot appear at document top level. They are allowed only where a content expression references them (e.g. inside vectorCanvas / vectorLayer).
+
+2. **Merge with the document schema** so the editor has a single schema:
+   - `createSchema(documentSchema, { nodes: { vectorCanvas, vectorLayer, vectorPath, vectorGroup, ... } })`,  
+   or merge two definitions: `createSchema('app', { topNode: 'document', nodes: { ...getStandardSchemaDefinition().nodes, ...vectorDefinition.nodes }, marks: { ... } })`.
+   - Ensure `vectorCanvas` has `group: 'block'` so `document` (content: `block+`) can contain it.
+
+3. **Result**: One Schema instance; document root allows blocks (paragraph, heading, vectorCanvas, ...). Inside a vectorCanvas only vector nodes are allowed (by content rules). Validator and DataStore use the same schema for the whole tree.
+
+**Optional: keep "vector schema" as a separate definition**
+
+- Export a `getVectorSchemaDefinition()` that returns `{ nodes: { vectorCanvas, vectorLayer, ... } }` (no `topNode`; used only for merging).
+- App merges: `createSchema('app', { ...getStandardSchemaDefinition(), nodes: { ...getStandardSchemaDefinition().nodes, ...getVectorSchemaDefinition().nodes } })` or use a small helper that merges two `SchemaDefinition` objects.
+- This keeps document and vector definitions in separate modules/files while still producing one schema at runtime.
+
+**Summary**
+
+| Question | Answer |
+|----------|--------|
+| Can multiple schemas be nested at runtime? | No. One Schema per editor. |
+| How to have document + vector in one editor? | One schema; add vector node types and merge with document schema. Vector block (`vectorCanvas`) has `group: 'block'`; vector-only nodes are referenced only in content expressions under vectorCanvas. |
+| Where to define "vector schema"? | As a `SchemaDefinition` (or preset) and merge with document schema via `createSchema(base, { nodes: { ...vectorNodes } })` or by merging definition objects. |
+
 ---
 
 ## 10. Comparison with other editors
