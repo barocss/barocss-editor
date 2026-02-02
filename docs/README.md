@@ -76,6 +76,9 @@ renderer.render(container, model);
 ### Docs-site integration (agent flow)
 - **`docs-site-integration.md`** - How apps/docs-site fits into the full loop: spec → implementation → documentation → test → verify. When to update docs-site, where to add api/architecture/guides/examples, build/verify.
 
+### Release
+- **`release-flow.md`** - 릴리즈 절차: Changesets 추가, Version Packages PR, npm 배포 (NPM_TOKEN 등)
+
 ### Others
 - `api-reference.md` - API reference
 
