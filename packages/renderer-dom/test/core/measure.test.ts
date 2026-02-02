@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { getElementRect, getClientRectsOfNode, getScrollOffsets } from '../../src/measure.js';
+import { getElementRect, getClientRectsOfNode, getScrollOffsets } from '../../src/measure';
 
 describe('measure helpers (read-only)', () => {
   let container: HTMLElement;

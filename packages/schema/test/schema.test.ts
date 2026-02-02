@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createSchema, Schema } from '../src/schema.js';
+import { createSchema, Schema } from '../src/schema';
 import { SchemaDefinition } from '../src/types';
 
 describe('Unified Schema', () => {

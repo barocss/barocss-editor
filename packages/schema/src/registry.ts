@@ -1,4 +1,4 @@
-import { Schema } from './schema.js';
+import { Schema } from './schema';
 
 class SchemaRegistry {
   private _schemas = new Map<string, Schema>();

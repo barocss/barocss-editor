@@ -3,7 +3,7 @@
  * Used by editor-view-dom and editor-view-react.
  */
 
-import type { Decorator } from './types.js';
+import type { Decorator } from './types';
 
 /** Model shape for generator: optional text, content/children for traversal. */
 export type GeneratorModelLike = Record<string, unknown>;

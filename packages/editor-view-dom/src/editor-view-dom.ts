@@ -5,7 +5,7 @@ import { DOMSelectionHandlerImpl } from './event-handlers/selection-handler';
 import { MutationObserverManagerImpl } from './mutation-observer/mutation-observer-manager';
 import { DecoratorManager, RemoteDecoratorManager, PatternDecoratorConfigManager, DecoratorGeneratorManager } from '@barocss/shared';
 import type { PatternDecoratorConfig, DecoratorGenerator } from '@barocss/shared';
-import { DecoratorRegistry, DecoratorPrebuilder, type Decorator, type DecoratorQueryOptions, type DecoratorModel } from './decorator/index.js';
+import { DecoratorRegistry, DecoratorPrebuilder, type Decorator, type DecoratorQueryOptions, type DecoratorModel } from './decorator';
 import { DOMRenderer } from '@barocss/renderer-dom';
 import { RendererRegistry } from '@barocss/dsl';
 import type { DecoratorExportData } from './types';

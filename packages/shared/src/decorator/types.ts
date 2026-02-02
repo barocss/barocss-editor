@@ -65,3 +65,53 @@ export interface BlockDecorator extends Decorator {
   category: 'block';
   target: DecoratorTarget;
 }
+
+/** Serializable decorator export shape (target decorators + pattern configs without functions). */
+export interface DecoratorExportData {
+  version: string;
+  targetDecorators: Array<{
+    sid: string;
+    stype: string;
+    category: 'layer' | 'inline' | 'block';
+    data?: Record<string, unknown>;
+    target?: unknown;
+    enabled?: boolean;
+  }>;
+  patternDecorators: Array<{
+    sid: string;
+    stype: string;
+    category: 'inline' | 'block' | 'layer';
+    pattern: { source: string; flags: string };
+    priority?: number;
+    enabled?: boolean;
+  }>;
+}
+
+/** Schema for a decorator type (description + optional dataSchema for validation/defaults). */
+export interface DecoratorTypeSchema {
+  description?: string;
+  dataSchema?: Record<string, {
+    type: 'string' | 'number' | 'boolean' | 'array' | 'object';
+    required?: boolean;
+    default?: unknown;
+  }>;
+}
+
+/** Pattern functions for loadDecorators (extractData/createDecorator per sid). */
+export interface LoadDecoratorsPatternFunctions {
+  [sid: string]: {
+    extractData: (match: RegExpMatchArray) => Record<string, unknown>;
+    createDecorator: (
+      nodeId: string,
+      startOffset: number,
+      endOffset: number,
+      extractedData: Record<string, unknown>
+    ) => {
+      sid: string;
+      target: { sid: string; startOffset: number; endOffset: number };
+      data?: Record<string, unknown>;
+      category?: 'inline' | 'block' | 'layer';
+      layerTarget?: 'content' | 'decorator' | 'selection' | 'context' | 'custom';
+    };
+  };
+}

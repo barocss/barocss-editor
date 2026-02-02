@@ -11,9 +11,9 @@ import type {
   LayerDecorator,
   InlineDecorator,
   BlockDecorator,
-} from './types.js';
-import { EventEmitter } from './event-emitter.js';
-import type { IDecoratorValidator } from './validator.js';
+} from './types';
+import { EventEmitter } from './event-emitter';
+import type { IDecoratorValidator } from './validator';
 
 export class DecoratorManager extends EventEmitter<DecoratorEvents> {
   private decorators = new Map<string, Decorator>();

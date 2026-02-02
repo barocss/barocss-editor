@@ -1,4 +1,4 @@
-import { DataStore } from './data-store.js';
+import { DataStore } from './data-store';
 import type { INode, Document } from './types';
 
 export class DataStoreLoader {

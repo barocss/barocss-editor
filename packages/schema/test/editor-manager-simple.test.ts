@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { EditorSchemaManager, createNamespacedSchema } from '../src/editor-manager.js';
+import { EditorSchemaManager, createNamespacedSchema } from '../src/editor-manager';
 import type { SchemaDefinition } from '../src/types';
 
 describe('EditorSchemaManager', () => {

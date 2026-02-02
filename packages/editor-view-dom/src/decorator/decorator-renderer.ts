@@ -10,10 +10,10 @@ import {
   Decorator,
   InlineDecorator,
   BlockDecorator
-} from './types.js';
-import { DecoratorRegistry } from './decorator-registry.js';
+} from './types';
+import { DecoratorRegistry } from './decorator-registry';
 import { DecoratorManager } from '@barocss/shared';
-import { DecoratorVisibilityManager, VisibilityState } from './visibility-manager.js';
+import { DecoratorVisibilityManager, VisibilityState } from './visibility-manager';
 import { DOMRenderer } from '@barocss/renderer-dom';
 import { RendererRegistry, renderer, element, data, when } from '@barocss/dsl';
 
