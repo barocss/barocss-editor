@@ -234,7 +234,59 @@ Not added (covered by existing types or view layer): block-level "Image" only (b
 
 ---
 
-## 11. References
+## 11. Alignment with packages and apps
+
+What to add or change so that datastore, model, renderer, DSL, and apps all use the standard schema as the single source of truth.
+
+### 11.1 Apps
+
+| App | Current | Change |
+|-----|---------|--------|
+| **editor-react** | Uses local `editorTestSchemaConfig` (schema.ts). | Use `createSchema('editor-react', getStandardSchemaDefinition())` from `@barocss/schema` and remove or re-export the local schema copy. Ensures placeholder and emoji from the standard preset. |
+| **editor-test** | Inline schema in main.ts (same shape as standard). | Use `getStandardSchemaDefinition()` from `@barocss/schema` instead of inline definition. Single source of truth. |
+| **docs-site** | Quick-start / basic-usage use inline minimal schema. | Optionally use `getMinimalSchemaDefinition()` from `@barocss/schema` in examples so docs match the preset. |
+
+### 11.2 DSL / Renderer (templates)
+
+The standard schema does **not** define DSL templates; it only defines structure. Apps (or a shared “standard templates” package) register `define(stype, template)` for each node type they use.
+
+| Item | Current | Change |
+|------|---------|--------|
+| **editor-react register-renderers** | Templates for all standard node types except `emoji`. Paragraph has no placeholder handling. | Add `define('emoji', ...)` for the standard `emoji` node (e.g. `element('span', { className: 'emoji', 'data-shortcode': attr('shortcode'), 'data-unicode': attr('unicode') }, [])` or render character). Optionally use `paragraph` `attrs.placeholder` in the paragraph template (e.g. `data-placeholder` or similar) so empty blocks can show hint text. |
+| **editor-test** | Registers same templates as editor-react (inline define calls). | No change required for alignment; if editor-test switches to getStandardSchemaDefinition(), it already has templates for all types it uses. Add emoji template only if editor-test starts using emoji nodes. |
+
+### 11.3 Datastore
+
+- **Change**: None. Datastore is schema-agnostic; it validates against the Schema instance passed at construction. Apps that pass a schema from `getStandardSchemaDefinition()` or `getMinimalSchemaDefinition()` are aligned.
+
+### 11.4 Model
+
+- **Change**: None. Operations use `stype` strings (e.g. paragraph, heading, list, listItem, blockQuote) that match the standard schema. The model does not import the schema preset; it assumes the app has registered a schema that defines those types. Exec tests that need a full schema can optionally use `getStandardSchemaDefinition()` to avoid drift.
+
+### 11.5 Extensions
+
+- **Change**: None. Extensions use `schema.getNodeType(stype)` and the same `stype` names as the standard schema. Optional future work: an “insert emoji” command that inserts an `emoji` node when the schema includes it.
+
+### 11.6 Converter
+
+- **Change**: Optional. Document or add HTML conversion rules for standard node types (e.g. emoji ↔ `<span data-emoji>` or character; paragraph with placeholder). Not required for schema alignment; converter can be extended per app or in a shared preset.
+
+### 11.7 Summary
+
+| Layer | Must change | Optional |
+|-------|-------------|----------|
+| **schema** | — | — (presets already in place) |
+| **editor-react** | Use getStandardSchemaDefinition(); add emoji template. | Paragraph template: show placeholder when empty. |
+| **editor-test** | Use getStandardSchemaDefinition() instead of inline schema. | — |
+| **docs-site** | — | Use getMinimalSchemaDefinition() in examples. |
+| **datastore** | — | — |
+| **model** | — | Tests use preset in exec tests. |
+| **extensions** | — | insertEmoji command later. |
+| **converter** | — | Rules for emoji, placeholder. |
+
+---
+
+## 12. References
 
 - **Schema package**: `packages/schema/README.md`, `packages/schema/src/types.ts`, `packages/schema/src/schema.ts`
 - **Editor-wide spec**: `docs/specs/editor.md` (document model, selection, operations)
