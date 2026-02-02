@@ -8,9 +8,6 @@
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
   "ignore": [
-    "@barocss/test-app",
-    "@barocss/editor-test",
-    "@barocss/editor-decorator-test"
   ]
 }
 
