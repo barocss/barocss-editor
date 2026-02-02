@@ -18,6 +18,10 @@ export function EditorViewContentLayer({ options = {} }: EditorViewContentLayerP
 
   useEffect(() => {
     const onContentChange = (e: { content?: unknown }) => {
+      if (viewStateRef?.current?.skipNextRenderFromMO) {
+        viewStateRef.current.skipNextRenderFromMO = false;
+        return;
+      }
       const next = e?.content ?? editor.getDocumentProxy?.() ?? null;
       setDocumentSnapshot(next);
     };
@@ -26,7 +30,7 @@ export function EditorViewContentLayer({ options = {} }: EditorViewContentLayerP
     return () => {
       editor.off?.('editor:content.change', onContentChange);
     };
-  }, [editor]);
+  }, [editor, viewStateRef]);
 
   useEffect(() => {
     const el = contentRef.current;
