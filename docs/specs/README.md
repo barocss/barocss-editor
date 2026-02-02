@@ -21,6 +21,7 @@ This directory and the linked package specs define **what the editor and each pa
 ### Editor-wide
 
 - **`docs/specs/editor.md`** — Document model (tree, block, text, marks), selection (resolution, `selectionAfter`), operation semantics (e.g. insertParagraph, insertText guarantees), and references to architecture/flow docs.
+- **`docs/specs/standard-schema.md`** — Barocss standard schema: canonical node types, marks, content rules; minimal vs full tier; presets `getMinimalSchemaDefinition()` and `getStandardSchemaDefinition()` from `@barocss/schema`.
 
 ### Package specs
 
