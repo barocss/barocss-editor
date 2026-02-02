@@ -1,4 +1,8 @@
 import { defineConfig } from 'vitest/config';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   test: {
@@ -8,9 +12,9 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@barocss/datastore': '/Users/user/github/barocss/barocss-editor/packages/datastore/src/index.ts',
-      '@barocss/model': '/Users/user/github/barocss/barocss-editor/packages/model/src/index.ts',
-      '@barocss/schema': '/Users/user/github/barocss/barocss-editor/packages/schema/src/index.ts',
+      '@barocss/datastore': path.resolve(__dirname, '../datastore/src/index.ts'),
+      '@barocss/model': path.resolve(__dirname, '../model/src/index.ts'),
+      '@barocss/schema': path.resolve(__dirname, '../schema/src/index.ts'),
     }
   }
 });
