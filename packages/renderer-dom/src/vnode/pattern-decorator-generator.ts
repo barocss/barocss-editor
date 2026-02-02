@@ -219,16 +219,17 @@ export class PatternDecoratorGenerator {
     const existingSids = new Set(existingDecorators.map(d => d.sid));
     
     for (const patternDecorator of patternDecorators) {
-      // 같은 범위의 기존 decorator가 있으면 스킵 (기존 decorator 우선)
+      const pt = patternDecorator.target;
+      if (!pt) continue;
       const hasOverlap = existingDecorators.some(existing => {
-        const targetSid = 'sid' in existing.target ? existing.target.sid : undefined;
+        const et = existing.target;
+        if (!et) return false;
+        const targetSid = 'sid' in et ? et.sid : undefined;
         if (targetSid !== nodeId) return false;
-        const existingStart = existing.target.startOffset || 0;
-        const existingEnd = existing.target.endOffset || 0;
-        const patternStart = patternDecorator.target.startOffset || 0;
-        const patternEnd = patternDecorator.target.endOffset || 0;
-        
-        // 범위가 겹치는지 확인
+        const existingStart = et.startOffset || 0;
+        const existingEnd = et.endOffset || 0;
+        const patternStart = pt.startOffset || 0;
+        const patternEnd = pt.endOffset || 0;
         return !(patternEnd <= existingStart || patternStart >= existingEnd);
       });
       

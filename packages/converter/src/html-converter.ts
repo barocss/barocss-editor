@@ -64,7 +64,6 @@ export class HTMLConverter {
     }
     
     const element = node as Element;
-    const tagName = element.tagName.toLowerCase();
     
     // Check parser rules for all stypes
     // Try rules with higher priority first

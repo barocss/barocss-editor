@@ -2,7 +2,8 @@
  * Simple EventEmitter for DecoratorManager. No external dependency.
  */
 
-export class EventEmitter<T extends Record<string, (...args: any[]) => void>> {
+/** T: object type whose values are event handler functions (e.g. { change: () => void }). */
+export class EventEmitter<T extends { [K in keyof T]: (...args: any[]) => void }> {
   private listeners = new Map<keyof T, Array<T[keyof T]>>();
 
   on<K extends keyof T>(event: K, listener: T[K]): void {

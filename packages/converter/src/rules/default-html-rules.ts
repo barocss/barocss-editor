@@ -322,7 +322,8 @@ export function registerDefaultHTMLRules(): void {
  * ⚠️ Warning: This function is only used during default rule registration.
  * Actual conversion is performed through registry in HTMLConverter.convert().
  */
-function convertContentToHTML(content: (any | string)[]): string {
+/** Used only for default rule registration; recursive helper. */
+export function convertContentToHTML(content: (any | string)[]): string {
   const parts: string[] = [];
   
   for (const item of content) {

@@ -1,6 +1,6 @@
 export type { INode, IMark, RootDocument, Document, ValidationResult } from './types';
 export * from './data-store';
-export * from './validators.ts';
+export * from './validators';
 export * from './loader';
 export * from './performance';
 export type { DropBehavior, DropContext, DropBehaviorDefinition } from './types/drop-behavior';

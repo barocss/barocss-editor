@@ -66,15 +66,8 @@ export class DecoratorPrebuilder {
     decorator: Decorator,
     modelData: ModelData
   ): DecoratorModel[] {
-    // 1. Handle custom decorator
-    if (decorator.decoratorType === 'custom' && decorator.generate) {
-      // Custom decorator generates other decorators through generate function
-      // This function is managed in DecoratorGeneratorManager
-      // Here only process already generated decorators
-      // generate call is already performed in DecoratorGeneratorManager
-    }
-    
-    // 2. Handle target decorator
+    // Custom decorators are expanded by DecoratorGeneratorManager before buildDecorators;
+    // here we only convert each decorator to DecoratorModel.
     return [this.buildTargetDecorator(decorator, modelData)];
   }
   

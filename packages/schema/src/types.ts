@@ -22,7 +22,8 @@ export type SchemaExtensions = Partial<SchemaDefinition>;
 // Node type definition
 export interface NodeTypeDefinition {
   name: string;
-  group?: 'block' | 'inline' | 'document';
+  /** document | block | inline are standard; 'scene' is used by figma-like reference schema. */
+  group?: 'block' | 'inline' | 'document' | 'scene';
   content?: string;
   attrs?: Record<string, AttributeDefinition>;
   marks?: string[];

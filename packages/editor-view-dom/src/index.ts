@@ -7,5 +7,6 @@ export { DOMSelectionHandlerImpl as DOMSelectionHandler } from './event-handlers
 export { MutationObserverManagerImpl as MutationObserverManager } from './mutation-observer/mutation-observer-manager';
 export { analyzeTextChanges } from '@barocss/text-analyzer';
 
-// Export Decorator system
+// Export Decorator system (explicit Decorator re-export overrides renderer-dom's Decorator)
 export * from './decorator';
+export type { Decorator } from './decorator';

@@ -29,17 +29,6 @@ export class RangeOperations {
     return rangeText;
   }
 
-  /** Reserved for same-node insert path. Unused until wired. */
-  private insertTextInNode(nodeId: string, contentRange: ModelSelection, text: string): void {
-    const node = this.dataStore.getNode(nodeId);
-    if (!node || typeof node.text !== 'string') return;
-    if (contentRange.startNodeId === nodeId && contentRange.startOffset === contentRange.endOffset) {
-      const position = contentRange.startOffset;
-      const newText = node.text.substring(0, position) + text + node.text.substring(position);
-      this.dataStore.updateNode(nodeId, { text: newText });
-    }
-  }
-
   // ---- Text content ops ----
   /**
    * Spec deleteText:

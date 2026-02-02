@@ -234,6 +234,7 @@ function classifyC1(
       newText,
       // Set contentRange only when InputHint exists, undefined otherwise
       contentRange: startOffset !== undefined && endOffset !== undefined ? {
+        type: 'range' as const,
         startNodeId: nodeId,
         startOffset,
         endNodeId: nodeId,
@@ -338,12 +339,12 @@ function classifyC2(
   // Extract model text for range across multiple nodes
   let prevText = '';
   if (options.editor.dataStore) {
-    // contentRange is calculated later, so use startNodeId and endNodeId temporarily
-    const tempRange = {
+    const tempRange: import('@barocss/editor-core').ModelSelection = {
+      type: 'range',
       startNodeId,
-      startOffset: 0, // Temporary, will update with accurate offset later
+      startOffset: 0,
       endNodeId,
-      endOffset: endModelNode.text?.length || 0 // Temporary
+      endOffset: endModelNode.text?.length || 0
     };
     prevText = extractModelTextFromRange(options.editor.dataStore, tempRange);
   }
@@ -430,7 +431,8 @@ function classifyC2(
   
   // Recalculate prevText (using accurate offset)
   if (options.editor.dataStore && startOffset !== undefined && endOffset !== undefined) {
-    const accurateRange = {
+    const accurateRange: import('@barocss/editor-core').ModelSelection = {
+      type: 'range',
       startNodeId,
       startOffset,
       endNodeId,
@@ -444,10 +446,11 @@ function classifyC2(
 
   return {
     case: 'C2',
-    nodeId: startNodeId, // Primary node (can be extended later)
+    nodeId: startNodeId,
     prevText,
     newText: flatText,
     contentRange: {
+      type: 'range' as const,
       startNodeId,
       startOffset,
       endNodeId,

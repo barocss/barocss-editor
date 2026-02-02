@@ -127,7 +127,7 @@ export class DecoratorVisibilityManager {
    * 가시성 규칙 제거
    */
   removeRule(ruleId: string): void {
-    this.rules = this.rules.filter(rule => rule.sid !== ruleId);
+    this.rules = this.rules.filter(rule => rule.id !== ruleId);
   }
   
   /**
@@ -147,13 +147,13 @@ export class DecoratorVisibilityManager {
           decoratorId: decorator.sid,
           visible: isVisible,
           reason: `${rule.name}: ${isVisible ? 'Show' : 'Hide'}`,
-          overriddenBy: rule.sid
+          overriddenBy: rule.id
         };
         
         this.visibilityStates.set(decorator.sid, newState);
         return newState;
       } catch (error) {
-        console.warn(`Visibility rule ${rule.sid} failed for decorator ${decorator.sid}:`, error);
+        console.warn(`Visibility rule ${rule.id} failed for decorator ${decorator.sid}:`, error);
       }
     }
     

@@ -234,7 +234,8 @@ export class AutoTracer {
     className: string,
     packageName: string,
     instance?: any,
-    inputSerializer?: (methodName: string, args: any[]) => any
+    inputSerializer?: (methodName: string, args: any[]) => any,
+    outputSerializer?: (methodName: string, result: any) => any
   ): T {
     return ((...args: any[]) => {
       if (!this.enabled || !this._shouldTrace(name)) {
@@ -346,7 +347,7 @@ export class AutoTracer {
     // Detect anomalies
     const anomalies = this.anomalyDetector.detectAnomalies(
       context.operationName,
-      context.className,
+      context.className ?? '',
       context.input,
       output,
       Date.now()

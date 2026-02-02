@@ -196,7 +196,7 @@ export class HeadingExtension implements Extension {
     return true;
   }
 
-  private _registerKeyboardShortcuts(editor: Editor): void {
+  private _registerKeyboardShortcuts(_editor: Editor): void {
     // Keyboard shortcuts are handled by default keybindings, so do nothing here
     // Mod+Alt+1/2/3 are already registered in default keybindings
   }

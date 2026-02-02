@@ -57,7 +57,7 @@ export class ListExtension implements Extension {
   private async _executeWrapInList(
     editor: Editor,
     listType: 'bullet' | 'ordered',
-    selection?: ModelSelection
+    _selection?: ModelSelection
   ): Promise<boolean> {
     const ops = [wrapInListOp(listType)];
     const result = await transaction(editor, ops, { applySelectionToView: true }).commit();

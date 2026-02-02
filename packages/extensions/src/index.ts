@@ -26,7 +26,6 @@ import { DeleteExtension } from './delete';
 import { MoveSelectionExtension } from './move-selection';
 import { IndentExtension } from './indent';
 import { UnderlineExtension } from './underline';
-import { MoveBlockExtension } from './move-block';
 import { CopyPasteExtension } from './copy-paste';
 import { ListExtension } from './list';
 import { BlockquoteExtension } from './blockquote';
