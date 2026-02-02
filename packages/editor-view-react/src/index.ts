@@ -17,6 +17,8 @@ export type { ReactMutationObserverManager } from './mutation-observer-manager';
 export type {
   EditorViewOptions,
   EditorViewProps,
+  EditorViewRef,
+  EditorViewHandle,
   EditorViewContentLayerOptions,
   EditorViewContentLayerProps,
   EditorViewLayerOptions,

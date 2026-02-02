@@ -45,25 +45,32 @@ describe('EditorView', () => {
     expect(root?.className).toContain('my-editor-root');
   });
 
-  it('renders overlay layers only when options.layers.* is set', () => {
+  it('renders all overlay layers (decorator, selection, context, custom) by default', () => {
     const editor = mockEditor();
-    const { container, rerender } = render(<EditorView editor={editor} />);
-    expect(container.querySelector('[data-bc-layer="decorator"]')).toBeNull();
-    expect(container.querySelector('[data-bc-layer="selection"]')).toBeNull();
+    const { container } = render(<EditorView editor={editor} />);
+    expect(container.querySelector('[data-bc-layer="decorator"]')).toBeTruthy();
+    expect(container.querySelector('[data-bc-layer="selection"]')).toBeTruthy();
+    expect(container.querySelector('[data-bc-layer="context"]')).toBeTruthy();
+    expect(container.querySelector('[data-bc-layer="custom"]')).toBeTruthy();
+  });
 
-    rerender(
+  it('applies options.layers.* className and style to overlay layers', () => {
+    const editor = mockEditor();
+    const { container } = render(
       <EditorView
         editor={editor}
         options={{
           layers: {
-            decorator: {},
-            selection: {},
+            decorator: { className: 'my-decorator-layer' },
+            selection: { style: { zIndex: 999 } },
           },
         }}
       />
     );
-    expect(container.querySelector('[data-bc-layer="decorator"]')).toBeTruthy();
-    expect(container.querySelector('[data-bc-layer="selection"]')).toBeTruthy();
+    const decoratorLayer = container.querySelector('[data-bc-layer="decorator"]');
+    const selectionLayer = container.querySelector('[data-bc-layer="selection"]');
+    expect(decoratorLayer?.className).toContain('my-decorator-layer');
+    expect((selectionLayer as HTMLElement)?.style?.zIndex).toBe('999');
   });
 
   it('renders children inside custom layer when layers.custom or children present', () => {

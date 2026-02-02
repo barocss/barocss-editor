@@ -1,5 +1,6 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Editor } from '@barocss/editor-core';
+import { DecoratorManager } from '@barocss/shared';
 import type { ReactSelectionHandler } from './selection-handler';
 import type { ReactInputHandler } from './input-handler';
 import type { ReactMutationObserverManager } from './mutation-observer-manager';
@@ -24,6 +25,10 @@ export interface EditorViewContextValue {
   inputHandler: ReactInputHandler;
   mutationObserverManager: ReactMutationObserverManager;
   setContentEditableElement: (el: HTMLElement | null) => void;
+  /** Internal decorator manager (uncontrolled mode). Stable ref. */
+  decoratorManagerRef: React.RefObject<DecoratorManager | null>;
+  /** Increments when decoratorManager emits added/updated/removed; used to trigger content re-render. */
+  decoratorVersion: number;
 }
 
 const EditorViewContext = createContext<EditorViewContextValue | null>(null);
@@ -51,6 +56,25 @@ export function EditorViewContextProvider({ editor, children }: { editor: Editor
 
   const contentEditableRef = useRef<HTMLElement | null>(null);
   const getContentEditableElement = useCallback(() => contentEditableRef.current, []);
+
+  const decoratorManagerRef = useRef<DecoratorManager | null>(null);
+  if (decoratorManagerRef.current === null) {
+    decoratorManagerRef.current = new DecoratorManager();
+  }
+  const [decoratorVersion, setDecoratorVersion] = useState(0);
+  useEffect(() => {
+    const manager = decoratorManagerRef.current;
+    if (!manager) return;
+    const bump = () => setDecoratorVersion((v) => v + 1);
+    manager.on('decorator:added', bump);
+    manager.on('decorator:updated', bump);
+    manager.on('decorator:removed', bump);
+    return () => {
+      manager.off('decorator:added', bump);
+      manager.off('decorator:updated', bump);
+      manager.off('decorator:removed', bump);
+    };
+  }, []);
 
   const selectionHandler = useMemo(
     () => new ReactSelectionHandlerClass(editor, getContentEditableElement),
@@ -98,8 +122,19 @@ export function EditorViewContextProvider({ editor, children }: { editor: Editor
       inputHandler,
       mutationObserverManager,
       setContentEditableElement,
+      decoratorManagerRef,
+      decoratorVersion,
     }),
-    [editor, viewStateRef, selectionHandler, inputHandler, mutationObserverManager, setContentEditableElement]
+    [
+      editor,
+      viewStateRef,
+      selectionHandler,
+      inputHandler,
+      mutationObserverManager,
+      setContentEditableElement,
+      decoratorManagerRef,
+      decoratorVersion,
+    ]
   );
 
   return (

@@ -2,7 +2,7 @@
  * Decorator Target type
  * - Single node target or range target
  */
-export type DecoratorTarget = 
+export type DecoratorTarget =
   | {
       sid: string;
       startOffset?: number;
@@ -44,7 +44,7 @@ export interface Decorator {
   enabled?: boolean; // Enabled status (default: true)
   decoratorType?: 'target' | 'pattern' | 'custom'; // Decorator type: 'target' (regular), 'pattern' (pattern-based), 'custom' (function-based, default: 'target')
   position?: DecoratorPosition; // Rendering position (optional)
-  
+
   // Metadata (optional)
   createdAt?: number;
   updatedAt?: number;
@@ -52,7 +52,7 @@ export interface Decorator {
   version?: number;
 }
 
-export type DecoratorPosition = 
+export type DecoratorPosition =
   | 'before'        // insert before target
   | 'after'         // insert after target
   | 'inside-start'  // inside target at start

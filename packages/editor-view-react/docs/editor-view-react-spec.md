@@ -104,8 +104,10 @@ No dependency on **editor-view-dom** or **renderer-dom**.
 - **options**: Optional.
   - **registry**: RendererRegistry (for content layer).
   - **className**: string (root container).
-  - **layers**: EditorViewLayersConfig — content?, decorator?, selection?, context?, custom? (each optional; presence enables that layer).
-- **children**: ReactNode (rendered inside CustomLayer when layers.custom or children present).
+  - **layers**: EditorViewLayersConfig — content?, decorator?, selection?, context?, custom? (optional className/style overrides; all four overlay layers are always rendered).
+- **children**: ReactNode (rendered inside CustomLayer after overlay decorators).
+
+Decorators are managed internally; use ref.addDecorator / ref.removeDecorator / ref.getDecorators when using a ref on EditorView.
 
 ### 3.3 EditorViewContentLayer Props
 
@@ -114,7 +116,7 @@ No dependency on **editor-view-dom** or **renderer-dom**.
   - **className**: string (contenteditable wrapper).
   - **editable**: boolean (default true).
 
-Editor is taken from EditorViewContext only.
+Decorators are taken from internal DecoratorManager (context); no options.decorators or getDecorators. Editor is taken from EditorViewContext only.
 
 ### 3.4 EditorViewLayer Props
 
@@ -161,23 +163,22 @@ Default classNames and zIndex per layer: decorator (barocss-editor-decorators, 1
 
 ## 5. Layers
 
+See **layers-spec.md** for layerTarget semantics and how selection/context/custom layers are intended to be used.
+
 ### 5.1 Content Layer
 
 - Single contenteditable div. data-bc-layer="content", data-testid="editor-content".
-- Renders documentSnapshot via ReactRenderer.build(model). Subscribes to editor:content.change to update documentSnapshot.
+- Renders documentSnapshot via ReactRenderer.build(model, decorators). Decorators come from internal DecoratorManager; inline/block (and layerTarget content) are rendered in the same tree as content. Subscribes to editor:content.change to update documentSnapshot.
 - Ref passed to setContentEditableElement so MutationObserver and selection resolution use the same root.
 
 ### 5.2 Overlay Layers
 
-- **decorator**, **selection**, **context**, **custom**: Each is a div with position absolute, full inset, pointer-events: none, data-bc-layer={layer}. Used for overlays (decorators, selection highlight, context menu, custom UI). No built-in content; custom accepts children.
+- **decorator**, **selection**, **context**, **custom**: Each is a div with position absolute, full inset, pointer-events: none, data-bc-layer={layer}. All four are always rendered. Content: decorators with layerTarget === that layer are rendered via ReactRenderer.buildOverlayDecorators(filtered). Custom layer also renders EditorView children after overlay decorators.
 
-### 5.3 Conditional Rendering in EditorView
+### 5.3 Rendering in EditorView
 
 - Content layer always rendered (with merged options from options.layers?.content).
-- DecoratorLayer rendered if options.layers?.decorator is truthy.
-- SelectionLayer rendered if options.layers?.selection is truthy.
-- ContextLayer rendered if options.layers?.context is truthy.
-- CustomLayer rendered if options.layers?.custom is truthy or children is provided. Children rendered inside CustomLayer.
+- All four overlay layers (decorator, selection, context, custom) are always rendered. options.layers?.decorator|selection|context|custom supply optional className and style only. Children are rendered inside CustomLayer after overlay decorators.
 
 ---
 
@@ -192,10 +193,17 @@ Default classNames and zIndex per layer: decorator (barocss-editor-decorators, 1
 ### 6.2 ReactRenderer
 
 - useMemo(() => new ReactRenderer(registry ?? getGlobalRegistry()), [registry]).
-- content = useMemo(() => documentSnapshot != null && model.stype ? renderer.build(model) : null, [documentSnapshot, renderer]).
-- Same registry and model shape as renderer-dom for parity (sid, stype, content, text, marks).
+- decorators = decoratorManagerRef.current?.getAll() ?? [] (from context).
+- content = useMemo(() => documentSnapshot != null && model.stype ? renderer.build(model, decorators) : null, [documentSnapshot, renderer, decorators]).
+- Same registry and model shape as renderer-dom for parity (sid, stype, content, text, marks, decorators).
 
-### 6.3 Contenteditable
+### 6.3 Decorator source and updates (vs editor-view-dom)
+
+- **editor-view-dom**: Decorators live **inside** the view (DecoratorManager, RemoteDecoratorManager, DecoratorGeneratorManager, PatternDecoratorConfigManager). When render() is called (e.g. on content change or after addDecorator/updateDecorator/removeDecorator), the view reads decorators from these managers and passes them to DOMRenderer.render(container, model, allDecorators, …). No decorators passed from outside each time.
+- **editor-view-react**: Decorators are **passed from outside** via options (options.layers.content.decorators or options.layers.content.getDecorators). When decorators change, the **parent** (app) must re-render with new options so the content layer receives the new list. This is the normal React pattern: the app (or a store/context) holds decorator state; when that state changes, the app re-renders and passes new props. **Passing new options each time decorators change is correct and intended.**
+- **getDecorators**: Optional callback options.getDecorators?.() is called on each render and takes precedence over options.decorators when both are set. Use when the source is a store or context: the parent re-renders when the store updates, and getDecorators() returns the current list. Does not avoid re-renders — something (parent or subscription) must trigger a re-render when decorators change.
+
+### 6.4 Contenteditable
 
 - contentEditable={editable} (default true). suppressContentEditableWarning. className and options from props.
 

@@ -10,7 +10,14 @@ import type { EditorViewContentLayerProps } from './types';
  * Must be used inside EditorView (EditorViewContextProvider); editor is taken from context only.
  */
 export function EditorViewContentLayer({ options = {} }: EditorViewContentLayerProps) {
-  const { editor, selectionHandler, viewStateRef, setContentEditableElement } = useEditorViewContext();
+  const {
+    editor,
+    selectionHandler,
+    viewStateRef,
+    setContentEditableElement,
+    decoratorManagerRef,
+    decoratorVersion,
+  } = useEditorViewContext();
   const { className = '', editable = true, registry } = options;
 
   const [documentSnapshot, setDocumentSnapshot] = useState<unknown>(() => editor.getDocumentProxy?.() ?? null);
@@ -56,12 +63,14 @@ export function EditorViewContentLayer({ options = {} }: EditorViewContentLayerP
     [registry]
   );
 
+  const decorators = decoratorManagerRef.current?.getAll() ?? [];
+
   const content = useMemo(() => {
     if (documentSnapshot == null) return null;
     const model = documentSnapshot as { stype?: string };
     if (!model.stype) return null;
-    return renderer.build(model);
-  }, [documentSnapshot, renderer]);
+    return renderer.build(model, decorators);
+  }, [documentSnapshot, renderer, decorators, decoratorVersion]);
 
   return (
     <div

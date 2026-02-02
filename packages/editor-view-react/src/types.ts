@@ -1,9 +1,21 @@
 import type { Editor } from '@barocss/editor-core';
 import type { RendererRegistry } from '@barocss/dsl';
+import type { Decorator, DecoratorManager } from '@barocss/shared';
+
+/** Imperative handle for EditorView: internal decorator management (addDecorator, removeDecorator, updateDecorator, getDecorators). */
+export interface EditorViewHandle {
+  addDecorator(decorator: Decorator): void;
+  removeDecorator(id: string): void;
+  /** Update decorator by id; throws if not found. */
+  updateDecorator(id: string, updates: Partial<Decorator>): void;
+  getDecorators(): Decorator[];
+  /** Internal DecoratorManager; null until mounted. */
+  decoratorManager: DecoratorManager | null;
+}
 
 export type EditorViewLayerType = 'decorator' | 'selection' | 'context' | 'custom';
 
-/** Options for the content layer (document rendering). */
+/** Options for the content layer (document rendering). Decorators are managed internally; use ref.addDecorator / ref.getDecorators. */
 export interface EditorViewContentLayerOptions {
   /** Renderer registry. If omitted, uses getGlobalRegistry(). */
   registry?: RendererRegistry;
@@ -47,6 +59,9 @@ export interface EditorViewProps {
   /** Optional children (e.g. custom layer content). Rendered inside the custom layer slot when present. */
   children?: React.ReactNode;
 }
+
+/** EditorView ref type (when using forwardRef). Exposes decorator API like editor-view-dom. */
+export type EditorViewRef = EditorViewHandle;
 
 export interface EditorViewContentLayerProps {
   /** Options (registry, className, editable). Editor is taken from EditorViewContext only. */

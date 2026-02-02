@@ -5,7 +5,8 @@
 import type { RendererRegistry, ModelData } from '@barocss/dsl';
 import { getGlobalRegistry } from '@barocss/dsl';
 import type { ReactNode } from 'react';
-import { buildToReact } from './build-to-react';
+import { buildToReact, buildOverlayDecorators as buildOverlayDecoratorsImpl } from './build-to-react';
+import type { Decorator } from './decorator/types';
 
 export interface ReactRendererOptions {
   /** Name for debugging */
@@ -32,13 +33,19 @@ export class ReactRenderer {
   }
 
   /**
-   * Build ReactNode from model.
-   * Uses model.stype to look up template and walks DSL (element/slot/data) to produce React.
+   * Build ReactNode from model. Optionally pass decorators to render them in the same tree (inline/block/layer), matching renderer-dom.
    */
-  build(model: ModelData): ReactNode {
+  build(model: ModelData, decorators: Decorator[] = []): ReactNode {
     if (!model || !model.stype) {
       throw new Error('[ReactRenderer] build: model must have stype property');
     }
-    return buildToReact(this.registry, model.stype, model);
+    return buildToReact(this.registry, model.stype, model, { decorators });
+  }
+
+  /**
+   * Build overlay layer content from decorators only (for decorator/selection/context/custom layers).
+   */
+  buildOverlayDecorators(decorators: Decorator[]): ReactNode {
+    return buildOverlayDecoratorsImpl(this.registry, decorators ?? []);
   }
 }
