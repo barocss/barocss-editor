@@ -1009,8 +1009,8 @@ function detectSpecialCase(
       .find((value): value is DomChangeCase => value !== null);
     if (directCase) return directCase;
 
-    if (mutation.attributeName) {
-      const attr = mutation.target?.getAttribute?.(mutation.attributeName);
+    if (mutation.attributeName && mutation.target instanceof Element) {
+      const attr = mutation.target.getAttribute(mutation.attributeName);
       if (attr && attr.toLowerCase().includes('autocorrect')) {
         return 'C4_AUTO_CORRECT';
       }
