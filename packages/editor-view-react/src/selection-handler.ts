@@ -21,7 +21,7 @@ export class ReactSelectionHandler {
   private _isProgrammaticChange = false;
   private _getScopeRoot(): ParentNode {
     const contentEditableElement = this.getContentEditableElement();
-    if (contentEditableElement && contentEditableElement.querySelector) {
+    if (contentEditableElement) {
       return contentEditableElement;
     }
     return document;
