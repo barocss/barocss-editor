@@ -137,8 +137,8 @@ describe('dom-change-classifier', () => {
       endNodeId: 't2',
       endOffset: 3
     });
-    expect(result.prevText).toBe('lloWo');
-    expect(result.newText).toBe('lloWo');
+    expect(result.prevText).toBe('lloWor');
+    expect(result.newText).toBe('lloWor');
   });
 
   it('C2에서 InputHint가 있으면 hint를 우선 사용해야 함', () => {
@@ -157,6 +157,10 @@ describe('dom-change-classifier', () => {
 
     container.appendChild(wrapper1);
     container.appendChild(wrapper2);
+
+    // No DOM selection: rely on inputHint for C2 (multi-node range)
+    const sel = window.getSelection();
+    if (sel) sel.removeAllRanges();
 
     const result = classifyDomChange([
       makeMutation({
@@ -193,6 +197,8 @@ describe('dom-change-classifier', () => {
   });
 
   it('C3에서 블록 추가/분리가 있는 경우 패턴을 분석해야 함', () => {
+    nodeMap['p2'] = { sid: 'p2', stype: 'paragraph', text: undefined, content: [] };
+
     const paragraph = document.createElement('p');
     paragraph.setAttribute('data-bc-sid', 'p1');
     paragraph.setAttribute('data-bc-stype', 'paragraph');

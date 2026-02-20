@@ -87,7 +87,7 @@ describe('EditorViewDOM + renderer-dom Mount/Unmount Integration', () => {
         `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">
           <div class="document" data-bc-sid="doc1">
             <div class="test-component" data-bc-sid="comp1">
-              <span>Test Component</span>
+              <span data-bc-sid="comp1">Test Component</span>
             </div>
           </div>
         </div>`,

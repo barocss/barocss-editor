@@ -50,7 +50,8 @@ describe('DSL Create Operations', () => {
         })
       },
       historyManager: { push: () => {} },
-      emit: () => {}
+      emit: () => {},
+      updateSelection: () => {}
     };
   });
 

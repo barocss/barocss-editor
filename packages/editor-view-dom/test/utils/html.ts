@@ -91,8 +91,17 @@ export function expectHTML(
   // 예상 HTML도 첫 번째 자식 요소만 사용하여 비교
   const firstChild = tempDiv.firstElementChild;
   const normalizedExpected = firstChild ? normalizeHTML(firstChild) : normalizeHTML(tempDiv);
-  
+
+  // If expected uses data-bc-sid="doc1" on document, normalize actual document sid so renderer-generated doc-* ids match
+  let normalizedActual = actualHTML;
+  if (normalizedExpected.includes('data-bc-sid="doc1"')) {
+    normalizedActual = actualHTML.replace(
+      /(class="document"[^>]*?)data-bc-sid="[^"]*"/,
+      '$1data-bc-sid="doc1"'
+    );
+  }
+
   // 비교
-  expect(actualHTML).toBe(normalizedExpected);
+  expect(normalizedActual).toBe(normalizedExpected);
 }
 

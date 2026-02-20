@@ -1100,23 +1100,18 @@ export class EditorViewDOM implements IEditorViewDOM {
       // Use directly without conversion
       modelData = tree as ModelData;
     } else {
-      // Get directly from editor - use getDocumentProxy() (lazy evaluation)
+      // No tree passed: prefer last rendered tree (e.g. after addDecorator re-render) so we don't replace it with empty editor document
       try {
-        const exported = this.editor.getDocumentProxy?.();
-        if (exported) {
-          // getDocumentProxy() returns INode already wrapped in Proxy (ModelData compatible)
-          modelData = exported as ModelData;
+        if (this._lastRenderedModelData) {
+          modelData = this._lastRenderedModelData;
         } else {
-          // Reuse previously rendered modelData if no modelData (when only updating decorator)
-          if (this._lastRenderedModelData) {
-            modelData = this._lastRenderedModelData;
-          } else {
-            // Decorators can be rendered even without modelData
+          const exported = this.editor.getDocumentProxy?.();
+          if (exported) {
+            modelData = exported as ModelData;
           }
         }
       } catch (error) {
         console.error('[EditorViewDOM] Error exporting document:', error);
-        // Try to reuse previous modelData even if error occurs
         if (this._lastRenderedModelData) {
           modelData = this._lastRenderedModelData;
         }
@@ -1277,17 +1272,14 @@ export class EditorViewDOM implements IEditorViewDOM {
     }
     
     // 5. Render other layers after requestAnimationFrame
-    // DOM position calculation possible after Content rendering completes
-    // Decorator can be rendered even without modelData (use previously rendered DOM)
-    if (allDecorators.length > 0) {
+    // DOM position calculation possible after Content rendering completes.
+    // Run even when allDecorators is empty so that removed decorators are cleared from the layer.
+    const dataForLayers = modelData || (this._hasRendered ? {} as ModelData : null);
+    if (dataForLayers !== null) {
       const renderLayers = () => {
-        // If no modelData, use previously rendered DOM for position calculation
-        const dataForLayers = modelData || (this._hasRendered ? {} as ModelData : null);
-        if (dataForLayers !== null) {
-          this._renderLayers(allDecorators, dataForLayers);
-        }
+        this._renderLayers(allDecorators, dataForLayers);
       };
-      
+
       // If sync option exists, execute synchronously (for test environment)
       if (options?.sync || this._renderOptions.sync) {
         renderLayers();
@@ -1350,9 +1342,15 @@ export class EditorViewDOM implements IEditorViewDOM {
         }
       }
       
-      // 3. Render each layer (use renderChildren)
-      if (decoratorLayerModels.length > 0 && this._decoratorRenderer) {
-        this._decoratorRenderer.renderChildren(this.layers.decorator, decoratorLayerModels);
+      // 3. Render each layer (use renderChildren). When empty, clear the layer (reconciler may not remove all nodes).
+      if (this._decoratorRenderer) {
+        if (decoratorLayerModels.length === 0) {
+          while (this.layers.decorator.firstChild) {
+            this.layers.decorator.removeChild(this.layers.decorator.firstChild);
+          }
+        } else {
+          this._decoratorRenderer.renderChildren(this.layers.decorator, decoratorLayerModels);
+        }
       }
       
       if (selectionLayerModels.length > 0 && this._selectionRenderer) {

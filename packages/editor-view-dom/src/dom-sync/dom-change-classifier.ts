@@ -140,11 +140,59 @@ export function classifyDomChange(
  * - Ignore mark wrapper / style / childList, compare only sid-based full text
  * - No addition/deletion of block-level elements (p, div, li, etc.)
  */
+/** Returns true if node (or its element children) is C4 special case (e.g. <a> with href). */
+function hasC4SpecialCaseInNodes(nodes: Node[]): boolean {
+  for (const node of nodes) {
+    if (node.nodeType !== Node.ELEMENT_NODE) continue;
+    const el = node as Element;
+    const tag = el.tagName.toLowerCase();
+    if (tag === 'a' && el.getAttribute('href')) return true;
+    const className = el.getAttribute('class') || '';
+    const style = el.getAttribute('style') || '';
+    if (className.toLowerCase().includes('autocorrect') || className.toLowerCase().includes('smart-quote') ||
+        style.toLowerCase().includes('text-transform')) return true;
+  }
+  return false;
+}
+
 function classifyC1(
   mutations: MutationRecord[],
   options: ClassifyOptions
 ): ClassifiedChange | null {
   console.log('[DomChangeClassifier] classifyC1: CHECKING');
+
+  // If selection spans two different inline-text nodes, let C2 handle
+  if (options.selection && options.selection.rangeCount > 0) {
+    const range = options.selection.getRangeAt(0);
+    const startEl = findClosestInlineTextNode(range.startContainer);
+    const endEl = findClosestInlineTextNode(range.endContainer);
+    const startSid = startEl?.getAttribute('data-bc-sid');
+    const endSid = endEl?.getAttribute('data-bc-sid');
+    if (startSid && endSid && startSid !== endSid) {
+      console.log('[DomChangeClassifier] classifyC1: SKIP - selection spans multiple inline-text (C2)');
+      return null;
+    }
+  }
+
+  // If inputHint range spans multiple inline-text nodes, let C2 handle
+  const hint = options.inputHint;
+  if (hint?.contentRange && hint.contentRange.startNodeId !== hint.contentRange.endNodeId) {
+    console.log('[DomChangeClassifier] classifyC1: SKIP - inputHint spans multiple nodes (C2)');
+    return null;
+  }
+
+  // If any mutation adds/removes C4-like nodes (e.g. <a>), let C4 handle
+  for (const mutation of mutations) {
+    if (mutation.type !== 'childList') continue;
+    const addedOrRemoved = [
+      ...Array.from(mutation.addedNodes || []),
+      ...Array.from(mutation.removedNodes || [])
+    ];
+    if (hasC4SpecialCaseInNodes(addedOrRemoved)) {
+      console.log('[DomChangeClassifier] classifyC1: SKIP - C4 special case in childList');
+      return null;
+    }
+  }
 
   // 1. For all mutations, find closest inline-text node.
   //    - Don't distinguish characterData/childList/attributes, only look by sid.
@@ -272,25 +320,32 @@ function classifyC2(
     return null;
   }
 
-  // Selection is needed (to know range across multiple nodes)
-  if (!options.selection || options.selection.rangeCount === 0) {
+  // Need either DOM selection or inputHint spanning multiple nodes
+  const hint = options.inputHint;
+  const hasMultiNodeHint = hint?.contentRange && hint.contentRange.startNodeId !== hint.contentRange.endNodeId;
+  const hasSelection = options.selection && options.selection.rangeCount > 0;
+
+  let startNodeId: string;
+  let endNodeId: string;
+  let range: Range | null = null;
+
+  if (hasSelection) {
+    range = options.selection!.getRangeAt(0);
+    const startInlineText = findClosestInlineTextNode(range.startContainer);
+    const endInlineText = findClosestInlineTextNode(range.endContainer);
+    if (!startInlineText || !endInlineText) {
+      console.log('[DomChangeClassifier] classifyC2: SKIP - no inline-text nodes found');
+      return null;
+    }
+    startNodeId = startInlineText.getAttribute('data-bc-sid')!;
+    endNodeId = endInlineText.getAttribute('data-bc-sid')!;
+  } else if (hasMultiNodeHint) {
+    startNodeId = hint!.contentRange.startNodeId;
+    endNodeId = hint!.contentRange.endNodeId;
+  } else {
     console.log('[DomChangeClassifier] classifyC2: SKIP - no selection');
     return null;
   }
-
-  const range = options.selection.getRangeAt(0);
-  
-  // Find inline-text from selection's start/end nodes
-  const startInlineText = findClosestInlineTextNode(range.startContainer);
-  const endInlineText = findClosestInlineTextNode(range.endContainer);
-
-  if (!startInlineText || !endInlineText) {
-    console.log('[DomChangeClassifier] classifyC2: SKIP - no inline-text nodes found');
-    return null;
-  }
-
-  const startNodeId = startInlineText.getAttribute('data-bc-sid');
-  const endNodeId = endInlineText.getAttribute('data-bc-sid');
 
   if (!startNodeId || !endNodeId) {
     console.log('[DomChangeClassifier] classifyC2: SKIP - no sid attributes');
@@ -332,12 +387,25 @@ function classifyC2(
     return null;
   }
 
-  // Extract flattened text from selection range
-  // Extract DOM selection range and make it a single string
-  const flatText = extractFlatTextFromSelection(range);
-  
+  // Extract flattened text: from DOM selection when available, else from model range
+  let flatText: string;
+  if (range) {
+    flatText = extractFlatTextFromSelection(range);
+  } else {
+    flatText = '';
+    if (options.editor.dataStore && hint) {
+      const hintRange: import('@barocss/editor-core').ModelSelection = {
+        type: 'range',
+        startNodeId: hint.contentRange.startNodeId,
+        startOffset: hint.contentRange.startOffset,
+        endNodeId: hint.contentRange.endNodeId,
+        endOffset: hint.contentRange.endOffset
+      };
+      flatText = extractModelTextFromRange(options.editor.dataStore, hintRange);
+    }
+  }
+
   // Extract previous text from model (selection range)
-  // Extract model text for range across multiple nodes
   let prevText = '';
   if (options.editor.dataStore) {
     const tempRange: import('@barocss/editor-core').ModelSelection = {
@@ -349,7 +417,7 @@ function classifyC2(
     };
     prevText = extractModelTextFromRange(options.editor.dataStore, tempRange);
   }
-  
+
   // fallback: if extraction fails, use only first node's text
   if (!prevText) {
     prevText = startModelNode.text || '';
@@ -371,7 +439,6 @@ function classifyC2(
   let usedModelSelection = false;
   let usedDOMSelection = false;
 
-  const hint = options.inputHint;
   if (hint &&
       hint.contentRange.startNodeId === startNodeId &&
       hint.contentRange.endNodeId === endNodeId) {
