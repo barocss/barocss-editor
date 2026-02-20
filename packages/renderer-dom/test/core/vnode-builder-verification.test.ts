@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { define, element, data, defineDecorator, getGlobalRegistry, defineMark, slot } from '@barocss/dsl';
+import { define, element, data, defineDecorator, getGlobalRegistry, defineMark, slot, external } from '@barocss/dsl';
 import { DecoratorData, VNodeBuilder } from '../../src/vnode/factory';
 
 describe('VNodeBuilder verification', () => {
@@ -96,6 +96,22 @@ describe('VNodeBuilder verification', () => {
         }
       }
     }
+  });
+
+  it('should build placeholder VNode for React-only external (no mount)', () => {
+    function ReactOnlyComp(_props: Record<string, unknown>) {
+      return null;
+    }
+    define('react-only-block', external(ReactOnlyComp as any));
+    const model = { stype: 'react-only-block', sid: 'r1' };
+    const vnode = builder.build('react-only-block', model);
+    expect(vnode).toBeTruthy();
+    expect(vnode.tag).toBe('div');
+    expect(vnode.isExternal).toBe(false);
+    expect(vnode.sid).toBe('r1');
+    expect(vnode.stype).toBe('react-only-block');
+    expect(vnode.attrs?.['data-bc-sid']).toBe('r1');
+    expect(vnode.attrs?.['data-bc-component']).toBe('react-only-block');
   });
 
   it('should preserve template attributes but not add DOM markers', () => {

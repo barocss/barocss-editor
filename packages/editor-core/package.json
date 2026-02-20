@@ -27,6 +27,7 @@
   "dependencies": {
     "@barocss/datastore": "workspace:*",
     "@barocss/model": "workspace:*",
+    "@barocss/extensions": "workspace:*",
     "@barocss/renderer-dom": "workspace:*",
     "@barocss/shared": "workspace:*",
     "@barocss/schema": "workspace:*"

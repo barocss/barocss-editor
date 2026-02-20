@@ -19,6 +19,13 @@ export class ReactSelectionHandler {
   private editor: Editor;
   private getContentEditableElement: () => HTMLElement | null;
   private _isProgrammaticChange = false;
+  private _getScopeRoot(): ParentNode {
+    const contentEditableElement = this.getContentEditableElement();
+    if (contentEditableElement && contentEditableElement.querySelector) {
+      return contentEditableElement;
+    }
+    return document;
+  }
 
   constructor(
     editor: Editor,
@@ -241,7 +248,7 @@ export class ReactSelectionHandler {
   private ensureRuns(containerEl: Element, containerId: string): ContainerRuns {
     return buildTextRunIndex(containerEl, containerId, {
       buildReverseMap: true,
-      excludePredicate: (el) => el.hasAttribute('data-bc-decorator'),
+      excludePredicate: (el) => this.isDecoratorElement(el),
     });
   }
 
@@ -359,8 +366,9 @@ export class ReactSelectionHandler {
   }): void {
     const { startNodeId, startOffset, endNodeId, endOffset } = rangeSelection;
 
-    const startElementRaw = document.querySelector(`[data-bc-sid="${startNodeId}"]`);
-    const endElementRaw = document.querySelector(`[data-bc-sid="${endNodeId}"]`);
+    const scopeRoot = this._getScopeRoot();
+    const startElementRaw = scopeRoot.querySelector(`[data-bc-sid="${startNodeId}"]`);
+    const endElementRaw = scopeRoot.querySelector(`[data-bc-sid="${endNodeId}"]`);
     if (!startElementRaw || !endElementRaw) return;
 
     const startElement = this.findBestContainer(startElementRaw);
@@ -395,7 +403,8 @@ export class ReactSelectionHandler {
   }
 
   private convertNodeSelectionToDOM(nodeSelection: { nodeId: string }): void {
-    const element = document.querySelector(`[data-bc-sid="${nodeSelection.nodeId}"]`);
+    const scopeRoot = this._getScopeRoot();
+    const element = scopeRoot.querySelector(`[data-bc-sid="${nodeSelection.nodeId}"]`);
     if (!element) return;
 
     const selection = window.getSelection();
@@ -413,14 +422,21 @@ export class ReactSelectionHandler {
       return buildTextRunIndex(container, containerId ?? undefined, {
         buildReverseMap: true,
         excludePredicate: (el) =>
-          el.hasAttribute('data-decorator-sid') ||
-          el.hasAttribute('data-bc-decorator') ||
-          el.hasAttribute('data-decorator-category'),
+          this.isDecoratorElement(el),
         normalizeWhitespace: false,
       });
     } catch {
       return null;
     }
+  }
+
+  private isDecoratorElement(el: Element): boolean {
+    return (
+      el.hasAttribute('data-decorator-sid') ||
+      el.hasAttribute('data-bc-decorator-sid') ||
+      el.hasAttribute('data-bc-decorator') ||
+      el.hasAttribute('data-decorator-category')
+    );
   }
 
   private findDOMRangeFromModelOffset(
@@ -437,8 +453,26 @@ export class ReactSelectionHandler {
       };
     }
 
-    const runIndex = binarySearchRun(runs.runs, modelOffset);
-    if (runIndex === -1) return null;
+    const totalRuns = runs.runs.length;
+    if (totalRuns === 0) return null;
+
+    let runIndex = binarySearchRun(runs.runs, modelOffset);
+    if (runIndex === -1) {
+      let fallbackIndex = -1;
+      for (let i = 0; i < totalRuns; i += 1) {
+        const run = runs.runs[i];
+        if (modelOffset < run.start) {
+          fallbackIndex = i;
+          break;
+        }
+        if (modelOffset === run.end && i + 1 < totalRuns) {
+          fallbackIndex = i + 1;
+          break;
+        }
+      }
+      if (fallbackIndex === -1) return null;
+      runIndex = fallbackIndex;
+    }
 
     const run = runs.runs[runIndex];
     const localOffset = modelOffset - run.start;

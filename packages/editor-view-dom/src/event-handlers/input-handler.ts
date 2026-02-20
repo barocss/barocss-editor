@@ -1,10 +1,10 @@
 import { InputHandler, IEditorViewDOM } from '../types';
 import { Editor, type ModelSelection } from '@barocss/editor-core';
 import { handleEfficientEdit } from '../utils/efficient-edit-handler';
-import { type MarkRange } from '../utils/edit-position-converter';
+import { type MarkRange, type DecoratorRange } from '../utils/edit-position-converter';
 import { classifyDomChange, type ClassifiedChange, type InputHint } from '../dom-sync/dom-change-classifier';
 import { analyzeTextChanges } from '@barocss/text-analyzer';
-import { getKeyString } from '@barocss/shared';
+import { type Decorator, getKeyString } from '@barocss/shared';
 
 /**
  * Input processing debug information (for Devtool)
@@ -49,6 +49,7 @@ export class InputHandlerImpl implements InputHandler {
    * - Used for contentRange correction in dom-change-classifier (C1/C2).
    */
   private _pendingInsertHint: InputHint | null = null;
+  private _contentChangeTxSeq = 0;
 
   constructor(editor: Editor, editorViewDOM: IEditorViewDOM) {
     this.editor = editor;
@@ -57,6 +58,112 @@ export class InputHandlerImpl implements InputHandler {
     (this.editor as any).on('editor:selection.dom.applied', (e: any) => {
       this.activeTextNodeId = e?.activeNodeId || null;
     });
+  }
+
+  private _buildDebugTransaction(operations: any[] = [], description?: string) {
+    return {
+      sid: `tx-viewdom-${Date.now()}-${++this._contentChangeTxSeq}`,
+      timestamp: new Date(),
+      operations,
+      description
+    };
+  }
+
+  private getDecoratorsFromView(): DecoratorRange[] {
+    const source = (this.editor as any).getDecorators?.() ?? (this.editorViewDOM as any).getDecorators?.();
+    if (!Array.isArray(source)) {
+      return [];
+    }
+
+    return source
+      .filter((item: any): item is DecoratorRange => {
+        return Boolean(
+          item &&
+          typeof item.sid === 'string' &&
+          item.target &&
+          typeof item.target.sid === 'string' &&
+          typeof item.target.startOffset === 'number' &&
+          typeof item.target.endOffset === 'number' &&
+          typeof item.stype === 'string' &&
+          ['inline', 'block', 'layer'].includes(item.category)
+        );
+      })
+      .map((item: DecoratorRange) => item);
+  }
+
+  private isSameDecoratorRange(a: DecoratorRange, b: DecoratorRange): boolean {
+    return (
+      a.sid === b.sid &&
+      a.stype === b.stype &&
+      a.category === b.category &&
+      a.target.sid === b.target.sid &&
+      a.target.startOffset === b.target.startOffset &&
+      a.target.endOffset === b.target.endOffset
+    );
+  }
+
+  private toDecoratorUpdate(decorator: DecoratorRange): Partial<Decorator> {
+    return {
+      stype: decorator.stype,
+      category: decorator.category,
+      target: {
+        sid: decorator.target.sid,
+        startOffset: decorator.target.startOffset,
+        endOffset: decorator.target.endOffset
+      }
+    };
+  }
+
+  private syncDecorators(previous: DecoratorRange[], next: DecoratorRange[]): void {
+    const previousById = new Map(previous.map((decorator) => [decorator.sid, decorator]));
+    const nextById = new Map(next.map((decorator) => [decorator.sid, decorator]));
+
+    const updateDecorator = (this.editorViewDOM as any).updateDecorator;
+    if (typeof updateDecorator === 'function') {
+      for (const [sid, updatedDecorator] of nextById) {
+        const currentDecorator = previousById.get(sid);
+        if (!currentDecorator) {
+          // New decorators are not expected from efficient edit adjustment; ignore safely.
+          continue;
+        }
+        if (this.isSameDecoratorRange(currentDecorator, updatedDecorator)) {
+          continue;
+        }
+
+        try {
+          const ok = updateDecorator.call(this.editorViewDOM, sid, this.toDecoratorUpdate(updatedDecorator));
+          if (!ok) {
+            this.editor.emit('editor:input.debug', {
+              type: 'updateDecorator_failed',
+              sid,
+              updatedDecorator
+            });
+          }
+        } catch (error) {
+          console.warn('[Input] handleTextContentChange: updateDecorator failed', { sid, error });
+        }
+      }
+    }
+
+    const removeDecorator = (this.editorViewDOM as any).removeDecorator;
+    if (typeof removeDecorator === 'function') {
+      for (const [sid] of previousById) {
+        if (nextById.has(sid)) {
+          continue;
+        }
+        try {
+          const ok = removeDecorator.call(this.editorViewDOM, sid);
+          if (!ok) {
+            this.editor.emit('editor:input.debug', {
+              type: 'removeDecorator_failed',
+              sid
+            });
+          }
+        } catch (error) {
+          console.warn('[Input] handleTextContentChange: removeDecorator failed', { sid, error });
+        }
+      }
+    }
   }
 
   handleInput(event: InputEvent): void {
@@ -103,8 +210,7 @@ export class InputHandlerImpl implements InputHandler {
       keyString: getKeyString(event)
     });
     
-    // TODO: When KeyBindingManager is introduced, move keydown handling logic to this method.
-    // Currently handled via keymapManager in EditorViewDOM.handleKeydown
+    // Kept as-is because command shortcuts are currently routed through keymapManager in EditorViewDOM.handleKeydown.
   }
 
 
@@ -419,7 +525,15 @@ export class InputHandlerImpl implements InputHandler {
         skipRender: true,
         from: 'MutationObserver-C1',
         content: (this.editor as any).document,
-        transaction: { type: 'text_replace', nodeId: classified.nodeId },
+        transaction: this._buildDebugTransaction([
+          {
+            type: 'replaceText',
+            payload: {
+              nodeId: classified.nodeId,
+              range: classified.contentRange
+            }
+          }
+        ], 'MutationObserver-C1'),
         inputDebug
       });
 
@@ -538,11 +652,20 @@ export class InputHandlerImpl implements InputHandler {
         skipRender: true,
         from: 'MutationObserver-C2',
         content: (this.editor as any).document,
-        transaction: { 
-          type: isMultiNode ? 'text_replace_multi' : 'text_replace',
-          startNodeId,
-          endNodeId
-        },
+        transaction: this._buildDebugTransaction([
+          {
+            type: 'replaceText',
+            payload: {
+              range: {
+                startNodeId,
+                startOffset: contentRange.startOffset,
+                endNodeId,
+                endOffset: contentRange.endOffset
+              },
+              newText: ''
+            }
+          }
+        ], 'MutationObserver-C2'),
         inputDebug
       });
 
@@ -593,7 +716,7 @@ export class InputHandlerImpl implements InputHandler {
           skipRender: false, // render needed
           from: 'MutationObserver-C3-command',
           content: (this.editor as any).document,
-          transaction: { type: 'block_structure_change', command },
+          transaction: this._buildDebugTransaction([], `MutationObserver-C3 command:${command}`),
           inputDebug
         });
 
@@ -684,7 +807,20 @@ export class InputHandlerImpl implements InputHandler {
           skipRender: false, // render needed
           from: 'MutationObserver-C3-fallback',
           content: (this.editor as any).document,
-          transaction: { type: 'block_structure_change_fallback' },
+          transaction: this._buildDebugTransaction([
+            {
+              type: 'replaceText',
+              payload: {
+                range: {
+                  startNodeId: insertRange.startNodeId,
+                  startOffset: insertRange.startOffset,
+                  endNodeId: insertRange.endNodeId,
+                  endOffset: insertRange.endOffset
+                },
+                newText: classified.newText
+              }
+            }
+          ], 'MutationObserver-C3-fallback'),
           inputDebug
         });
         
@@ -751,8 +887,7 @@ export class InputHandlerImpl implements InputHandler {
 
         if (selection && selection.rangeCount > 0 && !selection.isCollapsed) {
           // Use selection range if available
-          // TODO: Accurately convert DOM selection to model offset
-          // Currently handled simply (range will be used later)
+          // Use runtime offsets from current selection as-is for now.
         } else if (change.range) {
           // Use range from metadata if available
           [startOffset, endOffset] = change.range;
@@ -780,7 +915,20 @@ export class InputHandlerImpl implements InputHandler {
           skipRender: true,
           from: 'MutationObserver-C4',
           content: (this.editor as any).document,
-          transaction: { type: 'mark_change', nodeId, markType }
+          transaction: this._buildDebugTransaction([
+            {
+              type: 'toggleMark',
+              payload: {
+                markType,
+                range: {
+                  startNodeId: nodeId,
+                  startOffset,
+                  endNodeId: nodeId,
+                  endOffset
+                }
+              }
+            }
+          ], `MutationObserver-C4 mark:${markType}`)
         });
       } catch (error) {
         console.error('[InputHandler] handleC4: failed to toggle mark', { error, change });
@@ -793,7 +941,7 @@ export class InputHandlerImpl implements InputHandler {
       skipRender: false, // Render needed (replace with normalized structure)
       from: 'MutationObserver-C4-normalize',
       content: (this.editor as any).document,
-      transaction: { type: 'mark_normalize' }
+      transaction: this._buildDebugTransaction([], 'MutationObserver-C4-normalize')
     });
   }
 
@@ -867,7 +1015,7 @@ export class InputHandlerImpl implements InputHandler {
     // If range is missing, set to full text range
     // IMark uses stype, MarkRange uses type, so conversion is needed
     const rawMarks = modelNode.marks || [];
-      const modelMarks: MarkRange[] = rawMarks
+    const modelMarks: MarkRange[] = rawMarks
         .filter((mark: any) => mark && (mark.type || mark.stype))
         .map((mark: any) => {
           const markType = mark.type || mark.stype; // IMark uses stype, MarkRange uses type
@@ -886,7 +1034,7 @@ export class InputHandlerImpl implements InputHandler {
           };
         });
     
-    const decorators = (this.editorViewDOM as any).getDecorators?.() || [];
+    const decorators = this.getDecoratorsFromView();
 
     // Find text node (target may not be a Text node)
     let textNode: Text | null = null;
@@ -1033,10 +1181,9 @@ export class InputHandlerImpl implements InputHandler {
     // Marks are automatically adjusted by RangeOperations.replaceText, so no separate update needed
 
     // Update decorators (only if changed)
-    // updateDecorators is handled in editorViewDOM (not in dataStore)
     const decoratorsChanged = JSON.stringify(editResult.adjustedDecorators) !== JSON.stringify(decorators);
     if (decoratorsChanged) {
-      // TODO: convert adjustedDecorators to decorator format and update
+      this.syncDecorators(decorators, editResult.adjustedDecorators);
     }
 
     // Manually emit editor:content.change event
@@ -1047,7 +1194,15 @@ export class InputHandlerImpl implements InputHandler {
       skipRender: true, // Required: MutationObserver changes do not call render()
       from: 'MutationObserver', // For debugging: indicate change source
       content: (this.editor as any).document,
-      transaction: { type: 'text_replace', nodeId: textNodeId }
+      transaction: this._buildDebugTransaction([
+        {
+          type: 'replaceText',
+          payload: {
+            nodeId: textNodeId,
+            range: contentRange
+          }
+        }
+      ], 'handleTextContentChange')
     });
   }
 
@@ -1212,7 +1367,14 @@ export class InputHandlerImpl implements InputHandler {
         skipRender: false,
         from: 'getTargetRanges',
         content: (this.editor as any).document,
-        transaction: { type: 'text_replace', range: rangeForReplace }
+        transaction: this._buildDebugTransaction([
+          {
+            type: 'replaceText',
+            payload: {
+              ...rangeForReplace
+            }
+          }
+        ], 'getTargetRanges')
       });
       // Restore DOM selection after render (same as handleDelete)
       requestAnimationFrame(() => {
@@ -1474,7 +1636,14 @@ export class InputHandlerImpl implements InputHandler {
       skipRender: false,
       from: 'beforeinput-delete',
       content: (this.editor as any).document,
-      transaction: { type: 'delete', contentRange }
+      transaction: this._buildDebugTransaction([
+        {
+          type: 'deleteText',
+          payload: {
+            range: contentRange
+          }
+        }
+      ], 'beforeinput-delete')
     });
 
     // 7. Restore Selection after DOM update
@@ -1557,9 +1726,7 @@ export class InputHandlerImpl implements InputHandler {
 
       case 'deleteWordBackward': // Option+Backspace
       case 'deleteWordForward':  // Option+Delete
-        // Word deletion currently only deletes 1 character
-        // TODO: implement word boundary detection
-        return this.calculateDeleteRange(
+        return this.calculateWordDeleteRange(
           { ...modelSelection, type: 'range' },
           inputType === 'deleteWordBackward' ? 'deleteContentBackward' : 'deleteContentForward',
           currentNodeId
@@ -1579,6 +1746,83 @@ export class InputHandlerImpl implements InputHandler {
         console.warn('[InputHandler] calculateDeleteRange: unknown inputType', { inputType });
         return null;
     }
+  }
+
+  private calculateWordDeleteRange(modelSelection: any, directionInputType: string, currentNodeId: string): any | null {
+    const { startNodeId, startOffset, endNodeId, endOffset } = modelSelection;
+
+    if (startNodeId !== endNodeId) {
+      return this.calculateDeleteRange(
+        modelSelection,
+        directionInputType,
+        currentNodeId
+      );
+    }
+
+    const node = (this.editor as any).dataStore?.getNode?.(startNodeId);
+    if (!node || typeof node.text !== 'string') {
+      return null;
+    }
+
+    const text = node.text;
+    if (text.length === 0) {
+      return null;
+    }
+
+    const isWordChar = (ch: string) => /\S/.test(ch);
+
+    if (directionInputType === 'deleteContentBackward') {
+      if (startOffset === 0) {
+        return this.calculateCrossNodeDeleteRange(
+          startNodeId,
+          'backward',
+          (this.editor as any).dataStore
+        );
+      }
+
+      let start = startOffset;
+      while (start > 0 && !isWordChar(text[start - 1])) {
+        start -= 1;
+      }
+      while (start > 0 && isWordChar(text[start - 1])) {
+        start -= 1;
+      }
+
+      return {
+        startNodeId,
+        startOffset: start,
+        endNodeId,
+        endOffset: startOffset
+      };
+    }
+
+    if (directionInputType === 'deleteContentForward') {
+      const textLength = text.length;
+      if (startOffset >= textLength) {
+        return this.calculateCrossNodeDeleteRange(
+          startNodeId,
+          'forward',
+          (this.editor as any).dataStore
+        );
+      }
+
+      let end = startOffset;
+      while (end < textLength && !isWordChar(text[end])) {
+        end += 1;
+      }
+      while (end < textLength && isWordChar(text[end])) {
+        end += 1;
+      }
+
+      return {
+        startNodeId,
+        startOffset,
+        endNodeId,
+        endOffset: end
+      };
+    }
+
+    return null;
   }
 
   /**
@@ -1743,9 +1987,7 @@ export class InputHandlerImpl implements InputHandler {
         
       case 'insertLineBreak':
         console.log('[InputHandler] executeStructuralCommand: calling insertLineBreak');
-        // insertLineBreak doesn't exist in IEditorViewDOM, so use insertText('\n')
-        // TODO: Consider adding insertLineBreak method to IEditorViewDOM
-        this.editorViewDOM.insertText('\n');
+        this.editorViewDOM.insertLineBreak();
         break;
         
       case 'historyUndo':

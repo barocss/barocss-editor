@@ -19,8 +19,12 @@ export function createTransactionContext(
   // Selection snapshot
   const before = selectionManager.getCurrentSelection();
 
+  // Snapshot must be value-copied to avoid shared object mutation
+  // during transaction execution.
+  const beforeClone = before ? { ...before } : null;
+
   // Create SelectionContext instance
-  const selectionContext = new SelectionContext(before);
+  const selectionContext = new SelectionContext(beforeClone);
 
   return {
     dataStore,

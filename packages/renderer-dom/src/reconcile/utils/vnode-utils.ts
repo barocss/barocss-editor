@@ -65,7 +65,7 @@ export function vnodeStructureMatches(prev: VNode, next: VNode): boolean {
 }
 
 /**
- * Get VNode identifier (sid or data-decorator-sid from attrs)
+ * Get VNode identifier (sid, decoratorSid, or data-decorator-sid from attrs)
  * 
  * At reconcile level, only use VNode identifier without distinguishing decorators
  * Return only identifier purely without domain knowledge
@@ -76,7 +76,8 @@ export function getVNodeId(vnode: VNode | undefined | null): string | undefined 
   if (!vnode) return undefined;
   // sid is at top-level (component VNode)
   if (vnode.sid) return vnode.sid;
+  // decorator sid is now supported as top-level field (decoratorSid)
+  if (vnode.decoratorSid) return vnode.decoratorSid;
   // decorator info is stored in attrs (set in VNodeBuilder)
   return vnode.attrs?.[DOMAttribute.DECORATOR_SID];
 }
-

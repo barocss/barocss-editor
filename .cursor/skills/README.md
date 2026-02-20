@@ -32,6 +32,11 @@ Each skill’s `description` includes **when to use it (WHEN)** so the agent can
 |-----------------|-------|---------|
 | `selection-application` | Model → Editor Core → View | How selection is applied after a transaction; `applySelectionToView`; `updateSelection` and `editor:selection.model` flow |
 | `model-operation-creation` | packages/model | Add new operation + DSL + exec test + browser E2E; defineOperation, defineOperationDSL, selectionAfter, $alias; then pnpm test:e2e:react |
+| `editor-standard-spec` | Cross-cutting | Build and validate editor-wide behavioral spec for commands, selection, history, and contracts across layers |
+| `editor-standard-tdd` | Cross-cutting | Enforce test-first workflow for command/selection/history regressions across editor packages |
+| `editor-standard-review` | Cross-cutting | Focused correctness review for selection, history, operation contracts, and event sequencing |
+| `editor-standard-buildfix` | Cross-cutting | Minimal safe fix flow for editor-related test/build regressions |
+| `editor-standard-uiux` | Cross-cutting | Validate interaction parity and UX consistency between DOM and React views |
 
 ---
 

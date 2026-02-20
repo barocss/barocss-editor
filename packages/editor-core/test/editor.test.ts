@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Editor, type Extension } from '../src/index';
+import { DEFAULT_KEYBINDINGS } from '../src/keybinding/default-keybindings';
 
 describe('Editor', () => {
   let editor: Editor;
@@ -208,6 +209,10 @@ describe('Editor', () => {
   });
 
   describe('명령어 시스템', () => {
+    const defaultKeybindingCommands = Array.from(new Set(
+      DEFAULT_KEYBINDINGS.map(binding => binding.command).filter(Boolean)
+    ));
+
     it('명령어를 등록할 수 있어야 함', () => {
       const command = {
         name: 'testCommand',
@@ -242,8 +247,310 @@ describe('Editor', () => {
       const chain = editor.chain();
       expect(chain).toBeDefined();
       expect(typeof chain.insertText).toBe('function');
+      expect(typeof chain.focus).toBe('function');
       expect(typeof chain.toggleBold).toBe('function');
+      expect(typeof chain.toggleItalic).toBe('function');
+      expect(typeof chain.toggleUnderline).toBe('function');
+      expect(typeof chain.toggleStrikeThrough).toBe('function');
       expect(typeof chain.run).toBe('function');
+    });
+
+    it('기본 에디터에 기본 키바인딩 커맨드가 등록되어야 함', () => {
+      const registeredCommands = new Set(Array.from((editor as any)._commands.keys()));
+      const missing = defaultKeybindingCommands.filter((command) => !registeredCommands.has(command));
+
+      expect(missing).toEqual([]);
+    });
+
+    it('기본 커맨드 셋(focus/history 포함)이 등록되어야 함', () => {
+      const registeredCommands = new Set(Array.from((editor as any)._commands.keys()));
+
+      expect(registeredCommands.has('insertText')).toBe(true);
+      expect(registeredCommands.has('deleteSelection')).toBe(true);
+      expect(registeredCommands.has('focus')).toBe(true);
+      expect(registeredCommands.has('historyUndo')).toBe(true);
+      expect(registeredCommands.has('historyRedo')).toBe(true);
+      expect(registeredCommands.has('undo')).toBe(true);
+      expect(registeredCommands.has('redo')).toBe(true);
+      expect(registeredCommands.has('setRange')).toBe(true);
+      expect(registeredCommands.has('setNode')).toBe(true);
+      expect(registeredCommands.has('setAbsolutePos')).toBe(true);
+      expect(registeredCommands.has('clearSelection')).toBe(true);
+    });
+
+    it('undo/redo alias 명령어가 동작해야 함', async () => {
+      const rootId = editor.getRootId();
+      expect(rootId).toBeDefined();
+
+      await editor.transaction([
+        {
+          type: 'addChild',
+          payload: {
+            parentId: rootId!,
+            child: {
+              stype: 'paragraph',
+              content: [
+                { stype: 'inline-text', text: 'Hello' }
+              ]
+            }
+          }
+        }
+      ]).commit();
+
+      expect(editor.canUndo()).toBe(true);
+
+      const undoResult = await editor.executeCommand('undo');
+      expect(undoResult).toBe(true);
+      expect(editor.canUndo()).toBe(false);
+      expect(editor.canRedo()).toBe(true);
+
+      const redoResult = await editor.executeCommand('redo');
+      expect(redoResult).toBe(true);
+      expect(editor.canRedo()).toBe(false);
+    });
+
+    it('setRange / setNode / setAbsolutePos / clearSelection 명령어가 selection 제어에 동작해야 함', async () => {
+      const rootId = editor.getRootId();
+      expect(rootId).toBeDefined();
+
+      await editor.transaction([
+        {
+          type: 'addChild',
+          payload: {
+            parentId: rootId!,
+            child: {
+              stype: 'paragraph',
+              content: [
+                { stype: 'inline-text', text: 'Hello' }
+              ]
+            }
+          }
+        }
+      ]).commit();
+
+      const rootNode = editor.dataStore.getNode(rootId!);
+      const paragraphNodeId = Array.isArray(rootNode?.content) ? rootNode!.content[0] : null;
+      expect(paragraphNodeId).toBeDefined();
+
+      const paragraphNode = editor.dataStore.getNode(paragraphNodeId as string);
+      const textNodeId = Array.isArray(paragraphNode?.content) ? paragraphNode!.content[0] : null;
+      expect(textNodeId).toBeDefined();
+
+      const setRangeResult = await editor.executeCommand('setRange', {
+        type: 'range',
+        startNodeId: textNodeId as string,
+        startOffset: 1,
+        endNodeId: textNodeId as string,
+        endOffset: 1
+      });
+      expect(setRangeResult).toBe(true);
+      expect(editor.selection).toMatchObject({
+        type: 'range',
+        startNodeId: textNodeId,
+        startOffset: 1,
+        endNodeId: textNodeId,
+        endOffset: 1
+      });
+
+      const setNodeResult = await editor.executeCommand('setNode', {
+        nodeId: paragraphNodeId as string
+      });
+      expect(setNodeResult).toBe(true);
+      expect(editor.selection).toMatchObject({
+        type: 'node',
+        startNodeId: paragraphNodeId,
+        endNodeId: paragraphNodeId
+      });
+
+      const setAbsolutePosResult = await editor.executeCommand('setAbsolutePos', {
+        type: 'range',
+        startNodeId: textNodeId as string,
+        startOffset: 0,
+        endNodeId: textNodeId as string,
+        endOffset: 2
+      });
+      expect(setAbsolutePosResult).toBe(true);
+      expect(editor.selection).toMatchObject({
+        type: 'range',
+        startNodeId: textNodeId,
+        startOffset: 0,
+        endNodeId: textNodeId,
+        endOffset: 2
+      });
+
+      const clearSelectionResult = await editor.executeCommand('clearSelection');
+      expect(clearSelectionResult).toBe(true);
+      expect(editor.selection).toBeNull();
+    });
+
+    it('setNode 명령어 실행 시 node 타입의 editor:selection.model 이벤트가 emit되어야 함', async () => {
+      const rootId = editor.getRootId();
+      expect(rootId).toBeDefined();
+
+      await editor.transaction([
+        {
+          type: 'addChild',
+          payload: {
+            parentId: rootId!,
+            child: {
+              stype: 'paragraph',
+              content: [
+                { stype: 'inline-text', text: 'Hello' }
+              ]
+            }
+          }
+        }
+      ]).commit();
+
+      const rootNode = editor.dataStore.getNode(rootId!);
+      const paragraphNodeId = Array.isArray(rootNode?.content) ? rootNode!.content[0] : null;
+      expect(paragraphNodeId).toBeDefined();
+
+      const onSelectionModel = vi.fn();
+      editor.on('editor:selection.model', onSelectionModel);
+
+      const result = await editor.executeCommand('setNode', {
+        nodeId: paragraphNodeId as string
+      });
+
+      expect(result).toBe(true);
+      expect(onSelectionModel).toHaveBeenCalledTimes(1);
+      expect(onSelectionModel).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'node',
+          startNodeId: paragraphNodeId,
+          startOffset: 0,
+          endNodeId: paragraphNodeId,
+          endOffset: 0
+        })
+      );
+    });
+
+    it('setRange 명령어 실행 시 로컬 payload는 editor:selection.model 래핑되지 않아야 함', async () => {
+      const rootId = editor.getRootId();
+      expect(rootId).toBeDefined();
+
+      await editor.transaction([
+        {
+          type: 'addChild',
+          payload: {
+            parentId: rootId!,
+            child: {
+              stype: 'paragraph',
+              content: [
+                { stype: 'inline-text', text: 'Hello' }
+              ]
+            }
+          }
+        }
+      ]).commit();
+
+      const rootNode = editor.dataStore.getNode(rootId!);
+      const paragraphNodeId = Array.isArray(rootNode?.content) ? rootNode!.content[0] : null;
+      const paragraphNode = paragraphNodeId ? editor.dataStore.getNode(paragraphNodeId) : null;
+      const textNodeId = Array.isArray(paragraphNode?.content) ? paragraphNode!.content[0] : null;
+      expect(textNodeId).toBeDefined();
+
+      const onSelectionModel = vi.fn();
+      editor.on('editor:selection.model', onSelectionModel);
+
+      const result = await editor.executeCommand('setRange', {
+        type: 'range',
+        startNodeId: textNodeId as string,
+        startOffset: 0,
+        endNodeId: textNodeId as string,
+        endOffset: 1
+      });
+
+      expect(result).toBe(true);
+      expect(onSelectionModel).toHaveBeenCalledTimes(1);
+      const event = onSelectionModel.mock.calls[0]?.[0];
+      expect(event).toMatchObject({
+        type: 'range',
+        startNodeId: textNodeId,
+        startOffset: 0,
+        endNodeId: textNodeId,
+        endOffset: 1
+      });
+      expect(event).not.toHaveProperty('selection');
+      expect(event).not.toHaveProperty('applySelectionToView');
+      expect(event).not.toHaveProperty('source');
+    });
+
+    it('updateSelection selection 래퍼에서 source=remote이면 applySelectionToView는 false로 강제되어야 함', async () => {
+      const rootId = editor.getRootId();
+      expect(rootId).toBeDefined();
+
+      await editor.transaction([
+        {
+          type: 'addChild',
+          payload: {
+            parentId: rootId!,
+            child: {
+              stype: 'paragraph',
+              content: [
+                { stype: 'inline-text', text: 'Hello' }
+              ]
+            }
+          }
+        }
+      ]).commit();
+
+      const rootNode = editor.dataStore.getNode(rootId!);
+      const paragraphNodeId = Array.isArray(rootNode?.content) ? rootNode!.content[0] : null;
+      const paragraphNode = paragraphNodeId ? editor.dataStore.getNode(paragraphNodeId) : null;
+      const textNodeId = Array.isArray(paragraphNode?.content) ? paragraphNode!.content[0] : null;
+      expect(textNodeId).toBeDefined();
+
+      const onSelectionModel = vi.fn();
+      editor.on('editor:selection.model', onSelectionModel);
+
+      editor.updateSelection({
+        selection: {
+          type: 'range',
+          startNodeId: textNodeId as string,
+          startOffset: 0,
+          endNodeId: textNodeId as string,
+          endOffset: 1
+        },
+        source: 'remote',
+        applySelectionToView: true
+      });
+
+      expect(onSelectionModel).toHaveBeenCalledTimes(1);
+      const event = onSelectionModel.mock.calls[0]?.[0];
+      expect(event).toMatchObject({
+        selection: {
+          type: 'range',
+          startNodeId: textNodeId,
+          startOffset: 0,
+          endNodeId: textNodeId,
+          endOffset: 1
+        }
+      });
+      expect(event).toMatchObject({
+        source: 'remote',
+        applySelectionToView: false
+      });
+    });
+
+    it('updateSelection에서 존재하지 않는 노드로 selection을 설정하면 선택이 clear되어야 함', async () => {
+      const onSelectionModel = vi.fn();
+      const onSelectionChange = vi.fn();
+      editor.on('editor:selection.model', onSelectionModel);
+      editor.on('editor:selection.change', onSelectionChange);
+
+      editor.updateSelection({
+        type: 'range',
+        startNodeId: 'missing',
+        startOffset: 0,
+        endNodeId: 'missing',
+        endOffset: 1
+      });
+
+      expect(editor.selection).toBeNull();
+      expect(onSelectionModel).toHaveBeenCalledTimes(0);
+      expect(onSelectionChange).toHaveBeenCalledTimes(0);
     });
   });
 

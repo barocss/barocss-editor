@@ -409,7 +409,38 @@ export class DOMRenderer {
       if (!model || !model.stype) continue;
       if (!model.sid) continue;
       try {
-        const vnode = this.builder.build(model.stype, model, {});
+        const modelSid = typeof model.sid === 'string' ? model.sid : '';
+        const modelStype = typeof model.stype === 'string' ? model.stype : '';
+        const modelCategory = typeof (model as any).category === 'string'
+          ? (model as any).category
+          : undefined;
+        const modelPosition = typeof (model as any).position === 'string'
+          ? (model as any).position
+          : undefined;
+
+        const buildOptions = {
+          sid: modelSid,
+          ...(modelSid || modelStype || modelCategory || modelPosition
+            ? {
+                decoratorMeta: {
+                  sid: modelSid,
+                  stype: modelStype,
+                  category: modelCategory === 'layer' || modelCategory === 'inline' || modelCategory === 'block'
+                    ? modelCategory
+                    : undefined,
+                  position: modelPosition === 'before'
+                    || modelPosition === 'after'
+                    || modelPosition === 'inside-start'
+                    || modelPosition === 'inside-end'
+                    || modelPosition === 'overlay'
+                    || modelPosition === 'absolute'
+                    ? modelPosition
+                    : undefined
+                }
+              }
+            : {})
+        };
+        const vnode = this.builder.build(model.stype, model, buildOptions);
         vnodes.push(vnode);
       } catch (error) {
         logger.error(LogCategory.RECONCILE, `Failed to build VNode for stype='${model.stype}', sid='${model.sid}'`, error);

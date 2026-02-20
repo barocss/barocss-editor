@@ -15,7 +15,7 @@ handleEfficientEdit() - text analysis & mark/decorator adjustment
     ↓
 Editor.executeTransaction() - execute transaction
     ↓
-_applyBasicTransaction() - actual model update
+Model is updated through TransactionManager operation execution
     ↓
 editor:content.change event fires
     ↓
@@ -286,14 +286,27 @@ function createEditInfoFromTextChange(
   const marksChanged = marksChangedEfficient(modelMarks, editResult.adjustedMarks);
   
   // Full text replace approach (start=0, end=fullLength, text=newText)
-  this.editor.executeTransaction({
-    type: 'text_replace',
-    nodeId: textNodeId,
-    start: 0,
-    end: oldModelText.length,  // Full text length
-    text: editResult.newText,  // New full text
-    // Include marks only if changed
-    ...(marksChanged ? { marks: editResult.adjustedMarks } : {})
+  await this.editor.executeTransaction({
+    sid: 'tx-local-text-edit',
+    timestamp: new Date(),
+    operations: [
+      {
+        type: 'replaceText',
+        payload: {
+          nodeId: textNodeId,
+          start: 0,
+          end: oldModelText.length,  // Full text length
+          newText: editResult.newText  // New full text
+        }
+      },
+      ...(marksChanged ? [{
+        type: 'setMarks',
+        payload: {
+          nodeId: textNodeId,
+          marks: editResult.adjustedMarks
+        }
+      }] : [])
+    ]
   } as any);
 
   // Update Decorators (only if changed)
@@ -304,7 +317,7 @@ function createEditInfoFromTextChange(
 ```
 
 **Key:**
-- Update text and marks together with `text_replace` transaction.
+- Update text and marks together with `replaceText` + `setMarks` operations.
 - Update decorators separately.
 
 ---
@@ -316,70 +329,22 @@ function createEditInfoFromTextChange(
 #### 5-1. executeTransaction
 
 ```typescript
-executeTransaction(transaction: Transaction): void {
-  console.log('[Editor] executeTransaction', { type: (transaction as any)?.type });
-  try {
-    // Lightweight model mutation bridge for demo
-    this._applyBasicTransaction(transaction as any);
-    
-    // Add to history on document change
-    this._addToHistory(this._document);
-    
-    this.emit('transactionExecuted', { transaction });
-    // Emit content change event
-    this.emit('editor:content.change', { content: this.document, transaction });
-    
-    // If model selection is included in transaction
-    const selAfter = (transaction as any)?.selectionAfter;
-    if (selAfter) {
-      this.emit('editor:selection.model', selAfter as any);
-    }
-  } catch (error) {
-    console.error('Transaction execution failed:', error);
-    this.emit('transactionError', { transaction, error });
-  }
-}
-```
-
-#### 5-2. _applyBasicTransaction (actual data change)
-
-```typescript
-private _applyBasicTransaction(tx: any): void {
-  if (!tx || !tx.type) return;
-  
-  if (tx.type === 'text_replace') {
-    const nodeId = tx.nodeId;
-    const node = this._dataStore?.getNode?.(nodeId);
-    if (!node) return;
-    
-    const oldText: string = (node as any).text || '';
-    const start: number = tx.start ?? 0;
-    const end: number = tx.end ?? start;
-    const insertText: string = tx.text ?? '';
-    
-    // Compute text replacement
-    // input-handler sends start=0, end=fullLength, text=newText, so
-    // actually full replacement: oldText.slice(0, 0) + newText + oldText.slice(fullLength) = newText
-    const newText = oldText.slice(0, start) + insertText + oldText.slice(end);
-    
-    // Update node (text + marks)
-    const updatedNode: any = {
-      ...node,
-      text: newText,
-      metadata: { ...(node as any).metadata, updatedAt: new Date() }
+async executeTransaction(transaction: Transaction): Promise<TransactionResult> {
+  const operations = (transaction as any)?.operations;
+  if (!Array.isArray(operations)) {
+    return {
+      success: false,
+      errors: ['Unsupported transaction format.'],
+      data: undefined,
+      transactionId: (transaction as any)?.sid
     };
-    
-    // Update Marks (if provided)
-    if (tx.marks !== undefined) {
-      // Store MarkRange format as-is (DataStore handles normalization)
-      updatedNode.marks = tx.marks;
-    }
-    
-    // Save to DataStore
-    this._dataStore?.setNode?.(updatedNode);
   }
+
+  return this._transactionManager.execute(operations, transaction?.options);
 }
 ```
+
+`executeTransaction()`은 `transaction.operations`(배열)를 그대로 `TransactionManager`로 전달한다.
 
 **Key:**
 - Update entire node (text + marks) with `dataStore.setNode()`
@@ -444,18 +409,16 @@ const modelMarks: MarkRange[] = rawMarks
   });
 ```
 
-### 2. Reverse conversion on transaction execution
+### 2. Reverse conversion on transaction execution (current implementation)
 
 ```typescript
-// In _applyBasicTransaction
-if (tx.marks !== undefined) {
-  const marks = tx.marks.map((m: any) => ({
-    stype: m.type,  // MarkRange.type → IMark.stype
-    range: m.range,
-    attrs: m.attrs
-  }));
-  this._dataStore?.marks?.setMarks?.(nodeId, marks, { normalize: true });
-}
+// In operation execution, convert MarkRange-style marks to IMark-style before writing
+const operationMarks = tx.marks.map((m: any) => ({
+  stype: m.type,  // MarkRange.type → IMark.stype
+  range: m.range,
+  attrs: m.attrs
+}));
+this._dataStore?.marks?.setMarks?.(nodeId, operationMarks, { normalize: true });
 ```
 
 ---
@@ -481,13 +444,27 @@ if (tx.marks !== undefined) {
 
 4. **Execute transaction**
    ```typescript
-   editor.executeTransaction({
-     type: 'text_replace',
-     nodeId: 'text-bold',
-     start: 0,
-     end: 11,
-     text: 'Hello New World',
-     marks: [{ type: 'bold', range: [10, 15] }]
+   await editor.executeTransaction({
+     sid: 'tx-local-text-edit',
+     timestamp: new Date(),
+     operations: [
+       {
+         type: 'replaceText',
+         payload: {
+           nodeId: 'text-bold',
+           start: 0,
+           end: 11,
+           newText: 'Hello New World'
+         }
+       },
+       {
+         type: 'setMarks',
+         payload: {
+           nodeId: 'text-bold',
+           marks: [{ stype: 'bold', range: [10, 15] }]
+         }
+       }
+     ]
    });
    ```
 

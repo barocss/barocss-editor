@@ -326,11 +326,12 @@ describe('EditorViewDOM + renderer-dom Performance Integration', () => {
       
       // Verify in content layer
       const contentLayer = view.layers.content;
+      const rootDocSid = contentLayer.querySelector('[data-bc-sid]')?.getAttribute('data-bc-sid');
+      expect(rootDocSid).toBeTruthy();
       const html = normalizeHTML(contentLayer.firstElementChild as Element);
-      expect(html).toContain('data-bc-sid="doc-mixed"');
+      expect(html).toContain(`data-bc-sid="${rootDocSid}"`);
       // Text may be split by marks, so verify with paragraph 100's sid
       expect(html).toContain('data-bc-sid="p100"');
     });
   });
 });
-

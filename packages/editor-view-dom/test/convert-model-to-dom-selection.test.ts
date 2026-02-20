@@ -270,4 +270,48 @@ describe('convertModelSelectionToDOM', () => {
       expect(selection!.rangeCount).toBe(0);
     });
   });
+
+  it('should resolve duplicate data-bc-sid by preferring the editor contentEditable root', () => {
+    const otherContainer = document.createElement('div');
+    const root = document.createElement('div');
+    root.setAttribute('contenteditable', 'true');
+
+    const targetInA = document.createElement('span');
+    targetInA.setAttribute('data-bc-sid', 'shared-node');
+    targetInA.textContent = 'A';
+
+    const targetInB = document.createElement('span');
+    targetInB.setAttribute('data-bc-sid', 'shared-node');
+    targetInB.textContent = 'B';
+
+    const containerA = document.createElement('div');
+    containerA.appendChild(targetInA);
+    const containerB = document.createElement('div');
+    containerB.appendChild(targetInB);
+    root.appendChild(containerB);
+    otherContainer.appendChild(containerA);
+    document.body.appendChild(otherContainer);
+    document.body.appendChild(root);
+
+    const mockEditor = {
+      _viewDOM: {
+        contentEditableElement: root
+      }
+    } as any;
+
+    const scopedSelectionHandler = new DOMSelectionHandlerImpl(mockEditor);
+
+    scopedSelectionHandler.convertModelSelectionToDOM({
+      type: 'range',
+      startNodeId: 'shared-node',
+      startOffset: 0,
+      endNodeId: 'shared-node',
+      endOffset: 1
+    });
+
+    expect(window.getSelection()?.toString()).toBe('B');
+
+    document.body.removeChild(otherContainer);
+    document.body.removeChild(root);
+  });
 });

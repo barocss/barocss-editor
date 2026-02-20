@@ -742,6 +742,10 @@ export class DataStore {
       node.content = node.content.map(child => {
         if (typeof child === 'object' && child !== null) {
           const childNode = child as INode;
+          if (!childNode.sid) {
+            childNode.sid = this.generateId();
+          }
+          childNode.parentId = node.sid;
           // Recursively convert child node to DataStore format
           this._convertChildrenToDataStore(childNode);
           // Save child node directly (validation already performed at parent level)
@@ -2264,5 +2268,4 @@ export class DataStore {
 
 
 }
-
 

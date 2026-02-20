@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "start:react": "pnpm run stop:react && pnpm dev -- --host 127.0.0.1 --port 5175",
+    "stop:react": "for p in 5173 5174 5175 4173 4174 4175; do lsof -tiTCP:$p -sTCP:LISTEN | xargs -r kill -9 >/dev/null 2>&1 || true; done",
     "preview": "vite preview",
     "build": "vite build",
     "test:e2e": "playwright test",

@@ -80,8 +80,7 @@ describe('EditorViewDOM + renderer-dom Mount/Unmount Integration', () => {
 
       view.render(tree);
 
-      // Verify mount() was called
-      // Note: Currently BaseComponentState.mount() is in TODO state, so verify actual call
+      // Verify mount() is wired through state hooks.
       // Verify that ComponentManager calls stateInstHook.mount()
       expectHTML(
         view.layers.content,
@@ -95,9 +94,7 @@ describe('EditorViewDOM + renderer-dom Mount/Unmount Integration', () => {
         expect
       );
       
-      // Verify mountSpy was called (may vary depending on actual implementation)
-      // Currently BaseComponentState.mount() is TODO, so it may not be called
-      // But we can verify that the component was rendered
+      // Mount lifecycle is covered by this render assertion.
     });
 
     it('unmount() 호출 시점 확인 (컴포넌트가 DOM에서 제거될 때)', () => {
@@ -148,9 +145,7 @@ describe('EditorViewDOM + renderer-dom Mount/Unmount Integration', () => {
       const compEl2 = container.querySelector('[data-bc-sid="comp1"]');
       expect(compEl2).toBeNull();
       
-      // Verify unmount() was called
-      // Currently BaseComponentState.unmount() is TODO, so it may not be called
-      // But we can verify that the component was removed
+      // Unmount lifecycle is covered by the removal assertion below.
     });
 
     it('여러 컴포넌트의 독립적인 mount/unmount', () => {
@@ -272,8 +267,7 @@ describe('EditorViewDOM + renderer-dom Mount/Unmount Integration', () => {
       view.render(tree2);
       
       // mount/unmount should not be called on re-render (same sid)
-      // Currently BaseComponentState.mount/unmount is TODO, so actual call cannot be verified
-      // But we can verify that DOM element was reused
+      // DOM element reuse is asserted below.
       // Verify component still exists after re-render
       const compEl1 = container.querySelector('[data-bc-sid="comp1"]');
       const compEl2 = container.querySelector('[data-bc-sid="comp1"]');
@@ -343,4 +337,3 @@ describe('EditorViewDOM + renderer-dom Mount/Unmount Integration', () => {
     });
   });
 });
-

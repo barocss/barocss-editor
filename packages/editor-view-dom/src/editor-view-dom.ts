@@ -44,7 +44,6 @@ export class EditorViewDOM implements IEditorViewDOM {
   private _editingNodes: Set<string> = new Set();
   private _inputEndDebounceTimer: number | null = null;
   private _pendingRenderTimer: number | null = null;
-  private _boundHandleCompositionStart: ((e: CompositionEvent) => void) | null = null;
   // Internal renderer (renderer-dom wrapper)
   private _rendererRegistry?: RendererRegistry;
   private _domRenderer?: DOMRenderer; // For Content layer (existing)
@@ -53,6 +52,17 @@ export class EditorViewDOM implements IEditorViewDOM {
   private _selectionRenderer?: DOMRenderer;    // For Selection layer
   private _contextRenderer?: DOMRenderer;     // For Context layer
   private _customRenderer?: DOMRenderer;       // For Custom layer
+  private _boundHandleInput: ((event: InputEvent) => void) | null = null;
+  private _boundHandleBeforeInput: ((event: InputEvent) => void) | null = null;
+  private _boundHandleKeydown: ((event: KeyboardEvent) => void) | null = null;
+  private _boundHandlePaste: ((event: ClipboardEvent) => void) | null = null;
+  private _boundHandleDrop: ((event: DragEvent) => void) | null = null;
+  private _boundHandleSelectionChange: ((event?: Event) => void) | null = null;
+  private _boundHandleMouseDown: ((event: MouseEvent) => void) | null = null;
+  private _boundHandleMouseMove: ((event: MouseEvent) => void) | null = null;
+  private _boundHandleMouseUp: ((event: MouseEvent) => void) | null = null;
+  private _boundHandleFocus: ((event?: FocusEvent) => void) | null = null;
+  private _boundHandleBlur: ((event?: FocusEvent) => void) | null = null;
   // Decorator Prebuilder (data transformation)
   private _decoratorPrebuilder?: DecoratorPrebuilder;
   private _hasRendered: boolean = false;
@@ -60,6 +70,23 @@ export class EditorViewDOM implements IEditorViewDOM {
   private _lastRenderedModelData: ModelData | null = null;
   // Options for synchronous rendering in test environment
   private _renderOptions: { sync?: boolean } = {};
+
+  private _resolveLayerTarget(decorator: Decorator): 'content' | 'decorator' | 'selection' | 'context' | 'custom' {
+    if (decorator.layerTarget) {
+      return decorator.layerTarget;
+    }
+
+    // Default target follows the same rule as DecoratorPrebuilder:
+    // layer -> decorator, otherwise content
+    if (decorator.category === 'layer') {
+      return 'decorator';
+    }
+    return 'content';
+  }
+
+  private _filterDecoratorsForContentLayer(decorators: Decorator[]): Decorator[] {
+    return decorators.filter((decorator) => this._resolveLayerTarget(decorator) === 'content');
+  }
 
   constructor(editor: Editor, options: EditorViewDOMOptions) {
     // Generate unique ID
@@ -244,28 +271,40 @@ export class EditorViewDOM implements IEditorViewDOM {
   private setupEventListeners(): void {
     console.log('[EditorViewDOM] setupEventListeners');
     // Input events
-    this.contentEditableElement.addEventListener('input', this.handleInput.bind(this) as EventListener);
-    this.contentEditableElement.addEventListener('beforeinput', this.handleBeforeInput.bind(this));
-    this.contentEditableElement.addEventListener('keydown', this.handleKeydown.bind(this));
-    this._boundHandleCompositionStart = this.handleCompositionStart.bind(this);
-    this.contentEditableElement.addEventListener('compositionstart', this._boundHandleCompositionStart);
-    this.contentEditableElement.addEventListener('paste', this.handlePaste.bind(this));
-    this.contentEditableElement.addEventListener('drop', this.handleDrop.bind(this));
+    this._boundHandleInput = this.handleInput.bind(this);
+    this._boundHandleBeforeInput = this.handleBeforeInput.bind(this);
+    this._boundHandleKeydown = this.handleKeydown.bind(this);
+    this.contentEditableElement.addEventListener('input', this._boundHandleInput as EventListener);
+    this.contentEditableElement.addEventListener('beforeinput', this._boundHandleBeforeInput);
+    this.contentEditableElement.addEventListener('keydown', this._boundHandleKeydown);
+    this._boundHandlePaste = this.handlePaste.bind(this);
+    this._boundHandleDrop = this.handleDrop.bind(this);
+    this.contentEditableElement.addEventListener('paste', this._boundHandlePaste);
+    this.contentEditableElement.addEventListener('drop', this._boundHandleDrop);
     
-    // compositionstart: block IME when selection is not in inline-text (see handleCompositionStart)
-    // IME state also tracked via beforeinput.isComposing; MutationObserver handles actual input
+    // IME state is tracked by beforeinput.isComposing and keydown keyCode 229.
+    // MutationObserver handles actual text synchronization.
 
     // Selection events
-    document.addEventListener('selectionchange', this.handleSelectionChange.bind(this));
+    this._boundHandleSelectionChange = this.handleSelectionChange.bind(this);
+    document.addEventListener('selectionchange', this._boundHandleSelectionChange);
     
     // Event listeners for drag detection
-    this.contentEditableElement.addEventListener('mousedown', this.handleMouseDown.bind(this));
-    document.addEventListener('mousemove', this.handleMouseMove.bind(this));
-    document.addEventListener('mouseup', this.handleMouseUp.bind(this));
+    this._boundHandleMouseDown = this.handleMouseDown.bind(this);
+    this._boundHandleMouseMove = this.handleMouseMove.bind(this);
+    this._boundHandleMouseUp = this.handleMouseUp.bind(this);
+    this.contentEditableElement.addEventListener('mousedown', this._boundHandleMouseDown);
+    document.addEventListener('mousemove', this._boundHandleMouseMove);
+    document.addEventListener('mouseup', this._boundHandleMouseUp);
 
     // Model selection → DOM selection bridge
-    this.editor.on('editor:selection.model', (sel: any) => {
-      this._pendingModelSelection = sel;
+    this.editor.on('editor:selection.model', (payload: any) => {
+      const selectionEvent = this._parseModelSelectionEvent(payload);
+      if (!selectionEvent.applySelectionToView) {
+        return;
+      }
+
+      this._pendingModelSelection = selectionEvent.selection;
       
       // Wait until rendering completes if rendering is in progress (applied in rendering completion callback)
       // Apply immediately if rendering is complete
@@ -303,8 +342,10 @@ export class EditorViewDOM implements IEditorViewDOM {
     // text_update event removed - always use full rendering via diff
     
     // Focus events
-    this.contentEditableElement.addEventListener('focus', this.handleFocus.bind(this));
-    this.contentEditableElement.addEventListener('blur', this.handleBlur.bind(this));
+    this._boundHandleFocus = this.handleFocus.bind(this);
+    this._boundHandleBlur = this.handleBlur.bind(this);
+    this.contentEditableElement.addEventListener('focus', this._boundHandleFocus);
+    this.contentEditableElement.addEventListener('blur', this._boundHandleBlur);
   }
 
   private setupKeymapHandlers(): void {
@@ -315,34 +356,30 @@ export class EditorViewDOM implements IEditorViewDOM {
   // DOM event handling
   handleInput(event: InputEvent): void {
     // Detect input start
+    if (event.isComposing === false && this._isComposing) {
+      this._isComposing = false;
+    }
     this._onInputStart();
     this.inputHandler.handleInput(event);
   }
 
   handleBeforeInput(event: InputEvent): void {
+    if (event.isComposing) {
+      // Block IME updates outside editable inline text even when composition events are missing.
+      if (!this.isSelectionInsideEditableText(window.getSelection() ?? undefined)) {
+        event.preventDefault();
+        return;
+      }
+    }
+
     // Track IME composition state using isComposing property of beforeinput event
     // Use beforeinput's isComposing instead of composition event listener
     if (event.isComposing !== undefined) {
       this._isComposing = event.isComposing;
     }
-    
+
     this.inputHandler.handleBeforeInput(event);
   }
-
-  /**
-   * Block composition (IME) when selection is not inside inline-text.
-   * Safari: blocking at compositionstart avoids Korean input attaching to wrong region.
-   * See docs/editable-regions-and-contenteditable-strategy.md §3.4.
-   */
-  handleCompositionStart(event: CompositionEvent): void {
-    if (!this.isSelectionInsideEditableText(window.getSelection() ?? undefined)) {
-      event.preventDefault();
-    }
-  }
-
-  // composition event handler: see setupEventListeners (handleCompositionStart)
-  // Track IME composition state using isComposing property of beforeinput event
-  // Actual processing is handled by MutationObserver
 
   /**
    * Returns true if the selection (or current DOM selection) is entirely inside
@@ -379,6 +416,11 @@ export class EditorViewDOM implements IEditorViewDOM {
     // Delegate to InputHandler first for future KeyBindingManager integration
     if ((this.inputHandler as any).handleKeyDown) {
       (this.inputHandler as any).handleKeyDown(event);
+    }
+
+    if (event.keyCode === 229) {
+      this._isComposing = true;
+      return;
     }
 
     // Do not handle structure changes/command shortcuts during IME composition
@@ -634,6 +676,27 @@ export class EditorViewDOM implements IEditorViewDOM {
 
   private _pendingModelSelection: any | null = null;
   private _retryCount: number = 0;
+  private _parseModelSelectionEvent(selectionEvent: any): { selection: any; applySelectionToView: boolean } {
+    if (
+      selectionEvent &&
+      typeof selectionEvent === 'object' &&
+      Object.prototype.hasOwnProperty.call(selectionEvent, 'selection')
+    ) {
+      return {
+        selection: selectionEvent.selection,
+        applySelectionToView:
+          selectionEvent.source === 'remote'
+            ? false
+            : selectionEvent.applySelectionToView !== false
+      };
+    }
+
+    return {
+      selection: selectionEvent,
+      applySelectionToView: selectionEvent?.source !== 'remote'
+    };
+  }
+
   private applyModelSelectionWithRetry(): void {
     const sel = this._pendingModelSelection;
     if (!sel || sel.type === 'none') return;
@@ -714,7 +777,7 @@ export class EditorViewDOM implements IEditorViewDOM {
     this.editor.executeCommand('insertText', { text, selection: modelSelection });
   }
 
-  private insertLineBreak(): void {
+  insertLineBreak(): void {
     this.insertText('\n');
   }
 
@@ -776,25 +839,54 @@ export class EditorViewDOM implements IEditorViewDOM {
     this.decoratorManager.removeAllListeners();
     
     // Remove event listeners
-    this.contentEditableElement.removeEventListener('input', this.handleInput.bind(this) as EventListener);
-    this.contentEditableElement.removeEventListener('beforeinput', this.handleBeforeInput.bind(this));
-    this.contentEditableElement.removeEventListener('keydown', this.handleKeydown.bind(this));
-    if (this._boundHandleCompositionStart) {
-      this.contentEditableElement.removeEventListener('compositionstart', this._boundHandleCompositionStart);
-      this._boundHandleCompositionStart = null;
+    if (this._boundHandleInput) {
+      this.contentEditableElement.removeEventListener('input', this._boundHandleInput as EventListener);
+      this._boundHandleInput = null;
     }
-    this.contentEditableElement.removeEventListener('paste', this.handlePaste.bind(this));
-    this.contentEditableElement.removeEventListener('drop', this.handleDrop.bind(this));
+    if (this._boundHandleBeforeInput) {
+      this.contentEditableElement.removeEventListener('beforeinput', this._boundHandleBeforeInput);
+      this._boundHandleBeforeInput = null;
+    }
+    if (this._boundHandleKeydown) {
+      this.contentEditableElement.removeEventListener('keydown', this._boundHandleKeydown);
+      this._boundHandleKeydown = null;
+    }
+    if (this._boundHandlePaste) {
+      this.contentEditableElement.removeEventListener('paste', this._boundHandlePaste);
+      this._boundHandlePaste = null;
+    }
+    if (this._boundHandleDrop) {
+      this.contentEditableElement.removeEventListener('drop', this._boundHandleDrop);
+      this._boundHandleDrop = null;
+    }
     
-    document.removeEventListener('selectionchange', this.handleSelectionChange.bind(this));
+    if (this._boundHandleSelectionChange) {
+      document.removeEventListener('selectionchange', this._boundHandleSelectionChange);
+      this._boundHandleSelectionChange = null;
+    }
     
     // Remove drag detection event listeners
-    this.contentEditableElement.removeEventListener('mousedown', this.handleMouseDown.bind(this));
-    document.removeEventListener('mousemove', this.handleMouseMove.bind(this));
-    document.removeEventListener('mouseup', this.handleMouseUp.bind(this));
+    if (this._boundHandleMouseDown) {
+      this.contentEditableElement.removeEventListener('mousedown', this._boundHandleMouseDown);
+      this._boundHandleMouseDown = null;
+    }
+    if (this._boundHandleMouseMove) {
+      document.removeEventListener('mousemove', this._boundHandleMouseMove);
+      this._boundHandleMouseMove = null;
+    }
+    if (this._boundHandleMouseUp) {
+      document.removeEventListener('mouseup', this._boundHandleMouseUp);
+      this._boundHandleMouseUp = null;
+    }
     
-    this.contentEditableElement.removeEventListener('focus', this.handleFocus.bind(this));
-    this.contentEditableElement.removeEventListener('blur', this.handleBlur.bind(this));
+    if (this._boundHandleFocus) {
+      this.contentEditableElement.removeEventListener('focus', this._boundHandleFocus);
+      this._boundHandleFocus = null;
+    }
+    if (this._boundHandleBlur) {
+      this.contentEditableElement.removeEventListener('blur', this._boundHandleBlur);
+      this._boundHandleBlur = null;
+    }
     
     // Disconnect MutationObserver
     this.mutationObserverManager.disconnect();
@@ -1128,12 +1220,14 @@ export class EditorViewDOM implements IEditorViewDOM {
     // 5. Render Content layer first (synchronous)
     // Render Content if modelData exists, otherwise render only decorators
     // Re-render content even when reusing _lastRenderedModelData (reflect decorator updates)
+    const contentLayerDecorators = this._filterDecoratorsForContentLayer(allDecorators);
+
     if (modelData) {
       try {
         this._domRenderer?.render(
           this.layers.content, 
           modelData, 
-          allDecorators, 
+          contentLayerDecorators,
           undefined, 
           selectionContext,
           {
@@ -1162,7 +1256,7 @@ export class EditorViewDOM implements IEditorViewDOM {
         this._domRenderer?.render(
           this.layers.content, 
           this._lastRenderedModelData, 
-          allDecorators, 
+          contentLayerDecorators, 
           undefined, 
           selectionContext,
           {
@@ -1994,5 +2088,3 @@ export class EditorViewDOM implements IEditorViewDOM {
     }, 500); // 500ms debounce
   }
 }
-
-

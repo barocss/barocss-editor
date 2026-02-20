@@ -49,6 +49,68 @@ export class ReactInputHandler {
   private viewStateRef: MutableRefObject<EditorViewViewState>;
   private _isComposing = false;
   private _pendingInsertHint: InputHint | null = null;
+  private readonly _compositionWindowMs = 120;
+  private _compositionGeneration = 0;
+  private _compositionSyncToken = 0;
+  private _isCompositionSyncScheduled = false;
+  private _contentChangeTxSeq = 0;
+
+  private _buildDebugTransaction(operations: any[] = [], description?: string) {
+    return {
+      sid: `tx-viewreact-${Date.now()}-${++this._contentChangeTxSeq}`,
+      timestamp: new Date(),
+      operations,
+      description
+    };
+  }
+
+  private markPostCompositionWindow(): void {
+    this.viewStateRef.current.compositionWindowUntil = Date.now() + this._compositionWindowMs;
+  }
+
+  private clearPostCompositionWindow(): void {
+    this.viewStateRef.current.compositionWindowUntil = 0;
+  }
+
+  private isPostCompositionWindowActive(): boolean {
+    return this.viewStateRef.current.compositionWindowUntil > Date.now();
+  }
+
+  private isImePhase(isComposing?: boolean): boolean {
+    if (this._isComposing || this.viewStateRef.current.isComposing) return true;
+    if (isComposing) return true;
+    return this.isPostCompositionWindowActive();
+  }
+
+  private setImeComposingState(isComposing: boolean, clearWindow = true): void {
+    const wasComposing = this._isComposing;
+
+    if (wasComposing !== isComposing) {
+      this._compositionGeneration += 1;
+      this._compositionSyncToken = this._compositionGeneration;
+
+      if (isComposing) {
+        this._isCompositionSyncScheduled = false;
+        if (clearWindow) {
+          this.clearPostCompositionWindow();
+        }
+      } else {
+        this._isCompositionSyncScheduled = true;
+        this.markPostCompositionWindow();
+      }
+    }
+
+    this._isComposing = isComposing;
+    this.viewStateRef.current.isComposing = isComposing;
+  }
+
+  private requestCompositionEndSync(): void {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        void this.syncFocusedTextNodeAfterComposition();
+      });
+    });
+  }
 
   constructor(
     editor: Editor,
@@ -60,53 +122,124 @@ export class ReactInputHandler {
     this.viewStateRef = viewStateRef;
   }
 
-  /** Set IME composition state. Called from compositionstart/compositionend so keydown/beforeinput see it early. */
+  /** Set IME composition state. Called from beforeinput and compatibility keydown 229. */
   setComposing(isComposing: boolean): void {
-    this._isComposing = isComposing;
-    this.viewStateRef.current.isComposing = isComposing;
+    const wasComposing = this._isComposing;
+    this.setImeComposingState(isComposing);
+
+    if (wasComposing && !isComposing) {
+      this.requestCompositionEndSync();
+    }
+  }
+
+  handleInput(event: InputEvent): void {
+    const wasComposing = this._isComposing;
+
+    if (event.isComposing !== undefined) {
+      this.setImeComposingState(event.isComposing);
+      if (wasComposing && !event.isComposing) {
+        this.requestCompositionEndSync();
+      }
+    }
+  }
+
+  handlePaste(event: ClipboardEvent): void {
+    if (this.isImePhase()) return;
+
+    event.preventDefault();
+    const text = event.clipboardData?.getData('text/plain') ?? '';
+    if (!text) return;
+
+    this.insertTextAtSelection(text);
+  }
+
+  handleDrop(event: DragEvent): void {
+    if (this.isImePhase()) return;
+
+    event.preventDefault();
+    const text = event.dataTransfer?.getData('text/plain') ?? '';
+    if (!text) return;
+
+    this.insertTextAtSelection(text);
   }
 
   /**
    * Sync model to DOM for the focused inline-text node. Call once after compositionend so the final composed text is applied (no intermediate C1).
    */
   async syncFocusedTextNodeAfterComposition(): Promise<void> {
+    const syncToken = this._compositionSyncToken;
+    const generation = this._compositionGeneration;
+    const completeSync = (): void => {
+      if (syncToken === this._compositionSyncToken && generation === this._compositionGeneration) {
+        this._isCompositionSyncScheduled = false;
+        this._compositionSyncToken += 1;
+      }
+    };
+
+    if (!this._isCompositionSyncScheduled) return;
+    if (this._isComposing || this.viewStateRef.current.isComposing) return;
     const view = this.viewStateRef.current;
+    if (syncToken !== this._compositionSyncToken || generation !== this._compositionGeneration) return;
     if (view.isModelDrivenChange || view.isRendering) return;
 
+    if (this.isPostCompositionWindowActive()) {
+      setTimeout(() => {
+        void this.syncFocusedTextNodeAfterComposition();
+      }, Math.max(0, view.compositionWindowUntil - Date.now()));
+      return;
+    }
+
     const selection = window.getSelection();
-    if (!selection?.rangeCount || !selection.anchorNode) return;
+    if (!selection?.rangeCount || !selection.anchorNode) {
+      completeSync();
+      return;
+    }
 
     const inlineEl = findClosestInlineTextNode(selection.anchorNode);
     if (!inlineEl) return;
 
     const nodeId = inlineEl.getAttribute('data-bc-sid');
-    if (!nodeId) return;
+    if (!nodeId) {
+      completeSync();
+      return;
+    }
 
     const dataStore = this.editor.dataStore;
     const modelNode = dataStore?.getNode?.(nodeId) as { stype?: string; text?: string } | undefined;
-    if (!modelNode || modelNode.stype !== 'inline-text') return;
+    if (!modelNode || modelNode.stype !== 'inline-text') {
+      completeSync();
+      return;
+    }
 
     const prevText = modelNode.text ?? '';
     const newText = reconstructModelTextFromDOM(inlineEl);
-    if (prevText === newText) return;
+    if (prevText === newText) {
+      completeSync();
+      return;
+    }
+
+    const contentRange: ContentRange = {
+      type: 'range',
+      startNodeId: nodeId,
+      startOffset: 0,
+      endNodeId: nodeId,
+      endOffset: prevText.length,
+    };
 
     this.viewStateRef.current.skipNextRenderFromMO = true;
     let success = false;
     try {
       success = await this.editor.executeCommand('replaceText', {
-      range: {
-        type: 'range',
-        startNodeId: nodeId,
-        startOffset: 0,
-        endNodeId: nodeId,
-        endOffset: prevText.length,
-      },
-      text: newText,
+        range: contentRange,
+        text: newText,
       });
     } finally {
       this.viewStateRef.current.skipNextRenderFromMO = false;
     }
-    if (!success) return;
+    if (!success) {
+      completeSync();
+      return;
+    }
 
     const selAfter = window.getSelection();
     if (selAfter?.rangeCount) {
@@ -137,8 +270,18 @@ export class ReactInputHandler {
       skipRender: true,
       from: 'compositionend-sync',
       content: (this.editor as { document?: unknown }).document,
-      transaction: { type: 'text_replace', nodeId },
+      transaction: this._buildDebugTransaction([
+        {
+          type: 'replaceText',
+          payload: {
+            nodeId,
+            range: contentRange
+          }
+        }
+      ], 'compositionend-sync')
     });
+
+    completeSync();
   }
 
   /**
@@ -150,7 +293,7 @@ export class ReactInputHandler {
   async handleDomMutations(mutations: MutationRecord[]): Promise<void> {
     const view = this.viewStateRef.current;
     if (view.isModelDrivenChange || view.isRendering) return;
-    if (view.isComposing) return;
+    if (this.isImePhase()) return;
 
     this.viewStateRef.current.skipNextRenderFromMO = true;
     try {
@@ -180,7 +323,7 @@ export class ReactInputHandler {
       }
     }
 
-    const inputHint = this.getValidInsertHint(view.isComposing);
+    const inputHint = this.getValidInsertHint(view.isComposing || this.isPostCompositionWindowActive());
     const classified = classifyDomChangeC1(mutations, {
       editor: this.editor,
       selection: selection ?? undefined,
@@ -269,16 +412,38 @@ export class ReactInputHandler {
       skipRender: true,
       from: 'MutationObserver-C1',
       content: (this.editor as { document?: unknown }).document,
-      transaction: { type: 'text_replace', nodeId: classified.nodeId },
+      transaction: this._buildDebugTransaction([
+        {
+          type: 'replaceText',
+          payload: {
+            nodeId: classified.nodeId,
+            range: classified.contentRange
+          }
+        }
+      ], 'MutationObserver-C1')
     });
     this._pendingInsertHint = null;
   }
 
   handleBeforeInput(event: InputEvent): void {
-    if (event.isComposing !== undefined) {
-      this._isComposing = event.isComposing;
-      this.viewStateRef.current.isComposing = event.isComposing;
+    const isComposing = event.isComposing;
+    const wasComposing = this._isComposing;
+
+    if (isComposing !== undefined) {
+      this.setImeComposingState(isComposing);
+
+      if (isComposing && !this.selectionHandler.isSelectionInsideEditableText()) {
+        event.preventDefault();
+        return;
+      }
+
+      if (wasComposing && !isComposing) {
+        this.clearPostCompositionWindow();
+        this.requestCompositionEndSync();
+      }
     }
+
+    const isIme = this.isImePhase(isComposing);
     const inputType = event.inputType;
 
     if (shouldPreventDefaultStructural(inputType)) {
@@ -293,7 +458,7 @@ export class ReactInputHandler {
       return;
     }
 
-    if (shouldHandleDelete(inputType) && !event.isComposing) {
+    if (shouldHandleDelete(inputType) && !isIme) {
       event.preventDefault();
       this.handleDelete(event);
       return;
@@ -312,6 +477,8 @@ export class ReactInputHandler {
   }
 
   private updateInsertHintFromBeforeInput(event: InputEvent): void {
+    if (this.isImePhase(event.isComposing)) return;
+
     const selection = window.getSelection();
     if (!selection?.rangeCount) {
       this._pendingInsertHint = null;
@@ -343,6 +510,13 @@ export class ReactInputHandler {
    */
   handleKeydown(event: KeyboardEvent): void {
     if (this._isComposing) return;
+    if (event.keyCode === 229) {
+      this.markPostCompositionWindow();
+      this.setImeComposingState(true, false);
+      return;
+    }
+
+    if (this.isImePhase()) return;
 
     const isCharacterKey =
       event.key.length === 1 &&
@@ -407,7 +581,7 @@ export class ReactInputHandler {
   private tryHandleInsertViaGetTargetRanges(event: InputEvent): boolean {
     const inputType = event.inputType;
     if (!['insertText', 'insertFromPaste', 'insertReplacementText'].includes(inputType)) return false;
-    if (event.isComposing) return false;
+    if (this.isImePhase(event.isComposing)) return false;
 
     const getTargetRanges = (event as InputEvent & { getTargetRanges?: () => StaticRange[] }).getTargetRanges;
     if (typeof getTargetRanges !== 'function') return false;
@@ -459,7 +633,14 @@ export class ReactInputHandler {
         skipRender: false,
         from: 'getTargetRanges',
         content: (this.editor as { document?: unknown }).document,
-        transaction: { type: 'text_replace', range: rangeForReplace },
+        transaction: this._buildDebugTransaction([
+          {
+            type: 'replaceText',
+            payload: {
+              ...rangeForReplace
+            }
+          }
+        ], 'getTargetRanges')
       });
       this.applyModelSelectionAfterRender(newCaret);
     }).catch(() => {});
@@ -526,7 +707,14 @@ export class ReactInputHandler {
       skipRender: false,
       from: 'beforeinput-delete',
       content: (this.editor as { document?: unknown }).document,
-      transaction: { type: 'delete', contentRange },
+      transaction: this._buildDebugTransaction([
+        {
+          type: 'deleteText',
+          payload: {
+            range: contentRange
+          }
+        }
+      ], 'beforeinput-delete')
     });
 
     this.applyModelSelectionAfterRender(newModelSelection);

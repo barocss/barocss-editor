@@ -67,12 +67,20 @@ export interface Decorator {
   version?: number;
 }
 
+export interface DecoratorVNodeIdentity {
+  sid?: string;
+  stype?: string;
+  category?: 'layer' | 'inline' | 'block';
+  position?: DecoratorPosition;
+}
+
 /**
  * Options for building VNodes with decorators
  */
 export interface VNodeBuildOptions {
   decorators?: Decorator[];
   sid?: string; // Current node's sid for decorator matching
+  decoratorMeta?: DecoratorVNodeIdentity;
   /**
    * SelectionContext: inject selection info at render time (read-only)
    * - sid: identifier of model node that selection belongs to
@@ -103,4 +111,3 @@ export interface CategorizedDecorators {
   layer: Decorator[];
   inline: Decorator[];
 }
-

@@ -765,6 +765,8 @@ describe('EditorViewDOM + renderer-dom Table Integration', () => {
       view.render(tree);
 
       // Verify full rendering result (content layer omits data-bc-stype on nodes)
+      const rootDocSid = view.layers.content.querySelector('[data-bc-sid]')?.getAttribute('data-bc-sid');
+      expect(rootDocSid).toBeTruthy();
       expectHTML(
         view.layers.content,
         `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">
@@ -780,10 +782,9 @@ describe('EditorViewDOM + renderer-dom Table Integration', () => {
               </tbody>
             </table>
           </div>
-        </div>`,
+        </div>`.replace('data-bc-sid="doc1"', `data-bc-sid="${rootDocSid}"`),
         expect
       );
     });
   });
 });
-

@@ -34,14 +34,16 @@ describe('InputHandlerImpl', () => {
       dataStore: {
         getNode: vi.fn()
       },
-      getDecorators: vi.fn(() => []),
-      updateDecorators: vi.fn()
+      getDecorators: vi.fn(() => [])
     };
 
     mockEditorViewDOM = {
       _isRendering: false,
       _isModelDrivenChange: false,
       getDecorators: vi.fn(() => []),
+      insertLineBreak: vi.fn(),
+      updateDecorator: vi.fn(),
+      removeDecorator: vi.fn(),
       convertDOMSelectionToModel: vi.fn(),
       convertModelSelectionToDOM: vi.fn(),
       insertText: vi.fn(),
@@ -353,7 +355,7 @@ describe('InputHandlerImpl', () => {
       expect(payload?.marks).toBeUndefined();
     });
 
-    it('Decorators가 변경된 경우 updateDecorators를 호출해야 함', () => {
+    it('Decorators가 변경된 경우 updateDecorator를 호출해야 함', async () => {
       const oldDecorators: DecoratorRange[] = [
         {
           sid: 'd1',
@@ -389,15 +391,59 @@ describe('InputHandlerImpl', () => {
         }
       });
 
-      inputHandler.handleTextContentChange('Hello', 'Hello World', textNode);
+      await inputHandler.handleTextContentChange('Hello', 'Hello World', textNode);
 
       expect(mockEditor.executeCommand).toHaveBeenCalledWith('replaceText', expect.objectContaining({
         range: expect.objectContaining({ startNodeId: 't1', endNodeId: 't1' })
       }));
-      // updateDecorators는 구현에서 TODO 상태 (decoratorsChanged 시 호출 미구현)
+      expect(mockEditorViewDOM.updateDecorator).toHaveBeenCalledWith(
+        'd1',
+        expect.objectContaining({
+          target: { sid: 't1', startOffset: 0, endOffset: 11 },
+          stype: 'highlight',
+          category: 'inline'
+        })
+      );
     });
 
-    it('Decorators가 변경되지 않은 경우 updateDecorators를 호출하지 않아야 함', () => {
+    it('Decorators가 삭제된 경우 removeDecorator를 호출해야 함', async () => {
+      const oldDecorators: DecoratorRange[] = [
+        {
+          sid: 'd1',
+          stype: 'highlight',
+          category: 'inline',
+          target: { sid: 't1', startOffset: 0, endOffset: 5 }
+        }
+      ];
+
+      mockEditor.getDecorators.mockReturnValue(oldDecorators);
+
+      vi.mocked(handleEfficientEdit).mockReturnValue({
+        newText: 'Hello World',
+        adjustedMarks: [],
+        adjustedDecorators: [],
+        editInfo: {
+          nodeId: 't1',
+          oldText: 'Hello',
+          newText: 'Hello World',
+          editPosition: 5,
+          editType: 'insert',
+          insertedLength: 6,
+          deletedLength: 0,
+          insertedText: ' World'
+        }
+      });
+
+      await inputHandler.handleTextContentChange('Hello', 'Hello World', textNode);
+
+      expect(mockEditor.executeCommand).toHaveBeenCalledWith('replaceText', expect.objectContaining({
+        range: expect.objectContaining({ startNodeId: 't1', endNodeId: 't1' })
+      }));
+      expect(mockEditorViewDOM.removeDecorator).toHaveBeenCalledWith('d1');
+      expect(mockEditorViewDOM.updateDecorator).not.toHaveBeenCalled();
+    });
+
+    it('Decorators가 변경되지 않은 경우 update/remove를 호출하지 않아야 함', () => {
       const decorators: DecoratorRange[] = [
         {
           sid: 'd1',
@@ -427,7 +473,8 @@ describe('InputHandlerImpl', () => {
 
       inputHandler.handleTextContentChange('Hello', 'Hello World', textNode);
 
-      expect(mockEditor.updateDecorators).not.toHaveBeenCalled();
+      expect(mockEditorViewDOM.updateDecorator).not.toHaveBeenCalled();
+      expect(mockEditorViewDOM.removeDecorator).not.toHaveBeenCalled();
     });
 
     it('Element 노드에서 text node를 찾아서 처리해야 함', () => {
@@ -747,7 +794,7 @@ describe('InputHandlerImpl', () => {
       }));
     });
 
-    it('Decorator가 있는 텍스트 편집 시 decorators가 조정되어야 함', () => {
+    it('Decorator가 있는 텍스트 편집 시 decorators가 조정되어야 함', async () => {
       const oldDecorators: DecoratorRange[] = [
         {
           sid: 'd1',
@@ -783,15 +830,22 @@ describe('InputHandlerImpl', () => {
         }
       });
 
-      inputHandler.handleTextContentChange('Hello', 'Hello World', textNode);
+      await inputHandler.handleTextContentChange('Hello', 'Hello World', textNode);
 
       expect(mockEditor.executeCommand).toHaveBeenCalledWith('replaceText', expect.objectContaining({
         range: expect.objectContaining({ startNodeId: 't1', endNodeId: 't1' })
       }));
-      // updateDecorators는 구현에서 TODO 상태
+      expect(mockEditorViewDOM.updateDecorator).toHaveBeenCalledWith(
+        'd1',
+        expect.objectContaining({
+          target: { sid: 't1', startOffset: 0, endOffset: 11 },
+          stype: 'highlight',
+          category: 'inline'
+        })
+      );
     });
 
-    it('Mark와 Decorator가 모두 있는 텍스트 편집 시 둘 다 조정되어야 함', () => {
+    it('Mark와 Decorator가 모두 있는 텍스트 편집 시 둘 다 조정되어야 함', async () => {
       const oldMarks: MarkRange[] = [
         { type: 'bold', range: [0, 5] }
       ];
@@ -839,12 +893,19 @@ describe('InputHandlerImpl', () => {
         }
       });
 
-      inputHandler.handleTextContentChange('Hello', 'Hello World', textNode);
+      await inputHandler.handleTextContentChange('Hello', 'Hello World', textNode);
 
       expect(mockEditor.executeCommand).toHaveBeenCalledWith('replaceText', expect.objectContaining({
         range: expect.objectContaining({ startNodeId: 't1', endNodeId: 't1' })
       }));
-      // updateDecorators는 구현에서 TODO 상태
+      expect(mockEditorViewDOM.updateDecorator).toHaveBeenCalledWith(
+        'd1',
+        expect.objectContaining({
+          target: { sid: 't1', startOffset: 0, endOffset: 11 },
+          stype: 'highlight',
+          category: 'inline'
+        })
+      );
     });
   });
 
@@ -900,11 +961,11 @@ describe('InputHandlerImpl', () => {
       expect(mockEditorViewDOM.insertParagraph).toHaveBeenCalled();
     });
 
-    it('insertLineBreak는 preventDefault하고 insertText(\\n)를 호출해야 함', () => {
+    it('insertLineBreak는 preventDefault하고 insertLineBreak를 호출해야 함', () => {
       const event = { inputType: 'insertLineBreak', data: null, preventDefault: vi.fn() } as any;
       inputHandler.handleBeforeInput(event);
       expect(event.preventDefault).toHaveBeenCalled();
-      expect(mockEditorViewDOM.insertText).toHaveBeenCalledWith('\n');
+      expect(mockEditorViewDOM.insertLineBreak).toHaveBeenCalled();
     });
 
     it('insertOrderedList는 현재 구현에서 preventDefault하지 않음', () => {
@@ -1067,7 +1128,7 @@ describe('InputHandlerImpl', () => {
       expect(mockEditor.executeCommand).toHaveBeenCalledWith('replaceText', expect.any(Object));
     });
 
-    it('updateDecorators가 없으면 호출하지 않아야 함', () => {
+    it('editorViewDOM에 decorator API가 없으면 안전하게 처리되어야 함', () => {
       const decorators: DecoratorRange[] = [
         {
           sid: 'd1',
@@ -1083,8 +1144,9 @@ describe('InputHandlerImpl', () => {
         sid: 't1',
         stype: 'inline-text'
       });
-      mockEditor.getDecorators.mockReturnValue(decorators);
-      delete mockEditor.updateDecorators; // Remove updateDecorators
+      mockEditorViewDOM.getDecorators.mockReturnValue(decorators);
+      delete (mockEditorViewDOM as any).updateDecorator;
+      delete (mockEditorViewDOM as any).removeDecorator;
 
       vi.mocked(handleEfficientEdit).mockReturnValue({
         newText: 'Hello World',
@@ -1111,9 +1173,8 @@ describe('InputHandlerImpl', () => {
 
       inputHandler.handleTextContentChange('Hello', 'Hello World', textNode);
 
-      // Should not call if updateDecorators is missing (handle without error)
+      // Should execute without error even if editorViewDOM decorator sync API is missing
       expect(mockEditor.executeCommand).toHaveBeenCalledWith('replaceText', expect.any(Object));
     });
   });
 });
-

@@ -338,8 +338,25 @@ Subscribes to an editor event.
 
 **Example:**
 ```typescript
-editor.on('editor:content.change', ({ content, transaction }) => {
+editor.on('editor:content.change', ({ content, transaction, from, skipRender, rootId, inputDebug }) => {
   console.log('Content changed:', content);
+  if (transaction) {
+    console.log('Transaction:', transaction.operations.length);
+  } else {
+    console.log('No transaction payload (load/set content path)');
+  }
+  if (from) {
+    console.log('Source:', from);
+  }
+  if (typeof skipRender === 'boolean') {
+    console.log('skipRender:', skipRender);
+  }
+  if (rootId) {
+    console.log('rootId:', rootId);
+  }
+  if (inputDebug) {
+    console.log('inputDebug:', inputDebug);
+  }
 });
 
 editor.on('editor:command.execute', ({ command, payload, success }) => {
@@ -900,8 +917,20 @@ Editor emits various events for extension integration.
 
 ```typescript
 // Subscribe
-editor.on('editor:content.change', ({ content, transaction }) => {
+editor.on('editor:content.change', ({ content, transaction, from, skipRender, rootId }) => {
   console.log('Content changed:', content);
+  if (transaction) {
+    console.log('Operations:', transaction.operations.length);
+    if (from) {
+      console.log('Source:', from);
+    }
+  }
+  if (typeof skipRender === 'boolean') {
+    console.log('skipRender:', skipRender);
+  }
+  if (rootId) {
+    console.log('rootId:', rootId);
+  }
 });
 
 // Unsubscribe

@@ -557,6 +557,29 @@ describe('renderer-react decorators – complex', () => {
       expect(count1).toBe(count2);
       expect(count1).toBe(2);
     });
+
+    it('same model and decorators built repeatedly keep decorator keys stable', () => {
+      const registry = getGlobalRegistry();
+      const model = {
+        sid: 'doc2',
+        stype: 'doc',
+        content: [
+          { sid: 'p1', stype: 'paragraph', content: [{ sid: 't1', stype: 'inline-text', text: 'Alpha' }] },
+          { sid: 'p2', stype: 'paragraph', content: [{ sid: 't2', stype: 'inline-text', text: 'Beta' }] },
+        ],
+      };
+      const decorators: Decorator[] = [
+        { sid: 'd-inline', stype: 'highlight', category: 'inline', target: { sid: 't1', startOffset: 0, endOffset: 5 } },
+        { sid: 'd-block', stype: 'comment', category: 'block', target: { sid: 'p2' }, position: 'after' },
+      ];
+
+      const node1 = buildToReact(registry, 'doc', model as any, { decorators }) as any;
+      const node2 = buildToReact(registry, 'doc', model as any, { decorators }) as any;
+      const keys1 = collectDecoratorNodes(node1).map((n) => n.key);
+      const keys2 = collectDecoratorNodes(node2).map((n) => n.key);
+      expect(keys1).toEqual(keys2);
+      expect(keys1).toEqual(['d-inline', 'd-block']);
+    });
   });
 
   describe('decorator data', () => {

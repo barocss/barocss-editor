@@ -274,13 +274,27 @@ console.log('[Input] executing transaction', {
 });
 
 // Update text and marks together
-this.editor.executeTransaction({
-  type: 'text_replace',
-  nodeId: textNodeId,
-  start: 0,
-  end: oldModelText.length,
-  text: editResult.newText,
-  ...(marksChanged ? { marks: editResult.adjustedMarks } : {})
+await this.editor.executeTransaction({
+  sid: 'tx-local-text-edit',
+  timestamp: new Date(),
+  operations: [
+    {
+      type: 'replaceText',
+      payload: {
+        nodeId: textNodeId,
+        start: 0,
+        end: oldModelText.length,
+        newText: editResult.newText
+      }
+    },
+    ...(marksChanged ? [{
+      type: 'setMarks',
+      payload: {
+        nodeId: textNodeId,
+        marks: editResult.adjustedMarks
+      }
+    }] : [])
+  ]
 });
 
 // Update decorators if changed
@@ -303,21 +317,20 @@ console.log('[Input] handleTextContentChange END - transaction executed');
 **Location**: `packages/editor-core/src/editor.ts` → `executeTransaction()`
 
 ```typescript
-executeTransaction(transaction: Transaction): void {
-  // 1. Apply changes to the model
-  this._applyBasicTransaction(transaction);
-  
-  // 2. Add to history
-  this._addToHistory(this._document);
-  
-  // 3. Emit events
-  this.emit('transactionExecuted', { transaction });
-  this.emit('editor:content.change', { content: this.document, transaction });
-  
-  // 4. Emit selection change when provided
-  if (transaction.selectionAfter) {
-    this.emit('editor:selection.model', transaction.selectionAfter);
+async executeTransaction(transaction: Transaction): Promise<TransactionResult> {
+  const operations = (transaction as any)?.operations;
+  if (!Array.isArray(operations)) {
+    return {
+      success: false,
+      errors: ['Unsupported transaction format.'],
+      data: undefined,
+      transactionId: (transaction as any)?.sid,
+      operations: []
+    };
   }
+
+  // Normal path: delegate to @barocss/model TransactionManager
+  return this._transactionManager.execute(operations, transaction?.options);
 }
 ```
 
@@ -420,7 +433,7 @@ Insert "Beautiful " after "Hello "
    ↓
 6. [Input] executing transaction {nodeId, textLength, marksChanged}
    ↓
-7. [Editor] executeTransaction {type: 'text_replace'}
+7. [Editor] executeTransaction {operations: ['replaceText', ...setMarks?]}
    ↓
 8. [EditorViewDOM] content.change event received {isComposing, willRender, ...}
    ↓

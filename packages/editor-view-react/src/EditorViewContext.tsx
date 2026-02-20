@@ -20,6 +20,8 @@ export interface EditorViewViewState {
   isModelDrivenChange: boolean;
   isRendering: boolean;
   isComposing: boolean;
+  /** Tracks IME-related events shortly after compositionend or keyCode 229 keydown. */
+  compositionWindowUntil: number;
   /** When true, next editor:content.change (from model commit during MO C1) must not trigger refresh (data-only update). */
   skipNextRenderFromMO: boolean;
   /** When true, editor:selection.model must not call convertModelSelectionToDOM (selection came from DOM input; leave DOM selection as-is). */
@@ -64,6 +66,7 @@ export function EditorViewContextProvider({ editor, children }: { editor: Editor
     isModelDrivenChange: false,
     isRendering: false,
     isComposing: false,
+    compositionWindowUntil: 0,
     skipNextRenderFromMO: false,
     skipApplyModelSelectionToDOM: false,
   });

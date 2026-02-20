@@ -13,6 +13,8 @@ import { Editor } from '@barocss/editor-core';
 import type { ModelSelection } from '@barocss/editor-core';
 import { reconstructModelTextFromDOM, extractModelTextFromRange } from '../utils/edit-position-converter';
 
+const BLOCK_TYPES = new Set(['paragraph', 'heading', 'list', 'list-item', 'blockquote', 'code-block']);
+
 /**
  * DOM change case type
  */
@@ -322,8 +324,7 @@ function classifyC2(
     if (!sid) return false;
     const modelNode = options.editor.dataStore?.getNode?.(sid);
     if (!modelNode) return false;
-    const blockTypes = ['paragraph', 'heading', 'list', 'list-item', 'blockquote', 'code-block'];
-    return blockTypes.includes(modelNode.stype);
+    return isBlockNodeType(modelNode.stype);
   });
 
   if (hasBlockLevelChange) {
@@ -367,6 +368,8 @@ function classifyC2(
   let startOffset = 0;
   let endOffset = 0;
   let usedInputHint = false;
+  let usedModelSelection = false;
+  let usedDOMSelection = false;
 
   const hint = options.inputHint;
   if (hint &&
@@ -384,6 +387,7 @@ function classifyC2(
     });
   } else if (options.modelSelection) {
     // Calculate accurate offset using model selection
+    usedModelSelection = true;
     if (options.modelSelection.startNodeId === startNodeId) {
       startOffset = options.modelSelection.startOffset;
     } else {
@@ -403,29 +407,34 @@ function classifyC2(
       calculatedOffsets: { startOffset, endOffset }
     });
   } else {
-    // Calculate offset based on DOM selection (fallback)
-    // 
-    // TODO: Need logic to accurately convert DOM offset to model offset
-    // 
-    // Current limitations:
-    // - Accurate conversion only possible within single node (use convertDOMOffsetToModelOffset)
-    // - Accurate conversion difficult for ranges across multiple nodes
-    // 
-    // Future improvement direction:
-    // 1. Convert range.startContainer and range.endContainer to inline-text nodes respectively
-    // 2. Use convertDOMOffsetToModelOffset within each node
-    // 3. Sum text lengths of intermediate nodes to calculate accurate offset
-    // 
-    // Currently use 0 and end node length simply (inaccurate but fallback)
-    startOffset = 0;
-    endOffset = endModelNode.text?.length || 0;
+    // Calculate offset based on DOM selection
+    const converted = convertDOMSelectionToModelOffsets(
+      range,
+      startNodeId,
+      endNodeId,
+      startModelNode.text || '',
+      endModelNode.text || '',
+      options.editor.dataStore
+    );
+
+    if (converted) {
+      startOffset = converted.startOffset;
+      endOffset = converted.endOffset;
+      usedDOMSelection = true;
+    } else {
+      // Fallback for cases where conversion fails
+      startOffset = 0;
+      endOffset = endModelNode.text?.length || 0;
+    }
     
     console.log('[DomChangeClassifier] classifyC2: using DOM selection (less accurate - fallback)', {
       startNodeId,
       endNodeId,
       startOffset,
       endOffset,
-      note: 'DOM offset to model offset conversion for multi-node ranges not yet implemented'
+      note: usedDOMSelection
+        ? 'DOM offset converted to model offset using inline-text walker'
+        : 'DOM offset conversion failed, fallback offsets used'
     });
   }
   
@@ -461,10 +470,123 @@ function classifyC2(
       multiNode: true,
       startNodeId,
       endNodeId,
-      usedModelSelection: !!options.modelSelection,
+      usedModelSelection,
+      usedDOMSelection,
       usedInputHint: usedInputHint || undefined
     }
   };
+}
+
+function convertDOMSelectionToModelOffsets(
+  range: Range,
+  startNodeId: string,
+  endNodeId: string,
+  startNodeText: string,
+  endNodeText: string,
+  dataStore: any
+): { startOffset: number; endOffset: number } | null {
+  const startOffset = resolveDOMBoundaryOffset(range.startContainer, range.startOffset, startNodeId, dataStore);
+  const endOffset = resolveDOMBoundaryOffset(range.endContainer, range.endOffset, endNodeId, dataStore);
+  if (startOffset === null || endOffset === null) return null;
+
+  return {
+    startOffset: clampNumber(startOffset, 0, startNodeText.length),
+    endOffset: clampNumber(endOffset, 0, endNodeText.length)
+  };
+}
+
+function resolveDOMBoundaryOffset(
+  container: Node,
+  domOffset: number,
+  expectedNodeId: string,
+  dataStore: any
+): number | null {
+  const inlineTextNode = findClosestInlineTextNode(container);
+  if (!inlineTextNode) return null;
+
+  const nodeId = inlineTextNode.getAttribute('data-bc-sid');
+  if (!nodeId || nodeId !== expectedNodeId) {
+    return null;
+  }
+
+  // if direct text node, directly sum previous siblings
+  if (container.nodeType === Node.TEXT_NODE) {
+    const textNode = container as Text;
+    const runs = collectTextRuns(inlineTextNode);
+    if (!runs.length) return null;
+
+    const target = runs.find(run => run.node === textNode);
+    if (!target) return null;
+
+    return target.start + clampNumber(domOffset, 0, target.length);
+  }
+
+  // element boundary: estimate by nearest text node around boundary
+  if (container.nodeType !== Node.ELEMENT_NODE) return null;
+  const boundaryChild = (container as Element).childNodes.item(domOffset) || null;
+  const runs = collectTextRuns(inlineTextNode);
+  if (!runs.length) return null;
+
+  let lastBefore: TextRun | null = null;
+  let firstAtOrAfter: TextRun | null = null;
+
+  for (const run of runs) {
+    if (!boundaryChild) {
+      lastBefore = run;
+      continue;
+    }
+
+    const cmp = run.node.compareDocumentPosition(boundaryChild);
+    if (cmp & Node.DOCUMENT_POSITION_FOLLOWING) {
+      firstAtOrAfter = run;
+      break;
+    }
+
+    lastBefore = run;
+  }
+
+  if (!boundaryChild) {
+    return runs.length > 0 ? runs[runs.length - 1].end : null;
+  }
+
+  if (firstAtOrAfter) {
+    return firstAtOrAfter.start;
+  }
+
+  return lastBefore ? lastBefore.end : 0;
+}
+
+interface TextRun {
+  node: Text;
+  start: number;
+  end: number;
+  length: number;
+}
+
+function collectTextRuns(textContainer: Element): TextRun[] {
+  const walker = document.createTreeWalker(textContainer, NodeFilter.SHOW_TEXT);
+  const runs: TextRun[] = [];
+  let cursor = walker.nextNode() as Text | null;
+  let offset = 0;
+
+  while (cursor) {
+    const text = cursor.textContent || '';
+    const length = text.length;
+    runs.push({
+      node: cursor,
+      start: offset,
+      end: offset + length,
+      length
+    });
+    offset += length;
+    cursor = walker.nextNode() as Text | null;
+  }
+
+  return runs;
+}
+
+function clampNumber(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(value, max));
 }
 
 /**
@@ -518,8 +640,7 @@ function classifyC3(
     if (!modelNode) continue;
 
     // Check if block type (paragraph, heading, list, etc.)
-    const blockTypes = ['paragraph', 'heading', 'list', 'list-item', 'blockquote', 'code-block'];
-    if (blockTypes.includes(modelNode.stype)) {
+    if (isBlockNodeType(modelNode.stype)) {
       blockLevelMutations.push(mutation);
     }
   }
@@ -567,9 +688,6 @@ function analyzeBlockStructureChange(
   mutations: MutationRecord[],
   options: ClassifyOptions
 ): BlockStructurePattern | null {
-  // Simple pattern analysis
-  // TODO: Need to implement more sophisticated pattern analysis
-  
   for (const mutation of mutations) {
     const addedNodes = Array.from(mutation.addedNodes);
     const removedNodes = Array.from(mutation.removedNodes);
@@ -582,8 +700,7 @@ function analyzeBlockStructureChange(
       if (!sid) return false;
       const modelNode = options.editor.dataStore?.getNode?.(sid);
       if (!modelNode) return false;
-      const blockTypes = ['paragraph', 'heading', 'list', 'list-item', 'blockquote', 'code-block'];
-      return blockTypes.includes(modelNode.stype);
+      return isBlockNodeType(modelNode.stype);
     });
 
     // Check if block node was removed
@@ -594,8 +711,7 @@ function analyzeBlockStructureChange(
       if (!sid) return false;
       const modelNode = options.editor.dataStore?.getNode?.(sid);
       if (!modelNode) return false;
-      const blockTypes = ['paragraph', 'heading', 'list', 'list-item', 'blockquote', 'code-block'];
-      return blockTypes.includes(modelNode.stype);
+      return isBlockNodeType(modelNode.stype);
     });
 
     const target = mutation.target as Element;
@@ -628,14 +744,35 @@ function analyzeBlockStructureChange(
         type: 'insert',
         affectedNodeIds
       };
-    } else if (removedBlocks.length > 0 && addedBlocks.length === 0) {
+    }
+
+    if (removedBlocks.length > 0 && addedBlocks.length === 0) {
       // Block removed (merge or delete)
+      if (removedBlocks.length === 1) {
+        return {
+          type: 'merge',
+          affectedNodeIds,
+          command: 'deleteText'
+        };
+      }
+
       return {
         type: 'merge',
         affectedNodeIds
       };
-    } else if (addedBlocks.length > 0 && removedBlocks.length > 0) {
+    }
+
+    if (addedBlocks.length > 0 && removedBlocks.length > 0) {
       // Block replaced
+      if (removedBlocks.length === 1 && addedBlocks.length === 1) {
+        // 흔히 block boundary 이동으로 보이는 패턴
+        return {
+          type: 'unknown',
+          affectedNodeIds,
+          command: 'deleteText'
+        };
+      }
+
       return {
         type: 'unknown',
         affectedNodeIds
@@ -647,6 +784,10 @@ function analyzeBlockStructureChange(
     type: 'unknown',
     affectedNodeIds: []
   };
+}
+
+function isBlockNodeType(stype: string): boolean {
+  return BLOCK_TYPES.has(stype);
 }
 
 /**
@@ -749,7 +890,10 @@ function classifyC4(
     }
   }
 
-  if (markChanges.length === 0) {
+  // Check special cases like auto-correction, smart quotes, auto-link, etc.
+  const specialCase = detectSpecialCase(mutations, options);
+
+  if (markChanges.length === 0 && !specialCase) {
     console.log('[DomChangeClassifier] classifyC4: SKIP - no mark changes detected');
     return null;
   }
@@ -759,9 +903,6 @@ function classifyC4(
     markChanges
   });
 
-  // Check special cases like auto-correction, smart quotes, auto-link, etc.
-  const specialCase = detectSpecialCase(mutations, options);
-  
   return {
     case: specialCase || 'C4',
     mutations,
@@ -824,13 +965,67 @@ function detectSpecialCase(
   mutations: MutationRecord[],
   options: ClassifyOptions
 ): DomChangeCase | null {
-  // TODO: Implement special case detection logic
-  // - Auto-correction: specific class or attribute patterns
-  // - Smart quotes: special character patterns
-  // - Auto-link: automatic <a> tag generation
-  // - DnD: drag/drop related attributes
-  
-  return null; // Default C4
+  const classNameContains = (value: string | null, token: string): boolean =>
+    Boolean(value?.toLowerCase().includes(token.toLowerCase()));
+
+  const inspectNode = (node: Node): DomChangeCase | null => {
+    if (node.nodeType !== Node.ELEMENT_NODE) return null;
+    const el = node as Element;
+
+    const className = el.getAttribute('class') || '';
+    const href = el.getAttribute('href');
+    const dataTransfer = el.getAttribute('data-transfer');
+    const dataDnd = el.getAttribute('data-dnd');
+    const style = el.getAttribute('style') || '';
+    const tagName = el.tagName.toLowerCase();
+
+    if (tagName === 'a' && !!href) {
+      return 'C4_AUTO_LINK';
+    }
+
+    if (classNameContains(className, 'autocorrect') ||
+        classNameContains(className, 'smartlink') ||
+        classNameContains(className, 'smart-quote') ||
+        classNameContains(className, 'autocorrect') ||
+        classNameContains(style, 'text-transform') &&
+        classNameContains(style, 'none')) {
+      return 'C4_AUTO_CORRECT';
+    }
+
+    if (classNameContains(className, 'drag') ||
+        classNameContains(className, 'drop') ||
+        !!dataTransfer || !!dataDnd ||
+        classNameContains(className, 'drag-over')) {
+      return 'C4_DND';
+    }
+
+    return null;
+  };
+
+  for (const mutation of mutations) {
+    const directNodes = [mutation.target, ...Array.from(mutation.addedNodes), ...Array.from(mutation.removedNodes)];
+    const directCase = directNodes
+      .map(node => inspectNode(node))
+      .find((value): value is DomChangeCase => value !== null);
+    if (directCase) return directCase;
+
+    if (mutation.attributeName) {
+      const attr = mutation.target?.getAttribute?.(mutation.attributeName);
+      if (attr && attr.toLowerCase().includes('autocorrect')) {
+        return 'C4_AUTO_CORRECT';
+      }
+    }
+
+    const walker = document.createTreeWalker(mutation.target, NodeFilter.SHOW_ELEMENT, null);
+    let current: Node | null = walker.nextNode();
+    while (current) {
+      const detected = inspectNode(current);
+      if (detected) return detected;
+      current = walker.nextNode();
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -853,5 +1048,3 @@ function findClosestInlineTextNode(node: Node): Element | null {
 
   return null;
 }
-
-

@@ -48,6 +48,7 @@ describe('Fiber Reconciler Helpers', () => {
       const prevVNode: VNode = {
         tag: 'span',
         stype: 'highlight-decorator',
+        decoratorSid: 'decorator-1',
         attrs: {
           'data-decorator-sid': 'decorator-1'
         }
@@ -55,7 +56,28 @@ describe('Fiber Reconciler Helpers', () => {
 
       transferVNodeIdFromPrev(vnode, prevVNode);
 
-      expect(vnode.attrs?.['data-decorator-sid']).toBe('decorator-1');
+      expect(vnode.decoratorSid).toBe('decorator-1');
+      expect(vnode.attrs?.['data-decorator-sid']).toBeUndefined();
+    });
+
+    it('should transfer decorator sid from attrs when top-level decoratorSid is missing', () => {
+      const vnode: VNode = {
+        tag: 'span',
+        stype: 'highlight-decorator'
+      };
+
+      const prevVNode: VNode = {
+        tag: 'span',
+        stype: 'highlight-decorator',
+        attrs: {
+          'data-decorator-sid': 'decorator-2'
+        }
+      };
+
+      transferVNodeIdFromPrev(vnode, prevVNode);
+
+      expect(vnode.decoratorSid).toBeUndefined();
+      expect(vnode.attrs?.['data-decorator-sid']).toBe('decorator-2');
     });
 
     it('should not transfer id when vnode already has id', () => {
@@ -578,4 +600,3 @@ describe('Fiber Reconciler Helpers', () => {
     });
   });
 });
-
