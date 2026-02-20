@@ -275,7 +275,8 @@ define('bTable', (props, context) => {
 - **ElementTemplate** (automatic conversion): Stateless pure template - Automatically converted to `ComponentTemplate` when passed to `define()` (`(props, ctx) => ElementTemplate`)
 - **ContextualComponent**: State management function with `(props, context)` parameters - Explicitly defined as function
 - **Function-based Component**: Function that can access full model data and use nested properties with `data()` DSL
-- **ExternalComponent**: Object with `mount`, `update`, `unmount` methods for external library integration
+- **ExternalComponent**: Object with `mount`, `update`, `unmount` methods for DOM integration; optional `reactComponent` for React rendering (see ExternalComponent API).
+- **ExternalDescriptor**: Return type of `external()`. Either `{ type: 'external', reactComponent }` (React) or `{ type: 'external', mount, unmount, managesDOM? }` (DOM). Use with `define('name', external(...))`.
 
 **Important**: The `define()` function automatically converts all templates to components:
 ```typescript
@@ -486,11 +487,33 @@ data('count');
 data('settings.theme', 'light');
 ```
 
+## external(componentOrDom)
+
+DSL helper for defining external components (React or DOM). Use with `define('name', external(...))`.
+
+**Parameters:**
+- `componentOrDom`: Either a React function component `(props) => any`, or a DOM object `{ mount, unmount, managesDOM?, update? }`.
+
+**Returns:** `ExternalDescriptor` (`{ type: 'external', reactComponent? }` or `{ type: 'external', mount, unmount, ... }`).
+
+**Examples:**
+```typescript
+// React: rendered by @barocss/renderer-react via createElement(reactComponent, props)
+define('my-card', external(MyCardComponent));
+
+// DOM: mount/unmount used by @barocss/renderer-dom
+define('legacy-widget', external({ mount, unmount, managesDOM: true }));
+```
+
+When only `reactComponent` is provided (no `mount`), `@barocss/renderer-dom` renders a placeholder `div` (with `data-bc-sid` / identity attrs) so layout is preserved; the real UI is rendered only in React.
+
+---
+
 ## ExternalComponent API
 
 ### ExternalComponent Interface
 
-Component interface for integrating with external libraries.
+Component interface for integrating with external libraries (DOM mount/unmount). Can also carry an optional React component for `@barocss/renderer-react`.
 
 **Interface:**
 ```typescript
@@ -508,6 +531,24 @@ interface ExternalComponent {
   unmount(instance: ComponentInstance, context?: ComponentContext): void;
   
   // Whether component directly manages DOM
+  managesDOM?: boolean;
+  
+  // Optional React component; when present, renderer-react uses createElement(reactComponent, props) instead of placeholder
+  reactComponent?: (props: Record<string, any>) => any;
+}
+```
+
+### ExternalDescriptor Interface
+
+Return type of `external()`. Used by the registry and renderers to distinguish React-only vs DOM external components.
+
+```typescript
+interface ExternalDescriptor {
+  type: 'external';
+  reactComponent?: (props: Record<string, any>) => any;
+  mount?: (props: Record<string, any>, container: HTMLElement) => HTMLElement;
+  update?: (instance: ComponentInstance, prevProps: Record<string, any>, nextProps: Record<string, any>) => void;
+  unmount?: (instance: ComponentInstance) => void;
   managesDOM?: boolean;
 }
 ```

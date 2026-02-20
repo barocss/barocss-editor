@@ -64,7 +64,34 @@ export class InsertTextCommand implements Command {
   }
 
   private _insertTextIntoDocument(content: any[], _text: string, _position: number): any[] {
-    return content;
+    const nextContent = [...content];
+    if (nextContent.length === 0) {
+      nextContent.push({
+        id: `inline-text-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        type: 'inline-text',
+        text: _text
+      });
+      return nextContent;
+    }
+
+    const targetNode = nextContent.find((node: any) => typeof node?.text === 'string');
+    const targetIndex = nextContent.findIndex((node: any) => typeof node?.text === 'string');
+    if (targetIndex === -1 || !targetNode) {
+      nextContent.push({
+        id: `inline-text-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        type: 'inline-text',
+        text: _text
+      });
+      return nextContent;
+    }
+
+    const text = targetNode.text || '';
+    const position = Math.max(0, Math.min(_position, text.length));
+    const nextText = `${text.slice(0, position)}${_text}${text.slice(position)}`;
+    const updatedNode = { ...targetNode, text: nextText };
+    nextContent[targetIndex] = updatedNode;
+
+    return nextContent;
   }
 }
 
@@ -79,7 +106,10 @@ export class InsertNodeCommand implements Command {
   }
 
   private _insertNodeIntoDocument(content: any[], _node: INode, _position: number): any[] {
-    return content;
+    const nextContent = [...content];
+    const position = Math.max(0, Math.min(_position, nextContent.length));
+    nextContent.splice(position, 0, _node);
+    return nextContent;
   }
 }
 
@@ -94,7 +124,7 @@ export class DeleteNodeCommand implements Command {
   }
 
   private _deleteNodeFromDocument(content: any[], _nodeId: string): any[] {
-    return content;
+    return content.filter((node: any) => node?.id !== _nodeId);
   }
 }
 
@@ -102,11 +132,8 @@ export class SetSelectionCommand implements Command {
   constructor(private _selection: SelectionState) {}
 
   execute(state: DocumentState): DocumentState {
-    // Selection is managed separately
-    // TODO: Should actually update selection state
-    console.log('Setting selection:', this._selection);
-    return {
-      ...state
-    };
+    // Selection is managed separately in Editor and SelectionManager.
+    // Keep DocumentState immutable by returning the same shape.
+    return { ...state };
   }
 }

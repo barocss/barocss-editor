@@ -715,7 +715,9 @@ export class SelectionManager {
 
     const currentSelection = this._currentSelection;
     if (currentSelection) {
-      newSelectionManager.setSelection(currentSelection);
+      newSelectionManager.setSelection({
+        ...currentSelection
+      });
     }
 
     return newSelectionManager;

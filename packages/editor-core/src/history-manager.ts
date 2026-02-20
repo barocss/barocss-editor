@@ -1,4 +1,5 @@
 import { TransactionOperation } from '@barocss/model';
+import type { ModelSelection } from './types';
 
 /**
  * History Entry
@@ -9,7 +10,11 @@ export interface HistoryEntry {
   operations: TransactionOperation[];
   inverseOperations: TransactionOperation[];
   description?: string;
-  metadata?: Record<string, any>;
+  metadata?: {
+    selectionBefore?: ModelSelection | null;
+    selectionAfter?: ModelSelection | null;
+    [key: string]: unknown;
+  };
 }
 
 /**

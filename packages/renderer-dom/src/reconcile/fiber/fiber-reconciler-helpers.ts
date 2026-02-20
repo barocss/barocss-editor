@@ -34,6 +34,9 @@ export function transferVNodeIdFromPrev(
       // Copy sid to top-level
       if (prevVNode.sid) {
         vnode.sid = prevVNode.sid;
+      } else if (prevVNode.decoratorSid) {
+        // Copy decoratorSid to top-level
+        vnode.decoratorSid = prevVNode.decoratorSid;
       } else if (prevVNode.attrs?.['data-decorator-sid']) {
         // Decorator info is stored in attrs, so copy to attrs
         if (!vnode.attrs) vnode.attrs = {};
@@ -258,4 +261,3 @@ export function saveVNodeToTree(
     }
   }
 }
-

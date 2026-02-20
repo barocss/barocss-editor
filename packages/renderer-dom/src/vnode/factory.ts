@@ -336,18 +336,24 @@ export class VNodeBuilder {
       throw new Error(`Component for node type '${nodeType}' not found. All components must be registered via define().`);
     }
 
-    // component is ExternalComponent type
+    // component is ExternalComponent or ExternalDescriptor
     // - template?: ContextualComponent - component function
     // - managesDOM?: boolean - whether DOM is managed
     // - mount, update, unmount - lifecycle methods
+    // - type === 'external' && reactComponent only: React-only (no mount); renderer-dom uses placeholder
 
     let vnode: VNode | null;
 
-    // External component (managesDOM === true)
-    if (component.managesDOM === true) {
+    const isReactOnlyExternal =
+      (component as any)?.type === 'external' &&
+      typeof (component as any)?.reactComponent === 'function' &&
+      typeof (component as any)?.mount !== 'function';
+
+    if (isReactOnlyExternal) {
+      vnode = this._buildReactOnlyPlaceholder(nodeType, data, options);
+    } else if (component.managesDOM === true) {
       vnode = this._buildExternalComponent(nodeType, component, data, options);
     } else {
-      // Context component (managesDOM === false or undefined)
       vnode = this._buildContextComponentFromFunction(nodeType, component, data, options);
     }
     if (!vnode) {
@@ -746,6 +752,30 @@ export class VNodeBuilder {
     // IMPORTANT: sid comes from model data, but if missing and stype exists, auto-generate it
     if (vnode.tag && vnode.stype) {
       applyComponentIdentity(vnode, data, options, this.currentBuildOptions, this.componentManager);
+    }
+
+    // Propagate decorator metadata for layer/block decorator VNodes
+    const decoratorMeta = (options as VNodeBuildOptions | undefined)?.decoratorMeta;
+    if (decoratorMeta) {
+      if (typeof decoratorMeta.sid === 'string' && decoratorMeta.sid.length > 0) {
+        vnode.decoratorSid = decoratorMeta.sid;
+      }
+      if (typeof decoratorMeta.stype === 'string' && decoratorMeta.stype.length > 0) {
+        vnode.decoratorStype = decoratorMeta.stype;
+      }
+      if (decoratorMeta.category === 'layer' || decoratorMeta.category === 'inline' || decoratorMeta.category === 'block') {
+        vnode.decoratorCategory = decoratorMeta.category;
+      }
+      if (
+        decoratorMeta.position === 'before' ||
+        decoratorMeta.position === 'after' ||
+        decoratorMeta.position === 'inside-start' ||
+        decoratorMeta.position === 'inside-end' ||
+        decoratorMeta.position === 'overlay' ||
+        decoratorMeta.position === 'absolute'
+      ) {
+        vnode.decoratorPosition = decoratorMeta.position;
+      }
     }
   }
 
@@ -1371,13 +1401,18 @@ export class VNodeBuilder {
         sid: child.sid,
         decorators: this.currentBuildOptions?.decorators
       };
-      
+
+      const isReactOnly =
+        (component as any)?.type === 'external' &&
+        typeof (component as any)?.reactComponent === 'function' &&
+        typeof (component as any)?.mount !== 'function';
+
       let childVNode: VNode;
-      if (component.managesDOM === true) {
-        // External component: build directly without recursive call
+      if (isReactOnly) {
+        childVNode = this._buildReactOnlyPlaceholder(childType, child, childBuildOptions);
+      } else if (component.managesDOM === true) {
         childVNode = this._buildExternalComponent(childType, component, child, childBuildOptions);
       } else {
-        // Context component: build directly without recursive call
         childVNode = this._buildContextComponentFromFunction(childType, component, child, childBuildOptions);
       }
 
@@ -1484,6 +1519,15 @@ export class VNodeBuilder {
     // Try building as registered component first
     const result = this._buildRegisteredComponent(component, template, data, buildOptions);
     if (result) return result;
+
+    // React-only external (no template, no mount): renderer-dom placeholder
+    const isReactOnly =
+      (component as any)?.type === 'external' &&
+      typeof (component as any)?.reactComponent === 'function' &&
+      typeof (component as any)?.mount !== 'function';
+    if (isReactOnly) {
+      return this._buildReactOnlyPlaceholder(template.name, data, buildOptions);
+    }
 
     // Resolve props and key
     const { props, key } = resolveComponentPropsAndKey(template, data);
@@ -1692,20 +1736,26 @@ export class VNodeBuilder {
    * @returns Merged build options
    */
   private _mergeBuildOptions(
-    options?: { decorators?: Decorator[]; sid?: string },
+    options?: VNodeBuildOptions & {
+      injectChild?: VNode;
+      useDataAsSlot?: boolean;
+    },
     defaultSid?: string
   ): VNodeBuildOptions {
+    const resolvedSid = options?.sid !== undefined
+      ? options.sid
+      : (this.currentBuildOptions?.sid !== undefined
+          ? this.currentBuildOptions.sid
+          : defaultSid);
+
+    const resolvedDecorators = this._resolveDecoratorsFromOptions(options?.decorators);
+
     return {
       ...this.currentBuildOptions,
       ...options,
-      decorators: this._resolveDecoratorsFromOptions(options?.decorators),
-      // sid is only used if explicitly provided in options
-      // If undefined is passed, keep as undefined (no parent sid inheritance)
-      sid: options?.sid !== undefined 
-        ? options.sid 
-        : (this.currentBuildOptions?.sid !== undefined 
-            ? this.currentBuildOptions.sid 
-            : defaultSid)
+      decorators: resolvedDecorators,
+      sid: resolvedSid,
+      decoratorMeta: options?.hasOwnProperty('decoratorMeta') ? options.decoratorMeta : undefined
     };
   }
 
@@ -1888,6 +1938,33 @@ export class VNodeBuilder {
       // This is called during text processing in _buildElement
       // So we don't need to do anything here for inline decorators
     }
+  }
+
+  /**
+   * Build placeholder VNode for React-only external (type === 'external' && reactComponent && !mount).
+   * renderer-dom does not call mount; this div is used for layout. renderer-react renders the real component.
+   */
+  private _buildReactOnlyPlaceholder(
+    nodeType: string,
+    data: ModelData,
+    options?: VNodeBuildOptions
+  ): VNode {
+    const modelSid = (data as any)?.sid ?? options?.sid;
+    const nodeSid = modelSid ? String(modelSid) : undefined;
+    const wrapperAttrs = createComponentWrapperAttrs(nodeType, data, (id) => this.ensureUniqueId(id));
+    const vnode = createComponentVNode({
+      sid: nodeSid,
+      stype: nodeType,
+      props: {},
+      model: data,
+      isExternal: false,
+      attrs: wrapperAttrs
+    });
+    if (vnode.stype && !vnode.sid && this.componentManager?.generateComponentId) {
+      const generatedSid = this.componentManager.generateComponentId(vnode);
+      if (generatedSid) markAutoGeneratedSid(vnode, generatedSid);
+    }
+    return vnode;
   }
 
   /**

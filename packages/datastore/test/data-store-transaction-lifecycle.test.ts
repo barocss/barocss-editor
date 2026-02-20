@@ -82,6 +82,53 @@ describe('DataStore Transaction Lifecycle', () => {
     const t1After = dataStore.getNode('t1');
     expect(t1After!.text).toBe('Hello');
   });
-});
 
+  it('begin → commit applies nested newly created child nodes emitted by setNode', () => {
+    dataStore.begin();
+    const paragraphId = dataStore.addChild('p1', {
+      stype: 'paragraph',
+      content: [
+        { stype: 'inline-text', text: 'child text' }
+      ]
+    });
 
+    dataStore.end();
+    dataStore.commit();
+
+    const paragraph = dataStore.getNode(paragraphId);
+    expect(paragraph).toBeDefined();
+    const textNodeId = Array.isArray(paragraph?.content) ? paragraph?.content[0] : null;
+    expect(textNodeId).toBeDefined();
+    expect(typeof textNodeId).toBe('string');
+    const textNode = textNodeId ? dataStore.getNode(textNodeId as string) : null;
+    expect(textNode).toBeDefined();
+    expect(textNode?.stype).toBe('inline-text');
+  });
+
+  it('setNode emits update for existing nested nodes and persists changed child content', () => {
+    dataStore.begin();
+    dataStore.setNode({
+      sid: 'p1',
+      stype: 'paragraph',
+      content: [
+        {
+          sid: 't1',
+          stype: 'inline-text',
+          text: 'Updated',
+          parentId: 'p1'
+        }
+      ]
+    }, false);
+    const ops = dataStore.end();
+
+    const childOps = ops.filter(op => op.nodeId === 't1');
+    expect(childOps.length).toBeGreaterThan(0);
+    expect(childOps.some(op => op.type === 'update')).toBe(true);
+    expect(childOps.some(op => op.type === 'create')).toBe(false);
+
+    dataStore.commit();
+
+    const updatedText = dataStore.getNode('t1');
+    expect(updatedText?.text).toBe('Updated');
+  });
+}); 

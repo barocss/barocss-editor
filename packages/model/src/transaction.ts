@@ -4,6 +4,7 @@ import { TransactionOperation, OpFunction, OpResult } from './transaction-dsl';
 import { globalOperationRegistry } from './operations/define-operation';
 import { createTransactionContext, TransactionContext } from '.';
 import { Editor } from '@barocss/editor-core';
+import type { TransactionOptions } from './transaction-dsl';
 
 export interface Transaction {
   sid: string;
@@ -51,7 +52,7 @@ export class TransactionManager {
    */
   async execute(
     operations: (TransactionOperation | OpFunction)[],
-    options?: { applySelectionToView?: boolean }
+    options?: TransactionOptions
   ): Promise<TransactionResult> {
     let lockId: string | null = null;
     
@@ -146,10 +147,19 @@ export class TransactionManager {
 
       // 7. Add to history (only on success)
       if (executedOperations.length > 0 && this._shouldAddToHistory(executedOperations)) {
+        const shouldPreserveSelection = options?.preserveSelectionInHistory !== false;
         this._editor.historyManager.push({
           operations: executedOperations,
           inverseOperations: inverseOperations.reverse(), // Store in reverse order
-          description: this._currentTransaction?.description
+          description: this._currentTransaction?.description,
+          ...(shouldPreserveSelection
+            ? {
+                metadata: {
+                  selectionBefore: selectionBefore ? { ...selectionBefore } : null,
+                  selectionAfter: selectionAfter ? { ...selectionAfter } : null
+                }
+              }
+            : {})
         });
       }
 
@@ -187,7 +197,7 @@ export class TransactionManager {
       // Pass selectionAfter to updateSelection only when applySelectionToView !== false
       // (e.g. skip for remote sync or programmatic change)
       const applySelectionToView = options?.applySelectionToView !== false;
-      if (selectionAfter && applySelectionToView) {
+      if (applySelectionToView) {
         this._editor.updateSelection(selectionAfter);
       }
 

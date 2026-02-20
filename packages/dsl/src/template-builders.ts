@@ -5,24 +5,25 @@
  * - Handles native tag protection, global registry, and overload normalization
  */
 // Core template types for DSL construction
-import { 
-  ElementTemplate,        // Element template structure
-  ElementAttributes,      // Element attributes interface
-  ElementChild,           // Child element types (string, ElementTemplate, etc.)
-  DataTemplate,           // Data binding template
-  SlotTemplate,           // Slot template for dynamic content
-  ConditionalTemplate,    // Conditional rendering template
-  RendererDefinition,     // Renderer definition structure
-  TNodeType,              // Node type enumeration
-  ComponentTemplate,      // Component template structure
-  ExternalComponent,      // External component interface
-  RenderTemplate,         // Render template type
+import {
+  ElementTemplate,
+  ElementAttributes,
+  ElementChild,
+  DataTemplate,
+  SlotTemplate,
+  ConditionalTemplate,
+  RendererDefinition,
+  TNodeType,
+  ComponentTemplate,
+  ExternalComponent,
+  ExternalDescriptor,
+  RenderTemplate,
   ContextualComponent,
   ComponentContext,
   ComponentProps,
   ModelData,
-  ElementTag,             // Element tag type
-  PortalTemplate,         // Portal template structure
+  ElementTag,
+  PortalTemplate,
   EachTemplate,
 } from './types';
 import { 
@@ -343,16 +344,16 @@ export function renderer<
   C extends ComponentContext = ComponentContext
 >(
   nodeType: TNodeType,
-  template: ContextualComponent<P, M, C> | RenderTemplate | ExternalComponent
+  template: ContextualComponent<P, M, C> | RenderTemplate | ExternalComponent | ExternalDescriptor
 ): RendererDefinition;
-export function renderer(nodeType: TNodeType, template: RenderTemplate | ContextualComponent | ExternalComponent): RendererDefinition {
+export function renderer(nodeType: TNodeType, template: RenderTemplate | ContextualComponent | ExternalComponent | ExternalDescriptor): RendererDefinition {
   // Disallow native HTML tag names in production (allowed in tests for convenience)
   const isTestEnvironment = typeof process !== 'undefined' && process.env.NODE_ENV === 'test';
   if (!isTestEnvironment && isNativeHTMLTag(nodeType)) {
     throw new Error(`Cannot define template with native HTML tag name '${nodeType}'. Use a descriptive name like 'card', 'button-primary', etc.`);
   }
   
-  let processedTemplate: RenderTemplate | ExternalComponent;
+  let processedTemplate: RenderTemplate | ExternalComponent | ExternalDescriptor;
   
   // Handle function templates (ContextualComponent)
   if (typeof template === 'function') {
@@ -362,7 +363,7 @@ export function renderer(nodeType: TNodeType, template: RenderTemplate | Context
       component: template as ContextualComponent
     } as RenderTemplate;
   } else {
-    processedTemplate = template as RenderTemplate | ExternalComponent;
+    processedTemplate = template as RenderTemplate | ExternalComponent | ExternalDescriptor;
     
     // Auto-wrap ElementTemplate as component function for consistency
     // This makes define() always create components, simplifying the build process
@@ -409,6 +410,27 @@ export function renderer(nodeType: TNodeType, template: RenderTemplate | Context
  */
 export function getGlobalRegistry(): RendererRegistry {
   return globalRegistry;
+}
+
+/**
+ * External component descriptor for define('name', external(...)).
+ * Use for React components or DOM mount/unmount components.
+ *
+ * @example
+ * // React
+ * define('my-card', external(MyCardComponent));
+ *
+ * @example
+ * // DOM (mount/unmount)
+ * define('legacy-widget', external({ mount, unmount, managesDOM: true }));
+ */
+export function external(
+  componentOrDom: ((props: Record<string, any>) => any) | Omit<ExternalComponent, 'type'>
+): ExternalDescriptor {
+  if (typeof componentOrDom === 'function') {
+    return { type: 'external', reactComponent: componentOrDom };
+  }
+  return { type: 'external', ...componentOrDom };
 }
 
 /**

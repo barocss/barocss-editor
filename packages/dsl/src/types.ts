@@ -144,6 +144,21 @@ export interface ExternalComponent {
   update?: (instance: ComponentInstance, prevProps: Record<string, any>, nextProps: Record<string, any>) => void;
   unmount: (instance: ComponentInstance) => void;
   managesDOM?: boolean;
+  /** React: function or class component (renderer-react uses this when present). */
+  reactComponent?: (props: Record<string, any>) => any;
+}
+
+/**
+ * Descriptor returned by external() for define('name', external(...)).
+ * Either reactComponent (React) or mount/unmount (DOM) is provided.
+ */
+export interface ExternalDescriptor {
+  type: 'external';
+  reactComponent?: (props: Record<string, any>) => any;
+  mount?: (props: Record<string, any>, container: HTMLElement) => HTMLElement;
+  update?: (instance: ComponentInstance, prevProps: Record<string, any>, nextProps: Record<string, any>) => void;
+  unmount?: (instance: ComponentInstance) => void;
+  managesDOM?: boolean;
 }
 
 export type RenderTemplate = ElementTemplate | ComponentTemplate | PortalTemplate;
@@ -153,7 +168,7 @@ export type ElementChild = string | number | ElementTemplate | SlotTemplate | Da
 export interface RendererDefinition {
   type: 'renderer';
   nodeType: string;
-  template: RenderTemplate | ExternalComponent;
+  template: RenderTemplate | ExternalComponent | ExternalDescriptor;
 }
 
 export interface RendererTemplate {

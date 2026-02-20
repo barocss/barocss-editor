@@ -21,9 +21,10 @@ export class RendererRegistry {
   
   // Register a renderer
   register(renderer: RendererDefinition): void {
-    // If template is an ExternalComponent, register as component only
-    if (renderer.template && typeof renderer.template === 'object' && 'managesDOM' in renderer.template) {
-      this.registerComponent(renderer.nodeType, renderer.template as ExternalComponent);
+    // If template is external (DOM or React), register as component only
+    const t = renderer.template;
+    if (t && typeof t === 'object' && ((t as any).type === 'external' || 'managesDOM' in t)) {
+      this.registerComponent(renderer.nodeType, t as ExternalComponent);
       return; // do not store in _renderers
     }
     

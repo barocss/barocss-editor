@@ -110,6 +110,40 @@ describe('DataStore Content Management Functions', () => {
       expect(types2).toContain('update');
     });
 
+    it('should persist nested child objects with auto-assigned ids', () => {
+      const documentParent = {
+        sid: 'doc-parent',
+        stype: 'document',
+        content: [],
+        attributes: {}
+      };
+      dataStore.setNode(documentParent, false);
+
+      dataStore.begin();
+      const paragraphId = dataStore.addChild('doc-parent', {
+        stype: 'paragraph',
+        content: [{ stype: 'inline-text', text: 'Nested child' }],
+        attributes: {}
+      });
+      const ops = dataStore.end();
+
+      const paragraph = dataStore.getNode(paragraphId);
+      expect(paragraph).toBeDefined();
+      expect(Array.isArray(paragraph!.content)).toBe(true);
+      const textId = (paragraph!.content as string[])[0];
+      expect(typeof textId).toBe('string');
+
+      const textNode = dataStore.getNode(textId);
+      expect(textNode).toBeDefined();
+      expect(textNode!.stype).toBe('inline-text');
+      expect(textNode!.text).toBe('Nested child');
+      expect(textNode!.parentId).toBe(paragraphId);
+
+      const types = ops.map(o => o.type);
+      expect(types).toContain('create');
+      expect(types).toContain('update');
+    });
+
     it('should add child at specific position', () => {
       // First add another child
       const child2 = {

@@ -148,7 +148,56 @@ export function buildToReact(
   }
 
   const templateOrComponent = def.template;
-  if ((templateOrComponent as any)?.managesDOM === true) {
+  const ext = templateOrComponent as { type?: string; reactComponent?: (props: Record<string, any>) => any; managesDOM?: boolean };
+  if (typeof ext?.reactComponent === 'function') {
+    const modelObj = typeof model === 'object' && model !== null ? model as Record<string, unknown> : {};
+    const opts: BuildOptions = { ...options, sid: (model as any).sid };
+    const decorators = options?.decorators ?? [];
+    const content = (model as any).content;
+    let children: ReactNode[] = [];
+    if (Array.isArray(content)) {
+      for (const childModel of content as ModelData[]) {
+        const childStype = (childModel as any).stype;
+        const childSid = (childModel as any).sid;
+        if (!childStype) continue;
+        const childNode = buildToReact(registry, childStype, childModel, opts);
+        if (childSid && decorators.length > 0) {
+          const childDecorators = findDecoratorsForNode(childSid, decorators);
+          const categorized = categorizeDecorators(childDecorators);
+          const blockLayer = [...categorized.block, ...categorized.layer];
+          if (blockLayer.length > 0) {
+            for (const d of blockLayer) {
+              if ((d.position ?? 'after') === 'before') {
+                children.push(buildDecoratorToReact(registry, d));
+              }
+            }
+            children.push(childNode);
+            for (const d of blockLayer) {
+              if ((d.position ?? 'after') !== 'before') {
+                children.push(buildDecoratorToReact(registry, d));
+              }
+            }
+          } else {
+            children.push(childNode);
+          }
+        } else {
+          children.push(childNode);
+        }
+      }
+    }
+    const props: Record<string, unknown> = {
+      ...modelObj,
+      model,
+      sid: (model as any).sid,
+      stype: nodeType,
+      key: (model as any).sid,
+      'data-bc-sid': (model as any).sid,
+      'data-bc-stype': nodeType,
+      children: children.length > 0 ? children : undefined,
+    };
+    return createElement(ext.reactComponent, props);
+  }
+  if (ext?.managesDOM === true) {
     return createElement('div', {
       key: (model as any).sid,
       'data-bc-sid': (model as any).sid,
@@ -228,6 +277,22 @@ function buildDecoratorToReact(registry: RendererRegistry, decorator: Decorator)
       'data-decorator-category': decorator.category,
       'data-decorator-missing-renderer': decorator.stype,
     });
+  }
+  const ext = templateOrComponent as { type?: string; reactComponent?: (props: Record<string, any>) => any };
+  if (typeof ext?.reactComponent === 'function') {
+    const props = {
+      key: decorator.sid,
+      'data-decorator-sid': decorator.sid,
+      'data-decorator-stype': decorator.stype,
+      'data-decorator-category': decorator.category,
+      decorator,
+      model: (decorator.data ?? {}) as ModelData,
+      sid: decorator.sid,
+      stype: decorator.stype,
+      category: decorator.category,
+      data: decorator.data,
+    };
+    return createElement(ext.reactComponent, props);
   }
   const data: ModelData = (decorator.data ?? {}) as ModelData;
   let template = templateOrComponent;

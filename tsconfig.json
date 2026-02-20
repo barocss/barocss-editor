@@ -21,6 +21,7 @@
     "baseUrl": ".",
     "paths": {
       "@barocss/schema": ["./packages/schema/src"],
+      "@barocss/extensions": ["./packages/extensions/src"],
       "@barocss/model": ["./packages/model/src"],
       "@barocss/dsl": ["./packages/dsl/src"],
       "@barocss/renderer-dom": ["./packages/renderer-dom/src"],

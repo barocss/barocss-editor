@@ -152,7 +152,14 @@ export type EditorEventType =
 
 // Define types in EditorEvents interface
 export interface EditorEvents {
-  'editor:content.change': { content: DocumentState; transaction: Transaction };
+  'editor:content.change': { 
+    content: DocumentState; 
+    transaction: Transaction | null;
+    from?: string;
+    skipRender?: boolean;
+    rootId?: string;
+    inputDebug?: any;
+  };
   'myapp:feature.action': { feature: string; action: string; data: any };
   [K: `myapp:${string}`]: any;
   [K: string]: any;

@@ -60,6 +60,15 @@ export interface ModelSelection {
   direction?: 'forward' | 'backward' | 'none';
 }
 
+export interface EditorSelectionModelEventPayload {
+  selection: ModelSelection | null;
+  applySelectionToView?: boolean;
+  source?: string;
+  metadata?: Record<string, any>;
+}
+
+export type EditorSelectionModelPayload = ModelSelection | EditorSelectionModelEventPayload;
+
 export interface NoSelection {
   type: 'none';
 }
@@ -75,7 +84,8 @@ export function fromDOMSelection(
   anchorOffset: number,
   focusId: string,
   focusOffset: number,
-  selectionType: SelectionType = 'range'
+  selectionType: SelectionType = 'range',
+  compareNodeOrder?: (a: string, b: string) => number
 ): ModelSelection {
   // Single node case
   if (anchorId === focusId) {
@@ -94,15 +104,22 @@ export function fromDOMSelection(
   }
   
   // Multiple nodes case
-  // TODO: Normalize based on document order and determine direction
+  const compare = compareNodeOrder ?? ((a, b) => a.localeCompare(b));
+  const order = compare(anchorId, focusId);
+  const isForward = order <= 0;
+  const startNodeId = isForward ? anchorId : focusId;
+  const startOffset = isForward ? anchorOffset : focusOffset;
+  const endNodeId = isForward ? focusId : anchorId;
+  const endOffset = isForward ? focusOffset : anchorOffset;
+
   return {
     type: selectionType,
-    startNodeId: anchorId,
-    startOffset: anchorOffset,
-    endNodeId: focusId,
-    endOffset: focusOffset,
+    startNodeId,
+    startOffset,
+    endNodeId,
+    endOffset,
     collapsed: false,
-    direction: 'forward'
+    direction: isForward ? 'forward' : 'backward'
   };
 }
 
@@ -278,11 +295,19 @@ export type EditorEventType =
   | string;
 
 export interface EditorEvents {
-  'editor:content.change': { content: DocumentState; transaction: Transaction };
+  'editor:content.change': { 
+    content: DocumentState; 
+    transaction: Transaction | null;
+    from?: string;
+    skipRender?: boolean;
+    rootId?: string;
+    inputDebug?: any;
+  };
   'editor:node.create': { node: Node; position: number };
   'editor:node.update': { node: Node; oldNode: Node };
   'editor:node.delete': { node: Node; position: number };
   'editor:selection.change': { selection: SelectionState; oldSelection: SelectionState };
+  'editor:selection.model': EditorSelectionModelPayload;
   'editor:selection.focus': { selection: SelectionState };
   'editor:selection.blur': { selection: SelectionState };
   'editor:command.execute': { command: string; payload?: any; success: boolean };

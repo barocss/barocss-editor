@@ -332,13 +332,39 @@ export class CoreOperations {
       node.content = node.content.map(child => {
         if (typeof child === 'object' && child !== null) {
           const childNode = child as INode;
+          if (!childNode.sid) {
+            childNode.sid = this.dataStore.generateId();
+          }
+          childNode.parentId = node.sid;
           this._convertChildrenToDataStore(childNode);
+          const childExists = this.dataStore.getNode(childNode.sid!) !== undefined;
+          const childOpType = childExists ? 'update' : 'create';
           const overlay = (this.dataStore as any)._overlay;
           if (overlay && overlay.isActive && overlay.isActive()) {
-            overlay.upsertNode(childNode, 'create');
+            overlay.upsertNode(childNode, childOpType);
           } else {
             this.dataStore.setNodeInternal(childNode);
           }
+
+          // Emit child node operation because overlay-based commit
+          // replays only collected operations, and without explicit ops
+          // nested nodes are not applied correctly.
+          const childOp = {
+            type: childOpType,
+            nodeId: childNode.sid!,
+            data: {
+              stype: childNode.stype,
+              attributes: childNode.attributes,
+              text: childNode.text,
+              content: childNode.content,
+              parentId: childNode.parentId,
+              marks: childNode.marks
+            },
+            timestamp: Date.now(),
+            parentId: childNode.parentId
+          };
+          this.dataStore.emitOperation(childOp as AtomicOperation);
+
           return childNode.sid!;
         }
         return child;

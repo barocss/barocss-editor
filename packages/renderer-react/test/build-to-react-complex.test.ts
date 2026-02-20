@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { define, element, slot, data, attr, when, each, defineMark, getGlobalRegistry } from '@barocss/dsl';
+import { define, element, slot, data, attr, when, each, defineMark, getGlobalRegistry, external } from '@barocss/dsl';
 import { buildToReact } from '../src/build-to-react';
 import { ReactRenderer } from '../src/react-renderer';
 
@@ -443,6 +443,68 @@ describe('buildToReact – implementation: contextual component and managesDOM',
     expect(node.props?.['data-bc-sid']).toBe('e1');
     expect(node.props?.['data-bc-stype']).toBe('external-block');
     expect(node.props?.className).toContain('react-renderer-external-placeholder');
+  });
+
+  it('external(ReactComponent) renders the component with model, sid, stype props', () => {
+    const registry = getGlobalRegistry();
+    function ReactExternalBlock(_props: Record<string, any>) {
+      return null;
+    }
+    define('react-external-block', external(ReactExternalBlock as any));
+    const model = { sid: 'r1', stype: 'react-external-block', title: 'Hello' };
+    const node = buildToReact(registry, 'react-external-block', model as any) as any;
+    expect(node.type).toBe(ReactExternalBlock);
+    expect(node.props?.model).toEqual(model);
+    expect(node.props?.sid).toBe('r1');
+    expect(node.props?.stype).toBe('react-external-block');
+    expect(node.props?.['data-bc-sid']).toBe('r1');
+  });
+
+  it('external(ReactComponent) with no model.content has undefined props.children and does not throw', () => {
+    const registry = getGlobalRegistry();
+    function EmptyCard(_props: Record<string, any>) {
+      return null;
+    }
+    define('empty-card', external(EmptyCard as any));
+    const modelNoContent = { sid: 'c1', stype: 'empty-card' };
+    const modelEmptyContent = { sid: 'c2', stype: 'empty-card', content: [] };
+    const node1 = buildToReact(registry, 'empty-card', modelNoContent as any) as any;
+    const node2 = buildToReact(registry, 'empty-card', modelEmptyContent as any) as any;
+    expect(node1.type).toBe(EmptyCard);
+    expect(node1.props?.children).toBeUndefined();
+    expect(node2.type).toBe(EmptyCard);
+    expect(node2.props?.children).toBeUndefined();
+  });
+
+  it('external(ReactComponent) with model.content receives props.children (schema hierarchy)', () => {
+    const registry = getGlobalRegistry();
+    if (!registry.has?.('paragraph')) {
+      define('paragraph', element('p', {}, [slot('content')]));
+    }
+    if (!registry.has?.('inline-text')) {
+      define('inline-text', element('span', {}, [data('text')]));
+    }
+    function CardWithChildren(_props: Record<string, any>) {
+      return null;
+    }
+    define('card-block', external(CardWithChildren as any));
+    const model = {
+      sid: 'card1',
+      stype: 'card-block',
+      content: [
+        { sid: 'p1', stype: 'paragraph', content: [{ sid: 't1', stype: 'inline-text', text: 'A' }] },
+        { sid: 'p2', stype: 'paragraph', content: [{ sid: 't2', stype: 'inline-text', text: 'B' }] },
+      ],
+    };
+    const node = buildToReact(registry, 'card-block', model as any) as any;
+    expect(node.type).toBe(CardWithChildren);
+    expect(node.props?.model).toEqual(model);
+    expect(Array.isArray(node.props?.children)).toBe(true);
+    expect(node.props.children).toHaveLength(2);
+    expect(node.props.children[0].type).toBe('p');
+    expect(node.props.children[1].type).toBe('p');
+    expect(hasRawText(node, 'A')).toBe(true);
+    expect(hasRawText(node, 'B')).toBe(true);
   });
 });
 

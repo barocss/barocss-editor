@@ -62,7 +62,7 @@ export class BoldExtension implements Extension {
   }
 
   private _registerKeyboardShortcut(_editor: unknown): void {
-    // TODO: Keyboard shortcut registration logic
+    // Keyboard shortcut registration is handled by default keybindings in editor-core.
   }
 }
 

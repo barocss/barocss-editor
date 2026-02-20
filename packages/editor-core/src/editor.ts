@@ -1,5 +1,15 @@
-import { Transaction, TransactionManager } from '@barocss/model';
-import { DocumentState, SelectionState, EditorOptions, Extension, Command, EditorEventType, ModelSelection } from './types';
+import { Transaction, TransactionManager, type TransactionOperation, type TransactionResult, type TransactionOptions } from '@barocss/model';
+import { createSchema, getMinimalSchemaDefinition } from '@barocss/schema';
+import {
+  DocumentState,
+  SelectionState,
+  EditorOptions,
+  Extension,
+  Command,
+  EditorEventType,
+  ModelSelection,
+  EditorSelectionModelPayload
+} from './types';
 import { DataStoreLoader, DataStoreExporter, DataStore, INode } from '@barocss/datastore';
 import { SelectionManager } from './selection-manager';
 import { HistoryManager } from './history-manager';
@@ -7,6 +17,73 @@ import { KeybindingRegistryImpl, type KeybindingRegistry, type ContextProvider }
 import { DEFAULT_KEYBINDINGS } from './keybinding/default-keybindings';
 import { DEFAULT_CONTEXT_INITIAL_VALUES } from './context/default-context';
 import { IS_MAC, IS_LINUX, IS_WINDOWS } from '@barocss/shared';
+import {
+  createBasicExtensions,
+  createCoreExtensions,
+  EscapeExtension,
+  MoveBlockExtension,
+  StrikeThroughExtension,
+  UnderlineExtension
+} from '../../extensions/src';
+
+function isModelSelection(selection: unknown): selection is ModelSelection {
+  if (!selection || typeof selection !== 'object') return false;
+  const value = selection as Record<string, any>;
+  const type = value.type;
+  return (
+    (type === 'range' || type === 'node' || type === 'cell' || type === 'table') &&
+    typeof value.startNodeId === 'string' &&
+    typeof value.endNodeId === 'string' &&
+    Number.isInteger(value.startOffset) &&
+    Number.isInteger(value.endOffset)
+  );
+}
+
+function isSelectionTargetAlive(dataStore: DataStore, selection: ModelSelection): boolean {
+  const startNode = dataStore.getNode(selection.startNodeId);
+  const endNode = dataStore.getNode(selection.endNodeId);
+  if (!startNode || !endNode) return false;
+
+  if (selection.startOffset < 0 || selection.endOffset < 0) return false;
+  if (typeof startNode.text === 'string' && selection.startOffset > startNode.text.length) return false;
+  if (typeof endNode.text === 'string' && selection.endOffset > endNode.text.length) return false;
+
+  return true;
+}
+
+function parseModelSelectionPayload(selection: unknown): {
+  modelSelection: SelectionState | ModelSelection | null;
+  applySelectionToView: boolean;
+  source?: string;
+} {
+  const raw: any = selection as any;
+
+  if (!raw || typeof raw !== 'object') {
+    return {
+      modelSelection: raw,
+      applySelectionToView: true
+    };
+  }
+
+  const hasSelectionField =
+    Object.prototype.hasOwnProperty.call(raw, 'selection');
+
+  if (!hasSelectionField) {
+    return {
+      modelSelection: raw as any,
+      applySelectionToView: raw.source !== 'remote',
+      source: raw.source
+    };
+  }
+
+  return {
+    modelSelection: raw.selection,
+    applySelectionToView: raw.source === 'remote'
+      ? false
+      : raw.applySelectionToView !== false,
+    source: raw.source
+  };
+}
 
 export class Editor implements ContextProvider {
   private _document: any;
@@ -27,7 +104,12 @@ export class Editor implements ContextProvider {
 
   constructor(options: EditorOptions = {}) {
     this._dataStore = options.dataStore || new DataStore();
+    this._ensureSchema(options);
     this._document = options.content ? this._convertFromDocumentState(options.content) : this._createEmptyDocument();
+    this._syncToDataStoreFromDocumentState(
+      options.content || this._document,
+      this._document
+    );
     this._historyManager = new HistoryManager(options.history);
     this._transactionManager = new TransactionManager(this);
     this._selectionManager = new SelectionManager({ 
@@ -43,6 +125,7 @@ export class Editor implements ContextProvider {
     this._updateBuiltinContext();
     
     this._registerCoreCommands();
+    this._registerDefaultExtensions();
     this._registerDefaultKeybindings();
     this._addToHistory(this._document);
     
@@ -69,6 +152,147 @@ export class Editor implements ContextProvider {
       },
       canExecute: () => true
     });
+
+    // focus command (used by command chain for chaining API compatibility)
+    this.registerCommand({
+      name: 'focus',
+      execute: () => true,
+      canExecute: () => true
+    });
+
+    // insertText command (used by CommandChain)
+    this.registerCommand({
+      name: 'insertText',
+      execute: async (editor: Editor, payload?: { text: string; selection?: ModelSelection }) => {
+        const selection = payload?.selection || editor.selection;
+        if (!selection || selection.type !== 'range' || !payload?.text) {
+          return false;
+        }
+
+        if (!editor.canExecuteCommand('replaceText')) {
+          return false;
+        }
+
+        return editor.executeCommand('replaceText', {
+          range: selection,
+          text: payload.text
+        });
+      },
+      canExecute: (editor: Editor, payload?: { text?: string; selection?: ModelSelection }) => {
+        const selection = payload?.selection || editor.selection;
+        return !!selection && selection.type === 'range' && !!payload?.text;
+      }
+    });
+
+    // deleteSelection command (used by CommandChain)
+    this.registerCommand({
+      name: 'deleteSelection',
+      execute: async (editor: Editor, payload?: { selection?: ModelSelection }) => {
+        const selection = payload?.selection || editor.selection;
+        if (!selection || selection.type !== 'range' || selection.collapsed) {
+          return false;
+        }
+
+        if (!editor.canExecuteCommand('backspace')) {
+          return false;
+        }
+
+        return editor.executeCommand('backspace', { selection });
+      },
+      canExecute: (_editor: Editor, payload?: { selection?: ModelSelection }) => {
+        const selection = payload?.selection || _editor.selection;
+        return !!selection && selection.type === 'range' && !selection.collapsed;
+      }
+    });
+
+    // history commands (mapped to editor history APIs)
+    this.registerCommand({
+      name: 'historyUndo',
+      execute: (editor: Editor) => {
+        return editor.undo();
+      },
+      canExecute: (editor: Editor) => editor.canUndo()
+    });
+
+    this.registerCommand({
+      name: 'historyRedo',
+      execute: (editor: Editor) => {
+        return editor.redo();
+      },
+      canExecute: (editor: Editor) => editor.canRedo()
+    });
+
+    // command aliases matching model/legacy naming
+    this.registerCommand({
+      name: 'undo',
+      execute: (editor: Editor) => {
+        return editor.undo();
+      },
+      canExecute: (editor: Editor) => editor.canUndo()
+    });
+
+    this.registerCommand({
+      name: 'redo',
+      execute: (editor: Editor) => {
+        return editor.redo();
+      },
+      canExecute: (editor: Editor) => editor.canRedo()
+    });
+
+    // selection mutation commands for programmatic selection control
+    this.registerCommand({
+      name: 'setRange',
+      execute: (editor: Editor, payload?: any) => {
+        editor.setRange(payload);
+        return true;
+      },
+      canExecute: () => true
+    });
+
+    this.registerCommand({
+      name: 'setNode',
+      execute: (editor: Editor, payload?: any) => {
+        editor.setNode(payload);
+        return true;
+      },
+      canExecute: () => true
+    });
+
+    this.registerCommand({
+      name: 'setAbsolutePos',
+      execute: (editor: Editor, payload?: any) => {
+        editor.setAbsolutePos(payload);
+        return true;
+      },
+      canExecute: () => true
+    });
+
+    this.registerCommand({
+      name: 'clearSelection',
+      execute: (editor: Editor) => {
+        editor.clearSelection();
+        return true;
+      },
+      canExecute: () => true
+    });
+  }
+
+  private _registerDefaultExtensions(): void {
+    const extensions = [
+      ...createCoreExtensions(),
+      ...createBasicExtensions(),
+      new UnderlineExtension(),
+      new StrikeThroughExtension(),
+      new EscapeExtension(),
+      new MoveBlockExtension()
+    ];
+
+    for (const extension of extensions) {
+      // Ignore duplicates to avoid overwriting explicitly passed extensions
+      if (!this._extensions.has(extension.name)) {
+        this.use(extension);
+      }
+    }
   }
 
   private _registerDefaultKeybindings(): void {
@@ -117,7 +341,7 @@ export class Editor implements ContextProvider {
   }
 
   setRange(rangeSelection: any): void {
-    this._selectionManager.setRange(rangeSelection);
+    this.updateSelection(rangeSelection);
   }
 
   // -------- Load/Export helpers (DX-oriented, keep responsibilities thin) --------
@@ -125,6 +349,10 @@ export class Editor implements ContextProvider {
     const loader = new DataStoreLoader(this._dataStore, sessionId);
     const rootId = loader.loadDocument(treeDocument);
     this._rootId = rootId;
+    const exporter = new DataStoreExporter(this._dataStore);
+    const tree = exporter.exportToTree(rootId);
+    this._document = this._convertToDocumentState(tree);
+    this._addToHistory(this._document);
     this.emit('editor:content.change', { content: this.document, transaction: null, rootId });
   }
 
@@ -152,11 +380,28 @@ export class Editor implements ContextProvider {
   }
 
   setNode(nodeSelection: any): void {
-    this._selectionManager.setNode(nodeSelection);
+    if (!nodeSelection) {
+      this.updateSelection(null);
+      return;
+    }
+
+    const nodeId = nodeSelection.nodeId ?? nodeSelection.startNodeId;
+    if (!nodeId) {
+      this.updateSelection(null);
+      return;
+    }
+
+    this.updateSelection({
+      type: 'node',
+      startNodeId: nodeId,
+      startOffset: 0,
+      endNodeId: nodeId,
+      endOffset: 0,
+    });
   }
 
   setAbsolutePos(absoluteSelection: any): void {
-    this._selectionManager.setAbsolutePos(absoluteSelection);
+    this.updateSelection(absoluteSelection);
   }
 
   private _setupSelectionErrorHandling(): void {
@@ -242,7 +487,10 @@ export class Editor implements ContextProvider {
       }
     }
     
-    this._document = this._convertFromDocumentState(finalContent);
+    const internalDocument = this._convertFromDocumentState(finalContent);
+    this._document = internalDocument;
+    this._syncToDataStoreFromDocumentState(finalContent, internalDocument);
+    this._addToHistory(this._document);
     this.emit('editor:content.change', { content: finalContent, transaction: null });
     
     // After hooks
@@ -252,13 +500,39 @@ export class Editor implements ContextProvider {
   }
 
   updateSelection(selection: SelectionState | any): void {
+    const parsedSelection = parseModelSelectionPayload(selection);
+    let finalSelection: any = parsedSelection.modelSelection;
+    const applySelectionToView = parsedSelection.applySelectionToView;
+    const selectionSource = parsedSelection.source;
+    const oldSelection = this.selection;
+
+    if (!finalSelection) {
+      this._selectionManager.clearSelection();
+      this._updateBuiltinContext();
+      this.emit('editor:selection.change', { selection: finalSelection, oldSelection });
+      return;
+    }
+
+    if (isModelSelection(finalSelection) && !isSelectionTargetAlive(this._dataStore, finalSelection)) {
+      if (process.env.EDITOR_SELECTION_DEBUG === '1') {
+        console.warn('[selection-debug] updateSelection skipped due dead selection', {
+          selection: finalSelection,
+          startNode: this._dataStore.getNode(finalSelection.startNodeId),
+          endNode: this._dataStore.getNode(finalSelection.endNodeId)
+        });
+      }
+      this._selectionManager.clearSelection();
+      this._updateBuiltinContext();
+      return;
+    }
+
     // Before hooks: Allow extensions to intercept and modify selection
-    let finalSelection = selection;
+    let nextSelection = finalSelection;
     const extensions = this.getSortedExtensions();
     
     for (const ext of extensions) {
       if (ext.onBeforeSelectionChange) {
-        const result = ext.onBeforeSelectionChange(this, finalSelection);
+        const result = ext.onBeforeSelectionChange(this, nextSelection);
         
         // Check if cancelled
         if (result === null) {
@@ -268,32 +542,41 @@ export class Editor implements ContextProvider {
         
         // Use modified selection if provided
         if (result) {
-          finalSelection = result;
+          nextSelection = result;
         }
       }
     }
     
-    // ModelSelection format (type: 'range')
-    if (finalSelection && finalSelection.type === 'range') {
-      this._selectionManager.setSelection(finalSelection);
+    // ModelSelection format (range/node/cell/table)
+    if (isModelSelection(nextSelection)) {
+      this._selectionManager.setSelection(nextSelection);
       this._updateBuiltinContext();
+
       // View restores DOM selection after render()
-      this.emit('editor:selection.model', finalSelection);
-      
+      const emitValue = applySelectionToView
+        ? nextSelection
+        : {
+            selection: nextSelection,
+            applySelectionToView,
+            source: selectionSource
+          } as EditorSelectionModelPayload;
+      this.emit('editor:selection.model', emitValue);
+
       // After hooks
       extensions.forEach(ext => {
-        ext.onSelectionChange?.(this, finalSelection);
+        ext.onSelectionChange?.(this, nextSelection);
       });
       return;
     }
     
-    // SelectionState format (legacy behavior)
+    // SelectionState format (range/caret fallback)
     this._updateBuiltinContext();
-    this.emit('editor:selection.change', { selection: finalSelection, oldSelection: this.selection });
+    this._selectionManager.clearSelection();
+    this.emit('editor:selection.change', { selection: nextSelection, oldSelection });
     
     // After hooks
     extensions.forEach(ext => {
-      ext.onSelectionChange?.(this, finalSelection);
+      ext.onSelectionChange?.(this, nextSelection);
     });
   }
 
@@ -389,7 +672,21 @@ export class Editor implements ContextProvider {
     this._context.isWindows = IS_WINDOWS;
     
     const selection = this._selectionManager.getCurrentSelection();
-    if (selection) {
+    if (!selection || !isModelSelection(selection)) {
+      this._selectionManager.clearSelection();
+      this._context.selectionEmpty = true;
+      this._context.selectionType = null;
+      this._context.selectionDirection = null;
+      this._context.canIndent = false;
+      this._context.canIndentText = false;
+    } else if (!isSelectionTargetAlive(this._dataStore, selection)) {
+      this._selectionManager.clearSelection();
+      this._context.selectionEmpty = true;
+      this._context.selectionType = null;
+      this._context.selectionDirection = null;
+      this._context.canIndent = false;
+      this._context.canIndentText = false;
+    } else {
       this._context.selectionEmpty = selection.collapsed === true;
       this._context.selectionType = selection.type;
       this._context.selectionDirection = selection.direction;
@@ -407,12 +704,6 @@ export class Editor implements ContextProvider {
       } else {
         this._context.canIndentText = false;
       }
-    } else {
-      this._context.selectionEmpty = true;
-      this._context.selectionType = null;
-      this._context.selectionDirection = null;
-      this._context.canIndent = false;
-      this._context.canIndentText = false;
     }
 
     this._context.historyCanUndo = this._historyManager.canUndo();
@@ -612,142 +903,36 @@ export class Editor implements ContextProvider {
     return this._historyIndex < this._history.length - 1;
   }
 
-  executeTransaction(transaction: Transaction): void {
-    try {
-      // TODO: Implement actual transaction execution logic
-      // this._transactionManager.commitTransaction(transaction);
+  async executeTransaction(transaction: Transaction | any): Promise<TransactionResult> {
+    const operations = (transaction as any)?.operations;
+    if (!Array.isArray(operations)) {
+      return {
+        success: false,
+        errors: ['Unsupported transaction format.'],
+        data: undefined,
+        transactionId: (transaction as any)?.sid,
+        operations: [],
+        selectionBefore: this._selectionManager.getCurrentSelection() || null,
+        selectionAfter: this._selectionManager.getCurrentSelection() || null
+      };
+    }
 
-      // Lightweight model mutation bridge for demo
-      this._applyBasicTransaction(transaction as any);
-      
-      this._addToHistory(this._document);
-      
-      this.emit('transactionExecuted', { transaction });
-      // Temporary bridge: also emit content change event
-      this.emit('editor:content.change', { content: this.document, transaction });
-      // Bridge event if model selection is included in transaction
-      const selAfter = (transaction as any)?.selectionAfter;
-      if (selAfter) {
-        this.emit('editor:selection.model', selAfter as any);
-      }
+    try {
+      const result = await this._transactionManager.execute(operations as (TransactionOperation | any)[], transaction?.options);
+      this.emit('transactionExecuted', { transaction: result } as any);
+      return result;
     } catch (error) {
       console.error('Transaction execution failed:', error);
-      this.emit('transactionError', { transaction, error });
-    }
-  }
-
-  private _applyBasicTransaction(tx: any): void {
-    if (!tx || !tx.type) return;
-    const ds: any = this._dataStore;
-    if (!ds || typeof ds.getNode !== 'function') return;
-    const now = new Date();
-    const genId = () => `node-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-
-    if (tx.type === 'insert_paragraph_after') {
-      const afterNodeId: string | undefined = tx.afterNodeId;
-      const afterNode = afterNodeId ? ds.getNode(afterNodeId) : undefined;
-      if (!afterNode) return;
-      // Find parent: use root as parent if not found
-      const parent = (afterNode.parentId ? ds.getNode(afterNode.parentId) : ds.getNode(this.getRootId?.() as any)) || ds.getRootNode?.();
-      if (!parent) return;
-      const newParaId = tx.newParagraphId || genId();
-      const newTextId = tx.newTextId || genId();
-      const newPara = {
-        id: newParaId,
-        type: 'paragraph',
-        attributes: {},
-        content: [newTextId],
-        metadata: { createdAt: now, updatedAt: now },
-        version: 1,
-        parentId: parent.sid
-      } as any;
-      const newText = {
-        id: newTextId,
-        type: 'text',
-        text: '',
-        attributes: {},
-        metadata: { createdAt: now, updatedAt: now },
-        version: 1,
-        parentId: newParaId
-      } as any;
-      ds.setNode(newPara);
-      ds.setNode(newText);
-      const content: string[] = Array.isArray(parent.content) ? [...parent.content] : [];
-      const idx = content.indexOf(afterNodeId as string);
-      const insertAt = idx >= 0 ? idx + 1 : content.length;
-      content.splice(insertAt, 0, newParaId);
-      ds.setNode({ ...parent, content });
-      return;
-    }
-
-    if (tx.type === 'insert_paragraph_at_root') {
-      const root = ds.getRootNode?.();
-      if (!root) return;
-      const newParaId = tx.newParagraphId || genId();
-      const newTextId = tx.newTextId || genId();
-      const newPara = {
-        id: newParaId,
-        type: 'paragraph',
-        attributes: {},
-        content: [newTextId],
-        metadata: { createdAt: now, updatedAt: now },
-        version: 1,
-        parentId: root.sid
-      } as any;
-      const newText = {
-        id: newTextId,
-        type: 'text',
-        text: '',
-        attributes: {},
-        metadata: { createdAt: now, updatedAt: now },
-        version: 1,
-        parentId: newParaId
-      } as any;
-      ds.setNode(newPara);
-      ds.setNode(newText);
-      const content: string[] = Array.isArray(root.content) ? [...root.content] : [];
-      content.push(newParaId);
-      ds.setNode({ ...root, content });
-      return;
-    }
-
-    if (tx.type === 'text_replace') {
-      const nodeId: string | undefined = tx.nodeId;
-      const node = nodeId ? ds.getNode(nodeId) : undefined;
-      if (!node || node.type !== 'text') return;
-      const oldText: string = (node as any).text || '';
-      const start: number = tx.start ?? 0;
-      const end: number = tx.end ?? start;
-      const insertText: string = tx.text ?? '';
-      const newText = oldText.slice(0, start) + insertText + oldText.slice(end);
-      
-      // Update marks if provided
-      const updatedNode: any = {
-        ...node,
-        text: newText,
-        metadata: { ...(node as any).metadata, updatedAt: now }
+      this.emit('transactionError', { transaction, error } as any);
+      return {
+        success: false,
+        errors: [error instanceof Error ? error.message : 'Unknown error'],
+        data: undefined,
+        transactionId: undefined,
+        operations,
+        selectionBefore: this._selectionManager.getCurrentSelection() || null,
+        selectionAfter: this._selectionManager.getCurrentSelection() || null
       };
-      
-      if (tx.marks !== undefined) {
-        updatedNode.marks = tx.marks;
-      }
-      
-      ds.setNode(updatedNode);
-      return;
-    }
-
-    if (tx.type === 'update') {
-      const nodeId: string | undefined = tx.nodeId;
-      const node = nodeId ? ds.getNode(nodeId) : undefined;
-      if (!node) return;
-      const updates: any = tx.updates || {};
-      const updatedNode = {
-        ...node,
-        ...updates,
-        metadata: { ...(node as any).metadata, updatedAt: now }
-      };
-      ds.setNode(updatedNode);
-      return;
     }
   }
 
@@ -794,7 +979,7 @@ export class Editor implements ContextProvider {
         createdAt: new Date(),
         updatedAt: new Date()
       },
-      schema: {} as any, // TODO: Set default schema
+      schema: this._getDocumentSchemaMetadata(),
       version: 1
     };
   }
@@ -802,7 +987,9 @@ export class Editor implements ContextProvider {
   private _convertToDocumentState(document: any): DocumentState {
     return {
       type: 'document',
-      content: (document.content || []).map((node: any) => this._convertNode(node)),
+      content: (document.content || [])
+        .map((node: any) => this._convertNode(node))
+        .filter(Boolean),
       version: document.version,
       createdAt: document.metadata?.createdAt || new Date(),
       updatedAt: document.metadata?.updatedAt || new Date()
@@ -810,8 +997,9 @@ export class Editor implements ContextProvider {
   }
 
   private _convertFromDocumentState(state: DocumentState): any {
+    const rootId = this._generateNodeId('doc');
     return {
-      id: `doc-${Date.now()}`,
+      id: rootId,
       type: 'document',
       content: state.content.map(node => this._convertFromNode(node)),
       metadata: {
@@ -821,19 +1009,191 @@ export class Editor implements ContextProvider {
         createdAt: state.createdAt,
         updatedAt: state.updatedAt
       },
-      schema: {} as any, // TODO: Set default schema
+      schema: this._getDocumentSchemaMetadata(),
       version: state.version
     };
   }
 
+  private _ensureSchema(options: EditorOptions): void {
+    if (options.schema) {
+      this._dataStore.setActiveSchema(options.schema);
+      return;
+    }
+
+    if ((options.model as any)?.schema) {
+      this._dataStore.setActiveSchema((options.model as any).schema);
+      return;
+    }
+
+    if (!this._dataStore.getActiveSchema()) {
+      this._dataStore.setActiveSchema(
+        createSchema('default-editor', getMinimalSchemaDefinition())
+      );
+    }
+  }
+
+  private _getDocumentSchemaMetadata(): any {
+    const schema = this._dataStore.getActiveSchema();
+    if (schema) {
+      return {
+        name: schema.name,
+        ...(schema.definition || {})
+      };
+    }
+
+    return {
+      name: 'default-editor',
+      ...getMinimalSchemaDefinition()
+    };
+  }
+
   private _convertNode(node: INode): any {
-    // TODO: Convert INode to DocumentState Node
-    return node;
+    if (!node) {
+      return null;
+    }
+
+    if (typeof node === 'string') {
+      const datastoreNode = this._dataStore?.getNode?.(node);
+      if (datastoreNode) {
+        return this._convertNode(datastoreNode);
+      }
+      return {
+        id: node,
+        type: 'text',
+        text: node
+      };
+    }
+
+    if (typeof node !== 'object') {
+      return null;
+    }
+
+    const source = node as any;
+
+    const convertedNode = {
+      id: source.sid || source.id || this._generateNodeId('node'),
+      type: source.type || source.stype || 'unknown',
+      attributes: source.attributes || {},
+      text: source.text,
+      content: Array.isArray(source.content)
+        ? source.content.map((child: any) => this._convertNode(child)).filter(Boolean)
+        : undefined,
+      marks: Array.isArray(source.marks)
+        ? source.marks.map((mark: any) => ({
+            type: mark?.stype || mark?.type,
+            attributes: mark?.attrs || mark?.attributes,
+            range: mark?.range
+          }))
+        : undefined
+    };
+
+    return convertedNode;
   }
 
   private _convertFromNode(node: any): INode {
-    // TODO: Convert DocumentState Node to INode
-    return node;
+    if (!node) {
+      return {
+        sid: this._generateNodeId('node'),
+        stype: 'unknown',
+        attributes: {}
+      } as INode;
+    }
+
+    if (typeof node === 'string') {
+      const datastoreNode = this._dataStore?.getNode?.(node);
+      if (datastoreNode) {
+        return this._convertFromNode(datastoreNode);
+      }
+
+      return {
+        sid: node,
+        stype: 'text',
+        text: '',
+        attributes: {}
+      } as INode;
+    }
+
+    if (typeof node !== 'object') {
+      return {
+        sid: this._generateNodeId('node'),
+        stype: 'unknown',
+        attributes: {}
+      } as INode;
+    }
+
+    const source = node as any;
+    const convertedNode: INode = {
+      sid: source.id || source.sid || this._generateNodeId('node'),
+      stype: source.type || source.stype || 'unknown',
+      attributes: source.attributes || {},
+      text: source.text,
+      marks: Array.isArray(source.marks)
+        ? source.marks.map((mark: any) => ({
+            stype: mark?.type || mark?.stype,
+            attrs: mark?.attributes || mark?.attrs,
+            range: mark?.range
+          }))
+        : undefined,
+      content: Array.isArray(source.content)
+        ? source.content
+            .map((child: any) => {
+              if (typeof child === 'string') {
+                const childNode = this._dataStore?.getNode?.(child);
+                return childNode ? this._convertFromNode(childNode) : {
+                  sid: child,
+                  stype: 'text',
+                  text: '',
+                  attributes: {}
+                } as INode;
+              }
+
+              return this._convertFromNode(child);
+            })
+        : undefined
+      };
+
+    return convertedNode;
+  }
+
+  private _generateNodeId(prefix: string = 'node'): string {
+    return this._dataStore && (this._dataStore as any).generateId
+      ? (this._dataStore as any).generateId()
+      : `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  private _syncToDataStoreFromDocumentState(finalContent: DocumentState, internalDocument?: any): void {
+    const targetDocument: any = internalDocument
+      ? { ...internalDocument }
+      : this._convertFromDocumentState(finalContent);
+
+    if (!targetDocument?.content && !targetDocument.content?.length) {
+      targetDocument.content = [];
+    }
+
+    targetDocument.sid = targetDocument.id || this._generateNodeId('doc');
+    delete targetDocument.id;
+
+    // Normalize children into objects to match DataStore import expectations.
+    if (Array.isArray(targetDocument.content)) {
+      targetDocument.content = targetDocument.content.map((node: any) => ({
+        ...node,
+        sid: node?.sid || node?.id || this._generateNodeId('node')
+      }));
+    }
+
+    if (this._dataStore?.clear) {
+      this._dataStore.clear();
+    }
+    const result = this._dataStore?.saveDocumentInternal?.(targetDocument);
+    const rootNode = this._dataStore?.getRootNode?.();
+    if (result?.valid === false) {
+      console.warn('[Editor] Failed to sync content to datastore:', result.errors);
+    }
+    if (rootNode?.sid) {
+      this._rootId = rootNode.sid;
+    } else if (targetDocument?.sid) {
+      this._rootId = targetDocument.sid;
+    }
   }
 
   private _addToHistory(document: any): void {
@@ -877,8 +1237,8 @@ export class Editor implements ContextProvider {
 
     this._eventListeners.clear();
 
-    // TODO: Clean up Model
-    // this._transactionManager.destroy?.();
+    this._commands.clear();
+    this._extensions.clear();
 
     this.emit('editor:destroy', { editor: this });
   }
@@ -995,7 +1355,7 @@ declare module './editor' {
     /**
      * Execute transaction
      */
-    transaction(operations: any[]): any;
+    transaction(operations: any[], options?: TransactionOptions): any;
 
     /**
      * Compress history
@@ -1023,9 +1383,24 @@ Editor.prototype.undo = async function(this: Editor): Promise<boolean> {
   const entry = this.historyManager.undo();
   if (!entry) return false;
 
+  const metadata = entry.metadata;
+  const hasSelectionMetadata = metadata && Object.prototype.hasOwnProperty.call(metadata, 'selectionBefore');
+  const selectionToRestore = hasSelectionMetadata ? metadata.selectionBefore : undefined;
+
   try {
     this.transactionManager._isUndoRedoOperation = true;
-    const result = await this.transactionManager.execute(entry.inverseOperations);
+    const result = await this.transactionManager.execute(entry.inverseOperations, {
+      applySelectionToView: false
+    });
+
+    if (result.success && hasSelectionMetadata) {
+      if (selectionToRestore === null) {
+        this.updateSelection(null as any);
+      } else if (selectionToRestore) {
+        this.updateSelection(selectionToRestore);
+      }
+    }
+
     return result.success;
   } catch (error) {
     console.error('[Editor] undo failed:', error);
@@ -1039,9 +1414,24 @@ Editor.prototype.redo = async function(this: Editor): Promise<boolean> {
   const entry = this.historyManager.redo();
   if (!entry) return false;
 
+  const metadata = entry.metadata;
+  const hasSelectionMetadata = metadata && Object.prototype.hasOwnProperty.call(metadata, 'selectionAfter');
+  const selectionToRestore = hasSelectionMetadata ? metadata.selectionAfter : undefined;
+
   try {
     this.transactionManager._isUndoRedoOperation = true;
-    const result = await this.transactionManager.execute(entry.operations);
+    const result = await this.transactionManager.execute(entry.operations, {
+      applySelectionToView: false
+    });
+
+    if (result.success && hasSelectionMetadata) {
+      if (selectionToRestore === null) {
+        this.updateSelection(null as any);
+      } else if (selectionToRestore) {
+        this.updateSelection(selectionToRestore);
+      }
+    }
+
     return result.success;
   } catch (error) {
     console.error('[Editor] redo failed:', error);
@@ -1073,10 +1463,10 @@ Object.defineProperty(Editor.prototype, 'historyManager', {
   }
 });
 
-Editor.prototype.transaction = function(this: Editor, operations: any[]) {
+Editor.prototype.transaction = function(this: Editor, operations: any[], options?: TransactionOptions) {
   return {
     commit: async () => {
-      return await this.transactionManager.execute(operations);
+      return await this.transactionManager.execute(operations, options);
     }
   };
 };

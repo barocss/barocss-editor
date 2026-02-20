@@ -88,6 +88,12 @@ export interface TransactionOptions {
    * When false, selection is not applied to View (e.g. remote sync, programmatic change).
    */
   applySelectionToView?: boolean;
+
+  /**
+   * When false (default: true), selection snapshots are omitted from history metadata.
+   * This allows local operations that should keep selection as-is on undo/redo.
+   */
+  preserveSelectionInHistory?: boolean;
 }
 
 export interface TransactionBuilder {

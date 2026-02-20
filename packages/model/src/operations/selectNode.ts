@@ -19,6 +19,13 @@ defineOperation('selectNode', async (operation: SelectNodePayload, context: Tran
     endNodeId: nodeId,
     endOffset: 0
   });
+  context.selection.setSelection({
+    type: 'node',
+    startNodeId: nodeId,
+    startOffset: 0,
+    endNodeId: nodeId,
+    endOffset: 0
+  });
 });
 
 // DSL: control(target, [selectNode()])

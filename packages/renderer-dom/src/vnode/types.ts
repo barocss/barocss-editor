@@ -58,6 +58,11 @@ export interface VNode {
   // They are NOT added to attrs as data-bc-* attributes (those are added by Reconciler)
   sid?: string;    // Schema ID - only set for component-generated VNodes with tag
   stype?: string;  // Schema Type - only set for component-generated VNodes with tag
+  // Decorator identity - set for decorator-generated VNodes
+  decoratorSid?: string;
+  decoratorStype?: string;
+  decoratorCategory?: 'layer' | 'inline' | 'block';
+  decoratorPosition?: 'before' | 'after' | 'inside-start' | 'inside-end' | 'overlay' | 'absolute';
   props?: Record<string, any>;      // Pure props (excluding stype/sid/type) - only for component-generated VNodes
   isExternal?: boolean; // true: external component, false: contextual component - only for component-generated VNodes
   portal?: {

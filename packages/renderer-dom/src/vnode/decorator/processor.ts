@@ -14,6 +14,42 @@ import { Decorator, DecoratorTextRun, CategorizedDecorators } from './types';
 export class DecoratorProcessor {
   constructor(private registry: RendererRegistry) {}
 
+  private _setDecoratorIdentity(vnode: VNode, decorator: Decorator): void {
+    if (!vnode || !decorator) return;
+    if (!vnode.attrs) {
+      vnode.attrs = {};
+    }
+
+    const position = decorator.position || (
+      decorator.category === 'block' || decorator.category === 'layer' ? 'after' : undefined
+    );
+
+    if (!vnode.decoratorSid && decorator.sid) {
+      vnode.decoratorSid = decorator.sid;
+    }
+    if (!vnode.decoratorStype && decorator.stype) {
+      vnode.decoratorStype = decorator.stype;
+    }
+    if (!vnode.decoratorCategory && decorator.category) {
+      vnode.decoratorCategory = decorator.category;
+    }
+    if (!vnode.decoratorPosition && position) {
+      vnode.decoratorPosition = position;
+    }
+    if (!vnode.attrs['data-decorator-sid'] && decorator.sid) {
+      vnode.attrs['data-decorator-sid'] = decorator.sid;
+    }
+    if (!vnode.attrs['data-decorator-stype'] && decorator.stype) {
+      vnode.attrs['data-decorator-stype'] = decorator.stype;
+    }
+    if (!vnode.attrs['data-decorator-category'] && decorator.category) {
+      vnode.attrs['data-decorator-category'] = decorator.category;
+    }
+    if (!vnode.attrs['data-decorator-position'] && position) {
+      vnode.attrs['data-decorator-position'] = position;
+    }
+  }
+
   /**
    * Extracts decorator range (startOffset, endOffset) from decorator target
    * Handles both single-node and cross-node decorators
@@ -226,12 +262,8 @@ export class DecoratorProcessor {
         style: {},
         children: []
       } as VNode;
-      // Store error info in attrs (not top-level) if decorator exists
       if (decorator) {
-        if (!errorVNode.attrs) errorVNode.attrs = {};
-        if (decorator.sid) errorVNode.attrs['data-decorator-sid'] = decorator.sid;
-        if (decorator.stype) errorVNode.attrs['data-decorator-stype'] = decorator.stype;
-        if (decorator.category) errorVNode.attrs['data-decorator-category'] = decorator.category;
+        this._setDecoratorIdentity(errorVNode, decorator);
       }
       return errorVNode;
     }
@@ -250,13 +282,7 @@ export class DecoratorProcessor {
         style: {},
         children: []
       } as VNode;
-      // Store decorator identity in attrs (not top-level)
-      if (decorator.sid) fallbackVNode.attrs!['data-decorator-sid'] = decorator.sid;
-      if (decorator.stype) fallbackVNode.attrs!['data-decorator-stype'] = decorator.stype;
-      if (decorator.category) fallbackVNode.attrs!['data-decorator-category'] = decorator.category;
-      if (decorator.position) {
-        fallbackVNode.attrs!['data-decorator-position'] = decorator.position;
-      }
+      this._setDecoratorIdentity(fallbackVNode, decorator);
       return fallbackVNode;
     }
     
@@ -278,19 +304,7 @@ export class DecoratorProcessor {
         // Component function must return ElementTemplate
         if (elementTemplate && typeof elementTemplate === 'object' && elementTemplate.type === 'element') {
           decoratorVNode = buildElement(elementTemplate, model, buildOptionsWithoutDecorators);
-          // Set decorator identity in attrs (not top-level)
-          if (!decoratorVNode.attrs) decoratorVNode.attrs = {};
-          if (decorator.sid) decoratorVNode.attrs['data-decorator-sid'] = decorator.sid;
-          if (decorator.stype) decoratorVNode.attrs['data-decorator-stype'] = decorator.stype;
-          if (decorator.category) decoratorVNode.attrs['data-decorator-category'] = decorator.category;
-          // position is only set when explicitly specified
-          // inline decorator has no position by default (handled as overlay)
-          // block/layer decorator uses default 'after'
-          if (decorator.position) {
-            decoratorVNode.attrs['data-decorator-position'] = decorator.position;
-          } else if (decorator.category === 'block' || decorator.category === 'layer') {
-            decoratorVNode.attrs['data-decorator-position'] = 'after';
-          }
+          this._setDecoratorIdentity(decoratorVNode, decorator);
         } else {
           throw new Error(`Component '${decorator.stype}' must return an ElementTemplate`);
         }
@@ -302,18 +316,7 @@ export class DecoratorProcessor {
           style: {},
           children: []
         } as VNode;
-        // Store decorator identity in attrs (not top-level)
-        if (decorator.sid) decoratorVNode.attrs!['data-decorator-sid'] = decorator.sid;
-        if (decorator.stype) decoratorVNode.attrs!['data-decorator-stype'] = decorator.stype;
-        if (decorator.category) decoratorVNode.attrs!['data-decorator-category'] = decorator.category;
-        // position is only set when explicitly specified
-        // inline decorator has no position by default (handled as overlay)
-        // block/layer decorator uses default 'after'
-        if (decorator.position) {
-          decoratorVNode.attrs!['data-decorator-position'] = decorator.position;
-        } else if (decorator.category === 'block' || decorator.category === 'layer') {
-          decoratorVNode.attrs!['data-decorator-position'] = 'after';
-        }
+        this._setDecoratorIdentity(decoratorVNode, decorator);
       }
     } catch (error) {
       console.error('Error building decorator VNode:', error, decorator);
@@ -327,39 +330,11 @@ export class DecoratorProcessor {
         style: {},
         children: []
       } as VNode;
-      // Store decorator identity in attrs (not top-level)
-      if (decorator.sid) errorVNode.attrs!['data-decorator-sid'] = decorator.sid;
-      if (decorator.stype) errorVNode.attrs!['data-decorator-stype'] = decorator.stype;
-      if (decorator.category) errorVNode.attrs!['data-decorator-category'] = decorator.category;
-      if (decorator.position) {
-        errorVNode.attrs!['data-decorator-position'] = decorator.position;
-      }
+      this._setDecoratorIdentity(errorVNode, decorator);
       return errorVNode;
     }
     
-    // Store decorator identity information in attrs (not top-level)
-    // Reconciler copies attrs directly to DOM, so setting attrs here passes to DOM
-    // Skip if already set (may have been set above)
-    if (!decoratorVNode.attrs) decoratorVNode.attrs = {};
-    if (!decoratorVNode.attrs['data-decorator-sid'] && decorator.sid) {
-      decoratorVNode.attrs['data-decorator-sid'] = decorator.sid;
-    }
-    if (!decoratorVNode.attrs['data-decorator-stype'] && decorator.stype) {
-      decoratorVNode.attrs['data-decorator-stype'] = decorator.stype;
-    }
-    if (!decoratorVNode.attrs['data-decorator-category'] && decorator.category) {
-      decoratorVNode.attrs['data-decorator-category'] = decorator.category;
-    }
-    // position is only set when explicitly specified
-    // inline decorator has no position by default (handled as overlay)
-    // block/layer decorator uses default 'after'
-    if (!decoratorVNode.attrs['data-decorator-position']) {
-      if (decorator.position) {
-        decoratorVNode.attrs['data-decorator-position'] = decorator.position;
-      } else if (decorator.category === 'block' || decorator.category === 'layer') {
-        decoratorVNode.attrs['data-decorator-position'] = 'after';
-      }
-    }
+    this._setDecoratorIdentity(decoratorVNode, decorator);
     
     return decoratorVNode;
   }
@@ -439,4 +414,3 @@ export class DecoratorProcessor {
     }
   }
 }
-

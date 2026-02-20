@@ -5,6 +5,7 @@ import { defineOperationDSL } from './define-operation-dsl';
 // Clear selection
 defineOperation('clearSelection', async (_operation: { type: 'clearSelection' }, context: TransactionContext) => {
   await context.selectionManager.clearSelection();
+  context.selection.clear();
 });
 
 // DSL: clear selection

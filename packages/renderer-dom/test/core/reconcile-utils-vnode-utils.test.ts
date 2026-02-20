@@ -1,8 +1,57 @@
 import { describe, it, expect } from 'vitest';
-import { findFirstElementVNode, normalizeClasses, vnodeStructureMatches } from '../../src/reconcile/utils/vnode-utils';
+import { findFirstElementVNode, getVNodeId, normalizeClasses, vnodeStructureMatches } from '../../src/reconcile/utils/vnode-utils';
 import { VNode } from '../../src/vnode/types';
 
 describe('reconcile-utils: vnode-utils', () => {
+  describe('getVNodeId', () => {
+    it('should prefer sid when it exists', () => {
+      const node: VNode = {
+        sid: 'node-1',
+        attrs: {
+          'data-decorator-sid': 'decorator-1'
+        }
+      } as VNode;
+
+      expect(getVNodeId(node)).toBe('node-1');
+    });
+
+    it('should use top-level decoratorSid when sid is missing', () => {
+      const node: VNode = {
+        decoratorSid: 'decorator-2',
+        attrs: {
+          'data-decorator-sid': 'decorator-2-attr'
+        }
+      } as VNode;
+
+      expect(getVNodeId(node)).toBe('decorator-2');
+    });
+
+    it('should fallback to attr decorator sid when top-level id is missing', () => {
+      const node: VNode = {
+        attrs: {
+          'data-decorator-sid': 'decorator-3'
+        }
+      } as VNode;
+
+      expect(getVNodeId(node)).toBe('decorator-3');
+    });
+
+    it('should return undefined when no id exists', () => {
+      const node: VNode = {
+        attrs: {
+          className: 'text'
+        }
+      } as VNode;
+
+      expect(getVNodeId(node)).toBeUndefined();
+    });
+
+    it('should ignore non-object/empty nodes', () => {
+      expect(getVNodeId(undefined as any)).toBeUndefined();
+      expect(getVNodeId(null as any)).toBeUndefined();
+    });
+  });
+
   describe('findFirstElementVNode', () => {
     it('should return node if it has tag', () => {
       const node: VNode = {
@@ -187,4 +236,3 @@ describe('reconcile-utils: vnode-utils', () => {
     });
   });
 });
-
