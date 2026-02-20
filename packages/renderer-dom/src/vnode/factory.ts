@@ -747,10 +747,11 @@ export class VNodeBuilder {
     applyTextCollapse(vnode, orderedChildren, shouldCollapse);
 
     // Set sid at top level for component-generated VNodes (those with tag and stype)
+    // Also run when vnode.tag and data.sid exist (e.g. root element from context component, stype set later)
     // These are NOT added to attrs as data-bc-* (those are added by Reconciler to DOM)
     // props, model, decorators, stype are already set by attachComponentInfo
     // IMPORTANT: sid comes from model data, but if missing and stype exists, auto-generate it
-    if (vnode.tag && vnode.stype) {
+    if (vnode.tag && (vnode.stype || (data as any)?.sid)) {
       applyComponentIdentity(vnode, data, options, this.currentBuildOptions, this.componentManager);
     }
 
@@ -1390,30 +1391,36 @@ export class VNodeBuilder {
       }
 
       // Create VNode using childType (using child.stype or child.type)
-      // Directly call _buildExternalComponent or _buildContextComponentFromFunction to avoid build() recursive call
-      const component = this.registry.getComponent?.(childType);
-      if (!component) {
-        // Skip if no component
-        continue;
-      }
-      
+      // Resolve from getComponent (components) or get() (element templates from define('x', element(...)))
       const childBuildOptions = {
         sid: child.sid,
         decorators: this.currentBuildOptions?.decorators
       };
 
-      const isReactOnly =
-        (component as any)?.type === 'external' &&
-        typeof (component as any)?.reactComponent === 'function' &&
-        typeof (component as any)?.mount !== 'function';
-
+      const component = this.registry.getComponent?.(childType);
       let childVNode: VNode;
-      if (isReactOnly) {
-        childVNode = this._buildReactOnlyPlaceholder(childType, child, childBuildOptions);
-      } else if (component.managesDOM === true) {
-        childVNode = this._buildExternalComponent(childType, component, child, childBuildOptions);
+
+      if (component) {
+        const isReactOnly =
+          (component as any)?.type === 'external' &&
+          typeof (component as any)?.reactComponent === 'function' &&
+          typeof (component as any)?.mount !== 'function';
+        if (isReactOnly) {
+          childVNode = this._buildReactOnlyPlaceholder(childType, child, childBuildOptions);
+        } else if (component.managesDOM === true) {
+          childVNode = this._buildExternalComponent(childType, component, child, childBuildOptions);
+        } else {
+          childVNode = this._buildContextComponentFromFunction(childType, component, child, childBuildOptions);
+        }
       } else {
-        childVNode = this._buildContextComponentFromFunction(childType, component, child, childBuildOptions);
+        // Fallback: element templates registered via define('paragraph', element(...)) live in registry.get()
+        const def = (this.registry as { get?: (name: string) => { template?: unknown } }).get?.(childType);
+        const template = def?.template as ElementTemplate | undefined;
+        if (template && typeof template === 'object' && (template as any).type === 'element') {
+          childVNode = this._buildElement(template, child, childBuildOptions);
+        } else {
+          continue;
+        }
       }
 
       // Ensure child has sid and stype at top level (for component-generated VNodes with tag)

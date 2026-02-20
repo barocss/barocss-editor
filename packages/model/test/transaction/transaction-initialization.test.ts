@@ -28,7 +28,8 @@ describe('Transaction Initialization', () => {
     mockEditor = {
       dataStore,
       _dataStore: dataStore,
-      selectionManager
+      selectionManager,
+      updateSelection: () => {}
     };
   });
 

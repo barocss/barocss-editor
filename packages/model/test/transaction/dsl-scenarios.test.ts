@@ -45,7 +45,8 @@ describe('DSL Scenarios', () => {
       getActiveSchema: () => schema,
       selectionManager,
       historyManager: { push: () => {} },
-      emit: () => {}
+      emit: () => {},
+      updateSelection: () => {}
     };
   });
 

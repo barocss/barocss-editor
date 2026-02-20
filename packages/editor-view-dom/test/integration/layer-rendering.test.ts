@@ -137,6 +137,8 @@ describe('Layer별 렌더링', () => {
     class="cursor" 
     data-bc-sid="cursor-1" 
     data-decorator="true" 
+    data-decorator-sid="cursor-1" 
+    data-decorator-stype="cursor" 
     data-skip-reconcile="true" 
     style="position: absolute; width: 2px; height: 18px; background: blue;">
   </div>
@@ -294,6 +296,8 @@ describe('Layer별 렌더링', () => {
     class="cursor" 
     data-bc-sid="cursor-1" 
     data-decorator="true" 
+    data-decorator-sid="cursor-1" 
+    data-decorator-stype="cursor" 
     data-skip-reconcile="true" 
     style="position: absolute; width: 2px; height: 18px; background: blue;">
   </div>

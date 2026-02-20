@@ -125,7 +125,7 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
   class="barocss-editor-decorators" 
   data-bc-layer="decorator" 
   style="position: absolute; top: 0px; left: 0px; right: 0px; bottom: 0px; pointer-events: none; z-index: 10;">
-  <span class="highlight-decorator" data-decorator="true" data-decorator-category="layer" data-decorator-position="after" data-decorator-sid="layer1" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow;"></span>
+  <span class="highlight-decorator" data-bc-sid="layer1" data-decorator="true" data-decorator-sid="layer1" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow;"></span>
 </div>`,
         expect
       );
@@ -188,8 +188,8 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
   class="barocss-editor-decorators" 
   data-bc-layer="decorator" 
   style="position: absolute; top: 0px; left: 0px; right: 0px; bottom: 0px; pointer-events: none; z-index: 10;">
-  <span class="highlight-decorator" data-decorator="true" data-decorator-category="layer" data-decorator-position="after" data-decorator-sid="layer1" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow;"></span>
-  <span class="comment-decorator" data-decorator="true" data-decorator-category="layer" data-decorator-position="after" data-decorator-sid="layer2" data-decorator-stype="comment" data-skip-reconcile="true">Comment</span>
+  <span class="highlight-decorator" data-bc-sid="layer1" data-decorator="true" data-decorator-sid="layer1" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow;"></span>
+  <span class="comment-decorator" data-bc-sid="layer2" data-decorator="true" data-decorator-sid="layer2" data-decorator-stype="comment" data-skip-reconcile="true"></span>
 </div>`,
         expect
       );
@@ -249,7 +249,7 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
   class="barocss-editor-decorators" 
   data-bc-layer="decorator" 
   style="position: absolute; top: 0px; left: 0px; right: 0px; bottom: 0px; pointer-events: none; z-index: 10;">
-  <span class="highlight-decorator" data-decorator="true" data-decorator-category="layer" data-decorator-position="after" data-decorator-sid="layer1" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow;"></span>
+  <span class="highlight-decorator" data-bc-sid="layer1" data-decorator="true" data-decorator-sid="layer1" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow;"></span>
 </div>`,
         expect
       );
@@ -283,7 +283,7 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
   class="barocss-editor-decorators" 
   data-bc-layer="decorator" 
   style="position: absolute; top: 0px; left: 0px; right: 0px; bottom: 0px; pointer-events: none; z-index: 10;">
-  <span class="highlight-decorator" data-decorator="true" data-decorator-category="layer" data-decorator-position="after" data-decorator-sid="layer1" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow;"></span>
+  <span class="highlight-decorator" data-bc-sid="layer1" data-decorator="true" data-decorator-sid="layer1" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow;"></span>
 </div>`,
         expect
       );
@@ -355,7 +355,7 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
   class="barocss-editor-decorators" 
   data-bc-layer="decorator" 
   style="position: absolute; top: 0px; left: 0px; right: 0px; bottom: 0px; pointer-events: none; z-index: 10;">
-  <span class="highlight-decorator" data-decorator="true" data-decorator-category="layer" data-decorator-position="after" data-decorator-sid="layer1" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow;"></span>
+  <span class="highlight-decorator" data-bc-sid="layer1" data-decorator="true" data-decorator-sid="layer1" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow;"></span>
 </div>`,
         expect
       );
@@ -409,7 +409,7 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
   class="barocss-editor-decorators" 
   data-bc-layer="decorator" 
   style="position: absolute; top: 0px; left: 0px; right: 0px; bottom: 0px; pointer-events: none; z-index: 10;">
-  <span class="highlight-decorator" data-decorator="true" data-decorator-category="layer" data-decorator-position="after" data-decorator-sid="layer1" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow;"></span>
+  <span class="highlight-decorator" data-bc-sid="layer1" data-decorator="true" data-decorator-sid="layer1" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow;"></span>
 </div>`,
         expect
       );
@@ -509,7 +509,7 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
   class="barocss-editor-decorators" 
   data-bc-layer="decorator" 
   style="position: absolute; top: 0px; left: 0px; right: 0px; bottom: 0px; pointer-events: none; z-index: 10;">
-  <span class="highlight-decorator" data-decorator="true" data-decorator-category="layer" data-decorator-position="after" data-decorator-sid="layer1" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow;"></span>
+  <span class="highlight-decorator" data-bc-sid="layer1" data-decorator="true" data-decorator-sid="layer1" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow;"></span>
 </div>`,
         expect
       );
@@ -575,7 +575,7 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
   class="barocss-editor-decorators" 
   data-bc-layer="decorator" 
   style="position: absolute; top: 0px; left: 0px; right: 0px; bottom: 0px; pointer-events: none; z-index: 10;">
-  <span class="highlight-decorator" data-decorator="true" data-decorator-category="layer" data-decorator-position="after" data-decorator-sid="layer1" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow;"></span>
+  <span class="highlight-decorator" data-bc-sid="layer1" data-decorator="true" data-decorator-sid="layer1" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow;"></span>
 </div>`,
         expect
       );

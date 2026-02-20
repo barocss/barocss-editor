@@ -46,7 +46,8 @@ describe('DSL Control Operations', () => {
         })
       },
       historyManager: { push: () => {} },
-      emit: () => {}
+      emit: () => {},
+      updateSelection: () => {}
     };
   });
 

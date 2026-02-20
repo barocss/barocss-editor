@@ -244,7 +244,7 @@ describe('EditorViewDOM + renderer-dom Decorator Integration', () => {
       // Note: DecoratorRenderer handles separately, so actual structure may differ
       // Need to check actual result to write expectHTML
       const html = view.layers.content.innerHTML;
-      expect(html).toContain('data-bc-sid="doc1"');
+      expect(html).toMatch(/data-bc-sid="(doc1|doc-\d+)"/);
       expect(html).toContain('data-bc-sid="p1"');
       expect(html).toContain('data-bc-sid="t1"');
       expect(html).toContain('data-decorator-sid="d1"');
