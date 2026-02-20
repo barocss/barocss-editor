@@ -1,6 +1,6 @@
 {
   "name": "@barocss/renderer-react",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "React renderer for Barocss DSL (ModelData + RendererRegistry → ReactNode)",
   "type": "module",
   "main": "./src/index.ts",
@@ -23,7 +23,9 @@
     "react": ">=18.0.0"
   },
   "peerDependenciesMeta": {
-    "react": { "optional": false }
+    "react": {
+      "optional": false
+    }
   },
   "dependencies": {
     "@barocss/dsl": "workspace:*"
@@ -37,7 +39,12 @@
     "vite-plugin-dts": "^3.9.1",
     "vitest": "^4.0.7"
   },
-  "keywords": ["renderer", "react", "dsl", "editor"],
+  "keywords": [
+    "renderer",
+    "react",
+    "dsl",
+    "editor"
+  ],
   "author": "Barocss Team",
   "license": "MIT"
 }

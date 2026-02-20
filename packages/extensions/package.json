@@ -1,6 +1,6 @@
 {
   "name": "@barocss/extensions",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Default extensions for Barocss Editor",
   "type": "module",
   "main": "./src/index.ts",
@@ -59,4 +59,3 @@
     ]
   }
 }
-

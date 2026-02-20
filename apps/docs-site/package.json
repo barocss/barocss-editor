@@ -1,6 +1,6 @@
 {
   "name": "@barocss/docs-site",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Barocss Editor Developer Documentation Site",
   "private": true,
   "scripts": {

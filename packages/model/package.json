@@ -1,6 +1,6 @@
 {
   "name": "@barocss/model",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Model Data for storing and managing document data with type safety",
   "type": "module",
   "main": "./src/index.ts",
