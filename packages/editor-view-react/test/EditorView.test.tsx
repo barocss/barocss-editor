@@ -1,8 +1,9 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
 import { createRef } from 'react';
 import {
   EditorView,
+  EditorViewContentLayer,
   EditorViewLayer,
   EditorViewContextProvider,
   useEditorViewContext,
@@ -17,6 +18,25 @@ function mockEditor() {
     dataStore: { getNode: () => null },
     updateSelection: () => {},
     executeCommand: () => false,
+  } as any;
+}
+
+function createMockEditorWithEventBus() {
+  const listeners = new Map<string, Set<Function>>();
+  const editor = mockEditor();
+
+  return {
+    ...editor,
+    on(event: string, callback: Function) {
+      if (!listeners.has(event)) listeners.set(event, new Set());
+      listeners.get(event)!.add(callback);
+    },
+    off(event: string, callback: Function) {
+      listeners.get(event)?.delete(callback);
+    },
+    emit(event: string, data?: unknown) {
+      listeners.get(event)?.forEach((handler) => handler(data));
+    },
   } as any;
 }
 
@@ -214,5 +234,271 @@ describe('EditorViewContext', () => {
     expect(el.getAttribute('data-has-input-handler')).toBe('true');
     expect(el.getAttribute('data-has-mutation-manager')).toBe('true');
     expect(el.getAttribute('data-has-set-content-editable')).toBe('true');
+  });
+
+  it('EditorViewContentLayer applies model selection when skip flag is false', () => {
+    const editor = createMockEditorWithEventBus();
+    let capturedCtx: any = null;
+
+    function Capture() {
+      const ctx = useEditorViewContext();
+      capturedCtx = ctx;
+      return <span data-testid="capture" />;
+    }
+
+    render(
+      <EditorViewContextProvider editor={editor}>
+        <EditorViewContentLayer />
+        <Capture />
+      </EditorViewContextProvider>
+    );
+
+    const convertSpy = vi.spyOn(capturedCtx.selectionHandler, 'convertModelSelectionToDOM');
+
+    vi.useFakeTimers();
+    try {
+      editor.emit('editor:selection.model', {
+        type: 'range',
+        startNodeId: 't1',
+        startOffset: 0,
+        endNodeId: 't1',
+        endOffset: 0,
+      });
+
+      vi.advanceTimersByTime(32);
+      expect(convertSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('EditorViewContentLayer skips model selection when skip flag is true', () => {
+    const editor = createMockEditorWithEventBus();
+    let capturedCtx: any = null;
+
+    function Capture() {
+      const ctx = useEditorViewContext();
+      capturedCtx = ctx;
+      return <span data-testid="capture" />;
+    }
+
+    render(
+      <EditorViewContextProvider editor={editor}>
+        <EditorViewContentLayer />
+        <Capture />
+      </EditorViewContextProvider>
+    );
+
+    const convertSpy = vi.spyOn(capturedCtx.selectionHandler, 'convertModelSelectionToDOM');
+    capturedCtx.viewStateRef.current.skipApplyModelSelectionToDOM = true;
+
+    vi.useFakeTimers();
+    try {
+      editor.emit('editor:selection.model', {
+        type: 'range',
+        startNodeId: 't1',
+        startOffset: 0,
+        endNodeId: 't1',
+        endOffset: 0,
+      });
+
+      vi.advanceTimersByTime(32);
+      expect(convertSpy).toHaveBeenCalledTimes(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('EditorViewContentLayer skips model selection when applySelectionToView is false', () => {
+    const editor = createMockEditorWithEventBus();
+    let capturedCtx: any = null;
+
+    function Capture() {
+      const ctx = useEditorViewContext();
+      capturedCtx = ctx;
+      return <span data-testid="capture" />;
+    }
+
+    render(
+      <EditorViewContextProvider editor={editor}>
+        <EditorViewContentLayer />
+        <Capture />
+      </EditorViewContextProvider>
+    );
+
+    const convertSpy = vi.spyOn(capturedCtx.selectionHandler, 'convertModelSelectionToDOM');
+
+    vi.useFakeTimers();
+    try {
+      editor.emit('editor:selection.model', {
+        selection: {
+          type: 'range',
+          startNodeId: 't3',
+          startOffset: 0,
+          endNodeId: 't3',
+          endOffset: 0,
+        },
+        applySelectionToView: false,
+      });
+
+      vi.advanceTimersByTime(32);
+      expect(convertSpy).toHaveBeenCalledTimes(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('EditorViewContentLayer skips model selection when source is remote', () => {
+    const editor = createMockEditorWithEventBus();
+    let capturedCtx: any = null;
+
+    function Capture() {
+      const ctx = useEditorViewContext();
+      capturedCtx = ctx;
+      return <span data-testid="capture" />;
+    }
+
+    render(
+      <EditorViewContextProvider editor={editor}>
+        <EditorViewContentLayer />
+        <Capture />
+      </EditorViewContextProvider>
+    );
+
+    const convertSpy = vi.spyOn(capturedCtx.selectionHandler, 'convertModelSelectionToDOM');
+
+    vi.useFakeTimers();
+    try {
+      editor.emit('editor:selection.model', {
+        selection: {
+          type: 'range',
+          startNodeId: 't-remote',
+          startOffset: 0,
+          endNodeId: 't-remote',
+          endOffset: 0,
+        },
+        source: 'remote',
+      });
+
+      vi.advanceTimersByTime(32);
+      expect(convertSpy).toHaveBeenCalledTimes(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('EditorViewContentLayer applies node selection when source is local', () => {
+    const editor = createMockEditorWithEventBus();
+    let capturedCtx: any = null;
+
+    function Capture() {
+      const ctx = useEditorViewContext();
+      capturedCtx = ctx;
+      return <span data-testid="capture" />;
+    }
+
+    render(
+      <EditorViewContextProvider editor={editor}>
+        <EditorViewContentLayer />
+        <Capture />
+      </EditorViewContextProvider>
+    );
+
+    const convertSpy = vi.spyOn(capturedCtx.selectionHandler, 'convertModelSelectionToDOM');
+
+    vi.useFakeTimers();
+    try {
+      editor.emit('editor:selection.model', {
+        type: 'node',
+        nodeId: 'node-local',
+        startNodeId: 'node-local',
+        startOffset: 0,
+        endNodeId: 'node-local',
+        endOffset: 3,
+      });
+
+      vi.advanceTimersByTime(32);
+      expect(convertSpy).toHaveBeenCalledTimes(1);
+      expect(convertSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'node',
+          nodeId: 'node-local',
+          startNodeId: 'node-local',
+          startOffset: 0,
+          endNodeId: 'node-local',
+          endOffset: 3,
+        })
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('EditorViewContentLayer skips node selection when source is remote', () => {
+    const editor = createMockEditorWithEventBus();
+    let capturedCtx: any = null;
+
+    function Capture() {
+      const ctx = useEditorViewContext();
+      capturedCtx = ctx;
+      return <span data-testid="capture" />;
+    }
+
+    render(
+      <EditorViewContextProvider editor={editor}>
+        <EditorViewContentLayer />
+        <Capture />
+      </EditorViewContextProvider>
+    );
+
+    const convertSpy = vi.spyOn(capturedCtx.selectionHandler, 'convertModelSelectionToDOM');
+
+    vi.useFakeTimers();
+    try {
+      editor.emit('editor:selection.model', {
+        type: 'node',
+        nodeId: 'node-remote',
+        startNodeId: 'node-remote',
+        startOffset: 0,
+        endNodeId: 'node-remote',
+        endOffset: 2,
+        source: 'remote',
+      });
+
+      vi.advanceTimersByTime(32);
+      expect(convertSpy).toHaveBeenCalledTimes(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe('EditorViewContentLayer composition 이벤트 비의존성', () => {
+  it('beforeinput 의 isComposing 정보만으로 입력이 처리되어야 함', () => {
+    const editor = mockEditor();
+    let capturedCtx: any = null;
+
+    function Capture() {
+      const ctx = useEditorViewContext();
+      capturedCtx = ctx;
+      return <span data-testid="capture" />;
+    }
+
+    render(
+      <EditorViewContextProvider editor={editor}>
+        <EditorViewContentLayer />
+        <Capture />
+      </EditorViewContextProvider>
+    );
+
+    const beforeInputHandler = vi.spyOn(capturedCtx.inputHandler, 'handleBeforeInput');
+    capturedCtx.inputHandler.handleBeforeInput({
+      inputType: 'insertText',
+      isComposing: true,
+      data: '가',
+      preventDefault: vi.fn(),
+    } as unknown as InputEvent);
+
+    expect(beforeInputHandler).toHaveBeenCalled();
   });
 });

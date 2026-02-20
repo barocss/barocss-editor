@@ -90,7 +90,7 @@ Possible improvements to align behavior and reduce drift:
 
 | Item | Description |
 |------|-------------|
-| **Decorator range adjustment on text edit** | When the user types, inline decorator ranges (startOffset/endOffset) should be adjusted so they stay correct. editor-view-dom computes `adjustedDecorators` in handleEfficientEdit (via dataStore.decorators.adjustRanges or edit-position-converter) but applying them back to DecoratorManager is still TODO. editor-view-react does not yet run any adjust step after replaceText. Adding this in both views would keep decorators in sync with content. |
+| **Decorator range adjustment on text edit** | When the user types, inline decorator ranges (startOffset/endOffset) should be adjusted so they stay correct. editor-view-dom computes `adjustedDecorators` in handleEfficientEdit (via dataStore.decorators.adjustRanges or edit-position-converter), but applying back to `DecoratorManager` is not yet implemented in either view. Add this in both views to keep decorators in sync with content. |
 | **Single Decorator type source** | Decorator is defined in editor-view-dom, shared, and renderer-react. Unifying on shared (and re-exporting or extending in the other packages) would avoid drift. |
 | **ref.updateDecorator(id, updates)** | editor-view-dom exposes updateDecorator(id, updates). editor-view-react ref currently has addDecorator, removeDecorator, getDecorators; adding updateDecorator would call DecoratorManager.update for parity. |
 | **Optional DecoratorRegistry in editor-view-react** | editor-view-dom uses DecoratorRegistry for validation and default values when adding decorators. editor-view-react uses DecoratorManager without a validator; an optional registry would allow the same validation/defaults. |

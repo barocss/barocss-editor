@@ -14,6 +14,15 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
     this.editor = editor;
   }
 
+  private _getScopeRoot(): ParentNode {
+    const editorViewDOM = (this.editor as any)._viewDOM;
+    const contentEditable = editorViewDOM?.contentEditableElement;
+    if (contentEditable && contentEditable.querySelector) {
+      return contentEditable;
+    }
+    return document;
+  }
+
   /**
    * Check if DOM element is a text container.
    * If it has data-text-container="true" attribute, it is a text container.
@@ -371,8 +380,9 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
     });
     
     // Find nodes for startNodeId and endNodeId
-    const startElementRaw = document.querySelector(`[data-bc-sid="${startNodeId}"]`);
-    const endElementRaw = document.querySelector(`[data-bc-sid="${endNodeId}"]`);
+    const scopeRoot = this._getScopeRoot();
+    const startElementRaw = scopeRoot.querySelector(`[data-bc-sid="${startNodeId}"]`);
+    const endElementRaw = scopeRoot.querySelector(`[data-bc-sid="${endNodeId}"]`);
     
     if (!startElementRaw || !endElementRaw) {
       console.warn('[SelectionHandler] Could not find elements for model selection', {
@@ -451,7 +461,8 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
    * Convert node selection to DOM selection.
    */
   private convertNodeSelectionToDOM(nodeSelection: any): void {
-    const element = document.querySelector(`[data-bc-sid="${nodeSelection.nodeId}"]`);
+    const scopeRoot = this._getScopeRoot();
+    const element = scopeRoot.querySelector(`[data-bc-sid="${nodeSelection.nodeId}"]`);
     
     if (!element) {
       console.warn('[SelectionHandler] Could not find element for node selection');

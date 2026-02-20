@@ -333,34 +333,117 @@ export function extractModelTextFromRange(
   contentRange: ModelSelection
 ): string {
   const { startNodeId, startOffset, endNodeId, endOffset } = contentRange;
+
+  if (!dataStore || typeof dataStore.getNode !== 'function') {
+    return '';
+  }
+
+  const toModelOffset = (node: any, offset: number): number => {
+    if (!node || typeof node.text !== 'string') return 0;
+    return Math.max(0, Math.min(offset, node.text.length));
+  };
+
+  const isInlineText = (node: any): boolean => node?.stype === 'inline-text' && typeof node.text === 'string';
+
+  const getParentId = (nodeId: string): string | null => {
+    const parent = dataStore.getParent?.(nodeId);
+    if (!parent) return null;
+    return parent.sid ?? parent.id ?? null;
+  };
+
+  const normalizeNodeId = (node: unknown): string | null => {
+    if (!node) return null;
+    if (typeof node === 'string') return node;
+    return node && typeof node === 'object' && ('sid' in node || 'id' in node)
+      ? ((node as { sid?: string; id?: string }).sid ?? (node as { id?: string }).id ?? null)
+      : null;
+  };
+
+  const getChildren = (nodeId: string): string[] => {
+    const node = dataStore.getNode?.(nodeId);
+    const content = node?.content;
+    if (!Array.isArray(content)) return [];
+    return content
+      .map(normalizeNodeId)
+      .filter((id): id is string => !!id);
+  };
+
+  const getNextSibling = (nodeId: string): string | null => {
+    if (typeof dataStore.getNextSibling === 'function') {
+      const next = dataStore.getNextSibling(nodeId);
+      return normalizeNodeId(next);
+    }
+
+    const parentId = getParentId(nodeId);
+    if (!parentId) return null;
+    const parentChildren = getChildren(parentId);
+    const index = parentChildren.indexOf(nodeId);
+    if (index < 0 || index >= parentChildren.length - 1) return null;
+    return parentChildren[index + 1];
+  };
+
+  const getNextNodeInDocument = (nodeId: string): string | null => {
+    if (typeof dataStore.getNextNode === 'function') {
+      return normalizeNodeId(dataStore.getNextNode(nodeId));
+    }
+
+    let current = nodeId;
+    const visited = new Set<string>();
+    while (current) {
+      if (visited.has(current)) return null;
+      visited.add(current);
+      const nextSibling = getNextSibling(current);
+      if (nextSibling) return nextSibling;
+      const parentId = getParentId(current);
+      current = parentId ?? '';
+    }
+
+    return null;
+  };
+
+  const startNode = dataStore.getNode(startNodeId);
+  const endNode = dataStore.getNode(endNodeId);
+
+  if (!startNode || !endNode) {
+    return '';
+  }
   
   // Same node case
   if (startNodeId === endNodeId) {
-    const node = dataStore.getNode(startNodeId);
-    if (!node || typeof node.text !== 'string') return '';
-    const text = node.text;
-    return text.substring(startOffset, endOffset);
+    if (typeof startNode.text !== 'string') return '';
+    const from = toModelOffset(startNode, startOffset);
+    const to = toModelOffset(startNode, endOffset);
+    return startNode.text.substring(from, to);
   }
   
   // Cross-node case
   let result = '';
-  
-  // End portion of start node
-  const startNode = dataStore.getNode(startNodeId);
-  if (startNode && typeof startNode.text === 'string') {
+
+  if (isInlineText(startNode)) {
     const startText = startNode.text;
-    result += startText.substring(startOffset);
+    result += startText.substring(toModelOffset(startNode, startOffset));
   }
   
   // Intermediate nodes (traverse if same parent)
-  // TODO: Need more accurate traversal logic (currently handled simply)
-  // Should actually check node relationships in dataStore
+  let currentNodeId: string | null = startNodeId;
+  const visited = new Set<string>();
+  while (currentNodeId && currentNodeId !== endNodeId) {
+    if (visited.has(currentNodeId)) break;
+    visited.add(currentNodeId);
+    currentNodeId = getNextNodeInDocument(currentNodeId);
+    if (!currentNodeId || currentNodeId === endNodeId || !dataStore.getNode) {
+      break;
+    }
+    const node = dataStore.getNode(currentNodeId);
+    if (isInlineText(node)) {
+      result += node.text;
+    }
+  }
   
   // Start portion of end node
-  const endNode = dataStore.getNode(endNodeId);
-  if (endNode && typeof endNode.text === 'string') {
+  if (isInlineText(endNode)) {
     const endText = endNode.text;
-    result += endText.substring(0, endOffset);
+    result += endText.substring(0, toModelOffset(endNode, endOffset));
   }
   
   return result;
@@ -591,4 +674,3 @@ export function handleContentEditableEdit(
     editInfo
   };
 }
-

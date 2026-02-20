@@ -94,6 +94,7 @@ export interface IEditorViewDOM {
   // Browser native commands (delegated to Model-first Commands)
   insertParagraph(): void;
   insertText(text: string): void;
+  insertLineBreak(): void;
   deleteSelection(): void;
   historyUndo(): void;
   historyRedo(): void;
@@ -110,6 +111,8 @@ export interface IEditorViewDOM {
   
   // Decorator management API
   getDecorators?(options?: DecoratorQueryOptions): (Decorator | DecoratorGenerator)[];
+  updateDecorator?(id: string, updates: Partial<Decorator>): boolean;
+  removeDecorator?(id: string): boolean;
   defineDecoratorType(type: string, category: 'layer' | 'inline' | 'block', schema: DecoratorTypeSchema): void;
   
   // Lifecycle

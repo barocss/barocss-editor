@@ -104,7 +104,7 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
         }
       });
 
-      view.render(tree);
+      view.render(tree, { sync: true });
 
       // Verify full rendering result
       expectHTML(
@@ -114,9 +114,19 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
             <p class="paragraph" data-bc-sid="p1">
               <span class="text" data-bc-sid="t1"><span>Hello World</span></span>
             </p>
-            <span class="highlight-decorator" data-decorator="true" data-decorator-category="layer" data-decorator-position="after" data-decorator-sid="layer1" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow;"></span>
           </div>
         </div>`,
+        expect
+      );
+
+      expectHTML(
+        view.layers.decorator,
+        `<div 
+  class="barocss-editor-decorators" 
+  data-bc-layer="decorator" 
+  style="position: absolute; top: 0px; left: 0px; right: 0px; bottom: 0px; pointer-events: none; z-index: 10;">
+  <span class="highlight-decorator" data-decorator="true" data-decorator-category="layer" data-decorator-position="after" data-decorator-sid="layer1" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow;"></span>
+</div>`,
         expect
       );
     });
@@ -157,7 +167,7 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
         data: { text: 'Comment' }
       });
 
-      view.render(tree);
+      view.render(tree, { sync: true });
 
       // Verify full rendering result
       expectHTML(
@@ -167,10 +177,20 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
             <p class="paragraph" data-bc-sid="p1">
               <span class="text" data-bc-sid="t1"><span>Hello World</span></span>
             </p>
-            <span class="highlight-decorator" data-decorator="true" data-decorator-category="layer" data-decorator-position="after" data-decorator-sid="layer1" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow;"></span>
-            <span class="comment-decorator" data-decorator="true" data-decorator-category="layer" data-decorator-position="after" data-decorator-sid="layer2" data-decorator-stype="comment" data-skip-reconcile="true">Comment</span>
           </div>
         </div>`,
+        expect
+      );
+
+      expectHTML(
+        view.layers.decorator,
+        `<div 
+  class="barocss-editor-decorators" 
+  data-bc-layer="decorator" 
+  style="position: absolute; top: 0px; left: 0px; right: 0px; bottom: 0px; pointer-events: none; z-index: 10;">
+  <span class="highlight-decorator" data-decorator="true" data-decorator-category="layer" data-decorator-position="after" data-decorator-sid="layer1" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow;"></span>
+  <span class="comment-decorator" data-decorator="true" data-decorator-category="layer" data-decorator-position="after" data-decorator-sid="layer2" data-decorator-stype="comment" data-skip-reconcile="true">Comment</span>
+</div>`,
         expect
       );
     });
@@ -208,7 +228,7 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
         }
       });
 
-      view.render(tree);
+      view.render(tree, { sync: true });
       
       // Verify initial rendering result
       expectHTML(
@@ -218,9 +238,19 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
             <p class="paragraph" data-bc-sid="p1">
               <span class="text" data-bc-sid="t1"><span>Hello World</span></span>
             </p>
-            <span class="highlight-decorator" data-decorator="true" data-decorator-category="layer" data-decorator-position="after" data-decorator-sid="layer1" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow;"></span>
           </div>
         </div>`,
+        expect
+      );
+
+      expectHTML(
+        view.layers.decorator,
+        `<div 
+  class="barocss-editor-decorators" 
+  data-bc-layer="decorator" 
+  style="position: absolute; top: 0px; left: 0px; right: 0px; bottom: 0px; pointer-events: none; z-index: 10;">
+  <span class="highlight-decorator" data-decorator="true" data-decorator-category="layer" data-decorator-position="after" data-decorator-sid="layer1" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow;"></span>
+</div>`,
         expect
       );
 
@@ -232,7 +262,7 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
         }
       });
 
-      view.render(tree);
+      view.render(tree, { sync: true });
       
       // Verify rendering result after update
       expectHTML(
@@ -242,9 +272,19 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
             <p class="paragraph" data-bc-sid="p1">
               <span class="text" data-bc-sid="t1"><span>Hello World</span></span>
             </p>
-            <span class="highlight-decorator" data-decorator="true" data-decorator-category="layer" data-decorator-position="after" data-decorator-sid="layer1" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow;"></span>
           </div>
         </div>`,
+        expect
+      );
+
+      expectHTML(
+        view.layers.decorator,
+        `<div 
+  class="barocss-editor-decorators" 
+  data-bc-layer="decorator" 
+  style="position: absolute; top: 0px; left: 0px; right: 0px; bottom: 0px; pointer-events: none; z-index: 10;">
+  <span class="highlight-decorator" data-decorator="true" data-decorator-category="layer" data-decorator-position="after" data-decorator-sid="layer1" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow;"></span>
+</div>`,
         expect
       );
     });
@@ -270,7 +310,7 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
         ]
       };
 
-      view.render(tree);
+      view.render(tree, { sync: true });
       
       // Verify initial rendering result
       expectHTML(
@@ -294,7 +334,7 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
         data: { color: 'yellow' }
       });
 
-      view.render(tree);
+      view.render(tree, { sync: true });
       
       // Verify rendering result after adding decorator
       expectHTML(
@@ -304,9 +344,19 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
             <p class="paragraph" data-bc-sid="p1">
               <span class="text" data-bc-sid="t1"><span>Hello World</span></span>
             </p>
-            <span class="highlight-decorator" data-decorator="true" data-decorator-category="layer" data-decorator-position="after" data-decorator-sid="layer1" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow;"></span>
           </div>
         </div>`,
+        expect
+      );
+
+      expectHTML(
+        view.layers.decorator,
+        `<div 
+  class="barocss-editor-decorators" 
+  data-bc-layer="decorator" 
+  style="position: absolute; top: 0px; left: 0px; right: 0px; bottom: 0px; pointer-events: none; z-index: 10;">
+  <span class="highlight-decorator" data-decorator="true" data-decorator-category="layer" data-decorator-position="after" data-decorator-sid="layer1" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow;"></span>
+</div>`,
         expect
       );
     });
@@ -338,7 +388,7 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
         data: { color: 'yellow' }
       });
 
-      view.render(tree);
+      view.render(tree, { sync: true });
       
       // Verify initial rendering result
       expectHTML(
@@ -348,16 +398,26 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
             <p class="paragraph" data-bc-sid="p1">
               <span class="text" data-bc-sid="t1"><span>Hello World</span></span>
             </p>
-            <span class="highlight-decorator" data-decorator="true" data-decorator-category="layer" data-decorator-position="after" data-decorator-sid="layer1" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow;"></span>
           </div>
         </div>`,
+        expect
+      );
+
+      expectHTML(
+        view.layers.decorator,
+        `<div 
+  class="barocss-editor-decorators" 
+  data-bc-layer="decorator" 
+  style="position: absolute; top: 0px; left: 0px; right: 0px; bottom: 0px; pointer-events: none; z-index: 10;">
+  <span class="highlight-decorator" data-decorator="true" data-decorator-category="layer" data-decorator-position="after" data-decorator-sid="layer1" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow;"></span>
+</div>`,
         expect
       );
 
       // Remove layer decorator
       view.removeDecorator('layer1');
 
-      view.render(tree);
+      view.render(tree, { sync: true });
       
       // Verify rendering result after removing decorator
       expectHTML(
@@ -369,6 +429,15 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
             </p>
           </div>
         </div>`,
+        expect
+      );
+
+      expectHTML(
+        view.layers.decorator,
+        `<div 
+  class="barocss-editor-decorators" 
+  data-bc-layer="decorator" 
+  style="position: absolute; top: 0px; left: 0px; right: 0px; bottom: 0px; pointer-events: none; z-index: 10;"></div>`,
         expect
       );
     });
@@ -416,7 +485,7 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
         data: { color: 'blue' }
       });
 
-      view.render(tree);
+      view.render(tree, { sync: true });
 
       // Verify full rendering result
       expectHTML(
@@ -429,9 +498,19 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
                 <span>World</span>
               </span>
             </p>
-            <span class="highlight-decorator" data-decorator="true" data-decorator-category="layer" data-decorator-position="after" data-decorator-sid="layer1" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow;"></span>
           </div>
         </div>`,
+        expect
+      );
+
+      expectHTML(
+        view.layers.decorator,
+        `<div 
+  class="barocss-editor-decorators" 
+  data-bc-layer="decorator" 
+  style="position: absolute; top: 0px; left: 0px; right: 0px; bottom: 0px; pointer-events: none; z-index: 10;">
+  <span class="highlight-decorator" data-decorator="true" data-decorator-category="layer" data-decorator-position="after" data-decorator-sid="layer1" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow;"></span>
+</div>`,
         expect
       );
     });
@@ -474,7 +553,7 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
         data: { text: 'Quote' }
       });
 
-      view.render(tree);
+      view.render(tree, { sync: true });
 
       // Verify full rendering result
       expectHTML(
@@ -485,12 +564,21 @@ describe('EditorViewDOM + renderer-dom Layer Decorator Integration', () => {
             <p class="paragraph" data-bc-sid="p1">
               <span class="text" data-bc-sid="t1"><span>Hello World</span></span>
             </p>
-            <span class="highlight-decorator" data-decorator="true" data-decorator-category="layer" data-decorator-position="after" data-decorator-sid="layer1" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow;"></span>
           </div>
         </div>`,
+        expect
+      );
+
+      expectHTML(
+        view.layers.decorator,
+        `<div 
+  class="barocss-editor-decorators" 
+  data-bc-layer="decorator" 
+  style="position: absolute; top: 0px; left: 0px; right: 0px; bottom: 0px; pointer-events: none; z-index: 10;">
+  <span class="highlight-decorator" data-decorator="true" data-decorator-category="layer" data-decorator-position="after" data-decorator-sid="layer1" data-decorator-stype="highlight" data-skip-reconcile="true" style="background-color: yellow;"></span>
+</div>`,
         expect
       );
     });
   });
 });
-

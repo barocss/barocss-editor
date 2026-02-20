@@ -32,37 +32,8 @@ export class MutationObserverManagerImpl implements MutationObserverManager {
         // Currently handleDomMutations handles all characterData changes,
         // so onTextChange is disabled or only performs minimal logging
         
-        // TODO: This path can be removed once fully migrated to handleDomMutations
+        // handleDomMutations path is authoritative for text content changes.
         console.log('[MO] onTextChange: SKIP - handled by handleDomMutations');
-        
-        // Existing logic is commented out (can be enabled as fallback if needed)
-        /*
-        // Only process changes to nodes same as current selection's anchorNode
-        const selection = window.getSelection();
-        if (!selection || selection.rangeCount === 0) {
-          console.log('[MO] onTextChange: SKIP - no selection');
-          return;
-        }
-        
-        const anchorNode = selection.anchorNode;
-        if (!anchorNode) {
-          console.log('[MO] onTextChange: SKIP - no anchorNode');
-          return;
-        }
-        
-        // Only process when event.target equals selection.anchorNode
-        if (event.target !== anchorNode) {
-          console.log('[MO] onTextChange: SKIP - target !== anchorNode', { 
-            targetNodeType: event.target.nodeType,
-            anchorNodeType: anchorNode.nodeType,
-            targetIsSame: event.target === anchorNode
-          });
-          return;
-        }
-        
-        console.log('[MO] onTextChange: PROCESSING - calling handleTextContentChange');
-        await this.inputHandler.handleTextContentChange(event.oldText, event.newText, event.target);
-        */
       }
     });
   }
