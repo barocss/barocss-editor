@@ -419,6 +419,9 @@ importers:
       '@barocss/datastore':
         specifier: workspace:*
         version: link:../datastore
+      '@barocss/extensions':
+        specifier: workspace:*
+        version: link:../extensions
       '@barocss/model':
         specifier: workspace:*
         version: link:../model
