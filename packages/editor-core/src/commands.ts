@@ -134,6 +134,7 @@ export class SetSelectionCommand implements Command {
   execute(state: DocumentState): DocumentState {
     // Selection is managed separately in Editor and SelectionManager.
     // Keep DocumentState immutable by returning the same shape.
+    void this._selection; // retained for command identity / future use
     return { ...state };
   }
 }

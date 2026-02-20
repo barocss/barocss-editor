@@ -255,7 +255,7 @@ export interface Extension {
   // After hooks (notification for core model changes)
   // For type safety. Alternatively, you can use editor.on() events for more flexibility.
   onTransaction?(editor: Editor, transaction: Transaction): void;
-  onSelectionChange?(editor: Editor, selection: SelectionState): void;
+  onSelectionChange?(editor: Editor, selection: SelectionState | ModelSelection): void;
   onContentChange?(editor: Editor, content: DocumentState): void;
   
   // State extension
