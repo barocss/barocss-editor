@@ -275,6 +275,18 @@ export class Editor implements ContextProvider {
       },
       canExecute: () => true
     });
+
+    this.registerCommand({
+      name: 'find',
+      execute: () => true,
+      canExecute: () => true
+    });
+
+    this.registerCommand({
+      name: 'findAndReplace',
+      execute: () => true,
+      canExecute: () => true
+    });
   }
 
   private _registerDefaultExtensions(): void {
