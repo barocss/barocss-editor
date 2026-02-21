@@ -38,4 +38,13 @@ export * from './cut';
 export * from '../operations/transformNode';
 export * from '../operations/moveBlockUp';
 export * from '../operations/moveBlockDown';
+export * from '../operations/insertHorizontalRule';
+export * from '../operations/insertCodeBlock';
+export * from '../operations/insertImage';
+export * from '../operations/toggleLink';
+export * from '../operations/insertTable';
+export * from '../operations/insertChecklist';
+export * from '../operations/insertCallout';
+export * from '../operations/insertMathBlock';
+export * from '../operations/insertComment';
 

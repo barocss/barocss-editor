@@ -14,6 +14,20 @@ export * from './escape';
 export * from './list';
 export * from './blockquote';
 export * from './emoji';
+export * from './link';
+export * from './image';
+export * from './code-block';
+export * from './horizontal-rule';
+export * from './table';
+export * from './slash-command';
+export * from './floating-toolbar';
+export * from './drag-drop';
+export * from './find-replace';
+export * from './checklist';
+export * from './callout';
+export * from './math-block';
+export * from './comment';
+export * from './styles';
 
 // Import classes
 import { TextExtension } from './text';
@@ -29,13 +43,17 @@ import { UnderlineExtension } from './underline';
 import { CopyPasteExtension } from './copy-paste';
 import { ListExtension } from './list';
 import { BlockquoteExtension } from './blockquote';
+import { LinkExtension } from './link';
+import { ImageExtension } from './image';
+import { CodeBlockExtension } from './code-block';
+import { HorizontalRuleExtension } from './horizontal-rule';
+import { TableExtension } from './table';
+import { ChecklistExtension } from './checklist';
+import { CalloutExtension } from './callout';
+import { MathBlockExtension } from './math-block';
+import { CommentExtension } from './comment';
 import type { Extension } from '@barocss/editor-core';
 
-// Core Extension (required extensions that are always included by default)
-// - TextExtension: basic text editing (insertText, deleteText, etc.)
-// - DeleteExtension: delete command (Backspace, Delete keys)
-// - ParagraphExtension: basic structure (paragraph creation, etc.)
-// - IndentExtension: structural indentation/outdentation (Tab/Shift+Tab)
 export function createCoreExtensions(): Extension[] {
   return [
     new TextExtension(),
@@ -48,9 +66,6 @@ export function createCoreExtensions(): Extension[] {
   ];
 }
 
-// Convenience functions
-// Additional Extensions (Bold, Italic, Heading, List)
-// Note: Core Extensions are automatically registered in Editor constructor, so they are excluded here
 export function createBasicExtensions(): Extension[] {
   return [
     new BoldExtension(),
@@ -61,25 +76,45 @@ export function createBasicExtensions(): Extension[] {
   ];
 }
 
-// Reusable extension sets
-// Note: Core Extensions are automatically registered in Editor constructor, so they are excluded here
+export function createRichExtensions(): Extension[] {
+  return [
+    ...createBasicExtensions(),
+    new UnderlineExtension(),
+    new LinkExtension(),
+    new ImageExtension(),
+    new CodeBlockExtension(),
+    new HorizontalRuleExtension(),
+    new TableExtension(),
+    new ChecklistExtension(),
+    new CalloutExtension(),
+    new MathBlockExtension(),
+    new CommentExtension()
+  ];
+}
+
 export const ExtensionSets = {
-  // Basic text editing (Bold, Italic only)
   basic: () => [
     new BoldExtension(),
     new ItalicExtension(),
     new UnderlineExtension()
   ],
   
-  // Rich text editing (Bold, Italic, Heading only)
   rich: () => [
     new BoldExtension(),
     new ItalicExtension(),
     new UnderlineExtension(),
-    new HeadingExtension()
+    new HeadingExtension(),
+    new LinkExtension(),
+    new ImageExtension(),
+    new CodeBlockExtension(),
+    new HorizontalRuleExtension(),
+    new TableExtension(),
+    new ChecklistExtension(),
+    new CalloutExtension(),
+    new MathBlockExtension(),
+    new CommentExtension()
   ],
   
-  // Minimal editing (no additional Extensions)
   minimal: () => []
 } as const;
 

@@ -5,7 +5,17 @@ import { buildTextRunIndex, EditorViewDOM } from '@barocss/editor-view-dom';
 import { createSchema, getStandardSchemaDefinition } from '@barocss/schema';
 import { define, element, slot, data, when, defineMark, getGlobalRegistry, attr, text } from '@barocss/dsl';
 import { Devtool } from '@barocss/devtool';
-// debug overlay disabled
+import katex from 'katex';
+import 'katex/dist/katex.min.css';
+
+function _renderMathToElement(el: HTMLElement, tex: string, displayMode: boolean): void {
+  if (!tex) { el.textContent = displayMode ? '(empty equation)' : ''; return; }
+  try {
+    katex.render(tex, el, { displayMode, throwOnError: false });
+  } catch {
+    el.textContent = tex;
+  }
+}
 
 function bootstrap() {
   console.log('[editor-test] bootstrap:start');
@@ -806,8 +816,32 @@ const result = renderDocument(initialTree);`
   define('descTerm', element('dt', { className: 'dt' }, [slot('content')]));
   define('descDef', element('dd', { className: 'dd' }, [slot('content')]));
 
-  define('mathInline', element('span', { className: 'math-inline', 'data-engine': attr('engine', 'katex') }, [attr('tex', '')]));
-  define('mathBlock', element('div', { className: 'math-block', 'data-engine': attr('engine', 'katex') }, [attr('tex', '')]));
+  define('mathInline', {
+    managesDOM: true,
+    mount(props: any, container: HTMLElement) {
+      const tex = props?.attributes?.tex ?? '';
+      const el = document.createElement('span');
+      el.className = 'math-inline';
+      el.setAttribute('data-engine', props?.attributes?.engine ?? 'katex');
+      _renderMathToElement(el, tex, false);
+      container.appendChild(el);
+      return el;
+    },
+    unmount(instance: any) { (instance?.element as HTMLElement)?.remove?.(); }
+  } as any);
+  define('mathBlock', {
+    managesDOM: true,
+    mount(props: any, container: HTMLElement) {
+      const tex = props?.attributes?.tex ?? '';
+      const el = document.createElement('div');
+      el.className = 'math-block';
+      el.setAttribute('data-engine', props?.attributes?.engine ?? 'katex');
+      _renderMathToElement(el, tex, true);
+      container.appendChild(el);
+      return el;
+    },
+    unmount(instance: any) { (instance?.element as HTMLElement)?.remove?.(); }
+  } as any);
 
   define('mediaVideo', element('video', { className: 'video', src: attr('src', ''), poster: attr('poster', ''), controls: attr('controls', true) }));
   define('mediaAudio', element('audio', { className: 'audio', src: attr('src', ''), controls: attr('controls', true) }));

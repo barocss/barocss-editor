@@ -7,4 +7,6 @@
 
 export * from './types';
 export * from './base-adapter';
+export * from './awareness-manager';
+export * from './conflict-resolver';
 

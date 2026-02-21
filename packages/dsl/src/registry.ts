@@ -1,4 +1,4 @@
-import { RendererDefinition, TNodeType, ExternalComponent, ContextualComponent, RenderTemplate } from './types';
+import { RendererDefinition, TNodeType, ExternalComponent, ContextualComponent, RenderTemplate, ExternalDescriptor } from './types';
 import { getGlobalRegistry } from './template-builders';
 
 /** RendererRegistry options */
@@ -125,19 +125,15 @@ export class RendererRegistry {
     this._components.clear();
   }
 
-  getMarkRenderer(type: string): RenderTemplate | undefined {
-    // Getting directly from _renderers can return ComponentTemplate
+  getMarkRenderer(type: string): RenderTemplate | ExternalDescriptor | undefined {
     const renderer = this._renderers.get(`mark:${type}`);
     if (renderer && renderer.template) {
-      return renderer.template as RenderTemplate;
+      return renderer.template as RenderTemplate | ExternalDescriptor;
     }
-    // Fallback: get from getComponent() (legacy support)
     const component = this.getComponent(`mark:${type}`);
-    if (component && component.template) {
-      // If component.template is ContextualComponent function, return execution result
-      // Or return template property of ExternalComponent
-      return component.template as any;
-    }
+    if (!component) return undefined;
+    if ((component as any).type === 'external') return component as unknown as ExternalDescriptor;
+    if (component.template) return component.template as any;
     return undefined;
   }
 

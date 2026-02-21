@@ -42,6 +42,8 @@ export type {
   ComponentContext,
   ExternalComponent,
   ExternalDescriptor,
+  BlockComponentProps,
+  MarkComponentProps,
   RendererDefinition,
   RendererTemplate,
   RenderTemplate,

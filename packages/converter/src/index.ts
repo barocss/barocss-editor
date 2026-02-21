@@ -30,6 +30,10 @@ export { registerOfficeHTMLRules, cleanOfficeHTML } from './rules/office-html-ru
 export { registerGoogleDocsHTMLRules } from './rules/google-docs-html-rules';
 export { registerNotionHTMLRules } from './rules/notion-html-rules';
 
+// PDF Exporter
+export { PDFExporter } from './pdf-exporter';
+export type { PDFExportOptions } from './pdf-exporter';
+
 // HTML Cleaners
 export { OfficeHTMLCleaner } from './office-html-cleaner';
 export { GoogleDocsHTMLCleaner } from './google-docs-html-cleaner';

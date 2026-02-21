@@ -149,6 +149,37 @@ export interface ExternalComponent {
 }
 
 /**
+ * Props passed by renderer-react to a block node's React component.
+ * Use with define('nodeType', external(Component)).
+ */
+export interface BlockComponentProps<A = Record<string, any>> {
+  sid: string;
+  stype: string;
+  model: Record<string, unknown>;
+  attributes: A;
+  text?: string;
+  children?: any;
+  'data-bc-sid': string;
+  'data-bc-stype': string;
+  [key: string]: unknown;
+}
+
+/**
+ * Props passed by renderer-react to a mark's React component.
+ * Use with defineMark('markType', external(Component)).
+ *
+ * `children` is the inner text string or nested mark React elements.
+ */
+export interface MarkComponentProps<A = Record<string, any>> {
+  markType: string;
+  attributes: A;
+  text: string;
+  children?: any;
+  'data-mark-type': string;
+  [key: string]: unknown;
+}
+
+/**
  * Descriptor returned by external() for define('name', external(...)).
  * Either reactComponent (React) or mount/unmount (DOM) is provided.
  */

@@ -176,6 +176,9 @@ importers:
       '@barocss/schema':
         specifier: workspace:*
         version: link:../../packages/schema
+      katex:
+        specifier: ^0.16.28
+        version: 0.16.28
       react:
         specifier: ^19.0.0
         version: 19.2.4
@@ -186,6 +189,9 @@ importers:
       '@playwright/test':
         specifier: ^1.49.0
         version: 1.58.0
+      '@types/katex':
+        specifier: ^0.16.8
+        version: 0.16.8
       '@types/react':
         specifier: ^19.0.0
         version: 19.2.10
@@ -225,7 +231,13 @@ importers:
       '@barocss/schema':
         specifier: workspace:*
         version: link:../../packages/schema
+      katex:
+        specifier: ^0.16.28
+        version: 0.16.28
     devDependencies:
+      '@types/katex':
+        specifier: ^0.16.8
+        version: 0.16.8
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -379,6 +391,9 @@ importers:
       vite-plugin-dts:
         specifier: ^4.5.4
         version: 4.5.4(@types/node@20.19.30)(typescript@5.9.3)(vite@5.4.21)
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.4(@types/node@20.19.30)(jsdom@25.0.1)
 
   packages/dom-observer:
     dependencies:
@@ -5947,6 +5962,10 @@ packages:
 
   /@types/json-schema@7.0.15:
     resolution: {integrity: sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==}
+
+  /@types/katex@0.16.8:
+    resolution: {integrity: sha512-trgaNyfU+Xh2Tc+ABIb44a5AYUpicB3uwirOioeOkNPPbmgRNtcWyDeeFRzjPZENO9Vq8gvVqfhaaXWLlevVwg==}
+    dev: true
 
   /@types/mdast@4.0.4:
     resolution: {integrity: sha512-kGaNbPh1k7AFzgpud/gMdvIm5xuECykRR+JnWKQno9TAXVa6WIVCGTPvYGekIDL4uwCZQSYbUxNBSb1aUo79oA==}

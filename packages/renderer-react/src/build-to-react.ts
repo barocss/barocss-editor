@@ -41,10 +41,6 @@ function isElementTemplate(c: unknown): c is ElementTemplate {
   return !!c && typeof c === 'object' && (c as any).type === 'element';
 }
 
-function isSlotTemplate(c: unknown): c is { type: 'slot'; name: string } {
-  return !!c && typeof c === 'object' && (c as any).type === 'slot';
-}
-
 function isDataTemplate(c: unknown): c is { type: 'data'; path?: string; getter?: (d: ModelData) => unknown; defaultValue?: unknown } {
   return !!c && typeof c === 'object' && (c as any).type === 'data';
 }
@@ -338,7 +334,7 @@ function resolveMarkTemplate(registry: RendererRegistry, markTmpl: unknown, mark
   return null;
 }
 
-/** Build a React node for a single text run. Only wrap with mark elements when the mark is registered with defineMark (getMarkRenderer returns a template); otherwise render as plain text. */
+/** Build a React node for a single text run. Wraps with mark elements (element template or reactComponent). */
 function buildMarkRunToReact(
   registry: RendererRegistry,
   run: TextRun,
@@ -348,13 +344,31 @@ function buildMarkRunToReact(
   const markModel: ModelData = { text: run.text, run, model } as any;
   let inner: ReactNode = run.text;
 
+  const modelMarks: Array<{ stype: string; attrs?: Record<string, unknown> }> =
+    Array.isArray((model as any).marks) ? (model as any).marks : [];
+
   const types = run.types ?? [];
   for (let i = types.length - 1; i >= 0; i--) {
     const markType = types[i];
     const markTmpl = registry.getMarkRenderer?.(markType);
-    const elementTmpl = markTmpl ? resolveMarkTemplate(registry, markTmpl, markModel) : null;
-    if (!elementTmpl) continue;
+    if (!markTmpl) continue;
     const key = `${keyBase}_${markType}_${i}`;
+
+    const ext = markTmpl as { type?: string; reactComponent?: (props: Record<string, any>) => any };
+    if (ext?.type === 'external' && typeof ext.reactComponent === 'function') {
+      const markEntry = modelMarks.find(m => m.stype === markType);
+      inner = createElement(ext.reactComponent, {
+        key,
+        markType,
+        attributes: markEntry?.attrs ?? {},
+        text: run.text,
+        'data-mark-type': markType,
+      }, inner);
+      continue;
+    }
+
+    const elementTmpl = resolveMarkTemplate(registry, markTmpl, markModel);
+    if (!elementTmpl) continue;
     const tag = resolveTag(elementTmpl.tag as string | ((d: ModelData) => string), markModel);
     const attrs = resolveAttrs(elementTmpl.attributes as Record<string, unknown>, markModel);
     inner = createElement(tag, { ...attrs, key }, inner);

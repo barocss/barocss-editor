@@ -1,10 +1,19 @@
-# React 컴포넌트 렌더링 (에디터 비교 및 Barocss 방향)
+# React 컴포넌트 렌더링
 
-## 질문
+## 개요
 
-- editor-view-react / renderer-react에서 **커스텀 React 컴포넌트**를 노드/데코레이터로 렌더할 수 있는가?
-- DSL은 현재 그렇게 되어 있지 않고, external component 형태로 등록해야 한다.
-- TipTap·Lexical 등 React 기반 에디터는 React 컴포넌트를 어떻게 쓰는가?
+Barocss Editor는 **블록 노드**와 **인라인 마크** 모두에 React 컴포넌트를 직접 등록할 수 있다.
+`external()` 헬퍼를 통해 DSL 레벨에서 React 컴포넌트를 등록하면, `renderer-react`가 `createElement(component, props)` 로 렌더한다.
+
+```ts
+import { define, defineMark, external } from '@barocss/dsl';
+
+// 블록 노드
+define('my-card', external(MyCard));
+
+// 인라인 마크
+defineMark('highlight', external(HighlightMark));
+```
 
 ---
 
@@ -13,97 +22,194 @@
 | 에디터 | 방식 | 등록/연결 |
 |--------|------|-----------|
 | **TipTap** | **NodeView**에 React 컴포넌트 직접 사용 | Extension에서 `addNodeView()` → `ReactNodeViewRenderer(MyComponent)`. `NodeViewWrapper` / `NodeViewContent`로 감싸서 에디터 트리에 삽입. props로 `node`, `updateAttributes` 등 전달. |
-| **Lexical** | **DecoratorNode** + React | `DecoratorNode`(또는 `DecoratorBlockNode`)를 노드로 등록하고, 해당 노드를 렌더하는 React 컴포넌트를 플러그인/설정에서 연결. `initialConfig.nodes`에 노드 등록, React 플러그인에서 `useLexicalComposerContext()` 등으로 에디터 접근. |
-| **Slate** | **renderElement** 콜백 | `Editable`에 `renderElement({ element, children, attributes })` 제공. element 타입별로 **React element를 반환**. 즉 "노드 타입 → React 컴포넌트" 매핑을 한 곳에서 처리. |
+| **Lexical** | **DecoratorNode** + React | `DecoratorNode`를 노드로 등록하고, React 컴포넌트를 플러그인에서 연결. `initialConfig.nodes`에 노드 등록. |
+| **Slate** | **renderElement / renderLeaf** 콜백 | `Editable`에 `renderElement({ element, children, attributes })` 제공. element/leaf 타입별로 React element를 반환. |
 
-공통점: **노드/엘리먼트 타입과 React 컴포넌트를 1:1로 연결**하고, 에디터(또는 렌더 레이어)가 그 컴포넌트를 인스턴스화해 트리에 넣는다.
-
----
-
-## Barocss 현재 상태
-
-### DSL / Registry
-
-- **ExternalComponent** (타입): `mount(props, container: HTMLElement) => HTMLElement`, `unmount(instance)`, `update?`, `managesDOM?`, `template?`.
-  - **DOM 기준**: 컨테이너에 직접 마운트하는 형태로 설계되어 있어, renderer-dom의 ComponentManager와 잘 맞음.
-  - React 컴포넌트(함수/클래스)를 그대로 받는 필드는 없음.
-- **등록**: `renderer(nodeType, externalComponent)` 또는 `registry.registerComponent(name, component)`로 ExternalComponent를 등록.
-
-### renderer-dom
-
-- ExternalComponent는 `mount`/`unmount`로 DOM에 그리며, getComponent로 조회해 사용. React와 무관.
-- **React 전용 external** (`external(ReactComponent)` 형태, `mount` 없음): renderer-dom에서는 **선언적으로 사용할 수 없음**. 해당 노드 타입은 placeholder `div`(identity attrs만)만 그려지고, 계층/슬롯을 DSL처럼 채우지 않음. React 컴포넌트로 실제 UI를 그리는 것은 renderer-react 전용.
-
-### renderer-react
-
-- `buildToReact`에서 `templateOrComponent?.managesDOM === true`이면 **placeholder만** 렌더함 (`<div data-bc-sid ... className="react-renderer-external-placeholder">Component</div>`).
-- 즉, **React 컴포넌트로 교체하는 경로는 아직 없음.** ExternalComponent가 React를 인식하지 않음.
-
-### 결론 (가능 여부)
-
-- **지금 구조만으로는** “스키마 노드/데코 타입 → 커스텀 React 컴포넌트”를 직접 렌더하지는 않는다.
-- **가능하게 하려면** “external component를 React 쪽에서도 쓰는” 확장이 필요하다 (아래 방향 참고).
+공통점: **노드/마크 타입과 React 컴포넌트를 1:1로 연결**하고, 에디터(또는 렌더 레이어)가 그 컴포넌트를 인스턴스화해 트리에 넣는다.
 
 ---
 
-## DSL 패턴: define + external()
+## Barocss 등록 API
 
-**같은 define() 안에** 선언적 템플릿과 외부 컴포넌트를 나란히 쓸 수 있도록 `external()` 헬퍼를 둔다.
+### define + external() — 블록 노드
 
 ```ts
-define('paragraph', element('p', {}, [data('text')]));
-define('my-card', external(MyCardComponent));           // React
-define('legacy-widget', external({ mount, unmount }));  // DOM (mount/unmount)
+// 방법 1: React 컴포넌트
+define('my-card', external(MyCardComponent));
+
+// 방법 2: 선언적 DSL 템플릿 (React/DOM 양쪽에서 동작)
+define('paragraph', element('p', { className: 'paragraph' }, [slot('content')]));
+
+// 방법 3: DOM mount/unmount (renderer-dom 전용)
+define('legacy-widget', external({ mount, unmount, managesDOM: true }));
 ```
 
-- `define(name, element(...))` — 기존처럼 DSL 템플릿으로 노드 타입 정의.
-- `define(name, external(ReactComponent))` — 해당 타입을 **React 컴포넌트**로 렌더 (renderer-react에서 사용).
-- `define(name, external({ mount, unmount, managesDOM }))` — 기존처럼 **DOM** external (renderer-dom에서 mount/unmount).
+### defineMark + external() — 인라인 마크
 
-`external()` 반환값은 `{ type: 'external', reactComponent? }` 또는 `{ type: 'external', mount, unmount, ... }` 이고, registry가 `type === 'external'` 또는 `managesDOM` 이 있으면 컴포넌트로 등록한다. renderer-react는 나중에 `reactComponent`가 있으면 `createElement(reactComponent, props)` 로 그리면 된다.
+```ts
+// 방법 1: React 컴포넌트
+defineMark('highlight', external(HighlightMark));
 
-## React 컴포넌트를 쓰기 위한 방향 (제안)
+// 방법 2: 선언적 DSL 템플릿
+defineMark('bold', element('strong', { className: 'mark-bold' }, [data('text')]));
+```
 
-목표: **노드/데코 타입에 “React 컴포넌트”를 등록하고, renderer-react가 해당 타입일 때 그 컴포넌트를 렌더.**
-
-### 1) 등록 API (DSL) — external() 추가됨
-
-- **external(ReactComponent)** → `{ type: 'external', reactComponent }` 로 등록. `define('xxx', external(MyReactNode))` 로 사용.
-- **external({ mount, unmount })** → 기존 DOM external과 동일. `define('xxx', external({ mount, unmount, managesDOM: true }))`.
-- registry는 `type === 'external'` 또는 `managesDOM` 이면 `registerComponent()` 로 저장.
-
-### 2) renderer-react 쪽 (구현됨)
-
-- **buildToReact**: template에 `reactComponent`(함수)가 있으면 `createElement(reactComponent, props)` 로 렌더. `props`에는 `model`, `sid`, `stype`, `...model`, `key`, `data-bc-sid`, `data-bc-stype` 이 들어가고, **스키마 계층**을 위해 `model.content`가 배열일 때 각 자식에 대해 `buildToReact(registry, child.stype, childModel)`를 호출한 결과를 `props.children`으로 넘긴다. 자식 노드에 대한 block/layer 데코레이터도 동일하게 before/after로 넣는다. `managesDOM`만 있으면 기존처럼 placeholder div.
-- **buildDecoratorToReact**: decorator용 정의에 `reactComponent`가 있으면 `createElement(reactComponent, { decorator, model, sid, stype, category, data, data-decorator-* })` 로 렌더.
-
-### 3) DSL과의 관계
-
-- `define('xxx', element(...))` 와 `define('xxx', external(...))` 를 같은 레벨로 두면, “선언적 템플릿”과 “외부(React/DOM) 컴포넌트”를 같은 진입점으로 쓸 수 있다. DSL을 크게 바꾸지 않고 패턴만 추가한 형태다.
+`external(fn)` 은 `{ type: 'external', reactComponent: fn }` 을 반환한다.
+`external({ mount, unmount })` 은 `{ type: 'external', mount, unmount }` 을 반환한다.
 
 ---
 
-## 요약
+## Props 규약
 
-| 항목 | 내용 |
-|------|------|
-| **다른 에디터** | TipTap은 NodeView에 React 컴포넌트 직접 등록, Lexical은 DecoratorNode + React 플러그인, Slate는 renderElement로 element → React element. 공통적으로 “타입 ↔ React 컴포넌트” 등록 후 에디터가 렌더. |
-| **Barocss 현재** | ExternalComponent는 DOM mount/unmount 중심; renderer-react는 external일 때 placeholder만 그림. React 컴포넌트를 “external component”로 그리는 경로는 없음. |
-| **가능 여부** | 가능. “타입 → React 컴포넌트” 등록 API를 두고, renderer-react에서 해당 타입이면 `createElement(Component, props)` 하면 됨. |
-| **구현 방향** | (1) Registry에 React 컴포넌트 등록 수단 추가 (ExternalComponent 확장 또는 registerReactComponent), (2) renderer-react에서 해당 경로일 때 React로 렌더, (3) DOM-only external은 기존처럼 placeholder 유지. |
+### BlockComponentProps (블록 노드)
+
+`renderer-react`의 `buildToReact`가 블록 노드의 React 컴포넌트에 전달하는 props:
+
+```ts
+import type { BlockComponentProps } from '@barocss/dsl';
+
+interface MyAttrs { level: number; }
+
+function Heading({ sid, stype, attributes, children }: BlockComponentProps<MyAttrs>) {
+  const Tag = `h${attributes.level}` as any;
+  return <Tag className="heading" data-bc-sid={sid} data-bc-stype={stype}>{children}</Tag>;
+}
+```
+
+| Prop | 타입 | 설명 |
+|------|------|------|
+| `sid` | `string` | 노드 고유 ID |
+| `stype` | `string` | 노드 타입명 |
+| `model` | `Record<string, unknown>` | 전체 모델 객체 |
+| `attributes` | `A` (제네릭) | 노드 속성 (level, type, src 등) |
+| `text` | `string?` | 텍스트 내용 (inline-text 등) |
+| `children` | `ReactNode?` | `model.content`에서 빌드된 자식 React 노드들 |
+| `data-bc-sid` | `string` | DOM identity 속성 |
+| `data-bc-stype` | `string` | DOM identity 속성 |
+
+### MarkComponentProps (인라인 마크)
+
+`renderer-react`의 `buildMarkRunToReact`가 마크의 React 컴포넌트에 전달하는 props:
+
+```ts
+import type { MarkComponentProps } from '@barocss/dsl';
+
+interface HighlightAttrs { color: string; }
+
+function HighlightMark({ children, attributes }: MarkComponentProps<HighlightAttrs>) {
+  return (
+    <span className="highlight" style={{ backgroundColor: attributes.color }}>
+      {children}
+    </span>
+  );
+}
+```
+
+| Prop | 타입 | 설명 |
+|------|------|------|
+| `markType` | `string` | 마크 타입명 |
+| `attributes` | `A` (제네릭) | 마크 속성 (color, href, weight 등) |
+| `text` | `string` | 현재 텍스트 run의 원본 텍스트 |
+| `children` | `ReactNode?` | 내부 텍스트 또는 중첩된 마크 React element |
+| `data-mark-type` | `string` | DOM 마크 타입 속성 |
+
+**중첩 순서**: 마크 배열에서 앞에 오는 마크가 바깥(outer), 뒤에 오는 마크가 안쪽(inner).
+
+```ts
+// marks: [{ stype: 'bold' }, { stype: 'italic' }]
+// 렌더 결과: <BoldMark><ItalicMark>text</ItalicMark></BoldMark>
+```
 
 ---
 
-## 스키마 계층과 React 컴포넌트
+## renderer-react 내부 동작
 
-스키마는 document > block+ > ... 처럼 content 계층을 가지며, element 템플릿은 `slot('content')`로 그 자식을 채운다. React 컴포넌트도 같은 계층을 가질 수 있다.
+### 블록 노드 (buildToReact)
 
-### renderer-react에서 계층 제어 방식
+`def.template`에 `reactComponent`가 있으면:
+1. `model.content` 배열의 각 자식에 대해 `buildToReact(child)` 를 재귀 호출
+2. block/layer 데코레이터를 before/after로 삽입
+3. 결과를 `props.children`으로 전달
+4. `createElement(reactComponent, props)` 로 렌더
 
-- **element + slot**: `processChildren`에서 `slot('content')`를 만나면 `model.content` 배열을 순회하며 각 자식에 대해 `buildToReact(registry, child.stype, childModel)`를 호출해 React 노드 배열을 만들고, 그걸 부모 element의 자식으로 넣는다.
-- **external(ReactComponent)**: `reactComponent` 분기에서도 `model.content`가 배열이면 동일하게 각 자식에 대해 `buildToReact`를 호출하고, block/layer 데코레이터를 반영한 뒤 그 결과를 **`props.children`**으로 넘긴다. 따라서 컴포넌트는 `props.children`으로 이미 빌드된 자식 React 노드들을 받고, 레이아웃만 담당하면 된다.
+### 인라인 마크 (buildMarkRunToReact)
 
-### 예제로 확인하는 방법
+`getMarkRenderer(type)`이 `ExternalDescriptor`를 반환하면:
+1. 모델의 `marks` 배열에서 해당 마크의 `attrs`를 찾아 `attributes`에 전달
+2. `createElement(reactComponent, { markType, attributes, text, children }, inner)` 로 렌더
+3. `inner`는 내부 텍스트 또는 안쪽 마크가 이미 감싼 React element
 
-- **테스트**: `packages/renderer-react/test/build-to-react-complex.test.ts`의 `external(ReactComponent) with model.content receives props.children (schema hierarchy)` 에서 `card-block`을 `external(CardWithChildren)`으로 정의하고, `model.content`에 paragraph 두 개를 넣어 빌드한 뒤 `node.props.children`이 2개의 paragraph React element인지, 그리고 하위 텍스트('A', 'B')가 트리에 있는지 검증한다.
-- **앱에서**: editor-react 또는 docs-site에서 해당 노드 타입을 스키마에 넣고, `define('my-block', external(MyBlock))`로 등록한 뒤 `MyBlock`에서 `props.children`을 렌더하는지 확인하면 된다. 예: `function MyBlock({ children, model }) { return <article><h2>{model.title}</h2>{children}</article>; }`
+### renderer-dom (DOM 렌더러)
+
+`ExternalDescriptor`로 등록된 마크는 renderer-dom에서 기본 `<span class="mark-{type}">` 폴백으로 처리된다. 크래시 없이 안전.
+
+---
+
+## 패턴 비교
+
+| 패턴 | 용도 | React | DOM |
+|------|------|-------|-----|
+| `element()` | 단순 HTML 매핑 | `buildToReact`가 `React.createElement`로 변환 | 네이티브 DOM 생성 |
+| `external(ReactComponent)` | React 전용 (hooks, 서드파티 라이브러리) | `createElement(component, props)` | 블록: placeholder div / 마크: `<span>` 폴백 |
+| `external({ mount, unmount })` | DOM 전용 (직접 DOM 조작) | placeholder div | `mount`/`unmount` 호출 |
+
+### 언제 `external(ReactComponent)` 를 쓰는가?
+
+- `useRef`, `useEffect`, `useState` 등 **React 훅**이 필요할 때
+- KaTeX, Chart.js 등 **서드파티 DOM 라이브러리**를 React 생명주기로 관리할 때
+- **동적 상태**(토글, 인터랙션)가 컴포넌트 내부에 필요할 때
+- React 앱의 **레퍼런스/샘플**로 전체 컴포넌트 패턴을 보여줄 때
+
+### 언제 `element()` 로 충분한가?
+
+- 단순 태그 + 클래스 + 속성 매핑 (예: `<blockquote class="quote">`)
+- React/DOM 양쪽에서 동일하게 동작해야 할 때
+- 성능이 중요하고 컴포넌트 오버헤드를 줄이고 싶을 때
+
+---
+
+## 예제: editor-react 앱
+
+`apps/editor-react/src/register-renderers.tsx` 참고:
+
+```tsx
+// 블록 — 팩토리 헬퍼로 단순 래퍼
+const wrap = (Tag: string, cls: string) =>
+  ({ sid, stype, children }: BlockComponentProps) => (
+    <Tag className={cls} data-bc-sid={sid} data-bc-stype={stype}>{children}</Tag>
+  );
+define('blockQuote', external(wrap('blockquote', 'block-quote')));
+
+// 블록 — 로직이 필요한 컴포넌트
+function Heading({ sid, stype, attributes, children }: BlockComponentProps) {
+  const Tag = `h${attributes?.level || 1}` as any;
+  return <Tag className="heading" data-bc-sid={sid} data-bc-stype={stype}>{children}</Tag>;
+}
+define('heading', external(Heading));
+
+// 블록 — 사이드이펙트 (KaTeX)
+function MathBlock({ sid, attributes }: BlockComponentProps) {
+  const ref = useRef<HTMLDivElement>(null);
+  const tex = attributes?.tex ?? '';
+  useEffect(() => {
+    if (ref.current && tex) katex.render(tex, ref.current, { displayMode: true });
+  }, [tex]);
+  return <div ref={ref} className="math-block" data-bc-sid={sid} data-bc-stype="mathBlock" />;
+}
+define('mathBlock', external(MathBlock));
+
+// 마크 — React 컴포넌트
+function LinkMark({ children, attributes }: MarkComponentProps) {
+  return <a href={attributes?.href ?? '#'} target="_blank" rel="noopener noreferrer">{children}</a>;
+}
+defineMark('link', external(LinkMark));
+```
+
+---
+
+## 테스트
+
+- **renderer-react**: `test/build-to-react-complex.test.ts` → `defineMark with external(reactComponent)` 섹션
+  - 단일 마크, 중첩 마크, 범위 마크, 겹치는 마크, element+external 혼용, 전역 마크, attrs 없는 마크, 3중 중첩, 빈 텍스트
+- **DSL**: `tests/registry.test.ts` → `defineMark + external()` 섹션
+  - ExternalDescriptor 저장, getMarkRenderer 반환, element/external 공존
