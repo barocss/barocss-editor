@@ -702,6 +702,106 @@ Pastes content at selection.
 
 ---
 
+## Rich Content Operations
+
+### `insertTable`
+
+Inserts a table with specified rows and columns.
+
+**DSL**: `insertTable(rows?, cols?, options?)`
+
+**Payload**:
+```typescript
+{ rows?: number; cols?: number; withHeader?: boolean; caption?: string }
+```
+
+### `insertCodeBlock`
+
+Inserts a code block.
+
+**DSL**: `insertCodeBlock(language?, code?)`
+
+**Payload**:
+```typescript
+{ language?: string; code?: string }
+```
+
+### `insertImage`
+
+Inserts an image node.
+
+**DSL**: `insertImage(src, alt?, title?)`
+
+**Payload**:
+```typescript
+{ src: string; alt?: string; title?: string; width?: number; height?: number }
+```
+
+### `insertCallout`
+
+Inserts a callout/admonition block.
+
+**DSL**: `insertCallout(type?, title?)`
+
+**Payload**:
+```typescript
+{ type?: string; title?: string; content?: string }
+```
+
+### `insertChecklist`
+
+Inserts a checklist.
+
+**DSL**: `insertChecklist(items?)`
+
+**Payload**:
+```typescript
+{ items?: Array<{ text: string; checked?: boolean }> }
+```
+
+### `insertComment`
+
+Inserts a comment annotation.
+
+**DSL**: `insertComment(text?, author?)`
+
+**Payload**:
+```typescript
+{ text?: string; author?: string; targetNodeId?: string }
+```
+
+### `insertHorizontalRule`
+
+Inserts a horizontal rule.
+
+**DSL**: `insertHorizontalRule()`
+
+**Payload**: None or `{}`
+
+### `insertMathBlock`
+
+Inserts a math equation block.
+
+**DSL**: `insertMathBlock(tex?, engine?)`
+
+**Payload**:
+```typescript
+{ tex?: string; engine?: 'katex' | 'mathjax' }
+```
+
+### `toggleLink`
+
+Toggles a link mark on the selection.
+
+**DSL**: `toggleLink(href?, title?)`
+
+**Payload**:
+```typescript
+{ href?: string; title?: string; target?: string }
+```
+
+---
+
 ## Utility Operations
 
 ### `autoMergeTextNodes`

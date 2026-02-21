@@ -222,6 +222,22 @@ defineMark('highlight', element('mark', {
 }, [data('text')]));
 ```
 
+### React Component Marks
+
+When using `@barocss/renderer-react`, marks can also be defined as React components:
+
+```typescript
+import { defineMark, external } from '@barocss/dsl';
+
+function BoldMark({ children, attributes }: MarkComponentProps) {
+  return <strong style={{ fontWeight: attributes?.weight ?? 'bold' }}>{children}</strong>;
+}
+
+defineMark('bold', external(BoldMark));
+```
+
+This is equivalent to the element-based approach but gives you full React component power (hooks, state, context).
+
 ### Decorators
 ```typescript
 import { defineDecorator } from '@barocss/dsl';

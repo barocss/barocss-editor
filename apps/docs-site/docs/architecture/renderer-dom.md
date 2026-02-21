@@ -120,6 +120,10 @@ const vnode = renderer.build(model, decorators);
 // Decorators are applied during rendering
 ```
 
+## External Mark Fallback
+
+When a mark is defined with `external(ReactComponent)` (intended for `renderer-react`), the DOM renderer safely falls back to rendering a `<span class="mark-{type}">` wrapper element. This ensures that shared template definitions work across both renderers without crashes.
+
 ## When to Use
 
 - **Rendering**: Convert model to DOM

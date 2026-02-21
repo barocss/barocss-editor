@@ -138,11 +138,27 @@ Text formatting:
 
 ### Rich Extensions
 
-Advanced formatting:
+Advanced formatting and rich content:
 - `heading` - Heading levels
 - `list` - Bullet and numbered lists
 - `blockquote` - Blockquotes
 - `codeBlock` - Code blocks
+- `link` - Link insertion and editing
+- `image` - Image insertion
+- `horizontalRule` - Horizontal rules
+- `table` - Table creation and editing
+- `checklist` - Checklist/task lists
+- `callout` - Callout/admonition blocks
+- `mathBlock` - Math equation blocks
+- `comment` - Comment/annotation
+
+### UX Extensions
+
+User experience enhancements:
+- `slashCommand` - Slash command palette (`/`)
+- `floatingToolbar` - Floating toolbar on selection
+- `dragDrop` - Block-level drag and drop
+- `findReplace` - Find and replace (`Mod+f`, `Mod+h`)
 
 ## Custom Extensions
 

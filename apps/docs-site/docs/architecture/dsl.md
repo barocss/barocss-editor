@@ -111,6 +111,30 @@ defineMark('highlight', element('mark', {
 }, [data('text')]));
 ```
 
+### React Component Marks
+
+Marks can also be defined as React components using `external()`:
+
+```typescript
+import { defineMark, external } from '@barocss/dsl';
+import type { MarkComponentProps } from '@barocss/dsl';
+
+function HighlightMark({ markType, attributes, children }: MarkComponentProps) {
+  return <mark style={{ backgroundColor: attributes?.color ?? '#ffff00' }}>{children}</mark>;
+}
+
+defineMark('highlight', external(HighlightMark));
+```
+
+When `renderer-react` encounters an external mark component, it renders it directly as a React element. When `renderer-dom` encounters it, it falls back to a `<span class="mark-{type}">` wrapper.
+
+### Type Interfaces
+
+The DSL package exports type interfaces for React component props:
+
+- `BlockComponentProps<A>` — Props for block node components (sid, stype, model, attributes, text, children)
+- `MarkComponentProps<A>` — Props for mark components (markType, attributes, text, children)
+
 ## Decorator Definitions
 
 Decorators are defined using `defineDecorator()`:

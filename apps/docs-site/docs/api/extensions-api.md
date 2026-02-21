@@ -604,6 +604,142 @@ const editor = new Editor({
 
 ---
 
+## Rich Content Extensions
+
+### LinkExtension
+
+Provides link insertion and editing functionality.
+
+**Location**: `packages/extensions/src/link.ts`
+
+**Commands:**
+- `insertLink` - Inserts a link
+- `removeLink` - Removes a link
+
+### ImageExtension
+
+Provides image insertion functionality.
+
+**Location**: `packages/extensions/src/image.ts`
+
+**Commands:**
+- `insertImage` - Inserts an image
+
+### CodeBlockExtension
+
+Provides code block functionality.
+
+**Location**: `packages/extensions/src/code-block.ts`
+
+**Commands:**
+- `insertCodeBlock` - Inserts a code block
+- `toggleCodeBlock` - Toggles code block
+
+### HorizontalRuleExtension
+
+Provides horizontal rule insertion.
+
+**Location**: `packages/extensions/src/horizontal-rule.ts`
+
+**Commands:**
+- `insertHorizontalRule` - Inserts a horizontal rule
+
+### TableExtension
+
+Provides table creation and editing.
+
+**Location**: `packages/extensions/src/table.ts`
+
+**Commands:**
+- `insertTable` - Inserts a table
+
+### CalloutExtension
+
+Provides callout/admonition blocks.
+
+**Location**: `packages/extensions/src/callout.ts`
+
+**Commands:**
+- `insertCallout` - Inserts a callout block
+
+### ChecklistExtension
+
+Provides checklist/task list functionality.
+
+**Location**: `packages/extensions/src/checklist.ts`
+
+**Commands:**
+- `insertChecklist` - Inserts a checklist
+- `toggleChecklistItem` - Toggles a checklist item
+
+### MathBlockExtension
+
+Provides math equation blocks (KaTeX/MathJax).
+
+**Location**: `packages/extensions/src/math-block.ts`
+
+**Commands:**
+- `insertMathBlock` - Inserts a math block
+
+### CommentExtension
+
+Provides comment/annotation functionality.
+
+**Location**: `packages/extensions/src/comment.ts`
+
+**Commands:**
+- `insertComment` - Inserts a comment
+
+## UX Extensions
+
+### SlashCommandExtension
+
+Provides slash command menu (type `/` to see command palette).
+
+**Location**: `packages/extensions/src/slash-command.ts`
+
+### FloatingToolbarExtension
+
+Provides floating toolbar that appears on text selection.
+
+**Location**: `packages/extensions/src/floating-toolbar.ts`
+
+### DragDropExtension
+
+Provides block-level drag and drop.
+
+**Location**: `packages/extensions/src/drag-drop.ts`
+
+### FindReplaceExtension
+
+Provides find and replace functionality.
+
+**Location**: `packages/extensions/src/find-replace.ts`
+
+**Commands:**
+- `find` - Opens find dialog
+- `findAndReplace` - Opens find and replace dialog
+
+---
+
+### `createRichExtensions(): Extension[]`
+
+Creates rich content extensions (includes basic + rich content extensions).
+
+**Returns:**
+- `Extension[]` - Array of rich extensions
+
+**Includes:**
+- All of `createBasicExtensions()` plus `UnderlineExtension`, `LinkExtension`, `ImageExtension`, `CodeBlockExtension`, `HorizontalRuleExtension`, `TableExtension`, `ChecklistExtension`, `CalloutExtension`, `MathBlockExtension`, `CommentExtension`
+
+**Example:**
+```typescript
+import { createRichExtensions } from '@barocss/extensions';
+
+const richExtensions = createRichExtensions();
+editor.use(...richExtensions);
+```
+
 ## Extension Options Summary
 
 | Extension | Options | Default Keyboard Shortcut | Commands |
@@ -622,6 +758,16 @@ const editor = new Editor({
 | `SelectAllExtension` | - | `Mod+a` | `selectAll` |
 | `CopyPasteExtension` | - | `Mod+c/x/v` | `copy`, `cut`, `paste` |
 | `EscapeExtension` | - | `Escape` | `escape` |
+| `LinkExtension` | - | - | `insertLink`, `removeLink` |
+| `ImageExtension` | - | - | `insertImage` |
+| `CodeBlockExtension` | - | - | `insertCodeBlock`, `toggleCodeBlock` |
+| `HorizontalRuleExtension` | - | - | `insertHorizontalRule` |
+| `TableExtension` | - | - | `insertTable` |
+| `CalloutExtension` | - | - | `insertCallout` |
+| `ChecklistExtension` | - | - | `insertChecklist`, `toggleChecklistItem` |
+| `MathBlockExtension` | - | - | `insertMathBlock` |
+| `CommentExtension` | - | - | `insertComment` |
+| `FindReplaceExtension` | - | `Mod+f`, `Mod+h` | `find`, `findAndReplace` |
 
 ---
 
