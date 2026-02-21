@@ -8,6 +8,10 @@
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
   "ignore": [
+    "@barocss/docs-site",
+    "@barocss/editor-decorator-test",
+    "@barocss/editor-react",
+    "@barocss/editor-test"
   ]
 }
 
