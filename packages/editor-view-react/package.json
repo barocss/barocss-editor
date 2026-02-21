@@ -1,6 +1,6 @@
 {
   "name": "@barocss/editor-view-react",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "React view layer for Barocss Editor (renderer-react + Editor)",
   "type": "module",
   "main": "./src/index.ts",

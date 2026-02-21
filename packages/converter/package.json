@@ -1,6 +1,6 @@
 {
   "name": "@barocss/converter",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Document format converter for Barocss Editor",
   "type": "module",
   "main": "./src/index.ts",

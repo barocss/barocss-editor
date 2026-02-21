@@ -1,5 +1,16 @@
 # @barocss/editor-view-react
 
+## 0.1.2
+
+### Patch Changes
+
+- 05878b8: Fix type-check TS2774 in selection-handler: remove redundant querySelector check (HTMLElement always has it).
+- Updated dependencies [6aa573f]
+- Updated dependencies [c7caa64]
+  - @barocss/dsl@1.1.0
+  - @barocss/renderer-react@0.2.0
+  - @barocss/editor-core@1.0.2
+
 ## 0.1.1
 
 ### Patch Changes

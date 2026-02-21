@@ -1,6 +1,6 @@
 {
   "name": "@barocss/editor-core",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Core editor logic that orchestrates schema, model, and renderers",
   "type": "module",
   "main": "./src/index.ts",

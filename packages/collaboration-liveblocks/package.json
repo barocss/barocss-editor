@@ -1,6 +1,6 @@
 {
   "name": "@barocss/collaboration-liveblocks",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Liveblocks adapter for Barocss Editor collaborative editing",
   "type": "module",
   "main": "./src/index.ts",

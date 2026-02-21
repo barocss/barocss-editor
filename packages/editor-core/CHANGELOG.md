@@ -1,5 +1,16 @@
 # @barocss/editor-core
 
+## 1.0.2
+
+### Patch Changes
+
+- c7caa64: Fix editor-core type-check: resolve unused `_selection` in SetSelectionCommand and type Extension `onSelectionChange` to accept `ModelSelection | SelectionState`.
+- Updated dependencies [b2be06d]
+  - @barocss/renderer-dom@1.0.2
+  - @barocss/model@1.0.2
+  - @barocss/extensions@1.0.2
+  - @barocss/datastore@0.1.2
+
 ## 1.0.1
 
 ### Patch Changes

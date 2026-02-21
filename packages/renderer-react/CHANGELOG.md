@@ -1,5 +1,16 @@
 # @barocss/renderer-react
 
+## 0.2.0
+
+### Minor Changes
+
+- 6aa573f: Add full React component support for inline marks via `defineMark('type', external(ReactComponent))`. Extend `defineMark` to accept `ExternalDescriptor`, add `BlockComponentProps` / `MarkComponentProps` type interfaces, and update `buildMarkRunToReact` to render React components directly with `markType`, `attributes`, `text`, and `children` props.
+
+### Patch Changes
+
+- Updated dependencies [6aa573f]
+  - @barocss/dsl@1.1.0
+
 ## 0.1.1
 
 ### Patch Changes

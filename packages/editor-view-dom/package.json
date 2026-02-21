@@ -1,6 +1,6 @@
 {
   "name": "@barocss/editor-view-dom",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "DOM view layer for Barocss Editor",
   "main": "src/index.ts",
   "types": "src/index.ts",
