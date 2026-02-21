@@ -370,6 +370,50 @@ const model = {
 // Rendering result: <strong>Hello</strong> <em>World</em>
 ```
 
+#### React Component Marks
+
+`defineMark` also accepts `ExternalDescriptor` for React component marks:
+
+```typescript
+import { defineMark, external } from '@barocss/dsl';
+import type { MarkComponentProps } from '@barocss/dsl';
+
+function HighlightMark({ markType, attributes, children }: MarkComponentProps) {
+  return <span style={{ backgroundColor: attributes?.color ?? '#ffff00' }}>{children}</span>;
+}
+
+defineMark('highlight', external(HighlightMark));
+```
+
+### Type Interfaces
+
+#### `BlockComponentProps<A>`
+
+Props passed to block node React components via `define('type', external(Component))`.
+
+| Prop | Type | Description |
+|------|------|-------------|
+| `sid` | `string` | Node schema ID |
+| `stype` | `string` | Node schema type |
+| `model` | `Record<string, unknown>` | Full model data |
+| `attributes` | `A` | Node attributes |
+| `text` | `string \| undefined` | Text content (for text nodes) |
+| `children` | `any` | Rendered child nodes |
+| `data-bc-sid` | `string` | DOM data attribute |
+| `data-bc-stype` | `string` | DOM data attribute |
+
+#### `MarkComponentProps<A>`
+
+Props passed to mark React components via `defineMark('type', external(Component))`.
+
+| Prop | Type | Description |
+|------|------|-------------|
+| `markType` | `string` | Mark type name |
+| `attributes` | `A` | Mark attributes |
+| `text` | `string` | Original text content |
+| `children` | `any` | Inner content (text or nested marks) |
+| `data-mark-type` | `string` | DOM data attribute |
+
 ### `defineDecorator(name, template)`
 
 Defines a decorator.

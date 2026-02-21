@@ -110,6 +110,47 @@ class CustomAdapter extends BaseAdapter {
 }
 ```
 
+## AwarenessManager
+
+Manages presence state and cursor positions for collaborative editing.
+
+### `DefaultAwarenessManager`
+
+```ts
+import { DefaultAwarenessManager } from '@barocss/collaboration';
+
+const awareness = new DefaultAwarenessManager({ staleThresholdMs: 30000 });
+```
+
+**Methods:**
+- `setLocalState(state: Partial<AwarenessState>): void` - Sets local presence
+- `setLocalCursor(anchor, head): void` - Sets local cursor position
+- `clearLocalCursor(): void` - Clears local cursor
+- `getLocalState(): AwarenessState | null` - Gets local state
+- `getRemoteStates(): Map<string, AwarenessState>` - Gets all remote states
+- `applyRemoteState(clientId, state): void` - Applies remote state update
+- `removeRemoteState(clientId): void` - Removes a remote client
+- `onRemoteChange(callback): () => void` - Subscribes to remote changes
+- `destroy(): void` - Cleanup
+
+## ConflictResolver
+
+Resolves conflicts between concurrent operations.
+
+### Strategies
+
+- `last-writer-wins` (default) - Latest timestamp wins
+- `first-writer-wins` - Earliest timestamp wins
+- `merge` - Merges update data from both operations
+- `custom` - Uses provided `customResolver` function
+
+```ts
+import { ConflictResolver } from '@barocss/collaboration';
+
+const resolver = new ConflictResolver({ strategy: 'last-writer-wins' });
+const result = resolver.resolve(localOp, remoteOp);
+```
+
 ## Related
 
 - Architecture: `architecture/collaboration`, `architecture/collaboration-yjs`, `architecture/collaboration-liveblocks`

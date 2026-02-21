@@ -169,6 +169,25 @@ const newVnode = renderer.build(updatedModel, []);
 renderer.render(container, newVnode); // Only text node is updated, not the paragraph
 ```
 
+## React Rendering
+
+Barocss also supports React-native rendering via `@barocss/renderer-react`:
+
+```
+Model → Registry → Template → buildToReact → ReactNode
+```
+
+Unlike the DOM renderer (which uses VNode → DOMReconcile), the React renderer interprets the same DSL templates and produces React elements directly. This means:
+
+- **Same templates**: `define()` and `defineMark()` work identically
+- **React output**: Output is `ReactNode` instead of DOM nodes
+- **Mark components**: `defineMark('type', external(ReactComponent))` renders marks as React components with `markType`, `attributes`, `text`, and `children` props
+- **Decorator support**: Inline, block, and layer decorators are rendered in the same React tree
+
+Use `@barocss/editor-view-react` to integrate the React renderer with the editor.
+
+See [Renderer React Architecture](../architecture/renderer-react) and [Editor View React Architecture](../architecture/editor-view-react) for details.
+
 ## Why This Approach?
 
 1. **Performance**: Minimal DOM updates for better performance

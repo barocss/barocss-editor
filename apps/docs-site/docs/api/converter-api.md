@@ -671,6 +671,57 @@ const model = converter.toModel(cleanedHTML);
 
 ---
 
+## PDFExporter
+
+Exports Barocss model to print-ready HTML for PDF generation.
+
+### Constructor
+
+```typescript
+new PDFExporter(options?: PDFExportOptions)
+```
+
+### PDFExportOptions
+
+```typescript
+interface PDFExportOptions {
+  title?: string;
+  author?: string;
+  pageSize?: 'A4' | 'Letter' | 'Legal';
+  orientation?: 'portrait' | 'landscape';
+  margins?: { top: string; right: string; bottom: string; left: string };
+  headerHTML?: string;
+  footerHTML?: string;
+  fontSize?: string;
+  fontFamily?: string;
+  lineHeight?: string;
+  includeStyles?: boolean;
+}
+```
+
+### Methods
+
+- `toHTML(nodes: INode[]): string` - Converts to print-ready HTML document
+- `printInBrowser(nodes: INode[]): string` - Opens popup and triggers print dialog
+- `downloadAsBlob(nodes: INode[]): Blob` - Returns HTML as downloadable Blob
+
+### Example
+
+```typescript
+import { PDFExporter } from '@barocss/converter';
+
+const exporter = new PDFExporter({
+  title: 'My Document',
+  pageSize: 'A4',
+  orientation: 'portrait'
+});
+
+const html = exporter.toHTML(documentNodes);
+const blob = exporter.downloadAsBlob(documentNodes);
+```
+
+---
+
 ## Related
 
 - [Architecture: Converter](../architecture/converter) - Converter architecture
