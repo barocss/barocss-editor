@@ -5,9 +5,9 @@ Barocss Editor uses a **model-first, DSL-first architecture**. All operations wo
 ## Core Structure
 
 ```
-Model → DSL → VNodeBuilder → VNode → DOMReconcile → DOM
-         ↑
-     element, data, when, component, slot, portal
+                         ┌── VNodeBuilder → VNode → DOMReconcile → DOM
+Model → DSL → Registry ─┤
+                         └── buildToReact → ReactNode → React DOM
 ```
 
 ## DSL-First Philosophy
@@ -15,24 +15,32 @@ Model → DSL → VNodeBuilder → VNode → DOMReconcile → DOM
 In Barocss, **everything** is defined using DSL:
 
 - **Templates**: `define('paragraph', element('p', {}, [slot('content')]))`
-- **Marks**: `defineMark('bold', element('strong', {}, [data('text')]))`
+- **Marks**: `defineMark('bold', element('strong', {}, [data('text')]))` or `defineMark('bold', external(BoldComponent))`
 - **Decorators**: `defineDecorator('highlight', element('span', {}, []))`
 - **Operations**: `defineOperationDSL('insertText', (p) => insertText({ text: p.text }))`
 
 This unified approach provides consistency, type safety, and composability across all definitions.
 
-## Complete Pipeline
+## Dual Rendering Pipeline
+
+The same DSL templates power **two rendering targets**:
+
+### DOM Path (renderer-dom)
 
 ```
-1. DSL Layer (packages/dsl)
-   └─ element('p', {...}, [data('text')]) → Template
-
-2. VNode Builder (packages/renderer-dom)
-   └─ Template × Data → VNode
-
-3. DOM Reconcile (packages/renderer-dom)
-   └─ VNode × VNode → DOM
+1. DSL Layer → Template
+2. VNodeBuilder: Template × Data → VNode (virtual DOM)
+3. DOMReconcile: prevVNode vs nextVNode → minimal DOM updates
 ```
+
+### React Path (renderer-react)
+
+```
+1. DSL Layer → Template
+2. buildToReact: Template × Data → ReactNode (no VNode step)
+```
+
+Both paths share the same template definitions — you define once and render to either target.
 
 ## Role of Each Layer
 
@@ -40,28 +48,39 @@ This unified approach provides consistency, type safety, and composability acros
 **Role**: Functional template definition
 
 - `element()` - HTML element template
-- `data()` - Data binding  
+- `data()` - Data binding
 - `when()` - Conditional rendering
 - `component()` - Component template
 - `slot()` - Slot template
 - `portal()` - Portal template
+- `external()` - Wrap React components or DOM mount/unmount objects
 
-All builders are pure functions (Pure Functions)
+All builders are pure functions.
 
 **Input**: Builder parameters
 **Output**: Template
 
-### 2. VNodeBuilder (packages/renderer-dom)
+### 2a. VNodeBuilder (packages/renderer-dom)
 **Role**: Convert DSL templates to VNode
 
 - Template lookup from Registry
 - Data binding (data(), className, style)
 - Component resolution
 - Conditional rendering (build time)
-- `when()` conditions are evaluated at build time and converted to regular VNode
 
 **Input**: Template × Model data
 **Output**: VNode tree
+
+### 2b. buildToReact (packages/renderer-react)
+**Role**: Convert DSL templates directly to ReactNode
+
+- Same template lookup from Registry
+- Same data binding and component resolution
+- Supports `external(ReactComponent)` for marks and blocks
+- No VNode intermediate — outputs ReactNode directly
+
+**Input**: Template × Model data
+**Output**: ReactNode
 
 ### 3. DOMReconcile (packages/renderer-dom)
 **Role**: Convert VNode differences to DOM changes
@@ -143,29 +162,28 @@ reconcileChildren(wip, prevChildren, nextChildren) {
 5. **children reconcile** must set created DOM nodes in child WIP's domNode
 6. **finalizeDOMUpdate** prevents duplicate append (`isAlreadyInDOM` check)
 
-## File Structure
+## Package Map
 
 ```
 packages/
-├─ schema/              # Schema definition
-├─ dsl/                 # DSL Layer ⭐
-│  ├─ template-builders.ts  # element, data, when, component
-│  ├─ types.ts             # Template types
-│  └─ registry.ts          # Template registry
-├─ vnode/              # VNodeBuilder
-│  └─ factory.ts       # DSL Template → VNode conversion
-├─ model/              # Model data
-├─ renderer-dom/
-│  ├─ dom-renderer.ts           # High-level wrapper
-│  ├─ dom-reconcile.ts          # Main reconcile
-│  ├─ work-in-progress.ts       # WIP interfaces
-│  ├─ work-in-progress-manager.ts
-│  ├─ change-detection.ts       # Change detection
-│  ├─ dom-processor.ts          # DOM manipulation
-│  ├─ component-manager.ts      # Component lifecycle
-│  ├─ portal-manager.ts        # Portal rendering
-│  └─ dom-operations.ts        # DOM utilities
-└─ datastore/         # Data management
+├─ schema/                 # Document structure and validation
+├─ datastore/              # Transactional node store (overlay/COW)
+├─ model/                  # Operations, transactions, undo/redo
+├─ dsl/                    # Declarative template builders ⭐
+├─ renderer-dom/           # VNode reconciliation → DOM
+├─ renderer-react/         # Direct → ReactNode (no VNode)
+├─ editor-core/            # Commands, selection, extensions, history
+├─ editor-view-dom/        # DOM input handling, selection sync
+├─ editor-view-react/      # React view layer with hooks
+├─ extensions/             # 30+ built-in extensions
+├─ collaboration/          # CRDT/OT base adapter
+├─ collaboration-yjs/      # Yjs adapter
+├─ collaboration-liveblocks/ # Liveblocks adapter
+├─ converter/              # HTML/Markdown/LaTeX/PDF conversion
+├─ shared/                 # Platform, keybinding, i18n utilities
+├─ text-analyzer/          # Smart text diff (LCP/LCS)
+├─ dom-observer/           # DOM mutation observer
+└─ devtool/                # Dev tools (tree view, event log)
 ```
 
 ## Usage Examples
@@ -208,7 +226,10 @@ define('article', element('article',
 
 ## Related Documents
 
-- [Package Structure](./packages) - Learn about each package's role and how to extend the editor
 - [Core Concepts: Rendering](../concepts/rendering) - Understand the rendering pipeline
+- [Renderer DOM](./renderer-dom) - DOM rendering with VNode reconciliation
+- [Renderer React](./renderer-react) - React rendering (no VNode)
+- [Editor View DOM](./editor-view-dom) - DOM view layer
+- [Editor View React](./editor-view-react) - React view layer
 - [Practical Examples](./practical-examples) - Real-world usage examples
 
