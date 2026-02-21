@@ -66,7 +66,17 @@ html[data-theme='light'] body { background-color: #ffffff; color: #1e293b; }
 /* ────────────── Navbar / Footer ────────────── */
 
 .navbar { box-shadow: 0 1px 0 rgba(15, 23, 42, 0.06); }
-.footer { background-color: var(--ifm-background-surface-color); border-top: 1px solid var(--ifm-color-emphasis-200); }
+
+.footer--dark {
+  --ifm-footer-background-color: #0f172a;
+  --ifm-footer-color: #cbd5e1;
+  --ifm-footer-link-color: #e2e8f0;
+  --ifm-footer-title-color: #f1f5f9;
+}
+
+.footer--dark .footer__link-item:hover {
+  color: #ffffff;
+}
 
 .menu__link--sublist-caret::after { transform: scale(0.75) rotateZ(0deg); }
 .menu__list-item--collapsed .menu__link--sublist-caret::after { transform: scale(0.75) rotateZ(90deg); }
