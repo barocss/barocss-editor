@@ -58,6 +58,8 @@ const config: Config = {
         configureWebpack(config, isServer) {
           return {
             resolve: {
+              // Ensure 'import' condition is available for ESM workspace packages
+              conditionNames: ['import', ...(isServer ? ['node', 'require'] : ['browser']), 'module', 'webpack', 'default'],
               // Allow .js imports to resolve to .ts files
               extensionAlias: {
                 '.js': ['.ts', '.tsx', '.js', '.jsx'],
