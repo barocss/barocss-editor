@@ -1,5 +1,16 @@
 # @barocss/extensions
 
+## 1.0.2
+
+### Patch Changes
+
+- Updated dependencies [c7caa64]
+- Updated dependencies [b2be06d]
+  - @barocss/editor-core@1.0.2
+  - @barocss/model@1.0.2
+  - @barocss/converter@1.0.2
+  - @barocss/datastore@0.1.2
+
 ## 1.0.1
 
 ### Patch Changes

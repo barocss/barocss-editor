@@ -1,6 +1,6 @@
 {
   "name": "@barocss/renderer-dom",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Renderer DSL for declarative DOM rendering",
   "type": "module",
   "main": "./src/index.ts",
