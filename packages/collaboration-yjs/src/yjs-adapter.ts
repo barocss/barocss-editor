@@ -1,254 +1,311 @@
-import { BaseAdapter } from '@barocss/collaboration';
+import { BaseAdapter, DefaultAwarenessManager, ConflictResolver } from '@barocss/collaboration';
 import type { AtomicOperation } from '@barocss/datastore';
 import type { INode } from '@barocss/datastore';
-import type { AdapterConfig } from '@barocss/collaboration';
+import type { AdapterConfig, AwarenessManager, CursorPosition, ConflictResolutionConfig } from '@barocss/collaboration';
 
-/**
- * Options for YjsAdapter
- */
 export interface YjsAdapterOptions {
-  /**
-   * Y.Doc instance
-   */
-  ydoc: any; // Y.Doc
-
-  /**
-   * Y.Map instance (defaults to ydoc.getMap('barocss-document'))
-   */
-  ymap?: any; // Y.Map
-
-  /**
-   * Adapter configuration
-   */
+  ydoc: any;
+  ymap?: any;
+  awareness?: any;
   config?: AdapterConfig;
+  conflictResolution?: Partial<ConflictResolutionConfig>;
 }
 
-/**
- * Yjs adapter for collaborative editing
- * 
- * @example
- * ```typescript
- * import { YjsAdapter } from '@barocss/collaboration-yjs';
- * import * as Y from 'yjs';
- * import { WebsocketProvider } from 'y-websocket';
- * 
- * const ydoc = new Y.Doc();
- * const provider = new WebsocketProvider('ws://localhost:1234', 'my-room', ydoc);
- * 
- * const adapter = new YjsAdapter({
- *   ydoc,
- *   ymap: ydoc.getMap('barocss-document'),
- *   config: { clientId: 'user-1' }
- * });
- * 
- * await adapter.connect(dataStore);
- * ```
- */
 export class YjsAdapter extends BaseAdapter {
-  private ydoc: any; // Y.Doc
-  private ymap: any; // Y.Map
-  private updateHandler?: (update: Uint8Array, origin: any) => void;
+  private ydoc: any;
+  private ymap: any;
+  private yawareness: any;
+  private observeHandler?: (events: any[], txn: any) => void;
+  private awarenessHandler?: (change: any) => void;
   private isApplyingRemote: boolean = false;
+  private _pendingOps: Map<string, AtomicOperation> = new Map();
+  private _operationLog: AtomicOperation[] = [];
+  private _maxLogSize = 500;
+  private _awarenessManager: DefaultAwarenessManager;
+  private _conflictResolver: ConflictResolver;
 
   constructor(options: YjsAdapterOptions) {
     super(options.config || {});
     this.ydoc = options.ydoc;
     this.ymap = options.ymap || this.ydoc.getMap('barocss-document');
+    this.yawareness = options.awareness || null;
+    this._awarenessManager = new DefaultAwarenessManager();
+    this._conflictResolver = new ConflictResolver(options.conflictResolution);
+
+    if (this.config.user) {
+      this._awarenessManager.setLocalState({
+        clientId: this.config.clientId || 'local',
+        user: this.config.user
+      });
+    }
+  }
+
+  get awareness(): AwarenessManager {
+    return this._awarenessManager;
   }
 
   protected async doConnect(): Promise<void> {
-    // Listen to Yjs updates
-    this.updateHandler = (update: Uint8Array, origin: any) => {
-      // Ignore updates from this client
-      if (origin === this) {
-        return;
-      }
+    this.observeHandler = (events: any[], txn: any) => {
+      if (txn.origin === this) return;
 
       this.isApplyingRemote = true;
       try {
-        this.handleYjsUpdate(update);
+        this._handleYjsEvents(events);
       } finally {
         this.isApplyingRemote = false;
       }
     };
+    this.ymap.observeDeep(this.observeHandler);
 
-    this.ymap.observe(this.updateHandler);
+    if (this.yawareness) {
+      this.awarenessHandler = (change: { added: number[]; updated: number[]; removed: number[] }) => {
+        this._handleAwarenessUpdate(change);
+      };
+      this.yawareness.on('change', this.awarenessHandler);
 
-    // Load initial state from Yjs
-    await this.loadFromYjs();
+      if (this.config.user) {
+        this.yawareness.setLocalState({
+          user: this.config.user,
+          cursor: null
+        });
+      }
+    }
+
+    await this._loadFromYjs();
   }
 
   protected async doDisconnect(): Promise<void> {
-    if (this.updateHandler) {
-      this.ymap.unobserve(this.updateHandler);
-      this.updateHandler = undefined;
+    if (this.observeHandler) {
+      this.ymap.unobserveDeep(this.observeHandler);
+      this.observeHandler = undefined;
     }
+    if (this.yawareness && this.awarenessHandler) {
+      this.yawareness.off('change', this.awarenessHandler);
+      this.awarenessHandler = undefined;
+    }
+    this._awarenessManager.destroy();
   }
 
   protected async doSendOperation(operation: AtomicOperation): Promise<void> {
-    // Convert AtomicOperation to Yjs update
-    const yjsUpdate = this.operationToYjs(operation);
-    
-    // Apply update to Yjs (will trigger updateHandler on other clients)
-    this.ymap.set(operation.nodeId, yjsUpdate);
+    this._logOperation(operation);
+
+    this.ydoc.transact(() => {
+      const nodeMap = this._getOrCreateNodeMap(operation.nodeId);
+
+      switch (operation.type) {
+        case 'create':
+          if (operation.data) {
+            this._syncNodeToYjs(operation.nodeId, operation.data as INode);
+          }
+          break;
+        case 'update':
+          if (operation.data) {
+            for (const [key, value] of Object.entries(operation.data)) {
+              nodeMap.set(key, value);
+            }
+          }
+          break;
+        case 'delete':
+          this.ymap.delete(operation.nodeId);
+          break;
+        case 'move':
+          nodeMap.set('parentId', operation.parentId);
+          nodeMap.set('position', operation.position);
+          break;
+      }
+    }, this);
   }
 
   protected async doReceiveOperation(operation: AtomicOperation): Promise<void> {
-    await this.applyOperationToDataStore(operation);
+    const pendingLocal = this._pendingOps.get(operation.nodeId);
+    let resolvedOp = operation;
+    if (pendingLocal) {
+      resolvedOp = this._conflictResolver.resolve(pendingLocal, operation);
+      this._pendingOps.delete(operation.nodeId);
+    }
+    await this.applyOperationToDataStore(resolvedOp);
   }
 
   protected async doGetDocumentState(): Promise<INode | null> {
-    if (!this.dataStore) {
-      return null;
-    }
-
-    const rootNodeId = this.dataStore.getRootNodeId();
-    if (!rootNodeId) {
-      return null;
-    }
-
+    if (!this.dataStore) return null;
     return this.dataStore.getRootNode() ?? null;
   }
 
   protected async doSetDocumentState(rootNode: INode): Promise<void> {
-    // Convert INode tree to Yjs structure
-    const yjsData = this.nodeToYjs(rootNode);
-    this.ymap.set('root', yjsData);
+    this.ydoc.transact(() => {
+      this._syncNodeTreeToYjs(rootNode);
+    }, this);
   }
 
   protected isRemoteOperation(_operation: AtomicOperation): boolean {
     return this.isApplyingRemote;
   }
 
-  /**
-   * Convert AtomicOperation to Yjs format
-   */
-  private operationToYjs(operation: AtomicOperation): any {
-    return {
-      type: operation.type,
-      nodeId: operation.nodeId,
-      data: operation.data,
-      timestamp: operation.timestamp,
-      parentId: operation.parentId,
-      position: operation.position
-    };
-  }
+  setLocalCursor(anchor: CursorPosition, head: CursorPosition): void {
+    this._awarenessManager.setLocalCursor(anchor, head);
 
-  /**
-   * Convert INode tree to Yjs structure
-   */
-  private nodeToYjs(node: INode): any {
-    const result: any = {
-      sid: node.sid,
-      stype: node.stype,
-      text: node.text,
-      attributes: node.attributes
-    };
-
-    if (node.content && Array.isArray(node.content)) {
-      result.content = node.content.map((childId) => {
-        const child = this.dataStore?.getNode(childId as string);
-        return child ? this.nodeToYjs(child) : childId;
+    if (this.yawareness) {
+      const current = this.yawareness.getLocalState() || {};
+      this.yawareness.setLocalState({
+        ...current,
+        cursor: { anchor, head }
       });
     }
-
-    return result;
   }
 
-  /**
-   * Handle Yjs update and convert to AtomicOperations
-   */
-  private handleYjsUpdate(_update: Uint8Array): void {
-    // Decode Yjs update and extract operations
-    // This is a simplified version - full implementation would
-    // properly decode Yjs updates and convert them to AtomicOperations
-    
-    const operations: AtomicOperation[] = [];
-    
-    // Iterate through ymap entries and convert to operations
-    this.ymap.forEach((value: any, key: string) => {
-      if (key === 'root') {
-        // Handle root node update
-        return;
-      }
+  clearLocalCursor(): void {
+    this._awarenessManager.clearLocalCursor();
 
-      if (value && typeof value === 'object' && value.type) {
-        operations.push({
-          type: value.type,
-          nodeId: key,
-          data: value.data,
-          timestamp: value.timestamp || Date.now(),
-          parentId: value.parentId,
-          position: value.position
+    if (this.yawareness) {
+      const current = this.yawareness.getLocalState() || {};
+      this.yawareness.setLocalState({ ...current, cursor: null });
+    }
+  }
+
+  private _handleYjsEvents(events: any[]): void {
+    const operations: AtomicOperation[] = [];
+
+    for (const event of events) {
+      if (event.target === this.ymap) {
+        for (const [key, change] of event.changes.keys) {
+          if (change.action === 'add' || change.action === 'update') {
+            const value = this.ymap.get(key);
+            if (value && typeof value === 'object') {
+              operations.push({
+                type: change.action === 'add' ? 'create' : 'update',
+                nodeId: key,
+                data: value.toJSON ? value.toJSON() : value,
+                timestamp: Date.now()
+              });
+            }
+          } else if (change.action === 'delete') {
+            operations.push({
+              type: 'delete',
+              nodeId: key,
+              timestamp: Date.now()
+            });
+          }
+        }
+      }
+    }
+
+    for (const op of operations) {
+      this.applyOperationToDataStore(op).catch(error => {
+        console.error('[YjsAdapter] Error applying remote operation:', error);
+      });
+    }
+  }
+
+  private _handleAwarenessUpdate(change: { added: number[]; updated: number[]; removed: number[] }): void {
+    if (!this.yawareness) return;
+
+    const states = this.yawareness.getStates();
+
+    for (const clientId of [...change.added, ...change.updated]) {
+      const state = states.get(clientId);
+      if (state && clientId !== this.ydoc.clientID) {
+        this._awarenessManager.applyRemoteState(String(clientId), {
+          clientId: String(clientId),
+          user: state.user || { id: String(clientId) },
+          cursor: state.cursor || null,
+          lastActive: Date.now()
         });
       }
-    });
-
-    // Apply operations to DataStore
-    operations.forEach((op) => {
-      this.applyOperationToDataStore(op).catch((error) => {
-        console.error('[YjsAdapter] Error applying operation:', error);
-      });
-    });
-  }
-
-  /**
-   * Load initial state from Yjs
-   */
-  private async loadFromYjs(): Promise<void> {
-    if (!this.dataStore) {
-      return;
     }
 
-    // Load root node from Yjs
-    const rootData = this.ymap.get('root');
-    if (rootData) {
-      const rootNode = this.yjsToNode(rootData);
-      if (rootNode) {
-        // Rebuild node tree in DataStore
-        await this.rebuildNodeTree(rootNode);
+    for (const clientId of change.removed) {
+      this._awarenessManager.removeRemoteState(String(clientId));
+    }
+  }
+
+  private _getOrCreateNodeMap(nodeId: string): any {
+    let nodeMap = this.ymap.get(nodeId);
+    if (!nodeMap) {
+      try {
+        nodeMap = new (this.ydoc.getMap('__temp__').constructor)();
+        this.ymap.set(nodeId, nodeMap);
+      } catch {
+        this.ymap.set(nodeId, {});
+        nodeMap = this.ymap.get(nodeId);
+      }
+    }
+    return nodeMap;
+  }
+
+  private _syncNodeToYjs(nodeId: string, node: INode): void {
+    const data: Record<string, any> = {
+      sid: node.sid || nodeId,
+      stype: node.stype,
+    };
+    if (node.text !== undefined) data.text = node.text;
+    if (node.attributes) data.attributes = node.attributes;
+    if (node.marks) data.marks = node.marks;
+    if (node.content) data.content = node.content;
+
+    this.ymap.set(nodeId, data);
+  }
+
+  private _syncNodeTreeToYjs(node: INode): void {
+    if (!node.sid) return;
+    this._syncNodeToYjs(node.sid, node);
+
+    if (Array.isArray(node.content)) {
+      for (const childId of node.content) {
+        const child = typeof childId === 'string'
+          ? this.dataStore?.getNode(childId)
+          : childId;
+        if (child && typeof child === 'object' && (child as INode).sid) {
+          this._syncNodeTreeToYjs(child as INode);
+        }
       }
     }
   }
 
-  /**
-   * Convert Yjs data to INode
-   */
-  private yjsToNode(data: any): INode | null {
-    if (!data || !data.stype) {
-      return null;
+  private async _loadFromYjs(): Promise<void> {
+    if (!this.dataStore) return;
+
+    const entries: Array<[string, any]> = [];
+    this.ymap.forEach((value: any, key: string) => {
+      entries.push([key, value]);
+    });
+
+    if (entries.length === 0) return;
+
+    this.isApplyingRemote = true;
+    try {
+      for (const [_nodeId, value] of entries) {
+        const data = value && typeof value.toJSON === 'function' ? value.toJSON() : value;
+        if (data && data.stype) {
+          const node = this._yjsToNode(data);
+          if (node) {
+            this.dataStore.setNode(node, false);
+          }
+        }
+      }
+    } finally {
+      this.isApplyingRemote = false;
     }
+  }
+
+  private _yjsToNode(data: any): INode | null {
+    if (!data || !data.stype) return null;
 
     const node: INode = {
       sid: data.sid,
       stype: data.stype,
-      text: data.text,
-      attributes: data.attributes
     };
-
-    if (data.content && Array.isArray(data.content)) {
-      node.content = data.content.map((child: any) => {
-        if (typeof child === 'string') {
-          return child;
-        }
-        return this.yjsToNode(child);
-      }).filter(Boolean) as string[];
-    }
+    if (data.text !== undefined) (node as any).text = data.text;
+    if (data.attributes) node.attributes = data.attributes;
+    if (data.marks) (node as any).marks = data.marks;
+    if (data.content) node.content = data.content;
 
     return node;
   }
 
-  /**
-   * Rebuild node tree in DataStore from Yjs data
-   */
-  private async rebuildNodeTree(node: INode): Promise<void> {
-    if (!this.dataStore) {
-      return;
+  private _logOperation(op: AtomicOperation): void {
+    this._operationLog.push(op);
+    if (this._operationLog.length > this._maxLogSize) {
+      this._operationLog = this._operationLog.slice(-this._maxLogSize);
     }
-
-    // This is a simplified version - full implementation would
-    // properly rebuild the entire tree with all relationships
-    this.dataStore.setNode(node, false);
   }
 }
-

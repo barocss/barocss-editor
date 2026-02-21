@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
 
-const bulletListShortcut = process.platform === 'darwin' ? 'Meta+Shift+8' : 'Control+Shift+8';
+const modKey = process.platform === 'darwin' ? 'Meta' : 'Control';
 
 test.describe('React Editor – list (wrapInList / splitListItem)', () => {
-  test.skip('toggleBulletList wraps paragraph in list; Enter in list item creates new list item', async ({ page }) => {
+  test('toggleBulletList wraps paragraph in list; Enter in list item creates new list item', async ({ page }) => {
     await page.goto('/');
 
     const content = page.locator('[data-bc-layer="content"], [data-testid="editor-content"]').first();
@@ -12,7 +12,7 @@ test.describe('React Editor – list (wrapInList / splitListItem)', () => {
     const firstParagraph = content.locator('[data-bc-stype="paragraph"]').first();
     await firstParagraph.click();
 
-    await page.keyboard.press(bulletListShortcut);
+    await page.keyboard.press(`${modKey}+Shift+8`);
     const listOrUl = content.locator('ul, ol, [data-bc-stype="list"]');
     await expect(listOrUl).toHaveCount(1, { timeout: 5000 });
     const listItems = content.locator('li, [data-bc-stype="listItem"]');

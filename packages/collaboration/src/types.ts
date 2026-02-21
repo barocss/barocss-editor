@@ -105,3 +105,55 @@ export interface CollaborationOperation extends AtomicOperation {
   metadata?: OperationMetadata;
 }
 
+/**
+ * Cursor position for collaborative awareness
+ */
+export interface CursorPosition {
+  nodeId: string;
+  offset: number;
+}
+
+/**
+ * User presence/awareness state
+ */
+export interface AwarenessState {
+  clientId: string;
+  user: {
+    id: string;
+    name?: string;
+    color?: string;
+    avatar?: string;
+  };
+  cursor?: {
+    anchor: CursorPosition;
+    head: CursorPosition;
+  } | null;
+  lastActive: number;
+}
+
+/**
+ * Awareness manager interface for tracking remote cursors
+ */
+export interface AwarenessManager {
+  getLocalState(): AwarenessState | null;
+  setLocalState(state: Partial<AwarenessState>): void;
+  setLocalCursor(anchor: CursorPosition, head: CursorPosition): void;
+  clearLocalCursor(): void;
+  getRemoteStates(): Map<string, AwarenessState>;
+  onRemoteChange(callback: (states: Map<string, AwarenessState>) => void): () => void;
+  destroy(): void;
+}
+
+/**
+ * Conflict resolution strategy
+ */
+export type ConflictStrategy = 'last-writer-wins' | 'first-writer-wins' | 'merge' | 'custom';
+
+/**
+ * Conflict resolution config
+ */
+export interface ConflictResolutionConfig {
+  strategy: ConflictStrategy;
+  customResolver?: (local: AtomicOperation, remote: AtomicOperation) => AtomicOperation;
+}
+

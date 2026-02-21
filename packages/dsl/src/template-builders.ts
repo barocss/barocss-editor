@@ -549,8 +549,11 @@ export function portal(target: HTMLElement | (() => HTMLElement) | string, templ
  * @param template - Template for the mark
  * @returns RendererDefinition with mark class attribute
  */
-export function defineMark(type: string, template: RenderTemplate): RendererDefinition {
-  return define(`mark:${type}`, addMarkClassAttribute(type, template));
+export function defineMark(type: string, template: RenderTemplate | ExternalDescriptor): RendererDefinition {
+  if ((template as ExternalDescriptor).type === 'external') {
+    return define(`mark:${type}`, template as ExternalDescriptor);
+  }
+  return define(`mark:${type}`, addMarkClassAttribute(type, template as RenderTemplate));
 }
 
 /**

@@ -12,14 +12,16 @@
   },
   "dependencies": {
     "@barocss/datastore": "workspace:*",
+    "@barocss/devtool": "workspace:*",
+    "@barocss/dsl": "workspace:*",
     "@barocss/editor-core": "workspace:*",
     "@barocss/editor-view-dom": "workspace:*",
+    "@barocss/extensions": "workspace:*",
     "@barocss/schema": "workspace:*",
-    "@barocss/dsl": "workspace:*",
-    "@barocss/devtool": "workspace:*",
-    "@barocss/extensions": "workspace:*"
+    "katex": "^0.16.28"
   },
   "devDependencies": {
+    "@types/katex": "^0.16.8",
     "typescript": "^5.9.3",
     "vite": "^5.4.21"
   }

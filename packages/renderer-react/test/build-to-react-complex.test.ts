@@ -704,6 +704,253 @@ describe('buildToReact – defineMark with ComponentTemplate', () => {
   });
 });
 
+describe('buildToReact – defineMark with external(reactComponent)', () => {
+  beforeEach(() => {
+    const registry = getGlobalRegistry();
+    if (!registry.has?.('inline-text')) {
+      define('inline-text', element('span', {}, [data('text')]));
+    }
+  });
+
+  it('mark registered with external(ReactComponent) wraps text in that component', () => {
+    const registry = getGlobalRegistry();
+    const CustomBold = ({ children, ...rest }: any) => {
+      return { type: 'b', props: { className: 'rc-bold', children }, key: rest.key };
+    };
+    defineMark('rcBold', external(CustomBold));
+    const model = {
+      sid: 't1',
+      stype: 'inline-text',
+      text: 'Hello world',
+      marks: [{ stype: 'rcBold', range: [0, 5], attrs: { weight: '700' } }],
+    };
+    const node = buildToReact(registry, 'inline-text', model as any) as any;
+    expect(node).toBeTruthy();
+    const children = directChildren(node);
+    const boldEl = children.find((el: any) => el?.type === CustomBold);
+    expect(boldEl).toBeTruthy();
+    expect(boldEl.props.markType).toBe('rcBold');
+    expect(boldEl.props.attributes).toEqual({ weight: '700' });
+    expect(boldEl.props.children).toBe('Hello');
+  });
+
+  it('external mark receives mark attrs via attributes prop', () => {
+    const registry = getGlobalRegistry();
+    const ColorMark = ({ children, attributes }: any) => {
+      return { type: 'span', props: { style: { color: attributes?.color }, children } };
+    };
+    defineMark('rcColor', external(ColorMark));
+    const model = {
+      sid: 't2',
+      stype: 'inline-text',
+      text: 'Red text',
+      marks: [{ stype: 'rcColor', attrs: { color: '#ff0000' } }],
+    };
+    const node = buildToReact(registry, 'inline-text', model as any) as any;
+    const children = directChildren(node);
+    const colorEl = children.find((el: any) => el?.type === ColorMark);
+    expect(colorEl).toBeTruthy();
+    expect(colorEl.props.attributes).toEqual({ color: '#ff0000' });
+    expect(colorEl.props.children).toBe('Red text');
+  });
+
+  it('nested external marks — two marks on same range produce nested React elements', () => {
+    const registry = getGlobalRegistry();
+    const ExtBold = (p: any) => p;
+    const ExtItalic = (p: any) => p;
+    defineMark('extBold', external(ExtBold));
+    defineMark('extItalic', external(ExtItalic));
+    const model = {
+      sid: 'n1',
+      stype: 'inline-text',
+      text: 'nested',
+      marks: [
+        { stype: 'extBold', attrs: { weight: '700' } },
+        { stype: 'extItalic', attrs: { style: 'oblique' } },
+      ],
+    };
+    const node = buildToReact(registry, 'inline-text', model as any) as any;
+    const children = directChildren(node);
+    expect(children).toHaveLength(1);
+    const outer = children[0];
+    expect(outer.type).toBe(ExtBold);
+    expect(outer.props.markType).toBe('extBold');
+    expect(outer.props.attributes).toEqual({ weight: '700' });
+    const inner = outer.props.children;
+    expect(inner.type).toBe(ExtItalic);
+    expect(inner.props.markType).toBe('extItalic');
+    expect(inner.props.attributes).toEqual({ style: 'oblique' });
+    expect(inner.props.children).toBe('nested');
+  });
+
+  it('ranged external marks split text into multiple runs', () => {
+    const registry = getGlobalRegistry();
+    const ExtHL = (p: any) => p;
+    defineMark('extHL', external(ExtHL));
+    const model = {
+      sid: 'r1',
+      stype: 'inline-text',
+      text: 'ABCDEF',
+      marks: [{ stype: 'extHL', range: [2, 4], attrs: { color: 'yellow' } }],
+    };
+    const node = buildToReact(registry, 'inline-text', model as any) as any;
+    const children = directChildren(node);
+    expect(children).toHaveLength(3);
+    expect(children[0]).toBe('AB');
+    expect(children[1].type).toBe(ExtHL);
+    expect(children[1].props.children).toBe('CD');
+    expect(children[1].props.attributes).toEqual({ color: 'yellow' });
+    expect(children[2]).toBe('EF');
+  });
+
+  it('overlapping external marks on different ranges produce correct runs', () => {
+    const registry = getGlobalRegistry();
+    const MarkA = (p: any) => p;
+    const MarkB = (p: any) => p;
+    defineMark('markA', external(MarkA));
+    defineMark('markB', external(MarkB));
+    const model = {
+      sid: 'o1',
+      stype: 'inline-text',
+      text: '012345',
+      marks: [
+        { stype: 'markA', range: [0, 3], attrs: { id: 'a' } },
+        { stype: 'markB', range: [2, 5], attrs: { id: 'b' } },
+      ],
+    };
+    const node = buildToReact(registry, 'inline-text', model as any) as any;
+    const children = directChildren(node);
+    // runs: [0,2)="01" markA only, [2,3)="2" markA+markB, [3,5)="34" markB only, [5,6)="5" plain
+    expect(children).toHaveLength(4);
+    // "01" — only markA
+    expect(children[0].type).toBe(MarkA);
+    expect(children[0].props.children).toBe('01');
+    // "2" — markA wrapping markB (outer=A, inner=B)
+    expect(children[1].type).toBe(MarkA);
+    const innerMark = children[1].props.children;
+    expect(innerMark.type).toBe(MarkB);
+    expect(innerMark.props.children).toBe('2');
+    // "34" — only markB
+    expect(children[2].type).toBe(MarkB);
+    expect(children[2].props.children).toBe('34');
+    // "5" — plain text
+    expect(children[3]).toBe('5');
+  });
+
+  it('mixed: external mark + element mark on same text both render', () => {
+    const registry = getGlobalRegistry();
+    const ExtUnderline = (p: any) => p;
+    defineMark('extUL', external(ExtUnderline));
+    defineMark('elemStrong', element('strong', { className: 'mark-elemStrong' }, [data('text')]));
+    const model = {
+      sid: 'm1',
+      stype: 'inline-text',
+      text: 'mixed',
+      marks: [
+        { stype: 'elemStrong' },
+        { stype: 'extUL', attrs: { style: 'wavy' } },
+      ],
+    };
+    const node = buildToReact(registry, 'inline-text', model as any) as any;
+    const children = directChildren(node);
+    expect(children).toHaveLength(1);
+    // outermost mark wraps: elemStrong (tag=strong), then extUL (React component)
+    const outer = children[0];
+    expect(outer.type).toBe('strong');
+    const inner = outer.props.children;
+    expect(inner.type).toBe(ExtUnderline);
+    expect(inner.props.markType).toBe('extUL');
+    expect(inner.props.attributes).toEqual({ style: 'wavy' });
+    expect(inner.props.children).toBe('mixed');
+  });
+
+  it('global external mark with no range wraps entire text', () => {
+    const registry = getGlobalRegistry();
+    const GlobalMark = (p: any) => p;
+    defineMark('extGlobal', external(GlobalMark));
+    const model = {
+      sid: 'g1',
+      stype: 'inline-text',
+      text: 'entire text here',
+      marks: [{ stype: 'extGlobal', attrs: { level: 3 } }],
+    };
+    const node = buildToReact(registry, 'inline-text', model as any) as any;
+    const children = directChildren(node);
+    expect(children).toHaveLength(1);
+    const el = children[0];
+    expect(el.type).toBe(GlobalMark);
+    expect(el.props.children).toBe('entire text here');
+    expect(el.props.attributes).toEqual({ level: 3 });
+  });
+
+  it('external mark with no attrs receives empty attributes object', () => {
+    const registry = getGlobalRegistry();
+    const NoAttrMark = (p: any) => p;
+    defineMark('extNoAttr', external(NoAttrMark));
+    const model = {
+      sid: 'na1',
+      stype: 'inline-text',
+      text: 'plain',
+      marks: [{ stype: 'extNoAttr' }],
+    };
+    const node = buildToReact(registry, 'inline-text', model as any) as any;
+    const children = directChildren(node);
+    const el = children.find((c: any) => c?.type === NoAttrMark);
+    expect(el).toBeTruthy();
+    expect(el.props.attributes).toEqual({});
+  });
+
+  it('three external marks nested in correct order (outermost first in marks array)', () => {
+    const registry = getGlobalRegistry();
+    const M1 = (p: any) => p;
+    const M2 = (p: any) => p;
+    const M3 = (p: any) => p;
+    defineMark('ext3a', external(M1));
+    defineMark('ext3b', external(M2));
+    defineMark('ext3c', external(M3));
+    const model = {
+      sid: 'tri1',
+      stype: 'inline-text',
+      text: 'deep',
+      marks: [
+        { stype: 'ext3a', attrs: { n: 1 } },
+        { stype: 'ext3b', attrs: { n: 2 } },
+        { stype: 'ext3c', attrs: { n: 3 } },
+      ],
+    };
+    const node = buildToReact(registry, 'inline-text', model as any) as any;
+    const children = directChildren(node);
+    expect(children).toHaveLength(1);
+    // nesting: ext3a > ext3b > ext3c > "deep"
+    const l1 = children[0];
+    expect(l1.type).toBe(M1);
+    expect(l1.props.markType).toBe('ext3a');
+    const l2 = l1.props.children;
+    expect(l2.type).toBe(M2);
+    expect(l2.props.markType).toBe('ext3b');
+    const l3 = l2.props.children;
+    expect(l3.type).toBe(M3);
+    expect(l3.props.markType).toBe('ext3c');
+    expect(l3.props.children).toBe('deep');
+  });
+
+  it('external mark on empty text produces element with empty string child', () => {
+    const registry = getGlobalRegistry();
+    const EmptyMark = (p: any) => p;
+    defineMark('extEmpty', external(EmptyMark));
+    const model = {
+      sid: 'e1',
+      stype: 'inline-text',
+      text: '',
+      marks: [{ stype: 'extEmpty' }],
+    };
+    const node = buildToReact(registry, 'inline-text', model as any) as any;
+    const children = directChildren(node);
+    // empty text → splitTextByMarks returns [] → no runs
+    expect(children).toHaveLength(0);
+  });
+});
+
 describe('ReactRenderer – options', () => {
   beforeEach(() => {
     const registry = getGlobalRegistry();

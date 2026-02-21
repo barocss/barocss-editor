@@ -215,6 +215,17 @@ export const DEFAULT_KEYBINDINGS: Keybinding[] = [
     command: 'toggleBlockquote',
     when: 'editorFocus && editorEditable'
   },
+  // Find & Replace
+  {
+    key: 'Mod+f',
+    command: 'find',
+    when: 'editorFocus'
+  },
+  {
+    key: 'Mod+h',
+    command: 'findAndReplace',
+    when: 'editorFocus && editorEditable'
+  },
 
   // Block movement (up/down)
   {
