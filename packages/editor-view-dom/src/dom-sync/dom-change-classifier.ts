@@ -473,7 +473,7 @@ function classifyC2(
       modelSelection: options.modelSelection,
       calculatedOffsets: { startOffset, endOffset }
     });
-  } else {
+  } else if (range) {
     // Calculate offset based on DOM selection
     const converted = convertDOMSelectionToModelOffsets(
       range,
@@ -503,6 +503,9 @@ function classifyC2(
         ? 'DOM offset converted to model offset using inline-text walker'
         : 'DOM offset conversion failed, fallback offsets used'
     });
+  } else {
+    startOffset = 0;
+    endOffset = endModelNode.text?.length || 0;
   }
   
   // Recalculate prevText (using accurate offset)
