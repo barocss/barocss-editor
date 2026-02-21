@@ -53,7 +53,7 @@ describe('VNodeBuilder Text Rendering', () => {
       expectHTML(
         container,
         `<div class="test-component" data-bc-sid="comp1">
-          <span>Test Component</span>
+          <span data-bc-sid="comp1">Test Component</span>
         </div>`,
         expect
       );
@@ -74,7 +74,7 @@ describe('VNodeBuilder Text Rendering', () => {
       expectHTML(
         container,
         `<div class="test-component" data-bc-sid="comp1">
-          <span>Hello World</span>
+          <span data-bc-sid="comp1">Hello World</span>
         </div>`,
         expect
       );
@@ -97,7 +97,7 @@ describe('VNodeBuilder Text Rendering', () => {
       expectHTML(
         container,
         `<div class="test-component" data-bc-sid="comp1">
-          <span>Test Component</span>
+          <span data-bc-sid="comp1">Test Component</span>
         </div>`,
         expect
       );
@@ -118,7 +118,7 @@ describe('VNodeBuilder Text Rendering', () => {
       expectHTML(
         container,
         `<div class="test-component" data-bc-sid="comp1">
-          <span>Hello World</span>
+          <span data-bc-sid="comp1">Hello World</span>
         </div>`,
         expect
       );
@@ -141,7 +141,7 @@ describe('VNodeBuilder Text Rendering', () => {
       expectHTML(
         container,
         `<div class="test-component" data-bc-sid="comp1">
-          <span>Test Component</span>
+          <span data-bc-sid="comp1">Test Component</span>
         </div>`,
         expect
       );
@@ -164,7 +164,7 @@ describe('VNodeBuilder Text Rendering', () => {
       expectHTML(
         container,
         `<div class="test-component" data-bc-sid="comp1">
-          <span>Hello<strong>World</strong></span>
+          <span data-bc-sid="comp1">Hello<strong data-bc-sid="comp1">World</strong></span>
         </div>`,
         expect
       );
