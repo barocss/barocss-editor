@@ -1,5 +1,5 @@
 import { Editor, Extension } from '@barocss/editor-core';
-import { transaction, control } from '@barocss/model';
+import { transaction, reorderChildren } from '@barocss/model';
 
 export interface DragDropExtensionOptions {
   enabled?: boolean;
@@ -13,7 +13,9 @@ export class DragDropExtension implements Extension {
   private _options: DragDropExtensionOptions;
   private _dragState: { blockId: string; startY: number; element: HTMLElement } | null = null;
   private _placeholder: HTMLElement | null = null;
-  private _dragOverlay: HTMLElement | null = null;
+  private _boundMouseMove: ((e: MouseEvent) => void) | null = null;
+  private _boundMouseUp: (() => void) | null = null;
+  private _boundKeyDown: ((e: KeyboardEvent) => void) | null = null;
 
   constructor(options: DragDropExtensionOptions = {}) {
     this._options = {
@@ -40,6 +42,7 @@ export class DragDropExtension implements Extension {
 
   onDestroy(_editor: Editor): void {
     this._cleanupDrag();
+    this._removeGlobalListeners();
   }
 
   private _setupDragListeners(editor: Editor): void {
@@ -61,18 +64,30 @@ export class DragDropExtension implements Extension {
       this._startDrag(editor, blockId, e.clientY, block);
     });
 
-    document.addEventListener('mousemove', (e: MouseEvent) => {
+    this._boundMouseMove = (e: MouseEvent) => {
       if (this._dragState) {
         e.preventDefault();
         this._onDragMove(e.clientY);
+        this._autoScroll(e.clientY);
       }
-    });
+    };
 
-    document.addEventListener('mouseup', () => {
+    this._boundMouseUp = () => {
       if (this._dragState) {
         this._endDrag(editor);
       }
-    });
+    };
+
+    this._boundKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && this._dragState) {
+        e.preventDefault();
+        this._cleanupDrag();
+      }
+    };
+
+    document.addEventListener('mousemove', this._boundMouseMove);
+    document.addEventListener('mouseup', this._boundMouseUp);
+    document.addEventListener('keydown', this._boundKeyDown);
   }
 
   private _startDrag(_editor: Editor, blockId: string, startY: number, element: HTMLElement): void {
@@ -145,14 +160,25 @@ export class DragDropExtension implements Extension {
       this._placeholder.remove();
       this._placeholder = null;
     }
-    if (this._dragOverlay) {
-      this._dragOverlay.remove();
-      this._dragOverlay = null;
-    }
     if (this._dragState) {
       this._dragState.element.style.opacity = '';
       this._dragState.element.style.transition = '';
       this._dragState = null;
+    }
+  }
+
+  private _removeGlobalListeners(): void {
+    if (this._boundMouseMove) {
+      document.removeEventListener('mousemove', this._boundMouseMove);
+      this._boundMouseMove = null;
+    }
+    if (this._boundMouseUp) {
+      document.removeEventListener('mouseup', this._boundMouseUp);
+      this._boundMouseUp = null;
+    }
+    if (this._boundKeyDown) {
+      document.removeEventListener('keydown', this._boundKeyDown);
+      this._boundKeyDown = null;
     }
   }
 
@@ -169,14 +195,28 @@ export class DragDropExtension implements Extension {
     const currentIndex = parent.content.indexOf(blockId);
     if (currentIndex === -1 || currentIndex === targetIndex) return false;
 
-    const ops = [
-      ...control(node.parentId, [
-        { type: 'reorderChildren', payload: { childId: blockId, newIndex: targetIndex } } as any
-      ])
-    ];
+    const newOrder = [...parent.content];
+    newOrder.splice(currentIndex, 1);
+    const insertAt = Math.min(targetIndex, newOrder.length);
+    newOrder.splice(insertAt, 0, blockId);
 
-    const result = await transaction(editor, ops).commit();
+    const result = await transaction(editor, [reorderChildren(node.parentId, newOrder) as any]).commit();
     return result.success;
+  }
+
+  private _autoScroll(clientY: number): void {
+    const container = this._getContentContainer();
+    if (!container) return;
+
+    const rect = container.getBoundingClientRect();
+    const threshold = 40;
+    const speed = 8;
+
+    if (clientY < rect.top + threshold) {
+      container.scrollTop -= speed;
+    } else if (clientY > rect.bottom - threshold) {
+      container.scrollTop += speed;
+    }
   }
 
   private _getContentContainer(): HTMLElement | null {

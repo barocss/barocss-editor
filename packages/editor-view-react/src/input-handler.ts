@@ -147,20 +147,38 @@ export class ReactInputHandler {
     if (this.isImePhase()) return;
 
     event.preventDefault();
-    const text = event.clipboardData?.getData('text/plain') ?? '';
-    if (!text) return;
 
-    this.insertTextAtSelection(text);
+    const clipboardData = event.clipboardData;
+    if (!clipboardData) return;
+
+    const html = clipboardData.getData('text/html');
+    const text = clipboardData.getData('text/plain');
+
+    if (!html && !text) return;
+
+    this.editor.executeCommand('paste', {
+      clipboardHtml: html || undefined,
+      clipboardText: text || undefined,
+    });
   }
 
   handleDrop(event: DragEvent): void {
     if (this.isImePhase()) return;
 
     event.preventDefault();
-    const text = event.dataTransfer?.getData('text/plain') ?? '';
-    if (!text) return;
 
-    this.insertTextAtSelection(text);
+    const dataTransfer = event.dataTransfer;
+    if (!dataTransfer) return;
+
+    const html = dataTransfer.getData('text/html');
+    const text = dataTransfer.getData('text/plain');
+
+    if (!html && !text) return;
+
+    this.editor.executeCommand('paste', {
+      clipboardHtml: html || undefined,
+      clipboardText: text || undefined,
+    });
   }
 
   /**

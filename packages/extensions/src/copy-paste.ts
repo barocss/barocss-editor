@@ -73,7 +73,12 @@ export class CopyPasteExtension implements Extension {
     // paste
     editor.registerCommand({
       name: 'paste',
-      execute: async (ed: any, payload?: { selection?: ModelSelection; nodes?: INode[] }) => {
+      execute: async (ed: any, payload?: {
+        selection?: ModelSelection;
+        nodes?: INode[];
+        clipboardHtml?: string;
+        clipboardText?: string;
+      }) => {
         let selection = payload?.selection || ed.selection;
         if (!selection || selection.type !== 'range') {
           return false;
@@ -81,39 +86,44 @@ export class CopyPasteExtension implements Extension {
 
         let nodes: INode[] | undefined = payload?.nodes;
 
-        // Read from Clipboard if nodes are not provided in payload
+        // Resolve clipboard data: prefer inline payload from DOM event, then fall back to Clipboard API
         if (!nodes || nodes.length === 0) {
-          const clip = await this._readClipboard();
-          // 1) Internal JSON format (assume result from application/x-barocss, etc.)
-          if (clip.json && Array.isArray(clip.json)) {
-            nodes = clip.json;
+          let clipHtml = payload?.clipboardHtml;
+          let clipText = payload?.clipboardText;
+
+          if (!clipHtml && !clipText) {
+            const clip = await this._readClipboard();
+            clipHtml = clip.html;
+            clipText = clip.text;
+            if (clip.json && Array.isArray(clip.json)) {
+              nodes = clip.json;
+            }
           }
-          // 2) HTML format: distinguish Office / Google Docs / Notion / general HTML
-          if ((!nodes || nodes.length === 0) && clip.html && this._htmlConverter) {
+
+          // 1) HTML format: distinguish Office / Google Docs / Notion / general HTML
+          if ((!nodes || nodes.length === 0) && clipHtml && this._htmlConverter) {
             try {
-              const source = this._detectHtmlSource(clip.html);
-              let htmlForParse = clip.html;
+              const source = this._detectHtmlSource(clipHtml);
+              let htmlForParse = clipHtml;
               if (source === 'office') {
                 htmlForParse = cleanOfficeHTML(htmlForParse);
               }
-              // Google Docs / Notion have registerGoogleDocsHTMLRules / registerNotionHTMLRules
-              // already called in onCreate, so just pass HTML here
               nodes = this._htmlConverter.parse(htmlForParse, 'html') as INode[];
             } catch {
               // fallback to text
             }
           }
-          // 3) text/plain: branch based on heuristic check for markdown
-          if ((!nodes || nodes.length === 0) && clip.text) {
-            if (this._looksLikeMarkdown(clip.text)) {
+          // 2) text/plain: branch based on heuristic check for markdown
+          if ((!nodes || nodes.length === 0) && clipText) {
+            if (this._looksLikeMarkdown(clipText)) {
               try {
                 const md = new MarkdownConverter();
-                nodes = md.parse(clip.text, 'markdown-gfm') as INode[];
+                nodes = md.parse(clipText, 'markdown-gfm') as INode[];
               } catch {
-                nodes = this._textToNodes(clip.text);
+                nodes = this._textToNodes(clipText);
               }
             } else {
-              nodes = this._textToNodes(clip.text);
+              nodes = this._textToNodes(clipText);
             }
           }
         }
@@ -128,8 +138,7 @@ export class CopyPasteExtension implements Extension {
       },
       canExecute: (ed: any, payload?: any) => {
         const selection: ModelSelection | undefined = payload?.selection || ed.selection;
-        const nodes: any[] | undefined = payload?.nodes;
-        return !!selection && selection.type === 'range' && Array.isArray(nodes) && nodes.length > 0;
+        return !!selection && selection.type === 'range';
       }
     });
 
@@ -187,31 +196,60 @@ export class CopyPasteExtension implements Extension {
     return nodes;
   }
 
-  // Provides a hook that can be replaced by tests/callers instead of actual browser Clipboard API.
-  // Default implementation only writes text using navigator.clipboard.writeText if in browser environment.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   protected async _writeClipboard(data: ClipboardLike): Promise<void> {
+    if (typeof navigator === 'undefined' || !navigator.clipboard) return;
+
     try {
-      if (typeof navigator !== 'undefined' && (navigator as any).clipboard?.writeText && data.text) {
-        await (navigator as any).clipboard.writeText(data.text);
+      // Prefer ClipboardItem API to write both text/plain and text/html
+      if (typeof ClipboardItem !== 'undefined' && navigator.clipboard.write) {
+        const items: Record<string, Blob> = {};
+        if (data.text) {
+          items['text/plain'] = new Blob([data.text], { type: 'text/plain' });
+        }
+        if (data.html) {
+          items['text/html'] = new Blob([data.html], { type: 'text/html' });
+        }
+        if (Object.keys(items).length > 0) {
+          await navigator.clipboard.write([new ClipboardItem(items)]);
+          return;
+        }
+      }
+      // Fallback: write text only
+      if (data.text && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(data.text);
       }
     } catch {
-      // ignore clipboard errors
+      // ignore clipboard errors — permission denied, etc.
     }
   }
 
-  /**
-   * Reads data from Clipboard.
-   * Default implementation only supports text-based.
-   */
   protected async _readClipboard(): Promise<ClipboardLike> {
+    if (typeof navigator === 'undefined' || !navigator.clipboard) return {};
+
     try {
-      if (typeof navigator !== 'undefined' && (navigator as any).clipboard?.readText) {
-        const text = await (navigator as any).clipboard.readText();
+      // Prefer ClipboardItem API to read both text/plain and text/html
+      if (typeof ClipboardItem !== 'undefined' && navigator.clipboard.read) {
+        const items = await navigator.clipboard.read();
+        const result: ClipboardLike = {};
+        for (const item of items) {
+          if (item.types.includes('text/html')) {
+            const blob = await item.getType('text/html');
+            result.html = await blob.text();
+          }
+          if (item.types.includes('text/plain')) {
+            const blob = await item.getType('text/plain');
+            result.text = await blob.text();
+          }
+        }
+        if (result.html || result.text) return result;
+      }
+      // Fallback: read text only
+      if (navigator.clipboard.readText) {
+        const text = await navigator.clipboard.readText();
         return { text };
       }
     } catch {
-      // ignore
+      // ignore — permission denied, etc.
     }
     return {};
   }

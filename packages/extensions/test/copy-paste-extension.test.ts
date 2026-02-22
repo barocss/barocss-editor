@@ -119,6 +119,60 @@ describe('CopyPasteExtension', () => {
     });
   });
 
+  it('paste: clipboardText 로 전달받은 텍스트를 paragraph 노드로 변환하여 paste 한다', async () => {
+    const editor = new FakeEditor() as any;
+    const ext = new CopyPasteExtension();
+    ext.onCreate(editor);
+
+    const cmd = editor.__getCommand('paste');
+    expect(cmd).toBeDefined();
+
+    const selection: ModelSelection = {
+      type: 'range',
+      startNodeId: 'p1',
+      startOffset: 0,
+      endNodeId: 'p1',
+      endOffset: 0,
+      collapsed: true,
+      direction: 'forward'
+    };
+
+    editor.selection = selection;
+
+    const result = await cmd!.execute(editor, { clipboardText: 'Hello World' });
+    expect(result).toBe(true);
+    expect(recordedTransactions).toHaveLength(1);
+    expect(commitMock).toHaveBeenCalledTimes(1);
+
+    const ops = recordedTransactions[0];
+    expect(ops).toHaveLength(1);
+    expect(ops[0].type).toBe('paste');
+    const pastedNodes = ops[0].payload.data.nodes;
+    expect(pastedNodes).toHaveLength(1);
+    expect(pastedNodes[0].stype).toBe('paragraph');
+    expect(pastedNodes[0].content[0].text).toBe('Hello World');
+  });
+
+  it('paste: canExecute 는 range selection 만 있으면 true (nodes 불필요)', () => {
+    const editor = new FakeEditor() as any;
+    const ext = new CopyPasteExtension();
+    ext.onCreate(editor);
+
+    const cmd = editor.__getCommand('paste');
+    const selection: ModelSelection = {
+      type: 'range',
+      startNodeId: 'p1',
+      startOffset: 0,
+      endNodeId: 'p1',
+      endOffset: 0,
+      collapsed: true,
+      direction: 'forward'
+    };
+
+    expect(cmd!.canExecute(editor, { selection })).toBe(true);
+    expect(cmd!.canExecute(editor, {})).toBe(false);
+  });
+
   it('cut: non-collapsed range selection 이 있으면 cut operation 으로 transaction 을 실행한다', async () => {
     const editor = new FakeEditor() as any;
     const ext = new CopyPasteExtension();
