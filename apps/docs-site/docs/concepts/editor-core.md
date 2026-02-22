@@ -97,6 +97,45 @@ await editor.executeCommand('insertText', {
 5. Model updates
 6. View re-renders
 
+### CommandChain (Fluent API)
+
+`CommandChain` provides a fluent interface for chaining multiple commands:
+
+```typescript
+// Chain multiple commands and run them sequentially
+await editor.chain()
+  .insertText('Hello ')
+  .toggleBold()
+  .insertText('World')
+  .focus()
+  .run();
+```
+
+**Available chain methods:**
+
+| Method | Command |
+|--------|---------|
+| `insertText(text)` | Insert text at current selection |
+| `deleteSelection()` | Delete selected content |
+| `toggleBold()` | Toggle bold formatting |
+| `toggleItalic()` | Toggle italic formatting |
+| `toggleUnderline()` | Toggle underline formatting |
+| `toggleStrikeThrough()` | Toggle strikethrough formatting |
+| `setHeading(level)` | Set heading level (1-6) |
+| `insertParagraph()` | Insert new paragraph |
+| `focus()` | Focus the editor |
+
+**Execution:**
+- `run()` — executes all chained commands sequentially; stops on first failure
+- `canRun()` — checks if all commands can execute (calls `canExecute` for each)
+
+```typescript
+// Check before running
+if (editor.chain().toggleBold().canRun()) {
+  await editor.chain().toggleBold().run();
+}
+```
+
 ### Keybinding System
 
 Keyboard shortcuts are handled by the editor with conditional execution via `when` clauses. This system is inspired by VS Code's keybinding system, providing familiar patterns for developers.
