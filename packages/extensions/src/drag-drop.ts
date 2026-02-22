@@ -1,5 +1,5 @@
 import { Editor, Extension } from '@barocss/editor-core';
-import { transaction, control } from '@barocss/model';
+import { transaction, reorderChildren } from '@barocss/model';
 
 export interface DragDropExtensionOptions {
   enabled?: boolean;
@@ -65,12 +65,20 @@ export class DragDropExtension implements Extension {
       if (this._dragState) {
         e.preventDefault();
         this._onDragMove(e.clientY);
+        this._autoScroll(e.clientY);
       }
     });
 
     document.addEventListener('mouseup', () => {
       if (this._dragState) {
         this._endDrag(editor);
+      }
+    });
+
+    document.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && this._dragState) {
+        e.preventDefault();
+        this._cleanupDrag();
       }
     });
   }
@@ -169,14 +177,28 @@ export class DragDropExtension implements Extension {
     const currentIndex = parent.content.indexOf(blockId);
     if (currentIndex === -1 || currentIndex === targetIndex) return false;
 
-    const ops = [
-      ...control(node.parentId, [
-        { type: 'reorderChildren', payload: { childId: blockId, newIndex: targetIndex } } as any
-      ])
-    ];
+    const newOrder = [...parent.content];
+    newOrder.splice(currentIndex, 1);
+    const insertAt = Math.min(targetIndex, newOrder.length);
+    newOrder.splice(insertAt, 0, blockId);
 
-    const result = await transaction(editor, ops).commit();
+    const result = await transaction(editor, [reorderChildren(node.parentId, newOrder) as any]).commit();
     return result.success;
+  }
+
+  private _autoScroll(clientY: number): void {
+    const container = this._getContentContainer();
+    if (!container) return;
+
+    const rect = container.getBoundingClientRect();
+    const threshold = 40;
+    const speed = 8;
+
+    if (clientY < rect.top + threshold) {
+      container.scrollTop -= speed;
+    } else if (clientY > rect.bottom - threshold) {
+      container.scrollTop += speed;
+    }
   }
 
   private _getContentContainer(): HTMLElement | null {

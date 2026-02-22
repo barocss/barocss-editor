@@ -497,21 +497,24 @@ export class EditorViewDOM implements IEditorViewDOM {
   }
 
   handlePaste(event: ClipboardEvent): void {
-    // Do not intercept paste during IME composition
-    // Leave paste within composition string to IME/browser
     if (this._isComposing) {
       return;
     }
 
     event.preventDefault();
-    
+
     const clipboardData = event.clipboardData;
     if (!clipboardData) return;
 
+    const html = clipboardData.getData('text/html');
     const text = clipboardData.getData('text/plain');
-    if (text) {
-      this.insertText(text);
-    }
+
+    if (!html && !text) return;
+
+    this.editor.executeCommand('paste', {
+      clipboardHtml: html || undefined,
+      clipboardText: text || undefined,
+    });
   }
 
   handleDrop(event: DragEvent): void {
