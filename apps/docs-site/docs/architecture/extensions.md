@@ -13,9 +13,9 @@ Extensions are the primary way to extend editor functionality. They provide:
 ## Key Exports
 
 - `Extension` - Base extension interface
-- `createCoreExtensions()` - Basic editing extensions
-- `createBasicExtensions()` - Formatting extensions
-- `createRichExtensions()` - Rich text extensions
+- `createCoreExtensions()` - Basic editing extensions (text, delete, paragraph, selection, indent, clipboard, hard break)
+- `createBasicExtensions()` - Formatting extensions (bold, italic, heading, list, blockquote)
+- `createRichExtensions()` - Full schema coverage (formatting marks, rich content, media, document structure, inline atoms)
 
 ## Basic Usage
 
@@ -121,44 +121,82 @@ Pre-built extension sets provide common functionality:
 
 ### Core Extensions
 
-Basic editing operations:
-- `insertText` - Insert text
-- `deleteSelection` - Delete selected text
-- `moveCursorLeft/Right` - Cursor movement
-- `backspace` - Backspace key
-- `deleteForward` - Delete key
+Required editing primitives (auto-registered):
+- `TextExtension` - Text input, replace
+- `DeleteExtension` - Backspace, Delete
+- `ParagraphExtension` - Paragraph structure
+- `MoveSelectionExtension` - Arrow key cursor movement
+- `SelectAllExtension` - Select all (`Mod+a`)
+- `IndentExtension` - Tab/Shift+Tab indentation
+- `CopyPasteExtension` - Clipboard operations (`Mod+c/x/v`)
+- `EscapeExtension` - Escape key handling
+- `HardBreakExtension` - Line break within block (Shift+Enter)
 
 ### Basic Extensions
 
 Text formatting:
-- `bold` - Toggle bold
-- `italic` - Toggle italic
-- `underline` - Toggle underline
-- `strikeThrough` - Toggle strikethrough
+- `BoldExtension` - Toggle bold (`Mod+b`)
+- `ItalicExtension` - Toggle italic (`Mod+i`)
+- `HeadingExtension` - Heading levels 1-6 (`Mod+Alt+1-6`)
+- `ListExtension` - Bullet and numbered lists
+- `BlockquoteExtension` - Blockquotes
 
 ### Rich Extensions
 
-Advanced formatting and rich content:
-- `heading` - Heading levels
-- `list` - Bullet and numbered lists
-- `blockquote` - Blockquotes
-- `codeBlock` - Code blocks
-- `link` - Link insertion and editing
-- `image` - Image insertion
-- `horizontalRule` - Horizontal rules
-- `table` - Table creation and editing
-- `checklist` - Checklist/task lists
-- `callout` - Callout/admonition blocks
-- `mathBlock` - Math equation blocks
-- `comment` - Comment/annotation
+Full schema-complete extension set covering all 48 node types and 24 marks:
+
+**Formatting Marks:**
+- `UnderlineExtension` - Underline (cross-node)
+- `StrikeThroughExtension` - Strikethrough (cross-node)
+- `CodeMarkExtension` - Inline code
+- `HighlightExtension` - Text highlight
+- `FontColorExtension` - Font color and background color
+- `SubSuperExtension` - Subscript/superscript
+- `FontSizeExtension` - Font size
+- `FontFamilyExtension` - Font family
+- `TextFormattingExtension` - smallCaps, kbd, spoiler, letterSpacing, wordSpacing, lineHeight, textShadow, border, spanLang
+- `MentionExtension` - @mentions
+- `FootnoteExtension` - Footnote def/ref
+
+**Rich Content Blocks:**
+- `LinkExtension` - Link insert/remove
+- `ImageExtension` - Image insertion
+- `CodeBlockExtension` - Code blocks
+- `HorizontalRuleExtension` - Horizontal rules
+- `PageBreakExtension` - Page breaks
+- `TableExtension` - Table (table, row, cell, header)
+- `ChecklistExtension` - Checklist/task items
+- `CalloutExtension` - Callout/admonition
+- `MathBlockExtension` - Math equations (block)
+- `MathInlineExtension` - Math equations (inline)
+- `CommentExtension` - Comment threads
+
+**Block Structures:**
+- `PullQuoteExtension` - Pull quotes
+- `ColumnsExtension` - Multi-column layout
+- `TocExtension` - Table of contents
+- `DetailsExtension` - Collapsible content
+- `DescriptionListExtension` - Description lists
+- `FigureExtension` - Figure with caption
+
+**Media:**
+- `MediaExtension` - Video, audio, embed
+
+**Inline Atoms:**
+- `BookmarkExtension` - Bookmark anchors
+- `FieldExtension` - Document fields (page number, date, title, author)
+
+**Document Structure:**
+- `DocStructureExtension` - Section, header, footer, bibliography, endnote, index, chart
 
 ### UX Extensions
 
 User experience enhancements:
-- `slashCommand` - Slash command palette (`/`)
-- `floatingToolbar` - Floating toolbar on selection
-- `dragDrop` - Block-level drag and drop
-- `findReplace` - Find and replace (`Mod+f`, `Mod+h`)
+- `MoveBlockExtension` - Block reordering (`Mod+ArrowUp/Down`)
+- `DragDropExtension` - Block-level drag and drop
+- `SlashCommandExtension` - Slash command palette (`/`)
+- `FloatingToolbarExtension` - Floating toolbar on selection
+- `FindReplaceExtension` - Find and replace (`Mod+f`, `Mod+h`)
 
 ## Custom Extensions
 

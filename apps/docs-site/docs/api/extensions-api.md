@@ -119,12 +119,12 @@ editor.use(extension);
 
 ### UnderlineExtension
 
-Provides underline formatting functionality.
+Provides underline formatting functionality. Supports cross-node selections.
 
 **Location**: `packages/extensions/src/underline.ts`
 
 **Commands:**
-- `toggleUnderline` - Toggles underline formatting
+- `toggleUnderline` - Toggles underline formatting (works across multiple nodes)
 
 **Example:**
 ```typescript
@@ -136,12 +136,12 @@ editor.use(extension);
 
 ### StrikethroughExtension
 
-Provides strikethrough formatting functionality.
+Provides strikethrough formatting functionality. Supports cross-node selections.
 
 **Location**: `packages/extensions/src/strikethrough.ts`
 
 **Commands:**
-- `toggleStrikethrough` - Toggles strikethrough formatting
+- `toggleStrikethrough` - Toggles strikethrough formatting (works across multiple nodes)
 
 **Example:**
 ```typescript
@@ -153,7 +153,7 @@ editor.use(extension);
 
 ### HeadingExtension
 
-Provides heading functionality.
+Provides heading functionality. The `removeHeading` command correctly transforms a heading back to a paragraph using `transformNode` within a transaction (supports undo/redo).
 
 **Location**: `packages/extensions/src/heading.ts`
 
@@ -167,6 +167,7 @@ interface HeadingExtensionOptions {
 
 **Commands:**
 - `setHeading` - Sets heading level
+- `removeHeading` - Converts heading to paragraph (via `transformNode('paragraph')`)
 - `toggleHeading` - Toggles heading on/off
 
 **Keybindings:**
@@ -182,6 +183,42 @@ interface HeadingExtensionOptions {
 import { HeadingExtension, createHeadingExtension } from '@barocss/extensions';
 
 const extension = createHeadingExtension({ levels: [1, 2, 3] });
+editor.use(extension);
+```
+
+### ListExtension
+
+Provides bullet list and ordered list functionality.
+
+**Location**: `packages/extensions/src/list.ts`
+
+**Commands:**
+- `toggleBulletList` - Toggles unordered (bullet) list
+- `toggleOrderedList` - Toggles ordered (numbered) list
+- `splitListItem` - Splits list item at cursor (Enter key behavior in lists)
+
+**Example:**
+```typescript
+import { ListExtension } from '@barocss/extensions';
+
+const extension = new ListExtension();
+editor.use(extension);
+```
+
+### BlockquoteExtension
+
+Provides blockquote functionality.
+
+**Location**: `packages/extensions/src/blockquote.ts`
+
+**Commands:**
+- `toggleBlockquote` - Toggles blockquote on/off
+
+**Example:**
+```typescript
+import { BlockquoteExtension } from '@barocss/extensions';
+
+const extension = new BlockquoteExtension();
 editor.use(extension);
 ```
 
@@ -370,6 +407,7 @@ Creates core extensions (required extensions that are always included by default
 - `SelectAllExtension` - Select all
 - `IndentExtension` - Structural indentation
 - `CopyPasteExtension` - Clipboard operations
+- `HardBreakExtension` - Line break (Shift+Enter)
 
 **Note**: Core extensions are automatically registered in Editor constructor, so they are excluded from other extension sets.
 
@@ -392,6 +430,8 @@ Creates basic extensions (formatting extensions).
 - `BoldExtension` - Bold formatting
 - `ItalicExtension` - Italic formatting
 - `HeadingExtension` - Heading support
+- `ListExtension` - Bullet/ordered list support
+- `BlockquoteExtension` - Blockquote support
 
 **Note**: Core extensions are automatically registered, so they are excluded.
 
@@ -431,16 +471,12 @@ editor.use(...extensions);
 
 #### `ExtensionSets.rich()`
 
-Rich text editing extensions (Bold, Italic, Underline, Heading).
+Full rich text editing extensions (all formatting, rich content, marks, document structure).
 
 **Returns:**
 - `Extension[]` - Array of extensions
 
-**Includes:**
-- `BoldExtension`
-- `ItalicExtension`
-- `UnderlineExtension`
-- `HeadingExtension`
+**Includes all `createRichExtensions()`** — see the [full list](#createrichextensions-extension) above.
 
 **Example:**
 ```typescript
@@ -610,85 +646,238 @@ const editor = new Editor({
 
 Provides link insertion and editing functionality.
 
-**Location**: `packages/extensions/src/link.ts`
-
-**Commands:**
-- `insertLink` - Inserts a link
-- `removeLink` - Removes a link
+**Commands:** `insertLink`, `removeLink`
 
 ### ImageExtension
 
 Provides image insertion functionality.
 
-**Location**: `packages/extensions/src/image.ts`
-
-**Commands:**
-- `insertImage` - Inserts an image
+**Commands:** `insertImage`
 
 ### CodeBlockExtension
 
 Provides code block functionality.
 
-**Location**: `packages/extensions/src/code-block.ts`
-
-**Commands:**
-- `insertCodeBlock` - Inserts a code block
-- `toggleCodeBlock` - Toggles code block
+**Commands:** `insertCodeBlock`, `toggleCodeBlock`
 
 ### HorizontalRuleExtension
 
 Provides horizontal rule insertion.
 
-**Location**: `packages/extensions/src/horizontal-rule.ts`
-
-**Commands:**
-- `insertHorizontalRule` - Inserts a horizontal rule
+**Commands:** `insertHorizontalRule`
 
 ### TableExtension
 
-Provides table creation and editing.
+Provides table creation and editing (bTable, bTableRow, bTableCell, etc.).
 
-**Location**: `packages/extensions/src/table.ts`
-
-**Commands:**
-- `insertTable` - Inserts a table
+**Commands:** `insertTable`
 
 ### CalloutExtension
 
-Provides callout/admonition blocks.
+Provides callout/admonition blocks (info, warning, error, success, note, tip).
 
-**Location**: `packages/extensions/src/callout.ts`
-
-**Commands:**
-- `insertCallout` - Inserts a callout block
+**Commands:** `insertCallout`
 
 ### ChecklistExtension
 
-Provides checklist/task list functionality.
+Provides checklist/task list functionality. Uses transactions for undo/redo support.
 
-**Location**: `packages/extensions/src/checklist.ts`
-
-**Commands:**
-- `insertChecklist` - Inserts a checklist
-- `toggleChecklistItem` - Toggles a checklist item
+**Commands:** `insertChecklist`, `toggleChecklistItem`
 
 ### MathBlockExtension
 
-Provides math equation blocks (KaTeX/MathJax).
+Provides math equation blocks (KaTeX).
 
-**Location**: `packages/extensions/src/math-block.ts`
-
-**Commands:**
-- `insertMathBlock` - Inserts a math block
+**Commands:** `insertMathBlock`
 
 ### CommentExtension
 
-Provides comment/annotation functionality.
+Provides comment/annotation functionality (commentThread).
 
-**Location**: `packages/extensions/src/comment.ts`
+**Commands:** `insertComment`
+
+### HardBreakExtension
+
+Provides line break within a block (Shift+Enter).
+
+**Commands:** `insertHardBreak`
+
+### PageBreakExtension
+
+Provides page break insertion (atom block).
+
+**Commands:** `insertPageBreak`
+
+### MathInlineExtension
+
+Provides inline math equation insertion (KaTeX).
+
+**Commands:** `insertMathInline` — payload: `{ tex?: string }`
+
+### PullQuoteExtension
+
+Provides pull quote blocks (distinct from blockquote).
+
+**Commands:** `insertPullQuote` — payload: `{ text?: string }`
+
+### ColumnsExtension
+
+Provides multi-column layout (columns/column nodes).
 
 **Commands:**
-- `insertComment` - Inserts a comment
+- `insertColumns` — payload: `{ count?: number }` (default: 2)
+- `addColumn` — payload: `{ columnsId: string }`
+- `removeColumn` — payload: `{ columnsId: string, columnId: string }`
+
+### TocExtension
+
+Provides table of contents insertion (atom block).
+
+**Commands:** `insertToc`
+
+### DetailsExtension
+
+Provides collapsible content blocks (bDetails/bSummary).
+
+**Commands:** `insertDetails` — payload: `{ summary?: string }`
+
+### DescriptionListExtension
+
+Provides description list blocks (descList/descTerm/descDef).
+
+**Commands:**
+- `insertDescriptionList`
+- `addDescriptionItem` — payload: `{ descListId: string }`
+
+### FigureExtension
+
+Provides figure with caption (bFigure/bFigcaption).
+
+**Commands:**
+- `insertFigure` — payload: `{ src?: string, alt?: string, caption?: string }`
+- `setFigcaption` — payload: `{ figureId: string, caption?: string }`
+
+### MediaExtension
+
+Provides video, audio, and embed insertion.
+
+**Commands:**
+- `insertVideo` — payload: `{ src: string, poster?: string }`
+- `insertAudio` — payload: `{ src: string }`
+- `insertEmbed` — payload: `{ provider: string, id: string, title?: string }`
+
+## Mark Extensions
+
+### CodeMarkExtension
+
+Provides inline code mark (Ctrl+E).
+
+**Commands:** `toggleCode`
+
+### HighlightExtension
+
+Provides text highlight mark with configurable color.
+
+**Commands:** `toggleHighlight` — payload: `{ color?: string }` (default: `#ffeb3b`)
+
+### FontColorExtension
+
+Provides text color and background color marks.
+
+**Commands:**
+- `setFontColor` — payload: `{ color: string }`
+- `removeFontColor`
+- `setBgColor` — payload: `{ color: string }`
+- `removeBgColor`
+
+### SubSuperExtension
+
+Provides subscript and superscript marks.
+
+**Commands:** `toggleSubscript`, `toggleSuperscript`
+
+### FontSizeExtension
+
+Provides font size mark.
+
+**Commands:**
+- `setFontSize` — payload: `{ size: string }` (e.g. `'18px'`)
+- `removeFontSize`
+
+### FontFamilyExtension
+
+Provides font family mark.
+
+**Commands:**
+- `setFontFamily` — payload: `{ family: string }` (e.g. `'Georgia'`)
+- `removeFontFamily`
+
+### TextFormattingExtension
+
+Aggregates less-common text-style marks into one extension.
+
+**Toggle commands** (no additional payload needed):
+- `toggleSmallCaps` — smallCaps mark
+- `toggleKbd` — kbd mark (keyboard key)
+- `toggleSpoiler` — spoiler mark
+
+**Apply commands** (require `value` in payload):
+- `setLetterSpacing` — letterSpacing mark (`{ value: '0.2em' }`)
+- `setWordSpacing` — wordSpacing mark
+- `setLineHeight` — lineHeight mark
+- `setTextShadow` — textShadow mark
+
+**Multi-attr commands** (require `attrs` in payload):
+- `setBorder` — border mark (`{ attrs: { style, width, color } }`)
+- `setSpanLang` — spanLang mark (`{ attrs: { lang, dir } }`)
+
+### MentionExtension
+
+Provides @mention mark.
+
+**Commands:** `insertMention` — payload: `{ id: string }`
+
+### FootnoteExtension
+
+Provides footnote definition (footnoteDef) and reference (footnoteRef mark).
+
+**Commands:**
+- `insertFootnote` — payload: `{ id: string, text?: string }` (creates both def + ref)
+- `insertFootnoteRef` — payload: `{ id: string }` (ref only)
+
+## Inline Atom Extensions
+
+### BookmarkExtension
+
+Provides bookmark anchor insertion.
+
+**Commands:** `insertBookmark` — payload: `{ id: string }`
+
+### FieldExtension
+
+Provides document field insertions (page number, date, title, etc.).
+
+**Commands:**
+- `insertFieldPageNumber`
+- `insertFieldPageCount`
+- `insertFieldDateTime` — payload: `{ format?: string }`
+- `insertFieldDocTitle`
+- `insertFieldAuthor`
+
+## Document Structure Extension
+
+### DocStructureExtension
+
+Aggregates document-level structural blocks.
+
+**Commands:**
+- `insertDocSection` — document section
+- `insertDocHeader` — document header
+- `insertDocFooter` — document footer
+- `insertBibliography` — bibliography block
+- `insertEndnote` — payload: `{ attrs: { id: string } }`
+- `insertIndexBlock` — index block
+- `insertChart` — payload: `{ attrs: { title?: string, values: string } }`
 
 ## UX Extensions
 
@@ -696,41 +885,43 @@ Provides comment/annotation functionality.
 
 Provides slash command menu (type `/` to see command palette).
 
-**Location**: `packages/extensions/src/slash-command.ts`
-
 ### FloatingToolbarExtension
 
 Provides floating toolbar that appears on text selection.
 
-**Location**: `packages/extensions/src/floating-toolbar.ts`
-
 ### DragDropExtension
 
-Provides block-level drag and drop.
+Provides block-level drag and drop with auto-scroll and ESC cancellation.
 
-**Location**: `packages/extensions/src/drag-drop.ts`
+**Commands:** `moveBlockToPosition`
 
 ### FindReplaceExtension
 
 Provides find and replace functionality.
 
-**Location**: `packages/extensions/src/find-replace.ts`
+**Commands:** `find`, `findAndReplace`
 
-**Commands:**
-- `find` - Opens find dialog
-- `findAndReplace` - Opens find and replace dialog
+**Keybindings:** `Mod+f` (find), `Mod+h` (find and replace)
 
 ---
 
 ### `createRichExtensions(): Extension[]`
 
-Creates rich content extensions (includes basic + rich content extensions).
+Creates all rich content extensions (includes basic + all schema-complete extensions).
 
-**Returns:**
-- `Extension[]` - Array of rich extensions
+**Returns:** `Extension[]`
 
-**Includes:**
-- All of `createBasicExtensions()` plus `UnderlineExtension`, `LinkExtension`, `ImageExtension`, `CodeBlockExtension`, `HorizontalRuleExtension`, `TableExtension`, `ChecklistExtension`, `CalloutExtension`, `MathBlockExtension`, `CommentExtension`
+**Includes all of `createBasicExtensions()` plus:**
+
+| Category | Extensions |
+|----------|-----------|
+| **Formatting** | Underline, StrikeThrough, CodeMark, Highlight, FontColor, SubSuper, FontSize, FontFamily, TextFormatting |
+| **Rich Content** | Link, Image, CodeBlock, HorizontalRule, Table, Checklist, Callout, MathBlock, MathInline, Comment, PageBreak |
+| **Block Structures** | PullQuote, Columns, Toc, Details, DescriptionList, Figure |
+| **Media** | Media (Video, Audio, Embed) |
+| **Inline Atoms** | Mention, Footnote, Bookmark, Field |
+| **Document** | DocStructure |
+| **Editing** | MoveBlock, DragDrop |
 
 **Example:**
 ```typescript
@@ -742,32 +933,93 @@ editor.use(...richExtensions);
 
 ## Extension Options Summary
 
-| Extension | Options | Default Keyboard Shortcut | Commands |
-|----------|---------|-------------------------|----------|
-| `TextExtension` | `enabled?` | - | `replaceText` |
-| `DeleteExtension` | `enabled?` | - | `deleteSelection`, `deleteBackward`, `deleteForward` |
-| `BoldExtension` | `enabled?`, `keyboardShortcut?` | `Mod+b` | `toggleBold` |
-| `ItalicExtension` | `enabled?`, `keyboardShortcut?` | `Mod+i` | `toggleItalic` |
-| `UnderlineExtension` | - | - | `toggleUnderline` |
-| `StrikethroughExtension` | - | - | `toggleStrikethrough` |
-| `HeadingExtension` | `enabled?`, `levels?` | `Mod+Alt+1-6` | `setHeading`, `toggleHeading` |
-| `ParagraphExtension` | - | - | `insertParagraph`, `setParagraph` |
-| `IndentExtension` | `enabled?` | `Tab`, `Shift+Tab` | `indent`, `outdent` |
-| `MoveSelectionExtension` | - | Arrow keys | `moveSelectionUp/Down/Left/Right` |
-| `MoveBlockExtension` | `enabled?` | `Mod+ArrowUp/Down` | `moveBlockUp`, `moveBlockDown` |
-| `SelectAllExtension` | - | `Mod+a` | `selectAll` |
-| `CopyPasteExtension` | - | `Mod+c/x/v` | `copy`, `cut`, `paste` |
-| `EscapeExtension` | - | `Escape` | `escape` |
-| `LinkExtension` | - | - | `insertLink`, `removeLink` |
-| `ImageExtension` | - | - | `insertImage` |
-| `CodeBlockExtension` | - | - | `insertCodeBlock`, `toggleCodeBlock` |
-| `HorizontalRuleExtension` | - | - | `insertHorizontalRule` |
-| `TableExtension` | - | - | `insertTable` |
-| `CalloutExtension` | - | - | `insertCallout` |
-| `ChecklistExtension` | - | - | `insertChecklist`, `toggleChecklistItem` |
-| `MathBlockExtension` | - | - | `insertMathBlock` |
-| `CommentExtension` | - | - | `insertComment` |
-| `FindReplaceExtension` | - | `Mod+f`, `Mod+h` | `find`, `findAndReplace` |
+### Core Extensions (always included)
+
+| Extension | Keybindings | Commands |
+|----------|------------|----------|
+| `TextExtension` | - | `replaceText` |
+| `DeleteExtension` | - | `deleteSelection`, `deleteBackward`, `deleteForward` |
+| `ParagraphExtension` | - | `insertParagraph`, `setParagraph` |
+| `MoveSelectionExtension` | Arrow keys, Shift+Arrow | `moveSelection*`, `extendSelection*` |
+| `SelectAllExtension` | `Mod+a` | `selectAll` |
+| `IndentExtension` | `Tab`, `Shift+Tab` | `indent`, `outdent` |
+| `CopyPasteExtension` | `Mod+c/x/v` | `copy`, `cut`, `paste` |
+| `EscapeExtension` | `Escape` | `escape` |
+| `HardBreakExtension` | - | `insertHardBreak` |
+
+### Basic Extensions
+
+| Extension | Keybindings | Commands |
+|----------|------------|----------|
+| `BoldExtension` | `Mod+b` | `toggleBold` |
+| `ItalicExtension` | `Mod+i` | `toggleItalic` |
+| `HeadingExtension` | `Mod+Alt+1-6` | `setHeading1-6`, `setHeading`, `removeHeading` |
+| `ListExtension` | - | `toggleBulletList`, `toggleOrderedList`, `splitListItem` |
+| `BlockquoteExtension` | - | `toggleBlockquote` |
+
+### Rich Extensions — Formatting Marks
+
+| Extension | Commands |
+|----------|----------|
+| `UnderlineExtension` | `toggleUnderline` |
+| `StrikeThroughExtension` | `toggleStrikeThrough` |
+| `CodeMarkExtension` | `toggleCode` |
+| `HighlightExtension` | `toggleHighlight` |
+| `FontColorExtension` | `setFontColor`, `removeFontColor`, `setBgColor`, `removeBgColor` |
+| `SubSuperExtension` | `toggleSubscript`, `toggleSuperscript` |
+| `FontSizeExtension` | `setFontSize`, `removeFontSize` |
+| `FontFamilyExtension` | `setFontFamily`, `removeFontFamily` |
+| `TextFormattingExtension` | `toggleSmallCaps`, `toggleKbd`, `toggleSpoiler`, `setLetterSpacing`, `setWordSpacing`, `setLineHeight`, `setTextShadow`, `setBorder`, `setSpanLang` |
+| `MentionExtension` | `insertMention` |
+| `FootnoteExtension` | `insertFootnote`, `insertFootnoteRef` |
+
+### Rich Extensions — Block Content
+
+| Extension | Commands |
+|----------|----------|
+| `LinkExtension` | `insertLink`, `removeLink` |
+| `ImageExtension` | `insertImage` |
+| `CodeBlockExtension` | `insertCodeBlock`, `toggleCodeBlock` |
+| `HorizontalRuleExtension` | `insertHorizontalRule` |
+| `PageBreakExtension` | `insertPageBreak` |
+| `TableExtension` | `insertTable` |
+| `ChecklistExtension` | `insertChecklist`, `toggleChecklistItem` |
+| `CalloutExtension` | `insertCallout` |
+| `MathBlockExtension` | `insertMathBlock` |
+| `MathInlineExtension` | `insertMathInline` |
+| `CommentExtension` | `insertComment` |
+| `PullQuoteExtension` | `insertPullQuote` |
+| `ColumnsExtension` | `insertColumns`, `addColumn`, `removeColumn` |
+| `TocExtension` | `insertToc` |
+| `DetailsExtension` | `insertDetails` |
+| `DescriptionListExtension` | `insertDescriptionList`, `addDescriptionItem` |
+| `FigureExtension` | `insertFigure`, `setFigcaption` |
+| `MediaExtension` | `insertVideo`, `insertAudio`, `insertEmbed` |
+| `BookmarkExtension` | `insertBookmark` |
+| `FieldExtension` | `insertFieldPageNumber`, `insertFieldPageCount`, `insertFieldDateTime`, `insertFieldDocTitle`, `insertFieldAuthor` |
+| `DocStructureExtension` | `insertDocSection`, `insertDocHeader`, `insertDocFooter`, `insertBibliography`, `insertEndnote`, `insertIndexBlock`, `insertChart` |
+
+### UX Extensions
+
+| Extension | Keybindings | Commands |
+|----------|------------|----------|
+| `MoveBlockExtension` | `Mod+ArrowUp/Down` | `moveBlockUp`, `moveBlockDown` |
+| `DragDropExtension` | - | `moveBlockToPosition` |
+| `FindReplaceExtension` | `Mod+f`, `Mod+h` | `find`, `findAndReplace` |
+| `SlashCommandExtension` | `/` | - |
+| `FloatingToolbarExtension` | - | - |
+
+---
+
+## Schema Coverage
+
+All 48 node types and 24 marks in the standard schema have corresponding extensions:
+
+```
+Nodes:  48/48 covered (100%)
+Marks:  24/24 covered (100%)
+Total commands: 90+
+```
 
 ---
 

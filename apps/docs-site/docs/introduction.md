@@ -94,13 +94,46 @@ dataStore.createNode({ stype: 'invalid-node' }); // ❌ Error
 
 ### 1. Separation of Concerns
 
-- **Schema**: Defines structure
-- **Model**: Stores data
-- **DSL**: Defines presentation
-- **Renderer**: Converts to DOM
-- **Editor**: Orchestrates operations
+- **Schema**: Defines structure (48 node types, 24 marks in standard schema)
+- **Model**: Stores data with transactional operations
+- **DSL**: Defines presentation declaratively
+- **Renderer**: Converts to DOM or React
+- **Editor**: Orchestrates operations via commands
+- **Extensions**: 55+ built-in features with 100% schema coverage
 
-### 2. Testability
+### 2. Dual Rendering Targets
+
+Barocss supports both DOM and React rendering from the same model:
+
+```typescript
+// DOM rendering
+import { EditorViewDOM } from '@barocss/editor-view-dom';
+const view = new EditorViewDOM(editor, { container });
+
+// React rendering
+import { EditorViewReact } from '@barocss/editor-view-react';
+// Use as a React component
+```
+
+Both share the same model, schema, extensions, and transaction system.
+
+### 3. Collaboration Ready
+
+Built-in collaboration support via adapters:
+
+- **Yjs adapter** (`@barocss/collaboration-yjs`) — CRDT-based real-time sync
+- **Liveblocks adapter** (`@barocss/collaboration-liveblocks`) — Cloud-hosted collaboration
+- Extensible `BaseAdapter` interface for custom backends
+
+### 4. Format Conversion
+
+The converter package (`@barocss/converter`) supports bidirectional conversion:
+
+- **HTML** ↔ INode (including Office, Google Docs, Notion HTML cleaning)
+- **Markdown** ↔ INode (GFM support)
+- **LaTeX** → INode
+
+### 5. Testability
 
 ```typescript
 // Test model operations without DOM
@@ -112,7 +145,7 @@ const template = registry.get('paragraph');
 expect(template).toBeDefined();
 ```
 
-### 3. Extensibility
+### 6. Extensibility
 
 Add new features using the same DSL patterns:
 
@@ -126,6 +159,8 @@ Learn DSL once, use it everywhere.
 
 ## Next Steps
 
-- **[Quick Start](quick-start)** - Get started in minutes
+- **[Quick Start](quick-start)** - Get started in minutes (DOM view)
+- **[React Editor Guide](guides/react-editor)** - Build a React editor from scratch
 - **[Core Concepts: DSL Templates](concepts/dsl-templates)** - Learn about DSL
 - **[Architecture Overview](architecture/overview)** - Understand the complete architecture
+- **[Extensions API](api/extensions-api)** - Browse all 55+ built-in extensions

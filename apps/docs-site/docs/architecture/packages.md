@@ -127,19 +127,21 @@ const editor = new Editor({
 ```
 
 #### `@barocss/extensions`
-**Purpose**: Built-in extensions and extension system
+**Purpose**: Built-in extensions and extension system (55+ extensions, 100% schema coverage)
 
 **Key Exports**:
 - `Extension` - Extension interface
-- `createCoreExtensions()` - Core editing extensions
-- `createBasicExtensions()` - Basic formatting extensions
+- `createCoreExtensions()` - Core editing extensions (text, delete, paragraph, clipboard, hard break, etc.)
+- `createBasicExtensions()` - Basic formatting extensions (bold, italic, heading, list, blockquote)
+- `createRichExtensions()` - Full rich content extensions (marks, media, document structure, inline atoms)
+- `ExtensionSets` - Predefined extension sets (basic, rich, minimal)
 
 **How to Use**:
 ```typescript
-import { createCoreExtensions, createBasicExtensions } from '@barocss/extensions';
+import { createCoreExtensions, createRichExtensions } from '@barocss/extensions';
 
 const editor = new Editor({
-  extensions: [...createCoreExtensions(), ...createBasicExtensions()]
+  extensions: [...createCoreExtensions(), ...createRichExtensions()]
 });
 ```
 
@@ -209,7 +211,7 @@ flowchart TD
 | `renderer-dom` | VNode → DOM rendering | Custom rendering logic |
 | `renderer-react` | Direct → ReactNode rendering | React components |
 | `editor-core` | Editor orchestration | Register commands |
-| `extensions` | 30+ built-in features | Create custom extensions |
+| `extensions` | 55+ built-in features (100% schema coverage) | Create custom extensions |
 | `editor-view-dom` | DOM view layer | Custom input handling |
 | `editor-view-react` | React view layer | React hooks integration |
 | `collaboration` | CRDT/OT base adapter | Custom backends |

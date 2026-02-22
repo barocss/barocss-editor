@@ -18,9 +18,8 @@ View layer connecting Editor and DOM. Bridges user interactions (typing, clickin
 ```typescript
 import { EditorViewDOM } from '@barocss/editor-view-dom';
 
-const container = document.getElementById('editor');
-const view = new EditorViewDOM(editor, container);
-view.mount();
+const container = document.getElementById('editor')!;
+const view = new EditorViewDOM(editor, { container });
 ```
 
 ## Core Features
@@ -116,11 +115,8 @@ Triggers rendering when model changes:
 ## View Lifecycle
 
 ```typescript
-// 1. Create view
-const view = new EditorViewDOM(editor, container);
-
-// 2. Mount (attaches event listeners, initial render)
-view.mount();
+// 1. Create view (attaches event listeners, initial render)
+const view = new EditorViewDOM(editor, { container });
 
 // 3. User interacts with editor
 // → View handles input
