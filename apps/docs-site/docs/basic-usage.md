@@ -109,12 +109,22 @@ The View connects the editor to the DOM and handles user input.
 ```typescript
 import { EditorViewDOM } from '@barocss/editor-view-dom';
 
-const container = document.getElementById('editor');
-const view = new EditorViewDOM(editor, container);
+const container = document.getElementById('editor')!;
+const view = new EditorViewDOM(editor, { container });
 view.mount();
 ```
 
 **Why?** The View synchronizes selection, handles input, and triggers rendering. Learn more in [Architecture: Editor-View-DOM](architecture/editor-view-dom).
+
+**Options:** `EditorViewDOMOptions` accepts additional configuration:
+
+```typescript
+const view = new EditorViewDOM(editor, {
+  container,
+  autoRender: true,       // Auto-render on model changes (default: true)
+  registry: myRegistry,   // Custom renderer registry
+});
+```
 
 ## Complete Example
 
@@ -153,13 +163,14 @@ const editor = new Editor({
 });
 
 // View
-const container = document.getElementById('editor');
-const view = new EditorViewDOM(editor, container);
+const container = document.getElementById('editor')!;
+const view = new EditorViewDOM(editor, { container });
 view.mount();
 ```
 
 ## Next Steps
 
+- **[React Editor Guide](guides/react-editor)** - Build the same editor in React
 - **[Core Concepts](concepts/schema-and-model)** - Deep dive into schema and model
 - **[Architecture](architecture/overview)** - Understand the complete architecture
 - **[Extending](guides/extension-design)** - Learn how to add custom features

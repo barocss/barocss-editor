@@ -264,18 +264,18 @@ Common operations from `@barocss/model`:
 ### ❌ Wrong Way: Direct DataStore Access
 
 ```typescript
-// ❌ NEVER do this
+// ❌ NEVER do this — real bug we fixed in ChecklistExtension
 private async _executeBadCommand(editor: Editor): Promise<boolean> {
   const dataStore = editor.dataStore;
   
-  // Direct modification - bypasses transactions
-  dataStore.updateNode('node-1', { text: 'Updated' });
+  // Direct modification — bypasses transactions
+  dataStore.setAttrs(nodeId, { checked: !currentChecked });
   
   // Problems:
-  // - No transaction guarantee
+  // - No undo/redo support (cannot Ctrl+Z)
   // - No lock management
   // - No history recording
-  // - No operation events
+  // - No operation events for collaboration
   // - No schema validation
   
   return true;
@@ -285,15 +285,16 @@ private async _executeBadCommand(editor: Editor): Promise<boolean> {
 ### ✅ Correct Way: Use Transactions
 
 ```typescript
-// ✅ Always use transactions
-import { transaction, control, updateNode } from '@barocss/model';
+// ✅ Always use transactions — correct pattern from ChecklistExtension
+import { transaction, control } from '@barocss/model';
 
 private async _executeGoodCommand(editor: Editor): Promise<boolean> {
-  const result = await transaction(editor, [
-    ...control('node-1', [
-      updateNode({ text: 'Updated' })
+  const ops = [
+    ...control(nodeId, [
+      { type: 'setAttrs', payload: { attrs: { checked: !currentChecked } } }
     ])
-  ]).commit();
+  ];
+  const result = await transaction(editor, ops).commit();
 
   return result.success;
 }

@@ -68,8 +68,8 @@ const editor = new Editor({
 });
 
 // 5. Create View (Editor-View-DOM Package)
-const container = document.getElementById('editor');
-const view = new EditorViewDOM(editor, container);
+const container = document.getElementById('editor')!;
+const view = new EditorViewDOM(editor, { container });
 // View automatically sets up event handlers and renders
 ```
 
@@ -322,7 +322,7 @@ This example shows a complete editing session from start to finish.
 const schema = createSchema(/* ... */);
 const dataStore = new DataStore(undefined, schema);
 const editor = new Editor({ dataStore, schema, extensions: [...] });
-const view = new EditorViewDOM(editor, container);
+const view = new EditorViewDOM(editor, { container });
 
 // 2. User types "Hello"
 // → View captures input

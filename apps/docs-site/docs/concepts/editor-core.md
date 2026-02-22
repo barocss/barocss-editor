@@ -111,7 +111,7 @@ await editor.chain()
   .run();
 ```
 
-**Available chain methods:**
+**Available chain methods (partial list):**
 
 | Method | Command |
 |--------|---------|
@@ -119,10 +119,16 @@ await editor.chain()
 | `deleteSelection()` | Delete selected content |
 | `toggleBold()` | Toggle bold formatting |
 | `toggleItalic()` | Toggle italic formatting |
-| `toggleUnderline()` | Toggle underline formatting |
-| `toggleStrikeThrough()` | Toggle strikethrough formatting |
+| `toggleUnderline()` | Toggle underline formatting (cross-node) |
+| `toggleStrikeThrough()` | Toggle strikethrough formatting (cross-node) |
+| `toggleCode()` | Toggle inline code mark |
+| `toggleHighlight(color?)` | Toggle text highlight |
 | `setHeading(level)` | Set heading level (1-6) |
 | `insertParagraph()` | Insert new paragraph |
+| `insertHardBreak()` | Insert line break (Shift+Enter) |
+| `insertCodeBlock()` | Insert code block |
+| `insertTable()` | Insert table |
+| `insertChecklist()` | Insert checklist |
 | `focus()` | Focus the editor |
 
 **Execution:**

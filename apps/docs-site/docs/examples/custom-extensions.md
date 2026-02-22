@@ -64,8 +64,63 @@ const editor = new Editor({
 - **Keybinding**: Connecting keyboard shortcuts to commands
 - **Transaction Usage**: Using transactions to modify the document
 
+## Built-in Extension Examples
+
+The editor ships with 55+ built-in extensions covering all schema types. Here are a few patterns used in real extensions:
+
+### Mark Toggle (Cross-Node Support)
+
+Extensions like `UnderlineExtension` and `StrikethroughExtension` support toggling marks across multiple nodes:
+
+```typescript
+import { transaction, toggleMark } from '@barocss/model';
+
+const op = toggleMark(
+  selection.startNodeId, selection.startOffset,
+  selection.endNodeId, selection.endOffset,
+  'underline'
+);
+const result = await transaction(editor, [op]).commit();
+```
+
+### Block Insertion with addChild
+
+Block extensions like `ColumnsExtension` and `DetailsExtension` use `addChild` to insert structured content:
+
+```typescript
+import { transaction, control, addChild } from '@barocss/model';
+
+const result = await transaction(editor, [
+  ...control(rootNodeId, [
+    addChild({
+      node: {
+        stype: 'bDetails',
+        content: [
+          { stype: 'bSummary', content: [{ stype: 'inline-text', text: 'Click to expand' }] },
+          { stype: 'paragraph', content: [{ stype: 'inline-text', text: '' }] }
+        ]
+      }
+    })
+  ])
+]).commit();
+```
+
+### Attribute Mutation via Transaction
+
+The `ChecklistExtension` uses transactions for attribute changes to ensure undo/redo works:
+
+```typescript
+const ops = [
+  ...control(payload.nodeId, [
+    { type: 'setAttrs', payload: { attrs: { checked: !currentChecked } } }
+  ])
+];
+const result = await transaction(editor, ops).commit();
+```
+
 ## Next Steps
 
 - **[Extension Design Guide](../guides/extension-design)** - Complete guide on creating extensions
+- **[Extensions API Reference](../api/extensions-api)** - Full list of all 55+ built-in extensions
 - **[Decorators Example](./decorators)** - Learn about decorators
 - **[Architecture: Editor-Core](../architecture/editor-core)** - Understand the editor core

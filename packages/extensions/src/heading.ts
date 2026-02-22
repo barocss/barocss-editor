@@ -169,31 +169,27 @@ export class HeadingExtension implements Extension {
     return null;
   }
 
-  private _removeHeading(editor: any): boolean {
-    try {
-      const selection = editor.selection;
-      
-      if (selection.empty) {
-        return this._removeHeadingAtPosition(editor, selection.anchor);
-      } else {
-        return this._removeHeadingInRange(editor, selection.from, selection.to);
-      }
-    } catch (error) {
-      console.error('Remove heading failed:', error);
-      return false;
-    }
-  }
+  private async _removeHeading(editor: any): Promise<boolean> {
+    const selection: ModelSelection | null = editor.selection;
+    if (!selection || selection.type !== 'range') return false;
 
-  private _removeHeadingAtPosition(_editor: any, position: number): boolean {
-    // Placeholder: no-op safe fallback until block-level heading metadata is available.
-    console.log('Remove heading at position:', position);
-    return true;
-  }
+    const dataStore = (editor as any).dataStore;
+    if (!dataStore) return false;
 
-  private _removeHeadingInRange(_editor: any, from: number, to: number): boolean {
-    // Placeholder: no-op safe fallback until range-level heading metadata is available.
-    console.log('Remove heading in range:', from, to);
-    return true;
+    const targetNodeId = this._getTargetBlockNodeId(dataStore, selection);
+    if (!targetNodeId) return false;
+
+    const targetNode = dataStore.getNode(targetNodeId);
+    if (!targetNode || targetNode.stype !== 'heading') return false;
+
+    const ops = [
+      ...control(targetNodeId, [
+        transformNode('paragraph', {})
+      ])
+    ];
+
+    const result = await transaction(editor, ops).commit();
+    return result.success;
   }
 
   private _registerKeyboardShortcuts(_editor: Editor): void {

@@ -47,8 +47,8 @@ const editor = new Editor({
 });
 
 // 5. Create view - connects editor to DOM
-const container = document.getElementById('editor');
-const view = new EditorViewDOM(editor, container);
+const container = document.getElementById('editor')!;
+const view = new EditorViewDOM(editor, { container });
 view.mount();
 ```
 

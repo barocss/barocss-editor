@@ -63,8 +63,9 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Extending',
+      label: 'Guides',
       items: [
+        'guides/react-editor',
         'guides/extension-design',
         'guides/custom-operations',
         'guides/advanced-extensions',

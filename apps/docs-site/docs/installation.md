@@ -16,14 +16,22 @@ pnpm add @barocss/editor-core @barocss/editor-view-dom @barocss/schema
 # For rendering
 pnpm add @barocss/renderer-dom @barocss/dsl
 
+# For React rendering (instead of or alongside DOM)
+pnpm add @barocss/editor-view-react @barocss/renderer-react
+
 # For data management
 pnpm add @barocss/datastore @barocss/model
 
-# For extensions
+# For extensions (55+ built-in extensions)
 pnpm add @barocss/extensions
 
 # For format conversion
 pnpm add @barocss/converter
+
+# For collaboration
+pnpm add @barocss/collaboration @barocss/collaboration-yjs
+# or
+pnpm add @barocss/collaboration @barocss/collaboration-liveblocks
 ```
 
 ## Package Overview
@@ -38,6 +46,8 @@ pnpm add @barocss/converter
 
 - **@barocss/dsl** - Declarative template DSL
 - **@barocss/renderer-dom** - DOM renderer
+- **@barocss/renderer-react** - React renderer
+- **@barocss/editor-view-react** - React view integration
 
 ### Data Packages
 
@@ -46,11 +56,18 @@ pnpm add @barocss/converter
 
 ### Extension Packages
 
-- **@barocss/extensions** - Extension system
+- **@barocss/extensions** - 55+ built-in extensions with 100% schema coverage
+
+### Collaboration Packages
+
+- **@barocss/collaboration** - Base adapter interface
+- **@barocss/collaboration-yjs** - Yjs CRDT adapter
+- **@barocss/collaboration-liveblocks** - Liveblocks adapter
 
 ### Utility Packages
 
-- **@barocss/converter** - Format conversion (HTML, Markdown, etc.)
+- **@barocss/converter** - Format conversion (HTML, Markdown, LaTeX)
+- **@barocss/devtool** - Development tools (model tree viewer, event log)
 
 ## TypeScript Support
 

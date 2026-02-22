@@ -179,7 +179,7 @@ Selection sync is bidirectional: DOM selection changes update the model, and mod
 | Aspect | editor-view-dom | editor-view-react |
 |--------|----------------|-------------------|
 | Rendering | `DOMRenderer` (VNode → DOM reconciliation) | `ReactRenderer` (DSL → ReactNode, React reconciliation) |
-| Mount | `new EditorViewDOM(editor, container)` then `view.mount()` | `<EditorView editor={editor} />` component |
+| Mount | `new EditorViewDOM(editor, { container })` | `<EditorView editor={editor} />` component |
 | Decorator API | `view.addDecorator()`, `view.removeDecorator()` | `viewRef.current.addDecorator()`, `viewRef.current.removeDecorator()` |
 | Layer structure | 5 layers (content, decorator, selection, context, custom) | Same 5 layers as React components |
 | Selection sync | Direct DOM manipulation | Same, via `ReactSelectionHandler` |

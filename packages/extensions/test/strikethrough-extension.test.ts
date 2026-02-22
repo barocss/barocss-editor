@@ -81,7 +81,7 @@ describe('StrikeThroughExtension - toggleStrikeThrough', () => {
     ]);
   });
 
-  it('여러 노드에 걸친 RangeSelection 은 아직 처리하지 않고 false 를 반환한다', async () => {
+  it('여러 노드에 걸친 RangeSelection 도 cross-node toggleMark 로 처리한다', async () => {
     const dataStore = {
       getNode: (_id: string) => null
     };
@@ -102,9 +102,18 @@ describe('StrikeThroughExtension - toggleStrikeThrough', () => {
     };
 
     const result = await cmd.execute(editor, { selection });
-    expect(result).toBe(false);
-    expect(commitMock).not.toHaveBeenCalled();
-    expect(recordedTransactions).toHaveLength(0);
+    expect(result).toBe(true);
+    expect(commitMock).toHaveBeenCalledTimes(1);
+    expect(recordedTransactions).toHaveLength(1);
+
+    const ops = recordedTransactions[0];
+    expect(ops[0]).toEqual({
+      type: 'toggleMark',
+      payload: {
+        range: { startNodeId: 'text-1', startOffset: 1, endNodeId: 'text-2', endOffset: 3 },
+        markType: 'strikethrough'
+      }
+    });
   });
 });
 
