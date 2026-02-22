@@ -47,9 +47,6 @@ export class StrikeThroughExtension implements Extension {
     if (!selection || selection.type !== 'range') {
       return false;
     }
-    if (selection.startNodeId !== selection.endNodeId) {
-      return false;
-    }
 
     const op = toggleMark(
       selection.startNodeId,

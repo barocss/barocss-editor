@@ -22,6 +22,13 @@ export * from './table';
 export * from './slash-command';
 export * from './floating-toolbar';
 export * from './drag-drop';
+export * from './hard-break';
+export * from './code-mark';
+export * from './highlight';
+export * from './font-color';
+export * from './sub-super';
+export * from './math-inline';
+export * from './page-break';
 export * from './find-replace';
 export * from './checklist';
 export * from './callout';
@@ -56,6 +63,13 @@ import { CalloutExtension } from './callout';
 import { MathBlockExtension } from './math-block';
 import { CommentExtension } from './comment';
 import { DragDropExtension } from './drag-drop';
+import { HardBreakExtension } from './hard-break';
+import { CodeMarkExtension } from './code-mark';
+import { HighlightExtension } from './highlight';
+import { FontColorExtension } from './font-color';
+import { SubSuperExtension } from './sub-super';
+import { MathInlineExtension } from './math-inline';
+import { PageBreakExtension } from './page-break';
 import type { Extension } from '@barocss/editor-core';
 
 export function createCoreExtensions(): Extension[] {
@@ -68,6 +82,7 @@ export function createCoreExtensions(): Extension[] {
     new IndentExtension(),
     new CopyPasteExtension(),
     new EscapeExtension(),
+    new HardBreakExtension(),
   ];
 }
 
@@ -97,6 +112,12 @@ export function createRichExtensions(): Extension[] {
     new CommentExtension(),
     new MoveBlockExtension(),
     new DragDropExtension(),
+    new CodeMarkExtension(),
+    new HighlightExtension(),
+    new FontColorExtension(),
+    new SubSuperExtension(),
+    new MathInlineExtension(),
+    new PageBreakExtension(),
   ];
 }
 
@@ -124,6 +145,12 @@ export const ExtensionSets = {
     new CommentExtension(),
     new MoveBlockExtension(),
     new DragDropExtension(),
+    new CodeMarkExtension(),
+    new HighlightExtension(),
+    new FontColorExtension(),
+    new SubSuperExtension(),
+    new MathInlineExtension(),
+    new PageBreakExtension(),
   ],
   
   minimal: () => []

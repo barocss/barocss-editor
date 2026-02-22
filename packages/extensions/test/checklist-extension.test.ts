@@ -6,9 +6,12 @@ const commitMock = vi.fn();
 
 vi.mock('@barocss/model', () => {
   return {
-    transaction: (_editor: Editor, operations: any[]) => {
+    transaction: (_editor: Editor, operations: any[], _opts?: any) => {
       recordedTransactions.push(operations);
       return { commit: commitMock };
+    },
+    control: (target: string, actions: any[]) => {
+      return actions.map((a: any) => ({ type: a.type, payload: { ...a.payload, nodeId: target } }));
     },
     insertChecklist: (checked?: boolean) => ({
       type: 'insertChecklist',
@@ -72,14 +75,13 @@ describe('ChecklistExtension', () => {
     ]);
   });
 
-  it('registers toggleChecklistItem command', async () => {
+  it('toggleChecklistItem uses transaction to toggle checked attribute', async () => {
     const { ChecklistExtension } = await import('../src/checklist');
     const dataStore = {
       getNode: (id: string) => {
         if (id === 'task-1') return { sid: 'task-1', stype: 'taskItem', attributes: { checked: false } };
         return null;
       },
-      setAttrs: vi.fn()
     };
     const editor = createFakeEditor(dataStore);
     const ext = new ChecklistExtension();
@@ -89,7 +91,12 @@ describe('ChecklistExtension', () => {
     expect(cmd).toBeDefined();
 
     await cmd.execute(editor, { nodeId: 'task-1' });
-    expect(dataStore.setAttrs).toHaveBeenCalledWith('task-1', { checked: true });
+    expect(commitMock).toHaveBeenCalledTimes(1);
+    expect(recordedTransactions).toHaveLength(1);
+    const ops = recordedTransactions[0];
+    expect(ops[0].type).toBe('setAttrs');
+    expect(ops[0].payload.attrs).toEqual({ checked: true });
+    expect(ops[0].payload.nodeId).toBe('task-1');
   });
 
   it('does not register commands when disabled', async () => {

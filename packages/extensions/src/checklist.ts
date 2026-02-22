@@ -1,5 +1,5 @@
 import { Editor, Extension } from '@barocss/editor-core';
-import { transaction, insertChecklist as insertChecklistOp } from '@barocss/model';
+import { transaction, control, insertChecklist as insertChecklistOp } from '@barocss/model';
 
 export interface ChecklistExtensionOptions {
   enabled?: boolean;
@@ -36,8 +36,13 @@ export class ChecklistExtension implements Extension {
         const node = dataStore.getNode(payload.nodeId);
         if (!node || node.stype !== 'taskItem') return false;
         const currentChecked = node.attributes?.checked ?? false;
-        dataStore.setAttrs(payload.nodeId, { checked: !currentChecked });
-        return true;
+        const ops = [
+          ...control(payload.nodeId, [
+            { type: 'setAttrs', payload: { attrs: { checked: !currentChecked } } } as any
+          ])
+        ];
+        const result = await transaction(ed, ops).commit();
+        return result.success;
       },
       canExecute: () => true
     });
