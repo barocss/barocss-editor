@@ -25,30 +25,68 @@ view.mount();
 
 ## Core Features
 
+### Multi-Layer Architecture
+
+EditorViewDOM renders into 5 independent layers, each with its own DOMRenderer:
+
+```mermaid
+flowchart TB
+    subgraph container["EditorViewDOM Container"]
+        direction TB
+        Custom["Custom Layer — z:1000 — user overlays"]
+        Context["Context Layer — z:200 — floating UI"]
+        Selection["Selection Layer — z:100 — cursor, ranges"]
+        Decorator["Decorator Layer — z:10 — highlights, comments"]
+        Content["Content Layer — z:1 — contentEditable"]
+    end
+
+    ModelData -.-> Content
+    DecoratorData["Decorators"] -.-> Decorator
+    EditorSel["Editor Selection"] -.-> Selection
+```
+
 ### Selection Synchronization
 
 Bidirectional synchronization between DOM selection and editor selection:
 
-```typescript
-// User selects text in DOM
-// → View detects selection change
-// → Updates editor selection
-// → Editor notifies view
-// → View updates DOM selection if needed
+```mermaid
+sequenceDiagram
+    participant DOMSel as DOM Selection
+    participant ViewDOM as EditorViewDOM
+    participant Editor
+    participant ModelSel as ModelSelection
+
+    Note over DOMSel,ModelSel: DOM → Model
+    DOMSel->>ViewDOM: selectionchange event
+    ViewDOM->>ViewDOM: DOM Range → SID + offset
+    ViewDOM->>Editor: updateSelection
+    Editor->>ModelSel: store
+
+    Note over DOMSel,ModelSel: Model → DOM
+    ModelSel->>Editor: selection changed
+    Editor->>ViewDOM: syncSelectionToDOM
+    ViewDOM->>DOMSel: setBaseAndExtent()
 ```
 
 ### Input Handling
 
-Processes user input and converts it to editor commands:
+```mermaid
+sequenceDiagram
+    participant DOM
+    participant ViewDOM as EditorViewDOM
+    participant MutObs as MutationObserver
+    participant Analyzer as TextAnalyzer
+    participant Editor
 
-```typescript
-// User types 'a'
-// → View captures input
-// → Converts to insertText command
-// → Executes command on editor
-// → Editor updates model
-// → View triggers re-render
+    DOM->>ViewDOM: beforeinput / input
+    ViewDOM->>MutObs: observe mutations
+    MutObs->>Analyzer: oldText, newText
+    Analyzer-->>ViewDOM: TextChange[]
+    ViewDOM->>Editor: executeCommand
+    Editor-->>ViewDOM: re-render
 ```
+
+Processes user input and converts it to editor commands:
 
 ### Keybinding Dispatch
 

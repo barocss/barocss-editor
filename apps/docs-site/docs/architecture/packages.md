@@ -163,48 +163,39 @@ view.render();
 
 ### Data Flow
 
-```
-User Input
-  ↓
-EditorViewDOM (input handling)
-  ↓
-Editor (command execution)
-  ↓
-Extension (command implementation)
-  ↓
-Model Operations (transaction DSL)
-  ↓
-DataStore (node storage)
-  ↓
-Model Change Event
-  ↓
-EditorViewDOM (render trigger)
-  ↓
-Renderer-DOM (VNode build + DOM reconcile)
-  ↓
-DSL Templates (template lookup)
-  ↓
-DOM Update
+```mermaid
+flowchart TD
+    UserInput["User Input"] --> ViewDOM["EditorViewDOM — input handling"]
+    ViewDOM --> Editor["Editor — command execution"]
+    Editor --> Extension["Extension — command impl"]
+    Extension --> ModelOps["Model Operations — transaction DSL"]
+    ModelOps --> DataStore["DataStore — node storage"]
+    DataStore --> ChangeEvent["Model Change Event"]
+    ChangeEvent --> RenderTrigger["EditorViewDOM — render trigger"]
+    RenderTrigger --> Renderer["Renderer — VNode build + reconcile"]
+    Renderer --> DSLTemplates["DSL Templates — lookup"]
+    DSLTemplates --> DOMUpdate["DOM Update"]
 ```
 
 ### Package Dependencies
 
-```
-@barocss/schema (independent)
-  ↓
-@barocss/datastore → @barocss/schema
-  ↓
-@barocss/model → @barocss/datastore
-  ↓
-@barocss/dsl (independent)
-  ↓
-@barocss/renderer-dom → @barocss/dsl
-  ↓
-@barocss/editor-core → @barocss/datastore, @barocss/model
-  ↓
-@barocss/extensions → @barocss/editor-core
-  ↓
-@barocss/editor-view-dom → @barocss/editor-core, @barocss/renderer-dom
+```mermaid
+flowchart TD
+    schema["schema — independent"]
+    dsl["dsl — independent"]
+    datastore["datastore"] --> schema
+    model --> datastore
+    rendererDom["renderer-dom"] --> dsl
+    rendererReact["renderer-react"] --> dsl
+    editorCore["editor-core"] --> datastore
+    editorCore --> model
+    extensions --> editorCore
+    editorViewDom["editor-view-dom"] --> editorCore
+    editorViewDom --> rendererDom
+    editorViewReact["editor-view-react"] --> editorCore
+    editorViewReact --> rendererReact
+    collaboration --> datastore
+    converter --> model
 ```
 
 ## Package Responsibilities Summary
@@ -212,13 +203,17 @@ DOM Update
 | Package | Primary Role | Extension Points |
 |---------|-------------|------------------|
 | `schema` | Document structure definition | Add new node/mark types |
-| `datastore` | Node storage | Use in operations |
+| `datastore` | Transactional node storage | Use in operations |
 | `model` | Operations & transactions | Define custom operations |
 | `dsl` | Template definition | Register templates |
-| `renderer-dom` | DOM rendering | Custom rendering logic |
+| `renderer-dom` | VNode → DOM rendering | Custom rendering logic |
+| `renderer-react` | Direct → ReactNode rendering | React components |
 | `editor-core` | Editor orchestration | Register commands |
-| `extensions` | Built-in features | Create custom extensions |
-| `editor-view-dom` | DOM integration | Custom input handling |
+| `extensions` | 30+ built-in features | Create custom extensions |
+| `editor-view-dom` | DOM view layer | Custom input handling |
+| `editor-view-react` | React view layer | React hooks integration |
+| `collaboration` | CRDT/OT base adapter | Custom backends |
+| `converter` | Format conversion | Custom format rules |
 
 ## Individual Package Documentation
 
@@ -229,12 +224,17 @@ For detailed information about each package, see:
 - [Model](./model) - Model operations and transaction DSL
 - [DSL](./dsl) - Template definition layer
 - [Renderer-DOM](./renderer-dom) - DOM rendering
+- [Renderer-React](./renderer-react) - React rendering
 - [Editor-Core](./editor-core) - Core editor logic
 - [Editor-View-DOM](./editor-view-dom) - DOM integration
+- [Editor-View-React](./editor-view-react) - React integration
+- [Extensions](./extensions) - Built-in extensions
+- [Collaboration](./collaboration) - Collaboration adapters
+- [Converter](./converter) - Format conversion
+- [Text-Analyzer](./text-analyzer) - Text diff algorithm
 
 ## Next Steps
 
 - [Architecture Overview](./overview) - Understand the complete architecture
 - [Core Concepts: Rendering](../concepts/rendering) - Understand the rendering pipeline
 - [Extension Design Guide](../guides/extension-design) - Learn how to extend the editor
-- [Architecture Overview](./overview) - Complete architecture explanation

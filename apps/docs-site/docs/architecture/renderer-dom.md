@@ -33,10 +33,15 @@ renderer.render(container, vnode);
 
 ## Rendering Pipeline
 
-The renderer follows this pipeline:
-
-```
-Model → Registry.get(stype) → Template → VNodeBuilder → VNode → DOMReconcile → DOM
+```mermaid
+flowchart LR
+    Model -->|"stype"| Registry["Registry.get(stype)"]
+    Registry --> Template
+    Template --> VNodeBuilder
+    Model -.->|"data"| VNodeBuilder
+    VNodeBuilder --> VNode
+    VNode --> DOMReconcile
+    DOMReconcile --> DOM
 ```
 
 ### 1. Build Phase
@@ -77,15 +82,31 @@ renderer.render(container, vnode2);  // Minimal DOM changes
 ```
 
 **Reconciliation process:**
-1. **Create WIP Tree**: Build work-in-progress tree from new VNode
-2. **Detect Changes**: Compare with previous VNode to find differences
+
+```mermaid
+flowchart TD
+    NewVNode["New VNode"] --> CreateWIP["Create WIP Fiber Tree"]
+    CreateWIP --> Detect["Detect Changes vs Previous Fiber"]
+    Detect --> Type{Change Type?}
+    Type -->|"Tag changed"| Replace["Replace DOM Node"]
+    Type -->|"Attrs changed"| Patch["Patch Attributes"]
+    Type -->|"Children changed"| Children["Reconcile Children by SID"]
+    Type -->|"Text changed"| Text["Update textContent"]
+    Replace --> Commit["Commit to DOM"]
+    Patch --> Commit
+    Children --> Commit
+    Text --> Commit
+```
+
+1. **Create WIP Tree**: Build work-in-progress Fiber tree from new VNode
+2. **Detect Changes**: Compare with previous Fiber to find differences
 3. **Assign Priority**: Prioritize changes (attributes, children, etc.)
 4. **Apply Updates**: Make minimal DOM changes
 
 **Change detection:**
 - Tag changes → Replace element
 - Attribute changes → Update attributes
-- Children changes → Reconcile children (React-style)
+- Children changes → Reconcile children by SID (like React `key`)
 - Text changes → Update text content
 
 **SID-based stability:**

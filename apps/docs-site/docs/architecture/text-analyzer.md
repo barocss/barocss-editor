@@ -85,6 +85,24 @@ const changes = analyzeTextChanges(oldText, newText, {
 
 ### LCP/LCS Algorithm (Precise windowing)
 
+```mermaid
+flowchart TD
+    Start["oldText, newText, selectionBias?"] --> LCP["Compute LCP: common prefix length"]
+    LCP --> LCS["Compute LCS: common suffix length after LCP"]
+    LCS --> Window["Change region: old[LCP .. len-LCS], new[LCP .. len-LCS]"]
+    Window --> Classify{Classify}
+    Classify -->|"only new chars"| Insert["Insert"]
+    Classify -->|"only old chars"| Delete["Delete"]
+    Classify -->|"both differ"| Replace["Replace"]
+    Classify -->|"identical"| None["No change"]
+    Insert --> HasBias{"selectionBias?"}
+    Delete --> HasBias
+    Replace --> HasBias
+    HasBias -->|Yes| Bias["Selection-biased adjustment: search near cursor"]
+    HasBias -->|No| Result["TextChange"]
+    Bias --> Result
+```
+
 - **Steps**
   1) **LCP**: scan from the front until chars differ → common prefix length `lcp`.
   2) **LCS**: scan from the back after trimming LCP → common suffix length `lcs`.
