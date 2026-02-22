@@ -41,6 +41,9 @@ import { MoveSelectionExtension } from './move-selection';
 import { IndentExtension } from './indent';
 import { UnderlineExtension } from './underline';
 import { CopyPasteExtension } from './copy-paste';
+import { EscapeExtension } from './escape';
+import { MoveBlockExtension } from './move-block';
+import { StrikeThroughExtension } from './strikethrough';
 import { ListExtension } from './list';
 import { BlockquoteExtension } from './blockquote';
 import { LinkExtension } from './link';
@@ -52,6 +55,7 @@ import { ChecklistExtension } from './checklist';
 import { CalloutExtension } from './callout';
 import { MathBlockExtension } from './math-block';
 import { CommentExtension } from './comment';
+import { DragDropExtension } from './drag-drop';
 import type { Extension } from '@barocss/editor-core';
 
 export function createCoreExtensions(): Extension[] {
@@ -62,7 +66,8 @@ export function createCoreExtensions(): Extension[] {
     new MoveSelectionExtension(),
     new SelectAllExtension(),
     new IndentExtension(),
-    new CopyPasteExtension()
+    new CopyPasteExtension(),
+    new EscapeExtension(),
   ];
 }
 
@@ -80,6 +85,7 @@ export function createRichExtensions(): Extension[] {
   return [
     ...createBasicExtensions(),
     new UnderlineExtension(),
+    new StrikeThroughExtension(),
     new LinkExtension(),
     new ImageExtension(),
     new CodeBlockExtension(),
@@ -88,7 +94,9 @@ export function createRichExtensions(): Extension[] {
     new ChecklistExtension(),
     new CalloutExtension(),
     new MathBlockExtension(),
-    new CommentExtension()
+    new CommentExtension(),
+    new MoveBlockExtension(),
+    new DragDropExtension(),
   ];
 }
 
@@ -103,6 +111,7 @@ export const ExtensionSets = {
     new BoldExtension(),
     new ItalicExtension(),
     new UnderlineExtension(),
+    new StrikeThroughExtension(),
     new HeadingExtension(),
     new LinkExtension(),
     new ImageExtension(),
@@ -112,7 +121,9 @@ export const ExtensionSets = {
     new ChecklistExtension(),
     new CalloutExtension(),
     new MathBlockExtension(),
-    new CommentExtension()
+    new CommentExtension(),
+    new MoveBlockExtension(),
+    new DragDropExtension(),
   ],
   
   minimal: () => []
