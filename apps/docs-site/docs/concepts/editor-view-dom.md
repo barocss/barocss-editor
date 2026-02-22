@@ -13,16 +13,27 @@ Editor View DOM bridges the gap between:
 
 ### 1. User Input Handling
 
-Automatically converts user input into editor commands:
+```mermaid
+sequenceDiagram
+    participant DOM
+    participant ViewDOM as EditorViewDOM
+    participant MutObs as MutationObserver
+    participant Analyzer as TextAnalyzer
+    participant Editor
+    participant DataStore
 
-```typescript
-// User types 'a'
-// → View captures input event (automatically)
-// → Converts to insertText command
-// → Executes command on editor
-// → Editor updates model
-// → View triggers re-render
+    DOM->>ViewDOM: beforeinput / input event
+    ViewDOM->>MutObs: observe DOM mutations
+    MutObs->>Analyzer: oldText, newText
+    Analyzer->>Analyzer: LCP/LCS diff
+    Analyzer-->>ViewDOM: TextChange[]
+    ViewDOM->>Editor: executeCommand
+    Editor->>DataStore: transaction(operations)
+    DataStore-->>Editor: commit result
+    Editor-->>ViewDOM: re-render
 ```
+
+Automatically converts user input into editor commands:
 
 **Input types handled automatically:**
 - **Text Input**: Typing characters
@@ -33,15 +44,26 @@ Automatically converts user input into editor commands:
 
 ### 2. Selection Synchronization
 
-Bidirectional synchronization between DOM and editor:
+```mermaid
+sequenceDiagram
+    participant DOMSel as DOM Selection
+    participant ViewDOM as EditorViewDOM
+    participant Editor
+    participant ModelSel as ModelSelection
 
-```typescript
-// User selects text in DOM
-// → View detects selection change (automatically)
-// → Updates editor selection via editor.setSelection()
-// → Editor notifies view
-// → View updates DOM selection if needed
+    Note over DOMSel,ModelSel: DOM → Model
+    DOMSel->>ViewDOM: selectionchange event
+    ViewDOM->>ViewDOM: DOM Range → SID + offset
+    ViewDOM->>Editor: updateSelection
+    Editor->>ModelSel: store
+
+    Note over DOMSel,ModelSel: Model → DOM
+    ModelSel->>Editor: selection changed
+    Editor->>ViewDOM: syncSelectionToDOM
+    ViewDOM->>DOMSel: setBaseAndExtent()
 ```
+
+Bidirectional synchronization between DOM and editor:
 
 **Selection sync flow:**
 1. User selects text in DOM
@@ -74,23 +96,22 @@ Triggers rendering when model changes:
 
 ### 4. Layered Architecture
 
-Editor View DOM uses a 5-layer architecture:
+Editor View DOM uses a 5-layer architecture, each with its own DOMRenderer:
 
-```typescript
-// Layer 1: Content (contentEditable) - z-index: 1
-view.layers.content  // Core document content
+```mermaid
+flowchart TB
+    subgraph container["EditorViewDOM Container"]
+        direction TB
+        Custom["Custom Layer — z:1000 — user-defined overlays"]
+        Context["Context Layer — z:200 — floating UI, tooltips"]
+        Selection["Selection Layer — z:100 — cursor, ranges"]
+        Decorator["Decorator Layer — z:10 — highlights, comments"]
+        Content["Content Layer — z:1 — contentEditable document"]
+    end
 
-// Layer 2: Decorator - z-index: 10
-view.layers.decorator  // Decorators (highlights, widgets)
-
-// Layer 3: Selection - z-index: 100
-view.layers.selection  // Selection indicators
-
-// Layer 4: Context - z-index: 200
-view.layers.context  // Context menus, tooltips
-
-// Layer 5: Custom - z-index: 1000
-view.layers.custom  // User-defined overlays
+    Model -.-> Content
+    DecoratorData["Decorators"] -.-> Decorator
+    EditorSel["Editor Selection"] -.-> Selection
 ```
 
 ## Basic Usage
@@ -235,20 +256,14 @@ const modelData = {
 
 ## How View Fits
 
-```
-User Interaction (DOM)
-    ↓
-Editor View DOM (Automatic Event Handling)
-    ↓
-Editor Core (Commands, Selection, Keybindings)
-    ↓
-Model (Transactions)
-    ↓
-DataStore (Updates)
-    ↓
-Renderer (DOM Updates)
-    ↓
-DOM (Visual Representation)
+```mermaid
+flowchart TD
+    UserDOM["User Interaction — DOM"] --> ViewDOM["EditorViewDOM — event handling"]
+    ViewDOM --> EditorCore["Editor Core — commands, selection"]
+    EditorCore --> ModelTx["Model — transactions"]
+    ModelTx --> DS["DataStore — commit"]
+    DS --> Renderer["Renderer — VNode reconcile"]
+    Renderer --> DOMOut["DOM — visual output"]
 ```
 
 **View's role:**

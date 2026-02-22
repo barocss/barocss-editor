@@ -211,18 +211,43 @@ editor.setContext('myCustomState', null);
 - `historyCanRedo`: Whether redo is available
 - `isMac`: Whether running on macOS
 
+## Command Execution Flow
+
+The full sequence from user action to DOM update:
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Editor
+    participant ExtHooks as Extension Hooks
+    participant TxManager as TransactionManager
+    participant Lock
+    participant DataStore
+    participant History
+
+    User->>Editor: executeCommand(name, payload)
+    Editor->>ExtHooks: onBeforeTransaction
+    ExtHooks-->>Editor: modified or pass-through
+    Editor->>TxManager: execute(operations)
+    TxManager->>Lock: acquireLock
+    TxManager->>DataStore: begin() — overlay
+    TxManager->>DataStore: execute operations
+    TxManager->>DataStore: end() — collect ops
+    TxManager->>DataStore: commit
+    TxManager->>History: push(ops, inverseOps)
+    TxManager->>Lock: releaseLock
+    TxManager-->>Editor: TransactionResult
+    Editor->>Editor: emit events → re-render
+```
+
 ## How Editor Core Fits
 
-```
-User Input (View)
-    ↓
-Editor Core (Commands, Keybindings, Selection)
-    ↓
-Model (Transactions)
-    ↓
-DataStore (Updates)
-    ↓
-Renderer (DOM Updates)
+```mermaid
+flowchart TD
+    UserInput["User Input — View"] --> EditorCore["Editor Core — Commands, Keybindings, Selection"]
+    EditorCore --> ModelLayer["Model — Transactions"]
+    ModelLayer --> DataStoreLayer["DataStore — Updates"]
+    DataStoreLayer --> Renderer["Renderer — DOM / React"]
 ```
 
 **Editor Core's role:**

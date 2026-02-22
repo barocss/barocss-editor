@@ -4,11 +4,36 @@ Rendering is the process of converting your model data into DOM elements using D
 
 ## Rendering Pipeline
 
-The rendering process follows this pipeline:
+Barocss supports **two rendering targets** from the same DSL templates:
 
+```mermaid
+flowchart LR
+    Model --> Registry
+    Registry --> Template
+
+    subgraph domPath["renderer-dom"]
+        VNodeBuilder["VNodeBuilder"]
+        VNode["VNode"]
+        DOMReconcile["DOMReconcile"]
+    end
+
+    subgraph reactPath["renderer-react"]
+        BuildToReact["buildToReact"]
+        ReactNode["ReactNode"]
+    end
+
+    Template --> VNodeBuilder
+    Template --> BuildToReact
+    Model -.->|data| VNodeBuilder
+    Model -.->|data| BuildToReact
+    VNodeBuilder --> VNode
+    VNode --> DOMReconcile
+    DOMReconcile --> DOM
+    BuildToReact --> ReactNode
+    ReactNode --> ReactDOM["React DOM"]
 ```
-Model → Registry → Template → VNodeBuilder → VNode → DOMReconcile → DOM
-```
+
+The **DOM path** builds a virtual node tree and reconciles it against the previous tree. The **React path** produces React elements directly — no VNode intermediate.
 
 ### 1. Template Lookup
 
@@ -42,8 +67,23 @@ Reconciliation is the process of efficiently updating the DOM to match the new V
 
 ### How It Works
 
-1. **Create WIP Tree**: Build a work-in-progress tree from the new VNode
-2. **Detect Changes**: Compare with previous VNode to find differences
+```mermaid
+flowchart TD
+    NewVNode["New VNode Tree"] --> CreateWIP["Create WIP Fiber Tree"]
+    CreateWIP --> DetectChanges["Detect Changes vs Previous Fiber"]
+    DetectChanges --> ChangeType{Change Type?}
+    ChangeType -->|"Tag changed"| ReplaceNode["Replace DOM Node"]
+    ChangeType -->|"Attrs changed"| UpdateAttrs["Patch Attributes"]
+    ChangeType -->|"Children changed"| ReconcileChildren["Reconcile Children by SID"]
+    ChangeType -->|"Text changed"| UpdateText["Update textContent"]
+    ReplaceNode --> CommitDOM["Commit to DOM"]
+    UpdateAttrs --> CommitDOM
+    ReconcileChildren --> CommitDOM
+    UpdateText --> CommitDOM
+```
+
+1. **Create WIP Tree**: Build a work-in-progress Fiber tree from the new VNode
+2. **Detect Changes**: Compare with previous Fiber to find differences
 3. **Assign Priority**: Prioritize changes (attributes, children, etc.)
 4. **Apply Updates**: Make minimal DOM changes
 

@@ -4,10 +4,11 @@ Barocss Editor uses a **model-first, DSL-first architecture**. All operations wo
 
 ## Core Structure
 
-```
-                         ┌── VNodeBuilder → VNode → DOMReconcile → DOM
-Model → DSL → Registry ─┤
-                         └── buildToReact → ReactNode → React DOM
+```mermaid
+flowchart LR
+    Model --> DSL --> Registry
+    Registry --> VNodeBuilder --> VNode --> DOMReconcile --> DOM
+    Registry --> BuildToReact["buildToReact"] --> ReactNode --> ReactDOM["React DOM"]
 ```
 
 ## DSL-First Philosophy
@@ -25,19 +26,20 @@ This unified approach provides consistency, type safety, and composability acros
 
 The same DSL templates power **two rendering targets**:
 
-### DOM Path (renderer-dom)
+```mermaid
+flowchart TD
+    subgraph domPath["DOM Path — renderer-dom"]
+        D1["1. DSL Layer → Template"]
+        D2["2. VNodeBuilder: Template × Data → VNode"]
+        D3["3. DOMReconcile: prev vs next → minimal DOM updates"]
+        D1 --> D2 --> D3
+    end
 
-```
-1. DSL Layer → Template
-2. VNodeBuilder: Template × Data → VNode (virtual DOM)
-3. DOMReconcile: prevVNode vs nextVNode → minimal DOM updates
-```
-
-### React Path (renderer-react)
-
-```
-1. DSL Layer → Template
-2. buildToReact: Template × Data → ReactNode (no VNode step)
+    subgraph reactPath["React Path — renderer-react"]
+        R1["1. DSL Layer → Template"]
+        R2["2. buildToReact: Template × Data → ReactNode"]
+        R1 --> R2
+    end
 ```
 
 Both paths share the same template definitions — you define once and render to either target.
