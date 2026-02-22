@@ -35,6 +35,21 @@ export * from './callout';
 export * from './math-block';
 export * from './comment';
 export * from './styles';
+export * from './pull-quote';
+export * from './columns';
+export * from './toc';
+export * from './details';
+export * from './description-list';
+export * from './figure';
+export * from './media';
+export * from './font-size';
+export * from './font-family';
+export * from './text-formatting';
+export * from './mention';
+export * from './footnote';
+export * from './bookmark';
+export * from './field';
+export * from './doc-structure';
 
 // Import classes
 import { TextExtension } from './text';
@@ -70,6 +85,21 @@ import { FontColorExtension } from './font-color';
 import { SubSuperExtension } from './sub-super';
 import { MathInlineExtension } from './math-inline';
 import { PageBreakExtension } from './page-break';
+import { PullQuoteExtension } from './pull-quote';
+import { ColumnsExtension } from './columns';
+import { TocExtension } from './toc';
+import { DetailsExtension } from './details';
+import { DescriptionListExtension } from './description-list';
+import { FigureExtension } from './figure';
+import { MediaExtension } from './media';
+import { FontSizeExtension } from './font-size';
+import { FontFamilyExtension } from './font-family';
+import { TextFormattingExtension } from './text-formatting';
+import { MentionExtension } from './mention';
+import { FootnoteExtension } from './footnote';
+import { BookmarkExtension } from './bookmark';
+import { FieldExtension } from './field';
+import { DocStructureExtension } from './doc-structure';
 import type { Extension } from '@barocss/editor-core';
 
 export function createCoreExtensions(): Extension[] {
@@ -118,6 +148,21 @@ export function createRichExtensions(): Extension[] {
     new SubSuperExtension(),
     new MathInlineExtension(),
     new PageBreakExtension(),
+    new PullQuoteExtension(),
+    new ColumnsExtension(),
+    new TocExtension(),
+    new DetailsExtension(),
+    new DescriptionListExtension(),
+    new FigureExtension(),
+    new MediaExtension(),
+    new FontSizeExtension(),
+    new FontFamilyExtension(),
+    new TextFormattingExtension(),
+    new MentionExtension(),
+    new FootnoteExtension(),
+    new BookmarkExtension(),
+    new FieldExtension(),
+    new DocStructureExtension(),
   ];
 }
 
@@ -127,32 +172,8 @@ export const ExtensionSets = {
     new ItalicExtension(),
     new UnderlineExtension()
   ],
-  
-  rich: () => [
-    new BoldExtension(),
-    new ItalicExtension(),
-    new UnderlineExtension(),
-    new StrikeThroughExtension(),
-    new HeadingExtension(),
-    new LinkExtension(),
-    new ImageExtension(),
-    new CodeBlockExtension(),
-    new HorizontalRuleExtension(),
-    new TableExtension(),
-    new ChecklistExtension(),
-    new CalloutExtension(),
-    new MathBlockExtension(),
-    new CommentExtension(),
-    new MoveBlockExtension(),
-    new DragDropExtension(),
-    new CodeMarkExtension(),
-    new HighlightExtension(),
-    new FontColorExtension(),
-    new SubSuperExtension(),
-    new MathInlineExtension(),
-    new PageBreakExtension(),
-  ],
-  
+
+  rich: () => createRichExtensions(),
+
   minimal: () => []
 } as const;
-
