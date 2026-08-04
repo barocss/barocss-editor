@@ -51,3 +51,11 @@ export {
   paragraphCss, characterCss, pageCss, tableCss, tableCellCss,
   twipToCss, halfPointToCss, normalizeColor, type CssStyle
 } from './css';
+
+export {
+  paginate,
+  type MeasuredBlock,
+  type Page,
+  type PageFragment,
+  type PaginationOptions
+} from './pagination';
