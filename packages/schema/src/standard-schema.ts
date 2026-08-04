@@ -80,7 +80,10 @@ export function getStandardSchemaDefinition(): SchemaDefinition {
       bTableBody: { name: 'bTableBody', group: 'block', content: 'bTableRow+' },
       bTableFooter: { name: 'bTableFooter', group: 'block', content: 'bTableRow+' },
       bTableHeaderCell: { name: 'bTableHeaderCell', group: 'block', content: 'inline*', attrs: { colspan: { type: 'number', default: 1 }, rowspan: { type: 'number', default: 1 } } },
-      bTableRow: { name: 'bTableRow', group: 'block', content: 'bTableCell+' },
+      // 'bTableCell*', not '+': a row entirely covered by a rowspan from above
+      // legitimately owns no cells of its own. HTML and OOXML both allow this,
+      // and merging a whole row would otherwise produce an invalid table.
+      bTableRow: { name: 'bTableRow', group: 'block', content: 'bTableCell*' },
       bTableCell: { name: 'bTableCell', group: 'block', content: 'inline*', attrs: { colspan: { type: 'number', default: 1 }, rowspan: { type: 'number', default: 1 } } },
       'inline-image': { name: 'inline-image', group: 'inline', atom: true, attrs: { src: { type: 'string', required: true }, alt: { type: 'string', required: false } } },
       emoji: { name: 'emoji', group: 'inline', atom: true, attrs: { shortcode: { type: 'string', required: false }, unicode: { type: 'string', required: false } } },

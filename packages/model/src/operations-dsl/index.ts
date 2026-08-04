@@ -43,6 +43,7 @@ export * from '../operations/insertCodeBlock';
 export * from '../operations/insertImage';
 export * from '../operations/toggleLink';
 export * from '../operations/insertTable';
+export * from '../operations/tableStructure';
 export * from '../operations/insertChecklist';
 export * from '../operations/insertCallout';
 export * from '../operations/insertMathBlock';

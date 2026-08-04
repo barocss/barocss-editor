@@ -614,6 +614,34 @@ importers:
         specifier: ^1.6.1
         version: 1.6.1(@types/node@20.19.30)(@vitest/ui@1.6.1)
 
+  packages/office-word:
+    dependencies:
+      '@barocss/editor-core':
+        specifier: workspace:*
+        version: link:../editor-core
+      '@barocss/extensions':
+        specifier: workspace:*
+        version: link:../extensions
+      '@barocss/model':
+        specifier: workspace:*
+        version: link:../model
+      '@barocss/schema':
+        specifier: workspace:*
+        version: link:../schema
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vite:
+        specifier: ^5.4.21
+        version: 5.4.21(@types/node@20.19.30)
+      vite-plugin-dts:
+        specifier: ^3.9.1
+        version: 3.9.1(@types/node@20.19.30)(typescript@5.9.3)(vite@5.4.21)
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.30)(@vitest/ui@1.6.1)
+
   packages/renderer-dom:
     dependencies:
       '@barocss/dsl':

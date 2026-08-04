@@ -54,6 +54,7 @@ import './insertCodeBlock';
 import './insertImage';
 import './toggleLink';
 import './insertTable';
+import './tableStructure';
 import './insertChecklist';
 import './insertCallout';
 import './insertMathBlock';
