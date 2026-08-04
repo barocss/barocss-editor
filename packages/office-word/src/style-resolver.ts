@@ -17,6 +17,7 @@
  */
 import {
   characterFormatAttrs,
+  pageSetupAttrs,
   paragraphFormatAttrs,
   tableCellFormatAttrs,
   tableFormatAttrs,
@@ -40,6 +41,12 @@ const TABLE_KEYS = new Set([
   ...Object.keys(tableRowFormatAttrs()),
   ...Object.keys(tableCellFormatAttrs())
 ]);
+/**
+ * Page setup is its own scope: it lives on a section, and asking for a
+ * section's *paragraph* format would drop every page property on the floor —
+ * which is exactly what left rendered pages with no box at all.
+ */
+const PAGE_KEYS = new Set(Object.keys(pageSetupAttrs()));
 
 /**
  * `styleId` is how a node points at a style; it is not itself a formatting
@@ -47,7 +54,7 @@ const TABLE_KEYS = new Set([
  */
 const NEVER_CASCADE = new Set(['styleId', 'id', 'name', 'type', 'basedOn', 'next', 'link']);
 
-export type FormatScope = 'paragraph' | 'character' | 'table';
+export type FormatScope = 'paragraph' | 'character' | 'table' | 'page';
 
 function keysFor(scope: FormatScope): Set<string> {
   switch (scope) {
@@ -55,6 +62,8 @@ function keysFor(scope: FormatScope): Set<string> {
       return CHARACTER_KEYS;
     case 'table':
       return TABLE_KEYS;
+    case 'page':
+      return PAGE_KEYS;
     default:
       return PARAGRAPH_KEYS;
   }

@@ -23,6 +23,7 @@ import {
   ComponentProps,
   ModelData,
   ElementTag,
+  ElementTagGetter,
   PortalTemplate,
   EachTemplate,
 } from './types';
@@ -129,6 +130,15 @@ export function element<T extends AllTagNames>(
   attributes: DynamicElementAttributes<T> | null, 
   children?: ElementChild[] | ElementChild
 ): ElementTemplate<T>;
+/**
+ * Tag chosen from the model — a heading picking h1..h6 from its level, say.
+ * The implementation has always accepted this; the overload was missing.
+ */
+export function element(
+  tag: ElementTagGetter,
+  attributes?: DynamicElementAttributes<AllTagNames> | null,
+  children?: ElementChild[] | ElementChild
+): ElementTemplate;
 
 /**
  * Implementation of the element builder function

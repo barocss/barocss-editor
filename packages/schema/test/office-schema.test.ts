@@ -106,26 +106,26 @@ describe('the document vocabulary survives the merge', () => {
 describe('document metadata and referenced definitions', () => {
   it('roots at meta? surface+ resources?', () => {
     expect(schema.validateContent('document', [n('surface')]).valid).toBe(true);
-    expect(schema.validateContent('document', [n('meta'), n('surface')]).valid).toBe(true);
+    expect(schema.validateContent('document', [n('docMeta'), n('surface')]).valid).toBe(true);
     expect(schema.validateContent('document', [n('surface'), n('resources')]).valid).toBe(true);
     expect(
-      schema.validateContent('document', [n('meta'), n('surface'), n('resources')]).valid
+      schema.validateContent('document', [n('docMeta'), n('surface'), n('resources')]).valid
     ).toBe(true);
   });
 
   it('keeps meta and resources on the outside of the pages, in order', () => {
     // resources before surfaces, or meta after them, is not the same document
     expect(schema.validateContent('document', [n('resources'), n('surface')]).valid).toBe(false);
-    expect(schema.validateContent('document', [n('surface'), n('meta')]).valid).toBe(false);
+    expect(schema.validateContent('document', [n('surface'), n('docMeta')]).valid).toBe(false);
     // and neither may stand in for a page
-    expect(schema.validateContent('document', [n('meta'), n('resources')]).valid).toBe(false);
+    expect(schema.validateContent('document', [n('docMeta'), n('resources')]).valid).toBe(false);
   });
 
   it('holds the title as content, not as an attribute', () => {
     // A title carries marks and takes a cursor, so it is a node
-    expect(schema.validateContent('meta', [n('docTitle')]).valid).toBe(true);
+    expect(schema.validateContent('docMeta', [n('docTitle')]).valid).toBe(true);
     expect(schema.validateContent('docTitle', [n('inline-text')]).valid).toBe(true);
-    expect(schema.validateContent('meta', [n('docTitle'), n('docSubtitle'), n('docAuthor')]).valid).toBe(true);
+    expect(schema.validateContent('docMeta', [n('docTitle'), n('docSubtitle'), n('docAuthor')]).valid).toBe(true);
     // ...and the inline field that displays it still exists in the flow
     expect(schema.getNodeType('fieldDocTitle')?.group).toBe('inline');
   });

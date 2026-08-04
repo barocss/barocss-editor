@@ -8,7 +8,7 @@ const attrs = (stype: string) => schema.getNodeType(stype)?.attrs ?? {};
 
 describe('Word builds on the shared Office model', () => {
   it('keeps the Office root shape', () => {
-    expect(schema.validateContent('document', [n('meta'), n('surface'), n('resources')]).valid).toBe(true);
+    expect(schema.validateContent('document', [n('docMeta'), n('surface'), n('resources')]).valid).toBe(true);
     expect(schema.validateContent('document', [n('surface')]).valid).toBe(true);
   });
 

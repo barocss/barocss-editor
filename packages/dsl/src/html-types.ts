@@ -362,8 +362,18 @@ export type AttributesForTag<T extends AllTagNames> =
     ? ElementAttributeMap[T] 
     : BaseHTMLAttributes;
 
-// Dynamic attribute type that can be a function or static value
-export type DynamicAttribute<T> = T | DataTemplate;
+/**
+ * An attribute value: a literal, a data binding, or a function of the model.
+ *
+ * The function form has always been resolved at runtime (see resolveAttrValue in
+ * the renderers) but was missing from the type, so any computed attribute — a
+ * style object derived from several properties, a marker that depends on
+ * document-wide state — had to be cast. It is declared here instead.
+ */
+export type DynamicAttribute<T> =
+  | T
+  | DataTemplate
+  | ((data: Record<string, any>) => T | undefined | null);
 
 // Enhanced element attributes with dynamic support
 export type DynamicElementAttributes<T extends AllTagNames> = {

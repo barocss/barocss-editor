@@ -44,3 +44,10 @@ export {
   type DocumentAccess,
   type DocumentNode
 } from './document-access';
+
+export { registerWordRenderers } from './renderers';
+export { setWordDocument, getWordStyles, getWordNumbering, getWordDocument } from './render-context';
+export {
+  paragraphCss, characterCss, pageCss, tableCss, tableCellCss,
+  twipToCss, halfPointToCss, normalizeColor, type CssStyle
+} from './css';

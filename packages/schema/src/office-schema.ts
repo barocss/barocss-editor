@@ -151,7 +151,7 @@ export function getCanvasNodeDefinitions(): Record<string, NodeTypeDefinition> {
 }
 
 /** Document-level content that is not laid out in the flow. */
-const META = 'meta';
+const META = 'meta';  // group name for docTitle/docSubtitle/docAuthor
 
 /** A definition referenced from the flow by id, placed by the product. */
 const RESOURCE = 'resource';
@@ -182,7 +182,7 @@ const RESOURCE = 'resource';
  */
 export function getMetaNodeDefinitions(): Record<string, NodeTypeDefinition> {
   return {
-    meta: { name: 'meta', group: 'document', content: 'docTitle? docSubtitle? docAuthor*' },
+    docMeta: { name: 'docMeta', group: 'document', content: 'docTitle? docSubtitle? docAuthor*' },
     docTitle: { name: 'docTitle', group: META, content: 'inline*' },
     docSubtitle: { name: 'docSubtitle', group: META, content: 'inline*' },
     docAuthor: { name: 'docAuthor', group: META, content: 'inline*' },
@@ -256,7 +256,7 @@ export function getSurfaceNodeDefinitions(): Record<string, NodeTypeDefinition> 
      * `meta? surface+ resources?` — metadata and referenced definitions are
      * siblings of the pages, not children of them. See getMetaNodeDefinitions.
      */
-    document: { name: 'document', group: 'document', content: 'meta? surface+ resources?' },
+    document: { name: 'document', group: 'document', content: 'docMeta? surface+ resources?' },
     /**
      * One page / slide / canvas / web page.
      *

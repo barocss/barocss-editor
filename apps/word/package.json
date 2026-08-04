@@ -1,0 +1,23 @@
+{
+  "name": "@barocss/word-app",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "preview": "vite preview",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@barocss/datastore": "workspace:*",
+    "@barocss/dsl": "workspace:*",
+    "@barocss/editor-core": "workspace:*",
+    "@barocss/editor-view-dom": "workspace:*",
+    "@barocss/office-word": "workspace:*",
+    "@barocss/schema": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vite": "^5.4.21"
+  }
+}

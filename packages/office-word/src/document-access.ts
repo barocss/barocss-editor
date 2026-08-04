@@ -74,7 +74,7 @@ export function* walkBlocks(
 ): Generator<DocumentNode> {
   if (!node || depth > 64) return;
   for (const child of childrenOf(doc, node)) {
-    if (child.stype === 'resources' || child.stype === 'meta') continue;
+    if (child.stype === 'resources' || child.stype === 'docMeta') continue;
     yield child;
     yield* walkBlocks(doc, child, depth + 1);
   }

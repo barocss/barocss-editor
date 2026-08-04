@@ -248,6 +248,34 @@ importers:
         specifier: ^5.4.21
         version: 5.4.21(@types/node@20.19.30)
 
+  apps/word:
+    dependencies:
+      '@barocss/datastore':
+        specifier: workspace:*
+        version: link:../../packages/datastore
+      '@barocss/dsl':
+        specifier: workspace:*
+        version: link:../../packages/dsl
+      '@barocss/editor-core':
+        specifier: workspace:*
+        version: link:../../packages/editor-core
+      '@barocss/editor-view-dom':
+        specifier: workspace:*
+        version: link:../../packages/editor-view-dom
+      '@barocss/office-word':
+        specifier: workspace:*
+        version: link:../../packages/office-word
+      '@barocss/schema':
+        specifier: workspace:*
+        version: link:../../packages/schema
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vite:
+        specifier: ^5.4.21
+        version: 5.4.21(@types/node@20.19.30)
+
   packages/collaboration:
     dependencies:
       '@barocss/datastore':
@@ -616,6 +644,9 @@ importers:
 
   packages/office-word:
     dependencies:
+      '@barocss/dsl':
+        specifier: workspace:*
+        version: link:../dsl
       '@barocss/editor-core':
         specifier: workspace:*
         version: link:../editor-core

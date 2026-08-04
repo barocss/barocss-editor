@@ -44,7 +44,8 @@
     "@barocss/editor-core": "workspace:*",
     "@barocss/extensions": "workspace:*",
     "@barocss/model": "workspace:*",
-    "@barocss/shared": "workspace:*"
+    "@barocss/shared": "workspace:*",
+    "@barocss/dsl": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.9.3",
