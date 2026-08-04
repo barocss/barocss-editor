@@ -206,7 +206,10 @@ export function element<T extends AllTagNames>(
 
   const tag: any = tagOrComponent as any;
 
-  // Check if this is a registered component (non-native HTML tag)
+  // A native tag wins over a registered name of the same string. That is what
+  // makes it safe to register a node type called `line`: `element('line')` still
+  // means the SVG element, and the node type is reached through the registry by
+  // its stype instead. Embed such a type with `slot()`, not `element()`.
   const isNative = isNativeHTMLTag(tag);
   
   if (typeof tag === 'string' && !isNative) {
@@ -357,11 +360,19 @@ export function renderer<
   template: ContextualComponent<P, M, C> | RenderTemplate | ExternalComponent | ExternalDescriptor
 ): RendererDefinition;
 export function renderer(nodeType: TNodeType, template: RenderTemplate | ContextualComponent | ExternalComponent | ExternalDescriptor): RendererDefinition {
-  // Disallow native HTML tag names in production (allowed in tests for convenience)
-  const isTestEnvironment = typeof process !== 'undefined' && process.env.NODE_ENV === 'test';
-  if (!isTestEnvironment && isNativeHTMLTag(nodeType)) {
-    throw new Error(`Cannot define template with native HTML tag name '${nodeType}'. Use a descriptive name like 'card', 'button-primary', etc.`);
-  }
+  // A node type may share a name with an HTML or SVG tag.
+  //
+  // This used to throw, on the assumption that the two are the same namespace.
+  // They are not: a node type is reached by the renderer through
+  // `registry.get(model.stype)`, while a tag is reached through `element(tag)`,
+  // and `element` resolves a native tag before it consults the registry. So the
+  // two never collide at lookup — the only consequence is that such a node type
+  // cannot be *embedded* with `element(name)`, which is what `slot()` is for.
+  //
+  // Refusing the registration instead made whole domains unmodellable: a
+  // document schema is entitled to call a shape `line`, `path` or `ellipse`, and
+  // a metadata node `meta`, none of which have anything to do with the tags of
+  // the same name.
   
   let processedTemplate: RenderTemplate | ExternalComponent | ExternalDescriptor;
   
