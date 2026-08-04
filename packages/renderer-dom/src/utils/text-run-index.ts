@@ -10,4 +10,7 @@ export {
   invalidateRunsByElement,
   invalidateRunsById,
   binarySearchRun,
+  stripFiller,
+  FILLER_CHAR,
+  FILLER_ATTR,
 } from '@barocss/shared';

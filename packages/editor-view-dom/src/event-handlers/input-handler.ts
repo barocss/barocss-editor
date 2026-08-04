@@ -4,7 +4,7 @@ import { handleEfficientEdit } from '../utils/efficient-edit-handler';
 import { type MarkRange, type DecoratorRange } from '../utils/edit-position-converter';
 import { classifyDomChange, type ClassifiedChange, type InputHint } from '../dom-sync/dom-change-classifier';
 import { analyzeTextChanges } from '@barocss/text-analyzer';
-import { type Decorator, getKeyString } from '@barocss/shared';
+import { type Decorator, getKeyString, FILLER_ATTR, stripFiller } from '@barocss/shared';
 
 /**
  * Input processing debug information (for Devtool)
@@ -296,6 +296,7 @@ export class InputHandlerImpl implements InputHandler {
       nodeId: classified.nodeId
     });
 
+
     // Handle by case
     switch (classified.case) {
       case 'C1':
@@ -319,22 +320,45 @@ export class InputHandlerImpl implements InputHandler {
     }
   }
 
+
   /**
    * C1: Handle pure text changes within a single inline-text
    */
   private async handleC1(classified: ClassifiedChange): Promise<void> {
     console.log('[InputHandler] handleC1: CALLED', { nodeId: classified.nodeId });
 
-    if (!classified.nodeId || !classified.prevText || !classified.newText) {
+    // NOTE: '' is a legitimate value here (typing into the empty block a fresh
+    // Enter creates, or deleting the last character), so this falsy check is
+    // wrong in principle. It is kept deliberately: relaxing it makes IME
+    // composition into an empty block sync a DOM that still holds the browser's
+    // own text node next to our rendered span — the reconciler only removes
+    // stale *elements* carrying data-bc-sid, never untracked bare text nodes —
+    // so each sync re-reads both and the composed syllable multiplies.
+    // Non-IME typing into an empty block is unaffected: it goes model-first via
+    // beforeinput/getTargetRanges, not through this path.
+    // Fix the untracked-child cleanup in the reconciler before relaxing this.
+    if (classified.nodeId == null || classified.prevText == null || classified.newText == null) {
       console.error('[InputHandler] handleC1: missing required data', classified);
       return;
     }
 
-    // Analyze text diff
+    // Analyze text diff.
+    // analyzeTextChanges works in MODEL coordinates (prevText/newText are the
+    // filler-stripped model text), so the hint must be a model offset too. A raw
+    // DOM offset is off by the filler length in an empty block, which makes the
+    // diff pick the wrong edit position and leaves a stray character behind.
     const selection = window.getSelection();
-    const selectionOffset = selection && selection.rangeCount > 0 
-      ? selection.getRangeAt(0).startOffset 
-      : 0;
+    let selectionOffset = 0;
+    if (selection && selection.rangeCount > 0) {
+      try {
+        const modelSel = this.editorViewDOM.convertDOMSelectionToModel?.(selection);
+        selectionOffset = modelSel && modelSel.type === 'range'
+          ? modelSel.startOffset
+          : selection.getRangeAt(0).startOffset;
+      } catch {
+        selectionOffset = selection.getRangeAt(0).startOffset;
+      }
+    }
 
     const textChanges = analyzeTextChanges({
       oldText: classified.prevText,
@@ -957,12 +981,16 @@ export class InputHandlerImpl implements InputHandler {
       return;
     }
     
-    // Skip if filler <br> is present (stabilize cursor)
+    // Skip a filler that still holds nothing but its zero-width character — that
+    // mutation is the renderer placing the caret anchor, not the user typing.
+    // Once real text arrives (the browser types and composes INTO the filler
+    // node) this must NOT skip, or the keystroke is lost. stripFiller() is what
+    // distinguishes the two.
     if (target.nodeType === Node.ELEMENT_NODE) {
       const el = target as Element;
-      const hasFiller = el.querySelector('br[data-bc-filler="true"]');
-      if (hasFiller) {
-        console.log('[Input] handleTextContentChange: SKIP - filler');
+      const filler = el.querySelector(`[${FILLER_ATTR}="true"]`);
+      if (filler && !stripFiller(el.textContent ?? '')) {
+        console.log('[Input] handleTextContentChange: SKIP - filler only');
         this.editor.emit('editor:input.skip_filler', { target: el });
         return;
       }

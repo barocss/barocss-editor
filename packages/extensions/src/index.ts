@@ -101,6 +101,7 @@ import { BookmarkExtension } from './bookmark';
 import { FieldExtension } from './field';
 import { DocStructureExtension } from './doc-structure';
 import type { Extension } from '@barocss/editor-core';
+import { Editor, type EditorOptions } from '@barocss/editor-core';
 
 export function createCoreExtensions(): Extension[] {
   return [
@@ -177,3 +178,43 @@ export const ExtensionSets = {
 
   minimal: () => []
 } as const;
+
+// ── Editor construction ──────────────────────────────────────────────────────
+
+/**
+ * The extension set the editor used to install implicitly.
+ *
+ * It lives here, not in `@barocss/editor-core`: the engine has no business
+ * knowing that `bold` or `list` exist. Products pick a kit instead of
+ * inheriting one, which is what lets Word, Slide, PageBuilder and FigJam sit on
+ * the same engine with different behaviour.
+ */
+export function createDefaultExtensions(): Extension[] {
+  return [
+    ...createCoreExtensions(),
+    ...createBasicExtensions(),
+    new UnderlineExtension(),
+    new StrikeThroughExtension(),
+    new EscapeExtension(),
+    new MoveBlockExtension()
+  ];
+}
+
+/**
+ * Create an Editor with a kit installed.
+ *
+ * `new Editor()` on its own is a bare engine with no editing commands — that is
+ * deliberate. Use this (or pass `extensions` yourself) to get a working editor.
+ *
+ * @param options Editor options. `extensions` are appended to the kit, so a
+ *   product can add its own on top; pass `kit: []` to start from nothing.
+ */
+export function createEditor(
+  options: EditorOptions & { kit?: Extension[] } = {}
+): Editor {
+  const { kit, extensions = [], ...rest } = options;
+  return new Editor({
+    ...rest,
+    extensions: [...(kit ?? createDefaultExtensions()), ...extensions]
+  });
+}

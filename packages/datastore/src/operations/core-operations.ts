@@ -23,9 +23,10 @@ export class CoreOperations {
    * - Never mutates returned nodes with defaults (e.g., marks); normalization is handled elsewhere.
    */
   setNode(node: INode, validate: boolean = true): void {
-    // 1. Initialize globalCounter to current node count
-    (this.dataStore.constructor as any)._globalCounter = this.dataStore.getNodes().size;
-    
+    // 1. Re-base globalCounter on the current node count (never lowers it, so
+    //    ids handed out earlier in an uncommitted overlay are not reissued)
+    (this.dataStore.constructor as any).syncIdCounter(this.dataStore.getNodes().size);
+
     // 2. Assign ID (if missing)
     if (!node.sid) {
       node.sid = this.dataStore.generateId();
@@ -74,6 +75,10 @@ export class CoreOperations {
     };
     // Overlay-active writes go to overlay only; base updated on commit
     if (overlay && overlay.isActive && overlay.isActive()) {
+      // Capture the pre-transaction state first so a rollback can undo any
+      // write that escapes the overlay (content operations mirror onto the base
+      // node object they hold, for reads later in the same transaction).
+      overlay.snapshotBase?.(node.sid!, this.dataStore.getNodes().get(node.sid!));
       overlay.upsertNode(node, operation.type);
     } else {
       this.dataStore.setNodeInternal(node);
@@ -224,11 +229,12 @@ export class CoreOperations {
   createNodeWithChildren(node: INode, schema?: Schema): INode {
     const targetSchema = schema || this.dataStore.getActiveSchema();
     
-    // 1. Initialize globalCounter to current node count only when creating a root (no parentId).
-    // When parentId is set (e.g. deserializeNodes inserting under existing parent), do not reset
-    // so each call gets a unique id and overlay/main store size does not cause id reuse.
+    // 1. Re-base globalCounter on the current node count only when creating a root (no parentId).
+    // When parentId is set (e.g. deserializeNodes inserting under existing parent), skip it entirely.
+    // syncIdCounter never lowers the counter, so ids handed out earlier in an uncommitted overlay
+    // (where getNodes().size does not grow yet) cannot be reissued.
     if (node.parentId == null) {
-      (this.dataStore.constructor as any)._globalCounter = this.dataStore.getNodes().size;
+      (this.dataStore.constructor as any).syncIdCounter(this.dataStore.getNodes().size);
     }
     
     // 2. Assign IDs to all nested objects (recursively)

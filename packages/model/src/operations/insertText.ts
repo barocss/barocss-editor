@@ -80,7 +80,10 @@ defineOperation('insertText',
       }
       
       // 3) Return inserted text + inverse
-      return { ok: true, data: insertedText, inverse: { type: 'deleteTextRange', payload: { nodeId, startPosition: pos, endPosition: pos + text.length } } };
+      // deleteTextRange reads `start`/`end`; emitting startPosition/endPosition
+      // left both undefined, so the inverse silently deleted nothing and undo
+      // appeared to succeed while changing the document not at all.
+      return { ok: true, data: insertedText, inverse: { type: 'deleteTextRange', payload: { nodeId, start: pos, end: pos + text.length } } };
 
     } catch (error) {
       throw new Error(`Failed to insert text into node ${nodeId}: ${error instanceof Error ? error.message : 'Unknown error'}`);

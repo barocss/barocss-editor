@@ -406,14 +406,19 @@ describe('buildToReact – implementation: mixed children and empty text', () =>
     expect(hasRawText(node, 'Caption text')).toBe(true);
   });
 
-  it('data("text") with empty string renders without throwing', () => {
+  it('data("text") with empty string renders a caret filler', () => {
     const registry = getGlobalRegistry();
     const model = { sid: 't1', stype: 'inline-text', text: '' };
     const node = buildToReact(registry, 'inline-text', model as any) as any;
     expect(node).toBeTruthy();
     const children = directChildren(node);
     expect(children).toHaveLength(1);
-    expect(children[0]).toBe('');
+    // An empty text node is not a valid caret host in Chrome, so the renderer
+    // emits a marked zero-width filler shaped like a normal text run. The
+    // attribute is what distinguishes it from a U+FEFF the user typed.
+    expect(children[0].type).toBe('span');
+    expect(children[0].props['data-bc-filler']).toBe('true');
+    expect(children[0].props.children).toBe('\uFEFF');
   });
 });
 

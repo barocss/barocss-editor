@@ -1,3 +1,4 @@
+import { fitContent } from '@barocss/schema';
 import type { INode } from '../types';
 import type { ModelSelection } from '@barocss/editor-core';
 import type { DataStore } from '../data-store';
@@ -85,10 +86,32 @@ export class SerializationOperations {
       ? Math.min(Math.max(targetPosition, 0), content.length)
       : content.length;
 
-    // At current stage, assuming input nodes are root-level array,
-    // treat each node as individual document root and use createNodeWithChildren.
+    // Normalise the incoming nodes against the target's content model before
+    // creating anything. Pasted content comes from foreign documents and often
+    // does not fit — inserting it verbatim would produce a document that
+    // violates its own schema, which the commit-time check then rejects,
+    // losing the whole paste. Fitting keeps what fits, unwraps foreign
+    // wrappers, and drops only what has nowhere to go.
+    const schema = this.dataStore.getActiveSchema();
+    let nodesToInsert = inputNodes;
+    if (schema && parent.stype) {
+      const fitted = fitContent(parent.stype, inputNodes as any, {
+        groupOf: (t: string) => schema.getNodeType(t)?.group,
+        hasNodeType: (t: string) => schema.hasNodeType(t),
+        contentModelOf: (t: string) => schema.getNodeType(t)?.content
+      });
+      if (fitted.dropped.length > 0 || fitted.unwrapped.length > 0) {
+        console.warn('[DataStore] deserializeNodes: content adjusted to fit', {
+          parentType: parent.stype,
+          dropped: fitted.dropped.map((n) => n.stype),
+          unwrapped: fitted.unwrapped.map((n) => n.stype)
+        });
+      }
+      nodesToInsert = fitted.nodes as unknown as INode[];
+    }
+
     const newIds: string[] = [];
-    for (const node of inputNodes) {
+    for (const node of nodesToInsert) {
       const cloned: INode = { ...node };
       cloned.parentId = targetParentId;
       const created = this.dataStore.core.createNodeWithChildren(cloned);

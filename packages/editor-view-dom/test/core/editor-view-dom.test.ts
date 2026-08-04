@@ -287,6 +287,9 @@ describe('EditorViewDOM', () => {
       assertHasCall(addSpy, 'mousedown', boundMouseDown);
       assertHasCall(addSpy, 'focus', boundFocus);
       assertHasCall(addSpy, 'blur', boundBlur);
+      // No composition listeners by design: MutationObserver diffs model text
+      // against DOM text, so the composed result is picked up without them.
+      // Measured equivalent to a compositionstart/end + sync-once design.
       assertDidNotCall(addSpy, 'compositionstart');
       assertDidNotCall(addSpy, 'compositionupdate');
       assertDidNotCall(addSpy, 'compositionend');

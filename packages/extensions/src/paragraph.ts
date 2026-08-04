@@ -1,3 +1,4 @@
+import { findAncestorNode } from '@barocss/datastore';
 import { Editor, Extension, type ModelSelection } from '@barocss/editor-core';
 import { transaction, control, transformNode, insertParagraph as insertParagraphOp, splitListItem as splitListItemOp } from '@barocss/model';
 
@@ -146,21 +147,13 @@ export class ParagraphExtension implements Extension {
       }
     }
 
-    // Find parent block node of startNode
-    let current = startNode;
-    while (current && current.parentId) {
-      const parent = dataStore.getNode(current.parentId);
-      if (!parent) break;
-
-      const parentType = schema?.getNodeType(parent.stype);
-      if (parentType?.group === 'block') {
-        return parent.sid!;
-      }
-
-      current = parent;
-    }
-
-    return null;
+    // Find parent block node of startNode (cycle-safe walk)
+    const block = findAncestorNode(
+      (id: string) => dataStore.getNode(id),
+      startNode.sid!,
+      (n: any) => schema?.getNodeType(n.stype)?.group === 'block'
+    );
+    return block?.sid ?? null;
   }
 
   /**

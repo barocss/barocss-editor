@@ -457,7 +457,7 @@ export function reconstructModelTextFromDOM(inlineTextNode: Element): string {
   
   // Combine all text node texts in order
   return runs.runs
-    .map(run => run.domTextNode.textContent || '')
+    .map(run => run.text)
     .join('');
 }
 

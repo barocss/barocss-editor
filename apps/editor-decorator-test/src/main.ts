@@ -1,5 +1,6 @@
 import { DataStore } from '@barocss/datastore';
-import { Editor, createBasicExtensions } from '@barocss/editor-core';
+import { Editor } from '@barocss/editor-core';
+import { createBasicExtensions } from '@barocss/extensions';
 import { EditorViewDOM } from '@barocss/editor-view-dom';
 import { createSchema } from '@barocss/schema';
 import { define, element, slot, data, defineMark, getGlobalRegistry, defineDecorator, portal, text, attr } from '@barocss/dsl';

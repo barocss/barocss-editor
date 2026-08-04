@@ -172,7 +172,7 @@ export function handleEfficientEdit(
  */
 function reconstructModelTextFromRuns(runs: ContainerRuns): string {
   // Reconstruct full text for sid by combining all text nodes in order
-  const textParts = runs.runs.map(run => run.domTextNode.textContent || '');
+  const textParts = runs.runs.map(run => run.text);
   const result = textParts.join('');
   
   // Debugging: detect duplicate nodes (only warn, don't skip)

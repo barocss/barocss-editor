@@ -359,8 +359,9 @@ describe('Reconciler Complex Scenarios', () => {
       renderer.render(container, model);
       expectHTML(
         container,
+        // Back to the pre-decorator output: no residual empty class="".
         `<p class="paragraph" data-bc-sid="p-1">
-          <span class="text" data-bc-sid="text-1"><span class>Hello World</span></span>
+          <span class="text" data-bc-sid="text-1"><span>Hello World</span></span>
         </p>`,
         expect
       );

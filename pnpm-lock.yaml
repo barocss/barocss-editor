@@ -133,6 +133,9 @@ importers:
       '@barocss/editor-view-dom':
         specifier: workspace:*
         version: link:../../packages/editor-view-dom
+      '@barocss/extensions':
+        specifier: workspace:*
+        version: link:../../packages/extensions
       '@barocss/model':
         specifier: workspace:*
         version: link:../../packages/model
@@ -644,6 +647,9 @@ importers:
       '@barocss/dsl':
         specifier: workspace:*
         version: link:../dsl
+      '@barocss/shared':
+        specifier: workspace:*
+        version: link:../shared
     devDependencies:
       '@types/react':
         specifier: ^19.0.0

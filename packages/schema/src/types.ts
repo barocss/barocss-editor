@@ -22,8 +22,13 @@ export type SchemaExtensions = Partial<SchemaDefinition>;
 // Node type definition
 export interface NodeTypeDefinition {
   name: string;
-  /** document | block | inline are standard; 'scene' is used by figma-like reference schema. */
-  group?: 'block' | 'inline' | 'document' | 'scene';
+  /**
+   * document | block | inline are the flow domain; 'scene' is the canvas domain
+   * (positioned art); 'surface' is the page/slide/board that holds either.
+   * Group membership is what keeps the domains apart in a single flat schema —
+   * see office-schema.ts and docs/specs/standard-schema.md §9.1.
+   */
+  group?: 'block' | 'inline' | 'document' | 'scene' | 'surface' | 'meta' | 'resource';
   content?: string;
   attrs?: Record<string, AttributeDefinition>;
   marks?: string[];

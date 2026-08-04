@@ -17,15 +17,6 @@ import { KeybindingRegistryImpl, type KeybindingRegistry, type ContextProvider }
 import { DEFAULT_KEYBINDINGS } from './keybinding/default-keybindings';
 import { DEFAULT_CONTEXT_INITIAL_VALUES } from './context/default-context';
 import { IS_MAC, IS_LINUX, IS_WINDOWS } from '@barocss/shared';
-import {
-  createBasicExtensions,
-  createCoreExtensions,
-  EscapeExtension,
-  MoveBlockExtension,
-  StrikeThroughExtension,
-  UnderlineExtension
-} from '../../extensions/src';
-
 function isModelSelection(selection: unknown): selection is ModelSelection {
   if (!selection || typeof selection !== 'object') return false;
   const value = selection as Record<string, any>;
@@ -125,7 +116,6 @@ export class Editor implements ContextProvider {
     this._updateBuiltinContext();
     
     this._registerCoreCommands();
-    this._registerDefaultExtensions();
     this._registerDefaultKeybindings();
     this._addToHistory(this._document);
     
@@ -287,24 +277,6 @@ export class Editor implements ContextProvider {
       execute: () => true,
       canExecute: () => true
     });
-  }
-
-  private _registerDefaultExtensions(): void {
-    const extensions = [
-      ...createCoreExtensions(),
-      ...createBasicExtensions(),
-      new UnderlineExtension(),
-      new StrikeThroughExtension(),
-      new EscapeExtension(),
-      new MoveBlockExtension()
-    ];
-
-    for (const extension of extensions) {
-      // Ignore duplicates to avoid overwriting explicitly passed extensions
-      if (!this._extensions.has(extension.name)) {
-        this.use(extension);
-      }
-    }
   }
 
   private _registerDefaultKeybindings(): void {
@@ -746,19 +718,15 @@ export class Editor implements ContextProvider {
         }
       }
 
-      // Find parent block node of startNode
-      let current = startNode;
-      while (current && current.parentId) {
-        const parent = this._dataStore.getNode(current.parentId);
-        if (!parent) break;
-
-        const parentType = schema?.getNodeType(parent.stype);
-        if (parentType?.group === 'block' && this._dataStore.isIndentableNode(parent.sid!)) {
-          return parent.sid!;
-        }
-
-        current = parent;
-      }
+      // Find parent block node of startNode (cycle-safe walk: a corrupt
+      // self-referencing parentId would otherwise freeze the whole page)
+      const block: INode | undefined = this._dataStore.findAncestor(
+        startNode.sid!,
+        (n: INode) =>
+          schema?.getNodeType(n.stype)?.group === 'block' &&
+          this._dataStore.isIndentableNode(n.sid!)
+      );
+      if (block?.sid) return block.sid;
     }
 
     // cell, table types are not indentable
@@ -1223,20 +1191,22 @@ export class Editor implements ContextProvider {
   }
 
   private _setupSelectionEventHandling(): void {
-    // Forward SelectionManager events to Editor events (temporarily disabled)
-    // this._selectionManager.on('selectionChange', (data: any) => {
-    //   this.emit('editor:selection.change', data);
-    // });
-
-    // this._selectionManager.on('focus', (data: any) => {
-    //   this._isFocused = true;
-    //   this.emit('editor:selection.focus', data);
-    // });
-
-    // this._selectionManager.on('blur', (data: any) => {
-    //   this._isFocused = false;
-    //   this.emit('editor:selection.blur', data);
-    // });
+    // Track focus from the view's focus/blur events.
+    //
+    // Without this `_isFocused` stays false forever, so the `editorFocus`
+    // context is never true — and every one of the default keybindings is
+    // gated on `editorFocus`, so none of them resolve. Bold, headings, lists
+    // and undo all silently did nothing when driven from the keyboard.
+    this.on('editor:selection.focus', () => {
+      this._isFocused = true;
+      this._updateBuiltinContext();
+    });
+    this.on('editor:selection.blur', () => {
+      this._isFocused = false;
+      this._updateBuiltinContext();
+      // A blur ends the current typing burst, so undo stops here.
+      this._historyManager.closeGroup();
+    });
   }
 
   destroy(): void {
@@ -1394,6 +1364,9 @@ declare module './editor' {
 Editor.prototype.undo = async function(this: Editor): Promise<boolean> {
   const entry = this.historyManager.undo();
   if (!entry) return false;
+  // Typing after an undo must start a fresh step, never merge into the one that
+  // was just undone.
+  this.historyManager.closeGroup();
 
   const metadata = entry.metadata;
   const hasSelectionMetadata = metadata && Object.prototype.hasOwnProperty.call(metadata, 'selectionBefore');
@@ -1425,6 +1398,7 @@ Editor.prototype.undo = async function(this: Editor): Promise<boolean> {
 Editor.prototype.redo = async function(this: Editor): Promise<boolean> {
   const entry = this.historyManager.redo();
   if (!entry) return false;
+  this.historyManager.closeGroup();
 
   const metadata = entry.metadata;
   const hasSelectionMetadata = metadata && Object.prototype.hasOwnProperty.call(metadata, 'selectionAfter');

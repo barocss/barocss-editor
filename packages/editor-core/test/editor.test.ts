@@ -255,11 +255,23 @@ describe('Editor', () => {
       expect(typeof chain.run).toBe('function');
     });
 
-    it('기본 에디터에 기본 키바인딩 커맨드가 등록되어야 함', () => {
+    it('엔진 단독으로는 편집 커맨드를 갖지 않아야 함 (키트가 제공)', () => {
+      // The engine no longer installs an extension set of its own: knowing that
+      // `bold` or `toggleBulletList` exist is a product decision, not an engine
+      // one. A bare Editor has only the core commands below; editing commands
+      // arrive with a kit (see createEditor / createDefaultExtensions in
+      // @barocss/extensions). Products can therefore pick different kits on the
+      // same engine.
       const registeredCommands = new Set(Array.from((editor as any)._commands.keys()));
-      const missing = defaultKeybindingCommands.filter((command) => !registeredCommands.has(command));
 
-      expect(missing).toEqual([]);
+      // Editing commands come from a kit and must be absent here...
+      for (const command of ['toggleBold', 'toggleItalic', 'setHeading1', 'toggleBulletList', 'insertParagraph']) {
+        expect(registeredCommands.has(command)).toBe(false);
+      }
+      // ...while the engine's own commands stay available.
+      for (const command of ['historyUndo', 'historyRedo', 'undo', 'redo', 'focus']) {
+        expect(registeredCommands.has(command)).toBe(true);
+      }
     });
 
     it('기본 커맨드 셋(focus/history 포함)이 등록되어야 함', () => {

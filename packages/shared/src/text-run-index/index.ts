@@ -7,4 +7,7 @@ export {
   invalidateRunsByElement,
   invalidateRunsById,
   binarySearchRun,
+  stripFiller,
+  FILLER_CHAR,
+  FILLER_ATTR,
 } from './text-run-index';

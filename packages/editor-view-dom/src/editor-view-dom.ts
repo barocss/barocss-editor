@@ -4,7 +4,7 @@ import { IEditorViewDOM, EditorViewDOMOptions, LayerConfiguration } from './type
 import { InputHandlerImpl } from './event-handlers/input-handler';
 import { DOMSelectionHandlerImpl } from './event-handlers/selection-handler';
 import { MutationObserverManagerImpl } from './mutation-observer/mutation-observer-manager';
-import { DecoratorManager, RemoteDecoratorManager, PatternDecoratorConfigManager, DecoratorGeneratorManager } from '@barocss/shared';
+import { DecoratorManager, RemoteDecoratorManager, PatternDecoratorConfigManager, DecoratorGeneratorManager, stripFiller } from '@barocss/shared';
 import type { PatternDecoratorConfig, DecoratorGenerator } from '@barocss/shared';
 import { DecoratorRegistry, DecoratorPrebuilder, type Decorator, type DecoratorQueryOptions, type DecoratorModel } from './decorator';
 import { DOMRenderer } from '@barocss/renderer-dom';
@@ -56,6 +56,7 @@ export class EditorViewDOM implements IEditorViewDOM {
   private _boundHandleBeforeInput: ((event: InputEvent) => void) | null = null;
   private _boundHandleKeydown: ((event: KeyboardEvent) => void) | null = null;
   private _boundHandlePaste: ((event: ClipboardEvent) => void) | null = null;
+  private _boundHandleCopy: ((event: ClipboardEvent) => void) | null = null;
   private _boundHandleDrop: ((event: DragEvent) => void) | null = null;
   private _boundHandleSelectionChange: ((event?: Event) => void) | null = null;
   private _boundHandleMouseDown: ((event: MouseEvent) => void) | null = null;
@@ -280,10 +281,20 @@ export class EditorViewDOM implements IEditorViewDOM {
     this._boundHandlePaste = this.handlePaste.bind(this);
     this._boundHandleDrop = this.handleDrop.bind(this);
     this.contentEditableElement.addEventListener('paste', this._boundHandlePaste);
+    // Strip the caret filler out of anything leaving the editor. The zero-width
+    // character is renderer bookkeeping, not content, and a native copy reads the
+    // DOM directly — so without this it rides along into other applications.
+    this._boundHandleCopy = this.handleCopy.bind(this);
+    this.contentEditableElement.addEventListener('copy', this._boundHandleCopy);
+    this.contentEditableElement.addEventListener('cut', this._boundHandleCopy);
     this.contentEditableElement.addEventListener('drop', this._boundHandleDrop);
-    
+
     // IME state is tracked by beforeinput.isComposing and keydown keyCode 229.
-    // MutationObserver handles actual text synchronization.
+    // MutationObserver handles actual text synchronization: it diffs the model
+    // text against the DOM text, so the composed result is picked up without
+    // observing composition events at all. Measured equivalent to a
+    // compositionstart/end + sync-once design, with fewer moving parts and no
+    // dependence on composition event ordering (which differs across browsers).
 
     // Selection events
     this._boundHandleSelectionChange = this.handleSelectionChange.bind(this);
@@ -333,6 +344,18 @@ export class EditorViewDOM implements IEditorViewDOM {
       if (e?.skipRender) {
         return;
       }
+
+      // Never render while the IME owns the caret. The composed text is already
+      // in the DOM — the browser put it there — and the model was just synced
+      // from it, so there is nothing to paint. Re-rendering underneath an active
+      // composition makes the IME commit the syllable it was still building and
+      // leaves a stray intermediate character behind.
+      // Note this fires for the transaction's own content.change (skipRender is
+      // unset there), which is what actually reached render() during composition.
+      if (this._isComposing) {
+        return;
+      }
+
       this.render();
       // Note: selection is automatically maintained by browser, so do not call applyModelSelectionWithRetry()
       // Browser selection should not be changed during user input
@@ -352,6 +375,7 @@ export class EditorViewDOM implements IEditorViewDOM {
     // keymapManager-based shortcuts are no longer used.
     // All key inputs are handled through editor-core's keybinding system.
   }
+
 
   // DOM event handling
   handleInput(event: InputEvent): void {
@@ -449,9 +473,29 @@ export class EditorViewDOM implements IEditorViewDOM {
     if (resolved.length > 0) {
       const { command, args } = resolved[0];
       event.preventDefault();
-      // Command automatically reads editor.selection
-      // Can override with args if needed
-      void this.editor.executeCommand(command, args);
+
+      // The current selection has to travel with the command. Most editing
+      // commands declare `canExecute: payload => !!payload.selection`, so
+      // dispatching without one makes the shortcut resolve, swallow the key,
+      // and then quietly decline to run — Enter, headings and lists all did
+      // nothing while the browser was also prevented from doing it natively.
+      let selection: ModelSelection | undefined;
+      const domSelection = window.getSelection();
+      if (domSelection && domSelection.rangeCount > 0) {
+        try {
+          const modelSelection = this.selectionHandler.convertDOMSelectionToModel(domSelection);
+          if (modelSelection && modelSelection.type === 'range') {
+            selection = modelSelection;
+          }
+        } catch {
+          // ignore conversion errors; the command still gets whatever args it had
+        }
+      }
+
+      void this.editor.executeCommand(command, {
+        ...(args ?? {}),
+        ...(selection ? { selection } : {})
+      });
     }
   }
 
@@ -494,6 +538,26 @@ export class EditorViewDOM implements IEditorViewDOM {
     
     // Call DeleteForward Command (all case branching and logic handled in Command)
     this.editor.executeCommand('deleteForward', { selection: modelSelection });
+  }
+
+  /**
+   * Rewrite the clipboard payload so the renderer's caret filler never leaves the
+   * editor. Only the zero-width character is removed — the selection, the HTML
+   * structure and the cut itself are left to the browser.
+   */
+  handleCopy(event: ClipboardEvent): void {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0 || !event.clipboardData) return;
+
+    const html = this.contentEditableElement.ownerDocument.createElement('div');
+    html.appendChild(selection.getRangeAt(0).cloneContents());
+    const plain = stripFiller(selection.toString());
+    const markup = stripFiller(html.innerHTML);
+    if (plain === selection.toString() && markup === html.innerHTML) return;
+
+    event.preventDefault();
+    event.clipboardData.setData('text/plain', plain);
+    event.clipboardData.setData('text/html', markup);
   }
 
   handlePaste(event: ClipboardEvent): void {
@@ -862,11 +926,16 @@ export class EditorViewDOM implements IEditorViewDOM {
       this.contentEditableElement.removeEventListener('paste', this._boundHandlePaste);
       this._boundHandlePaste = null;
     }
+    if (this._boundHandleCopy) {
+      this.contentEditableElement.removeEventListener('copy', this._boundHandleCopy);
+      this.contentEditableElement.removeEventListener('cut', this._boundHandleCopy);
+      this._boundHandleCopy = null;
+    }
     if (this._boundHandleDrop) {
       this.contentEditableElement.removeEventListener('drop', this._boundHandleDrop);
       this._boundHandleDrop = null;
     }
-    
+
     if (this._boundHandleSelectionChange) {
       document.removeEventListener('selectionchange', this._boundHandleSelectionChange);
       this._boundHandleSelectionChange = null;

@@ -1,3 +1,4 @@
+import { createOwnedTextNode } from './renderer-owned-nodes';
 /**
  * sid 기반 Text Node Pool
  *
@@ -84,7 +85,7 @@ export class SidTextNodePool implements TextNodePoolLike {
       return t;
     }
     // 3) 신규 생성
-    const t = document.createTextNode(desiredText);
+    const t = createOwnedTextNode(desiredText);
     this.register(sid, t);
     console.log('[TextNodePool] created new text node', { sid, text: t.data.slice(0, 30) });
     return t;

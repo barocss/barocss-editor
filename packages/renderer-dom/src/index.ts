@@ -20,3 +20,4 @@ export { BaseComponentState } from './state/base-component-state';
 // Export logger utilities for debugging
 export { logger, testLogger, LogCategory, setCategoryEnabled, enableAllCategories, disableAllCategories } from './utils/logger';
 export { __DEV__, __TEST__ } from './utils/dev';
+export { markRendererOwned, isRendererOwned, createOwnedTextNode } from './renderer-owned-nodes';

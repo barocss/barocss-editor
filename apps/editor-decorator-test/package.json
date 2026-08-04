@@ -14,7 +14,8 @@
     "@barocss/model": "workspace:*",
     "@barocss/renderer-dom": "workspace:*",
     "@barocss/schema": "workspace:*",
-    "@barocss/dsl": "workspace:*"
+    "@barocss/dsl": "workspace:*",
+    "@barocss/extensions": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.9.3",

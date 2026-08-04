@@ -264,8 +264,10 @@ export class ReactSelectionHandler {
       const textNode = container as Text;
       const entry = runs.byNode?.get(textNode);
       if (entry) {
+        // `offset` is a DOM offset. domStart skips a leading filler, so the
+        // position just after the zero-width character is model offset 0.
         const localLen = entry.end - entry.start;
-        const clamped = Math.max(0, Math.min(offset, localLen));
+        const clamped = Math.max(0, Math.min(offset - entry.domStart, localLen));
         return entry.start + clamped;
       }
       const idx = binarySearchRun(runs.runs, Math.max(0, Math.min(offset, runs.total - 1)));
@@ -449,7 +451,7 @@ export class ReactSelectionHandler {
       const lastRun = runs.runs[runs.runs.length - 1];
       return {
         node: lastRun.domTextNode,
-        offset: lastRun.domTextNode.textContent?.length ?? 0,
+        offset: lastRun.domStart + lastRun.text.length,
       };
     }
 
@@ -478,7 +480,8 @@ export class ReactSelectionHandler {
     const localOffset = modelOffset - run.start;
     return {
       node: run.domTextNode,
-      offset: Math.min(localOffset, run.domTextNode.textContent?.length ?? 0),
+      // domStart skips a leading filler so the caret lands after it, not before
+      offset: run.domStart + Math.min(localOffset, run.text.length),
     };
   }
 }

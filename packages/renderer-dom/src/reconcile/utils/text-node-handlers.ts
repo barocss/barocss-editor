@@ -1,3 +1,4 @@
+import { createOwnedTextNode, markRendererOwned } from '../../renderer-owned-nodes';
 import { VNode } from '../../vnode/types';
 import { logger, LogCategory } from '../../utils/logger';
 
@@ -35,6 +36,10 @@ export function handleVNodeTextProperty(
   const expectedText = String(nextVNode.text);
   
   if (existingTextNode) {
+    // The renderer is using this node to back a VNode, so it is ours from here on
+    // — mark it whether or not the content needs changing. Marking only on change
+    // would leave a node the renderer adopted looking foreign to stale cleanup.
+    markRendererOwned(existingTextNode);
     // Update existing text node (only if content changed - prevents excessive MutationObserver triggers)
     if (existingTextNode.textContent !== expectedText) {
       logger.debug(LogCategory.RECONCILE, 'handleVNodeTextProperty: updating existing text node', {
@@ -58,7 +63,7 @@ export function handleVNodeTextProperty(
     while (parent.firstChild) {
       parent.removeChild(parent.firstChild);
     }
-    parent.appendChild(doc.createTextNode(expectedText));
+    parent.appendChild(createOwnedTextNode(expectedText));
   }
   
   return true; // Text handled, should return early
@@ -154,6 +159,8 @@ export function handlePrimitiveTextChild(
     
     // Process text node: reuse existing or create new
     if (textNodeToUse) {
+      // Adopted by the renderer — see handleVNodeTextProperty.
+      markRendererOwned(textNodeToUse);
       logger.debug(LogCategory.RECONCILE, 'handlePrimitiveTextChild: reusing text node', {
         currentText: textNodeToUse.textContent,
         expectedText,
@@ -181,7 +188,7 @@ export function handlePrimitiveTextChild(
       return textNodeToUse;
     } else {
       // Create new text node at correct position
-      const textNode = doc.createTextNode(expectedText);
+      const textNode = createOwnedTextNode(expectedText);
       logger.debug(LogCategory.RECONCILE, 'handlePrimitiveTextChild: creating new text node', {
         expectedText,
         childIndex
@@ -210,7 +217,7 @@ export function handlePrimitiveTextChild(
     return existingTextNode;
   } else {
     // Create new text node
-    const textNode = doc.createTextNode(expectedText);
+    const textNode = createOwnedTextNode(expectedText);
     logger.debug(LogCategory.RECONCILE, 'handlePrimitiveTextChild: creating fallback text node', {
       expectedText
     });
@@ -273,7 +280,7 @@ export function handleTextOnlyVNode(
     // IMPORTANT: Changing textContent triggers MutationObserver, so we avoid
     // unnecessary updates to prevent infinite loops
     if (textNodeToUse.textContent !== expectedText) {
-      textNodeToUse.textContent = expectedText;
+        textNodeToUse.textContent = expectedText;
     }
     
     // Position adjustment: move to correct position if needed
@@ -288,7 +295,7 @@ export function handleTextOnlyVNode(
     return textNodeToUse;
   } else {
     // Create new text node at correct position
-    const textNode = doc.createTextNode(expectedText);
+    const textNode = createOwnedTextNode(expectedText);
     parent.insertBefore(textNode, referenceNode);
     return textNode;
   }
@@ -335,7 +342,7 @@ export function updateHostTextContent(host: HTMLElement, text: string): Text {
     while (host.firstChild) {
       host.removeChild(host.firstChild);
     }
-    const textNode = doc.createTextNode(text);
+    const textNode = createOwnedTextNode(text);
     host.appendChild(textNode);
     return textNode;
   }

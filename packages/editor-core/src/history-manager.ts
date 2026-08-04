@@ -22,6 +22,20 @@ export interface HistoryEntry {
  */
 export interface HistoryManagerOptions {
   maxSize?: number;           // Maximum history size (default: 100)
+  /**
+   * How long consecutive text edits keep merging into one undo step, in ms.
+   * Without this every keystroke is its own step and Ctrl+Z walks back one
+   * character at a time. Set to 0 to disable merging.
+   */
+  coalesceMs?: number;
+}
+
+/** Operation types that represent plain typing and may be merged together. */
+const TEXT_OP_TYPES = new Set(['replaceText', 'insertText', 'setText', 'deleteTextRange']);
+
+function textOpNodeId(op: TransactionOperation): string | undefined {
+  const payload = op?.payload as Record<string, any> | undefined;
+  return payload?.nodeId ?? payload?.range?.startNodeId;
 }
 
 /**
@@ -37,8 +51,24 @@ export class HistoryManager {
   private currentIndex: number = -1;
   private maxSize: number;
 
+  private coalesceMs: number;
+  /** Set when the next push must start a fresh undo step. */
+  private groupClosed = false;
+
   constructor(options: HistoryManagerOptions = {}) {
     this.maxSize = options.maxSize || 100;
+    this.coalesceMs = options.coalesceMs ?? 500;
+  }
+
+  /**
+   * Force the next push to begin a new undo step.
+   *
+   * Call this wherever a typing burst has conceptually ended — the caret moved
+   * elsewhere, the editor lost focus, a structural command ran — so that undo
+   * stops there instead of swallowing the previous burst too.
+   */
+  closeGroup(): void {
+    this.groupClosed = true;
   }
 
   /**
@@ -59,11 +89,77 @@ export class HistoryManager {
 
     // Remove history after current index (when new changes occur)
     this.history = this.history.slice(0, this.currentIndex + 1);
-    
+
+    // Merge into the previous step when this is a continuation of the same
+    // typing burst, so one Ctrl+Z undoes a word rather than a character.
+    const previous = this.currentIndex >= 0 ? this.history[this.currentIndex] : undefined;
+    if (previous && this._canCoalesce(previous, newEntry)) {
+      this._mergeInto(previous, newEntry);
+      this.groupClosed = false;
+      return;
+    }
+
+    this.groupClosed = false;
     this.history.push(newEntry);
     this.currentIndex = this.history.length - 1;
-    
+
     this.limit(this.maxSize);
+  }
+
+  /**
+   * Whether `next` continues the typing burst recorded in `previous`.
+   *
+   * Deliberately conservative: only single-operation text edits on the same node
+   * within the time window merge. Anything structural, anything spanning nodes,
+   * and anything after an explicit closeGroup() starts a new step, because
+   * merging those would make undo jump over changes the user thinks of as
+   * separate actions.
+   */
+  private _canCoalesce(previous: HistoryEntry, next: HistoryEntry): boolean {
+    if (this.coalesceMs <= 0 || this.groupClosed) return false;
+    if (next.operations.length !== 1 || previous.operations.length === 0) return false;
+
+    const nextOp = next.operations[0];
+    if (!TEXT_OP_TYPES.has(nextOp.type)) return false;
+
+    // Every operation already merged into the previous step must be text on the
+    // same node — otherwise the step is a mixed change and must stay separate.
+    const nodeId = textOpNodeId(nextOp);
+    if (!nodeId) return false;
+    for (const op of previous.operations) {
+      if (!TEXT_OP_TYPES.has(op.type) || textOpNodeId(op) !== nodeId) return false;
+    }
+
+    const elapsed = next.timestamp.getTime() - previous.timestamp.getTime();
+    if (elapsed < 0 || elapsed > this.coalesceMs) return false;
+
+    // The edits must be contiguous. If the caret moved between them — arrow
+    // keys, a click — the user made two separate edits even though both were
+    // typing in the same node, and undo should stop between them.
+    const from = previous.metadata?.selectionAfter;
+    const to = next.metadata?.selectionBefore;
+    if (from && to) {
+      if (from.startNodeId !== to.startNodeId) return false;
+      if (from.startOffset !== to.startOffset) return false;
+    }
+
+    return true;
+  }
+
+  private _mergeInto(previous: HistoryEntry, next: HistoryEntry): void {
+    previous.operations = [...previous.operations, ...next.operations];
+    // Inverses undo newest-first, so the incoming inverse has to go in front.
+    previous.inverseOperations = [...next.inverseOperations, ...previous.inverseOperations];
+    // Keep the burst's original start so undo returns the caret to where the
+    // user began typing, and track the latest end for redo.
+    previous.timestamp = next.timestamp;
+    if (next.metadata) {
+      previous.metadata = {
+        ...previous.metadata,
+        ...next.metadata,
+        selectionBefore: previous.metadata?.selectionBefore ?? next.metadata.selectionBefore
+      };
+    }
   }
 
   /**

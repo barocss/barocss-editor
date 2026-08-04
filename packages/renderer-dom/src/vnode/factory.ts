@@ -79,7 +79,8 @@ import {
   createElementVNode,
   createComponentVNode,
   createSpanWrapper,
-  createMarkWrapper
+  createMarkWrapper,
+  createFillerVNode
 } from './utils/vnode-creators';
 
 /**
@@ -1201,6 +1202,11 @@ export class VNodeBuilder {
         // Process both marks and inline decorators together
         const nodes = this._buildMarkedRunsWithDecorators(resolved, textMarks as any, inlineDecorators, data);
         this._flushAndAddVNodes(flushTextParts, nodes, orderedChildren);
+      } else if (child.path === 'text' && resolved === '') {
+        // Empty inline-text: emit a caret filler instead of a zero-length text
+        // node, which Chrome refuses as an insertion point. See createFillerVNode.
+        flushTextParts();
+        orderedChildren.push(createFillerVNode());
       } else {
         flushTextParts();
         orderedChildren.push(createSpanWrapper([createTextVNode(resolved)]));

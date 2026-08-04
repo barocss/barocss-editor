@@ -13,6 +13,7 @@ import type {
   ContextualComponent,
   ComponentContext,
 } from '@barocss/dsl';
+import { FILLER_ATTR, FILLER_CHAR } from '@barocss/shared';
 import { splitTextByMarks } from './utils/marks';
 import type { TextRun } from './utils/marks';
 import type { Decorator } from './decorator/types';
@@ -496,6 +497,15 @@ function processChildren(
           if (!run.types || run.types.length === 0) out.push(run.text);
           else out.push(buildMarkRunToReact(registry, run, model, `${sidBase}_r${ri}`));
         }
+      } else if (isTextData && text === '') {
+        // Empty inline-text: a zero-length text node is not a valid insertion
+        // point in Chrome (beforeinput.getTargetRanges() snaps to the next
+        // block), so emit a caret filler with the same shape a text run has, so
+        // the browser's own IME mutations land where the model expects them.
+        // buildTextRunIndex strips the character. Mirrors createFillerVNode().
+        out.push(
+          createElement('span', { key: 'bc-filler', [FILLER_ATTR]: 'true' }, FILLER_CHAR)
+        );
       } else {
         out.push(text);
       }

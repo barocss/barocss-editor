@@ -8,6 +8,7 @@ import type {
 } from 'react';
 import { getGlobalRegistry } from '@barocss/dsl';
 import { ReactRenderer } from '@barocss/renderer-react';
+import { stripFiller } from '@barocss/shared';
 import { useEditorViewContext } from './EditorViewContext';
 import type { EditorViewContentLayerProps } from './types';
 
@@ -50,7 +51,14 @@ export function EditorViewContentLayer({ options = {} }: EditorViewContentLayerP
         viewStateRef.current.isRendering = true;
       }
 
-      const next = e?.content ?? editor.getDocumentProxy?.() ?? null;
+      // Only take `e.content` when it is actually renderable model data.
+      // Emitters put different shapes in this field (a DocumentState from
+      // setContent, the internal document from the input path), and anything
+      // without `stype` makes the render below bail to null — wiping the whole
+      // document off screen. The document proxy is the canonical model, so fall
+      // back to it rather than trusting the payload.
+      const fromEvent = e?.content as { stype?: string } | undefined;
+      const next = fromEvent?.stype ? fromEvent : editor.getDocumentProxy?.() ?? null;
       setDocumentSnapshot(next);
 
       modelRenderGuardFrameRef.current = window.requestAnimationFrame(() => {
@@ -132,11 +140,6 @@ export function EditorViewContentLayer({ options = {} }: EditorViewContentLayerP
     return renderer.build(model, decorators);
   }, [documentSnapshot, renderer, decorators]);
 
-  const handleBeforeInput: FormEventHandler<HTMLDivElement> = (event: FormEvent<HTMLDivElement>) => {
-    const inputEvent = event.nativeEvent as InputEvent;
-    inputHandler.handleBeforeInput(inputEvent);
-  };
-
   const handleInput: FormEventHandler<HTMLDivElement> = (event: FormEvent<HTMLDivElement>) => {
     const inputEvent = event.nativeEvent as InputEvent;
     inputHandler.handleInput(inputEvent);
@@ -156,6 +159,60 @@ export function EditorViewContentLayer({ options = {} }: EditorViewContentLayerP
     inputHandler.handleDrop(dropEvent);
   };
 
+  // beforeinput MUST be a native listener, not React's onBeforeInput.
+  //
+  // React does not observe the native `beforeinput` event at all: its
+  // onBeforeInput is a synthetic event registered on compositionend / keypress /
+  // textInput / paste. The object it hands over therefore has no `inputType` and
+  // no `getTargetRanges()`, so every branch of the model-first input path fell
+  // through and nothing was ever prevented — deletes, Enter, undo and the format
+  // commands were all silently left to the browser. Measured in Chrome with the
+  // synthetic event, `defaultPrevented` stayed false for insertText,
+  // deleteContentBackward and insertParagraph alike.
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+    const onBeforeInput = (event: Event) => {
+      inputHandler.handleBeforeInput(event as InputEvent);
+    };
+    // Strip the caret filler out of anything leaving the editor. The zero-width
+    // character is renderer bookkeeping, not content, and a native copy reads the
+    // DOM directly — without this it rides along into other applications.
+    const onCopy = (event: Event) => {
+      const e = event as ClipboardEvent;
+      const selection = window.getSelection();
+      if (!selection || selection.rangeCount === 0 || !e.clipboardData) return;
+      const holder = el.ownerDocument.createElement('div');
+      holder.appendChild(selection.getRangeAt(0).cloneContents());
+      const plain = stripFiller(selection.toString());
+      const markup = stripFiller(holder.innerHTML);
+      if (plain === selection.toString() && markup === holder.innerHTML) return;
+      e.preventDefault();
+      e.clipboardData.setData('text/plain', plain);
+      e.clipboardData.setData('text/html', markup);
+    };
+
+    el.addEventListener('beforeinput', onBeforeInput);
+    el.addEventListener('copy', onCopy);
+    el.addEventListener('cut', onCopy);
+    return () => {
+      el.removeEventListener('beforeinput', onBeforeInput);
+      el.removeEventListener('copy', onCopy);
+      el.removeEventListener('cut', onCopy);
+    };
+  }, [inputHandler]);
+
+  // Every default keybinding is gated on the `editorFocus` context, so without
+  // these the context stays false and no shortcut resolves — bold, headings,
+  // lists and undo all silently do nothing from the keyboard.
+  const handleFocus = () => {
+    editor.emit?.('editor:selection.focus');
+  };
+
+  const handleBlur = () => {
+    editor.emit?.('editor:selection.blur');
+  };
+
   return (
     <div
       ref={contentRef}
@@ -165,10 +222,11 @@ export function EditorViewContentLayer({ options = {} }: EditorViewContentLayerP
       data-bc-layer="content"
       data-testid="editor-content"
       onInput={handleInput}
-      onBeforeInput={handleBeforeInput}
       onKeyDown={handleKeyDown}
       onPaste={handlePaste}
       onDrop={handleDrop}
+      onFocus={handleFocus}
+      onBlur={handleBlur}
     >
       {content}
     </div>

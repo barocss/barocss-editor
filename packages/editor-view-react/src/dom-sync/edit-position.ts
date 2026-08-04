@@ -23,5 +23,5 @@ export function reconstructModelTextFromDOM(inlineTextNode: Element): string {
   const runs = buildTextRunIndex(inlineTextNode, undefined, {
     normalizeWhitespace: false,
   });
-  return runs.runs.map((r) => r.domTextNode.textContent ?? '').join('');
+  return runs.runs.map((r) => r.text).join('');
 }

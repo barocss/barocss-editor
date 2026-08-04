@@ -12,6 +12,7 @@
 import { Editor } from '@barocss/editor-core';
 import type { ModelSelection } from '@barocss/editor-core';
 import { reconstructModelTextFromDOM, extractModelTextFromRange } from '../utils/edit-position-converter';
+import { stripFiller } from '@barocss/shared';
 
 const BLOCK_TYPES = new Set(['paragraph', 'heading', 'list', 'list-item', 'blockquote', 'code-block']);
 
@@ -676,7 +677,10 @@ function extractFlatTextFromSelection(range: Range): string {
     textNodes.push(node as Text);
   }
 
-  return textNodes.map(tn => tn.textContent || '').join('');
+  // Strip renderer-owned fillers: this walks text nodes directly instead of going
+  // through buildTextRunIndex, so without it the zero-width character would ride
+  // along into copied/cut text and out into other applications.
+  return stripFiller(textNodes.map(tn => tn.textContent || '').join(''));
 }
 
 /**

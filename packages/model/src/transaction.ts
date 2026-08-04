@@ -36,6 +36,12 @@ export class TransactionManager {
   private _schema?: Schema;
   private _editor: Editor;
   public _isUndoRedoOperation: boolean = false;
+  /**
+   * Whether a commit is rejected when it would leave the document schema-invalid.
+   * On by default — this is the invariant the editor relies on. Turn it off only
+   * for a document deliberately edited outside its schema.
+   */
+  public _validateSchemaOnCommit: boolean = true;
 
   constructor(editor: Editor) {
     this._editor = editor;
@@ -138,8 +144,28 @@ export class TransactionManager {
         }
       }
 
-      // 6. End overlay and commit
+      // 6. End overlay, verify the result is schema-valid, then commit.
+      // Operations are free to build structures step by step — intermediate
+      // states may legitimately violate the content model — but what lands in
+      // the document must not. Undo/redo replays operations that were already
+      // accepted, so it is exempt; re-checking it would reject a valid rollback
+      // whose intermediate shape differs.
       this._dataStore.end();
+
+      if (!this._isUndoRedoOperation && this._validateSchemaOnCommit) {
+        const validation = this._dataStore.validateTransactionScope(this._schema);
+        if (!validation.valid) {
+          this._dataStore.rollback();
+          return {
+            success: false,
+            errors: validation.errors,
+            operations: executedOperations,
+            selectionBefore,
+            selectionAfter: context.selection.current
+          };
+        }
+      }
+
       this._dataStore.commit();
 
       // Final selection state

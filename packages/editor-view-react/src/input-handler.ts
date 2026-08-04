@@ -554,16 +554,26 @@ export class ReactInputHandler {
     if (resolved?.length) {
       const { command, args } = resolved[0];
       event.preventDefault();
+
+      // The resolved selection has to travel with the command. Most editing
+      // commands declare `canExecute: payload => !!payload.selection`, so
+      // dispatching with an empty payload made every keyboard shortcut resolve,
+      // preventDefault, and then quietly decline to run — Enter, headings,
+      // blockquote and lists all did nothing while the key was still swallowed.
+      let selection: ModelSelectionRange | undefined;
       const sel = window.getSelection();
       if (sel && sel.rangeCount > 0) {
         try {
           const modelSel = this.selectionHandler.convertDOMSelectionToModel(sel);
-          if (modelSel && modelSel.type === 'range') this.editor.updateSelection?.(modelSel);
+          if (modelSel && modelSel.type === 'range') {
+            selection = modelSel as ModelSelectionRange;
+            this.editor.updateSelection?.(modelSel);
+          }
         } catch {
           // ignore conversion errors
         }
       }
-      void this.editor.executeCommand(command, args ?? {});
+      void this.editor.executeCommand(command, { ...(args ?? {}), ...(selection ? { selection } : {}) });
     }
   }
 

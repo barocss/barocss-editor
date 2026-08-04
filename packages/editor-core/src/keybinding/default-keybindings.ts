@@ -162,20 +162,28 @@ export const DEFAULT_KEYBINDINGS: Keybinding[] = [
   },
   
   // History
+  //
+  // Deliberately NOT gated on historyCanUndo/historyCanRedo. The editor keeps its
+  // own history while preventing most native edits, so the browser's undo stack
+  // holds a different (and mostly empty) view of the document. If the binding
+  // failed to resolve whenever our history was empty, the key would fall through
+  // and the browser would run ITS undo — reverting DOM we never told it about and
+  // desyncing it from the model. The key must always be consumed; the command
+  // itself is a no-op when there is nothing to undo.
   {
     key: 'Mod+z',
     command: 'historyUndo',
-    when: 'editorFocus && historyCanUndo'
+    when: 'editorFocus'
   },
   {
     key: 'Mod+Shift+z',
     command: 'historyRedo',
-    when: 'editorFocus && historyCanRedo'
+    when: 'editorFocus'
   },
   {
     key: 'Mod+y',
     command: 'historyRedo',
-    when: 'editorFocus && historyCanRedo'
+    when: 'editorFocus'
   },
   
   // Block type conversion (Heading / Paragraph)

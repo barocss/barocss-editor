@@ -1,3 +1,4 @@
+import { createOwnedTextNode, isRendererOwned } from '../../renderer-owned-nodes';
 import { VNode } from '../../vnode/types';
 import { FiberNode } from './types';
 import { createFiberTree } from './fiber-tree';
@@ -251,7 +252,13 @@ export function renderFiberNode(
     ? (isTextVNode(prevVNode) ? 'text' : isHostVNode(prevVNode) ? 'host' : 'unknown')
     : null;
   const nextType = isTextVNode(vnode) ? 'text' : isHostVNode(vnode) ? 'host' : 'unknown';
-  const typeChanged = prevType !== null && prevType !== nextType;
+  // The tag IS the type (React compares `type` directly): two host nodes with
+  // different tags are different elements and must not share a DOM node.
+  // Comparing only text-vs-host let a <br> be "updated" into a <span>, which
+  // rendered nothing at all because <br> is void and cannot take children.
+  const tagChanged =
+    prevType === 'host' && nextType === 'host' && prevVNode!.tag !== vnode.tag;
+  const typeChanged = (prevType !== null && prevType !== nextType) || tagChanged;
 
   // Host nodes with different decorator identity must not reuse DOM (create new element)
   const prevDecoratorSid = getDecoratorSid(prevVNode);
@@ -284,7 +291,7 @@ export function renderFiberNode(
       // Create text node
       const doc = parent.ownerDocument || document;
       const expectedText = String(vnode.text);
-      domElement = doc.createTextNode(expectedText);
+      domElement = createOwnedTextNode(expectedText, doc);
     } else if (vnode.tag) {
       // Create host element (do not insert)
       const { dom } = deps;
@@ -474,7 +481,13 @@ export function commitFiberNode(
     ? (isTextVNode(prevVNode) ? 'text' : isHostVNode(prevVNode) ? 'host' : 'unknown')
     : null;
   const nextType = isTextVNode(vnode) ? 'text' : isHostVNode(vnode) ? 'host' : 'unknown';
-  const typeChanged = prevType !== null && prevType !== nextType;
+  // The tag IS the type (React compares `type` directly): two host nodes with
+  // different tags are different elements and must not share a DOM node.
+  // Comparing only text-vs-host let a <br> be "updated" into a <span>, which
+  // rendered nothing at all because <br> is void and cannot take children.
+  const tagChanged =
+    prevType === 'host' && nextType === 'host' && prevVNode!.tag !== vnode.tag;
+  const typeChanged = (prevType !== null && prevType !== nextType) || tagChanged;
   
   // If type changed: remove existing DOM
   if (typeChanged && prevVNode?.meta?.domElement) {
@@ -738,7 +751,7 @@ export function commitFiberNode(
         if (!vnode.children || vnode.children.length === 0) {
           const doc = domElement.ownerDocument || document;
           while (domElement.firstChild) domElement.removeChild(domElement.firstChild);
-          domElement.appendChild(doc.createTextNode(String((model as any).text)));
+          domElement.appendChild(createOwnedTextNode(String((model as any).text), doc));
           return;
         }
       }
@@ -798,7 +811,25 @@ export function removeStaleChildren(
       continue; // Keep used elements
     }
     if (childNode.nodeType === Node.TEXT_NODE) {
-      continue; // Keep text nodes (vnode.text or primitive text children)
+      // Text nodes this renderer produced (vnode.text, primitive children) have
+      // no fiber of their own, so they are absent from usedDomElements and must
+      // be kept.
+      if (isRendererOwned(childNode)) continue;
+
+      // An unowned text node here was put there by the browser — an IME composing
+      // straight into the DOM, or contenteditable inventing structure.
+      //
+      // It is NOT swept, deliberately. Text input reaches the model by observing
+      // the DOM and diffing it (see the MutationObserver path), so between the
+      // keystroke and the sync the browser's text node IS the user's input. A
+      // re-render landing in that window would delete what was just typed —
+      // measured in Chrome: typing and IME composition into a fresh block both
+      // lost their text outright.
+      //
+      // Making this safe needs a signal that the model has absorbed the DOM (or
+      // that the caret is elsewhere); ownership tracking above is the half of it
+      // that exists today.
+      continue;
     }
 
     // Remove unused DOM elements (HTMLElement only)

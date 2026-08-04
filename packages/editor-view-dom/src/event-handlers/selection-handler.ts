@@ -248,8 +248,10 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
       const textNode = container as Text;
       const entry = runs.byNode?.get(textNode);
       if (entry) {
+        // `offset` is a DOM offset. domStart skips a leading filler, so the
+        // position just after the zero-width character is model offset 0.
         const localLen = entry.end - entry.start;
-        const clamped = Math.max(0, Math.min(offset, localLen));
+        const clamped = Math.max(0, Math.min(offset - entry.domStart, localLen));
         return entry.start + clamped;
       }
       // fallback: snap to closest text run
@@ -420,8 +422,8 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
         return;
       }
 
-      const startRange = this.findDOMRangeFromModelOffset(startRuns, startOffset);
-      const endRange = this.findDOMRangeFromModelOffset(endRuns, endOffset);
+      const startRange = this.findDOMRangeFromModelOffset(startRuns, startOffset, startElement);
+      const endRange = this.findDOMRangeFromModelOffset(endRuns, endOffset, endElement);
       
       if (!startRange || !endRange) {
         console.warn('[SelectionHandler] Could not find DOM ranges for model offsets', {
@@ -537,12 +539,44 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
   }
 
   /**
+   * First text node under `root` in document order, skipping decorator subtrees.
+   */
+  private findFirstTextNode(root: Element): Text | null {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode: (node) => {
+        const parent = (node as Text).parentElement;
+        if (parent && parent !== root && this.isDecoratorElement(parent)) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    });
+    return walker.nextNode() as Text | null;
+  }
+
+  /**
    * Convert model offset to DOM range.
    */
-  private findDOMRangeFromModelOffset(runs: ContainerRuns, modelOffset: number): { node: Node; offset: number } | null {
+  private findDOMRangeFromModelOffset(
+    runs: ContainerRuns,
+    modelOffset: number,
+    container?: Element
+  ): { node: Node; offset: number } | null {
     if (modelOffset < 0 || modelOffset > runs.total) {
       console.warn('[SelectionHandler] Model offset out of range:', { modelOffset, total: runs.total });
       return null;
+    }
+
+    // Empty inline-text (e.g. the block a fresh Enter creates) has no text runs:
+    // buildTextRunIndex skips zero-length text nodes. Indexing into the empty run
+    // list would throw and leave the caret where it was, so anchor explicitly.
+    // Prefer the empty text node itself — anchoring on the element instead makes
+    // the DOM→model conversion resolve to the *next* block's text node, so typed
+    // characters land in the wrong paragraph.
+    if (runs.runs.length === 0) {
+      if (!container) return null;
+      const emptyTextNode = this.findFirstTextNode(container);
+      return emptyTextNode ? { node: emptyTextNode, offset: 0 } : { node: container, offset: 0 };
     }
 
     // When modelOffset equals runs.total, use end position of last run
@@ -550,7 +584,7 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
       const lastRun = runs.runs[runs.runs.length - 1];
       return {
         node: lastRun.domTextNode,
-        offset: lastRun.domTextNode.textContent?.length || 0
+        offset: lastRun.domStart + lastRun.text.length
       };
     }
 
@@ -575,7 +609,8 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
     
     return {
       node: run.domTextNode,
-      offset: Math.min(localOffset, run.domTextNode.textContent?.length || 0)
+      // domStart skips a leading filler so the caret lands after it, not before
+      offset: run.domStart + Math.min(localOffset, run.text.length)
     };
   }
 }

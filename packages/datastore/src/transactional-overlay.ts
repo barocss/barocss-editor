@@ -27,6 +27,16 @@ export class TransactionalOverlay {
   private readonly overlayNodes: OverlayNodeMap = new Map();
   private readonly deletedNodeIds: Set<string> = new Set();
   private readonly touchedParents: Set<string> = new Set();
+  /**
+   * Base-map state as it was before this transaction first wrote each node.
+   *
+   * Content operations mirror their change onto the node object they already
+   * hold so that later operations in the same transaction read the new state.
+   * That object is often the base node, so the write escapes the overlay and a
+   * rollback would otherwise leave it behind. Restoring these on rollback is
+   * what makes the discard complete.
+   */
+  private readonly baseSnapshots: Map<string, unknown> = new Map();
   private opBuffer: AtomicOperationRecord[] = [];
   private active: boolean = false;
 
@@ -41,6 +51,7 @@ export class TransactionalOverlay {
     this.overlayNodes.clear();
     this.deletedNodeIds.clear();
     this.touchedParents.clear();
+    this.baseSnapshots.clear();
   }
 
   end(): AtomicOperationRecord[] {
@@ -95,6 +106,20 @@ export class TransactionalOverlay {
     this.overlayNodes.clear();
     this.deletedNodeIds.clear();
     this.touchedParents.clear();
+    this.baseSnapshots.clear();
+  }
+
+  /** Record a node's pre-transaction state, once, before it is first written. */
+  snapshotBase(nodeId: string, node: unknown): void {
+    if (!this.active || node == null) return;
+    if (!this.baseSnapshots.has(nodeId)) {
+      this.baseSnapshots.set(nodeId, { ...(node as Record<string, unknown>) });
+    }
+  }
+
+  /** Pre-transaction state of every node this transaction wrote. */
+  getBaseSnapshots(): Map<string, unknown> {
+    return this.baseSnapshots;
   }
 
   // ---- Write helpers (COW) ----
@@ -123,6 +148,20 @@ export class TransactionalOverlay {
   markParentTouched(parentId: string): void {
     if (!this.active) return;
     this.touchedParents.add(parentId);
+  }
+
+  /**
+   * Ids written or re-parented during the current transaction, excluding
+   * deletions. This is the scope a commit-time schema check has to cover:
+   * nothing outside it can have changed shape.
+   */
+  getWrittenNodeIds(): string[] {
+    if (!this.active) return [];
+    const ids = new Set<string>();
+    for (const id of this.overlayNodes.keys()) ids.add(id);
+    for (const id of this.touchedParents) ids.add(id);
+    for (const id of this.deletedNodeIds) ids.delete(id);
+    return [...ids];
   }
 }
 

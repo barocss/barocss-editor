@@ -65,12 +65,14 @@ export class ContentOperations {
     newContent.splice(insertPosition, 0, childId);
     // Do NOT mutate parent.content before updateNode to avoid no-op suppression
     this.dataStore.updateNode(parentId, { content: newContent }, false);
-    // Reflect locally after update for immediate reads
+    // Reflect locally after update for immediate reads: later operations in the
+    // same transaction read through the node object fetched here, so it has to
+    // carry the new state. Rollback safety comes from the base snapshot the
+    // overlay takes before the first write, not from skipping this.
     parent.content = newContent;
 
     // Reflect parent relation both in store and local reference
     this.dataStore.updateNode(childId, { parentId } as Partial<INode>, false);
-    // Reflect locally for immediate reads
     if (childNode) {
       childNode.parentId = parentId;
     }

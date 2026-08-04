@@ -144,9 +144,11 @@ describe('DOMRenderer Simple Re-render', () => {
     renderer.render(container, baseModel, []);
     expectHTML(
       container,
+      // Identical to the step 1 output: removing the decorator must not leave
+      // a residual empty class="" behind on a reused element.
       `<p class="p" data-bc-sid="p1">
         <span class="text" data-bc-sid="t1">
-          <span class>Hello</span>
+          <span>Hello</span>
         </span>
       </p>`,
       expect
@@ -274,9 +276,10 @@ describe('DOMRenderer Simple Re-render', () => {
     renderer.render(container, modelWithNewText2, []);
     expectHTML(
       container,
+      // No residual empty class="" once every decorator is gone.
       `<p class="p" data-bc-sid="p1">
         <span class="text" data-bc-sid="t1">
-          <span class>Test</span>
+          <span>Test</span>
         </span>
       </p>`,
       expect

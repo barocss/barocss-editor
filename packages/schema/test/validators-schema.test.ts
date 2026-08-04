@@ -119,7 +119,9 @@ describe('Schema Validators', () => {
       const content: any[] = [];
       const result = Validator.validateContentModel(schema, 'doc', content);
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain("Content is required but empty for model 'block+'.");
+      // Message now names the model and says the content ran out early.
+      expect(result.errors[0]).toContain('ended early');
+      expect(result.errors[0]).toContain('block+');
     });
 
     it('should validate content model with ? (zero or one)', () => {
@@ -146,7 +148,11 @@ describe('Schema Validators', () => {
         paragraphDef.content = 'text?';
         const result = Validator.validateContentModel(schema, 'paragraph', content);
         expect(result.valid).toBe(false);
-        expect(result.errors).toContain("Content for model 'text?' must be 0 or 1 node, but got 2.");
+        // 'text?' permits only a 'text' child, so the first paragraph already
+        // fails — the old parser only counted children and missed the type error.
+        expect(result.errors[0]).toContain('index 0');
+        expect(result.errors[0]).toContain('paragraph');
+        expect(result.errors[0]).toContain('text?');
       }
     });
 

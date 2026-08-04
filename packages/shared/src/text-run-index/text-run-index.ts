@@ -2,16 +2,45 @@ export interface TextRun {
   domTextNode: Text;
   start: number; // inclusive
   end: number;   // exclusive
+  /**
+   * The text this run contributes to the model, with renderer-owned filler
+   * characters removed. Read this instead of `domTextNode.textContent`.
+   */
+  text: string;
+  /**
+   * Offset inside `domTextNode` at which `text` begins. Non-zero when the node
+   * carries a leading filler, so model offset N maps to DOM offset
+   * `domStart + N`. Ignoring it puts the caret before the zero-width character.
+   */
+  domStart: number;
 }
 
 export interface ContainerRuns {
   runs: TextRun[];
   total: number;
-  byNode?: Map<Text, { start: number; end: number }>;
+  /** Reverse lookup; `domStart` mirrors TextRun.domStart for DOM->model mapping. */
+  byNode?: Map<Text, { start: number; end: number; domStart: number }>;
 }
 
 const runIndexByElement = new WeakMap<Element, ContainerRuns>();
 const runIndexById = new Map<string, ContainerRuns>();
+
+/** Zero-width no-break space used as the empty-block caret filler. */
+export const FILLER_CHAR = '﻿';
+
+/** Attribute marking a renderer-owned caret filler. */
+export const FILLER_ATTR = 'data-bc-filler';
+
+/**
+ * Strip renderer-owned filler characters from a raw DOM string.
+ *
+ * Use wherever DOM text is read outside buildTextRunIndex (which excludes the
+ * filler element wholesale). Without this the filler leaks into copied text and
+ * shifts every offset by one.
+ */
+export function stripFiller(text: string): string {
+  return text.includes(FILLER_CHAR) ? text.split(FILLER_CHAR).join('') : text;
+}
 
 /**
  * Check if element is a decorator
@@ -31,25 +60,35 @@ export function buildTextRunIndex(
 ): ContainerRuns {
   const runs: TextRun[] = [];
   let total = 0;
-  const byNode = options?.buildReverseMap ? new Map<Text, { start: number; end: number }>() : undefined;
+  const byNode = options?.buildReverseMap ? new Map<Text, { start: number; end: number; domStart: number }>() : undefined;
 
   const childNodes = Array.from(containerEl.childNodes);
 
+  /**
+   * Add a run for one text node. Renderer-owned filler characters are removed
+   * here rather than by skipping the element that holds them: the browser types
+   * and composes *into* the filler node, so once real text arrives the node
+   * carries both and only the filler must be dropped.
+   */
+  const addRun = (textNode: Text): void => {
+    const raw = textNode.textContent ?? '';
+    const stripped = stripFiller(raw);
+    const textForLength = options?.normalizeWhitespace !== false ? stripped.trim() : stripped;
+    if (textForLength.length === 0) return;
+
+    let domStart = 0;
+    while (domStart < raw.length && raw[domStart] === FILLER_CHAR) domStart++;
+
+    const start = total;
+    const end = start + textForLength.length;
+    runs.push({ domTextNode: textNode, start, end, text: textForLength, domStart });
+    if (byNode) byNode.set(textNode, { start, end, domStart });
+    total = end;
+  };
+
   for (const child of childNodes) {
     if (child.nodeType === Node.TEXT_NODE) {
-      const textNode = child as Text;
-      const textContent = textNode.textContent ?? '';
-      const textForLength = options?.normalizeWhitespace !== false ? textContent.trim() : textContent;
-
-      if (textForLength.length > 0) {
-        const length = textForLength.length;
-        const start = total;
-        const end = start + length;
-        const run: TextRun = { domTextNode: textNode, start, end };
-        runs.push(run);
-        if (byNode) byNode.set(textNode, { start, end });
-        total = end;
-      }
+      addRun(child as Text);
       continue;
     }
 
@@ -79,18 +118,7 @@ export function buildTextRunIndex(
 
       let textNode: Text | null;
       while ((textNode = walker.nextNode() as Text | null)) {
-        const textContent = textNode.textContent ?? '';
-        const textForLength = options?.normalizeWhitespace !== false ? textContent.trim() : textContent;
-
-        if (textForLength.length > 0) {
-          const length = textForLength.length;
-          const start = total;
-          const end = start + length;
-          const run: TextRun = { domTextNode: textNode, start, end };
-          runs.push(run);
-          if (byNode) byNode.set(textNode, { start, end });
-          total = end;
-        }
+        addRun(textNode);
       }
     }
   }

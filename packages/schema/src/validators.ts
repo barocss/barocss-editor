@@ -1,4 +1,5 @@
 import { Schema } from './schema';
+import { ContentMatch, ContentMatchContext, getContentMatch } from './content-match';
 import { ValidationResult, AttributeDefinition, ValidationErrorCode } from './types';
 import { VALIDATION_ERRORS } from './types';
 
@@ -372,95 +373,70 @@ export class Validator {
     nodeType: string,
     content: any[]
   ): ValidationResult {
-    const errors: string[] = [];
     const nodeDef = schema.getNodeType(nodeType);
-    
     if (!nodeDef) {
-    return { valid: false, errors: [`Unknown node type: ${nodeType}`] };
-  }
-  
-  const contentModel = nodeDef.content;
-  if (!contentModel) {
-    return { valid: true, errors: [] };
-  }
-
-  // Simple content model parsing and validation logic
-  const trimmedModel = contentModel.trim();
-
-  if (trimmedModel.endsWith('+')) {
-    if (content.length === 0) {
-      errors.push(`Content is required but empty for model '${trimmedModel}'.`);
+      return { valid: false, errors: [`Unknown node type: ${nodeType}`] };
     }
-    const baseModel = trimmedModel.slice(0, -1);
-    content.forEach((node, index) => {
-      if (!schema.hasNodeType(node.stype)) {
-        errors.push(`Node at index ${index} has unknown type '${node.stype}'.`);
-        return;
-      }
-      const childNodeDef = schema.getNodeType(node.stype);
-      if (childNodeDef?.group !== baseModel && node.stype !== baseModel) {
-        errors.push(`Node at index ${index} of type '${node.stype}' does not match required content model '${baseModel}'.`);
-      }
-    });
-  } else if (trimmedModel.endsWith('*')) {
-    // 0 or more, no minimum length check
-    const baseModel = trimmedModel.slice(0, -1);
-    content.forEach((node, index) => {
-      if (!schema.hasNodeType(node.stype)) {
-        errors.push(`Node at index ${index} has unknown type '${node.stype}'.`);
-        return;
-      }
-      const childNodeDef = schema.getNodeType(node.stype);
-      if (childNodeDef?.group !== baseModel && node.stype !== baseModel) {
-        errors.push(`Node at index ${index} of type '${node.stype}' does not match required content model '${baseModel}'.`);
-      }
-    });
-  } else if (trimmedModel.endsWith('?')) {
-    if (content.length > 1) {
-      errors.push(`Content for model '${trimmedModel}' must be 0 or 1 node, but got ${content.length}.`);
-    }
-    if (content.length === 1) {
-      const baseModel = trimmedModel.slice(0, -1);
-      const node = content[0];
-      if (!schema.hasNodeType(node.stype)) {
-        errors.push(`Node has unknown type '${node.stype}'.`);
-        return {
-          valid: errors.length === 0,
-          errors
-        };
-      }
-      const childNodeDef = schema.getNodeType(node.stype);
-      if (childNodeDef?.group !== baseModel && node.stype !== baseModel) {
-        errors.push(`Node of type '${node.stype}' does not match required content model '${baseModel}'.`);
-      }
-    }
-  } else if (trimmedModel.includes('|')) {
-    const allowedTypes = trimmedModel.split('|').map(s => s.trim());
-    content.forEach((node, index) => {
-      if (!allowedTypes.includes(node.stype)) {
-        const childNodeDef = schema.getNodeType(node.stype);
-        const nodeGroup = childNodeDef?.group;
-        if (!allowedTypes.includes(nodeGroup || '')) {
-          errors.push(`Node at index ${index} of type '${node.stype}' does not match any allowed types in '${trimmedModel}'.`);
-        }
-      }
-    });
-  } else if (trimmedModel !== '') { // Specific node type or group
-    content.forEach((node, index) => {
-      if (!schema.hasNodeType(node.stype)) {
-        errors.push(`Node at index ${index} has unknown type '${node.stype}'.`);
-        return;
-      }
-      const childNodeDef = schema.getNodeType(node.stype);
-      if (node.stype !== trimmedModel && childNodeDef?.group !== trimmedModel) {
-        errors.push(`Node at index ${index} of type '${node.stype}' does not match required type or group '${trimmedModel}'.`);
-      }
-    });
-  }
 
+    const contentModel = nodeDef.content;
+    if (!contentModel) {
+      return { valid: true, errors: [] };
+    }
+
+    const errors: string[] = [];
+    const childTypes: string[] = [];
+    for (let i = 0; i < content.length; i++) {
+      const child = content[i];
+      const stype = child?.stype;
+      if (!stype || !schema.hasNodeType(stype)) {
+        errors.push(`Node at index ${i} has unknown type '${stype}'.`);
+        continue;
+      }
+      childTypes.push(stype);
+    }
+    if (errors.length > 0) {
+      return { valid: false, errors };
+    }
+
+    let match: ContentMatch;
+    try {
+      match = getContentMatch(contentModel);
+    } catch (error) {
+      return {
+        valid: false,
+        errors: [
+          `Invalid content expression '${contentModel}' on node type '${nodeType}': ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        ]
+      };
+    }
+
+    const ctx: ContentMatchContext = {
+      groupOf: (type: string) => schema.getNodeType(type)?.group,
+      hasNodeType: (type: string) => schema.hasNodeType(type)
+    };
+
+    const result = match.match(childTypes, ctx);
+    if (result.valid) {
+      return { valid: true, errors: [] };
+    }
+
+    if (result.incomplete) {
+      return {
+        valid: false,
+        errors: [
+          `Content of '${nodeType}' ended early; '${contentModel}' requires more children.`
+        ]
+      };
+    }
+
+    const index = result.failedAt ?? 0;
     return {
-      valid: errors.length === 0,
-      errors
+      valid: false,
+      errors: [
+        `Node at index ${index} of type '${childTypes[index]}' is not allowed here by content model '${contentModel}'.`
+      ]
     };
   }
 }

@@ -1,7 +1,7 @@
 {
   "name": "@barocss/renderer-react",
   "version": "0.2.0",
-  "description": "React renderer for Barocss DSL (ModelData + RendererRegistry → ReactNode)",
+  "description": "React renderer for Barocss DSL (ModelData + RendererRegistry \u2192 ReactNode)",
   "type": "module",
   "main": "./src/index.ts",
   "module": "./src/index.ts",
@@ -29,7 +29,8 @@
     }
   },
   "dependencies": {
-    "@barocss/dsl": "workspace:*"
+    "@barocss/dsl": "workspace:*",
+    "@barocss/shared": "workspace:*"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",

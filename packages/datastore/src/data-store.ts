@@ -162,8 +162,31 @@ export class DataStore {
    * @returns 피그마 스타일의 고유 ID (예: '0:1', '0:2')
    */
   generateId(): string {
-    DataStore._globalCounter++;
-    return `${this._sessionId}:${DataStore._globalCounter}`;
+    // Skip ids that are already taken. The counter is periodically re-based on
+    // node count (see syncIdCounter), and during an overlay transaction the
+    // committed node map does not grow, so a naive increment can hand out the
+    // same id twice within one transaction. A colliding id makes the second
+    // setNode() overwrite the first node, which produces self-referencing
+    // parentId links and hangs every parent-walk in the editor.
+    let candidate: string;
+    do {
+      DataStore._globalCounter++;
+      candidate = `${this._sessionId}:${DataStore._globalCounter}`;
+    } while (this.getNode(candidate));
+    return candidate;
+  }
+
+  /**
+   * Re-base the shared id counter on the current node count.
+   *
+   * Only ever raises the counter — it must never go backwards, otherwise ids
+   * already handed out (but not yet committed, e.g. inside an overlay
+   * transaction) would be reissued.
+   */
+  static syncIdCounter(nodeCount: number): void {
+    if (nodeCount > DataStore._globalCounter) {
+      DataStore._globalCounter = nodeCount;
+    }
   }
 
   /**
@@ -229,6 +252,11 @@ export class DataStore {
    * - overlay alias 맵(_overlayAliases)도 초기화한다.
    * - begin 이후 발생하는 모든 연산은 overlay에 기록되며, 이벤트는 즉시 발행된다.
    */
+  /** Whether an overlay transaction is currently open. */
+  isTransactionActive(): boolean {
+    return !!this._overlay?.isActive?.();
+  }
+
   begin(): void {
     // Do not use local collection; initialize overlay only
     if (!this._overlay) {
@@ -379,6 +407,20 @@ export class DataStore {
    */
   rollback(): void {
     if (!this._overlay) return;
+
+    // Put back anything the transaction wrote straight onto a base node.
+    // Content operations mirror their change onto the node object they already
+    // hold so later operations in the transaction read the new state; that
+    // object is often the base node, so discarding the overlay alone would
+    // leave the change behind.
+    const snapshots = this._overlay.getBaseSnapshots?.();
+    if (snapshots) {
+      for (const [nodeId, snapshot] of snapshots) {
+        if (snapshot) this.nodes.set(nodeId, snapshot as INode);
+        else this.nodes.delete(nodeId);
+      }
+    }
+
     this._overlay.rollback();
     this._overlay = undefined;
     // Clear alias map on rollback
@@ -568,8 +610,8 @@ export class DataStore {
     
     // Prepare temporary alias set to enforce uniqueness within this creation
     this._tempAliasSet = new Set<string>();
-    // 1. Initialize globalCounter to current node count
-    DataStore._globalCounter = this.nodes.size;
+    // 1. Re-base globalCounter on the current node count (never lowers it)
+    DataStore.syncIdCounter(this.nodes.size);
     
     // 2. Assign IDs to all nested objects (recursively)
     this._assignIdsRecursively(node);
@@ -863,6 +905,16 @@ export class DataStore {
 
   getParent(nodeId: string): INode | undefined {
     return this.utility.getParent(nodeId);
+  }
+
+  /**
+   * Walk up the parentId chain from `nodeId` and return the first ancestor
+   * matching `predicate` (the starting node itself is not tested).
+   *
+   * Cycle-safe — see {@link findAncestorNode}.
+   */
+  findAncestor(nodeId: string, predicate: (node: INode) => boolean): INode | undefined {
+    return findAncestorNode((id) => this.getNode(id), nodeId, predicate);
   }
 
   getSiblings(nodeId: string): INode[] {
@@ -1255,6 +1307,71 @@ export class DataStore {
   /**
    * Schema로 노드 검증
    */
+  /**
+   * Check that every node written by the open transaction still satisfies its
+   * content model.
+   *
+   * Individual content operations (addChild, moveNode, …) deliberately do not
+   * validate: a transaction builds structures step by step, and intermediate
+   * states are legitimately invalid (a `bDetails` has no `bSummary` yet at the
+   * moment it is created). The invariant that matters is the one at the end —
+   * "every committed transaction leaves a schema-valid document" — so the check
+   * belongs here, between end() and commit().
+   *
+   * Only nodes the transaction touched are examined; the rest cannot have
+   * changed shape.
+   */
+  validateTransactionScope(schema?: Schema): { valid: boolean; errors: string[] } {
+    const targetSchema = schema || this._activeSchema;
+    const overlay = this._overlay;
+    if (!targetSchema || !overlay?.isActive?.()) {
+      return { valid: true, errors: [] };
+    }
+
+    const errors: string[] = [];
+    for (const nodeId of overlay.getWrittenNodeIds()) {
+      const node = this.getNode(nodeId);
+      if (!node) continue;
+
+      const nodeDef = targetSchema.getNodeType(node.stype);
+      if (!nodeDef?.content) continue;
+
+      const childIds = Array.isArray(node.content) ? node.content : [];
+      const children = this.resolveContentChildren(node);
+
+      // A child id that no longer resolves means the tree is inconsistent, which
+      // a content-model check cannot describe usefully — report it as its own error.
+      if (children.length !== childIds.length) {
+        errors.push(
+          `Node ${nodeId} (${node.stype}) references ${childIds.length - children.length} missing child node(s).`
+        );
+        continue;
+      }
+
+      const result = targetSchema.validateContent(node.stype, children);
+      if (!result.valid) {
+        errors.push(...result.errors.map((e) => `${nodeId} (${node.stype}): ${e}`));
+      }
+    }
+
+    return { valid: errors.length === 0, errors };
+  }
+
+  /**
+   * Children of a node as node objects.
+   *
+   * Stored content is an array of ids, but the schema's content model is
+   * expressed over node types — so a validator handed the raw array sees
+   * strings with no `stype` and rejects everything. Resolve first.
+   * Object children (a node not yet persisted) are passed through as-is.
+   */
+  private resolveContentChildren(node: INode): INode[] {
+    const content = Array.isArray(node.content) ? node.content : [];
+    return content
+      .map((child) => (typeof child === 'string' ? this.getNode(child) : (child as INode)))
+      .filter((n): n is INode => !!n);
+  }
+
   validateNode(node: INode, schema?: Schema): { valid: boolean; errors: string[] } {
     const targetSchema = schema || this._activeSchema;
     if (!targetSchema) {
@@ -1262,8 +1379,17 @@ export class DataStore {
     }
 
     try {
-      const validation = validateNodeWithSchema(node, targetSchema);
-      return validation;
+      // Content held as ids has to be resolved before the content model can be
+      // checked against it. Without this every persisted node failed validation
+      // with "unknown type 'undefined'" — which is why transformNode could never
+      // convert a paragraph to a heading.
+      const hasIdContent =
+        Array.isArray(node.content) && node.content.some((c) => typeof c === 'string');
+      const nodeToValidate = hasIdContent
+        ? ({ ...node, content: this.resolveContentChildren(node) } as INode)
+        : node;
+
+      return validateNodeWithSchema(nodeToValidate, targetSchema);
     } catch (error) {
       return { valid: false, errors: [`Validation error: ${error}`] };
     }
@@ -2269,3 +2395,39 @@ export class DataStore {
 
 }
 
+
+/**
+ * Walk up the parentId chain from `nodeId` and return the first ancestor
+ * matching `predicate` (the starting node itself is not tested).
+ *
+ * Cycle-safe: a self-referencing or looping parentId link stops the walk and
+ * returns undefined instead of spinning forever. Use this rather than an ad-hoc
+ * `while (node.parentId)` loop — an unguarded walk freezes the whole page when
+ * the tree is corrupt, which is exactly what a duplicated node id once caused.
+ *
+ * Takes a bare `getNode` lookup so it also works against anything node-shaped,
+ * not just a full DataStore.
+ */
+export function findAncestorNode(
+  getNode: (id: string) => INode | undefined | null,
+  nodeId: string,
+  predicate: (node: INode) => boolean
+): INode | undefined {
+  const visited = new Set<string>([nodeId]);
+  let current = getNode(nodeId);
+
+  while (current?.parentId) {
+    const parent = getNode(current.parentId);
+    if (!parent?.sid || visited.has(parent.sid)) {
+      if (parent?.sid) {
+        console.warn('[DataStore] findAncestorNode: parentId cycle detected', { nodeId: parent.sid });
+      }
+      return undefined;
+    }
+    if (predicate(parent)) return parent;
+    visited.add(parent.sid);
+    current = parent;
+  }
+
+  return undefined;
+}

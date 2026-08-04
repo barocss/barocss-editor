@@ -4,6 +4,7 @@
  * - Attribute and style management
  * - Namespace handling
  */
+import { createOwnedTextNode, markRendererOwned, setOwnedTextContent } from './renderer-owned-nodes';
 import { VNode, VNodeTag, DOMAttribute } from './vnode/types';
 import { DOMWorkInProgress } from './work-in-progress';
 import { 
@@ -50,7 +51,7 @@ export class DOMOperations {
     }
     // Set initial text content when there are no children
     if (vnode.text != null && (!vnode.children || vnode.children.length === 0)) {
-      element.textContent = String(vnode.text);
+      setOwnedTextContent(element, String(vnode.text));
     }
     // Ensure initial children are materialized when present
     if (Array.isArray(vnode.children) && vnode.children.length > 0) {
@@ -60,7 +61,7 @@ export class DOMOperations {
           const node = this.vnodeToDOM(child as any, element as HTMLElement);
           element.appendChild(node);
         } else if (typeof child === 'string' || typeof child === 'number') {
-          element.appendChild(document.createTextNode(String(child)));
+          element.appendChild(createOwnedTextNode(String(child)));
         }
       }
     }
@@ -522,7 +523,7 @@ export class DOMOperations {
         // Only create if still not found
         if (!wip.domNode) {
         if (!vnode.tag && vnode.text !== undefined) {
-          wip.domNode = document.createTextNode(String(vnode.text));
+          wip.domNode = createOwnedTextNode(String(vnode.text));
             
         } else {
           const element = this.createElement(vnode, (wip.parent?.domNode as HTMLElement) || container);
@@ -786,10 +787,10 @@ export class DOMOperations {
   public vnodeToDOM(vnode: VNode, parent?: Element | null, data?: any): Node {
     // Text node
     if (!vnode.tag && vnode.text !== undefined) {
-      return document.createTextNode(String(vnode.text));
+      return createOwnedTextNode(String(vnode.text));
     }
     
-    if (!vnode.tag && !vnode.stype && !vnode.text) return document.createTextNode('');
+    if (!vnode.tag && !vnode.stype && !vnode.text) return createOwnedTextNode('');
     
     // Use createElement for proper namespace handling
     const element = this.createElement(vnode, parent as HTMLElement);
@@ -797,7 +798,7 @@ export class DOMOperations {
     // Set text content ONLY if there are no children
     // If children exist, they will be processed below and textContent would be overwritten anyway
     if (vnode.text != null && (!vnode.children || vnode.children.length === 0)) {
-      element.textContent = String(vnode.text);
+      setOwnedTextContent(element, String(vnode.text));
     }
     
     // Process children recursively
@@ -807,7 +808,7 @@ export class DOMOperations {
           const childNode = this.vnodeToDOM(child, element, data);
           element.appendChild(childNode);
         } else if (typeof child === 'string' || typeof child === 'number') {
-          element.appendChild(document.createTextNode(String(child)));
+          element.appendChild(createOwnedTextNode(String(child)));
         }
       }
     }

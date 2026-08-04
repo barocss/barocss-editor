@@ -1,3 +1,4 @@
+import { stripFiller } from '@barocss/shared';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { DOMRenderer } from '../../src/dom-renderer';
 import { define, element, data, slot, getGlobalRegistry } from '@barocss/dsl';
@@ -1121,8 +1122,11 @@ describe('Reconciler Verification Tests', () => {
       expect(() => {
         renderer.render(container, model);
       }).not.toThrow();
-      
-      expect(container.textContent).toBe('HelloWorld');
+
+      // The empty inline-text renders a zero-width caret filler, so raw
+      // textContent carries it. Anything reading DOM text must strip it —
+      // buildTextRunIndex does so while indexing, everything else via stripFiller.
+      expect(stripFiller(container.textContent ?? '')).toBe('HelloWorld');
     });
   });
 

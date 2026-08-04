@@ -1,3 +1,4 @@
+import { findAncestorNode } from '@barocss/datastore';
 import { Editor, Extension, type ModelSelection } from '@barocss/editor-core';
 import { transaction, control, indentNode, outdentNode, indentText, outdentText } from '@barocss/model';
 
@@ -143,19 +144,14 @@ export class IndentExtension implements Extension {
         }
       }
 
-      // Find parent block node of startNode
-      let current = startNode;
-      while (current && current.parentId) {
-        const parent = dataStore.getNode(current.parentId);
-        if (!parent) break;
-
-        const parentType = schema?.getNodeType(parent.stype);
-        if (parentType?.group === 'block' && dataStore.isIndentableNode(parent.sid!)) {
-          return parent.sid!;
-        }
-
-        current = parent;
-      }
+      // Find parent block node of startNode (cycle-safe walk)
+      const block = findAncestorNode(
+        (id: string) => dataStore.getNode(id),
+        startNode.sid!,
+        (n: any) =>
+          schema?.getNodeType(n.stype)?.group === 'block' && dataStore.isIndentableNode(n.sid!)
+      );
+      if (block?.sid) return block.sid;
     }
 
     return null;

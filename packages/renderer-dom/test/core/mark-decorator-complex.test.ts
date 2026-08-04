@@ -1061,7 +1061,7 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
         container,
         `<p class="paragraph" data-bc-sid="p-1">
           <span class="text" data-bc-sid="text-1">
-            <span class="chip" data-decorator="true" data-decorator-category="inline" data-decorator-position="before" data-decorator-sid="chip-1" data-decorator-stype="chip" data-skip-reconcile="true" style="display: inline-block; padding: 2px 6px; background-color: rgb(224, 224, 224); border-radius: 4px; font-size: 12px; margin: 0px 2px;"></span>
+            <span class="chip" data-decorator="true" data-decorator-category="inline" data-decorator-position="before" data-decorator-sid="chip-1" data-decorator-stype="chip" data-skip-reconcile="true" style="display: inline-block; padding: 2px 6px; background-color: rgb(224, 224, 224); border-radius: 4px; font-size: 12px; margin: 0px 2px;"><span>CHIP</span></span>
             <strong class="mark-bold"><span>Bold</span></strong>
             <span>text with decorator</span>
           </span>

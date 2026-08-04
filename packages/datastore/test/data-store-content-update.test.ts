@@ -335,13 +335,12 @@ describe('DataStore Content Update Operations', () => {
       const overlayParent = dataStore.getNode('para-1');
       expect(overlayParent?.content).toEqual(['text-1', 'text-2']);
 
-      // Note: Current implementation reflects changes to base immediately during overlay
-      // This is a known limitation - rollback should restore original state
+      // Rollback discards the transaction entirely. Content operations used to
+      // mirror the change onto the base node as well ("for immediate reads"),
+      // which survived the rollback; they now only do that outside a transaction.
       dataStore.rollback();
       const baseParent = dataStore.getNode('para-1');
-      // The rollback should restore the original content, but current implementation
-      // may not properly handle this. For now, we test the actual behavior.
-      expect(baseParent?.content).toEqual(['text-1', 'text-2']); // Current actual behavior
+      expect(baseParent?.content).toEqual(['text-1']);
     });
 
     it('should commit content changes to base', () => {

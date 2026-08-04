@@ -263,8 +263,15 @@ export function findHostInParentChildren(
     }
   }
   
-  // 4. Index-based matching (fallback, when ID is missing)
-  if (childIndex < parent.children.length) {
+  // 4. Index-based matching (fallback, only for VNodes without an ID)
+  //
+  // A keyed VNode must NEVER fall back to positional matching. If its key did
+  // not match anything in steps 1-2 it is a brand new node and needs a fresh
+  // element; taking over parent.children[childIndex] would overwrite whichever
+  // keyed sibling happens to sit at that index. That is what made an inserted
+  // block (Enter in the middle of a document) render as an in-place update of
+  // the following block, silently dropping it.
+  if (!vnodeId && childIndex < parent.children.length) {
     const candidate = parent.children[childIndex] as HTMLElement;
     if (candidate && candidate.tagName.toLowerCase() === (vnode.tag || '').toLowerCase()) {
       // Class matching (structural matching)

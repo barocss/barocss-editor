@@ -45,3 +45,26 @@ export { getMinimalSchemaDefinition, getStandardSchemaDefinition } from './stand
 
 // Figma-like reference schema (spec: docs/specs/standard-schema.md §9.1)
 export { getFigmaLikeSchemaDefinition } from './figma-like-schema';
+
+export {
+  ContentMatch,
+  getContentMatch,
+  ContentExpressionError,
+  type ContentMatchContext,
+  type MatchResult
+} from './content-match';
+
+export {
+  fitContent,
+  type FitNode,
+  type FitResult
+} from './content-fitting';
+
+export {
+  getOfficeSchemaDefinition,
+  getCanvasNodeDefinitions,
+  getSurfaceNodeDefinitions,
+  getMetaNodeDefinitions,
+  SurfaceKind,
+  type SurfaceKindValue
+} from './office-schema';
