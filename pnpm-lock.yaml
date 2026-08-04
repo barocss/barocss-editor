@@ -628,6 +628,9 @@ importers:
       '@barocss/schema':
         specifier: workspace:*
         version: link:../schema
+      '@barocss/shared':
+        specifier: workspace:*
+        version: link:../shared
     devDependencies:
       typescript:
         specifier: ^5.9.3

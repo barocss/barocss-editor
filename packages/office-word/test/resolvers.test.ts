@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createStyleResolver } from '../src/style-resolver';
-import { createNumberingResolver, formatCounter } from '../src/numbering-resolver';
+import { createNumberingResolver } from '../src/numbering-resolver';
 import type { DocumentAccess, DocumentNode } from '../src/document-access';
 
 /** Build a DocumentAccess over a flat map of nodes. */
@@ -151,23 +151,6 @@ describe('style resolution', () => {
       }
     ]);
     expect(createStyleResolver(doc2).resolveNode(doc2.getNode('p')!, 'character').bold).toBe(false);
-  });
-});
-
-describe('number formats', () => {
-  it('renders each format the way Word does', () => {
-    expect(formatCounter(4, 'decimal')).toBe('4');
-    expect(formatCounter(4, 'decimalZero')).toBe('04');
-    expect(formatCounter(14, 'decimalZero')).toBe('14');
-    expect(formatCounter(4, 'upperRoman')).toBe('IV');
-    expect(formatCounter(9, 'lowerRoman')).toBe('ix');
-    expect(formatCounter(1, 'lowerLetter')).toBe('a');
-    expect(formatCounter(27, 'lowerLetter')).toBe('aa');
-    expect(formatCounter(28, 'upperLetter')).toBe('AB');
-    expect(formatCounter(1, 'ordinal')).toBe('1st');
-    expect(formatCounter(11, 'ordinal')).toBe('11th');
-    expect(formatCounter(22, 'ordinal')).toBe('22nd');
-    expect(formatCounter(5, 'none')).toBe('');
   });
 });
 

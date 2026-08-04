@@ -16,6 +16,7 @@
  *   - a level's `text` is a pattern over every counter above it (`%1.%2.`), so
  *     the number of a deep item depends on its ancestors' counters
  */
+import { formatCounter } from '@barocss/shared';
 import {
   childOfType,
   childrenOf,
@@ -23,74 +24,6 @@ import {
   type DocumentAccess,
   type DocumentNode
 } from './document-access';
-
-const ROMAN: [number, string][] = [
-  [1000, 'm'], [900, 'cm'], [500, 'd'], [400, 'cd'],
-  [100, 'c'], [90, 'xc'], [50, 'l'], [40, 'xl'],
-  [10, 'x'], [9, 'ix'], [5, 'v'], [4, 'iv'], [1, 'i']
-];
-
-function toRoman(value: number): string {
-  if (value <= 0) return '';
-  let remaining = value;
-  let out = '';
-  for (const [amount, numeral] of ROMAN) {
-    while (remaining >= amount) {
-      out += numeral;
-      remaining -= amount;
-    }
-  }
-  return out;
-}
-
-/** 1 → a, 26 → z, 27 → aa — spreadsheet-column style, as Word does it. */
-function toLetter(value: number): string {
-  if (value <= 0) return '';
-  let remaining = value;
-  let out = '';
-  while (remaining > 0) {
-    const index = (remaining - 1) % 26;
-    out = String.fromCharCode(97 + index) + out;
-    remaining = Math.floor((remaining - 1) / 26);
-  }
-  return out;
-}
-
-/** Render one counter in a given number format. */
-export function formatCounter(value: number, format: string): string {
-  switch (format) {
-    case 'decimal':
-      return String(value);
-    case 'decimalZero':
-      return value < 10 ? `0${value}` : String(value);
-    case 'upperRoman':
-      return toRoman(value).toUpperCase();
-    case 'lowerRoman':
-      return toRoman(value);
-    case 'upperLetter':
-      return toLetter(value).toUpperCase();
-    case 'lowerLetter':
-      return toLetter(value);
-    case 'ordinal':
-      return `${value}${ordinalSuffix(value)}`;
-    case 'none':
-      return '';
-    default:
-      // `bullet` and anything unknown: the level's literal text is the number.
-      return '';
-  }
-}
-
-function ordinalSuffix(value: number): string {
-  const mod100 = value % 100;
-  if (mod100 >= 11 && mod100 <= 13) return 'th';
-  switch (value % 10) {
-    case 1: return 'st';
-    case 2: return 'nd';
-    case 3: return 'rd';
-    default: return 'th';
-  }
-}
 
 interface LevelDefinition {
   level: number;

@@ -30,10 +30,12 @@ export {
 } from './style-resolver';
 export {
   createNumberingResolver,
-  formatCounter,
   type NumberingResolver,
   type NumberedItem
 } from './numbering-resolver';
+// Re-exported for convenience; the implementation is shared because list
+// levels, page numbers, notes and captions all reference the same format names.
+export { formatCounter, NumberFormat, type NumberFormatValue } from '@barocss/shared';
 export {
   childrenOf,
   childOfType,

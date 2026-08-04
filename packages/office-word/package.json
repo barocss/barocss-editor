@@ -43,7 +43,8 @@
     "@barocss/schema": "workspace:*",
     "@barocss/editor-core": "workspace:*",
     "@barocss/extensions": "workspace:*",
-    "@barocss/model": "workspace:*"
+    "@barocss/model": "workspace:*",
+    "@barocss/shared": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.9.3",

@@ -11,3 +11,4 @@ export { replacePlaceholders, normalizeLocale } from './i18n';
 
 export * from './decorator';
 export * from './text-run-index';
+export { formatCounter, NumberFormat, type NumberFormatValue } from './number-format';
