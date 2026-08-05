@@ -55,13 +55,37 @@ describe('Word kit', () => {
     expect((editor as any).keybindings.resolve('Tab')).toHaveLength(0);
   });
 
-  it('accepts a replacement key map', () => {
+  it('accepts a key map of its own', () => {
     const editor = createWordEditor({ keybindings: [{ key: 'Mod+q', command: 'toggleBold' }] });
     editor.emit('editor:selection.focus');
 
     expect((editor as any).keybindings.resolve('Mod+q').map((r: any) => r.command)).toEqual(['toggleBold']);
-    // and nothing from the engine default survives
-    expect((editor as any).keybindings.resolve('Mod+b')).toHaveLength(0);
+  });
+
+  it('keeps the engine keys its own map does not restate', () => {
+    // A product map layers over the engine default rather than replacing it. It
+    // used to clear the registry first, which threw out the baseline with the
+    // conflict: Backspace, Delete and the arrow keys are engine defaults that a
+    // word processor has nothing new to say about, and losing them left the
+    // document unable to merge a block or move the caret by keyboard at all.
+    const editor = createWordEditor({ keybindings: [{ key: 'Mod+q', command: 'toggleBold' }] });
+    editor.emit('editor:selection.focus');
+
+    for (const key of ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight']) {
+      expect((editor as any).keybindings.resolve(key).length).toBeGreaterThan(0);
+    }
+  });
+
+  it('wins where it does collide with the engine', () => {
+    const editor = createWordEditor({
+      keybindings: [{ key: 'Backspace', command: 'wordSpecificBackspace' }]
+    });
+    editor.emit('editor:selection.focus');
+
+    // Both are registered; the product's outranks the engine's by source.
+    expect((editor as any).keybindings.resolve('Backspace')[0].command).toBe(
+      'wordSpecificBackspace'
+    );
   });
 });
 

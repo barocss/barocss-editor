@@ -45,10 +45,19 @@ export function createWordEditor(options: WordEditorOptions = {}): Editor {
     extensions: [...(kit ?? createWordExtensions()), ...extensions]
   } as EditorOptions);
 
-  // Word's key map replaces the engine default rather than layering on top:
-  // leaving both registered would mean two commands competing for Tab.
+  // Word's key map layers *over* the engine default rather than replacing it.
+  //
+  // It used to clear the registry first, to stop two commands competing for
+  // Tab. That threw out the baseline with the conflict: Enter, Backspace,
+  // Delete and the arrow keys are engine defaults, and Word's map does not
+  // restate them — a word processor has nothing new to say about Backspace.
+  // Deleting them left the document editable only by whatever the browser did
+  // natively, so Backspace could not merge a block and no key resolved to a
+  // command at all.
+  //
+  // Nothing needs clearing: the registry already resolves a conflict by source,
+  // and a product's bindings outrank the engine's. Tab goes to Word.
   const registry = (editor as any).keybindings;
-  registry?.clear?.();
   for (const binding of keybindings ?? WORD_KEYBINDINGS) {
     registry?.register?.(binding);
   }

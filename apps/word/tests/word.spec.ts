@@ -289,3 +289,56 @@ test.describe('what leaves the editor', () => {
     expect(await page.locator('.w-sheet').count()).toBeGreaterThan(1);
   });
 });
+
+test.describe('Backspace at a block boundary', () => {
+  test('merges a block into the one before it', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-sheet');
+
+    const paragraphs = () => page.locator('.w-paragraph').count();
+    const before = await paragraphs();
+
+    // Split a paragraph, then undo the split with Backspace
+    await placeCaret(page, '.w-paragraph', 1);
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
+    await expect.poll(paragraphs).toBe(before + 1);
+
+    await page.keyboard.press('Backspace');
+    await expect.poll(paragraphs).toBe(before);
+  });
+
+  test('shrinks the document, so the pages come back', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-sheet');
+
+    const sheets = () => page.locator('.w-sheet').count();
+    const before = await sheets();
+
+    await placeCaret(page, '.w-paragraph', 1);
+    for (let i = 0; i < 20; i++) await page.keyboard.press('Enter');
+    await expect.poll(sheets, { timeout: 15000 }).toBeGreaterThan(before);
+
+    for (let i = 0; i < 20; i++) await page.keyboard.press('Backspace');
+    await expect.poll(sheets, { timeout: 15000 }).toBe(before);
+  });
+
+  test('keeps the engine keys a product map does not restate', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-sheet');
+
+    // Bindings are gated on editorFocus, so the caret has to be in the document
+    // before asking what a key resolves to.
+    await placeCaret(page, '.w-paragraph', 1);
+
+    // Word's map says nothing about Backspace or the arrow keys; they are engine
+    // defaults, and a product replacing the map must not lose them.
+    const resolved = await page.evaluate(() => {
+      const editor = (window as any).editor;
+      return ['Backspace', 'Enter', 'Delete', 'ArrowLeft', 'ArrowRight'].map(
+        (key) => editor.keybindings.resolve(key).length
+      );
+    });
+    expect(resolved.every((count) => count > 0)).toBe(true);
+  });
+});
