@@ -27,11 +27,18 @@
  * run (a run split by a *mark* types correctly), and deferring repagination
  * while typing (no effect).
  *
- * Where to start next: C1 picks the node to edit by walking up from each
- * mutation target, so a render's own mutations lead it to the section and it
- * gives up. C2, next to it, uses the caret instead and reads the id off the
- * inline-text under it. Doing what C2 does would make a storm of unrelated
- * mutations unable to misdirect it.
+ * Where to start next, measured rather than guessed. Changing one decorator
+ * produces about eleven thousand DOM mutations, and none of them are the
+ * paragraph — the paragraph is touched 127 times and the other ten thousand are
+ * the page chrome this product draws: sheets, headers, footers, table-of-
+ * contents entries. Eight thousand of them are attribute writes across nineteen
+ * kinds of element, which is the same few elements written hundreds of times.
+ *
+ * So the reconciler is diffing as it should; what it is given differs. The
+ * surface component rebuilds its chrome on every render — new templates, new
+ * style objects — so every attribute compares unequal and is written again, and
+ * the layout loop renders many times over. Making that chrome stable across
+ * renders is the fix, and it is this product's code rather than the engine's.
  */
 import { defineDecorator, element } from '@barocss/dsl';
 
