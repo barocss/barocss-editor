@@ -12,27 +12,26 @@
  * built on, the classifier that decides whether a DOM change came from the user
  * — sees it at all.
  *
- * Not yet switched on. Measured in a browser, the geometry is right: a paragraph
+ * Not yet switched on. The geometry is right, measured in a browser: a paragraph
  * splits where the layout says, no line falls outside a page, the breaks settle
  * rather than drifting, and none of it is copied. Typing into a paragraph that
- * carries one is not: the character is inserted but the caret stays where it
- * was, so the next lands in front of it and a word comes out backwards.
+ * carries one is not: the character is inserted but the caret stays put, so the
+ * next lands in front of it and a word comes out backwards.
  *
- * Ruled out by measurement, in order:
- *   - the widget disturbing the offset index — it holds no text, and the model
- *     and DOM lengths match exactly
- *   - several text nodes in a run being the problem — a run split by a *mark*
- *     types correctly
- *   - a storm of renderer mutations reaching the observer — real, and fixed
- *     (see the render count in editor-view-dom), but the caret still does not
- *     advance without it
- *   - decorators being torn down and rebuilt on every keystroke — also real,
- *     also fixed by keeping a break's identity stable, and also not the cause
- *   - repagination running mid-keystroke — deferring it changes nothing
+ * It is the churn, not the widget. A break sits at a text offset, so typing
+ * above it moves it, so the widget is replaced on every keystroke. Measured
+ * decisively: a break added once and never replaced types perfectly.
  *
- * What is left: the mutations from a keystroke never reach the classifier at
- * all when a break is present, so the model is never told the caret moved. That
- * is where the next look should start.
+ * Ruled out along the way — the widget disturbing the offset index (it holds no
+ * text, and the model and DOM lengths match exactly), several text nodes in a
+ * run (a run split by a *mark* types correctly), and deferring repagination
+ * while typing (no effect).
+ *
+ * Where to start next: C1 picks the node to edit by walking up from each
+ * mutation target, so a render's own mutations lead it to the section and it
+ * gives up. C2, next to it, uses the caret instead and reads the id off the
+ * inline-text under it. Doing what C2 does would make a storm of unrelated
+ * mutations unable to misdirect it.
  */
 import { defineDecorator, element } from '@barocss/dsl';
 

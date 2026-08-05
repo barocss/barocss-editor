@@ -67,6 +67,7 @@ export class EditorViewDOM implements IEditorViewDOM {
   private _runningLayoutPasses = false;
 
 
+
   private _decoratorRenderer?: DOMRenderer;    // For Decorator layer
   private _selectionRenderer?: DOMRenderer;    // For Selection layer
   private _contextRenderer?: DOMRenderer;     // For Context layer
@@ -1174,6 +1175,18 @@ export class EditorViewDOM implements IEditorViewDOM {
   }
 
   // External render API
+  /**
+   * Let go of one render's claim on the observer, once its DOM has landed.
+   *
+   * A whole event loop turn later, because that is when the mutations from it
+   * are delivered.
+   */
+  private _releaseModelDrivenRender(): void {
+    setTimeout(() => {
+      this._modelDrivenRenders = Math.max(0, this._modelDrivenRenders - 1);
+    }, 0);
+  }
+
   /** Whether any render is still settling, so its mutations are not input. */
   get isModelDrivenChange(): boolean {
     return this._modelDrivenRenders > 0;
@@ -1251,6 +1264,7 @@ export class EditorViewDOM implements IEditorViewDOM {
   private _runLayoutPasses(): void {
     if (this._runningLayoutPasses || this._layoutPasses.length === 0) return;
 
+
     this._runningLayoutPasses = true;
     try {
       for (let round = 0; round < EditorViewDOM.MAX_LAYOUT_ROUNDS; round++) {
@@ -1286,6 +1300,7 @@ export class EditorViewDOM implements IEditorViewDOM {
     
     // Set Model-First change flag (for MutationObserver filtering)
     this._modelDrivenRenders++;
+    let layersPending = false;
     
     try {
       // Save options (used in addDecorator, etc.)
@@ -1499,19 +1514,23 @@ export class EditorViewDOM implements IEditorViewDOM {
       if (options?.sync || this._renderOptions.sync) {
         renderLayers();
       } else {
-        requestAnimationFrame(renderLayers);
+        // Held open until the layers have been drawn. They are deferred to the
+        // next frame, and a frame comes *after* a timeout — so releasing on a
+        // timeout uncovered them, and the observer read a layer's own DOM as
+        // something the user had typed. It only showed up once there were
+        // decorators to draw.
+        layersPending = true;
+        requestAnimationFrame(() => {
+          renderLayers();
+          this._releaseModelDrivenRender();
+        });
       }
     }
     } finally {
       // Clear flag after rendering completes
       this._isRendering = false;
-      
-      // Released in the next event loop, once this render's mutations have been
-      // delivered. The count is what keeps a render that started later from
-      // being uncovered by an earlier one finishing.
-      setTimeout(() => {
-        this._modelDrivenRenders = Math.max(0, this._modelDrivenRenders - 1);
-      }, 0);
+
+      if (!layersPending) this._releaseModelDrivenRender();
     }
 
     // The content DOM is committed by now, so anything that has to measure the

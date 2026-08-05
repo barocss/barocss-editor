@@ -75,8 +75,7 @@ view.registerLayoutPass(
     container,
     doc,
     editing: () => editing,
-    // Off: typing into a paragraph that carries a break still loses the caret.
-    // See page-break-widget for what has been ruled out.
+    // Off: see page-break-widget for where this stands.
     splitBlocks: false,
     onPageBreaks: (breaks) => applyPageBreaks(breaks),
     // This app exists to be measured, and the layout is the part worth looking
