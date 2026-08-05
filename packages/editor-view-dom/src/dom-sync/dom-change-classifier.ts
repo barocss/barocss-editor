@@ -196,9 +196,33 @@ function classifyC1(
     }
   }
 
-  // 1. For all mutations, find closest inline-text node.
-  //    - Don't distinguish characterData/childList/attributes, only look by sid.
-  for (const mutation of mutations) {
+  // 1. Consider only the mutations at the caret.
+  //
+  //    A change the user made is a change where the user is. Walking up from
+  //    every mutation instead means a render's own output can lead the search
+  //    somewhere else entirely — measured on a paginated document, a keystroke
+  //    arrived among hundreds of mutations from the page chrome, the walk landed
+  //    on the section, and the keystroke was never classified at all. C2 beside
+  //    this one has always started from the selection.
+  //
+  //    Without a caret there is nothing to compare against, so every mutation is
+  //    considered, as before: that is the case where the change did not come
+  //    from typing.
+  const caretContainer = options.selection?.rangeCount
+    ? options.selection.getRangeAt(0).startContainer
+    : undefined;
+  const caretSid = caretContainer
+    ? findClosestInlineTextNode(caretContainer)?.getAttribute('data-bc-sid') ?? null
+    : null;
+
+  const relevant = caretSid
+    ? mutations.filter((mutation) => {
+        const node = findClosestInlineTextNode(mutation.target);
+        return node?.getAttribute('data-bc-sid') === caretSid;
+      })
+    : mutations;
+
+  for (const mutation of relevant) {
     const target = mutation.target;
     const inlineTextNode = findClosestInlineTextNode(target);
     if (!inlineTextNode) {

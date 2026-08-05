@@ -27,18 +27,17 @@
  * run (a run split by a *mark* types correctly), and deferring repagination
  * while typing (no effect).
  *
- * Where to start next, measured rather than guessed. Changing one decorator
- * produces about eleven thousand DOM mutations, and none of them are the
- * paragraph — the paragraph is touched 127 times and the other ten thousand are
- * the page chrome this product draws: sheets, headers, footers, table-of-
- * contents entries. Eight thousand of them are attribute writes across nineteen
- * kinds of element, which is the same few elements written hundreds of times.
+ * Where it stands, measured. A keystroke used to arrive among 262 mutations and
+ * the classifier gave up; it now arrives among 2 and the classifier finds the
+ * right text node. What is left is one step further on: it then reports "no text
+ * changes" — the model already holds the character by the time it looks — so the
+ * caret is still never advanced and a word still comes out backwards.
  *
- * So the reconciler is diffing as it should; what it is given differs. The
- * surface component rebuilds its chrome on every render — new templates, new
- * style objects — so every attribute compares unequal and is written again, and
- * the layout loop renders many times over. Making that chrome stable across
- * renders is the fix, and it is this product's code rather than the engine's.
+ * Ruled out along the way, in order: the widget disturbing the offset index (it
+ * holds no text, and the model and DOM lengths match exactly), several text
+ * nodes in a run (a run split by a *mark* types correctly), the widget itself (a
+ * break added once and never replaced types perfectly — it is the replacing),
+ * and deferring repagination while typing (no effect).
  */
 import { defineDecorator, element } from '@barocss/dsl';
 

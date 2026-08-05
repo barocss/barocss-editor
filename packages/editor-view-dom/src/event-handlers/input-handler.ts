@@ -234,6 +234,33 @@ export class InputHandlerImpl implements InputHandler {
    * Handle DOM changes (called from MutationObserver)
    * Receives MutationRecord[] and calls case classification module (dom-change-classifier)
    */
+  /**
+   * The mutations inside the text node the caret is in.
+   *
+   * Everything the renderer does happens somewhere; only the user types where
+   * the caret is. With no caret there is nothing to compare against, and nothing
+   * is kept — a change with no caret did not come from typing.
+   */
+  private _mutationsAtCaret(mutations: MutationRecord[]): MutationRecord[] {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return [];
+
+    const caretElement =
+      selection.anchorNode?.nodeType === Node.TEXT_NODE
+        ? selection.anchorNode.parentElement
+        : (selection.anchorNode as Element | null);
+    const caret = caretElement?.closest('[data-bc-sid]');
+    if (!caret) return [];
+
+    return mutations.filter((mutation) => {
+      const target =
+        mutation.target.nodeType === Node.TEXT_NODE
+          ? mutation.target.parentElement
+          : (mutation.target as Element | null);
+      return !!target && caret.contains(target);
+    });
+  }
+
   async handleDomMutations(mutations: MutationRecord[]): Promise<void> {
     logger.debug(LogCategory.TEXT_INPUT, 'handleDomMutations: CALLED', {
       mutationsCount: mutations.length,
@@ -247,10 +274,22 @@ export class InputHandlerImpl implements InputHandler {
       }))
     });
 
-    // Ignore DOM changes during Model-First changes (prevent infinite loop)
+    // A render's own output is not input — but a render can be settling while the
+    // user is typing, and dropping everything for the duration drops the
+    // keystroke too. So judge by *where* rather than by when: whatever a render
+    // is doing, it is not typing where the caret is. Mutations at the caret are
+    // kept; everything else, during a render, is the renderer's own work.
+    let relevant = mutations;
     if ((this.editorViewDOM as any).isModelDrivenChange) {
-      logger.debug(LogCategory.TEXT_INPUT, 'handleDomMutations: SKIP - model-driven change');
-      return;
+      relevant = this._mutationsAtCaret(mutations);
+      if (relevant.length === 0) {
+        logger.debug(LogCategory.TEXT_INPUT, 'handleDomMutations: SKIP - model-driven change');
+        return;
+      }
+      logger.debug(LogCategory.TEXT_INPUT, 'handleDomMutations: keeping mutations at the caret', {
+        kept: relevant.length,
+        of: mutations.length
+      });
     }
 
     // Ignore DOM changes during rendering (prevent infinite loop)
@@ -258,6 +297,8 @@ export class InputHandlerImpl implements InputHandler {
       logger.debug(LogCategory.TEXT_INPUT, 'handleDomMutations: SKIP - rendering');
       return;
     }
+
+    mutations = relevant;
 
     // Classify DOM changes
     const selection = window.getSelection();
