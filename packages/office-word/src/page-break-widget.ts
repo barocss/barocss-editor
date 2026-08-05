@@ -27,17 +27,27 @@
  * run (a run split by a *mark* types correctly), and deferring repagination
  * while typing (no effect).
  *
- * Where it stands, measured. A keystroke used to arrive among 262 mutations and
- * the classifier gave up; it now arrives among 2 and the classifier finds the
- * right text node. What is left is one step further on: it then reports "no text
- * changes" — the model already holds the character by the time it looks — so the
- * caret is still never advanced and a word still comes out backwards.
+ * Where it stands, traced end to end. The character is applied to the model —
+ * the data is right — and the caret does not follow, because the position is
+ * wrong before anything is applied:
  *
- * Ruled out along the way, in order: the widget disturbing the offset index (it
- * holds no text, and the model and DOM lengths match exactly), several text
- * nodes in a run (a run split by a *mark* types correctly), the widget itself (a
- * break added once and never replaced types perfectly — it is the replacing),
- * and deferring repagination while typing (no effect).
+ *   - the DOM-to-model offset conversion answers 5510 and stays there while the
+ *     caret really moves 5511, 5512, 5513
+ *   - so every character is written at 5510, which is why a word arrives
+ *     backwards
+ *   - and by the time the classifier looks, the model and the DOM already agree
+ *     (prevLen === newLen), so it reports no change and never corrects the caret
+ *
+ * The conversion is the thing to fix. It reads the offset index, which walks the
+ * text nodes of a node — and a node carrying a break has its text split across
+ * several of them with an element between. That is the only difference from a
+ * paragraph that works, and a run split by a *mark* is split the same way and
+ * converts correctly, so it is the element between rather than the splitting.
+ *
+ * Ruled out along the way: the widget contributing text (it holds none, and the
+ * lengths match), the widget itself (one added and never replaced types
+ * perfectly), the mutation storm (a keystroke now arrives among 2 mutations
+ * rather than 262), and deferring repagination while typing.
  */
 import { defineDecorator, element } from '@barocss/dsl';
 
