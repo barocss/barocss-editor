@@ -27,21 +27,18 @@
  * run (a run split by a *mark* types correctly), and deferring repagination
  * while typing (no effect).
  *
- * Where it stands. Typing into a paragraph that carries one now works: the
- * characters arrive in order and the caret advances. That took tracing the caret
- * to two places that both decided where it goes — the insert path recomputed it
- * from a range that was one behind and overwrote what the operation had already
- * set — and is fixed in editor-view-dom rather than here.
+ * Getting here took tracing the caret to two places that both decided where it
+ * goes: the operation set it, and the insert path recomputed it from a range
+ * that was one behind and overwrote the answer — so every character landed at
+ * the same offset and a word arrived backwards. That is fixed in
+ * editor-view-dom, where the decision now has one owner.
  *
- * What is not settled is the geometry in this configuration: with the fix in,
- * some lines land outside their page again. It was right before, so this is a
- * regression to find rather than a design problem.
- *
- * Ruled out along the way: the widget contributing text (it holds none, and the
- * model and DOM lengths match), several text nodes in a run (a run split by a
- * mark types correctly), the widget itself (one added and never replaced types
- * perfectly — it is the replacing), the mutation storm (a keystroke now arrives
- * among 2 mutations rather than 262), and deferring repagination while typing.
+ * Ruled out along the way, each by measurement: the widget contributing text (it
+ * holds none, and the model and DOM texts are identical), several text nodes in
+ * a run (a run split by a mark types correctly), the widget itself (one added
+ * and never replaced typed perfectly — it was the replacing), the storm of
+ * renderer mutations (a keystroke now arrives among 2 rather than 262), and
+ * deferring repagination while typing.
  */
 import { defineDecorator, element } from '@barocss/dsl';
 

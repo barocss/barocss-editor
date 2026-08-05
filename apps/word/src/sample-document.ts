@@ -316,6 +316,28 @@ export function createSampleDocument(): INode {
           },
           {
             stype: 'heading',
+            attributes: { level: 2, styleId: 'Heading2' },
+            content: [{ stype: 'inline-text', text: 'A paragraph longer than a page' }]
+          },
+          {
+            stype: 'paragraph',
+            attributes: { styleId: 'Body' },
+            content: [
+              {
+                stype: 'inline-text',
+                text: Array.from(
+                  { length: 40 },
+                  (_, index) =>
+                    `(${index + 1}) A page break inside a paragraph cannot be a margin, because ` +
+                    'the thing before the break and the thing after it are the same element. ' +
+                    'It is drawn as an empty widget at a text offset instead, which contributes ' +
+                    'no text node and so is invisible to everything that reads text.'
+                ).join(' ')
+              }
+            ]
+          },
+          {
+            stype: 'heading',
             attributes: { level: 1, styleId: 'Heading1', pageBreakBefore: true },
             content: [{ stype: 'inline-text', text: 'A section that starts its own page' }]
           },

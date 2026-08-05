@@ -75,9 +75,7 @@ view.registerLayoutPass(
     container,
     doc,
     editing: () => editing,
-    // Off: typing is fixed, the geometry needs another pass.
-    // See page-break-widget.
-    splitBlocks: false,
+    splitBlocks: true,
     onPageBreaks: (breaks) => applyPageBreaks(breaks),
     // This app exists to be measured, and the layout is the part worth looking
     // at: where the breaks fell, and how tall each page turned out.

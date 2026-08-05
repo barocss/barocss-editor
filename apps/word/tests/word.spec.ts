@@ -193,31 +193,64 @@ test.describe('pages', () => {
     await page.goto('/');
     await page.waitForSelector('.w-sheet');
 
-    const result = await page.evaluate(() => {
+    const offsets = await page.evaluate(() => {
       const sheets = Array.from(document.querySelectorAll('.w-sheet'));
-      if (sheets.length < 2) return { pages: sheets.length, offsets: [] as number[] };
-
       const surface = document.querySelector('.w-surface')!;
-      const blocks = Array.from(surface.children).filter((el) => el.hasAttribute('data-bc-sid'));
+      const blocks = Array.from(surface.children).filter(
+        (el) => el.hasAttribute('data-bc-sid') && !el.classList.contains('w-sheets')
+      );
 
-      // For every sheet after the first, find the block that starts on it and
-      // report how far below the sheet's top margin it landed.
-      const offsets: number[] = [];
+      // Only pages that a block *starts* on. A page whose text continues a
+      // paragraph from the page before has no block beginning on it, and the
+      // block it belongs to began somewhere overleaf — that case is covered by
+      // the test below, which checks no text escapes its page at all.
+      const out: number[] = [];
       for (let i = 1; i < sheets.length; i++) {
-        const sheetTop = sheets[i].getBoundingClientRect().top;
-        const contentTop = sheetTop + 96; // 1in margin
-        const opener = blocks.find((b) => b.getBoundingClientRect().top >= sheetTop);
-        if (opener) offsets.push(opener.getBoundingClientRect().top - contentTop);
+        const rect = sheets[i].getBoundingClientRect();
+        const opener = blocks.find(
+          (b) => b.getBoundingClientRect().top >= rect.top && b.getBoundingClientRect().top < rect.bottom
+        );
+        if (opener) out.push(opener.getBoundingClientRect().top - (rect.top + 96));
       }
-      return { pages: sheets.length, offsets };
+      return out;
     });
 
-    expect(result.pages).toBeGreaterThan(1);
-    expect(result.offsets.length).toBeGreaterThan(0);
-    for (const offset of result.offsets) {
-      // Within a pixel of the sheet's content top
-      expect(Math.abs(offset)).toBeLessThan(1.5);
+    expect(offsets.length).toBeGreaterThan(0);
+    for (const offset of offsets) {
+      // A couple of pixels, which is what summing thirty measured heights costs
+      // in sub-pixel rounding. A page that was actually misaligned would be out
+      // by tens.
+      expect(Math.abs(offset)).toBeLessThan(2.5);
     }
+  });
+
+  test('keeps every line inside a page, however the block was split', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-sheet');
+
+    const outside = await page.evaluate(() => {
+      const areas = Array.from(document.querySelectorAll('.w-sheet')).map((sheet) => {
+        const rect = sheet.getBoundingClientRect();
+        return { top: rect.top + 96, bottom: rect.bottom - 96 };
+      });
+
+      const surface = document.querySelector('.w-surface')!;
+      const walker = document.createTreeWalker(surface, NodeFilter.SHOW_TEXT);
+      let strays = 0;
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        if (node.parentElement?.closest('.w-sheets')) continue;
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        for (const rect of Array.from(range.getClientRects())) {
+          if (rect.height <= 0) continue;
+          const inside = areas.some((a) => rect.top >= a.top - 2 && rect.bottom <= a.bottom + 2);
+          if (!inside) strays++;
+        }
+      }
+      return strays;
+    });
+
+    expect(outside).toBe(0);
   });
 });
 
@@ -592,9 +625,19 @@ test.describe('table of contents', () => {
     await page.waitForSelector('.w-toc-entry');
 
     // This heading asks for a page break, so it is the one whose number proves
-    // the table is generated rather than stored.
+    // the table is generated rather than stored. Checked against the layout
+    // rather than a fixed number, so the assertion survives the fixture growing.
+    const expected = await page.evaluate(() => {
+      const layout = (window as any).wordLayout?.values().next().value;
+      const heading = Array.from(document.querySelectorAll('.w-heading')).find((el) =>
+        (el.textContent ?? '').includes('starts its own page')
+      )!;
+      return String((layout.pageOfBlock.get(heading.getAttribute('data-bc-sid')!) ?? 0) + 1);
+    });
+
     const later = page.locator('.w-toc-entry', { hasText: 'starts its own page' });
-    await expect(later).toContainText('3');
+    await expect(later).toContainText(expected);
+    expect(Number(expected)).toBeGreaterThan(1);
   });
 
   test('indents by heading level', async ({ page }) => {
@@ -862,3 +905,103 @@ test.describe('marks that carry a value', () => {
   });
 })
 
+
+test.describe('a paragraph longer than a page', () => {
+  const longParagraph = '.w-paragraph:has-text("A page break inside a paragraph cannot be a margin")';
+
+  test('breaks inside itself', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-page-break');
+
+    // Everything else the layout does moves whole blocks. This one puts space
+    // between two lines of one block, which no margin can express: the thing
+    // before the break and the thing after it are the same element.
+    expect(await page.locator('.w-page-break').count()).toBeGreaterThan(0);
+  });
+
+  test('settles rather than growing on every pass', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-page-break');
+
+    // The spacer is part of how tall the paragraph currently is and no part of
+    // how tall its text is. Measuring it as a line made the block grow each time
+    // it broke, and the breaks drifted further down on every pass.
+    const first = await page.locator('.w-page-break').count();
+    await page.waitForTimeout(600);
+    expect(await page.locator('.w-page-break').count()).toBe(first);
+  });
+
+  test('leaves the text the model holds untouched', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-page-break');
+
+    // The spacer is an empty element: it contributes no text node, so nothing
+    // that reads text should be able to tell it is there.
+    const [dom, model] = await page.evaluate(() => {
+      // Located by its text: `:has-text` is Playwright's, not the DOM's.
+      const el = Array.from(document.querySelectorAll('.w-paragraph')).find((p) =>
+        (p.textContent ?? '').includes('A page break inside a paragraph cannot be a margin')
+      )!;
+      const sid = el.querySelector('[data-bc-sid]')!.getAttribute('data-bc-sid')!;
+      return [el.textContent ?? '', (window as any).editor.dataStore.getNode(sid)?.text ?? ''];
+    });
+
+    expect(dom).toBe(model);
+    expect(dom).not.toContain('﻿');
+  });
+
+  test('types in order across the break', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-page-break');
+
+    await placeCaret(page, longParagraph);
+    const before = await page.evaluate(() => (window as any).editor.selection.startOffset);
+    await page.keyboard.type('XYZ', { delay: 120 });
+
+    // The caret has to advance with each character, or the next one lands in
+    // front of the last and the word arrives backwards.
+    await expect
+      .poll(async () => page.evaluate(() => (window as any).editor.selection.startOffset))
+      .toBe(before + 3);
+    await expect(page.locator(longParagraph)).toContainText('XYZ');
+  });
+
+  test('types in order when typed quickly', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-page-break');
+
+    // Fast enough that a render is still settling when the next key arrives,
+    // which is where a forced caret restore used to overwrite the user's own.
+    await placeCaret(page, longParagraph);
+    await page.keyboard.type('ABCDEFGH', { delay: 15 });
+
+    await expect(page.locator(longParagraph)).toContainText('ABCDEFGH');
+  });
+
+  test('is not copied with the text', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-page-break');
+
+    const copied = await page.evaluate(() => {
+      const el = Array.from(document.querySelectorAll('.w-paragraph')).find((p) =>
+        (p.textContent ?? '').includes('A page break inside a paragraph cannot be a margin')
+      )!;
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      const selection = window.getSelection()!;
+      selection.removeAllRanges();
+      selection.addRange(range);
+
+      let html = '';
+      const onCopy = (event: ClipboardEvent) => {
+        html = event.clipboardData?.getData('text/html') ?? '';
+      };
+      document.addEventListener('copy', onCopy);
+      document.execCommand('copy');
+      document.removeEventListener('copy', onCopy);
+      return html;
+    });
+
+    expect(copied).not.toContain('w-page-break');
+  });
+})
