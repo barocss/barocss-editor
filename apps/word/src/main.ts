@@ -6,6 +6,9 @@ import {
   createWordEditor,
   createWordEnv,
   createWordLayoutPass,
+  registerPageBreakWidget,
+  PAGE_BREAK_STYPE,
+  type PageBreakWidget,
   getWordSchemaDefinition,
   registerWordRenderers,
   WORD_ENV_KEY,
@@ -20,6 +23,7 @@ declare global {
     editorView?: any;
     wordLayout?: Map<string, SurfaceLayout>;
     setEditingFurniture?: (id: string | undefined) => void;
+    pageBreaks?: PageBreakWidget[];
   }
 }
 
@@ -27,6 +31,7 @@ const container = document.getElementById('editor');
 if (!container) throw new Error('#editor not found');
 
 registerWordRenderers();
+registerPageBreakWidget();
 
 const schema = createSchema('word', getWordSchemaDefinition());
 const dataStore = new DataStore(undefined, schema);
@@ -70,6 +75,12 @@ view.registerLayoutPass(
     container,
     doc,
     editing: () => editing,
+    // Off for now. The layout and the widgets are right — a paragraph splits
+    // where it should and no line escapes its page — but typing into a
+    // paragraph that carries a break puts the caret back where it was before
+    // the keystroke, so a word comes out backwards. See page-break-widget.
+    splitBlocks: false,
+    onPageBreaks: (breaks) => applyPageBreaks(breaks),
     // This app exists to be measured, and the layout is the part worth looking
     // at: where the breaks fell, and how tall each page turned out.
     onLayout: (layouts) => {
@@ -77,6 +88,35 @@ view.registerLayoutPass(
     }
   })
 );
+
+/**
+ * Draw the page breaks that fall inside a paragraph.
+ *
+ * Decorations rather than content: where a paragraph breaks is a fact about the
+ * layout, and putting it in the document would mean the text changed because the
+ * window was resized.
+ */
+let drawnBreaks: string[] = [];
+
+const applyPageBreaks = (breaks: PageBreakWidget[]): void => {
+  window.pageBreaks = breaks;
+  const wanted = breaks.map((item) => item.sid);
+  if (wanted.join(',') === drawnBreaks.join(',')) return;
+
+  for (const sid of drawnBreaks) view.removeDecorator(sid);
+  for (const item of breaks) {
+    view.addDecorator({
+      sid: item.sid,
+      stype: PAGE_BREAK_STYPE,
+      category: 'inline',
+      // Start and end at the same offset: this marks a position between two
+      // characters, not a claim about either of them.
+      target: { sid: item.target.sid, startOffset: item.target.offset, endOffset: item.target.offset },
+      data: { height: item.height }
+    } as never);
+  }
+  drawnBreaks = wanted;
+};
 
 view.render();
 

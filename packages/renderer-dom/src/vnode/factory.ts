@@ -2272,6 +2272,17 @@ export class VNodeBuilder {
               .map((d: any) => d.sid)
           });
         }
+        // A widget marks a position between two runs, so it has no text of its
+        // own and must be emitted before the empty-run check discards it.
+        if (decoratorRun.widget) {
+          const widgetVNode = this.decoratorProcessor.buildDecoratorVNode(
+            decoratorRun.widget,
+            (template, data, options) => this._buildElement(template, data, options)
+          );
+          if (widgetVNode) nodes.push(widgetVNode);
+          continue;
+        }
+
         if (!decoratorRun.text || decoratorRun.text.length === 0) {
           continue;
         }

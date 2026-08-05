@@ -110,6 +110,17 @@ export interface DecoratorTextRun {
   decorators?: Decorator[];  // Multiple decorators (before/after, etc.)
   start: number;
   end: number;
+  /**
+   * A decorator that marks a *position* rather than covering a range.
+   *
+   * Set on a run of no text, sitting between the two runs it falls between.
+   * Some things a reader needs to see are not about any characters: another
+   * person's caret, the anchor of a comment yet to be written, the point a page
+   * breaks in the middle of a paragraph. A range cannot say "here" — the
+   * narrowest one covers a character, and covering a character is a claim about
+   * that character.
+   */
+  widget?: Decorator;
 }
 
 /**

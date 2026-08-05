@@ -146,7 +146,7 @@ export class DecoratorProcessor {
    */
   splitTextByDecorators(text: string, decorators: Decorator[]): DecoratorTextRun[] {
     const len = text.length;
-    if (len === 0 || decorators.length === 0) {
+    if (decorators.length === 0) {
       return [{ text, start: 0, end: len }];
     }
     
@@ -157,6 +157,8 @@ export class DecoratorProcessor {
     
     // Index decorators by their start position for faster lookup
     const decoratorIndex = new Map<number, Decorator[]>();
+    /** Decorators that mark a position rather than covering a range. */
+    const widgetIndex = new Map<number, Decorator[]>();
     
     for (const d of decorators) {
       if (d.category !== 'inline') continue;
@@ -182,6 +184,16 @@ export class DecoratorProcessor {
           decoratorIndex.set(s, []);
         }
         decoratorIndex.get(s)!.push(d);
+      } else if (range.start === range.end) {
+        // A position, not a range. These used to be dropped here, which meant
+        // nothing could be shown *between* two characters — no collaborator's
+        // caret, no anchor for a comment that has no text yet, no point where a
+        // page breaks mid-paragraph.
+        boundaries.add(s);
+        if (!widgetIndex.has(s)) {
+          widgetIndex.set(s, []);
+        }
+        widgetIndex.get(s)!.push(d);
       }
     }
     
@@ -189,10 +201,18 @@ export class DecoratorProcessor {
     const points = Array.from(boundaries.values()).sort((a, b) => a - b);
     const runs: DecoratorTextRun[] = [];
     
+    /** Emit the position widgets sitting at an offset, before the run past it. */
+    const emitWidgets = (offset: number): void => {
+      for (const widget of widgetIndex.get(offset) ?? []) {
+        runs.push({ text: '', start: offset, end: offset, widget });
+      }
+    };
+
     // Step 3: Build runs and find matching decorators efficiently
     for (let i = 0; i < points.length - 1; i++) {
       const start = points[i];
       const end = points[i + 1];
+      emitWidgets(start);
       if (end <= start) continue;
       
       const slice = text.slice(start, end);
@@ -239,6 +259,10 @@ export class DecoratorProcessor {
       
       runs.push({ text: slice, decorator, decorators: decoratorsArray, start, end });
     }
+
+    // A widget at the very end sits after every run, and the loop above stops
+    // one boundary short of it.
+    emitWidgets(points[points.length - 1]);
     
     return runs;
   }

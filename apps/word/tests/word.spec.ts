@@ -861,3 +861,4 @@ test.describe('marks that carry a value', () => {
     await expect(page.locator('.mark-charStyle')).toHaveCSS('color', 'rgb(44, 82, 130)');
   });
 })
+

@@ -51,6 +51,14 @@ export interface SurfaceLayout {
   /** The page each block starts on, which a table of contents needs. */
   pageOfBlock: Map<string, number>;
   /**
+   * Where a block splits across a page boundary, and how far the remainder has
+   * to fall to reach the next page.
+   *
+   * Keyed by block; a long paragraph can cross more than one boundary. `line` is
+   * the line the break comes *after*, which is what turns into a text offset.
+   */
+  splitBySid: Map<string, { line: number; height: number }[]>;
+  /**
    * Where each block sits, for a section whose text runs in columns.
    *
    * Empty for a single column, where blocks stack in normal flow and only the
@@ -120,6 +128,7 @@ export function layoutSurface(
   const pushBySid = new Map<string, number>();
 
   const positionBySid = new Map<string, { top: number; left: number; width: number }>();
+  const splitBySid = new Map<string, { line: number; height: number }[]>();
   const columns = metrics.columnCount;
 
   if (columns > 1) {
@@ -148,11 +157,23 @@ export function layoutSurface(
     for (const page of pages) {
       const first = page.fragments[0];
       const contentTop = page.index * (metrics.height + metrics.gap) + metrics.marginTop;
-      if (first) {
+      if (first && !first.continued) {
         // Never negative: content that overflowed its page must not be dragged
         // back up over the page before it.
         pushBySid.set(first.sid, Math.max(0, contentTop - consumed));
       }
+
+      // A block that continues overleaf needs the gap *inside* it, at the line
+      // it stopped on — a top margin on the next block cannot express that,
+      // because the next block is the same block.
+      const last = page.fragments[page.fragments.length - 1];
+      if (last?.continues) {
+        const nextTop = (page.index + 1) * (metrics.height + metrics.gap) + metrics.marginTop;
+        const splits = splitBySid.get(last.sid) ?? [];
+        splits.push({ line: last.toLine, height: Math.max(0, nextTop - (contentTop + page.height)) });
+        splitBySid.set(last.sid, splits);
+      }
+
       consumed = contentTop + page.height;
     }
   }
@@ -185,6 +206,7 @@ export function layoutSurface(
     metrics,
     pushBySid,
     positionBySid,
+    splitBySid,
     totalHeight: sheetCount * metrics.height + Math.max(0, sheetCount - 1) * metrics.gap,
     footnotesByPage: footnotes.byPage,
     footnoteNumbers: footnotes.numberOf,

@@ -16,16 +16,26 @@
  * which pagination never changes; that is what makes measure → break → place
  * converge instead of oscillate.
  */
+import { CHROME_ATTR } from '@barocss/shared';
 import { twipToPx } from './css';
 import type { MeasuredBlock } from './pagination';
 import type { StyleResolver } from './style-resolver';
 import { childrenOf, type DocumentAccess, type DocumentNode } from './document-access';
 import { footnoteRefsIn, reserveFor } from './footnotes';
+import { lineStartOffsets, type LineAnchor } from './line-offsets';
 
 /** The DOM attribute the renderer stamps each node's id onto. */
 const SID_ATTR = 'data-bc-sid';
 
 export interface MeasureOptions {
+  /**
+   * Collects the text offset each line of a block starts at.
+   *
+   * Only wanted when paragraphs may split, since finding them costs a binary
+   * search per line and a document that breaks only between blocks has no use
+   * for the answer.
+   */
+  onLineOffsets?: (sid: string, offsets: LineAnchor[]) => void;
   /**
    * Measured height of each footnote body, by id.
    *
@@ -57,16 +67,29 @@ export interface MeasureOptions {
  * larger run, or a differently-sized font on the same line as separate lines.
  */
 function lineBands(el: Element): { top: number; bottom: number }[] {
-  const range = el.ownerDocument.createRange();
-  range.selectNodeContents(el);
+  // Per text node rather than over the whole element. A range across the element
+  // also returns rectangles for what is *not* text — the spacer that draws a
+  // page break inside a paragraph is an empty element, and measuring it as a
+  // line makes the block look one line taller each time it breaks, which drifts
+  // further on every pass.
+  const walker = el.ownerDocument.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  const rects: DOMRect[] = [];
 
-  const rects = Array.from(range.getClientRects())
-    .filter((r) => r.height > 0)
-    .sort((a, b) => a.top - b.top);
-  range.detach?.();
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    const text = node as Text;
+    if (text.data.length === 0) continue;
+
+    const range = el.ownerDocument.createRange();
+    range.selectNodeContents(text);
+    rects.push(...Array.from(range.getClientRects()));
+    range.detach?.();
+  }
+
+  rects.sort((a, b) => a.top - b.top);
 
   const bands: { top: number; bottom: number }[] = [];
   for (const rect of rects) {
+    if (rect.height <= 0) continue;
     const last = bands[bands.length - 1];
     // A 1px tolerance: adjacent line boxes can touch, and sub-pixel positions
     // would otherwise merge two lines into one.
@@ -92,7 +115,14 @@ function linesFor(el: HTMLElement): number[] {
   // getBoundingClientRect, not offsetHeight: the latter rounds to whole pixels,
   // and a fraction of a pixel dropped from every block accumulates into a page
   // that ends several pixels away from where the layout placed it.
-  const height = el.getBoundingClientRect().height;
+  //
+  // Less whatever the layout itself put there. A page break drawn inside this
+  // paragraph is part of how tall it currently is and no part of how tall its
+  // text is — counting it would make the block grow every time it broke.
+  let height = el.getBoundingClientRect().height;
+  for (const chrome of Array.from(el.querySelectorAll(`[${CHROME_ATTR}]`))) {
+    height -= chrome.getBoundingClientRect().height;
+  }
   const count = lineBands(el).length;
   if (height <= 0) return [];
   if (count <= 1) return [height];
@@ -139,6 +169,10 @@ export function measureBlocks(
     const format = styles.resolveNode(node, 'paragraph');
     const lines = linesFor(child as HTMLElement);
     const refs = footnoteRefsIn(doc, node);
+
+    if (splitBlocks && options.onLineOffsets && lines.length > 1) {
+      options.onLineOffsets(sid, lineStartOffsets(child));
+    }
 
     blocks.push({
       sid,

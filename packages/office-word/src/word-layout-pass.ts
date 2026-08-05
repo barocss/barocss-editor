@@ -19,8 +19,18 @@ import { layoutSurface, sheetMetrics, type SurfaceLayout } from './layout';
 import { measureBlocks, type MeasureOptions } from './measurement';
 import { FOOTNOTE_SEPARATOR } from './page-furniture';
 import { childrenOf } from './document-access';
+import type { LineAnchor } from './line-offsets';
 import { createStyleResolver } from './style-resolver';
 import { createWordEnv, WORD_ENV_KEY } from './render-context';
+
+/** A page break that falls inside a paragraph, as something to draw. */
+export interface PageBreakWidget {
+  sid: string;
+  /** The model node and offset the break sits at. */
+  target: LineAnchor;
+  /** How far the text after it has to fall to reach the next page. */
+  height: number;
+}
 
 /** The DOM attribute the renderer stamps each node's id onto. */
 const SID_ATTR = 'data-bc-sid';
@@ -41,10 +51,15 @@ export interface WordLayoutPassOptions extends MeasureOptions {
   editing?: () => string | undefined;
   /** Called with the computed layouts, for hosts that want to inspect them. */
   onLayout?: (layouts: Map<string, SurfaceLayout>) => void;
+  /**
+   * Called with the page breaks that fall inside a paragraph, as widgets to
+   * place. Empty unless `splitBlocks` is on.
+   */
+  onPageBreaks?: (breaks: PageBreakWidget[]) => void;
 }
 
 export function createWordLayoutPass(options: WordLayoutPassOptions): () => RenderEnv | void {
-  const { container, doc, onLayout, editing, ...measureOptions } = options;
+  const { container, doc, onLayout, onPageBreaks, editing, ...measureOptions } = options;
 
   // What the last round produced. The view keeps running passes until they stop
   // reporting changes, and a layout that matches the one already on screen is
@@ -64,6 +79,7 @@ export function createWordLayoutPass(options: WordLayoutPassOptions): () => Rend
     // because nothing has been drawn, the second reserves what it measured, and
     // the third would measure the same thing again.
     const footnoteHeights = measureFootnotes(container);
+    const pageBreaks: PageBreakWidget[] = [];
 
     for (const el of Array.from(container.querySelectorAll(SURFACE_SELECTOR))) {
       const sid = el.getAttribute(SID_ATTR);
@@ -71,10 +87,12 @@ export function createWordLayoutPass(options: WordLayoutPassOptions): () => Rend
 
       const node = doc.getNode(sid)!;
       const metrics = sheetMetrics(styles.resolveNode(node, 'page'));
+      const lineAnchors = new Map<string, LineAnchor[]>();
       const blocks = measureBlocks(el as HTMLElement, doc, styles, {
         ...measureOptions,
         footnoteHeights,
-        footnoteSeparator: FOOTNOTE_SEPARATOR
+        footnoteSeparator: FOOTNOTE_SEPARATOR,
+        onLineOffsets: (blockSid, anchors) => lineAnchors.set(blockSid, anchors)
       });
 
       const footnoteRefs = new Map<string, string[]>();
@@ -84,13 +102,36 @@ export function createWordLayoutPass(options: WordLayoutPassOptions): () => Rend
         if (refs.length > 0) footnoteRefs.set(child.sid, refs);
       }
 
-      layouts.set(sid, layoutSurface(blocks, metrics, { footnoteRefs }));
+      const layout = layoutSurface(blocks, metrics, { footnoteRefs });
+      layouts.set(sid, layout);
+
+      // A break inside a paragraph is a widget at a text offset, and the offset
+      // is only known from the measurement: the layout says "after line three",
+      // and which characters that is depends on where the lines fell.
+      for (const [blockSid, splits] of layout.splitBySid) {
+        const anchors = lineAnchors.get(blockSid);
+        if (!anchors) continue;
+        for (const split of splits) {
+          const anchor = anchors[split.line - 1];
+          if (!anchor) continue;
+          pageBreaks.push({
+            sid: `page-break-${blockSid}-${split.line}`,
+            target: anchor,
+            height: split.height
+          });
+        }
+      }
     }
 
     // Which furniture is being edited is part of what a render looks like, so a
     // change of mode has to count as a change even when the breaks did not move.
+    onPageBreaks?.(pageBreaks);
+
     const editingId = editing?.();
-    const signature = `${editingId ?? ''}|${signatureOf(layouts)}`;
+    const breakSignature = pageBreaks
+      .map((item) => `${item.sid}@${item.target.sid}:${item.target.offset}+${Math.round(item.height)}`)
+      .join(',');
+    const signature = `${editingId ?? ''}|${breakSignature}|${signatureOf(layouts)}`;
     if (signature === previous) return;
     previous = signature;
 

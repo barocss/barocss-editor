@@ -81,7 +81,11 @@ export {
 } from './layout';
 export { flowCss, twipToPx } from './css';
 
-export { createWordLayoutPass, type WordLayoutPassOptions } from './word-layout-pass';
+export {
+  createWordLayoutPass,
+  type WordLayoutPassOptions,
+  type PageBreakWidget
+} from './word-layout-pass';
 
 export {
   furnitureFor,
@@ -95,3 +99,6 @@ export {
 export { tocEntries, tocPageNumber, parseLevels, type TocEntry } from './toc';
 
 export { createFieldResolver, type FieldResolver } from './field-resolver';
+
+export { lineStartOffsets, type LineAnchor } from './line-offsets';
+export { registerPageBreakWidget, PAGE_BREAK_STYPE } from './page-break-widget';
