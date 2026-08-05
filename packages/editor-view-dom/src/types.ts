@@ -1,5 +1,5 @@
 import { Editor } from '@barocss/editor-core';
-import type { RendererRegistry, ModelData } from '@barocss/dsl';
+import type { RendererRegistry, ModelData, RenderEnv } from '@barocss/dsl';
 import type {
   DecoratorExportData,
   LoadDecoratorsPatternFunctions,
@@ -45,6 +45,19 @@ export interface EditorViewDOMOptions {
   registry?: RendererRegistry; // RendererRegistry
   initialTree?: ModelData | any;  // ModelData format (uses sid, stype)
   autoRender?: boolean;   // Default: true
+  /**
+   * Host environment handed to every template this view renders.
+   *
+   * `editor` is added to it automatically, so a template can always reach the
+   * editor it is being rendered by. Everything else is the product's: a Word
+   * document's style and numbering resolvers, the page layout, a Slide's theme.
+   *
+   * Templates receive only the node they are drawing, which is not enough for a
+   * node whose appearance depends on the document around it. Products solved
+   * that with module-level state, which silently means one document per module —
+   * two editors on a page read each other's. This scopes it to the view instead.
+   */
+  env?: RenderEnv;
 }
 
 export interface KeymapConfig {

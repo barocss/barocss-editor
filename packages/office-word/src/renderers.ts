@@ -20,10 +20,15 @@ import {
   type CssStyle
 } from './css';
 import { getBlockPush, getWordLayout, getWordNumbering, getWordStyles } from './render-context';
+import type { RenderEnv } from '@barocss/dsl';
 
 /** Resolved formatting for a node, or nothing when no document is set. */
-function formatFor(node: Record<string, any>, scope: 'paragraph' | 'character' | 'table'): CssStyle {
-  const styles = getWordStyles();
+function formatFor(
+  node: Record<string, any>,
+  scope: 'paragraph' | 'character' | 'table',
+  env: RenderEnv | undefined
+): CssStyle {
+  const styles = getWordStyles(env);
   if (!styles) return {};
   const format = styles.resolveNode(node as never, scope);
   switch (scope) {
@@ -41,22 +46,25 @@ function formatFor(node: Record<string, any>, scope: 'paragraph' | 'character' |
  * applies to the whole block. Word keeps them separate (a paragraph mark carries
  * run properties); CSS does not, and inheritance does the rest.
  */
-function blockStyle(node: Record<string, any>): CssStyle {
-  const style: CssStyle = { ...formatFor(node, 'paragraph'), ...formatFor(node, 'character') };
+function blockStyle(node: Record<string, any>, env: RenderEnv | undefined): CssStyle {
+  const style: CssStyle = {
+    ...formatFor(node, 'paragraph', env),
+    ...formatFor(node, 'character', env)
+  };
 
   // The block that opens a page is pushed down to meet its sheet. It replaces
   // the block's own space before rather than adding to it, which is the same
   // rule the paginator applied when it decided the break: space before is
   // suppressed at the top of a page.
-  const push = getBlockPush(String(node.sid ?? ''));
+  const push = getBlockPush(env, String(node.sid ?? ''));
   if (push !== undefined) style.marginTop = `${push}px`;
 
   return style;
 }
 
 /** The list marker for a numbered block, if it has one. */
-function listMarker(node: Record<string, any>): string {
-  const numbering = getWordNumbering();
+function listMarker(node: Record<string, any>, env: RenderEnv | undefined): string {
+  const numbering = getWordNumbering(env);
   const sid = node.sid as string | undefined;
   if (!numbering || !sid) return '';
   const item = numbering.numberFor(sid);
@@ -97,10 +105,11 @@ export function registerWordRenderers(): void {
    * sheets comes from the layout, not from the node — and going through the DSL
    * rather than around it is what keeps this renderable by renderer-react too.
    */
-  define('surface', (_props: Record<string, any>, node: Record<string, any>) => {
-    const styles = getWordStyles();
+  define('surface', (_props: Record<string, any>, node: Record<string, any>, ctx: any) => {
+    const env = ctx?.env as RenderEnv | undefined;
+    const styles = getWordStyles(env);
     const format = styles ? styles.resolveNode(node as never, 'page') : {};
-    const layout = getWordLayout(String(node.sid ?? ''));
+    const layout = getWordLayout(env, String(node.sid ?? ''));
 
     const sheets = (layout?.pages ?? []).map((page) => {
       const { height, width, gap } = layout!.metrics;
@@ -161,8 +170,8 @@ export function registerWordRenderers(): void {
       {
         className: 'w-paragraph',
         'data-style': (d: Record<string, any>) => String(d.attributes?.styleId ?? ''),
-        'data-marker': listMarker,
-        style: blockStyle
+        'data-marker': (d: Record<string, any>, env?: RenderEnv) => listMarker(d, env),
+        style: (d: Record<string, any>, env?: RenderEnv) => blockStyle(d, env)
       },
       [slot('content')]
     )
@@ -178,8 +187,8 @@ export function registerWordRenderers(): void {
       {
         className: 'w-heading',
         'data-style': (d: Record<string, any>) => String(d.attributes?.styleId ?? ''),
-        'data-marker': listMarker,
-        style: blockStyle
+        'data-marker': (d: Record<string, any>, env?: RenderEnv) => listMarker(d, env),
+        style: (d: Record<string, any>, env?: RenderEnv) => blockStyle(d, env)
       },
       [slot('content')]
     )
@@ -190,12 +199,12 @@ export function registerWordRenderers(): void {
     'listItem',
     element(
       'div',
-      { className: 'w-list-item', 'data-marker': listMarker, style: blockStyle },
+      { className: 'w-list-item', 'data-marker': (d: Record<string, any>, env?: RenderEnv) => listMarker(d, env), style: (d: Record<string, any>, env?: RenderEnv) => blockStyle(d, env) },
       [slot('content')]
     )
   );
 
-  define('blockQuote', element('blockquote', { className: 'w-quote', style: blockStyle }, [slot('content')]));
+  define('blockQuote', element('blockquote', { className: 'w-quote', style: (d: Record<string, any>, env?: RenderEnv) => blockStyle(d, env) }, [slot('content')]));
   define(
     'codeBlock',
     element('pre', { className: 'w-code', 'data-language': (d: Record<string, any>) => String(d.attributes?.language ?? '') }, [
@@ -222,7 +231,7 @@ export function registerWordRenderers(): void {
       'table',
       {
         className: 'w-table',
-        style: (d: Record<string, any>) => ({ ...blockStyle(d), ...formatFor(d, 'table') })
+        style: (d: Record<string, any>, env?: RenderEnv) => ({ ...blockStyle(d, env), ...formatFor(d, 'table', env) })
       },
       [slot('content')]
     )
@@ -238,8 +247,8 @@ export function registerWordRenderers(): void {
     className: 'w-cell',
     colspan: (d: Record<string, any>) => d.attributes?.colspan ?? 1,
     rowspan: (d: Record<string, any>) => d.attributes?.rowspan ?? 1,
-    style: (d: Record<string, any>) => {
-      const styles = getWordStyles();
+    style: (d: Record<string, any>, env?: RenderEnv) => {
+      const styles = getWordStyles(env);
       return styles ? tableCellCss(styles.resolveNode(d as never, 'table')) : {};
     }
   };

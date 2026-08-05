@@ -3,7 +3,7 @@
  * Provides type-safe HTML element attributes and event handlers
  */
 
-import { ClassNameType, DataTemplate } from "./types";
+import { ClassNameType, DataTemplate, RenderEnv } from "./types";
 
 // Base HTML attributes that are common to most elements
 export interface BaseHTMLAttributes {
@@ -376,7 +376,7 @@ export type AttributesForTag<T extends AllTagNames> =
 export type DynamicAttribute<T> =
   | T
   | DataTemplate
-  | ((data: Record<string, any>) => T | undefined | null);
+  | ((data: Record<string, any>, env?: RenderEnv) => T | undefined | null);
 
 // Enhanced element attributes with dynamic support
 export type DynamicElementAttributes<T extends AllTagNames> = {

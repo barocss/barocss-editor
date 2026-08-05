@@ -4,7 +4,7 @@
  * Pure functions for resolving attribute values, styles, and classNames
  */
 
-import { ModelData } from '@barocss/dsl';
+import { ModelData, RenderEnv } from '@barocss/dsl';
 import { isFunction, isNullOrUndefined, isDefined } from './type-checks';
 import { isDataTemplate } from './template-guards';
 import { getDataValue } from './model-data';
@@ -18,16 +18,18 @@ import { classTokensFrom } from './classname';
  * @param key - Attribute key
  * @param value - Attribute value (function, DataTemplate, or static)
  * @param data - Model data for data binding
+ * @param env - Host environment for this render, for values the node does not carry
  * @returns Resolved attribute value
  */
 export function resolveAttributeValue(
   vnode: { attrs?: Record<string, any> },
   key: string,
   value: any,
-  data: ModelData
+  data: ModelData,
+  env?: RenderEnv
 ): any {
   if (isFunction(value)) {
-    return (value as any)(data);
+    return (value as any)(data, env);
   }
 
   if (isDataTemplate(value)) {
@@ -50,14 +52,18 @@ export function resolveAttributeValue(
  * @param data - Model data for data binding
  * @returns Resolved style object
  */
-export function resolveStyleObject(styleValue: Record<string, any>, data: ModelData): Record<string, any> {
+export function resolveStyleObject(
+  styleValue: Record<string, any>,
+  data: ModelData,
+  env?: RenderEnv
+): Record<string, any> {
   const styleObj: Record<string, any> = {};
 
   Object.entries(styleValue).forEach(([styleKey, styleEntry]) => {
     let resolvedStyleValue: any = styleEntry;
 
     if (isFunction(styleEntry)) {
-      resolvedStyleValue = (styleEntry as any)(data);
+      resolvedStyleValue = (styleEntry as any)(data, env);
     } else if (styleEntry && isDataTemplate(styleEntry)) {
       const dt = styleEntry as any;
       const value = dt.getter ? dt.getter(data) : getDataValue(data, dt.path);
@@ -79,8 +85,8 @@ export function resolveStyleObject(styleValue: Record<string, any>, data: ModelD
  * @param data - Model data for data binding
  * @returns Resolved className string
  */
-export function resolveClassName(classNameValue: any, data: ModelData): string {
-  const resolved = isFunction(classNameValue) ? classNameValue(data) : classNameValue;
+export function resolveClassName(classNameValue: any, data: ModelData, env?: RenderEnv): string {
+  const resolved = isFunction(classNameValue) ? classNameValue(data, env) : classNameValue;
   const classTokens = classTokensFrom(resolved);
   return classTokens.filter(Boolean).join(' ');
 }

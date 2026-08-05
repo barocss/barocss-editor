@@ -27,6 +27,7 @@ import {
   getGlobalRegistry,
   ModelData,
   PortalTemplate,
+  RenderEnv,
   RendererRegistry,
   SlotTemplate
 } from '@barocss/dsl'; // Global registry access
@@ -141,6 +142,16 @@ export class VNodeBuilder {
   /** Current build options (set during build() call) */
   private currentBuildOptions?: VNodeBuildOptions;
 
+  /**
+   * Host environment handed to templates.
+   *
+   * The renderer neither reads nor interprets it — it only makes sure that
+   * whatever the host put in reaches every attribute function and every
+   * contextual component, so that a template can depend on something outside the
+   * node it is drawing without reaching for module-level state.
+   */
+  private env?: RenderEnv;
+
   /** Set of used IDs to prevent conflicts in data-bc-sid attributes */
   private usedIds = new Set<string>();
 
@@ -151,6 +162,7 @@ export class VNodeBuilder {
       componentManager?: ComponentManager;
       patternDecoratorGenerator?: PatternDecoratorGenerator;
       customDecoratorGeneratorManager?: CustomDecoratorGeneratorManager;
+      env?: RenderEnv;
     }
   ) {
     // Use global registry if none provided
@@ -162,6 +174,16 @@ export class VNodeBuilder {
     this.componentManager = options?.componentManager;
     this.patternDecoratorGenerator = options?.patternDecoratorGenerator;
     this.customDecoratorGeneratorManager = options?.customDecoratorGeneratorManager;
+    this.env = options?.env;
+  }
+
+  /** Replace the environment templates see on the next build. */
+  setEnv(env: RenderEnv | undefined): void {
+    this.env = env;
+  }
+
+  getEnv(): RenderEnv | undefined {
+    return this.env;
   }
 
   /**
@@ -235,6 +257,7 @@ export class VNodeBuilder {
   ): ComponentContext {
     const base: ComponentContext = {
       id,
+      env: this.env,
       get state() { return state; }, // Dynamic state access
       props: props, // props are already sanitized values (excluding stype/sid)
       model: model, // model is original as is (including stype/sid)
@@ -1319,10 +1342,10 @@ export class VNodeBuilder {
         return;
       }
 
-      const resolvedValue = resolveAttributeValue(vnode, key, value, data);
+      const resolvedValue = resolveAttributeValue(vnode, key, value, data, this.env);
 
       if (key === 'style' && isStyleObject(resolvedValue)) {
-        const styleObj = resolveStyleObject(resolvedValue, data);
+        const styleObj = resolveStyleObject(resolvedValue, data, this.env);
         if (Object.keys(styleObj).length > 0) {
           vnode.style = { ...vnode.style, ...styleObj };
         }
@@ -1331,7 +1354,7 @@ export class VNodeBuilder {
       }
 
       if (key === 'className') {
-        const finalClass = resolveClassName(resolvedValue, data);
+        const finalClass = resolveClassName(resolvedValue, data, this.env);
         if (finalClass) {
           vnode.attrs![key] = finalClass;
         }

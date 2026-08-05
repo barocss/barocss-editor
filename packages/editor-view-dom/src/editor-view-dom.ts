@@ -1,5 +1,5 @@
 import { Editor, ModelSelection } from '@barocss/editor-core';
-import type { ModelData } from '@barocss/dsl';
+import type { ModelData, RenderEnv } from '@barocss/dsl';
 import { IEditorViewDOM, EditorViewDOMOptions, LayerConfiguration } from './types';
 import { InputHandlerImpl } from './event-handlers/input-handler';
 import { DOMSelectionHandlerImpl } from './event-handlers/selection-handler';
@@ -48,6 +48,9 @@ export class EditorViewDOM implements IEditorViewDOM {
   private _rendererRegistry?: RendererRegistry;
   private _domRenderer?: DOMRenderer; // For Content layer (existing)
   // DOMRenderer per layer (each with independent prevVNodeTree)
+  /** Host environment handed to templates; see EditorViewDOMOptions.env. */
+  private _env: RenderEnv = {};
+
   private _decoratorRenderer?: DOMRenderer;    // For Decorator layer
   private _selectionRenderer?: DOMRenderer;    // For Selection layer
   private _contextRenderer?: DOMRenderer;     // For Context layer
@@ -1008,28 +1011,39 @@ export class EditorViewDOM implements IEditorViewDOM {
     
     // 3. Create DOMRenderer for Content layer (selection preservation enabled)
     // Templates must be defined externally (call define() in main.ts, etc.)
+    //
+    // `editor` is always in the environment: a template that needs the document
+    // around the node it is drawing should not have to be handed the editor
+    // separately by whoever set the view up.
+    this._env = { ...(options.env ?? {}), editor: this.editor };
+
     this._domRenderer = new DOMRenderer(this._rendererRegistry, {
       enableSelectionPreservation: true,
       name: 'content',
-      dataStore: this.editor.dataStore
+      dataStore: this.editor.dataStore,
+      env: this._env
     });
     
     // 4. Create DOMRenderer per layer (each with independent prevVNodeTree)
     this._decoratorRenderer = new DOMRenderer(this._rendererRegistry, { 
       name: 'decorator',
-      dataStore: this.editor.dataStore
+      dataStore: this.editor.dataStore,
+      env: this._env
     });
     this._selectionRenderer = new DOMRenderer(this._rendererRegistry, { 
       name: 'selection',
-      dataStore: this.editor.dataStore
+      dataStore: this.editor.dataStore,
+      env: this._env
     });
     this._contextRenderer = new DOMRenderer(this._rendererRegistry, { 
       name: 'context',
-      dataStore: this.editor.dataStore
+      dataStore: this.editor.dataStore,
+      env: this._env
     });
     this._customRenderer = new DOMRenderer(this._rendererRegistry, { 
       name: 'custom',
-      dataStore: this.editor.dataStore
+      dataStore: this.editor.dataStore,
+      env: this._env
     });
     
     // 5. Initialize Decorator Prebuilder (pass contentRenderer for ComponentManager access)
@@ -1133,6 +1147,33 @@ export class EditorViewDOM implements IEditorViewDOM {
   }
 
   // External render API
+  /** The environment templates are currently seeing. */
+  getEnv(): RenderEnv {
+    return this._env;
+  }
+
+  /**
+   * Merge values into the environment templates see from the next render on.
+   *
+   * Not everything a template needs is known when the view is built. A page
+   * layout is computed *from* a render — measure what was drawn, decide where
+   * the breaks fall — so it can only be put in afterwards, before rendering
+   * again. `editor` cannot be replaced: a template must always be able to reach
+   * the editor that is rendering it.
+   */
+  setEnv(env: RenderEnv): void {
+    this._env = { ...this._env, ...env, editor: this.editor };
+    for (const renderer of [
+      this._domRenderer,
+      this._decoratorRenderer,
+      this._selectionRenderer,
+      this._contextRenderer,
+      this._customRenderer
+    ]) {
+      renderer?.setEnv(this._env);
+    }
+  }
+
   render(tree?: ModelData | any, options?: { sync?: boolean }): void {
     if (!this._domRenderer) {
       console.warn('[EditorViewDOM] No DOM renderer available');

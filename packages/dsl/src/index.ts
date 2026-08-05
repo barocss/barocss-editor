@@ -40,6 +40,7 @@ export type {
   ConditionalTemplate,
   ComponentTemplate,
   ComponentContext,
+  RenderEnv,
   ExternalComponent,
   ExternalDescriptor,
   BlockComponentProps,

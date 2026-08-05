@@ -116,8 +116,30 @@ export type ContextualComponent<
   C extends ComponentContext = ComponentContext
 > = (props: P, model: M, context: C) => ElementTemplate | ComponentTemplate;
 
+/**
+ * Whatever the host wants templates to be able to reach.
+ *
+ * A template is handed the node it is drawing and nothing else, which is enough
+ * for a node that describes itself completely and not enough for one that does
+ * not: a Word paragraph's appearance depends on the style it points at, the
+ * defaults behind that style, the list counter that precedes it, and the page
+ * layout it landed on — none of which are in the node.
+ *
+ * Products worked around this with module-level state, which quietly means one
+ * document per module instance: two editors on a page would read each other's.
+ * Passing the environment down through the render instead makes the scope the
+ * render, which is what it always was.
+ *
+ * The shape is the host's business. The renderer only carries it.
+ */
+export interface RenderEnv {
+  [key: string]: unknown;
+}
+
 export interface ComponentContext {
   id: string;
+  /** Host-supplied environment for this render. */
+  env?: RenderEnv;
   state: ComponentState;
   props: ComponentProps;
   // Renderer-specific instance holder (renderer-dom uses BaseComponentState)

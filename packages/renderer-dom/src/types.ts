@@ -11,7 +11,8 @@ import type {
   PortalTemplate,
   RendererDefinition,
   RendererTemplate,
-  ModelData
+  ModelData,
+  RenderEnv
 } from '@barocss/dsl';
 // DataStore type (minimal interface for type safety)
 export interface DataStore {
@@ -29,7 +30,8 @@ export type {
   PortalTemplate,
   RendererDefinition,
   RendererTemplate,
-  ModelData
+  ModelData,
+  RenderEnv
 } from '@barocss/dsl';
 import type { Decorator } from './vnode/decorator';
 import type { BaseComponentState } from './state/base-component-state';
@@ -140,8 +142,19 @@ export type SimpleComponent = (props: ComponentProps) => ElementTemplate;
 export type ContextualComponent = (props: ComponentProps, model: ModelData, context: ComponentContext) => ElementTemplate | ComponentTemplate;
 
 // Component context
+// Kept in step with ComponentContext in @barocss/dsl, which declares the same
+// shape for template authors; this copy is what the renderer builds.
 export interface ComponentContext {
   id: string;
+  /**
+   * Host-supplied environment for this render.
+   *
+   * Carried, never interpreted: it exists so a template can depend on something
+   * outside the node it is drawing — the document a style resolves against, the
+   * layout a page was placed by — without reaching for module-level state, which
+   * would scope it to the module rather than to the render.
+   */
+  env?: RenderEnv;
   state: ComponentState;
   props: ComponentProps;      // 순수 props (stype/sid/type 제외)
   model: ModelData;           // 원본 모델 데이터 (stype/sid 포함)

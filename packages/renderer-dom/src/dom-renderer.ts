@@ -8,7 +8,7 @@ import { VNodeBuilder, ComponentStateProvider, VNodeBuildOptions } from './vnode
 import type { Decorator } from './vnode/decorator';
 import { PatternDecoratorGenerator } from './vnode/pattern-decorator-generator';
 import { NodeCache } from './node-cache';
-import { RendererRegistry, ModelData } from '@barocss/dsl';
+import { RendererRegistry, ModelData, RenderEnv } from '@barocss/dsl';
 import { Reconciler } from './reconcile/reconciler';
 import { DOMOperations } from './dom-operations';
 import { ComponentManager } from './component-manager';
@@ -21,6 +21,15 @@ import type { DataStore } from './types';
  * DOMRenderer options
  */
 export interface DOMRendererOptions {
+  /**
+   * Host environment handed to every template this renderer builds.
+   *
+   * Carried, never interpreted. It is what lets a product's templates depend on
+   * the document around a node — the styles it resolves against, the layout it
+   * was placed by — instead of on module-level state, which scopes such values
+   * to the module rather than to the render.
+   */
+  env?: RenderEnv;
   /**
    * Enable selection-preserving TextNodePool usage for content rendering.
    * When enabled, use renderContent(...) to pass selection context and the pool
@@ -65,6 +74,16 @@ export class DOMRenderer {
   private readonly __instanceId: string;
   
   
+  /**
+   * Replace the environment templates see from the next render on.
+   *
+   * Layout is the reason this exists: it is computed *from* a render, so it
+   * cannot be known when the renderer is constructed.
+   */
+  setEnv(env: RenderEnv | undefined): void {
+    this.builder.setEnv(env);
+  }
+
   constructor(registry?: RendererRegistry, _options?: DOMRendererOptions) {
     this.dataStore = _options?.dataStore;
     // Generate instance ID (for debugging: includes name)
@@ -86,7 +105,8 @@ export class DOMRenderer {
     this.builder = new VNodeBuilder(registry, {
       componentStateProvider: componentManager as unknown as ComponentStateProvider,
       componentManager: componentManager,
-      patternDecoratorGenerator: this.patternDecoratorGenerator
+      patternDecoratorGenerator: this.patternDecoratorGenerator,
+      env: _options?.env
     });
     // Reconciler owns the flow (root→children)
     this.reconciler = new Reconciler(this.builder.getRegistry(), this.builder, this.domOperations, this.componentManager, this.__instanceId, this.dataStore);
