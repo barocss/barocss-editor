@@ -2,6 +2,7 @@ import { MutationObserverManager } from '../types';
 import { Editor } from '@barocss/editor-core';
 import { InputHandlerImpl } from '../event-handlers/input-handler';
 import { MutationObserverManagerImpl as BaseMutationObserverManager } from '@barocss/dom-observer';
+import { logger, LogCategory } from '@barocss/renderer-dom';
 
 export class MutationObserverManagerImpl implements MutationObserverManager {
   private editor: Editor;
@@ -25,7 +26,7 @@ export class MutationObserverManagerImpl implements MutationObserverManager {
         this.editor.emit('editor:node.update', event);
       },
       onTextChange: (event) => {
-        console.log('[MO] onTextChange: CALLED', { oldText: event.oldText, newText: event.newText, targetNodeType: event.target.nodeType });
+        logger.debug(LogCategory.TEXT_INPUT, 'onTextChange: CALLED', { oldText: event.oldText, newText: event.newText, targetNodeType: event.target.nodeType });
         
         // Note: handleDomMutations takes priority,
         // onTextChange is only used as fallback when handleDomMutations cannot handle it
@@ -33,7 +34,7 @@ export class MutationObserverManagerImpl implements MutationObserverManager {
         // so onTextChange is disabled or only performs minimal logging
         
         // handleDomMutations path is authoritative for text content changes.
-        console.log('[MO] onTextChange: SKIP - handled by handleDomMutations');
+        logger.debug(LogCategory.TEXT_INPUT, 'onTextChange: SKIP - handled by handleDomMutations');
       }
     });
   }
@@ -44,7 +45,7 @@ export class MutationObserverManagerImpl implements MutationObserverManager {
 
     // Set up MutationObserver directly for handleDomMutations
     this.observer = new MutationObserver((mutations) => {
-      console.log('[MO] MutationObserver callback: mutations received', {
+      logger.debug(LogCategory.TEXT_INPUT, 'MutationObserver callback: mutations received', {
         count: mutations.length,
         types: mutations.map(m => m.type)
       });
@@ -59,7 +60,7 @@ export class MutationObserverManagerImpl implements MutationObserverManager {
 
       this.mutationTimer = window.setTimeout(() => {
         if (this.pendingMutations.length > 0) {
-          console.log('[MO] Processing batched mutations', {
+          logger.debug(LogCategory.TEXT_INPUT, 'Processing batched mutations', {
             count: this.pendingMutations.length
           });
 

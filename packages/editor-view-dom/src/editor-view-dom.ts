@@ -7,7 +7,7 @@ import { MutationObserverManagerImpl } from './mutation-observer/mutation-observ
 import { DecoratorManager, RemoteDecoratorManager, PatternDecoratorConfigManager, DecoratorGeneratorManager, stripChromeElements, stripFiller } from '@barocss/shared';
 import type { PatternDecoratorConfig, DecoratorGenerator } from '@barocss/shared';
 import { DecoratorRegistry, DecoratorPrebuilder, type Decorator, type DecoratorQueryOptions, type DecoratorModel } from './decorator';
-import { DOMRenderer } from '@barocss/renderer-dom';
+import { DOMRenderer, logger, LogCategory } from '@barocss/renderer-dom';
 import { RendererRegistry } from '@barocss/dsl';
 import type { DecoratorExportData, LoadDecoratorsPatternFunctions } from './types';
 import { getKeyString } from '@barocss/shared';
@@ -279,7 +279,7 @@ export class EditorViewDOM implements IEditorViewDOM {
   }
 
   private setupEventListeners(): void {
-    console.log('[EditorViewDOM] setupEventListeners');
+    logger.debug(LogCategory.DOM, 'setupEventListeners');
     // Input events
     this._boundHandleInput = this.handleInput.bind(this);
     this._boundHandleBeforeInput = this.handleBeforeInput.bind(this);
@@ -473,7 +473,7 @@ export class EditorViewDOM implements IEditorViewDOM {
 
     const key = getKeyString(event);
     
-    console.log('[EditorViewDOM] handleKeydown:', key);
+    logger.debug(LogCategory.DOM, 'handleKeydown:', key);
     
     // Delegate all keys to editor-core keybinding system
     // Backspace, Delete are also handled through keybinding system
@@ -1010,7 +1010,7 @@ export class EditorViewDOM implements IEditorViewDOM {
 
   // ----- Renderer internal setup -----
   private _setupContentRenderer(options: EditorViewDOMOptions): void {
-    console.log('[EditorViewDOM] _setupContentRenderer:start');
+    logger.debug(LogCategory.DOM, '_setupContentRenderer:start');
     
     // Do not recreate if already set (preserve prevVNodeTree)
     if (this._domRenderer) {

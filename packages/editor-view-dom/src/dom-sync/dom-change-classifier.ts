@@ -13,6 +13,7 @@ import { Editor } from '@barocss/editor-core';
 import type { ModelSelection } from '@barocss/editor-core';
 import { reconstructModelTextFromDOM, extractModelTextFromRange } from '../utils/edit-position-converter';
 import { stripFiller } from '@barocss/shared';
+import { logger, LogCategory } from '@barocss/renderer-dom';
 
 const BLOCK_TYPES = new Set(['paragraph', 'heading', 'list', 'list-item', 'blockquote', 'code-block']);
 
@@ -80,14 +81,14 @@ export function classifyDomChange(
   mutations: MutationRecord[],
   options: ClassifyOptions
 ): ClassifiedChange {
-  console.log('[DomChangeClassifier] classifyDomChange: CALLED', {
+  logger.debug(LogCategory.TEXT_INPUT, 'classifyDomChange: CALLED', {
     mutationsCount: mutations.length,
     isComposing: options.isComposing
   });
 
   // Handle empty mutations
   if (mutations.length === 0) {
-    console.log('[DomChangeClassifier] classifyDomChange: EMPTY mutations');
+    logger.debug(LogCategory.TEXT_INPUT, 'classifyDomChange: EMPTY mutations');
     return {
       case: 'UNKNOWN',
       mutations: []
@@ -100,28 +101,28 @@ export function classifyDomChange(
   // C1: Pure text change within single inline-text
   const c1Result = classifyC1(mutations, options);
   if (c1Result) {
-    console.log('[DomChangeClassifier] classifyDomChange: C1 detected', c1Result);
+    logger.debug(LogCategory.TEXT_INPUT, 'classifyDomChange: C1 detected', c1Result);
     return c1Result;
   }
 
   // C2: Text change across multiple inline-text
   const c2Result = classifyC2(mutations, options);
   if (c2Result) {
-    console.log('[DomChangeClassifier] classifyDomChange: C2 detected', c2Result);
+    logger.debug(LogCategory.TEXT_INPUT, 'classifyDomChange: C2 detected', c2Result);
     return c2Result;
   }
 
   // C3: Block structure change
   const c3Result = classifyC3(mutations, options);
   if (c3Result) {
-    console.log('[DomChangeClassifier] classifyDomChange: C3 detected', c3Result);
+    logger.debug(LogCategory.TEXT_INPUT, 'classifyDomChange: C3 detected', c3Result);
     return c3Result;
   }
 
   // C4: Mark/style/decorator change
   const c4Result = classifyC4(mutations, options);
   if (c4Result) {
-    console.log('[DomChangeClassifier] classifyDomChange: C4 detected', c4Result);
+    logger.debug(LogCategory.TEXT_INPUT, 'classifyDomChange: C4 detected', c4Result);
     return c4Result;
   }
 
@@ -160,7 +161,7 @@ function classifyC1(
   mutations: MutationRecord[],
   options: ClassifyOptions
 ): ClassifiedChange | null {
-  console.log('[DomChangeClassifier] classifyC1: CHECKING');
+  logger.debug(LogCategory.TEXT_INPUT, 'classifyC1: CHECKING');
 
   // If selection spans two different inline-text nodes, let C2 handle
   if (options.selection && options.selection.rangeCount > 0) {
@@ -170,7 +171,7 @@ function classifyC1(
     const startSid = startEl?.getAttribute('data-bc-sid');
     const endSid = endEl?.getAttribute('data-bc-sid');
     if (startSid && endSid && startSid !== endSid) {
-      console.log('[DomChangeClassifier] classifyC1: SKIP - selection spans multiple inline-text (C2)');
+      logger.debug(LogCategory.TEXT_INPUT, 'classifyC1: SKIP - selection spans multiple inline-text (C2)');
       return null;
     }
   }
@@ -178,7 +179,7 @@ function classifyC1(
   // If inputHint range spans multiple inline-text nodes, let C2 handle
   const hint = options.inputHint;
   if (hint?.contentRange && hint.contentRange.startNodeId !== hint.contentRange.endNodeId) {
-    console.log('[DomChangeClassifier] classifyC1: SKIP - inputHint spans multiple nodes (C2)');
+    logger.debug(LogCategory.TEXT_INPUT, 'classifyC1: SKIP - inputHint spans multiple nodes (C2)');
     return null;
   }
 
@@ -190,7 +191,7 @@ function classifyC1(
       ...Array.from(mutation.removedNodes || [])
     ];
     if (hasC4SpecialCaseInNodes(addedOrRemoved)) {
-      console.log('[DomChangeClassifier] classifyC1: SKIP - C4 special case in childList');
+      logger.debug(LogCategory.TEXT_INPUT, 'classifyC1: SKIP - C4 special case in childList');
       return null;
     }
   }
@@ -213,7 +214,7 @@ function classifyC1(
     // Check model node
     const modelNode = options.editor.dataStore?.getNode?.(nodeId);
     if (!modelNode || modelNode.stype !== 'inline-text') {
-      console.log('[DomChangeClassifier] classifyC1: SKIP - not inline-text node', { nodeId, stype: modelNode?.stype });
+      logger.debug(LogCategory.TEXT_INPUT, 'classifyC1: SKIP - not inline-text node', { nodeId, stype: modelNode?.stype });
       continue;
     }
 
@@ -231,7 +232,7 @@ function classifyC1(
       });
       if (hasBlockLikeElement) {
         // If block structure is mixed in, it's a C3 candidate, not C1, so skip
-        console.log('[DomChangeClassifier] classifyC1: SKIP - block-like element in childList');
+        logger.debug(LogCategory.TEXT_INPUT, 'classifyC1: SKIP - block-like element in childList');
         continue;
       }
     }
@@ -243,7 +244,7 @@ function classifyC1(
     //    May be split into multiple text nodes due to mark/decorator, so combine all by sid.
     const newText = reconstructModelTextFromDOM(inlineTextNode);
 
-    console.log('[DomChangeClassifier] classifyC1: FOUND', {
+    logger.debug(LogCategory.TEXT_INPUT, 'classifyC1: FOUND', {
       nodeId,
       prevText,
       newText,
@@ -267,7 +268,7 @@ function classifyC1(
       endOffset = hintedEnd;
       usedInputHint = true;
 
-      console.log('[DomChangeClassifier] classifyC1: using InputHint for contentRange', {
+      logger.debug(LogCategory.TEXT_INPUT, 'classifyC1: using InputHint for contentRange', {
         hintedStart,
         hintedEnd,
         inputType: hint.inputType
@@ -275,7 +276,7 @@ function classifyC1(
     } else {
       // If InputHint is missing, don't set contentRange
       // Calculate accurate range using analyzeTextChanges in handleC1
-      console.log('[DomChangeClassifier] classifyC1: no InputHint, contentRange will be calculated by analyzeTextChanges');
+      logger.debug(LogCategory.TEXT_INPUT, 'classifyC1: no InputHint, contentRange will be calculated by analyzeTextChanges');
     }
 
     return {
@@ -310,14 +311,14 @@ function classifyC2(
   mutations: MutationRecord[],
   options: ClassifyOptions
 ): ClassifiedChange | null {
-  console.log('[DomChangeClassifier] classifyC2: CHECKING');
+  logger.debug(LogCategory.TEXT_INPUT, 'classifyC2: CHECKING');
 
   // Check if childList and characterData are present together
   const hasChildList = mutations.some(m => m.type === 'childList');
   const hasCharacterData = mutations.some(m => m.type === 'characterData');
 
   if (!hasChildList || !hasCharacterData) {
-    console.log('[DomChangeClassifier] classifyC2: SKIP - no childList+characterData');
+    logger.debug(LogCategory.TEXT_INPUT, 'classifyC2: SKIP - no childList+characterData');
     return null;
   }
 
@@ -335,7 +336,7 @@ function classifyC2(
     const startInlineText = findClosestInlineTextNode(range.startContainer);
     const endInlineText = findClosestInlineTextNode(range.endContainer);
     if (!startInlineText || !endInlineText) {
-      console.log('[DomChangeClassifier] classifyC2: SKIP - no inline-text nodes found');
+      logger.debug(LogCategory.TEXT_INPUT, 'classifyC2: SKIP - no inline-text nodes found');
       return null;
     }
     startNodeId = startInlineText.getAttribute('data-bc-sid')!;
@@ -344,12 +345,12 @@ function classifyC2(
     startNodeId = hint!.contentRange.startNodeId;
     endNodeId = hint!.contentRange.endNodeId;
   } else {
-    console.log('[DomChangeClassifier] classifyC2: SKIP - no selection');
+    logger.debug(LogCategory.TEXT_INPUT, 'classifyC2: SKIP - no selection');
     return null;
   }
 
   if (!startNodeId || !endNodeId) {
-    console.log('[DomChangeClassifier] classifyC2: SKIP - no sid attributes');
+    logger.debug(LogCategory.TEXT_INPUT, 'classifyC2: SKIP - no sid attributes');
     return null;
   }
 
@@ -359,7 +360,7 @@ function classifyC2(
 
   if (!startModelNode || !endModelNode || 
       startModelNode.stype !== 'inline-text' || endModelNode.stype !== 'inline-text') {
-    console.log('[DomChangeClassifier] classifyC2: SKIP - not inline-text nodes', {
+    logger.debug(LogCategory.TEXT_INPUT, 'classifyC2: SKIP - not inline-text nodes', {
       startStype: startModelNode?.stype,
       endStype: endModelNode?.stype
     });
@@ -368,7 +369,7 @@ function classifyC2(
 
   // If same node, handle as C1
   if (startNodeId === endNodeId) {
-    console.log('[DomChangeClassifier] classifyC2: SKIP - same node (should be C1)');
+    logger.debug(LogCategory.TEXT_INPUT, 'classifyC2: SKIP - same node (should be C1)');
     return null;
   }
 
@@ -384,7 +385,7 @@ function classifyC2(
   });
 
   if (hasBlockLevelChange) {
-    console.log('[DomChangeClassifier] classifyC2: SKIP - has block-level change (should be C3)');
+    logger.debug(LogCategory.TEXT_INPUT, 'classifyC2: SKIP - has block-level change (should be C3)');
     return null;
   }
 
@@ -424,7 +425,7 @@ function classifyC2(
     prevText = startModelNode.text || '';
   }
 
-  console.log('[DomChangeClassifier] classifyC2: FOUND', {
+  logger.debug(LogCategory.TEXT_INPUT, 'classifyC2: FOUND', {
     startNodeId,
     endNodeId,
     prevTextLength: prevText.length,
@@ -448,7 +449,7 @@ function classifyC2(
     endOffset = hint.contentRange.endOffset;
     usedInputHint = true;
 
-    console.log('[DomChangeClassifier] classifyC2: using InputHint for offsets', {
+    logger.debug(LogCategory.TEXT_INPUT, 'classifyC2: using InputHint for offsets', {
       inputType: hint.inputType,
       startOffset,
       endOffset
@@ -470,7 +471,7 @@ function classifyC2(
       endOffset = endModelNode.text?.length || 0;
     }
     
-    console.log('[DomChangeClassifier] classifyC2: using model selection for offsets', {
+    logger.debug(LogCategory.TEXT_INPUT, 'classifyC2: using model selection for offsets', {
       modelSelection: options.modelSelection,
       calculatedOffsets: { startOffset, endOffset }
     });
@@ -495,7 +496,7 @@ function classifyC2(
       endOffset = endModelNode.text?.length || 0;
     }
     
-    console.log('[DomChangeClassifier] classifyC2: using DOM selection (less accurate - fallback)', {
+    logger.debug(LogCategory.TEXT_INPUT, 'classifyC2: using DOM selection (less accurate - fallback)', {
       startNodeId,
       endNodeId,
       startOffset,
@@ -697,7 +698,7 @@ function classifyC3(
   mutations: MutationRecord[],
   options: ClassifyOptions
 ): ClassifiedChange | null {
-  console.log('[DomChangeClassifier] classifyC3: CHECKING');
+  logger.debug(LogCategory.TEXT_INPUT, 'classifyC3: CHECKING');
 
   // Check for block-level childList changes
   const blockLevelMutations: MutationRecord[] = [];
@@ -720,7 +721,7 @@ function classifyC3(
   }
 
   if (blockLevelMutations.length === 0) {
-    console.log('[DomChangeClassifier] classifyC3: SKIP - no block-level change');
+    logger.debug(LogCategory.TEXT_INPUT, 'classifyC3: SKIP - no block-level change');
     return null;
   }
 
@@ -729,11 +730,11 @@ function classifyC3(
   const pattern = analyzeBlockStructureChange(blockLevelMutations, options);
   
   if (!pattern) {
-    console.log('[DomChangeClassifier] classifyC3: SKIP - cannot analyze pattern');
+    logger.debug(LogCategory.TEXT_INPUT, 'classifyC3: SKIP - cannot analyze pattern');
     return null;
   }
 
-  console.log('[DomChangeClassifier] classifyC3: FOUND', {
+  logger.debug(LogCategory.TEXT_INPUT, 'classifyC3: FOUND', {
     pattern: pattern.type,
     affectedNodes: pattern.affectedNodeIds
   });
@@ -878,7 +879,7 @@ function classifyC4(
   mutations: MutationRecord[],
   options: ClassifyOptions
 ): ClassifiedChange | null {
-  console.log('[DomChangeClassifier] classifyC4: CHECKING');
+  logger.debug(LogCategory.TEXT_INPUT, 'classifyC4: CHECKING');
 
   // Check attributes changes (style changes)
   const attributeMutations = mutations.filter(m => m.type === 'attributes');
@@ -968,11 +969,11 @@ function classifyC4(
   const specialCase = detectSpecialCase(mutations, options);
 
   if (markChanges.length === 0 && !specialCase) {
-    console.log('[DomChangeClassifier] classifyC4: SKIP - no mark changes detected');
+    logger.debug(LogCategory.TEXT_INPUT, 'classifyC4: SKIP - no mark changes detected');
     return null;
   }
 
-  console.log('[DomChangeClassifier] classifyC4: FOUND', {
+  logger.debug(LogCategory.TEXT_INPUT, 'classifyC4: FOUND', {
     markChangesCount: markChanges.length,
     markChanges
   });

@@ -5,6 +5,7 @@ import { type MarkRange, type DecoratorRange } from '../utils/edit-position-conv
 import { classifyDomChange, type ClassifiedChange, type InputHint } from '../dom-sync/dom-change-classifier';
 import { analyzeTextChanges } from '@barocss/text-analyzer';
 import { type Decorator, getKeyString, FILLER_ATTR, stripFiller } from '@barocss/shared';
+import { logger, LogCategory } from '@barocss/renderer-dom';
 
 /**
  * What each delete intent means, as a command.
@@ -214,7 +215,7 @@ export class InputHandlerImpl implements InputHandler {
     const shiftKey = event.shiftKey;
     const altKey = event.altKey;
     
-    console.log('[InputHandler] handleKeyDown: CALLED', {
+    logger.debug(LogCategory.TEXT_INPUT, 'handleKeyDown: CALLED', {
       key,
       code,
       ctrlKey,
@@ -234,7 +235,7 @@ export class InputHandlerImpl implements InputHandler {
    * Receives MutationRecord[] and calls case classification module (dom-change-classifier)
    */
   async handleDomMutations(mutations: MutationRecord[]): Promise<void> {
-    console.log('[InputHandler] handleDomMutations: CALLED', {
+    logger.debug(LogCategory.TEXT_INPUT, 'handleDomMutations: CALLED', {
       mutationsCount: mutations.length,
       mutations: mutations.map(m => ({
         type: m.type,
@@ -248,13 +249,13 @@ export class InputHandlerImpl implements InputHandler {
 
     // Ignore DOM changes during Model-First changes (prevent infinite loop)
     if ((this.editorViewDOM as any)._isModelDrivenChange) {
-      console.log('[InputHandler] handleDomMutations: SKIP - model-driven change');
+      logger.debug(LogCategory.TEXT_INPUT, 'handleDomMutations: SKIP - model-driven change');
       return;
     }
 
     // Ignore DOM changes during rendering (prevent infinite loop)
     if ((this.editorViewDOM as any)._isRendering) {
-      console.log('[InputHandler] handleDomMutations: SKIP - rendering');
+      logger.debug(LogCategory.TEXT_INPUT, 'handleDomMutations: SKIP - rendering');
       return;
     }
 
@@ -267,7 +268,7 @@ export class InputHandlerImpl implements InputHandler {
       try {
         // Use EditorViewDOM's convertDOMSelectionToModel
         modelSelection = (this.editorViewDOM as any).convertDOMSelectionToModel?.(selection);
-        console.log('[InputHandler] handleDomMutations: model selection converted', {
+        logger.debug(LogCategory.TEXT_INPUT, 'handleDomMutations: model selection converted', {
           modelSelection: modelSelection?.type === 'range' ? {
             startNodeId: modelSelection.startNodeId,
             startOffset: modelSelection.startOffset,
@@ -306,7 +307,7 @@ export class InputHandlerImpl implements InputHandler {
       isComposing
     });
 
-    console.log('[InputHandler] handleDomMutations: classified', {
+    logger.debug(LogCategory.TEXT_INPUT, 'handleDomMutations: classified', {
       case: classified.case,
       nodeId: classified.nodeId
     });
@@ -340,7 +341,7 @@ export class InputHandlerImpl implements InputHandler {
    * C1: Handle pure text changes within a single inline-text
    */
   private async handleC1(classified: ClassifiedChange): Promise<void> {
-    console.log('[InputHandler] handleC1: CALLED', { nodeId: classified.nodeId });
+    logger.debug(LogCategory.TEXT_INPUT, 'handleC1: CALLED', { nodeId: classified.nodeId });
 
     // NOTE: '' is a legitimate value here (typing into the empty block a fresh
     // Enter creates, or deleting the last character), so this falsy check is
@@ -383,13 +384,13 @@ export class InputHandlerImpl implements InputHandler {
     });
 
     if (textChanges.length === 0) {
-      console.log('[InputHandler] handleC1: SKIP - no text changes');
+      logger.debug(LogCategory.TEXT_INPUT, 'handleC1: SKIP - no text changes');
       return;
     }
 
     // Process only the first change (C1 typically has only one change)
     const change = textChanges[0];
-    console.log('[InputHandler] handleC1: text change', {
+    logger.debug(LogCategory.TEXT_INPUT, 'handleC1: text change', {
       type: change.type,
       start: change.start,
       end: change.end,
@@ -411,7 +412,7 @@ export class InputHandlerImpl implements InputHandler {
     if (classified.contentRange && classified.metadata?.usedInputHint) {
       // classified.contentRange is more accurate when InputHint is used
       contentRange = classified.contentRange;
-      console.log('[InputHandler] handleC1: using classified.contentRange (InputHint)', contentRange);
+      logger.debug(LogCategory.TEXT_INPUT, 'handleC1: using classified.contentRange (InputHint)', contentRange);
     } else {
       // Use analyzeTextChanges result (when InputHint is not available or inaccurate)
       // analyzeTextChanges compares prevText and newText to calculate accurate change position
@@ -421,7 +422,7 @@ export class InputHandlerImpl implements InputHandler {
         endNodeId: classified.nodeId,
         endOffset: change.end
       };
-      console.log('[InputHandler] handleC1: using analyzeTextChanges result', {
+      logger.debug(LogCategory.TEXT_INPUT, 'handleC1: using analyzeTextChanges result', {
         contentRange,
         changeType: change.type,
         changeText: change.text,
@@ -480,12 +481,12 @@ export class InputHandlerImpl implements InputHandler {
             selection: modelSelection,
             oldSelection: (this.editor as any).selection || null
           });
-          console.log('[InputHandler] handleC1: fallback delete completed', modelSelection);
+          logger.debug(LogCategory.TEXT_INPUT, 'handleC1: fallback delete completed', modelSelection);
         } catch (error) {
           console.warn('[InputHandler] handleC1: failed to update selection after fallback delete', { error });
         }
       } else {
-        console.log('[InputHandler] handleC1: calling replaceText command', {
+        logger.debug(LogCategory.TEXT_INPUT, 'handleC1: calling replaceText command', {
           contentRange,
           insertedText: change.text
         });
@@ -526,7 +527,7 @@ export class InputHandlerImpl implements InputHandler {
             selection: modelSelection,
             oldSelection: (this.editor as any).selection || null
           });
-          console.log('[InputHandler] handleC1: updated selection after replace (model-based)', modelSelection);
+          logger.debug(LogCategory.TEXT_INPUT, 'handleC1: updated selection after replace (model-based)', modelSelection);
         } catch (error) {
           console.warn('[InputHandler] handleC1: failed to update selection after replace', { error });
         }
@@ -590,7 +591,7 @@ export class InputHandlerImpl implements InputHandler {
    * C2: 여러 inline-text에 걸친 텍스트 변경 처리
    */
   private async handleC2(classified: ClassifiedChange): Promise<void> {
-    console.log('[InputHandler] handleC2: CALLED', {
+    logger.debug(LogCategory.TEXT_INPUT, 'handleC2: CALLED', {
       startNodeId: classified.contentRange?.startNodeId,
       endNodeId: classified.contentRange?.endNodeId,
       metadata: classified.metadata
@@ -606,7 +607,7 @@ export class InputHandlerImpl implements InputHandler {
     const { startNodeId, endNodeId } = contentRange;
     const isMultiNode = startNodeId !== endNodeId;
 
-    console.log('[InputHandler] handleC2: processing', {
+    logger.debug(LogCategory.TEXT_INPUT, 'handleC2: processing', {
       isMultiNode,
       startNodeId,
       endNodeId,
@@ -630,7 +631,7 @@ export class InputHandlerImpl implements InputHandler {
     try {
       // Handle range spanning multiple nodes with replaceText
       // replaceText automatically handles multi-node cases (deleteText + insertText)
-      console.log('[InputHandler] handleC2: calling replaceText command', {
+      logger.debug(LogCategory.TEXT_INPUT, 'handleC2: calling replaceText command', {
         contentRange,
         newText: classified.newText,
         isMultiNode
@@ -725,7 +726,7 @@ export class InputHandlerImpl implements InputHandler {
    * 브라우저/플랫폼 차이로 beforeinput이 오지 않은 경우를 대비
    */
   private async handleC3(classified: ClassifiedChange): Promise<void> {
-    console.log('[InputHandler] handleC3: CALLED', {
+    logger.debug(LogCategory.TEXT_INPUT, 'handleC3: CALLED', {
       pattern: classified.metadata?.pattern,
       command: classified.metadata?.command,
       affectedNodes: classified.metadata?.affectedNodeIds
@@ -734,7 +735,7 @@ export class InputHandlerImpl implements InputHandler {
     // Reinterpret as command if possible
     const command = classified.metadata?.command;
     if (command) {
-      console.log('[InputHandler] handleC3: executing command', { command });
+      logger.debug(LogCategory.TEXT_INPUT, 'handleC3: executing command', { command });
       try {
         this.editor.executeCommand(command);
         
@@ -773,7 +774,7 @@ export class InputHandlerImpl implements InputHandler {
 
     // When cannot be expressed as command: fallback policy
     // Safely process by extracting only allowed text/inline
-    console.log('[InputHandler] handleC3: using fallback policy');
+    logger.debug(LogCategory.TEXT_INPUT, 'handleC3: using fallback policy');
     
     // Fallback policy:
     // 1. Ignore DOM structure created by browser
@@ -800,7 +801,7 @@ export class InputHandlerImpl implements InputHandler {
           endOffset: classified.contentRange.startOffset
         };
         
-        console.log('[InputHandler] handleC3: fallback - inserting text only', {
+        logger.debug(LogCategory.TEXT_INPUT, 'handleC3: fallback - inserting text only', {
           insertRange,
           text: classified.newText
         });
@@ -885,7 +886,7 @@ export class InputHandlerImpl implements InputHandler {
    * Convert styles/tags directly created by browser to model marks
    */
   private handleC4(classified: ClassifiedChange): void {
-    console.log('[InputHandler] handleC4: CALLED', {
+    logger.debug(LogCategory.TEXT_INPUT, 'handleC4: CALLED', {
       markChanges: classified.metadata?.markChanges,
       specialCase: classified.metadata?.specialCase
     });
@@ -897,7 +898,7 @@ export class InputHandlerImpl implements InputHandler {
     }> | undefined;
 
     if (!markChanges || markChanges.length === 0) {
-      console.log('[InputHandler] handleC4: SKIP - no mark changes');
+      logger.debug(LogCategory.TEXT_INPUT, 'handleC4: SKIP - no mark changes');
       return;
     }
 
@@ -915,7 +916,7 @@ export class InputHandlerImpl implements InputHandler {
         // Check model node
         const modelNode = dataStore.getNode(nodeId);
         if (!modelNode || modelNode.stype !== 'inline-text') {
-          console.log('[InputHandler] handleC4: SKIP - not inline-text node', { nodeId });
+          logger.debug(LogCategory.TEXT_INPUT, 'handleC4: SKIP - not inline-text node', { nodeId });
           continue;
         }
 
@@ -939,7 +940,7 @@ export class InputHandlerImpl implements InputHandler {
           endOffset
         };
 
-        console.log('[InputHandler] handleC4: toggling mark', {
+        logger.debug(LogCategory.TEXT_INPUT, 'handleC4: toggling mark', {
           nodeId,
           markType,
           contentRange
@@ -988,11 +989,11 @@ export class InputHandlerImpl implements InputHandler {
   // Note: oldValue/newValue are values of individual text nodes,
   // but actual comparison should be done on full text by sid (because it's split by mark/decorator)
   async handleTextContentChange(oldValue: string | null, newValue: string | null, target: Node): Promise<void> {
-    console.log('[Input] handleTextContentChange: CALLED', { oldValue, newValue, targetNodeType: target.nodeType, targetNodeName: target.nodeName });
+    logger.debug(LogCategory.TEXT_INPUT, 'handleTextContentChange: CALLED', { oldValue, newValue, targetNodeType: target.nodeType, targetNodeName: target.nodeName });
     
     // Ignore DOM changes during rendering (prevent infinite loop)
     if ((this.editorViewDOM as any)._isRendering) {
-      console.log('[Input] handleTextContentChange: SKIP - rendering');
+      logger.debug(LogCategory.TEXT_INPUT, 'handleTextContentChange: SKIP - rendering');
       return;
     }
     
@@ -1005,7 +1006,7 @@ export class InputHandlerImpl implements InputHandler {
       const el = target as Element;
       const filler = el.querySelector(`[${FILLER_ATTR}="true"]`);
       if (filler && !stripFiller(el.textContent ?? '')) {
-        console.log('[Input] handleTextContentChange: SKIP - filler only');
+        logger.debug(LogCategory.TEXT_INPUT, 'handleTextContentChange: SKIP - filler only');
         this.editor.emit('editor:input.skip_filler', { target: el });
         return;
       }
@@ -1015,7 +1016,7 @@ export class InputHandlerImpl implements InputHandler {
     const textNodeId = this.resolveModelTextNodeId(target);
 
     if (!textNodeId) {
-      console.log('[Input] handleTextContentChange: SKIP - no textNodeId');
+      logger.debug(LogCategory.TEXT_INPUT, 'handleTextContentChange: SKIP - no textNodeId');
       this.editor.emit('editor:input.untracked_text', { target, oldValue, newValue });
       return;
     }
@@ -1023,19 +1024,19 @@ export class InputHandlerImpl implements InputHandler {
 
     // When not composing: only handle collapsed
     if (selection.length !== 0) {
-      console.log('[Input] handleTextContentChange: SKIP - range selection', { selectionLength: selection.length });
+      logger.debug(LogCategory.TEXT_INPUT, 'handleTextContentChange: SKIP - range selection', { selectionLength: selection.length });
       this.editor.emit('editor:input.skip_range_selection', selection);
       return;
     }
 
     // Ignore changes in other nodes (prevent cursor jumping)
     if (this.activeTextNodeId && textNodeId && textNodeId !== this.activeTextNodeId) {
-      console.log('[Input] handleTextContentChange: SKIP - inactive node', { textNodeId, activeTextNodeId: this.activeTextNodeId });
+      logger.debug(LogCategory.TEXT_INPUT, 'handleTextContentChange: SKIP - inactive node', { textNodeId, activeTextNodeId: this.activeTextNodeId });
       this.editor.emit('editor:input.skip_inactive_node', { textNodeId, activeTextNodeId: this.activeTextNodeId });
       return;
     }
     
-    console.log('[Input] handleTextContentChange: PROCESSING', { textNodeId });
+    logger.debug(LogCategory.TEXT_INPUT, 'handleTextContentChange: PROCESSING', { textNodeId });
 
     // Query model by textNodeId (data-bc-sid at cursor position is the model)
     const modelNode = this.editor.dataStore?.getNode?.(textNodeId);
@@ -1048,7 +1049,7 @@ export class InputHandlerImpl implements InputHandler {
     // See docs/input-and-composition-review.md §5.4.
     const nodeType = (modelNode as { stype?: string }).stype ?? (modelNode as { type?: string }).type;
     if (nodeType !== 'inline-text') {
-      console.log('[Input] handleTextContentChange: SKIP - boundary text (closest sid is not inline-text)', { textNodeId, nodeType });
+      logger.debug(LogCategory.TEXT_INPUT, 'handleTextContentChange: SKIP - boundary text (closest sid is not inline-text)', { textNodeId, nodeType });
       this.editor.emit('editor:input.boundary_text', { target, textNodeId, nodeType, oldValue, newValue });
       return;
     }
@@ -1108,7 +1109,7 @@ export class InputHandlerImpl implements InputHandler {
     // Efficient edit processing (automatic marks/decorator range adjustment)
     // handleEfficientEdit internally reconstructs full text based on sid for comparison
     // Use actualTextNodeId to find correct inline-text node
-    console.log('[Input] handleTextContentChange: calling handleEfficientEdit', { textNodeId, oldModelTextLength: oldModelText.length });
+    logger.debug(LogCategory.TEXT_INPUT, 'handleTextContentChange: calling handleEfficientEdit', { textNodeId, oldModelTextLength: oldModelText.length });
     const editResult = handleEfficientEdit(
       textNode,
       oldModelText,  // Model text based on sid (comparison target)
@@ -1118,11 +1119,11 @@ export class InputHandlerImpl implements InputHandler {
     );
 
     if (!editResult) {
-      console.log('[Input] handleTextContentChange: SKIP - no editResult');
+      logger.debug(LogCategory.TEXT_INPUT, 'handleTextContentChange: SKIP - no editResult');
       return;
     }
     
-    console.log('[Input] handleTextContentChange: editResult received', { 
+    logger.debug(LogCategory.TEXT_INPUT, 'handleTextContentChange: editResult received', { 
       editPosition: editResult.editInfo.editPosition, 
       deletedLength: editResult.editInfo.deletedLength,
       insertedLength: editResult.editInfo.insertedLength,
@@ -1153,7 +1154,7 @@ export class InputHandlerImpl implements InputHandler {
     // Use RangeOperations.replaceText for range-based update
     // This method automatically adjusts marks, so separate marks update is not needed
     try {
-      console.log('[Input] handleTextContentChange: calling replaceText', { 
+      logger.debug(LogCategory.TEXT_INPUT, 'handleTextContentChange: calling replaceText', { 
         textNodeId, 
         contentRange, 
         insertedText: editInfo.insertedText,
@@ -1192,7 +1193,7 @@ export class InputHandlerImpl implements InputHandler {
       const nodeAfter = dataStore.getNode(textNodeId);
       const textAfter = nodeAfter?.text || '';
       
-      console.log('[Input] handleTextContentChange: replaceText completed', {
+      logger.debug(LogCategory.TEXT_INPUT, 'handleTextContentChange: replaceText completed', {
         textNodeId,
         textBefore,
         textAfter,
@@ -1232,7 +1233,7 @@ export class InputHandlerImpl implements InputHandler {
     // Manually emit editor:content.change event
     // ⚠️ Important: changes detected by MutationObserver must always be handled with skipRender: true
     // If render() is called, DOM changes → MutationObserver re-detects → infinite loop occurs
-    console.log('[Input] handleTextContentChange: emitting editor:content.change', { textNodeId });
+    logger.debug(LogCategory.TEXT_INPUT, 'handleTextContentChange: emitting editor:content.change', { textNodeId });
     this.editor.emit('editor:content.change', {
       skipRender: true, // Required: MutationObserver changes do not call render()
       from: 'MutationObserver', // For debugging: indicate change source
@@ -1289,11 +1290,11 @@ export class InputHandlerImpl implements InputHandler {
   handleBeforeInput(event: InputEvent): void {
     const inputType = event.inputType;
     
-    console.log('[InputHandler] handleBeforeInput: CALLED', { inputType, data: event.data });
+    logger.debug(LogCategory.TEXT_INPUT, 'handleBeforeInput: CALLED', { inputType, data: event.data });
     
     // 1) Handle structural change/history-related inputTypes with existing policy
     if (this.shouldPreventDefault(inputType)) {
-      console.log('[InputHandler] handleBeforeInput: preventDefault', { inputType });
+      logger.debug(LogCategory.TEXT_INPUT, 'handleBeforeInput: preventDefault', { inputType });
       event.preventDefault();
       this.executeStructuralCommand(inputType);
       // Structural changes do not use Insert Range hint, so reset
@@ -1303,7 +1304,7 @@ export class InputHandlerImpl implements InputHandler {
 
     // 2) Handle format-related inputTypes (formatBold, formatItalic, formatUnderline, etc.)
     if (this.shouldHandleFormat(inputType)) {
-      console.log('[InputHandler] handleBeforeInput: preventDefault for format', { inputType });
+      logger.debug(LogCategory.TEXT_INPUT, 'handleBeforeInput: preventDefault for format', { inputType });
       event.preventDefault();
       this.executeFormatCommand(inputType);
       // Format changes do not use Insert Range hint, so reset
@@ -1314,7 +1315,7 @@ export class InputHandlerImpl implements InputHandler {
     // 3) Handle deletion (Model-First)
     // Allow browser default behavior during IME composition (MutationObserver handles it)
     if (this.shouldHandleDelete(inputType) && !event.isComposing) {
-      console.log('[InputHandler] handleBeforeInput: preventDefault for delete', { inputType });
+      logger.debug(LogCategory.TEXT_INPUT, 'handleBeforeInput: preventDefault for delete', { inputType });
       event.preventDefault();
       this.handleDelete(event);
       // Deletion does not use Insert Range hint, so reset
@@ -1334,7 +1335,7 @@ export class InputHandlerImpl implements InputHandler {
 
     // 6) For the rest (text input, etc.), let browser handle automatically,
     //    and MutationObserver detects DOM changes to update the model.
-    console.log('[InputHandler] handleBeforeInput: ALLOW (will be handled by MutationObserver)', { inputType });
+    logger.debug(LogCategory.TEXT_INPUT, 'handleBeforeInput: ALLOW (will be handled by MutationObserver)', { inputType });
   }
 
   /**
@@ -1495,7 +1496,7 @@ export class InputHandlerImpl implements InputHandler {
       timestamp: Date.now()
     };
 
-    console.log('[InputHandler] updateInsertHintFromBeforeInput: hint updated', {
+    logger.debug(LogCategory.TEXT_INPUT, 'updateInsertHintFromBeforeInput: hint updated', {
       inputType,
       contentRange,
       hasText: !!this._pendingInsertHint?.text
@@ -1608,26 +1609,26 @@ export class InputHandlerImpl implements InputHandler {
    * Calls EditorViewDOM's method to actually process
    */
   private executeStructuralCommand(inputType: string): void {
-    console.log('[InputHandler] executeStructuralCommand: CALLED', { inputType });
+    logger.debug(LogCategory.TEXT_INPUT, 'executeStructuralCommand: CALLED', { inputType });
     
     switch (inputType) {
       case 'insertParagraph':
-        console.log('[InputHandler] executeStructuralCommand: calling insertParagraph');
+        logger.debug(LogCategory.TEXT_INPUT, 'executeStructuralCommand: calling insertParagraph');
         this.editorViewDOM.insertParagraph();
         break;
         
       case 'insertLineBreak':
-        console.log('[InputHandler] executeStructuralCommand: calling insertLineBreak');
+        logger.debug(LogCategory.TEXT_INPUT, 'executeStructuralCommand: calling insertLineBreak');
         this.editorViewDOM.insertLineBreak();
         break;
         
       case 'historyUndo':
-        console.log('[InputHandler] executeStructuralCommand: calling historyUndo');
+        logger.debug(LogCategory.TEXT_INPUT, 'executeStructuralCommand: calling historyUndo');
         this.editorViewDOM.historyUndo();
         break;
         
       case 'historyRedo':
-        console.log('[InputHandler] executeStructuralCommand: calling historyRedo');
+        logger.debug(LogCategory.TEXT_INPUT, 'executeStructuralCommand: calling historyRedo');
         this.editorViewDOM.historyRedo();
         break;
         
@@ -1641,7 +1642,7 @@ export class InputHandlerImpl implements InputHandler {
    * Executes command after preventDefault() in beforeInput
    */
   private executeFormatCommand(inputType: string): void {
-    console.log('[InputHandler] executeFormatCommand: CALLED', { inputType });
+    logger.debug(LogCategory.TEXT_INPUT, 'executeFormatCommand: CALLED', { inputType });
     
     // Map inputType to command name
     const commandMap: Record<string, string> = {
@@ -1653,7 +1654,7 @@ export class InputHandlerImpl implements InputHandler {
     
     const command = commandMap[inputType];
     if (command) {
-      console.log('[InputHandler] executeFormatCommand: executing command', { inputType, command });
+      logger.debug(LogCategory.TEXT_INPUT, 'executeFormatCommand: executing command', { inputType, command });
       // Emit editor:command.execute event (form expected in tests)
       this.editor.emit('editor:command.execute', { command, data: undefined });
       // Actually execute command

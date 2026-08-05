@@ -3,8 +3,7 @@ import { Editor, fromDOMSelection } from '@barocss/editor-core';
 import { 
   buildTextRunIndex, 
   binarySearchRun, 
-  type ContainerRuns 
-} from '@barocss/renderer-dom';
+  type ContainerRuns, logger, LogCategory } from '@barocss/renderer-dom';
 
 export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
   private editor: Editor;
@@ -53,20 +52,20 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
   handleSelectionChange(): void {
     // Ignore if programmatic change
     if (this._isProgrammaticChange) {
-      console.log('[SelectionHandler] Skipped: programmatic change');
+      logger.debug(LogCategory.SELECTION, 'Skipped: programmatic change');
       return;
     }
 
     const selection = window.getSelection();
     if (!selection) {
-      console.log('[SelectionHandler] Skipped: no selection');
+      logger.debug(LogCategory.SELECTION, 'Skipped: no selection');
       return;
     }
 
     // Ignore Selection changes outside Editor
     const editorViewDOM = (this.editor as any)._viewDOM;
     if (!editorViewDOM || !editorViewDOM.contentEditableElement) {
-      console.log('[SelectionHandler] Skipped: no editorViewDOM');
+      logger.debug(LogCategory.SELECTION, 'Skipped: no editorViewDOM');
       return;
     }
     
@@ -74,7 +73,7 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
     const anchorNode = selection.anchorNode;
     const focusNode = selection.focusNode;
     if (!anchorNode) {
-      console.log('[SelectionHandler] Skipped: no anchorNode');
+      logger.debug(LogCategory.SELECTION, 'Skipped: no anchorNode');
       return;
     }
     
@@ -82,7 +81,7 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
     const isAnchorInside = contentEditable.contains(anchorNode);
     const isFocusInside = !focusNode || contentEditable.contains(focusNode);
     
-    console.log('[SelectionHandler] Checking selection location:', {
+    logger.debug(LogCategory.SELECTION, 'Checking selection location:', {
       isAnchorInside,
       isFocusInside,
       anchorNode: anchorNode.nodeName,
@@ -91,7 +90,7 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
     
     // Both must be inside Editor
     if (!isAnchorInside || !isFocusInside) {
-      console.log('[SelectionHandler] Skipped: selection outside editor');
+      logger.debug(LogCategory.SELECTION, 'Skipped: selection outside editor');
       return;
     }
     
@@ -99,13 +98,13 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
     let node: Node | null = anchorNode;
     while (node) {
       if (node instanceof Element && node.hasAttribute('data-devtool')) {
-        console.log('[SelectionHandler] Skipped: inside devtool');
+        logger.debug(LogCategory.SELECTION, 'Skipped: inside devtool');
         return; // Ignore if devtool area
       }
       node = node.parentNode;
     }
 
-    console.log('[SelectionHandler] Processing selection change');
+    logger.debug(LogCategory.SELECTION, 'Processing selection change');
 
     // Convert DOM Selection to Model Selection
     const modelSelection = this.convertDOMSelectionToModel(selection);
@@ -374,7 +373,7 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
   private convertRangeSelectionToDOM(rangeSelection: any): void {
     const { startNodeId, startOffset, endNodeId, endOffset } = rangeSelection;
     
-    console.log('[SelectionHandler] Converting range selection to DOM:', {
+    logger.debug(LogCategory.SELECTION, 'Converting range selection to DOM:', {
       startNodeId,
       startOffset,
       endNodeId,

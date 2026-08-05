@@ -342,3 +342,45 @@ test.describe('Backspace at a block boundary', () => {
     expect(resolved.every((count) => count > 0)).toBe(true);
   });
 });
+
+test.describe('diagnostics', () => {
+  test('says nothing while typing', async ({ page }) => {
+    let logs = 0;
+    page.on('console', (message) => {
+      if (message.type() === 'log') logs++;
+    });
+
+    await page.goto('/');
+    await page.waitForSelector('.w-sheet');
+    await placeCaret(page, '.w-paragraph', 1);
+
+    logs = 0;
+    await page.keyboard.type('hello world');
+    await page.waitForTimeout(300);
+
+    // This used to be ~50 lines per keystroke, each building an object, in
+    // production. Typing is the hottest path there is.
+    expect(logs).toBe(0);
+  });
+
+  test('but says plenty when asked to', async ({ page }) => {
+    // Gated, not deleted: the same tracing that found the Backspace bug is still
+    // there, one localStorage key away.
+    await page.addInitScript(() => {
+      localStorage.setItem('barocss:debug', '*');
+    });
+
+    let logs = 0;
+    page.on('console', (message) => {
+      if (message.type() === 'log') logs++;
+    });
+
+    await page.goto('/');
+    await page.waitForSelector('.w-sheet');
+    await placeCaret(page, '.w-paragraph', 1);
+    await page.keyboard.type('hello');
+    await page.waitForTimeout(300);
+
+    expect(logs).toBeGreaterThan(0);
+  });
+});

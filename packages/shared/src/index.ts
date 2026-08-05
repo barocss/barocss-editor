@@ -12,3 +12,17 @@ export { replacePlaceholders, normalizeLocale } from './i18n';
 export * from './decorator';
 export * from './text-run-index';
 export { formatCounter, NumberFormat, type NumberFormatValue } from './number-format';
+
+export {
+  logger,
+  testLogger,
+  LogCategory,
+  setCategoryEnabled,
+  isCategoryEnabled,
+  enableAllCategories,
+  disableAllCategories,
+  enableCategoriesFromStorage,
+  DEBUG_STORAGE_KEY,
+  type LogCategoryType
+} from './logger';
+export { __DEV__, __TEST__ } from './dev';

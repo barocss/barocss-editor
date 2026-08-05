@@ -16,7 +16,7 @@ function getTargetNodeId(target: DecoratorTarget): string | null {
 import { DecoratorRegistry } from './decorator-registry';
 import { DecoratorManager } from '@barocss/shared';
 import { DecoratorVisibilityManager, VisibilityState } from './visibility-manager';
-import { DOMRenderer } from '@barocss/renderer-dom';
+import { DOMRenderer, logger, LogCategory } from '@barocss/renderer-dom';
 import { RendererRegistry, renderer, element, data, when } from '@barocss/dsl';
 
 /**
@@ -184,7 +184,7 @@ export class DecoratorRenderer {
    * Render Decorator (clean like render/update functions)
    */
   renderDecorator(decorator: Decorator): void {
-    console.log('[DecoratorRenderer] renderDecorator:start', { decoratorId: decorator.sid, type: decorator.stype });
+    logger.debug(LogCategory.DECORATOR, 'renderDecorator:start', { decoratorId: decorator.sid, type: decorator.stype });
     
     // Calculate visibility state
     const visibilityState = this.visibilityManager.calculateVisibility(decorator);
@@ -194,7 +194,7 @@ export class DecoratorRenderer {
     
     // Don't render if visibility is false
     if (!visibilityState.visible) {
-      console.log(`[DecoratorRenderer] Decorator ${decorator.sid} is hidden: ${visibilityState.reason}`);
+      logger.debug(LogCategory.DECORATOR, `Decorator ${decorator.sid} is hidden: ${visibilityState.reason}`);
       
       // Store information as hidden state
       this.renderedDecorators.set(decorator.sid, {
@@ -246,7 +246,7 @@ export class DecoratorRenderer {
         this.manager.emit('decorator:rendered', decorator.sid, renderedElement);
       }
       
-      console.log('[DecoratorRenderer] renderDecorator:done', { decoratorId: decorator.sid });
+      logger.debug(LogCategory.DECORATOR, 'renderDecorator:done', { decoratorId: decorator.sid });
     } catch (error) {
       console.warn(`Failed to render decorator ${decorator.sid}:`, error);
     }
@@ -290,7 +290,7 @@ export class DecoratorRenderer {
    * Update Decorator (clean like render/update functions)
    */
   updateDecorator(decorator: Decorator): void {
-    console.log('[DecoratorRenderer] updateDecorator:start', { decoratorId: decorator.sid });
+    logger.debug(LogCategory.DECORATOR, 'updateDecorator:start', { decoratorId: decorator.sid });
     
     // Remove existing rendering
     this.removeDecoratorRendering(decorator.sid);
@@ -298,7 +298,7 @@ export class DecoratorRenderer {
     // Render again
     this.renderDecorator(decorator);
     
-    console.log('[DecoratorRenderer] updateDecorator:done', { decoratorId: decorator.sid });
+    logger.debug(LogCategory.DECORATOR, 'updateDecorator:done', { decoratorId: decorator.sid });
   }
 
   /**
@@ -513,7 +513,7 @@ export class DecoratorRenderer {
    * 모든 데코레이터의 가시성 상태 새로고침
    */
   private refreshAllDecorators(): void {
-    console.log('[DecoratorRenderer] Refreshing all decorators visibility...');
+    logger.debug(LogCategory.DECORATOR, 'Refreshing all decorators visibility...');
     
     for (const [decoratorId, renderInfo] of this.renderedDecorators) {
       if (renderInfo.decorator) {

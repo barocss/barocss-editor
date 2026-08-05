@@ -16,6 +16,7 @@ import { HistoryManager } from './history-manager';
 import { KeybindingRegistryImpl, type KeybindingRegistry, type ContextProvider } from './keybinding';
 import { DEFAULT_KEYBINDINGS } from './keybinding/default-keybindings';
 import { DEFAULT_CONTEXT_INITIAL_VALUES } from './context/default-context';
+import { logger, LogCategory, isCategoryEnabled } from '@barocss/shared';
 import { IS_MAC, IS_LINUX, IS_WINDOWS } from '@barocss/shared';
 function isModelSelection(selection: unknown): selection is ModelSelection {
   if (!selection || typeof selection !== 'object') return false;
@@ -748,23 +749,27 @@ export class Editor implements ContextProvider {
   }
 
   emit(event: string, data?: any): void {
-    console.log('[Editor] emit:', event, { 
-      hasListeners: this._eventListeners.has(event),
-      listenersCount: this._eventListeners.get(event)?.size || 0,
-      dataKeys: data ? Object.keys(data) : []
-    });
     const listeners = this._eventListeners.get(event);
-    if (listeners) {
-      listeners.forEach(callback => {
-        try {
-          callback(data);
-        } catch (error) {
-          console.error(`Error in event listener for ${event}:`, error);
-        }
+
+    // Guarded rather than merely quiet. This is the hottest path in the editor —
+    // typing a single character emits tens of events — and the log line built an
+    // object and read `Object.keys(data)` for every one of them, in production,
+    // unconditionally.
+    if (isCategoryEnabled(LogCategory.EDITOR)) {
+      logger.debug(LogCategory.EDITOR, `emit: ${event}`, {
+        listenersCount: listeners?.size ?? 0,
+        dataKeys: data ? Object.keys(data) : []
       });
-    } else {
-      console.log('[Editor] emit: no listeners for', event);
     }
+
+    if (!listeners) return;
+    listeners.forEach(callback => {
+      try {
+        callback(data);
+      } catch (error) {
+        console.error(`Error in event listener for ${event}:`, error);
+      }
+    });
   }
 
   use(extension: Extension): void {
