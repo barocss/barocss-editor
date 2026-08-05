@@ -26,7 +26,8 @@ import {
   getWordNumbering,
   getWordStyles
 } from './render-context';
-import { indexResources } from './document-access';
+import { childrenOf, indexResources, type DocumentAccess, type DocumentNode } from './document-access';
+import { tocEntries, tocPageNumber } from './toc';
 import { footnoteAreaTemplate, furnitureFor, furnitureTemplate, pageNumberFor } from './page-furniture';
 import type { RenderEnv } from '@barocss/dsl';
 
@@ -235,6 +236,73 @@ export function registerWordRenderers(): void {
     );
   });
 
+  /**
+   * A table of contents, generated from the layout.
+   *
+   * A contextual component because the entries are not in the node: they come
+   * from the headings around it and the pages they landed on. Rendering it as
+   * stored content would show a table describing a layout the document no longer
+   * has — which is what a table of contents pasted as plain text does.
+   *
+   * It has height like any other block, so it is measured and paginated
+   * normally, and the page numbers it shows come from the round before. The
+   * layout loop is what settles that: adding the table moves everything below it
+   * down, the next round reports the new pages, and the round after finds
+   * nothing left to change.
+   */
+  define('tableOfContents', (_props: Record<string, any>, node: Record<string, any>, ctx: any) => {
+    const env = ctx?.env as RenderEnv | undefined;
+    const doc = getWordDocument(env);
+    const surface = doc ? findSurfaceOf(doc, String(node.sid ?? '')) : undefined;
+    const layout = surface?.sid ? getWordLayout(env, surface.sid) : undefined;
+    const styles = getWordStyles(env);
+    const format = styles && surface ? styles.resolveNode(surface as never, 'page') : {};
+
+    const entries =
+      doc && surface
+        ? tocEntries({
+            doc,
+            surface,
+            levels: node.attributes?.levels,
+            styleFilter: node.attributes?.styleFilter,
+            pageOfBlock: layout?.pageOfBlock
+          })
+        : [];
+
+    const showPages = node.attributes?.showPageNumbers !== false;
+
+    return element(
+      'nav',
+      {
+        className: 'w-toc',
+        style: blockStyle(node, env)
+      },
+      entries.map((entry) =>
+        element(
+          'div',
+          {
+            className: 'w-toc-entry',
+            key: entry.sid,
+            'data-level': String(entry.level),
+            style: { paddingLeft: `${(entry.level - 1) * 1.5}em` }
+          },
+          [
+            element('span', { className: 'w-toc-text' }, entry.text),
+            ...(showPages
+              ? [
+                  element(
+                    'span',
+                    { className: 'w-toc-page' },
+                    tocPageNumber(entry, (index) => pageNumberFor(index, format))
+                  )
+                ]
+              : [])
+          ]
+        )
+      )
+    );
+  });
+
   // ── Flow ───────────────────────────────────────────────────────────────────
   define(
     'paragraph',
@@ -291,7 +359,6 @@ export function registerWordRenderers(): void {
 
   define('contentControl', element('div', { className: 'w-content-control', 'data-tag': (d: Record<string, any>) => String(d.attributes?.tag ?? '') }, [slot('content')]));
   define('textBox', element('aside', { className: 'w-text-box' }, [slot('content')]));
-  define('tableOfContents', element('nav', { className: 'w-toc' }, [slot('content')]));
 
   // ── Tables ─────────────────────────────────────────────────────────────────
   // A table takes its spacing from the paragraph scope as well as its own
@@ -340,4 +407,21 @@ export function registerWordRenderers(): void {
   define('noBreakHyphen', element('span', { className: 'w-nbhyphen' }, [data('text', '‑')]));
   define('softHyphen', element('span', { className: 'w-shyphen' }));
   define('noteNumber', element('sup', { className: 'w-note-number' }, [slot('content')]));
+}
+
+
+/**
+ * The section a block belongs to.
+ *
+ * A table of contents lists the headings around it, and "around it" means its
+ * own section: a document with a preface and a body has two, and listing both
+ * from either would be wrong.
+ */
+function findSurfaceOf(doc: DocumentAccess, sid: string): DocumentNode | undefined {
+  const root = doc.getNode(doc.rootId);
+  for (const child of childrenOf(doc, root)) {
+    if (child.stype !== 'surface') continue;
+    if (childrenOf(doc, child).some((block) => block.sid === sid)) return child;
+  }
+  return undefined;
 }

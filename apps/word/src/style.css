@@ -82,3 +82,25 @@ body {
 
 /* The caret filler is renderer bookkeeping; it must never look like content. */
 [data-bc-filler] { user-select: none; }
+
+/*
+ * The dotted leader is a viewer concern: what the model says is which headings
+ * are listed and what page each is on.
+ */
+.w-toc-entry {
+  display: flex;
+  align-items: baseline;
+  gap: .5em;
+}
+
+.w-toc-text::after {
+  content: '';
+  display: inline-block;
+  width: 100%;
+  margin-left: .5em;
+  border-bottom: 1px dotted #adb5bd;
+  transform: translateY(-.25em);
+}
+
+.w-toc-text { display: flex; flex: 1; white-space: nowrap; }
+.w-toc-page { font-variant-numeric: tabular-nums; }

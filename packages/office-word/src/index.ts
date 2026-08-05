@@ -90,3 +90,5 @@ export {
   type FurnitureBinding,
   type PageContext
 } from './page-furniture';
+
+export { tocEntries, tocPageNumber, parseLevels, type TocEntry } from './toc';

@@ -42,6 +42,8 @@ export interface SurfaceLayout {
   footnotesByPage: Map<number, string[]>;
   /** The number each footnote shows, counted over the document. */
   footnoteNumbers: Map<string, number>;
+  /** The page each block starts on, which a table of contents needs. */
+  pageOfBlock: Map<string, number>;
 }
 
 /** Distance between the tops of consecutive sheets. */
@@ -129,6 +131,7 @@ export function layoutSurface(
     pushBySid,
     totalHeight: pages.length * metrics.height + Math.max(0, pages.length - 1) * metrics.gap,
     footnotesByPage: footnotes.byPage,
-    footnoteNumbers: footnotes.numberOf
+    footnoteNumbers: footnotes.numberOf,
+    pageOfBlock
   };
 }

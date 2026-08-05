@@ -561,3 +561,55 @@ test.describe('footnotes', () => {
     expect(copied).not.toContain('w-footnote');
   });
 });
+
+test.describe('table of contents', () => {
+  test('lists the headings with the page each is on', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-toc-entry');
+
+    const entries = await page.locator('.w-toc-entry').allInnerTexts();
+    expect(entries.length).toBeGreaterThan(2);
+    expect(entries[0]).toContain('Contents');
+    // Every entry ends in a page number
+    for (const entry of entries) expect(entry).toMatch(/\d+$/);
+  });
+
+  test('reads the page from the layout, not from the document', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-toc-entry');
+
+    // This heading asks for a page break, so it is the one whose number proves
+    // the table is generated rather than stored.
+    const later = page.locator('.w-toc-entry', { hasText: 'starts its own page' });
+    await expect(later).toContainText('3');
+  });
+
+  test('indents by heading level', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-toc-entry');
+
+    // The text, not the row: the indent is padding, so the row's own box does
+    // not move — what the reader sees moving is the text inside it.
+    const indents = await page.locator('.w-toc-entry').evaluateAll((els) =>
+      els.map((el) => ({
+        level: el.getAttribute('data-level'),
+        left: el.querySelector('.w-toc-text')!.getBoundingClientRect().left
+      }))
+    );
+
+    const first = indents.find((i) => i.level === '1')!;
+    const second = indents.find((i) => i.level === '2')!;
+    expect(second.left).toBeGreaterThan(first.left);
+  });
+
+  test('follows the levels the node asks for', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-toc-entry');
+
+    // The sample asks for 1-2, so nothing deeper is listed
+    const levels = await page
+      .locator('.w-toc-entry')
+      .evaluateAll((els) => els.map((el) => Number(el.getAttribute('data-level'))));
+    expect(Math.max(...levels)).toBeLessThanOrEqual(2);
+  });
+})

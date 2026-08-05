@@ -57,6 +57,14 @@ export function createSampleDocument(): INode {
           {
             stype: 'heading',
             attributes: { level: 1, styleId: 'Heading1' },
+            content: [{ stype: 'inline-text', text: 'Contents' }]
+          },
+          // Generated, never stored: the page numbers are a fact about the
+          // current layout, not about the document.
+          { stype: 'tableOfContents', attributes: { levels: '1-2' }, content: [] },
+          {
+            stype: 'heading',
+            attributes: { level: 1, styleId: 'Heading1' },
             content: [{ stype: 'inline-text', text: 'Styles cascade' }]
           },
           {
