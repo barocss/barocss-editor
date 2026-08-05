@@ -29,6 +29,7 @@ import {
 } from './render-context';
 import { childrenOf, indexResources, type DocumentAccess, type DocumentNode } from './document-access';
 import { tocEntries, tocPageNumber } from './toc';
+import { authorColor, revisionTitle } from './revisions';
 import { footnoteAreaTemplate, furnitureFor, furnitureTemplate, pageNumberFor } from './page-furniture';
 import type { RenderEnv } from '@barocss/dsl';
 
@@ -348,6 +349,8 @@ export function registerWordRenderers(): void {
     return element('span', { className: 'w-field w-field-style-ref' }, value ?? '');
   });
 
+  registerRevisionMarks();
+
   // ── Flow ───────────────────────────────────────────────────────────────────
   define(
     'paragraph',
@@ -469,4 +472,59 @@ function findSurfaceOf(doc: DocumentAccess, sid: string): DocumentNode | undefin
     if (childrenOf(doc, child).some((block) => block.sid === sid)) return child;
   }
   return undefined;
+}
+
+
+/**
+ * How a tracked change is drawn.
+ *
+ * Word's conventions: an insertion is underlined, a deletion struck through, a
+ * moved passage double-struck where it left and double-underlined where it
+ * arrived, and a formatting change marked without touching the text. All of them
+ * in the author's colour, because a document revised by three people is only
+ * readable if each one looks different.
+ *
+ * A deletion is drawn rather than removed. That is the whole point of tracking:
+ * the reader has to see what was taken out in order to accept or reject it.
+ */
+function registerRevisionMarks(): void {
+  const revision = (
+    kind: string,
+    className: string,
+    style: (color: string) => Record<string, string>
+  ) => {
+    // Registered through define rather than defineMark: a mark that depends on a
+    // value — here the author — has to be a function, and defineMark's helper
+    // expects a static template to inject its class into. The registry key is
+    // the same one defineMark would have used.
+    define(
+      `mark:${kind}`,
+      (props: Record<string, any>) => {
+        // The mark's own attributes, which the renderer hands over as
+        // `attributes` — the author is on the mark, not on the text run.
+        const attrs = (props?.attributes ?? {}) as Record<string, unknown>;
+        const color = authorColor(typeof attrs?.author === 'string' ? attrs.author : undefined);
+        return element(
+          'span',
+          {
+            className,
+            title: revisionTitle(className.replace('w-', ''), attrs),
+            'data-author': String(attrs?.author ?? ''),
+            style: { color, ...style(color) }
+          },
+          [data('text')]
+        );
+      }
+    );
+  };
+
+  revision('insertion', 'w-insertion', () => ({ textDecoration: 'underline' }));
+  revision('deletion', 'w-deletion', () => ({ textDecoration: 'line-through' }));
+  revision('moveFrom', 'w-move-from', () => ({ textDecoration: 'line-through double' }));
+  revision('moveTo', 'w-move-to', () => ({ textDecoration: 'underline double' }));
+  revision('formatChange', 'w-format-change', (color) => ({
+    // The text itself is untouched: what changed is how it looks, so the marker
+    // has to sit beside it rather than on it.
+    borderBottom: `1px dotted ${color}`
+  }));
 }

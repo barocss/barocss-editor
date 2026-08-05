@@ -95,6 +95,31 @@ export function createSampleDocument(): INode {
           },
 
           {
+            // Tracked changes are marks because they cover a range, and the same
+            // range can carry an insertion and a comment at once.
+            stype: 'paragraph',
+            attributes: { styleId: 'Body' },
+            content: [
+              { stype: 'inline-text', text: 'Revisions are drawn, not applied: ' },
+              {
+                stype: 'inline-text',
+                text: 'this was added',
+                marks: [
+                  { stype: 'insertion', range: [0, 14], attrs: { id: 'r1', author: 'Jinho', date: '2026-08-05' } }
+                ]
+              },
+              { stype: 'inline-text', text: ' and ' },
+              {
+                stype: 'inline-text',
+                text: 'this was removed',
+                marks: [
+                  { stype: 'deletion', range: [0, 16], attrs: { id: 'r2', author: 'Sujin', date: '2026-08-05' } }
+                ]
+              },
+              { stype: 'inline-text', text: '.' }
+            ]
+          },
+          {
             stype: 'heading',
             attributes: { level: 2, styleId: 'Heading2' },
             content: [{ stype: 'inline-text', text: 'Numbering is computed' }]
