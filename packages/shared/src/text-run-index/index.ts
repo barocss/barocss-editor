@@ -10,4 +10,6 @@ export {
   stripFiller,
   FILLER_CHAR,
   FILLER_ATTR,
+  stripChromeElements,
+  CHROME_ATTR,
 } from './text-run-index';

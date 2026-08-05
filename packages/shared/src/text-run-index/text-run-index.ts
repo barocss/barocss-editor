@@ -43,6 +43,31 @@ export function stripFiller(text: string): string {
 }
 
 /**
+ * Attribute marking an element a template drew that is not content.
+ *
+ * Page sheets, rulers, grid lines, a slide's background — a template legitimately
+ * draws things that correspond to nothing in the model. They are in the content
+ * tree because that is where the geometry they align to lives, but they must not
+ * behave like content: they cannot be copied, and they cannot be typed into.
+ *
+ * The caret filler is the same idea one element smaller, which is why the two
+ * live together.
+ */
+export const CHROME_ATTR = 'data-bc-chrome';
+
+/**
+ * Remove renderer-owned chrome from a cloned fragment.
+ *
+ * Takes a detached clone, never live DOM: this is for rewriting what leaves the
+ * editor, and removing chrome from the document itself would erase what it draws.
+ */
+export function stripChromeElements(root: Element | DocumentFragment): void {
+  for (const el of Array.from(root.querySelectorAll(`[${CHROME_ATTR}]`))) {
+    el.remove();
+  }
+}
+
+/**
  * Check if element is a decorator
  */
 function isDecoratorElement(el: Element): boolean {

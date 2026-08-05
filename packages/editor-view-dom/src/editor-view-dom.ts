@@ -4,7 +4,7 @@ import { IEditorViewDOM, EditorViewDOMOptions, LayerConfiguration, LayoutPass } 
 import { InputHandlerImpl } from './event-handlers/input-handler';
 import { DOMSelectionHandlerImpl } from './event-handlers/selection-handler';
 import { MutationObserverManagerImpl } from './mutation-observer/mutation-observer-manager';
-import { DecoratorManager, RemoteDecoratorManager, PatternDecoratorConfigManager, DecoratorGeneratorManager, stripFiller } from '@barocss/shared';
+import { DecoratorManager, RemoteDecoratorManager, PatternDecoratorConfigManager, DecoratorGeneratorManager, stripChromeElements, stripFiller } from '@barocss/shared';
 import type { PatternDecoratorConfig, DecoratorGenerator } from '@barocss/shared';
 import { DecoratorRegistry, DecoratorPrebuilder, type Decorator, type DecoratorQueryOptions, type DecoratorModel } from './decorator';
 import { DOMRenderer } from '@barocss/renderer-dom';
@@ -550,9 +550,17 @@ export class EditorViewDOM implements IEditorViewDOM {
   }
 
   /**
-   * Rewrite the clipboard payload so the renderer's caret filler never leaves the
-   * editor. Only the zero-width character is removed — the selection, the HTML
-   * structure and the cut itself are left to the browser.
+   * Rewrite the clipboard payload so that what the renderer owns never leaves the
+   * editor.
+   *
+   * Two things qualify. The caret filler is a zero-width character the renderer
+   * puts in empty blocks. Chrome is whole elements a template drew that are not
+   * content — a Word page sheet, a ruler, a grid — which sit in the content tree
+   * because that is where the geometry they align to lives, and which a reader
+   * pasting into another document has no use for.
+   *
+   * Everything else is left to the browser: the selection, the HTML structure,
+   * and the cut itself.
    */
   handleCopy(event: ClipboardEvent): void {
     const selection = window.getSelection();
@@ -560,9 +568,12 @@ export class EditorViewDOM implements IEditorViewDOM {
 
     const html = this.contentEditableElement.ownerDocument.createElement('div');
     html.appendChild(selection.getRangeAt(0).cloneContents());
+    const original = html.innerHTML;
+    stripChromeElements(html);
+
     const plain = stripFiller(selection.toString());
     const markup = stripFiller(html.innerHTML);
-    if (plain === selection.toString() && markup === html.innerHTML) return;
+    if (plain === selection.toString() && markup === original) return;
 
     event.preventDefault();
     event.clipboardData.setData('text/plain', plain);

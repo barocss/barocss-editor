@@ -250,3 +250,42 @@ test.describe('pages follow the text', () => {
       .toBe(before);
   });
 });
+
+test.describe('what leaves the editor', () => {
+  test('does not copy the page sheets', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-sheet');
+
+    // The sheets sit in the content tree because that is where the geometry they
+    // align to lives. Someone pasting into another document has no use for them.
+    const copied = await page.evaluate(async () => {
+      const surface = document.querySelector('.w-surface')!;
+      const range = document.createRange();
+      range.selectNodeContents(surface);
+      const selection = window.getSelection()!;
+      selection.removeAllRanges();
+      selection.addRange(range);
+
+      let html = '';
+      const onCopy = (event: ClipboardEvent) => {
+        html = event.clipboardData?.getData('text/html') ?? '';
+      };
+      // Bubble phase, so the editor's own handler has already rewritten the
+      // payload by the time this reads it.
+      document.addEventListener('copy', onCopy);
+      document.execCommand('copy');
+      document.removeEventListener('copy', onCopy);
+      return html;
+    });
+
+    expect(copied).not.toContain('w-sheet');
+    // ...and the document itself still came along
+    expect(copied).toContain('Styles cascade');
+  });
+
+  test('still draws the sheets it refused to copy', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.locator('.w-sheet').first()).toBeVisible();
+    expect(await page.locator('.w-sheet').count()).toBeGreaterThan(1);
+  });
+});

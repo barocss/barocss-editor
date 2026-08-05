@@ -149,15 +149,23 @@ export function registerWordRenderers(): void {
         }
       },
       [
-        // Decorative and inert: the caret must never land on a page sheet, and a
-        // click meant for the text must not be caught by it.
+        // Chrome, not content: the sheets are in the content tree because that
+        // is where the geometry they align to lives, but they are not part of
+        // the document. `data-bc-chrome` is what keeps them out of a copy; the
+        // rest keeps the caret, the pointer and a screen reader out of them.
         element(
           'div',
           {
             className: 'w-sheets',
+            'data-bc-chrome': 'true',
             contenteditable: 'false',
             'aria-hidden': 'true',
-            style: { position: 'absolute', inset: '0', pointerEvents: 'none' }
+            style: {
+              position: 'absolute',
+              inset: '0',
+              pointerEvents: 'none',
+              userSelect: 'none'
+            }
           },
           sheets
         ),
