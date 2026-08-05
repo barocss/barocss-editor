@@ -18,7 +18,7 @@
     "permalink": "/docs/architecture/extensions"
   },
   "next": {
-    "title": "@barocss/collaboration",
-    "permalink": "/docs/architecture/collaboration"
+    "title": "@barocss/dom-observer",
+    "permalink": "/docs/architecture/dom-observer"
   }
 }

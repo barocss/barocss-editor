@@ -1,7 +1,7 @@
 {
   "id": "guides/decorator-guide",
   "title": "Decorator Guide",
-  "description": "This guide explains how to implement and use decorators in Barocss Editor.",
+  "description": "Decorators add temporary visual overlays to the editor without modifying the document model. This guide walks through practical implementation patterns.",
   "source": "@site/docs/guides/decorator-guide.md",
   "sourceDirName": "guides",
   "slug": "/guides/decorator-guide",
@@ -14,5 +14,14 @@
   "frontMatter": {
     "title": "Decorator Guide",
     "sidebar_label": "Decorator Guide"
+  },
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Advanced Extension Patterns",
+    "permalink": "/docs/guides/advanced-extensions"
+  },
+  "next": {
+    "title": "Before Hooks 사용 사례 분석",
+    "permalink": "/docs/guides/before-hooks-use-cases"
   }
 }

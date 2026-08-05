@@ -14,8 +14,8 @@
   "frontMatter": {},
   "sidebar": "tutorialSidebar",
   "previous": {
-    "title": "@barocss/renderer-dom",
-    "permalink": "/docs/architecture/renderer-dom"
+    "title": "Renderer React",
+    "permalink": "/docs/architecture/renderer-react"
   },
   "next": {
     "title": "@barocss/editor-view-dom",

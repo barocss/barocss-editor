@@ -1,0 +1,26 @@
+{
+  "id": "architecture/renderer-react",
+  "title": "Renderer React",
+  "description": "The Renderer-React package provides React rendering from model using DSL templates. It converts your model data directly into ReactNode — no VNode intermediate step.",
+  "source": "@site/docs/architecture/renderer-react.md",
+  "sourceDirName": "architecture",
+  "slug": "/architecture/renderer-react",
+  "permalink": "/docs/architecture/renderer-react",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/architecture/renderer-react.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {
+    "title": "Renderer React"
+  },
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "@barocss/renderer-dom",
+    "permalink": "/docs/architecture/renderer-dom"
+  },
+  "next": {
+    "title": "@barocss/editor-core",
+    "permalink": "/docs/architecture/editor-core"
+  }
+}

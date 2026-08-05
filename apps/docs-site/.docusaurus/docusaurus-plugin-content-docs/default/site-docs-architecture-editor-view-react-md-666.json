@@ -1,0 +1,26 @@
+{
+  "id": "architecture/editor-view-react",
+  "title": "Editor View React",
+  "description": "The Editor-View-React package provides the React view layer for Barocss Editor. It connects the Editor to the DOM through React components, handling user input, selection synchronization, decorator management, and rendering via ReactRenderer.",
+  "source": "@site/docs/architecture/editor-view-react.md",
+  "sourceDirName": "architecture",
+  "slug": "/architecture/editor-view-react",
+  "permalink": "/docs/architecture/editor-view-react",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/architecture/editor-view-react.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {
+    "title": "Editor View React"
+  },
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "@barocss/editor-view-dom",
+    "permalink": "/docs/architecture/editor-view-dom"
+  },
+  "next": {
+    "title": "@barocss/converter",
+    "permalink": "/docs/architecture/converter"
+  }
+}

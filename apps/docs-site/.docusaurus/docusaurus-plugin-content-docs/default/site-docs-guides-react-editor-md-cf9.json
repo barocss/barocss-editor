@@ -1,0 +1,24 @@
+{
+  "id": "guides/react-editor",
+  "title": "React Editor Guide",
+  "description": "This guide walks you through building a fully functional Barocss Editor inside a React application — from scratch to a complete editor with toolbar, formatting, and custom React-rendered components.",
+  "source": "@site/docs/guides/react-editor.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/react-editor",
+  "permalink": "/docs/guides/react-editor",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/guides/react-editor.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Practical Examples",
+    "permalink": "/docs/architecture/practical-examples"
+  },
+  "next": {
+    "title": "Extension Design Guide",
+    "permalink": "/docs/guides/extension-design"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "id": "concepts/transactions",
+  "title": "Transactions",
+  "description": "Every document modification in Barocss goes through a transaction — an atomic, all-or-nothing unit of work. Transactions ensure data integrity, enable undo/redo, and coordinate with collaboration.",
+  "source": "@site/docs/concepts/transactions.md",
+  "sourceDirName": "concepts",
+  "slug": "/concepts/transactions",
+  "permalink": "/docs/concepts/transactions",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/concepts/transactions.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Selection",
+    "permalink": "/docs/concepts/selection"
+  },
+  "next": {
+    "title": "History (Undo/Redo)",
+    "permalink": "/docs/concepts/history"
+  }
+}

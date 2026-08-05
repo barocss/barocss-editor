@@ -96,7 +96,38 @@ export class DeleteExtension implements Extension {
       }
     });
 
-    // 5. Delete key handling (Forward Delete, symmetric with Backspace)
+    // 5. Word deletion (Option/Ctrl + Backspace or Delete)
+    //
+    // These live here rather than in the view for the same reason `backspace`
+    // does: how far a word reaches is a question about the text, and the view's
+    // job stops at reporting that the user asked to delete one.
+    editor.registerCommand({
+      name: 'deleteWordBackward',
+      execute: async (editor: any, payload?: { selection?: ModelSelection }) => {
+        const selection = payload?.selection || editor.selection;
+        if (!selection) {
+          console.warn('[DeleteExtension] deleteWordBackward: No selection available');
+          return false;
+        }
+        return await this._executeDeleteWord(editor, selection, 'backward');
+      },
+      canExecute: (editor: any, payload?: any) => (payload?.selection || editor.selection) != null
+    });
+
+    editor.registerCommand({
+      name: 'deleteWordForward',
+      execute: async (editor: any, payload?: { selection?: ModelSelection }) => {
+        const selection = payload?.selection || editor.selection;
+        if (!selection) {
+          console.warn('[DeleteExtension] deleteWordForward: No selection available');
+          return false;
+        }
+        return await this._executeDeleteWord(editor, selection, 'forward');
+      },
+      canExecute: (editor: any, payload?: any) => (payload?.selection || editor.selection) != null
+    });
+
+    // 6. Delete key handling (Forward Delete, symmetric with Backspace)
     // Use selection from payload if available, otherwise use editor.selection
     editor.registerCommand({
       name: 'deleteForward',
@@ -194,6 +225,67 @@ export class DeleteExtension implements Extension {
    * @param selection 현재 Model Selection
    * @returns 성공 여부
    */
+  /**
+   * Delete to the nearest word boundary.
+   *
+   * A word ends where the run of non-space characters does, and the whitespace
+   * between two words goes with the word being deleted — which is why the scan
+   * crosses the spaces first and the word after. Word processors differ here,
+   * and this follows the common behaviour: deleting backwards from "foo bar|"
+   * leaves "foo ", not "foo".
+   *
+   * At a node boundary there is no word left to measure, so the ordinary
+   * character behaviour takes over: it is the one that knows how to merge two
+   * blocks, and a word delete at the start of a paragraph means the same thing.
+   */
+  private async _executeDeleteWord(
+    editor: Editor,
+    selection: ModelSelection,
+    direction: 'backward' | 'forward'
+  ): Promise<boolean> {
+    // A selection already says what to delete; the word boundary is irrelevant.
+    if (!selection.collapsed) {
+      return await this._executeDeleteText(editor, selection);
+    }
+
+    const dataStore = (editor as any).dataStore;
+    const node = dataStore?.getNode?.(selection.startNodeId);
+    const text = typeof node?.text === 'string' ? (node.text as string) : null;
+
+    if (text === null || text.length === 0) {
+      return direction === 'backward'
+        ? await this._executeBackspace(editor, selection)
+        : await this._executeDeleteForward(editor, selection);
+    }
+
+    const offset = selection.startOffset;
+    const isWordChar = (ch: string) => /\S/.test(ch);
+    let boundary = offset;
+
+    if (direction === 'backward') {
+      if (offset === 0) return await this._executeBackspace(editor, selection);
+      while (boundary > 0 && !isWordChar(text[boundary - 1])) boundary -= 1;
+      while (boundary > 0 && isWordChar(text[boundary - 1])) boundary -= 1;
+      if (boundary === offset) return false;
+    } else {
+      if (offset >= text.length) return await this._executeDeleteForward(editor, selection);
+      while (boundary < text.length && !isWordChar(text[boundary])) boundary += 1;
+      while (boundary < text.length && isWordChar(text[boundary])) boundary += 1;
+      if (boundary === offset) return false;
+    }
+
+    const [start, end] = direction === 'backward' ? [boundary, offset] : [offset, boundary];
+    return await this._executeDeleteText(editor, {
+      type: 'range',
+      startNodeId: selection.startNodeId,
+      startOffset: start,
+      endNodeId: selection.startNodeId,
+      endOffset: end,
+      collapsed: false,
+      direction: 'forward'
+    } as ModelSelection);
+  }
+
   private async _executeBackspace(editor: Editor, selection: ModelSelection): Promise<boolean> {
     // 1. Handle Range Selection
     if (!selection.collapsed) {

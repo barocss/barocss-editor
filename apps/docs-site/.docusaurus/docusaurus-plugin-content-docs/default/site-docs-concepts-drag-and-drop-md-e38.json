@@ -1,0 +1,24 @@
+{
+  "id": "concepts/drag-and-drop",
+  "title": "Drag and Drop",
+  "description": "Drag and drop allows users to reorder blocks by dragging them with a handle. The DragDropExtension provides a mouse-based drag system that integrates with the model's reorderChildren operation.",
+  "source": "@site/docs/concepts/drag-and-drop.md",
+  "sourceDirName": "concepts",
+  "slug": "/concepts/drag-and-drop",
+  "permalink": "/docs/concepts/drag-and-drop",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/concepts/drag-and-drop.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Clipboard (Copy / Cut / Paste)",
+    "permalink": "/docs/concepts/clipboard"
+  },
+  "next": {
+    "title": "Decorators",
+    "permalink": "/docs/concepts/decorators"
+  }
+}

@@ -11,5 +11,14 @@
   "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/guides/before-hooks-use-cases.md",
   "tags": [],
   "version": "current",
-  "frontMatter": {}
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Decorator Guide",
+    "permalink": "/docs/guides/decorator-guide"
+  },
+  "next": {
+    "title": "Before Hooks 안전성 분석",
+    "permalink": "/docs/guides/before-hooks-safety-analysis"
+  }
 }

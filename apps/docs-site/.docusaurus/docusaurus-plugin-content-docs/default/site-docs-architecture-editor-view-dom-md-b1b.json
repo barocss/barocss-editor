@@ -18,7 +18,7 @@
     "permalink": "/docs/architecture/editor-core"
   },
   "next": {
-    "title": "@barocss/converter",
-    "permalink": "/docs/architecture/converter"
+    "title": "Editor View React",
+    "permalink": "/docs/architecture/editor-view-react"
   }
 }

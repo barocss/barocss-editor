@@ -14,8 +14,8 @@
   "frontMatter": {},
   "sidebar": "tutorialSidebar",
   "previous": {
-    "title": "@barocss/editor-view-dom",
-    "permalink": "/docs/architecture/editor-view-dom"
+    "title": "Editor View React",
+    "permalink": "/docs/architecture/editor-view-react"
   },
   "next": {
     "title": "@barocss/extensions",

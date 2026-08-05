@@ -1,0 +1,43 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - generic [ref=e7]:
+    - heading "BaroCSS Editor Demo" [level=1] [ref=e8]
+    - heading "Rich Text Features" [level=2] [ref=e9]
+    - paragraph [ref=e10]: "ime-window-secondbold text and this is italic text. You can also combine them: bold and italic. Now with colors: red text and yellow background."
+    - paragraph [ref=e11]:
+      - text: "Here is an inline image:"
+      - img "checkmark" [ref=e12]
+      - text: and some bold text after image.
+  - generic [ref=e14]:
+    - generic [ref=e15]:
+      - button "Model Tree" [ref=e16] [cursor=pointer]
+      - button "Events" [ref=e17] [cursor=pointer]
+      - button "Execution Flow" [ref=e18] [cursor=pointer]
+    - generic [ref=e21]:
+      - generic [ref=e23] [cursor=pointer]:
+        - generic [ref=e24]: ▶
+        - generic [ref=e25]: "#3"
+        - generic [ref=e26]: trace-1785838104...
+        - generic [ref=e27]: 0.50ms
+        - generic [ref=e28]: 1 spans
+        - button "📋" [ref=e29]
+        - button "💬" [ref=e30]
+      - generic [ref=e32] [cursor=pointer]:
+        - generic [ref=e33]: ▶
+        - generic [ref=e34]: "#2"
+        - generic [ref=e35]: trace-1785838104...
+        - generic [ref=e36]: 0.40ms
+        - generic [ref=e37]: 1 spans
+        - button "📋" [ref=e38]
+        - button "💬" [ref=e39]
+      - generic [ref=e41] [cursor=pointer]:
+        - generic [ref=e42]: ▶
+        - generic [ref=e43]: "#1"
+        - generic [ref=e44]: trace-1785838104...
+        - generic [ref=e45]: 1.00ms
+        - generic [ref=e46]: 1 spans
+        - button "📋" [ref=e47]
+        - button "💬" [ref=e48]
+```

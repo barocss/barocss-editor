@@ -3,51 +3,16 @@ import ComponentCreator from '@docusaurus/ComponentCreator';
 
 export default [
   {
-    path: '/__docusaurus/debug',
-    component: ComponentCreator('/__docusaurus/debug', '5ff'),
-    exact: true
-  },
-  {
-    path: '/__docusaurus/debug/config',
-    component: ComponentCreator('/__docusaurus/debug/config', '5ba'),
-    exact: true
-  },
-  {
-    path: '/__docusaurus/debug/content',
-    component: ComponentCreator('/__docusaurus/debug/content', 'a2b'),
-    exact: true
-  },
-  {
-    path: '/__docusaurus/debug/globalData',
-    component: ComponentCreator('/__docusaurus/debug/globalData', 'c3c'),
-    exact: true
-  },
-  {
-    path: '/__docusaurus/debug/metadata',
-    component: ComponentCreator('/__docusaurus/debug/metadata', '156'),
-    exact: true
-  },
-  {
-    path: '/__docusaurus/debug/registry',
-    component: ComponentCreator('/__docusaurus/debug/registry', '88c'),
-    exact: true
-  },
-  {
-    path: '/__docusaurus/debug/routes',
-    component: ComponentCreator('/__docusaurus/debug/routes', '000'),
-    exact: true
-  },
-  {
     path: '/docs',
-    component: ComponentCreator('/docs', '040'),
+    component: ComponentCreator('/docs', '6c5'),
     routes: [
       {
         path: '/docs',
-        component: ComponentCreator('/docs', '286'),
+        component: ComponentCreator('/docs', 'd8c'),
         routes: [
           {
             path: '/docs',
-            component: ComponentCreator('/docs', 'e5e'),
+            component: ComponentCreator('/docs', 'd09'),
             routes: [
               {
                 path: '/docs/api/collaboration-api',
@@ -88,6 +53,12 @@ export default [
               {
                 path: '/docs/api/editor-view-dom-api',
                 component: ComponentCreator('/docs/api/editor-view-dom-api', '900'),
+                exact: true,
+                sidebar: "tutorialSidebar"
+              },
+              {
+                path: '/docs/api/editor-view-react-api',
+                component: ComponentCreator('/docs/api/editor-view-react-api', '3ad'),
                 exact: true,
                 sidebar: "tutorialSidebar"
               },
@@ -140,6 +111,12 @@ export default [
                 sidebar: "tutorialSidebar"
               },
               {
+                path: '/docs/api/renderer-react-api',
+                component: ComponentCreator('/docs/api/renderer-react-api', '864'),
+                exact: true,
+                sidebar: "tutorialSidebar"
+              },
+              {
                 path: '/docs/api/schema-api',
                 component: ComponentCreator('/docs/api/schema-api', 'd74'),
                 exact: true,
@@ -183,8 +160,9 @@ export default [
               },
               {
                 path: '/docs/architecture/dom-observer',
-                component: ComponentCreator('/docs/architecture/dom-observer', 'd7e'),
-                exact: true
+                component: ComponentCreator('/docs/architecture/dom-observer', '1e2'),
+                exact: true,
+                sidebar: "tutorialSidebar"
               },
               {
                 path: '/docs/architecture/dsl',
@@ -201,6 +179,12 @@ export default [
               {
                 path: '/docs/architecture/editor-view-dom',
                 component: ComponentCreator('/docs/architecture/editor-view-dom', '30e'),
+                exact: true,
+                sidebar: "tutorialSidebar"
+              },
+              {
+                path: '/docs/architecture/editor-view-react',
+                component: ComponentCreator('/docs/architecture/editor-view-react', 'e4d'),
                 exact: true,
                 sidebar: "tutorialSidebar"
               },
@@ -240,6 +224,12 @@ export default [
                 sidebar: "tutorialSidebar"
               },
               {
+                path: '/docs/architecture/renderer-react',
+                component: ComponentCreator('/docs/architecture/renderer-react', '7c9'),
+                exact: true,
+                sidebar: "tutorialSidebar"
+              },
+              {
                 path: '/docs/architecture/schema',
                 component: ComponentCreator('/docs/architecture/schema', '351'),
                 exact: true,
@@ -247,8 +237,9 @@ export default [
               },
               {
                 path: '/docs/architecture/shared',
-                component: ComponentCreator('/docs/architecture/shared', '4c4'),
-                exact: true
+                component: ComponentCreator('/docs/architecture/shared', 'c6d'),
+                exact: true,
+                sidebar: "tutorialSidebar"
               },
               {
                 path: '/docs/architecture/text-analyzer',
@@ -263,8 +254,20 @@ export default [
                 sidebar: "tutorialSidebar"
               },
               {
+                path: '/docs/concepts/clipboard',
+                component: ComponentCreator('/docs/concepts/clipboard', '1ae'),
+                exact: true,
+                sidebar: "tutorialSidebar"
+              },
+              {
                 path: '/docs/concepts/decorators',
                 component: ComponentCreator('/docs/concepts/decorators', 'd16'),
+                exact: true,
+                sidebar: "tutorialSidebar"
+              },
+              {
+                path: '/docs/concepts/drag-and-drop',
+                component: ComponentCreator('/docs/concepts/drag-and-drop', '74b'),
                 exact: true,
                 sidebar: "tutorialSidebar"
               },
@@ -287,6 +290,12 @@ export default [
                 sidebar: "tutorialSidebar"
               },
               {
+                path: '/docs/concepts/history',
+                component: ComponentCreator('/docs/concepts/history', '9f0'),
+                exact: true,
+                sidebar: "tutorialSidebar"
+              },
+              {
                 path: '/docs/concepts/rendering',
                 component: ComponentCreator('/docs/concepts/rendering', 'a28'),
                 exact: true,
@@ -295,6 +304,18 @@ export default [
               {
                 path: '/docs/concepts/schema-and-model',
                 component: ComponentCreator('/docs/concepts/schema-and-model', 'af1'),
+                exact: true,
+                sidebar: "tutorialSidebar"
+              },
+              {
+                path: '/docs/concepts/selection',
+                component: ComponentCreator('/docs/concepts/selection', 'a3c'),
+                exact: true,
+                sidebar: "tutorialSidebar"
+              },
+              {
+                path: '/docs/concepts/transactions',
+                component: ComponentCreator('/docs/concepts/transactions', '704'),
                 exact: true,
                 sidebar: "tutorialSidebar"
               },
@@ -329,13 +350,15 @@ export default [
               },
               {
                 path: '/docs/guides/before-hooks-safety-analysis',
-                component: ComponentCreator('/docs/guides/before-hooks-safety-analysis', 'a5f'),
-                exact: true
+                component: ComponentCreator('/docs/guides/before-hooks-safety-analysis', '758'),
+                exact: true,
+                sidebar: "tutorialSidebar"
               },
               {
                 path: '/docs/guides/before-hooks-use-cases',
-                component: ComponentCreator('/docs/guides/before-hooks-use-cases', '8c5'),
-                exact: true
+                component: ComponentCreator('/docs/guides/before-hooks-use-cases', 'f21'),
+                exact: true,
+                sidebar: "tutorialSidebar"
               },
               {
                 path: '/docs/guides/custom-operations',
@@ -345,12 +368,19 @@ export default [
               },
               {
                 path: '/docs/guides/decorator-guide',
-                component: ComponentCreator('/docs/guides/decorator-guide', '4b2'),
-                exact: true
+                component: ComponentCreator('/docs/guides/decorator-guide', '0c5'),
+                exact: true,
+                sidebar: "tutorialSidebar"
               },
               {
                 path: '/docs/guides/extension-design',
                 component: ComponentCreator('/docs/guides/extension-design', 'bb1'),
+                exact: true,
+                sidebar: "tutorialSidebar"
+              },
+              {
+                path: '/docs/guides/react-editor',
+                component: ComponentCreator('/docs/guides/react-editor', '21c'),
                 exact: true,
                 sidebar: "tutorialSidebar"
               },

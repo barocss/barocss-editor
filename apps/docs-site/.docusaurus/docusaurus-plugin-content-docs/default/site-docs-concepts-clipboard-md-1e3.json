@@ -1,0 +1,24 @@
+{
+  "id": "concepts/clipboard",
+  "title": "Clipboard (Copy / Cut / Paste)",
+  "description": "The clipboard system handles copying, cutting, and pasting content between the editor and external applications. It integrates with the converter package to support rich formats like HTML, Markdown, and content from Office, Google Docs, and Notion.",
+  "source": "@site/docs/concepts/clipboard.md",
+  "sourceDirName": "concepts",
+  "slug": "/concepts/clipboard",
+  "permalink": "/docs/concepts/clipboard",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/concepts/clipboard.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Editor View DOM",
+    "permalink": "/docs/concepts/editor-view-dom"
+  },
+  "next": {
+    "title": "Drag and Drop",
+    "permalink": "/docs/concepts/drag-and-drop"
+  }
+}

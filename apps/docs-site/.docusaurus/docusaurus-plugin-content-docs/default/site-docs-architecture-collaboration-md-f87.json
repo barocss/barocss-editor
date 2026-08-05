@@ -17,8 +17,8 @@
   },
   "sidebar": "tutorialSidebar",
   "previous": {
-    "title": "@barocss/text-analyzer",
-    "permalink": "/docs/architecture/text-analyzer"
+    "title": "@barocss/shared",
+    "permalink": "/docs/architecture/shared"
   },
   "next": {
     "title": "@barocss/collaboration-yjs",

@@ -18,7 +18,7 @@
     "permalink": "/docs/api/datastore-api"
   },
   "next": {
-    "title": "Converter API",
-    "permalink": "/docs/api/converter-api"
+    "title": "Renderer React API",
+    "permalink": "/docs/api/renderer-react-api"
   }
 }

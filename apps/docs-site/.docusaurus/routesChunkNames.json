@@ -1,285 +1,282 @@
 {
-  "/__docusaurus/debug-5ff": {
-    "__comp": "__comp---theme-debug-config-23-a-2ff",
+  "/docs-6c5": {
+    "__comp": "5e95c892",
     "__context": {
-      "plugin": "plugin---docusaurus-debugb-38-ad3"
+      "plugin": "aba21aa0"
     }
   },
-  "/__docusaurus/debug/config-5ba": {
-    "__comp": "__comp---theme-debug-config-23-a-2ff",
-    "__context": {
-      "plugin": "plugin---docusaurus-debugb-38-ad3"
-    }
+  "/docs-d8c": {
+    "__comp": "a7bd4aaa",
+    "__props": "0058b4c6"
   },
-  "/__docusaurus/debug/content-a2b": {
-    "__comp": "__comp---theme-debug-contentba-8-ce7",
-    "__context": {
-      "plugin": "plugin---docusaurus-debugb-38-ad3"
-    },
-    "__props": "__props---docusaurus-debug-content-3-c-0-be2"
-  },
-  "/__docusaurus/debug/globalData-c3c": {
-    "__comp": "__comp---theme-debug-global-dataede-0fa",
-    "__context": {
-      "plugin": "plugin---docusaurus-debugb-38-ad3"
-    }
-  },
-  "/__docusaurus/debug/metadata-156": {
-    "__comp": "__comp---theme-debug-site-metadata-68-e-3d4",
-    "__context": {
-      "plugin": "plugin---docusaurus-debugb-38-ad3"
-    }
-  },
-  "/__docusaurus/debug/registry-88c": {
-    "__comp": "__comp---theme-debug-registry-679-501",
-    "__context": {
-      "plugin": "plugin---docusaurus-debugb-38-ad3"
-    }
-  },
-  "/__docusaurus/debug/routes-000": {
-    "__comp": "__comp---theme-debug-routes-946-699",
-    "__context": {
-      "plugin": "plugin---docusaurus-debugb-38-ad3"
-    }
-  },
-  "/docs-040": {
-    "__comp": "__comp---theme-docs-root-5-e-9-0b6",
-    "__context": {
-      "plugin": "plugin---docsaba-d7c"
-    }
-  },
-  "/docs-286": {
-    "__comp": "__comp---theme-doc-version-roota-7-b-5de",
-    "__props": "__props---docs-005-788"
-  },
-  "/docs-e5e": {
-    "__comp": "__comp---theme-doc-roota-94-67a"
+  "/docs-d09": {
+    "__comp": "a94703ab"
   },
   "/docs/api/collaboration-api-f11": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-api-collaboration-apicdd-67f"
+    "__comp": "17896441",
+    "content": "cdd15c81"
   },
   "/docs/api/converter-api-3a5": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-api-converter-apicdf-3f4"
+    "__comp": "17896441",
+    "content": "cdf09d56"
   },
   "/docs/api/datastore-api-8e7": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-api-datastore-api-4-c-5-4ae"
+    "__comp": "17896441",
+    "content": "4c564cf2"
   },
   "/docs/api/datastore-operations-785": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-api-datastore-operations-3-bd-232"
+    "__comp": "17896441",
+    "content": "3bd9f865"
   },
   "/docs/api/dsl-api-e0b": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-api-dsl-api-2-dd-cf7"
+    "__comp": "17896441",
+    "content": "2dd34be4"
   },
   "/docs/api/editor-core-api-887": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-api-editor-core-apief-5-e71"
+    "__comp": "17896441",
+    "content": "ef512a69"
   },
   "/docs/api/editor-view-dom-api-900": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-api-editor-view-dom-apieab-2db"
+    "__comp": "17896441",
+    "content": "eaba48f8"
+  },
+  "/docs/api/editor-view-react-api-3ad": {
+    "__comp": "17896441",
+    "content": "fc4bfece"
   },
   "/docs/api/extensions-api-0af": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-api-extensions-api-9-d-8-c8a"
+    "__comp": "17896441",
+    "content": "9d886985"
   },
   "/docs/api/model-api-74a": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-api-model-api-4-da-cbb"
+    "__comp": "17896441",
+    "content": "4da3540c"
   },
   "/docs/api/model-operation-dsl-00a": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-api-model-operation-dsl-3-cf-073"
+    "__comp": "17896441",
+    "content": "3cf21edd"
   },
   "/docs/api/model-operations-653": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-api-model-operations-119-55e"
+    "__comp": "17896441",
+    "content": "119a3a44"
   },
   "/docs/api/operation-selection-guide-397": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-api-operation-selection-guide-43-f-bc6"
+    "__comp": "17896441",
+    "content": "43f53449"
   },
   "/docs/api/operations-overview-432": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-api-operations-overview-66-a-fb4"
+    "__comp": "17896441",
+    "content": "66aae64f"
   },
   "/docs/api/reference-a17": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-api-reference-47-b-47e"
+    "__comp": "17896441",
+    "content": "47b0b88f"
   },
   "/docs/api/renderer-dom-api-ef2": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-api-renderer-dom-api-3-a-5-f4d"
+    "__comp": "17896441",
+    "content": "3a5fd382"
+  },
+  "/docs/api/renderer-react-api-864": {
+    "__comp": "17896441",
+    "content": "2e11d42c"
   },
   "/docs/api/schema-api-d74": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-api-schema-apie-60-0d6"
+    "__comp": "17896441",
+    "content": "e606e0a7"
   },
   "/docs/architecture/collaboration-007": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-architecture-collaborationf-87-794"
+    "__comp": "17896441",
+    "content": "f87e53f9"
   },
   "/docs/architecture/collaboration-liveblocks-224": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-architecture-collaboration-liveblockse-3-c-1de"
+    "__comp": "17896441",
+    "content": "e3cd8eed"
   },
   "/docs/architecture/collaboration-yjs-a9f": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-architecture-collaboration-yjs-1-fb-690"
+    "__comp": "17896441",
+    "content": "1fbf8db3"
   },
   "/docs/architecture/converter-216": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-architecture-converter-548-6de"
+    "__comp": "17896441",
+    "content": "54876cf9"
   },
   "/docs/architecture/datastore-446": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-architecture-datastore-44-a-843"
+    "__comp": "17896441",
+    "content": "44a25fa6"
   },
   "/docs/architecture/devtool-fc7": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-architecture-devtool-094-1bf"
+    "__comp": "17896441",
+    "content": "0944a955"
   },
-  "/docs/architecture/dom-observer-d7e": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-architecture-dom-observerbdc-205"
+  "/docs/architecture/dom-observer-1e2": {
+    "__comp": "17896441",
+    "content": "bdcc1bb1"
   },
   "/docs/architecture/dsl-2ca": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-architecture-dslfd-8-dcc"
+    "__comp": "17896441",
+    "content": "fd8546ad"
   },
   "/docs/architecture/editor-core-05d": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-architecture-editor-core-232-28f"
+    "__comp": "17896441",
+    "content": "232dfd13"
   },
   "/docs/architecture/editor-view-dom-30e": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-architecture-editor-view-domb-1-b-6f0"
+    "__comp": "17896441",
+    "content": "b1bec7c2"
+  },
+  "/docs/architecture/editor-view-react-e4d": {
+    "__comp": "17896441",
+    "content": "6665666f"
   },
   "/docs/architecture/extensions-715": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-architecture-extensions-7-d-7-49c"
+    "__comp": "17896441",
+    "content": "7d772fc2"
   },
   "/docs/architecture/model-f1a": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-architecture-model-0-e-2-a99"
+    "__comp": "17896441",
+    "content": "0e2568fd"
   },
   "/docs/architecture/overview-833": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-architecture-overview-0-b-1-a4c"
+    "__comp": "17896441",
+    "content": "0b1ac180"
   },
   "/docs/architecture/packages-82a": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-architecture-packagesa-56-80e"
+    "__comp": "17896441",
+    "content": "a56edab0"
   },
   "/docs/architecture/practical-examples-8f7": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-architecture-practical-examplesbe-7-47c"
+    "__comp": "17896441",
+    "content": "be77096a"
   },
   "/docs/architecture/renderer-dom-4f4": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-architecture-renderer-dome-1-f-5db"
+    "__comp": "17896441",
+    "content": "e1fb7cba"
+  },
+  "/docs/architecture/renderer-react-7c9": {
+    "__comp": "17896441",
+    "content": "31325f23"
   },
   "/docs/architecture/schema-351": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-architecture-schema-9-a-6-4c9"
+    "__comp": "17896441",
+    "content": "9a603c57"
   },
-  "/docs/architecture/shared-4c4": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-architecture-shared-647-ff8"
+  "/docs/architecture/shared-c6d": {
+    "__comp": "17896441",
+    "content": "647b8df2"
   },
   "/docs/architecture/text-analyzer-d02": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-architecture-text-analyzer-4-c-5-b0c"
+    "__comp": "17896441",
+    "content": "4c5f85bc"
   },
   "/docs/basic-usage-0a3": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-basic-usage-3-c-1-10c"
+    "__comp": "17896441",
+    "content": "3c154d44"
+  },
+  "/docs/concepts/clipboard-1ae": {
+    "__comp": "17896441",
+    "content": "1e35c52e"
   },
   "/docs/concepts/decorators-d16": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-concepts-decorators-207-bb4"
+    "__comp": "17896441",
+    "content": "207a9a9a"
+  },
+  "/docs/concepts/drag-and-drop-74b": {
+    "__comp": "17896441",
+    "content": "e38d10d7"
   },
   "/docs/concepts/dsl-templates-23a": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-concepts-dsl-templates-390-c36"
+    "__comp": "17896441",
+    "content": "390d088b"
   },
   "/docs/concepts/editor-core-2af": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-concepts-editor-core-9-ab-bb3"
+    "__comp": "17896441",
+    "content": "9ab19e16"
   },
   "/docs/concepts/editor-view-dom-43f": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-concepts-editor-view-dom-592-48f"
+    "__comp": "17896441",
+    "content": "59291abd"
+  },
+  "/docs/concepts/history-9f0": {
+    "__comp": "17896441",
+    "content": "60e5aa2f"
   },
   "/docs/concepts/rendering-a28": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-concepts-renderingaeb-b52"
+    "__comp": "17896441",
+    "content": "aeb7d0e5"
   },
   "/docs/concepts/schema-and-model-af1": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-concepts-schema-and-model-1-ab-8d3"
+    "__comp": "17896441",
+    "content": "1abe2296"
+  },
+  "/docs/concepts/selection-a3c": {
+    "__comp": "17896441",
+    "content": "46e06dfb"
+  },
+  "/docs/concepts/transactions-704": {
+    "__comp": "17896441",
+    "content": "f0563fee"
   },
   "/docs/examples/basic-editor-23f": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-examples-basic-editorad-2-b2a"
+    "__comp": "17896441",
+    "content": "ad21fce4"
   },
   "/docs/examples/custom-extensions-2e9": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-examples-custom-extensions-304-129"
+    "__comp": "17896441",
+    "content": "3040fe4b"
   },
   "/docs/examples/decorators-d6a": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-examples-decorators-01-f-0af"
+    "__comp": "17896441",
+    "content": "01fa1e14"
   },
   "/docs/getting-started-eba": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-getting-startedd-58-f94"
+    "__comp": "17896441",
+    "content": "d589d3a7"
   },
   "/docs/guides/advanced-extensions-ae4": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-guides-advanced-extensionsab-4-970"
+    "__comp": "17896441",
+    "content": "ab477fee"
   },
-  "/docs/guides/before-hooks-safety-analysis-a5f": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-guides-before-hooks-safety-analysisb-94-4c7"
+  "/docs/guides/before-hooks-safety-analysis-758": {
+    "__comp": "17896441",
+    "content": "b943efde"
   },
-  "/docs/guides/before-hooks-use-cases-8c5": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-guides-before-hooks-use-casesae-5-397"
+  "/docs/guides/before-hooks-use-cases-f21": {
+    "__comp": "17896441",
+    "content": "ae5f1e1e"
   },
   "/docs/guides/custom-operations-787": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-guides-custom-operations-8-ca-d5e"
+    "__comp": "17896441",
+    "content": "8caddcf5"
   },
-  "/docs/guides/decorator-guide-4b2": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-guides-decorator-guided-94-274"
+  "/docs/guides/decorator-guide-0c5": {
+    "__comp": "17896441",
+    "content": "d94fc6cd"
   },
   "/docs/guides/extension-design-bb1": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-guides-extension-design-229-031"
+    "__comp": "17896441",
+    "content": "229ef68a"
+  },
+  "/docs/guides/react-editor-21c": {
+    "__comp": "17896441",
+    "content": "cf9bda21"
   },
   "/docs/installation-b74": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-installation-3-b-8-7c6"
+    "__comp": "17896441",
+    "content": "3b8c55ea"
   },
   "/docs/introduction-f7d": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-introductiona-09-6b4"
+    "__comp": "17896441",
+    "content": "a09c2993"
   },
   "/docs/quick-start-b74": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-quick-start-72-e-2df"
+    "__comp": "17896441",
+    "content": "72e14192"
   },
   "/-e5f": {
-    "__comp": "__comp---site-src-pages-index-tsx-1-df-d3e",
+    "__comp": "1df93b7f",
     "__context": {
-      "plugin": "plugin---a-74-9d6"
+      "plugin": "a7456010"
     },
-    "config": "config---5-e-9-4f3"
+    "config": "5e9f5e1a"
   }
 }

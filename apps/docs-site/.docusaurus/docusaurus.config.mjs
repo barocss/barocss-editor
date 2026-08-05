@@ -7,7 +7,7 @@ export default {
   "title": "Barocss Editor",
   "tagline": "A powerful document editor with DSL-based rendering",
   "favicon": "img/favicon.ico",
-  "url": "http://localhost:3000",
+  "url": "https://editor.barocss.com",
   "baseUrl": "/",
   "organizationName": "barocss",
   "projectName": "barocss-editor",
@@ -88,7 +88,7 @@ export default {
           "items": [
             {
               "label": "Getting Started",
-              "to": "/docs/getting-started"
+              "to": "/docs/introduction"
             },
             {
               "label": "API Reference",
@@ -110,7 +110,7 @@ export default {
           ]
         }
       ],
-      "copyright": "Copyright © 2025 Barocss Editor. Built with Docusaurus."
+      "copyright": "Copyright © 2026 Barocss Editor. Documentation built with Docusaurus."
     },
     "prism": {
       "theme": {

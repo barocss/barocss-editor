@@ -11,5 +11,14 @@
   "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/guides/before-hooks-safety-analysis.md",
   "tags": [],
   "version": "current",
-  "frontMatter": {}
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Before Hooks 사용 사례 분석",
+    "permalink": "/docs/guides/before-hooks-use-cases"
+  },
+  "next": {
+    "title": "Basic Editor Example",
+    "permalink": "/docs/examples/basic-editor"
+  }
 }

@@ -1,0 +1,24 @@
+{
+  "id": "concepts/selection",
+  "title": "Selection",
+  "description": "Selection represents the user's current cursor position or highlighted range within the document. It is the bridge between what the user sees in the DOM and what the editor model operates on.",
+  "source": "@site/docs/concepts/selection.md",
+  "sourceDirName": "concepts",
+  "slug": "/concepts/selection",
+  "permalink": "/docs/concepts/selection",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/concepts/selection.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Rendering",
+    "permalink": "/docs/concepts/rendering"
+  },
+  "next": {
+    "title": "Transactions",
+    "permalink": "/docs/concepts/transactions"
+  }
+}

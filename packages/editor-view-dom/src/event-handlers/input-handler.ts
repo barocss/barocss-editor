@@ -7,6 +7,21 @@ import { analyzeTextChanges } from '@barocss/text-analyzer';
 import { type Decorator, getKeyString, FILLER_ATTR, stripFiller } from '@barocss/shared';
 
 /**
+ * What each delete intent means, as a command.
+ *
+ * Cut and drag always carry a selection, so they are an ordinary range delete —
+ * which is what `backspace` does when the selection is not collapsed.
+ */
+const DELETE_COMMANDS: Record<string, string> = {
+  deleteContentBackward: 'backspace',
+  deleteContentForward: 'deleteForward',
+  deleteWordBackward: 'deleteWordBackward',
+  deleteWordForward: 'deleteWordForward',
+  deleteByCut: 'backspace',
+  deleteByDrag: 'backspace'
+};
+
+/**
  * Input processing debug information (for Devtool)
  * Uses the same structure as LastInputDebug in editor-view-dom
  */
@@ -1547,32 +1562,30 @@ export class InputHandlerImpl implements InputHandler {
    * Model-First로 처리할 삭제 타입들
    */
   private shouldHandleDelete(inputType: string): boolean {
-    const deleteTypes = [
-      'deleteContentBackward',  // Backspace
-      'deleteContentForward',   // Delete
-      'deleteWordBackward',     // Option+Backspace (Mac) / Ctrl+Backspace (Windows)
-      'deleteWordForward',      // Option+Delete (Mac) / Ctrl+Delete (Windows)
-      'deleteByCut',           // Ctrl+X / Cmd+X
-      'deleteByDrag'           // Delete after drag selection
-    ];
-    return deleteTypes.includes(inputType);
+    return inputType in DELETE_COMMANDS;
   }
 
   /**
-   * Handle deletion (Model-First)
-   * Called after preventDefault() in beforeinput
+   * Turn a delete intent into a command.
+   *
+   * beforeinput is the only complete source of these: a physical Backspace also
+   * arrives as a keydown that the key map resolves, but an IME, a mobile
+   * keyboard, autocorrect, a drag and a cut do not produce one. So this path
+   * stays — what it must not do is decide what deleting *means*.
+   *
+   * It used to. It computed the range itself: previous sibling, node type, block
+   * boundary — the same decision tree `DeleteExtension` already implements, only
+   * less completely, and it won because it ran first and called preventDefault.
+   * At the start of a block it found no previous sibling and gave up, which is
+   * why Backspace could not merge two blocks. None of that code was covered by a
+   * test, and it was quietly overriding code that was.
    */
   private async handleDelete(event: InputEvent): Promise<void> {
-    const inputType = event.inputType;
-    console.log('[InputHandler] handleDelete: CALLED', { inputType });
+    const command = DELETE_COMMANDS[event.inputType];
+    if (!command) return;
 
-    // 1. Read current model selection
-    // At beforeinput time, convert DOM selection to model selection
     const domSelection = window.getSelection();
-    if (!domSelection || domSelection.rangeCount === 0) {
-      console.warn('[InputHandler] handleDelete: no DOM selection');
-      return;
-    }
+    if (!domSelection || domSelection.rangeCount === 0) return;
 
     let modelSelection: any = null;
     try {
@@ -1582,422 +1595,12 @@ export class InputHandlerImpl implements InputHandler {
       return;
     }
 
-    if (!modelSelection || modelSelection.type !== 'range') {
-      console.warn('[InputHandler] handleDelete: invalid model selection', { modelSelection });
-      return;
-    }
+    if (!modelSelection || modelSelection.type !== 'range') return;
 
-    // Update current selection so TransactionManager can have correct selectionBefore
-    // (Ideally handled internally to minimize event emission, but currently using public API)
+    // The command reads the selection from its payload, but the transaction
+    // records `selectionBefore` from the editor, and undo needs it to be this one.
     this.editor.updateSelection(modelSelection);
-
-    // 2. Calculate deletion range
-    const contentRange = this.calculateDeleteRange(modelSelection, inputType, modelSelection.startNodeId);
-    if (!contentRange) {
-      console.warn('[InputHandler] handleDelete: failed to calculate delete range');
-      return;
-    }
-
-    console.log('[InputHandler] handleDelete: calculated range', { contentRange, inputType });
-
-    // 3. Business logic: decide which Command to call
-    let success = false;
-    
-    if (contentRange._deleteNode && contentRange.nodeId) {
-      // Delete entire node
-      try {
-        success = await this.editor.executeCommand('deleteNode', { 
-          nodeId: contentRange.nodeId 
-        });
-      } catch (error) {
-        console.error('[InputHandler] handleDelete: deleteNode failed', { error, contentRange });
-        return;
-      }
-    } else if (contentRange.startNodeId !== contentRange.endNodeId) {
-      // Cross-node deletion
-      try {
-        success = await this.editor.executeCommand('deleteCrossNode', { 
-          range: contentRange 
-        });
-      } catch (error) {
-        console.error('[InputHandler] handleDelete: deleteCrossNode failed', { error, contentRange });
-        return;
-      }
-    } else {
-      // Single node text deletion
-      try {
-        success = await this.editor.executeCommand('deleteText', { 
-          range: contentRange 
-        });
-      } catch (error) {
-        console.error('[InputHandler] handleDelete: deleteText failed', { error, contentRange });
-        return;
-      }
-    }
-
-    if (!success) {
-      console.warn('[InputHandler] handleDelete: command failed', { contentRange });
-      return;
-    }
-    console.log('[InputHandler] handleDelete: command completed', { contentRange });
-
-    // 4. Calculate new selection based on model
-    // Move selection to start position of deleted range
-    const newModelSelection = {
-      type: 'range' as const,
-      startNodeId: contentRange.startNodeId,
-      startOffset: contentRange.startOffset,
-      endNodeId: contentRange.startNodeId,
-      endOffset: contentRange.startOffset,
-      collapsed: true
-    };
-
-    // 5. Update model selection
-    this.editor.emit('editor:selection.change', {
-      selection: newModelSelection,
-      oldSelection: modelSelection
-    });
-
-    // 6. render() → DOM update
-    // Set skipRender: false to update DOM
-    this.editor.emit('editor:content.change', {
-      skipRender: false,
-      from: 'beforeinput-delete',
-      content: (this.editor as any).document,
-      transaction: this._buildDebugTransaction([
-        {
-          type: 'deleteText',
-          payload: {
-            range: contentRange
-          }
-        }
-      ], 'beforeinput-delete')
-    });
-
-    // 7. Restore Selection after DOM update
-    // DOM elements are replaced by rendering, so Selection must be set again
-    // Use requestAnimationFrame twice to ensure execution after rendering and layout completion
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        try {
-          (this.editorViewDOM as any).convertModelSelectionToDOM?.(newModelSelection);
-          console.log('[InputHandler] handleDelete: DOM selection restored', newModelSelection);
-        } catch (error) {
-          console.warn('[InputHandler] handleDelete: failed to restore DOM selection', { error });
-        }
-      });
-    });
-  }
-
-  /**
-   * Calculate deletion range
-   * Calculate range to delete based on model selection and inputType
-   * 
-   * @param modelSelection Current model selection
-   * @param inputType inputType from beforeinput
-   * @param currentNodeId Current node ID (for determining selection position when deleting node)
-   */
-  private calculateDeleteRange(modelSelection: any, inputType: string, currentNodeId: string): any | null {
-    if (modelSelection.type !== 'range') {
-      return null;
-    }
-
-    const { startNodeId, startOffset, endNodeId, endOffset, collapsed } = modelSelection;
-
-    // If range selection: delete selected range
-    if (!collapsed) {
-      return {
-        startNodeId,
-        startOffset,
-        endNodeId,
-        endOffset
-      };
-    }
-
-    // If collapsed selection: determine deletion range based on inputType
-    switch (inputType) {
-      case 'deleteContentBackward': // Backspace
-        // Delete character before cursor
-        if (startOffset > 0) {
-          return {
-            startNodeId,
-            startOffset: startOffset - 1,
-            endNodeId,
-            endOffset: startOffset
-          };
-        }
-        // At node start: delete last character of previous node
-        return this.calculateCrossNodeDeleteRange(
-          startNodeId,
-          'backward',
-          (this.editor as any).dataStore
-        );
-
-      case 'deleteContentForward': // Delete
-        // Delete character after cursor
-        const node = (this.editor as any).dataStore?.getNode?.(startNodeId);
-        const textLength = node?.text?.length || 0;
-        if (startOffset < textLength) {
-          return {
-            startNodeId,
-            startOffset,
-            endNodeId,
-            endOffset: startOffset + 1
-          };
-        }
-        // At node end: delete first character of next node
-        return this.calculateCrossNodeDeleteRange(
-          startNodeId,
-          'forward',
-          (this.editor as any).dataStore
-        );
-
-      case 'deleteWordBackward': // Option+Backspace
-      case 'deleteWordForward':  // Option+Delete
-        return this.calculateWordDeleteRange(
-          { ...modelSelection, type: 'range' },
-          inputType === 'deleteWordBackward' ? 'deleteContentBackward' : 'deleteContentForward',
-          currentNodeId
-        );
-
-      case 'deleteByCut':
-      case 'deleteByDrag':
-        // Delete selected range (already handled above)
-        return {
-          startNodeId,
-          startOffset,
-          endNodeId,
-          endOffset
-        };
-
-      default:
-        console.warn('[InputHandler] calculateDeleteRange: unknown inputType', { inputType });
-        return null;
-    }
-  }
-
-  private calculateWordDeleteRange(modelSelection: any, directionInputType: string, currentNodeId: string): any | null {
-    const { startNodeId, startOffset, endNodeId, endOffset } = modelSelection;
-
-    if (startNodeId !== endNodeId) {
-      return this.calculateDeleteRange(
-        modelSelection,
-        directionInputType,
-        currentNodeId
-      );
-    }
-
-    const node = (this.editor as any).dataStore?.getNode?.(startNodeId);
-    if (!node || typeof node.text !== 'string') {
-      return null;
-    }
-
-    const text = node.text;
-    if (text.length === 0) {
-      return null;
-    }
-
-    const isWordChar = (ch: string) => /\S/.test(ch);
-
-    if (directionInputType === 'deleteContentBackward') {
-      if (startOffset === 0) {
-        return this.calculateCrossNodeDeleteRange(
-          startNodeId,
-          'backward',
-          (this.editor as any).dataStore
-        );
-      }
-
-      let start = startOffset;
-      while (start > 0 && !isWordChar(text[start - 1])) {
-        start -= 1;
-      }
-      while (start > 0 && isWordChar(text[start - 1])) {
-        start -= 1;
-      }
-
-      return {
-        startNodeId,
-        startOffset: start,
-        endNodeId,
-        endOffset: startOffset
-      };
-    }
-
-    if (directionInputType === 'deleteContentForward') {
-      const textLength = text.length;
-      if (startOffset >= textLength) {
-        return this.calculateCrossNodeDeleteRange(
-          startNodeId,
-          'forward',
-          (this.editor as any).dataStore
-        );
-      }
-
-      let end = startOffset;
-      while (end < textLength && !isWordChar(text[end])) {
-        end += 1;
-      }
-      while (end < textLength && isWordChar(text[end])) {
-        end += 1;
-      }
-
-      return {
-        startNodeId,
-        startOffset,
-        endNodeId,
-        endOffset: end
-      };
-    }
-
-    return null;
-  }
-
-  /**
-   * Calculate deletion range at node boundary
-   * Delete character from previous/next node, or return null if conditions not met
-   * 
-   * @param currentNodeId Current node ID
-   * @param direction 'backward' (previous node) or 'forward' (next node)
-   * @param dataStore DataStore instance
-   * @returns Deletion range or null
-   */
-  private calculateCrossNodeDeleteRange(
-    currentNodeId: string,
-    direction: 'backward' | 'forward',
-    dataStore: any
-  ): any | null {
-    if (!dataStore) {
-      console.warn('[InputHandler] calculateCrossNodeDeleteRange: dataStore not found');
-      return null;
-    }
-
-    const currentNode = dataStore.getNode?.(currentNodeId);
-    if (!currentNode) {
-      console.warn('[InputHandler] calculateCrossNodeDeleteRange: current node not found', { currentNodeId });
-      return null;
-    }
-
-    // Do not process if current node does not have .text field
-    // inline-text, inline-image, etc. are all custom schemas, so do not check by type name
-    if (currentNode.text === undefined || typeof currentNode.text !== 'string') {
-      console.log('[InputHandler] calculateCrossNodeDeleteRange: current node has no text field', { currentNodeId, type: currentNode.type || currentNode.stype });
-      return null;
-    }
-
-    const currentParent = dataStore.getParent?.(currentNodeId);
-    if (!currentParent || !currentParent.content) {
-      console.log('[InputHandler] calculateCrossNodeDeleteRange: current node has no parent or siblings', { currentNodeId });
-      return null;
-    }
-
-    const currentIndex = currentParent.content.indexOf(currentNodeId);
-    if (currentIndex === -1) {
-      console.warn('[InputHandler] calculateCrossNodeDeleteRange: current node not found in parent content', { currentNodeId });
-      return null;
-    }
-
-    let targetNodeId: string | null = null;
-
-    if (direction === 'backward') {
-      // Find previous sibling node
-      if (currentIndex === 0) {
-        // First sibling: no previous node
-        console.log('[InputHandler] calculateCrossNodeDeleteRange: no previous sibling', { currentNodeId });
-        return null;
-      }
-      targetNodeId = currentParent.content[currentIndex - 1] as string;
-    } else {
-      // Find next sibling node
-      if (currentIndex >= currentParent.content.length - 1) {
-        // Last sibling: no next node
-        console.log('[InputHandler] calculateCrossNodeDeleteRange: no next sibling', { currentNodeId });
-        return null;
-      }
-      targetNodeId = currentParent.content[currentIndex + 1] as string;
-    }
-
-    if (!targetNodeId) {
-      return null;
-    }
-
-    const targetNode = dataStore.getNode?.(targetNodeId);
-    if (!targetNode) {
-      console.warn('[InputHandler] calculateCrossNodeDeleteRange: target node not found', { targetNodeId });
-      return null;
-    }
-
-    // Verify target node's parent is same as current node's parent
-    const targetParent = dataStore.getParent?.(targetNodeId);
-    if (!targetParent || targetParent.sid !== currentParent.sid) {
-      console.log('[InputHandler] calculateCrossNodeDeleteRange: target node has different parent', {
-        targetNodeId,
-        targetParentId: targetParent?.sid,
-        currentParentId: currentParent.sid
-      });
-      return null;
-    }
-
-    // Handle based on target node type
-    const targetNodeType = targetNode.type || targetNode.stype;
-    
-    // 1. If block node: do nothing (block boundary)
-    const schema = (dataStore as any).schema;
-    if (schema) {
-      const nodeSpec = schema.getNodeType?.(targetNodeType);
-      if (nodeSpec && nodeSpec.group === 'block') {
-        console.log('[InputHandler] calculateCrossNodeDeleteRange: target node is a block node (no action)', { targetNodeId, type: targetNodeType });
-        return null;
-      }
-    }
-
-    // 2. If node has .text field: delete character
-    // inline-text, inline-image, etc. are all custom schemas, so don't check by type name
-    // Judge by .text field existence
-    if (targetNode.text !== undefined && typeof targetNode.text === 'string') {
-      // Continue existing logic (handled below)
-    } else {
-      // 3. If inline node without .text field (inline-image, etc.): delete entire node
-      // Indicate node deletion with special flag
-      console.log('[InputHandler] calculateCrossNodeDeleteRange: target node has no text field (delete entire node)', { targetNodeId, type: targetNodeType });
-      return {
-        _deleteNode: true, // Special flag
-        nodeId: targetNodeId
-      };
-    }
-
-    const targetText = targetNode.text || '';
-    const targetTextLength = targetText.length;
-
-    if (direction === 'backward') {
-      // Delete last character of previous node
-      if (targetTextLength === 0) {
-        // Previous node is empty: do nothing in Phase 1
-        // Node merging to be implemented in Phase 2
-        console.log('[InputHandler] calculateCrossNodeDeleteRange: previous node is empty (merge not implemented)', { targetNodeId });
-        return null;
-      }
-      return {
-        startNodeId: targetNodeId,
-        startOffset: targetTextLength - 1,
-        endNodeId: targetNodeId,
-        endOffset: targetTextLength
-      };
-    } else {
-      // Delete first character of next node
-      if (targetTextLength === 0) {
-        // Next node is empty: do nothing in Phase 1
-        // Node merging to be implemented in Phase 2
-        console.log('[InputHandler] calculateCrossNodeDeleteRange: next node is empty (merge not implemented)', { targetNodeId });
-        return null;
-      }
-      return {
-        startNodeId: targetNodeId,
-        startOffset: 0,
-        endNodeId: targetNodeId,
-        endOffset: 1
-      };
-    }
+    await this.editor.executeCommand(command, { selection: modelSelection });
   }
 
   /**

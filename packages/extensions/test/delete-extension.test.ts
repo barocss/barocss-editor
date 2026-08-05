@@ -545,3 +545,97 @@ describe('DeleteExtension - backspace / deleteForward', () => {
 });
 
 
+
+/**
+ * Word deletion used to live in the view, which computed the boundary itself and
+ * dispatched a low-level range delete. How far a word reaches is a question
+ * about the text, so it belongs with the other delete semantics — and having it
+ * here is what lets a word delete at the start of a block fall through to the
+ * block merge instead of doing nothing.
+ */
+describe('DeleteExtension - word deletion', () => {
+  beforeEach(() => {
+    commitMock.mockClear();
+    recordedTransactions.length = 0;
+  });
+
+  const textStore = (text: string) => ({
+    getNode: (sid: string) => (sid === 'text-1' ? { sid, stype: 'inline-text', text } : null)
+  });
+
+  const caretAt = (offset: number): ModelSelection => ({
+    type: 'range',
+    startNodeId: 'text-1',
+    startOffset: offset,
+    endNodeId: 'text-1',
+    endOffset: offset,
+    collapsed: true,
+    direction: 'forward'
+  });
+
+  const run = async (command: string, text: string, offset: number) => {
+    const editor = new FakeEditor(textStore(text)) as any;
+    new DeleteExtension().onCreate(editor);
+    await editor.commands.get(command)!.execute(editor, { selection: caretAt(offset) });
+    return editor;
+  };
+
+  it('deletes the word before the caret, and the space in front of it', async () => {
+    // "Hello world|" → "Hello " : the space between two words goes with the word
+    // being removed, which is what makes repeated presses feel like word steps.
+    await run('deleteWordBackward', 'Hello world', 11);
+
+    expect(recordedTransactions).toHaveLength(1);
+    expect(recordedTransactions[0][0].type).toBe('deleteTextRange');
+    expect(recordedTransactions[0][0].payload).toEqual({ start: 6, end: 11 });
+  });
+
+  it('crosses the whitespace before reaching the word', async () => {
+    // "Hello   |" → "Hello": the run of spaces is not a word of its own
+    await run('deleteWordBackward', 'Hello   ', 8);
+    expect(recordedTransactions[0][0].payload).toEqual({ start: 0, end: 8 });
+  });
+
+  it('deletes the word after the caret when going forward', async () => {
+    await run('deleteWordForward', 'Hello world', 5);
+    expect(recordedTransactions[0][0].payload).toEqual({ start: 5, end: 11 });
+  });
+
+  it('falls back to the character behaviour at the start of a node', async () => {
+    // There is no word left to measure, and the ordinary backspace is the one
+    // that knows how to merge two blocks.
+    const editor = new FakeEditor({
+      ...textStore('Hello'),
+      getPreviousEditableNode: () => null
+    }) as any;
+    new DeleteExtension().onCreate(editor);
+
+    const handled = await editor.commands
+      .get('deleteWordBackward')!
+      .execute(editor, { selection: caretAt(0) });
+
+    // No previous node to merge with, so nothing happens — but it got there by
+    // asking backspace, not by giving up on its own.
+    expect(handled).toBe(false);
+    expect(recordedTransactions).toHaveLength(0);
+  });
+
+  it('deletes the selection instead when there is one', async () => {
+    const editor = new FakeEditor(textStore('Hello world')) as any;
+    new DeleteExtension().onCreate(editor);
+
+    await editor.commands.get('deleteWordBackward')!.execute(editor, {
+      selection: {
+        type: 'range',
+        startNodeId: 'text-1',
+        startOffset: 2,
+        endNodeId: 'text-1',
+        endOffset: 7,
+        collapsed: false,
+        direction: 'forward'
+      } as ModelSelection
+    });
+
+    expect(recordedTransactions[0][0].payload).toEqual({ start: 2, end: 7 });
+  });
+});

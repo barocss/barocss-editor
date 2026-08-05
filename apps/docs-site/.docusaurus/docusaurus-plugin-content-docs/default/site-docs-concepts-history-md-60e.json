@@ -1,0 +1,24 @@
+{
+  "id": "concepts/history",
+  "title": "History (Undo/Redo)",
+  "description": "History manages the undo/redo stack for the editor. Every transaction is recorded as a history entry with both forward and inverse operations, enabling reliable undo and redo.",
+  "source": "@site/docs/concepts/history.md",
+  "sourceDirName": "concepts",
+  "slug": "/concepts/history",
+  "permalink": "/docs/concepts/history",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/barocss/barocss-editor/tree/main/apps/docs-site/docs/concepts/history.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Transactions",
+    "permalink": "/docs/concepts/transactions"
+  },
+  "next": {
+    "title": "Editor Core",
+    "permalink": "/docs/concepts/editor-core"
+  }
+}

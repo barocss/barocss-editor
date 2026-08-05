@@ -14,8 +14,8 @@
   "frontMatter": {},
   "sidebar": "tutorialSidebar",
   "previous": {
-    "title": "Rendering",
-    "permalink": "/docs/concepts/rendering"
+    "title": "History (Undo/Redo)",
+    "permalink": "/docs/concepts/history"
   },
   "next": {
     "title": "Editor View DOM",

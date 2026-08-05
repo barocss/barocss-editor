@@ -1,6 +1,6 @@
 {
   "docusaurusVersion": "3.9.2",
-  "siteVersion": "0.1.0",
+  "siteVersion": "0.1.1",
   "pluginVersions": {
     "docusaurus-plugin-content-docs": {
       "type": "package",
@@ -12,9 +12,9 @@
       "name": "@docusaurus/plugin-content-pages",
       "version": "3.9.2"
     },
-    "docusaurus-plugin-debug": {
+    "docusaurus-plugin-sitemap": {
       "type": "package",
-      "name": "@docusaurus/plugin-debug",
+      "name": "@docusaurus/plugin-sitemap",
       "version": "3.9.2"
     },
     "docusaurus-plugin-svgr": {

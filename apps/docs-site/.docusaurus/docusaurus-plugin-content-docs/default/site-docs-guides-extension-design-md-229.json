@@ -14,8 +14,8 @@
   "frontMatter": {},
   "sidebar": "tutorialSidebar",
   "previous": {
-    "title": "Practical Examples",
-    "permalink": "/docs/architecture/practical-examples"
+    "title": "React Editor Guide",
+    "permalink": "/docs/guides/react-editor"
   },
   "next": {
     "title": "Custom Operations Guide",

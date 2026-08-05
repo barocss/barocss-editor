@@ -14,8 +14,8 @@
   "frontMatter": {},
   "sidebar": "tutorialSidebar",
   "previous": {
-    "title": "Renderer DOM API",
-    "permalink": "/docs/api/renderer-dom-api"
+    "title": "Editor View React API",
+    "permalink": "/docs/api/editor-view-react-api"
   },
   "next": {
     "title": "Extensions API",

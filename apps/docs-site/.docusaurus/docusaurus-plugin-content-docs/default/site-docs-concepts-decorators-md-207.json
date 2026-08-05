@@ -14,8 +14,8 @@
   "frontMatter": {},
   "sidebar": "tutorialSidebar",
   "previous": {
-    "title": "Editor View DOM",
-    "permalink": "/docs/concepts/editor-view-dom"
+    "title": "Drag and Drop",
+    "permalink": "/docs/concepts/drag-and-drop"
   },
   "next": {
     "title": "Architecture Overview",

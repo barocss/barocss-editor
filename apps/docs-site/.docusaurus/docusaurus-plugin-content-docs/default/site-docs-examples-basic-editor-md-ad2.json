@@ -14,8 +14,8 @@
   "frontMatter": {},
   "sidebar": "tutorialSidebar",
   "previous": {
-    "title": "Advanced Extension Patterns",
-    "permalink": "/docs/guides/advanced-extensions"
+    "title": "Before Hooks 안전성 분석",
+    "permalink": "/docs/guides/before-hooks-safety-analysis"
   },
   "next": {
     "title": "Custom Extensions Example",
