@@ -29,6 +29,11 @@ export function createSampleDocument(): INode {
             content: [{ stype: 'inline-text', text: 'Barocss Word' }]
           },
           {
+            stype: 'docAuthor',
+            attributes: {},
+            content: [{ stype: 'inline-text', text: 'Jinho Park' }]
+          },
+          {
             stype: 'docSubtitle',
             attributes: {},
             content: [
@@ -135,6 +140,20 @@ export function createSampleDocument(): INode {
                   { stype: 'deletion', range: [0, 16], attrs: { id: 'r2', author: 'Sujin', date: '2026-08-05' } }
                 ]
               },
+              { stype: 'inline-text', text: '.' }
+            ]
+          },
+          {
+            // Fields that ask the document about itself
+            stype: 'paragraph',
+            attributes: { styleId: 'Body' },
+            content: [
+              { stype: 'inline-text', text: 'Written by ' },
+              { stype: 'fieldAuthor' },
+              { stype: 'inline-text', text: ' for ' },
+              { stype: 'fieldDocTitle' },
+              { stype: 'inline-text', text: ', on ' },
+              { stype: 'fieldDateTime', attributes: { format: 'd MMMM yyyy' } },
               { stype: 'inline-text', text: '.' }
             ]
           },
@@ -516,6 +535,40 @@ export function createSampleDocument(): INode {
                   { stype: 'fieldPageNumber' },
                   { stype: 'inline-text', text: ' / ' },
                   { stype: 'fieldPageCount' }
+                ]
+              }
+            ]
+          },
+          {
+            // Back matter: at the end of the document rather than on a page,
+            // which is what separates an endnote from a footnote.
+            stype: 'endnoteDef',
+            attributes: { id: 'en1' },
+            content: [
+              {
+                stype: 'paragraph',
+                attributes: {},
+                content: [
+                  {
+                    stype: 'inline-text',
+                    text: 'An endnote body. It collects at the end of the document, where a reader looks things up afterwards.'
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            stype: 'bibliography',
+            attributes: {},
+            content: [
+              {
+                stype: 'paragraph',
+                attributes: {},
+                content: [
+                  {
+                    stype: 'inline-text',
+                    text: 'ECMA-376, Office Open XML File Formats. Ecma International, 2016.'
+                  }
                 ]
               }
             ]

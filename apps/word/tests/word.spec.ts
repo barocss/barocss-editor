@@ -38,11 +38,13 @@ test.describe('Word document rendering', () => {
     // The title lives in docMeta, not on the page
     await expect(page.locator('.w-doc-title')).toHaveText('Barocss Word');
     await expect(page.locator('.w-surface .w-doc-title')).toHaveCount(0);
-    // Definitions are content but not laid out: the container takes no space,
-    // rather than being display:none, so that a header being edited can show
-    // itself out of it.
-    const resources = await page.locator('.w-resources').boundingBox();
-    expect(resources === null || (resources.width === 0 && resources.height === 0)).toBe(true);
+    // Definitions are content but not laid out. The container is not hidden —
+    // back matter lives there and belongs at the end of the document — so each
+    // definition hides itself.
+    const definitions = await page.locator('.w-def').evaluateAll((els) =>
+      els.every((el) => (el as HTMLElement).offsetHeight === 0)
+    );
+    expect(definitions).toBe(true);
   });
 
   test('lays the section out at the width it describes', async ({ page }) => {
@@ -525,10 +527,13 @@ test.describe('footnotes', () => {
     await page.goto('/');
     await page.waitForSelector('.w-footnote');
 
-    // The body lives in resources, which is not laid out as flow content
+    // The body lives in resources and is *shown* at the foot of a page, so it
+    // has no place of its own in the flow — unlike back matter, which does.
     await expect(page.locator('.w-footnote')).toContainText('A footnote body');
-    const resources = await page.locator('.w-resources').boundingBox();
-    expect(resources === null || (resources.width === 0 && resources.height === 0)).toBe(true);
+    const definitions = await page.locator('.w-def').evaluateAll((els) =>
+      els.every((el) => (el as HTMLElement).offsetHeight === 0)
+    );
+    expect(definitions).toBe(true);
   });
 
   test('numbers it', async ({ page }) => {
@@ -796,9 +801,12 @@ test.describe('editing a header', () => {
     await page.waitForSelector('.w-header');
 
     // The container is no longer display:none — a header being edited has to be
-    // able to show itself — so it must take no space instead.
-    const box = await page.locator('.w-resources').boundingBox();
-    expect(box === null || (box.width === 0 && box.height === 0)).toBe(true);
+    // able to show itself, and back matter belongs at the end of the document —
+    // so each kind of resource decides for itself instead.
+    const definitions = await page.locator('.w-def').evaluateAll((els) =>
+      els.every((el) => (el as HTMLElement).offsetHeight === 0)
+    );
+    expect(definitions).toBe(true);
     await expect(page.locator('.w-header-source').first()).toBeHidden();
   });
 });
@@ -1003,5 +1011,90 @@ test.describe('a paragraph longer than a page', () => {
     });
 
     expect(copied).not.toContain('w-page-break');
+  });
+})
+
+test.describe('fields that ask the document about itself', () => {
+  test('shows the title and the author from the metadata', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-field-title');
+
+    // From docMeta, not from the flow: a field asking for the title wants what
+    // the document is called, not what its first heading says.
+    await expect(page.locator('.w-field-title')).toHaveText('Barocss Word');
+    await expect(page.locator('.w-field-author')).toHaveText('Jinho Park');
+  });
+
+  test('shows a date the host supplied, in the format the field asks for', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-field-date');
+
+    // The host supplies the instant; a renderer that read the clock could not be
+    // tested and would make every layout pass look like a change.
+    await expect(page.locator('.w-field-date')).toHaveText('5 August 2026');
+  });
+});
+
+test.describe('back matter', () => {
+  test('collects at the end of the document, after the last page', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-back-matter');
+
+    const [firstBack, lastSheetBottom] = await page.evaluate(() => {
+      const back = document.querySelector('.w-back-matter')!.getBoundingClientRect().top;
+      const sheets = Array.from(document.querySelectorAll('.w-sheet'));
+      return [back, Math.max(...sheets.map((s) => s.getBoundingClientRect().bottom))];
+    });
+
+    // Which is what separates an endnote from a footnote: a footnote's whole
+    // point is being on the page that refers to it.
+    expect(firstBack).toBeGreaterThanOrEqual(lastSheetBottom);
+  });
+
+  test('titles each region', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-endnotes');
+
+    await expect(page.locator('.w-endnotes')).toContainText('Notes');
+    await expect(page.locator('.w-endnotes')).toContainText('An endnote body');
+    await expect(page.locator('.w-bibliography')).toContainText('ECMA-376');
+  });
+
+  test('is editable, unlike the furniture', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-endnotes');
+
+    // Back matter is content that appears once; only its position is a layout
+    // decision. So the caret goes in, and typing works.
+    await placeCaret(page, '.w-endnotes .w-text');
+    await page.keyboard.press('End');
+    await page.keyboard.type('!');
+
+    await expect(page.locator('.w-endnotes')).toContainText('!');
+  });
+});
+
+test.describe('sheets under columns', () => {
+  test('draws one sheet per page, not one per column', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-sheet');
+
+    const perSurface = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('.w-surface')).map((surface) => {
+        const layout = (window as any).wordLayout?.get(surface.getAttribute('data-bc-sid'));
+        return {
+          sheets: surface.querySelectorAll('.w-sheet').length,
+          boxes: layout?.pages?.length ?? 0,
+          columns: layout?.metrics?.columnCount ?? 1
+        };
+      })
+    );
+
+    const columned = perSurface.find((s) => s.columns > 1)!;
+    expect(columned).toBeDefined();
+    // A page holds one box per column; a sheet per box would stack two or three
+    // sheets of paper down the document for one.
+    expect(columned.sheets).toBe(Math.ceil(columned.boxes / columned.columns));
+    expect(columned.sheets).toBeLessThan(columned.boxes);
   });
 })

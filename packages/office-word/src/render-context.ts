@@ -46,6 +46,14 @@ export interface WordEnv {
    * node are the wrong thing to type into.
    */
   editing?: string;
+  /**
+   * The instant a date field shows.
+   *
+   * Supplied by the host rather than read from the clock: a renderer that reads
+   * the clock produces different output on two runs, which no test can pin down
+   * and which makes the layout look changed on every pass.
+   */
+  now?: Date;
 }
 
 /**
@@ -59,7 +67,8 @@ export interface WordEnv {
 export function createWordEnv(
   doc: DocumentAccess,
   layouts: Map<string, SurfaceLayout> = new Map(),
-  editing?: string
+  editing?: string,
+  now?: Date
 ): WordEnv {
   const pushes = new Map<string, number>();
   const positions = new Map<string, { top: number; left: number; width: number }>();
@@ -76,7 +85,8 @@ export function createWordEnv(
     layouts,
     pushes,
     positions,
-    editing
+    editing,
+    now
   };
 }
 
@@ -108,6 +118,11 @@ export function getWordLayout(
   return wordEnv(env)?.layouts.get(surfaceSid);
 }
 
+/** The instant a date field should show, if the host supplied one. */
+export function getWordNow(env: RenderEnv | undefined): Date | undefined {
+  return wordEnv(env)?.now;
+}
+
 /** The header or footer being edited, if any. */
 export function getEditingFurniture(env: RenderEnv | undefined): string | undefined {
   return wordEnv(env)?.editing;
@@ -130,10 +145,14 @@ export function getFurniturePlacement(
   const layout = [...word.layouts.values()][0];
   if (!layout) return undefined;
 
+  // In the container's coordinates, not the section's: this is rendered from
+  // `resources`, which is the section's sibling rather than its parent.
   const { metrics } = layout;
   return {
-    left: metrics.marginLeft,
-    top: placement === 'header' ? metrics.marginTop / 2 : metrics.height - metrics.marginBottom,
+    left: layout.originLeft + metrics.marginLeft,
+    top:
+      layout.originTop +
+      (placement === 'header' ? metrics.marginTop / 2 : metrics.height - metrics.marginBottom),
     width: metrics.width - metrics.marginLeft - metrics.marginRight
   };
 }

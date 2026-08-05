@@ -52,7 +52,10 @@ const doc = {
 const view = new EditorViewDOM(editor, {
   container,
   registry: getGlobalRegistry(),
-  env: { [WORD_ENV_KEY]: createWordEnv(doc) }
+  // The instant a date field shows is the host's to supply: a renderer that
+  // read the clock could not be tested and would make every layout pass look
+  // like a change.
+  env: { [WORD_ENV_KEY]: createWordEnv(doc, undefined, undefined, new Date('2026-08-05T09:00:00Z')) }
 });
 
 /**
@@ -75,6 +78,7 @@ view.registerLayoutPass(
     container,
     doc,
     editing: () => editing,
+    now: new Date('2026-08-05T09:00:00Z'),
     splitBlocks: true,
     onPageBreaks: (breaks) => applyPageBreaks(breaks),
     // This app exists to be measured, and the layout is the part worth looking

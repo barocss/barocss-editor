@@ -44,6 +44,17 @@ export interface SurfaceLayout {
   pushBySid: Map<string, number>;
   /** Total height of every sheet plus the gaps between them. */
   totalHeight: number;
+  /**
+   * Where this section's first sheet sits, measured from the container.
+   *
+   * Everything the layout computes is relative to the section, which is a
+   * positioned box — so nothing else needs this. The exception is a header being
+   * edited: it is rendered from `resources`, a sibling of the section, and has to
+   * be placed in the container's coordinates instead.
+   */
+  originTop: number;
+  /** And where it sits horizontally, for the same reason. */
+  originLeft: number;
   /** Footnote bodies to draw at the foot of each page, in reading order. */
   footnotesByPage: Map<number, string[]>;
   /** The number each footnote shows, counted over the document. */
@@ -116,6 +127,9 @@ export function sheetMetrics(format: EffectiveFormat, gap = DEFAULT_SHEET_GAP): 
 export interface SurfaceLayoutOptions extends Omit<PaginationOptions, 'contentHeight'> {
   /** Footnotes each block references, in document order. */
   footnoteRefs?: Map<string, string[]>;
+  /** Where the section sits in the container, for placing a header being edited. */
+  originTop?: number;
+  originLeft?: number;
 }
 
 export function layoutSurface(
@@ -123,7 +137,7 @@ export function layoutSurface(
   metrics: SheetMetrics,
   options: SurfaceLayoutOptions = {}
 ): SurfaceLayout {
-  const { footnoteRefs, ...paginationOptions } = options;
+  const { footnoteRefs, originTop = 0, originLeft = 0, ...paginationOptions } = options;
   const pages = paginate(blocks, { ...paginationOptions, contentHeight: metrics.contentHeight });
   const pushBySid = new Map<string, number>();
 
@@ -208,6 +222,8 @@ export function layoutSurface(
     positionBySid,
     splitBySid,
     totalHeight: sheetCount * metrics.height + Math.max(0, sheetCount - 1) * metrics.gap,
+    originTop,
+    originLeft,
     footnotesByPage: footnotes.byPage,
     footnoteNumbers: footnotes.numberOf,
     pageOfBlock

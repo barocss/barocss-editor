@@ -15,6 +15,10 @@ import { formatCounter, type NumberFormatValue } from '@barocss/shared';
 import { childrenOf, walkBlocks, type DocumentAccess, type DocumentNode } from './document-access';
 
 export interface FieldResolver {
+  /** The document's title, from its metadata rather than from the flow. */
+  documentTitle(): string | undefined;
+  /** The document's author. */
+  documentAuthor(): string | undefined;
   /** The number a caption field shows, e.g. the 3 in "Figure 3". */
   sequenceNumber(sid: string): string | undefined;
   /** What a reference to a bookmark shows, given what it asked for. */
@@ -33,6 +37,15 @@ function textOf(doc: DocumentAccess, node: DocumentNode, depth = 0): string {
 }
 
 export function createFieldResolver(doc: DocumentAccess): FieldResolver {
+  // Title and author live in docMeta, not in the flow: where a title *appears*
+  // is a layout decision, and a field referring to it is asking the document
+  // what it is called, not what its first heading says.
+  const meta = childrenOf(doc, doc.getNode(doc.rootId)).find((child) => child.stype === 'docMeta');
+  const metaText = (stype: string): string | undefined => {
+    const node = childrenOf(doc, meta).find((child) => child.stype === stype);
+    return node ? textOf(doc, node).trim() || undefined : undefined;
+  };
+
   /** Caption numbers, per sequence name, in document order. */
   const sequenceNumbers = new Map<string, string>();
   /** Where each bookmark starts, and what its block says. */
@@ -91,6 +104,9 @@ export function createFieldResolver(doc: DocumentAccess): FieldResolver {
     sid === undefined ? order.length : order.indexOf(sid);
 
   return {
+    documentTitle: () => metaText('docTitle'),
+    documentAuthor: () => metaText('docAuthor'),
+
     sequenceNumber: (sid) => sequenceNumbers.get(sid),
 
     reference: (targetId, format, fromSid) => {

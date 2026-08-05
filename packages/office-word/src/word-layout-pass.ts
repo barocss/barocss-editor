@@ -44,6 +44,8 @@ const SID_ATTR = 'data-bc-sid';
 const SURFACE_SELECTOR = '.w-surface';
 
 export interface WordLayoutPassOptions extends MeasureOptions {
+  /** The instant date fields show; see createWordEnv. */
+  now?: Date;
   /** The element the document is rendered into. */
   container: HTMLElement;
   doc: DocumentAccess;
@@ -59,7 +61,7 @@ export interface WordLayoutPassOptions extends MeasureOptions {
 }
 
 export function createWordLayoutPass(options: WordLayoutPassOptions): () => RenderEnv | void {
-  const { container, doc, onLayout, onPageBreaks, editing, ...measureOptions } = options;
+  const { container, doc, onLayout, onPageBreaks, editing, now, ...measureOptions } = options;
 
   // What the last round produced. The view keeps running passes until they stop
   // reporting changes, and a layout that matches the one already on screen is
@@ -102,7 +104,14 @@ export function createWordLayoutPass(options: WordLayoutPassOptions): () => Rend
         if (refs.length > 0) footnoteRefs.set(child.sid, refs);
       }
 
-      const layout = layoutSurface(blocks, metrics, { footnoteRefs });
+      // Where this section sits in the container, which only a header being
+      // edited needs — it is drawn from a sibling of the section.
+      const sectionBox = (el as HTMLElement).getBoundingClientRect();
+      const containerBox = container.getBoundingClientRect();
+      const originTop = sectionBox.top - containerBox.top + container.scrollTop;
+      const originLeft = sectionBox.left - containerBox.left + container.scrollLeft;
+
+      const layout = layoutSurface(blocks, metrics, { footnoteRefs, originTop, originLeft });
       layouts.set(sid, layout);
 
       // A break inside a paragraph is a widget at a text offset, and the offset
@@ -141,7 +150,7 @@ export function createWordLayoutPass(options: WordLayoutPassOptions): () => Rend
     previous = signature;
 
     onLayout?.(layouts);
-    return { [WORD_ENV_KEY]: createWordEnv(doc, layouts, editingId) };
+    return { [WORD_ENV_KEY]: createWordEnv(doc, layouts, editingId, now) };
   };
 }
 

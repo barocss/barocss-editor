@@ -26,6 +26,7 @@ import {
   getFurniturePlacement,
   getWordDocument,
   getWordFields,
+  getWordNow,
   getWordLayout,
   getWordNumbering,
   getWordStyles
@@ -33,6 +34,7 @@ import {
 import { childrenOf, indexResources, type DocumentAccess, type DocumentNode } from './document-access';
 import { tocEntries, tocPageNumber } from './toc';
 import { authorColor, revisionTitle } from './revisions';
+import { formatDateField } from './date-field';
 import { markAttributes, markCss, VALUED_MARKS } from './mark-format';
 import { footnoteAreaTemplate, furnitureFor, furnitureTemplate, pageNumberFor } from './page-furniture';
 import type { RenderEnv } from '@barocss/dsl';
@@ -118,24 +120,25 @@ export function registerWordRenderers(): void {
   define('docSubtitle', element('p', { className: 'w-doc-subtitle' }, [slot('content')]));
   define('docAuthor', element('p', { className: 'w-doc-author' }, [slot('content')]));
   /**
-   * Resource definitions: present in the tree, out of the way.
+   * Resource definitions, and the region at the end of the document.
    *
-   * Not `display: none`, because that hides the subtree unconditionally and a
-   * header being edited has to be able to show itself. The container takes no
-   * space and does not clip instead, and each kind of resource hides itself —
-   * which is what leaves one of them free to appear.
+   * Not `display: none`: that hides the subtree unconditionally, and two kinds of
+   * resource need to show — a header while it is being edited, and back matter,
+   * which belongs after the last page. Each kind decides for itself instead, and
+   * the ones that are pure definition render nothing at all.
+   *
+   * An ordinary block, so back matter simply follows the document. It takes no
+   * height while everything in it is hidden, which is the usual case.
    */
-  define(
-    'resources',
-    element(
-      'div',
-      {
-        className: 'w-resources',
-        style: { position: 'absolute', height: '0', width: '0', overflow: 'visible' }
-      },
-      [slot('content')]
-    )
-  );
+  // Deliberately not positioned: a header being edited is placed in the
+  // container's coordinates, and a positioned ancestor here would make it the
+  // origin instead — putting the header at the end of the document.
+  define('resources', element('div', { className: 'w-resources' }, [slot('content')]));
+
+  /** Definitions are read, never drawn. */
+  for (const stype of ['styleDef', 'numberingDef', 'docDefaults', 'docSettings', 'personDef']) {
+    define(stype, element('div', { className: `w-def w-def-${stype}`, style: { display: 'none' } }));
+  }
 
   /**
    * A header or footer, which is normally drawn per page rather than rendered.
@@ -173,6 +176,31 @@ export function registerWordRenderers(): void {
 
   furnitureNode('docHeader', 'header');
   furnitureNode('docFooter', 'footer');
+
+  /**
+   * Back matter: endnotes, a bibliography, an index.
+   *
+   * All three are resources that belong at the end of the document rather than
+   * on a page, which is what separates them from footnotes — a footnote's whole
+   * point is being on the page that refers to it, and these three exist so the
+   * reader can look something up afterwards.
+   *
+   * Rendered as flow content, unlike page furniture: they appear once, in
+   * document order, and they can be edited. Only their position is a layout
+   * decision, and the layout's answer is "after everything else".
+   */
+  const backMatter = (stype: string, className: string, heading: string) =>
+    define(
+      stype,
+      element('section', { className: `w-back-matter ${className}` }, [
+        element('h2', { className: 'w-back-matter-title' }, heading),
+        slot('content')
+      ])
+    );
+
+  backMatter('endnoteDef', 'w-endnotes', 'Notes');
+  backMatter('bibliography', 'w-bibliography', 'Bibliography');
+  backMatter('indexBlock', 'w-index', 'Index');
 
   /**
    * A section, drawn as the pages its text reached.
@@ -249,8 +277,16 @@ export function registerWordRenderers(): void {
       }
     }
 
-    const sheets = (layout?.pages ?? []).map((page) => {
+    // One per page, not one per box the paginator filled. With columns a page
+    // holds several boxes, and drawing a sheet for each would stack two or three
+    // of them down the document for a single sheet of paper.
+    const sheetCount = layout
+      ? Math.max(1, Math.ceil(layout.pages.length / layout.metrics.columnCount))
+      : 0;
+
+    const sheets = Array.from({ length: sheetCount }, (_, index) => {
       const { height, width, gap } = layout!.metrics;
+      const page = { index };
       return element('div', {
         className: 'w-sheet',
         // Keyed because the sheets are a list. Reconciliation no longer needs it
@@ -426,6 +462,54 @@ export function registerWordRenderers(): void {
 
   registerRevisionMarks();
   registerValuedMarks();
+
+  /**
+   * Fields whose value is a fact about the document rather than about the page.
+   *
+   * The title and the author come from docMeta, not from the flow: a field
+   * asking for the title wants what the document is called, not what its first
+   * heading happens to say. The date comes from the host, because a renderer
+   * that reads the clock cannot be tested and makes every layout pass look like
+   * a change.
+   */
+  define('fieldDocTitle', (_props: Record<string, any>, _node: Record<string, any>, ctx: any) =>
+    element(
+      'span',
+      { className: 'w-field w-field-title' },
+      getWordFields(ctx?.env as RenderEnv | undefined)?.documentTitle() ?? ''
+    )
+  );
+
+  define('fieldAuthor', (_props: Record<string, any>, _node: Record<string, any>, ctx: any) =>
+    element(
+      'span',
+      { className: 'w-field w-field-author' },
+      getWordFields(ctx?.env as RenderEnv | undefined)?.documentAuthor() ?? ''
+    )
+  );
+
+  define('fieldDateTime', (_props: Record<string, any>, node: Record<string, any>, ctx: any) =>
+    element(
+      'span',
+      { className: 'w-field w-field-date' },
+      formatDateField(getWordNow(ctx?.env as RenderEnv | undefined), node.attributes?.format)
+    )
+  );
+
+  /**
+   * A bookmark's anchor: a place in the text, with no text of its own.
+   *
+   * Drawn as an empty inert span. It is what a cross-reference points at and
+   * what a link jumps to, so it has to be in the DOM — and it must not be
+   * something the caret can sit in or a copy can carry.
+   */
+  define('bookmarkAnchor', element('span', {
+    className: 'w-bookmark',
+    'data-bookmark': (d: Record<string, any>) => String(d.attributes?.id ?? ''),
+    'data-bc-chrome': 'true',
+    contenteditable: 'false',
+    'aria-hidden': 'true'
+  }));
 
   // ── Flow ───────────────────────────────────────────────────────────────────
   define(

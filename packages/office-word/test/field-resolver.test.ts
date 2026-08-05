@@ -107,3 +107,35 @@ describe('the running heading a header shows', () => {
     expect(createFieldResolver(store).styleReference('Heading9', 'p2', false)).toBeUndefined();
   });
 });
+
+describe('what the document says about itself', () => {
+  const store = doc({
+    root: { sid: 'root', stype: 'document', content: ['meta', 's'] },
+    meta: { sid: 'meta', stype: 'docMeta', content: ['t', 'a'] },
+    t: { sid: 't', stype: 'docTitle', content: ['tt'] },
+    tt: { sid: 'tt', stype: 'inline-text', text: 'Barocss Word' },
+    a: { sid: 'a', stype: 'docAuthor', content: ['at'] },
+    at: { sid: 'at', stype: 'inline-text', text: 'Jinho Park' },
+    s: { sid: 's', stype: 'surface', content: ['h'] },
+    h: { sid: 'h', stype: 'heading', content: ['ht'] },
+    ht: { sid: 'ht', stype: 'inline-text', text: 'Not the title' }
+  });
+
+  it('takes the title from the metadata, not from the first heading', () => {
+    // A field asking for the title wants what the document is called
+    expect(createFieldResolver(store).documentTitle()).toBe('Barocss Word');
+  });
+
+  it('takes the author the same way', () => {
+    expect(createFieldResolver(store).documentAuthor()).toBe('Jinho Park');
+  });
+
+  it('reports nothing when the document does not say', () => {
+    const bare = doc({
+      root: { sid: 'root', stype: 'document', content: ['s'] },
+      s: { sid: 's', stype: 'surface', content: [] }
+    });
+    expect(createFieldResolver(bare).documentTitle()).toBeUndefined();
+    expect(createFieldResolver(bare).documentAuthor()).toBeUndefined();
+  });
+});
