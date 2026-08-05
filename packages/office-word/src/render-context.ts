@@ -21,6 +21,7 @@ import type { RenderEnv } from '@barocss/dsl';
 import type { DocumentAccess } from './document-access';
 import { createStyleResolver, type StyleResolver } from './style-resolver';
 import { createNumberingResolver, type NumberingResolver } from './numbering-resolver';
+import { createFieldResolver, type FieldResolver } from './field-resolver';
 import type { SurfaceLayout } from './layout';
 
 /** The key Word's environment lives under, so that products cannot collide. */
@@ -30,6 +31,7 @@ export interface WordEnv {
   doc: DocumentAccess;
   styles: StyleResolver;
   numbering: NumberingResolver;
+  fields: FieldResolver;
   /** Layout per surface id. Empty until the document has been measured. */
   layouts: Map<string, SurfaceLayout>;
   /** Extra top margin per block, flattened from every surface's layout. */
@@ -57,6 +59,7 @@ export function createWordEnv(
     doc,
     styles: createStyleResolver(doc),
     numbering: createNumberingResolver(doc),
+    fields: createFieldResolver(doc),
     layouts,
     pushes
   };
@@ -73,6 +76,10 @@ export function getWordStyles(env: RenderEnv | undefined): StyleResolver | undef
 
 export function getWordNumbering(env: RenderEnv | undefined): NumberingResolver | undefined {
   return wordEnv(env)?.numbering;
+}
+
+export function getWordFields(env: RenderEnv | undefined): FieldResolver | undefined {
+  return wordEnv(env)?.fields;
 }
 
 export function getWordDocument(env: RenderEnv | undefined): DocumentAccess | undefined {

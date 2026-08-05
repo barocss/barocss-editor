@@ -97,16 +97,26 @@ export function createWordLayoutPass(options: WordLayoutPassOptions): () => Rend
 /**
  * What has to be the same for a layout to count as unchanged.
  *
- * Where the breaks fall and which notes sit on which page — the things a render
- * would look different for. Heights are deliberately excluded: they are measured
- * from the DOM and carry sub-pixel noise that would never compare equal, so
- * including them would keep the loop running until it hit its limit every time.
+ * Everything a render would look different for: where the breaks fall, how much
+ * each page holds back for its notes, and which notes those are. The reservation
+ * has to be in here — a round that changes only the reservation still moves the
+ * blocks, and leaving it out made such a round report "nothing changed" and
+ * throw its own result away, so footnotes reserved nothing whenever they did not
+ * also happen to move a break.
+ *
+ * Rounded to whole pixels, because these come from the DOM: compared exactly,
+ * sub-pixel noise would never match and the loop would run to its limit every
+ * time.
  */
 function signatureOf(layouts: Map<string, SurfaceLayout>): string {
   const parts: string[] = [];
   for (const [sid, layout] of layouts) {
     const breaks = layout.pages
-      .map((page) => page.fragments.map((f) => `${f.sid}:${f.fromLine}-${f.toLine}`).join(','))
+      .map(
+        (page) =>
+          `${Math.round(page.reserved)}#` +
+          page.fragments.map((f) => `${f.sid}:${f.fromLine}-${f.toLine}`).join(',')
+      )
       .join('|');
     const notes = [...layout.footnotesByPage]
       .map(([page, ids]) => `${page}=${ids.join('+')}`)

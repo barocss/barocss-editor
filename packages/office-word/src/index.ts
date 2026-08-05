@@ -53,6 +53,7 @@ export {
   getWordStyles,
   getWordNumbering,
   getWordDocument,
+  getWordFields,
   getWordLayout,
   getBlockPush,
   type WordEnv
@@ -92,3 +93,5 @@ export {
 } from './page-furniture';
 
 export { tocEntries, tocPageNumber, parseLevels, type TocEntry } from './toc';
+
+export { createFieldResolver, type FieldResolver } from './field-resolver';

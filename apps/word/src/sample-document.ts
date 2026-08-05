@@ -146,6 +146,22 @@ export function createSampleDocument(): INode {
             ]
           },
           {
+            // A caption whose number is computed, and a bookmark so the
+            // paragraph below can refer to it without repeating the number.
+            stype: 'paragraph',
+            attributes: { styleId: 'Body' },
+            content: [
+              { stype: 'inline-text', text: 'Table ' },
+              { stype: 'fieldSeq', attributes: { sequence: 'Table' } },
+              {
+                stype: 'inline-text',
+                text: ': a merged header',
+                // Covers "a merged header" only, not the ": " before it
+                marks: [{ stype: 'bookmark', range: [2, 17], attrs: { name: 'tbl-merged' } }]
+              }
+            ]
+          },
+          {
             stype: 'bTable',
             attributes: { layout: 'fixed', width: 5000, widthType: 'pct' },
             content: [
@@ -193,6 +209,17 @@ export function createSampleDocument(): INode {
             ]
           },
 
+          {
+            stype: 'paragraph',
+            attributes: { styleId: 'Body' },
+            content: [
+              { stype: 'inline-text', text: 'See "' },
+              { stype: 'fieldRef', attributes: { targetId: 'tbl-merged', format: 'text' } },
+              { stype: 'inline-text', text: '", ' },
+              { stype: 'fieldRef', attributes: { targetId: 'tbl-merged', format: 'aboveBelow' } },
+              { stype: 'inline-text', text: '.' }
+            ]
+          },
           {
             stype: 'heading',
             attributes: { level: 2, styleId: 'Heading2' },

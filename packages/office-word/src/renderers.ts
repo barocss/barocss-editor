@@ -22,6 +22,7 @@ import {
 import {
   getBlockPush,
   getWordDocument,
+  getWordFields,
   getWordLayout,
   getWordNumbering,
   getWordStyles
@@ -301,6 +302,50 @@ export function registerWordRenderers(): void {
         )
       )
     );
+  });
+
+  /**
+   * Fields whose value is a fact about the document rather than text in it.
+   *
+   * Rendered from a resolver for the same reason list markers are: a caption
+   * that stored "Figure 3" would be wrong the moment a figure is inserted above
+   * it, and the number is not something the user should be able to put a caret
+   * inside.
+   */
+  define('fieldSeq', (_props: Record<string, any>, node: Record<string, any>, ctx: any) => {
+    const fields = getWordFields(ctx?.env as RenderEnv | undefined);
+    const value = fields?.sequenceNumber(String(node.sid ?? ''));
+    return element(
+      'span',
+      { className: 'w-field w-field-seq', 'data-sequence': String(node.attributes?.sequence ?? '') },
+      value ?? ''
+    );
+  });
+
+  define('fieldRef', (_props: Record<string, any>, node: Record<string, any>, ctx: any) => {
+    const fields = getWordFields(ctx?.env as RenderEnv | undefined);
+    const value = fields?.reference(
+      String(node.attributes?.targetId ?? ''),
+      String(node.attributes?.format ?? 'text'),
+      String(node.sid ?? '')
+    );
+    // An unresolved reference shows Word's own marker rather than nothing: a
+    // reference to something that has been deleted is a fact the author needs.
+    return element(
+      'span',
+      { className: 'w-field w-field-ref', 'data-target': String(node.attributes?.targetId ?? '') },
+      value ?? 'Error! Reference source not found.'
+    );
+  });
+
+  define('fieldStyleRef', (_props: Record<string, any>, node: Record<string, any>, ctx: any) => {
+    const fields = getWordFields(ctx?.env as RenderEnv | undefined);
+    const value = fields?.styleReference(
+      String(node.attributes?.styleId ?? ''),
+      String(node.sid ?? ''),
+      node.attributes?.searchFromBottom === true
+    );
+    return element('span', { className: 'w-field w-field-style-ref' }, value ?? '');
   });
 
   // ── Flow ───────────────────────────────────────────────────────────────────

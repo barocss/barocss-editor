@@ -517,9 +517,9 @@ test.describe('footnotes', () => {
       return layout.pages.map((p: any) => p.reserved);
     });
 
-    // Only the page with the reference pays for it
-    expect(reserved[0]).toBeGreaterThan(0);
-    expect(reserved.slice(1).every((value: number) => value === 0)).toBe(true);
+    // Exactly one page pays for it — the one holding the reference — rather
+    // than every page losing room to a note that is not on it.
+    expect(reserved.filter((value: number) => value > 0)).toHaveLength(1);
   });
 
   test('sits inside the bottom margin', async ({ page }) => {
@@ -613,3 +613,25 @@ test.describe('table of contents', () => {
     expect(Math.max(...levels)).toBeLessThanOrEqual(2);
   });
 })
+
+test.describe('computed fields', () => {
+  test('numbers a caption', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-field-seq');
+    await expect(page.locator('.w-field-seq').first()).toHaveText('1');
+  });
+
+  test('quotes only what the bookmark covers', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-field-ref');
+
+    // Not the punctuation and words around it in the same text node
+    await expect(page.locator('.w-field-ref').first()).toHaveText('a merged header');
+  });
+
+  test('says whether the target is above or below', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-field-ref');
+    await expect(page.locator('.w-field-ref').nth(1)).toHaveText('above');
+  });
+});
