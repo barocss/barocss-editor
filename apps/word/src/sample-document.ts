@@ -314,6 +314,45 @@ export function createSampleDocument(): INode {
       },
 
       {
+        // A second section, running in two columns. A section is where page
+        // setup lives, so changing the column count means starting one.
+        stype: 'surface',
+        attributes: {
+          kind: 'flow',
+          name: 'Section 2',
+          sectionStart: 'nextPage',
+          columnCount: 2,
+          columnSpacing: 720,
+          pageWidth: 12240,
+          pageHeight: 15840,
+          marginTop: 1440,
+          marginBottom: 1440,
+          marginLeft: 1440,
+          marginRight: 1440
+        },
+        content: [
+          {
+            stype: 'heading',
+            attributes: { level: 1, styleId: 'Heading1' },
+            content: [{ stype: 'inline-text', text: 'Two columns' }]
+          },
+          ...Array.from({ length: 8 }, (_, index) => ({
+            stype: 'paragraph',
+            attributes: { styleId: 'Body' },
+            content: [
+              {
+                stype: 'inline-text',
+                text:
+                  `${index + 1}. Text in a section like this one fills the first column to the ` +
+                  'bottom of the page and then starts again at the top of the second, which is ' +
+                  'a move to the right and upwards — the one thing a top margin cannot do.'
+              }
+            ]
+          }))
+        ]
+      },
+
+      {
         stype: 'resources',
         attributes: {},
         content: [

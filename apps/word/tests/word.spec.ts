@@ -31,7 +31,7 @@ async function placeCaret(page: import('@playwright/test').Page, selector: strin
 test.describe('Word document rendering', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('.w-surface')).toBeVisible();
+    await expect(page.locator('.w-surface').first()).toBeVisible();
   });
 
   test('renders the document metadata outside the flow', async ({ page }) => {
@@ -85,7 +85,7 @@ test.describe('Word document rendering', () => {
 test.describe('Word editing', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('.w-surface')).toBeVisible();
+    await expect(page.locator('.w-surface').first()).toBeVisible();
   });
 
   test('types into a paragraph and undoes the whole burst at once', async ({ page }) => {
@@ -177,10 +177,16 @@ test.describe('pages', () => {
     await page.goto('/');
     await page.waitForSelector('.w-sheet');
 
-    // A page sheet must not be selectable, focusable, or editable
-    const editable = await page.locator('.w-sheets').getAttribute('contenteditable');
-    expect(editable).toBe('false');
-    expect(await page.locator('.w-sheets').getAttribute('aria-hidden')).toBe('true');
+    // A page sheet must not be selectable, focusable, or editable. Every
+    // section draws its own, so this checks all of them rather than the first.
+    const attributes = await page.locator('.w-sheets').evaluateAll((els) =>
+      els.map((el) => [el.getAttribute('contenteditable'), el.getAttribute('aria-hidden')])
+    );
+    expect(attributes.length).toBeGreaterThan(0);
+    for (const [editable, hidden] of attributes) {
+      expect(editable).toBe('false');
+      expect(hidden).toBe('true');
+    }
   });
 
   test('starts each page at the top of its own sheet', async ({ page }) => {
@@ -393,9 +399,12 @@ test.describe('page furniture', () => {
     await page.goto('/');
     await page.waitForSelector('.w-sheet');
 
-    const sheets = await page.locator('.w-sheet').count();
-    expect(await page.locator('.w-header').count()).toBe(sheets);
-    expect(await page.locator('.w-footer').count()).toBe(sheets);
+    // Scoped to the section that defines them: another section with no header
+    // of its own draws none, which is correct and would otherwise fail here.
+    const section = page.locator('.w-surface').first();
+    const sheets = await section.locator('.w-sheet').count();
+    expect(await section.locator('.w-header').count()).toBe(sheets);
+    expect(await section.locator('.w-footer').count()).toBe(sheets);
   });
 
   test('gives the first page its own header', async ({ page }) => {
@@ -750,3 +759,79 @@ test.describe('editing a header', () => {
     await expect(page.locator('.w-header-source').first()).toBeHidden();
   });
 });
+
+test.describe('columns', () => {
+  const secondSurface = (page: import('@playwright/test').Page) =>
+    page.locator('.w-surface').nth(1);
+
+  test('runs the text in two columns', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-sheet');
+
+    const lefts = await secondSurface(page).evaluate((surface) => {
+      const blocks = Array.from(surface.children).filter(
+        (el) => el.hasAttribute('data-bc-sid') && !el.classList.contains('w-sheets')
+      );
+      return [...new Set(blocks.map((el) => Math.round(el.getBoundingClientRect().left)))];
+    });
+
+    expect(lefts).toHaveLength(2);
+  });
+
+  test('breaks lines at the column width, not the page width', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-sheet');
+
+    const [width, textWidth] = await secondSurface(page).evaluate((surface) => {
+      const block = Array.from(surface.children).find(
+        (el) => el.hasAttribute('data-bc-sid') && !el.classList.contains('w-sheets')
+      )!;
+      const sheet = surface.querySelector('.w-sheet')!;
+      return [
+        block.getBoundingClientRect().width,
+        sheet.getBoundingClientRect().width - 192 // one inch of margin either side
+      ];
+    });
+
+    // (text width - gap) / 2, which is what makes the lines shorter
+    expect(width).toBeLessThan(textWidth / 2 + 1);
+  });
+
+  test('fills the first column before starting the second', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-sheet');
+
+    const blocks = await secondSurface(page).evaluate((surface) =>
+      Array.from(surface.children)
+        .filter((el) => el.hasAttribute('data-bc-sid') && !el.classList.contains('w-sheets'))
+        .map((el) => {
+          const rect = el.getBoundingClientRect();
+          return { left: Math.round(rect.left), top: Math.round(rect.top) };
+        })
+    );
+
+    const left = Math.min(...blocks.map((b) => b.left));
+    const firstColumn = blocks.filter((b) => b.left === left);
+    const secondColumn = blocks.filter((b) => b.left !== left);
+
+    // The second column starts above where the first one ended: that is the
+    // move a top margin cannot express, and the reason these are positioned.
+    expect(secondColumn.length).toBeGreaterThan(0);
+    const lastOfFirst = Math.max(...firstColumn.map((b) => b.top));
+    expect(Math.min(...secondColumn.map((b) => b.top))).toBeLessThan(lastOfFirst);
+  });
+
+  test('leaves the single-column section stacking in normal flow', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-sheet');
+
+    // Only sections that need it pay for absolute positioning
+    const positioned = await page.locator('.w-surface').first().evaluate((surface) =>
+      Array.from(surface.children)
+        .filter((el) => el.hasAttribute('data-bc-sid') && !el.classList.contains('w-sheets'))
+        .filter((el) => getComputedStyle(el as HTMLElement).position === 'absolute').length
+    );
+
+    expect(positioned).toBe(0);
+  });
+})

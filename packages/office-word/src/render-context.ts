@@ -36,6 +36,8 @@ export interface WordEnv {
   layouts: Map<string, SurfaceLayout>;
   /** Extra top margin per block, flattened from every surface's layout. */
   pushes: Map<string, number>;
+  /** Absolute position per block, for sections whose text runs in columns. */
+  positions: Map<string, { top: number; left: number; width: number }>;
   /**
    * The header or footer currently being edited, by its id.
    *
@@ -60,8 +62,10 @@ export function createWordEnv(
   editing?: string
 ): WordEnv {
   const pushes = new Map<string, number>();
+  const positions = new Map<string, { top: number; left: number; width: number }>();
   for (const layout of layouts.values()) {
     for (const [sid, push] of layout.pushBySid) pushes.set(sid, push);
+    for (const [sid, position] of layout.positionBySid) positions.set(sid, position);
   }
 
   return {
@@ -71,6 +75,7 @@ export function createWordEnv(
     fields: createFieldResolver(doc),
     layouts,
     pushes,
+    positions,
     editing
   };
 }
@@ -131,6 +136,14 @@ export function getFurniturePlacement(
     top: placement === 'header' ? metrics.marginTop / 2 : metrics.height - metrics.marginBottom,
     width: metrics.width - metrics.marginLeft - metrics.marginRight
   };
+}
+
+/** Where a block sits when its section runs in columns. */
+export function getBlockPosition(
+  env: RenderEnv | undefined,
+  sid: string
+): { top: number; left: number; width: number } | undefined {
+  return wordEnv(env)?.positions.get(sid);
 }
 
 /** How far the block opening a page must be pushed to reach its sheet. */

@@ -20,6 +20,7 @@ import {
   type CssStyle
 } from './css';
 import {
+  getBlockPosition,
   getBlockPush,
   getEditingFurniture,
   getFurniturePlacement,
@@ -69,6 +70,18 @@ function blockStyle(node: Record<string, any>, env: RenderEnv | undefined): CssS
   // the block's own space before rather than adding to it, which is the same
   // rule the paginator applied when it decided the break: space before is
   // suppressed at the top of a page.
+  // A section running in columns positions every block, because moving to the
+  // next column is a move to the right and *up*, which no margin can express.
+  const position = getBlockPosition(env, String(node.sid ?? ''));
+  if (position) {
+    style.position = 'absolute';
+    style.top = `${position.top}px`;
+    style.left = `${position.left}px`;
+    style.width = `${position.width}px`;
+    style.marginTop = '0';
+    return style;
+  }
+
   const push = getBlockPush(env, String(node.sid ?? ''));
   if (push !== undefined) style.marginTop = `${push}px`;
 

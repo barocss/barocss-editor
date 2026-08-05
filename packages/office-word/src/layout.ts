@@ -21,6 +21,12 @@ import type { EffectiveFormat } from './style-resolver';
 export interface SheetMetrics {
   width: number;
   height: number;
+  /** How many columns the section's text flows through on each page. */
+  columnCount: number;
+  /** Gap between columns, in px. */
+  columnGap: number;
+  /** Width of one column, which is what lines break at. */
+  columnWidth: number;
   marginTop: number;
   marginBottom: number;
   marginLeft: number;
@@ -44,6 +50,15 @@ export interface SurfaceLayout {
   footnoteNumbers: Map<string, number>;
   /** The page each block starts on, which a table of contents needs. */
   pageOfBlock: Map<string, number>;
+  /**
+   * Where each block sits, for a section whose text runs in columns.
+   *
+   * Empty for a single column, where blocks stack in normal flow and only the
+   * one opening each page needs moving. A column break is a move to the right
+   * and *up*, which no margin can express, so those sections position every
+   * block instead.
+   */
+  positionBySid: Map<string, { top: number; left: number; width: number }>;
 }
 
 /** Distance between the tops of consecutive sheets. */
@@ -65,9 +80,20 @@ export function sheetMetrics(format: EffectiveFormat, gap = DEFAULT_SHEET_GAP): 
   const marginLeft = twipToPx(num(format.marginLeft, 1440));
   const marginRight = twipToPx(num(format.marginRight, 1440));
 
+  // Lines break at the column width, not the page width — which is why this is
+  // part of the metrics rather than something the renderer works out later.
+  const columnCount = Math.max(1, Math.round(num(format.columnCount, 1)));
+  const columnGap = twipToPx(num(format.columnSpacing, 720));
+  const textWidth = Math.max(1, width - marginLeft - marginRight);
+  const columnWidth =
+    columnCount > 1 ? (textWidth - columnGap * (columnCount - 1)) / columnCount : textWidth;
+
   return {
     width,
     height,
+    columnCount,
+    columnGap,
+    columnWidth,
     marginTop,
     marginBottom,
     marginLeft,
@@ -93,31 +119,60 @@ export function layoutSurface(
   const pages = paginate(blocks, { ...paginationOptions, contentHeight: metrics.contentHeight });
   const pushBySid = new Map<string, number>();
 
-  // `consumed` is where the flow has reached, measured from the top of the first
-  // sheet. Each page's first block is pushed by the difference between where its
-  // sheet's content area starts and where the flow would otherwise be.
-  let consumed = 0;
-  for (const page of pages) {
-    const first = page.fragments[0];
-    const contentTop = page.index * (metrics.height + metrics.gap) + metrics.marginTop;
-    if (first) {
-      // Never negative: content that overflowed its page must not be dragged
-      // back up over the page before it.
-      pushBySid.set(first.sid, Math.max(0, contentTop - consumed));
+  const positionBySid = new Map<string, { top: number; left: number; width: number }>();
+  const columns = metrics.columnCount;
+
+  if (columns > 1) {
+    // The paginator filled boxes of one column's height; which box is which
+    // column, and which page that column is on, is arithmetic on its index.
+    for (const slice of pages) {
+      const pageIndex = Math.floor(slice.index / columns);
+      const columnIndex = slice.index % columns;
+      const sheetTop = pageIndex * (metrics.height + metrics.gap);
+
+      let offset = 0;
+      for (const fragment of slice.fragments) {
+        positionBySid.set(fragment.sid, {
+          top: sheetTop + metrics.marginTop + offset,
+          left: metrics.marginLeft + columnIndex * (metrics.columnWidth + metrics.columnGap),
+          width: metrics.columnWidth
+        });
+        offset += fragment.height;
+      }
     }
-    consumed = contentTop + page.height;
+  } else {
+    // `consumed` is where the flow has reached, measured from the top of the first
+    // sheet. Each page's first block is pushed by the difference between where its
+    // sheet's content area starts and where the flow would otherwise be.
+    let consumed = 0;
+    for (const page of pages) {
+      const first = page.fragments[0];
+      const contentTop = page.index * (metrics.height + metrics.gap) + metrics.marginTop;
+      if (first) {
+        // Never negative: content that overflowed its page must not be dragged
+        // back up over the page before it.
+        pushBySid.set(first.sid, Math.max(0, contentTop - consumed));
+      }
+      consumed = contentTop + page.height;
+    }
   }
 
   // A footnote is drawn on the page its reference starts on, so this needs to
   // know where each block began — which is only true after the breaks are known.
   const pageOfBlock = new Map<string, number>();
   for (const page of pages) {
+    // With columns a paginated box is a column, and several of them share a page
+    const pageIndex = columns > 1 ? Math.floor(page.index / columns) : page.index;
     for (const fragment of page.fragments) {
       if (!fragment.continued && !pageOfBlock.has(fragment.sid)) {
-        pageOfBlock.set(fragment.sid, page.index);
+        pageOfBlock.set(fragment.sid, pageIndex);
       }
     }
   }
+
+  // A page holds one box per column, so the sheets to draw are fewer than the
+  // boxes the paginator filled.
+  const sheetCount = Math.max(1, Math.ceil(pages.length / columns));
 
   const footnotes = assignFootnotes({
     refsByBlock: footnoteRefs ?? new Map(),
@@ -129,7 +184,8 @@ export function layoutSurface(
     pages,
     metrics,
     pushBySid,
-    totalHeight: pages.length * metrics.height + Math.max(0, pages.length - 1) * metrics.gap,
+    positionBySid,
+    totalHeight: sheetCount * metrics.height + Math.max(0, sheetCount - 1) * metrics.gap,
     footnotesByPage: footnotes.byPage,
     footnoteNumbers: footnotes.numberOf,
     pageOfBlock

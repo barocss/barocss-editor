@@ -282,3 +282,4 @@ describe('space held at the foot of a page', () => {
     expect(pages.every((page) => page.reserved === 0)).toBe(true);
   });
 });
+
