@@ -111,11 +111,16 @@ export function createWordLayoutPass(options: WordLayoutPassOptions): () => Rend
       for (const [blockSid, splits] of layout.splitBySid) {
         const anchors = lineAnchors.get(blockSid);
         if (!anchors) continue;
-        for (const split of splits) {
+        for (const [index, split] of splits.entries()) {
           const anchor = anchors[split.line - 1];
           if (!anchor) continue;
+          // Identified by which break of this block it is, not by the line it
+          // fell on. A line number changes with every character typed above it,
+          // and an identity that changes means the widget is torn down and
+          // rebuilt — which re-renders the paragraph and makes the observer read
+          // the render as input.
           pageBreaks.push({
-            sid: `page-break-${blockSid}-${split.line}`,
+            sid: `page-break-${blockSid}-${index}`,
             target: anchor,
             height: split.height
           });

@@ -12,22 +12,27 @@
  * built on, the classifier that decides whether a DOM change came from the user
  * — sees it at all.
  *
- * Not yet switched on, and the reason is churn rather than geometry. Measured in
- * a browser: a paragraph splits where the layout says, no line falls outside a
- * page, the breaks settle rather than drifting, and none of it is copied.
+ * Not yet switched on. Measured in a browser, the geometry is right: a paragraph
+ * splits where the layout says, no line falls outside a page, the breaks settle
+ * rather than drifting, and none of it is copied. Typing into a paragraph that
+ * carries one is not: the character is inserted but the caret stays where it
+ * was, so the next lands in front of it and a word comes out backwards.
  *
- * What is not right is typing into a paragraph that carries one. Replacing the
- * break decorators re-renders the paragraph, and a long paragraph re-renders as
- * hundreds of DOM mutations — 262 for a single keystroke, measured. The
- * MutationObserver reads those as user input, resolves them to the section
- * rather than to the text node, and skips the change; the character is inserted
- * but the caret never advances, so the next one lands in front of it and a word
- * comes out backwards.
+ * Ruled out by measurement, in order:
+ *   - the widget disturbing the offset index — it holds no text, and the model
+ *     and DOM lengths match exactly
+ *   - several text nodes in a run being the problem — a run split by a *mark*
+ *     types correctly
+ *   - a storm of renderer mutations reaching the observer — real, and fixed
+ *     (see the render count in editor-view-dom), but the caret still does not
+ *     advance without it
+ *   - decorators being torn down and rebuilt on every keystroke — also real,
+ *     also fixed by keeping a break's identity stable, and also not the cause
+ *   - repagination running mid-keystroke — deferring it changes nothing
  *
- * The fix is to stop replacing decorators that have not moved, and to keep the
- * observer from reading a renderer's own mutations as input. Both are about the
- * churn, not about this widget: with splitting off the same paragraph types
- * correctly, and the widget holds no text for anything to misread.
+ * What is left: the mutations from a keystroke never reach the classifier at
+ * all when a break is present, so the model is never told the caret moved. That
+ * is where the next look should start.
  */
 import { defineDecorator, element } from '@barocss/dsl';
 

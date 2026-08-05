@@ -248,7 +248,7 @@ export class InputHandlerImpl implements InputHandler {
     });
 
     // Ignore DOM changes during Model-First changes (prevent infinite loop)
-    if ((this.editorViewDOM as any)._isModelDrivenChange) {
+    if ((this.editorViewDOM as any).isModelDrivenChange) {
       logger.debug(LogCategory.TEXT_INPUT, 'handleDomMutations: SKIP - model-driven change');
       return;
     }

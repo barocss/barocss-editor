@@ -39,7 +39,16 @@ export class EditorViewDOM implements IEditorViewDOM {
   private _selectionChangeTimeout: number | null = null;
   private _isDragging: boolean = false;
   private _isRendering: boolean = false; // Rendering flag
-  private _isModelDrivenChange: boolean = false; // Model-First change flag
+  /**
+   * How many renders are still settling.
+   *
+   * A count rather than a flag. Renders nest and queue — a layout pass renders
+   * off the back of a render, a decorator change renders again — and each one
+   * used to schedule its own reset. The first reset then fired while a later
+   * render's mutations were still arriving, and the MutationObserver read a
+   * render's own output as something the user had typed.
+   */
+  private _modelDrivenRenders = 0;
   // Track nodes being edited (for skipNodes)
   private _editingNodes: Set<string> = new Set();
   private _inputEndDebounceTimer: number | null = null;
@@ -56,6 +65,7 @@ export class EditorViewDOM implements IEditorViewDOM {
 
   /** Guard so a pass's own re-render does not run the passes again. */
   private _runningLayoutPasses = false;
+
 
   private _decoratorRenderer?: DOMRenderer;    // For Decorator layer
   private _selectionRenderer?: DOMRenderer;    // For Selection layer
@@ -1164,6 +1174,11 @@ export class EditorViewDOM implements IEditorViewDOM {
   }
 
   // External render API
+  /** Whether any render is still settling, so its mutations are not input. */
+  get isModelDrivenChange(): boolean {
+    return this._modelDrivenRenders > 0;
+  }
+
   /** The environment templates are currently seeing. */
   getEnv(): RenderEnv {
     return this._env;
@@ -1270,7 +1285,7 @@ export class EditorViewDOM implements IEditorViewDOM {
     this._isRendering = true;
     
     // Set Model-First change flag (for MutationObserver filtering)
-    this._isModelDrivenChange = true;
+    this._modelDrivenRenders++;
     
     try {
       // Save options (used in addDecorator, etc.)
@@ -1491,14 +1506,19 @@ export class EditorViewDOM implements IEditorViewDOM {
       // Clear flag after rendering completes
       this._isRendering = false;
       
-      // Clear Model-First change flag (in next event loop)
+      // Released in the next event loop, once this render's mutations have been
+      // delivered. The count is what keeps a render that started later from
+      // being uncovered by an earlier one finishing.
       setTimeout(() => {
-        this._isModelDrivenChange = false;
+        this._modelDrivenRenders = Math.max(0, this._modelDrivenRenders - 1);
       }, 0);
     }
 
     // The content DOM is committed by now, so anything that has to measure the
-    // result can do so — and re-render off the back of it.
+    // result can do so — and re-render off the back of it. Not counted here:
+    // each render a pass performs counts itself, and holding the count open
+    // across the pass as well would keep it above zero permanently, which stops
+    // the observer seeing anything the user does.
     this._runLayoutPasses();
   }
 

@@ -75,9 +75,8 @@ view.registerLayoutPass(
     container,
     doc,
     editing: () => editing,
-    // Off until the churn below is dealt with: replacing the break decorators
-    // re-renders the whole paragraph, and the MutationObserver reads those
-    // renderer mutations as user input. See page-break-widget.
+    // Off: typing into a paragraph that carries a break still loses the caret.
+    // See page-break-widget for what has been ruled out.
     splitBlocks: false,
     onPageBreaks: (breaks) => applyPageBreaks(breaks),
     // This app exists to be measured, and the layout is the part worth looking
@@ -95,15 +94,30 @@ view.registerLayoutPass(
  * layout, and putting it in the document would mean the text changed because the
  * window was resized.
  */
-let drawnBreaks: string[] = [];
+const drawnBreaks = new Map<string, string>();
+
+/** What a break looks like, so an unchanged one can be left alone. */
+const shapeOf = (item: PageBreakWidget): string =>
+  `${item.target.sid}:${item.target.offset}:${Math.round(item.height)}`;
 
 const applyPageBreaks = (breaks: PageBreakWidget[]): void => {
   window.pageBreaks = breaks;
-  const wanted = breaks.map((item) => item.sid);
-  if (wanted.join(',') === drawnBreaks.join(',')) return;
+  const wanted = new Map(breaks.map((item) => [item.sid, shapeOf(item)]));
 
-  for (const sid of drawnBreaks) view.removeDecorator(sid);
+  // Only what actually moved. Replacing a decorator re-renders the paragraph it
+  // is in, and re-rendering a long paragraph produces hundreds of DOM mutations
+  // for a break that is exactly where it was.
+  for (const sid of [...drawnBreaks.keys()]) {
+    if (!wanted.has(sid)) {
+      view.removeDecorator(sid);
+      drawnBreaks.delete(sid);
+    }
+  }
+
   for (const item of breaks) {
+    if (drawnBreaks.get(item.sid) === wanted.get(item.sid)) continue;
+    if (drawnBreaks.has(item.sid)) view.removeDecorator(item.sid);
+
     view.addDecorator({
       sid: item.sid,
       stype: PAGE_BREAK_STYPE,
@@ -113,8 +127,8 @@ const applyPageBreaks = (breaks: PageBreakWidget[]): void => {
       target: { sid: item.target.sid, startOffset: item.target.offset, endOffset: item.target.offset },
       data: { height: item.height }
     } as never);
+    drawnBreaks.set(item.sid, wanted.get(item.sid)!);
   }
-  drawnBreaks = wanted;
 };
 
 view.render();
