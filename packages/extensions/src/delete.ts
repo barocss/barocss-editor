@@ -1,5 +1,6 @@
 import { Editor, Extension } from '@barocss/editor-core';
 import type { ModelSelection } from '@barocss/editor-core';
+import { selectedNodeIds } from '@barocss/editor-core';
 import { transaction, control, deleteRange, deleteOp, deleteTextRange } from '@barocss/model';
 
 /**
@@ -281,7 +282,14 @@ export class DeleteExtension implements Extension {
   }
 
   private async _executeBackspace(editor: Editor, selection: ModelSelection): Promise<boolean> {
-    // 1. Handle Range Selection
+    // 1. Whole nodes selected: remove all of them, not the span between the
+    //    first and the last. A node selection is a set, and it can have holes.
+    const selectedNodes = selectedNodeIds(selection);
+    if (selectedNodes.length > 0) {
+      return await this._executeDeleteNodes(editor, selectedNodes);
+    }
+
+    // 2. Handle Range Selection
     if (!selection.collapsed) {
       return await this._executeDeleteText(editor, selection);
     }
@@ -543,6 +551,19 @@ export class DeleteExtension implements Extension {
    * @param rightNodeId Right node ID (node to delete after merge)
    * @returns Success status
    */
+  /**
+   * Delete every node in a selection, in one transaction.
+   *
+   * One transaction because it is one edit: undo should bring back all of them,
+   * and a document that is briefly missing two of three selected shapes is a
+   * state no reader should be able to observe.
+   */
+  private async _executeDeleteNodes(editor: Editor, nodeIds: string[]): Promise<boolean> {
+    const operations = nodeIds.map((nodeId) => deleteOp(nodeId));
+    const result = await transaction(editor, operations).commit();
+    return result.success;
+  }
+
   private async _executeMergeTextNodes(
     editor: Editor,
     leftNodeId: string,

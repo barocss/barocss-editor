@@ -629,3 +629,75 @@ describe('DeleteExtension - word deletion', () => {
     expect(recordedTransactions[0][0].payload).toEqual({ start: 2, end: 7 });
   });
 });
+
+/**
+ * Deleting a set of nodes rather than a span of text.
+ *
+ * A node selection can have holes in it — three shapes on a board, two cells in
+ * different rows — so the span between its first and last is not what the user
+ * chose.
+ */
+describe('DeleteExtension - a selection of whole nodes', () => {
+  beforeEach(() => {
+    commitMock.mockClear();
+    recordedTransactions.length = 0;
+  });
+
+  const nodeSelection = (nodeIds: string[]): ModelSelection =>
+    ({
+      type: 'node',
+      nodeIds,
+      startNodeId: nodeIds[0],
+      startOffset: 0,
+      endNodeId: nodeIds[nodeIds.length - 1],
+      endOffset: 0,
+      collapsed: false,
+      direction: 'none'
+    }) as ModelSelection;
+
+  it('removes every selected node, not the span between the first and the last', async () => {
+    const editor = new FakeEditor({}) as any;
+    new DeleteExtension().onCreate(editor);
+
+    await editor.commands.get('backspace')!.execute(editor, {
+      selection: nodeSelection(['shape-1', 'shape-3', 'shape-7'])
+    });
+
+    expect(recordedTransactions).toHaveLength(1);
+    const ops = recordedTransactions[0];
+    expect(ops.map((op: any) => op.type)).toEqual(['delete', 'delete', 'delete']);
+    expect(ops.map((op: any) => op.payload.nodeId)).toEqual(['shape-1', 'shape-3', 'shape-7']);
+  });
+
+  it('deletes them in one transaction, so undo brings all of them back', async () => {
+    const editor = new FakeEditor({}) as any;
+    new DeleteExtension().onCreate(editor);
+
+    await editor.commands.get('backspace')!.execute(editor, {
+      selection: nodeSelection(['a', 'b'])
+    });
+
+    // Not two edits: a document briefly missing one of two selected shapes is a
+    // state no reader should be able to observe.
+    expect(commitMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves text selections alone', async () => {
+    const editor = new FakeEditor({}) as any;
+    new DeleteExtension().onCreate(editor);
+
+    await editor.commands.get('backspace')!.execute(editor, {
+      selection: {
+        type: 'range',
+        startNodeId: 'text-1',
+        startOffset: 1,
+        endNodeId: 'text-1',
+        endOffset: 4,
+        collapsed: false,
+        direction: 'forward'
+      } as ModelSelection
+    });
+
+    expect(recordedTransactions[0][0].type).toBe('deleteTextRange');
+  });
+});

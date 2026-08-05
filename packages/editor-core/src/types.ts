@@ -58,6 +58,62 @@ export interface ModelSelection {
   endOffset: number;
   collapsed?: boolean;  // Cursor is represented as a range with collapsed: true
   direction?: 'forward' | 'backward' | 'none';
+  /**
+   * Every node in the selection, when what is selected is nodes rather than a
+   * span of text.
+   *
+   * A range says "from here to there", which is the right shape for text and the
+   * wrong one for three shapes on a board or two cells in different rows: those
+   * are a set, and a set with holes in it cannot be described by its endpoints.
+   *
+   * `startNodeId`/`endNodeId` stay populated with the first and last of them, so
+   * that code written before this existed keeps working on one of the selected
+   * nodes rather than on nothing. Anything that means "all of them" should ask
+   * `selectedNodeIds()`.
+   */
+  nodeIds?: string[];
+}
+
+/**
+ * The nodes a selection covers, for the kinds that select whole nodes.
+ *
+ * Returns an empty array for a text range: a range covers *parts* of nodes, and
+ * treating its endpoints as a node set is how a caret in a paragraph turns into
+ * "the paragraph is selected".
+ */
+export function selectedNodeIds(selection: ModelSelection | null | undefined): string[] {
+  if (!selection) return [];
+  if (selection.type === 'range') return [];
+  if (selection.nodeIds && selection.nodeIds.length > 0) return [...selection.nodeIds];
+
+  // A selection made before this field existed, or one that covers a single node
+  return selection.startNodeId === selection.endNodeId
+    ? [selection.startNodeId]
+    : [selection.startNodeId, selection.endNodeId];
+}
+
+/**
+ * A selection of whole nodes.
+ *
+ * Order is the caller's: it is the order the nodes were selected in, which is
+ * not always document order and is what a user expects when a command reports
+ * on them.
+ */
+export function createNodeSelection(
+  nodeIds: string[],
+  type: SelectionType = 'node'
+): ModelSelection | null {
+  if (nodeIds.length === 0) return null;
+  return {
+    type,
+    nodeIds: [...nodeIds],
+    startNodeId: nodeIds[0],
+    startOffset: 0,
+    endNodeId: nodeIds[nodeIds.length - 1],
+    endOffset: 0,
+    collapsed: false,
+    direction: 'none'
+  };
 }
 
 export interface EditorSelectionModelEventPayload {

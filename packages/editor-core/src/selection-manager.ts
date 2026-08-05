@@ -7,7 +7,8 @@
  */
 
 import { DataStore } from "@barocss/datastore";
-import type { ModelSelection } from './types';
+import type { ModelSelection, SelectionType } from './types';
+import { createNodeSelection, selectedNodeIds } from './types';
 
 export interface SelectionManagerOptions {
   dataStore?: DataStore;
@@ -606,7 +607,16 @@ export class SelectionManager {
    */
   normalize(): void {
     if (!this._currentSelection) return;
-    
+
+    // A node selection has no direction to normalise — it is a set, not a span —
+    // and the swap below rewrites `type` to 'range' and drops `nodeIds`, which
+    // would turn "these three shapes" into "from the first to the last".
+    //
+    // Only an explicit non-range type is skipped: a selection built without one
+    // is a range everywhere else in the editor, and treating it as a node
+    // selection here would stop reversed text selections being normalised.
+    if (this._currentSelection.type && this._currentSelection.type !== 'range') return;
+
     if (this.isReversed()) {
       this._currentSelection = {
       type: 'range',
@@ -702,6 +712,43 @@ export class SelectionManager {
    */
   destroy(): void {
     this.clearSelection();
+  }
+
+  /**
+   * Select whole nodes rather than a span of text.
+   *
+   * Passing an empty list clears the selection: "no nodes selected" and "no
+   * selection" are the same state, and keeping an empty node selection around
+   * would make every caller check for both.
+   */
+  setNodeSelection(nodeIds: string[], type: SelectionType = 'node'): void {
+    this.setSelection(createNodeSelection(nodeIds, type));
+  }
+
+  /** The nodes the current selection covers; empty for a text range. */
+  getSelectedNodeIds(): string[] {
+    return selectedNodeIds(this._currentSelection);
+  }
+
+  /**
+   * Add or remove a node, as ctrl/cmd-clicking one does.
+   *
+   * Toggling from a text range starts a fresh node selection rather than trying
+   * to combine the two: a caret in a paragraph is not a selection of it, and
+   * merging them would silently widen what the next command acts on.
+   */
+  toggleNodeInSelection(nodeId: string, type: SelectionType = 'node'): void {
+    const current = this._currentSelection?.type === 'range' ? [] : this.getSelectedNodeIds();
+    const index = current.indexOf(nodeId);
+    const next = index >= 0
+      ? [...current.slice(0, index), ...current.slice(index + 1)]
+      : [...current, nodeId];
+    this.setNodeSelection(next, type);
+  }
+
+  /** Whether a node is one of those selected. */
+  isNodeSelected(nodeId: string): boolean {
+    return this.getSelectedNodeIds().includes(nodeId);
   }
 
   /**
