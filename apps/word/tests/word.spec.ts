@@ -211,3 +211,42 @@ test.describe('pages', () => {
     }
   });
 });
+
+test.describe('pages follow the text', () => {
+  test('repaginates as content grows past the last page', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-sheet');
+
+    const before = await page.locator('.w-sheet').count();
+
+    // Add enough blocks to need another sheet. Nothing in the app asks for a
+    // relayout: the view runs the pass after each render, which is the wiring
+    // this checks.
+    await placeCaret(page, '.w-paragraph', 1);
+    for (let i = 0; i < 60; i++) await page.keyboard.press('Enter');
+
+    await expect
+      .poll(async () => page.locator('.w-sheet').count(), { timeout: 15000 })
+      .toBeGreaterThan(before);
+  });
+
+  test('gives back the pages when the content shrinks again', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-sheet');
+
+    const before = await page.locator('.w-sheet').count();
+
+    await placeCaret(page, '.w-paragraph', 1);
+    for (let i = 0; i < 20; i++) await page.keyboard.press('Enter');
+    await expect
+      .poll(async () => page.locator('.w-sheet').count(), { timeout: 15000 })
+      .toBeGreaterThan(before);
+
+    // Undone rather than deleted: Backspace at the start of a block does not
+    // merge it into the one before yet, so it cannot shrink the document.
+    for (let i = 0; i < 25; i++) await page.keyboard.press('Control+z');
+    await expect
+      .poll(async () => page.locator('.w-sheet').count(), { timeout: 15000 })
+      .toBe(before);
+  });
+});

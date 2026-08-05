@@ -35,6 +35,15 @@ export interface LayerConfiguration {
   };
 }
 
+/**
+ * Something that measures a finished render and returns what it learned.
+ *
+ * The return value is merged into the render environment; returning nothing
+ * means nothing changed. See EditorViewDOM.registerLayoutPass for the contract
+ * a pass has to satisfy.
+ */
+export type LayoutPass = (view: any) => RenderEnv | void;
+
 export interface EditorViewDOMOptions {
   container: HTMLElement;
   layers?: LayerConfiguration;

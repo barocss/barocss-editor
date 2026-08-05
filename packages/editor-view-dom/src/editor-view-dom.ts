@@ -1,6 +1,6 @@
 import { Editor, ModelSelection } from '@barocss/editor-core';
 import type { ModelData, RenderEnv } from '@barocss/dsl';
-import { IEditorViewDOM, EditorViewDOMOptions, LayerConfiguration } from './types';
+import { IEditorViewDOM, EditorViewDOMOptions, LayerConfiguration, LayoutPass } from './types';
 import { InputHandlerImpl } from './event-handlers/input-handler';
 import { DOMSelectionHandlerImpl } from './event-handlers/selection-handler';
 import { MutationObserverManagerImpl } from './mutation-observer/mutation-observer-manager';
@@ -50,6 +50,12 @@ export class EditorViewDOM implements IEditorViewDOM {
   // DOMRenderer per layer (each with independent prevVNodeTree)
   /** Host environment handed to templates; see EditorViewDOMOptions.env. */
   private _env: RenderEnv = {};
+
+  /** Passes that measure a finished render; see registerLayoutPass. */
+  private _layoutPasses: LayoutPass[] = [];
+
+  /** Guard so a pass's own re-render does not run the passes again. */
+  private _runningLayoutPasses = false;
 
   private _decoratorRenderer?: DOMRenderer;    // For Decorator layer
   private _selectionRenderer?: DOMRenderer;    // For Selection layer
@@ -1174,6 +1180,55 @@ export class EditorViewDOM implements IEditorViewDOM {
     }
   }
 
+  /**
+   * Run something after each render that needs to see what was rendered.
+   *
+   * Some layout can only be computed from a finished render. Pagination is the
+   * clearest case: line breaking is the browser's answer to a width, and where
+   * the pages break is a question about that answer, so there is nothing to
+   * compute until something has been laid out. The same shape appears wherever
+   * geometry decides the result — fitting text to a shape, routing a connector
+   * between two boxes, sizing a column to its contents.
+   *
+   * A pass returns values to merge into the environment, and the view renders
+   * once more so the templates can use them. That second render does *not* run
+   * the passes again, which is why a pass must be convergent: applying its
+   * result must not change what it would measure. Pagination satisfies this by
+   * moving blocks with a top margin, which cannot change where a line breaks. A
+   * pass that changed a width instead would need a fixed point the view does not
+   * try to find for it.
+   *
+   * Returns a function that removes the pass.
+   */
+  registerLayoutPass(pass: LayoutPass): () => void {
+    this._layoutPasses.push(pass);
+    return () => {
+      const index = this._layoutPasses.indexOf(pass);
+      if (index >= 0) this._layoutPasses.splice(index, 1);
+    };
+  }
+
+  private _runLayoutPasses(): void {
+    if (this._runningLayoutPasses || this._layoutPasses.length === 0) return;
+
+    this._runningLayoutPasses = true;
+    try {
+      let patch: RenderEnv | undefined;
+      for (const pass of this._layoutPasses) {
+        const result = pass(this);
+        if (result) patch = { ...(patch ?? {}), ...result };
+      }
+      // No result means nothing measured changed, and re-rendering would only
+      // produce the same DOM again.
+      if (patch) {
+        this.setEnv(patch);
+        this.render();
+      }
+    } finally {
+      this._runningLayoutPasses = false;
+    }
+  }
+
   render(tree?: ModelData | any, options?: { sync?: boolean }): void {
     if (!this._domRenderer) {
       console.warn('[EditorViewDOM] No DOM renderer available');
@@ -1413,6 +1468,10 @@ export class EditorViewDOM implements IEditorViewDOM {
         this._isModelDrivenChange = false;
       }, 0);
     }
+
+    // The content DOM is committed by now, so anything that has to measure the
+    // result can do so — and re-render off the back of it.
+    this._runLayoutPasses();
   }
 
   /**

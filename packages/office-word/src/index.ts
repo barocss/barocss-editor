@@ -79,3 +79,5 @@ export {
   type SurfaceLayout
 } from './layout';
 export { flowCss, twipToPx } from './css';
+
+export { createWordLayoutPass, type WordLayoutPassOptions } from './word-layout-pass';

@@ -74,6 +74,20 @@ export function vnodeStructureMatches(prev: VNode, next: VNode): boolean {
  */
 export function getVNodeId(vnode: VNode | undefined | null): string | undefined {
   if (!vnode) return undefined;
+
+  // An explicit key wins over the sid.
+  //
+  // A node's sid is stamped onto *every* element of that node's template, not
+  // only its root, so among siblings a sid is not identity — a template that
+  // draws three boxes gives all three the same one, and reconciliation then
+  // treats them as the same box. A key is the template author saying which
+  // sibling is which, which is exactly the question being asked here.
+  //
+  // Namespaced, because keys are unique among siblings while sids are unique in
+  // the document: without the prefix a key of "3" could collide with a node
+  // whose id happens to be "3".
+  if (vnode.key) return `key:${vnode.key}`;
+
   // sid is at top-level (component VNode)
   if (vnode.sid) return vnode.sid;
   // decorator sid is now supported as top-level field (decoratorSid)

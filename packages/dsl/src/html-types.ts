@@ -24,6 +24,15 @@ export interface BaseHTMLAttributes {
   // which ARIA reads as *not* hidden. So the string forms are the useful ones.
   'aria-hidden'?: boolean | 'true' | 'false';
   'data-testid'?: string;
+  /**
+   * Which sibling this is, for reconciliation.
+   *
+   * Never reaches the DOM as an attribute. It matters most for elements a
+   * template draws that are not model nodes: a node's id is stamped onto every
+   * element of its template, so among siblings it is not identity, and a key is
+   * how a template says which one is which.
+   */
+  key?: string | number | ((data: any) => string | number);
   contenteditable?: boolean | 'true' | 'false' | DataTemplate | ((data: any) => boolean | 'true' | 'false');
   
   // Event handlers
