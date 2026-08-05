@@ -115,9 +115,10 @@ export function registerWordRenderers(): void {
       const { height, width, gap } = layout!.metrics;
       return element('div', {
         className: 'w-sheet',
-        // Keyed, because a node's sid is stamped onto every element of its
-        // template: without a key all the sheets share the surface's id, and
-        // reconciliation cannot tell the second page from the third.
+        // Keyed because the sheets are a list. Reconciliation no longer needs it
+        // — an id inherited from the owning node is not treated as identity any
+        // more — but saying which sheet is which lets a page inserted in the
+        // middle move the ones after it rather than repainting each in place.
         key: `sheet-${page.index}`,
         'data-page': String(page.index + 1),
         style: {

@@ -80,6 +80,15 @@ export interface DecoratorVNodeIdentity {
 export interface VNodeBuildOptions {
   decorators?: Decorator[];
   sid?: string; // Current node's sid for decorator matching
+  /**
+   * Whether `sid` belongs to the node that owns this element rather than to the
+   * element itself. True for every element of a node's template except its root.
+   *
+   * The distinction matters because reconciliation keys siblings by id: a
+   * template that draws three boxes gives all three the owner's sid, and without
+   * this they cannot be told apart.
+   */
+  sidInherited?: boolean;
   decoratorMeta?: DecoratorVNodeIdentity;
   /**
    * SelectionContext: inject selection info at render time (read-only)

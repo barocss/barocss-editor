@@ -606,7 +606,7 @@ export class VNodeBuilder {
   private _buildElement(
     template: ElementTemplate,  // template.attributes is props
     data: ModelData,  // model (runtime data)
-    options?: { injectChild?: VNode; useDataAsSlot?: boolean; decorators?: Decorator[]; sid?: string }
+    options?: { injectChild?: VNode; useDataAsSlot?: boolean; decorators?: Decorator[]; sid?: string; sidInherited?: boolean }
   ): VNode {
     // Merge current build options with provided options
     const buildOptions = this._mergeBuildOptions(options, getSid(data));
@@ -750,7 +750,7 @@ export class VNodeBuilder {
     orderedChildren: VNode[],
     hasDataTextProcessed: { value: boolean },
     data: ModelData,
-    options?: { injectChild?: VNode; useDataAsSlot?: boolean; decorators?: Decorator[]; sid?: string }
+    options?: { injectChild?: VNode; useDataAsSlot?: boolean; decorators?: Decorator[]; sid?: string; sidInherited?: boolean }
   ): void {
     // Root auto-text mapping only when no children to avoid conflict
     if (orderedChildren.length === 0 && isString(data?.content)) {
@@ -816,7 +816,7 @@ export class VNodeBuilder {
   private _processComponentChild(
     child: ComponentTemplate,
     data: ModelData,
-    buildOptions: { injectChild?: VNode; useDataAsSlot?: boolean; decorators?: Decorator[]; sid?: string }
+    buildOptions: { injectChild?: VNode; useDataAsSlot?: boolean; decorators?: Decorator[]; sid?: string; sidInherited?: boolean }
   ): VNode | null {
     // Pass ComponentTemplate's props as data (item component uses data('text'))
     const childProps = child.props || {};
@@ -843,7 +843,7 @@ export class VNodeBuilder {
     currentTextParts: string[],
     flushTextParts: () => void,
     injectedUsedRef: { value: boolean },
-    options?: { injectChild?: VNode; useDataAsSlot?: boolean; decorators?: Decorator[]; sid?: string },
+    options?: { injectChild?: VNode; useDataAsSlot?: boolean; decorators?: Decorator[]; sid?: string; sidInherited?: boolean },
     hasDataTextProcessed?: { value: boolean }
   ): void {
     // Ignore null or undefined
@@ -1072,6 +1072,8 @@ export class VNodeBuilder {
       const childVNode = this._buildElement(childTemplate, item, {
         ...buildOptions,
         sid: childSid,
+        // A model child has an id of its own, whatever the parent was carrying
+        sidInherited: false,
         decorators: childDecorators // Pass child-specific decorators
       });
       
@@ -1171,7 +1173,7 @@ export class VNodeBuilder {
     currentTextParts: string[],
     flushTextParts: () => void,
     buildOptions: VNodeBuildOptions,
-    options?: { injectChild?: VNode; useDataAsSlot?: boolean; decorators?: Decorator[]; sid?: string },
+    options?: { injectChild?: VNode; useDataAsSlot?: boolean; decorators?: Decorator[]; sid?: string; sidInherited?: boolean },
     injectedUsedRef?: { value: boolean },
     hasDataTextProcessed?: { value: boolean }
   ): boolean {
@@ -1816,12 +1818,18 @@ export class VNodeBuilder {
     
     // If childSid is absent, undefined (no parent sid inheritance)
     // When building child elements, explicitly pass sid (no sid if undefined)
+    const inheritsParentSid = childSid === undefined && buildOptions.sid !== undefined;
     const childBuildOptions = {
       ...buildOptions,
       // If child has no explicit sid, propagate parent sid so inline decorators can be applied
       sid: childSid !== undefined 
         ? childSid 
-        : (buildOptions.sid !== undefined ? buildOptions.sid : undefined)
+        : (buildOptions.sid !== undefined ? buildOptions.sid : undefined),
+      // ...but record that it is the owner's id, not this element's own. The
+      // attribute is still written — the input path finds the owning node by it —
+      // while reconciliation, which keys siblings by id, must ignore it: every
+      // element of one template would otherwise share a single identity.
+      sidInherited: inheritsParentSid
     };
     
     // If childSid is absent, remove sid from data to prevent parent sid inheritance
