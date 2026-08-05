@@ -81,3 +81,12 @@ export {
 export { flowCss, twipToPx } from './css';
 
 export { createWordLayoutPass, type WordLayoutPassOptions } from './word-layout-pass';
+
+export {
+  furnitureFor,
+  furnitureTemplate,
+  pageNumberFor,
+  pageNumberText,
+  type FurnitureBinding,
+  type PageContext
+} from './page-furniture';

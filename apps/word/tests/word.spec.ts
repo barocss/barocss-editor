@@ -384,3 +384,93 @@ test.describe('diagnostics', () => {
     expect(logs).toBeGreaterThan(0);
   });
 });
+
+test.describe('page furniture', () => {
+  test('repeats the header on every page', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-sheet');
+
+    const sheets = await page.locator('.w-sheet').count();
+    expect(await page.locator('.w-header').count()).toBe(sheets);
+    expect(await page.locator('.w-footer').count()).toBe(sheets);
+  });
+
+  test('gives the first page its own header', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-header');
+
+    // firstPageHeaderId exists precisely so a title page can differ
+    await expect(page.locator('.w-header').first()).toContainText('Draft');
+    await expect(page.locator('.w-header').nth(1)).toContainText('Barocss Word');
+  });
+
+  test('numbers each page, and counts them', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-footer');
+
+    const footers = await page.locator('.w-footer').allInnerTexts();
+    const total = footers.length;
+    footers.forEach((text, index) => {
+      expect(text).toContain(`${index + 1} / ${total}`);
+    });
+  });
+
+  test('splits a tabbed line to the page edges', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-header');
+
+    // A tab in a header means "to the next tab stop", which is what puts a title
+    // left and a date right.
+    const parts = page.locator('.w-header').nth(1).locator('.w-furniture-part');
+    expect(await parts.count()).toBe(2);
+
+    const [left, right] = await parts.evaluateAll((els) =>
+      els.map((el) => el.getBoundingClientRect())
+    );
+    expect(left.left).toBeLessThan(right.left);
+  });
+
+  test('sits inside the page margins, not the text', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-header');
+
+    const gap = await page.evaluate(() => {
+      const header = document.querySelector('.w-header')!.getBoundingClientRect();
+      const sheet = document.querySelector('.w-sheet')!.getBoundingClientRect();
+      const firstBlock = document
+        .querySelector('.w-surface > [data-bc-sid]:not(.w-sheets)')!
+        .getBoundingClientRect();
+      return { fromTop: header.top - sheet.top, aboveText: firstBlock.top - header.bottom };
+    });
+
+    // Half an inch from the page edge by default, and above the body
+    expect(Math.round(gap.fromTop)).toBe(48);
+    expect(gap.aboveText).toBeGreaterThan(0);
+  });
+
+  test('is not copied with the document', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-header');
+
+    const copied = await page.evaluate(() => {
+      const surface = document.querySelector('.w-surface')!;
+      const range = document.createRange();
+      range.selectNodeContents(surface);
+      const selection = window.getSelection()!;
+      selection.removeAllRanges();
+      selection.addRange(range);
+
+      let html = '';
+      const onCopy = (event: ClipboardEvent) => {
+        html = event.clipboardData?.getData('text/html') ?? '';
+      };
+      document.addEventListener('copy', onCopy);
+      document.execCommand('copy');
+      document.removeEventListener('copy', onCopy);
+      return html;
+    });
+
+    expect(copied).not.toContain('w-header');
+    expect(copied).not.toContain('Draft');
+  });
+});

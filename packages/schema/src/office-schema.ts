@@ -233,13 +233,24 @@ export function getMetaNodeDefinitions(): Record<string, NodeTypeDefinition> {
       name: 'docHeader',
       group: RESOURCE,
       content: 'block+',
-      attrs: { surfaceId: { type: 'string', required: false } }
+      attrs: {
+        /**
+         * Referenced by id as well as bound by surface, because one section can
+         * need several: a first-page header, an even-page header and the rest.
+         * `surfaceId` alone cannot say which of the three a given header is.
+         */
+        id: { type: 'string', required: false },
+        surfaceId: { type: 'string', required: false }
+      }
     },
     docFooter: {
       name: 'docFooter',
       group: RESOURCE,
       content: 'block+',
-      attrs: { surfaceId: { type: 'string', required: false } }
+      attrs: {
+        id: { type: 'string', required: false },
+        surfaceId: { type: 'string', required: false }
+      }
     },
     bibliography: { name: 'bibliography', group: RESOURCE, content: 'block*' },
     indexBlock: { name: 'indexBlock', group: RESOURCE, content: 'block*' }

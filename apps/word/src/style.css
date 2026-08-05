@@ -37,6 +37,18 @@ body {
 }
 
 /*
+ * Page furniture is drawn, not part of the flow, so its appearance is a viewer
+ * concern rather than the document's — the same reason the sheets are styled
+ * here. It borrows the document's font so a header does not look pasted on.
+ */
+.w-furniture {
+  font: inherit;
+  font-size: .85em;
+  color: #495057;
+}
+
+
+/*
  * List markers are computed, never stored, so they are drawn from a data
  * attribute rather than being text in the document. That keeps them out of the
  * model — and out of the text the user can put a caret in.

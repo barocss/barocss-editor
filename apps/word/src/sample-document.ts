@@ -43,6 +43,9 @@ export function createSampleDocument(): INode {
         attributes: {
           kind: 'flow',
           name: 'Section 1',
+          headerId: 'hdr-main',
+          firstPageHeaderId: 'hdr-first',
+          footerId: 'ftr-main',
           pageWidth: 12240,
           pageHeight: 15840,
           marginTop: 1440,
@@ -314,6 +317,51 @@ export function createSampleDocument(): INode {
               {
                 stype: 'numberingLevel',
                 attributes: { level: 2, format: 'lowerRoman', text: '%3.', start: 1, suffix: 'space' }
+              }
+            ]
+          },
+          {
+            stype: 'docHeader',
+            attributes: { id: 'hdr-main' },
+            content: [
+              {
+                stype: 'paragraph',
+                attributes: {},
+                content: [
+                  { stype: 'inline-text', text: 'Barocss Word' },
+                  { stype: 'tab' },
+                  { stype: 'inline-text', text: 'One engine, four products' }
+                ]
+              }
+            ]
+          },
+          {
+            // A different header on the first page, which is what a title page
+            // needs and what `firstPageHeaderId` exists for.
+            stype: 'docHeader',
+            attributes: { id: 'hdr-first' },
+            content: [
+              {
+                stype: 'paragraph',
+                attributes: { alignment: 'center' },
+                content: [{ stype: 'inline-text', text: 'Draft — not for circulation' }]
+              }
+            ]
+          },
+          {
+            stype: 'docFooter',
+            attributes: { id: 'ftr-main' },
+            content: [
+              {
+                stype: 'paragraph',
+                attributes: {},
+                content: [
+                  { stype: 'inline-text', text: 'barocss' },
+                  { stype: 'tab' },
+                  { stype: 'fieldPageNumber' },
+                  { stype: 'inline-text', text: ' / ' },
+                  { stype: 'fieldPageCount' }
+                ]
               }
             ]
           },

@@ -19,7 +19,15 @@ import {
   tableCss,
   type CssStyle
 } from './css';
-import { getBlockPush, getWordLayout, getWordNumbering, getWordStyles } from './render-context';
+import {
+  getBlockPush,
+  getWordDocument,
+  getWordLayout,
+  getWordNumbering,
+  getWordStyles
+} from './render-context';
+import { indexResources } from './document-access';
+import { furnitureFor, furnitureTemplate, pageNumberFor } from './page-furniture';
 import type { RenderEnv } from '@barocss/dsl';
 
 /** Resolved formatting for a node, or nothing when no document is set. */
@@ -111,6 +119,40 @@ export function registerWordRenderers(): void {
     const format = styles ? styles.resolveNode(node as never, 'page') : {};
     const layout = getWordLayout(env, String(node.sid ?? ''));
 
+    // Headers and footers are drawn per page, from the resources the section
+    // points at. See page-furniture for why they are drawn rather than rendered.
+    const doc = getWordDocument(env);
+    const resources = doc ? indexResources(doc) : new Map();
+    const binding = (role: 'Header' | 'Footer') => ({
+      first: node.attributes?.[`firstPage${role}Id`] as string | undefined,
+      even: node.attributes?.[`evenPage${role}Id`] as string | undefined,
+      default: node.attributes?.[`${role.toLowerCase()}Id`] as string | undefined
+    });
+
+    const furniture: any[] = [];
+    if (doc && layout) {
+      for (const page of layout.pages) {
+        const context = {
+          index: page.index,
+          number: pageNumberFor(page.index, format),
+          total: layout.pages.length
+        };
+        for (const placement of ['header', 'footer'] as const) {
+          const role = placement === 'header' ? 'Header' : 'Footer';
+          const id = furnitureFor(binding(role), context);
+          const drawn = furnitureTemplate({
+            doc,
+            node: id ? resources.get(id) : undefined,
+            page: context,
+            metrics: layout.metrics,
+            format,
+            placement
+          });
+          if (drawn) furniture.push(drawn);
+        }
+      }
+    }
+
     const sheets = (layout?.pages ?? []).map((page) => {
       const { height, width, gap } = layout!.metrics;
       return element('div', {
@@ -168,7 +210,7 @@ export function registerWordRenderers(): void {
               userSelect: 'none'
             }
           },
-          sheets
+          [...sheets, ...furniture]
         ),
         slot('content')
       ]
