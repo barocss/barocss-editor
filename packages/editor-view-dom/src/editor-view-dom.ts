@@ -1202,12 +1202,16 @@ export class EditorViewDOM implements IEditorViewDOM {
    * between two boxes, sizing a column to its contents.
    *
    * A pass returns values to merge into the environment, and the view renders
-   * once more so the templates can use them. That second render does *not* run
-   * the passes again, which is why a pass must be convergent: applying its
-   * result must not change what it would measure. Pagination satisfies this by
-   * moving blocks with a top margin, which cannot change where a line breaks. A
-   * pass that changed a width instead would need a fixed point the view does not
-   * try to find for it.
+   * once more so the templates can use them. Passes then run again on that
+   * render, because some of them can only measure what a previous round drew —
+   * footnotes are the case: nothing can measure a note body until one has been
+   * put on the page.
+   *
+   * A pass that has nothing new to report returns nothing, and the loop stops
+   * when every pass does. It is also bounded, so a pass that never settles costs
+   * a few wasted renders rather than hanging the editor. Convergence is still
+   * the pass's responsibility: what makes pagination settle is that it moves
+   * blocks with a top margin, which cannot change where a line breaks.
    *
    * Returns a function that removes the pass.
    */
@@ -1219,19 +1223,32 @@ export class EditorViewDOM implements IEditorViewDOM {
     };
   }
 
+  /**
+   * How many times passes may run for one render.
+   *
+   * Two rounds is what a pass that measures its own output needs — one to draw,
+   * one to measure — and the third exists to let that settle. A pass still
+   * hunting after that is not converging, and more rounds would only cost more
+   * renders.
+   */
+  private static readonly MAX_LAYOUT_ROUNDS = 3;
+
   private _runLayoutPasses(): void {
     if (this._runningLayoutPasses || this._layoutPasses.length === 0) return;
 
     this._runningLayoutPasses = true;
     try {
-      let patch: RenderEnv | undefined;
-      for (const pass of this._layoutPasses) {
-        const result = pass(this);
-        if (result) patch = { ...(patch ?? {}), ...result };
-      }
-      // No result means nothing measured changed, and re-rendering would only
-      // produce the same DOM again.
-      if (patch) {
+      for (let round = 0; round < EditorViewDOM.MAX_LAYOUT_ROUNDS; round++) {
+        let patch: RenderEnv | undefined;
+        for (const pass of this._layoutPasses) {
+          const result = pass(this);
+          if (result) patch = { ...(patch ?? {}), ...result };
+        }
+
+        // Every pass reported nothing new: the DOM already reflects what they
+        // would compute, and rendering again would produce the same thing.
+        if (!patch) return;
+
         this.setEnv(patch);
         this.render();
       }

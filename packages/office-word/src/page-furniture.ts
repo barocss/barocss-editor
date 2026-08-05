@@ -183,3 +183,73 @@ export function furnitureTemplate(options: FurnitureOptions): ElementTemplate | 
     blocks.map((block) => furnitureBlock(doc, block, page, format))
   );
 }
+
+/** Height of the rule drawn above a page's notes, plus the space around it. */
+export const FOOTNOTE_SEPARATOR = 12;
+
+export interface FootnoteAreaOptions {
+  doc: DocumentAccess;
+  /**
+   * Resource definitions by their `id` attribute.
+   *
+   * A footnote is referenced by the id its author gave it, not by the node id
+   * the store assigned — which is what lets a reference survive a round trip
+   * through a file format that has never heard of our ids.
+   */
+  resources: Map<string, DocumentNode>;
+  /** Footnote ids on this page, in reading order. */
+  ids: string[];
+  /** The number each footnote shows. */
+  numbers: Map<string, number>;
+  pageIndex: number;
+  metrics: SheetMetrics;
+}
+
+/**
+ * The notes at the foot of one page.
+ *
+ * Anchored to the bottom of the page's content area and grown upwards, because
+ * that is where the reader expects them and because the space they occupy is
+ * what pagination already reserved: growing downwards would put them over the
+ * page edge whenever the body happened to be short.
+ */
+export function footnoteAreaTemplate(options: FootnoteAreaOptions): ElementTemplate | null {
+  const { doc, resources, ids, numbers, pageIndex, metrics } = options;
+  if (ids.length === 0) return null;
+
+  const sheetTop = pageIndex * (metrics.height + metrics.gap);
+  const contentBottom = sheetTop + metrics.height - metrics.marginBottom;
+
+  const notes = ids.flatMap((id) => {
+    const body = resources.get(id);
+    if (!body) return [];
+    const text = childrenOf(doc, body)
+      .map((block) => textOf(doc, block, { index: pageIndex, number: 0, total: 0 }, {}))
+      .join(' ');
+
+    return [
+      element('div', { className: 'w-footnote', key: `note-${id}`, 'data-footnote': id }, [
+        element('sup', { className: 'w-footnote-number' }, String(numbers.get(id) ?? '')),
+        element('span', { className: 'w-footnote-body' }, text)
+      ])
+    ];
+  });
+
+  if (notes.length === 0) return null;
+
+  return element(
+    'div',
+    {
+      className: 'w-footnotes',
+      key: `notes-${pageIndex}`,
+      style: {
+        position: 'absolute',
+        left: `${metrics.marginLeft}px`,
+        width: `${metrics.width - metrics.marginLeft - metrics.marginRight}px`,
+        top: `${contentBottom}px`,
+        transform: 'translateY(-100%)'
+      }
+    },
+    notes
+  );
+}

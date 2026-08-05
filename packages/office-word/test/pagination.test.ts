@@ -219,3 +219,66 @@ describe('table rows', () => {
     expect(sidsPerPage(pages)).toEqual([['r1'], ['r2', 'r3']]);
   });
 });
+
+/**
+ * A footnote takes room from the page its reference lands on, so the block that
+ * causes it competes with it for space.
+ */
+describe('space held at the foot of a page', () => {
+  it('leaves less room on the page holding the reference', () => {
+    // Without the reservation all five blocks fit; the 40px footnote pushes one off
+    const pages = paginate(
+      [
+        block('a', 1),
+        block('b', 1, { reserve: 40 }),
+        block('c', 1),
+        block('d', 1),
+        block('e', 1)
+      ],
+      { contentHeight: 100 }
+    );
+
+    expect(sidsPerPage(pages)).toEqual([['a', 'b', 'c'], ['d', 'e']]);
+    expect(pages[0].reserved).toBe(40);
+    expect(pages[1].reserved).toBe(0);
+  });
+
+  it('moves a block whose own reservation will not fit beside it', () => {
+    // 'b' fits, but not together with the 60px its footnote needs
+    const pages = paginate([block('a', 2), block('b', 1, { reserve: 60 })], {
+      contentHeight: 100
+    });
+
+    expect(sidsPerPage(pages)).toEqual([['a'], ['b']]);
+  });
+
+  it('adds up several footnotes on one page', () => {
+    // 40px of body plus 40px of footnotes leaves 20px, so an unsplittable
+    // 40px block has to go overleaf.
+    const pages = paginate(
+      [
+        block('a', 1, { reserve: 20 }),
+        block('b', 1, { reserve: 20 }),
+        block('c', 2, { keepLines: true })
+      ],
+      { contentHeight: 100 }
+    );
+
+    expect(pages[0].reserved).toBe(40);
+    expect(sidsPerPage(pages)).toEqual([['a', 'b'], ['c']]);
+  });
+
+  it('charges a split block only once, on the page it starts', () => {
+    // The reservation belongs to the reference, and the reference is in the
+    // fragment that begins the block — not in every continuation of it.
+    const pages = paginate([block('long', 8, { reserve: 20 })], { contentHeight: 100 });
+
+    expect(pages[0].reserved).toBe(20);
+    expect(pages[1].reserved).toBe(0);
+  });
+
+  it('changes nothing when nothing reserves', () => {
+    const pages = paginate([block('a', 5), block('b', 5)], { contentHeight: 100 });
+    expect(pages.every((page) => page.reserved === 0)).toBe(true);
+  });
+});

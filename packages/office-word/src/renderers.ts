@@ -27,7 +27,7 @@ import {
   getWordStyles
 } from './render-context';
 import { indexResources } from './document-access';
-import { furnitureFor, furnitureTemplate, pageNumberFor } from './page-furniture';
+import { footnoteAreaTemplate, furnitureFor, furnitureTemplate, pageNumberFor } from './page-furniture';
 import type { RenderEnv } from '@barocss/dsl';
 
 /** Resolved formatting for a node, or nothing when no document is set. */
@@ -150,6 +150,24 @@ export function registerWordRenderers(): void {
           });
           if (drawn) furniture.push(drawn);
         }
+      }
+    }
+
+    // Footnote bodies, drawn at the foot of the page holding their reference.
+    // Chrome for the same reason the furniture is: a body lives in `resources`
+    // and is *shown* here, so rendering it as content would give it two places
+    // in the document at once.
+    if (doc && layout) {
+      for (const [pageIndex, ids] of layout.footnotesByPage) {
+        const drawn = footnoteAreaTemplate({
+          doc,
+          resources,
+          ids,
+          numbers: layout.footnoteNumbers,
+          pageIndex,
+          metrics: layout.metrics
+        });
+        if (drawn) furniture.push(drawn);
       }
     }
 

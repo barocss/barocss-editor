@@ -130,7 +130,10 @@ export function createSampleDocument(): INode {
             content: [
               {
                 stype: 'inline-text',
-                text: 'Put the caret in a cell and press Tab. The header spans two columns.'
+                text: 'Put the caret in a cell and press Tab. The header spans two columns.',
+                // The reference is a mark; the body lives in resources and is
+                // drawn at the foot of whichever page this lands on.
+                marks: [{ stype: 'footnoteRef', range: [0, 3], attrs: { id: 'fn1' } }]
               }
             ]
           },

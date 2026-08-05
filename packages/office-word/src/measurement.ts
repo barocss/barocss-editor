@@ -20,11 +20,22 @@ import { twipToPx } from './css';
 import type { MeasuredBlock } from './pagination';
 import type { StyleResolver } from './style-resolver';
 import { childrenOf, type DocumentAccess, type DocumentNode } from './document-access';
+import { footnoteRefsIn, reserveFor } from './footnotes';
 
 /** The DOM attribute the renderer stamps each node's id onto. */
 const SID_ATTR = 'data-bc-sid';
 
 export interface MeasureOptions {
+  /**
+   * Measured height of each footnote body, by id.
+   *
+   * Empty on the first pass, when the bodies have not been drawn yet. See
+   * `reserveFor` for why an unmeasured footnote reserves nothing rather than a
+   * guess.
+   */
+  footnoteHeights?: Map<string, number>;
+  /** Height of the rule drawn above the notes. */
+  footnoteSeparator?: number;
   /**
    * Whether a paragraph may be split across a page boundary.
    *
@@ -127,10 +138,12 @@ export function measureBlocks(
 
     const format = styles.resolveNode(node, 'paragraph');
     const lines = linesFor(child as HTMLElement);
+    const refs = footnoteRefsIn(doc, node);
 
     blocks.push({
       sid,
       lines,
+      reserve: reserveFor(refs, options.footnoteHeights ?? new Map(), options.footnoteSeparator ?? 0),
       spaceBefore: px(format.spacingBefore),
       spaceAfter: px(format.spacingAfter),
       breakBefore: format.pageBreakBefore === true || node.stype === 'pageBreak',

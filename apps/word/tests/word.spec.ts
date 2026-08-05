@@ -474,3 +474,90 @@ test.describe('page furniture', () => {
     expect(copied).not.toContain('Draft');
   });
 });
+
+test.describe('footnotes', () => {
+  test('draws the body at the foot of the page holding the reference', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-footnote');
+
+    // The body lives in resources, which is not rendered as flow content
+    await expect(page.locator('.w-footnote')).toContainText('A footnote body');
+    await expect(page.locator('.w-resources')).toHaveCSS('display', 'none');
+  });
+
+  test('numbers it', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-footnote');
+    await expect(page.locator('.w-footnote-number').first()).toHaveText('1');
+  });
+
+  test('keeps the body text clear of it', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-footnote');
+
+    // This is what the reservation is for: without it the note would be drawn
+    // over the paragraph that referenced it.
+    const overlapping = await page.evaluate(() => {
+      const note = document.querySelector('.w-footnotes')!.getBoundingClientRect();
+      return Array.from(document.querySelectorAll('.w-surface > [data-bc-sid]'))
+        .filter((el) => !el.classList.contains('w-sheets'))
+        .map((el) => el.getBoundingClientRect())
+        .filter((rect) => rect.top < note.bottom && rect.bottom > note.top).length;
+    });
+
+    expect(overlapping).toBe(0);
+  });
+
+  test('takes the room it needs out of that page', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-footnote');
+
+    const reserved = await page.evaluate(() => {
+      const layout = (window as any).wordLayout?.values().next().value;
+      return layout.pages.map((p: any) => p.reserved);
+    });
+
+    // Only the page with the reference pays for it
+    expect(reserved[0]).toBeGreaterThan(0);
+    expect(reserved.slice(1).every((value: number) => value === 0)).toBe(true);
+  });
+
+  test('sits inside the bottom margin', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-footnote');
+
+    const gap = await page.evaluate(() => {
+      const note = document.querySelector('.w-footnotes')!.getBoundingClientRect();
+      const sheet = document.querySelector('.w-sheet')!.getBoundingClientRect();
+      return sheet.bottom - note.bottom;
+    });
+
+    // One inch of bottom margin, as the section asks for
+    expect(Math.round(gap)).toBe(96);
+  });
+
+  test('is not copied with the document', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-footnote');
+
+    const copied = await page.evaluate(() => {
+      const surface = document.querySelector('.w-surface')!;
+      const range = document.createRange();
+      range.selectNodeContents(surface);
+      const selection = window.getSelection()!;
+      selection.removeAllRanges();
+      selection.addRange(range);
+
+      let html = '';
+      const onCopy = (event: ClipboardEvent) => {
+        html = event.clipboardData?.getData('text/html') ?? '';
+      };
+      document.addEventListener('copy', onCopy);
+      document.execCommand('copy');
+      document.removeEventListener('copy', onCopy);
+      return html;
+    });
+
+    expect(copied).not.toContain('w-footnote');
+  });
+});

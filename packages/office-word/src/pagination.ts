@@ -32,6 +32,19 @@ export interface MeasuredBlock {
   keepLines?: boolean;
   /** Word's `widowControl`: never leave a single line behind or ahead. */
   widowControl?: boolean;
+  /**
+   * Height this block requires at the *bottom* of whatever page it lands on.
+   *
+   * Footnotes are what this is for: a reference in a paragraph pushes its body
+   * to the foot of that page, and the body takes room the paragraph can no
+   * longer have. So the reservation travels with the block that causes it, and
+   * the page it lands on gets that much less to fill.
+   *
+   * Attributed to the page where the block *starts*, even when the block splits.
+   * Word can carry a footnote to the continuation page; deciding that needs to
+   * know which line the reference is on, which is finer than this measures.
+   */
+  reserve?: number;
 }
 
 /** The part of a block that sits on one page. */
@@ -52,6 +65,8 @@ export interface Page {
   fragments: PageFragment[];
   /** Height consumed, which is at most `contentHeight` unless a block overflows. */
   height: number;
+  /** Space held at the foot of this page by the blocks on it. */
+  reserved: number;
 }
 
 export interface PaginationOptions {
@@ -136,12 +151,22 @@ function applyWidowControl(block: MeasuredBlock, from: number, fit: number): num
 
 function layout(blocks: MeasuredBlock[], forced: Set<number>, contentHeight: number): Page[] {
   const pages: Page[] = [];
-  let current: Page = { index: 0, fragments: [], height: 0 };
+  let current: Page = { index: 0, fragments: [], height: 0, reserved: 0 };
 
   const flush = () => {
     pages.push(current);
-    current = { index: pages.length, fragments: [], height: 0 };
+    current = { index: pages.length, fragments: [], height: 0, reserved: 0 };
   };
+
+  /**
+   * What is left on this page.
+   *
+   * The reservation of the block being placed counts too: a paragraph whose
+   * footnote would not fit alongside it does not belong on this page, and
+   * discovering that after placing it would leave the footnote overlapping the
+   * text.
+   */
+  const room = (pending: number) => contentHeight - current.height - current.reserved - pending;
 
   for (let i = 0; i < blocks.length; i++) {
     const block = blocks[i];
@@ -149,22 +174,26 @@ function layout(blocks: MeasuredBlock[], forced: Set<number>, contentHeight: num
     // An empty page is already the next page; breaking again would leave a blank one.
     if ((block.breakBefore || forced.has(i)) && current.fragments.length > 0) flush();
 
+    const reserve = block.reserve ?? 0;
+
     // A zero-line block still occupies its own spacing and can carry a break.
     if (block.lines.length === 0) {
       let height = fragmentHeight(block, 0, 0, current.fragments.length === 0);
-      if (height > 0 && current.height + height > contentHeight && current.fragments.length > 0) {
+      if (height > 0 && height > room(reserve) && current.fragments.length > 0) {
         flush();
         height = fragmentHeight(block, 0, 0, true);
       }
       current.fragments.push({ sid: block.sid, fromLine: 0, toLine: 0, height, continues: false, continued: false });
       current.height += height;
+      current.reserved += reserve;
       continue;
     }
 
     let from = 0;
     while (from < block.lines.length) {
       const atPageTop = current.fragments.length === 0;
-      const available = contentHeight - current.height;
+      // Only the first fragment of a block carries its reservation with it
+      const available = room(from === 0 ? reserve : 0);
       const fit = linesThatFit(block, from, available, atPageTop);
       const remaining = block.lines.length - from;
 
@@ -187,6 +216,7 @@ function layout(blocks: MeasuredBlock[], forced: Set<number>, contentHeight: num
               continued: from > 0
             });
             current.height += height;
+            if (from === 0) current.reserved += reserve;
             from = block.lines.length;
             break;
           }
@@ -204,6 +234,7 @@ function layout(blocks: MeasuredBlock[], forced: Set<number>, contentHeight: num
           continued: from > 0
         });
         current.height += height;
+        if (from === 0) current.reserved += reserve;
         from += legal;
         flush();
         continue;
@@ -219,6 +250,7 @@ function layout(blocks: MeasuredBlock[], forced: Set<number>, contentHeight: num
         continued: from > 0
       });
       current.height += height;
+      if (from === 0) current.reserved += reserve;
       from = block.lines.length;
     }
   }

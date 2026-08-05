@@ -47,6 +47,22 @@ body {
   color: #495057;
 }
 
+/*
+ * The rule above the notes is part of what they cost the page, so its height
+ * has to match FOOTNOTE_SEPARATOR — the layout reserved room for it.
+ */
+.w-footnotes {
+  font: inherit;
+  font-size: .8em;
+  color: #495057;
+  border-top: 1px solid #ced4da;
+  padding-top: 11px;
+}
+
+.w-footnote-number {
+  margin-right: .4em;
+}
+
 
 /*
  * List markers are computed, never stored, so they are drawn from a data

@@ -14,6 +14,7 @@
  * measurement returns the same lines.
  */
 import { twipToPx } from './css';
+import { assignFootnotes } from './footnotes';
 import { paginate, type MeasuredBlock, type Page, type PaginationOptions } from './pagination';
 import type { EffectiveFormat } from './style-resolver';
 
@@ -37,6 +38,10 @@ export interface SurfaceLayout {
   pushBySid: Map<string, number>;
   /** Total height of every sheet plus the gaps between them. */
   totalHeight: number;
+  /** Footnote bodies to draw at the foot of each page, in reading order. */
+  footnotesByPage: Map<number, string[]>;
+  /** The number each footnote shows, counted over the document. */
+  footnoteNumbers: Map<string, number>;
 }
 
 /** Distance between the tops of consecutive sheets. */
@@ -72,12 +77,18 @@ export function sheetMetrics(format: EffectiveFormat, gap = DEFAULT_SHEET_GAP): 
   };
 }
 
+export interface SurfaceLayoutOptions extends Omit<PaginationOptions, 'contentHeight'> {
+  /** Footnotes each block references, in document order. */
+  footnoteRefs?: Map<string, string[]>;
+}
+
 export function layoutSurface(
   blocks: MeasuredBlock[],
   metrics: SheetMetrics,
-  options: Omit<PaginationOptions, 'contentHeight'> = {}
+  options: SurfaceLayoutOptions = {}
 ): SurfaceLayout {
-  const pages = paginate(blocks, { ...options, contentHeight: metrics.contentHeight });
+  const { footnoteRefs, ...paginationOptions } = options;
+  const pages = paginate(blocks, { ...paginationOptions, contentHeight: metrics.contentHeight });
   const pushBySid = new Map<string, number>();
 
   // `consumed` is where the flow has reached, measured from the top of the first
@@ -95,10 +106,29 @@ export function layoutSurface(
     consumed = contentTop + page.height;
   }
 
+  // A footnote is drawn on the page its reference starts on, so this needs to
+  // know where each block began — which is only true after the breaks are known.
+  const pageOfBlock = new Map<string, number>();
+  for (const page of pages) {
+    for (const fragment of page.fragments) {
+      if (!fragment.continued && !pageOfBlock.has(fragment.sid)) {
+        pageOfBlock.set(fragment.sid, page.index);
+      }
+    }
+  }
+
+  const footnotes = assignFootnotes({
+    refsByBlock: footnoteRefs ?? new Map(),
+    pageOfBlock,
+    order: blocks.map((block) => block.sid)
+  });
+
   return {
     pages,
     metrics,
     pushBySid,
-    totalHeight: pages.length * metrics.height + Math.max(0, pages.length - 1) * metrics.gap
+    totalHeight: pages.length * metrics.height + Math.max(0, pages.length - 1) * metrics.gap,
+    footnotesByPage: footnotes.byPage,
+    footnoteNumbers: footnotes.numberOf
   };
 }
