@@ -170,6 +170,8 @@ export function furnitureTemplate(options: FurnitureOptions): ElementTemplate | 
     {
       className: `w-furniture w-${placement}`,
       key: `${placement}-${page.index}`,
+      // Which resource this copy is showing, so a double-click knows what to open
+      'data-furniture': String(node.attributes?.id ?? ''),
       style: {
         position: 'absolute',
         left: `${metrics.marginLeft}px`,

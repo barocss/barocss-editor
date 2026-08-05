@@ -38,8 +38,11 @@ test.describe('Word document rendering', () => {
     // The title lives in docMeta, not on the page
     await expect(page.locator('.w-doc-title')).toHaveText('Barocss Word');
     await expect(page.locator('.w-surface .w-doc-title')).toHaveCount(0);
-    // Definitions are content but not laid out
-    await expect(page.locator('.w-resources')).toHaveCSS('display', 'none');
+    // Definitions are content but not laid out: the container takes no space,
+    // rather than being display:none, so that a header being edited can show
+    // itself out of it.
+    const resources = await page.locator('.w-resources').boundingBox();
+    expect(resources === null || (resources.width === 0 && resources.height === 0)).toBe(true);
   });
 
   test('lays the section out at the width it describes', async ({ page }) => {
@@ -480,9 +483,10 @@ test.describe('footnotes', () => {
     await page.goto('/');
     await page.waitForSelector('.w-footnote');
 
-    // The body lives in resources, which is not rendered as flow content
+    // The body lives in resources, which is not laid out as flow content
     await expect(page.locator('.w-footnote')).toContainText('A footnote body');
-    await expect(page.locator('.w-resources')).toHaveCSS('display', 'none');
+    const resources = await page.locator('.w-resources').boundingBox();
+    expect(resources === null || (resources.width === 0 && resources.height === 0)).toBe(true);
   });
 
   test('numbers it', async ({ page }) => {
@@ -671,5 +675,78 @@ test.describe('tracked changes', () => {
 
     await expect(page.locator('.w-insertion')).toHaveAttribute('data-author', 'Jinho');
     await expect(page.locator('.w-insertion')).toHaveAttribute('title', /Jinho/);
+  });
+});
+
+test.describe('editing a header', () => {
+  test('shows the real node in place of the drawn copies', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-header');
+
+    const drawnBefore = await page.locator('.w-header').count();
+    expect(await page.locator('.w-header-source.is-editing').count()).toBe(0);
+
+    // Double-clicking the header area, which is what Word opens on
+    const box = (await page.locator('.w-header').first().boundingBox())!;
+    await page.mouse.dblclick(box.x + box.width / 2, box.y + box.height / 2);
+
+    // The copy for this header is gone and the node itself has taken its place:
+    // several copies of one node are the wrong thing to type into.
+    await expect(page.locator('.w-header-source.is-editing')).toBeVisible();
+    expect(await page.locator('.w-header').count()).toBeLessThan(drawnBefore);
+  });
+
+  test('lets the caret into it, because it is the document', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-header');
+
+    await page.evaluate(() => (window as any).setEditingFurniture('hdr-main'));
+    await expect(page.locator('.w-header-source.is-editing')).toBeVisible();
+
+    await placeCaret(page, '.w-header-source.is-editing .w-text');
+    const inside = await page.evaluate(() => {
+      const editor = (window as any).editor;
+      const sid = editor.selection?.startNodeId;
+      const el = document.querySelector(`[data-bc-sid="${sid}"]`);
+      return !!el?.closest('.w-header-source');
+    });
+
+    expect(inside).toBe(true);
+  });
+
+  test('types into the one node, not into a copy of it', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-header');
+
+    await page.evaluate(() => (window as any).setEditingFurniture('hdr-main'));
+    await placeCaret(page, '.w-header-source.is-editing .w-text');
+    await page.keyboard.press('End');
+    await page.keyboard.type('!');
+
+    await expect(page.locator('.w-header-source.is-editing')).toContainText('!');
+  });
+
+  test('leaves the mode on Escape, and the copies come back', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-header');
+
+    const drawnBefore = await page.locator('.w-header').count();
+    await page.evaluate(() => (window as any).setEditingFurniture('hdr-main'));
+    await expect(page.locator('.w-header-source.is-editing')).toBeVisible();
+
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.w-header-source.is-editing')).toHaveCount(0);
+    expect(await page.locator('.w-header').count()).toBe(drawnBefore);
+  });
+
+  test('keeps the definitions out of the way when nothing is being edited', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-header');
+
+    // The container is no longer display:none — a header being edited has to be
+    // able to show itself — so it must take no space instead.
+    const box = await page.locator('.w-resources').boundingBox();
+    expect(box === null || (box.width === 0 && box.height === 0)).toBe(true);
+    await expect(page.locator('.w-header-source').first()).toBeHidden();
   });
 });

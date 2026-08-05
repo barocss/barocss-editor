@@ -21,6 +21,8 @@ import {
 } from './css';
 import {
   getBlockPush,
+  getEditingFurniture,
+  getFurniturePlacement,
   getWordDocument,
   getWordFields,
   getWordLayout,
@@ -101,7 +103,62 @@ export function registerWordRenderers(): void {
   define('docTitle', element('h1', { className: 'w-doc-title' }, [slot('content')]));
   define('docSubtitle', element('p', { className: 'w-doc-subtitle' }, [slot('content')]));
   define('docAuthor', element('p', { className: 'w-doc-author' }, [slot('content')]));
-  define('resources', element('div', { className: 'w-resources', style: { display: 'none' } }, [slot('content')]));
+  /**
+   * Resource definitions: present in the tree, out of the way.
+   *
+   * Not `display: none`, because that hides the subtree unconditionally and a
+   * header being edited has to be able to show itself. The container takes no
+   * space and does not clip instead, and each kind of resource hides itself —
+   * which is what leaves one of them free to appear.
+   */
+  define(
+    'resources',
+    element(
+      'div',
+      {
+        className: 'w-resources',
+        style: { position: 'absolute', height: '0', width: '0', overflow: 'visible' }
+      },
+      [slot('content')]
+    )
+  );
+
+  /**
+   * A header or footer, which is normally drawn per page rather than rendered.
+   *
+   * Except while it is being edited. Then the copies drawn on the pages are the
+   * wrong thing to type into — there are several of them and they all carry the
+   * same node id — so the real node is shown instead, in the place the copy
+   * would have been. Editing it is then ordinary editing: the caret lands in the
+   * actual model node, and nothing about the input path is special-cased.
+   */
+  const furnitureNode = (stype: 'docHeader' | 'docFooter', placementKind: 'header' | 'footer') =>
+    define(stype, (_props: Record<string, any>, node: Record<string, any>, ctx: any) => {
+      const env = ctx?.env as RenderEnv | undefined;
+      const id = String(node.attributes?.id ?? '');
+      const editing = getEditingFurniture(env) === id && id !== '';
+      const placement = getFurniturePlacement(env, id, placementKind);
+      const className = `w-${placementKind}-source`;
+
+      return element(
+        'div',
+        {
+          className: `${className}${editing ? ' is-editing' : ''}`,
+          style: editing && placement
+            ? {
+                position: 'absolute',
+                left: `${placement.left}px`,
+                top: `${placement.top}px`,
+                width: `${placement.width}px`
+              }
+            : { display: 'none' }
+        },
+        [slot('content')]
+      );
+    });
+
+  furnitureNode('docHeader', 'header');
+  furnitureNode('docFooter', 'footer');
 
   /**
    * A section, drawn as the pages its text reached.
@@ -143,6 +200,10 @@ export function registerWordRenderers(): void {
         for (const placement of ['header', 'footer'] as const) {
           const role = placement === 'header' ? 'Header' : 'Footer';
           const id = furnitureFor(binding(role), context);
+          // The real node is showing in place of this copy, and two of the same
+          // thing on one page is worse than none.
+          if (id && id === getEditingFurniture(env)) continue;
+
           const drawn = furnitureTemplate({
             doc,
             node: id ? resources.get(id) : undefined,

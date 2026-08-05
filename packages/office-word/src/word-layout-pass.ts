@@ -37,12 +37,14 @@ export interface WordLayoutPassOptions extends MeasureOptions {
   /** The element the document is rendered into. */
   container: HTMLElement;
   doc: DocumentAccess;
+  /** The header or footer being edited, if any, read afresh on every pass. */
+  editing?: () => string | undefined;
   /** Called with the computed layouts, for hosts that want to inspect them. */
   onLayout?: (layouts: Map<string, SurfaceLayout>) => void;
 }
 
 export function createWordLayoutPass(options: WordLayoutPassOptions): () => RenderEnv | void {
-  const { container, doc, onLayout, ...measureOptions } = options;
+  const { container, doc, onLayout, editing, ...measureOptions } = options;
 
   // What the last round produced. The view keeps running passes until they stop
   // reporting changes, and a layout that matches the one already on screen is
@@ -85,12 +87,15 @@ export function createWordLayoutPass(options: WordLayoutPassOptions): () => Rend
       layouts.set(sid, layoutSurface(blocks, metrics, { footnoteRefs }));
     }
 
-    const signature = signatureOf(layouts);
+    // Which furniture is being edited is part of what a render looks like, so a
+    // change of mode has to count as a change even when the breaks did not move.
+    const editingId = editing?.();
+    const signature = `${editingId ?? ''}|${signatureOf(layouts)}`;
     if (signature === previous) return;
     previous = signature;
 
     onLayout?.(layouts);
-    return { [WORD_ENV_KEY]: createWordEnv(doc, layouts) };
+    return { [WORD_ENV_KEY]: createWordEnv(doc, layouts, editingId) };
   };
 }
 

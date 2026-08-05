@@ -36,6 +36,14 @@ export interface WordEnv {
   layouts: Map<string, SurfaceLayout>;
   /** Extra top margin per block, flattened from every surface's layout. */
   pushes: Map<string, number>;
+  /**
+   * The header or footer currently being edited, by its id.
+   *
+   * While one is being edited the copies drawn on the pages are suppressed and
+   * the real node is shown in place of the first of them: several copies of one
+   * node are the wrong thing to type into.
+   */
+  editing?: string;
 }
 
 /**
@@ -48,7 +56,8 @@ export interface WordEnv {
  */
 export function createWordEnv(
   doc: DocumentAccess,
-  layouts: Map<string, SurfaceLayout> = new Map()
+  layouts: Map<string, SurfaceLayout> = new Map(),
+  editing?: string
 ): WordEnv {
   const pushes = new Map<string, number>();
   for (const layout of layouts.values()) {
@@ -61,7 +70,8 @@ export function createWordEnv(
     numbering: createNumberingResolver(doc),
     fields: createFieldResolver(doc),
     layouts,
-    pushes
+    pushes,
+    editing
   };
 }
 
@@ -91,6 +101,36 @@ export function getWordLayout(
   surfaceSid: string
 ): SurfaceLayout | undefined {
   return wordEnv(env)?.layouts.get(surfaceSid);
+}
+
+/** The header or footer being edited, if any. */
+export function getEditingFurniture(env: RenderEnv | undefined): string | undefined {
+  return wordEnv(env)?.editing;
+}
+
+/**
+ * Where the real node should appear while it is being edited: the place the
+ * first page's drawn copy would have occupied.
+ */
+export function getFurniturePlacement(
+  env: RenderEnv | undefined,
+  id: string,
+  placement: 'header' | 'footer'
+): { left: number; top: number; width: number } | undefined {
+  const word = wordEnv(env);
+  if (!word || !id || word.editing !== id) return undefined;
+
+  // The first page's copy is the one replaced: editing the header of page 4 and
+  // of page 1 are the same edit, so there is no reason to prefer a later one.
+  const layout = [...word.layouts.values()][0];
+  if (!layout) return undefined;
+
+  const { metrics } = layout;
+  return {
+    left: metrics.marginLeft,
+    top: placement === 'header' ? metrics.marginTop / 2 : metrics.height - metrics.marginBottom,
+    width: metrics.width - metrics.marginLeft - metrics.marginRight
+  };
 }
 
 /** How far the block opening a page must be pushed to reach its sheet. */
