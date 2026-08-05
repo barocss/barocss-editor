@@ -111,6 +111,25 @@ export function createSampleDocument(): INode {
               { stype: 'inline-text', text: ' and ' },
               {
                 stype: 'inline-text',
+                text: 'sized',
+                // Word's unit: half-points, the same one the style cascade uses
+                marks: [{ stype: 'fontSize', range: [0, 5], attrs: { size: 36 } }]
+              },
+              { stype: 'inline-text', text: ' ' },
+              {
+                stype: 'inline-text',
+                text: 'coloured',
+                marks: [{ stype: 'fontColor', range: [0, 8], attrs: { color: 'B22222' } }]
+              },
+              { stype: 'inline-text', text: ' ' },
+              {
+                stype: 'inline-text',
+                text: 'styled',
+                marks: [{ stype: 'charStyle', range: [0, 6], attrs: { styleId: 'Emphasis' } }]
+              },
+              { stype: 'inline-text', text: ', then ' },
+              {
+                stype: 'inline-text',
                 text: 'this was removed',
                 marks: [
                   { stype: 'deletion', range: [0, 16], attrs: { id: 'r2', author: 'Sujin', date: '2026-08-05' } }
@@ -373,6 +392,18 @@ export function createSampleDocument(): INode {
               basedOn: 'Normal',
               spacingLine: 320,
               spacingLineRule: 'auto'
+            }
+          },
+          {
+            // A character style, which a run points at by name — the mark can
+            // only carry the name, so what it means comes from the cascade.
+            stype: 'styleDef',
+            attributes: {
+              id: 'Emphasis',
+              name: 'Emphasis',
+              type: 'character',
+              italic: true,
+              color: '2C5282'
             }
           },
           {

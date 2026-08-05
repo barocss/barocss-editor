@@ -835,3 +835,29 @@ test.describe('columns', () => {
     expect(positioned).toBe(0);
   });
 })
+
+test.describe('marks that carry a value', () => {
+  test('renders a size in Word’s unit', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.mark-fontSize');
+
+    // 36 half-points is 18pt is 24px. A class name could not have said that.
+    await expect(page.locator('.mark-fontSize')).toHaveCSS('font-size', '24px');
+  });
+
+  test('renders a colour written the way a .docx writes it', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.mark-fontColor');
+    await expect(page.locator('.mark-fontColor')).toHaveCSS('color', 'rgb(178, 34, 34)');
+  });
+
+  test('resolves a character style through the cascade', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.mark-charStyle');
+
+    // The mark carries only the name; what it means is the cascade's answer,
+    // the same one a paragraph would get.
+    await expect(page.locator('.mark-charStyle')).toHaveCSS('font-style', 'italic');
+    await expect(page.locator('.mark-charStyle')).toHaveCSS('color', 'rgb(44, 82, 130)');
+  });
+})

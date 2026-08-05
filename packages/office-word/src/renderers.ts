@@ -33,6 +33,7 @@ import {
 import { childrenOf, indexResources, type DocumentAccess, type DocumentNode } from './document-access';
 import { tocEntries, tocPageNumber } from './toc';
 import { authorColor, revisionTitle } from './revisions';
+import { markAttributes, markCss, VALUED_MARKS } from './mark-format';
 import { footnoteAreaTemplate, furnitureFor, furnitureTemplate, pageNumberFor } from './page-furniture';
 import type { RenderEnv } from '@barocss/dsl';
 
@@ -424,6 +425,7 @@ export function registerWordRenderers(): void {
   });
 
   registerRevisionMarks();
+  registerValuedMarks();
 
   // ── Flow ───────────────────────────────────────────────────────────────────
   define(
@@ -601,4 +603,33 @@ function registerRevisionMarks(): void {
     // has to sit beside it rather than on it.
     borderBottom: `1px dotted ${color}`
   }));
+}
+
+
+/**
+ * Marks that carry a value, drawn with it.
+ *
+ * A mark whose meaning is fixed renders fine as the class the engine already
+ * gives it. One that carries a value does not: `mark-fontSize` cannot say eleven
+ * points. These read the value and put it in the style, going through the same
+ * character-formatting mapping the style cascade uses so that a mark and a style
+ * cannot disagree about what eleven points means.
+ */
+function registerValuedMarks(): void {
+  for (const type of VALUED_MARKS) {
+    define(`mark:${type}`, (props: Record<string, any>, _model: any, ctx: any) => {
+      const attrs = (props?.attributes ?? {}) as Record<string, unknown>;
+      const styles = getWordStyles(ctx?.env as RenderEnv | undefined);
+
+      return element(
+        'span',
+        {
+          className: `mark-${type}`,
+          ...markAttributes(type, attrs),
+          style: markCss(type, attrs, styles)
+        },
+        [data('text')]
+      );
+    });
+  }
 }
