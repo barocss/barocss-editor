@@ -170,6 +170,7 @@ export class TransactionManager {
 
       // Final selection state
       const selectionAfter = context.selection.current;
+      this._warnOnDanglingSelection(selectionBefore, selectionAfter, executedOperations);
 
       // 7. Add to history (only on success)
       if (executedOperations.length > 0 && this._shouldAddToHistory(executedOperations)) {
@@ -324,6 +325,56 @@ export class TransactionManager {
   /**
    * Determine whether to add to history
    */
+  /**
+   * Complain when a transaction leaves the selection on a node it deleted.
+   *
+   * An operation that removes the node the caret is standing in has to say where
+   * the caret goes — `context.selection.setCaret` is how — and nothing forces it
+   * to. When one forgets, the symptom appears a keystroke later and somewhere
+   * else: the next command finds no node to act on and silently does nothing.
+   *
+   * This catches the case where the node is *gone*. It does not catch a caret
+   * that is merely in the wrong place — a merge that moves a node rather than
+   * deleting it leaves the caret on something that still exists, just no longer
+   * where the user is looking, and no check here can tell that from a caret the
+   * operation meant to leave alone. That one is only visible by measuring what
+   * the next keystroke does.
+   *
+   * A warning rather than a repair. Where the caret belongs after an edit is
+   * something only the operation knows — the seam it just joined, the position
+   * it just vacated — and guessing on its behalf would replace a visible defect
+   * with an invisible one.
+   */
+  private _warnOnDanglingSelection(
+    before: ModelSelection | null,
+    after: ModelSelection | null,
+    operations: Array<{ type?: string }>
+  ): void {
+    const dead = (selection: ModelSelection | null): string[] =>
+      !selection
+        ? []
+        : [selection.startNodeId, selection.endNodeId]
+            .filter((sid): sid is string => typeof sid === 'string')
+            .filter((sid, index, all) => all.indexOf(sid) === index)
+            .filter((sid) => !this._dataStore.getNode(sid));
+
+    // Two shapes of the same failure. Either the caret still points at a node
+    // that is gone, or the caret was on a node that is gone and nothing replaced
+    // it — the store clears a selection whose node dies, so the second is what
+    // this usually looks like from here.
+    const lost = dead(after);
+    const destroyed = lost.length === 0 && !after ? dead(before) : [];
+    if (lost.length === 0 && destroyed.length === 0) return;
+
+    console.warn(
+      '[Transaction] left no usable caret. Removed:',
+      [...lost, ...destroyed].join(', '),
+      '- an operation that deletes the node the caret is in must say where the',
+      'caret goes, with context.selection.setCaret(). Operations run:',
+      operations.map((op) => op.type).join(', ')
+    );
+  }
+
   private _shouldAddToHistory(operations: TransactionOperation[]): boolean {
     // Don't add empty operations to history
     if (operations.length === 0) return false;

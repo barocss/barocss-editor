@@ -35,6 +35,14 @@ defineOperation('mergeTextNodes', async (operation: any, context: TransactionCon
 
   const leftTextLen = (left.text as string).length;
   const mergedNodeId = context.dataStore.splitMerge.mergeTextNodes(leftNodeId, rightNodeId);
+
+  // The caret belongs at the junction. An operation that removes the node the
+  // selection was standing in has to say where the selection goes, or it is left
+  // pointing at something that no longer exists — after which the next keystroke
+  // finds nothing to act on. The junction is where the right node's text now
+  // begins, which is the same position the inverse splits at.
+  context.selection.setCaret(mergedNodeId, leftTextLen);
+
   return {
     ok: true,
     data: mergedNodeId,

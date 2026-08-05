@@ -264,3 +264,80 @@ describe('Transaction Commit', () => {
     });
   });
 });
+
+/**
+ * Nothing forces an operation to say where the caret goes after it deletes the
+ * node the caret was in. When one forgets, the symptom shows up a keystroke
+ * later and somewhere else — the next command finds no node and silently does
+ * nothing — so the transaction says so at the point the evidence still exists.
+ */
+describe('a selection left on a deleted node', () => {
+  let dataStore: DataStore;
+  let mockEditor: any;
+  let warn: any;
+
+  beforeEach(() => {
+    const schema = new Schema('test-schema', {
+      nodes: {
+        document: { content: 'block+' },
+        paragraph: { content: 'inline*', group: 'block' },
+        'inline-text': { content: 'text*', group: 'inline' }
+      },
+      topNode: 'document'
+    });
+
+    dataStore = new DataStore(undefined, schema);
+    dataStore.setNode({ sid: 'doc', stype: 'document', content: ['para'] } as any);
+    dataStore.setNode({ sid: 'para', stype: 'paragraph', content: ['doomed'], parentId: 'doc' } as any);
+    dataStore.setNode({ sid: 'doomed', stype: 'inline-text', text: 'gone', parentId: 'para' } as any);
+    (dataStore as any).setRootNodeId?.('doc');
+
+    const selectionManager = new SelectionManager({ dataStore });
+    selectionManager.setSelection({
+      type: 'range',
+      startNodeId: 'doomed',
+      startOffset: 0,
+      endNodeId: 'doomed',
+      endOffset: 0,
+      collapsed: true,
+      direction: 'none'
+    } as any);
+
+    mockEditor = {
+      dataStore,
+      _dataStore: dataStore,
+      selectionManager,
+      emit: vi.fn(),
+      updateSelection: vi.fn(),
+      historyManager: { push: vi.fn() }
+    };
+
+    warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => warn.mockRestore());
+
+  it('is reported, naming the node and the operations that ran', async () => {
+    await transaction(mockEditor, [
+      { type: 'delete', payload: { nodeId: 'doomed' } } as any
+    ]).commit();
+
+    const reported = warn.mock.calls.find((call: any[]) =>
+      String(call[0]).includes('left no usable caret')
+    );
+    expect(reported).toBeDefined();
+    expect(reported.join(' ')).toContain('doomed');
+  });
+
+  it('stays quiet when the nodes it points at survive', async () => {
+    await transaction(mockEditor, [
+      create(textNode('inline-text', 'Hello'))
+    ]).commit();
+
+    const reported = warn.mock.calls.find((call: any[]) =>
+      String(call[0]).includes('left no usable caret')
+    );
+    expect(reported).toBeUndefined();
+  });
+});
+

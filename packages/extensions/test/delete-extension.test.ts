@@ -265,18 +265,8 @@ describe('DeleteExtension - backspace / deleteForward', () => {
     expect(ops).toHaveLength(1);
     expect(ops[0].type).toBe('mergeBlockNodes');
     expect(ops[0].payload).toEqual({ leftNodeId: 'para-1', rightNodeId: 'para-2' });
-
-    // The caret goes to the junction — the end of "Hello", where "World" now
-    // starts. Leaving it on text-2 would point it at a node the merge removed,
-    // and the next Backspace would find no selection and do nothing: holding the
-    // key deleted exactly one block and then stopped.
-    expect(editor.selection).toMatchObject({
-      startNodeId: 'text-1',
-      startOffset: 5,
-      endNodeId: 'text-1',
-      endOffset: 5,
-      collapsed: true
-    });
+    // Where the caret ends up is the operation's business, and is covered there:
+    // this test mocks the transaction away, so no operation runs.
   });
 
   it('deleteForward: merges with next block at block boundary (case D′)', async () => {

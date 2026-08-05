@@ -2,12 +2,6 @@ import { Editor, Extension } from '@barocss/editor-core';
 import type { ModelSelection } from '@barocss/editor-core';
 import { transaction, control, deleteRange, deleteOp, deleteTextRange } from '@barocss/model';
 
-/** Where the caret goes once a merge has joined two nodes. */
-interface CaretPosition {
-  nodeId: string;
-  offset: number;
-}
-
 /**
  * Delete Extension Options
  */
@@ -417,12 +411,7 @@ export class DeleteExtension implements Extension {
       } else {
         // Case B′: Merge empty text nodes
         if (typeof currentNode.text === 'string') {
-          // Deleting forward does not move the caret: it stays where it was and
-          // the text ahead comes to it.
-          return await this._executeMergeTextNodes(editor, selection.startNodeId, nextEditableNodeId, {
-            nodeId: selection.startNodeId,
-            offset: selection.startOffset
-          });
+          return await this._executeMergeTextNodes(editor, selection.startNodeId, nextEditableNodeId);
         }
 
         console.warn('[DeleteExtension] _executeDeleteForward: Cannot merge non-text nodes', {
@@ -504,12 +493,9 @@ export class DeleteExtension implements Extension {
         return false;
       }
 
-      // The caret belongs where the two blocks join: the end of the text the
-      // left block already had, which is where the right block's content starts.
-      return await this._executeMergeBlockNodes(editor, prevParent.sid!, currentParent.sid!, {
-        nodeId: prevEditableNodeId,
-        offset: typeof prevNode.text === 'string' ? prevNode.text.length : 0
-      });
+      // Where the caret lands is decided by the operation, which is the only
+      // place that sees the junction before the two blocks become one.
+      return await this._executeMergeBlockNodes(editor, prevParent.sid!, currentParent.sid!);
     }
 
     // Handle cases A, B, C (within the same parent)
@@ -533,10 +519,7 @@ export class DeleteExtension implements Extension {
         // Case B: Merge empty nodes
         // Check if both are text nodes (.text field exists means text node)
         if (currentNode.text !== undefined && typeof currentNode.text === 'string') {
-          return await this._executeMergeTextNodes(editor, prevEditableNodeId, selection.startNodeId, {
-            nodeId: prevEditableNodeId,
-            offset: prevTextLength
-          });
+          return await this._executeMergeTextNodes(editor, prevEditableNodeId, selection.startNodeId);
         } else {
           // Do not merge if not text nodes
           console.warn('[DeleteExtension] _handleBackspaceAtOffsetZero: Cannot merge non-text nodes', {
@@ -563,8 +546,7 @@ export class DeleteExtension implements Extension {
   private async _executeMergeTextNodes(
     editor: Editor,
     leftNodeId: string,
-    rightNodeId: string,
-    caretAt?: CaretPosition
+    rightNodeId: string
   ): Promise<boolean> {
     const operations = [
       {
@@ -573,7 +555,6 @@ export class DeleteExtension implements Extension {
       }
     ];
     const result = await transaction(editor, operations).commit();
-    if (result.success) this._placeCaret(editor, caretAt);
     return result.success;
   }
 
@@ -588,8 +569,7 @@ export class DeleteExtension implements Extension {
   private async _executeMergeBlockNodes(
     editor: Editor,
     leftBlockId: string,
-    rightBlockId: string,
-    caretAt?: CaretPosition
+    rightBlockId: string
   ): Promise<boolean> {
     const operations = [
       {
@@ -598,32 +578,7 @@ export class DeleteExtension implements Extension {
       }
     ];
     const result = await transaction(editor, operations).commit();
-    if (result.success) this._placeCaret(editor, caretAt);
     return result.success;
-  }
-
-  /**
-   * Put the caret where the merge joined the two nodes.
-   *
-   * A merge deletes the node the caret was standing in, so leaving the selection
-   * alone points it at something that no longer exists: the next keystroke finds
-   * no selection and does nothing. Holding Backspace therefore removed exactly
-   * one block and then stopped.
-   *
-   * The junction is measured before the merge, because afterwards the two nodes
-   * are one and the boundary between them is no longer visible in the model.
-   */
-  private _placeCaret(editor: Editor, caretAt: CaretPosition | undefined): void {
-    if (!caretAt) return;
-    editor.updateSelection({
-      type: 'range',
-      startNodeId: caretAt.nodeId,
-      startOffset: caretAt.offset,
-      endNodeId: caretAt.nodeId,
-      endOffset: caretAt.offset,
-      collapsed: true,
-      direction: 'forward'
-    } as ModelSelection);
   }
 }
 
