@@ -64,6 +64,21 @@ export function setAttributeWithNamespace(element: HTMLElement, key: string, val
     return;
   }
 
+  // Writing an attribute that already holds this value is not free. It produces
+  // a mutation record like any other write, and the editor's input path reads
+  // mutation records to work out what the user typed — so a render that rewrites
+  // unchanged chrome buries a keystroke in noise. Measured on this editor: one
+  // render with nothing changed produced 261 attribute writes, 191 of them
+  // setting the value that was already there.
+  //
+  // The comparison upstream is shallow, so a value that is an object — a style
+  // map, most often — differs on identity every render even when every entry in
+  // it is the same. This is the backstop for that.
+  if (key !== 'className' && !key.startsWith('on')) {
+    const current = element.getAttribute(key);
+    if (current !== null && current === String(value)) return;
+  }
+
   // Special handling for xmlns - don't override if already set by createElementWithNamespace
   if (key === 'xmlns') {
     const existingXmlns = element.getAttribute('xmlns');
@@ -81,7 +96,8 @@ export function setAttributeWithNamespace(element: HTMLElement, key: string, val
   }
 
   if (key === 'className') {
-    element.className = String(value);
+    const next = String(value);
+    if (element.className !== next) element.className = next;
     return;
   }
 

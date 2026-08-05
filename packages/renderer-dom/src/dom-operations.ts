@@ -126,6 +126,16 @@ export class DOMOperations {
           if (key === DOMAttribute.BC_SID) {
             continue;
           }
+          // `class` and `className` are one attribute under two names. The
+          // fallback above records both, while a template usually gives one, so
+          // treating them separately removed the class and immediately put it
+          // back — two mutation records per element per render, for no change.
+          if (
+            (key === 'class' && 'className' in nextAttrs) ||
+            (key === 'className' && 'class' in nextAttrs)
+          ) {
+            continue;
+          }
           // Remove
           if (key === 'className' || key === 'class') {
             element.removeAttribute('class');
@@ -158,8 +168,13 @@ export class DOMOperations {
       const prevValue = actualPrevAttrs?.[key];
       if (prevValue !== value) {
         if (key === 'className' || key === 'class') {
-            (element as any).className = String(value);
-            element.setAttribute('class', String(value));
+          // Only when it differs: an identical write still costs a mutation
+          // record, which the input path then has to sort out.
+          const next = String(value);
+          if (element.getAttribute('class') !== next) {
+            (element as any).className = next;
+            element.setAttribute('class', next);
+          }
         } else {
           setAttributeWithNamespace(element, key, value);
         }
@@ -196,14 +211,21 @@ export class DOMOperations {
       // Update if different from prevVNode (always update if prevVNode is missing)
       const prevValue = prevStyles?.[key];
       if (prevValue !== value) {
-        element.style.setProperty(cssProperty, String(value));
+        // ...but not if the element already says this. When the previous styles
+        // are unavailable every property looks changed, and rewriting one that
+        // is already set still produces a mutation record — which the input path
+        // has to read past to find what the user typed.
+        const next = String(value);
+        if (element.style.getPropertyValue(cssProperty) === next) continue;
+
+        element.style.setProperty(cssProperty, next);
         
         // Verify it was set
         const actualValue = element.style.getPropertyValue(cssProperty);
         
         // If setProperty didn't work, try direct assignment as fallback
         if (!actualValue) {
-          (element.style as any)[key] = String(value);
+          (element.style as any)[key] = next;
         }
       }
     }
