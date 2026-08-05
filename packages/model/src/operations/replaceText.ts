@@ -16,8 +16,14 @@ import type { TransactionContext } from '../types';
  *   - Builder injects target as nodeId in control(target, …).
  *
  * Selection mapping:
- * - When replacing a range in the same node, selection after the replacement moves by the length change (newText.length - (end-start)).
- * - This implementation omits SelectionManager integration and delegates responsibility to DataStore (can be extended later if needed).
+ * - The caret ends up after the text that was written, which is where a typist
+ *   expects it and where the next keystroke has to land.
+ * - It used to be left alone, on the theory that the browser had already moved
+ *   the DOM caret and the model would pick that up. That holds only while the
+ *   render leaves the text node the caret is in intact. Once anything makes the
+ *   render rebuild it — a decorator splitting the text, for one — the caret is
+ *   restored from a model that never advanced, the next character lands in front
+ *   of the last, and a word comes out backwards.
  *
  * Exception handling:
  * - DataStore.range.replaceText may return an empty string if it fails due to invalid range, etc.
@@ -50,6 +56,11 @@ defineOperation('replaceText', async (operation: any, context: TransactionContex
       
       const rangeWithType = { type: 'range' as const, ...range };
       const deleted = context.dataStore.range.replaceText(rangeWithType, newText);
+
+      // After what was written, in the node the range started in: a range that
+      // spanned several nodes has collapsed into that one.
+      context.selection.setCaret(startNodeId, startOffset + newText.length);
+
       return {
         ok: true,
         data: deleted,
@@ -75,7 +86,9 @@ defineOperation('replaceText', async (operation: any, context: TransactionContex
       endNodeId: nodeId,
       endOffset: end
     }, newText);
-    
+
+    context.selection.setCaret(nodeId, start + newText.length);
+
     return {
       ok: true,
       data: deleted,

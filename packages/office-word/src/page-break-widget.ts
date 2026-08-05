@@ -12,18 +12,22 @@
  * built on, the classifier that decides whether a DOM change came from the user
  * — sees it at all.
  *
- * Not yet switched on. Measured in a browser, the geometry is right: a paragraph
- * splits where the layout says, no line falls outside a page, the breaks settle
- * rather than drifting, and none of it is copied. What is not right is typing.
- * A character typed into a paragraph carrying a break *is* inserted — the model
- * grows — but the caret is put back where it stood before the keystroke, so the
- * next character lands in front of the last and a word comes out backwards.
+ * Not yet switched on, and the reason is churn rather than geometry. Measured in
+ * a browser: a paragraph splits where the layout says, no line falls outside a
+ * page, the breaks settle rather than drifting, and none of it is copied.
  *
- * The cause is in selection preservation across a re-render, not here: the same
- * paragraph types correctly with splitting off, and the model text and the DOM
- * text agree exactly with it on. Ruled out: the widget contributing text (it
- * holds none), the offset index losing the text inside it (lengths match), and
- * repagination running mid-keystroke (deferring it changed nothing).
+ * What is not right is typing into a paragraph that carries one. Replacing the
+ * break decorators re-renders the paragraph, and a long paragraph re-renders as
+ * hundreds of DOM mutations — 262 for a single keystroke, measured. The
+ * MutationObserver reads those as user input, resolves them to the section
+ * rather than to the text node, and skips the change; the character is inserted
+ * but the caret never advances, so the next one lands in front of it and a word
+ * comes out backwards.
+ *
+ * The fix is to stop replacing decorators that have not moved, and to keep the
+ * observer from reading a renderer's own mutations as input. Both are about the
+ * churn, not about this widget: with splitting off the same paragraph types
+ * correctly, and the widget holds no text for anything to misread.
  */
 import { defineDecorator, element } from '@barocss/dsl';
 

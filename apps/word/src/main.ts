@@ -75,10 +75,9 @@ view.registerLayoutPass(
     container,
     doc,
     editing: () => editing,
-    // Off for now. The layout and the widgets are right — a paragraph splits
-    // where it should and no line escapes its page — but typing into a
-    // paragraph that carries a break puts the caret back where it was before
-    // the keystroke, so a word comes out backwards. See page-break-widget.
+    // Off until the churn below is dealt with: replacing the break decorators
+    // re-renders the whole paragraph, and the MutationObserver reads those
+    // renderer mutations as user input. See page-break-widget.
     splitBlocks: false,
     onPageBreaks: (breaks) => applyPageBreaks(breaks),
     // This app exists to be measured, and the layout is the part worth looking
