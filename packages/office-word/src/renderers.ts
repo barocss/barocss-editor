@@ -13,13 +13,13 @@
 import { data, define, element, slot } from '@barocss/dsl';
 import {
   characterCss,
-  pageCss,
+  flowCss,
   paragraphCss,
   tableCellCss,
   tableCss,
   type CssStyle
 } from './css';
-import { getWordNumbering, getWordStyles } from './render-context';
+import { getBlockPush, getWordLayout, getWordNumbering, getWordStyles } from './render-context';
 
 /** Resolved formatting for a node, or nothing when no document is set. */
 function formatFor(node: Record<string, any>, scope: 'paragraph' | 'character' | 'table'): CssStyle {
@@ -42,7 +42,16 @@ function formatFor(node: Record<string, any>, scope: 'paragraph' | 'character' |
  * run properties); CSS does not, and inheritance does the rest.
  */
 function blockStyle(node: Record<string, any>): CssStyle {
-  return { ...formatFor(node, 'paragraph'), ...formatFor(node, 'character') };
+  const style: CssStyle = { ...formatFor(node, 'paragraph'), ...formatFor(node, 'character') };
+
+  // The block that opens a page is pushed down to meet its sheet. It replaces
+  // the block's own space before rather than adding to it, which is the same
+  // rule the paginator applied when it decided the break: space before is
+  // suppressed at the top of a page.
+  const push = getBlockPush(String(node.sid ?? ''));
+  if (push !== undefined) style.marginTop = `${push}px`;
+
+  return style;
 }
 
 /** The list marker for a numbered block, if it has one. */
@@ -75,22 +84,74 @@ export function registerWordRenderers(): void {
   define('docAuthor', element('p', { className: 'w-doc-author' }, [slot('content')]));
   define('resources', element('div', { className: 'w-resources', style: { display: 'none' } }, [slot('content')]));
 
-  /** A section, drawn as the page it describes. */
-  define(
-    'surface',
-    element(
+  /**
+   * A section, drawn as the pages its text reached.
+   *
+   * The sheets are siblings of the content, not containers for it. Putting each
+   * page's blocks inside their own element would reparent model nodes under
+   * elements that exist in no model, and tracing a DOM mutation back to the node
+   * it belongs to depends on that containment. So the flow stays continuous and
+   * the sheets are painted behind it.
+   *
+   * Written as a component rather than a plain template because the number of
+   * sheets comes from the layout, not from the node — and going through the DSL
+   * rather than around it is what keeps this renderable by renderer-react too.
+   */
+  define('surface', (_props: Record<string, any>, node: Record<string, any>) => {
+    const styles = getWordStyles();
+    const format = styles ? styles.resolveNode(node as never, 'page') : {};
+    const layout = getWordLayout(String(node.sid ?? ''));
+
+    const sheets = (layout?.pages ?? []).map((page) => {
+      const { height, width, gap } = layout!.metrics;
+      return element('div', {
+        className: 'w-sheet',
+        'data-page': String(page.index + 1),
+        style: {
+          position: 'absolute',
+          left: '0',
+          top: `${page.index * (height + gap)}px`,
+          width: `${width}px`,
+          height: `${height}px`
+        }
+      });
+    });
+
+    return element(
       'section',
       {
-        className: 'w-page',
-        'data-kind': (d: Record<string, any>) => String(d.attributes?.kind ?? 'flow'),
-        style: (d: Record<string, any>) => {
-          const styles = getWordStyles();
-          return styles ? pageCss(styles.resolveNode(d as never, 'page')) : {};
+        className: 'w-surface',
+        'data-kind': String(node.attributes?.kind ?? 'flow'),
+        style: {
+          position: 'relative',
+          // A flex column so that adjacent paragraph margins do not collapse.
+          // Word adds space after one paragraph to space before the next; CSS
+          // takes the larger of the two. Left alone, the flow would be shorter
+          // than the layout calculated it to be, and every page after the first
+          // would start a few pixels above its sheet.
+          display: 'flex',
+          flexDirection: 'column',
+          ...flowCss(format),
+          ...(layout ? { minHeight: `${layout.totalHeight}px` } : {})
         }
       },
-      [slot('content')]
-    )
-  );
+      [
+        // Decorative and inert: the caret must never land on a page sheet, and a
+        // click meant for the text must not be caught by it.
+        element(
+          'div',
+          {
+            className: 'w-sheets',
+            contenteditable: 'false',
+            'aria-hidden': 'true',
+            style: { position: 'absolute', inset: '0', pointerEvents: 'none' }
+          },
+          sheets
+        ),
+        slot('content')
+      ]
+    );
+  });
 
   // ── Flow ───────────────────────────────────────────────────────────────────
   define(
@@ -151,7 +212,21 @@ export function registerWordRenderers(): void {
   define('tableOfContents', element('nav', { className: 'w-toc' }, [slot('content')]));
 
   // ── Tables ─────────────────────────────────────────────────────────────────
-  define('bTable', element('table', { className: 'w-table', style: (d: Record<string, any>) => formatFor(d, 'table') }, [slot('content')]));
+  // A table takes its spacing from the paragraph scope as well as its own
+  // formatting: `spacingBefore`/`spacingAfter` reach it through the document
+  // defaults, and dropping them here would put a gap in the rendered document
+  // that the layout does not know about.
+  define(
+    'bTable',
+    element(
+      'table',
+      {
+        className: 'w-table',
+        style: (d: Record<string, any>) => ({ ...blockStyle(d), ...formatFor(d, 'table') })
+      },
+      [slot('content')]
+    )
+  );
   define('bTableHeader', element('thead', { className: 'w-thead' }, [slot('content')]));
   define('bTableBody', element('tbody', { className: 'w-tbody' }, [slot('content')]));
   define('bTableFooter', element('tfoot', { className: 'w-tfoot' }, [slot('content')]));

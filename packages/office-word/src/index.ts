@@ -59,3 +59,14 @@ export {
   type PageFragment,
   type PaginationOptions
 } from './pagination';
+
+export { measureBlocks, type MeasureOptions } from './measurement';
+export {
+  layoutSurface,
+  sheetMetrics,
+  DEFAULT_SHEET_GAP,
+  type SheetMetrics,
+  type SurfaceLayout
+} from './layout';
+export { setWordLayout, getWordLayout, getBlockPush } from './render-context';
+export { flowCss, twipToPx } from './css';

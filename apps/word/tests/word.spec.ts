@@ -31,23 +31,25 @@ async function placeCaret(page: import('@playwright/test').Page, selector: strin
 test.describe('Word document rendering', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('.w-page')).toBeVisible();
+    await expect(page.locator('.w-surface')).toBeVisible();
   });
 
   test('renders the document metadata outside the flow', async ({ page }) => {
     // The title lives in docMeta, not on the page
     await expect(page.locator('.w-doc-title')).toHaveText('Barocss Word');
-    await expect(page.locator('.w-page .w-doc-title')).toHaveCount(0);
+    await expect(page.locator('.w-surface .w-doc-title')).toHaveCount(0);
     // Definitions are content but not laid out
     await expect(page.locator('.w-resources')).toHaveCSS('display', 'none');
   });
 
-  test('lays the section out as the page it describes', async ({ page }) => {
-    // US Letter with one-inch margins, in the document's own units
-    const style = await page.locator('.w-page').first().getAttribute('style');
+  test('lays the section out at the width it describes', async ({ page }) => {
+    // US Letter with one-inch side margins, in the document's own units. The
+    // height belongs to the sheets now: how tall a section is depends on how far
+    // its text reached, which is not something the section can state.
+    const style = await page.locator('.w-surface').first().getAttribute('style');
     expect(style).toContain('width: 612pt');
-    expect(style).toContain('min-height: 792pt');
-    expect(style).toContain('padding: 72pt');
+    expect(style).toContain('padding-left: 72pt');
+    expect(style).toContain('padding-right: 72pt');
   });
 
   test('applies the style cascade, with direct formatting winning', async ({ page }) => {
@@ -80,7 +82,7 @@ test.describe('Word document rendering', () => {
 test.describe('Word editing', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('.w-page')).toBeVisible();
+    await expect(page.locator('.w-surface')).toBeVisible();
   });
 
   test('types into a paragraph and undoes the whole burst at once', async ({ page }) => {
@@ -132,5 +134,80 @@ test.describe('Word editing', () => {
 
     // three more cells, matching the grid width rather than the row's child count
     await expect(page.locator('.w-cell')).toHaveCount(11);
+  });
+});
+
+/**
+ * Pagination is measured, not asserted from the model, so these checks read the
+ * browser back: where a sheet is, and where the first block of a page actually
+ * landed. A unit test cannot answer either question.
+ */
+test.describe('pages', () => {
+  test('draws a sheet per computed page', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-sheet');
+
+    // The sample document is deliberately longer than a page, so that the
+    // interesting case — a break — is the one being measured.
+    const sheets = page.locator('.w-sheet');
+    expect(await sheets.count()).toBeGreaterThan(1);
+
+    const first = await sheets.first().boundingBox();
+    // US Letter at 96dpi: 8.5in x 11in
+    expect(Math.round(first!.width)).toBe(816);
+    expect(Math.round(first!.height)).toBe(1056);
+  });
+
+  test('stacks sheets without overlapping', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-sheet');
+
+    const boxes = await page.locator('.w-sheet').evaluateAll((els) =>
+      els.map((el) => el.getBoundingClientRect().top)
+    );
+    for (let i = 1; i < boxes.length; i++) {
+      expect(boxes[i]).toBeGreaterThan(boxes[i - 1] + 1000);
+    }
+  });
+
+  test('keeps the sheets out of the way of the text', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-sheet');
+
+    // A page sheet must not be selectable, focusable, or editable
+    const editable = await page.locator('.w-sheets').getAttribute('contenteditable');
+    expect(editable).toBe('false');
+    expect(await page.locator('.w-sheets').getAttribute('aria-hidden')).toBe('true');
+  });
+
+  test('starts each page at the top of its own sheet', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-sheet');
+
+    const result = await page.evaluate(() => {
+      const sheets = Array.from(document.querySelectorAll('.w-sheet'));
+      if (sheets.length < 2) return { pages: sheets.length, offsets: [] as number[] };
+
+      const surface = document.querySelector('.w-surface')!;
+      const blocks = Array.from(surface.children).filter((el) => el.hasAttribute('data-bc-sid'));
+
+      // For every sheet after the first, find the block that starts on it and
+      // report how far below the sheet's top margin it landed.
+      const offsets: number[] = [];
+      for (let i = 1; i < sheets.length; i++) {
+        const sheetTop = sheets[i].getBoundingClientRect().top;
+        const contentTop = sheetTop + 96; // 1in margin
+        const opener = blocks.find((b) => b.getBoundingClientRect().top >= sheetTop);
+        if (opener) offsets.push(opener.getBoundingClientRect().top - contentTop);
+      }
+      return { pages: sheets.length, offsets };
+    });
+
+    expect(result.pages).toBeGreaterThan(1);
+    expect(result.offsets.length).toBeGreaterThan(0);
+    for (const offset of result.offsets) {
+      // Within a pixel of the sheet's content top
+      expect(Math.abs(offset)).toBeLessThan(1.5);
+    }
   });
 });

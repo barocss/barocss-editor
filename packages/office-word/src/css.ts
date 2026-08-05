@@ -22,6 +22,15 @@ export const twipToPt = (twip: number): number => twip / 20;
 /** Twips → CSS length. */
 export const twipToCss = (twip: number): string => `${round(twipToPt(twip))}pt`;
 
+/**
+ * Twips → CSS pixels.
+ *
+ * Layout arithmetic has to happen in one unit, and the browser reports geometry
+ * in px. The ratio is fixed — CSS defines 1in as 96px regardless of the display
+ * or the zoom level — so this is exact, not an approximation of the rendering.
+ */
+export const twipToPx = (twip: number): number => (twip / 1440) * 96;
+
 /** Half-points → CSS length. */
 export const halfPointToCss = (halfPoint: number): string => `${round(halfPoint / 2)}pt`;
 
@@ -105,10 +114,13 @@ export function paragraphCss(format: EffectiveFormat): CssStyle {
     out.textIndent = twipToCss(firstLine);
   }
 
-  const before = num(format.spacingBefore);
-  if (before !== undefined) out.marginTop = twipToCss(before);
-  const after = num(format.spacingAfter);
-  if (after !== undefined) out.marginBottom = twipToCss(after);
+  // Emitted even when unset, because unset means zero here, not "whatever the
+  // browser thinks". A `<p>` carries a 1em margin from the UA stylesheet, so
+  // leaving the property off gave every paragraph spacing that no style asked
+  // for — invisible until the layout measured the document and found it taller
+  // than the model said it was.
+  out.marginTop = twipToCss(num(format.spacingBefore) ?? 0);
+  out.marginBottom = twipToCss(num(format.spacingAfter) ?? 0);
 
   const line = num(format.spacingLine);
   if (line !== undefined) {
@@ -183,6 +195,44 @@ export function characterCss(format: EffectiveFormat): CssStyle {
 }
 
 /** Page setup → the CSS box for one rendered page. */
+/**
+ * The section as a *flow*, once pages are painted separately.
+ *
+ * Width and the side margins still come from the section — they decide where
+ * lines break, which is the input pagination depends on. The vertical margins do
+ * not: the distance from the bottom of one page to the top of the next is what
+ * the computed break produces, and baking it in as padding here would apply it
+ * once for the whole section instead of once per page.
+ */
+export function flowCss(format: EffectiveFormat): CssStyle {
+  const out: CssStyle = {};
+  const landscape = str(format.orientation) === 'landscape';
+
+  const width = num(format.pageWidth);
+  const height = num(format.pageHeight);
+  if (width !== undefined && height !== undefined) {
+    // The section is exactly one page wide including its side margins, so the
+    // sheets drawn behind it line up with its edges rather than its text.
+    out.boxSizing = 'border-box';
+    out.width = twipToCss(landscape ? height : width);
+  }
+
+  const left = num(format.marginLeft);
+  const right = num(format.marginRight);
+  if (left !== undefined) out.paddingLeft = twipToCss(left);
+  if (right !== undefined) out.paddingRight = twipToCss(right);
+
+  const columns = num(format.columnCount);
+  if (columns !== undefined && columns > 1) {
+    out.columnCount = String(columns);
+    const spacing = num(format.columnSpacing);
+    if (spacing !== undefined) out.columnGap = twipToCss(spacing);
+    if (bool(format.columnSeparator)) out.columnRule = '1px solid currentColor';
+  }
+
+  return out;
+}
+
 export function pageCss(format: EffectiveFormat): CssStyle {
   const out: CssStyle = {};
   const landscape = str(format.orientation) === 'landscape';

@@ -52,10 +52,24 @@ describe('paragraph CSS', () => {
   });
 
   it('does not emit pagination properties', () => {
-    // These instruct a paginator; honouring them in a scrolling view would give
-    // something that is neither paginated nor continuous.
+    // These instruct the paginator, which reads them from the model directly.
+    // CSS has near-equivalents (break-inside, orphans, widows) but they only
+    // apply to printing and to columns, so emitting them would look like the
+    // rules were being honoured while the on-screen layout ignored them.
     const css = paragraphCss({ keepNext: true, widowControl: true, pageBreakBefore: true });
-    expect(Object.keys(css)).toHaveLength(0);
+    expect(css.breakInside).toBeUndefined();
+    expect(css.breakBefore).toBeUndefined();
+    expect(css.widows).toBeUndefined();
+    expect(css.orphans).toBeUndefined();
+  });
+
+  it('always states the vertical margins, so the UA stylesheet cannot add any', () => {
+    // A `<p>` has a 1em margin by default. Left unstated, every paragraph got
+    // spacing no style asked for — and the layout, which reads spacing from the
+    // model, measured a document taller than it believed it to be.
+    const css = paragraphCss({});
+    expect(css.marginTop).toBe('0pt');
+    expect(css.marginBottom).toBe('0pt');
   });
 
   it('maps borders from eighths of a point', () => {

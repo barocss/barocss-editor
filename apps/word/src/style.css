@@ -23,11 +23,17 @@ body {
 .w-doc-subtitle { margin: 0 0 8px; color: #666; font-size: 14px; }
 
 /* A section renders as the page it describes; its box comes from page setup. */
-.w-page {
+/*
+ * The section is transparent: it is where the text flows, not what the reader
+ * sees as paper. The sheets behind it are what look like pages.
+ */
+.w-surface {
+  outline: none;
+}
+
+.w-sheet {
   background: #fff;
   box-shadow: 0 1px 3px rgba(0, 0, 0, .2);
-  box-sizing: border-box;
-  outline: none;
 }
 
 /*

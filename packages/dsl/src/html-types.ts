@@ -19,7 +19,10 @@ export interface BaseHTMLAttributes {
   'aria-label'?: string;
   'aria-labelledby'?: string;
   'aria-describedby'?: string;
-  'aria-hidden'?: boolean;
+  // ARIA attributes are enumerated strings, not HTML boolean attributes: a
+  // renderer that serialises `true` the boolean way produces aria-hidden="",
+  // which ARIA reads as *not* hidden. So the string forms are the useful ones.
+  'aria-hidden'?: boolean | 'true' | 'false';
   'data-testid'?: string;
   contenteditable?: boolean | 'true' | 'false' | DataTemplate | ((data: any) => boolean | 'true' | 'false');
   

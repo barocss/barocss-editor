@@ -177,6 +177,72 @@ export function createSampleDocument(): INode {
                 ]
               }
             ]
+          },
+
+          {
+            stype: 'heading',
+            attributes: { level: 2, styleId: 'Heading2' },
+            content: [{ stype: 'inline-text', text: 'Pages are computed' }]
+          },
+          {
+            stype: 'paragraph',
+            attributes: { styleId: 'Body' },
+            content: [{ stype: 'inline-text', text: '1. Pagination is measured, not declared. Nothing in this document says where a page ends: the browser breaks the lines, the layout reads the line boxes back, and the break falls wherever the text ran out of room. That is why this section exists at all — a fixture that fits on one page cannot demonstrate a page break, and a rule that is never exercised is a rule that is not known to work.' }]
+          },
+          {
+            stype: 'paragraph',
+            attributes: { styleId: 'Body' },
+            content: [{ stype: 'inline-text', text: '2. Pagination is measured, not declared. Nothing in this document says where a page ends: the browser breaks the lines, the layout reads the line boxes back, and the break falls wherever the text ran out of room. That is why this section exists at all — a fixture that fits on one page cannot demonstrate a page break, and a rule that is never exercised is a rule that is not known to work.' }]
+          },
+          {
+            stype: 'paragraph',
+            attributes: { styleId: 'Body' },
+            content: [{ stype: 'inline-text', text: '3. Pagination is measured, not declared. Nothing in this document says where a page ends: the browser breaks the lines, the layout reads the line boxes back, and the break falls wherever the text ran out of room. That is why this section exists at all — a fixture that fits on one page cannot demonstrate a page break, and a rule that is never exercised is a rule that is not known to work.' }]
+          },
+          {
+            stype: 'paragraph',
+            attributes: { styleId: 'Body' },
+            content: [{ stype: 'inline-text', text: '4. Pagination is measured, not declared. Nothing in this document says where a page ends: the browser breaks the lines, the layout reads the line boxes back, and the break falls wherever the text ran out of room. That is why this section exists at all — a fixture that fits on one page cannot demonstrate a page break, and a rule that is never exercised is a rule that is not known to work.' }]
+          },
+          {
+            stype: 'paragraph',
+            attributes: { styleId: 'Body' },
+            content: [{ stype: 'inline-text', text: '5. Pagination is measured, not declared. Nothing in this document says where a page ends: the browser breaks the lines, the layout reads the line boxes back, and the break falls wherever the text ran out of room. That is why this section exists at all — a fixture that fits on one page cannot demonstrate a page break, and a rule that is never exercised is a rule that is not known to work.' }]
+          },
+          {
+            stype: 'paragraph',
+            attributes: { styleId: 'Body' },
+            content: [{ stype: 'inline-text', text: '6. Pagination is measured, not declared. Nothing in this document says where a page ends: the browser breaks the lines, the layout reads the line boxes back, and the break falls wherever the text ran out of room. That is why this section exists at all — a fixture that fits on one page cannot demonstrate a page break, and a rule that is never exercised is a rule that is not known to work.' }]
+          },
+          {
+            stype: 'paragraph',
+            attributes: { styleId: 'Body' },
+            content: [{ stype: 'inline-text', text: '7. Pagination is measured, not declared. Nothing in this document says where a page ends: the browser breaks the lines, the layout reads the line boxes back, and the break falls wherever the text ran out of room. That is why this section exists at all — a fixture that fits on one page cannot demonstrate a page break, and a rule that is never exercised is a rule that is not known to work.' }]
+          },
+          {
+            stype: 'paragraph',
+            attributes: { styleId: 'Body' },
+            content: [{ stype: 'inline-text', text: '8. Pagination is measured, not declared. Nothing in this document says where a page ends: the browser breaks the lines, the layout reads the line boxes back, and the break falls wherever the text ran out of room. That is why this section exists at all — a fixture that fits on one page cannot demonstrate a page break, and a rule that is never exercised is a rule that is not known to work.' }]
+          },
+          {
+            stype: 'paragraph',
+            attributes: { styleId: 'Body' },
+            content: [{ stype: 'inline-text', text: '9. Pagination is measured, not declared. Nothing in this document says where a page ends: the browser breaks the lines, the layout reads the line boxes back, and the break falls wherever the text ran out of room. That is why this section exists at all — a fixture that fits on one page cannot demonstrate a page break, and a rule that is never exercised is a rule that is not known to work.' }]
+          },
+          {
+            stype: 'heading',
+            attributes: { level: 1, styleId: 'Heading1', pageBreakBefore: true },
+            content: [{ stype: 'inline-text', text: 'A section that starts its own page' }]
+          },
+          {
+            stype: 'paragraph',
+            attributes: { styleId: 'Body' },
+            content: [
+              {
+                stype: 'inline-text',
+                text: 'This heading asked to begin a page, so it did — even though there was room for it above.'
+              }
+            ]
           }
         ]
       },

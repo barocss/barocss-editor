@@ -20,14 +20,25 @@
 import type { DocumentAccess } from './document-access';
 import { createStyleResolver, type StyleResolver } from './style-resolver';
 import { createNumberingResolver, type NumberingResolver } from './numbering-resolver';
+import type { SurfaceLayout } from './layout';
 
 interface WordRenderContext {
   doc: DocumentAccess | null;
   styles: StyleResolver | null;
   numbering: NumberingResolver | null;
+  /** Layout per surface id. Empty until the document has been measured. */
+  layouts: Map<string, SurfaceLayout>;
+  /** Extra top margin per block, flattened from every surface's layout. */
+  pushes: Map<string, number>;
 }
 
-const context: WordRenderContext = { doc: null, styles: null, numbering: null };
+const context: WordRenderContext = {
+  doc: null,
+  styles: null,
+  numbering: null,
+  layouts: new Map(),
+  pushes: new Map()
+};
 
 /**
  * Point the renderers at a document and rebuild the resolvers.
@@ -51,4 +62,29 @@ export function getWordNumbering(): NumberingResolver | null {
 
 export function getWordDocument(): DocumentAccess | null {
   return context.doc;
+}
+
+/**
+ * Publish the measured layout so the templates can draw pages.
+ *
+ * Rendering is what produces the measurements this is computed from, so the
+ * first render necessarily happens without it: the templates fall back to a
+ * single continuous flow, which is also what a document renders as before it is
+ * ever measured, and on a server where it cannot be.
+ */
+export function setWordLayout(layouts: Map<string, SurfaceLayout>): void {
+  context.layouts = layouts;
+  context.pushes = new Map();
+  for (const layout of layouts.values()) {
+    for (const [sid, push] of layout.pushBySid) context.pushes.set(sid, push);
+  }
+}
+
+export function getWordLayout(surfaceSid: string): SurfaceLayout | undefined {
+  return context.layouts.get(surfaceSid);
+}
+
+/** How far the block opening a page must be pushed to reach its sheet. */
+export function getBlockPush(sid: string): number | undefined {
+  return context.pushes.get(sid);
 }
