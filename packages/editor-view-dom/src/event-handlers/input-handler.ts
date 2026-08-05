@@ -1439,15 +1439,23 @@ export class InputHandlerImpl implements InputHandler {
         console.warn('[InputHandler] tryHandleInsertViaGetTargetRanges: replaceText failed');
         return;
       }
-      const textLen = text.length;
-      const newCaret: ModelSelection = {
-        type: 'range',
-        startNodeId: modelRange.startNodeId,
-        startOffset: modelRange.startOffset + textLen,
-        endNodeId: modelRange.startNodeId,
-        endOffset: modelRange.startOffset + textLen
-      };
-      this.editor.updateSelection(newCaret);
+      // Where the caret goes is the operation's answer, not this one's.
+      //
+      // This used to work it out again from the range it had passed in, and
+      // overwrite what the transaction had already decided. The two agree while
+      // the range is right; when it is one behind — which is what a stale
+      // DOM-to-model conversion gives — the recomputed caret is one behind too,
+      // and it lands *after* the correct one and wins. Every character then goes
+      // to the same offset and a word arrives backwards.
+      const newCaret =
+        (this.editor as any).selection ??
+        ({
+          type: 'range',
+          startNodeId: modelRange.startNodeId,
+          startOffset: modelRange.startOffset + text.length,
+          endNodeId: modelRange.startNodeId,
+          endOffset: modelRange.startOffset + text.length
+        } as ModelSelection);
       this.editor.emit('editor:content.change', {
         skipRender: false,
         from: 'getTargetRanges',
@@ -1461,11 +1469,29 @@ export class InputHandlerImpl implements InputHandler {
           }
         ], 'getTargetRanges')
       });
-      // Restore DOM selection after render (same as handleDelete)
+      // Restore the DOM selection only if it has actually drifted.
+      //
+      // Two frames from now the user may well have typed again, and forcing our
+      // caret back then would move theirs out from under them — the very thing
+      // that makes continuous input lose its place. The browser puts the caret
+      // after the character it inserted; this is here for the case where a
+      // render replaced the text node under it, and that is the only case it
+      // should act in.
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           try {
-            (this.editorViewDOM as any).convertModelSelectionToDOM?.(newCaret);
+            const view = this.editorViewDOM as any;
+            const domSelection = window.getSelection();
+            const current = domSelection ? view.convertDOMSelectionToModel?.(domSelection) : null;
+            if (
+              current &&
+              current.type === 'range' &&
+              current.startNodeId === newCaret.startNodeId &&
+              current.startOffset === newCaret.startOffset
+            ) {
+              return;
+            }
+            view.convertModelSelectionToDOM?.(newCaret);
           } catch (err) {
             console.warn('[InputHandler] tryHandleInsertViaGetTargetRanges: failed to restore DOM selection', err);
           }

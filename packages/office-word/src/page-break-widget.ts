@@ -27,27 +27,21 @@
  * run (a run split by a *mark* types correctly), and deferring repagination
  * while typing (no effect).
  *
- * Where it stands, traced end to end. The character is applied to the model —
- * the data is right — and the caret does not follow, because the position is
- * wrong before anything is applied:
+ * Where it stands. Typing into a paragraph that carries one now works: the
+ * characters arrive in order and the caret advances. That took tracing the caret
+ * to two places that both decided where it goes — the insert path recomputed it
+ * from a range that was one behind and overwrote what the operation had already
+ * set — and is fixed in editor-view-dom rather than here.
  *
- *   - the DOM-to-model offset conversion answers 5510 and stays there while the
- *     caret really moves 5511, 5512, 5513
- *   - so every character is written at 5510, which is why a word arrives
- *     backwards
- *   - and by the time the classifier looks, the model and the DOM already agree
- *     (prevLen === newLen), so it reports no change and never corrects the caret
- *
- * The conversion is the thing to fix. It reads the offset index, which walks the
- * text nodes of a node — and a node carrying a break has its text split across
- * several of them with an element between. That is the only difference from a
- * paragraph that works, and a run split by a *mark* is split the same way and
- * converts correctly, so it is the element between rather than the splitting.
+ * What is not settled is the geometry in this configuration: with the fix in,
+ * some lines land outside their page again. It was right before, so this is a
+ * regression to find rather than a design problem.
  *
  * Ruled out along the way: the widget contributing text (it holds none, and the
- * lengths match), the widget itself (one added and never replaced types
- * perfectly), the mutation storm (a keystroke now arrives among 2 mutations
- * rather than 262), and deferring repagination while typing.
+ * model and DOM lengths match), several text nodes in a run (a run split by a
+ * mark types correctly), the widget itself (one added and never replaced types
+ * perfectly — it is the replacing), the mutation storm (a keystroke now arrives
+ * among 2 mutations rather than 262), and deferring repagination while typing.
  */
 import { defineDecorator, element } from '@barocss/dsl';
 
