@@ -1,3 +1,5 @@
+@import "tailwindcss";
+
 /*
  * Chrome for the page, not for the document.
  *
@@ -104,51 +106,3 @@ body {
 
 .w-toc-text { display: flex; flex: 1; white-space: nowrap; }
 .w-toc-page { font-variant-numeric: tabular-nums; }
-
-/*
- * The toolbar. Three states, because two would be a lie: a selection that is
- * partly bold is neither bold nor not bold.
- */
-.w-toolbar {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin: -24px -24px 16px;
-  padding: 8px 24px;
-  background: #fff;
-  border-bottom: 1px solid #dee2e6;
-}
-
-.w-toolbar-group {
-  display: flex;
-  gap: 2px;
-  padding: 0 6px;
-  border-left: 1px solid #dee2e6;
-}
-
-.w-toolbar-button {
-  min-width: 30px;
-  height: 28px;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  background: none;
-  font: inherit;
-  font-size: 14px;
-  cursor: pointer;
-}
-
-.w-toolbar-button:hover:not(:disabled) { background: #f1f3f5; }
-.w-toolbar-button:disabled { opacity: .4; cursor: default; }
-.w-toolbar-button[data-state='on'] { background: #d0ebff; border-color: #a5d8ff; }
-
-/* Partially applied: distinguishable from both on and off at a glance */
-.w-toolbar-button[data-state='mixed'] {
-  background: repeating-linear-gradient(135deg, #e7f5ff, #e7f5ff 3px, #fff 3px, #fff 6px);
-  border-color: #a5d8ff;
-}
-
-.w-toolbar-style { font: inherit; height: 28px; }
-.w-toolbar-style[data-mixed='true'] { color: #868e96; }

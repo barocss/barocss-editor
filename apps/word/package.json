@@ -14,9 +14,24 @@
     "@barocss/editor-core": "workspace:*",
     "@barocss/editor-view-dom": "workspace:*",
     "@barocss/office-word": "workspace:*",
-    "@barocss/schema": "workspace:*"
+    "@barocss/schema": "workspace:*",
+    "@radix-ui/react-select": "^2.3.7",
+    "@radix-ui/react-separator": "^1.1.15",
+    "@radix-ui/react-toggle": "^1.1.18",
+    "@radix-ui/react-toolbar": "^1.1.19",
+    "@radix-ui/react-tooltip": "^1.2.16",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.28.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "tailwindcss": "^4.3.3",
     "typescript": "^5.9.3",
     "vite": "^5.4.21"
   }
