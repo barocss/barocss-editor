@@ -17,6 +17,7 @@ import { KeybindingRegistryImpl, type KeybindingRegistry, type ContextProvider }
 import { DEFAULT_KEYBINDINGS } from './keybinding/default-keybindings';
 import { DEFAULT_CONTEXT_INITIAL_VALUES } from './context/default-context';
 import { logger, LogCategory, isCategoryEnabled } from '@barocss/shared';
+import { readSelectionSummary, type SelectionSummary } from './selection-summary';
 import { IS_MAC, IS_LINUX, IS_WINDOWS } from '@barocss/shared';
 function isModelSelection(selection: unknown): selection is ModelSelection {
   if (!selection || typeof selection !== 'object') return false;
@@ -301,6 +302,19 @@ export class Editor implements ContextProvider {
     return this._dataStore as DataStore;
   }
 
+  /**
+   * What the selection currently is: which marks apply, what kind of block it
+   * is in, and what the blocks agree on.
+   *
+   * Read afresh rather than cached. It is cheap — it walks only the text the
+   * selection covers — and a cached answer is one that can be wrong after an
+   * edit, which for a toolbar means a button showing the wrong state and one
+   * click undoing formatting the user could still see.
+   */
+  getSelectionSummary(): SelectionSummary {
+    return readSelectionSummary(this._dataStore as DataStore, this.selection);
+  }
+
   get transactionManager(): TransactionManager {
     return this._transactionManager;
   }
@@ -442,6 +456,30 @@ export class Editor implements ContextProvider {
       this.emit('error:command', { command, payload, error });
       return false;
     }
+  }
+
+  /**
+   * Whether a command could run right now, and running it.
+   *
+   * The pair exists because almost every editing command declares
+   * `canExecute: payload => !!payload.selection`, so asking without one gets a
+   * flat no. A toolbar that asked directly would show every button disabled;
+   * the key map had exactly this bug, and shortcuts silently did nothing.
+   *
+   * So the current selection is filled in, and a caller passes only what is
+   * particular to the command.
+   */
+  canRun(command: string, payload?: Record<string, unknown>): boolean {
+    return this.canExecuteCommand(command, this._withSelection(payload));
+  }
+
+  run(command: string, payload?: Record<string, unknown>): Promise<boolean> {
+    return this.executeCommand(command, this._withSelection(payload));
+  }
+
+  private _withSelection(payload?: Record<string, unknown>): Record<string, unknown> {
+    const selection = this.selection;
+    return { ...(selection ? { selection } : {}), ...(payload ?? {}) };
   }
 
   canExecuteCommand(command: string, payload?: any): boolean {

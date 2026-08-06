@@ -18,3 +18,10 @@ export {
   loadLocaleMessages,
   initializeI18n,
 } from './i18n';
+
+export {
+  readSelectionSummary,
+  markState,
+  type SelectionSummary,
+  type MarkState
+} from './selection-summary';
