@@ -87,3 +87,7 @@ temp/
 
 # Vite cache / timestamp artifacts
 *.timestamp-*.mjs
+
+# Playwright writes these on every run; they are output, not source.
+test-results/
+playwright-report/
