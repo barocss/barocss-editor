@@ -4,6 +4,7 @@ import {
   createTableExtension
 } from '@barocss/extensions';
 import { Editor, type EditorOptions, type Extension, type Keybinding } from '@barocss/editor-core';
+import { createWordCommands } from './word-commands';
 import { createSchema } from '@barocss/schema';
 import { getWordSchemaDefinition } from './word-schema';
 import { WORD_KEYBINDINGS } from './word-keymap';
@@ -19,7 +20,11 @@ export function createWordExtensions(): Extension[] {
   return [
     ...createCoreExtensions(),
     ...createRichExtensions(),
-    createTableExtension({ defaultRows: 3, defaultCols: 3 })
+    createTableExtension({ defaultRows: 3, defaultCols: 3 }),
+    // Word's own. A column break means nothing without sections that have
+    // columns, and tracked changes is a word processor's idea of review — so
+    // unlike bold or alignment, they do not belong in the shared kit.
+    createWordCommands()
   ];
 }
 

@@ -421,6 +421,12 @@ export function createSampleDocument(): INode {
             attributes: { fontFamily: 'Georgia, serif', fontSize: 22, spacingAfter: 120 }
           },
           {
+            // A document-wide switch: two people editing the same document are
+            // not each deciding whether the other's edits are tracked.
+            stype: 'docSettings',
+            attributes: { trackRevisions: false }
+          },
+          {
             stype: 'styleDef',
             attributes: { id: 'Normal', name: 'Normal', type: 'paragraph', spacingAfter: 160 }
           },

@@ -1098,3 +1098,137 @@ test.describe('sheets under columns', () => {
     expect(columned.sheets).toBeLessThan(columned.boxes);
   });
 })
+
+test.describe('the toolbar', () => {
+  test('shows a mark as on when it covers the whole selection', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-toolbar');
+
+    // The sample has a code mark over one word
+    await page.locator('.mark-code').first().click();
+    await page.waitForTimeout(300);
+    await page.keyboard.down('Shift');
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.up('Shift');
+
+    await expect
+      .poll(async () =>
+        page.evaluate(() => (window as any).editor.getSelectionSummary().marks.includes('code'))
+      )
+      .toBe(true);
+  });
+
+  test('shows a mark as mixed when it covers only part of it', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-toolbar');
+
+    // Select across the boundary of the marked run into unmarked text
+    const summary = await page.evaluate(() => {
+      const editor = (window as any).editor;
+      const marked = document.querySelector('.mark-code')!.closest('[data-bc-sid]')!;
+      const sid = marked.getAttribute('data-bc-sid')!;
+      const next = (editor.dataStore.getNode(sid).text ?? '').length;
+
+      // From inside the marked node into the one after it
+      const parent = editor.dataStore.getParent(sid);
+      const siblings = parent.content as string[];
+      const after = siblings[siblings.indexOf(sid) + 1];
+
+      editor.updateSelection({
+        type: 'range',
+        startNodeId: sid,
+        startOffset: 0,
+        endNodeId: after,
+        endOffset: 3,
+        collapsed: false
+      });
+      return editor.getSelectionSummary();
+    });
+
+    // Neither on nor off: a button drawn as off here would turn one click into
+    // a silent reformat of everything selected.
+    expect(summary.mixedMarks).toContain('code');
+    expect(summary.marks).not.toContain('code');
+  });
+
+  test('draws the three states apart', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-toolbar');
+    await placeCaret(page, '.w-paragraph', 1);
+
+    const states = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('.w-toolbar-button')).map(
+        (b) => (b as HTMLElement).dataset.state
+      )
+    );
+    expect(states.every((state) => ['on', 'mixed', 'off'].includes(state!))).toBe(true);
+
+    // A screen reader has to be told "partially pressed" rather than "not pressed"
+    const pressed = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('.w-toolbar-button')).map((b) =>
+        b.getAttribute('aria-pressed')
+      )
+    );
+    expect(pressed.every((value) => ['true', 'false', 'mixed'].includes(value!))).toBe(true);
+  });
+
+  test('shows the style the blocks agree on, and nothing when they do not', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-toolbar');
+
+    await placeCaret(page, '.w-paragraph', 1);
+    await expect
+      .poll(async () => page.locator('.w-toolbar-style').inputValue())
+      .toBe('paragraph');
+
+    // Across a heading and a paragraph there is no single style to show
+    await page.evaluate(() => {
+      const editor = (window as any).editor;
+      const heading = document.querySelector('.w-heading [data-bc-sid]')!.getAttribute('data-bc-sid')!;
+      const paragraph = document.querySelector('.w-paragraph [data-bc-sid]')!.getAttribute('data-bc-sid')!;
+      editor.updateSelection({
+        type: 'range',
+        startNodeId: heading,
+        startOffset: 0,
+        endNodeId: paragraph,
+        endOffset: 2,
+        collapsed: false
+      });
+    });
+
+    await expect.poll(async () => page.locator('.w-toolbar-style').inputValue()).toBe('');
+  });
+
+  test('applies alignment to every block the selection touches', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-toolbar');
+    await placeCaret(page, '.w-paragraph', 1);
+
+    await page.locator('.w-toolbar-button[data-control="align-center"]').dispatchEvent('pointerdown');
+
+    await expect
+      .poll(async () =>
+        page.evaluate(() => (window as any).editor.getSelectionSummary().blockAttributes.alignment)
+      )
+      .toBe('center');
+
+    // ...and the button says so
+    await expect(page.locator('.w-toolbar-button[data-control="align-center"]')).toHaveAttribute(
+      'data-state',
+      'on'
+    );
+  });
+
+  test('disables a command that cannot run', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-toolbar');
+
+    // Nothing has been edited, so there is nothing to undo. A toolbar wired to
+    // canExecuteCommand directly would have shown every button disabled here,
+    // because almost every editing command requires a selection.
+    await expect(page.locator('.w-toolbar-button[data-control="undo"]')).toBeDisabled();
+
+    await placeCaret(page, '.w-paragraph', 1);
+    await expect(page.locator('.w-toolbar-button[data-control="bold"]')).toBeEnabled();
+  });
+})

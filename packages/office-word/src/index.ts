@@ -104,3 +104,14 @@ export { createFieldResolver, type FieldResolver } from './field-resolver';
 export { lineStartOffsets, type LineAnchor } from './line-offsets';
 export { registerPageBreakWidget, PAGE_BREAK_STYPE } from './page-break-widget';
 export { formatDateField } from './date-field';
+
+export {
+  createWordToolbar,
+  currentStyle,
+  WORD_TOOLBAR,
+  WORD_STYLES,
+  type WordToolbar,
+  type ToolbarControl,
+  type ToolbarGroup
+} from './toolbar';
+export { createWordCommands, WordExtension } from './word-commands';

@@ -1,5 +1,6 @@
 // Extension exports
 export * from './text';
+export * from './align';
 export * from './delete';
 export * from './paragraph';
 export * from './bold';
@@ -58,6 +59,7 @@ import { ItalicExtension } from './italic';
 import { HeadingExtension } from './heading';
 import { ParagraphExtension } from './paragraph';
 import { SelectAllExtension } from './select-all';
+import { AlignExtension } from './align';
 import { DeleteExtension } from './delete';
 import { MoveSelectionExtension } from './move-selection';
 import { IndentExtension } from './indent';
@@ -107,6 +109,7 @@ export function createCoreExtensions(): Extension[] {
   return [
     new TextExtension(),
     new DeleteExtension(),
+    new AlignExtension(),
     new ParagraphExtension(),
     new MoveSelectionExtension(),
     new SelectAllExtension(),

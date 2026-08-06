@@ -6,6 +6,7 @@ import {
   createWordEditor,
   createWordEnv,
   createWordLayoutPass,
+  createWordToolbar,
   registerPageBreakWidget,
   PAGE_BREAK_STYPE,
   type PageBreakWidget,
@@ -177,6 +178,12 @@ container.addEventListener('dblclick', (event) => {
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && editing) setEditing(undefined);
 });
+
+/**
+ * The toolbar reads the selection and runs commands, and holds nothing of its
+ * own — state it held would be state that could disagree with the document.
+ */
+createWordToolbar(editor, document.body);
 
 window.editor = editor;
 window.editorView = view;
