@@ -255,3 +255,90 @@ describe('asking whether a command could run', () => {
     expect(editor.canExecuteCommand('nope')).toBe(false);
   });
 });
+
+describe('the values a mark carries', () => {
+  it('reports them when every occurrence agrees', () => {
+    // A name is enough for a toggle and not enough for a size control: eleven
+    // points is a value, and `fontSize` alone does not say which.
+    const doc = store({
+      p: { sid: 'p', stype: 'paragraph' },
+      t: {
+        sid: 't',
+        stype: 'inline-text',
+        parentId: 'p',
+        text: 'Hello world',
+        marks: [{ stype: 'fontSize', range: [0, 11], attrs: { size: 22 } }]
+      }
+    });
+
+    const state = readSelectionSummary(doc, range('t', 0, 't', 11));
+    expect(state.markAttributes.fontSize).toEqual({ size: 22 });
+  });
+
+  it('leaves out a value the occurrences disagree about', () => {
+    // Two runs at different sizes have no size between them, and a control that
+    // showed one of the two would apply it to both on the next change.
+    const doc = store({
+      p: { sid: 'p', stype: 'paragraph' },
+      a: {
+        sid: 'a',
+        stype: 'inline-text',
+        parentId: 'p',
+        text: 'big',
+        marks: [{ stype: 'fontSize', range: [0, 3], attrs: { size: 40 } }]
+      },
+      b: {
+        sid: 'b',
+        stype: 'inline-text',
+        parentId: 'p',
+        text: 'small',
+        marks: [{ stype: 'fontSize', range: [0, 5], attrs: { size: 20 } }]
+      }
+    });
+
+    const state = readSelectionSummary(doc, range('a', 0, 'b', 5));
+    expect(state.marks).toContain('fontSize');
+    expect(state.markAttributes.fontSize).toEqual({});
+  });
+
+  it('reports the keys they do agree on, even when others differ', () => {
+    const doc = store({
+      p: { sid: 'p', stype: 'paragraph' },
+      a: {
+        sid: 'a',
+        stype: 'inline-text',
+        parentId: 'p',
+        text: 'one',
+        marks: [{ stype: 'border', range: [0, 3], attrs: { style: 'solid', color: 'red' } }]
+      },
+      b: {
+        sid: 'b',
+        stype: 'inline-text',
+        parentId: 'p',
+        text: 'two',
+        marks: [{ stype: 'border', range: [0, 3], attrs: { style: 'solid', color: 'blue' } }]
+      }
+    });
+
+    const state = readSelectionSummary(doc, range('a', 0, 'b', 3));
+    expect(state.markAttributes.border).toEqual({ style: 'solid' });
+  });
+
+  it('says nothing about a mark that covers only part of the selection', () => {
+    // Its value is not the selection's value, whatever it is
+    const doc = store({
+      p: { sid: 'p', stype: 'paragraph' },
+      t: {
+        sid: 't',
+        stype: 'inline-text',
+        parentId: 'p',
+        text: 'Hello world',
+        marks: [{ stype: 'fontSize', range: [0, 5], attrs: { size: 22 } }]
+      }
+    });
+
+    const state = readSelectionSummary(doc, range('t', 0, 't', 11));
+    expect(state.mixedMarks).toContain('fontSize');
+    expect(state.markAttributes.fontSize).toBeUndefined();
+  });
+});

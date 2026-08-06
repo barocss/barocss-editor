@@ -23,6 +23,15 @@ export interface SelectionSummary {
   marks: string[];
   /** Marks covering some of it but not all. */
   mixedMarks: string[];
+  /**
+   * The attributes carried by each mark that covers the whole selection.
+   *
+   * A mark's name is enough for a toggle and not enough for anything with a
+   * value: a size control has to show eleven points, and `fontSize` alone does
+   * not say which. Only marks that cover everything appear here — a size that
+   * applies to half the selection is not the size of the selection.
+   */
+  markAttributes: Record<string, Record<string, unknown>>;
   /** The blocks the selection touches, in document order. */
   blocks: { sid: string; stype: string; attributes: Record<string, unknown> }[];
   /** Attribute values every touched block agrees on — a style id, an alignment. */
@@ -38,6 +47,7 @@ export interface SelectionSummary {
 const EMPTY: SelectionSummary = {
   marks: [],
   mixedMarks: [],
+  markAttributes: {},
   blocks: [],
   blockAttributes: {},
   mixedAttributes: [],
@@ -98,6 +108,30 @@ function coveredText(store: DataStore, selection: ModelSelection): CoveredText[]
   }
 
   return covered;
+}
+
+/** A node that may carry marks. */
+type MarkedNode = { marks?: { stype: string; range?: [number, number]; attrs?: Record<string, unknown> }[] };
+
+/**
+ * The values every occurrence of a mark agrees on.
+ *
+ * A key that differs between occurrences is left out rather than resolved to
+ * one of them: the selection genuinely has no single value for it, and saying
+ * otherwise is how a size control changes text it was only reporting on.
+ */
+function agreedValues(occurrences: Record<string, unknown>[]): Record<string, unknown> {
+  if (occurrences.length === 0) return {};
+
+  const agreed: Record<string, unknown> = {};
+  const keys = new Set(occurrences.flatMap((attrs) => Object.keys(attrs)));
+
+  for (const key of keys) {
+    const values = occurrences.map((attrs) => attrs[key]);
+    const first = values[0];
+    if (first !== undefined && values.every((value) => value === first)) agreed[key] = first;
+  }
+  return agreed;
 }
 
 /** Whether a mark covers the whole of a stretch of one node. */
@@ -201,12 +235,33 @@ export function readSelectionSummary(
 
   const marks: string[] = [];
   const mixedMarks: string[] = [];
+  const markAttributes: Record<string, Record<string, unknown>> = {};
+
   for (const type of candidates) {
     const everywhere = covered.every((stretch) => {
-      const node = store.getNode(stretch.sid) as { marks?: { stype: string; range?: [number, number] }[] };
+      const node = store.getNode(stretch.sid) as MarkedNode;
       return coversAll(node?.marks, type, stretch.from, stretch.to);
     });
-    (everywhere ? marks : mixedMarks).push(type);
+
+    if (!everywhere) {
+      mixedMarks.push(type);
+      continue;
+    }
+    marks.push(type);
+
+    // The values, when every occurrence agrees on them. Two runs at different
+    // sizes have no size between them, and a control that showed one of the two
+    // would apply it to both on the next change.
+    const occurrences: Record<string, unknown>[] = [];
+    for (const stretch of covered) {
+      const node = store.getNode(stretch.sid) as MarkedNode;
+      for (const mark of node?.marks ?? []) {
+        if (mark.stype !== type) continue;
+        if (!coversAny(node.marks, type, stretch.from, stretch.to)) continue;
+        occurrences.push(mark.attrs ?? {});
+      }
+    }
+    markAttributes[type] = agreedValues(occurrences);
   }
 
   const blocks: SelectionSummary['blocks'] = [];
@@ -218,6 +273,7 @@ export function readSelectionSummary(
   return {
     marks: marks.sort(),
     mixedMarks: mixedMarks.sort(),
+    markAttributes,
     blocks,
     ...sharedAttributes(blocks),
     collapsed: selection.collapsed !== false,

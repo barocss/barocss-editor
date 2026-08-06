@@ -106,12 +106,13 @@ export { registerPageBreakWidget, PAGE_BREAK_STYPE } from './page-break-widget';
 export { formatDateField } from './date-field';
 
 export {
-  createWordToolbar,
   currentStyle,
+  toolbarMarkTypes,
+  toolbarCommands,
   WORD_TOOLBAR,
   WORD_STYLES,
-  type WordToolbar,
   type ToolbarControl,
   type ToolbarGroup
-} from './toolbar';
+} from './toolbar-model';
+export { createWordToolbar, type WordToolbar } from './toolbar-dom';
 export { createWordCommands, WordExtension } from './word-commands';
