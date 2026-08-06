@@ -137,6 +137,13 @@ export const WORD_TOOLBAR: ToolbarGroup[] = [
         icon: '⟹',
         command: 'alignRight',
         state: attribute('alignment', 'right')
+      },
+      {
+        id: 'align-justify',
+        label: 'Justify',
+        icon: '☰',
+        command: 'alignJustify',
+        state: attribute('alignment', 'justify')
       }
     ]
   }

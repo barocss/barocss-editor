@@ -10,30 +10,41 @@
     - generic [ref=e4]:
       - separator [ref=e5]
       - generic [ref=e6]:
-        - button "Undo" [disabled]: ↶
-        - button "Redo" [disabled]: ↷
+        - button "Undo" [disabled]:
+          - img
+        - button "Redo" [disabled]:
+          - img
     - generic [ref=e7]:
       - separator [ref=e8]
       - generic [ref=e9]:
-        - button "Bold" [ref=e10]: B
-        - button "Italic" [ref=e11]: I
-        - button "Underline" [disabled]: U
-        - button "Strikethrough" [disabled]: S
-    - generic [ref=e12]:
-      - separator [ref=e13]
-      - generic [ref=e14]:
-        - button "Align left" [disabled]: ⟸
-        - button "Centre" [disabled]: ⟺
-        - button "Align right" [disabled]: ⟹
-  - generic [ref=e17]:
-    - banner [ref=e18]:
-      - heading "Barocss Word" [level=1] [ref=e19]:
-        - generic [ref=e20]: Barocss Word
+        - button "Bold" [disabled]:
+          - img
+        - button "Italic" [disabled]:
+          - img
+        - button "Underline" [disabled]:
+          - img
+        - button "Strikethrough" [disabled]:
+          - img
+    - generic [ref=e10]:
+      - separator [ref=e11]
+      - generic [ref=e12]:
+        - button "Align left" [disabled]:
+          - img
+        - button "Centre" [disabled]:
+          - img
+        - button "Align right" [disabled]:
+          - img
+        - button "Justify" [disabled]:
+          - img
+  - generic [ref=e15]:
+    - banner [ref=e16]:
+      - heading "Barocss Word" [level=1] [ref=e17]:
+        - generic [ref=e18]: Barocss Word
+      - paragraph [ref=e19]:
+        - generic [ref=e20]: Jinho Park
       - paragraph [ref=e21]:
-        - generic [ref=e22]: Jinho Park
-      - paragraph [ref=e23]:
-        - generic [ref=e24]: One engine, one schema, four products
-    - generic [ref=e25]:
+        - generic [ref=e22]: One engine, one schema, four products
+    - generic [ref=e23]:
       - generic:
         - generic:
           - generic:
@@ -86,170 +97,170 @@
           - generic:
             - superscript: "1"
             - text: A footnote body. It lives in resources, not in the flow — where it renders is a layout decision.
-      - heading "Contents" [level=1] [ref=e26]:
-        - generic [ref=e27]: Contents
-      - navigation [ref=e28]:
-        - generic [ref=e29]:
-          - generic [ref=e30]: Contents
-          - generic [ref=e31]: "1"
-        - generic [ref=e32]:
-          - generic [ref=e33]: Styles cascade
-          - generic [ref=e34]: "1"
-        - generic [ref=e35]:
-          - generic [ref=e36]: Numbering is computed
-          - generic [ref=e37]: "1"
-        - generic [ref=e38]:
-          - generic [ref=e39]: Tables
-          - generic [ref=e40]: "1"
-        - generic [ref=e41]:
-          - generic [ref=e42]: Pages are computed
-          - generic [ref=e43]: "2"
-        - generic [ref=e44]:
-          - generic [ref=e45]: A paragraph longer than a page
-          - generic [ref=e46]: "3"
-        - generic [ref=e47]:
-          - generic [ref=e48]: A section that starts its own page
-          - generic [ref=e49]: "6"
-      - heading "Styles cascade" [level=1] [ref=e50]:
-        - generic [ref=e51]: Styles cascade
-      - paragraph [ref=e52]:
-        - generic [ref=e53]: This paragraph takes its font from
-        - generic [ref=e55]: Normal
-        - generic [ref=e56]: ", its spacing from Body, and nothing from itself."
+      - heading "Contents" [level=1] [ref=e24]:
+        - generic [ref=e25]: Contents
+      - navigation [ref=e26]:
+        - generic [ref=e27]:
+          - generic [ref=e28]: Contents
+          - generic [ref=e29]: "1"
+        - generic [ref=e30]:
+          - generic [ref=e31]: Styles cascade
+          - generic [ref=e32]: "1"
+        - generic [ref=e33]:
+          - generic [ref=e34]: Numbering is computed
+          - generic [ref=e35]: "1"
+        - generic [ref=e36]:
+          - generic [ref=e37]: Tables
+          - generic [ref=e38]: "1"
+        - generic [ref=e39]:
+          - generic [ref=e40]: Pages are computed
+          - generic [ref=e41]: "2"
+        - generic [ref=e42]:
+          - generic [ref=e43]: A paragraph longer than a page
+          - generic [ref=e44]: "3"
+        - generic [ref=e45]:
+          - generic [ref=e46]: A section that starts its own page
+          - generic [ref=e47]: "6"
+      - heading "Styles cascade" [level=1] [ref=e48]:
+        - generic [ref=e49]: Styles cascade
+      - paragraph [ref=e50]:
+        - generic [ref=e51]: This paragraph takes its font from
+        - generic [ref=e53]: Normal
+        - generic [ref=e54]: ", its spacing from Body, and nothing from itself."
+      - paragraph [ref=e55]:
+        - generic [ref=e56]: "Direct formatting wins: this one is centred even though Body is not."
       - paragraph [ref=e57]:
-        - generic [ref=e58]: "Direct formatting wins: this one is centred even though Body is not."
-      - paragraph [ref=e59]:
-        - generic [ref=e60]: "Revisions are drawn, not applied:"
-        - generic "insertion by Jinho, 2026-08-05" [ref=e62]: this was added
-        - generic [ref=e63]: and
-        - generic [ref=e65]: sized
-        - generic [ref=e68]: coloured
-        - generic [ref=e71]: styled
-        - generic [ref=e72]: ", then"
-        - generic "deletion by Sujin, 2026-08-05" [ref=e74]: this was removed
-        - generic [ref=e75]: .
-      - paragraph [ref=e76]:
-        - generic [ref=e77]: Written by
+        - generic [ref=e58]: "Revisions are drawn, not applied:"
+        - generic "insertion by Jinho, 2026-08-05" [ref=e60]: this was added
+        - generic [ref=e61]: and
+        - generic [ref=e63]: sized
+        - generic [ref=e66]: coloured
+        - generic [ref=e69]: styled
+        - generic [ref=e70]: ", then"
+        - generic "deletion by Sujin, 2026-08-05" [ref=e72]: this was removed
+        - generic [ref=e73]: .
+      - paragraph [ref=e74]:
+        - generic [ref=e75]: Written by
         - text: Jinho Park
-        - generic [ref=e78]: for
+        - generic [ref=e76]: for
         - text: Barocss Word
-        - generic [ref=e79]: ", on"
+        - generic [ref=e77]: ", on"
         - text: 5 August 2026
-        - generic [ref=e80]: .
-      - heading "Numbering is computed" [level=2] [ref=e81]:
-        - generic [ref=e82]: Numbering is computed
-      - paragraph [ref=e83]:
+        - generic [ref=e78]: .
+      - heading "Numbering is computed" [level=2] [ref=e79]:
+        - generic [ref=e80]: Numbering is computed
+      - paragraph [ref=e81]:
         - text: "1."
-        - generic [ref=e84]: First top-level item
-      - paragraph [ref=e85]:
+        - generic [ref=e82]: First top-level item
+      - paragraph [ref=e83]:
         - text: a.
-        - generic [ref=e86]: A nested item
-      - paragraph [ref=e87]:
+        - generic [ref=e84]: A nested item
+      - paragraph [ref=e85]:
         - text: i.
-        - generic [ref=e88]: Deeper still, in roman
-      - paragraph [ref=e89]:
+        - generic [ref=e86]: Deeper still, in roman
+      - paragraph [ref=e87]:
         - text: b.
-        - generic [ref=e90]: Back out one level
-      - paragraph [ref=e91]:
+        - generic [ref=e88]: Back out one level
+      - paragraph [ref=e89]:
         - text: "2."
-        - generic [ref=e92]: Second top-level item — the deeper counters restart
-      - heading "Tables" [level=2] [ref=e93]:
-        - generic [ref=e94]: Tables
-      - paragraph [ref=e95]:
-        - generic [ref=e96]:
-          - generic [ref=e97]: Put
+        - generic [ref=e90]: Second top-level item — the deeper counters restart
+      - heading "Tables" [level=2] [ref=e91]:
+        - generic [ref=e92]: Tables
+      - paragraph [ref=e93]:
+        - generic [ref=e94]:
+          - generic [ref=e95]: Put
           - text: the caret in a cell and press Tab. The header spans two columns.
-      - paragraph [ref=e98]:
-        - generic [ref=e99]: Table
+      - paragraph [ref=e96]:
+        - generic [ref=e97]: Table
         - text: "1"
-        - generic [ref=e100]:
+        - generic [ref=e98]:
           - text: ":"
-          - generic [ref=e101]: a merged header
-      - table [ref=e102]:
-        - rowgroup [ref=e103]:
-          - columnheader "Merged header" [ref=e104]:
-            - generic [ref=e105]: Merged header
-          - columnheader "Third" [ref=e106]:
-            - generic [ref=e107]: Third
-        - rowgroup [ref=e108]:
-          - row "A1 B1 C1" [ref=e109]:
-            - cell "A1" [ref=e110]:
-              - generic [ref=e111]: A1
-            - cell "B1" [ref=e112]:
-              - generic [ref=e113]: B1
-            - cell "C1" [ref=e114]:
-              - generic [ref=e115]: C1
-          - row "A2 B2 C2" [ref=e116]:
-            - cell "A2" [ref=e117]:
-              - generic [ref=e118]: A2
-            - cell "B2" [ref=e119]:
-              - generic [ref=e120]: B2
-            - cell "C2" [ref=e121]:
-              - generic [ref=e122]: C2
-      - paragraph [ref=e123]:
-        - generic [ref=e124]: See "
+          - generic [ref=e99]: a merged header
+      - table [ref=e100]:
+        - rowgroup [ref=e101]:
+          - columnheader "Merged header" [ref=e102]:
+            - generic [ref=e103]: Merged header
+          - columnheader "Third" [ref=e104]:
+            - generic [ref=e105]: Third
+        - rowgroup [ref=e106]:
+          - row "A1 B1 C1" [ref=e107]:
+            - cell "A1" [ref=e108]:
+              - generic [ref=e109]: A1
+            - cell "B1" [ref=e110]:
+              - generic [ref=e111]: B1
+            - cell "C1" [ref=e112]:
+              - generic [ref=e113]: C1
+          - row "A2 B2 C2" [ref=e114]:
+            - cell "A2" [ref=e115]:
+              - generic [ref=e116]: A2
+            - cell "B2" [ref=e117]:
+              - generic [ref=e118]: B2
+            - cell "C2" [ref=e119]:
+              - generic [ref=e120]: C2
+      - paragraph [ref=e121]:
+        - generic [ref=e122]: See "
         - text: a merged header
-        - generic [ref=e125]: "\","
+        - generic [ref=e123]: "\","
         - text: above
-        - generic [ref=e126]: .
-      - heading "Pages are computed" [level=2] [ref=e127]:
-        - generic [ref=e128]: Pages are computed
+        - generic [ref=e124]: .
+      - heading "Pages are computed" [level=2] [ref=e125]:
+        - generic [ref=e126]: Pages are computed
+      - paragraph [ref=e127]:
+        - generic [ref=e128]: "1. Pagination is measured, not declared. Nothing in this document says where a page ends: the browser breaks the lines, the layout reads the line boxes back, and the break falls wherever the text ran out of room. That is why this section exists at all — a fixture that fits on one page cannot demonstrate a page break, and a rule that is never exercised is a rule that is not known to work."
       - paragraph [ref=e129]:
-        - generic [ref=e130]: "1. Pagination is measured, not declared. Nothing in this document says where a page ends: the browser breaks the lines, the layout reads the line boxes back, and the break falls wherever the text ran out of room. That is why this section exists at all — a fixture that fits on one page cannot demonstrate a page break, and a rule that is never exercised is a rule that is not known to work."
+        - generic [ref=e130]: "2. Pagination is measured, not declared. Nothing in this document says where a page ends: the browser breaks the lines, the layout reads the line boxes back, and the break falls wherever the text ran out of room. That is why this section exists at all — a fixture that fits on one page cannot demonstrate a page break, and a rule that is never exercised is a rule that is not known to work."
       - paragraph [ref=e131]:
-        - generic [ref=e132]: "2. Pagination is measured, not declared. Nothing in this document says where a page ends: the browser breaks the lines, the layout reads the line boxes back, and the break falls wherever the text ran out of room. That is why this section exists at all — a fixture that fits on one page cannot demonstrate a page break, and a rule that is never exercised is a rule that is not known to work."
+        - generic [ref=e132]: "3. Pagination is measured, not declared. Nothing in this document says where a page ends: the browser breaks the lines, the layout reads the line boxes back, and the break falls wherever the text ran out of room. That is why this section exists at all — a fixture that fits on one page cannot demonstrate a page break, and a rule that is never exercised is a rule that is not known to work."
       - paragraph [ref=e133]:
-        - generic [ref=e134]: "3. Pagination is measured, not declared. Nothing in this document says where a page ends: the browser breaks the lines, the layout reads the line boxes back, and the break falls wherever the text ran out of room. That is why this section exists at all — a fixture that fits on one page cannot demonstrate a page break, and a rule that is never exercised is a rule that is not known to work."
+        - generic [ref=e134]: "4. Pagination is measured, not declared. Nothing in this document says where a page ends: the browser breaks the lines, the layout reads the line boxes back, and the break falls wherever the text ran out of room. That is why this section exists at all — a fixture that fits on one page cannot demonstrate a page break, and a rule that is never exercised is a rule that is not known to work."
       - paragraph [ref=e135]:
-        - generic [ref=e136]: "4. Pagination is measured, not declared. Nothing in this document says where a page ends: the browser breaks the lines, the layout reads the line boxes back, and the break falls wherever the text ran out of room. That is why this section exists at all — a fixture that fits on one page cannot demonstrate a page break, and a rule that is never exercised is a rule that is not known to work."
+        - generic [ref=e136]: "5. Pagination is measured, not declared. Nothing in this document says where a page ends: the browser breaks the lines, the layout reads the line boxes back, and the break falls wherever the text ran out of room. That is why this section exists at all — a fixture that fits on one page cannot demonstrate a page break, and a rule that is never exercised is a rule that is not known to work."
       - paragraph [ref=e137]:
-        - generic [ref=e138]: "5. Pagination is measured, not declared. Nothing in this document says where a page ends: the browser breaks the lines, the layout reads the line boxes back, and the break falls wherever the text ran out of room. That is why this section exists at all — a fixture that fits on one page cannot demonstrate a page break, and a rule that is never exercised is a rule that is not known to work."
+        - generic [ref=e138]: "6. Pagination is measured, not declared. Nothing in this document says where a page ends: the browser breaks the lines, the layout reads the line boxes back, and the break falls wherever the text ran out of room. That is why this section exists at all — a fixture that fits on one page cannot demonstrate a page break, and a rule that is never exercised is a rule that is not known to work."
       - paragraph [ref=e139]:
-        - generic [ref=e140]: "6. Pagination is measured, not declared. Nothing in this document says where a page ends: the browser breaks the lines, the layout reads the line boxes back, and the break falls wherever the text ran out of room. That is why this section exists at all — a fixture that fits on one page cannot demonstrate a page break, and a rule that is never exercised is a rule that is not known to work."
+        - generic [ref=e140]: "7. Pagination is measured, not declared. Nothing in this document says where a page ends: the browser breaks the lines, the layout reads the line boxes back, and the break falls wherever the text ran out of room. That is why this section exists at all — a fixture that fits on one page cannot demonstrate a page break, and a rule that is never exercised is a rule that is not known to work."
       - paragraph [ref=e141]:
-        - generic [ref=e142]: "7. Pagination is measured, not declared. Nothing in this document says where a page ends: the browser breaks the lines, the layout reads the line boxes back, and the break falls wherever the text ran out of room. That is why this section exists at all — a fixture that fits on one page cannot demonstrate a page break, and a rule that is never exercised is a rule that is not known to work."
-      - paragraph [ref=e143]:
-        - generic [ref=e144]:
+        - generic [ref=e142]:
           - text: "8. Pagination is measured, not declared. Nothing in this document says where a page ends: the browser breaks the lines, the layout reads the line boxes back, and the break falls wherever the"
           - text: text ran out of room. That is why this section exists at all — a fixture that fits on one page cannot demonstrate a page break, and a rule that is never exercised is a rule that is not known to work.
-      - paragraph [ref=e145]:
-        - generic [ref=e146]: "9. Pagination is measured, not declared. Nothing in this document says where a page ends: the browser breaks the lines, the layout reads the line boxes back, and the break falls wherever the text ran out of room. That is why this section exists at all — a fixture that fits on one page cannot demonstrate a page break, and a rule that is never exercised is a rule that is not known to work."
-      - heading "A paragraph longer than a page" [level=2] [ref=e147]:
-        - generic [ref=e148]: A paragraph longer than a page
-      - paragraph [ref=e149]:
-        - generic [ref=e150]:
+      - paragraph [ref=e143]:
+        - generic [ref=e144]: "9. Pagination is measured, not declared. Nothing in this document says where a page ends: the browser breaks the lines, the layout reads the line boxes back, and the break falls wherever the text ran out of room. That is why this section exists at all — a fixture that fits on one page cannot demonstrate a page break, and a rule that is never exercised is a rule that is not known to work."
+      - heading "A paragraph longer than a page" [level=2] [ref=e145]:
+        - generic [ref=e146]: A paragraph longer than a page
+      - paragraph [ref=e147]:
+        - generic [ref=e148]:
           - text: (1) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (2) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (3) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (4) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (5) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (6) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (7) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (8) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (9) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (10) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (11) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (12) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (13) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (14) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (15) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (16) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (17) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (18) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (19) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (20) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (21) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (22) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (23) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (24) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (25) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (26) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (27) A page break
           - text: inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (28) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (29) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (30) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (31) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (32) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (33) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (34) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (35) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (36) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (37) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (38) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (39) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (40) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text.
-      - heading "A section that starts its own page" [level=1] [ref=e151]:
-        - generic [ref=e152]: A section that starts its own page
-      - paragraph [ref=e153]:
-        - generic [ref=e154]: This heading asked to begin a page, so it did — even though there was room for it above.
-    - generic [ref=e155]:
-      - heading "Two columns" [level=1] [ref=e156]:
-        - generic [ref=e157]: Two columns
+      - heading "A section that starts its own page" [level=1] [ref=e149]:
+        - generic [ref=e150]: A section that starts its own page
+      - paragraph [ref=e151]:
+        - generic [ref=e152]: This heading asked to begin a page, so it did — even though there was room for it above.
+    - generic [ref=e153]:
+      - heading "Two columns" [level=1] [ref=e154]:
+        - generic [ref=e155]: Two columns
+      - paragraph [ref=e156]:
+        - generic [ref=e157]: 1. Text in a section like this one fills the first column to the bottom of the page and then starts again at the top of the second, which is a move to the right and upwards — the one thing a top margin cannot do.
       - paragraph [ref=e158]:
-        - generic [ref=e159]: 1. Text in a section like this one fills the first column to the bottom of the page and then starts again at the top of the second, which is a move to the right and upwards — the one thing a top margin cannot do.
+        - generic [ref=e159]: 2. Text in a section like this one fills the first column to the bottom of the page and then starts again at the top of the second, which is a move to the right and upwards — the one thing a top margin cannot do.
       - paragraph [ref=e160]:
-        - generic [ref=e161]: 2. Text in a section like this one fills the first column to the bottom of the page and then starts again at the top of the second, which is a move to the right and upwards — the one thing a top margin cannot do.
+        - generic [ref=e161]: 3. Text in a section like this one fills the first column to the bottom of the page and then starts again at the top of the second, which is a move to the right and upwards — the one thing a top margin cannot do.
       - paragraph [ref=e162]:
-        - generic [ref=e163]: 3. Text in a section like this one fills the first column to the bottom of the page and then starts again at the top of the second, which is a move to the right and upwards — the one thing a top margin cannot do.
+        - generic [ref=e163]: 4. Text in a section like this one fills the first column to the bottom of the page and then starts again at the top of the second, which is a move to the right and upwards — the one thing a top margin cannot do.
       - paragraph [ref=e164]:
-        - generic [ref=e165]: 4. Text in a section like this one fills the first column to the bottom of the page and then starts again at the top of the second, which is a move to the right and upwards — the one thing a top margin cannot do.
+        - generic [ref=e165]: 5. Text in a section like this one fills the first column to the bottom of the page and then starts again at the top of the second, which is a move to the right and upwards — the one thing a top margin cannot do.
       - paragraph [ref=e166]:
-        - generic [ref=e167]: 5. Text in a section like this one fills the first column to the bottom of the page and then starts again at the top of the second, which is a move to the right and upwards — the one thing a top margin cannot do.
+        - generic [ref=e167]: 6. Text in a section like this one fills the first column to the bottom of the page and then starts again at the top of the second, which is a move to the right and upwards — the one thing a top margin cannot do.
       - paragraph [ref=e168]:
-        - generic [ref=e169]: 6. Text in a section like this one fills the first column to the bottom of the page and then starts again at the top of the second, which is a move to the right and upwards — the one thing a top margin cannot do.
+        - generic [ref=e169]: 7. Text in a section like this one fills the first column to the bottom of the page and then starts again at the top of the second, which is a move to the right and upwards — the one thing a top margin cannot do.
       - paragraph [ref=e170]:
-        - generic [ref=e171]: 7. Text in a section like this one fills the first column to the bottom of the page and then starts again at the top of the second, which is a move to the right and upwards — the one thing a top margin cannot do.
-      - paragraph [ref=e172]:
-        - generic [ref=e173]: 8. Text in a section like this one fills the first column to the bottom of the page and then starts again at the top of the second, which is a move to the right and upwards — the one thing a top margin cannot do.
-    - generic [ref=e174]:
-      - generic [ref=e175]:
-        - heading "Notes" [level=2] [ref=e176]
-        - paragraph [ref=e177]:
-          - generic [ref=e178]: An endnote body. It collects at the end of the document, where a reader looks things up afterwards.
-      - generic [ref=e179]:
-        - heading "Bibliography" [level=2] [ref=e180]
-        - paragraph [ref=e181]:
-          - generic [ref=e182]: ECMA-376, Office Open XML File Formats. Ecma International, 2016.
+        - generic [ref=e171]: 8. Text in a section like this one fills the first column to the bottom of the page and then starts again at the top of the second, which is a move to the right and upwards — the one thing a top margin cannot do.
+    - generic [ref=e172]:
+      - generic [ref=e173]:
+        - heading "Notes" [level=2] [ref=e174]
+        - paragraph [ref=e175]:
+          - generic [ref=e176]: An endnote body. It collects at the end of the document, where a reader looks things up afterwards.
+      - generic [ref=e177]:
+        - heading "Bibliography" [level=2] [ref=e178]
+        - paragraph [ref=e179]:
+          - generic [ref=e180]: ECMA-376, Office Open XML File Formats. Ecma International, 2016.
 ```

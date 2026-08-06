@@ -1,6 +1,6 @@
 import { Editor, Extension } from '@barocss/editor-core';
 import type { ModelSelection } from '@barocss/editor-core';
-import { transaction, applyMark } from '@barocss/model';
+import { transaction, toggleMark } from '@barocss/model';
 
 export interface ItalicExtensionOptions {
   enabled?: boolean;
@@ -28,10 +28,15 @@ export class ItalicExtension implements Extension {
 
     _editor.registerCommand({
       name: 'toggleItalic',
-      execute: async (editor: Editor) => {
-        return await this._toggleItalic(editor);
+      execute: async (editor: Editor, payload?: { selection?: ModelSelection }) => {
+        return await this._toggleItalic(editor, payload?.selection ?? editor.selection);
       },
-      canExecute: () => this._canToggleItalic(),
+      // Nothing selected is nothing to toggle. Answering yes regardless left the
+      // toolbar button enabled always and silent when pressed.
+      canExecute: (_ed: Editor, payload?: { selection?: ModelSelection }) => {
+        const selection = payload?.selection ?? _ed.selection;
+        return !!selection && selection.type === 'range';
+      }
     });
 
     if (this._options.keyboardShortcut) {
@@ -41,11 +46,14 @@ export class ItalicExtension implements Extension {
 
   onDestroy(_editor: Editor): void {}
 
-  private async _toggleItalic(editor: Editor): Promise<boolean> {
-    const selection = editor.selection as ModelSelection | null;
+  private async _toggleItalic(
+    editor: Editor,
+    selection: ModelSelection | null | undefined
+  ): Promise<boolean> {
     if (!selection || selection.type !== 'range') return false;
 
-    const op = applyMark(
+    // Toggles rather than applies: it could be turned on and never off.
+    const op = toggleMark(
       selection.startNodeId,
       selection.startOffset,
       selection.endNodeId,
@@ -54,10 +62,6 @@ export class ItalicExtension implements Extension {
     );
     const result = await transaction(editor, [op]).commit();
     return result.success === true;
-  }
-
-  private _canToggleItalic(): boolean {
-    return true;
   }
 
   private _registerKeyboardShortcut(_editor: Editor): void {

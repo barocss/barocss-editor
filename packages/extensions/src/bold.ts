@@ -1,6 +1,6 @@
 import { Editor, Extension } from '@barocss/editor-core';
 import type { ModelSelection } from '@barocss/editor-core';
-import { transaction, applyMark } from '@barocss/model';
+import { transaction, toggleMark } from '@barocss/model';
 
 export interface BoldExtensionOptions {
   enabled?: boolean;
@@ -28,10 +28,17 @@ export class BoldExtension implements Extension {
 
     _editor.registerCommand({
       name: 'toggleBold',
-      execute: async (editor: Editor) => {
-        return await this._toggleBold(editor);
+      execute: async (editor: Editor, payload?: { selection?: ModelSelection }) => {
+        return await this._toggleBold(editor, payload?.selection ?? editor.selection);
       },
-      canExecute: () => this._canToggleBold(),
+      // A toggle with nothing selected has nothing to toggle. It used to answer
+      // yes to everything, which left the toolbar button enabled at all times
+      // and doing nothing when pressed — the failure is silent, which is the
+      // worst kind for a control that looks like it worked.
+      canExecute: (_ed: Editor, payload?: { selection?: ModelSelection }) => {
+        const selection = payload?.selection ?? _ed.selection;
+        return !!selection && selection.type === 'range';
+      }
     });
 
     if (this._options.keyboardShortcut) {
@@ -41,12 +48,17 @@ export class BoldExtension implements Extension {
 
   onDestroy(_editor: unknown): void {}
 
-  private async _toggleBold(editor: Editor): Promise<boolean> {
-    const selection = editor.selection as ModelSelection | null;
+  private async _toggleBold(
+    editor: Editor,
+    selection: ModelSelection | null | undefined
+  ): Promise<boolean> {
     if (!selection || selection.type !== 'range') return false;
 
-    // 범위 전체를 bold로 적용. model의 applyMark(전체 범위) 사용.
-    const op = applyMark(
+    // Toggles rather than applies. It applied unconditionally before, so bold
+    // could be turned on and never off: pressing Mod+B on bold text left it
+    // bold, and the toolbar button — drawn as pressed, announced as pressed —
+    // did nothing when pressed again.
+    const op = toggleMark(
       selection.startNodeId,
       selection.startOffset,
       selection.endNodeId,
@@ -55,10 +67,6 @@ export class BoldExtension implements Extension {
     );
     const result = await transaction(editor, [op]).commit();
     return result.success === true;
-  }
-
-  private _canToggleBold(): boolean {
-    return true;
   }
 
   private _registerKeyboardShortcut(_editor: unknown): void {

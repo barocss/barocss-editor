@@ -30,10 +30,15 @@ export class StrikeThroughExtension implements Extension {
     (editor as any).registerCommand({
       name: 'toggleStrikeThrough',
       execute: async (ed: Editor, payload?: { selection?: ModelSelection }) => {
-        return await this._executeToggleStrikeThrough(ed, payload?.selection);
+        return await this._executeToggleStrikeThrough(ed, payload?.selection ?? ed.selection ?? undefined);
       },
+      // Falls back to the editor's own selection, because the two paths that
+      // reach here do not agree: a toolbar fills the selection in, and the key
+      // map executes with an empty payload. Requiring the payload to carry one
+      // meant the button worked and the shortcut silently did nothing.
       canExecute: (_ed: Editor, payload?: { selection?: ModelSelection }) => {
-        return !!payload?.selection && payload.selection.type === 'range';
+        const selection = payload?.selection ?? _ed.selection;
+        return !!selection && selection.type === 'range';
       }
     });
   }

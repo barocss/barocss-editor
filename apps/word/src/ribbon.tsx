@@ -3,6 +3,7 @@ import type { Editor, SelectionSummary } from '@barocss/editor-core';
 import { currentStyle, WORD_STYLES, WORD_TOOLBAR } from '@barocss/office-word';
 import { Toolbar, ToolbarGroup, ToolbarSeparator, ToolbarToggle } from './ui/toolbar';
 import { StyleSelect } from './ui/style-select';
+import { ControlIcon } from './ui/icons';
 
 /**
  * Word's ribbon.
@@ -54,7 +55,7 @@ export function Ribbon({ editor }: { editor: Editor }) {
                 disabled={!editor.canRun(control.command, control.payload)}
                 onActivate={() => void editor.run(control.command, control.payload)}
               >
-                {control.icon}
+                <ControlIcon id={control.id} fallback={control.icon} />
               </ToolbarToggle>
             ))}
           </ToolbarGroup>
