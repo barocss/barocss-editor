@@ -279,11 +279,7 @@ test.describe('pages follow the text', () => {
       .toBeGreaterThan(before);
   });
 
-  // Known defect, recorded rather than hidden. Measured: after twenty Enters the
-  // document is 8 sheets, and the *first* Ctrl+Z leaves 0 — one undo empties the
-  // document instead of undoing one edit. It worked before the app grew a React
-  // shell, so it is a regression from that change and not from the engine.
-  test.fail('gives back the pages when the content shrinks again', async ({ page }) => {
+  test('gives back the pages when the content shrinks again', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('.w-sheet');
 

@@ -477,15 +477,54 @@ export class Editor implements ContextProvider {
     return this.executeCommand(command, this._withSelection(payload));
   }
 
+  /**
+   * The payload a command gets, with the selection filled in — but only while
+   * the selection still points at nodes that exist.
+   *
+   * An undo removes the nodes its inverse operations delete, and nothing puts
+   * the selection back on something live: it goes on pointing at a node that is
+   * gone. `editor:content.change` is emitted from inside the transaction, so a
+   * toolbar refreshing on that event asks its questions in exactly that window.
+   * Handing it the dead selection is how a query about a button ends up walking
+   * a tree the node was removed from.
+   */
   private _withSelection(payload?: Record<string, unknown>): Record<string, unknown> {
     const selection = this.selection;
-    return { ...(selection ? { selection } : {}), ...(payload ?? {}) };
+    const live = selection && this._selectionIsLive(selection) ? selection : null;
+    return { ...(live ? { selection: live } : {}), ...(payload ?? {}) };
   }
 
+  /** Whether both ends of a selection still name nodes in the store. */
+  private _selectionIsLive(selection: ModelSelection): boolean {
+    const store: any = this._dataStore;
+    if (!store?.getNode) return true;
+    for (const sid of [selection.startNodeId, selection.endNodeId]) {
+      if (sid && !store.getNode(sid)) return false;
+    }
+    return true;
+  }
+
+  /**
+   * Whether a command could run right now.
+   *
+   * A question with two possible answers, so it answers one of them. A
+   * predicate that throws is a bug in that command, and it used to become a
+   * blank page: the toolbar asks this for every control on every change, from
+   * inside a React render, where an exception unmounts the whole tree. One
+   * broken command disabling its own button is the proportionate outcome.
+   */
   canExecuteCommand(command: string, payload?: any): boolean {
     const commandDef = this._commands.get(command);
     if (!commandDef) return false;
-    return commandDef.canExecute ? commandDef.canExecute(this, payload) : true;
+    if (!commandDef.canExecute) return true;
+    try {
+      return commandDef.canExecute(this, payload);
+    } catch (error) {
+      // Warned rather than swallowed: a command whose predicate throws is
+      // broken, and a silent false would hide that for as long as it lasted.
+      console.warn(`[Editor] canExecute("${command}") threw; treating as not runnable.`, error);
+      return false;
+    }
   }
 
   setContent(content: DocumentState): void {

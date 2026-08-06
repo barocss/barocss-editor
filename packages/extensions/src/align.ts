@@ -75,20 +75,44 @@ export class AlignExtension implements Extension {
       return null;
     };
 
+    // A range is only answerable while both of its ends exist. Undo removes the
+    // nodes it reverts and leaves the selection pointing at them, so asking the
+    // store to walk from a removed node to a live one is asking it to order two
+    // nodes in different trees — which it rightly refuses to do.
+    const live = (sid: string | undefined): boolean => !!sid && !!dataStore.getNode?.(sid);
+    if (!live(selection.startNodeId)) return [];
+
     const starting = selectedNodeIds(selection);
     const sids =
       starting.length > 0
         ? starting
-        : (dataStore.getNodesInRange?.(selection.startNodeId, selection.endNodeId) ?? [
-            selection.startNodeId
-          ]);
+        : this._range(dataStore, selection);
 
     const blocks: string[] = [];
-    for (const sid of sids) {
+    for (const sid of sids as string[]) {
       const block = blockOf(sid);
       if (block && !blocks.includes(block)) blocks.push(block);
     }
     return blocks;
+  }
+
+  /**
+   * The nodes a text range covers, or just its start if the range is not one
+   * the store can walk.
+   *
+   * Two ends can both exist and still not be orderable — one in the body and
+   * one in back matter are in different trees. Falling back to the start node
+   * aligns the block the caret is in, which is the smallest correct answer;
+   * throwing would take down whoever asked.
+   */
+  private _range(dataStore: any, selection: ModelSelection): string[] {
+    try {
+      return dataStore.getNodesInRange?.(selection.startNodeId, selection.endNodeId) ?? [
+        selection.startNodeId
+      ];
+    } catch {
+      return [selection.startNodeId];
+    }
   }
 
   /**

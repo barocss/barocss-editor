@@ -221,6 +221,12 @@ describe('asking whether a command could run', () => {
     // every button disabled — the key map had this bug too.
     expect(editor.canExecuteCommand('needsSelection')).toBe(false);
 
+    // The selection has to name something that exists: one that points at a
+    // node the store does not have is not filled in, because a command given it
+    // could only fail. That is not hypothetical — undo leaves exactly such a
+    // selection behind.
+    editor.dataStore.getNode = (sid: string) => (sid === 't' ? { sid, stype: 'inline-text' } : undefined);
+
     editor.selectionManager.setSelection({
       type: 'range',
       startNodeId: 't',
