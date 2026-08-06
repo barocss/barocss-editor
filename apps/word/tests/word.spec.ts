@@ -191,6 +191,45 @@ test.describe('pages', () => {
     }
   });
 
+  test('draws the sheets behind the text rather than over it', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-sheet');
+
+    // The sheets are the paper, so nothing of the document may be painted under
+    // them. This went wrong for real and nothing caught it: the sheets are
+    // positioned and the text is not, and CSS paints positioned boxes after
+    // in-flow ones regardless of document order, so an opaque white rectangle
+    // covered every word. The page looked blank while the DOM, the geometry and
+    // the text content were all exactly right — which is why the checks above
+    // passed throughout.
+    //
+    // Hit testing follows paint order, so asking what is on top answers the
+    // question. The sheets set `pointer-events: none` to let clicks through, and
+    // that also hides them from `elementsFromPoint` — so it is lifted for the
+    // duration of the question, and put back.
+    const covered = await page.evaluate(() => {
+      const sheets = [...document.querySelectorAll('.w-sheets')] as HTMLElement[];
+      sheets.forEach((el) => (el.style.pointerEvents = 'auto'));
+      try {
+        const blocks = [...document.querySelectorAll('.w-heading, .w-paragraph')].slice(0, 30);
+        return blocks
+          .filter((block) => {
+            const box = block.getBoundingClientRect();
+            if (box.height === 0 || box.bottom < 0 || box.top > window.innerHeight) return false;
+            const above = document.elementsFromPoint(box.left + 4, box.top + box.height / 2);
+            // Anything from the chrome layer sitting above this block in the
+            // stack is painted over it.
+            return above.slice(0, above.indexOf(block)).some((el) => el.closest('.w-sheets'));
+          })
+          .map((block) => block.textContent?.trim().slice(0, 30));
+      } finally {
+        sheets.forEach((el) => (el.style.pointerEvents = 'none'));
+      }
+    });
+
+    expect(covered).toEqual([]);
+  });
+
   // Known defect, recorded rather than hidden: with the document carrying a
   // split paragraph, a two-column section and back matter all at once, one page
   // opens 61px below its content top and twelve lines fall outside a page. It

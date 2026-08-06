@@ -312,6 +312,11 @@ export function registerWordRenderers(): void {
         'data-kind': String(node.attributes?.kind ?? 'flow'),
         style: {
           position: 'relative',
+          // A stacking context, so that the sheets drawn inside it can be put
+          // behind the text and stay there. Without one, a negative z-index
+          // escapes to the nearest ancestor that has a context and the sheets
+          // disappear behind whatever paints there.
+          isolation: 'isolate',
           // A flex column so that adjacent paragraph margins do not collapse.
           // Word adds space after one paragraph to space before the next; CSS
           // takes the larger of the two. Left alone, the flow would be shorter
@@ -339,7 +344,15 @@ export function registerWordRenderers(): void {
               position: 'absolute',
               inset: '0',
               pointerEvents: 'none',
-              userSelect: 'none'
+              userSelect: 'none',
+              // Behind the text, which is the whole point of a sheet: it is the
+              // paper the document is printed on. Being positioned, it would
+              // otherwise paint *above* every static block in the flow no matter
+              // how early it appears in the DOM — CSS paints positioned boxes
+              // after in-flow ones — and an opaque white rectangle over the
+              // document hides all of it. Only a negative z-index comes before
+              // in-flow content in the painting order; zero is still after.
+              zIndex: '-1'
             }
           },
           [...sheets, ...furniture]
