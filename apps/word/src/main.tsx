@@ -9,6 +9,7 @@ import {
   createWordEditor,
   createWordEnv,
   documentFontFamilies,
+  printCss,
   createWordLayoutPass,
   registerPageBreakWidget,
   PAGE_BREAK_STYPE,
@@ -117,9 +118,29 @@ export function mountWord(container: HTMLElement): { editor: Editor; view: Edito
       // at: where the breaks fell, and how tall each page turned out.
       onLayout: (layouts) => {
         window.wordLayout = layouts;
+        updatePrintStyles(layouts);
       }
     })
   );
+
+  /**
+   * Keep the print stylesheet matching the pages that were computed.
+   *
+   * Printing is not a second pagination — it is this one, honoured. The sheet
+   * size and margins come from the layout that was actually measured, so paper
+   * and screen cannot disagree about where a page ends.
+   */
+  let printStyle: HTMLStyleElement | undefined;
+  const updatePrintStyles = (layouts: Map<string, SurfaceLayout>): void => {
+    const css = printCss([...layouts.values()][0]?.metrics);
+    if (!css) return;
+    if (!printStyle) {
+      printStyle = document.createElement('style');
+      printStyle.setAttribute('data-word-print', 'true');
+      document.head.appendChild(printStyle);
+    }
+    if (printStyle.textContent !== css) printStyle.textContent = css;
+  };
 
   /**
    * Draw the page breaks that fall inside a paragraph.

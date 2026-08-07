@@ -104,6 +104,7 @@ export { createFieldResolver, type FieldResolver } from './field-resolver';
 export { lineStartOffsets, type LineAnchor } from './line-offsets';
 export { registerPageBreakWidget, PAGE_BREAK_STYPE } from './page-break-widget';
 export { formatDateField } from './date-field';
+export { printCss } from './print';
 export {
   WORD_FONT_CATALOGUE,
   isWebFont,

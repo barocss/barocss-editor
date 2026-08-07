@@ -85,6 +85,20 @@ export function createWordLayoutPass(options: WordLayoutPassOptions): () => Rend
   let previous: string | null = null;
 
   return () => {
+    // Nothing is recomputed while the page is being printed.
+    //
+    // Pagination works by measuring what is on screen, and printing changes what
+    // is on screen: the sheets are hidden, the section loses its padding to the
+    // page box, and blocks placed by coordinate go back into the flow. Measured
+    // then, the pass computes a *different* set of pages and rewrites the
+    // document to match — so what came out of the printer depended on whether
+    // the pass had run in print media yet, and the same document printed as
+    // seven pages or ten.
+    //
+    // The pages were already decided. Printing is that decision honoured, and a
+    // pass that re-decides during it is the one thing that can stop it being.
+    if (container.ownerDocument?.defaultView?.matchMedia?.('print')?.matches) return;
+
     // Rebuilt per pass rather than cached: the resolvers memoise, so one held
     // across an edit would resolve against the document as it used to be.
     const styles = createStyleResolver(doc);

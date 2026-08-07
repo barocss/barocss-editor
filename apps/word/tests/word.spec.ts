@@ -1153,6 +1153,135 @@ test.describe('sheets under columns', () => {
   });
 })
 
+/**
+ * Printing.
+ *
+ * The document already has pages: the paginator measured the rendered text and
+ * decided where each one ends. Printing is not a second pagination but that one
+ * honoured, so what these check is agreement — the paper has the pages the
+ * screen shows, and nothing that is only on screen goes to paper while nothing
+ * that is the document stays off it.
+ */
+/**
+ * Wait until pagination has stopped moving.
+ *
+ * The layout runs, measures its own output and runs again; asking during that
+ * is asking about a page count on its way somewhere else. Two readings that
+ * agree is the cheapest evidence it has arrived.
+ */
+async function settled(page: import('@playwright/test').Page) {
+  // Attached rather than visible: in print media the sheets are hidden — the
+  // page itself is the paper — and they are still what there is to count.
+  await page.waitForSelector('.w-sheet', { state: 'attached' });
+  let previous = -1;
+  await expect
+    .poll(
+      async () => {
+        const count = await page.locator('.w-sheet').count();
+        const stable = count === previous && count > 0;
+        previous = count;
+        return stable;
+      },
+      { timeout: 15000, intervals: [250] }
+    )
+    .toBe(true);
+}
+
+test.describe('print', () => {
+  // Recorded, not hidden, and not yet true. Measured on the sample: the screen
+  // draws seven sheets, the layout says six pages in one section and two in
+  // another, and the PDF comes out at ten. Three numbers for one document.
+  //
+  // Two things stand in the way, and the first is not printing at all: the
+  // sheet count and the layout's own page count already disagree, which is the
+  // same family as the recorded page-position defect. Nothing downstream can be
+  // page-for-page faithful while the pagination is not self-consistent.
+  //
+  // The second is that a break can only be forced before a block. Three of this
+  // document's page boundaries fall inside a paragraph, where CSS has no way to
+  // say "break here" — those pages exist because the paginator split a
+  // paragraph at a measured line, and a stylesheet cannot express that. Making
+  // paper match the screen exactly needs the layout rendered as pages rather
+  // than described to the browser as breaks.
+  test.fail('puts the same number of pages on paper as on screen', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+    const sheets = await page.locator('.w-sheet').count();
+
+    const pdf = await page.pdf({ printBackground: true, preferCSSPageSize: true });
+
+    // Read out of the PDF itself rather than from anything the app says. A page
+    // tree records how many pages it holds, and that is the only number a
+    // printer acts on.
+    const counts = [...pdf.toString('latin1').matchAll(/\/Count\s+(\d+)/g)].map((m) => Number(m[1]));
+    expect(counts).toContain(sheets);
+  });
+
+  test('breaks the paper where the paginator broke the page', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    // Every block the paginator put at the top of a page is marked, and the
+    // print stylesheet turns each mark into a break. This is the part that can
+    // be expressed in CSS — a break before a block — and it is asserted here
+    // rather than through the PDF because the PDF cannot say *why* it broke.
+    const openers = await page.locator('[data-page-open="true"]').count();
+    expect(openers).toBeGreaterThan(0);
+
+    const css = await page.evaluate(
+      () => document.querySelector('style[data-word-print]')!.textContent!
+    );
+    expect(css).toContain("[data-page-open='true']");
+    expect(css).toContain('break-before: page');
+  });
+
+  test('prints the paper the section describes', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    const css = await page.evaluate(
+      () => document.querySelector('style[data-word-print]')!.textContent!
+    );
+    // US Letter with one-inch margins, in points — the unit a printer works in.
+    expect(css).toContain('size: 612pt 792pt');
+    expect(css).toContain('margin: 72pt 72pt 72pt 72pt');
+  });
+
+  test('keeps the document and drops the application', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    await page.emulateMedia({ media: 'print' });
+    const printed = await page.evaluate(() => {
+      const visible = (el: Element) => el.getBoundingClientRect().height > 0;
+      const notes = [...document.querySelectorAll('.w-footnotes')];
+      const firstParagraph = document.querySelector('.w-paragraph')!;
+      return {
+        toolbar: [...document.querySelectorAll('.w-toolbar')].filter(visible).length,
+        sheets: [...document.querySelectorAll('.w-sheet')].filter(visible).length,
+        // A footnote is the document, not decoration. Dropping the layer it is
+        // drawn in would take the text off the printout altogether.
+        notes: notes.filter(visible).length,
+        notesAfterBody:
+          notes.length > 0 &&
+          notes[0].getBoundingClientRect().top > firstParagraph.getBoundingClientRect().top,
+        // A block the column layout placed by coordinate is out of the flow, and
+        // blocks out of the flow print on top of one another.
+        positioned: [...document.querySelectorAll('.w-surface > *')].filter(
+          (el) => getComputedStyle(el as HTMLElement).position === 'absolute'
+        ).length
+      };
+    });
+    await page.emulateMedia({ media: 'screen' });
+
+    expect(printed.toolbar).toBe(0);
+    expect(printed.sheets).toBe(0);
+    expect(printed.notes).toBeGreaterThan(0);
+    expect(printed.notesAfterBody).toBe(true);
+    expect(printed.positioned).toBe(0);
+  });
+});
+
 test.describe('the toolbar', () => {
   test('shows a mark as on when it covers the whole selection', async ({ page }) => {
     await page.goto('/');
