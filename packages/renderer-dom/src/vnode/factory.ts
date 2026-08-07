@@ -2289,11 +2289,20 @@ export class VNodeBuilder {
         let inner: VNode;
 
         if (markRun.types && markRun.types.length > 0) {
+          // Decorator runs are cut from `markRun.text`, so their offsets are
+          // relative to it while the run they replace is positioned in the whole
+          // node. Rebasing keeps the two in the same coordinates, which matters
+          // downstream: a mark's own range is a position in the node, and the
+          // renderer finds the mark covering a run by overlapping the two. Left
+          // relative, only a mark starting at the very beginning of its node
+          // could ever match — and the ones that lost were the marks that carry
+          // a value, which then drew at the inherited size or colour instead of
+          // their own.
           const modifiedMarkRun: TextRun = {
             ...markRun,
             text: decoratorRun.text,
-            start: decoratorRun.start,
-            end: decoratorRun.end
+            start: markRun.start + decoratorRun.start,
+            end: markRun.start + decoratorRun.end
           };
           inner = this._buildMarkedRunVNode(modifiedMarkRun, model);
         } else {

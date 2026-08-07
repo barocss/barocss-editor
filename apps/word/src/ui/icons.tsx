@@ -1,5 +1,10 @@
 import {
   AlignCenter,
+  Baseline,
+  CaseSensitive,
+  Highlighter,
+  Subscript,
+  Superscript,
   AlignJustify,
   AlignLeft,
   AlignRight,
@@ -36,7 +41,12 @@ const ICONS: Record<string, LucideIcon> = {
   'align-left': AlignLeft,
   'align-center': AlignCenter,
   'align-right': AlignRight,
-  'align-justify': AlignJustify
+  'align-justify': AlignJustify,
+  superscript: Superscript,
+  subscript: Subscript,
+  'small-caps': CaseSensitive,
+  highlight: Highlighter,
+  'font-color': Baseline
 };
 
 /**

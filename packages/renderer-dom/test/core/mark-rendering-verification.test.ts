@@ -115,6 +115,37 @@ describe('Mark Rendering Verification', () => {
       expect(textContent.length).toBe(11);
     });
 
+    it('offset 0에서 시작하지 않는 값 마크도 자기 값으로 렌더링되어야 함', () => {
+      // A mark's range is a position in its node; the runs the text is cut into
+      // were being handed to the mark template in coordinates relative to the
+      // piece they came from. The two only agree when a mark starts at the very
+      // beginning of the node, so every other valued mark — a size, a colour, a
+      // font — silently drew with its template's default instead of its own
+      // value. This is the case that was wrong, kept separate from the one that
+      // was accidentally right.
+      defineMark('fontColor', element('span', {
+        className: 'custom-font-color',
+        style: { color: (d: any) => d?.attributes?.color || '#000000' }
+      }, [data('text')]));
+
+      renderer.render(container, {
+        sid: 'p-mid',
+        stype: 'paragraph',
+        content: [
+          {
+            sid: 'text-mid',
+            stype: 'inline-text',
+            text: 'plain then red',
+            marks: [{ stype: 'fontColor', range: [11, 14], attrs: { color: '#ff0000' } }]
+          }
+        ]
+      });
+
+      const marked = container.querySelector('.custom-font-color') as HTMLElement;
+      expect(marked?.textContent).toBe('red');
+      expect(marked?.style.color).toBe('rgb(255, 0, 0)');
+    });
+
     it('fontColor 마크가 텍스트 중복 없이 렌더링되어야 함', () => {
       defineMark('fontColor', element('span', {
         className: 'custom-font-color',
@@ -695,6 +726,12 @@ describe('Mark Rendering Verification', () => {
   });
 
   describe('복잡한 마크 중첩 시나리오', () => {
+    // The expected colour here used to be black, which is what the renderer
+    // produced and not what the test asked for: the fontColor mark is declared
+    // red over [15, 35]. A mark that did not start at offset 0 lost its
+    // attributes on the way to its template, so it drew with the template's
+    // default — and this baseline recorded that. Only marks starting at 0 were
+    // unaffected, which is why the simpler cases in this file always passed.
     it('5개 이상의 마크가 서로 다른 range로 중첩되어야 함', () => {
       // Define 6 marks
       defineMark('bold', element('span', {
@@ -776,22 +813,22 @@ describe('Mark Rendering Verification', () => {
             </span>
             <span class="custom-bold mark-bold" style="font-weight: bold;">
               <span class="custom-italic mark-italic" style="font-style: italic;">
-                <span class="custom-font-color mark-fontColor" style="color: rgb(0, 0, 0);"><span>ex te</span></span>
+                <span class="custom-font-color mark-fontColor" style="color: rgb(255, 0, 0);"><span>ex te</span></span>
               </span>
             </span>
             <span class="custom-italic mark-italic" style="font-style: italic;">
-              <span class="custom-font-color mark-fontColor" style="color: rgb(0, 0, 0);">
+              <span class="custom-font-color mark-fontColor" style="color: rgb(255, 0, 0);">
                 <span class="custom-bg-color mark-bgColor" style="background-color: rgb(255, 255, 0);"><span>xt wi</span></span>
               </span>
             </span>
             <span class="custom-italic mark-italic" style="font-style: italic;">
-              <span class="custom-font-color mark-fontColor" style="color: rgb(0, 0, 0);">
+              <span class="custom-font-color mark-fontColor" style="color: rgb(255, 0, 0);">
                 <span class="custom-bg-color mark-bgColor" style="background-color: rgb(255, 255, 0);">
                   <span class="custom-underline mark-underline" style="text-decoration: underline;"><span>th mu</span></span>
                 </span>
               </span>
             </span>
-            <span class="custom-font-color mark-fontColor" style="color: rgb(0, 0, 0);">
+            <span class="custom-font-color mark-fontColor" style="color: rgb(255, 0, 0);">
               <span class="custom-bg-color mark-bgColor" style="background-color: rgb(255, 255, 0);">
                 <span class="custom-underline mark-underline" style="text-decoration: underline;">
                   <span class="custom-strikethrough mark-strikethrough" style="text-decoration: line-through;"><span>ltipl</span></span>

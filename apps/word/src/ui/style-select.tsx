@@ -8,23 +8,34 @@ export interface StyleOption {
 }
 
 /**
- * The paragraph style control.
+ * A control that picks one value out of several: the paragraph style, the font,
+ * the size.
  *
- * Shows nothing when the selected blocks are in different styles. A dropdown
- * that picked one of them would apply it to all on the next change, which is a
+ * Shows nothing when the selection does not agree on one. A dropdown that picked
+ * one of two fonts would apply it to both on the next change, which is a
  * reformat the user never asked for — so "they disagree" is drawn as its own
  * state rather than as one of the values.
+ *
+ * The name is passed in rather than fixed: three of these sit next to each other
+ * and a screen reader announcing all of them as "paragraph style" would be worse
+ * than no name at all.
  */
 export function StyleSelect({
   options,
   value,
   disabled,
-  onChange
+  onChange,
+  ariaLabel,
+  className,
+  testClass = 'w-toolbar-style'
 }: {
   options: StyleOption[];
   value: string | null;
   disabled?: boolean;
   onChange: (id: string) => void;
+  ariaLabel: string;
+  className?: string;
+  testClass?: string;
 }) {
   const mixed = value === null;
 
@@ -32,13 +43,15 @@ export function StyleSelect({
     <Select.Root value={value ?? ''} onValueChange={onChange} disabled={disabled}>
       <Select.Trigger
         className={cn(
-          'w-toolbar-style inline-flex h-7 min-w-36 items-center justify-between gap-2 rounded',
+          testClass,
+          'inline-flex h-7 items-center justify-between gap-2 rounded',
           'border border-neutral-300 px-2 text-sm dark:border-neutral-700',
           'disabled:pointer-events-none disabled:opacity-40',
-          mixed && 'text-neutral-500'
+          mixed && 'text-neutral-500',
+          className ?? 'min-w-36'
         )}
         data-mixed={mixed ? 'true' : 'false'}
-        aria-label="Paragraph style"
+        aria-label={ariaLabel}
       >
         <Select.Value placeholder="—" />
         <Select.Icon>

@@ -20,6 +20,8 @@
  */
 import type { MarkState, SelectionSummary } from '@barocss/editor-core';
 import { markState } from '@barocss/editor-core';
+import type { StyleResolver } from './style-resolver';
+import type { DocumentNode } from './document-access';
 
 export interface ToolbarControl {
   id: string;
@@ -111,6 +113,38 @@ export const WORD_TOOLBAR: ToolbarGroup[] = [
         icon: 'S',
         command: 'toggleStrikeThrough',
         state: mark('strikethrough')
+      },
+      {
+        id: 'superscript',
+        label: 'Superscript',
+        icon: 'x²',
+        command: 'toggleSuperscript',
+        state: mark('superscript')
+      },
+      {
+        id: 'subscript',
+        label: 'Subscript',
+        icon: 'x₂',
+        command: 'toggleSubscript',
+        state: mark('subscript')
+      },
+      {
+        id: 'small-caps',
+        label: 'Small capitals',
+        icon: 'ᴀ',
+        command: 'toggleSmallCaps',
+        state: mark('smallCaps')
+      },
+      {
+        // Word's highlighter is a colour picker; this is its default colour,
+        // which is the one the button in Word applies when clicked rather than
+        // opened.
+        id: 'highlight',
+        label: 'Highlight',
+        icon: '▨',
+        command: 'toggleHighlight',
+        payload: { color: 'yellow' },
+        state: mark('highlight')
       }
     ]
   },
@@ -148,6 +182,122 @@ export const WORD_TOOLBAR: ToolbarGroup[] = [
     ]
   }
 ];
+
+/**
+ * A control that picks a value rather than turning something on and off.
+ *
+ * Font and size are not toggles: they answer "which one", and the answer can be
+ * "the blocks disagree", which is a third state a toggle has no room for. The
+ * command takes the chosen value in its payload under `key`.
+ */
+export interface ToolbarChoice {
+  id: string;
+  label: string;
+  command: string;
+  /** The payload field the chosen value goes in. */
+  key: string;
+  /** The mark this reads, so the current value can be shown. */
+  markType: string;
+  /** Where the value sits in the mark's attributes. */
+  attr: string;
+  options: { value: string | number; label: string }[];
+}
+
+/**
+ * The fonts offered.
+ *
+ * A short list on purpose. Word offers every font installed, which a web
+ * document cannot promise to render — a document set in a font the next reader
+ * lacks is a document that looks different to each of them. These are the
+ * families the sample stylesheet already uses plus the web-safe ones.
+ */
+export const WORD_FONTS: ToolbarChoice = {
+  id: 'font-family',
+  label: 'Font',
+  command: 'setFontFamily',
+  key: 'family',
+  markType: 'fontFamily',
+  attr: 'family',
+  options: [
+    { value: 'Georgia', label: 'Georgia' },
+    { value: 'Times New Roman', label: 'Times New Roman' },
+    { value: 'Arial', label: 'Arial' },
+    { value: 'Helvetica', label: 'Helvetica' },
+    { value: 'Courier New', label: 'Courier New' },
+    { value: 'Verdana', label: 'Verdana' }
+  ]
+};
+
+/**
+ * The sizes offered, in Word's unit.
+ *
+ * Half-points, because that is what a .docx stores and what the renderer reads a
+ * number as — 22 is eleven point. The labels are points, because that is what a
+ * writer means by "eleven".
+ */
+export const WORD_FONT_SIZES: ToolbarChoice = {
+  id: 'font-size',
+  label: 'Size',
+  command: 'setFontSize',
+  key: 'size',
+  markType: 'fontSize',
+  attr: 'size',
+  options: [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 36, 48, 72].map((points) => ({
+    value: points * 2,
+    label: String(points)
+  }))
+};
+
+/**
+ * The value a choice control should show, or nothing when the selection does not
+ * agree on one.
+ *
+ * Nothing rather than a guess: showing one of two fonts in a selection that
+ * spans both would apply it to the whole selection on the next change.
+ */
+export function currentChoice(
+  choice: ToolbarChoice,
+  summary: SelectionSummary,
+  inherited?: () => string | number | undefined
+): string | null {
+  if (summary.mixedMarks.includes(choice.markType)) return null;
+
+  const value = summary.markAttributes?.[choice.markType]?.[choice.attr];
+  if (value !== undefined && value !== null) return String(value);
+
+  // No mark is not the same as no value. Almost no text in a Word document
+  // carries direct font formatting — it inherits from its style, and its
+  // style's parent, and the document defaults. A box that showed "—" for a
+  // paragraph plainly set in Georgia would be saying the selection disagrees
+  // with itself when it agrees perfectly, which is the one thing that state is
+  // supposed to mean.
+  const resolved = inherited?.();
+  return resolved === undefined ? null : String(resolved);
+}
+
+/**
+ * What a choice control resolves to for a block, following the style cascade.
+ *
+ * Word's own font box works this way: it shows what the text *is*, not whether
+ * someone typed it in directly.
+ */
+export function inheritedChoice(
+  choice: ToolbarChoice,
+  styles: StyleResolver | undefined,
+  block: DocumentNode | undefined
+): string | number | undefined {
+  if (!styles || !block) return undefined;
+  const format = styles.resolveNode(block, 'character') as Record<string, unknown>;
+  const value = format[choice.markType];
+  if (typeof value === 'number') return value;
+  if (typeof value !== 'string') return undefined;
+
+  // A stylesheet writes a stack — `Georgia, serif` — where Word names one font
+  // and lets the reader's machine substitute. The control offers font names, so
+  // the first of the stack is the one it is showing; matching the whole string
+  // would leave the box blank for text that is plainly set in Georgia.
+  return value.split(',')[0].trim().replace(/^["']|["']$/g, '');
+}
 
 /** The styles the dropdown offers, and the command that applies each. */
 export const WORD_STYLES: { id: string; label: string; command: string; stype: string; level?: number }[] = [

@@ -1271,6 +1271,51 @@ test.describe('the toolbar', () => {
     await expect(page.locator('[data-control="align-center"]')).toHaveAttribute('data-state', 'on');
   });
 
+  test('shows the font and size the text inherits, not a dash', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-toolbar');
+    await placeCaret(page, '.w-paragraph', 1);
+
+    // Almost no text in a Word document carries direct font formatting — it
+    // comes down the style cascade — so a control that read only marks would sit
+    // blank over every ordinary paragraph and claim the selection disagreed with
+    // itself.
+    await expect(page.locator('.w-toolbar-font-family')).toContainText('Georgia');
+    await expect(page.locator('.w-toolbar-font-size')).toContainText('11');
+  });
+
+  test('applies the size chosen in the dropdown', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-toolbar');
+    await placeCaret(page, '.w-paragraph', 1);
+    await page.keyboard.down('Shift');
+    for (let i = 0; i < 8; i++) await page.keyboard.press('ArrowRight');
+    await page.keyboard.up('Shift');
+
+    const before = await page.evaluate(() => {
+      const sel = (window as any).editor.selection;
+      const el = document.querySelector(`[data-bc-sid="${sel.startNodeId}"]`) as HTMLElement;
+      return getComputedStyle(el).fontSize;
+    });
+
+    // Driven through the control a reader would use, not the command behind it:
+    // the dropdown has to send the value in the unit the renderer reads, and
+    // sending points where half-points were meant halves the size silently.
+    await page.locator('.w-toolbar-font-size').click();
+    await page.locator('[data-style="40"]').click();
+
+    await expect
+      .poll(async () =>
+        page.evaluate(() => {
+          const marked = document.querySelectorAll('.mark-fontSize');
+          return [...marked].map((el) => getComputedStyle(el as HTMLElement).fontSize);
+        })
+      )
+      // Twenty point, which the model stores as forty half-points.
+      .toContain('26.6667px');
+    expect(before).not.toBe('26.6667px');
+  });
+
   test('disables a command that cannot run', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('.w-toolbar');

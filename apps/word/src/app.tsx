@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
+import type { EditorViewDOM } from '@barocss/editor-view-dom';
 import { Ribbon } from './ribbon';
 
 /**
@@ -11,10 +12,10 @@ import { Ribbon } from './ribbon';
  * that view, and moving the surface into React would mean re-proving all of it
  * for no gain the reader could see.
  */
-export function App({ mount }: { mount: (host: HTMLElement) => Editor }) {
+export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor; view: EditorViewDOM } }) {
   const host = useRef<HTMLDivElement>(null);
   const mounted = useRef(false);
-  const [editor, setEditor] = useState<Editor | null>(null);
+  const [instance, setInstance] = useState<{ editor: Editor; view: EditorViewDOM } | null>(null);
 
   useEffect(() => {
     if (!host.current || mounted.current) return;
@@ -26,12 +27,12 @@ export function App({ mount }: { mount: (host: HTMLElement) => Editor }) {
     // life of the page, and tearing it down and rebuilding it would throw away
     // the layout, the caret and the history for a re-render the user cannot see.
     mounted.current = true;
-    setEditor(mount(host.current));
+    setInstance(mount(host.current));
   }, [mount]);
 
   return (
     <>
-      {editor ? <Ribbon editor={editor} /> : null}
+      {instance ? <Ribbon editor={instance.editor} view={instance.view} /> : null}
       <div ref={host} id="editor" />
     </>
   );

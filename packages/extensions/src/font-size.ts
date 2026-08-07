@@ -20,7 +20,13 @@ export class FontSizeExtension implements Extension {
         const result = await transaction(ed, [op]).commit();
         return result.success;
       },
-      canExecute: () => true
+      // A value control that cannot go grey is a control that fails silently:
+      // with nothing selected there is nothing to set, and answering yes left
+      // the dropdown live and inert.
+      canExecute: (ed: Editor, payload?: { selection?: ModelSelection }) => {
+        const selection = payload?.selection || (ed as any).selection;
+        return !!selection && selection.type === 'range';
+      }
     });
 
     (editor as any).registerCommand({
@@ -37,7 +43,13 @@ export class FontSizeExtension implements Extension {
         const result = await transaction(ed, [op]).commit();
         return result.success;
       },
-      canExecute: () => true
+      // A value control that cannot go grey is a control that fails silently:
+      // with nothing selected there is nothing to set, and answering yes left
+      // the dropdown live and inert.
+      canExecute: (ed: Editor, payload?: { selection?: ModelSelection }) => {
+        const selection = payload?.selection || (ed as any).selection;
+        return !!selection && selection.type === 'range';
+      }
     });
   }
 

@@ -40,7 +40,7 @@ registerPageBreakWidget();
  * React owns the chrome and calls this once with a div it then leaves alone —
  * the editor owns that subtree, and a re-render must not touch it.
  */
-export function mountWord(container: HTMLElement): Editor {
+export function mountWord(container: HTMLElement): { editor: Editor; view: EditorViewDOM } {
 
   const schema = createSchema('word', getWordSchemaDefinition());
   const dataStore = new DataStore(undefined, schema);
@@ -191,7 +191,7 @@ export function mountWord(container: HTMLElement): Editor {
   window.editorView = view;
   window.setEditingFurniture = setEditing;
 
-  return editor;
+  return { editor, view };
 }
 
 createRoot(document.getElementById('root')!).render(
