@@ -15,6 +15,7 @@ import type { EditorViewDOM } from '@barocss/editor-view-dom';
 import { Toolbar, ToolbarGroup, ToolbarSeparator, ToolbarToggle } from './ui/toolbar';
 import { StyleSelect } from './ui/style-select';
 import { ControlIcon } from './ui/icons';
+import type { FontLoader } from './font-loader';
 
 /**
  * Word's ribbon.
@@ -25,7 +26,15 @@ import { ControlIcon } from './ui/icons';
  * is re-read whenever the selection or the content changes, which are the only
  * two things that can change the answer.
  */
-export function Ribbon({ editor, view }: { editor: Editor; view: EditorViewDOM }) {
+export function Ribbon({
+  editor,
+  view,
+  fonts
+}: {
+  editor: Editor;
+  view: EditorViewDOM;
+  fonts: FontLoader;
+}) {
   const [summary, setSummary] = useState<SelectionSummary>(() => editor.getSelectionSummary());
 
   useEffect(() => {
@@ -78,7 +87,13 @@ export function Ribbon({ editor, view }: { editor: Editor; view: EditorViewDOM }
       }
       onChange={(id) => {
         const chosen = model.options.find((option) => String(option.value) === id);
-        if (chosen) void editor.run(model.command, { [model.key]: chosen.value });
+        if (!chosen) return;
+        // Fetched before it is applied, not after. Applying first would lay the
+        // document out in a fallback and break its pages against the wrong
+        // widths, and the correction would arrive as a visible reflow.
+        void fonts
+          .ensure(typeof chosen.value === 'string' ? chosen.value : undefined)
+          .then(() => editor.run(model.command, { [model.key]: chosen.value }));
       }}
     />
   );

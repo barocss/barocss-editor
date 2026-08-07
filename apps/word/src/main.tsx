@@ -3,10 +3,12 @@ import { createRoot } from 'react-dom/client';
 import { DataStore } from '@barocss/datastore';
 import { getGlobalRegistry } from '@barocss/dsl';
 import { EditorViewDOM } from '@barocss/editor-view-dom';
+import { createFontLoader, type FontLoader } from './font-loader';
 import { createSchema } from '@barocss/schema';
 import {
   createWordEditor,
   createWordEnv,
+  documentFontFamilies,
   createWordLayoutPass,
   registerPageBreakWidget,
   PAGE_BREAK_STYPE,
@@ -28,6 +30,7 @@ declare global {
     wordLayout?: Map<string, SurfaceLayout>;
     setEditingFurniture?: (id: string | undefined) => void;
     pageBreaks?: PageBreakWidget[];
+    wordFonts?: FontLoader;
   }
 }
 
@@ -40,7 +43,7 @@ registerPageBreakWidget();
  * React owns the chrome and calls this once with a div it then leaves alone —
  * the editor owns that subtree, and a re-render must not touch it.
  */
-export function mountWord(container: HTMLElement): { editor: Editor; view: EditorViewDOM } {
+export function mountWord(container: HTMLElement): { editor: Editor; view: EditorViewDOM; fonts: FontLoader } {
 
   const schema = createSchema('word', getWordSchemaDefinition());
   const dataStore = new DataStore(undefined, schema);
@@ -187,11 +190,27 @@ export function mountWord(container: HTMLElement): { editor: Editor; view: Edito
     if (event.key === 'Escape' && editing) setEditing(undefined);
   });
 
+  /**
+   * The fonts the document arrives set in.
+   *
+   * Fetched before anything is believed about the layout. Pagination measures
+   * what is on the page, so a page measured in a fallback and repainted in the
+   * real face has its breaks computed for a font it is not set in — and every
+   * page after the first lands wrong. The layout is run again once they are
+   * here, which is the only moment the measurement is worth anything.
+   */
+  const fonts = createFontLoader();
+  const named = documentFontFamilies(doc);
+  if (named.length > 0) {
+    void Promise.all(named.map((family) => fonts.ensure(family))).then(() => view.render());
+  }
+  window.wordFonts = fonts;
+
   window.editor = editor;
   window.editorView = view;
   window.setEditingFurniture = setEditing;
 
-  return { editor, view };
+  return { editor, view, fonts };
 }
 
 createRoot(document.getElementById('root')!).render(

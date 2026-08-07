@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import type { EditorViewDOM } from '@barocss/editor-view-dom';
+import type { FontLoader } from './font-loader';
 import { Ribbon } from './ribbon';
 
 /**
@@ -12,10 +13,10 @@ import { Ribbon } from './ribbon';
  * that view, and moving the surface into React would mean re-proving all of it
  * for no gain the reader could see.
  */
-export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor; view: EditorViewDOM } }) {
+export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor; view: EditorViewDOM; fonts: FontLoader } }) {
   const host = useRef<HTMLDivElement>(null);
   const mounted = useRef(false);
-  const [instance, setInstance] = useState<{ editor: Editor; view: EditorViewDOM } | null>(null);
+  const [instance, setInstance] = useState<{ editor: Editor; view: EditorViewDOM; fonts: FontLoader } | null>(null);
 
   useEffect(() => {
     if (!host.current || mounted.current) return;
@@ -32,7 +33,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
 
   return (
     <>
-      {instance ? <Ribbon editor={instance.editor} view={instance.view} /> : null}
+      {instance ? <Ribbon editor={instance.editor} view={instance.view} fonts={instance.fonts} /> : null}
       <div ref={host} id="editor" />
     </>
   );

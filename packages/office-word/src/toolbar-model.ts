@@ -22,6 +22,7 @@ import type { MarkState, SelectionSummary } from '@barocss/editor-core';
 import { markState } from '@barocss/editor-core';
 import type { StyleResolver } from './style-resolver';
 import type { DocumentNode } from './document-access';
+import { WORD_FONT_CATALOGUE } from './fonts';
 
 export interface ToolbarControl {
   id: string;
@@ -203,14 +204,7 @@ export interface ToolbarChoice {
   options: { value: string | number; label: string }[];
 }
 
-/**
- * The fonts offered.
- *
- * A short list on purpose. Word offers every font installed, which a web
- * document cannot promise to render — a document set in a font the next reader
- * lacks is a document that looks different to each of them. These are the
- * families the sample stylesheet already uses plus the web-safe ones.
- */
+/** The fonts offered, drawn from the catalogue; see fonts.ts for what is in it. */
 export const WORD_FONTS: ToolbarChoice = {
   id: 'font-family',
   label: 'Font',
@@ -218,14 +212,7 @@ export const WORD_FONTS: ToolbarChoice = {
   key: 'family',
   markType: 'fontFamily',
   attr: 'family',
-  options: [
-    { value: 'Georgia', label: 'Georgia' },
-    { value: 'Times New Roman', label: 'Times New Roman' },
-    { value: 'Arial', label: 'Arial' },
-    { value: 'Helvetica', label: 'Helvetica' },
-    { value: 'Courier New', label: 'Courier New' },
-    { value: 'Verdana', label: 'Verdana' }
-  ]
+  options: WORD_FONT_CATALOGUE.map((entry) => ({ value: entry.family, label: entry.family }))
 };
 
 /**

@@ -1316,6 +1316,75 @@ test.describe('the toolbar', () => {
     expect(before).not.toBe('26.6667px');
   });
 
+  test('fetches a web font before setting the text in it', async ({ page }) => {
+    // Served locally, so the test does not depend on the network and stays a
+    // test of the ordering rather than of Google's uptime. Delayed on purpose:
+    // without a delay the font resolves instantly and the ordering cannot be
+    // observed at all — the test would pass whichever way round it happened.
+    let requested: string | null = null;
+    await page.route('**/fonts.googleapis.com/**', async (route) => {
+      requested = route.request().url();
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      await route.fulfill({
+        contentType: 'text/css',
+        body: `@font-face{font-family:'Playfair Display';src:local('Georgia');font-weight:400}
+               @font-face{font-family:'Playfair Display';src:local('Georgia');font-weight:700}`
+      });
+    });
+
+    await page.goto('/');
+    await page.waitForSelector('.w-toolbar');
+    await placeCaret(page, '.w-paragraph', 1);
+    await page.keyboard.down('Shift');
+    for (let i = 0; i < 12; i++) await page.keyboard.press('ArrowRight');
+    await page.keyboard.up('Shift');
+
+    // Records whether the font was ready at the instant the text was first set
+    // in it. Asking afterwards answers nothing: the font arrives either way, and
+    // what matters is whether anything was measured before it did. Pagination
+    // believes the widths it measures, so text painted in a fallback breaks its
+    // pages against the wrong font and the correction arrives as a reflow.
+    await page.evaluate(() => {
+      const w = window as any;
+      w.__readyWhenApplied = null;
+      const observer = new MutationObserver(() => {
+        if (w.__readyWhenApplied !== null) return;
+        if (!document.querySelector('.mark-fontFamily')) return;
+        // Not `fonts.check`: it answers true when no matching face exists at
+        // all, because the text can still be drawn in a fallback — which is the
+        // very situation being tested for. The face's own status is the fact.
+        w.__readyWhenApplied = [...(document as any).fonts].some(
+          (face: any) =>
+            face.family.replace(/["']/g, '') === 'Playfair Display' && face.status === 'loaded'
+        );
+        observer.disconnect();
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+    });
+
+    await page.locator('.w-toolbar-font-family').click();
+    await page.locator('[data-style="Playfair Display"]').click();
+
+    await expect
+      .poll(async () => page.evaluate(() => (window as any).__readyWhenApplied), { timeout: 10000 })
+      .toBe(true);
+
+    await expect
+      .poll(async () =>
+        page.evaluate(() => {
+          const marked = document.querySelector('.mark-fontFamily') as HTMLElement | null;
+          return marked ? getComputedStyle(marked).fontFamily : null;
+        })
+      )
+      .toBe('"Playfair Display"');
+
+    // Both weights, because a browser asked to embolden a face it lacks invents
+    // one at a different width; and blocking rather than swapping, because a
+    // swap paints in the fallback first — which is the measurement that matters.
+    expect(requested).toContain('wght@400;700');
+    expect(requested).toContain('display=block');
+  });
+
   test('disables a command that cannot run', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('.w-toolbar');
