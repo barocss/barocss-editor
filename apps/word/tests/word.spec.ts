@@ -1385,6 +1385,72 @@ test.describe('the toolbar', () => {
     expect(requested).toContain('display=block');
   });
 
+  test('makes a list, moves it between levels, and lets it go again', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-toolbar');
+    await placeCaret(page, '.w-paragraph', 1);
+
+    // The block is captured before anything is pressed. Clicking a toolbar
+    // button moves focus, and following the live selection afterwards would be
+    // following whatever it became rather than the paragraph under test.
+    const sid = await page.evaluate(() => {
+      const ed: any = (window as any).editor;
+      let node = ed.dataStore.getNode(ed.selection.startNodeId);
+      for (let depth = 0; node && depth < 64; depth++) {
+        if (node.stype && typeof node.text !== 'string' && node.stype !== 'inline-text') break;
+        node = node.parentId ? ed.dataStore.getNode(node.parentId) : undefined;
+      }
+      return node.sid as string;
+    });
+
+    const state = async () =>
+      page.evaluate((sid) => {
+        const el = document.querySelector(`[data-bc-sid="${sid}"]`) as HTMLElement | null;
+        return {
+          marker: el?.getAttribute('data-marker')?.trim() ?? null,
+          marginLeft: el ? getComputedStyle(el).marginLeft : null
+        };
+      }, sid);
+
+    // Nothing here reads the model: a list nobody can see is not a list. The
+    // marker is computed at render time from the definition the paragraph names,
+    // so it only appears if the definition was written, the paragraph points at
+    // it, and the resolver was rebuilt to notice.
+    await page.getByRole('button', { name: 'Bulleted list' }).click();
+    await expect.poll(state).toEqual({ marker: '•', marginLeft: '48px' });
+
+    // A level in: the glyph changes and it moves half an inch further.
+    await page.getByRole('button', { name: 'Increase indent' }).click();
+    await expect.poll(state).toEqual({ marker: '○', marginLeft: '96px' });
+
+    await page.getByRole('button', { name: 'Numbered list' }).click();
+    await expect.poll(state).toEqual({ marker: 'a.', marginLeft: '96px' });
+
+    // Out of the last level is out of the list: the button is a way back to an
+    // ordinary paragraph rather than a dead end.
+    await page.getByRole('button', { name: 'Decrease indent' }).click();
+    await page.getByRole('button', { name: 'Decrease indent' }).click();
+    await expect.poll(state).toEqual({ marker: '', marginLeft: '0px' });
+  });
+
+  test('shows a list button as on only for the list the caret is in', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-toolbar');
+    await placeCaret(page, '.w-paragraph', 1);
+
+    const pressed = async (name: string) =>
+      page.getByRole('button', { name }).getAttribute('aria-pressed');
+
+    expect(await pressed('Bulleted list')).toBe('false');
+    await page.getByRole('button', { name: 'Bulleted list' }).click();
+
+    await expect.poll(() => pressed('Bulleted list')).toBe('true');
+    // Which kind cannot be read from the selection — it takes resolving the
+    // definition the paragraph names — so this is where that resolution is
+    // checked from the outside.
+    expect(await pressed('Numbered list')).toBe('false');
+  });
+
   test('disables a command that cannot run', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('.w-toolbar');

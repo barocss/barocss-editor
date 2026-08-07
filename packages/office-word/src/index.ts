@@ -116,6 +116,7 @@ export {
 export {
   currentChoice,
   inheritedChoice,
+  listState,
   currentStyle,
   toolbarMarkTypes,
   toolbarCommands,
@@ -129,3 +130,15 @@ export {
 } from './toolbar-model';
 export { createWordToolbar, type WordToolbar } from './toolbar-dom';
 export { createWordCommands, WordExtension } from './word-commands';
+export {
+  createWordListCommands,
+  WordListExtension,
+  numberingDefinition,
+  definitionKind,
+  listKindOf,
+  freeNumberingId,
+  listToJoin,
+  INDENT_STEP,
+  MAX_LIST_LEVEL,
+  type ListKind
+} from './list-commands';

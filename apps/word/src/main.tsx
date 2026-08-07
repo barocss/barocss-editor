@@ -51,6 +51,24 @@ export function mountWord(container: HTMLElement): { editor: Editor; view: Edito
   const editor = createWordEditor({ editable: true, schema, dataStore });
   editor.loadDocument(createSampleDocument(), 'word');
 
+  /**
+   * How many times the document has changed.
+   *
+   * The layout pass rebuilds the resolvers, and they cache — so it has to know
+   * the document moved on even when the layout did not. Making a paragraph a
+   * list adds no height and moves no page, and without this the list is in the
+   * document and nowhere on the screen.
+   *
+   * Registered before the view, because the view listens for the same event and
+   * renders from it: handlers run in the order they were added, so a counter
+   * added afterwards is still on its old value when the render it is meant to
+   * inform goes out.
+   */
+  let revision = 0;
+  editor.on('editor:content.change', () => {
+    revision += 1;
+  });
+
   const doc = {
     getNode: (id: string) => dataStore.getNode(id) as never,
     rootId: editor.getRootId()!
@@ -85,11 +103,13 @@ export function mountWord(container: HTMLElement): { editor: Editor; view: Edito
    */
   let editing: string | undefined;
 
+
   view.registerLayoutPass(
     createWordLayoutPass({
       container,
       doc,
       editing: () => editing,
+      revision: () => revision,
       now: new Date('2026-08-05T09:00:00Z'),
       splitBlocks: true,
       onPageBreaks: (breaks) => applyPageBreaks(breaks),

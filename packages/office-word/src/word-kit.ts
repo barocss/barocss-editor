@@ -5,6 +5,7 @@ import {
 } from '@barocss/extensions';
 import { Editor, type EditorOptions, type Extension, type Keybinding } from '@barocss/editor-core';
 import { createWordCommands } from './word-commands';
+import { createWordListCommands } from './list-commands';
 import { createSchema } from '@barocss/schema';
 import { getWordSchemaDefinition } from './word-schema';
 import { WORD_KEYBINDINGS } from './word-keymap';
@@ -24,7 +25,11 @@ export function createWordExtensions(): Extension[] {
     // Word's own. A column break means nothing without sections that have
     // columns, and tracked changes is a word processor's idea of review — so
     // unlike bold or alignment, they do not belong in the shared kit.
-    createWordCommands()
+    createWordCommands(),
+    // After the shared kit on purpose: Word's lists are numbering properties on
+    // paragraphs, so the kit's list and indent commands have nothing here to
+    // wrap or shift. They reported success and did nothing; these replace them.
+    createWordListCommands()
   ];
 }
 

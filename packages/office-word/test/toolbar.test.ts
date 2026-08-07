@@ -106,8 +106,16 @@ describe('the toolbar model', () => {
       fs.readFileSync('src/toolbar-model.ts', 'utf8')
     );
 
+    // Comments are stripped first. Searching the raw source matched the word
+    // "document" in prose — this file cannot explain what it does without using
+    // it — and a rule that fails on its own explanation teaches people to write
+    // worse comments rather than better code.
+    const code = source
+      .replace(/\/\*[\s\S]*?\*\//g, ' ')
+      .replace(/\/\/[^\n]*/g, ' ');
+
     for (const global of ['document.', 'window.', 'HTMLElement', 'createElement']) {
-      expect(source, `toolbar-model references ${global}`).not.toContain(global);
+      expect(code, `toolbar-model references ${global}`).not.toContain(global);
     }
   });
 

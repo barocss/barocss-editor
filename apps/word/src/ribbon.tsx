@@ -3,6 +3,8 @@ import type { Editor, SelectionSummary } from '@barocss/editor-core';
 import {
   currentChoice,
   inheritedChoice,
+  listKindOf,
+  listState,
   currentStyle,
   WORD_FONTS,
   WORD_FONT_SIZES,
@@ -57,18 +59,35 @@ export function Ribbon({
    * the layout pass rebuilds the environment on every round, so a resolver held
    * across renders would answer with styles the document has moved on from.
    */
-  const inherited = (model: ToolbarChoice) => {
+  const docOf = () => {
+    const store: any = (editor as any).dataStore;
+    return { getNode: (id: string) => store?.getNode?.(id), rootId: (editor as any).getRootId?.() };
+  };
+
+  /** The block the caret is in, which is what carries a style and a list. */
+  const blockAtCaret = () => {
     const selection = editor.selection;
     if (!selection) return undefined;
-    const store: any = (editor as any).dataStore;
-    let node = store?.getNode?.(selection.startNodeId);
-    // Up to the block, which is what carries a style.
+    const doc = docOf();
+    let node = doc.getNode(selection.startNodeId);
     for (let depth = 0; node && depth < 64; depth++) {
       if (node.stype && typeof node.text !== 'string' && node.stype !== 'inline-text') break;
-      node = node.parentId ? store.getNode(node.parentId) : undefined;
+      node = node.parentId ? doc.getNode(node.parentId) : undefined;
     }
-    return inheritedChoice(model, getWordStyles(view.getEnv()), node);
+    return node;
   };
+
+  const inherited = (model: ToolbarChoice) =>
+    inheritedChoice(model, getWordStyles(view.getEnv()), blockAtCaret());
+
+  /**
+   * The kind of list the selection is in.
+   *
+   * Resolved from the document rather than read from the selection: a paragraph
+   * carries the name of a numbering definition, and what that name means is the
+   * definition's answer.
+   */
+  const currentListKind = () => listKindOf(docOf(), blockAtCaret());
 
   /**
    * A font or size control: the same control with different options, so it is
@@ -124,7 +143,11 @@ export function Ribbon({
                 key={control.id}
                 id={control.id}
                 label={control.label}
-                state={control.state?.(summary) ?? 'off'}
+                state={
+                  control.listKind
+                    ? listState(control.listKind, summary, currentListKind)
+                    : (control.state?.(summary) ?? 'off')
+                }
                 disabled={!editor.canRun(control.command, control.payload)}
                 onActivate={() => void editor.run(control.command, control.payload)}
               >

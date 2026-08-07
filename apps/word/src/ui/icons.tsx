@@ -1,6 +1,10 @@
 import {
   AlignCenter,
   Baseline,
+  IndentDecrease,
+  IndentIncrease,
+  List,
+  ListOrdered,
   CaseSensitive,
   Highlighter,
   Subscript,
@@ -46,7 +50,11 @@ const ICONS: Record<string, LucideIcon> = {
   subscript: Subscript,
   'small-caps': CaseSensitive,
   highlight: Highlighter,
-  'font-color': Baseline
+  'font-color': Baseline,
+  'bullet-list': List,
+  'ordered-list': ListOrdered,
+  indent: IndentIncrease,
+  outdent: IndentDecrease
 };
 
 /**

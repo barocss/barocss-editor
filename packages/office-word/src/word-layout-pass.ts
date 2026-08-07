@@ -51,6 +51,21 @@ export interface WordLayoutPassOptions extends MeasureOptions {
   doc: DocumentAccess;
   /** The header or footer being edited, if any, read afresh on every pass. */
   editing?: () => string | undefined;
+  /**
+   * A token that changes when the document does.
+   *
+   * The pass rebuilds the render environment, and the environment holds the
+   * style, numbering and field resolvers — which cache, because resolving a
+   * style walks a chain and numbering counts the whole document. So they have to
+   * be rebuilt when the document changes, and the pass has no way of knowing
+   * that: the only thing it compares is the layout, and a change can leave the
+   * layout identical. Making a paragraph a bulleted list adds no height and
+   * moves no page, so without this the list is in the document and invisible on
+   * the page.
+   *
+   * The host supplies it because the host is what learns about content changes.
+   */
+  revision?: () => string | number;
   /** Called with the computed layouts, for hosts that want to inspect them. */
   onLayout?: (layouts: Map<string, SurfaceLayout>) => void;
   /**
@@ -61,7 +76,7 @@ export interface WordLayoutPassOptions extends MeasureOptions {
 }
 
 export function createWordLayoutPass(options: WordLayoutPassOptions): () => RenderEnv | void {
-  const { container, doc, onLayout, onPageBreaks, editing, now, ...measureOptions } = options;
+  const { container, doc, onLayout, onPageBreaks, editing, revision, now, ...measureOptions } = options;
 
   // What the last round produced. The view keeps running passes until they stop
   // reporting changes, and a layout that matches the one already on screen is
@@ -145,7 +160,7 @@ export function createWordLayoutPass(options: WordLayoutPassOptions): () => Rend
     const breakSignature = pageBreaks
       .map((item) => `${item.sid}@${item.target.sid}:${item.target.offset}+${Math.round(item.height)}`)
       .join(',');
-    const signature = `${editingId ?? ''}|${breakSignature}|${signatureOf(layouts)}`;
+    const signature = `${revision?.() ?? ''}|${editingId ?? ''}|${breakSignature}|${signatureOf(layouts)}`;
     if (signature === previous) return;
     previous = signature;
 

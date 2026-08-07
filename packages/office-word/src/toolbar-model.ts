@@ -23,6 +23,7 @@ import { markState } from '@barocss/editor-core';
 import type { StyleResolver } from './style-resolver';
 import type { DocumentNode } from './document-access';
 import { WORD_FONT_CATALOGUE } from './fonts';
+import type { ListKind } from './list-commands';
 
 export interface ToolbarControl {
   id: string;
@@ -33,6 +34,15 @@ export interface ToolbarControl {
   payload?: Record<string, unknown>;
   /** How to read this control's state out of the selection. */
   state?: ((summary: SelectionSummary) => MarkState) & { markType?: string };
+  /**
+   * That this control turns a list of this kind on and off.
+   *
+   * Which kind a paragraph is in cannot be read from the selection alone — it
+   * takes resolving the numbering definition the paragraph names, which needs
+   * the document. So the control says what it is and the host answers, the same
+   * way a font control asks what the text inherits.
+   */
+  listKind?: ListKind;
 }
 
 /**
@@ -147,6 +157,15 @@ export const WORD_TOOLBAR: ToolbarGroup[] = [
         payload: { color: 'yellow' },
         state: mark('highlight')
       }
+    ]
+  },
+  {
+    id: 'list',
+    controls: [
+      { id: 'bullet-list', label: 'Bulleted list', icon: '•', command: 'toggleBulletList', listKind: 'bullet' },
+      { id: 'ordered-list', label: 'Numbered list', icon: '1.', command: 'toggleOrderedList', listKind: 'ordered' },
+      { id: 'outdent', label: 'Decrease indent', icon: '⇤', command: 'outdentText' },
+      { id: 'indent', label: 'Increase indent', icon: '⇥', command: 'indentText' }
     ]
   },
   {
@@ -284,6 +303,26 @@ export function inheritedChoice(
   // the first of the stack is the one it is showing; matching the whole string
   // would leave the box blank for text that is plainly set in Georgia.
   return value.split(',')[0].trim().replace(/^["']|["']$/g, '');
+}
+
+/**
+ * Whether the selection is in a list of this kind.
+ *
+ * Three-valued like every other control: a selection covering a bulleted and a
+ * plain paragraph is in neither state, and drawing it as off would turn one
+ * click into a silent reformat of both.
+ *
+ * The kind is supplied rather than read, because answering it means resolving
+ * the definition a paragraph names — the selection knows the name and not what
+ * it means.
+ */
+export function listState(
+  kind: ListKind,
+  summary: SelectionSummary,
+  currentKind: () => ListKind | null
+): MarkState {
+  if (summary.mixedAttributes.includes('numId')) return 'mixed';
+  return currentKind() === kind ? 'on' : 'off';
 }
 
 /** The styles the dropdown offers, and the command that applies each. */
