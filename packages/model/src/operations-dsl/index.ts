@@ -47,5 +47,4 @@ export * from '../operations/tableStructure';
 export * from '../operations/insertChecklist';
 export * from '../operations/insertCallout';
 export * from '../operations/insertMathBlock';
-export * from '../operations/insertComment';
 

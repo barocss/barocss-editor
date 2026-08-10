@@ -58,4 +58,3 @@ import './tableStructure';
 import './insertChecklist';
 import './insertCallout';
 import './insertMathBlock';
-import './insertComment';

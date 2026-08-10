@@ -1580,6 +1580,65 @@ test.describe('comments', () => {
     await expect(page.locator('.w-comment-hit')).toHaveCount(1);
   });
 
+  test('can be corrected without changing who said it', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-sheet');
+    await selectSome(page);
+    await comment(page, 'Is this clera?');
+
+    await page.getByLabel('Edit comment').click();
+    await page.getByLabel('Edit comment text').fill('Is this clear?');
+    await page.getByLabel('Edit comment text').press('Enter');
+
+    await expect(page.locator('.w-comment-text')).toHaveText('Is this clear?');
+    // The words change; the name and the date do not. They record who said it
+    // and when, and a comment that quietly reattributes itself is worse than
+    // one nobody can fix.
+    await expect(page.locator('.w-comment')).toContainText('Jinho');
+    await expect(page.locator('.w-comment')).toContainText('2026-08-10');
+  });
+
+  test('collects replies under the comment they answer', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-sheet');
+    await selectSome(page);
+    await comment(page, 'Is this clear?');
+
+    await page.locator('.w-comment-reply').fill('It is now');
+    await page.getByLabel('Send reply').click();
+
+    // One thread, two entries, in the order they were written.
+    await expect(page.locator('.w-comment')).toHaveCount(1);
+    await expect(page.locator('.w-comment-text')).toHaveCount(2);
+    await expect(page.locator('.w-comment-text').nth(1)).toHaveText('It is now');
+  });
+
+  test('lets several comments cover the same words', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-sheet');
+
+    // Two people commenting on the same phrase is the ordinary case in review,
+    // not an edge one: each is anchored separately and neither disturbs the
+    // other.
+    await page.evaluate(async () => {
+      const editor = (window as any).editor;
+      const at = (start: number, end: number) => ({
+        type: 'range',
+        startNodeId: 'word:20',
+        startOffset: start,
+        endNodeId: 'word:20',
+        endOffset: end,
+        collapsed: false
+      });
+      await editor.run('insertComment', { selection: at(0, 10), text: 'First reader' });
+      await editor.run('insertComment', { selection: at(5, 15), text: 'Second reader' });
+      await editor.run('insertComment', { selection: at(5, 15), text: 'Third, same words' });
+    });
+
+    await expect(page.locator('.w-comment')).toHaveCount(3);
+    await expect(page.locator('.w-comments-pane')).toContainText('Third, same words');
+  });
+
   test('cannot comment on nothing', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('.w-sheet');

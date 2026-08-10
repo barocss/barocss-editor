@@ -34,7 +34,6 @@ export * from './find-replace';
 export * from './checklist';
 export * from './callout';
 export * from './math-block';
-export * from './comment';
 export * from './styles';
 export * from './pull-quote';
 export * from './columns';
@@ -78,7 +77,6 @@ import { TableExtension } from './table';
 import { ChecklistExtension } from './checklist';
 import { CalloutExtension } from './callout';
 import { MathBlockExtension } from './math-block';
-import { CommentExtension } from './comment';
 import { DragDropExtension } from './drag-drop';
 import { HardBreakExtension } from './hard-break';
 import { CodeMarkExtension } from './code-mark';
@@ -143,7 +141,6 @@ export function createRichExtensions(): Extension[] {
     new ChecklistExtension(),
     new CalloutExtension(),
     new MathBlockExtension(),
-    new CommentExtension(),
     new MoveBlockExtension(),
     new DragDropExtension(),
     new CodeMarkExtension(),

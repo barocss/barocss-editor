@@ -15,7 +15,7 @@
 import { Editor, Extension } from '@barocss/editor-core';
 import type { ModelSelection } from '@barocss/editor-core';
 import { transaction } from '@barocss/model';
-import { childOfType, type DocumentAccess, type DocumentNode } from './document-access';
+import { childOfType, childrenOf, type DocumentAccess, type DocumentNode } from './document-access';
 import { commentThreads, freeThreadId } from './comments';
 
 export interface CommentAuthor {
@@ -60,6 +60,21 @@ export class WordCommentExtension implements Extension {
       canExecute: (ed: Editor, payload?: { id?: string }) => !!this._thread(ed, payload?.id)
     });
 
+    /**
+     * Change what an entry says.
+     *
+     * The text, not the author or the date: those record who wrote it and when,
+     * and a comment that quietly changes attribution is worse than one that
+     * cannot be corrected at all.
+     */
+    (editor as any).registerCommand({
+      name: 'editComment',
+      execute: async (ed: Editor, payload?: { entrySid?: string; text?: string }) =>
+        await this._edit(ed, payload?.entrySid, payload?.text ?? ''),
+      canExecute: (ed: Editor, payload?: { entrySid?: string }) =>
+        !!this._entryText(ed, payload?.entrySid)
+    });
+
     (editor as any).registerCommand({
       name: 'resolveComment',
       execute: async (ed: Editor, payload?: { id?: string; resolved?: boolean }) =>
@@ -82,6 +97,33 @@ export class WordCommentExtension implements Extension {
   private _thread(editor: Editor, id: string | undefined) {
     if (!id) return undefined;
     return commentThreads(this._doc(editor)).find((thread) => thread.id === id);
+  }
+
+  /**
+   * The run an entry's words are in.
+   *
+   * An entry is a block, so what it says lives in the text node inside it —
+   * which is what has to be rewritten when somebody corrects themselves.
+   */
+  private _entryText(editor: Editor, entrySid: string | undefined): DocumentNode | undefined {
+    if (!entrySid) return undefined;
+    const doc = this._doc(editor);
+    const entry = doc.getNode(entrySid);
+    return childrenOf(doc, entry).find((child) => typeof child.text === 'string');
+  }
+
+  private async _edit(
+    editor: Editor,
+    entrySid: string | undefined,
+    text: string
+  ): Promise<boolean> {
+    const run = this._entryText(editor, entrySid);
+    if (!run?.sid) return false;
+
+    const result = await transaction(editor, [
+      { type: 'setText', payload: { nodeId: run.sid, text } }
+    ] as never).commit();
+    return result.success;
   }
 
   /**

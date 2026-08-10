@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import type { EditorViewDOM } from '@barocss/editor-view-dom';
 import { commentThreads, type CommentThread } from '@barocss/office-word';
-import { Check, MessageSquarePlus, Trash2 } from 'lucide-react';
+import { Check, MessageSquarePlus, Pencil, Reply, Trash2 } from 'lucide-react';
 import { cn } from './ui/cn';
 
 /**
@@ -41,6 +41,10 @@ export function CommentsPane({
    * think about it, and have the comment land on the phrase.
    */
   const [anchorTo, setAnchorTo] = useState<unknown>(null);
+  /** The entry being corrected, and what it will say. */
+  const [editing, setEditing] = useState<{ sid: string; text: string } | null>(null);
+  /** The reply being written, per thread. */
+  const [replies, setReplies] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const bump = () => setRevision((n) => n + 1);
@@ -142,10 +146,42 @@ export function CommentsPane({
           >
             {thread.entries.map((entry) => (
               <div key={entry.sid} className="mb-1">
-                <div className="text-xs text-neutral-500">
-                  {entry.author} · {entry.date}
+                <div className="flex items-center justify-between text-xs text-neutral-500">
+                  <span>
+                    {entry.author} · {entry.date}
+                  </span>
+                  <button
+                    aria-label="Edit comment"
+                    className="rounded p-0.5 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setEditing({ sid: entry.sid, text: entry.text });
+                    }}
+                  >
+                    <Pencil size={12} />
+                  </button>
                 </div>
-                <div className="w-comment-text">{entry.text}</div>
+
+                {editing?.sid === entry.sid ? (
+                  <input
+                    autoFocus
+                    aria-label="Edit comment text"
+                    className="w-comment-edit mt-0.5 w-full rounded border border-neutral-300 px-1 text-sm dark:border-neutral-700 dark:bg-neutral-800"
+                    value={editing.text}
+                    onChange={(event) => setEditing({ sid: entry.sid, text: event.target.value })}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Escape') setEditing(null);
+                      if (event.key !== 'Enter') return;
+                      // The text changes; the author and the date do not. They
+                      // record who said it and when, and a comment that quietly
+                      // reattributes itself is worse than one nobody can fix.
+                      void editor.run('editComment', { entrySid: entry.sid, text: editing.text });
+                      setEditing(null);
+                    }}
+                  />
+                ) : (
+                  <div className="w-comment-text">{entry.text}</div>
+                )}
               </div>
             ))}
 
@@ -157,6 +193,38 @@ export function CommentsPane({
                 The text this was about is gone
               </div>
             ) : null}
+
+            {/* Anyone can answer, and the answers pile up under the comment
+                they answer — which is what a thread is. */}
+            <div className="mt-1 flex items-center gap-1">
+              <input
+                aria-label="Reply"
+                placeholder="Reply"
+                className="w-comment-reply h-6 flex-1 rounded border border-neutral-300 px-1 text-xs dark:border-neutral-700 dark:bg-neutral-800"
+                value={replies[thread.id] ?? ''}
+                onClick={(event) => event.stopPropagation()}
+                onChange={(event) =>
+                  setReplies((all) => ({ ...all, [thread.id]: event.target.value }))
+                }
+                onKeyDown={(event) => {
+                  if (event.key !== 'Enter' || !(replies[thread.id] ?? '').trim()) return;
+                  void editor.run('replyToComment', { id: thread.id, text: replies[thread.id] });
+                  setReplies((all) => ({ ...all, [thread.id]: '' }));
+                }}
+              />
+              <button
+                aria-label="Send reply"
+                className="inline-flex h-6 w-6 items-center justify-center rounded hover:bg-neutral-100 disabled:opacity-40 dark:hover:bg-neutral-800"
+                disabled={!(replies[thread.id] ?? '').trim()}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  void editor.run('replyToComment', { id: thread.id, text: replies[thread.id] });
+                  setReplies((all) => ({ ...all, [thread.id]: '' }));
+                }}
+              >
+                <Reply size={14} />
+              </button>
+            </div>
 
             <div className="mt-1 flex gap-1">
               <button
