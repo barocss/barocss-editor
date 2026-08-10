@@ -1206,23 +1206,7 @@ async function settled(page: import('@playwright/test').Page) {
 }
 
 test.describe('print', () => {
-  // Recorded, not hidden, and not yet true. The sample draws seven sheets and
-  // the PDF comes out at ten.
-  //
-  // An earlier note here blamed the layout for disagreeing with itself, on the
-  // grounds that its two sections report six pages and two while only seven
-  // sheets are drawn. That was a misreading: a page is a box the paginator
-  // fills, and the second section runs in two columns, so its two boxes are the
-  // two halves of one sheet. Six sheets plus one is seven, and the layout is
-  // consistent.
-  //
-  // What actually stands in the way is that a break can only be forced before a
-  // block. Three of this document's page boundaries fall inside a paragraph,
-  // where CSS has no way to say "break here" — those pages exist because the
-  // paginator split a paragraph at a measured line, and a stylesheet cannot
-  // express that. Matching exactly needs the layout rendered as pages rather
-  // than described to the browser as breaks.
-  test.fail('puts the same number of pages on paper as on screen', async ({ page }) => {
+  test('puts the same number of pages on paper as on screen', async ({ page }) => {
     await page.goto('/');
     await settled(page);
     const sheets = await page.locator('.w-sheet').count();
@@ -1236,22 +1220,57 @@ test.describe('print', () => {
     expect(counts).toContain(sheets);
   });
 
-  test('breaks the paper where the paginator broke the page', async ({ page }) => {
+  test('builds a page for each sheet when the browser asks to print', async ({ page }) => {
     await page.goto('/');
     await settled(page);
+    const sheets = await page.locator('.w-sheet').count();
 
-    // Every block the paginator put at the top of a page is marked, and the
-    // print stylesheet turns each mark into a break. This is the part that can
-    // be expressed in CSS — a break before a block — and it is asserted here
-    // rather than through the PDF because the PDF cannot say *why* it broke.
-    const openers = await page.locator('[data-page-open="true"]').count();
-    expect(openers).toBeGreaterThan(0);
+    // The browser's own event, which is what the print dialog fires. Nothing
+    // exists before it: the copies are made for the print and taken away after.
+    expect(await page.locator('.w-print-page').count()).toBe(0);
+    await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
+    expect(await page.locator('.w-print-page').count()).toBe(sheets);
+    await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+    expect(await page.locator('.w-print-page').count()).toBe(0);
+  });
 
-    const css = await page.evaluate(
-      () => document.querySelector('style[data-word-print]')!.textContent!
-    );
-    expect(css).toContain("[data-page-open='true']");
-    expect(css).toContain('break-before: page');
+  test('cuts a paragraph across two pages without cutting the text', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+    await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
+    await page.emulateMedia({ media: 'print' });
+
+    const seam = await page.evaluate(() => {
+      const pages = [...document.querySelectorAll('.w-print-page')];
+      const visibleText = (page: Element): string => {
+        const box = page.getBoundingClientRect();
+        const walker = document.createTreeWalker(page, NodeFilter.SHOW_TEXT);
+        const lines: { top: number; text: string }[] = [];
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+          const range = document.createRange();
+          range.selectNodeContents(node);
+          for (const rect of [...range.getClientRects()]) {
+            if (rect.height <= 0) continue;
+            if (rect.top < box.top - 1 || rect.bottom > box.bottom + 1) continue;
+            lines.push({ top: rect.top, text: node.textContent ?? '' });
+          }
+        }
+        return lines.sort((a, b) => a.top - b.top).map((l) => l.text).join(' ');
+      };
+      // The long paragraph runs from page three onwards in the sample.
+      return { third: visibleText(pages[2]), fourth: visibleText(pages[3]) };
+    });
+    await page.emulateMedia({ media: 'screen' });
+
+    // The paragraph appears on both pages, because a paragraph crossing a page
+    // boundary is on both pages. What matters is that each shows a different
+    // part of it: the text is clipped, never split, so nothing is lost at the
+    // seam and nothing is printed twice.
+    expect(seam.third).toContain('A paragraph longer than a page');
+    expect(seam.third).toContain('(1) A page break inside a paragraph');
+    expect(seam.third).not.toContain('(27) A page break');
+    expect(seam.fourth).toContain('(27) A page break');
+    expect(seam.fourth).not.toContain('A paragraph longer than a page');
   });
 
   test('prints the paper the section describes', async ({ page }) => {
@@ -1261,43 +1280,30 @@ test.describe('print', () => {
     const css = await page.evaluate(
       () => document.querySelector('style[data-word-print]')!.textContent!
     );
-    // US Letter with one-inch margins, in points — the unit a printer works in.
+    // US Letter in points, the unit a printer works in. No margins on the page
+    // box: each page holds a copy clipped to a whole sheet, margins included.
     expect(css).toContain('size: 612pt 792pt');
-    expect(css).toContain('margin: 72pt 72pt 72pt 72pt');
+    expect(css).toMatch(/@page \{[\s\S]*?margin: 0;/);
   });
 
-  test('keeps the document and drops the application', async ({ page }) => {
+  test('carries the page furniture onto the paper', async ({ page }) => {
     await page.goto('/');
     await settled(page);
+    await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
 
-    await page.emulateMedia({ media: 'print' });
-    const printed = await page.evaluate(() => {
-      const visible = (el: Element) => el.getBoundingClientRect().height > 0;
-      const notes = [...document.querySelectorAll('.w-footnotes')];
-      const firstParagraph = document.querySelector('.w-paragraph')!;
-      return {
-        toolbar: [...document.querySelectorAll('.w-toolbar')].filter(visible).length,
-        sheets: [...document.querySelectorAll('.w-sheet')].filter(visible).length,
-        // A footnote is the document, not decoration. Dropping the layer it is
-        // drawn in would take the text off the printout altogether.
-        notes: notes.filter(visible).length,
-        notesAfterBody:
-          notes.length > 0 &&
-          notes[0].getBoundingClientRect().top > firstParagraph.getBoundingClientRect().top,
-        // A block the column layout placed by coordinate is out of the flow, and
-        // blocks out of the flow print on top of one another.
-        positioned: [...document.querySelectorAll('.w-surface > *')].filter(
-          (el) => getComputedStyle(el as HTMLElement).position === 'absolute'
-        ).length
-      };
+    // Headers, footers, page numbers and footnotes are drawn per page on the
+    // sheet layer. Clipping is what gives each printed page the ones that belong
+    // to it — the earlier stylesheet had to drop them, and dropped the footnote
+    // text off the printout with them.
+    const first = await page.evaluate(() => {
+      const page = document.querySelectorAll('.w-print-page')[0];
+      const text = (selector: string) => page.querySelector(selector)?.textContent?.trim() ?? null;
+      return { header: text('.w-header'), footer: text('.w-footer'), note: text('.w-footnotes') };
     });
-    await page.emulateMedia({ media: 'screen' });
 
-    expect(printed.toolbar).toBe(0);
-    expect(printed.sheets).toBe(0);
-    expect(printed.notes).toBeGreaterThan(0);
-    expect(printed.notesAfterBody).toBe(true);
-    expect(printed.positioned).toBe(0);
+    expect(first.header).toContain('Draft');
+    expect(first.footer).toContain('1 / ');
+    expect(first.note).toContain('A footnote body');
   });
 });
 

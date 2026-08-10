@@ -34,85 +34,72 @@ const toPt = (px: number): string => `${Math.round(px * 0.75 * 100) / 100}pt`;
 export function printCss(metrics: SheetMetrics | undefined): string {
   if (!metrics) return '';
 
+  // No margin on the page box: a printed page is a whole sheet here, margins
+  // and all, because the copy inside it is clipped to the sheet rather than to
+  // the text area. Asking the page box for margins as well would inset the
+  // text twice.
   const page = [
     `@page {`,
     `  size: ${toPt(metrics.width)} ${toPt(metrics.height)};`,
-    `  margin: ${toPt(metrics.marginTop)} ${toPt(metrics.marginRight)} ${toPt(metrics.marginBottom)} ${toPt(metrics.marginLeft)};`,
+    `  margin: 0;`,
     `}`
   ].join('\n');
 
   return `${page}
 
 @media print {
-  /* The application, not the document. */
-  .w-toolbar {
+  /* The application, and the document as it is read on screen: one continuous
+     flow with sheets drawn behind it. Neither is what goes on paper.
+     Nothing *inside* a copy is hidden, on purpose — the offsets that clip each
+     page were measured against the document as it stands, and hiding anything
+     in the copy reflows it and makes every one of them wrong. The clipping is
+     what decides which part shows. */
+  .w-toolbar,
+  .w-document:not(.w-print-copy) {
     display: none !important;
   }
 
-  /* The paper itself, and the copies of the header and footer drawn onto each
-     of them. A sheet is an absolutely positioned rectangle covering one page's
-     worth of the flow; on paper the page *is* that rectangle. The furniture is
-     dropped rather than printed once in the wrong place — a header that appears
-     on page one only is worse than one that does not appear. */
-  .w-sheet,
-  .w-furniture,
-  .w-page-break {
+  /* What goes on paper is one box per page, each holding a copy of the whole
+     document shifted so that exactly that page shows through. The text is never
+     cut: a paragraph crossing a boundary is in both, its top on one page and
+     its bottom on the next, which is what that paragraph looks like on paper.
+     Line breaking is the same in every copy because the width is. */
+  .w-print-pages {
+    display: block !important;
+  }
+
+  .w-print-page {
+    position: relative;
+    overflow: hidden;
+    break-after: page;
+    page-break-after: always;
+    background: #fff;
+  }
+
+  .w-print-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
+  .w-print-copy {
+    position: absolute;
+    margin: 0;
+  }
+
+  /* The sheets keep their place in the copies: the page's own header, footer,
+     page number and footnotes are drawn on them, positioned per page, and the
+     clipping shows each page the ones that belong to it. Only the paper itself
+     goes — the page box is the paper now — along with the shadow that made it
+     look like paper on a screen. */
+  .w-print-copy .w-sheet {
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  /* Nothing but the pages. A print copy left in the flow would print itself
+     twice: once as a page and once as ordinary content. */
+  body > *:not(.w-print-pages) {
     display: none !important;
-  }
-
-  /* The layer the sheets lived in stays, because the footnotes are in it and
-     they are the document — dropping them would lose text off the printout
-     entirely. Put back in the flow and ordered last, they print together at the
-     end of their section rather than at the foot of the page they belong to.
-     That is not where Word puts them, and it is the part of this that a print
-     rendering pass would fix. */
-  .w-sheets {
-    position: static !important;
-    inset: auto !important;
-    height: auto !important;
-    order: 1;
-  }
-
-  .w-footnotes {
-    position: static !important;
-    transform: none !important;
-    inset: auto !important;
-    width: auto !important;
-    margin-top: 24pt;
-    border-top: 1px solid #999;
-    padding-top: 6pt;
-  }
-
-  /* The page box now supplies the paper and its margins, so the section stops
-     supplying its own; its minimum height came from the layout and would print
-     as a blank page at the end. */
-  .w-surface {
-    width: auto !important;
-    min-height: 0 !important;
-    padding: 0 !important;
-  }
-
-  /* Back into the flow. A block placed by coordinate is one the column layout
-     put in a box, and blocks left out of the flow print on top of each other. */
-  [data-positioned='true'] {
-    position: static !important;
-    inset: auto !important;
-    width: auto !important;
-    margin-top: 0 !important;
-  }
-
-  /* Where the paginator said a page ends. The push that moved this block down
-     to meet its sheet goes with it: the break has already put it at the top. */
-  [data-page-open='true'] {
-    break-before: page !important;
-    page-break-before: always !important;
-    margin-top: 0 !important;
-  }
-
-  /* A printer breaking a heading off the paragraph it introduces is its own
-     kind of wrong. */
-  h1, h2, h3, h4, h5, h6 {
-    break-after: avoid;
   }
 }`;
 }

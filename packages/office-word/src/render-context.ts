@@ -38,17 +38,7 @@ export interface WordEnv {
   pushes: Map<string, number>;
   /** Absolute position per block, for sections whose text runs in columns. */
   positions: Map<string, { top: number; left: number; width: number }>;
-  /**
-   * The blocks the paginator put at the top of a page.
-   *
-   * On screen these are the blocks pushed down to meet their sheet. On paper
-   * they are where the break goes — printing asks the browser to break here
-   * rather than to work out the pages a second time and disagree.
-   *
-   * The first page's opening block is not among them: there is nothing to break
-   * away from before the document starts.
-   */
-  pageOpeners: Set<string>;
+
   /**
    * The header or footer currently being edited, by its id.
    *
@@ -83,19 +73,9 @@ export function createWordEnv(
 ): WordEnv {
   const pushes = new Map<string, number>();
   const positions = new Map<string, { top: number; left: number; width: number }>();
-  const pageOpeners = new Set<string>();
   for (const layout of layouts.values()) {
     for (const [sid, push] of layout.pushBySid) pushes.set(sid, push);
     for (const [sid, position] of layout.positionBySid) positions.set(sid, position);
-
-    // The first block recorded for a page is the one that opens it: the map is
-    // built in reading order and records where each block *starts*.
-    const opened = new Set<number>();
-    for (const [sid, page] of layout.pageOfBlock) {
-      if (page <= 0 || opened.has(page)) continue;
-      opened.add(page);
-      pageOpeners.add(sid);
-    }
   }
 
   return {
@@ -106,7 +86,6 @@ export function createWordEnv(
     layouts,
     pushes,
     positions,
-    pageOpeners,
     editing,
     now
   };
@@ -185,11 +164,6 @@ export function getBlockPosition(
   sid: string
 ): { top: number; left: number; width: number } | undefined {
   return wordEnv(env)?.positions.get(sid);
-}
-
-/** Whether the paginator put this block at the top of a page. */
-export function opensPage(env: RenderEnv | undefined, sid: string): boolean {
-  return wordEnv(env)?.pageOpeners?.has(sid) ?? false;
 }
 
 /** How far the block opening a page must be pushed to reach its sheet. */

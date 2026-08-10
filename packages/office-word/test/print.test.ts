@@ -31,14 +31,17 @@ describe('the page box', () => {
     // Points, not pixels: a printer works in points, and 816px is 612pt only
     // because the screen was assumed to be 96dpi. Printing the pixel figure
     // would put the text on paper eight and a half *points* wide.
-    const css = printCss(metrics());
-    expect(css).toContain('size: 612pt 792pt');
-    expect(css).toContain('margin: 72pt 72pt 72pt 72pt');
+    expect(printCss(metrics())).toContain('size: 612pt 792pt');
   });
 
-  it('carries margins that are not all the same', () => {
-    const css = printCss(metrics({ marginTop: 48, marginBottom: 144 }));
-    expect(css).toContain('margin: 36pt 72pt 108pt 72pt');
+  it('asks for no margins of its own', () => {
+    // Each printed page holds a copy of the document clipped to a whole sheet,
+    // margins included. A page box that added its own would inset the text
+    // twice, and the copy would no longer line up with the page it was cut for.
+    expect(printCss(metrics())).toMatch(/@page \{[\s\S]*?margin: 0;/);
+    expect(printCss(metrics({ marginTop: 48, marginBottom: 144 }))).toMatch(
+      /@page \{[\s\S]*?margin: 0;/
+    );
   });
 
   it('has nothing to say before anything has been measured', () => {
@@ -51,39 +54,40 @@ describe('the page box', () => {
 describe('what reaches the paper', () => {
   const css = printCss(metrics());
 
-  it('breaks where the paginator put the top of a page', () => {
-    expect(css).toContain("[data-page-open='true']");
-    expect(css).toContain('break-before: page');
-    // The push that moved the block down to meet its sheet goes with it: the
-    // break has already put it at the top, and the push would print as a gap.
-    expect(css).toMatch(/\[data-page-open='true'\][\s\S]*?margin-top: 0/);
+  it('prints the pages that were built, not the flow they came from', () => {
+    // The document on screen is one continuous flow with sheets drawn behind
+    // it. Printing shows one box per page instead, each holding a copy of the
+    // document clipped to that page — which is the only way a break *inside* a
+    // paragraph can reach paper, since CSS has no way to ask for one.
+    expect(css).toMatch(/\.w-print-page\s*\{[\s\S]*?overflow: hidden/);
+    expect(css).toMatch(/\.w-print-page\s*\{[\s\S]*?break-after: page/);
+    // The last page must not push a blank one after it.
+    expect(css).toMatch(/\.w-print-page:last-child\s*\{[\s\S]*?break-after: auto/);
   });
 
-  it('drops the paper and the application, which only exist on screen', () => {
-    for (const onScreenOnly of ['.w-toolbar', '.w-sheet', '.w-furniture', '.w-page-break']) {
-      expect(css).toContain(onScreenOnly);
-    }
+  it('drops the application and the on-screen document, and nothing inside a copy', () => {
+    expect(css).toContain('.w-toolbar');
+    expect(css).toContain('.w-document:not(.w-print-copy)');
+    // Hiding anything inside a copy would reflow it, and every offset that
+    // clips a page was measured against the document as it stands.
+    // A descendant of a copy, not the copy itself — `:not(.w-print-copy)` is
+    // how the on-screen document is told apart from the copies, and that
+    // mentions the class without hiding anything in one.
+    expect(css).not.toMatch(/\.w-print-copy\s+\.[^{]*\{[^}]*display: none/);
   });
 
-  it('keeps the footnotes, which are the document', () => {
-    // They are drawn inside the layer the sheets live in. Dropping that layer
-    // wholesale would take the note text off the printout entirely — losing
-    // content, which is worse than placing it imperfectly.
-    expect(css).toMatch(/\.w-footnotes\s*\{[^}]*position: static/);
-    expect(css).not.toMatch(/\.w-footnotes[^{]*\{[^}]*display: none/);
+  it('lets the page box be the paper, so nothing is inset twice', () => {
+    // The copy inside a page is clipped to a whole sheet, margins included, so
+    // the page box asks for none of its own.
+    expect(css).toContain('margin: 0;');
   });
 
-  it('puts blocks placed by coordinate back into the flow', () => {
-    // A column is a box the paginator fills, and filling it takes every block
-    // out of the flow. Paper has no such boxes, and blocks left out of the flow
-    // print on top of one another.
-    expect(css).toMatch(/\[data-positioned='true'\][\s\S]*?position: static/);
-  });
-
-  it('stops the section supplying margins the page box now supplies', () => {
-    // Otherwise the text is inset twice, and the section's minimum height —
-    // which came from the layout — prints as a blank page at the end.
-    expect(css).toMatch(/\.w-surface\s*\{[\s\S]*?padding: 0/);
-    expect(css).toMatch(/\.w-surface\s*\{[\s\S]*?min-height: 0/);
+  it('keeps the sheets in the copies, because the page furniture is on them', () => {
+    // Headers, footers, page numbers and footnotes are drawn per page on the
+    // sheet layer, and clipping shows each page the ones that belong to it —
+    // which is how they reach paper in the right places. Only the paper itself
+    // goes, since the page box is the paper now.
+    expect(css).toMatch(/\.w-print-copy \.w-sheet\s*\{[\s\S]*?background: transparent/);
+    expect(css).not.toMatch(/\.w-print-copy \.w-sheets\s*\{[^}]*display: none/);
   });
 });

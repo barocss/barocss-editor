@@ -31,8 +31,7 @@ import {
   getWordNow,
   getWordLayout,
   getWordNumbering,
-  getWordStyles,
-  opensPage
+  getWordStyles
 } from './render-context';
 import { childrenOf, indexResources, type DocumentAccess, type DocumentNode } from './document-access';
 import { tocEntries, tocPageNumber } from './toc';
@@ -103,29 +102,6 @@ function blockStyle(node: Record<string, any>, env: RenderEnv | undefined): CssS
   if (push !== undefined) style.marginTop = `${push}px`;
 
   return style;
-}
-
-/**
- * Marks the blocks the paginator put at the top of a page.
- *
- * Only printing reads it. On screen the same fact is expressed as a push — the
- * block is moved down to meet its sheet — but paper has no sheet to meet and
- * needs a break instead, and CSS can only be told where to break by a selector.
- */
-function pageOpenAttr(node: Record<string, any>, env: RenderEnv | undefined): string {
-  return opensPage(env, String(node.sid ?? '')) ? 'true' : '';
-}
-
-/**
- * Marks a block the column layout placed by coordinate.
- *
- * Also only for printing. A column is a box the paginator fills, and filling it
- * means putting every block where it goes — which takes them all out of the
- * flow. Paper has no such boxes to fill, and blocks left out of the flow print
- * on top of one another, so print puts them back and they run as one column.
- */
-function positionedAttr(node: Record<string, any>, env: RenderEnv | undefined): string {
-  return getBlockPosition(env, String(node.sid ?? '')) ? 'true' : '';
 }
 
 /** The list marker for a numbered block, if it has one. */
@@ -570,8 +546,6 @@ export function registerWordRenderers(): void {
         className: 'w-paragraph',
         'data-style': (d: Record<string, any>) => String(d.attributes?.styleId ?? ''),
         'data-marker': (d: Record<string, any>, env?: RenderEnv) => listMarker(d, env),
-        'data-page-open': (d: Record<string, any>, env?: RenderEnv) => pageOpenAttr(d, env),
-        'data-positioned': (d: Record<string, any>, env?: RenderEnv) => positionedAttr(d, env),
         style: (d: Record<string, any>, env?: RenderEnv) => blockStyle(d, env)
       },
       [slot('content')]
@@ -589,8 +563,6 @@ export function registerWordRenderers(): void {
         className: 'w-heading',
         'data-style': (d: Record<string, any>) => String(d.attributes?.styleId ?? ''),
         'data-marker': (d: Record<string, any>, env?: RenderEnv) => listMarker(d, env),
-        'data-page-open': (d: Record<string, any>, env?: RenderEnv) => pageOpenAttr(d, env),
-        'data-positioned': (d: Record<string, any>, env?: RenderEnv) => positionedAttr(d, env),
         style: (d: Record<string, any>, env?: RenderEnv) => blockStyle(d, env)
       },
       [slot('content')]
@@ -602,12 +574,12 @@ export function registerWordRenderers(): void {
     'listItem',
     element(
       'div',
-      { className: 'w-list-item', 'data-marker': (d: Record<string, any>, env?: RenderEnv) => listMarker(d, env), 'data-page-open': (d: Record<string, any>, env?: RenderEnv) => pageOpenAttr(d, env), 'data-positioned': (d: Record<string, any>, env?: RenderEnv) => positionedAttr(d, env), style: (d: Record<string, any>, env?: RenderEnv) => blockStyle(d, env) },
+      { className: 'w-list-item', 'data-marker': (d: Record<string, any>, env?: RenderEnv) => listMarker(d, env), style: (d: Record<string, any>, env?: RenderEnv) => blockStyle(d, env) },
       [slot('content')]
     )
   );
 
-  define('blockQuote', element('blockquote', { className: 'w-quote', 'data-page-open': (d: Record<string, any>, env?: RenderEnv) => pageOpenAttr(d, env), 'data-positioned': (d: Record<string, any>, env?: RenderEnv) => positionedAttr(d, env), style: (d: Record<string, any>, env?: RenderEnv) => blockStyle(d, env) }, [slot('content')]));
+  define('blockQuote', element('blockquote', { className: 'w-quote', style: (d: Record<string, any>, env?: RenderEnv) => blockStyle(d, env) }, [slot('content')]));
   define(
     'codeBlock',
     element('pre', { className: 'w-code', 'data-language': (d: Record<string, any>) => String(d.attributes?.language ?? '') }, [
@@ -633,8 +605,6 @@ export function registerWordRenderers(): void {
       'table',
       {
         className: 'w-table',
-        'data-page-open': (d: Record<string, any>, env?: RenderEnv) => pageOpenAttr(d, env),
-        'data-positioned': (d: Record<string, any>, env?: RenderEnv) => positionedAttr(d, env),
         style: (d: Record<string, any>, env?: RenderEnv) => ({ ...blockStyle(d, env), ...formatFor(d, 'table', env) })
       },
       [slot('content')]

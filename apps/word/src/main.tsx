@@ -4,6 +4,7 @@ import { DataStore } from '@barocss/datastore';
 import { getGlobalRegistry } from '@barocss/dsl';
 import { EditorViewDOM } from '@barocss/editor-view-dom';
 import { createFontLoader, type FontLoader } from './font-loader';
+import { createPrintPages } from './print-pages';
 import { createSchema } from '@barocss/schema';
 import {
   createWordEditor,
@@ -32,6 +33,7 @@ declare global {
     setEditingFurniture?: (id: string | undefined) => void;
     pageBreaks?: PageBreakWidget[];
     wordFonts?: FontLoader;
+    wordPrintPages?: { build(): number; clear(): void };
   }
 }
 
@@ -246,6 +248,16 @@ export function mountWord(container: HTMLElement): { editor: Editor; view: Edito
     void Promise.all(named.map((family) => fonts.ensure(family))).then(() => view.render());
   }
   window.wordFonts = fonts;
+
+  /**
+   * Pages, built only while something is printing.
+   *
+   * The browser's own events, so this covers the print dialog and a PDF asked
+   * for programmatically alike.
+   */
+  const printPages = createPrintPages(() => container.querySelector('.w-document'));
+  printPages.attach();
+  window.wordPrintPages = printPages;
 
   window.editor = editor;
   window.editorView = view;

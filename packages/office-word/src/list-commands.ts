@@ -292,7 +292,6 @@ export class WordListExtension implements Extension {
     selection: ModelSelection,
     direction: 1 | -1
   ): Promise<boolean> {
-    const doc = this._doc(editor);
     const blocks = this._blocks(editor, selection);
     if (blocks.length === 0) return false;
 
