@@ -56,6 +56,31 @@ export class TransactionManager {
   /**
    * Execute transaction (core functionality)
    */
+  /**
+   * Drop a selection whose nodes are gone.
+   *
+   * Dropped rather than moved: where a caret should go after the text under it
+   * was deleted is the deleting operation's business, and every operation that
+   * knows says so through `selectionAfter`. This is only for the case nobody
+   * answered — and there, no selection is the truthful answer. A caret pointing
+   * at text that does not exist is not a position.
+   */
+  private _clearDanglingSelection(): void {
+    const editor = this._editor as any;
+    const selection = editor.selection;
+    if (!selection) return;
+
+    const store = this._dataStore as any;
+    if (!store?.getNode) return;
+
+    for (const sid of [selection.startNodeId, selection.endNodeId]) {
+      if (sid && !store.getNode(sid)) {
+        editor.updateSelection?.(null);
+        return;
+      }
+    }
+  }
+
   async execute(
     operations: (TransactionOperation | OpFunction)[],
     options?: TransactionOptions
@@ -200,7 +225,17 @@ export class TransactionManager {
         selectionAfter
       };
 
-      // 9. Emit event (notify View layer)
+      // 9. Put the selection somewhere that exists, before anyone is told.
+      //
+      // A transaction that removes nodes leaves the selection naming them, and
+      // nothing used to notice. Everything listening to the change below is
+      // then handed a caret pointing into deleted text: a toolbar asking which
+      // commands can run walked from a removed node and threw, and the throw
+      // came out of a React render and unmounted the editor. Repairing after
+      // the event would be too late, because the listeners have already run.
+      this._clearDanglingSelection();
+
+      // 10. Emit event (notify View layer)
       // editor:content.change → triggers render()
       this._editor.emit('editor:content.change', { 
         content: (this._editor as any).document, 
