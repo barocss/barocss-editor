@@ -77,7 +77,7 @@ export class DOMProcessor {
         if (targetNode.nodeType === Node.TEXT_NODE) {
           targetNode.textContent = String(vnode.text);
           wip.domNode = targetNode;
-        } else if (targetNode instanceof HTMLElement) {
+        } else if (targetNode instanceof Element) {
           // Element의 textContent를 업데이트
           targetNode.textContent = String(vnode.text);
           wip.domNode = targetNode;
@@ -122,7 +122,7 @@ export class DOMProcessor {
       
       // For child nodes: if parent DOM exists and previousVNode exists, use index-based matching
       // This ensures same-index elements are reused even when content changes
-      if (wip.parent?.domNode && wip.parent.domNode instanceof HTMLElement && 
+      if (wip.parent?.domNode && wip.parent.domNode instanceof Element && 
           wip.parent.vnode?.children && wip.parent.previousVNode?.children) {
         const parentDomNode = wip.parent.domNode as HTMLElement;
         const currentIndex = Array.isArray(wip.parent.vnode.children) 
@@ -270,7 +270,7 @@ export class DOMProcessor {
         return;
       }
       
-      if (existingNode && existingNode instanceof HTMLElement && existingNode.parentNode) {
+      if (existingNode && existingNode instanceof Element && existingNode.parentNode) {
         // 새 element 생성
         const newElement = this.domOperations.createElement(vnode);
         
@@ -300,7 +300,7 @@ export class DOMProcessor {
       
       // Use targetDomNode as HTMLElement if it's not null
       if (targetDomNode && targetDomNode instanceof Node) {
-        const htmlElement = targetDomNode instanceof HTMLElement ? targetDomNode : targetDomNode as any;
+        const htmlElement = targetDomNode instanceof Element ? targetDomNode : targetDomNode as any;
         
         // Update text content using textContent property directly
         // Always update text, even if parent is reconciling children
@@ -331,7 +331,7 @@ export class DOMProcessor {
     // Always check for text updates, even if 'text' is not in changes
     // This is important for reused nodes where text may have changed
     // Handle both explicit text value (including empty string) and text removal (undefined)
-    if (wip.domNode && wip.domNode instanceof HTMLElement) {
+    if (wip.domNode && wip.domNode instanceof Element) {
       // Check if text needs updating: vnode.text !== undefined (including empty string) or text was removed
       const needsTextUpdate = vnode.text !== undefined || 
                               (vnode.text === undefined && wip.previousVNode?.text !== undefined && 
@@ -354,7 +354,7 @@ export class DOMProcessor {
       const targetDomNode = domNode || this.findExistingDOMNodeInContainer(wip);
       
       if (targetDomNode && targetDomNode instanceof Node) {
-        const htmlElement = targetDomNode instanceof HTMLElement ? targetDomNode : targetDomNode as any;
+        const htmlElement = targetDomNode instanceof Element ? targetDomNode : targetDomNode as any;
         // 속성 업데이트
         if (changes.includes('attrs') || changes.includes('attributes')) {
           const prevAttrs = wip.previousVNode?.attrs || {};
@@ -402,7 +402,7 @@ export class DOMProcessor {
     }
 
     // Unconditional attribute/style sync to ensure updates apply when change flags are not computed
-    if (wip.domNode && wip.domNode instanceof HTMLElement) {
+    if (wip.domNode && wip.domNode instanceof Element) {
       const htmlElement = wip.domNode as HTMLElement;
       const nextAttrs = vnode.attrs || {};
       this.domOperations.updateAttributesWithRemoval(htmlElement, nextAttrs as any);
@@ -455,7 +455,7 @@ export class DOMProcessor {
     }
     
     // 위치 기반 매칭: parent가 있으면 parent 내에서 찾기
-    if (wip.parent?.domNode && wip.parent.domNode instanceof HTMLElement) {
+    if (wip.parent?.domNode && wip.parent.domNode instanceof Element) {
       const parentDomNode = wip.parent.domNode;
       // 1) Try SID-first within parent direct children
       if (desiredSid) {
@@ -570,7 +570,7 @@ export class DOMProcessor {
    */
   public findExistingDOMNode(wip: DOMWorkInProgress): Node | null {
     // 부모 DOM 노드에서 해당 태그의 요소를 찾기
-    if (wip.parent?.domNode && wip.parent.domNode instanceof HTMLElement) {
+    if (wip.parent?.domNode && wip.parent.domNode instanceof Element) {
       const parent = wip.parent.domNode as HTMLElement;
       const tagName = wip.vnode.tag?.toLowerCase();
       if (tagName) {

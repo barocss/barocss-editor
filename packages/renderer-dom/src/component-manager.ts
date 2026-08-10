@@ -120,7 +120,7 @@ export class ComponentManager implements ComponentStateProvider {
   /**
    * Mount a component
    */
-  public mountComponent(vnode: VNode, container: HTMLElement, context: ReconcileContext): HTMLElement | null {
+  public mountComponent(vnode: VNode, container: Element, context: ReconcileContext): Element | null {
     // Store context for later use
     this.context = context;
     
@@ -573,7 +573,7 @@ export class ComponentManager implements ComponentStateProvider {
    * @param container - DOM 컨테이너
    * @param context - Reconcile 컨텍스트
    */
-  public updateComponent(prevVNode: VNode, nextVNode: VNode, container: HTMLElement, context: ReconcileContext): void {
+  public updateComponent(prevVNode: VNode, nextVNode: VNode, container: Element, context: ReconcileContext): void {
     if (!nextVNode.stype) {
       return;
     }

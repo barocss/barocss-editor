@@ -335,7 +335,7 @@ export class DOMRenderer {
   updateDecoratorsBySid(sid: string, decorators: Decorator[]): boolean {
     try {
       let instance = this.componentManager.getComponentInstance(sid as any);
-      let hostEl: HTMLElement | null = instance?.element || null;
+      let hostEl: Element | null = instance?.element || null;
       if (!hostEl) {
         const doc = (this.rootElement?.ownerDocument || document);
         hostEl = doc.querySelector(`[${DOMAttribute.BC_SID}="${sid}"]`) as HTMLElement | null;

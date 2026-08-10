@@ -12,7 +12,7 @@ import { VNode, VNodeTag } from '../types';
  */
 export function isPortal(vnode: VNode): boolean {
   return vnode.tag === VNodeTag.PORTAL && 
-         vnode.attrs?.target instanceof HTMLElement;
+         vnode.attrs?.target instanceof Element;
 }
 
 /**

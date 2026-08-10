@@ -1265,7 +1265,7 @@ export class VNodeBuilder {
     }
 
     // Validate target
-    if (!target || !(target instanceof HTMLElement)) {
+    if (!target || !(target instanceof Element)) {
       const providedTarget = (template as any)?.target;
       if (isString(providedTarget)) {
         console.warn('Portal target is not a valid DOM element', { rawTarget: providedTarget, target, template });

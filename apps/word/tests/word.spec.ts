@@ -251,32 +251,126 @@ test.describe('pictures', () => {
 });
 
 /**
- * Drawings are not on the page yet, and this records why rather than leaving it
- * to be rediscovered.
+ * Drawings.
  *
- * Turning shapes into SVG is done and tested without a browser — a drawing is a
- * canvas with shapes placed by coordinate, and so is SVG, so the mapping is
- * mostly a rename. What is not done is getting them through the renderer, and
- * three separate faults were found trying:
- *
- *  1. SVG elements are created with their names upper-cased. `createElementNS`
- *     accepts an <SVG>, and an <SVG> is not an <svg>: SVG is case sensitive, so
- *     it is an unknown element with no geometry that draws nothing. Nothing has
- *     ever been drawn through this renderer.
- *  2. Every SVG element is then given HTMLElement's prototype so that the
- *     renderer's `instanceof HTMLElement` checks accept it. That holds until
- *     something reads its style, which is a getter that refuses to run against
- *     an object it was not defined for — the first styled SVG element throws
- *     `Illegal invocation` and takes the whole render with it.
- *  3. Placement walks *past* a parent that is not an HTMLElement looking for one
- *     that is, so children of an <svg> are attached above it or nowhere.
- *
- * The first is one line. The second and third are the same piece of work: some
- * forty-six places ask whether a node is an HTMLElement when what they mean is
- * whether it is an element. That is a sweep through the renderer, and doing it
- * alongside a feature is how a renderer gets broken quietly — the attempt is
- * measured and reverted rather than half-landed.
+ * A drawing is a canvas with shapes placed on it by coordinate, which is what
+ * SVG is, so the mapping is mostly a rename and is tested without a browser.
+ * What needs one is whether they reach the page — and for a long time nothing
+ * did: four separate faults in the renderer stood between an SVG template and a
+ * picture, and every one of them failed silently.
  */
+test.describe('drawings', () => {
+  /**
+   * A canvas is put into the document by the test rather than carried in the
+   * sample, so that adding one does not move every page after it. Pagination is
+   * measured, and a fixture that grows shifts the boundaries every other test
+   * is standing on.
+   */
+  const insertCanvas = (page: import('@playwright/test').Page) =>
+    page.evaluate(async () => {
+      const editor = (window as any).editor;
+      const store = editor.dataStore;
+      const root = store.getNode(editor.getRootId());
+      const body = (root.content ?? [])
+        .map((id: any) => (typeof id === 'string' ? store.getNode(id) : id))
+        .find((node: any) => node?.stype !== 'resources' && node?.stype !== 'docMeta');
+
+      await editor.transaction([
+        {
+          type: 'addChild',
+          payload: {
+            parentId: body.sid,
+            position: 0,
+            child: {
+              stype: 'canvasBlock',
+              attributes: { width: 360, height: 140 },
+              content: [
+                {
+                  stype: 'rectangle',
+                  attributes: {
+                    x: 10, y: 20, width: 120, height: 80,
+                    cornerRadius: 8, fill: '#dbeafe', stroke: '#1d4ed8', strokeWidth: 2
+                  }
+                },
+                {
+                  stype: 'ellipse',
+                  attributes: {
+                    x: 150, y: 20, width: 100, height: 80,
+                    fill: '#fee2e2', stroke: '#b91c1c', strokeWidth: 2
+                  }
+                },
+                {
+                  stype: 'line',
+                  attributes: {
+                    x: 270, y: 20, width: 70, height: 80,
+                    stroke: '#166534', strokeWidth: 3, rotation: 15
+                  }
+                },
+                {
+                  stype: 'path',
+                  attributes: {
+                    d: 'M 10 120 Q 90 90 170 120 T 340 120',
+                    x: 10, y: 90, width: 330, height: 40,
+                    stroke: '#7c3aed', strokeWidth: 2
+                  }
+                }
+              ]
+            }
+          }
+        }
+      ]).commit();
+    });
+
+  test('draws the shapes the canvas holds, at the size it declares', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-sheet');
+    await insertCanvas(page);
+    await page.waitForSelector('.w-canvas');
+
+    // The canvas declares a size rather than growing to fit, so the page can be
+    // laid out before anything is drawn in it.
+    await expect(page.locator('.w-canvas').first()).toHaveAttribute('viewBox', '0 0 360 140');
+
+    const drawn = await page.evaluate(() => {
+      const svg = document.querySelector('.w-canvas')!;
+      return {
+        // Lower case, and in the SVG namespace. An <SVG> is not an <svg>: SVG
+        // is case sensitive, so the upper-cased name this renderer used to
+        // create made an unknown element with no geometry that drew nothing.
+        tag: svg.tagName,
+        namespace: svg.namespaceURI,
+        children: [...svg.children].map((child) => child.tagName),
+        // Each one occupies space, which an element in the wrong namespace
+        // never would.
+        widths: [...svg.children].map((child) => Math.round(child.getBoundingClientRect().width))
+      };
+    });
+
+    expect(drawn.tag).toBe('svg');
+    expect(drawn.namespace).toBe('http://www.w3.org/2000/svg');
+    expect(drawn.children).toEqual(['rect', 'ellipse', 'line', 'path']);
+    for (const width of drawn.widths) expect(width).toBeGreaterThan(0);
+  });
+
+  test('turns a shape about its own middle', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-sheet');
+    await insertCanvas(page);
+    await page.waitForSelector('.w-shape-line');
+
+    // Every drawing tool turns a shape about its centre; SVG turns about the
+    // origin unless told otherwise, and a shape that did would swing off the
+    // canvas. The line is 70 by 80 at (270, 20), so its centre is (305, 60).
+    await expect(page.locator('.w-shape-line')).toHaveAttribute('transform', 'rotate(15 305 60)');
+
+    const inside = await page.evaluate(() => {
+      const svg = document.querySelector('.w-canvas')!.getBoundingClientRect();
+      const box = document.querySelector('.w-shape-line')!.getBoundingClientRect();
+      return box.left >= svg.left - 1 && box.right <= svg.right + 1;
+    });
+    expect(inside).toBe(true);
+  });
+});
 
 test.describe('tabs', () => {
   /** Where each run of a paragraph begins and ends, relative to the paragraph. */

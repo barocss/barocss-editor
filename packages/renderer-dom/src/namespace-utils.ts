@@ -6,7 +6,7 @@
 /**
  * Get namespace for attribute based on element namespace and attribute name
  */
-export function getAttributeNamespace(element: HTMLElement, attrName: string): string | null {
+export function getAttributeNamespace(element: Element, attrName: string): string | null {
   const elementNS = element.namespaceURI;
   
   // SVG namespace attributes
@@ -58,7 +58,7 @@ export function getAttributeNamespace(element: HTMLElement, attrName: string): s
 /**
  * Set attribute with proper namespace handling
  */
-export function setAttributeWithNamespace(element: HTMLElement, key: string, value: any): void {
+export function setAttributeWithNamespace(element: Element, key: string, value: any): void {
   if (value === null || value === undefined) {
     removeAttributeWithNamespace(element, key);
     return;
@@ -96,8 +96,10 @@ export function setAttributeWithNamespace(element: HTMLElement, key: string, val
   }
 
   if (key === 'className') {
+    // The attribute rather than the property: an SVG element's `className` is a
+    // read-only SVGAnimatedString and assigning to it throws.
     const next = String(value);
-    if (element.className !== next) element.className = next;
+    if (element.getAttribute('class') !== next) element.setAttribute('class', next);
     return;
   }
 
@@ -128,7 +130,7 @@ export function setAttributeWithNamespace(element: HTMLElement, key: string, val
 /**
  * Remove attribute with proper namespace handling
  */
-export function removeAttributeWithNamespace(element: HTMLElement, key: string): void {
+export function removeAttributeWithNamespace(element: Element, key: string): void {
   const namespace = getAttributeNamespace(element, key);
   if (namespace) {
     const localName = key.includes(':') ? key.split(':')[1] : key;
@@ -181,19 +183,30 @@ export function getNamespaceForTag(tag: string, parentElement?: HTMLElement | nu
  */
 export function createElementWithNamespace(tag: string, namespace?: string): HTMLElement {
   if (namespace) {
-    // For SVG and MathML, create with namespace but return as HTMLElement
-    const element = document.createElementNS(namespace, tag.toUpperCase()); // Convert tag to uppercase for SVG/MathML
+    // The name exactly as written.
+    //
+    // It used to be upper-cased, which is a reasonable-looking inference from
+    // HTML and exactly wrong here: `createElement('div').tagName` is 'DIV'
+    // because HTML normalises, and `createElementNS` does not normalise
+    // anything. SVG and MathML are case sensitive, so <SVG> is not <svg> — it
+    // is an unknown element with no geometry that draws nothing and reports no
+    // error. It has been that way since the first commit, which is why nothing
+    // had ever been drawn through this renderer.
+    const element = document.createElementNS(namespace, tag);
 
     // Set xmlns attribute explicitly for SVG/MathML elements
     if (namespace === 'http://www.w3.org/2000/svg' || namespace === 'http://www.w3.org/1998/Math/MathML') {
       element.setAttribute('xmlns', namespace);
     }
 
-    // Add HTMLElement properties for compatibility
-    if (!(element instanceof HTMLElement)) {
-      Object.setPrototypeOf(element, HTMLElement.prototype);
-    }
-    return element as HTMLElement;
+    // Left as what it is. It used to be given HTMLElement's prototype so the
+    // renderer's `instanceof` checks would accept it — a lie that held until
+    // something read its style, which is a getter that refuses to run against
+    // an object it was not defined for. The first styled SVG element threw
+    // `Illegal invocation` and took the whole render with it.
+    //
+    // The checks now ask whether a node is an Element, which is what they meant.
+    return element as unknown as HTMLElement;
   }
   return document.createElement(tag);
 }

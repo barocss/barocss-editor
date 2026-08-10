@@ -9,7 +9,7 @@ import { getVNodeId } from './vnode-utils';
  */
 export interface ComponentLifecycleManager {
   mountComponent(vnode: VNode, host: HTMLElement, context: any): void;
-  updateComponent(prevVNode: VNode, nextVNode: VNode, host: HTMLElement, context: any): void;
+  updateComponent(prevVNode: VNode, nextVNode: VNode, host: Element, context: any): void;
 }
 
 /**
@@ -178,8 +178,8 @@ export function createHostElement(
  * @param context - Reconciliation context
  */
 export function updateHostElement(
-  host: HTMLElement,
-  parent: HTMLElement,
+  host: Element,
+  parent: Element,
   childVNode: VNode,
   childIndex: number,
   prevChildVNode: VNode | undefined,

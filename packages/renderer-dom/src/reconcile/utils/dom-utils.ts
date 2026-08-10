@@ -9,19 +9,19 @@ export function findChildHost(
   parent: HTMLElement,
   vnode: VNode,
   childIndex?: number
-): HTMLElement | null {
+): Element | null {
   // Find by VNode identifier (sid or data-decorator-sid from attrs)
   const vnodeId = getVNodeId(vnode);
   if (vnodeId && childIndex !== undefined) {
     // Find in DOM by data-bc-sid or data-decorator-sid (index-based)
     // IMPORTANT: when multiple elements have the same ID, select the one closest to the index
     const children = Array.from(parent.children);
-    let bestMatch: HTMLElement | null = null;
+    let bestMatch: Element | null = null;
     let minIndexDiff = Infinity;
     
     for (let i = 0; i < children.length; i++) {
       const child = children[i];
-      if (!(child instanceof HTMLElement)) continue;
+      if (!(child instanceof Element)) continue;
       const isMatch = child.getAttribute('data-bc-sid') === vnodeId ||
         child.getAttribute('data-decorator-sid') === vnodeId;
       if (!isMatch) continue;
@@ -45,7 +45,7 @@ export function findChildHost(
     
     // IMPORTANT: check element at childIndex position first
     if (childIndex < children.length) {
-      const candidate = children[childIndex] as HTMLElement;
+      const candidate = children[childIndex] as Element;
       if (candidate && candidate.tagName.toLowerCase() === vnode.tag.toLowerCase()) {
         // Same tag and no sid, reuse
         const hasSid = candidate.hasAttribute('data-bc-sid') || candidate.hasAttribute('data-decorator-sid');
@@ -78,11 +78,11 @@ export function findChildHost(
             const candidateClasses = candidate.className ? candidate.className.split(/\s+/).filter(Boolean) : [];
             const classesMatch = vnodeClasses.every(cls => candidateClasses.includes(cls));
             if (classesMatch) {
-              return candidate as HTMLElement;
+              return candidate as Element;
             }
           } else {
             // If no classes, reuse by tag only
-            return candidate as HTMLElement;
+            return candidate as Element;
           }
         }
       }
@@ -95,7 +95,7 @@ export function findChildHost(
 /**
  * Query host element by sid within parent scope
  */
-export function queryHost(parent: HTMLElement, sid: string): HTMLElement | null {
+export function queryHost(parent: HTMLElement, sid: string): Element | null {
   return parent.querySelector(`:scope > [data-bc-sid="${sid}"]`) as HTMLElement | null;
 }
 

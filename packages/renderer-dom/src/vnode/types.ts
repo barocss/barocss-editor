@@ -66,7 +66,8 @@ export interface VNode {
   props?: Record<string, any>;      // Pure props (excluding stype/sid/type) - only for component-generated VNodes
   isExternal?: boolean; // true: external component, false: contextual component - only for component-generated VNodes
   portal?: {
-    target: HTMLElement;
+    // Any element: a portal into an <svg> is a portal.
+    target: Element;
     template: any;
     portalId?: string;
   };

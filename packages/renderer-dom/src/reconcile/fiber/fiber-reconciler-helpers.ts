@@ -89,8 +89,8 @@ export function generateVNodeIdIfNeeded(
 export function findHostFromPrevVNode(
   vnode: VNode,
   prevVNode: VNode | undefined
-): HTMLElement | null {
-  if (prevVNode?.meta?.domElement instanceof HTMLElement) {
+): Element | null {
+  if (prevVNode?.meta?.domElement instanceof Element) {
     const vnodeId = getVNodeId(vnode);
     const prevVNodeId = getVNodeId(prevVNode);
     
@@ -117,8 +117,8 @@ export function findHostFromPrevVNode(
  */
 export function buildPrevChildToElementMap(
   prevChildVNodes: (VNode | string | number)[]
-): Map<VNode | string | number, HTMLElement | Text> {
-  const prevChildToElement = new Map<VNode | string | number, HTMLElement | Text>();
+): Map<VNode | string | number, Element | Text> {
+  const prevChildToElement = new Map<VNode | string | number, Element | Text>();
   
   for (const prevChild of prevChildVNodes) {
     if (typeof prevChild === 'object' && prevChild?.meta?.domElement) {
@@ -133,8 +133,8 @@ export function buildPrevChildToElementMap(
  * 기존 host 업데이트
  */
 export function updateExistingHost(
-  host: HTMLElement,
-  parent: HTMLElement,
+  host: Element,
+  parent: Element,
   vnode: VNode,
   prevVNode: VNode | undefined,
   index: number,
@@ -173,7 +173,7 @@ export function findOrCreateHost(
   fiber: FiberNode,
   deps: { dom: DOMOperations; components: ComponentManager; context?: any },
   context: any
-): HTMLElement {
+): Element {
   const { dom, components } = deps;
   const vnode = fiber.vnode;
   const prevVNode = fiber.prevVNode;

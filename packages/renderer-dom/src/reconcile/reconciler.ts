@@ -223,7 +223,7 @@ export class Reconciler {
     // Collect existing hosts (children with VNode identifiers)
     const existingHosts = Array.from(parent.children).filter(
       (el): el is HTMLElement => 
-        el instanceof HTMLElement && (
+        el instanceof Element && (
           !!el.getAttribute('data-bc-sid') || !!el.getAttribute('data-decorator-sid')
         )
     ) as HTMLElement[];

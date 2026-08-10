@@ -120,7 +120,7 @@ export interface AttrBinding {
 // Component instance
 export interface ComponentInstance {
   id: string;
-  element: HTMLElement | null;
+  element: Element | null;
   component: ExternalComponent;
   state: ComponentState;
   props: ComponentProps;      // 순수 props (stype/sid/type 제외)

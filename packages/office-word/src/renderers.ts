@@ -29,6 +29,16 @@ import { formatDateField } from './date-field';
 import { footnoteAreaTemplate, furnitureFor, furnitureTemplate, pageNumberFor } from './page-furniture';
 import { leaderStyle } from './tabs';
 import { imageCss } from './image-layout';
+import {
+  canvasCss,
+  canvasViewBox,
+  ellipseAttrs,
+  isVisible,
+  lineAttrs,
+  rectangleAttrs,
+  shapePaint,
+  shapeTransform
+} from './shapes';
 import { blockStyle, formatFor, listMarker } from './renderers/block-style';
 import { registerRevisionMarks, registerValuedMarks } from './renderers/marks';
 
@@ -502,6 +512,109 @@ export function registerWordRenderers(): void {
     element('pre', { className: 'w-code', 'data-language': (d: Record<string, any>) => String(d.attributes?.language ?? '') }, [
       slot('content')
     ])
+  );
+
+  /**
+   * A drawing: a canvas with shapes placed on it by coordinate.
+   *
+   * SVG, because that is what a canvas of placed shapes is. The canvas declares
+   * its size rather than growing to fit, so the paginator can measure it like
+   * any other block — a block whose height depended on what was drawn in it
+   * could not be laid out before it was drawn.
+   */
+  define(
+    'canvasBlock',
+    element(
+      'svg',
+      {
+        className: 'w-canvas',
+        viewBox: (d: Record<string, any>) => canvasViewBox(d.attributes as never),
+        style: (d: Record<string, any>) => canvasCss(d.attributes as never)
+      },
+      [slot('content')]
+    )
+  );
+
+  /**
+   * The shapes.
+   *
+   * Written out rather than generated from a table: the three differ in what
+   * SVG asks them for — a box, a centre and two radii, two points — and a
+   * helper that hid that difference would hide the only interesting part.
+   *
+   * A shape a document has hidden is drawn as nothing rather than left out.
+   * Leaving it out would change which node the sids either side of it belong
+   * to, and a hidden shape is still in the document.
+   */
+  const paint = (d: Record<string, any>, name: string) =>
+    shapePaint(d.attributes as never)[name] ?? '';
+  const hidden = (d: Record<string, any>) =>
+    isVisible(d.attributes as never) ? {} : { display: 'none' };
+  const turned = (d: Record<string, any>) => shapeTransform(d.attributes as never) ?? '';
+
+  define(
+    'rectangle',
+    element('rect', {
+      className: 'w-shape w-shape-rectangle',
+      style: hidden,
+      transform: turned,
+      x: (d: Record<string, any>) => rectangleAttrs(d.attributes as never).x,
+      y: (d: Record<string, any>) => rectangleAttrs(d.attributes as never).y,
+      width: (d: Record<string, any>) => rectangleAttrs(d.attributes as never).width,
+      height: (d: Record<string, any>) => rectangleAttrs(d.attributes as never).height,
+      rx: (d: Record<string, any>) => rectangleAttrs(d.attributes as never).rx ?? '',
+      fill: (d: Record<string, any>) => paint(d, 'fill'),
+      stroke: (d: Record<string, any>) => paint(d, 'stroke'),
+      'stroke-width': (d: Record<string, any>) => paint(d, 'stroke-width'),
+      opacity: (d: Record<string, any>) => paint(d, 'opacity')
+    })
+  );
+
+  define(
+    'ellipse',
+    element('ellipse', {
+      className: 'w-shape w-shape-ellipse',
+      style: hidden,
+      transform: turned,
+      cx: (d: Record<string, any>) => ellipseAttrs(d.attributes as never).cx,
+      cy: (d: Record<string, any>) => ellipseAttrs(d.attributes as never).cy,
+      rx: (d: Record<string, any>) => ellipseAttrs(d.attributes as never).rx,
+      ry: (d: Record<string, any>) => ellipseAttrs(d.attributes as never).ry,
+      fill: (d: Record<string, any>) => paint(d, 'fill'),
+      stroke: (d: Record<string, any>) => paint(d, 'stroke'),
+      'stroke-width': (d: Record<string, any>) => paint(d, 'stroke-width'),
+      opacity: (d: Record<string, any>) => paint(d, 'opacity')
+    })
+  );
+
+  define(
+    'line',
+    element('line', {
+      className: 'w-shape w-shape-line',
+      style: hidden,
+      transform: turned,
+      x1: (d: Record<string, any>) => lineAttrs(d.attributes as never).x1,
+      y1: (d: Record<string, any>) => lineAttrs(d.attributes as never).y1,
+      x2: (d: Record<string, any>) => lineAttrs(d.attributes as never).x2,
+      y2: (d: Record<string, any>) => lineAttrs(d.attributes as never).y2,
+      stroke: (d: Record<string, any>) => paint(d, 'stroke') || 'currentColor',
+      'stroke-width': (d: Record<string, any>) => paint(d, 'stroke-width') || '1',
+      opacity: (d: Record<string, any>) => paint(d, 'opacity')
+    })
+  );
+
+  define(
+    'path',
+    element('path', {
+      className: 'w-shape w-shape-path',
+      style: hidden,
+      transform: turned,
+      d: (d: Record<string, any>) => String(d.attributes?.d ?? ''),
+      fill: (d: Record<string, any>) => paint(d, 'fill'),
+      stroke: (d: Record<string, any>) => paint(d, 'stroke'),
+      'stroke-width': (d: Record<string, any>) => paint(d, 'stroke-width'),
+      opacity: (d: Record<string, any>) => paint(d, 'opacity')
+    })
   );
 
   define('pageBreak', element('div', { className: 'w-page-break', role: 'separator' }));

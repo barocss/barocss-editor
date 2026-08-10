@@ -22,9 +22,9 @@ export function findHostForChildVNode(
   childVNode: VNode,
   childIndex: number,
   prevChildVNodes: (VNode | string | number)[],
-  prevChildToElement: Map<VNode | string | number, HTMLElement | Text>
-): HTMLElement | null {
-  let host: HTMLElement | null = null;
+  prevChildToElement: Map<VNode | string | number, Element | Text>
+): Element | null {
+  let host: Element | null = null;
   
   // Strategy 1: Key-based matching (React's key prop)
   // VNode identifier (sid or data-decorator-sid from attrs) acts as key
@@ -39,12 +39,12 @@ export function findHostForChildVNode(
         const prevId = getVNodeId(prevChildVNode);
         // Reuse if prevChildVNode at same index has same ID
         if (prevId === vnodeId) {
-          if (prevChildVNode.meta?.domElement && prevChildVNode.meta.domElement instanceof HTMLElement) {
+          if (prevChildVNode.meta?.domElement && prevChildVNode.meta.domElement instanceof Element) {
             host = prevChildVNode.meta.domElement;
           } else {
             const candidateElement = prevChildToElement.get(prevChild);
             if (candidateElement && candidateElement.nodeType === 1) {
-              host = candidateElement as HTMLElement;
+              host = candidateElement as Element;
             }
           }
         }
@@ -54,7 +54,7 @@ export function findHostForChildVNode(
     // Fallback: find VNode with same ID in prevChildVNodes (index-based)
     // IMPORTANT: when multiple VNodes have same ID, select one closest to index
     if (!host) {
-      let bestMatch: HTMLElement | null = null;
+      let bestMatch: Element | null = null;
       let minIndexDiff = Infinity;
       
       for (let i = 0; i < prevChildVNodes.length; i++) {
@@ -70,13 +70,13 @@ export function findHostForChildVNode(
           minIndexDiff = indexDiff;
           
           // Use DOM element from prevVNode meta if available
-          if (prevChildVNode.meta?.domElement && prevChildVNode.meta.domElement instanceof HTMLElement) {
+          if (prevChildVNode.meta?.domElement && prevChildVNode.meta.domElement instanceof Element) {
             bestMatch = prevChildVNode.meta.domElement;
           } else {
             // Fallback: use prevChildToElement map
             const candidateElement = prevChildToElement.get(prevChild);
             if (candidateElement && candidateElement.nodeType === 1) {
-              bestMatch = candidateElement as HTMLElement;
+              bestMatch = candidateElement as Element;
             }
           }
         }
@@ -110,13 +110,13 @@ export function findHostForChildVNode(
         // Check if same type (tag) - React's type comparison
         if (prevChildVNode.tag === childVNode.tag) {
           // Use DOM element from prevVNode meta if available
-          if (prevChildVNode.meta?.domElement && prevChildVNode.meta.domElement instanceof HTMLElement) {
+          if (prevChildVNode.meta?.domElement && prevChildVNode.meta.domElement instanceof Element) {
             host = prevChildVNode.meta.domElement;
           } else {
             // Fallback: use prevChildToElement map
             const candidateElement = prevChildToElement.get(prevChild);
             if (candidateElement && candidateElement.nodeType === 1) {
-              host = candidateElement as HTMLElement;
+              host = candidateElement as Element;
             }
           }
         }
@@ -150,7 +150,7 @@ export function findHostInParentChildren(
   vnode: VNode,
   prevVNode: VNode | undefined,
   childIndex: number
-): HTMLElement | null {
+): Element | null {
   const vnodeId = getVNodeId(vnode);
   
   // 1. Find VNode with same ID in prevVNode.children (index-based)
@@ -164,7 +164,7 @@ export function findHostInParentChildren(
         const prevId = getVNodeId(prevChildVNode);
         // Reuse if prevChildVNode at same index has same ID
         if (prevId === vnodeId) {
-          if (prevChildVNode.meta?.domElement instanceof HTMLElement) {
+          if (prevChildVNode.meta?.domElement instanceof Element) {
             const domEl = prevChildVNode.meta.domElement;
             // Check if child of current parent
             if (domEl.parentElement === parent) {
@@ -176,7 +176,7 @@ export function findHostInParentChildren(
     }
     
     // Fallback: find VNode with same ID closest to index
-    let bestMatch: HTMLElement | null = null;
+    let bestMatch: Element | null = null;
     let minIndexDiff = Infinity;
     
     for (let i = 0; i < prevVNode.children.length; i++) {
@@ -185,7 +185,7 @@ export function findHostInParentChildren(
       const prevChildVNode = prevChild as VNode;
       const prevId = getVNodeId(prevChildVNode);
       if (prevId === vnodeId) {
-        if (prevChildVNode.meta?.domElement instanceof HTMLElement) {
+        if (prevChildVNode.meta?.domElement instanceof Element) {
           const domEl = prevChildVNode.meta.domElement;
           // Check if child of current parent
           if (domEl.parentElement === parent) {
@@ -211,12 +211,12 @@ export function findHostInParentChildren(
   // Only search for elements with same ID when prevVNode exists (to find already matched elements)
   if (vnodeId && prevVNode) {
     const children = Array.from(parent.children);
-    let bestMatch: HTMLElement | null = null;
+    let bestMatch: Element | null = null;
     let minIndexDiff = Infinity;
     
     for (let i = 0; i < children.length; i++) {
       const child = children[i];
-      const childEl = child as HTMLElement;
+      const childEl = child as Element;
       const childSid = childEl.getAttribute('data-bc-sid');
       const childDecoratorSid = childEl.getAttribute('data-decorator-sid');
       if (childSid === vnodeId || childDecoratorSid === vnodeId) {
@@ -254,7 +254,7 @@ export function findHostInParentChildren(
       }
     );
     
-    if (prevChildVNode?.meta?.domElement instanceof HTMLElement) {
+    if (prevChildVNode?.meta?.domElement instanceof Element) {
       const domEl = prevChildVNode.meta.domElement;
       // Check if child of current parent
       if (domEl.parentElement === parent) {
@@ -272,7 +272,7 @@ export function findHostInParentChildren(
   // block (Enter in the middle of a document) render as an in-place update of
   // the following block, silently dropping it.
   if (!vnodeId && childIndex < parent.children.length) {
-    const candidate = parent.children[childIndex] as HTMLElement;
+    const candidate = parent.children[childIndex] as Element;
     if (candidate && candidate.tagName.toLowerCase() === (vnode.tag || '').toLowerCase()) {
       // Class matching (structural matching)
       if (vnode.attrs?.class || vnode.attrs?.className) {

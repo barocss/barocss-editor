@@ -139,7 +139,6 @@ export class DOMOperations {
           // Remove
           if (key === 'className' || key === 'class') {
             element.removeAttribute('class');
-            (element as any).className = '';
           } else {
             removeAttributeWithNamespace(element, key);
           }
@@ -157,7 +156,6 @@ export class DOMOperations {
       if (value === undefined || value === null) {
         if (key === 'className' || key === 'class') {
           element.removeAttribute('class');
-          (element as any).className = '';
         } else if (actualPrevAttrs && key in actualPrevAttrs) {
           removeAttributeWithNamespace(element, key);
         }
@@ -170,9 +168,12 @@ export class DOMOperations {
         if (key === 'className' || key === 'class') {
           // Only when it differs: an identical write still costs a mutation
           // record, which the input path then has to sort out.
+          // Through the attribute, not the property. On an SVG element
+          // `className` is a read-only SVGAnimatedString, so assigning to it
+          // throws — and setting the attribute is what the property does on an
+          // HTML element anyway.
           const next = String(value);
           if (element.getAttribute('class') !== next) {
-            (element as any).className = next;
             element.setAttribute('class', next);
           }
         } else {
@@ -235,7 +236,7 @@ export class DOMOperations {
    * Set a single attribute with namespace support
    * Use this instead of element.setAttribute() directly
    */
-  public setAttribute(element: HTMLElement, key: string, value: string | number | boolean): void {
+  public setAttribute(element: Element, key: string, value: string | number | boolean): void {
     setAttributeWithNamespace(element, key, value);
   }
 
@@ -259,9 +260,9 @@ export class DOMOperations {
       if (key === 'class') {
         if (value === undefined || value === null) {
           element.removeAttribute('class');
-          (element as any).className = '';
+          element.removeAttribute('class');
         } else {
-          (element as any).className = String(value);
+          element.setAttribute('class', String(value));
           element.setAttribute('class', String(value));
         }
         continue;
@@ -305,7 +306,7 @@ export class DOMOperations {
       if (domNodeToRemove && wip.vnode) {
         const matches = (
           (!wip.vnode.tag && domNodeToRemove.nodeType === Node.TEXT_NODE && domNodeToRemove.textContent === String(wip.vnode.text)) ||
-          (wip.vnode.tag && domNodeToRemove instanceof HTMLElement && 
+          (wip.vnode.tag && domNodeToRemove instanceof Element && 
            domNodeToRemove.tagName.toLowerCase() === wip.vnode.tag.toLowerCase() &&
            (wip.vnode.text === undefined || domNodeToRemove.textContent === String(wip.vnode.text)))
         );
@@ -668,7 +669,7 @@ export class DOMOperations {
         // Ensure text content is updated BEFORE DOM operations
         // This is important for reused nodes where text may have changed
         // Update before reorder/insert to prevent text loss
-        if (wip.vnode?.text !== undefined && wip.domNode instanceof HTMLElement) {
+        if (wip.vnode?.text !== undefined && wip.domNode instanceof Element) {
           const currentText = wip.domNode.textContent;
           const expectedText = String(wip.vnode.text);
           
@@ -718,7 +719,7 @@ export class DOMOperations {
             // Note: ref is prevSiblingDom.nextSibling, so if domNode.nextSibling !== ref, position is wrong
             if (currentNextSibling !== ref) {
               // Wrong position - reorder
-              const beforeText = wip.domNode instanceof HTMLElement ? wip.domNode.textContent : undefined;
+              const beforeText = wip.domNode instanceof Element ? wip.domNode.textContent : undefined;
               const allChildren = Array.from(parent.children).map((c, i) => ({
                 index: i,
                 tag: c.tagName,
@@ -731,7 +732,7 @@ export class DOMOperations {
             } catch {
               parent.appendChild(wip.domNode);
             }
-              const afterText = wip.domNode instanceof HTMLElement ? wip.domNode.textContent : undefined;
+              const afterText = wip.domNode instanceof Element ? wip.domNode.textContent : undefined;
               const allChildrenAfter = Array.from(parent.children).map((c, i) => ({
                 index: i,
                 tag: c.tagName,
@@ -749,7 +750,7 @@ export class DOMOperations {
         }
         
         // Ensure text content is updated again after DOM operations (in case reorder cleared it)
-        if (wip.vnode?.text !== undefined && wip.domNode instanceof HTMLElement) {
+        if (wip.vnode?.text !== undefined && wip.domNode instanceof Element) {
           const currentText = wip.domNode.textContent;
           const expectedText = String(wip.vnode.text);
           

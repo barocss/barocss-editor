@@ -16,7 +16,7 @@ import { DOMWorkInProgress } from './work-in-progress';
 export class PortalManager {
   // Internal mapping: persist portal identity without touching DOM
   private vnodeToPortalId: WeakMap<VNode, string> = new WeakMap();
-  private portalRegistry: Map<string, { target: HTMLElement; container: HTMLElement; host: HTMLElement }> = new Map();
+  private portalRegistry: Map<string, { target: Element; container: HTMLElement; host: Element }> = new Map();
   private targetToPortalId: WeakMap<HTMLElement, string> = new WeakMap();
 
   /**
@@ -63,9 +63,9 @@ export class PortalManager {
     const rawTarget = (vnode.portal?.target || vnode.attrs?.target);
     const template = vnode.portal?.template || vnode.attrs?.template;
     
-    // Convert string selector to HTMLElement, or use rawTarget if it's already an HTMLElement
-    let target: HTMLElement | null = null;
-    if (rawTarget instanceof HTMLElement) {
+    // Any element, not only an HTML one: a portal into an <svg> is a portal.
+    let target: Element | null = null;
+    if (rawTarget instanceof Element) {
       target = rawTarget;
     } else if (typeof rawTarget === 'string') {
       // Try to find element by selector or id/sid
@@ -125,7 +125,7 @@ export class PortalManager {
         existing.container.parentNode.removeChild(existing.container);
       }
       target.appendChild(existing.container);
-      this.portalRegistry.set(portalId, { target, container: existing.container, host: (wip.parent?.domNode as HTMLElement) || (this.currentContainer as HTMLElement) });
+      this.portalRegistry.set(portalId, { target, container: existing.container, host: (wip.parent?.domNode as Element) || (this.currentContainer as Element) });
       // Update content in the moved container
       this.updatePortalContent(wip, vnode, template, existing.container);
       return;
@@ -136,7 +136,7 @@ export class PortalManager {
       portalContainer = document.createElement('div');
       portalContainer.style.position = 'relative';
       target.appendChild(portalContainer);
-      this.portalRegistry.set(portalId, { target, container: portalContainer, host: (wip.parent?.domNode as HTMLElement) || (this.currentContainer as HTMLElement) });
+      this.portalRegistry.set(portalId, { target, container: portalContainer, host: (wip.parent?.domNode as Element) || (this.currentContainer as Element) });
       // Initial render
       portalContainer.innerHTML = '';
       this.renderPortalContent(vnode, template, portalContainer);
@@ -311,7 +311,7 @@ export class PortalManager {
       this.vnodeToPortalId.set(nextVNode, idFromTarget);
       return idFromTarget;
     }
-    if (rawTarget && typeof rawTarget === 'object' && (rawTarget as HTMLElement) instanceof HTMLElement) {
+    if (rawTarget && typeof rawTarget === 'object' && (rawTarget as HTMLElement) instanceof Element) {
       const el = rawTarget as HTMLElement;
       const existing = this.targetToPortalId.get(el);
       if (existing) {
@@ -365,7 +365,7 @@ export class PortalManager {
         if (value !== null && value !== undefined) {
           // Handle className specially
           if (key === 'className') {
-            element.className = String(value);
+            element.setAttribute('class', String(value));
           } else {
             // Use namespace-aware attribute setting
             setAttributeWithNamespace(element, key, value);

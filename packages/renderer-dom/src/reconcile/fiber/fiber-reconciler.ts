@@ -201,7 +201,7 @@ export function renderFiberNode(
     // Call unmountComponent if prevVNode exists and has stype
     if (prevVNode && prevVNode.stype && prevVNode.sid) {
       const prevHost = prevVNode.meta?.domElement;
-      if (prevHost && prevHost instanceof HTMLElement) {
+      if (prevHost && prevHost instanceof Element) {
         try {
           components.unmountComponent(prevVNode, context);
         } catch (err) {
@@ -433,7 +433,7 @@ export function commitFiberNode(
   if (!vnode || typeof vnode !== 'object') {
     if (fiber.effectTag === EffectTag.DELETION && prevVNode) {
       const prevHost = prevVNode.meta?.domElement;
-      if (prevHost && prevHost instanceof HTMLElement) {
+      if (prevHost && prevHost instanceof Element) {
         try {
           components.unmountComponent(prevVNode, context);
         } catch (err) {
@@ -496,7 +496,7 @@ export function commitFiberNode(
       prevDomElement.parentNode.removeChild(prevDomElement);
     }
     // Component unmount (only for HTMLElement)
-    if (prevDomElement instanceof HTMLElement && prevVNode.stype && prevVNode.sid) {
+    if (prevDomElement instanceof Element && prevVNode.stype && prevVNode.sid) {
       try {
         components.unmountComponent(prevVNode, context);
       } catch (err) {
@@ -510,13 +510,13 @@ export function commitFiberNode(
     let actualParent: HTMLElement | null = null;
     let parentCandidate = fiber.parentFiber;
     while (parentCandidate && !actualParent) {
-      if (parentCandidate.domElement instanceof HTMLElement) {
+      if (parentCandidate.domElement instanceof Element) {
         actualParent = parentCandidate.domElement;
         break;
       }
       parentCandidate = parentCandidate.parentFiber;
     }
-    if (!actualParent && parent instanceof HTMLElement) {
+    if (!actualParent && parent instanceof Element) {
       actualParent = parent;
     }
     
@@ -546,7 +546,7 @@ export function commitFiberNode(
     }
     
     // DOM insertion (same as React's commitPlacement)
-    if (!(actualParent instanceof HTMLElement)) {
+    if (!(actualParent instanceof Element)) {
       logger.error(LogCategory.FIBER, 'actualParent is not HTMLElement', {
         fiberVNode: {
           sid: vnode.sid,
@@ -571,18 +571,18 @@ export function commitFiberNode(
       // If DOM element is in parent but at wrong position, move
       actualParent.insertBefore(domElement, before);
     }
-  } else if (fiber.effectTag === EffectTag.UPDATE && domElement instanceof HTMLElement) {
+  } else if (fiber.effectTag === EffectTag.UPDATE && domElement instanceof Element) {
     // Reorder when reused node is at wrong position (child order changed)
     let actualParent: HTMLElement | null = null;
     let parentCandidate = fiber.parentFiber;
     while (parentCandidate && !actualParent) {
-      if (parentCandidate.domElement instanceof HTMLElement) {
+      if (parentCandidate.domElement instanceof Element) {
         actualParent = parentCandidate.domElement;
         break;
       }
       parentCandidate = parentCandidate.parentFiber;
     }
-    if (!actualParent && parent instanceof HTMLElement) {
+    if (!actualParent && parent instanceof Element) {
       actualParent = parent;
     }
     if (actualParent && domElement.parentNode === actualParent) {
@@ -597,7 +597,7 @@ export function commitFiberNode(
   if (fiber.effectTag === EffectTag.PLACEMENT) {
     // Component lifecycle: mount when component VNode has stype
     // IMPORTANT: do not call mountComponent for already mounted components
-    if (domElement instanceof HTMLElement && vnode.stype) {
+    if (domElement instanceof Element && vnode.stype) {
       const componentManager = components as any;
       let shouldMount = false;
       
@@ -657,7 +657,7 @@ export function commitFiberNode(
   }
   
   // Update parent of direct child Fibers to current domElement (only if HTMLElement)
-  if (domElement instanceof HTMLElement) {
+  if (domElement instanceof Element) {
     const prevWasTextOnly =
       prevVNode?.text !== undefined &&
       (!prevVNode.children || prevVNode.children.length === 0);
@@ -678,7 +678,7 @@ export function commitFiberNode(
   
   // Update attributes and styles (only if HTMLElement)
   // Optimization: only call update if changed
-  if (domElement instanceof HTMLElement) {
+  if (domElement instanceof Element) {
     // Effective attrs: vnode.attrs + VNode top-level decorator identity (data-decorator-sid, data-decorator-stype)
     const effectiveAttrs: Record<string, string> = { ...(vnode.attrs || {}) };
     const vnodeWithDecorator = vnode as VNode & { decoratorSid?: string; decoratorStype?: string };
@@ -733,7 +733,7 @@ export function commitFiberNode(
   }
   
   // Handle vnode.text (when VNodeBuilder collapsed text, only if HTMLElement)
-  if (domElement instanceof HTMLElement) {
+  if (domElement instanceof Element) {
     if (vnode.text !== undefined && (!vnode.children || vnode.children.length === 0)) {
       logger.debug(LogCategory.FIBER, 'handling vnode.text', {
         vnodeSid: vnode.sid,
@@ -771,7 +771,7 @@ export function removeStaleChildren(
   deps: FiberReconcileDependencies
 ): void {
   const host = fiber.domElement;
-  if (!host || !(host instanceof HTMLElement)) {
+  if (!host || !(host instanceof Element)) {
     return;
   }
   
@@ -786,7 +786,7 @@ export function removeStaleChildren(
   const collectDomElements = (f: FiberNode | null) => {
     while (f) {
       const el = f.domElement;
-      if (el instanceof HTMLElement || el instanceof Text) {
+      if (el instanceof Element || el instanceof Text) {
         usedDomElements.add(el);
       }
       // Also collect children recursively (handle nested structures)
@@ -833,7 +833,7 @@ export function removeStaleChildren(
     }
 
     // Remove unused DOM elements (HTMLElement only)
-    if (childNode instanceof HTMLElement) {
+    if (childNode instanceof Element) {
       // Component unmount (only if sid exists)
       const sid = childNode.getAttribute(DOMAttribute.BC_SID);
       if (sid) {
@@ -880,7 +880,7 @@ export function processPrimitiveTextChildren(
   }
   
   const host = fiber.domElement;
-  if (!host || !(host instanceof HTMLElement)) {
+  if (!host || !(host instanceof Element)) {
     return;
   }
   
@@ -890,7 +890,7 @@ export function processPrimitiveTextChildren(
   const prevChildVNodes: (VNode | string | number)[] = prevVNode?.children || [];
   
   logger.debug(LogCategory.FIBER, 'processPrimitiveTextChildren start', {
-    hostTag: host instanceof HTMLElement ? host.tagName : VNodeTag.TEXT,
+    hostTag: host instanceof Element ? host.tagName : VNodeTag.TEXT,
     vnodeSid: vnode.sid,
     primitiveCount: fiber.primitiveTextChildren.length,
     prevChildrenCount: prevChildVNodes.length
@@ -927,7 +927,7 @@ export function processPrimitiveTextChildren(
           // VNode is already added to DOM, so count
           const childVNode = prevChild as VNode;
           const childDomElement = childVNode.meta?.domElement;
-          if (childDomElement && (childDomElement instanceof HTMLElement || childDomElement instanceof Text)) {
+          if (childDomElement && (childDomElement instanceof Element || childDomElement instanceof Text)) {
             domNodeCount++;
         }
         }
