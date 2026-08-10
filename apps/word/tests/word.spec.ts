@@ -230,46 +230,68 @@ test.describe('pages', () => {
     expect(covered).toEqual([]);
   });
 
-  // Known defect, recorded rather than hidden: with the document carrying a
-  // split paragraph, a two-column section and back matter all at once, one page
-  // opens 61px below its content top and twelve lines fall outside a page. It
-  // is stable across passes, so it is an accounting error in the layout and not
-  // a timing one. Marked failing so the suite stays honest and flags when fixed.
-  test.fail('starts each page at the top of its own sheet', async ({ page }) => {
+  test('starts each page at the top of its own sheet', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('.w-sheet');
 
-    const offsets = await page.evaluate(() => {
-      const sheets = Array.from(document.querySelectorAll('.w-sheet'));
+    // The first thing on a page, measured as text rather than as a block.
+    //
+    // An earlier version of this looked for the first block-level child
+    // beginning inside the sheet and called it the page's opener, which was
+    // wrong: a page whose text continues a paragraph from overleaf has no block
+    // beginning at its top, and the first block that does begin there is
+    // rightly further down. It read that gap as a 61px misalignment and this was
+    // recorded as a defect for some time. The layout was correct throughout.
+    const gaps = await page.evaluate(() => {
       const surface = document.querySelector('.w-surface')!;
-      const blocks = Array.from(surface.children).filter(
-        (el) => el.hasAttribute('data-bc-sid') && !el.classList.contains('w-sheets')
-      );
+      const sheets = [...surface.querySelectorAll('.w-sheet')];
 
-      // Only pages that a block *starts* on. A page whose text continues a
-      // paragraph from the page before has no block beginning on it, and the
-      // block it belongs to began somewhere overleaf — that case is covered by
-      // the test below, which checks no text escapes its page at all.
+      const firstLineOn = (top: number, bottom: number): number | null => {
+        const walker = document.createTreeWalker(surface, NodeFilter.SHOW_TEXT);
+        let earliest: number | null = null;
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+          if (node.parentElement?.closest('.w-sheets')) continue;
+          const range = document.createRange();
+          range.selectNodeContents(node);
+          for (const rect of [...range.getClientRects()]) {
+            if (rect.height <= 0 || rect.top < top - 2 || rect.top >= bottom) continue;
+            if (earliest === null || rect.top < earliest) earliest = rect.top;
+          }
+        }
+        return earliest;
+      };
+
       const out: number[] = [];
       for (let i = 1; i < sheets.length; i++) {
         const rect = sheets[i].getBoundingClientRect();
-        const opener = blocks.find(
-          (b) => b.getBoundingClientRect().top >= rect.top && b.getBoundingClientRect().top < rect.bottom
-        );
-        if (opener) out.push(opener.getBoundingClientRect().top - (rect.top + 96));
+        const contentTop = rect.top + 96;
+        const first = firstLineOn(contentTop, rect.bottom - 96);
+        if (first !== null) out.push(first - contentTop);
       }
       return out;
     });
 
-    expect(offsets.length).toBeGreaterThan(0);
-    for (const offset of offsets) {
-      // A couple of pixels, which is what summing thirty measured heights costs
-      // in sub-pixel rounding. A page that was actually misaligned would be out
-      // by tens.
-      expect(Math.abs(offset)).toBeLessThan(2.5);
+    expect(gaps.length).toBeGreaterThan(0);
+    for (const gap of gaps) {
+      // A line box sits a little below the top of the area it is in — that is
+      // leading, not misplacement. Less than a line means the page starts where
+      // it should; a page actually misaligned would be out by tens of pixels.
+      expect(gap).toBeGreaterThanOrEqual(-2);
+      expect(gap).toBeLessThan(24);
     }
   });
 
+  // Known defect, recorded rather than hidden, and now traced. Twelve lines of
+  // one paragraph fall past the bottom of their page, and the cause is not in
+  // the paginator: it decided to break that paragraph after its thirty-second
+  // line and said so, but the widget that draws the break is rendered at the
+  // head of the paragraph instead of at line thirty-two. Everything after it is
+  // then a page too high.
+  //
+  // The misplacement is in the renderer, where a position widget inserted
+  // *before* one already drawn lands in the wrong place among its siblings.
+  // renderer-dom pins it directly in position-widget-placement.test.ts, which
+  // is a better place to fix it than here — this test is the symptom.
   test.fail('keeps every line inside a page, however the block was split', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('.w-sheet');
@@ -1188,20 +1210,21 @@ async function settled(page: import('@playwright/test').Page) {
 }
 
 test.describe('print', () => {
-  // Recorded, not hidden, and not yet true. Measured on the sample: the screen
-  // draws seven sheets, the layout says six pages in one section and two in
-  // another, and the PDF comes out at ten. Three numbers for one document.
+  // Recorded, not hidden, and not yet true. The sample draws seven sheets and
+  // the PDF comes out at ten.
   //
-  // Two things stand in the way, and the first is not printing at all: the
-  // sheet count and the layout's own page count already disagree, which is the
-  // same family as the recorded page-position defect. Nothing downstream can be
-  // page-for-page faithful while the pagination is not self-consistent.
+  // An earlier note here blamed the layout for disagreeing with itself, on the
+  // grounds that its two sections report six pages and two while only seven
+  // sheets are drawn. That was a misreading: a page is a box the paginator
+  // fills, and the second section runs in two columns, so its two boxes are the
+  // two halves of one sheet. Six sheets plus one is seven, and the layout is
+  // consistent.
   //
-  // The second is that a break can only be forced before a block. Three of this
-  // document's page boundaries fall inside a paragraph, where CSS has no way to
-  // say "break here" — those pages exist because the paginator split a
-  // paragraph at a measured line, and a stylesheet cannot express that. Making
-  // paper match the screen exactly needs the layout rendered as pages rather
+  // What actually stands in the way is that a break can only be forced before a
+  // block. Three of this document's page boundaries fall inside a paragraph,
+  // where CSS has no way to say "break here" — those pages exist because the
+  // paginator split a paragraph at a measured line, and a stylesheet cannot
+  // express that. Matching exactly needs the layout rendered as pages rather
   // than described to the browser as breaks.
   test.fail('puts the same number of pages on paper as on screen', async ({ page }) => {
     await page.goto('/');

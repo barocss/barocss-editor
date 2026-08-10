@@ -27,6 +27,7 @@ export class DecoratorProcessor {
     if (!vnode.decoratorSid && decorator.sid) {
       vnode.decoratorSid = decorator.sid;
     }
+
     if (!vnode.decoratorStype && decorator.stype) {
       vnode.decoratorStype = decorator.stype;
     }
