@@ -34,7 +34,25 @@ export interface PrintPages {
 
 const CONTAINER_CLASS = 'w-print-pages';
 
-export function createPrintPages(root: () => HTMLElement | null, document_: Document = document): PrintPages {
+export interface PrintPagesOptions {
+  /**
+   * Put the document into a printable state, and hand back a way to undo it.
+   *
+   * What a reader is doing is not part of the document. Editing a header shows
+   * the real node in place of the copy drawn on the first page and suppresses
+   * the copies on every other page — which is right for editing, since several
+   * copies of one node are the wrong thing to type into, and wrong for printing,
+   * where it prints one header on one page and none on the rest. Word prints the
+   * document whatever pane you happen to have open, and so does this.
+   */
+  prepare?: () => (() => void) | void;
+}
+
+export function createPrintPages(
+  root: () => HTMLElement | null,
+  document_: Document = document,
+  options: PrintPagesOptions = {}
+): PrintPages {
   const clear = (): void => {
     document_.querySelectorAll(`.${CONTAINER_CLASS}`).forEach((el) => el.remove());
   };
@@ -88,7 +106,15 @@ export function createPrintPages(root: () => HTMLElement | null, document_: Docu
       const view = document_.defaultView;
       if (!view) return () => {};
 
-      const before = () => void build();
+      const before = () => {
+        // Synchronous throughout: by the time beforeprint returns, the browser
+        // is laying out the pages. The state is restored as soon as the copies
+        // are made — they are what gets printed, and the reader gets their
+        // header pane back when the dialog closes.
+        const restore = options.prepare?.();
+        build();
+        restore?.();
+      };
       const after = () => clear();
       view.addEventListener('beforeprint', before);
       view.addEventListener('afterprint', after);

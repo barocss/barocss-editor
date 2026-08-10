@@ -255,7 +255,18 @@ export function mountWord(container: HTMLElement): { editor: Editor; view: Edito
    * The browser's own events, so this covers the print dialog and a PDF asked
    * for programmatically alike.
    */
-  const printPages = createPrintPages(() => container.querySelector('.w-document'));
+  const printPages = createPrintPages(() => container.querySelector('.w-document'), document, {
+    prepare: () => {
+      const wasEditing = editing;
+      if (wasEditing === undefined) return;
+      editing = undefined;
+      view.render(undefined, { sync: true });
+      return () => {
+        editing = wasEditing;
+        view.render(undefined, { sync: true });
+      };
+    }
+  });
   printPages.attach();
   window.wordPrintPages = printPages;
 

@@ -1273,6 +1273,37 @@ test.describe('print', () => {
     expect(seam.fourth).not.toContain('A paragraph longer than a page');
   });
 
+  test('prints the document, not the pane the reader has open', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    const headersPerPage = async () => {
+      await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
+      const counts = await page.evaluate(() =>
+        [...document.querySelectorAll('.w-print-page')].map((p) => p.querySelectorAll('.w-header').length)
+      );
+      await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+      return counts;
+    };
+
+    const normal = await headersPerPage();
+    expect(normal.length).toBeGreaterThan(1);
+    expect(new Set(normal).size).toBe(1);
+
+    // Editing a header shows the real node in place of the copy on the first
+    // page and suppresses the copies on all the others — right for editing,
+    // since several copies of one node are the wrong thing to type into. It is
+    // not what should reach paper: measured before this was handled, printing
+    // mid-edit put a header on one page and none on the rest.
+    await page.evaluate(() => (window as any).setEditingFurniture('hdr-main'));
+    await expect(page.locator('.w-header-source.is-editing')).toBeVisible();
+
+    expect(await headersPerPage()).toEqual(normal);
+
+    // And the reader is still in the header when the printing is over.
+    await expect(page.locator('.w-header-source.is-editing')).toBeVisible();
+  });
+
   test('prints the paper the section describes', async ({ page }) => {
     await page.goto('/');
     await settled(page);
