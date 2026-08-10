@@ -281,18 +281,14 @@ test.describe('pages', () => {
     }
   });
 
-  // Known defect, recorded rather than hidden, and now traced. Twelve lines of
-  // one paragraph fall past the bottom of their page, and the cause is not in
-  // the paginator: it decided to break that paragraph after its thirty-second
-  // line and said so, but the widget that draws the break is rendered at the
-  // head of the paragraph instead of at line thirty-two. Everything after it is
-  // then a page too high.
-  //
-  // The misplacement is in the renderer, where a position widget inserted
-  // *before* one already drawn lands in the wrong place among its siblings.
-  // renderer-dom pins it directly in position-widget-placement.test.ts, which
-  // is a better place to fix it than here — this test is the symptom.
-  test.fail('keeps every line inside a page, however the block was split', async ({ page }) => {
+  // This failed for a long time and the paginator was never at fault. It decided
+  // to break the long paragraph after its thirty-second line and said so; the
+  // widget that draws the break was rendered at the head of the paragraph
+  // instead, and everything after it sat a page too high. The cause was in the
+  // renderer — a position widget inserted before one already drawn landed on the
+  // wrong side of the text it was cut from — and is pinned there, in
+  // position-widget-placement.test.ts.
+  test('keeps every line inside a page, however the block was split', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('.w-sheet');
 

@@ -66,14 +66,13 @@ describe('a position widget among others', () => {
     expect(shape()).toEqual(['text', 'widget:a', 'text', 'widget:b', 'text']);
   });
 
-  // Known defect, recorded rather than hidden. Adding a widget *before* one that
-  // is already drawn puts the children in the wrong order — measured as
-  // text, text, widget, widget, text — because placement resolves the sibling to
-  // insert before against a tree that is still being committed, and falls back
-  // to appending. This is what puts a mid-paragraph page break at the head of
-  // its paragraph in the word processor, and twelve lines of that paragraph off
-  // the bottom of their page.
-  it.fails('sits there when it arrives before one that is already drawn', () => {
+  // This is the case that was wrong. Adding a widget *before* one already drawn
+  // put the children in the order text, text, widget, widget, text: the widgets
+  // were matched to their old selves by identity while the runs between them
+  // were matched by position, and the two orders crossed. In the word processor
+  // it drew a mid-paragraph page break at the head of its paragraph and took
+  // twelve lines off the bottom of their page.
+  it('sits there when it arrives before one that is already drawn', () => {
     renderer.render(container, model as never, [at(70, 'b')] as never);
     renderer.render(container, model as never, [at(70, 'b'), at(30, 'a')] as never);
     expect(shape()).toEqual(['text', 'widget:a', 'text', 'widget:b', 'text']);

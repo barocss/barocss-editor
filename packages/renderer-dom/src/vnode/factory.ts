@@ -2279,7 +2279,15 @@ export class VNodeBuilder {
             decoratorRun.widget,
             (template, data, options) => this._buildElement(template, data, options)
           );
-          if (widgetVNode) nodes.push(widgetVNode);
+          if (widgetVNode) {
+            // Keyed by the decorator it draws. See the note below on why the
+            // runs either side of it are keyed too: a list where some children
+            // are matched by identity and the rest by position can cross, and
+            // the crossing is what moved a page break to the head of its
+            // paragraph.
+            this._keyRun(widgetVNode, `w:${decoratorRun.widget.sid}`);
+            nodes.push(widgetVNode);
+          }
           continue;
         }
 
@@ -2319,6 +2327,14 @@ export class VNodeBuilder {
             // NOTE: selection anchoring meta was unused downstream; keep node creation unchanged
           }
         }
+
+        // Keyed by where the run begins in the node, which is what a run is:
+        // the same text at the same place is the same run, and a run whose
+        // start moves is a different one. Without it these children were matched
+        // by position while the widgets between them were matched by identity,
+        // and the two orders crossed — a widget inserted before one already
+        // drawn ended up on the wrong side of the text it was cut from.
+        this._keyRun(inner, `r:${(markRun.start ?? 0) + (decoratorRun.start ?? 0)}`);
 
         // Process multiple decorators (before/after, etc.)
         this._processDecoratorRuns(decoratorRun, inner, nodes, markRun);
@@ -2434,6 +2450,19 @@ export class VNodeBuilder {
    * @param markRun - TextRun to convert ranges relative to
    * @returns Array of decorators with markRun-relative ranges
    */
+  /**
+   * Give a run its identity, so reconciliation matches it by what it is rather
+   * than by where it happens to sit among its siblings.
+   */
+  private _keyRun(vnode: VNode, key: string): void {
+    if (!vnode || vnode.key) return;
+    // The key only, not reflected into the DOM. Elements written by a template
+    // reflect theirs so that a fresh render can match what is already there;
+    // these are cut from a text node by the renderer itself and are matched
+    // through the fiber tree, so an attribute would be markup nobody reads.
+    vnode.key = key;
+  }
+
   private _convertDecoratorRangesToMarkRunRelative(
     inlineDecorators: Decorator[],
     markRun: TextRun
