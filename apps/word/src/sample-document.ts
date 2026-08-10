@@ -193,6 +193,47 @@ export function createSampleDocument(): INode {
           {
             stype: 'heading',
             attributes: { level: 2, styleId: 'Heading2' },
+            content: [{ stype: 'inline-text', text: 'Pictures' }]
+          },
+          {
+            // Text running down the left of a picture floated to the right,
+            // which is what `square` means and what a float is for.
+            stype: 'paragraph',
+            attributes: { styleId: 'Body' },
+            content: [
+              {
+                stype: 'inline-image',
+                attributes: {
+                  src:
+                    'data:image/svg+xml;utf8,' +
+                    '%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22120%22 height=%2290%22%3E' +
+                    '%3Crect width=%22120%22 height=%2290%22 fill=%22%23cbd5e1%22/%3E%3C/svg%3E',
+                  alt: 'A grey rectangle',
+                  width: 1800,
+                  height: 1350,
+                  wrap: 'square',
+                  side: 'right',
+                  distanceLeft: 180,
+                  distanceBottom: 180
+                }
+              },
+              {
+                stype: 'inline-text',
+                text:
+                  'A picture that the text wraps around is a float: the lines beside it are ' +
+                  'shorter, and they get their full width back once the picture has been passed. ' +
+                  'An inline picture would push the whole line down instead, because it is a very ' +
+                  'large character and a line is as tall as its tallest character. This paragraph ' +
+                  'runs on past the bottom of the picture on purpose, so that both halves of that ' +
+                  'sentence can be seen at once: the narrow lines beside it, and the full-width ' +
+                  'ones below it. A fixture that only showed one of them would let the other go ' +
+                  'wrong without anybody noticing.'
+              }
+            ]
+          },
+          {
+            stype: 'heading',
+            attributes: { level: 2, styleId: 'Heading2' },
             content: [{ stype: 'inline-text', text: 'Tabs' }]
           },
           {

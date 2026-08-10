@@ -28,6 +28,7 @@ import { tocEntries, tocPageNumber } from './toc';
 import { formatDateField } from './date-field';
 import { footnoteAreaTemplate, furnitureFor, furnitureTemplate, pageNumberFor } from './page-furniture';
 import { leaderStyle } from './tabs';
+import { imageCss } from './image-layout';
 import { blockStyle, formatFor, listMarker } from './renderers/block-style';
 import { registerRevisionMarks, registerValuedMarks } from './renderers/marks';
 
@@ -547,10 +548,18 @@ export function registerWordRenderers(): void {
 
   // ── Inline ─────────────────────────────────────────────────────────────────
   define('inline-text', element('span', { className: 'w-text' }, [data('text', '')]));
+  /**
+   * A picture, drawn where its wrapping says.
+   *
+   * The wrapping is on the element rather than on the paragraph because it is a
+   * property of the picture: two pictures in one paragraph can wrap differently,
+   * and Word lets them.
+   */
   define('inline-image', element('img', {
-    className: 'w-image',
+    className: (d: Record<string, any>) => `w-image w-image-${String(d.attributes?.wrap ?? 'inline')}`,
     src: (d: Record<string, any>) => String(d.attributes?.src ?? ''),
-    alt: (d: Record<string, any>) => String(d.attributes?.alt ?? '')
+    alt: (d: Record<string, any>) => String(d.attributes?.alt ?? ''),
+    style: (d: Record<string, any>) => imageCss(d.attributes as never)
   }));
   define('hardBreak', element('br', { className: 'w-break' }));
   /**

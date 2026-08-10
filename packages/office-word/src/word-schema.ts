@@ -407,6 +407,33 @@ export function getWordSchemaDefinition(): SchemaDefinition {
     nodes: {
       ...office.nodes,
 
+      /**
+       * A picture, which in Word is a good deal more than a source.
+       *
+       * How the text behaves around it is the important part: an inline picture
+       * is a very large character and moves with the words either side of it,
+       * and a floating one does not, so which it is decides what every line
+       * near it does. Sizes and distances are twips like everything else the
+       * document measures.
+       */
+      'inline-image': {
+        ...office.nodes['inline-image'],
+        attrs: {
+          ...office.nodes['inline-image'].attrs,
+          width: { type: 'number', required: false },
+          height: { type: 'number', required: false },
+          // inline | square | tight | topAndBottom | behind | front
+          wrap: { type: 'string', default: 'inline' },
+          side: { type: 'string', required: false },   // left | right
+          distanceTop: { type: 'number', required: false },
+          distanceBottom: { type: 'number', required: false },
+          distanceLeft: { type: 'number', required: false },
+          distanceRight: { type: 'number', required: false },
+          offsetX: { type: 'number', required: false },
+          offsetY: { type: 'number', required: false }
+        }
+      },
+
       /** A surface in Word is a *section*: the unit that owns page setup. */
       surface: {
         ...office.nodes.surface,

@@ -155,6 +155,64 @@ test.describe('Word editing', () => {
  * a browser can answer that, which is why these are here rather than beside the
  * arithmetic they exercise.
  */
+/**
+ * Pictures, and what the text does about them.
+ *
+ * An inline picture is a very large character and moves with the words either
+ * side of it; a floating one does not, and the lines beside it are shorter.
+ * Which it is decides what every line near it does, so this is measured on the
+ * page rather than argued about in a stylesheet.
+ */
+test.describe('pictures', () => {
+  /** The width of each line of the paragraph the picture is in. */
+  const lineWidths = (page: import('@playwright/test').Page) =>
+    page.evaluate(() => {
+      const image = document.querySelector('.w-image')!;
+      const paragraph = image.closest('.w-paragraph')!;
+      const walker = document.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT);
+      const lines: { top: number; width: number }[] = [];
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        for (const rect of [...range.getClientRects()]) {
+          if (rect.height > 0) lines.push({ top: rect.top, width: rect.width });
+        }
+      }
+      return {
+        paragraph: paragraph.getBoundingClientRect().width,
+        image: image.getBoundingClientRect().width,
+        lines: lines.sort((a, b) => a.top - b.top).map((line) => line.width)
+      };
+    });
+
+  test('is drawn at the size the document gives it', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-image');
+
+    // Eighteen hundred twips by thirteen fifty, which at 96dpi is 120 by 90. A
+    // picture with no size is one the browser guesses at, and the guess arrives
+    // after the layout was measured.
+    const box = await page.locator('.w-image').first().boundingBox();
+    expect(Math.round(box!.width)).toBe(120);
+    expect(Math.round(box!.height)).toBe(90);
+  });
+
+  test('shortens the lines beside it and gives the width back below it', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-image');
+
+    // Both halves of what a float does, in one measurement. The fixture runs on
+    // past the bottom of the picture on purpose: a paragraph that ended beside
+    // it could only show the first half, and the second could go wrong unnoticed.
+    const { paragraph, image, lines } = await lineWidths(page);
+    const beside = paragraph - image;
+
+    expect(lines.length).toBeGreaterThan(1);
+    expect(lines.some((width) => width <= beside)).toBe(true);
+    expect(lines.some((width) => width > beside)).toBe(true);
+  });
+});
+
 test.describe('tabs', () => {
   /** Where each run of a paragraph begins and ends, relative to the paragraph. */
   async function runsOf(page: import('@playwright/test').Page, startsWith: string) {
