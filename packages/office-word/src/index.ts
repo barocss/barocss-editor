@@ -151,6 +151,14 @@ export {
 export { createWordToolbar, type WordToolbar } from './toolbar-dom';
 export { createWordCommands, WordExtension } from './word-commands';
 export {
+  commentThreads,
+  freeThreadId,
+  type CommentAnchor,
+  type CommentEntry,
+  type CommentThread
+} from './comments';
+export { createWordComments, WordCommentExtension, type CommentAuthor } from './comment-commands';
+export {
   createWordListCommands,
   WordListExtension,
   numberingDefinition,

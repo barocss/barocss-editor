@@ -4,6 +4,7 @@ import type { EditorViewDOM } from '@barocss/editor-view-dom';
 import type { FontLoader } from './font-loader';
 import { Ribbon } from './ribbon';
 import { FindPanel } from './find-panel';
+import { CommentsPane } from './comments-pane';
 
 /**
  * The app shell.
@@ -40,6 +41,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    * a window is the host's business — the editor has no idea one exists.
    */
   const [finding, setFinding] = useState(false);
+  const [commenting, setCommenting] = useState(true);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'f') {
@@ -63,7 +65,12 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
             onClose={() => setFinding(false)}
           />
         ) : null}
-        <div ref={host} id="editor" />
+        <div className="flex items-start">
+          <div ref={host} id="editor" className="flex-1" />
+          {instance ? (
+            <CommentsPane editor={instance.editor} view={instance.view} open={commenting} />
+          ) : null}
+        </div>
       </div>
     </>
   );

@@ -6,6 +6,7 @@ import { EditorViewDOM } from '@barocss/editor-view-dom';
 import { createFontLoader, type FontLoader } from './font-loader';
 import { createPrintPages } from './print-pages';
 import { MATCH_STYPE } from './find-panel';
+import { ANCHOR_STYPE } from './comments-pane';
 import { createSchema } from '@barocss/schema';
 import {
   createWordEditor,
@@ -48,6 +49,23 @@ registerPageBreakWidget();
  * part of the document, and writing it in would put a search in the undo stack
  * and in anything the document was saved to.
  */
+/**
+ * How commented text is marked.
+ *
+ * A decorator, not a mark: the `commentRef` mark is what the *document* records,
+ * and this is the highlight a reader sees while the pane is open. Writing the
+ * highlight into the document would put "somebody has this pane open" into
+ * everything the document is saved to.
+ */
+defineDecorator(
+  ANCHOR_STYPE,
+  element('span', {
+    className: (d: Record<string, any>) =>
+      d?.selected ? 'w-comment-hit is-selected' : 'w-comment-hit',
+    'data-bc-chrome': 'true'
+  }, [data('text')])
+);
+
 defineDecorator(
   MATCH_STYPE,
   element('span', {
@@ -69,7 +87,14 @@ export function mountWord(container: HTMLElement): { editor: Editor; view: Edito
   const schema = createSchema('word', getWordSchemaDefinition());
   const dataStore = new DataStore(undefined, schema);
 
-  const editor = createWordEditor({ editable: true, schema, dataStore });
+  const editor = createWordEditor({
+    editable: true,
+    schema,
+    dataStore,
+    // Who is reading. Supplied by the host for the same reason the instant a
+    // date field shows is — an editor that invented a name would be guessing.
+    author: { name: 'Jinho', date: () => '2026-08-10' }
+  });
   editor.loadDocument(createSampleDocument(), 'word');
 
   /**

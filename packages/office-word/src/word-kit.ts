@@ -6,6 +6,7 @@ import {
 import { Editor, type EditorOptions, type Extension, type Keybinding } from '@barocss/editor-core';
 import { createWordCommands } from './word-commands';
 import { createWordListCommands } from './list-commands';
+import { createWordComments, type CommentAuthor } from './comment-commands';
 import { createSchema } from '@barocss/schema';
 import { getWordSchemaDefinition } from './word-schema';
 import { WORD_KEYBINDINGS } from './word-keymap';
@@ -17,7 +18,13 @@ import { WORD_KEYBINDINGS } from './word-keymap';
  * ships none of its own, so this list is the whole of Word's editing surface —
  * changing it changes the product, not the engine.
  */
-export function createWordExtensions(): Extension[] {
+/** Someone to attribute comments to when the host has not said who is reading. */
+const DEFAULT_AUTHOR: CommentAuthor = {
+  name: 'Unknown',
+  date: () => new Date().toISOString().slice(0, 10)
+};
+
+export function createWordExtensions(author: CommentAuthor = DEFAULT_AUTHOR): Extension[] {
   return [
     ...createCoreExtensions(),
     ...createRichExtensions(),
@@ -29,7 +36,10 @@ export function createWordExtensions(): Extension[] {
     // After the shared kit on purpose: Word's lists are numbering properties on
     // paragraphs, so the kit's list and indent commands have nothing here to
     // wrap or shift. They reported success and did nothing; these replace them.
-    createWordListCommands()
+    createWordListCommands(),
+    // Who is commenting is the host's to say, the same way the instant a date
+    // field shows is — an editor that invented a name would be guessing.
+    createWordComments(author)
   ];
 }
 
@@ -38,6 +48,14 @@ export interface WordEditorOptions extends EditorOptions {
   kit?: Extension[];
   /** Replace Word's key map. */
   keybindings?: Keybinding[];
+  /**
+   * Who is reading, for anything the document records a name against.
+   *
+   * The host's to say for the same reason the instant a date field shows is:
+   * two people in the same document are not the same person, and an editor that
+   * read a name from somewhere would be guessing.
+   */
+  author?: CommentAuthor;
 }
 
 /**
@@ -47,12 +65,12 @@ export interface WordEditorOptions extends EditorOptions {
  * map are all supplied here, and none of them are known to the layers below.
  */
 export function createWordEditor(options: WordEditorOptions = {}): Editor {
-  const { kit, keybindings, extensions = [], ...rest } = options;
+  const { kit, keybindings, author, extensions = [], ...rest } = options;
 
   const editor = new Editor({
     ...rest,
     schema: rest.schema ?? createSchema('word', getWordSchemaDefinition()),
-    extensions: [...(kit ?? createWordExtensions()), ...extensions]
+    extensions: [...(kit ?? createWordExtensions(author)), ...extensions]
   } as EditorOptions);
 
   // Word's key map layers *over* the engine default rather than replacing it.

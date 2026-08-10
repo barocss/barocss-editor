@@ -1542,6 +1542,98 @@ test.describe('find', () => {
   });
 });
 
+/**
+ * Comments.
+ *
+ * A comment is two things that have to stay together: a thread among the
+ * resources, and a mark over the text it is about. Reading them is tested
+ * without a browser; what needs one is whether commenting anchors to what the
+ * reader selected, and whether the pane and the page agree.
+ */
+test.describe('comments', () => {
+  const selectSome = async (page: import('@playwright/test').Page, chars = 10) => {
+    await placeCaret(page, '.w-paragraph', 1);
+    await page.keyboard.down('Shift');
+    for (let i = 0; i < chars; i++) await page.keyboard.press('ArrowRight');
+    await page.keyboard.up('Shift');
+  };
+
+  const comment = async (page: import('@playwright/test').Page, text: string) => {
+    // The pane learns about the selection from an event and re-renders; asking
+    // to comment before it has is asking a button that does not know yet.
+    await expect(page.getByLabel('Add comment')).toBeEnabled();
+    await page.locator('.w-comment-draft').fill(text);
+    await page.getByLabel('Add comment').click();
+  };
+
+  test('anchors to the selected text and shows who said it', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-sheet');
+    await selectSome(page);
+    await comment(page, 'Is this clear?');
+
+    await expect(page.locator('.w-comment')).toHaveCount(1);
+    await expect(page.locator('.w-comment')).toContainText('Is this clear?');
+    // The author is the host's to supply, so it is the host's name that shows.
+    await expect(page.locator('.w-comment')).toContainText('Jinho');
+    // And the text it is about is marked on the page.
+    await expect(page.locator('.w-comment-hit')).toHaveCount(1);
+  });
+
+  test('cannot comment on nothing', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-sheet');
+    // A comment is about something. With only a caret there is nothing to
+    // anchor to, and the button says so rather than making a comment that
+    // points nowhere.
+    await placeCaret(page, '.w-paragraph', 1);
+    await expect(page.getByLabel('Add comment')).toBeDisabled();
+  });
+
+  test('resolving settles it and takes the mark off the page', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-sheet');
+    await selectSome(page);
+    await comment(page, 'Settled?');
+
+    await page.getByLabel('Resolve comment').click();
+    await expect(page.locator('.w-comment[data-resolved="true"]')).toHaveCount(1);
+    // Still there to read, but no longer marked on the text: a settled comment
+    // is not something the reader is being asked about.
+    await expect(page.locator('.w-comment-hit')).toHaveCount(0);
+    await expect(page.locator('.w-comment')).toContainText('Settled?');
+  });
+
+  test('deleting takes the thread and the mark together', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-sheet');
+    await selectSome(page);
+    await comment(page, 'Never mind');
+
+    await page.getByLabel('Delete comment').click();
+    await expect(page.locator('.w-comment')).toHaveCount(0);
+    // Leaving the mark would leave text highlighted as commented with nothing
+    // to show when it is clicked.
+    await expect(page.locator('.w-comment-hit')).toHaveCount(0);
+  });
+
+  test('keeps what somebody wrote when the text it was about goes', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-sheet');
+    await selectSome(page);
+    await comment(page, 'About text that will not last');
+
+    // Delete exactly what was commented on.
+    await selectSome(page);
+    await page.keyboard.press('Backspace');
+
+    // The comment stays and says it has lost its place. Dropping it would
+    // silently delete something a person wrote.
+    await expect(page.locator('.w-comment')).toHaveCount(1);
+    await expect(page.locator('.w-comment-orphan')).toBeVisible();
+  });
+});
+
 test.describe('the toolbar', () => {
   test('shows a mark as on when it covers the whole selection', async ({ page }) => {
     await page.goto('/');

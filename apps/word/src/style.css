@@ -113,3 +113,10 @@ body {
  */
 .w-find-hit { background: #fde68a; }
 .w-find-hit.is-current { background: #fb923c; }
+
+/*
+ * Commented text. Drawn while the pane is open, so that "somebody is reading
+ * the comments" leaves no mark on the document.
+ */
+.w-comment-hit { background: #fef08a80; border-bottom: 2px solid #eab308; }
+.w-comment-hit.is-selected { background: #fde047; }
