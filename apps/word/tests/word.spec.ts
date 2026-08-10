@@ -250,6 +250,34 @@ test.describe('pictures', () => {
   });
 });
 
+/**
+ * Drawings are not on the page yet, and this records why rather than leaving it
+ * to be rediscovered.
+ *
+ * Turning shapes into SVG is done and tested without a browser — a drawing is a
+ * canvas with shapes placed by coordinate, and so is SVG, so the mapping is
+ * mostly a rename. What is not done is getting them through the renderer, and
+ * three separate faults were found trying:
+ *
+ *  1. SVG elements are created with their names upper-cased. `createElementNS`
+ *     accepts an <SVG>, and an <SVG> is not an <svg>: SVG is case sensitive, so
+ *     it is an unknown element with no geometry that draws nothing. Nothing has
+ *     ever been drawn through this renderer.
+ *  2. Every SVG element is then given HTMLElement's prototype so that the
+ *     renderer's `instanceof HTMLElement` checks accept it. That holds until
+ *     something reads its style, which is a getter that refuses to run against
+ *     an object it was not defined for — the first styled SVG element throws
+ *     `Illegal invocation` and takes the whole render with it.
+ *  3. Placement walks *past* a parent that is not an HTMLElement looking for one
+ *     that is, so children of an <svg> are attached above it or nowhere.
+ *
+ * The first is one line. The second and third are the same piece of work: some
+ * forty-six places ask whether a node is an HTMLElement when what they mean is
+ * whether it is an element. That is a sweep through the renderer, and doing it
+ * alongside a feature is how a renderer gets broken quietly — the attempt is
+ * measured and reverted rather than half-landed.
+ */
+
 test.describe('tabs', () => {
   /** Where each run of a paragraph begins and ends, relative to the paragraph. */
   async function runsOf(page: import('@playwright/test').Page, startsWith: string) {

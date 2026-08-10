@@ -160,7 +160,10 @@ export function getNamespaceForTag(tag: string, parentElement?: HTMLElement | nu
   const lowerTag = tag.toLowerCase();
   
   // SVG elements
-  if (['svg', 'circle', 'rect', 'path', 'line', 'polygon', 'polyline', 'text', 'g', 'defs', 'clipPath', 'mask', 'pattern', 'image', 'use', 'symbol', 'marker', 'linearGradient', 'radialGradient', 'stop'].includes(lowerTag)) {
+  // `ellipse`, `tspan` and `foreignObject` were missing. An element created in
+  // the wrong namespace is not the element it is named after: an <ellipse> built
+  // as HTML has no geometry, draws nothing, and reports no error.
+  if (['svg', 'circle', 'ellipse', 'rect', 'path', 'line', 'polygon', 'polyline', 'text', 'tspan', 'g', 'defs', 'clipPath', 'mask', 'pattern', 'image', 'use', 'symbol', 'marker', 'linearGradient', 'radialGradient', 'stop', 'foreignObject'].includes(lowerTag)) {
     return 'http://www.w3.org/2000/svg';
   }
   

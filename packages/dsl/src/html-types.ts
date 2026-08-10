@@ -266,6 +266,25 @@ export interface SVGAttributes extends BaseHTMLAttributes {
   y?: number | string; // for rect, text elements
   rx?: number | string; // for rect elements
   ry?: number | string; // for rect elements
+
+  // A line is stated as two points, an ellipse as a centre and two radii, and
+  // anything can be turned or faded. Without these an <ellipse> or a <line> is
+  // untypeable, which is the same as unwritable — and the DOM wants the
+  // hyphenated spellings, so those are what a template has to be able to say.
+  x1?: number | string;
+  y1?: number | string;
+  x2?: number | string;
+  y2?: number | string;
+  points?: string;
+  transform?: string;
+  opacity?: number | string;
+  preserveAspectRatio?: string;
+  'stroke-width'?: number | string;
+  'stroke-linecap'?: 'butt' | 'round' | 'square';
+  'stroke-linejoin'?: 'miter' | 'round' | 'bevel';
+  'stroke-dasharray'?: string;
+  'fill-opacity'?: number | string;
+  'stroke-opacity'?: number | string;
 }
 
 // Union type for all possible HTML attributes
@@ -356,13 +375,33 @@ export interface ElementAttributeMap {
   script: ScriptAttributes;
   style: StyleAttributes;
   
-  // SVG elements
+  // SVG elements. All of them, not a sample: a tag missing from here falls
+  // through to the index signature, whose type is a *union* of every attribute
+  // set — so an <ellipse> with a centre and two radii matches no member of it
+  // and cannot be written at all, while <rect> next to it is fine.
   svg: SVGAttributes;
   g: SVGAttributes;
   path: SVGAttributes;
   circle: SVGAttributes;
+  ellipse: SVGAttributes;
+  line: SVGAttributes;
+  polyline: SVGAttributes;
+  polygon: SVGAttributes;
   rect: SVGAttributes;
   text: SVGAttributes;
+  tspan: SVGAttributes;
+  image: SVGAttributes;
+  use: SVGAttributes;
+  defs: SVGAttributes;
+  clipPath: SVGAttributes;
+  mask: SVGAttributes;
+  pattern: SVGAttributes;
+  marker: SVGAttributes;
+  symbol: SVGAttributes;
+  foreignObject: SVGAttributes;
+  linearGradient: SVGAttributes;
+  radialGradient: SVGAttributes;
+  stop: SVGAttributes;
   
   // Default fallback
   [K: string]: HTMLAttributes;
