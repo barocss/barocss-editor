@@ -3,6 +3,7 @@ import type { Editor } from '@barocss/editor-core';
 import type { EditorViewDOM } from '@barocss/editor-view-dom';
 import type { FontLoader } from './font-loader';
 import { Ribbon } from './ribbon';
+import { FindPanel } from './find-panel';
 
 /**
  * The app shell.
@@ -31,10 +32,39 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
     setInstance(mount(host.current));
   }, [mount]);
 
+  /**
+   * Whether the search box is open.
+   *
+   * The app's, not the editor's: what a reader is looking for is not part of
+   * their document. Bound here rather than through the key map because opening
+   * a window is the host's business — the editor has no idea one exists.
+   */
+  const [finding, setFinding] = useState(false);
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'f') {
+        event.preventDefault();
+        setFinding(true);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   return (
     <>
       {instance ? <Ribbon editor={instance.editor} view={instance.view} fonts={instance.fonts} /> : null}
-      <div ref={host} id="editor" />
+      <div className="relative">
+        {instance ? (
+          <FindPanel
+            editor={instance.editor}
+            view={instance.view}
+            open={finding}
+            onClose={() => setFinding(false)}
+          />
+        ) : null}
+        <div ref={host} id="editor" />
+      </div>
     </>
   );
 }

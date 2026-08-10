@@ -1436,6 +1436,107 @@ test.describe('print', () => {
   });
 });
 
+/**
+ * Find and replace.
+ *
+ * The searching is the product's and is tested there, without a browser. What
+ * only a browser can answer is whether the matches are shown where the text is,
+ * whether moving between them moves, and whether replacing changes the document
+ * the reader is looking at.
+ */
+test.describe('find', () => {
+  const open = async (page: import('@playwright/test').Page, query: string) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-sheet');
+    await page.keyboard.press('Control+f');
+    await expect(page.locator('.w-find-panel')).toBeVisible();
+    await page.locator('.w-find-query').fill(query);
+  };
+
+  test('marks every match, and one of them as the one you are on', async ({ page }) => {
+    await open(page, 'paragraph');
+
+    await expect.poll(async () => page.locator('.w-find-hit').count()).toBeGreaterThan(1);
+    // The current match is told apart from the rest: a reader pressing Next
+    // needs to see where they went, not just that something matched.
+    await expect(page.locator('.w-find-hit.is-current')).toHaveCount(1);
+    await expect(page.locator('.w-find-count')).toContainText('1 / ');
+  });
+
+  test('moves between them, and wraps at the end', async ({ page }) => {
+    await open(page, 'paragraph');
+    await expect.poll(async () => page.locator('.w-find-count').textContent()).toContain('1 / ');
+
+    const total = Number((await page.locator('.w-find-count').textContent())!.split('/')[1]);
+    await page.getByLabel('Next match').click();
+    await expect(page.locator('.w-find-count')).toContainText(`2 / ${total}`);
+
+    // Backwards past the first goes to the last: a search that stopped at the
+    // ends would make them dead ends.
+    await page.getByLabel('Previous match').click();
+    await page.getByLabel('Previous match').click();
+    await expect(page.locator('.w-find-count')).toContainText(`${total} / ${total}`);
+  });
+
+  test('finds nothing where there is nothing, and says so', async ({ page }) => {
+    await open(page, 'zzzznotinthedocument');
+    await expect(page.locator('.w-find-count')).toHaveText('None');
+    await expect(page.locator('.w-find-hit')).toHaveCount(0);
+  });
+
+  test('narrows to whole words when asked', async ({ page }) => {
+    await open(page, 'page');
+    const loose = await page.locator('.w-find-count').textContent();
+
+    await page.locator('.w-find-whole').check();
+    await expect.poll(async () => page.locator('.w-find-count').textContent()).not.toBe(loose);
+  });
+
+  test('replaces the one you are on, and leaves the rest', async ({ page }) => {
+    await open(page, 'Pagination');
+    const before = Number((await page.locator('.w-find-count').textContent())!.split('/')[1]);
+    expect(before).toBeGreaterThan(1);
+
+    await page.locator('.w-find-replacement').fill('Layout');
+    await page.getByRole('button', { name: 'Replace', exact: true }).click();
+
+    // One fewer to find, and the word is in the document.
+    await expect
+      .poll(async () => Number((await page.locator('.w-find-count').textContent())!.split('/')[1]))
+      .toBe(before - 1);
+    await expect(page.locator('.w-surface').first()).toContainText('Layout is measured');
+  });
+
+  test('replaces all of them in one edit, which one undo takes back', async ({ page }) => {
+    await open(page, 'Pagination');
+    const before = Number((await page.locator('.w-find-count').textContent())!.split('/')[1]);
+
+    await page.locator('.w-find-replacement').fill('Layout');
+    await page.getByRole('button', { name: 'Replace all' }).click();
+    await expect(page.locator('.w-find-count')).toHaveText('None');
+
+    // One transaction, so one undo: replacing every occurrence is one thing the
+    // reader did, and a document with half of them replaced is a state nobody
+    // asked for.
+    await page.locator('.w-paragraph').first().click();
+    await page.keyboard.press('Control+z');
+    await expect
+      .poll(async () => Number((await page.locator('.w-find-count').textContent())!.split('/')[1] ?? 0))
+      .toBe(before);
+  });
+
+  test('closes on Escape and takes its marks with it', async ({ page }) => {
+    await open(page, 'paragraph');
+    await expect.poll(async () => page.locator('.w-find-hit').count()).toBeGreaterThan(0);
+
+    await page.locator('.w-find-query').press('Escape');
+    await expect(page.locator('.w-find-panel')).toHaveCount(0);
+    // The marks are drawn, not written: closing the search leaves no trace of
+    // it in the document.
+    await expect(page.locator('.w-find-hit')).toHaveCount(0);
+  });
+});
+
 test.describe('the toolbar', () => {
   test('shows a mark as on when it covers the whole selection', async ({ page }) => {
     await page.goto('/');

@@ -106,3 +106,10 @@ body {
 
 .w-toc-text { display: flex; flex: 1; white-space: nowrap; }
 .w-toc-page { font-variant-numeric: tabular-nums; }
+
+/*
+ * A search result. Drawn, not written: which words a reader is looking for is
+ * not part of the document, so this is a decorator and leaves no trace in it.
+ */
+.w-find-hit { background: #fde68a; }
+.w-find-hit.is-current { background: #fb923c; }

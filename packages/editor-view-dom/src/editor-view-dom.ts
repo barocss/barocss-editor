@@ -1833,6 +1833,37 @@ export class EditorViewDOM implements IEditorViewDOM {
    * });
    * ```
    */
+  /**
+   * Replace every decorator of one kind, in a single render.
+   *
+   * Adding decorators one at a time renders once per decorator, which is fine
+   * for the one or two a comment or a caret needs and ruinous for a set: a
+   * search that highlights forty matches rendered the document forty times to
+   * put them there and forty more to take them away, and the page stopped
+   * answering. Sets are the normal shape for this — search results, spelling,
+   * the other people in a document — so replacing one is one operation.
+   *
+   * By stype rather than by a list of ids, because that is what a caller has:
+   * it knows what it is drawing, not what it drew last time.
+   */
+  setDecorators(stype: string, decorators: Decorator[]): void {
+    const existing = this.decoratorManager.getAll().filter((d) => d.stype === stype);
+    const wanted = new Map(decorators.map((d) => [d.sid, d]));
+
+    let changed = false;
+    for (const decorator of existing) {
+      if (wanted.has(decorator.sid)) continue;
+      this.decoratorManager.remove(decorator.sid);
+      changed = true;
+    }
+    for (const decorator of decorators) {
+      this.decoratorManager.add({ ...decorator, decoratorType: 'target' } as Decorator);
+      changed = true;
+    }
+
+    if (changed) this.render(undefined, this._renderOptions);
+  }
+
   addDecorator(decorator: Decorator | DecoratorGenerator): void {
     // Check decoratorType
     const decoratorType = 'decoratorType' in decorator 

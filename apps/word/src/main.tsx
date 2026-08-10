@@ -1,10 +1,11 @@
 import { StrictMode, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { DataStore } from '@barocss/datastore';
-import { getGlobalRegistry } from '@barocss/dsl';
+import { data, defineDecorator, element, getGlobalRegistry } from '@barocss/dsl';
 import { EditorViewDOM } from '@barocss/editor-view-dom';
 import { createFontLoader, type FontLoader } from './font-loader';
 import { createPrintPages } from './print-pages';
+import { MATCH_STYPE } from './find-panel';
 import { createSchema } from '@barocss/schema';
 import {
   createWordEditor,
@@ -39,6 +40,23 @@ declare global {
 
 registerWordRenderers();
 registerPageBreakWidget();
+
+/**
+ * How a search result is drawn.
+ *
+ * A decorator rather than a mark: which words a reader is looking for is not
+ * part of the document, and writing it in would put a search in the undo stack
+ * and in anything the document was saved to.
+ */
+defineDecorator(
+  MATCH_STYPE,
+  element('span', {
+    // The decorator's own data arrives flattened, the same way the page break
+    // widget reads its height.
+    className: (d: Record<string, any>) => (d?.current ? 'w-find-hit is-current' : 'w-find-hit'),
+    'data-bc-chrome': 'true'
+  }, [data('text')])
+);
 
 /**
  * Build the editor into a host element.

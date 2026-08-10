@@ -106,6 +106,15 @@ export { registerPageBreakWidget, PAGE_BREAK_STYPE } from './page-break-widget';
 export { formatDateField } from './date-field';
 export { printCss } from './print';
 export {
+  findMatches,
+  replaceMatches,
+  replaceOperations,
+  shiftAfter,
+  step,
+  type FindOptions,
+  type Match
+} from './find';
+export {
   DEFAULT_TAB_INTERVAL,
   leaderStyle,
   resolveTab,
