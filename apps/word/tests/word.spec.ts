@@ -402,8 +402,13 @@ test.describe('pages follow the text', () => {
     // Add enough blocks to need another sheet. Nothing in the app asks for a
     // relayout: the view runs the pass after each render, which is the wiring
     // this checks.
+    // Until a page is added, rather than a number of presses that was enough
+    // once: how much room the last page has left changes with the fixture, and
+    // a fixed count either stops short or spends the whole test budget typing.
     await placeCaret(page, '.w-paragraph', 1);
-    for (let i = 0; i < 60; i++) await page.keyboard.press('Enter');
+    for (let i = 0; i < 80 && (await page.locator('.w-sheet').count()) === before; i++) {
+      await page.keyboard.press('Enter');
+    }
 
     await expect
       .poll(async () => page.locator('.w-sheet').count(), { timeout: 15000 })

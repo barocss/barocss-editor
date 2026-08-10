@@ -11,111 +11,25 @@
  * render-context for how the templates reach the document.
  */
 import { data, define, element, slot } from '@barocss/dsl';
+import type { RenderEnv } from '@barocss/dsl';
+import { flowCss, tableCellCss } from './css';
 import {
-  characterCss,
-  flowCss,
-  paragraphCss,
-  tableCellCss,
-  tableCss,
-  twipToCss,
-  type CssStyle
-} from './css';
-import { INDENT_STEP as LIST_INDENT_STEP } from './list-commands';
-import { leaderStyle } from './tabs';
-import {
-  getBlockPosition,
-  getBlockPush,
   getEditingFurniture,
   getFurniturePlacement,
   getWordDocument,
   getWordFields,
   getWordNow,
   getWordLayout,
-  getWordNumbering,
   getWordStyles,
   getTab
 } from './render-context';
 import { childrenOf, indexResources, type DocumentAccess, type DocumentNode } from './document-access';
 import { tocEntries, tocPageNumber } from './toc';
-import { authorColor, revisionTitle } from './revisions';
 import { formatDateField } from './date-field';
-import { markAttributes, markCss, VALUED_MARKS } from './mark-format';
 import { footnoteAreaTemplate, furnitureFor, furnitureTemplate, pageNumberFor } from './page-furniture';
-import type { RenderEnv } from '@barocss/dsl';
-
-/** Resolved formatting for a node, or nothing when no document is set. */
-function formatFor(
-  node: Record<string, any>,
-  scope: 'paragraph' | 'character' | 'table',
-  env: RenderEnv | undefined
-): CssStyle {
-  const styles = getWordStyles(env);
-  if (!styles) return {};
-  const format = styles.resolveNode(node as never, scope);
-  switch (scope) {
-    case 'character':
-      return characterCss(format);
-    case 'table':
-      return tableCss(format);
-    default:
-      return paragraphCss(format);
-  }
-}
-
-/**
- * A block's style is its paragraph formatting plus the character formatting that
- * applies to the whole block. Word keeps them separate (a paragraph mark carries
- * run properties); CSS does not, and inheritance does the rest.
- */
-function blockStyle(node: Record<string, any>, env: RenderEnv | undefined): CssStyle {
-  const style: CssStyle = {
-    ...formatFor(node, 'paragraph', env),
-    ...formatFor(node, 'character', env)
-  };
-
-  // The block that opens a page is pushed down to meet its sheet. It replaces
-  // the block's own space before rather than adding to it, which is the same
-  // rule the paginator applied when it decided the break: space before is
-  // suppressed at the top of a page.
-  // A section running in columns positions every block, because moving to the
-  // next column is a move to the right and *up*, which no margin can express.
-  const position = getBlockPosition(env, String(node.sid ?? ''));
-  if (position) {
-    style.position = 'absolute';
-    style.top = `${position.top}px`;
-    style.left = `${position.left}px`;
-    style.width = `${position.width}px`;
-    style.marginTop = '0';
-    return style;
-  }
-
-  // A list item sits in from the margin, one step per level. In Word the indent
-  // comes from the numbering definition rather than from the paragraph, which is
-  // why it is applied here and not written into the document: a list that was
-  // indented by direct formatting would keep its old indent when moved to
-  // another level. A paragraph that states its own indent keeps it — direct
-  // formatting outranks the definition, as everywhere else.
-  const numbered = getWordNumbering(env)?.numberFor(String(node.sid ?? ''));
-  if (numbered && style.marginLeft === undefined) {
-    style.marginLeft = twipToCss((numbered.level + 1) * LIST_INDENT_STEP);
-  }
-
-  const push = getBlockPush(env, String(node.sid ?? ''));
-  if (push !== undefined) style.marginTop = `${push}px`;
-
-  return style;
-}
-
-/** The list marker for a numbered block, if it has one. */
-function listMarker(node: Record<string, any>, env: RenderEnv | undefined): string {
-  const numbering = getWordNumbering(env);
-  const sid = node.sid as string | undefined;
-  if (!numbering || !sid) return '';
-  const item = numbering.numberFor(sid);
-  if (!item) return '';
-  const separator = item.suffix === 'space' ? ' ' : item.suffix === 'nothing' ? '' : ' ';
-  return `${item.text}${separator}`;
-}
+import { leaderStyle } from './tabs';
+import { blockStyle, formatFor, listMarker } from './renderers/block-style';
+import { registerRevisionMarks, registerValuedMarks } from './renderers/marks';
 
 /**
  * Register every Word renderer in the global DSL registry.
@@ -683,88 +597,4 @@ function findSurfaceOf(doc: DocumentAccess, sid: string): DocumentNode | undefin
     if (childrenOf(doc, child).some((block) => block.sid === sid)) return child;
   }
   return undefined;
-}
-
-
-/**
- * How a tracked change is drawn.
- *
- * Word's conventions: an insertion is underlined, a deletion struck through, a
- * moved passage double-struck where it left and double-underlined where it
- * arrived, and a formatting change marked without touching the text. All of them
- * in the author's colour, because a document revised by three people is only
- * readable if each one looks different.
- *
- * A deletion is drawn rather than removed. That is the whole point of tracking:
- * the reader has to see what was taken out in order to accept or reject it.
- */
-function registerRevisionMarks(): void {
-  const revision = (
-    kind: string,
-    className: string,
-    style: (color: string) => Record<string, string>
-  ) => {
-    // Registered through define rather than defineMark: a mark that depends on a
-    // value — here the author — has to be a function, and defineMark's helper
-    // expects a static template to inject its class into. The registry key is
-    // the same one defineMark would have used.
-    define(
-      `mark:${kind}`,
-      (props: Record<string, any>) => {
-        // The mark's own attributes, which the renderer hands over as
-        // `attributes` — the author is on the mark, not on the text run.
-        const attrs = (props?.attributes ?? {}) as Record<string, unknown>;
-        const color = authorColor(typeof attrs?.author === 'string' ? attrs.author : undefined);
-        return element(
-          'span',
-          {
-            className,
-            title: revisionTitle(className.replace('w-', ''), attrs),
-            'data-author': String(attrs?.author ?? ''),
-            style: { color, ...style(color) }
-          },
-          [data('text')]
-        );
-      }
-    );
-  };
-
-  revision('insertion', 'w-insertion', () => ({ textDecoration: 'underline' }));
-  revision('deletion', 'w-deletion', () => ({ textDecoration: 'line-through' }));
-  revision('moveFrom', 'w-move-from', () => ({ textDecoration: 'line-through double' }));
-  revision('moveTo', 'w-move-to', () => ({ textDecoration: 'underline double' }));
-  revision('formatChange', 'w-format-change', (color) => ({
-    // The text itself is untouched: what changed is how it looks, so the marker
-    // has to sit beside it rather than on it.
-    borderBottom: `1px dotted ${color}`
-  }));
-}
-
-
-/**
- * Marks that carry a value, drawn with it.
- *
- * A mark whose meaning is fixed renders fine as the class the engine already
- * gives it. One that carries a value does not: `mark-fontSize` cannot say eleven
- * points. These read the value and put it in the style, going through the same
- * character-formatting mapping the style cascade uses so that a mark and a style
- * cannot disagree about what eleven points means.
- */
-function registerValuedMarks(): void {
-  for (const type of VALUED_MARKS) {
-    define(`mark:${type}`, (props: Record<string, any>, _model: any, ctx: any) => {
-      const attrs = (props?.attributes ?? {}) as Record<string, unknown>;
-      const styles = getWordStyles(ctx?.env as RenderEnv | undefined);
-
-      return element(
-        'span',
-        {
-          className: `mark-${type}`,
-          ...markAttributes(type, attrs),
-          style: markCss(type, attrs, styles)
-        },
-        [data('text')]
-      );
-    });
-  }
 }
