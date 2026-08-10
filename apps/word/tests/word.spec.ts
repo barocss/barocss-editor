@@ -147,6 +147,80 @@ test.describe('Word editing', () => {
  * browser back: where a sheet is, and where the first block of a page actually
  * landed. A unit test cannot answer either question.
  */
+/**
+ * Tab stops.
+ *
+ * A tab is an instruction to reach the next stop, not a character of a fixed
+ * width, so how far it stretches depends on where the line put it. Nothing but
+ * a browser can answer that, which is why these are here rather than beside the
+ * arithmetic they exercise.
+ */
+test.describe('tabs', () => {
+  /** Where each run of a paragraph begins and ends, relative to the paragraph. */
+  async function runsOf(page: import('@playwright/test').Page, startsWith: string) {
+    return page.evaluate((startsWith) => {
+      const paragraph = [...document.querySelectorAll('.w-paragraph')].find((p) =>
+        p.textContent?.startsWith(startsWith)
+      )!;
+      const origin = paragraph.getBoundingClientRect().left;
+      return [...paragraph.querySelectorAll('.w-text')].map((run) => {
+        const box = run.getBoundingClientRect();
+        return { text: run.textContent ?? '', left: box.left - origin, right: box.right - origin };
+      });
+    }, startsWith);
+  }
+
+  test('reaches the stops the paragraph names', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-sheet');
+
+    // One inch, two and a half, four and a half — in pixels at 96dpi, which is
+    // what the twips in the document come to.
+    await expect
+      .poll(async () => Math.round((await runsOf(page, 'Left'))[1]?.left ?? -1))
+      .toBe(96);
+
+    const runs = await runsOf(page, 'Left');
+    // A centre stop centres the text on it; a right stop ends the text at it.
+    // Both are promises about text the tab has not reached yet, which is why
+    // they cannot be kept without measuring what follows.
+    const centred = runs[2];
+    expect(Math.round((centred.left + centred.right) / 2)).toBeCloseTo(240, -1);
+    expect(Math.round(runs[3].right)).toBeCloseTo(432, -1);
+  });
+
+  test('falls back to half-inch stops when the paragraph names none', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-sheet');
+
+    await expect
+      .poll(async () => (await runsOf(page, 'a')).slice(0, 3).map((r) => Math.round(r.left)))
+      .toEqual([0, 48, 96]);
+  });
+
+  test('draws a leader only where the stop asks for one', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-sheet');
+
+    await expect
+      .poll(async () =>
+        page.evaluate(() => {
+          const paragraph = [...document.querySelectorAll('.w-paragraph')].find((p) =>
+            p.textContent?.startsWith('Left')
+          )!;
+          return [...paragraph.querySelectorAll('.w-tab')].map((tab) => {
+            const style = getComputedStyle(tab as HTMLElement);
+            // The width, not the style: a global reset gives everything a
+            // border style of solid at zero width, so the style alone says
+            // nothing about whether a border is drawn.
+            return style.borderBottomWidth === '0px' ? 'none' : style.borderBottomStyle;
+          });
+        })
+      )
+      .toEqual(['none', 'none', 'dotted']);
+  });
+});
+
 test.describe('pages', () => {
   test('draws a sheet per computed page', async ({ page }) => {
     await page.goto('/');
@@ -342,8 +416,13 @@ test.describe('pages follow the text', () => {
 
     const before = await page.locator('.w-sheet').count();
 
+    // Enough presses to need another page, rather than a number that happened
+    // to be enough once: how much room the last page has left is a property of
+    // the fixture, and every edit to it changes the answer.
     await placeCaret(page, '.w-paragraph', 1);
-    for (let i = 0; i < 20; i++) await page.keyboard.press('Enter');
+    for (let i = 0; i < 80 && (await page.locator('.w-sheet').count()) === before; i++) {
+      await page.keyboard.press('Enter');
+    }
     await expect
       .poll(async () => page.locator('.w-sheet').count(), { timeout: 15000 })
       .toBeGreaterThan(before);
@@ -428,11 +507,18 @@ test.describe('Backspace at a block boundary', () => {
     const sheets = () => page.locator('.w-sheet').count();
     const before = await sheets();
 
+    // Enough presses to need another page, rather than a number that happened
+    // to be enough once. How much room the last page has left is a property of
+    // the fixture, and every edit to it changes the answer.
     await placeCaret(page, '.w-paragraph', 1);
-    for (let i = 0; i < 20; i++) await page.keyboard.press('Enter');
+    let pressed = 0;
+    while (pressed < 80 && (await sheets()) === before) {
+      await page.keyboard.press('Enter');
+      pressed += 1;
+    }
     await expect.poll(sheets, { timeout: 15000 }).toBeGreaterThan(before);
 
-    for (let i = 0; i < 20; i++) await page.keyboard.press('Backspace');
+    for (let i = 0; i < pressed; i++) await page.keyboard.press('Backspace');
     await expect.poll(sheets, { timeout: 15000 }).toBe(before);
   });
 
@@ -651,7 +737,13 @@ test.describe('footnotes', () => {
 
     const gap = await page.evaluate(() => {
       const note = document.querySelector('.w-footnotes')!.getBoundingClientRect();
-      const sheet = document.querySelector('.w-sheet')!.getBoundingClientRect();
+      // The sheet the note is drawn on, not the first one. A note belongs to
+      // the page that refers to it, and which page that is depends on how the
+      // text fell — so naming a sheet by its number is naming the wrong one as
+      // soon as anything above it changes.
+      const sheet = [...document.querySelectorAll('.w-sheet')]
+        .map((el) => el.getBoundingClientRect())
+        .find((box) => note.top >= box.top && note.bottom <= box.bottom)!;
       return sheet.bottom - note.bottom;
     });
 
@@ -1257,20 +1349,26 @@ test.describe('print', () => {
         }
         return lines.sort((a, b) => a.top - b.top).map((l) => l.text).join(' ');
       };
-      // The long paragraph runs from page three onwards in the sample.
-      return { third: visibleText(pages[2]), fourth: visibleText(pages[3]) };
+
+      // The long paragraph numbers its sentences, so what is visible on a page
+      // can be read back as a set of numbers. Found by content rather than by
+      // page number: which pages it lands on depends on everything above it.
+      const numbersOn = (text: string) =>
+        [...text.matchAll(/\((\d+)\) A page break/g)].map((m) => Number(m[1]));
+      const perPage = pages.map((p) => numbersOn(visibleText(p)));
+      const first = perPage.findIndex((numbers) => numbers.includes(1));
+      return { first: perPage[first] ?? [], next: perPage[first + 1] ?? [] };
     });
     await page.emulateMedia({ media: 'screen' });
 
-    // The paragraph appears on both pages, because a paragraph crossing a page
-    // boundary is on both pages. What matters is that each shows a different
-    // part of it: the text is clipped, never split, so nothing is lost at the
-    // seam and nothing is printed twice.
-    expect(seam.third).toContain('A paragraph longer than a page');
-    expect(seam.third).toContain('(1) A page break inside a paragraph');
-    expect(seam.third).not.toContain('(27) A page break');
-    expect(seam.fourth).toContain('(27) A page break');
-    expect(seam.fourth).not.toContain('A paragraph longer than a page');
+    // The paragraph is on both pages, because a paragraph crossing a boundary
+    // is on both pages. What matters is the seam: the numbering runs straight
+    // across it. Nothing is repeated, which is what a copy on each page would
+    // do if it were not clipped, and nothing is missing, which is what cutting
+    // the text would risk.
+    expect(seam.first.length).toBeGreaterThan(1);
+    expect(seam.next.length).toBeGreaterThan(1);
+    expect(Math.min(...seam.next)).toBe(Math.max(...seam.first) + 1);
   });
 
   test('prints the document, not the pane the reader has open', async ({ page }) => {

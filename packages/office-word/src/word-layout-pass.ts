@@ -22,6 +22,7 @@ import { childrenOf } from './document-access';
 import type { LineAnchor } from './line-offsets';
 import { createStyleResolver } from './style-resolver';
 import { createWordEnv, WORD_ENV_KEY } from './render-context';
+import { measureTabs, tabSignature } from './tab-layout';
 
 /** A page break that falls inside a paragraph, as something to draw. */
 export interface PageBreakWidget {
@@ -170,16 +171,21 @@ export function createWordLayoutPass(options: WordLayoutPassOptions): () => Rend
     // change of mode has to count as a change even when the breaks did not move.
     onPageBreaks?.(pageBreaks);
 
+    // Tabs are measured from the same render the pages were: a tab's width
+    // depends on where its line put it, and that is only true of the page as it
+    // currently stands.
+    const tabs = measureTabs(container, doc, styles);
+
     const editingId = editing?.();
     const breakSignature = pageBreaks
       .map((item) => `${item.sid}@${item.target.sid}:${item.target.offset}+${Math.round(item.height)}`)
       .join(',');
-    const signature = `${revision?.() ?? ''}|${editingId ?? ''}|${breakSignature}|${signatureOf(layouts)}`;
+    const signature = `${revision?.() ?? ''}|${editingId ?? ''}|${breakSignature}|${signatureOf(layouts)}|${tabSignature(tabs)}`;
     if (signature === previous) return;
     previous = signature;
 
     onLayout?.(layouts);
-    return { [WORD_ENV_KEY]: createWordEnv(doc, layouts, editingId, now) };
+    return { [WORD_ENV_KEY]: createWordEnv(doc, layouts, editingId, now, tabs) };
   };
 }
 

@@ -21,6 +21,7 @@ import {
   type CssStyle
 } from './css';
 import { INDENT_STEP as LIST_INDENT_STEP } from './list-commands';
+import { leaderStyle } from './tabs';
 import {
   getBlockPosition,
   getBlockPush,
@@ -31,7 +32,8 @@ import {
   getWordNow,
   getWordLayout,
   getWordNumbering,
-  getWordStyles
+  getWordStyles,
+  getTab
 } from './render-context';
 import { childrenOf, indexResources, type DocumentAccess, type DocumentNode } from './document-access';
 import { tocEntries, tocPageNumber } from './toc';
@@ -637,7 +639,30 @@ export function registerWordRenderers(): void {
     alt: (d: Record<string, any>) => String(d.attributes?.alt ?? '')
   }));
   define('hardBreak', element('br', { className: 'w-break' }));
-  define('tab', element('span', { className: 'w-tab' }));
+  /**
+   * A tab: an instruction to reach the next stop, drawn as the space it crosses.
+   *
+   * Its width is measured rather than declared — where the tab sits decides how
+   * far it must stretch — so it comes from the environment the layout pass
+   * fills, the same way a block's push to its sheet does. Before the first
+   * measurement it draws as nothing, which is what a tab did before it had a
+   * width at all.
+   */
+  define(
+    'tab',
+    element('span', {
+      className: 'w-tab',
+      style: (d: Record<string, any>, env?: RenderEnv) => {
+        const tab = getTab(env, String(d.sid ?? ''));
+        if (!tab) return { display: 'inline-block' };
+        return {
+          display: 'inline-block',
+          width: `${tab.width}px`,
+          ...leaderStyle(tab.leader)
+        };
+      }
+    })
+  );
   define('noBreakHyphen', element('span', { className: 'w-nbhyphen' }, [data('text', '‑')]));
   define('softHyphen', element('span', { className: 'w-shyphen' }));
   define('noteNumber', element('sup', { className: 'w-note-number' }, [slot('content')]));

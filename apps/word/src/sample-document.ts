@@ -193,6 +193,55 @@ export function createSampleDocument(): INode {
           {
             stype: 'heading',
             attributes: { level: 2, styleId: 'Heading2' },
+            content: [{ stype: 'inline-text', text: 'Tabs' }]
+          },
+          {
+            stype: 'paragraph',
+            attributes: { styleId: 'Body' },
+            content: [
+              {
+                stype: 'inline-text',
+                text: 'A tab reaches the next stop, so where it sits decides how far it stretches.'
+              }
+            ]
+          },
+          {
+            // Three stops in one line: a left one, a centred one, and a right
+            // one with a dot leader — which is what a contents line is.
+            stype: 'paragraph',
+            attributes: {
+              styleId: 'Body',
+              tabs: [
+                { pos: 1440, align: 'left' },
+                { pos: 3600, align: 'center' },
+                { pos: 6480, align: 'right', leader: 'dot' }
+              ]
+            },
+            content: [
+              { stype: 'inline-text', text: 'Left' },
+              { stype: 'tab' },
+              { stype: 'inline-text', text: 'at one inch' },
+              { stype: 'tab' },
+              { stype: 'inline-text', text: 'centred' },
+              { stype: 'tab' },
+              { stype: 'inline-text', text: 'right' }
+            ]
+          },
+          {
+            // No stops named, so the default half-inch interval takes over.
+            stype: 'paragraph',
+            attributes: { styleId: 'Body' },
+            content: [
+              { stype: 'inline-text', text: 'a' },
+              { stype: 'tab' },
+              { stype: 'inline-text', text: 'b' },
+              { stype: 'tab' },
+              { stype: 'inline-text', text: 'c' }
+            ]
+          },
+          {
+            stype: 'heading',
+            attributes: { level: 2, styleId: 'Heading2' },
             content: [{ stype: 'inline-text', text: 'Tables' }]
           },
           {

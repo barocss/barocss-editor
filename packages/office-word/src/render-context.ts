@@ -19,6 +19,7 @@
  */
 import type { RenderEnv } from '@barocss/dsl';
 import type { DocumentAccess } from './document-access';
+import type { TabLeader } from './tabs';
 import { createStyleResolver, type StyleResolver } from './style-resolver';
 import { createNumberingResolver, type NumberingResolver } from './numbering-resolver';
 import { createFieldResolver, type FieldResolver } from './field-resolver';
@@ -38,6 +39,15 @@ export interface WordEnv {
   pushes: Map<string, number>;
   /** Absolute position per block, for sections whose text runs in columns. */
   positions: Map<string, { top: number; left: number; width: number }>;
+  /**
+   * How wide each tab has to be, and what fills it.
+   *
+   * A tab is an instruction to reach the next stop, so its width depends on
+   * where it sits — which is only known once the line has been measured. Empty
+   * until it has been, and a tab with no entry draws as nothing, which is what
+   * a tab looked like before any of this existed.
+   */
+  tabs: Map<string, { width: number; leader: TabLeader }>;
 
   /**
    * The header or footer currently being edited, by its id.
@@ -69,7 +79,8 @@ export function createWordEnv(
   doc: DocumentAccess,
   layouts: Map<string, SurfaceLayout> = new Map(),
   editing?: string,
-  now?: Date
+  now?: Date,
+  tabs: Map<string, { width: number; leader: TabLeader }> = new Map()
 ): WordEnv {
   const pushes = new Map<string, number>();
   const positions = new Map<string, { top: number; left: number; width: number }>();
@@ -86,6 +97,7 @@ export function createWordEnv(
     layouts,
     pushes,
     positions,
+    tabs,
     editing,
     now
   };
@@ -164,6 +176,14 @@ export function getBlockPosition(
   sid: string
 ): { top: number; left: number; width: number } | undefined {
   return wordEnv(env)?.positions.get(sid);
+}
+
+/** How wide a tab has to be, once the line it is on has been measured. */
+export function getTab(
+  env: RenderEnv | undefined,
+  sid: string
+): { width: number; leader: TabLeader } | undefined {
+  return wordEnv(env)?.tabs?.get(sid);
 }
 
 /** How far the block opening a page must be pushed to reach its sheet. */

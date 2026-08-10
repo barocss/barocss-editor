@@ -106,6 +106,16 @@ export { registerPageBreakWidget, PAGE_BREAK_STYPE } from './page-break-widget';
 export { formatDateField } from './date-field';
 export { printCss } from './print';
 export {
+  DEFAULT_TAB_INTERVAL,
+  leaderStyle,
+  resolveTab,
+  tabStopsOf,
+  type ResolvedTab,
+  type TabAlign,
+  type TabLeader,
+  type TabStop
+} from './tabs';
+export {
   WORD_FONT_CATALOGUE,
   isWebFont,
   googleFontUrl,

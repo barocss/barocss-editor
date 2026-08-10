@@ -24,6 +24,8 @@ const num = (def?: number): AttributeDefinition =>
   def === undefined ? { type: 'number', required: false } : { type: 'number', default: def };
 const str = (def?: string): AttributeDefinition =>
   def === undefined ? { type: 'string', required: false } : { type: 'string', default: def };
+/** A list, for a property that is one — tab stops, most of all. */
+const arr = (): AttributeDefinition => ({ type: 'array', required: false });
 const bool = (def?: boolean): AttributeDefinition =>
   def === undefined ? { type: 'boolean', required: false } : { type: 'boolean', default: def };
 
@@ -87,7 +89,7 @@ export const paragraphFormatAttrs = (): Attrs => ({
   outlineLevel: num(),                // 0-8; drives the navigation pane and TOC
 
   /** Tab stops, serialised as `pos:align:leader` triples (twips). */
-  tabs: str(),
+  tabs: arr(),               // [{ pos, align, leader }], positions in twips
 
   ...boxBorderAttrs(),
   ...shadingAttrs(),
