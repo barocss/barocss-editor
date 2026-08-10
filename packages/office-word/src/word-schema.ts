@@ -430,7 +430,11 @@ export function getWordSchemaDefinition(): SchemaDefinition {
           distanceLeft: { type: 'number', required: false },
           distanceRight: { type: 'number', required: false },
           offsetX: { type: 'number', required: false },
-          offsetY: { type: 'number', required: false }
+          offsetY: { type: 'number', required: false },
+          // The outline the text follows for `tight`, in Word's own square of
+          // 0..21600 a side — so it survives the picture being resized.
+          wrapPolygon: { type: 'array', required: false },
+          shapeMargin: { type: 'number', required: false }
         }
       },
 

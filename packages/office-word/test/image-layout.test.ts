@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { imageCss, isInFlow } from '../src/image-layout';
+import { imageCss, isInFlow, polygonCss } from '../src/image-layout';
 
 /**
  * Where a picture sits, and what the text does about it.
@@ -36,10 +36,42 @@ describe('a picture the text runs around', () => {
   });
 
   it('follows its box when the document gives no shape to follow', () => {
-    // Word's `tight` follows the picture's outline. CSS can too, given a shape;
-    // a document that supplies none is asking for `square`, and gets it.
+    // A rectangle is the best answer available without an outline, and it is
+    // what `square` already means.
     expect(imageCss({ wrap: 'tight', side: 'left' })).toMatchObject(
       imageCss({ wrap: 'square', side: 'left' })
+    );
+    expect(imageCss({ wrap: 'tight' }).shapeOutside).toBeUndefined();
+  });
+
+  it('follows the outline the document gives it', () => {
+    // This is the whole of the difference between tight and square, and Word
+    // stores it as a polygon — which is what CSS wants too.
+    const css = imageCss({
+      wrap: 'tight',
+      wrapPolygon: [
+        { x: 0, y: 0 },
+        { x: 21600, y: 21600 },
+        { x: 0, y: 21600 }
+      ],
+      shapeMargin: 180
+    });
+    expect(css.shapeOutside).toBe('polygon(0% 0%, 100% 100%, 0% 100%)');
+    expect(css.shapeMargin).toBe('12px');
+  });
+
+  it('leaves a rectangle alone when the outline is not one', () => {
+    // Two points is a line, and a float given a degenerate shape wraps nothing
+    // at all — worse than the rectangle it would have been.
+    expect(polygonCss([{ x: 0, y: 0 }, { x: 100, y: 100 }])).toBeUndefined();
+    expect(polygonCss(undefined)).toBeUndefined();
+  });
+
+  it('reads the outline in Word units, whatever size the picture is', () => {
+    // Nought to twenty-one thousand six hundred on each side regardless of the
+    // real size, so the outline survives the picture being resized.
+    expect(polygonCss([{ x: 10800, y: 0 }, { x: 21600, y: 21600 }, { x: 0, y: 21600 }])).toBe(
+      'polygon(50% 0%, 100% 100%, 0% 100%)'
     );
   });
 

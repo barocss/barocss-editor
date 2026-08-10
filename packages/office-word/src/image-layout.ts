@@ -7,11 +7,12 @@
  * a floating one does not, so which of the two it is decides what happens to
  * every line near it.
  *
- * Most of it maps onto CSS, because CSS grew a float for exactly this. What
- * does not map is Word's `tight`, which follows the outline of the picture
- * rather than its box — CSS can do that with `shape-outside`, but only given a
- * shape, and a document that has not supplied one is asking for `square`. That
- * is what it gets, and it is stated here rather than pretended.
+ * Most of it maps onto CSS, because CSS grew a float for exactly this — and
+ * `tight` maps too, more exactly than it first appears. Word stores tight
+ * wrapping as a polygon around the picture, and `shape-outside: polygon()` is
+ * the same idea in the same shape; only the units differ. A document that gives
+ * one gets a float the text follows the outline of, and one that gives none
+ * gets `square`, which is the best answer available from a rectangle.
  */
 import { twipToPx } from './css';
 import type { CssStyle } from './css';
@@ -34,6 +35,33 @@ export interface ImageAttributes {
   /** For a picture that is not in the flow, from the top left of its block. */
   offsetX?: number;
   offsetY?: number;
+  /**
+   * The outline the text follows, for `tight`.
+   *
+   * Word's own coordinates: a square from 0 to 21600 on each side, whatever the
+   * picture's real size, so the outline survives the picture being resized.
+   */
+  wrapPolygon?: { x: number; y: number }[];
+  /** How far the text keeps off the outline, in twips. */
+  shapeMargin?: number;
+}
+
+/**
+ * Word's wrap polygon as a CSS one.
+ *
+ * The coordinates are a square from 0 to 21600 on each side regardless of the
+ * picture's real size — which is exactly what a percentage is, so the conversion
+ * is a division and nothing else. Fewer than three points is not an outline, and
+ * a float given a degenerate shape wraps nothing at all, so it is left alone to
+ * be a rectangle.
+ */
+const WORD_SHAPE_EXTENT = 21600;
+
+export function polygonCss(points: { x: number; y: number }[] | undefined): string | undefined {
+  if (!points || points.length < 3) return undefined;
+
+  const at = (value: number) => `${Math.round((value / WORD_SHAPE_EXTENT) * 10000) / 100}%`;
+  return `polygon(${points.map((point) => `${at(point.x)} ${at(point.y)}`).join(', ')})`;
 }
 
 const px = (twips: unknown): string | undefined =>
@@ -67,11 +95,23 @@ export function imageCss(attrs: ImageAttributes | undefined): CssStyle {
 
   switch (a.wrap) {
     case 'square':
-    case 'tight':
-      // A float, which is what makes the lines beside it shorter. `tight`
-      // follows the picture's outline in Word and its box here, for want of a
-      // shape to follow.
-      return { ...size, ...distances(a), float: a.side === 'left' ? 'left' : 'right' };
+    case 'tight': {
+      // A float, which is what makes the lines beside it shorter.
+      const shape = a.wrap === 'tight' ? polygonCss(a.wrapPolygon) : undefined;
+      return {
+        ...size,
+        ...distances(a),
+        float: a.side === 'left' ? 'left' : 'right',
+        // Given an outline, the text follows it rather than the box — which is
+        // what separates tight from square, and is the whole of the difference.
+        ...(shape
+          ? {
+              shapeOutside: shape,
+              shapeMargin: `${twipToPx(typeof a.shapeMargin === 'number' ? a.shapeMargin : 0)}px`
+            }
+          : {})
+      };
+    }
 
     case 'topAndBottom':
       // No text beside it at all: the paragraph stops above and starts again

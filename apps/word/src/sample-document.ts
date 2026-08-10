@@ -232,6 +232,45 @@ export function createSampleDocument(): INode {
             ]
           },
           {
+            // The same picture, wrapped tight against a triangle. Word stores
+            // that outline as a polygon and CSS takes one, so the text follows
+            // the diagonal rather than the box — each line beside it is a
+            // little longer than the one above.
+            stype: 'paragraph',
+            attributes: { styleId: 'Body' },
+            content: [
+              {
+                stype: 'inline-image',
+                attributes: {
+                  src:
+                    'data:image/svg+xml;utf8,' +
+                    '%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22120%22 height=%22120%22%3E' +
+                    '%3Cpolygon points=%22120,0 120,120 0,120%22 fill=%22%2394a3b8%22/%3E%3C/svg%3E',
+                  alt: 'A grey triangle',
+                  width: 1800,
+                  height: 1800,
+                  wrap: 'tight',
+                  side: 'right',
+                  wrapPolygon: [
+                    { x: 21600, y: 0 },
+                    { x: 21600, y: 21600 },
+                    { x: 0, y: 21600 }
+                  ],
+                  shapeMargin: 90
+                }
+              },
+              {
+                stype: 'inline-text',
+                text:
+                  'Tight wrapping follows the outline of the picture rather than its box. ' +
+                  'Word keeps that outline as a polygon, and so does CSS, so the two are the ' +
+                  'same idea in different units. Against a triangle the effect is plain: each ' +
+                  'line beside it can run a little further than the one above, because there ' +
+                  'is a little more room. A rectangle would cut them all to the same length.'
+              }
+            ]
+          },
+          {
             stype: 'heading',
             attributes: { level: 2, styleId: 'Heading2' },
             content: [{ stype: 'inline-text', text: 'Tabs' }]

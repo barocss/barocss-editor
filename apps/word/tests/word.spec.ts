@@ -211,6 +211,43 @@ test.describe('pictures', () => {
     expect(lines.some((width) => width <= beside)).toBe(true);
     expect(lines.some((width) => width > beside)).toBe(true);
   });
+
+  test('follows the outline when the document gives one', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-image-tight');
+
+    const measured = await page.evaluate(() => {
+      const image = document.querySelector('.w-image-tight') as HTMLElement;
+      const paragraph = image.closest('.w-paragraph')!;
+      const walker = document.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT);
+      const lines: number[] = [];
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        for (const rect of [...range.getClientRects()]) {
+          if (rect.height > 0) lines.push(rect.width);
+        }
+      }
+      return {
+        shape: getComputedStyle(image).shapeOutside,
+        paragraph: paragraph.getBoundingClientRect().width,
+        image: image.getBoundingClientRect().width,
+        lines
+      };
+    });
+
+    // Word keeps tight wrapping as a polygon and CSS takes one, so the two are
+    // the same idea in different units — nought to 21600 a side against
+    // percentages.
+    expect(measured.shape).toBe('polygon(100% 0%, 100% 100%, 0% 100%)');
+
+    // The proof that the outline is being followed rather than the box: against
+    // a triangle, lines near its narrow end run past where the box would have
+    // stopped them. With `square` every line beside it would fit in what is
+    // left after the full width of the picture.
+    const besideTheBox = measured.paragraph - measured.image;
+    expect(measured.lines.some((width) => width > besideTheBox)).toBe(true);
+  });
 });
 
 test.describe('tabs', () => {
@@ -769,12 +806,28 @@ test.describe('footnotes', () => {
 
     // This is what the reservation is for: without it the note would be drawn
     // over the paragraph that referenced it.
+    //
+    // Measured as lines rather than as blocks. A paragraph split across a page
+    // boundary has a box that spans both pages and the gap between them, so it
+    // overlaps the note in coordinates while no word of it is anywhere near —
+    // which made this pass or fail on whether a split happened to land on the
+    // note's page.
     const overlapping = await page.evaluate(() => {
       const note = document.querySelector('.w-footnotes')!.getBoundingClientRect();
-      return Array.from(document.querySelectorAll('.w-surface > [data-bc-sid]'))
-        .filter((el) => !el.classList.contains('w-sheets'))
-        .map((el) => el.getBoundingClientRect())
-        .filter((rect) => rect.top < note.bottom && rect.bottom > note.top).length;
+      const surface = document.querySelector('.w-surface')!;
+      const walker = document.createTreeWalker(surface, NodeFilter.SHOW_TEXT);
+
+      let overlaps = 0;
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        if (node.parentElement?.closest('.w-sheets')) continue;
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        for (const rect of [...range.getClientRects()]) {
+          if (rect.height <= 0) continue;
+          if (rect.top < note.bottom && rect.bottom > note.top) overlaps += 1;
+        }
+      }
+      return overlaps;
     });
 
     expect(overlapping).toBe(0);
