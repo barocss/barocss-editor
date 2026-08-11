@@ -277,6 +277,13 @@ export function registerWordRenderers(): void {
           'div',
           {
             className: 'w-sheets',
+            // Named, because it is a sibling of the content slot and both carry
+            // the surface's sid — a sid is stamped on every element of a
+            // template, so among siblings it is not identity. Without a name of
+            // its own this box was replaced on every render, and replacing it
+            // rebuilt every sheet, header, footer and footnote inside it however
+            // carefully those were keyed themselves.
+            key: 'sheets',
             'data-bc-chrome': 'true',
             contenteditable: 'false',
             'aria-hidden': 'true',
