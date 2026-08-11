@@ -39,6 +39,50 @@ export class MutationObserverManagerImpl implements MutationObserverManager {
     });
   }
 
+  /**
+   * The block the caret sits in — the only region a mutation may speak for.
+   *
+   * A keystroke makes the browser touch one text node. Our own render, in the
+   * same tick, rewrites the sheets, the page furniture and the table of
+   * contents: a measured 320 childList records against the caret's 1. Handing
+   * that lot to the input handler makes it read our own output back as if the
+   * user had typed it, which is where the second (`replaceText`) transaction
+   * per keystroke came from. So the observer is scoped to the caret's block and
+   * everything else is our own writing, by definition.
+   *
+   * Returns null when there is no caret to scope to (no selection yet, or a
+   * selection outside the editor); the caller then falls back to the whole
+   * batch rather than silently dropping input.
+   */
+  private caretRegion(root: HTMLElement): Element | null {
+    const selection = window.getSelection();
+    const focus = selection?.focusNode ?? selection?.anchorNode ?? null;
+    if (!focus || !root.contains(focus)) return null;
+
+    let element: Element | null =
+      focus.nodeType === Node.TEXT_NODE ? focus.parentElement : (focus as Element);
+
+    // Climb to the nearest identified block. `.w-text` and friends are inline
+    // spans inside the paragraph; the paragraph is the unit of text editing.
+    while (element && element !== root) {
+      if (element.hasAttribute('data-bc-sid') && !this.isInline(element)) return element;
+      element = element.parentElement;
+    }
+    return null;
+  }
+
+  private isInline(element: Element): boolean {
+    const display = element.ownerDocument.defaultView?.getComputedStyle(element).display;
+    return display === 'inline' || display === 'inline-block';
+  }
+
+  private inRegion(mutation: MutationRecord, region: Element): boolean {
+    if (region.contains(mutation.target)) return true;
+    // A text node the browser just detached is no longer under the region, so
+    // ask the record where it was taken from instead.
+    return mutation.type === 'childList' && region.contains(mutation.previousSibling ?? mutation.nextSibling ?? null);
+  }
+
   setup(contentEditableElement: HTMLElement): void {
     // One observer on the element, with two consumers.
     //
@@ -52,12 +96,31 @@ export class MutationObserverManagerImpl implements MutationObserverManager {
     // The base manager still classifies — it is what turns a raw record into
     // `editor:node.change` and `editor:node.update` — so it is handed the
     // records instead of collecting its own.
-    this.observer = new MutationObserver((mutations) => {
-      for (const mutation of mutations) this.baseManager.handleMutation(mutation);
+    this.observer = new MutationObserver((records) => {
+      const region = this.caretRegion(contentEditableElement);
+
+      // No caret to scope to, and a render in flight: these are the renderer's
+      // own, and there is nothing to compare them against. Letting them through
+      // is not harmless — Replace moves the caret out of the text it rewrote, so
+      // every record of that rewrite arrived unscoped and was read back as if
+      // somebody had typed it, which cost the replacement one of its matches.
+      if (!region && (this.inputHandler as any).editorViewDOM?.isModelDrivenChange) {
+        logger.debug(LogCategory.TEXT_INPUT, 'MutationObserver callback: SKIP - render output, no caret');
+        return;
+      }
+
+      const mutations = region ? records.filter(m => this.inRegion(m, region)) : records;
+
       logger.debug(LogCategory.TEXT_INPUT, 'MutationObserver callback: mutations received', {
-        count: mutations.length,
+        seen: records.length,
+        kept: mutations.length,
+        scopedTo: region?.getAttribute('data-bc-sid') ?? '(unscoped)',
         types: mutations.map(m => m.type)
       });
+
+      if (mutations.length === 0) return;
+
+      for (const mutation of mutations) this.baseManager.handleMutation(mutation);
 
       // Collect mutations in batch
       this.pendingMutations.push(...mutations);
