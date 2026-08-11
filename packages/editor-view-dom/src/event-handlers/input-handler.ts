@@ -353,6 +353,20 @@ export class InputHandlerImpl implements InputHandler {
       nodeId: classified.nodeId
     });
 
+    // Our own render is not input. A keystroke goes model-first through
+    // beforeinput, we render the result, and the render writes the caret's text
+    // node — a characterData record at exactly the place we refuse to filter by
+    // position, because that is where typing happens. Judge it by content
+    // instead: if the DOM already says what the model says, there is nothing to
+    // import. Measured in the browser, this is what removed the second
+    // (`replaceText`) transaction every keystroke was producing.
+    if (this._alreadyInModel(classified)) {
+      logger.debug(LogCategory.TEXT_INPUT, 'handleDomMutations: SKIP - DOM already matches the model', {
+        nodeId: classified.nodeId
+      });
+      return;
+    }
+
 
     // Handle by case
     switch (classified.case) {
@@ -377,6 +391,22 @@ export class InputHandlerImpl implements InputHandler {
     }
   }
 
+
+  /**
+   * True when the classified change carries no information the model lacks.
+   *
+   * Only text cases are judged — a structural change has no single text to
+   * compare, and an unknown case must stay loud rather than be swallowed here.
+   */
+  private _alreadyInModel(classified: ClassifiedChange): boolean {
+    if (classified.case !== 'C1' && classified.case !== 'C2') return false;
+    if (!classified.nodeId || classified.newText == null) return false;
+
+    const modelNode = (this.editor as any).dataStore?.getNode(classified.nodeId);
+    if (!modelNode || modelNode.stype !== 'inline-text') return false;
+
+    return (modelNode.text ?? '') === classified.newText;
+  }
 
   /**
    * C1: Handle pure text changes within a single inline-text
@@ -601,22 +631,12 @@ export class InputHandlerImpl implements InputHandler {
         }
       }
 
-      // Emit editor:content.change event (skipRender: true)
-      this.editor.emit('editor:content.change', {
-        skipRender: true,
-        from: 'MutationObserver-C1',
-        content: (this.editor as any).document,
-        transaction: this._buildDebugTransaction([
-          {
-            type: 'replaceText',
-            payload: {
-              nodeId: classified.nodeId,
-              range: classified.contentRange
-            }
-          }
-        ], 'MutationObserver-C1'),
-        inputDebug
-      });
+      // The `replaceText` command above has already announced its transaction.
+      // Saying it again as a second content.change made every listener — the
+      // toolbar recomputes each control over the document on that event — run
+      // twice for one composed syllable. What is genuinely ours to report is the
+      // debug record, so that goes out under its own name.
+      this.editor.emit('editor:input.debug', { from: 'MutationObserver-C1', inputDebug });
 
       // Also store in editor instance (for access from Devtool)
       (this.editor as any).__lastInputDebug = inputDebug;
@@ -1456,19 +1476,13 @@ export class InputHandlerImpl implements InputHandler {
           endNodeId: modelRange.startNodeId,
           endOffset: modelRange.startOffset + text.length
         } as ModelSelection);
-      this.editor.emit('editor:content.change', {
-        skipRender: false,
-        from: 'getTargetRanges',
-        content: (this.editor as any).document,
-        transaction: this._buildDebugTransaction([
-          {
-            type: 'replaceText',
-            payload: {
-              ...rangeForReplace
-            }
-          }
-        ], 'getTargetRanges')
-      });
+      // No content.change is emitted here. `replaceText` is a command: its
+      // transaction has already announced itself and already rendered, ~60ms
+      // before this promise settles. Announcing it a second time bought a second
+      // full render of the document per keystroke — measured in the browser as
+      // two transactions and four render passes for one character — and told
+      // every content.change listener the document had changed twice.
+      //
       // Restore the DOM selection only if it has actually drifted.
       //
       // Two frames from now the user may well have typed again, and forcing our

@@ -257,9 +257,11 @@ export class Devtool {
       // Event logging disabled (focusing on Execution Flow)
       // this.logEvent(event, data);
       
-      // Detect inputDebug in editor:content.change and update UI
-      if (event === 'editor:content.change' && data?.inputDebug) {
-        console.log('[Devtool] inputDebug detected in editor:content.change', data.inputDebug);
+      // Input debug records. `editor:input.debug` is where the input handler
+      // reports them now; content.change is still accepted because other paths
+      // (and older recordings) carry them there.
+      if ((event === 'editor:input.debug' || event === 'editor:content.change') && data?.inputDebug) {
+        console.log(`[Devtool] inputDebug detected in ${event}`, data.inputDebug);
         this.ui.updateLastInputDebug(data.inputDebug);
       }
       
