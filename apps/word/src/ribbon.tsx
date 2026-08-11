@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import type { Editor, SelectionSummary } from '@barocss/editor-core';
+import { useEffect, useMemo, useReducer } from 'react';
+import type { Editor } from '@barocss/editor-core';
 import {
   currentChoice,
   inheritedChoice,
@@ -37,18 +37,32 @@ export function Ribbon({
   view: EditorViewDOM;
   fonts: FontLoader;
 }) {
-  const [summary, setSummary] = useState<SelectionSummary>(() => editor.getSelectionSummary());
+  /**
+   * A count of the events that can change any answer here, not the answers
+   * themselves.
+   *
+   * Holding the summary in state looked equivalent and was not. With no
+   * selection `getSelectionSummary()` returns a shared constant, so setting it
+   * twice in a row hands React the same object and React skips the render — and
+   * whether a button can run is read during that render from `editor.canRun`,
+   * which is not React's state and had changed. Accepting every tracked change
+   * left Accept lit with nothing to accept, and it was never only that button:
+   * anything whose availability turns on the document rather than the selection
+   * was stale until something else forced a render.
+   */
+  const [tick, bump] = useReducer((n: number) => n + 1, 0);
 
   useEffect(() => {
-    const refresh = () => setSummary(editor.getSelectionSummary());
-    editor.on('editor:selection.model', refresh);
-    editor.on('editor:content.change', refresh);
-    refresh();
+    editor.on('editor:selection.model', bump);
+    editor.on('editor:content.change', bump);
+    bump();
     return () => {
-      editor.off('editor:selection.model', refresh);
-      editor.off('editor:content.change', refresh);
+      editor.off('editor:selection.model', bump);
+      editor.off('editor:content.change', bump);
     };
   }, [editor]);
+
+  const summary = useMemo(() => editor.getSelectionSummary(), [editor, tick]);
 
   const style = currentStyle(summary);
 
