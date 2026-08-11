@@ -617,6 +617,8 @@ export class InputHandlerImpl implements InputHandler {
    * C2: 여러 inline-text에 걸친 텍스트 변경 처리
    */
   private async handleC2(classified: ClassifiedChange): Promise<void> {
+    // Converted only if a listener reads it — see the transaction's own emit.
+    const editorForPayload = this.editor;
     logger.debug(LogCategory.TEXT_INPUT, 'handleC2: CALLED', {
       startNodeId: classified.contentRange?.startNodeId,
       endNodeId: classified.contentRange?.endNodeId,
@@ -717,7 +719,7 @@ export class InputHandlerImpl implements InputHandler {
       this.editor.emit('editor:content.change', {
         skipRender: true,
         from: 'MutationObserver-C2',
-        content: (this.editor as any).document,
+        get content() { return (editorForPayload as any).document; },
         transaction: this._buildDebugTransaction([
           {
             type: 'replaceText',
@@ -752,6 +754,8 @@ export class InputHandlerImpl implements InputHandler {
    * 브라우저/플랫폼 차이로 beforeinput이 오지 않은 경우를 대비
    */
   private async handleC3(classified: ClassifiedChange): Promise<void> {
+    // Converted only if a listener reads it — see the transaction's own emit.
+    const editorForPayload = this.editor;
     logger.debug(LogCategory.TEXT_INPUT, 'handleC3: CALLED', {
       pattern: classified.metadata?.pattern,
       command: classified.metadata?.command,
@@ -781,7 +785,7 @@ export class InputHandlerImpl implements InputHandler {
         this.editor.emit('editor:content.change', {
           skipRender: false, // render needed
           from: 'MutationObserver-C3-command',
-          content: (this.editor as any).document,
+          get content() { return (editorForPayload as any).document; },
           transaction: this._buildDebugTransaction([], `MutationObserver-C3 command:${command}`),
           inputDebug
         });
@@ -872,7 +876,7 @@ export class InputHandlerImpl implements InputHandler {
         this.editor.emit('editor:content.change', {
           skipRender: false, // render needed
           from: 'MutationObserver-C3-fallback',
-          content: (this.editor as any).document,
+          get content() { return (editorForPayload as any).document; },
           transaction: this._buildDebugTransaction([
             {
               type: 'replaceText',
@@ -912,6 +916,8 @@ export class InputHandlerImpl implements InputHandler {
    * Convert styles/tags directly created by browser to model marks
    */
   private handleC4(classified: ClassifiedChange): void {
+    // Converted only if a listener reads it — see the transaction's own emit.
+    const editorForPayload = this.editor;
     logger.debug(LogCategory.TEXT_INPUT, 'handleC4: CALLED', {
       markChanges: classified.metadata?.markChanges,
       specialCase: classified.metadata?.specialCase
@@ -980,7 +986,7 @@ export class InputHandlerImpl implements InputHandler {
         this.editor.emit('editor:content.change', {
           skipRender: true,
           from: 'MutationObserver-C4',
-          content: (this.editor as any).document,
+          get content() { return (editorForPayload as any).document; },
           transaction: this._buildDebugTransaction([
             {
               type: 'toggleMark',
@@ -1006,7 +1012,7 @@ export class InputHandlerImpl implements InputHandler {
     this.editor.emit('editor:content.change', {
       skipRender: false, // Render needed (replace with normalized structure)
       from: 'MutationObserver-C4-normalize',
-      content: (this.editor as any).document,
+      get content() { return (editorForPayload as any).document; },
       transaction: this._buildDebugTransaction([], 'MutationObserver-C4-normalize')
     });
   }
@@ -1015,6 +1021,8 @@ export class InputHandlerImpl implements InputHandler {
   // Note: oldValue/newValue are values of individual text nodes,
   // but actual comparison should be done on full text by sid (because it's split by mark/decorator)
   async handleTextContentChange(oldValue: string | null, newValue: string | null, target: Node): Promise<void> {
+    // Converted only if a listener reads it — see the transaction's own emit.
+    const editorForPayload = this.editor;
     logger.debug(LogCategory.TEXT_INPUT, 'handleTextContentChange: CALLED', { oldValue, newValue, targetNodeType: target.nodeType, targetNodeName: target.nodeName });
     
     // Ignore DOM changes during rendering (prevent infinite loop)
@@ -1263,7 +1271,7 @@ export class InputHandlerImpl implements InputHandler {
     this.editor.emit('editor:content.change', {
       skipRender: true, // Required: MutationObserver changes do not call render()
       from: 'MutationObserver', // For debugging: indicate change source
-      content: (this.editor as any).document,
+      get content() { return (editorForPayload as any).document; },
       transaction: this._buildDebugTransaction([
         {
           type: 'replaceText',

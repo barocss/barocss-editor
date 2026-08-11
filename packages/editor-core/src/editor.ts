@@ -290,8 +290,28 @@ export class Editor implements ContextProvider {
     this._keybindingRegistry.setCurrentSource(null);
   }
 
+  /**
+   * The document as it is now.
+   *
+   * Read from the store rather than from `_document`. `_document` is a snapshot
+   * taken at load and refreshed only by setContent, loadTree, undo and redo — a
+   * transaction writes the store and leaves it behind, so after any edit at all
+   * it described a document that no longer existed. Measured in the browser:
+   * type four characters, and `editor.document` did not contain them while the
+   * store and `exportDocument()` both did. Nothing rendered from it, which is
+   * the only reason this was not visible; every listener handed it a `content`
+   * was being handed the document as it looked when the page opened.
+   *
+   * `_convertNode` resolves child ids through the store as it walks, so seeding
+   * it with the root's current children is enough to make the whole tree live.
+   * The snapshot is still what history holds, and is kept for that.
+   */
   get document(): DocumentState {
-    return this._convertToDocumentState(this._document);
+    const root = this._rootId ? this._dataStore?.getNode?.(this._rootId) : null;
+    const source = root
+      ? { ...this._document, content: (root as any).content ?? [] }
+      : this._document;
+    return this._convertToDocumentState(source);
   }
 
   get selection(): ModelSelection | null {

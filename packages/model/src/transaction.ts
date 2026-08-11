@@ -237,9 +237,16 @@ export class TransactionManager {
 
       // 10. Emit event (notify View layer)
       // editor:content.change → triggers render()
-      this._editor.emit('editor:content.change', { 
-        content: (this._editor as any).document, 
-        transaction: result 
+      // `content` is built only if somebody asks for it. It is a full conversion
+      // of the document, it was made on every keystroke, and nothing in the
+      // codebase reads it — the view re-renders from the store and every other
+      // listener uses the event as a signal that something changed.
+      const editor = this._editor as any;
+      this._editor.emit('editor:content.change', {
+        get content() {
+          return editor.document;
+        },
+        transaction: result
       });
       
       // After hooks: Call extension onTransaction handlers
