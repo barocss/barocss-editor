@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { placeCaret } from './helpers';
+import { placeCaret, settled } from './helpers';
 
 /**
  * Working on a document with other people in mind: finding and replacing text,
@@ -19,7 +19,11 @@ import { placeCaret } from './helpers';
 test.describe('find', () => {
   const open = async (page: import('@playwright/test').Page, query: string) => {
     await page.goto('/');
-    await page.waitForSelector('.w-sheet');
+    // Settled, not merely present. Find runs over the document as laid out, and
+    // asking while the paginator is still moving text between pages gives a
+    // match count on its way somewhere else — which is a race that only showed
+    // up once the suite was split and the files began running side by side.
+    await settled(page);
     await page.keyboard.press('Control+f');
     await expect(page.locator('.w-find-panel')).toBeVisible();
     await page.locator('.w-find-query').fill(query);

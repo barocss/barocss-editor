@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { placeCaret } from './helpers';
+import { placeCaret, settled } from './helpers';
 
 /**
  * What the document looks like once it is drawn: formatting resolved against
@@ -165,7 +165,10 @@ test.describe('tracked changes', () => {
 
   test('names the reviewer', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('.w-insertion');
+    // Settled first: a render patches the DOM by putting the new element in
+    // before taking the old one out, so for an instant there are two of these
+    // and asserting on "the" insertion is asking about a document mid-redraw.
+    await settled(page);
 
     await expect(page.locator('.w-insertion')).toHaveAttribute('data-author', 'Jinho');
     await expect(page.locator('.w-insertion')).toHaveAttribute('title', /Jinho/);
