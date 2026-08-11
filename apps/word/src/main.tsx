@@ -204,31 +204,36 @@ export function mountWord(container: HTMLElement): { editor: Editor; view: Edito
     window.pageBreaks = breaks;
     const wanted = new Map(breaks.map((item) => [item.sid, shapeOf(item)]));
 
-    // Only what actually moved. Replacing a decorator re-renders the paragraph it
-    // is in, and re-rendering a long paragraph produces hundreds of DOM mutations
-    // for a break that is exactly where it was.
-    for (const sid of [...drawnBreaks.keys()]) {
-      if (!wanted.has(sid)) {
-        view.removeDecorator(sid);
-        drawnBreaks.delete(sid);
+    // One render for the whole set. Repagination moves many breaks at once —
+    // pressing Enter near the top of the document moves every one below it — and
+    // a render each was twenty-five renders for a single keystroke.
+    view.batchDecorators(() => {
+      // Only what actually moved. Replacing a decorator re-renders the paragraph
+      // it is in, and re-rendering a long paragraph produces hundreds of DOM
+      // mutations for a break that is exactly where it was.
+      for (const sid of [...drawnBreaks.keys()]) {
+        if (!wanted.has(sid)) {
+          view.removeDecorator(sid);
+          drawnBreaks.delete(sid);
+        }
       }
-    }
 
-    for (const item of breaks) {
-      if (drawnBreaks.get(item.sid) === wanted.get(item.sid)) continue;
-      if (drawnBreaks.has(item.sid)) view.removeDecorator(item.sid);
+      for (const item of breaks) {
+        if (drawnBreaks.get(item.sid) === wanted.get(item.sid)) continue;
+        if (drawnBreaks.has(item.sid)) view.removeDecorator(item.sid);
 
-      view.addDecorator({
-        sid: item.sid,
-        stype: PAGE_BREAK_STYPE,
-        category: 'inline',
-        // Start and end at the same offset: this marks a position between two
-        // characters, not a claim about either of them.
-        target: { sid: item.target.sid, startOffset: item.target.offset, endOffset: item.target.offset },
-        data: { height: item.height }
-      } as never);
-      drawnBreaks.set(item.sid, wanted.get(item.sid)!);
-    }
+        view.addDecorator({
+          sid: item.sid,
+          stype: PAGE_BREAK_STYPE,
+          category: 'inline',
+          // Start and end at the same offset: this marks a position between two
+          // characters, not a claim about either of them.
+          target: { sid: item.target.sid, startOffset: item.target.offset, endOffset: item.target.offset },
+          data: { height: item.height }
+        } as never);
+        drawnBreaks.set(item.sid, wanted.get(item.sid)!);
+      }
+    });
   };
 
   view.render();

@@ -49,6 +49,8 @@ export class EditorViewDOM implements IEditorViewDOM {
    * render's own output as something the user had typed.
    */
   private _modelDrivenRenders = 0;
+  private _decoratorBatchDepth = 0;
+  private _decoratorRenderPending = false;
   // Track nodes being edited (for skipNodes)
   private _editingNodes: Set<string> = new Set();
   private _inputEndDebounceTimer: number | null = null;
@@ -1864,6 +1866,38 @@ export class EditorViewDOM implements IEditorViewDOM {
     if (changed) this.render(undefined, this._renderOptions);
   }
 
+  /**
+   * Apply a group of decorator changes as a single render.
+   *
+   * Each add/remove renders the whole document on its own, which is right for
+   * one decorator and wrong for a set of them. Pagination hands over every page
+   * break at once: pressing Enter moved twenty-five of them and cost twenty-five
+   * renders — 199ms and some 4,800 DOM mutations for one keystroke, measured.
+   * Inside this call the renders are held and one is issued at the end.
+   */
+  batchDecorators(mutate: () => void): void {
+    this._decoratorBatchDepth++;
+    try {
+      mutate();
+    } finally {
+      this._decoratorBatchDepth--;
+    }
+
+    if (this._decoratorBatchDepth === 0 && this._decoratorRenderPending) {
+      this._decoratorRenderPending = false;
+      this.render(undefined, this._renderOptions);
+    }
+  }
+
+  /** Render for a decorator change, unless a batch is collecting them. */
+  private _renderForDecoratorChange(): void {
+    if (this._decoratorBatchDepth > 0) {
+      this._decoratorRenderPending = true;
+      return;
+    }
+    this.render(undefined, this._renderOptions);
+  }
+
   addDecorator(decorator: Decorator | DecoratorGenerator): void {
     // Check decoratorType
     const decoratorType = 'decoratorType' in decorator 
@@ -1876,9 +1910,9 @@ export class EditorViewDOM implements IEditorViewDOM {
       // Register onDidChange callback (re-render on change detection)
       this.decoratorGeneratorManager.registerGenerator(
         generator,
-        () => this.render(undefined, this._renderOptions) // Re-render on change detection (preserve options)
+        () => this._renderForDecoratorChange() // Re-render on change detection (preserve options)
       );
-      this.render(undefined, this._renderOptions);
+      this._renderForDecoratorChange();
       return;
     }
     
@@ -1899,7 +1933,7 @@ export class EditorViewDOM implements IEditorViewDOM {
       decoratorType: decoratorType || 'target'
     };
     this.decoratorManager.add(targetDecorator);
-    this.render(undefined, this._renderOptions);
+    this._renderForDecoratorChange();
   }
   
   /**
@@ -1983,7 +2017,7 @@ export class EditorViewDOM implements IEditorViewDOM {
     // Attempt to remove custom decorator
     const customRemoved = this.decoratorGeneratorManager.unregisterGenerator(id);
     if (customRemoved) {
-      this.render();
+      this._renderForDecoratorChange();
       return true;
     }
     
@@ -1997,7 +2031,7 @@ export class EditorViewDOM implements IEditorViewDOM {
     // Attempt to remove general decorator
     try {
       this.decoratorManager.remove(id);
-      this.render();
+      this._renderForDecoratorChange();
       return true;
     } catch {
       return false;
