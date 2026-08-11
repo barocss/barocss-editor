@@ -200,6 +200,28 @@ export const WORD_TOOLBAR: ToolbarGroup[] = [
         state: attribute('alignment', 'justify')
       }
     ]
+  },
+  /**
+   * Review.
+   *
+   * No `state` on any of them. Whether tracking is on is a property of the
+   * document, not of the selection, and the selection summary is the only thing
+   * a control's state can be read from — a button claiming to know is a button
+   * that would be lying half the time. Whether each can run is answered by the
+   * command instead, which is where the answer actually is: Accept is
+   * unavailable exactly when there is no change to accept.
+   */
+  {
+    id: 'review',
+    controls: [
+      { id: 'track-changes', label: 'Track changes', icon: '✎', command: 'toggleTrackChanges' },
+      { id: 'prev-revision', label: 'Previous change', icon: '◀', command: 'previousRevision' },
+      { id: 'next-revision', label: 'Next change', icon: '▶', command: 'nextRevision' },
+      { id: 'accept-revision', label: 'Accept', icon: '✓', command: 'acceptRevision' },
+      { id: 'reject-revision', label: 'Reject', icon: '✕', command: 'rejectRevision' },
+      { id: 'accept-all-revisions', label: 'Accept all', icon: '✓✓', command: 'acceptAllRevisions' },
+      { id: 'reject-all-revisions', label: 'Reject all', icon: '✕✕', command: 'rejectAllRevisions' }
+    ]
   }
 ];
 

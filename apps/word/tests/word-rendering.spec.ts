@@ -134,46 +134,6 @@ test.describe('fields that ask the document about itself', () => {
   });
 });
 
-test.describe('tracked changes', () => {
-  test('draws a deletion rather than removing it', async ({ page }) => {
-    await page.goto('/');
-    await page.waitForSelector('.w-deletion');
-
-    // The whole point of tracking: the reader has to see what was taken out in
-    // order to accept or reject it.
-    await expect(page.locator('.w-deletion')).toHaveText('this was removed');
-    await expect(page.locator('.w-deletion')).toHaveCSS('text-decoration-line', 'line-through');
-  });
-
-  test('underlines an insertion', async ({ page }) => {
-    await page.goto('/');
-    await page.waitForSelector('.w-insertion');
-    await expect(page.locator('.w-insertion')).toHaveCSS('text-decoration-line', 'underline');
-  });
-
-  test('gives each reviewer a colour of their own', async ({ page }) => {
-    await page.goto('/');
-    await page.waitForSelector('.w-insertion');
-
-    const colors = await page.evaluate(() => [
-      getComputedStyle(document.querySelector('.w-insertion')!).color,
-      getComputedStyle(document.querySelector('.w-deletion')!).color
-    ]);
-
-    expect(colors[0]).not.toBe(colors[1]);
-  });
-
-  test('names the reviewer', async ({ page }) => {
-    await page.goto('/');
-    // Settled first: a render patches the DOM by putting the new element in
-    // before taking the old one out, so for an instant there are two of these
-    // and asserting on "the" insertion is asking about a document mid-redraw.
-    await settled(page);
-
-    await expect(page.locator('.w-insertion')).toHaveAttribute('data-author', 'Jinho');
-    await expect(page.locator('.w-insertion')).toHaveAttribute('title', /Jinho/);
-  });
-});
 
 test.describe('what leaves the editor', () => {
   test('does not copy the page sheets', async ({ page }) => {

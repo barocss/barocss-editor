@@ -18,6 +18,12 @@ import {
   Strikethrough,
   Underline,
   Undo2,
+  Check,
+  CheckCheck,
+  ChevronLeft,
+  ChevronRight,
+  FilePen,
+  X,
   type LucideIcon
 } from 'lucide-react';
 
@@ -54,7 +60,17 @@ const ICONS: Record<string, LucideIcon> = {
   'bullet-list': List,
   'ordered-list': ListOrdered,
   indent: IndentIncrease,
-  outdent: IndentDecrease
+  outdent: IndentDecrease,
+  'track-changes': FilePen,
+  'prev-revision': ChevronLeft,
+  'next-revision': ChevronRight,
+  'accept-revision': Check,
+  'reject-revision': X,
+  // Accept-all and reject-all are the same acts at a different scale, so they
+  // are the same icons doubled rather than two unrelated ones a reader has to
+  // learn separately.
+  'accept-all-revisions': CheckCheck,
+  'reject-all-revisions': X
 };
 
 /**

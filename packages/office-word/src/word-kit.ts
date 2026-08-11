@@ -7,6 +7,7 @@ import { Editor, type EditorOptions, type Extension, type Keybinding } from '@ba
 import { createWordCommands } from './word-commands';
 import { createWordListCommands } from './list-commands';
 import { createWordComments, type CommentAuthor } from './comment-commands';
+import { createWordRevisions } from './revision-commands';
 import { createSchema } from '@barocss/schema';
 import { getWordSchemaDefinition } from './word-schema';
 import { WORD_KEYBINDINGS } from './word-keymap';
@@ -39,7 +40,10 @@ export function createWordExtensions(author: CommentAuthor = DEFAULT_AUTHOR): Ex
     createWordListCommands(),
     // Who is commenting is the host's to say, the same way the instant a date
     // field shows is — an editor that invented a name would be guessing.
-    createWordComments(author)
+    createWordComments(author),
+    // Recording a change and drawing it is only half of review: without accept
+    // and reject a revised document can never be finished.
+    createWordRevisions()
   ];
 }
 

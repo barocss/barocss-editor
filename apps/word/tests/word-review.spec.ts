@@ -272,3 +272,162 @@ test.describe('comments', () => {
     await expect(page.locator('.w-comment-orphan')).toBeVisible();
   });
 });
+
+test.describe('tracked changes', () => {
+  test('draws a deletion rather than removing it', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-deletion');
+
+    // The whole point of tracking: the reader has to see what was taken out in
+    // order to accept or reject it.
+    await expect(page.locator('.w-deletion')).toHaveText('this was removed');
+    await expect(page.locator('.w-deletion')).toHaveCSS('text-decoration-line', 'line-through');
+  });
+
+  test('underlines an insertion', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-insertion');
+    await expect(page.locator('.w-insertion')).toHaveCSS('text-decoration-line', 'underline');
+  });
+
+  test('gives each reviewer a colour of their own', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-insertion');
+
+    const colors = await page.evaluate(() => [
+      getComputedStyle(document.querySelector('.w-insertion')!).color,
+      getComputedStyle(document.querySelector('.w-deletion')!).color
+    ]);
+
+    expect(colors[0]).not.toBe(colors[1]);
+  });
+
+  test('names the reviewer', async ({ page }) => {
+    await page.goto('/');
+    // Settled first: a render patches the DOM by putting the new element in
+    // before taking the old one out, so for an instant there are two of these
+    // and asserting on "the" insertion is asking about a document mid-redraw.
+    await settled(page);
+
+    await expect(page.locator('.w-insertion')).toHaveAttribute('data-author', 'Jinho');
+    await expect(page.locator('.w-insertion')).toHaveAttribute('title', /Jinho/);
+  });
+});
+
+test.describe('reviewing tracked changes', () => {
+  /** Whatever the ribbon's button for this control is called. */
+  const button = (page: import('@playwright/test').Page, label: string) =>
+    page.getByRole('button', { name: label, exact: true });
+
+  const insertion = 'this was added';
+  const deletion = 'this was removed';
+
+  test('accepting an insertion keeps the words and stops marking them', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    await placeCaret(page, '.w-insertion');
+    await button(page, 'Accept').click();
+
+    // The words stay; what goes is the claim that they are new.
+    await expect(page.locator('.w-surface').first()).toContainText(insertion);
+    await expect(page.locator('.w-insertion')).toHaveCount(0);
+  });
+
+  test('rejecting an insertion takes the words out', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    await placeCaret(page, '.w-insertion');
+    await button(page, 'Reject').click();
+
+    await expect(page.locator('.w-surface').first()).not.toContainText(insertion);
+  });
+
+  test('accepting a deletion carries it out', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    await placeCaret(page, '.w-deletion');
+    await button(page, 'Accept').click();
+
+    await expect(page.locator('.w-surface').first()).not.toContainText(deletion);
+    await expect(page.locator('.w-deletion')).toHaveCount(0);
+  });
+
+  test('rejecting a deletion keeps the words', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    await placeCaret(page, '.w-deletion');
+    await button(page, 'Reject').click();
+
+    await expect(page.locator('.w-surface').first()).toContainText(deletion);
+    await expect(page.locator('.w-deletion')).toHaveCount(0);
+  });
+
+  test('one undo takes an accept back', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    await placeCaret(page, '.w-deletion');
+    await button(page, 'Accept').click();
+    await expect(page.locator('.w-deletion')).toHaveCount(0);
+
+    // Accepting destroys text by design. A reviewer who accepts the wrong change
+    // needs it back, and needs it back in one press.
+    await page.keyboard.press('Control+z');
+    await expect(page.locator('.w-deletion')).toHaveCount(1);
+    await expect(page.locator('.w-surface').first()).toContainText(deletion);
+  });
+
+  test('accept all settles every change at once', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    await button(page, 'Accept all').click();
+
+    await expect(page.locator('.w-insertion')).toHaveCount(0);
+    await expect(page.locator('.w-deletion')).toHaveCount(0);
+    // Accepted means each author got their way: the addition stayed, the
+    // removal happened.
+    await expect(page.locator('.w-surface').first()).toContainText(insertion);
+    await expect(page.locator('.w-surface').first()).not.toContainText(deletion);
+  });
+
+  test('reject all puts the document back as it was', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    await button(page, 'Reject all').click();
+
+    await expect(page.locator('.w-surface').first()).not.toContainText(insertion);
+    await expect(page.locator('.w-surface').first()).toContainText(deletion);
+  });
+
+  test('steps from one change to the next', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    await button(page, 'Next change').click();
+    const first = await page.evaluate(() => (window as any).editor.selection?.startNodeId);
+
+    await button(page, 'Next change').click();
+    const second = await page.evaluate(() => (window as any).editor.selection?.startNodeId);
+
+    expect(second).not.toBe(first);
+  });
+
+  test('offers nothing to accept once there is nothing left', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    await button(page, 'Accept all').click();
+    await expect(page.locator('.w-insertion')).toHaveCount(0);
+
+    // A button that stays lit with nothing to act on is a button that lies about
+    // the state of the document.
+    await expect(button(page, 'Accept')).toBeDisabled();
+    await expect(button(page, 'Accept all')).toBeDisabled();
+  });
+});

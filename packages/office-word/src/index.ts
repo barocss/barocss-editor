@@ -159,6 +159,19 @@ export {
   type CommentThread
 } from './comments';
 export { createWordComments, WordCommentExtension, type CommentAuthor } from './comment-commands';
+export { createWordRevisions, WordRevisionExtension } from './revision-commands';
+export {
+  revisions,
+  revisionAt,
+  revisionById,
+  revisionAfter,
+  moveCounterpart,
+  REVISION_KINDS,
+  type Revision,
+  type RevisionKind,
+  type RevisionSpan
+} from './revision-index';
+export { dispositionOf, resolveRevisionOps, resolveAllOps, type Disposition } from './revision-resolve';
 export {
   createWordListCommands,
   WordListExtension,
