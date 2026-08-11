@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { placeCaret } from './helpers';
+import { placeCaret, settled } from './helpers';
 
 /**
  * Where the pages fall.
@@ -503,3 +503,96 @@ test.describe('sheets under columns', () => {
     expect(columned.sheets).toBeLessThan(columned.boxes);
   });
 })
+
+/**
+ * A table longer than a page.
+ *
+ * It used to be unsplittable, and the result was not a table moved to the next
+ * page — it was a table drawn straight across the gap between two sheets, its
+ * rows crossing the bottom margin and the edge of the paper. A table breaks
+ * between rows, which is the only place a page can end inside one: a break
+ * inside a cell would leave its borders on one page and its words on another.
+ */
+test.describe('a table longer than a page', () => {
+  /** Add rows to the sample table until it is taller than a page. */
+  const growTable = async (page: import('@playwright/test').Page, rows: number) => {
+    await page.evaluate((count) => {
+      const ed = (window as any).editor;
+      const find = (node: any, depth = 0): any => {
+        if (!node || depth > 60) return null;
+        if (node.stype === 'bTableBody') return node;
+        for (const child of node.content ?? []) {
+          const hit = find(typeof child === 'string' ? ed.dataStore.getNode(child) : child, depth + 1);
+          if (hit) return hit;
+        }
+        return null;
+      };
+      const body = find(ed.dataStore.getNode(ed.getRootId()));
+      const cell = (text: string) => ({
+        stype: 'bTableCell',
+        content: [{ stype: 'paragraph', content: [{ stype: 'inline-text', text }] }]
+      });
+      for (let index = 0; index < count; index++) {
+        const row = ed.dataStore.createNodeWithChildren({
+          stype: 'bTableRow',
+          content: [cell(`row ${index} left`), cell(`row ${index} right`)]
+        });
+        ed.dataStore.addChild(body.sid, row);
+      }
+      (window as any).editorView.render();
+    }, rows);
+    await page.waitForTimeout(2500);
+  };
+
+  test('breaks between rows instead of running over the edge of the paper', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+    await growTable(page, 40);
+
+    const measured = await page.evaluate(() => {
+      const metrics = [...(window as any).wordLayout.values()][0].metrics;
+      const sheets = [...document.querySelectorAll('.w-sheet')].map((s) => s.getBoundingClientRect());
+      const table = document.querySelector('.w-table')!.getBoundingClientRect();
+
+      // Against the content area, not the sheet: a row in the bottom margin is
+      // drawn over the footer and off the printable page.
+      const straddling = [...document.querySelectorAll('.w-table .w-tr')].filter((row) => {
+        const box = row.getBoundingClientRect();
+        if (box.height === 0) return false;
+        return !sheets.some(
+          (sheet) =>
+            box.top >= sheet.top + metrics.marginTop - 1 &&
+            box.bottom <= sheet.bottom - metrics.marginBottom + 1
+        );
+      });
+
+      return {
+        rows: document.querySelectorAll('.w-table .w-tr').length,
+        gaps: document.querySelectorAll('.w-table-break').length,
+        spansSheets: sheets.filter((s) => table.top < s.bottom && table.bottom > s.top).length,
+        straddling: straddling.length
+      };
+    });
+
+    expect(measured.rows).toBeGreaterThan(40);
+    // Taller than one page, so it has to break at least once.
+    expect(measured.spansSheets).toBeGreaterThan(1);
+    expect(measured.gaps).toBeGreaterThan(0);
+    expect(measured.straddling).toBe(0);
+  });
+
+  test('does not count the gaps it drew as part of its own height', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+    await growTable(page, 40);
+
+    const first = await page.evaluate(() => document.querySelectorAll('.w-table-break').length);
+    // A second settling round measures a table that now contains its own gap
+    // rows. Counting them would make it taller, break it again, and never stop.
+    await page.evaluate(() => (window as any).editorView.render());
+    await page.waitForTimeout(1500);
+    const second = await page.evaluate(() => document.querySelectorAll('.w-table-break').length);
+
+    expect(second).toBe(first);
+  });
+});

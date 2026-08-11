@@ -37,6 +37,15 @@ export interface WordEnv {
   layouts: Map<string, SurfaceLayout>;
   /** Extra top margin per block, flattened from every surface's layout. */
   pushes: Map<string, number>;
+  /**
+   * Where a block was split, and how far its remainder has to fall.
+   *
+   * A paragraph's split is drawn by the host as a widget at a text offset, but a
+   * table has no text offset to hang one on — its breaks fall between rows, and
+   * only the table's own template knows where its rows are. So the splits travel
+   * with the environment and the renderer that owns them reads them.
+   */
+  splits: Map<string, { line: number; height: number }[]>;
   /** Absolute position per block, for sections whose text runs in columns. */
   positions: Map<string, { top: number; left: number; width: number }>;
   /**
@@ -84,9 +93,11 @@ export function createWordEnv(
 ): WordEnv {
   const pushes = new Map<string, number>();
   const positions = new Map<string, { top: number; left: number; width: number }>();
+  const splits = new Map<string, { line: number; height: number }[]>();
   for (const layout of layouts.values()) {
     for (const [sid, push] of layout.pushBySid) pushes.set(sid, push);
     for (const [sid, position] of layout.positionBySid) positions.set(sid, position);
+    for (const [sid, blockSplits] of layout.splitBySid) splits.set(sid, blockSplits);
   }
 
   return {
@@ -97,6 +108,7 @@ export function createWordEnv(
     layouts,
     pushes,
     positions,
+    splits,
     tabs,
     editing,
     now
@@ -129,6 +141,19 @@ export function getWordLayout(
   surfaceSid: string
 ): SurfaceLayout | undefined {
   return wordEnv(env)?.layouts.get(surfaceSid);
+}
+
+/**
+ * Where this block was split by the pagination, if it was.
+ *
+ * `line` counts the block's own lines — for a table, its rows — and is the index
+ * of the first line on the *next* page.
+ */
+export function getWordSplits(
+  env: RenderEnv | undefined,
+  sid: string
+): { line: number; height: number }[] {
+  return wordEnv(env)?.splits.get(sid) ?? [];
 }
 
 /** The instant a date field should show, if the host supplied one. */

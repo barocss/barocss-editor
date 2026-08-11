@@ -85,7 +85,8 @@ export { flowCss, twipToPx } from './css';
 export {
   createWordLayoutPass,
   type WordLayoutPassOptions,
-  type PageBreakWidget
+  type PageBreakWidget,
+  type TableBreakWidget
 } from './word-layout-pass';
 
 export {
@@ -103,6 +104,7 @@ export { createFieldResolver, type FieldResolver } from './field-resolver';
 
 export { lineStartOffsets, type LineAnchor } from './line-offsets';
 export { registerPageBreakWidget, PAGE_BREAK_STYPE } from './page-break-widget';
+export { registerTableBreakWidget, TABLE_BREAK_STYPE } from './table-break-widget';
 export { formatDateField } from './date-field';
 export { printCss } from './print';
 export { imageCss, isInFlow, polygonCss, type ImageAttributes, type WrapMode, type WrapSide } from './image-layout';

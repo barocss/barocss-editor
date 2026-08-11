@@ -15,8 +15,11 @@ import {
   printCss,
   createWordLayoutPass,
   registerPageBreakWidget,
+  registerTableBreakWidget,
   PAGE_BREAK_STYPE,
   type PageBreakWidget,
+  type TableBreakWidget,
+  TABLE_BREAK_STYPE,
   getWordSchemaDefinition,
   registerWordRenderers,
   WORD_ENV_KEY,
@@ -41,6 +44,7 @@ declare global {
 
 registerWordRenderers();
 registerPageBreakWidget();
+registerTableBreakWidget();
 
 /**
  * How a search result is drawn.
@@ -159,6 +163,7 @@ export function mountWord(container: HTMLElement): { editor: Editor; view: Edito
       now: new Date('2026-08-05T09:00:00Z'),
       splitBlocks: true,
       onPageBreaks: (breaks) => applyPageBreaks(breaks),
+      onTableBreaks: (breaks) => applyTableBreaks(breaks),
       // This app exists to be measured, and the layout is the part worth looking
       // at: where the breaks fell, and how tall each page turned out.
       onLayout: (layouts) => {
@@ -200,6 +205,8 @@ export function mountWord(container: HTMLElement): { editor: Editor; view: Edito
   const shapeOf = (item: PageBreakWidget): string =>
     `${item.target.sid}:${item.target.offset}:${Math.round(item.height)}`;
 
+  const drawnTableBreaks = new Map<string, string>();
+
   const applyPageBreaks = (breaks: PageBreakWidget[]): void => {
     window.pageBreaks = breaks;
     const wanted = new Map(breaks.map((item) => [item.sid, shapeOf(item)]));
@@ -232,6 +239,45 @@ export function mountWord(container: HTMLElement): { editor: Editor; view: Edito
           data: { height: item.height }
         } as never);
         drawnBreaks.set(item.sid, wanted.get(item.sid)!);
+      }
+    });
+  };
+
+  /** What a table's break looks like, so an unchanged one can be left alone. */
+  const tableShapeOf = (item: TableBreakWidget): string =>
+    `${item.rowSid}:${item.columns}:${Math.round(item.height)}`;
+
+  /**
+   * Draw the page breaks that fall between two rows of a table.
+   *
+   * Before the row, not after the one above it: the gap belongs to the page it
+   * starts, and a table whose last row is the last thing on a page would
+   * otherwise be given a gap with nothing after it.
+   */
+  const applyTableBreaks = (breaks: TableBreakWidget[]): void => {
+    const wanted = new Map(breaks.map((item) => [item.sid, tableShapeOf(item)]));
+
+    view.batchDecorators(() => {
+      for (const sid of [...drawnTableBreaks.keys()]) {
+        if (!wanted.has(sid)) {
+          view.removeDecorator(sid);
+          drawnTableBreaks.delete(sid);
+        }
+      }
+
+      for (const item of breaks) {
+        if (drawnTableBreaks.get(item.sid) === wanted.get(item.sid)) continue;
+        if (drawnTableBreaks.has(item.sid)) view.removeDecorator(item.sid);
+
+        view.addDecorator({
+          sid: item.sid,
+          stype: TABLE_BREAK_STYPE,
+          category: 'block',
+          position: 'before',
+          target: { sid: item.rowSid },
+          data: { height: item.height, columns: item.columns }
+        } as never);
+        drawnTableBreaks.set(item.sid, wanted.get(item.sid)!);
       }
     });
   };

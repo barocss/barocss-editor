@@ -18,11 +18,28 @@ import { footnoteRefsIn } from './footnotes';
 import { layoutSurface, sheetMetrics, type SurfaceLayout } from './layout';
 import { measureBlocks, type MeasureOptions } from './measurement';
 import { FOOTNOTE_SEPARATOR } from './page-furniture';
-import { childrenOf } from './document-access';
+import { childrenOf, type DocumentNode } from './document-access';
 import type { LineAnchor } from './line-offsets';
 import { createStyleResolver } from './style-resolver';
 import { createWordEnv, WORD_ENV_KEY } from './render-context';
 import { measureTabs, tabSignature } from './tab-layout';
+
+/**
+ * A page break that falls inside a table, as something to draw.
+ *
+ * Identified by the row it sits before rather than by a line number, because a
+ * row is a node and keeps its identity while a line number changes with every
+ * character typed above it.
+ */
+export interface TableBreakWidget {
+  sid: string;
+  /** The row the break is drawn before. */
+  rowSid: string;
+  /** How many columns the gap has to span. */
+  columns: number;
+  /** How far the rows after it have to fall to reach the next page. */
+  height: number;
+}
 
 /** A page break that falls inside a paragraph, as something to draw. */
 export interface PageBreakWidget {
@@ -74,10 +91,12 @@ export interface WordLayoutPassOptions extends MeasureOptions {
    * place. Empty unless `splitBlocks` is on.
    */
   onPageBreaks?: (breaks: PageBreakWidget[]) => void;
+  /** Called with the breaks that fall between two rows of a table. */
+  onTableBreaks?: (breaks: TableBreakWidget[]) => void;
 }
 
 export function createWordLayoutPass(options: WordLayoutPassOptions): () => RenderEnv | void {
-  const { container, doc, onLayout, onPageBreaks, editing, revision, now, ...measureOptions } = options;
+  const { container, doc, onLayout, onPageBreaks, onTableBreaks, editing, revision, now, ...measureOptions } = options;
 
   // What the last round produced. The view keeps running passes until they stop
   // reporting changes, and a layout that matches the one already on screen is
@@ -112,6 +131,7 @@ export function createWordLayoutPass(options: WordLayoutPassOptions): () => Rend
     // the third would measure the same thing again.
     const footnoteHeights = measureFootnotes(container);
     const pageBreaks: PageBreakWidget[] = [];
+    const tableBreaks: TableBreakWidget[] = [];
 
     for (const el of Array.from(container.querySelectorAll(SURFACE_SELECTOR))) {
       const sid = el.getAttribute(SID_ATTR);
@@ -148,6 +168,14 @@ export function createWordLayoutPass(options: WordLayoutPassOptions): () => Rend
       // is only known from the measurement: the layout says "after line three",
       // and which characters that is depends on where the lines fell.
       for (const [blockSid, splits] of layout.splitBySid) {
+        // A table's lines are its rows, so its splits are answered in rows —
+        // there is no text offset to hang a widget on.
+        const block = doc.getNode(blockSid);
+        if (block?.stype === 'bTable') {
+          tableBreaks.push(...tableBreaksOf(doc, block, splits));
+          continue;
+        }
+
         const anchors = lineAnchors.get(blockSid);
         if (!anchors) continue;
         for (const [index, split] of splits.entries()) {
@@ -170,6 +198,7 @@ export function createWordLayoutPass(options: WordLayoutPassOptions): () => Rend
     // Which furniture is being edited is part of what a render looks like, so a
     // change of mode has to count as a change even when the breaks did not move.
     onPageBreaks?.(pageBreaks);
+    onTableBreaks?.(tableBreaks);
 
     // Tabs are measured from the same render the pages were: a tab's width
     // depends on where its line put it, and that is only true of the page as it
@@ -239,4 +268,64 @@ function measureFootnotes(container: HTMLElement): Map<string, number> {
     heights.set(id, el.getBoundingClientRect().height);
   }
   return heights;
+}
+
+/**
+ * The rows of a table, in the order a page meets them.
+ *
+ * From the model rather than the DOM: the split indices came from measuring
+ * elements in document order, and asking the model for that order avoids
+ * counting a row the layout itself drew.
+ */
+function tableRowsOf(doc: DocumentAccess, table: DocumentNode): DocumentNode[] {
+  const rows: DocumentNode[] = [];
+  for (const group of childrenOf(doc, table)) {
+    for (const row of childrenOf(doc, group)) {
+      if (row.stype === 'bTableRow') rows.push(row);
+    }
+  }
+  return rows;
+}
+
+/** How many columns the widest row of a table has, which is what a gap spans. */
+function columnsOf(doc: DocumentAccess, rows: DocumentNode[]): number {
+  let widest = 1;
+  for (const row of rows) {
+    const cells = childrenOf(doc, row).reduce(
+      (total, cell) => total + (Number(cell.attributes?.colspan) || 1),
+      0
+    );
+    widest = Math.max(widest, cells);
+  }
+  return widest;
+}
+
+/** Turn a table's splits into the gap rows to draw. */
+function tableBreaksOf(
+  doc: DocumentAccess,
+  table: DocumentNode,
+  splits: { line: number; height: number }[]
+): TableBreakWidget[] {
+  const rows = tableRowsOf(doc, table);
+  const columns = columnsOf(doc, rows);
+  const breaks: TableBreakWidget[] = [];
+
+  for (const [index, split] of splits.entries()) {
+    // A split at row zero is a table that was moved to the next page, not one
+    // that broke; a gap above its first row would push it a page further on
+    // every round and the layout would never settle.
+    const row = split.line > 0 ? rows[split.line] : undefined;
+    if (!row?.sid) continue;
+
+    breaks.push({
+      // By which break of this table it is, for the same reason a paragraph's
+      // is: an identity that changes tears the widget down and rebuilds it.
+      sid: `table-break-${table.sid}-${index}`,
+      rowSid: row.sid,
+      columns,
+      height: split.height
+    });
+  }
+
+  return breaks;
 }

@@ -129,6 +129,51 @@ function linesFor(el: HTMLElement): number[] {
   return Array.from({ length: count }, () => height / count);
 }
 
+/**
+ * A table measured by its rows.
+ *
+ * A table's line is a row. Nothing else in a table is a place a page can end:
+ * splitting between two lines of a cell would leave the cell's borders on one
+ * page and the rest of its text on another, which is why Word breaks tables at
+ * rows and so does every other word processor.
+ *
+ * Its own rows, not every row inside it — a table nested in a cell breaks with
+ * the row that contains it, not independently of it. And not the rows the layout
+ * itself drew: a repeated header and the gap under a break are part of how tall
+ * the table currently is and no part of how tall its content is, so counting
+ * them would make the table grow every time it broke.
+ */
+function rowsFor(el: HTMLElement): number[] {
+  const heights: number[] = [];
+
+  for (const row of Array.from(el.querySelectorAll('tr'))) {
+    if (row.closest(`[${CHROME_ATTR}]`)) continue;
+    // The nearest table above this row is this one, or the row belongs to a
+    // table nested in one of the cells.
+    if (row.closest('table') !== el) continue;
+    heights.push(row.getBoundingClientRect().height);
+  }
+
+  if (heights.length === 0) return heights;
+
+  // Scaled so they sum to the table's own height, the way a paragraph's lines
+  // are. The pagination's arithmetic depends on `sum(lines) === height`, and a
+  // table is taller than its rows: borders and spacing belong to the table, not
+  // to any row. Measured at 32px unattributed over 42 rows — enough that the
+  // last row of a page ended 25px past the bottom margin, drawn over the edge of
+  // the paper.
+  let height = el.getBoundingClientRect().height;
+  for (const chrome of Array.from(el.querySelectorAll(`[${CHROME_ATTR}]`))) {
+    height -= chrome.getBoundingClientRect().height;
+  }
+
+  const measured = heights.reduce((total, each) => total + each, 0);
+  if (measured <= 0 || height <= 0) return heights;
+
+  const scale = height / measured;
+  return heights.map((each) => each * scale);
+}
+
 const px = (value: unknown): number =>
   typeof value === 'number' && Number.isFinite(value) ? twipToPx(value) : 0;
 
@@ -166,8 +211,12 @@ export function measureBlocks(
     const child = surfaceEl.querySelector(`[${SID_ATTR}="${CSS.escape(sid)}"]`);
     if (!child) continue;
 
+    // Resolved as a paragraph even for a table: what this reads are the
+    // break rules — spacing, keepNext, pageBreakBefore — and those are the same
+    // properties whatever the block is. Resolving a table in the table context
+    // instead answered with different spacing and moved every page after it.
     const format = styles.resolveNode(node, 'paragraph');
-    const lines = linesFor(child as HTMLElement);
+    const lines = node.stype === 'bTable' ? rowsFor(child as HTMLElement) : linesFor(child as HTMLElement);
     const refs = footnoteRefsIn(doc, node);
 
     if (splitBlocks && options.onLineOffsets && lines.length > 1) {
@@ -182,9 +231,11 @@ export function measureBlocks(
       spaceAfter: px(format.spacingAfter),
       breakBefore: format.pageBreakBefore === true || node.stype === 'pageBreak',
       keepNext: format.keepNext === true,
-      // A table is a block here, not a stack of rows, so it cannot be split
-      // between lines even when paragraphs can be.
-      keepLines: !splitBlocks || format.keepLines === true || node.stype === 'bTable',
+      // A table splits between its rows, which is what its lines are. It used to
+      // be unsplittable, and a table longer than a page was then drawn straight
+      // across the gap between two sheets — measured at 1,654px of table on a
+      // 1,056px page, its rows crossing the margin and the paper's edge.
+      keepLines: !splitBlocks || format.keepLines === true,
       widowControl: format.widowControl !== false
     });
   }
