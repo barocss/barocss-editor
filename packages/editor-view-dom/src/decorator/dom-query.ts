@@ -14,7 +14,7 @@ export class DOMQuery {
    * Find DOM element by sid
    * Prioritize ComponentManager cache, fallback to querySelector
    */
-  findElementBySid(sid: string): HTMLElement | null {
+  findElementBySid(sid: string): Element | null {
     // 1. Use ComponentManager cache (priority) - O(1)
     if (this.contentRenderer) {
       const componentManager = this.contentRenderer.getComponentManager();
@@ -86,7 +86,7 @@ export class DOMQuery {
    * Find text node and offset
    */
   private findTextNode(
-    element: HTMLElement,
+    element: Element,
     offset: number
   ): { node: Text; length: number } | null {
     const walker = document.createTreeWalker(

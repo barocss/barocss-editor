@@ -40,11 +40,20 @@ export class MutationObserverManagerImpl implements MutationObserverManager {
   }
 
   setup(contentEditableElement: HTMLElement): void {
-    // Also set up BaseMutationObserverManager (maintain backward compatibility)
-    this.baseManager.setup(contentEditableElement);
-
-    // Set up MutationObserver directly for handleDomMutations
+    // One observer on the element, with two consumers.
+    //
+    // There used to be two observers — this one and the base manager's, which
+    // set up its own on the same element "for backward compatibility". Every
+    // change was therefore delivered twice, down two different paths, and the
+    // base manager's text handler had already been turned into a comment saying
+    // the other path was the authoritative one. A second pair of eyes that has
+    // been told not to look is a second pair of eyes.
+    //
+    // The base manager still classifies — it is what turns a raw record into
+    // `editor:node.change` and `editor:node.update` — so it is handed the
+    // records instead of collecting its own.
     this.observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) this.baseManager.handleMutation(mutation);
       logger.debug(LogCategory.TEXT_INPUT, 'MutationObserver callback: mutations received', {
         count: mutations.length,
         types: mutations.map(m => m.type)
