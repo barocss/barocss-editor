@@ -23,6 +23,7 @@ import type { StyleResolver } from './style-resolver';
 import { childrenOf, type DocumentAccess, type DocumentNode } from './document-access';
 import { footnoteRefsIn, reserveFor } from './footnotes';
 import { lineStartOffsets, type LineAnchor } from './line-offsets';
+import { scaledTo } from './table-pagination';
 
 /** The DOM attribute the renderer stamps each node's id onto. */
 const SID_ATTR = 'data-bc-sid';
@@ -146,32 +147,35 @@ function linesFor(el: HTMLElement): number[] {
 function rowsFor(el: HTMLElement): number[] {
   const heights: number[] = [];
 
-  for (const row of Array.from(el.querySelectorAll('tr'))) {
-    if (row.closest(`[${CHROME_ATTR}]`)) continue;
-    // The nearest table above this row is this one, or the row belongs to a
-    // table nested in one of the cells.
-    if (row.closest('table') !== el) continue;
-    heights.push(row.getBoundingClientRect().height);
+  for (const group of Array.from(el.children)) {
+    if (group.hasAttribute(CHROME_ATTR)) continue;
+
+    const rows = Array.from(group.children).filter(
+      (row) => row.tagName === 'TR' && !row.hasAttribute(CHROME_ATTR)
+    );
+
+    // A header is a row with no `tr` around it: the schema has it hold cells
+    // directly, so the browser wraps them in an anonymous row box and there is
+    // nothing to query for. The group is that row.
+    if (rows.length === 0) {
+      const height = group.getBoundingClientRect().height;
+      if (height > 0) heights.push(height);
+      continue;
+    }
+
+    for (const row of rows) heights.push(row.getBoundingClientRect().height);
   }
 
   if (heights.length === 0) return heights;
 
   // Scaled so they sum to the table's own height, the way a paragraph's lines
-  // are. The pagination's arithmetic depends on `sum(lines) === height`, and a
-  // table is taller than its rows: borders and spacing belong to the table, not
-  // to any row. Measured at 32px unattributed over 42 rows — enough that the
-  // last row of a page ended 25px past the bottom margin, drawn over the edge of
-  // the paper.
+  // are — less whatever the layout itself drew inside it.
   let height = el.getBoundingClientRect().height;
   for (const chrome of Array.from(el.querySelectorAll(`[${CHROME_ATTR}]`))) {
     height -= chrome.getBoundingClientRect().height;
   }
 
-  const measured = heights.reduce((total, each) => total + each, 0);
-  if (measured <= 0 || height <= 0) return heights;
-
-  const scale = height / measured;
-  return heights.map((each) => each * scale);
+  return scaledTo(heights, height);
 }
 
 const px = (value: unknown): number =>

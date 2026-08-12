@@ -16,7 +16,7 @@
  * subtracted from the table's height when it is measured, so a table does not
  * grow every time it breaks.
  */
-import { defineDecorator, element } from '@barocss/dsl';
+import { defineDecorator, each, element } from '@barocss/dsl';
 
 /** The decorator type a table's page break is registered under. */
 export const TABLE_BREAK_STYPE = 'wordTableBreak';
@@ -60,3 +60,44 @@ export function registerTableBreakWidget(): void {
     )
   );
 }
+
+/** The decorator type a repeated header row is registered under. */
+export const TABLE_HEADER_REPEAT_STYPE = 'wordTableHeaderRepeat';
+
+/**
+ * A copy of a header row, drawn at the top of a page the table continues onto.
+ *
+ * Word's `isHeader` on a row, which the schema has always carried and nothing
+ * has honoured. Without it a reader who turns the page is looking at a grid of
+ * numbers with no idea what the columns are.
+ *
+ * A copy, not the row itself: the row is somewhere else in the document, and one
+ * node cannot be in two places. So it is drawn from the header's text the way a
+ * header or footer is drawn onto each sheet — chrome, carrying no id of its own,
+ * not copied and not typed into.
+ */
+export function registerTableHeaderRepeat(): void {
+  defineDecorator(
+    TABLE_HEADER_REPEAT_STYPE,
+    element(
+      'tr',
+      {
+        className: 'w-table-header-repeat',
+        'data-bc-chrome': 'true',
+        contenteditable: 'false',
+        'aria-hidden': 'true'
+      },
+      [each('cells', (cell: any) => element('th', repeatedCell, String(cell?.text ?? '')))]
+    )
+  );
+}
+
+/**
+ * One cell of a repeated header.
+ *
+ * `th`, like the row it copies, so it inherits the same styling without this
+ * having to know what that styling is.
+ */
+const repeatedCell = {
+  className: 'w-cell w-repeat-cell'
+};

@@ -20,6 +20,8 @@ import {
   type PageBreakWidget,
   type TableBreakWidget,
   TABLE_BREAK_STYPE,
+  TABLE_HEADER_REPEAT_STYPE,
+  registerTableHeaderRepeat,
   getWordSchemaDefinition,
   registerWordRenderers,
   WORD_ENV_KEY,
@@ -45,6 +47,7 @@ declare global {
 registerWordRenderers();
 registerPageBreakWidget();
 registerTableBreakWidget();
+registerTableHeaderRepeat();
 
 /**
  * How a search result is drawn.
@@ -245,7 +248,7 @@ export function mountWord(container: HTMLElement): { editor: Editor; view: Edito
 
   /** What a table's break looks like, so an unchanged one can be left alone. */
   const tableShapeOf = (item: TableBreakWidget): string =>
-    `${item.rowSid}:${item.columns}:${Math.round(item.height)}`;
+    `${item.rowSid}:${item.columns}:${Math.round(item.height)}:${item.header.map((c) => c.text).join('|')}`;
 
   /**
    * Draw the page breaks that fall between two rows of a table.
@@ -261,13 +264,17 @@ export function mountWord(container: HTMLElement): { editor: Editor; view: Edito
       for (const sid of [...drawnTableBreaks.keys()]) {
         if (!wanted.has(sid)) {
           view.removeDecorator(sid);
+          view.removeDecorator(`${sid}-header`);
           drawnTableBreaks.delete(sid);
         }
       }
 
       for (const item of breaks) {
         if (drawnTableBreaks.get(item.sid) === wanted.get(item.sid)) continue;
-        if (drawnTableBreaks.has(item.sid)) view.removeDecorator(item.sid);
+        if (drawnTableBreaks.has(item.sid)) {
+          view.removeDecorator(item.sid);
+          view.removeDecorator(`${item.sid}-header`);
+        }
 
         view.addDecorator({
           sid: item.sid,
@@ -277,6 +284,19 @@ export function mountWord(container: HTMLElement): { editor: Editor; view: Edito
           target: { sid: item.rowSid },
           data: { height: item.height, columns: item.columns }
         } as never);
+
+        // The header again, under the gap, so the columns are named on every
+        // page the table reaches.
+        if (item.header.length > 0) {
+          view.addDecorator({
+            sid: `${item.sid}-header`,
+            stype: TABLE_HEADER_REPEAT_STYPE,
+            category: 'block',
+            position: 'before',
+            target: { sid: item.rowSid },
+            data: { cells: item.header }
+          } as never);
+        }
         drawnTableBreaks.set(item.sid, wanted.get(item.sid)!);
       }
     });

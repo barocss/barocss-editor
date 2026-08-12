@@ -18,28 +18,13 @@ import { footnoteRefsIn } from './footnotes';
 import { layoutSurface, sheetMetrics, type SurfaceLayout } from './layout';
 import { measureBlocks, type MeasureOptions } from './measurement';
 import { FOOTNOTE_SEPARATOR } from './page-furniture';
-import { childrenOf, type DocumentNode } from './document-access';
+import { childrenOf } from './document-access';
+import { tableBreaksOf, type TableBreakWidget } from './table-pagination';
 import type { LineAnchor } from './line-offsets';
 import { createStyleResolver } from './style-resolver';
 import { createWordEnv, WORD_ENV_KEY } from './render-context';
 import { measureTabs, tabSignature } from './tab-layout';
-
-/**
- * A page break that falls inside a table, as something to draw.
- *
- * Identified by the row it sits before rather than by a line number, because a
- * row is a node and keeps its identity while a line number changes with every
- * character typed above it.
- */
-export interface TableBreakWidget {
-  sid: string;
-  /** The row the break is drawn before. */
-  rowSid: string;
-  /** How many columns the gap has to span. */
-  columns: number;
-  /** How far the rows after it have to fall to reach the next page. */
-  height: number;
-}
+export type { TableBreakWidget } from './table-pagination';
 
 /** A page break that falls inside a paragraph, as something to draw. */
 export interface PageBreakWidget {
@@ -172,7 +157,8 @@ export function createWordLayoutPass(options: WordLayoutPassOptions): () => Rend
         // there is no text offset to hang a widget on.
         const block = doc.getNode(blockSid);
         if (block?.stype === 'bTable') {
-          tableBreaks.push(...tableBreaksOf(doc, block, splits));
+          const measured = blocks.find((each) => each.sid === blockSid)?.lines ?? [];
+          tableBreaks.push(...tableBreaksOf(doc, block, splits, measured));
           continue;
         }
 
@@ -268,64 +254,4 @@ function measureFootnotes(container: HTMLElement): Map<string, number> {
     heights.set(id, el.getBoundingClientRect().height);
   }
   return heights;
-}
-
-/**
- * The rows of a table, in the order a page meets them.
- *
- * From the model rather than the DOM: the split indices came from measuring
- * elements in document order, and asking the model for that order avoids
- * counting a row the layout itself drew.
- */
-function tableRowsOf(doc: DocumentAccess, table: DocumentNode): DocumentNode[] {
-  const rows: DocumentNode[] = [];
-  for (const group of childrenOf(doc, table)) {
-    for (const row of childrenOf(doc, group)) {
-      if (row.stype === 'bTableRow') rows.push(row);
-    }
-  }
-  return rows;
-}
-
-/** How many columns the widest row of a table has, which is what a gap spans. */
-function columnsOf(doc: DocumentAccess, rows: DocumentNode[]): number {
-  let widest = 1;
-  for (const row of rows) {
-    const cells = childrenOf(doc, row).reduce(
-      (total, cell) => total + (Number(cell.attributes?.colspan) || 1),
-      0
-    );
-    widest = Math.max(widest, cells);
-  }
-  return widest;
-}
-
-/** Turn a table's splits into the gap rows to draw. */
-function tableBreaksOf(
-  doc: DocumentAccess,
-  table: DocumentNode,
-  splits: { line: number; height: number }[]
-): TableBreakWidget[] {
-  const rows = tableRowsOf(doc, table);
-  const columns = columnsOf(doc, rows);
-  const breaks: TableBreakWidget[] = [];
-
-  for (const [index, split] of splits.entries()) {
-    // A split at row zero is a table that was moved to the next page, not one
-    // that broke; a gap above its first row would push it a page further on
-    // every round and the layout would never settle.
-    const row = split.line > 0 ? rows[split.line] : undefined;
-    if (!row?.sid) continue;
-
-    breaks.push({
-      // By which break of this table it is, for the same reason a paragraph's
-      // is: an identity that changes tears the widget down and rebuilds it.
-      sid: `table-break-${table.sid}-${index}`,
-      rowSid: row.sid,
-      columns,
-      height: split.height
-    });
-  }
-
-  return breaks;
 }

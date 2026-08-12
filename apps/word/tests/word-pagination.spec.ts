@@ -547,7 +547,7 @@ test.describe('a table longer than a page', () => {
   test('breaks between rows instead of running over the edge of the paper', async ({ page }) => {
     await page.goto('/');
     await settled(page);
-    await growTable(page, 40);
+    await growTable(page, 30);
 
     const measured = await page.evaluate(() => {
       const metrics = [...(window as any).wordLayout.values()][0].metrics;
@@ -566,33 +566,41 @@ test.describe('a table longer than a page', () => {
         );
       });
 
+      const allRows = [...document.querySelectorAll('.w-table tr')];
+      const at = allRows.findIndex((row) => row.classList.contains('w-table-break'));
+
       return {
         rows: document.querySelectorAll('.w-table .w-tr').length,
         gaps: document.querySelectorAll('.w-table-break').length,
         spansSheets: sheets.filter((s) => table.top < s.bottom && table.bottom > s.top).length,
-        straddling: straddling.length
+        straddling: straddling.length,
+        around: allRows.slice(at, at + 2).map((row) => row.className.split(' ')[0]),
+        repeats: document.querySelectorAll('.w-table-header-repeat').length,
+        headerText: document.querySelector('.w-table-header-repeat')?.textContent ?? ''
       };
     });
 
-    expect(measured.rows).toBeGreaterThan(40);
+    expect(measured.rows).toBeGreaterThan(30);
     // Taller than one page, so it has to break at least once.
     expect(measured.spansSheets).toBeGreaterThan(1);
     expect(measured.gaps).toBeGreaterThan(0);
     expect(measured.straddling).toBe(0);
-  });
 
-  test('does not count the gaps it drew as part of its own height', async ({ page }) => {
-    await page.goto('/');
-    await settled(page);
-    await growTable(page, 40);
+    // And the columns are named again on every page it reaches. The order
+    // matters and is the point: the gap carries the table to the next page, and
+    // the header has to land under it rather than at the foot of the page the
+    // reader is leaving.
+    expect(measured.around).toEqual(['w-table-break', 'w-table-header-repeat']);
+    expect(measured.repeats).toBe(measured.gaps);
+    expect(measured.headerText).toContain('Merged header');
 
-    const first = await page.evaluate(() => document.querySelectorAll('.w-table-break').length);
-    // A second settling round measures a table that now contains its own gap
-    // rows. Counting them would make it taller, break it again, and never stop.
+    // And it settles: a second round measures a table that now contains its own
+    // gap rows, and counting them would make it taller, break it again, and
+    // never stop.
     await page.evaluate(() => (window as any).editorView.render());
-    await page.waitForTimeout(1500);
-    const second = await page.evaluate(() => document.querySelectorAll('.w-table-break').length);
-
-    expect(second).toBe(first);
+    await page.waitForTimeout(1200);
+    const settledGaps = await page.evaluate(() => document.querySelectorAll('.w-table-break').length);
+    expect(settledGaps).toBe(measured.gaps);
   });
+
 });

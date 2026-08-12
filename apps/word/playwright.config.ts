@@ -7,8 +7,7 @@ export default defineConfig({
   // at the default (half the cores) the machine is loaded enough that a test
   // waiting on pagination to settle or a web font to arrive times out on a
   // healthy build — the assertions are about what the browser did, and under
-  // load it does it later. Three is where it stopped flaking here and still
-  // finishes in a third of the time the single file took.
+  // load it does it later.
   workers: 3,
   use: { baseURL: 'http://localhost:5180' },
   // Started here rather than by hand: a suite that depends on a server someone
