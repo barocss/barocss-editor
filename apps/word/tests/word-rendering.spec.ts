@@ -218,3 +218,57 @@ test.describe('diagnostics', () => {
     expect(logs).toBeGreaterThan(0);
   });
 });
+
+test.describe('a table’s declared columns', () => {
+  test('are the widths the columns actually get', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    const even = await page.evaluate(() =>
+      [...document.querySelector('.w-table .w-tr')!.children].map((cell) =>
+        Math.round(cell.getBoundingClientRect().width)
+      )
+    );
+
+    // Set at runtime rather than in the sample: a fixture is shared with every
+    // other test, and column widths are this test's business alone.
+    await page.evaluate(() => {
+      const ed = (window as any).editor;
+      const find = (node: any, depth = 0): any => {
+        if (!node || depth > 60) return null;
+        if (node.stype === 'bTable') return node;
+        for (const child of node.content ?? []) {
+          const hit = find(typeof child === 'string' ? ed.dataStore.getNode(child) : child, depth + 1);
+          if (hit) return hit;
+        }
+        return null;
+      };
+      const table = find(ed.dataStore.getNode(ed.getRootId()));
+      // Word's tblGrid: three columns, the first three times the others.
+      ed.dataStore.updateNode(table.sid, {
+        attributes: { ...table.attributes, grid: '4320,1440,1440' }
+      });
+      (window as any).editorView.render();
+    });
+    await page.waitForTimeout(1200);
+
+    const declared = await page.evaluate(() => {
+      const table = document.querySelector('.w-table')!;
+      return {
+        columns: table.querySelectorAll('col').length,
+        layout: getComputedStyle(table).tableLayout,
+        widths: [...table.querySelector('.w-tr')!.children].map((cell) =>
+          Math.round(cell.getBoundingClientRect().width)
+        )
+      };
+    });
+
+    expect(even[0]).toBe(even[1]);
+    expect(declared.columns).toBe(3);
+    // Fixed, or the browser sizes the columns from their contents and the
+    // declared widths mean nothing at all.
+    expect(declared.layout).toBe('fixed');
+    expect(declared.widths[0]).toBeGreaterThan(declared.widths[1] * 2.5);
+    expect(declared.widths[1]).toBe(declared.widths[2]);
+  });
+});

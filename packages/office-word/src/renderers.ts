@@ -12,7 +12,7 @@
  */
 import { data, define, element, slot } from '@barocss/dsl';
 import type { RenderEnv } from '@barocss/dsl';
-import { flowCss, tableCellCss } from './css';
+import { flowCss, tableCellCss, twipToCss } from './css';
 import {
   getEditingFurniture,
   getFurniturePlacement,
@@ -40,6 +40,7 @@ import {
   shapeTransform
 } from './shapes';
 import { blockStyle, formatFor, listMarker } from './renderers/block-style';
+import { gridOf, tableCss } from './table-format';
 import { registerRevisionMarks, registerValuedMarks } from './renderers/marks';
 import { registerMathRenderers } from './math-renderers';
 
@@ -642,17 +643,43 @@ export function registerWordRenderers(): void {
   // formatting: `spacingBefore`/`spacingAfter` reach it through the document
   // defaults, and dropping them here would put a gap in the rendered document
   // that the layout does not know about.
-  define(
-    'bTable',
-    element(
+  /**
+   * A table, with the column widths it declares.
+   *
+   * Word stores them once, on the table, as a list of twips — CSS keeps them
+   * nowhere, so they become a `<colgroup>`. `tableCss` is what turns the rest of
+   * the table's own formatting into style, including making the layout fixed:
+   * left to itself a browser sizes columns from their contents, and a document
+   * saying its first column is two inches wide silently gets something else.
+   */
+  define('bTable', (_props: Record<string, any>, node: Record<string, any>, ctx: any) => {
+    const env = ctx?.env as RenderEnv | undefined;
+    const styles = getWordStyles(env);
+    const format = styles ? styles.resolveNode(node as never, 'table') : {};
+    const widths = gridOf(format);
+
+    return element(
       'table',
       {
         className: 'w-table',
-        style: (d: Record<string, any>, env?: RenderEnv) => ({ ...blockStyle(d, env), ...formatFor(d, 'table', env) })
+        style: { ...blockStyle(node, env), ...formatFor(node, 'table', env), ...tableCss(format) }
       },
-      [slot('content')]
-    )
-  );
+      [
+        ...(widths.length > 0
+          ? [
+              element(
+                'colgroup',
+                { 'data-bc-chrome': 'true' },
+                widths.map((width, index) =>
+                  element('col', { key: `col-${index}`, style: { width: twipToCss(width) } })
+                )
+              )
+            ]
+          : []),
+        slot('content')
+      ]
+    );
+  });
   define('bTableHeader', element('thead', { className: 'w-thead' }, [slot('content')]));
   define('bTableBody', element('tbody', { className: 'w-tbody' }, [slot('content')]));
   define('bTableFooter', element('tfoot', { className: 'w-tfoot' }, [slot('content')]));
