@@ -231,3 +231,32 @@ describe('the notations the linear view writes', () => {
     }
   });
 });
+
+describe('scripts that belong together, and limits', () => {
+  it('makes one construct of a subscript and a superscript on the same thing', () => {
+    // The 1 and the 2 sit beside each other on the same x. Nesting a
+    // superscript round a subscript would put the 2 above the 1 and leave Tab
+    // reaching them in the wrong order.
+    expect(shape(buildUp('x_1^2'))).toBe(
+      'mathSubSup(mathElement(mathRun("x")),mathSub(mathRun("1")),mathSup(mathRun("2")))'
+    );
+    expect(buildUp(linearOf(buildUp('x_1^2')!))).toEqual(buildUp('x_1^2'));
+  });
+
+  it('writes a limit under its name rather than beside it', () => {
+    const [limit] = buildUp('lim_(x→0) f') as any[];
+    expect(limit.stype).toBe('mathLimitLower');
+    expect(shape([limit.content[0]])).toContain('"lim"');
+    expect(shape([limit.content[1]])).toContain('x→0');
+  });
+
+  it('round-trips a limit', () => {
+    expect(buildUp(linearOf(buildUp('lim_(x→0) f')!))).toEqual(buildUp('lim_(x→0) f'));
+  });
+
+  it('leaves an ordinary subscript alone', () => {
+    expect(shape(buildUp('x_1'))).toBe(
+      'mathSubscript(mathElement(mathRun("x")),mathSub(mathRun("1")))'
+    );
+  });
+});

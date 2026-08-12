@@ -203,6 +203,34 @@ export function buildUp(line: string): MathNode[] | null {
     ];
   }
 
+  // `lim_(x→0) f` — a name whose script is written under it rather than beside
+  // it. Word calls these the lower-limit constructs, and `lim` with a subscript
+  // beside it is not what anybody means by it.
+  const limit = /(lim|max|min|sup|inf|liminf|limsup)\s*_/.exec(text);
+  if (limit) {
+    const under = operandAfter(text, limit.index + limit[0].length);
+    if (under.body.length > 0) {
+      const rest = text.slice(under.end).replace(/^\s+/, '');
+      return [
+        ...contentsOf(text.slice(0, limit.index)),
+        {
+          stype: 'mathLimitLower',
+          content: [
+            slot('mathElement', [
+              {
+                stype: 'mathRun',
+                attributes: { literal: true },
+                content: [{ stype: 'inline-text', text: limit[1] }]
+              }
+            ]),
+            slot('mathLim', contentsOf(under.body))
+          ]
+        },
+        ...contentsOf(rest)
+      ];
+    }
+  }
+
   // `sin(x)` — a name that is a function applied to something, not letters
   // multiplied together.
   const applied = /([A-Za-z]+)\s*\(/.exec(text);
@@ -273,6 +301,27 @@ export function buildUp(line: string): MathNode[] | null {
         },
         ...tail
       ];
+    }
+
+    // `x_1^2` is one thing with two scripts, not a superscript wrapped round a
+    // subscript: the 1 and the 2 sit beside each other on the same x, and Word
+    // stores it as a single construct so that both can be reached with Tab.
+    if (character === '_' && text[right.end] === '^') {
+      const upper = operandAfter(text, right.end + 1);
+      if (upper.body.length > 0) {
+        return [
+          ...head,
+          {
+            stype: 'mathSubSup',
+            content: [
+              slot('mathElement', contentsOf(left.body)),
+              slot('mathSub', contentsOf(right.body)),
+              slot('mathSup', contentsOf(upper.body))
+            ]
+          },
+          ...contentsOf(text.slice(upper.end))
+        ];
+      }
     }
 
     return [
@@ -364,6 +413,15 @@ function linearOfNode(node: MathNode | { stype: 'inline-text'; text: string }): 
       const separator = String((node as MathNode).attributes?.separator ?? '|');
       return open + parts.map((part) => slotText(part)).join(separator) + close;
     }
+
+    // Always bracketed, for the same reason a function's argument is: what
+    // follows a limit runs straight into it otherwise, and `lim_x→0 f` reads
+    // back with the f inside the limit.
+    case 'mathLimitLower':
+      return `${slotText(at(0))}_(${slotText(at(1))})`;
+
+    case 'mathLimitUpper':
+      return `${slotText(at(0))}^(${slotText(at(1))})`;
 
     case 'mathFunction':
       // Always bracketed, whatever the argument is: `sin x` written without them
