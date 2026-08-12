@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildUp, replaceSymbols, type MathNode } from '../src/math-buildup';
+import { buildUp, linearOf, replaceSymbols, type MathNode } from '../src/math-buildup';
 
 /**
  * Building an equation out of a line of text.
@@ -116,5 +116,71 @@ describe('what is italic', () => {
     const [fraction] = buildUp('x/2') as any[];
     expect(fraction.content[0].content[0].attributes).toEqual({});
     expect(fraction.content[1].content[0].attributes).toEqual({ literal: true });
+  });
+});
+
+describe('the line an equation came from', () => {
+  /** Build up, write back out, and see whether it says the same thing. */
+  const roundTrip = (line: string) => linearOf(buildUp(line) ?? []);
+
+  it('writes a fraction back as a solidus', () => {
+    expect(roundTrip('a/b')).toBe('a/b');
+  });
+
+  it('puts the brackets back where the structure was carrying them', () => {
+    // Without them the line reads back as a different equation, which is the
+    // whole risk of a linear view.
+    expect(roundTrip('(a+b)/c')).toBe('(a+b)/c');
+  });
+
+  it('leaves out brackets that were only telling the parser where to stop', () => {
+    // `e^(2x)` comes back as `e^2x`, which reads as the same equation — the
+    // brackets did their work when the line was first read and the structure
+    // says it now. What matters is that the line means the same thing, not that
+    // it is the same string.
+    expect(roundTrip('e^(2x)')).toBe('e^2x');
+    expect(buildUp('e^2x')).toEqual(buildUp('e^(2x)'));
+  });
+
+  it('keeps a chain meaning what it meant', () => {
+    expect(roundTrip('a/b/c')).toBe('a/(b/c)');
+    expect(buildUp(roundTrip('a/b/c'))).toEqual(buildUp('a/b/c'));
+  });
+
+  it('writes a square root as one, and a degree when there is one', () => {
+    expect(roundTrip('\\sqrt(x)')).toBe('\\sqrt(x)');
+    expect(roundTrip('\\sqrt(a/b)')).toBe('\\sqrt(a/b)');
+  });
+
+  it('leaves what was beside it beside it', () => {
+    expect(roundTrip('x=a/b')).toBe('x=a/b');
+  });
+
+  it('writes delimiters and matrices in the notation they were typed in', () => {
+    expect(
+      linearOf([
+        {
+          stype: 'mathDelimiter',
+          attributes: { open: '[', close: ']' },
+          content: [{ stype: 'mathElement', content: [{ stype: 'mathRun', content: [{ stype: 'inline-text', text: 'x' }] }] }]
+        }
+      ])
+    ).toBe('[x]');
+
+    const cell = (text: string) => ({
+      stype: 'mathElement',
+      content: [{ stype: 'mathRun', content: [{ stype: 'inline-text', text }] }]
+    });
+    expect(
+      linearOf([
+        {
+          stype: 'mathMatrix',
+          content: [
+            { stype: 'mathRow', content: [cell('a'), cell('b')] },
+            { stype: 'mathRow', content: [cell('c'), cell('d')] }
+          ]
+        }
+      ])
+    ).toBe('\\matrix(a&b@c&d)');
   });
 });

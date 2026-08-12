@@ -193,3 +193,101 @@ export function buildUp(line: string): MathNode[] | null {
   // has not, and saying so is what lets the caller leave it alone.
   return text === line ? null : [run(text)];
 }
+
+/**
+ * The line an equation would have been typed as.
+ *
+ * Word calls this the linear view, and offers it as a toggle: an equation has a
+ * two-dimensional form and a one-dimensional one, and an author who wants to
+ * rewrite a whole formula would rather edit the line than click through the
+ * slots. It is also how an equation is copied into somewhere that has no
+ * equations.
+ *
+ * Brackets go back in where the structure was carrying the grouping — `a+b` on
+ * top of a fraction has to come back as `(a+b)/c`, or reading the line again
+ * would give a different equation. That round trip is the test worth having.
+ */
+export function linearOf(nodes: readonly MathNode[] | undefined): string {
+  return (nodes ?? []).map(linearOfNode).join('');
+}
+
+/** True when a stretch needs bracketing to survive being read back. */
+function needsBrackets(text: string): boolean {
+  // A single operand does not: `a/b` reads back as itself. Anything holding an
+  // operator does, or the operator would rebind to the wrong side.
+  return /[+\-*/^_=\s]/.test(text);
+}
+
+const bracketed = (text: string): string => (needsBrackets(text) ? `(${text})` : text);
+
+function slotText(node: MathNode | undefined): string {
+  return linearOf((node?.content ?? []) as MathNode[]);
+}
+
+function linearOfNode(node: MathNode | { stype: 'inline-text'; text: string }): string {
+  if (node.stype === 'inline-text') return (node as { text: string }).text;
+
+  const parts = ((node as MathNode).content ?? []) as MathNode[];
+  const at = (index: number) => parts[index];
+
+  switch (node.stype) {
+    case 'mathRun':
+      return slotText(node as MathNode);
+
+    case 'oMath':
+    case 'oMathPara':
+      return slotText(node as MathNode);
+
+    case 'mathFraction':
+      return `${bracketed(slotText(at(0)))}/${bracketed(slotText(at(1)))}`;
+
+    case 'mathSuperscript':
+      return `${bracketed(slotText(at(0)))}^${bracketed(slotText(at(1)))}`;
+
+    case 'mathSubscript':
+      return `${bracketed(slotText(at(0)))}_${bracketed(slotText(at(1)))}`;
+
+    case 'mathSubSup':
+      return `${bracketed(slotText(at(0)))}_${bracketed(slotText(at(1)))}^${bracketed(slotText(at(2)))}`;
+
+    case 'mathRadical': {
+      const degree = slotText(at(0));
+      const body = `(${slotText(at(1))})`;
+      // A degree that is there is written; a square root has none, and Word
+      // writes neither.
+      return degree.length > 0 ? `\\root${bracketed(degree)}${body}` : `\\sqrt${body}`;
+    }
+
+    case 'mathDelimiter': {
+      const open = String((node as MathNode).attributes?.open ?? '(');
+      const close = String((node as MathNode).attributes?.close ?? ')');
+      const separator = String((node as MathNode).attributes?.separator ?? '|');
+      return open + parts.map((part) => slotText(part)).join(separator) + close;
+    }
+
+    case 'mathFunction':
+      return `${slotText(at(0))}${bracketed(slotText(at(1)))}`;
+
+    case 'mathNary': {
+      const char = String((node as MathNode).attributes?.char ?? '∑');
+      const lower = slotText(at(0));
+      const upper = slotText(at(1));
+      const body = slotText(at(2));
+      return (
+        char +
+        (lower ? `_${bracketed(lower)}` : '') +
+        (upper ? `^${bracketed(upper)}` : '') +
+        (body ? ` ${body}` : '')
+      );
+    }
+
+    case 'mathMatrix':
+      // Rows separated by `@`, cells by `&` — Word's own notation for one.
+      return `\\matrix(${parts.map((row) => (row.content ?? []).map((cell) => slotText(cell as MathNode)).join('&')).join('@')})`;
+
+    default:
+      // Anything without a linear form is still made of slots, and its contents
+      // are worth more than nothing.
+      return parts.map((part) => slotText(part)).join('');
+  }
+}
