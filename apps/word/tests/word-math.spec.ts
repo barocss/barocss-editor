@@ -214,3 +214,84 @@ test.describe('brackets', () => {
     expect(lines).toBe(true);
   });
 });
+
+/**
+ * Building an equation by typing it.
+ *
+ * `a/b` and a space becomes a fraction — Word's linear format, and the reason
+ * its equations are written rather than assembled. The space is consumed: it was
+ * the instruction to build up, not a character anybody wanted.
+ */
+test.describe('build-up', () => {
+  test('turns a typed line into the equation it describes', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    const before = await page.evaluate(() => document.querySelectorAll('.w-math-frac').length);
+
+    await page.locator('.w-paragraph').nth(1).click();
+    await expect
+      .poll(async () => page.evaluate(() => (window as any).editor.selection?.type))
+      .toBe('range');
+    await page.keyboard.press('End');
+    await page.keyboard.type(' a/b', { delay: 40 });
+
+    // Scoped by context, so an ordinary space anywhere else still reaches the
+    // document: bound any wider, Space would never get there at all.
+    await expect
+      .poll(async () => page.evaluate(() => (window as any).editor.getContext('canBuildUpMath')))
+      .toBe(true);
+
+    await page.keyboard.press('Space');
+    await page.waitForTimeout(900);
+
+    const after = await page.evaluate(() => {
+      const ed = (window as any).editor;
+      const walk = (node: any, out: string[] = [], depth = 0): string[] => {
+        if (!node || depth > 40) return out;
+        if (typeof node.text === 'string') out.push(node.text);
+        for (const child of node.content ?? [])
+          walk(typeof child === 'string' ? ed.dataStore.getNode(child) : child, out, depth + 1);
+        return out;
+      };
+      const caret = ed.dataStore.getNode(ed.selection?.startNodeId);
+      const equation = ed.dataStore.getNode(caret?.parentId);
+      return {
+        fractions: document.querySelectorAll('.w-math-frac').length,
+        // The typed line is gone from the text: it is the structure now.
+        stillTyped: walk(ed.dataStore.getNode(ed.getRootId())).some((t) => t.includes('a/b')),
+        inMath: !!equation
+      };
+    });
+
+    expect(after.fractions).toBe(before + 1);
+    expect(after.stillTyped).toBe(false);
+    expect(after.inMath).toBe(true);
+  });
+
+  test('leaves an ordinary space alone', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    await page.locator('.w-paragraph').nth(1).click();
+    await expect
+      .poll(async () => page.evaluate(() => (window as any).editor.selection?.type))
+      .toBe('range');
+    await page.keyboard.press('End');
+    await page.keyboard.type(' hello', { delay: 40 });
+
+    expect(await page.evaluate(() => (window as any).editor.getContext('canBuildUpMath'))).toBe(
+      false
+    );
+
+    await page.keyboard.press('Space');
+    await page.keyboard.type('there', { delay: 40 });
+    await page.waitForTimeout(700);
+
+    const text = await page.evaluate(() => {
+      const ed = (window as any).editor;
+      return ed.dataStore.getNode(ed.selection.startNodeId)?.text ?? '';
+    });
+    expect(text).toContain('hello there');
+  });
+});

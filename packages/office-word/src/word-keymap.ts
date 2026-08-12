@@ -61,6 +61,11 @@ export const WORD_KEYBINDINGS: Keybinding[] = [
   // Scoped to equations by context, not decided inside the command. The
   // dispatcher runs the first binding that matches and prevents the key either
   // way, so a binding that matched everywhere would swallow Tab in a table.
+  // Scoped hard: only when the text just before the caret is an equation
+  // waiting to be built. A Space bound any wider is a Space that never reaches
+  // the document, because the dispatcher prevents the key whether the command
+  // ran or not.
+  { key: 'Space', command: 'buildUpMath', when: 'editorFocus && canBuildUpMath' },
   { key: 'Tab', command: 'nextMathSlot', when: 'editorFocus && inEquation' },
   { key: 'Shift+Tab', command: 'previousMathSlot', when: 'editorFocus && inEquation' },
   { key: 'Shift+Tab', command: 'previousCell', when: 'editorFocus && inTable' },

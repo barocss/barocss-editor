@@ -14,6 +14,7 @@ import { Editor, Extension } from '@barocss/editor-core';
 import { transaction } from '@barocss/model';
 import type { DocumentAccess, DocumentNode } from './document-access';
 import { caretRunOf, enclosingMath, nextSlot } from './math-navigation';
+import { buildUp, type MathNode } from './math-buildup';
 
 export class WordMathExtension implements Extension {
   name = 'wordMath';
@@ -30,6 +31,27 @@ export class WordMathExtension implements Extension {
         selection?.type === 'range' && !!enclosingMath(this._doc(editor), selection.startNodeId);
       (editor as any).setContext('inEquation', inside);
     };
+    /**
+     * Whether the text just before the caret is an equation waiting to be built.
+     *
+     * A context key rather than a decision inside the command, for the same
+     * reason Tab's is: the dispatcher runs the first binding that matches and
+     * prevents the key either way, so a Space bound unconditionally would be a
+     * Space that never reaches the document.
+     */
+    const trackBuildUp = () => {
+      (editor as any).setContext('canBuildUpMath', !!this._pending(editor));
+    };
+    editor.on('editor:selection.model', trackBuildUp);
+    editor.on('editor:content.change', trackBuildUp);
+    trackBuildUp();
+
+    (editor as any).registerCommand({
+      name: 'buildUpMath',
+      execute: async (ed: Editor) => await this._buildUp(ed),
+      canExecute: (ed: Editor) => !!this._pending(ed)
+    });
+
     editor.on('editor:selection.model', track);
     editor.on('editor:selection.change', track);
     editor.on('editor:content.change', track);
@@ -46,6 +68,69 @@ export class WordMathExtension implements Extension {
       execute: async (ed: Editor) => await this._move(ed, -1),
       canExecute: () => true
     });
+  }
+
+  /**
+   * The stretch of text before the caret that would become an equation.
+   *
+   * Back to the last space, which is where the author last paused — the linear
+   * format has no other terminator, and Word takes the same view. Null when
+   * there is nothing there or when what is there is only words.
+   */
+  private _pending(
+    editor: Editor
+  ): { sid: string; start: number; end: number; nodes: MathNode[] } | null {
+    const selection: any = (editor as any).selection;
+    if (!selection || selection.type !== 'range' || !selection.collapsed) return null;
+
+    const store: any = (editor as any).dataStore;
+    const node = store?.getNode?.(selection.startNodeId);
+    if (!node || node.stype !== 'inline-text' || typeof node.text !== 'string') return null;
+
+    // Not inside an equation already: there the linear format is what is being
+    // edited, and building it up again would fight the author.
+    if (enclosingMath(this._doc(editor), selection.startNodeId)) return null;
+
+    const end = selection.startOffset;
+    const text = node.text.slice(0, end);
+    const start = text.lastIndexOf(' ') + 1;
+    const candidate = text.slice(start);
+    if (candidate.length === 0) return null;
+
+    const nodes = buildUp(candidate);
+    return nodes ? { sid: selection.startNodeId, start, end, nodes } : null;
+  }
+
+  /**
+   * Replace the typed line with the equation it describes.
+   *
+   * The space that triggered it is consumed, which is what Word does: it was the
+   * instruction to build up, not a character the author wanted.
+   */
+  private async _buildUp(editor: Editor): Promise<boolean> {
+    const pending = this._pending(editor);
+    if (!pending) return false;
+
+    const store: any = (editor as any).dataStore;
+    const math = store?.createNodeWithChildren?.({ stype: 'oMath', content: pending.nodes });
+    if (!math) return false;
+
+    const node = store.getNode(pending.sid);
+    const parentId = node?.parentId;
+    if (!parentId) return false;
+
+    const siblings = (store.getNode(parentId)?.content ?? []) as any[];
+    const at = siblings.findIndex((child: any) => (child?.sid ?? child) === pending.sid);
+
+    const result = await transaction(editor, [
+      {
+        type: 'deleteTextRange',
+        payload: { nodeId: pending.sid, start: pending.start, end: pending.end }
+      },
+      { type: 'addChild', payload: { parentId, child: math, position: at + 1 } }
+    ] as never).commit();
+
+    return result.success;
   }
 
   private _doc(editor: Editor): DocumentAccess {
