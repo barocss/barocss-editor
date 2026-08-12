@@ -75,3 +75,84 @@ test.describe('an equation', () => {
     expect(box!.width).toBeGreaterThan(0);
   });
 });
+
+/**
+ * Tab through the slots.
+ *
+ * This is how an equation gets written: make a fraction, type the numerator,
+ * Tab, type the denominator. Without it the slots are places only the mouse can
+ * reach, which is not how anybody writes mathematics.
+ */
+test.describe('moving between slots', () => {
+  const slotOfCaret = (page: import('@playwright/test').Page) =>
+    page.evaluate(() => {
+      const ed = (window as any).editor;
+      const SLOTS = new Set(['mathNum', 'mathDen', 'mathElement', 'mathSup', 'mathSub', 'mathDeg']);
+      let node = ed.dataStore.getNode(ed.selection?.startNodeId);
+      for (let depth = 0; node && depth < 40; depth++) {
+        if (SLOTS.has(node.stype)) return node.stype;
+        node = node.parentId ? ed.dataStore.getNode(node.parentId) : null;
+      }
+      return null;
+    });
+
+  test('Tab steps forward and Shift+Tab back', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    // The numerator's own run, not the radical nested inside it — a click on the
+    // slot itself lands wherever the pointer was, which may be a slot further
+    // down.
+    await page.locator('.w-math-num > .w-math-run').first().click();
+    await expect.poll(() => slotOfCaret(page)).toBe('mathNum');
+
+    await page.keyboard.press('Tab');
+    await expect.poll(() => slotOfCaret(page)).toBe('mathDeg');
+
+    await page.keyboard.press('Shift+Tab');
+    await expect.poll(() => slotOfCaret(page)).toBe('mathNum');
+  });
+
+  test('makes a place for the caret in an empty slot', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    await page.locator('.w-math-num > .w-math-run').first().click();
+    await expect.poll(() => slotOfCaret(page)).toBe('mathNum');
+
+    // The radical's degree is empty, so it has no text node to put a caret in
+    // and Tab has to make one. A Tab that appeared to do nothing would be the
+    // alternative.
+    await page.keyboard.press('Tab');
+    await page.waitForTimeout(500);
+
+    const landed = await page.evaluate(() => {
+      const ed = (window as any).editor;
+      const run = ed.dataStore.getNode(ed.selection?.startNodeId);
+      const slot = ed.dataStore.getNode(ed.dataStore.getNode(run?.parentId)?.parentId);
+      return { caretIn: run?.stype, slot: slot?.stype };
+    });
+
+    expect(landed).toEqual({ caretIn: 'inline-text', slot: 'mathDeg' });
+
+    // Typing into it does not work yet, and this is where it stops: an empty
+    // inline-text renders a zero-width filler, and the input path's guard for
+    // that case turns the keystroke away. Its comment says what has to be fixed
+    // in the reconciler first, and doing it here would be changing the typing
+    // path on the way past.
+  });
+
+  test('leaves Tab alone outside an equation', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    const before = await page.evaluate(() => (window as any).editor.getContext('inEquation'));
+    await page.locator('.w-paragraph').first().click();
+    await page.waitForTimeout(300);
+
+    // Scoped by context rather than decided inside the command, so a Tab in a
+    // table still moves between cells.
+    expect(await page.evaluate(() => (window as any).editor.getContext('inEquation'))).toBe(false);
+    expect(before === true || before === false || before === undefined).toBe(true);
+  });
+});

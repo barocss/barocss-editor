@@ -58,6 +58,11 @@ export const WORD_KEYBINDINGS: Keybinding[] = [
   // Tab is cell navigation only inside a table; elsewhere it indents, which is
   // why these are gated rather than registered globally.
   { key: 'Tab', command: 'nextCell', when: 'editorFocus && inTable' },
+  // Scoped to equations by context, not decided inside the command. The
+  // dispatcher runs the first binding that matches and prevents the key either
+  // way, so a binding that matched everywhere would swallow Tab in a table.
+  { key: 'Tab', command: 'nextMathSlot', when: 'editorFocus && inEquation' },
+  { key: 'Shift+Tab', command: 'previousMathSlot', when: 'editorFocus && inEquation' },
   { key: 'Shift+Tab', command: 'previousCell', when: 'editorFocus && inTable' },
   { key: 'Mod+Alt+i', command: 'insertRowBelow', when: 'editorFocus && inTable' },
   { key: 'Mod+Alt+Shift+i', command: 'insertRowAbove', when: 'editorFocus && inTable' },
