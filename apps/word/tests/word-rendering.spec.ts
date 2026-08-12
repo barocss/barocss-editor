@@ -271,4 +271,57 @@ test.describe('a table’s declared columns', () => {
     expect(declared.widths[0]).toBeGreaterThan(declared.widths[1] * 2.5);
     expect(declared.widths[1]).toBe(declared.widths[2]);
   });
+
+  test('draw the rules between cells thinner than the rules around them', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    await page.evaluate(() => {
+      const ed = (window as any).editor;
+      const find = (node: any, depth = 0): any => {
+        if (!node || depth > 60) return null;
+        if (node.stype === 'bTable') return node;
+        for (const child of node.content ?? []) {
+          const hit = find(typeof child === 'string' ? ed.dataStore.getNode(child) : child, depth + 1);
+          if (hit) return hit;
+        }
+        return null;
+      };
+      const table = find(ed.dataStore.getNode(ed.getRootId()));
+      // Word's eighths of a point: a 2pt frame and a 0.5pt grid inside it.
+      ed.dataStore.updateNode(table.sid, {
+        attributes: {
+          ...table.attributes,
+          borderTopStyle: 'single', borderTopWidth: 16,
+          borderBottomStyle: 'single', borderBottomWidth: 16,
+          borderLeftStyle: 'single', borderLeftWidth: 16,
+          borderRightStyle: 'single', borderRightWidth: 16,
+          borderInsideHStyle: 'single', borderInsideHWidth: 4,
+          borderInsideVStyle: 'single', borderInsideVWidth: 4
+        }
+      });
+      (window as any).editorView.render();
+    });
+    await page.waitForTimeout(1200);
+
+    const drawn = await page.evaluate(() => {
+      const rows = [...document.querySelectorAll('.w-table .w-tr')];
+      const width = (cell: Element, side: string) =>
+        parseFloat(getComputedStyle(cell).getPropertyValue(`border-${side}-width`));
+      const first = rows[0].children[0];
+      const inner = rows[1]?.children[1] ?? rows[0].children[1];
+      return {
+        outsideLeft: width(first, 'left'),
+        insideRight: width(first, 'right'),
+        insideTop: width(inner, 'top'),
+        insideLeft: width(inner, 'left')
+      };
+    });
+
+    // A side facing out takes the frame; a side facing another cell takes the
+    // grid. Drawn any other way the frame comes out twice as thick where the
+    // two meet.
+    expect(drawn.outsideLeft).toBeGreaterThan(drawn.insideRight);
+    expect(drawn.insideTop).toBe(drawn.insideLeft);
+  });
 });

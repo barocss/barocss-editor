@@ -40,7 +40,8 @@ import {
   shapeTransform
 } from './shapes';
 import { blockStyle, formatFor, listMarker } from './renderers/block-style';
-import { gridOf, tableCss } from './table-format';
+import { cellBorders, gridOf, tableCss } from './table-format';
+import { columnsOf, tableRowsOf } from './table-pagination';
 import { registerRevisionMarks, registerValuedMarks } from './renderers/marks';
 import { registerMathRenderers } from './math-renderers';
 
@@ -687,17 +688,75 @@ export function registerWordRenderers(): void {
 
   // Spans are attributes on the surviving cell; the cells it swallowed are gone
   // from the model, so nothing else has to be emitted here.
-  const cellAttrs = {
-    className: 'w-cell',
-    colspan: (d: Record<string, any>) => d.attributes?.colspan ?? 1,
-    rowspan: (d: Record<string, any>) => d.attributes?.rowspan ?? 1,
-    style: (d: Record<string, any>, env?: RenderEnv) => {
+  /**
+   * A cell, drawn with the rules that belong to where it sits.
+   *
+   * `insideH` and `insideV` are borders *between* cells and CSS has no selector
+   * for between, so they resolve onto the cells: a side facing another cell
+   * takes the inside rule, a side facing out takes the table's outer one. That
+   * needs to know where the cell is, which is a walk over the table rather than
+   * anything the cell carries — so this is a component and the plain templates
+   * above could not have done it.
+   */
+  const cellNode = (stype: string, tag: 'td' | 'th') =>
+    define(stype, (_props: Record<string, any>, node: Record<string, any>, ctx: any) => {
+      const env = ctx?.env as RenderEnv | undefined;
+      const doc = getWordDocument(env);
       const styles = getWordStyles(env);
-      return styles ? tableCellCss(styles.resolveNode(d as never, 'table')) : {};
-    }
-  };
-  define('bTableCell', element('td', { ...cellAttrs }, [slot('content')]));
-  define('bTableHeaderCell', element('th', { ...cellAttrs }, [slot('content')]));
+      const cellFormat = styles ? styles.resolveNode(node as never, 'table') : {};
+
+      let borders = {};
+      const row = doc && node.parentId ? doc.getNode(node.parentId) : undefined;
+      // A header holds its cells directly, with no row between — the schema says
+      // so — which makes the group the row.
+      const table = doc && row?.parentId
+        ? (row.stype === 'bTableHeader' ? row : doc.getNode(row.parentId))
+        : undefined;
+      const owner = table && doc
+        ? (table.stype === 'bTable' ? table : (table.parentId ? doc.getNode(table.parentId) : undefined))
+        : undefined;
+
+      if (doc && owner?.stype === 'bTable' && row) {
+        const rows = tableRowsOf(doc, owner);
+        const at = rows.findIndex((each) => each.sid === row.sid);
+        const cells = childrenOf(doc, row);
+
+        // Counted in columns, not in cells: a merged cell covers more than one,
+        // and the one after it starts past the far side of the merge.
+        let column = 0;
+        for (const each of cells) {
+          if (each.sid === node.sid) break;
+          column += Number(each.attributes?.colspan) || 1;
+        }
+
+        borders = cellBorders(
+          styles ? styles.resolveNode(owner as never, 'table') : {},
+          cellFormat,
+          {
+            row: at < 0 ? 0 : at,
+            column,
+            rows: rows.length,
+            columns: columnsOf(doc, rows),
+            rowspan: Number(node.attributes?.rowspan) || 1,
+            colspan: Number(node.attributes?.colspan) || 1
+          }
+        );
+      }
+
+      return element(
+        tag,
+        {
+          className: 'w-cell',
+          colspan: Number(node.attributes?.colspan) || 1,
+          rowspan: Number(node.attributes?.rowspan) || 1,
+          style: { ...tableCellCss(cellFormat), ...borders }
+        } as never,
+        [slot('content')]
+      );
+    });
+
+  cellNode('bTableCell', 'td');
+  cellNode('bTableHeaderCell', 'th');
 
   // ── Inline ─────────────────────────────────────────────────────────────────
   define('inline-text', element('span', { className: 'w-text' }, [data('text', '')]));
