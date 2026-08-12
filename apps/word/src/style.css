@@ -208,12 +208,72 @@ body {
   font-size: 0.7em;
 }
 
-/* Not yet grown to fit — see math-renderers. */
-.w-math-delim::before {
-  content: attr(data-open);
+/*
+ * Delimiters that grow to fit.
+ *
+ * A flex row whose brackets stretch to the height of what they hold. Word grows
+ * its brackets by assembling glyph pieces from the font's MATH table; there is
+ * none to read here, so these are drawn as borders with a radius — exact at
+ * every height, needing no measurement, and only an approximation of the shape
+ * of a real bracket. A brace is beyond what borders can draw and keeps its
+ * glyph.
+ */
+.w-math-delim {
+  display: inline-flex;
+  align-items: stretch;
+  vertical-align: middle;
 }
-.w-math-delim::after {
-  content: attr(data-close);
+.w-math-fence {
+  flex: 0 0 auto;
+  width: 0.3em;
+  align-self: stretch;
+  border: 1px solid currentColor;
+}
+.w-math-fence-open {
+  border-right: 0;
+  border-radius: 0.6em 0 0 0.6em / 50% 0 0 50%;
+  margin-right: 0.12em;
+}
+.w-math-fence-close {
+  border-left: 0;
+  border-radius: 0 0.6em 0.6em 0 / 0 50% 50% 0;
+  margin-left: 0.12em;
+}
+/* Square brackets are square, which borders draw exactly. */
+.w-math-fence[data-char='['],
+.w-math-fence[data-char=']'] {
+  border-radius: 0;
+}
+/* A vertical bar is one stroke and nothing else. */
+.w-math-fence[data-char='|'] {
+  width: 0;
+  border-radius: 0;
+  border-right: 0;
+  border-top: 0;
+  border-bottom: 0;
+}
+/*
+ * Anything a border cannot draw keeps its glyph, centred rather than stretched.
+ * Better an honest fixed brace than a curve pretending to be one.
+ */
+.w-math-fence[data-char='{']::before,
+.w-math-fence[data-char='}']::before,
+.w-math-fence[data-char='⟨']::before,
+.w-math-fence[data-char='⟩']::before {
+  content: attr(data-char);
+}
+.w-math-fence[data-char='{'],
+.w-math-fence[data-char='}'],
+.w-math-fence[data-char='⟨'],
+.w-math-fence[data-char='⟩'] {
+  border: 0;
+  width: auto;
+  display: inline-flex;
+  align-items: center;
+}
+/* An empty delimiter character means no bracket on that side. */
+.w-math-fence[data-char=''] {
+  display: none;
 }
 
 .w-math-func > .w-math-fname {

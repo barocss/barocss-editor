@@ -161,24 +161,43 @@ export function registerMathRenderers(): void {
   /**
    * Delimiters.
    *
-   * The brackets are drawn as their own elements rather than as text in the
-   * slots, because they belong to the construct and not to what is inside it —
-   * typing between them must not be able to delete them.
+   * The brackets are their own elements rather than text in the slots, because
+   * they belong to the construct and not to what is inside it — typing between
+   * them must not be able to delete them. Chrome, so they are not copied and the
+   * caret does not stop in them.
    *
-   * They do not yet grow to fit. Word's do, using the glyph-assembly recipes in
-   * a font's MATH table; the nearest thing available here is to measure the
-   * contents and scale a glyph, which is a layout pass and comes next.
+   * They grow to fit. Word does it with the glyph-assembly recipes in a font's
+   * MATH table — a bracket built from a top piece, a repeating middle and a
+   * bottom — and there is no such table to read here. What there is instead is a
+   * flex row whose brackets stretch to the height of the row, drawn as borders
+   * with a radius rather than as glyphs. That needs no measuring, so it is exact
+   * at every height and costs no layout pass; what it gives up is the shape of a
+   * real bracket, which a curve fitted to a box only approximates. A brace is
+   * beyond what borders can draw and keeps its glyph, unstretched.
    */
+  const fence = (side: 'open' | 'close') =>
+    element('span', {
+      className: `w-math-fence w-math-fence-${side}`,
+      'data-char': (d: Record<string, any>) =>
+        String(d.attributes?.[side === 'open' ? 'open' : 'close'] ?? (side === 'open' ? '(' : ')')),
+      'data-bc-chrome': 'true',
+      contenteditable: 'false',
+      'aria-hidden': 'true'
+    });
+
   define(
     'mathDelimiter',
     element(
       'span',
       {
         className: 'w-math-delim',
+        // On the construct as well, so the stylesheet can pick a shape without
+        // reaching into the children.
         'data-open': (d: Record<string, any>) => String(d.attributes?.open ?? '('),
-        'data-close': (d: Record<string, any>) => String(d.attributes?.close ?? ')')
+        'data-close': (d: Record<string, any>) => String(d.attributes?.close ?? ')'),
+        'data-grow': (d: Record<string, any>) => String(d.attributes?.grow !== false)
       },
-      [slot('content')]
+      [fence('open'), slot('content'), fence('close')]
     )
   );
 
