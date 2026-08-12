@@ -156,3 +156,59 @@ test.describe('moving between slots', () => {
     expect(before === true || before === false || before === undefined).toBe(true);
   });
 });
+
+test.describe('brackets', () => {
+  test('grow to the height of what they hold', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    const measured = await page.evaluate(() => {
+      const delimiter = document.querySelector('.w-math-delim')!;
+      const open = delimiter.querySelector('.w-math-fence-open')!.getBoundingClientRect();
+      const close = delimiter.querySelector('.w-math-fence-close')!.getBoundingClientRect();
+      const fraction = delimiter.querySelector('.w-math-frac')!.getBoundingClientRect();
+      const oneLine = document.querySelector('.w-math-run')!.getBoundingClientRect();
+      return {
+        open: Math.round(open.height),
+        close: Math.round(close.height),
+        content: Math.round(fraction.height),
+        oneLine: Math.round(oneLine.height)
+      };
+    });
+
+    // Word grows a bracket by assembling glyph pieces named in the font's MATH
+    // table. There is none to read here, so these are borders that stretch —
+    // exact at every height, and only an approximation of the shape.
+    expect(measured.open).toBe(measured.content);
+    expect(measured.close).toBe(measured.content);
+    expect(measured.content).toBeGreaterThan(measured.oneLine * 2);
+  });
+
+  test('are the construct\'s, not the content\'s', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    // Typing between them must not be able to delete them, and they must not be
+    // copied with the text.
+    const chrome = await page.evaluate(() =>
+      [...document.querySelectorAll('.w-math-fence')].every(
+        (fence) => fence.getAttribute('data-bc-chrome') === 'true'
+      )
+    );
+    expect(chrome).toBe(true);
+  });
+
+  test('add no height to the paragraph they sit in', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    // They are as tall as the equation and part of it. Counting them as
+    // something the layout drew on top took a 44px paragraph to −36 and left it
+    // with no lines at all, which moved every page after it.
+    const lines = await page.evaluate(() => {
+      const layout = [...(window as any).wordLayout.values()][0];
+      return layout.pages.flatMap((page: any) => page.fragments).some((f: any) => f.toLine > f.fromLine);
+    });
+    expect(lines).toBe(true);
+  });
+});

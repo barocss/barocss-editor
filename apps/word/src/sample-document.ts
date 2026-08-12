@@ -450,6 +450,30 @@ export function createSampleDocument(): INode {
                   }
                 ]
               },
+              { stype: 'inline-text', text: ' and ' },
+              {
+                stype: 'oMath',
+                content: [
+                  {
+                    stype: 'mathDelimiter',
+                    attributes: { open: '(', close: ')' },
+                    content: [
+                      {
+                        stype: 'mathElement',
+                        content: [
+                          {
+                            stype: 'mathFraction',
+                            content: [
+                              { stype: 'mathNum', content: [{ stype: 'mathRun', content: [{ stype: 'inline-text', text: 'a' }] }] },
+                              { stype: 'mathDen', content: [{ stype: 'mathRun', content: [{ stype: 'inline-text', text: 'b' }] }] }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
               { stype: 'inline-text', text: ', written in the flow of the sentence.' }
             ]
           },

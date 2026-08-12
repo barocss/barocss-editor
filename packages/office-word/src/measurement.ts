@@ -67,8 +67,21 @@ export interface MeasureOptions {
  * vertically. Grouping by exact `top` instead would count a superscript, a
  * larger run, or a differently-sized font on the same line as separate lines.
  */
-function lineBands(el: Element): { top: number; bottom: number }[] {
+function lineBands(el: Element): {
+  bands: { top: number; bottom: number }[];
+  /**
+   * Height the layout's own drawings add to the block.
+   *
+   * Collected here rather than by querying for every chrome element under the
+   * block, because chrome *inside* an atomic object adds no height to the
+   * paragraph: the brackets a delimiter draws are as tall as the equation and
+   * are part of it. Subtracting those took a 44px paragraph to −36 and left it
+   * with no lines at all.
+   */
+  chrome: number;
+} {
   const rects: { top: number; bottom: number }[] = [];
+  let chrome = 0;
   const view = el.ownerDocument.defaultView;
 
   /**
@@ -107,7 +120,10 @@ function lineBands(el: Element): { top: number; bottom: number }[] {
       // Whatever the layout drew is not a line of the text. The spacer that
       // carries a page break through a paragraph is a full-width empty box, and
       // counting it makes the block a line taller every time it breaks.
-      if (element.hasAttribute(CHROME_ATTR)) continue;
+      if (element.hasAttribute(CHROME_ATTR)) {
+        chrome += element.getBoundingClientRect().height;
+        continue;
+      }
 
       if (atomic(element)) {
         const box = element.getBoundingClientRect();
@@ -134,7 +150,7 @@ function lineBands(el: Element): { top: number; bottom: number }[] {
       bands.push({ top: rect.top, bottom: rect.bottom });
     }
   }
-  return bands;
+  return { bands, chrome };
 }
 
 /**
@@ -162,11 +178,9 @@ function linesFor(el: HTMLElement): number[] {
   // Less whatever the layout itself put there. A page break drawn inside this
   // paragraph is part of how tall it currently is and no part of how tall its
   // text is — counting it would make the block grow every time it broke.
-  let height = el.getBoundingClientRect().height;
-  for (const chrome of Array.from(el.querySelectorAll(`[${CHROME_ATTR}]`))) {
-    height -= chrome.getBoundingClientRect().height;
-  }
-  const bands = lineBands(el);
+  const { bands, chrome } = lineBands(el);
+  const height = el.getBoundingClientRect().height - chrome;
+
   if (height <= 0) return [];
   if (bands.length <= 1) return [height];
 
