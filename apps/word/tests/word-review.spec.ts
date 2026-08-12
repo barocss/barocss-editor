@@ -431,3 +431,103 @@ test.describe('reviewing tracked changes', () => {
     await expect(button(page, 'Accept all')).toBeDisabled();
   });
 });
+
+/**
+ * Editing while changes are tracked.
+ *
+ * The switch existed and nothing read it: turning tracking on changed nothing,
+ * and the revisions on screen were marks written into the sample by hand. These
+ * are about the switch meaning something.
+ */
+test.describe('recording changes as they are made', () => {
+  const trackOn = async (page: import('@playwright/test').Page) => {
+    await page.getByRole('button', { name: 'Track changes', exact: true }).click();
+    await expect
+      .poll(async () => page.evaluate(() => (window as any).editor.executeCommand('isTrackingChanges')))
+      .toBeTruthy();
+  };
+
+  /** The paragraph the caret is in, model-side. */
+  const caretRun = (page: import('@playwright/test').Page) =>
+    page.evaluate(() => {
+      const ed = (window as any).editor;
+      const node = ed.dataStore.getNode(ed.selection.startNodeId);
+      return {
+        text: node?.text ?? '',
+        marks: (node?.marks ?? []).map((m: any) => `${m.stype}[${m.range}]`)
+      };
+    });
+
+  test('marks what is typed rather than slipping it in', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+    await trackOn(page);
+
+    await placeCaret(page, '.w-paragraph', 1);
+    await page.keyboard.type('added', { delay: 30 });
+    await page.waitForTimeout(900);
+
+    const run = await caretRun(page);
+    expect(run.text).toContain('added');
+    // One revision for the burst, not one per keystroke: a paragraph of typing
+    // would otherwise be several hundred entries in the review pane.
+    expect(run.marks.filter((m) => m.startsWith('insertion'))).toHaveLength(1);
+  });
+
+  test('proposes a deletion instead of carrying it out', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    await trackOn(page);
+    await placeCaret(page, '.w-paragraph', 1);
+    await page.keyboard.press('End');
+
+    const before = await caretRun(page);
+    await page.keyboard.press('Backspace');
+    await page.waitForTimeout(900);
+
+    const after = await caretRun(page);
+    // Not one character fewer — that is the whole point of a proposal.
+    expect(after.text).toBe(before.text);
+    expect(after.marks.some((m) => m.startsWith('deletion'))).toBe(true);
+  });
+
+  test('takes back what this reviewer just typed, without proposing it', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+    await trackOn(page);
+
+    await placeCaret(page, '.w-paragraph', 1);
+    await page.keyboard.type('xyz', { delay: 30 });
+    await page.waitForTimeout(600);
+
+    // Tracking really is on — otherwise the rest of this test would pass by
+    // simply deleting, which is what it is here to tell apart.
+    const typed = await caretRun(page);
+    expect(typed.marks.some((m) => m.startsWith('insertion'))).toBe(true);
+
+    await page.keyboard.press('Backspace');
+    await page.waitForTimeout(900);
+
+    const run = await caretRun(page);
+    // Without this a typo is permanent the moment it is typed: its author could
+    // only propose removing it and wait for somebody else to agree.
+    expect(run.text).toContain('xy');
+    expect(run.text).not.toContain('xyz');
+    expect(run.marks.some((m) => m.startsWith('deletion'))).toBe(false);
+    expect(run.marks.some((m) => m.startsWith('insertion'))).toBe(true);
+  });
+
+  test('leaves the document alone while tracking is off', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    await placeCaret(page, '.w-paragraph', 1);
+    await page.keyboard.type('plain', { delay: 30 });
+    await page.waitForTimeout(900);
+
+    const run = await caretRun(page);
+    expect(run.text).toContain('plain');
+    expect(run.marks.some((m) => m.startsWith('insertion'))).toBe(false);
+  });
+});

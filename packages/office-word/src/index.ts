@@ -167,6 +167,15 @@ export {
 } from './comments';
 export { createWordComments, WordCommentExtension, type CommentAuthor } from './comment-commands';
 export { createWordRevisions, WordRevisionExtension } from './revision-commands';
+export { createWordTracking, WordTrackingExtension } from './tracking-commands';
+export {
+  recordDeletion,
+  recordInsertion,
+  backspaceTargetOffset,
+  type CoveredRun,
+  type Reviewer,
+  type RunMark
+} from './revision-record';
 export {
   revisions,
   revisionAt,

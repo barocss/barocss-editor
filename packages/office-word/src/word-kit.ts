@@ -8,6 +8,7 @@ import { createWordCommands } from './word-commands';
 import { createWordListCommands } from './list-commands';
 import { createWordComments, type CommentAuthor } from './comment-commands';
 import { createWordRevisions } from './revision-commands';
+import { createWordTracking } from './tracking-commands';
 import { createSchema } from '@barocss/schema';
 import { getWordSchemaDefinition } from './word-schema';
 import { WORD_KEYBINDINGS } from './word-keymap';
@@ -43,7 +44,11 @@ export function createWordExtensions(author: CommentAuthor = DEFAULT_AUTHOR): Ex
     createWordComments(author),
     // Recording a change and drawing it is only half of review: without accept
     // and reject a revised document can never be finished.
-    createWordRevisions()
+    createWordRevisions(),
+    // Last, so it wraps the delete commands whichever extension registered them.
+    // With tracking on, deleting stops deleting — which is a different operation
+    // and has to be decided before the original one runs.
+    createWordTracking(author)
   ];
 }
 
