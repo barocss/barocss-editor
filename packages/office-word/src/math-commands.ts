@@ -14,7 +14,7 @@ import { Editor, Extension } from '@barocss/editor-core';
 import { transaction } from '@barocss/model';
 import type { DocumentAccess, DocumentNode } from './document-access';
 import { caretRunOf, enclosingMath, nextSlot } from './math-navigation';
-import { buildUp, type MathNode } from './math-buildup';
+import { buildUp, linearOf, type MathNode } from './math-buildup';
 
 export class WordMathExtension implements Extension {
   name = 'wordMath';
@@ -56,6 +56,24 @@ export class WordMathExtension implements Extension {
     editor.on('editor:selection.change', track);
     editor.on('editor:content.change', track);
     track();
+
+    /**
+     * Word's linear view, as a toggle.
+     *
+     * An equation has a two-dimensional form and a one-dimensional one, and an
+     * author rewriting a whole formula would rather edit the line than click
+     * through the slots. Going the other way is build-up, which is already a
+     * command — so this is one button with two directions and no third state.
+     */
+    (editor as any).registerCommand({
+      name: 'toggleMathLinear',
+      execute: async (ed: Editor) =>
+        enclosingMath(this._doc(ed), (ed as any).selection?.startNodeId)
+          ? await this._flatten(ed)
+          : await this._buildUp(ed),
+      canExecute: (ed: Editor) =>
+        !!enclosingMath(this._doc(ed), (ed as any).selection?.startNodeId) || !!this._pending(ed)
+    });
 
     (editor as any).registerCommand({
       name: 'nextMathSlot',
@@ -128,6 +146,35 @@ export class WordMathExtension implements Extension {
         payload: { nodeId: pending.sid, start: pending.start, end: pending.end }
       },
       { type: 'addChild', payload: { parentId, child: math, position: at + 1 } }
+    ] as never).commit();
+
+    return result.success;
+  }
+
+  /**
+   * Replace the equation the caret is in with the line it came from.
+   *
+   * The text goes where the equation was, so the sentence around it is
+   * undisturbed, and pressing the button again — or a space — builds it back up.
+   */
+  private async _flatten(editor: Editor): Promise<boolean> {
+    const doc = this._doc(editor);
+    const math = enclosingMath(doc, (editor as any).selection?.startNodeId);
+    if (!math?.sid || !math.parentId) return false;
+
+    const store: any = (editor as any).dataStore;
+    const line = linearOf((math.content ?? []).map((child: any) =>
+      typeof child === 'string' ? store.getNode(child) : child
+    ) as MathNode[]);
+    if (line.length === 0) return false;
+
+    const siblings = (store.getNode(math.parentId)?.content ?? []) as any[];
+    const at = siblings.findIndex((child: any) => (child?.sid ?? child) === math.sid);
+    const text = store.createNodeWithChildren({ stype: 'inline-text', text: line });
+
+    const result = await transaction(editor, [
+      { type: 'addChild', payload: { parentId: math.parentId, child: text, position: at + 1 } },
+      { type: 'delete', payload: { nodeId: math.sid } }
     ] as never).commit();
 
     return result.success;

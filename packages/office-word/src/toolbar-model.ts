@@ -215,6 +215,9 @@ export const WORD_TOOLBAR: ToolbarGroup[] = [
     id: 'review',
     controls: [
       { id: 'track-changes', label: 'Track changes', icon: '✎', command: 'toggleTrackChanges' },
+      // One button, two directions: an equation becomes the line it came from,
+      // and a line that describes an equation becomes one.
+      { id: 'math-linear', label: 'Linear', icon: '≡', command: 'toggleMathLinear' },
       { id: 'prev-revision', label: 'Previous change', icon: '◀', command: 'previousRevision' },
       { id: 'next-revision', label: 'Next change', icon: '▶', command: 'nextRevision' },
       { id: 'accept-revision', label: 'Accept', icon: '✓', command: 'acceptRevision' },

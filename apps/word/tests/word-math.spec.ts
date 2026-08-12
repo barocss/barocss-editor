@@ -295,3 +295,33 @@ test.describe('build-up', () => {
     expect(text).toContain('hello there');
   });
 });
+
+test.describe('the linear view', () => {
+  test('flattens an equation to the line it came from, and back', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    const before = await page.evaluate(() => document.querySelectorAll('.w-math-frac').length);
+
+    await page.locator('.w-math-num > .w-math-run').first().click();
+    await expect
+      .poll(async () => page.evaluate(() => (window as any).editor.selection?.type))
+      .toBe('range');
+
+    await page.getByRole('button', { name: 'Linear', exact: true }).click();
+    await page.waitForTimeout(900);
+
+    // The equation is a line of text now, in the place it stood, so the sentence
+    // around it is undisturbed.
+    const flattened = await page.evaluate(() => {
+      const surface = document.querySelector('.w-surface')!;
+      return {
+        fractions: document.querySelectorAll('.w-math-frac').length,
+        text: surface.textContent ?? ''
+      };
+    });
+
+    expect(flattened.fractions).toBe(before - 1);
+    expect(flattened.text).toContain('/');
+  });
+});

@@ -24,6 +24,7 @@ import {
   ChevronRight,
   FilePen,
   X,
+  Sigma,
   type LucideIcon
 } from 'lucide-react';
 
@@ -70,7 +71,8 @@ const ICONS: Record<string, LucideIcon> = {
   // are the same icons doubled rather than two unrelated ones a reader has to
   // learn separately.
   'accept-all-revisions': CheckCheck,
-  'reject-all-revisions': X
+  'reject-all-revisions': X,
+  'math-linear': Sigma
 };
 
 /**
