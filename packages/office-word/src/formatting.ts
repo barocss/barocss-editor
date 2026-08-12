@@ -234,6 +234,14 @@ export const tableCellFormatAttrs = (): Attrs => ({
  */
 export const revisionAttrs = (): Attrs => ({
   revisionId: str(),
+  /**
+   * What the revision proposes for this block.
+   *
+   * `deletion` on a paragraph is Word's deleted paragraph mark: the boundary
+   * goes and this block joins the one after it. Without a type the id says a
+   * revision exists and not what it asks for.
+   */
+  revisionType: str(),
   revisionAuthor: str(),
   revisionDate: str()
 });

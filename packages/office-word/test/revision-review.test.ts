@@ -190,13 +190,28 @@ describe('resolving one revision', () => {
       mark('formatChange', [0, 3], {
         id: 'r1',
         author: 'Jinho',
-        before: JSON.stringify({ bold: false, fontSize: 24 })
+        before: JSON.stringify({ attributes: { alignment: 'left' } })
       })
     ]);
 
     const ops = resolveRevisionOps(doc, revisions(doc)[0], 'reject');
     expect(ops[0].type).toBe('setAttrs');
-    expect(ops[0].payload.attributes).toMatchObject({ bold: false, fontSize: 24 });
+    expect(ops[0].payload.attrs).toMatchObject({ alignment: 'left' });
+  });
+
+  it('puts back the marks a run carried before it was reformatted', () => {
+    const wasBold = [{ stype: 'bold', range: [0, 3], attrs: { id: 'b1' } }];
+    const doc = oneRun([
+      mark('formatChange', [0, 3], {
+        id: 'r1',
+        author: 'Jinho',
+        before: JSON.stringify({ marks: wasBold })
+      })
+    ]);
+
+    const ops = resolveRevisionOps(doc, revisions(doc)[0], 'reject');
+    expect(ops[0].type).toBe('setMarks');
+    expect(ops[0].payload.marks).toEqual(wasBold);
   });
 
   it('still drops the mark when `before` cannot be read', () => {

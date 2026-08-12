@@ -1,8 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import {
   backspaceTargetOffset,
+  completesMove,
   recordDeletion,
+  recordFormatChange,
   recordInsertion,
+  recordMoveFrom,
+  recordMoveTo,
+  recordParagraphMerge,
   type CoveredRun,
   type Reviewer,
   type RunMark
@@ -198,5 +203,86 @@ describe('where Backspace goes', () => {
 
   it('is unmoved by marks that are not deletions', () => {
     expect(backspaceTargetOffset([mark('insertion', [2, 5])], 5)).toBe(4);
+  });
+});
+
+describe('reformatting while changes are tracked', () => {
+  it('remembers what the run looked like, both halves of it', () => {
+    const was = [mark('bold', [0, 5])];
+    const ops = recordFormatChange(
+      run(0, 5),
+      { attributes: { alignment: 'left' }, marks: was },
+      jinho()
+    );
+
+    const recorded = marksAfter(ops).find((each) => each.stype === 'formatChange')!;
+    // Bold is a mark over characters and alignment is a property of the
+    // paragraph. Recording one and not the other would leave half the toolbar
+    // untracked, and which half is a detail of our model, not of Word.
+    expect(JSON.parse(String(recorded.attrs.before))).toEqual({
+      attributes: { alignment: 'left' },
+      marks: was
+    });
+  });
+
+  it('does not stack a second one over the same ground', () => {
+    // Bold then italic is one reformatting to review, and the first `before`
+    // still holds what it looked like before either.
+    const already = mark('formatChange', [0, 5]);
+    expect(recordFormatChange(run(0, 5, [already]), {}, jinho())).toEqual([]);
+  });
+
+  it('records one over somebody else’s', () => {
+    const theirs = mark('formatChange', [0, 5], 'Sujin');
+    expect(recordFormatChange(run(0, 5, [theirs]), {}, jinho())).not.toEqual([]);
+  });
+});
+
+describe('moving text', () => {
+  const move = { moveId: 'm1', text: 'the fox', author: 'Jinho' };
+
+  it('pairs the two ends by the same moveId', () => {
+    const from = recordMoveFrom([run(0, 7)], move, jinho());
+    const to = recordMoveTo(run(20, 27), move, jinho());
+
+    const idOf = (ops: any[], stype: string) =>
+      marksAfter(ops).find((each) => each.stype === stype)?.attrs.moveId;
+
+    expect(idOf(from, 'moveFrom')).toBe('m1');
+    expect(idOf(to, 'moveTo')).toBe('m1');
+  });
+
+  it('keeps the text where it left, marked rather than removed', () => {
+    const ops = recordMoveFrom([run(0, 7)], move, jinho());
+    expect(cuts(ops)).toEqual([]);
+  });
+
+  it('is a move only when the same reviewer puts the same words down', () => {
+    const reviewer = jinho();
+    expect(completesMove(move, 'the fox', reviewer)).toBe(true);
+    // Edited in between, so it is an addition — calling it a move would tie two
+    // unrelated places together in the review.
+    expect(completesMove(move, 'the red fox', reviewer)).toBe(false);
+    expect(completesMove({ ...move, author: 'Sujin' }, 'the fox', reviewer)).toBe(false);
+    expect(completesMove(null, 'the fox', reviewer)).toBe(false);
+    expect(completesMove({ ...move, text: '' }, '', reviewer)).toBe(false);
+  });
+});
+
+describe('joining two paragraphs', () => {
+  it('proposes the boundary rather than the text', () => {
+    const ops = recordParagraphMerge('p1', { styleId: 'Body' }, jinho());
+
+    expect(ops[0].type).toBe('setAttrs');
+    expect(ops[0].payload.attrs).toMatchObject({
+      styleId: 'Body',
+      revisionType: 'deletion',
+      revisionAuthor: 'Jinho'
+    });
+  });
+
+  it('does not propose the same boundary twice', () => {
+    // Pressing Backspace again should step past it, not stack proposals.
+    expect(recordParagraphMerge('p1', { revisionId: 'rev1' }, jinho())).toEqual([]);
   });
 });

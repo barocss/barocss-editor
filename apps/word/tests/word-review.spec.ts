@@ -443,8 +443,10 @@ test.describe('recording changes as they are made', () => {
   const trackOn = async (page: import('@playwright/test').Page) => {
     await page.getByRole('button', { name: 'Track changes', exact: true }).click();
     await expect
-      .poll(async () => page.evaluate(() => (window as any).editor.executeCommand('isTrackingChanges')))
-      .toBeTruthy();
+      .poll(async () =>
+        page.evaluate(async () => await (window as any).editor.executeCommand('isTrackingChanges'))
+      )
+      .toBe(true);
   };
 
   /** The paragraph the caret is in, model-side. */
@@ -529,5 +531,102 @@ test.describe('recording changes as they are made', () => {
     const run = await caretRun(page);
     expect(run.text).toContain('plain');
     expect(run.marks.some((m) => m.startsWith('insertion'))).toBe(false);
+  });
+});
+
+test.describe('recording the rest of an edit', () => {
+  const trackOn = async (page: import('@playwright/test').Page) => {
+    await page.getByRole('button', { name: 'Track changes', exact: true }).click();
+    await expect
+      .poll(async () =>
+        page.evaluate(async () => await (window as any).editor.executeCommand('isTrackingChanges'))
+      )
+      .toBe(true);
+  };
+
+  const caretRun = (page: import('@playwright/test').Page) =>
+    page.evaluate(() => {
+      const ed = (window as any).editor;
+      const node = ed.dataStore.getNode(ed.selection.startNodeId);
+      const block = node?.parentId ? ed.dataStore.getNode(node.parentId) : null;
+      return {
+        marks: (node?.marks ?? []).map((m: any) => m.stype),
+        blockAttrs: block?.attributes ?? {}
+      };
+    });
+
+  /**
+   * Put the caret in a paragraph that carries no revisions of its own.
+   *
+   * The sample has hand-written ones, by the same author this app runs as — and
+   * deleting your own addition really deletes it, which is the rule under test
+   * somewhere else. Choosing a clean paragraph keeps each test about one thing.
+   */
+  const caretInCleanRun = (page: import('@playwright/test').Page, offset: number, length = 0) =>
+    page.evaluate(
+      ({ offset, length }) => {
+        const ed = (window as any).editor;
+        const clean = (node: any, depth = 0): any => {
+          if (!node || depth > 60) return null;
+          if (node.stype === 'paragraph') {
+            const kids = (node.content ?? []).map((c: any) =>
+              typeof c === 'string' ? ed.dataStore.getNode(c) : c
+            );
+            const only = kids.length === 1 ? kids[0] : null;
+            const marked = kids.some((k: any) => (k?.marks ?? []).length > 0);
+            if (only?.stype === 'inline-text' && !marked && (only.text ?? '').length > 20) return only;
+          }
+          for (const child of node.content ?? []) {
+            const hit = clean(typeof child === 'string' ? ed.dataStore.getNode(child) : child, depth + 1);
+            if (hit) return hit;
+          }
+          return null;
+        };
+
+        const run = clean(ed.dataStore.getNode(ed.getRootId()));
+        ed.updateSelection({
+          type: 'range',
+          startNodeId: run.sid,
+          startOffset: offset,
+          endNodeId: run.sid,
+          endOffset: offset + length,
+          collapsed: length === 0
+        });
+        return run.sid;
+      },
+      { offset, length }
+    );
+
+  test('records reformatting, and what it looked like before', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+    await trackOn(page);
+
+    await caretInCleanRun(page, 0, 8);
+    await page.getByRole('button', { name: 'Bold', exact: true }).click();
+    await page.waitForTimeout(900);
+
+    const run = await caretRun(page);
+    expect(run.marks).toContain('formatChange');
+  });
+
+  test('joining two paragraphs proposes the boundary rather than doing it', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+    await trackOn(page);
+
+    const blocksBefore = await page.locator('.w-paragraph').count();
+
+    // At the very start of a block, which is where Backspace means "join this to
+    // the one above" rather than "take a character".
+    await caretInCleanRun(page, 0);
+    await page.keyboard.press('Backspace');
+    await page.waitForTimeout(900);
+
+    // Still two paragraphs. What is proposed is the boundary between them, which
+    // is what Word's deleted paragraph mark is.
+    expect(await page.locator('.w-paragraph').count()).toBe(blocksBefore);
+    const run = await caretRun(page);
+    expect(run.blockAttrs).toMatchObject({ revisionType: 'deletion' });
   });
 });

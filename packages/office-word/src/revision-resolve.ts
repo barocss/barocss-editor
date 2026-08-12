@@ -89,10 +89,14 @@ function cut(revision: Revision): RevisionOp[] {
 /**
  * Put back the formatting a formatChange replaced.
  *
- * `before` is the attributes as they were, as JSON. Nothing writes it yet — this
- * is what defines the encoding, and it is JSON so that a property nobody
- * anticipated survives the round trip rather than being flattened away by a
- * bespoke format that only thought of the common ones.
+ * `before` is `{ attributes?, marks? }` as JSON — both halves, because Word's
+ * formatting is two things wearing one name: bold is a mark over a range of
+ * characters and alignment is a property of the paragraph. Restoring only one of
+ * them would make half the toolbar unrejectable, and which half would be a
+ * detail of our model rather than anything a reviewer could predict.
+ *
+ * JSON so that a property nobody anticipated survives the round trip rather than
+ * being flattened away by a format that only thought of the common ones.
  *
  * A `before` that cannot be read is not a reason to abandon the reject: the mark
  * still comes off, and the formatting simply stays as it is.
@@ -100,11 +104,11 @@ function cut(revision: Revision): RevisionOp[] {
 function restoreFormatting(doc: DocumentAccess, revision: Revision): RevisionOp[] {
   if (!revision.before) return [];
 
-  let attributes: Record<string, unknown>;
+  let before: { attributes?: Record<string, unknown>; marks?: unknown[] };
   try {
     const parsed = JSON.parse(revision.before);
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return [];
-    attributes = parsed as Record<string, unknown>;
+    before = parsed;
   } catch {
     return [];
   }
@@ -114,12 +118,22 @@ function restoreFormatting(doc: DocumentAccess, revision: Revision): RevisionOp[
   for (const span of revision.spans) {
     if (seen.has(span.sid)) continue;
     seen.add(span.sid);
+
     const node = doc.getNode(span.sid);
     if (!node) continue;
-    ops.push({
-      type: 'setAttrs',
-      payload: { nodeId: span.sid, attributes: { ...node.attributes, ...attributes } }
-    });
+
+    if (before.attributes) {
+      ops.push({
+        type: 'setAttrs',
+        payload: { nodeId: span.sid, attrs: { ...node.attributes, ...before.attributes } }
+      });
+    }
+
+    if (before.marks) {
+      // The revision's own mark is no part of what the run looked like before —
+      // it did not exist then — and unmark takes it off separately.
+      ops.push({ type: 'setMarks', payload: { nodeId: span.sid, marks: before.marks } });
+    }
   }
   return ops;
 }

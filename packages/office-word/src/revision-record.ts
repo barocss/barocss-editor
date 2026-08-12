@@ -206,6 +206,68 @@ export function recordInsertion(
   return [{ type: 'setMarks', payload: { nodeId: run.sid, marks: [...others, merged] } }];
 }
 
+/** What a node looked like before a formatting command touched it. */
+export interface FormatBefore {
+  attributes?: Record<string, unknown>;
+  marks?: RunMark[];
+}
+
+/**
+ * The mark a formatting change leaves, and what it has to remember.
+ *
+ * Both halves, because Word's formatting is two different things wearing one
+ * name: bold is a mark over a range of characters, alignment is a property of
+ * the paragraph. Recording only one of them would make half the toolbar
+ * untracked, and which half would be a detail of our model rather than anything
+ * a reviewer could predict.
+ *
+ * `before` is stored as JSON so that a property nobody anticipated survives the
+ * round trip rather than being flattened away by a format that only thought of
+ * the common ones.
+ */
+export function recordFormatChange(
+  run: CoveredRun,
+  before: FormatBefore,
+  reviewer: Reviewer
+): RevisionOp[] {
+  const { start, end } = run;
+  if (end < start) return [];
+
+  // An existing formatChange by this reviewer over the same ground is extended
+  // rather than stacked: pressing bold and then italic is one reformatting to
+  // review, and `before` still holds what it looked like before either.
+  const mine = run.marks.find(
+    (mark) =>
+      mark.stype === 'formatChange' &&
+      authorOf(mark) === reviewer.author &&
+      mark.range[0] <= start &&
+      mark.range[1] >= end
+  );
+  if (mine) return [];
+
+  return [
+    {
+      type: 'setMarks',
+      payload: {
+        nodeId: run.sid,
+        marks: [
+          ...run.marks,
+          {
+            stype: 'formatChange',
+            range: [start, end],
+            attrs: {
+              id: reviewer.nextId(),
+              author: reviewer.author,
+              date: reviewer.date,
+              before: JSON.stringify(before)
+            }
+          }
+        ]
+      }
+    }
+  ];
+}
+
 /**
  * How far back the caret should step, given what lies behind it.
  *
@@ -228,4 +290,139 @@ export function backspaceTargetOffset(marks: RunMark[], caret: number): number {
   }
 
   return at;
+}
+
+/**
+ * Text cut and put down again, recorded as a move rather than as a deletion
+ * followed by an unrelated addition.
+ *
+ * A move is one decision about two places, and a reviewer who is shown it as two
+ * changes has to work out that they are the same words and accept both or
+ * neither — and if they accept only one, the paragraph either loses the text or
+ * keeps two copies of it.
+ *
+ * Recognised by the text itself: what was cut, put down again unchanged, by the
+ * same reviewer. Word pairs them the same way within a session. Paste anything
+ * else and it is an ordinary addition, which is what it is.
+ */
+export interface PendingMove {
+  moveId: string;
+  text: string;
+  author: string;
+}
+
+/** The marks the source of a move carries: kept, and marked as moved away. */
+export function recordMoveFrom(
+  runs: CoveredRun[],
+  move: PendingMove,
+  reviewer: Reviewer
+): RevisionOp[] {
+  const ops: RevisionOp[] = [];
+  const id = reviewer.nextId();
+
+  for (const run of runs) {
+    if (run.end <= run.start) continue;
+    ops.push({
+      type: 'setMarks',
+      payload: {
+        nodeId: run.sid,
+        marks: [
+          ...run.marks,
+          {
+            stype: 'moveFrom',
+            range: [run.start, run.end],
+            attrs: { id, moveId: move.moveId, author: reviewer.author, date: reviewer.date }
+          }
+        ]
+      }
+    });
+  }
+
+  return ops;
+}
+
+/** The marks the destination of a move carries. */
+export function recordMoveTo(
+  run: CoveredRun,
+  move: PendingMove,
+  reviewer: Reviewer
+): RevisionOp[] {
+  if (run.end <= run.start) return [];
+
+  return [
+    {
+      type: 'setMarks',
+      payload: {
+        nodeId: run.sid,
+        marks: [
+          ...run.marks,
+          {
+            stype: 'moveTo',
+            range: [run.start, run.end],
+            attrs: {
+              id: reviewer.nextId(),
+              moveId: move.moveId,
+              author: reviewer.author,
+              date: reviewer.date
+            }
+          }
+        ]
+      }
+    }
+  ];
+}
+
+/**
+ * Whether a paste is the other half of the cut that came before it.
+ *
+ * The same reviewer, and the same words. Anything else — somebody else's
+ * clipboard, or text that was edited in between — is an addition, and calling it
+ * a move would tie two unrelated places together in the review.
+ */
+export function completesMove(
+  move: PendingMove | null | undefined,
+  pasted: string,
+  reviewer: Reviewer
+): boolean {
+  return !!move && move.author === reviewer.author && move.text === pasted && pasted.length > 0;
+}
+
+/**
+ * The attributes a block carries when its paragraph mark is proposed for
+ * removal.
+ *
+ * Backspace at the very start of a paragraph joins it to the one above. With
+ * tracking on the join is a proposal like any other, but there is no text to
+ * mark — what is being removed is the boundary itself. Word marks the paragraph
+ * mark; here that is the block, through the revision attributes the schema has
+ * always carried and nothing has ever written.
+ */
+export function recordParagraphMerge(
+  blockSid: string,
+  attributes: Record<string, unknown>,
+  reviewer: Reviewer
+): RevisionOp[] {
+  // Already proposed: pressing Backspace again should step past the boundary
+  // rather than propose it twice.
+  if (attributes.revisionId) return [];
+
+  return [
+    {
+      type: 'setAttrs',
+      payload: {
+        nodeId: blockSid,
+        // `attrs`, which is what the operation takes. It was `attributes` here
+        // and the transaction quietly did nothing: the unit test asserted the
+        // shape this function invented rather than the one the model accepts,
+        // so it passed. Only running it in a browser found it.
+        attrs: {
+          ...attributes,
+          revisionId: reviewer.nextId(),
+          revisionType: 'deletion',
+          revisionAuthor: reviewer.author,
+          revisionDate: reviewer.date
+        }
+      }
+    }
+  ];
 }
