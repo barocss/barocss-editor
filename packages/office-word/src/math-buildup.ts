@@ -26,7 +26,9 @@ const run = (text: string): MathNode => ({
   // Digits and operators are not variables, so they are not italic. Word decides
   // this the same way, per character, and a run of one letter is the unit that
   // lets it.
-  attributes: /^[A-Za-z]+$/.test(text) ? {} : { literal: true },
+  // A function name is upright too: `sin` in italic is s × i × n.
+  attributes:
+    /^[A-Za-z]+$/.test(text) && !MATH_FUNCTIONS.has(text) ? {} : { literal: true },
   content: [{ stype: 'inline-text', text }]
 });
 
@@ -107,6 +109,23 @@ function operandAfter(text: string, start: number): { end: number; body: string 
   return { end, body: text.slice(start, end) };
 }
 
+/**
+ * The names that are functions rather than variables multiplied together.
+ *
+ * `sin` italicised is s × i × n, which is what it means if the convention is
+ * taken seriously and never what anybody writing it intended. Word keeps the
+ * same list and sets them upright.
+ */
+export const MATH_FUNCTIONS = new Set([
+  'sin', 'cos', 'tan', 'sec', 'csc', 'cot',
+  'arcsin', 'arccos', 'arctan', 'sinh', 'cosh', 'tanh',
+  'log', 'ln', 'lg', 'exp', 'lim', 'max', 'min', 'sup', 'inf',
+  'det', 'dim', 'gcd', 'deg', 'arg', 'mod'
+]);
+
+/** The n-ary operators, and the characters that write them. */
+const NARY_CHARS = new Set(['∑', '∏', '∫', '∮', '⋃', '⋂', '⨁', '⨂']);
+
 /** Whatever a stretch of text is, once its own operators have been built up. */
 function contentsOf(text: string): MathNode[] {
   const built = buildUp(text);
@@ -128,6 +147,87 @@ function contentsOf(text: string): MathNode[] {
 export function buildUp(line: string): MathNode[] | null {
   const text = replaceSymbols(line);
   if (text.trim().length === 0) return null;
+
+  // `\matrix(a&b@c&d)` — rows separated by `@`, cells by `&`, which is Word's
+  // own notation and what linearOf writes.
+  const matrix = /\\matrix\s*\(/.exec(text);
+  if (matrix) {
+    const body = operandAfter(text, matrix.index + matrix[0].length - 1);
+    if (body.body.length > 0) {
+      return [
+        ...contentsOf(text.slice(0, matrix.index)),
+        {
+          stype: 'mathMatrix',
+          content: body.body.split('@').map((row) => ({
+            stype: 'mathRow',
+            content: row.split('&').map((cell) => slot('mathElement', contentsOf(cell)))
+          }))
+        },
+        ...contentsOf(text.slice(body.end))
+      ];
+    }
+  }
+
+  // An n-ary operator carries its limits as scripts and then what it applies to:
+  // `∑_(i=1)^n a`.
+  for (let at = 0; at < text.length; at++) {
+    if (!NARY_CHARS.has(text[at])) continue;
+
+    let cursor = at + 1;
+    let lower = '';
+    let upper = '';
+    for (let round = 0; round < 2; round++) {
+      const mark = text[cursor];
+      if (mark !== '_' && mark !== '^') break;
+      const operand = operandAfter(text, cursor + 1);
+      if (operand.body.length === 0) break;
+      if (mark === '_') lower = operand.body;
+      else upper = operand.body;
+      cursor = operand.end;
+    }
+
+    if (lower.length === 0 && upper.length === 0) continue;
+
+    const rest = text.slice(cursor).replace(/^\s+/, '');
+    return [
+      ...contentsOf(text.slice(0, at)),
+      {
+        stype: 'mathNary',
+        attributes: { char: text[at] },
+        content: [
+          slot('mathSub', contentsOf(lower)),
+          slot('mathSup', contentsOf(upper)),
+          slot('mathElement', contentsOf(rest))
+        ]
+      }
+    ];
+  }
+
+  // `sin(x)` — a name that is a function applied to something, not letters
+  // multiplied together.
+  const applied = /([A-Za-z]+)\s*\(/.exec(text);
+  if (applied && MATH_FUNCTIONS.has(applied[1])) {
+    const argument = operandAfter(text, applied.index + applied[0].length - 1);
+    if (argument.body.length > 0) {
+      return [
+        ...contentsOf(text.slice(0, applied.index)),
+        {
+          stype: 'mathFunction',
+          content: [
+            slot('mathFuncName', [
+              {
+                stype: 'mathRun',
+                attributes: { literal: true },
+                content: [{ stype: 'inline-text', text: applied[1] }]
+              }
+            ]),
+            slot('mathElement', contentsOf(argument.body))
+          ]
+        },
+        ...contentsOf(text.slice(argument.end))
+      ];
+    }
+  }
 
   // `\sqrt(x)` and `\sqrt x` — a function-looking name that is really a
   // construct, so it is recognised before the operators.
@@ -266,7 +366,9 @@ function linearOfNode(node: MathNode | { stype: 'inline-text'; text: string }): 
     }
 
     case 'mathFunction':
-      return `${slotText(at(0))}${bracketed(slotText(at(1)))}`;
+      // Always bracketed, whatever the argument is: `sin x` written without them
+      // reads back as a variable called `sinx`, and the function is lost.
+      return `${slotText(at(0))}(${slotText(at(1))})`;
 
     case 'mathNary': {
       const char = String((node as MathNode).attributes?.char ?? '∑');

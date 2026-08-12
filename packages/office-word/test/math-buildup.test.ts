@@ -184,3 +184,50 @@ describe('the line an equation came from', () => {
     ).toBe('\\matrix(a&b@c&d)');
   });
 });
+
+describe('the notations the linear view writes', () => {
+  const shapeOf = (line: string) => shape(buildUp(line));
+
+  it('reads a matrix back', () => {
+    expect(shapeOf('\\matrix(a&b@c&d)')).toBe(
+      'mathMatrix(mathRow(mathElement(mathRun("a")),mathElement(mathRun("b")))' +
+        ',mathRow(mathElement(mathRun("c")),mathElement(mathRun("d"))))'
+    );
+    // Round trip: writing it out and reading it again gives the same equation.
+    expect(buildUp(linearOf(buildUp('\\matrix(a&b@c&d)')!))).toEqual(buildUp('\\matrix(a&b@c&d)'));
+  });
+
+  it('reads an n-ary operator with its limits', () => {
+    const sum = buildUp('\\sum_(i=1)^n a') as any[];
+    expect(sum[0].stype).toBe('mathNary');
+    expect(sum[0].attributes.char).toBe('∑');
+    expect(shape([sum[0].content[0]])).toContain('i=1');
+    expect(shape([sum[0].content[1]])).toContain('"n"');
+    expect(shape([sum[0].content[2]])).toContain('"a"');
+  });
+
+  it('needs a limit before it is an operator rather than a character', () => {
+    // A lone ∑ typed in a sentence is a character. Making it a construct would
+    // put empty slots round it that nobody asked for.
+    expect(buildUp('\\sum')).toEqual([
+      { stype: 'mathRun', attributes: { literal: true }, content: [{ stype: 'inline-text', text: '∑' }] }
+    ]);
+  });
+
+  it('reads a function as one, upright, with its argument', () => {
+    expect(shapeOf('sin(x)')).toBe('mathFunction(mathFuncName(mathRun("sin")),mathElement(mathRun("x")))');
+  });
+
+  it('sets a bare function name upright too', () => {
+    // `sin` in italic is s × i × n, which is what it means if the convention is
+    // taken seriously and never what was intended.
+    const [name] = buildUp('sin/2') as any[];
+    expect(name.content[0].content[0].attributes).toEqual({ literal: true });
+  });
+
+  it('round-trips a function and an n-ary operator', () => {
+    for (const line of ['sin(x)', '\\sum_(i=1)^n a']) {
+      expect(buildUp(linearOf(buildUp(line)!))).toEqual(buildUp(line));
+    }
+  });
+});
