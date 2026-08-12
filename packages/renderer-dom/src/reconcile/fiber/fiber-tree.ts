@@ -27,6 +27,102 @@ function identityOf(vnode: VNode | undefined | null): string | undefined {
 }
 
 /**
+ * The previous children, indexed once so each of them can be found rather than
+ * searched for.
+ *
+ * Matching used to walk the sibling chain up to three times per child — once for
+ * the identity, once to count to the index, once for the nearest matching tag —
+ * which is quadratic in the number of children. Invisible on the fifty blocks of
+ * a page and not on the thousands of a real document.
+ *
+ * The other half of the reason is correctness. Identity was being worked out on
+ * each side of every comparison, separately, and the two sides drifted: one
+ * dropped inherited sids and the other did not, so a template's inner elements
+ * could never pair with what they had rendered as and were rebuilt on every
+ * render. Computing it once, here, makes that particular bug unwritable.
+ */
+class PreviousChildren {
+  private readonly ordered: FiberNode[] = [];
+  private readonly indexOf = new Map<FiberNode, number>();
+  private readonly byIdentity = new Map<string, FiberNode[]>();
+  /** Unkeyed children by tag, in index order — the candidates for step 3. */
+  private readonly byTag = new Map<string, FiberNode[]>();
+  private readonly matched = new Set<FiberNode>();
+
+  constructor(first: FiberNode | null | undefined) {
+    for (let fiber = first ?? null; fiber; fiber = fiber.sibling) {
+      this.indexOf.set(fiber, this.ordered.length);
+      this.ordered.push(fiber);
+
+      const identity = identityOf(fiber.vnode);
+      if (identity) {
+        const found = this.byIdentity.get(identity);
+        if (found) found.push(fiber);
+        else this.byIdentity.set(identity, [fiber]);
+        continue;
+      }
+
+      const tag = fiber.vnode.tag;
+      if (typeof tag === 'string') {
+        const found = this.byTag.get(tag);
+        if (found) found.push(fiber);
+        else this.byTag.set(tag, [fiber]);
+      }
+    }
+  }
+
+  get empty(): boolean {
+    return this.ordered.length === 0;
+  }
+
+  take(fiber: FiberNode): FiberNode {
+    this.matched.add(fiber);
+    return fiber;
+  }
+
+  /** The first unclaimed child with this identity. */
+  byKey(identity: string): FiberNode | null {
+    for (const candidate of this.byIdentity.get(identity) ?? []) {
+      if (!this.matched.has(candidate)) return candidate;
+    }
+    return null;
+  }
+
+  /** The child that sat at this index, if it is unclaimed and unkeyed. */
+  atIndex(index: number): FiberNode | null {
+    const candidate = this.ordered[index];
+    if (!candidate || this.matched.has(candidate)) return null;
+    return identityOf(candidate.vnode) ? null : candidate;
+  }
+
+  /**
+   * The unclaimed unkeyed child with this tag that sat nearest the index.
+   *
+   * Outwards from the index rather than over the whole list, and the lower index
+   * first at equal distance — which is the answer a left-to-right scan keeping
+   * the strictly-smallest distance gave.
+   */
+  nearestByTag(tag: string, index: number): FiberNode | null {
+    const candidates = this.byTag.get(tag);
+    if (!candidates || candidates.length === 0) return null;
+
+    let best: FiberNode | null = null;
+    let bestDistance = Infinity;
+
+    for (const candidate of candidates) {
+      if (this.matched.has(candidate)) continue;
+      const distance = Math.abs((this.indexOf.get(candidate) ?? 0) - index);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = candidate;
+      }
+    }
+
+    return best;
+  }
+}
+
+/**
  * Deep copy VNode (recursively copy children as well)
  */
 function deepCopyVNode(vnode: VNode): VNode {
@@ -102,8 +198,9 @@ export function createFiberTree(
     
       // Track already matched prevChildVNodes (prevent duplicate matching)
     const matchedPrevChildVNodes = new Set<VNode>();
-      // React-style: track already matched alternate Fibers (prevent duplicate matching)
-      const matchedAlternateFibers = new Set<FiberNode>();
+      // The previous children, indexed once rather than searched three times per
+      // child. It also owns which of them have been claimed.
+      const previous = new PreviousChildren(fiber.alternate?.child);
     
     for (let i = 0; i < vnode.children.length; i++) {
       const child = vnode.children[i];
@@ -134,27 +231,13 @@ export function createFiberTree(
         const effectiveChildId = identityOf(childVNode);
         
         // Find matching Fiber among alternate's children
-        if (fiber.alternate?.child) {
-          let alternateChild: FiberNode | null = fiber.alternate.child;
-          let childIndex = 0;
-          
-          // 1. Find by sid/key first (exclude auto-generated sid)
+        if (!previous.empty) {
+          // 1. By identity — an explicit key, or a sid the node genuinely owns.
           if (effectiveChildId) {
-            while (alternateChild) {
-              // Exclude already matched alternate
-              if (matchedAlternateFibers.has(alternateChild)) {
-                alternateChild = alternateChild.sibling;
-                continue;
-              }
-              if (identityOf(alternateChild.vnode) === effectiveChildId) {
-                prevChildAlternate = alternateChild;
-                break;
-        }
-              alternateChild = alternateChild.sibling;
-            }
+            prevChildAlternate = previous.byKey(effectiveChildId);
           }
-          
-          // 2. If sid/key matching fails, find by index.
+
+          // 2. By index.
           //
           // Only unkeyed nodes may be paired positionally (React's rule: a slot
           // is reused only when both keys are null). A keyed child whose key was
@@ -162,63 +245,18 @@ export function createFiberTree(
           // the same index makes findOrCreateHost reuse that sibling's DOM
           // element via prevVNode.meta.domElement, so the inserted node renders
           // as an in-place update and the sibling silently disappears.
-          if (!prevChildAlternate) {
-            alternateChild = fiber.alternate!.child;
-            childIndex = 0;
-            while (alternateChild && childIndex < i) {
-              alternateChild = alternateChild.sibling;
-              childIndex++;
-            }
-            if (alternateChild && childIndex === i) {
-              // Exclude already matched alternate
-              if (!matchedAlternateFibers.has(alternateChild)) {
-                const bothUnkeyed = !effectiveChildId && !identityOf(alternateChild.vnode);
-                // If Fiber at same index exists and tag matches, match
-                const alternateTag = alternateChild.vnode.tag ?? (alternateChild.vnode.text !== undefined ? VNodeTag.TEXT : undefined);
-              const childTag = childVNode.tag ?? (childVNode.text !== undefined ? VNodeTag.TEXT : undefined);
-                if (bothUnkeyed && alternateTag === childTag) {
-                  prevChildAlternate = alternateChild;
-              }
-            }
+          if (!prevChildAlternate && !effectiveChildId) {
+            const candidate = previous.atIndex(i);
+            const candidateTag =
+              candidate && (candidate.vnode.tag ?? (candidate.vnode.text !== undefined ? VNodeTag.TEXT : undefined));
+            const childTag = childVNode.tag ?? (childVNode.text !== undefined ? VNodeTag.TEXT : undefined);
+            if (candidate && candidateTag === childTag) prevChildAlternate = candidate;
           }
-        }
-          
-          // 3. If index matching also fails, match by tag only (if auto-generated sid exists or no ID)
-          // IMPORTANT: compare only VNode structure (compare only tag, not class, etc.)
-          // However, prioritize alternate closest to same index
-          if (!prevChildAlternate && (!effectiveChildId || isChildIdAutoGenerated) && childVNode.tag) {
-            alternateChild = fiber.alternate!.child;
-            let bestMatch: FiberNode | null = null;
-            let bestIndexDiff = Infinity;
-            let alternateIndex = 0;
-            
-            while (alternateChild) {
-              // Exclude already matched alternate
-              if (matchedAlternateFibers.has(alternateChild)) {
-                alternateChild = alternateChild.sibling;
-                alternateIndex++;
-                continue;
-              }
-              
-              const alternateTag = alternateChild.vnode.tag;
 
-              // A candidate is any sibling with no identity of its own whose tag matches
-              if (!identityOf(alternateChild.vnode) && alternateTag === childVNode.tag) {
-                const indexDiff = Math.abs(alternateIndex - i);
-                // Prioritize alternate closest to same index
-                if (indexDiff < bestIndexDiff) {
-                  bestIndexDiff = indexDiff;
-                  bestMatch = alternateChild;
-                }
-              }
-              
-              alternateChild = alternateChild.sibling;
-              alternateIndex++;
-            }
-            
-            if (bestMatch) {
-              prevChildAlternate = bestMatch;
-            }
+          // 3. By tag, nearest to where this child sits. Structure only — the tag,
+          // not the class.
+          if (!prevChildAlternate && (!effectiveChildId || isChildIdAutoGenerated) && childVNode.tag) {
+            prevChildAlternate = previous.nearestByTag(childVNode.tag as string, i);
           }
         }
         
@@ -253,9 +291,9 @@ export function createFiberTree(
           }
         }
 
-        // React-style: add matched alternate Fiber to tracking (prevent duplicate matching)
+        // Claimed, so no later child can match it too.
         if (prevChildAlternate) {
-          matchedAlternateFibers.add(prevChildAlternate);
+          previous.take(prevChildAlternate);
         }
         
         // Add matched prevChildVNode to tracking
