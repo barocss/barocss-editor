@@ -325,3 +325,38 @@ test.describe('a table’s declared columns', () => {
     expect(drawn.insideTop).toBe(drawn.insideLeft);
   });
 });
+
+test.describe('table commands', () => {
+  const shape = (page: import('@playwright/test').Page) =>
+    page.evaluate(() => ({
+      rows: document.querySelectorAll('.w-table .w-tr').length,
+      columns: document.querySelector('.w-table .w-tr')?.children.length ?? 0
+    }));
+
+  test('add and remove rows and columns around the caret', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    await page.locator('.w-table .w-cell').first().click();
+    await expect
+      .poll(async () => page.evaluate(() => (window as any).editor.getContext('inTable')))
+      .toBe(true);
+
+    const before = await shape(page);
+
+    // The operations knew this schema all along — a header group is one row and
+    // a new row belongs to the body. What was missing was a command to call
+    // them, so a button or a shortcut had nothing to reach.
+    await page.evaluate(async () => (window as any).editor.executeCommand('insertRowBelow'));
+    await page.waitForTimeout(800);
+    expect((await shape(page)).rows).toBe(before.rows + 1);
+
+    await page.evaluate(async () => (window as any).editor.executeCommand('insertColumnRight'));
+    await page.waitForTimeout(800);
+    expect((await shape(page)).columns).toBe(before.columns + 1);
+
+    await page.evaluate(async () => (window as any).editor.executeCommand('deleteRow'));
+    await page.waitForTimeout(800);
+    expect((await shape(page)).rows).toBe(before.rows);
+  });
+});
