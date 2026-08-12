@@ -27,8 +27,23 @@ export interface NodeTypeDefinition {
    * (positioned art); 'surface' is the page/slide/board that holds either.
    * Group membership is what keeps the domains apart in a single flat schema —
    * see office-schema.ts and docs/specs/standard-schema.md §9.1.
+   *
+   * A product may name a group of its own. Word's equations are a domain in the
+   * same sense as the canvas: `math` is what may sit inside an equation and
+   * `mathSlot` is the named hole a construct offers, and neither belongs in the
+   * flow — a fraction is not a thing that can appear in a sentence, only inside
+   * an equation. The named ones stay listed because they are what the shared
+   * schema itself uses, and a typo in one of those should not compile.
    */
-  group?: 'block' | 'inline' | 'document' | 'scene' | 'surface' | 'meta' | 'resource';
+  group?:
+    | 'block'
+    | 'inline'
+    | 'document'
+    | 'scene'
+    | 'surface'
+    | 'meta'
+    | 'resource'
+    | (string & {});
   content?: string;
   attrs?: Record<string, AttributeDefinition>;
   marks?: string[];

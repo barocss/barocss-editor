@@ -400,6 +400,60 @@ export function createSampleDocument(): INode {
               }
             ]
           },
+          {
+            /**
+             * An equation, as Word stores one: a tree of constructs with named
+             * slots, every slot an ordinary editable container. The caret goes
+             * into the numerator — it is not a picture of a formula.
+             */
+            stype: 'paragraph',
+            attributes: { styleId: 'Body' },
+            content: [
+              { stype: 'inline-text', text: 'The quadratic formula, ' },
+              {
+                stype: 'oMath',
+                content: [
+                  { stype: 'mathRun', content: [{ stype: 'inline-text', text: 'x' }] },
+                  { stype: 'mathRun', attributes: { literal: true }, content: [{ stype: 'inline-text', text: '=' }] },
+                  {
+                    stype: 'mathFraction',
+                    content: [
+                      {
+                        stype: 'mathNum',
+                        content: [
+                          { stype: 'mathRun', attributes: { literal: true }, content: [{ stype: 'inline-text', text: '−b±' }] },
+                          {
+                            stype: 'mathRadical',
+                            content: [
+                              { stype: 'mathDeg', content: [] },
+                              {
+                                stype: 'mathElement',
+                                content: [
+                                  { stype: 'mathRun', content: [{ stype: 'inline-text', text: 'b' }] },
+                                  {
+                                    stype: 'mathSuperscript',
+                                    content: [
+                                      { stype: 'mathElement', content: [{ stype: 'mathRun', attributes: { literal: true }, content: [{ stype: 'inline-text', text: '' }] }] },
+                                      { stype: 'mathSup', content: [{ stype: 'mathRun', attributes: { literal: true }, content: [{ stype: 'inline-text', text: '2' }] }] }
+                                    ]
+                                  },
+                                  { stype: 'mathRun', attributes: { literal: true }, content: [{ stype: 'inline-text', text: '−4' }] },
+                                  { stype: 'mathRun', content: [{ stype: 'inline-text', text: 'ac' }] }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      { stype: 'mathDen', content: [{ stype: 'mathRun', attributes: { literal: true }, content: [{ stype: 'inline-text', text: '2' }] }, { stype: 'mathRun', content: [{ stype: 'inline-text', text: 'a' }] }] }
+                    ]
+                  }
+                ]
+              },
+              { stype: 'inline-text', text: ', written in the flow of the sentence.' }
+            ]
+          },
+
 
           {
             stype: 'paragraph',

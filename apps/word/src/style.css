@@ -120,3 +120,127 @@ body {
  */
 .w-comment-hit { background: #fef08a80; border-bottom: 2px solid #eab308; }
 .w-comment-hit.is-selected { background: #fde047; }
+
+/*
+ * Equations.
+ *
+ * Boxes stacked and shifted, which is what mathematical typesetting is on the
+ * web — KaTeX produces the same kind of thing. What a browser cannot do alone is
+ * the part that depends on a font's MATH table: the glyph-assembly recipes that
+ * grow a bracket to fit what it holds. Those are approximated here, and the
+ * approximation is visible in the delimiters.
+ */
+.w-math {
+  font-family: 'Cambria Math', 'Latin Modern Math', 'STIX Two Math', serif;
+  white-space: nowrap;
+}
+
+/*
+ * A slot is a place the caret can go, so it has to be a place the author can
+ * see. An empty one draws as a dotted box — the same answer Word gives.
+ */
+.w-math-slot {
+  display: inline-block;
+  min-width: 0.35em;
+  min-height: 1em;
+}
+.w-math-slot:empty,
+.w-math-slot:has(> :only-child:empty) {
+  min-width: 0.7em;
+  border: 1px dotted currentColor;
+  opacity: 0.55;
+}
+
+.w-math-frac > .w-math-num {
+  padding: 0 0.2em;
+}
+.w-math-frac > .w-math-den {
+  padding: 0 0.2em;
+  border-top: 1px solid currentColor;
+}
+/* A linear fraction is the same two slots with a solidus between them. */
+.w-math-frac[data-type='lin'] > .w-math-den {
+  border-top: none;
+}
+.w-math-frac[data-type='lin'] > .w-math-num::after {
+  content: '/';
+}
+
+.w-math-sup-box > .w-math-sup,
+.w-math-subsup > .w-math-sup {
+  font-size: 0.72em;
+  vertical-align: super;
+}
+.w-math-sub-box > .w-math-sub,
+.w-math-subsup > .w-math-sub {
+  font-size: 0.72em;
+  vertical-align: sub;
+}
+
+/* The hook is a glyph; the bar over the body is a border, so it is as wide as
+ * whatever it covers. */
+.w-math-rad::before {
+  content: '√';
+  font-size: 1.1em;
+}
+.w-math-rad > .w-math-e {
+  border-top: 1px solid currentColor;
+  padding: 0 0.15em;
+}
+.w-math-rad > .w-math-deg {
+  font-size: 0.6em;
+  vertical-align: super;
+}
+
+.w-math-nary::before {
+  content: attr(data-char);
+  font-size: 1.6em;
+  vertical-align: middle;
+}
+.w-math-nary[data-limits='undOvr'] {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  vertical-align: middle;
+}
+.w-math-nary[data-limits='undOvr'] > .w-math-sub,
+.w-math-nary[data-limits='undOvr'] > .w-math-sup {
+  font-size: 0.7em;
+}
+
+/* Not yet grown to fit — see math-renderers. */
+.w-math-delim::before {
+  content: attr(data-open);
+}
+.w-math-delim::after {
+  content: attr(data-close);
+}
+
+.w-math-func > .w-math-fname {
+  font-style: normal;
+  padding-right: 0.15em;
+}
+
+.w-math-matrix {
+  display: inline-grid;
+  vertical-align: middle;
+  gap: 0.15em 0.5em;
+}
+.w-math-row {
+  display: contents;
+}
+.w-math-array {
+  display: inline-flex;
+  flex-direction: column;
+  vertical-align: middle;
+}
+
+.w-math-accent::after {
+  content: attr(data-char);
+}
+.w-math-bar[data-position='top'] > .w-math-e {
+  border-top: 1px solid currentColor;
+}
+.w-math-bar[data-position='bot'] > .w-math-e {
+  border-bottom: 1px solid currentColor;
+}

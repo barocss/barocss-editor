@@ -23,6 +23,7 @@
  *    mark, because marks carry ranges and attributes do not. That is why tracked
  *    insertions and comment anchors are marks.
  */
+import { mathDefinitions } from './math-schema';
 import {
   getOfficeSchemaDefinition,
   type NodeTypeDefinition,
@@ -508,7 +509,10 @@ export function getWordSchemaDefinition(): SchemaDefinition {
 
       ...wordBlockDefinitions(),
       ...wordInlineDefinitions(),
-      ...wordResourceDefinitions()
+      ...wordResourceDefinitions(),
+      // Equations, shaped like OMML. See math-schema for why the names are
+      // Word's rather than LaTeX's.
+      ...mathDefinitions()
     },
     marks: {
       ...office.marks,

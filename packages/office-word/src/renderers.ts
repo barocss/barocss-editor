@@ -41,6 +41,7 @@ import {
 } from './shapes';
 import { blockStyle, formatFor, listMarker } from './renderers/block-style';
 import { registerRevisionMarks, registerValuedMarks } from './renderers/marks';
+import { registerMathRenderers } from './math-renderers';
 
 /**
  * Register every Word renderer in the global DSL registry.
@@ -49,6 +50,11 @@ import { registerRevisionMarks, registerValuedMarks } from './renderers/marks';
  * register.
  */
 export function registerWordRenderers(): void {
+  // Equations. Their own file: they are a domain of their own, with two dozen
+  // constructs, and none of the rest of Word's rendering has anything to say
+  // about them.
+  registerMathRenderers();
+
   // ── Structure ──────────────────────────────────────────────────────────────
   define('document', element('div', { className: 'w-document' }, [slot('content')]));
 
