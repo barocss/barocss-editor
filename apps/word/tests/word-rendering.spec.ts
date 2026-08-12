@@ -360,3 +360,32 @@ test.describe('table commands', () => {
     expect((await shape(page)).rows).toBe(before.rows);
   });
 });
+
+test.describe('the table buttons', () => {
+  test('are available in a table and not outside one', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    const button = page.getByRole('button', { name: 'Insert row below', exact: true });
+
+    // A table command is never "on" — it either applies here or it does not,
+    // and outside a table it does not. A button that stayed lit would be
+    // claiming otherwise.
+    await page.locator('.w-paragraph').first().click();
+    await page.waitForTimeout(300);
+    await expect(button).toBeDisabled();
+
+    await page.locator('.w-table .w-cell').first().click();
+    await expect(button).toBeEnabled();
+
+    const rowsBefore = await page.evaluate(
+      () => document.querySelectorAll('.w-table .w-tr').length
+    );
+    await button.click();
+    await page.waitForTimeout(900);
+
+    expect(await page.evaluate(() => document.querySelectorAll('.w-table .w-tr').length)).toBe(
+      rowsBefore + 1
+    );
+  });
+});

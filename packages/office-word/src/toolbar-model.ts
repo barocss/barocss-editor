@@ -211,6 +211,27 @@ export const WORD_TOOLBAR: ToolbarGroup[] = [
    * command instead, which is where the answer actually is: Accept is
    * unavailable exactly when there is no change to accept.
    */
+  /**
+   * Tables.
+   *
+   * No `state` on any of them: a table command is never "on", it either applies
+   * here or it does not — and whether it does is the command's own answer, given
+   * by canExecute. Outside a table every one of them is unavailable, which is
+   * what a reader of the toolbar should see.
+   */
+  {
+    id: 'table',
+    controls: [
+      { id: 'row-above', label: 'Insert row above', icon: '⤒', command: 'insertRowAbove' },
+      { id: 'row-below', label: 'Insert row below', icon: '⤓', command: 'insertRowBelow' },
+      { id: 'row-delete', label: 'Delete row', icon: '⌫', command: 'deleteRow' },
+      { id: 'column-left', label: 'Insert column left', icon: '⇤', command: 'insertColumnLeft' },
+      { id: 'column-right', label: 'Insert column right', icon: '⇥', command: 'insertColumnRight' },
+      { id: 'column-delete', label: 'Delete column', icon: '⌦', command: 'deleteColumn' },
+      { id: 'cells-merge', label: 'Merge cells', icon: '⊞', command: 'mergeCells' },
+      { id: 'cell-split', label: 'Split cell', icon: '⊟', command: 'splitCell' }
+    ]
+  },
   {
     id: 'review',
     controls: [

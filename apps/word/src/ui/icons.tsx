@@ -25,6 +25,14 @@ import {
   FilePen,
   X,
   Sigma,
+  ArrowUpToLine,
+  ArrowDownToLine,
+  ArrowLeftToLine,
+  ArrowRightToLine,
+  Rows3,
+  Columns3,
+  TableCellsMerge,
+  TableCellsSplit,
   type LucideIcon
 } from 'lucide-react';
 
@@ -72,7 +80,15 @@ const ICONS: Record<string, LucideIcon> = {
   // learn separately.
   'accept-all-revisions': CheckCheck,
   'reject-all-revisions': X,
-  'math-linear': Sigma
+  'math-linear': Sigma,
+  'row-above': ArrowUpToLine,
+  'row-below': ArrowDownToLine,
+  'row-delete': Rows3,
+  'column-left': ArrowLeftToLine,
+  'column-right': ArrowRightToLine,
+  'column-delete': Columns3,
+  'cells-merge': TableCellsMerge,
+  'cell-split': TableCellsSplit
 };
 
 /**
