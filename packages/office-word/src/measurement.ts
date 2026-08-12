@@ -68,29 +68,63 @@ export interface MeasureOptions {
  * larger run, or a differently-sized font on the same line as separate lines.
  */
 function lineBands(el: Element): { top: number; bottom: number }[] {
-  // Per text node rather than over the whole element. A range across the element
-  // also returns rectangles for what is *not* text — the spacer that draws a
-  // page break inside a paragraph is an empty element, and measuring it as a
-  // line makes the block look one line taller each time it breaks, which drifts
-  // further on every pass.
-  const walker = el.ownerDocument.createTreeWalker(el, NodeFilter.SHOW_TEXT);
-  const rects: DOMRect[] = [];
+  const rects: { top: number; bottom: number }[] = [];
+  const view = el.ownerDocument.defaultView;
 
-  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-    const text = node as Text;
-    if (text.data.length === 0) continue;
+  /**
+   * Whether this element is a thing on a line rather than more of the line.
+   *
+   * A fraction is one object that happens to stack text inside itself. Walking
+   * into it finds the numerator and the denominator at two different heights and
+   * counts them as two lines of the paragraph, which they are not — measured, a
+   * 44px paragraph holding one equation reported five line tops, and every page
+   * break after it moved. Anything that is not `display: inline` is such an
+   * object: an equation, a matrix, a picture, a stacked sum.
+   */
+  const atomic = (node: Element): boolean => {
+    const display = view?.getComputedStyle(node).display;
+    return !!display && display !== 'inline' && display !== 'contents';
+  };
 
-    const range = el.ownerDocument.createRange();
-    range.selectNodeContents(text);
-    rects.push(...Array.from(range.getClientRects()));
-    range.detach?.();
-  }
+  const visit = (node: Node): void => {
+    for (const child of Array.from(node.childNodes)) {
+      if (child.nodeType === Node.TEXT_NODE) {
+        const text = child as Text;
+        if (text.data.length === 0) continue;
 
+        const range = el.ownerDocument.createRange();
+        range.selectNodeContents(text);
+        for (const rect of Array.from(range.getClientRects())) {
+          rects.push({ top: rect.top, bottom: rect.bottom });
+        }
+        range.detach?.();
+        continue;
+      }
+
+      if (child.nodeType !== Node.ELEMENT_NODE) continue;
+      const element = child as Element;
+
+      // Whatever the layout drew is not a line of the text. The spacer that
+      // carries a page break through a paragraph is a full-width empty box, and
+      // counting it makes the block a line taller every time it breaks.
+      if (element.hasAttribute(CHROME_ATTR)) continue;
+
+      if (atomic(element)) {
+        const box = element.getBoundingClientRect();
+        if (box.height > 0) rects.push({ top: box.top, bottom: box.bottom });
+        continue;
+      }
+
+      visit(element);
+    }
+  };
+
+  visit(el);
   rects.sort((a, b) => a.top - b.top);
 
   const bands: { top: number; bottom: number }[] = [];
   for (const rect of rects) {
-    if (rect.height <= 0) continue;
+    if (rect.bottom <= rect.top) continue;
     const last = bands[bands.length - 1];
     // A 1px tolerance: adjacent line boxes can touch, and sub-pixel positions
     // would otherwise merge two lines into one.
