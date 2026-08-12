@@ -135,11 +135,13 @@ test.describe('moving between slots', () => {
 
     expect(landed).toEqual({ caretIn: 'inline-text', slot: 'mathDeg' });
 
-    // Typing into it does not work yet, and this is where it stops: an empty
-    // inline-text renders a zero-width filler, and the input path's guard for
-    // that case turns the keystroke away. Its comment says what has to be fixed
-    // in the reconciler first, and doing it here would be changing the typing
-    // path on the way past.
+    // And typing there goes there. The caret has to sit *after* the slot's
+    // zero-width filler: a position in front of it is not one the browser will
+    // edit at, and the character went to a run earlier in the paragraph.
+    await page.keyboard.type('3');
+    await page.waitForTimeout(700);
+
+    expect(await page.locator('.w-math-deg').first().textContent()).toContain('3');
   });
 
   test('leaves Tab alone outside an equation', async ({ page }) => {

@@ -575,7 +575,20 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
     if (runs.runs.length === 0) {
       if (!container) return null;
       const emptyTextNode = this.findFirstTextNode(container);
-      return emptyTextNode ? { node: emptyTextNode, offset: 0 } : { node: container, offset: 0 };
+      // After the zero-width character, never in front of it.
+      //
+      // A position before the filler is not one the browser will edit at. It
+      // reports the caret there happily and then edits somewhere else: measured
+      // in an empty equation slot, `document.getSelection()` named this node
+      // while the same keystroke's `getTargetRanges()` named a run earlier in
+      // the paragraph, and the character landed there instead.
+      //
+      // An empty *block* hid this for as long as there were only empty blocks —
+      // there is no earlier position inside one for the browser to fall back to.
+      // Empty inline slots have one, and they are what equations are made of.
+      return emptyTextNode
+        ? { node: emptyTextNode, offset: emptyTextNode.data.length }
+        : { node: container, offset: 0 };
     }
 
     // When modelOffset equals runs.total, use end position of last run
