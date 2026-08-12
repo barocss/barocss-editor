@@ -104,13 +104,21 @@ function lineBands(el: Element): { top: number; bottom: number }[] {
 }
 
 /**
- * Split a block's height evenly across its lines.
+ * Split a block's height across its lines, in the proportions they were measured
+ * in.
  *
  * The band heights are not used directly: they measure ink, not the line box, so
- * they miss leading and would not sum to the block's height — and pagination's
- * arithmetic depends on `sum(lines) === height`. Within a block whose lines are
- * the same size this is exact; where they differ it distributes the error, which
- * is only visible as a split landing one line early or late.
+ * they miss the leading and would not sum to the block's height — and
+ * pagination's arithmetic depends on `sum(lines) === height`. Scaling them to
+ * that total keeps both: the sum is right, and a line that is genuinely taller
+ * than its neighbours keeps its share.
+ *
+ * It used to divide the height evenly, which is exact only when every line is
+ * the same size. One equation inline in a paragraph is 40px against 14px for the
+ * lines around it, and dividing evenly moved every page break after it —
+ * measured as three pagination tests failing the moment a bracketed fraction
+ * went into the fixture. A large picture or a run in a much larger size does the
+ * same thing, more quietly.
  */
 function linesFor(el: HTMLElement): number[] {
   // getBoundingClientRect, not offsetHeight: the latter rounds to whole pixels,
@@ -124,10 +132,14 @@ function linesFor(el: HTMLElement): number[] {
   for (const chrome of Array.from(el.querySelectorAll(`[${CHROME_ATTR}]`))) {
     height -= chrome.getBoundingClientRect().height;
   }
-  const count = lineBands(el).length;
+  const bands = lineBands(el);
   if (height <= 0) return [];
-  if (count <= 1) return [height];
-  return Array.from({ length: count }, () => height / count);
+  if (bands.length <= 1) return [height];
+
+  return scaledTo(
+    bands.map((band) => band.bottom - band.top),
+    height
+  );
 }
 
 /**
