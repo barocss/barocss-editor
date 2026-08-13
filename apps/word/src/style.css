@@ -353,3 +353,116 @@ body {
 .w-math-bar[data-position='bot'] > .w-math-e {
   border-bottom: 1px solid currentColor;
 }
+
+/*
+ * The input lab.
+ *
+ * A tool, not part of the document, and it shows: it sits beside the page in the
+ * host's own typeface at a size meant for reading instructions while looking
+ * somewhere else. Scrolls on its own so the page never moves under the caret
+ * while a recording is running.
+ */
+.lab {
+  position: sticky;
+  top: 24px;
+  flex: 0 0 360px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  margin-left: 16px;
+  padding: 16px;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid #d8dde3;
+  font: 13px/1.55 system-ui, sans-serif;
+  color: #1d2430;
+}
+
+.lab-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e6eaee;
+}
+.lab-head h2 { margin: 0 0 4px; font-size: 15px; }
+.lab-head p { margin: 0; color: #5a6472; }
+
+.lab h4 {
+  margin: 16px 0 8px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7a8595;
+}
+.lab ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+
+.lab-card {
+  padding: 10px 12px;
+  border: 1px solid #e2e7ec;
+  border-radius: 8px;
+  background: #fbfcfd;
+}
+.lab-card-active { border-color: #c0392b; background: #fff6f5; }
+.lab-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.lab-card-head h3 { margin: 0; font-size: 13px; font-weight: 650; }
+
+.lab-card dl { margin: 8px 0 0; display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; }
+.lab-card dt { color: #8b95a3; font-size: 11px; white-space: nowrap; }
+.lab-card dd { margin: 0; }
+.lab-why { margin: 8px 0 0; color: #7a8595; font-size: 12px; }
+
+.lab button {
+  border: 1px solid #c9d0d8;
+  border-radius: 6px;
+  padding: 3px 10px;
+  background: #fff;
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.lab-start { border-color: #2f6fdb; color: #2f6fdb; }
+.lab-stop { border-color: #c0392b; background: #c0392b; color: #fff; }
+
+.lab-recording {
+  margin: 12px 0 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: #fff1ef;
+  color: #a5321f;
+}
+
+.lab-result { margin-top: 10px; border-top: 1px dashed #dde3e9; padding-top: 8px; }
+.lab-verdict { margin: 0; display: grid; gap: 6px; }
+.lab-verdict p { margin: 0; display: grid; gap: 2px; }
+.lab-verdict strong { font-weight: 650; }
+.lab-verdict span { white-space: pre-wrap; font-family: ui-monospace, monospace; font-size: 11px; color: #5a6472; }
+.lab-ok { color: #1f7a4d; }
+.lab-bug strong { color: #c0392b; }
+.lab-suspect strong { color: #a06a00; }
+.lab-saved { margin: 8px 0 0; color: #8b95a3; font-size: 11px; }
+
+.lab-reopen {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 40;
+  border: 1px solid #c9d0d8;
+  border-radius: 999px;
+  padding: 8px 14px;
+  background: #fff;
+  font: 13px system-ui, sans-serif;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgb(16 24 40 / 0.12);
+}
+
+@media (prefers-color-scheme: dark) {
+  .lab { background: #171a1f; border-color: #2a2f37; color: #e6eaee; }
+  .lab-card { background: #1c2026; border-color: #2a2f37; }
+  .lab-card-active { background: #2a1a18; border-color: #b8402f; }
+  .lab-head { border-bottom-color: #2a2f37; }
+  .lab-head p, .lab-why, .lab-verdict span, .lab-saved, .lab h4, .lab-card dt { color: #9aa4b2; }
+  .lab button { background: #22262d; border-color: #39404a; color: #e6eaee; }
+  .lab-stop { background: #b8402f; border-color: #b8402f; color: #fff; }
+  .lab-recording { background: #2a1a18; color: #f0b5ab; }
+  .lab-reopen { background: #22262d; border-color: #39404a; color: #e6eaee; }
+}

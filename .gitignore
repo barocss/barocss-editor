@@ -91,3 +91,6 @@ temp/
 # Playwright writes these on every run; they are output, not source.
 test-results/
 playwright-report/
+
+# recordings of hand-typed input, written by the dev server
+apps/word/.input-lab/

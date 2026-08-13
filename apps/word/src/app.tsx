@@ -5,6 +5,7 @@ import type { FontLoader } from './font-loader';
 import { Ribbon } from './ribbon';
 import { FindPanel } from './find-panel';
 import { CommentsPane } from './comments-pane';
+import { InputLab } from './input-lab/panel';
 
 /**
  * The app shell.
@@ -42,6 +43,15 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    */
   const [finding, setFinding] = useState(false);
   const [commenting, setCommenting] = useState(true);
+  /**
+   * The input lab is opened by asking for it — `?lab` in the address bar.
+   *
+   * It is a tool for sitting down and typing on purpose while a recording runs,
+   * not part of the document, and a reader who came here to write should never
+   * meet it. Read once: whether it is open is not something the page changes its
+   * mind about.
+   */
+  const [lab] = useState(() => new URLSearchParams(window.location.search).has('lab'));
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'f') {
@@ -70,6 +80,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
           {instance ? (
             <CommentsPane editor={instance.editor} view={instance.view} open={commenting} />
           ) : null}
+          {instance && lab ? <InputLab editor={instance.editor} view={instance.view} /> : null}
         </div>
       </div>
     </>
