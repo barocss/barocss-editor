@@ -258,6 +258,7 @@ describe('EditorViewDOM', () => {
       const boundKeydown = (localView as any)._boundHandleKeydown as Function;
       const boundPaste = (localView as any)._boundHandlePaste as Function;
       const boundDrop = (localView as any)._boundHandleDrop as Function;
+      const boundCompositionStart = (localView as any)._boundHandleCompositionStart as Function;
       const boundCompositionEnd = (localView as any)._boundHandleCompositionEnd as Function;
       const boundSelectionChange = (localView as any)._boundHandleSelectionChange as Function;
       const boundMouseDown = (localView as any)._boundHandleMouseDown as Function;
@@ -291,14 +292,15 @@ describe('EditorViewDOM', () => {
       // Composed text is still never read from a composition event: the
       // MutationObserver diffs model text against DOM text, so what an IME
       // produced arrives without depending on the order a given IME fires its
-      // events in. What composition *state* is inferred from `beforeinput`, and
-      // that inference has one edge with no signal in it — no beforeinput and no
-      // input ever reports a composition as over. So `compositionend` is
-      // listened to, for that one job. The other two stay out: whatever they
-      // would report, `beforeinput` reports first.
-      assertDidNotCall(addSpy, 'compositionstart');
-      assertDidNotCall(addSpy, 'compositionupdate');
+      // events in. What these two carry is state — whether a composition is
+      // open — which used to be guessed from keydown's keyCode 229 and from
+      // `beforeinput.isComposing`, and the guess stuck in both directions: a key
+      // the IME merely swallowed set it with nothing to take it back, and no
+      // input event ever reports a composition as over. `compositionupdate`
+      // stays out: it reports what `beforeinput` already reported first.
+      assertHasCall(addSpy, 'compositionstart', boundCompositionStart);
       assertHasCall(addSpy, 'compositionend', boundCompositionEnd);
+      assertDidNotCall(addSpy, 'compositionupdate');
 
       localView.destroy();
 
@@ -319,9 +321,9 @@ describe('EditorViewDOM', () => {
       assertHasRemove(removeSpy, 'mousedown', boundMouseDown);
       assertHasRemove(removeSpy, 'focus', boundFocus);
       assertHasRemove(removeSpy, 'blur', boundBlur);
-      assertDidNotCall(removeSpy, 'compositionstart');
-      assertDidNotCall(removeSpy, 'compositionupdate');
+      assertHasRemove(removeSpy, 'compositionstart', boundCompositionStart);
       assertHasRemove(removeSpy, 'compositionend', boundCompositionEnd);
+      assertDidNotCall(removeSpy, 'compositionupdate');
 
       localView.destroy();
       document.body.removeChild(container);

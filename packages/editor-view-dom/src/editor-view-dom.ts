@@ -80,6 +80,7 @@ export class EditorViewDOM implements IEditorViewDOM {
   private _boundHandleBeforeInput: ((event: InputEvent) => void) | null = null;
   private _boundHandleKeydown: ((event: KeyboardEvent) => void) | null = null;
   private _boundHandlePaste: ((event: ClipboardEvent) => void) | null = null;
+  private _boundHandleCompositionStart: (() => void) | null = null;
   private _boundHandleCompositionEnd: (() => void) | null = null;
   private _boundHandleCopy: ((event: ClipboardEvent) => void) | null = null;
   private _boundHandleDrop: ((event: DragEvent) => void) | null = null;
@@ -315,42 +316,51 @@ export class EditorViewDOM implements IEditorViewDOM {
     this.contentEditableElement.addEventListener('drop', this._boundHandleDrop);
 
     /**
-     * IME state is inferred, and one edge of the inference has no signal.
+     * Composed text is not read here. Whether a composition is open is.
      *
-     * Composed text is never read from a composition event. It is written by the
-     * MutationObserver, which diffs the model against the DOM, so what an IME
-     * produced arrives the same way whatever order a given IME fires its events
-     * in. That stays true. What is *inferred* — and it decides five other things
-     * — is whether a composition is in progress: set from
-     * `beforeinput.isComposing` and from keydown's keyCode 229.
+     * The text an IME produces is written by the MutationObserver, which diffs
+     * the model against the DOM, so it arrives the same way whatever order a
+     * given IME fires its events in — that is why composition events are not
+     * used to read text, and that does not change. What these two listeners
+     * carry is *state*: whether a composition is open. Five things turn on it —
+     * whether keydown is handled, whether paste and drop are handled, whether a
+     * content change is drawn, and whether the observer trusts its records
+     * during a typing burst.
      *
-     * The leading edge of that inference is sound, and for the reason the whole
-     * design rests on: `beforeinput` arrives before the IME touches the DOM.
-     * Measured over a composition inside a live typing burst, the flag was set
-     * by the first `insertCompositionText` a millisecond after
-     * `compositionstart`, and no record was delivered before it — nothing to
-     * miss.
+     * That state used to be guessed from `beforeinput.isComposing` and from
+     * keydown's keyCode 229, and the guess was wrong in both directions:
      *
-     * The trailing edge has nothing. The last event of a commit is an `input`
-     * with `isComposing: true`; no `beforeinput` and no `input` ever reports the
-     * composition as over, so the flag was cleared only by whatever unrelated
-     * event happened next to carry `isComposing: false`. Measured 300ms after
-     * `compositionend`, with nothing pending, it was still set — and while it is
-     * set, `editor:content.change` is dropped without rendering *and* without
-     * being remembered, so any change that is not typing (a command, a comment,
-     * another author) is silently never drawn, and paste and drop are ignored.
+     *   - keyCode 229 set it on a key the IME had merely taken. An IME that
+     *     swallows a key and composes nothing — navigating a candidate list does
+     *     precisely that — left it set with nothing to take it back.
+     *   - No `beforeinput` and no `input` ever reports a composition as over: a
+     *     commit's last event is an `input` with `isComposing: true`. Measured
+     *     300ms after `compositionend`, with nothing pending, it was still set.
      *
-     * So `compositionend` is used, for that one job: clearing a flag, never
-     * reading text. It is deferred a task because a MutationObserver delivers
-     * its records in a microtask — anything the commit wrote is therefore
-     * imported while the flag is still set, which is what keeps the observer
-     * from mistaking a commit's own records for a typing burst's. Measured zero
-     * records arriving after `compositionend` in Chrome; the deferral is for the
-     * IMEs that do.
+     * And while it is set, `editor:content.change` is dropped without rendering
+     * *and* without being remembered — so any change that is not typing (a
+     * command, a comment, another author) is silently never drawn, and paste and
+     * drop are ignored. Typing hid it, by clearing the flag through its own
+     * `beforeinput` on the way in.
+     *
+     * `beforeinput.isComposing` still sets it, for an IME that fires no
+     * composition events at all. These two only make the same state observed
+     * rather than guessed: `compositionstart` is the earliest signal there is,
+     * measured a millisecond ahead of the first composing `beforeinput` and both
+     * of them ahead of anything the IME writes. Clearing is deferred a task
+     * because a MutationObserver delivers its records in a microtask, so
+     * whatever a commit wrote is imported while the flag is still set — which is
+     * what keeps the observer from reading a commit's own records as a typing
+     * burst's. Measured zero records arriving after `compositionend` in Chrome;
+     * the deferral is for the IMEs that do.
      */
+    this._boundHandleCompositionStart = () => {
+      this._isComposing = true;
+    };
     this._boundHandleCompositionEnd = () => {
       setTimeout(() => { this._isComposing = false; }, 0);
     };
+    this.contentEditableElement.addEventListener('compositionstart', this._boundHandleCompositionStart);
     this.contentEditableElement.addEventListener('compositionend', this._boundHandleCompositionEnd);
 
     // Selection events
@@ -501,8 +511,22 @@ export class EditorViewDOM implements IEditorViewDOM {
       (this.inputHandler as any).handleKeyDown(event);
     }
 
+    /**
+     * A key the IME has taken for itself. Refusing to act on it is the whole
+     * job here, and that much is unconditional.
+     *
+     * What this used to also do was set the composition flag, on the guess that
+     * a composition was starting. An IME may swallow a key and compose nothing —
+     * navigating a candidate list does exactly that — and then no composition
+     * ever begins, so nothing ever fires to take the guess back. Measured: the
+     * flag was still set half a second later, and while it is set a content
+     * change is dropped without rendering and without being remembered.
+     *
+     * Nothing needs the guess. `compositionstart` is the earliest signal there
+     * is — measured a millisecond ahead of the first composing `beforeinput`,
+     * and both of them ahead of anything the IME writes to the DOM.
+     */
     if (event.keyCode === 229) {
-      this._isComposing = true;
       return;
     }
 
@@ -1009,6 +1033,10 @@ export class EditorViewDOM implements IEditorViewDOM {
     if (this._boundHandlePaste) {
       this.contentEditableElement.removeEventListener('paste', this._boundHandlePaste);
       this._boundHandlePaste = null;
+    }
+    if (this._boundHandleCompositionStart) {
+      this.contentEditableElement.removeEventListener('compositionstart', this._boundHandleCompositionStart);
+      this._boundHandleCompositionStart = null;
     }
     if (this._boundHandleCompositionEnd) {
       this.contentEditableElement.removeEventListener('compositionend', this._boundHandleCompositionEnd);
