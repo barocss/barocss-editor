@@ -4,7 +4,7 @@ import { handleEfficientEdit } from '../utils/efficient-edit-handler';
 import { type MarkRange, type DecoratorRange } from '../utils/edit-position-converter';
 import { classifyDomChange, type ClassifiedChange, type InputHint } from '../dom-sync/dom-change-classifier';
 import { analyzeTextChanges } from '@barocss/text-analyzer';
-import { type Decorator, getKeyString, FILLER_ATTR, stripFiller } from '@barocss/shared';
+import { type Decorator, getKeyString, isTypingKey, FILLER_ATTR, stripFiller } from '@barocss/shared';
 import { logger, LogCategory } from '@barocss/renderer-dom';
 
 /**
@@ -256,7 +256,7 @@ export class InputHandlerImpl implements InputHandler {
 
     // Anything that is not a character being typed moves the caret or changes
     // the shape of the text around it.
-    if (key.length !== 1 || event.ctrlKey || event.metaKey || event.altKey) {
+    if (!isTypingKey(event)) {
       this.caretMovedByUser();
     }
     const code = event.code;
@@ -1560,29 +1560,45 @@ export class InputHandlerImpl implements InputHandler {
       // two transactions and four render passes for one character — and told
       // every content.change listener the document had changed twice.
       //
-      // Restore the DOM selection only if it has actually drifted.
-      //
-      // Two frames from now the user may well have typed again, and forcing our
-      // caret back then would move theirs out from under them — the very thing
-      // that makes continuous input lose its place. The browser puts the caret
-      // after the character it inserted; this is here for the case where a
-      // render replaced the text node under it, and that is the only case it
-      // should act in.
+      /**
+       * Restore the DOM selection only if it has actually drifted, and only to
+       * where the caret is *now*.
+       *
+       * Two frames from now the reader may well have typed again. Replaying the
+       * caret this keystroke ended at would then drag theirs backwards — the
+       * very thing that makes continuous input lose its place, and one of the
+       * ways a burst came apart: each character's restore fought the character
+       * after it, and the page ended up describing a document three keystrokes
+       * old while the model was right.
+       *
+       * So nothing remembered is replayed. If the typing has moved on, the
+       * keystroke that moved it owns the caret and will assert its own; this one
+       * is over. If it has not, the model's current selection is the truth, and
+       * the only question is whether the DOM has drifted from it — which happens
+       * when a render replaces the text node underneath.
+       */
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           try {
+            const burst = this._burstCaret;
+            const movedOn =
+              burst !== null &&
+              (burst.nodeId !== newCaret.startNodeId || burst.offset !== newCaret.startOffset);
+            if (movedOn) return;
+
             const view = this.editorViewDOM as any;
+            const wanted = ((this.editor as any).selection ?? newCaret) as ModelSelection;
             const domSelection = window.getSelection();
             const current = domSelection ? view.convertDOMSelectionToModel?.(domSelection) : null;
             if (
               current &&
               current.type === 'range' &&
-              current.startNodeId === newCaret.startNodeId &&
-              current.startOffset === newCaret.startOffset
+              current.startNodeId === wanted.startNodeId &&
+              current.startOffset === wanted.startOffset
             ) {
               return;
             }
-            view.convertModelSelectionToDOM?.(newCaret);
+            view.convertModelSelectionToDOM?.(wanted);
           } catch (err) {
             console.warn('[InputHandler] tryHandleInsertViaGetTargetRanges: failed to restore DOM selection', err);
           }

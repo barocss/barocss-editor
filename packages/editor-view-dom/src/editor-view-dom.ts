@@ -10,7 +10,7 @@ import { DecoratorRegistry, DecoratorPrebuilder, type Decorator, type DecoratorQ
 import { DOMRenderer, logger, LogCategory } from '@barocss/renderer-dom';
 import { RendererRegistry } from '@barocss/dsl';
 import type { DecoratorExportData, LoadDecoratorsPatternFunctions } from './types';
-import { getKeyString } from '@barocss/shared';
+import { getKeyString, isTypingKey } from '@barocss/shared';
 
 export class EditorViewDOM implements IEditorViewDOM {
   // Unique ID for instance tracking
@@ -482,8 +482,19 @@ export class EditorViewDOM implements IEditorViewDOM {
 
     // Restrict character input to inline-text only. Block when selection is not in editable text.
     // Skip when keyCode 229 (IME may be handling). See docs/editable-regions-and-contenteditable-strategy.md §3.
-    const isCharacterKey = event.key.length === 1 && !['Enter', 'Tab', 'Escape'].includes(event.key) && !event.ctrlKey && !event.metaKey;
-    if (isCharacterKey && event.keyCode !== 229 && !this.isSelectionInsideEditableText()) {
+    /**
+     * A character is refused only when there is nowhere for it to go.
+     *
+     * The test is the DOM selection, which is momentarily wrong while a render
+     * is replacing the text node under it — and a character refused here is
+     * refused for good: `beforeinput` never fires, so nothing downstream can
+     * put it right. On a slow machine that is how a burst lost letters at the
+     * door. While characters are being typed one after another the input
+     * handler knows the run they are going into, whatever the DOM says this
+     * instant, so the key is let through and answered there.
+     */
+    const typingBurst = (this.inputHandler as any).isTypingBurst === true;
+    if (isTypingKey(event) && event.keyCode !== 229 && !typingBurst && !this.isSelectionInsideEditableText()) {
       event.preventDefault();
       return;
     }

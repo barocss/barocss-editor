@@ -120,3 +120,19 @@ function normalizeCodeToKey(code: string): string {
   return code;
 }
 
+
+/**
+ * Whether a key press is a character being typed.
+ *
+ * `key` is one character long exactly when the press produces one — every key
+ * that does something instead is named, and names are longer than a character:
+ * `Enter`, `Tab`, `Escape`, `ArrowLeft`. Listing those alongside the length test
+ * is what the check used to do, and none of them could ever have reached it.
+ *
+ * Ctrl and Cmd make a shortcut out of a character key, so those are not typing.
+ * Alt is not excluded: on a Mac it is how a reader types é, ø and ¥, and
+ * refusing it would refuse those letters.
+ */
+export function isTypingKey(event: KeyboardEvent): boolean {
+  return event.key.length === 1 && !event.ctrlKey && !event.metaKey;
+}
