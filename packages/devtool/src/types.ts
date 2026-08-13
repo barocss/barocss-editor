@@ -56,7 +56,7 @@ export interface ModelTreeNode {
  * 를 한 곳에 모아서 Devtool에서 비교/표시하기 위한 구조이다.
  */
 export interface LastInputDebug {
-  case: 'C1' | 'C2' | 'C3' | 'C4' | 'IME_INTERMEDIATE' | 'UNKNOWN';
+  case: 'text-in-one-run' | 'text-across-runs' | 'block-structure' | 'inline-markup' | 'ime-intermediate' | 'unknown';
   inputType?: string;
   usedInputHint?: boolean;
   inputHintRange?: {

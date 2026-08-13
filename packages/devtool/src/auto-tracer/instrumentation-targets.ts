@@ -157,9 +157,9 @@ export const INSTRUMENTATION_TARGETS: InstrumentationTarget[] = [
     className: 'InputHandlerImpl',
     methods: [
       'handleDelete',
-      'handleC1',
-      'handleC2',
-      'handleC3',
+      'handleTextInOneRun',
+      'handleTextAcrossRuns',
+      'handleBlockStructure',
       'handleTextContentChange',
       'handleDomMutations'
     ]

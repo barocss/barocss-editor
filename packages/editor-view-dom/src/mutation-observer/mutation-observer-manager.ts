@@ -99,12 +99,43 @@ export class MutationObserverManagerImpl implements MutationObserverManager {
     this.observer = new MutationObserver((records) => {
       const region = this.caretRegion(contentEditableElement);
 
+      const view = (this.inputHandler as any).editorViewDOM;
+
+      /**
+       * During a burst of typing, a render's records are the render's own.
+       *
+       * They were meant to be turned away further down by content, on the
+       * grounds that the DOM then says what the model says. Under load it does
+       * not: records are delivered a batch at a time, so a batch describing the
+       * page as it stood three characters ago arrives while the model holds all
+       * four, reads as a difference, and is imported — writing the older text
+       * back over the newer. Typed at a quarter speed, "abcd" came back as "a".
+       *
+       * Narrow on purpose. Skipping *every* model-driven record breaks the work
+       * that legitimately depends on them — deleting text that a comment was
+       * attached to stopped orphaning the comment — so this asks the narrower
+       * question: are characters being typed one after another right now? Then
+       * nothing else is writing to the DOM, and a record can only be ours.
+       *
+       * Composition is excluded for the same reason from the other side: an IME
+       * writes to the DOM itself and the view does not render underneath it, so
+       * there is no render for its records to be confused with.
+       */
+      if (
+        view?.isModelDrivenChange &&
+        view?._isComposing !== true &&
+        (this.inputHandler as any).isTypingBurst === true
+      ) {
+        logger.debug(LogCategory.TEXT_INPUT, 'MutationObserver callback: SKIP - our own render, mid-burst');
+        return;
+      }
+
       // No caret to scope to, and a render in flight: these are the renderer's
       // own, and there is nothing to compare them against. Letting them through
       // is not harmless — Replace moves the caret out of the text it rewrote, so
       // every record of that rewrite arrived unscoped and was read back as if
       // somebody had typed it, which cost the replacement one of its matches.
-      if (!region && (this.inputHandler as any).editorViewDOM?.isModelDrivenChange) {
+      if (!region && view?.isModelDrivenChange) {
         logger.debug(LogCategory.TEXT_INPUT, 'MutationObserver callback: SKIP - render output, no caret');
         return;
       }

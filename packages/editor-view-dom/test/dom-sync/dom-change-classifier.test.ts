@@ -88,7 +88,7 @@ describe('dom-change-classifier', () => {
     nodeMap = {};
   });
 
-  it('C2에서 modelSelection이 없으면 DOM 선택 위치 기준으로 정확한 offset을 계산해야 함', () => {
+  it('text-across-runs에서 modelSelection이 없으면 DOM 선택 위치 기준으로 정확한 offset을 계산해야 함', () => {
     const text1 = container.appendChild(document.createTextNode('Hello'));
     const wrapper1 = document.createElement('span');
     wrapper1.setAttribute('data-bc-sid', 't1');
@@ -130,7 +130,7 @@ describe('dom-change-classifier', () => {
       selection: window.getSelection() || undefined
     });
 
-    expect(result.case).toBe('C2');
+    expect(result.case).toBe('text-across-runs');
     expect(result.contentRange).toMatchObject({
       startNodeId: 't1',
       startOffset: 2,
@@ -141,7 +141,7 @@ describe('dom-change-classifier', () => {
     expect(result.newText).toBe('lloWor');
   });
 
-  it('C2에서 InputHint가 있으면 hint를 우선 사용해야 함', () => {
+  it('text-across-runs에서 InputHint가 있으면 hint를 우선 사용해야 함', () => {
     const text1 = document.createTextNode('Hello');
     const text2 = document.createTextNode('World');
 
@@ -158,7 +158,7 @@ describe('dom-change-classifier', () => {
     container.appendChild(wrapper1);
     container.appendChild(wrapper2);
 
-    // No DOM selection: rely on inputHint for C2 (multi-node range)
+    // No DOM selection: rely on inputHint for text-across-runs (multi-node range)
     const sel = window.getSelection();
     if (sel) sel.removeAllRanges();
 
@@ -190,13 +190,13 @@ describe('dom-change-classifier', () => {
       }
     });
 
-    expect(result.case).toBe('C2');
+    expect(result.case).toBe('text-across-runs');
     expect(result.contentRange?.startOffset).toBe(1);
     expect(result.contentRange?.endOffset).toBe(2);
     expect(result.metadata?.usedInputHint).toBe(true);
   });
 
-  it('C3에서 블록 추가/분리가 있는 경우 패턴을 분석해야 함', () => {
+  it('block-structure에서 블록 추가/분리가 있는 경우 패턴을 분석해야 함', () => {
     nodeMap['p2'] = { sid: 'p2', stype: 'paragraph', text: undefined, content: [] };
 
     const paragraph = document.createElement('p');
@@ -220,12 +220,12 @@ describe('dom-change-classifier', () => {
       editor: createEditor()
     });
 
-    expect(result.case).toBe('C3');
+    expect(result.case).toBe('block-structure');
     expect(result.metadata?.pattern).toBe('split');
     expect(result.metadata?.command).toBe('insertParagraph');
   });
 
-  it('C4에서 anchor 추가가 감지되면 auto-link 특수 케이스로 분기해야 함', () => {
+  it('inline-markup에서 anchor 추가가 감지되면 auto-link 특수 케이스로 분기해야 함', () => {
     const inline = document.createElement('span');
     inline.setAttribute('data-bc-sid', 't1');
     inline.setAttribute('data-bc-stype', 'inline-text');
@@ -245,7 +245,7 @@ describe('dom-change-classifier', () => {
       editor: createEditor()
     });
 
-    expect(result.case).toBe('C4_AUTO_LINK');
-    expect(result.metadata?.specialCase).toBe('C4_AUTO_LINK');
+    expect(result.case).toBe('auto-link');
+    expect(result.metadata?.specialCase).toBe('auto-link');
   });
 });

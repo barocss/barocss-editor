@@ -2,7 +2,7 @@
  * DOM → Model sync case classifier
  * 
  * Analyzes DOM changes detected by MutationObserver
- * and classifies them into C1/C2/C3/C4 cases, determining appropriate DataStore operations.
+ * and classifies them into text-in-one-run / text-across-runs / block-structure / inline-markup cases, determining appropriate DataStore operations.
  * 
  * Reference documents:
  * - `dom-to-model-sync-cases.md`: Detailed case definitions
@@ -21,25 +21,25 @@ const BLOCK_TYPES = new Set(['paragraph', 'heading', 'list', 'list-item', 'block
  * DOM change case type
  */
 export type DomChangeCase = 
-  | 'C1'  // Pure text change within single inline-text
-  | 'C2'  // Text change across multiple inline-text
-  | 'C3'  // Block structure change
-  | 'C4'  // Mark/style/decorator change
-  | 'C4_AUTO_CORRECT'  // Auto correct
-  | 'C4_AUTO_LINK'     // Auto link
-  | 'C4_DND'           // Drag and drop
-  | 'IME_INTERMEDIATE' // IME composition intermediate state
-  | 'UNKNOWN';          // Unknown change
+  | 'text-in-one-run'  // Pure text change within single inline-text
+  | 'text-across-runs'  // Text change across multiple inline-text
+  | 'block-structure'  // Block structure change
+  | 'inline-markup'  // Mark/style/decorator change
+  | 'auto-correct'  // Auto correct
+  | 'auto-link'     // Auto link
+  | 'drag-and-drop'           // Drag and drop
+  | 'ime-intermediate' // IME composition intermediate state
+  | 'unknown';          // Unknown change
 
 /**
  * Classification result
  */
 export interface ClassifiedChange {
   case: DomChangeCase;
-  nodeId?: string;  // Changed model node ID (for C1, C2)
-  contentRange?: ModelSelection;  // Text change range (for C1, C2)
-  prevText?: string;  // Text before change (for C1, C2)
-  newText?: string;   // Text after change (for C1, C2)
+  nodeId?: string;  // Changed model node ID (for the text cases)
+  contentRange?: ModelSelection;  // Text change range (for the text cases)
+  prevText?: string;  // Text before change (for the text cases)
+  newText?: string;   // Text after change (for the text cases)
   insertedText?: string;  // Inserted text
   deletedLength?: number;  // Deleted length
   editPosition?: number;   // Edit position
@@ -50,7 +50,7 @@ export interface ClassifiedChange {
 /**
  * Insert Range hint collected at beforeinput stage
  * - Includes input type, target ModelSelection, input text (optional), timestamp.
- * - Used to correct contentRange calculation in C1/C2.
+ * - Used to correct contentRange calculation in text-in-one-run and text-across-runs.
  */
 export interface InputHint {
   inputType: string;
@@ -90,60 +90,60 @@ export function classifyDomChange(
   if (mutations.length === 0) {
     logger.debug(LogCategory.TEXT_INPUT, 'classifyDomChange: EMPTY mutations');
     return {
-      case: 'UNKNOWN',
+      case: 'unknown',
       mutations: []
     };
   }
 
-  // NOTE: text changes are handled as C1/C2 regardless of isComposing
+  // NOTE: text changes are handled as text-in-one-run and text-across-runs regardless of isComposing
   // only selection needs to be accurate (IME intermediate state is also reflected in model)
 
-  // C1: Pure text change within single inline-text
-  const c1Result = classifyC1(mutations, options);
-  if (c1Result) {
-    logger.debug(LogCategory.TEXT_INPUT, 'classifyDomChange: C1 detected', c1Result);
-    return c1Result;
+  // text-in-one-run: Pure text change within single inline-text
+  const textInOneRun = classifyTextInOneRun(mutations, options);
+  if (textInOneRun) {
+    logger.debug(LogCategory.TEXT_INPUT, 'classifyDomChange: text-in-one-run detected', textInOneRun);
+    return textInOneRun;
   }
 
-  // C2: Text change across multiple inline-text
-  const c2Result = classifyC2(mutations, options);
-  if (c2Result) {
-    logger.debug(LogCategory.TEXT_INPUT, 'classifyDomChange: C2 detected', c2Result);
-    return c2Result;
+  // text-across-runs: Text change across multiple inline-text
+  const textAcrossRuns = classifyTextAcrossRuns(mutations, options);
+  if (textAcrossRuns) {
+    logger.debug(LogCategory.TEXT_INPUT, 'classifyDomChange: text-across-runs detected', textAcrossRuns);
+    return textAcrossRuns;
   }
 
-  // C3: Block structure change
-  const c3Result = classifyC3(mutations, options);
-  if (c3Result) {
-    logger.debug(LogCategory.TEXT_INPUT, 'classifyDomChange: C3 detected', c3Result);
-    return c3Result;
+  // block-structure: Block structure change
+  const blockStructure = classifyBlockStructure(mutations, options);
+  if (blockStructure) {
+    logger.debug(LogCategory.TEXT_INPUT, 'classifyDomChange: block-structure detected', blockStructure);
+    return blockStructure;
   }
 
-  // C4: Mark/style/decorator change
-  const c4Result = classifyC4(mutations, options);
-  if (c4Result) {
-    logger.debug(LogCategory.TEXT_INPUT, 'classifyDomChange: C4 detected', c4Result);
-    return c4Result;
+  // inline-markup: Mark/style/decorator change
+  const inlineMarkup = classifyInlineMarkup(mutations, options);
+  if (inlineMarkup) {
+    logger.debug(LogCategory.TEXT_INPUT, 'classifyDomChange: inline-markup detected', inlineMarkup);
+    return inlineMarkup;
   }
 
   // Unknown change
   console.warn('[DomChangeClassifier] classifyDomChange: UNKNOWN', { mutations });
   return {
-    case: 'UNKNOWN',
+    case: 'unknown',
     mutations
   };
 }
 
 /**
- * C1: Classify pure text change within single inline-text
+ * text-in-one-run: Classify pure text change within single inline-text
  * 
  * Detection criteria:
  * - Only text changed within a single inline-text node
  * - Ignore mark wrapper / style / childList, compare only sid-based full text
  * - No addition/deletion of block-level elements (p, div, li, etc.)
  */
-/** Returns true if node (or its element children) is C4 special case (e.g. <a> with href). */
-function hasC4SpecialCaseInNodes(nodes: Node[]): boolean {
+/** Returns true if node (or its element children) is inline-markup special case (e.g. <a> with href). */
+function hasInlineMarkupInNodes(nodes: Node[]): boolean {
   for (const node of nodes) {
     if (node.nodeType !== Node.ELEMENT_NODE) continue;
     const el = node as Element;
@@ -157,13 +157,13 @@ function hasC4SpecialCaseInNodes(nodes: Node[]): boolean {
   return false;
 }
 
-function classifyC1(
+function classifyTextInOneRun(
   mutations: MutationRecord[],
   options: ClassifyOptions
 ): ClassifiedChange | null {
-  logger.debug(LogCategory.TEXT_INPUT, 'classifyC1: CHECKING');
+  logger.debug(LogCategory.TEXT_INPUT, 'classifyTextInOneRun: CHECKING');
 
-  // If selection spans two different inline-text nodes, let C2 handle
+  // If selection spans two different inline-text nodes, let text-across-runs handle
   if (options.selection && options.selection.rangeCount > 0) {
     const range = options.selection.getRangeAt(0);
     const startEl = findClosestInlineTextNode(range.startContainer);
@@ -171,27 +171,27 @@ function classifyC1(
     const startSid = startEl?.getAttribute('data-bc-sid');
     const endSid = endEl?.getAttribute('data-bc-sid');
     if (startSid && endSid && startSid !== endSid) {
-      logger.debug(LogCategory.TEXT_INPUT, 'classifyC1: SKIP - selection spans multiple inline-text (C2)');
+      logger.debug(LogCategory.TEXT_INPUT, 'classifyTextInOneRun: SKIP - selection spans multiple inline-text (text-across-runs)');
       return null;
     }
   }
 
-  // If inputHint range spans multiple inline-text nodes, let C2 handle
+  // If inputHint range spans multiple inline-text nodes, let text-across-runs handle
   const hint = options.inputHint;
   if (hint?.contentRange && hint.contentRange.startNodeId !== hint.contentRange.endNodeId) {
-    logger.debug(LogCategory.TEXT_INPUT, 'classifyC1: SKIP - inputHint spans multiple nodes (C2)');
+    logger.debug(LogCategory.TEXT_INPUT, 'classifyTextInOneRun: SKIP - inputHint spans multiple nodes (text-across-runs)');
     return null;
   }
 
-  // If any mutation adds/removes C4-like nodes (e.g. <a>), let C4 handle
+  // If any mutation adds/removes inline-markup-like nodes (e.g. <a>), let inline-markup handle
   for (const mutation of mutations) {
     if (mutation.type !== 'childList') continue;
     const addedOrRemoved = [
       ...Array.from(mutation.addedNodes || []),
       ...Array.from(mutation.removedNodes || [])
     ];
-    if (hasC4SpecialCaseInNodes(addedOrRemoved)) {
-      logger.debug(LogCategory.TEXT_INPUT, 'classifyC1: SKIP - C4 special case in childList');
+    if (hasInlineMarkupInNodes(addedOrRemoved)) {
+      logger.debug(LogCategory.TEXT_INPUT, 'classifyTextInOneRun: SKIP - inline-markup special case in childList');
       return null;
     }
   }
@@ -202,7 +202,7 @@ function classifyC1(
   //    every mutation instead means a render's own output can lead the search
   //    somewhere else entirely — measured on a paginated document, a keystroke
   //    arrived among hundreds of mutations from the page chrome, the walk landed
-  //    on the section, and the keystroke was never classified at all. C2 beside
+  //    on the section, and the keystroke was never classified at all. text-across-runs beside
   //    this one has always started from the selection.
   //
   //    Without a caret there is nothing to compare against, so every mutation is
@@ -238,7 +238,7 @@ function classifyC1(
     // Check model node
     const modelNode = options.editor.dataStore?.getNode?.(nodeId);
     if (!modelNode || modelNode.stype !== 'inline-text') {
-      logger.debug(LogCategory.TEXT_INPUT, 'classifyC1: SKIP - not inline-text node', { nodeId, stype: modelNode?.stype });
+      logger.debug(LogCategory.TEXT_INPUT, 'classifyTextInOneRun: SKIP - not inline-text node', { nodeId, stype: modelNode?.stype });
       continue;
     }
 
@@ -255,8 +255,8 @@ function classifyC1(
         return ['p', 'div', 'li', 'ul', 'ol', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote'].includes(tag);
       });
       if (hasBlockLikeElement) {
-        // If block structure is mixed in, it's a C3 candidate, not C1, so skip
-        logger.debug(LogCategory.TEXT_INPUT, 'classifyC1: SKIP - block-like element in childList');
+        // If block structure is mixed in, it's a block-structure candidate, not text-in-one-run, so skip
+        logger.debug(LogCategory.TEXT_INPUT, 'classifyTextInOneRun: SKIP - block-like element in childList');
         continue;
       }
     }
@@ -268,7 +268,7 @@ function classifyC1(
     //    May be split into multiple text nodes due to mark/decorator, so combine all by sid.
     const newText = reconstructModelTextFromDOM(inlineTextNode);
 
-    logger.debug(LogCategory.TEXT_INPUT, 'classifyC1: FOUND', {
+    logger.debug(LogCategory.TEXT_INPUT, 'classifyTextInOneRun: FOUND', {
       nodeId,
       prevText,
       newText,
@@ -278,7 +278,7 @@ function classifyC1(
 
     // 5. Calculate contentRange
     //    - Use if InputHint exists
-    //    - Otherwise, calculate accurate range with analyzeTextChanges in handleC1
+    //    - Otherwise, calculate accurate range with analyzeTextChanges in handleTextInOneRun
     let startOffset: number | undefined = undefined;
     let endOffset: number | undefined = undefined;
     let usedInputHint = false;
@@ -292,19 +292,19 @@ function classifyC1(
       endOffset = hintedEnd;
       usedInputHint = true;
 
-      logger.debug(LogCategory.TEXT_INPUT, 'classifyC1: using InputHint for contentRange', {
+      logger.debug(LogCategory.TEXT_INPUT, 'classifyTextInOneRun: using InputHint for contentRange', {
         hintedStart,
         hintedEnd,
         inputType: hint.inputType
       });
     } else {
       // If InputHint is missing, don't set contentRange
-      // Calculate accurate range using analyzeTextChanges in handleC1
-      logger.debug(LogCategory.TEXT_INPUT, 'classifyC1: no InputHint, contentRange will be calculated by analyzeTextChanges');
+      // Calculate accurate range using analyzeTextChanges in handleTextInOneRun
+      logger.debug(LogCategory.TEXT_INPUT, 'classifyTextInOneRun: no InputHint, contentRange will be calculated by analyzeTextChanges');
     }
 
     return {
-      case: 'C1',
+      case: 'text-in-one-run',
       nodeId,
       prevText,
       newText,
@@ -325,24 +325,24 @@ function classifyC1(
 }
 
 /**
- * C2: Classify text change across multiple inline-text
+ * text-across-runs: Classify text change across multiple inline-text
  * 
  * Detection criteria:
  * - childList + characterData pattern in consecutive inline area
  * - Generate selection-based contentRange + flattened newText
  */
-function classifyC2(
+function classifyTextAcrossRuns(
   mutations: MutationRecord[],
   options: ClassifyOptions
 ): ClassifiedChange | null {
-  logger.debug(LogCategory.TEXT_INPUT, 'classifyC2: CHECKING');
+  logger.debug(LogCategory.TEXT_INPUT, 'classifyTextAcrossRuns: CHECKING');
 
   // Check if childList and characterData are present together
   const hasChildList = mutations.some(m => m.type === 'childList');
   const hasCharacterData = mutations.some(m => m.type === 'characterData');
 
   if (!hasChildList || !hasCharacterData) {
-    logger.debug(LogCategory.TEXT_INPUT, 'classifyC2: SKIP - no childList+characterData');
+    logger.debug(LogCategory.TEXT_INPUT, 'classifyTextAcrossRuns: SKIP - no childList+characterData');
     return null;
   }
 
@@ -360,7 +360,7 @@ function classifyC2(
     const startInlineText = findClosestInlineTextNode(range.startContainer);
     const endInlineText = findClosestInlineTextNode(range.endContainer);
     if (!startInlineText || !endInlineText) {
-      logger.debug(LogCategory.TEXT_INPUT, 'classifyC2: SKIP - no inline-text nodes found');
+      logger.debug(LogCategory.TEXT_INPUT, 'classifyTextAcrossRuns: SKIP - no inline-text nodes found');
       return null;
     }
     startNodeId = startInlineText.getAttribute('data-bc-sid')!;
@@ -369,12 +369,12 @@ function classifyC2(
     startNodeId = hint!.contentRange.startNodeId;
     endNodeId = hint!.contentRange.endNodeId;
   } else {
-    logger.debug(LogCategory.TEXT_INPUT, 'classifyC2: SKIP - no selection');
+    logger.debug(LogCategory.TEXT_INPUT, 'classifyTextAcrossRuns: SKIP - no selection');
     return null;
   }
 
   if (!startNodeId || !endNodeId) {
-    logger.debug(LogCategory.TEXT_INPUT, 'classifyC2: SKIP - no sid attributes');
+    logger.debug(LogCategory.TEXT_INPUT, 'classifyTextAcrossRuns: SKIP - no sid attributes');
     return null;
   }
 
@@ -384,20 +384,20 @@ function classifyC2(
 
   if (!startModelNode || !endModelNode || 
       startModelNode.stype !== 'inline-text' || endModelNode.stype !== 'inline-text') {
-    logger.debug(LogCategory.TEXT_INPUT, 'classifyC2: SKIP - not inline-text nodes', {
+    logger.debug(LogCategory.TEXT_INPUT, 'classifyTextAcrossRuns: SKIP - not inline-text nodes', {
       startStype: startModelNode?.stype,
       endStype: endModelNode?.stype
     });
     return null;
   }
 
-  // If same node, handle as C1
+  // If same node, handle as text-in-one-run
   if (startNodeId === endNodeId) {
-    logger.debug(LogCategory.TEXT_INPUT, 'classifyC2: SKIP - same node (should be C1)');
+    logger.debug(LogCategory.TEXT_INPUT, 'classifyTextAcrossRuns: SKIP - same node (should be text-in-one-run)');
     return null;
   }
 
-  // Check if block-level change exists (may be C3)
+  // Check if block-level change exists (may be block-structure)
   const hasBlockLevelChange = mutations.some(m => {
     if (m.type !== 'childList') return false;
     const target = m.target as Element;
@@ -409,7 +409,7 @@ function classifyC2(
   });
 
   if (hasBlockLevelChange) {
-    logger.debug(LogCategory.TEXT_INPUT, 'classifyC2: SKIP - has block-level change (should be C3)');
+    logger.debug(LogCategory.TEXT_INPUT, 'classifyTextAcrossRuns: SKIP - has block-level change (should be block-structure)');
     return null;
   }
 
@@ -449,7 +449,7 @@ function classifyC2(
     prevText = startModelNode.text || '';
   }
 
-  logger.debug(LogCategory.TEXT_INPUT, 'classifyC2: FOUND', {
+  logger.debug(LogCategory.TEXT_INPUT, 'classifyTextAcrossRuns: FOUND', {
     startNodeId,
     endNodeId,
     prevTextLength: prevText.length,
@@ -473,7 +473,7 @@ function classifyC2(
     endOffset = hint.contentRange.endOffset;
     usedInputHint = true;
 
-    logger.debug(LogCategory.TEXT_INPUT, 'classifyC2: using InputHint for offsets', {
+    logger.debug(LogCategory.TEXT_INPUT, 'classifyTextAcrossRuns: using InputHint for offsets', {
       inputType: hint.inputType,
       startOffset,
       endOffset
@@ -495,7 +495,7 @@ function classifyC2(
       endOffset = endModelNode.text?.length || 0;
     }
     
-    logger.debug(LogCategory.TEXT_INPUT, 'classifyC2: using model selection for offsets', {
+    logger.debug(LogCategory.TEXT_INPUT, 'classifyTextAcrossRuns: using model selection for offsets', {
       modelSelection: options.modelSelection,
       calculatedOffsets: { startOffset, endOffset }
     });
@@ -520,7 +520,7 @@ function classifyC2(
       endOffset = endModelNode.text?.length || 0;
     }
     
-    logger.debug(LogCategory.TEXT_INPUT, 'classifyC2: using DOM selection (less accurate - fallback)', {
+    logger.debug(LogCategory.TEXT_INPUT, 'classifyTextAcrossRuns: using DOM selection (less accurate - fallback)', {
       startNodeId,
       endNodeId,
       startOffset,
@@ -550,7 +550,7 @@ function classifyC2(
   }
 
   return {
-    case: 'C2',
+    case: 'text-across-runs',
     nodeId: startNodeId,
     prevText,
     newText: flatText,
@@ -709,7 +709,7 @@ function extractFlatTextFromSelection(range: Range): string {
 }
 
 /**
- * C3: 블록 구조 변경 분류
+ * block-structure: 블록 구조 변경 분류
  * 
  * 감지 기준:
  * - block-level childList 변화 패턴
@@ -718,11 +718,11 @@ function extractFlatTextFromSelection(range: Range): string {
  * 참고: 원칙적으로 beforeinput에서 처리하지만,
  * 브라우저/플랫폼 차이로 beforeinput이 오지 않은 경우를 대비
  */
-function classifyC3(
+function classifyBlockStructure(
   mutations: MutationRecord[],
   options: ClassifyOptions
 ): ClassifiedChange | null {
-  logger.debug(LogCategory.TEXT_INPUT, 'classifyC3: CHECKING');
+  logger.debug(LogCategory.TEXT_INPUT, 'classifyBlockStructure: CHECKING');
 
   // Check for block-level childList changes
   const blockLevelMutations: MutationRecord[] = [];
@@ -745,7 +745,7 @@ function classifyC3(
   }
 
   if (blockLevelMutations.length === 0) {
-    logger.debug(LogCategory.TEXT_INPUT, 'classifyC3: SKIP - no block-level change');
+    logger.debug(LogCategory.TEXT_INPUT, 'classifyBlockStructure: SKIP - no block-level change');
     return null;
   }
 
@@ -754,17 +754,17 @@ function classifyC3(
   const pattern = analyzeBlockStructureChange(blockLevelMutations, options);
   
   if (!pattern) {
-    logger.debug(LogCategory.TEXT_INPUT, 'classifyC3: SKIP - cannot analyze pattern');
+    logger.debug(LogCategory.TEXT_INPUT, 'classifyBlockStructure: SKIP - cannot analyze pattern');
     return null;
   }
 
-  logger.debug(LogCategory.TEXT_INPUT, 'classifyC3: FOUND', {
+  logger.debug(LogCategory.TEXT_INPUT, 'classifyBlockStructure: FOUND', {
     pattern: pattern.type,
     affectedNodes: pattern.affectedNodeIds
   });
 
   return {
-    case: 'C3',
+    case: 'block-structure',
     mutations: blockLevelMutations,
     metadata: {
       pattern: pattern.type,
@@ -890,7 +890,7 @@ function isBlockNodeType(stype: string): boolean {
 }
 
 /**
- * C4: 마크/스타일/데코레이터 변경 분류
+ * inline-markup: 마크/스타일/데코레이터 변경 분류
  * 
  * 감지 기준:
  * - 인라인 스타일/태그 변경 → marks/decorators 후보로 분류
@@ -899,11 +899,11 @@ function isBlockNodeType(stype: string): boolean {
  * 참고: 원칙적으로 keydown에서 preventDefault()하지만,
  * 브라우저/플랫폼 차이로 발생할 수 있는 경우를 대비
  */
-function classifyC4(
+function classifyInlineMarkup(
   mutations: MutationRecord[],
   options: ClassifyOptions
 ): ClassifiedChange | null {
-  logger.debug(LogCategory.TEXT_INPUT, 'classifyC4: CHECKING');
+  logger.debug(LogCategory.TEXT_INPUT, 'classifyInlineMarkup: CHECKING');
 
   // Check attributes changes (style changes)
   const attributeMutations = mutations.filter(m => m.type === 'attributes');
@@ -993,17 +993,17 @@ function classifyC4(
   const specialCase = detectSpecialCase(mutations, options);
 
   if (markChanges.length === 0 && !specialCase) {
-    logger.debug(LogCategory.TEXT_INPUT, 'classifyC4: SKIP - no mark changes detected');
+    logger.debug(LogCategory.TEXT_INPUT, 'classifyInlineMarkup: SKIP - no mark changes detected');
     return null;
   }
 
-  logger.debug(LogCategory.TEXT_INPUT, 'classifyC4: FOUND', {
+  logger.debug(LogCategory.TEXT_INPUT, 'classifyInlineMarkup: FOUND', {
     markChangesCount: markChanges.length,
     markChanges
   });
 
   return {
-    case: specialCase || 'C4',
+    case: specialCase || 'inline-markup',
     mutations,
     metadata: {
       markChanges,
@@ -1079,7 +1079,7 @@ function detectSpecialCase(
     const tagName = el.tagName.toLowerCase();
 
     if (tagName === 'a' && !!href) {
-      return 'C4_AUTO_LINK';
+      return 'auto-link';
     }
 
     if (classNameContains(className, 'autocorrect') ||
@@ -1088,14 +1088,14 @@ function detectSpecialCase(
         classNameContains(className, 'autocorrect') ||
         classNameContains(style, 'text-transform') &&
         classNameContains(style, 'none')) {
-      return 'C4_AUTO_CORRECT';
+      return 'auto-correct';
     }
 
     if (classNameContains(className, 'drag') ||
         classNameContains(className, 'drop') ||
         !!dataTransfer || !!dataDnd ||
         classNameContains(className, 'drag-over')) {
-      return 'C4_DND';
+      return 'drag-and-drop';
     }
 
     return null;
@@ -1111,7 +1111,7 @@ function detectSpecialCase(
     if (mutation.attributeName && mutation.target instanceof Element) {
       const attr = mutation.target.getAttribute(mutation.attributeName);
       if (attr && attr.toLowerCase().includes('autocorrect')) {
-        return 'C4_AUTO_CORRECT';
+        return 'auto-correct';
       }
     }
 

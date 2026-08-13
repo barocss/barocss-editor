@@ -27,7 +27,7 @@ const DELETE_COMMANDS: Record<string, string> = {
  * Uses the same structure as LastInputDebug in editor-view-dom
  */
 interface LastInputDebug {
-  case: 'C1' | 'C2' | 'C3' | 'C4' | 'IME_INTERMEDIATE' | 'UNKNOWN';
+  case: 'text-in-one-run' | 'text-across-runs' | 'block-structure' | 'inline-markup' | 'ime-intermediate' | 'unknown';
   inputType?: string;
   usedInputHint?: boolean;
   inputHintRange?: {
@@ -62,10 +62,27 @@ export class InputHandlerImpl implements InputHandler {
    * Insert Range hint collected at beforeinput stage
    * - For insertText / insertFromPaste / insertReplacementText, etc.,
    *   estimates contentRange based on DOM selection and inputType.
-   * - Used for contentRange correction in dom-change-classifier (C1/C2).
+   * - Used for contentRange correction in dom-change-classifier (text-in-one-run and text-across-runs).
    */
   private _pendingInsertHint: InputHint | null = null;
   private _contentChangeTxSeq = 0;
+
+  /**
+   * Where the next character of a burst goes.
+   *
+   * `getTargetRanges` describes the DOM as it stands, and typing is applied
+   * model-first: the browser's own edit is prevented, a transaction commits, the
+   * render rewrites the text node and the caret is restored after it. A burst
+   * outruns that — measured with the CPU at an eighth speed, the offsets
+   * reported for successive keystrokes went 23, 24, 24, 25, 27 while the text
+   * grew by one each time, so two characters were written to the same place and
+   * one to a place two along.
+   *
+   * This is the position the last accepted keystroke leaves the caret at,
+   * advanced as each one is accepted rather than as each one lands. It is used
+   * only when the DOM is demonstrably behind it; see the beforeinput handler.
+   */
+  private _burstCaret: { nodeId: string; offset: number; at: number } | null = null;
 
   constructor(editor: Editor, editorViewDOM: IEditorViewDOM) {
     this.editor = editor;
@@ -207,8 +224,41 @@ export class InputHandlerImpl implements InputHandler {
    * - When KeyBindingManager is introduced, shortcut handling logic can be moved to this method
    * - Currently uses KeymapManager (KeyBindingManager in docs is a future expansion plan)
    */
+  /**
+   * The caret was moved by the reader rather than by their typing.
+   *
+   * A click, an arrow key, Home, Enter: after any of them the DOM is the only
+   * thing that knows where the caret is, so what was remembered about where a
+   * burst had reached has to go. Without this a click a few characters back into
+   * the same run, moments after typing, would look exactly like the DOM lagging
+   * behind — and the next character would be written where the burst ended
+   * instead of where the reader put the caret.
+   */
+  caretMovedByUser(): void {
+    this._burstCaret = null;
+  }
+
+  /**
+   * Whether characters are still being typed one after another.
+   *
+   * True from the first character of a burst until something moves the caret
+   * that is not another character. The observer uses it to tell its own renders
+   * apart from a reader's edits: during a burst there is no other writer, and a
+   * batch of records that arrives then describes a page the model has already
+   * moved past.
+   */
+  get isTypingBurst(): boolean {
+    return this._burstCaret !== null;
+  }
+
   handleKeyDown(event: KeyboardEvent): void {
     const key = event.key;
+
+    // Anything that is not a character being typed moves the caret or changes
+    // the shape of the text around it.
+    if (key.length !== 1 || event.ctrlKey || event.metaKey || event.altKey) {
+      this.caretMovedByUser();
+    }
     const code = event.code;
     const ctrlKey = event.ctrlKey;
     const metaKey = event.metaKey;
@@ -268,7 +318,7 @@ export class InputHandlerImpl implements InputHandler {
     // Classify DOM changes
     const selection = window.getSelection();
     
-    // Convert DOM selection to model selection (used in C2/C3/C4)
+    // Convert DOM selection to model selection (used in text-across-runs/block-structure/inline-markup)
     let modelSelection: any = null;
     if (selection && selection.rangeCount > 0) {
       try {
@@ -335,23 +385,23 @@ export class InputHandlerImpl implements InputHandler {
 
     // Handle by case
     switch (classified.case) {
-      case 'C1':
-        await this.handleC1(classified);
+      case 'text-in-one-run':
+        await this.handleTextInOneRun(classified);
         break;
-      case 'C2':
-        await this.handleC2(classified);
+      case 'text-across-runs':
+        await this.handleTextAcrossRuns(classified);
         break;
-      case 'C3':
-        this.handleC3(classified);
+      case 'block-structure':
+        this.handleBlockStructure(classified);
         break;
-      case 'C4':
-      case 'C4_AUTO_CORRECT':
-      case 'C4_AUTO_LINK':
-      case 'C4_DND':
-        this.handleC4(classified);
+      case 'inline-markup':
+      case 'auto-correct':
+      case 'auto-link':
+      case 'drag-and-drop':
+        this.handleInlineMarkup(classified);
         break;
-      case 'UNKNOWN':
-        console.warn('[InputHandler] handleDomMutations: UNKNOWN case', { mutations });
+      case 'unknown':
+        console.warn('[InputHandler] handleDomMutations: unknown case', { mutations });
         break;
     }
   }
@@ -364,7 +414,7 @@ export class InputHandlerImpl implements InputHandler {
    * compare, and an unknown case must stay loud rather than be swallowed here.
    */
   private _alreadyInModel(classified: ClassifiedChange): boolean {
-    if (classified.case !== 'C1' && classified.case !== 'C2') return false;
+    if (classified.case !== 'text-in-one-run' && classified.case !== 'text-across-runs') return false;
     if (!classified.nodeId || classified.newText == null) return false;
 
     const modelNode = (this.editor as any).dataStore?.getNode(classified.nodeId);
@@ -374,10 +424,10 @@ export class InputHandlerImpl implements InputHandler {
   }
 
   /**
-   * C1: Handle pure text changes within a single inline-text
+   * text-in-one-run: Handle pure text changes within a single inline-text
    */
-  private async handleC1(classified: ClassifiedChange): Promise<void> {
-    logger.debug(LogCategory.TEXT_INPUT, 'handleC1: CALLED', { nodeId: classified.nodeId });
+  private async handleTextInOneRun(classified: ClassifiedChange): Promise<void> {
+    logger.debug(LogCategory.TEXT_INPUT, 'handleTextInOneRun: CALLED', { nodeId: classified.nodeId });
 
     // NOTE: '' is a legitimate value here (typing into the empty block a fresh
     // Enter creates, or deleting the last character), so this falsy check is
@@ -390,7 +440,7 @@ export class InputHandlerImpl implements InputHandler {
     // beforeinput/getTargetRanges, not through this path.
     // Fix the untracked-child cleanup in the reconciler before relaxing this.
     if (classified.nodeId == null || classified.prevText == null || classified.newText == null) {
-      console.error('[InputHandler] handleC1: missing required data', classified);
+      console.error('[InputHandler] handleTextInOneRun: missing required data', classified);
       return;
     }
 
@@ -420,13 +470,13 @@ export class InputHandlerImpl implements InputHandler {
     });
 
     if (textChanges.length === 0) {
-      logger.debug(LogCategory.TEXT_INPUT, 'handleC1: SKIP - no text changes');
+      logger.debug(LogCategory.TEXT_INPUT, 'handleTextInOneRun: SKIP - no text changes');
       return;
     }
 
-    // Process only the first change (C1 typically has only one change)
+    // Process only the first change (text-in-one-run typically has only one change)
     const change = textChanges[0];
-    logger.debug(LogCategory.TEXT_INPUT, 'handleC1: text change', {
+    logger.debug(LogCategory.TEXT_INPUT, 'handleTextInOneRun: text change', {
       type: change.type,
       start: change.start,
       end: change.end,
@@ -437,7 +487,7 @@ export class InputHandlerImpl implements InputHandler {
     // DataStore operation
     const dataStore = (this.editor as any).dataStore;
     if (!dataStore) {
-      console.error('[InputHandler] handleC1: dataStore not found');
+      console.error('[InputHandler] handleTextInOneRun: dataStore not found');
       return;
     }
 
@@ -448,7 +498,7 @@ export class InputHandlerImpl implements InputHandler {
     if (classified.contentRange && classified.metadata?.usedInputHint) {
       // classified.contentRange is more accurate when InputHint is used
       contentRange = classified.contentRange;
-      logger.debug(LogCategory.TEXT_INPUT, 'handleC1: using classified.contentRange (InputHint)', contentRange);
+      logger.debug(LogCategory.TEXT_INPUT, 'handleTextInOneRun: using classified.contentRange (InputHint)', contentRange);
     } else {
       // Use analyzeTextChanges result (when InputHint is not available or inaccurate)
       // analyzeTextChanges compares prevText and newText to calculate accurate change position
@@ -458,7 +508,7 @@ export class InputHandlerImpl implements InputHandler {
         endNodeId: classified.nodeId,
         endOffset: change.end
       };
-      logger.debug(LogCategory.TEXT_INPUT, 'handleC1: using analyzeTextChanges result', {
+      logger.debug(LogCategory.TEXT_INPUT, 'handleTextInOneRun: using analyzeTextChanges result', {
         contentRange,
         changeType: change.type,
         changeText: change.text,
@@ -472,7 +522,7 @@ export class InputHandlerImpl implements InputHandler {
       // However, during IME composition, browser default behavior is allowed, so MutationObserver can detect it
       // Handle as fallback in this case (with warning log)
       if (change.type === 'delete') {
-        console.warn('[InputHandler] handleC1: DELETE detected via MutationObserver (should be handled by beforeinput)', {
+        console.warn('[InputHandler] handleTextInOneRun: DELETE detected via MutationObserver (should be handled by beforeinput)', {
           contentRange,
           note: 'This may be an IME composition case or beforeinput was not triggered'
         });
@@ -484,19 +534,19 @@ export class InputHandlerImpl implements InputHandler {
           if (contentRange.startNodeId === contentRange.endNodeId) {
             const success = await this.editor.executeCommand('deleteText', { range: contentRange });
             if (!success) {
-              console.warn('[InputHandler] handleC1: fallback deleteText command failed', { contentRange });
+              console.warn('[InputHandler] handleTextInOneRun: fallback deleteText command failed', { contentRange });
               return;
             }
           } else {
             // Cross-node deletion
             const success = await this.editor.executeCommand('deleteCrossNode', { range: contentRange });
             if (!success) {
-              console.warn('[InputHandler] handleC1: fallback deleteCrossNode command failed', { contentRange });
+              console.warn('[InputHandler] handleTextInOneRun: fallback deleteCrossNode command failed', { contentRange });
               return;
             }
           }
         } catch (error) {
-          console.error('[InputHandler] handleC1: fallback delete command execution failed', { error, contentRange });
+          console.error('[InputHandler] handleTextInOneRun: fallback delete command execution failed', { error, contentRange });
           return;
         }
 
@@ -517,12 +567,12 @@ export class InputHandlerImpl implements InputHandler {
             selection: modelSelection,
             oldSelection: (this.editor as any).selection || null
           });
-          logger.debug(LogCategory.TEXT_INPUT, 'handleC1: fallback delete completed', modelSelection);
+          logger.debug(LogCategory.TEXT_INPUT, 'handleTextInOneRun: fallback delete completed', modelSelection);
         } catch (error) {
-          console.warn('[InputHandler] handleC1: failed to update selection after fallback delete', { error });
+          console.warn('[InputHandler] handleTextInOneRun: failed to update selection after fallback delete', { error });
         }
       } else {
-        logger.debug(LogCategory.TEXT_INPUT, 'handleC1: calling replaceText command', {
+        logger.debug(LogCategory.TEXT_INPUT, 'handleTextInOneRun: calling replaceText command', {
           contentRange,
           insertedText: change.text
         });
@@ -535,11 +585,11 @@ export class InputHandlerImpl implements InputHandler {
           });
           
           if (!success) {
-            console.warn('[InputHandler] handleC1: replaceText command failed', { contentRange, text: change.text });
+            console.warn('[InputHandler] handleTextInOneRun: replaceText command failed', { contentRange, text: change.text });
             return;
           }
         } catch (error) {
-          console.error('[InputHandler] handleC1: replaceText command execution failed', { error, contentRange, text: change.text });
+          console.error('[InputHandler] handleTextInOneRun: replaceText command execution failed', { error, contentRange, text: change.text });
           return;
         }
 
@@ -563,15 +613,15 @@ export class InputHandlerImpl implements InputHandler {
             selection: modelSelection,
             oldSelection: (this.editor as any).selection || null
           });
-          logger.debug(LogCategory.TEXT_INPUT, 'handleC1: updated selection after replace (model-based)', modelSelection);
+          logger.debug(LogCategory.TEXT_INPUT, 'handleTextInOneRun: updated selection after replace (model-based)', modelSelection);
         } catch (error) {
-          console.warn('[InputHandler] handleC1: failed to update selection after replace', { error });
+          console.warn('[InputHandler] handleTextInOneRun: failed to update selection after replace', { error });
         }
       }
 
       // Create LastInputDebug object
       const inputDebug: LastInputDebug = {
-        case: 'C1',
+        case: 'text-in-one-run',
         inputType: this._pendingInsertHint?.inputType,
         usedInputHint: classified.metadata?.usedInputHint === true,
         inputHintRange: this._pendingInsertHint?.contentRange,
@@ -601,32 +651,32 @@ export class InputHandlerImpl implements InputHandler {
       // toolbar recomputes each control over the document on that event — run
       // twice for one composed syllable. What is genuinely ours to report is the
       // debug record, so that goes out under its own name.
-      this.editor.emit('editor:input.debug', { from: 'MutationObserver-C1', inputDebug });
+      this.editor.emit('editor:input.debug', { from: 'MutationObserver-text-in-one-run', inputDebug });
 
       // Also store in editor instance (for access from Devtool)
       (this.editor as any).__lastInputDebug = inputDebug;
 
-      // Text change was successfully applied in C1, so clear Insert Hint
+      // Text change was successfully applied in text-in-one-run, so clear Insert Hint
       this._pendingInsertHint = null;
     } catch (error) {
-      console.error('[InputHandler] handleC1: failed to replace text', { error, contentRange });
+      console.error('[InputHandler] handleTextInOneRun: failed to replace text', { error, contentRange });
     }
   }
 
   /**
-   * C2: 여러 inline-text에 걸친 텍스트 변경 처리
+   * text-across-runs: 여러 inline-text에 걸친 텍스트 변경 처리
    */
-  private async handleC2(classified: ClassifiedChange): Promise<void> {
+  private async handleTextAcrossRuns(classified: ClassifiedChange): Promise<void> {
     // Converted only if a listener reads it — see the transaction's own emit.
     const editorForPayload = this.editor;
-    logger.debug(LogCategory.TEXT_INPUT, 'handleC2: CALLED', {
+    logger.debug(LogCategory.TEXT_INPUT, 'handleTextAcrossRuns: CALLED', {
       startNodeId: classified.contentRange?.startNodeId,
       endNodeId: classified.contentRange?.endNodeId,
       metadata: classified.metadata
     });
 
     if (!classified.contentRange || !classified.newText) {
-      console.error('[InputHandler] handleC2: missing required data', classified);
+      console.error('[InputHandler] handleTextAcrossRuns: missing required data', classified);
       return;
     }
 
@@ -635,7 +685,7 @@ export class InputHandlerImpl implements InputHandler {
     const { startNodeId, endNodeId } = contentRange;
     const isMultiNode = startNodeId !== endNodeId;
 
-    logger.debug(LogCategory.TEXT_INPUT, 'handleC2: processing', {
+    logger.debug(LogCategory.TEXT_INPUT, 'handleTextAcrossRuns: processing', {
       isMultiNode,
       startNodeId,
       endNodeId,
@@ -648,7 +698,7 @@ export class InputHandlerImpl implements InputHandler {
     // DataStore operation
     const dataStore = (this.editor as any).dataStore;
     if (!dataStore) {
-      console.error('[InputHandler] handleC2: dataStore not found');
+      console.error('[InputHandler] handleTextAcrossRuns: dataStore not found');
       return;
     }
 
@@ -659,7 +709,7 @@ export class InputHandlerImpl implements InputHandler {
     try {
       // Handle range spanning multiple nodes with replaceText
       // replaceText automatically handles multi-node cases (deleteText + insertText)
-      logger.debug(LogCategory.TEXT_INPUT, 'handleC2: calling replaceText command', {
+      logger.debug(LogCategory.TEXT_INPUT, 'handleTextAcrossRuns: calling replaceText command', {
         contentRange,
         newText: classified.newText,
         isMultiNode
@@ -673,14 +723,14 @@ export class InputHandlerImpl implements InputHandler {
         });
         
         if (!success) {
-          console.warn('[InputHandler] handleC2: replaceText command failed', { 
+          console.warn('[InputHandler] handleTextAcrossRuns: replaceText command failed', { 
             contentRange, 
             text: classified.newText 
           });
           return;
         }
       } catch (error) {
-        console.error('[InputHandler] handleC2: replaceText command execution failed', { 
+        console.error('[InputHandler] handleTextAcrossRuns: replaceText command execution failed', { 
           error, 
           contentRange, 
           text: classified.newText 
@@ -690,7 +740,7 @@ export class InputHandlerImpl implements InputHandler {
 
       // Create LastInputDebug object
       const inputDebug: LastInputDebug = {
-        case: 'C2',
+        case: 'text-across-runs',
         inputType: this._pendingInsertHint?.inputType,
         usedInputHint: classified.metadata?.usedInputHint === true,
         inputHintRange: this._pendingInsertHint?.contentRange,
@@ -718,7 +768,7 @@ export class InputHandlerImpl implements InputHandler {
       // Emit editor:content.change event (skipRender: true)
       this.editor.emit('editor:content.change', {
         skipRender: true,
-        from: 'MutationObserver-C2',
+        from: 'MutationObserver-text-across-runs',
         get content() { return (editorForPayload as any).document; },
         transaction: this._buildDebugTransaction([
           {
@@ -733,30 +783,30 @@ export class InputHandlerImpl implements InputHandler {
               newText: ''
             }
           }
-        ], 'MutationObserver-C2'),
+        ], 'MutationObserver-text-across-runs'),
         inputDebug
       });
 
       // Also store in editor instance (for access from Devtool)
       (this.editor as any).__lastInputDebug = inputDebug;
 
-      // Text change was successfully applied in C2, so clear Insert Hint
+      // Text change was successfully applied in text-across-runs, so clear Insert Hint
       this._pendingInsertHint = null;
     } catch (error) {
-      console.error('[InputHandler] handleC2: failed to replace text', { error, contentRange });
+      console.error('[InputHandler] handleTextAcrossRuns: failed to replace text', { error, contentRange });
     }
   }
 
   /**
-   * C3: 블록 구조 변경 처리
+   * block-structure: 블록 구조 변경 처리
    * 
    * 원칙: 구조 변경은 beforeinput에서 처리하지만,
    * 브라우저/플랫폼 차이로 beforeinput이 오지 않은 경우를 대비
    */
-  private async handleC3(classified: ClassifiedChange): Promise<void> {
+  private async handleBlockStructure(classified: ClassifiedChange): Promise<void> {
     // Converted only if a listener reads it — see the transaction's own emit.
     const editorForPayload = this.editor;
-    logger.debug(LogCategory.TEXT_INPUT, 'handleC3: CALLED', {
+    logger.debug(LogCategory.TEXT_INPUT, 'handleBlockStructure: CALLED', {
       pattern: classified.metadata?.pattern,
       command: classified.metadata?.command,
       affectedNodes: classified.metadata?.affectedNodeIds
@@ -765,15 +815,15 @@ export class InputHandlerImpl implements InputHandler {
     // Reinterpret as command if possible
     const command = classified.metadata?.command;
     if (command) {
-      logger.debug(LogCategory.TEXT_INPUT, 'handleC3: executing command', { command });
+      logger.debug(LogCategory.TEXT_INPUT, 'handleBlockStructure: executing command', { command });
       try {
         this.editor.executeCommand(command);
         
         // Create LastInputDebug object
         const inputDebug: LastInputDebug = {
-          case: 'C3',
+          case: 'block-structure',
           inputType: this._pendingInsertHint?.inputType,
-          usedInputHint: false, // C3 is structure change, so InputHint is not used
+          usedInputHint: false, // block-structure is structure change, so InputHint is not used
           inputHintRange: this._pendingInsertHint?.contentRange,
           classifiedContentRange: classified.contentRange,
           timestamp: Date.now(),
@@ -784,27 +834,27 @@ export class InputHandlerImpl implements InputHandler {
         // Ignore DOM created by browser and re-render with command result
         this.editor.emit('editor:content.change', {
           skipRender: false, // render needed
-          from: 'MutationObserver-C3-command',
+          from: 'MutationObserver-block-structure-command',
           get content() { return (editorForPayload as any).document; },
-          transaction: this._buildDebugTransaction([], `MutationObserver-C3 command:${command}`),
+          transaction: this._buildDebugTransaction([], `MutationObserver-block-structure command:${command}`),
           inputDebug
         });
 
         // Also store in editor instance (for Devtool access)
         (this.editor as any).__lastInputDebug = inputDebug;
 
-        // Clear Insert Hint since structure change command was executed in C3
+        // Clear Insert Hint since structure change command was executed in block-structure
         this._pendingInsertHint = null;
         return;
       } catch (error) {
-        console.error('[InputHandler] handleC3: command execution failed', { command, error });
+        console.error('[InputHandler] handleBlockStructure: command execution failed', { command, error });
         // proceed with fallback
       }
     }
 
     // When cannot be expressed as command: fallback policy
     // Safely process by extracting only allowed text/inline
-    logger.debug(LogCategory.TEXT_INPUT, 'handleC3: using fallback policy');
+    logger.debug(LogCategory.TEXT_INPUT, 'handleBlockStructure: using fallback policy');
     
     // Fallback policy:
     // 1. Ignore DOM structure created by browser
@@ -813,7 +863,7 @@ export class InputHandlerImpl implements InputHandler {
     
     const dataStore = (this.editor as any).dataStore;
     if (!dataStore) {
-      console.error('[InputHandler] handleC3: dataStore not found');
+      console.error('[InputHandler] handleBlockStructure: dataStore not found');
       return;
     }
     
@@ -831,7 +881,7 @@ export class InputHandlerImpl implements InputHandler {
           endOffset: classified.contentRange.startOffset
         };
         
-        logger.debug(LogCategory.TEXT_INPUT, 'handleC3: fallback - inserting text only', {
+        logger.debug(LogCategory.TEXT_INPUT, 'handleBlockStructure: fallback - inserting text only', {
           insertRange,
           text: classified.newText
         });
@@ -844,14 +894,14 @@ export class InputHandlerImpl implements InputHandler {
           });
           
           if (!success) {
-            console.warn('[InputHandler] handleC3: fallback replaceText command failed', { 
+            console.warn('[InputHandler] handleBlockStructure: fallback replaceText command failed', { 
               insertRange, 
               text: classified.newText 
             });
             return;
           }
         } catch (error) {
-          console.error('[InputHandler] handleC3: fallback replaceText command execution failed', { 
+          console.error('[InputHandler] handleBlockStructure: fallback replaceText command execution failed', { 
             error, 
             insertRange, 
             text: classified.newText 
@@ -861,7 +911,7 @@ export class InputHandlerImpl implements InputHandler {
         
         // Create LastInputDebug object
         const inputDebug: LastInputDebug = {
-          case: 'C3',
+          case: 'block-structure',
           inputType: this._pendingInsertHint?.inputType,
           usedInputHint: false,
           inputHintRange: this._pendingInsertHint?.contentRange,
@@ -875,7 +925,7 @@ export class InputHandlerImpl implements InputHandler {
         // Ignore DOM created by browser and re-render with fallback result
         this.editor.emit('editor:content.change', {
           skipRender: false, // render needed
-          from: 'MutationObserver-C3-fallback',
+          from: 'MutationObserver-block-structure-fallback',
           get content() { return (editorForPayload as any).document; },
           transaction: this._buildDebugTransaction([
             {
@@ -890,20 +940,20 @@ export class InputHandlerImpl implements InputHandler {
                 newText: classified.newText
               }
             }
-          ], 'MutationObserver-C3-fallback'),
+          ], 'MutationObserver-block-structure-fallback'),
           inputDebug
         });
         
         // Also store in editor instance (for Devtool access)
         (this.editor as any).__lastInputDebug = inputDebug;
         
-        // Clear Insert Hint since fallback was executed in C3
+        // Clear Insert Hint since fallback was executed in block-structure
         this._pendingInsertHint = null;
       } catch (error) {
-        console.error('[InputHandler] handleC3: fallback failed', { error, classified });
+        console.error('[InputHandler] handleBlockStructure: fallback failed', { error, classified });
       }
     } else {
-      console.warn('[InputHandler] handleC3: fallback - insufficient data', { 
+      console.warn('[InputHandler] handleBlockStructure: fallback - insufficient data', { 
         hasNewText: !!classified.newText,
         hasContentRange: !!classified.contentRange
       });
@@ -911,14 +961,14 @@ export class InputHandlerImpl implements InputHandler {
   }
 
   /**
-   * C4: Handle mark/style/decorator changes
+   * inline-markup: Handle mark/style/decorator changes
    * 
    * Convert styles/tags directly created by browser to model marks
    */
-  private handleC4(classified: ClassifiedChange): void {
+  private handleInlineMarkup(classified: ClassifiedChange): void {
     // Converted only if a listener reads it — see the transaction's own emit.
     const editorForPayload = this.editor;
-    logger.debug(LogCategory.TEXT_INPUT, 'handleC4: CALLED', {
+    logger.debug(LogCategory.TEXT_INPUT, 'handleInlineMarkup: CALLED', {
       markChanges: classified.metadata?.markChanges,
       specialCase: classified.metadata?.specialCase
     });
@@ -930,13 +980,13 @@ export class InputHandlerImpl implements InputHandler {
     }> | undefined;
 
     if (!markChanges || markChanges.length === 0) {
-      logger.debug(LogCategory.TEXT_INPUT, 'handleC4: SKIP - no mark changes');
+      logger.debug(LogCategory.TEXT_INPUT, 'handleInlineMarkup: SKIP - no mark changes');
       return;
     }
 
     const dataStore = (this.editor as any).dataStore;
     if (!dataStore) {
-      console.error('[InputHandler] handleC4: dataStore not found');
+      console.error('[InputHandler] handleInlineMarkup: dataStore not found');
       return;
     }
 
@@ -948,7 +998,7 @@ export class InputHandlerImpl implements InputHandler {
         // Check model node
         const modelNode = dataStore.getNode(nodeId);
         if (!modelNode || modelNode.stype !== 'inline-text') {
-          logger.debug(LogCategory.TEXT_INPUT, 'handleC4: SKIP - not inline-text node', { nodeId });
+          logger.debug(LogCategory.TEXT_INPUT, 'handleInlineMarkup: SKIP - not inline-text node', { nodeId });
           continue;
         }
 
@@ -972,7 +1022,7 @@ export class InputHandlerImpl implements InputHandler {
           endOffset
         };
 
-        logger.debug(LogCategory.TEXT_INPUT, 'handleC4: toggling mark', {
+        logger.debug(LogCategory.TEXT_INPUT, 'handleInlineMarkup: toggling mark', {
           nodeId,
           markType,
           contentRange
@@ -985,7 +1035,7 @@ export class InputHandlerImpl implements InputHandler {
         // Ignore DOM created by browser, normalize with model mark then render
         this.editor.emit('editor:content.change', {
           skipRender: true,
-          from: 'MutationObserver-C4',
+          from: 'MutationObserver-inline-markup',
           get content() { return (editorForPayload as any).document; },
           transaction: this._buildDebugTransaction([
             {
@@ -1000,10 +1050,10 @@ export class InputHandlerImpl implements InputHandler {
                 }
               }
             }
-          ], `MutationObserver-C4 mark:${markType}`)
+          ], `MutationObserver-inline-markup mark:${markType}`)
         });
       } catch (error) {
-        console.error('[InputHandler] handleC4: failed to toggle mark', { error, change });
+        console.error('[InputHandler] handleInlineMarkup: failed to toggle mark', { error, change });
       }
     }
 
@@ -1011,9 +1061,9 @@ export class InputHandlerImpl implements InputHandler {
     // Replace DOM structure created by browser with our normalized structure
     this.editor.emit('editor:content.change', {
       skipRender: false, // Render needed (replace with normalized structure)
-      from: 'MutationObserver-C4-normalize',
+      from: 'MutationObserver-inline-markup-normalize',
       get content() { return (editorForPayload as any).document; },
-      transaction: this._buildDebugTransaction([], 'MutationObserver-C4-normalize')
+      transaction: this._buildDebugTransaction([], 'MutationObserver-inline-markup-normalize')
     });
   }
 
@@ -1427,7 +1477,39 @@ export class InputHandlerImpl implements InputHandler {
 
     event.preventDefault();
 
-    this.editor.executeCommand('replaceText', { range: rangeForReplace, text }).then((success) => {
+    /**
+     * Use what we know when the DOM is behind it.
+     *
+     * "Behind" and not "a moment ago": the position is the question, not the
+     * timing. If the DOM puts the caret earlier than where the last accepted
+     * keystroke left it, in the same run and within the span of a burst, then it
+     * is describing a document that has already moved on. Anywhere else — a
+     * different run, further along, or after a pause long enough for a person to
+     * have moved the caret themselves — the DOM is right and this is discarded.
+     */
+    const burst = this._burstCaret;
+    const domIsBehind =
+      burst !== null &&
+      rangeForReplace.startNodeId === burst.nodeId &&
+      (rangeForReplace.startOffset ?? 0) < burst.offset;
+
+    const range: ModelSelection = domIsBehind
+      ? {
+          type: 'range',
+          startNodeId: burst!.nodeId,
+          startOffset: burst!.offset,
+          endNodeId: burst!.nodeId,
+          endOffset: burst!.offset
+        }
+      : rangeForReplace;
+
+    this._burstCaret = {
+      nodeId: range.startNodeId,
+      offset: (range.startOffset ?? 0) + text.length,
+      at: Date.now()
+    };
+
+    this.editor.executeCommand('replaceText', { range, text }).then((success) => {
       if (!success) {
         console.warn('[InputHandler] tryHandleInsertViaGetTargetRanges: replaceText failed');
         return;

@@ -39,7 +39,18 @@ import { settled } from './helpers';
  */
 test.describe('typing on a busy machine', () => {
   for (const rate of [4, 8]) {
-    test.fixme(`writes what was typed with the CPU at a ${rate}th of its speed`, async ({
+    /**
+     * A quarter speed passes; an eighth does not yet.
+     *
+     * Two of the three writers have been dealt with — the observer no longer
+     * imports a render's own records while characters are being typed one after
+     * another, and a keystroke whose DOM position is demonstrably behind uses
+     * the position the last one left instead. At an eighth speed the model is
+     * usually right and the page trails it; sometimes a character is still lost
+     * outright, which is the part left to find.
+     */
+    const check = rate <= 4 ? test : test.fixme;
+    check(`writes what was typed with the CPU at a ${rate}th of its speed`, async ({
       page
     }) => {
       await page.goto('/');

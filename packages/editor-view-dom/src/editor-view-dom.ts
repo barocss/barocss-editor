@@ -734,6 +734,9 @@ export class EditorViewDOM implements IEditorViewDOM {
   private handleMouseDown(event: MouseEvent): void {
     // Check drag possibility on mouse down
     this._isDragging = false;
+    // A pointer moves the caret, so nothing the input handler remembers about
+    // where a burst of typing had reached is true any more.
+    (this.inputHandler as any).caretMovedByUser?.();
   }
 
   private handleMouseMove(event: MouseEvent): void {
