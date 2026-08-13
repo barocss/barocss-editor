@@ -170,6 +170,7 @@ export {
   currentChoice,
   inheritedChoice,
   listState,
+  tableLookState,
   currentStyle,
   toolbarMarkTypes,
   toolbarCommands,

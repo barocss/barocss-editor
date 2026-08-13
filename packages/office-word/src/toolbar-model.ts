@@ -24,6 +24,7 @@ import type { StyleResolver } from './style-resolver';
 import type { DocumentNode } from './document-access';
 import { WORD_FONT_CATALOGUE } from './fonts';
 import type { ListKind } from './list-commands';
+import { parseTableLook, type TableLook } from './table-style';
 
 export interface ToolbarControl {
   id: string;
@@ -43,6 +44,14 @@ export interface ToolbarControl {
    * way a font control asks what the text inherits.
    */
   listKind?: ListKind;
+  /**
+   * That this control switches one of the regions a table asks its style for.
+   *
+   * A table attribute, not a selection one: the caret is in a paragraph in a
+   * cell, and what the table around it asks for is three walks up from there.
+   * So again the control says what it is and the host answers.
+   */
+  lookFlag?: keyof TableLook;
 }
 
 /**
@@ -229,7 +238,34 @@ export const WORD_TOOLBAR: ToolbarGroup[] = [
       { id: 'column-right', label: 'Insert column right', icon: '⇥', command: 'insertColumnRight' },
       { id: 'column-delete', label: 'Delete column', icon: '⌦', command: 'deleteColumn' },
       { id: 'cells-merge', label: 'Merge cells', icon: '⊞', command: 'mergeCells' },
-      { id: 'cell-split', label: 'Split cell', icon: '⊟', command: 'splitCell' }
+      { id: 'cell-split', label: 'Split cell', icon: '⊟', command: 'splitCell' },
+      // Which regions of its style the table wants. They are switches on the
+      // table and not formatting of their own: with no table style applied they
+      // are still meaningful, and become visible the moment one is.
+      {
+        id: 'look-header-row',
+        label: 'Header row',
+        icon: '▤',
+        command: 'toggleTableLook',
+        payload: { flag: 'firstRow' },
+        lookFlag: 'firstRow'
+      },
+      {
+        id: 'look-first-column',
+        label: 'First column',
+        icon: '▮',
+        command: 'toggleTableLook',
+        payload: { flag: 'firstColumn' },
+        lookFlag: 'firstColumn'
+      },
+      {
+        id: 'look-banded-rows',
+        label: 'Banded rows',
+        icon: '▨',
+        command: 'toggleTableLook',
+        payload: { flag: 'bandedRows' },
+        lookFlag: 'bandedRows'
+      }
     ]
   },
   {
@@ -369,6 +405,21 @@ export function listState(
 ): MarkState {
   if (summary.mixedAttributes.includes('numId')) return 'mixed';
   return currentKind() === kind ? 'on' : 'off';
+}
+
+/**
+ * Whether a table asks its style for one of its regions.
+ *
+ * Two-valued, unlike a mark: a table either asks for its header row or it does
+ * not, and a selection is in one table at a time. Off outside a table, where the
+ * button is disabled anyway and there is nothing to be on about.
+ */
+export function tableLookState(
+  flag: keyof TableLook,
+  table: DocumentNode | undefined
+): MarkState {
+  if (!table) return 'off';
+  return parseTableLook(table.attributes?.look)[flag] ? 'on' : 'off';
 }
 
 /** The styles the dropdown offers, and the command that applies each. */

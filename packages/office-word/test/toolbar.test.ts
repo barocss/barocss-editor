@@ -3,6 +3,7 @@ import { Schema } from '@barocss/schema';
 import { getWordSchemaDefinition } from '../src/word-schema';
 import {
   currentStyle,
+  tableLookState,
   toolbarCommands,
   toolbarMarkTypes,
   WORD_STYLES,
@@ -89,6 +90,26 @@ describe('which style the dropdown shows', () => {
   it('shows nothing for a block the dropdown does not offer', () => {
     // A table is a block, and "table" is not a paragraph style
     expect(currentStyle(summary({ blockAttributes: { stype: 'bTable' } }))).toBeNull();
+  });
+});
+
+describe('which of its style’s regions a table asks for', () => {
+  const table = (look?: string) => ({ sid: 't', stype: 'bTable', attributes: look ? { look } : {} });
+
+  it('reads them off the table rather than off the selection', () => {
+    // The caret is in a paragraph in a cell; what the table around it asks for
+    // is three walks up from there, so the host answers and the control asks.
+    expect(tableLookState('firstRow', table('firstRow,bandedRows'))).toBe('on');
+    expect(tableLookState('lastRow', table('firstRow,bandedRows'))).toBe('off');
+  });
+
+  it('answers with the default look for a table that records none', () => {
+    expect(tableLookState('firstRow', table())).toBe('on');
+    expect(tableLookState('bandedColumns', table())).toBe('off');
+  });
+
+  it('is off outside a table, where there is nothing to be on about', () => {
+    expect(tableLookState('firstRow', undefined)).toBe('off');
   });
 });
 

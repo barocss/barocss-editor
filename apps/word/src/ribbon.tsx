@@ -6,6 +6,9 @@ import {
   listKindOf,
   listState,
   currentStyle,
+  tableLookState,
+  tableOf,
+  tableStylesOf,
   WORD_FONTS,
   WORD_FONT_SIZES,
   WORD_STYLES,
@@ -104,6 +107,17 @@ export function Ribbon({
   const currentListKind = () => listKindOf(docOf(), blockAtCaret());
 
   /**
+   * The table the caret is in, and the styles the document offers for it.
+   *
+   * Word puts these on a tab that appears only in a table; here the controls
+   * appear only there, for the same reason — a table style gallery with no table
+   * to apply it to is a row of buttons that cannot do anything.
+   */
+  const tableAtCaret = () => tableOf(docOf(), blockAtCaret());
+  const table = useMemo(() => tableAtCaret(), [editor, tick]);
+  const tableStyles = useMemo(() => (table ? tableStylesOf(docOf()) : []), [editor, tick, table]);
+
+  /**
    * A font or size control: the same control with different options, so it is
    * built from the model rather than written twice.
    */
@@ -148,6 +162,31 @@ export function Ribbon({
       {choice(WORD_FONTS, 'min-w-40')}
       {choice(WORD_FONT_SIZES, 'min-w-16')}
 
+      {table && tableStyles.length > 0 && (
+        <>
+          <ToolbarSeparator />
+          <StyleSelect
+            testClass="w-toolbar-table-style"
+            ariaLabel="Table style"
+            className="min-w-40"
+            // A named option rather than an empty one: an empty value is how
+            // Radix spells "nothing is selected", and "no style" is a choice.
+            options={[
+              { id: 'none', label: 'No table style' },
+              ...tableStyles.map((entry) => ({ id: entry.id, label: entry.name }))
+            ]}
+            value={
+              typeof table.attributes?.styleId === 'string' && table.attributes.styleId
+                ? table.attributes.styleId
+                : 'none'
+            }
+            onChange={(id) =>
+              void editor.run('setTableStyle', { styleId: id === 'none' ? undefined : id })
+            }
+          />
+        </>
+      )}
+
       {WORD_TOOLBAR.map((group) => (
         <span key={group.id} className="flex items-center">
           <ToolbarSeparator />
@@ -160,7 +199,9 @@ export function Ribbon({
                 state={
                   control.listKind
                     ? listState(control.listKind, summary, currentListKind)
-                    : (control.state?.(summary) ?? 'off')
+                    : control.lookFlag
+                      ? tableLookState(control.lookFlag, table)
+                      : (control.state?.(summary) ?? 'off')
                 }
                 disabled={!editor.canRun(control.command, control.payload)}
                 onActivate={() => void editor.run(control.command, control.payload)}

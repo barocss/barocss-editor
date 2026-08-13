@@ -423,6 +423,61 @@ test.describe('a table’s style', () => {
   });
 });
 
+test.describe('the table style controls', () => {
+  test('appear in a table and not outside one', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    await expect(page.locator('.w-toolbar-table-style')).toHaveCount(0);
+    await placeCaret(page, '.w-tbody .w-cell', 0);
+    await expect(page.locator('.w-toolbar-table-style')).toHaveCount(1);
+  });
+
+  test('apply a style, and take it off again', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+    await placeCaret(page, '.w-tbody .w-cell', 0);
+
+    const headerBackground = () =>
+      page.evaluate(
+        () => getComputedStyle(document.querySelector('.w-thead .w-cell')!).backgroundColor
+      );
+
+    await page.evaluate(() => (window as any).editor.run('setTableStyle', {}));
+    await expect.poll(headerBackground).toBe('rgba(0, 0, 0, 0)');
+
+    await page.evaluate(() =>
+      (window as any).editor.run('setTableStyle', { styleId: 'GridTable' })
+    );
+    await expect.poll(headerBackground).toBe('rgb(44, 82, 130)');
+  });
+
+  test('switch the regions the table asks its style for', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+    await placeCaret(page, '.w-tbody .w-cell', 0);
+
+    const banded = () =>
+      page.evaluate(
+        () => getComputedStyle(document.querySelector('.w-tbody .w-cell')!).backgroundColor
+      );
+    await expect.poll(banded).toBe('rgb(237, 242, 247)');
+
+    // The button reads the table, not the caret's paragraph
+    await expect(page.locator('[data-control="look-banded-rows"]')).toHaveAttribute(
+      'data-state',
+      'on'
+    );
+    await page.locator('[data-control="look-banded-rows"]').click();
+
+    await expect.poll(banded).toBe('rgba(0, 0, 0, 0)');
+    await expect(page.locator('[data-control="look-banded-rows"]')).toHaveAttribute(
+      'data-state',
+      'off'
+    );
+  });
+});
+
 test.describe('table commands', () => {
   const shape = (page: import('@playwright/test').Page) =>
     page.evaluate(() => ({

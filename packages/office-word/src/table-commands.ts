@@ -13,6 +13,7 @@
 import { Editor, Extension } from '@barocss/editor-core';
 import { transaction } from '@barocss/model';
 import type { DocumentAccess, DocumentNode } from './document-access';
+import { formatTableLook, parseTableLook, tableOf, type TableLook } from './table-style';
 
 /** The operations, and the names a caller reaches them by. */
 const COMMANDS: { name: string; op: string; payload?: Record<string, unknown> }[] = [
@@ -41,12 +42,68 @@ export class WordTableExtension implements Extension {
       });
     }
 
+    /**
+     * The style the table wears, and which of its regions it asks for.
+     *
+     * Both are attributes of the table and neither touches a cell: applying a
+     * style to a table that already has direct shading changes nothing the user
+     * can see, which is Word's behaviour and the reason "clear formatting"
+     * exists as a separate command.
+     */
+    (editor as any).registerCommand({
+      name: 'setTableStyle',
+      /**
+       * No style is written as an empty id rather than as a missing attribute:
+       * the store compares an update against the node to skip writes that change
+       * nothing, and an attribute set to `undefined` compares equal to one that
+       * was never there — so removing a style did nothing at all. An empty id
+       * names no style, which is what every reader of one already does with it.
+       */
+      execute: async (ed: Editor, payload: { styleId?: string } = {}) =>
+        await this._format(ed, { styleId: payload.styleId ?? '' }),
+      canExecute: (ed: Editor) => !!this._cell(ed)
+    });
+
+    (editor as any).registerCommand({
+      name: 'toggleTableLook',
+      execute: async (ed: Editor, payload: { flag?: keyof TableLook } = {}) => {
+        const table = this._table(ed);
+        if (!table || !payload.flag) return false;
+        const look = parseTableLook(table.attributes?.look);
+        look[payload.flag] = !look[payload.flag];
+        return await this._format(ed, { look: formatTableLook(look) });
+      },
+      canExecute: (ed: Editor) => !!this._cell(ed)
+    });
+
     // `inTable` is what scopes Tab to cell navigation in the keymap, and nothing
     // was setting it — so Tab in a table did whatever Tab does elsewhere.
     const track = () => (editor as any).setContext('inTable', !!this._cell(editor));
     editor.on('editor:selection.model', track);
     editor.on('editor:content.change', track);
     track();
+  }
+
+  /** The table the caret is in, which is what a table-wide command acts on. */
+  private _table(editor: Editor): DocumentNode | undefined {
+    return tableOf(this._doc(editor), this._cell(editor));
+  }
+
+  /**
+   * Set attributes on that table, leaving the ones not named alone.
+   *
+   * `setAttrs` rather than a write to the store: it merges, it validates against
+   * the schema, and it records its own inverse — so applying a style is one
+   * undo, like every other edit.
+   */
+  private async _format(editor: Editor, attributes: Record<string, unknown>): Promise<boolean> {
+    const table = this._table(editor);
+    if (!table?.sid) return false;
+
+    const result = await transaction(editor, [
+      { type: 'setAttrs', payload: { nodeId: table.sid, attrs: attributes } }
+    ] as never).commit();
+    return result.success;
   }
 
   private _doc(editor: Editor): DocumentAccess {
