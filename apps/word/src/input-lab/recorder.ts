@@ -162,8 +162,35 @@ export class InputRecorder {
       this.push('beforeinput:after', { inputType: event.inputType, prevented: event.defaultPrevented });
     const onInput = (event: InputEvent) =>
       this.push('input', { inputType: event.inputType, isComposing: event.isComposing });
-    const onKeydown = (event: KeyboardEvent) =>
-      this.push('keydown', { key: event.key, keyCode: event.keyCode, composingFlag: this.view._isComposing === true });
+    const onKeydown = (event: KeyboardEvent) => {
+      // What the door would answer, asked at the moment the key arrives. A
+      // character refused at keydown never fires `beforeinput`, so nothing
+      // downstream can put it right — and a recording of six spaces that simply
+      // vanished could say only that they had, not why.
+      let gate: boolean | null = null;
+      try {
+        gate = this.view.isSelectionInsideEditableText?.() === true;
+      } catch {
+        gate = null;
+      }
+      const selection = window.getSelection();
+      const anchor = selection?.anchorNode ?? null;
+      const host =
+        anchor?.nodeType === Node.TEXT_NODE ? anchor.parentElement : (anchor as Element | null);
+      const nearest = host?.closest?.('[data-bc-sid]')?.getAttribute('data-bc-sid') ?? null;
+      this.push('keydown', {
+        key: event.key,
+        keyCode: event.keyCode,
+        composingFlag: this.view._isComposing === true,
+        gate,
+        burst: this.view.inputHandler?.isTypingBurst === true,
+        anchorIsText: anchor?.nodeType === Node.TEXT_NODE,
+        nearestSid: nearest,
+        modelSid: this.editor.selection?.startNodeId ?? null
+      });
+    };
+    const onKeydownAfter = (event: KeyboardEvent) =>
+      this.push('keydown:after', { key: event.key, prevented: event.defaultPrevented });
     const onCompositionStart = () => {
       this.anchor ??= this.caretNow();
       this.push('compositionstart', { composingFlag: this.view._isComposing === true });
@@ -182,6 +209,7 @@ export class InputRecorder {
     el.addEventListener('beforeinput', onBeforeInputAfter as EventListener, false);
     el.addEventListener('input', onInput as EventListener, true);
     el.addEventListener('keydown', onKeydown, true);
+    el.addEventListener('keydown', onKeydownAfter, false);
     el.addEventListener('compositionstart', onCompositionStart);
     el.addEventListener('compositionupdate', onCompositionUpdate as EventListener);
     el.addEventListener('compositionend', onCompositionEnd as EventListener);
@@ -192,6 +220,7 @@ export class InputRecorder {
       el.removeEventListener('beforeinput', onBeforeInputAfter as EventListener, false);
       el.removeEventListener('input', onInput as EventListener, true);
       el.removeEventListener('keydown', onKeydown, true);
+      el.removeEventListener('keydown', onKeydownAfter, false);
       el.removeEventListener('compositionstart', onCompositionStart);
       el.removeEventListener('compositionupdate', onCompositionUpdate as EventListener);
       el.removeEventListener('compositionend', onCompositionEnd as EventListener);
@@ -351,11 +380,18 @@ export class InputRecorder {
       }
     }
 
-    // 3. One keystroke, one writer. A second transaction carrying the same
-    //    operations is the observer importing what the command already wrote.
-    const keystrokes = this.log.filter(
-      (entry) => entry.stage === 'beforeinput' && entry.isComposing !== true
-    ).length;
+    /**
+     * 3. One write, one writer.
+     *
+     * Counted against every `beforeinput`, composing or not. Composing ones
+     * were left out at first, and the count then read a Korean session as 9
+     * keystrokes against 117 transactions and called it a double write — when
+     * 131 of those keystrokes were composition steps, each of which legitimately
+     * produces exactly one transaction as the observer imports what the IME
+     * wrote. A check that cannot count the writing it is judging is worse than
+     * no check.
+     */
+    const keystrokes = this.log.filter((entry) => entry.stage === 'beforeinput').length;
     const transactions = this.log.filter(
       (entry) => entry.stage === 'transaction' && entry.skipRender !== true
     ).length;
@@ -363,11 +399,52 @@ export class InputRecorder {
       findings.push({
         severity: 'suspect',
         what: '키 입력보다 트랜잭션이 많습니다',
-        detail: `beforeinput ${keystrokes}회에 트랜잭션 ${transactions}회 — 한 키를 두 곳에서 썼을 수 있습니다.`
+        detail: `beforeinput ${keystrokes}회에 트랜잭션 ${transactions}회 — 한 번의 입력을 두 곳에서 썼을 수 있습니다.`
       });
     }
 
-    // 4. Nothing may render while an IME is composing: the composed text is
+    /**
+     * 4. A key that was typed must become an input.
+     *
+     * `beforeinput` is where every character enters, so a keystroke that never
+     * fires one is gone for good — nothing downstream can put it right. This is
+     * what a recording of six spaces in a row looked like: six keydowns and then
+     * nothing at all, no input, no transaction, no mutation. The keys had been
+     * refused at the door, and the recording could only say that they had
+     * vanished, not where.
+     */
+    const swallowed: Entry[] = [];
+    for (let index = 0; index < this.log.length; index += 1) {
+      const entry = this.log[index];
+      if (entry.stage !== 'keydown') continue;
+      const key = String(entry.key ?? '');
+      // Only keys that carry a character, and not the ones an IME has taken —
+      // those are answered by composition, not by an input of their own.
+      if (key.length !== 1 || entry.keyCode === 229 || entry.composingFlag === true) continue;
+      let becameInput = false;
+      for (let ahead = index + 1; ahead < this.log.length; ahead += 1) {
+        const next = this.log[ahead];
+        if (next.stage === 'keydown' || next.stage === 'compositionstart') break;
+        if (next.stage === 'beforeinput') {
+          becameInput = true;
+          break;
+        }
+      }
+      if (!becameInput) swallowed.push(entry);
+    }
+    if (swallowed.length > 0) {
+      const first = swallowed[0];
+      findings.push({
+        severity: 'bug',
+        what: '친 글자가 입력으로 이어지지 않았습니다',
+        detail:
+          `${swallowed.length}개: ${swallowed.map((entry) => JSON.stringify(entry.key)).join(', ')}\n` +
+          `  첫 번째 ${first.at}ms — 편집 가능 판정 ${first.gate}, 연타 ${first.burst}, ` +
+          `커서가 가리키는 노드 ${first.nearestSid}, 문서상 노드 ${first.modelSid}`
+      });
+    }
+
+    // 5. Nothing may render while an IME is composing: the composed text is
     //    already in the DOM, and redrawing under it commits the half-built
     //    syllable and strands the piece it was holding.
     const rendersWhileComposing = this.log.filter(
@@ -381,7 +458,7 @@ export class InputRecorder {
       });
     }
 
-    // 5. The flag that says a composition is open must not outlive one. While it
+    // 6. The flag that says a composition is open must not outlive one. While it
     //    is set, a content change is dropped without drawing and without being
     //    remembered.
     if (this.view._isComposing === true) {
@@ -392,7 +469,7 @@ export class InputRecorder {
       });
     }
 
-    // 6. Records the observer's guard turned away. Expected while the editor is
+    // 7. Records the observer's guard turned away. Expected while the editor is
     //    redrawing its own typing; worth reading if an IME wrote in that window.
     const dropped = this.log.filter((entry) => entry.stage === 'mutation' && entry.guardWouldDrop === true);
     const droppedDuringComposition = dropped.filter((entry) => entry.composing === true).length;
@@ -404,7 +481,7 @@ export class InputRecorder {
       });
     }
 
-    // 7. How much drawing one keystroke costs. Two renders a keystroke is the
+    // 8. How much drawing one keystroke costs. Two renders a keystroke is the
     //    measured resting state — the content render and the layout pass that
     //    follows it — so this only speaks up well past that, where the cost is
     //    the thing making the page trail the document under load.
@@ -412,12 +489,12 @@ export class InputRecorder {
     if (keystrokes > 0 && renders > keystrokes * 3) {
       findings.push({
         severity: 'suspect',
-        what: '한 키에 렌더가 지나치게 많습니다',
-        detail: `키 ${keystrokes}회에 렌더 ${renders}회 — 부하가 걸리면 화면이 문서를 못 따라오는 원인이 됩니다.`
+        what: '입력 한 번에 렌더가 지나치게 많습니다',
+        detail: `입력 ${keystrokes}회에 렌더 ${renders}회 — 부하가 걸리면 화면이 문서를 못 따라오는 원인이 됩니다.`
       });
     }
 
-    // 8. The caret must end where the text it wrote ended. "The letter goes in
+    // 9. The caret must end where the text it wrote ended. "The letter goes in
     //    one place to the left" is this, seen from the reader's chair.
     if (report.caret && report.text && this.deleted === 0 && report.announced) {
       if (report.caret.after === -1) {

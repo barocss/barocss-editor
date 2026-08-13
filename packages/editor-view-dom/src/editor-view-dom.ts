@@ -553,6 +553,38 @@ export class EditorViewDOM implements IEditorViewDOM {
     return checkNode(sel.anchorNode) && checkNode(sel.focusNode ?? sel.anchorNode);
   }
 
+  /**
+   * The same question, asked of the document rather than of the DOM.
+   *
+   * The DOM selection is a report of where the caret is; the model selection is
+   * the editor's own record of it, and the two are not always the same object to
+   * ask. A render replaces the text node the caret sits in. An IME writes to the
+   * DOM itself and leaves the selection resting wherever it likes — measured by
+   * hand, six spaces typed after a Korean word were each refused at the keydown
+   * gate while the reader was plainly sitting in a paragraph they had just typed
+   * into.
+   *
+   * Used as a second opinion, never as the only one, and only in the direction
+   * that matters: a character is refused for good, since `beforeinput` never
+   * fires for it and nothing downstream can put it right, while a character let
+   * through lands somewhere a command will check again.
+   */
+  private isModelSelectionInEditableText(): boolean {
+    const selection = (this.editor as any).selection;
+    const dataStore = (this.editor as any).dataStore;
+    if (!selection?.startNodeId || !dataStore?.getNode) return false;
+
+    const isText = (sid: string | undefined): boolean => {
+      if (!sid) return false;
+      const node = dataStore.getNode(sid);
+      if (!node) return false;
+      const stype = (node as { stype?: string }).stype ?? (node as { type?: string }).type;
+      return stype === 'inline-text';
+    };
+
+    return isText(selection.startNodeId) && isText(selection.endNodeId ?? selection.startNodeId);
+  }
+
   handleKeydown(event: KeyboardEvent): void {
     // Delegate to InputHandler first for future KeyBindingManager integration
     if ((this.inputHandler as any).handleKeyDown) {
@@ -597,9 +629,25 @@ export class EditorViewDOM implements IEditorViewDOM {
      * door. While characters are being typed one after another the input
      * handler knows the run they are going into, whatever the DOM says this
      * instant, so the key is let through and answered there.
+     *
+     * That escape hatch only ever covered Latin. A composed keystroke arrives as
+     * keyCode 229 and never counts towards a burst, so after a Korean word there
+     * was nothing holding the door open — and an IME leaves the DOM selection
+     * resting where it pleases. Measured by hand: six spaces typed after 요.,
+     * each one a keydown followed by nothing at all.
+     *
+     * So the refusal now needs both to agree. The document's own record of where
+     * the caret is counts as evidence too, and a key is only turned away when
+     * neither the DOM nor the document can name somewhere for it to go.
      */
     const typingBurst = (this.inputHandler as any).isTypingBurst === true;
-    if (isTypingKey(event) && event.keyCode !== 229 && !typingBurst && !this.isSelectionInsideEditableText()) {
+    if (
+      isTypingKey(event) &&
+      event.keyCode !== 229 &&
+      !typingBurst &&
+      !this.isSelectionInsideEditableText() &&
+      !this.isModelSelectionInEditableText()
+    ) {
       event.preventDefault();
       return;
     }

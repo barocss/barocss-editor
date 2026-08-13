@@ -125,7 +125,7 @@ test.describe('what is typed is what is stored', () => {
    * move it. The next thing to look at is what the caret is restored to after
    * the render that follows each space.
    */
-  test.fixme('keeps several spaces, in the order they were typed', async ({ page }) => {
+  test('keeps several spaces, in the order they were typed', async ({ page }) => {
     await page.goto('/');
     await settled(page);
     await clickText(page, '.w-paragraph', { nth: 1, at: 'end' });
