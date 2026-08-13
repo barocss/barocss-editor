@@ -319,3 +319,59 @@ test.describe('the toolbar', () => {
     await expect(page.locator('[data-control="bold"]')).toBeEnabled();
   });
 })
+
+/**
+ * A ribbon is a band that reflows to the width it is given.
+ *
+ * It was one row that ran off the edge: at 1200px the table buttons were past
+ * the right edge of the screen with no way to reach them, which is the whole
+ * difference between a ribbon and a strip.
+ */
+test.describe('the ribbon at any width', () => {
+  for (const width of [1440, 1024, 820, 620]) {
+    test(`keeps every control on screen at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 700 });
+      await page.goto('/');
+      await page.waitForSelector('.w-toolbar');
+
+      const measured = await page.evaluate(() => {
+        const bar = document.querySelector('.w-toolbar')!;
+        const controls = [...bar.querySelectorAll('[data-control], [class^="w-toolbar-"]')];
+        const offscreen = controls.filter((control) => {
+          const box = control.getBoundingClientRect();
+          return box.right > window.innerWidth + 1 || box.left < -1;
+        });
+        return {
+          controls: controls.length,
+          offscreen: offscreen.map((el) => el.getAttribute('data-control') ?? el.className),
+          rows: new Set(controls.map((c) => Math.round(c.getBoundingClientRect().top))).size
+        };
+      });
+
+      expect(measured.controls).toBeGreaterThan(20);
+      expect(measured.offscreen).toEqual([]);
+      // Narrower windows take more rows, which is what wrapping is
+      if (width <= 820) expect(measured.rows).toBeGreaterThan(2);
+    });
+  }
+
+  test('never breaks a group across two rows', async ({ page }) => {
+    await page.setViewportSize({ width: 820, height: 700 });
+    await page.goto('/');
+    await page.waitForSelector('.w-toolbar');
+
+    // A group squeezed in half is a row of buttons that belong together drawn
+    // as though they do not.
+    const split = await page.evaluate(() =>
+      [...document.querySelectorAll('.w-toolbar-group')]
+        .map((group) => ({
+          id: group.getAttribute('data-group'),
+          rows: new Set(
+            [...group.children].map((child) => Math.round(child.getBoundingClientRect().top))
+          ).size
+        }))
+        .filter((group) => group.rows > 1)
+    );
+    expect(split).toEqual([]);
+  });
+});

@@ -10,6 +10,13 @@ import { cn } from './cn';
  * and invisible when wrong: one tab stop for the whole toolbar with the arrow
  * keys moving between controls, focus that survives a disabled button, and a
  * tooltip that does not trap the pointer.
+ *
+ * It wraps. A ribbon is a band of grouped controls that reflows to the width it
+ * is given — one row on a wide window, several on a narrow one — and this was a
+ * single row that ran off the edge instead: at 1200px the table buttons were
+ * past the right edge of the screen and there was no way to reach them. Wrapping
+ * is what makes every control reachable at every width, and it is the whole
+ * difference between a ribbon and a strip.
  */
 export function Toolbar({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
@@ -17,7 +24,7 @@ export function Toolbar({ children, className }: { children: React.ReactNode; cl
       <RadixToolbar.Root
         aria-label="Formatting"
         className={cn(
-          'w-toolbar sticky top-0 z-20 flex items-center gap-1',
+          'w-toolbar sticky top-0 z-20 flex flex-wrap items-center gap-x-1 gap-y-1',
           'border-b border-neutral-300 bg-white px-4 py-1.5',
           'dark:border-neutral-700 dark:bg-neutral-900',
           className
@@ -29,9 +36,16 @@ export function Toolbar({ children, className }: { children: React.ReactNode; cl
   );
 }
 
+/**
+ * A group of controls, which wraps as a unit.
+ *
+ * `shrink-0` on purpose: a group squeezed to fit is a row of half-visible
+ * buttons, and moving the whole group to the next line is what a reader can
+ * still use.
+ */
 export function ToolbarGroup({ id, children }: { id: string; children: React.ReactNode }) {
   return (
-    <div data-group={id} className="w-toolbar-group flex items-center gap-0.5 px-1.5">
+    <div data-group={id} className="w-toolbar-group flex shrink-0 items-center gap-0.5 px-1.5">
       {children}
     </div>
   );
@@ -39,7 +53,9 @@ export function ToolbarGroup({ id, children }: { id: string; children: React.Rea
 
 export function ToolbarSeparator() {
   return (
-    <RadixToolbar.Separator className="mx-1 h-5 w-px bg-neutral-300 dark:bg-neutral-700" />
+    <RadixToolbar.Separator
+      className="mx-1 h-5 w-px shrink-0 bg-neutral-300 dark:bg-neutral-700"
+    />
   );
 }
 

@@ -131,6 +131,57 @@ test.describe('what is typed is what is stored', () => {
 });
 
 /**
+ * Clicking the parts of an equation that are not letters.
+ *
+ * A fraction is mostly not text: the bar between the numerator and the
+ * denominator, the space beside a radical, the inside of a bracket. A reader
+ * aiming at an equation hits those as often as a glyph, and where the caret goes
+ * then is what decides whether the equation can be edited at all.
+ */
+test.describe('clicking an equation where there is no letter', () => {
+  const STRUCTURE = [
+    { name: 'the bar of a fraction', selector: '.w-math-frac' },
+    { name: 'a bracket', selector: '.w-math-delim' },
+    { name: 'a radical', selector: '.w-math-rad' }
+  ];
+
+  for (const part of STRUCTURE) {
+    test(`puts the caret inside the equation when clicking ${part.name}`, async ({ page }) => {
+      await page.goto('/');
+      await settled(page);
+
+      const found = await page.locator(part.selector).count();
+      test.skip(found === 0, `the sample has no ${part.name}`);
+
+      // The equation this construct is *in* — not the first one on the page,
+      // which is a different equation and was quietly being asserted about.
+      const math = page.locator('.w-math').filter({ has: page.locator(part.selector) }).first();
+      await math.scrollIntoViewIfNeeded();
+
+      // The middle of the construct's own box, which is the structure rather
+      // than any of its text.
+      const box = (await page.locator(part.selector).first().boundingBox())!;
+      await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+      await expect
+        .poll(() => page.evaluate(() => (window as any).editor?.selection?.startNodeId ?? null))
+        .not.toBeNull();
+
+      const inside = await page.evaluate(() => {
+        const selection = (window as any).editor.selection;
+        const el = document.querySelector(`[data-bc-sid="${CSS.escape(selection.startNodeId)}"]`);
+        return !!el?.closest('.w-math');
+      });
+      expect(inside, 'the caret left the equation').toBe(true);
+
+      // ...and what is typed goes into the equation, not into the sentence
+      // around it.
+      await page.keyboard.type('7');
+      await expect.poll(() => math.textContent()).toContain('7');
+    });
+  }
+});
+
+/**
  * Drawn matter is not content, and a caret in it is a caret nowhere: what it
  * shows is computed, and typing into it is lost on the next render.
  */

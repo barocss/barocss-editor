@@ -313,6 +313,27 @@ export function mountWord(container: HTMLElement): { editor: Editor; view: Edito
     if (editing === id) return;
     editing = id;
     view.render();
+
+    // Opening the mode puts the caret in it. Without this a reader
+    // double-clicks a header, sees it outlined, types — and the characters go
+    // wherever the caret happened to be, which is usually the body text they
+    // were reading. The gesture asked to edit *this*, so this is what it edits.
+    if (!id) return;
+    requestAnimationFrame(() => {
+      const region = container.querySelector('.w-header-source.is-editing, .w-footer-source.is-editing');
+      const walker = region
+        ? document.createTreeWalker(region, NodeFilter.SHOW_TEXT)
+        : undefined;
+      const text = walker?.nextNode();
+      if (!text) return;
+
+      const range = document.createRange();
+      range.setStart(text, (text.textContent ?? '').length);
+      range.collapse(true);
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    });
   };
 
   /**
@@ -345,6 +366,25 @@ export function mountWord(container: HTMLElement): { editor: Editor; view: Edito
   // where the focus happens to be, and after a double-click it is often nowhere.
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && editing) setEditing(undefined);
+  });
+
+  /**
+   * Clicking into the document leaves the mode, which is the other way out.
+   *
+   * Escape alone is a way out only for somebody who knows it is. Word ends the
+   * mode when you click back into the body, and a reader who does that expects
+   * to be typing in the body — instead the caret stayed in the header and the
+   * next thing they typed went into it.
+   *
+   * On the container, so the ribbon is not "clicking away": changing the font of
+   * the header you are editing is part of editing it, and a toolbar that closed
+   * the mode could not be used on it.
+   */
+  container.addEventListener('mousedown', (event) => {
+    if (!editing) return;
+    const target = event.target as Element | null;
+    if (target?.closest?.('.w-header-source.is-editing, .w-footer-source.is-editing')) return;
+    setEditing(undefined);
   });
 
   /**

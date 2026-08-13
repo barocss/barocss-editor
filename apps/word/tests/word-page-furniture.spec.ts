@@ -514,3 +514,84 @@ test.describe('which pages get a header of their own', () => {
     await expect.poll(() => page.locator('.w-header').nth(1).textContent()).toContain('Draft');
   });
 });
+
+/**
+ * Editing a header is a mode, and a mode has to be visible.
+ *
+ * The drawn copies vanish and the real node takes their place — but nothing on
+ * the page said so, nothing said how to get out, and clicking back into the body
+ * left the caret in the header, so the next thing typed went into it.
+ */
+test.describe('the header editing mode', () => {
+  const openHeader = async (page: import('@playwright/test').Page) => {
+    const box = (await page.locator('.w-header').first().boundingBox())!;
+    await page.mouse.dblclick(box.x + box.width / 2, box.y + box.height / 2);
+    await expect(page.locator('.w-header-source.is-editing')).toHaveCount(1);
+  };
+
+  test('says it is on, and how to leave', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-header');
+    await openHeader(page);
+
+    const region = page.locator('.w-header-source.is-editing');
+    await expect(region).toHaveCSS('outline-color', 'rgb(76, 110, 245)');
+    const label = await region.evaluate((el) => getComputedStyle(el, '::before').content);
+    expect(label).toContain('Esc');
+  });
+
+  test('puts the caret in the header, so typing goes there', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-header');
+    await openHeader(page);
+
+    // The caret is placed as the mode opens, and reaches the model through
+    // selectionchange — one task later, which a test can outrun and a reader
+    // cannot.
+    await expect
+      .poll(() => page.evaluate(() => (window as any).editor.selection?.startNodeId ?? null))
+      .not.toBeNull();
+
+    await page.keyboard.type('X');
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const selection = (window as any).editor.selection;
+          const node = selection && (window as any).editor.dataStore.getNode(selection.startNodeId);
+          return node?.text ?? '';
+        })
+      )
+      .toContain('X');
+    // ...and it went into the header rather than into the page under it
+    await expect(page.locator('.w-header-source.is-editing')).toContainText('X');
+  });
+
+  test('leaves when the reader clicks back into the document', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-header');
+    await openHeader(page);
+
+    const body = (await page.locator('.w-paragraph').first().boundingBox())!;
+    await page.mouse.click(body.x + 40, body.y + 8);
+
+    await expect(page.locator('.w-header-source.is-editing')).toHaveCount(0);
+    // The caret came with the click: what is typed next belongs to the body
+    await expect
+      .poll(() => page.evaluate(() => (window as any).editor.selection?.startNodeId ?? null))
+      .not.toBeNull();
+    const inBody = await page.evaluate(() => {
+      const selection = (window as any).editor.selection;
+      const el = document.querySelector(`[data-bc-sid="${CSS.escape(selection.startNodeId)}"]`);
+      return !!el?.closest('.w-paragraph');
+    });
+    expect(inBody).toBe(true);
+  });
+
+  test('leaves on Escape, which the label promises', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-header');
+    await openHeader(page);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.w-header-source.is-editing')).toHaveCount(0);
+  });
+});

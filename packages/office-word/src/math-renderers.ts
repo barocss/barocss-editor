@@ -182,7 +182,14 @@ export function registerMathRenderers(): void {
         String(d.attributes?.[side === 'open' ? 'open' : 'close'] ?? (side === 'open' ? '(' : ')')),
       'data-bc-chrome': 'true',
       contenteditable: 'false',
-      'aria-hidden': 'true'
+      'aria-hidden': 'true',
+      // A click goes through the bracket to what it encloses. `contenteditable:
+      // false` stops the caret *resting* in the bracket, but a click on one
+      // still resolved to the delimiter itself — a node with no text — and the
+      // next keystroke was refused, because a character can only be typed into
+      // inline text. Aiming at a bracket is aiming at the equation, so the
+      // bracket takes no pointer at all and the click lands on the content.
+      style: { pointerEvents: 'none' }
     });
 
   define(

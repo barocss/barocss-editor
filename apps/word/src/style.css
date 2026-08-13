@@ -50,6 +50,48 @@ body {
 }
 
 /*
+ * A header or footer being edited.
+ *
+ * The mode has to be visible or it is not a mode: the drawn copies vanish, the
+ * real node takes their place, and without a mark on it nothing on the page says
+ * that typing now goes into a header rather than into the body — or how to get
+ * out. So the region is outlined where it sits, and labelled with the way back.
+ *
+ * The label is drawn above the region and takes no space in it: it is a note
+ * about the state, not part of the document, and a header that grew by a line
+ * while being edited would move the text under it.
+ */
+.w-header-source.is-editing,
+.w-footer-source.is-editing {
+  outline: 1px solid #4c6ef5;
+  outline-offset: 6px;
+  border-radius: 2px;
+  background: rgba(76, 110, 245, .04);
+}
+
+.w-header-source.is-editing::before,
+.w-footer-source.is-editing::before {
+  content: 'Header — Esc or click away to finish';
+  position: absolute;
+  left: 0;
+  bottom: 100%;
+  margin-bottom: 10px;
+  font-size: 10px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: #4c6ef5;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.w-footer-source.is-editing::before {
+  content: 'Footer — Esc or click away to finish';
+  bottom: auto;
+  top: 100%;
+  margin: 10px 0 0;
+}
+
+/*
  * The rule above the notes is part of what they cost the page, so its height
  * has to match FOOTNOTE_SEPARATOR — the layout reserved room for it.
  */

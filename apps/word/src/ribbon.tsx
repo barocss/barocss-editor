@@ -191,7 +191,11 @@ export function Ribbon({
       )}
 
       {WORD_TOOLBAR.map((group) => (
-        <span key={group.id} className="flex items-center">
+        // `contents` so the separator and the group are laid out by the ribbon
+        // itself: wrapped inside a span of their own they could only move as a
+        // pair, and a row would break in the middle of a group instead of
+        // between two.
+        <span key={group.id} className="contents">
           <ToolbarSeparator />
           <ToolbarGroup id={group.id}>
             {group.controls.map((control) => (
