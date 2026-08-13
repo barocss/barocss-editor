@@ -378,7 +378,16 @@ export class EditorViewDOM implements IEditorViewDOM {
        */
       const generation = this._compositionGeneration;
       setTimeout(() => {
-        if (this._compositionGeneration === generation) this._isComposing = false;
+        if (this._compositionGeneration !== generation) return;
+        this._isComposing = false;
+        // And settle what the composition was owed. Every change it made was
+        // turned away from rendering because the IME had already drawn the text
+        // — but line breaks, page breaks and everything else computed from the
+        // document were left behind. One render brings all of it up to date.
+        if (this._renderMissedAChange) {
+          this._renderMissedAChange = false;
+          this.render();
+        }
       }, 0);
     };
     this.contentEditableElement.addEventListener('compositionstart', this._boundHandleCompositionStart);
@@ -424,7 +433,9 @@ export class EditorViewDOM implements IEditorViewDOM {
       // Ignore if rendering (prevent infinite loop) — but remember, or the
       // change is lost and nothing ever draws it. See the end of render().
       if (this._isRendering) {
-        if (!e?.skipRender && !this._isComposing) this._renderMissedAChange = true;
+        // Owed whether or not an IME is writing: if one is, the composition's
+        // end pays it, and if not, the render in progress does.
+        if (!e?.skipRender) this._renderMissedAChange = true;
         return;
       }
       
@@ -435,14 +446,30 @@ export class EditorViewDOM implements IEditorViewDOM {
         return;
       }
 
-      // Never render while the IME owns the caret. The composed text is already
-      // in the DOM — the browser put it there — and the model was just synced
-      // from it, so there is nothing to paint. Re-rendering underneath an active
-      // composition makes the IME commit the syllable it was still building and
-      // leaves a stray intermediate character behind.
-      // Note this fires for the transaction's own content.change (skipRender is
-      // unset there), which is what actually reached render() during composition.
+      /**
+       * Never render while the IME owns the caret — but do not forget either.
+       *
+       * The composed text is already in the DOM, because the browser put it
+       * there, and the model was just synced from it; painting it again would
+       * only make the IME commit the syllable it was still building and leave
+       * the piece behind. So nothing is drawn here, and that much was right.
+       *
+       * What was missing is that everything computed *from* the text does need
+       * drawing, and no one was going to ask. Line breaks, page breaks, repeated
+       * table headers, the table of contents, the fields — all of them are
+       * produced by a render, and a composition never triggers one. Measured by
+       * hand: seventy-five characters of Korean went into the document, the page
+       * showed them because the IME had written them itself, and the view
+       * rendered *zero* times in eleven seconds. The paragraph had grown and
+       * nothing downstream of it knew.
+       *
+       * So the change is owed rather than dropped, and paid once the composition
+       * is genuinely over — which is where the flag is cleared, and is the same
+       * "one more render settles all of it" bargain a change arriving mid-render
+       * already makes.
+       */
       if (this._isComposing) {
+        if (!e?.skipRender) this._renderMissedAChange = true;
         return;
       }
 
@@ -1660,7 +1687,11 @@ export class EditorViewDOM implements IEditorViewDOM {
      * need exactly one more render, because the next one draws the document as
      * it now stands.
      */
-    if (this._renderMissedAChange) {
+    if (this._renderMissedAChange && this._isComposing) {
+      // Still owed, and it stays owed. A render under an open composition is
+      // what strands a jamo; the composition's end pays this off instead.
+      logger.debug(LogCategory.DOM, 'render: done, and one more is owed once the IME is finished');
+    } else if (this._renderMissedAChange) {
       this._renderMissedAChange = false;
       logger.debug(LogCategory.DOM, 'render: done, and one more was asked for while it ran');
       requestAnimationFrame(() => this.render());
