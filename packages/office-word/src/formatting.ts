@@ -192,8 +192,18 @@ export const tableFormatAttrs = (): Attrs => ({
   cellMarginRight: num(108),
   /** Column widths in twips, comma separated — Word's tblGrid. */
   grid: str(),
-  /** Conditional-formatting flags a table style reacts to (firstRow, lastRow, ...). */
+  /**
+   * Which of a table style's conditional formats this table asks for — Word's
+   * `tblLook`. Either the names it wants (`firstRow,bandedRows`) or the bitmask
+   * a .docx records (`04A0`); see table-style for how it is read.
+   */
   look: str(),
+  /**
+   * How many rows and columns make up one band. Banding stripes in pairs of this
+   * size, which is what lets a style shade every second *pair* of rows.
+   */
+  rowBandSize: num(1),
+  columnBandSize: num(1),
   bidiVisual: bool(),
   overlap: bool(),
   caption: str(),

@@ -12,7 +12,7 @@
  */
 import { data, define, element, slot } from '@barocss/dsl';
 import type { RenderEnv } from '@barocss/dsl';
-import { flowCss, tableCellCss, twipToCss } from './css';
+import { characterCss, flowCss, tableCellCss, twipToCss } from './css';
 import {
   getEditingFurniture,
   getFurniturePlacement,
@@ -41,7 +41,7 @@ import {
 } from './shapes';
 import { blockStyle, formatFor, listMarker } from './renderers/block-style';
 import { cellBorders, gridOf, tableCss } from './table-format';
-import { columnsOf, tableRowsOf } from './table-pagination';
+import { cellPlacementOf, cellStyleLayers, tableStyleLayer } from './table-style';
 import { registerRevisionMarks, registerValuedMarks } from './renderers/marks';
 import { registerMathRenderers } from './math-renderers';
 
@@ -84,7 +84,14 @@ export function registerWordRenderers(): void {
   define('resources', element('div', { className: 'w-resources' }, [slot('content')]));
 
   /** Definitions are read, never drawn. */
-  for (const stype of ['styleDef', 'numberingDef', 'docDefaults', 'docSettings', 'personDef']) {
+  for (const stype of [
+    'styleDef',
+    'styleConditional',
+    'numberingDef',
+    'docDefaults',
+    'docSettings',
+    'personDef'
+  ]) {
     define(stype, element('div', { className: `w-def w-def-${stype}`, style: { display: 'none' } }));
   }
 
@@ -656,14 +663,21 @@ export function registerWordRenderers(): void {
   define('bTable', (_props: Record<string, any>, node: Record<string, any>, ctx: any) => {
     const env = ctx?.env as RenderEnv | undefined;
     const styles = getWordStyles(env);
-    const format = styles ? styles.resolveNode(node as never, 'table') : {};
+    // The whole-table region of its style sits under the table's own formatting:
+    // its borders are the table's borders, inside rules and all.
+    const layers = styles ? [tableStyleLayer(styles, node as never)] : [];
+    const format = styles ? styles.resolveNodeWith(node as never, 'table', layers) : {};
     const widths = gridOf(format);
 
     return element(
       'table',
       {
         className: 'w-table',
-        style: { ...blockStyle(node, env), ...formatFor(node, 'table', env), ...tableCss(format) }
+        style: {
+          ...blockStyle(node, env),
+          ...formatFor(node, 'table', env, layers),
+          ...tableCss(format)
+        }
       },
       [
         ...(widths.length > 0
@@ -689,59 +703,42 @@ export function registerWordRenderers(): void {
   // Spans are attributes on the surviving cell; the cells it swallowed are gone
   // from the model, so nothing else has to be emitted here.
   /**
-   * A cell, drawn with the rules that belong to where it sits.
+   * A cell, drawn with the rules and the regions that belong to where it sits.
    *
    * `insideH` and `insideV` are borders *between* cells and CSS has no selector
    * for between, so they resolve onto the cells: a side facing another cell
-   * takes the inside rule, a side facing out takes the table's outer one. That
-   * needs to know where the cell is, which is a walk over the table rather than
-   * anything the cell carries — so this is a component and the plain templates
-   * above could not have done it.
+   * takes the inside rule, a side facing out takes the table's outer one. A
+   * table style's regions arrive the same way — being in the first row or in a
+   * shaded band is a fact about position, not about the cell. Both need to know
+   * where the cell is, which is a walk over the table rather than anything the
+   * cell carries, so this is a component and the plain templates above could not
+   * have done it.
    */
   const cellNode = (stype: string, tag: 'td' | 'th') =>
     define(stype, (_props: Record<string, any>, node: Record<string, any>, ctx: any) => {
       const env = ctx?.env as RenderEnv | undefined;
       const doc = getWordDocument(env);
       const styles = getWordStyles(env);
-      const cellFormat = styles ? styles.resolveNode(node as never, 'table') : {};
+      const placement = doc ? cellPlacementOf(doc, node as never) : undefined;
 
-      let borders = {};
-      const row = doc && node.parentId ? doc.getNode(node.parentId) : undefined;
-      // A header holds its cells directly, with no row between — the schema says
-      // so — which makes the group the row.
-      const table = doc && row?.parentId
-        ? (row.stype === 'bTableHeader' ? row : doc.getNode(row.parentId))
-        : undefined;
-      const owner = table && doc
-        ? (table.stype === 'bTable' ? table : (table.parentId ? doc.getNode(table.parentId) : undefined))
-        : undefined;
+      // The table's format, resolved once: the regions are read off it and the
+      // borders are drawn from it.
+      const tableFormat =
+        styles && placement
+          ? styles.resolveNodeWith(placement.table, 'table', [
+              tableStyleLayer(styles, placement.table)
+            ])
+          : undefined;
+      const regions =
+        styles && placement
+          ? cellStyleLayers(styles, placement.table, placement.at, tableFormat)
+          : undefined;
 
-      if (doc && owner?.stype === 'bTable' && row) {
-        const rows = tableRowsOf(doc, owner);
-        const at = rows.findIndex((each) => each.sid === row.sid);
-        const cells = childrenOf(doc, row);
-
-        // Counted in columns, not in cells: a merged cell covers more than one,
-        // and the one after it starts past the far side of the merge.
-        let column = 0;
-        for (const each of cells) {
-          if (each.sid === node.sid) break;
-          column += Number(each.attributes?.colspan) || 1;
-        }
-
-        borders = cellBorders(
-          styles ? styles.resolveNode(owner as never, 'table') : {},
-          cellFormat,
-          {
-            row: at < 0 ? 0 : at,
-            column,
-            rows: rows.length,
-            columns: columnsOf(doc, rows),
-            rowspan: Number(node.attributes?.rowspan) || 1,
-            colspan: Number(node.attributes?.colspan) || 1
-          }
-        );
-      }
+      const cellFormat = styles
+        ? styles.resolveNodeWith(node as never, 'table', [regions?.cell])
+        : {};
+      const borders =
+        tableFormat && placement ? cellBorders(tableFormat, cellFormat, placement.at) : {};
 
       return element(
         tag,
@@ -749,7 +746,15 @@ export function registerWordRenderers(): void {
           className: 'w-cell',
           colspan: Number(node.attributes?.colspan) || 1,
           rowspan: Number(node.attributes?.rowspan) || 1,
-          style: { ...tableCellCss(cellFormat), ...borders }
+          // The region's run formatting is on the cell as well as on the blocks
+          // inside it: a cell may hold text directly, with no paragraph to carry
+          // it, and a header row is bold either way. A paragraph inside states
+          // the same values for itself, so the two cannot disagree.
+          style: {
+            ...(regions ? characterCss(regions.text) : {}),
+            ...tableCellCss(cellFormat),
+            ...borders
+          }
         } as never,
         [slot('content')]
       );

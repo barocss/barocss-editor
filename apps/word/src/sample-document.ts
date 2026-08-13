@@ -354,8 +354,24 @@ export function createSampleDocument(): INode {
             ]
           },
           {
+            /**
+             * A table that names a style instead of describing itself.
+             *
+             * Every line and shade below comes from `GridTable`: the header row
+             * is dark because the style says a first row is, and the row under
+             * it is grey because the style shades every second row. `look` is
+             * the table's own list of which of the style's regions it wants —
+             * the same style on a table that asked for no banding is the same
+             * style, drawn without stripes.
+             */
             stype: 'bTable',
-            attributes: { layout: 'fixed', width: 5000, widthType: 'pct' },
+            attributes: {
+              styleId: 'GridTable',
+              look: 'firstRow,firstColumn,bandedRows',
+              layout: 'fixed',
+              width: 5000,
+              widthType: 'pct'
+            },
             content: [
               {
                 stype: 'bTableHeader',
@@ -364,12 +380,12 @@ export function createSampleDocument(): INode {
                   {
                     stype: 'bTableHeaderCell',
                     // A merged header cell: the swallowed cell is not in the model
-                    attributes: { colspan: 2, rowspan: 1, shadingFill: 'EEEEEE' },
+                    attributes: { colspan: 2, rowspan: 1 },
                     content: [{ stype: 'inline-text', text: 'Merged header' }]
                   },
                   {
                     stype: 'bTableHeaderCell',
-                    attributes: { colspan: 1, rowspan: 1, shadingFill: 'EEEEEE' },
+                    attributes: { colspan: 1, rowspan: 1 },
                     content: [{ stype: 'inline-text', text: 'Third' }]
                   }
                 ]
@@ -688,6 +704,66 @@ export function createSampleDocument(): INode {
               color: '2C5282',
               spacingBefore: 280
             }
+          },
+          {
+            /**
+             * A table style, which is thirteen sets of formatting rather than
+             * one: the whole table, then the regions that override it where they
+             * apply. The cells say none of this — a header row is dark because
+             * it is the first row, and stops being dark if a row is inserted
+             * above it.
+             */
+            stype: 'styleDef',
+            attributes: {
+              id: 'GridTable',
+              name: 'Grid Table',
+              type: 'table',
+              cellMarginLeft: 108,
+              cellMarginRight: 108
+            },
+            content: [
+              {
+                // The table's own lines. `insideH`/`insideV` are rules *between*
+                // cells, which is why they belong to the table and not to any
+                // cell — see table-format for how they are resolved onto them.
+                stype: 'styleConditional',
+                attributes: {
+                  type: 'wholeTable',
+                  borderTopStyle: 'single',
+                  borderTopWidth: 8,
+                  borderTopColor: '2C5282',
+                  borderBottomStyle: 'single',
+                  borderBottomWidth: 8,
+                  borderBottomColor: '2C5282',
+                  borderInsideHStyle: 'single',
+                  borderInsideHWidth: 2,
+                  borderInsideHColor: 'CBD5E0',
+                  borderInsideVStyle: 'single',
+                  borderInsideVWidth: 2,
+                  borderInsideVColor: 'CBD5E0'
+                }
+              },
+              {
+                stype: 'styleConditional',
+                attributes: {
+                  type: 'firstRow',
+                  bold: true,
+                  color: 'FFFFFF',
+                  shadingFill: '2C5282',
+                  verticalAlign: 'center'
+                }
+              },
+              {
+                // Every second row. Only band1 is defined, so the rows between
+                // are the table's own colour — which is what banding is.
+                stype: 'styleConditional',
+                attributes: { type: 'band1Horz', shadingFill: 'EDF2F7' }
+              },
+              {
+                stype: 'styleConditional',
+                attributes: { type: 'firstCol', bold: true }
+              }
+            ]
           },
           {
             stype: 'numberingDef',

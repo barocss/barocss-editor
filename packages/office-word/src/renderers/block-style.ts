@@ -7,19 +7,34 @@
  */
 import type { RenderEnv } from '@barocss/dsl';
 import { characterCss, paragraphCss, tableCss, twipToCss, type CssStyle } from '../css';
-import { getBlockPosition, getBlockPush, getWordNumbering, getWordStyles } from '../render-context';
+import {
+  getBlockPosition,
+  getBlockPush,
+  getWordDocument,
+  getWordNumbering,
+  getWordStyles
+} from '../render-context';
+import { blockStyleLayers } from '../table-style';
 import { INDENT_STEP as LIST_INDENT_STEP } from '../list-commands';
 
 
-/** Resolved formatting for a node, or nothing when no document is set. */
+/**
+ * Resolved formatting for a node, or nothing when no document is set.
+ *
+ * `layers` are formats that apply to the node without being on it or on its
+ * style — a table style's conditional formatting, which reaches a paragraph
+ * through the cell it sits in. They apply under the node's direct formatting,
+ * which is what keeps a table style from overruling something the user typed.
+ */
 export function formatFor(
   node: Record<string, any>,
   scope: 'paragraph' | 'character' | 'table',
-  env: RenderEnv | undefined
+  env: RenderEnv | undefined,
+  layers: Array<Record<string, unknown> | undefined> = []
 ): CssStyle {
   const styles = getWordStyles(env);
   if (!styles) return {};
-  const format = styles.resolveNode(node as never, scope);
+  const format = styles.resolveNodeWith(node as never, scope, layers);
   switch (scope) {
     case 'character':
       return characterCss(format);
@@ -36,9 +51,13 @@ export function formatFor(
  * run properties); CSS does not, and inheritance does the rest.
  */
 export function blockStyle(node: Record<string, any>, env: RenderEnv | undefined): CssStyle {
+  // A block inside a table cell is formatted by the table's style as well as by
+  // its own: that is where a header row's bold comes from.
+  const layers = blockStyleLayers(getWordDocument(env), getWordStyles(env), node as never);
+
   const style: CssStyle = {
-    ...formatFor(node, 'paragraph', env),
-    ...formatFor(node, 'character', env)
+    ...formatFor(node, 'paragraph', env, layers),
+    ...formatFor(node, 'character', env, layers)
   };
 
   // The block that opens a page is pushed down to meet its sheet. It replaces

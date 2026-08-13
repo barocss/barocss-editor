@@ -53,11 +53,15 @@ function wordResourceDefinitions(): Record<string, NodeTypeDefinition> {
      * the inheritance chain the product resolves. Formatting is held as
      * attributes rather than child nodes because a style is a value, not content
      * — nothing in it is separately editable or addressable.
+     *
+     * A table style is the exception, and `styleConditional` is why it has
+     * content: it formats a dozen *regions* of a table separately, and each of
+     * them is a set of formatting of its own.
      */
     styleDef: {
       name: 'styleDef',
       group: RESOURCE,
-      atom: true,
+      content: 'styleConditional*',
       attrs: {
         id: { type: 'string', required: true },
         name: { type: 'string', required: true },
@@ -77,6 +81,37 @@ function wordResourceDefinitions(): Record<string, NodeTypeDefinition> {
         ...paragraphFormatAttrs(),
         ...characterFormatAttrs(),
         ...tableFormatAttrs()
+      }
+    },
+
+    /**
+     * One region of a table style — Word's `tblStylePr`.
+     *
+     * A table style is not one set of formatting but thirteen: the whole table,
+     * its first and last row, its first and last column, the two alternating
+     * bands in each direction, and the four corner cells. `type` says which, and
+     * the table's `look` says which of them it wants. Anything a region can
+     * change is here, because a region formats a whole cell: the cell itself, the
+     * row it is in, and the paragraphs and runs inside it.
+     */
+    styleConditional: {
+      name: 'styleConditional',
+      // No group: a region is only reachable through styleDef's content, never
+      // as a resource of its own — the same reason numberingLevel has none.
+      atom: true,
+      attrs: {
+        /**
+         * wholeTable | firstRow | lastRow | firstCol | lastCol |
+         * band1Horz | band2Horz | band1Vert | band2Vert |
+         * nwCell | neCell | swCell | seCell
+         *
+         * Word's names, so a .docx round-trips without a translation table.
+         */
+        type: { type: 'string', required: true },
+        ...paragraphFormatAttrs(),
+        ...characterFormatAttrs(),
+        ...tableRowFormatAttrs(),
+        ...tableCellFormatAttrs()
       }
     },
 

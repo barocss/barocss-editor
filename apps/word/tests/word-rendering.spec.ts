@@ -326,6 +326,103 @@ test.describe('a table’s declared columns', () => {
   });
 });
 
+/**
+ * A table style, drawn.
+ *
+ * Which region reaches which cell is unit-tested a dozen ways; what those tests
+ * cannot see is whether the regions, the cascade and the CSS meet on a real
+ * cell. The sample's table names `GridTable` and carries none of this itself —
+ * every colour below is the style's.
+ */
+test.describe('a table’s style', () => {
+  const cells = (page: import('@playwright/test').Page) =>
+    page.evaluate(() => {
+      const table = document.querySelector('.w-table')!;
+      const rows = [...table.querySelectorAll('.w-thead, .w-tr')].filter(
+        (row) => row.querySelectorAll('.w-cell').length > 0
+      );
+      return rows.map((row) =>
+        [...row.querySelectorAll('.w-cell')].map((cell) => {
+          const style = getComputedStyle(cell);
+          return {
+            background: style.backgroundColor,
+            color: style.color,
+            weight: style.fontWeight,
+            borderTop: style.borderTopColor,
+            borderBottom: style.borderBottomColor
+          };
+        })
+      );
+    });
+
+  test('formats each cell by the region of the style it falls in', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    const rows = await cells(page);
+
+    // The header row: the style's firstRow — dark, reversed out, and bold.
+    expect(rows[0][0].background).toBe('rgb(44, 82, 130)');
+    expect(rows[0][0].color).toBe('rgb(255, 255, 255)');
+    expect(rows[0][1].background).toBe('rgb(44, 82, 130)');
+
+    // Banding starts after the header, so the first row of data is band 1 and
+    // the row under it is the table's own colour. Only band1Horz is defined —
+    // which is what banding is.
+    expect(rows[1][1].background).toBe('rgb(237, 242, 247)');
+    expect(rows[2][1].background).toBe('rgba(0, 0, 0, 0)');
+
+    // The first column is bold and the rest of the row is not
+    expect(rows[1][0].weight).toBe('700');
+    expect(rows[1][1].weight).toBe('400');
+
+    // The whole-table region's outer rule is on the table's edge and its inside
+    // rule between the cells — never both on one side.
+    expect(rows[0][0].borderTop).toBe('rgb(44, 82, 130)');
+    expect(rows[0][0].borderBottom).toBe('rgb(203, 213, 224)');
+    expect(rows[2][0].borderBottom).toBe('rgb(44, 82, 130)');
+  });
+
+  test('is overruled by what the cell says for itself', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    await page.evaluate(() => {
+      const ed = (window as any).editor;
+      const cell = ed.dataStore.getNode(
+        document.querySelector('.w-tbody .w-tr .w-cell')!.getAttribute('data-bc-sid')
+      );
+      ed.dataStore.updateNode(cell.sid, {
+        attributes: { ...cell.attributes, shadingFill: 'FFF5F5' }
+      });
+      (window as any).editorView.render();
+    });
+    await page.waitForTimeout(600);
+
+    const rows = await cells(page);
+    // The band would have shaded it grey; direct formatting outranks the style
+    expect(rows[1][0].background).toBe('rgb(255, 245, 245)');
+    expect(rows[1][1].background).toBe('rgb(237, 242, 247)');
+  });
+
+  test('follows the row a cell is in rather than the cell', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    // Insert a row above the first row of data: the shading has to move with the
+    // banding, because no cell carries it.
+    await placeCaret(page, '.w-tbody .w-cell', 0);
+    await page.evaluate(() => (window as any).editor.run('insertRowAbove'));
+    await expect.poll(() => page.locator('.w-tbody .w-tr').count()).toBe(3);
+
+    const rows = await cells(page);
+    // The new row is now band 1 and the row that was band 1 is between bands
+    expect(rows[1][1].background).toBe('rgb(237, 242, 247)');
+    expect(rows[2][1].background).toBe('rgba(0, 0, 0, 0)');
+    expect(rows[3][1].background).toBe('rgb(237, 242, 247)');
+  });
+});
+
 test.describe('table commands', () => {
   const shape = (page: import('@playwright/test').Page) =>
     page.evaluate(() => ({

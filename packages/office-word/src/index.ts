@@ -33,6 +33,31 @@ export {
   type NumberingResolver,
   type NumberedItem
 } from './numbering-resolver';
+export {
+  parseTableLook,
+  formatTableLook,
+  tableStylesOf,
+  tableOf,
+  bandSizesOf,
+  regionsAt,
+  cellPlacementOf,
+  cellStyleLayers,
+  tableStyleLayer,
+  blockStyleLayers,
+  DEFAULT_TABLE_LOOK,
+  type TableLook,
+  type TableStyleRegion,
+  type BandSizes,
+  type CellPlacement,
+  type CellStyleLayers
+} from './table-style';
+export {
+  borderCss,
+  borderOf,
+  cellBorders,
+  gridOf,
+  type CellPosition
+} from './table-format';
 // Re-exported for convenience; the implementation is shared because list
 // levels, page numbers, notes and captions all reference the same format names.
 export { formatCounter, NumberFormat, type NumberFormatValue } from '@barocss/shared';

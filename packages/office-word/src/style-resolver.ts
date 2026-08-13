@@ -93,6 +93,27 @@ export interface StyleResolver {
   chainFor(styleId: string): DocumentNode[];
   /** Effective format for a node, including its own direct formatting. */
   resolveNode(node: DocumentNode, scope?: FormatScope): EffectiveFormat;
+  /**
+   * The same, with extra layers applied between the style chain and the node's
+   * own direct formatting.
+   *
+   * That is exactly where a table style's conditional formatting belongs: a
+   * header row is bold because the style says so, and stops being bold the
+   * moment the user says otherwise on the cell.
+   */
+  resolveNodeWith(
+    node: DocumentNode,
+    scope: FormatScope,
+    layers: Array<Record<string, unknown> | undefined>
+  ): EffectiveFormat;
+  /**
+   * The regions a table style formats, merged along its `basedOn` chain and
+   * keyed by region type (`firstRow`, `band1Horz`, ...).
+   *
+   * Raw attributes rather than a scoped format: one region formats the cell, the
+   * row and the text inside it at once, and each caller wants a different part.
+   */
+  conditionalFormatsFor(styleId: string): Map<string, Record<string, unknown>>;
   /** Effective format for a style id alone, with no direct formatting. */
   resolveStyle(styleId: string, scope?: FormatScope): EffectiveFormat;
   /**
@@ -144,7 +165,11 @@ export function createStyleResolver(doc: DocumentAccess): StyleResolver {
     return format;
   };
 
-  const resolveNode = (node: DocumentNode, scope: FormatScope = 'paragraph'): EffectiveFormat => {
+  const resolveNodeWith = (
+    node: DocumentNode,
+    scope: FormatScope = 'paragraph',
+    layers: Array<Record<string, unknown> | undefined> = []
+  ): EffectiveFormat => {
     const keys = keysFor(scope);
     const format: EffectiveFormat = {};
     applyLayer(format, defaults?.attributes, keys);
@@ -154,9 +179,37 @@ export function createStyleResolver(doc: DocumentAccess): StyleResolver {
       for (const style of chainFor(styleId)) applyLayer(format, style.attributes, keys);
     }
 
+    for (const layer of layers) applyLayer(format, layer, keys);
+
     // Direct formatting last: it is what the user set on this node, and it wins.
     applyLayer(format, node.attributes, keys);
     return format;
+  };
+
+  const resolveNode = (node: DocumentNode, scope: FormatScope = 'paragraph'): EffectiveFormat =>
+    resolveNodeWith(node, scope, []);
+
+  const conditionalCache = new Map<string, Map<string, Record<string, unknown>>>();
+
+  const conditionalFormatsFor = (styleId: string): Map<string, Record<string, unknown>> => {
+    const cached = conditionalCache.get(styleId);
+    if (cached) return cached;
+
+    // Root-first, so a style that is based on another refines its regions
+    // rather than replacing them — which is how the built-in table styles are
+    // written, each one a variation on the one below it.
+    const regions = new Map<string, Record<string, unknown>>();
+    for (const style of chainFor(styleId)) {
+      for (const child of childrenOf(doc, style)) {
+        if (child.stype !== 'styleConditional') continue;
+        const type = child.attributes?.type;
+        if (typeof type !== 'string' || type.length === 0) continue;
+        regions.set(type, { ...regions.get(type), ...child.attributes });
+      }
+    }
+
+    conditionalCache.set(styleId, regions);
+    return regions;
   };
 
   const resolveTextRun = (node: DocumentNode, offset: number): EffectiveFormat => {
@@ -183,5 +236,13 @@ export function createStyleResolver(doc: DocumentAccess): StyleResolver {
     return typeof next === 'string' ? next : styleId;
   };
 
-  return { chainFor, resolveNode, resolveStyle, resolveTextRun, nextStyleAfter };
+  return {
+    chainFor,
+    resolveNode,
+    resolveNodeWith,
+    conditionalFormatsFor,
+    resolveStyle,
+    resolveTextRun,
+    nextStyleAfter
+  };
 }
