@@ -71,7 +71,28 @@ export function registerWordRenderers(): void {
   registerMathRenderers();
 
   // ── Structure ──────────────────────────────────────────────────────────────
-  define('document', element('div', { className: 'w-document' }, [slot('content')]));
+  /**
+   * The document, and the one property every word in it depends on.
+   *
+   * `white-space: pre-wrap` is not a style choice: without it the browser draws
+   * a run of spaces as one, and a contenteditable caret can only be placed where
+   * something is drawn. Typing two spaces and then a letter put the letter
+   * *before* the second space — the model had both spaces, the page showed one,
+   * and the next keystroke came back mapped to the position the page had. Two
+   * bugs, one cause, and it is a property of how text is drawn rather than of
+   * any block, so it is set once here and inherited by everything.
+   *
+   * `pre-wrap` and not `pre`: lines still break at the column width, which is
+   * what pagination measures and what a page is. And not `break-spaces`, which
+   * also keeps them but lets a run of spaces at a line's end push text onto the
+   * next line — Word hangs them instead, and so does this.
+   */
+  define(
+    'document',
+    element('div', { className: 'w-document', style: { whiteSpace: 'pre-wrap' } }, [
+      slot('content')
+    ])
+  );
 
   // Metadata and referenced definitions are content, but not *flow* content:
   // where a footnote or a title appears is a layout decision, and the flow is

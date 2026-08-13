@@ -71,3 +71,91 @@ export async function settled(page: Page) {
     )
     .toBe(true);
 }
+
+/**
+ * Clicking where a user clicks.
+ *
+ * `locator.click()` clicks the centre of an element's *box*, which is not where
+ * a reader's pointer goes and not always over the text: an equation's run is
+ * seven pixels wide inside boxes that are not, and clicking its centre through
+ * Playwright landed the caret in the paragraph before it while a click at the
+ * same coordinates by hand landed it in the run. Every input test in this suite
+ * that used the first kind was testing something a user cannot do.
+ *
+ * So this takes the point from the *text*: a Range over the text node, its own
+ * rectangle, and a point inside it — `start`, `middle` or `end` of the line the
+ * text is on.
+ */
+export async function clickText(
+  page: Page,
+  selector: string,
+  options: { nth?: number; at?: 'start' | 'middle' | 'end' } = {}
+): Promise<{ x: number; y: number }> {
+  const { nth = 0, at = 'middle' } = options;
+
+  const point = await page.evaluate(
+    ([sel, index, where]) => {
+      const el = document.querySelectorAll(sel as string)[index as number];
+      if (!el) return null;
+
+      // The first text node with a rectangle: an element may open with an empty
+      // run, or with the filler that holds a caret in an empty block.
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        if (!node.textContent || node.textContent.trim().length === 0) continue;
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        const rect = [...range.getClientRects()].find((r) => r.height > 0 && r.width > 0);
+        if (!rect) continue;
+
+        const y = rect.top + rect.height / 2;
+        if (where === 'start') return { x: rect.left + 1, y };
+        if (where === 'end') return { x: rect.right - 1, y };
+        return { x: rect.left + rect.width / 2, y };
+      }
+      return null;
+    },
+    [selector, nth, at] as const
+  );
+
+  expect(point, `no text to click in ${selector} [${nth}]`).not.toBeNull();
+  await page.mouse.click(point!.x, point!.y);
+
+  // The selection reaches the model through selectionchange, which is
+  // asynchronous: acting on the next line would run against an editor that has
+  // no selection yet.
+  await expect
+    .poll(() => page.evaluate(() => (window as any).editor?.selection?.startNodeId ?? null))
+    .not.toBeNull();
+
+  return point!;
+}
+
+/** Where the caret is, in the model, and what it is in. */
+export async function caret(page: Page) {
+  return page.evaluate(() => {
+    const selection = (window as any).editor?.selection;
+    if (!selection) return null;
+    const node = (window as any).editor.dataStore.getNode(selection.startNodeId);
+    return {
+      sid: selection.startNodeId as string,
+      stype: node?.stype as string | undefined,
+      text: (node?.text ?? '') as string,
+      offset: selection.startOffset as number
+    };
+  });
+}
+
+/** Whether the caret's node is the element clicked, or something inside it. */
+export async function caretIsInside(page: Page, selector: string, nth = 0) {
+  const sid = (await caret(page))?.sid;
+  if (!sid) return false;
+  return page.evaluate(
+    ([sel, index, id]) => {
+      const el = document.querySelectorAll(sel as string)[index as number];
+      const target = document.querySelector(`[data-bc-sid="${CSS.escape(id as string)}"]`);
+      return !!el && !!target && (el === target || el.contains(target));
+    },
+    [selector, nth, sid] as const
+  );
+}
