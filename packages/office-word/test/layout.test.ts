@@ -81,3 +81,28 @@ describe('two columns', () => {
     expect(layout.totalHeight).toBeLessThan(layout.pages.length * metrics.height);
   });
 });
+
+describe('the margin a binding takes', () => {
+  it('is added to the edge it is on, not used instead of it', () => {
+    // Word's gutter is extra room *on top of* the margin already there, which is
+    // why a document with a one-inch margin and a half-inch gutter has its text
+    // an inch and a half from the bound edge.
+    const plain = sheetMetrics({ marginLeft: 1440, marginTop: 1440 });
+    const bound = sheetMetrics({ marginLeft: 1440, marginTop: 1440, marginGutter: 720 });
+
+    expect(bound.marginLeft - plain.marginLeft).toBe(48);
+    expect(bound.marginTop).toBe(plain.marginTop);
+    // Lines break at the narrower column that leaves
+    expect(bound.columnWidth).toBe(plain.columnWidth - 48);
+  });
+
+  it('goes to the top for a document bound along its head', () => {
+    const bound = sheetMetrics({ marginLeft: 1440, marginTop: 1440, marginGutter: 720, gutterAtTop: true });
+    const plain = sheetMetrics({ marginLeft: 1440, marginTop: 1440 });
+
+    expect(bound.marginTop - plain.marginTop).toBe(48);
+    expect(bound.marginLeft).toBe(plain.marginLeft);
+    // A page bound at the top holds that much less text
+    expect(bound.contentHeight).toBe(plain.contentHeight - 48);
+  });
+});

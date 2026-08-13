@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   paragraphCss, characterCss, pageCss, tableCss, tableCellCss, tableRowCss, rowClipHeight,
-  twipToCss, halfPointToCss, normalizeColor
+  twipToCss, halfPointToCss, normalizeColor, flowCss
 } from '../src/css';
 
 /**
@@ -189,5 +189,26 @@ describe('table CSS', () => {
     expect(rowClipHeight({ height: 400, heightRule: 'exact' })).toBe('20pt');
     expect(rowClipHeight({ height: 400, heightRule: 'atLeast' })).toBeUndefined();
     expect(rowClipHeight({ heightRule: 'exact' })).toBeUndefined();
+  });
+});
+
+describe('the flow, once pages are painted separately', () => {
+  it('insets the text by the gutter as well as the margin', () => {
+    // The same sum sheetMetrics makes: a gutter drawn here and not counted there
+    // would break lines at one width and draw them at another.
+    const css = flowCss({ pageWidth: 12240, pageHeight: 15840, marginLeft: 1440, marginRight: 1440, marginGutter: 720 });
+    expect(css.paddingLeft).toBe('108pt');
+    expect(css.paddingRight).toBe('72pt');
+  });
+
+  it('leaves a gutter at the top to the layout, which pushes the pages', () => {
+    // The flow has no vertical padding at all — where a page starts is what the
+    // computed break produces — so drawing it here would count it twice.
+    const css = flowCss({
+      pageWidth: 12240, pageHeight: 15840, marginLeft: 1440, marginRight: 1440,
+      marginGutter: 720, gutterAtTop: true
+    });
+    expect(css.paddingLeft).toBe('72pt');
+    expect(css.paddingTop).toBeUndefined();
   });
 });

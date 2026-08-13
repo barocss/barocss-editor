@@ -217,10 +217,21 @@ export function flowCss(format: EffectiveFormat): CssStyle {
     out.width = twipToCss(landscape ? height : width);
   }
 
+  // The binding takes its room out of the side it is on, on top of whatever
+  // margin is already there. The same sum is in `sheetMetrics`, where the lines
+  // are broken — a gutter drawn here and not counted there would break lines at
+  // one width and draw them at another.
+  const gutter = num(format.marginGutter) ?? 0;
+  const gutterAtTop = bool(format.gutterAtTop) === true;
+
   const left = num(format.marginLeft);
   const right = num(format.marginRight);
-  if (left !== undefined) out.paddingLeft = twipToCss(left);
+  if (left !== undefined) out.paddingLeft = twipToCss(left + (gutterAtTop ? 0 : gutter));
   if (right !== undefined) out.paddingRight = twipToCss(right);
+  // Nothing for a gutter at the top: the flow has no vertical padding at all —
+  // where a page starts is what the computed break produces — so a top gutter is
+  // part of the top margin the layout pushes each page down by, and drawing it
+  // here as well would count it twice.
 
   const columns = num(format.columnCount);
   if (columns !== undefined && columns > 1) {

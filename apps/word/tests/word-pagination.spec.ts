@@ -604,3 +604,56 @@ test.describe('a table longer than a page', () => {
   });
 
 });
+
+/**
+ * The margin a binding takes.
+ *
+ * Extra room on the bound edge, on top of the margin already there — so the test
+ * that matters is not that something moved but that the *same* sum reached both
+ * ends: the width lines are broken at, and the width they are drawn at.
+ */
+test.describe('the binding gutter', () => {
+  const gutter = (page: import('@playwright/test').Page, attrs: Record<string, unknown>) =>
+    page.evaluate((over) => {
+      const ed = (window as any).editor;
+      const section = ed.dataStore.getNode(
+        document.querySelector('.w-surface')!.getAttribute('data-bc-sid')
+      );
+      ed.dataStore.updateNode(section.sid, { attributes: { ...section.attributes, ...over } });
+      (window as any).editorView.render();
+    }, attrs);
+
+  const textBox = (page: import('@playwright/test').Page) =>
+    page.evaluate(() => {
+      const block = document.querySelector('.w-surface > [data-bc-sid]:not(.w-sheets)')!;
+      const sheet = document.querySelector('.w-sheet')!.getBoundingClientRect();
+      const box = block.getBoundingClientRect();
+      return { fromLeft: Math.round(box.left - sheet.left), width: Math.round(box.width) };
+    });
+
+  test('takes its room out of the bound edge, and the lines break there', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+    const plain = await textBox(page);
+
+    await gutter(page, { marginGutter: 720 });
+    await expect.poll(() => textBox(page)).toEqual({
+      fromLeft: plain.fromLeft + 48,
+      width: plain.width - 48
+    });
+  });
+
+  test('goes to the top for a document bound along its head', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+    const plain = await textBox(page);
+    const pages = await page.locator('.w-sheet').count();
+
+    await gutter(page, { marginGutter: 1440, gutterAtTop: true });
+
+    // Nothing moves sideways, and the page holds less: a taller top margin is
+    // fewer lines to a page, which the paginator has to have counted.
+    await expect.poll(() => textBox(page)).toEqual(plain);
+    await expect.poll(() => page.locator('.w-sheet').count()).toBeGreaterThan(pages);
+  });
+});

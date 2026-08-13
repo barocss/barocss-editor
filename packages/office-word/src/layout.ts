@@ -99,9 +99,26 @@ export function sheetMetrics(format: EffectiveFormat, gap = DEFAULT_SHEET_GAP): 
 
   const width = twipToPx(landscape ? rawHeight : rawWidth);
   const height = twipToPx(landscape ? rawWidth : rawHeight);
-  const marginTop = twipToPx(num(format.marginTop, 1440));
+
+  /**
+   * The gutter is the margin a binding takes.
+   *
+   * It is extra room *added* to one edge rather than a margin of its own —
+   * whatever the page already reserves there, the binding takes this much more —
+   * which is why it is added here and nowhere else: every measurement of a page
+   * comes through this function, and a gutter that only the renderer knew about
+   * would give the text a width the paginator broke lines at and the browser did
+   * not.
+   *
+   * Word puts it at the left edge, or at the top for a document bound along its
+   * head — a calendar, or a legal brief filed at the top.
+   */
+  const gutter = twipToPx(num(format.marginGutter, 0));
+  const gutterAtTop = format.gutterAtTop === true;
+
+  const marginTop = twipToPx(num(format.marginTop, 1440)) + (gutterAtTop ? gutter : 0);
   const marginBottom = twipToPx(num(format.marginBottom, 1440));
-  const marginLeft = twipToPx(num(format.marginLeft, 1440));
+  const marginLeft = twipToPx(num(format.marginLeft, 1440)) + (gutterAtTop ? 0 : gutter);
   const marginRight = twipToPx(num(format.marginRight, 1440));
 
   // Lines break at the column width, not the page width — which is why this is
