@@ -1444,18 +1444,32 @@ export class InputHandlerImpl implements InputHandler {
 
     const staticRange = ranges[0];
     const modelRange = this.editorViewDOM.convertStaticRangeToModel?.(staticRange) ?? null;
-    if (!modelRange || modelRange.type !== 'range') return false;
 
     const dataStore = this.editor.dataStore;
     if (!dataStore) return false;
 
-    const startNode = dataStore.getNode(modelRange.startNodeId);
-    const endNode = dataStore.getNode(modelRange.endNodeId);
+    const startNode = modelRange?.type === 'range' ? dataStore.getNode(modelRange.startNodeId) : undefined;
+    const endNode = modelRange?.type === 'range' ? dataStore.getNode(modelRange.endNodeId) : undefined;
     const isEditable =
       startNode?.stype === 'inline-text' &&
       endNode?.stype === 'inline-text';
 
-    if (!isEditable) {
+    /**
+     * A character is never dropped while we know where the typing is.
+     *
+     * The DOM range is resolved against a page the render may be part way
+     * through rewriting, and it can land on a node that holds no text — the
+     * paragraph rather than the run inside it. That used to end the keystroke
+     * here: the browser's edit was prevented and nothing replaced it, so the
+     * character was simply gone, and on a slow machine several in a burst went
+     * that way together. The reader had typed them.
+     *
+     * A burst knows where it has reached. When it does, that is a better answer
+     * than a position the DOM could not resolve at all.
+     */
+    const burstFallback = this._burstCaret;
+    if (!isEditable && !burstFallback) {
+      if (!modelRange || modelRange.type !== 'range') return false;
       event.preventDefault();
       this.editor.emit('editor:input.boundary_text', {
         target: event.target,
@@ -1467,13 +1481,21 @@ export class InputHandlerImpl implements InputHandler {
     }
 
     const text = event.data ?? '';
-    const rangeForReplace: ModelSelection = {
-      type: 'range',
-      startNodeId: modelRange.startNodeId,
-      startOffset: modelRange.startOffset,
-      endNodeId: modelRange.endNodeId,
-      endOffset: modelRange.endOffset
-    };
+    const rangeForReplace: ModelSelection = isEditable
+      ? {
+          type: 'range',
+          startNodeId: modelRange!.startNodeId,
+          startOffset: modelRange!.startOffset,
+          endNodeId: modelRange!.endNodeId,
+          endOffset: modelRange!.endOffset
+        }
+      : {
+          type: 'range',
+          startNodeId: burstFallback!.nodeId,
+          startOffset: burstFallback!.offset,
+          endNodeId: burstFallback!.nodeId,
+          endOffset: burstFallback!.offset
+        };
 
     event.preventDefault();
 
@@ -1526,10 +1548,10 @@ export class InputHandlerImpl implements InputHandler {
         (this.editor as any).selection ??
         ({
           type: 'range',
-          startNodeId: modelRange.startNodeId,
-          startOffset: modelRange.startOffset + text.length,
-          endNodeId: modelRange.startNodeId,
-          endOffset: modelRange.startOffset + text.length
+          startNodeId: range.startNodeId,
+          startOffset: (range.startOffset ?? 0) + text.length,
+          endNodeId: range.startNodeId,
+          endOffset: (range.startOffset ?? 0) + text.length
         } as ModelSelection);
       // No content.change is emitted here. `replaceText` is a command: its
       // transaction has already announced itself and already rendered, ~60ms

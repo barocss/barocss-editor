@@ -49,6 +49,8 @@ export class EditorViewDOM implements IEditorViewDOM {
    * render's own output as something the user had typed.
    */
   private _modelDrivenRenders = 0;
+  /** A content change arrived mid-render and still has to be drawn. */
+  private _renderMissedAChange = false;
   private _decoratorBatchDepth = 0;
   private _decoratorRenderPending = false;
   // Track nodes being edited (for skipNodes)
@@ -355,8 +357,10 @@ export class EditorViewDOM implements IEditorViewDOM {
     // CharacterData changes detected by MutationObserver are handled with skipRender: true to
     // prevent race conditions between rendering during input and selection changes
     this.editor.on('editor:content.change', (e: any) => {
-      // Ignore if rendering (prevent infinite loop)
+      // Ignore if rendering (prevent infinite loop) — but remember, or the
+      // change is lost and nothing ever draws it. See the end of render().
       if (this._isRendering) {
+        if (!e?.skipRender && !this._isComposing) this._renderMissedAChange = true;
         return;
       }
       
@@ -1299,7 +1303,11 @@ export class EditorViewDOM implements IEditorViewDOM {
     
     // Set rendering flag (prevent infinite loop)
     if (this._isRendering) {
-      return; // Ignore if already rendering
+      // ...and remember that this one was asked for, so it happens after the
+      // one in progress. Returning without a note is how a keystroke's paint
+      // went missing: the request arrived mid-render and nothing asked again.
+      this._renderMissedAChange = true;
+      return;
     }
     this._isRendering = true;
     
@@ -1536,6 +1544,26 @@ export class EditorViewDOM implements IEditorViewDOM {
       this._isRendering = false;
 
       if (!layersPending) this._releaseModelDrivenRender();
+    }
+
+    /**
+     * A change that arrived while this was drawing still has to be drawn.
+     *
+     * The content-change handler turns away anything that comes in mid-render,
+     * to stop a render triggering itself. What it did not do was remember: a
+     * keystroke committed while the page was being painted was dropped, and
+     * since nothing else asks for a render, the page stayed as it was — for
+     * good. Typed at an eighth speed the model held "abcdefghij" and the page
+     * showed "abcd" fifteen seconds later, and one forced render brought it
+     * back.
+     *
+     * Coalesced rather than queued: any number of changes during one render
+     * need exactly one more render, because the next one draws the document as
+     * it now stands.
+     */
+    if (this._renderMissedAChange) {
+      this._renderMissedAChange = false;
+      requestAnimationFrame(() => this.render());
     }
 
     // The content DOM is committed by now, so anything that has to measure the
