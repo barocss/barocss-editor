@@ -24,6 +24,7 @@ import { childrenOf, type DocumentAccess, type DocumentNode } from './document-a
 import { footnoteRefsIn, reserveFor } from './footnotes';
 import { lineStartOffsets, type LineAnchor } from './line-offsets';
 import { scaledTo } from './table-pagination';
+import { wrapsText } from './image-layout';
 import { suppressedSpacing } from './spacing';
 
 /** The DOM attribute the renderer stamps each node's id onto. */
@@ -243,6 +244,24 @@ const px = (value: unknown): number =>
   typeof value === 'number' && Number.isFinite(value) ? twipToPx(value) : 0;
 
 /**
+ * Whether a block has a picture the text runs around.
+ *
+ * Such a block is never split, and this is the whole reason: the lines beside
+ * the picture are short and the ones past it are full width, so a break drawn
+ * inside the paragraph moves the text after it clear of the picture and the
+ * paragraph comes out with a different number of lines than the one that was
+ * measured. The pass terminates because applying a layout cannot change what it
+ * measured — a gap inside a wrapped paragraph is the one thing that can, and it
+ * left the layout describing six lines while the page drew seven, with the tail
+ * of the paragraph a line above the top margin it should have started at.
+ */
+function wrapsAnyPicture(doc: DocumentAccess, block: DocumentNode, depth = 0): boolean {
+  if (depth > 32) return false;
+  if (block.stype === 'inline-image' && wrapsText(block.attributes as never)) return true;
+  return childrenOf(doc, block).some((child) => wrapsAnyPicture(doc, child, depth + 1));
+}
+
+/**
  * Measure the blocks of a rendered surface, in document order.
  *
  * Driven by the model rather than by walking the DOM. A renderer stamps its
@@ -294,7 +313,6 @@ export function measureBlocks(
     // space is read here: the space *inside* a list is between its items, and
     // that is already part of how tall the list measured.
     const suppressed = suppressedSpacing(doc, styles, node);
-
     blocks.push({
       sid,
       lines,
@@ -307,7 +325,11 @@ export function measureBlocks(
       // be unsplittable, and a table longer than a page was then drawn straight
       // across the gap between two sheets — measured at 1,654px of table on a
       // 1,056px page, its rows crossing the margin and the paper's edge.
-      keepLines: !splitBlocks || format.keepLines === true,
+      //
+      // A paragraph the text runs around a picture in is the exception, and
+      // moves whole: see wrapsAnyPicture for what splitting one does to the
+      // lines it was measured by.
+      keepLines: !splitBlocks || format.keepLines === true || wrapsAnyPicture(doc, node),
       widowControl: format.widowControl !== false
     });
   }

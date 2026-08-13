@@ -228,15 +228,20 @@ export function createWordLayoutPass(options: WordLayoutPassOptions): () => Rend
 /**
  * What has to be the same for a layout to count as unchanged.
  *
- * Everything a render would look different for: where the breaks fall, how much
- * each page holds back for its notes, which notes those are, and what the margin
- * is numbered with. The reservation has to be in here — a round that changes
- * only the reservation still moves the blocks, and leaving it out made such a
- * round report "nothing changed" and throw its own result away, so footnotes
+ * Everything a render would look different for: where the breaks fall, **where
+ * each block is put**, how much each page holds back for its notes, which notes
+ * those are, and what the margin is numbered with.
+ *
+ * Each of those was added after a round that changed only that thing reported
+ * "nothing changed" and threw its own result away. The reservation: footnotes
  * reserved nothing whenever they did not also happen to move a break. Line
- * numbers went the same way: switching them on moves nothing, so a pass that
- * left them out of the comparison decided it had computed the layout already and
- * discarded the numbers with it.
+ * numbers: switching them on moves nothing, so the numbers were discarded with
+ * the layout that drew them. And the pushes, which is the subtlest of the three
+ * — a block that grows or shrinks without moving any line to another page leaves
+ * every fragment exactly where it was and every page starting somewhere new. A
+ * pass that compared only the fragments kept the old pushes against the new
+ * text, and the whole document from that page on was drawn a little above its
+ * sheet: forty-three pixels, once, from four suppressed paragraph gaps.
  *
  * Rounded to whole pixels, because these come from the DOM: compared exactly,
  * sub-pixel noise would never match and the loop would run to its limit every
@@ -252,13 +257,22 @@ function signatureOf(layouts: Map<string, SurfaceLayout>): string {
           page.fragments.map((f) => `${f.sid}:${f.fromLine}-${f.toLine}`).join(',')
       )
       .join('|');
+    // Where the blocks were put, which is the other half of a rendered page:
+    // one number per page in the ordinary case, and one per block in a section
+    // that runs in columns.
+    const placed = [
+      ...[...layout.pushBySid].map(([block, push]) => `${block}+${Math.round(push)}`),
+      ...[...layout.positionBySid].map(
+        ([block, at]) => `${block}@${Math.round(at.top)},${Math.round(at.left)}`
+      )
+    ].join(',');
     const notes = [...layout.footnotesByPage]
       .map(([page, ids]) => `${page}=${ids.join('+')}`)
       .join(',');
     const numbers = layout.lineNumbers
       .map((mark) => `${mark.page}:${mark.number}@${Math.round(mark.top)}`)
       .join(',');
-    parts.push(`${sid}{${breaks}}[${notes}](${numbers})`);
+    parts.push(`${sid}{${breaks}}<${placed}>[${notes}](${numbers})`);
   }
   return parts.join(';');
 }

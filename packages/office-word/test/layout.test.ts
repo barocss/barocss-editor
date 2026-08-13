@@ -106,3 +106,45 @@ describe('the margin a binding takes', () => {
     expect(bound.contentHeight).toBe(plain.contentHeight - 48);
   });
 });
+
+/**
+ * What has to differ for a layout to count as changed.
+ *
+ * The pass compares its result against the previous one to decide whether the
+ * page moved. Anything a render looks different for has to be part of that
+ * comparison, and a block's *position* is the half that is easiest to forget:
+ * a paragraph that grows or shrinks without moving a line to another page
+ * leaves every fragment exactly where it was and every page starting somewhere
+ * new.
+ */
+describe('a layout that changed only where the blocks sit', () => {
+  const metrics = sheetMetrics({ pageHeight: 15840, marginTop: 1440, marginBottom: 1440 });
+  const block = (sid: string, lines: number, spaceAfter: number) => ({
+    sid,
+    lines: Array(lines).fill(20),
+    spaceAfter
+  });
+
+  it('breaks in the same places and pushes by a different amount', () => {
+    // A page that ends at a forced break rather than by filling up: changing a
+    // height inside it moves no line to another page, and moves the next page's
+    // first block all the same.
+    const of = (spaceAfter: number) =>
+      layoutSurface([block('a', 4, spaceAfter), { ...block('b', 4, 0), breakBefore: true }], metrics);
+
+    const loose = of(40);
+    const tight = of(0);
+    const fragments = (layout: ReturnType<typeof layoutSurface>) =>
+      layout.pages.map((page) =>
+        page.fragments.map((f) => `${f.sid}:${f.fromLine}-${f.toLine}`).join(',')
+      );
+
+    // Identical by the measure the comparison used to use...
+    expect(fragments(loose)).toEqual(fragments(tight));
+    expect(fragments(loose)).toEqual(['a:0-4', 'b:0-4']);
+    // ...and different by where the blocks were put, which is what is drawn. A
+    // pass that compared only the fragments kept the old pushes against the new
+    // text and drew the rest of the document above its sheet.
+    expect(loose.pushBySid.get('b')).toBe(tight.pushBySid.get('b')! - 40);
+  });
+});

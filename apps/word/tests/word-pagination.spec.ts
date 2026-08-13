@@ -657,3 +657,114 @@ test.describe('the binding gutter', () => {
     await expect.poll(() => page.locator('.w-sheet').count()).toBeGreaterThan(pages);
   });
 });
+
+/**
+ * The two ways a page can be drawn somewhere other than where it was computed.
+ *
+ * Both were found by tightening the list above the picture, which moves the page
+ * boundary onto the paragraph the text wraps around. The document is put back
+ * the way it was afterwards by reloading, so this describes the state it sets up
+ * rather than relying on the fixture to hold it.
+ */
+test.describe('a page boundary that lands on a wrapped picture', () => {
+  const tighten = (page: import('@playwright/test').Page) =>
+    page.evaluate(() => {
+      const ed = (window as any).editor;
+      const surface = ed.dataStore.getNode(
+        document.querySelector('.w-surface')!.getAttribute('data-bc-sid')
+      );
+      for (const id of surface.content) {
+        const node = ed.dataStore.getNode(id);
+        if (node?.attributes?.numId) {
+          ed.dataStore.updateNode(node.sid, {
+            attributes: { ...node.attributes, contextualSpacing: true }
+          });
+        }
+      }
+      (window as any).editorView.render();
+    });
+
+  const strays = (page: import('@playwright/test').Page) =>
+    page.evaluate(() => {
+      const areas = [...document.querySelectorAll('.w-sheet')].map((sheet) => {
+        const box = sheet.getBoundingClientRect();
+        return { top: box.top + window.scrollY + 96, bottom: box.bottom + window.scrollY - 96 };
+      });
+      const surface = document.querySelector('.w-surface')!;
+      const walker = document.createTreeWalker(surface, NodeFilter.SHOW_TEXT);
+      const out: string[] = [];
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        if (node.parentElement?.closest('.w-sheets')) continue;
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        for (const rect of [...range.getClientRects()]) {
+          if (rect.height <= 0) continue;
+          const top = rect.top + window.scrollY;
+          const bottom = rect.bottom + window.scrollY;
+          if (!areas.some((a) => top >= a.top - 2 && bottom <= a.bottom + 2)) {
+            out.push((node.textContent ?? '').slice(0, 30));
+          }
+        }
+      }
+      return out;
+    });
+
+  test('keeps every line on a page, and every page against its sheet', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+    await tighten(page);
+    await page.waitForTimeout(1200);
+
+    // Nothing outside the printable area. Two separate faults put text there:
+    // the paragraph split at a line count it no longer had once it was split,
+    // and — after that was fixed — every page from the second on drawn 43px
+    // above its sheet, because the pass compared only where the breaks fell and
+    // not where the blocks were put.
+    expect(await strays(page)).toEqual([]);
+
+    const misplaced = await page.evaluate(() => {
+      const layout = (window as any).wordLayout.values().next().value;
+      const metrics = layout.metrics;
+      const surface = document.querySelector('.w-surface')!;
+      const origin = surface.getBoundingClientRect().top + window.scrollY;
+      return layout.pages
+        .map((slice: any) => {
+          // Only pages that *start* a block: one continuing from the page above
+          // is drawn from where it began, which is a page earlier by design.
+          const first = slice.fragments[0];
+          if (!first || first.continued) return 0;
+          const el = surface.querySelector(`[data-bc-sid="${CSS.escape(first.sid)}"]`);
+          if (!el) return 0;
+          const want = slice.index * (metrics.height + metrics.gap) + metrics.marginTop;
+          const drawn = el.getBoundingClientRect().top + window.scrollY - origin;
+          return Math.round(drawn - want);
+        })
+        .filter((off: number) => Math.abs(off) > 2);
+    });
+    expect(misplaced).toEqual([]);
+  });
+
+  test('moves a paragraph the text wraps around whole', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+    await tighten(page);
+    await page.waitForTimeout(1200);
+
+    const split = await page.evaluate(() => {
+      const para = document.querySelector('.w-image-square')!.closest('.w-paragraph')!;
+      const sid = para.getAttribute('data-bc-sid')!;
+      const layout = (window as any).wordLayout.values().next().value;
+      return {
+        fragments: layout.pages.flatMap((p: any) =>
+          p.fragments.filter((f: any) => f.sid === sid).map(() => p.index)
+        ),
+        widgets: para.querySelectorAll('[data-bc-chrome]').length
+      };
+    });
+
+    // One page, no break drawn inside it: splitting it is what re-flowed it into
+    // a different number of lines than the layout had measured.
+    expect(split.fragments).toHaveLength(1);
+    expect(split.widgets).toBe(0);
+  });
+});

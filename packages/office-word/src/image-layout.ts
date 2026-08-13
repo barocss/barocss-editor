@@ -157,3 +157,16 @@ export function isInFlow(attrs: ImageAttributes | undefined): boolean {
   const wrap = attrs?.wrap;
   return wrap !== 'behind' && wrap !== 'front';
 }
+
+/**
+ * Whether a picture makes the text flow around it.
+ *
+ * The difference that matters to the paginator is not how it looks but what it
+ * does to the lines: a picture the text runs around makes the lines beside it
+ * shorter and the ones past it full width again, so how many lines the paragraph
+ * has depends on where the picture sits in it. Nothing else in a paragraph does
+ * that.
+ */
+export function wrapsText(attrs: ImageAttributes | undefined): boolean {
+  return attrs?.wrap === 'square' || attrs?.wrap === 'tight';
+}
