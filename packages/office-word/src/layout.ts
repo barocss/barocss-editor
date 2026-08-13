@@ -16,6 +16,7 @@
 import { twipToPx } from './css';
 import { assignFootnotes } from './footnotes';
 import { paginate, type MeasuredBlock, type Page, type PaginationOptions } from './pagination';
+import { lineNumbersOf, type LineNumbering, type LineNumberMark } from './line-numbers';
 import type { EffectiveFormat } from './style-resolver';
 
 export interface SheetMetrics {
@@ -61,6 +62,10 @@ export interface SurfaceLayout {
   footnoteNumbers: Map<string, number>;
   /** The page each block starts on, which a table of contents needs. */
   pageOfBlock: Map<string, number>;
+  /** Numbers to draw down the margin, when the section asks for them. */
+  lineNumbers: LineNumberMark[];
+  /** The line count to carry into the next section, for continuous numbering. */
+  lineNumberNext: number;
   /**
    * Where a block splits across a page boundary, and how far the remainder has
    * to fall to reach the next page.
@@ -130,6 +135,12 @@ export interface SurfaceLayoutOptions extends Omit<PaginationOptions, 'contentHe
   /** Where the section sits in the container, for placing a header being edited. */
   originTop?: number;
   originLeft?: number;
+  /** How this section numbers its lines, if it does. */
+  lineNumbering?: LineNumbering;
+  /** Blocks whose lines are neither numbered nor counted. */
+  suppressedLineNumbers?: Set<string>;
+  /** The count carried in from the section before, for continuous numbering. */
+  lineNumberFrom?: number;
 }
 
 export function layoutSurface(
@@ -137,7 +148,15 @@ export function layoutSurface(
   metrics: SheetMetrics,
   options: SurfaceLayoutOptions = {}
 ): SurfaceLayout {
-  const { footnoteRefs, originTop = 0, originLeft = 0, ...paginationOptions } = options;
+  const {
+    footnoteRefs,
+    originTop = 0,
+    originLeft = 0,
+    lineNumbering,
+    suppressedLineNumbers,
+    lineNumberFrom,
+    ...paginationOptions
+  } = options;
   const pages = paginate(blocks, { ...paginationOptions, contentHeight: metrics.contentHeight });
   const pushBySid = new Map<string, number>();
 
@@ -215,6 +234,20 @@ export function layoutSurface(
     order: blocks.map((block) => block.sid)
   });
 
+  // Where each numbered line sits, which is the same arithmetic the pages were
+  // decided by — see line-numbers for why it is done there rather than reported
+  // by the paginator.
+  const numbers = lineNumbering
+    ? lineNumbersOf({
+        pages,
+        blocks,
+        metrics,
+        numbering: lineNumbering,
+        suppressed: suppressedLineNumbers,
+        from: lineNumberFrom
+      })
+    : { marks: [], next: lineNumberFrom ?? 1 };
+
   return {
     pages,
     metrics,
@@ -226,6 +259,8 @@ export function layoutSurface(
     originLeft,
     footnotesByPage: footnotes.byPage,
     footnoteNumbers: footnotes.numberOf,
-    pageOfBlock
+    pageOfBlock,
+    lineNumbers: numbers.marks,
+    lineNumberNext: numbers.next
   };
 }

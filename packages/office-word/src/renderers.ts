@@ -26,7 +26,14 @@ import {
 import { childrenOf, indexResources, type DocumentAccess, type DocumentNode } from './document-access';
 import { tocEntries, tocPageNumber } from './toc';
 import { formatDateField } from './date-field';
-import { footnoteAreaTemplate, furnitureFor, furnitureTemplate, pageNumberFor } from './page-furniture';
+import {
+  footnoteAreaTemplate,
+  furnitureFor,
+  furnitureTemplate,
+  lineNumberTemplate,
+  pageNumberFor
+} from './page-furniture';
+import { lineNumberingOf } from './line-numbers';
 import { leaderStyle } from './tabs';
 import { imageCss } from './image-layout';
 import {
@@ -211,6 +218,25 @@ export function registerWordRenderers(): void {
           });
           if (drawn) furniture.push(drawn);
         }
+      }
+    }
+
+    // Numbers down the margin, for a section that asks for them. Grouped by the
+    // page they belong to, so each page draws one box of them.
+    if (layout && layout.lineNumbers.length > 0) {
+      const numbering = lineNumberingOf(format);
+      const byPage = new Map<number, typeof layout.lineNumbers>();
+      for (const mark of layout.lineNumbers) {
+        byPage.set(mark.page, [...(byPage.get(mark.page) ?? []), mark]);
+      }
+      for (const [pageIndex, marks] of byPage) {
+        const drawn = lineNumberTemplate({
+          marks,
+          pageIndex,
+          metrics: layout.metrics,
+          distance: numbering?.distance ?? 360
+        });
+        if (drawn) furniture.push(drawn);
       }
     }
 

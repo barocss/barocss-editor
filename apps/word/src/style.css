@@ -83,6 +83,10 @@ body {
    see the cell renderer — so the same inset is stated here for the box. */
 .w-cell-clip { padding: 4px 8px; }
 
+/* Numbers down the margin, drawn beside the text and no part of it. Smaller and
+   greyer than the body, the way Word draws them. */
+.w-line-number { font-size: 9pt; color: #868e96; font-family: inherit; }
+
 .w-page-break { border-top: 1px dashed #adb5bd; margin: 12px 0; }
 
 /* The caret filler is renderer bookkeeping; it must never look like content. */

@@ -108,6 +108,12 @@ export {
 export { measureBlocks, type MeasureOptions } from './measurement';
 export { suppressedSpacing, type SuppressedSpacing } from './spacing';
 export {
+  lineNumberingOf,
+  lineNumbersOf,
+  type LineNumbering,
+  type LineNumberMark
+} from './line-numbers';
+export {
   layoutSurface,
   sheetMetrics,
   DEFAULT_SHEET_GAP,
@@ -126,6 +132,7 @@ export {
 export {
   furnitureFor,
   furnitureTemplate,
+  lineNumberTemplate,
   pageNumberFor,
   pageNumberText,
   type FurnitureBinding,

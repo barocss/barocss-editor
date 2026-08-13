@@ -390,3 +390,85 @@ test.describe('back matter', () => {
     await expect(page.locator('.w-endnotes')).toContainText('!');
   });
 });
+
+/**
+ * Numbers down the margin, which a contract is quoted by.
+ *
+ * Switched on at runtime: the sample document does not number its lines, and a
+ * fixture that did would put text in the margin of every page for every other
+ * test in the suite to walk past.
+ */
+test.describe('line numbers', () => {
+  const number = (page: import('@playwright/test').Page, over: Record<string, unknown>) =>
+    page.evaluate((attrs) => {
+      const ed = (window as any).editor;
+      const section = ed.dataStore.getNode(
+        document.querySelector('.w-surface')!.getAttribute('data-bc-sid')
+      );
+      ed.dataStore.updateNode(section.sid, { attributes: { ...section.attributes, ...attrs } });
+      (window as any).editorView.render();
+    }, over);
+
+  test('are drawn beside the lines they count, in the margin', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-sheet');
+    await expect(page.locator('.w-line-number')).toHaveCount(0);
+
+    await number(page, { lineNumberingCountBy: 1, lineNumberingDistance: 360 });
+    await expect.poll(() => page.locator('.w-line-number').count()).toBeGreaterThan(5);
+
+    const placed = await page.evaluate(() => {
+      const first = document.querySelector('.w-line-number') as HTMLElement;
+      const box = first.getBoundingClientRect();
+      const section = document.querySelector('.w-surface')!.getBoundingClientRect();
+      const text = document.querySelector('.w-surface .w-heading, .w-surface .w-paragraph')!;
+      return {
+        label: first.textContent,
+        // In the margin: right of the sheet's edge and left of where text starts
+        insideMargin: box.left >= section.left && box.right <= text.getBoundingClientRect().left,
+        selectable: getComputedStyle(first).userSelect
+      };
+    });
+
+    expect(placed.label).toBe('1');
+    expect(placed.insideMargin).toBe(true);
+    // Drawn beside the text and no part of it: a copy must not carry a column
+    // of digits into whatever it is pasted into.
+    expect(placed.selectable).toBe('none');
+  });
+
+  test('show every fifth when that is what the section asks for', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-sheet');
+    await number(page, { lineNumberingCountBy: 5, lineNumberingRestart: 'newSection' });
+
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          [...document.querySelectorAll('.w-line-number')].slice(0, 3).map((el) => el.textContent)
+        )
+      )
+      .toEqual(['5', '10', '15']);
+  });
+
+  test('line up with the lines they belong to', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-sheet');
+    await number(page, { lineNumberingCountBy: 1 });
+    await expect.poll(() => page.locator('.w-line-number').count()).toBeGreaterThan(5);
+
+    // The first number sits against the first line of the document's first
+    // block — not against the middle of the block, and not against the page.
+    const aligned = await page.evaluate(() => {
+      const first = document.querySelector('.w-line-number')!.getBoundingClientRect();
+      const block = document.querySelector('.w-surface .w-heading, .w-surface .w-paragraph')!;
+      const range = document.createRange();
+      range.selectNodeContents(block);
+      const line = range.getClientRects()[0];
+      return Math.abs(first.top - line.top);
+    });
+
+    // Within a line of each other; the number is smaller than the text it counts
+    expect(aligned).toBeLessThan(20);
+  });
+});

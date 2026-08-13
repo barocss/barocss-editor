@@ -19,6 +19,7 @@ import { formatCounter, type NumberFormatValue } from '@barocss/shared';
 import { twipToPx } from './css';
 import { childrenOf, type DocumentAccess, type DocumentNode } from './document-access';
 import type { SheetMetrics } from './layout';
+import type { LineNumberMark } from './line-numbers';
 import type { EffectiveFormat } from './style-resolver';
 
 /** Which header or footer a page gets, in Word's order of preference. */
@@ -183,6 +184,56 @@ export function furnitureTemplate(options: FurnitureOptions): ElementTemplate | 
       }
     },
     blocks.map((block) => furnitureBlock(doc, block, page, format))
+  );
+}
+
+/**
+ * The numbers down the margin of one page.
+ *
+ * Right-aligned into the margin and stopped `distance` short of the text, which
+ * is how Word measures it: the gap between the number and the line it counts is
+ * what the setting names, not where the number starts. They are drawn per page
+ * with the rest of the furniture because that is what they are — the count is a
+ * fact about the page, and the lines they sit against are content that knows
+ * nothing about them.
+ */
+export function lineNumberTemplate(options: {
+  marks: LineNumberMark[];
+  pageIndex: number;
+  metrics: SheetMetrics;
+  distance: number;
+}): ElementTemplate | null {
+  const { marks, pageIndex, metrics, distance } = options;
+  if (marks.length === 0) return null;
+
+  const gap = twipToPx(distance);
+  const width = Math.max(0, metrics.marginLeft - gap);
+
+  return element(
+    'div',
+    { className: 'w-line-numbers', key: `line-numbers-${pageIndex}`, 'data-bc-chrome': 'true' },
+    marks.map((mark) =>
+      element(
+        'span',
+        {
+          className: 'w-line-number',
+          key: `line-number-${mark.number}`,
+          style: {
+            position: 'absolute',
+            left: '0',
+            top: `${mark.top}px`,
+            width: `${width}px`,
+            textAlign: 'right',
+            // Never selectable: the numbers are drawn beside the text and are no
+            // part of it, and a copy that carried them would paste a column of
+            // digits into whatever it was pasted into.
+            userSelect: 'none',
+            pointerEvents: 'none'
+          }
+        },
+        String(mark.number)
+      )
+    )
   );
 }
 

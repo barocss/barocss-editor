@@ -16,6 +16,7 @@ import type { RenderEnv } from '@barocss/dsl';
 import type { DocumentAccess } from './document-access';
 import { footnoteRefsIn } from './footnotes';
 import { layoutSurface, sheetMetrics, type SurfaceLayout } from './layout';
+import { lineNumberingOf } from './line-numbers';
 import { measureBlocks, type MeasureOptions } from './measurement';
 import { FOOTNOTE_SEPARATOR } from './page-furniture';
 import { childrenOf } from './document-access';
@@ -117,13 +118,16 @@ export function createWordLayoutPass(options: WordLayoutPassOptions): () => Rend
     const footnoteHeights = measureFootnotes(container);
     const pageBreaks: PageBreakWidget[] = [];
     const tableBreaks: TableBreakWidget[] = [];
+    let lineNumberCarried = 1;
 
     for (const el of Array.from(container.querySelectorAll(SURFACE_SELECTOR))) {
       const sid = el.getAttribute(SID_ATTR);
       if (!sid || !doc.getNode(sid)) continue;
 
       const node = doc.getNode(sid)!;
-      const metrics = sheetMetrics(styles.resolveNode(node, 'page'));
+      const pageFormat = styles.resolveNode(node, 'page');
+      const metrics = sheetMetrics(pageFormat);
+      const lineNumbering = lineNumberingOf(pageFormat);
       const lineAnchors = new Map<string, LineAnchor[]>();
       const blocks = measureBlocks(el as HTMLElement, doc, styles, {
         ...measureOptions,
@@ -133,10 +137,17 @@ export function createWordLayoutPass(options: WordLayoutPassOptions): () => Rend
       });
 
       const footnoteRefs = new Map<string, string[]>();
+      // Blocks Word leaves out of the count as if they were not there, so that a
+      // heading in the middle of a numbered contract does not shift every number
+      // under it. Only asked when the section numbers its lines at all.
+      const suppressedLineNumbers = new Set<string>();
       for (const child of childrenOf(doc, node)) {
         if (!child.sid) continue;
         const refs = footnoteRefsIn(doc, child);
         if (refs.length > 0) footnoteRefs.set(child.sid, refs);
+        if (lineNumbering && styles.resolveNode(child, 'paragraph').suppressLineNumbers === true) {
+          suppressedLineNumbers.add(child.sid);
+        }
       }
 
       // Where this section sits in the container, which only a header being
@@ -146,8 +157,18 @@ export function createWordLayoutPass(options: WordLayoutPassOptions): () => Rend
       const originTop = sectionBox.top - containerBox.top + container.scrollTop;
       const originLeft = sectionBox.left - containerBox.left + container.scrollLeft;
 
-      const layout = layoutSurface(blocks, metrics, { footnoteRefs, originTop, originLeft });
+      const layout = layoutSurface(blocks, metrics, {
+        footnoteRefs,
+        originTop,
+        originLeft,
+        lineNumbering,
+        suppressedLineNumbers,
+        // Continuous numbering runs to the end of the document, so each section
+        // takes over the count where the one before it stopped.
+        lineNumberFrom: lineNumberCarried
+      });
       layouts.set(sid, layout);
+      lineNumberCarried = layout.lineNumberNext;
 
       // A break inside a paragraph is a widget at a text offset, and the offset
       // is only known from the measurement: the layout says "after line three",
@@ -208,11 +229,14 @@ export function createWordLayoutPass(options: WordLayoutPassOptions): () => Rend
  * What has to be the same for a layout to count as unchanged.
  *
  * Everything a render would look different for: where the breaks fall, how much
- * each page holds back for its notes, and which notes those are. The reservation
- * has to be in here — a round that changes only the reservation still moves the
- * blocks, and leaving it out made such a round report "nothing changed" and
- * throw its own result away, so footnotes reserved nothing whenever they did not
- * also happen to move a break.
+ * each page holds back for its notes, which notes those are, and what the margin
+ * is numbered with. The reservation has to be in here — a round that changes
+ * only the reservation still moves the blocks, and leaving it out made such a
+ * round report "nothing changed" and throw its own result away, so footnotes
+ * reserved nothing whenever they did not also happen to move a break. Line
+ * numbers went the same way: switching them on moves nothing, so a pass that
+ * left them out of the comparison decided it had computed the layout already and
+ * discarded the numbers with it.
  *
  * Rounded to whole pixels, because these come from the DOM: compared exactly,
  * sub-pixel noise would never match and the loop would run to its limit every
@@ -231,7 +255,10 @@ function signatureOf(layouts: Map<string, SurfaceLayout>): string {
     const notes = [...layout.footnotesByPage]
       .map(([page, ids]) => `${page}=${ids.join('+')}`)
       .join(',');
-    parts.push(`${sid}{${breaks}}[${notes}]`);
+    const numbers = layout.lineNumbers
+      .map((mark) => `${mark.page}:${mark.number}@${Math.round(mark.top)}`)
+      .join(',');
+    parts.push(`${sid}{${breaks}}[${notes}](${numbers})`);
   }
   return parts.join(';');
 }
