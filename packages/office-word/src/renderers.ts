@@ -40,7 +40,7 @@ import {
   shapeTransform
 } from './shapes';
 import { blockStyle, formatFor, listMarker } from './renderers/block-style';
-import { cellBorders, gridOf, tableCss } from './table-format';
+import { cellBorders, cellMargins, gridOf, tableCss } from './table-format';
 import { cellPlacementOf, cellStyleLayers, rowFormat, tableStyleLayer } from './table-style';
 import { registerRevisionMarks, registerValuedMarks } from './renderers/marks';
 import { registerMathRenderers } from './math-renderers';
@@ -758,8 +758,14 @@ export function registerWordRenderers(): void {
           ? cellStyleLayers(styles, placement.table, placement.at, tableFormat)
           : undefined;
 
+      // Under the style's regions and under the cell's own: the margins a table
+      // states once for all its cells are a default, and every layer above is
+      // something said about this cell in particular.
       const cellFormat = styles
-        ? styles.resolveNodeWith(node as never, 'table', [regions?.cell])
+        ? styles.resolveNodeWith(node as never, 'table', [
+            tableFormat ? cellMargins(tableFormat) : undefined,
+            regions?.cell
+          ])
         : {};
       const borders =
         tableFormat && placement ? cellBorders(tableFormat, cellFormat, placement.at) : {};

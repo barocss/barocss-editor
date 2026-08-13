@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { borderCss, borderOf, cellBorders, gridOf, tableCss } from '../src/table-format';
+import { borderCss, borderOf, cellBorders, cellMargins, gridOf, tableCss } from '../src/table-format';
 
 /**
  * A table's own formatting.
@@ -96,5 +96,21 @@ describe('the rules between cells', () => {
     const own = cellBorders(table, { borderLeftStyle: 'double', borderLeftWidth: 24 },
       { row: 1, column: 1, rows: 3, columns: 3 });
     expect(own.borderLeft).toBe('3pt double currentColor');
+  });
+});
+
+describe('the margins a table gives its cells', () => {
+  it('translates the table’s names into the cell’s', () => {
+    // `cellMarginLeft` is what a table states; `marginLeft` is what a cell has
+    expect(cellMargins({ cellMarginLeft: 108, cellMarginRight: 108 })).toEqual({
+      marginLeft: 108,
+      marginRight: 108
+    });
+  });
+
+  it('says nothing about a side the table says nothing about', () => {
+    // Silence is what lets the cell — or the stylesheet — answer instead
+    expect(cellMargins({})).toEqual({});
+    expect(cellMargins({ cellMarginTop: 0 })).toEqual({ marginTop: 0 });
   });
 });

@@ -151,6 +151,22 @@ describe('table CSS', () => {
     expect(css.padding).toBe('0pt 5.4pt 0pt 5.4pt');
   });
 
+  it('turns a cell’s text onto its side, the way Word names the directions', () => {
+    // `tbRl` reads downwards, `btLr` upwards — and upwards is drawn as the
+    // downward mode turned around, which renders where `sideways-lr` does not.
+    expect(tableCellCss({ textDirection: 'tbRl' }).writingMode).toBe('vertical-rl');
+    expect(tableCellCss({ textDirection: 'btLr' })).toMatchObject({
+      writingMode: 'vertical-rl',
+      transform: 'rotate(180deg)'
+    });
+    expect(tableCellCss({ textDirection: 'tbLrV' }).writingMode).toBe('vertical-lr');
+
+    // Ordinary lines, and so is anything nobody can draw
+    expect(tableCellCss({ textDirection: 'lrTb' }).writingMode).toBeUndefined();
+    expect(tableCellCss({ textDirection: 'sideways' }).writingMode).toBeUndefined();
+    expect(tableCellCss({}).writingMode).toBeUndefined();
+  });
+
   it('gives a row the height it asks for, and only when the rule wants one', () => {
     expect(tableRowCss({ height: 720, heightRule: 'atLeast' }).height).toBe('36pt');
     expect(tableRowCss({ height: 720, heightRule: 'exact' }).height).toBe('36pt');

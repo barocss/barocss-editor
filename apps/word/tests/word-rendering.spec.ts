@@ -484,15 +484,16 @@ test.describe('a table row’s own formatting', () => {
       return {
         height: Math.round(box.getBoundingClientRect().height),
         overflow: box.scrollHeight > box.clientHeight,
-        cellPadding: getComputedStyle(cell).paddingTop,
-        boxPadding: getComputedStyle(box).paddingTop
+        cellPadding: getComputedStyle(cell).paddingLeft,
+        boxPadding: getComputedStyle(box).paddingLeft
       };
     });
     expect(clipped.height).toBe(27);
     expect(clipped.overflow).toBe(true);
     // The padding moved inside, so it is inside the height rather than under it
+    // The table states 108 twips at the sides, and the box wears them instead
     expect(clipped.cellPadding).toBe('0px');
-    expect(clipped.boxPadding).toBe('4px');
+    expect(clipped.boxPadding).toBe('7.2px');
   });
 
   test('is still an ordinary cell to type in when it clips', async ({ page }) => {
@@ -518,6 +519,102 @@ test.describe('a table row’s own formatting', () => {
       'background-color',
       'rgb(255, 245, 245)'
     );
+  });
+});
+
+test.describe('what a cell takes from its table', () => {
+  const cellPadding = (page: import('@playwright/test').Page) =>
+    page.evaluate(() => {
+      const style = getComputedStyle(document.querySelector('.w-tbody .w-cell')!);
+      return [style.paddingTop, style.paddingLeft];
+    });
+
+  test('uses the margins the table states for all of them', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    // The sample's table style states Word's own default cell margins: 108
+    // twips at the sides and none above or below.
+    expect(await cellPadding(page)).toEqual(['0px', '7.2px']);
+  });
+
+  test('lets a cell override the side it disagrees about', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    await page.evaluate(() => {
+      const ed = (window as any).editor;
+      const cell = ed.dataStore.getNode(
+        document.querySelector('.w-tbody .w-cell')!.getAttribute('data-bc-sid')
+      );
+      ed.dataStore.updateNode(cell.sid, {
+        attributes: { ...cell.attributes, marginTop: 240, marginLeft: 240 }
+      });
+      (window as any).editorView.render();
+    });
+
+    await expect.poll(() => cellPadding(page)).toEqual(['16px', '16px']);
+  });
+});
+
+/**
+ * A column narrow enough to need its label on its side.
+ */
+test.describe('a cell whose text runs downwards', () => {
+  const setDirection = (page: import('@playwright/test').Page, textDirection: string) =>
+    page.evaluate((direction) => {
+      const ed = (window as any).editor;
+      const cell = ed.dataStore.getNode(
+        document.querySelector('.w-thead .w-cell')!.getAttribute('data-bc-sid')
+      );
+      ed.dataStore.updateNode(cell.sid, {
+        attributes: { ...cell.attributes, textDirection: direction }
+      });
+      (window as any).editorView.render();
+    }, textDirection);
+
+  test('is drawn on its side, and takes the room that needs', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    const flat = await page.evaluate(() =>
+      Math.round(document.querySelector('.w-thead .w-cell')!.getBoundingClientRect().height)
+    );
+
+    await setDirection(page, 'tbRl');
+    await expect(page.locator('.w-thead .w-cell').first()).toHaveCSS('writing-mode', 'vertical-rl');
+    // A line of text on its side is as tall as the line was wide
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          Math.round(document.querySelector('.w-thead .w-cell')!.getBoundingClientRect().height)
+        )
+      )
+      .toBeGreaterThan(flat);
+  });
+
+  test('reads upwards for the direction that says so', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+    await setDirection(page, 'btLr');
+
+    const header = page.locator('.w-thead .w-cell').first();
+    await expect(header).toHaveCSS('writing-mode', 'vertical-rl');
+    // Turned around, which is how upwards is drawn where `sideways-lr` is not
+    await expect(header).toHaveCSS('transform', 'matrix(-1, 0, 0, -1, 0, 0)');
+  });
+
+  test('is still an ordinary cell to type in', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+    await setDirection(page, 'btLr');
+
+    // The caret has to reach through a box the browser has turned upside down
+    await placeCaret(page, '.w-thead .w-cell', 0);
+    await page.keyboard.type('X');
+    await expect
+      .poll(() => page.evaluate(() => document.querySelector('.w-thead .w-cell')!.textContent))
+      .toContain('X');
   });
 });
 

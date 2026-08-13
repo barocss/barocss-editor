@@ -60,6 +60,7 @@ export {
   borderCss,
   borderOf,
   cellBorders,
+  cellMargins,
   gridOf,
   type CellPosition
 } from './table-format';
@@ -90,7 +91,8 @@ export {
   type WordEnv
 } from './render-context';
 export {
-  paragraphCss, characterCss, pageCss, tableCss, tableRowCss, tableCellCss, rowClipHeight,
+  paragraphCss, characterCss, pageCss, tableCss, tableRowCss, tableCellCss,
+  rowClipHeight, verticalTextCss,
   twipToCss, halfPointToCss, normalizeColor, type CssStyle
 } from './css';
 

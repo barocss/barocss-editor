@@ -125,6 +125,26 @@ export function tableCss(format: EffectiveFormat): CssStyle {
 }
 
 /**
+ * The margins a table gives its cells.
+ *
+ * Word states them once on the table — `tblCellMar` — and a cell may then
+ * override any side of it. So they arrive as a layer under the cell's own
+ * formatting rather than as CSS: they are a default the cell can beat, and the
+ * cascade already knows how to express that.
+ *
+ * Named differently at each end on purpose, and this is the translation:
+ * `cellMarginLeft` is what a table gives, `marginLeft` is what a cell has.
+ */
+export function cellMargins(table: EffectiveFormat): Record<string, unknown> {
+  const layer: Record<string, unknown> = {};
+  for (const side of ['Top', 'Bottom', 'Left', 'Right']) {
+    const value = asNumber(table[`cellMargin${side}`]);
+    if (value !== undefined) layer[`margin${side}`] = value;
+  }
+  return layer;
+}
+
+/**
  * The borders a cell carries, given where it sits.
  *
  * A side that faces another cell takes the table's inside rule; a side that

@@ -328,6 +328,38 @@ export function rowClipHeight(format: EffectiveFormat): string | undefined {
   return twipToCss(height);
 }
 
+/**
+ * Which way the text in a cell runs.
+ *
+ * A column header narrow enough to need its label on its side is the reason this
+ * exists, and Word names the directions by the axes they run along: `tbRl` reads
+ * downwards, `btLr` upwards.
+ *
+ * Upwards is the awkward one. CSS has a writing mode for it — `sideways-lr` —
+ * that browsers only lately agreed on, so it is drawn the way it has always been
+ * drawn instead: the downward mode, turned around. The result is the same text,
+ * and it renders where `sideways-lr` would be ignored.
+ *
+ * The `V` spellings are Word's East Asian refinements of the same three
+ * directions, and they run the same way; what differs is how upright the
+ * individual glyphs stand, which the font decides here.
+ */
+export function verticalTextCss(direction: string | undefined): CssStyle {
+  switch (direction) {
+    case 'tbRl':
+    case 'tbRlV':
+      return { writingMode: 'vertical-rl' };
+    case 'tbLrV':
+      return { writingMode: 'vertical-lr' };
+    case 'btLr':
+      return { writingMode: 'vertical-rl', transform: 'rotate(180deg)' };
+    default:
+      // `lrTb` and `lrTbV` are ordinary lines, and so is anything unrecognised:
+      // a direction nobody can draw should read as the text it always was.
+      return {};
+  }
+}
+
 export function tableCellCss(format: EffectiveFormat): CssStyle {
   const out: CssStyle = {};
 
@@ -338,6 +370,8 @@ export function tableCellCss(format: EffectiveFormat): CssStyle {
 
   const vAlign = str(format.verticalAlign);
   if (vAlign) out.verticalAlign = vAlign === 'center' ? 'middle' : vAlign;
+
+  Object.assign(out, verticalTextCss(str(format.textDirection)));
 
   const margins = ['marginTop', 'marginRight', 'marginBottom', 'marginLeft'].map((key) =>
     num(format[key])
