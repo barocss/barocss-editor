@@ -23,7 +23,20 @@ const TARGETS = [
   { name: 'a heading', selector: '.w-heading', nth: 1 },
   { name: 'a list item', selector: '[data-marker]:not([data-marker=""])', nth: 0 },
   { name: 'a table cell', selector: '.w-tbody .w-cell', nth: 0 },
-  { name: 'an equation run', selector: '.w-math .w-text', nth: 0 },
+  {
+    name: 'an equation run',
+    selector: '.w-math .w-text',
+    nth: 0,
+    /**
+     * The first run of an equation begins at a boundary between two inline
+     * things, and which side of it a point falls on is the browser's own hit
+     * test — measured, a click on the first pixel of the "x" lands after the
+     * space before the equation, and four pixels in it lands after the "x".
+     * Offset 0 of the run is not a position a pointer can ask for, so asking
+     * for it here would be asserting against the platform.
+     */
+    startIsABoundary: true
+  },
   { name: 'a fraction’s numerator', selector: '.w-math-frac .w-math-num .w-text', nth: 0 }
 ];
 
@@ -59,6 +72,42 @@ test.describe('click, then type', () => {
         .nth(target.nth)
         .evaluate((el) => el.textContent ?? '');
       expect(shown.replace(/﻿/g, '')).toContain('XY');
+    });
+  }
+});
+
+/**
+ * Where in the text the caret lands, not just which text.
+ *
+ * Aiming is two questions and the matrix above only asks one. A reader clicking
+ * the first letter of a word means before it; clicking past the last means the
+ * end. Getting the node right and the offset wrong is the same experience as
+ * getting neither right — what you type appears somewhere you did not ask for.
+ */
+test.describe('where in the line the caret lands', () => {
+  for (const target of TARGETS) {
+    test(`lands at both ends of ${target.name}`, async ({ page }) => {
+      await page.goto('/');
+      await settled(page);
+      test.skip((await page.locator(target.selector).count()) <= target.nth, 'not in the sample');
+      await page.locator(target.selector).nth(target.nth).scrollIntoViewIfNeeded();
+
+      await clickText(page, target.selector, { nth: target.nth, at: 'start' });
+      const atStart = await caret(page);
+      if (target.startIsABoundary) {
+        // At a boundary the caret may be on either side of it; what it must not
+        // be is somewhere else entirely.
+        const near = atStart!.offset === 0 || atStart!.offset >= atStart!.text.length - 1;
+        expect(near, 'a click at the boundary landed away from it').toBe(true);
+      } else {
+        expect(atStart!.offset, 'clicking the first letter should mean before it').toBe(0);
+      }
+
+      await clickText(page, target.selector, { nth: target.nth, at: 'end' });
+      const atEnd = await caret(page);
+      expect(atEnd!.offset, 'clicking past the last letter should mean after it').toBe(
+        atEnd!.text.length
+      );
     });
   }
 });
@@ -186,16 +235,37 @@ test.describe('clicking an equation where there is no letter', () => {
  * shows is computed, and typing into it is lost on the next render.
  */
 test.describe('what a caret must not reach', () => {
-  test('leaves the table of contents alone', async ({ page }) => {
+  test('leaves the table of contents alone, and goes where the line points', async ({ page }) => {
     await page.goto('/');
     await settled(page);
 
-    const before = await page.locator('.w-toc').textContent();
-    await clickText(page, '.w-toc-entry', { nth: 2, at: 'middle' });
-    await page.keyboard.type('ZZ');
-    await page.waitForTimeout(300);
+    // Not clickText: that waits for the model to describe the click, and the
+    // point of this one is that it never will — the entry is computed text and
+    // holds no position to describe.
+    const entry = page.locator('.w-toc-entry').nth(2);
+    const target = (await entry.getAttribute('data-toc-target'))!;
+    const box = (await entry.boundingBox())!;
 
-    // Whatever the caret did, the table of contents still says what it computed
-    expect(await page.locator('.w-toc').textContent()).toBe(before);
+    // Computed text takes no caret at all
+    await expect(entry).toHaveCSS('user-select', 'none');
+
+    await page.mouse.click(box.x + 30, box.y + box.height / 2);
+    await expect
+      .poll(() =>
+        page.evaluate((sid) => {
+          const selection = (window as any).editor?.selection;
+          if (!selection) return false;
+          const el = document.querySelector(`[data-bc-sid="${CSS.escape(selection.startNodeId)}"]`);
+          return !!el?.closest(`[data-bc-sid="${CSS.escape(sid as string)}"]`);
+        }, target)
+      )
+      .toBe(true);
+
+    // Typing goes to the heading the line stands for — and the line follows,
+    // because it is a drawing of that heading rather than text of its own.
+    const heading = page.locator(`[data-bc-sid="${target}"]`);
+    await page.keyboard.type('ZZ');
+    await expect(heading).toContainText('ZZ');
+    await expect(entry).toContainText('ZZ');
   });
 });

@@ -121,12 +121,38 @@ export async function clickText(
   expect(point, `no text to click in ${selector} [${nth}]`).not.toBeNull();
   await page.mouse.click(point!.x, point!.y);
 
-  // The selection reaches the model through selectionchange, which is
-  // asynchronous: acting on the next line would run against an editor that has
-  // no selection yet.
+  /**
+   * Wait for the model to catch up with the click, not merely to have something.
+   *
+   * The selection reaches the model through selectionchange, one task later. A
+   * test that only waited for "a selection exists" read the *previous* one
+   * whenever there already was one — which made a second click look like it had
+   * landed where the first did, and turned six real assertions into six that
+   * could never fail.
+   *
+   * The browser's own selection is the thing that moved, so the question is
+   * whether the model is describing that position yet — the node *and* the
+   * offset. Waiting on the node alone is no wait at all when both clicks are in
+   * the same paragraph, which is exactly when the reading is wrong.
+   */
   await expect
-    .poll(() => page.evaluate(() => (window as any).editor?.selection?.startNodeId ?? null))
-    .not.toBeNull();
+    .poll(() =>
+      page.evaluate(() => {
+        const dom = window.getSelection();
+        const model = (window as any).editor?.selection;
+        if (!dom?.anchorNode || !model) return false;
+        const node = dom.anchorNode;
+        const el =
+          node.nodeType === 1
+            ? (node as Element).closest('[data-bc-sid]')
+            : node.parentElement?.closest('[data-bc-sid]');
+        return (
+          el?.getAttribute('data-bc-sid') === model.startNodeId &&
+          dom.anchorOffset === model.startOffset
+        );
+      })
+    )
+    .toBe(true);
 
   return point!;
 }

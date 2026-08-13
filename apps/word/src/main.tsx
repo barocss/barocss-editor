@@ -362,6 +362,37 @@ export function mountWord(container: HTMLElement): { editor: Editor; view: Edito
     if (id) setEditing(id);
   });
 
+  /**
+   * A line of the table of contents takes you to what it stands for.
+   *
+   * The entry is a drawing of a heading, computed on every render, so there is
+   * nothing in it to edit — which leaves the click meaning the only other thing
+   * it can mean. Word wants Ctrl for this because its entries are also text you
+   * can type over; ours are not, so a plain click is enough and needs no
+   * explaining.
+   */
+  container.addEventListener('click', (event) => {
+    const entry = (event.target as Element | null)?.closest?.('.w-toc-entry');
+    const target = entry?.getAttribute('data-toc-target');
+    if (!target) return;
+
+    const heading = container.querySelector(`[data-bc-sid="${CSS.escape(target)}"]`);
+    if (!heading) return;
+
+    heading.scrollIntoView({ block: 'center', behavior: 'smooth' });
+
+    // ...and the caret goes with the reader, so they can start typing where they
+    // asked to be.
+    const text = document.createTreeWalker(heading, NodeFilter.SHOW_TEXT).nextNode();
+    if (!text) return;
+    const range = document.createRange();
+    range.setStart(text, 0);
+    range.collapse(true);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+  });
+
   // On the document, not the container: leaving the mode should not depend on
   // where the focus happens to be, and after a double-click it is often nowhere.
   document.addEventListener('keydown', (event) => {

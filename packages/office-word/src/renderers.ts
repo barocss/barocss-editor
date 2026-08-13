@@ -442,7 +442,28 @@ export function registerWordRenderers(): void {
             className: 'w-toc-entry',
             key: entry.sid,
             'data-level': String(entry.level),
-            style: { paddingLeft: `${(entry.level - 1) * 1.5}em` }
+            /**
+             * Which heading this line stands for.
+             *
+             * The entry is a *drawing* of that heading — every character of it
+             * is computed — so a click on it is a request to go there rather
+             * than a request to edit here. The host wires that; what the
+             * renderer owes is the answer to "there".
+             */
+            'data-toc-target': entry.sid,
+            style: {
+              paddingLeft: `${(entry.level - 1) * 1.5}em`,
+              /**
+               * No caret in computed text.
+               *
+               * A caret here is a caret nowhere: the entry belongs to no node
+               * the user can edit, so a click landed on the table of contents
+               * itself with an offset into text it does not hold, and the
+               * caret was then drawn against a different entry. Typing did
+               * nothing and looked like a bug in typing.
+               */
+              userSelect: 'none'
+            }
           },
           [
             element('span', { className: 'w-toc-text' }, entry.text),
