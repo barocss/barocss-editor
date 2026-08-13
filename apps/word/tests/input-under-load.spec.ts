@@ -4,60 +4,40 @@ import { settled } from './helpers';
 /**
  * Typing on a machine that is busy.
  *
- * The suite's typing tests fail two or three at a time under a full parallel
- * run and pass alone, which is the shape of a race rather than of a bug in any
- * one of them. This reproduces it deliberately instead of waiting for it:
- * Chrome's CPU throttling slows the page down by a fixed factor, and the same
- * ten characters are typed with no delay between them.
+ * The suite's typing tests used to fail two or three at a time under a full
+ * parallel run and pass alone, which is the shape of a race rather than of a
+ * bug in any one of them. This reproduces it deliberately instead of waiting
+ * for it: Chrome's CPU throttling slows the page by a fixed factor, and ten
+ * characters are typed with no delay between them.
  *
- * What was measured while writing this, at the throttling rates below:
+ * What that produced before any of it was fixed:
  *
  *   ×1   abcdefghij   — as typed
  *   ×4   acdbefghij   — one character carried past the ones that overtook it
  *   ×8   acdbegf ce   — order lost and characters lost with it
  *   ×12  acdefghijb
  *
- * And the cause, as far as it has been followed: typing is applied model-first
- * — the browser's own edit is prevented, a transaction is committed, the render
- * rewrites the text node and the caret is restored two frames later. The
- * position each keystroke uses comes from `getTargetRanges`, which describes
- * the DOM *now*; under load the DOM is still carrying the previous character,
- * so the offsets reported for ten keystrokes went 23, 24, 24, 25, 27 while the
- * text grew by one each time. Every keystroke was landing in a document that
- * had already moved on.
- *
- * Two attempts are recorded in the history and neither fixed it: serialising
- * the inserts behind one another, and overriding the DOM's offset with a caret
- * advanced as each keystroke was accepted. Both are the right shape and neither
- * was enough, which says another writer is involved — the MutationObserver path
- * that owns composition also imports changes, and the caret restore after each
- * render moves the DOM selection under the next keystroke.
- *
- * Marked `fixme` rather than deleted: it states the contract a word processor
- * cannot do without, and it is the thing to run when the input path is next
- * taken apart.
+ * Every stage of a keystroke is checked, because each of them broke
+ * separately: what the document holds, and what the page shows. A model that
+ * is right behind a page that is a keystroke behind is not a word processor
+ * anyone can use, and it was the last of the eight faults to be found.
  */
 test.describe('typing on a busy machine', () => {
-  for (const rate of [4, 8]) {
+  for (const rate of [4, 8, 12]) {
     /**
-     * The document is right; the page can still trail it.
+     * Eight ways a burst of typing came apart, and the last one is why the page
+     * could still trail a document that was right: work yields and resumes from
+     * an idle callback, so two renders overlap on a busy machine, and the one
+     * that started first woke up and painted its older tree over the newer.
      *
-     * Six ways a burst came apart have been dealt with — the observer importing
-     * a render's own records, a keystroke taking its position from a DOM that
-     * was behind, a character dropped because its range resolved to a node
-     * holding no text, a render skipped and never asked for again, a caret
-     * restore replaying where the caret *was*, and a character refused at the
-     * keydown gate. Measured four rounds at each speed after those: the model
-     * holds what was typed almost every time, at every speed tried.
-     *
-     * What is left is the last hop. The store and the tree the render draws
-     * from both hold "abcdefghij" while the page shows "abcdefg" — twenty
-     * renders having run — so the reconciler believes it has already drawn what
-     * it is looking at. That is a divergence between its own record of the DOM
-     * and the DOM, and it is where to look next.
+     * The others: the observer importing a render's own records, a keystroke
+     * taking its position from a DOM that was behind, a character dropped
+     * because its range resolved to a node holding no text, a render skipped
+     * and never asked for again, a caret restore replaying where the caret
+     * *was*, a character refused at the keydown gate, and a burst whose life
+     * was tied to a render's rather than to the typing.
      */
-    const check = rate <= 4 ? test : test.fixme;
-    check(`writes what was typed with the CPU at a ${rate}th of its speed`, async ({
+    test(`writes what was typed with the CPU at a ${rate}th of its speed`, async ({
       page
     }) => {
       await page.goto('/');
@@ -89,6 +69,7 @@ test.describe('typing on a busy machine', () => {
       const typed = 'abcdefghij';
       await page.keyboard.type(typed, { delay: 0 });
 
+      // What the document holds...
       await expect
         .poll(
           () =>
@@ -96,6 +77,25 @@ test.describe('typing on a busy machine', () => {
               ([sid, offset, length]) => {
                 const node = (window as any).editor.dataStore.getNode(sid as string);
                 return (node?.text ?? '').slice(offset as number, (offset as number) + (length as number));
+              },
+              [before.sid, before.offset, typed.length] as const
+            ),
+          { timeout: 15000 }
+        )
+        .toBe(typed);
+
+      // ...and what the reader can see. These were separate faults: the last
+      // one left the page a keystroke behind a document that was already right.
+      await expect
+        .poll(
+          () =>
+            page.evaluate(
+              ([sid, offset, length]) => {
+                const el = document.querySelector(`[data-bc-sid="${CSS.escape(sid as string)}"]`);
+                return (el?.textContent ?? '').slice(
+                  offset as number,
+                  (offset as number) + (length as number)
+                );
               },
               [before.sid, before.offset, typed.length] as const
             ),

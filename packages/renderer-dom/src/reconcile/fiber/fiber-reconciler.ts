@@ -34,6 +34,15 @@ export interface FiberReconcileDependencies {
   rootSid?: string; // sid of rootVNode
   context?: any; // Reconciliation context (for unmountComponent)
   prevRootFiber?: FiberNode | null; // React-style: previous Fiber tree (used as alternate)
+  /**
+   * Called with the scheduler a render is about to run on.
+   *
+   * The caller keeps it so that the *next* render can cancel this one. Work
+   * yields and resumes from an idle callback, so two renders overlap on a busy
+   * machine, and the one that started first must not paint over the one that
+   * started second.
+   */
+  onSchedulerStart?: (scheduler: { cancel: () => void }) => void;
 }
 
 /**
@@ -143,6 +152,19 @@ export function reconcileWithFiber(
       onComplete(rootFiber);
     }
   });
+
+  /**
+   * Only the newest render paints.
+   *
+   * Work yields and resumes from an idle callback, so two renders overlap
+   * whenever the machine is busy: the second builds its tree from the first's
+   * *previous* one — the first has not committed yet — draws, and then the
+   * first wakes up and draws its own, older tree on top. The page went back a
+   * keystroke while the document stayed right, and nothing asked again because
+   * nothing had changed since.
+   */
+  deps.onSchedulerStart?.(scheduler);
+
   scheduler.scheduleWork(rootFiber, FiberPriority.Normal);
 }
 

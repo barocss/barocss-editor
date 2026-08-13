@@ -14,6 +14,8 @@ type RuntimeCtx = Record<string, any> | undefined;
 export class Reconciler {
   // React-style: maintain previous Fiber tree (referenced as alternate)
   private rootFiber: FiberNode | null = null;
+  /** The render currently drawing, so a newer one can take its place. */
+  private activeScheduler: { cancel: () => void } | null = null;
   // Portal management: portalId → { target, host }
   private portalHostsById: Map<string, { target: HTMLElement, host: HTMLElement }> = new Map();
   // Set of visited portalIds in current render (cleanup on render end)
@@ -118,7 +120,21 @@ export class Reconciler {
       rootModel: context?.dataStore?.getNode(sid) || model, // Reference for model.text processing (dataStore takes priority)
       rootSid: sid, // rootVNode's sid
       context: context,
-      prevRootFiber: prevRootFiber // React style: pass previous Fiber tree
+      prevRootFiber: prevRootFiber, // React style: pass previous Fiber tree
+      /**
+       * The render starting now replaces any still running.
+       *
+       * Work yields and resumes from an idle callback, so on a busy machine a
+       * second render begins before the first has drawn — building its tree
+       * from the same previous one, since the first has not committed yet. Left
+       * alone, the first then wakes and paints its older tree over the newer:
+       * the page went back a keystroke while the document stayed right, and
+       * nothing corrected it because nothing had changed since.
+       */
+      onSchedulerStart: (scheduler) => {
+        this.activeScheduler?.cancel();
+        this.activeScheduler = scheduler;
+      }
     };
     
     // Tasks to process after Fiber completes

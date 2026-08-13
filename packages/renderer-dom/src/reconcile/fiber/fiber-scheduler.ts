@@ -147,6 +147,24 @@ export class FiberScheduler {
         requestAnimationFrame(() => this.workLoop(priority));
       }
     } else {
+      /**
+       * Abandoned work does not paint.
+       *
+       * A render that yields is resumed from an idle callback, and by then a
+       * newer render may have started, finished, and drawn. Completing here
+       * would commit the older tree over it — measured as a page one keystroke
+       * behind a document that was right, which no later render corrected
+       * because nothing else had changed.
+       *
+       * `cancel()` is what a newer render calls on this one. It empties the
+       * queue, which brings the loop straight here; the status is what tells
+       * the difference between "there was nothing left to do" and "this is no
+       * longer wanted".
+       */
+      if (this.workStatus === FiberWorkStatus.Cancelled) {
+        return;
+      }
+
       // All work completed
       this.workStatus = FiberWorkStatus.Completed;
       this.commitWork();
