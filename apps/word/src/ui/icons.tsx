@@ -33,6 +33,10 @@ import {
   Columns3,
   TableCellsMerge,
   TableCellsSplit,
+  AlignVerticalJustifyStart,
+  AlignVerticalJustifyCenter,
+  AlignVerticalJustifyEnd,
+  RotateCw,
   type LucideIcon
 } from 'lucide-react';
 
@@ -88,7 +92,13 @@ const ICONS: Record<string, LucideIcon> = {
   'column-right': ArrowRightToLine,
   'column-delete': Columns3,
   'cells-merge': TableCellsMerge,
-  'cell-split': TableCellsSplit
+  'cell-split': TableCellsSplit,
+  'cell-align-top': AlignVerticalJustifyStart,
+  'cell-align-middle': AlignVerticalJustifyCenter,
+  'cell-align-bottom': AlignVerticalJustifyEnd,
+  // A turn rather than an arrow: the button turns the text where it is, and an
+  // arrow would read as moving the cell somewhere.
+  'cell-text-direction': RotateCw
 };
 
 /**

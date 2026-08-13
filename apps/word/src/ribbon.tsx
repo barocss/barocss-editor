@@ -6,6 +6,8 @@ import {
   listKindOf,
   listState,
   currentStyle,
+  cellAttributeState,
+  cellOf,
   tableLookState,
   tableOf,
   tableStylesOf,
@@ -115,6 +117,7 @@ export function Ribbon({
    */
   const tableAtCaret = () => tableOf(docOf(), blockAtCaret());
   const table = useMemo(() => tableAtCaret(), [editor, tick]);
+  const cell = useMemo(() => cellOf(docOf(), blockAtCaret()), [editor, tick]);
   const tableStyles = useMemo(() => (table ? tableStylesOf(docOf()) : []), [editor, tick, table]);
 
   /**
@@ -201,7 +204,9 @@ export function Ribbon({
                     ? listState(control.listKind, summary, currentListKind)
                     : control.lookFlag
                       ? tableLookState(control.lookFlag, table)
-                      : (control.state?.(summary) ?? 'off')
+                      : control.cellAttribute
+                        ? cellAttributeState(control.cellAttribute, cell)
+                        : (control.state?.(summary) ?? 'off')
                 }
                 disabled={!editor.canRun(control.command, control.payload)}
                 onActivate={() => void editor.run(control.command, control.payload)}

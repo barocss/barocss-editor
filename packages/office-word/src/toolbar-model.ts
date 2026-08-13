@@ -52,6 +52,15 @@ export interface ToolbarControl {
    * So again the control says what it is and the host answers.
    */
   lookFlag?: keyof TableLook;
+  /**
+   * That this control sets a cell attribute to a value, and is on while the cell
+   * already has it.
+   *
+   * Read from the cell rather than from the selection for the same reason the
+   * look flags are read from the table: the caret is in a paragraph inside it,
+   * and a summary of the selection knows nothing about the box around it.
+   */
+  cellAttribute?: { key: string; value: string; whenUnset?: boolean };
 }
 
 /**
@@ -265,6 +274,39 @@ export const WORD_TOOLBAR: ToolbarGroup[] = [
         command: 'toggleTableLook',
         payload: { flag: 'bandedRows' },
         lookFlag: 'bandedRows'
+      },
+      // Where the text sits in the cell, and which way it runs. Both were things
+      // a document could state and a user could not.
+      {
+        id: 'cell-align-top',
+        label: 'Align top',
+        icon: '⌃',
+        command: 'setCellVerticalAlign',
+        payload: { align: 'top' },
+        cellAttribute: { key: 'verticalAlign', value: 'top', whenUnset: true }
+      },
+      {
+        id: 'cell-align-middle',
+        label: 'Align middle',
+        icon: '−',
+        command: 'setCellVerticalAlign',
+        payload: { align: 'center' },
+        cellAttribute: { key: 'verticalAlign', value: 'center' }
+      },
+      {
+        id: 'cell-align-bottom',
+        label: 'Align bottom',
+        icon: '⌄',
+        command: 'setCellVerticalAlign',
+        payload: { align: 'bottom' },
+        cellAttribute: { key: 'verticalAlign', value: 'bottom' }
+      },
+      {
+        // No payload: the button moves to the next direction, as Word's does.
+        id: 'cell-text-direction',
+        label: 'Text direction',
+        icon: '⇅',
+        command: 'setCellTextDirection'
       }
     ]
   },
@@ -420,6 +462,25 @@ export function tableLookState(
 ): MarkState {
   if (!table) return 'off';
   return parseTableLook(table.attributes?.look)[flag] ? 'on' : 'off';
+}
+
+/**
+ * Whether a cell already has the value a control sets.
+ *
+ * `whenUnset` is which of a group of controls speaks for a cell that says
+ * nothing: a cell with no vertical alignment sits at the top, so the top button
+ * is on for a cell nobody has touched — which is what the page shows.
+ */
+export function cellAttributeState(
+  attribute: { key: string; value: string; whenUnset?: boolean },
+  cell: DocumentNode | undefined
+): MarkState {
+  if (!cell) return 'off';
+  const current = cell.attributes?.[attribute.key];
+  if (typeof current !== 'string' || current.length === 0) {
+    return attribute.whenUnset ? 'on' : 'off';
+  }
+  return current === attribute.value ? 'on' : 'off';
 }
 
 /** The styles the dropdown offers, and the command that applies each. */

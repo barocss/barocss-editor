@@ -121,6 +121,13 @@ export function tableCss(format: EffectiveFormat): CssStyle {
   const shading = asString(format.shadingFill);
   if (shading && shading !== 'auto') out.backgroundColor = normalizeColor(shading);
 
+  // A right-to-left table is the same table read from the other side: the first
+  // column is the rightmost one. The model keeps its columns in document order
+  // either way, which is why this is a property of the table and not a different
+  // arrangement of its cells — and why the borders resolved onto them still say
+  // what they said.
+  if (format.bidiVisual === true) out.direction = 'rtl';
+
   return out;
 }
 

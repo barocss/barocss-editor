@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { Schema } from '@barocss/schema';
 import { getWordSchemaDefinition } from '../src/word-schema';
 import {
+  cellAttributeState,
   currentStyle,
   tableLookState,
   toolbarCommands,
@@ -9,6 +10,7 @@ import {
   WORD_STYLES,
   WORD_TOOLBAR
 } from '../src/toolbar-model';
+import { nextTextDirection } from '../src/table-commands';
 import { WORD_KEYBINDINGS } from '../src/word-keymap';
 import type { SelectionSummary } from '@barocss/editor-core';
 
@@ -151,5 +153,45 @@ describe('the toolbar model', () => {
         expect(typeof control.command).toBe('string');
       }
     }
+  });
+});
+
+describe('what a control reads off the cell it is in', () => {
+  const cell = (attributes: Record<string, unknown> = {}) =>
+    ({ sid: 'c', stype: 'bTableCell', attributes });
+
+  it('is on while the cell already has the value it sets', () => {
+    const middle = { key: 'verticalAlign', value: 'center' };
+    expect(cellAttributeState(middle, cell({ verticalAlign: 'center' }))).toBe('on');
+    expect(cellAttributeState(middle, cell({ verticalAlign: 'bottom' }))).toBe('off');
+  });
+
+  it('lets one of a group speak for a cell that says nothing', () => {
+    // A cell with no vertical alignment sits at the top, so the top button is on
+    // for a cell nobody has touched — which is what the page shows.
+    const top = { key: 'verticalAlign', value: 'top', whenUnset: true };
+    const bottom = { key: 'verticalAlign', value: 'bottom' };
+    expect(cellAttributeState(top, cell())).toBe('on');
+    expect(cellAttributeState(bottom, cell())).toBe('off');
+    expect(cellAttributeState(top, cell({ verticalAlign: 'bottom' }))).toBe('off');
+  });
+
+  it('is off outside a cell', () => {
+    expect(cellAttributeState({ key: 'verticalAlign', value: 'top', whenUnset: true }, undefined))
+      .toBe('off');
+  });
+});
+
+describe('the direction a cell’s text is turned to next', () => {
+  it('moves through the three in a cycle, as Word’s button does', () => {
+    expect(nextTextDirection('lrTb')).toBe('tbRl');
+    expect(nextTextDirection('tbRl')).toBe('btLr');
+    expect(nextTextDirection('btLr')).toBe('lrTb');
+  });
+
+  it('turns a cell that says nothing, rather than doing nothing', () => {
+    // Unset is the ordinary direction, so the first press has to move off it
+    expect(nextTextDirection('')).toBe('tbRl');
+    expect(nextTextDirection('something else')).toBe('tbRl');
   });
 });

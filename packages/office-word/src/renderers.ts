@@ -10,7 +10,7 @@
  * still inherits from its style and from the document defaults. See
  * render-context for how the templates reach the document.
  */
-import { data, define, element, slot } from '@barocss/dsl';
+import { data, define, element, slot, text } from '@barocss/dsl';
 import type { RenderEnv } from '@barocss/dsl';
 import { characterCss, flowCss, rowClipHeight, tableCellCss, tableRowCss, twipToCss } from './css';
 import {
@@ -647,6 +647,22 @@ export function registerWordRenderers(): void {
   define('textBox', element('aside', { className: 'w-text-box' }, [slot('content')]));
 
   // ── Tables ─────────────────────────────────────────────────────────────────
+  /**
+   * Present to a screen reader and to nothing else.
+   *
+   * `display: none` and `visibility: hidden` both take an element out of the
+   * accessibility tree along with the page, which for text that exists only to
+   * be read out is the whole of it. Clipping to a point leaves it in.
+   */
+  const OFF_SCREEN = {
+    position: 'absolute',
+    width: '1px',
+    height: '1px',
+    overflow: 'hidden',
+    clipPath: 'inset(50%)',
+    whiteSpace: 'nowrap'
+  } as const;
+
   // A table takes its spacing from the paragraph scope as well as its own
   // formatting: `spacingBefore`/`spacingAfter` reach it through the document
   // defaults, and dropping them here would put a gap in the rendered document
@@ -668,6 +684,8 @@ export function registerWordRenderers(): void {
     const layers = styles ? [tableStyleLayer(styles, node as never)] : [];
     const format = styles ? styles.resolveNodeWith(node as never, 'table', layers) : {};
     const widths = gridOf(format);
+    const caption = String(node.attributes?.caption ?? '');
+    const description = String(node.attributes?.description ?? '');
 
     return element(
       'table',
@@ -680,6 +698,23 @@ export function registerWordRenderers(): void {
         }
       },
       [
+        /**
+         * What the table is called, for a reader who cannot see it.
+         *
+         * Word keeps a table's title and description in Table Properties → Alt
+         * Text and shows neither in the document, so neither is drawn here: the
+         * caption carries them where a screen reader will read them out and
+         * takes no room on the page. Hidden with a clip rather than with
+         * `display: none`, which would hide it from the reader as well — the one
+         * thing it exists for.
+         */
+        ...(caption || description
+          ? [
+              element('caption', { className: 'w-table-caption', style: OFF_SCREEN }, [
+                text([caption, description].filter(Boolean).join('. '))
+              ])
+            ]
+          : []),
         ...(widths.length > 0
           ? [
               element(

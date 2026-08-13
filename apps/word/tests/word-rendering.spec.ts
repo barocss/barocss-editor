@@ -618,6 +618,107 @@ test.describe('a cell whose text runs downwards', () => {
   });
 });
 
+test.describe('what a table says about itself for a reader who cannot see it', () => {
+  test('carries its title and description where a screen reader will find them', async ({
+    page
+  }) => {
+    await page.goto('/');
+    await settled(page);
+
+    await page.evaluate(() => {
+      const ed = (window as any).editor;
+      const table = ed.dataStore.getNode(
+        document.querySelector('.w-table')!.getAttribute('data-bc-sid')
+      );
+      ed.dataStore.updateNode(table.sid, {
+        attributes: { ...table.attributes, caption: 'Quarterly results', description: 'Three columns' }
+      });
+      (window as any).editorView.render();
+    });
+
+    const caption = page.locator('.w-table .w-table-caption');
+    await expect(caption).toHaveText('Quarterly results. Three columns');
+    // Word shows neither in the document, so neither takes room on the page —
+    // and it is clipped rather than hidden, which would take it out of the
+    // accessibility tree along with the page.
+    await expect(caption).toHaveCSS('display', 'block');
+    const height = await caption.evaluate((el) => el.getBoundingClientRect().height);
+    expect(height).toBeLessThanOrEqual(1);
+  });
+
+  test('draws nothing when it says nothing', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+    await expect(page.locator('.w-table .w-table-caption')).toHaveCount(0);
+  });
+});
+
+test.describe('the row and cell controls', () => {
+  test('set the height of the row the caret is in', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+    await placeCaret(page, '.w-tbody .w-cell', 0);
+
+    await page.evaluate(() => (window as any).editor.run('setRowHeight', { height: 1440 }));
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          Math.round(document.querySelector('.w-tbody .w-tr')!.getBoundingClientRect().height)
+        )
+      )
+      .toBe(96);
+
+    // No height is a row that sizes to its text again
+    await page.evaluate(() => (window as any).editor.run('setRowHeight', {}));
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          Math.round(document.querySelector('.w-tbody .w-tr')!.getBoundingClientRect().height)
+        )
+      )
+      .toBeLessThan(96);
+  });
+
+  test('move the text within the cell, and show which way it sits', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+    await placeCaret(page, '.w-tbody .w-cell', 0);
+
+    // A cell that has never been touched sits at the top, and the button says so
+    await expect(page.locator('[data-control="cell-align-top"]')).toHaveAttribute(
+      'data-state',
+      'on'
+    );
+
+    await page.locator('[data-control="cell-align-bottom"]').click();
+    await expect(page.locator('.w-tbody .w-cell').first()).toHaveCSS('vertical-align', 'bottom');
+    await expect(page.locator('[data-control="cell-align-bottom"]')).toHaveAttribute(
+      'data-state',
+      'on'
+    );
+    await expect(page.locator('[data-control="cell-align-top"]')).toHaveAttribute(
+      'data-state',
+      'off'
+    );
+  });
+
+  test('turn the text through the three directions and back', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+    await placeCaret(page, '.w-thead .w-cell', 0);
+
+    const header = page.locator('.w-thead .w-cell').first();
+    const turn = () => page.locator('[data-control="cell-text-direction"]').click();
+
+    await turn();
+    await expect(header).toHaveCSS('writing-mode', 'vertical-rl');
+    await turn();
+    await expect(header).toHaveCSS('transform', 'matrix(-1, 0, 0, -1, 0, 0)');
+    await turn();
+    await expect(header).toHaveCSS('writing-mode', 'horizontal-tb');
+  });
+});
+
 test.describe('the table style controls', () => {
   test('appear in a table and not outside one', async ({ page }) => {
     await page.goto('/');

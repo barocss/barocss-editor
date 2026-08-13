@@ -183,14 +183,34 @@ export function tableStylesOf(doc: DocumentAccess): Array<{ id: string; name: st
   return styles;
 }
 
-/** The table an edit is in, found from the cell or block the caret is in. */
-export function tableOf(doc: DocumentAccess, node: DocumentNode | undefined): DocumentNode | undefined {
+/** The nearest ancestor of a kind, which is how "here" is found in a table. */
+function ancestorOf(
+  doc: DocumentAccess,
+  node: DocumentNode | undefined,
+  kinds: string[]
+): DocumentNode | undefined {
   let current = node;
   for (let depth = 0; current && depth < 64; depth++) {
-    if (current.stype === 'bTable') return current;
+    if (kinds.includes(current.stype ?? '')) return current;
     current = current.parentId ? doc.getNode(current.parentId) : undefined;
   }
   return undefined;
+}
+
+/** The table an edit is in, found from the cell or block the caret is in. */
+export function tableOf(
+  doc: DocumentAccess,
+  node: DocumentNode | undefined
+): DocumentNode | undefined {
+  return ancestorOf(doc, node, ['bTable']);
+}
+
+/** The cell an edit is in, which is what a cell command means by "here". */
+export function cellOf(
+  doc: DocumentAccess,
+  node: DocumentNode | undefined
+): DocumentNode | undefined {
+  return ancestorOf(doc, node, ['bTableCell', 'bTableHeaderCell']);
 }
 
 /** The band sizes a table declares, never smaller than one row or column. */

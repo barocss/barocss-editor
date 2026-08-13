@@ -27,6 +27,21 @@ const COMMANDS: { name: string; op: string; payload?: Record<string, unknown> }[
   { name: 'splitCell', op: 'splitTableCell' }
 ];
 
+/**
+ * The order Word's Text Direction button moves through.
+ *
+ * A cycle rather than a list to choose from, because that is what the button is:
+ * turning a header on its side is something you do by pressing until it looks
+ * right. A cell that says nothing is reading the ordinary way, so the first
+ * press turns it.
+ */
+const TEXT_DIRECTIONS = ['lrTb', 'tbRl', 'btLr'];
+
+export function nextTextDirection(current: string): string {
+  const at = TEXT_DIRECTIONS.indexOf(current);
+  return TEXT_DIRECTIONS[((at < 0 ? 0 : at) + 1) % TEXT_DIRECTIONS.length];
+}
+
 export class WordTableExtension implements Extension {
   name = 'wordTables';
   // After the shared kit, whose own table commands were written for a schema
@@ -76,6 +91,49 @@ export class WordTableExtension implements Extension {
       canExecute: (ed: Editor) => !!this._cell(ed)
     });
 
+    /**
+     * How tall the row is, how its cells sit in it, and which way their text
+     * runs — the three that a document could state and a user could not.
+     *
+     * Each acts on the row or the cell the caret is in, the same "here" the
+     * structure commands act on. They set attributes and nothing else: what any
+     * of them looks like is the renderer's answer, and it already knows.
+     */
+    (editor as any).registerCommand({
+      name: 'setRowHeight',
+      execute: async (ed: Editor, payload: { height?: number; rule?: string } = {}) => {
+        const rule = payload.rule ?? (payload.height ? 'atLeast' : 'auto');
+        // A row of no height is a row that sizes to its text, and `auto` is how
+        // Word says so — it keeps the number and stops honouring it.
+        return await this._formatRow(ed, { height: payload.height ?? 0, heightRule: rule });
+      },
+      canExecute: (ed: Editor) => !!this._row(ed)
+    });
+
+    (editor as any).registerCommand({
+      name: 'setCellVerticalAlign',
+      execute: async (ed: Editor, payload: { align?: string } = {}) =>
+        await this._formatCell(ed, { verticalAlign: payload.align ?? 'top' }),
+      canExecute: (ed: Editor) => !!this._cell(ed)
+    });
+
+    (editor as any).registerCommand({
+      name: 'setCellTextDirection',
+      /**
+       * With no direction named it moves to the next one, which is what Word's
+       * button does: the three states are a cycle, and a reader turning a header
+       * on its side does not want to choose from a list to do it.
+       */
+      execute: async (ed: Editor, payload: { direction?: string } = {}) => {
+        const cell = this._cell(ed);
+        if (!cell) return false;
+        const direction =
+          payload.direction ?? nextTextDirection(String(cell.attributes?.textDirection ?? ''));
+        return await this._formatCell(ed, { textDirection: direction });
+      },
+      canExecute: (ed: Editor) => !!this._cell(ed)
+    });
+
     // `inTable` is what scopes Tab to cell navigation in the keymap, and nothing
     // was setting it — so Tab in a table did whatever Tab does elsewhere.
     const track = () => (editor as any).setContext('inTable', !!this._cell(editor));
@@ -90,20 +148,47 @@ export class WordTableExtension implements Extension {
   }
 
   /**
-   * Set attributes on that table, leaving the ones not named alone.
+   * The row the caret is in.
+   *
+   * The cell's parent, which is the row itself — or the header group, in the
+   * shape where it holds its cells directly and *is* the row.
+   */
+  private _row(editor: Editor): DocumentNode | undefined {
+    const cell = this._cell(editor);
+    const doc = this._doc(editor);
+    return cell?.parentId ? doc.getNode(cell.parentId) : undefined;
+  }
+
+  /**
+   * Set attributes on a node, leaving the ones not named alone.
    *
    * `setAttrs` rather than a write to the store: it merges, it validates against
    * the schema, and it records its own inverse — so applying a style is one
    * undo, like every other edit.
    */
-  private async _format(editor: Editor, attributes: Record<string, unknown>): Promise<boolean> {
-    const table = this._table(editor);
-    if (!table?.sid) return false;
+  private async _setAttrs(
+    editor: Editor,
+    node: DocumentNode | undefined,
+    attributes: Record<string, unknown>
+  ): Promise<boolean> {
+    if (!node?.sid) return false;
 
     const result = await transaction(editor, [
-      { type: 'setAttrs', payload: { nodeId: table.sid, attrs: attributes } }
+      { type: 'setAttrs', payload: { nodeId: node.sid, attrs: attributes } }
     ] as never).commit();
     return result.success;
+  }
+
+  private _format(editor: Editor, attributes: Record<string, unknown>): Promise<boolean> {
+    return this._setAttrs(editor, this._table(editor), attributes);
+  }
+
+  private _formatRow(editor: Editor, attributes: Record<string, unknown>): Promise<boolean> {
+    return this._setAttrs(editor, this._row(editor), attributes);
+  }
+
+  private _formatCell(editor: Editor, attributes: Record<string, unknown>): Promise<boolean> {
+    return this._setAttrs(editor, this._cell(editor), attributes);
   }
 
   private _doc(editor: Editor): DocumentAccess {
