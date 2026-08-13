@@ -15,6 +15,7 @@ import {
   getWordStyles
 } from '../render-context';
 import { blockStyleLayers } from '../table-style';
+import { suppressedSpacing } from '../spacing';
 import { INDENT_STEP as LIST_INDENT_STEP } from '../list-commands';
 
 
@@ -59,6 +60,14 @@ export function blockStyle(node: Record<string, any>, env: RenderEnv | undefined
     ...formatFor(node, 'paragraph', env, layers),
     ...formatFor(node, 'character', env, layers)
   };
+
+  // A block of the same style as its neighbour gives up the space between them,
+  // which is what keeps a list from being a column of separated paragraphs. The
+  // paginator asks the same question of the same rule, or the pages it computes
+  // are taller than the ones the browser draws.
+  const suppressed = suppressedSpacing(getWordDocument(env), getWordStyles(env), node as never);
+  if (suppressed.before) style.marginTop = '0';
+  if (suppressed.after) style.marginBottom = '0';
 
   // The block that opens a page is pushed down to meet its sheet. It replaces
   // the block's own space before rather than adding to it, which is the same

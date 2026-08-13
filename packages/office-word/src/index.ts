@@ -106,6 +106,7 @@ export {
 } from './pagination';
 
 export { measureBlocks, type MeasureOptions } from './measurement';
+export { suppressedSpacing, type SuppressedSpacing } from './spacing';
 export {
   layoutSurface,
   sheetMetrics,

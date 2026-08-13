@@ -24,6 +24,7 @@ import { childrenOf, type DocumentAccess, type DocumentNode } from './document-a
 import { footnoteRefsIn, reserveFor } from './footnotes';
 import { lineStartOffsets, type LineAnchor } from './line-offsets';
 import { scaledTo } from './table-pagination';
+import { suppressedSpacing } from './spacing';
 
 /** The DOM attribute the renderer stamps each node's id onto. */
 const SID_ATTR = 'data-bc-sid';
@@ -287,12 +288,19 @@ export function measureBlocks(
       options.onLineOffsets(sid, lineStartOffsets(child));
     }
 
+    // The same rule the renderer draws with. A block that gives up the space
+    // between it and a neighbour of its own style has to give it up here too, or
+    // the pages come out taller than the ones on the screen. Only a block's own
+    // space is read here: the space *inside* a list is between its items, and
+    // that is already part of how tall the list measured.
+    const suppressed = suppressedSpacing(doc, styles, node);
+
     blocks.push({
       sid,
       lines,
       reserve: reserveFor(refs, options.footnoteHeights ?? new Map(), options.footnoteSeparator ?? 0),
-      spaceBefore: px(format.spacingBefore),
-      spaceAfter: px(format.spacingAfter),
+      spaceBefore: suppressed.before ? 0 : px(format.spacingBefore),
+      spaceAfter: suppressed.after ? 0 : px(format.spacingAfter),
       breakBefore: format.pageBreakBefore === true || node.stype === 'pageBreak',
       keepNext: format.keepNext === true,
       // A table splits between its rows, which is what its lines are. It used to

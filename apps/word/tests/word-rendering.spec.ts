@@ -65,6 +65,68 @@ test.describe('Word document rendering', () => {
   });
 });
 
+/**
+ * Set at runtime rather than in the sample. A list this tight moves every page
+ * after it, and the fixture is shared with the pagination suite — where the
+ * boundary lands is that suite's business, not this test's.
+ */
+test.describe('space between paragraphs of the same style', () => {
+  const gaps = (page: import('@playwright/test').Page) =>
+    page.evaluate(() => {
+      const items = [...document.querySelectorAll('[data-marker]:not([data-marker=""])')];
+      return items.slice(1).map((item, at) =>
+        Math.round(item.getBoundingClientRect().top - items[at].getBoundingClientRect().bottom)
+      );
+    });
+
+  const contextual = (page: import('@playwright/test').Page, on: boolean) =>
+    page.evaluate((value) => {
+      const ed = (window as any).editor;
+      // The sample's list is in Body; Word puts this on List Paragraph, and the
+      // property is the paragraph style's either way.
+      const style = ed.dataStore
+        .getNode(ed.getRootId())
+        .content.map((id: string) => ed.dataStore.getNode(id))
+        .filter((node: any) => node?.stype === 'resources')
+        .flatMap((node: any) => node.content.map((id: string) => ed.dataStore.getNode(id)))
+        .find((node: any) => node?.attributes?.id === 'Body');
+      ed.dataStore.updateNode(style.sid, {
+        attributes: { ...style.attributes, contextualSpacing: value }
+      });
+      (window as any).editorView.render();
+    }, on);
+
+  test('is given up between neighbours of that style, and kept at the ends', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    const loose = await gaps(page);
+    expect(loose.every((gap) => gap > 0)).toBe(true);
+
+    await contextual(page, true);
+    await expect.poll(() => gaps(page)).toEqual([0, 0, 0, 0]);
+
+    // ...and the space is still there where the run of them ends, because the
+    // heading above is not in that style.
+    const above = await page.evaluate(() => {
+      const first = document.querySelector('[data-marker]:not([data-marker=""])') as HTMLElement;
+      const previous = first.previousElementSibling as HTMLElement;
+      return Math.round(first.getBoundingClientRect().top - previous.getBoundingClientRect().bottom);
+    });
+    expect(above).toBeGreaterThan(0);
+  });
+
+  test('comes back when the style stops asking for it', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    await contextual(page, true);
+    await expect.poll(() => gaps(page)).toEqual([0, 0, 0, 0]);
+    await contextual(page, false);
+    await expect.poll(() => gaps(page)).not.toEqual([0, 0, 0, 0]);
+  });
+});
+
 test.describe('marks that carry a value', () => {
   test('renders a size in Word’s unit', async ({ page }) => {
     await page.goto('/');
