@@ -57,3 +57,43 @@ test.describe('the input lab', () => {
     await expect(page.locator('.lab-reopen')).toHaveCount(0);
   });
 });
+
+/**
+ * A recording of somebody backspacing must not be reported as a fault.
+ *
+ * Backspace, Delete and Enter are answered against the key map at keydown and
+ * stopped there, so they change the document without a `beforeinput` ever
+ * firing. A lab that counts writing by counting `beforeinput` therefore sees a
+ * document that moved more than it was asked to, and says so — which is what
+ * happened to a session that was working perfectly: three findings, all of them
+ * the lab's own arithmetic, and the reader was told their editor had eaten
+ * their text when the screen had been right the whole time.
+ *
+ * A tool that cries wolf costs more than no tool.
+ */
+test('a session with backspaces in it is judged honestly', async ({ page }) => {
+  await page.goto('/?lab');
+  await settled(page);
+  await clickText(page, '.w-paragraph', { nth: 1, at: 'middle' });
+
+  const card = page.locator('.lab-card', { hasText: '빠르게 열 글자 연타' });
+  await card.getByRole('button', { name: '시작' }).click();
+
+  await page.keyboard.type('abcdef', { delay: 20 });
+  for (let i = 0; i < 4; i++) await page.keyboard.press('Backspace');
+  await page.waitForTimeout(500);
+
+  await card.getByRole('button', { name: '완료' }).click();
+  const report = await page.evaluate(() => (window as any).__lastLabReport);
+
+  expect(
+    report.findings,
+    `backspacing was reported as a fault: ${JSON.stringify(report.findings, null, 2)}`
+  ).toEqual([]);
+
+  // And it says plainly which check it could not run, rather than calling a
+  // recording clean when it never compared anything.
+  expect(report.judged.comparedToWhatWasTyped).toBe(false);
+  expect(report.judged.why).toContain('지운 글자');
+  await expect(card.locator('.lab-verdict')).toContainText('지운 글자');
+});

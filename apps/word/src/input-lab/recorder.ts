@@ -46,6 +46,13 @@ export type Report = {
   text: { sid: string; before: string; after: string; dom: string } | null;
   changed: { sid: string; before: string; after: string; dom: string }[];
   findings: Finding[];
+  /**
+   * What could and could not be judged.
+   *
+   * "이상 없음" has to mean the checks ran and passed, not that some of them
+   * quietly declined to look. A reader who backspaced is owed the difference.
+   */
+  judged: { comparedToWhatWasTyped: boolean; why?: string };
   counts: Record<string, number>;
   timeline: Entry[];
 };
@@ -71,6 +78,10 @@ export class InputRecorder {
   private scenarioTitle = '';
   private announced = '';
   private deleted = 0;
+  /** Keys the editor answered at keydown, which write without a `beforeinput`. */
+  private commanded = 0;
+  /** Whether the caret ever moved to another node, which no expectation survives. */
+  private caretJumped = false;
   private counts: Record<string, number> = {};
 
   constructor(
@@ -130,6 +141,8 @@ export class InputRecorder {
     this.counts = {};
     this.announced = '';
     this.deleted = 0;
+    this.commanded = 0;
+    this.caretJumped = false;
     this.t0 = performance.now();
     this.startedAt = new Date().toISOString();
     this.before = this.snapshot();
@@ -189,8 +202,23 @@ export class InputRecorder {
         modelSid: this.editor.selection?.startNodeId ?? null
       });
     };
-    const onKeydownAfter = (event: KeyboardEvent) =>
+    const onKeydownAfter = (event: KeyboardEvent) => {
+      /**
+       * A key the editor answered itself.
+       *
+       * Backspace, Delete and Enter are resolved against the key map at keydown
+       * and stopped there, so they write to the document without a
+       * `beforeinput` ever firing. A recording that counts writing by counting
+       * `beforeinput` therefore sees a document that changed more than it was
+       * asked to, and says so — which is how a session that was working
+       * perfectly was reported three times over as broken.
+       */
+      if (event.defaultPrevented) {
+        this.commanded += 1;
+        if (event.key === 'Backspace' || event.key === 'Delete') this.deleted += 1;
+      }
       this.push('keydown:after', { key: event.key, prevented: event.defaultPrevented });
+    };
     const onCompositionStart = () => {
       this.anchor ??= this.caretNow();
       this.push('compositionstart', { composingFlag: this.view._isComposing === true });
@@ -202,7 +230,9 @@ export class InputRecorder {
     };
     const onSelectionChange = () => {
       const caret = this.caretNow();
-      if (caret) this.push('selection', { sid: caret.sid, offset: caret.offset });
+      if (!caret) return;
+      if (this.anchor && caret.sid !== this.anchor.sid) this.caretJumped = true;
+      this.push('selection', { sid: caret.sid, offset: caret.offset });
     };
 
     el.addEventListener('beforeinput', onBeforeInput as EventListener, true);
@@ -330,6 +360,14 @@ export class InputRecorder {
       text: caretNode,
       changed,
       findings: [],
+      judged: {
+        comparedToWhatWasTyped: this.deleted === 0 && !this.caretJumped,
+        why: this.deleted > 0
+          ? '지운 글자가 있어, 친 대로 들어갔는지는 판정하지 않았습니다'
+          : this.caretJumped
+            ? '입력 도중 커서가 다른 곳으로 옮겨가, 친 대로 들어갔는지는 판정하지 않았습니다'
+            : undefined
+      },
       counts: this.counts,
       timeline: this.log
     };
@@ -364,7 +402,15 @@ export class InputRecorder {
     // 2. Every character the browser announced must have arrived, once, in the
     //    order it was announced. Only checkable when nothing was deleted — a
     //    delete moves text this cannot account for.
-    if (report.text && this.deleted === 0 && report.announced) {
+    /**
+     * Only when the recording is one the expectation can survive: nothing
+     * deleted, and the caret never left the run it started in. A reader doing
+     * anything else — backspacing, clicking elsewhere, typing in two places — is
+     * not doing anything wrong, and a check that cannot follow them must say
+     * nothing rather than accuse them.
+     */
+    const isPlainInsertion = this.deleted === 0 && !this.caretJumped;
+    if (report.text && isPlainInsertion && report.announced) {
       const at = report.caret?.before ?? 0;
       const expected =
         report.text.before.slice(0, at) + report.announced + report.text.before.slice(at);
@@ -391,7 +437,8 @@ export class InputRecorder {
      * wrote. A check that cannot count the writing it is judging is worse than
      * no check.
      */
-    const keystrokes = this.log.filter((entry) => entry.stage === 'beforeinput').length;
+    const keystrokes =
+      this.log.filter((entry) => entry.stage === 'beforeinput').length + this.commanded;
     const transactions = this.log.filter(
       (entry) => entry.stage === 'transaction' && entry.skipRender !== true
     ).length;
@@ -496,7 +543,7 @@ export class InputRecorder {
 
     // 9. The caret must end where the text it wrote ended. "The letter goes in
     //    one place to the left" is this, seen from the reader's chair.
-    if (report.caret && report.text && this.deleted === 0 && report.announced) {
+    if (report.caret && report.text && isPlainInsertion && report.announced) {
       if (report.caret.after === -1) {
         findings.push({
           severity: 'suspect',

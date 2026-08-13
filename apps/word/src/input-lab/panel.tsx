@@ -41,7 +41,13 @@ function Verdict({ report }: { report: Report }) {
   const bugs = report.findings.filter((finding) => finding.severity === 'bug');
   const suspects = report.findings.filter((finding) => finding.severity === 'suspect');
   if (report.findings.length === 0) {
-    return <p className="lab-verdict lab-ok">이상 없음 — 문서와 화면이 같고, 친 대로 들어갔습니다.</p>;
+    return (
+      <p className="lab-verdict lab-ok">
+        {report.judged?.comparedToWhatWasTyped === false
+          ? `문서와 화면은 같습니다. ${report.judged.why ?? ''}`
+          : '이상 없음 — 문서와 화면이 같고, 친 대로 들어갔습니다.'}
+      </p>
+    );
   }
   return (
     <div className="lab-verdict">
