@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  paragraphCss, characterCss, pageCss, tableCss, tableCellCss,
+  paragraphCss, characterCss, pageCss, tableCss, tableCellCss, tableRowCss, rowClipHeight,
   twipToCss, halfPointToCss, normalizeColor
 } from '../src/css';
 
@@ -149,5 +149,29 @@ describe('table CSS', () => {
     });
     expect(css.verticalAlign).toBe('middle');
     expect(css.padding).toBe('0pt 5.4pt 0pt 5.4pt');
+  });
+
+  it('gives a row the height it asks for, and only when the rule wants one', () => {
+    expect(tableRowCss({ height: 720, heightRule: 'atLeast' }).height).toBe('36pt');
+    expect(tableRowCss({ height: 720, heightRule: 'exact' }).height).toBe('36pt');
+
+    // `auto` records a height Word ignores; honouring it would leave a row that
+    // once had a fixed height still wearing it after the rule was set back.
+    expect(tableRowCss({ height: 720, heightRule: 'auto' }).height).toBeUndefined();
+    expect(tableRowCss({ height: 720 }).height).toBeUndefined();
+    expect(tableRowCss({ height: 0, heightRule: 'exact' }).height).toBeUndefined();
+  });
+
+  it('shades a row', () => {
+    expect(tableRowCss({ shadingFill: 'EDF2F7' }).backgroundColor).toBe('#EDF2F7');
+    expect(tableRowCss({ shadingFill: 'auto' }).backgroundColor).toBeUndefined();
+  });
+
+  it('asks the cells to clip only for an exact row', () => {
+    // A table cell treats any height as a minimum and ignores its own overflow,
+    // so the only row rule that can be enforced in the cell is this one.
+    expect(rowClipHeight({ height: 400, heightRule: 'exact' })).toBe('20pt');
+    expect(rowClipHeight({ height: 400, heightRule: 'atLeast' })).toBeUndefined();
+    expect(rowClipHeight({ heightRule: 'exact' })).toBeUndefined();
   });
 });

@@ -79,6 +79,9 @@ body {
 
 .w-table { width: 100%; }
 .w-cell { border: 1px solid #ccc; padding: 4px 8px; }
+/* A cell in a row of an exact height gives its padding to the box that clips —
+   see the cell renderer — so the same inset is stated here for the box. */
+.w-cell-clip { padding: 4px 8px; }
 
 .w-page-break { border-top: 1px dashed #adb5bd; margin: 12px 0; }
 

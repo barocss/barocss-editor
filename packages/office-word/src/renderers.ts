@@ -12,7 +12,7 @@
  */
 import { data, define, element, slot } from '@barocss/dsl';
 import type { RenderEnv } from '@barocss/dsl';
-import { characterCss, flowCss, tableCellCss, twipToCss } from './css';
+import { characterCss, flowCss, rowClipHeight, tableCellCss, tableRowCss, twipToCss } from './css';
 import {
   getEditingFurniture,
   getFurniturePlacement,
@@ -41,7 +41,7 @@ import {
 } from './shapes';
 import { blockStyle, formatFor, listMarker } from './renderers/block-style';
 import { cellBorders, gridOf, tableCss } from './table-format';
-import { cellPlacementOf, cellStyleLayers, tableStyleLayer } from './table-style';
+import { cellPlacementOf, cellStyleLayers, rowFormat, tableStyleLayer } from './table-style';
 import { registerRevisionMarks, registerValuedMarks } from './renderers/marks';
 import { registerMathRenderers } from './math-renderers';
 
@@ -695,10 +695,34 @@ export function registerWordRenderers(): void {
       ]
     );
   });
-  define('bTableHeader', element('thead', { className: 'w-thead' }, [slot('content')]));
   define('bTableBody', element('tbody', { className: 'w-tbody' }, [slot('content')]));
   define('bTableFooter', element('tfoot', { className: 'w-tfoot' }, [slot('content')]));
-  define('bTableRow', element('tr', { className: 'w-tr' }, [slot('content')]));
+
+  /**
+   * A row, as tall as it says it is.
+   *
+   * Height is the one thing a row has that nothing else does, and CSS gives it
+   * as a minimum — which is Word's `atLeast` exactly, and why `exact` is drawn
+   * by the cells instead. The rest of a row's formatting is its shading; its
+   * `cellSpacing` and `alignment` have no per-row shape in CSS, and neither has
+   * ever been what a row is for.
+   *
+   * A header group is a row when it holds cells directly, and the group its rows
+   * are in when it does not — so the same template draws both, and answers with
+   * nothing for the group that is not a row.
+   */
+  const rowNode = (stype: string, tag: 'tr' | 'thead', className: string) =>
+    define(stype, (_props: Record<string, any>, node: Record<string, any>, ctx: any) => {
+      const env = ctx?.env as RenderEnv | undefined;
+      const doc = getWordDocument(env);
+      const styles = getWordStyles(env);
+      const format = doc && styles ? rowFormat(styles, doc, node as never) : {};
+
+      return element(tag, { className, style: tableRowCss(format) }, [slot('content')]);
+    });
+
+  rowNode('bTableRow', 'tr', 'w-tr');
+  rowNode('bTableHeader', 'thead', 'w-thead');
 
   // Spans are attributes on the surviving cell; the cells it swallowed are gone
   // from the model, so nothing else has to be emitted here.
@@ -740,6 +764,37 @@ export function registerWordRenderers(): void {
       const borders =
         tableFormat && placement ? cellBorders(tableFormat, cellFormat, placement.at) : {};
 
+      /**
+       * A row of an exact height clips what does not fit, and only a box inside
+       * the cell can: a table cell treats any height as a minimum and ignores
+       * its own `overflow` — a 20pt row holding three lines was measured at 37pt
+       * with both set on the cell itself.
+       *
+       * The box takes the cell's padding with it and the cell keeps none, or the
+       * row comes out as tall as the height *plus* the padding, which is the one
+       * thing an exact height is asked for to prevent. Drawn only for this rule,
+       * so an ordinary cell is the same element it has always been.
+       */
+      const cellCss = tableCellCss(cellFormat);
+      const clip = doc && styles && placement
+        ? rowClipHeight(rowFormat(styles, doc, placement.row))
+        : undefined;
+      const content = clip
+        ? element(
+            'div',
+            {
+              className: 'w-cell-clip',
+              style: {
+                height: clip,
+                boxSizing: 'border-box',
+                overflow: 'hidden',
+                ...(cellCss.padding !== undefined ? { padding: cellCss.padding } : {})
+              }
+            },
+            [slot('content')]
+          )
+        : slot('content');
+
       return element(
         tag,
         {
@@ -752,11 +807,12 @@ export function registerWordRenderers(): void {
           // the same values for itself, so the two cannot disagree.
           style: {
             ...(regions ? characterCss(regions.text) : {}),
-            ...tableCellCss(cellFormat),
+            ...cellCss,
+            ...(clip ? { padding: '0' } : {}),
             ...borders
           }
         } as never,
-        [slot('content')]
+        [content]
       );
     });
 

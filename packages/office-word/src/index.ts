@@ -42,6 +42,10 @@ export {
   regionsAt,
   cellPlacementOf,
   cellStyleLayers,
+  rowRegionsAt,
+  rowPlacementOf,
+  rowStyleLayer,
+  rowFormat,
   tableStyleLayer,
   blockStyleLayers,
   DEFAULT_TABLE_LOOK,
@@ -49,7 +53,8 @@ export {
   type TableStyleRegion,
   type BandSizes,
   type CellPlacement,
-  type CellStyleLayers
+  type CellStyleLayers,
+  type RowPlacement
 } from './table-style';
 export {
   borderCss,
@@ -85,7 +90,7 @@ export {
   type WordEnv
 } from './render-context';
 export {
-  paragraphCss, characterCss, pageCss, tableCss, tableCellCss,
+  paragraphCss, characterCss, pageCss, tableCss, tableRowCss, tableCellCss, rowClipHeight,
   twipToCss, halfPointToCss, normalizeColor, type CssStyle
 } from './css';
 

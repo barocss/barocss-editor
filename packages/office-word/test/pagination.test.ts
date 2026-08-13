@@ -218,6 +218,23 @@ describe('table rows', () => {
     );
     expect(sidsPerPage(pages)).toEqual([['r1'], ['r2', 'r3']]);
   });
+
+  it('breaks a table between rows, which is what a row that cannot split needs', () => {
+    // A table arrives as one block whose lines are its rows, so a break can only
+    // fall between two of them. Every row is therefore whole on the page it
+    // lands on, and Word's per-row `cantSplit` is satisfied for all of them at
+    // once — the attribute asks for what the model can only do.
+    const table: MeasuredBlock = { sid: 'table', lines: [40, 40, 40, 40, 40], widowControl: false };
+    const fragments = paginate([table], { contentHeight: 100 }).flatMap((page) => page.fragments);
+
+    expect(fragments.map((f) => [f.fromLine, f.toLine])).toEqual([
+      [0, 2],
+      [2, 4],
+      [4, 5]
+    ]);
+    // Each page holds a whole number of rows, never part of one
+    for (const fragment of fragments) expect(fragment.height % 40).toBe(0);
+  });
 });
 
 /**

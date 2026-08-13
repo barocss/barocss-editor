@@ -257,6 +257,35 @@ export function regionsAt(
   return regions;
 }
 
+/** The regions a whole row can be in. The rest are facts about a cell. */
+const ROW_REGIONS = new Set<TableStyleRegion>([
+  'wholeTable',
+  'band1Horz',
+  'band2Horz',
+  'lastRow',
+  'firstRow'
+]);
+
+/**
+ * The regions that reach a whole row, lowest precedence first.
+ *
+ * A row is in the same horizontal regions as any of its cells — which row it is
+ * decides them — and in none of the vertical ones: being in the first column is
+ * a fact about a cell, and a row is every column at once. The position handed
+ * down is a cell's because the rule is the same one; everything it says about
+ * columns is then dropped.
+ */
+export function rowRegionsAt(
+  look: TableLook,
+  row: number,
+  rows: number,
+  bands: BandSizes = { row: 1, column: 1 }
+): TableStyleRegion[] {
+  return regionsAt(look, { row, column: 0, rows, columns: 1 }, bands).filter((region) =>
+    ROW_REGIONS.has(region)
+  );
+}
+
 /** Borders and shading: what a region says about the box rather than the text. */
 const BOX_KEYS = new Set([...Object.keys(boxBorderAttrs()), ...Object.keys(shadingAttrs())]);
 
@@ -337,6 +366,81 @@ export function cellStyleLayers(
   }
 
   return { regions, cell, text };
+}
+
+/**
+ * What a table style says about a whole row.
+ *
+ * Shading and borders are left out: they belong to the cells, which already draw
+ * them, and a row that painted them too would paint them behind the cells and
+ * outside their edges — visible wherever the table is spaced or a cell shades
+ * itself differently. What is left is the row's own vocabulary: how tall it is
+ * and whether it may break.
+ */
+export function rowStyleLayer(
+  styles: StyleResolver,
+  table: DocumentNode,
+  row: number,
+  rows: number,
+  tableFormat?: EffectiveFormat
+): Record<string, unknown> {
+  const styleId = table.attributes?.styleId;
+  if (typeof styleId !== 'string') return {};
+
+  const defined = styles.conditionalFormatsFor(styleId);
+  if (defined.size === 0) return {};
+
+  const format = tableFormat ?? styles.resolveNode(table, 'table');
+  const layer: Record<string, unknown> = {};
+  for (const region of rowRegionsAt(parseTableLook(format.look), row, rows, bandSizesOf(format))) {
+    const attrs = defined.get(region);
+    if (attrs) Object.assign(layer, without(attrs, BOX_KEYS));
+  }
+  return layer;
+}
+
+/** A row, the table it belongs to, and which row of it it is. */
+export interface RowPlacement {
+  table: DocumentNode;
+  at: { row: number; rows: number };
+}
+
+/**
+ * Which row of its table a row is.
+ *
+ * Nothing when it is not a row at all: a header *group* is a row only when it
+ * holds cells directly, and one that holds rows is the group its rows are in —
+ * which is what `tableRowsOf` already decides, so this asks it rather than
+ * deciding again.
+ */
+export function rowPlacementOf(doc: DocumentAccess, row: DocumentNode): RowPlacement | undefined {
+  const parent = row.parentId ? doc.getNode(row.parentId) : undefined;
+  const table =
+    parent?.stype === 'bTable'
+      ? parent
+      : parent?.parentId
+        ? doc.getNode(parent.parentId)
+        : undefined;
+  if (table?.stype !== 'bTable') return undefined;
+
+  const rows = tableRowsOf(doc, table);
+  const index = rows.findIndex((each) => each.sid === row.sid);
+  if (index < 0) return undefined;
+
+  return { table, at: { row: index, rows: rows.length } };
+}
+
+/** A row's effective formatting, including what its table's style says about it. */
+export function rowFormat(
+  styles: StyleResolver,
+  doc: DocumentAccess,
+  row: DocumentNode
+): EffectiveFormat {
+  const placement = rowPlacementOf(doc, row);
+  const layer = placement
+    ? rowStyleLayer(styles, placement.table, placement.at.row, placement.at.rows)
+    : {};
+  return styles.resolveNodeWith(row, 'table', [layer]);
 }
 
 /** A cell, the table it belongs to, and where in that table it sits. */

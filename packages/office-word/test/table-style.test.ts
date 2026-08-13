@@ -7,6 +7,10 @@ import {
   formatTableLook,
   parseTableLook,
   regionsAt,
+  rowFormat,
+  rowPlacementOf,
+  rowRegionsAt,
+  rowStyleLayer,
   tableOf,
   tableStyleLayer,
   tableStylesOf,
@@ -393,6 +397,38 @@ describe('a table style, resolved onto its cells', () => {
     const placement = cellPlacementOf(plain, plain.getNode('h1')!)!;
 
     expect(cellStyleLayers(resolver, placement.table, placement.at).regions).toEqual(['wholeTable']);
+  });
+
+  it('reaches a whole row with the regions a row can be in', () => {
+    const table = doc.getNode('table')!;
+    const placement = rowPlacementOf(doc, doc.getNode('r1')!)!;
+    expect(placement.at).toEqual({ row: 1, rows: 3 });
+
+    // The header group is a row when it holds cells directly, which it does here
+    expect(rowPlacementOf(doc, doc.getNode('head')!)?.at).toEqual({ row: 0, rows: 3 });
+    // ...and the body group is never one
+    expect(rowPlacementOf(doc, doc.getNode('body')!)).toBeUndefined();
+
+    // A row is in no vertical region: the first column is a fact about a cell
+    const look = parseTableLook('firstRow,firstColumn,bandedRows,bandedColumns');
+    expect(rowRegionsAt(look, 0, 3)).toEqual(['wholeTable', 'firstRow']);
+    expect(rowRegionsAt(look, 1, 3)).toEqual(['wholeTable', 'band1Horz']);
+
+    // The style says the header row is bold; the row takes the height and the
+    // rules a region carries, and leaves its shading to the cells.
+    expect(rowStyleLayer(styles, table, 0, 3)).toMatchObject({ bold: true });
+    expect(rowStyleLayer(styles, table, 0, 3).shadingFill).toBeUndefined();
+    expect(rowStyleLayer(styles, table, 1, 3).shadingFill).toBeUndefined();
+  });
+
+  it('resolves a row against its own formatting, the style’s, and the document', () => {
+    const heightened = styledTable({ styleId: 'GridTable' });
+    const row = heightened.getNode('r1')!;
+    row.attributes = { height: 720, heightRule: 'exact' };
+
+    const format = rowFormat(createStyleResolver(heightened), heightened, row);
+    expect(format.height).toBe(720);
+    expect(format.heightRule).toBe('exact');
   });
 
   it('offers the styles the document defines for tables, and no others', () => {

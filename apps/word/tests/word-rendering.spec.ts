@@ -423,6 +423,104 @@ test.describe('a table’s style', () => {
   });
 });
 
+/**
+ * What a row says about itself.
+ *
+ * Set at runtime rather than in the sample: the fixture is shared with every
+ * other test, and a row that is suddenly twice as tall moves every page after
+ * it.
+ */
+test.describe('a table row’s own formatting', () => {
+  const setRow = (page: import('@playwright/test').Page, attributes: Record<string, unknown>) =>
+    page.evaluate((attrs) => {
+      const ed = (window as any).editor;
+      const row = ed.dataStore.getNode(
+        document.querySelector('.w-tbody .w-tr')!.getAttribute('data-bc-sid')
+      );
+      ed.dataStore.updateNode(row.sid, { attributes: { ...row.attributes, ...attrs } });
+      (window as any).editorView.render();
+    }, attributes);
+
+  const rowHeight = (page: import('@playwright/test').Page) =>
+    page.evaluate(() =>
+      Math.round(document.querySelector('.w-tbody .w-tr')!.getBoundingClientRect().height)
+    );
+
+  test('grows to the height it asks for, and no further than its content', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    const natural = await rowHeight(page);
+    await setRow(page, { height: 1440, heightRule: 'atLeast' });
+    // An inch, which is more than a line of text needs
+    await expect.poll(() => rowHeight(page)).toBe(96);
+
+    // `auto` is a height Word records and ignores; the row goes back to its content
+    await setRow(page, { heightRule: 'auto' });
+    await expect.poll(() => rowHeight(page)).toBe(natural);
+  });
+
+  test('clips what does not fit when the height is exact', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    await page.evaluate(() => {
+      const ed = (window as any).editor;
+      const cell = ed.dataStore.getNode(
+        document.querySelector('.w-tbody .w-tr .w-cell')!.getAttribute('data-bc-sid')
+      );
+      const text = ed.dataStore.getNode(cell.content[0]);
+      ed.dataStore.updateNode(text.sid, { text: 'one two three four five six seven eight nine ten' });
+      (window as any).editorView.render();
+    });
+    await setRow(page, { height: 400, heightRule: 'exact' });
+
+    // 20pt is 26.6px, and three lines of text would be far more. The row is that
+    // height and its border, not that height plus the cell's padding.
+    await expect.poll(() => rowHeight(page)).toBeLessThan(30);
+    const clipped = await page.evaluate(() => {
+      const box = document.querySelector('.w-tbody .w-cell .w-cell-clip') as HTMLElement;
+      const cell = box.closest('.w-cell') as HTMLElement;
+      return {
+        height: Math.round(box.getBoundingClientRect().height),
+        overflow: box.scrollHeight > box.clientHeight,
+        cellPadding: getComputedStyle(cell).paddingTop,
+        boxPadding: getComputedStyle(box).paddingTop
+      };
+    });
+    expect(clipped.height).toBe(27);
+    expect(clipped.overflow).toBe(true);
+    // The padding moved inside, so it is inside the height rather than under it
+    expect(clipped.cellPadding).toBe('0px');
+    expect(clipped.boxPadding).toBe('4px');
+  });
+
+  test('is still an ordinary cell to type in when it clips', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+    await setRow(page, { height: 720, heightRule: 'exact' });
+
+    // The clipping box is drawn between the cell and its content, and the caret
+    // has to reach through it as if it were not there.
+    await placeCaret(page, '.w-tbody .w-cell .w-cell-clip', 0);
+    await page.keyboard.type('typed');
+    await expect
+      .poll(() => page.evaluate(() => document.querySelector('.w-tbody .w-cell')!.textContent))
+      .toContain('typed');
+  });
+
+  test('draws its own shading, which the cells sit on', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+    await setRow(page, { shadingFill: 'FFF5F5' });
+
+    await expect(page.locator('.w-tbody .w-tr').first()).toHaveCSS(
+      'background-color',
+      'rgb(255, 245, 245)'
+    );
+  });
+});
+
 test.describe('the table style controls', () => {
   test('appear in a table and not outside one', async ({ page }) => {
     await page.goto('/');

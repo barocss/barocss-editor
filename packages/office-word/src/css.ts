@@ -290,6 +290,44 @@ export function tableCss(format: EffectiveFormat): CssStyle {
   return out;
 }
 
+/**
+ * A row's own formatting.
+ *
+ * Height is most of what a row has to say and CSS says it as a minimum: a table
+ * row grows to fit its cells whatever height it is given. That is exactly Word's
+ * `atLeast`, and it is why `exact` cannot be drawn here — clipping what does not
+ * fit is the cells' to do, and `rowClipHeight` is what tells them to.
+ *
+ * `auto` records a height Word ignores. Honouring it would leave every row that
+ * once had a fixed height still wearing it after the rule was set back.
+ */
+export function tableRowCss(format: EffectiveFormat): CssStyle {
+  const out: CssStyle = {};
+
+  const height = num(format.height);
+  const rule = str(format.heightRule) ?? 'auto';
+  if (height !== undefined && height > 0 && rule !== 'auto') out.height = twipToCss(height);
+
+  const shading = str(format.shadingFill);
+  if (shading && shading !== 'auto') out.backgroundColor = normalizeColor(shading);
+
+  return out;
+}
+
+/**
+ * The height a cell in this row must clip its content to, if any.
+ *
+ * Only `exact` clips, and only a box *inside* the cell can do it: a table cell
+ * treats every height as a minimum and ignores its own `overflow`, so a row of
+ * 20pt holding three lines of text was measured at 37pt with both set. The cell
+ * draws the box; this says how tall.
+ */
+export function rowClipHeight(format: EffectiveFormat): string | undefined {
+  const height = num(format.height);
+  if (str(format.heightRule) !== 'exact' || height === undefined || height <= 0) return undefined;
+  return twipToCss(height);
+}
+
 export function tableCellCss(format: EffectiveFormat): CssStyle {
   const out: CssStyle = {};
 

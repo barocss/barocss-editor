@@ -28,7 +28,13 @@ export interface MeasuredBlock {
   breakBefore?: boolean;
   /** Word's `keepNext`: stay on the same page as the block that follows. */
   keepNext?: boolean;
-  /** Word's `keepLines`, and a table row's `cantSplit`: never split this block. */
+  /**
+   * Word's `keepLines`: never split this block.
+   *
+   * Not a table row's `cantSplit`, which asks for nothing here. A table's lines
+   * are its rows, so a break already falls between two of them and every row is
+   * whole on the page it lands on — this switch is the whole table's.
+   */
   keepLines?: boolean;
   /** Word's `widowControl`: never leave a single line behind or ahead. */
   widowControl?: boolean;
