@@ -472,3 +472,45 @@ test.describe('line numbers', () => {
     expect(aligned).toBeLessThan(20);
   });
 });
+
+test.describe('which pages get a header of their own', () => {
+  const section = (page: import('@playwright/test').Page, attrs: Record<string, unknown>) =>
+    page.evaluate((over) => {
+      const ed = (window as any).editor;
+      const node = ed.dataStore.getNode(
+        document.querySelector('.w-surface')!.getAttribute('data-bc-sid')
+      );
+      ed.dataStore.updateNode(node.sid, { attributes: { ...node.attributes, ...over } });
+      (window as any).editorView.render();
+    }, attrs);
+
+  test('is the section’s switch, not whether the header exists', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-header');
+    await expect(page.locator('.w-header').first()).toContainText('Draft');
+
+    // The header stays in the document; the section simply stops using it, and
+    // the first page falls back to the ordinary one.
+    await section(page, { titlePage: false });
+    await expect.poll(() => page.locator('.w-header').first().textContent()).toContain(
+      'Barocss Word'
+    );
+
+    await section(page, { titlePage: true });
+    await expect.poll(() => page.locator('.w-header').first().textContent()).toContain('Draft');
+  });
+
+  test('draws no even-page header until the document asks for a spread', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-header');
+
+    await section(page, { evenPageHeaderId: 'hdr-first' });
+    // Defined but unused: page two keeps the ordinary header
+    await expect.poll(() => page.locator('.w-header').nth(1).textContent()).toContain(
+      'Barocss Word'
+    );
+
+    await section(page, { differentOddEven: true });
+    await expect.poll(() => page.locator('.w-header').nth(1).textContent()).toContain('Draft');
+  });
+});

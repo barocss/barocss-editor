@@ -38,15 +38,36 @@ export interface PageContext {
 }
 
 /**
+ * Whether a section uses its first-page and even-page furniture at all.
+ *
+ * Two switches, and they are not the same as having the headers: Word keeps a
+ * title-page header a section defined but does not use it while "Different first
+ * page" is unticked, so unticking the box does not lose what was written there.
+ * A reader that treated the header's existence as the switch could not express
+ * that, and would put a title-page header on the first page of every document
+ * that had ever had one.
+ */
+export interface FurnitureSwitches {
+  /** Word's `titlePg`: the first page of the section has its own. */
+  titlePage?: boolean;
+  /** Word's `evenAndOddHeaders`, which it keeps for the whole document. */
+  differentOddEven?: boolean;
+}
+
+/**
  * Pick the header for a page.
  *
  * Word asks three questions in order — is this the first page, is it an even
  * one, and otherwise use the ordinary header — and each variant is optional, so
  * a section with only a default header uses it everywhere.
  */
-export function furnitureFor(binding: FurnitureBinding, page: PageContext): string | undefined {
-  if (page.index === 0 && binding.first) return binding.first;
-  if (page.number % 2 === 0 && binding.even) return binding.even;
+export function furnitureFor(
+  binding: FurnitureBinding,
+  page: PageContext,
+  switches: FurnitureSwitches = {}
+): string | undefined {
+  if (switches.titlePage && page.index === 0 && binding.first) return binding.first;
+  if (switches.differentOddEven && page.number % 2 === 0 && binding.even) return binding.even;
   return binding.default;
 }
 

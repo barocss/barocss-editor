@@ -49,6 +49,10 @@ export function createSampleDocument(): INode {
           kind: 'flow',
           name: 'Section 1',
           headerId: 'hdr-main',
+          // The switch, not the header: Word keeps a title-page header a section
+          // defines and leaves it unused while this is off, so unticking the box
+          // does not lose what was written there.
+          titlePage: true,
           firstPageHeaderId: 'hdr-first',
           footerId: 'ftr-main',
           pageWidth: 12240,

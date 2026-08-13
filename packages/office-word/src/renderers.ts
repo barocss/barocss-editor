@@ -23,7 +23,13 @@ import {
   getWordStyles,
   getTab
 } from './render-context';
-import { childrenOf, indexResources, type DocumentAccess, type DocumentNode } from './document-access';
+import {
+  childrenOf,
+  documentSettings,
+  indexResources,
+  type DocumentAccess,
+  type DocumentNode
+} from './document-access';
 import { tocEntries, tocPageNumber } from './toc';
 import { formatDateField } from './date-field';
 import {
@@ -193,6 +199,23 @@ export function registerWordRenderers(): void {
       default: node.attributes?.[`${role.toLowerCase()}Id`] as string | undefined
     });
 
+    /**
+     * Whether those variants are used at all.
+     *
+     * Odd and even headers are a document-wide decision in Word and a section
+     * property here, so the section answers when it says anything and the
+     * document answers when it does not — which is the same thing for a document
+     * whose sections agree, and the only reading that lets one section differ.
+     */
+    const settings = doc ? documentSettings(doc) : undefined;
+    const switches = {
+      titlePage: node.attributes?.titlePage === true,
+      differentOddEven:
+        typeof node.attributes?.differentOddEven === 'boolean'
+          ? node.attributes.differentOddEven
+          : settings?.attributes?.evenAndOddHeaders === true
+    };
+
     const furniture: any[] = [];
     if (doc && layout) {
       for (const page of layout.pages) {
@@ -203,7 +226,7 @@ export function registerWordRenderers(): void {
         };
         for (const placement of ['header', 'footer'] as const) {
           const role = placement === 'header' ? 'Header' : 'Footer';
-          const id = furnitureFor(binding(role), context);
+          const id = furnitureFor(binding(role), context, switches);
           // The real node is showing in place of this copy, and two of the same
           // thing on one page is worse than none.
           if (id && id === getEditingFurniture(env)) continue;

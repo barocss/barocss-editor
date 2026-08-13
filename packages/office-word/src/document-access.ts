@@ -43,6 +43,19 @@ export function childOfType(
 }
 
 /**
+ * The document's own settings.
+ *
+ * Not in the index below, and cannot be: that indexes resources by the `id`
+ * their author gave them, and settings are the one resource nothing points at —
+ * there is only ever one, and it is about the document rather than referenced by
+ * it.
+ */
+export function documentSettings(doc: DocumentAccess): DocumentNode | undefined {
+  const resources = childOfType(doc, doc.getNode(doc.rootId), 'resources');
+  return childOfType(doc, resources, 'docSettings');
+}
+
+/**
  * Every resource definition in the document, indexed by `id`.
  *
  * Resources are looked up constantly during resolution — a style chain may walk

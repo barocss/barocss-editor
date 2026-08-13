@@ -17,28 +17,43 @@ describe('choosing a header for a page', () => {
   });
 
   it('gives the first page its own, which is what a title page needs', () => {
-    expect(furnitureFor({ default: 'main', first: 'title' }, page(0))).toBe('title');
-    expect(furnitureFor({ default: 'main', first: 'title' }, page(1))).toBe('main');
+    const binding = { default: 'main', first: 'title' };
+    expect(furnitureFor(binding, page(0), { titlePage: true })).toBe('title');
+    expect(furnitureFor(binding, page(1), { titlePage: true })).toBe('main');
+  });
+
+  it('keeps a title-page header the section is not using', () => {
+    // Word does not lose what was written there when the box is unticked, so
+    // having the header cannot be the switch: a document that had ever had one
+    // would wear it on every first page for good.
+    const binding = { default: 'main', first: 'title' };
+    expect(furnitureFor(binding, page(0))).toBe('main');
+    expect(furnitureFor(binding, page(0), { titlePage: false })).toBe('main');
   });
 
   it('alternates on even pages, for a spread', () => {
     const binding = { default: 'odd', even: 'even' };
-    expect(furnitureFor(binding, page(0, 1))).toBe('odd');
-    expect(furnitureFor(binding, page(1, 2))).toBe('even');
-    expect(furnitureFor(binding, page(2, 3))).toBe('odd');
+    const on = { differentOddEven: true };
+    expect(furnitureFor(binding, page(0, 1), on)).toBe('odd');
+    expect(furnitureFor(binding, page(1, 2), on)).toBe('even');
+    expect(furnitureFor(binding, page(2, 3), on)).toBe('odd');
+
+    // ...and not at all while the document has not asked for a spread
+    expect(furnitureFor(binding, page(1, 2))).toBe('odd');
   });
 
   it('asks the questions in Word’s order: first page before even page', () => {
     // Page 1 of a section numbered from 2 is both the first page and an even
     // one; Word shows the first-page header.
     const binding = { default: 'main', first: 'title', even: 'even' };
-    expect(furnitureFor(binding, page(0, 2))).toBe('title');
+    expect(furnitureFor(binding, page(0, 2), { titlePage: true, differentOddEven: true }))
+      .toBe('title');
   });
 
   it('draws nothing when the section defines nothing', () => {
     expect(furnitureFor({}, page(0))).toBeUndefined();
     // ...and an even-page header alone does not become the default
-    expect(furnitureFor({ even: 'even' }, page(0, 1))).toBeUndefined();
+    expect(furnitureFor({ even: 'even' }, page(0, 1), { differentOddEven: true })).toBeUndefined();
   });
 });
 

@@ -71,6 +71,7 @@ export { formatCounter, NumberFormat, type NumberFormatValue } from '@barocss/sh
 export {
   childrenOf,
   childOfType,
+  documentSettings,
   indexResources,
   walkBlocks,
   type DocumentAccess,
@@ -136,6 +137,7 @@ export {
   pageNumberFor,
   pageNumberText,
   type FurnitureBinding,
+  type FurnitureSwitches,
   type PageContext
 } from './page-furniture';
 
