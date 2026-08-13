@@ -258,6 +258,7 @@ describe('EditorViewDOM', () => {
       const boundKeydown = (localView as any)._boundHandleKeydown as Function;
       const boundPaste = (localView as any)._boundHandlePaste as Function;
       const boundDrop = (localView as any)._boundHandleDrop as Function;
+      const boundCompositionEnd = (localView as any)._boundHandleCompositionEnd as Function;
       const boundSelectionChange = (localView as any)._boundHandleSelectionChange as Function;
       const boundMouseDown = (localView as any)._boundHandleMouseDown as Function;
       const boundMouseMove = (localView as any)._boundHandleMouseMove as Function;
@@ -287,12 +288,17 @@ describe('EditorViewDOM', () => {
       assertHasCall(addSpy, 'mousedown', boundMouseDown);
       assertHasCall(addSpy, 'focus', boundFocus);
       assertHasCall(addSpy, 'blur', boundBlur);
-      // No composition listeners by design: MutationObserver diffs model text
-      // against DOM text, so the composed result is picked up without them.
-      // Measured equivalent to a compositionstart/end + sync-once design.
+      // Composed text is still never read from a composition event: the
+      // MutationObserver diffs model text against DOM text, so what an IME
+      // produced arrives without depending on the order a given IME fires its
+      // events in. What composition *state* is inferred from `beforeinput`, and
+      // that inference has one edge with no signal in it — no beforeinput and no
+      // input ever reports a composition as over. So `compositionend` is
+      // listened to, for that one job. The other two stay out: whatever they
+      // would report, `beforeinput` reports first.
       assertDidNotCall(addSpy, 'compositionstart');
       assertDidNotCall(addSpy, 'compositionupdate');
-      assertDidNotCall(addSpy, 'compositionend');
+      assertHasCall(addSpy, 'compositionend', boundCompositionEnd);
 
       localView.destroy();
 
@@ -315,7 +321,7 @@ describe('EditorViewDOM', () => {
       assertHasRemove(removeSpy, 'blur', boundBlur);
       assertDidNotCall(removeSpy, 'compositionstart');
       assertDidNotCall(removeSpy, 'compositionupdate');
-      assertDidNotCall(removeSpy, 'compositionend');
+      assertHasRemove(removeSpy, 'compositionend', boundCompositionEnd);
 
       localView.destroy();
       document.body.removeChild(container);

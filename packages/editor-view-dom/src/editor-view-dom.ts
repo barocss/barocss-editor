@@ -80,6 +80,7 @@ export class EditorViewDOM implements IEditorViewDOM {
   private _boundHandleBeforeInput: ((event: InputEvent) => void) | null = null;
   private _boundHandleKeydown: ((event: KeyboardEvent) => void) | null = null;
   private _boundHandlePaste: ((event: ClipboardEvent) => void) | null = null;
+  private _boundHandleCompositionEnd: (() => void) | null = null;
   private _boundHandleCopy: ((event: ClipboardEvent) => void) | null = null;
   private _boundHandleDrop: ((event: DragEvent) => void) | null = null;
   private _boundHandleSelectionChange: ((event?: Event) => void) | null = null;
@@ -313,12 +314,44 @@ export class EditorViewDOM implements IEditorViewDOM {
     this.contentEditableElement.addEventListener('cut', this._boundHandleCopy);
     this.contentEditableElement.addEventListener('drop', this._boundHandleDrop);
 
-    // IME state is tracked by beforeinput.isComposing and keydown keyCode 229.
-    // MutationObserver handles actual text synchronization: it diffs the model
-    // text against the DOM text, so the composed result is picked up without
-    // observing composition events at all. Measured equivalent to a
-    // compositionstart/end + sync-once design, with fewer moving parts and no
-    // dependence on composition event ordering (which differs across browsers).
+    /**
+     * IME state is inferred, and one edge of the inference has no signal.
+     *
+     * Composed text is never read from a composition event. It is written by the
+     * MutationObserver, which diffs the model against the DOM, so what an IME
+     * produced arrives the same way whatever order a given IME fires its events
+     * in. That stays true. What is *inferred* — and it decides five other things
+     * — is whether a composition is in progress: set from
+     * `beforeinput.isComposing` and from keydown's keyCode 229.
+     *
+     * The leading edge of that inference is sound, and for the reason the whole
+     * design rests on: `beforeinput` arrives before the IME touches the DOM.
+     * Measured over a composition inside a live typing burst, the flag was set
+     * by the first `insertCompositionText` a millisecond after
+     * `compositionstart`, and no record was delivered before it — nothing to
+     * miss.
+     *
+     * The trailing edge has nothing. The last event of a commit is an `input`
+     * with `isComposing: true`; no `beforeinput` and no `input` ever reports the
+     * composition as over, so the flag was cleared only by whatever unrelated
+     * event happened next to carry `isComposing: false`. Measured 300ms after
+     * `compositionend`, with nothing pending, it was still set — and while it is
+     * set, `editor:content.change` is dropped without rendering *and* without
+     * being remembered, so any change that is not typing (a command, a comment,
+     * another author) is silently never drawn, and paste and drop are ignored.
+     *
+     * So `compositionend` is used, for that one job: clearing a flag, never
+     * reading text. It is deferred a task because a MutationObserver delivers
+     * its records in a microtask — anything the commit wrote is therefore
+     * imported while the flag is still set, which is what keeps the observer
+     * from mistaking a commit's own records for a typing burst's. Measured zero
+     * records arriving after `compositionend` in Chrome; the deferral is for the
+     * IMEs that do.
+     */
+    this._boundHandleCompositionEnd = () => {
+      setTimeout(() => { this._isComposing = false; }, 0);
+    };
+    this.contentEditableElement.addEventListener('compositionend', this._boundHandleCompositionEnd);
 
     // Selection events
     this._boundHandleSelectionChange = this.handleSelectionChange.bind(this);
@@ -976,6 +1009,10 @@ export class EditorViewDOM implements IEditorViewDOM {
     if (this._boundHandlePaste) {
       this.contentEditableElement.removeEventListener('paste', this._boundHandlePaste);
       this._boundHandlePaste = null;
+    }
+    if (this._boundHandleCompositionEnd) {
+      this.contentEditableElement.removeEventListener('compositionend', this._boundHandleCompositionEnd);
+      this._boundHandleCompositionEnd = null;
     }
     if (this._boundHandleCopy) {
       this.contentEditableElement.removeEventListener('copy', this._boundHandleCopy);
