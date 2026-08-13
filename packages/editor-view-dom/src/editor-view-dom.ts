@@ -36,6 +36,8 @@ export class EditorViewDOM implements IEditorViewDOM {
   private selectionHandler: DOMSelectionHandlerImpl;
   private mutationObserverManager: MutationObserverManagerImpl;
   private _isComposing: boolean = false;
+  /** Which composition is running, so an ending one cannot clear its successor. */
+  private _compositionGeneration: number = 0;
   private _selectionChangeTimeout: number | null = null;
   private _isDragging: boolean = false;
   private _isRendering: boolean = false; // Rendering flag
@@ -355,10 +357,29 @@ export class EditorViewDOM implements IEditorViewDOM {
      * the deferral is for the IMEs that do.
      */
     this._boundHandleCompositionStart = () => {
+      this._compositionGeneration += 1;
       this._isComposing = true;
     };
     this._boundHandleCompositionEnd = () => {
-      setTimeout(() => { this._isComposing = false; }, 0);
+      /**
+       * A composition ending is not the same as composing being over.
+       *
+       * Korean ends one composition and starts the next in the same
+       * millisecond, every time a syllable is finished: 안 is committed and the
+       * ㄴ that finished it opens the next composition, all inside one
+       * keystroke. Clearing on the strength of the end alone therefore cleared a
+       * flag that the composition *after* it had already set — measured by hand:
+       * two renders inside every open composition, one per syllable boundary,
+       * each one committing the syllable the IME was still holding and leaving
+       * its jamo behind. 안녕하세요 came back as 안ㄴ녕ㅎ하세세요.
+       *
+       * So the end only clears what it ended. Anything started since has its own
+       * claim, and outlives the timer this one scheduled.
+       */
+      const generation = this._compositionGeneration;
+      setTimeout(() => {
+        if (this._compositionGeneration === generation) this._isComposing = false;
+      }, 0);
     };
     this.contentEditableElement.addEventListener('compositionstart', this._boundHandleCompositionStart);
     this.contentEditableElement.addEventListener('compositionend', this._boundHandleCompositionEnd);

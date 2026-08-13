@@ -39,7 +39,10 @@ export type Report = {
   durationMs: number;
   /** What the browser said it was inserting, in order. */
   announced: string;
-  caret: { sid: string; before: number; after: number } | null;
+  /** Where the caret was when recording began — not necessarily where writing went. */
+  caretAtStart: { sid: string; offset: number } | null;
+  /** Where the first thing written went, and where the caret ended up. */
+  caret: { sid: string; before: number; after: number; endedIn: string } | null;
   text: { sid: string; before: string; after: string; dom: string } | null;
   changed: { sid: string; before: string; after: string; dom: string }[];
   findings: Finding[];
@@ -60,6 +63,8 @@ export class InputRecorder {
   private startedAt = '';
   private before: Snapshot = new Map();
   private caretBefore: { sid: string; offset: number } | null = null;
+  /** Where the first thing written actually went. See `onBeforeInput`. */
+  private anchor: { sid: string; offset: number } | null = null;
   private observer: MutationObserver | null = null;
   private restore: (() => void)[] = [];
   private scenarioId = '';
@@ -129,12 +134,19 @@ export class InputRecorder {
     this.startedAt = new Date().toISOString();
     this.before = this.snapshot();
     this.caretBefore = this.caretNow();
+    this.anchor = null;
 
     const el = this.element;
 
     // Capture phase for the record, bubble phase for the verdict: one says what
     // arrived, the other says whether the editor stopped it.
     const onBeforeInput = (event: InputEvent) => {
+      // Where the writing actually started, which is not where the caret was
+      // when the button was pressed. A reader presses 시작, *then* puts the caret
+      // where the scenario says — measured on the first recording made by hand,
+      // where the caret moved to another node in between and every check that
+      // used the starting position judged a paragraph nobody had typed in.
+      this.anchor ??= this.caretNow();
       this.push('beforeinput', {
         inputType: event.inputType,
         data: event.data,
@@ -152,7 +164,10 @@ export class InputRecorder {
       this.push('input', { inputType: event.inputType, isComposing: event.isComposing });
     const onKeydown = (event: KeyboardEvent) =>
       this.push('keydown', { key: event.key, keyCode: event.keyCode, composingFlag: this.view._isComposing === true });
-    const onCompositionStart = () => this.push('compositionstart', { composingFlag: this.view._isComposing === true });
+    const onCompositionStart = () => {
+      this.anchor ??= this.caretNow();
+      this.push('compositionstart', { composingFlag: this.view._isComposing === true });
+    };
     const onCompositionUpdate = (event: CompositionEvent) => this.push('compositionupdate', { data: event.data });
     const onCompositionEnd = (event: CompositionEvent) => {
       this.push('compositionend', { data: event.data });
@@ -257,7 +272,7 @@ export class InputRecorder {
       }
     }
 
-    const caretSid = this.caretBefore?.sid ?? caretAfter?.sid ?? null;
+    const caretSid = this.anchor?.sid ?? this.caretBefore?.sid ?? caretAfter?.sid ?? null;
     const caretNode = caretSid
       ? {
           sid: caretSid,
@@ -273,9 +288,15 @@ export class InputRecorder {
       startedAt: this.startedAt,
       durationMs,
       announced: this.announced,
+      caretAtStart: this.caretBefore,
       caret:
-        this.caretBefore && caretAfter
-          ? { sid: caretAfter.sid, before: this.caretBefore.offset, after: caretAfter.offset }
+        this.anchor && caretAfter
+          ? {
+              sid: this.anchor.sid,
+              before: this.anchor.offset,
+              after: caretAfter.sid === this.anchor.sid ? caretAfter.offset : -1,
+              endedIn: caretAfter.sid
+            }
           : null,
       text: caretNode,
       changed,
@@ -399,8 +420,15 @@ export class InputRecorder {
     // 8. The caret must end where the text it wrote ended. "The letter goes in
     //    one place to the left" is this, seen from the reader's chair.
     if (report.caret && report.text && this.deleted === 0 && report.announced) {
+      if (report.caret.after === -1) {
+        findings.push({
+          severity: 'suspect',
+          what: '커서가 다른 노드로 갔습니다',
+          detail: `입력은 ${report.caret.sid} 에서 시작했는데 커서는 ${report.caret.endedIn} 에 있습니다.`
+        });
+      }
       const expected = report.caret.before + report.announced.length;
-      if (report.caret.after !== expected) {
+      if (report.caret.after !== -1 && report.caret.after !== expected) {
         findings.push({
           severity: 'suspect',
           what: '커서가 쓴 글자 끝에 있지 않습니다',
