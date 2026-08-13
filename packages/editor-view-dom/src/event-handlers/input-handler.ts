@@ -248,7 +248,11 @@ export class InputHandlerImpl implements InputHandler {
    * moved past.
    */
   get isTypingBurst(): boolean {
-    return this._burstCaret !== null;
+    // Ends when the typing stops, not when the last transaction settles: on a
+    // slow machine the gap between two keystrokes can be over a second, and a
+    // burst that expired between them would go back to trusting a DOM that is
+    // still behind. Two seconds of silence is long enough to be a pause.
+    return this._burstCaret !== null && Date.now() - this._burstCaret.at < 2000;
   }
 
   handleKeyDown(event: KeyboardEvent): void {

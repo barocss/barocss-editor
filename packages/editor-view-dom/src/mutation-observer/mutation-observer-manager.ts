@@ -117,16 +117,19 @@ export class MutationObserverManagerImpl implements MutationObserverManager {
        * question: are characters being typed one after another right now? Then
        * nothing else is writing to the DOM, and a record can only be ours.
        *
-       * Composition is excluded for the same reason from the other side: an IME
-       * writes to the DOM itself and the view does not render underneath it, so
-       * there is no render for its records to be confused with.
+       * That question alone, and not "is a render still settling" as well. A
+       * render's claim is released a task after it finishes, and under load the
+       * records outlive it: one batch in eight arrived just after the release,
+       * passed the guard, and wrote four characters back over ten. Which is the
+       * whole reason the burst is the thing being asked about — it lasts as long
+       * as the typing does, not as long as any one render.
+       *
+       * Composition is excluded from the other side: an IME writes to the DOM
+       * itself and the view does not render underneath it, so there is no render
+       * for its records to be confused with.
        */
-      if (
-        view?.isModelDrivenChange &&
-        view?._isComposing !== true &&
-        (this.inputHandler as any).isTypingBurst === true
-      ) {
-        logger.debug(LogCategory.TEXT_INPUT, 'MutationObserver callback: SKIP - our own render, mid-burst');
+      if (view?._isComposing !== true && (this.inputHandler as any).isTypingBurst === true) {
+        logger.debug(LogCategory.TEXT_INPUT, 'MutationObserver callback: SKIP - mid-burst');
         return;
       }
 

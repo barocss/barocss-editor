@@ -1318,8 +1318,10 @@ export class EditorViewDOM implements IEditorViewDOM {
       // one in progress. Returning without a note is how a keystroke's paint
       // went missing: the request arrived mid-render and nothing asked again.
       this._renderMissedAChange = true;
+      logger.debug(LogCategory.DOM, 'render: deferred, one is already running');
       return;
     }
+    logger.debug(LogCategory.DOM, 'render: start');
     this._isRendering = true;
     
     // Set Model-First change flag (for MutationObserver filtering)
@@ -1574,7 +1576,10 @@ export class EditorViewDOM implements IEditorViewDOM {
      */
     if (this._renderMissedAChange) {
       this._renderMissedAChange = false;
+      logger.debug(LogCategory.DOM, 'render: done, and one more was asked for while it ran');
       requestAnimationFrame(() => this.render());
+    } else {
+      logger.debug(LogCategory.DOM, 'render: done');
     }
 
     // The content DOM is committed by now, so anything that has to measure the

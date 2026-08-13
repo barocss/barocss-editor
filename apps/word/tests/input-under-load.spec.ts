@@ -40,14 +40,21 @@ import { settled } from './helpers';
 test.describe('typing on a busy machine', () => {
   for (const rate of [4, 8]) {
     /**
-     * A quarter speed passes; an eighth does not yet.
+     * The document is right; the page can still trail it.
      *
-     * Two of the three writers have been dealt with — the observer no longer
-     * imports a render's own records while characters are being typed one after
-     * another, and a keystroke whose DOM position is demonstrably behind uses
-     * the position the last one left instead. At an eighth speed the model is
-     * usually right and the page trails it; sometimes a character is still lost
-     * outright, which is the part left to find.
+     * Six ways a burst came apart have been dealt with — the observer importing
+     * a render's own records, a keystroke taking its position from a DOM that
+     * was behind, a character dropped because its range resolved to a node
+     * holding no text, a render skipped and never asked for again, a caret
+     * restore replaying where the caret *was*, and a character refused at the
+     * keydown gate. Measured four rounds at each speed after those: the model
+     * holds what was typed almost every time, at every speed tried.
+     *
+     * What is left is the last hop. The store and the tree the render draws
+     * from both hold "abcdefghij" while the page shows "abcdefg" — twenty
+     * renders having run — so the reconciler believes it has already drawn what
+     * it is looking at. That is a divergence between its own record of the DOM
+     * and the DOM, and it is where to look next.
      */
     const check = rate <= 4 ? test : test.fixme;
     check(`writes what was typed with the CPU at a ${rate}th of its speed`, async ({
