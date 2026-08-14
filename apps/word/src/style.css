@@ -501,3 +501,100 @@ body {
   .lab-recording { background: #2a1a18; color: #f0b5ab; }
   .lab-reopen { background: #22262d; border-color: #39404a; color: #e6eaee; }
 }
+
+/*
+ * The ruler.
+ *
+ * Drawn against the page rather than against the window: every position on it is
+ * a position in the text, so it has to start where the text starts and be as
+ * wide as the text area is. Which of those pixels is which is measured — see
+ * `ruler.tsx` — and only the appearance is here.
+ */
+.w-ruler {
+  position: relative;
+  height: 26px;
+  margin: 0 0 4px;
+  user-select: none;
+  touch-action: none;
+  font-size: 9px;
+  color: #868e96;
+  cursor: default;
+}
+
+/* The paper, and the part of it that holds text. */
+.w-ruler-margin {
+  position: absolute;
+  top: 7px;
+  height: 12px;
+  background: #ced4da;
+  border-radius: 2px;
+}
+.w-ruler-text {
+  position: absolute;
+  top: 7px;
+  height: 12px;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px #dee2e6;
+}
+
+.w-ruler-tick {
+  position: absolute;
+  top: 11px;
+  width: 1px;
+  height: 4px;
+  background: #adb5bd;
+}
+.w-ruler-inch {
+  position: absolute;
+  top: 6px;
+  transform: translateX(-50%);
+  line-height: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * Where a tab would land with nothing asked for. Drawn below the line and
+ * faintly, because it is not the reader's to move — naming a stop is what
+ * replaces these.
+ */
+.w-ruler-default {
+  position: absolute;
+  top: 20px;
+  width: 1px;
+  height: 3px;
+  background: #ced4da;
+}
+
+.w-ruler-stop {
+  position: absolute;
+  top: 4px;
+  transform: translateX(-50%);
+  font-size: 11px;
+  line-height: 18px;
+  color: #212529;
+  cursor: pointer;
+}
+
+/*
+ * The three markers. Word's shapes: the first line points down from the top,
+ * the other two point up from the bottom, so a reader can tell at a glance which
+ * one they are about to take hold of.
+ */
+.w-ruler-marker {
+  position: absolute;
+  width: 0;
+  height: 0;
+  transform: translateX(-50%);
+  cursor: ew-resize;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+}
+.w-ruler-marker.is-first {
+  top: 2px;
+  border-top: 7px solid #495057;
+}
+.w-ruler-marker.is-left,
+.w-ruler-marker.is-right {
+  top: 17px;
+  border-bottom: 7px solid #495057;
+}

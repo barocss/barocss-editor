@@ -174,6 +174,39 @@ export class WordListExtension implements Extension {
     register('insertTab', (ed, selection) => this._insertTab(ed, selection));
 
     /**
+     * What the ruler writes.
+     *
+     * Both take a value rather than a direction, because a ruler has the
+     * position in hand: a reader dragging a marker is not asking for another
+     * half inch, they are saying where it goes. The commands the buttons and
+     * keys run are the ones above.
+     */
+    (editor as any).registerCommand({
+      name: 'setTabStops',
+      execute: async (ed: Editor, payload?: { tabs?: unknown[]; selection?: ModelSelection }) => {
+        const selection = payload?.selection ?? ed.selection;
+        if (!selection || !Array.isArray(payload?.tabs)) return false;
+        return await this._writeToBlocks(ed, selection, { tabs: payload.tabs });
+      },
+      canExecute: (ed: Editor, payload?: { selection?: ModelSelection }) =>
+        this._blocks(ed, payload?.selection ?? ed.selection).length > 0
+    });
+
+    (editor as any).registerCommand({
+      name: 'setParagraphIndents',
+      execute: async (
+        ed: Editor,
+        payload?: { indents?: Record<string, number | null>; selection?: ModelSelection }
+      ) => {
+        const selection = payload?.selection ?? ed.selection;
+        if (!selection || !payload?.indents) return false;
+        return await this._writeToBlocks(ed, selection, payload.indents);
+      },
+      canExecute: (ed: Editor, payload?: { selection?: ModelSelection }) =>
+        this._blocks(ed, payload?.selection ?? ed.selection).length > 0
+    });
+
+    /**
      * Which of the three things Tab means here.
      *
      * Word gives Tab one meaning per place: a level in a list, a first-line
@@ -381,6 +414,26 @@ export class WordListExtension implements Extension {
       }
     }
 
+    return operations.length > 0 ? await this._commit(editor, operations) : false;
+  }
+
+  /**
+   * The same attributes onto every block the selection touches.
+   *
+   * A ruler shows one paragraph's marks and a selection may cover several, and
+   * what a reader dragging a marker means is all of them — the same rule the
+   * indent buttons keep, and the reason those work from the blocks rather than
+   * from the node the caret is in.
+   */
+  private async _writeToBlocks(
+    editor: Editor,
+    selection: ModelSelection,
+    attrs: Record<string, unknown>
+  ): Promise<boolean> {
+    const operations = this._blocks(editor, selection).map((block) => ({
+      type: 'setAttrs',
+      payload: { nodeId: block.sid, attrs }
+    }));
     return operations.length > 0 ? await this._commit(editor, operations) : false;
   }
 

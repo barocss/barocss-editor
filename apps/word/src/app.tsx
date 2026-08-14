@@ -7,6 +7,7 @@ import { FindPanel } from './find-panel';
 import { CommentsPane } from './comments-pane';
 import { InputLab } from './input-lab/panel';
 import { DocumentTitle } from './document-title';
+import { Ruler } from './ruler';
 
 /**
  * The app shell.
@@ -78,7 +79,12 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
           />
         ) : null}
         <div className="flex items-start">
-          <div ref={host} id="editor" className="flex-1" />
+          <div className="flex-1">
+            {/* Above the page and as wide as it, because every position on it is
+                a position in the text below. */}
+            {instance ? <Ruler editor={instance.editor} /> : null}
+            <div ref={host} id="editor" />
+          </div>
           {instance ? (
             <CommentsPane editor={instance.editor} view={instance.view} open={commenting} />
           ) : null}

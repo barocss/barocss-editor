@@ -176,6 +176,24 @@ export {
   type TabStop
 } from './tabs';
 export {
+  TWIPS_PER_INCH,
+  TAB_ALIGN_CYCLE,
+  SNAP,
+  toPixels,
+  toTwips,
+  snap,
+  ticksFor,
+  stopsToDraw,
+  stopAt,
+  withStop,
+  nextAlign,
+  markersOf,
+  draggedTo,
+  type RulerScale,
+  type RulerTicks,
+  type IndentMarkers
+} from './ruler';
+export {
   WORD_FONT_CATALOGUE,
   isWebFont,
   googleFontUrl,
