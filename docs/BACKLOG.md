@@ -4,6 +4,9 @@ What is worth doing next, and why. Kept in the repository rather than in a
 conversation, because a list that lives in a conversation is a list that is
 forgotten between them.
 
+[ROADMAP.md](./ROADMAP.md) holds the reason there is a next thing — what this is
+for, and in what order. This holds the next thing itself.
+
 ## How this is kept
 
 - **One entry, one thing a reader could notice.** "The ruler scrolls away" is an
@@ -63,6 +66,16 @@ Each of these is in `src/formatting.ts` with a comment saying what it is for.
   attribute is one too many; which should own it is the open question — a mark
   spans a range of characters and an attribute belongs to a run, and Word's own
   model is the run.
+
+### Structure — from the roadmap's phase 1
+
+- [ ] **`ModelSelection` lives in the editing layer and the document layer
+  reaches up for it.** `model` imports from `editor-core` eleven times; eight
+  are already `import type` and the other three are used only in type positions
+  and are missing the keyword. Moving the type down to `schema` or `shared`
+  makes the dependency graph a DAG.
+- [ ] **`editor-core` declares `extensions` and `renderer-dom` and imports
+  neither.** Two cycles that exist only in `package.json`.
 
 ### Known and unfixed
 
