@@ -67,8 +67,10 @@ export const WORD_FONT_CATALOGUE: FontFamily[] = [
   web('Roboto Mono'),
   web('Source Code Pro'),
 
-  // Korean. A document that mixes scripts needs a family that covers both, and
-  // the Latin fonts above cover none of Hangul.
+  // Korean. A run takes one family, so a run holding Hangul takes one of these —
+  // the Latin faces above carry none of it. Which is why they are offered in the
+  // same control rather than in a slot of their own: picking the font for the
+  // text is the whole of the choice.
   web('Noto Sans KR'),
   web('Noto Serif KR'),
   web('Nanum Gothic'),
@@ -126,12 +128,6 @@ export function documentFontFamilies(doc: DocumentAccess): string[] {
   const visit = (node: DocumentNode | undefined, depth: number): void => {
     if (!node || depth > 64) return;
     add(node.attributes?.fontFamily);
-    // The other two a run may name. A Latin face has no Hangul in it, so the
-    // East Asian one is the face the CJK text is actually drawn in — and it has
-    // to be fetched before the page is measured, or every line holding CJK is
-    // measured in a fallback and moves once the real one arrives.
-    add(node.attributes?.fontFamilyEastAsia);
-    add(node.attributes?.fontFamilyComplexScript);
     for (const mark of node.marks ?? []) {
       if (mark?.stype === 'fontFamily') add(mark.attrs?.family);
     }

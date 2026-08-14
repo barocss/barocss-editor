@@ -109,8 +109,24 @@ export const paragraphFormatAttrs = (): Attrs => ({
 export const characterFormatAttrs = (): Attrs => ({
   styleId: str(),
   fontFamily: str(),
-  fontFamilyEastAsia: str(),          // Word tracks Latin/EastAsia/ComplexScript separately,
-  fontFamilyComplexScript: str(),     // which matters for CJK documents
+  /**
+   * Kept so a .docx round-trips, and deliberately not rendered.
+   *
+   * Word and ODF both give a run three font slots — Latin, East Asian, complex
+   * script — and choose between them per character. This product renders one
+   * font per run, which is Google Docs' model and every web editor's: a reader
+   * picks a family for the text, and anything the family does not cover falls
+   * back the way the browser falls back.
+   *
+   * Reading them was tried and reverted. CSS has no per-script property, so the
+   * three become one `font-family` list — which chooses by *coverage* where
+   * Word chooses by *script*, and the two disagree exactly where Word needs its
+   * `w:hint` to break the tie: digits, punctuation, and a Latin face that
+   * happens to carry Hangul. A near-miss of Word's rule is harder to reason
+   * about than one font, and one font is what the reader is choosing.
+   */
+  fontFamilyEastAsia: str(),
+  fontFamilyComplexScript: str(),
   fontSize: num(),                    // half-points
   fontSizeComplexScript: num(),
   bold: bool(),

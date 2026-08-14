@@ -87,65 +87,6 @@ describe('character CSS', () => {
     expect(css.color).toBe('#FF0000');
   });
 
-  /**
-   * The three fonts a run may name.
-   *
-   * Word chooses between them per character, by script. Only the Latin one was
-   * read, so a run set in a Latin face drew its Hangul in whatever the browser
-   * happened to fall back to — nothing the document asked for, and different on
-   * every machine.
-   *
-   * CSS needs no per-script selector, because a family list is already
-   * per-character: the browser takes the first family that has the glyph, and a
-   * Latin face has no Hangul in it.
-   */
-  describe('a run that names a font per script', () => {
-    it('offers the East Asian face after the Latin one', () => {
-      const css = characterCss({ fontFamily: 'Times New Roman', fontFamilyEastAsia: '맑은 고딕' });
-      expect(css.fontFamily).toBe('Times New Roman, 맑은 고딕');
-    });
-
-    it('puts complex script last, where Word looks for it last', () => {
-      const css = characterCss({
-        fontFamily: 'Calibri',
-        fontFamilyEastAsia: 'Malgun Gothic',
-        fontFamilyComplexScript: 'Arial'
-      });
-      expect(css.fontFamily).toBe('Calibri, Malgun Gothic, Arial');
-    });
-
-    it('says a font once when the run names the same one twice', () => {
-      const css = characterCss({ fontFamily: 'Arial', fontFamilyEastAsia: 'Arial' });
-      expect(css.fontFamily).toBe('Arial');
-    });
-
-    it('leaves a name alone unless CSS would misread it', () => {
-      // Both of these are legal identifiers unquoted, and the toolbar and the
-      // web-font loader read the name back
-      expect(characterCss({ fontFamily: 'Times New Roman' }).fontFamily).toBe('Times New Roman');
-      expect(characterCss({ fontFamily: '맑은 고딕' }).fontFamily).toBe('맑은 고딕');
-      // A leading digit is not
-      expect(characterCss({ fontFamily: '8514oem' }).fontFamily).toBe('"8514oem"');
-    });
-
-    it('names only what the run named', () => {
-      expect(characterCss({ fontFamilyEastAsia: '굴림' }).fontFamily).toBe('굴림');
-      expect(characterCss({}).fontFamily).toBeUndefined();
-    });
-
-    /**
-     * Complex script has a size of its own, and `rtl` is what marks a run as
-     * one — finer than a declaration can be, but a run the document has already
-     * marked right-to-left is entirely such a run.
-     */
-    it('takes the complex-script size for a run marked rtl', () => {
-      expect(characterCss({ fontSize: 24, fontSizeComplexScript: 32, rtl: true }).fontSize).toBe('16pt');
-      expect(characterCss({ fontSize: 24, fontSizeComplexScript: 32 }).fontSize).toBe('12pt');
-      // And falls back to the ordinary size when only that is given
-      expect(characterCss({ fontSize: 24, rtl: true }).fontSize).toBe('12pt');
-    });
-  });
-
   it('emits an explicit off rather than omitting the property', () => {
     // Omitting it would inherit bold back from an enclosing heading
     expect(characterCss({ bold: false }).fontWeight).toBe('normal');

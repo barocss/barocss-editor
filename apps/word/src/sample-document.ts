@@ -645,21 +645,7 @@ export function createSampleDocument(): INode {
         content: [
           {
             stype: 'docDefaults',
-            /**
-             * Two faces, the way a `.docx` names them.
-             *
-             * Word gives a run a Latin font and an East Asian one and picks per
-             * character; Georgia has no Hangul in it, so without the second the
-             * browser drew any Korean in the document in whatever it fell back
-             * to — a different face on every machine, and one the page was
-             * never measured in.
-             */
-            attributes: {
-              fontFamily: 'Georgia, serif',
-              fontFamilyEastAsia: 'Noto Serif KR',
-              fontSize: 22,
-              spacingAfter: 120
-            }
+            attributes: { fontFamily: 'Georgia, serif', fontSize: 22, spacingAfter: 120 }
           },
           {
             // A document-wide switch: two people editing the same document are
