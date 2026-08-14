@@ -1,6 +1,6 @@
 import { defineOperation } from './define-operation';
 import type { TransactionContext } from '../types';
-import { lastTextNodeIn } from './split-at-caret';
+import { lastTextNodeIn, joinAtSeam } from './split-at-caret';
 
 /**
  * mergeBlockNodes operation (runtime)
@@ -62,22 +62,7 @@ defineOperation('mergeBlockNodes', async (operation: any, context: TransactionCo
    * their marks still read the same afterwards; attributes belong to the node
    * and one of them would have to be dropped.
    */
-  if (tidySeam) {
-    const merged = context.dataStore.getNode(mergedNodeId);
-    const children = Array.isArray((merged as any)?.content) ? ((merged as any).content as string[]) : [];
-    const before = leftChildrenCount > 0 ? context.dataStore.getNode(children[leftChildrenCount - 1]) : null;
-    const after = context.dataStore.getNode(children[leftChildrenCount]);
-    const attributesOf = (node: any) =>
-      JSON.stringify(node?.attributes ?? {}, Object.keys(node?.attributes ?? {}).sort());
-    if (
-      before && after &&
-      typeof (before as any).text === 'string' && typeof (after as any).text === 'string' &&
-      (before as any).stype === (after as any).stype &&
-      attributesOf(before) === attributesOf(after)
-    ) {
-      context.dataStore.splitMerge.mergeTextNodes((before as any).sid, (after as any).sid);
-    }
-  }
+  if (tidySeam) joinAtSeam(context.dataStore, mergedNodeId, leftChildrenCount);
 
   // Where the caret goes: the end of the text the left block already had, which
   // is where the right block's content now starts.

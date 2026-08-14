@@ -189,6 +189,20 @@ export class SplitMergeOperations {
       }
     }
 
+    /**
+     * Marks that meet at the seam and say the same thing are one mark.
+     *
+     * Splitting 'two' in the middle gives bold [0,1] and bold [0,2]; joining
+     * them back shifts the second to [1,3] and leaves two marks where there had
+     * been one. Nothing reads differently — but the document is not the document
+     * it was, so undo cannot restore it, and every edit-and-undo leaves another
+     * pair behind.
+     *
+     * Only marks of the same type carrying the same attributes, and only where
+     * one ends exactly where the next begins.
+     */
+    leftNode.marks = coalesceMarks(leftNode.marks);
+
     // Update left node (record only through updateNode path)
     this.dataStore.updateNode(leftNodeId, { text: mergedText, marks: leftNode.marks } as Partial<INode>, false);
 
@@ -693,4 +707,33 @@ export class SplitMergeOperations {
     this.dataStore.setNodeInternal(node);
     return text;
   }
+}
+
+/**
+ * Join marks that touch and agree, leaving everything else alone.
+ *
+ * Sorted by where they start, so that two halves of a mark that was cut are
+ * next to each other however they were pushed together.
+ */
+function coalesceMarks(marks: any[] | undefined): any[] | undefined {
+  if (!Array.isArray(marks) || marks.length < 2) return marks;
+  const keyOf = (mark: any) =>
+    `${mark.stype ?? mark.type}:${JSON.stringify(mark.attrs ?? {}, Object.keys(mark.attrs ?? {}).sort())}`;
+  const sorted = [...marks].sort((a, b) => (a.range?.[0] ?? 0) - (b.range?.[0] ?? 0));
+  const joined: any[] = [];
+  for (const mark of sorted) {
+    const last = joined[joined.length - 1];
+    if (
+      last &&
+      keyOf(last) === keyOf(mark) &&
+      Array.isArray(last.range) &&
+      Array.isArray(mark.range) &&
+      last.range[1] === mark.range[0]
+    ) {
+      last.range = [last.range[0], mark.range[1]];
+      continue;
+    }
+    joined.push({ ...mark, ...(Array.isArray(mark.range) ? { range: [...mark.range] } : {}) });
+  }
+  return joined;
 }

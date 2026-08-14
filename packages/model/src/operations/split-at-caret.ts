@@ -207,3 +207,48 @@ function lastFirstTextNodeIn(dataStore: any, blockId: string): string | null {
   }
   return null;
 }
+
+/**
+ * Put back together what a split at the caret took apart.
+ *
+ * The split carries the caret's position up through every wrapper, cutting each
+ * one so the tail leaves in a piece of its own. Undoing it therefore has more to
+ * rejoin than the block: a caret inside a link leaves two links, and merging the
+ * blocks alone leaves them side by side — the text reads the same and the
+ * document is not the one it was, so undo cannot restore it and every
+ * edit-and-undo leaves another pair behind.
+ *
+ * So the seam is followed down. Two children that meet there and are the same
+ * kind of thing carrying the same attributes are one thing that was cut, and
+ * joining them opens a seam one level further in.
+ *
+ * "The same attributes" and not "the same marks": a mark names a range of
+ * characters and is carried across a join, so two runs differing only in their
+ * marks still read the same afterwards. Attributes belong to the node and one
+ * side's would have to be dropped.
+ */
+export function joinAtSeam(dataStore: any, parentId: string, index: number): void {
+  if (index <= 0) return;
+  const parent = dataStore.getNode(parentId);
+  const children = (parent?.content ?? []) as string[];
+  if (index >= children.length) return;
+
+  const left = dataStore.getNode(children[index - 1]);
+  const right = dataStore.getNode(children[index]);
+  if (!left || !right) return;
+
+  const attributesOf = (node: any) =>
+    JSON.stringify(node?.attributes ?? {}, Object.keys(node?.attributes ?? {}).sort());
+  if (left.stype !== right.stype || attributesOf(left) !== attributesOf(right)) return;
+
+  if (typeof left.text === 'string' && typeof right.text === 'string') {
+    dataStore.splitMerge.mergeTextNodes(left.sid, right.sid);
+    return;
+  }
+
+  if (Array.isArray(left.content) && Array.isArray(right.content)) {
+    const seamInside = left.content.length;
+    dataStore.splitMerge.mergeBlockNodes(left.sid, right.sid);
+    joinAtSeam(dataStore, left.sid, seamInside);
+  }
+}

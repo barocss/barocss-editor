@@ -1,7 +1,7 @@
 import { defineOperation } from './define-operation';
 import { defineOperationDSL } from './define-operation-dsl';
 import type { TransactionContext } from '../types';
-import { lastTextNodeIn } from './split-at-caret';
+import { lastTextNodeIn, joinAtSeam } from './split-at-caret';
 
 /**
  * Joining one list item onto the one before it.
@@ -81,26 +81,9 @@ defineOperation('mergeListItems', async (operation: { payload: MergeListItemsPay
       dataStore.splitMerge.mergeBlockNodes(lastLeftBlockId, firstRightBlockId);
       joinedBlocks = true;
 
-      /**
-       * And rejoin the run the split cut, which is why this exists: the item
-       * was divided mid-word, so putting it back has to put the word back too.
-       * Only runs carrying the same attributes — marks name a range of
-       * characters and survive a join, attributes belong to the node.
-       */
-      const joined = dataStore.getNode(lastLeftBlockId);
-      const children = ((joined as { content?: string[] })?.content ?? []) as string[];
-      const before = leftChildCount > 0 ? dataStore.getNode(children[leftChildCount - 1]) : null;
-      const after = dataStore.getNode(children[leftChildCount]);
-      const attributesOf = (node: any) =>
-        JSON.stringify(node?.attributes ?? {}, Object.keys(node?.attributes ?? {}).sort());
-      if (
-        before && after &&
-        typeof (before as any).text === 'string' && typeof (after as any).text === 'string' &&
-        (before as any).stype === (after as any).stype &&
-        attributesOf(before) === attributesOf(after)
-      ) {
-        dataStore.splitMerge.mergeTextNodes((before as any).sid, (after as any).sid);
-      }
+      // And rejoin whatever the split cut inside it — the run, and any wrapper
+      // the caret was inside when it was cut.
+      joinAtSeam(dataStore, lastLeftBlockId, leftChildCount);
     }
   }
 

@@ -268,6 +268,53 @@ function shapeOf(dataStore: DataStore, rootId = 'doc-1'): unknown {
   return shape;
 }
 
+/**
+ * Whether the tree is still a tree.
+ *
+ * Every fault above was found by looking at what an operation was supposed to
+ * do. This asks the other question — whether, having done it, the document is
+ * still something the rest of the editor can walk. A dangling id in a content
+ * array, a node whose parent has forgotten it, a node claimed by two parents:
+ * none of those show up in the text, and all of them break a renderer, a
+ * selection mapping or a save, some distance away from the operation that
+ * caused them.
+ */
+function faultsInTree(dataStore: DataStore, rootId = 'doc-1'): string[] {
+  const faults: string[] = [];
+  const seen = new Map<string, string>();
+  const walk = (id: string, parentId: string | null, trail: string[]): void => {
+    if (trail.includes(id)) {
+      faults.push(`${id} 이(가) 자기 조상 안에 다시 나옵니다: ${[...trail, id].join(' → ')}`);
+      return;
+    }
+    const node = dataStore.getNode(id) as INode;
+    if (!node) {
+      faults.push(`${parentId ?? '(root)'} 의 content 에 없는 노드가 있습니다: ${id}`);
+      return;
+    }
+    const claimedBy = seen.get(id);
+    if (claimedBy) {
+      faults.push(`${id} 을(를) 두 부모가 가지고 있습니다: ${claimedBy} 와 ${parentId}`);
+      return;
+    }
+    seen.set(id, parentId ?? '(root)');
+
+    if (parentId) {
+      const declared = (node as { parentId?: string }).parentId;
+      const resolved = declared ? dataStore.resolveAlias(declared) : declared;
+      if (resolved !== parentId) {
+        faults.push(`${id} 는 ${parentId} 안에 있는데 parentId 는 ${declared ?? '(없음)'} 입니다`);
+      }
+    }
+
+    for (const childId of ((node.content ?? []) as string[])) {
+      walk(childId, id, [...trail, id]);
+    }
+  };
+  walk(rootId, null, []);
+  return faults;
+}
+
 /** Every character in the document, in order. */
 function allText(dataStore: DataStore, rootId = 'doc-1'): string {
   const node = dataStore.getNode(rootId) as INode;
@@ -327,6 +374,16 @@ describe('the operation roster', () => {
           expect(typeof (result as any).ok, `${name} returned no verdict`).toBe('boolean');
         }
         scenario.then?.(dataStore);
+      });
+
+      it('leaves the document a tree the rest of the editor can walk', async () => {
+        const faultsBefore = faultsInTree(dataStore);
+        expect(faultsBefore, '픽스처가 이미 깨져 있습니다').toEqual([]);
+        await execute();
+        expect(
+          faultsInTree(dataStore),
+          `${name} 이(가) 문서 구조를 깨뜨렸습니다`
+        ).toEqual([]);
       });
 
       it('leaves the document readable, with nothing lost', async () => {
