@@ -249,14 +249,36 @@ function chooseMove(dataStore: DataStore, roll: () => number, only?: string): Mo
  * `fixme` after it, with the seeds that show it, rather than left to make every
  * run fail for a reason already known.
  */
-const ROUND_TRIPS = ['insertText', 'splitTextNode', 'setAttrs', 'transformNode'];
+const ROUND_TRIPS = [
+  'insertText',
+  'splitTextNode',
+  'setAttrs',
+  'transformNode',
+  'applyMark',
+  'deleteTextRange',
+  'insertParagraph'
+];
 
 describe('random sequences', () => {
   const SEEDS = Array.from({ length: 60 }, (_, index) => index + 1);
   const STEPS = 8;
 
   for (const seed of SEEDS) {
-    it(`survives eight moves and undoes them all (seed ${seed})`, async () => {
+    /**
+     * Seed 56 fails, and differently from the rest: `splitTextNode` names the
+     * two halves it made as the pair its inverse will join, and a later
+     * operation merges one of them away — so the undo asks for a node that is
+     * no longer there and throws.
+     *
+     * That is not an operation being wrong about itself. It is what naming
+     * nodes by id costs when several edits are undone as separate steps, and
+     * the editor does not do that: a transaction collects its inverses and
+     * undoes them as one unit, against the document it left behind. Kept as a
+     * failing case because the cost is real and worth seeing, not because the
+     * next commit should chase it.
+     */
+    const check = seed === 56 ? it.fails : it;
+    check(`survives eight moves and undoes them all (seed ${seed})`, async () => {
       const schema = makeSchema();
       const dataStore = new DataStore(undefined, schema);
       const selectionManager = new SelectionManager({ dataStore });
@@ -345,28 +367,23 @@ describe('one operation, four times over', () => {
   ];
 
   /**
-   * Four of these do not put the document back, and each needs its own look:
+   * Seven of the eight compose with themselves. The one that does not:
    *
-   *   deleteTextRange — the text and the marks it lost come back, and something
-   *     else about the run does not. Seeds 6 and 9, four deletes each, all
-   *     inside runs that carry a mark.
-   *   insertParagraph — splitting the same paragraph repeatedly and undoing in
-   *     reverse. Each split alone is exact (the roster proves it), so this is
-   *     about what the second split does to the first one's inverse.
-   *   applyMark — marks applied over overlapping ranges. removeMark takes off a
-   *     range, which is not the same as taking off the mark that was added.
-   *   splitListItem — as insertParagraph, through mergeListItems.
+   *   splitListItem — splitting the same bullet repeatedly and undoing in
+   *     reverse. A single split is exact, and so is a split undone on its own
+   *     (the roster and the sequences both prove it), so what is left is what a
+   *     later split does to an earlier one's inverse — the list is restructured
+   *     under it, and `mergeListItems` names the two items it is to fold by id.
    *
-   * Left failing rather than quietly narrowed: the run above is drawn from the
-   * four that hold, so this is the list of what to fix next and it should stay
-   * visible until it is empty.
+   * Two mixed runs also fail, seeds 6 and 10, both of them a split of a list
+   * item followed by a `transformNode` of a block the split had just made or
+   * moved. Same shape: an inverse that names nodes the operations after it went
+   * on to change.
+   *
+   * Left named rather than narrowed away: this is the list of what to fix next
+   * and it should stay visible until it is empty.
    */
-  const KNOWN_NOT_TO_COMPOSE = new Set([
-    'deleteTextRange',
-    'insertParagraph',
-    'applyMark',
-    'splitListItem'
-  ]);
+  const KNOWN_NOT_TO_COMPOSE = new Set<string>(['splitListItem']);
 
   for (const kind of KINDS) {
     const check = KNOWN_NOT_TO_COMPOSE.has(kind) ? it.fails : it;

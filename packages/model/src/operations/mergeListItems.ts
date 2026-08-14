@@ -23,6 +23,8 @@ import { lastTextNodeIn, joinAtSeam } from './split-at-caret';
 export interface MergeListItemsPayload {
   leftNodeId: string;
   rightNodeId: string;
+  /** Whether the split being undone actually cut a run. See `joinAtSeam`. */
+  tidySeam?: boolean;
 }
 
 export const mergeListItems = defineOperationDSL(
@@ -34,7 +36,7 @@ export const mergeListItems = defineOperationDSL(
 );
 
 defineOperation('mergeListItems', async (operation: { payload: MergeListItemsPayload }, context: TransactionContext) => {
-  const { leftNodeId, rightNodeId } = operation.payload;
+  const { leftNodeId, rightNodeId, tidySeam = true } = operation.payload;
   const dataStore = context.dataStore;
 
   const left = dataStore.getNode(leftNodeId);
@@ -82,8 +84,10 @@ defineOperation('mergeListItems', async (operation: { payload: MergeListItemsPay
       joinedBlocks = true;
 
       // And rejoin whatever the split cut inside it — the run, and any wrapper
-      // the caret was inside when it was cut.
-      joinAtSeam(dataStore, lastLeftBlockId, leftChildCount);
+      // the caret was inside when it was cut. Only when something *was* cut: a
+      // split on a boundary between two runs divided nothing, and joining there
+      // would merge two runs the document always had apart.
+      if (tidySeam) joinAtSeam(dataStore, lastLeftBlockId, leftChildCount);
     }
   }
 

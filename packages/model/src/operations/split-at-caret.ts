@@ -37,7 +37,22 @@ export type CaretPosition = {
 };
 
 export type CaretSplit =
-  | { at: 'inside'; newBlockId: string; firstTextNodeId: string | null }
+  | {
+      at: 'inside';
+      newBlockId: string;
+      firstTextNodeId: string | null;
+      /**
+       * Whether anything below the block was cut in two to make this split.
+       *
+       * A caret in the middle of a run cuts the run; a caret inside a link cuts
+       * the link as well. A caret on a boundary between two runs cuts nothing —
+       * the children divide where they already did — and that difference is
+       * what undo needs to know. Rejoining a seam that was never cut merges two
+       * runs the document always had apart: splitting at a run boundary and
+       * undoing turned 'alpha' and 'beta' into one run saying 'alphabeta'.
+       */
+      cutSomething: boolean;
+    }
   | { at: 'start' }
   | { at: 'end' };
 
@@ -139,7 +154,11 @@ export function splitBlockAtCaret(dataStore: any, where: CaretPosition, label: s
   const { textNodeId, textLength, block } = where;
   const offset = Math.max(0, Math.min(where.offset, textLength));
 
-  if (offset > 0 && offset < textLength) dataStore.splitTextNode(textNodeId, offset);
+  let cutSomething = false;
+  if (offset > 0 && offset < textLength) {
+    dataStore.splitTextNode(textNodeId, offset);
+    cutSomething = true;
+  }
 
   const holderOf = (id: string): { sid: string; content: string[] } => {
     const parent = dataStore.getParent(id);
@@ -156,6 +175,7 @@ export function splitBlockAtCaret(dataStore: any, where: CaretPosition, label: s
   while (holder.sid !== block.sid) {
     if (tailIndex > 0 && tailIndex < holder.content.length) {
       carried = dataStore.splitBlockNode(holder.sid, tailIndex);
+      cutSomething = true;
       holder = holderOf(carried);
       tailIndex = holder.content.indexOf(carried);
     } else {
@@ -179,7 +199,8 @@ export function splitBlockAtCaret(dataStore: any, where: CaretPosition, label: s
   return {
     at: 'inside',
     newBlockId,
-    firstTextNodeId: newBlock ? firstTextNodeId : null
+    firstTextNodeId: newBlock ? firstTextNodeId : null,
+    cutSomething
   };
 }
 

@@ -42,8 +42,8 @@ type InsertTextOperationPayload = {
 // Uses DataStore.range.insertText and returns the inserted string.
 defineOperation('insertText', 
   async (operation: any, context: TransactionContext) => {
-    const { nodeId, pos, text, restoreMarks } = operation.payload as InsertTextOperationPayload & {
-      restoreMarks?: { stype?: string; type?: string; range: [number, number]; attrs?: Record<string, unknown> }[];
+    const { nodeId, pos, text, marksAfter } = operation.payload as InsertTextOperationPayload & {
+      marksAfter?: { stype?: string; type?: string; range: [number, number]; attrs?: Record<string, unknown> }[];
     };
 
     try {
@@ -64,23 +64,27 @@ defineOperation('insertText',
       }, text);
 
       /**
-       * Marks that belonged to the text, when the caller kept them.
+       * Exactly the marks the run is to end up with, when the caller knows.
        *
-       * Inserting plain characters is what typing does and they carry nothing.
-       * Undoing a *deletion* is the other caller, and the characters it puts
-       * back were bold, or a link, or tracked as an insertion — restoring only
-       * the letters made Ctrl+Z after deleting a bold word give back plain
-       * text. The ranges arrive relative to the restored text and are shifted
-       * to where it landed.
+       * Typing carries nothing and leaves this unset — the store's own rules
+       * for what happens to a mark at an insertion point are right for a reader
+       * typing. Undoing a *deletion* is the other caller, and those rules are
+       * not reversible: deleting the first two letters of a bold word shrinks
+       * the mark from the left, and putting the letters back pushes the mark
+       * right instead of stretching it, so the restored letters came back plain.
+       *
+       * Nothing decides between "this insertion is inside the mark" and
+       * "before it" from the insertion alone. The caller that removed them
+       * knows, so it says.
        */
-      if (Array.isArray(restoreMarks) && restoreMarks.length > 0) {
+      if (Array.isArray(marksAfter)) {
         const current = context.dataStore.getNode(nodeId);
-        const existing = Array.isArray((current as any)?.marks) ? [...(current as any).marks] : [];
-        const shifted = restoreMarks.map((mark) => ({
-          ...mark,
-          range: [mark.range[0] + pos, mark.range[1] + pos] as [number, number]
-        }));
-        context.dataStore.updateNode(nodeId, { marks: [...existing, ...shifted] } as any);
+        if (current) {
+          context.dataStore.setNode(
+            { ...current, marks: JSON.parse(JSON.stringify(marksAfter)) } as any,
+            false
+          );
+        }
       }
       
       // 2) Selection mapping: directly update context.selection.current

@@ -39,25 +39,20 @@ defineOperation('deleteTextRange',
       }
 
       /**
-       * The marks the deletion would lose entirely, before it goes.
+       * Every mark the run carries, before the deletion touches any of them.
        *
-       * Only those wholly inside the span. A mark that merely overlaps it
-       * shrinks and survives, and putting the characters back stretches it over
-       * them again — restoring it as well would leave the run carrying the same
-       * mark twice, once long and once short.
+       * Not just the ones that disappear. A deletion moves and shortens the
+       * others, and putting the characters back does not move them back: the
+       * store stretches a mark the insertion falls inside and shifts one that
+       * starts at the insertion point, which is right for typing and is not
+       * reversible. Deleting the first two letters of a bold word and undoing
+       * gave them back unbolded.
        *
-       * Ranges are made relative to the span so the inverse can shift them to
-       * wherever it restores the text.
+       * So undo does not re-derive the marks; it restores the list.
        */
-      const deletedMarks = (Array.isArray((node as any).marks) ? (node as any).marks : [])
-        .map((mark: any) => {
-          const [markStart, markEnd] = Array.isArray(mark.range)
-            ? mark.range
-            : [0, ((node as any).text ?? '').length];
-          if (markStart < start || markEnd > end) return null;
-          return { ...mark, range: [markStart - start, markEnd - start] as [number, number] };
-        })
-        .filter(Boolean);
+      const marksBefore = Array.isArray((node as any).marks)
+        ? JSON.parse(JSON.stringify((node as any).marks))
+        : [];
 
       // 1) DataStore update: delete range [startPosition, endPosition) within single node
       const deletedText = context.dataStore.range.deleteText({
@@ -118,15 +113,9 @@ defineOperation('deleteTextRange',
             nodeId, 
             pos: start, 
             text: deletedText,
-            /**
-             * What was over the characters being removed.
-             *
-             * Restoring the letters alone made Ctrl+Z after deleting a bold
-             * word give the word back in plain text. Captured before the
-             * deletion, clipped to the span, and made relative to it — the
-             * insert shifts them to wherever it puts the text back.
-             */
-            restoreMarks: deletedMarks
+            // What the run carried before, restored wholesale once the text is
+            // back. See the note where this is captured.
+            marksAfter: marksBefore
           } 
         },
         selection: context.selection?.current ? {

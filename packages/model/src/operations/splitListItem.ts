@@ -68,7 +68,7 @@ defineOperation('splitListItem', async (_operation: { type: string; payload: Rec
       data: dataStore.getNode(newListItemId),
       // Folding the new item back into the one it came from — three steps, so
       // one operation, because an inverse may only be one.
-      inverse: { type: 'mergeListItems', payload: { leftNodeId: listItem.sid, rightNodeId: newListItemId } },
+      inverse: { type: 'mergeListItems', payload: { leftNodeId: listItem.sid, rightNodeId: newListItemId, tidySeam: cut.cutSomething } },
       selectionAfter: { nodeId: cut.firstTextNodeId, offset: 0 }
     };
   }
@@ -87,12 +87,17 @@ defineOperation('splitListItem', async (_operation: { type: string; payload: Rec
   return {
     ok: true,
     data: dataStore.getNode(newListItemId),
+    /**
+     * Folding the blank item back out again. Nothing was cut to make it — it
+     * opened at one end of the item — so the seam must be left alone: joining
+     * there would merge the blank's empty run into the text beside it.
+     */
     inverse: {
       type: 'mergeListItems',
       payload:
         cut.at === 'end'
-          ? { leftNodeId: listItem.sid, rightNodeId: newListItemId }
-          : { leftNodeId: newListItemId, rightNodeId: listItem.sid }
+          ? { leftNodeId: listItem.sid, rightNodeId: newListItemId, tidySeam: false }
+          : { leftNodeId: newListItemId, rightNodeId: listItem.sid, tidySeam: false }
     },
     /**
      * At the end, the blank bullet is where the reader carries on. At the

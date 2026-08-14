@@ -40,6 +40,22 @@ type ApplyMarkOperationPayload =
       attrs?: Record<string, any>;
     };
 
+/**
+ * The marks a node had, so that undo can put exactly those back.
+ *
+ * Taking the mark off the range it was applied to is not the inverse of putting
+ * it on: a range that was already partly bold comes back not-bold, because
+ * `removeMark` clears the range rather than reversing what this did. Applying
+ * bold over overlapping ranges and undoing in reverse left text unbolded that
+ * had been bold before anyone touched it.
+ *
+ * Restoring the whole list is exact, and marks are a small list on one node.
+ */
+const marksBefore = (dataStore: any, nodeId: string) => {
+  const node = dataStore.getNode(nodeId);
+  return Array.isArray(node?.marks) ? JSON.parse(JSON.stringify(node.marks)) : [];
+};
+
 defineOperation('applyMark', async (operation: { payload: ApplyMarkOperationPayload }, context: TransactionContext) => {
   try {
     const payload = operation.payload;
@@ -64,6 +80,7 @@ defineOperation('applyMark', async (operation: { payload: ApplyMarkOperationPayl
       }
       const contentRange = { type: 'range' as const, startNodeId, startOffset, endNodeId, endOffset };
       const mark = { stype: markType, attrs };
+      const before = startNodeId === endNodeId ? marksBefore(context.dataStore, startNodeId) : null;
       context.dataStore.range.applyMark(contentRange, mark);
       /**
        * An inverse, so that undo takes the mark off again.
@@ -79,9 +96,8 @@ defineOperation('applyMark', async (operation: { payload: ApplyMarkOperationPayl
         // `removeMark` works on one node at a time, so a mark applied across
         // several has no single operation that takes it off. Better to say so
         // than to offer an inverse that only clears the first node.
-        ...(undoable
-          ? { inverse: { type: 'removeMark', payload: { nodeId: startNodeId, markType, range: [startOffset, endOffset] } } }
-          : {})
+        // Exactly what the node carried before, not "take this range off".
+        ...(before ? { inverse: { type: 'setMarks', payload: { nodeId: startNodeId, marks: before } } } : {})
       };
     }
 
