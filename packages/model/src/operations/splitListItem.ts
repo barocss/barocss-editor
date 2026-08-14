@@ -88,17 +88,19 @@ defineOperation('splitListItem', async (_operation: { type: string; payload: Rec
     ok: true,
     data: dataStore.getNode(newListItemId),
     /**
-     * Folding the blank item back out again. Nothing was cut to make it — it
-     * opened at one end of the item — so the seam must be left alone: joining
-     * there would merge the blank's empty run into the text beside it.
+     * Taking the blank item away again, not folding it in.
+     *
+     * Nothing was divided to make it — it opened at one end of the item — so
+     * there is nothing to rejoin, and merging it back is not a no-op: its
+     * paragraph holds an empty run, and merging the blocks leaves that run
+     * behind. The item read the same and had one more child than it started
+     * with, which moved the seam the *next* undo counts to, and a bullet split
+     * twice came back as two runs saying what one had said.
+     *
+     * Removing what was added is exact, and is what `insertParagraph` does at
+     * the same two edges.
      */
-    inverse: {
-      type: 'mergeListItems',
-      payload:
-        cut.at === 'end'
-          ? { leftNodeId: listItem.sid, rightNodeId: newListItemId, tidySeam: false }
-          : { leftNodeId: newListItemId, rightNodeId: listItem.sid, tidySeam: false }
-    },
+    inverse: { type: 'removeChild', payload: { parentId: listId, childId: newListItemId } },
     /**
      * At the end, the blank bullet is where the reader carries on. At the
      * start, they are still writing the bullet they were in — which has just

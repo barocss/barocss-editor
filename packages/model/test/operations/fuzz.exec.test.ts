@@ -256,7 +256,8 @@ const ROUND_TRIPS = [
   'transformNode',
   'applyMark',
   'deleteTextRange',
-  'insertParagraph'
+  'insertParagraph',
+  'splitListItem'
 ];
 
 describe('random sequences', () => {
@@ -264,21 +265,7 @@ describe('random sequences', () => {
   const STEPS = 8;
 
   for (const seed of SEEDS) {
-    /**
-     * Seed 56 fails, and differently from the rest: `splitTextNode` names the
-     * two halves it made as the pair its inverse will join, and a later
-     * operation merges one of them away — so the undo asks for a node that is
-     * no longer there and throws.
-     *
-     * That is not an operation being wrong about itself. It is what naming
-     * nodes by id costs when several edits are undone as separate steps, and
-     * the editor does not do that: a transaction collects its inverses and
-     * undoes them as one unit, against the document it left behind. Kept as a
-     * failing case because the cost is real and worth seeing, not because the
-     * next commit should chase it.
-     */
-    const check = seed === 56 ? it.fails : it;
-    check(`survives eight moves and undoes them all (seed ${seed})`, async () => {
+    it(`survives eight moves and undoes them all (seed ${seed})`, async () => {
       const schema = makeSchema();
       const dataStore = new DataStore(undefined, schema);
       const selectionManager = new SelectionManager({ dataStore });
@@ -367,23 +354,11 @@ describe('one operation, four times over', () => {
   ];
 
   /**
-   * Seven of the eight compose with themselves. The one that does not:
-   *
-   *   splitListItem — splitting the same bullet repeatedly and undoing in
-   *     reverse. A single split is exact, and so is a split undone on its own
-   *     (the roster and the sequences both prove it), so what is left is what a
-   *     later split does to an earlier one's inverse — the list is restructured
-   *     under it, and `mergeListItems` names the two items it is to fold by id.
-   *
-   * Two mixed runs also fail, seeds 6 and 10, both of them a split of a list
-   * item followed by a `transformNode` of a block the split had just made or
-   * moved. Same shape: an inverse that names nodes the operations after it went
-   * on to change.
-   *
-   * Left named rather than narrowed away: this is the list of what to fix next
-   * and it should stay visible until it is empty.
+   * All eight compose with themselves. The set is kept rather than deleted: an
+   * operation whose inverse turns out not to survive its own repetition belongs
+   * here, named, with the seed that shows it — not quietly dropped from the run.
    */
-  const KNOWN_NOT_TO_COMPOSE = new Set<string>(['splitListItem']);
+  const KNOWN_NOT_TO_COMPOSE = new Set<string>([]);
 
   for (const kind of KINDS) {
     const check = KNOWN_NOT_TO_COMPOSE.has(kind) ? it.fails : it;
