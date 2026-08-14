@@ -63,19 +63,61 @@ defineOperation('replacePattern', async (operation: ReplacePatternOperationPaylo
     // fast-path single-node: compute count directly to avoid iterator/tree dependency
     const original = (node.text as string).substring(start, end);
     let count = 0;
+    let replaced = original;
     if (original.length > 0) {
-      if (pattern instanceof RegExp) {
-        const rx = pattern.flags.includes('g') ? pattern : new RegExp(pattern.source, pattern.flags + 'g');
-        original.replace(rx, () => { count += 1; return replacement; });
-      } else {
-        const rx = new RegExp(pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
-        original.replace(rx, () => { count += 1; return replacement; });
-      }
+      /**
+       * Counted and replaced by the same expression.
+       *
+       * They were two: the count came from a global regular expression and the
+       * replacement from `String.replace(pattern, …)`, which for a string
+       * pattern changes only the first occurrence. Replacing 'o' in 'foo'
+       * reported two and did one.
+       */
+      const rx =
+        pattern instanceof RegExp
+          ? (pattern.flags.includes('g') ? pattern : new RegExp(pattern.source, pattern.flags + 'g'))
+          : new RegExp(String(pattern).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+      replaced = original.replace(rx, () => {
+        count += 1;
+        return replacement;
+      });
       if (count > 0) {
-        context.dataStore.range.replaceText({ type: 'range', startNodeId: nodeId, startOffset: start, endNodeId: nodeId, endOffset: end }, original.replace(pattern as any, replacement));
+        context.dataStore.range.replaceText(
+          { type: 'range', startNodeId: nodeId, startOffset: start, endNodeId: nodeId, endOffset: end },
+          replaced
+        );
       }
     }
-    return { ok: true, data: count };
+    /**
+     * Undo writes the original text back over what was written.
+     *
+     * The pattern may have matched in several places, so there is no reversing
+     * it match by match — but what it replaced was one stretch of one run, and
+     * that stretch can be written back whole, marks and all.
+     */
+    return {
+      ok: true,
+      data: count,
+      ...(count > 0
+        ? {
+            inverse: {
+              type: 'replaceText',
+              payload: {
+                range: {
+                  startNodeId: nodeId,
+                  startOffset: start,
+                  endNodeId: nodeId,
+                  endOffset: start + replaced.length
+                },
+                newText: original,
+                marksAfter: Array.isArray((node as any).marks)
+                  ? JSON.parse(JSON.stringify((node as any).marks))
+                  : []
+              }
+            }
+          }
+        : {})
+    };
   } catch (e) {
     throw new Error(`Failed to replace by pattern: ${e instanceof Error ? e.message : 'Unknown error'}`);
   }

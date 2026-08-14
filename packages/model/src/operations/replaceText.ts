@@ -41,6 +41,7 @@ defineOperation('replaceText', async (operation: any, context: TransactionContex
     
     if ('range' in payload) {
       const { range, newText } = payload;
+      const marksAfter = (payload as any).marksAfter as any[] | undefined;
       const { startNodeId, endNodeId, startOffset, endOffset } = range;
       const startNode = context.dataStore.getNode(startNodeId);
       const endNode = context.dataStore.getNode(endNodeId);
@@ -51,11 +52,42 @@ defineOperation('replaceText', async (operation: any, context: TransactionContex
       }
       if (typeof startOffset !== 'number' || typeof endOffset !== 'number') throw new Error('Invalid range');
       
-      // Store the original text for inverse operation
-      const originalText = context.dataStore.range.extractText(range);
-      
+      /**
+       * Store the original text for the inverse — with the range properly
+       * formed, which it was not: `extractText` wants a selection and was
+       * handed a bare range, so it returned nothing and the inverse restored
+       * an empty string. Undoing a replacement deleted the text it replaced.
+       */
+      const originalText =
+        startNodeId === endNodeId
+          ? ((startNode as any).text as string).slice(startOffset, endOffset)
+          : context.dataStore.range.extractText({ type: 'range' as const, ...range });
+      /**
+       * And what the start node carried, since the replacement rewrites it.
+       *
+       * The text can be put back by writing it again; the marks over it cannot
+       * be re-derived, for the same reason a deletion's could not — the store's
+       * rules for an edit are right for a reader making one and are not
+       * reversible.
+       */
+      const marksBefore = Array.isArray((startNode as any).marks)
+        ? JSON.parse(JSON.stringify((startNode as any).marks))
+        : [];
+
       const rangeWithType = { type: 'range' as const, ...range };
       const deleted = context.dataStore.range.replaceText(rangeWithType, newText);
+
+      // Exactly the marks the run is to end up with, when the caller knows —
+      // which is the inverse putting back what it took. See where it is captured.
+      if (Array.isArray(marksAfter)) {
+        const current = context.dataStore.getNode(startNodeId);
+        if (current) {
+          context.dataStore.setNode(
+            { ...current, marks: JSON.parse(JSON.stringify(marksAfter)) } as any,
+            false
+          );
+        }
+      }
 
       // After what was written, in the node the range started in: a range that
       // spanned several nodes has collapsed into that one.
@@ -64,7 +96,28 @@ defineOperation('replaceText', async (operation: any, context: TransactionContex
       return {
         ok: true,
         data: deleted,
-        inverse: { type: 'replaceText', payload: { range: { startNodeId: range.startNodeId, startOffset: range.startOffset, endNodeId: range.endNodeId, endOffset: range.endOffset + newText.length }, newText: originalText } }
+        /**
+         * Where the replacement actually is, which is not where the range was.
+         *
+         * A range spanning several nodes collapses into the one it started in,
+         * so the text just written occupies `[startOffset, startOffset + newText.length)`
+         * of *that* node. The inverse used to name the old end node and add the
+         * new length to the old end offset, which describes neither the text it
+         * meant to replace nor anything else.
+         */
+        inverse: {
+          type: 'replaceText',
+          payload: {
+            range: {
+              startNodeId: range.startNodeId,
+              startOffset: range.startOffset,
+              endNodeId: range.startNodeId,
+              endOffset: range.startOffset + newText.length
+            },
+            newText: originalText,
+            marksAfter: marksBefore
+          }
+        }
       };
     }
     

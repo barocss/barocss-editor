@@ -159,12 +159,11 @@ const ROSTER: Record<string, Scenario> = {
     payload: { range: { startNodeId: 'r-1', startOffset: 1, endNodeId: 'r-1', endOffset: 2 } },
     changesText: true
   },
-  replaceText: { payload: { range: { startNodeId: 'r-1', startOffset: 0, endNodeId: 'r-1', endOffset: 3 }, newText: 'ONE' }, changesText: true, undo: 'declares no inverse; a replace would need the old text kept' },
+  replaceText: { payload: { range: { startNodeId: 'r-1', startOffset: 0, endNodeId: 'r-1', endOffset: 3 }, newText: 'ONE' }, changesText: true },
   replacePattern: {
     // Reads its fields from the operation itself, not from `payload`.
     operation: { nodeId: 'r-2', start: 0, end: 3, pattern: 'two', replacement: 'TWO' },
-    changesText: true,
-    undo: 'declares no inverse; the pattern may have matched in several places'
+    changesText: true
   },
   splitTextNode: { payload: { nodeId: 'r-1', splitPosition: 1 } },
   // Two runs with the same formatting. Merging runs that carry *different*
@@ -190,8 +189,8 @@ const ROSTER: Record<string, Scenario> = {
   moveBlockDown: { payload: { nodeId: 'p-1' } },
   indentNode: { payload: { nodeId: 'li-2' }, undo: 'declares no inverse' },
   outdentNode: { payload: { nodeId: 'li-2' }, undo: 'declares no inverse' },
-  indentText: { payload: { range: { startNodeId: 'r-1', startOffset: 0, endNodeId: 'r-1', endOffset: 0 } }, undo: 'declares no inverse' },
-  outdentText: { payload: { range: { startNodeId: 'r-1', startOffset: 0, endNodeId: 'r-1', endOffset: 0 } }, undo: 'declares no inverse' },
+  indentText: { payload: { range: { startNodeId: 'r-1', startOffset: 0, endNodeId: 'r-1', endOffset: 0 } } },
+  outdentText: { payload: { range: { startNodeId: 'r-1', startOffset: 0, endNodeId: 'r-1', endOffset: 0 } } },
 
   // ── the tree ──────────────────────────────────────────────────────────────
   addChild: { payload: { parentId: 'p-1', child: { stype: 'inline-text', text: 'added' }, position: 3 } },
