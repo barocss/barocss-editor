@@ -300,3 +300,75 @@ describe('space held at the foot of a page', () => {
   });
 });
 
+/**
+ * A paragraph the text runs around a picture in.
+ *
+ * Its first lines are beside the picture and shorter than the rest, so cutting
+ * among them would put them on a page with no picture on it and they would come
+ * back a different length. Everything past the picture is already full width,
+ * and stays full width wherever it lands. `splitFrom` is the line that boundary
+ * falls on.
+ */
+describe('a floor on where a block may be cut', () => {
+  it('cuts past the floor exactly as it would without one', () => {
+    // A 10-line block, 5 fit, and the float takes the first two lines.
+    const pages = paginate([block('wrapped', 10, { splitFrom: 2, widowControl: false })], {
+      contentHeight: 100
+    });
+    expect(pages.map((page) => page.fragments.map((f) => [f.fromLine, f.toLine]))).toEqual([
+      [[0, 5]],
+      [[5, 10]]
+    ]);
+  });
+
+  it('will not cut among the lines beside the picture', () => {
+    // Only 3 lines fit on what is left, and the picture claims the first 4.
+    const pages = paginate(
+      [block('a', 2), block('wrapped', 5, { splitFrom: 4, widowControl: false })],
+      { contentHeight: 100 }
+    );
+    // So the whole paragraph moves rather than breaking inside the picture
+    expect(sidsPerPage(pages)).toEqual([['a'], ['wrapped']]);
+    expect(pages[1].fragments[0]).toMatchObject({ fromLine: 0, toLine: 5, continues: false });
+  });
+
+  it('overflows only the picture when the picture alone is taller than a page', () => {
+    // The float claims 8 lines and a page holds 5: those 8 cannot be rescued,
+    // but the two after them do not have to go over the edge with them.
+    const pages = paginate([block('wrapped', 10, { splitFrom: 8, widowControl: false })], {
+      contentHeight: 100
+    });
+    expect(pages.map((page) => page.fragments.map((f) => [f.fromLine, f.toLine]))).toEqual([
+      [[0, 8]],
+      [[8, 10]]
+    ]);
+    expect(pages[0].fragments[0].continues).toBe(true);
+    expect(pages[1].fragments[0].continued).toBe(true);
+  });
+
+  it('is the whole block when nothing in it is clear of the picture', () => {
+    // Which is what measurement reports as `splitFrom === lines.length`, and is
+    // the same answer keepLines gives.
+    const floor = paginate([block('a', 2), block('wrapped', 8, { splitFrom: 8 })], {
+      contentHeight: 100
+    });
+    const kept = paginate([block('a', 2), block('wrapped', 8, { keepLines: true })], {
+      contentHeight: 100
+    });
+    expect(sidsPerPage(floor)).toEqual(sidsPerPage(kept));
+    expect(floor[1].fragments[0]).toMatchObject({ fromLine: 0, toLine: 8, continues: false });
+  });
+
+  it('leaves widow control the last word on where the cut lands', () => {
+    // 5 fit, so the cut would be at 5 and leave one line overleaf; widow
+    // control pulls it back to 4, which is still past the floor.
+    const pages = paginate([block('wrapped', 6, { splitFrom: 2, widowControl: true })], {
+      contentHeight: 100
+    });
+    expect(pages.map((page) => page.fragments.map((f) => [f.fromLine, f.toLine]))).toEqual([
+      [[0, 4]],
+      [[4, 6]]
+    ]);
+  });
+});
+

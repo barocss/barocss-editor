@@ -24,7 +24,6 @@ import { childrenOf, type DocumentAccess, type DocumentNode } from './document-a
 import { footnoteRefsIn, reserveFor } from './footnotes';
 import { lineStartOffsets, type LineAnchor } from './line-offsets';
 import { scaledTo } from './table-pagination';
-import { wrapsText } from './image-layout';
 import { suppressedSpacing } from './spacing';
 
 /** The DOM attribute the renderer stamps each node's id onto. */
@@ -81,9 +80,21 @@ function lineBands(el: Element): {
    * with no lines at all.
    */
   chrome: number;
+  /**
+   * The lowest point any floated descendant reaches.
+   *
+   * Which is where the short lines beside it stop and the full-width ones
+   * begin — the boundary `splitFrom` is derived from. Null when nothing here
+   * floats, which is almost every block.
+   */
+  floatBottom: number | null;
+  /** Where each of those drawings sits, so it can be taken off the line it is on. */
+  chromeRects: { top: number; bottom: number }[];
 } {
   const rects: { top: number; bottom: number }[] = [];
+  const chromeRects: { top: number; bottom: number }[] = [];
   let chrome = 0;
+  let floatBottom: number | null = null;
   const view = el.ownerDocument.defaultView;
 
   /**
@@ -96,10 +107,8 @@ function lineBands(el: Element): {
    * break after it moved. Anything that is not `display: inline` is such an
    * object: an equation, a matrix, a picture, a stacked sum.
    */
-  const atomic = (node: Element): boolean => {
-    const display = view?.getComputedStyle(node).display;
-    return !!display && display !== 'inline' && display !== 'contents';
-  };
+  const atomic = (display: string | undefined): boolean =>
+    !!display && display !== 'inline' && display !== 'contents';
 
   const visit = (node: Node): void => {
     for (const child of Array.from(node.childNodes)) {
@@ -123,13 +132,24 @@ function lineBands(el: Element): {
       // carries a page break through a paragraph is a full-width empty box, and
       // counting it makes the block a line taller every time it breaks.
       if (element.hasAttribute(CHROME_ATTR)) {
-        chrome += element.getBoundingClientRect().height;
+        const box = element.getBoundingClientRect();
+        chrome += box.height;
+        if (box.height > 0) chromeRects.push({ top: box.top, bottom: box.bottom });
         continue;
       }
 
-      if (atomic(element)) {
+      const style = view?.getComputedStyle(element);
+      const floating = !!style && style.float !== 'none' && style.float !== '';
+
+      if (floating || atomic(style?.display)) {
         const box = element.getBoundingClientRect();
         if (box.height > 0) rects.push({ top: box.top, bottom: box.bottom });
+        // A float is the one thing in a paragraph that makes some of its lines
+        // shorter than the others, so where it ends is where the block becomes
+        // safe to cut.
+        if (floating && box.height > 0) {
+          floatBottom = floatBottom === null ? box.bottom : Math.max(floatBottom, box.bottom);
+        }
         continue;
       }
 
@@ -152,27 +172,67 @@ function lineBands(el: Element): {
       bands.push({ top: rect.top, bottom: rect.bottom });
     }
   }
-  return { bands, chrome };
+  return { bands, chrome, floatBottom, chromeRects };
 }
 
 /**
- * Split a block's height across its lines, in the proportions they were measured
- * in.
+ * How far down the block each line reaches — the distance from one line's top to
+ * the next's, which is what the reader sees a line occupy.
  *
- * The band heights are not used directly: they measure ink, not the line box, so
- * they miss the leading and would not sum to the block's height — and
- * pagination's arithmetic depends on `sum(lines) === height`. Scaling them to
- * that total keeps both: the sum is right, and a line that is genuinely taller
- * than its neighbours keeps its share.
+ * Not the band heights: those measure ink, and miss the leading. They were
+ * scaled up to the block's height instead, on the reasoning that every line is
+ * under-measured by the same fraction — true for text, and false for anything
+ * measured as a box rather than as ink. A floated picture is such a thing: its
+ * band is drawn 98px tall and was reported as 117, which put the cut 46px below
+ * where the paragraph's lines actually reach and left the tail of it drawn
+ * above the top margin of the page it continued onto.
  *
- * It used to divide the height evenly, which is exact only when every line is
- * the same size. One equation inline in a paragraph is 40px against 14px for the
- * lines around it, and dividing evenly moved every page break after it —
- * measured as three pagination tests failing the moment a bracketed fraction
- * went into the fixture. A large picture or a run in a much larger size does the
- * same thing, more quietly.
+ * Measuring the gaps has neither problem and needs no scaling: they sum to the
+ * block's height by construction, and each one is the line's real extent
+ * whether it was measured as ink or as a box.
+ *
+ * The first line takes the space above the first band — half-leading, padding,
+ * a border — and the last takes everything below its own top, for the same
+ * reason. Whatever the layout itself drew is taken off the line it sits on
+ * rather than off the block as a whole: it belongs to one gap, and spreading it
+ * would make every other line slightly short.
  */
-function linesFor(el: HTMLElement): number[] {
+function advances(
+  el: HTMLElement,
+  bands: { top: number; bottom: number }[],
+  chromeRects: { top: number; bottom: number }[]
+): number[] {
+  const box = el.getBoundingClientRect();
+  const edges = [box.top, ...bands.slice(1).map((band) => band.top), box.bottom];
+
+  const lines: number[] = [];
+  for (let i = 0; i < edges.length - 1; i += 1) {
+    let height = edges[i + 1] - edges[i];
+    for (const drawn of chromeRects) {
+      const overlap = Math.min(drawn.bottom, edges[i + 1]) - Math.max(drawn.top, edges[i]);
+      if (overlap > 0) height -= overlap;
+    }
+    lines.push(Math.max(0, height));
+  }
+  return lines;
+}
+
+/**
+ * A block as a stack of line heights, and where it may be cut.
+ */
+function linesFor(el: HTMLElement): {
+  lines: number[];
+  splitFrom?: number;
+  /**
+   * Where each of those lines starts on the screen.
+   *
+   * Handed to `lineStartOffsets` so the character positions it finds are
+   * counted in the same lines: a merged band is one line here and four to the
+   * browser, and a break anchored by the browser's count lands in the wrong
+   * place.
+   */
+  bandTops: number[];
+} {
   // getBoundingClientRect, not offsetHeight: the latter rounds to whole pixels,
   // and a fraction of a pixel dropped from every block accumulates into a page
   // that ends several pixels away from where the layout placed it.
@@ -180,16 +240,33 @@ function linesFor(el: HTMLElement): number[] {
   // Less whatever the layout itself put there. A page break drawn inside this
   // paragraph is part of how tall it currently is and no part of how tall its
   // text is — counting it would make the block grow every time it broke.
-  const { bands, chrome } = lineBands(el);
+  const { bands, chrome, floatBottom, chromeRects } = lineBands(el);
   const height = el.getBoundingClientRect().height - chrome;
 
-  if (height <= 0) return [];
-  if (bands.length <= 1) return [height];
+  const bandTops = bands.map((band) => band.top);
+  if (height <= 0) return { lines: [], bandTops: [] };
+  if (bands.length <= 1) return { lines: [height], bandTops };
 
-  return scaledTo(
-    bands.map((band) => band.bottom - band.top),
-    height
-  );
+  const lines = advances(el, bands, chromeRects);
+
+  /**
+   * The first line clear of the float.
+   *
+   * Every band that overlaps the float has already been merged into one — a
+   * band takes in any rectangle that starts before the previous one ends, and
+   * the float's own rectangle spans all of them — so the float and the short
+   * lines beside it are a single line as far as this measurement goes, and the
+   * one after it is the first that is full width.
+   *
+   * A float reaching past the last line leaves no full-width line at all, and
+   * the floor becomes the end of the block — which is the same thing as never
+   * cutting it, said in the units the paginator already works in.
+   */
+  if (floatBottom === null) return { lines, bandTops };
+  const clear = bands.findIndex((band) => band.top >= floatBottom - 1);
+  const splitFrom = clear === -1 ? lines.length : clear;
+
+  return { lines, bandTops, ...(splitFrom > 0 ? { splitFrom } : {}) };
 }
 
 /**
@@ -244,24 +321,6 @@ const px = (value: unknown): number =>
   typeof value === 'number' && Number.isFinite(value) ? twipToPx(value) : 0;
 
 /**
- * Whether a block has a picture the text runs around.
- *
- * Such a block is never split, and this is the whole reason: the lines beside
- * the picture are short and the ones past it are full width, so a break drawn
- * inside the paragraph moves the text after it clear of the picture and the
- * paragraph comes out with a different number of lines than the one that was
- * measured. The pass terminates because applying a layout cannot change what it
- * measured — a gap inside a wrapped paragraph is the one thing that can, and it
- * left the layout describing six lines while the page drew seven, with the tail
- * of the paragraph a line above the top margin it should have started at.
- */
-function wrapsAnyPicture(doc: DocumentAccess, block: DocumentNode, depth = 0): boolean {
-  if (depth > 32) return false;
-  if (block.stype === 'inline-image' && wrapsText(block.attributes as never)) return true;
-  return childrenOf(doc, block).some((child) => wrapsAnyPicture(doc, child, depth + 1));
-}
-
-/**
  * Measure the blocks of a rendered surface, in document order.
  *
  * Driven by the model rather than by walking the DOM. A renderer stamps its
@@ -300,11 +359,15 @@ export function measureBlocks(
     // properties whatever the block is. Resolving a table in the table context
     // instead answered with different spacing and moved every page after it.
     const format = styles.resolveNode(node, 'paragraph');
-    const lines = node.stype === 'bTable' ? rowsFor(child as HTMLElement) : linesFor(child as HTMLElement);
+    const measured: { lines: number[]; splitFrom?: number; bandTops?: number[] } =
+      node.stype === 'bTable'
+        ? { lines: rowsFor(child as HTMLElement) }
+        : linesFor(child as HTMLElement);
+    const lines = measured.lines;
     const refs = footnoteRefsIn(doc, node);
 
     if (splitBlocks && options.onLineOffsets && lines.length > 1) {
-      options.onLineOffsets(sid, lineStartOffsets(child));
+      options.onLineOffsets(sid, lineStartOffsets(child, measured.bandTops));
     }
 
     // The same rule the renderer draws with. A block that gives up the space
@@ -326,10 +389,13 @@ export function measureBlocks(
       // across the gap between two sheets — measured at 1,654px of table on a
       // 1,056px page, its rows crossing the margin and the paper's edge.
       //
-      // A paragraph the text runs around a picture in is the exception, and
-      // moves whole: see wrapsAnyPicture for what splitting one does to the
-      // lines it was measured by.
-      keepLines: !splitBlocks || format.keepLines === true || wrapsAnyPicture(doc, node),
+      // A paragraph the text runs around a picture in used to be here too, kept
+      // whole. That is more than it needs — only the lines beside the picture
+      // cannot be cut among, and a paragraph taller than a page could not be
+      // kept whole anyway, so it overflowed the bottom margin instead. It
+      // carries a floor on the cut now: see `splitFrom`.
+      keepLines: !splitBlocks || format.keepLines === true,
+      ...(measured.splitFrom !== undefined ? { splitFrom: measured.splitFrom } : {}),
       widowControl: format.widowControl !== false
     });
   }

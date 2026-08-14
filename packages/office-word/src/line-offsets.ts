@@ -86,16 +86,37 @@ function lineTopAt(spans: TextSpan[], offset: number): number | undefined {
  * A block whose lines cannot be told apart — no text, or text the browser lays
  * out in one line — gives none, which is the honest answer: there is nowhere
  * inside it to break.
+ *
+ * `bandTops` are the lines as the *paginator* counts them, and are what makes
+ * the two agree. Beside a floated picture the browser lays out four short lines
+ * where the measurement sees one band — the picture's own rectangle spans all
+ * four and swallows them — so counting text lines here produced four more
+ * anchors than the paginator had lines, and "break after line 30" anchored at
+ * the start of line 26. Measured: the tail of the paragraph drawn 90px above
+ * the top margin of the page it continued onto. Given the bands, a boundary is
+ * only an anchor when it leaves the band it was in.
  */
-export function lineStartOffsets(el: Element): LineAnchor[] {
+export function lineStartOffsets(el: Element, bandTops?: number[]): LineAnchor[] {
   const spans = textSpans(el);
   if (spans.length === 0) return [];
 
   const total = spans[spans.length - 1].end;
   const offsets: LineAnchor[] = [];
 
-  let lineTop = lineTopAt(spans, 0);
-  if (lineTop === undefined) return [];
+  /**
+   * Which band a line top falls in. Without bands every boundary counts, which
+   * is what a block with nothing floated in it wants anyway.
+   */
+  const bandOf = (top: number): number => {
+    if (!bandTops || bandTops.length === 0) return Number.NaN;
+    let index = 0;
+    for (let i = 1; i < bandTops.length; i += 1) if (top >= bandTops[i] - 1) index = i;
+    return index;
+  };
+
+  const firstTop = lineTopAt(spans, 0);
+  if (firstTop === undefined) return [];
+  let lineTop: number = firstTop;
 
   let cursor = 0;
   while (cursor < total) {
@@ -118,9 +139,12 @@ export function lineStartOffsets(el: Element): LineAnchor[] {
     }
 
     if (found < 0) break;
+    const nextTop = lineTopAt(spans, found) ?? lineTop;
     const anchor = anchorAt(spans, found);
-    if (anchor) offsets.push(anchor);
-    lineTop = lineTopAt(spans, found) ?? lineTop;
+    // NaN when there are no bands, and NaN === NaN is false — so every boundary
+    // counts, which is what a block with nothing floated in it wants.
+    if (anchor && bandOf(nextTop) !== bandOf(lineTop)) offsets.push(anchor);
+    lineTop = nextTop;
     cursor = found;
   }
 

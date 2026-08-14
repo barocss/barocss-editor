@@ -4,28 +4,26 @@ import { settled } from './helpers';
 /**
  * A paragraph the text wraps around a picture in, grown until it cannot fit.
  *
- * Known and unfixed, and here so that it is a running test rather than a note.
+ * Such a paragraph used to be marked `keepLines` and moved whole, because lines
+ * beside the picture are short and the ones past it are full width — so a break
+ * among the short ones moves them clear of the picture and the paragraph comes
+ * back a different length than the one that was measured.
  *
- * A paragraph holding a floated picture is marked `keepLines` on purpose: lines
- * beside the picture are short and the ones past it are full width, so a break
- * drawn inside it moves the tail clear of the picture and the paragraph comes
- * out with a different number of lines than the one that was measured. Keeping
- * it whole avoids that.
+ * It cannot be kept whole once it is taller than a page. The paginator drew it
+ * anyway — "a block taller than a page overflows rather than vanishing" — and
+ * the last lines landed past the bottom margin: eight text rectangles outside
+ * the printable area, the furthest ~140px past it.
  *
- * It cannot be kept whole once it is taller than a page. The paginator then
- * draws it anyway — "a block taller than a page overflows rather than
- * vanishing" — and the last lines land past the bottom margin, outside what a
- * reader would print. Measured below: eight text rectangles outside the
- * printable area, the furthest ~140px past it.
- *
- * Making it splittable was tried and is worse: the layout then disagrees with
- * the measurement in the way `keepLines` exists to prevent, and the overflow
- * grows. Fixing it properly means deciding what a float does when its paragraph
- * breaks — whether the picture stays with the anchor's page and the tail flows
- * full width, which is Word's answer — and that is a layout decision, not a
- * missing guard.
+ * The rule is not "never split" but "not among the picture's own lines", which
+ * is Word's answer too: the picture stays on its anchor's page and the tail
+ * flows on. Three things had to be true for that to hold, and each was a fault
+ * of its own — the paginator needed a floor on the cut (`splitFrom`); the line
+ * anchors had to be counted in the same lines the measurement was (four short
+ * lines beside a picture are one band); and the line heights had to be the gaps
+ * between the lines rather than ink scaled up to the block's height, which
+ * over-reported the picture's band by 19px of the 46 the cut was out by.
  */
-test.fixme('every line of a wrapped paragraph stays inside the page', async ({ page }) => {
+test('every line of a wrapped paragraph stays inside the page', async ({ page }) => {
   await page.goto('/');
   await settled(page);
 

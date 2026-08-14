@@ -36,6 +36,24 @@ export interface MeasuredBlock {
    * whole on the page it lands on — this switch is the whole table's.
    */
   keepLines?: boolean;
+  /**
+   * The first line that may begin a continuation of this block.
+   *
+   * A paragraph the text runs around a picture in has two kinds of line: the
+   * short ones beside the picture, and the full-width ones past it. Cutting
+   * among the short ones is what `keepLines` was standing in for — moving them
+   * to a page with no picture on it rewraps them, so the block the layout draws
+   * is not the block that was measured.
+   *
+   * The lines past the picture have no such problem: they are already full
+   * width and stay full width wherever they land. So the rule is not "never
+   * split" but "not before here", which is also Word's answer — the picture
+   * stays on its anchor's page and the tail flows on.
+   *
+   * Left unset by everything else, and it is a floor on the cut, not a
+   * requirement to cut there.
+   */
+  splitFrom?: number;
   /** Word's `widowControl`: never leave a single line behind or ahead. */
   widowControl?: boolean;
   /**
@@ -206,25 +224,40 @@ function layout(blocks: MeasuredBlock[], forced: Set<number>, contentHeight: num
       if (fit < remaining) {
         // Not everything fits: either split here, or move what is left to the next page
         const splittable = !block.keepLines;
-        const legal = splittable ? applyWidowControl(block, from, fit) : 0;
+        // Lines this block may not be cut among — the ones beside a picture the
+        // text runs around. Counted from `from`, since that is what `fit` is.
+        const atLeast = Math.max(0, (block.splitFrom ?? 0) - from);
+        let legal = splittable ? applyWidowControl(block, from, fit) : 0;
+        if (legal > 0 && legal < atLeast) legal = 0;
 
         if (legal <= 0) {
           if (current.fragments.length === 0) {
-            // Nothing to move it past: a block taller than a page overflows rather
-            // than vanishing, and the reader sees it clipped instead of missing.
-            const height = fragmentHeight(block, from, block.lines.length, atPageTop);
+            /**
+             * Nothing to move it past: a block taller than a page overflows
+             * rather than vanishing, and the reader sees it clipped instead of
+             * missing.
+             *
+             * Unless the floor is what is stopping the cut — a paragraph whose
+             * picture alone is taller than the page. Then only the lines beside
+             * the picture have to overflow, and the rest belongs on the next
+             * page rather than off the bottom of this one.
+             */
+            const cut = atLeast > 0 && atLeast < remaining && fit < atLeast ? atLeast : remaining;
+            const height = fragmentHeight(block, from, from + cut, atPageTop);
             current.fragments.push({
               sid: block.sid,
               fromLine: from,
-              toLine: block.lines.length,
+              toLine: from + cut,
               height,
-              continues: false,
+              continues: cut < remaining,
               continued: from > 0
             });
             current.height += height;
             if (from === 0) current.reserved += reserve;
-            from = block.lines.length;
-            break;
+            from += cut;
+            if (from >= block.lines.length) break;
+            flush();
+            continue;
           }
           flush();
           continue;

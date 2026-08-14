@@ -744,27 +744,35 @@ test.describe('a page boundary that lands on a wrapped picture', () => {
     expect(misplaced).toEqual([]);
   });
 
-  test('moves a paragraph the text wraps around whole', async ({ page }) => {
+  test('breaks a paragraph the text wraps around only past the picture', async ({ page }) => {
     await page.goto('/');
     await settled(page);
     await tighten(page);
     await page.waitForTimeout(1200);
 
     const split = await page.evaluate(() => {
-      const para = document.querySelector('.w-image-square')!.closest('.w-paragraph')!;
+      const picture = document.querySelector('.w-image-square')!;
+      const para = picture.closest('.w-paragraph')!;
       const sid = para.getAttribute('data-bc-sid')!;
       const layout = (window as any).wordLayout.values().next().value;
+      const bottom = picture.getBoundingClientRect().bottom;
       return {
         fragments: layout.pages.flatMap((p: any) =>
           p.fragments.filter((f: any) => f.sid === sid).map(() => p.index)
         ),
-        widgets: para.querySelectorAll('[data-bc-chrome]').length
+        // How far below the picture each break drawn inside the paragraph sits.
+        breaks: [...para.querySelectorAll('[data-bc-chrome]')].map((widget) =>
+          Math.round(widget.getBoundingClientRect().top - bottom)
+        )
       };
     });
 
-    // One page, no break drawn inside it: splitting it is what re-flowed it into
-    // a different number of lines than the layout had measured.
-    expect(split.fragments).toHaveLength(1);
-    expect(split.widgets).toBe(0);
+    // It may break — it used to be kept whole, which is more than the picture
+    // needs and left a paragraph taller than a page hanging off the bottom of
+    // it. What it may not do is break among the short lines beside the picture:
+    // those come back a different length on a page with no picture on it, which
+    // is a paragraph the layout no longer describes.
+    for (const below of split.breaks) expect(below).toBeGreaterThanOrEqual(0);
+    expect(await strays(page)).toEqual([]);
   });
 });
