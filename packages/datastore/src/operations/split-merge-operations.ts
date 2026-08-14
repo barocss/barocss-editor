@@ -143,6 +143,20 @@ export class SplitMergeOperations {
       throw new Error(`Right node is not a text node: ${rightNode.stype}`);
     }
 
+    /**
+     * Attributes are not consulted here, on purpose.
+     *
+     * This is the mechanism: a caller that names two nodes has decided they are
+     * one. Marks survive — they name a range of characters, so they shift and
+     * both sides keep what they had — while attributes belong to the node, so
+     * joining two that differ keeps the left's and drops the right's.
+     *
+     * Deciding whether that is allowed is policy, and it lives where the policy
+     * is: the `mergeTextNodes` *operation* refuses a join that would drop
+     * attributes, and `autoMergeTextNodes` below stops at such a boundary
+     * rather than sweeping through it.
+     */
+
     // Merge text (no pre-mutation: calculate update value then use updateNode)
     const leftText = leftNode.text || '';
     const rightText = rightNode.text || '';
@@ -377,6 +391,23 @@ export class SplitMergeOperations {
    * @param nodeId 기준 텍스트 노드 ID
    * @returns 최종 병합된 노드의 ID
    */
+  /**
+   * Whether two runs are the same run, told apart into two.
+   *
+   * Only the attributes are asked about: marks name a range of characters and
+   * are carried across a join, so two runs differing only in their marks still
+   * read the same joined. Attributes belong to the node and cannot be halved,
+   * so a difference there is a boundary auto-merge must stop at rather than
+   * a difference it may quietly resolve.
+   */
+  private canJoin(left: INode | undefined, right: INode | undefined): boolean {
+    if (!left || !right) return false;
+    if (left.stype !== right.stype) return false;
+    const attributesOf = (node: INode) =>
+      JSON.stringify(node.attributes ?? {}, Object.keys(node.attributes ?? {}).sort());
+    return attributesOf(left) === attributesOf(right);
+  }
+
   autoMergeTextNodes(nodeId: string): string {
     const node = this.dataStore.getNode(nodeId);
     if (!node || !node.parentId) {
@@ -404,7 +435,7 @@ export class SplitMergeOperations {
       const leftNodeId = parent.content[currentIndex - 1];
       const leftNode = this.dataStore.getNode(leftNodeId as string);
       
-      if (leftNode && typeof leftNode.text === 'string') {
+      if (leftNode && typeof leftNode.text === 'string' && this.canJoin(leftNode, this.dataStore.getNode(mergedNodeId))) {
         mergedNodeId = this.mergeTextNodes(leftNodeId as string, mergedNodeId);
         parent = this.dataStore.getNode(node.parentId);
         if (parent && parent.content) {
@@ -433,7 +464,7 @@ export class SplitMergeOperations {
       const rightNodeId = currentParent.content[currentIndex + 1];
       const rightNode = this.dataStore.getNode(rightNodeId as string);
       
-      if (rightNode && typeof rightNode.text === 'string') {
+      if (rightNode && typeof rightNode.text === 'string' && this.canJoin(this.dataStore.getNode(mergedNodeId), rightNode)) {
         mergedNodeId = this.mergeTextNodes(mergedNodeId, rightNodeId as string);
       } else {
         break;

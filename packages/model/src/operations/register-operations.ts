@@ -38,6 +38,7 @@ import './wrap';
 import './unwrap';
 import './wrapInList';
 import './splitListItem';
+import './mergeListItems';
 import './wrapInBlockquote';
 import './indentNode';
 import './outdentNode';

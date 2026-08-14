@@ -177,25 +177,13 @@ const ROSTER: Record<string, Scenario> = {
   },
 
   // ── blocks ────────────────────────────────────────────────────────────────
-  insertParagraph: {
-    select: caretIn('r-2', 1),
-    undo:
-      'the blocks rejoin and the text reads the same, but a run that was cut stays two runs — ' +
-      'rejoining them would move the boundary the inverse counts to. See mergeBlockNodes.'
-  },
+  insertParagraph: { select: caretIn('r-2', 1) },
   splitBlockNode: { payload: { nodeId: 'p-1', splitPosition: 1 } },
-  mergeBlockNodes: {
-    payload: { leftNodeId: 'p-1', rightNodeId: 'p-2' },
-    undo:
-      'splits back at the child index it recorded, which is exact — but two runs that were ' +
-      'one before the split stay two afterwards. Text and order are restored; run boundaries are not.'
-  },
-  splitListItem: {
-    select: caretIn('lr-1', 3),
-    undo:
-      'declares no inverse, so Ctrl+Z after Enter in a list does nothing. ' +
-      'Putting it back is three steps — move the block home, merge it, remove the empty item — ' +
-      'and an operation may only name one inverse. Known gap, not an oversight.'
+  mergeBlockNodes: { payload: { leftNodeId: 'p-1', rightNodeId: 'p-2' } },
+  splitListItem: { select: caretIn('lr-1', 3) },
+  mergeListItems: {
+    payload: { leftNodeId: 'li-1', rightNodeId: 'li-2' },
+    undo: 'its inverse is splitListItem, which works from the caret this leaves on the seam — a round trip, not a restore of node identity'
   },
   transformNode: { payload: { nodeId: 'p-1', newType: 'heading' } },
   moveBlockUp: { payload: { nodeId: 'p-2' } },

@@ -14,10 +14,13 @@ import { lastTextNodeIn } from './split-at-caret';
  */
 
 defineOperation('mergeBlockNodes', async (operation: any, context: TransactionContext) => {
-  const { leftNodeId, rightNodeId } = operation.payload;
+  const { leftNodeId, rightNodeId, tidySeam = false } = operation.payload;
 
   const left = context.dataStore.getNode(leftNodeId);
   const right = context.dataStore.getNode(rightNodeId);
+  // Kept for the inverse: a merge takes the left block's formatting, so the
+  // right block's own is gone once they are one, and undo has to put it back.
+  const rightAttributes = right ? { ...((right as any).attributes ?? {}) } : undefined;
   if (!left) throw new Error(`Node not found: ${leftNodeId}`);
   if (!right) throw new Error(`Node not found: ${rightNodeId}`);
   if (left.stype !== right.stype) throw new Error(`Cannot merge different node types: ${left.stype} and ${right.stype}`);
@@ -39,23 +42,42 @@ defineOperation('mergeBlockNodes', async (operation: any, context: TransactionCo
 
 
   /**
-   * The seam is left as it is, on purpose.
+   * Rejoining the run the seam runs through, but only when asked.
    *
    * A split cuts a run in two and this puts the blocks back together, so the
    * halves stay as two runs saying what one run used to say: undo of Enter
-   * returns 'two' as 't' and 'wo'. Joining them again is tempting and was
-   * tried — and it moves the boundary this operation's own inverse counts to,
-   * so `splitBlockNode` then cut the merged block in the wrong place. A correct
-   * undo is worth more than a tidy one, and an operation may only name one
-   * inverse, so the tidy cannot be part of this and be undoable too.
+   * returned 'two' as 't' and 'wo', and every edit-and-undo fragmented the
+   * paragraph a little further.
    *
-   * The cost is that runs fragment as a paragraph is edited. Nothing is lost or
-   * reordered and the text reads the same; there is one more run than there
-   * needs to be. Rejoining them belongs to a pass over the document, not to
-   * this operation — and not to `autoMergeTextNodes` as it stands, which joins
-   * adjacent text without looking at what it carries and would swallow a bold
-   * word into the plain text beside it.
+   * Doing it unasked was tried and it breaks this operation's own inverse,
+   * which counts children to know where to split back — joining two of them
+   * moves that boundary and the undo cuts in the wrong place. So the caller
+   * asks: `insertParagraph` and `splitListItem` know they cut a run, because
+   * they did it, and they say so when they name this as their inverse. A reader
+   * pressing Backspace to join two paragraphs does not, and there the seam is
+   * left alone and the inverse stays exact.
+   *
+   * Only runs carrying the same attributes are joined. Marks name a range of
+   * characters and are carried across a join, so two runs differing only in
+   * their marks still read the same afterwards; attributes belong to the node
+   * and one of them would have to be dropped.
    */
+  if (tidySeam) {
+    const merged = context.dataStore.getNode(mergedNodeId);
+    const children = Array.isArray((merged as any)?.content) ? ((merged as any).content as string[]) : [];
+    const before = leftChildrenCount > 0 ? context.dataStore.getNode(children[leftChildrenCount - 1]) : null;
+    const after = context.dataStore.getNode(children[leftChildrenCount]);
+    const attributesOf = (node: any) =>
+      JSON.stringify(node?.attributes ?? {}, Object.keys(node?.attributes ?? {}).sort());
+    if (
+      before && after &&
+      typeof (before as any).text === 'string' && typeof (after as any).text === 'string' &&
+      (before as any).stype === (after as any).stype &&
+      attributesOf(before) === attributesOf(after)
+    ) {
+      context.dataStore.splitMerge.mergeTextNodes((before as any).sid, (after as any).sid);
+    }
+  }
 
   // Where the caret goes: the end of the text the left block already had, which
   // is where the right block's content now starts.
@@ -72,7 +94,25 @@ defineOperation('mergeBlockNodes', async (operation: any, context: TransactionCo
   return {
     ok: true,
     data: mergedNodeId,
-    inverse: { type: 'splitBlockNode', payload: { nodeId: mergedNodeId, splitPosition: leftChildrenCount } }
+    /**
+     * Splitting back at the child index recorded before the merge — exact, and
+     * only exact while the seam was left alone. Having tidied it, the boundary
+     * has moved and there is no single operation that undoes both; the caller
+     * that asked for the tidy is itself an undo, and redo replays the original
+     * operation rather than inverting this one.
+     */
+    ...(tidySeam
+      ? {}
+      : {
+          inverse: {
+            type: 'splitBlockNode',
+            payload: {
+              nodeId: mergedNodeId,
+              splitPosition: leftChildrenCount,
+              newNodeAttributes: rightAttributes
+            }
+          }
+        })
   };
 });
 

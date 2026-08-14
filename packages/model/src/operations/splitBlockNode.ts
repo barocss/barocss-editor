@@ -13,11 +13,31 @@ import type { TransactionContext } from '../types';
  */
 
 defineOperation('splitBlockNode', async (operation: any, context: TransactionContext) => {
-  const { nodeId, splitPosition } = operation.payload;
+  const { nodeId, splitPosition, newNodeAttributes } = operation.payload;
   const node = context.dataStore.getNode(nodeId);
   if (!node) throw new Error(`Node not found: ${nodeId}`);
   if (!Array.isArray(node.content)) throw new Error('Node has no content to split');
   const newNodeId = context.dataStore.splitMerge.splitBlockNode(nodeId, splitPosition);
+
+  /**
+   * What the new block's own attributes were, when the caller knows.
+   *
+   * A split copies the attributes of the block it cut, which is right for a
+   * reader dividing a paragraph — both halves keep its formatting. It is wrong
+   * when this split is undoing a *merge*, because the block being restored had
+   * attributes of its own before it was folded in, and a merge keeps the left
+   * side's. Without this, undoing the join of a centred paragraph and a
+   * left-aligned one left both aligned left.
+   */
+  if (newNodeAttributes && typeof newNodeAttributes === 'object') {
+    // Replaced, not merged: the block being restored had exactly these
+    // attributes, and `updateNode` merges — so a block that had none would keep
+    // the ones the split copied onto it.
+    const created = context.dataStore.getNode(newNodeId);
+    if (created) {
+      context.dataStore.setNode({ ...created, attributes: { ...newNodeAttributes } } as any, false);
+    }
+  }
   const newBlock = context.dataStore.getNode(newNodeId);
   const firstTextNodeId =
     newBlock && Array.isArray(newBlock.content) && newBlock.content[0]

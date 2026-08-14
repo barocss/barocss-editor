@@ -66,6 +66,9 @@ defineOperation('splitListItem', async (_operation: { type: string; payload: Rec
     return {
       ok: true,
       data: dataStore.getNode(newListItemId),
+      // Folding the new item back into the one it came from — three steps, so
+      // one operation, because an inverse may only be one.
+      inverse: { type: 'mergeListItems', payload: { leftNodeId: listItem.sid, rightNodeId: newListItemId } },
       selectionAfter: { nodeId: cut.firstTextNodeId, offset: 0 }
     };
   }
@@ -84,6 +87,13 @@ defineOperation('splitListItem', async (_operation: { type: string; payload: Rec
   return {
     ok: true,
     data: dataStore.getNode(newListItemId),
+    inverse: {
+      type: 'mergeListItems',
+      payload:
+        cut.at === 'end'
+          ? { leftNodeId: listItem.sid, rightNodeId: newListItemId }
+          : { leftNodeId: newListItemId, rightNodeId: listItem.sid }
+    },
     /**
      * At the end, the blank bullet is where the reader carries on. At the
      * start, they are still writing the bullet they were in — which has just

@@ -51,7 +51,7 @@ defineOperation('insertParagraph', async (operation: { type: string; payload: In
     return {
       ok: true,
       data: newBlock,
-      inverse: { type: 'mergeBlockNodes', payload: { leftNodeId: where.block.sid, rightNodeId: cut.newBlockId } },
+      inverse: { type: 'mergeBlockNodes', payload: { leftNodeId: where.block.sid, rightNodeId: cut.newBlockId, tidySeam: true } },
       selectionAfter: { nodeId: cut.firstTextNodeId, offset: 0 }
     };
   }

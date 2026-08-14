@@ -21,6 +21,28 @@ defineOperation('mergeTextNodes', async (operation: any, context: TransactionCon
   const right = context.dataStore.getNode(rightNodeId);
   if (!left) throw new Error(`Node not found: ${leftNodeId}`);
   if (!right) throw new Error(`Node not found: ${rightNodeId}`);
+
+  /**
+   * Two runs that disagree about their attributes are not one run.
+   *
+   * Marks survive a join: they name a range of characters, so they shift and
+   * both sides keep what they had. Attributes belong to the node, so a join has
+   * to keep one side's and drop the other's — and doing that quietly is the
+   * worst kind of loss, because the text still reads correctly while the
+   * formatting is no longer what it was.
+   *
+   * There is no right side to pick, so this does not pick one. The datastore
+   * primitive underneath stays permissive — a caller naming two nodes has
+   * decided they are one — and refusing is policy, which lives here.
+   */
+  const attributesOf = (node: any) =>
+    JSON.stringify(node?.attributes ?? {}, Object.keys(node?.attributes ?? {}).sort());
+  if (attributesOf(left) !== attributesOf(right)) {
+    throw new Error(
+      `mergeTextNodes: ${leftNodeId} and ${rightNodeId} carry different attributes ` +
+        `(${attributesOf(left)} vs ${attributesOf(right)}); joining them would drop one side's`
+    );
+  }
   
   // Nodes use stype field
   const leftType = left.stype;
