@@ -12,10 +12,28 @@ import type { TransactionContext } from '../types';
  * - addChild(parentId, child, position?) → payload: { parentId, child, position? }
  */
 defineOperation('addChild', async (operation: any, context: TransactionContext) => {
-  const { parentId, nodeId, child, position } = operation.payload;
+  const { parentId, nodeId, child, children, position } = operation.payload;
   const actualParentId = parentId || nodeId;
   const parent = context.dataStore.getNode(actualParentId);
   if (!parent) throw new Error(`Parent not found: ${actualParentId}`);
+
+  /**
+   * `removeChildren` names its inverse as this operation with a `children`
+   * array, and this operation only ever read `child` — so the array arrived as
+   * undefined and undo threw reading `.sid` of nothing. Undo after removing
+   * several children crashed, and nothing had run one.
+   */
+  if (Array.isArray(children)) {
+    const addedIds = children.map((one: any, index: number) =>
+      context.dataStore.content.addChild(actualParentId, one, position != null ? position + index : undefined)
+    );
+    return {
+      ok: true,
+      data: addedIds.map((id: string) => context.dataStore.getNode(id)),
+      inverse: { type: 'removeChildren', payload: { parentId: actualParentId, childIds: addedIds } }
+    };
+  }
+
   const childId = context.dataStore.content.addChild(actualParentId, child, position);
   const addedNode = context.dataStore.getNode(childId);
   const firstTextNodeId =

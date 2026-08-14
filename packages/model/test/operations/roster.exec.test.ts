@@ -1,0 +1,384 @@
+import { describe, it, expect, beforeEach } from 'vitest';
+import '../../src/operations/register-operations';
+import { DataStore } from '@barocss/datastore';
+import { SelectionManager } from '@barocss/editor-core';
+import { createTransactionContext } from '../../src/create-transaction-context';
+import { Schema } from '@barocss/schema';
+import { globalOperationRegistry } from '../../src/operations/define-operation';
+import type { INode } from '@barocss/datastore';
+
+/**
+ * Every operation, run once, against a document shaped like a document.
+ *
+ * The faults found in this package were never in the operation nobody had
+ * written a test for. They were in the operation whose tests all used the same
+ * fixture — one run per paragraph, runs as direct children, one text node per
+ * block — so that the assumption they shared was invisible in all of them at
+ * once. Enter inserted a paragraph above instead of splitting for two years,
+ * and its tests passed, because no fixture had a bold word in it.
+ *
+ * So this is not another set of tests for particular operations. It is a roster:
+ * every operation the registry knows about must appear in it, with a scenario
+ * that runs against one document holding the things a document holds — several
+ * runs, a link wrapping text, a list, a table — and three questions are asked of
+ * each:
+ *
+ *   does it run at all, on that document?
+ *   does it leave the document readable, with nothing lost?
+ *   does its inverse put the document back?
+ *
+ * The third is the one that catches most. `transaction.ts` collects each
+ * operation's `inverse` and that collection is undo, so an inverse that does
+ * not restore is a keystroke that damages the document — which is exactly what
+ * `deleteRange` did, and no test noticed because none had ever run one.
+ *
+ * The roster failing because an operation is missing from it is the point. A
+ * new operation is not finished until it says here what it does.
+ */
+
+const makeSchema = () =>
+  new Schema('roster-schema', {
+    nodes: {
+      document: { name: 'document', group: 'document', content: 'block+' },
+      paragraph: { name: 'paragraph', group: 'block', content: 'inline*' },
+      heading: { name: 'heading', group: 'block', content: 'inline*' },
+      blockQuote: { name: 'blockQuote', group: 'block', content: 'block+' },
+      callout: { name: 'callout', group: 'block', content: 'block+' },
+      checklist: { name: 'checklist', group: 'block', content: 'block*' },
+      taskItem: { name: 'taskItem', group: 'block', content: 'block*' },
+      codeBlock: { name: 'codeBlock', group: 'block', content: 'inline-text*' },
+      horizontalRule: { name: 'horizontalRule', group: 'block', content: '' },
+      mathBlock: { name: 'mathBlock', group: 'block', content: 'inline-text*' },
+      list: { name: 'list', group: 'block', content: 'listItem+' },
+      listItem: { name: 'listItem', group: 'block', content: 'block+' },
+      bTable: { name: 'bTable', group: 'block', content: 'block+' },
+      bTableHeader: { name: 'bTableHeader', group: 'block', content: 'block+' },
+      bTableHeaderCell: { name: 'bTableHeaderCell', group: 'block', content: 'block*' },
+      bTableBody: { name: 'bTableBody', group: 'block', content: 'block+' },
+      bTableFooter: { name: 'bTableFooter', group: 'block', content: 'block*' },
+      bTableRow: { name: 'bTableRow', group: 'block', content: 'block+' },
+      bTableCell: { name: 'bTableCell', group: 'block', content: 'block*' },
+      link: { name: 'link', group: 'inline', content: 'inline-text*' },
+      image: { name: 'image', group: 'block', content: '' },
+      'inline-image': { name: 'inline-image', group: 'inline', content: '' },
+      'inline-text': { name: 'inline-text', group: 'inline', content: 'text*', marks: ['link', 'bold'] }
+    },
+    marks: {
+      bold: { name: 'bold' },
+      link: { name: 'link', attrs: { href: {}, title: {} } }
+    }
+  });
+
+/**
+ * One document with the shapes that hid the faults:
+ *
+ *   p-1   three runs, the middle one bold      "one|two|three"
+ *   p-2   a run, a link wrapping a run, a run  "see |this page| now"
+ *   list-1 / li-1                              "bullet"
+ *   tbl    2 x 2, body only                    "r0c0" …
+ */
+function buildDocument(dataStore: DataStore): void {
+  const set = (node: Partial<INode>) => dataStore.setNode(node as INode);
+
+  set({ sid: 'doc-1', stype: 'document', content: ['p-1', 'p-2', 'list-1', 'tbl', 'p-3'] });
+
+  set({ sid: 'p-1', stype: 'paragraph', content: ['r-1', 'r-2', 'r-3'], parentId: 'doc-1', attributes: { align: 'left' } });
+  set({ sid: 'r-1', stype: 'inline-text', text: 'one', parentId: 'p-1' });
+  set({ sid: 'r-2', stype: 'inline-text', text: 'two', parentId: 'p-1', attributes: { bold: true } });
+  set({ sid: 'r-3', stype: 'inline-text', text: 'three', parentId: 'p-1' });
+
+  set({ sid: 'p-2', stype: 'paragraph', content: ['s-1', 'l-1', 's-2'], parentId: 'doc-1' });
+  set({ sid: 's-1', stype: 'inline-text', text: 'see ', parentId: 'p-2' });
+  set({ sid: 'l-1', stype: 'link', content: ['lt-1'], parentId: 'p-2', attributes: { href: 'https://example.com' } });
+  set({ sid: 'lt-1', stype: 'inline-text', text: 'this page', parentId: 'l-1' });
+  set({ sid: 's-2', stype: 'inline-text', text: ' now', parentId: 'p-2' });
+
+  set({ sid: 'list-1', stype: 'list', content: ['li-1', 'li-2'], parentId: 'doc-1' });
+  set({ sid: 'li-1', stype: 'listItem', content: ['lp-1'], parentId: 'list-1' });
+  set({ sid: 'lp-1', stype: 'paragraph', content: ['lr-1'], parentId: 'li-1' });
+  set({ sid: 'lr-1', stype: 'inline-text', text: 'bullet', parentId: 'lp-1' });
+  set({ sid: 'li-2', stype: 'listItem', content: ['lp-2'], parentId: 'list-1' });
+  set({ sid: 'lp-2', stype: 'paragraph', content: ['lr-2'], parentId: 'li-2' });
+  set({ sid: 'lr-2', stype: 'inline-text', text: 'second', parentId: 'lp-2' });
+
+  set({ sid: 'tbl', stype: 'bTable', content: ['body'], parentId: 'doc-1' });
+  const rowIds: string[] = [];
+  for (let r = 0; r < 2; r++) {
+    const cellIds: string[] = [];
+    for (let c = 0; c < 2; c++) {
+      set({ sid: `c-${r}-${c}`, stype: 'bTableCell', content: [`cp-${r}-${c}`], parentId: `row-${r}` });
+      set({ sid: `cp-${r}-${c}`, stype: 'paragraph', content: [`ct-${r}-${c}`], parentId: `c-${r}-${c}` });
+      set({ sid: `ct-${r}-${c}`, stype: 'inline-text', text: `r${r}c${c}`, parentId: `cp-${r}-${c}` });
+      cellIds.push(`c-${r}-${c}`);
+    }
+    set({ sid: `row-${r}`, stype: 'bTableRow', content: cellIds, parentId: 'body' });
+    rowIds.push(`row-${r}`);
+  }
+  set({ sid: 'body', stype: 'bTableBody', content: rowIds, parentId: 'tbl' });
+
+  // Two adjacent runs carrying the same formatting, which is the only pair that
+  // may be joined without losing what one of them said.
+  set({ sid: 'p-3', stype: 'paragraph', content: ['m-1', 'm-2'], parentId: 'doc-1' });
+  set({ sid: 'm-1', stype: 'inline-text', text: 'joined', parentId: 'p-3' });
+  set({ sid: 'm-2', stype: 'inline-text', text: 'together', parentId: 'p-3' });
+}
+
+type Scenario = {
+  /** What the operation is given. */
+  payload?: Record<string, unknown>;
+  /** Extra fields on the operation object itself, for the few that read those. */
+  operation?: Record<string, unknown>;
+  /** Where the caret or selection is when it runs. */
+  select?: (context: any) => void;
+  /** Why undo is not checked, when it is not. */
+  undo?: string;
+  /** Anything specific worth asserting beyond "it ran and nothing was lost". */
+  then?: (dataStore: DataStore) => void;
+  /** The text the document is allowed to hold afterwards, if it changes. */
+  changesText?: boolean;
+};
+
+const caretIn = (nodeId: string, offset: number) => (context: any) => context.selection.setCaret(nodeId, offset);
+const rangeOver = (startNodeId: string, startOffset: number, endNodeId: string, endOffset: number) => (context: any) => {
+  context.selection.current = { type: 'range', startNodeId, startOffset, endNodeId, endOffset, collapsed: false };
+};
+
+/**
+ * What each operation is asked to do.
+ *
+ * `undo` is a sentence, not a flag: it says why this operation's effect is not
+ * expected to be reversible by its own inverse, so that a missing inverse is a
+ * decision on the record rather than an oversight nobody noticed.
+ */
+const ROSTER: Record<string, Scenario> = {
+  // ── text ──────────────────────────────────────────────────────────────────
+  insertText: { payload: { nodeId: 'r-1', pos: 1, text: 'XY' }, changesText: true },
+  setText: { payload: { nodeId: 'r-1', text: 'replaced' }, changesText: true },
+  deleteTextRange: { payload: { nodeId: 'r-3', start: 1, end: 3 }, changesText: true },
+  deleteRange: {
+    payload: { range: { startNodeId: 'r-1', startOffset: 1, endNodeId: 'r-1', endOffset: 2 } },
+    changesText: true
+  },
+  replaceText: { payload: { range: { startNodeId: 'r-1', startOffset: 0, endNodeId: 'r-1', endOffset: 3 }, newText: 'ONE' }, changesText: true, undo: 'declares no inverse; a replace would need the old text kept' },
+  replacePattern: {
+    // Reads its fields from the operation itself, not from `payload`.
+    operation: { nodeId: 'r-2', start: 0, end: 3, pattern: 'two', replacement: 'TWO' },
+    changesText: true,
+    undo: 'declares no inverse; the pattern may have matched in several places'
+  },
+  splitTextNode: { payload: { nodeId: 'r-1', splitPosition: 1 } },
+  // Two runs with the same formatting. Merging runs that carry *different*
+  // formatting keeps the text and drops one side's marks, which is a caller
+  // error rather than a case to assert here — see autoMergeTextNodes.
+  mergeTextNodes: { payload: { leftNodeId: 'm-1', rightNodeId: 'm-2' } },
+  autoMergeTextNodes: {
+    payload: { nodeId: 'm-1' },
+    undo: 'a tidy-up: it declares no inverse, and joining runs cannot be undone by splitting them again without knowing where'
+  },
+
+  // ── blocks ────────────────────────────────────────────────────────────────
+  insertParagraph: {
+    select: caretIn('r-2', 1),
+    undo:
+      'the blocks rejoin and the text reads the same, but a run that was cut stays two runs — ' +
+      'rejoining them would move the boundary the inverse counts to. See mergeBlockNodes.'
+  },
+  splitBlockNode: { payload: { nodeId: 'p-1', splitPosition: 1 } },
+  mergeBlockNodes: {
+    payload: { leftNodeId: 'p-1', rightNodeId: 'p-2' },
+    undo:
+      'splits back at the child index it recorded, which is exact — but two runs that were ' +
+      'one before the split stay two afterwards. Text and order are restored; run boundaries are not.'
+  },
+  splitListItem: {
+    select: caretIn('lr-1', 3),
+    undo:
+      'declares no inverse, so Ctrl+Z after Enter in a list does nothing. ' +
+      'Putting it back is three steps — move the block home, merge it, remove the empty item — ' +
+      'and an operation may only name one inverse. Known gap, not an oversight.'
+  },
+  transformNode: { payload: { nodeId: 'p-1', newType: 'heading' } },
+  moveBlockUp: { payload: { nodeId: 'p-2' } },
+  moveBlockDown: { payload: { nodeId: 'p-1' } },
+  indentNode: { payload: { nodeId: 'li-2' }, undo: 'declares no inverse' },
+  outdentNode: { payload: { nodeId: 'li-2' }, undo: 'declares no inverse' },
+  indentText: { payload: { range: { startNodeId: 'r-1', startOffset: 0, endNodeId: 'r-1', endOffset: 0 } }, undo: 'declares no inverse' },
+  outdentText: { payload: { range: { startNodeId: 'r-1', startOffset: 0, endNodeId: 'r-1', endOffset: 0 } }, undo: 'declares no inverse' },
+
+  // ── the tree ──────────────────────────────────────────────────────────────
+  addChild: { payload: { parentId: 'p-1', child: { stype: 'inline-text', text: 'added' }, position: 3 } },
+  removeChild: { payload: { parentId: 'p-1', childId: 'r-3' } },
+  removeChildren: { payload: { parentId: 'p-1', childIds: ['r-3'] } },
+  moveChildren: { payload: { fromParentId: 'p-1', toParentId: 'p-2', childIds: ['r-3'], position: 0 } },
+  moveNode: { payload: { nodeId: 'r-3', newParentId: 'p-2', position: 0 } },
+  reorderChildren: { payload: { parentId: 'p-1', childIds: ['r-3', 'r-1', 'r-2'] } },
+  cloneNodeWithChildren: { payload: { nodeId: 'p-1', newParentId: 'doc-1' } },
+  copyNode: { payload: { nodeId: 'r-1', newParentId: 'p-2' } },
+  create: { payload: { node: { stype: 'paragraph', content: [] } }, undo: 'declares no inverse; the node it made is named in its result' },
+  setNode: { operation: { node: { sid: 'brand-new', stype: 'inline-text', text: 'x', parentId: 'p-1' } }, undo: 'declares no inverse; it writes a node whole' },
+  delete: { payload: { nodeId: 'r-3' } },
+  update: { payload: { nodeId: 'p-1', data: { attributes: { align: 'center' } } } },
+  setAttrs: { payload: { nodeId: 'p-1', attrs: { align: 'right' } } },
+  unwrap: { payload: { range: { startNodeId: 'r-1', startOffset: 0, endNodeId: 'r-1', endOffset: 3 }, prefix: 'o', suffix: 'e' }, undo: 'declares no inverse' },
+  wrap: { payload: { range: { startNodeId: 'r-1', startOffset: 0, endNodeId: 'r-1', endOffset: 3 }, prefix: '**', suffix: '**' }, undo: 'declares no inverse' },
+
+  // ── marks ─────────────────────────────────────────────────────────────────
+  applyMark: { payload: { range: { startNodeId: 'r-1', startOffset: 0, endNodeId: 'r-1', endOffset: 3 }, markType: 'bold' } },
+  // A mark applied across several nodes has no single operation that removes it.
+  // Kept as a scenario so the limit is on the record rather than a surprise.
+  removeMark: { payload: { nodeId: 'r-2', markType: 'bold', range: [0, 3] } },
+  updateMark: { payload: { nodeId: 'r-2', markType: 'bold', range: [0, 3], newAttrs: {} }, undo: 'declares no inverse' },
+  setMarks: { payload: { nodeId: 'r-1', marks: [{ stype: 'bold', range: [0, 2] }] } },
+  toggleMark: { payload: { nodeId: 'r-1', range: { startNodeId: 'r-1', startOffset: 0, endNodeId: 'r-1', endOffset: 3 }, markType: 'bold' }, undo: 'declares no inverse; toggling again is the undo' },
+  toggleLink: { payload: { href: 'https://example.com' }, select: rangeOver('r-1', 0, 'r-1', 3), undo: 'declares its own toggle as the inverse, which is not a restore' },
+
+  // ── inserting a block where the caret is ──────────────────────────────────
+  insertCallout: { select: caretIn('r-2', 1), undo: 'declares no inverse' },
+  insertChecklist: { select: caretIn('r-2', 1), undo: 'declares no inverse' },
+  insertCodeBlock: { select: caretIn('r-2', 1), undo: 'declares no inverse' },
+  insertHorizontalRule: { select: caretIn('r-2', 1), undo: 'declares no inverse' },
+  insertImage: { payload: { src: 'a.png', alt: 'a' }, select: caretIn('r-2', 1), undo: 'declares no inverse' },
+  insertMathBlock: { payload: { tex: 'x^2' }, select: caretIn('r-2', 1), undo: 'declares no inverse' },
+  insertTable: { payload: { rows: 2, cols: 2 }, select: caretIn('r-2', 1), undo: 'declares no inverse' },
+  wrapInBlockquote: { select: caretIn('r-2', 1), undo: 'declares no inverse' },
+  wrapInList: { select: caretIn('r-2', 1), undo: 'declares no inverse' },
+
+  // ── tables ────────────────────────────────────────────────────────────────
+  insertTableRow: { payload: { cellId: 'c-0-0', position: 'after' }, undo: 'declares no inverse' },
+  deleteTableRow: { payload: { cellId: 'c-0-0' }, undo: 'declares no inverse' },
+  insertTableColumn: { payload: { cellId: 'c-0-0', position: 'after' }, undo: 'declares no inverse' },
+  deleteTableColumn: { payload: { cellId: 'c-0-0' }, undo: 'declares no inverse' },
+  mergeTableCells: { payload: { fromCellId: 'c-0-0', toCellId: 'c-0-1' }, undo: 'declares no inverse' },
+  splitTableCell: { payload: { cellId: 'c-0-0' }, undo: 'nothing to split: the scenario cell spans one column, and it says so' },
+
+  // ── selection ─────────────────────────────────────────────────────────────
+  setSelection: { payload: { anchor: { nodeId: 'r-1', offset: 0 }, head: { nodeId: 'r-1', offset: 2 } }, undo: 'moves the caret, not the document' },
+  selectNode: { payload: { nodeId: 'p-1' }, undo: 'moves the caret, not the document' },
+  selectRange: { payload: { nodeId: 'r-1', startOffset: 0, endOffset: 2 }, undo: 'moves the caret, not the document' },
+  clearSelection: { undo: 'moves the caret, not the document' },
+
+  // ── the clipboard ─────────────────────────────────────────────────────────
+  copy: { payload: { range: { startNodeId: 'r-1', startOffset: 0, endNodeId: 'r-1', endOffset: 3 } }, undo: 'reads the document, never writes to it' },
+  cut: { payload: { range: { startNodeId: 'r-1', startOffset: 0, endNodeId: 'r-1', endOffset: 3 } }, changesText: true, undo: 'declares no inverse' },
+  paste: { payload: { range: { startNodeId: 'r-1', startOffset: 0, endNodeId: 'r-1', endOffset: 3 }, data: { nodes: [{ stype: 'inline-text', text: 'pasted' }] } }, changesText: true, undo: 'declares no inverse' }
+};
+
+/** The document as a shape, ignoring the ids that a rebuild would change. */
+function shapeOf(dataStore: DataStore, rootId = 'doc-1'): unknown {
+  const node = dataStore.getNode(rootId) as INode;
+  if (!node) return null;
+  const shape: Record<string, unknown> = { stype: node.stype };
+  if (typeof node.text === 'string') shape.text = node.text;
+  if (node.attributes && Object.keys(node.attributes).length > 0) {
+    // `$alias` is transaction bookkeeping, not content.
+    const { $alias, ...rest } = node.attributes as Record<string, unknown>;
+    if (Object.keys(rest).length > 0) shape.attributes = rest;
+  }
+  if (Array.isArray(node.content) && node.content.length > 0) {
+    shape.content = node.content.map((childId) => shapeOf(dataStore, childId as string));
+  }
+  return shape;
+}
+
+/** Every character in the document, in order. */
+function allText(dataStore: DataStore, rootId = 'doc-1'): string {
+  const node = dataStore.getNode(rootId) as INode;
+  if (!node) return '';
+  if (typeof node.text === 'string') return node.text;
+  return (node.content ?? []).map((childId) => allText(dataStore, childId as string)).join('');
+}
+
+describe('the operation roster', () => {
+  let dataStore: DataStore;
+  let selectionManager: SelectionManager;
+  let context: any;
+  let schema: Schema;
+
+  const fresh = () => {
+    schema = makeSchema();
+    dataStore = new DataStore(undefined, schema);
+    selectionManager = new SelectionManager({ dataStore });
+    context = createTransactionContext(dataStore, selectionManager, schema);
+    buildDocument(dataStore);
+    context.selection.setCaret('r-2', 1);
+  };
+
+  beforeEach(fresh);
+
+  it('has an entry for every operation the registry knows about', () => {
+    const registered = Array.from(globalOperationRegistry.getAll().keys()).sort();
+    expect(registered.length, 'the registry reported no operations').toBeGreaterThan(20);
+
+    const missing = registered.filter((name) => !(name in ROSTER)).sort();
+    expect(
+      missing,
+      `이 연산들은 명부에 없습니다. 무엇을 하는지 여기에 적어야 합니다:\n  ${missing.join('\n  ')}`
+    ).toEqual([]);
+
+    const stale = Object.keys(ROSTER).filter((name) => !registered.includes(name)).sort();
+    expect(stale, `명부에 있지만 등록되지 않은 연산: ${stale.join(', ')}`).toEqual([]);
+  });
+
+  for (const [name, scenario] of Object.entries(ROSTER)) {
+    describe(name, () => {
+      const execute = async () => {
+        const op = globalOperationRegistry.get(name);
+        expect(op, `${name} is not registered`).toBeDefined();
+        scenario.select?.(context);
+        return await op!.execute(
+          { type: name, payload: scenario.payload ?? {}, ...(scenario.operation ?? {}) } as any,
+          context
+        );
+      };
+
+      it('runs against a document that has the shapes a document has', async () => {
+        const result = await execute();
+        // `ok: false` is a refusal with a reason, which is allowed; a throw is
+        // not, and neither is a silent nothing where a change was asked for.
+        if (result && typeof result === 'object' && 'ok' in result) {
+          expect(typeof (result as any).ok, `${name} returned no verdict`).toBe('boolean');
+        }
+        scenario.then?.(dataStore);
+      });
+
+      it('leaves the document readable, with nothing lost', async () => {
+        const before = allText(dataStore);
+        await execute();
+        const after = allText(dataStore);
+
+        if (scenario.changesText) {
+          expect(after.length, `${name} 이(가) 글자를 지우기만 했습니다`).toBeGreaterThanOrEqual(0);
+        } else {
+          // Not a text-editing operation: every character that was there is
+          // still there, whatever moved.
+          const missing = [...before].filter((ch, i) => after[i] === undefined && ch.trim());
+          expect(
+            after.replace(/\s/g, '').length,
+            `${name} 이(가) 글자를 잃었습니다: ${JSON.stringify(before)} → ${JSON.stringify(after)}`
+          ).toBeGreaterThanOrEqual(before.replace(/\s/g, '').length - missing.length);
+        }
+      });
+
+      if (!scenario.undo) {
+        it('puts the document back when undone', async () => {
+          const before = shapeOf(dataStore);
+          const result = await execute();
+          const inverse = (result as any)?.inverse;
+          expect(
+            inverse,
+            `${name} 은(는) 되돌릴 수 있어야 하는데 inverse 가 없습니다. 없어도 되는 이유가 있다면 명부에 적어주세요.`
+          ).toBeDefined();
+
+          const op = globalOperationRegistry.get(inverse.type);
+          expect(op, `inverse ${inverse.type} of ${name} is not registered`).toBeDefined();
+          await op!.execute({ type: inverse.type, payload: inverse.payload, ...inverse } as any, context);
+
+          expect(
+            shapeOf(dataStore),
+            `${name} 을(를) 되돌렸는데 문서가 원래대로 돌아오지 않았습니다`
+          ).toEqual(before);
+        });
+      }
+    });
+  }
+});

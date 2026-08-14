@@ -65,7 +65,24 @@ defineOperation('applyMark', async (operation: { payload: ApplyMarkOperationPayl
       const contentRange = { type: 'range' as const, startNodeId, startOffset, endNodeId, endOffset };
       const mark = { stype: markType, attrs };
       context.dataStore.range.applyMark(contentRange, mark);
-      return context.dataStore.getNode(startNodeId === endNodeId ? startNodeId : endNodeId);
+      /**
+       * An inverse, so that undo takes the mark off again.
+       *
+       * Only the single-node form used to report one, so applying bold across a
+       * selection — the way a reader actually applies bold — produced nothing
+       * for undo to do, and Ctrl+Z left the text bold.
+       */
+      const undoable = startNodeId === endNodeId;
+      return {
+        ok: true,
+        data: context.dataStore.getNode(startNodeId === endNodeId ? startNodeId : endNodeId),
+        // `removeMark` works on one node at a time, so a mark applied across
+        // several has no single operation that takes it off. Better to say so
+        // than to offer an inverse that only clears the first node.
+        ...(undoable
+          ? { inverse: { type: 'removeMark', payload: { nodeId: startNodeId, markType, range: [startOffset, endOffset] } } }
+          : {})
+      };
     }
 
     // 단일 노드(nodeId + start + end): marks.setMarks로 적용 (inverse 반환용)

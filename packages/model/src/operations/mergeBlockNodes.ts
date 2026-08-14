@@ -37,6 +37,26 @@ defineOperation('mergeBlockNodes', async (operation: any, context: TransactionCo
 
   const mergedNodeId = context.dataStore.splitMerge.mergeBlockNodes(leftNodeId, rightNodeId);
 
+
+  /**
+   * The seam is left as it is, on purpose.
+   *
+   * A split cuts a run in two and this puts the blocks back together, so the
+   * halves stay as two runs saying what one run used to say: undo of Enter
+   * returns 'two' as 't' and 'wo'. Joining them again is tempting and was
+   * tried — and it moves the boundary this operation's own inverse counts to,
+   * so `splitBlockNode` then cut the merged block in the wrong place. A correct
+   * undo is worth more than a tidy one, and an operation may only name one
+   * inverse, so the tidy cannot be part of this and be undoable too.
+   *
+   * The cost is that runs fragment as a paragraph is edited. Nothing is lost or
+   * reordered and the text reads the same; there is one more run than there
+   * needs to be. Rejoining them belongs to a pass over the document, not to
+   * this operation — and not to `autoMergeTextNodes` as it stands, which joins
+   * adjacent text without looking at what it carries and would swallow a bold
+   * word into the plain text beside it.
+   */
+
   // Where the caret goes: the end of the text the left block already had, which
   // is where the right block's content now starts.
   //

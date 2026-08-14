@@ -46,6 +46,20 @@ defineOperation('delete',
       }
       
       // Remove child reference from parent node
+      /**
+       * Where it was, captured before it is taken out.
+       *
+       * The inverse used to be `create` with the node, which builds a node and
+       * leaves it unattached — so undoing a delete left the document without
+       * the thing that was deleted. Measured on the roster: deleting a run and
+       * undoing it lost the run for good. Putting it back means naming its
+       * parent and the index it sat at.
+       */
+      const restoreParentId = nodeToDelete.parentId;
+      const restoreIndex = restoreParentId
+        ? ((context.dataStore.getNode(restoreParentId)?.content as string[]) ?? []).indexOf(nodeId)
+        : -1;
+
       if (nodeToDelete.parentId) {
         const parent = context.dataStore.getNode(nodeToDelete.parentId);
         if (parent) {
@@ -87,7 +101,13 @@ defineOperation('delete',
       return {
         ok: true,
         data: true,
-        inverse: { type: 'create', payload: { node: nodeToDelete } }
+        inverse:
+          restoreParentId && restoreIndex >= 0
+            ? {
+                type: 'addChild',
+                payload: { parentId: restoreParentId, child: nodeToDelete, position: restoreIndex }
+              }
+            : { type: 'create', payload: { node: nodeToDelete } }
       };
     } catch (error) {
       throw new Error(`Failed to delete node ${nodeId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
