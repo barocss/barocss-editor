@@ -15,7 +15,11 @@ describe('wrap operation (exec)', () => {
 
   beforeEach(() => {
     schema = new Schema('test-schema', {
-      nodes: { 'inline-text': { name: 'inline-text', content: 'text*', marks: ['bold', 'italic'] } },
+      nodes: {
+        document: { name: 'document', group: 'document', content: 'block+' },
+        paragraph: { name: 'paragraph', group: 'block', content: 'inline-text*' },
+        'inline-text': { name: 'inline-text', content: 'text*', marks: ['bold', 'italic'] }
+      },
       marks: { bold: { name: 'bold' }, italic: { name: 'italic' } }
     });
     dataStore = new DataStore(undefined, schema);
@@ -32,11 +36,15 @@ describe('wrap operation (exec)', () => {
   });
 
   it('wraps across nodes via range payload', async () => {
-    dataStore.setNode({ sid: 'a', stype: 'inline-text', text: 'Hello ' } as any);
-    dataStore.setNode({ sid: 'b', stype: 'inline-text', text: 'World' } as any);
+    // Linked, because a range across two runs is only a range if they share a
+    // tree — unlinked, the read came back empty and this wrapped nothing.
+    dataStore.setNode({ sid: 'doc-1', stype: 'document', content: ['p-1'] } as any);
+    dataStore.setNode({ sid: 'p-1', stype: 'paragraph', content: ['a', 'b'], parentId: 'doc-1' } as any);
+    dataStore.setNode({ sid: 'a', stype: 'inline-text', text: 'Hello ', parentId: 'p-1' } as any);
+    dataStore.setNode({ sid: 'b', stype: 'inline-text', text: 'World', parentId: 'p-1' } as any);
     const op = globalOperationRegistry.get('wrap');
     const result = await op!.execute({ type: 'wrap', payload: { range: { type: 'range' as const, startNodeId: 'a', startOffset: 3, endNodeId: 'b', endOffset: 2 }, prefix: '<', suffix: '>' } } as any, context);
-    expect(result.data.startsWith('<')).toBe(true);
+    expect(result.data).toBe('<lo Wo>');
   });
 
   it('throws on invalid range', async () => {

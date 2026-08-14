@@ -87,7 +87,7 @@ defineOperation('replaceText', async (operation: any, context: TransactionContex
       const originalText =
         startNodeId === endNodeId
           ? ((startNode as any).text as string).slice(startOffset, endOffset)
-          : context.dataStore.range.extractText({ type: 'range' as const, ...range });
+          : context.dataStore.range.extractText({ ...range, type: 'range' as const });
       /**
        * And what the start node carried, since the replacement rewrites it.
        *
@@ -100,7 +100,7 @@ defineOperation('replaceText', async (operation: any, context: TransactionContex
         ? JSON.parse(JSON.stringify((startNode as any).marks))
         : [];
 
-      const rangeWithType = { type: 'range' as const, ...range };
+      const rangeWithType = { ...range, type: 'range' as const };
       const deleted = context.dataStore.range.replaceText(rangeWithType, newText);
 
       // Exactly the marks the run is to end up with, when the caller knows —

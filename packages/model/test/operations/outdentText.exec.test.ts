@@ -15,7 +15,13 @@ describe('outdentText operation (exec)', () => {
 
   beforeEach(() => {
     schema = new Schema('test-schema', {
-      nodes: { 'inline-text': { name: 'inline-text', content: 'text*', marks: ['bold', 'italic'] } },
+      nodes: {
+        document: { name: 'document', group: 'document', content: 'block+' },
+        // A range across two runs is only a range if they share a tree, and a
+        // paragraph is what they share it under.
+        paragraph: { name: 'paragraph', group: 'block', content: 'inline-text*' },
+        'inline-text': { name: 'inline-text', content: 'text*', marks: ['bold', 'italic'] }
+      },
       marks: { bold: { name: 'bold' }, italic: { name: 'italic' } }
     });
     dataStore = new DataStore(undefined, schema);
@@ -34,18 +40,20 @@ describe('outdentText operation (exec)', () => {
   });
 
   /**
-   * Known not to work, and it used to look as though it did.
+   * It used to look as though this worked.
    *
-   * Reading a range that spans two runs returns nothing here, so the operation
-   * had nothing to work on, changed nothing, and returned the empty string —
-   * which satisfied `typeof result.data === 'string'`. It refuses now, because
-   * an operation that changes nothing must not hand back an inverse for it.
-   * What is left is the cross-node read, which is the iterator's business; the
-   * same limit is recorded in unwrap.exec.test.ts.
+   * Reading a range that spans two runs returned nothing — the iterator began
+   * at the document's root and there was none — so the operation had nothing to
+   * work on, changed nothing, and returned the empty string, which satisfied
+   * `typeof result.data === 'string'`. Two faults, and both are fixed: the read
+   * starts at the range's own start now, and an operation that changes nothing
+   * refuses rather than handing back an inverse for it.
    */
-  it.fixme('outdents cross-node range', async () => {
-    dataStore.setNode({ sid: 'a', stype: 'inline-text', text: '\tX' });
-    dataStore.setNode({ sid: 'b', stype: 'inline-text', text: '\tY' });
+  it('outdents cross-node range', async () => {
+    dataStore.setNode({ sid: 'doc-1', stype: 'document', content: ['p-1'] } as any);
+    dataStore.setNode({ sid: 'p-1', stype: 'paragraph', content: ['a', 'b'], parentId: 'doc-1' } as any);
+    dataStore.setNode({ sid: 'a', stype: 'inline-text', text: '\tX\n', parentId: 'p-1' } as any);
+    dataStore.setNode({ sid: 'b', stype: 'inline-text', text: '\tY', parentId: 'p-1' } as any);
     const op = globalOperationRegistry.get('outdentText');
     const range = {
       type: 'range' as const,
@@ -57,7 +65,8 @@ describe('outdentText operation (exec)', () => {
       direction: 'forward' as const
     };
     const res = await op!.execute({ type: 'outdentText', payload: { range, indent: '\t' } } as any, context);
-    expect(typeof res.data).toBe('string');
+    // Both lines lose their tab, and the second line's tab is in the other run
+    expect(res.data).toBe('X\nY');
   });
 
   describe('outdentText operation DSL', () => {

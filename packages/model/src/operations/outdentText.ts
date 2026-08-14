@@ -69,7 +69,7 @@ defineOperation('outdentText', async (operation: { payload: OutdentTextOperation
        * afterwards and refusing left the marks destroyed by an operation
        * that reported doing nothing.
        */
-      const textBefore = context.dataStore.range.extractText({ type: 'range' as const, ...range });
+      const textBefore = context.dataStore.range.extractText({ ...range, type: 'range' as const });
       const escaped = indent.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const predicted = textBefore.replace(new RegExp(`(^|\\n)${escaped}`, 'g'), (_m, lineStart) => lineStart);
       if (textBefore.length === 0 || predicted === textBefore) {

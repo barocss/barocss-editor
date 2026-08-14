@@ -56,7 +56,7 @@ defineOperation('update', async (operation: UpdateOperation, context: Transactio
         data: Object.fromEntries(
           Object.keys(updates as Record<string, unknown>).map((key) => [
             key,
-            (existingNode as Record<string, unknown>)[key]
+            (existingNode as unknown as Record<string, unknown>)[key]
           ])
         )
       }

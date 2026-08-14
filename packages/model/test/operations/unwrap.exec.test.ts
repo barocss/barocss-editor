@@ -51,7 +51,7 @@ describe('unwrap operation (exec)', () => {
    * a paragraph and a document, which is the iterator's business and not this
    * operation's.
    */
-  it.fixme('unwraps across nodes via range payload (when surrounding tokens inside range)', async () => {
+  it('unwraps across nodes via range payload (when surrounding tokens inside range)', async () => {
     // Linked into a parent, because a range across two nodes can only be read
     // by walking the tree they are in — unlinked, it reads as empty and the
     // operation has nothing to take off.

@@ -89,7 +89,6 @@ defineOperation('applyMark', async (operation: { payload: ApplyMarkOperationPayl
        * selection — the way a reader actually applies bold — produced nothing
        * for undo to do, and Ctrl+Z left the text bold.
        */
-      const undoable = startNodeId === endNodeId;
       return {
         ok: true,
         data: context.dataStore.getNode(startNodeId === endNodeId ? startNodeId : endNodeId),

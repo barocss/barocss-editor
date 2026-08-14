@@ -72,7 +72,7 @@ defineOperation('indentText', async (operation: { payload: IndentTextOperationPa
        * afterwards and refusing left the marks destroyed by an operation
        * that reported doing nothing.
        */
-      const textBefore = context.dataStore.range.extractText({ type: 'range' as const, ...range });
+      const textBefore = context.dataStore.range.extractText({ ...range, type: 'range' as const });
       const predicted = textBefore.replace(/(^|\n)/g, (_m, lineStart) => lineStart + indent);
       if (textBefore.length === 0 || predicted === textBefore) {
         return { ok: false, error: 'indentText: the range is unchanged by this' };

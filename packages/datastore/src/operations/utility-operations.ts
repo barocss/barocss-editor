@@ -2277,6 +2277,14 @@ export class DocumentIterator implements IterableIterator<string> {
     } else {
       this.currentId = this.options.startNodeId;
     }
+
+    // A range between nodes that are not in the document holds nothing. Said
+    // here because the walk now begins at the range's own start: stepping off a
+    // node that does not exist has no defined next.
+    if (this.rangeStartId && this.rangeEndId) {
+      const ends = [this.rangeStartId, this.rangeEndId];
+      if (ends.some((id) => !this.dataStore.getNode(id))) this.currentId = null;
+    }
   }
 
   [Symbol.iterator](): IterableIterator<string> {
@@ -2290,6 +2298,14 @@ export class DocumentIterator implements IterableIterator<string> {
       if (!node) {
         this.currentId = this.getNextNode();
         continue;
+      }
+
+      // Past the end of the range, and document order only goes one way along
+      // this walk — so there is nothing further to find. Without this the
+      // iterator read the rest of the document to decide it wanted none of it.
+      if (this.isPastRangeEnd(this.currentId)) {
+        this.currentId = null;
+        break;
       }
 
       // Range check
@@ -2332,7 +2348,9 @@ export class DocumentIterator implements IterableIterator<string> {
       // Mark as visited
       this.visited.add(this.currentId);
       const result = this.currentId;
-      this.currentId = this.getNextNode();
+      // The last node of a range is the last node there is: what follows it is
+      // either out of range or inside it, and `isInRange` excludes both.
+      this.currentId = result === this.rangeEndId ? null : this.getNextNode();
 
       return { value: result, done: false };
     }
@@ -2371,6 +2389,18 @@ export class DocumentIterator implements IterableIterator<string> {
     }
     
     return true;
+  }
+
+  /**
+   * Whether the walk has gone beyond the range and can stop.
+   *
+   * Only sound because `getNextNode` visits nodes in document order: once a
+   * node compares after the range's end, so does every node after it.
+   */
+  private isPastRangeEnd(nodeId: string): boolean {
+    if (!this.options.range || !this.rangeEndId || this.options.reverse) return false;
+    if (nodeId === this.rangeEndId) return false;
+    return this.dataStore.utility.compareDocumentOrder(nodeId, this.rangeEndId) > 0;
   }
 
   /**
