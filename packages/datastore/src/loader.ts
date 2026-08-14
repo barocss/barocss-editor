@@ -1,6 +1,16 @@
 import { DataStore } from './data-store';
 import type { INode, Document } from './types';
 
+/**
+ * Loading a document into a store.
+ *
+ * The ids come from the store, not from a counter of the loader's own. It used
+ * to keep its own, so a document loaded under the name `word` came in as
+ * `word:1 … word:80` while everything typed into it afterwards was minted by
+ * the store as `0:81` onwards — one document, two namespaces, and an id that
+ * no longer said which session had made it. Handing the session to the store
+ * and asking it for every id makes them one series again.
+ */
 export class DataStoreLoader {
   private _dataStore: DataStore;
   private _nodeIdCounter: number = 0;
@@ -9,6 +19,9 @@ export class DataStoreLoader {
   constructor(dataStore: DataStore, sessionId: string) {
     this._dataStore = dataStore;
     this._sessionId = sessionId;
+    // Everything this store mints from now on belongs to the same session as
+    // the document it is about to hold.
+    this._dataStore.setSessionId(sessionId);
   }
 
   loadDocument(treeDocument: Document): string {
@@ -43,8 +56,9 @@ export class DataStoreLoader {
 
   private _generateFigmaStyleId(): string {
     this._nodeIdCounter++;
-    const id = `${this._sessionId}:${this._nodeIdCounter}`;
-    return id;
+    // The store's, so a node loaded and a node typed are numbered in the same
+    // series and neither can be handed an id the other already used.
+    return this._dataStore.generateId();
   }
 
   private _createNodeFromTree(treeNode: INode): INode {

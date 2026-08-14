@@ -202,11 +202,28 @@ test.describe('comments', () => {
     // other.
     await page.evaluate(async () => {
       const editor = (window as any).editor;
+      // Found rather than named. This used to name `word:20`, which is a
+      // property of how many nodes the loader happened to mint before that one
+      // — it became a paragraph the moment loading and editing started
+      // numbering from the same counter, and the test failed for a reason that
+      // had nothing to do with comments.
+      const store = editor.dataStore;
+      const longEnough = (sid: string): string | null => {
+        const node = store.getNode(sid);
+        if (!node) return null;
+        if (typeof node.text === 'string') return node.text.length >= 15 ? sid : null;
+        for (const child of ((node.content ?? []) as string[])) {
+          const found = longEnough(child);
+          if (found) return found;
+        }
+        return null;
+      };
+      const run = longEnough(store.getRootNodeId())!;
       const at = (start: number, end: number) => ({
         type: 'range',
-        startNodeId: 'word:20',
+        startNodeId: run,
         startOffset: start,
-        endNodeId: 'word:20',
+        endNodeId: run,
         endOffset: end,
         collapsed: false
       });

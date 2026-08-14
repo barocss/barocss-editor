@@ -89,7 +89,7 @@ export class DataStore {
   private _activeSchema: Schema | undefined;
   private _eventEmitter: EventEmitter = new EventEmitter();
   private static _globalCounter: number = 0;
-  private _sessionId: number = 0;
+  private _sessionId: string | number = 0;
   // Operation collection state
   private _overlay: TransactionalOverlay | undefined;
   // Overlay-scoped alias map (non-persistent)
@@ -129,7 +129,7 @@ export class DataStore {
   public readonly range: RangeOperations;
   public readonly serialization: SerializationOperations;
 
-  constructor(rootNodeId?: string, schema?: Schema, sessionId?: number) {
+  constructor(rootNodeId?: string, schema?: Schema, sessionId?: string | number) {
     this.rootNodeId = rootNodeId;
     this._sessionId = sessionId ?? 0;
     if (schema) {
@@ -438,7 +438,7 @@ export class DataStore {
    * console.log(sessionId); // 0
    * ```
    */
-  getSessionId(): number {
+  getSessionId(): string | number {
     return this._sessionId;
   }
 
@@ -453,7 +453,7 @@ export class DataStore {
    * dataStore.generateId(); // "1:1", "1:2", ...
    * ```
    */
-  setSessionId(sessionId: number): void {
+  setSessionId(sessionId: string | number): void {
     this._sessionId = sessionId;
   }
 
@@ -2103,6 +2103,19 @@ export class DataStore {
 
   /**
    * 특정 범위 내에서만 순회하는 Iterator를 생성합니다.
+   *
+   * Begins at the range's own start.
+   *
+   * It used to begin at the document's root and walk forward, discarding
+   * everything until the range came up — which needs a root to have been
+   * registered, and returned *nothing at all* when one had not been: the walk
+   * started at `undefined` and stopped before its first step. Every read of a
+   * range spanning two runs came back empty, and the operations that read one
+   * — `unwrap`, `indentText`, `outdentText` — took that as "there is nothing
+   * here" and quietly did nothing.
+   *
+   * Document order is monotone along the walk, so starting at the start reaches
+   * exactly the same nodes, without the prefix and without needing a root.
    */
   createRangeIterator(startNodeId: string, endNodeId: string, options?: {
     includeStart?: boolean;
@@ -2112,6 +2125,7 @@ export class DataStore {
   }): any {
     return this.utility.createDocumentIterator({
       ...options,
+      startNodeId,
       range: {
         startNodeId,
         endNodeId,
