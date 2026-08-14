@@ -13,7 +13,7 @@
  * as a CSS length, so a document from either side renders — rather than one of
  * them silently rendering at the wrong size.
  */
-import { characterCss, normalizeColor, twipToCss, type CssStyle } from './css';
+import { FONT_EFFECTS, characterCss, normalizeColor, twipToCss, type CssStyle } from './css';
 import type { EffectiveFormat, StyleResolver } from './style-resolver';
 
 type Attrs = Record<string, unknown>;
@@ -84,10 +84,16 @@ const AS_CSS: Record<string, (attrs: Attrs) => CssStyle> = {
     const color = normalizeColor(str(attrs.color) ?? '000000');
     return { border: `${width} ${style} ${color}` };
   },
-  outlineText: () => ({ textShadow: '0 0 1px currentColor', color: 'transparent' }),
-  shadowText: () => ({ textShadow: '1px 1px 1px rgba(0,0,0,.4)' }),
-  emboss: () => ({ textShadow: '0 1px 0 rgba(255,255,255,.7), 0 -1px 0 rgba(0,0,0,.3)' }),
-  imprint: () => ({ textShadow: '0 -1px 0 rgba(255,255,255,.7), 0 1px 0 rgba(0,0,0,.3)' })
+  /**
+   * The four Word draws with the font itself, from the one place they are
+   * written — a mark and a style saying the same thing have to draw the same,
+   * and these used to be stated here and nowhere else, which is why the
+   * character *format* attributes of the same names drew nothing at all.
+   */
+  outlineText: () => FONT_EFFECTS.outline,
+  shadowText: () => FONT_EFFECTS.shadow,
+  emboss: () => FONT_EFFECTS.emboss,
+  imprint: () => FONT_EFFECTS.imprint
 };
 
 /** Marks whose value belongs on the element rather than in its style. */

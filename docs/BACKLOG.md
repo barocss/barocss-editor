@@ -28,8 +28,16 @@ strip comments from every other file in src/, and grep
 ```
 
 Stripping the comments matters: prose mentioning an attribute makes it look
-read. Two blind spots stay — a name read for a *different* meaning counts as
-read, and a key built by template counts as unread.
+read. Then grep each *surviving* name for `format.<name>` specifically, because
+the first pass has a blind spot that has now cost something: a name read for a
+different meaning counts as read. `shadow`, `emboss` and `imprint` are character
+formats *and* marks, and the marks made the formats look answered — a run that
+arrived embossed from a style drew flat, and the sweep said the attribute was
+covered.
+
+The second blind spot is the other way round: a key built by template
+(``table[`cellMargin${side}`]``) counts as unread, and the four `cellMargin*`
+entries are that.
 
 ---
 
@@ -42,17 +50,17 @@ read, and a key built by template counts as unread.
 
 Each of these is in `src/formatting.ts` with a comment saying what it is for.
 
-- [ ] **`kerning`** — Word stores a minimum font size at which kerning applies;
-  CSS has `font-kerning: normal | none`, so the pair is expressible as a
-  comparison against the run's size.
-- [ ] **`outline`** (character) — outlined text. `-webkit-text-stroke`, or the
-  text-shadow approximation the neighbouring `outlineText` mark already uses.
 - [ ] **`mirrorIndents`** — left and right indents swap on facing pages. Needs
   the layout to know which side a page is on, which `titlePage` and
   `differentOddEven` already ask.
 - [ ] **`suppressAutoHyphens`** — worth nothing until there is hyphenation to
   suppress. Check whether anything hyphenates before taking this one.
 - [ ] **`fitText`** (cell) — deliberate: a measurement rather than a format.
+- [ ] **`overlap`** (table) — whether two floating tables may sit on top of one
+  another. Needs floating tables first, which nothing here has.
+- [ ] **`langEastAsia`** and **`lang`** — language tags. The `spanLang` *mark*
+  writes a `lang` attribute; neither character-format attribute has a reader,
+  and one without the other would be half an answer.
 
 ### Known and unfixed
 
@@ -73,6 +81,14 @@ Each of these is in `src/formatting.ts` with a comment saying what it is for.
 
 Newest first. The surprise each one produced is the part worth keeping.
 
+- **Six character effects nobody could see.** `outline`, `shadow`, `emboss` and
+  `imprint` drew nothing when they arrived as a character format — they are also
+  *marks*, and the sweep counts a name read for a different meaning as read, so
+  it reported three of them covered. They share one definition now, because a
+  style and a mark saying the same thing have to draw the same. `kerning` is not
+  a switch: Word stores the minimum font size it applies from, so the run's own
+  size decides. `noProof` is not a format at all — the browser's spell checker is
+  turned off by an attribute, so it goes on the element.
 - **Zoom.** A `transform: scale`, not the `zoom` property — a page must break in
   the same place at every size, and a transform is visual where `zoom` is
   layout: measured, a paragraph keeps all eight of its lines under a transform

@@ -100,6 +100,65 @@ describe('character CSS', () => {
     expect(css.textDecorationStyle).toBe('wavy');
   });
 
+  /**
+   * The effects Word draws with the font itself.
+   *
+   * All four were unread, and the sweep that finds unread attributes said
+   * otherwise: it counts a name read for a *different* meaning as read, and the
+   * marks `shadowText`, `emboss` and `imprint` made the character *format*
+   * attributes of the same names look answered. A run that arrived embossed from
+   * a style drew flat.
+   */
+  describe('the effects a font would draw', () => {
+    it('hollows the glyphs for an outline', () => {
+      const css = characterCss({ outline: true });
+      expect(css.color).toBe('transparent');
+      expect(css.textShadow).toContain('currentColor');
+    });
+
+    it('lights emboss from above and imprint from below', () => {
+      // Which is the whole difference between them
+      expect(characterCss({ emboss: true }).textShadow).toBe(
+        '0 1px 0 rgba(255,255,255,.7), 0 -1px 0 rgba(0,0,0,.3)'
+      );
+      expect(characterCss({ imprint: true }).textShadow).toBe(
+        '0 -1px 0 rgba(255,255,255,.7), 0 1px 0 rgba(0,0,0,.3)'
+      );
+    });
+
+    it('draws a shadow', () => {
+      expect(characterCss({ shadow: true }).textShadow).toBeDefined();
+    });
+
+    it('leaves a run that asks for none of them alone', () => {
+      expect(characterCss({}).textShadow).toBeUndefined();
+      expect(characterCss({ outline: false }).color).toBeUndefined();
+    });
+  });
+
+  /**
+   * Kerning is not a switch. `w:kern` is the *minimum font size* it applies
+   * from, in half-points, and zero means off — so the run's own size decides.
+   */
+  describe('kerning, which Word stores as a size', () => {
+    it('turns it on for a run at or above the size', () => {
+      expect(characterCss({ kerning: 16, fontSize: 24 }).fontKerning).toBe('normal');
+      expect(characterCss({ kerning: 16, fontSize: 16 }).fontKerning).toBe('normal');
+    });
+
+    it('turns it off for a run below it', () => {
+      expect(characterCss({ kerning: 32, fontSize: 20 }).fontKerning).toBe('none');
+    });
+
+    it('reads zero as off, which is what Word means by it', () => {
+      expect(characterCss({ kerning: 0, fontSize: 24 }).fontKerning).toBe('none');
+    });
+
+    it('says nothing when the document says nothing', () => {
+      expect(characterCss({ fontSize: 24 }).fontKerning).toBeUndefined();
+    });
+  });
+
   it('raises text without resizing it, unlike sup/sub', () => {
     expect(characterCss({ position: 6 }).verticalAlign).toBe('3pt');
   });

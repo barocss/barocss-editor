@@ -43,6 +43,26 @@ const str = (value: unknown): string | undefined =>
 const bool = (value: unknown): boolean | undefined =>
   typeof value === 'boolean' ? value : undefined;
 
+/**
+ * The effects Word draws with the font, as the web can draw them.
+ *
+ * One definition, because they arrive two ways: as a character format, from a
+ * style or from direct formatting, and as a mark over a range. A style and a
+ * mark saying the same thing have to draw the same, which is the reason
+ * `characterCss` is shared between them in the first place.
+ *
+ * Keyed by the character-format attribute; `mark-format.ts` maps its own names
+ * onto these.
+ */
+export const FONT_EFFECTS: Record<string, CssStyle> = {
+  // Hollow glyphs: a ring of shadow with nothing inside it.
+  outline: { textShadow: '0 0 1px currentColor', color: 'transparent' },
+  shadow: { textShadow: '1px 1px 1px rgba(0,0,0,.4)' },
+  // Lit from above and from below — which is the whole difference between them.
+  emboss: { textShadow: '0 1px 0 rgba(255,255,255,.7), 0 -1px 0 rgba(0,0,0,.3)' },
+  imprint: { textShadow: '0 -1px 0 rgba(255,255,255,.7), 0 1px 0 rgba(0,0,0,.3)' }
+};
+
 const TEXT_ALIGN: Record<string, string> = {
   left: 'left',
   center: 'center',
@@ -188,6 +208,42 @@ export function characterCss(format: EffectiveFormat): CssStyle {
   const position = num(format.position);
   if (position !== undefined && position !== 0) {
     out.verticalAlign = `${round(position / 2)}pt`;
+  }
+
+  /**
+   * The four effects Word draws with the font itself.
+   *
+   * Outline hollows the glyphs, and shadow, emboss and imprint light them from
+   * one side or the other. A browser has no font that does any of it, so each is
+   * approximated with a shadow — which is what every other web word processor
+   * does, and closer than ignoring them.
+   *
+   * These were unread. They are also *marks*, and the sweep that finds
+   * unread attributes counts a name read for a different meaning as read: the
+   * marks `shadowText`, `emboss` and `imprint` made the character *format*
+   * attributes of the same names look answered, and they were not. A run that
+   * arrived embossed from a style drew flat.
+   *
+   * Shared with the marks rather than restated, so that a style and a mark
+   * saying the same thing draw the same — which is the reason `characterCss`
+   * itself is shared.
+   */
+  for (const [effect, css] of Object.entries(FONT_EFFECTS)) {
+    if (bool(format[effect as keyof EffectiveFormat] as unknown)) Object.assign(out, css);
+  }
+
+  /**
+   * Kerning, which Word stores as the size it starts applying at.
+   *
+   * Not a switch: `w:kern` is a *minimum font size* in half-points, and zero
+   * means off. So the run's own size decides — which is expressible, since CSS
+   * has the switch and the comparison can be made here.
+   */
+  const kerning = num(format.kerning);
+  if (kerning !== undefined) {
+    const runSize = num(format.fontSize);
+    out.fontKerning =
+      kerning > 0 && (runSize === undefined || runSize >= kerning) ? 'normal' : 'none';
   }
 
   if (bool(format.rtl)) out.direction = 'rtl';

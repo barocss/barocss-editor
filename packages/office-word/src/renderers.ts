@@ -963,7 +963,29 @@ export function registerWordRenderers(): void {
   cellNode('bTableHeaderCell', 'th');
 
   // ── Inline ─────────────────────────────────────────────────────────────────
-  define('inline-text', element('span', { className: 'w-text' }, [data('text', '')]));
+  /**
+   * A run.
+   *
+   * `noProof` is Word's "do not check spelling or grammar" — set on a code
+   * sample, a product name, a foreign phrase. It is not a format, so it cannot
+   * go through `characterCss`: the browser's checker is switched off by an
+   * attribute. Written only when the run asks, so an ordinary run inherits
+   * whatever the editable region says.
+   */
+  define(
+    'inline-text',
+    element(
+      'span',
+      {
+        className: 'w-text',
+        // Quoted: `spellcheck` is a real HTML attribute and not one the
+        // template's typed attribute list knows about.
+        'spellcheck': (d: Record<string, any>) =>
+          d.attributes?.noProof === true ? 'false' : undefined
+      } as never,
+      [data('text', '')]
+    )
+  );
   /**
    * A picture, drawn where its wrapping says.
    *
