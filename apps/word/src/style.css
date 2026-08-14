@@ -598,3 +598,55 @@ body {
   top: 17px;
   border-bottom: 7px solid #495057;
 }
+
+/*
+ * A leader is what runs along the space the tab crosses — the dots to a page
+ * number, the underscore across a form. Shown under the stop's mark so a reader
+ * can tell two stops apart without opening anything.
+ */
+.w-ruler-stop.leader-dot { border-bottom: 1px dotted currentColor; }
+.w-ruler-stop.leader-hyphen { border-bottom: 1px dashed currentColor; }
+.w-ruler-stop.leader-underscore { border-bottom: 1px solid currentColor; }
+
+.w-ruler-menu {
+  z-index: 40;
+  min-width: 148px;
+  padding: 4px;
+  background: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .16);
+  font-size: 12px;
+  color: #212529;
+}
+.w-ruler-menu-title {
+  padding: 4px 8px 6px;
+  color: #868e96;
+  font-size: 11px;
+}
+.w-ruler-menu button {
+  display: block;
+  width: 100%;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.w-ruler-menu button:hover,
+.w-ruler-menu button:focus-visible {
+  background: #f1f3f5;
+}
+/* Which one this stop already is. */
+.w-ruler-menu button[aria-checked='true'] {
+  background: #e7f5ff;
+  font-weight: 600;
+}
+.w-ruler-menu hr {
+  margin: 4px 2px;
+  border: 0;
+  border-top: 1px solid #e9ecef;
+}

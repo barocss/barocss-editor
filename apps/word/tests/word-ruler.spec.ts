@@ -218,3 +218,80 @@ test('dragging the first line left of the rest makes it a hanging indent', async
   expect(after.hanging).toBe(720);
   expect(after.firstLine).toBe(0);
 });
+
+/**
+ * What a right-click offers, and the one thing only it can say.
+ *
+ * A tab's *leader* — the dots that run to a page number in a contents line, the
+ * underscore across a form — has been drawn since tabs were drawn, and the
+ * sample document uses one. Nothing could ask for one: a click on the ruler
+ * cycles what a stop aligns to, and there was no room for a second thing to
+ * cycle. Word puts both in a Tabs dialog; a menu on the ruler is where the
+ * reader already is.
+ */
+test.describe('the tab menu', () => {
+  test('gives a new stop a leader in one go', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+    await page.waitForTimeout(500);
+    const block = await caretInParagraph(page);
+    const scale = await rulerScale(page);
+
+    await page.mouse.click(scale.left + scale.perInch * 3, scale.middle, { button: 'right' });
+    await expect(page.locator('.w-ruler-menu')).toBeVisible();
+    await page.locator('[data-menu-leader="dot"]').click();
+    await page.waitForTimeout(300);
+
+    // The menu is drawn inside the ruler, so a click in it is also a click on
+    // the ruler unless something stops it — which made choosing a dot leader
+    // produce a stop with none, and choosing right alignment produce a centred
+    // one.
+    expect((await shapeOf(page, block)).tabs[0]).toMatchObject({
+      pos: 4320,
+      align: 'left',
+      leader: 'dot'
+    });
+    await expect(page.locator('.w-ruler-menu')).toHaveCount(0);
+  });
+
+  test('changes an existing stop without disturbing what else it says', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+    await page.waitForTimeout(500);
+    const block = await caretInParagraph(page);
+    const scale = await rulerScale(page);
+
+    await page.mouse.click(scale.left + scale.perInch * 3, scale.middle, { button: 'right' });
+    await page.locator('[data-menu-leader="dot"]').click();
+    await page.waitForTimeout(300);
+
+    await page.mouse.click(scale.left + scale.perInch * 3, scale.middle, { button: 'right' });
+    await page.locator('[data-menu-align="right"]').click();
+    await page.waitForTimeout(300);
+
+    // The leader survives a change of alignment, which is the whole point of
+    // them being two things a stop says rather than one
+    expect((await shapeOf(page, block)).tabs[0]).toMatchObject({ align: 'right', leader: 'dot' });
+    // And the mark shows which it carries, so two stops can be told apart
+    await expect(page.locator('.w-ruler-stop')).toHaveClass(/leader-dot/);
+  });
+
+  test('clears every stop, which dragging them off one at a time is not', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+    await page.waitForTimeout(500);
+    const block = await caretInParagraph(page);
+    const scale = await rulerScale(page);
+
+    await page.mouse.click(scale.left + scale.perInch * 2, scale.middle);
+    await page.waitForTimeout(200);
+    await page.mouse.click(scale.left + scale.perInch * 4, scale.middle);
+    await page.waitForTimeout(200);
+    expect((await shapeOf(page, block)).tabs).toHaveLength(2);
+
+    await page.mouse.click(scale.left + scale.perInch * 5, scale.middle, { button: 'right' });
+    await page.locator('[data-menu-clear="all"]').click();
+    await page.waitForTimeout(300);
+    expect((await shapeOf(page, block)).tabs).toHaveLength(0);
+  });
+});

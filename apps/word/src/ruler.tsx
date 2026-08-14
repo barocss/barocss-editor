@@ -14,6 +14,8 @@ import {
   tabStopsOf,
   withStop,
   type IndentMarkers,
+  type TabAlign,
+  type TabLeader,
   type TabStop
 } from '@barocss/office-word';
 
@@ -155,11 +157,30 @@ const STOP_GLYPH: Record<string, string> = {
   bar: '|'
 };
 
+const ALIGN_NAME: Record<string, string> = {
+  left: '왼쪽',
+  center: '가운데',
+  right: '오른쪽',
+  decimal: '소수점',
+  bar: '세로줄'
+};
+
+/** What runs along the space a tab crosses. */
+const LEADER_NAME: Record<string, string> = {
+  none: '채움 없음',
+  dot: '점',
+  hyphen: '하이픈',
+  underscore: '밑줄'
+};
+
 export function Ruler({ editor }: { editor: Editor }) {
   const host = useRef<HTMLDivElement>(null);
   const [geometry, setGeometry] = useState<Geometry | null>(null);
   const [paragraph, setParagraph] = useState<ReturnType<typeof caretParagraph>>(null);
   const dragging = useRef<Dragging>(null);
+  const [menu, setMenu] = useState<{ at: number; existing: boolean; x: number; y: number } | null>(
+    null
+  );
   const [, force] = useState(0);
 
   // Follow the caret and the page: which paragraph's marks are shown changes
@@ -277,6 +298,24 @@ export function Ruler({ editor }: { editor: Editor }) {
    * has to come from the drag rather than from the paragraph — otherwise it
    * stays where it was and the reader is dragging nothing.
    */
+  /**
+   * The menu a right-click opens.
+   *
+   * A tab's *leader* — the dots that run from the text to the page number in a
+   * contents line, or the underscore across a form — has been drawn since tabs
+   * were drawn, and nothing could ask for one: the ruler cycles what a stop
+   * aligns to and had no room for a second thing to cycle. Word puts both in a
+   * Tabs dialog; a menu on the ruler itself is where the reader already is, and
+   * is how Google Docs does it.
+   */
+  const onContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (!geometry || !paragraph) return;
+    event.preventDefault();
+    const at = positionOf(event);
+    const hit = stopAt(stops, at, scale);
+    setMenu({ at: hit?.pos ?? snap(at), existing: !!hit, x: event.clientX, y: event.clientY });
+  };
+
   const held = dragging.current;
   const drawnStops =
     held?.kind === 'stop' && held.moved
@@ -300,6 +339,7 @@ export function Ruler({ editor }: { editor: Editor }) {
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
+      onContextMenu={onContextMenu}
       role="slider"
       aria-label="눈금자 — 탭 정지와 들여쓰기"
       aria-valuenow={Math.round(drawnMarkers.left)}
@@ -329,9 +369,12 @@ export function Ruler({ editor }: { editor: Editor }) {
       {drawn.own.map((stop) => (
         <div
           key={`s${stop.pos}`}
-          className="w-ruler-stop"
+          className={`w-ruler-stop leader-${stop.leader ?? 'none'}`}
+          data-stop={stop.pos}
+          data-align={stop.align ?? 'left'}
+          data-leader={stop.leader ?? 'none'}
           style={{ left: x(stop.pos) }}
-          title={`탭 ${stop.align ?? 'left'} · ${(stop.pos / TWIPS_PER_INCH).toFixed(2)}"`}
+          title={`${ALIGN_NAME[stop.align ?? 'left']} 탭 · ${LEADER_NAME[stop.leader ?? 'none']} · ${(stop.pos / TWIPS_PER_INCH).toFixed(2)}″ — 오른쪽 클릭으로 바꾸기`}
         >
           {STOP_GLYPH[stop.align ?? 'left']}
         </div>
@@ -355,6 +398,130 @@ export function Ruler({ editor }: { editor: Editor }) {
         style={{ left: x(geometry.contentWidth - drawnMarkers.right) }}
         title="오른쪽 들여쓰기"
       />
+
+      {menu ? (
+        <TabMenu
+          menu={menu}
+          stops={stops}
+          onClose={() => setMenu(null)}
+          onChange={(tabs) => {
+            write('setTabStops', { tabs });
+            setMenu(null);
+          }}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * What a right-click on the ruler offers.
+ *
+ * Alignment is here as well as on a click, because a menu that offers half of
+ * what a stop can say makes the reader remember which half is where. Clearing
+ * every stop is here because dragging them off one at a time is what a reader
+ * does when there is no other way, and Word has had the button since it had the
+ * dialog.
+ */
+function TabMenu({
+  menu,
+  stops,
+  onChange,
+  onClose
+}: {
+  menu: { at: number; existing: boolean; x: number; y: number };
+  stops: TabStop[];
+  onChange: (tabs: TabStop[]) => void;
+  onClose: () => void;
+}) {
+  const box = useRef<HTMLDivElement>(null);
+
+  /**
+   * Anywhere *else* puts it away.
+   *
+   * Anywhere at all put it away before the button under the pointer had done
+   * anything, because this runs at the capture phase — ahead of the click it was
+   * meant to let through.
+   */
+  useEffect(() => {
+    const dismiss = (event: Event) => {
+      if (event.type === 'pointerdown' && box.current?.contains(event.target as Node)) return;
+      onClose();
+    };
+    window.addEventListener('pointerdown', dismiss, { capture: true });
+    window.addEventListener('keydown', dismiss);
+    return () => {
+      window.removeEventListener('pointerdown', dismiss, { capture: true });
+      window.removeEventListener('keydown', dismiss);
+    };
+  }, [onClose]);
+
+  const stop = stops.find((each) => each.pos === menu.at);
+  const set = (attributes: { align?: TabAlign; leader?: TabLeader }) =>
+    onChange(withStop(stops, menu.existing ? menu.at : null, menu.at, attributes));
+
+  return (
+    <div
+      className="w-ruler-menu"
+      ref={box}
+      style={{ position: 'fixed', left: menu.x, top: menu.y }}
+      /**
+       * The menu is drawn inside the ruler, so without this every click in it is
+       * also a click *on* the ruler — which adds a stop or cycles an alignment
+       * on top of what the menu item did. Measured: choosing a dot leader made a
+       * stop with no leader, and choosing right alignment made it centred.
+       */
+      onPointerDown={(event) => event.stopPropagation()}
+      onPointerUp={(event) => event.stopPropagation()}
+      onClick={(event) => event.stopPropagation()}
+      onContextMenu={(event) => event.preventDefault()}
+      role="menu"
+    >
+      <div className="w-ruler-menu-title">
+        {(menu.at / TWIPS_PER_INCH).toFixed(2)}″ {menu.existing ? '탭 정지' : '에 탭 정지 추가'}
+      </div>
+
+      {(['left', 'center', 'right', 'decimal'] as TabAlign[]).map((align) => (
+        <button
+          key={align}
+          type="button"
+          role="menuitemradio"
+          aria-checked={(stop?.align ?? 'left') === align}
+          data-menu-align={align}
+          onClick={() => set({ align })}
+        >
+          <span aria-hidden="true">{STOP_GLYPH[align]}</span> {ALIGN_NAME[align]}
+        </button>
+      ))}
+
+      <hr />
+
+      {(['none', 'dot', 'hyphen', 'underscore'] as TabLeader[]).map((leader) => (
+        <button
+          key={leader}
+          type="button"
+          role="menuitemradio"
+          aria-checked={(stop?.leader ?? 'none') === leader}
+          data-menu-leader={leader}
+          onClick={() => set({ leader })}
+        >
+          {LEADER_NAME[leader]}
+        </button>
+      ))}
+
+      {stops.length > 0 ? (
+        <>
+          <hr />
+          {menu.existing ? (
+            <button type="button" role="menuitem" data-menu-clear="one" onClick={() => onChange(withStop(stops, menu.at, null))}>
+              이 탭 정지 지우기
+            </button>
+          ) : null}
+          <button type="button" role="menuitem" data-menu-clear="all" onClick={() => onChange([])}>
+            모두 지우기
+          </button>
+        </>
+      ) : null}
     </div>
   );
 }

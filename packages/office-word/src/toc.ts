@@ -56,9 +56,38 @@ export interface TocOptions {
 }
 
 /**
+ * Which level a block appears at, or nothing if it does not appear.
+ *
+ * Word lists two kinds of block. A heading, at the level it is — and any
+ * paragraph at all that names an `outlineLevel`, which is how a document puts a
+ * line in its contents without making it look like a heading: a figure caption,
+ * a part title set in the body face, an appendix marker. The attribute has been
+ * in the schema since paragraph formatting was, with a comment saying it drives
+ * the navigation pane and the contents, and nothing read it.
+ *
+ * Word counts outline levels from zero and contents levels from one, so the two
+ * are one apart. An explicit level wins over the heading's own, which is what
+ * lets a document put a Heading 3 in the contents at level 1.
+ *
+ * Read from the block's own attributes, as `level` already is — a level
+ * arriving from a *style* is the cascade's answer and this is not given the
+ * resolver.
+ */
+function levelOf(block: DocumentNode): number | null {
+  const outline = block.attributes?.outlineLevel;
+  if (typeof outline === 'number' && Number.isFinite(outline)) {
+    // 9 is Word's "body text": named, and deliberately not in the contents.
+    return outline >= 0 && outline <= 8 ? outline + 1 : null;
+  }
+  if (block.stype !== 'heading') return null;
+  const level = Number(block.attributes?.level ?? 1);
+  return Number.isFinite(level) ? level : null;
+}
+
+/**
  * The entries a table of contents should show.
  *
- * Headings with no text are skipped: an empty line in the document should not
+ * Blocks with no text are skipped: an empty line in the document should not
  * become an empty line with a page number next to it.
  */
 export function tocEntries(options: TocOptions): TocEntry[] {
@@ -67,10 +96,10 @@ export function tocEntries(options: TocOptions): TocEntry[] {
   const entries: TocEntry[] = [];
 
   for (const block of childrenOf(doc, surface)) {
-    if (block.stype !== 'heading' || !block.sid) continue;
+    if (!block.sid) continue;
 
-    const level = Number(block.attributes?.level ?? 1);
-    if (!Number.isFinite(level) || level < range.from || level > range.to) continue;
+    const level = levelOf(block);
+    if (level === null || level < range.from || level > range.to) continue;
     if (styleFilter && block.attributes?.styleId !== styleFilter) continue;
 
     const text = textOf(doc, block).trim();
