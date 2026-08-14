@@ -28,6 +28,17 @@ defineOperation('removeChild', async (operation: any, context: TransactionContex
   // Store child node information to remove (for inverse function)
   const childToRemove = context.dataStore.getNode(childId);
   if (!childToRemove) throw new Error(`Child not found: ${childId}`);
+  /**
+   * And where it was, which the inverse did not say.
+   *
+   * `addChild` with no position puts a child at the end, so undoing the removal
+   * of a paragraph's first run gave the run back after everything else: the
+   * document read differently and nothing had been lost, which is the shape of
+   * fault this package keeps producing.
+   */
+  const wasAt = Array.isArray((parent as any).content)
+    ? ((parent as any).content as string[]).indexOf(childId)
+    : -1;
   
   const ok = context.dataStore.content.removeChild(parentId, childId);
   if (!ok) throw new Error(`Failed to remove child ${childId}`);
@@ -35,7 +46,10 @@ defineOperation('removeChild', async (operation: any, context: TransactionContex
   return {
     ok: true,
     data: context.dataStore.getNode(parentId),
-    inverse: { type: 'addChild', payload: { parentId, child: childToRemove } }
+    inverse: {
+      type: 'addChild',
+      payload: { parentId, child: childToRemove, ...(wasAt >= 0 ? { position: wasAt } : {}) }
+    }
   };
 });
 

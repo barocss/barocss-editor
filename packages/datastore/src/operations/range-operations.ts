@@ -216,6 +216,29 @@ export class RangeOperations {
    * @returns 추출된 텍스트 내용
    */
   extractText(contentRange: ModelSelection): string {
+    /**
+     * Same node: read the substring, without the iterator.
+     *
+     * Every other method here has this path — `deleteText`, `insertText`,
+     * `replaceText` all say "works even if the node is not linked in a tree" —
+     * and this one did not, so it asked the iterator for a range that begins and
+     * ends in the same node and got nothing back. Returning nothing is not
+     * obviously wrong to a caller; it is wrong to `wrap`, which wrapped the
+     * empty string and wrote it over the text it was given: 'alpha' wrapped in
+     * asterisks from 0 to 3 became '**ha'. `replaceText` had the same fault
+     * from the other side, and was patched at the call site — this is where it
+     * belonged.
+     */
+    if (contentRange.startNodeId === contentRange.endNodeId) {
+      const node = this.dataStore.getNode(contentRange.startNodeId);
+      if (node && typeof node.text === 'string') {
+        const text = node.text as string;
+        const start = typeof contentRange.startOffset === 'number' ? contentRange.startOffset : 0;
+        const end = typeof contentRange.endOffset === 'number' ? contentRange.endOffset : text.length;
+        if (start >= 0 && end <= text.length && start <= end) return text.substring(start, end);
+      }
+    }
+
     // Iterator-based extraction (single canonical path)
     const rangeIterator = this.dataStore.createRangeIterator(
       contentRange.startNodeId,

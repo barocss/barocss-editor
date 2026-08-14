@@ -31,12 +31,23 @@ describe('Whitespace ops idempotency', () => {
     ds.normalizeWhitespace({ stype: 'range' as const, startNodeId: 't', startOffset: 0, endNodeId: 't', endOffset: t.text.length });
     ds.end();
 
-    // Second run on already-normalized text - should produce no update
-    const current = ds.getNode('t')!;
+    /**
+     * Idempotent means the second run leaves the text as the first run left it.
+     *
+     * This used to ask whether the second run emitted an update operation, and
+     * `end()` returns everything the overlay has collected since `begin()` — the
+     * overlay stays open until commit, and says so — so the list still carried
+     * the first run's operations and the question could not be answered that
+     * way. It passed regardless, because `extractText` returned nothing for a
+     * range inside one node and neither run did anything at all.
+     */
+    const afterFirst = ds.getNode('t')!.text;
+    expect(afterFirst, 'the first run did not normalise anything').toBe('Hello World');
+
     ds.begin();
-    ds.normalizeWhitespace({ stype: 'range' as const, startNodeId: 't', startOffset: 0, endNodeId: 't', endOffset: (current.text || '').length });
-    const ops2 = ds.end();
-    expect(ops2.some(o => o.type === 'update' && o.nodeId === 't')).toBe(false);
+    ds.normalizeWhitespace({ stype: 'range' as const, startNodeId: 't', startOffset: 0, endNodeId: 't', endOffset: (afterFirst || '').length });
+    ds.end();
+    expect(ds.getNode('t')!.text, 'running it twice changed the text').toBe(afterFirst);
   });
 
   it('trimText is idempotent (second run no update)', () => {
@@ -49,12 +60,14 @@ describe('Whitespace ops idempotency', () => {
     ds.trimText({ stype: 'range' as const, startNodeId: 't', startOffset: 0, endNodeId: 't', endOffset: t.text.length });
     ds.end();
 
-    // Second run - should produce no update
-    const current = ds.getNode('t')!;
+    // As above: the claim is about the text, not about the operation list.
+    const afterFirst = ds.getNode('t')!.text;
+    expect(afterFirst, 'the first run did not trim anything').toBe('Hello World');
+
     ds.begin();
-    ds.trimText({ stype: 'range' as const, startNodeId: 't', startOffset: 0, endNodeId: 't', endOffset: (current.text || '').length });
-    const ops2 = ds.end();
-    expect(ops2.some(o => o.type === 'update' && o.nodeId === 't')).toBe(false);
+    ds.trimText({ stype: 'range' as const, startNodeId: 't', startOffset: 0, endNodeId: 't', endOffset: (afterFirst || '').length });
+    ds.end();
+    expect(ds.getNode('t')!.text, 'running it twice changed the text').toBe(afterFirst);
   });
 });
 
