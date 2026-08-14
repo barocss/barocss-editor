@@ -43,9 +43,31 @@ defineOperation('deleteRange', async (operation: any, context: TransactionContex
 
   const deletedText = context.dataStore.range.deleteText(contentRange);
 
+  /**
+   * Undo puts the text back; it does not delete it again.
+   *
+   * The inverse used to be this same operation with this same range, so undoing
+   * a deletion deleted as much again from where the first one stopped:
+   * "abcdefgh" minus [2,5) is "abfgh", and Ctrl+Z made it "ab". `transaction.ts`
+   * collects these and that collection *is* undo, so this was a keystroke that
+   * damaged the document — and nothing caught it, because this operation had no
+   * tests at all.
+   *
+   * Only a deletion within one text node can be restored by putting the text
+   * back where it was. A deletion spanning several nodes removes structure as
+   * well as characters, and re-inserting a string would not rebuild it — so
+   * rather than offer an inverse that half-works, it offers none, and undo
+   * leaves that alone instead of making it worse.
+   */
+  const withinOneNode = startNodeId === endNodeId;
+  const inverse =
+    withinOneNode && deletedText
+      ? { type: 'insertText', payload: { nodeId: startNodeId, pos: startOffset, text: deletedText } }
+      : undefined;
+
   return {
     ok: true,
     data: deletedText,
-    inverse: { type: 'deleteRange', payload: { range: contentRange } }
+    ...(inverse ? { inverse } : {})
   };
 });
