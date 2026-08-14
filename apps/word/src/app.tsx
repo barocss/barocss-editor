@@ -6,6 +6,7 @@ import { Ribbon } from './ribbon';
 import { FindPanel } from './find-panel';
 import { CommentsPane } from './comments-pane';
 import { InputLab } from './input-lab/panel';
+import { DocumentTitle } from './document-title';
 
 /**
  * The app shell.
@@ -65,6 +66,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
 
   return (
     <>
+      {instance ? <DocumentTitle editor={instance.editor} /> : null}
       {instance ? <Ribbon editor={instance.editor} view={instance.view} fonts={instance.fonts} /> : null}
       <div className="relative">
         {instance ? (

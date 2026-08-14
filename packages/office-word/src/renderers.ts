@@ -95,26 +95,20 @@ export function registerWordRenderers(): void {
   );
 
   /**
-   * Metadata and referenced definitions are content, but not *flow* content:
-   * where a footnote or a title appears is a layout decision, and the flow is
-   * not where it is made. They render into their own regions instead.
+   * The document's title and author are read, never drawn.
    *
-   * And not into text a reader can type in. The title and author are a
-   * definition that fields read — `{ TITLE }` puts the title where the document
-   * says it should appear — so the copy shown above the page is a display of
-   * that definition, not a second place the title lives. Left editable it was
-   * both: the metadata sat inside the editing surface, a click put the caret in
-   * it, and typing changed the document's title while looking like a stray
-   * heading floating above the first page.
+   * They are a definition, like a style or a numbering scheme: `{ TITLE }` puts
+   * the title where the document says it should appear, and that is the only
+   * place it belongs on the page. Drawing a second copy above the first sheet
+   * made it look like a stray heading in the document, and — since it sat
+   * inside the editing surface — a click put the caret in it and typing changed
+   * the title while looking like body text.
    *
-   * Marked as chrome the same way the sheet furniture and bookmark anchors are,
-   * which is what keeps the caret out and keeps a copy from carrying it.
+   * Editing it is a thing a reader does *to the document*, not *in* it, so it
+   * belongs in the application's chrome. `apps/word` puts it above the ribbon,
+   * where a word processor usually keeps the file's name.
    */
-  define('docMeta', element('header', {
-    className: 'w-meta',
-    'data-bc-chrome': 'true',
-    contenteditable: 'false'
-  }, [slot('content')]));
+  define('docMeta', element('div', { className: 'w-def w-def-docMeta', style: { display: 'none' } }));
   define('docTitle', element('h1', { className: 'w-doc-title' }, [slot('content')]));
   define('docSubtitle', element('p', { className: 'w-doc-subtitle' }, [slot('content')]));
   define('docAuthor', element('p', { className: 'w-doc-author' }, [slot('content')]));

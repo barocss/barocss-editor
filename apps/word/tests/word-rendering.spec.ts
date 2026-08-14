@@ -15,9 +15,10 @@ test.describe('Word document rendering', () => {
     await expect(page.locator('.w-surface').first()).toBeVisible();
   });
 
-  test('renders the document metadata outside the flow', async ({ page }) => {
-    // The title lives in docMeta, not on the page
-    await expect(page.locator('.w-doc-title')).toHaveText('Barocss Word');
+  test('does not lay out the definitions', async ({ page }) => {
+    // The title and author are a definition too, read by `{ TITLE }` and drawn
+    // nowhere — see tests/document-metadata.spec.ts, which covers where they
+    // are edited instead.
     await expect(page.locator('.w-surface .w-doc-title')).toHaveCount(0);
     // Definitions are content but not laid out. The container is not hidden —
     // back matter lives there and belongs at the end of the document — so each

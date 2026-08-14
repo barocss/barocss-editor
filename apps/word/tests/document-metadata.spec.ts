@@ -20,55 +20,55 @@ import { settled } from './helpers';
  * is not text, whatever the model calls it.
  */
 test.describe('the document metadata', () => {
-  test('is drawn outside the flow and marked as furniture', async ({ page }) => {
+  test('is not drawn in the document at all', async ({ page }) => {
     await page.goto('/');
     await settled(page);
 
-    const meta = page.locator('.w-meta');
-    await expect(meta).toBeVisible();
-    await expect(meta, '메타데이터가 페이지 안에 있습니다').toHaveAttribute('contenteditable', 'false');
+    // A definition, like a style or a numbering scheme: read by `{ TITLE }`,
+    // never drawn. Not hidden inside the surface — not in the surface.
     await expect(page.locator('.w-surface .w-doc-title'), '제목이 흐름 안에 있습니다').toHaveCount(0);
-  });
-
-  test('cannot be typed into', async ({ page }) => {
-    await page.goto('/');
-    await settled(page);
-
-    const titleBefore = await page.locator('.w-doc-title').textContent();
-    await page.locator('.w-doc-title').first().click();
-    await page.waitForTimeout(200);
-    await page.keyboard.type('XYZ', { delay: 20 });
-    await page.waitForTimeout(400);
-
-    await expect(page.locator('.w-doc-title'), '문서 제목이 본문처럼 편집됐습니다').toHaveText(
-      (titleBefore ?? '').trim()
+    const drawn = await page.locator('.w-def-docMeta').evaluateAll((els) =>
+      els.every((el) => (el as HTMLElement).offsetHeight === 0)
     );
+    expect(drawn, '메타데이터가 페이지에 그려집니다').toBe(true);
   });
 
-  test('the door refuses a character while the caret is in it', async ({ page }) => {
+  test('is edited above the ribbon, the way a file is renamed', async ({ page }) => {
     await page.goto('/');
     await settled(page);
-    await page.locator('.w-doc-title').first().click();
-    await page.waitForTimeout(200);
 
-    const verdict = await page.evaluate(() => {
-      const view = (window as any).editorView;
-      const selection = window.getSelection();
-      const anchor = selection?.anchorNode ?? null;
-      const host = anchor?.nodeType === Node.TEXT_NODE ? anchor.parentElement : (anchor as Element | null);
-      return {
-        caretIsInTheMetadata: !!host?.closest?.('.w-meta'),
-        editorSaysItIsText: view.isSelectionInsideEditableText() === true
-      };
+    const title = page.locator('.doc-title-docTitle');
+    await expect(title, '문서 제목을 편집할 곳이 없습니다').toBeVisible();
+    await expect(title).toHaveValue('Barocss Word');
+
+    await title.fill('Renamed');
+    await page.waitForTimeout(300);
+
+    const stored = await page.evaluate(() => {
+      const store = (window as any).editor.dataStore;
+      const root = store.getNode(store.getRootNodeId());
+      const metaSid = (root.content ?? []).find((sid: string) => store.getNode(sid)?.stype === 'docMeta');
+      const titleSid = (store.getNode(metaSid)?.content ?? []).find(
+        (sid: string) => store.getNode(sid)?.stype === 'docTitle'
+      );
+      const runSid = (store.getNode(titleSid)?.content ?? [])[0];
+      return store.getNode(runSid)?.text;
     });
+    expect(stored, '제목을 바꿨는데 문서에 반영되지 않았습니다').toBe('Renamed');
+  });
 
-    // If the browser kept the caret out entirely, there is nothing to refuse
-    // and the test has nothing to say; if it did not, the editor must.
-    if (verdict.caretIsInTheMetadata) {
-      expect(
-        verdict.editorSaysItIsText,
-        '커서가 메타데이터 안에 있는데 편집기가 글자를 넣어도 된다고 답합니다'
-      ).toBe(false);
-    }
+  test('a field quoting the title follows it', async ({ page }) => {
+    await page.goto('/');
+    await settled(page);
+
+    // The field that quotes the *title*, not whichever field comes first —
+    // this document also has one for the author.
+    const quoted = page.locator('.w-field-title').first();
+    const hasField = (await quoted.count()) > 0;
+    test.skip(!hasField, 'this document quotes the title nowhere');
+
+    await page.locator('.doc-title-docTitle').fill('Renamed');
+    await page.waitForTimeout(500);
+    await expect(quoted).toContainText('Renamed');
   });
 });

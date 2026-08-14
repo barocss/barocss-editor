@@ -20,9 +20,44 @@ body {
 
 .w-document { display: flex; flex-direction: column; align-items: center; gap: 24px; }
 
-.w-meta { width: 100%; max-width: 816px; text-align: center; }
-.w-doc-title { margin: 0 0 4px; font-size: 24px; }
-.w-doc-subtitle { margin: 0 0 8px; color: #666; font-size: 14px; }
+/*
+ * The document's name, above the ribbon.
+ *
+ * Not in the page: the title and author are a definition that fields read, and
+ * drawing a copy of them above the first sheet put editable-looking text
+ * outside the document. Renaming a document is a thing done to it, not in it,
+ * so it lives in the chrome — which is where a word processor keeps a file's
+ * name, and where a reader looks for it.
+ */
+.doc-title-bar {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 8px 16px 0;
+  flex-wrap: wrap;
+}
+.doc-title-field {
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 3px 8px;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  min-width: 6ch;
+}
+.doc-title-field::placeholder { color: #9aa4b2; }
+.doc-title-field:hover { border-color: #d8dde3; }
+.doc-title-field:focus { outline: none; border-color: #2f6fdb; background: #fff; }
+.doc-title-docTitle { font-size: 18px; font-weight: 650; flex: 0 0 auto; min-width: 18ch; }
+.doc-title-docAuthor { color: #5a6472; font-size: 13px; flex: 0 0 auto; min-width: 12ch; }
+/* Takes what is left: it is the longest of the three and the one that gets cut. */
+.doc-title-docSubtitle { color: #5a6472; font-size: 13px; flex: 1 1 24ch; min-width: 20ch; }
+
+@media (prefers-color-scheme: dark) {
+  .doc-title-field:hover { border-color: #39404a; }
+  .doc-title-field:focus { background: #22262d; border-color: #4f86e8; }
+  .doc-title-docSubtitle, .doc-title-docAuthor { color: #9aa4b2; }
+}
 
 /* A section renders as the page it describes; its box comes from page setup. */
 /*
