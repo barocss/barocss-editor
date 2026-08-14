@@ -156,8 +156,38 @@ export class DeleteExtension implements Extension {
    * @returns Success status
    */
   private async _executeDeleteNode(editor: Editor, nodeId: string): Promise<boolean> {
-    const operations = this._buildDeleteNodeOperations(nodeId);
-    const result = await transaction(editor, operations).commit();
+    const operations: unknown[] = this._buildDeleteNodeOperations(nodeId);
+
+    /**
+     * The runs it was between have to meet.
+     *
+     * An inline object — a tab, a picture, a break — is a node among the runs of
+     * a paragraph, and putting one in the middle of a run splits that run in
+     * two. Taking it out again used to leave them apart: the text and the page
+     * are right, and the paragraph carries a seam that was not there before, so
+     * every insert-then-delete leaves one more run behind.
+     *
+     * Those two and no others. `autoMergeTextNodes` sweeps outwards joining
+     * every run it can reach, which closed this seam and three more the reader
+     * had never asked about — a paragraph of three runs came back as one. The
+     * seam this made is the only one to close, so `mergeTextNodes` names it;
+     * it refuses two runs whose attributes differ, which is the case where the
+     * object was always between two separate runs rather than inside one.
+     */
+    const store: any = (editor as any).dataStore;
+    const parent = store?.getParent?.(nodeId);
+    const siblings: string[] = Array.isArray(parent?.content) ? parent.content : [];
+    const at = siblings.indexOf(nodeId);
+    const before = at > 0 ? store?.getNode?.(siblings[at - 1]) : null;
+    const after = at >= 0 ? store?.getNode?.(siblings[at + 1]) : null;
+    if (typeof before?.text === 'string' && typeof after?.text === 'string') {
+      operations.push({
+        type: 'mergeTextNodes',
+        payload: { leftNodeId: before.sid, rightNodeId: after.sid }
+      });
+    }
+
+    const result = await transaction(editor, operations as never).commit();
     return result.success;
   }
 

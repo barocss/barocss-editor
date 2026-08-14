@@ -115,6 +115,50 @@ test('Tab inside the text puts a tab there', async ({ page }) => {
   await expect(page.locator(`[data-bc-sid="${plain!.block}"] .w-tab`)).toHaveCount(1);
 });
 
+test('deleting a tab lets the runs it split meet again', async ({ page }) => {
+  await page.goto('/');
+  await settled(page);
+  const { plain } = await paragraphs(page);
+
+  const runs = () => page.evaluate((sid: string) => {
+    const store = (window as any).editor.dataStore;
+    return ((store.getNode(sid)?.content ?? []) as string[]).filter(
+      (child) => typeof store.getNode(child)?.text === 'string'
+    ).length;
+  }, plain!.block);
+
+  const before = await runs();
+  await caretAt(page, plain!.run, 6);
+  await page.keyboard.press('Tab');
+  await page.waitForTimeout(300);
+  // The tab went in the middle of a run, so that run is now two
+  expect(await runs()).toBe(before + 1);
+
+  // Caret just after the tab, then take it back out
+  await page.evaluate((sid: string) => {
+    const store = (window as any).editor.dataStore;
+    const kids = (store.getNode(sid)?.content ?? []) as string[];
+    const after = kids[kids.findIndex((c) => store.getNode(c)?.stype === 'tab') + 1];
+    const el = document.querySelector(`[data-bc-sid="${CSS.escape(after)}"]`);
+    const walker = document.createTreeWalker(el!, NodeFilter.SHOW_TEXT);
+    const text = walker.nextNode() as Text;
+    const range = document.createRange();
+    range.setStart(text, 0);
+    range.collapse(true);
+    const selection = getSelection()!;
+    selection.removeAllRanges();
+    selection.addRange(range);
+    (document.querySelector('[contenteditable="true"]') as HTMLElement)?.focus();
+  }, plain!.block);
+  await page.waitForTimeout(150);
+  await page.keyboard.press('Backspace');
+  await page.waitForTimeout(400);
+
+  expect(await shape(page, plain!.block)).toMatchObject({ tabs: 0 });
+  // And the seam it left behind is gone with it
+  expect(await runs(), 'the runs the tab had split stayed apart').toBe(before);
+});
+
 test('Tab in a list moves it a level, as it always did', async ({ page }) => {
   await page.goto('/');
   await settled(page);

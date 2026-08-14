@@ -126,6 +126,12 @@ export function documentFontFamilies(doc: DocumentAccess): string[] {
   const visit = (node: DocumentNode | undefined, depth: number): void => {
     if (!node || depth > 64) return;
     add(node.attributes?.fontFamily);
+    // The other two a run may name. A Latin face has no Hangul in it, so the
+    // East Asian one is the face the CJK text is actually drawn in — and it has
+    // to be fetched before the page is measured, or every line holding CJK is
+    // measured in a fallback and moves once the real one arrives.
+    add(node.attributes?.fontFamilyEastAsia);
+    add(node.attributes?.fontFamilyComplexScript);
     for (const mark of node.marks ?? []) {
       if (mark?.stype === 'fontFamily') add(mark.attrs?.family);
     }

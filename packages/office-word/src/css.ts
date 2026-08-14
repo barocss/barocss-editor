@@ -43,6 +43,41 @@ const str = (value: unknown): string | undefined =>
 const bool = (value: unknown): boolean | undefined =>
   typeof value === 'boolean' ? value : undefined;
 
+/**
+ * Whether a family name may be written without quotes.
+ *
+ * CSS takes a bare name when every space-separated part of it is an identifier
+ * — which `Times New Roman` and `맑은 고딕` both are, since an identifier may
+ * hold any non-ASCII character. A part beginning with a digit, or holding
+ * punctuation, may not.
+ */
+const BARE_FAMILY = /^[A-Za-z -￿_-][A-Za-z0-9 -￿_-]*(?: [A-Za-z -￿_-][A-Za-z0-9 -￿_-]*)*$/;
+
+/**
+ * Several font names as one CSS list.
+ *
+ * Names go in as the document wrote them, which is what the toolbar and the
+ * web-font loader read back; only one that cannot be a bare identifier is
+ * quoted, and a name that already carries quotes or commas is a stack the
+ * document wrote itself and goes in whole.
+ *
+ * Duplicates are dropped rather than repeated: a run whose Latin and East Asian
+ * fonts are the same font is the ordinary case, and naming it twice says
+ * nothing.
+ */
+function familyList(...names: (string | undefined)[]): string | undefined {
+  const seen = new Set<string>();
+  const parts: string[] = [];
+  for (const name of names) {
+    const trimmed = name?.trim();
+    if (!trimmed || seen.has(trimmed)) continue;
+    seen.add(trimmed);
+    const written = /[,"']/.test(trimmed) || BARE_FAMILY.test(trimmed) ? trimmed : `"${trimmed}"`;
+    parts.push(written);
+  }
+  return parts.length > 0 ? parts.join(', ') : undefined;
+}
+
 const TEXT_ALIGN: Record<string, string> = {
   left: 'left',
   center: 'center',
@@ -142,10 +177,37 @@ export function paragraphCss(format: EffectiveFormat): CssStyle {
 export function characterCss(format: EffectiveFormat): CssStyle {
   const out: CssStyle = {};
 
-  const family = str(format.fontFamily);
-  if (family) out.fontFamily = family;
+  /**
+   * One list, in the order the browser should try them.
+   *
+   * Word names up to three fonts for a single run and chooses between them per
+   * character, by script: Latin takes `fontFamily`, CJK takes
+   * `fontFamilyEastAsia`, Arabic and Hebrew take `fontFamilyComplexScript`.
+   * Only the first was read, so a run set in a Latin face drew its Hangul in
+   * whatever the browser fell back to — which is nothing the document asked
+   * for, and different on every machine.
+   *
+   * CSS has no per-script selector and does not need one: a family list *is*
+   * per-character. The browser uses the first family that has the glyph, and a
+   * Latin face has no Hangul in it — so `"Times New Roman", "맑은 고딕"` gives
+   * Word's own answer for the mixed run that made Word track them separately.
+   */
+  const families = familyList(
+    str(format.fontFamily),
+    str(format.fontFamilyEastAsia),
+    str(format.fontFamilyComplexScript)
+  );
+  if (families) out.fontFamily = families;
 
-  const size = num(format.fontSize);
+  /**
+   * Complex script has its own size, and `rtl` is what marks a run as one.
+   *
+   * Word applies `fontSizeComplexScript` to the characters it treats as complex
+   * script, which is finer than a declaration can be — but a run the document
+   * has already marked `rtl` is entirely such a run, and that is the case the
+   * separate size exists for.
+   */
+  const size = num(bool(format.rtl) ? format.fontSizeComplexScript ?? format.fontSize : format.fontSize);
   if (size !== undefined) out.fontSize = halfPointToCss(size);
 
   // Explicit false matters: a style may switch bold off for a run inside a
