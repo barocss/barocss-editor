@@ -24,6 +24,29 @@ export interface InsertParagraphPayload {
   selectionAlias?: string;
 }
 
+/**
+ * The block a run belongs to, however deeply it is wrapped.
+ *
+ * A run is usually a direct child of its paragraph, and taking the run's parent
+ * was therefore the same thing as taking the block — until the run is inside a
+ * link, or anything else that wraps text. Then the parent is the link, and
+ * splitting "the block" split the link instead: the reader pressed Enter inside
+ * a hyperlink and the paragraph did not divide at all.
+ */
+function findBlockAncestor(dataStore: any, schema: any, nodeId: string): any {
+  const seen = new Set<string>();
+  let current = dataStore.getParent(nodeId);
+  while (current && !seen.has(current.sid)) {
+    seen.add(current.sid);
+    const group = schema?.getNodeType((current as { stype?: string }).stype)?.group;
+    // Without a schema to ask, the first parent is the best answer available —
+    // which is what this did everywhere before.
+    if (!schema || group === 'block' || group === 'document') return current;
+    current = dataStore.getParent(current.sid);
+  }
+  return current ?? dataStore.getParent(nodeId);
+}
+
 function resolveSelectionToTextAndOffset(
   dataStore: any,
   schema: any,
@@ -39,7 +62,7 @@ function resolveSelectionToTextAndOffset(
       typeof selection.startOffset === 'number' && selection.startOffset >= 0
         ? Math.min(selection.startOffset, text.length)
         : 0;
-    const parentBlock = dataStore.getParent(selection.startNodeId);
+    const parentBlock = findBlockAncestor(dataStore, schema, selection.startNodeId);
     if (!parentBlock || !Array.isArray(parentBlock.content)) return null;
     return { textNodeId: selection.startNodeId, offset, textLength: text.length, parentBlock };
   }
@@ -93,35 +116,66 @@ defineOperation('insertParagraph', async (operation: { type: string; payload: In
   const safeOffset = Math.max(0, Math.min(offset, textLength));
 
   /**
-   * Where the caret sits among the block's children, and whether anything is on
-   * each side of it.
+   * Where the tail begins, counted in the block's own children.
    *
-   * The split used to be attempted only when the block held exactly one text
-   * node. A paragraph holds one run per stretch of formatting, so any paragraph
-   * with a bold word in it holds several — and every one of those fell through
-   * to the branch below, which does not split at all: it puts an empty
-   * paragraph beside this one and moves the caret into it. Reported by hand as
-   * a paragraph appearing *above* with the caret in it, and that is exactly
-   * what it is, because a caret anywhere but the last run reads as "not at the
-   * end" and inserts before.
+   * Two things used to be assumed here, and a document breaks both.
    *
-   * What decides a split is the caret's position in the *block*, not in the run
-   * it happens to be in: text before it and text after it means split, and only
-   * the two true edges of the block are an insertion.
+   * The first is that a block holds one text node. A paragraph holds one run
+   * per stretch of formatting, so anything with a bold word in it holds
+   * several — and every one of those fell through to the branch that does not
+   * split at all, which puts an empty paragraph beside this one and moves the
+   * caret into it. Reported by hand as a paragraph appearing *above* with the
+   * caret in it, and that is exactly what it is: a caret anywhere but the last
+   * run reads as "not at the end", so it inserts before.
+   *
+   * The second is that the run's parent is the block. A link wraps its text, so
+   * inside one the parent is the link, and splitting "the block" split the link
+   * instead — the paragraph did not divide and Enter appeared to do nothing.
+   *
+   * So the position is carried upwards instead. Cut the run if the caret is
+   * inside it, then cut each wrapper so everything from the caret onwards ends
+   * up in a new sibling, until what is left is an index into the block. A
+   * wrapper with nothing before the caret is not cut at all — the whole of it
+   * belongs to the tail — and likewise for one with nothing after it. What
+   * decides a split, in the end, is whether the block has children on both
+   * sides of that index; only its two true edges are an insertion.
    */
-  const childIndex = parentBlock.content.indexOf(textNodeId);
-  const atBlockStart = childIndex === 0 && safeOffset === 0;
-  const atBlockEnd = childIndex === parentBlock.content.length - 1 && safeOffset === textLength;
+  if (safeOffset > 0 && safeOffset < textLength) dataStore.splitTextNode(textNodeId, safeOffset);
 
-  if (childIndex !== -1 && !atBlockStart && !atBlockEnd) {
-    // Only cut the run when the caret is inside it; on a run boundary the
-    // children divide where they already do.
-    let splitAt = childIndex;
-    if (safeOffset > 0) {
-      if (safeOffset < textLength) dataStore.splitTextNode(textNodeId, safeOffset);
-      splitAt = childIndex + 1;
+  const holderOf = (id: string): { sid: string; content: string[] } => {
+    const parent = dataStore.getParent(id);
+    if (!parent || !Array.isArray(parent.content)) {
+      throw new Error('insertParagraph: ran out of parents before reaching the block');
     }
-    const newNodeId = dataStore.splitBlockNode(parentBlock.sid!, splitAt);
+    return parent as { sid: string; content: string[] };
+  };
+
+  let carried: string = textNodeId;
+  let holder = holderOf(carried);
+  let tailIndex = holder.content.indexOf(carried) + (safeOffset > 0 ? 1 : 0);
+
+  while (holder.sid !== parentBlock.sid) {
+    if (tailIndex > 0 && tailIndex < holder.content.length) {
+      carried = dataStore.splitBlockNode(holder.sid, tailIndex);
+      holder = holderOf(carried);
+      tailIndex = holder.content.indexOf(carried);
+    } else {
+      // All of this wrapper is on one side of the caret: it moves whole.
+      const wholeGoesToTail = tailIndex <= 0;
+      carried = holder.sid;
+      holder = holderOf(carried);
+      tailIndex = holder.content.indexOf(carried) + (wholeGoesToTail ? 0 : 1);
+    }
+  }
+
+  // Re-read: the block's children have moved under us, and the copy resolved
+  // before the splits still describes the paragraph as it was.
+  const block = dataStore.getNode(parentBlock.sid!) as { sid: string; content: string[] };
+  const atBlockStart = tailIndex <= 0;
+  const atBlockEnd = tailIndex >= block.content.length;
+
+  if (!atBlockStart && !atBlockEnd) {
+    const newNodeId = dataStore.splitBlockNode(parentBlock.sid!, tailIndex);
     const newBlock = dataStore.getNode(newNodeId);
     const firstTextNodeId =
       newBlock && Array.isArray(newBlock.content) && newBlock.content[0]
