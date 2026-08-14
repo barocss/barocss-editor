@@ -40,7 +40,25 @@ defineOperation('outdentText', async (operation: { payload: OutdentTextOperation
       return {
         ok: true,
         data: result,
-        inverse: { type: 'indentText', payload: { range, indent } }
+        /**
+         * The range the text now occupies, which is not the one it did.
+         *
+         * Indenting adds characters at the start of every line and outdenting
+         * takes them away, so the stretch this wrote is `result.length` long
+         * however long it was before. Passing the original range back meant the
+         * inverse covered the wrong text — too little after an indent, too much
+         * after an outdent.
+         */
+        inverse: {
+          type: 'indentText',
+          payload: {
+            range:
+              startNodeId === endNodeId
+                ? { startNodeId, startOffset, endNodeId, endOffset: startOffset + (result ?? '').length }
+                : range,
+            indent
+          }
+        }
       };
     }
     

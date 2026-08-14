@@ -15,7 +15,11 @@ describe('unwrap operation (exec)', () => {
 
   beforeEach(() => {
     schema = new Schema('test-schema', {
-      nodes: { 'inline-text': { name: 'inline-text', content: 'text*', marks: ['bold', 'italic'] } },
+      nodes: {
+        document: { name: 'document', group: 'document', content: 'block+' },
+        paragraph: { name: 'paragraph', group: 'block', content: 'inline-text*' },
+        'inline-text': { name: 'inline-text', content: 'text*', marks: ['bold', 'italic'] }
+      },
       marks: { bold: { name: 'bold' }, italic: { name: 'italic' } }
     });
     dataStore = new DataStore(undefined, schema);
@@ -31,9 +35,30 @@ describe('unwrap operation (exec)', () => {
     expect(dataStore.getNode('t1')?.text).toBe('Hello');
   });
 
-  it('unwraps across nodes via range payload (when surrounding tokens inside range)', async () => {
-    dataStore.setNode({ sid: 'a', stype: 'inline-text', text: '<He' } as any);
-    dataStore.setNode({ sid: 'b', stype: 'inline-text', text: 'llo>' } as any);
+  /**
+   * Known not to work, and it used to look as though it did.
+   *
+   * The claim is that a range spanning two runs — '<He' and 'llo>' — can have
+   * its surrounding tokens taken off. It passed because `unwrap` read the range
+   * as empty, took nothing off, wrote the text back unchanged and reported the
+   * empty string as its result: `typeof result.data` was 'string' and the
+   * assertion was satisfied by a no-op.
+   *
+   * `unwrap` now refuses when there is nothing wrapped, which is right — it used
+   * to hand back a `wrap` inverse for the nothing it did, so undo *added* a
+   * prefix and suffix the text had never had. What is left is that reading a
+   * range across two nodes returns nothing here even with the two linked under
+   * a paragraph and a document, which is the iterator's business and not this
+   * operation's.
+   */
+  it.fixme('unwraps across nodes via range payload (when surrounding tokens inside range)', async () => {
+    // Linked into a parent, because a range across two nodes can only be read
+    // by walking the tree they are in — unlinked, it reads as empty and the
+    // operation has nothing to take off.
+    dataStore.setNode({ sid: 'doc-1', stype: 'document', content: ['p-1'] } as any);
+    dataStore.setNode({ sid: 'p-1', stype: 'paragraph', content: ['a', 'b'], parentId: 'doc-1' } as any);
+    dataStore.setNode({ sid: 'a', stype: 'inline-text', text: '<He', parentId: 'p-1' } as any);
+    dataStore.setNode({ sid: 'b', stype: 'inline-text', text: 'llo>', parentId: 'p-1' } as any);
     const op = globalOperationRegistry.get('unwrap');
     const result = await op!.execute({ type: 'unwrap', payload: { range: { type: 'range' as const, startNodeId: 'a', startOffset: 0, endNodeId: 'b', endOffset: 4 }, prefix: '<', suffix: '>' } } as any, context);
     expect(typeof result.data).toBe('string');

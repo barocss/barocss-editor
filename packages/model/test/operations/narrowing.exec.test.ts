@@ -133,7 +133,7 @@ const MOVES: Step[] = [
  */
 describe('narrowing', () => {
   /** Operations whose own inverse does not put the document back. Lower this. */
-  const ALONE = 4;
+  const ALONE = 2;
   /** Ordered pairs that do not, where each alone does. Lower this. */
   const PAIRS = 1;
 

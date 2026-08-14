@@ -36,14 +36,55 @@ defineOperation('unwrap', async (operation: any, context: TransactionContext) =>
       if (!endNode) throw new Error(`Node not found: ${endNodeId}`);
       if (typeof startNode.text !== 'string' || typeof endNode.text !== 'string') throw new Error('Range endpoints must be text nodes');
       if (typeof startOffset !== 'number' || typeof endOffset !== 'number') throw new Error('Invalid range');
-      let segment = context.dataStore.range.extractText(range);
-      if (segment.startsWith(prefix)) segment = segment.substring(prefix.length);
-      if (segment.endsWith(suffix)) segment = segment.substring(0, segment.length - suffix.length);
+      const original = context.dataStore.range.extractText(range);
+      let segment = original;
+      const hadPrefix = segment.startsWith(prefix);
+      if (hadPrefix) segment = segment.substring(prefix.length);
+      const hadSuffix = segment.endsWith(suffix);
+      if (hadSuffix) segment = segment.substring(0, segment.length - suffix.length);
+
+      /**
+       * Nothing to take off is not an unwrapping.
+       *
+       * This wrote the text back unchanged and reported success — and handed
+       * back a `wrap` inverse, so undo *added* a prefix and suffix the text had
+       * never had. The seventh operation in this package found succeeding at
+       * nothing and describing it as something.
+       */
+      if (!hadPrefix && !hadSuffix) {
+        return {
+          ok: false,
+          error: `unwrap: ${JSON.stringify(original.slice(0, 20))} is not wrapped in ${JSON.stringify(prefix)}…${JSON.stringify(suffix)}`
+        };
+      }
+
       context.dataStore.range.replaceText(range, segment);
       return {
         ok: true,
         data: segment,
-        inverse: { type: 'wrap', payload: { range: { startNodeId: range.startNodeId, startOffset: range.startOffset, endNodeId: range.endNodeId, endOffset: range.endOffset + prefix.length + suffix.length }, prefix, suffix } }
+        /**
+         * Shorter, not longer.
+         *
+         * Unwrapping *removes* the prefix and suffix, so what is left to wrap
+         * again is the range minus their lengths — and the inverse added them,
+         * naming a range past the end of the text it had just shortened.
+         */
+        inverse: {
+          type: 'wrap',
+          payload: {
+            range: {
+              startNodeId: range.startNodeId,
+              startOffset: range.startOffset,
+              endNodeId: range.endNodeId,
+              endOffset: Math.max(
+                range.startOffset,
+                range.endOffset - (hadPrefix ? prefix.length : 0) - (hadSuffix ? suffix.length : 0)
+              )
+            },
+            prefix,
+            suffix
+          }
+        }
       };
     }
     const { nodeId, start, end, prefix, suffix } = payload;

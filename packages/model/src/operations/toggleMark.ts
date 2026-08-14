@@ -22,6 +22,23 @@ import type { TransactionContext } from '../types';
  * 예외 처리
  * - DataStore.marks.toggleMark / DataStore.range.toggleMark 실패 시 예외 승격.
  */
+/**
+ * The marks a node had, so undo can put exactly those back.
+ *
+ * Toggling twice is only the identity if nothing happened in between, and
+ * something usually does — the text can be rewritten, and the mark that was
+ * toggled on can be gone by the time undo toggles it "off", which then puts it
+ * on. Measured: bold applied, the text wrapped in asterisks (which dropped the
+ * marks), and undoing both left the text bold that had started plain.
+ *
+ * `applyMark` learned this first. Restoring the list is exact, and it is a
+ * short list on one node.
+ */
+const marksBefore = (dataStore: any, nodeId: string) => {
+  const node = dataStore.getNode(nodeId);
+  return Array.isArray(node?.marks) ? JSON.parse(JSON.stringify(node.marks)) : [];
+};
+
 defineOperation('toggleMark', async (operation: any, context: TransactionContext) => {
   const payload = operation.payload;
   const markType = payload.markType;
@@ -45,11 +62,15 @@ defineOperation('toggleMark', async (operation: any, context: TransactionContext
     }
 
     const contentRange = { type: 'range' as const, startNodeId, startOffset, endNodeId, endOffset };
+    const before = startNodeId === endNodeId ? marksBefore(context.dataStore, startNodeId) : null;
     context.dataStore.range.toggleMark(contentRange, markType, attrs);
 
     return {
       ok: true,
-      inverse: { type: 'toggleMark', payload: { range: contentRange, markType, attrs } }
+      // Exactly what the run carried before, not "toggle it again".
+      // A mark spanning several nodes has no single operation that restores
+      // them all, so it says nothing rather than restoring only the first.
+      ...(before ? { inverse: { type: 'setMarks', payload: { nodeId: startNodeId, marks: before } } } : {})
     };
   }
 
@@ -57,6 +78,7 @@ defineOperation('toggleMark', async (operation: any, context: TransactionContext
   const { nodeId, range } = payload;
   const node = context.dataStore.getNode(nodeId);
   if (!node) throw new Error(`Node ${nodeId} not found`);
+  const beforeSingle = marksBefore(context.dataStore, nodeId);
 
   if (!context.dataStore.marks || typeof context.dataStore.marks.toggleMark !== 'function') {
     throw new Error('DataStore.marks.toggleMark is not available');
@@ -71,7 +93,7 @@ defineOperation('toggleMark', async (operation: any, context: TransactionContext
   return {
     ok: true,
     data: context.dataStore.getNode(nodeId),
-    inverse: { type: 'toggleMark', payload: { nodeId, markType, range, attrs } }
+    inverse: { type: 'setMarks', payload: { nodeId, marks: beforeSingle } }
   };
 });
 
