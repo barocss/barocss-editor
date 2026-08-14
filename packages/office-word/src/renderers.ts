@@ -52,7 +52,7 @@ import {
   shapePaint,
   shapeTransform
 } from './shapes';
-import { blockStyle, formatFor, listMarker } from './renderers/block-style';
+import { blockLanguage, blockStyle, formatFor, listMarker } from './renderers/block-style';
 import { cellBorders, cellMargins, gridOf, tableCss } from './table-format';
 import { cellPlacementOf, cellStyleLayers, rowFormat, tableStyleLayer } from './table-style';
 import { registerRevisionMarks, registerValuedMarks } from './renderers/marks';
@@ -597,6 +597,16 @@ export function registerWordRenderers(): void {
         className: 'w-paragraph',
         'data-style': (d: Record<string, any>) => String(d.attributes?.styleId ?? ''),
         'data-marker': (d: Record<string, any>, env?: RenderEnv) => listMarker(d, env),
+        /**
+         * The language the block is in.
+         *
+         * On the block as well as on its runs, because hyphenation is a block
+         * property and a browser hyphenates by dictionary: `hyphens: auto` with
+         * no language does nothing at all. A block takes the language its first
+         * run names, which is the whole of it for any paragraph not written in
+         * two languages at once.
+         */
+        'lang': (d: Record<string, any>, env?: RenderEnv) => blockLanguage(d, env),
         style: (d: Record<string, any>, env?: RenderEnv) => blockStyle(d, env)
       },
       [slot('content')]
@@ -614,6 +624,16 @@ export function registerWordRenderers(): void {
         className: 'w-heading',
         'data-style': (d: Record<string, any>) => String(d.attributes?.styleId ?? ''),
         'data-marker': (d: Record<string, any>, env?: RenderEnv) => listMarker(d, env),
+        /**
+         * The language the block is in.
+         *
+         * On the block as well as on its runs, because hyphenation is a block
+         * property and a browser hyphenates by dictionary: `hyphens: auto` with
+         * no language does nothing at all. A block takes the language its first
+         * run names, which is the whole of it for any paragraph not written in
+         * two languages at once.
+         */
+        'lang': (d: Record<string, any>, env?: RenderEnv) => blockLanguage(d, env),
         style: (d: Record<string, any>, env?: RenderEnv) => blockStyle(d, env)
       },
       [slot('content')]
@@ -964,13 +984,17 @@ export function registerWordRenderers(): void {
 
   // ── Inline ─────────────────────────────────────────────────────────────────
   /**
-   * A run.
+   * A run, and the two things it says that are not CSS.
    *
-   * `noProof` is Word's "do not check spelling or grammar" — set on a code
-   * sample, a product name, a foreign phrase. It is not a format, so it cannot
-   * go through `characterCss`: the browser's checker is switched off by an
-   * attribute. Written only when the run asks, so an ordinary run inherits
-   * whatever the editable region says.
+   * `lang` is the language the text is in — read by the two things that need a
+   * dictionary and cannot guess: hyphenation, which is why `hyphenationAuto`
+   * alone does nothing, and the browser's spell checker. Word keeps a separate
+   * tag for East Asian text; one element takes one language, so the Latin one
+   * is the tag.
+   *
+   * `noProof` is Word's "do not check spelling or grammar" — a code sample, a
+   * product name, a phrase in another language. Both are written only when the
+   * run asks, so an ordinary run inherits whatever is above it.
    */
   define(
     'inline-text',
@@ -978,14 +1002,19 @@ export function registerWordRenderers(): void {
       'span',
       {
         className: 'w-text',
-        // Quoted: `spellcheck` is a real HTML attribute and not one the
-        // template's typed attribute list knows about.
+        // Quoted: real HTML attributes, and not ones the template's typed
+        // attribute list knows about.
+        'lang': (d: Record<string, any>) =>
+          typeof d.attributes?.lang === 'string' && d.attributes.lang.length > 0
+            ? d.attributes.lang
+            : undefined,
         'spellcheck': (d: Record<string, any>) =>
           d.attributes?.noProof === true ? 'false' : undefined
       } as never,
       [data('text', '')]
     )
   );
+
   /**
    * A picture, drawn where its wrapping says.
    *
@@ -999,6 +1028,7 @@ export function registerWordRenderers(): void {
     alt: (d: Record<string, any>) => String(d.attributes?.alt ?? ''),
     style: (d: Record<string, any>) => imageCss(d.attributes as never)
   }));
+
   define('hardBreak', element('br', { className: 'w-break' }));
   /**
    * A tab: an instruction to reach the next stop, drawn as the space it crosses.

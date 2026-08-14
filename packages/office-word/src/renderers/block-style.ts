@@ -6,8 +6,17 @@
  * all resolve their formatting the same way, and a table adds to it.
  */
 import type { RenderEnv } from '@barocss/dsl';
-import { characterCss, paragraphCss, tableCss, twipToCss, type CssStyle } from '../css';
 import {
+  characterCss,
+  hyphenationCss,
+  mirroredIndents,
+  paragraphCss,
+  tableCss,
+  twipToCss,
+  type CssStyle
+} from '../css';
+import {
+  getBlockPageNumber,
   getBlockPosition,
   getBlockPush,
   getWordDocument,
@@ -16,6 +25,7 @@ import {
 } from '../render-context';
 import { blockStyleLayers } from '../table-style';
 import { suppressedSpacing } from '../spacing';
+import { childrenOf, documentSettings, type DocumentNode } from '../document-access';
 import { INDENT_STEP as LIST_INDENT_STEP } from '../list-commands';
 
 
@@ -41,8 +51,38 @@ export function formatFor(
       return characterCss(format);
     case 'table':
       return tableCss(format);
-    default:
-      return paragraphCss(format);
+    default: {
+      /**
+       * The one piece of paragraph formatting that depends on where the
+       * paragraph lands.
+       *
+       * `mirrorIndents` makes the left and right indents an inside and an
+       * outside one, and the inside is the edge the binding is on — which
+       * changes side every page. Nothing else here asks a question about the
+       * page, which is why the swap happens at the last moment rather than in
+       * the cascade.
+       *
+       * The paginator needs no part of it: the sum is unchanged, so the text is
+       * exactly as wide and no line breaks anywhere else.
+       */
+      const page = getBlockPageNumber(env, String(node.sid ?? ''));
+
+      /**
+       * And whether a word may be broken at the end of a line.
+       *
+       * The switch is the *document's* and the exception is the paragraph's, so
+       * neither is answerable from the cascade alone — `suppressAutoHyphens` is
+       * a paragraph saying no to something only the document can have said yes
+       * to.
+       */
+      const doc = getWordDocument(env);
+      const auto = doc ? documentSettings(doc)?.attributes?.hyphenationAuto === true : false;
+
+      return {
+        ...paragraphCss(mirroredIndents(format, page !== undefined && page % 2 === 0)),
+        ...hyphenationCss(auto, format)
+      };
+    }
   }
 }
 
@@ -111,4 +151,48 @@ export function listMarker(node: Record<string, any>, env: RenderEnv | undefined
   if (!item) return '';
   const separator = item.suffix === 'space' ? ' ' : item.suffix === 'nothing' ? '' : ' ';
   return `${item.text}${separator}`;
+}
+
+/**
+ * The language a block is in, and whether its spelling is checked.
+ *
+ * Both are *run* properties in Word — `lang` and `noProof` sit on the character
+ * formatting — and both are needed above the text in a browser. Hyphenation is
+ * a block property and hyphenates by dictionary, so `hyphens: auto` without a
+ * language does nothing at all; and the spell checker reads the nearest `lang`
+ * and `spellcheck` it can find.
+ *
+ * A block takes what its first run says, which is the whole of it for any
+ * paragraph not written in two languages at once. Putting them on the runs was
+ * tried and the renderer drew the source of the function as the attribute's
+ * value — see the note on `inline-text`.
+ */
+function firstRunFormat(
+  node: Record<string, any>,
+  env: RenderEnv | undefined
+): Record<string, unknown> | undefined {
+  const doc = getWordDocument(env);
+  const styles = getWordStyles(env);
+  if (!doc || !styles) return undefined;
+
+  const find = (current: DocumentNode | undefined, depth: number): DocumentNode | undefined => {
+    if (!current || depth > 32) return undefined;
+    if (typeof (current as { text?: unknown }).text === 'string') return current;
+    for (const child of childrenOf(doc, current)) {
+      const found = find(child, depth + 1);
+      if (found) return found;
+    }
+    return undefined;
+  };
+
+  const run = find(node as never, 0);
+  return run ? (styles.resolveNode(run, 'character') as Record<string, unknown>) : undefined;
+}
+
+export function blockLanguage(
+  node: Record<string, any>,
+  env: RenderEnv | undefined
+): string | undefined {
+  const lang = firstRunFormat(node, env)?.lang;
+  return typeof lang === 'string' && lang.length > 0 ? lang : undefined;
 }

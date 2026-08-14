@@ -1370,7 +1370,25 @@ export class VNodeBuilder {
 
       if (isDefined(resolvedValue)) {
         vnode.attrs![key] = isBoolean(resolvedValue) ? resolvedValue : String(resolvedValue);
+        return;
       }
+
+      /**
+       * Nothing resolved, so the attribute does not apply — and the seed has to
+       * go with it.
+       *
+       * `initializeElementVNode` starts the vnode from the template's own
+       * attributes, functions and all, and this overwrites each one with what it
+       * resolves to. A function that returns `undefined` used to leave the seed
+       * untouched, so the *source of the function* became the attribute's value:
+       * `lang="(d) => d.attributes?.lang"` in the document, on every element
+       * whose attribute did not apply.
+       *
+       * Which is the ordinary case, not an exotic one. Returning nothing is how
+       * a template says an attribute is absent, and every attribute that is
+       * sometimes absent was drawing its own source the rest of the time.
+       */
+      if (key in vnode.attrs!) delete vnode.attrs![key];
     });
   }
 

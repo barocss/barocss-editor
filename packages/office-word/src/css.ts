@@ -63,6 +63,59 @@ export const FONT_EFFECTS: Record<string, CssStyle> = {
   imprint: { textShadow: '0 -1px 0 rgba(255,255,255,.7), 0 1px 0 rgba(0,0,0,.3)' }
 };
 
+/**
+ * Whether the browser may break a word at the end of a line.
+ *
+ * Word's `hyphenationAuto` is a document setting and `suppressAutoHyphens` is a
+ * paragraph's exception to it — neither had a reader, and neither is any use
+ * without the third: a browser hyphenates by dictionary and needs to be told
+ * which language the text is in. `lang` had no reader either, so all three
+ * arrive together or none of them does anything.
+ *
+ * `hyphenationZone` — the space Word allows at the end of a line before it
+ * reaches for a hyphen — has no equivalent in CSS and is left unread on purpose.
+ *
+ * This changes line breaking, which is the one thing pagination depends on. It
+ * needs no part of it: the pages are measured from the rendered document, so a
+ * hyphenated line is measured hyphenated.
+ */
+export function hyphenationCss(
+  auto: boolean,
+  format: EffectiveFormat | undefined
+): CssStyle {
+  const out: CssStyle = {};
+  if (!auto) return out;
+  // A paragraph may opt out of a document that opted in. `manual` rather than
+  // `none`: a soft hyphen the author typed is still a place they chose.
+  out.hyphens = bool(format?.suppressAutoHyphens) ? 'manual' : 'auto';
+  return out;
+}
+
+/**
+ * A paragraph's indents, as they fall on the page they land on.
+ *
+ * `mirrorIndents` says the left and right indents are really *inside* and
+ * *outside* — the inside being the edge the binding is on, which changes side
+ * every page. It is what makes a bound document look right: the extra room for
+ * the spine is on the right of a left-hand page and on the left of a right-hand
+ * one, and a paragraph that indents from the spine has to follow.
+ *
+ * Even pages are left-hand pages, which is the same question `differentOddEven`
+ * asks of headers, and asked of the number the page *shows* rather than its
+ * index — a section that restarts its numbering restarts which side it is on.
+ *
+ * Pure, and the sum is unchanged, which is why the paginator needs no part of
+ * this: swapping the two leaves the text exactly as wide, so no line breaks
+ * anywhere else.
+ */
+export function mirroredIndents(
+  format: EffectiveFormat,
+  onEvenPage: boolean
+): EffectiveFormat {
+  if (!bool(format.mirrorIndents) || !onEvenPage) return format;
+  return { ...format, indentLeft: format.indentRight, indentRight: format.indentLeft };
+}
+
 const TEXT_ALIGN: Record<string, string> = {
   left: 'left',
   center: 'center',

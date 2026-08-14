@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   paragraphCss, characterCss, pageCss, tableCss, tableCellCss, tableRowCss, rowClipHeight,
-  twipToCss, halfPointToCss, normalizeColor, flowCss
+  twipToCss, halfPointToCss, normalizeColor, flowCss, mirroredIndents, hyphenationCss
 } from '../src/css';
 
 /**
@@ -49,6 +49,68 @@ describe('paragraph CSS', () => {
   it('reads auto line spacing as a multiplier and exact spacing as a length', () => {
     expect(paragraphCss({ spacingLine: 360, spacingLineRule: 'auto' }).lineHeight).toBe('1.5');
     expect(paragraphCss({ spacingLine: 360, spacingLineRule: 'exact' }).lineHeight).toBe('18pt');
+  });
+
+  /**
+   * `mirrorIndents` makes the left and right indents an *inside* and an
+   * *outside* one — the inside being the edge the binding is on, which changes
+   * side every page. It is what makes a bound document look right, and nothing
+   * read it.
+   */
+  describe('indents on a bound document', () => {
+    const both = { indentLeft: 1440, indentRight: 720, mirrorIndents: true };
+
+    it('leaves a right-hand page alone', () => {
+      expect(paragraphCss(mirroredIndents(both, false))).toMatchObject({
+        marginLeft: '72pt',
+        marginRight: '36pt'
+      });
+    });
+
+    it('swaps them on a left-hand page', () => {
+      expect(paragraphCss(mirroredIndents(both, true))).toMatchObject({
+        marginLeft: '36pt',
+        marginRight: '72pt'
+      });
+    });
+
+    it('leaves a paragraph that did not ask alone on either side', () => {
+      const plain = { indentLeft: 1440, indentRight: 720 };
+      expect(mirroredIndents(plain, true)).toBe(plain);
+      expect(mirroredIndents(plain, false)).toBe(plain);
+    });
+
+    it('keeps the text exactly as wide, which is why the paginator ignores it', () => {
+      const swapped = mirroredIndents(both, true);
+      expect((swapped.indentLeft as number) + (swapped.indentRight as number)).toBe(
+        both.indentLeft + both.indentRight
+      );
+    });
+  });
+
+  /**
+   * Hyphenation, which needs three attributes and had readers for none.
+   *
+   * The switch is the document's (`hyphenationAuto`), the exception is a
+   * paragraph's (`suppressAutoHyphens`), and neither is any use without the
+   * third — a browser hyphenates by dictionary and has to be told which
+   * language the text is in, which is `lang`, on the run.
+   */
+  describe('breaking a word at the end of a line', () => {
+    it('says nothing at all until the document asks', () => {
+      expect(hyphenationCss(false, {})).toEqual({});
+      expect(hyphenationCss(false, { suppressAutoHyphens: true })).toEqual({});
+    });
+
+    it('hyphenates when the document asks', () => {
+      expect(hyphenationCss(true, {}).hyphens).toBe('auto');
+    });
+
+    it('lets a paragraph opt out of a document that opted in', () => {
+      // `manual` rather than `none`: a soft hyphen the author typed is still a
+      // place they chose
+      expect(hyphenationCss(true, { suppressAutoHyphens: true }).hyphens).toBe('manual');
+    });
   });
 
   it('does not emit pagination properties', () => {

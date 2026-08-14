@@ -24,6 +24,7 @@ import { createStyleResolver, type StyleResolver } from './style-resolver';
 import { createNumberingResolver, type NumberingResolver } from './numbering-resolver';
 import { createFieldResolver, type FieldResolver } from './field-resolver';
 import type { SurfaceLayout } from './layout';
+import { pageNumberFor } from './page-furniture';
 
 /** The key Word's environment lives under, so that products cannot collide. */
 export const WORD_ENV_KEY = 'word';
@@ -46,6 +47,18 @@ export interface WordEnv {
    * with the environment and the renderer that owns them reads them.
    */
   splits: Map<string, { line: number; height: number }[]>;
+  /**
+   * The page number each block starts on — the number the page *shows*, not its
+   * index.
+   *
+   * Wanted by the one piece of formatting that depends on which side of a bound
+   * document a paragraph lands: `mirrorIndents` swaps a paragraph's indents on
+   * a left-hand page, because they are really an inside and an outside indent
+   * and the inside is the edge the binding is on. The shown number rather than
+   * the index for the same reason headers use it — a section that restarts its
+   * numbering restarts which side it is on.
+   */
+  pageNumbers: Map<string, number>;
   /** Absolute position per block, for sections whose text runs in columns. */
   positions: Map<string, { top: number; left: number; width: number }>;
   /**
@@ -94,21 +107,33 @@ export function createWordEnv(
   const pushes = new Map<string, number>();
   const positions = new Map<string, { top: number; left: number; width: number }>();
   const splits = new Map<string, { line: number; height: number }[]>();
-  for (const layout of layouts.values()) {
+  const pageNumbers = new Map<string, number>();
+  const styles = createStyleResolver(doc);
+
+  for (const [surfaceSid, layout] of layouts) {
     for (const [sid, push] of layout.pushBySid) pushes.set(sid, push);
     for (const [sid, position] of layout.positionBySid) positions.set(sid, position);
     for (const [sid, blockSplits] of layout.splitBySid) splits.set(sid, blockSplits);
+
+    // A section owns the numbering, so the shown number is its question to
+    // answer — and each section answers it for the blocks it holds.
+    const surface = doc.getNode(surfaceSid);
+    const format = surface ? styles.resolveNode(surface as never, 'paragraph') : {};
+    for (const [sid, index] of layout.pageOfBlock) {
+      pageNumbers.set(sid, pageNumberFor(index, format as never));
+    }
   }
 
   return {
     doc,
-    styles: createStyleResolver(doc),
+    styles,
     numbering: createNumberingResolver(doc),
     fields: createFieldResolver(doc),
     layouts,
     pushes,
     positions,
     splits,
+    pageNumbers,
     tabs,
     editing,
     now
@@ -201,6 +226,16 @@ export function getBlockPosition(
   sid: string
 ): { top: number; left: number; width: number } | undefined {
   return wordEnv(env)?.positions.get(sid);
+}
+
+/**
+ * The page number the block starts on, as the page shows it.
+ *
+ * Undefined before the first layout, which is when nothing has been placed yet
+ * and every question about a page has no answer.
+ */
+export function getBlockPageNumber(env: RenderEnv | undefined, sid: string): number | undefined {
+  return wordEnv(env)?.pageNumbers?.get(sid);
 }
 
 /** How wide a tab has to be, once the line it is on has been measured. */

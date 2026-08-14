@@ -50,17 +50,19 @@ entries are that.
 
 Each of these is in `src/formatting.ts` with a comment saying what it is for.
 
-- [ ] **`mirrorIndents`** — left and right indents swap on facing pages. Needs
-  the layout to know which side a page is on, which `titlePage` and
-  `differentOddEven` already ask.
-- [ ] **`suppressAutoHyphens`** — worth nothing until there is hyphenation to
-  suppress. Check whether anything hyphenates before taking this one.
 - [ ] **`fitText`** (cell) — deliberate: a measurement rather than a format.
 - [ ] **`overlap`** (table) — whether two floating tables may sit on top of one
   another. Needs floating tables first, which nothing here has.
-- [ ] **`langEastAsia`** and **`lang`** — language tags. The `spanLang` *mark*
-  writes a `lang` attribute; neither character-format attribute has a reader,
-  and one without the other would be half an answer.
+- [ ] **`langEastAsia`** — Word keeps a separate language for East Asian text.
+  One element takes one language, so this needs a decision about which wins
+  rather than a reader.
+- [ ] **`hyphenationZone`** — the space Word allows at the end of a line before
+  reaching for a hyphen. No equivalent in CSS.
+- [ ] **`lang` arrives two ways.** The `spanLang` *mark* writes a `lang`
+  attribute and the character format now writes one too. Two mechanisms for one
+  attribute is one too many; which should own it is the open question — a mark
+  spans a range of characters and an attribute belongs to a run, and Word's own
+  model is the run.
 
 ### Known and unfixed
 
@@ -81,6 +83,20 @@ Each of these is in `src/formatting.ts` with a comment saying what it is for.
 
 Newest first. The surprise each one produced is the part worth keeping.
 
+- **`mirrorIndents`, and hyphenation.** A paragraph that indents from the spine
+  swaps its indents on a left-hand page — which needed the page a block lands on,
+  and the shown number rather than the index, since a section that restarts its
+  numbering restarts which side it is on. Hyphenation needed three attributes at
+  once and had readers for none: the switch is the document's, the exception is a
+  paragraph's, and a browser hyphenates by dictionary so neither is any use
+  without a language on the text.
+- **A function attribute that resolves to nothing drew its own source.** The
+  vnode starts from the template's attributes, functions and all, and each is
+  overwritten by what it resolves to — so one that resolved to `undefined` left
+  the seed in place and the DOM read `lang="(d) => …"`. Returning nothing is how
+  a template says an attribute does not apply, so every attribute that is
+  sometimes absent was drawing its source the rest of the time. Fixed in
+  `renderer-dom`, with a test.
 - **Six character effects nobody could see.** `outline`, `shadow`, `emboss` and
   `imprint` drew nothing when they arrived as a character format — they are also
   *marks*, and the sweep counts a name read for a different meaning as read, so
