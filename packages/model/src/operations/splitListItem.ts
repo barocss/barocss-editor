@@ -1,152 +1,95 @@
 import { defineOperation } from './define-operation';
 import type { TransactionContext } from '../types';
+import { resolveCaret, splitBlockAtCaret } from './split-at-caret';
 
 /**
  * splitListItem operation (selection-based)
  *
- * When the caret is inside a list item (e.g. in its paragraph's text), creates a new list item
- * after the current one with an empty block (paragraph) and moves the caret into that new item's
- * first text node. If not inside a list item, no-op (caller may use insertParagraph instead).
+ * Enter inside a bullet. The item's block is cut where the caret is and the
+ * tail becomes a new item after it; at either end of the item, a blank one
+ * opens instead. Not inside a list item, this is a no-op — the caller reaches
+ * for `insertParagraph`.
+ *
+ * It did not do that. Whether to split was decided by
+ *
+ *     listItem.content.length === 1 && listItem.content[0] === textNodeId
+ *
+ * and a list item's children are *blocks*, so `content[0]` is the paragraph's
+ * sid and can never equal a text node's. The condition was false for every list
+ * item there has ever been, and the split it guarded was unreachable: Enter in
+ * the middle of a bullet left the text whole and added an empty bullet after
+ * it. The tests did not see it because they counted items and never read a
+ * character — the same way a paragraph split stayed broken while its tests
+ * counted paragraphs.
+ *
+ * The cut is shared with `insertParagraph` now. See `split-at-caret.ts`.
  */
 
-function getCurrentBlockAndListContext(
+/** The list item a caret is in, and the list holding it. */
+function listContext(
   dataStore: any,
-  schema: any,
-  selection: { type: string; startNodeId: string; startOffset?: number } | null
-): {
-  blockId: string;
-  block: any;
-  listItemId: string;
-  listItem: any;
-  listId: string;
-  list: any;
-  listItemIndex: number;
-  textNodeId: string;
-  offset: number;
-  textLength: number;
-} | null {
-  if (!selection || selection.type !== 'range') return null;
-  const node = dataStore.getNode(selection.startNodeId);
-  if (!node) return null;
-
-  let textNodeId: string;
-  let offset: number;
-  let textLength: number;
-  let block: any;
-
-  if (typeof (node as { text?: string }).text === 'string') {
-    textNodeId = selection.startNodeId;
-    const text = (node as { text: string }).text;
-    offset = typeof selection.startOffset === 'number' && selection.startOffset >= 0 ? Math.min(selection.startOffset, text.length) : 0;
-    textLength = text.length;
-    block = dataStore.getParent(textNodeId);
-  } else {
-    const nodeType = schema?.getNodeType((node as { stype?: string }).stype);
-    if (nodeType?.group !== 'block') return null;
-    block = node as { sid?: string; content?: string[] };
-    const lastText = getLastTextNodeInBlock(dataStore, block.sid!);
-    if (!lastText) return null;
-    textNodeId = lastText.sid;
-    textLength = lastText.text.length;
-    offset = textLength;
-  }
-
-  if (!block || !Array.isArray(block.content)) return null;
-  const listItem = dataStore.getParent(block.sid);
+  blockId: string
+): { listItemId: string; listItem: any; listId: string; listItemIndex: number } | null {
+  const listItem = dataStore.getParent(blockId);
   if (!listItem || listItem.stype !== 'listItem') return null;
   const list = dataStore.getNode(dataStore.resolveAlias(listItem.parentId));
   if (!list || list.stype !== 'list' || !Array.isArray(list.content)) return null;
-
   const listItemIndex = list.content.indexOf(listItem.sid);
   if (listItemIndex === -1) return null;
-
-  return {
-    blockId: block.sid,
-    block,
-    listItemId: listItem.sid,
-    listItem,
-    listId: list.sid,
-    list,
-    listItemIndex,
-    textNodeId,
-    offset,
-    textLength
-  };
-}
-
-function getLastTextNodeInBlock(dataStore: any, blockId: string): { sid: string; text: string } | null {
-  const block = dataStore.getNode(blockId);
-  if (!block || !Array.isArray((block as { content?: string[] }).content)) return null;
-  const content = (block as { content: string[] }).content;
-  let last: { sid: string; text: string } | null = null;
-  const visit = (id: string): void => {
-    const n = dataStore.getNode(id);
-    if (!n) return;
-    if (typeof (n as { text?: string }).text === 'string') {
-      last = { sid: (n as { sid: string }).sid, text: (n as { text: string }).text };
-      return;
-    }
-    const childIds = (n as { content?: string[] }).content;
-    if (Array.isArray(childIds)) for (const cid of childIds) visit(cid);
-  };
-  for (const id of content) visit(id);
-  return last;
+  return { listItemId: listItem.sid, listItem, listId: list.sid, listItemIndex };
 }
 
 defineOperation('splitListItem', async (_operation: { type: string; payload: Record<string, unknown> }, context: TransactionContext) => {
   const dataStore = context.dataStore;
   const schema = context.schema;
-  const selection = context.selection.current;
 
-  const resolved = getCurrentBlockAndListContext(dataStore, schema, selection);
-  if (!resolved) {
-    return { ok: true, data: null };
-  }
+  const where = resolveCaret(dataStore, schema, context.selection.current);
+  if (!where) return { ok: true, data: null };
+  const list = listContext(dataStore, where.block.sid);
+  if (!list) return { ok: true, data: null };
 
-  const { listId, listItem, listItemIndex, textNodeId, offset, textLength } = resolved;
-  const safeOffset = Math.max(0, Math.min(offset, textLength));
-  const isSingleTextChild = listItem.content.length === 1 && listItem.content[0] === textNodeId;
+  const { listId, listItem, listItemIndex } = list;
+  const blockStype = (dataStore.getNode(where.block.sid) as { stype?: string })?.stype ?? 'paragraph';
+  const cut = splitBlockAtCaret(dataStore, where, 'splitListItem');
 
-  if (isSingleTextChild && safeOffset > 0 && safeOffset < textLength) {
-    dataStore.splitTextNode(textNodeId, safeOffset);
-    const newNodeId = dataStore.splitBlockNode(resolved.blockId, 1);
-    const newBlock = dataStore.getNode(newNodeId);
-    const firstTextNodeId =
-      newBlock && Array.isArray(newBlock.content) && newBlock.content[0] ? (newBlock.content[0] as string) : null;
-    if (!firstTextNodeId) throw new Error('splitListItem: splitBlockNode did not yield a text node');
-    const newListItemNode = {
-      stype: 'listItem',
-      content: [] as string[]
-    };
-    const newListItemId = dataStore.content.addChild(listId, newListItemNode, listItemIndex + 1);
-    dataStore.content.moveNode(newNodeId, newListItemId, 0);
-    context.lastCreatedBlock = { blockId: newNodeId, firstTextNodeId };
+  /** A new item beside this one, holding `blockId`. */
+  const itemAt = (index: number, blockId: string): string => {
+    const newListItemId = dataStore.content.addChild(listId, { stype: 'listItem', content: [] as string[] }, index);
+    dataStore.content.moveNode(blockId, newListItemId, 0);
+    return newListItemId;
+  };
+
+  if (cut.at === 'inside') {
+    if (!cut.firstTextNodeId) throw new Error('splitListItem: splitBlockNode did not yield a text node');
+    const newListItemId = itemAt(listItemIndex + 1, cut.newBlockId);
+    context.lastCreatedBlock = { blockId: cut.newBlockId, firstTextNodeId: cut.firstTextNodeId };
     return {
       ok: true,
       data: dataStore.getNode(newListItemId),
-      selectionAfter: { nodeId: firstTextNodeId, offset: 0 }
+      selectionAfter: { nodeId: cut.firstTextNodeId, offset: 0 }
     };
   }
 
-  const newParagraph = {
-    stype: 'paragraph',
-    attributes: {},
-    content: [] as string[]
-  };
-  const newBlockId = dataStore.content.addChild(listItem.sid, newParagraph, listItem.content.length);
-  const emptyTextId = dataStore.content.addChild(newBlockId, { stype: 'inline-text', text: '' } as any, 0);
+  // Either end of the item: a blank bullet, of the same kind of block the item
+  // is written in, so that carrying on typing behaves the same as the line above.
+  const blankBlockId = dataStore.content.addChild(
+    listItem.sid,
+    { stype: blockStype, attributes: {}, content: [] as string[] },
+    listItem.content.length
+  );
+  const emptyTextId = dataStore.content.addChild(blankBlockId, { stype: 'inline-text', text: '' } as any, 0);
+  const newListItemId = itemAt(cut.at === 'end' ? listItemIndex + 1 : listItemIndex, blankBlockId);
 
-  const newListItemNode = {
-    stype: 'listItem',
-    content: [] as string[]
-  };
-  const newListItemId = dataStore.content.addChild(listId, newListItemNode, listItemIndex + 1);
-  dataStore.content.moveNode(newBlockId, newListItemId, 0);
-
-  context.lastCreatedBlock = { blockId: newBlockId, firstTextNodeId: emptyTextId };
+  context.lastCreatedBlock = { blockId: blankBlockId, firstTextNodeId: emptyTextId };
   return {
     ok: true,
     data: dataStore.getNode(newListItemId),
-    selectionAfter: { nodeId: emptyTextId, offset: 0 }
+    /**
+     * At the end, the blank bullet is where the reader carries on. At the
+     * start, they are still writing the bullet they were in — which has just
+     * moved down — so the caret stays with its text.
+     */
+    selectionAfter:
+      cut.at === 'end' ? { nodeId: emptyTextId, offset: 0 } : { nodeId: where.textNodeId, offset: 0 }
   };
 });
