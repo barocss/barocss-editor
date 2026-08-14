@@ -174,9 +174,12 @@ const ROSTER: Record<string, Scenario> = {
   // formatting keeps the text and drops one side's marks, which is a caller
   // error rather than a case to assert here — see autoMergeTextNodes.
   mergeTextNodes: { payload: { leftNodeId: 'm-1', rightNodeId: 'm-2' } },
-  autoMergeTextNodes: {
-    payload: { nodeId: 'm-1' },
-    undo: 'a tidy-up: it declares no inverse, and joining runs cannot be undone by splitting them again without knowing where'
+  // It records the runs it swallowed, so it can be taken apart again — see
+  // `restoreTextNodes`, which is its inverse.
+  autoMergeTextNodes: { payload: { nodeId: 'm-1' } },
+  restoreTextNodes: {
+    payload: { nodeId: 'm-1', pieces: [{ sid: 'm-1', length: 6 }, { sid: 'm-2', length: 8 }] },
+    undo: 'its inverse is autoMergeTextNodes, which joins them again — a round trip, and the fixture holds them already apart'
   },
 
   // ── blocks ────────────────────────────────────────────────────────────────

@@ -67,8 +67,8 @@ async function recordRun(seed: number, steps = 8): Promise<Step[]> {
  * whoever runs the suite.
  */
 describe('narrowing the runs that do not come back', () => {
-  /** Distinct minimal failing sequences. Lower this; never raise it. */
-  const DISTINCT = 2;
+  /** Distinct minimal failing sequences. None left; keep it that way. */
+  const DISTINCT = 0;
 
   it(`cuts them down to ${DISTINCT} distinct sequences, and no more`, async () => {
     const minimal = new Map<string, { steps: string[]; seed: number }>();

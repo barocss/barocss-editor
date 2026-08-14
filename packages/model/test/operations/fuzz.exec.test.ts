@@ -681,7 +681,7 @@ describe('one operation, four times over', () => {
 });
 
 /**
- * The whole pool, and how far it is from holding.
+ * The whole pool, which now holds.
  *
  * The run above draws from seven operations whose inverses are known to compose.
  * That is the part that must stay green. This one draws from all thirty-four the
@@ -689,25 +689,18 @@ describe('one operation, four times over', () => {
  * another has not been tested in the way the last three faults were found, and
  * fifty-three of them never had.
  *
- * It does not pass, and pretending otherwise by narrowing the pool is how the
- * fault this whole harness exists for stayed hidden. So it is a ratchet: the
- * number of runs that fail is recorded, and may only go down. Lowering it is the
- * work; raising it is a regression, and either way the number is in front of
- * whoever reads the suite.
+ * It began at 41 of 60 runs failing to undo. Every one of them was an operation
+ * that was wrong — none was a limit of the harness — and the count is now zero:
+ * eight moves drawn at random from thirty-four operations, applied to a document
+ * that has runs, marks, links, a list and a table, undone in reverse, and the
+ * document comes back exactly, sixty times over.
  *
- * What it has found so far, beyond the undo mismatches:
- *
- *   moveChildren loses or gains characters — moving a child out of one parent
- *   and into another does not always move exactly what it took.
- *
- *   delete's inverse can name a node a later operation removed, and throws
- *   rather than declining. That is the cost of naming nodes by id across
- *   separately-undone steps; the editor undoes a transaction as one unit, so it
- *   is a limit of this harness as much as of the operation.
+ * The ratchet stays. Zero is the number to keep, and any run that stops coming
+ * back is an operation that has stopped being able to undo itself.
  */
 describe('the whole pool', () => {
   /** Runs that did not come back. Lower this; never raise it. */
-  const FAILING = 7;
+  const FAILING = 0;
   const SEEDS = 60;
 
   it(`does not come back from ${FAILING} of ${SEEDS} runs, and no more`, async () => {
