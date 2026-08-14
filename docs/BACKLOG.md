@@ -67,6 +67,25 @@ Each of these is in `src/formatting.ts` with a comment saying what it is for.
   spans a range of characters and an attribute belongs to a run, and Word's own
   model is the run.
 
+### The spike — what a document with no text in it found
+
+`packages/editor-core/test/spike-no-caret.test.ts` stands an `Editor` up on the
+Figma-like schema — boxes with coordinates, nothing that can hold a caret — and
+records what works and what does not. It is a measurement kept as a test, so the
+answer stays true rather than being taken once and remembered wrong.
+
+**Works already, with no selection at all:** boots, holds the document, runs an
+operation that names its target, and undoes it. The document layer is not
+text-shaped.
+
+- [ ] **A selection cannot name more than one node.** `SelectionManager.setNode`
+  takes exactly one, and `ModelSelection` has no shape for a set — the type is
+  start/end and offsets. Marquee three boxes and align them is the first thing a
+  page builder does and the first thing this cannot express. **The first thing
+  phase 2 has to answer.**
+- [ ] **`editor.selection` is read-only**, so every product goes through the
+  caret-shaped manager to set one. Fine while there is one shape of selection.
+
 ### Structure — from the roadmap's phase 1
 
 - [ ] **`ModelSelection` lives in the editing layer and the document layer
