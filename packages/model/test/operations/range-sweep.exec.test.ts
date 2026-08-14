@@ -44,7 +44,7 @@ const makeSchema = () =>
 
 function buildDocument(dataStore: DataStore): void {
   const set = (node: Partial<INode>) => dataStore.setNode(node as INode);
-  set({ sid: 'doc-1', stype: 'document', content: ['p-1', 'p-2', 'list-1'] });
+  set({ sid: 'doc-1', stype: 'document', content: ['p-1', 'p-2', 'p-3', 'list-1'] });
 
   // 'one' + 'two'(bold) + link('link') + 'end'
   set({ sid: 'p-1', stype: 'paragraph', content: ['r-1', 'r-2', 'l-1', 'r-3'], parentId: 'doc-1' });
@@ -56,6 +56,12 @@ function buildDocument(dataStore: DataStore): void {
 
   set({ sid: 'p-2', stype: 'paragraph', content: ['s-1'], parentId: 'doc-1' });
   set({ sid: 's-1', stype: 'inline-text', text: 'second', parentId: 'p-2' });
+
+  // Indented, so that outdenting has something to take off — an operation that
+  // changes nothing now refuses, and a sweep where every shape is refused tests
+  // nothing.
+  set({ sid: 'p-3', stype: 'paragraph', content: ['ind-1'], parentId: 'doc-1' });
+  set({ sid: 'ind-1', stype: 'inline-text', text: '  indented text', parentId: 'p-3' });
 
   set({ sid: 'list-1', stype: 'list', content: ['li-1'], parentId: 'doc-1' });
   set({ sid: 'li-1', stype: 'listItem', content: ['lp-1'], parentId: 'list-1' });
@@ -73,6 +79,7 @@ type Shape = {
 
 const SHAPES: Shape[] = [
   { what: 'inside one run', startNodeId: 'r-1', startOffset: 1, endNodeId: 'r-1', endOffset: 2 },
+  { what: 'over indented text', startNodeId: 'ind-1', startOffset: 0, endNodeId: 'ind-1', endOffset: 15 },
   { what: 'the whole of a run', startNodeId: 'r-1', startOffset: 0, endNodeId: 'r-1', endOffset: 3 },
   { what: 'across two runs', startNodeId: 'r-1', startOffset: 1, endNodeId: 'r-2', endOffset: 2 },
   { what: 'into a link', startNodeId: 'r-2', startOffset: 1, endNodeId: 'lt-1', endOffset: 2 },

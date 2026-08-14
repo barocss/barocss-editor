@@ -80,7 +80,7 @@ const makeSchema = () =>
 function buildDocument(dataStore: DataStore): void {
   const set = (node: Partial<INode>) => dataStore.setNode(node as INode);
 
-  set({ sid: 'doc-1', stype: 'document', content: ['p-1', 'p-2', 'list-1', 'tbl', 'p-3'] });
+  set({ sid: 'doc-1', stype: 'document', content: ['p-1', 'p-2', 'list-1', 'tbl', 'p-3', 'p-4'] });
 
   set({ sid: 'p-1', stype: 'paragraph', content: ['r-1', 'r-2', 'r-3'], parentId: 'doc-1', attributes: { align: 'left' } });
   set({ sid: 'r-1', stype: 'inline-text', text: 'one', parentId: 'p-1' });
@@ -118,6 +118,10 @@ function buildDocument(dataStore: DataStore): void {
 
   // Two adjacent runs carrying the same formatting, which is the only pair that
   // may be joined without losing what one of them said.
+  // A run that carries an indent, so outdenting has something to take off.
+  set({ sid: 'p-4', stype: 'paragraph', content: ['ind-1'], parentId: 'doc-1' });
+  set({ sid: 'ind-1', stype: 'inline-text', text: '  indented', parentId: 'p-4' });
+
   set({ sid: 'p-3', stype: 'paragraph', content: ['m-1', 'm-2'], parentId: 'doc-1' });
   set({ sid: 'm-1', stype: 'inline-text', text: 'joined', parentId: 'p-3' });
   set({ sid: 'm-2', stype: 'inline-text', text: 'together', parentId: 'p-3' });
@@ -189,8 +193,12 @@ const ROSTER: Record<string, Scenario> = {
   moveBlockDown: { payload: { nodeId: 'p-1' } },
   indentNode: { payload: { nodeId: 'li-2' }, undo: 'declares no inverse' },
   outdentNode: { payload: { nodeId: 'li-2' }, undo: 'declares no inverse' },
-  indentText: { payload: { range: { startNodeId: 'r-1', startOffset: 0, endNodeId: 'r-1', endOffset: 0 } } },
-  outdentText: { payload: { range: { startNodeId: 'r-1', startOffset: 0, endNodeId: 'r-1', endOffset: 0 } } },
+  // A range with text in it: indenting an empty stretch changes nothing,
+  // and an operation that changes nothing is now refused rather than reported
+  // as done.
+  indentText: { payload: { range: { startNodeId: 'r-1', startOffset: 0, endNodeId: 'r-1', endOffset: 3 } }, changesText: true },
+  // Indented text, so there is something to take off. See `indentText`.
+  outdentText: { payload: { range: { startNodeId: 'ind-1', startOffset: 0, endNodeId: 'ind-1', endOffset: 8 } }, changesText: true },
 
   // ── the tree ──────────────────────────────────────────────────────────────
   addChild: { payload: { parentId: 'p-1', child: { stype: 'inline-text', text: 'added' }, position: 3 } },

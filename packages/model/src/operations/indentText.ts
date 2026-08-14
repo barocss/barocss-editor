@@ -39,7 +39,20 @@ defineOperation('indentText', async (operation: { payload: IndentTextOperationPa
       if (typeof startOffset !== 'number' || typeof endOffset !== 'number') {
         throw new Error('Invalid range');
       }
+      /**
+       * A range this leaves unchanged is not something to undo.
+       *
+       * Outdenting text that carries no indent, or indenting an empty stretch,
+       * changed nothing, reported success, and handed back an `outdentText`
+       * inverse — so undo removed one that was never added.
+       * The eighth operation here found succeeding at nothing and describing it
+       * as something.
+       */
+      const textBefore = context.dataStore.range.extractText({ type: 'range' as const, ...range });
       const result = context.dataStore.range.indent(range, indent);
+      if (result === textBefore) {
+        return { ok: false, error: 'indentText: the range is unchanged by this' };
+      }
       return {
         ok: true,
         data: result,

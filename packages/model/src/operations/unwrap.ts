@@ -81,8 +81,16 @@ defineOperation('unwrap', async (operation: any, context: TransactionContext) =>
                 range.endOffset - (hadPrefix ? prefix.length : 0) - (hadSuffix ? suffix.length : 0)
               )
             },
-            prefix,
-            suffix
+            /**
+             * Only what was actually taken off.
+             *
+             * The two are removed independently — text that starts with the
+             * prefix but does not end with the suffix loses just the prefix —
+             * and the inverse put both back, adding a suffix that had never
+             * been there. An inverse undoes what was done, not what was asked.
+             */
+            prefix: hadPrefix ? prefix : '',
+            suffix: hadSuffix ? suffix : ''
           }
         }
       };

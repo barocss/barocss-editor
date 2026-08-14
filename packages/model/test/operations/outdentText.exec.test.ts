@@ -33,7 +33,17 @@ describe('outdentText operation (exec)', () => {
     expect(node?.text).toContain('B');
   });
 
-  it('outdents cross-node range', async () => {
+  /**
+   * Known not to work, and it used to look as though it did.
+   *
+   * Reading a range that spans two runs returns nothing here, so the operation
+   * had nothing to work on, changed nothing, and returned the empty string —
+   * which satisfied `typeof result.data === 'string'`. It refuses now, because
+   * an operation that changes nothing must not hand back an inverse for it.
+   * What is left is the cross-node read, which is the iterator's business; the
+   * same limit is recorded in unwrap.exec.test.ts.
+   */
+  it.fixme('outdents cross-node range', async () => {
     dataStore.setNode({ sid: 'a', stype: 'inline-text', text: '\tX' });
     dataStore.setNode({ sid: 'b', stype: 'inline-text', text: '\tY' });
     const op = globalOperationRegistry.get('outdentText');

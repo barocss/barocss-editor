@@ -132,10 +132,16 @@ const MOVES: Step[] = [
  * printed so the next one to look at is in front of whoever runs the suite.
  */
 describe('narrowing', () => {
-  /** Operations whose own inverse does not put the document back. Lower this. */
-  const ALONE = 2;
+  /**
+   * Operations whose own inverse does not put the document back. Lower this.
+   *
+   * One left: `autoMergeTextNodes` declares no inverse, and cannot sensibly —
+   * it joins a run of nodes and splitting them again would need to know where
+   * each join was. The roster records that as a decision.
+   */
+  const ALONE = 1;
   /** Ordered pairs that do not, where each alone does. Lower this. */
-  const PAIRS = 1;
+  const PAIRS = 0;
 
   it(`${ALONE} operations do not undo themselves, and no more`, async () => {
     const bad: string[] = [];
