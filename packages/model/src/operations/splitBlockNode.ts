@@ -13,11 +13,15 @@ import type { TransactionContext } from '../types';
  */
 
 defineOperation('splitBlockNode', async (operation: any, context: TransactionContext) => {
-  const { nodeId, splitPosition, newNodeAttributes } = operation.payload;
+  const { nodeId, splitPosition, newNodeAttributes, newNodeId: wantedId } = operation.payload;
   const node = context.dataStore.getNode(nodeId);
   if (!node) throw new Error(`Node not found: ${nodeId}`);
   if (!Array.isArray(node.content)) throw new Error('Node has no content to split');
-  const newNodeId = context.dataStore.splitMerge.splitBlockNode(nodeId, splitPosition);
+  /**
+   * `wantedId` is how a merge asks for its own block back — see `splitTextNode`
+   * for the same arrangement one level down.
+   */
+  const newNodeId = context.dataStore.splitMerge.splitBlockNode(nodeId, splitPosition, wantedId);
 
   /**
    * What the new block's own attributes were, when the caller knows.

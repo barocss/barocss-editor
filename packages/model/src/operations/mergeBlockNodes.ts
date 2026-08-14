@@ -94,7 +94,10 @@ defineOperation('mergeBlockNodes', async (operation: any, context: TransactionCo
             payload: {
               nodeId: mergedNodeId,
               splitPosition: leftChildrenCount,
-              newNodeAttributes: rightAttributes
+              newNodeAttributes: rightAttributes,
+              // And the id this merge consumed, so that an inverse collected
+              // before it can still find the block it names.
+              newNodeId: rightNodeId
             }
           }
         })

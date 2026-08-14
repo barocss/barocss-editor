@@ -1574,8 +1574,8 @@ export class DataStore {
   /**
    * 블록 노드를 지정된 위치에서 분할
    */
-  splitBlockNode(nodeId: string, splitPosition: number): string {
-    return this.splitMerge.splitBlockNode(nodeId, splitPosition);
+  splitBlockNode(nodeId: string, splitPosition: number, newNodeId?: string): string {
+    return this.splitMerge.splitBlockNode(nodeId, splitPosition, newNodeId);
   }
 
   /**

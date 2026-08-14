@@ -30,7 +30,21 @@ defineOperation('moveNode', async (operation: any, context: TransactionContext) 
   return {
     ok: true,
     data: context.dataStore.getNode(nodeId),
-    inverse: { type: 'moveNode', payload: { nodeId, newParentId: prevParentId, position: prevPosition } }
+    /**
+     * Back where it came from — or out again, if it came from nowhere.
+     *
+     * A node that has been removed from its parent still exists; moving it into
+     * a new one adopts it. There is then no previous parent to name, and the
+     * inverse carried `newParentId: undefined`, which is not a move anywhere:
+     * undo did nothing and the node stayed where the move had put it.
+     *
+     * Taking it out again is the actual reverse of adopting it, and leaves it
+     * as it was found — parentless, and still in the store.
+     */
+    inverse:
+      prevParentId && typeof prevPosition === 'number' && prevPosition >= 0
+        ? { type: 'moveNode', payload: { nodeId, newParentId: prevParentId, position: prevPosition } }
+        : { type: 'removeChild', payload: { parentId: newParentId, childId: nodeId } }
   };
 });
 

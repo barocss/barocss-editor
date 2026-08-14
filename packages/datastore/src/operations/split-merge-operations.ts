@@ -252,7 +252,7 @@ export class SplitMergeOperations {
    * @param splitPosition 분할 위치 (0-based, content 배열 인덱스)
    * @returns 새로 생성된 오른쪽 블록 노드의 ID
    */
-  splitBlockNode(nodeId: string, splitPosition: number): string {
+  splitBlockNode(nodeId: string, splitPosition: number, newNodeId?: string): string {
     const node = this.dataStore.getNode(nodeId);
     if (!node) {
       throw new Error(`Node not found: ${nodeId}`);
@@ -278,21 +278,29 @@ export class SplitMergeOperations {
       parentId: node.parentId
     };
 
-    const newNodeId = this.dataStore.generateId();
-    newNode.sid = newNodeId;
+    /**
+     * The id the right-hand block is to carry, when the caller names one.
+     *
+     * A fresh id is right for a reader dividing a paragraph. It is wrong when
+     * this split is undoing a *merge*: the merge consumed a block, and every
+     * inverse collected before it that names that block can no longer find it.
+     * The same fault, and the same answer, as `splitTextNode`.
+     */
+    const assignedId = newNodeId ?? this.dataStore.generateId();
+    newNode.sid = assignedId;
     this.dataStore.setNode(newNode, false);
 
     // Split child nodes
     const rightChildren = node.content.splice(splitPosition);
     // Policy: include right children in new node
     newNode.content = rightChildren;
-    this.dataStore.updateNode(newNodeId, { content: rightChildren } as Partial<INode>, false);
+    this.dataStore.updateNode(assignedId, { content: rightChildren } as Partial<INode>, false);
 
     // Update parent ID of right children
     for (const childId of rightChildren) {
       const child = this.dataStore.getNode(childId as string);
       if (child) {
-        this.dataStore.updateNode(childId as string, { parentId: newNodeId } as Partial<INode>, false);
+        this.dataStore.updateNode(childId as string, { parentId: assignedId } as Partial<INode>, false);
       }
     }
 
@@ -306,13 +314,13 @@ export class SplitMergeOperations {
         const currentIndex = parent.content.indexOf(nodeId);
         if (currentIndex !== -1) {
           const newContent = [...parent.content];
-          newContent.splice(currentIndex + 1, 0, newNodeId);
+          newContent.splice(currentIndex + 1, 0, assignedId);
           this.dataStore.updateNode(parent.sid!, { content: newContent }, false);
         }
       }
     }
 
-    return newNodeId;
+    return assignedId;
   }
 
   /**
