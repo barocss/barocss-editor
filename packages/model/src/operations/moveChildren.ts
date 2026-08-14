@@ -18,18 +18,51 @@ defineOperation('moveChildren', async (operation: any, context: TransactionConte
   const to = context.dataStore.getNode(toParentId);
   if (!from) throw new Error(`Parent not found: ${fromParentId}`);
   if (!to) throw new Error(`Parent not found: ${toParentId}`);
-  // capture previous positions for inverse
+  /**
+   * Where each child actually is, before anything moves.
+   *
+   * The payload says which parent they are being taken from, and that was
+   * believed rather than checked: naming a parent they are not in moved them
+   * anyway, and the inverse — built from the name — sent them back to a parent
+   * they had never been in. Undo put the document somewhere it had never been.
+   *
+   * A child that is not in the named parent is the caller being wrong about the
+   * document, so it is refused. `moveChildren(from, to, ids)` means *these
+   * children of `from`*, and there is no reading of it that covers a child of
+   * something else.
+   */
   const prevPositions = (childIds || []).map((id: string) => {
-    const parentId = (context.dataStore.getNode(id) as any)?.parentId;
+    const declared = (context.dataStore.getNode(id) as any)?.parentId;
+    const parentId = declared ? context.dataStore.resolveAlias(declared) : declared;
     const parent = parentId ? (context.dataStore.getNode(parentId) as any) : undefined;
     const pos = Array.isArray(parent?.content) ? parent.content.indexOf(id) : undefined;
     return { childId: id, prevParentId: parentId, prevPosition: pos };
   });
+
+  const strays = prevPositions.filter((one: any) => one.prevParentId !== context.dataStore.resolveAlias(fromParentId));
+  if (strays.length > 0) {
+    return {
+      ok: false,
+      error:
+        `moveChildren: ${strays.map((one: any) => one.childId).join(', ')} ` +
+        `${strays.length === 1 ? 'is' : 'are'} not in ${fromParentId}`
+    };
+  }
   context.dataStore.content.moveChildren(fromParentId, toParentId, childIds, position);
   return {
     ok: true,
     data: { fromParent: context.dataStore.getNode(fromParentId), toParent: context.dataStore.getNode(toParentId) },
-    inverse: { type: 'moveChildren', payload: { fromParentId: toParentId, toParentId: fromParentId, childIds, position: prevPositions[0]?.prevPosition } }
+    // Back where they came from, at the index the first of them held — which
+    // is now a reading of the document rather than a repetition of the payload.
+    inverse: {
+      type: 'moveChildren',
+      payload: {
+        fromParentId: toParentId,
+        toParentId: fromParentId,
+        childIds,
+        position: prevPositions[0]?.prevPosition
+      }
+    }
   };
 });
 

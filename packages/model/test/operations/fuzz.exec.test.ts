@@ -751,6 +751,8 @@ describe('the whole pool', () => {
       }
     }
 
+    // eslint-disable-next-line no-console
+    console.log(`  wide pool: ${failures.length} / ${SEEDS} runs did not come back`);
     expect(
       failures.length,
       `되돌아오지 않는 run 이 ${failures.length}개입니다 (기준 ${FAILING}). ` +

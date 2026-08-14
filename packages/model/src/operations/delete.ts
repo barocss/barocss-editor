@@ -24,7 +24,16 @@ defineOperation('delete',
           // Policy: root node cannot be deleted
           throw new Error('Cannot delete root node');
         }
-        throw new Error(`Node with id '${nodeId}' not found`);
+        /**
+         * Already gone, which is what was asked for.
+         *
+         * This threw, and a throw inside a transaction abandons every operation
+         * beside it — so undoing a run in which something else had removed this
+         * node took the rest of the undo down with it. There is nothing here to
+         * damage and nothing to do: declining says so without ending the
+         * transaction.
+         */
+        return { ok: false, error: `delete: node '${nodeId}' is not there` };
       }
 
       // Policy: root node cannot be deleted

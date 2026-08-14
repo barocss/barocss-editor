@@ -183,13 +183,23 @@ describe('delete operation', () => {
     expect(dataStore.getRootNodeId()).toBe('root-node');
   });
 
-  it('should throw error if node not found', async () => {
+  /**
+   * Declines rather than throws when the node is already gone.
+   *
+   * A throw inside a transaction abandons every operation beside it, so undoing
+   * a run in which something else had removed this node took the rest of the
+   * undo down with it. There is nothing here to damage and nothing to do.
+   */
+  it('declines when the node is not there', async () => {
     const deleteOperation = globalOperationRegistry.get('delete');
-    
-    await expect(deleteOperation!.execute({
+
+    const result: any = await deleteOperation!.execute({
       type: 'delete',
       payload: { nodeId: 'non-existent-node' }
-    } as any, context)).rejects.toThrow('Node with id \'non-existent-node\' not found');
+    } as any, context);
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain('non-existent-node');
   });
 
          describe('Selection mapping', () => {
