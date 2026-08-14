@@ -67,6 +67,23 @@ Each of these is in `src/formatting.ts` with a comment saying what it is for.
   spans a range of characters and an attribute belongs to a run, and Word's own
   model is the run.
 
+### Slides — the second product
+
+Chosen because the pieces were already there and because it is the one product
+that forces a caret selection and a node selection to coexist. `packages/office-slides`.
+
+- [x] **Schema.** Needed no new node type: a deck uses six stypes and all six are
+  Word's. See below.
+- [ ] **Multi-node selection** — the spike's finding, and the first thing a slide
+  editor needs that Word never did.
+- [ ] **Renderers** for a slide surface: absolute placement from `geometry`,
+  `zOrder`, and the scene nodes Word never drew.
+- [ ] **Direct manipulation** — drag and resize handles, alongside the caret that
+  still has to work inside a `textFrame`.
+- [ ] **A deck shell** — slide list, present mode — sharing `apps/word`'s chrome
+  rather than copying it. What gets copied is the measurement of what the kit is
+  missing.
+
 ### The spike — what a document with no text in it found
 
 `packages/editor-core/test/spike-no-caret.test.ts` stands an `Editor` up on the
