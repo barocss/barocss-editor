@@ -1,0 +1,788 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22><text y=%2226%22 font-size=%2226%22>📐</text></svg>">
+<title>Barocss Suite</title>
+<style>
+</head>
+<body>
+  /* ── Palette ──────────────────────────────────────────────────────────────
+     Taken from the product's own chrome rather than invented: the cool greys
+     are the app's page background, the blue is the one the outline pane marks
+     the caret's section with, the amber is the comment count.               */
+  :root {
+    --ground: #eef1f4;
+    --surface: #ffffff;
+    --surface-2: #f7f9fa;
+    --rule: #d8dee4;
+    --rule-soft: #e6ebef;
+    --ink: #10161c;
+    --ink-2: #40505e;
+    --ink-3: #6b7c8a;
+    --accent: #1864ab;
+    --accent-soft: #e4f0fa;
+    --warn: #a55f00;
+    --warn-soft: #fbf0dc;
+    --good: #14683f;
+    --good-soft: #e0f2e7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+      --ground: #0d1216;
+      --surface: #141c22;
+      --surface-2: #101820;
+      --rule: #27333c;
+      --rule-soft: #1d272e;
+      --ink: #e6edf3;
+      --ink-2: #a8b8c4;
+      --ink-3: #788894;
+      --accent: #6cb2eb;
+      --accent-soft: #14293c;
+      --warn: #e0a458;
+      --warn-soft: #2e2416;
+      --good: #5cc48d;
+      --good-soft: #12291d;
+    }
+  }
+  :root[data-theme='dark'] {
+    --ground: #0d1216;
+    --surface: #141c22;
+    --surface-2: #101820;
+    --rule: #27333c;
+    --rule-soft: #1d272e;
+    --ink: #e6edf3;
+    --ink-2: #a8b8c4;
+    --ink-3: #788894;
+    --accent: #6cb2eb;
+    --accent-soft: #14293c;
+    --warn: #e0a458;
+    --warn-soft: #2e2416;
+    --good: #5cc48d;
+    --good-soft: #12291d;
+  }
+
+  /* ── Type ─────────────────────────────────────────────────────────────────
+     No webfont: the CSP blocks a CDN and inlining one costs more than it buys
+     for a reference document. What carries the identity instead is the split
+     between the two families — every measurement in this page is set in the
+     mono face, so a number reads as a number that was taken rather than
+     chosen.                                                                */
+  :root {
+    --sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
+      'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+    --mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 24px 96px;
+  }
+
+  /* ── Masthead ─────────────────────────────────────────────────────────── */
+  header.masthead {
+    padding: 72px 0 40px;
+    border-bottom: 2px solid var(--ink);
+    margin-bottom: 8px;
+  }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin: 0 0 20px;
+  }
+  h1 {
+    margin: 0;
+    font-size: clamp(40px, 7vw, 76px);
+    line-height: .96;
+    letter-spacing: -.035em;
+    font-weight: 680;
+    text-wrap: balance;
+  }
+  .standfirst {
+    margin: 20px 0 0;
+    max-width: 62ch;
+    font-size: 18px;
+    color: var(--ink-2);
+    text-wrap: pretty;
+  }
+  .masthead-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 28px;
+    margin-top: 28px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink-3);
+  }
+  .masthead-meta b { color: var(--ink-2); font-weight: 500; }
+
+  /* ── Section scaffolding ──────────────────────────────────────────────────
+     Numbered because the content is genuinely ordered and cross-referenced:
+     the phases run in sequence and each question is answered by name below. */
+  section { padding-top: 64px; }
+  .sec-head {
+    display: grid;
+    grid-template-columns: 3.5rem 1fr;
+    gap: 0 20px;
+    align-items: baseline;
+    border-top: 1px solid var(--rule);
+    padding-top: 18px;
+  }
+  .sec-num {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--accent);
+    letter-spacing: .04em;
+  }
+  h2 {
+    margin: 0;
+    font-size: clamp(24px, 3.4vw, 34px);
+    line-height: 1.14;
+    letter-spacing: -.022em;
+    font-weight: 640;
+    text-wrap: balance;
+  }
+  .sec-body { grid-column: 2; }
+  @media (max-width: 720px) {
+    .sec-head { grid-template-columns: 1fr; gap: 6px; }
+    .sec-body { grid-column: 1; }
+  }
+
+  h3 {
+    margin: 40px 0 10px;
+    font-size: 17px;
+    letter-spacing: -.01em;
+    font-weight: 640;
+  }
+  p { margin: 0 0 16px; max-width: 68ch; text-wrap: pretty; }
+  .lede { font-size: 17px; color: var(--ink-2); }
+
+  strong { font-weight: 640; }
+  code, .n {
+    font-family: var(--mono);
+    font-size: .89em;
+    font-variant-numeric: tabular-nums;
+  }
+  code {
+    background: var(--surface-2);
+    border: 1px solid var(--rule-soft);
+    border-radius: 3px;
+    padding: .08em .34em;
+  }
+
+  /* ── The verdict line under each question ─────────────────────────────── */
+  .verdict {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    margin: 22px 0 26px;
+    padding: 16px 18px;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent);
+    border-radius: 3px;
+    max-width: 68ch;
+  }
+  .verdict p { margin: 0; font-size: 16.5px; }
+  .verdict .mark {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .1em;
+    color: var(--accent);
+    padding-top: 4px;
+    white-space: nowrap;
+  }
+
+  /* ── Measured figures ─────────────────────────────────────────────────────
+     The document's promise is that every claim has a number behind it, so the
+     numbers are the one thing set large.                                    */
+  .figures {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    margin: 26px 0 30px;
+    overflow: hidden;
+  }
+  .fig { background: var(--surface); padding: 18px 20px 20px; }
+  .fig-n {
+    font-family: var(--mono);
+    font-size: 30px;
+    line-height: 1.1;
+    letter-spacing: -.03em;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+  }
+  .fig-n.is-zero { color: var(--good); }
+  .fig-n.is-wall { color: var(--warn); }
+  .fig-l { margin-top: 6px; font-size: 13px; color: var(--ink-3); line-height: 1.45; }
+
+  /* ── Tables ───────────────────────────────────────────────────────────── */
+  .scroller {
+    overflow-x: auto;
+    margin: 26px 0 30px;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--surface);
+  }
+  table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 14px; }
+  th, td {
+    text-align: left;
+    padding: 11px 16px;
+    border-bottom: 1px solid var(--rule-soft);
+    vertical-align: top;
+  }
+  thead th {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--rule);
+    white-space: nowrap;
+  }
+  tbody tr:last-child td { border-bottom: 0; }
+  td.name { font-weight: 600; white-space: nowrap; }
+  td .pkg { font-family: var(--mono); font-size: 12.5px; color: var(--ink-2); }
+
+  /* State pills — the same three states the matrix is really about. */
+  .pill {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .04em;
+    padding: 2px 7px;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+  .pill.done { background: var(--good-soft); color: var(--good); }
+  .pill.near { background: var(--accent-soft); color: var(--accent); }
+  .pill.new { background: var(--warn-soft); color: var(--warn); }
+
+  /* ── The wall ─────────────────────────────────────────────────────────── */
+  .wall {
+    margin: 30px 0;
+    padding: 22px 24px;
+    background: var(--warn-soft);
+    border: 1px solid color-mix(in srgb, var(--warn) 28%, transparent);
+    border-radius: 3px;
+  }
+  .wall h3 { margin-top: 0; color: var(--warn); }
+  .wall blockquote {
+    margin: 14px 0;
+    padding-left: 16px;
+    border-left: 2px solid color-mix(in srgb, var(--warn) 45%, transparent);
+    font-size: 15.5px;
+    color: var(--ink-2);
+  }
+
+  /* ── Phases ───────────────────────────────────────────────────────────── */
+  ol.phases { list-style: none; margin: 26px 0 0; padding: 0; counter-reset: phase; }
+  ol.phases > li {
+    counter-increment: phase;
+    display: grid;
+    grid-template-columns: 3.5rem 1fr;
+    gap: 0 20px;
+    padding: 22px 0;
+    border-top: 1px solid var(--rule-soft);
+  }
+  ol.phases > li::before {
+    content: 'P' counter(phase);
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--accent);
+    padding-top: 2px;
+  }
+  .phase-t { font-size: 18px; font-weight: 640; letter-spacing: -.012em; margin: 0 0 6px; }
+  .phase-d { margin: 0 0 10px; color: var(--ink-2); max-width: 64ch; }
+  .done-when {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--ink-3);
+    max-width: 64ch;
+  }
+  .done-when b { color: var(--accent); font-weight: 500; }
+  @media (max-width: 720px) {
+    ol.phases > li { grid-template-columns: 1fr; gap: 4px; }
+  }
+
+  /* ── Risks ────────────────────────────────────────────────────────────── */
+  ul.risks { list-style: none; margin: 24px 0 0; padding: 0; }
+  ul.risks li {
+    padding: 16px 0 16px 22px;
+    border-top: 1px solid var(--rule-soft);
+    position: relative;
+    max-width: 72ch;
+  }
+  ul.risks li::before {
+    content: '?';
+    position: absolute;
+    left: 0;
+    top: 16px;
+    font-family: var(--mono);
+    color: var(--warn);
+  }
+  ul.risks b { display: block; margin-bottom: 3px; }
+
+  footer {
+    margin-top: 84px;
+    padding-top: 22px;
+    border-top: 2px solid var(--ink);
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink-3);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 26px;
+  }
+
+  a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+
+<div class="page">
+
+<header class="masthead">
+  <p class="eyebrow">Roadmap · measured 2026-08-14</p>
+  <h1>Barocss Suite</h1>
+  <p class="standfirst">
+    One document engine, several products. Three questions decide whether that is
+    a plan or a wish — and each is answered here from what the repository
+    contains, not from what it could contain.
+  </p>
+  <div class="masthead-meta">
+    <span><b>19</b> packages</span>
+    <span><b>~85,000</b> lines of source</span>
+    <span><b>5</b> apps</span>
+    <span><b>1</b> product shipped</span>
+  </div>
+</header>
+
+<section>
+  <div class="sec-head">
+    <span class="sec-num">00</span>
+    <h2>Where this stands</h2>
+    <div class="sec-body">
+      <p class="lede">
+        What matters is not the size but the shape. Six layers, each knowing only
+        about the ones beneath it — except where the manifests say otherwise, which
+        is question one.
+      </p>
+    </div>
+  </div>
+  <div class="sec-body">
+    <div class="scroller">
+      <table>
+        <thead>
+          <tr><th>Layer</th><th>Packages</th><th>Knows about</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="name">Substrate</td>
+            <td class="pkg">shared · dsl · schema</td>
+            <td>Nothing above it</td>
+          </tr>
+          <tr>
+            <td class="name">Document</td>
+            <td class="pkg">datastore · model</td>
+            <td>The schema</td>
+          </tr>
+          <tr>
+            <td class="name">Rendering</td>
+            <td class="pkg">renderer-dom · renderer-react</td>
+            <td>The DSL</td>
+          </tr>
+          <tr>
+            <td class="name">Editing</td>
+            <td class="pkg">editor-core · editor-view-dom · editor-view-react · extensions · dom-observer · text-analyzer</td>
+            <td>The document and a renderer</td>
+          </tr>
+          <tr>
+            <td class="name">Product</td>
+            <td class="pkg">office-word</td>
+            <td>All of it</td>
+          </tr>
+          <tr>
+            <td class="name">Services</td>
+            <td class="pkg">collaboration · -yjs · -liveblocks · converter · devtool</td>
+            <td>The document</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      Every package already declares <code>exports</code> and types, carries a
+      version, and none is <code>private</code>. Nothing structural stops them
+      being published today.
+    </p>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <span class="sec-num">01</span>
+    <h2>Can the core be opened as a library?</h2>
+  </div>
+  <div class="sec-body">
+    <div class="verdict">
+      <span class="mark">MEASURED</span>
+      <p>
+        <strong>Structurally yes — and closer than the manifests suggest.</strong>
+        The dependency graph looks cyclic and is not.
+      </p>
+    </div>
+
+    <div class="figures">
+      <div class="fig">
+        <div class="fig-n is-zero">0</div>
+        <div class="fig-l">Real cycles in the source</div>
+      </div>
+      <div class="fig">
+        <div class="fig-n">2</div>
+        <div class="fig-l">Cycles that exist only in <code>package.json</code></div>
+      </div>
+      <div class="fig">
+        <div class="fig-n">11 → 3</div>
+        <div class="fig-l"><code>model</code> imports from <code>editor-core</code>; eight are already <code>import type</code></div>
+      </div>
+      <div class="fig">
+        <div class="fig-n is-zero">0</div>
+        <div class="fig-l">Of those three used as a value — all are type positions missing a keyword</div>
+      </div>
+    </div>
+
+    <p>
+      <code>editor-core</code> declares <code>extensions</code> and
+      <code>renderer-dom</code> as dependencies and <strong>imports neither</strong>.
+      <code>model</code> reaches up to <code>editor-core</code> eleven times, and
+      every one of them is a type. What is left is a naming problem:
+      <code>ModelSelection</code> is a document concept living in the editing layer.
+    </p>
+
+    <h3>What “React-like” would mean here</h3>
+    <p>
+      React ships one idea — a tree reconciled into a host — and lets the host be
+      a DOM, a canvas, a terminal. This repository already has that shape:
+      <code>dsl</code> is the template language with no host,
+      <code>renderer-dom</code> is one host and <code>renderer-react</code> another,
+      and the document layer is independent of both.
+    </p>
+    <p>
+      What is <em>not</em> React-like: <code>editor-core</code> assumes a text
+      editor — a caret, a selection, contenteditable. A page builder or a
+      spreadsheet wants the document layer and a renderer and none of that.
+    </p>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <span class="sec-num">02</span>
+    <h2>Can one schema carry all of them?</h2>
+  </div>
+  <div class="sec-body">
+    <div class="verdict">
+      <span class="mark">MEASURED</span>
+      <p>
+        <strong>The schema yes; the renderer and the input no.</strong> And the
+        division is not DOM versus canvas — it is whether the browser can be asked
+        where the text goes.
+      </p>
+    </div>
+
+    <p>
+      <code>packages/schema</code> already holds three schemas: a general document,
+      Word’s, and a Figma-like one —
+      <code>DOCUMENT → PAGE → FRAME | RECTANGLE | TEXT | COMPONENT</code>, written
+      and marked <em>reference only</em>. Somebody already answered the
+      node-and-attribute half of this question in the affirmative.
+    </p>
+
+    <div class="scroller">
+      <table>
+        <thead>
+          <tr><th>Product</th><th>Schema</th><th>Renderer</th><th>Input</th><th>Layout</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="name">Word</td>
+            <td><span class="pill done">done</span></td>
+            <td><span class="pill done">done</span></td>
+            <td><span class="pill done">done</span></td>
+            <td><span class="pill done">done</span></td>
+          </tr>
+          <tr>
+            <td class="name">HTML WYSIWYG <span style="color:var(--ink-3);font-weight:400">(Summernote-like)</span></td>
+            <td><span class="pill done">exists</span></td>
+            <td><span class="pill done">done</span></td>
+            <td><span class="pill done">done</span></td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td class="name">Schema WYSIWYG <span style="color:var(--ink-3);font-weight:400">(ProseMirror-like)</span></td>
+            <td><span class="pill done">this is that</span></td>
+            <td><span class="pill done">done</span></td>
+            <td><span class="pill done">done</span></td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td class="name">Pages <span style="color:var(--ink-3);font-weight:400">(Notion-like)</span></td>
+            <td><span class="pill near">additions</span></td>
+            <td><span class="pill done">done</span></td>
+            <td><span class="pill done">done</span></td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td class="name">Page builder <span style="color:var(--ink-3);font-weight:400">(builder.io-like)</span></td>
+            <td><span class="pill near">additions</span></td>
+            <td><span class="pill done">done</span></td>
+            <td><span class="pill new">new</span> direct manipulation</td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td class="name">Spreadsheet <span style="color:var(--ink-3);font-weight:400">(Excel-like)</span></td>
+            <td><span class="pill near">grid nodes</span></td>
+            <td><span class="pill near">virtualised</span></td>
+            <td><span class="pill new">new</span> 2D ranges</td>
+            <td><span class="pill near">row/col sizing</span></td>
+          </tr>
+          <tr>
+            <td class="name">Design tool <span style="color:var(--ink-3);font-weight:400">(Figma-like)</span></td>
+            <td><span class="pill done">reference exists</span></td>
+            <td><span class="pill new">new</span> canvas</td>
+            <td><span class="pill new">new</span></td>
+            <td><span class="pill new">new</span> text shaping</td>
+          </tr>
+          <tr>
+            <td class="name">Whiteboard <span style="color:var(--ink-3);font-weight:400">(FigJam-like)</span></td>
+            <td><span class="pill done">as Figma</span></td>
+            <td><span class="pill new">as Figma</span></td>
+            <td><span class="pill new">+ presence</span></td>
+            <td><span class="pill new">as Figma</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Three of these need no new layer at all</h3>
+    <p>
+      Summernote-, ProseMirror- and Notion-like products are the same document, the
+      same DOM renderer and the same input path with a different schema and a
+      different set of extensions. The distance is measured in schemas and commands,
+      not in architecture.
+    </p>
+
+    <div class="wall">
+      <h3>The wall is text shaping, not canvas</h3>
+      <p>
+        The renderer is a day’s work — <code>dsl</code> already separates template
+        from host. The problem is underneath it. The file this engine’s pagination
+        is built on opens by saying so:
+      </p>
+      <blockquote>
+        “Character widths, kerning, script shaping and line breaking are all already
+        done — <code>Range.getClientRects()</code> hands back one rectangle per line
+        box, which <em>is</em> the line breaking result. Computing glyph metrics
+        ourselves would be re-deriving an answer the layout engine has already
+        given.”
+        <div style="font-family:var(--mono);font-size:12px;margin-top:8px;color:var(--ink-3)">
+          packages/office-word/src/measurement.ts
+        </div>
+      </blockquote>
+      <p style="margin-bottom:0">
+        On a canvas there is no layout engine to ask. Glyph metrics, kerning pairs,
+        bidi, Hangul and CJK line-breaking rules, ligatures — all of it has to be
+        built. It is the single largest piece of work in this document, and a
+        server-side renderer meets the same wall from the other side. Everything
+        else on the canvas side is ordinary.
+      </p>
+    </div>
+
+    <p>
+      Which makes one prototype worth doing before committing: <strong>a design tool
+      whose text is a DOM overlay</strong> dodges the wall entirely, and takes days
+      rather than months to find out.
+    </p>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <span class="sec-num">03</span>
+    <h2>Can each ship as its own program?</h2>
+  </div>
+  <div class="sec-body">
+    <div class="verdict">
+      <span class="mark">MEASURED</span>
+      <p>
+        <strong>Yes, and the repository is already arranged for it.</strong> What is
+        missing is not packaging but the seam a product plugs into.
+      </p>
+    </div>
+    <p>
+      A product here is six things: a schema, a renderer registration, an extension
+      set, a keymap, a toolbar model, and a shell.
+      <strong>Five of the six are already data</strong> — <code>WORD_TOOLBAR</code>,
+      <code>WORD_KEYBINDINGS</code>, <code>registerWordRenderers</code>, the schema,
+      the extension list. The sixth is written by hand per app, which is why the
+      shell in <code>apps/word</code> is Word’s rather than the kit’s.
+    </p>
+    <p>
+      <code>word-kit.ts</code> is already close to the contract. Naming it, and
+      building a second app that shares the shell, is what turns one product into a
+      suite.
+    </p>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <span class="sec-num">04</span>
+    <h2>The order, and how to know each worked</h2>
+    <div class="sec-body">
+      <p class="lede">
+        Each step is chosen so the next one is cheaper. Phases 1 and 2 are small and
+        unblock everything after them.
+      </p>
+    </div>
+  </div>
+  <div class="sec-body">
+    <ol class="phases">
+      <li>
+        <div>
+          <p class="phase-t">Make the graph honest</p>
+          <p class="phase-d">
+            Move <code>ModelSelection</code> down into <code>schema</code> or
+            <code>shared</code>, add the three missing <code>type</code> keywords,
+            drop the two phantom dependencies.
+          </p>
+          <p class="done-when">
+            <b>Done when</b> every package builds against only the packages below it
+            and the graph is a DAG.
+          </p>
+        </div>
+      </li>
+      <li>
+        <div>
+          <p class="phase-t">Split the editing layer</p>
+          <p class="phase-d">
+            Separate what any product needs — commands, transactions, history,
+            context, keybindings — from what a <em>text</em> product needs: a caret,
+            a selection, contenteditable coordination.
+          </p>
+          <p class="done-when">
+            <b>Done when</b> a package can use commands, history and transactions
+            without importing anything about a caret.
+          </p>
+        </div>
+      </li>
+      <li>
+        <div>
+          <p class="phase-t">A second product</p>
+          <p class="phase-d">
+            The page builder, on the DOM renderer, sharing the shell. This is the
+            step that proves the core is a core — a library nobody has built a second
+            thing with has one user’s assumptions baked into it.
+          </p>
+          <p class="done-when">
+            <b>Done when</b> the shell belongs to no product, and a feature added to
+            the kit appears in both.
+          </p>
+        </div>
+      </li>
+      <li>
+        <div>
+          <p class="phase-t">Publish</p>
+          <p class="phase-d">
+            Versioning, a stability promise for <code>dsl</code> and
+            <code>schema</code> — the two others would build against — and
+            documentation aimed at somebody who has not read this repository.
+          </p>
+          <p class="done-when">
+            <b>Done when</b> a person outside it builds a third product without asking
+            a question the documentation should have answered.
+          </p>
+        </div>
+      </li>
+      <li>
+        <div>
+          <p class="phase-t">Decide about canvas</p>
+          <p class="phase-d">
+            Prototype text-as-DOM-overlay first. Let that decide whether the shaping
+            engine is worth building — on evidence rather than on appetite. This must
+            not start before phase 3 finishes: building a canvas first would prove
+            only that a canvas can be drawn on.
+          </p>
+          <p class="done-when">
+            <b>Done when</b> the decision is made, either way, with a reason attached.
+          </p>
+        </div>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <span class="sec-num">05</span>
+    <h2>What would make this wrong</h2>
+    <div class="sec-body">
+      <p class="lede">
+        Written down so it is checked rather than assumed. Each of these would move a
+        phase, not merely delay one.
+      </p>
+    </div>
+  </div>
+  <div class="sec-body">
+    <ul class="risks">
+      <li>
+        <b>If the schema cannot express a cell reference.</b>
+        A formula points at another node, and this document model has no notion of
+        one node pointing at another except by id in an attribute. That may be
+        enough. Nobody has tried.
+      </li>
+      <li>
+        <b>If collaboration does not survive the split.</b>
+        <code>collaboration</code> is 535 lines against <code>datastore</code>, and
+        the id namespaces were only unified this month. A second product editing
+        concurrently is its first real test.
+      </li>
+      <li>
+        <b>If the operation harness does not generalise.</b>
+        Every operation has an exact inverse and all four ratchets sit at zero — for
+        <em>this</em> schema. A grid, or a canvas transform, is where that discipline
+        either holds or turns out to have been tuned to one document shape.
+      </li>
+    </ul>
+  </div>
+</section>
+
+<footer>
+  <span>Barocss Suite · roadmap</span>
+  <span>docs/ROADMAP.md · docs/BACKLOG.md</span>
+  <span>Claims marked MEASURED were taken from the source, not estimated</span>
+</footer>
+
+</div>
+</body>
+</html>

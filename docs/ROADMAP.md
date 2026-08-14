@@ -5,8 +5,9 @@ plan or a wish, and each is answered from what the repository actually contains
 rather than from what it could contain. Every claim below has a measurement behind it; where
 something is a guess it says so.
 
-Kept beside [BACKLOG.md](./BACKLOG.md), which holds the next thing to do. This
-holds the reason there is a next thing.
+Kept beside [BACKLOG.md](./BACKLOG.md), which holds the next thing to do, and
+[RETROSPECTIVE.md](./RETROSPECTIVE.md), which holds what building the first
+product taught. This holds the reason there is a next thing.
 
 ---
 
