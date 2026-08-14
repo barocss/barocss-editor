@@ -41,6 +41,21 @@ defineOperation('deleteRange', async (operation: any, context: TransactionContex
     throw new Error('DataStore.range.deleteText is not available');
   }
 
+  /**
+   * The marks the run carried, before the deletion rewrites them.
+   *
+   * `deleteTextRange` learned this and this one, its sibling, did not: putting
+   * the characters back does not put the marks back, because the store's rules
+   * for an edit are right for a reader making one and are not reversible.
+   * Deleting the first two letters of a bold word and undoing gave them back
+   * plain.
+   */
+  const startNode = context.dataStore.getNode(startNodeId);
+  const marksBefore =
+    startNodeId === endNodeId && Array.isArray((startNode as any)?.marks)
+      ? JSON.parse(JSON.stringify((startNode as any).marks))
+      : undefined;
+
   const deletedText = context.dataStore.range.deleteText(contentRange);
 
   /**
@@ -62,7 +77,15 @@ defineOperation('deleteRange', async (operation: any, context: TransactionContex
   const withinOneNode = startNodeId === endNodeId;
   const inverse =
     withinOneNode && deletedText
-      ? { type: 'insertText', payload: { nodeId: startNodeId, pos: startOffset, text: deletedText } }
+      ? {
+          type: 'insertText',
+          payload: {
+            nodeId: startNodeId,
+            pos: startOffset,
+            text: deletedText,
+            ...(marksBefore ? { marksAfter: marksBefore } : {})
+          }
+        }
       : undefined;
 
   return {

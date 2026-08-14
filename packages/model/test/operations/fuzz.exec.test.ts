@@ -482,6 +482,21 @@ const ROUND_TRIPS = [
   'splitListItem'
 ];
 
+/**
+ * The same world the runs use, so a minimiser can replay a recorded run against
+ * it without rebuilding any of this by hand.
+ */
+export function buildFuzzWorld() {
+  const schema = makeSchema();
+  const dataStore = new DataStore(undefined, schema);
+  const selectionManager = new SelectionManager({ dataStore });
+  const context = createTransactionContext(dataStore, selectionManager, schema);
+  buildDocument(dataStore);
+  return { schema, dataStore, context };
+}
+export { dieRoll, chooseMove, shapeOf, faultsInTree };
+export type { Move };
+
 describe('random sequences', () => {
   const SEEDS = Array.from({ length: 60 }, (_, index) => index + 1);
   const STEPS = 8;
@@ -692,7 +707,7 @@ describe('one operation, four times over', () => {
  */
 describe('the whole pool', () => {
   /** Runs that did not come back. Lower this; never raise it. */
-  const FAILING = 21;
+  const FAILING = 7;
   const SEEDS = 60;
 
   it(`does not come back from ${FAILING} of ${SEEDS} runs, and no more`, async () => {

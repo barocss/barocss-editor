@@ -36,11 +36,45 @@ defineOperation('wrap', async (operation: any, context: TransactionContext) => {
       if (!endNode) throw new Error(`Node not found: ${endNodeId}`);
       if (typeof startNode.text !== 'string' || typeof endNode.text !== 'string') throw new Error('Range endpoints must be text nodes');
       if (typeof startOffset !== 'number' || typeof endOffset !== 'number') throw new Error('Invalid range');
+      /**
+       * What the run held, and what it carried, before this rewrites it.
+       *
+       * The store edits text by replacing it, which re-derives the marks — right
+       * for a reader making the edit, and not reversible. Undo therefore writes
+       * the original stretch back whole, marks and all, rather than asking the
+       * opposite operation to work it out.
+       */
+      const markedNode = startNodeId === endNodeId ? context.dataStore.getNode(startNodeId) : null;
+      const marksBefore = Array.isArray((markedNode as any)?.marks)
+        ? JSON.parse(JSON.stringify((markedNode as any).marks))
+        : [];
+      const originalText =
+        startNodeId === endNodeId
+          ? ((markedNode as any).text as string).slice(startOffset, endOffset)
+          : null;
       const wrapped = context.dataStore.range.wrap(range, prefix, suffix);
       return {
         ok: true,
         data: wrapped,
-        inverse: { type: 'unwrap', payload: { range: { startNodeId: range.startNodeId, startOffset: range.startOffset, endNodeId: range.endNodeId, endOffset: range.endOffset + prefix.length + suffix.length }, prefix, suffix } }
+        // Written back whole: the range the text now occupies, the text that
+        // was there, and the marks it carried. See the capture above.
+        ...(originalText !== null
+          ? {
+              inverse: {
+                type: 'replaceText',
+                payload: {
+                  range: {
+                    startNodeId,
+                    startOffset,
+                    endNodeId: startNodeId,
+                    endOffset: startOffset + (wrapped ?? '').length
+                  },
+                  newText: originalText,
+                  marksAfter: marksBefore
+                }
+              }
+            }
+          : {})
       };
     }
     const { nodeId, start, end, prefix, suffix } = payload;

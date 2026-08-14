@@ -21,6 +21,19 @@ import type { TransactionContext } from '../types';
  */
 defineOperation('removeMark', async (operation: any, context: TransactionContext) => {
   const { nodeId, markType, range } = operation.payload;
+  /**
+   * What the run carried, so undo can put exactly that back.
+   *
+   * The inverse applied the mark over the range again, and that is not the
+   * reverse of removing it: the mark may have covered more than the range, or
+   * carried attributes, or there may have been several. `applyMark` and
+   * `toggleMark` each had this and each now restores the list, which is short
+   * and on one node.
+   */
+  const marksBefore = (() => {
+    const node = context.dataStore.getNode(nodeId);
+    return Array.isArray((node as any)?.marks) ? JSON.parse(JSON.stringify((node as any).marks)) : [];
+  })();
   
   const node = context.dataStore.getNode(nodeId);
   if (!node) throw new Error(`Node ${nodeId} not found`);
@@ -38,7 +51,7 @@ defineOperation('removeMark', async (operation: any, context: TransactionContext
   return {
     ok: true,
     data: context.dataStore.getNode(nodeId),
-    inverse: { type: 'applyMark', payload: { nodeId, start: range[0], end: range[1], markType } }
+    inverse: { type: 'setMarks', payload: { nodeId, marks: marksBefore } }
   };
 });
 

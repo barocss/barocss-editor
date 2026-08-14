@@ -48,11 +48,37 @@ defineOperation('indentText', async (operation: { payload: IndentTextOperationPa
        * The eighth operation here found succeeding at nothing and describing it
        * as something.
        */
+      /**
+       * What the run held, and what it carried, before this rewrites it.
+       *
+       * The store edits text by replacing it, which re-derives the marks — right
+       * for a reader making the edit, and not reversible. Undo therefore writes
+       * the original stretch back whole, marks and all, rather than asking the
+       * opposite operation to work it out.
+       */
+      const markedNode = startNodeId === endNodeId ? context.dataStore.getNode(startNodeId) : null;
+      const marksBefore = Array.isArray((markedNode as any)?.marks)
+        ? JSON.parse(JSON.stringify((markedNode as any).marks))
+        : [];
+      const originalText =
+        startNodeId === endNodeId
+          ? ((markedNode as any).text as string).slice(startOffset, endOffset)
+          : null;
+      /**
+       * Decided before anything is written.
+       *
+       * The store replaces the range's text whether or not the transform
+       * changed it, and replacing re-derives the marks — so checking
+       * afterwards and refusing left the marks destroyed by an operation
+       * that reported doing nothing.
+       */
       const textBefore = context.dataStore.range.extractText({ type: 'range' as const, ...range });
-      const result = context.dataStore.range.indent(range, indent);
-      if (result === textBefore) {
+      const predicted = textBefore.replace(/(^|\n)/g, (_m, lineStart) => lineStart + indent);
+      if (textBefore.length === 0 || predicted === textBefore) {
         return { ok: false, error: 'indentText: the range is unchanged by this' };
       }
+
+      const result = context.dataStore.range.indent(range, indent);
       return {
         ok: true,
         data: result,
@@ -65,16 +91,25 @@ defineOperation('indentText', async (operation: { payload: IndentTextOperationPa
          * inverse covered the wrong text — too little after an indent, too much
          * after an outdent.
          */
-        inverse: {
-          type: 'outdentText',
-          payload: {
-            range:
-              startNodeId === endNodeId
-                ? { startNodeId, startOffset, endNodeId, endOffset: startOffset + (result ?? '').length }
-                : range,
-            indent
-          }
-        }
+        // Written back whole: the range the text now occupies, the text that
+        // was there, and the marks it carried. See the capture above.
+        ...(originalText !== null
+          ? {
+              inverse: {
+                type: 'replaceText',
+                payload: {
+                  range: {
+                    startNodeId,
+                    startOffset,
+                    endNodeId: startNodeId,
+                    endOffset: startOffset + (result ?? '').length
+                  },
+                  newText: originalText,
+                  marksAfter: marksBefore
+                }
+              }
+            }
+          : {})
       };
     }
     
