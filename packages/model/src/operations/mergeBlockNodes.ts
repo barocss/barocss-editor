@@ -1,5 +1,6 @@
 import { defineOperation } from './define-operation';
 import type { TransactionContext } from '../types';
+import { lastTextNodeIn } from './split-at-caret';
 
 /**
  * mergeBlockNodes operation (runtime)
@@ -22,11 +23,17 @@ defineOperation('mergeBlockNodes', async (operation: any, context: TransactionCo
   if (left.stype !== right.stype) throw new Error(`Cannot merge different node types: ${left.stype} and ${right.stype}`);
 
   const leftChildrenCount = Array.isArray((left as any).content) ? (left as any).content.length : 0;
-  // Captured before the merge: afterwards the two blocks are one and the
-  // boundary between them is no longer visible in the model.
-  const lastLeftChildId =
-    leftChildrenCount > 0 ? ((left as any).content[leftChildrenCount - 1] as string) : null;
-  const lastLeftChild = lastLeftChildId ? context.dataStore.getNode(lastLeftChildId) : null;
+  /**
+   * The seam, captured before the merge: afterwards the two blocks are one and
+   * the boundary between them is no longer visible in the model.
+   *
+   * The *last text* under the left block, not its last child. A block can end
+   * in something a caret cannot sit in — a link wrapping its text, a picture —
+   * and taking the last child then found a node with no text, set no caret at
+   * all, and left the reader with none. Measured: joining onto a paragraph
+   * ending in a hyperlink merged the text correctly and lost the caret.
+   */
+  const seam = lastTextNodeIn(context.dataStore, leftNodeId);
 
   const mergedNodeId = context.dataStore.splitMerge.mergeBlockNodes(leftNodeId, rightNodeId);
 
@@ -38,8 +45,8 @@ defineOperation('mergeBlockNodes', async (operation: any, context: TransactionCo
   // offset 0 of the moved content, so the next Backspace is again "at the start
   // of a node", tries the same boundary case, and finds nothing left to merge.
   // Holding the key deleted one block and then appeared to stop.
-  if (lastLeftChildId && typeof (lastLeftChild as any)?.text === 'string') {
-    context.selection.setCaret(lastLeftChildId, ((lastLeftChild as any).text as string).length);
+  if (seam) {
+    context.selection.setCaret(seam.sid, seam.text.length);
   }
 
   return {

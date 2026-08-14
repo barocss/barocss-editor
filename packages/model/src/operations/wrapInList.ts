@@ -1,5 +1,6 @@
 import { defineOperation } from './define-operation';
 import type { TransactionContext } from '../types';
+import { findBlockAncestor } from './split-at-caret';
 
 /**
  * wrapInList operation (selection-based)
@@ -23,7 +24,9 @@ function getCurrentBlockFromSelection(
   if (!node) return null;
 
   if (typeof (node as { text?: string }).text === 'string') {
-    const parentBlock = dataStore.getParent(selection.startNodeId);
+    // The nearest block, not the run's parent: inside a link the parent is
+    // the link, and wrapping that wraps a word rather than the paragraph.
+    const parentBlock = findBlockAncestor(dataStore, schema, selection.startNodeId);
     if (!parentBlock || !Array.isArray(parentBlock.content)) return null;
     const grandParent = parentBlock.parentId ? dataStore.getNode(dataStore.resolveAlias(parentBlock.parentId)) : null;
     if (!grandParent || !Array.isArray(grandParent.content)) return null;

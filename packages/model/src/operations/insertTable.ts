@@ -1,6 +1,7 @@
 import { defineOperation } from './define-operation';
 import { defineOperationDSL } from './define-operation-dsl';
 import type { TransactionContext } from '../types';
+import { findBlockAncestor } from './split-at-caret';
 
 export const insertTable = defineOperationDSL(
   (rows: number = 3, cols: number = 3) => ({
@@ -22,9 +23,16 @@ defineOperation('insertTable', async (operation: any, context: TransactionContex
   const startNode = dataStore.getNode(selection.startNodeId);
   if (!startNode) throw new Error('insertTable: start node not found');
 
+  /**
+   * The block to put this beside, which is not always the run's parent.
+   *
+   * A link wraps its text, so inside one the parent is the link — and a block
+   * inserted "beside" it went inside the paragraph, next to a run. Nine
+   * operations shared the idiom and so shared the fault.
+   */
   let blockNode = startNode;
   if (typeof startNode.text === 'string') {
-    const parent = dataStore.getParent(startNode.sid!);
+    const parent = findBlockAncestor(dataStore, context.schema, startNode.sid!);
     if (parent) blockNode = parent;
   }
 
