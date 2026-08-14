@@ -1,7 +1,8 @@
-# Roadmap
+# Barocss Suite — Roadmap
 
-Three questions, answered from what the repository actually contains rather than
-from what it could contain. Every claim below has a measurement behind it; where
+One document engine, several products. Three questions decide whether that is a
+plan or a wish, and each is answered from what the repository actually contains
+rather than from what it could contain. Every claim below has a measurement behind it; where
 something is a guess it says so.
 
 Kept beside [BACKLOG.md](./BACKLOG.md), which holds the next thing to do. This
