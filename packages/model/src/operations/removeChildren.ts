@@ -29,7 +29,28 @@ defineOperation('removeChildren', async (operation: any, context: TransactionCon
   const positions = (childIds || []).map((id: string) =>
     Array.isArray((parent as any).content) ? ((parent as any).content as string[]).indexOf(id) : -1
   );
-  const firstAt = Math.min(...positions.filter((one: number) => one >= 0));
+
+  /**
+   * A child that is not in this parent is not a child this can remove.
+   *
+   * It reported success for one anyway — nothing to take out, so nothing
+   * happened — and then handed back an inverse that added the node in. Removing
+   * the same child twice and undoing both put a second copy of it in the
+   * document: 'alpha beta link' came back as 'alpha beta link beta'.
+   *
+   * Declining is the same rule `moveChildren` keeps: the payload names children
+   * *of this parent*, and a caller naming something else is wrong about the
+   * document rather than asking for something subtle.
+   */
+  const missing = (childIds || []).filter((_id: string, index: number) => positions[index] < 0);
+  if (missing.length > 0) {
+    return {
+      ok: false,
+      error: `removeChildren: ${missing.join(', ')} ${missing.length === 1 ? 'is' : 'are'} not in ${parentId}`
+    };
+  }
+
+  const firstAt = Math.min(...positions);
   const results = context.dataStore.content.removeChildren(parentId, childIds);
   return {
     ok: true,

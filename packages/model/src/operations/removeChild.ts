@@ -39,6 +39,12 @@ defineOperation('removeChild', async (operation: any, context: TransactionContex
   const wasAt = Array.isArray((parent as any).content)
     ? ((parent as any).content as string[]).indexOf(childId)
     : -1;
+  // Not in this parent, so not this parent's to remove — and an inverse built
+  // from a removal that did not happen adds a second copy of the node. See
+  // `removeChildren`, which had the same fault.
+  if (wasAt < 0) {
+    return { ok: false, error: `removeChild: ${childId} is not in ${parentId}` };
+  }
   
   const ok = context.dataStore.content.removeChild(parentId, childId);
   if (!ok) throw new Error(`Failed to remove child ${childId}`);

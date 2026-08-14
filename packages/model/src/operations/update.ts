@@ -36,7 +36,31 @@ defineOperation('update', async (operation: UpdateOperation, context: Transactio
   return {
     ok: true,
     data: updatedNode,
-    inverse: { type: 'update', payload: { nodeId, data: existingNode } }
+    /**
+     * Only what this changed, and what it was.
+     *
+     * The inverse carried the whole node — including its `content` — so undoing
+     * an attribute change also restored the child list as it stood before it,
+     * clobbering every structural change made since. A run that set an
+     * attribute and then merged two runs came back with the paragraph pointing
+     * at a node the merge had consumed: a dangling id where a child should be,
+     * which is a document the renderer cannot walk.
+     *
+     * An operation's inverse undoes that operation. Restoring keys it never
+     * touched is undoing somebody else's.
+     */
+    inverse: {
+      type: 'update',
+      payload: {
+        nodeId,
+        data: Object.fromEntries(
+          Object.keys(updates as Record<string, unknown>).map((key) => [
+            key,
+            (existingNode as Record<string, unknown>)[key]
+          ])
+        )
+      }
+    }
   };
 });
 

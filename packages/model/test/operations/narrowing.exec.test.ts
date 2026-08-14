@@ -135,7 +135,7 @@ describe('narrowing', () => {
   /** Operations whose own inverse does not put the document back. Lower this. */
   const ALONE = 4;
   /** Ordered pairs that do not, where each alone does. Lower this. */
-  const PAIRS = 23;
+  const PAIRS = 14;
 
   it(`${ALONE} operations do not undo themselves, and no more`, async () => {
     const bad: string[] = [];
