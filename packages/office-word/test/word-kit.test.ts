@@ -52,7 +52,13 @@ describe('Word kit', () => {
     editor.emit('editor:selection.focus');
     (editor as any).setContext('inTable', false);
 
-    expect((editor as any).keybindings.resolve('Tab')).toHaveLength(0);
+    // Outside a table Tab is what it means in text — a tab character here,
+    // since the caret is neither in a list nor at the start of a block. It used
+    // to resolve to nothing at all, because Word's map had nothing to say about
+    // Tab except in a cell, and the engine's own binding indented the whole
+    // paragraph wherever the caret was.
+    const resolved = (editor as any).keybindings.resolve('Tab');
+    expect(resolved.map((r: any) => r.command)).toEqual(['insertTab']);
   });
 
   it('accepts a key map of its own', () => {
@@ -91,8 +97,32 @@ describe('Word kit', () => {
 
 describe('Word key map', () => {
   it('scopes table keys so Tab keeps its ordinary meaning outside a table', () => {
-    const tab = WORD_KEYBINDINGS.find((b) => b.key === 'Tab');
-    expect(tab?.when).toContain('inTable');
+    // Tab has several meanings and each one is scoped: exactly one of them is
+    // cell navigation, and every other says so. Asserting it of the *first*
+    // binding was enough while there was only one; now the whole set has to
+    // hold, because the registry runs whichever was registered last among those
+    // that match.
+    const tabs = WORD_KEYBINDINGS.filter((b) => b.key === 'Tab');
+    expect(tabs.length).toBeGreaterThan(1);
+
+    // Cell navigation is exactly one of them
+    expect(tabs.filter((b) => b.when?.includes('&& inTable'))).toHaveLength(1);
+
+    for (const binding of tabs) {
+      // None of them is Tab-everywhere: a binding scoped only on focus would
+      // match inside a cell too, and which one then ran would be decided by
+      // registration order.
+      expect(binding.when, `Tab → ${binding.command} applies everywhere`).not.toBe('editorFocus');
+    }
+
+    // And the ones about a paragraph stay out of the two places Tab means
+    // something else entirely.
+    for (const binding of tabs) {
+      if (binding.when?.includes('&& inTable') || binding.when?.includes('inEquation')) continue;
+      expect(binding.when, `Tab → ${binding.command} would fire inside a table`).toContain(
+        '!inTable'
+      );
+    }
   });
 
   it('always consumes undo/redo so the browser never runs its own', () => {

@@ -169,6 +169,60 @@ export class WordListExtension implements Extension {
     register('toggleOrderedList', (ed, selection) => this._toggleList(ed, 'ordered', selection));
     register('indentText', (ed, selection) => this._shift(ed, selection, 1));
     register('outdentText', (ed, selection) => this._shift(ed, selection, -1));
+    register('indentFirstLine', (ed, selection) => this._shiftFirstLine(ed, selection, 1));
+    register('outdentFirstLine', (ed, selection) => this._shiftFirstLine(ed, selection, -1));
+    register('insertTab', (ed, selection) => this._insertTab(ed, selection));
+
+    /**
+     * Which of the three things Tab means here.
+     *
+     * Word gives Tab one meaning per place: a level in a list, a first-line
+     * indent at the start of a paragraph, and a tab character everywhere else.
+     * Deciding that in the keymap rather than inside one command is how the rest
+     * of this app scopes keys — see `inTable`, which scopes Tab to cell
+     * navigation — and it keeps each command something a button can run too.
+     */
+    const track = () => {
+      const selection = editor.selection;
+      (editor as any).setContext('inList', this._numbered(editor, selection));
+      (editor as any).setContext('atBlockStart', this._atBlockStart(editor, selection));
+    };
+    editor.on('editor:selection.model', track);
+    editor.on('editor:content.change', track);
+    track();
+  }
+
+  /** Whether the caret is in a paragraph that points at a numbering definition. */
+  private _numbered(editor: Editor, selection: ModelSelection | null | undefined): boolean {
+    return this._blocks(editor, selection).some(
+      (block) => typeof block.attributes?.numId === 'string'
+    );
+  }
+
+  /**
+   * Whether the caret sits before everything in its block.
+   *
+   * Offset zero of the block's first run, and nothing selected — which is the
+   * one place Word reads Tab as an instruction about the paragraph rather than
+   * as a character. Anywhere else, including offset zero of the *second* run,
+   * is inside the text.
+   */
+  private _atBlockStart(editor: Editor, selection: ModelSelection | null | undefined): boolean {
+    if (!selection || selection.collapsed !== true || selection.startOffset !== 0) return false;
+    const doc = this._doc(editor);
+    const [block] = this._blocks(editor, selection);
+    if (!block) return false;
+
+    const firstRun = (node: DocumentNode | undefined): string | null => {
+      if (!node) return null;
+      if (typeof node.text === 'string') return node.sid ?? null;
+      for (const child of childrenOf(doc, node)) {
+        const found = firstRun(child);
+        if (found) return found;
+      }
+      return null;
+    };
+    return firstRun(block) === selection.startNodeId;
   }
 
   /** The document as the resolvers read it. */
@@ -328,6 +382,100 @@ export class WordListExtension implements Extension {
     }
 
     return operations.length > 0 ? await this._commit(editor, operations) : false;
+  }
+
+  /**
+   * The first line's own indent, which is what Word's Tab sets at the start of a
+   * paragraph.
+   *
+   * Not the same thing as the paragraph's indent: `indentLeft` moves every line
+   * and `indentFirstLine` moves only the first, which is the ordinary shape of a
+   * body paragraph in a printed document. Pressing Tab before the first word
+   * used to move the whole paragraph, and there was no way at all to ask for the
+   * first line alone.
+   *
+   * A hanging indent is the same measurement with the opposite sign, and Word
+   * keeps them mutually exclusive — so taking one off means clearing both rather
+   * than driving `indentFirstLine` negative.
+   */
+  private async _shiftFirstLine(
+    editor: Editor,
+    selection: ModelSelection,
+    direction: 1 | -1
+  ): Promise<boolean> {
+    const operations: unknown[] = [];
+
+    for (const block of this._blocks(editor, selection)) {
+      const attributes = block.attributes ?? {};
+      const hanging = typeof attributes.indentHanging === 'number' ? attributes.indentHanging : 0;
+      const first = typeof attributes.indentFirstLine === 'number' ? attributes.indentFirstLine : 0;
+
+      // A hanging indent goes the other way, and shrinks before the first line
+      // starts growing.
+      if (hanging > 0 && direction > 0) {
+        const next = Math.max(0, hanging - INDENT_STEP);
+        operations.push({
+          type: 'setAttrs',
+          payload: { nodeId: block.sid, attrs: { indentHanging: next || null } }
+        });
+        continue;
+      }
+
+      const next = first + direction * INDENT_STEP;
+      if (next === first) continue;
+      operations.push({
+        type: 'setAttrs',
+        payload: {
+          nodeId: block.sid,
+          attrs:
+            next > 0
+              ? { indentFirstLine: next, indentHanging: null }
+              : { indentFirstLine: null, indentHanging: next < 0 ? -next : null }
+        }
+      });
+    }
+
+    return operations.length > 0 ? await this._commit(editor, operations) : false;
+  }
+
+  /**
+   * A tab, as a character in the text.
+   *
+   * The schema has had a `tab` node all along — an inline atom, with a renderer
+   * and the whole tab-stop layout behind it, and seven of them in the sample
+   * document — and nothing could put one in. Tab moved the paragraph instead,
+   * wherever in it the caret happened to be.
+   */
+  private async _insertTab(editor: Editor, selection: ModelSelection): Promise<boolean> {
+    if (selection.type !== 'range' || selection.collapsed !== true) return false;
+    const store: any = (editor as any).dataStore;
+    const run = store?.getNode?.(selection.startNodeId);
+    if (!run || typeof run.text !== 'string' || !run.parentId) return false;
+
+    const parent = store.getNode(run.parentId);
+    const siblings: string[] = Array.isArray(parent?.content) ? parent.content : [];
+    const at = siblings.indexOf(run.sid);
+    if (at < 0) return false;
+
+    const offset = typeof selection.startOffset === 'number' ? selection.startOffset : 0;
+    const text: string = run.text;
+
+    /**
+     * A tab is a node, so the run it lands inside has to give way to it: the
+     * text before it stays, the text after it becomes a run of its own, and the
+     * tab goes between them. At either end there is nothing to split.
+     */
+    const operations: unknown[] = [];
+    if (offset > 0 && offset < text.length) {
+      operations.push({ type: 'splitTextNode', payload: { nodeId: run.sid, splitPosition: offset } });
+    }
+    const position = offset === 0 ? at : at + 1;
+    operations.push({
+      type: 'addChild',
+      payload: { parentId: parent.sid, child: { stype: 'tab' }, position }
+    });
+
+    return await this._commit(editor, operations);
   }
 
   /**

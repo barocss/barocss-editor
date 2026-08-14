@@ -10,7 +10,12 @@ export type OverlayNodeMap = Map<string, unknown>;
 
 export interface OverlayStateSnapshot {
   baseVersion: number;
-  sessionId: number;
+  /**
+   * A session is named, not numbered: a document loaded under the name `word`
+   * has its nodes minted as `word:1` onwards, and the store carries that name so
+   * everything typed into it afterwards belongs to the same series.
+   */
+  sessionId: string | number;
 }
 
 export interface AtomicOperationRecord {
@@ -40,7 +45,7 @@ export class TransactionalOverlay {
   private opBuffer: AtomicOperationRecord[] = [];
   private active: boolean = false;
 
-  constructor(_options: { getVersion: () => number; sessionId: number }) {
+  constructor(_options: { getVersion: () => number; sessionId: string | number }) {
     // options reserved for future snapshot/versioning
   }
 

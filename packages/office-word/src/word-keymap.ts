@@ -38,8 +38,41 @@ export const WORD_KEYBINDINGS: Keybinding[] = [
   { key: 'Mod+e', command: 'alignCenter', when: 'editorFocus' },
   { key: 'Mod+r', command: 'alignRight', when: 'editorFocus' },
   { key: 'Mod+j', command: 'alignJustify', when: 'editorFocus' },
-  { key: 'Mod+m', command: 'indentNode', when: 'editorFocus' },
-  { key: 'Mod+Shift+m', command: 'outdentNode', when: 'editorFocus' },
+  /**
+   * Word's increase and decrease indent.
+   *
+   * These named `indentNode`/`outdentNode`, which nest one block inside
+   * another and only act on a node type the schema marks `indentable` — and
+   * nothing here marks one, because a Word list is a paragraph carrying a
+   * numbering level rather than a nested node. So Ctrl+M did nothing at all.
+   *
+   * `indentText` is what the ribbon's indent buttons run: half an inch of
+   * `indentLeft` on a paragraph, and a numbering level on a list item, which is
+   * what Word's Ctrl+M does in each case.
+   */
+  { key: 'Mod+m', command: 'indentText', when: 'editorFocus' },
+  { key: 'Mod+Shift+m', command: 'outdentText', when: 'editorFocus' },
+
+  /**
+   * Tab means three different things, and Word decides by where the caret is.
+   *
+   * In a list it is a level. At the very start of a paragraph it is that
+   * paragraph's first-line indent. Anywhere else in the text it is a tab
+   * character — which this could not produce at all, though the schema has had a
+   * `tab` node with a renderer and full tab-stop layout the whole time. Tab in
+   * the middle of a sentence moved the whole paragraph half an inch instead.
+   *
+   * Written to exclude each other rather than to be tried in order: within one
+   * source the registry runs the binding registered *last*, so an order these
+   * relied on would be an order a later edit could silently change — including
+   * against the table and equation bindings below, where Tab means moving to
+   * the next cell or the next slot and nothing else.
+   */
+  { key: 'Tab', command: 'indentText', when: 'editorFocus && inList && !inTable && !inEquation' },
+  { key: 'Shift+Tab', command: 'outdentText', when: 'editorFocus && inList && !inTable && !inEquation' },
+  { key: 'Tab', command: 'indentFirstLine', when: 'editorFocus && !inList && atBlockStart && !inTable && !inEquation' },
+  { key: 'Shift+Tab', command: 'outdentFirstLine', when: 'editorFocus && !inList && atBlockStart && !inTable && !inEquation' },
+  { key: 'Tab', command: 'insertTab', when: 'editorFocus && !inList && !atBlockStart && !inTable && !inEquation' },
 
   // ── Lists ──────────────────────────────────────────────────────────────────
   { key: 'Mod+Shift+l', command: 'toggleBulletList', when: 'editorFocus' },
