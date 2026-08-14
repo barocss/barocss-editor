@@ -540,6 +540,20 @@ export class EditorViewDOM implements IEditorViewDOM {
       if (!node) return false;
       const el = node.nodeType === Node.TEXT_NODE ? (node.parentElement as Element | null) : (node as Element);
       if (!el) return false;
+      /**
+       * Chrome is not text, whatever the model calls it.
+       *
+       * A region marked `contenteditable="false"` is furniture the view draws —
+       * the page boxes, a bookmark anchor, the document's title and author. The
+       * nodes inside are real model nodes with real stypes, so asking the model
+       * alone says "inline-text, of course you can type there", and the document
+       * metadata could be typed into as if it were a heading above the first
+       * page.
+       *
+       * The browser will not put a caret in such a region on its own; this is
+       * about what happens when a selection ends up there anyway.
+       */
+      if (el.closest('[contenteditable="false"]')) return false;
       const found = el.closest('[data-bc-sid]');
       if (!found) return false;
       const sid = found.getAttribute('data-bc-sid');
@@ -570,6 +584,19 @@ export class EditorViewDOM implements IEditorViewDOM {
    * through lands somewhere a command will check again.
    */
   private isModelSelectionInEditableText(): boolean {
+    /**
+     * The document's own record of the caret — but never as a way past chrome.
+     *
+     * This exists because the DOM selection is momentarily wrong while a render
+     * replaces the text node under it, and refusing a character then loses it
+     * for good. A caret sitting in a region the view marked non-editable is not
+     * that case: it is the answer, not a stale reading of it.
+     */
+    const domSelection = window.getSelection();
+    const anchor = domSelection?.anchorNode ?? null;
+    const host = anchor?.nodeType === Node.TEXT_NODE ? anchor.parentElement : (anchor as Element | null);
+    if (host?.closest('[contenteditable="false"]')) return false;
+
     const selection = (this.editor as any).selection;
     const dataStore = (this.editor as any).dataStore;
     if (!selection?.startNodeId || !dataStore?.getNode) return false;
