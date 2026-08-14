@@ -87,7 +87,17 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
       <div className="w-chrome">
         {instance ? <DocumentTitle editor={instance.editor} /> : null}
         {instance ? (
-          <Ribbon editor={instance.editor} view={instance.view} fonts={instance.fonts} />
+          <Ribbon
+            editor={instance.editor}
+            view={instance.view}
+            fonts={instance.fonts}
+            panes={{
+              outline: outlining,
+              comments: commenting,
+              onOutline: () => setOutlining((shown) => !shown),
+              onComments: () => setCommenting((shown) => !shown)
+            }}
+          />
         ) : null}
         {/* Above the page and as wide as it, because every position on it is a
             position in the text below. */}

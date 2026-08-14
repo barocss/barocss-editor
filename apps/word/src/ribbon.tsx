@@ -33,14 +33,31 @@ import type { FontLoader } from './font-loader';
  * is re-read whenever the selection or the content changes, which are the only
  * two things that can change the answer.
  */
+/**
+ * Which chrome is showing.
+ *
+ * The app's, not the editor's — the same reason the find box is: opening a
+ * window is the host's business and the editor has no idea one exists. So these
+ * come in as state and go out as calls, rather than through `WORD_TOOLBAR`,
+ * which names commands the *document* has.
+ */
+export interface RibbonPanes {
+  outline: boolean;
+  comments: boolean;
+  onOutline: () => void;
+  onComments: () => void;
+}
+
 export function Ribbon({
   editor,
   view,
-  fonts
+  fonts,
+  panes
 }: {
   editor: Editor;
   view: EditorViewDOM;
   fonts: FontLoader;
+  panes: RibbonPanes;
 }) {
   /**
    * A count of the events that can change any answer here, not the answers
@@ -189,6 +206,32 @@ export function Ribbon({
           />
         </>
       )}
+
+      {/*
+        What is showing, which is the host's and not the document's — and last,
+        because it is the group a reader reaches for least.
+      */}
+      <span className="contents">
+        <ToolbarSeparator />
+        <ToolbarGroup id="view">
+          <ToolbarToggle
+            id="view-outline"
+            label="개요"
+            state={panes.outline ? 'on' : 'off'}
+            onActivate={panes.onOutline}
+          >
+            ☰
+          </ToolbarToggle>
+          <ToolbarToggle
+            id="view-comments"
+            label="댓글"
+            state={panes.comments ? 'on' : 'off'}
+            onActivate={panes.onComments}
+          >
+            💬
+          </ToolbarToggle>
+        </ToolbarGroup>
+      </span>
 
       {WORD_TOOLBAR.map((group) => (
         // `contents` so the separator and the group are laid out by the ribbon

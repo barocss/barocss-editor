@@ -37,9 +37,6 @@ read, and a key built by template counts as unread.
 
 ### Shell and navigation
 
-- [ ] **Nothing toggles the panes from the ribbon.** The outline has its own
-  close button and the comments pane has none; a View group would be the place
-  for both, next to whatever else turns chrome on and off.
 - [ ] **No zoom.** Word has a zoom control and a page-width fit; the ruler
   already works in fractions of the page rather than in pixels, so it would
   follow one for free.
@@ -79,6 +76,11 @@ Each of these is in `src/formatting.ts` with a comment saying what it is for.
 
 Newest first. The surprise each one produced is the part worth keeping.
 
+- **A View group in the ribbon.** The only controls there that name no command:
+  the editor has no idea a pane exists, which is the same reason the find box is
+  the app's. Both switches drive one piece of state, so the pane's own close
+  button and the ribbon button cannot disagree — two switches for one thing is
+  two things a reader has to keep in their head.
 - **The comments pane collapses.** It read the threads only while open, which
   was free and wrong the moment it could be closed on purpose — the strip that
   opens it says how many there are, and that is what a reader wants *before*

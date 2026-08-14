@@ -185,3 +185,53 @@ test('closing the pane puts the discussion away, not the sign of it', async ({ p
   // sign that there is a comment
   expect(await marks.count()).toBe(before);
 });
+
+/**
+ * Which chrome is showing is the host's business, not the document's.
+ *
+ * These are the only ribbon controls that do not name a command — the editor has
+ * no idea a pane exists, the same reason the find box is opened by the app. They
+ * are in the ribbon anyway because that is where a reader looks for a switch.
+ */
+test('the ribbon turns each pane on and off, and says which is on', async ({ page }) => {
+  await page.goto('/');
+  await settled(page);
+  await page.waitForTimeout(400);
+
+  const outlineButton = page.locator('[data-control="view-outline"]');
+  const commentsButton = page.locator('[data-control="view-comments"]');
+
+  await expect(outlineButton).toHaveAttribute('data-state', 'on');
+  await expect(commentsButton).toHaveAttribute('data-state', 'on');
+
+  await outlineButton.click();
+  await expect(page.locator('.w-outline')).toHaveCount(0);
+  await expect(outlineButton).toHaveAttribute('data-state', 'off');
+
+  await commentsButton.click();
+  await expect(page.locator('.w-comments-pane')).toHaveCount(0);
+  await expect(commentsButton).toHaveAttribute('data-state', 'off');
+
+  // With both away the document has the window, which is the point of a switch
+  const pane = (await page.locator('.w-shell-document').boundingBox())!;
+  expect(pane.width).toBeGreaterThan(page.viewportSize()!.width - 100);
+
+  await outlineButton.click();
+  await commentsButton.click();
+  await expect(page.locator('.w-outline')).toHaveCount(1);
+  await expect(page.locator('.w-comments-pane')).toHaveCount(1);
+});
+
+test('the pane and its own close button say the same thing', async ({ page }) => {
+  await page.goto('/');
+  await settled(page);
+  await page.waitForTimeout(400);
+
+  // Closed from inside the pane, the ribbon has to agree — two switches for one
+  // thing is two things a reader has to keep in their head
+  await page.locator('.w-outline-title button').click();
+  await expect(page.locator('[data-control="view-outline"]')).toHaveAttribute('data-state', 'off');
+
+  await page.locator('.w-outline-closed').click();
+  await expect(page.locator('[data-control="view-outline"]')).toHaveAttribute('data-state', 'on');
+});
