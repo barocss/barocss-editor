@@ -37,9 +37,6 @@ read, and a key built by template counts as unread.
 
 ### Shell and navigation
 
-- [ ] **The comments pane holds its width with nothing in it.** ~280px of the
-  window, whether or not the document has a comment. It should collapse to a
-  strip the way the outline does.
 - [ ] **Nothing toggles the panes from the ribbon.** The outline has its own
   close button and the comments pane has none; a View group would be the place
   for both, next to whatever else turns chrome on and off.
@@ -82,6 +79,12 @@ Each of these is in `src/formatting.ts` with a comment saying what it is for.
 
 Newest first. The surprise each one produced is the part worth keeping.
 
+- **The comments pane collapses.** It read the threads only while open, which
+  was free and wrong the moment it could be closed on purpose — the strip that
+  opens it says how many there are, and that is what a reader wants *before*
+  deciding to look. Reading them either way also means the commented text stays
+  marked while the pane is shut: closing it should put the discussion away, not
+  hide the fact that there is one.
 - **The shell, and the outline pane.** The window is the frame now — the chrome
   holds its place and the document scrolls in a pane of its own. Two things came
   out of it: the ruler had to learn to re-measure when that pane scrolls

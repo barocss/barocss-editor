@@ -114,7 +114,12 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
         </div>
 
         {instance ? (
-          <CommentsPane editor={instance.editor} view={instance.view} open={commenting} />
+          <CommentsPane
+            editor={instance.editor}
+            view={instance.view}
+            open={commenting}
+            onToggle={() => setCommenting((shown) => !shown)}
+          />
         ) : null}
         {instance && lab ? <InputLab editor={instance.editor} view={instance.view} /> : null}
       </div>

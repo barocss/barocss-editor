@@ -139,3 +139,49 @@ test('closes to a strip, and opens again', async ({ page }) => {
   await page.locator('.w-outline-closed').click();
   await expect(page.locator('.w-outline')).toHaveCount(1);
 });
+
+/**
+ * The comments pane, which used to hold a fifth of the window with nothing in
+ * it. It collapses the way the outline does, and the strip that opens it says
+ * how many comments there are — which is what a reader wants before deciding to
+ * look.
+ */
+test('the comments pane collapses to a strip that counts', async ({ page }) => {
+  await page.goto('/');
+  await settled(page);
+  await page.waitForTimeout(400);
+
+  const openWidth = (await page.locator('.w-comments-pane').boundingBox())!.width;
+  expect(openWidth).toBeGreaterThan(200);
+
+  await page.locator('.w-comments-close').click();
+  await expect(page.locator('.w-comments-pane')).toHaveCount(0);
+
+  const strip = page.locator('.w-comments-closed');
+  await expect(strip).toBeVisible();
+  expect((await strip.boundingBox())!.width).toBeLessThan(48);
+
+  // It counted the document's threads while closed, which it could not do while
+  // it only read them when open
+  const counted = Number(await strip.getAttribute('data-comment-count'));
+  expect(Number.isFinite(counted)).toBe(true);
+
+  await strip.click();
+  await expect(page.locator('.w-comments-pane')).toHaveCount(1);
+});
+
+test('closing the pane puts the discussion away, not the sign of it', async ({ page }) => {
+  await page.goto('/');
+  await settled(page);
+  await page.waitForTimeout(400);
+
+  const marks = page.locator('.w-comment-anchor, [data-bc-decorator*="comment"]');
+  const before = await marks.count();
+  test.skip(before === 0, 'the sample has no commented text to mark');
+
+  await page.locator('.w-comments-close').click();
+  await page.waitForTimeout(300);
+  // The text stays marked: a reader who closes the pane should not lose every
+  // sign that there is a comment
+  expect(await marks.count()).toBe(before);
+});

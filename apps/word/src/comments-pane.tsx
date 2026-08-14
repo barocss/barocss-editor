@@ -22,11 +22,13 @@ const ANCHOR_STYPE = 'w-comment-anchor';
 export function CommentsPane({
   editor,
   view,
-  open
+  open,
+  onToggle
 }: {
   editor: Editor;
   view: EditorViewDOM;
   open: boolean;
+  onToggle: () => void;
 }) {
   const [revision, setRevision] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
@@ -70,12 +72,23 @@ export function CommentsPane({
     [editor]
   );
 
-  const threads: CommentThread[] = useMemo(
-    () => (open ? commentThreads(doc as never) : []),
-    [doc, open, revision]
-  );
+  /**
+   * Read whether or not the pane is open.
+   *
+   * It used to skip the walk while closed, which was free and wrong the moment
+   * the pane could be closed on purpose: the strip that opens it says how many
+   * comments there are, and that is the thing a reader wants *before* deciding
+   * to look.
+   */
+  const threads: CommentThread[] = useMemo(() => commentThreads(doc as never), [doc, revision]);
 
-  /** Mark the commented text, with the selected thread told apart. */
+  /**
+   * Mark the commented text, with the selected thread told apart.
+   *
+   * Drawn whether or not the pane is open, which follows from reading the
+   * threads either way — and is what a reader needs: closing the pane should put
+   * the discussion away, not hide the fact that there is one.
+   */
   useEffect(() => {
     view.setDecorators(
       ANCHOR_STYPE,
@@ -103,11 +116,32 @@ export function CommentsPane({
     setAnchorTo(null);
   }, [editor, draft, anchorTo]);
 
-  if (!open) return null;
+  /**
+   * Closed, it is a strip to open it by.
+   *
+   * It used to hold its whole width whether or not the document had a comment —
+   * a fifth of the window given to an empty box, on every document that has none.
+   * The count is on the strip because how many there are is the thing a reader
+   * wants before they decide to look.
+   */
+  if (!open) {
+    return (
+      <button
+        type="button"
+        className="w-comments-closed"
+        onClick={onToggle}
+        title={threads.length > 0 ? `댓글 ${threads.length}개 열기` : '댓글 열기'}
+        data-comment-count={threads.length}
+      >
+        <span aria-hidden="true">💬</span>
+        {threads.length > 0 ? <span className="w-comments-count">{threads.length}</span> : null}
+      </button>
+    );
+  }
 
   return (
     <aside
-      className="w-comments-pane w-72 shrink-0 border-l border-neutral-200 p-3 dark:border-neutral-800"
+      className="w-comments-pane w-72 shrink-0 overflow-auto border-l border-neutral-200 p-3 dark:border-neutral-800"
       aria-label="Comments"
     >
       <div className="flex items-center gap-2">
@@ -118,6 +152,15 @@ export function CommentsPane({
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
         />
+        <button
+          type="button"
+          className="w-comments-close inline-flex h-7 w-7 items-center justify-center rounded hover:bg-neutral-100 dark:hover:bg-neutral-800"
+          onClick={onToggle}
+          title="댓글 닫기"
+          aria-label="댓글 닫기"
+        >
+          ×
+        </button>
         <button
           aria-label="Add comment"
           title="Comment on the selected text"
