@@ -200,7 +200,8 @@ function lineBands(el: Element): {
 function advances(
   el: HTMLElement,
   bands: { top: number; bottom: number }[],
-  chromeRects: { top: number; bottom: number }[]
+  chromeRects: { top: number; bottom: number }[],
+  scale: number
 ): number[] {
   const box = el.getBoundingClientRect();
   const edges = [box.top, ...bands.slice(1).map((band) => band.top), box.bottom];
@@ -212,7 +213,9 @@ function advances(
       const overlap = Math.min(drawn.bottom, edges[i + 1]) - Math.max(drawn.top, edges[i]);
       if (overlap > 0) height -= overlap;
     }
-    lines.push(Math.max(0, height));
+    // Back out of the zoom: everything above is the drawn box, and pagination
+    // compares what it measures against a page height computed in twips.
+    lines.push(Math.max(0, height / scale));
   }
   return lines;
 }
@@ -242,12 +245,16 @@ function linesFor(el: HTMLElement): {
   // text is — counting it would make the block grow every time it broke.
   const { bands, chrome, floatBottom, chromeRects } = lineBands(el);
   const height = el.getBoundingClientRect().height - chrome;
+  const scale = scaleOf(el);
 
+  // Left in the drawn space: these are only ever compared against other drawn
+  // positions — `lineStartOffsets` asks the browser where a character is — and
+  // two measurements in one space need no conversion between them.
   const bandTops = bands.map((band) => band.top);
   if (height <= 0) return { lines: [], bandTops: [] };
-  if (bands.length <= 1) return { lines: [height], bandTops };
+  if (bands.length <= 1) return { lines: [height / scale], bandTops };
 
-  const lines = advances(el, bands, chromeRects);
+  const lines = advances(el, bands, chromeRects, scale);
 
   /**
    * The first line clear of the float.
@@ -285,6 +292,7 @@ function linesFor(el: HTMLElement): {
  */
 function rowsFor(el: HTMLElement): number[] {
   const heights: number[] = [];
+  const scale = scaleOf(el);
 
   for (const group of Array.from(el.children)) {
     if (group.hasAttribute(CHROME_ATTR)) continue;
@@ -314,11 +322,44 @@ function rowsFor(el: HTMLElement): number[] {
     height -= chrome.getBoundingClientRect().height;
   }
 
-  return scaledTo(heights, height);
+  return scaledTo(heights, height).map((row) => row / scale);
 }
 
 const px = (value: unknown): number =>
   typeof value === 'number' && Number.isFinite(value) ? twipToPx(value) : 0;
+
+/**
+ * How much smaller than itself the page is being drawn.
+ *
+ * Zoom is a `transform: scale`, which is a visual change and not a layout one —
+ * measured, a paragraph keeps every one of its eight lines at half size, and
+ * every length comes back multiplied by exactly the factor. That is what makes
+ * it the right mechanism: a page must break in the same place at every zoom, and
+ * `zoom` the CSS property affects layout and drifts (77.88px where the transform
+ * gives 78).
+ *
+ * But `getClientRects` reports the *drawn* box, and pagination compares what it
+ * measures against a page height computed from the document in twips. So
+ * everything measured here is divided back out, and the rest of the pass never
+ * learns that a zoom exists.
+ *
+ * Read from the element rather than passed in: the transform is on an ancestor
+ * of every surface, and a measurement that has to be *told* the zoom is a
+ * measurement that is wrong whenever somebody forgets.
+ */
+function scaleOf(el: Element): number {
+  const view = el.ownerDocument.defaultView;
+  if (!view) return 1;
+  const matrix = view.getComputedStyle(el).transform;
+  if (!matrix || matrix === 'none') {
+    const parent = el.parentElement;
+    return parent ? scaleOf(parent) : 1;
+  }
+  // `matrix(a, b, c, d, e, f)` — `a` is the horizontal scale, and a zoom is
+  // uniform, so it is the whole answer.
+  const a = Number(matrix.slice(matrix.indexOf('(') + 1).split(',')[0]);
+  return Number.isFinite(a) && a > 0 ? a : 1;
+}
 
 /**
  * Measure the blocks of a rendered surface, in document order.

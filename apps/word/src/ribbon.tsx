@@ -20,6 +20,7 @@ import {
 } from '@barocss/office-word';
 import type { EditorViewDOM } from '@barocss/editor-view-dom';
 import { Toolbar, ToolbarGroup, ToolbarSeparator, ToolbarToggle } from './ui/toolbar';
+import { ZoomControl } from './zoom';
 import { StyleSelect } from './ui/style-select';
 import { ControlIcon } from './ui/icons';
 import type { FontLoader } from './font-loader';
@@ -52,12 +53,16 @@ export function Ribbon({
   editor,
   view,
   fonts,
-  panes
+  panes,
+  zoom,
+  onZoom
 }: {
   editor: Editor;
   view: EditorViewDOM;
   fonts: FontLoader;
   panes: RibbonPanes;
+  zoom: number;
+  onZoom: (zoom: number) => void;
 }) {
   /**
    * A count of the events that can change any answer here, not the answers
@@ -230,6 +235,15 @@ export function Ribbon({
           >
             💬
           </ToolbarToggle>
+        </ToolbarGroup>
+      </span>
+
+      {/* Its own group: it is not a pane switch, and it is wide enough that
+          sharing one made the group too wide to keep on a single row. */}
+      <span className="contents">
+        <ToolbarSeparator />
+        <ToolbarGroup id="zoom">
+          <ZoomControl zoom={zoom} onChange={onZoom} />
         </ToolbarGroup>
       </span>
 

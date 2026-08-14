@@ -795,3 +795,45 @@ body {
   line-height: 15px;
   font-variant-numeric: tabular-nums;
 }
+
+/*
+ * A scaled page still takes up its unscaled room, so the frame is given the
+ * drawn size and the page is drawn inside it. See `zoom-frame.tsx`.
+ */
+.w-zoom-page { transform-origin: top center; }
+
+.w-zoom-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  /* One thing, never broken across two rows of the ribbon. */
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+.w-zoom-control button {
+  width: 22px;
+  height: 24px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: inherit;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+.w-zoom-control button:hover { background: #f1f3f5; }
+.w-zoom-control input {
+  width: 48px;
+  height: 24px;
+  padding: 0 4px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: inherit;
+}
+.w-zoom-control input:hover,
+.w-zoom-control input:focus { border-color: #dee2e6; background: #fff; }

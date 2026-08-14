@@ -37,9 +37,6 @@ read, and a key built by template counts as unread.
 
 ### Shell and navigation
 
-- [ ] **No zoom.** Word has a zoom control and a page-width fit; the ruler
-  already works in fractions of the page rather than in pixels, so it would
-  follow one for free.
 
 ### Attributes the schema declares and nothing reads
 
@@ -76,6 +73,19 @@ Each of these is in `src/formatting.ts` with a comment saying what it is for.
 
 Newest first. The surprise each one produced is the part worth keeping.
 
+- **Zoom.** A `transform: scale`, not the `zoom` property — a page must break in
+  the same place at every size, and a transform is visual where `zoom` is
+  layout: measured, a paragraph keeps all eight of its lines under a transform
+  and every length comes back multiplied by exactly the factor, where `zoom`
+  gave 77.88px for 78. Three things it turned up. The measurement pass divides
+  the factor back out, and reads it from the element rather than being told,
+  because a measurement that has to be told the zoom is wrong whenever somebody
+  forgets. A scaled element still occupies its *unscaled* room, so the frame
+  around the page is given the drawn size. And the ruler's arithmetic needed no
+  change — it works in fractions of the page — but it mixed the two scales:
+  `getBoundingClientRect` reports the transformed box and `getComputedStyle` the
+  untransformed value, so subtracting one margin from the other width put the
+  text area 19px from where the text is.
 - **A View group in the ribbon.** The only controls there that name no command:
   the editor has no idea a pane exists, which is the same reason the find box is
   the app's. Both switches drive one piece of state, so the pane's own close

@@ -130,9 +130,19 @@ function measure(host: HTMLElement | null, pageWidth: number): Geometry | null {
 
   const box = surface.getBoundingClientRect();
   const style = getComputedStyle(surface);
-  const padLeft = parseFloat(style.paddingLeft) || 0;
-  const padRight = parseFloat(style.paddingRight) || 0;
   const origin = host.getBoundingClientRect().left;
+
+  /**
+   * The margins as they are *drawn*, which is not what the style says.
+   *
+   * `getBoundingClientRect` reports the transformed box and `getComputedStyle`
+   * reports the untransformed value, so subtracting one from the other mixes two
+   * scales: at 80% the page measured 653px wide and its margins 96px each, and
+   * the ruler put the text area 19px left of where the text is.
+   */
+  const scale = surface.offsetWidth > 0 ? box.width / surface.offsetWidth : 1;
+  const padLeft = (parseFloat(style.paddingLeft) || 0) * scale;
+  const padRight = (parseFloat(style.paddingRight) || 0) * scale;
 
   const width = box.width - padLeft - padRight;
   if (width <= 0 || box.width <= 0) return null;
@@ -173,7 +183,7 @@ const LEADER_NAME: Record<string, string> = {
   underscore: '밑줄'
 };
 
-export function Ruler({ editor }: { editor: Editor }) {
+export function Ruler({ editor, zoom = 1 }: { editor: Editor; zoom?: number }) {
   const host = useRef<HTMLDivElement>(null);
   const [geometry, setGeometry] = useState<Geometry | null>(null);
   const [paragraph, setParagraph] = useState<ReturnType<typeof caretParagraph>>(null);
@@ -214,7 +224,16 @@ export function Ruler({ editor }: { editor: Editor }) {
       window.removeEventListener('resize', refresh);
       pane?.removeEventListener('scroll', refresh);
     };
-  }, [editor]);
+    /**
+     * `zoom` is in here to be *heard*, not used.
+     *
+     * The arithmetic needs no change — everything is measured from the page's
+     * own drawn box, so a scaled page and a scaled ruler agree by construction.
+     * What the ruler cannot do is notice: a transform changes no layout size, so
+     * a resize observer would not fire and neither would any of the events
+     * above, and the ruler kept measuring the page it had seen before the zoom.
+     */
+  }, [editor, zoom]);
 
   const stops: TabStop[] = tabStopsOf(paragraph?.attributes as { tabs?: unknown });
   const markers: IndentMarkers = markersOf(paragraph?.attributes);

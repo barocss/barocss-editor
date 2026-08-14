@@ -9,6 +9,7 @@ import { InputLab } from './input-lab/panel';
 import { DocumentTitle } from './document-title';
 import { Ruler } from './ruler';
 import { OutlinePane } from './outline-pane';
+import { ZoomFrame } from './zoom-frame';
 
 /**
  * The app shell.
@@ -53,6 +54,8 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    * has only a scrollbar to say where they are.
    */
   const [outlining, setOutlining] = useState(true);
+  /** How large the page is drawn. See `zoom.tsx` for why it is a transform. */
+  const [zoom, setZoom] = useState(1);
   /**
    * The input lab is opened by asking for it — `?lab` in the address bar.
    *
@@ -97,11 +100,13 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
               onOutline: () => setOutlining((shown) => !shown),
               onComments: () => setCommenting((shown) => !shown)
             }}
+            zoom={zoom}
+            onZoom={setZoom}
           />
         ) : null}
         {/* Above the page and as wide as it, because every position on it is a
             position in the text below. */}
-        {instance ? <Ruler editor={instance.editor} /> : null}
+        {instance ? <Ruler editor={instance.editor} zoom={zoom} /> : null}
       </div>
 
       <div className="w-shell-body">
@@ -120,7 +125,14 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
               onClose={() => setFinding(false)}
             />
           ) : null}
-          <div ref={host} id="editor" />
+          {/*
+            The zoom is on a frame around the page, not on the page itself: a
+            scaled element still takes up its unscaled room, so the frame is
+            given the drawn size and the page is drawn inside it.
+          */}
+          <ZoomFrame zoom={zoom}>
+            <div ref={host} id="editor" />
+          </ZoomFrame>
         </div>
 
         {instance ? (
