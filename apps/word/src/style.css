@@ -11,11 +11,56 @@
  */
 :root { color-scheme: light dark; }
 
+/*
+ * The window is the frame.
+ *
+ * The whole page used to scroll, which took the ribbon and the ruler off the
+ * screen with it — and a ruler the text is not beside is a ruler for nothing.
+ * So the shell fills the viewport and does not scroll; the document scrolls
+ * inside its own pane, and the chrome stays where the reader left it.
+ */
+html,
+body,
+#root {
+  height: 100%;
+}
+
 body {
   margin: 0;
-  padding: 24px;
   background: #f1f3f5;
   font-family: system-ui, sans-serif;
+  overflow: hidden;
+}
+
+.w-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+/* Ribbon, title and ruler: as tall as they need and never any taller. */
+.w-shell > .w-chrome {
+  flex: 0 0 auto;
+  padding: 0 24px;
+  background: #f1f3f5;
+  border-bottom: 1px solid #dee2e6;
+}
+
+/* Everything below it, sharing the rest of the window. */
+.w-shell-body {
+  display: flex;
+  align-items: stretch;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* The one thing that scrolls. */
+.w-shell-document {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: auto;
+  padding: 24px;
 }
 
 .w-document { display: flex; flex-direction: column; align-items: center; gap: 24px; }
@@ -649,4 +694,73 @@ body {
   margin: 4px 2px;
   border: 0;
   border-top: 1px solid #e9ecef;
+}
+
+/*
+ * The outline, which Word calls the navigation pane.
+ *
+ * A scrollbar says how far through a document the reader is; this says *where* —
+ * which part, under which heading. It scrolls on its own, because a map that
+ * moves with the thing it maps is not a map.
+ */
+.w-outline {
+  flex: 0 0 236px;
+  min-width: 0;
+  overflow: auto;
+  padding: 12px 8px 24px;
+  border-right: 1px solid #dee2e6;
+  background: #f8f9fa;
+  font-size: 13px;
+}
+.w-outline-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px 8px;
+  color: #868e96;
+  font-size: 11px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.w-outline-title button {
+  border: 0;
+  background: none;
+  color: inherit;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+.w-outline ul { margin: 0; padding: 0; list-style: none; }
+.w-outline li button {
+  display: block;
+  width: 100%;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  text-align: left;
+  font: inherit;
+  color: #343a40;
+  cursor: pointer;
+  /* One line each: a heading is a landmark here, not something to read */
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.w-outline li button:hover { background: #e9ecef; }
+/* Where the caret is, which is what makes this a map rather than a list. */
+.w-outline li button.is-here {
+  background: #e7f5ff;
+  color: #1864ab;
+  font-weight: 600;
+}
+.w-outline-empty { padding: 8px; color: #adb5bd; }
+
+.w-outline-closed {
+  flex: 0 0 32px;
+  border: 0;
+  border-right: 1px solid #dee2e6;
+  background: #f8f9fa;
+  color: #868e96;
+  cursor: pointer;
 }

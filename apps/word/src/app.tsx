@@ -8,6 +8,7 @@ import { CommentsPane } from './comments-pane';
 import { InputLab } from './input-lab/panel';
 import { DocumentTitle } from './document-title';
 import { Ruler } from './ruler';
+import { OutlinePane } from './outline-pane';
 
 /**
  * The app shell.
@@ -46,6 +47,13 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
   const [finding, setFinding] = useState(false);
   const [commenting, setCommenting] = useState(true);
   /**
+   * The outline, which Word calls the navigation pane.
+   *
+   * Open by default: a long document is a shape, and a reader who cannot see it
+   * has only a scrollbar to say where they are.
+   */
+  const [outlining, setOutlining] = useState(true);
+  /**
    * The input lab is opened by asking for it — `?lab` in the address bar.
    *
    * It is a tool for sitting down and typing on purpose while a recording runs,
@@ -65,32 +73,51 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  /**
+   * The window is the frame.
+   *
+   * The whole page used to scroll, which took the ribbon and the ruler with it —
+   * and a ruler the text is not beside is a ruler for nothing. So the shell
+   * fills the viewport and does not scroll: the chrome holds its place at the
+   * top, the panes hold theirs at the sides, and the one thing that scrolls is
+   * the document.
+   */
   return (
-    <>
-      {instance ? <DocumentTitle editor={instance.editor} /> : null}
-      {instance ? <Ribbon editor={instance.editor} view={instance.view} fonts={instance.fonts} /> : null}
-      <div className="relative">
+    <div className="w-shell">
+      <div className="w-chrome">
+        {instance ? <DocumentTitle editor={instance.editor} /> : null}
         {instance ? (
-          <FindPanel
-            editor={instance.editor}
-            view={instance.view}
-            open={finding}
-            onClose={() => setFinding(false)}
-          />
+          <Ribbon editor={instance.editor} view={instance.view} fonts={instance.fonts} />
         ) : null}
-        <div className="flex items-start">
-          <div className="flex-1">
-            {/* Above the page and as wide as it, because every position on it is
-                a position in the text below. */}
-            {instance ? <Ruler editor={instance.editor} /> : null}
-            <div ref={host} id="editor" />
-          </div>
-          {instance ? (
-            <CommentsPane editor={instance.editor} view={instance.view} open={commenting} />
-          ) : null}
-          {instance && lab ? <InputLab editor={instance.editor} view={instance.view} /> : null}
-        </div>
+        {/* Above the page and as wide as it, because every position on it is a
+            position in the text below. */}
+        {instance ? <Ruler editor={instance.editor} /> : null}
       </div>
-    </>
+
+      <div className="w-shell-body">
+        {instance ? <OutlinePane
+            editor={instance.editor}
+            open={outlining}
+            onToggle={() => setOutlining((shown) => !shown)}
+          /> : null}
+
+        <div className="w-shell-document relative">
+          {instance ? (
+            <FindPanel
+              editor={instance.editor}
+              view={instance.view}
+              open={finding}
+              onClose={() => setFinding(false)}
+            />
+          ) : null}
+          <div ref={host} id="editor" />
+        </div>
+
+        {instance ? (
+          <CommentsPane editor={instance.editor} view={instance.view} open={commenting} />
+        ) : null}
+        {instance && lab ? <InputLab editor={instance.editor} view={instance.view} /> : null}
+      </div>
+    </div>
   );
 }

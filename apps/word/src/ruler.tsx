@@ -195,11 +195,24 @@ export function Ruler({ editor }: { editor: Editor }) {
     (editor as any).on?.('editor:selection.model', refresh);
     (editor as any).on?.('editor:content.change', refresh);
     window.addEventListener('resize', refresh);
+
+    /**
+     * And when the document pane scrolls sideways.
+     *
+     * The ruler is in the chrome and the page is in a pane of its own, so a page
+     * wider than its pane moves under a ruler that does not — and every position
+     * on the ruler is a position in that page. Vertical scrolling changes
+     * nothing here, and re-measuring costs one rect either way.
+     */
+    const pane = document.querySelector('.w-shell-document');
+    pane?.addEventListener('scroll', refresh, { passive: true });
+
     return () => {
       window.clearTimeout(timer);
       (editor as any).off?.('editor:selection.model', refresh);
       (editor as any).off?.('editor:content.change', refresh);
       window.removeEventListener('resize', refresh);
+      pane?.removeEventListener('scroll', refresh);
     };
   }, [editor]);
 
