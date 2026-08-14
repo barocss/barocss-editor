@@ -692,7 +692,7 @@ describe('one operation, four times over', () => {
  */
 describe('the whole pool', () => {
   /** Runs that did not come back. Lower this; never raise it. */
-  const FAILING = 34;
+  const FAILING = 33;
   const SEEDS = 60;
 
   it(`does not come back from ${FAILING} of ${SEEDS} runs, and no more`, async () => {

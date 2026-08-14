@@ -68,7 +68,19 @@ defineOperation('mergeTextNodes', async (operation: any, context: TransactionCon
   return {
     ok: true,
     data: mergedNodeId,
-    inverse: { type: 'splitTextNode', payload: { nodeId: mergedNodeId, splitPosition: leftTextLen } }
+    /**
+     * Split back, and give the half the id this merge consumed.
+     *
+     * Without it the split mints a new node, and every inverse collected before
+     * this merge that names the consumed one — a reordering, a removal, a move —
+     * is left pointing at a node that is not there: the undo either throws and
+     * takes the rest of the chain with it, or quietly leaves the document in an
+     * order it was never in.
+     */
+    inverse: {
+      type: 'splitTextNode',
+      payload: { nodeId: mergedNodeId, splitPosition: leftTextLen, newNodeId: rightNodeId }
+    }
   };
 });
 

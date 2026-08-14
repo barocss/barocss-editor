@@ -1560,8 +1560,8 @@ export class DataStore {
   /**
    * 텍스트 노드를 지정된 위치에서 분할
    */
-  splitTextNode(nodeId: string, splitPosition: number): string {
-    return this.splitMerge.splitTextNode(nodeId, splitPosition);
+  splitTextNode(nodeId: string, splitPosition: number, newNodeId?: string): string {
+    return this.splitMerge.splitTextNode(nodeId, splitPosition, newNodeId);
   }
 
   /**

@@ -24,7 +24,7 @@ export class SplitMergeOperations {
    * @param splitPosition 분할 위치 (0-based)
    * @returns 새로 생성된 오른쪽 노드의 ID
    */
-  splitTextNode(nodeId: string, splitPosition: number): string {
+  splitTextNode(nodeId: string, splitPosition: number, newNodeId?: string): string {
     const node = this.dataStore.getNode(nodeId);
     if (!node) {
       throw new Error(`Node not found: ${nodeId}`);
@@ -93,8 +93,20 @@ export class SplitMergeOperations {
       parentId: node.parentId
     };
 
-    const newNodeId = this.dataStore.generateId();
-    newNode.sid = newNodeId;
+    /**
+     * The id the right-hand half is to carry, when the caller names one.
+     *
+     * A fresh id is right for a reader splitting a run. It is wrong when this
+     * split is undoing a *merge*: the merge consumed a node, and every inverse
+     * collected before it that names that node — a reordering, a removal, a
+     * move — can no longer find it. Undo then either throws or quietly leaves
+     * the document in an order it was never in.
+     *
+     * Giving the half back its old id makes the merge and the split each
+     * other's inverse in identity as well as in text.
+     */
+    const assignedId = newNodeId ?? this.dataStore.generateId();
+    newNode.sid = assignedId;
     this.dataStore.setNode(newNode, false);
 
     // Add new node to parent's content array
@@ -104,13 +116,13 @@ export class SplitMergeOperations {
         const currentIndex = parent.content.indexOf(nodeId);
         if (currentIndex !== -1) {
           const newContent = [...parent.content];
-          newContent.splice(currentIndex + 1, 0, newNodeId);
+          newContent.splice(currentIndex + 1, 0, assignedId);
           this.dataStore.updateNode(parent.sid!, { content: newContent }, false);
         }
       }
     }
 
-    return newNodeId;
+    return assignedId;
   }
 
   /**
