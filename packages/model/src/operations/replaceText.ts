@@ -51,6 +51,32 @@ defineOperation('replaceText', async (operation: any, context: TransactionContex
         throw new Error('Range endpoints must be text nodes');
       }
       if (typeof startOffset !== 'number' || typeof endOffset !== 'number') throw new Error('Invalid range');
+
+      /**
+       * The range has to be inside the node it names.
+       *
+       * The store refuses one that is not and writes a warning, and this
+       * reported success for the replacement it had not made — and handed back
+       * an inverse for it. Undoing then wrote the "original" text over a range
+       * that had never held it: splitting 'alpha' and replacing a range the
+       * left half had outgrown came back as 'allpha'.
+       *
+       * The fifth operation in this package found doing that. The rule is the
+       * same every time: a payload describing a document that is not there is
+       * the caller being wrong, and the answer is to say so rather than to
+       * succeed at nothing.
+       */
+      if (startNodeId === endNodeId) {
+        const length = (startNode.text as string).length;
+        if (startOffset < 0 || endOffset > length || startOffset > endOffset) {
+          return {
+            ok: false,
+            error:
+              `replaceText: [${startOffset}, ${endOffset}) is not inside ${startNodeId}, ` +
+              `which holds ${length} character${length === 1 ? '' : 's'}`
+          };
+        }
+      }
       
       /**
        * Store the original text for the inverse — with the range properly

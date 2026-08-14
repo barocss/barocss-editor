@@ -25,6 +25,29 @@ defineOperation('mergeBlockNodes', async (operation: any, context: TransactionCo
   if (!right) throw new Error(`Node not found: ${rightNodeId}`);
   if (left.stype !== right.stype) throw new Error(`Cannot merge different node types: ${left.stype} and ${right.stype}`);
 
+  /**
+   * And they have to be next to each other, for the reason `mergeTextNodes` does.
+   *
+   * The store folds the right block's children into the left and takes the
+   * right out of the parent — so blocks that are not adjacent leave whatever
+   * sat between them stranded on the wrong side of the join, and a block that
+   * is not in that parent has nothing taken out while its own removal's inverse
+   * still plans to put it back. Undo does both and the document keeps it twice.
+   */
+  const parentId = (left as any).parentId ? context.dataStore.resolveAlias((left as any).parentId) : undefined;
+  const parent = parentId ? context.dataStore.getNode(parentId) : undefined;
+  const siblings = Array.isArray((parent as any)?.content) ? ((parent as any).content as string[]) : [];
+  const leftAt = siblings.indexOf(leftNodeId);
+  // Only when the parent can be found — see `mergeTextNodes`.
+  if (parent && (leftAt < 0 || siblings.indexOf(rightNodeId) !== leftAt + 1)) {
+    return {
+      ok: false,
+      error:
+        `mergeBlockNodes: ${leftNodeId} and ${rightNodeId} are not next to each other in ` +
+        `${parentId ?? '(no parent)'}`
+    };
+  }
+
   const leftChildrenCount = Array.isArray((left as any).content) ? (left as any).content.length : 0;
   /**
    * The seam, captured before the merge: afterwards the two blocks are one and

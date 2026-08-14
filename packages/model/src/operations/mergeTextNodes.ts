@@ -35,6 +35,39 @@ defineOperation('mergeTextNodes', async (operation: any, context: TransactionCon
    * primitive underneath stays permissive — a caller naming two nodes has
    * decided they are one — and refusing is policy, which lives here.
    */
+  /**
+   * Two runs are only one run if they are next to each other.
+   *
+   * The store joins the text and takes the right-hand node out of the parent's
+   * children — so a node that is not in that parent has nothing taken out, and
+   * a node that is not adjacent leaves whatever sat between them stranded on
+   * the wrong side of the join.
+   *
+   * It merged an orphan happily: a run removed from its paragraph still exists,
+   * and merging it copied its text in while the removal's own inverse still
+   * planned to put it back. Undo did both, and the document ended with the run
+   * twice.
+   *
+   * The sixth operation here found trusting a payload against the document. The
+   * answer is the same one every time.
+   */
+  const parentId = (left as any).parentId ? context.dataStore.resolveAlias((left as any).parentId) : undefined;
+  const parent = parentId ? context.dataStore.getNode(parentId) : undefined;
+  const children = Array.isArray((parent as any)?.content) ? ((parent as any).content as string[]) : [];
+  const leftAt = children.indexOf(leftNodeId);
+  const rightAt = children.indexOf(rightNodeId);
+  // Only when the parent can be found: a caller that has not linked the two
+  // into one is not making the claim this is checking, and the store will
+  // answer for itself.
+  if (parent && (leftAt < 0 || rightAt !== leftAt + 1)) {
+    return {
+      ok: false,
+      error:
+        `mergeTextNodes: ${leftNodeId} and ${rightNodeId} are not next to each other in ` +
+        `${parentId ?? '(no parent)'}`
+    };
+  }
+
   const attributesOf = (node: any) =>
     JSON.stringify(node?.attributes ?? {}, Object.keys(node?.attributes ?? {}).sort());
   if (attributesOf(left) !== attributesOf(right)) {
