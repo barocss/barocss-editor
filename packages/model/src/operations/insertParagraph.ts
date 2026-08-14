@@ -91,11 +91,37 @@ defineOperation('insertParagraph', async (operation: { type: string; payload: In
   }
   const { textNodeId, offset, textLength, parentBlock } = resolved;
   const safeOffset = Math.max(0, Math.min(offset, textLength));
-  const isSingleTextChild = parentBlock.content.length === 1 && parentBlock.content[0] === textNodeId;
 
-  if (isSingleTextChild && safeOffset > 0 && safeOffset < textLength) {
-    dataStore.splitTextNode(textNodeId, safeOffset);
-    const newNodeId = dataStore.splitBlockNode(parentBlock.sid!, 1);
+  /**
+   * Where the caret sits among the block's children, and whether anything is on
+   * each side of it.
+   *
+   * The split used to be attempted only when the block held exactly one text
+   * node. A paragraph holds one run per stretch of formatting, so any paragraph
+   * with a bold word in it holds several — and every one of those fell through
+   * to the branch below, which does not split at all: it puts an empty
+   * paragraph beside this one and moves the caret into it. Reported by hand as
+   * a paragraph appearing *above* with the caret in it, and that is exactly
+   * what it is, because a caret anywhere but the last run reads as "not at the
+   * end" and inserts before.
+   *
+   * What decides a split is the caret's position in the *block*, not in the run
+   * it happens to be in: text before it and text after it means split, and only
+   * the two true edges of the block are an insertion.
+   */
+  const childIndex = parentBlock.content.indexOf(textNodeId);
+  const atBlockStart = childIndex === 0 && safeOffset === 0;
+  const atBlockEnd = childIndex === parentBlock.content.length - 1 && safeOffset === textLength;
+
+  if (childIndex !== -1 && !atBlockStart && !atBlockEnd) {
+    // Only cut the run when the caret is inside it; on a run boundary the
+    // children divide where they already do.
+    let splitAt = childIndex;
+    if (safeOffset > 0) {
+      if (safeOffset < textLength) dataStore.splitTextNode(textNodeId, safeOffset);
+      splitAt = childIndex + 1;
+    }
+    const newNodeId = dataStore.splitBlockNode(parentBlock.sid!, splitAt);
     const newBlock = dataStore.getNode(newNodeId);
     const firstTextNodeId =
       newBlock && Array.isArray(newBlock.content) && newBlock.content[0]
@@ -119,7 +145,9 @@ defineOperation('insertParagraph', async (operation: { type: string; payload: In
   const idx = grandParent.content.indexOf(parentBlock.sid);
   if (idx === -1) throw new Error(`insertParagraph: block not in parent content`);
 
-  const insertIndex = safeOffset === textLength ? idx + 1 : idx;
+  // Only the block's two edges reach here: an empty paragraph after it, or an
+  // empty paragraph before it.
+  const insertIndex = atBlockEnd ? idx + 1 : idx;
   const stype = blockType === 'paragraph' ? 'paragraph' : (parentBlock as { stype: string }).stype;
   const newBlock = {
     stype,
@@ -133,11 +161,24 @@ defineOperation('insertParagraph', async (operation: { type: string; payload: In
   const emptyTextId = dataStore.content.addChild(childId, { stype: 'inline-text', text: '' } as any, 0);
   context.lastCreatedBlock = { blockId: childId, firstTextNodeId: emptyTextId };
   const addedNode = dataStore.getNode(childId);
-  // selectionAfter.nodeId는 text node여야 함 (block은 offset을 가지지 않음)
+  /**
+   * The caret goes with the text, not with the blank.
+   *
+   * Pressing Enter at the end of a paragraph makes a new one to carry on
+   * writing in, so the caret belongs in it. Pressing Enter at the *start*
+   * pushes the paragraph down and opens a blank line above it — and the reader
+   * is still writing the paragraph they were in, which is now below. Sending
+   * the caret into the blank there is the same complaint as the split bug
+   * above, arrived at from the other side: a paragraph appears above and the
+   * caret is in it.
+   *
+   * selectionAfter.nodeId must name a text node either way; a block has no
+   * offset to sit at.
+   */
   return {
     ok: true,
     data: addedNode,
     inverse: { type: 'removeChild', payload: { parentId: grandParent.sid, childId } },
-    selectionAfter: { nodeId: emptyTextId, offset: 0 }
+    selectionAfter: atBlockEnd ? { nodeId: emptyTextId, offset: 0 } : { nodeId: textNodeId, offset: 0 }
   };
 });
