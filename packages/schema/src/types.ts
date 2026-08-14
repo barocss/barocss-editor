@@ -101,6 +101,20 @@ export interface NodeTypeDefinition {
    * Default strategy:
    * - paragraph, heading, listItem, etc.: indentable: true
    * - codeBlock, table, atom block, etc.: indentable: false (or undefined)
+   *
+   * **No schema in this repository sets it**, and that is a fact about the
+   * products here rather than about the capability: Word nests a list by giving
+   * a paragraph a numbering *level*, not by putting one node inside another, so
+   * `apps/word` indents through `numLevel` and `indentLeft` and never through
+   * this. An outliner would want the opposite, which is why it stays.
+   *
+   * It has been dead in a way worth knowing about. `indentNode` reported
+   * success at doing nothing whenever a node was not indentable — which reads
+   * as "done, nothing to undo" — so the roster exempted it from the undo check
+   * for declaring no inverse, and the check stayed off for the case where it
+   * does one. Both are fixed, and the roster's own schema opts in so the
+   * operations are exercised for real; but a capability nothing ships is a
+   * capability to check before trusting.
    */
   indentable?: boolean;
 
