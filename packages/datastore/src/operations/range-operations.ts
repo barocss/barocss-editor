@@ -80,7 +80,7 @@ export class RangeOperations {
         updatedMarks = resultMarks;
       }
       
-      this.dataStore.updateNode(nodeId, { text: updatedText, marks: updatedMarks });
+      this.dataStore.updateNode(nodeId, { text: updatedText, marks: coalesceMarks(updatedMarks) });
       return removed;
     }
     
@@ -118,7 +118,7 @@ export class RangeOperations {
             updatedMarks = resultMarks;
           }
           
-          this.dataStore.updateNode(contentRange.startNodeId, { text: newStartText, marks: updatedMarks });
+          this.dataStore.updateNode(contentRange.startNodeId, { text: newStartText, marks: coalesceMarks(updatedMarks) });
         }
       }
     }
@@ -197,7 +197,7 @@ export class RangeOperations {
             updatedMarks = resultMarks;
           }
           
-          this.dataStore.updateNode(contentRange.endNodeId, { text: newEndText, marks: updatedMarks });
+          this.dataStore.updateNode(contentRange.endNodeId, { text: newEndText, marks: coalesceMarks(updatedMarks) });
         }
       }
     }
@@ -275,7 +275,7 @@ export class RangeOperations {
       updatedMarks = resultMarks;
     }
     
-    this.dataStore.updateNode(nodeId, { text: updatedText, marks: updatedMarks });
+    this.dataStore.updateNode(nodeId, { text: updatedText, marks: coalesceMarks(updatedMarks) });
     return text;
   }
 
@@ -584,7 +584,7 @@ export class RangeOperations {
         return false;
       });
       removed += (node.marks.length - updatedMarks.length);
-      this.dataStore.updateNode(nodeId, { marks: updatedMarks }, false);
+      this.dataStore.updateNode(nodeId, { marks: coalesceMarks(updatedMarks) }, false);
       const local = this.dataStore.getNode(nodeId);
       if (local) (local as any).marks = updatedMarks;
     }
@@ -613,7 +613,7 @@ export class RangeOperations {
         return false;
       });
       removed += (node.marks.length - updatedMarks.length);
-      this.dataStore.updateNode(nodeId, { marks: updatedMarks }, false);
+      this.dataStore.updateNode(nodeId, { marks: coalesceMarks(updatedMarks) }, false);
       const local = this.dataStore.getNode(nodeId);
       if (local) (local as any).marks = updatedMarks;
     }
@@ -984,4 +984,38 @@ export class RangeOperations {
   }
 }
 
-
+/**
+ * Join marks that meet and agree, leaving everything else alone.
+ *
+ * Editing text inside a run splits the marks over it — inserting two characters
+ * in the middle of a bold word leaves bold [0,2] and bold [4,6] with the new
+ * text unbolded between them, which is right, and deleting those two characters
+ * again leaves bold [0,2] and bold [2,4], which says exactly what bold [0,4]
+ * says and is not the same document. Undo could not restore what it had, and
+ * every edit left another pair behind.
+ *
+ * Only marks of the same type carrying the same attributes, and only where one
+ * ends exactly where the next begins.
+ */
+function coalesceMarks(marks: any[] | undefined): any[] | undefined {
+  if (!Array.isArray(marks) || marks.length < 2) return marks;
+  const keyOf = (mark: any) =>
+    `${mark.stype ?? mark.type}:${JSON.stringify(mark.attrs ?? {}, Object.keys(mark.attrs ?? {}).sort())}`;
+  const sorted = [...marks].sort((a, b) => (a.range?.[0] ?? 0) - (b.range?.[0] ?? 0));
+  const joined: any[] = [];
+  for (const mark of sorted) {
+    const last = joined[joined.length - 1];
+    if (
+      last &&
+      keyOf(last) === keyOf(mark) &&
+      Array.isArray(last.range) &&
+      Array.isArray(mark.range) &&
+      last.range[1] === mark.range[0]
+    ) {
+      last.range = [last.range[0], mark.range[1]];
+      continue;
+    }
+    joined.push({ ...mark, ...(Array.isArray(mark.range) ? { range: [...mark.range] } : {}) });
+  }
+  return joined;
+}

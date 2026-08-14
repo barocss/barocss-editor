@@ -38,6 +38,27 @@ defineOperation('deleteTextRange',
         throw new Error(`Node not found: ${nodeId}`);
       }
 
+      /**
+       * The marks the deletion would lose entirely, before it goes.
+       *
+       * Only those wholly inside the span. A mark that merely overlaps it
+       * shrinks and survives, and putting the characters back stretches it over
+       * them again — restoring it as well would leave the run carrying the same
+       * mark twice, once long and once short.
+       *
+       * Ranges are made relative to the span so the inverse can shift them to
+       * wherever it restores the text.
+       */
+      const deletedMarks = (Array.isArray((node as any).marks) ? (node as any).marks : [])
+        .map((mark: any) => {
+          const [markStart, markEnd] = Array.isArray(mark.range)
+            ? mark.range
+            : [0, ((node as any).text ?? '').length];
+          if (markStart < start || markEnd > end) return null;
+          return { ...mark, range: [markStart - start, markEnd - start] as [number, number] };
+        })
+        .filter(Boolean);
+
       // 1) DataStore update: delete range [startPosition, endPosition) within single node
       const deletedText = context.dataStore.range.deleteText({
         type: 'range',
@@ -96,7 +117,16 @@ defineOperation('deleteTextRange',
           payload: { 
             nodeId, 
             pos: start, 
-            text: deletedText 
+            text: deletedText,
+            /**
+             * What was over the characters being removed.
+             *
+             * Restoring the letters alone made Ctrl+Z after deleting a bold
+             * word give the word back in plain text. Captured before the
+             * deletion, clipped to the span, and made relative to it — the
+             * insert shifts them to wherever it puts the text back.
+             */
+            restoreMarks: deletedMarks
           } 
         },
         selection: context.selection?.current ? {

@@ -42,7 +42,9 @@ type InsertTextOperationPayload = {
 // Uses DataStore.range.insertText and returns the inserted string.
 defineOperation('insertText', 
   async (operation: any, context: TransactionContext) => {
-    const { nodeId, pos, text } = operation.payload as InsertTextOperationPayload;
+    const { nodeId, pos, text, restoreMarks } = operation.payload as InsertTextOperationPayload & {
+      restoreMarks?: { stype?: string; type?: string; range: [number, number]; attrs?: Record<string, unknown> }[];
+    };
 
     try {
       // Check if node exists
@@ -60,6 +62,26 @@ defineOperation('insertText',
         endNodeId: nodeId,
         endOffset: pos
       }, text);
+
+      /**
+       * Marks that belonged to the text, when the caller kept them.
+       *
+       * Inserting plain characters is what typing does and they carry nothing.
+       * Undoing a *deletion* is the other caller, and the characters it puts
+       * back were bold, or a link, or tracked as an insertion — restoring only
+       * the letters made Ctrl+Z after deleting a bold word give back plain
+       * text. The ranges arrive relative to the restored text and are shifted
+       * to where it landed.
+       */
+      if (Array.isArray(restoreMarks) && restoreMarks.length > 0) {
+        const current = context.dataStore.getNode(nodeId);
+        const existing = Array.isArray((current as any)?.marks) ? [...(current as any).marks] : [];
+        const shifted = restoreMarks.map((mark) => ({
+          ...mark,
+          range: [mark.range[0] + pos, mark.range[1] + pos] as [number, number]
+        }));
+        context.dataStore.updateNode(nodeId, { marks: [...existing, ...shifted] } as any);
+      }
       
       // 2) Selection mapping: directly update context.selection.current
       if (context.selection?.current) {

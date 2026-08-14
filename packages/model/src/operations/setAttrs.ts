@@ -22,19 +22,39 @@ export const setAttrs = defineOperationDSL(
 
 // Runtime operation implementation
 defineOperation('setAttrs', async (operation: any, context: TransactionContext) => {
-  const { nodeId, attrs } = operation.payload;
+  const { nodeId, attrs, replace = false } = operation.payload;
   const node = context.dataStore.getNode(nodeId);
   if (!node) throw new Error(`Node not found: ${nodeId}`);
+
+  /**
+   * What the node had, copied — not the node's own object.
+   *
+   * The inverse used to carry `node.attributes` itself, which the store then
+   * went on to update: by the time undo read it, it held the new values and
+   * putting them back changed nothing. Setting the same attribute twice and
+   * undoing twice left the second value in place.
+   */
+  const previous = { ...(node.attributes || {}) };
+
   // Use updateNode to go through schema validation
-  const result = context.dataStore.updateNode(nodeId, { attributes: { ...(node.attributes || {}), ...attrs } });
+  const next = replace ? { ...attrs } : { ...previous, ...attrs };
+  const result = context.dataStore.updateNode(nodeId, { attributes: next });
   if (!result || result.valid !== true) {
     const message = result?.errors?.[0] || 'Update failed';
     throw new Error(message);
   }
+  if (replace) {
+    // `updateNode` merges, so an attribute the node no longer has would survive
+    // the merge. Undo has to be able to take one away.
+    const current = context.dataStore.getNode(nodeId);
+    if (current) context.dataStore.setNode({ ...current, attributes: { ...attrs } } as any, false);
+  }
   return {
     ok: true,
     data: context.dataStore.getNode(nodeId),
-    inverse: { type: 'setAttrs', payload: { nodeId, attrs: node.attributes } }
+    // Replaced, not merged: this operation adds attributes, and undoing it has
+    // to be able to remove the ones it added.
+    inverse: { type: 'setAttrs', payload: { nodeId, attrs: previous, replace: true } }
   };
 });
 
