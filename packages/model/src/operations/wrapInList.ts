@@ -93,23 +93,48 @@ defineOperation('wrapInList', async (operation: { type: string; payload: WrapInL
     const listIndexInDoc = doc.content.indexOf(listSid);
     if (listIndexInDoc === -1) throw new Error('wrapInList: list not in document');
 
-    const listItemIds = list.content as string[];
+    const listItemIds = (list.content as string[]).slice();
+    /** Which item each block came out of, and where in it — undo's material. */
+    const homes: { blockId: string; itemId: string; at: number }[] = [];
     let insertPos = listIndexInDoc;
     for (const itemId of listItemIds) {
       const item = dataStore.getNode(itemId);
       if (!item || !Array.isArray(item.content)) continue;
-      const blockIds = item.content as string[];
-      for (const bid of blockIds) {
+      const blockIds = (item.content as string[]).slice();
+      for (const [at, bid] of blockIds.entries()) {
+        homes.push({ blockId: bid, itemId, at });
         dataStore.content.removeChild(itemId, bid);
         dataStore.content.addChild(docId, bid, insertPos);
         insertPos += 1;
       }
     }
+    // The list as it stands now, its items emptied — the steps that carry the
+    // blocks home run after it is put back.
+    const emptied = JSON.parse(JSON.stringify(dataStore.getNode(listSid)));
     dataStore.content.removeChild(docId, listSid);
 
     return {
       ok: true,
       data: { unwrapped: true },
+      /**
+       * Put the list back, then every block into the item it came from.
+       *
+       * Taking a list apart is one change per block plus the list itself, and
+       * one inverse could not say all of them — so this said none, and Ctrl+Z
+       * after turning a list back into paragraphs did nothing. See `batch`.
+       */
+      inverse: {
+        type: 'batch',
+        payload: {
+          operations: [
+            { type: 'addChild', payload: { parentId: docId, child: emptied, position: listIndexInDoc } },
+            ...homes.map((home) => ({
+              type: 'moveNode',
+              payload: { nodeId: home.blockId, newParentId: home.itemId, position: home.at }
+            }))
+          ]
+        }
+      },
       selectionAfter: currentSelectionNodeId ? { nodeId: currentSelectionNodeId, offset: currentSelectionOffset } : undefined
     };
   }
@@ -130,6 +155,17 @@ defineOperation('wrapInList', async (operation: { type: string; payload: WrapInL
   return {
     ok: true,
     data: dataStore.getNode(listId),
+    // The block goes home first, so what is removed second is an empty list —
+    // and removing the list takes the item inside it with it.
+    inverse: {
+      type: 'batch',
+      payload: {
+        operations: [
+          { type: 'moveNode', payload: { nodeId: blockId, newParentId: parentId, position: blockIndex } },
+          { type: 'removeChild', payload: { parentId, childId: listId } }
+        ]
+      }
+    },
     selectionAfter: currentSelectionNodeId ? { nodeId: currentSelectionNodeId, offset: currentSelectionOffset } : undefined
   };
 });

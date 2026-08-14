@@ -27,6 +27,42 @@ defineOperation('toggleLink', async (operation: any, context: TransactionContext
 
   const hasLink = startNode.marks?.some((m: any) => (m.stype || m.type) === 'link');
 
+  /**
+   * Exactly what every run in the range carried, before this rewrites them.
+   *
+   * The inverse used to be this operation again, on the reasoning that toggling
+   * twice is the identity. It is not, unless nothing happens in between — and
+   * toggling back writes *this* href over whatever the link used to point at,
+   * so undoing a re-link left the text linked to the wrong page. It also acted
+   * on one node where a selection covers several, so undoing a link applied
+   * across a sentence unlinked the first run and left the rest.
+   *
+   * `applyMark` and `toggleMark` learned the same thing: restore the list, do
+   * not run the opposite. One `setMarks` per run, as a `batch`.
+   */
+  const inRange: string[] = (() => {
+    if (startNodeId === endNodeId) return [startNodeId];
+    try {
+      return (dataStore.getNodesInRange(startNodeId, endNodeId) as string[]).filter(
+        (sid) => typeof dataStore.getNode(sid)?.text === 'string'
+      );
+    } catch {
+      return [startNodeId];
+    }
+  })();
+
+  const restore = inRange.map((sid) => ({
+    type: 'setMarks',
+    payload: {
+      nodeId: sid,
+      marks: JSON.parse(JSON.stringify(dataStore.getNode(sid)?.marks ?? []))
+    }
+  }));
+  const inverse =
+    restore.length === 1
+      ? restore[0]
+      : { type: 'batch', payload: { operations: restore } };
+
   if (hasLink) {
     const rangeSelection = {
       type: 'range' as const,
@@ -39,7 +75,7 @@ defineOperation('toggleLink', async (operation: any, context: TransactionContext
     return {
       ok: true,
       data: { removed: true },
-      inverse: { type: 'toggleLink', payload: { href, title } }
+      inverse
     };
   }
 
@@ -59,6 +95,6 @@ defineOperation('toggleLink', async (operation: any, context: TransactionContext
   return {
     ok: true,
     data: { applied: true, href },
-    inverse: { type: 'removeMark', payload: { nodeId: startNodeId, markType: 'link' } }
+    inverse
   };
 });

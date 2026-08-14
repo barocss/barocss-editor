@@ -252,6 +252,16 @@ defineOperation('deleteTableRow', async (operation: any, context: TransactionCon
   const rowId = grid.rowIds[at.row];
   const row = dataStore.getNode(rowId);
 
+  /**
+   * How to put each change back, collected as it is made.
+   *
+   * A row is not one change: the cells spanning into it from above shrink too,
+   * and the row itself comes out of its section. One inverse cannot say both,
+   * so this returns a `batch` — which is the whole reason that operation
+   * exists. Undo used to do nothing at all here.
+   */
+  const undo: { type: string; payload: unknown }[] = [];
+
   // Cells spanning into this row from above must shrink, or the grid tears.
   for (let c = 0; c < grid.columnCount; c++) {
     const slot = grid.slots[at.row][c];
@@ -259,6 +269,10 @@ defineOperation('deleteTableRow', async (operation: any, context: TransactionCon
     const cell = dataStore.getNode(slot.sid);
     const rowspan = attr(cell, 'rowspan');
     if (rowspan > 1) {
+      undo.push({
+        type: 'setAttrs',
+        payload: { nodeId: slot.sid, attrs: { ...(cell?.attributes ?? {}) }, replace: true }
+      });
       dataStore.updateNode(
         slot.sid,
         { attributes: { ...(cell?.attributes ?? {}), rowspan: rowspan - 1 } } as any,
@@ -268,13 +282,30 @@ defineOperation('deleteTableRow', async (operation: any, context: TransactionCon
   }
 
   const parentId = row?.parentId;
-  if (row?.stype === 'bTableHeader') {
-    dataStore.content.removeChild(tableId, rowId);
-  } else if (parentId) {
-    dataStore.content.removeChild(parentId, rowId);
+  // Where it sat, read before it is taken out — a row put back at the end is a
+  // table whose rows have changed order and lost nothing, which is the shape of
+  // fault this package keeps producing.
+  const owner = row?.stype === 'bTableHeader' ? tableId : parentId;
+  const ownerNode = owner ? dataStore.getNode(owner) : null;
+  const wasAt = Array.isArray(ownerNode?.content)
+    ? (ownerNode!.content as string[]).indexOf(rowId)
+    : -1;
+  const rowBefore = JSON.parse(JSON.stringify(row));
+
+  if (owner) {
+    undo.push({
+      type: 'addChild',
+      payload: { parentId: owner, child: rowBefore, ...(wasAt >= 0 ? { position: wasAt } : {}) }
+    });
+    dataStore.content.removeChild(owner, rowId);
   }
 
-  return { ok: true, data: { removed: rowId } };
+  return {
+    ok: true,
+    data: { removed: rowId },
+    // Reversed: the last change made is the first put back.
+    ...(undo.length ? { inverse: { type: 'batch', payload: { operations: undo.slice().reverse() } } } : {})
+  };
 });
 
 // ── Columns ──────────────────────────────────────────────────────────────────
@@ -298,6 +329,8 @@ defineOperation('insertTableColumn', async (operation: any, context: Transaction
 
   const targetColumn = position === 'after' ? at.column + 1 : at.column;
   let firstTextId: string | null = null;
+  /** How to put each change back — a cell per row, and any that widened. */
+  const undo: { type: string; payload: unknown }[] = [];
 
   for (let r = 0; r < grid.rowIds.length; r++) {
     const rowId = grid.rowIds[r];
@@ -308,6 +341,10 @@ defineOperation('insertTableColumn', async (operation: any, context: Transaction
     // splitting it would change what the user merged.
     if (slot && !slot.isOrigin && previous && previous.sid === slot.sid && slot.sid) {
       const cell = dataStore.getNode(slot.sid);
+      undo.push({
+        type: 'setAttrs',
+        payload: { nodeId: slot.sid, attrs: { ...(cell?.attributes ?? {}) }, replace: true }
+      });
       dataStore.updateNode(
         slot.sid,
         { attributes: { ...(cell?.attributes ?? {}), colspan: attr(cell, 'colspan') + 1 } } as any,
@@ -332,6 +369,7 @@ defineOperation('insertTableColumn', async (operation: any, context: Transaction
     }
 
     const newCellId = createCell(dataStore, rowId, insertIndex);
+    undo.push({ type: 'removeChild', payload: { parentId: rowId, childId: newCellId } });
     if (!firstTextId) {
       firstTextId = ((dataStore.getNode(newCellId)?.content as string[]) ?? [])[0] ?? null;
     }
@@ -340,7 +378,9 @@ defineOperation('insertTableColumn', async (operation: any, context: Transaction
   return {
     ok: true,
     data: { tableId, column: targetColumn },
-    selectionAfter: firstTextId ? { nodeId: firstTextId, offset: 0 } : undefined
+    selectionAfter: firstTextId ? { nodeId: firstTextId, offset: 0 } : undefined,
+    // A cell in every row is several changes and one column: see `batch`.
+    ...(undo.length ? { inverse: { type: 'batch', payload: { operations: undo.slice().reverse() } } } : {})
   };
 });
 
@@ -365,6 +405,9 @@ defineOperation('deleteTableColumn', async (operation: any, context: Transaction
   }
 
   const removed = new Set<string>();
+  /** How to put each change back — a cell from every row, and any that narrowed. */
+  const undo: { type: string; payload: unknown }[] = [];
+
   for (let r = 0; r < grid.rowIds.length; r++) {
     const slot = grid.slots[r][at.column];
     if (!slot?.sid || removed.has(slot.sid)) continue;
@@ -373,6 +416,10 @@ defineOperation('deleteTableColumn', async (operation: any, context: Transaction
     const colspan = attr(cell, 'colspan');
     if (colspan > 1) {
       // Spanning cell: narrow it rather than delete the whole merge.
+      undo.push({
+        type: 'setAttrs',
+        payload: { nodeId: slot.sid, attrs: { ...(cell?.attributes ?? {}) }, replace: true }
+      });
       dataStore.updateNode(
         slot.sid,
         { attributes: { ...(cell?.attributes ?? {}), colspan: colspan - 1 } } as any,
@@ -384,11 +431,29 @@ defineOperation('deleteTableColumn', async (operation: any, context: Transaction
 
     const rowId = grid.rowIds[r];
     const owner = dataStore.getNode(slot.sid)?.parentId ?? rowId;
+    // Read before it goes, and with the index it sat at: a cell put back at the
+    // end of its row is a column that has moved.
+    const ownerNode = dataStore.getNode(owner);
+    const wasAt = Array.isArray(ownerNode?.content)
+      ? (ownerNode!.content as string[]).indexOf(slot.sid)
+      : -1;
+    undo.push({
+      type: 'addChild',
+      payload: {
+        parentId: owner,
+        child: JSON.parse(JSON.stringify(cell)),
+        ...(wasAt >= 0 ? { position: wasAt } : {})
+      }
+    });
     dataStore.content.removeChild(owner, slot.sid);
     removed.add(slot.sid);
   }
 
-  return { ok: true, data: { tableId, column: at.column } };
+  return {
+    ok: true,
+    data: { tableId, column: at.column },
+    ...(undo.length ? { inverse: { type: 'batch', payload: { operations: undo.slice().reverse() } } } : {})
+  };
 });
 
 // ── Merge and split ──────────────────────────────────────────────────────────
@@ -446,6 +511,17 @@ defineOperation('mergeTableCells', async (operation: any, context: TransactionCo
   // dropped — merging cells is not meant to delete what was typed in them.
   const survivor = dataStore.getNode(survivorId);
   let appendAt = ((survivor?.content as string[]) ?? []).length;
+  /**
+   * How to put each change back.
+   *
+   * Merging moves what was typed in the absorbed cells into the survivor and
+   * then takes the cells out — so undoing it has to move the paragraphs home
+   * before the cells they belong in are put back, and the cells have to come
+   * back at the index they sat at. Three kinds of change, which is why this
+   * declared none at all until now.
+   */
+  const undo: { type: string; payload: unknown }[] = [];
+
   for (const sid of inside) {
     if (sid === survivorId) continue;
     const cell = dataStore.getNode(sid);
@@ -453,12 +529,37 @@ defineOperation('mergeTableCells', async (operation: any, context: TransactionCo
       const child = dataStore.getNode(childId);
       const isEmptyText = child?.stype === 'inline-text' && !child?.text;
       if (isEmptyText) continue;
+      const wasAt = ((cell?.content as string[]) ?? []).indexOf(childId);
+      undo.push({
+        type: 'moveNode',
+        payload: { nodeId: childId, newParentId: sid, ...(wasAt >= 0 ? { position: wasAt } : {}) }
+      });
       dataStore.moveNode(childId, survivorId, appendAt++);
     }
     const owner = cell?.parentId;
-    if (owner) dataStore.content.removeChild(owner, sid);
+    if (owner) {
+      const ownerNode = dataStore.getNode(owner);
+      const wasAt = Array.isArray(ownerNode?.content)
+        ? (ownerNode!.content as string[]).indexOf(sid)
+        : -1;
+      // The cell as it stands now — emptied, since its children have already
+      // moved out and the steps that carry them home run after this one.
+      undo.push({
+        type: 'addChild',
+        payload: {
+          parentId: owner,
+          child: JSON.parse(JSON.stringify(dataStore.getNode(sid))),
+          ...(wasAt >= 0 ? { position: wasAt } : {})
+        }
+      });
+      dataStore.content.removeChild(owner, sid);
+    }
   }
 
+  undo.push({
+    type: 'setAttrs',
+    payload: { nodeId: survivorId, attrs: { ...(survivor?.attributes ?? {}) }, replace: true }
+  });
   dataStore.updateNode(
     survivorId,
     {
@@ -471,7 +572,11 @@ defineOperation('mergeTableCells', async (operation: any, context: TransactionCo
     false
   );
 
-  return { ok: true, data: dataStore.getNode(survivorId) };
+  return {
+    ok: true,
+    data: dataStore.getNode(survivorId),
+    ...(undo.length ? { inverse: { type: 'batch', payload: { operations: undo.slice().reverse() } } } : {})
+  };
 });
 
 export const splitTableCell = defineOperationDSL(
@@ -497,6 +602,11 @@ defineOperation('splitTableCell', async (operation: any, context: TransactionCon
   const at = findCellPosition(grid, cellId);
   if (!at) throw new Error('splitTableCell: cell not found in table');
 
+  /** How to put each change back — the spans, and every cell this makes. */
+  const undo: { type: string; payload: unknown }[] = [
+    { type: 'setAttrs', payload: { nodeId: cellId, attrs: { ...(cell?.attributes ?? {}) }, replace: true } }
+  ];
+
   // The survivor keeps its content; the slots it gave up become empty cells.
   dataStore.updateNode(
     cellId,
@@ -511,8 +621,17 @@ defineOperation('splitTableCell', async (operation: any, context: TransactionCon
     const children = ((row?.content as string[]) ?? []);
     const base = r === at.row ? children.indexOf(cellId) + 1 : 0;
     const count = r === at.row ? colspan - 1 : colspan;
-    for (let i = 0; i < count; i++) createCell(dataStore, rowId, base + i);
+    for (let i = 0; i < count; i++) {
+      const madeId = createCell(dataStore, rowId, base + i);
+      undo.push({ type: 'removeChild', payload: { parentId: rowId, childId: madeId } });
+    }
   }
 
-  return { ok: true, data: dataStore.getNode(cellId) };
+  return {
+    ok: true,
+    data: dataStore.getNode(cellId),
+    // The cells go first and the spans go back last, which is the order they
+    // were made in, reversed. See `batch`.
+    inverse: { type: 'batch', payload: { operations: undo.slice().reverse() } }
+  };
 });

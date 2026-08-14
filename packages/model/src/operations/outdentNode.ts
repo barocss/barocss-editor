@@ -29,21 +29,33 @@ defineOperation('outdentNode', async (operation: any, context: TransactionContex
     throw new Error(`[outdentNode] Node not found: ${nodeId}`);
   }
 
+  // Where it was, read before it moves: see `indentNode` for why the opposite
+  // operation is not a faithful inverse of this one.
+  const wasIn = node.parentId ? context.dataStore.resolveAlias(node.parentId) : null;
+  const parentBefore = wasIn ? context.dataStore.getNode(wasIn) : null;
+  const wasAt = Array.isArray(parentBefore?.content)
+    ? (parentBefore!.content as string[]).indexOf(nodeId)
+    : -1;
+
   const ok = context.dataStore.outdentNode(nodeId);
 
-  // If outdentNode returns false (e.g., already at top level),
-  // treat as no-op rather than error
+  /**
+   * Already at the top level is a refusal, not a success.
+   *
+   * See `indentNode` for what reporting success at nothing costs: the roster
+   * reads "no inverse" as a property of the operation and stops checking undo
+   * for the case where there is one.
+   */
   if (!ok) {
-    return {
-      ok: true,
-      data: context.dataStore.getNode(nodeId)
-    };
+    return { ok: false, error: `outdentNode: ${nodeId} is already at the top level` };
   }
 
   return {
     ok: true,
     data: context.dataStore.getNode(nodeId),
-    inverse: { type: 'indentNode', payload: { nodeId } }
+    ...(wasIn && wasAt >= 0
+      ? { inverse: { type: 'moveNode', payload: { nodeId, newParentId: wasIn, position: wasAt } } }
+      : {})
   };
 });
 

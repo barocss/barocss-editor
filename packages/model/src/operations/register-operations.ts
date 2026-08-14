@@ -16,6 +16,7 @@ import './splitBlockNode';
 import './splitTextNode';
 import './autoMergeTextNodes';
 import './restoreTextNodes';
+import './batch';
 import './setText';
 import './setAttrs';
 import './setMarks';

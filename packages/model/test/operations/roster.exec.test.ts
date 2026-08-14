@@ -50,7 +50,27 @@ const makeSchema = () =>
       horizontalRule: { name: 'horizontalRule', group: 'block', content: '' },
       mathBlock: { name: 'mathBlock', group: 'block', content: 'inline-text*' },
       list: { name: 'list', group: 'block', content: 'listItem+' },
-      listItem: { name: 'listItem', group: 'block', content: 'block+' },
+      /**
+       * Indentable, which is what `indentNode` and `outdentNode` need to act.
+       *
+       * They were exempt from the undo check on the grounds that they declare
+       * no inverse — and they declared none here because the roster's schema
+       * never said a list item could be nested, so every run of them refused
+       * and reported success at doing nothing. Two operations tested by a
+       * scenario in which they could not do anything.
+       *
+       * No schema shipped in this repo sets this: Word nests list items by
+       * numbering level rather than by nesting nodes, so the machinery is
+       * unused there. Set here so the operations are still checked for a schema
+       * that does opt in.
+       */
+      listItem: {
+        name: 'listItem',
+        group: 'block',
+        content: 'block+',
+        indentable: true,
+        indentParentTypes: ['listItem']
+      },
       bTable: { name: 'bTable', group: 'block', content: 'block+' },
       bTableHeader: { name: 'bTableHeader', group: 'block', content: 'block+' },
       bTableHeaderCell: { name: 'bTableHeaderCell', group: 'block', content: 'block*' },
@@ -125,6 +145,16 @@ function buildDocument(dataStore: DataStore): void {
   set({ sid: 'p-3', stype: 'paragraph', content: ['m-1', 'm-2'], parentId: 'doc-1' });
   set({ sid: 'm-1', stype: 'inline-text', text: 'joined', parentId: 'p-3' });
   set({ sid: 'm-2', stype: 'inline-text', text: 'together', parentId: 'p-3' });
+
+  /**
+   * A document has a root, and this one did not say so.
+   *
+   * Not a detail: with no root registered, `create` took the node it had just
+   * made to be the document's root — because that is what it does for the first
+   * node there is — and `delete`, which is its inverse, refuses to delete a
+   * root. The operation was undoable and its undo could not run.
+   */
+  dataStore.setRootNodeId('doc-1');
 }
 
 type Scenario = {
@@ -134,6 +164,15 @@ type Scenario = {
   operation?: Record<string, unknown>;
   /** Where the caret or selection is when it runs. */
   select?: (context: any) => void;
+  /**
+   * A document this operation has something to do in.
+   *
+   * Run before anything is measured, so the "before" the undo check compares
+   * against includes it. `splitTableCell` needs a merged cell to split, and
+   * without one it refused every time and was exempted from the undo check for
+   * refusing — a scenario in which the operation could not act, passing.
+   */
+  given?: (dataStore: DataStore) => void;
   /** Why undo is not checked, when it is not. */
   undo?: string;
   /** Anything specific worth asserting beyond "it ran and nothing was lost". */
@@ -194,8 +233,8 @@ const ROSTER: Record<string, Scenario> = {
   transformNode: { payload: { nodeId: 'p-1', newType: 'heading' } },
   moveBlockUp: { payload: { nodeId: 'p-2' } },
   moveBlockDown: { payload: { nodeId: 'p-1' } },
-  indentNode: { payload: { nodeId: 'li-2' }, undo: 'declares no inverse' },
-  outdentNode: { payload: { nodeId: 'li-2' }, undo: 'declares no inverse' },
+  indentNode: { payload: { nodeId: 'li-2' } },
+  outdentNode: { payload: { nodeId: 'li-2' } },
   // A range with text in it: indenting an empty stretch changes nothing,
   // and an operation that changes nothing is now refused rather than reported
   // as done.
@@ -205,6 +244,16 @@ const ROSTER: Record<string, Scenario> = {
 
   // ── the tree ──────────────────────────────────────────────────────────────
   addChild: { payload: { parentId: 'p-1', child: { stype: 'inline-text', text: 'added' }, position: 3 } },
+  // Two changes in different places, which is the case a single inverse could
+  // not describe and the reason this exists.
+  batch: {
+    payload: {
+      operations: [
+        { type: 'setText', payload: { nodeId: 'r-1', text: 'ONE' } },
+        { type: 'setAttrs', payload: { nodeId: 'p-1', attrs: { align: 'right' } } }
+      ]
+    }
+  },
   removeChild: { payload: { parentId: 'p-1', childId: 'r-3' } },
   removeChildren: { payload: { parentId: 'p-1', childIds: ['r-3'] } },
   moveChildren: { payload: { fromParentId: 'p-1', toParentId: 'p-2', childIds: ['r-3'], position: 0 } },
@@ -212,42 +261,51 @@ const ROSTER: Record<string, Scenario> = {
   reorderChildren: { payload: { parentId: 'p-1', childIds: ['r-3', 'r-1', 'r-2'] } },
   cloneNodeWithChildren: { payload: { nodeId: 'p-1', newParentId: 'doc-1' } },
   copyNode: { payload: { nodeId: 'r-1', newParentId: 'p-2' } },
-  create: { payload: { node: { stype: 'paragraph', content: [] } }, undo: 'declares no inverse; the node it made is named in its result' },
-  setNode: { operation: { node: { sid: 'brand-new', stype: 'inline-text', text: 'x', parentId: 'p-1' } }, undo: 'declares no inverse; it writes a node whole' },
+  create: { payload: { node: { stype: 'paragraph', content: [] } } },
+  setNode: { operation: { node: { sid: 'brand-new', stype: 'inline-text', text: 'x', parentId: 'p-1' } } },
   delete: { payload: { nodeId: 'r-3' } },
   update: { payload: { nodeId: 'p-1', data: { attributes: { align: 'center' } } } },
   setAttrs: { payload: { nodeId: 'p-1', attrs: { align: 'right' } } },
-  unwrap: { payload: { range: { startNodeId: 'r-1', startOffset: 0, endNodeId: 'r-1', endOffset: 3 }, prefix: 'o', suffix: 'e' }, undo: 'declares no inverse' },
-  wrap: { payload: { range: { startNodeId: 'r-1', startOffset: 0, endNodeId: 'r-1', endOffset: 3 }, prefix: '**', suffix: '**' }, undo: 'declares no inverse' },
+  unwrap: { payload: { range: { startNodeId: 'r-1', startOffset: 0, endNodeId: 'r-1', endOffset: 3 }, prefix: 'o', suffix: 'e' } },
+  wrap: { payload: { range: { startNodeId: 'r-1', startOffset: 0, endNodeId: 'r-1', endOffset: 3 }, prefix: '**', suffix: '**' } },
 
   // ── marks ─────────────────────────────────────────────────────────────────
   applyMark: { payload: { range: { startNodeId: 'r-1', startOffset: 0, endNodeId: 'r-1', endOffset: 3 }, markType: 'bold' } },
   // A mark applied across several nodes has no single operation that removes it.
   // Kept as a scenario so the limit is on the record rather than a surprise.
   removeMark: { payload: { nodeId: 'r-2', markType: 'bold', range: [0, 3] } },
-  updateMark: { payload: { nodeId: 'r-2', markType: 'bold', range: [0, 3], newAttrs: {} }, undo: 'declares no inverse' },
+  updateMark: { payload: { nodeId: 'r-2', markType: 'bold', range: [0, 3], newAttrs: {} } },
   setMarks: { payload: { nodeId: 'r-1', marks: [{ stype: 'bold', range: [0, 2] }] } },
-  toggleMark: { payload: { nodeId: 'r-1', range: { startNodeId: 'r-1', startOffset: 0, endNodeId: 'r-1', endOffset: 3 }, markType: 'bold' }, undo: 'declares no inverse; toggling again is the undo' },
-  toggleLink: { payload: { href: 'https://example.com' }, select: rangeOver('r-1', 0, 'r-1', 3), undo: 'declares its own toggle as the inverse, which is not a restore' },
+  toggleMark: { payload: { nodeId: 'r-1', range: { startNodeId: 'r-1', startOffset: 0, endNodeId: 'r-1', endOffset: 3 }, markType: 'bold' } },
+  toggleLink: { payload: { href: 'https://example.com' }, select: rangeOver('r-1', 0, 'r-1', 3) },
 
   // ── inserting a block where the caret is ──────────────────────────────────
-  insertCallout: { select: caretIn('r-2', 1), undo: 'declares no inverse' },
-  insertChecklist: { select: caretIn('r-2', 1), undo: 'declares no inverse' },
-  insertCodeBlock: { select: caretIn('r-2', 1), undo: 'declares no inverse' },
-  insertHorizontalRule: { select: caretIn('r-2', 1), undo: 'declares no inverse' },
-  insertImage: { payload: { src: 'a.png', alt: 'a' }, select: caretIn('r-2', 1), undo: 'declares no inverse' },
-  insertMathBlock: { payload: { tex: 'x^2' }, select: caretIn('r-2', 1), undo: 'declares no inverse' },
-  insertTable: { payload: { rows: 2, cols: 2 }, select: caretIn('r-2', 1), undo: 'declares no inverse' },
-  wrapInBlockquote: { select: caretIn('r-2', 1), undo: 'declares no inverse' },
-  wrapInList: { select: caretIn('r-2', 1), undo: 'declares no inverse' },
+  insertCallout: { select: caretIn('r-2', 1) },
+  insertChecklist: { select: caretIn('r-2', 1) },
+  insertCodeBlock: { select: caretIn('r-2', 1) },
+  insertHorizontalRule: { select: caretIn('r-2', 1) },
+  insertImage: { payload: { src: 'a.png', alt: 'a' }, select: caretIn('r-2', 1) },
+  insertMathBlock: { payload: { tex: 'x^2' }, select: caretIn('r-2', 1) },
+  insertTable: { payload: { rows: 2, cols: 2 }, select: caretIn('r-2', 1) },
+  wrapInBlockquote: { select: caretIn('r-2', 1) },
+  wrapInList: { select: caretIn('r-2', 1) },
 
   // ── tables ────────────────────────────────────────────────────────────────
-  insertTableRow: { payload: { cellId: 'c-0-0', position: 'after' }, undo: 'declares no inverse' },
-  deleteTableRow: { payload: { cellId: 'c-0-0' }, undo: 'declares no inverse' },
-  insertTableColumn: { payload: { cellId: 'c-0-0', position: 'after' }, undo: 'declares no inverse' },
-  deleteTableColumn: { payload: { cellId: 'c-0-0' }, undo: 'declares no inverse' },
-  mergeTableCells: { payload: { fromCellId: 'c-0-0', toCellId: 'c-0-1' }, undo: 'declares no inverse' },
-  splitTableCell: { payload: { cellId: 'c-0-0' }, undo: 'nothing to split: the scenario cell spans one column, and it says so' },
+  insertTableRow: { payload: { cellId: 'c-0-0', position: 'after' } },
+  deleteTableRow: { payload: { cellId: 'c-0-0' } },
+  insertTableColumn: { payload: { cellId: 'c-0-0', position: 'after' } },
+  deleteTableColumn: { payload: { cellId: 'c-0-0' } },
+  mergeTableCells: { payload: { fromCellId: 'c-0-0', toCellId: 'c-0-1' } },
+  splitTableCell: {
+    // A cell that spans the row, so there is something to split. Without it the
+    // operation refused every time and was exempt from the undo check for
+    // refusing.
+    given: (dataStore) => {
+      dataStore.updateNode('c-0-0', { attributes: { colspan: 2 } } as never, false);
+      dataStore.content.removeChild('row-0', 'c-0-1');
+    },
+    payload: { cellId: 'c-0-0' }
+  },
 
   // ── selection ─────────────────────────────────────────────────────────────
   setSelection: { payload: { anchor: { nodeId: 'r-1', offset: 0 }, head: { nodeId: 'r-1', offset: 2 } }, undo: 'moves the caret, not the document' },
@@ -257,8 +315,8 @@ const ROSTER: Record<string, Scenario> = {
 
   // ── the clipboard ─────────────────────────────────────────────────────────
   copy: { payload: { range: { startNodeId: 'r-1', startOffset: 0, endNodeId: 'r-1', endOffset: 3 } }, undo: 'reads the document, never writes to it' },
-  cut: { payload: { range: { startNodeId: 'r-1', startOffset: 0, endNodeId: 'r-1', endOffset: 3 } }, changesText: true, undo: 'declares no inverse' },
-  paste: { payload: { range: { startNodeId: 'r-1', startOffset: 0, endNodeId: 'r-1', endOffset: 3 }, data: { nodes: [{ stype: 'inline-text', text: 'pasted' }] } }, changesText: true, undo: 'declares no inverse' }
+  cut: { payload: { range: { startNodeId: 'r-1', startOffset: 0, endNodeId: 'r-1', endOffset: 3 } }, changesText: true },
+  paste: { payload: { range: { startNodeId: 'r-1', startOffset: 0, endNodeId: 'r-1', endOffset: 3 }, data: { nodes: [{ stype: 'inline-text', text: 'pasted' }] } }, changesText: true }
 };
 
 /** The document as a shape, ignoring the ids that a rebuild would change. */
@@ -350,6 +408,9 @@ describe('the operation roster', () => {
 
   beforeEach(fresh);
 
+  /** The document each scenario runs against, its own preparation included. */
+  const prepare = (scenario: Scenario) => scenario.given?.(dataStore);
+
   it('has an entry for every operation the registry knows about', () => {
     const registered = Array.from(globalOperationRegistry.getAll().keys()).sort();
     expect(registered.length, 'the registry reported no operations').toBeGreaterThan(20);
@@ -366,6 +427,9 @@ describe('the operation roster', () => {
 
   for (const [name, scenario] of Object.entries(ROSTER)) {
     describe(name, () => {
+      // Every test in here starts from the document this scenario asked for.
+      beforeEach(() => prepare(scenario));
+
       const execute = async () => {
         const op = globalOperationRegistry.get(name);
         expect(op, `${name} is not registered`).toBeDefined();
@@ -413,6 +477,30 @@ describe('the operation roster', () => {
           ).toBeGreaterThanOrEqual(before.replace(/\s/g, '').length - missing.length);
         }
       });
+
+      /**
+       * An exemption that says "no inverse" has to still be true.
+       *
+       * The note is written once and the operation goes on being worked on. An
+       * inverse added afterwards leaves the exemption in place, and the undo
+       * check stays switched off for an operation that could now pass it —
+       * fourteen of them at once, which is how `insertTable` came to declare
+       * `delete` as its inverse with nothing checking that undoing an inserted
+       * table gives the document back.
+       *
+       * So the exemption is a claim, and this is where it is checked. Exemptions
+       * for other reasons — a caret move, a read, a round trip — say something
+       * else and are left alone.
+       */
+      if (scenario.undo?.includes('declares no inverse')) {
+        it('declares no inverse, as the roster says it does', async () => {
+          const result = await execute();
+          expect(
+            (result as any)?.inverse,
+            `${name} 은(는) 명부에 inverse 가 없다고 적혀 있는데 실제로는 있습니다. 면제를 지우고 되돌리기를 검사하게 하세요.`
+          ).toBeUndefined();
+        });
+      }
 
       if (!scenario.undo) {
         it('puts the document back when undone', async () => {

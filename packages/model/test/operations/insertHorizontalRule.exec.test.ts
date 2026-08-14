@@ -78,7 +78,10 @@ describe('insertHorizontalRule operation (exec)', () => {
     const op = globalOperationRegistry.get('insertHorizontalRule');
     const result = await op!.execute({ type: 'insertHorizontalRule', payload: {} } as any, context);
     expect(result.inverse).toBeDefined();
-    expect(result.inverse.type).toBe('delete');
+    // Both of them: this puts a rule *and* an empty paragraph to hold the caret,
+    // and an inverse that named only the rule left the blank line behind.
+    expect(result.inverse.type).toBe('removeChildren');
+    expect(result.inverse.payload.childIds).toHaveLength(2);
   });
 
   it('throws when selection is missing', async () => {

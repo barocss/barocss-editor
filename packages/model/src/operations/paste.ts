@@ -58,7 +58,22 @@ defineOperation(
       newSelection
     };
 
-    return result as any;
+    return {
+      ...result,
+      ok: true,
+      /**
+       * Taking back exactly what was put in.
+       *
+       * Pasting had no inverse at all, so Ctrl+V followed by Ctrl+Z left the
+       * pasted nodes in the document — the plainest kind of undo there is, and
+       * it did nothing. `removeChildren` names them, records where each sat,
+       * and refuses any that are not the parent's, so a paste undone twice
+       * cannot take a neighbour with it.
+       */
+      ...(insertedNodeIds.length
+        ? { inverse: { type: 'removeChildren', payload: { parentId, childIds: insertedNodeIds } } }
+        : {})
+    } as any;
   }
 );
 

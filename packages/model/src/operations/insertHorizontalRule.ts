@@ -48,7 +48,19 @@ defineOperation('insertHorizontalRule', async (_operation: any, context: Transac
   return {
     ok: true,
     data: dataStore.getNode(hrId),
-    inverse: { type: 'delete', payload: { nodeId: hrId } },
+    /**
+     * Both of them, because this put both there.
+     *
+     * The inverse used to name the rule alone, so undo took the rule off and
+     * left the empty paragraph it had been given to hold the caret — a blank
+     * line the reader never typed, in a document they had just put back the way
+     * it was. `removeChildren` takes them together and records where each sat,
+     * which is what redoing needs.
+     */
+    inverse: {
+      type: 'removeChildren',
+      payload: { parentId: grandParent.sid!, childIds: [hrId, newParagraphId] }
+    },
     selectionAfter: { nodeId: emptyTextId, offset: 0 }
   };
 });
