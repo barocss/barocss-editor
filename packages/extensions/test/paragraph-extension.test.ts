@@ -255,3 +255,58 @@ describe('ParagraphExtension - insertParagraph', () => {
     expect(commitMock).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * Enter over a selection whose ends are in different nodes.
+ *
+ * This built no operations at all, so the keystroke did nothing — and it is not
+ * a rare selection. A paragraph holds one run per stretch of formatting, so
+ * selecting across a bold word puts the two ends in different nodes, and so
+ * does any selection spanning two paragraphs.
+ */
+describe('ParagraphExtension: Enter over a selection', () => {
+  beforeEach(() => {
+    recordedTransactions.length = 0;
+    commitMock.mockReset();
+    commitMock.mockResolvedValue({ success: true });
+  });
+
+  const dataStore = {
+    getNode: (sid: string) =>
+      ({
+        'r-1': { sid: 'r-1', stype: 'inline-text', text: 'one', parentId: 'p-1' },
+        'r-2': { sid: 'r-2', stype: 'inline-text', text: 'two', parentId: 'p-1' },
+        'p-1': { sid: 'p-1', stype: 'paragraph', content: ['r-1', 'r-2'], parentId: 'doc-1' },
+        'doc-1': { sid: 'doc-1', stype: 'document', content: ['p-1'] }
+      } as any)[sid],
+    getActiveSchema: () => undefined,
+    resolveAlias: (id: string) => id
+  };
+
+  const runEnter = async (selection: ModelSelection) => {
+    const editor = createFakeEditor(dataStore);
+    new ParagraphExtension().onCreate(editor);
+    await editor.__getCommand('insertParagraph').execute(editor, { selection });
+    return recordedTransactions.at(-1) ?? [];
+  };
+
+  it('asks for the selected text to go before splitting', async () => {
+    const ops = await runEnter({
+      type: 'range', startNodeId: 'r-1', startOffset: 1, endNodeId: 'r-2', endOffset: 2, collapsed: false
+    } as ModelSelection);
+
+    expect(ops.length, '선택을 걸치면 Enter가 아무 연산도 만들지 않습니다').toBeGreaterThan(0);
+    expect(ops.map((op: any) => op.type)).toEqual(['deleteRange', 'insertParagraph']);
+    expect(ops[0].payload.range).toMatchObject({
+      startNodeId: 'r-1', startOffset: 1, endNodeId: 'r-2', endOffset: 2
+    });
+  });
+
+  it('still just splits when there is nothing selected', async () => {
+    const ops = await runEnter({
+      type: 'range', startNodeId: 'r-1', startOffset: 2, endNodeId: 'r-1', endOffset: 2, collapsed: true
+    } as ModelSelection);
+
+    expect(ops.map((op: any) => op.type)).toEqual(['insertParagraph']);
+  });
+});

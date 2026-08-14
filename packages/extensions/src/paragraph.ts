@@ -190,7 +190,33 @@ export class ParagraphExtension implements Extension {
         ])
       );
     } else if (!selection.collapsed) {
-      return [];
+      /**
+       * A selection that ends in a different node than it started in.
+       *
+       * This used to return no operations at all, so Enter over such a
+       * selection did nothing — and "a different node" is not an exotic case: a
+       * paragraph holds one run per stretch of formatting, so selecting across
+       * a bold word and pressing Enter is exactly this. It also covers a
+       * selection spanning two paragraphs.
+       *
+       * `deleteRange` removes the text across nodes; the split then happens at
+       * the selection's start, which is where the reader left the caret.
+       */
+      const { startNodeId, startOffset, endNodeId, endOffset } = selection;
+      if (
+        typeof startOffset !== 'number' ||
+        typeof endOffset !== 'number' ||
+        !startNodeId ||
+        !endNodeId
+      ) {
+        return [];
+      }
+      ops.push({
+        type: 'deleteRange',
+        payload: { range: { startNodeId, startOffset, endNodeId, endOffset } }
+      });
+      // Deliberately falls through to the split below, which is the second half
+      // of the keystroke.
     }
     if (this._isSelectionInsideListItem(dataStore, selection)) {
       ops.push(splitListItemOp());

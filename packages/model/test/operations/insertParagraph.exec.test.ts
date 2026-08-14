@@ -717,3 +717,103 @@ describe('insertParagraph where a run is not a direct child', () => {
     expect(dataStore.getNode('img-1'), '그림 노드가 사라졌습니다').toBeTruthy();
   });
 });
+
+/**
+ * Enter over a selection, which is a delete and a split in one keystroke.
+ *
+ * The command builds `deleteRange` followed by `insertParagraph`, and the two
+ * halves of that had never been run together. The case that matters is not the
+ * exotic one: a paragraph holds one run per stretch of formatting, so selecting
+ * across a bold word gives a selection whose start and end are in *different
+ * nodes*, and that used to produce no operations at all — Enter did nothing.
+ */
+describe('Enter over a selection', () => {
+  let dataStore: DataStore;
+  let selectionManager: SelectionManager;
+  let context: any;
+  let schema: Schema;
+
+  beforeEach(() => {
+    schema = new Schema('test-schema', {
+      nodes: {
+        document: { name: 'document', group: 'document', content: 'block+' },
+        paragraph: { name: 'paragraph', group: 'block', content: 'inline*' },
+        'inline-text': { name: 'inline-text', group: 'inline', content: 'text*', marks: [] }
+      },
+      marks: {}
+    });
+    dataStore = new DataStore(undefined, schema);
+    selectionManager = new SelectionManager({ dataStore });
+    context = createTransactionContext(dataStore, selectionManager, schema);
+  });
+
+  const textUnder = (id: string): string => {
+    const node = dataStore.getNode(id) as INode;
+    if (!node) return '';
+    if (typeof node.text === 'string') return node.text;
+    return (node.content ?? []).map(textUnder).join('');
+  };
+  const blocks = (): string[] => ((dataStore.getNode('doc-1') as INode).content ?? []).map(textUnder);
+
+  const runOps = async (ops: { type: string; payload: any }[]) => {
+    for (const op of ops) {
+      const registered = globalOperationRegistry.get(op.type);
+      expect(registered, `${op.type} is not registered`).toBeDefined();
+      await registered!.execute({ type: op.type, payload: op.payload } as any, context);
+    }
+  };
+
+  function threeRuns(): void {
+    dataStore.setNode({ sid: 'doc-1', stype: 'document', content: ['p-1'] } as INode);
+    dataStore.setNode({ sid: 'p-1', stype: 'paragraph', content: ['r-1', 'r-2', 'r-3'], parentId: 'doc-1' } as INode);
+    dataStore.setNode({ sid: 'r-1', stype: 'inline-text', text: 'one', parentId: 'p-1' } as INode);
+    dataStore.setNode({ sid: 'r-2', stype: 'inline-text', text: 'two', parentId: 'p-1' } as INode);
+    dataStore.setNode({ sid: 'r-3', stype: 'inline-text', text: 'three', parentId: 'p-1' } as INode);
+  }
+
+  it('deletes what was selected and splits where it started, within one run', async () => {
+    threeRuns();
+    context.selection.current = {
+      type: 'range', startNodeId: 'r-1', startOffset: 1, endNodeId: 'r-1', endOffset: 3, collapsed: false
+    };
+    await runOps([
+      { type: 'deleteTextRange', payload: { nodeId: 'r-1', start: 1, end: 3 } },
+      { type: 'insertParagraph', payload: {} }
+    ]);
+
+    // 'one' loses 'ne'; the split then happens after the 'o'.
+    expect(blocks()).toEqual(['o', 'twothree']);
+  });
+
+  it('does the same when the selection ends in another run', async () => {
+    threeRuns();
+    context.selection.current = {
+      type: 'range', startNodeId: 'r-1', startOffset: 1, endNodeId: 'r-2', endOffset: 2, collapsed: false
+    };
+    await runOps([
+      { type: 'deleteRange', payload: { range: { startNodeId: 'r-1', startOffset: 1, endNodeId: 'r-2', endOffset: 2 } } },
+      { type: 'insertParagraph', payload: {} }
+    ]);
+
+    // 'one two three' loses 'netw'; the split happens where the selection began.
+    expect(blocks(), '선택이 두 런에 걸치면 Enter가 아무 일도 하지 않습니다').toEqual(['o', 'othree']);
+  });
+
+  it('does the same when the selection ends in another paragraph', async () => {
+    dataStore.setNode({ sid: 'doc-1', stype: 'document', content: ['p-1', 'p-2'] } as INode);
+    dataStore.setNode({ sid: 'p-1', stype: 'paragraph', content: ['a-1'], parentId: 'doc-1' } as INode);
+    dataStore.setNode({ sid: 'a-1', stype: 'inline-text', text: 'first', parentId: 'p-1' } as INode);
+    dataStore.setNode({ sid: 'p-2', stype: 'paragraph', content: ['b-1'], parentId: 'doc-1' } as INode);
+    dataStore.setNode({ sid: 'b-1', stype: 'inline-text', text: 'second', parentId: 'p-2' } as INode);
+
+    context.selection.current = {
+      type: 'range', startNodeId: 'a-1', startOffset: 2, endNodeId: 'b-1', endOffset: 3, collapsed: false
+    };
+    await runOps([
+      { type: 'deleteRange', payload: { range: { startNodeId: 'a-1', startOffset: 2, endNodeId: 'b-1', endOffset: 3 } } }
+    ]);
+
+    // The two paragraphs keep what was outside the selection.
+    expect(blocks()).toEqual(['fi', 'ond']);
+  });
+});
