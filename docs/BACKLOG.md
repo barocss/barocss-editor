@@ -107,14 +107,39 @@ render-import path that corrupts text. The mark was never removed by the delete;
 it disappeared because the imported render output happened to produce a second
 edit that took it. One defect was masking the other.
 
-- [ ] **A mark must not outlive the text it covers.** This is the root cause and
-  fixing it is worth doing on its own merits, whatever happens to the observer:
-  a `commentRef` sitting over words nobody commented on is wrong however it got
-  there. Reproduce: comment on ten characters, select the same ten, Backspace,
-  and read the run's marks.
-- [ ] **Then the observer fix goes back in.** With the mark maintained by the
-  delete, orphaning no longer needs the import, and the positive question can be
-  asked. The two are ordered: this one first.
+#### The root cause, found by measuring rather than reading
+
+The mark surviving is a *symptom*, and the first two diagnoses of it were wrong.
+Written out because both were plausible and both cost time:
+
+1. "`deleteText` does not maintain marks." It does. Walked step by step in a
+   model test — apply `commentRef[0,10]`, delete `[0,10]`, and the mark is gone.
+2. "The merge keeps the wrong side's marks." It does not. `mergeTextNodes`
+   keeps the left's and shifts the right's by the left's length, and a run
+   emptied by a delete carries nothing to shift.
+
+The actual cause is one measurement: **how many times `deleteText` runs when
+Backspace deletes a selection spanning several runs.**
+
+    with the observer importing render output      3
+    with it blocked                                1
+
+A selection across three runs is deleted **one run deep** in the model. The rest
+of it is not deleted at all — it is recovered afterwards by reading the DOM back,
+because the browser removed the text natively and the observer imported the
+difference.
+
+So the corruption and the "accidental" orphaning have one root: **the model
+relies on the DOM to finish edits it should be making itself.** Blocking the
+import stops the corruption and, in the same stroke, stops the deletion halfway
+— which is why the comment kept a mark over text that was gone from the screen
+but not from the model.
+
+- [ ] **Backspace must delete the whole selection in the model.** Every run it
+  covers, not the first. This is the fix; everything else here follows from it.
+- [ ] **Then the observer fix goes back in**, and orphaning works because the
+  delete genuinely removes the commented run and its mark — not because a
+  mutation happened to be read back.
 - [ ] **A state that says the editor is receiving input.** There is no such
   thing today. There is `_isComposing` (IME only), `isTypingBurst` (characters
   only — not a deletion, a paste or a drop), and `isModelDrivenChange`, which is
