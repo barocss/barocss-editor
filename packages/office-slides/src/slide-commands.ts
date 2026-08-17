@@ -111,6 +111,43 @@ export class SlidesExtension implements Extension {
         Object.keys(this._geometryOf(payload)).length > 0
     );
 
+    /**
+     * How big every slide is.
+     *
+     * Deck-wide, and applied to every surface rather than held once on the
+     * document: a slide already carries its own size, because a deck may
+     * genuinely mix them, and a second place saying the same thing is a second
+     * place to disagree. So "the deck is 4:3" is what it looks like — every
+     * slide is.
+     *
+     * Nothing on the slides is rescaled. A shape at 3in from the left is at 3in
+     * from the left on a narrower slide too, which is what every presentation
+     * tool does and what an author expects: the alternative silently rewrites
+     * every coordinate in the deck.
+     */
+    register(
+      'setDeckSize',
+      (payload) => this._setDeckSize(editor, payload),
+      (payload) =>
+        Number.isFinite(payload?.width) &&
+        Number.isFinite(payload?.height) &&
+        payload.width > 0 &&
+        payload.height > 0
+    );
+
+    /**
+     * Which layout a slide follows.
+     *
+     * Only the binding. Re-applying the layout's placeholders to a slide that
+     * already has content would throw away what the author wrote, and there is
+     * no reading of "change layout" that a reader would want to undo twice.
+     */
+    register(
+      'setSlideLayout',
+      (payload) => this._setSlideLayout(editor, payload?.slideId, payload?.layoutId),
+      (payload) => !!this._slideAt(editor, payload?.slideId)
+    );
+
     /** Fill and stroke. `null` means none, which is not the same as white. */
     register(
       'setBoxStyle',
@@ -399,6 +436,73 @@ export class SlidesExtension implements Extension {
     ] as never).commit();
 
     return result.success;
+  }
+
+  private async _setDeckSize(
+    editor: Editor,
+    payload?: { width?: number; height?: number }
+  ): Promise<boolean> {
+    const doc = this._access(editor);
+    if (!doc) return false;
+
+    const width = Number(payload?.width);
+    const height = Number(payload?.height);
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+      return false;
+    }
+
+    const slides = deckSlides(doc);
+    if (slides.length === 0) return false;
+
+    // Only the slides that are not already that size, so resizing a deck that
+    // is already 16:9 commits nothing.
+    const steps = slides
+      .filter((slide) => {
+        const attrs = (doc.getNode(slide.sid) as any)?.attributes ?? {};
+        return attrs.width !== width || attrs.height !== height;
+      })
+      .map((slide) => ({
+        type: 'setAttrs',
+        payload: { nodeId: slide.sid, attrs: { width, height } }
+      }));
+
+    if (steps.length === 0) return false;
+    return (await transaction(editor, steps as never).commit()).success;
+  }
+
+  private async _setSlideLayout(
+    editor: Editor,
+    slideId?: string,
+    layoutId?: string
+  ): Promise<boolean> {
+    const sid = this._slideAt(editor, slideId);
+    const doc = this._access(editor);
+    if (!sid || !doc) return false;
+
+    const attributes = { ...((doc.getNode(sid) as any)?.attributes ?? {}) };
+    const current = attributes.layoutId ?? null;
+    const next = typeof layoutId === 'string' && layoutId.length > 0 ? layoutId : null;
+
+    // Setting a slide to the layout it already follows is not an edit, and
+    // committing one would put an entry in the history that undoes to itself.
+    if (current === next) return false;
+
+    /**
+     * Clearing it means restating the rest.
+     *
+     * `setAttrs` merges and drops `undefined`, so "this slide follows no
+     * layout" cannot be said by leaving the key out — the whole attribute set
+     * has to be written with `replace`. Logged in `docs/BACKLOG.md` as a gap in
+     * the operation vocabulary; this is the second command to work around it.
+     */
+    if (next === null) delete attributes.layoutId;
+    else attributes.layoutId = next;
+
+    return (
+      await transaction(editor, [
+        { type: 'setAttrs', payload: { nodeId: sid, attrs: attributes, replace: true } }
+      ] as never).commit()
+    ).success;
   }
 
   private async _toggleHidden(editor: Editor, slideId?: string): Promise<boolean> {

@@ -390,3 +390,26 @@ export function distributeBoxes(boxes: Box[], axis: 'x' | 'y'): Map<number, Box>
 
   return moved;
 }
+
+/**
+ * Moving a box between coordinate spaces.
+ *
+ * A frame's children are placed against *it*, not against the slide — that is
+ * the whole reason a frame is worth having, since moving the frame moves
+ * everything in it and nothing rewrites a coordinate. Which means grouping and
+ * ungrouping are, arithmetically, exactly this: the boxes do not move on screen
+ * and every number describing them changes.
+ *
+ * Getting it backwards is invisible until a group is somewhere other than the
+ * slide's origin, which is why it is here with a test rather than inline.
+ */
+
+/** A box's coordinates as its new parent sees them. */
+export function intoFrame(box: Box, frame: Box): Box {
+  return { ...box, x: box.x - frame.x, y: box.y - frame.y };
+}
+
+/** And back out, as the frame's own parent sees them. */
+export function outOfFrame(box: Box, frame: Box): Box {
+  return { ...box, x: box.x + frame.x, y: box.y + frame.y };
+}

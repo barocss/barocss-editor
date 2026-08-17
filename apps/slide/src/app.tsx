@@ -3,6 +3,7 @@ import type { Editor } from '@barocss/editor-core';
 import type { EditorViewDOM } from '@barocss/editor-view-dom';
 import { Filmstrip } from './filmstrip';
 import { SelectionOverlay } from './overlay';
+import { SlideLayoutDialog, SlideSizeDialog } from './deck-dialogs';
 import { Present } from './present';
 import { Properties } from './properties';
 import { Ribbon } from './ribbon';
@@ -72,6 +73,14 @@ export function App({
    * would mean two drawings of one deck that could disagree.
    */
   const [presenting, setPresenting] = useState(false);
+
+  /**
+   * Which dialog is open, if any.
+   *
+   * The app's, like every other piece of chrome state: a dialog is a fact about
+   * one reader's screen, and the editor has no idea one exists.
+   */
+  const [dialog, setDialog] = useState<'size' | 'layout' | null>(null);
   const note = useNote(editor, current);
 
   const here = useMemo(
@@ -139,6 +148,12 @@ export function App({
         </span>
 
         <div className="sl-topbar-actions">
+          <button type="button" data-slide-size onClick={() => setDialog('size')}>
+            크기
+          </button>
+          <button type="button" data-slide-layout onClick={() => setDialog('layout')}>
+            레이아웃
+          </button>
           <button type="button" data-present onClick={() => setPresenting(true)} title="처음부터 발표">
             발표
           </button>
@@ -212,6 +227,19 @@ export function App({
          */}
         <Properties editor={editor} slides={slides} current={current} />
       </div>
+
+      <SlideSizeDialog
+        editor={editor}
+        slides={slides}
+        open={dialog === 'size'}
+        onClose={() => setDialog(null)}
+      />
+      <SlideLayoutDialog
+        editor={editor}
+        current={current}
+        open={dialog === 'layout'}
+        onClose={() => setDialog(null)}
+      />
 
       {presenting && (
         <Present

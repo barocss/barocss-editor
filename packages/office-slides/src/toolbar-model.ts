@@ -239,6 +239,8 @@ export const SLIDES_TOOLBAR: SlidesToolbarGroup[] = [
         icon: '⇳',
         command: 'distributeBoxesVertically'
       },
+      { id: 'group-boxes', label: '그룹', icon: '⧉', command: 'groupBoxes' },
+      { id: 'ungroup-boxes', label: '그룹 해제', icon: '⧈', command: 'ungroupBoxes' },
       { id: 'duplicate-boxes', label: '복제', icon: '⧉', command: 'duplicateBoxes' },
       { id: 'delete-boxes', label: '삭제', icon: '␡', command: 'deleteBoxes' }
     ]

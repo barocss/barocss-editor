@@ -70,7 +70,15 @@ export function ChoiceSelect({
         <Select.Content
           position="popper"
           sideOffset={4}
-          className="z-30 overflow-hidden rounded border border-neutral-200 bg-white shadow-md dark:border-neutral-700 dark:bg-neutral-900"
+          /**
+           * Above a dialog, not merely above the page.
+           *
+           * It was `z-30`, which is above a toolbar and *below* a dialog's
+           * overlay — so a select inside a dialog opened its list underneath the
+           * dim layer and no option could be clicked. The dialog is 40/50, and
+           * a menu belongs above whatever opened it whatever that was.
+           */
+          className="z-[60] overflow-hidden rounded border border-neutral-200 bg-white shadow-md dark:border-neutral-700 dark:bg-neutral-900"
         >
           <Select.Viewport className="p-1">
             {options.map((option) => (

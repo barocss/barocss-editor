@@ -1,7 +1,14 @@
 import { Editor, Extension, selectedNodeIds } from '@barocss/editor-core';
 import { transaction } from '@barocss/model';
 import { boxOf, slideSize, type Box } from './geometry';
-import { alignBoxes, distributeBoxes, type Align } from './manipulate';
+import {
+  alignBoxes,
+  distributeBoxes,
+  intoFrame,
+  outOfFrame,
+  unionOf,
+  type Align
+} from './manipulate';
 import { isSceneType, slideAt } from './selection';
 import type { DeckAccess } from './deck';
 
@@ -83,6 +90,36 @@ export class SlidesArrangeExtension implements Extension {
       () => this._distribute(editor, 'y'),
       () => this._boxes(editor).length >= 3
     );
+
+    // ── Grouping ─────────────────────────────────────────────────────────────
+    /**
+     * Make several boxes into one thing.
+     *
+     * `group` has been in the schema since the canvas nodes were declared, has
+     * been drawn since this product had renderers, and **nothing has ever made
+     * one** — the same fault this repository keeps finding, in a node type the
+     * product draws.
+     *
+     * A group is not a box the author drew: it has no fill and no border, and
+     * its own box is exactly the union of what is in it. What it is, is the fact
+     * that these things move together.
+     */
+    register(
+      'groupBoxes',
+      () => this._group(editor),
+      () => this._boxes(editor).length >= 2
+    );
+
+    register(
+      'ungroupBoxes',
+      () => this._ungroup(editor),
+      () => this._boxes(editor).some((entry) => this._isGroup(editor, entry.sid))
+    );
+  }
+
+  private _isGroup(editor: Editor, sid: string): boolean {
+    const doc = this._access(editor);
+    return (doc?.getNode(sid) as any)?.stype === 'group';
   }
 
   // ── Reading ────────────────────────────────────────────────────────────────
@@ -222,6 +259,135 @@ export class SlidesArrangeExtension implements Extension {
    * calculation here returns only what changed, exactly so that this can be
    * true.
    */
+  /**
+   * Wrap the selection in a group.
+   *
+   * One transaction, and the group has to exist before anything can be moved
+   * into it — which is what `$alias` is for: the child is declared with a name,
+   * and every later step in the same transaction refers to it by that name
+   * instead of by a sid nobody can know yet.
+   *
+   * The boxes are moved rather than copied, so their sids survive: a copy would
+   * be a different node, and anything pointing at the original — a selection, a
+   * note, a comment — would be pointing at something no longer in the document.
+   *
+   * Their coordinates are then rebased, because a group's children are placed
+   * against *it*. Nothing moves on screen and every number describing it
+   * changes.
+   */
+  private async _group(editor: Editor): Promise<boolean> {
+    const doc = this._access(editor);
+    const boxes = this._boxes(editor);
+    if (!doc || boxes.length < 2) return false;
+
+    const slide = slideAt(doc, boxes[0].sid);
+    const surface: any = slide ? doc.getNode(slide) : undefined;
+    const children: string[] = Array.isArray(surface?.content) ? surface.content : [];
+    if (!slide) return false;
+
+    const frame = unionOf(boxes.map((entry) => entry.box));
+    if (!frame) return false;
+
+    // Where the topmost of them was, so the group keeps their place in the
+    // paint order rather than jumping to the front.
+    const at = Math.max(...boxes.map((entry) => children.indexOf(entry.sid)));
+
+    const ALIAS = 'sl-new-group';
+    const steps: { type: string; payload: Record<string, unknown> }[] = [
+      {
+        type: 'addChild',
+        payload: {
+          parentId: slide,
+          position: at + 1,
+          child: {
+            stype: 'group',
+            attributes: { $alias: ALIAS, x: frame.x, y: frame.y, width: frame.width, height: frame.height }
+          }
+        }
+      }
+    ];
+
+    boxes.forEach((entry, index) => {
+      steps.push({
+        type: 'moveNode',
+        payload: { nodeId: entry.sid, newParentId: ALIAS, position: index }
+      });
+      const inside = intoFrame(entry.box, frame);
+      steps.push({
+        type: 'setAttrs',
+        payload: { nodeId: entry.sid, attrs: { x: inside.x, y: inside.y } }
+      });
+    });
+
+    const result = await transaction(editor, steps as never).commit();
+    if (!result.success) return false;
+
+    // The group is what is selected now — it is the thing the reader made.
+    const made = ((doc.getNode(slide) as any)?.content ?? []).find(
+      (sid: string) => (doc.getNode(sid) as any)?.stype === 'group'
+    );
+    if (made) (editor as any).setNode?.({ nodeIds: [made] });
+
+    return true;
+  }
+
+  /**
+   * Take a group apart.
+   *
+   * The reverse, and the coordinates go back out the way they came in. The
+   * group node itself goes: an empty group is not a group, and the schema says
+   * so — its content is `scene+`.
+   */
+  private async _ungroup(editor: Editor): Promise<boolean> {
+    const doc = this._access(editor);
+    const chosen = this._boxes(editor).filter((entry) => this._isGroup(editor, entry.sid));
+    if (!doc || chosen.length === 0) return false;
+
+    const slide = slideAt(doc, chosen[0].sid);
+    if (!slide) return false;
+
+    const steps: { type: string; payload: Record<string, unknown> }[] = [];
+    const freed: string[] = [];
+
+    for (const entry of chosen) {
+      const group: any = doc.getNode(entry.sid);
+      const inside: string[] = Array.isArray(group?.content) ? [...group.content] : [];
+      const frame = boxOf(group?.attributes);
+
+      const children: string[] = Array.isArray((doc.getNode(slide) as any)?.content)
+        ? (doc.getNode(slide) as any).content
+        : [];
+      const at = children.indexOf(entry.sid);
+
+      inside.forEach((sid, index) => {
+        const out = outOfFrame(boxOf((doc.getNode(sid) as any)?.attributes), frame);
+        steps.push({
+          type: 'moveNode',
+          payload: { nodeId: sid, newParentId: slide, position: at + index }
+        });
+        steps.push({
+          type: 'setAttrs',
+          payload: { nodeId: sid, attrs: { x: out.x, y: out.y } }
+        });
+        freed.push(sid);
+      });
+
+      steps.push({
+        type: 'removeChild',
+        payload: { parentId: slide, childId: entry.sid }
+      });
+    }
+
+    if (steps.length === 0) return false;
+    const result = await transaction(editor, steps as never).commit();
+    if (!result.success) return false;
+
+    // What comes out is what is selected, which is what a reader has in mind
+    // when they take a group apart.
+    if (freed.length > 0) (editor as any).setNode?.({ nodeIds: freed });
+    return true;
+  }
+
   private async _apply(
     editor: Editor,
     boxes: { sid: string; box: Box }[],

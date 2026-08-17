@@ -467,6 +467,10 @@ export function SelectionOverlay({
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'd') {
         return run('duplicateBoxes');
       }
+      // Cmd+G and Cmd+Shift+G, which is what every drawing tool binds.
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'g') {
+        return run(event.shiftKey ? 'ungroupBoxes' : 'groupBoxes');
+      }
       if (event.key === 'Escape') {
         event.preventDefault();
         return select([]);

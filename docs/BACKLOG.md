@@ -173,15 +173,21 @@ that forces a caret selection and a node selection to coexist. `packages/office-
   time. First thing anywhere to read `locked`.
 - [x] **Direct manipulation** — handles, marquee, and double-click to type,
   alongside the caret inside a `textFrame`.
-- [ ] **Grouping.** `group` is drawn and nothing makes one. The schema has had
-  it since the canvas nodes were declared.
+- [x] **Grouping.** `group` had been in the schema since the canvas nodes were
+  declared, drawn since this product had renderers, and nothing had ever made
+  one. Grouping and ungrouping are arithmetically one thing — rebasing the
+  boxes onto their new parent — and the boxes are *moved* rather than copied, so
+  their sids survive and nothing pointing at them is left pointing at nothing.
+  `$alias` is what lets one transaction move things into a node it just made.
 - [ ] **A clipboard for objects.** Copy and paste of shapes between slides and
   between decks; `copyOf` is already the tree-copy half of it.
 - [ ] **Snapping and guides** — to the slide's centre, to other boxes' edges.
   `unionOf` and `intersects` are the arithmetic; what is missing is the
   threshold and the drawing.
-- [ ] **Dialogs** — slide size and layout picker. `Dialog` is written and still
-  no product draws it.
+- [x] **Dialogs** — slide size and layout picker, the first things to draw the
+  suite's `Dialog`. Deck size is applied to every slide rather than held once on
+  the document: a slide already carries its own size, and a second place saying
+  it is a second place to disagree.
 - [ ] **Editable speaker notes** — a second editable region over one document.
 - [ ] **Real thumbnails** in the rail, which needs a second render of the same
   deck and is the first thing to want one.
@@ -203,10 +209,12 @@ was shared.
   one product is one the next product works around.
 - [x] **Slides declares its own toolbar** and looks identical, which is the test
   of whether the split was right.
-- [ ] **`Dialog` is written and nothing uses it yet.** Both products want one —
-  Word for its format dialogs, Slides for slide size and layout — and a component
-  no product has drawn is a component nobody has checked. Declared and unread, in
-  the file that was written to hold the suite's agreements.
+- [x] **`Dialog` has a user.** Slides draws it for slide size and layout, which
+  immediately found that `ChoiceSelect`'s menu was `z-30` — above a toolbar and
+  *below* a dialog's overlay, so a select inside a dialog opened its list under
+  the dim layer and no option could be clicked. A component no product has drawn
+  is a component nobody has checked, which is exactly what that entry said.
+- [ ] **Word still draws no dialog.** Its format dialogs are the next user.
 - [ ] **Tailwind has to be told where the components are.** `@source` in each
   app's stylesheet. Miss it and every class attribute is intact with no rules
   behind any of them: the deck's ribbon rendered as one control per line, with no

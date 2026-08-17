@@ -10,7 +10,9 @@ import {
   unionOf,
   unrotate,
   alignBoxes,
-  distributeBoxes
+  distributeBoxes,
+  intoFrame,
+  outOfFrame
 } from '../src/manipulate';
 
 /**
@@ -381,5 +383,33 @@ describe('spreading boxes out', () => {
     const moved = distributeBoxes(boxes, 'y');
     expect(moved.get(1)!.y).toBe(250);
     expect(moved.get(1)!.x).toBe(0);
+  });
+});
+
+describe('moving a box between coordinate spaces', () => {
+  const frame = { x: 1000, y: 2000, width: 5000, height: 4000 };
+  const box = { x: 1500, y: 2500, width: 100, height: 100 };
+
+  /**
+   * Grouping and ungrouping are exactly this: nothing moves on screen and every
+   * number describing it changes.
+   */
+  it('rebases a box onto its new parent', () => {
+    expect(intoFrame(box, frame)).toEqual({ x: 500, y: 500, width: 100, height: 100 });
+  });
+
+  it('and back out again', () => {
+    expect(outOfFrame(intoFrame(box, frame), frame)).toEqual(box);
+  });
+
+  it('is the identity against a frame at the origin, which is why it hides bugs', () => {
+    const origin = { x: 0, y: 0, width: 100, height: 100 };
+    expect(intoFrame(box, origin)).toEqual(box);
+    expect(outOfFrame(box, origin)).toEqual(box);
+  });
+
+  it('leaves the size alone', () => {
+    expect(intoFrame(box, frame).width).toBe(box.width);
+    expect(outOfFrame(box, frame).height).toBe(box.height);
   });
 });

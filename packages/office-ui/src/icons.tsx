@@ -59,6 +59,8 @@ import {
   AlignEndHorizontal,
   AlignHorizontalSpaceAround,
   AlignVerticalSpaceAround,
+  Group,
+  Ungroup,
   type LucideIcon
 } from 'lucide-react';
 
@@ -156,6 +158,8 @@ const ICONS: Record<string, LucideIcon> = {
   'align-boxes-bottom': AlignEndHorizontal,
   'distribute-h': AlignHorizontalSpaceAround,
   'distribute-v': AlignVerticalSpaceAround,
+  'group-boxes': Group,
+  'ungroup-boxes': Ungroup,
   'duplicate-boxes': Copy,
   'delete-boxes': Trash2
 };
