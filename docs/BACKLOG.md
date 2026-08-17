@@ -161,6 +161,24 @@ that forces a caret selection and a node selection to coexist. `packages/office-
   follows a layout should take its formatting from it. Declared and unread, in
   a product written this week — the pattern does not stop being easy to commit.
 
+### The shared layer
+
+Measured in `docs/SHARED-LAYER.md` rather than argued: Slides takes four symbols
+from `office-word`, the Word-only half is already 33 files that nothing shared
+touches, and the whole obstacle is one 1,077-line `renderers.ts` holding the text
+renderers and the page renderers together.
+
+- [ ] **Split `renderers.ts`** so `surface` and the page renderers are their own
+  file. Worth doing alone, and it turns the eventual extraction into moving files
+  rather than untangling one.
+- [ ] **Make the registry seam explicit.** Slides overrides five node types by
+  registering after Word and relying on last-write-wins. It works and is stated
+  nowhere; a product should be able to say it is overriding, and be told when it
+  overrides something nobody expected.
+- [ ] **`office-text`** — the extraction itself. Deliberately *after* a third
+  product: two products give one data point about where the line falls, and
+  Slides is the one that reused everything.
+
 ### What building the second product cost the first
 
 Kept separate from the list above because these are engine and Word findings that
