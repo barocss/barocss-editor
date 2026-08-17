@@ -155,17 +155,36 @@ that forces a caret selection and a node selection to coexist. `packages/office-
   `assertConforms` with 27 written exemptions.
 - [ ] **Slide commands** — add, delete, duplicate, reorder, hide. The gap that
   stops this being a deck editor rather than a deck viewer.
-- [ ] **Multi-node selection** — the spike's finding, and the first thing a slide
-  editor needs that Word never did.
+- [x] **Multi-node selection.** `ModelSelection` had carried `nodeIds` since
+  sets were first described and `Editor.setNode` dropped the field, so a set
+  could be described and not made. And a node selection could not *survive*: the
+  view writes it into the browser, the caret that leaves behind is read back as
+  a range, and the shape was a caret in its text by the time anything looked. It
+  now holds until the reader touches the text.
+- [x] **Objects** — insert, select, marquee, drag, resize, rotate, z-order,
+  align, distribute, duplicate, delete, nudge. The arithmetic is pure and
+  tested; the app has pointers and two decisions.
+- [x] **Presenting** — one slide filling the screen, hidden ones skipped, and
+  the same elements the editor was already drawing rather than a second render.
 - [x] **A properties panel** — `boxAt` finds the nearest box above the caret,
   `setBoxGeometry` and `setBoxStyle` change it, and the panel is the suite's.
   Not a stand-in for node selection: it is the honest answer to where the reader
   is while they are typing, which is what a properties panel is for most of the
   time. First thing anywhere to read `locked`.
-- [ ] **Direct manipulation** — drag and resize handles, alongside the caret that
-  still has to work inside a `textFrame`. `boxAt` and the two box commands are
-  already what a handle would use, so this is the drag arithmetic and the hit
-  testing, not the model.
+- [x] **Direct manipulation** — handles, marquee, and double-click to type,
+  alongside the caret inside a `textFrame`.
+- [ ] **Grouping.** `group` is drawn and nothing makes one. The schema has had
+  it since the canvas nodes were declared.
+- [ ] **A clipboard for objects.** Copy and paste of shapes between slides and
+  between decks; `copyOf` is already the tree-copy half of it.
+- [ ] **Snapping and guides** — to the slide's centre, to other boxes' edges.
+  `unionOf` and `intersects` are the arithmetic; what is missing is the
+  threshold and the drawing.
+- [ ] **Dialogs** — slide size and layout picker. `Dialog` is written and still
+  no product draws it.
+- [ ] **Editable speaker notes** — a second editable region over one document.
+- [ ] **Real thumbnails** in the rail, which needs a second render of the same
+  deck and is the first thing to want one.
 - [ ] **Applying a layout.** `slideLayout` is drawn (hidden) and read by nothing:
   a new slide should start with its layout's placeholders, and a slide that
   follows a layout should take its formatting from it. Declared and unread, in

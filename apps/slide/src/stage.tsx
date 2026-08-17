@@ -27,13 +27,22 @@ import { SLIDE_16_9, fitScale, twipToPx } from '@barocss/office-slides';
 export function Stage({
   host,
   focus,
-  zoom
+  zoom,
+  fill
 }: {
   host: React.RefObject<HTMLDivElement | null>;
   /** The slide to show alone, or nothing to show the deck as a strip. */
   focus?: string;
   /** `undefined` fits the pane; a number is what the reader asked for. */
   zoom?: number;
+  /**
+   * Fill the space, however large.
+   *
+   * Presenting is the one case where a slide is drawn above its natural size: a
+   * projector is exactly what the editor's cap exists to avoid, and refusing to
+   * grow would leave a 1280px slide adrift in the middle of a 4K display.
+   */
+  fill?: boolean;
 }) {
   const inner = useRef<HTMLDivElement>(null);
   const frame = useRef<HTMLDivElement>(null);
@@ -59,7 +68,11 @@ export function Stage({
        */
       setScale(
         zoom ??
-          fitScale(SLIDE_16_9, focus ? room : { width: room.width, height: Number.MAX_SAFE_INTEGER })
+          fitScale(
+            SLIDE_16_9,
+            focus ? room : { width: room.width, height: Number.MAX_SAFE_INTEGER },
+            fill ? { max: Infinity } : {}
+          )
       );
 
       // `offsetWidth`/`offsetHeight` are the untransformed box; the drawn one
@@ -75,7 +88,7 @@ export function Stage({
     observer.observe(box);
     observer.observe(content);
     return () => observer.disconnect();
-  }, [focus, zoom]);
+  }, [focus, zoom, fill]);
 
   return (
     <div className="sl-stage" ref={frame} data-focus={focus ?? ''}>

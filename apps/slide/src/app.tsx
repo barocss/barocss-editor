@@ -3,6 +3,7 @@ import type { Editor } from '@barocss/editor-core';
 import type { EditorViewDOM } from '@barocss/editor-view-dom';
 import { Filmstrip } from './filmstrip';
 import { SelectionOverlay } from './overlay';
+import { Present } from './present';
 import { Properties } from './properties';
 import { Ribbon } from './ribbon';
 import { Stage } from './stage';
@@ -62,6 +63,15 @@ export function App({
    * seeing the shape of a deck, which is a different question and a rarer one.
    */
   const [focused, setFocused] = useState(true);
+
+  /**
+   * Presenting.
+   *
+   * A mode of the shell rather than a different screen: the slide on show is
+   * the one the editor was already drawing, and presenting from a second render
+   * would mean two drawings of one deck that could disagree.
+   */
+  const [presenting, setPresenting] = useState(false);
   const note = useNote(editor, current);
 
   const here = useMemo(
@@ -121,7 +131,7 @@ export function App({
   }, [slides, current]);
 
   return (
-    <div className="sl-shell">
+    <div className="sl-shell" data-presenting={presenting ? 'true' : undefined}>
       <header className="sl-topbar">
         <h1>Barocss Slides</h1>
         <span className="sl-count">
@@ -129,6 +139,9 @@ export function App({
         </span>
 
         <div className="sl-topbar-actions">
+          <button type="button" data-present onClick={() => setPresenting(true)} title="처음부터 발표">
+            발표
+          </button>
           <button
             type="button"
             data-focus-toggle
@@ -147,7 +160,7 @@ export function App({
        * because they draw with the same components, not because they share a
        * list of controls.
        */}
-      {editor && <Ribbon editor={editor} slides={slides} current={current} />}
+      {editor && !presenting && <Ribbon editor={editor} slides={slides} current={current} />}
 
       <div className="sl-body">
         <Filmstrip slides={slides} current={current} onSelect={setCurrent} />
@@ -158,7 +171,11 @@ export function App({
            * in both modes — switching to the strip must not tear the editor
            * down and build it again.
            */}
-          <Stage host={host} focus={focused ? current : undefined} />
+          {/*
+           * Presenting always shows one slide and fills the window; editing
+           * shows one or the strip and never grows past natural size.
+           */}
+          <Stage host={host} focus={presenting || focused ? current : undefined} fill={presenting} />
 
           {/*
            * Selecting and dragging what is on the slide, drawn over it.
@@ -167,7 +184,9 @@ export function App({
            * every element in there and rewrites them on each render, so a handle
            * put in the tree would last until the next keystroke.
            */}
-          <SelectionOverlay editor={editor} slideSid={current} revision={slides.length} />
+          {!presenting && (
+            <SelectionOverlay editor={editor} slideSid={current} revision={slides.length} />
+          )}
 
           <section className="sl-notes" aria-label="발표자 노트">
             <h2>발표자 노트</h2>
@@ -193,6 +212,15 @@ export function App({
          */}
         <Properties editor={editor} slides={slides} current={current} />
       </div>
+
+      {presenting && (
+        <Present
+          slides={slides}
+          current={current}
+          onCurrent={setCurrent}
+          onExit={() => setPresenting(false)}
+        />
+      )}
     </div>
   );
 }

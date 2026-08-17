@@ -331,3 +331,74 @@ body {
 .sl-overlay[data-editing='true'] .sl-selected {
   outline-style: dashed;
 }
+
+/* ── Presenting ────────────────────────────────────────────────────────── */
+/*
+ * A mode of the shell, not a second screen. The slide on show is the one the
+ * editor was already drawing — presenting from its own render would mean two
+ * drawings of one deck that could disagree, and the one nobody is looking at is
+ * the one that stays right.
+ */
+.sl-shell[data-presenting='true'] .sl-topbar,
+.sl-shell[data-presenting='true'] .sl-filmstrip,
+.sl-shell[data-presenting='true'] .sl-notes,
+.sl-shell[data-presenting='true'] .sl-properties {
+  display: none;
+}
+
+.sl-shell[data-presenting='true'] {
+  background: #000;
+}
+
+.sl-shell[data-presenting='true'] .sl-stage {
+  padding: 0;
+  background: #000;
+  /* A presented slide is not scrolled to. */
+  overflow: hidden;
+}
+
+/* The sheet's shadow and rounding are editor furniture; a projector shows paper. */
+.sl-shell[data-presenting='true'] .sl-slide {
+  box-shadow: none;
+  border-radius: 0;
+}
+
+/* A hidden slide is skipped by the presenter's order, so it is never the one
+   showing — but if a deck arrives mid-present, it must not be dimmed on stage. */
+.sl-shell[data-presenting='true'] .sl-slide[data-hidden='true'] {
+  opacity: 1;
+  outline: none;
+}
+
+.sl-present-hint {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.08);
+  color: #f8fafc;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  /* Out of the way until wanted: a presenter's screen is the slide. */
+  opacity: 0.25;
+  transition: opacity 120ms ease;
+}
+
+.sl-present-hint:hover {
+  opacity: 1;
+}
+
+.sl-present-hint button {
+  border: 0;
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: rgb(255 255 255 / 0.15);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}

@@ -149,6 +149,14 @@ describe('where a thing sits on a slide', () => {
       expect(fitScale(SLIDE_16_9, { width: 4000, height: 4000 }, { max: 4 })).toBe(3.125);
     });
 
+    it('lifts the cap entirely when asked, which is what presenting needs', () => {
+      // `Infinity` is a real answer and the numeric guard refused it: passing it
+      // silently became 1, and a presented slide stayed 1280px wide in the
+      // middle of a 1600px screen with nothing reporting a problem.
+      expect(fitScale(SLIDE_16_9, { width: 1600, height: 900 }, { max: Infinity })).toBe(1.25);
+      expect(fitScale(SLIDE_16_9, { width: 3840, height: 2160 }, { max: Infinity })).toBe(3);
+    });
+
     it('never returns a negative scale, which would draw the slide mirrored', () => {
       expect(fitScale(SLIDE_16_9, { width: 10, height: 10 }, { padding: 40 })).toBe(0);
     });

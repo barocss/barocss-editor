@@ -172,7 +172,8 @@ export function slideSize(attrs: { width?: unknown; height?: unknown } | undefin
  *
  * Clamped at 1 by default so a slide never grows past its natural size in an
  * editor, where drawing text at 3x makes every hinting and subpixel decision
- * different from the one the reader will see.
+ * different from the one the reader will see. Pass `max: Infinity` to lift the
+ * cap, which is what presenting does.
  */
 export function fitScale(
   slide: { width: number; height: number },
@@ -180,7 +181,15 @@ export function fitScale(
   options: { padding?: number; max?: number } = {}
 ): number {
   const padding = finite(options.padding, 0);
-  const max = finite(options.max, 1);
+  /**
+   * `Infinity` is a real answer here, and `finite` refuses it.
+   *
+   * "No cap" is exactly what presenting asks for — a projector is the one case
+   * where a slide should be drawn above its natural size — and passing
+   * `Infinity` silently became `1`, so the presented slide stayed 1280px wide
+   * in the middle of a 1600px screen with nothing reporting a problem.
+   */
+  const max = options.max === Infinity ? Infinity : finite(options.max, 1);
 
   const available = {
     width: viewport.width - padding * 2,
