@@ -135,11 +135,32 @@ import stops the corruption and, in the same stroke, stops the deletion halfway
 — which is why the comment kept a mark over text that was gone from the screen
 but not from the model.
 
-- [ ] **Backspace must delete the whole selection in the model.** Every run it
-  covers, not the first. This is the fix; everything else here follows from it.
-- [ ] **Then the observer fix goes back in**, and orphaning works because the
-  delete genuinely removes the commented run and its mark — not because a
-  mutation happened to be read back.
+- [x] **Backspace deletes the whole selection in the model.** It named only
+  `startNodeId` and used an end offset belonging to another node, so a selection
+  across three runs went one run deep. Fixed, and Word's e2e is green with it:
+  the import was quietly finishing the job, and now it has nothing left to
+  finish.
+- [ ] **Then the observer fix goes back in.** Written, measured working on the
+  corruption, and still failing one e2e — but for a *new* reason, which is the
+  next thing to chase rather than the old one.
+
+#### Where it stands, precisely
+
+With the import blocked, deleting a selection that spans runs removes **more
+than the selection**: the e2e's snapshot shows 36 characters gone where 10 were
+selected, and the commented run survives with its mark.
+
+It is not `deleteRange`. Given `AAAAA|BBBBB|CCCCC` and a range from run A
+offset 3 to run C offset 2, it produces exactly `AAA||CCC` — checked in a model
+test. And it is not the delete command, which now passes that range through
+unchanged.
+
+So the remaining suspect is **the offsets the view puts in a multi-run
+selection**: whether `endOffset` is relative to `endNodeId` or to something
+larger. Both paths agreed while the import was there to paper over it, because
+the DOM was the arbiter. That is the measurement to take next — build a
+selection with the arrow keys across a formatting boundary and compare the
+model's offsets against the runs they name.
 - [ ] **A state that says the editor is receiving input.** There is no such
   thing today. There is `_isComposing` (IME only), `isTypingBurst` (characters
   only — not a deletion, a paste or a drop), and `isModelDrivenChange`, which is
