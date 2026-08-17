@@ -7,6 +7,7 @@ import {
   boxAt,
   boxOf,
   contains,
+  guidesFor,
   intersects,
   isSceneType,
   moveBox,
@@ -14,10 +15,12 @@ import {
   resizeBox,
   slideSize,
   snapAngle,
+  snapBox,
   twipToPx,
   unionOf,
   unrotate,
   type Box,
+  type Guide,
   type Handle
 } from '@barocss/office-slides';
 
@@ -67,6 +70,8 @@ interface Drag {
   preview: Map<string, Box>;
   rotation?: number;
   moved: boolean;
+  /** The lines the drag was pulled onto, drawn so the jump explains itself. */
+  guides?: Guide[];
 }
 
 interface Marquee {
@@ -147,7 +152,9 @@ export function SelectionOverlay({
 
   /** Every box on this slide, outermost only — a frame's children move with it. */
   const boxes = useMemo(() => {
-    if (!doc || !slideSid) return [] as { sid: string; box: Box; rotation: number }[];
+    if (!doc || !slideSid) {
+      return [] as { sid: string; box: Box; rotation: number; fill?: string }[];
+    }
     const surface: any = doc.getNode(slideSid);
     const children: string[] = Array.isArray(surface?.content) ? surface.content : [];
 
@@ -157,7 +164,9 @@ export function SelectionOverlay({
       .map((node) => ({
         sid: node.sid as string,
         box: boxOf(node.attributes),
-        rotation: typeof node.attributes?.rotation === 'number' ? node.attributes.rotation : 0
+        rotation: typeof node.attributes?.rotation === 'number' ? node.attributes.rotation : 0,
+        // For the ghost drawn while dragging; see below.
+        fill: typeof node.attributes?.fill === 'string' ? (node.attributes.fill as string) : undefined
       }));
   }, [doc, slideSid, tick, revision]);
 
@@ -313,7 +322,45 @@ export function SelectionOverlay({
             })
       );
     }
-    setDrag({ ...drag, preview, moved });
+
+    /**
+     * Snapping, on a move, unless the reader is holding the key that turns it
+     * off.
+     *
+     * Only on a move: snapping a *resize* would fight the aspect and centre
+     * modifiers, which are the two things a reader is already holding a key to
+     * get. And the whole selection is snapped as one box, so a set of shapes
+     * lands together rather than each one finding its own line.
+     *
+     * The threshold is in *model* units and computed from the scale, because
+     * what counts as "close enough" is a distance on the reader's screen: eight
+     * screen pixels at half size is sixteen slide pixels, and a fixed model
+     * threshold feels sticky zoomed out and dead zoomed in.
+     */
+    let guides: Guide[] = [];
+    if (drag.handle === 'move' && !event.metaKey && !event.ctrlKey) {
+      const dragging = new Set(preview.keys());
+      const frame = unionOf([...preview.values()]);
+
+      if (frame) {
+        const { box: snapped, hit } = snapBox(
+          frame,
+          guidesFor(
+            boxes.filter((entry) => !dragging.has(entry.sid)).map((entry) => entry.box),
+            { x: 0, y: 0, width: size.width, height: size.height }
+          ),
+          pxToTwip(8 / scale)
+        );
+
+        const shift = { dx: snapped.x - frame.x, dy: snapped.y - frame.y };
+        if (shift.dx !== 0 || shift.dy !== 0) {
+          for (const [sid, box] of preview) preview.set(sid, moveBox(box, shift));
+        }
+        guides = hit;
+      }
+    }
+
+    setDrag({ ...drag, preview, moved, guides });
   };
 
   const onPointerUp = (event: React.PointerEvent) => {
@@ -563,7 +610,18 @@ export function SelectionOverlay({
               width: toScreen(box.width),
               height: toScreen(box.height),
               transform: rotation ? `rotate(${rotation}deg)` : undefined,
-              pointerEvents: 'none'
+              pointerEvents: 'none',
+              /**
+               * A ghost of the shape while it is being dragged.
+               *
+               * The document is not written until the drag ends, so the shape
+               * itself stays where it was and only this outline follows the
+               * pointer — which reads as dragging a frame around rather than
+               * dragging the thing. The overlay draws its own translucent copy
+               * instead of moving an element the view owns and rewrites.
+               */
+              background: drag?.moved && entry.fill ? entry.fill : undefined,
+              opacity: drag?.moved && entry.fill ? 0.45 : undefined
             }}
           />
         );
@@ -621,6 +679,25 @@ export function SelectionOverlay({
           )}
         </div>
       )}
+
+      {/*
+       * The lines the drag was pulled onto. Drawn from the same candidates that
+       * moved the box, rather than a second guess at what happened — a shape
+       * that jumps without saying why reads as the tool fighting the reader.
+       */}
+      {(drag?.guides ?? []).map((guide, index) => (
+        <div
+          key={`${guide.axis}-${guide.at}-${index}`}
+          className="sl-guide"
+          style={{
+            position: 'absolute',
+            pointerEvents: 'none',
+            ...(guide.axis === 'x'
+              ? { left: toScreen(guide.at), top: 0, width: 1, height: '100%' }
+              : { top: toScreen(guide.at), left: 0, height: 1, width: '100%' })
+          }}
+        />
+      ))}
 
       {marquee && (
         <div

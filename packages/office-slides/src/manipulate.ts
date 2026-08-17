@@ -413,3 +413,112 @@ export function intoFrame(box: Box, frame: Box): Box {
 export function outOfFrame(box: Box, frame: Box): Box {
   return { ...box, x: box.x + frame.x, y: box.y + frame.y };
 }
+
+/**
+ * Snapping, and the lines that explain it.
+ *
+ * A drag that lands a shape one twip off another's edge looks like a mistake
+ * and is one — a reader aiming at an edge means the edge. So a drag in progress
+ * is pulled onto the nearest interesting line, and a line it was pulled onto is
+ * *drawn*, because a shape that jumps without saying why reads as the tool
+ * fighting the reader.
+ *
+ * Both halves are here so they cannot disagree: the guide shown is computed
+ * from the same candidate that moved the box, rather than being a second guess
+ * at what happened.
+ */
+
+/** A line a box can snap to, and what makes it interesting. */
+export interface Guide {
+  axis: 'x' | 'y';
+  /** Where the line is, in model units. */
+  at: number;
+}
+
+/**
+ * The lines worth snapping to on a slide.
+ *
+ * Each box's two edges and its middle, plus the slide's edges and centre. The
+ * centres matter as much as the edges: "centred on the slide" is the single
+ * most common thing an author is aiming at, and it is the one position they
+ * cannot hit by eye.
+ */
+export function guidesFor(others: Box[], slide?: Box): Guide[] {
+  const guides: Guide[] = [];
+
+  const add = (box: Box) => {
+    guides.push({ axis: 'x', at: box.x });
+    guides.push({ axis: 'x', at: box.x + box.width / 2 });
+    guides.push({ axis: 'x', at: box.x + box.width });
+    guides.push({ axis: 'y', at: box.y });
+    guides.push({ axis: 'y', at: box.y + box.height / 2 });
+    guides.push({ axis: 'y', at: box.y + box.height });
+  };
+
+  for (const box of others) add(box);
+  if (slide) add(slide);
+
+  return guides;
+}
+
+/**
+ * Pull a box onto the nearest guide, if one is close enough.
+ *
+ * The box's own three lines per axis are all candidates — a reader lining up
+ * left edges and a reader centring two shapes are doing the same thing to
+ * different lines — and the *closest* match on each axis wins independently, so
+ * a box can snap horizontally without being dragged vertically.
+ *
+ * `within` is in model units and is the caller's, because what counts as "close
+ * enough" depends on the zoom: eight screen pixels at half size is sixteen
+ * slide pixels, and a threshold fixed in model units would feel sticky when
+ * zoomed out and dead when zoomed in.
+ */
+export function snapBox(
+  box: Box,
+  guides: Guide[],
+  within: number
+): { box: Box; hit: Guide[] } {
+  /**
+   * Nothing to snap to is still a box the model can hold.
+   *
+   * Returning the box untouched here made one function keep two contracts: the
+   * snapping path rounded and the early-out did not, so whether a fraction of a
+   * twip reached the document depended on whether anything happened to be
+   * nearby.
+   */
+  const whole = { ...box, x: Math.round(box.x), y: Math.round(box.y) };
+  if (within <= 0 || guides.length === 0) return { box: whole, hit: [] };
+
+  const edges = {
+    x: [box.x, box.x + box.width / 2, box.x + box.width],
+    y: [box.y, box.y + box.height / 2, box.y + box.height]
+  };
+
+  const best: { x?: { guide: Guide; shift: number }; y?: { guide: Guide; shift: number } } = {};
+
+  for (const guide of guides) {
+    for (const edge of edges[guide.axis]) {
+      const shift = guide.at - edge;
+      if (Math.abs(shift) > within) continue;
+
+      const held = best[guide.axis];
+      if (!held || Math.abs(shift) < Math.abs(held.shift)) {
+        best[guide.axis] = { guide, shift };
+      }
+    }
+  }
+
+  const hit: Guide[] = [];
+  if (best.x) hit.push(best.x.guide);
+  if (best.y) hit.push(best.y.guide);
+
+  return {
+    box: {
+      ...box,
+      x: Math.round(box.x + (best.x?.shift ?? 0)),
+      y: Math.round(box.y + (best.y?.shift ?? 0))
+    },
+    hit
+  };
+}

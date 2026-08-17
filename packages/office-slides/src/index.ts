@@ -51,7 +51,12 @@ export {
   unrotate,
   alignBoxes,
   distributeBoxes,
+  guidesFor,
+  intoFrame,
+  outOfFrame,
+  snapBox,
   type Align,
+  type Guide,
   type Delta,
   type Handle,
   type ResizeOptions

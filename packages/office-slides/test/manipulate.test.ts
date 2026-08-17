@@ -12,7 +12,9 @@ import {
   alignBoxes,
   distributeBoxes,
   intoFrame,
-  outOfFrame
+  outOfFrame,
+  guidesFor,
+  snapBox
 } from '../src/manipulate';
 
 /**
@@ -411,5 +413,76 @@ describe('moving a box between coordinate spaces', () => {
   it('leaves the size alone', () => {
     expect(intoFrame(box, frame).width).toBe(box.width);
     expect(outOfFrame(box, frame).height).toBe(box.height);
+  });
+});
+
+describe('snapping', () => {
+  const other = { x: 1000, y: 1000, width: 2000, height: 1000 };
+  const slide = { x: 0, y: 0, width: 19200, height: 10800 };
+
+  it('offers each box its edges and its middle', () => {
+    const guides = guidesFor([other]);
+    expect(guides.filter((g) => g.axis === 'x').map((g) => g.at)).toEqual([1000, 2000, 3000]);
+    expect(guides.filter((g) => g.axis === 'y').map((g) => g.at)).toEqual([1000, 1500, 2000]);
+  });
+
+  it('offers the slide’s centre, which is what an author cannot hit by eye', () => {
+    const guides = guidesFor([], slide);
+    expect(guides.some((g) => g.axis === 'x' && g.at === 9600)).toBe(true);
+    expect(guides.some((g) => g.axis === 'y' && g.at === 5400)).toBe(true);
+  });
+
+  it('pulls a near edge onto the line and says which line', () => {
+    const dragged = { x: 1030, y: 5000, width: 500, height: 500 };
+    const { box, hit } = snapBox(dragged, guidesFor([other]), 100);
+
+    expect(box.x).toBe(1000);
+    expect(hit).toContainEqual({ axis: 'x', at: 1000 });
+  });
+
+  it('leaves a box that is not close to anything', () => {
+    const far = { x: 9000, y: 9000, width: 500, height: 500 };
+    const { box, hit } = snapBox(far, guidesFor([other]), 100);
+    expect(box).toEqual(far);
+    expect(hit).toEqual([]);
+  });
+
+  it('snaps the axes independently', () => {
+    // Lined up horizontally, nowhere near anything vertically.
+    const dragged = { x: 1010, y: 7777, width: 500, height: 500 };
+    const { box, hit } = snapBox(dragged, guidesFor([other]), 100);
+    expect(box.x).toBe(1000);
+    expect(box.y).toBe(7777);
+    expect(hit.map((g) => g.axis)).toEqual(['x']);
+  });
+
+  it('takes the closest candidate, not the first', () => {
+    // The box's right edge is nearer `other`'s left edge than its own left edge
+    // is to anything, and the nearest match must win.
+    const dragged = { x: 20, y: 5000, width: 950, height: 100 };
+    const { box } = snapBox(dragged, guidesFor([other]), 100);
+    expect(box.x + box.width).toBe(1000);
+  });
+
+  it('lines centres up, which is a different line and the same act', () => {
+    // `other`'s middle is 2000; a 400-wide box centred there starts at 1800.
+    const dragged = { x: 1830, y: 5000, width: 400, height: 100 };
+    const { box, hit } = snapBox(dragged, guidesFor([other]), 100);
+    expect(box.x).toBe(1800);
+    expect(hit).toContainEqual({ axis: 'x', at: 2000 });
+  });
+
+  it('does nothing at all when the threshold is zero', () => {
+    // Which is how a caller says "the reader is holding the key that turns this
+    // off" without a second code path.
+    const dragged = { x: 1001, y: 1001, width: 100, height: 100 };
+    expect(snapBox(dragged, guidesFor([other]), 0).box).toEqual(dragged);
+  });
+
+  it('keeps the model in whole twips', () => {
+    const dragged = { x: 1000.4, y: 5000.6, width: 100, height: 100 };
+    const { box } = snapBox(dragged, [], 100);
+    expect(Number.isInteger(box.x)).toBe(true);
+    expect(Number.isInteger(box.y)).toBe(true);
   });
 });

@@ -402,3 +402,12 @@ body {
   font: inherit;
   cursor: pointer;
 }
+
+/*
+ * A snap guide. Drawn only while a drag is being held, and in a colour that is
+ * not the selection's — the reader is being told *why the shape moved*, which is
+ * a different message from *what is selected*.
+ */
+.sl-guide {
+  background: #f43f5e;
+}

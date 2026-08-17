@@ -181,9 +181,17 @@ that forces a caret selection and a node selection to coexist. `packages/office-
   `$alias` is what lets one transaction move things into a node it just made.
 - [ ] **A clipboard for objects.** Copy and paste of shapes between slides and
   between decks; `copyOf` is already the tree-copy half of it.
-- [ ] **Snapping and guides** — to the slide's centre, to other boxes' edges.
-  `unionOf` and `intersects` are the arithmetic; what is missing is the
-  threshold and the drawing.
+- [x] **Snapping and guides.** Both halves in one function, so the line drawn is
+  computed from the same candidate that moved the box rather than being a second
+  guess at what happened. The threshold is in model units and derived from the
+  scale, because "close enough" is a distance on the reader's screen.
+- [ ] **Snapping while resizing.** Move only today: snapping a resize would
+  fight the aspect and centre modifiers, which are the two things a reader is
+  already holding a key to get. Worth doing, and worth doing carefully.
+- [ ] **A shape does not move while it is dragged** — the overlay draws a
+  translucent ghost instead, because the document is not written until the drag
+  ends and the view owns every element inside it. Good enough to read as
+  dragging; the real thing would need the view to accept a transient transform.
 - [x] **Dialogs** — slide size and layout picker, the first things to draw the
   suite's `Dialog`. Deck size is applied to every slide rather than held once on
   the document: a slide already carries its own size, and a second place saying
