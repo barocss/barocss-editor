@@ -20,6 +20,7 @@ import { createSchema } from '@barocss/schema';
 import { getSlidesSchemaDefinition } from './slides-schema';
 import { createSlideCommands } from './slide-commands';
 import { createBoxCommands } from './box-commands';
+import { createArrangeCommands } from './arrange-commands';
 
 /**
  * What can be done in a deck.
@@ -77,7 +78,11 @@ export function createSlidesExtensions(): Extension[] {
 
     // Putting something on a slide. Without these a deck could hold shapes,
     // draw them and report their properties, and nothing could make one.
-    createBoxCommands()
+    createBoxCommands(),
+
+    // What is in front, and what lines up with what — the commands a document
+    // has no use for, because its blocks are in one order and at one place.
+    createArrangeCommands()
   ];
 }
 

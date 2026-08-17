@@ -206,6 +206,42 @@ export const SLIDES_TOOLBAR: SlidesToolbarGroup[] = [
       { id: 'insert-table', label: '표 삽입', icon: '⊞', command: 'insertTable' },
       { id: 'insert-image', label: '그림 삽입', icon: '🖼', command: 'insertImage' }
     ]
+  },
+
+  /**
+   * What is in front, and what lines up with what.
+   *
+   * Every control here acts on the *selection* rather than on a named box, so
+   * none of them carries `needsSlide`: the host runs them and the command reads
+   * the selection, which is the only place that knows what three shapes the
+   * reader shift-clicked.
+   */
+  {
+    id: 'arrange',
+    controls: [
+      { id: 'bring-front', label: '맨 앞으로', icon: '⤒', command: 'bringToFront' },
+      { id: 'send-back', label: '맨 뒤로', icon: '⤓', command: 'sendToBack' },
+      { id: 'align-boxes-left', label: '왼쪽 정렬', icon: '⊢', command: 'alignBoxesLeft' },
+      { id: 'align-boxes-centre', label: '가운데 정렬', icon: '⊣⊢', command: 'alignBoxesCentre' },
+      { id: 'align-boxes-right', label: '오른쪽 정렬', icon: '⊣', command: 'alignBoxesRight' },
+      { id: 'align-boxes-top', label: '위쪽 정렬', icon: '⊤', command: 'alignBoxesTop' },
+      { id: 'align-boxes-middle', label: '중간 정렬', icon: '⊕', command: 'alignBoxesMiddle' },
+      { id: 'align-boxes-bottom', label: '아래쪽 정렬', icon: '⊥', command: 'alignBoxesBottom' },
+      {
+        id: 'distribute-h',
+        label: '가로 간격 맞춤',
+        icon: '⇹',
+        command: 'distributeBoxesHorizontally'
+      },
+      {
+        id: 'distribute-v',
+        label: '세로 간격 맞춤',
+        icon: '⇳',
+        command: 'distributeBoxesVertically'
+      },
+      { id: 'duplicate-boxes', label: '복제', icon: '⧉', command: 'duplicateBoxes' },
+      { id: 'delete-boxes', label: '삭제', icon: '␡', command: 'deleteBoxes' }
+    ]
   }
 ];
 

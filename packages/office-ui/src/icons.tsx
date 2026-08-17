@@ -49,6 +49,16 @@ import {
   Square,
   Circle,
   Minus,
+  BringToFront,
+  SendToBack,
+  AlignStartVertical,
+  AlignCenterVertical,
+  AlignEndVertical,
+  AlignStartHorizontal,
+  AlignCenterHorizontal,
+  AlignEndHorizontal,
+  AlignHorizontalSpaceAround,
+  AlignVerticalSpaceAround,
   type LucideIcon
 } from 'lucide-react';
 
@@ -131,7 +141,23 @@ const ICONS: Record<string, LucideIcon> = {
   'insert-textbox': Type,
   'insert-rectangle': Square,
   'insert-ellipse': Circle,
-  'insert-line': Minus
+  'insert-line': Minus,
+
+  // Arranging what is on a slide. The align icons are named for the axis the
+  // *line-up* runs along, which is the opposite of the axis the boxes move on —
+  // "align left" stacks them against a vertical line.
+  'bring-front': BringToFront,
+  'send-back': SendToBack,
+  'align-boxes-left': AlignStartVertical,
+  'align-boxes-centre': AlignCenterVertical,
+  'align-boxes-right': AlignEndVertical,
+  'align-boxes-top': AlignStartHorizontal,
+  'align-boxes-middle': AlignCenterHorizontal,
+  'align-boxes-bottom': AlignEndHorizontal,
+  'distribute-h': AlignHorizontalSpaceAround,
+  'distribute-v': AlignVerticalSpaceAround,
+  'duplicate-boxes': Copy,
+  'delete-boxes': Trash2
 };
 
 /**

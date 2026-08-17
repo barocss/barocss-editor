@@ -370,7 +370,41 @@ export function SelectionOverlay({
     if (!hit) return;
     const node: any = doc?.getNode(hit.sid);
     if (node?.stype !== 'textFrame' && node?.stype !== 'sticky') return;
+
     setEditing(hit.sid);
+
+    /**
+     * Entering the text means putting the caret in it.
+     *
+     * The double-click landed on the overlay, so the editor never saw it and
+     * there is no caret — the box went into editing mode and every keystroke
+     * after it went nowhere. Measured: typing after a double-click changed
+     * nothing at all, and nothing anywhere said so.
+     *
+     * Placed where they clicked, from the same coordinates, because that is
+     * where a reader expects to carry on typing. On the next frame, because the
+     * overlay has to stop taking pointer events first — and that is a React
+     * render away.
+     */
+    const { clientX, clientY } = event;
+    requestAnimationFrame(() => {
+      const at =
+        (document as any).caretPositionFromPoint?.(clientX, clientY) ??
+        (document as any).caretRangeFromPoint?.(clientX, clientY);
+      if (!at) return;
+
+      const range = document.createRange();
+      if ('offsetNode' in at) range.setStart(at.offsetNode, at.offset);
+      else range.setStart(at.startContainer, at.startOffset);
+      range.collapse(true);
+
+      const dom = window.getSelection();
+      dom?.removeAllRanges();
+      dom?.addRange(range);
+      (range.startContainer.parentElement as HTMLElement | null)?.closest<HTMLElement>(
+        '[contenteditable="true"]'
+      )?.focus();
+    });
   };
 
   // Escape leaves the text and gives the box back to the overlay.
@@ -384,6 +418,70 @@ export function SelectionOverlay({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [editing, select]);
+
+  /**
+   * The keys that belong to a selection of boxes.
+   *
+   * Only while boxes are selected and the reader is not in the text — which is
+   * the whole reason these can be bound at all: Delete means "remove this
+   * character" with a caret and "throw this shape away" with a shape, and the
+   * two readings cannot both be in the editor's key map. The selection is what
+   * says which one is meant.
+   *
+   * Each press is its own command, so each is its own undo. Holding an arrow
+   * key and nudging thirty times is thirty entries in the history, which is
+   * exactly what a reader pressing undo thirty times expects to get back.
+   */
+  useEffect(() => {
+    if (!editor || editing) return;
+
+    const onKey = (event: KeyboardEvent) => {
+      /**
+       * The *model* decides whose keys these are, not the DOM.
+       *
+       * Asking where the event landed was tried and is wrong: a node selection
+       * is still written into the browser, so the editor keeps a caret in the
+       * text and Delete arrived at the contenteditable. Measured — the command
+       * that ran was `deleteForward`, and the shape the reader had selected was
+       * untouched while a character somewhere else went missing.
+       *
+       * A node selection says whole boxes are selected. Delete then means
+       * "throw these away" wherever the browser happens to have parked its
+       * caret, and `editing` is the one state where the reader really is typing.
+       */
+      if (selectedNodeIds((editor as any).selection).length === 0) return;
+
+      const target = event.target as HTMLElement | null;
+      // A field in the chrome does own its own keys — it is not the document.
+      if (target?.closest?.('input, textarea')) return;
+
+      const run = (command: string, payload?: Record<string, unknown>) => {
+        event.preventDefault();
+        // Capture phase, so this stops before the editor's own key map — which
+        // binds Delete on the contenteditable and would delete a character.
+        event.stopPropagation();
+        void (editor as any).executeCommand?.(command, payload);
+      };
+
+      if (event.key === 'Delete' || event.key === 'Backspace') return run('deleteBoxes');
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'd') {
+        return run('duplicateBoxes');
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        return select([]);
+      }
+
+      const step = event.shiftKey ? 144 : 15; // a tenth of an inch, or one pixel
+      if (event.key === 'ArrowLeft') return run('nudgeBoxes', { dx: -step, dy: 0 });
+      if (event.key === 'ArrowRight') return run('nudgeBoxes', { dx: step, dy: 0 });
+      if (event.key === 'ArrowUp') return run('nudgeBoxes', { dx: 0, dy: -step });
+      if (event.key === 'ArrowDown') return run('nudgeBoxes', { dx: 0, dy: step });
+    };
+
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [editor, editing, select, tick]);
 
   /**
    * Leaving the text when the caret leaves the box.

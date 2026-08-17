@@ -37,6 +37,8 @@ export { createSlideCommands, SlidesExtension } from './slide-commands';
 
 export { createBoxCommands, SlidesBoxExtension } from './box-commands';
 
+export { createArrangeCommands, SlidesArrangeExtension } from './arrange-commands';
+
 export {
   RESIZE_HANDLES,
   angleOf,
@@ -47,6 +49,9 @@ export {
   snapAngle,
   unionOf,
   unrotate,
+  alignBoxes,
+  distributeBoxes,
+  type Align,
   type Delta,
   type Handle,
   type ResizeOptions

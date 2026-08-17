@@ -1,8 +1,8 @@
-import { Editor, Extension } from '@barocss/editor-core';
+import { Editor, Extension, selectedNodeIds } from '@barocss/editor-core';
 import { transaction } from '@barocss/model';
-import { deckSlides, type DeckAccess, type DeckNode } from './deck';
-import { SLIDE_16_9, slideSize } from './geometry';
-import { isSceneType } from './selection';
+import { copyOf, deckSlides, type DeckAccess, type DeckNode } from './deck';
+import { SLIDE_16_9, boxOf, slideSize } from './geometry';
+import { isSceneType, slideAt } from './selection';
 
 /**
  * Putting something on a slide.
@@ -78,6 +78,138 @@ export class SlidesBoxExtension implements Extension {
     shape('insertEllipse', 'ellipse');
     shape('insertLine', 'line');
     shape('insertTextBox', 'textFrame');
+
+    const onSelection = (
+      name: string,
+      execute: (payload?: any) => Promise<boolean>,
+      atLeast = 1
+    ) => {
+      (editor as any).registerCommand({
+        name,
+        execute: async (_ed: Editor, payload?: any) => await execute(payload),
+        canExecute: () => this._selected(editor).length >= atLeast
+      });
+    };
+
+    /**
+     * Throw away what is selected.
+     *
+     * Named for boxes rather than reusing `deleteNode`, because what a reader
+     * means by Delete depends entirely on what kind of selection they have: a
+     * caret in text deletes a character, and this only ever runs when whole
+     * boxes are selected.
+     */
+    onSelection('deleteBoxes', () => this._deleteBoxes(editor));
+
+    /**
+     * A copy, offset so it is visibly a second thing.
+     *
+     * Directly on top would look like nothing happened, and a reader would
+     * press it again. The offset is what every drawing tool does and the amount
+     * hardly matters, so it is a tenth of an inch.
+     */
+    onSelection('duplicateBoxes', () => this._duplicateBoxes(editor));
+
+    /**
+     * Move the selection by a fixed amount — the arrow keys.
+     *
+     * The one edit here that a reader repeats quickly, so it takes a step
+     * rather than a destination and each press is its own entry in the history.
+     * Coarser with a modifier, which is the convention everywhere.
+     */
+    onSelection('nudgeBoxes', (payload) =>
+      this._nudge(editor, Number(payload?.dx) || 0, Number(payload?.dy) || 0)
+    );
+  }
+
+  /** The selected boxes, in document order, skipping any that are locked. */
+  private _selected(editor: Editor): { sid: string; node: any }[] {
+    const doc = this._access(editor);
+    if (!doc) return [];
+
+    const ids = new Set(selectedNodeIds((editor as any).selection));
+    if (ids.size === 0) return [];
+
+    const slide = slideAt(doc, [...ids][0]);
+    const surface: any = slide ? doc.getNode(slide) : undefined;
+    const children: string[] = Array.isArray(surface?.content) ? surface.content : [];
+
+    return children
+      .filter((sid) => ids.has(sid))
+      .map((sid) => ({ sid, node: doc.getNode(sid) as any }))
+      .filter((entry) => entry.node && isSceneType(entry.node.stype))
+      .filter((entry) => entry.node.attributes?.locked !== true);
+  }
+
+  private async _deleteBoxes(editor: Editor): Promise<boolean> {
+    const doc = this._access(editor);
+    const chosen = this._selected(editor);
+    if (!doc || chosen.length === 0) return false;
+
+    const slide = slideAt(doc, chosen[0].sid);
+    if (!slide) return false;
+
+    const steps = chosen.map((entry) => ({
+      type: 'removeChild',
+      payload: { parentId: slide, childId: entry.sid }
+    }));
+
+    const result = await transaction(editor, steps as never).commit();
+    if (!result.success) return false;
+
+    // Nothing is selected once it is gone. Leaving the ids selected would leave
+    // the panel and the handles pointing at nodes the document no longer has.
+    (editor as any).setNode?.(null);
+    return true;
+  }
+
+  private async _duplicateBoxes(editor: Editor): Promise<boolean> {
+    const doc = this._access(editor);
+    const chosen = this._selected(editor);
+    if (!doc || chosen.length === 0) return false;
+
+    const slide = slideAt(doc, chosen[0].sid);
+    if (!slide) return false;
+
+    const OFFSET = 144; // a tenth of an inch
+
+    const steps = chosen.map((entry) => {
+      const copy = copyOf(doc, entry.sid)!;
+      const box = boxOf(copy.attributes as never);
+      copy.attributes = { ...copy.attributes, x: box.x + OFFSET, y: box.y + OFFSET };
+      return { type: 'addChild', payload: { parentId: slide, child: copy } };
+    });
+
+    const result = await transaction(editor, steps as never).commit();
+    if (!result.success) return false;
+
+    /**
+     * The copies are selected, not the originals.
+     *
+     * A reader duplicates in order to move the copy, and they are the last N
+     * children because that is where `addChild` put them.
+     */
+    const surface: any = doc.getNode(slide);
+    const children: string[] = Array.isArray(surface?.content) ? surface.content : [];
+    const made = children.slice(-steps.length);
+    if (made.length > 0) (editor as any).setNode?.({ nodeIds: made });
+
+    return true;
+  }
+
+  private async _nudge(editor: Editor, dx: number, dy: number): Promise<boolean> {
+    const chosen = this._selected(editor);
+    if (chosen.length === 0 || (dx === 0 && dy === 0)) return false;
+
+    const steps = chosen.map((entry) => {
+      const box = boxOf(entry.node.attributes);
+      return {
+        type: 'setAttrs',
+        payload: { nodeId: entry.sid, attrs: { x: box.x + dx, y: box.y + dy } }
+      };
+    });
+
+    return (await transaction(editor, steps as never).commit()).success;
   }
 
   private _access(editor: Editor): DeckAccess | null {

@@ -303,3 +303,90 @@ export function intersects(a: Box, b: Box): boolean {
     a.y + a.height > b.y
   );
 }
+
+/**
+ * Lining boxes up, and spreading them out.
+ *
+ * Both are pure functions from boxes to boxes, returning only what *moved* —
+ * so a command can commit exactly the changes it made and an alignment that
+ * changes nothing commits nothing.
+ */
+
+export type Align = 'left' | 'centre' | 'right' | 'top' | 'middle' | 'bottom';
+
+/**
+ * Where each box goes when they are lined up.
+ *
+ * Against the union of them all, which is what a reader means by "align left"
+ * with three shapes selected: the leftmost stays and the others come to it. A
+ * caller aligning to the *slide* passes the slide's box as `within`, which is
+ * the other thing that word can mean and the reason it is a parameter rather
+ * than a decision made in here.
+ *
+ * One box aligns against `within` or not at all — aligning something to itself
+ * is a command that reports success and does nothing.
+ */
+export function alignBoxes(
+  boxes: Box[],
+  align: Align,
+  within?: Box
+): Map<number, Box> {
+  const frame = within ?? unionOf(boxes);
+  const moved = new Map<number, Box>();
+  if (!frame) return moved;
+
+  boxes.forEach((box, index) => {
+    let { x, y } = box;
+
+    if (align === 'left') x = frame.x;
+    else if (align === 'right') x = frame.x + frame.width - box.width;
+    else if (align === 'centre') x = Math.round(frame.x + (frame.width - box.width) / 2);
+    else if (align === 'top') y = frame.y;
+    else if (align === 'bottom') y = frame.y + frame.height - box.height;
+    else if (align === 'middle') y = Math.round(frame.y + (frame.height - box.height) / 2);
+
+    if (x !== box.x || y !== box.y) moved.set(index, { ...box, x, y });
+  });
+
+  return moved;
+}
+
+/**
+ * Even gaps between boxes, along one axis.
+ *
+ * The two outermost stay where they are and everything between them is spread
+ * so the *gaps* are equal — not the centres. Equal centres is the other
+ * plausible reading and it is wrong for boxes of different sizes: three shapes
+ * of different widths with evenly spaced centres look unevenly spaced, because
+ * what a reader sees is the white between them.
+ *
+ * Fewer than three boxes have nothing to distribute: with two, the gaps are
+ * already equal by definition.
+ */
+export function distributeBoxes(boxes: Box[], axis: 'x' | 'y'): Map<number, Box> {
+  const moved = new Map<number, Box>();
+  if (boxes.length < 3) return moved;
+
+  const size = axis === 'x' ? 'width' : ('height' as const);
+  const order = boxes
+    .map((box, index) => ({ box, index }))
+    .sort((a, b) => a.box[axis] - b.box[axis]);
+
+  const first = order[0].box;
+  const last = order[order.length - 1].box;
+  const span = last[axis] + last[size] - first[axis];
+  const filled = order.reduce((total, entry) => total + entry.box[size], 0);
+  const gap = (span - filled) / (order.length - 1);
+
+  let at = first[axis] + first[size] + gap;
+  for (let index = 1; index < order.length - 1; index += 1) {
+    const entry = order[index];
+    const value = Math.round(at);
+    if (value !== entry.box[axis]) {
+      moved.set(entry.index, { ...entry.box, [axis]: value } as Box);
+    }
+    at += entry.box[size] + gap;
+  }
+
+  return moved;
+}

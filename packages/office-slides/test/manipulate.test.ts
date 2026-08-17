@@ -8,7 +8,9 @@ import {
   resizeBox,
   snapAngle,
   unionOf,
-  unrotate
+  unrotate,
+  alignBoxes,
+  distributeBoxes
 } from '../src/manipulate';
 
 /**
@@ -266,5 +268,118 @@ describe('dragging a box', () => {
       // selecting the thing beyond it is a surprise.
       expect(intersects({ x: 0, y: 1000, width: 1000, height: 1000 }, box)).toBe(false);
     });
+  });
+});
+
+describe('lining boxes up', () => {
+  const a = { x: 100, y: 100, width: 200, height: 100 };
+  const b = { x: 400, y: 300, width: 100, height: 200 };
+  const c = { x: 900, y: 50, width: 300, height: 50 };
+
+  it('brings them to the outermost one', () => {
+    // What a reader means by "align left" with three selected: the leftmost
+    // stays and the others come to it.
+    const moved = alignBoxes([a, b, c], 'left');
+    expect(moved.get(0)).toBeUndefined();
+    expect(moved.get(1)!.x).toBe(100);
+    expect(moved.get(2)!.x).toBe(100);
+  });
+
+  it('aligns right by the far edge, not the near one', () => {
+    const moved = alignBoxes([a, b, c], 'right');
+    // The union's right edge is c's: 900 + 300 = 1200.
+    expect(moved.get(0)!.x).toBe(1000);
+    expect(moved.get(1)!.x).toBe(1100);
+    expect(moved.get(2)).toBeUndefined();
+  });
+
+  it('centres each box on the frame’s centre', () => {
+    const moved = alignBoxes([a, b], 'centre');
+    const union = unionOf([a, b])!;
+    for (const [index, box] of moved) {
+      expect(box.x + box.width / 2).toBe(union.x + union.width / 2);
+      expect(index).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it('aligns to a frame it is given, which is how aligning to the slide works', () => {
+    const slide = { x: 0, y: 0, width: 19200, height: 10800 };
+    expect(alignBoxes([a], 'right', slide).get(0)!.x).toBe(19000);
+  });
+
+  it('reports only what moved, so an alignment that changes nothing commits nothing', () => {
+    expect(alignBoxes([a], 'left').size).toBe(0);
+    expect(alignBoxes([a, a], 'top').size).toBe(0);
+    expect(alignBoxes([], 'left').size).toBe(0);
+  });
+
+  it('touches only the axis it was asked about', () => {
+    const moved = alignBoxes([a, b], 'top');
+    expect(moved.get(1)!.x).toBe(b.x);
+    expect(moved.get(1)!.y).toBe(100);
+  });
+});
+
+describe('spreading boxes out', () => {
+  it('makes the gaps equal, not the centres', () => {
+    /**
+     * Equal centres is the other plausible reading and it is wrong for boxes of
+     * different sizes: what a reader sees is the white between them.
+     */
+    const boxes = [
+      { x: 0, y: 0, width: 100, height: 10 },
+      { x: 200, y: 0, width: 400, height: 10 },
+      { x: 900, y: 0, width: 100, height: 10 }
+    ];
+    const moved = distributeBoxes(boxes, 'x');
+
+    const after = boxes.map((box, index) => moved.get(index) ?? box);
+    const gaps = [after[1].x - (after[0].x + after[0].width), after[2].x - (after[1].x + after[1].width)];
+    expect(gaps[0]).toBe(gaps[1]);
+  });
+
+  it('leaves the two outermost where they are', () => {
+    const boxes = [
+      { x: 0, y: 0, width: 10, height: 10 },
+      { x: 50, y: 0, width: 10, height: 10 },
+      { x: 500, y: 0, width: 10, height: 10 }
+    ];
+    const moved = distributeBoxes(boxes, 'x');
+    expect(moved.get(0)).toBeUndefined();
+    expect(moved.get(2)).toBeUndefined();
+    expect(moved.get(1)!.x).toBe(250);
+  });
+
+  it('sorts by position, not by the order they were selected', () => {
+    const boxes = [
+      { x: 500, y: 0, width: 10, height: 10 },
+      { x: 0, y: 0, width: 10, height: 10 },
+      { x: 50, y: 0, width: 10, height: 10 }
+    ];
+    const moved = distributeBoxes(boxes, 'x');
+    // The middle *by position* is index 2, and it is the only one that moves.
+    expect(moved.get(2)!.x).toBe(250);
+    expect(moved.has(0)).toBe(false);
+    expect(moved.has(1)).toBe(false);
+  });
+
+  it('has nothing to do with fewer than three', () => {
+    // With two, the gaps are already equal by definition.
+    const boxes = [
+      { x: 0, y: 0, width: 10, height: 10 },
+      { x: 500, y: 0, width: 10, height: 10 }
+    ];
+    expect(distributeBoxes(boxes, 'x').size).toBe(0);
+  });
+
+  it('does the same down the page', () => {
+    const boxes = [
+      { x: 0, y: 0, width: 10, height: 10 },
+      { x: 0, y: 90, width: 10, height: 10 },
+      { x: 0, y: 500, width: 10, height: 10 }
+    ];
+    const moved = distributeBoxes(boxes, 'y');
+    expect(moved.get(1)!.y).toBe(250);
+    expect(moved.get(1)!.x).toBe(0);
   });
 });
