@@ -680,16 +680,59 @@ export function commitFiberNode(
   
   // Update parent of direct child Fibers to current domElement (only if HTMLElement)
   if (domElement instanceof Element) {
-    const prevWasTextOnly =
-      prevVNode?.text !== undefined &&
-      (!prevVNode.children || prevVNode.children.length === 0);
-    const nextHasChildren = Array.isArray(vnode.children) && vnode.children.length > 0;
-    if (prevWasTextOnly && nextHasChildren) {
-      const textNodes = Array.from(domElement.childNodes).filter(
-        node => node.nodeType === Node.TEXT_NODE
-      );
-      if (textNodes.length > 0) {
-        for (const node of textNodes) {
+    /**
+     * Text the reused element is still holding that the new VNode has no room
+     * for.
+     *
+     * An element kept across a render keeps its DOM children, and the ones the
+     * reconciler does not account for have to be taken away. Text is the case
+     * nothing else covers: a child *element* that has gone is removed as a stale
+     * fiber, but a text node the new tree has no VNode for is invisible to that
+     * pass, so it simply stays where it is.
+     *
+     * The test is what the new VNode says, not what the old one said. It used to
+     * ask whether the *previous* VNode was text-only, which is the same question
+     * only when the pairing is one level deep — and the pairing that matters here
+     * is two:
+     *
+     *     before   <span class="mark-bold"><span>bb</span></span>
+     *     after    <span class="mark-bold"><span class="mark-italic"><span>bb</span></span></span>
+     *
+     * Nesting a second mark inserts a wrapper, so the inner span pairs with the
+     * *outer* one and inherits its element — which is holding "bb". Its previous
+     * VNode had a child, not text, so the old test said no, and the element kept
+     * the text while the new inner span added it again: "a bb c" drew as
+     * "a bbbb c".
+     *
+     * Only where the wrappers share a tag, which is why it went unseen. Marks
+     * defined as `<strong>` and `<em>` cannot pair with a plain `<span>`, so a
+     * fresh element gets built and the stale text goes with the old one. Both
+     * products define their marks as spans with classes, so both doubled text on
+     * the second mark — and the observer then read that doubled DOM back as
+     * typing and wrote it into the model, which is the nineteen-fold corruption
+     * in `docs/BACKLOG.md`. This is its root; the observer only amplified it.
+     */
+    const isTextChild = (child: unknown): boolean => {
+      if (typeof child === 'string' || typeof child === 'number') return true;
+      if (!child || typeof child !== 'object') return false;
+      const node = child as VNode;
+      return node.tag === VNodeTag.TEXT || (!node.tag && node.text !== undefined);
+    };
+    const nextChildren = Array.isArray(vnode.children) ? vnode.children : [];
+    const nextDrawsOwnText = vnode.text !== undefined || nextChildren.some(isTextChild);
+    if (nextChildren.length > 0 && !nextDrawsOwnText) {
+      /**
+       * Ours to remove; anyone else's to leave.
+       *
+       * A text node this renderer made and no longer has a VNode for is stale by
+       * definition — it is the leftover being cleaned up here. A text node it did
+       * not make is the browser's, and between a keystroke and the sync that node
+       * *is* what the reader just typed; an IME composes straight into the
+       * element. Removing those loses input, which
+       * `test/core/foreign-node-cleanup.test.ts` holds the line on.
+       */
+      for (const node of Array.from(domElement.childNodes)) {
+        if (node.nodeType === Node.TEXT_NODE && isRendererOwned(node)) {
           domElement.removeChild(node);
         }
       }

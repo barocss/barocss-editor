@@ -1,3 +1,22 @@
+/**
+ * Compare rendered structure while ignoring how it was laid out in source.
+ *
+ * **This cannot see whitespace, and that is a real limit.** Text nodes go
+ * through `.replace(/\s+/g, ' ').trim()` and the result has `>\s+<` collapsed,
+ * so an expectation may be written on several indented lines and still match one
+ * long line of HTML. The cost is that ` and `, `and` and `` compare equal: a
+ * `<span> </span>` in an expectation is indistinguishable from `<span></span>`,
+ * and a rendered space that goes missing does not fail anything here.
+ *
+ * It went missing. A mark applied to a single space produced a whitespace-only
+ * run, the renderer pruned it as an empty wrapper, and bolding a space deleted
+ * it from the page while every mark test in this directory stayed green.
+ *
+ * So structure is asserted here and *characters* are asserted separately, in
+ * `test/core/mark-keeps-every-character.test.ts`, which compares `textContent`
+ * with nothing normalized. Anything about how much text is drawn belongs there,
+ * not in an `expectHTML` expectation that cannot check it.
+ */
 export function normalizeHTML(htmlOrElement: string | Element): string {
   const doc = document.implementation.createHTMLDocument('norm');
   const container = doc.createElement('div');

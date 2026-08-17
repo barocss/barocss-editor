@@ -113,6 +113,7 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
           <span class="text" data-bc-sid="text-1">
             <span class="chip" data-decorator="true" data-decorator-category="inline" data-decorator-position="before" data-decorator-sid="chip-1" data-decorator-stype="chip" data-skip-reconcile="true" style="display: inline-block; padding: 2px 6px; background-color: rgb(224, 224, 224); border-radius: 4px; font-size: 12px; margin: 0px 2px;"><span>CHIP</span></span>
             <strong class="mark-bold"><span>Bold</span></strong>
+            <span> </span>
             <em class="mark-italic"><span>italic</span></em>
             <span>text with decorator</span>
           </span>
@@ -304,7 +305,9 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
           <span class="text" data-bc-sid="text-1">
             <span class="chip" data-decorator="true" data-decorator-category="inline" data-decorator-position="before" data-decorator-sid="chip-1" data-decorator-stype="chip" data-skip-reconcile="true" style="display: inline-block; padding: 2px 6px; background-color: rgb(224, 224, 224); border-radius: 4px; font-size: 12px; margin: 0px 2px;"><span>CHIP</span></span>
             <strong class="mark-bold"><span>Bold</span></strong>
+            <span> </span>
             <em class="mark-italic"><span>italic</span></em>
+            <span> </span>
             <a class="mark-link" href="#"><span>link</span></a>
             <span class="badge" data-decorator="true" data-decorator-category="inline" data-decorator-position="after" data-decorator-sid="badge-1" data-decorator-stype="badge" data-skip-reconcile="true" style="display: inline-block; padding: 1px 4px; background-color: rgb(255, 107, 107); color: white; border-radius: 3px; font-size: 10px; margin: 0px 1px;"><span>BADGE</span></span>
             <span>text with multiple decorators</span>
@@ -437,6 +440,7 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
         `<p class="paragraph" data-bc-sid="p-1">
           <span class="text" data-bc-sid="text-1">
             <strong class="mark-bold"><span>Bold</span></strong>
+            <span> </span>
             <em class="mark-italic"><span>italic</span></em>
             <span> and </span>
             <a class="mark-link" href="#"><span>link</span></a>
@@ -545,6 +549,7 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
             <strong class="mark-bold">
               <em class="mark-italic"><span>bold</span></em>
             </strong>
+            <span> </span>
             <a class="mark-link" href="#"><span>italic</span></a>
             <span>and link text</span>
             <code class="mark-code"><span>with</span></code>
@@ -651,9 +656,11 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
             <strong class="mark-bold">
               <em class="mark-italic"><span>a</span></em>
             </strong>
+            <em class="mark-italic"><span> </span></em>
             <strong class="mark-bold">
               <em class="mark-italic"><span>test</span></em>
             </strong>
+            <em class="mark-italic"><span> </span></em>
             <span>text</span>
           </span>
         </p>`,
@@ -711,7 +718,9 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
             <strong class="mark-bold">
               <a class="mark-link" href="#"><span>Bold</span></a>
             </strong>
+            <span> </span>
             <em class="mark-italic"><span>italic</span></em>
+            <span> </span>
             <strong class="mark-bold">
               <em class="mark-italic">
                 <a class="mark-link" href="#"><span>link</span></a>
@@ -900,6 +909,7 @@ describe('Mark와 Decorator 복잡한 결합 테스트', () => {
             <span class="text" data-bc-sid="text-1">
               <span class="chip" data-decorator="true" data-decorator-category="inline" data-decorator-position="before" data-decorator-sid="chip-1" data-decorator-stype="chip" data-skip-reconcile="true" style="display: inline-block; padding: 2px 6px; background-color: rgb(224, 224, 224); border-radius: 4px; font-size: 12px; margin: 0px 2px;"><span>CHIP</span></span>
               <span>First</span>
+              <span> </span>
               <strong class="mark-bold"><span>para</span></strong>
               <span>graph with bold</span>
             </span>

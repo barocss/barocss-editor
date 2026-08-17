@@ -179,6 +179,7 @@ describe('Reconciler Complex Scenarios', () => {
           <span class="text" data-bc-sid="text-1">
             <span class="chip" data-decorator="true" data-decorator-category="inline" data-decorator-position="before" data-decorator-sid="chip-before" data-decorator-stype="chip" data-skip-reconcile="true" style="display: inline-block; padding: 2px 6px; background-color: rgb(224, 224, 224); border-radius: 4px; font-size: 12px; margin: 0px 2px;"><span>CHIP</span></span>
             <span>Hello</span>
+            <span> </span>
             <span>World</span>
             <span class="badge" data-decorator="true" data-decorator-category="inline" data-decorator-position="after" data-decorator-sid="badge-after" data-decorator-stype="badge" data-skip-reconcile="true" style="display: inline-block; padding: 1px 4px; background-color: rgb(255, 107, 107); color: white; border-radius: 3px; font-size: 10px; margin: 0px 1px;"><span>BADGE</span></span>
           </span>

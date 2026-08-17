@@ -46,149 +46,65 @@ entries are that.
 
 ## Open
 
-### A second overlapping mark corrupts the text — both products
+### A selection cannot be extended past the end of a marked run
 
-The most serious thing found so far, and it is in Word as much as in Slides.
+Present at HEAD, and not caused by anything above — it was found while checking
+the fix for the corruption, and it is the reason one further fix is held back.
 
-**Reproduce:** select some text, press bold, then press italic. The paragraph's
-text is rewritten — "Contents" became "Conten" repeated nineteen times — the
-toolbar goes dark, and undo cannot get it back.
+**Reproduce:** put the caret before some bold text and hold Shift while pressing
+the right arrow. The selection grows one character at a time until it reaches the
+last character of the bold run, and then stops. Pressing it another dozen times
+does nothing.
 
-**Where it is not.** The model is right: `toggleBold` then `toggleItalic` through
-the editor leaves the text alone and both marks on the range (checked in a unit
-test). The VNode builder is right, for a fresh build and for the patch from one
-mark to two (checked in `renderer-dom`). So neither the commands nor the
-rendering are at fault.
+Measured on the bold run `[35,45]` of the second paragraph in Word's fixture:
 
-**Where it is.** The render's own DOM restructuring is read back as typing.
-Instrumented in the browser, the writes during the second mark are:
+    press        1   2   3   4   5   6   7   8   9  10  11  12
+    model end   36  37  38  39  40  41  42  43  44  44  44  44
 
-    at RangeOperations.insertText (range-operations.ts:252)
-    at Object.execute (insertText.ts:11)
-    at TransactionManager._executeOperation (transaction.ts:245)
+The browser is not the one refusing. Listening to raw `selectionchange` with
+nothing filtered shows the DOM reaching the end of the run and then being pulled
+back, in that order, within one press:
 
-...running again and again, each pass inserting the text once more. Applying a
-mark re-wraps the run in nested elements; the MutationObserver sees the
-childList change, classifies it as inserted text, and commits an `insertText`,
-which changes the model, which renders, which mutates, which inserts again.
+    "centred even"@10      <- the browser extends
+    "centred even"@9       <- something writes it back
 
-**Why the existing guard misses it.** `mutation-observer-manager.ts` turns away
-model-driven records only when there is *no caret region*, and it says at length
-why it is narrow — every past widening broke something that legitimately depends
-on those records. Applying a mark from the toolbar has a caret region and is not
-a typing burst, so the records pass.
+So a round trip through the model loses the boundary: the DOM offset at the *end*
+of a run converts to a model offset that converts back to one character earlier.
+`extendSelectionHorizontal` is not involved — it returns false unless the
+selection is collapsed, so every press after the first is the browser's own.
 
-### What was tried, and what it uncovered
+- [ ] **Find who writes the selection back, and what offset it holds.** The
+  measurement above is the whole reproduction; the next step is the model offset
+  the conversion produced for `@10`.
 
-A fix was written, measured working, and **reverted** — because it broke one of
-the exact regressions the file's comments warn about, and the reason it broke is
-itself a second defect worth more than the first.
+### An inline decorator's text is dropped from the run index
 
-**The fix.** Ask the observer's import path a *positive* question — is the reader
-putting something in right now — instead of the negative one it asks today. Every
-reader-caused change arrives through `beforeinput` or a composition; a command, a
-toolbar, an undo and a layout pass do not. Measured in the browser: three
-overlapping marks, text intact, toolbar states right, each mark undone in one
-press, and typing (fast and slow), deleting and IME all unaffected. All 470
-`editor-view-dom` tests passed.
+Written, measured correct, and **held in a stash** rather than committed, because
+it turns the pre-existing stall above into a visible failure. `git stash list`
+has it under the name.
 
-**What it broke.** One e2e: a comment does not orphan when the text it was about
-is deleted.
+**What it is.** `buildTextRunIndex` and the selection handler both skip decorator
+elements, and a comment anchor is a decorator — so the ten commented characters
+were absent from the index. A paragraph of 68 characters indexed as 58, and every
+model offset at or past the comment resolved to the wrong text node. Measured
+after commenting on ten characters: the model held `word:21[35..45]` and the DOM
+selection built from it landed in the *following* run at `[0..10]`.
 
-**Why, and this is the finding.** After deleting exactly the commented text, the
-model holds a run whose text is now *different* and whose `commentRef[0,10]` mark
-is still there, over words the comment was never about. `deleteText` maintains
-marks correctly on its own — `fullyInside` drops them — so the damage is in what
-happens around it: the runs are merged after the delete and the wrong side's
-marks survive.
+**The distinction the fix uses is the system's own.** A decorator carries
+`data-decorator-category`, and an `inline` one wraps text that is already there —
+a search hit, a commented phrase. Every other category draws content of its own,
+which the model has no character for. Only the second kind belongs out of the
+index. With the fix in, the index reads `[0..35]`, `[35..45]`, `[45..68]` and the
+model and DOM agree at every step of commenting.
 
-So **comment orphaning has been working by accident**, through the same
-render-import path that corrupts text. The mark was never removed by the delete;
-it disappeared because the imported render output happened to produce a second
-edit that took it. One defect was masking the other.
+**Why it cannot land yet.** The correct index puts a run boundary where the
+comment starts, and the entry above means a selection cannot be extended across
+one. So "select ten characters, comment, select ten again, delete" now selects
+*nine*, leaves one character of the `commentRef` mark alive, and the comment does
+not orphan — `word-review.spec.ts:276`. The test is right and the fix is right;
+what is between them is the boundary bug.
 
-#### The root cause, found by measuring rather than reading
-
-The mark surviving is a *symptom*, and the first two diagnoses of it were wrong.
-Written out because both were plausible and both cost time:
-
-1. "`deleteText` does not maintain marks." It does. Walked step by step in a
-   model test — apply `commentRef[0,10]`, delete `[0,10]`, and the mark is gone.
-2. "The merge keeps the wrong side's marks." It does not. `mergeTextNodes`
-   keeps the left's and shifts the right's by the left's length, and a run
-   emptied by a delete carries nothing to shift.
-
-The actual cause is one measurement: **how many times `deleteText` runs when
-Backspace deletes a selection spanning several runs.**
-
-    with the observer importing render output      3
-    with it blocked                                1
-
-A selection across three runs is deleted **one run deep** in the model. The rest
-of it is not deleted at all — it is recovered afterwards by reading the DOM back,
-because the browser removed the text natively and the observer imported the
-difference.
-
-So the corruption and the "accidental" orphaning have one root: **the model
-relies on the DOM to finish edits it should be making itself.** Blocking the
-import stops the corruption and, in the same stroke, stops the deletion halfway
-— which is why the comment kept a mark over text that was gone from the screen
-but not from the model.
-
-- [x] **Backspace deletes the whole selection in the model.** It named only
-  `startNodeId` and used an end offset belonging to another node, so a selection
-  across three runs went one run deep. Fixed, and Word's e2e is green with it:
-  the import was quietly finishing the job, and now it has nothing left to
-  finish.
-- [ ] **Then the observer fix goes back in.** Written, measured working on the
-  corruption, and still failing one e2e — but for a *new* reason, which is the
-  next thing to chase rather than the old one.
-
-#### Where it stands, precisely
-
-Four candidates ruled out by measurement, and two things fixed on the way. What
-is left is one specific disagreement.
-
-**Ruled out.**
-
-- `deleteRange` is exact: `AAAAA|BBBBB|CCCCC`, range from run A offset 3 to run
-  C offset 2, gives `AAA||CCC`.
-- The delete command passes that range through unchanged, and its own tests say
-  so.
-- A mark does **not** split the run. A paragraph stays one `inline-text` with the
-  mark recorded as a range on it, so "a selection across runs" is rarer than it
-  looked and is not what the comment case is.
-- No empty run is left behind by commenting. The paragraph is one run before and
-  after.
-
-**Fixed on the way**, both landed and both green:
-
-- Backspace deletes the whole selection rather than its first run.
-- Commenting leaves the caret in the commented text instead of in the new
-  thread's node.
-
-**What is left.** With the import blocked, the model selection reads
-`word:21[35..45]` right up to the keypress, and the deletion removes `[0..35]` —
-everything *before* the selection. So the offsets the delete acts on are not the
-ones the model was holding a moment earlier: pressing Backspace goes through
-`beforeinput`, and the view recomputes the model selection from the **DOM**
-first. After a comment has been applied and rendered, that DOM selection is not
-where the model's was.
-
-- [ ] **Compare the DOM selection with the model's, immediately after a mark is
-  applied and rendered.** That is the last link. Everything upstream of it now
-  agrees, and it is the one place two answers to "what is selected" still differ.
-  The reproduction is unchanged: comment on ten characters, select them again,
-  Backspace, and watch 35 characters go.
-- [ ] **A state that says the editor is receiving input.** There is no such
-  thing today. There is `_isComposing` (IME only), `isTypingBurst` (characters
-  only — not a deletion, a paste or a drop), and `isModelDrivenChange`, which is
-  a clock rather than a cause and catches real input that lands while a render
-  settles. The fix above introduces one; it is the piece worth keeping from it.
-- [ ] **A test at the level the bug lives at.** `render-is-not-input.test.ts`
-  stands the whole loop up in jsdom and passes either way, so it is not the
-  guard — it says so in its own header. The reproduction is still two clicks in
-  a browser.
+- [ ] **Land it once the stall is fixed.** Nothing else is required of it.
 
 ### Shell and navigation
 
@@ -510,6 +426,37 @@ text-shaped.
 ## Done
 
 Newest first. The surprise each one produced is the part worth keeping.
+
+- **A second overlapping mark corrupted the text, in both products.** Bold then
+  italic rewrote the paragraph — "Contents" became "Conten" nineteen times over,
+  and undo could not get it back. Four things are worth keeping from it.
+
+  *The cause was the reconciler, not the observer.* Nesting a second mark inserts
+  a wrapper, so the new inner span pairs with the outer one — which is holding
+  the text — and kept it while the inner span drew it again: `a bb c` became
+  `a bbbb c`. The observer then read that doubled DOM back as typing and wrote it
+  into the model, which is where the nineteen came from. Fixing the reconciler
+  made the observer change unnecessary; it was measured working and is not
+  needed, and sits in a stash if it is ever wanted for its own sake.
+
+  *It only happens where the wrappers share a tag.* Marks defined as `<strong>`
+  and `<em>` cannot pair with a plain `<span>`, so a fresh element is built and
+  the stale text goes with the old one. Every test in `renderer-dom` defined its
+  marks that way. Both products define theirs as spans with classes.
+
+  *The mark tests could not see the size of the text they asserted on.*
+  `normalizeHTML` runs each text node through `.replace(/\s+/g,' ').trim()` and
+  strips whitespace between tags, so ` and `, `and` and `` all compare equal.
+  Under it, a second defect had been sitting in the open: a whitespace-only run
+  was pruned as an "empty" wrapper, so bolding a single space **deleted** it —
+  and double-clicking between two words selects exactly that. The DOM was then a
+  character shorter than the model at every offset past the mark.
+
+  *So characters are now asserted separately from structure*, in
+  `mark-keeps-every-character.test.ts`, which compares `textContent` with nothing
+  normalized. It fails on four counts without the whitespace fix and six without
+  the reconciler fix, and it took milliseconds to write once the question was
+  "how much text" rather than "what shape".
 
 - **`mirrorIndents`, and hyphenation.** A paragraph that indents from the spine
   swaps its indents on a left-hand page — which needed the page a block lands on,

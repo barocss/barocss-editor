@@ -738,7 +738,25 @@ export class VNodeBuilder {
       return false;
     }
     if (vnode.text !== undefined && vnode.text !== null) {
-      return String(vnode.text).trim().length === 0;
+      /**
+       * Length, not `trim()`. A space is a character the document holds.
+       *
+       * The target here is a *zero-length* run — the empty wrapper a decorator
+       * split leaves behind when two boundaries land on the same offset. Asking
+       * `trim()` instead widened that to any run made only of whitespace, and a
+       * run of one space is exactly what a mark applied to one space produces.
+       *
+       * Bolding a single space therefore deleted it from the page: the model
+       * kept all 68 characters of the paragraph, the DOM drew 67, and "this one
+       * is centred" rendered as "this one iscentred". Double-clicking between
+       * two words selects that space, so the reader did not have to go looking
+       * for the case — it was two clicks away.
+       *
+       * Worse than a wrong pixel: the DOM was then a character shorter than the
+       * model at every offset past the mark, so the run index and every offset
+       * built from it disagreed with the model for the rest of the paragraph.
+       */
+      return String(vnode.text).length === 0;
     }
     return true;
   }
@@ -2380,16 +2398,24 @@ export class VNodeBuilder {
       }
     }
 
+    /**
+     * Whether a segment carries anything, where a space counts as something.
+     *
+     * These segments are one inline-text node cut up by its marks, so every
+     * character in them is the document's — none of it is template whitespace
+     * that could be discarded as formatting. `trim()` here dropped whitespace-only
+     * segments and shortened the drawn text; see `_isMeaninglessSpan`.
+     */
     const hasContent = (child: any): boolean => {
       if (typeof child === 'string') {
-        return child.trim().length > 0;
+        return child.length > 0;
       }
       if (typeof child === 'number') {
         return true;
       }
       if (isVNode(child)) {
         // If VNode has direct text, it has content
-        if (child.text !== undefined && child.text !== null && String(child.text).trim().length > 0) {
+        if (child.text !== undefined && child.text !== null && String(child.text).length > 0) {
           return true;
         }
         // If has children, check recursively
