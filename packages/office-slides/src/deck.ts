@@ -120,6 +120,70 @@ export function deckSlides(doc: DeckAccess): Slide[] {
 }
 
 /**
+ * A subtree, copied as a plain tree with no identity.
+ *
+ * Sids are deliberately dropped. A sid is `session:counter` and belongs to one
+ * node; a copy is a different node, and carrying the original's sid across
+ * would give two nodes one identity — which every mapping from a DOM position
+ * back to the model, and every reference by id, resolves through.
+ *
+ * Depth-limited for the same reason the text walk is: this reads an author's
+ * document, and a malformed one must not take the editor down with it.
+ */
+export function copyOf(doc: DeckAccess, sid: string, depth = 0): DeckNode | undefined {
+  if (depth > 32) return undefined;
+  const node = doc.getNode(sid);
+  if (!node) return undefined;
+
+  const copy: DeckNode & { text?: string } = {
+    stype: node.stype,
+    attributes: { ...(node.attributes ?? {}) }
+  };
+
+  const text = (node as { text?: unknown }).text;
+  if (typeof text === 'string') copy.text = text;
+
+  const children = childrenOf(node)
+    .map((child) => copyOf(doc, child, depth + 1))
+    .filter((child): child is DeckNode => child !== undefined);
+  if (children.length > 0) copy.content = children;
+
+  return copy;
+}
+
+/**
+ * The boxes a new slide of this layout starts with.
+ *
+ * This is what makes `slideLayout` a definition rather than a decoration: it
+ * was drawn (hidden) and read by nothing until a slide had to be created from
+ * one. The placeholders are *copies* — a new slide owns its boxes, and editing
+ * the title of slide four must not rewrite the layout every other slide follows.
+ */
+export function layoutPlaceholders(doc: DeckAccess, layoutId: string | undefined): DeckNode[] {
+  if (!layoutId) return [];
+
+  const root = doc.getNode(doc.rootId);
+  if (!root) return [];
+
+  for (const sid of childrenOf(root)) {
+    const node = doc.getNode(sid);
+    if (node?.stype !== 'resources') continue;
+
+    for (const child of childrenOf(node)) {
+      const layout = doc.getNode(child);
+      if (layout?.stype !== 'slideLayout') continue;
+      if (attrString(layout, 'id') !== layoutId) continue;
+
+      return childrenOf(layout)
+        .map((placeholder) => copyOf(doc, placeholder))
+        .filter((placeholder): placeholder is DeckNode => placeholder !== undefined);
+    }
+  }
+
+  return [];
+}
+
+/**
  * The note a slide shows its presenter.
  *
  * The slide names the note by the note's `id`, the same direction a surface

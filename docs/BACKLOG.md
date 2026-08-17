@@ -67,6 +67,19 @@ Each of these is in `src/formatting.ts` with a comment saying what it is for.
   spans a range of characters and an attribute belongs to a run, and Word's own
   model is the run.
 
+### Every product pays for the whole standard node set
+
+The office schema is built on the standard schema and takes its node set entire,
+so a product ends up declaring node types it has no command for and no renderer
+for. Word writes 24 exemptions for this and Slides writes 23, and the two lists
+are nearly the same list.
+
+One product's list is an opinion. **Two nearly identical lists are a design
+fault**: the schema should declare what it offers rather than inheriting
+everything, and until it does, every product after this one writes the list
+again. That is the argument that was missing when this was first logged with only
+Word's half of it.
+
 ### Word offers commands for things it cannot draw
 
 Found by the conformance harness within an hour of it existing, and confirmed in
@@ -127,15 +140,64 @@ that forces a caret selection and a node selection to coexist. `packages/office-
 
 - [x] **Schema.** Needed no new node type: a deck uses six stypes and all six are
   Word's. See below.
+- [x] **Renderers** for a slide surface: absolute placement from `geometry`, and
+  the scene nodes Word never drew. No `zOrder`: the model is a tree and a tree is
+  ordered, so paint order is document order and bring-to-front is `moveNode`,
+  which already has an inverse.
+- [x] **A deck shell** — `apps/slide`. Not sharing `apps/word`'s chrome, which
+  turned out to be the right answer rather than a shortcut: a deck has no ruler,
+  no page furniture and no fit-to-width, and what it does share (the correctness
+  CSS) moved into a package instead.
+- [x] **Held to the harness.** Was a ratchet at 64 of 64 undrawn on day one; now
+  `assertConforms` with 27 written exemptions.
+- [ ] **Slide commands** — add, delete, duplicate, reorder, hide. The gap that
+  stops this being a deck editor rather than a deck viewer.
 - [ ] **Multi-node selection** — the spike's finding, and the first thing a slide
   editor needs that Word never did.
-- [ ] **Renderers** for a slide surface: absolute placement from `geometry`,
-  `zOrder`, and the scene nodes Word never drew.
 - [ ] **Direct manipulation** — drag and resize handles, alongside the caret that
   still has to work inside a `textFrame`.
-- [ ] **A deck shell** — slide list, present mode — sharing `apps/word`'s chrome
-  rather than copying it. What gets copied is the measurement of what the kit is
-  missing.
+- [ ] **Applying a layout.** `slideLayout` is drawn (hidden) and read by nothing:
+  a new slide should start with its layout's placeholders, and a slide that
+  follows a layout should take its formatting from it. Declared and unread, in
+  a product written this week — the pattern does not stop being easy to commit.
+
+### What building the second product cost the first
+
+Kept separate from the list above because these are engine and Word findings that
+only a second product could produce.
+
+- [ ] **A renderer cannot know its container.** Word draws `rectangle` as an SVG
+  `<rect>` because in Word it only appears inside a `canvasBlock`; a deck places
+  the same node on a surface among contenteditable text. The registry holds one
+  renderer per node type, so Slides overrides the four shape types. A renderer
+  *could* ask — a function renderer gets the node, and a node has `parentId` —
+  except `exportToTree` drops `parentId` and `renderer-react`'s context stub has
+  no `env`, so the answer does not reliably arrive. A renderer that draws
+  correctly under one renderer and wrongly under another is worse than one that
+  draws one way and says so.
+- [ ] **`canvasBlock` in a deck draws nothing, and no check can see it.** It is
+  Word's `<svg>` holding the four shape types, which in a deck are `<div>`s.
+  `every-node-is-drawn` asks whether a renderer *exists*, one does, and the check
+  passes on a node this product draws wrongly. The harness's own blind spot,
+  found from the other side.
+- [x] **A tag the browser owns is never a component.** A template child was
+  dispatched through the registry by tag name with no exclusion for element
+  names, so `element('line', …)` inside the `line` renderer rebuilt itself with
+  the same model data until the stack ran out. Four node types collide today.
+  The rule was already written in `native-html-tags.ts` and honoured nowhere.
+- [x] **Correctness CSS lived in one app.** The list marker and the caret filler
+  were in `apps/word/src/style.css`, so the second product to draw the same text
+  got neither and the deck's bullets drew as four bare lines. Now
+  `office-word/text.css`, imported by both.
+- [ ] **`surfaceId` is declared and read by nothing.** `docHeader`, `docFooter`
+  and (until this week) `surfaceNote` all carry it; Word binds headers the other
+  way, by `surface.headerId` → `docHeader.id`. It cannot work as written: a
+  surface's identity is its sid, and a sid is `session:counter` handed out at
+  load, so no authored document can name one. Either delete it or decide what
+  resolves it.
+- [ ] **`th` centres its text and Word does not say otherwise.** The browser's
+  default reaches the document because no renderer overrides it. Cosmetic in
+  Word, obvious on a slide.
 
 ### The spike — what a document with no text in it found
 

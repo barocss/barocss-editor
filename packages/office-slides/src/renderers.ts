@@ -43,8 +43,16 @@
  * correctness is the thing this engine is for.
  *
  * So Slides overrides the four shape types with placed HTML boxes, and pays for
- * it by not drawing `canvasBlock` — a drawing embedded in flow — which is
- * recorded as a checked exemption rather than left to be discovered.
+ * it in `canvasBlock` — a drawing embedded in flow, which Word draws as an
+ * `<svg>` holding those same four types. In a deck that `<svg>` would hold
+ * `<div>`s and draw nothing.
+ *
+ * **The harness cannot catch this one**, and saying so is the point of writing
+ * it here. `every-node-is-drawn` asks whether a renderer exists, `canvasBlock`
+ * has one, and the check passes on a node this product draws wrongly. It is in
+ * `docs/BACKLOG.md` because a comment is the only thing holding it — which is
+ * exactly the failure mode the harness exists to remove, met from the other
+ * side.
  */
 import { define, element, slot } from '@barocss/dsl';
 import { registerWordRenderers } from '@barocss/office-word';

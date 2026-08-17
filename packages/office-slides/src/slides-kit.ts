@@ -18,6 +18,7 @@ import {
 import { Editor, type EditorOptions, type Extension, type Keybinding } from '@barocss/editor-core';
 import { createSchema } from '@barocss/schema';
 import { getSlidesSchemaDefinition } from './slides-schema';
+import { createSlideCommands } from './slide-commands';
 
 /**
  * What can be done in a deck.
@@ -67,7 +68,11 @@ export function createSlidesExtensions(): Extension[] {
     new DragDropExtension(),
 
     // A table on a slide is Word's table in a placed box; see the sample deck.
-    createTableExtension({ defaultRows: 3, defaultCols: 3 })
+    createTableExtension({ defaultRows: 3, defaultCols: 3 }),
+
+    // The five a deck has that a document does not: a page is a consequence of
+    // how much text there is, and a slide is a thing the author makes.
+    createSlideCommands()
   ];
 }
 

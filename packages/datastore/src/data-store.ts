@@ -308,7 +308,8 @@ export class DataStore {
    *
    * Spec commit:
    * - Applies overlay-collected operations in deterministic order: create -> update -> move -> delete.
-   * - For update, merges fields (attributes shallow-merge) instead of replacing entire node.
+   * - For update, takes the written node's fields; see the case for why it does
+   *   not merge attributes a second time.
    * - Reflects overlay root change if present.
    * - Clears overlay and alias map after commit.
    */
@@ -337,11 +338,29 @@ export class DataStore {
         case 'update': {
           const target = this.nodes.get(op.nodeId);
           if (target && op.data) {
-            // For update operations, merge the data instead of replacing
             const updatedNode = { ...target, ...op.data } as INode;
-            if (op.data.attributes && target.attributes) {
-              updatedNode.attributes = { ...target.attributes, ...op.data.attributes };
-            }
+
+            /**
+             * The written attributes are the node's attributes.
+             *
+             * This used to shallow-merge them over the target's, which made an
+             * attribute **impossible to remove through a transaction**: an
+             * operation that took one away had it put back at commit, so any
+             * `setAttrs` that introduced a key could not be undone. Toggling a
+             * slide's `hidden` and pressing Ctrl+Z left it hidden, and the
+             * command reported success both times.
+             *
+             * Merging here was always redundant. `setNode` is the only thing
+             * that emits an update, and it is handed the whole node —
+             * `updateNode` merges *before* calling it, which is where a merge
+             * belongs, because that is the call that means "these fields
+             * only".
+             *
+             * The one thing still worth guarding: an op carrying no attributes
+             * at all must not blank the node's.
+             */
+            if (op.data.attributes === undefined) updatedNode.attributes = target.attributes;
+
             this._setNodeInternal(updatedNode);
           }
           break;

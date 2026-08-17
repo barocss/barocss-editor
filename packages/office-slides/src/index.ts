@@ -33,8 +33,12 @@ export { createSlidesEditor, createSlidesExtensions, type SlidesEditorOptions } 
 
 export { createSampleDeck } from './sample-deck';
 
+export { createSlideCommands, SlidesExtension } from './slide-commands';
+
 export {
+  copyOf,
   deckSlides,
+  layoutPlaceholders,
   noteFor,
   type DeckAccess,
   type DeckNode,

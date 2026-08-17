@@ -92,6 +92,9 @@ body {
 
 .sl-topbar-actions {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .sl-topbar-actions button {
@@ -104,7 +107,17 @@ body {
   cursor: pointer;
 }
 
-.sl-topbar-actions button:hover {
+.sl-topbar-actions button:hover:not(:disabled) {
+  border-color: var(--sl-accent);
+  color: var(--sl-accent);
+}
+
+.sl-topbar-actions button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.sl-topbar-actions button[aria-pressed='true'] {
   border-color: var(--sl-accent);
   color: var(--sl-accent);
 }
