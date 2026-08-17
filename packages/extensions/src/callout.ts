@@ -1,3 +1,4 @@
+import { define, element, getGlobalRegistry, slot } from '@barocss/dsl';
 import { Editor, Extension } from '@barocss/editor-core';
 import { transaction, insertCallout as insertCalloutOp } from '@barocss/model';
 
@@ -19,6 +20,31 @@ export class CalloutExtension implements Extension {
       defaultType: 'info',
       ...options
     };
+  }
+
+  /**
+   * What a callout looks like when the product has not said.
+   *
+   * A floor, not a policy: registered only if nothing has claimed the type, so
+   * a product with its own callout keeps it. The reason it exists at all is
+   * that this extension offers `insertCallout`, and an offer to make a node
+   * that nothing can draw puts the reader's text in the model and nowhere on
+   * the page.
+   */
+  defaultRenderers(): void {
+    const registry = getGlobalRegistry();
+    if (registry.has('callout')) return;
+    define(
+      'callout',
+      element(
+        'div',
+        {
+          className: (d: Record<string, any>) =>
+            `bc-callout bc-callout-${String(d.attributes?.type ?? 'info')}`
+        },
+        [slot('content')]
+      )
+    );
   }
 
   onCreate(editor: Editor): void {

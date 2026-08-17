@@ -885,7 +885,28 @@ export class Editor implements ContextProvider {
       }
       
       this._extensions.set(extension.name, extension);
-      
+
+      /**
+       * Whatever this extension brings a way to draw.
+       *
+       * Before the extension's commands, so that an extension which offers to
+       * insert a node has already said what one looks like by the time anything
+       * can make one. An extension is expected to register only what is not
+       * registered — a product's own renderer wins, and the default is a floor
+       * rather than a policy.
+       *
+       * This exists because an extension used to register only commands, so a
+       * product could load one, offer the command, and have no renderer for what
+       * it made: measured in a shipped product, ten node types were reachable
+       * and drew nothing at all, with the reader's text in the model and
+       * invisible on the page.
+       */
+      try {
+        extension.defaultRenderers?.();
+      } catch (error) {
+        console.error(`Error registering default renderers for ${extension.name}:`, error);
+      }
+
       // Set source to 'extension' before extension registration
       this._keybindingRegistry.setCurrentSource('extension');
       extension.onCreate?.(this);

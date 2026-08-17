@@ -29,7 +29,8 @@
     "@barocss/datastore": "workspace:*",
     "@barocss/editor-core": "workspace:*",
     "@barocss/model": "workspace:*",
-    "@barocss/converter": "workspace:*"
+    "@barocss/converter": "workspace:*",
+    "@barocss/dsl": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.9.3",

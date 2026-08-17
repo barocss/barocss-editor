@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { conformance, describeReport } from '@barocss/conformance';
+import { assertConforms } from '@barocss/conformance';
 import { createSchema, getOfficeSchemaDefinition } from '@barocss/schema';
 import { getGlobalRegistry } from '@barocss/dsl';
 import { registerWordRenderers } from '../src/renderers';
@@ -26,8 +26,8 @@ describe('Word draws what its schema declares', () => {
   const schema = createSchema('office', getOfficeSchemaDefinition());
   const registry = getGlobalRegistry();
 
-  const report = () =>
-    conformance({
+  const held = () =>
+    assertConforms({
       schema: schema as never,
       hasRenderer: (nodeType) => registry.has(nodeType),
       exempt: {
@@ -86,21 +86,10 @@ describe('Word draws what its schema declares', () => {
       }
     });
 
-  it('draws every node type it does not say it leaves alone', () => {
-    const result = report();
-    expect(result.findings, `\n${describeReport(result)}\n`).toEqual([]);
-  });
-
-  it('has no exemption that stopped being true', () => {
-    // The fourteen-stale-notes case, made impossible to repeat: an exemption
-    // for something that now has a renderer is a failure, not a pass.
-    const result = report();
-    expect(result.staleExemptions, `\n${describeReport(result)}\n`).toEqual([]);
-  });
-
-  it('looked at every node type that is content', () => {
-    // A check that examines nothing passes; this is what says it did not.
-    const result = report();
-    expect(result.examined['every-node-is-drawn']).toBeGreaterThan(20);
+  it('draws what it declares, expects only what it says it expects', () => {
+    // One call, every check. A check added to the harness applies here without
+    // this file changing — which is the difference between a harness and a
+    // thing every product has to remember to assert.
+    held();
   });
 });

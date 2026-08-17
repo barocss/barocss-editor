@@ -7,5 +7,7 @@
  * claim rather than a way to silence a finding.
  */
 export { conformance, describeReport, CHECKS } from './run';
+export { assertConforms } from './assert';
+export type { ConformanceInput } from './run';
 export { everyNodeIsDrawn } from './checks/every-node-is-drawn';
 export type { Check, Exemptions, Finding, Report, Subject } from './types';

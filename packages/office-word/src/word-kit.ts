@@ -1,6 +1,26 @@
 import {
+  BookmarkExtension,
+  ChecklistExtension,
+  CodeMarkExtension,
+  DragDropExtension,
+  FieldExtension,
+  FontColorExtension,
+  FontFamilyExtension,
+  FontSizeExtension,
+  FootnoteExtension,
+  HighlightExtension,
+  HorizontalRuleExtension,
+  ImageExtension,
+  LinkExtension,
+  MentionExtension,
+  MoveBlockExtension,
+  PageBreakExtension,
+  StrikeThroughExtension,
+  SubSuperExtension,
+  TextFormattingExtension,
+  UnderlineExtension,
+  createBasicExtensions,
   createCoreExtensions,
-  createRichExtensions,
   createTableExtension
 } from '@barocss/extensions';
 import { Editor, type EditorOptions, type Extension, type Keybinding } from '@barocss/editor-core';
@@ -31,7 +51,44 @@ const DEFAULT_AUTHOR: CommentAuthor = {
 export function createWordExtensions(author: CommentAuthor = DEFAULT_AUTHOR): Extension[] {
   return [
     ...createCoreExtensions(),
-    ...createRichExtensions(),
+
+    /**
+     * Named one at a time rather than taken as `createRichExtensions()`.
+     *
+     * That bundle is the whole rich-editor surface — callouts, checklists,
+     * details, figures, description lists, embedded media, charts, columns.
+     * Word has renderers for about half of it, so taking the bundle registered
+     * an insert command for every node in it and drew a good number of them as
+     * nothing at all: measured in the running app, `insertCallout` reported
+     * success, put a `callout` in the document, and left the reader's text
+     * invisible on the page. Ten node types were reachable that way.
+     *
+     * A kit is a product's answer to "what can be done in this editor", and an
+     * answer that includes things the product cannot draw is the wrong answer.
+     * So this is the list, and every entry is here because Word draws it.
+     */
+    ...createBasicExtensions(),
+    new UnderlineExtension(),
+    new StrikeThroughExtension(),
+    new LinkExtension(),
+    new ImageExtension(),
+    new HorizontalRuleExtension(),
+    new ChecklistExtension(),
+    new MoveBlockExtension(),
+    new DragDropExtension(),
+    new CodeMarkExtension(),
+    new HighlightExtension(),
+    new FontColorExtension(),
+    new SubSuperExtension(),
+    new PageBreakExtension(),
+    new FontSizeExtension(),
+    new FontFamilyExtension(),
+    new TextFormattingExtension(),
+    new MentionExtension(),
+    new FootnoteExtension(),
+    new BookmarkExtension(),
+    new FieldExtension(),
+
     createTableExtension({ defaultRows: 3, defaultCols: 3 }),
     // Word's own. A column break means nothing without sections that have
     // columns, and tracked changes is a word processor's idea of review — so

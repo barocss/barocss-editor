@@ -78,12 +78,18 @@ the page.
 Word registers an insert command for every node in it and has renderers for
 about half. Ten undrawn node types are reachable from Word's 166 commands.
 
-- [ ] **Word should compose the extensions it can draw** rather than taking the
-  bundle. Some of what the bundle brings Word does want — underline, links,
-  images, tables, highlight, page breaks. The rest produces invisible content.
-- [ ] **Or the office schema should declare what it offers** rather than
-  inheriting the whole standard node set. Nine more node types are declared and
-  unreachable, which is harmless only until a document arrives holding one.
+- [x] **Word composes the extensions it can draw**, one at a time, rather than
+  taking `createRichExtensions()` whole.
+- [x] **An extension may bring a default renderer** — a floor, registered only if
+  nothing has claimed the type, so a product's own always wins. `CalloutExtension`
+  has one; the rest of the bundle does not yet.
+- [ ] **The other extensions still have no default renderer.** `Details`,
+  `Figure`, `DescriptionList`, `Media`, `Columns`, `PullQuote`, `Toc`, `Chart`.
+  Until each has one, a product that loads it inherits the same invisible-node
+  bug Word had.
+- [ ] **The office schema should declare what it offers** rather than inheriting
+  the whole standard node set. Nine node types are declared and unreachable,
+  which is harmless only until a document arrives holding one.
 
 The full list, with a reason each, is the exemption map in
 `packages/office-word/test/conformance.test.ts` — and fixing one without deleting

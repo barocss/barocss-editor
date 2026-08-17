@@ -289,6 +289,22 @@ export interface Extension {
   
   // Command registration
   commands?: Command[];
+
+  /**
+   * What the nodes this extension introduces look like, when nothing else says.
+   *
+   * An extension registers *commands* — `insertCallout` makes a callout — and
+   * for a long time that was all it did. Which meant an extension could put a
+   * node in a document that the product had no renderer for, and the reader's
+   * text would be in the model and invisible on the page. Measured in a shipped
+   * product with 588 tests: ten node types were reachable that way.
+   *
+   * Called once, when the extension loads, and expected to register only what
+   * is **not already registered** — a product's own renderer must win. The
+   * point is not to decide how a callout looks; it is that a command which can
+   * make one is never offered without *something* being able to draw it.
+   */
+  defaultRenderers?(): void;
   
   // Before hooks (intercept and modify core model changes)
   // Only core model changes (Transaction, Selection, Content) are provided as hooks.
