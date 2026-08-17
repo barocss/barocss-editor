@@ -230,9 +230,41 @@ export class DeleteExtension implements Extension {
   }
 
   /**
-   * 텍스트 삭제 operations 생성 (DSL: deleteTextRange(start, end) inside control)
+   * The operations that delete a range of text.
+   *
+   * Two shapes, because a selection inside one run and a selection across
+   * several are different questions. Within a run it is a substring, and
+   * `deleteTextRange` says exactly that. Across runs it is a range with two
+   * ends, and `deleteRange` is the operation that knows how to walk one.
+   *
+   * This used to build the first shape for both: `control(startNodeId, [
+   * deleteTextRange(startOffset, endOffset) ])`, with **`endNodeId` never
+   * mentioned**. So a selection over three runs deleted one run deep, using an
+   * end offset that belonged to a different node.
+   *
+   * It did not look broken, and that is the part worth remembering. The browser
+   * had already removed the text natively, and the MutationObserver imported
+   * the difference afterwards — so the model was being finished by the DOM.
+   * Measured: three `deleteText` calls where the model had asked for one. It
+   * surfaced only when that import was blocked to stop a second overlapping
+   * mark from corrupting the text, and then the deletion stopped halfway and a
+   * comment kept its mark over text that was gone from the screen.
+   *
+   * Any selection that crosses a formatting boundary is this case, so it is
+   * most selections in a document anybody has formatted.
    */
-  private _buildDeleteTextOperations(range: ModelSelection): ReturnType<typeof control> {
+  private _buildDeleteTextOperations(range: ModelSelection): any {
+    if (range.startNodeId !== range.endNodeId) {
+      return [
+        deleteRange({
+          startNodeId: range.startNodeId,
+          startOffset: range.startOffset,
+          endNodeId: range.endNodeId,
+          endOffset: range.endOffset
+        })
+      ];
+    }
+
     return control(range.startNodeId, [
       deleteTextRange(range.startOffset, range.endOffset)
     ]);

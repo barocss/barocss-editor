@@ -14,7 +14,8 @@ vi.mock('@barocss/model', () => {
     },
     control: (_nodeId: string, ops: any[]) => ops,
     deleteTextRange: (start: number, end: number) => ({ type: 'deleteTextRange', payload: { start, end } }),
-    deleteOp: (nodeId: string) => ({ type: 'delete', payload: { nodeId } })
+    deleteOp: (nodeId: string) => ({ type: 'delete', payload: { nodeId } }),
+    deleteRange: (range: any) => ({ type: 'deleteRange', payload: { range } })
   };
 });
 
@@ -57,6 +58,73 @@ describe('DeleteExtension - backspace / deleteForward', () => {
   beforeEach(() => {
     commitMock.mockClear();
     recordedTransactions.length = 0;
+  });
+
+  /**
+   * A selection that crosses more than one run.
+   *
+   * Formatting splits a paragraph into runs, so any selection over a bold word
+   * and the plain text after it spans two — which is most selections in a
+   * document anybody has formatted. The operations built for it named only
+   * `startNodeId` and used the *end* offset from a different node, so the
+   * deletion went one run deep and stopped.
+   *
+   * The rest of it was not left undone on screen: the browser had already
+   * removed the text natively, and the MutationObserver imported the difference
+   * afterwards. So the model was being finished by the DOM — measured, three
+   * `deleteText` calls where the model asked for one — and blocking that import
+   * (which is what stops mark application corrupting the text) stopped the
+   * deletion halfway.
+   */
+  it('backspace: deletes the whole selection when it spans more than one run', async () => {
+    const editor = new FakeEditor({}) as any;
+    const ext = new DeleteExtension();
+    ext.onCreate(editor);
+
+    const selection: ModelSelection = {
+      type: 'range',
+      startNodeId: 'run-a',
+      startOffset: 3,
+      endNodeId: 'run-c',
+      endOffset: 2,
+      collapsed: false,
+      direction: 'forward'
+    };
+
+    await editor.commands.get('backspace')!.execute(editor, { selection });
+
+    expect(recordedTransactions).toHaveLength(1);
+    const ops = recordedTransactions[0];
+
+    // Both ends have to reach the operation. Naming only the first run is what
+    // made this delete one run deep.
+    const payloads = JSON.stringify(ops);
+    expect(payloads).toContain('run-a');
+    expect(payloads).toContain('run-c');
+  });
+
+  it('backspace: still deletes within one run without reaching for the range operation', async () => {
+    // The single-run path is the common one and stays as it was: a selection
+    // inside one run is a substring, and saying so is cheaper and clearer than
+    // describing it as a range between two ends that happen to be equal.
+    const editor = new FakeEditor({}) as any;
+    const ext = new DeleteExtension();
+    ext.onCreate(editor);
+
+    await editor.commands.get('backspace')!.execute(editor, {
+      selection: {
+        type: 'range',
+        startNodeId: 'run-a',
+        startOffset: 1,
+        endNodeId: 'run-a',
+        endOffset: 4,
+        collapsed: false,
+        direction: 'forward'
+      } as ModelSelection
+    });
+
+    const ops = recordedTransactions[0];
+    expect(JSON.stringify(ops)).toContain('deleteTextRange');
   });
 
   it('backspace: deletes one character to the left from current node with deleteText when offset > 0', async () => {
