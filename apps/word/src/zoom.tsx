@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import { ZoomControl as SuiteZoomControl } from '@barocss/office-ui';
 
 /**
  * How large the page is drawn.
@@ -16,6 +17,28 @@ import { useEffect, useState } from 'react';
  * being told, so nothing else in the pass knows a zoom exists. The ruler needs
  * no change at all: it already works in fractions of the page rather than in
  * pixels, so a scaled page and a scaled ruler agree by arithmetic.
+ *
+ * ## What is shared with the rest of the suite, and what is not
+ *
+ * The **widget** is shared — minus, a percentage you can type into, plus, and a
+ * fit button. Two products disagreeing about where those are, or about whether
+ * "150%" can be typed, is one of them being wrong.
+ *
+ * Everything below it is Word's, and measured against Slides every one of the
+ * differences is right for its product:
+ *
+ * - **Fit means the width.** A page is tall and scrolls; fitting its height
+ *   would leave the text too small to read. A slide is a fixed aspect looked at
+ *   one at a time, so fitting one dimension leaves it clipped.
+ * - **0.25 to 4.** A page at 10% is unreadable. A deck at 10% is a contact
+ *   sheet, which is why Slides goes to 0.1.
+ * - **The wheel changes the number and nothing else.** A reader zooming a
+ *   document is reading, and the text stays against the left margin either way.
+ *   A reader zooming a canvas is pointing at something, so Slides moves the
+ *   scroll to hold the point under the pointer. Doing that here would move the
+ *   page out from under a reader who was following a line of text.
+ * - **No panning.** A document scrolls in one direction and has a scrollbar for
+ *   it; a canvas moves in two and needs a hand.
  */
 
 /** What Word offers, plus the two fits it computes. */
@@ -57,10 +80,8 @@ export function ZoomControl({
   zoom: number;
   onChange: (zoom: number) => void;
 }) {
-  const [typed, setTyped] = useState<string | null>(null);
-  const shown = typed ?? `${Math.round(zoom * 100)}%`;
-
-  // Ctrl/Cmd with the wheel is what every reader already tries.
+  // Ctrl/Cmd with the wheel is what every reader already tries. Scoped to the
+  // document pane, so the same gesture over the ribbon is the browser's.
   useEffect(() => {
     const onWheel = (event: WheelEvent) => {
       if (!event.ctrlKey && !event.metaKey) return;
@@ -72,55 +93,13 @@ export function ZoomControl({
     return () => window.removeEventListener('wheel', onWheel);
   }, [zoom, onChange]);
 
-  const commit = (value: string) => {
-    const parsed = Number.parseFloat(value.replace('%', '').trim());
-    setTyped(null);
-    if (Number.isFinite(parsed) && parsed > 0) onChange(clamp(parsed / 100));
-  };
-
   return (
-    <div className="w-zoom-control" data-zoom={zoom.toFixed(2)}>
-      <button
-        type="button"
-        data-zoom-out
-        aria-label="축소"
-        title="축소"
-        onClick={() => onChange(clamp(zoom / 1.25))}
-      >
-        −
-      </button>
-
-      <input
-        aria-label="확대/축소"
-        data-zoom-value
-        value={shown}
-        onChange={(event) => setTyped(event.target.value)}
-        onBlur={(event) => commit(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter') (event.target as HTMLInputElement).blur();
-          if (event.key === 'Escape') setTyped(null);
-        }}
-      />
-
-      <button
-        type="button"
-        data-zoom-in
-        aria-label="확대"
-        title="확대"
-        onClick={() => onChange(clamp(zoom * 1.25))}
-      >
-        +
-      </button>
-
-      <button
-        type="button"
-        data-zoom-fit
-        aria-label="너비에 맞춤"
-        title="너비에 맞춤"
-        onClick={() => onChange(fitToWidth())}
-      >
-        ⇔
-      </button>
-    </div>
+    <SuiteZoomControl
+      className="w-zoom-control"
+      zoom={zoom}
+      onChange={(next) => onChange(clamp(next))}
+      onFit={() => onChange(fitToWidth())}
+      fitLabel="너비에 맞춤"
+    />
   );
 }

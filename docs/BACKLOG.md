@@ -210,9 +210,13 @@ that forces a caret selection and a node selection to coexist. `packages/office-
   with the wheel anchored to the pointer, space-drag to pan, and a `fit` that is
   a *state* rather than a number so a fitted deck re-fits when the window
   changes and a deck at 150% does not.
-- [ ] **Zoom in Word uses its own control.** `apps/word/src/zoom.tsx` predates
-  the shared one and knows about `.w-surface`; moving it over is a small change
-  and the third product should not find two.
+- [x] **Word draws the shared widget** and keeps its own semantics, which is
+  the whole shape of the answer: what is shared is where the minus button is;
+  what is not is what "fit" means, how far it goes, and whether the wheel holds
+  the point under the pointer. Measured, all four differences are right for
+  their product — a page fits to its *width* because it is tall and scrolls, and
+  its wheel does not anchor because a reader zooming a document is reading
+  rather than pointing.
 - [ ] **A pinch on a trackpad is a Ctrl+wheel**, which is why it works — but a
   two-finger pan is a plain wheel and currently scrolls the pane, which is
   right. Worth checking on a touch screen, where neither is true.

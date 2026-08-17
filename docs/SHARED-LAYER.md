@@ -28,6 +28,34 @@ had to ask which product it was rendering for, which is worse than two
 renderers — a shared thing that knows about its callers is not shared, it is
 coupled in both directions.
 
+## The zoom control, as a worked example
+
+The clearest case so far, because the two products' zooms *feel* different and
+the question is what that means for the code. Measured:
+
+| | Word | Slides |
+| --- | --- | --- |
+| Range | 0.25 – 4 | 0.1 – 8 |
+| Fit | the **width** | both dimensions |
+| Wheel | changes the number | anchored to the pointer |
+| Panning | scrollbars | space-drag |
+
+Every one of those is right for its product. A page is tall and scrolls, so
+fitting its height leaves the text too small to read; a slide is a fixed aspect
+looked at one at a time, so fitting one dimension leaves it clipped. A page at
+10% is unreadable and a deck at 10% is a contact sheet. A reader zooming a
+document is *reading* and the text stays against the left margin either way; a
+reader zooming a canvas is *pointing at something*.
+
+So none of that is shared. What is shared is the **widget** — minus, a
+percentage you can type into, plus, a fit button — because two products
+disagreeing about where those are, or about whether "150%" can be typed, is one
+of them being wrong.
+
+That is the rule applied to something that felt like a hard case and was not:
+the split is not between products, it is between *how a control is drawn* and
+*what the product does with it*. The same seam as the toolbar.
+
 ## What Slides actually took
 
 Three import sites, four symbols:
