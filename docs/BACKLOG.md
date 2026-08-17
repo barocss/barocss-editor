@@ -46,6 +46,50 @@ entries are that.
 
 ## Open
 
+### A second overlapping mark corrupts the text — both products
+
+The most serious thing found so far, and it is in Word as much as in Slides.
+
+**Reproduce:** select some text, press bold, then press italic. The paragraph's
+text is rewritten — "Contents" became "Conten" repeated nineteen times — the
+toolbar goes dark, and undo cannot get it back.
+
+**Where it is not.** The model is right: `toggleBold` then `toggleItalic` through
+the editor leaves the text alone and both marks on the range (checked in a unit
+test). The VNode builder is right, for a fresh build and for the patch from one
+mark to two (checked in `renderer-dom`). So neither the commands nor the
+rendering are at fault.
+
+**Where it is.** The render's own DOM restructuring is read back as typing.
+Instrumented in the browser, the writes during the second mark are:
+
+    at RangeOperations.insertText (range-operations.ts:252)
+    at Object.execute (insertText.ts:11)
+    at TransactionManager._executeOperation (transaction.ts:245)
+
+...running again and again, each pass inserting the text once more. Applying a
+mark re-wraps the run in nested elements; the MutationObserver sees the
+childList change, classifies it as inserted text, and commits an `insertText`,
+which changes the model, which renders, which mutates, which inserts again.
+
+**Why the existing guard misses it.** `mutation-observer-manager.ts` turns away
+model-driven records only when there is *no caret region*, and it says at length
+why it is narrow — every past widening broke something that legitimately depends
+on those records. Applying a mark from the toolbar has a caret region and is not
+a typing burst, so the records pass.
+
+Fixing it means widening that guard without re-breaking what the comments
+record, which is a careful piece of work in the one part of this engine where
+correctness is the whole point. It should not be done in a hurry.
+
+- [ ] **Widen the guard, with the file's own history as the test list.** The
+  regressions it names — typing at quarter speed coming back as one character,
+  Replace losing a match, a comment failing to orphan — are the cases any fix
+  has to survive.
+- [ ] **A test at the level the bug lives at.** Neither the model tests nor the
+  renderer tests catch this, because it needs the view, the observer and a
+  second render in the loop. That gap is why it survived this long.
+
 ### Shell and navigation
 
 

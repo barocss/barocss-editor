@@ -53,7 +53,20 @@ export function Ribbon({
     };
   }, [editor]);
 
-  const summary = useMemo(() => (editor as any).selectionSummary?.(), [editor, tick]);
+  /**
+   * `getSelectionSummary`, not `selectionSummary`.
+   *
+   * The third name copied wrongly out of Word's ribbon, and the third to fail
+   * silently — an optional call on a method that does not exist is `undefined`,
+   * so every control read "off" and the whole formatting half of this toolbar
+   * was dead. Bold on bold text, italic on italic text, alignment on a centred
+   * paragraph: all off, all the time, with nothing in the console.
+   *
+   * Not optional any more. A missing summary is a broken toolbar and should say
+   * so at the first render rather than looking like a document with no
+   * formatting in it.
+   */
+  const summary = useMemo(() => editor.getSelectionSummary(), [editor, tick]);
   const here = useMemo(
     () => slides.find((slide) => slide.sid === current),
     [slides, current]
