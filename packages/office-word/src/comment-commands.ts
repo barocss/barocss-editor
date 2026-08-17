@@ -176,6 +176,26 @@ export class WordCommentExtension implements Extension {
       ] as never
     ).commit();
 
+    /**
+     * The reader stays where they were.
+     *
+     * Adding the thread is an `addChild`, and an `addChild` says where the
+     * caret goes afterwards — into the node it just made. That is right for
+     * inserting a paragraph and wrong here: the new node is a comment in the
+     * margin, and commenting on a sentence is not a reason to take the caret
+     * out of the sentence.
+     *
+     * It was invisible while the DOM was the arbiter of what an edit did. The
+     * browser's own selection never moved, so the next keystroke went where the
+     * reader was looking however stale the model's copy was — and a test helper
+     * waiting for "a selection" was answered by the stale one. Both stop being
+     * survivable the moment the model is trusted to finish its own edits.
+     *
+     * The range is still valid: applying a mark does not split the run, it
+     * records a range on it.
+     */
+    if (result.success) editor.updateSelection?.({ ...selection });
+
     return result.success;
   }
 
