@@ -1,7 +1,8 @@
 import { everyNodeIsDrawn } from './checks/every-node-is-drawn';
+import { everyCommandCanBeSeen, type CommandProducing } from './checks/every-command-can-be-seen';
 import type { Check, Exemptions, Report, Subject } from './types';
 
-/** Every check a product is held to. */
+/** The checks that need nothing from the product but its schema and renderers. */
 export const CHECKS: Check[] = [everyNodeIsDrawn];
 
 export interface ConformanceInput {
@@ -17,6 +18,15 @@ export interface ConformanceInput {
    * separates a decision from an oversight.
    */
   exempt?: Exemptions;
+  /**
+   * What each command a reader can run puts in the document.
+   *
+   * Passed in because the engine cannot see it — a command is a function, and
+   * guessing the node from the command's name would be a check that lies in
+   * both directions. A product that gives this gets the check that would have
+   * caught ten invisible node types; one that does not, does not.
+   */
+  produces?: CommandProducing[];
   /** Run a subset, for a product adopting the harness one check at a time. */
   only?: string[];
 }
@@ -37,9 +47,11 @@ export interface ConformanceInput {
  */
 export function conformance(input: ConformanceInput): Report {
   const exempt = input.exempt ?? {};
-  const checks = input.only
-    ? CHECKS.filter((check) => input.only!.includes(check.name))
-    : CHECKS;
+  const all = [
+    ...CHECKS,
+    ...(input.produces ? [everyCommandCanBeSeen(input.produces)] : [])
+  ];
+  const checks = input.only ? all.filter((check) => input.only!.includes(check.name)) : all;
 
   const subject: Subject = { schema: input.schema, hasRenderer: input.hasRenderer };
 

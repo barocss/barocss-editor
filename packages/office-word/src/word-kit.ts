@@ -1,6 +1,5 @@
 import {
   BookmarkExtension,
-  ChecklistExtension,
   CodeMarkExtension,
   DragDropExtension,
   FieldExtension,
@@ -73,7 +72,6 @@ export function createWordExtensions(author: CommentAuthor = DEFAULT_AUTHOR): Ex
     new LinkExtension(),
     new ImageExtension(),
     new HorizontalRuleExtension(),
-    new ChecklistExtension(),
     new MoveBlockExtension(),
     new DragDropExtension(),
     new CodeMarkExtension(),

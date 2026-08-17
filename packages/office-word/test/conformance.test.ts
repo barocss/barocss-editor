@@ -26,10 +26,32 @@ describe('Word draws what its schema declares', () => {
   const schema = createSchema('office', getOfficeSchemaDefinition());
   const registry = getGlobalRegistry();
 
+  /**
+   * What each of Word's insert commands puts in the document.
+   *
+   * Written out rather than discovered: a command is a function and the engine
+   * cannot see what it makes, and a guess from the name would be a check that
+   * lies in both directions. The cost of writing it is the point — a new
+   * command added without a line here is a command this check does not cover,
+   * and that is visible in the diff.
+   */
+  const produces = [
+    { command: 'insertTable', produces: 'bTable' },
+    { command: 'insertImage', produces: 'inline-image' },
+    { command: 'insertHorizontalRule', produces: 'horizontalRule' },
+    { command: 'insertPageBreak', produces: 'pageBreak' },
+    { command: 'insertColumnBreak', produces: 'columnBreak' },
+    { command: 'insertFootnote', produces: 'footnoteDef' },
+    { command: 'insertLineBreak', produces: 'hardBreak' },
+    { command: 'insertTab', produces: 'tab' },
+    { command: 'insertComment', produces: 'commentThread' }
+  ];
+
   const held = () =>
     assertConforms({
       schema: schema as never,
       hasRenderer: (nodeType) => registry.has(nodeType),
+      produces,
       exempt: {
         // ── The other half of a `surface` ──────────────────────────────────
         // `office-schema` declares `surface` as `block+ | scene*` — a page
@@ -54,7 +76,7 @@ describe('Word draws what its schema declares', () => {
         // Not "fine by design". Logged in docs/BACKLOG.md, and kept here so the
         // list is visible and so fixing one without deleting its line fails.
         callout: 'BUG: insertCallout is registered and nothing draws a callout',
-        taskItem: 'BUG: reachable through insertChecklist, which draws; its items do not',
+        taskItem: 'a checklist item; Word offers no checklists',
         pullQuote: 'BUG: insertPullQuote is registered and nothing draws it',
         columns: 'BUG: insertColumns is registered and nothing draws it',
         column: 'BUG: reachable through insertColumns; nothing draws it',
@@ -66,6 +88,14 @@ describe('Word draws what its schema declares', () => {
         chart: 'BUG: a chart command is registered and nothing draws it',
         docSection: 'BUG: reachable and nothing draws it',
         mathInline: 'BUG: reachable; Word draws equations from OMML names, not this one',
+
+        // ── Drawn by something other than a renderer ───────────────────────
+        // A footnote is drawn at the foot of the page its reference is on, by
+        // the layout pass; a comment is drawn in the pane beside the document,
+        // by the app. Both are `resource` nodes — declared out of the flow on
+        // purpose — so the registry has nothing for them and should not.
+        insertFootnote: 'the body is drawn at the foot of its page by the layout pass',
+        insertComment: 'the thread is drawn in the comments pane by the app',
 
         // ── Inherited and unreachable. Harmless today ──────────────────────
         // The office schema is built on the standard schema and takes its whole

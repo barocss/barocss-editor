@@ -1,9 +1,19 @@
+import { registerFigureRenderers } from './default-renderers';
 import { Editor, Extension, type ModelSelection } from '@barocss/editor-core';
 import { transaction, addChild } from '@barocss/model';
 
 export class FigureExtension implements Extension {
   name = 'figure';
   priority = 100;
+
+  /** What this extension's nodes look like when the product has not said. */
+
+  defaultRenderers(): void {
+
+    registerFigureRenderers();
+
+  }
+
 
   onCreate(editor: Editor): void {
     (editor as any).registerCommand({

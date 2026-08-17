@@ -83,10 +83,18 @@ about half. Ten undrawn node types are reachable from Word's 166 commands.
 - [x] **An extension may bring a default renderer** — a floor, registered only if
   nothing has claimed the type, so a product's own always wins. `CalloutExtension`
   has one; the rest of the bundle does not yet.
-- [ ] **The other extensions still have no default renderer.** `Details`,
-  `Figure`, `DescriptionList`, `Media`, `Columns`, `PullQuote`, `Toc`, `Chart`.
-  Until each has one, a product that loads it inherits the same invisible-node
-  bug Word had.
+- [x] **The other extensions have default renderers** — `Details`, `Figure`,
+  `DescriptionList`, `Media`, `Columns`, `PullQuote`, `Toc`, each drawing the
+  HTML element its node is named for.
+- [x] **A check makes it impossible to forget** — `every-command-can-be-seen`
+  asks the other question: not what the schema declares, but what the product
+  *offers*. A product lists what each command produces; the engine cannot see it,
+  and a guess from the name would lie in both directions.
+- [ ] **A command that produces a node the schema does not declare.** Found by
+  the above: Word offered `insertChecklist` and the office schema has no
+  `checklist`, so the command silently did nothing at all — measured in the app
+  as `inModel: 0`. Removed from Word's kit. It deserves a check of its own,
+  because "nothing draws it" is the wrong reason to catch it by.
 - [ ] **The office schema should declare what it offers** rather than inheriting
   the whole standard node set. Nine node types are declared and unreachable,
   which is harmless only until a document arrives holding one.

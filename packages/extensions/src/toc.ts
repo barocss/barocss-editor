@@ -1,9 +1,19 @@
+import { registerTocRenderers } from './default-renderers';
 import { Editor, Extension, type ModelSelection } from '@barocss/editor-core';
 import { transaction, addChild } from '@barocss/model';
 
 export class TocExtension implements Extension {
   name = 'toc';
   priority = 100;
+
+  /** What this extension's nodes look like when the product has not said. */
+
+  defaultRenderers(): void {
+
+    registerTocRenderers();
+
+  }
+
 
   onCreate(editor: Editor): void {
     (editor as any).registerCommand({

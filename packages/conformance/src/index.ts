@@ -10,4 +10,5 @@ export { conformance, describeReport, CHECKS } from './run';
 export { assertConforms } from './assert';
 export type { ConformanceInput } from './run';
 export { everyNodeIsDrawn } from './checks/every-node-is-drawn';
+export { everyCommandCanBeSeen, type CommandProducing } from './checks/every-command-can-be-seen';
 export type { Check, Exemptions, Finding, Report, Subject } from './types';

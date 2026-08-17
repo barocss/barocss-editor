@@ -1,3 +1,4 @@
+import { registerColumnsRenderers } from './default-renderers';
 import { Editor, Extension, type ModelSelection } from '@barocss/editor-core';
 import { transaction, addChild, removeChild } from '@barocss/model';
 
@@ -13,6 +14,15 @@ export class ColumnsExtension implements Extension {
   constructor(options: ColumnsExtensionOptions = {}) {
     this._defaultCount = options.defaultColumnCount ?? 2;
   }
+
+  /** What this extension's nodes look like when the product has not said. */
+
+  defaultRenderers(): void {
+
+    registerColumnsRenderers();
+
+  }
+
 
   onCreate(editor: Editor): void {
     (editor as any).registerCommand({
