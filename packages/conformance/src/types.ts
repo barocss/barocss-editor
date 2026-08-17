@@ -62,7 +62,12 @@ export interface Report {
 export interface Subject {
   /** The product's schema. */
   schema: {
-    nodes: Map<string, { name: string; group?: string; attrs?: Record<string, unknown> }>;
+    nodes: Map<
+      string,
+      { name: string; group?: string; content?: string; attrs?: Record<string, unknown> }
+    >;
+    /** Where a document starts, which is where reachability is walked from. */
+    topNode?: string;
   };
   /** Whether the product has a renderer registered for a node type. */
   hasRenderer: (nodeType: string) => boolean;

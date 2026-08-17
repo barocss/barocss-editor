@@ -12,4 +12,6 @@ export type { ConformanceInput } from './run';
 export { everyNodeIsDrawn } from './checks/every-node-is-drawn';
 export { everyCommandCanBeSeen, type CommandProducing } from './checks/every-command-can-be-seen';
 export { everyCommandMakesSomethingReal } from './checks/every-command-makes-something-real';
+export { everyInsertIsAccountedFor } from './checks/every-insert-is-accounted-for';
+export { placeableTypes, namesIn, type NodeShape } from './placeable';
 export type { Check, Exemptions, Finding, Report, Subject } from './types';

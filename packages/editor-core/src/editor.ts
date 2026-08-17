@@ -441,6 +441,19 @@ export class Editor implements ContextProvider {
     return new CommandChain(this);
   }
 
+  /**
+   * The name of every command registered, in registration order.
+   *
+   * For asking questions *about* the editor rather than of it — which commands
+   * exist, whether a product's own list of them is complete. The conformance
+   * harness is the caller: a command named `insert…` that a product has not
+   * accounted for is a command no check covers, and finding that out needed a
+   * way in that was not reaching for a private field.
+   */
+  commandNames(): string[] {
+    return [...this._commands.keys()];
+  }
+
   async executeCommand(command: string, payload?: any): Promise<boolean> {
     const commandDef = this._commands.get(command);
     if (!commandDef) {

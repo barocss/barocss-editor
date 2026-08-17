@@ -1,6 +1,7 @@
 import { everyNodeIsDrawn } from './checks/every-node-is-drawn';
 import { everyCommandCanBeSeen, type CommandProducing } from './checks/every-command-can-be-seen';
 import { everyCommandMakesSomethingReal } from './checks/every-command-makes-something-real';
+import { everyInsertIsAccountedFor } from './checks/every-insert-is-accounted-for';
 import type { Check, Exemptions, Report, Subject } from './types';
 
 /** The checks that need nothing from the product but its schema and renderers. */
@@ -28,6 +29,15 @@ export interface ConformanceInput {
    * caught ten invisible node types; one that does not, does not.
    */
   produces?: CommandProducing[];
+  /**
+   * Every command the product registers.
+   *
+   * Only used to ask whether the `produces` list is complete — a command named
+   * `insert…` that is not in it is covered by no command check at all. Give it
+   * and the gap narrows; leave it out and the checks are only as good as
+   * somebody's memory.
+   */
+  commands?: string[];
   /** Run a subset, for a product adopting the harness one check at a time. */
   only?: string[];
 }
@@ -54,7 +64,8 @@ export function conformance(input: ConformanceInput): Report {
     // cannot work at all, while one whose node is undrawn works invisibly.
     ...(input.produces
       ? [everyCommandMakesSomethingReal(input.produces), everyCommandCanBeSeen(input.produces)]
-      : [])
+      : []),
+    ...(input.commands ? [everyInsertIsAccountedFor(input.commands, input.produces ?? [])] : [])
   ];
   const checks = input.only ? all.filter((check) => input.only!.includes(check.name)) : all;
 

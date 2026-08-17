@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { assertConforms } from '@barocss/conformance';
 import { createSchema } from '@barocss/schema';
 import { getWordSchemaDefinition } from '../src/word-schema';
+import { createWordEditor } from '../src/word-kit';
 import { getGlobalRegistry } from '@barocss/dsl';
 import { registerWordRenderers } from '../src/renderers';
 
@@ -45,23 +46,51 @@ const schema = createSchema('word', getWordSchemaDefinition());
    * and that is visible in the diff.
    */
   const produces = [
-    { command: 'insertTable', produces: 'bTable' },
+    { command: 'insertParagraph', produces: 'paragraph' },
+    { command: 'insertHardBreak', produces: 'hardBreak' },
+    { command: 'insertLineBreak', produces: 'hardBreak' },
     { command: 'insertImage', produces: 'inline-image' },
     { command: 'insertHorizontalRule', produces: 'horizontalRule' },
     { command: 'insertPageBreak', produces: 'pageBreak' },
     { command: 'insertColumnBreak', produces: 'columnBreak' },
-    { command: 'insertFootnote', produces: 'footnoteDef' },
-    { command: 'insertLineBreak', produces: 'hardBreak' },
     { command: 'insertTab', produces: 'tab' },
+    { command: 'insertTable', produces: 'bTable' },
+    { command: 'insertRowAbove', produces: 'bTableRow' },
+    { command: 'insertRowBelow', produces: 'bTableRow' },
+    { command: 'insertColumnLeft', produces: 'bTableCell' },
+    { command: 'insertColumnRight', produces: 'bTableCell' },
+    { command: 'insertBookmark', produces: 'bookmarkAnchor' },
+    { command: 'insertFootnote', produces: 'footnoteDef' },
     { command: 'insertComment', produces: 'commentThread' }
   ];
+
+
+  /**
+   * Every command Word registers, so the harness can ask whether `produces` is
+   * complete. Built by standing an editor up, because a list of commands
+   * written by hand is the thing this check exists to distrust.
+   */
+  const commands = createWordEditor().commandNames();
 
   const held = () =>
     assertConforms({
       schema: schema as never,
       hasRenderer: (nodeType) => registry.has(nodeType),
       produces,
+      commands,
       exempt: {
+        // ── Commands that put no node in the document ──────────────────────
+        // Named `insert…` because that is what they do to the *text*, which is
+        // what the completeness check cannot tell from a name and why it asks.
+        insertText: 'writes characters into a run; makes no node',
+        insertMention: 'applies a mark over a range, not a node',
+        insertFootnoteRef: 'a mark over a range, not a node',
+        insertFieldPageNumber: 'a mark over a range, not a node',
+        insertFieldPageCount: 'a mark over a range, not a node',
+        insertFieldDateTime: 'a mark over a range, not a node',
+        insertFieldDocTitle: 'a mark over a range, not a node',
+        insertFieldAuthor: 'a mark over a range, not a node',
+
         // ── The other half of a `surface` ──────────────────────────────────
         // `office-schema` declares `surface` as `block+ | scene*` — a page
         // holds blocks, a slide or a board holds scene nodes — and Word is the
@@ -97,13 +126,6 @@ const schema = createSchema('word', getWordSchemaDefinition());
         chart: 'BUG: a chart command is registered and nothing draws it',
         docSection: 'BUG: reachable and nothing draws it',
         mathInline: 'BUG: reachable; Word draws equations from OMML names, not this one',
-
-        // ── Part of a definition, not a node in its own right ──────────────
-        // The schema says it: "No group: a level is only ever reachable through
-        // numberingDef's content expression, never as a free-standing block or
-        // resource." A node with no group is not skipped by the check the way a
-        // resource is, which is arguably the check's gap rather than Word's.
-        numberingLevel: 'a level inside a numbering definition; never placed on its own',
 
         // ── Drawn by something other than a renderer ───────────────────────
         // A footnote is drawn at the foot of the page its reference is on, by

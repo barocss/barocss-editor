@@ -1,3 +1,4 @@
+import { placeableTypes } from '../placeable';
 import type { Check, Finding } from '../types';
 
 /**
@@ -21,14 +22,6 @@ import type { Check, Finding } from '../types';
  * or says which of these it is, and the saying is checked.
  */
 
-/**
- * Groups whose members are definitions rather than content.
- *
- * A resource is referenced by id and never appears where it is declared — the
- * whole point of `resources` is that it is out of the flow. Requiring a
- * renderer for one would be requiring a renderer for a stylesheet.
- */
-const UNDRAWN_BY_NATURE = new Set(['resource', 'document']);
 
 export const everyNodeIsDrawn: Check = {
   name: 'every-node-is-drawn',
@@ -39,10 +32,20 @@ export const everyNodeIsDrawn: Check = {
     const findings: Finding[] = [];
     let examined = 0;
 
-    for (const [name, definition] of schema.nodes) {
-      // A definition is not content: it is referenced by id and placed by the
-      // product, or by nothing at all.
-      if (definition.group && UNDRAWN_BY_NATURE.has(definition.group)) continue;
+    /**
+     * Only what a document can actually contain.
+     *
+     * By reachability rather than by group: a definition is referenced by id
+     * and never placed, and asking which types the content expressions lead to
+     * answers that without guessing. It used to skip anything grouped
+     * `resource` or `document`, which missed `numberingLevel` — a node the
+     * schema deliberately gives no group, reachable only through a numbering
+     * definition — and made a product write an exemption for it.
+     */
+    const placeable = placeableTypes(schema.nodes, schema.topNode ?? 'document');
+
+    for (const [name] of schema.nodes) {
+      if (!placeable.has(name)) continue;
 
       examined += 1;
       if (hasRenderer(name)) continue;

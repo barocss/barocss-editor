@@ -97,15 +97,18 @@ about half. Ten undrawn node types are reachable from Word's 166 commands.
 
 ### The harness, and what it still cannot see
 
-- [ ] **A node with no group is not skipped the way a resource is.**
-  `numberingLevel` is reachable only through `numberingDef`'s content
-  expression and the schema says so, but the check only knows about groups, so
-  it needs an exemption it should not need. Reading the content expressions
-  would answer it properly.
-- [ ] **`produces` is written by hand.** A command added without a line in a
-  product's list is a command no check covers. It is visible in the diff, which
-  is the best that can be done without the engine seeing inside a command — but
-  a check that a *kit's* commands all appear in the list would close it.
+- [x] **Reachability replaced the group heuristic.** A node can appear in a
+  document if the content expressions lead to it from the top node without
+  passing through `resources`. No groups, no exemption for `numberingLevel`, and
+  Word's examined count went from 61 to 106.
+- [x] **`every-insert-is-accounted-for`** holds a product to the naming its own
+  commands follow. Word's list covered 9 of its 23 `insert…` commands; it covers
+  all of them now, and two of the nine were wrong — `insertMention` applies a
+  mark rather than making a node, and `insertBookmark` makes a
+  `bookmarkAnchor`, not a `bookmark`.
+- [ ] **A command that makes a node and is not called `insert…` still slips
+  through.** The honest limit of a convention check, written in the check
+  itself.
 - [ ] **Slides: 61 of 61 node types undrawn**, ratcheted in
   `packages/office-slides/test/conformance.test.ts`. That number coming down is
   the renderer work, and it must never go up.
