@@ -78,17 +78,52 @@ why it is narrow — every past widening broke something that legitimately depen
 on those records. Applying a mark from the toolbar has a caret region and is not
 a typing burst, so the records pass.
 
-Fixing it means widening that guard without re-breaking what the comments
-record, which is a careful piece of work in the one part of this engine where
-correctness is the whole point. It should not be done in a hurry.
+### What was tried, and what it uncovered
 
-- [ ] **Widen the guard, with the file's own history as the test list.** The
-  regressions it names — typing at quarter speed coming back as one character,
-  Replace losing a match, a comment failing to orphan — are the cases any fix
-  has to survive.
-- [ ] **A test at the level the bug lives at.** Neither the model tests nor the
-  renderer tests catch this, because it needs the view, the observer and a
-  second render in the loop. That gap is why it survived this long.
+A fix was written, measured working, and **reverted** — because it broke one of
+the exact regressions the file's comments warn about, and the reason it broke is
+itself a second defect worth more than the first.
+
+**The fix.** Ask the observer's import path a *positive* question — is the reader
+putting something in right now — instead of the negative one it asks today. Every
+reader-caused change arrives through `beforeinput` or a composition; a command, a
+toolbar, an undo and a layout pass do not. Measured in the browser: three
+overlapping marks, text intact, toolbar states right, each mark undone in one
+press, and typing (fast and slow), deleting and IME all unaffected. All 470
+`editor-view-dom` tests passed.
+
+**What it broke.** One e2e: a comment does not orphan when the text it was about
+is deleted.
+
+**Why, and this is the finding.** After deleting exactly the commented text, the
+model holds a run whose text is now *different* and whose `commentRef[0,10]` mark
+is still there, over words the comment was never about. `deleteText` maintains
+marks correctly on its own — `fullyInside` drops them — so the damage is in what
+happens around it: the runs are merged after the delete and the wrong side's
+marks survive.
+
+So **comment orphaning has been working by accident**, through the same
+render-import path that corrupts text. The mark was never removed by the delete;
+it disappeared because the imported render output happened to produce a second
+edit that took it. One defect was masking the other.
+
+- [ ] **A mark must not outlive the text it covers.** This is the root cause and
+  fixing it is worth doing on its own merits, whatever happens to the observer:
+  a `commentRef` sitting over words nobody commented on is wrong however it got
+  there. Reproduce: comment on ten characters, select the same ten, Backspace,
+  and read the run's marks.
+- [ ] **Then the observer fix goes back in.** With the mark maintained by the
+  delete, orphaning no longer needs the import, and the positive question can be
+  asked. The two are ordered: this one first.
+- [ ] **A state that says the editor is receiving input.** There is no such
+  thing today. There is `_isComposing` (IME only), `isTypingBurst` (characters
+  only — not a deletion, a paste or a drop), and `isModelDrivenChange`, which is
+  a clock rather than a cause and catches real input that lands while a render
+  settles. The fix above introduces one; it is the piece worth keeping from it.
+- [ ] **A test at the level the bug lives at.** `render-is-not-input.test.ts`
+  stands the whole loop up in jsdom and passes either way, so it is not the
+  guard — it says so in its own header. The reproduction is still two clicks in
+  a browser.
 
 ### Shell and navigation
 
