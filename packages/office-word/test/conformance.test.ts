@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { assertConforms } from '@barocss/conformance';
-import { createSchema, getOfficeSchemaDefinition } from '@barocss/schema';
+import { createSchema } from '@barocss/schema';
+import { getWordSchemaDefinition } from '../src/word-schema';
 import { getGlobalRegistry } from '@barocss/dsl';
 import { registerWordRenderers } from '../src/renderers';
 
@@ -23,7 +24,15 @@ import { registerWordRenderers } from '../src/renderers';
 describe('Word draws what its schema declares', () => {
   registerWordRenderers();
 
-  const schema = createSchema('office', getOfficeSchemaDefinition());
+  /**
+ * Word's own schema, not the office base it extends.
+ *
+ * This asked the base schema first, and the check that asks whether a command's
+ * node exists caught it: `insertTab` and `insertColumnBreak` both looked
+ * impossible, and both work — Word declares `tab` and `columnBreak` itself. A
+ * harness pointed at the wrong subject reports on something nobody ships.
+ */
+const schema = createSchema('word', getWordSchemaDefinition());
   const registry = getGlobalRegistry();
 
   /**
@@ -88,6 +97,13 @@ describe('Word draws what its schema declares', () => {
         chart: 'BUG: a chart command is registered and nothing draws it',
         docSection: 'BUG: reachable and nothing draws it',
         mathInline: 'BUG: reachable; Word draws equations from OMML names, not this one',
+
+        // ── Part of a definition, not a node in its own right ──────────────
+        // The schema says it: "No group: a level is only ever reachable through
+        // numberingDef's content expression, never as a free-standing block or
+        // resource." A node with no group is not skipped by the check the way a
+        // resource is, which is arguably the check's gap rather than Word's.
+        numberingLevel: 'a level inside a numbering definition; never placed on its own',
 
         // ── Drawn by something other than a renderer ───────────────────────
         // A footnote is drawn at the foot of the page its reference is on, by

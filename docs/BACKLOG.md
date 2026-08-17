@@ -90,11 +90,25 @@ about half. Ten undrawn node types are reachable from Word's 166 commands.
   asks the other question: not what the schema declares, but what the product
   *offers*. A product lists what each command produces; the engine cannot see it,
   and a guess from the name would lie in both directions.
-- [ ] **A command that produces a node the schema does not declare.** Found by
-  the above: Word offered `insertChecklist` and the office schema has no
-  `checklist`, so the command silently did nothing at all — measured in the app
-  as `inModel: 0`. Removed from Word's kit. It deserves a check of its own,
-  because "nothing draws it" is the wrong reason to catch it by.
+- [x] **A command that produces a node the schema does not declare** has its own
+  check now — `every-command-makes-something-real`, asked before the drawing
+  one, because a command whose node the schema does not know cannot work at all
+  while one whose node is undrawn merely works invisibly.
+
+### The harness, and what it still cannot see
+
+- [ ] **A node with no group is not skipped the way a resource is.**
+  `numberingLevel` is reachable only through `numberingDef`'s content
+  expression and the schema says so, but the check only knows about groups, so
+  it needs an exemption it should not need. Reading the content expressions
+  would answer it properly.
+- [ ] **`produces` is written by hand.** A command added without a line in a
+  product's list is a command no check covers. It is visible in the diff, which
+  is the best that can be done without the engine seeing inside a command — but
+  a check that a *kit's* commands all appear in the list would close it.
+- [ ] **Slides: 61 of 61 node types undrawn**, ratcheted in
+  `packages/office-slides/test/conformance.test.ts`. That number coming down is
+  the renderer work, and it must never go up.
 - [ ] **The office schema should declare what it offers** rather than inheriting
   the whole standard node set. Nine node types are declared and unreachable,
   which is harmless only until a document arrives holding one.

@@ -1,5 +1,6 @@
 import { everyNodeIsDrawn } from './checks/every-node-is-drawn';
 import { everyCommandCanBeSeen, type CommandProducing } from './checks/every-command-can-be-seen';
+import { everyCommandMakesSomethingReal } from './checks/every-command-makes-something-real';
 import type { Check, Exemptions, Report, Subject } from './types';
 
 /** The checks that need nothing from the product but its schema and renderers. */
@@ -49,7 +50,11 @@ export function conformance(input: ConformanceInput): Report {
   const exempt = input.exempt ?? {};
   const all = [
     ...CHECKS,
-    ...(input.produces ? [everyCommandCanBeSeen(input.produces)] : [])
+    // The schema question first: a command whose node the schema does not know
+    // cannot work at all, while one whose node is undrawn works invisibly.
+    ...(input.produces
+      ? [everyCommandMakesSomethingReal(input.produces), everyCommandCanBeSeen(input.produces)]
+      : [])
   ];
   const checks = input.only ? all.filter((check) => input.only!.includes(check.name)) : all;
 

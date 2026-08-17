@@ -88,4 +88,44 @@ describe('holding a product to the checks', () => {
     expect(report.findings).toEqual([]);
     expect(report.examined['every-node-is-drawn']).toBeUndefined();
   });
+
+  /**
+   * The check that should have caught the worst fault, and the reason it needed
+   * to exist beside one that already caught it.
+   */
+  describe('a command whose node the schema does not know', () => {
+    it('is named, and named for the right reason', () => {
+      const report = conformance({
+        schema: schemaOf({ paragraph: {} }),
+        hasRenderer: () => true,
+        produces: [{ command: 'insertChecklist', produces: 'checklist' }]
+      });
+      expect(report.findings).toHaveLength(1);
+      expect(report.findings[0].check).toBe('every-command-makes-something-real');
+      expect(report.findings[0].detail).toContain('does nothing at all');
+    });
+
+    it('is still named when somebody registers a renderer for it', () => {
+      // The point of having both checks. `every-command-can-be-seen` stops
+      // finding it the moment anything draws a `checklist`, and the command is
+      // still impossible — the schema refuses the transaction before it starts.
+      const report = conformance({
+        schema: schemaOf({ paragraph: {} }),
+        // Everything is drawn, `checklist` included — so the "nothing draws
+        // it" check has nothing to say and only this one is left.
+        hasRenderer: () => true,
+        produces: [{ command: 'insertChecklist', produces: 'checklist' }]
+      });
+      expect(report.findings.map((f) => f.check)).toEqual(['every-command-makes-something-real']);
+    });
+
+    it('says nothing when the schema does declare it', () => {
+      const report = conformance({
+        schema: schemaOf({ checklist: {} }),
+        hasRenderer: () => true,
+        produces: [{ command: 'insertChecklist', produces: 'checklist' }]
+      });
+      expect(report.findings).toEqual([]);
+    });
+  });
 });
