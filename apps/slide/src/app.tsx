@@ -3,6 +3,8 @@ import type { Editor } from '@barocss/editor-core';
 import type { EditorViewDOM } from '@barocss/editor-view-dom';
 import { Filmstrip } from './filmstrip';
 import { SelectionOverlay } from './overlay';
+import { ZoomControl } from '@barocss/office-ui';
+import { clampZoom } from '@barocss/office-slides';
 import { SlideLayoutDialog, SlideSizeDialog } from './deck-dialogs';
 import { Present } from './present';
 import { Properties } from './properties';
@@ -81,12 +83,40 @@ export function App({
    * one reader's screen, and the editor has no idea one exists.
    */
   const [dialog, setDialog] = useState<'size' | 'layout' | null>(null);
+
+  /**
+   * How large the slide is drawn.
+   *
+   * `undefined` means "fit the pane", which is a different state from any
+   * particular number: a fitted deck re-fits when the window changes, and a
+   * deck at 150% stays at 150%. Collapsing the two would mean either losing the
+   * reader's zoom on every resize or never fitting again after the first.
+   */
+  const [zoom, setZoom] = useState<number | undefined>(undefined);
   const note = useNote(editor, current);
 
   const here = useMemo(
     () => slides.find((slide) => slide.sid === current),
     [slides, current]
   );
+
+  /**
+   * What the control shows while the deck is fitted.
+   *
+   * Read back from the stage rather than recomputed, so the number in the box
+   * is the number on the screen — computing it a second time here would be a
+   * second answer to drift from the first.
+   */
+  const [fitted, setFitted] = useState(1);
+  useEffect(() => {
+    const read = () => {
+      const slide = document.querySelector<HTMLElement>('.sl-slide');
+      if (slide) setFitted(slide.getBoundingClientRect().width / 1280);
+    };
+    read();
+    const timer = window.setInterval(read, 400);
+    return () => window.clearInterval(timer);
+  }, [slides, current, zoom, presenting]);
 
   /**
    * Undo and redo, when the reader is not in the text.
@@ -148,6 +178,13 @@ export function App({
         </span>
 
         <div className="sl-topbar-actions">
+          <ZoomControl
+            zoom={zoom ?? fitted}
+            onChange={(next) => setZoom(clampZoom(next))}
+            onFit={() => setZoom(undefined)}
+            fitLabel="화면에 맞춤"
+          />
+
           <button type="button" data-slide-size onClick={() => setDialog('size')}>
             크기
           </button>
@@ -190,7 +227,13 @@ export function App({
            * Presenting always shows one slide and fills the window; editing
            * shows one or the strip and never grows past natural size.
            */}
-          <Stage host={host} focus={presenting || focused ? current : undefined} fill={presenting} />
+          <Stage
+            host={host}
+            focus={presenting || focused ? current : undefined}
+            zoom={presenting ? undefined : zoom}
+            onZoom={presenting ? undefined : setZoom}
+            fill={presenting}
+          />
 
           {/*
            * Selecting and dragging what is on the slide, drawn over it.

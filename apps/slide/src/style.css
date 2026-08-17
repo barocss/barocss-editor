@@ -411,3 +411,13 @@ body {
 .sl-guide {
   background: #f43f5e;
 }
+
+/* Space held: the pane is a thing to move rather than a thing to click into. */
+.sl-stage[data-panning='true'] {
+  cursor: grab;
+}
+
+.sl-stage[data-panning='true'] * {
+  /* Nothing underneath takes the drag; the whole pane is the handle. */
+  pointer-events: none !important;
+}

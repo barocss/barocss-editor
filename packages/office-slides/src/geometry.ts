@@ -204,3 +204,82 @@ export function fitScale(
 
   return Math.min(max, available.width / natural.width, available.height / natural.height);
 }
+
+/**
+ * Zooming, and the reason it is arithmetic rather than a CSS property.
+ *
+ * A reader zooming in is not asking for a bigger number in a box: they are
+ * asking to look more closely *at the thing under the pointer*. If the scale
+ * changes and the scroll does not, the thing they were looking at slides away —
+ * which is what makes a naive zoom feel like the tool is dodging them.
+ *
+ * So a zoom is two changes that have to happen together, and this computes the
+ * second from the first.
+ */
+
+export const ZOOM_MIN = 0.1;
+export const ZOOM_MAX = 8;
+
+/** What the steppers offer, which is what a reader reaches for by name. */
+export const ZOOM_STEPS = [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4];
+
+export const clampZoom = (zoom: number): number =>
+  Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom));
+
+/**
+ * Which point of the content is under the pointer, as a fraction of it.
+ *
+ * A fraction rather than a distance, because it is the one description that
+ * survives the content being redrawn at a different size — which is the whole
+ * of what zooming does.
+ */
+export function anchorOf(
+  pointer: { x: number; y: number },
+  content: { left: number; top: number; width: number; height: number }
+): { x: number; y: number } {
+  return {
+    x: content.width > 0 ? (pointer.x - content.left) / content.width : 0.5,
+    y: content.height > 0 ? (pointer.y - content.top) / content.height : 0.5
+  };
+}
+
+/**
+ * How far to scroll so that fraction lands back under the pointer.
+ *
+ * Measured after the fact rather than predicted, and that is the correction
+ * this replaced: the first version computed the new scroll from the old one,
+ * assuming the content's origin was `-scrollLeft`. It is not — the stage
+ * centres the slide while it is smaller than the pane, so the origin also
+ * carries a margin that changes as the zoom crosses the point where the slide
+ * stops fitting. Measured drift on a four-notch zoom: 12% of the slide's width.
+ *
+ * Reading where the content actually ended up asks no question about how it got
+ * there, so centring, padding and scrollbars are all already accounted for.
+ */
+export function anchorShift(
+  pointer: { x: number; y: number },
+  content: { left: number; top: number; width: number; height: number },
+  anchor: { x: number; y: number }
+): { dx: number; dy: number } {
+  return {
+    dx: content.left + anchor.x * content.width - pointer.x,
+    dy: content.top + anchor.y * content.height - pointer.y
+  };
+}
+
+/**
+ * The next zoom up or down the ladder.
+ *
+ * A ladder rather than a multiplier, so the steppers land on the round numbers
+ * a reader recognises — 50%, 100%, 200% — instead of wherever repeated
+ * multiplication happens to put them.
+ */
+export function stepZoom(zoom: number, direction: 1 | -1): number {
+  const steps = ZOOM_STEPS;
+  if (direction > 0) {
+    const next = steps.find((step) => step > zoom + 0.001);
+    return clampZoom(next ?? zoom * 1.25);
+  }
+  const previous = [...steps].reverse().find((step) => step < zoom - 0.001);
+  return clampZoom(previous ?? zoom / 1.25);
+}

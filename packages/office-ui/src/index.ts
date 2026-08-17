@@ -49,3 +49,5 @@ export {
 } from './properties';
 
 export { ControlIcon } from './icons';
+
+export { ZoomControl } from './zoom';

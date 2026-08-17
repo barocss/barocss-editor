@@ -204,6 +204,19 @@ that forces a caret selection and a node selection to coexist. `packages/office-
   follows a layout should take its formatting from it. Declared and unread, in
   a product written this week — the pattern does not stop being easy to commit.
 
+### Zoom
+
+- [x] **Zooming the slide in the viewport** — a shared `ZoomControl`, Ctrl/Cmd
+  with the wheel anchored to the pointer, space-drag to pan, and a `fit` that is
+  a *state* rather than a number so a fitted deck re-fits when the window
+  changes and a deck at 150% does not.
+- [ ] **Zoom in Word uses its own control.** `apps/word/src/zoom.tsx` predates
+  the shared one and knows about `.w-surface`; moving it over is a small change
+  and the third product should not find two.
+- [ ] **A pinch on a trackpad is a Ctrl+wheel**, which is why it works — but a
+  two-finger pan is a plain wheel and currently scrolls the pane, which is
+  right. Worth checking on a touch screen, where neither is true.
+
 ### The suite's chrome
 
 `packages/office-ui` — the toolbar, dialog and property components both products
