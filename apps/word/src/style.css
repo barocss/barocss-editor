@@ -1,6 +1,12 @@
 @import "tailwindcss";
 
 /*
+ * The parts of rendering that CSS has to finish, shared with every product that
+ * draws this text. See the file for why they are not in here.
+ */
+@import "@barocss/office-word/text.css";
+
+/*
  * Chrome for the page, not for the document.
  *
  * Everything inside .w-page is styled from the model by the renderers — a rule
@@ -188,16 +194,7 @@ body {
 }
 
 
-/*
- * List markers are computed, never stored, so they are drawn from a data
- * attribute rather than being text in the document. That keeps them out of the
- * model — and out of the text the user can put a caret in.
- */
-[data-marker]:not([data-marker=''])::before {
-  content: attr(data-marker);
-  white-space: pre;
-  user-select: none;
-}
+/* The list marker and the caret filler come from `office-word/text.css`. */
 
 .w-table { width: 100%; }
 .w-cell { border: 1px solid #ccc; padding: 4px 8px; }
@@ -211,8 +208,6 @@ body {
 
 .w-page-break { border-top: 1px dashed #adb5bd; margin: 12px 0; }
 
-/* The caret filler is renderer bookkeeping; it must never look like content. */
-[data-bc-filler] { user-select: none; }
 
 /*
  * The dotted leader is a viewer concern: what the model says is which headings

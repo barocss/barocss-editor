@@ -130,8 +130,10 @@ describe('a deck is a document whose surfaces are slides', () => {
     expect(nodes.surface.attrs?.layoutId).toBeDefined();
     expect(nodes.surface.attrs?.hidden).toBeDefined();
     // Notes are `surfaceNote`, which the office schema already had — bound to a
-    // slide by `surfaceId`, so a slide carries no attribute for them.
-    expect(nodes.surfaceNote?.attrs?.surfaceId).toBeDefined();
+    // note by `noteId`, the only binding direction anything here resolves.
+    expect(nodes.surfaceNote?.attrs?.id).toBeDefined();
+    // And the slide names it, the way a surface names its header.
+    expect(nodes.surface?.attrs?.noteId).toBeDefined();
     // A placed box knows which slot of the layout it fills
     expect(nodes.textFrame.attrs?.role).toBeDefined();
     // And the two definitions a deck references

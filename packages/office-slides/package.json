@@ -11,7 +11,8 @@
       "types": "./src/index.ts",
       "import": "./src/index.ts",
       "default": "./src/index.ts"
-    }
+    },
+    "./slides.css": "./src/slides.css"
   },
   "publishConfig": {
     "main": "./dist/index.js",
@@ -22,7 +23,8 @@
         "types": "./dist/index.d.ts",
         "import": "./dist/index.js",
         "default": "./dist/index.js"
-      }
+      },
+      "./slides.css": "./dist/slides.css"
     },
     "files": [
       "dist"

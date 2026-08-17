@@ -167,7 +167,7 @@ describe('document metadata and referenced definitions', () => {
     expect(schema.getNodeType('footnoteDef')?.attrs?.id?.required).toBe(true);
     // a comment names what it is about; a speaker note names its slide
     expect(schema.getNodeType('commentThread')?.attrs?.targetId).toBeDefined();
-    expect(schema.getNodeType('surfaceNote')?.attrs?.surfaceId?.required).toBe(true);
+    expect(schema.getNodeType('surfaceNote')?.attrs?.id?.required).toBe(true);
   });
 
   it('treats page furniture as a resource bound to a surface, or document-wide', () => {

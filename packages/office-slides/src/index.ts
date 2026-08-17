@@ -29,6 +29,18 @@ export {
 
 export { registerSlidesRenderers } from './renderers';
 
+export { createSlidesEditor, createSlidesExtensions, type SlidesEditorOptions } from './slides-kit';
+
+export { createSampleDeck } from './sample-deck';
+
+export {
+  deckSlides,
+  noteFor,
+  type DeckAccess,
+  type DeckNode,
+  type Slide
+} from './deck';
+
 export {
   SLIDE_KIND,
   SLIDE_WIDTH,

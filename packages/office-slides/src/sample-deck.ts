@@ -17,6 +17,12 @@ import type { INode } from '@barocss/datastore';
  *   - a table on a slide, which is Word's `bTable` and nothing new
  *   - a hidden slide, which stays in the deck and is skipped while presenting
  *   - a note in `resources`, bound to its slide by `surfaceId`
+ *
+ * Every reference in here is by an author-supplied id, never by a sid. A sid is
+ * `session:counter` and handed out at load, so a written document cannot name
+ * one — the note in here first tried to, pointed at a slide that was never
+ * there, and the notes panel showed nothing. That is why the slide names the
+ * note and not the reverse.
  */
 
 const TITLE = '#0f172a';
@@ -72,7 +78,7 @@ export function createSampleDeck(): INode {
             },
             content: [
               line('One engine, two products', {
-                align: 'center',
+                alignment: 'center',
                 fontSize: 108,
                 bold: true,
                 color: TITLE
@@ -91,7 +97,7 @@ export function createSampleDeck(): INode {
             },
             content: [
               line('A slide is a surface the schema already described', {
-                align: 'center',
+                alignment: 'center',
                 fontSize: 44,
                 color: '#64748b'
               })
@@ -108,7 +114,12 @@ export function createSampleDeck(): INode {
        */
       {
         stype: 'surface',
-        attributes: { kind: 'slide', name: 'What a deck costs', layoutId: 'layout-body' },
+        attributes: {
+          kind: 'slide',
+          name: 'What a deck costs',
+          layoutId: 'layout-body',
+          noteId: 'note-bullets'
+        },
         content: [
           {
             stype: 'textFrame',
@@ -123,24 +134,30 @@ export function createSampleDeck(): INode {
                 stype: 'list',
                 attributes: { listType: 'bullet' },
                 content: [
+                  /*
+                   * The size is on the *item*, not only on the paragraph inside
+                   * it. A marker is drawn by the item, so an item with no
+                   * formatting draws a bullet at the default size beside text
+                   * at 20pt — which is what this deck did first.
+                   */
                   {
                     stype: 'listItem',
-                    attributes: {},
+                    attributes: { fontSize: 40 },
                     content: [line('No new node type — the schema had a slide already', { fontSize: 40 })]
                   },
                   {
                     stype: 'listItem',
-                    attributes: {},
+                    attributes: { fontSize: 40 },
                     content: [line('No layout pass — a slide places, it does not flow', { fontSize: 40 })]
                   },
                   {
                     stype: 'listItem',
-                    attributes: {},
+                    attributes: { fontSize: 40 },
                     content: [line('No text stack — every renderer is Word’s', { fontSize: 40 })]
                   },
                   {
                     stype: 'listItem',
-                    attributes: {},
+                    attributes: { fontSize: 40 },
                     content: [
                       line('One override — shapes, because a registry holds one per type', {
                         fontSize: 40
@@ -264,7 +281,31 @@ export function createSampleDeck(): INode {
             content: [
               {
                 stype: 'bTable',
-                attributes: { width: 16320, columns: [5440, 5440, 5440] },
+                /**
+                 * The attribute names Word's table renderer actually reads.
+                 *
+                 * It asked for `columns: [...]` first, which nothing reads, so
+                 * the table drew with the browser's automatic widths and no
+                 * rules at all. `grid` is a comma-separated string of twips,
+                 * `layout: 'fixed'` makes those widths binding, and the borders
+                 * are stated here because a table with no style has none —
+                 * which is correct, and invisible on a slide.
+                 */
+                attributes: {
+                  grid: '5440,5440,5440',
+                  layout: 'fixed',
+                  width: 16320,
+                  widthType: 'dxa',
+                  borderInsideHStyle: 'single',
+                  borderInsideHWidth: 4,
+                  borderInsideHColor: '#cbd5e1',
+                  borderTopStyle: 'single',
+                  borderTopWidth: 8,
+                  borderTopColor: '#94a3b8',
+                  borderBottomStyle: 'single',
+                  borderBottomWidth: 8,
+                  borderBottomColor: '#94a3b8'
+                },
                 content: [
                   {
                     stype: 'bTableRow',
@@ -377,7 +418,7 @@ export function createSampleDeck(): INode {
                   height: 2400,
                   verticalAlign: 'middle'
                 },
-                content: [line('Click to add a title', { align: 'center', fontSize: 108 })]
+                content: [line('Click to add a title', { alignment: 'center', fontSize: 108 })]
               }
             ]
           },
@@ -406,7 +447,7 @@ export function createSampleDeck(): INode {
            */
           {
             stype: 'surfaceNote',
-            attributes: { surfaceId: 'slide-bullets' },
+            attributes: { id: 'note-bullets' },
             content: [
               line('The point of this slide is that nothing on it is new.'),
               line('Every renderer drawing these bullets was written for Word.')

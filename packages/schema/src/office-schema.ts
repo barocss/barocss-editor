@@ -224,14 +224,21 @@ export function getMetaNodeDefinitions(): Record<string, NodeTypeDefinition> {
      * beside a slide, what an author leaves beside a page, what a facilitator
      * writes beside a board — one relationship, and the schema is shared by all
      * three, so a name from any one product would be wrong in the other two.
-     * `surfaceId` is the whole definition: the same reference-by-id every other
-     * resource here uses, pointing at a surface instead of at a mark.
+     *
+     * **The surface names the note, not the other way round.** This carried a
+     * `surfaceId` at first, which read well and could not work: a surface's
+     * identity is its sid, sids are `session:counter` and handed out at load,
+     * and a document that arrives with a note is a document whose author never
+     * saw one. Every binding in this schema that a product actually resolves
+     * goes the other way — a surface names its header by `headerId` and the
+     * `docHeader` carries the matching `id` — so this does too, and a fixture,
+     * an importer and a saved file can all express it.
      */
     surfaceNote: {
       name: 'surfaceNote',
       group: RESOURCE,
       content: 'block+',
-      attrs: { surfaceId: { type: 'string', required: true } }
+      attrs: { id: { type: 'string', required: true } }
     },
     /**
      * Repeating page furniture. Document-wide when `surfaceId` is absent, an

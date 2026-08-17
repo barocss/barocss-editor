@@ -71,9 +71,16 @@ export function getSlidesSchemaDefinition(): SchemaDefinition {
           /** Kept in the deck, skipped while presenting. */
           hidden: { type: 'boolean', default: false },
           /**
-           * What the presenter says lives in a `surfaceNote`, which finds its
-           * slide by `surfaceId` — so a slide needs no attribute for it.
+           * The note shown to the presenter, named by the `surfaceNote`'s `id`.
+           *
+           * The slide names the note, matching `headerId` and `footerId`
+           * exactly. It went the other way first — the note carrying a
+           * `surfaceId` — which reads better and cannot work: a surface's
+           * identity is its sid, and a sid is `session:counter`, handed out at
+           * load. A deck written before its sids exist could not name one, and
+           * the fixture that tried pointed at a slide that was never there.
            */
+          noteId: { type: 'string', required: false }
         }
       },
 
@@ -94,7 +101,7 @@ export function getSlidesSchemaDefinition(): SchemaDefinition {
       },
 
       // What the presenter says is a `surfaceNote`, which the office schema
-      // already declares — a resource bound to one surface by `surfaceId`, and
+      // already declares — a resource named by the slide that shows it, and
       // named for how it binds rather than for who reads it, because the same
       // relationship is an author's note beside a page and a facilitator's note
       // beside a board. I wrote a `slideNotes` before reading for one, which is

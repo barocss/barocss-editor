@@ -1,0 +1,40 @@
+/*
+ * The rules any product drawing this text needs.
+ *
+ * Not a theme and not a stylesheet for a document — the renderers style
+ * everything from the model, and a rule here that set a heading's size would
+ * silently win over the document's own styles and make the cascade untestable.
+ * These two are different in kind: they are the parts of *rendering* that CSS
+ * has to finish, and a product without them draws the document wrongly rather
+ * than plainly.
+ *
+ * They lived in `apps/word/src/style.css` until a second product drew the same
+ * text and got neither: the deck's bullets came out as four unmarked lines,
+ * because the marker was in the model and nothing was drawing it. A correctness
+ * rule that every product has to remember to copy is one that some product will
+ * not have.
+ *
+ * Import it beside the product's own chrome:
+ *
+ *     import '@barocss/office-word/text.css';
+ */
+
+/*
+ * List markers are computed, never stored, so they are drawn from a data
+ * attribute rather than being text in the document. That keeps them out of the
+ * model — and out of the text the user can put a caret in.
+ */
+[data-marker]:not([data-marker=''])::before {
+  content: attr(data-marker);
+  white-space: pre;
+  user-select: none;
+}
+
+/*
+ * The caret filler is renderer bookkeeping, and it must never look like
+ * content: an empty block renders a marked filler so a caret has somewhere to
+ * go, and every offset calculation excludes it.
+ */
+[data-bc-filler] {
+  user-select: none;
+}

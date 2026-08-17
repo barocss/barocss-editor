@@ -348,6 +348,38 @@ export function registerSlidesRenderers(): void {
     )
   );
 
+  // ── Lists ──────────────────────────────────────────────────────────────────
+  /**
+   * A bulleted or numbered list, saying which it is.
+   *
+   * Word draws a `listItem`'s marker from its **numbering**: a `numberingDef`
+   * in resources, and paragraphs carrying `numId` and `ilvl`, which is what a
+   * `.docx` list is. Word's own lists are numbered paragraphs and this node
+   * type is barely used there, so `listMarker` returns nothing for it and the
+   * deck's bullets drew as four unmarked lines.
+   *
+   * A deck's bullets are simpler than that and Slides ships the shared kit's
+   * list commands, so it has to draw what those commands make. The type is
+   * written onto the element and the marker is drawn in CSS — from the *list*,
+   * which is where the answer is, rather than from the item, which would need a
+   * renderer to know its container.
+   *
+   * Word's numbering is still there for a deck that wants outline numbering:
+   * this is the simple case drawn simply, not a replacement for it.
+   */
+  define(
+    'list',
+    element(
+      'div',
+      {
+        className: 'w-list sl-list',
+        'data-list-type': (d: NodeData) =>
+          typeof attrsOf(d).listType === 'string' ? attrsOf(d).listType : 'bullet'
+      } as never,
+      [slot('content')]
+    )
+  );
+
   // ── Definitions ────────────────────────────────────────────────────────────
   /**
    * A layout is referenced, never placed, so it is in the document and not on

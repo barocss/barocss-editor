@@ -1,0 +1,97 @@
+/*
+ * The parts of drawing a deck that CSS has to finish.
+ *
+ * Same kind of file as `office-word/text.css` and imported beside it, but this
+ * one is Slides' own — the two products draw the same document and are allowed
+ * to draw it differently, and this is where that difference lives rather than
+ * being negotiated inside a shared renderer.
+ *
+ *     import '@barocss/office-slides/slides.css';
+ *
+ * Nothing here styles a document's content. The renderers do that from the
+ * model, and a rule here that set a title's size would silently beat the
+ * document's own formatting.
+ */
+
+/*
+ * Bullet and number markers.
+ *
+ * Word draws a list marker from its numbering — a `numberingDef` in resources
+ * and `numId`/`ilvl` on the paragraphs, which is what a `.docx` list is. A
+ * deck's bullets are the simpler shape (`list` holding `listItem`s), which is
+ * what the shared kit's list commands make and what Word's numbering knows
+ * nothing about, so the marker came out empty and the bullets drew as bare
+ * lines.
+ *
+ * Drawn from the *list* rather than from the item, which is the difference that
+ * makes this CSS rather than a renderer: the answer — bullet or number — is on
+ * the parent, and CSS can look up where a renderer cannot.
+ */
+.sl-list {
+  counter-reset: sl-item;
+}
+
+.sl-list > .w-list-item {
+  display: flex;
+  gap: 0.5em;
+  /* So the marker sits on the first line's baseline rather than at the top of
+     an item whose text wraps onto three lines. */
+  align-items: baseline;
+}
+
+.sl-list > .w-list-item::before {
+  flex: none;
+  /* Never part of the text: a marker is computed, and a caret must not enter it. */
+  user-select: none;
+}
+
+.sl-list[data-list-type='bullet'] > .w-list-item::before {
+  content: '\2022';
+}
+
+.sl-list[data-list-type='ordered'] > .w-list-item,
+.sl-list[data-list-type='number'] > .w-list-item {
+  counter-increment: sl-item;
+}
+
+.sl-list[data-list-type='ordered'] > .w-list-item::before,
+.sl-list[data-list-type='number'] > .w-list-item::before {
+  content: counter(sl-item) '.';
+  /* Right-aligned in a fixed column so the text after them lines up. */
+  min-width: 1.4em;
+  text-align: right;
+}
+
+/*
+ * A slide is a sheet, and it is the only thing on the stage that is one.
+ *
+ * Not in the app's stylesheet because a thumbnail, a presenter view and an
+ * export all draw the same sheet, and each of them re-deciding what a slide
+ * looks like is how three views of one deck stop matching.
+ */
+.sl-slide {
+  box-shadow:
+    0 1px 3px rgb(0 0 0 / 0.16),
+    0 8px 24px rgb(0 0 0 / 0.1);
+  border-radius: 2px;
+}
+
+/*
+ * A hidden slide is drawn, and drawn as hidden.
+ *
+ * It is still in the document, still addressable, still editable — which is the
+ * whole difference between hiding a slide and deleting it. Outlined as well as
+ * faded so it cannot be mistaken for a slide that is merely pale.
+ */
+.sl-slide[data-hidden='true'] {
+  opacity: 0.6;
+  outline: 1px dashed currentColor;
+  outline-offset: 3px;
+}
+
+/* Definitions live in the document and belong nowhere on the screen. */
+.sl-def,
+.w-def,
+.w-resources {
+  display: none;
+}
