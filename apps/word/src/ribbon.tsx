@@ -19,10 +19,15 @@ import {
   type ToolbarChoice
 } from '@barocss/office-word';
 import type { EditorViewDOM } from '@barocss/editor-view-dom';
-import { Toolbar, ToolbarGroup, ToolbarSeparator, ToolbarToggle } from './ui/toolbar';
+import {
+  ChoiceSelect,
+  ControlIcon,
+  Toolbar,
+  ToolbarGroup,
+  ToolbarSeparator,
+  ToolbarToggle
+} from '@barocss/office-ui';
 import { ZoomControl } from './zoom';
-import { StyleSelect } from './ui/style-select';
-import { ControlIcon } from './ui/icons';
 import type { FontLoader } from './font-loader';
 
 /**
@@ -147,7 +152,7 @@ export function Ribbon({
    * built from the model rather than written twice.
    */
   const choice = (model: ToolbarChoice, width: string) => (
-    <StyleSelect
+    <ChoiceSelect
       key={model.id}
       testClass={`w-toolbar-${model.id}`}
       ariaLabel={model.label}
@@ -171,8 +176,9 @@ export function Ribbon({
   );
 
   return (
-    <Toolbar>
-      <StyleSelect
+    <Toolbar className="w-toolbar">
+      <ChoiceSelect
+        testClass="w-toolbar-style"
         ariaLabel="Paragraph style"
         options={WORD_STYLES}
         value={style}
@@ -190,7 +196,7 @@ export function Ribbon({
       {table && tableStyles.length > 0 && (
         <>
           <ToolbarSeparator />
-          <StyleSelect
+          <ChoiceSelect
             testClass="w-toolbar-table-style"
             ariaLabel="Table style"
             className="min-w-40"

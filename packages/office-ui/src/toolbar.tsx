@@ -4,7 +4,7 @@ import type { MarkState } from '@barocss/editor-core';
 import { cn } from './cn';
 
 /**
- * The toolbar shell.
+ * The toolbar shell, shared by every product in the suite.
  *
  * Radix rather than plain buttons, for the parts that are tedious to get right
  * and invisible when wrong: one tab stop for the whole toolbar with the arrow
@@ -18,13 +18,28 @@ import { cn } from './cn';
  * is what makes every control reachable at every width, and it is the whole
  * difference between a ribbon and a strip.
  */
-export function Toolbar({ children, className }: { children: React.ReactNode; className?: string }) {
+export function Toolbar({
+  children,
+  className,
+  label = 'Formatting'
+}: {
+  children: React.ReactNode;
+  /**
+   * The product's own hook class.
+   *
+   * Left to the caller rather than baked in: this used to carry `w-toolbar`,
+   * which is Word's prefix, and a suite component that names one product is a
+   * component the next product works around.
+   */
+  className?: string;
+  label?: string;
+}) {
   return (
     <RadixTooltip.Provider delayDuration={400}>
       <RadixToolbar.Root
-        aria-label="Formatting"
+        aria-label={label}
         className={cn(
-          'w-toolbar sticky top-0 z-20 flex flex-wrap items-center gap-x-1 gap-y-1',
+          'sticky top-0 z-20 flex flex-wrap items-center gap-x-1 gap-y-1',
           'border-b border-neutral-300 bg-white px-4 py-1.5',
           'dark:border-neutral-700 dark:bg-neutral-900',
           className
@@ -45,7 +60,7 @@ export function Toolbar({ children, className }: { children: React.ReactNode; cl
  */
 export function ToolbarGroup({ id, children }: { id: string; children: React.ReactNode }) {
   return (
-    <div data-group={id} className="w-toolbar-group flex shrink-0 items-center gap-0.5 px-1.5">
+    <div data-group={id} className="office-toolbar-group flex shrink-0 items-center gap-0.5 px-1.5">
       {children}
     </div>
   );

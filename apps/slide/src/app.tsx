@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import type { EditorViewDOM } from '@barocss/editor-view-dom';
 import { Filmstrip } from './filmstrip';
+import { Ribbon } from './ribbon';
 import { Stage } from './stage';
 import { useDeck, useNote } from './deck-model';
 
@@ -67,18 +68,6 @@ export function App({
   );
 
   /**
-   * Run a command, and let the deck re-read itself.
-   *
-   * Nothing is passed back from here into the model: which slide is on screen
-   * is the app's, and the commands take the sid they are given. The rail
-   * updates because `useDeck` listens for the document changing, not because
-   * this told it to.
-   */
-  const command = (name: string, payload?: Record<string, unknown>) => {
-    void (editor as any)?.executeCommand?.(name, payload);
-  };
-
-  /**
    * Undo and redo, when the reader is not in the text.
    *
    * The editor already binds these and they work — with the caret in a slide.
@@ -138,55 +127,6 @@ export function App({
         </span>
 
         <div className="sl-topbar-actions">
-          {/*
-           * The five a deck has that a document does not. Every one commits a
-           * single transaction, so every one is a single Ctrl+Z.
-           */}
-          <button type="button" data-add-slide onClick={() => command('insertSlide', { after: current })}>
-            새 슬라이드
-          </button>
-          <button
-            type="button"
-            data-duplicate-slide
-            disabled={!current}
-            onClick={() => command('duplicateSlide', { slideId: current })}
-          >
-            복제
-          </button>
-          <button
-            type="button"
-            data-hide-slide
-            aria-pressed={here?.hidden ?? false}
-            disabled={!current}
-            onClick={() => command('toggleSlideHidden', { slideId: current })}
-          >
-            {here?.hidden ? '보이기' : '숨기기'}
-          </button>
-          <button
-            type="button"
-            data-move-slide-up
-            disabled={!here || here.number <= 1}
-            onClick={() => command('moveSlide', { slideId: current, to: (here!.number - 1) - 1 })}
-          >
-            ↑
-          </button>
-          <button
-            type="button"
-            data-move-slide-down
-            disabled={!here || here.number >= slides.length}
-            onClick={() => command('moveSlide', { slideId: current, to: here!.number })}
-          >
-            ↓
-          </button>
-          <button
-            type="button"
-            data-delete-slide
-            disabled={slides.length <= 1 || !current}
-            onClick={() => command('deleteSlide', { slideId: current })}
-          >
-            삭제
-          </button>
-
           <button
             type="button"
             data-focus-toggle
@@ -198,6 +138,14 @@ export function App({
           </button>
         </div>
       </header>
+
+      {/*
+       * The suite's toolbar, drawing the model `office-slides` declares with the
+       * components `office-word` draws its own with. The two products look alike
+       * because they draw with the same components, not because they share a
+       * list of controls.
+       */}
+      {editor && <Ribbon editor={editor} slides={slides} current={current} />}
 
       <div className="sl-body">
         <Filmstrip slides={slides} current={current} onSelect={setCurrent} />

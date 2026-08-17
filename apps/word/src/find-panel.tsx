@@ -3,7 +3,7 @@ import type { Editor } from '@barocss/editor-core';
 import type { EditorViewDOM } from '@barocss/editor-view-dom';
 import { findMatches, replaceMatches, step, type Match } from '@barocss/office-word';
 import { ChevronDown, ChevronUp, X } from 'lucide-react';
-import { cn } from './ui/cn';
+import { cn } from '@barocss/office-ui';
 
 /**
  * Find and replace.

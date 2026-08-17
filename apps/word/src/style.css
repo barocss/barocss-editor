@@ -1,4 +1,15 @@
 @import "tailwindcss";
+/*
+ * Where the suite's components live.
+ *
+ * Tailwind generates a class only if it finds it written somewhere it scans, and
+ * it scans the app. The toolbar's classes are in `@barocss/office-ui` now, so
+ * without this the components render with their class attributes intact and no
+ * rules behind any of them — which is exactly what the deck's ribbon did: every
+ * group on its own line, no padding, no background, and no error anywhere.
+ */
+@source "../../../packages/office-ui/src";
+
 
 /*
  * The parts of rendering that CSS has to finish, shared with every product that

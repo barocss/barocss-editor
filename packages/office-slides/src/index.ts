@@ -36,6 +36,14 @@ export { createSampleDeck } from './sample-deck';
 export { createSlideCommands, SlidesExtension } from './slide-commands';
 
 export {
+  SLIDES_TOOLBAR,
+  slidesToolbarCommands,
+  slidesToolbarMarkTypes,
+  type SlidesToolbarControl,
+  type SlidesToolbarGroup
+} from './toolbar-model';
+
+export {
   copyOf,
   deckSlides,
   layoutPlaceholders,

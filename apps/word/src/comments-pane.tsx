@@ -3,7 +3,7 @@ import type { Editor } from '@barocss/editor-core';
 import type { EditorViewDOM } from '@barocss/editor-view-dom';
 import { commentThreads, type CommentThread } from '@barocss/office-word';
 import { Check, MessageSquarePlus, Pencil, Reply, Trash2 } from 'lucide-react';
-import { cn } from './ui/cn';
+import { cn } from '@barocss/office-ui';
 
 /**
  * The comments on a document, in a pane beside it.

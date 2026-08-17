@@ -2,14 +2,14 @@ import * as Select from '@radix-ui/react-select';
 import { Check, ChevronDown } from 'lucide-react';
 import { cn } from './cn';
 
-export interface StyleOption {
+export interface ChoiceOption {
   id: string;
   label: string;
 }
 
 /**
  * A control that picks one value out of several: the paragraph style, the font,
- * the size.
+ * the size, the shape's fill.
  *
  * Shows nothing when the selection does not agree on one. A dropdown that picked
  * one of two fonts would apply it to both on the next change, which is a
@@ -20,21 +20,28 @@ export interface StyleOption {
  * and a screen reader announcing all of them as "paragraph style" would be worse
  * than no name at all.
  */
-export function StyleSelect({
+export function ChoiceSelect({
   options,
   value,
   disabled,
   onChange,
   ariaLabel,
   className,
-  testClass = 'w-toolbar-style'
+  testClass
 }: {
-  options: StyleOption[];
+  options: ChoiceOption[];
   value: string | null;
   disabled?: boolean;
   onChange: (id: string) => void;
   ariaLabel: string;
   className?: string;
+  /**
+   * The product's hook class, for its own tests and styles.
+   *
+   * No default. It was `w-toolbar-style`, which is Word's prefix and Word's
+   * word for the thing — a suite component carrying one product's naming is one
+   * the next product has to override before it can use.
+   */
   testClass?: string;
 }) {
   const mixed = value === null;

@@ -37,16 +37,29 @@ import {
   AlignVerticalJustifyCenter,
   AlignVerticalJustifyEnd,
   RotateCw,
+  Plus,
+  Copy,
+  ChevronUp,
+  ChevronDown,
+  EyeOff,
+  Trash2,
+  Table,
+  Image,
   type LucideIcon
 } from 'lucide-react';
 
 /**
- * What each toolbar control looks like.
+ * What each toolbar control looks like, for every product in the suite.
  *
  * The model says which controls exist and what each one does; how they are drawn
- * is the app's, which is why this mapping is here and not in the product package
+ * is the suite's, which is why this mapping is here and not in a product package
  * — a toolbar model that imported an icon set could not be rendered anywhere but
  * React.
+ *
+ * Keyed by control id across all products, so a control that means the same
+ * thing in two of them is drawn the same way without either product asking. Ids
+ * that only one product uses simply sit unused in the other, which costs
+ * nothing and is what keeps the suite recognisable.
  *
  * They were text glyphs before, and two kinds of wrong. The alignment controls
  * used arrows — `⟸ ⟺ ⟹` — but an arrow means *move*, and the one for centre
@@ -98,7 +111,19 @@ const ICONS: Record<string, LucideIcon> = {
   'cell-align-bottom': AlignVerticalJustifyEnd,
   // A turn rather than an arrow: the button turns the text where it is, and an
   // arrow would read as moving the cell somewhere.
-  'cell-text-direction': RotateCw
+  'cell-text-direction': RotateCw,
+
+  // Slides. A deck's own group — the one a document has no counterpart for.
+  'slide-new': Plus,
+  'slide-duplicate': Copy,
+  'slide-up': ChevronUp,
+  'slide-down': ChevronDown,
+  // Not an eye: the button *hides*, and an open eye on a visible slide reads as
+  // "this is visible" rather than as what pressing it will do.
+  'slide-hide': EyeOff,
+  'slide-delete': Trash2,
+  'insert-table': Table,
+  'insert-image': Image
 };
 
 /**
