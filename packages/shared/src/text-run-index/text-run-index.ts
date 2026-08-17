@@ -81,7 +81,7 @@ function isDecoratorElement(el: Element): boolean {
 export function buildTextRunIndex(
   containerEl: Element,
   containerId?: string,
-  options?: { buildReverseMap?: boolean; excludePredicate?: (el: Element) => boolean; normalizeWhitespace?: boolean }
+  options?: { buildReverseMap?: boolean; excludePredicate?: (el: Element) => boolean }
 ): ContainerRuns {
   const runs: TextRun[] = [];
   let total = 0;
@@ -98,15 +98,40 @@ export function buildTextRunIndex(
   const addRun = (textNode: Text): void => {
     const raw = textNode.textContent ?? '';
     const stripped = stripFiller(raw);
-    const textForLength = options?.normalizeWhitespace !== false ? stripped.trim() : stripped;
-    if (textForLength.length === 0) return;
+    /**
+     * The run is as long as the text is. Whitespace is not trimmed and a run of
+     * nothing but whitespace still counts.
+     *
+     * This used to take a `normalizeWhitespace` option, on by default, that
+     * trimmed each run and skipped any that was only whitespace. Five of the six
+     * callers passed `false`; the sixth — the DOM→model direction of the
+     * selection handler — did not, so the two directions of the same conversion
+     * were reading two different indexes, differing by exactly the whitespace.
+     *
+     * That is not a rounding error, it is a caret that will not move. Bold a
+     * word and hold Shift and the right arrow: the selection grows to the end of
+     * the marked run and stops dead, however many times it is pressed. The mark
+     * splits the paragraph, one of the pieces is a lone space, and a lone space
+     * got no run at all — so the browser's position inside it had no entry in
+     * the reverse map, the conversion fell back to snapping to a run boundary,
+     * and the model came back with the offset it started from. The app then
+     * wrote that answer to the DOM, undoing the browser's move, once per press:
+     *
+     *     press 1   dom " "@1  ->  model 35  ->  dom " "@0
+     *     press 2   dom " "@1  ->  model 35  ->  dom " "@0
+     *
+     * An index whose whole purpose is to say which character sits where cannot
+     * hold a different text than the one on the page. So there is no option any
+     * more, and no default to get wrong.
+     */
+    if (stripped.length === 0) return;
 
     let domStart = 0;
     while (domStart < raw.length && raw[domStart] === FILLER_CHAR) domStart++;
 
     const start = total;
-    const end = start + textForLength.length;
-    runs.push({ domTextNode: textNode, start, end, text: textForLength, domStart });
+    const end = start + stripped.length;
+    runs.push({ domTextNode: textNode, start, end, text: stripped, domStart });
     if (byNode) byNode.set(textNode, { start, end, domStart });
     total = end;
   };

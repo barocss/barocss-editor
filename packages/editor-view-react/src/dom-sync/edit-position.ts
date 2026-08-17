@@ -20,8 +20,6 @@ export function findClosestInlineTextNode(node: Node): Element | null {
  * Reconstruct full text of an inline-text container from DOM (all text nodes in order).
  */
 export function reconstructModelTextFromDOM(inlineTextNode: Element): string {
-  const runs = buildTextRunIndex(inlineTextNode, undefined, {
-    normalizeWhitespace: false,
-  });
+  const runs = buildTextRunIndex(inlineTextNode);
   return runs.runs.map((r) => r.text).join('');
 }

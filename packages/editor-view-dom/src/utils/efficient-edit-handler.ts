@@ -75,8 +75,7 @@ export function handleEfficientEdit(
     // 2. Build Text Run Index (collect all text nodes under sid-based hierarchy)
     // buildReverseMap: needed for textNode → offset conversion
     const runs = buildTextRunIndex(inlineTextNode, nodeId, {
-      buildReverseMap: true,
-      normalizeWhitespace: false
+      buildReverseMap: true
     });
     
     if (!runs || runs.runs.length === 0) {

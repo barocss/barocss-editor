@@ -183,7 +183,14 @@ describe('Inline Position Decorator (before/after)', () => {
     view.render(tree, { sync: true });
     await new Promise(resolve => requestAnimationFrame(resolve));
     
-    // Both chips should be inserted at correct positions
+    // Both chips should be inserted at correct positions.
+    //
+    // The two decorators end and begin either side of the space, so the space is
+    // a run of its own — the empty-looking `<span>` below. It is not empty; the
+    // comparison here normalizes whitespace away and cannot show it. It used to
+    // be pruned as an empty wrapper, which is how bolding a single space came to
+    // delete it; `renderer-dom`'s `mark-keeps-every-character.test.ts` is where
+    // that is checked without normalizing.
     expectHTML(
       view.layers.content,
       `<div class="barocss-editor-content" data-bc-layer="content" style="position: relative; z-index: 1;">
@@ -192,6 +199,7 @@ describe('Inline Position Decorator (before/after)', () => {
             <span class="text" data-bc-sid="t1">
               <span class="chip" data-decorator="true" data-decorator-category="inline" data-decorator-position="before" data-decorator-sid="chip-before" data-decorator-stype="chip" data-skip-reconcile="true" style="display: inline-block; background-color: rgb(227, 242, 253); color: rgb(25, 118, 210); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 500; margin: 0px 2px;">CHIP</span>
               <span>Hello</span>
+              <span> </span>
               <span>World</span>
               <span class="chip" data-decorator="true" data-decorator-category="inline" data-decorator-position="after" data-decorator-sid="chip-after" data-decorator-stype="chip" data-skip-reconcile="true" style="display: inline-block; background-color: rgb(227, 242, 253); color: rgb(25, 118, 210); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 500; margin: 0px 2px;">CHIP</span>
             </span>

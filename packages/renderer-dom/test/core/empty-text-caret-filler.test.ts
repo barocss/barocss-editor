@@ -63,7 +63,7 @@ describe('Empty inline-text caret filler', () => {
   it('contributes no run and no length to the offset index', () => {
     renderer.render(container, para('') as any);
 
-    const runs = buildTextRunIndex(host(), undefined, { normalizeWhitespace: false });
+    const runs = buildTextRunIndex(host());
     expect(runs.runs).toHaveLength(0);
     expect(runs.total).toBe(0);
   });
@@ -95,7 +95,7 @@ describe('Empty inline-text caret filler', () => {
     renderer.render(container, model);
 
     expect(filler()).toBeTruthy();
-    const runs = buildTextRunIndex(host(), undefined, { normalizeWhitespace: false });
+    const runs = buildTextRunIndex(host());
     expect(runs.total).toBe(0);
   });
 });
@@ -111,7 +111,7 @@ describe('buildTextRunIndex with a filler present', () => {
     host.appendChild(fillerSpan);
     document.body.appendChild(host);
 
-    const runs = buildTextRunIndex(host, undefined, { normalizeWhitespace: false });
+    const runs = buildTextRunIndex(host);
 
     expect(runs.total).toBe(2);
     expect(runs.runs[0].text).toBe('ab');

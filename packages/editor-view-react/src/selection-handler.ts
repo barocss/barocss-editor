@@ -425,7 +425,6 @@ export class ReactSelectionHandler {
         buildReverseMap: true,
         excludePredicate: (el) =>
           this.isDecoratorElement(el),
-        normalizeWhitespace: false,
       });
     } catch {
       return null;

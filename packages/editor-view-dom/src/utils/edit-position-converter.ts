@@ -451,9 +451,7 @@ export function extractModelTextFromRange(
 
 export function reconstructModelTextFromDOM(inlineTextNode: Element): string {
   // Traverse and combine all text nodes using buildTextRunIndex
-  const runs = buildTextRunIndex(inlineTextNode, undefined, {
-    normalizeWhitespace: false  // Preserve whitespace as-is
-  });
+  const runs = buildTextRunIndex(inlineTextNode);
   
   // Combine all text node texts in order
   return runs.runs

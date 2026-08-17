@@ -515,8 +515,7 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
         excludePredicate: (el) => {
           // Exclude decorators (also checked inside buildTextRunIndex but explicitly passed)
           return this.isDecoratorElement(el);
-        },
-        normalizeWhitespace: false // Don't use trim() - to match actual DOM offset with model offset
+        }
       });
       
       return runs;
