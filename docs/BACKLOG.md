@@ -122,12 +122,15 @@ about half. Ten undrawn node types are reachable from Word's 166 commands.
 - [ ] **A command that makes a node and is not called `insert…` still slips
   through.** The honest limit of a convention check, written in the check
   itself.
-- [ ] **Slides: 61 of 61 node types undrawn**, ratcheted in
-  `packages/office-slides/test/conformance.test.ts`. That number coming down is
-  the renderer work, and it must never go up.
+- [x] **Slides conforms.** Was a ratchet at 64 of 64 undrawn on its first day;
+  now `assertConforms` with 27 written exemptions and no findings.
+- [ ] **A renderer that exists and draws the wrong thing passes.** `canvasBlock`
+  in a deck is Word's `<svg>` holding four node types that Slides draws as
+  `<div>`s. Every check asks whether a renderer exists; one does. The harness's
+  own blind spot, found from the other side — see below.
 - [ ] **The office schema should declare what it offers** rather than inheriting
-  the whole standard node set. Nine node types are declared and unreachable,
-  which is harmless only until a document arrives holding one.
+  the whole standard node set — now with a second product's worth of evidence;
+  see "Every product pays for the whole standard node set" above.
 
 The full list, with a reason each, is the exemption map in
 `packages/office-word/test/conformance.test.ts` — and fixing one without deleting
