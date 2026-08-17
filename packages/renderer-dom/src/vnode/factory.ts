@@ -29,7 +29,8 @@ import {
   PortalTemplate,
   RenderEnv,
   RendererRegistry,
-  SlotTemplate
+  SlotTemplate,
+  isNativeHTMLTag
 } from '@barocss/dsl'; // Global registry access
 import type { ComponentContext } from '../types';
 import type { ComponentManager } from '../component-manager';
@@ -1874,9 +1875,29 @@ export class VNodeBuilder {
     buildOptions: VNodeBuildOptions
   ): void {
     const tag = child.tag;
-    
-    // Check if this is a component tag (strict: only registered components)
-    if (isString(tag) && this.registry.getComponent(tag)) {
+
+    /**
+     * Check if this is a component tag (strict: only registered components,
+     * and never one whose name is an element the browser already has).
+     *
+     * A node type and a tag name are different namespaces that happen to share
+     * a spelling. A model's `line` is a shape in a document — not SVG's
+     * `<line>` — and which element draws it is the product's decision, so
+     * `element('line', …)` inside a template is the author naming an element,
+     * not referring to their own node type. Without `isNativeHTMLTag` here the
+     * builder read it as the node type, rebuilt that component *with the same
+     * model data*, and recursed until the stack ran out. Four node types
+     * collide today — `line`, `path`, `ellipse` and `frame` — and any product
+     * naming a node after an element would have found the next one.
+     *
+     * This is the rule `native-html-tags.ts` already states ("cannot be used as
+     * template names"); it was declared in one file and not honoured in this
+     * one. Nothing legitimate is lost: a template composes another node's
+     * rendering through `slot('content')`, and a component tag exists for
+     * template composition, where a name that is already an element is
+     * ambiguous by construction.
+     */
+    if (isString(tag) && !isNativeHTMLTag(tag) && this.registry.getComponent(tag)) {
       // This is a component, build it as a component
       const componentTemplate = {
         type: 'component',

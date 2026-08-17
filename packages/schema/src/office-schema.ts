@@ -166,7 +166,7 @@ const RESOURCE = 'resource';
  *   meta             document-level CONTENT — a title carries marks, takes a
  *                    collaborative cursor, and lives in history like any node
  *   resources        definitions referenced by id from the flow — footnote and
- *                    endnote bodies, comment threads, speaker notes, headers
+ *                    endnote bodies, comment threads, surface notes, headers
  *
  * `resources` exists because the render position of these is a *layout*
  * decision, not an authoring one: a footnote sits at the foot of a printed page,
@@ -217,9 +217,18 @@ export function getMetaNodeDefinitions(): Record<string, NodeTypeDefinition> {
         resolved: { type: 'boolean', default: false }
       }
     },
-    /** Slide speaker notes — bound to one surface rather than the document. */
-    speakerNote: {
-      name: 'speakerNote',
+    /**
+     * A note about one surface, rather than about the document.
+     *
+     * Named for how it binds and not for who reads it. What a presenter says
+     * beside a slide, what an author leaves beside a page, what a facilitator
+     * writes beside a board — one relationship, and the schema is shared by all
+     * three, so a name from any one product would be wrong in the other two.
+     * `surfaceId` is the whole definition: the same reference-by-id every other
+     * resource here uses, pointing at a surface instead of at a mark.
+     */
+    surfaceNote: {
+      name: 'surfaceNote',
       group: RESOURCE,
       content: 'block+',
       attrs: { surfaceId: { type: 'string', required: true } }

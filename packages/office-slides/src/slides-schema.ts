@@ -71,7 +71,7 @@ export function getSlidesSchemaDefinition(): SchemaDefinition {
           /** Kept in the deck, skipped while presenting. */
           hidden: { type: 'boolean', default: false },
           /**
-           * What the presenter says lives in a `speakerNote`, which finds its
+           * What the presenter says lives in a `surfaceNote`, which finds its
            * slide by `surfaceId` — so a slide needs no attribute for it.
            */
         }
@@ -93,11 +93,13 @@ export function getSlidesSchemaDefinition(): SchemaDefinition {
         }
       },
 
-      // Speaker notes are `speakerNote`, which the office schema already
-      // declares — a resource bound to one surface by `surfaceId`. I wrote a
-      // `slideNotes` before reading for one, which is the mistake this whole
-      // product keeps finding in other people's code and is why the check
-      // belongs in the build rather than in somebody's memory.
+      // What the presenter says is a `surfaceNote`, which the office schema
+      // already declares — a resource bound to one surface by `surfaceId`, and
+      // named for how it binds rather than for who reads it, because the same
+      // relationship is an author's note beside a page and a facilitator's note
+      // beside a board. I wrote a `slideNotes` before reading for one, which is
+      // the mistake this whole product keeps finding in other people's code and
+      // is why the check belongs in the build rather than in somebody's memory.
 
       /**
        * A layout: the placeholders a slide of this kind starts with, and how

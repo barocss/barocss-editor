@@ -46,14 +46,17 @@
     "@barocss/model": "workspace:*",
     "@barocss/shared": "workspace:*",
     "@barocss/dsl": "workspace:*",
-    "@barocss/office-word": "workspace:*"
+    "@barocss/office-word": "workspace:*",
+    "@barocss/datastore": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.9.3",
     "vite": "^5.4.21",
     "vite-plugin-dts": "^3.9.1",
     "vitest": "^1.6.1",
-    "@barocss/conformance": "workspace:*"
+    "@barocss/conformance": "workspace:*",
+    "@barocss/editor-view-dom": "workspace:*",
+    "jsdom": "^24.0.0"
   },
   "author": "Barocss Team",
   "license": "MIT"

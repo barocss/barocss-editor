@@ -98,3 +98,15 @@ export {
   RendererRegistry
 } from './registry';
 
+
+/**
+ * Which names the browser already owns.
+ *
+ * Exported because the rule it states — a native element name is never a
+ * template name — has to be enforced where templates are built, not only
+ * declared here. The renderer read a template child's tag as a node type when
+ * the two happened to share a spelling and recursed until the stack ran out;
+ * `line`, `path`, `ellipse` and `frame` are all node types in the office schema
+ * and all elements a browser has.
+ */
+export { NATIVE_HTML_TAGS, isNativeHTMLTag } from './constants/native-html-tags';
