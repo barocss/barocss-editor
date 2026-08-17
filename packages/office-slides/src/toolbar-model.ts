@@ -188,9 +188,21 @@ export const SLIDES_TOOLBAR: SlidesToolbarGroup[] = [
     ]
   },
 
+  /**
+   * Putting something on the slide.
+   *
+   * The group that makes this a presentation editor. A text box first, because
+   * it is what a deck is mostly made of, then the shapes — and each is its own
+   * command rather than one `insertShape` with a kind, so the conformance check
+   * can be told what each produces.
+   */
   {
     id: 'insert',
     controls: [
+      { id: 'insert-textbox', label: '텍스트 상자', icon: 'T', command: 'insertTextBox' },
+      { id: 'insert-rectangle', label: '사각형', icon: '▭', command: 'insertRectangle' },
+      { id: 'insert-ellipse', label: '타원', icon: '◯', command: 'insertEllipse' },
+      { id: 'insert-line', label: '선', icon: '／', command: 'insertLine' },
       { id: 'insert-table', label: '표 삽입', icon: '⊞', command: 'insertTable' },
       { id: 'insert-image', label: '그림 삽입', icon: '🖼', command: 'insertImage' }
     ]

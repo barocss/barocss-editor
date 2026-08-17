@@ -91,6 +91,54 @@ function paintCss(data: NodeData): CssStyle {
   return css;
 }
 
+/** How thick a line's ink is, in twips. */
+function lineStroke(data: NodeData): number {
+  const width = attrsOf(data).strokeWidth;
+  return typeof width === 'number' && width > 0 ? width : 15;
+}
+
+/**
+ * The box a line is *drawn* in: its own, grown to the ink's thickness.
+ *
+ * A horizontal line has zero height, and a zero-height `<svg>` with a
+ * zero-height `viewBox` is degenerate — the browser has no scale to map user
+ * units onto and draws nothing. Growing only the drawing leaves the model's two
+ * points exactly where the author put them.
+ */
+function lineExtent(data: NodeData): { width: number; height: number } {
+  const attrs = attrsOf(data);
+  const stroke = lineStroke(data);
+  const width = Math.abs(typeof attrs.width === 'number' ? attrs.width : 0);
+  const height = Math.abs(typeof attrs.height === 'number' ? attrs.height : 0);
+  return { width: Math.max(width, stroke), height: Math.max(height, stroke) };
+}
+
+/**
+ * The two points, in the drawn box's coordinates.
+ *
+ * A negative extent means the line runs the other way, which is why this reads
+ * the raw attributes rather than `boxOf` — normalising would lose the
+ * direction. On an axis the box had to be grown on, the line runs down the
+ * middle of what it was grown to.
+ */
+function lineEnds(data: NodeData): { x1: number; y1: number; x2: number; y2: number } {
+  const attrs = attrsOf(data);
+  const extent = lineExtent(data);
+  const width = typeof attrs.width === 'number' ? attrs.width : 0;
+  const height = typeof attrs.height === 'number' ? attrs.height : 0;
+
+  const along = (value: number, size: number) =>
+    value === 0
+      ? { from: size / 2, to: size / 2 }
+      : value < 0
+        ? { from: Math.abs(value), to: 0 }
+        : { from: 0, to: value };
+
+  const x = along(width, extent.width);
+  const y = along(height, extent.height);
+  return { x1: x.from, y1: y.from, x2: x.to, y2: y.to };
+}
+
 /** Where text sits in a box taller than the text is. */
 function verticalAlignCss(data: NodeData): CssStyle {
   const value = attrsOf(data).verticalAlign;
@@ -293,6 +341,18 @@ export function registerSlidesRenderers(): void {
    * width runs up-left and `boxOf`'s normalising would lose which way. Hence
    * the raw attributes here and the SVG, which can draw a diagonal — a bordered
    * `div` cannot.
+   *
+   * ## The box a line is drawn in is at least as thick as the line
+   *
+   * A horizontal line has a height of zero, and an `<svg>` of zero height with
+   * a `viewBox` of zero height is degenerate: the browser has no scale to map
+   * user units onto and draws nothing at all. A perfectly ordinary horizontal
+   * line was invisible.
+   *
+   * So the drawn box is the model's box grown to the stroke's thickness on any
+   * axis that has none, and the line is drawn down the middle of it. The
+   * *model* keeps the zero — the two points are still the two points — and only
+   * the drawing is inflated, by exactly the amount the ink needs.
    */
   define(
     'line',
@@ -302,24 +362,29 @@ export function registerSlidesRenderers(): void {
         className: 'sl-shape sl-line',
         // Its own coordinate space, so the points below are the model's numbers.
         viewBox: (d: NodeData) => {
-          const attrs = attrsOf(d);
-          const width = typeof attrs.width === 'number' ? attrs.width : 0;
-          const height = typeof attrs.height === 'number' ? attrs.height : 0;
-          return `0 0 ${Math.abs(width) || 1} ${Math.abs(height) || 1}`;
+          const { width, height } = lineExtent(d);
+          return `0 0 ${width} ${height}`;
         },
+        preserveAspectRatio: 'none',
         // No fill and no stroke on the box itself; the line inside carries them.
-        style: (d: NodeData): CssStyle => placed(d, { overflow: 'visible' })
+        style: (d: NodeData): CssStyle => {
+          const extent = lineExtent(d);
+          return placed(d, {
+            overflow: 'visible',
+            width: `${twipToPx(extent.width)}px`,
+            height: `${twipToPx(extent.height)}px`
+          });
+        }
       } as never,
       [
         element('line', {
-          x1: (d: NodeData) => ((attrsOf(d).width ?? 0) < 0 ? Math.abs(attrsOf(d).width!) : 0),
-          y1: (d: NodeData) => ((attrsOf(d).height ?? 0) < 0 ? Math.abs(attrsOf(d).height!) : 0),
-          x2: (d: NodeData) => ((attrsOf(d).width ?? 0) < 0 ? 0 : (attrsOf(d).width ?? 0)),
-          y2: (d: NodeData) => ((attrsOf(d).height ?? 0) < 0 ? 0 : (attrsOf(d).height ?? 0)),
+          x1: (d: NodeData) => lineEnds(d).x1,
+          y1: (d: NodeData) => lineEnds(d).y1,
+          x2: (d: NodeData) => lineEnds(d).x2,
+          y2: (d: NodeData) => lineEnds(d).y2,
           stroke: (d: NodeData) =>
             typeof attrsOf(d).stroke === 'string' ? attrsOf(d).stroke : '#1f2937',
-          'stroke-width': (d: NodeData) =>
-            typeof attrsOf(d).strokeWidth === 'number' ? attrsOf(d).strokeWidth : 1
+          'stroke-width': (d: NodeData) => lineStroke(d)
         } as never)
       ]
     )

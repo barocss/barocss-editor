@@ -155,3 +155,88 @@ describe('reading the nodes out of a selection', () => {
     expect(selection.nodeIds).toEqual(['a', 'b']);
   });
 });
+
+/**
+ * The way in.
+ *
+ * `SelectionManager` has held a set since sets were described, and
+ * `Editor.setNode` — the only public route to a node selection, and the one a
+ * `setNode` command runs — took `nodeId ?? startNodeId` and dropped `nodeIds`.
+ * So a set could be described and not made. A slide editor is the first thing
+ * to need one: the whole point of selecting three shapes is to move them
+ * together.
+ */
+describe('setting a node selection through the editor', () => {
+  const standUp = async () => {
+    const { Editor } = await import('../src/editor');
+    const { DataStore } = await import('@barocss/datastore');
+    const { createSchema, getStandardSchemaDefinition } = await import('@barocss/schema');
+
+    const schema = createSchema('standard', getStandardSchemaDefinition());
+    const dataStore = new DataStore(undefined, schema);
+    const editor = new Editor({ schema, dataStore } as never);
+
+    editor.loadDocument(
+      {
+        stype: 'document',
+        attributes: {},
+        content: [
+          { stype: 'paragraph', attributes: {}, content: [{ stype: 'inline-text', text: 'a' }] },
+          { stype: 'paragraph', attributes: {}, content: [{ stype: 'inline-text', text: 'b' }] },
+          { stype: 'paragraph', attributes: {}, content: [{ stype: 'inline-text', text: 'c' }] }
+        ]
+      } as never,
+      'standard'
+    );
+
+    const root: any = dataStore.getNode((editor as any).getRootId());
+    return { editor, ids: root.content as string[] };
+  };
+
+  it('keeps every node it was given', async () => {
+    const { editor, ids } = await standUp();
+    editor.setNode({ nodeIds: ids });
+
+    expect(selectedNodeIds(editor.selection)).toEqual(ids);
+    expect(editor.selection?.type).toBe('node');
+  });
+
+  it('takes a single node too, and still reports it as a set', async () => {
+    // So a caller never has to ask which shape of selection it was handed.
+    const { editor, ids } = await standUp();
+    editor.setNode({ nodeId: ids[1] });
+
+    expect(selectedNodeIds(editor.selection)).toEqual([ids[1]]);
+  });
+
+  it('keeps the endpoints at the first and last, for code that predates sets', async () => {
+    const { editor, ids } = await standUp();
+    editor.setNode({ nodeIds: ids });
+
+    expect(editor.selection?.startNodeId).toBe(ids[0]);
+    expect(editor.selection?.endNodeId).toBe(ids[2]);
+  });
+
+  it('is reachable as a command, which is how a product runs it', async () => {
+    const { editor, ids } = await standUp();
+    await (editor as any).executeCommand('setNode', { nodeIds: [ids[0], ids[2]] });
+    expect(selectedNodeIds(editor.selection)).toEqual([ids[0], ids[2]]);
+  });
+
+  it('treats an empty set and nothing at all the same way', async () => {
+    const { editor, ids } = await standUp();
+    editor.setNode({ nodeIds: ids });
+    editor.setNode({ nodeIds: [] });
+    expect(editor.selection).toBeNull();
+
+    editor.setNode({ nodeIds: ids });
+    editor.setNode(null);
+    expect(editor.selection).toBeNull();
+  });
+
+  it('ignores ids that are not strings rather than selecting undefined', async () => {
+    const { editor, ids } = await standUp();
+    editor.setNode({ nodeIds: [ids[0], undefined, '', 42, ids[1]] });
+    expect(selectedNodeIds(editor.selection)).toEqual([ids[0], ids[1]]);
+  });
+});

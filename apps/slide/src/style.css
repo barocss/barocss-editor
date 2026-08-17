@@ -291,3 +291,43 @@ body {
 .sl-notes-empty {
   color: var(--sl-muted);
 }
+
+/* ── Selection ─────────────────────────────────────────────────────────── */
+/*
+ * Drawn over the slide, never in it. The editor owns every element inside the
+ * document and rewrites them on each render, so a handle put in the tree would
+ * last until the next keystroke.
+ */
+.sl-overlay {
+  z-index: 30;
+}
+
+.sl-selected {
+  outline: 1.5px solid var(--sl-accent);
+  outline-offset: 0;
+}
+
+.sl-handle {
+  background: #ffffff;
+  border: 1.5px solid var(--sl-accent);
+  border-radius: 2px;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
+}
+
+/* Round, and above the box rather than on it, so it reads as a turn. */
+.sl-handle-rotate {
+  border-radius: 50%;
+}
+
+.sl-marquee {
+  border: 1px solid var(--sl-accent);
+  background: color-mix(in srgb, var(--sl-accent) 12%, transparent);
+}
+
+/*
+ * While a box is being typed in, the overlay is inert and the box says so —
+ * otherwise the only thing telling the reader they are in text is the caret.
+ */
+.sl-overlay[data-editing='true'] .sl-selected {
+  outline-style: dashed;
+}

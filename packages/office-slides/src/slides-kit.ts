@@ -19,6 +19,7 @@ import { Editor, type EditorOptions, type Extension, type Keybinding } from '@ba
 import { createSchema } from '@barocss/schema';
 import { getSlidesSchemaDefinition } from './slides-schema';
 import { createSlideCommands } from './slide-commands';
+import { createBoxCommands } from './box-commands';
 
 /**
  * What can be done in a deck.
@@ -70,9 +71,13 @@ export function createSlidesExtensions(): Extension[] {
     // A table on a slide is Word's table in a placed box; see the sample deck.
     createTableExtension({ defaultRows: 3, defaultCols: 3 }),
 
-    // The five a deck has that a document does not: a page is a consequence of
-    // how much text there is, and a slide is a thing the author makes.
-    createSlideCommands()
+    // A deck's own: a page is a consequence of how much text there is, and a
+    // slide is a thing the author makes.
+    createSlideCommands(),
+
+    // Putting something on a slide. Without these a deck could hold shapes,
+    // draw them and report their properties, and nothing could make one.
+    createBoxCommands()
   ];
 }
 

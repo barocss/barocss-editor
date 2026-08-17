@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import type { EditorViewDOM } from '@barocss/editor-view-dom';
 import { Filmstrip } from './filmstrip';
+import { SelectionOverlay } from './overlay';
 import { Properties } from './properties';
 import { Ribbon } from './ribbon';
 import { Stage } from './stage';
@@ -158,6 +159,15 @@ export function App({
            * down and build it again.
            */}
           <Stage host={host} focus={focused ? current : undefined} />
+
+          {/*
+           * Selecting and dragging what is on the slide, drawn over it.
+           *
+           * A layer rather than something inside the document: the view owns
+           * every element in there and rewrites them on each render, so a handle
+           * put in the tree would last until the next keystroke.
+           */}
+          <SelectionOverlay editor={editor} slideSid={current} revision={slides.length} />
 
           <section className="sl-notes" aria-label="발표자 노트">
             <h2>발표자 노트</h2>

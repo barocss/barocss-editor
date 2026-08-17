@@ -45,6 +45,10 @@ import {
   Trash2,
   Table,
   Image,
+  Type,
+  Square,
+  Circle,
+  Minus,
   type LucideIcon
 } from 'lucide-react';
 
@@ -123,7 +127,11 @@ const ICONS: Record<string, LucideIcon> = {
   'slide-hide': EyeOff,
   'slide-delete': Trash2,
   'insert-table': Table,
-  'insert-image': Image
+  'insert-image': Image,
+  'insert-textbox': Type,
+  'insert-rectangle': Square,
+  'insert-ellipse': Circle,
+  'insert-line': Minus
 };
 
 /**

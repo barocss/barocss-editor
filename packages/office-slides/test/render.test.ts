@@ -138,6 +138,54 @@ describe('a deck draws', () => {
       expect(segment!.getAttribute('stroke')).toBe('#334155');
     });
 
+    /**
+     * A horizontal line has zero height, and a zero-height `<svg>` with a
+     * zero-height `viewBox` is degenerate: the browser has no scale to map user
+     * units onto and draws nothing. A perfectly ordinary horizontal line was
+     * invisible in the browser.
+     */
+    it('gives a flat line a box as thick as its ink', () => {
+      registerSlidesRenderers();
+      const host = document.createElement('div');
+      document.body.appendChild(host);
+
+      const schema = createSchema('slides', getSlidesSchemaDefinition());
+      const store = new DataStore(undefined, schema);
+      const flat = createSlidesEditor({ editable: true, schema, dataStore: store });
+      flat.loadDocument(
+        {
+          stype: 'document',
+          attributes: {},
+          content: [
+            {
+              stype: 'surface',
+              attributes: { kind: 'slide' },
+              content: [
+                {
+                  stype: 'line',
+                  attributes: { x: 0, y: 1000, width: 4800, height: 0, stroke: '#000', strokeWidth: 30 }
+                }
+              ]
+            }
+          ]
+        } as never,
+        'slides'
+      );
+      const flatView = new EditorViewDOM(flat, { container: host, registry: getGlobalRegistry() });
+      flatView.render(undefined, { sync: true });
+
+      const svg = host.querySelector<SVGElement>('.sl-line')!;
+      // Grown to the stroke, not to nothing.
+      expect(svg.getAttribute('viewBox')).toBe('0 0 4800 30');
+      expect((svg as unknown as HTMLElement).style.height).toBe('2px');
+
+      // ...and the line runs down the middle of what it was grown to.
+      const segment = svg.querySelector('line')!;
+      expect(segment.getAttribute('y1')).toBe('15');
+      expect(segment.getAttribute('y2')).toBe('15');
+      expect(segment.getAttribute('x2')).toBe('4800');
+    });
+
     it('keeps a stroked box the size the model says it is', () => {
       // Without `border-box` a stroked shape is wider than its geometry, and
       // two boxes placed edge to edge overlap by their stroke widths.

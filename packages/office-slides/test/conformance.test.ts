@@ -42,6 +42,15 @@ describe('Slides draws what its schema declares', () => {
     // Caught by `every-insert-is-accounted-for` within minutes of the command
     // being written, which is the whole reason that check exists.
     { command: 'insertSlide', produces: 'surface' },
+
+    // One command per shape rather than `insertShape({ kind })`, because a
+    // single command would have to answer "it depends" here — which is the
+    // answer this check exists to refuse.
+    { command: 'insertRectangle', produces: 'rectangle' },
+    { command: 'insertEllipse', produces: 'ellipse' },
+    { command: 'insertLine', produces: 'line' },
+    { command: 'insertTextBox', produces: 'textFrame' },
+
     { command: 'insertParagraph', produces: 'paragraph' },
     { command: 'insertHardBreak', produces: 'hardBreak' },
     { command: 'insertImage', produces: 'inline-image' },

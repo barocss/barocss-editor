@@ -306,6 +306,25 @@ export class EditorViewDOM implements IEditorViewDOM {
     this.contentEditableElement.addEventListener('input', this._boundHandleInput as EventListener);
     this.contentEditableElement.addEventListener('beforeinput', this._boundHandleBeforeInput);
     this.contentEditableElement.addEventListener('keydown', this._boundHandleKeydown);
+
+    /**
+     * A node selection survives until the reader touches the text.
+     *
+     * See `_processSelectionChange` for what this defends against. The flag is
+     * cleared by a real gesture *in the document* — a pointer going down on the
+     * text or a key pressed while it has the caret — because that is exactly
+     * when the reader has stopped meaning "these shapes" and started meaning
+     * "here in this sentence".
+     *
+     * Not `focus`: the editor is focused the whole time a shape is selected,
+     * since the shape is selected through an overlay drawn on top of it. That
+     * was the first guard and it never held.
+     */
+    const releaseNodeSelection = () => {
+      this._nodeSelectionHoldsUntilGesture = false;
+    };
+    this.contentEditableElement.addEventListener('pointerdown', releaseNodeSelection, true);
+    this.contentEditableElement.addEventListener('keydown', releaseNodeSelection, true);
     this._boundHandlePaste = this.handlePaste.bind(this);
     this._boundHandleDrop = this.handleDrop.bind(this);
     this.contentEditableElement.addEventListener('paste', this._boundHandlePaste);
@@ -410,6 +429,12 @@ export class EditorViewDOM implements IEditorViewDOM {
       const selectionEvent = this._parseModelSelectionEvent(payload);
       if (!selectionEvent.applySelectionToView) {
         return;
+      }
+
+      // A node selection holds until the reader touches the text; see
+      // `_processSelectionChange`.
+      if (selectionEvent.selection?.type === 'node') {
+        this._nodeSelectionHoldsUntilGesture = true;
       }
 
       this._pendingModelSelection = selectionEvent.selection;
@@ -879,6 +904,26 @@ export class EditorViewDOM implements IEditorViewDOM {
 
   private _processSelectionChange(): void {
     try {
+      /**
+       * A node selection is not overwritten by where the caret happens to be.
+       *
+       * When whole nodes are selected there is no text position to speak of,
+       * and the DOM still holds whatever caret was last placed — after an
+       * insert, inside the very node that was just made. The `selectionchange`
+       * that follows would read that caret and replace the set with it.
+       *
+       * What ends the hold is a *gesture in the text* — a pointer down on it,
+       * or a key pressed with the caret in it — because that is when the reader
+       * has stopped meaning "these shapes" and started meaning "here in this
+       * sentence". Focus was tried first and never held: the editor is focused
+       * the whole time a shape is selected, because the shape is selected
+       * through an overlay drawn on top of the editor.
+       */
+      const model = (this.editor as any).selection;
+      if (model?.type === 'node' && this._nodeSelectionHoldsUntilGesture) {
+        return;
+      }
+
       const sel = window.getSelection();
       const anchorNode = sel?.anchorNode as Node | null;
       const focusNode = sel?.focusNode as Node | null;
@@ -961,7 +1006,23 @@ export class EditorViewDOM implements IEditorViewDOM {
       if (!sel || sel.type === 'none') {
         return;
       }
-      
+
+      /**
+       * A node selection is still written to the DOM.
+       *
+       * It has to be: something has to be selected in the browser for a native
+       * copy of a selected image to carry the image. What it must *not* do is
+       * come back — the caret it leaves behind was read by the next
+       * `selectionchange` and written over the model as a range, so a shape
+       * selected a millisecond earlier was a caret in its text by the time
+       * anything looked. That round trip is stopped in the other direction; see
+       * `_processSelectionChange`.
+       *
+       * Not writing it at all was tried, and so was emptying the DOM selection.
+       * The second is worse than either: the browser fills the vacuum, and the
+       * model came back pointing at whichever text node it chose.
+       */
+
       // Use SelectionHandler to convert to accurate DOM selection
       // (includes handling text nodes split by mark/decorator)
       this.selectionHandler.convertModelSelectionToDOM(sel);
@@ -977,6 +1038,8 @@ export class EditorViewDOM implements IEditorViewDOM {
   }
 
   private _pendingModelSelection: any | null = null;
+  /** Whether a node selection is still the reader's meaning. See setupEventListeners. */
+  private _nodeSelectionHoldsUntilGesture = false;
   private _retryCount: number = 0;
   private _parseModelSelectionEvent(selectionEvent: any): { selection: any; applySelectionToView: boolean } {
     if (

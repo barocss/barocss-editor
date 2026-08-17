@@ -35,6 +35,23 @@ export { createSampleDeck } from './sample-deck';
 
 export { createSlideCommands, SlidesExtension } from './slide-commands';
 
+export { createBoxCommands, SlidesBoxExtension } from './box-commands';
+
+export {
+  RESIZE_HANDLES,
+  angleOf,
+  contains,
+  intersects,
+  moveBox,
+  resizeBox,
+  snapAngle,
+  unionOf,
+  unrotate,
+  type Delta,
+  type Handle,
+  type ResizeOptions
+} from './manipulate';
+
 export {
   SCENE_TYPES,
   boxAt,

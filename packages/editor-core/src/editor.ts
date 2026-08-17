@@ -398,24 +398,48 @@ export class Editor implements ContextProvider {
     return proxy;
   }
 
+  /**
+   * Select whole nodes.
+   *
+   * Takes one or many. `ModelSelection` has carried `nodeIds` and
+   * `selectedNodeIds()` since selections that are *sets* were first described —
+   * "three shapes on a board or two cells in different rows: those are a set,
+   * and a set with holes in it cannot be described by its endpoints" — and this,
+   * the only way in, dropped the field and kept a single id. So a set could be
+   * described and not made, which a slide editor is the first thing to need: the
+   * whole point of selecting three shapes is to move them together.
+   *
+   * A single node still produces a selection with one entry in `nodeIds`, so a
+   * caller never has to ask which shape of selection it was given.
+   */
   setNode(nodeSelection: any): void {
     if (!nodeSelection) {
       this.updateSelection(null);
       return;
     }
 
-    const nodeId = nodeSelection.nodeId ?? nodeSelection.startNodeId;
-    if (!nodeId) {
+    const many: unknown = nodeSelection.nodeIds;
+    const ids = Array.isArray(many)
+      ? many.filter((id): id is string => typeof id === 'string' && id.length > 0)
+      : [nodeSelection.nodeId ?? nodeSelection.startNodeId].filter(
+          (id): id is string => typeof id === 'string' && id.length > 0
+        );
+
+    if (ids.length === 0) {
       this.updateSelection(null);
       return;
     }
 
     this.updateSelection({
-      type: 'node',
-      startNodeId: nodeId,
+      // The caller may say `cell` or `table`; `node` is what a shape is.
+      type: nodeSelection.type === 'cell' || nodeSelection.type === 'table' ? nodeSelection.type : 'node',
+      nodeIds: ids,
+      startNodeId: ids[0],
       startOffset: 0,
-      endNodeId: nodeId,
+      endNodeId: ids[ids.length - 1],
       endOffset: 0,
+      collapsed: false,
+      direction: 'none'
     });
   }
 
