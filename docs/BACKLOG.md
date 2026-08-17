@@ -146,21 +146,40 @@ but not from the model.
 
 #### Where it stands, precisely
 
-With the import blocked, deleting a selection that spans runs removes **more
-than the selection**: the e2e's snapshot shows 36 characters gone where 10 were
-selected, and the commented run survives with its mark.
+Four candidates ruled out by measurement, and two things fixed on the way. What
+is left is one specific disagreement.
 
-It is not `deleteRange`. Given `AAAAA|BBBBB|CCCCC` and a range from run A
-offset 3 to run C offset 2, it produces exactly `AAA||CCC` — checked in a model
-test. And it is not the delete command, which now passes that range through
-unchanged.
+**Ruled out.**
 
-So the remaining suspect is **the offsets the view puts in a multi-run
-selection**: whether `endOffset` is relative to `endNodeId` or to something
-larger. Both paths agreed while the import was there to paper over it, because
-the DOM was the arbiter. That is the measurement to take next — build a
-selection with the arrow keys across a formatting boundary and compare the
-model's offsets against the runs they name.
+- `deleteRange` is exact: `AAAAA|BBBBB|CCCCC`, range from run A offset 3 to run
+  C offset 2, gives `AAA||CCC`.
+- The delete command passes that range through unchanged, and its own tests say
+  so.
+- A mark does **not** split the run. A paragraph stays one `inline-text` with the
+  mark recorded as a range on it, so "a selection across runs" is rarer than it
+  looked and is not what the comment case is.
+- No empty run is left behind by commenting. The paragraph is one run before and
+  after.
+
+**Fixed on the way**, both landed and both green:
+
+- Backspace deletes the whole selection rather than its first run.
+- Commenting leaves the caret in the commented text instead of in the new
+  thread's node.
+
+**What is left.** With the import blocked, the model selection reads
+`word:21[35..45]` right up to the keypress, and the deletion removes `[0..35]` —
+everything *before* the selection. So the offsets the delete acts on are not the
+ones the model was holding a moment earlier: pressing Backspace goes through
+`beforeinput`, and the view recomputes the model selection from the **DOM**
+first. After a comment has been applied and rendered, that DOM selection is not
+where the model's was.
+
+- [ ] **Compare the DOM selection with the model's, immediately after a mark is
+  applied and rendered.** That is the last link. Everything upstream of it now
+  agrees, and it is the one place two answers to "what is selected" still differ.
+  The reproduction is unchanged: comment on ten characters, select them again,
+  Backspace, and watch 35 characters go.
 - [ ] **A state that says the editor is receiving input.** There is no such
   thing today. There is `_isComposing` (IME only), `isTypingBurst` (characters
   only — not a deletion, a paste or a drop), and `isModelDrivenChange`, which is
