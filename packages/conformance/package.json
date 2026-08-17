@@ -1,7 +1,7 @@
 {
-  "name": "@barocss/office-slides",
+  "name": "@barocss/conformance",
   "version": "0.1.0",
-  "description": "Slides: the presentation product layer over the Barocss editor engine",
+  "description": "What a product must satisfy: the checks a schema and its kit are held to",
   "type": "module",
   "main": "./src/index.ts",
   "module": "./src/index.ts",
@@ -41,19 +41,13 @@
   },
   "dependencies": {
     "@barocss/schema": "workspace:*",
-    "@barocss/editor-core": "workspace:*",
-    "@barocss/extensions": "workspace:*",
-    "@barocss/model": "workspace:*",
-    "@barocss/shared": "workspace:*",
-    "@barocss/dsl": "workspace:*",
-    "@barocss/office-word": "workspace:*"
+    "@barocss/dsl": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.9.3",
     "vite": "^5.4.21",
     "vite-plugin-dts": "^3.9.1",
-    "vitest": "^1.6.1",
-    "@barocss/conformance": "workspace:*"
+    "vitest": "^1.6.1"
   },
   "author": "Barocss Team",
   "license": "MIT"

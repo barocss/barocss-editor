@@ -67,6 +67,28 @@ Each of these is in `src/formatting.ts` with a comment saying what it is for.
   spans a range of characters and an attribute belongs to a run, and Word's own
   model is the run.
 
+### Word offers commands for things it cannot draw
+
+Found by the conformance harness within an hour of it existing, and confirmed in
+the running app: **`insertCallout` reports success, puts a `callout` in the
+document, and draws nothing.** The reader's text is in the model and invisible on
+the page.
+
+`word-kit` calls `createRichExtensions()` — the whole rich-editor bundle — so
+Word registers an insert command for every node in it and has renderers for
+about half. Ten undrawn node types are reachable from Word's 166 commands.
+
+- [ ] **Word should compose the extensions it can draw** rather than taking the
+  bundle. Some of what the bundle brings Word does want — underline, links,
+  images, tables, highlight, page breaks. The rest produces invisible content.
+- [ ] **Or the office schema should declare what it offers** rather than
+  inheriting the whole standard node set. Nine more node types are declared and
+  unreachable, which is harmless only until a document arrives holding one.
+
+The full list, with a reason each, is the exemption map in
+`packages/office-word/test/conformance.test.ts` — and fixing one without deleting
+its line there fails the build, which is the point.
+
 ### Slides — the second product
 
 Chosen because the pieces were already there and because it is the one product
