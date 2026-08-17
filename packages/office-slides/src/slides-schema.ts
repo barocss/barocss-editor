@@ -70,8 +70,10 @@ export function getSlidesSchemaDefinition(): SchemaDefinition {
           layoutId: { type: 'string', required: false },
           /** Kept in the deck, skipped while presenting. */
           hidden: { type: 'boolean', default: false },
-          /** What the presenter says. Prose, so it is blocks like anything else. */
-          notesId: { type: 'string', required: false }
+          /**
+           * What the presenter says lives in a `speakerNote`, which finds its
+           * slide by `surfaceId` — so a slide needs no attribute for it.
+           */
         }
       },
 
@@ -91,19 +93,11 @@ export function getSlidesSchemaDefinition(): SchemaDefinition {
         }
       },
 
-      /**
-       * A slide's speaker notes.
-       *
-       * A resource rather than a scene node: notes are about the slide and are
-       * never drawn on it, the same way a header is about a page and is drawn
-       * by the layout rather than by the flow.
-       */
-      slideNotes: {
-        name: 'slideNotes',
-        group: 'resource',
-        content: 'block*',
-        attrs: { id: { type: 'string', required: true } }
-      },
+      // Speaker notes are `speakerNote`, which the office schema already
+      // declares — a resource bound to one surface by `surfaceId`. I wrote a
+      // `slideNotes` before reading for one, which is the mistake this whole
+      // product keeps finding in other people's code and is why the check
+      // belongs in the build rather than in somebody's memory.
 
       /**
        * A layout: the placeholders a slide of this kind starts with, and how
