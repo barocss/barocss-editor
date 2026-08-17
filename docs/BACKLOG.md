@@ -157,12 +157,41 @@ that forces a caret selection and a node selection to coexist. `packages/office-
   stops this being a deck editor rather than a deck viewer.
 - [ ] **Multi-node selection** — the spike's finding, and the first thing a slide
   editor needs that Word never did.
+- [x] **A properties panel** — `boxAt` finds the nearest box above the caret,
+  `setBoxGeometry` and `setBoxStyle` change it, and the panel is the suite's.
+  Not a stand-in for node selection: it is the honest answer to where the reader
+  is while they are typing, which is what a properties panel is for most of the
+  time. First thing anywhere to read `locked`.
 - [ ] **Direct manipulation** — drag and resize handles, alongside the caret that
-  still has to work inside a `textFrame`.
+  still has to work inside a `textFrame`. `boxAt` and the two box commands are
+  already what a handle would use, so this is the drag arithmetic and the hit
+  testing, not the model.
 - [ ] **Applying a layout.** `slideLayout` is drawn (hidden) and read by nothing:
   a new slide should start with its layout's placeholders, and a slide that
   follows a layout should take its formatting from it. Declared and unread, in
   a product written this week — the pattern does not stop being easy to commit.
+
+### The suite's chrome
+
+`packages/office-ui` — the toolbar, dialog and property components both products
+draw with. The division it rests on already existed inside Word and was the right
+one: the toolbar *model* is DOM-free and product-declared, and only the drawing
+was shared.
+
+- [x] **Extracted, with Word moved onto it** and its e2e unchanged. Two Word
+  names came out of the components on the way — `w-toolbar` baked into the
+  toolbar and `w-toolbar-style` as a default — because a suite component naming
+  one product is one the next product works around.
+- [x] **Slides declares its own toolbar** and looks identical, which is the test
+  of whether the split was right.
+- [ ] **`Dialog` is written and nothing uses it yet.** Both products want one —
+  Word for its format dialogs, Slides for slide size and layout — and a component
+  no product has drawn is a component nobody has checked. Declared and unread, in
+  the file that was written to hold the suite's agreements.
+- [ ] **Tailwind has to be told where the components are.** `@source` in each
+  app's stylesheet. Miss it and every class attribute is intact with no rules
+  behind any of them: the deck's ribbon rendered as one control per line, with no
+  error anywhere.
 
 ### The shared layer
 
@@ -216,6 +245,24 @@ only a second product could produce.
   surface's identity is its sid, and a sid is `session:counter` handed out at
   load, so no authored document can name one. Either delete it or decide what
   resolves it.
+- [ ] **The chrome and the document fight over keys, in both directions.** Two
+  faults, opposite ways round, both found by building a deck's chrome:
+  Ctrl+Z from a toolbar button reached nothing, because the editor binds keys on
+  its own contenteditable and the focus was on a button; and Enter in a property
+  field reached the *document*, because Enter's default action was still pending
+  when the field blurred and the browser delivered the resulting `beforeinput` to
+  whatever was editable next. So a chrome control has to route the keys it wants
+  and prevent the defaults of the keys it handles, and neither of those is
+  discoverable — the first does nothing at all, and the second commits a second
+  edit. Worth a stated rule the suite's components carry, rather than two
+  work-arounds.
+- [ ] **Removing an attribute means restating every other one.** `setAttrs`
+  merges, so a caller taking one away has to read the node, rebuild the whole
+  attribute set without that key, and pass `replace: true` —
+  `SlidesExtension._setBoxAttrs` does exactly that to clear a fill. A
+  `removeAttrs` (or a documented `null` convention in `setAttrs`) would put it in
+  the operation vocabulary where it belongs, with one inverse instead of every
+  caller's.
 - [ ] **`th` centres its text and Word does not say otherwise.** The browser's
   default reaches the document because no renderer overrides it. Cosmetic in
   Word, obvious on a slide.

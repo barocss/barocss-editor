@@ -36,6 +36,15 @@ export { createSampleDeck } from './sample-deck';
 export { createSlideCommands, SlidesExtension } from './slide-commands';
 
 export {
+  SCENE_TYPES,
+  boxAt,
+  isSceneType,
+  slideAt,
+  type PlacedBox,
+  type SceneType
+} from './selection';
+
+export {
   SLIDES_TOOLBAR,
   slidesToolbarCommands,
   slidesToolbarMarkTypes,

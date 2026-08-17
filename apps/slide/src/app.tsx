@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import type { EditorViewDOM } from '@barocss/editor-view-dom';
 import { Filmstrip } from './filmstrip';
+import { Properties } from './properties';
 import { Ribbon } from './ribbon';
 import { Stage } from './stage';
 import { useDeck, useNote } from './deck-model';
@@ -174,6 +175,13 @@ export function App({
              */}
           </section>
         </main>
+
+        {/*
+         * The panel on the right, where every Office product keeps it. Drawn with
+         * the suite's components; what is in it is a deck's — a box has a
+         * position, which is the whole difference between a slide and a page.
+         */}
+        <Properties editor={editor} slides={slides} current={current} />
       </div>
     </div>
   );

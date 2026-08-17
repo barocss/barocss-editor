@@ -122,6 +122,26 @@ export function PropertyNumber({
         placeholder={value === null ? '—' : undefined}
         onBlur={(event) => commit(event.target.value)}
         onKeyDown={(event) => {
+          /**
+           * A field's keys are the field's, not the document's.
+           *
+           * Without this, the Enter that commits a number also split the very
+           * paragraph inside the box being resized: one keystroke, two edits,
+           * and two presses of undo to get back. It took measuring to see why,
+           * and the reason is worth writing down because it is not the obvious
+           * one — the editor listens for `keydown` on its own contenteditable,
+           * so the key never reached it. What reached it was **`beforeinput`**:
+           * Enter's default action was still pending when `blur()` moved focus,
+           * and the browser delivered it to whatever was editable next.
+           *
+           * So `stopPropagation` alone was not enough and was not the point.
+           * Preventing the default is: this field is handling Enter, and a
+           * handled key has no default left to run.
+           */
+          event.stopPropagation();
+
+          if (event.key === 'Enter' || event.key === 'Escape') event.preventDefault();
+
           if (event.key === 'Enter') (event.target as HTMLInputElement).blur();
           if (event.key === 'Escape') {
             (event.target as HTMLInputElement).value = shown;

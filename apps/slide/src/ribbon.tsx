@@ -41,10 +41,14 @@ export function Ribbon({
   const [tick, bump] = useReducer((n: number) => n + 1, 0);
   useEffect(() => {
     if (!editor) return;
-    editor.on('editor:selection.change', bump);
+    // `selection.model`, not `selection.change`. Copied wrongly from Word's
+    // ribbon at first, and nothing said so: the handler simply never ran, so the
+    // toolbar and this panel kept whatever they had read at mount and looked
+    // like a caret that never moved.
+    editor.on('editor:selection.model', bump);
     editor.on('editor:content.change', bump);
     return () => {
-      (editor as any).off?.('editor:selection.change', bump);
+      (editor as any).off?.('editor:selection.model', bump);
       (editor as any).off?.('editor:content.change', bump);
     };
   }, [editor]);

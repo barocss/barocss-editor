@@ -1,17 +1,21 @@
 import { Editor, Extension } from '@barocss/editor-core';
 import { transaction } from '@barocss/model';
 import { copyOf, deckSlides, layoutPlaceholders, type DeckAccess } from './deck';
+import { isSceneType } from './selection';
 import { SLIDE_16_9 } from './geometry';
 
 /**
  * The commands that are a deck's own.
  *
  * Everything else Slides offers is text editing, which is the shared kit's and
- * Word's. These five are the ones that have no counterpart in a document: a
- * page is a consequence of how much text there is, and a slide is a thing the
- * author makes, moves, hides and throws away.
+ * Word's. These are the ones with no counterpart in a document: a page is a
+ * consequence of how much text there is, and a slide is a thing the author
+ * makes, moves, hides and throws away — and the things on it are boxes with a
+ * position rather than paragraphs in a flow.
  *
  * Without them the product is a deck *viewer*, which is what it was until now.
+ * `setBoxGeometry` and `setBoxStyle` join them: the first thing here that edits
+ * a *box* rather than a slide, and the first thing anywhere to read `locked`.
  *
  * ## One transaction each
  *
@@ -84,6 +88,35 @@ export class SlidesExtension implements Extension {
       'toggleSlideHidden',
       (payload) => this._toggleHidden(editor, payload?.slideId),
       (payload) => !!this._slideAt(editor, payload?.slideId)
+    );
+
+    /**
+     * Where a box is and how big.
+     *
+     * One command for all four numbers rather than four, because a properties
+     * panel changes one at a time and a drag changes two at once, and both have
+     * to be one entry in the history. Only the values given are written: a panel
+     * that sent all four would overwrite a width the reader had not touched with
+     * whatever its field happened to be showing.
+     *
+     * Refused for a locked box. `locked` is in the schema, was read by nothing,
+     * and the first command that could move something is the first one that owes
+     * it an answer.
+     */
+    register(
+      'setBoxGeometry',
+      (payload) => this._setBoxAttrs(editor, payload?.nodeId, this._geometryOf(payload)),
+      (payload) =>
+        this._canEditBox(editor, payload?.nodeId) &&
+        Object.keys(this._geometryOf(payload)).length > 0
+    );
+
+    /** Fill and stroke. `null` means none, which is not the same as white. */
+    register(
+      'setBoxStyle',
+      (payload) => this._setBoxAttrs(editor, payload?.nodeId, this._styleOf(payload)),
+      (payload) =>
+        this._canEditBox(editor, payload?.nodeId) && Object.keys(this._styleOf(payload)).length > 0
     );
   }
 
@@ -265,6 +298,104 @@ export class SlidesExtension implements Extension {
 
     const result = await transaction(editor, [
       { type: 'moveNode', payload: { nodeId: sid, newParentId: doc.rootId, position: target } }
+    ] as never).commit();
+
+    return result.success;
+  }
+
+  // ── Boxes ──────────────────────────────────────────────────────────────────
+
+  /**
+   * Whether this box can be edited at all.
+   *
+   * `locked` has been in the schema since the canvas nodes were declared and
+   * nothing had ever read it, because nothing could move a box. A command that
+   * ignored it would make the attribute a lie rather than leave it unread.
+   */
+  private _canEditBox(editor: Editor, nodeId?: string): boolean {
+    const doc = this._access(editor);
+    if (!doc || !nodeId) return false;
+
+    const node = doc.getNode(nodeId);
+    if (!isSceneType(node?.stype)) return false;
+    return node!.attributes?.locked !== true;
+  }
+
+  /** Only the numbers the caller actually gave, so nothing else is overwritten. */
+  private _geometryOf(payload: any): Record<string, number> {
+    const out: Record<string, number> = {};
+    for (const key of ['x', 'y', 'width', 'height', 'rotation'] as const) {
+      const value = payload?.[key];
+      if (typeof value === 'number' && Number.isFinite(value)) out[key] = value;
+    }
+    return out;
+  }
+
+  /**
+   * Fill, stroke and opacity, with `null` kept as a value.
+   *
+   * `null` is how a caller says "no fill", which is a real answer — a text box
+   * over a picture usually wants it — and is not the same as not mentioning
+   * fill at all. So `undefined` means "leave it" and `null` means "none".
+   */
+  private _styleOf(payload: any): Record<string, unknown> {
+    const out: Record<string, unknown> = {};
+    for (const key of ['fill', 'stroke'] as const) {
+      if (!(key in (payload ?? {}))) continue;
+      const value = payload[key];
+      // `null` is carried through rather than turned into `undefined`: it is the
+      // caller saying "none", and `_setBoxAttrs` needs to tell that apart from
+      // "not mentioned".
+      if (value === null || typeof value === 'string') out[key] = value;
+    }
+    for (const key of ['strokeWidth', 'opacity'] as const) {
+      const value = payload?.[key];
+      if (typeof value === 'number' && Number.isFinite(value)) out[key] = value;
+    }
+    return out;
+  }
+
+  /**
+   * Write attributes onto a box, including taking one away.
+   *
+   * Removal is the awkward half and it is awkward at the operation level, not
+   * here: `setAttrs` merges, and an attribute set to `undefined` is dropped from
+   * the merge rather than removed from the node — so clearing a fill left the
+   * old colour in place and the command reported success.
+   *
+   * The only way to remove one is to state the whole set with `replace: true`,
+   * which means reading the node first. So a payload carrying `null` becomes a
+   * replacement built from what the node has, minus the keys being cleared;
+   * anything else stays a merge, which is both cheaper and safe against a
+   * concurrent write to an attribute this command was not asked about.
+   *
+   * That every caller wanting to remove an attribute has to reconstruct the set
+   * is a gap in the operation vocabulary, not a fact about slides — noted in
+   * `docs/BACKLOG.md`.
+   */
+  private async _setBoxAttrs(
+    editor: Editor,
+    nodeId: string | undefined,
+    attrs: Record<string, unknown>
+  ): Promise<boolean> {
+    if (!this._canEditBox(editor, nodeId) || Object.keys(attrs).length === 0) return false;
+
+    const cleared = Object.keys(attrs).filter((key) => attrs[key] === null);
+
+    let payload: Record<string, unknown>;
+    if (cleared.length === 0) {
+      payload = { nodeId, attrs };
+    } else {
+      const current = { ...(this._access(editor)!.getNode(nodeId!)?.attributes ?? {}) };
+      for (const [key, value] of Object.entries(attrs)) {
+        if (value === null) delete current[key];
+        else current[key] = value;
+      }
+      payload = { nodeId, attrs: current, replace: true };
+    }
+
+    const result = await transaction(editor, [
+      { type: 'setAttrs', payload }
     ] as never).commit();
 
     return result.success;

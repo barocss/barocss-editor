@@ -286,3 +286,115 @@ describe('the commands a deck has', () => {
     });
   });
 });
+
+/**
+ * The two that edit a box rather than a slide.
+ *
+ * Separate from the deck commands because the questions are different: a deck
+ * command asks which slide, and these ask which box and whether it will allow
+ * itself to be moved.
+ */
+describe('the commands a box has', () => {
+  let editor: Editor;
+  let store: DataStore;
+
+  const run = async (command: string, payload?: unknown) =>
+    await (editor as any).executeCommand(command, payload);
+  const can = (command: string, payload?: unknown) =>
+    (editor as any).canExecuteCommand?.(command, payload);
+  const attrs = (sid: string) => (store.getNode(sid) as any).attributes;
+
+  let box: string;
+  let locked: string;
+
+  beforeEach(() => {
+    const schema = createSchema('slides', getSlidesSchemaDefinition());
+    store = new DataStore(undefined, schema);
+    editor = createSlidesEditor({ editable: true, schema, dataStore: store });
+
+    editor.loadDocument(
+      {
+        stype: 'document',
+        attributes: {},
+        content: [
+          {
+            stype: 'surface',
+            attributes: { kind: 'slide' },
+            content: [
+              {
+                stype: 'textFrame',
+                attributes: { role: 'title', x: 100, y: 200, width: 300, height: 400 },
+                content: [{ stype: 'paragraph', attributes: {}, content: [] }]
+              },
+              {
+                stype: 'rectangle',
+                attributes: { x: 0, y: 0, width: 50, height: 50, locked: true }
+              }
+            ]
+          }
+        ]
+      } as never,
+      'slides'
+    );
+
+    const surface = (store.getNode((editor as any).getRootId()) as any).content[0];
+    [box, locked] = (store.getNode(surface) as any).content;
+  });
+
+  it('writes only the numbers it was given', () => {
+    // A panel that sent all four would overwrite a width the reader never
+    // touched with whatever its field happened to be showing.
+    expect(can('setBoxGeometry', { nodeId: box, x: 999 })).toBe(true);
+  });
+
+  it('moves a box', async () => {
+    expect(await run('setBoxGeometry', { nodeId: box, x: 999, width: 1234 })).toBeTruthy();
+    expect(attrs(box)).toMatchObject({ x: 999, y: 200, width: 1234, height: 400 });
+  });
+
+  it('undoes a move', async () => {
+    await run('setBoxGeometry', { nodeId: box, x: 999 });
+    await (editor as any).undo();
+    expect(attrs(box).x).toBe(100);
+  });
+
+  /**
+   * `locked` had been in the schema since the canvas nodes were declared and
+   * nothing had ever read it, because nothing could move a box.
+   */
+  it('refuses a locked box', async () => {
+    expect(can('setBoxGeometry', { nodeId: locked, x: 5 })).toBe(false);
+    expect(await run('setBoxGeometry', { nodeId: locked, x: 5 })).toBeFalsy();
+    expect(attrs(locked).x).toBe(0);
+  });
+
+  it('refuses anything that is not a box', async () => {
+    const paragraph = (store.getNode(box) as any).content[0];
+    expect(can('setBoxGeometry', { nodeId: paragraph, x: 5 })).toBe(false);
+    expect(can('setBoxGeometry', { nodeId: 'nope', x: 5 })).toBe(false);
+  });
+
+  it('refuses a change that says nothing', () => {
+    // An empty payload is not an edit, and committing one would put an entry in
+    // the history that undoes to the same document.
+    expect(can('setBoxGeometry', { nodeId: box })).toBe(false);
+    expect(can('setBoxGeometry', { nodeId: box, x: NaN })).toBe(false);
+    expect(can('setBoxStyle', { nodeId: box })).toBe(false);
+  });
+
+  it('sets a fill, and clears one', async () => {
+    await run('setBoxStyle', { nodeId: box, fill: '#ff0000' });
+    expect(attrs(box).fill).toBe('#ff0000');
+
+    // `null` is how a caller says "no fill" — a real answer, and not white.
+    await run('setBoxStyle', { nodeId: box, fill: null });
+    expect(attrs(box).fill).toBeUndefined();
+  });
+
+  it('undoes a cleared fill back to the colour', async () => {
+    await run('setBoxStyle', { nodeId: box, fill: '#ff0000' });
+    await run('setBoxStyle', { nodeId: box, fill: null });
+    await (editor as any).undo();
+    expect(attrs(box).fill).toBe('#ff0000');
+  });
+});
