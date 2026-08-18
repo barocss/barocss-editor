@@ -3,6 +3,7 @@ import type { Editor } from '@barocss/editor-core';
 import { selectedNodeIds } from '@barocss/editor-core';
 import {
   RESIZE_HANDLES,
+  fromSurface,
   angleOf,
   boxAt,
   boxOf,
@@ -183,17 +184,13 @@ export function SelectionOverlay({
    * nothing.
    */
   const origin = useMemo(() => {
-    let x = 0;
-    let y = 0;
-    for (let at = inside; at && at !== slideSid; ) {
-      const node: any = doc?.getNode(at);
-      if (!node) break;
-      x += typeof node.attributes?.x === 'number' ? node.attributes.x : 0;
-      y += typeof node.attributes?.y === 'number' ? node.attributes.y : 0;
-      at = node.parentId as string | undefined;
-    }
-    return { x, y };
-  }, [doc, inside, slideSid, tick, revision]);
+    if (!doc || !inside) return { x: 0, y: 0 };
+    // `fromSurface` of the origin *is* the origin, negated — asking the shared
+    // conversion rather than walking the chain again here, which is what this
+    // used to do and what grouping still did separately.
+    const zero = fromSurface(doc as never, inside, { x: 0, y: 0 });
+    return { x: -zero.x, y: -zero.y };
+  }, [doc, inside, tick, revision]);
 
   /**
    * The boxes a click can land on: the children of whatever is being looked

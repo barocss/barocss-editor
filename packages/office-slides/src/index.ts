@@ -74,7 +74,10 @@ export {
   boxAt,
   isSceneType,
   slideAt,
+  toSurface,
+  fromSurface,
   type PlacedBox,
+  type Positioned,
   type SceneType
 } from './selection';
 

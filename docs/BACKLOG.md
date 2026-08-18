@@ -160,9 +160,12 @@ Ordered so that each one is unblocked by the one before it.
      `office-slides/test/one-unit.test.ts`, which lives there because that is
      the package that can see both. On screen: a canvas that drew 360×140 still
      draws 360×140, from 5400×2100.
-2. - [ ] **`toSurface` / `fromSurface`.** The container-to-slide conversion, in
-     one pair of functions instead of derived a third time. Grouping does it by
-     hand and the overlay does it inline; the clipboard would be the third.
+2. - [x] **`toSurface` / `fromSurface`.** The container-to-slide conversion, in
+     one pair of functions in `office-slides/selection`, with the overlay's
+     inline walk replaced by a call. Grouping turned out *not* to be a second
+     derivation: it rebases against a frame it is creating, so there is no node
+     to walk to and `intoFrame` is the right tool — the difference is whether
+     the container exists yet, and the two are worth keeping apart.
 3. - [ ] **A clipboard for objects.** Copy, cut and paste shapes between slides,
      between containers and between decks. `copyOf` is the tree-copy half and
      the rebasing is (2). The first feature that needs a coordinate to change
