@@ -77,6 +77,20 @@ const style = CANVAS_STYLE_ATTRS;
 export function getCanvasNodeDefinitions(): Record<string, NodeTypeDefinition> {
   return {
     // ── Containers ───────────────────────────────────────────────────────────
+    /**
+     * A box that holds other placed things, and may arrange them.
+     *
+     * `layoutMode` has been declared since these nodes were written and was read
+     * by nothing. Reading it is what turns a frame into Figma's auto-layout:
+     * `row`, `column` or `grid` means the frame owns its children's `x` and `y`
+     * and computes them, so three shapes stay evenly spaced when a fourth
+     * arrives. Absent, or `none`, and the children keep their own coordinates as
+     * they always have.
+     *
+     * The four attributes beside it are what the arrangement needs, and each is
+     * declared in the change that reads it — `gap` and `padding` in twips like
+     * every other length, `alignItems` across the run, `columns` for a grid.
+     */
     frame: {
       name: 'frame',
       group: SCENE,
@@ -85,6 +99,10 @@ export function getCanvasNodeDefinitions(): Record<string, NodeTypeDefinition> {
         name: { type: 'string', required: false },
         clipsContent: { type: 'boolean', default: true },
         layoutMode: { type: 'string', required: false },
+        gap: { type: 'number', default: 0 },
+        padding: { type: 'number', default: 0 },
+        alignItems: { type: 'string', default: 'start' },
+        columns: { type: 'number', default: 2 },
         ...geometry,
         ...style
       }

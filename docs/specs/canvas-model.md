@@ -1,9 +1,11 @@
 # What a coordinate on a canvas means
 
-Three decisions that had to be made, settled together because each was about to
-be made twice — once by a clipboard, once by a layout — and a decision made
-twice is a decision made differently. A fourth is written down early, because it
-is the one that would otherwise be made by accident.
+Decisions about what the model *means*, settled here so they are settled once.
+The first three had to be made and were about to be made twice — once by a
+clipboard, once by a layout — and a decision made twice is a decision made
+differently. The fourth is written down early, because it is the one that would
+otherwise be made by accident. The fifth arrived with a feature and belongs with
+them.
 
 Every number below is measured from the code as it stands. Where the answer is
 "we chose", the cost of the choice is written down with it. All three of the
@@ -214,6 +216,46 @@ operation take on a concern that only some documents have.
 
 Nothing is declared for it now. A node type declared before something reads it is
 how this schema came to have fifteen of them with no renderer.
+
+## 5. A frame that lays out owns its children's coordinates
+
+`frame` has declared `layoutMode` since the canvas nodes were written and
+nothing has ever read it. Reading it is what turns a frame from "a box that
+holds things" into Figma's auto-layout: three shapes in a row with an even gap,
+which stays even when a fourth arrives.
+
+**The decision, and it is the whole of it: the layout is computed into the
+model, not into CSS.**
+
+The browser could do it — a frame with `display: flex` and the children made
+static — and that is the wrong answer here for a reason this document has
+already settled twice. A slide **places**: `x` and `y` say where a box is, the
+selection handles are drawn from them, the properties panel reads them, an
+exporter writes them. A frame that let CSS decide would leave every one of those
+reading coordinates that no longer describe what is on the screen — handles
+beside the shape rather than on it, and a panel reporting a position the reader
+cannot see.
+
+So `layoutMode` means **the frame owns its children's `x` and `y`**, and the
+values in the document are the values on the screen, as they are everywhere
+else. What follows from that:
+
+- **A drag inside a laid-out frame reorders rather than moves.** Position is not
+  the child's to set, so the only thing a drag can mean is "put this one before
+  that one" — which is what every tool with auto-layout does.
+- **The layout is a pure function**, from the frame's settings and its children's
+  sizes to a position for each, so it can be tested in milliseconds and drawn
+  by nothing but the ordinary renderers.
+- **It re-runs when the frame changes** — a child added, removed, resized, or a
+  gap edited — and writes only when the answer differs, which is what keeps a
+  reaction from feeding itself.
+
+**What it costs.** A frame's own size stays the author's; the children are
+placed inside it and a frame too small to hold them clips or overflows as it
+always did. Sizing a frame to its contents — Figma's "hug" — is a second
+decision about who owns the *frame's* box, and is not made here.
+
+---
 
 ## What the first three have in common
 

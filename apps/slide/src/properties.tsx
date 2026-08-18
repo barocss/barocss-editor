@@ -8,6 +8,7 @@ import {
   PropertyPanel,
   PropertyRow,
   PropertyToggle,
+  PropertyChoice,
   LENGTH_UNITS,
   fromDisplay,
   stepFor,
@@ -15,7 +16,7 @@ import {
   unitSuffix,
   type LengthUnit
 } from '@barocss/office-ui';
-import { boxAt, type Slide } from '@barocss/office-slides';
+import { boxAt, laysOut, type Slide } from '@barocss/office-slides';
 
 /**
  * The properties of what the reader is on.
@@ -174,6 +175,11 @@ export function Properties({
    * Every other box command is refused for a locked box — that is what `locked`
    * means — so a lock set through `setBoxStyle` could never be taken off again.
    */
+  /** Arranging what is in a frame, which is its own command. */
+  const setLayout = (patch: Record<string, unknown>) => {
+    void (editor as any)?.executeCommand?.('setFrameLayout', { nodeId: box?.sid, ...patch });
+  };
+
   const setLocked = (value: boolean) => {
     void (editor as any)?.executeCommand?.('setBoxLocked', { nodeId: box?.sid, locked: value });
   };
@@ -292,6 +298,97 @@ export function Properties({
               )}
             </PropertyRow>
           </PropertyGroup>
+
+          {/*
+            * A frame that arranges what is in it.
+            *
+            * `layoutMode` is declared on `frame` and on nothing else, so the
+            * group appears for a frame and for no other box — the same rule the
+            * rest of this panel follows, asked of the schema rather than of a
+            * list of stypes.
+            *
+            * Turning it on *is* the arrangement: the command sets the mode and
+            * places the children in one transaction, so a reader who picks
+            * "가로" sees the boxes move rather than a setting that promises to
+            * matter later.
+            */}
+          {declares('layoutMode') && (
+            <PropertyGroup label="배치">
+              <PropertyRow label="방향">
+                <PropertyChoice
+                  ariaLabel="배치 방향"
+                  value={
+                    typeof box?.attributes?.layoutMode === 'string'
+                      ? (box.attributes.layoutMode as string)
+                      : 'none'
+                  }
+                  options={[
+                    { id: 'none', label: '없음' },
+                    { id: 'row', label: '가로' },
+                    { id: 'column', label: '세로' },
+                    { id: 'grid', label: '그리드' }
+                  ]}
+                  disabled={locked}
+                  onChange={(value) => setLayout({ layoutMode: value })}
+                />
+              </PropertyRow>
+              {laysOut(box?.attributes) && (
+                <>
+                  <PropertyRow label="간격">
+                    <PropertyNumber
+                      ariaLabel="간격"
+                      value={lengthOf('gap') ?? 0}
+                      suffix={unitSuffix(unit)}
+                      step={stepFor(unit)}
+                      disabled={locked}
+                      onCommit={(value) => setLayout({ gap: fromDisplay(Math.max(0, value), unit) })}
+                    />
+                  </PropertyRow>
+                  <PropertyRow label="여백">
+                    <PropertyNumber
+                      ariaLabel="안쪽 여백"
+                      value={lengthOf('padding') ?? 0}
+                      suffix={unitSuffix(unit)}
+                      step={stepFor(unit)}
+                      disabled={locked}
+                      onCommit={(value) =>
+                        setLayout({ padding: fromDisplay(Math.max(0, value), unit) })
+                      }
+                    />
+                  </PropertyRow>
+                  <PropertyRow label="맞춤">
+                    <PropertyChoice
+                      ariaLabel="교차 축 맞춤"
+                      value={
+                        typeof box?.attributes?.alignItems === 'string'
+                          ? (box.attributes.alignItems as string)
+                          : 'start'
+                      }
+                      options={[
+                        { id: 'start', label: '시작' },
+                        { id: 'center', label: '가운데' },
+                        { id: 'end', label: '끝' }
+                      ]}
+                      disabled={locked}
+                      onChange={(value) => setLayout({ alignItems: value })}
+                    />
+                  </PropertyRow>
+                  {box?.attributes?.layoutMode === 'grid' && (
+                    <PropertyRow label="열">
+                      <PropertyNumber
+                        ariaLabel="열 수"
+                        value={plain('columns', 2)}
+                        disabled={locked}
+                        onCommit={(value) =>
+                          setLayout({ columns: Math.max(1, Math.round(value)) })
+                        }
+                      />
+                    </PropertyRow>
+                  )}
+                </>
+              )}
+            </PropertyGroup>
+          )}
 
           {(declares('fill') || declares('stroke') || declares('cornerRadius')) && (
           <PropertyGroup label="채우기와 선">

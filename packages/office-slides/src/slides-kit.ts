@@ -22,6 +22,7 @@ import { createSlideCommands } from './slide-commands';
 import { createBoxCommands } from './box-commands';
 import { createArrangeCommands } from './arrange-commands';
 import { createClipboardCommands } from './clipboard-commands';
+import { createLayoutCommands } from './layout-commands';
 
 /**
  * What can be done in a deck.
@@ -84,7 +85,10 @@ export function createSlidesExtensions(): Extension[] {
     // What is in front, and what lines up with what — the commands a document
     // has no use for, because its blocks are in one order and at one place.
     createArrangeCommands(),
-    createClipboardCommands()
+    createClipboardCommands(),
+
+    // A frame that arranges what is in it — `layoutMode`, read at last.
+    createLayoutCommands()
   ];
 }
 

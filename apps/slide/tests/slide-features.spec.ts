@@ -195,6 +195,116 @@ test.describe('snapping', () => {
   });
 });
 
+test.describe('a frame that arranges what is in it', () => {
+  /**
+   * `layoutMode` was declared with the canvas nodes and read by nothing. What it
+   * buys a deck is the half of presentation work that is not writing: three
+   * boxes in a row with an even gap, which stays even.
+   */
+  const openFrame = async (page: import('@playwright/test').Page) => {
+    await openDeck(page);
+    await page.locator('.sl-filmstrip button').nth(2).click();
+    await page.waitForTimeout(500);
+
+    const frame = await page.evaluate(() => {
+      const store = (window as any).editor.dataStore;
+      const root = store.getNode((window as any).editor.getRootId());
+      const slide = (root.content ?? [])
+        .map((s: string) => store.getNode(s))
+        .filter((n: any) => n?.stype === 'surface')[2];
+      const found = (slide.content ?? [])
+        .map((s: string) => store.getNode(s))
+        .find((n: any) => n?.stype === 'frame');
+      return found ? { sid: found.sid, kids: found.content } : null;
+    });
+    return frame;
+  };
+
+  const positions = async (page: import('@playwright/test').Page, kids: string[]) =>
+    await page.evaluate(
+      (list) =>
+        list.map((sid: string) => {
+          const a = (window as any).editor.dataStore.getNode(sid).attributes;
+          return `${a.x},${a.y}`;
+        }),
+      kids
+    );
+
+  test('puts them in a row the moment it is turned on', async ({ page }) => {
+    const frame = await openFrame(page);
+    test.skip(!frame, 'this slide has no frame');
+
+    const before = await positions(page, frame!.kids);
+    await page.evaluate((sid) => (window as any).editor.executeCommand('setNode', { nodeIds: [sid] }), frame!.sid);
+    await page.waitForTimeout(300);
+
+    await page.locator('.sl-properties').getByLabel('배치 방향').selectOption('row');
+    await page.waitForTimeout(600);
+
+    const after = await positions(page, frame!.kids);
+    expect(after).not.toEqual(before);
+    // A row: every one at the same y, each further along than the last.
+    const ys = after.map((p) => Number(p.split(',')[1]));
+    expect(new Set(ys).size).toBe(1);
+    const xs = after.map((p) => Number(p.split(',')[0]));
+    expect(xs).toEqual([...xs].sort((a, b) => a - b));
+  });
+
+  test('follows the gap the reader types', async ({ page }) => {
+    const frame = await openFrame(page);
+    test.skip(!frame, 'this slide has no frame');
+
+    await page.evaluate((sid) => (window as any).editor.executeCommand('setNode', { nodeIds: [sid] }), frame!.sid);
+    await page.waitForTimeout(300);
+    const panel = page.locator('.sl-properties');
+    await panel.getByLabel('배치 방향').selectOption('row');
+    await page.waitForTimeout(500);
+
+    const tight = await positions(page, frame!.kids);
+    await panel.getByLabel('간격').fill('1');
+    await panel.getByLabel('간격').press('Enter');
+    await page.waitForTimeout(600);
+    const loose = await positions(page, frame!.kids);
+
+    // One centimetre is 567 twips, added between each pair.
+    const second = (list: string[]) => Number(list[1].split(',')[0]);
+    expect(second(loose) - second(tight)).toBe(567);
+  });
+
+  /** The difference between a layout and a one-off tidy-up: it holds. */
+  test('arranges a shape that arrives afterwards', async ({ page }) => {
+    const frame = await openFrame(page);
+    test.skip(!frame, 'this slide has no frame');
+
+    await page.evaluate((sid) => (window as any).editor.executeCommand('setNode', { nodeIds: [sid] }), frame!.sid);
+    await page.waitForTimeout(300);
+    await page.locator('.sl-properties').getByLabel('배치 방향').selectOption('row');
+    await page.waitForTimeout(600);
+
+    const added = await page.evaluate(async (sid) => {
+      await (window as any).editor
+        .transaction([
+          {
+            type: 'addChild',
+            payload: {
+              parentId: sid,
+              child: { stype: 'rectangle', attributes: { x: 9999, y: 9999, width: 600, height: 600 } }
+            }
+          }
+        ])
+        .commit();
+      const store = (window as any).editor.dataStore;
+      return (store.getNode(sid).content ?? []).slice(-1)[0];
+    }, frame!.sid);
+    await page.waitForTimeout(700);
+
+    const [placed] = await positions(page, [added]);
+    // Not where it was put: the frame owns its children's coordinates.
+    expect(placed).not.toBe('9999,9999');
+    expect(Number(placed.split(',')[1])).toBe(0);
+  });
+});
+
 test.describe('a layout', () => {
   /**
    * `slideLayout` was declared, drawn hidden, and read by one thing. A slide's

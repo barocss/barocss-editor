@@ -257,6 +257,48 @@ export function PropertyToggle({
   );
 }
 
+/**
+ * One of a few named choices.
+ *
+ * A plain `<select>` rather than the toolbar's `ChoiceSelect`: that one is built
+ * for a ribbon — a wide trigger, a long list, a value that may be nothing at all
+ * — and a property row wants the browser's own control, which is already
+ * keyboard-accessible and already looks like a form.
+ */
+export function PropertyChoice({
+  value,
+  options,
+  onChange,
+  disabled,
+  ariaLabel
+}: {
+  value: string;
+  options: { id: string; label: string }[];
+  onChange: (value: string) => void;
+  disabled?: boolean;
+  ariaLabel: string;
+}) {
+  return (
+    <select
+      aria-label={ariaLabel}
+      disabled={disabled}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      className={cn(
+        'h-7 w-full min-w-0 rounded border border-neutral-300 bg-transparent px-1 text-xs',
+        'dark:border-neutral-700 dark:bg-neutral-900',
+        'disabled:pointer-events-none disabled:opacity-40'
+      )}
+    >
+      {options.map((option) => (
+        <option key={option.id} value={option.id}>
+          {option.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 /** What the panel says when nothing is selected — which is most of the time. */
 export function PropertyEmpty({ children }: { children: React.ReactNode }) {
   return <p className="px-1 text-xs leading-relaxed text-neutral-500">{children}</p>;
