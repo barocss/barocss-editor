@@ -687,7 +687,7 @@ export function SelectionOverlay({
        * "throw these away" wherever the browser happens to have parked its
        * caret, and `editing` is the one state where the reader really is typing.
        */
-      if (selectedNodeIds((editor as any).selection).length === 0) return;
+      const chosen = selectedNodeIds((editor as any).selection);
 
       const target = event.target as HTMLElement | null;
       // A field in the chrome does own its own keys — it is not the document.
@@ -700,6 +700,27 @@ export function SelectionOverlay({
         event.stopPropagation();
         void (editor as any).executeCommand?.(command, payload);
       };
+
+      /**
+       * Paste, which is the one that works with nothing selected.
+       *
+       * Every other key here needs boxes to act on. A paste needs somewhere to
+       * put them, and an empty slide is somewhere — so it is handled before the
+       * guard below rather than after it. `parentId` is the container the reader
+       * has gone into, which only this overlay knows.
+       *
+       * Still not while typing: `editing` is checked at the top, so Ctrl+V with
+       * a caret in a text box is the text paste, which is what a reader means.
+       */
+      const clipboard = (event.metaKey || event.ctrlKey) && !event.altKey;
+      if (clipboard && event.key.toLowerCase() === 'v') {
+        return run('pasteBoxes', { parentId: inside ?? slideSid });
+      }
+
+      if (chosen.length === 0) return;
+
+      if (clipboard && event.key.toLowerCase() === 'c') return run('copyBoxes');
+      if (clipboard && event.key.toLowerCase() === 'x') return run('cutBoxes');
 
       if (event.key === 'Delete' || event.key === 'Backspace') return run('deleteBoxes');
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'd') {

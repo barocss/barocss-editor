@@ -190,7 +190,14 @@ Ordered so that each one is unblocked by the one before it.
      derivation: it rebases against a frame it is creating, so there is no node
      to walk to and `intoFrame` is the right tool — the difference is whether
      the container exists yet, and the two are worth keeping apart.
-3. - [x] **A clipboard for objects.** Copy, cut and paste between slides,
+3. - [x] **A clipboard for objects**, and reachable — which it was not for a
+     day. The commands were registered with no key binding and no toolbar entry,
+     which is the pattern this repository exists to catch, committed within a
+     day of adding a check for it. Ctrl/Cmd+C, X and V now, bound in the overlay
+     beside Delete and for the same reason: what Ctrl+V means depends on which
+     kind of selection is live, and only the overlay knows. Paste is handled
+     before the "boxes are selected" guard, because it is the one that needs
+     somewhere to put them rather than something to act on. Copy, cut and paste between slides,
      containers and decks. Two clipboards on purpose: the system's carries a
      shape to another window and is the reason the payload is JSON in text, and
      the extension keeps its own because reading the system's needs a permission
