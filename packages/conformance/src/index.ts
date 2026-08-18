@@ -14,6 +14,7 @@ export { everyDrawingCanHoldWhatItContains } from './checks/every-drawing-can-ho
 export { everyCommandCanBeSeen, type CommandProducing } from './checks/every-command-can-be-seen';
 export { everyCommandMakesSomethingReal } from './checks/every-command-makes-something-real';
 export { everyInsertIsAccountedFor } from './checks/every-insert-is-accounted-for';
+export { everyCommandCanBeReached } from './checks/every-command-can-be-reached';
 export { placeableTypes, childTypes, namesIn, type NodeShape } from './placeable';
 export { drawnTagFrom } from './drawn-as';
 export type { Check, Exemptions, Finding, Report, Subject } from './types';

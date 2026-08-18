@@ -45,6 +45,7 @@ export { createSlideCommands, SlidesExtension } from './slide-commands';
 export { createBoxCommands, SlidesBoxExtension } from './box-commands';
 export { createClipboardCommands, SlidesClipboardExtension } from './clipboard-commands';
 export { SLIDES_ENV_KEY, showsNotes, type SlidesEnv } from './render-context';
+export { SLIDES_KEYS, slidesKeyCommands, matchesKey, type SlidesKey } from './keymap';
 export {
   resolveDeckFormat,
   inheritedFormat,

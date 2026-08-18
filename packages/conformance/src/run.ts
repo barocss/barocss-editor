@@ -3,6 +3,7 @@ import { everyDrawingCanHoldWhatItContains } from './checks/every-drawing-can-ho
 import { everyCommandCanBeSeen, type CommandProducing } from './checks/every-command-can-be-seen';
 import { everyCommandMakesSomethingReal } from './checks/every-command-makes-something-real';
 import { everyInsertIsAccountedFor } from './checks/every-insert-is-accounted-for';
+import { everyCommandCanBeReached } from './checks/every-command-can-be-reached';
 import type { Check, Exemptions, Report, Subject } from './types';
 
 /** The checks that need nothing from the product but its schema and renderers. */
@@ -46,6 +47,24 @@ export interface ConformanceInput {
    * somebody's memory.
    */
   commands?: string[];
+  /**
+   * The commands this product adds, as opposed to the shared kit's.
+   *
+   * Measured rather than listed: a product builds an editor with its own
+   * extensions and one without them, and hands over the difference. Almost every
+   * command a product registers belongs to the shared editing kit — a hundred
+   * and twenty of them in a deck — and demanding a button for `moveCursorLeft`
+   * would be nonsense.
+   */
+  own?: string[];
+  /**
+   * The commands a reader can actually run: toolbar controls and key bindings.
+   *
+   * Both come from the product's own declarations, so this cannot drift from
+   * what the app installs — which is the whole reason a deck's key map is data
+   * in the package rather than a handler in the host.
+   */
+  reachable?: string[];
   /** Run a subset, for a product adopting the harness one check at a time. */
   only?: string[];
 }
@@ -73,7 +92,10 @@ export function conformance(input: ConformanceInput): Report {
     ...(input.produces
       ? [everyCommandMakesSomethingReal(input.produces), everyCommandCanBeSeen(input.produces)]
       : []),
-    ...(input.commands ? [everyInsertIsAccountedFor(input.commands, input.produces ?? [])] : [])
+    ...(input.commands ? [everyInsertIsAccountedFor(input.commands, input.produces ?? [])] : []),
+    // Asked last and answered first in practice: a command nothing surfaces is
+    // one nobody can run, whatever the checks above say about what it makes.
+    ...(input.own ? [everyCommandCanBeReached(input.own, input.reachable ?? [])] : [])
   ];
   const checks = input.only ? all.filter((check) => input.only!.includes(check.name)) : all;
 

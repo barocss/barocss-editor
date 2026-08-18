@@ -146,6 +146,16 @@ about half. Ten undrawn node types are reachable from Word's 166 commands.
 - [ ] **A command that makes a node and is not called `insert…` still slips
   through.** The honest limit of a convention check, written in the check
   itself.
+- [x] **A command nothing surfaces is a finding.** `every-command-can-be-reached`
+  asks the question underneath the other command checks: can a reader get at it
+  at all. Written after the failure it would have caught — three clipboard
+  commands registered, working, tested and reachable by nothing for a day, with
+  every check passing, because the harness could read a toolbar and not a key
+  map. A deck's keys are data in the package now, for the same reason its
+  toolbar is, and the check reads both. The subject is the commands a product
+  *adds*, measured as the difference between an editor built with its own
+  extensions and one built with none — a list would be a fourth place to forget
+  the thing the check exists to catch.
 - [x] **Slides conforms.** Was a ratchet at 64 of 64 undrawn on its first day;
   now `assertConforms` with 27 written exemptions and no findings.
 - [x] **A renderer that exists and draws the wrong thing no longer passes.**

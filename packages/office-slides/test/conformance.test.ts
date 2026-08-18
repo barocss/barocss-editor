@@ -5,6 +5,12 @@ import { getGlobalRegistry } from '@barocss/dsl';
 import { getSlidesSchemaDefinition } from '../src/slides-schema';
 import { registerSlidesRenderers } from '../src/renderers';
 import { createSlidesEditor } from '../src/slides-kit';
+import { createSlideCommands } from '../src/slide-commands';
+import { createBoxCommands } from '../src/box-commands';
+import { createArrangeCommands } from '../src/arrange-commands';
+import { createClipboardCommands } from '../src/clipboard-commands';
+import { slidesToolbarCommands } from '../src/toolbar-model';
+import { slidesKeyCommands } from '../src/keymap';
 
 /**
  * What Slides promises, held to.
@@ -67,6 +73,38 @@ describe('Slides draws what its schema declares', () => {
   /** Every command the kit registers, so `produces` can be checked for holes. */
   const commands = createSlidesEditor().commandNames();
 
+  /**
+   * The commands *this product* adds, measured rather than listed.
+   *
+   * A deck registers about a hundred and twenty and almost all of them are the
+   * shared editing kit's — `moveCursorLeft`, `deleteWordBackward`,
+   * `splitListItem` — which no toolbar should be asked to carry. The difference
+   * between an editor built with Slides' own extensions and one built with none
+   * is exactly the set this product is answerable for, and measuring it means
+   * there is no list here to forget to update.
+   */
+  const own = (() => {
+    const bare = new Set(createSlidesEditor({ kit: [] }).commandNames());
+    const mine = createSlidesEditor({
+      kit: [
+        createSlideCommands(),
+        createBoxCommands(),
+        createArrangeCommands(),
+        createClipboardCommands()
+      ]
+    }).commandNames();
+    return mine.filter((name: string) => !bare.has(name));
+  })();
+
+  /**
+   * What a reader can actually reach: the toolbar, and the keys.
+   *
+   * Both read from the product's own declarations rather than from the app, so
+   * this cannot drift from what is installed — which is why a deck's key map is
+   * data in the package and not a handler in the host.
+   */
+  const reachable = [...slidesToolbarCommands(), ...slidesKeyCommands()];
+
   it('draws what it declares, expects only what it says it expects', () => {
     assertConforms({
       schema: schema as never,
@@ -75,7 +113,20 @@ describe('Slides draws what its schema declares', () => {
       drawnAs: drawnTagFrom(registry as never),
       produces,
       commands,
+      own,
+      reachable,
       exempt: {
+        // ── Reached somewhere other than the toolbar or a key ──────────────
+        // Each of these is run from a control a reader can point at; the check
+        // can see the toolbar and the key map and nothing else, so where it is
+        // reached is written down here and fails if it stops being true.
+        setBoxGeometry: 'the properties panel — position, size and rotation',
+        setBoxStyle: 'the properties panel — fill, stroke, corner radius',
+        setBoxLocked: 'the properties panel — the lock, which needs its own command',
+        setDeckSize: 'the slide-size dialog',
+        setSlideLayout: 'the layout dialog',
+        addSlideNote: 'the button in the notes pane, shown when a slide has no note',
+
         // ── Commands that put no node in the document ──────────────────────
         insertText: 'writes characters into a run; makes no node',
 

@@ -3,7 +3,9 @@ import type { Editor } from '@barocss/editor-core';
 import { selectedNodeIds } from '@barocss/editor-core';
 import {
   RESIZE_HANDLES,
+  SLIDES_KEYS,
   fromSurface,
+  matchesKey,
   angleOf,
   boxAt,
   boxOf,
@@ -807,34 +809,28 @@ export function SelectionOverlay({
       };
 
       /**
-       * Paste, which is the one that works with nothing selected.
+       * The bindings are the product's, and are read rather than written here.
        *
-       * Every other key here needs boxes to act on. A paste needs somewhere to
-       * put them, and an empty slide is somewhere — so it is handled before the
-       * guard below rather than after it. `parentId` is the container the reader
-       * has gone into, which only this overlay knows.
+       * `SLIDES_KEYS` is data in `office-slides`, the same division the toolbar
+       * model makes: what a deck binds is a fact about the deck, and catching
+       * the press is this overlay's job because only it knows whether the reader
+       * is typing in a box or holding one.
        *
-       * Still not while typing: `editing` is checked at the top, so Ctrl+V with
-       * a caret in a text box is the text paste, which is what a reader means.
+       * Not tidiness. The clipboard commands were registered, working and
+       * reachable by nothing for a day, and no check could see it — the harness
+       * could read a toolbar and not a handler. It reads this now.
        */
-      const clipboard = (event.metaKey || event.ctrlKey) && !event.altKey;
-      if (clipboard && event.key.toLowerCase() === 'v') {
-        return run('pasteBoxes', { parentId: inside ?? slideSid });
+      for (const binding of SLIDES_KEYS) {
+        if (!matchesKey(binding, event)) continue;
+        if (binding.needsSelection && chosen.length === 0) continue;
+        return run(binding.command, {
+          ...binding.payload,
+          // The container the reader has gone into, which only the overlay
+          // knows. Harmless to the commands that do not read it.
+          parentId: inside ?? slideSid
+        });
       }
 
-      if (chosen.length === 0) return;
-
-      if (clipboard && event.key.toLowerCase() === 'c') return run('copyBoxes');
-      if (clipboard && event.key.toLowerCase() === 'x') return run('cutBoxes');
-
-      if (event.key === 'Delete' || event.key === 'Backspace') return run('deleteBoxes');
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'd') {
-        return run('duplicateBoxes');
-      }
-      // Cmd+G and Cmd+Shift+G, which is what every drawing tool binds.
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'g') {
-        return run(event.shiftKey ? 'ungroupBoxes' : 'groupBoxes');
-      }
       if (event.key === 'Escape') {
         event.preventDefault();
         /**
@@ -853,11 +849,6 @@ export function SelectionOverlay({
         return select([]);
       }
 
-      const step = event.shiftKey ? 144 : 15; // a tenth of an inch, or one pixel
-      if (event.key === 'ArrowLeft') return run('nudgeBoxes', { dx: -step, dy: 0 });
-      if (event.key === 'ArrowRight') return run('nudgeBoxes', { dx: step, dy: 0 });
-      if (event.key === 'ArrowUp') return run('nudgeBoxes', { dx: 0, dy: -step });
-      if (event.key === 'ArrowDown') return run('nudgeBoxes', { dx: 0, dy: step });
     };
 
     window.addEventListener('keydown', onKey, true);
