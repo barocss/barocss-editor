@@ -21,11 +21,15 @@ import { boxAt, pxToTwip, twipToPx, type Slide } from '@barocss/office-slides';
  *
  * ## What it is looking at
  *
- * The nearest box above the caret. Not a node selection — that does not exist
- * yet and is the next thing this product needs — and deliberately not a
- * stand-in for one: this is the honest answer to "where is the reader" while
- * they are typing, and it is what the panel is for most of the time. When the
- * caret is not in a box it shows the slide, which is the next thing out.
+ * The nearest box above wherever the selection starts, which answers both
+ * questions with one reading. A node selection carries the selected box as its
+ * start, so clicking a shape shows that shape; a caret in a paragraph starts
+ * inside a text frame, so typing shows the frame being typed in. When neither
+ * is in a box it shows the slide, which is the next thing out.
+ *
+ * (This used to say a node selection did not exist yet. It does, and `boxAt`
+ * had been answering for both cases since it did — the note was the stale part,
+ * which is the failure this repository keeps finding in its own comments.)
  *
  * ## Why nothing here holds state
  *

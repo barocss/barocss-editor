@@ -185,6 +185,16 @@ that forces a caret selection and a node selection to coexist. `packages/office-
   boxes onto their new parent — and the boxes are *moved* rather than copied, so
   their sids survive and nothing pointing at them is left pointing at nothing.
   `$alias` is what lets one transaction move things into a node it just made.
+- [x] **Going inside a container.** A frame's and a group's children were
+  unreachable: the overlay's candidates were the slide's *direct* children, so a
+  rectangle in a frame could not be clicked, dragged, formatted or seen by the
+  properties panel — clicking it selected the frame. A deck could make groups
+  and could not edit anything in one. Double-click goes in and selects the child
+  under the pointer, Escape or a click outside comes back out, and a dashed
+  outline says where the reader is. The children's coordinates are their
+  container's, so the overlay adds the container's origin when it reads and
+  takes it off when it writes — in one place each, because that is a conversion
+  two places eventually disagree about.
 - [ ] **A clipboard for objects.** Copy and paste of shapes between slides and
   between decks; `copyOf` is already the tree-copy half of it.
 - [x] **Snapping and guides.** Both halves in one function, so the line drawn is

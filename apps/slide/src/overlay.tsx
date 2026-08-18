@@ -101,6 +101,20 @@ export function SelectionOverlay({
    * every key belongs to the editor.
    */
   const [editing, setEditing] = useState<string | undefined>();
+  /**
+   * The container the reader has gone inside, if any.
+   *
+   * A frame and a group hold other boxes, and their children were unreachable:
+   * the overlay's candidates were the slide's *direct* children, so a rectangle
+   * in a frame could not be clicked, moved, formatted or even seen by the
+   * properties panel — clicking it selected the frame. A deck could make groups
+   * and could not edit anything in one.
+   *
+   * Double-click goes in, Escape comes back out, one level at a time, which is
+   * what every tool that has containers does. The app's, not the document's:
+   * where one reader has gone is not a fact about the deck.
+   */
+  const [inside, setInside] = useState<string | undefined>();
   const layer = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -141,6 +155,11 @@ export function SelectionOverlay({
     };
   }, [slideSid, revision, tick]);
 
+  // Leaving the slide leaves whatever container was entered on it.
+  useEffect(() => {
+    setInside(undefined);
+  }, [slideSid]);
+
   const store = (editor as any)?.dataStore;
   const doc = useMemo(
     () =>
@@ -150,25 +169,87 @@ export function SelectionOverlay({
     [store, editor, tick, revision]
   );
 
-  /** Every box on this slide, outermost only — a frame's children move with it. */
+  /**
+   * Where the entered container sits on the slide.
+   *
+   * A child's `x` and `y` are its container's, not the slide's — the renderer
+   * places a frame `relative` and its children `absolute` inside it — so every
+   * coordinate here is shifted by the chain of containers between the slide and
+   * whatever the reader has gone into. Read with it added, written with it taken
+   * off, in one place each, because that is a conversion two places will
+   * eventually disagree about.
+   *
+   * Zero when nothing has been entered, which is the common case and costs
+   * nothing.
+   */
+  const origin = useMemo(() => {
+    let x = 0;
+    let y = 0;
+    for (let at = inside; at && at !== slideSid; ) {
+      const node: any = doc?.getNode(at);
+      if (!node) break;
+      x += typeof node.attributes?.x === 'number' ? node.attributes.x : 0;
+      y += typeof node.attributes?.y === 'number' ? node.attributes.y : 0;
+      at = node.parentId as string | undefined;
+    }
+    return { x, y };
+  }, [doc, inside, slideSid, tick, revision]);
+
+  /**
+   * The boxes a click can land on: the children of whatever is being looked
+   * inside, which is the slide until the reader enters a frame or a group.
+   *
+   * Outermost only, and deliberately: a frame's children move with it, so
+   * dragging one from outside would mean dragging the frame. Going in is how a
+   * reader says otherwise.
+   */
   const boxes = useMemo(() => {
     if (!doc || !slideSid) {
       return [] as { sid: string; box: Box; rotation: number; fill?: string }[];
     }
-    const surface: any = doc.getNode(slideSid);
-    const children: string[] = Array.isArray(surface?.content) ? surface.content : [];
+    const container: any = doc.getNode(inside ?? slideSid);
+    const children: string[] = Array.isArray(container?.content) ? container.content : [];
 
     return children
       .map((sid) => doc.getNode(sid) as any)
       .filter((node) => node && isSceneType(node.stype))
-      .map((node) => ({
-        sid: node.sid as string,
-        box: boxOf(node.attributes),
-        rotation: typeof node.attributes?.rotation === 'number' ? node.attributes.rotation : 0,
-        // For the ghost drawn while dragging; see below.
-        fill: typeof node.attributes?.fill === 'string' ? (node.attributes.fill as string) : undefined
-      }));
-  }, [doc, slideSid, tick, revision]);
+      .map((node) => {
+        const box = boxOf(node.attributes);
+        return {
+          sid: node.sid as string,
+          // Into the slide's coordinates, so hit-testing, handles, guides and
+          // the marquee all speak one language.
+          box: { ...box, x: box.x + origin.x, y: box.y + origin.y },
+          rotation: typeof node.attributes?.rotation === 'number' ? node.attributes.rotation : 0,
+          // For the ghost drawn while dragging; see below.
+          fill: typeof node.attributes?.fill === 'string' ? (node.attributes.fill as string) : undefined
+        };
+      });
+  }, [doc, slideSid, inside, origin, tick, revision]);
+
+  /**
+   * The entered container's own box, in the slide's coordinates.
+   *
+   * Its children are drawn relative to it, so its origin *is* `origin` and its
+   * size is its own. Used for two things a reader needs: an outline saying where
+   * they are, and the test for a click that means "and now I am done in here".
+   */
+  const insideBox = useMemo(() => {
+    if (!inside) return undefined;
+    const node: any = doc?.getNode(inside);
+    if (!node) return undefined;
+    const box = boxOf(node.attributes);
+    return { ...box, x: origin.x, y: origin.y };
+  }, [doc, inside, origin]);
+
+  /** Whether a node is one a reader can go inside. */
+  const isContainer = useCallback(
+    (sid?: string) => {
+      const stype = sid ? (doc?.getNode(sid) as any)?.stype : undefined;
+      return stype === 'frame' || stype === 'group';
+    },
+    [doc]
+  );
 
   const selected = useMemo(() => {
     const ids = new Set(selectedNodeIds((editor as any)?.selection));
@@ -250,6 +331,21 @@ export function SelectionOverlay({
     const hit = hitTest(point);
 
     if (!hit) {
+      /**
+       * Outside the container the reader went into is the way out.
+       *
+       * Escape does it too, but a click on the slide beyond a group is what
+       * every tool with containers treats as leaving, and without it a reader
+       * who has gone in can only get out by knowing about a key.
+       */
+      if (insideBox && !contains(insideBox, point)) {
+        event.preventDefault();
+        const parent = (doc?.getNode(inside!) as any)?.parentId as string | undefined;
+        setInside(parent && parent !== slideSid && isContainer(parent) ? parent : undefined);
+        select([inside!]);
+        return;
+      }
+
       // Empty slide: start a marquee, and drop the selection unless the reader
       // is adding to it.
       event.preventDefault();
@@ -397,7 +493,15 @@ export function SelectionOverlay({
         }
       } else {
         for (const [sid, box] of drag.preview) {
-          void (editor as any).executeCommand?.('setBoxGeometry', { nodeId: sid, ...box });
+          // Back into the container's coordinates. `boxes` added the origin so
+          // the drag could work in the slide's; this is the one place that takes
+          // it off again.
+          void (editor as any).executeCommand?.('setBoxGeometry', {
+            nodeId: sid,
+            ...box,
+            x: box.x - origin.x,
+            y: box.y - origin.y
+          });
         }
       }
     }
@@ -416,6 +520,42 @@ export function SelectionOverlay({
     const hit = hitTest(toModel(event));
     if (!hit) return;
     const node: any = doc?.getNode(hit.sid);
+
+    /**
+     * A container is gone *into* rather than typed in.
+     *
+     * The same gesture as entering text, and for the same reason: the first
+     * click says which thing, the second says "and now work on what is in it".
+     * The child under the pointer is selected on the way in, so a reader who
+     * double-clicks a rectangle inside a frame gets the rectangle rather than an
+     * empty selection and a container they now have to click again.
+     */
+    if (isContainer(hit.sid)) {
+      event.preventDefault();
+      setInside(hit.sid);
+      setEditing(undefined);
+
+      const point = toModel(event);
+      const child = ((doc?.getNode(hit.sid) as any)?.content ?? [])
+        .map((sid: string) => doc?.getNode(sid) as any)
+        .filter((n: any) => n && isSceneType(n.stype))
+        .map((n: any) => {
+          const box = boxOf(n.attributes);
+          return {
+            sid: n.sid as string,
+            // `hit.box` is already in the slide's coordinates, and the child's
+            // are its container's, so the two add.
+            box: { ...box, x: box.x + hit.box.x, y: box.y + hit.box.y },
+            rotation: typeof n.attributes?.rotation === 'number' ? n.attributes.rotation : 0
+          };
+        })
+        .reverse()
+        .find((entry: any) => contains(entry.box, unrotate(entry.box, entry.rotation, point)));
+
+      select(child ? [child.sid] : []);
+      return;
+    }
+
     if (node?.stype !== 'textFrame' && node?.stype !== 'sticky') return;
 
     setEditing(hit.sid);
@@ -520,6 +660,19 @@ export function SelectionOverlay({
       }
       if (event.key === 'Escape') {
         event.preventDefault();
+        /**
+         * Out of the container first, and only then out of the selection.
+         *
+         * Going in was one gesture, so coming out is one too, and a reader
+         * inside a frame pressing Escape means "back out here" rather than
+         * "drop everything". The container is selected on the way out, which is
+         * where the reader was before they went in.
+         */
+        if (inside) {
+          const parent = (doc?.getNode(inside) as any)?.parentId as string | undefined;
+          setInside(parent && parent !== slideSid && isContainer(parent) ? parent : undefined);
+          return select([inside]);
+        }
         return select([]);
       }
 
@@ -532,7 +685,7 @@ export function SelectionOverlay({
 
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [editor, editing, select, tick]);
+  }, [editor, editing, select, tick, inside, doc, slideSid, isContainer]);
 
   /**
    * Leaving the text when the caret leaves the box.
@@ -595,6 +748,29 @@ export function SelectionOverlay({
       onPointerCancel={onPointerUp}
       onDoubleClick={onDoubleClick as never}
     >
+      {/*
+        * Where the reader is, when they are inside something.
+        *
+        * A dashed outline round the container, drawn behind everything else. A
+        * reader who has gone into a group and sees no sign of it has no way to
+        * know why clicking the slide does nothing.
+        */}
+      {insideBox && (
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            left: toScreen(insideBox.x),
+            top: toScreen(insideBox.y),
+            width: toScreen(insideBox.width),
+            height: toScreen(insideBox.height),
+            border: '1px dashed rgba(37, 99, 235, 0.5)',
+            borderRadius: 2,
+            pointerEvents: 'none'
+          }}
+        />
+      )}
+
       {/* Every selected box, outlined where it is being drawn right now. */}
       {selected.map((entry) => {
         const { box, rotation } = shown(entry);
