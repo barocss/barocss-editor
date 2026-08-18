@@ -150,11 +150,16 @@ function originOf(doc: DeckAccess, containerId: string | undefined): { x: number
   return { x, y };
 }
 
-/** Anything with a position; the size travels untouched. */
+/**
+ * Anything with a position; whatever else it carries travels untouched.
+ *
+ * No index signature: adding one would demand that every caller's type declare
+ * it too, and `Box` — four named numbers — would not qualify. The generic
+ * parameter is what preserves the caller's own shape.
+ */
 export interface Positioned {
   x: number;
   y: number;
-  [key: string]: unknown;
 }
 
 /**

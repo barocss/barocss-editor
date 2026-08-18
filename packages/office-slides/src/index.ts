@@ -43,6 +43,7 @@ export { createSampleDeck } from './sample-deck';
 export { createSlideCommands, SlidesExtension } from './slide-commands';
 
 export { createBoxCommands, SlidesBoxExtension } from './box-commands';
+export { createClipboardCommands, SlidesClipboardExtension } from './clipboard-commands';
 
 export { createArrangeCommands, SlidesArrangeExtension } from './arrange-commands';
 

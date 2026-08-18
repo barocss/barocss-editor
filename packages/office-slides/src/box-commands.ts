@@ -123,6 +123,22 @@ export class SlidesBoxExtension implements Extension {
   }
 
   /** The selected boxes, in document order, skipping any that are locked. */
+  /**
+   * The container the selection is in, which is the slide unless the reader has
+   * gone inside a frame or a group.
+   *
+   * The same correction the arrange commands needed, for the same reason: these
+   * read a container's children and match the selection against them, which was
+   * true while a box could only sit on the slide. A rectangle inside a frame is
+   * not among the slide's children, so duplicate, delete and nudge were all
+   * refused for it with nothing said.
+   */
+  private _containerOf(doc: DeckAccess, sid: string): string | undefined {
+    const parent = (doc.getNode(sid) as any)?.parentId as string | undefined;
+    if (parent && isSceneType((doc.getNode(parent) as any)?.stype)) return parent;
+    return slideAt(doc, sid);
+  }
+
   private _selected(editor: Editor): { sid: string; node: any }[] {
     const doc = this._access(editor);
     if (!doc) return [];
@@ -130,7 +146,7 @@ export class SlidesBoxExtension implements Extension {
     const ids = new Set(selectedNodeIds((editor as any).selection));
     if (ids.size === 0) return [];
 
-    const slide = slideAt(doc, [...ids][0]);
+    const slide = this._containerOf(doc, [...ids][0]);
     const surface: any = slide ? doc.getNode(slide) : undefined;
     const children: string[] = Array.isArray(surface?.content) ? surface.content : [];
 
@@ -146,7 +162,9 @@ export class SlidesBoxExtension implements Extension {
     const chosen = this._selected(editor);
     if (!doc || chosen.length === 0) return false;
 
-    const slide = slideAt(doc, chosen[0].sid);
+    // The container it is actually in — removing a child names its real parent,
+    // and naming the slide for a box inside a frame removes nothing.
+    const slide = this._containerOf(doc, chosen[0].sid);
     if (!slide) return false;
 
     const steps = chosen.map((entry) => ({
@@ -168,7 +186,9 @@ export class SlidesBoxExtension implements Extension {
     const chosen = this._selected(editor);
     if (!doc || chosen.length === 0) return false;
 
-    const slide = slideAt(doc, chosen[0].sid);
+    // Into the container it came from: duplicating a shape inside a frame puts
+    // the copy in that frame, beside it.
+    const slide = this._containerOf(doc, chosen[0].sid);
     if (!slide) return false;
 
     const OFFSET = 144; // a tenth of an inch

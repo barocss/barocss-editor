@@ -166,10 +166,15 @@ Ordered so that each one is unblocked by the one before it.
      derivation: it rebases against a frame it is creating, so there is no node
      to walk to and `intoFrame` is the right tool — the difference is whether
      the container exists yet, and the two are worth keeping apart.
-3. - [ ] **A clipboard for objects.** Copy, cut and paste shapes between slides,
-     between containers and between decks. `copyOf` is the tree-copy half and
-     the rebasing is (2). The first feature that needs a coordinate to change
-     meaning as it moves.
+3. - [x] **A clipboard for objects.** Copy, cut and paste between slides,
+     containers and decks. Two clipboards on purpose: the system's carries a
+     shape to another window and is the reason the payload is JSON in text, and
+     the extension keeps its own because reading the system's needs a permission
+     the browser may refuse — without the fallback, copy and paste inside one
+     deck would work only where the permission happened to be granted. Cut is
+     one command so it is one undo. Found on the way: `deleteBoxes`,
+     `duplicateBoxes` and `nudgeBoxes` had the same slide-level assumption the
+     arrange commands had, so none of them worked inside a frame either.
 4. - [ ] **Formatting through the layout.** A resolver shaped like Word's:
      deck defaults, then the layout's placeholder of the same *role*, then
      direct. Turns the ribbon's font controls from "—" into the real answer and
