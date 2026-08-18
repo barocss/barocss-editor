@@ -68,6 +68,7 @@ export {
   intoFrame,
   outOfFrame,
   snapBox,
+  snapResize,
   type Align,
   type Guide,
   type Delta,

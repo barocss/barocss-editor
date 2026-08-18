@@ -522,3 +522,108 @@ export function snapBox(
     hit
   };
 }
+
+/**
+ * Pull the edge a resize is dragging onto the nearest guide.
+ *
+ * The sibling of `snapBox`, and deliberately not the same function: a move
+ * shifts the whole box, so snapping *any* of its six lines means adding one
+ * offset to `x` and `y`. A resize holds the opposite edge still — that is what
+ * makes it a resize — so only the lines the handle actually moves are
+ * candidates, and pulling them changes the size rather than the position.
+ *
+ * Dragging the east handle onto a guide changes the width alone. Dragging the
+ * west handle changes `x` *and* width together, by the same amount in opposite
+ * directions, so the east edge does not move. That asymmetry is the whole
+ * content of this function.
+ *
+ * ## The centre line is not a candidate
+ *
+ * `snapBox` snaps a box's middle as readily as its edges, because a reader
+ * centring two shapes is doing the same thing as a reader lining up their left
+ * edges. A resize is different: the middle moves as a *consequence* of the edge
+ * moving, and snapping it would mean the edge lands somewhere the reader did
+ * not put it in order to make the middle land somewhere they were not aiming
+ * at.
+ *
+ * ## Modifiers win, and this is not called
+ *
+ * Holding a key for proportions or for resize-from-centre is a reader asking
+ * for an exact relationship, and a snap is an inexact one. The two genuinely
+ * fight — a snap that respects the aspect has to move the other axis, which
+ * breaks the guide it just snapped to — so the caller does not snap while a
+ * modifier is held. That is the honest resolution rather than a rule about
+ * which wins by how much.
+ */
+export function snapResize(
+  box: Box,
+  handle: Handle,
+  guides: Guide[],
+  within: number
+): { box: Box; hit: Guide[] } {
+  const whole = {
+    ...box,
+    x: Math.round(box.x),
+    y: Math.round(box.y),
+    width: Math.round(box.width),
+    height: Math.round(box.height)
+  };
+  if (handle === 'move' || within <= 0 || guides.length === 0) return { box: whole, hit: [] };
+
+  const west = handle.includes('w');
+  const east = handle.includes('e');
+  const north = handle.startsWith('n');
+  const south = handle.startsWith('s');
+
+  /** The moving edge on each axis, or nothing when the handle does not move it. */
+  const moving = {
+    x: west ? box.x : east ? box.x + box.width : undefined,
+    y: north ? box.y : south ? box.y + box.height : undefined
+  };
+
+  const best: { x?: { guide: Guide; shift: number }; y?: { guide: Guide; shift: number } } = {};
+
+  for (const guide of guides) {
+    const edge = moving[guide.axis];
+    if (edge === undefined) continue;
+
+    const shift = guide.at - edge;
+    if (Math.abs(shift) > within) continue;
+
+    const held = best[guide.axis];
+    if (!held || Math.abs(shift) < Math.abs(held.shift)) {
+      best[guide.axis] = { guide, shift };
+    }
+  }
+
+  const hit: Guide[] = [];
+  if (best.x) hit.push(best.x.guide);
+  if (best.y) hit.push(best.y.guide);
+
+  const dx = best.x?.shift ?? 0;
+  const dy = best.y?.shift ?? 0;
+
+  /**
+   * A snap must never turn a box inside out.
+   *
+   * The guide nearest a dragged edge can sit past the opposite one when a box
+   * has been pulled small, and a width of less than nothing is not a box the
+   * model should hold. The snap is refused on that axis rather than clamped,
+   * because a clamped snap lands on a line the reader cannot see.
+   */
+  const width = west ? box.width - dx : east ? box.width + dx : box.width;
+  const height = north ? box.height - dy : south ? box.height + dy : box.height;
+
+  const keepX = width >= 0;
+  const keepY = height >= 0;
+
+  return {
+    box: {
+      x: Math.round(west && keepX ? box.x + dx : box.x),
+      y: Math.round(north && keepY ? box.y + dy : box.y),
+      width: Math.round(keepX ? width : box.width),
+      height: Math.round(keepY ? height : box.height)
+    },
+    hit: hit.filter((guide) => (guide.axis === 'x' ? keepX : keepY))
+  };
+}

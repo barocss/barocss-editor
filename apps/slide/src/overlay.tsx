@@ -17,6 +17,7 @@ import {
   slideSize,
   snapAngle,
   snapBox,
+  snapResize,
   twipToPx,
   unionOf,
   unrotate,
@@ -417,33 +418,51 @@ export function SelectionOverlay({
     }
 
     /**
-     * Snapping, on a move, unless the reader is holding the key that turns it
-     * off.
-     *
-     * Only on a move: snapping a *resize* would fight the aspect and centre
-     * modifiers, which are the two things a reader is already holding a key to
-     * get. And the whole selection is snapped as one box, so a set of shapes
-     * lands together rather than each one finding its own line.
+     * Snapping, unless the reader is holding a key that says not to.
      *
      * The threshold is in *model* units and computed from the scale, because
      * what counts as "close enough" is a distance on the reader's screen: eight
      * screen pixels at half size is sixteen slide pixels, and a fixed model
      * threshold feels sticky zoomed out and dead zoomed in.
+     *
+     * ## A move and a resize snap differently
+     *
+     * A move shifts the whole selection as one box, so a set of shapes lands
+     * together rather than each finding its own line, and any of the box's six
+     * lines is a candidate. A resize holds the opposite edge still, so only the
+     * lines the handle moves are candidates and pulling one changes the size —
+     * `snapResize`, which is a separate function for exactly that reason.
+     *
+     * ## A modifier turns snapping off
+     *
+     * Shift asks for proportions and Alt for resize-from-centre, and both are
+     * requests for an *exact* relationship that a snap would break: a snap that
+     * respected the aspect would have to move the other axis, which moves it off
+     * the guide it just snapped to. So the modifier wins and nothing snaps,
+     * which is the honest resolution rather than a rule about degrees.
+     *
+     * A resize of more than one box does not snap either. Each box would need
+     * its own edge pulled to its own guide, and they would arrive at different
+     * sizes — which is not what dragging one handle looks like it should do.
      */
+    const suppressed = event.metaKey || event.ctrlKey;
+    const modified = event.shiftKey || event.altKey;
+
     let guides: Guide[] = [];
-    if (drag.handle === 'move' && !event.metaKey && !event.ctrlKey) {
-      const dragging = new Set(preview.keys());
+    const others = () =>
+      guidesFor(
+        boxes
+          .filter((entry) => !new Set(preview.keys()).has(entry.sid))
+          .map((entry) => entry.box),
+        { x: 0, y: 0, width: size.width, height: size.height }
+      );
+    const within = pxToTwip(8 / scale);
+
+    if (drag.handle === 'move' && !suppressed) {
       const frame = unionOf([...preview.values()]);
 
       if (frame) {
-        const { box: snapped, hit } = snapBox(
-          frame,
-          guidesFor(
-            boxes.filter((entry) => !dragging.has(entry.sid)).map((entry) => entry.box),
-            { x: 0, y: 0, width: size.width, height: size.height }
-          ),
-          pxToTwip(8 / scale)
-        );
+        const { box: snapped, hit } = snapBox(frame, others(), within);
 
         const shift = { dx: snapped.x - frame.x, dy: snapped.y - frame.y };
         if (shift.dx !== 0 || shift.dy !== 0) {
@@ -451,6 +470,11 @@ export function SelectionOverlay({
         }
         guides = hit;
       }
+    } else if (drag.handle !== 'move' && !suppressed && !modified && preview.size === 1) {
+      const [sid] = [...preview.keys()];
+      const { box: snapped, hit } = snapResize(preview.get(sid)!, drag.handle, others(), within);
+      preview.set(sid, snapped);
+      guides = hit;
     }
 
     setDrag({ ...drag, preview, moved, guides });

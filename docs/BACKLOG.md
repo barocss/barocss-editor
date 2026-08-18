@@ -193,9 +193,17 @@ Ordered so that each one is unblocked by the one before it.
      the nearest thing the schema can express, written down in the resolver.
    - [ ] **Word's ribbon has the same blank-for-an-unlisted-size gap**, fixed in
      Slides' and deliberately not copied across.
-5. - [ ] **Snapping while resizing.** Move only today. It has to agree with the
-     aspect and centre modifiers, which are the two things a reader is already
-     holding a key to get — worth doing carefully rather than first.
+5. - [x] **Snapping while resizing.** `snapResize`, a separate function from
+     `snapBox` because a move and a resize are not one problem: a move shifts
+     the whole box so any of its six lines is a candidate, and a resize holds
+     the opposite edge still so only the lines the handle moves are. The box's
+     *middle* is deliberately not a candidate for a resize — it moves as a
+     consequence of the edge moving, and snapping it would put the edge where
+     nobody aimed. The fight with the modifiers is settled by the modifier
+     winning: Shift and Alt ask for an exact relationship a snap would break, so
+     nothing snaps while one is held. Measured: aimed four pixels short of a
+     neighbour's edge and landed on it; the same drag with Shift held stayed
+     four pixels short.
 6. - [ ] **Editable speaker notes.** A second editable region over one document,
      which is the thing this engine has not been asked for yet.
 7. - [ ] **Real thumbnails** in the rail, which needs a second render of the same
