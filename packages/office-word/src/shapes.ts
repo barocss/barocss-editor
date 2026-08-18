@@ -8,12 +8,23 @@
  * rotates about the origin unless told otherwise. A shape that rotated about
  * the corner of the canvas would fly off it.
  *
- * Coordinates are pixels within the canvas, which declares its own size. Not
- * twips: the canvas is a box of its own, and a shape at x=100 is a hundred
- * pixels from that box's left edge whatever the page is doing. Word stores them
- * in EMU and an importer converts, the same way it converts everything else.
+ * Coordinates are **twips**, like every other length this engine measures, and
+ * the canvas is still a box of its own: the view box is the model's own numbers,
+ * so a shape at x=1500 is 1500 units from that box's left edge whatever the page
+ * is doing. Only the element's CSS size converts.
+ *
+ * This used to say pixels, and meant it — the argument was that a canvas is a
+ * local coordinate system and owes the page nothing, which is true and is not
+ * the whole question. The second product settled it: Slides places the same four
+ * shape types directly on a surface measured in twips, so the same node type
+ * meant two different lengths depending on which parent it had, fifteen apart,
+ * with the schema declaring both as plain numbers and neither product
+ * disobeying it. See `docs/specs/canvas-model.md`.
+ *
+ * Word stores these in EMU and an importer converts, the same way it converts
+ * everything else.
  */
-import type { CssStyle } from './css';
+import { twipToPx, type CssStyle } from './css';
 
 export interface ShapeGeometry {
   x?: number;
@@ -126,20 +137,24 @@ export function lineAttrs(attrs: ShapeAttributes | undefined): Record<string, st
 /**
  * The canvas the shapes are placed on.
  *
- * A view box the size the canvas declares, so the coordinates inside it mean
- * what they say, and a width and height in pixels so the page knows how much
- * room it takes. The paginator measures this like any other block.
+ * A view box of the canvas's own numbers, so the coordinates inside it mean what
+ * they say, and a width and height in pixels so the page knows how much room it
+ * takes. The paginator measures this like any other block.
+ *
+ * The conversion is here and nowhere else. The shapes inside keep their raw
+ * numbers, because the view box maps them onto whatever size this gives the
+ * element — which is why one unit change is one function.
  */
 export function canvasCss(attrs: { width?: number; height?: number } | undefined): CssStyle {
   return {
     display: 'block',
-    width: `${number(attrs?.width, 0)}px`,
-    height: `${number(attrs?.height, 0)}px`,
+    width: `${twipToPx(number(attrs?.width, 0))}px`,
+    height: `${twipToPx(number(attrs?.height, 0))}px`,
     overflow: 'hidden'
   };
 }
 
-/** The view box for a canvas of that size. */
+/** The view box for a canvas of that size, in the model's own units. */
 export function canvasViewBox(attrs: { width?: number; height?: number } | undefined): string {
   return `0 0 ${number(attrs?.width, 0)} ${number(attrs?.height, 0)}`;
 }

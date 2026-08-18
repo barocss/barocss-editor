@@ -87,12 +87,22 @@ describe('the shapes themselves', () => {
 });
 
 describe('the canvas', () => {
-  it('is the size it says, and its coordinates mean what they say', () => {
-    expect(canvasCss({ width: 300, height: 200 })).toMatchObject({
+  /**
+   * Twips, like every other length. A canvas used to read its numbers as pixels
+   * — see the header of `shapes.ts` for the argument that was, and what settled
+   * it — so 4500 by 3000 now draws where 300 by 200 used to.
+   */
+  it('is the size it says, converted once', () => {
+    expect(canvasCss({ width: 4500, height: 3000 })).toMatchObject({
       width: '300px',
       height: '200px'
     });
-    expect(canvasViewBox({ width: 300, height: 200 })).toBe('0 0 300 200');
+  });
+
+  it('keeps the model’s own numbers in the view box', () => {
+    // Which is what lets the shapes inside carry theirs untouched: the view box
+    // maps them onto whatever size the CSS gives the element.
+    expect(canvasViewBox({ width: 4500, height: 3000 })).toBe('0 0 4500 3000');
   });
 
   it('takes no room when it declares none', () => {

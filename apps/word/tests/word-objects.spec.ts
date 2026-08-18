@@ -156,36 +156,39 @@ test.describe('drawings', () => {
             parentId: body.sid,
             position: 0,
             child: {
+              // Twips, like every other length the engine measures — fifteen to
+              // the pixel, so these are the numbers that used to be 360x140 and
+              // draw exactly where they did. See docs/specs/canvas-model.md.
               stype: 'canvasBlock',
-              attributes: { width: 360, height: 140 },
+              attributes: { width: 5400, height: 2100 },
               content: [
                 {
                   stype: 'rectangle',
                   attributes: {
-                    x: 10, y: 20, width: 120, height: 80,
-                    cornerRadius: 8, fill: '#dbeafe', stroke: '#1d4ed8', strokeWidth: 2
+                    x: 150, y: 300, width: 1800, height: 1200,
+                    cornerRadius: 120, fill: '#dbeafe', stroke: '#1d4ed8', strokeWidth: 30
                   }
                 },
                 {
                   stype: 'ellipse',
                   attributes: {
-                    x: 150, y: 20, width: 100, height: 80,
-                    fill: '#fee2e2', stroke: '#b91c1c', strokeWidth: 2
+                    x: 2250, y: 300, width: 1500, height: 1200,
+                    fill: '#fee2e2', stroke: '#b91c1c', strokeWidth: 30
                   }
                 },
                 {
                   stype: 'line',
                   attributes: {
-                    x: 270, y: 20, width: 70, height: 80,
-                    stroke: '#166534', strokeWidth: 3, rotation: 15
+                    x: 4050, y: 300, width: 1050, height: 1200,
+                    stroke: '#166534', strokeWidth: 45, rotation: 15
                   }
                 },
                 {
                   stype: 'path',
                   attributes: {
-                    d: 'M 10 120 Q 90 90 170 120 T 340 120',
-                    x: 10, y: 90, width: 330, height: 40,
-                    stroke: '#7c3aed', strokeWidth: 2
+                    d: 'M 150 1800 Q 1350 1350 2550 1800 T 5100 1800',
+                    x: 150, y: 1350, width: 4950, height: 600,
+                    stroke: '#7c3aed', strokeWidth: 30
                   }
                 }
               ]
@@ -203,7 +206,9 @@ test.describe('drawings', () => {
 
     // The canvas declares a size rather than growing to fit, so the page can be
     // laid out before anything is drawn in it.
-    await expect(page.locator('.w-canvas').first()).toHaveAttribute('viewBox', '0 0 360 140');
+    // The view box is the model's own numbers; only the element's CSS size
+    // converts, which is what lets the shapes inside carry theirs untouched.
+    await expect(page.locator('.w-canvas').first()).toHaveAttribute('viewBox', '0 0 5400 2100');
 
     const drawn = await page.evaluate(() => {
       const svg = document.querySelector('.w-canvas')!;
@@ -234,8 +239,9 @@ test.describe('drawings', () => {
 
     // Every drawing tool turns a shape about its centre; SVG turns about the
     // origin unless told otherwise, and a shape that did would swing off the
-    // canvas. The line is 70 by 80 at (270, 20), so its centre is (305, 60).
-    await expect(page.locator('.w-shape-line')).toHaveAttribute('transform', 'rotate(15 305 60)');
+    // canvas. The line is 1050 by 1200 at (4050, 300), so its centre is
+    // (4575, 900).
+    await expect(page.locator('.w-shape-line')).toHaveAttribute('transform', 'rotate(15 4575 900)');
 
     const inside = await page.evaluate(() => {
       const svg = document.querySelector('.w-canvas')!.getBoundingClientRect();

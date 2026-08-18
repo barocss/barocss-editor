@@ -152,12 +152,14 @@ and an answer given twice is an answer given differently.
 
 Ordered so that each one is unblocked by the one before it.
 
-1. - [ ] **One unit.** Word reads a canvas shape's numbers as pixels and Slides
-     reads them as twips, fifteen apart, and the schema says nothing. Word's
-     canvas renderers convert; the check is a test that draws one model through
-     both products and requires the same size. First because everything below
-     moves geometry around, and moving it in two units is worse than not moving
-     it.
+1. - [x] **One unit.** Word read a canvas shape's numbers as pixels and Slides
+     read them as twips, fifteen apart, with the schema declaring both as plain
+     numbers and neither product disobeying it. Twips now, in one conversion:
+     the view box keeps the model's own numbers so the shapes inside carry
+     theirs untouched, and only the element's CSS size converts. The check is
+     `office-slides/test/one-unit.test.ts`, which lives there because that is
+     the package that can see both. On screen: a canvas that drew 360×140 still
+     draws 360×140, from 5400×2100.
 2. - [ ] **`toSurface` / `fromSurface`.** The container-to-slide conversion, in
      one pair of functions instead of derived a third time. Grouping does it by
      hand and the overlay does it inline; the clipboard would be the third.

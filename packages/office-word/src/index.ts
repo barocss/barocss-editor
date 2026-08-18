@@ -263,3 +263,13 @@ export {
   MAX_LIST_LEVEL,
   type ListKind
 } from './list-commands';
+
+/**
+ * The canvas's own measurements.
+ *
+ * Exported so the check that both products measure the model in the same unit
+ * can see Word's half of it — see `office-slides/test/one-unit.test.ts`. A
+ * claim about two packages agreeing has to be testable from a place that can
+ * see both.
+ */
+export { canvasCss, canvasViewBox } from './shapes';
