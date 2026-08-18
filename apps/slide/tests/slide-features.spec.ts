@@ -1,0 +1,275 @@
+import { test, expect } from '@playwright/test';
+import { openDeck, visibleBoxes, boxCounts, attr } from './helpers';
+
+/**
+ * The parts of the product that were built last and checked by hand.
+ *
+ * Named in the backlog as where the suite was thin: pictures, layouts,
+ * snapping, going inside a container, and presenting. Each was verified in a
+ * browser once, by a probe that no longer exists.
+ */
+
+test.describe('going inside a container', () => {
+  /**
+   * A frame's children were unreachable: the overlay's candidates were the
+   * slide's *direct* children, so clicking a rectangle inside a frame selected
+   * the frame and nothing could edit what was in one.
+   */
+  test('a double-click goes in and takes the shape under the pointer', async ({ page }) => {
+    await openDeck(page);
+    await page.locator('.sl-filmstrip button').nth(2).click();
+    await page.waitForTimeout(500);
+
+    const [shape] = await visibleBoxes(page, '.sl-rectangle');
+    await page.mouse.click(shape.x, shape.y);
+    const outer = await page.evaluate(() => (window as any).editor.selection?.nodeIds?.[0]);
+    // One click selects the container, which is what a click on a group means.
+    expect(outer).not.toBe(shape.sid);
+
+    await page.mouse.dblclick(shape.x, shape.y);
+    await page.waitForTimeout(400);
+    expect(await page.evaluate(() => (window as any).editor.selection?.nodeIds)).toEqual([shape.sid]);
+
+    // And the reader is told where they are.
+    const outlined = await page.evaluate(() =>
+      [...document.querySelectorAll('.sl-overlay div')].some((n) =>
+        ((n as HTMLElement).style.border || '').includes('dashed')
+      )
+    );
+    expect(outlined).toBe(true);
+  });
+
+  test('Escape comes back out, one level, with the container selected', async ({ page }) => {
+    await openDeck(page);
+    await page.locator('.sl-filmstrip button').nth(2).click();
+    await page.waitForTimeout(500);
+
+    const [shape] = await visibleBoxes(page, '.sl-rectangle');
+    await page.mouse.dblclick(shape.x, shape.y);
+    await page.waitForTimeout(400);
+
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(400);
+
+    const selected = await page.evaluate(() => (window as any).editor.selection?.nodeIds?.[0]);
+    expect(selected).not.toBe(shape.sid);
+    const outlined = await page.evaluate(() =>
+      [...document.querySelectorAll('.sl-overlay div')].some((n) =>
+        ((n as HTMLElement).style.border || '').includes('dashed')
+      )
+    );
+    expect(outlined).toBe(false);
+  });
+
+  /**
+   * The arrange commands read the slide's children and matched the selection
+   * against them, so inside a frame every one of them was disabled with nothing
+   * said — the buttons were simply grey.
+   */
+  test('the arrange commands work on what is inside', async ({ page }) => {
+    await openDeck(page);
+    await page.locator('.sl-filmstrip button').nth(2).click();
+    await page.waitForTimeout(500);
+
+    const [shape] = await visibleBoxes(page, '.sl-rectangle');
+    await page.mouse.dblclick(shape.x, shape.y);
+    await page.waitForTimeout(400);
+
+    const indexOf = async () =>
+      await page.evaluate((sid) => {
+        const store = (window as any).editor.dataStore;
+        const parent = store.getNode(sid)?.parentId;
+        return (store.getNode(parent)?.content ?? []).indexOf(sid);
+      }, shape.sid);
+
+    const before = await indexOf();
+    await page.getByLabel('앞으로 가져오기').click();
+    await page.waitForTimeout(400);
+    expect(await indexOf()).toBe(before + 1);
+  });
+});
+
+test.describe('snapping', () => {
+  /**
+   * A resize holds the opposite edge still, so only the lines the handle moves
+   * are candidates — which is why it is a different function from the one a
+   * move uses.
+   */
+  test('pulls a dragged edge onto a neighbour’s, and lets a modifier refuse', async ({ page }) => {
+    await openDeck(page);
+    await page.locator('.sl-filmstrip button').nth(2).click();
+    await page.waitForTimeout(500);
+
+    const boxes = await visibleBoxes(page, '.sl-text-frame, .sl-shape, .sl-frame');
+    const me = boxes[0];
+    const other = boxes.find((b) => b.sid !== me.sid && Math.abs(b.left + b.width - (me.left + me.width)) > 20);
+    test.skip(!other, 'this slide has nothing to snap to');
+
+    await page.mouse.click(me.x, me.y);
+    await page.waitForTimeout(300);
+
+    const rightEdge = async () =>
+      await page.evaluate(
+        (sid) => Math.round(document.querySelector(`.sl-stage [data-bc-sid="${sid}"]`)!.getBoundingClientRect().right),
+        me.sid
+      );
+
+    const dragEastTo = async (target: number, modifiers: string[] = []) => {
+      const handle = await page.evaluate(() => {
+        const h = document.querySelector('[data-handle="e"]')!.getBoundingClientRect();
+        return { x: Math.round(h.x + h.width / 2), y: Math.round(h.y + h.height / 2) };
+      });
+      for (const key of modifiers) await page.keyboard.down(key);
+      await page.mouse.move(handle.x, handle.y);
+      await page.mouse.down();
+      await page.mouse.move(target, handle.y, { steps: 12 });
+      await page.mouse.up();
+      for (const key of modifiers) await page.keyboard.up(key);
+      await page.waitForTimeout(400);
+    };
+
+    // Four pixels short of the guide: inside the threshold, so it is pulled on.
+    const guide = other!.left + other!.width;
+    await dragEastTo(guide - 4);
+    expect(await rightEdge()).toBe(guide);
+
+    // The same drag with Shift held asks for proportions, and a snap would
+    // break them — so it stays where it was put.
+    await dragEastTo(guide - 4, ['Shift']);
+    expect(await rightEdge()).toBe(guide - 4);
+  });
+});
+
+test.describe('a layout', () => {
+  /**
+   * `slideLayout` was declared, drawn hidden, and read by one thing. A slide's
+   * text now resolves through it, so applying one changes how the slide looks
+   * without touching a word of what it says.
+   */
+  test('formats a paragraph that sets nothing of its own', async ({ page }) => {
+    await openDeck(page);
+
+    const title = await page.evaluate(() => {
+      const store = (window as any).editor.dataStore;
+      const root = store.getNode((window as any).editor.getRootId());
+      const slide = (root.content ?? []).map((s: string) => store.getNode(s)).find((n: any) => n?.stype === 'surface');
+      const frame = (slide.content ?? []).map((s: string) => store.getNode(s)).find((n: any) => n?.attributes?.role === 'title');
+      return { slide: slide.sid, paragraph: store.getNode(frame.content[0]).sid };
+    });
+
+    // Strip its direct formatting: only the layout can say what size it is.
+    await page.evaluate(async (sid) => {
+      await (window as any).editor
+        .transaction([{ type: 'setAttrs', payload: { nodeId: sid, attrs: {}, replace: true } }])
+        .commit();
+    }, title.paragraph);
+    await page.waitForTimeout(600);
+
+    const drawn = async () =>
+      await page.evaluate(
+        (sid) => getComputedStyle(document.querySelector(`.sl-stage [data-bc-sid="${sid}"]`)!).fontSize,
+        title.paragraph
+      );
+
+    // layout-title's title is 108 half-points: 54pt, which is 72 pixels.
+    expect(await drawn()).toBe('72px');
+
+    // And the same paragraph follows a different layout without being edited.
+    await page.evaluate(
+      (sid) => (window as any).editor.executeCommand('setSlideLayout', { slideId: sid, layoutId: 'layout-body' }),
+      title.slide
+    );
+    await page.waitForTimeout(600);
+    // layout-body's title is 66 half-points: 33pt, which is 44 pixels.
+    expect(await drawn()).toBe('44px');
+  });
+});
+
+test.describe('a picture', () => {
+  /**
+   * The button was permanently disabled and honestly so — the command refuses a
+   * payload with no file, and nothing was opening a picker.
+   */
+  test('is chosen from a file and placed in its own proportions', async ({ page }) => {
+    await openDeck(page);
+    const before = (await boxCounts(page))[0];
+
+    const chooser = page.waitForEvent('filechooser');
+    await page.locator('[data-control="insert-image"]').click();
+    (await chooser).setFiles({
+      name: 'wide.svg',
+      mimeType: 'image/svg+xml',
+      buffer: Buffer.from(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200"><rect width="400" height="200" fill="#0ea5e9"/></svg>'
+      )
+    });
+    await page.waitForTimeout(900);
+
+    expect((await boxCounts(page))[0]).toBe(before + 1);
+
+    const sid = await page.evaluate(() => (window as any).editor.selection?.nodeIds?.[0]);
+    // 400 by 200 pixels is 6000 by 3000 twips, and the shape is kept.
+    expect(await attr(page, sid, 'width')).toBe(6000);
+    expect(await attr(page, sid, 'height')).toBe(3000);
+  });
+});
+
+test.describe('presenting', () => {
+  test('fills the window and puts the chrome away', async ({ page }) => {
+    await openDeck(page);
+    await page.locator('[data-present]').click();
+    await page.waitForTimeout(600);
+
+    await expect(page.locator('.sl-filmstrip')).toBeHidden();
+    await expect(page.locator('.sl-properties')).toBeHidden();
+    await expect(page.locator('.sl-notes')).toBeHidden();
+
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(500);
+    await expect(page.locator('.sl-filmstrip')).toBeVisible();
+  });
+
+  /**
+   * `hidden` means "keep it, skip it" — the whole difference from deleting one.
+   *
+   * Walked from the first slide to the last rather than stepped once, because
+   * the claim is about the whole way through: a hidden slide is never what a
+   * presenter is looking at. The first version of this test stepped forward
+   * from the slide before the hidden one and asserted that the slide changed,
+   * which fails for a reason that is not a bug — the deck's hidden slide is its
+   * last, so there is nowhere further to go.
+   */
+  test('never lands on a hidden slide', async ({ page }) => {
+    await openDeck(page);
+
+    const hidden = await page.evaluate(() => {
+      const store = (window as any).editor.dataStore;
+      const root = store.getNode((window as any).editor.getRootId());
+      return (root.content ?? [])
+        .map((s: string) => store.getNode(s))
+        .filter((n: any) => n?.stype === 'surface')
+        .filter((n: any) => n.attributes?.hidden === true)
+        .map((n: any) => n.sid);
+    });
+    test.skip(hidden.length === 0, 'the sample deck hides no slide');
+
+    await page.locator('[data-present]').click();
+    await page.waitForTimeout(500);
+
+    const at = async () =>
+      await page.evaluate(
+        () => document.querySelector('.sl-filmstrip button[data-current="true"]')?.getAttribute('data-slide')
+      );
+
+    const visited = [await at()];
+    for (let step = 0; step < 8; step += 1) {
+      await page.keyboard.press('ArrowRight');
+      await page.waitForTimeout(300);
+      visited.push(await at());
+    }
+
+    for (const sid of hidden) expect(visited).not.toContain(sid);
+    // And it did go somewhere, or the test would pass by never moving.
+    expect(new Set(visited).size).toBeGreaterThan(1);
+  });
+});

@@ -194,8 +194,12 @@ Run with `pnpm test:e2e:slide`, on its own port so a deck's suite and a
 document's can run at once. Proved rather than assumed: the zoom test fails when
 the scoping fix is taken out.
 
-- [ ] **The suite is thin where the product is new.** Nothing yet covers
-  pictures, layouts, snapping, going inside a group, or presenting.
+Twenty-one now: the thin places named when the suite was started — pictures,
+layouts, snapping, going inside a container, presenting — are covered, each by
+the behaviour a probe had been checking by hand.
+
+- [ ] **Nothing covers a second reader.** Every test here is one person editing
+  one deck, which is the only thing the product does today.
 
 ### Slides — what is next, in order
 
