@@ -113,16 +113,22 @@ export function App({
   useEffect(() => {
     const read = () => {
       /**
-       * The slide on the *stage*, and said so.
+       * *The* slide: on the stage, and the one being looked at.
        *
-       * A thumbnail is that slide, drawn again and small, so an unscoped
-       * `.sl-slide` finds whichever the rail happens to draw first. Measured:
-       * the zoom control read 10% — 128 pixels over 1280 — while the stage drew
-       * the deck at 91%. The third place this exact selector had to be scoped
-       * after the rail grew pictures, which is why it is written down in
-       * `thumbnail.tsx` as well.
+       * Two ways to get this wrong, and this line found both. Unscoped, it
+       * measures whichever slide the rail happens to draw first — a thumbnail
+       * is that slide, 128 pixels wide, and the control read 10% while the
+       * stage drew the deck at 91%. Scoped but unnamed, it measures the stage's
+       * *first* slide, which is hidden whenever the reader is on any other one,
+       * and the control read 0%.
+       *
+       * The stage draws every slide and hides the rest, so a query that does
+       * not name the slide is asking a question with several answers.
        */
-      const slide = document.querySelector<HTMLElement>('.sl-stage .sl-slide');
+      if (!current) return;
+      const slide = document.querySelector<HTMLElement>(
+        `.sl-stage .sl-slide[data-bc-sid="${CSS.escape(current)}"]`
+      );
       if (slide) setFitted(slide.getBoundingClientRect().width / 1280);
     };
     read();
