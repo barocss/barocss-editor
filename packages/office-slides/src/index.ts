@@ -44,6 +44,11 @@ export { createSlideCommands, SlidesExtension } from './slide-commands';
 
 export { createBoxCommands, SlidesBoxExtension } from './box-commands';
 export { createClipboardCommands, SlidesClipboardExtension } from './clipboard-commands';
+export {
+  resolveDeckFormat,
+  placeholderFor,
+  type DeckFormatScope
+} from './layout-format';
 
 export { createArrangeCommands, SlidesArrangeExtension } from './arrange-commands';
 
@@ -94,6 +99,7 @@ export {
   copyOf,
   deckSlides,
   layoutPlaceholders,
+  layoutPlaceholderSids,
   noteFor,
   type DeckAccess,
   type DeckNode,

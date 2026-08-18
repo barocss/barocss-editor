@@ -160,6 +160,24 @@ export function copyOf(doc: DeckAccess, sid: string, depth = 0): DeckNode | unde
  * the title of slide four must not rewrite the layout every other slide follows.
  */
 export function layoutPlaceholders(doc: DeckAccess, layoutId: string | undefined): DeckNode[] {
+  return layoutPlaceholderSids(doc, layoutId)
+    .map((placeholder) => copyOf(doc, placeholder))
+    .filter((placeholder): placeholder is DeckNode => placeholder !== undefined);
+}
+
+/**
+ * The same placeholders, as the sids the document actually holds.
+ *
+ * `layoutPlaceholders` copies, because its caller is putting them in a slide and
+ * a shared node would make editing one slide's title rewrite the layout. A
+ * caller that only wants to *read* a placeholder needs the opposite: a copy's
+ * children are nested nodes rather than sids, so walking into one finds nothing.
+ *
+ * That difference cost a debugging session. Resolving a slide's font through its
+ * layout came back empty for every slide, because the placeholder was found and
+ * its paragraphs — the things carrying the formatting — were invisible.
+ */
+export function layoutPlaceholderSids(doc: DeckAccess, layoutId: string | undefined): string[] {
   if (!layoutId) return [];
 
   const root = doc.getNode(doc.rootId);
@@ -173,10 +191,7 @@ export function layoutPlaceholders(doc: DeckAccess, layoutId: string | undefined
       const layout = doc.getNode(child);
       if (layout?.stype !== 'slideLayout') continue;
       if (attrString(layout, 'id') !== layoutId) continue;
-
-      return childrenOf(layout)
-        .map((placeholder) => copyOf(doc, placeholder))
-        .filter((placeholder): placeholder is DeckNode => placeholder !== undefined);
+      return childrenOf(layout);
     }
   }
 

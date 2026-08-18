@@ -139,6 +139,33 @@ move every title on every slide to where the layout's is.
 
 ---
 
+---
+
+## 4. Time, when it comes, lives beside the document
+
+Not a decision that has to be made yet, and written down because it is the one
+that would be expensive to make by accident. Motion, a timeline and video all add
+**time**, and the model has no dimension for it.
+
+There are two shapes it could take, and they are not close:
+
+- **In the document.** A node carries its own keyframes, so every node type
+  grows a time field and every operation has to maintain one. `locked` is the
+  small version of this — one boolean, and it reached every command that edits a
+  box.
+- **Beside the document.** A track references nodes by sid and holds the timing
+  itself, so a node that knows nothing about animation can still be animated, and
+  a document with no timeline pays nothing. It is what PowerPoint does — an
+  animation list per slide, naming shapes — and what every editing tool with a
+  timeline does.
+
+**Beside**, when the time comes. The reason is the same one that settled the
+unit: the alternative makes every existing node type and every existing
+operation take on a concern that only some documents have.
+
+Nothing is declared for it now. A node type declared before something reads it is
+how this schema came to have fifteen of them with no renderer.
+
 ## What these three have in common
 
 Each was a fact that the code already depended on and no single place stated:

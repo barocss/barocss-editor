@@ -14,7 +14,12 @@ import {
   currentChoice,
   type ToolbarChoice
 } from '@barocss/office-word';
-import { SLIDES_TOOLBAR, type Slide, type SlidesToolbarControl } from '@barocss/office-slides';
+import {
+  SLIDES_TOOLBAR,
+  resolveDeckFormat,
+  type Slide,
+  type SlidesToolbarControl
+} from '@barocss/office-slides';
 
 /**
  * The deck's ribbon.
@@ -74,6 +79,31 @@ export function Ribbon({
    * formatting in it.
    */
   const summary = useMemo(() => editor.getSelectionSummary(), [editor, tick]);
+
+  /**
+   * What the layout says, for a control the selection does not answer.
+   *
+   * Read at the moment a control asks rather than computed for every render:
+   * most of the time nothing is asking, and this walks the deck's resources.
+   */
+  const inherited = (model: { markType: string }): string | number | undefined => {
+    const store = (editor as any).dataStore;
+    const rootId = (editor as any).getRootId?.();
+    const at = (editor as any).selection?.startNodeId as string | undefined;
+    if (!store || !rootId || !at) return undefined;
+
+    const format = resolveDeckFormat(
+      { rootId, getNode: (sid: string) => store.getNode(sid) },
+      at,
+      'character'
+    );
+    const value = format[model.markType];
+    if (typeof value === 'number') return value;
+    if (typeof value !== 'string') return undefined;
+    // A stylesheet writes a stack — `Georgia, serif` — where a control offers
+    // one name. The same trim Word's own resolver does, for the same reason.
+    return value.split(',')[0].trim().replace(/^["']|["']$/g, '');
+  };
   const here = useMemo(
     () => slides.find((slide) => slide.sid === current),
     [slides, current]
@@ -123,20 +153,46 @@ export function Ribbon({
    * here. Slides had none of them on its toolbar, so `setFontFamily`,
    * `setFontSize` and `setFontColor` were registered, working, and unreachable.
    *
-   * `inherited` is not passed. Word resolves a font through the style cascade
-   * so a paragraph plainly set in Georgia does not read as "mixed"; a deck's
-   * text takes its formatting from the layout, which is the next thing this
-   * product needs and is logged as such. Until then this shows direct
-   * formatting only, and shows nothing rather than guessing.
+   * `inherited` resolves through the layout, which is a deck's answer to the
+   * question Word answers with its style cascade. Without it these controls
+   * read "—" for a title that is plainly 66pt, because nothing on the slide
+   * sets a size — the layout does, and the slide follows it.
    */
-  const choice = (model: ToolbarChoice, width: string) => (
+  const choice = (model: ToolbarChoice, width: string) => {
+    const current = summary ? currentChoice(model, summary as never, () => inherited(model)) : null;
+    const options = model.options.map((option) => ({
+      id: String(option.value),
+      label: option.label
+    }));
+
+    /**
+     * A size the presets do not offer is still the size.
+     *
+     * The layouts in a deck are set in whatever the designer chose — this
+     * deck's title is 54pt — and the control offers a dozen round numbers. A
+     * value not among them left the box blank, which reads as "the selection
+     * disagrees with itself" when it agrees perfectly. So the real value joins
+     * the list.
+     *
+     * Word's ribbon has the same gap for the same reason; it is logged rather
+     * than fixed in two places by copying this.
+     */
+    if (current !== null && !options.some((option) => option.id === current)) {
+      const points = Number(current);
+      options.unshift({
+        id: current,
+        label: model.id === 'font-size' && Number.isFinite(points) ? String(points / 2) : current
+      });
+    }
+
+    return (
     <ChoiceSelect
       key={model.id}
       testClass={`sl-toolbar-${model.id}`}
       ariaLabel={model.label}
       className={width}
-      options={model.options.map((option) => ({ id: String(option.value), label: option.label }))}
-      value={summary ? currentChoice(model, summary as never) : null}
+      options={options}
+      value={current}
       disabled={!summary || (summary as never as { empty?: boolean }).empty === true}
       onChange={(id) => {
         const chosen = model.options.find((option) => String(option.value) === id);
@@ -144,7 +200,8 @@ export function Ribbon({
         void (editor as any).executeCommand?.(model.command, { [model.key]: chosen.value });
       }}
     />
-  );
+    );
+  };
 
   return (
     <Toolbar className="sl-toolbar" label="슬라이드 서식">

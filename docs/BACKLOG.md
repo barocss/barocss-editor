@@ -175,11 +175,24 @@ Ordered so that each one is unblocked by the one before it.
      one command so it is one undo. Found on the way: `deleteBoxes`,
      `duplicateBoxes` and `nudgeBoxes` had the same slide-level assumption the
      arrange commands had, so none of them worked inside a frame either.
-4. - [ ] **Formatting through the layout.** A resolver shaped like Word's:
-     deck defaults, then the layout's placeholder of the same *role*, then
-     direct. Turns the ribbon's font controls from "—" into the real answer and
-     makes "apply this layout" mean something for a slide that already has
-     content.
+4. - [x] **Formatting through the layout.** A resolver shaped like Word's:
+     the layout's placeholder of the same *role*, then direct. The ribbon's font
+     controls now read 33pt for a title and 20pt for a body, from a deck where
+     nothing on any slide sets a size. Two things found on the way:
+     `layoutPlaceholders` returns *copies*, whose children are nested nodes
+     rather than sids, so reading a placeholder's paragraphs found nothing —
+     `layoutPlaceholderSids` is the reading half; and a size the presets do not
+     offer left the control blank, which reads as "the selection disagrees with
+     itself" when it agrees perfectly.
+   - [ ] **Applying a layout to a slide that already has content** is the other
+     half, and now means something: it changes what is inherited rather than
+     overwriting what was typed.
+   - [ ] **Per-level formatting.** PowerPoint formats a body placeholder by
+     outline level. A paragraph here carries no level, so the resolver takes the
+     placeholder's paragraph at the same index and the last one after that —
+     the nearest thing the schema can express, written down in the resolver.
+   - [ ] **Word's ribbon has the same blank-for-an-unlisted-size gap**, fixed in
+     Slides' and deliberately not copied across.
 5. - [ ] **Snapping while resizing.** Move only today. It has to agree with the
      aspect and centre modifiers, which are the two things a reader is already
      holding a key to get — worth doing carefully rather than first.
