@@ -24,11 +24,20 @@ import { cn } from './cn';
 export function PropertyPanel({
   title,
   children,
-  className
+  className,
+  /**
+   * Something small beside the title — a unit picker, and nothing bigger.
+   *
+   * The panel's own header is the one place a setting *about* the panel belongs:
+   * putting a unit control in a group would make it look like a property of
+   * whatever is selected, which it is not.
+   */
+  action
 }: {
   title: string;
   children: React.ReactNode;
   className?: string;
+  action?: React.ReactNode;
 }) {
   return (
     <aside
@@ -40,9 +49,12 @@ export function PropertyPanel({
         className
       )}
     >
-      <h2 className="border-b border-neutral-200 px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500 dark:border-neutral-800">
-        {title}
-      </h2>
+      <div className="flex items-center justify-between gap-2 border-b border-neutral-200 px-3 py-1.5 dark:border-neutral-800">
+        <h2 className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+          {title}
+        </h2>
+        {action}
+      </div>
       <div className="flex flex-col gap-4 p-3">{children}</div>
     </aside>
   );

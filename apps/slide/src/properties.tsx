@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer } from 'react';
+import { useEffect, useMemo, useReducer, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import {
   PropertyColor,
@@ -7,9 +7,15 @@ import {
   PropertyNumber,
   PropertyPanel,
   PropertyRow,
-  PropertyToggle
+  PropertyToggle,
+  LENGTH_UNITS,
+  fromDisplay,
+  stepFor,
+  toDisplay,
+  unitSuffix,
+  type LengthUnit
 } from '@barocss/office-ui';
-import { boxAt, pxToTwip, twipToPx, type Slide } from '@barocss/office-slides';
+import { boxAt, type Slide } from '@barocss/office-slides';
 
 /**
  * The properties of what the reader is on.
@@ -53,12 +59,20 @@ import { boxAt, pxToTwip, twipToPx, type Slide } from '@barocss/office-slides';
  * named by neither command — three attributes a reader could see on the page
  * and nothing could change.
  *
- * ## Pixels, not twips
+ * ## The unit is the reader's
  *
- * The model is in twips because a slide is a physical surface. A reader is not:
- * they are looking at a 1280×720 slide and thinking in pixels, so the fields
- * convert. Exactly — fifteen twips to the pixel at 96dpi — so a number typed in
- * comes back the same number.
+ * The model is in twips because a slide is a physical surface. A reader is not,
+ * so the fields convert — through `@barocss/office-ui`'s converter, shared with
+ * whatever Word grows, because two products in one suite showing the same kind
+ * of number in different units is the sort of thing nobody decides and everybody
+ * inherits.
+ *
+ * This panel used to show pixels, with a reason: a reader is looking at a
+ * 1280×720 slide. The reason does not survive the zoom control — it divided
+ * twips by fifteen and stopped, so at half size a box occupying 48 screen pixels
+ * read as 96. Neither a physical length nor the reader's pixels, but the pixels
+ * it would be at 100%. Centimetres by default, and pixels still on the menu for
+ * a deck that is never going to be paper.
  */
 export function Properties({
   editor,
@@ -70,6 +84,11 @@ export function Properties({
   current?: string;
 }) {
   const [tick, bump] = useReducer((n: number) => n + 1, 0);
+  /**
+   * Which unit the fields are in. The reader's, and the panel's — not the
+   * document's, which measures in twips whatever anybody is looking at.
+   */
+  const [unit, setUnit] = useState<LengthUnit>('cm');
   useEffect(() => {
     if (!editor) return;
     // `selection.model`, not `selection.change`. Copied wrongly from Word's
@@ -111,7 +130,7 @@ export function Properties({
 
   const number = (key: 'x' | 'y' | 'width' | 'height'): number | null => {
     const value = box?.attributes?.[key];
-    return typeof value === 'number' ? twipToPx(value) : null;
+    return typeof value === 'number' ? toDisplay(value, unit) : null;
   };
 
   const colour = (key: 'fill' | 'stroke'): string | null => {
@@ -122,10 +141,10 @@ export function Properties({
   const locked = box?.attributes?.locked === true;
   const visible = box?.attributes?.visible !== false;
 
-  /** A number the model keeps in twips, shown in pixels. */
+  /** A number the model keeps in twips, shown in whatever the reader chose. */
   const lengthOf = (key: string): number | null => {
     const value = box?.attributes?.[key];
-    return typeof value === 'number' ? twipToPx(value) : null;
+    return typeof value === 'number' ? toDisplay(value, unit) : null;
   };
 
   /** A number the model keeps as itself — degrees, a ratio. */
@@ -134,10 +153,10 @@ export function Properties({
     return typeof value === 'number' ? value : fallback;
   };
 
-  const setGeometry = (key: string, px: number) => {
+  const setGeometry = (key: string, value: number) => {
     void (editor as any)?.executeCommand?.('setBoxGeometry', {
       nodeId: box?.sid,
-      [key]: pxToTwip(px)
+      [key]: fromDisplay(value, unit)
     });
   };
 
@@ -160,7 +179,24 @@ export function Properties({
   };
 
   return (
-    <PropertyPanel title="속성" className="sl-properties">
+    <PropertyPanel
+      title="속성"
+      className="sl-properties"
+      action={
+        <select
+          aria-label="단위"
+          className="sl-unit h-6 rounded border border-neutral-300 bg-transparent px-1 text-[11px] dark:border-neutral-700"
+          value={unit}
+          onChange={(event) => setUnit(event.target.value as LengthUnit)}
+        >
+          {LENGTH_UNITS.map((option) => (
+            <option key={option.id} value={option.id}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      }
+    >
       {box ? (
         <>
           <PropertyGroup label={labelFor(box.stype, box.role)}>
@@ -174,6 +210,7 @@ export function Properties({
                 ariaLabel="X"
                 value={number('x')}
                 suffix="X"
+                step={stepFor(unit)}
                 disabled={locked}
                 onCommit={(value) => setGeometry('x', value)}
               />
@@ -181,6 +218,7 @@ export function Properties({
                 ariaLabel="Y"
                 value={number('y')}
                 suffix="Y"
+                step={stepFor(unit)}
                 disabled={locked}
                 onCommit={(value) => setGeometry('y', value)}
               />
@@ -190,6 +228,7 @@ export function Properties({
                 ariaLabel="너비"
                 value={number('width')}
                 suffix="W"
+                step={stepFor(unit)}
                 disabled={locked}
                 onCommit={(value) => setGeometry('width', value)}
               />
@@ -197,6 +236,7 @@ export function Properties({
                 ariaLabel="높이"
                 value={number('height')}
                 suffix="H"
+                step={stepFor(unit)}
                 disabled={locked}
                 onCommit={(value) => setGeometry('height', value)}
               />
@@ -284,9 +324,10 @@ export function Properties({
                 <PropertyNumber
                   ariaLabel="선 두께"
                   value={lengthOf('strokeWidth')}
-                  suffix="px"
+                  suffix={unitSuffix(unit)}
+                  step={stepFor(unit)}
                   disabled={locked}
-                  onCommit={(value) => setStyle({ strokeWidth: pxToTwip(value) })}
+                  onCommit={(value) => setStyle({ strokeWidth: fromDisplay(value, unit) })}
                 />
               </PropertyRow>
             )}
@@ -299,9 +340,10 @@ export function Properties({
                 <PropertyNumber
                   ariaLabel="모서리 둥글기"
                   value={lengthOf('cornerRadius') ?? 0}
-                  suffix="px"
+                  suffix={unitSuffix(unit)}
+                  step={stepFor(unit)}
                   disabled={locked}
-                  onCommit={(value) => setStyle({ cornerRadius: pxToTwip(Math.max(0, value)) })}
+                  onCommit={(value) => setStyle({ cornerRadius: fromDisplay(Math.max(0, value), unit) })}
                 />
               </PropertyRow>
             )}

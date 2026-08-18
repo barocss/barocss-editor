@@ -49,6 +49,15 @@ export {
   PropertyEmpty
 } from './properties';
 
+export {
+  LENGTH_UNITS,
+  toDisplay,
+  fromDisplay,
+  stepFor,
+  unitSuffix,
+  type LengthUnit
+} from './units';
+
 export { ControlIcon } from './icons';
 
 export { ZoomControl } from './zoom';

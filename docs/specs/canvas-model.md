@@ -143,6 +143,37 @@ move every title on every slide to where the layout's is.
 
 ---
 
+## 3a. What a reader sees is not what the document stores
+
+Settled after the question was asked out loud: **why do the two products show
+different units?**
+
+They did, and it was nobody's decision. Word shows a number in exactly one
+place — the ruler, in inches, because a page is paper. Slides' properties panel
+showed pixels, with a reason written in it: a reader is looking at a 1280×720
+slide and thinking in pixels.
+
+The reason does not survive the zoom control. The panel divided twips by fifteen
+and stopped, so at half size a box occupying 48 screen pixels was reported as
+96 — neither a physical length nor the reader's pixels, but *the pixels it would
+be at 100%*. A number true at exactly one zoom is the worst of the three
+options.
+
+**The decision: a physical unit, the reader's to choose, converted in one shared
+place.** `@barocss/office-ui`'s `toDisplay` / `fromDisplay`, defaulting to
+centimetres because the interface is Korean, with millimetres, inches, points
+and pixels on the menu. Pixels stay: a deck bound for a screen and never for
+paper is a real thing to be making, and what a reader should not have is a panel
+that decided for them.
+
+The same argument that settled what a document *stores* settles what it shows —
+a slide and a page are both surfaces that get printed and projected. And the
+same failure shape is what made it worth settling: two products in one suite
+showing the same kind of number differently is not a choice anybody makes, it is
+one everybody inherits.
+
+---
+
 ## 4. Time, when it comes, lives beside the document
 
 Not a decision that has to be made yet, and written down because it is the one
