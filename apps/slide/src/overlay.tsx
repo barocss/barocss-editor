@@ -127,6 +127,27 @@ export function SelectionOverlay({
    */
   const [inside, setInside] = useState<string | undefined>();
   const layer = useRef<HTMLDivElement>(null);
+  /**
+   * Elements this overlay has nudged, so they can be put back.
+   *
+   * A drag does not write to the document until it ends — one command, one undo
+   * — which used to mean the shape stayed put and a translucent copy followed
+   * the pointer instead. That reads as dragging a frame *around* the thing
+   * rather than dragging the thing.
+   *
+   * So the real element is moved, for the length of the drag, with the `translate`
+   * property rather than `transform`. The two compose independently and the
+   * renderers only ever write `transform` — a shape's rotation — so neither
+   * overwrites the other, and clearing this leaves whatever the renderer put
+   * there untouched. Anything that guessed at composing the two strings would
+   * be a second place that has to know how a shape is turned.
+   */
+  const nudged = useRef<Set<HTMLElement>>(new Set());
+  /**
+   * Held in a ref so the effects above can settle without depending on a
+   * function declared below them, and without re-running when it changes.
+   */
+  const settleRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     if (!editor) return;
@@ -175,9 +196,21 @@ export function SelectionOverlay({
     };
   }, [slideSid, revision, tick]);
 
-  // Leaving the slide leaves whatever container was entered on it.
+  /**
+   * Leaving the slide ends whatever was happening on it.
+   *
+   * The container the reader had gone into, and any drag in progress. The
+   * overlay does not unmount when the slide changes — it is the same component
+   * with a different slide — so nothing else would put back an element this
+   * overlay had nudged, and the pointer capture is gone with the elements, so
+   * the release that would have settled it never arrives. Measured: a shape
+   * dragged while the rail was clicked stayed translated by a drag nobody
+   * finished, eight hundred pixels from where the document said it was.
+   */
   useEffect(() => {
     setInside(undefined);
+    setDrag(null);
+    settleRef.current();
   }, [slideSid]);
 
   const store = (editor as any)?.dataStore;
@@ -257,6 +290,19 @@ export function SelectionOverlay({
     const box = boxOf(node.attributes);
     return { ...box, x: origin.x, y: origin.y };
   }, [doc, inside, origin]);
+
+  /**
+   * The element a box is drawn as, on the stage.
+   *
+   * Scoped, like the slide's own lookup: a thumbnail is that box with that sid,
+   * and an unscoped query would nudge a picture in the rail while the reader
+   * dragged the slide.
+   */
+  const elementFor = useCallback(
+    (sid: string) =>
+      document.querySelector<HTMLElement>(`.sl-stage [data-bc-sid="${CSS.escape(sid)}"]`),
+    []
+  );
 
   /** Whether a node is one a reader can go inside. */
   const isContainer = useCallback(
@@ -496,10 +542,59 @@ export function SelectionOverlay({
     }
 
     setDrag({ ...drag, preview, moved, guides });
+
+    /**
+     * And move the actual shapes, which is what a reader is looking at.
+     *
+     * Only for a move: a resize changes the *size*, which `translate` cannot
+     * say, and a shape that scaled its text while being resized would be
+     * describing something the model will never hold. The outline follows for
+     * those, as it always did.
+     */
+    if (drag.handle === 'move') {
+      for (const [sid, box] of preview) {
+        const from = drag.original.get(sid);
+        const element = elementFor(sid);
+        if (!from || !element) continue;
+        /**
+         * Model pixels, not screen pixels.
+         *
+         * The element lives inside the stage, which is already scaled, so the
+         * browser applies the zoom to this translation for us. Using
+         * `toScreen` — which multiplies by that same scale — applied it twice,
+         * and the shape trailed the pointer by exactly the zoom: 101 pixels for
+         * a drag of 120 at 84%.
+         */
+        element.style.translate = `${twipToPx(box.x - from.x)}px ${twipToPx(box.y - from.y)}px`;
+        nudged.current.add(element);
+      }
+    }
   };
+
+  /** Put back every element this overlay moved, whatever ended the drag. */
+  const settle = useCallback(() => {
+    for (const element of nudged.current) element.style.translate = '';
+    nudged.current.clear();
+  }, []);
+  settleRef.current = settle;
 
   const onPointerUp = (event: React.PointerEvent) => {
     (event.currentTarget as HTMLElement).releasePointerCapture?.(event.pointerId);
+
+    /**
+     * First, and whatever else this release turns out to be.
+     *
+     * Every path out of here has to put back the elements the drag nudged, and
+     * one of them did not: a pointer-down that missed every box starts a marquee
+     * and leaves the drag alone, so the release took the marquee branch and
+     * returned before settling. Measured — a shape left translated eight hundred
+     * pixels from where the document said it was, and staying there.
+     *
+     * Before the command as well as before the early returns: the command
+     * changes the model, the view redraws from it, and a `translate` still on
+     * the element would be added to a position that already includes the move.
+     */
+    settle();
 
     if (marquee) {
       const box = marqueeBox(marquee);
@@ -644,6 +739,16 @@ export function SelectionOverlay({
       view?.enteredText?.();
     });
   };
+
+  /**
+   * A shape put back if this overlay goes away mid-drag.
+   *
+   * Switching slides, presenting, or a re-mount while the pointer is down would
+   * otherwise leave an element translated by a drag nobody finished — and the
+   * document, which does not know about the drag, would keep drawing it in the
+   * right place under the wrong offset.
+   */
+  useEffect(() => settle, [settle]);
 
   // Escape leaves the text and gives the box back to the overlay.
   useEffect(() => {
@@ -860,16 +965,17 @@ export function SelectionOverlay({
               transform: rotation ? `rotate(${rotation}deg)` : undefined,
               pointerEvents: 'none',
               /**
-               * A ghost of the shape while it is being dragged.
+               * A translucent stand-in, for a resize and nothing else.
                *
-               * The document is not written until the drag ends, so the shape
-               * itself stays where it was and only this outline follows the
-               * pointer — which reads as dragging a frame around rather than
-               * dragging the thing. The overlay draws its own translucent copy
-               * instead of moving an element the view owns and rewrites.
+               * A *move* moves the real shape now — the overlay nudges the
+               * element with `translate` for the length of the drag — so a copy
+               * drawn here would be a second one in the same place. A resize
+               * cannot be done that way: it changes the size, which `translate`
+               * cannot say, and scaling the element would scale the text inside
+               * it into something the model will never hold.
                */
-              background: drag?.moved && entry.fill ? entry.fill : undefined,
-              opacity: drag?.moved && entry.fill ? 0.45 : undefined
+              background: drag?.moved && drag.handle !== 'move' && entry.fill ? entry.fill : undefined,
+              opacity: drag?.moved && drag.handle !== 'move' && entry.fill ? 0.45 : undefined
             }}
           />
         );

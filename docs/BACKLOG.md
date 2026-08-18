@@ -339,10 +339,22 @@ that forces a caret selection and a node selection to coexist. `packages/office-
 - [ ] **Snapping while resizing.** Move only today: snapping a resize would
   fight the aspect and centre modifiers, which are the two things a reader is
   already holding a key to get. Worth doing, and worth doing carefully.
-- [ ] **A shape does not move while it is dragged** — the overlay draws a
-  translucent ghost instead, because the document is not written until the drag
-  ends and the view owns every element inside it. Good enough to read as
-  dragging; the real thing would need the view to accept a transient transform.
+- [x] **A shape moves while it is dragged.** The overlay nudges the real element
+  with the `translate` property for the length of the drag and clears it on
+  release — `translate` and not `transform`, because the renderers write
+  `transform` for a shape's rotation and the two compose without either having
+  to know about the other. The document is still written once, at the end.
+
+  A resize keeps the translucent stand-in: it changes the *size*, which
+  `translate` cannot say, and scaling the element would scale the text inside it
+  into something the model will never hold.
+
+  Two things measured on the way. Using the overlay's `toScreen` applied the
+  zoom twice, because the element is already inside the scaled stage — the shape
+  trailed the pointer by exactly the zoom. And a pointer-down that misses every
+  box starts a marquee without clearing the drag, so the release took the
+  marquee branch and returned before putting the element back; settling is the
+  first thing the release does now, whatever else it turns out to be.
 - [x] **Dialogs** — slide size and layout picker, the first things to draw the
   suite's `Dialog`. Deck size is applied to every slide rather than held once on
   the document: a slide already carries its own size, and a second place saying
