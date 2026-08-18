@@ -112,7 +112,17 @@ export function App({
   const [fitted, setFitted] = useState(1);
   useEffect(() => {
     const read = () => {
-      const slide = document.querySelector<HTMLElement>('.sl-slide');
+      /**
+       * The slide on the *stage*, and said so.
+       *
+       * A thumbnail is that slide, drawn again and small, so an unscoped
+       * `.sl-slide` finds whichever the rail happens to draw first. Measured:
+       * the zoom control read 10% — 128 pixels over 1280 — while the stage drew
+       * the deck at 91%. The third place this exact selector had to be scoped
+       * after the rail grew pictures, which is why it is written down in
+       * `thumbnail.tsx` as well.
+       */
+      const slide = document.querySelector<HTMLElement>('.sl-stage .sl-slide');
       if (slide) setFitted(slide.getBoundingClientRect().width / 1280);
     };
     read();

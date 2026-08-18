@@ -26,6 +26,19 @@ import { slideSize, twipToPx,
  * not — and a rail that lies about what the slide looks like is worse than one
  * with no pictures in it.
  *
+ * ## What it costs the rest of the app
+ *
+ * A thumbnail draws the slide with the slide's own class and the slide's own
+ * sid, so **every lookup of `.sl-slide` or of a box by sid has to say where it
+ * is looking**. Three places had to be scoped to the stage after this arrived:
+ * the overlay's measurement of the slide, the overlay's lookup of an element to
+ * nudge while dragging, and the app's reading of the zoom — which read 10%,
+ * being 128 pixels over 1280, while the stage drew the deck at 91%.
+ *
+ * That is the price of the pictures being real rather than fake, and it is
+ * worth paying; what is not acceptable is paying it silently, so it is written
+ * here where the next unscoped query will be written.
+ *
  * ## A snapshot each time
  *
  * `getDocumentProxy` is a live view of the store, so handing it to a renderer
