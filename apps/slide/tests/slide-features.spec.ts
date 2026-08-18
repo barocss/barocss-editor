@@ -89,6 +89,61 @@ test.describe('going inside a container', () => {
   });
 });
 
+test.describe('arranging', () => {
+  /**
+   * A selection that spans a group and the slide.
+   *
+   * Aligning used to read one container's children and match the selection
+   * against them, so half the selection was invisible to it and every align and
+   * distribute button went grey — silently, for a selection the reader had
+   * plainly made. What "align these left" means does not depend on whether the
+   * shapes happen to share a parent.
+   */
+  test('lines up boxes that live in different containers', async ({ page }) => {
+    await openDeck(page);
+    await page.locator('.sl-filmstrip button').nth(2).click();
+    await page.waitForTimeout(500);
+
+    const pair = await page.evaluate(() => {
+      const store = (window as any).editor.dataStore;
+      const root = store.getNode((window as any).editor.getRootId());
+      const slide = (root.content ?? [])
+        .map((s: string) => store.getNode(s))
+        .filter((n: any) => n?.stype === 'surface')[2];
+      const children = (slide.content ?? []).map((s: string) => store.getNode(s));
+      const onSlide = children.find((n: any) => n?.stype === 'textFrame');
+      const container = children.find((n: any) => n?.stype === 'group' || n?.stype === 'frame');
+      const inside = store.getNode((container?.content ?? [])[0]);
+      return onSlide && inside ? [onSlide.sid, inside.sid] : null;
+    });
+    test.skip(!pair, 'this slide has no container to reach into');
+
+    const left = async () =>
+      await page.evaluate(
+        (sids) =>
+          sids.map((s: string) =>
+            Math.round(document.querySelector(`.sl-stage [data-bc-sid="${s}"]`)!.getBoundingClientRect().x)
+          ),
+        pair!
+      );
+
+    const before = await left();
+    expect(before[0]).not.toBe(before[1]);
+
+    await page.evaluate((sids) => (window as any).editor.executeCommand('setNode', { nodeIds: sids }), pair!);
+    await page.waitForTimeout(300);
+    await page.getByLabel('왼쪽 정렬').click();
+    await page.waitForTimeout(600);
+
+    const after = await left();
+    expect(after[0]).toBe(after[1]);
+
+    await page.keyboard.press('Control+z');
+    await page.waitForTimeout(500);
+    expect(await left()).toEqual(before);
+  });
+});
+
 test.describe('snapping', () => {
   /**
    * A resize holds the opposite edge still, so only the lines the handle moves

@@ -198,6 +198,10 @@ Twenty-one now: the thin places named when the suite was started — pictures,
 layouts, snapping, going inside a container, presenting — are covered, each by
 the behaviour a probe had been checking by hand.
 
+- [ ] **A group's box does not follow its children.** Aligning across containers
+  can move a child outside the group that holds it — legitimate in the model, and
+  the group's own rectangle stops describing what is in it. PowerPoint recomputes
+  the bounds; nothing here does.
 - [ ] **Nothing covers a second reader.** Every test here is one person editing
   one deck, which is the only thing the product does today.
 

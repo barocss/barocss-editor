@@ -9,7 +9,7 @@ import {
   unionOf,
   type Align
 } from './manipulate';
-import { isSceneType, slideAt } from './selection';
+import { fromSurface, isSceneType, slideAt, toSurface } from './selection';
 import type { DeckAccess } from './deck';
 
 /**
@@ -160,23 +160,53 @@ export class SlidesArrangeExtension implements Extension {
     return slideAt(doc, sid);
   }
 
+  /**
+   * The selected boxes, wherever they live, in the slide's coordinates.
+   *
+   * Aligning used to read one container's children and match the selection
+   * against them, so a selection spanning a group and the slide came back with
+   * only half of itself — and with fewer than two boxes every align and
+   * distribute button went grey, silently, for a selection a reader had plainly
+   * made. What a reader means by "align these left" is the same thing whether
+   * the shapes happen to share a parent.
+   *
+   * So the boxes are collected in the *slide's* coordinates, which is the one
+   * space they all have in common, and `_apply` converts each answer back into
+   * whatever container that box actually lives in. The conversion is
+   * `toSurface`/`fromSurface`, which exist for exactly this — see
+   * `docs/specs/canvas-model.md`.
+   *
+   * Ordered by the document rather than by the selection, so "send to back"
+   * moves them in the order they are drawn.
+   */
   private _boxes(editor: Editor): { sid: string; box: Box }[] {
     const doc = this._access(editor);
     if (!doc) return [];
 
-    const ids = new Set(selectedNodeIds((editor as any).selection));
-    if (ids.size === 0) return [];
+    const ids = selectedNodeIds((editor as any).selection);
+    if (ids.length === 0) return [];
 
-    const container = this._containerOf(doc, [...ids][0]);
-    const surface: any = container ? doc.getNode(container) : undefined;
-    const children: string[] = Array.isArray(surface?.content) ? surface.content : [];
+    const container = this._containerOf(doc, ids[0]);
+    const siblings: string[] = Array.isArray((doc.getNode(container ?? '') as any)?.content)
+      ? ((doc.getNode(container!) as any).content as string[])
+      : [];
 
-    return children
-      .filter((sid) => ids.has(sid))
+    // The selection's own order is the reader's; document order is what paint
+    // order means. Siblings first, in the order they are drawn, then anything
+    // selected from another container.
+    const ordered = [
+      ...siblings.filter((sid) => ids.includes(sid)),
+      ...ids.filter((sid) => !siblings.includes(sid))
+    ];
+
+    return ordered
       .map((sid) => ({ sid, node: doc.getNode(sid) as any }))
       .filter((entry) => entry.node && isSceneType(entry.node.stype))
       .filter((entry) => entry.node.attributes?.locked !== true)
-      .map((entry) => ({ sid: entry.sid, box: boxOf(entry.node.attributes) }));
+      .map((entry) => ({
+        sid: entry.sid,
+        box: toSurface(doc, entry.sid, boxOf(entry.node.attributes))
+      }));
   }
 
   // ── Editing ────────────────────────────────────────────────────────────────
@@ -429,10 +459,26 @@ export class SlidesArrangeExtension implements Extension {
   ): Promise<boolean> {
     if (moved.size === 0) return false;
 
-    const steps = [...moved].map(([index, box]) => ({
-      type: 'setAttrs',
-      payload: { nodeId: boxes[index].sid, attrs: { x: box.x, y: box.y } }
-    }));
+    const doc = this._access(editor);
+    if (!doc) return false;
+
+    /**
+     * Back into each box's own container.
+     *
+     * The arithmetic happened in the slide's coordinates because that is the
+     * space the boxes have in common; the document holds each one relative to
+     * its parent, and a box in a group is written with the group's origin taken
+     * off again.
+     */
+    const steps = [...moved].map(([index, box]) => {
+      const sid = boxes[index].sid;
+      const parent = (doc.getNode(sid) as any)?.parentId as string | undefined;
+      const placed = fromSurface(doc, parent, box);
+      return {
+        type: 'setAttrs',
+        payload: { nodeId: sid, attrs: { x: placed.x, y: placed.y } }
+      };
+    });
 
     return (await transaction(editor, steps as never).commit()).success;
   }
