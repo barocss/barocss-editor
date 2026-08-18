@@ -289,7 +289,44 @@ body {
 }
 
 .sl-notes-empty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   color: var(--sl-muted);
+}
+
+.sl-notes-add {
+  padding: 2px 8px;
+  font-size: 12px;
+  color: inherit;
+  background: transparent;
+  border: 1px solid var(--sl-line);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.sl-notes-add:hover {
+  background: var(--sl-hover, rgba(127, 127, 127, 0.12));
+}
+
+/*
+ * The note itself, drawn by a second view over the same document.
+ *
+ * A minimum height so an empty note is a place a reader can click rather than a
+ * line of nothing — the paragraph inside carries the caret filler and has a
+ * height of its own, and this is the region around it.
+ */
+.sl-notes-host {
+  min-height: 44px;
+}
+
+.sl-notes-host .sl-note {
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.sl-notes-host [contenteditable='true'] {
+  outline: none;
 }
 
 /* ── Selection ─────────────────────────────────────────────────────────── */

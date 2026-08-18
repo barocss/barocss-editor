@@ -3,6 +3,7 @@ import type { Editor } from '@barocss/editor-core';
 import type { EditorViewDOM } from '@barocss/editor-view-dom';
 import { Filmstrip } from './filmstrip';
 import { SelectionOverlay } from './overlay';
+import { NotesPane } from './notes';
 import { ZoomControl } from '@barocss/office-ui';
 import { clampZoom } from '@barocss/office-slides';
 import { SlideLayoutDialog, SlideSizeDialog } from './deck-dialogs';
@@ -10,7 +11,7 @@ import { Present } from './present';
 import { Properties } from './properties';
 import { Ribbon } from './ribbon';
 import { Stage } from './stage';
-import { useDeck, useNote } from './deck-model';
+import { useDeck } from './deck-model';
 
 /**
  * The deck app.
@@ -94,7 +95,6 @@ export function App({
    * reader's zoom on every resize or never fitting again after the first.
    */
   const [zoom, setZoom] = useState<number | undefined>(undefined);
-  const note = useNote(editor, current);
 
   const here = useMemo(
     () => slides.find((slide) => slide.sid === current),
@@ -247,21 +247,15 @@ export function App({
             <SelectionOverlay editor={editor} view={view} slideSid={current} revision={slides.length} />
           )}
 
-          <section className="sl-notes" aria-label="발표자 노트">
-            <h2>발표자 노트</h2>
-            {note ? (
-              <p>{note}</p>
-            ) : (
-              <p className="sl-notes-empty">이 슬라이드에는 노트가 없습니다.</p>
-            )}
-            {/*
-             * Read-only, and said so rather than faked. A note is editable
-             * content in the document — paragraphs, marks, a caret, undo — and
-             * a textarea here would look like it could be typed in and lose
-             * every keystroke. Editing it means a second editable region over
-             * the same document, which is the next thing this app needs.
-             */}
-          </section>
+          {/*
+           * The note, editable, and drawn by a second view over the same
+           * document — see `notes.tsx` for why that rather than a textarea. It
+           * used to be read-only prose with a comment saying this was the next
+           * thing the app needed; this is that thing.
+           */}
+          {!presenting && (
+            <NotesPane editor={editor} slideSid={current} revision={slides.length} />
+          )}
         </main>
 
         {/*

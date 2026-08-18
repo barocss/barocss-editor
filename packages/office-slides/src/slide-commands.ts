@@ -1,7 +1,7 @@
 import { Editor, Extension } from '@barocss/editor-core';
 import { CANVAS_GEOMETRY_ATTRS, CANVAS_STYLE_ATTRS } from '@barocss/schema';
 import { transaction } from '@barocss/model';
-import { copyOf, deckSlides, layoutPlaceholders, type DeckAccess } from './deck';
+import { copyOf, deckSlides, layoutPlaceholders, noteFor, type DeckAccess } from './deck';
 import { isSceneType } from './selection';
 import { SLIDE_16_9 } from './geometry';
 
@@ -163,6 +163,36 @@ export class SlidesExtension implements Extension {
       (payload) =>
         this._canEditBox(editor, payload?.nodeId) &&
         Object.keys(this._styleOf(editor, payload)).length > 0
+    );
+
+    /**
+     * Give a slide a note to present from.
+     *
+     * `surfaceNote` has been declared since the deck was described and `noteFor`
+     * has resolved one since; nothing could ever make one. A deck could show a
+     * note an author had written by hand into the fixture and could not add a
+     * note to a slide.
+     *
+     * Two steps in one transaction, because a note is *two* things: a resource
+     * holding the text, and the slide naming it. Either alone is not a note —
+     * a resource nobody names is unreachable, and a name pointing at nothing
+     * resolves to nothing — so one command, one undo.
+     *
+     * The id is the slide's sid. It is unique by construction and it says which
+     * slide the note belongs to when a person reads the file, which is more than
+     * a counter would. The *binding* is still the slide naming the note, the way
+     * a surface names its header: a note carrying a `surfaceId` reads better and
+     * cannot work, because a sid is handed out at load and an authored document
+     * has none to write.
+     */
+    register(
+      'addSlideNote',
+      (payload) => this._addNote(editor, payload?.slideId),
+      (payload) => {
+        const doc = this._access(editor);
+        const slide = this._slideAt(editor, payload?.slideId);
+        return !!doc && !!slide && !noteFor(doc, slide);
+      }
     );
 
     /**
@@ -498,6 +528,67 @@ export class SlidesExtension implements Extension {
    * is a gap in the operation vocabulary, not a fact about slides — noted in
    * `docs/BACKLOG.md`.
    */
+  /**
+   * The resource and the binding, together.
+   *
+   * `$alias` is what lets one transaction do both: the note is declared with a
+   * name, and the step that points the slide at it refers to that name rather
+   * than to a sid nobody can know until the transaction has run.
+   */
+  private async _addNote(editor: Editor, slideId?: string): Promise<boolean> {
+    const doc = this._access(editor);
+    const slide = this._slideAt(editor, slideId);
+    if (!doc || !slide || noteFor(doc, slide)) return false;
+
+    const resources = this._resourcesOf(doc);
+    if (!resources) return false;
+
+    const surface = doc.getNode(slide);
+    const result = await transaction(editor, [
+      {
+        type: 'addChild',
+        payload: {
+          parentId: resources,
+          child: {
+            stype: 'surfaceNote',
+            attributes: { id: slide },
+            /**
+             * A paragraph, and a run inside it.
+             *
+             * The caret filler gives an empty line its height and is drawn for
+             * an empty `inline-text`; a paragraph with no run gets none, so a
+             * new note was 0 pixels high — there and impossible to click into.
+             */
+            content: [
+              {
+                stype: 'paragraph',
+                attributes: {},
+                content: [{ stype: 'inline-text', text: '' }]
+              }
+            ]
+          }
+        }
+      },
+      {
+        type: 'setAttrs',
+        payload: { nodeId: slide, attrs: { ...(surface?.attributes ?? {}), noteId: slide } }
+      }
+    ] as never).commit();
+
+    return result.success;
+  }
+
+  /** Where definitions live, which a note is one of. */
+  private _resourcesOf(doc: DeckAccess): string | undefined {
+    const root = doc.getNode(doc.rootId);
+    const children = Array.isArray(root?.content) ? (root!.content as unknown[]) : [];
+    for (const sid of children) {
+      if (typeof sid !== 'string') continue;
+      if (doc.getNode(sid)?.stype === 'resources') return sid;
+    }
+    return undefined;
+  }
+
   private async _setBoxAttrs(
     editor: Editor,
     nodeId: string | undefined,

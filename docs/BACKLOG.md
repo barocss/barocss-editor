@@ -60,10 +60,15 @@ a text position. Slides places, so the objects themselves are selectable and
 their text is inside them — which is why it is the one product where both kinds
 are live at once, and why `_nodeSelectionHoldsUntilGesture` exists at all.
 
-- [ ] **Decide whether a cell selection is a kind or a shape.** Two cells in
-  different rows are a *set*, which is what `node` already means; what `cell`
-  would add is that the set is cells, and no code has yet needed to know. Either
-  something reads it or it goes.
+**Kept, with a reader named.** Two cells in different rows are a *set*, which is
+what `node` already means; what `cell` adds is that the set is cells, and the
+code that will need to know is table editing — in both products. A selection of
+cells answers different questions than a selection of shapes does: merge, split,
+insert a row above, and what the toolbar should even offer.
+
+- [ ] **Table editing produces them.** Until it does they are declared and
+  unread, and this entry is what stops that from being forgotten rather than
+  discovered again.
 
 ### Shell and navigation
 
@@ -233,8 +238,18 @@ Ordered so that each one is unblocked by the one before it.
      what a file picker is. The file is read as a data URL so a saved deck keeps
      its pictures, and measured before it is placed so it arrives in its own
      proportions.
-7. - [ ] **Editable speaker notes.** A second editable region over one document,
-     which is the thing this engine has not been asked for yet.
+7. - [x] **Editable speaker notes.** A second `EditorViewDOM` over the *same*
+     editor and store, rendering the note's subtree — which works because
+     `render(tree)` takes any node with a sid. One history, one selection, no
+     second copy of the text. Three things it cost, each worth knowing:
+     `getDocumentProxy` hands back a *live* view of the store, so passing it to a
+     second view means every diff compares the tree with itself and nothing
+     redraws — a snapshot is needed; a view created against a region with
+     nothing to draw never draws anything later, so it is made when there is
+     something; and `surfaceNote` needed a renderer that knows *which view* it is
+     in, because the stage renders resources too and would otherwise draw every
+     note under the slide. `SLIDES_ENV_KEY` is that, the same seam Word uses for
+     a header being edited.
 8. - [ ] **Real thumbnails** in the rail, which needs a second render of the same
      deck — the first thing in either product to want one.
 

@@ -323,14 +323,27 @@ export class SlidesBoxExtension implements Extension {
       stype,
       attributes: { ...shaped, ...DEFAULTS[stype], ...(payload?.attributes ?? {}) },
       /**
-       * A text box needs a paragraph in it.
+       * A text box needs a paragraph in it, and the paragraph needs a run.
        *
        * `textFrame` is `block+`, so an empty one is not even legal — and a legal
-       * one with no paragraph would still be a box with nowhere to put a caret,
-       * which is a box a reader cannot use.
+       * one with no paragraph would still be a box with nowhere to put a caret.
+       *
+       * The empty *run* is the second half and was missing. The caret filler is
+       * what gives an empty line its height, and it is drawn for an empty
+       * `inline-text`; a paragraph with no run at all gets none, so a new text
+       * box was 0 pixels high — a box a reader had just asked for, could not
+       * see, and could not click into.
        */
       ...(stype === 'textFrame'
-        ? { content: [{ stype: 'paragraph', attributes: {}, content: [] }] }
+        ? {
+            content: [
+              {
+                stype: 'paragraph',
+                attributes: {},
+                content: [{ stype: 'inline-text', text: '' }]
+              }
+            ]
+          }
         : {})
     };
 

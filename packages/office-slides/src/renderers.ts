@@ -64,6 +64,7 @@
 import { define, element, slot } from '@barocss/dsl';
 import { registerWordRenderers } from '@barocss/office-word';
 import { placementCss, slideSize, twipToPx, type CssStyle, type Placement } from './geometry';
+import { showsNotes } from './render-context';
 
 /** The attributes bag as the DSL hands it to a template function. */
 type NodeData = Record<string, any>;
@@ -235,6 +236,32 @@ export function registerSlidesRenderers(): void {
             ...paintCss(d)
           })
       } as never,
+      [slot('content')]
+    )
+  );
+
+  /**
+   * The presenter's note.
+   *
+   * A resource, and until now an undrawn one — it lives in `resources`, bound to
+   * a slide by id, and nothing on the stage shows it. What draws it is the notes
+   * pane: a second view over the same document, rendering this subtree on its
+   * own. So the renderer is deliberately plain, because the pane around it is
+   * the chrome and this is only the content.
+   *
+   * `block+`, like a sticky and a text frame, which is why the paragraphs inside
+   * are Word's paragraphs and a note can hold a bulleted list.
+   */
+  define('surfaceNote', (_props: Record<string, any>, _node: Record<string, any>, ctx: any) =>
+    element(
+      'div',
+      {
+        className: 'sl-note',
+        // Drawn where notes are wanted and nowhere else. The stage renders the
+        // whole document, `resources` included, so without this every slide's
+        // note would appear under the slide.
+        style: showsNotes(ctx?.env) ? {} : { display: 'none' }
+      },
       [slot('content')]
     )
   );

@@ -4,7 +4,7 @@ import { createSchema } from '@barocss/schema';
 import type { Editor } from '@barocss/editor-core';
 import { createSlidesEditor } from '../src/slides-kit';
 import { getSlidesSchemaDefinition } from '../src/slides-schema';
-import { deckSlides, type DeckAccess } from '../src/deck';
+import { deckSlides, noteFor, type DeckAccess } from '../src/deck';
 
 /**
  * The five commands a deck has that a document does not.
@@ -492,5 +492,83 @@ describe('the commands a box has', () => {
       expect(can('setBoxLocked', { nodeId: 'nope', locked: true })).toBe(false);
       expect(can('setBoxLocked', { nodeId: box })).toBe(false);
     });
+  });
+});
+
+/**
+ * A note the presenter reads.
+ *
+ * `surfaceNote` had been declared since the deck was described and `noteFor` had
+ * resolved one since; nothing could make one. A deck could show a note an author
+ * had typed into the fixture by hand and could not add a note to a slide.
+ */
+describe('giving a slide a note', () => {
+  let editor: Editor;
+  let store: DataStore;
+  let slide: string;
+
+  const run = async (command: string, payload?: unknown) =>
+    await (editor as any).executeCommand(command, payload);
+  const can = (command: string, payload?: unknown) =>
+    (editor as any).canExecuteCommand?.(command, payload);
+  const doc = (): DeckAccess => ({
+    rootId: (editor as any).getRootId(),
+    getNode: (sid: string) => store.getNode(sid) as never
+  });
+
+  beforeEach(() => {
+    const schema = createSchema('slides', getSlidesSchemaDefinition());
+    store = new DataStore(undefined, schema);
+    editor = createSlidesEditor({ editable: true, schema, dataStore: store });
+    editor.loadDocument(
+      {
+        stype: 'document',
+        attributes: {},
+        content: [
+          { stype: 'surface', attributes: { kind: 'slide' }, content: [] },
+          { stype: 'resources', attributes: {}, content: [] }
+        ]
+      } as never,
+      'slides'
+    );
+    slide = (store.getNode((editor as any).getRootId()) as any).content[0];
+  });
+
+  it('has none to begin with', () => {
+    expect(noteFor(doc(), slide)).toBeUndefined();
+    expect(can('addSlideNote', { slideId: slide })).toBe(true);
+  });
+
+  it('adds one the slide can find', async () => {
+    expect(await run('addSlideNote', { slideId: slide })).toBeTruthy();
+    const note = noteFor(doc(), slide);
+    expect(note).toBeTruthy();
+    expect((store.getNode(note!) as any).stype).toBe('surfaceNote');
+  });
+
+  it('gives it somewhere to put a caret', async () => {
+    await run('addSlideNote', { slideId: slide });
+    const note = store.getNode(noteFor(doc(), slide)!) as any;
+    const paragraph = store.getNode(note.content[0]) as any;
+
+    expect(paragraph.stype).toBe('paragraph');
+    // And a run inside it: the caret filler is drawn for an empty `inline-text`,
+    // and a paragraph with no run at all has no height to click on.
+    expect((store.getNode(paragraph.content[0]) as any).stype).toBe('inline-text');
+  });
+
+  it('refuses a second one', async () => {
+    await run('addSlideNote', { slideId: slide });
+    expect(can('addSlideNote', { slideId: slide })).toBe(false);
+  });
+
+  it('undoes as one thing', async () => {
+    // The resource and the binding are two steps and one transaction: a
+    // resource nobody names is unreachable, and a name pointing at nothing
+    // resolves to nothing.
+    await run('addSlideNote', { slideId: slide });
+    await (editor as any).undo();
+    expect(noteFor(doc(), slide)).toBeUndefined();
+    expect((store.getNode(slide) as any).attributes.noteId).toBeUndefined();
   });
 });
