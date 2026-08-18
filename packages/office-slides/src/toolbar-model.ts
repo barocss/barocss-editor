@@ -220,6 +220,11 @@ export const SLIDES_TOOLBAR: SlidesToolbarGroup[] = [
     id: 'arrange',
     controls: [
       { id: 'bring-front', label: '맨 앞으로', icon: '⤒', command: 'bringToFront' },
+      // One step, which is the one a reader reaches for when two shapes overlap
+      // and only one of them is in the way. Both commands existed and only the
+      // all-the-way pair was on the toolbar.
+      { id: 'bring-forward', label: '앞으로 가져오기', icon: '↑', command: 'bringForward' },
+      { id: 'send-backward', label: '뒤로 보내기', icon: '↓', command: 'sendBackward' },
       { id: 'send-back', label: '맨 뒤로', icon: '⤓', command: 'sendToBack' },
       { id: 'align-boxes-left', label: '왼쪽 정렬', icon: '⊢', command: 'alignBoxesLeft' },
       { id: 'align-boxes-centre', label: '가운데 정렬', icon: '⊣⊢', command: 'alignBoxesCentre' },

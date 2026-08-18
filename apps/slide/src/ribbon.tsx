@@ -1,12 +1,19 @@
 import { useEffect, useMemo, useReducer } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import {
+  ChoiceSelect,
   ControlIcon,
   Toolbar,
   ToolbarGroup,
   ToolbarSeparator,
   ToolbarToggle
 } from '@barocss/office-ui';
+import {
+  WORD_FONTS,
+  WORD_FONT_SIZES,
+  currentChoice,
+  type ToolbarChoice
+} from '@barocss/office-word';
 import { SLIDES_TOOLBAR, type Slide, type SlidesToolbarControl } from '@barocss/office-slides';
 
 /**
@@ -107,8 +114,43 @@ export function Ribbon({
     return 'off';
   };
 
+  /**
+   * The font controls, which are Word's.
+   *
+   * Not a copy: the same model and the same commands, because a slide's text
+   * *is* Word's text — a `textFrame` holds `block+`, so a title is a paragraph
+   * and every character command written for the first product already works
+   * here. Slides had none of them on its toolbar, so `setFontFamily`,
+   * `setFontSize` and `setFontColor` were registered, working, and unreachable.
+   *
+   * `inherited` is not passed. Word resolves a font through the style cascade
+   * so a paragraph plainly set in Georgia does not read as "mixed"; a deck's
+   * text takes its formatting from the layout, which is the next thing this
+   * product needs and is logged as such. Until then this shows direct
+   * formatting only, and shows nothing rather than guessing.
+   */
+  const choice = (model: ToolbarChoice, width: string) => (
+    <ChoiceSelect
+      key={model.id}
+      testClass={`sl-toolbar-${model.id}`}
+      ariaLabel={model.label}
+      className={width}
+      options={model.options.map((option) => ({ id: String(option.value), label: option.label }))}
+      value={summary ? currentChoice(model, summary as never) : null}
+      disabled={!summary || (summary as never as { empty?: boolean }).empty === true}
+      onChange={(id) => {
+        const chosen = model.options.find((option) => String(option.value) === id);
+        if (!chosen) return;
+        void (editor as any).executeCommand?.(model.command, { [model.key]: chosen.value });
+      }}
+    />
+  );
+
   return (
     <Toolbar className="sl-toolbar" label="슬라이드 서식">
+      {choice(WORD_FONTS, 'min-w-36')}
+      {choice(WORD_FONT_SIZES, 'min-w-16')}
+      <ToolbarSeparator />
       {SLIDES_TOOLBAR.map((group, index) => (
         <span key={group.id} className="contents">
           {index > 0 && <ToolbarSeparator />}

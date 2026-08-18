@@ -138,6 +138,28 @@ export class SlidesArrangeExtension implements Extension {
    * about where things are relative to each other and a reader who
    * shift-clicked backwards did not mean to reverse the deck.
    */
+  /**
+   * The node the selection sits in — which is not always the slide.
+   *
+   * These commands read the *slide's* children and matched the selection
+   * against them, which was true while a reader could only select a box sitting
+   * on the slide. It stopped being true the day one could go inside a frame or a
+   * group: a rectangle in a frame is not among the slide's children, so the
+   * selection matched nothing, `_boxes` came back empty, and every command
+   * here — in front, behind, align, distribute, group — was disabled with no
+   * explanation. The buttons were simply grey.
+   *
+   * Reading the parent is also the better answer to what these commands mean.
+   * Two boxes in a frame are aligned against each other inside that frame, and
+   * one sent to the back goes behind its siblings rather than behind everything
+   * on the slide. The slide is just the container a box has when it has no other.
+   */
+  private _containerOf(doc: DeckAccess, sid: string): string | undefined {
+    const parent = (doc.getNode(sid) as any)?.parentId as string | undefined;
+    if (parent && isSceneType((doc.getNode(parent) as any)?.stype)) return parent;
+    return slideAt(doc, sid);
+  }
+
   private _boxes(editor: Editor): { sid: string; box: Box }[] {
     const doc = this._access(editor);
     if (!doc) return [];
@@ -145,8 +167,8 @@ export class SlidesArrangeExtension implements Extension {
     const ids = new Set(selectedNodeIds((editor as any).selection));
     if (ids.size === 0) return [];
 
-    const slide = slideAt(doc, [...ids][0]);
-    const surface: any = slide ? doc.getNode(slide) : undefined;
+    const container = this._containerOf(doc, [...ids][0]);
+    const surface: any = container ? doc.getNode(container) : undefined;
     const children: string[] = Array.isArray(surface?.content) ? surface.content : [];
 
     return children
@@ -175,7 +197,7 @@ export class SlidesArrangeExtension implements Extension {
     const boxes = this._boxes(editor);
     if (!doc || boxes.length === 0) return false;
 
-    const slide = slideAt(doc, boxes[0].sid);
+    const slide = this._containerOf(doc, boxes[0].sid);
     const surface: any = slide ? doc.getNode(slide) : undefined;
     const children: string[] = Array.isArray(surface?.content) ? [...surface.content] : [];
     if (!slide || children.length === 0) return false;
@@ -223,8 +245,18 @@ export class SlidesArrangeExtension implements Extension {
 
     let frame: Box | undefined;
     if (toSlide) {
-      const slide = slideAt(doc, boxes[0].sid);
-      const size = slideSize((slide ? (doc.getNode(slide) as any)?.attributes : undefined));
+      /**
+       * Against the container, which is the slide unless the reader has gone
+       * inside something. Aligning a box in a frame "to the slide" means to the
+       * frame — the frame is the surface it is on — and its children's
+       * coordinates are the frame's, so the box to align against starts at zero
+       * either way.
+       */
+      const container = this._containerOf(doc, boxes[0].sid);
+      const node: any = container ? doc.getNode(container) : undefined;
+      const size = isSceneType(node?.stype)
+        ? { width: node?.attributes?.width ?? 0, height: node?.attributes?.height ?? 0 }
+        : slideSize(node?.attributes);
       frame = { x: 0, y: 0, width: size.width, height: size.height };
     }
 
@@ -280,7 +312,7 @@ export class SlidesArrangeExtension implements Extension {
     const boxes = this._boxes(editor);
     if (!doc || boxes.length < 2) return false;
 
-    const slide = slideAt(doc, boxes[0].sid);
+    const slide = this._containerOf(doc, boxes[0].sid);
     const surface: any = slide ? doc.getNode(slide) : undefined;
     const children: string[] = Array.isArray(surface?.content) ? surface.content : [];
     if (!slide) return false;
@@ -343,7 +375,9 @@ export class SlidesArrangeExtension implements Extension {
     const chosen = this._boxes(editor).filter((entry) => this._isGroup(editor, entry.sid));
     if (!doc || chosen.length === 0) return false;
 
-    const slide = slideAt(doc, chosen[0].sid);
+    // Where the group sits, which is the slide unless the group is itself inside
+    // one — ungrouping a nested group frees its children into the group above.
+    const slide = this._containerOf(doc, chosen[0].sid);
     if (!slide) return false;
 
     const steps: { type: string; payload: Record<string, unknown> }[] = [];
