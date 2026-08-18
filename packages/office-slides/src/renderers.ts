@@ -42,17 +42,24 @@
  * and IME inside `foreignObject` are unreliable across browsers, and input
  * correctness is the thing this engine is for.
  *
- * So Slides overrides the four shape types with placed HTML boxes, and pays for
+ * So Slides overrides the four shape types with placed HTML boxes, and paid for
  * it in `canvasBlock` — a drawing embedded in flow, which Word draws as an
- * `<svg>` holding those same four types. In a deck that `<svg>` would hold
- * `<div>`s and draw nothing.
+ * `<svg>` holding those same four types. In a deck that `<svg>` held `<div>`s
+ * and drew nothing.
  *
- * **The harness cannot catch this one**, and saying so is the point of writing
- * it here. `every-node-is-drawn` asks whether a renderer exists, `canvasBlock`
- * has one, and the check passes on a node this product draws wrongly. It is in
- * `docs/BACKLOG.md` because a comment is the only thing holding it — which is
- * exactly the failure mode the harness exists to remove, met from the other
- * side.
+ * **This paragraph used to say the harness could not catch it**, and that was
+ * the reason to write it here: `every-node-is-drawn` asks whether a renderer
+ * exists, `canvasBlock` had one, and the check passed on a node this product
+ * drew wrongly. A comment was the only thing holding the knowledge, which is the
+ * failure the harness exists to remove, met from the other side.
+ *
+ * It can catch it now. `every-drawing-can-hold-what-it-contains` reads the tag a
+ * product draws each node type as and compares it against the tags of the types
+ * the schema lets that node contain — an `<svg>` may only hold SVG, so a
+ * container and its contents drawn in different namespaces is a box that draws
+ * empty. It found six pairs here, four more than this comment had named, and
+ * `canvasBlock` is now drawn below as a placed HTML box like everything else a
+ * deck puts on a slide.
  */
 import { define, element, slot } from '@barocss/dsl';
 import { registerWordRenderers } from '@barocss/office-word';
@@ -227,6 +234,56 @@ export function registerSlidesRenderers(): void {
             ...verticalAlignCss(d),
             ...paintCss(d)
           })
+      } as never,
+      [slot('content')]
+    )
+  );
+
+  /**
+   * A canvas embedded in flow content — a diagram in the middle of the text.
+   *
+   * Word draws this as an `<svg>`, because in Word a canvas only ever holds
+   * shapes and Word draws its shapes as `<rect>`, `<ellipse>` and `<line>`. In a
+   * deck the same four types are placed HTML boxes, for the reason in this
+   * file's header: they sit among text frames that have to stay real
+   * contenteditable HTML. So Word's `<svg>` inherited into a deck would hold
+   * `<div>`s — kept by the parser, laid out by nothing, an empty box on the
+   * page.
+   *
+   * That was written down at the top of this file as something the harness could
+   * not see, and it can now: `every-drawing-can-hold-what-it-contains` reads the
+   * tag each product draws a type as and compares it against the tags of the
+   * types the schema lets it contain. It reported six pairs here, four more than
+   * the comment had named — `frame`, `group`, `sticky` and `textFrame` as well
+   * as `rectangle` and `ellipse`.
+   *
+   * A relative box, so the absolutely-placed children inside land against it
+   * rather than against the slide — the same arrangement `frame` uses, and for
+   * the same reason.
+   *
+   * **The size is read as twips**, like every other measurement a deck places
+   * with, and unlike Word, which reads these two attributes as pixels. The
+   * schema declares `width` and `height` as plain numbers and says nothing about
+   * the unit, so each product has picked one; a canvas authored in a deck is
+   * consistent with itself, and one pasted from a Word document is not. That is
+   * a schema gap rather than a renderer's decision to make, and it is in
+   * `docs/BACKLOG.md`.
+   */
+  define(
+    'canvasBlock',
+    element(
+      'div',
+      {
+        className: 'sl-canvas',
+        style: (d: NodeData): CssStyle => {
+          const attrs = attrsOf(d);
+          return {
+            position: 'relative',
+            width: `${twipToPx(typeof attrs.width === 'number' ? attrs.width : 0)}px`,
+            height: `${twipToPx(typeof attrs.height === 'number' ? attrs.height : 0)}px`,
+            overflow: 'hidden'
+          };
+        }
       } as never,
       [slot('content')]
     )

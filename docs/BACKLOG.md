@@ -124,10 +124,16 @@ about half. Ten undrawn node types are reachable from Word's 166 commands.
   itself.
 - [x] **Slides conforms.** Was a ratchet at 64 of 64 undrawn on its first day;
   now `assertConforms` with 27 written exemptions and no findings.
-- [ ] **A renderer that exists and draws the wrong thing passes.** `canvasBlock`
-  in a deck is Word's `<svg>` holding four node types that Slides draws as
-  `<div>`s. Every check asks whether a renderer exists; one does. The harness's
-  own blind spot, found from the other side — see below.
+- [x] **A renderer that exists and draws the wrong thing no longer passes.**
+  `every-drawing-can-hold-what-it-contains` reads the tag a product draws each
+  node type as and compares it with the tags of the types the schema lets that
+  node contain: `<svg>` may hold only SVG, so a container and its contents drawn
+  in different namespaces is a box that draws empty. It found six pairs in
+  Slides, four more than the comment that reported the problem had named.
+- [ ] **A renderer that draws the wrong thing for any other reason still
+  passes.** The namespace is the one way this is decidable from outside; a
+  renderer that draws the right element with the wrong geometry is still only
+  visible to a person looking at the page.
 - [ ] **The office schema should declare what it offers** rather than inheriting
   the whole standard node set — now with a second product's worth of evidence;
   see "Every product pays for the whole standard node set" above.
@@ -277,11 +283,22 @@ only a second product could produce.
   no `env`, so the answer does not reliably arrive. A renderer that draws
   correctly under one renderer and wrongly under another is worse than one that
   draws one way and says so.
-- [ ] **`canvasBlock` in a deck draws nothing, and no check can see it.** It is
+- [x] **`canvasBlock` in a deck drew nothing, and no check could see it.** It was
   Word's `<svg>` holding the four shape types, which in a deck are `<div>`s.
-  `every-node-is-drawn` asks whether a renderer *exists*, one does, and the check
-  passes on a node this product draws wrongly. The harness's own blind spot,
-  found from the other side.
+  Slides draws its own now — a relative HTML box, like every other thing it
+  places — and the check that would have found it exists: see
+  `every-drawing-can-hold-what-it-contains` above. It reported six pairs, not the
+  two the comment had named: `frame`, `group`, `sticky` and `textFrame` are
+  scene nodes too, and a canvas may hold any of them.
+- [ ] **A canvas carries a size with no unit, and the two products read it
+  differently.** The schema declares `canvasBlock`'s `width` and `height` as
+  plain numbers. Word reads them as pixels — its `viewBox` is those numbers —
+  and Slides reads them as twips, like everything else a deck places. A canvas
+  authored in one product and opened in the other is the wrong size by a factor
+  of fifteen, and the shapes inside it are placed by the same ambiguity. Neither
+  reading is wrong; the schema saying nothing is. Found while drawing the box:
+  the renderer had to pick, and a renderer picking is how this kind of thing
+  becomes permanent.
 - [x] **A tag the browser owns is never a component.** A template child was
   dispatched through the registry by tag name with no exclusion for element
   names, so `element('line', …)` inside the `line` renderer rebuilt itself with

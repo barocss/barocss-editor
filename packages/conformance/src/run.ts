@@ -1,17 +1,25 @@
 import { everyNodeIsDrawn } from './checks/every-node-is-drawn';
+import { everyDrawingCanHoldWhatItContains } from './checks/every-drawing-can-hold-what-it-contains';
 import { everyCommandCanBeSeen, type CommandProducing } from './checks/every-command-can-be-seen';
 import { everyCommandMakesSomethingReal } from './checks/every-command-makes-something-real';
 import { everyInsertIsAccountedFor } from './checks/every-insert-is-accounted-for';
 import type { Check, Exemptions, Report, Subject } from './types';
 
 /** The checks that need nothing from the product but its schema and renderers. */
-export const CHECKS: Check[] = [everyNodeIsDrawn];
+export const CHECKS: Check[] = [everyNodeIsDrawn, everyDrawingCanHoldWhatItContains];
 
 export interface ConformanceInput {
   /** The product's schema — anything with a `nodes` map. */
   schema: Subject['schema'];
   /** Whether the product draws a node type. */
   hasRenderer: Subject['hasRenderer'];
+  /**
+   * The tag the product draws a node type as, by rendering one.
+   *
+   * Feeds the check that asks whether a drawing can hold the drawings inside
+   * it. Leave it out and that check abstains rather than guessing.
+   */
+  drawnAs?: Subject['drawnAs'];
   /**
    * Findings the product expects, and why.
    *
@@ -69,7 +77,11 @@ export function conformance(input: ConformanceInput): Report {
   ];
   const checks = input.only ? all.filter((check) => input.only!.includes(check.name)) : all;
 
-  const subject: Subject = { schema: input.schema, hasRenderer: input.hasRenderer };
+  const subject: Subject = {
+    schema: input.schema,
+    hasRenderer: input.hasRenderer,
+    drawnAs: input.drawnAs
+  };
 
   const findings = [];
   const examined: Record<string, number> = {};

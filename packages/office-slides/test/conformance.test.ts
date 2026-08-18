@@ -1,5 +1,5 @@
 import { describe, it } from 'vitest';
-import { assertConforms } from '@barocss/conformance';
+import { assertConforms, drawnTagFrom } from '@barocss/conformance';
 import { createSchema } from '@barocss/schema';
 import { getGlobalRegistry } from '@barocss/dsl';
 import { getSlidesSchemaDefinition } from '../src/slides-schema';
@@ -68,6 +68,8 @@ describe('Slides draws what its schema declares', () => {
     assertConforms({
       schema: schema as never,
       hasRenderer: (nodeType) => registry.has(nodeType),
+      // Taken from the renderers rather than written down; see `drawnTagFrom`.
+      drawnAs: drawnTagFrom(registry as never),
       produces,
       commands,
       exempt: {

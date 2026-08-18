@@ -71,6 +71,19 @@ export interface Subject {
   };
   /** Whether the product has a renderer registered for a node type. */
   hasRenderer: (nodeType: string) => boolean;
+  /**
+   * The tag a product actually draws a node type as, or null if it cannot say.
+   *
+   * Rendered rather than declared. A product that *states* what it draws can
+   * state something that stopped being true — which is the whole failure this
+   * harness is shaped around — so the answer is taken from a real render, and a
+   * node type that cannot be rendered on its own returns null and is skipped.
+   *
+   * Optional because a product can adopt the checks one at a time. A check that
+   * needs it and does not get it reports `examined: 0`, which is how a check
+   * that is quietly doing nothing stays visible.
+   */
+  drawnAs?: (nodeType: string) => string | null;
 }
 
 export interface Check {

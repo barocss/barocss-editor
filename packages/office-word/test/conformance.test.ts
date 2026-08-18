@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { assertConforms } from '@barocss/conformance';
+import { assertConforms, drawnTagFrom } from '@barocss/conformance';
 import { createSchema } from '@barocss/schema';
 import { getWordSchemaDefinition } from '../src/word-schema';
 import { createWordEditor } from '../src/word-kit';
@@ -76,6 +76,8 @@ const schema = createSchema('word', getWordSchemaDefinition());
     assertConforms({
       schema: schema as never,
       hasRenderer: (nodeType) => registry.has(nodeType),
+      // Taken from the renderers rather than written down; see `drawnTagFrom`.
+      drawnAs: drawnTagFrom(registry as never),
       produces,
       commands,
       exempt: {

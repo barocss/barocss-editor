@@ -41,6 +41,37 @@ export function namesIn(expression: string | undefined): string[] {
 }
 
 /**
+ * Which node types may sit directly inside one, by its content expression.
+ *
+ * The same group expansion `placeableTypes` walks with, exposed on its own
+ * because the containment *edge* is a fact in its own right: it is what says a
+ * `canvasBlock` can hold a `rectangle`, and therefore that the two drawings have
+ * to be able to sit inside one another.
+ */
+export function childTypes(nodes: Map<string, NodeShape>, name: string): string[] {
+  const node = nodes.get(name);
+  if (!node?.content) return [];
+
+  const byGroup = new Map<string, string[]>();
+  for (const [member, shape] of nodes) {
+    if (!shape.group) continue;
+    const members = byGroup.get(shape.group) ?? [];
+    members.push(member);
+    byGroup.set(shape.group, members);
+  }
+
+  const children = new Set<string>();
+  for (const reference of namesIn(node.content)) {
+    if (nodes.has(reference)) {
+      children.add(reference);
+      continue;
+    }
+    for (const member of byGroup.get(reference) ?? []) children.add(member);
+  }
+  return [...children];
+}
+
+/**
  * Every node type that can appear somewhere in a document.
  *
  * Walked from the top node. A name in an expression is a node type or a group,
