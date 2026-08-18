@@ -1,7 +1,44 @@
-import { boxOf, type Box } from './geometry';
+/** A box, as the arrangement needs it. The same shape `office-slides` uses. */
+export interface Box {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * A box with its negatives normalised.
+ *
+ * A width may be negative — that is how a line says it runs right to left — and
+ * an arrangement wants the rectangle either way. Written here rather than
+ * imported from Slides' geometry, which is the package that depends on this one
+ * and not the other way round.
+ */
+function boxOf(attributes: Record<string, unknown> | undefined): Box {
+  const number = (value: unknown) =>
+    typeof value === 'number' && Number.isFinite(value) ? value : 0;
+  const x = number(attributes?.x);
+  const y = number(attributes?.y);
+  const width = number(attributes?.width);
+  const height = number(attributes?.height);
+  return {
+    x: width < 0 ? x + width : x,
+    y: height < 0 ? y + height : y,
+    width: Math.abs(width),
+    height: Math.abs(height)
+  };
+}
 
 /**
  * A frame that arranges what is in it.
+ *
+ * In `office-word` rather than in `office-slides`, and not because a document
+ * arranges frames. The canvas is *already* Word's — `shapes.ts`, `canvasBlock`
+ * and the shape renderers all live here and Slides overrides them — and a frame
+ * is reachable in a Word document through `canvasBlock`, which holds `scene*`.
+ * Two products disagreeing about where a frame's children go would mean one
+ * file drawn two ways, which is the test `docs/SHARED-LAYER.md` sets for what
+ * has to be shared.
  *
  * `layoutMode` was declared with the canvas nodes and read by nothing until
  * this. What it buys a deck is the half of presentation work that is not

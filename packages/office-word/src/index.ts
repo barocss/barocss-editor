@@ -273,3 +273,21 @@ export {
  * see both.
  */
 export { canvasCss, canvasViewBox } from './shapes';
+
+/**
+ * A frame that arranges what is in it.
+ *
+ * Canvas behaviour, which is this package's — `shapes.ts` and the shape
+ * renderers are here and a frame is reachable in a Word document through
+ * `canvasBlock`. Slides installs the same extension, so one document arranges
+ * the same way in both.
+ */
+export {
+  layoutChildren,
+  childrenToLayOut,
+  laysOut,
+  layoutModeOf,
+  type LayoutMode,
+  type LaidOutChild
+} from './canvas-layout';
+export { createLayoutCommands, CanvasLayoutExtension } from './canvas-layout-commands';

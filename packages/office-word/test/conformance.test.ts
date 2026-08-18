@@ -96,12 +96,20 @@ const schema = createSchema('word', getWordSchemaDefinition());
         // ── The other half of a `surface` ──────────────────────────────────
         // `office-schema` declares `surface` as `block+ | scene*` — a page
         // holds blocks, a slide or a board holds scene nodes — and Word is the
-        // product for the first half. `packages/office-slides` draws these.
-        frame: 'a slide/board container; Word has no canvas surface',
-        group: 'a slide/board grouping; Word has no canvas surface',
-        sticky: 'a board note; Word has no board',
+        // product for the first half.
+        //
+        // These reasons used to read "Word has no canvas surface", which is true
+        // and about the wrong thing: Word has a canvas *block*, `canvasBlock`
+        // holds `scene*`, and every one of these is a scene node. A Word
+        // document could hold a frame full of shapes and draw a blank space
+        // where they were. `frame` and `group` are drawn now; what is left is
+        // exempt for reasons that are actually about Word.
+        sticky: 'a board note, which is flow content on a canvas; see `textFrame`',
         connector: 'a board arrow between two nodes; Word has no board',
-        textFrame: 'rich text placed on a canvas; Word anchors text to the flow instead',
+        textFrame:
+          'rich text on a canvas needs a `foreignObject`, and caret placement, ' +
+          'selection and IME inside one are unreliable across browsers — the same ' +
+          'reason Slides draws its slides as HTML rather than as one SVG',
         component: 'a reusable canvas definition; Word has no components',
         instance: 'a placement of one; Word has no components',
 

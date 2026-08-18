@@ -715,6 +715,69 @@ export function registerWordRenderers(): void {
   );
 
   /**
+   * A frame, and a group: the two containers a canvas can hold.
+   *
+   * `<g>` with a translate, because that is what a container *is* in SVG — the
+   * children carry coordinates relative to their parent, which is the rule for
+   * every canvas node (`docs/specs/canvas-model.md`), and a translated group is
+   * exactly that rule expressed in the drawing.
+   *
+   * These were exempted from the conformance check for years with the reason
+   * "Word has no canvas surface". True, and about the wrong thing: Word has a
+   * canvas *block*, `canvasBlock` holds `scene*`, and `frame` is a scene node.
+   * A Word document could hold a frame full of shapes and draw an empty space
+   * where they were.
+   *
+   * A frame paints; a group does not. That is not an oversight in the schema —
+   * a group has no appearance of its own, it is the fact that things move
+   * together, and the schema gives it no `fill` to draw with.
+   *
+   * `clipsContent` is not honoured yet. It needs a `clipPath` per frame, which
+   * is a second element with an id, and an id in a document that may hold two
+   * copies of the same canvas is its own problem. Logged rather than guessed at.
+   */
+  const container = (stype: 'frame' | 'group', painted: boolean) => {
+    // The frame's own surface, drawn at the origin because the translate below
+    // has already moved the group to it. Built here rather than spread into the
+    // call so the tag and the children infer as one shape.
+    const surface = element('rect', {
+      className: 'w-shape-frame-fill',
+      x: 0,
+      y: 0,
+      width: (d: Record<string, any>) => rectangleAttrs(d.attributes as never).width,
+      height: (d: Record<string, any>) => rectangleAttrs(d.attributes as never).height,
+      fill: (d: Record<string, any>) => paint(d, 'fill'),
+      stroke: (d: Record<string, any>) => paint(d, 'stroke'),
+      'stroke-width': (d: Record<string, any>) => paint(d, 'stroke-width')
+    } as never);
+
+    const children = painted ? [surface, slot('content')] : [slot('content')];
+
+    return define(
+      stype,
+      element(
+        'g',
+        {
+          className: `w-shape w-shape-${stype}`,
+          style: hidden,
+          transform: (d: Record<string, any>) => {
+            const attrs = d.attributes as Record<string, any> | undefined;
+            const x = typeof attrs?.x === 'number' ? attrs.x : 0;
+            const y = typeof attrs?.y === 'number' ? attrs.y : 0;
+            const turn = turned(d);
+            return `translate(${x} ${y})${turn ? ` ${turn}` : ''}`;
+          },
+          opacity: (d: Record<string, any>) => paint(d, 'opacity')
+        } as never,
+        children
+      )
+    );
+  };
+
+  container('frame', true);
+  container('group', false);
+
+  /**
    * A picture on a canvas.
    *
    * SVG's `<image>`, because that is what a picture inside an `<svg>` is — the
@@ -745,7 +808,10 @@ export function registerWordRenderers(): void {
         return 'xMidYMid meet';
       },
       opacity: (d: Record<string, any>) => paint(d, 'opacity')
-    })
+      // `href` is SVG's own and is not in the DSL's attribute map for `<image>`,
+      // so the call is widened the way the rest of this file widens a template
+      // whose attributes the map does not carry.
+    } as never)
   );
 
   define(

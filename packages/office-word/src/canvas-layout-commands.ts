@@ -1,7 +1,12 @@
 import { Editor, Extension } from '@barocss/editor-core';
 import { transaction } from '@barocss/model';
-import { childrenToLayOut, laysOut, layoutChildren } from './auto-layout';
-import type { DeckAccess } from './deck';
+import { childrenToLayOut, laysOut, layoutChildren } from './canvas-layout';
+
+/** The little of a document this needs, so a caller can pass anything. */
+interface CanvasAccess {
+  getNode: (sid: string) => { sid?: string; stype?: string; attributes?: Record<string, unknown>; content?: unknown } | undefined;
+  rootId: string;
+}
 
 /**
  * Turning a frame into one that arranges what is in it, and keeping it that way.
@@ -27,8 +32,8 @@ import type { DeckAccess } from './deck';
  * because a flag has to be cleared and a cleared flag is a race. Converging is
  * a property of the answer rather than of the bookkeeping.
  */
-export class SlidesLayoutExtension implements Extension {
-  name = 'slides-layout';
+export class CanvasLayoutExtension implements Extension {
+  name = 'canvas-layout';
   priority = 47;
 
   /** Guards against re-entering while a layout transaction is in flight. */
@@ -57,7 +62,7 @@ export class SlidesLayoutExtension implements Extension {
     });
   }
 
-  private _access(editor: Editor): DeckAccess | null {
+  private _access(editor: Editor): CanvasAccess | null {
     const store = (editor as any).dataStore;
     const rootId = (editor as any).getRootId?.();
     if (!store || !rootId) return null;
@@ -148,6 +153,6 @@ export class SlidesLayoutExtension implements Extension {
 }
 
 /** The layout commands, as an extension a kit can install. */
-export function createLayoutCommands(): SlidesLayoutExtension {
-  return new SlidesLayoutExtension();
+export function createLayoutCommands(): CanvasLayoutExtension {
+  return new CanvasLayoutExtension();
 }

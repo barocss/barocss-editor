@@ -44,15 +44,19 @@ export { createSlideCommands, SlidesExtension } from './slide-commands';
 
 export { createBoxCommands, SlidesBoxExtension } from './box-commands';
 export { createClipboardCommands, SlidesClipboardExtension } from './clipboard-commands';
-export { createLayoutCommands, SlidesLayoutExtension } from './layout-commands';
+/**
+ * Arranging a frame is canvas behaviour and lives in `office-word`, which owns
+ * the canvas. Re-exported so a deck's callers do not have to know that.
+ */
 export {
+  createLayoutCommands,
   layoutChildren,
   childrenToLayOut,
   laysOut,
   layoutModeOf,
   type LayoutMode,
   type LaidOutChild
-} from './auto-layout';
+} from '@barocss/office-word';
 export { SLIDES_ENV_KEY, showsNotes, type SlidesEnv } from './render-context';
 export { SLIDES_KEYS, slidesKeyCommands, matchesKey, type SlidesKey } from './keymap';
 export {

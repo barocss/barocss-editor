@@ -22,7 +22,8 @@ import { createSlideCommands } from './slide-commands';
 import { createBoxCommands } from './box-commands';
 import { createArrangeCommands } from './arrange-commands';
 import { createClipboardCommands } from './clipboard-commands';
-import { createLayoutCommands } from './layout-commands';
+import { createLayoutCommands } from '@barocss/office-word';
+
 
 /**
  * What can be done in a deck.
