@@ -1,11 +1,14 @@
 # What a coordinate on a canvas means
 
-Three decisions, settled together because each of them was about to be made
-twice — once by a clipboard, once by a layout — and a decision made twice is a
-decision made differently.
+Three decisions that had to be made, settled together because each was about to
+be made twice — once by a clipboard, once by a layout — and a decision made
+twice is a decision made differently. A fourth is written down early, because it
+is the one that would otherwise be made by accident.
 
 Every number below is measured from the code as it stands. Where the answer is
-"we chose", the cost of the choice is written down with it.
+"we chose", the cost of the choice is written down with it. All three of the
+first are implemented; where a section says what something *will* buy, it has
+been struck through with what it did.
 
 ---
 
@@ -60,13 +63,17 @@ it fails the day somebody writes a raw number into a length again.
 `position: relative` and its children `position: absolute` — and two places in
 the code already depend on it:
 
-- grouping rebases the boxes it collects, because a group's children are placed
-  against the group;
 - the overlay adds the entered container's origin when it reads a box and takes
-  it off when it writes one.
+  it off when it writes one;
+- grouping rebases the boxes it collects, because a group's children are placed
+  against the group.
 
-Nothing else says it, including the schema, and both of those places worked it
-out for themselves.
+Nothing else says it, including the schema, and both places worked it out for
+themselves. The second turns out to be a *different* problem in the same
+arithmetic — it rebases against a frame it is in the middle of creating, so
+there is no node to walk to and `intoFrame`, given the box explicitly, is the
+right tool. What separates them is whether the container exists yet, and they
+are worth keeping apart.
 
 **The decision: state it once, and convert in one place.**
 
@@ -74,24 +81,21 @@ out for themselves.
 > with no scene ancestor is measured from the slide, which is the container of
 > last resort.
 
-The conversion is a pair of functions in `office-slides/geometry`:
+The conversion is a pair of functions in `office-slides/selection`, beside the
+other answers that need to walk the tree:
 
 ```
-toSurface(doc, sid, box)     a box in its container's coordinates -> the slide's
-fromSurface(doc, sid, box)   the slide's coordinates -> a container's
+toSurface(doc, sid, box)              a box in its container's coordinates -> the slide's
+fromSurface(doc, containerId, box)    the slide's coordinates -> a container's
 ```
 
-Everything that moves a box across a container boundary uses them. That is not a
-style preference: the next three features all need it, and each would otherwise
-derive it again.
+`fromSurface` names the container the box is going *into*, which is the whole
+difference between the two: a move across containers has two of them, and naming
+the destination is what makes that visible at the call site.
 
-- **The clipboard** copies a shape out of a frame and pastes it onto a slide.
-- **Grouping** already rebases, by hand.
-- **Dragging out of a group**, when it exists, is the same conversion backwards.
-
-**What it costs.** Two functions and a walk up `parentId`, which is what the
-overlay already does inline. The gain is that a fourth feature cannot get it
-wrong on its own.
+**What it bought.** The clipboard, immediately — copying a shape out of a frame
+and pasting it onto a slide is exactly a coordinate changing meaning as it
+moves, and it is one call in each direction rather than a third derivation.
 
 ---
 
@@ -126,18 +130,16 @@ have moved its title or added boxes the layout never had, and matching by index
 would silently format the wrong one. A box with a role the layout does not
 declare simply inherits nothing, which is the honest answer.
 
-**What it buys immediately.** The ribbon's font and size controls can pass an
-`inherited` resolver and stop reading "mixed" for a deck that agrees with
-itself. And "apply this layout" becomes meaningful for a slide that already has
-content, because applying it changes what is inherited rather than overwriting
-what was typed.
+**What it bought.** The ribbon's font and size controls read 33pt for a title
+and 20pt for a body, in a deck where no slide sets a size anywhere. And "apply
+this layout" now means something for a slide that already has content, because
+applying it changes what is inherited rather than overwriting what was typed —
+which is the next thing to build on it.
 
 **What it costs.** One resolver, shaped like `office-word/style-resolver`, and
 the same restraint that one has: only known formatting keys cascade. A layout
 placeholder also carries `role`, `x`, `y` and a size, and cascading those would
 move every title on every slide to where the layout's is.
-
----
 
 ---
 
@@ -166,7 +168,7 @@ operation take on a concern that only some documents have.
 Nothing is declared for it now. A node type declared before something reads it is
 how this schema came to have fifteen of them with no renderer.
 
-## What these three have in common
+## What the first three have in common
 
 Each was a fact that the code already depended on and no single place stated:
 the unit was implied by a conversion, the coordinate space by two renderers, the
