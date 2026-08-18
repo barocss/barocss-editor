@@ -83,11 +83,20 @@ interface Marquee {
 
 export function SelectionOverlay({
   editor,
+  /**
+   * The view, for the one thing the editor alone cannot be told.
+   *
+   * A node selection holds until a gesture in the text, and this overlay makes
+   * that gesture on the reader's behalf — the double-click lands here, so the
+   * contenteditable never sees a pointer.
+   */
+  view,
   slideSid,
   /** Bumped by the app when the deck changes, so the overlay re-measures. */
   revision
 }: {
   editor: Editor | null;
+  view: { enteredText?: () => void } | null;
   slideSid?: string;
   revision: number;
 }) {
@@ -612,6 +621,18 @@ export function SelectionOverlay({
       (range.startContainer.parentElement as HTMLElement | null)?.closest<HTMLElement>(
         '[contenteditable="true"]'
       )?.focus();
+
+      /**
+       * And tell the view, which is the half that was missing.
+       *
+       * Placing the caret is not enough: a node selection holds until a gesture
+       * *in the text*, and this one happened on the overlay, so the editor's
+       * model went on saying a box was selected while the reader typed into a
+       * paragraph. Every command that reads the model selection was answering
+       * about the wrong thing — inserting a table did nothing at all, from a
+       * button that looked perfectly enabled.
+       */
+      view?.enteredText?.();
     });
   };
 

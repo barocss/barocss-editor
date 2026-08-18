@@ -42,6 +42,7 @@ export function App({
   }, [mount]);
 
   const editor = instance?.editor ?? null;
+  const view = instance?.view ?? null;
   const slides = useDeck(editor);
 
   /**
@@ -243,7 +244,7 @@ export function App({
            * put in the tree would last until the next keystroke.
            */}
           {!presenting && (
-            <SelectionOverlay editor={editor} slideSid={current} revision={slides.length} />
+            <SelectionOverlay editor={editor} view={view} slideSid={current} revision={slides.length} />
           )}
 
           <section className="sl-notes" aria-label="발표자 노트">

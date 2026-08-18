@@ -1039,6 +1039,30 @@ export class EditorViewDOM implements IEditorViewDOM {
 
   private _pendingModelSelection: any | null = null;
   /** Whether a node selection is still the reader's meaning. See setupEventListeners. */
+  /**
+   * The reader has gone into the text, by a route the editor cannot see.
+   *
+   * A node selection holds until a gesture *in the text* — a pointer down on the
+   * contenteditable, or a key with the caret in it — and those are listened for
+   * directly. A host that puts the caret in on the reader's behalf is making the
+   * same gesture through a different door, and has to say so.
+   *
+   * Slides is that host. Double-clicking a shape happens on an overlay drawn
+   * over the editor, so the contenteditable never sees a pointer at all: the
+   * caret went in, the reader typed, and the *model* selection still said a box
+   * was selected. Every command that reads it — inserting a table into the
+   * paragraph the caret is in, above all — was answering a question about the
+   * wrong thing.
+   *
+   * Re-reads the DOM at once rather than waiting for the next `selectionchange`,
+   * because the caret was placed before this was called and that event has
+   * already been and gone.
+   */
+  enteredText(): void {
+    this._nodeSelectionHoldsUntilGesture = false;
+    this.handleSelectionChange();
+  }
+
   private _nodeSelectionHoldsUntilGesture = false;
   private _retryCount: number = 0;
   private _parseModelSelectionEvent(selectionEvent: any): { selection: any; applySelectionToView: boolean } {
