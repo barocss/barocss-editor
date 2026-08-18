@@ -46,6 +46,25 @@ entries are that.
 
 ## Open
 
+### Two of the four selection types are declared and read by nothing
+
+`SelectionType` is `'range' | 'node' | 'cell' | 'table'`. The validator accepts
+all four and `setNode` passes `cell` and `table` through unchanged, and **nothing
+in either product ever produces one** — `readSelectionSummary` treats them
+exactly like `node`, by way of `selectedNodeIds`.
+
+Found by asking why the two products' selection modes differ. They do not: the
+engine has one set and Word simply never makes a node selection, because a page
+flows and every editable thing is in the flow, so "where the reader is" is always
+a text position. Slides places, so the objects themselves are selectable and
+their text is inside them — which is why it is the one product where both kinds
+are live at once, and why `_nodeSelectionHoldsUntilGesture` exists at all.
+
+- [ ] **Decide whether a cell selection is a kind or a shape.** Two cells in
+  different rows are a *set*, which is what `node` already means; what `cell`
+  would add is that the set is cells, and no code has yet needed to know. Either
+  something reads it or it goes.
+
 ### Shell and navigation
 
 
