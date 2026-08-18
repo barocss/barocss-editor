@@ -130,11 +130,27 @@ have moved its title or added boxes the layout never had, and matching by index
 would silently format the wrong one. A box with a role the layout does not
 declare simply inherits nothing, which is the honest answer.
 
-**What it bought.** The ribbon's font and size controls read 33pt for a title
-and 20pt for a body, in a deck where no slide sets a size anywhere. And "apply
-this layout" now means something for a slide that already has content, because
-applying it changes what is inherited rather than overwriting what was typed —
-which is the next thing to build on it.
+**What it bought.** "Apply this layout" means something for a slide that already
+has content: it changes what is inherited rather than overwriting what was
+typed. Measured — a title with nothing of its own draws at the layout's 54pt,
+and switching the slide to a layout whose title is 33pt redraws it at 33pt,
+with not a word of the slide touched.
+
+**Where the layer goes, and the mistake worth keeping.** It was built for the
+*toolbar* first, and that was half a job: Word's renderers do not read a
+paragraph's attributes, they resolve it through `WordEnv.styles`, which is what
+makes a paragraph with nothing on it look like anything at all. So the ribbon
+knew about layouts and the drawing did not, and a title reported 54pt in the
+toolbar while drawing at the document's 13px default — two answers to one
+question, which is the failure this whole document exists to prevent, committed
+while writing the document.
+
+The fix is one seam Word already had: `resolveNodeWith` takes extra layers
+"between the style chain and the node's own direct formatting", which is exactly
+where a layout belongs. `withLayouts` wraps the resolver, no renderer changes,
+and the layout goes *under* any layers the caller passes — a table style's
+conditional formatting is a more specific statement about a block than the slide
+layout is.
 
 **What it costs.** One resolver, shaped like `office-word/style-resolver`, and
 the same restraint that one has: only known formatting keys cascade. A layout

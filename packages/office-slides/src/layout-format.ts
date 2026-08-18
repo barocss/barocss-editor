@@ -1,6 +1,6 @@
-import { characterFormatAttrs, paragraphFormatAttrs } from '@barocss/office-word';
+import { characterFormatAttrs, createWordEnv, paragraphFormatAttrs } from '@barocss/office-word';
 import { deckSlides, layoutPlaceholderSids, type DeckAccess, type DeckNode } from './deck';
-import { boxAt, slideAt } from './selection';
+import { boxAt, isSceneType, slideAt } from './selection';
 
 /**
  * Where a slide's formatting comes from.
@@ -135,10 +135,32 @@ export function resolveDeckFormat(
   const node = sid ? doc.getNode(sid) : undefined;
   if (!node) return {};
 
-  const placeholder = placeholderFor(doc, sid);
-  const inherited = placeholder ? fromPlaceholder(doc, placeholder, node, scope) : {};
+  return { ...inheritedFormat(doc, sid, scope), ...formatOnly(node.attributes, scope) };
+}
 
-  return { ...inherited, ...formatOnly(node.attributes, scope) };
+/**
+ * What the layout contributes, without the node's own formatting on top.
+ *
+ * The half that goes *into* the cascade rather than the answer that comes out
+ * of it. Word's style resolver takes extra layers between the style chain and a
+ * node's direct formatting — `resolveNodeWith` — and that is exactly where a
+ * layout belongs, so this is shaped to be handed to it.
+ *
+ * Keeping the two apart is what stops the drawing and the toolbar from
+ * disagreeing. They did: the ribbon read the layout and the renderers did not,
+ * so a title with nothing of its own reported 54pt in the toolbar and drew at
+ * the document's default of 13px. One resolver, two callers, one answer.
+ */
+export function inheritedFormat(
+  doc: DeckAccess,
+  sid: string | undefined,
+  scope: DeckFormatScope
+): Record<string, unknown> {
+  const node = sid ? doc.getNode(sid) : undefined;
+  if (!node) return {};
+
+  const placeholder = placeholderFor(doc, sid);
+  return placeholder ? fromPlaceholder(doc, placeholder, node, scope) : {};
 }
 
 /**
@@ -155,6 +177,17 @@ function fromPlaceholder(
   scope: DeckFormatScope
 ): Record<string, unknown> {
   const own = formatOnly(placeholder.attributes, scope);
+
+  /**
+   * A box is not a paragraph, and must not be given a paragraph's formatting.
+   *
+   * Asked about the text frame itself — which a panel does, and a renderer does
+   * for the box's own styling — the answer is the placeholder's *box* formatting
+   * and nothing else. Adding the layout's first paragraph on top said a title
+   * frame was 54pt, which is a statement about the text in it rather than about
+   * the box, and would have put a font size on the box's own element.
+   */
+  if (isSceneType(node?.stype)) return own;
 
   const paragraphs = childrenOf(placeholder);
   if (paragraphs.length === 0 || !node) return own;
@@ -192,4 +225,77 @@ function indexOfBlock(doc: DeckAccess, node: DeckNode): number {
   }
 
   return 0;
+}
+
+/**
+ * Word's style resolver, with the layout layered into it.
+ *
+ * Every renderer a deck uses is Word's, and they resolve a block's formatting
+ * through `WordEnv.styles` rather than reading its attributes — which is what
+ * makes a paragraph with no attributes at all still look like something. A deck
+ * needs one more layer in that cascade and no renderer changes: the layout's
+ * placeholder, between the style chain and the node's own direct formatting.
+ *
+ * `resolveNodeWith` is the seam Word already provides, for the same shape of
+ * problem — a table style's conditional formatting is a header row being bold
+ * because the style says so, and stopping the moment the cell says otherwise.
+ *
+ * Wrapped rather than replaced: everything else about the resolver is Word's and
+ * should stay Word's.
+ */
+export function withLayouts<T extends {
+  resolveNode: (node: any, scope?: any) => Record<string, unknown>;
+  resolveNodeWith: (
+    node: any,
+    scope: any,
+    layers: Array<Record<string, unknown> | undefined>
+  ) => Record<string, unknown>;
+}>(styles: T, doc: DeckAccess): T {
+  /**
+   * `resolveNodeWith` and not `resolveNode`.
+   *
+   * That is the one the renderers actually call — `formatFor` passes its own
+   * layers through it — so wrapping the other did nothing at all, measured as a
+   * title that reported 54pt in the toolbar and drew at the document's 13px
+   * default. Both are wrapped now, because a caller of either deserves the same
+   * answer.
+   *
+   * The layout goes *first* among the layers, which makes it the weakest of
+   * them: a table style's conditional formatting is a more specific statement
+   * about this block than the slide layout is, and the node's own direct
+   * formatting still beats everything.
+   */
+  const layerFor = (node: any, scope: any) =>
+    inheritedFormat(
+      doc,
+      node?.sid as string | undefined,
+      scope === 'character' ? 'character' : 'paragraph'
+    );
+
+  const resolveNodeWith = (
+    node: any,
+    scope: any,
+    layers: Array<Record<string, unknown> | undefined>
+  ) => styles.resolveNodeWith(node, scope, [layerFor(node, scope), ...(layers ?? [])]);
+
+  const resolveNode = (node: any, scope: any = 'paragraph') =>
+    resolveNodeWith(node, scope, []);
+
+  return Object.assign(Object.create(styles), styles, {
+    resolveNode,
+    resolveNodeWith
+  }) as T;
+}
+
+/**
+ * The environment a deck's views render with.
+ *
+ * Word's, with the layout layered into its style resolver. Three places need
+ * one — the stage, the notes pane and every thumbnail — and three copies of the
+ * same two lines is how one of them ends up without the layer, drawing a deck
+ * that disagrees with the other two.
+ */
+export function createDeckEnv(doc: DeckAccess): Record<string, unknown> {
+  const env = createWordEnv(doc as never) as { styles: unknown };
+  return { ...env, styles: withLayouts(env.styles as never, doc) };
 }

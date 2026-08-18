@@ -208,9 +208,12 @@ Ordered so that each one is unblocked by the one before it.
      `layoutPlaceholderSids` is the reading half; and a size the presets do not
      offer left the control blank, which reads as "the selection disagrees with
      itself" when it agrees perfectly.
-   - [ ] **Applying a layout to a slide that already has content** is the other
-     half, and now means something: it changes what is inherited rather than
-     overwriting what was typed.
+   - [x] **Applying a layout to a slide that already has content** works, and
+     needed the other half of the resolver: the renderers read `WordEnv.styles`
+     rather than a paragraph's attributes, so a layout the *toolbar* knew about
+     and the drawing did not gave two answers — 54pt reported, 13px drawn.
+     `withLayouts` puts the layer in `resolveNodeWith`, the seam Word already
+     had for a table style's conditional formatting, and no renderer changed.
    - [ ] **Per-level formatting.** PowerPoint formats a body placeholder by
      outline level. A paragraph here carries no level, so the resolver takes the
      placeholder's paragraph at the same index and the last one after that —

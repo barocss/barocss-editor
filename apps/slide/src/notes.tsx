@@ -2,8 +2,10 @@ import { useEffect, useMemo, useReducer, useRef } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { EditorViewDOM } from '@barocss/editor-view-dom';
 import { getGlobalRegistry } from '@barocss/dsl';
-import { WORD_ENV_KEY, createWordEnv } from '@barocss/office-word';
-import { SLIDES_ENV_KEY, noteFor } from '@barocss/office-slides';
+import { WORD_ENV_KEY } from '@barocss/office-word';
+import { SLIDES_ENV_KEY, noteFor,
+  createDeckEnv
+} from '@barocss/office-slides';
 
 /**
  * The note the presenter reads and the audience does not.
@@ -102,7 +104,7 @@ export function NotesPane({
         env: {
           // The same environment the stage has: a note's paragraphs are Word's
           // paragraphs and resolve their formatting the same way.
-          [WORD_ENV_KEY]: createWordEnv(doc),
+          [WORD_ENV_KEY]: createDeckEnv(doc as never),
           // And the one thing this view knows that the stage does not — that it
           // is the region notes are meant to be drawn in. The stage renders the
           // whole document, resources included, so without this every slide's

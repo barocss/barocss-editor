@@ -5,12 +5,13 @@ import { getGlobalRegistry } from '@barocss/dsl';
 import { EditorViewDOM } from '@barocss/editor-view-dom';
 import { createSchema } from '@barocss/schema';
 import type { Editor } from '@barocss/editor-core';
-import { WORD_ENV_KEY, createWordEnv } from '@barocss/office-word';
+import { WORD_ENV_KEY } from '@barocss/office-word';
 import {
   createSampleDeck,
   createSlidesEditor,
   getSlidesSchemaDefinition,
-  registerSlidesRenderers
+  registerSlidesRenderers,
+  createDeckEnv
 } from '@barocss/office-slides';
 import { App } from './app';
 import './style.css';
@@ -67,7 +68,7 @@ export function mountSlides(container: HTMLElement): { editor: Editor; view: Edi
   const view = new EditorViewDOM(editor, {
     container,
     registry: getGlobalRegistry(),
-    env: { [WORD_ENV_KEY]: createWordEnv(doc) }
+    env: { [WORD_ENV_KEY]: createDeckEnv(doc as never) }
   });
   view.render();
 

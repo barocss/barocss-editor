@@ -3,7 +3,7 @@ import { DataStore } from '@barocss/datastore';
 import { createSchema } from '@barocss/schema';
 import { createSlidesEditor } from '../src/slides-kit';
 import { getSlidesSchemaDefinition } from '../src/slides-schema';
-import { placeholderFor, resolveDeckFormat, type DeckAccess } from '../src/index';
+import { createDeckEnv, placeholderFor, resolveDeckFormat, type DeckAccess } from '../src/index';
 
 /**
  * A slide's formatting, resolved through its layout.
@@ -183,5 +183,122 @@ describe('formatting through the layout', () => {
   it('gives nothing for a box the layout does not describe', () => {
     const paragraph = childrenOf(loose)[0];
     expect(resolveDeckFormat(doc, paragraph, 'character')).toEqual({});
+  });
+});
+
+/**
+ * The layout in the cascade the renderers actually read.
+ *
+ * Resolving it for the *toolbar* was only half the job, and the half that was
+ * missing is the one a reader sees. Word's renderers do not read a paragraph's
+ * attributes — they resolve it through `WordEnv.styles`, which is what makes a
+ * paragraph with nothing on it still look like something — so a layout that the
+ * resolver knew about and the style resolver did not gave two answers: a title
+ * reporting 54pt in the toolbar and drawing at the document's 13px default.
+ *
+ * `withLayouts` puts the layer where Word already had a seam for it.
+ */
+describe('the layout, inside Word’s cascade', () => {
+  let store: DataStore;
+  let doc: DeckAccess;
+  let title: string;
+  let titleParagraph: string;
+
+  const childrenOf = (sid: string) => ((store.getNode(sid) as any).content ?? []) as string[];
+
+  beforeEach(() => {
+    const schema = createSchema('slides', getSlidesSchemaDefinition());
+    store = new DataStore(undefined, schema);
+    const editor: any = createSlidesEditor({ editable: true, schema, dataStore: store });
+
+    const para = (text: string, attributes: Record<string, unknown> = {}) => ({
+      stype: 'paragraph',
+      attributes,
+      content: [{ stype: 'inline-text', text }]
+    });
+
+    editor.loadDocument(
+      {
+        stype: 'document',
+        attributes: {},
+        content: [
+          {
+            stype: 'surface',
+            attributes: { kind: 'slide', layoutId: 'body' },
+            content: [
+              {
+                stype: 'textFrame',
+                attributes: { role: 'title', x: 0, y: 0, width: 100, height: 100 },
+                content: [para('Nothing of its own')]
+              }
+            ]
+          },
+          {
+            stype: 'resources',
+            attributes: {},
+            content: [
+              {
+                stype: 'slideLayout',
+                attributes: { id: 'body' },
+                content: [
+                  {
+                    stype: 'textFrame',
+                    attributes: { role: 'title', x: 0, y: 0, width: 100, height: 100 },
+                    content: [para('Click to add a title', { fontSize: 108 })]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      } as never,
+      'slides'
+    );
+
+    const root = store.getNode(editor.getRootId()) as any;
+    doc = { rootId: root.sid, getNode: (sid: string) => store.getNode(sid) as never };
+    [title] = childrenOf(root.content[0]);
+    [titleParagraph] = childrenOf(title);
+  });
+
+  /** Word's resolver, and the same one with the layout layered in. */
+  const resolvers = () => {
+    const plain = (createDeckEnv(doc) as any).styles;
+    return plain;
+  };
+
+  it('gives a paragraph with nothing of its own the layout’s size', () => {
+    const styles = resolvers();
+    const node = store.getNode(titleParagraph) as any;
+    expect(styles.resolveNodeWith(node, 'character', []).fontSize).toBe(108);
+  });
+
+  it('answers the same through resolveNode, which other callers use', () => {
+    const styles = resolvers();
+    const node = store.getNode(titleParagraph) as any;
+    expect(styles.resolveNode(node, 'character').fontSize).toBe(108);
+  });
+
+  it('lets the paragraph’s own formatting win', () => {
+    (store as any).updateNode(titleParagraph, { attributes: { fontSize: 24 } } as never);
+    const styles = resolvers();
+    const node = store.getNode(titleParagraph) as any;
+    expect(styles.resolveNodeWith(node, 'character', []).fontSize).toBe(24);
+  });
+
+  it('keeps the layers a caller passes, and puts the layout under them', () => {
+    // A table style's conditional formatting is a more specific statement about
+    // this block than the slide layout is, so it wins.
+    const styles = resolvers();
+    const node = store.getNode(titleParagraph) as any;
+    expect(styles.resolveNodeWith(node, 'character', [{ fontSize: 40 }]).fontSize).toBe(40);
+  });
+
+  it('says nothing for a box the layout does not describe', () => {
+    const styles = resolvers();
+    const loose = store.getNode(title) as any;
+    // The frame itself is not a block the cascade formats; what matters is that
+    // asking does not invent a size.
+    expect(styles.resolveNodeWith(loose, 'character', []).fontSize).toBeUndefined();
   });
 });

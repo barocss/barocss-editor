@@ -2,8 +2,10 @@ import { useEffect, useRef } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { DOMRenderer } from '@barocss/renderer-dom';
 import { getGlobalRegistry } from '@barocss/dsl';
-import { WORD_ENV_KEY, createWordEnv } from '@barocss/office-word';
-import { slideSize, twipToPx } from '@barocss/office-slides';
+import { WORD_ENV_KEY } from '@barocss/office-word';
+import { slideSize, twipToPx,
+  createDeckEnv
+} from '@barocss/office-slides';
 
 /**
  * One slide, drawn small.
@@ -73,7 +75,7 @@ export function Thumbnail({
         rootId: (editor as any).getRootId()
       };
       renderer.current = new DOMRenderer(getGlobalRegistry(), {
-        env: { [WORD_ENV_KEY]: createWordEnv(doc) }
+        env: { [WORD_ENV_KEY]: createDeckEnv(doc as never) }
       } as never);
     }
 

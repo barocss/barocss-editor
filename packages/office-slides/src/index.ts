@@ -47,7 +47,10 @@ export { createClipboardCommands, SlidesClipboardExtension } from './clipboard-c
 export { SLIDES_ENV_KEY, showsNotes, type SlidesEnv } from './render-context';
 export {
   resolveDeckFormat,
+  inheritedFormat,
   placeholderFor,
+  withLayouts,
+  createDeckEnv,
   type DeckFormatScope
 } from './layout-format';
 
