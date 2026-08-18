@@ -209,6 +209,42 @@ export function PropertyColor({
   );
 }
 
+/**
+ * A property that is either on or off.
+ *
+ * A checkbox rather than a toggle switch: the panel is a form, the value is the
+ * document's, and a switch reads as a setting the panel owns. `label` sits
+ * beside it rather than in the row's label so a group can hold several without
+ * a column of near-empty rows.
+ */
+export function PropertyToggle({
+  value,
+  onChange,
+  label,
+  disabled,
+  ariaLabel
+}: {
+  value: boolean;
+  onChange: (value: boolean) => void;
+  label: string;
+  disabled?: boolean;
+  ariaLabel: string;
+}) {
+  return (
+    <label className="inline-flex flex-1 items-center gap-1.5 text-xs text-neutral-600 dark:text-neutral-300">
+      <input
+        type="checkbox"
+        aria-label={ariaLabel}
+        disabled={disabled}
+        checked={value}
+        onChange={(event) => onChange(event.target.checked)}
+        className="h-3.5 w-3.5 shrink-0 accent-blue-600 disabled:opacity-40"
+      />
+      {label}
+    </label>
+  );
+}
+
 /** What the panel says when nothing is selected — which is most of the time. */
 export function PropertyEmpty({ children }: { children: React.ReactNode }) {
   return <p className="px-1 text-xs leading-relaxed text-neutral-500">{children}</p>;

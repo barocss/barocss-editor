@@ -45,6 +45,7 @@ export {
   PropertyRow,
   PropertyNumber,
   PropertyColor,
+  PropertyToggle,
   PropertyEmpty
 } from './properties';
 

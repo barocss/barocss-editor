@@ -306,6 +306,7 @@ describe('the commands a box has', () => {
 
   let box: string;
   let locked: string;
+  let rectangle: string;
 
   beforeEach(() => {
     const schema = createSchema('slides', getSlidesSchemaDefinition());
@@ -329,7 +330,10 @@ describe('the commands a box has', () => {
               {
                 stype: 'rectangle',
                 attributes: { x: 0, y: 0, width: 50, height: 50, locked: true }
-              }
+              },
+              // A shape that declares an attribute of its own, so the tests can
+              // ask what "the node's own declaration" buys.
+              { stype: 'rectangle', attributes: { x: 10, y: 10, width: 60, height: 60 } }
             ]
           }
         ]
@@ -338,7 +342,7 @@ describe('the commands a box has', () => {
     );
 
     const surface = (store.getNode((editor as any).getRootId()) as any).content[0];
-    [box, locked] = (store.getNode(surface) as any).content;
+    [box, locked, rectangle] = (store.getNode(surface) as any).content;
   });
 
   it('writes only the numbers it was given', () => {
@@ -396,5 +400,97 @@ describe('the commands a box has', () => {
     await run('setBoxStyle', { nodeId: box, fill: null });
     await (editor as any).undo();
     expect(attrs(box).fill).toBe('#ff0000');
+  });
+
+  /**
+   * The three attributes the schema declared, the renderers drew, and no
+   * command could write.
+   *
+   * They were missed because each command carried its own list of the keys it
+   * would accept, and a list beside a declaration is a list that drifts. The
+   * lists are gone; what a command will write is read from the schema.
+   */
+  describe('the attributes the lists had left out', () => {
+    it('rounds a rectangle’s corners', async () => {
+      expect(await run('setBoxStyle', { nodeId: rectangle, cornerRadius: 120 })).toBeTruthy();
+      expect(attrs(rectangle).cornerRadius).toBe(120);
+    });
+
+    it('hides a box without taking it out of the document', async () => {
+      expect(await run('setBoxGeometry', { nodeId: box, visible: false })).toBeTruthy();
+      expect(attrs(box).visible).toBe(false);
+      // Still there: a hidden box keeps its place, so the sids either side of it
+      // keep theirs.
+      expect((store.getNode(box) as any).stype).toBe('textFrame');
+    });
+
+    it('turns a box, which the geometry list had but the panel never sent', async () => {
+      await run('setBoxGeometry', { nodeId: box, rotation: 45 });
+      expect(attrs(box).rotation).toBe(45);
+    });
+
+    it('sets opacity and stroke width', async () => {
+      await run('setBoxGeometry', { nodeId: box, opacity: 0.5 });
+      await run('setBoxStyle', { nodeId: box, strokeWidth: 30 });
+      expect(attrs(box)).toMatchObject({ opacity: 0.5, strokeWidth: 30 });
+    });
+
+    /**
+     * `cornerRadius` belongs to `rectangle` and to nothing else, so asking a
+     * text frame for one writes nothing. This is what reading the *node's own*
+     * declaration buys over one list for every box.
+     */
+    it('refuses an attribute this shape does not declare', async () => {
+      expect(can('setBoxStyle', { nodeId: box, cornerRadius: 120 })).toBe(false);
+      expect(await run('setBoxStyle', { nodeId: box, cornerRadius: 120 })).toBeFalsy();
+      expect(attrs(box).cornerRadius).toBeUndefined();
+    });
+
+    it('refuses a value of the wrong type rather than coercing it', async () => {
+      // A width of "12" is a caller's mistake, and writing 12 would hide it.
+      expect(can('setBoxGeometry', { nodeId: box, width: '12' })).toBe(false);
+      expect(can('setBoxStyle', { nodeId: box, strokeWidth: true })).toBe(false);
+    });
+  });
+
+  /**
+   * Locking, which needed a command of its own.
+   *
+   * Every other box command is refused for a locked box — that is what `locked`
+   * means — so a lock set through `setBoxStyle` could never have been taken off
+   * again. The attribute was readable and unsettable: the guard existed, the
+   * schema declared it, and nothing in the product could produce a locked box.
+   */
+  describe('locking a box', () => {
+    it('locks one, and then refuses to move it', async () => {
+      expect(await run('setBoxLocked', { nodeId: box, locked: true })).toBeTruthy();
+      expect(attrs(box).locked).toBe(true);
+      expect(can('setBoxGeometry', { nodeId: box, x: 5 })).toBe(false);
+    });
+
+    it('unlocks one that is locked, which nothing else can reach', async () => {
+      expect(can('setBoxLocked', { nodeId: locked, locked: false })).toBe(true);
+      expect(await run('setBoxLocked', { nodeId: locked, locked: false })).toBeTruthy();
+      expect(attrs(locked).locked).toBe(false);
+      expect(can('setBoxGeometry', { nodeId: locked, x: 5 })).toBe(true);
+    });
+
+    it('refuses to lock what is already locked', () => {
+      // Otherwise the toolbar's state and the command disagree, and a no-op
+      // gets an entry in the history that undoes to the same document.
+      expect(can('setBoxLocked', { nodeId: locked, locked: true })).toBe(false);
+      expect(can('setBoxLocked', { nodeId: box, locked: false })).toBe(false);
+    });
+
+    it('undoes a lock', async () => {
+      await run('setBoxLocked', { nodeId: box, locked: true });
+      await (editor as any).undo();
+      expect(attrs(box).locked).not.toBe(true);
+    });
+
+    it('refuses anything that is not a box', () => {
+      expect(can('setBoxLocked', { nodeId: 'nope', locked: true })).toBe(false);
+      expect(can('setBoxLocked', { nodeId: box })).toBe(false);
+    });
   });
 });

@@ -1,8 +1,16 @@
 import { Editor, Extension } from '@barocss/editor-core';
+import { CANVAS_GEOMETRY_ATTRS, CANVAS_STYLE_ATTRS } from '@barocss/schema';
 import { transaction } from '@barocss/model';
 import { copyOf, deckSlides, layoutPlaceholders, type DeckAccess } from './deck';
 import { isSceneType } from './selection';
 import { SLIDE_16_9 } from './geometry';
+
+/** One attribute as the schema declares it: enough to check a value against. */
+interface AttrShape {
+  type?: string;
+  required?: boolean;
+  default?: unknown;
+}
 
 /**
  * The commands that are a deck's own.
@@ -105,10 +113,10 @@ export class SlidesExtension implements Extension {
      */
     register(
       'setBoxGeometry',
-      (payload) => this._setBoxAttrs(editor, payload?.nodeId, this._geometryOf(payload)),
+      (payload) => this._setBoxAttrs(editor, payload?.nodeId, this._geometryOf(editor, payload)),
       (payload) =>
         this._canEditBox(editor, payload?.nodeId) &&
-        Object.keys(this._geometryOf(payload)).length > 0
+        Object.keys(this._geometryOf(editor, payload)).length > 0
     );
 
     /**
@@ -151,9 +159,37 @@ export class SlidesExtension implements Extension {
     /** Fill and stroke. `null` means none, which is not the same as white. */
     register(
       'setBoxStyle',
-      (payload) => this._setBoxAttrs(editor, payload?.nodeId, this._styleOf(payload)),
+      (payload) => this._setBoxAttrs(editor, payload?.nodeId, this._styleOf(editor, payload)),
       (payload) =>
-        this._canEditBox(editor, payload?.nodeId) && Object.keys(this._styleOf(payload)).length > 0
+        this._canEditBox(editor, payload?.nodeId) &&
+        Object.keys(this._styleOf(editor, payload)).length > 0
+    );
+
+    /**
+     * Lock a box, or let it go.
+     *
+     * Its own command because every other one is refused for a locked box — that
+     * is what `locked` means and `_canEditBox` enforces it — so a lock set
+     * through `setBoxStyle` could never be taken off again. The attribute was
+     * readable and unsettable: the guard had been written, the schema had
+     * declared it, and nothing in the product could produce a locked box at all.
+     *
+     * Guarded on being a box and nothing else. Locking a locked box is refused
+     * as well, so the toolbar's state and the command agree and a no-op does not
+     * get an entry in the history.
+     */
+    register(
+      'setBoxLocked',
+      (payload) =>
+        this._setBoxAttrs(editor, payload?.nodeId, { locked: payload?.locked === true }, {
+          evenIfLocked: true
+        }),
+      (payload) => {
+        if (typeof payload?.locked !== 'boolean' || !payload?.nodeId) return false;
+        const node = this._access(editor)?.getNode(payload.nodeId);
+        if (!isSceneType(node?.stype)) return false;
+        return (node!.attributes?.locked === true) !== payload.locked;
+      }
     );
   }
 
@@ -358,38 +394,90 @@ export class SlidesExtension implements Extension {
     return node!.attributes?.locked !== true;
   }
 
-  /** Only the numbers the caller actually gave, so nothing else is overwritten. */
-  private _geometryOf(payload: any): Record<string, number> {
-    const out: Record<string, number> = {};
-    for (const key of ['x', 'y', 'width', 'height', 'rotation'] as const) {
-      const value = payload?.[key];
-      if (typeof value === 'number' && Number.isFinite(value)) out[key] = value;
+  /**
+   * Which attributes each command may write, asked of the schema.
+   *
+   * These were two hardcoded lists — `['x','y','width','height','rotation']` and
+   * `['fill','stroke','strokeWidth','opacity']` — and they had already drifted
+   * from what the schema declares. `cornerRadius`, `locked` and `visible` were
+   * declared, drawn by the renderers, and named by neither list: three
+   * attributes a document could hold, a reader could see on the page, and
+   * nothing in the product could change. Found by reading a rectangle's
+   * attributes in a browser, which is not a way of finding things that scales.
+   *
+   * So the split is stated once, in the schema, and read here:
+   *
+   * - **Geometry** is `CANVAS_GEOMETRY_ATTRS` — where the box is, how big, how
+   *   turned, how solid, whether drawn. Less `locked`, which has its own command
+   *   because every other one is refused for a locked box.
+   * - **Style** is `CANVAS_STYLE_ATTRS`, plus whatever else the node type itself
+   *   declares: `cornerRadius` on a rectangle, `verticalAlign` on a text frame,
+   *   `clipsContent` on a frame. There is nowhere else for a per-shape
+   *   presentation attribute to go, and a new one added to the schema is
+   *   settable the same day rather than the day somebody notices.
+   * - **Identity is excluded**: an extra the schema marks `required` is what
+   *   makes the node that node — a `path` without `d` is not a path — and is not
+   *   something a formatting command may take away. Required attributes *inside*
+   *   the geometry group are not identity and stay settable, which is what keeps
+   *   `width` and `height` writable.
+   *
+   * A node with no declaration in the schema gets nothing written to it, rather
+   * than everything.
+   */
+  private _declaredAttrs(editor: Editor, nodeId?: string): Record<string, AttrShape> {
+    const stype = nodeId ? this._access(editor)?.getNode(nodeId)?.stype : undefined;
+    if (!stype) return {};
+    const schema = (editor as any).dataStore?.getActiveSchema?.();
+    return (schema?.getNodeType?.(stype)?.attrs ?? {}) as Record<string, AttrShape>;
+  }
+
+  /**
+   * The payload's values for a set of declared attributes, typed as declared.
+   *
+   * A value of the wrong type is dropped rather than coerced: a width of `"12"`
+   * is a caller's mistake and writing 12 would hide it. `null` is kept for a
+   * string attribute alone, because that is how a caller says "no fill" — see
+   * `_setBoxAttrs`, which turns it into a removal.
+   */
+  private _valuesFor(
+    payload: any,
+    declared: Record<string, AttrShape>,
+    allow: (key: string, shape: AttrShape) => boolean
+  ): Record<string, unknown> {
+    const out: Record<string, unknown> = {};
+    for (const [key, shape] of Object.entries(declared)) {
+      if (!allow(key, shape)) continue;
+      if (!(key in (payload ?? {}))) continue;
+
+      const value = payload[key];
+      if (shape.type === 'number' && typeof value === 'number' && Number.isFinite(value)) {
+        out[key] = value;
+      } else if (shape.type === 'boolean' && typeof value === 'boolean') {
+        out[key] = value;
+      } else if (shape.type === 'string' && (typeof value === 'string' || value === null)) {
+        out[key] = value;
+      }
     }
     return out;
   }
 
-  /**
-   * Fill, stroke and opacity, with `null` kept as a value.
-   *
-   * `null` is how a caller says "no fill", which is a real answer — a text box
-   * over a picture usually wants it — and is not the same as not mentioning
-   * fill at all. So `undefined` means "leave it" and `null` means "none".
-   */
-  private _styleOf(payload: any): Record<string, unknown> {
-    const out: Record<string, unknown> = {};
-    for (const key of ['fill', 'stroke'] as const) {
-      if (!(key in (payload ?? {}))) continue;
-      const value = payload[key];
-      // `null` is carried through rather than turned into `undefined`: it is the
-      // caller saying "none", and `_setBoxAttrs` needs to tell that apart from
-      // "not mentioned".
-      if (value === null || typeof value === 'string') out[key] = value;
-    }
-    for (const key of ['strokeWidth', 'opacity'] as const) {
-      const value = payload?.[key];
-      if (typeof value === 'number' && Number.isFinite(value)) out[key] = value;
-    }
-    return out;
+  /** Where the box is and how it is drawn, less the lock. */
+  private _geometryOf(editor: Editor, payload: any): Record<string, unknown> {
+    return this._valuesFor(
+      payload,
+      this._declaredAttrs(editor, payload?.nodeId),
+      (key) => key !== 'locked' && key in CANVAS_GEOMETRY_ATTRS
+    );
+  }
+
+  /** How the box is painted, including whatever this shape declares of its own. */
+  private _styleOf(editor: Editor, payload: any): Record<string, unknown> {
+    return this._valuesFor(
+      payload,
+      this._declaredAttrs(editor, payload?.nodeId),
+      (key, shape) =>
+        !(key in CANVAS_GEOMETRY_ATTRS) && (key in CANVAS_STYLE_ATTRS || shape.required !== true)
+    );
   }
 
   /**
@@ -413,9 +501,18 @@ export class SlidesExtension implements Extension {
   private async _setBoxAttrs(
     editor: Editor,
     nodeId: string | undefined,
-    attrs: Record<string, unknown>
+    attrs: Record<string, unknown>,
+    /**
+     * `evenIfLocked` is for the one command that has to reach a locked box: the
+     * one that unlocks it. Everything else goes through the guard, which is what
+     * `locked` is for.
+     */
+    options?: { evenIfLocked?: boolean }
   ): Promise<boolean> {
-    if (!this._canEditBox(editor, nodeId) || Object.keys(attrs).length === 0) return false;
+    const allowed = options?.evenIfLocked
+      ? !!nodeId && isSceneType(this._access(editor)?.getNode(nodeId)?.stype)
+      : this._canEditBox(editor, nodeId);
+    if (!allowed || Object.keys(attrs).length === 0) return false;
 
     const cleared = Object.keys(attrs).filter((key) => attrs[key] === null);
 

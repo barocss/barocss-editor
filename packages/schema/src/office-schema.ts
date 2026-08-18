@@ -33,8 +33,20 @@ import { getStandardSchemaDefinition } from './standard-schema';
 /** Nodes that can sit directly on a canvas surface, in a frame, or in a group. */
 const SCENE = 'scene';
 
-/** Geometry shared by everything positioned on a canvas. */
-const geometry = {
+/**
+ * Geometry shared by everything positioned on a canvas.
+ *
+ * Exported because a command that edits a box has to know which attributes it
+ * may write, and the only alternative is a list in the command that says the
+ * same thing. That list existed and had already gone stale: `cornerRadius`,
+ * `locked` and `visible` were declared here, drawn by the renderers, and named
+ * by neither `setBoxGeometry` nor `setBoxStyle` — three attributes a document
+ * could hold, a reader could see, and nothing in the product could change.
+ *
+ * Restated in two places is restated wrongly eventually. There is one
+ * declaration and the commands read it.
+ */
+export const CANVAS_GEOMETRY_ATTRS = {
   x: { type: 'number' as const, default: 0 },
   y: { type: 'number' as const, default: 0 },
   width: { type: 'number' as const, required: true },
@@ -45,11 +57,15 @@ const geometry = {
   visible: { type: 'boolean' as const, default: true }
 };
 
-const style = {
+/** How a box is painted. Shared by every scene node that has a surface to fill. */
+export const CANVAS_STYLE_ATTRS = {
   fill: { type: 'string' as const, required: false },
   stroke: { type: 'string' as const, required: false },
   strokeWidth: { type: 'number' as const, default: 1 }
 };
+
+const geometry = CANVAS_GEOMETRY_ATTRS;
+const style = CANVAS_STYLE_ATTRS;
 
 /**
  * Canvas half of the model: surfaces, containers and shapes.

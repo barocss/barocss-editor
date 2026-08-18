@@ -65,6 +65,8 @@ export {
   getCanvasNodeDefinitions,
   getSurfaceNodeDefinitions,
   getMetaNodeDefinitions,
+  CANVAS_GEOMETRY_ATTRS,
+  CANVAS_STYLE_ATTRS,
   SurfaceKind,
   type SurfaceKindValue
 } from './office-schema';
