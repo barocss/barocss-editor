@@ -78,6 +78,31 @@ function isDecoratorElement(el: Element): boolean {
   );
 }
 
+/**
+ * Whether a decorator's text belongs to the document or to the decorator.
+ *
+ * The two kinds are not alike and the decorator system already says which is
+ * which. An **inline** decorator wraps a range of text that is already there —
+ * a search hit, a commented phrase — so the text inside it is the node's own
+ * and has to be indexed like any other. Every other category draws something of
+ * its own: a widget, a badge, a layer, none of which the model has a character
+ * for, and indexing them would push every offset after them out of step.
+ *
+ * Skipping *all* of them was a silent, compounding fault. A commented phrase was
+ * dropped from the index, so a paragraph of 68 characters indexed as 58 and
+ * every model offset at or past the comment resolved to the wrong text node.
+ * Measured after commenting on ten characters: the model held `[35..45]`, and
+ * the DOM selection built from it landed in the *following* run at `[0..10]`.
+ * Backspace then deleted a stretch nobody had selected.
+ *
+ * It stayed hidden because the DOM selection was the arbiter of what an edit
+ * did, so the browser's own (correct) selection covered for the index being
+ * wrong. It surfaces the moment the model is trusted to finish its own edits.
+ */
+function isDecoratorOwnText(el: Element): boolean {
+  return el.getAttribute('data-decorator-category') !== 'inline';
+}
+
 export function buildTextRunIndex(
   containerEl: Element,
   containerId?: string,
@@ -145,7 +170,9 @@ export function buildTextRunIndex(
     if (child.nodeType === Node.ELEMENT_NODE) {
       const el = child as Element;
 
-      if (isDecoratorElement(el)) continue;
+      // A decorator that wraps the document's own text is walked into; one that
+      // draws its own content is skipped. See `isDecoratorOwnText`.
+      if (isDecoratorElement(el) && isDecoratorOwnText(el)) continue;
       if (options?.excludePredicate && options.excludePredicate(el)) continue;
 
       const walker = document.createTreeWalker(
@@ -157,7 +184,9 @@ export function buildTextRunIndex(
             while (parent && parent !== el) {
               if (parent.nodeType === Node.ELEMENT_NODE) {
                 const parentEl = parent as Element;
-                if (isDecoratorElement(parentEl)) return NodeFilter.FILTER_REJECT;
+                if (isDecoratorElement(parentEl) && isDecoratorOwnText(parentEl)) {
+                  return NodeFilter.FILTER_REJECT;
+                }
               }
               parent = parent.parentNode;
             }

@@ -46,66 +46,6 @@ entries are that.
 
 ## Open
 
-### A selection cannot be extended past the end of a marked run
-
-Present at HEAD, and not caused by anything above — it was found while checking
-the fix for the corruption, and it is the reason one further fix is held back.
-
-**Reproduce:** put the caret before some bold text and hold Shift while pressing
-the right arrow. The selection grows one character at a time until it reaches the
-last character of the bold run, and then stops. Pressing it another dozen times
-does nothing.
-
-Measured on the bold run `[35,45]` of the second paragraph in Word's fixture:
-
-    press        1   2   3   4   5   6   7   8   9  10  11  12
-    model end   36  37  38  39  40  41  42  43  44  44  44  44
-
-The browser is not the one refusing. Listening to raw `selectionchange` with
-nothing filtered shows the DOM reaching the end of the run and then being pulled
-back, in that order, within one press:
-
-    "centred even"@10      <- the browser extends
-    "centred even"@9       <- something writes it back
-
-So a round trip through the model loses the boundary: the DOM offset at the *end*
-of a run converts to a model offset that converts back to one character earlier.
-`extendSelectionHorizontal` is not involved — it returns false unless the
-selection is collapsed, so every press after the first is the browser's own.
-
-- [ ] **Find who writes the selection back, and what offset it holds.** The
-  measurement above is the whole reproduction; the next step is the model offset
-  the conversion produced for `@10`.
-
-### An inline decorator's text is dropped from the run index
-
-Written, measured correct, and **held in a stash** rather than committed, because
-it turns the pre-existing stall above into a visible failure. `git stash list`
-has it under the name.
-
-**What it is.** `buildTextRunIndex` and the selection handler both skip decorator
-elements, and a comment anchor is a decorator — so the ten commented characters
-were absent from the index. A paragraph of 68 characters indexed as 58, and every
-model offset at or past the comment resolved to the wrong text node. Measured
-after commenting on ten characters: the model held `word:21[35..45]` and the DOM
-selection built from it landed in the *following* run at `[0..10]`.
-
-**The distinction the fix uses is the system's own.** A decorator carries
-`data-decorator-category`, and an `inline` one wraps text that is already there —
-a search hit, a commented phrase. Every other category draws content of its own,
-which the model has no character for. Only the second kind belongs out of the
-index. With the fix in, the index reads `[0..35]`, `[35..45]`, `[45..68]` and the
-model and DOM agree at every step of commenting.
-
-**Why it cannot land yet.** The correct index puts a run boundary where the
-comment starts, and the entry above means a selection cannot be extended across
-one. So "select ten characters, comment, select ten again, delete" now selects
-*nine*, leaves one character of the `commentRef` mark alive, and the comment does
-not orphan — `word-review.spec.ts:276`. The test is right and the fix is right;
-what is between them is the boundary bug.
-
-- [ ] **Land it once the stall is fixed.** Nothing else is required of it.
-
 ### Shell and navigation
 
 
@@ -426,6 +366,41 @@ text-shaped.
 ## Done
 
 Newest first. The surprise each one produced is the part worth keeping.
+
+- **A selection could not be extended past the end of a marked run**, and an
+  inline decorator's text was missing from the run index. One cause, found by
+  measuring the second: `buildTextRunIndex` took a `normalizeWhitespace` option,
+  on by default, that trimmed every run and skipped any run made only of
+  whitespace. Five of its six callers passed `false`. The sixth was the
+  DOM→model direction of the selection handler, so **the two directions of one
+  conversion were reading indexes that differed by exactly the whitespace**.
+
+  What that looks like from the outside: bold a word, hold Shift and the right
+  arrow, and the selection grows to the end of the marked run and stops dead. A
+  mark splits the paragraph, one of the pieces is a lone space, a lone space got
+  no run — so the browser's position inside it was absent from the reverse map,
+  the conversion snapped to a run boundary, and the model answered with the
+  offset it started from. The app then wrote that answer back to the DOM, undoing
+  the browser's move, once per press. The raw event log is two lines and says the
+  whole thing:
+
+      press 1   dom " "@1  ->  model 35  ->  dom " "@0
+      press 2   dom " "@1  ->  model 35  ->  dom " "@0
+
+  The option is gone rather than defaulted the other way: an index whose purpose
+  is to say which character sits where cannot hold a different text than the page
+  does, and five callers already knew it.
+
+  With the boundary crossing again, the decorator half could land. A comment
+  anchor is a decorator and the index skipped decorators wholesale, so ten
+  commented characters were absent and a paragraph of 68 indexed as 58 — every
+  offset at or past the comment resolved to the wrong text node. The distinction
+  that fixes it is the decorator system's own: `data-decorator-category="inline"`
+  means the decorator *wraps* text that is already there, and only the other
+  categories draw content the model has no character for.
+
+  The two were logged as separate entries, one blocking the other. They were one
+  bug, and the second was only visible because the first had been masking it.
 
 - **A second overlapping mark corrupted the text, in both products.** Bold then
   italic rewrote the paragraph — "Contents" became "Conten" nineteen times over,

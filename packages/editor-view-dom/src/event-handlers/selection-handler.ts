@@ -529,11 +529,26 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
    * Check if element is a decorator
    */
   private isDecoratorElement(el: Element): boolean {
-    return !!(
-      el.hasAttribute('data-decorator-sid') ||
-      el.hasAttribute('data-bc-decorator') ||
-      el.hasAttribute('data-decorator-category')
-    );
+    if (
+      !(
+        el.hasAttribute('data-decorator-sid') ||
+        el.hasAttribute('data-bc-decorator') ||
+        el.hasAttribute('data-decorator-category')
+      )
+    ) {
+      return false;
+    }
+
+    /**
+     * An inline decorator wraps the document's own text and is not excluded.
+     *
+     * A search hit and a commented phrase are marked-up *existing* characters;
+     * every other category draws content of its own. Treating the two the same
+     * dropped commented text from the run index, and every model offset past it
+     * then resolved to the wrong node. See `isDecoratorOwnText` in
+     * `@barocss/shared`, where the same distinction is made for the same reason.
+     */
+    return el.getAttribute('data-decorator-category') !== 'inline';
   }
 
   /**
