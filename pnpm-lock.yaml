@@ -251,6 +251,70 @@ importers:
         specifier: ^5.4.21
         version: 5.4.21(@types/node@20.19.30)
 
+  apps/slide:
+    dependencies:
+      '@barocss/datastore':
+        specifier: workspace:*
+        version: link:../../packages/datastore
+      '@barocss/dsl':
+        specifier: workspace:*
+        version: link:../../packages/dsl
+      '@barocss/editor-core':
+        specifier: workspace:*
+        version: link:../../packages/editor-core
+      '@barocss/editor-view-dom':
+        specifier: workspace:*
+        version: link:../../packages/editor-view-dom
+      '@barocss/office-slides':
+        specifier: workspace:*
+        version: link:../../packages/office-slides
+      '@barocss/office-ui':
+        specifier: workspace:*
+        version: link:../../packages/office-ui
+      '@barocss/office-word':
+        specifier: workspace:*
+        version: link:../../packages/office-word
+      '@barocss/renderer-dom':
+        specifier: workspace:*
+        version: link:../../packages/renderer-dom
+      '@barocss/schema':
+        specifier: workspace:*
+        version: link:../../packages/schema
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
+      lucide-react:
+        specifier: ^1.28.0
+        version: 1.28.0(react@19.2.8)
+      react:
+        specifier: ^19.2.8
+        version: 19.2.8
+      react-dom:
+        specifier: ^19.2.8
+        version: 19.2.8(react@19.2.8)
+    devDependencies:
+      '@tailwindcss/vite':
+        specifier: ^4.3.3
+        version: 4.3.3(vite@5.4.21)
+      '@types/react':
+        specifier: ^19.0.0
+        version: 19.2.10
+      '@types/react-dom':
+        specifier: ^19.0.0
+        version: 19.2.3(@types/react@19.2.10)
+      '@vitejs/plugin-react':
+        specifier: ^4.3.4
+        version: 4.7.0(vite@5.4.21)
+      tailwindcss:
+        specifier: ^4.3.3
+        version: 4.3.3
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vite:
+        specifier: ^5.4.21
+        version: 5.4.21(@types/node@20.19.30)
+
   apps/word:
     dependencies:
       '@barocss/datastore':
@@ -265,6 +329,9 @@ importers:
       '@barocss/editor-view-dom':
         specifier: workspace:*
         version: link:../../packages/editor-view-dom
+      '@barocss/office-ui':
+        specifier: workspace:*
+        version: link:../../packages/office-ui
       '@barocss/office-word':
         specifier: workspace:*
         version: link:../../packages/office-word
@@ -392,6 +459,28 @@ importers:
       vitest:
         specifier: ^3.2.4
         version: 3.2.4(@types/node@20.19.30)(jsdom@25.0.1)
+
+  packages/conformance:
+    dependencies:
+      '@barocss/dsl':
+        specifier: workspace:*
+        version: link:../dsl
+      '@barocss/schema':
+        specifier: workspace:*
+        version: link:../schema
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vite:
+        specifier: ^5.4.21
+        version: 5.4.21(@types/node@20.19.30)
+      vite-plugin-dts:
+        specifier: ^3.9.1
+        version: 3.9.1(@types/node@20.19.30)(typescript@5.9.3)(vite@5.4.21)
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.30)(@vitest/ui@1.6.1)
 
   packages/converter:
     dependencies:
@@ -639,6 +728,9 @@ importers:
       '@barocss/datastore':
         specifier: workspace:*
         version: link:../datastore
+      '@barocss/dsl':
+        specifier: workspace:*
+        version: link:../dsl
       '@barocss/editor-core':
         specifier: workspace:*
         version: link:../editor-core
@@ -690,6 +782,104 @@ importers:
         specifier: ^1.6.1
         version: 1.6.1(@types/node@20.19.30)(@vitest/ui@1.6.1)
 
+  packages/office-slides:
+    dependencies:
+      '@barocss/datastore':
+        specifier: workspace:*
+        version: link:../datastore
+      '@barocss/dsl':
+        specifier: workspace:*
+        version: link:../dsl
+      '@barocss/editor-core':
+        specifier: workspace:*
+        version: link:../editor-core
+      '@barocss/extensions':
+        specifier: workspace:*
+        version: link:../extensions
+      '@barocss/model':
+        specifier: workspace:*
+        version: link:../model
+      '@barocss/office-word':
+        specifier: workspace:*
+        version: link:../office-word
+      '@barocss/schema':
+        specifier: workspace:*
+        version: link:../schema
+      '@barocss/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      '@barocss/conformance':
+        specifier: workspace:*
+        version: link:../conformance
+      '@barocss/editor-view-dom':
+        specifier: workspace:*
+        version: link:../editor-view-dom
+      jsdom:
+        specifier: ^24.0.0
+        version: 24.1.3
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vite:
+        specifier: ^5.4.21
+        version: 5.4.21(@types/node@20.19.30)
+      vite-plugin-dts:
+        specifier: ^3.9.1
+        version: 3.9.1(@types/node@20.19.30)(typescript@5.9.3)(vite@5.4.21)
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.30)(jsdom@24.1.3)
+
+  packages/office-ui:
+    dependencies:
+      '@barocss/editor-core':
+        specifier: workspace:*
+        version: link:../editor-core
+      '@radix-ui/react-dialog':
+        specifier: ^1.1.15
+        version: 1.1.23(@types/react-dom@19.2.3)(@types/react@19.2.10)(react-dom@19.2.8)(react@19.2.8)
+      '@radix-ui/react-select':
+        specifier: ^2.3.7
+        version: 2.3.7(@types/react-dom@19.2.3)(@types/react@19.2.10)(react-dom@19.2.8)(react@19.2.8)
+      '@radix-ui/react-toolbar':
+        specifier: ^1.1.19
+        version: 1.1.19(@types/react-dom@19.2.3)(@types/react@19.2.10)(react-dom@19.2.8)(react@19.2.8)
+      '@radix-ui/react-tooltip':
+        specifier: ^1.2.16
+        version: 1.2.16(@types/react-dom@19.2.3)(@types/react@19.2.10)(react-dom@19.2.8)(react@19.2.8)
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
+      lucide-react:
+        specifier: ^1.28.0
+        version: 1.28.0(react@19.2.8)
+      tailwind-merge:
+        specifier: ^3.6.0
+        version: 3.6.0
+    devDependencies:
+      '@types/react':
+        specifier: ^19.0.0
+        version: 19.2.10
+      '@types/react-dom':
+        specifier: ^19.0.0
+        version: 19.2.3(@types/react@19.2.10)
+      react:
+        specifier: ^19.2.8
+        version: 19.2.8
+      react-dom:
+        specifier: ^19.2.8
+        version: 19.2.8(react@19.2.8)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vite:
+        specifier: ^5.4.21
+        version: 5.4.21(@types/node@20.19.30)
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.30)(@vitest/ui@1.6.1)
+
   packages/office-word:
     dependencies:
       '@barocss/dsl':
@@ -711,6 +901,9 @@ importers:
         specifier: workspace:*
         version: link:../shared
     devDependencies:
+      '@barocss/conformance':
+        specifier: workspace:*
+        version: link:../conformance
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -5241,6 +5434,40 @@ packages:
     dependencies:
       '@types/react': 19.2.10
       react: 19.2.8
+    dev: false
+
+  /@radix-ui/react-dialog@1.1.23(@types/react-dom@19.2.3)(@types/react@19.2.10)(react-dom@19.2.8)(react@19.2.8):
+    resolution: {integrity: sha512-Ksw4WeROkO4rC9k/onilX/Ao2Cr1ku1unMNH+XSCcP4jSXYu7HDsg9n4ojMjVb22XpYjAQ9qfrFlVbru1vXDUA==}
+    peerDependencies:
+      '@types/react': '*'
+      '@types/react-dom': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      '@types/react-dom':
+        optional: true
+    dependencies:
+      '@radix-ui/primitive': 1.1.7
+      '@radix-ui/react-compose-refs': 1.1.5(@types/react@19.2.10)(react@19.2.8)
+      '@radix-ui/react-context': 1.2.2(@types/react@19.2.10)(react@19.2.8)
+      '@radix-ui/react-dismissable-layer': 1.1.19(@types/react-dom@19.2.3)(@types/react@19.2.10)(react-dom@19.2.8)(react@19.2.8)
+      '@radix-ui/react-focus-guards': 1.1.6(@types/react@19.2.10)(react@19.2.8)
+      '@radix-ui/react-focus-scope': 1.1.16(@types/react-dom@19.2.3)(@types/react@19.2.10)(react-dom@19.2.8)(react@19.2.8)
+      '@radix-ui/react-id': 1.1.4(@types/react@19.2.10)(react@19.2.8)
+      '@radix-ui/react-portal': 1.1.17(@types/react-dom@19.2.3)(@types/react@19.2.10)(react-dom@19.2.8)(react@19.2.8)
+      '@radix-ui/react-presence': 1.1.10(@types/react-dom@19.2.3)(@types/react@19.2.10)(react-dom@19.2.8)(react@19.2.8)
+      '@radix-ui/react-primitive': 2.1.10(@types/react-dom@19.2.3)(@types/react@19.2.10)(react-dom@19.2.8)(react@19.2.8)
+      '@radix-ui/react-slot': 1.3.3(@types/react@19.2.10)(react@19.2.8)
+      '@radix-ui/react-use-controllable-state': 1.2.6(@types/react@19.2.10)(react@19.2.8)
+      '@radix-ui/react-use-layout-effect': 1.1.4(@types/react@19.2.10)(react@19.2.8)
+      '@types/react': 19.2.10
+      '@types/react-dom': 19.2.3(@types/react@19.2.10)
+      aria-hidden: 1.2.6
+      react: 19.2.8
+      react-dom: 19.2.8(react@19.2.8)
+      react-remove-scroll: 2.7.2(@types/react@19.2.10)(react@19.2.8)
     dev: false
 
   /@radix-ui/react-direction@1.1.4(@types/react@19.2.10)(react@19.2.8):
@@ -14019,7 +14246,6 @@ packages:
     dependencies:
       react: 19.2.8
       scheduler: 0.27.0
-    dev: false
 
   /react-fast-compare@3.2.2:
     resolution: {integrity: sha512-nsO+KSNgo1SbJqJEYRE9ERzo7YtYbou/OqjSQKxV7jcKox7+usiUVZOAC+XnDOABXggQTno0Y1CpVnuWEc1boQ==}
@@ -14168,7 +14394,6 @@ packages:
   /react@19.2.8:
     resolution: {integrity: sha512-PWaYA1L/q9u2u7xYQi+Y3L3Yfnie7XyLeaJICV1MGD6LprsBxcAqGjYyr0eY3p+QdsA+x/Irkt4Qif8D63+Sbw==}
     engines: {node: '>=0.10.0'}
-    dev: false
 
   /read-yaml-file@1.1.0:
     resolution: {integrity: sha512-VIMnQi/Z4HT2Fxuwg5KrY174U1VdUIASQVWXXyqtNRtxSr9IYkn1rsI6Tb6HsrHCmB7gVpNwX6JxPTHcH6IoTA==}

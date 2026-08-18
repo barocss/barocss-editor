@@ -11,7 +11,7 @@ import { Present } from './present';
 import { Properties } from './properties';
 import { Ribbon } from './ribbon';
 import { Stage } from './stage';
-import { useDeck } from './deck-model';
+import { useDeck, useRevision } from './deck-model';
 
 /**
  * The deck app.
@@ -45,6 +45,7 @@ export function App({
   const editor = instance?.editor ?? null;
   const view = instance?.view ?? null;
   const slides = useDeck(editor);
+  const revision = useRevision(editor);
 
   /**
    * Which slide is being worked on.
@@ -216,7 +217,10 @@ export function App({
       {editor && !presenting && <Ribbon editor={editor} slides={slides} current={current} />}
 
       <div className="sl-body">
-        <Filmstrip slides={slides} current={current} onSelect={setCurrent} />
+        <Filmstrip
+            editor={editor}
+            revision={revision}
+            slides={slides} current={current} onSelect={setCurrent} />
 
         <main className="sl-main">
           {/*
@@ -244,7 +248,7 @@ export function App({
            * put in the tree would last until the next keystroke.
            */}
           {!presenting && (
-            <SelectionOverlay editor={editor} view={view} slideSid={current} revision={slides.length} />
+            <SelectionOverlay editor={editor} view={view} slideSid={current} revision={revision} />
           )}
 
           {/*
@@ -254,7 +258,7 @@ export function App({
            * thing the app needed; this is that thing.
            */}
           {!presenting && (
-            <NotesPane editor={editor} slideSid={current} revision={slides.length} />
+            <NotesPane editor={editor} slideSid={current} revision={revision} />
           )}
         </main>
 

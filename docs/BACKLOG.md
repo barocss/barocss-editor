@@ -250,8 +250,22 @@ Ordered so that each one is unblocked by the one before it.
      in, because the stage renders resources too and would otherwise draw every
      note under the slide. `SLIDES_ENV_KEY` is that, the same seam Word uses for
      a header being edited.
-8. - [ ] **Real thumbnails** in the rail, which needs a second render of the same
-     deck — the first thing in either product to want one.
+8. - [x] **Real thumbnails** in the rail. A plain `DOMRenderer` per slide, not a
+     second editor: a thumbnail is a picture, so it needs no contenteditable, no
+     observer, no input path and no selection. Scaled with `transform` rather
+     than laid out narrow — every box on a slide is placed by coordinate, so a
+     tenth-size drawing is the same drawing, and re-laying-out would give a rail
+     that lies about what the slide looks like.
+
+     Two things it turned up. The overlay found the slide element with an
+     unscoped `document.querySelector`, and a thumbnail is that slide with that
+     sid — so the handles would have been placed inside a 128-pixel picture; the
+     query is scoped to the stage now. And a content change is one event for the
+     whole deck, so every thumbnail is asked to redraw when any slide changes:
+     each compares the snapshot it drew last and skips if it is the same. Honest
+     limit, written in the component — a hundred slides serialise a hundred
+     slides per keystroke, and what that wants is an event that says which slide
+     it touched.
 
 ### Slides — the second product
 

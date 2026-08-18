@@ -1,4 +1,6 @@
+import type { Editor } from '@barocss/editor-core';
 import type { Slide } from '@barocss/office-slides';
+import { Thumbnail } from './thumbnail';
 
 /**
  * The deck down the side.
@@ -9,19 +11,25 @@ import type { Slide } from '@barocss/office-slides';
  * function in the product package, so the rail and anything else that asks get
  * one answer rather than two that drift.
  *
- * Not thumbnails yet. A real thumbnail is the slide drawn again at a small
- * scale, which means a second render of the same document, and the view is
- * built around one. Names and numbers are what a rail is actually read for, and
- * a fake thumbnail — a grey box, a first line — would be worse than neither.
+ * The pictures are real: each is the slide drawn again by a plain renderer and
+ * scaled down, never a grey box or a first line. See `thumbnail.tsx` — a
+ * thumbnail is a picture, so it needs none of the editing machinery, and
+ * scaling rather than re-laying-out is what makes it the *same* deck rather
+ * than a narrower one.
  */
 export function Filmstrip({
+  editor,
   slides,
   current,
-  onSelect
+  onSelect,
+  /** Bumped when the deck changes, so each picture is redrawn. */
+  revision
 }: {
+  editor: Editor | null;
   slides: Slide[];
   current?: string;
   onSelect: (sid: string) => void;
+  revision: number;
 }) {
   return (
     <nav className="sl-filmstrip" aria-label="슬라이드">
@@ -37,6 +45,7 @@ export function Filmstrip({
               onClick={() => onSelect(slide.sid)}
             >
               <span className="sl-filmstrip-number">{slide.number}</span>
+              <Thumbnail editor={editor} slideSid={slide.sid} width={128} revision={revision} />
               <span className="sl-filmstrip-name">
                 {/*
                  * A slide the author never named and whose title is empty gets

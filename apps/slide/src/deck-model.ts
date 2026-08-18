@@ -39,6 +39,30 @@ export function useDeck(editor: Editor | null): Slide[] {
   return slides;
 }
 
+/**
+ * How many times the document has changed.
+ *
+ * A count rather than the change itself: what asks for this is a *picture* of
+ * the deck — a thumbnail, an overlay's measurement — and what it needs to know
+ * is only that the picture is out of date. Passing the slides would say when a
+ * slide was added and stay silent when a word was typed on one, which is the
+ * half of the question these callers care about most.
+ */
+export function useRevision(editor: Editor | null): number {
+  const [revision, setRevision] = useState(0);
+
+  useEffect(() => {
+    if (!editor) return;
+    const bump = () => setRevision((n) => n + 1);
+    editor.on('editor:content.change', bump);
+    return () => {
+      (editor as any).off?.('editor:content.change', bump);
+    };
+  }, [editor]);
+
+  return revision;
+}
+
 /** The text of the note bound to a slide, for a panel that only shows it. */
 export function useNote(editor: Editor | null, surfaceSid: string | undefined): string {
   const [text, setText] = useState('');

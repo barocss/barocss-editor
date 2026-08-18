@@ -458,3 +458,32 @@ body {
   /* Nothing underneath takes the drag; the whole pane is the handle. */
   pointer-events: none !important;
 }
+
+
+/* ── Thumbnails ────────────────────────────────────────────────────────── */
+/*
+ * The slide drawn again, small. A picture rather than an editor — see
+ * `thumbnail.tsx` — so nothing in here takes a pointer: a click belongs to the
+ * button around it, which is what selects the slide.
+ */
+.sl-thumb {
+  display: block;
+  overflow: hidden;
+  position: relative;
+  flex: none;
+  background: #fff;
+  border: 1px solid var(--sl-line);
+  border-radius: 3px;
+  pointer-events: none;
+}
+
+.sl-thumb-inner {
+  display: block;
+  position: absolute;
+  inset: 0;
+}
+
+/* A hidden slide is dimmed rather than absent: the rail still lists it. */
+.sl-filmstrip button[data-hidden='true'] .sl-thumb {
+  opacity: 0.45;
+}

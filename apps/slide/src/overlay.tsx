@@ -147,8 +147,17 @@ export function SelectionOverlay({
   useLayoutEffect(() => {
     const find = () => {
       if (!slideSid) return setRect(null);
+      /**
+       * Inside the stage, and said so.
+       *
+       * A slide's element is found by its sid, and the sid is the document's —
+       * so anything else drawing the same slide answers to the same selector.
+       * The filmstrip does: a thumbnail is that slide, drawn again, small. An
+       * unscoped query would hand the overlay a 160-pixel rectangle to place its
+       * handles in.
+       */
       const element = document.querySelector<HTMLElement>(
-        `.sl-slide[data-bc-sid="${CSS.escape(slideSid)}"]`
+        `.sl-stage .sl-slide[data-bc-sid="${CSS.escape(slideSid)}"]`
       );
       setRect(element ? element.getBoundingClientRect() : null);
     };
