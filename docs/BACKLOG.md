@@ -142,6 +142,42 @@ The full list, with a reason each, is the exemption map in
 `packages/office-word/test/conformance.test.ts` — and fixing one without deleting
 its line there fails the build, which is the point.
 
+### Slides — what is next, in order
+
+The three model questions these depend on are settled in
+[`docs/specs/canvas-model.md`](./specs/canvas-model.md): one unit, who owns a
+coordinate, and where formatting comes from. They were settled together because
+each was about to be answered twice — once by the clipboard, once by layouts —
+and an answer given twice is an answer given differently.
+
+Ordered so that each one is unblocked by the one before it.
+
+1. - [ ] **One unit.** Word reads a canvas shape's numbers as pixels and Slides
+     reads them as twips, fifteen apart, and the schema says nothing. Word's
+     canvas renderers convert; the check is a test that draws one model through
+     both products and requires the same size. First because everything below
+     moves geometry around, and moving it in two units is worse than not moving
+     it.
+2. - [ ] **`toSurface` / `fromSurface`.** The container-to-slide conversion, in
+     one pair of functions instead of derived a third time. Grouping does it by
+     hand and the overlay does it inline; the clipboard would be the third.
+3. - [ ] **A clipboard for objects.** Copy, cut and paste shapes between slides,
+     between containers and between decks. `copyOf` is the tree-copy half and
+     the rebasing is (2). The first feature that needs a coordinate to change
+     meaning as it moves.
+4. - [ ] **Formatting through the layout.** A resolver shaped like Word's:
+     deck defaults, then the layout's placeholder of the same *role*, then
+     direct. Turns the ribbon's font controls from "—" into the real answer and
+     makes "apply this layout" mean something for a slide that already has
+     content.
+5. - [ ] **Snapping while resizing.** Move only today. It has to agree with the
+     aspect and centre modifiers, which are the two things a reader is already
+     holding a key to get — worth doing carefully rather than first.
+6. - [ ] **Editable speaker notes.** A second editable region over one document,
+     which is the thing this engine has not been asked for yet.
+7. - [ ] **Real thumbnails** in the rail, which needs a second render of the same
+     deck — the first thing in either product to want one.
+
 ### Slides — the second product
 
 Chosen because the pieces were already there and because it is the one product
