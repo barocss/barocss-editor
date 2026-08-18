@@ -204,9 +204,19 @@ Ordered so that each one is unblocked by the one before it.
      nothing snaps while one is held. Measured: aimed four pixels short of a
      neighbour's edge and landed on it; the same drag with Shift held stayed
      four pixels short.
-6. - [ ] **Editable speaker notes.** A second editable region over one document,
+6. - [x] **Pictures.** A `picture` scene node — placed, dragged and resized like
+     every other object, distinct from the standard schema's `inline-image`,
+     which flows with text. Declared, drawn and made in one change, which is the
+     rule this schema learned the hard way. The button was permanently disabled
+     before, and honestly so: `insertPicture` refuses a payload with no file in
+     it, and nothing was opening a picker. `needsFile` is how the toolbar model
+     says a control needs something only the reader can choose, without knowing
+     what a file picker is. The file is read as a data URL so a saved deck keeps
+     its pictures, and measured before it is placed so it arrives in its own
+     proportions.
+7. - [ ] **Editable speaker notes.** A second editable region over one document,
      which is the thing this engine has not been asked for yet.
-7. - [ ] **Real thumbnails** in the rail, which needs a second render of the same
+8. - [ ] **Real thumbnails** in the rail, which needs a second render of the same
      deck — the first thing in either product to want one.
 
 ### Slides — the second product

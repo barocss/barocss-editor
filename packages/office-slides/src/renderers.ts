@@ -240,6 +240,37 @@ export function registerSlidesRenderers(): void {
   );
 
   /**
+   * A picture, placed like every other object on the slide.
+   *
+   * An `<img>` rather than a `<div>` with a background: a background image is
+   * invisible to a screen reader, to a text search and to a native drag, and a
+   * picture on a slide is content rather than decoration. `alt` rides along for
+   * the same reason.
+   *
+   * `objectFit` is what makes the box and the picture two different shapes.
+   * `contain` fits the whole picture inside the box the reader dragged, which is
+   * what a reader who resizes without holding anything expects; `cover` fills
+   * the box and crops; `fill` stretches. The box is the model's, always — a
+   * picture that resized its own box would move the other things around it.
+   */
+  define(
+    'picture',
+    element('img', {
+      className: 'sl-picture',
+      src: (d: NodeData) => (typeof attrsOf(d).src === 'string' ? attrsOf(d).src : ''),
+      alt: (d: NodeData) => (typeof attrsOf(d).alt === 'string' ? attrsOf(d).alt : ''),
+      draggable: 'false',
+      style: (d: NodeData): CssStyle => {
+        const fit = attrsOf(d).fit;
+        return placed(d, {
+          objectFit: typeof fit === 'string' && fit.length > 0 ? fit : 'contain',
+          ...paintCss(d)
+        });
+      }
+    } as never)
+  );
+
+  /**
    * A canvas embedded in flow content — a diagram in the middle of the text.
    *
    * Word draws this as an `<svg>`, because in Word a canvas only ever holds

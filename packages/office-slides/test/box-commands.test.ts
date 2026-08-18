@@ -44,6 +44,58 @@ describe('putting a box on a slide', () => {
     expect(boxes()).toHaveLength(0);
   });
 
+  /**
+   * A picture is placed, not inline.
+   *
+   * `insertImage` exists and is the standard schema's: it puts an
+   * `inline-image` in the paragraph the caret is in, which is a picture *in the
+   * text*. A reader pressing the picture button on a slide means the other kind
+   * — something to drag, resize and put behind the title — and the two are
+   * different node types on purpose.
+   */
+  describe('a picture', () => {
+    it('refuses to make one with no file', () => {
+      expect((editor as any).canExecuteCommand('insertPicture', { slideId: slide })).toBe(false);
+      expect((editor as any).canExecuteCommand('insertPicture', { slideId: slide, src: '' })).toBe(false);
+    });
+
+    it('places one at the size it is given', async () => {
+      expect(
+        await run('insertPicture', {
+          slideId: slide,
+          src: 'data:image/png;base64,AAAA',
+          alt: 'a photograph',
+          width: 6000,
+          height: 3000
+        })
+      ).toBeTruthy();
+
+      const made = boxes().at(-1)!;
+      expect(made.stype).toBe('picture');
+      expect(made.attributes).toMatchObject({
+        src: 'data:image/png;base64,AAAA',
+        alt: 'a photograph',
+        width: 6000,
+        height: 3000
+      });
+    });
+
+    it('takes the default box when nobody measured it', async () => {
+      // A file the browser could not decode still goes in, rather than the
+      // reader's choice silently doing nothing.
+      await run('insertPicture', { slideId: slide, src: 'data:image/png;base64,AAAA' });
+      const made = boxes().at(-1)!;
+      expect(made.attributes.width).toBeGreaterThan(0);
+      expect(made.attributes.height).toBeGreaterThan(0);
+    });
+
+    it('undoes', async () => {
+      await run('insertPicture', { slideId: slide, src: 'x', width: 100, height: 100 });
+      await (editor as any).undo();
+      expect(boxes()).toHaveLength(0);
+    });
+  });
+
   it('makes each of the four', async () => {
     for (const [command, stype] of [
       ['insertRectangle', 'rectangle'],

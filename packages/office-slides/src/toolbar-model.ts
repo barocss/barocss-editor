@@ -47,6 +47,16 @@ export interface SlidesToolbarControl {
    * on screen, answers it.
    */
   slideFlag?: 'hidden';
+  /**
+   * That this control needs a file before its command can run.
+   *
+   * A picture is the only one. Every other command here has what it needs the
+   * moment the button is pressed; this one needs something only the reader can
+   * choose, so the host opens a picker and calls the command with what comes
+   * back. The model says *that* a file is needed without knowing what a file
+   * picker is — the same division as `needsSlide`.
+   */
+  needsFile?: boolean;
 }
 
 export interface SlidesToolbarGroup {
@@ -204,7 +214,18 @@ export const SLIDES_TOOLBAR: SlidesToolbarGroup[] = [
       { id: 'insert-ellipse', label: '타원', icon: '◯', command: 'insertEllipse' },
       { id: 'insert-line', label: '선', icon: '／', command: 'insertLine' },
       { id: 'insert-table', label: '표 삽입', icon: '⊞', command: 'insertTable' },
-      { id: 'insert-image', label: '그림 삽입', icon: '🖼', command: 'insertImage' }
+      /**
+       * The one control that cannot run from a click alone.
+       *
+       * Every other command here has everything it needs the moment it is
+       * pressed. A picture needs a *file*, which only the reader can choose, so
+       * the app opens a picker and calls the command with what comes back —
+       * `needsFile` is how the model says so without knowing what a file picker
+       * is. Left as a plain control it drew a button that was permanently
+       * disabled, because `insertPicture` quite correctly refuses a payload with
+       * no `src` in it.
+       */
+      { id: 'insert-image', label: '그림 삽입', icon: '🖼', command: 'insertPicture', needsFile: true }
     ]
   },
 

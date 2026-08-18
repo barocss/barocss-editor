@@ -106,6 +106,32 @@ export function getCanvasNodeDefinitions(): Record<string, NodeTypeDefinition> {
     },
     ellipse: { name: 'ellipse', group: SCENE, atom: true, attrs: { ...geometry, ...style } },
     line: { name: 'line', group: SCENE, atom: true, attrs: { ...geometry, ...style } },
+    /**
+     * A picture placed on a canvas.
+     *
+     * Distinct from the standard schema's `inline-image`, which flows with text
+     * and takes its place in a line. This one is placed: it has a position and a
+     * size like every other scene node, and a reader drags and resizes it.
+     * PowerPoint's pictures are these; a picture pasted into a paragraph is the
+     * other one.
+     *
+     * Declared here in the change that draws it and the command that makes it,
+     * which is the rule this schema learned the hard way — fifteen node types
+     * were declared before anything read them.
+     */
+    picture: {
+      name: 'picture',
+      group: SCENE,
+      atom: true,
+      attrs: {
+        src: { type: 'string', required: true },
+        alt: { type: 'string', required: false },
+        /** How the picture fills a box that is not its own shape. */
+        fit: { type: 'string', default: 'contain' },
+        ...geometry,
+        ...style
+      }
+    },
     connector: {
       name: 'connector',
       group: SCENE,

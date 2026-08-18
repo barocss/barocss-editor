@@ -49,6 +49,9 @@ describe('Slides draws what its schema declares', () => {
     { command: 'insertRectangle', produces: 'rectangle' },
     { command: 'insertEllipse', produces: 'ellipse' },
     { command: 'insertLine', produces: 'line' },
+    // Not `insertImage`, which is the standard schema's and puts an
+    // `inline-image` in a paragraph. A picture on a slide is placed.
+    { command: 'insertPicture', produces: 'picture' },
     { command: 'insertTextBox', produces: 'textFrame' },
 
     { command: 'insertParagraph', produces: 'paragraph' },

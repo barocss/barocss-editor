@@ -117,6 +117,58 @@ export function Ribbon({
    * control's id is the whole difference. Numbers here are the reader's — slide
    * one is number one — and the command translates them.
    */
+  /**
+   * Choosing a picture, which is the one thing a button press cannot supply.
+   *
+   * Read as a data URL rather than kept as a blob URL: a blob URL dies with the
+   * page, so a deck saved with one would come back with a broken picture and no
+   * way to tell what it had been. The file travels *in* the document, which is
+   * also what makes copy between decks work without a server.
+   *
+   * Measured before it is placed, because a picture dropped into a box of the
+   * wrong shape is either stretched or cropped, and a reader who has just chosen
+   * a photograph expects neither. The natural size is scaled to fit a quarter of
+   * the slide, keeping its proportions.
+   */
+  const pickPicture = (run: (payload: Record<string, unknown>) => void) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        const src = String(reader.result ?? '');
+        if (!src) return;
+
+        const image = new Image();
+        image.onload = () => {
+          // A quarter of a 16:9 slide, in twips, and never larger than that.
+          const limit = { width: 19200 / 2, height: 10800 / 2 };
+          const scale = Math.min(
+            limit.width / Math.max(1, image.naturalWidth * 15),
+            limit.height / Math.max(1, image.naturalHeight * 15),
+            1
+          );
+          run({
+            src,
+            alt: file.name,
+            width: Math.round(image.naturalWidth * 15 * scale),
+            height: Math.round(image.naturalHeight * 15 * scale)
+          });
+        };
+        // A file the browser cannot decode still goes in, at the default size,
+        // rather than silently doing nothing to a reader who chose it.
+        image.onerror = () => run({ src, alt: file.name });
+        image.src = src;
+      };
+      reader.readAsDataURL(file);
+    };
+    input.click();
+  };
+
   const payloadFor = (control: SlidesToolbarControl): Record<string, unknown> | undefined => {
     if (!control.needsSlide) return control.payload;
     if (control.id === 'slide-new') return { after: current };
@@ -134,6 +186,10 @@ export function Ribbon({
    */
   const enabled = (control: SlidesToolbarControl): boolean => {
     if (control.needsSlide && !current) return false;
+    // A file-picking control is asking whether a *picture* could be placed, and
+    // the command cannot answer that without a file. Whether there is a slide is
+    // the whole of what it can be asked before one is chosen.
+    if (control.needsFile) return !!current;
     const can = (editor as any).canExecuteCommand?.(control.command, payloadFor(control));
     return can !== false;
   };
@@ -220,6 +276,15 @@ export function Ribbon({
                 state={stateOf(control) as never}
                 disabled={!enabled(control)}
                 onActivate={() => {
+                  if (control.needsFile) {
+                    pickPicture((payload) =>
+                      void (editor as any).executeCommand?.(control.command, {
+                        ...payloadFor(control),
+                        ...payload
+                      })
+                    );
+                    return;
+                  }
                   void (editor as any).executeCommand?.(control.command, payloadFor(control));
                 }}
               >

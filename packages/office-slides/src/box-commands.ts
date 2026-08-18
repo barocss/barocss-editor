@@ -79,6 +79,34 @@ export class SlidesBoxExtension implements Extension {
     shape('insertLine', 'line');
     shape('insertTextBox', 'textFrame');
 
+    /**
+     * A picture, placed on the slide.
+     *
+     * Not `insertImage`, which is the standard schema's and puts an
+     * `inline-image` in the paragraph the caret is in — that is a picture *in
+     * the text*, and both are real. A reader who presses the picture button on a
+     * slide means the placed kind: something to drag, resize and put behind the
+     * title.
+     *
+     * `width` and `height` are the caller's, because only the caller has seen
+     * the file: a picture dropped into a box of the wrong shape is either
+     * stretched or cropped, and neither is what a reader who has just chosen a
+     * photograph expects. The app measures the image and passes its proportions;
+     * without them the picture takes the default box like any other shape.
+     */
+    (editor as any).registerCommand({
+      name: 'insertPicture',
+      execute: async (_ed: Editor, payload?: any) =>
+        await this._insert(editor, 'picture', {
+          ...payload,
+          attributes: { src: payload?.src, alt: payload?.alt, ...(payload?.attributes ?? {}) }
+        }),
+      canExecute: (_ed: Editor, payload?: any) =>
+        typeof payload?.src === 'string' &&
+        payload.src.length > 0 &&
+        !!this._slideFor(editor, payload?.slideId)
+    });
+
     const onSelection = (
       name: string,
       execute: (payload?: any) => Promise<boolean>,

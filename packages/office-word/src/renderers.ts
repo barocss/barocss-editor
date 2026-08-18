@@ -714,6 +714,40 @@ export function registerWordRenderers(): void {
     })
   );
 
+  /**
+   * A picture on a canvas.
+   *
+   * SVG's `<image>`, because that is what a picture inside an `<svg>` is — the
+   * same reasoning as the shapes beside it. In a deck the same node is a placed
+   * `<img>`; here it sits in the drawing's coordinate space with everything
+   * else, which is why `x`, `y`, `width` and `height` go straight through.
+   *
+   * `preserveAspectRatio` is the SVG spelling of `object-fit`, and the default —
+   * fit the whole picture inside the box, centred — is the one a reader who
+   * dragged a box expects.
+   */
+  define(
+    'picture',
+    element('image', {
+      className: 'w-shape w-shape-picture',
+      style: hidden,
+      transform: turned,
+      href: (d: Record<string, any>) =>
+        typeof (d.attributes as any)?.src === 'string' ? (d.attributes as any).src : '',
+      x: (d: Record<string, any>) => rectangleAttrs(d.attributes as never).x,
+      y: (d: Record<string, any>) => rectangleAttrs(d.attributes as never).y,
+      width: (d: Record<string, any>) => rectangleAttrs(d.attributes as never).width,
+      height: (d: Record<string, any>) => rectangleAttrs(d.attributes as never).height,
+      preserveAspectRatio: (d: Record<string, any>) => {
+        const fit = (d.attributes as any)?.fit;
+        if (fit === 'fill') return 'none';
+        if (fit === 'cover') return 'xMidYMid slice';
+        return 'xMidYMid meet';
+      },
+      opacity: (d: Record<string, any>) => paint(d, 'opacity')
+    })
+  );
+
   define(
     'ellipse',
     element('ellipse', {

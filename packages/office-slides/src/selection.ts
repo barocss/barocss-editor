@@ -34,6 +34,7 @@ export const SCENE_TYPES = [
   'rectangle',
   'ellipse',
   'line',
+  'picture',
   'connector',
   'path',
   'sticky',
