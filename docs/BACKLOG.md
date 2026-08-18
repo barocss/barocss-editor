@@ -176,6 +176,27 @@ The full list, with a reason each, is the exemption map in
 `packages/office-word/test/conformance.test.ts` — and fixing one without deleting
 its line there fails the build, which is the point.
 
+### Slides has an end-to-end suite now
+
+Word has 291 e2e tests and a deck had none, so everything about the deck was
+verified by throwaway probes written for one measurement and deleted after it.
+That is why a zoom control reading 10% survived a week of looking at the app:
+nothing was watching, and the eye reads what it expects.
+
+Thirteen to start, each one a bug that shipped or a behaviour a probe had
+checked by hand a dozen times: the zoom says what the stage draws, the rail
+shows names in full beside real pictures, a drag moves the shape and settles
+where it is dropped, arrows nudge by 15 and 144 twips, the clipboard keys work,
+Delete undoes, entering a box gives the *model* a caret, and a note is editable
+and never drawn on the slide.
+
+Run with `pnpm test:e2e:slide`, on its own port so a deck's suite and a
+document's can run at once. Proved rather than assumed: the zoom test fails when
+the scoping fix is taken out.
+
+- [ ] **The suite is thin where the product is new.** Nothing yet covers
+  pictures, layouts, snapping, going inside a group, or presenting.
+
 ### Slides — what is next, in order
 
 The three model questions these depend on are settled in
