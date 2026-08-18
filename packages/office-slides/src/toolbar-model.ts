@@ -230,7 +230,12 @@ export const SLIDES_TOOLBAR: SlidesToolbarGroup[] = [
   },
 
   /**
-   * What is in front, and what lines up with what.
+   * What is in front, what lines up with what, and what travels together.
+   *
+   * Three groups rather than one, because a toolbar's separators are the only
+   * thing telling a reader that twenty icons are three questions. Drawn as one
+   * run they read as a wall — measured by looking at it — and a reader hunting
+   * for "align left" has no idea which third of it to search.
    *
    * Every control here acts on the *selection* rather than on a named box, so
    * none of them carries `needsSlide`: the host runs them and the command reads
@@ -238,7 +243,7 @@ export const SLIDES_TOOLBAR: SlidesToolbarGroup[] = [
    * reader shift-clicked.
    */
   {
-    id: 'arrange',
+    id: 'order',
     controls: [
       { id: 'bring-front', label: '맨 앞으로', icon: '⤒', command: 'bringToFront' },
       // One step, which is the one a reader reaches for when two shapes overlap
@@ -246,7 +251,13 @@ export const SLIDES_TOOLBAR: SlidesToolbarGroup[] = [
       // all-the-way pair was on the toolbar.
       { id: 'bring-forward', label: '앞으로 가져오기', icon: '↑', command: 'bringForward' },
       { id: 'send-backward', label: '뒤로 보내기', icon: '↓', command: 'sendBackward' },
-      { id: 'send-back', label: '맨 뒤로', icon: '⤓', command: 'sendToBack' },
+      { id: 'send-back', label: '맨 뒤로', icon: '⤓', command: 'sendToBack' }
+    ]
+  },
+
+  {
+    id: 'align',
+    controls: [
       { id: 'align-boxes-left', label: '왼쪽 정렬', icon: '⊢', command: 'alignBoxesLeft' },
       { id: 'align-boxes-centre', label: '가운데 정렬', icon: '⊣⊢', command: 'alignBoxesCentre' },
       { id: 'align-boxes-right', label: '오른쪽 정렬', icon: '⊣', command: 'alignBoxesRight' },
@@ -264,7 +275,13 @@ export const SLIDES_TOOLBAR: SlidesToolbarGroup[] = [
         label: '세로 간격 맞춤',
         icon: '⇳',
         command: 'distributeBoxesVertically'
-      },
+      }
+    ]
+  },
+
+  {
+    id: 'group',
+    controls: [
       { id: 'group-boxes', label: '그룹', icon: '⧉', command: 'groupBoxes' },
       { id: 'ungroup-boxes', label: '그룹 해제', icon: '⧈', command: 'ungroupBoxes' },
       { id: 'duplicate-boxes', label: '복제', icon: '⧉', command: 'duplicateBoxes' },

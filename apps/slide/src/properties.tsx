@@ -323,11 +323,22 @@ export function Properties({
               <PropertyRow label="선 두께">
                 <PropertyNumber
                   ariaLabel="선 두께"
-                  value={lengthOf('strokeWidth')}
-                  suffix={unitSuffix(unit)}
-                  step={stepFor(unit)}
+                  /**
+                   * Points, whatever the reader picked for everything else.
+                   *
+                   * A stroke is a line *weight*, not a distance across the
+                   * slide, and every tool that draws one measures it in points —
+                   * a one-point rule is a one-point rule on paper and on a
+                   * projector. In centimetres the same rule reads 0.07, which
+                   * is a number nobody can type or check.
+                   */
+                  value={toDisplay(box?.attributes?.strokeWidth as number ?? 0, 'pt')}
+                  suffix="pt"
+                  step={0.5}
                   disabled={locked}
-                  onCommit={(value) => setStyle({ strokeWidth: fromDisplay(value, unit) })}
+                  onCommit={(value) =>
+                    setStyle({ strokeWidth: fromDisplay(Math.max(0, value), 'pt') })
+                  }
                 />
               </PropertyRow>
             )}
@@ -353,12 +364,13 @@ export function Properties({
       ) : (
         <PropertyGroup label={here ? `슬라이드 ${here.number}` : '슬라이드'}>
           {/*
-           * What the panel says when the caret is not in a box, which is most of
-           * the time until a box can be selected outright.
+           * The slide's own facts first, and the hint after them.
+           *
+           * It read the other way round — a sentence telling the reader to click
+           * something, with the answers to what they *are* looking at underneath
+           * — which puts an instruction where a value belongs and makes the
+           * panel look empty when it is not.
            */}
-          <PropertyEmpty>
-            상자 안을 클릭하면 위치와 크기를 볼 수 있습니다.
-          </PropertyEmpty>
           {here && (
             <>
               <PropertyRow label="레이아웃">
@@ -371,6 +383,9 @@ export function Properties({
               </PropertyRow>
             </>
           )}
+          <PropertyEmpty>
+            상자를 클릭하면 위치와 크기가 여기에 나옵니다.
+          </PropertyEmpty>
         </PropertyGroup>
       )}
     </PropertyPanel>
