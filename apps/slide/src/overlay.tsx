@@ -588,6 +588,28 @@ export function SelectionOverlay({
     return ids.length === 1 && doc?.getNode(ids[0])?.stype === 'connector';
   }, [editor, doc, tick]);
 
+  /**
+   * Whether the selection is a **placement** of a component, which gets no resize handles.
+   *
+   * Measured, and it is the fault the frame's refused drag taught us to look for: dragging a
+   * placement's corner wrote a box of 8280×6440 onto a card whose parts stayed exactly
+   * 5040×3960 — the selection outline grew, the card did not change at all, and nothing said
+   * so. A placement's extent **is** its definition's (canvas-model §10b-4), so the handles were
+   * offering an edit the model has no answer for.
+   *
+   * The way to change a card's size is to change the card: the definition's own size row, and
+   * every placement's box follows on apply. Scaling one placement on its own needs a constraint
+   * model — which is the thing Figma has and this schema does not — and half-guessing it is how
+   * a reader ends up with a badge floating outside a card.
+   *
+   * Rotation stays: turning a card is a transform of the whole thing and needs no answer about
+   * what is inside it.
+   */
+  const onlyPlacement = useMemo(() => {
+    const ids = selectedNodeIds((editor as any)?.selection);
+    return ids.length === 1 && doc?.getNode(ids[0])?.stype === 'instance';
+  }, [editor, doc, tick]);
+
   const size = useMemo(
     () => slideSize((doc && slideSid ? (doc.getNode(slideSid) as any)?.attributes : undefined)),
     [doc, slideSid, tick, revision]
@@ -3150,24 +3172,25 @@ export function SelectionOverlay({
             pointerEvents: 'none'
           }}
         >
-          {RESIZE_HANDLES.map((handle) => (
-            <span
-              key={handle}
-              data-handle={handle}
-              className="sl-handle"
-              style={{
-                position: 'absolute',
-                width: handleSize,
-                height: handleSize,
-                marginLeft: -handleSize / 2,
-                marginTop: -handleSize / 2,
-                left: handle.includes('w') ? 0 : handle.includes('e') ? '100%' : '50%',
-                top: handle.startsWith('n') ? 0 : handle.startsWith('s') ? '100%' : '50%',
-                cursor: `${handle}-resize`,
-                pointerEvents: 'auto'
-              }}
-            />
-          ))}
+          {!onlyPlacement &&
+            RESIZE_HANDLES.map((handle) => (
+              <span
+                key={handle}
+                data-handle={handle}
+                className="sl-handle"
+                style={{
+                  position: 'absolute',
+                  width: handleSize,
+                  height: handleSize,
+                  marginLeft: -handleSize / 2,
+                  marginTop: -handleSize / 2,
+                  left: handle.includes('w') ? 0 : handle.includes('e') ? '100%' : '50%',
+                  top: handle.startsWith('n') ? 0 : handle.startsWith('s') ? '100%' : '50%',
+                  cursor: `${handle}-resize`,
+                  pointerEvents: 'auto'
+                }}
+              />
+            ))}
 
           {/* One box turns; a set of them has no single centre to turn about. */}
           {selected.length === 1 && (

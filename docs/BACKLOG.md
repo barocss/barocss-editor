@@ -384,10 +384,12 @@ shipped features marked undone.
     document, so renaming one is a migration through every deck that copied the card.
     Removing one takes the bindings and the placements' answers with it, in one
     transaction, because a binding pointing at nothing draws whatever it last had.
-  - **Resizing a placement** does nothing to its parts. Figma answers "it depends on the
-    child's constraints", which is a layout model this schema does not have; a frame
-    part inside a placement *does* arrange its children, so the honest first answer may
-    be "a placement resizes like a frame".
+  - ~~**Resizing a placement** does nothing to its parts.~~ Answered by refusing it, and
+    the measurement is why: a corner drag wrote 8280×6440 onto a card whose parts stayed
+    5040×3960, so the outline grew and the card did not change. A placement's extent *is*
+    its definition's — no resize handles, greyed fields with the reason, and a 크기 row on
+    the definition that moves every placement with it. Scaling **one** placement still
+    waits for a constraint model; the half-guess puts a badge outside its card.
   - **A placement's parts are not in the layer list**, which descends into `group` and
     `frame` only. A reader who wants to pick the badge inside a card has the canvas and
     nothing else.

@@ -501,6 +501,15 @@ export interface ApplyPlan {
   rewrite: { sid: string; from: string; keepChildren?: boolean }[];
   /** Definition parts this placement does not have yet, in the definition's order. */
   add: string[];
+  /**
+   * The placement's own box, when the definition is a different size from it.
+   *
+   * Because a placement's extent **is** its definition's (§10b-4), and nothing kept them in
+   * agreement: a card grown from 5040×3960 to 6000×4200 left every placement of it drawing a
+   * bigger card inside a smaller selection outline. The same fault the group fitter exists for,
+   * one node type along — and the reason a placement gets no resize handles of its own.
+   */
+  box?: { width: number; height: number };
   /** What to record on the placement, so staleness can be asked later. */
   appliedFrom: string;
 }
@@ -595,12 +604,31 @@ export function componentApplyPlan(
     return !!id && !held.has(id);
   });
 
+  /** What the definition is, against what this placement says it is. */
+  const size = {
+    width: numberOf(doc.getNode(definition.sid)?.attributes?.width),
+    height: numberOf(doc.getNode(definition.sid)?.attributes?.height)
+  };
+  const box =
+    size.width !== undefined &&
+    size.height !== undefined &&
+    (size.width !== numberOf(instance.attributes?.width) ||
+      size.height !== numberOf(instance.attributes?.height))
+      ? { width: size.width, height: size.height }
+      : undefined;
+
   return {
     remove,
     rewrite,
     add,
+    ...(box ? { box } : {}),
     appliedFrom: componentSignature(doc, definition)
   };
+}
+
+/** A number as itself, or nothing — so "absent" and "0" are not the same answer. */
+function numberOf(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
 
 /** The name a part gives its slot, when it is one. */

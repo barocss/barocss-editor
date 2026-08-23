@@ -1369,6 +1369,37 @@ definition's own width and height) or the **widest** slide when the deck is draw
 because fitting the first would let a wider one overflow. Presenting a deck that is not 16:9
 was fixed by the same line, since the show goes through the same stage.
 
+### 10b-12. How big a card is, and why a placement cannot be resized
+
+Measured: dragging a placement's corner handle wrote a box of 8280×6440 onto a card whose parts
+stayed exactly 5040×3960. The selection outline grew, the card did not change, and nothing said
+so — the refused frame drag (§5a) in a new place, and the lesson from that one was to make the
+refusal *visible* rather than accept a gesture with no answer.
+
+A placement's extent **is** its definition's (§10b-4). So:
+
+- The overlay draws a placement **no resize handles**, and the panel's size fields are greyed
+  with the reason written beside them. Rotation stays: turning a card is a transform of the
+  whole thing and needs no answer about what is inside it.
+- A card's size is changed where the card is — the definition's own 크기 row, which appears when
+  a reader is standing in one with nothing selected — and every placement's box moves with it,
+  in one transaction, so one press of undo takes back "the card is bigger" rather than leaving
+  twenty placements at the new size and the card at the old one.
+- `applyComponent` carries the box too, for the placements a size change could not reach: a
+  deck saved by an earlier version, a card resized by something else. The same job the group
+  fitter does for a group, one node type along.
+
+**What is deliberately not done:** scaling one placement on its own. It needs a constraint model
+— what stays pinned to which edge, what stretches — which is exactly what Figma has and this
+schema does not, and the half-guess (scale everything proportionally) puts a badge outside its
+card the first time a reader drags a corner sideways. Written down rather than approximated.
+
+One thing found on the way, and it is not about size at all: **opening a definition left the
+reader's selection on the slide's box.** So the properties panel went on being about a shape
+the reader could no longer see, the definition's own row never appeared, and the overlay drew
+that box's handles over the card. A selection is "what I am working on", and a reader who has
+changed surfaces is not working on it any more.
+
 ### 10b-5. Everything is pointed at by a **durable** id
 
 `componentId` and `partOf` held sids, and that would have destroyed placements the first time

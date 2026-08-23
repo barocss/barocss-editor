@@ -247,6 +247,44 @@ export function Properties({
   const here = useMemo(() => slides.find((slide) => slide.sid === current), [slides, current]);
 
   /**
+   * The **definition** the reader is standing in, when they are not standing on a slide.
+   *
+   * The panel's "what am I on" question has a third answer now, and it needs one: a card's size
+   * cannot be changed from a placement (a placement's extent is the card's), so if it cannot be
+   * changed here there is nowhere at all.
+   */
+  const definition = useMemo(() => {
+    const store = (editor as any)?.dataStore;
+    const rootId = (editor as any)?.getRootId?.();
+    if (!store || !rootId || !current) return undefined;
+    const node = store.getNode(current);
+    if (node?.stype !== 'component') return undefined;
+    const doc = { rootId, getNode: (sid: string) => store.getNode(sid) };
+    const found = deckComponents(doc as never).find((one) => one.sid === current);
+    if (!found) return undefined;
+
+    /** How many placements it has, counted from the document — it is derived, not recorded. */
+    let placements = 0;
+    const walk = (sid: string, depth: number) => {
+      if (depth > 32) return;
+      const one = store.getNode(sid);
+      if (!one) return;
+      if (one.stype === 'instance' && one.attributes?.componentId === found.id) placements += 1;
+      for (const child of (one.content ?? []) as string[]) {
+        if (typeof child === 'string') walk(child, depth + 1);
+      }
+    };
+    walk(rootId, 0);
+
+    return {
+      ...found,
+      width: typeof node.attributes?.width === 'number' ? node.attributes.width : 0,
+      height: typeof node.attributes?.height === 'number' ? node.attributes.height : 0,
+      placements
+    };
+  }, [editor, current, tick]);
+
+  /**
    * The boxes this panel is *about*, which is not always the one it is showing.
    *
    * One when a reader has clicked a shape or has a caret in one. All of them when
@@ -262,6 +300,18 @@ export function Properties({
   );
   /** Whether the panel is about several boxes, which its heading has to say. */
   const many = targets.length > 1;
+
+  /**
+   * Whether any of them is a **placement**, whose size is the card's rather than its own.
+   *
+   * The overlay refuses the resize handles for the same reason (`onlyPlacement` there), and the
+   * fields have to say so too: a number a reader can type that changes nothing on the slide is
+   * the fault the arranged-frame pair was fixed for.
+   */
+  const placed = useMemo(() => {
+    const store = (editor as any)?.dataStore;
+    return targets.some((sid) => store?.getNode(sid)?.stype === 'instance');
+  }, [editor, targets, tick]);
 
   const doc = useMemo(() => {
     const store = (editor as any)?.dataStore;
@@ -620,6 +670,17 @@ export function Properties({
                 정렬하는 프레임 안에 있습니다. 위치는 프레임이 정하고, 끌면 순서가 바뀝니다.
               </PropertyEmpty>
             )}
+            {/*
+              * A placement's size is the card's, said in words as well as by the greyed
+              * fields — the same pair the arranged case above needed. Measured before either:
+              * dragging a placement's corner wrote a box of 8280×6440 onto a card whose parts
+              * stayed 5040×3960, so the outline grew and the card did not change.
+              */}
+            {placed && (
+              <PropertyEmpty>
+                컴포넌트를 놓은 자리입니다. 크기는 컴포넌트가 정합니다.
+              </PropertyEmpty>
+            )}
             <PropertyRow label="위치">
               {/*
                 * Greyed inside a frame that arranges, because the frame owns the
@@ -650,7 +711,7 @@ export function Properties({
                 value={number('width')}
                 suffix="W"
                 step={stepFor(unit)}
-                disabled={locked}
+                disabled={locked || placed}
                 onCommit={(value) => setGeometry('width', value)}
               />
               <PropertyNumber
@@ -658,7 +719,7 @@ export function Properties({
                 value={number('height')}
                 suffix="H"
                 step={stepFor(unit)}
-                disabled={locked}
+                disabled={locked || placed}
                 onCommit={(value) => setGeometry('height', value)}
               />
             </PropertyRow>
@@ -1314,6 +1375,54 @@ export function Properties({
             />
           )}
         </>
+      ) : definition ? (
+        /*
+         * A **definition** with nothing selected in it: the card itself.
+         *
+         * Where a slide's group would be, because it is the same question — what am I standing
+         * on — and the reader standing on a card has a different answer to it. Its size is here
+         * because a placement's is not: a placement's extent *is* the card's, so this is the
+         * one place a card's size can be changed (canvas-model §10b-12).
+         */
+        <PropertyGroup label={`컴포넌트 · ${definition.name || '이름 없음'}`}>
+          <PropertyRow label="이름">
+            <span className="text-neutral-500">{definition.id}</span>
+          </PropertyRow>
+          <PropertyRow label="크기">
+            <PropertyNumber
+              ariaLabel="컴포넌트 너비"
+              value={toDisplay(definition.width, unit)}
+              suffix="W"
+              step={stepFor(unit)}
+              onCommit={(value) =>
+                void (editor as any)?.executeCommand?.('setComponentSize', {
+                  componentId: definition.id,
+                  width: Math.round(fromDisplay(value, unit))
+                })
+              }
+            />
+            <PropertyNumber
+              ariaLabel="컴포넌트 높이"
+              value={toDisplay(definition.height, unit)}
+              suffix="H"
+              step={stepFor(unit)}
+              onCommit={(value) =>
+                void (editor as any)?.executeCommand?.('setComponentSize', {
+                  componentId: definition.id,
+                  height: Math.round(fromDisplay(value, unit))
+                })
+              }
+            />
+          </PropertyRow>
+          <PropertyRow label="놓인 곳">
+            {/* What changing this card changes, said as a number: 스무 곳 is a different
+                decision from 한 곳. */}
+            <span className="text-neutral-500">{definition.placements}곳</span>
+          </PropertyRow>
+          <PropertyEmpty>
+            변수는 왼쪽 컴포넌트 목록에서, 부품이 무엇을 받는지는 부품을 골라서 정합니다.
+          </PropertyEmpty>
+        </PropertyGroup>
       ) : (
         <PropertyGroup label={here ? `슬라이드 ${here.number}` : '슬라이드'}>
           {/*

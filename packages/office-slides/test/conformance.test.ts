@@ -223,6 +223,8 @@ describe('Slides draws what its schema declares', () => {
           'the properties panel — a placement’s 컴포넌트 group, one field per variable the definition declares. The fields come from the document, so a card that declares a colour and a state gets a swatch and a switch',
         detachComponent:
           'the properties panel — 분리 on a placement, which leaves a group: the parts a reader arranged stay arranged',
+        setComponentSize:
+          'the properties panel — a definition’s own 크기 row, drawn while the reader is standing in one. The only place a card’s size can be changed: a placement’s extent *is* the card’s, so its own fields are greyed and the overlay draws it no resize handles',
         setComponentVar:
           'the components panel — the 변수 list, drawn while a definition is open: a label, a kind, a default, and 추가 for a new one. Beside the definition rather than on a part, because a variable belongs to the card — an accent colour used by three parts is one decision, which is the whole reason a declaration exists',
         bindComponentPart:

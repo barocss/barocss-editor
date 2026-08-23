@@ -579,3 +579,106 @@ test.describe('declaring what a card takes', () => {
     expect(words).toBe('한 엔진, 두 제품');
   });
 });
+
+/**
+ * How big a card is — and why a placement cannot be resized.
+ *
+ * Measured before any of this existed: dragging a placement's corner handle wrote a box of
+ * 8280×6440 onto a card whose parts stayed exactly 5040×3960. The selection outline grew, the
+ * card did not change at all, and nothing said so — which is the refused frame drag in a new
+ * place, and the reason that one taught us to grey the fields rather than accept the gesture.
+ *
+ * A placement's extent *is* its definition's, so the way to change a card's size is to change
+ * the card, and every placement's box follows.
+ */
+test.describe('how big a card is', () => {
+  const cardSlide = async (page: Page) => {
+    const sid = await page.evaluate(() => {
+      const editor = (window as any).editor;
+      const store = editor.dataStore;
+      const root = store.getNode(editor.getRootId());
+      return ((root.content ?? []) as string[]).find((one: string) => {
+        const node = store.getNode(one);
+        return (
+          node?.stype === 'surface' &&
+          ((node.content ?? []) as string[]).some(
+            (child: string) => store.getNode(child)?.stype === 'instance'
+          )
+        );
+      });
+    });
+    await page.locator(`.sl-filmstrip button[data-slide="${sid}"]`).click();
+    await page.waitForTimeout(400);
+    return sid as string;
+  };
+
+  const selectPlacement = async (page: Page, slide: string) => {
+    const sid = await page.evaluate((one) => {
+      const editor = (window as any).editor;
+      const store = editor.dataStore;
+      const found = ((store.getNode(one)?.content ?? []) as string[]).find(
+        (child: string) => store.getNode(child)?.stype === 'instance'
+      );
+      void editor.executeCommand('setNode', { nodeIds: [found] });
+      return found;
+    }, slide);
+    await page.waitForTimeout(400);
+    return sid as string;
+  };
+
+  test('offers a placement no resize handles, and says why', async ({ page }) => {
+    await openDeck(page);
+    const slide = await cardSlide(page);
+    await selectPlacement(page, slide);
+
+    // Rotation stays: turning a card is a transform of the whole thing and needs no answer
+    // about what is inside it.
+    await expect(page.locator('[data-handle="se"]')).toHaveCount(0);
+    await expect(page.locator('[data-handle="rotate"]')).toHaveCount(1);
+
+    // And the panel says it in words as well as by the greyed fields, because a number a
+    // reader can type that changes nothing is the same fault as a drag that does nothing.
+    await expect(page.locator('.sl-properties')).toContainText('크기는 컴포넌트가 정합니다');
+    await expect(page.locator('.sl-properties').getByLabel('너비')).toBeDisabled();
+  });
+
+  test('changes the card’s size, and every placement follows', async ({ page }) => {
+    await openDeck(page);
+    const slide = await cardSlide(page);
+    const placement = await selectPlacement(page, slide);
+
+    await openPanel(page);
+    await page.locator('.sl-components [data-component-id="metric-card"]').click();
+    await page.waitForTimeout(600);
+
+    // Standing in the definition with nothing selected: the panel is about the card.
+    const width = page.locator('.sl-properties').getByLabel('컴포넌트 너비');
+    await expect(width).toHaveCount(1);
+    await width.fill('12');
+    await width.press('Enter');
+    await page.waitForTimeout(700);
+
+    const sizes = await page.evaluate((sid) => {
+      const editor = (window as any).editor;
+      const store = editor.dataStore;
+      const root = store.getNode(editor.getRootId());
+      const library = ((root.content ?? []) as string[])
+        .map((one: string) => store.getNode(one))
+        .find((node: any) => node?.stype === 'components');
+      const definition = ((library.content ?? []) as string[])[0];
+      return {
+        card: store.getNode(definition)?.attributes?.width,
+        placement: store.getNode(sid)?.attributes?.width
+      };
+    }, placement);
+
+    /*
+     * 12cm in twips, rounded once where the reader's unit is turned back into the model's —
+     * 6803 rather than 6804, which is the conversion and not the command. What matters is the
+     * second line: the placement is exactly as wide as the card, because a placement drawing a
+     * bigger card inside a smaller outline is the drift this closes.
+     */
+    expect(sizes.card).toBe(6803);
+    expect(sizes.placement).toBe(sizes.card);
+  });
+});

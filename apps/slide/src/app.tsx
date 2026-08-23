@@ -163,16 +163,34 @@ export function App({
     () => components.find((one) => one.sid === current),
     [components, current]
   );
+  /**
+   * And the selection goes with the surface.
+   *
+   * Measured: opening a definition with a box selected left the box selected — so the
+   * properties panel went on showing a shape that is on a slide the reader is no longer
+   * looking at, and the definition's own row (its size) never appeared because the panel
+   * thought it was about a box. The overlay drew that box's handles over the card, too.
+   *
+   * A selection is "what I am working on", and a reader who has changed surfaces is not
+   * working on it any more. The same reason the entered container is dropped when a reader
+   * leaves it.
+   */
+  const leaveSelection = useCallback(() => {
+    void (editor as any)?.executeCommand?.('setNode', { nodeIds: [] });
+  }, [editor]);
+
   const openComponent = useCallback(
     (sid: string) => {
       setWasOn((was) => (components.some((one) => one.sid === current) ? was : current));
       setCurrent(sid);
+      leaveSelection();
     },
-    [components, current]
+    [components, current, leaveSelection]
   );
   const closeComponent = useCallback(() => {
     setCurrent(wasOn ?? slides[0]?.sid);
-  }, [wasOn, slides]);
+    leaveSelection();
+  }, [wasOn, slides, leaveSelection]);
 
   /**
    * The three things a reader does to a component from the panel.

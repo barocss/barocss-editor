@@ -5,7 +5,13 @@ import type { Editor } from '@barocss/editor-core';
 import { createSlidesEditor } from '../src/slides-kit';
 import { getSlidesSchemaDefinition } from '../src/slides-schema';
 import { childrenOf, type DeckAccess } from '../src/deck';
-import { componentStale, deckComponents, instanceState, instanceVars } from '../src/components';
+import {
+  componentApplyPlan,
+  componentStale,
+  deckComponents,
+  instanceState,
+  instanceVars
+} from '../src/components';
 
 /**
  * Making a component, placing one, and taking a definition's changes.
@@ -381,6 +387,80 @@ describe('the component commands', () => {
       const part = deckComponents(doc)[0].parts[0];
       await run('bindComponentPart', { nodeId: part, slot: 'items' });
       expect(doc.getNode(part)?.attributes?.slot).toBe('items');
+    });
+  });
+
+  /**
+   * How big a card is — and why that is the definition's question rather than a placement's.
+   *
+   * Measured in the browser: dragging a placement's corner handle wrote a box of 8280×6440
+   * onto a card whose parts stayed exactly 5040×3960. The outline grew, the card did not
+   * change, and nothing said so — the frame's refused drag in a new place. A placement's extent
+   * *is* its definition's, so the handles are gone and this is the gesture instead.
+   */
+  describe('how big the card is', () => {
+    beforeEach(async () => {
+      select(...boxes());
+      await run('createComponent', { name: '카드', id: 'card' });
+      await run('placeComponent', { componentId: 'card', slideId: slide, x: 9000, y: 3000 });
+    });
+
+    it('refuses a size that is not one', () => {
+      expect((editor as any).canExecuteCommand('setComponentSize', { componentId: 'card' })).toBe(false);
+      expect(
+        (editor as any).canExecuteCommand('setComponentSize', { componentId: 'card', width: 0 })
+      ).toBe(false);
+    });
+
+    it('changes the card and every placement of it, in one entry', async () => {
+      expect(await run('setComponentSize', { componentId: 'card', width: 6000, height: 4200 })).toBe(true);
+
+      const definition = deckComponents(doc)[0];
+      expect(doc.getNode(definition.sid)?.attributes?.width).toBe(6000);
+      for (const sid of boxes()) {
+        expect(doc.getNode(sid)?.attributes?.width).toBe(6000);
+        expect(doc.getNode(sid)?.attributes?.height).toBe(4200);
+      }
+
+      // One press of undo, because leaving twenty placements at the new size and the card at
+      // the old one is the split-undo fault that made apply a command in the first place.
+      await (editor as any).undo();
+      expect(doc.getNode(definition.sid)?.attributes?.width).toBe(3000);
+      expect(doc.getNode(boxes()[0])?.attributes?.width).toBe(3000);
+    });
+
+    it('does not touch what is in the card', async () => {
+      const definition = deckComponents(doc)[0];
+      const before = definition.parts.map((sid) => doc.getNode(sid)?.attributes?.width);
+      await run('setComponentSize', { componentId: 'card', width: 6000, height: 4200 });
+      // A card's size is not an edit to what is in it: scaling the parts would need a
+      // constraint model, and half-guessing it puts a badge outside its card.
+      expect(deckComponents(doc)[0].parts.map((sid) => doc.getNode(sid)?.attributes?.width)).toEqual(
+        before
+      );
+    });
+
+    it('brings a placement’s box back into agreement on apply', async () => {
+      const definition = deckComponents(doc)[0];
+      // A card resized by something that does not know about placements — a reader dragging the
+      // definition's own handles, an older deck, a file from another product.
+      store.setNode(
+        {
+          ...(store.getNode(definition.sid) as never as Record<string, unknown>),
+          attributes: {
+            ...((store.getNode(definition.sid) as never as { attributes: Record<string, unknown> })
+              .attributes),
+            width: 7000
+          }
+        } as never,
+        false
+      );
+
+      const placement = boxes()[1];
+      const plan = componentApplyPlan(doc, doc.getNode(placement), deckComponents(doc)[0]);
+      expect(plan?.box).toEqual({ width: 7000, height: 2000 });
+      await run('applyComponent', { nodeId: placement });
+      expect(doc.getNode(placement)?.attributes?.width).toBe(7000);
     });
   });
 

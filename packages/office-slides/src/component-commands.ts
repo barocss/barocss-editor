@@ -168,6 +168,25 @@ export class SlidesComponentExtension implements Extension {
     );
 
     /**
+     * How big the card is.
+     *
+     * The definition's own size, and therefore every placement's: a placement gets no resize
+     * handles, because its extent is the card's and scaling one on its own needs a constraint
+     * model this schema does not have (canvas-model §10b-12). So this is the way a reader
+     * changes a card's size, and `applyComponent` carries it to the placements.
+     */
+    register(
+      'setComponentSize',
+      async (payload) => await this._setSize(editor, payload),
+      (payload) => {
+        const doc = this._access(editor);
+        if (!doc) return false;
+        const found = deckComponents(doc).find((one) => one.id === payload?.componentId);
+        return !!found && (numberOr(payload?.width, 0) > 0 || numberOr(payload?.height, 0) > 0);
+      }
+    );
+
+    /**
      * Say what one of a placement's variables is.
      *
      * And **rewrite the parts that bind it**, in the same transaction: a field a reader types
@@ -492,7 +511,15 @@ export class SlidesComponentExtension implements Extension {
 
       steps.push({
         type: 'setAttrs',
-        payload: { nodeId: sid, attrs: { appliedFrom: plan.appliedFrom } }
+        payload: {
+          nodeId: sid,
+          attrs: {
+            appliedFrom: plan.appliedFrom,
+            // The box as well, when the card is a different size than this placement says: a
+            // placement's extent *is* its definition's, and nothing else keeps them in step.
+            ...(plan.box ?? {})
+          }
+        }
       });
     }
 
@@ -562,6 +589,35 @@ export class SlidesComponentExtension implements Extension {
       for (const child of (fresh as { content?: unknown[] }).content ?? []) {
         steps.push({ type: 'addChild', payload: { parentId: part, child } });
       }
+    }
+
+    return (await transaction(editor, steps as never).commit()).success === true;
+  }
+
+  private async _setSize(
+    editor: Editor,
+    payload: { componentId?: string; width?: number; height?: number }
+  ): Promise<boolean> {
+    const doc = this._access(editor);
+    const definition = doc && deckComponents(doc).find((one) => one.id === payload?.componentId);
+    if (!doc || !definition) return false;
+
+    const attrs: Record<string, unknown> = {};
+    if (numberOr(payload?.width, 0) > 0) attrs.width = payload!.width;
+    if (numberOr(payload?.height, 0) > 0) attrs.height = payload!.height;
+    if (Object.keys(attrs).length === 0) return false;
+
+    /*
+     * The card, and every placement's box with it — in **one** transaction, so one press of
+     * undo takes back "the card is bigger" rather than leaving twenty placements at the new
+     * size and the card at the old one. The parts are not touched: a card's size is not an edit
+     * to what is in it.
+     */
+    const steps: unknown[] = [
+      { type: 'setAttrs', payload: { nodeId: definition.sid, attrs } }
+    ];
+    for (const sid of placementsOf(doc, definition.id)) {
+      steps.push({ type: 'setAttrs', payload: { nodeId: sid, attrs } });
     }
 
     return (await transaction(editor, steps as never).commit()).success === true;
