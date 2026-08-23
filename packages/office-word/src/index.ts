@@ -320,6 +320,7 @@ export { canvasCss, canvasViewBox, frameCss } from './shapes';
  */
 export {
   layoutChildren,
+  fillChildren,
   childrenToLayOut,
   laysOut,
   reorderIndexAt,

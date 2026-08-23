@@ -45,6 +45,7 @@ import {
   intersects,
   isSceneType,
   isContainerType,
+  placementFills,
   laysOut,
   layoutModeOf,
   reorderIndexAt,
@@ -608,7 +609,16 @@ export function SelectionOverlay({
    */
   const onlyPlacement = useMemo(() => {
     const ids = selectedNodeIds((editor as any)?.selection);
-    return ids.length === 1 && doc?.getNode(ids[0])?.stype === 'instance';
+    if (ids.length !== 1 || !doc) return false;
+    const node = doc.getNode(ids[0]);
+    if (node?.stype !== 'instance') return false;
+    /*
+     * Unless something in the card was told to **fill** it, which is what makes the drag reach
+     * the card: the part takes the new box and, when it is a frame, arranges its own children a
+     * pass later. So the handles are refused exactly where the model has no answer, and offered
+     * where it does.
+     */
+    return !placementFills(doc as never, node);
   }, [editor, doc, tick]);
 
   const size = useMemo(

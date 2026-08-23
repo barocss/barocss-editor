@@ -470,6 +470,16 @@ shipped features marked undone.
   `(scene | frame)* | block+` now. And the word 채우기 was already taken in the properties panel
   by *paint*, so the switch is 가득.
 
+- [x] **A card built out of a frame can be resized in place.** A placement has no arrangement,
+  but a part told to fill it is as big as it is — so the drag reaches the card, the part, and the
+  rows that part arranges: three levels from one gesture. The handles are offered exactly where
+  that answer exists and refused where it does not. Two measured corrections came with it: a part
+  whose box an arrangement decided is left out of its signature (or a resized placement looks
+  edited in every part and apply leaves the whole card alone for ever), and the arrangement had
+  to converge in **one** pass — the reaction guards against re-entering while its own write is in
+  flight, so a pass whose writes changed a deeper pass's inputs left the tree half-arranged and
+  nothing ran again to fix it.
+
 - [ ] **Per-edge constraints** for an absolutely placed box — pin to an edge, scale with the
   parent. What Figma answers the general question with, and what a *placement* would need to be
   resized on its own (canvas-model §10b-12). The measured reason to wait: nothing propagates to

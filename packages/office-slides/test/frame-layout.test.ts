@@ -255,6 +255,15 @@ describe('a frame that is resized', () => {
     expect(box(children[0])).toEqual(once);
   });
 
+  /**
+   * And it converges in **one** transaction, which is not how it started.
+   *
+   * The reaction guards against re-entering while its own write is in flight, so a pass whose
+   * writes changed a deeper pass's inputs left the tree half-arranged: the rows of a frame that
+   * had just been given a new width were computed against the old one, and the pass that would
+   * have fixed it never ran. Reading "what this pass has already decided" is what makes one
+   * walk, parent before child, enough for any depth.
+   */
   it('reaches all the way down a nest of frames', async () => {
     const { frame } = parts();
     // A frame inside the frame, filling it, arranging its own children in a row.

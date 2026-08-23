@@ -9,6 +9,7 @@ import {
   componentApplyPlan,
   componentStale,
   deckComponents,
+  placementFills,
   instanceState,
   instanceVars
 } from '../src/components';
@@ -484,6 +485,120 @@ describe('the component commands', () => {
       for (const sid of childrenOf(node)) {
         expect(doc.getNode(sid)?.attributes?.partOf).toBeUndefined();
       }
+    });
+  });
+
+  /**
+   * A card a reader **can** resize — because it was built out of a frame.
+   *
+   * The refusal in the group above is right for a card of absolutely placed parts: the drag writes
+   * a box and nothing that can be seen changes. It is wrong for a card whose parts were told to
+   * fill it, and that is the whole point of `layoutStretch`: the part takes the placement's new
+   * box, and when it is a frame it arranges its own children one pass later. So the product
+   * refuses exactly where it has no answer.
+   */
+  describe('a card built out of a frame', () => {
+    let placement: string;
+    let body: string;
+
+    /** The reaction runs on the document change, so its writes land after the await. */
+    const settle = () => new Promise((resolve) => setTimeout(resolve, 40));
+
+    beforeEach(async () => {
+      // A definition made of one frame that fills the card and arranges a column inside it.
+      select(...boxes());
+      await run('createComponent', { id: 'card' });
+      const [definition] = deckComponents(doc);
+      for (const part of definition.parts) {
+        await run('removeNode', { nodeId: part }).catch(() => undefined);
+      }
+
+      await run('placeComponent', { componentId: 'card', slideId: slide, x: 2000, y: 2000 });
+      placement = boxes().find((sid) => doc.getNode(sid)?.stype === 'instance') as string;
+
+      // The body: a frame that fills the placement, holding two rows that fill the frame.
+      await (editor as never as { transaction: (steps: unknown[]) => { commit: () => Promise<unknown> } })
+        .transaction([
+          {
+            type: 'addChild',
+            payload: {
+              parentId: placement,
+              child: {
+                stype: 'frame',
+                attributes: {
+                  x: 0,
+                  y: 0,
+                  width: 3000,
+                  height: 2000,
+                  layoutStretch: true,
+                  layoutMode: 'column',
+                  gap: 100,
+                  padding: 100,
+                  partOf: 'body'
+                },
+                content: [
+                  {
+                    stype: 'rectangle',
+                    attributes: { x: 0, y: 0, width: 500, height: 400, layoutStretch: true }
+                  },
+                  {
+                    stype: 'rectangle',
+                    attributes: { x: 0, y: 0, width: 500, height: 400, layoutStretch: true }
+                  }
+                ]
+              }
+            }
+          }
+        ])
+        .commit();
+      await settle();
+      body = childrenOf(doc.getNode(placement)).find(
+        (sid) => doc.getNode(sid)?.stype === 'frame'
+      ) as string;
+    });
+
+    it('owns its size, so the model says it may be resized', () => {
+      expect(placementFills(doc, doc.getNode(placement))).toBe(true);
+    });
+
+    it('carries a resize down into the card, and one pass further', async () => {
+      await run('setBoxGeometry', { nodeIds: [placement], width: 8000, height: 5000 });
+      await settle();
+
+      // The part told to fill the card is as big as the card…
+      expect(doc.getNode(body)?.attributes?.width).toBe(8000);
+      expect(doc.getNode(body)?.attributes?.height).toBe(5000);
+      // …and the frame then arranged its own children, which is the pass after.
+      for (const row of childrenOf(doc.getNode(body))) {
+        expect(doc.getNode(row)?.attributes?.width).toBe(8000 - 200);
+      }
+    });
+
+    it('is not dragged back to the card’s size by apply', async () => {
+      await run('setBoxGeometry', { nodeIds: [placement], width: 8000, height: 5000 });
+      await settle();
+      await run('applyComponent', { nodeId: placement });
+      await settle();
+
+      /*
+       * The definition says how big the card is **by default**, not how big every placement of it
+       * must stay. A placement that owns its size keeps it, and the parts still follow the
+       * definition — which is what the signature ignoring an arranged box buys.
+       */
+      expect(doc.getNode(placement)?.attributes?.width).toBe(8000);
+      expect(doc.getNode(body)?.attributes?.width).toBe(8000);
+    });
+
+    it('does not look edited just because it was resized', async () => {
+      await run('setBoxGeometry', { nodeIds: [placement], width: 8000, height: 5000 });
+      await settle();
+
+      const state = instanceState(doc, doc.getNode(placement), deckComponents(doc)[0]);
+      const filled = state.find((part) => part.sid === body);
+      // A part whose box an arrangement decided is not saying anything of its own about its box.
+      // Without that, a resized placement would look edited in every part and apply would leave
+      // the whole card alone for ever.
+      expect(filled?.changed).toBe(false);
     });
   });
 });

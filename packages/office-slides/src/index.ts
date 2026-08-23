@@ -150,6 +150,7 @@ export {
   instanceVars,
   instanceValues,
   instanceSlot,
+  placementFills,
   slotNameOf,
   componentApplyPlan,
   partCopy,

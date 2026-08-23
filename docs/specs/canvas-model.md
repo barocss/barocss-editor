@@ -1437,10 +1437,31 @@ A placement's extent **is** its definition's (§10b-4). So:
   deck saved by an earlier version, a card resized by something else. The same job the group
   fitter does for a group, one node type along.
 
-**What is deliberately not done:** scaling one placement on its own. It needs a constraint model
-— what stays pinned to which edge, what stretches — which is exactly what Figma has and this
-schema does not, and the half-guess (scale everything proportionally) puts a badge outside its
-card the first time a reader drags a corner sideways. Written down rather than approximated.
+**And then it *was* done, for the cards that have an answer.** A placement has no arrangement of
+its own, but a part told to fill it (`layoutStretch`, §5b) is as big as it is — so a card built
+out of a frame carries a reader's drag all the way down: the placement's box, the part that fills
+it, and the rows that frame arranges, three levels from one gesture. So the rule is not "a
+placement cannot be resized" but **"a placement is resized where the model can say what that
+means"**:
+
+- Something in it fills it → the handles are offered, the fields are live, and apply does not
+  drag the box back to the card's size. The definition says how big the card is *by default*, not
+  how big every placement must stay.
+- Nothing in it fills it → refused as above, because the drag would write a box and change
+  nothing that can be seen.
+
+Two things had to be true for that to hold. A part whose box an **arrangement** decided is left
+out of its signature — otherwise a resized placement looks edited in every part and apply leaves
+the whole card alone for ever, which is the granularity cost swallowing the feature. And the
+arrangement had to converge in **one** pass: the reaction guards against re-entering while its
+own write is in flight, so a pass whose writes changed a deeper pass's inputs left the tree
+half-arranged — the rows of a frame that had just been given a new width were computed against
+the old one, and the pass that would have fixed it never ran. It now carries what it has decided
+down the walk, parent before child.
+
+**Still not done:** per-edge constraints for the absolutely placed parts — a badge that should
+stay in the top-right corner of a card that grows. It stays where it was put, which is honest and
+is the reason the general case waits for a real constraint model.
 
 One thing found on the way, and it is not about size at all: **opening a definition left the
 reader's selection on the slide's box.** So the properties panel went on being about a shape

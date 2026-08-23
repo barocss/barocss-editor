@@ -380,6 +380,42 @@ function isPlaced(attributes: Record<string, unknown> | undefined): boolean {
 }
 
 /**
+ * A **placement**'s children that were told to fill it.
+ *
+ * The one other container that sizes what is in it, and the reason it is here rather than in
+ * `office-slides`: a placement (`instance`) is a canvas node in the shared schema, and this is
+ * the file that knows what "fill your container" means. It is not the frame's arrangement —
+ * a placement has no `layoutMode`, no gap and no order — it is the single sentence that makes a
+ * card resizable: *what was told to fill the card is as big as the card.*
+ *
+ * A group is deliberately not on this list. Its box is **derived** from its children (measured:
+ * writing 8000×4000 onto a group came back 2000×1000), so sizing a child from the group's box
+ * would be a loop between two answers to the same question.
+ *
+ * Answers what differs, like `layoutChildren`, so the reaction that calls it cannot feed itself.
+ */
+export function fillChildren(
+  container: { attributes?: Record<string, unknown> } | undefined,
+  children: LaidOutChild[]
+): Map<string, LaidOutPlace> {
+  const filled = new Map<string, LaidOutPlace>();
+  const width = number(container?.attributes?.width, 0);
+  const height = number(container?.attributes?.height, 0);
+  if (width <= 0 || height <= 0) return filled;
+
+  for (const child of children) {
+    if (!child.stretch) continue;
+    const at: LaidOutPlace = { x: 0, y: 0 };
+    if (Math.round(width) !== child.box.width) at.width = Math.round(width);
+    if (Math.round(height) !== child.box.height) at.height = Math.round(height);
+    if (at.x !== child.box.x || at.y !== child.box.y || at.width !== undefined || at.height !== undefined) {
+      filled.set(child.sid, at);
+    }
+  }
+  return filled;
+}
+
+/**
  * The children of a frame, in document order, as the arrangement needs them.
  *
  * Flow children are left out rather than laid out — see `isPlaced`. A frame of

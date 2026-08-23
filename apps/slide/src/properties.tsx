@@ -51,6 +51,7 @@ import {
   transitionOf,
   componentOf,
   componentStale,
+  placementFills,
   definitionAt,
   deckComponents,
   instanceVars,
@@ -310,7 +311,16 @@ export function Properties({
    */
   const placed = useMemo(() => {
     const store = (editor as any)?.dataStore;
-    return targets.some((sid) => store?.getNode(sid)?.stype === 'instance');
+    const rootId = (editor as any)?.getRootId?.();
+    if (!store || !rootId) return false;
+    const doc = { rootId, getNode: (sid: string) => store.getNode(sid) };
+    // A card whose parts **fill** it is one a reader may resize: the drag reaches the card
+    // instead of writing a box nothing reads. So the fields are greyed only where the model has
+    // no answer, which is the whole rule this pair follows.
+    return targets.some((sid) => {
+      const node = store.getNode(sid);
+      return node?.stype === 'instance' && !placementFills(doc as never, node);
+    });
   }, [editor, targets, tick]);
 
   const doc = useMemo(() => {

@@ -270,6 +270,21 @@ export function partSignature(
   if (!node) return '';
 
   const attrs = { ...((node.attributes ?? {}) as Record<string, unknown>) };
+  /**
+   * And what an **arrangement** decided is not what the node says either.
+   *
+   * A part told to fill its container is given a box by `fillChildren` (or by
+   * `layoutChildren` inside a frame), so its numbers are a consequence of the container's size
+   * rather than something a reader chose. Comparing them would make every placement a reader
+   * had resized look edited in every part — and apply would then leave the whole card alone for
+   * ever, which is the granularity cost turning into the whole feature.
+   */
+  if (attrs.layoutStretch === true) {
+    delete attrs.x;
+    delete attrs.y;
+    delete attrs.width;
+    delete attrs.height;
+  }
   // Identity and bookkeeping rather than content: `partOf` is a fact about a copy, `partId` is
   // the original's own name — a copy is not different from its original for having one — and
   // `appliedFrom` is the copy's record of what it was *given*, which is a fact about the last
@@ -609,7 +624,15 @@ export function componentApplyPlan(
     width: numberOf(doc.getNode(definition.sid)?.attributes?.width),
     height: numberOf(doc.getNode(definition.sid)?.attributes?.height)
   };
+  /**
+   * Corrected only for a placement that does **not** own its size.
+   *
+   * A card whose parts fill it is a card the reader may resize, and dragging its box back to the
+   * definition's on the next apply would undo their work — the definition says how big the card
+   * is *by default*, not how big every placement of it must stay.
+   */
   const box =
+    !placementFills(doc, instance) &&
     size.width !== undefined &&
     size.height !== undefined &&
     (size.width !== numberOf(instance.attributes?.width) ||
@@ -624,6 +647,23 @@ export function componentApplyPlan(
     ...(box ? { box } : {}),
     appliedFrom: componentSignature(doc, definition)
   };
+}
+
+/**
+ * Whether this placement **owns its size** — because something in it fills it.
+ *
+ * The condition that decides whether a reader may resize a card in place. A placement has no
+ * arrangement of its own, so if nothing in it was told to fill it, dragging its corner writes a
+ * box and changes nothing that can be seen (measured: 8280×6440 onto a card whose parts stayed
+ * 5040×3960). With a part that fills it, the reader's drag reaches the card: the part takes the
+ * new box and, when it is a frame, arranges its own children one pass later.
+ *
+ * *Some*, not all: a card is usually a background and a body that fill it plus a badge that does
+ * not, and the badge staying where it was put is the honest answer until this schema has
+ * constraints (§10b-12).
+ */
+export function placementFills(doc: DeckAccess, instance: DeckNode | undefined): boolean {
+  return childrenOf(instance).some((sid) => doc.getNode(sid)?.attributes?.layoutStretch === true);
 }
 
 /** A number as itself, or nothing — so "absent" and "0" are not the same answer. */

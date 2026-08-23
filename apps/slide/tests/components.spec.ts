@@ -742,3 +742,144 @@ test.describe('a card in the layer list', () => {
     expect(picked).toBe('badge');
   });
 });
+
+/**
+ * A card that **can** be resized, because it was built out of a frame.
+ *
+ * The refusal in the group above is right for a card of absolutely placed parts: the drag writes
+ * a box and nothing that can be seen changes. It is wrong for a card whose parts were told to
+ * fill it — there the drag reaches the card, because the part takes the placement's new box and,
+ * being a frame, arranges its own children against it. So the product refuses exactly where it
+ * has no answer, and this is the other side of that.
+ */
+test.describe('a card built out of a frame', () => {
+  const deckWithFillingCard = async (page: Page) =>
+    page.evaluate(() =>
+      (window as any).editor.loadDocument(
+        {
+          stype: 'document',
+          attributes: {},
+          content: [
+            {
+              stype: 'surface',
+              attributes: { kind: 'slide', name: '한 장' },
+              content: [
+                {
+                  stype: 'instance',
+                  attributes: { componentId: 'card', x: 2000, y: 2000, width: 6000, height: 4000 },
+                  content: [
+                    {
+                      stype: 'frame',
+                      attributes: {
+                        partOf: 'body',
+                        x: 0,
+                        y: 0,
+                        width: 6000,
+                        height: 4000,
+                        layoutStretch: true,
+                        layoutMode: 'column',
+                        gap: 200,
+                        padding: 200,
+                        fill: '#e2e8f0'
+                      },
+                      content: [
+                        {
+                          stype: 'rectangle',
+                          attributes: { x: 0, y: 0, width: 5600, height: 1000, layoutStretch: true, fill: '#2563eb' }
+                        },
+                        {
+                          stype: 'rectangle',
+                          attributes: { x: 0, y: 0, width: 5600, height: 1000, layoutStretch: true, fill: '#94a3b8' }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              stype: 'components',
+              attributes: {},
+              content: [
+                {
+                  stype: 'component',
+                  attributes: { id: 'card', name: '카드', width: 6000, height: 4000 },
+                  content: [
+                    {
+                      stype: 'frame',
+                      attributes: {
+                        partId: 'body',
+                        x: 0,
+                        y: 0,
+                        width: 6000,
+                        height: 4000,
+                        layoutStretch: true,
+                        layoutMode: 'column',
+                        gap: 200,
+                        padding: 200,
+                        fill: '#e2e8f0'
+                      },
+                      content: []
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        'slides'
+      )
+    );
+
+  test('gets its handles back, and a drag reaches the parts', async ({ page }) => {
+    await openDeck(page);
+    await deckWithFillingCard(page);
+    await page.waitForTimeout(600);
+
+    const placement = await page.evaluate(() => {
+      const editor = (window as any).editor;
+      const store = editor.dataStore;
+      const root = store.getNode(editor.getRootId());
+      const slide = ((root.content ?? []) as string[]).find(
+        (sid: string) => store.getNode(sid)?.stype === 'surface'
+      );
+      const found = ((store.getNode(slide)?.content ?? []) as string[])[0];
+      void editor.executeCommand('setNode', { nodeIds: [found] });
+      return found;
+    });
+    await page.waitForTimeout(400);
+
+    // Offered, because the model has an answer for the drag.
+    const handle = page.locator('[data-handle="se"]');
+    await expect(handle).toHaveCount(1);
+    await expect(page.locator('.sl-properties').getByLabel('너비')).toBeEnabled();
+
+    const before = await page.evaluate((sid) => {
+      const store = (window as any).editor.dataStore;
+      const body = ((store.getNode(sid)?.content ?? []) as string[])[0];
+      const row = ((store.getNode(body)?.content ?? []) as string[])[0];
+      return { card: store.getNode(sid).attributes.width, body: store.getNode(body).attributes.width, row: store.getNode(row).attributes.width };
+    }, placement);
+
+    const box = (await handle.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 140, box.y + 60, { steps: 10 });
+    await page.mouse.up();
+    await page.waitForTimeout(700);
+
+    const after = await page.evaluate((sid) => {
+      const store = (window as any).editor.dataStore;
+      const body = ((store.getNode(sid)?.content ?? []) as string[])[0];
+      const row = ((store.getNode(body)?.content ?? []) as string[])[0];
+      return { card: store.getNode(sid).attributes.width, body: store.getNode(body).attributes.width, row: store.getNode(row).attributes.width };
+    }, placement);
+
+    // The card, the part that fills it, and the row inside that part — three levels, one drag,
+    // and none of it the browser's doing: a slide places, and an absolutely positioned child
+    // does not reflow when its parent's box changes.
+    expect(after.card).toBeGreaterThan(before.card);
+    expect(after.body).toBe(after.card);
+    expect(after.row).toBe(after.body - 400);
+  });
+});

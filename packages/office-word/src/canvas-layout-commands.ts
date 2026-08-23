@@ -1,6 +1,6 @@
 import { Editor, Extension } from '@barocss/editor-core';
 import { transaction } from '@barocss/model';
-import { childrenToLayOut, laysOut, layoutChildren } from './canvas-layout';
+import { childrenToLayOut, fillChildren, laysOut, layoutChildren } from './canvas-layout';
 
 /** The little of a document this needs, so a caller can pass anything. */
 interface CanvasAccess {
@@ -207,18 +207,61 @@ export class CanvasLayoutExtension implements Extension {
     const steps: { type: string; payload: Record<string, unknown> }[] = [];
     const seen = new Set<string>();
 
+    /**
+     * What this pass has already decided, so a deeper container is arranged against its **new**
+     * size rather than the one still in the document.
+     *
+     * Measured, and it is the fault that arrived with sizes. A placement gives the part that
+     * fills it a new box; that part is usually a frame, and its own children have to be
+     * arranged against the box it is *about to have*. Reading the document gave the old one, so
+     * the rows came out 2800 wide inside a frame that was becoming 7800 — and the second pass
+     * that would have fixed it never ran, because this reaction guards against re-entering while
+     * its own write is in flight and nothing was pending once the guard cleared.
+     *
+     * A loop of passes would also have worked and would have cost a commit each. One walk,
+     * parent before child, with what has been decided kept to hand, converges in a single
+     * transaction for any depth.
+     */
+    const pending = new Map<string, Record<string, unknown>>();
+    const attrsOf = (sid: string) => ({
+      ...(doc.getNode(sid)?.attributes ?? {}),
+      ...(pending.get(sid) ?? {})
+    });
+    /** The document as this pass now believes it to be. */
+    const asDecided = ((sid: string) => {
+      const node = doc.getNode(sid);
+      return node ? { ...node, attributes: attrsOf(sid) } : undefined;
+    }) as never;
+
+    const decide = (results: Map<string, { x: number; y: number; width?: number; height?: number }>) => {
+      for (const [child, at] of results) {
+        steps.push({ type: 'setAttrs', payload: { nodeId: child, attrs: { ...at } } });
+        pending.set(child, { ...(pending.get(child) ?? {}), ...at });
+      }
+    };
+
     const walk = (sid: string, depth: number) => {
       if (depth > 32 || seen.has(sid)) return;
       seen.add(sid);
 
       const node: any = doc.getNode(sid);
       if (!node) return;
+      const settled = { attributes: attrsOf(sid) };
 
-      if (node.stype === 'frame' && laysOut(node.attributes)) {
-        const children = childrenToLayOut(doc.getNode as never, node.content);
-        for (const [child, at] of layoutChildren(node, children)) {
-          steps.push({ type: 'setAttrs', payload: { nodeId: child, attrs: { ...at } } });
-        }
+      if (node.stype === 'frame' && laysOut(settled.attributes)) {
+        decide(layoutChildren(settled, childrenToLayOut(asDecided, node.content)));
+      }
+
+      /**
+       * And a **placement**, whose children were told to fill it.
+       *
+       * The single sentence that makes a card resizable: a placement has no arrangement of its
+       * own — no mode, no gap, no order — but a part told to fill it is as big as it is. Which
+       * is what carries a reader's resize down into the card: the part is usually a frame, and
+       * that frame arranges its own children against the size it has just been given.
+       */
+      if (node.stype === 'instance') {
+        decide(fillChildren(settled, childrenToLayOut(asDecided, node.content)));
       }
 
       for (const child of Array.isArray(node.content) ? node.content : []) {
