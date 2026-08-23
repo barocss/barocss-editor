@@ -396,6 +396,42 @@ test.describe('working with a component', () => {
     await expect(page.locator('[data-component-behind]')).toHaveCount(0);
   });
 
+  /**
+   * A definition is fitted and measured as **itself**.
+   *
+   * Measured before the fix, and it is the kind of fault a feature ships with: the stage
+   * fitted the constant `SLIDE_16_9`, so a 5040×3960 card and a 30000×18000 component both
+   * drew at 0.3797 — the card 128 pixels wide in a 486-pixel pane, with 19200 twips of ruler
+   * along it. A definition is a canvas of its own, and "the deck's shape" is not an answer for
+   * a card.
+   */
+  test('fits a definition to itself, and rules it by its own size', async ({ page }) => {
+    await openDeck(page);
+    await openPanel(page);
+    await page.locator('.sl-components [data-component-id="metric-card"]').click();
+    await page.waitForTimeout(600);
+
+    const drawn = await page.evaluate(() => {
+      const card = document.querySelector('.sl-def-component') as HTMLElement | null;
+      const ruler = document.querySelector('[data-ruler="x"]') as HTMLElement | null;
+      if (!card || !ruler) return null;
+      const rect = card.getBoundingClientRect();
+      return {
+        css: card.style.width,
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+        ruler: Math.round(ruler.getBoundingClientRect().width)
+      };
+    });
+
+    // 5040×3960 twips is 336×264 CSS pixels, and the editor never draws above natural size.
+    expect(drawn?.css).toBe('336px');
+    expect(drawn?.width).toBe(336);
+    expect(drawn?.height).toBe(264);
+    // The ruler spans the card, not the slide it was placed on.
+    expect(drawn?.ruler).toBe(336);
+  });
+
   test('lets a placement go, and leaves the parts arranged', async ({ page }) => {
     await openDeck(page);
     const slide = await cardSlide(page);

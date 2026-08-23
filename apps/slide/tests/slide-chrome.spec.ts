@@ -171,6 +171,31 @@ test.describe('the rulers along a slide', () => {
     expect(labels).toEqual(['0', '1', '2', '3']);
   });
 
+  /**
+   * And they measure **this** slide, not the shape a deck usually has.
+   *
+   * Measured before the fix: the stage fitted the constant 16:9, so a 4:3 deck drew at the
+   * scale for a wider one — 497px of slide with 662px of ruler beside it, a ruler measuring a
+   * slide that is not there. The fit is `stageFit` in the model now, asked of the surface the
+   * reader is on.
+   */
+  test('measure the slide the deck actually has, not a 16:9 one', async ({ page }) => {
+    await openDeck(page);
+    await page.evaluate(() =>
+      (window as any).editor.executeCommand('setDeckSize', { width: 14400, height: 10800 })
+    );
+    await page.waitForTimeout(500);
+
+    const slide = (await box(page, '.sl-stage .sl-slide:not([style*="display: none"])'))!;
+    const across = (await box(page, '[data-ruler="x"]'))!;
+    const down = (await box(page, '[data-ruler="y"]'))!;
+
+    expect(across.width).toBe(slide.width);
+    expect(down.height).toBe(slide.height);
+    // And 4:3 is what is drawn: 960×720 CSS pixels at whatever scale it fitted at.
+    expect(Math.round((slide.width / slide.height) * 100)).toBe(133);
+  });
+
   /** And they follow the reader's unit, because the panel's numbers do. */
   test('are marked in millimetres when the panel is', async ({ page }) => {
     await openDeck(page);

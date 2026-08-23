@@ -19,6 +19,7 @@ import {
 import {
   advanceShow,
   deckComponents,
+  stageFit,
   scrollToStop,
   scrollStops,
   scrollTopOf,
@@ -229,6 +230,34 @@ export function App({
    * would mean two drawings of one deck that could disagree.
    */
   const [presenting, setPresenting] = useState(false);
+
+  /**
+   * The surface the stage draws **alone** — or nothing, when it draws the deck as a strip.
+   *
+   * One expression, because two readers of it are two chances to disagree: the stage hides
+   * every other surface by this sid, and the *fit* is the size of this one. A definition is
+   * always focused while it is open, whatever the 전체 보기 toggle says — it is not part of the
+   * strip, so a reader who opened one in strip mode would be looking at a deck with nothing to
+   * edit.
+   */
+  const stageFocus = editingComponent ? current : presenting || focused ? current : undefined;
+
+  /**
+   * The box the stage has to fit, and the length its rulers measure.
+   *
+   * `stageFit` is the model's answer — a slide's own size, a definition's own size, or the
+   * widest slide for a strip — and it is asked here because this is what knows where the
+   * reader is. Measured before it existed: the stage fitted the constant 16:9, so a 4:3 deck
+   * drew at the scale for a wider one with 662px of ruler across a 497px slide, and a
+   * definition drew at the slide's scale whatever its own size — a 5040×3960 card 128px wide
+   * in a 486px pane.
+   */
+  const fit = useMemo(() => {
+    const store = (editor as any)?.dataStore;
+    const rootId = (editor as any)?.getRootId?.();
+    if (!store || !rootId) return undefined;
+    return stageFit({ rootId, getNode: (sid: string) => store.getNode(sid) } as never, stageFocus);
+  }, [editor, stageFocus, revision]);
   /**
    * Whether the presenter's own half of the screen is showing.
    *
@@ -1445,14 +1474,8 @@ export function App({
            */}
           <Stage
             host={host}
-            /**
-             * One page, one definition, or the deck as a strip.
-             *
-             * A definition is **always** focused while it is open, whatever the 전체 보기
-             * toggle says: it is not part of the strip (it is a resource), so a reader who
-             * opened one in strip mode would be looking at a deck with nothing to edit.
-             */
-            focus={editingComponent ? current : presenting || focused ? current : undefined}
+            /** One page, one definition, or the deck as a strip — see `stageFocus`. */
+            focus={stageFocus}
             /*
              * The transition, while presenting and not while editing.
              *
@@ -1496,6 +1519,14 @@ export function App({
             onGuideDraft={setDraftGuide}
             onGuidePlace={placeGuide}
             fill={presenting}
+            /**
+             * What to fit and what the rulers measure: **the surface the reader is on**.
+             *
+             * Here rather than in the stage because this is what knows where the reader is, and
+             * `stageFit` in the model is the arithmetic — a slide's own size, a definition's own
+             * size, or the widest slide when the deck is drawn as a strip.
+             */
+            fit={fit}
           />
 
           {/*

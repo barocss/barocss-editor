@@ -12,6 +12,7 @@ import {
   type ConnectorBox,
   type ConnectorSpec
 } from '@barocss/office-word';
+import { SLIDE_16_9, slideSize } from './geometry';
 /**
  * Reading a deck: which slides it has, and what belongs to each.
  *
@@ -177,6 +178,56 @@ export function editableSurface(doc: DeckAccess, sid?: string): string | undefin
     return node?.stype === 'surface' || node?.stype === 'component' ? sid : undefined;
   }
   return deckSlides(doc)[0]?.sid;
+}
+
+/**
+ * The box the stage has to fit, and the length its rulers measure.
+ *
+ * ## Why this is a question at all
+ *
+ * The stage fitted the constant `SLIDE_16_9` — not the deck's size and not the surface being
+ * shown. Measured in the browser, and it is wrong in two ways a reader sees:
+ *
+ * - A **4:3 deck** (960×720 px) was scaled by the fit for a 1280×720 one, so it drew at
+ *   0.5172 in a pane that had room for more, and the ruler ran 662px across a slide 497px
+ *   wide: a ruler measuring a slide that is not there.
+ * - A **definition** opened for editing drew at the same 0.3797 whatever its size — a
+ *   5040×3960 card came out 128px wide in a 486px pane, with 19200 twips of ruler along it.
+ *
+ * ## What it answers
+ *
+ * The surface the reader is **on**: a slide's own size, or a definition's own width and
+ * height. A slide carries its size because a deck may mix them, and a definition carries its
+ * size for the same reason — it is a canvas of its own, and 'the deck's shape' is not an
+ * answer for a card.
+ *
+ * With nothing focused the stage draws the whole deck as a strip and scrolls it, so the
+ * answer is the **widest** slide and the **tallest**: fitting the first slide would let a
+ * wider one overflow the pane, which is the fault above in a third place.
+ */
+export function stageFit(doc: DeckAccess, focus?: string): { width: number; height: number } {
+  if (focus) {
+    const node = doc.getNode(focus);
+    /*
+     * `slideSize` reads `width`/`height` with the 16:9 fallback, and a definition declares
+     * exactly those two attributes — so the same function answers for both rather than a
+     * second copy of the fallback living here.
+     */
+    if (node?.stype === 'surface' || node?.stype === 'component') return slideSize(node.attributes);
+  }
+
+  const slides = deckSlides(doc);
+  if (slides.length === 0) return { ...SLIDE_16_9 };
+  return slides.reduce(
+    (widest, slide) => {
+      const size = slideSize(doc.getNode(slide.sid)?.attributes);
+      return {
+        width: Math.max(widest.width, size.width),
+        height: Math.max(widest.height, size.height)
+      };
+    },
+    { width: 0, height: 0 }
+  );
 }
 
 export function deckSlides(doc: DeckAccess): Slide[] {

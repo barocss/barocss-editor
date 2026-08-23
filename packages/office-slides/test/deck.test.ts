@@ -4,6 +4,7 @@ import {
   connectorRouteOf,
   copyForPaste,
   deckSlides,
+  stageFit,
   pastable,
   noteFor,
   spaceOriginOf,
@@ -373,5 +374,65 @@ describe('freezing a line when its shape goes', () => {
     // It is going too; writing its ends first would be an edit to a node that is about
     // to be removed, and one more thing in the undo entry to put back.
     expect(connectorFreezeSteps(doc(), ['line'])).toEqual([]);
+  });
+});
+
+/**
+ * What the stage has to fit, and what its rulers measure.
+ *
+ * The stage fitted the **constant** `SLIDE_16_9`, which is wrong the moment a deck is not
+ * 16:9 or a reader opens a definition. Both were measured in the browser before this was
+ * written — a 4:3 deck drawn at the 16:9 scale with 662px of ruler across a 497px slide, and a
+ * 5040×3960 card drawn 128px wide in a 486px pane — and both are answered here, in the model,
+ * so the arithmetic is checked in milliseconds rather than in a browser round trip.
+ */
+describe('the box the stage has to fit', () => {
+  const doc = (nodes: Record<string, DeckNode>): DeckAccess => ({
+    rootId: 'doc',
+    getNode: (sid) => nodes[sid]
+  });
+
+  const mixed = () =>
+    doc({
+      doc: { stype: 'document', content: ['wide', 'narrow', 'lib'] },
+      wide: { stype: 'surface', attributes: { kind: 'slide' }, content: [] },
+      narrow: {
+        stype: 'surface',
+        attributes: { kind: 'slide', width: 14400, height: 10800 },
+        content: []
+      },
+      lib: { stype: 'components', content: ['card'] },
+      card: {
+        stype: 'component',
+        attributes: { id: 'card', width: 5040, height: 3960 },
+        content: []
+      }
+    });
+
+  it('takes the slide the reader is on, whatever shape it is', () => {
+    // A slide carries its own size because a deck may mix them: a wide diagram slide in a
+    // 4:3 deck is a real thing, and the deck has no single shape to fit.
+    expect(stageFit(mixed(), 'narrow')).toEqual({ width: 14400, height: 10800 });
+    expect(stageFit(mixed(), 'wide')).toEqual({ width: 19200, height: 10800 });
+  });
+
+  it('takes a definition’s own size, because a card is not the shape of a deck', () => {
+    expect(stageFit(mixed(), 'card')).toEqual({ width: 5040, height: 3960 });
+  });
+
+  it('takes the widest when the whole deck is drawn as a strip', () => {
+    // Not the first slide: a wider one further down would overflow the pane, which is the
+    // same fault as fitting the constant.
+    expect(stageFit(mixed())).toEqual({ width: 19200, height: 10800 });
+  });
+
+  it('falls back to 16:9 for a deck with no slides and for what is not a surface', () => {
+    expect(stageFit(doc({ doc: { stype: 'document', content: [] } }))).toEqual({
+      width: 19200,
+      height: 10800
+    });
+    // A sid that names something else — a resources container, a box — is not a surface, so
+    // the answer is the deck's rather than that node's `width`.
+    expect(stageFit(mixed(), 'lib')).toEqual({ width: 19200, height: 10800 });
   });
 });

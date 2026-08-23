@@ -622,6 +622,7 @@ export {
 export {
   copyOf,
   deckSlides,
+  stageFit,
   isSlideSurface,
   editableSurface,
   layoutPlaceholders,

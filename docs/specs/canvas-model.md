@@ -1332,6 +1332,23 @@ cards — and a *definition* holding a literal makes more of them for ever. A co
 whose default names a theme slot (`theme:accent1`) is what a brand kit is: the card follows the
 deck, and a placement that wants its own colour still says so.
 
+### 10b-11. A definition is fitted and measured as itself
+
+The stage fitted the constant `SLIDE_16_9` — not the deck's size, and not the surface being
+shown. Measured in the browser, three faults from one line:
+
+| shown | drew at | ruler | slide |
+| --- | --- | --- | --- |
+| 16:9 deck | 0.5172 | 662px | 662px |
+| 4:3 deck | 0.5172 | 662px | **497px** |
+| a 5040×3960 definition | 0.3797 | 486px | **128px** |
+
+A ruler measuring a slide that is not there, and a card drawn 128 pixels wide in a 486-pixel
+pane. `stageFit` answers it in the model — the surface the reader is on (a slide's own size, a
+definition's own width and height) or the **widest** slide when the deck is drawn as a strip,
+because fitting the first would let a wider one overflow. Presenting a deck that is not 16:9
+was fixed by the same line, since the show goes through the same stage.
+
 ### 10b-5. Everything is pointed at by a **durable** id
 
 `componentId` and `partOf` held sids, and that would have destroyed placements the first time

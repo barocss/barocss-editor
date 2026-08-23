@@ -386,9 +386,12 @@ shipped features marked undone.
   - **A placement's parts are not in the layer list**, which descends into `group` and
     `frame` only. A reader who wants to pick the badge inside a card has the canvas and
     nothing else.
-  - **The stage scales a focused definition by the slide's size.** Measured: a 4000×2400
-    card and a 30000×18000 component both drew at 0.3797, because the fit is computed
-    from `slideSize`. A definition has its own width and height.
+  - ~~**The stage scales a focused definition by the slide's size.**~~ Fixed, and it was
+    worse than the note said: the stage fitted the **constant** `SLIDE_16_9`, so a 4:3
+    deck drew at the scale for a wider one with 662px of ruler across a 497px slide, and
+    a definition drew at that same scale whatever its size. `stageFit` in the model
+    answers it now — the surface the reader is on, or the widest slide for a strip — and
+    presenting a deck that is not 16:9 was fixed by the same line.
 
   The original notes, kept because they are the argument the design came out of:
 

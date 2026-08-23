@@ -571,7 +571,8 @@ export function Stage({
    * thumbnails want: a ruler is for placing things.
    */
   unit,
-  fill
+  fill,
+  fit
 }: {
   host: React.RefObject<HTMLDivElement | null>;
   /** The slide to show alone, or nothing to show the deck as a strip. */
@@ -663,9 +664,21 @@ export function Stage({
    * grow would leave a 1280px slide adrift in the middle of a 4K display.
    */
   fill?: boolean;
+  /**
+   * The box to fit and to measure, in twips — the **surface being shown**.
+   *
+   * `stageFit` in the model answers it, and the app passes it because the app is what knows
+   * which surface the reader is on. This used to be the constant `SLIDE_16_9`, and it was
+   * wrong wherever a deck is not 16:9: a 4:3 deck drew at the scale for a wider one and its
+   * ruler ran 662px across a 497px slide, and a definition opened for editing drew at that
+   * same scale whatever its own size — a 5040×3960 card 128px wide in a 486px pane.
+   */
+  fit?: { width: number; height: number };
 }) {
   const inner = useRef<HTMLDivElement>(null);
   const frame = useRef<HTMLDivElement>(null);
+  /** The box to fit, with 16:9 as the answer for a caller that has not said. */
+  const fitTo = fit ?? SLIDE_16_9;
   const [scale, setScale] = useState(1);
   /**
    * Where the pointer is on the slide, in the model's own unit.
@@ -773,7 +786,7 @@ export function Stage({
       const drawn =
         zoom ??
         fitScale(
-          SLIDE_16_9,
+          fitTo,
           focus ? room : { width: room.width, height: Number.MAX_SAFE_INTEGER },
           fill ? { max: Infinity } : {}
         );
@@ -794,7 +807,9 @@ export function Stage({
     observer.observe(box);
     observer.observe(content);
     return () => observer.disconnect();
-  }, [focus, zoom, fill, onScale]);
+    // `fitTo` as well: opening a definition changes the box to fit, and nothing else about the
+    // stage changes size — so without it the card kept the slide's scale.
+  }, [focus, zoom, fill, onScale, fitTo.width, fitTo.height]);
 
   /**
    * Zooming with the wheel, anchored to the pointer.
@@ -1590,7 +1605,7 @@ export function Stage({
           <div className="sl-ruler-corner" aria-hidden />
           <SlideRuler
             axis="x"
-            length={SLIDE_16_9.width}
+            length={fitTo.width}
             scale={scale}
             unit={unit!}
             pointer={pointer?.x}
@@ -1599,7 +1614,7 @@ export function Stage({
           />
           <SlideRuler
             axis="y"
-            length={SLIDE_16_9.height}
+            length={fitTo.height}
             scale={scale}
             unit={unit!}
             pointer={pointer?.y}
