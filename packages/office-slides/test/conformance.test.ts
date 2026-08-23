@@ -223,6 +223,10 @@ describe('Slides draws what its schema declares', () => {
           'the properties panel — a placement’s 컴포넌트 group, one field per variable the definition declares. The fields come from the document, so a card that declares a colour and a state gets a swatch and a switch',
         detachComponent:
           'the properties panel — 분리 on a placement, which leaves a group: the parts a reader arranged stay arranged',
+        setComponentVar:
+          'the components panel — the 변수 list, drawn while a definition is open: a label, a kind, a default, and 추가 for a new one. Beside the definition rather than on a part, because a variable belongs to the card — an accent colour used by three parts is one decision, which is the whole reason a declaration exists',
+        bindComponentPart:
+          'the properties panel — a part’s 컴포넌트 부품 group, while the reader is inside a definition: which variable its words, its colour or its presence take, and whether a frame is the slot. Two panels because they are two questions, and the reader has selected a different thing in each',
 
         setSlideGuides:
           'the rulers — a guide is pulled out of one, dragged along the slide, and thrown away by being dragged off it',

@@ -51,6 +51,8 @@ import {
   transitionOf,
   componentOf,
   componentStale,
+  definitionAt,
+  deckComponents,
   instanceVars,
   type Slide
 } from '@barocss/office-slides';
@@ -828,6 +830,13 @@ export function Properties({
             <ComponentGroup editor={editor} sid={box.sid as string} locked={locked} tick={tick} />
           )}
 
+          {/*
+            * A **part** of a definition: what it takes from the card, and whether it is the
+            * slot. Drawn only while the reader is inside one, because a binding on a box that
+            * is on a slide is a claim about a card that does not exist.
+            */}
+          {box?.sid && <PartGroup editor={editor} sid={box.sid as string} locked={locked} tick={tick} />}
+
           {declares('startNodeId') && (
             <PropertyGroup label="연결선">
               <PropertyRow label="경로">
@@ -1576,6 +1585,134 @@ function ComponentGroup({
           분리
         </Button>
       </PropertyRow>
+    </PropertyGroup>
+  );
+}
+
+/**
+ * What one part of a definition takes, and whether it is the slot.
+ *
+ * ## Why this is a different panel from the placement's
+ *
+ * A placement's group answers "what is this card asked for **here**"; this one answers "which
+ * of the card's variables does *this box* take". Two questions, and the reader has selected a
+ * different thing in each case — a card, or a rectangle inside one.
+ *
+ * ## Why only some rows are offered
+ *
+ * The same rule the rest of this panel follows: draw a control only for what the node actually
+ * has. A rectangle bound to a **text** variable would take a value nothing could substitute
+ * (`bindText` writes into the part's runs, and a rectangle has none), and a slot is an ordinary
+ * `frame` because the arrangement inside it is the frame's — which is the whole reason the
+ * marker buys one sentence rather than a second layout system (canvas-model §10b-8).
+ */
+function PartGroup({
+  editor,
+  sid,
+  locked,
+  tick
+}: {
+  editor: Editor | null;
+  sid: string;
+  locked: boolean;
+  tick: number;
+}) {
+  const { vars, stype, attrs, inside } = useMemo(() => {
+    const store = (editor as any)?.dataStore;
+    const rootId = (editor as any)?.getRootId?.();
+    if (!store || !rootId) return { vars: [], stype: undefined, attrs: {}, inside: undefined };
+    const doc = { rootId, getNode: (one: string) => store.getNode(one) };
+    const owner = definitionAt(doc as never, sid);
+    const found = owner
+      ? deckComponents(doc as never).find((one) => one.sid === owner)
+      : undefined;
+    const node = store.getNode(sid);
+    return {
+      vars: found?.vars ?? [],
+      stype: node?.stype as string | undefined,
+      attrs: (node?.attributes ?? {}) as Record<string, unknown>,
+      inside: owner
+    };
+  }, [editor, sid, tick]);
+
+  // Not inside a definition: nothing here means anything.
+  if (!inside) return null;
+
+  const bind = (payload: Record<string, unknown>) =>
+    void (editor as any)?.executeCommand?.('bindComponentPart', { nodeId: sid, ...payload });
+
+  /** The variables of a kind, plus "takes nothing" — which is how a binding is cleared. */
+  const options = (kinds: string[]) => [
+    { id: '', label: '없음' },
+    ...vars
+      .filter((one) => kinds.includes(one.kind))
+      .map((one) => ({ id: one.name, label: one.label || one.name }))
+  ];
+
+  const holdsText = stype === 'textFrame' || stype === 'sticky';
+  const holdsFill = 'fill' in attrs || stype !== 'line';
+
+  return (
+    <PropertyGroup label="컴포넌트 부품">
+      {vars.length === 0 ? (
+        <PropertyRow label="변수">
+          {/* Said rather than left blank: an empty group looks like a broken one. */}
+          <span className="sl-part-none">이 컴포넌트에는 아직 변수가 없습니다</span>
+        </PropertyRow>
+      ) : (
+        <>
+          {holdsText && (
+            <PropertyRow label="글자">
+              <PropertyChoice
+                ariaLabel="글자"
+                value={typeof attrs.bindText === 'string' ? attrs.bindText : ''}
+                options={options(['text', 'number', 'choice'])}
+                disabled={locked}
+                onChange={(name) => bind({ bindText: name })}
+              />
+            </PropertyRow>
+          )}
+          {holdsFill && (
+            <PropertyRow label="색">
+              <PropertyChoice
+                ariaLabel="색"
+                value={typeof attrs.bindFill === 'string' ? attrs.bindFill : ''}
+                options={options(['color', 'text'])}
+                disabled={locked}
+                onChange={(name) => bind({ bindFill: name })}
+              />
+            </PropertyRow>
+          )}
+          <PropertyRow label="표시">
+            <PropertyChoice
+              ariaLabel="표시"
+              value={typeof attrs.bindVisible === 'string' ? attrs.bindVisible : ''}
+              options={options(['boolean'])}
+              disabled={locked}
+              onChange={(name) => bind({ bindVisible: name })}
+            />
+          </PropertyRow>
+        </>
+      )}
+
+      {stype === 'frame' && (
+        <PropertyRow label="슬롯">
+          {/*
+            * Named after the part itself, so a definition may have two and neither has to be
+            * named by hand. What the marker says: a placement's own things go **in** this,
+            * and apply rewrites the frame while keeping what the reader put inside it.
+            */}
+          <PropertyToggle
+            ariaLabel="슬롯"
+            label="여기에 담기"
+            value={typeof attrs.slot === 'string' && attrs.slot.length > 0}
+            disabled={locked}
+            onChange={(on) =>
+              bind({ slot: on ? (typeof attrs.partId === 'string' ? attrs.partId : 'slot') : null })
+            }
+          />
+        </PropertyRow>
+      )}
     </PropertyGroup>
   );
 }

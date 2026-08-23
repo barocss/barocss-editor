@@ -5,6 +5,7 @@ import { boxOf } from './geometry';
 import {
   componentApplyPlan,
   componentOf,
+  definitionAt,
   componentSignature,
   definitionSignature,
   signatureOfLiteral,
@@ -182,6 +183,59 @@ export class SlidesComponentExtension implements Extension {
         if (!doc || typeof payload?.name !== 'string') return false;
         const definition = componentOf(doc, doc.getNode(payload?.nodeId));
         return !!definition?.vars.some((one) => one.name === payload.name);
+      }
+    );
+
+    /**
+     * Declare what a placement of this definition can be asked for — or change it, or take it
+     * away.
+     *
+     * ## Why a name cannot be changed
+     *
+     * A variable's `name` is what a part binds to and what a placement answers, and both are
+     * written in the document: renaming one means rewriting every part of the definition and
+     * every placement's answers, in every deck that ever copied this card. That is a migration,
+     * not an edit. So a name is fixed when it is declared and the **label** is what a reader
+     * changes — the same rule this document already follows for a definition's `id`, a part's
+     * `partId` and a shape's motion `name`, and for the same reason: a durable reference is
+     * only durable if nothing renames it.
+     *
+     * ## What removing one takes with it
+     *
+     * The declaration, the bindings that name it, and the placements' answers to it — all in
+     * one transaction. A binding pointing at a variable that is gone is a part that silently
+     * draws whatever it last had, and an answer to a question nobody asks is junk in the file
+     * that would come back to life if the name were ever declared again.
+     */
+    register(
+      'setComponentVar',
+      async (payload) => await this._setVar(editor, payload),
+      (payload) => {
+        const doc = this._access(editor);
+        if (!doc || typeof payload?.name !== 'string' || payload.name.length === 0) return false;
+        return !!payload?.componentId && !!deckComponents(doc).find((one) => one.id === payload.componentId);
+      }
+    );
+
+    /**
+     * What one **part** of a definition takes: its words, its colour, whether it is there — and
+     * whether it is the slot.
+     *
+     * One command for the four because they are one decision made in one panel row, and because
+     * clearing is the same gesture as setting: a payload naming `bindText: null` takes the
+     * binding off. A part is named by its sid because the reader has it selected; the definition
+     * it belongs to is worked out rather than asked for (`definitionAt`), since a caller that
+     * had to say would be a caller that can say the wrong thing.
+     */
+    register(
+      'bindComponentPart',
+      async (payload) => await this._bind(editor, payload),
+      (payload) => {
+        const doc = this._access(editor);
+        if (!doc || typeof payload?.nodeId !== 'string') return false;
+        // Only inside a definition: a binding on a box that is on a slide is a claim about a
+        // card that does not exist, and nothing would ever read it.
+        return !!definitionAt(doc, payload.nodeId);
       }
     );
 
@@ -511,6 +565,118 @@ export class SlidesComponentExtension implements Extension {
     }
 
     return (await transaction(editor, steps as never).commit()).success === true;
+  }
+
+  private async _setVar(
+    editor: Editor,
+    payload: {
+      componentId?: string;
+      name?: string;
+      label?: string;
+      kind?: string;
+      choices?: string[];
+      value?: string;
+      remove?: boolean;
+    }
+  ): Promise<boolean> {
+    const doc = this._access(editor);
+    const definition = doc && deckComponents(doc).find((one) => one.id === payload?.componentId);
+    if (!doc || !definition || typeof payload?.name !== 'string') return false;
+
+    const declared = childrenOf(doc.getNode(definition.sid)).find((sid) => {
+      const node = doc.getNode(sid);
+      return node?.stype === 'componentVar' && node.attributes?.name === payload.name;
+    });
+
+    const steps: unknown[] = [];
+
+    if (payload.remove) {
+      if (!declared) return false;
+      steps.push({ type: 'removeChild', payload: { parentId: definition.sid, childId: declared } });
+
+      // The bindings that name it, so no part is left pointing at nothing.
+      for (const part of definition.parts) {
+        const attrs = doc.getNode(part)?.attributes ?? {};
+        const off: Record<string, unknown> = {};
+        for (const key of ['bindText', 'bindFill', 'bindVisible']) {
+          if (attrs[key] === payload.name) off[key] = null;
+        }
+        if (Object.keys(off).length > 0) {
+          steps.push({ type: 'setAttrs', payload: { nodeId: part, attrs: off } });
+        }
+      }
+
+      // And the answers, wherever a placement gave one.
+      for (const sid of placementsOf(doc, definition.id)) {
+        for (const child of childrenOf(doc.getNode(sid))) {
+          const node = doc.getNode(child);
+          if (node?.stype !== 'componentValue' || node.attributes?.name !== payload.name) continue;
+          steps.push({ type: 'removeChild', payload: { parentId: sid, childId: child } });
+        }
+      }
+
+      return (await transaction(editor, steps as never).commit()).success === true;
+    }
+
+    /** Only what the caller said, so changing a label does not reset a default. */
+    const attrs: Record<string, unknown> = { name: payload.name };
+    if (payload.label !== undefined) attrs.label = payload.label;
+    if (payload.kind !== undefined) attrs.kind = payload.kind;
+    if (payload.choices !== undefined) attrs.choices = payload.choices;
+    if (payload.value !== undefined) attrs.value = payload.value;
+
+    if (declared) {
+      steps.push({ type: 'setAttrs', payload: { nodeId: declared, attrs } });
+    } else {
+      /*
+       * Declared **before the parts**, which is where the schema says they go
+       * (`componentVar* (scene | frame)*`): a definition's variables are its interface, and a
+       * reader opening the file sees what a card can be asked for before how it is drawn.
+       */
+      const before = childrenOf(doc.getNode(definition.sid)).filter(
+        (sid) => doc.getNode(sid)?.stype === 'componentVar'
+      ).length;
+      steps.push({
+        type: 'addChild',
+        payload: {
+          parentId: definition.sid,
+          child: { stype: 'componentVar', attributes: attrs },
+          position: before
+        }
+      });
+    }
+
+    return (await transaction(editor, steps as never).commit()).success === true;
+  }
+
+  private async _bind(
+    editor: Editor,
+    payload: {
+      nodeId?: string;
+      bindText?: string | null;
+      bindFill?: string | null;
+      bindVisible?: string | null;
+      slot?: string | null;
+    }
+  ): Promise<boolean> {
+    const doc = this._access(editor);
+    if (!doc || typeof payload?.nodeId !== 'string') return false;
+
+    const attrs: Record<string, unknown> = {};
+    for (const key of ['bindText', 'bindFill', 'bindVisible', 'slot'] as const) {
+      // `null` is how an attribute is removed, and an empty string arrives from a cleared
+      // control meaning the same thing — so both become the removal rather than a binding to a
+      // variable called "".
+      if (payload[key] === undefined) continue;
+      attrs[key] = payload[key] === null || payload[key] === '' ? null : payload[key];
+    }
+    if (Object.keys(attrs).length === 0) return false;
+
+    return (
+      (await transaction(editor, [
+        { type: 'setAttrs', payload: { nodeId: payload.nodeId, attrs } }
+      ] as never).commit()).success === true
+    );
   }
 
   private async _detach(editor: Editor, payload: { nodeId?: string }): Promise<boolean> {

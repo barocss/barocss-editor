@@ -140,6 +140,7 @@ export {
 export {
   deckComponents,
   componentOf,
+  definitionAt,
   partIdOf,
   partSignature,
   componentSignature,

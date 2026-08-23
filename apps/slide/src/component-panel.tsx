@@ -1,7 +1,131 @@
+import { useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
-import { Button, Icon, IconButton } from '@barocss/office-ui';
+import { Button, Choice, Icon, IconButton, TextField } from '@barocss/office-ui';
 import { componentStale, deckComponents, type ComponentDef } from '@barocss/office-slides';
 import { useEditorRevision } from './revision';
+
+/**
+ * What a definition can be **asked for**, declared while it is open.
+ *
+ * ## Why here and not on the parts
+ *
+ * A variable belongs to the card, not to any one box in it: an accent colour used by three
+ * parts is one decision, which is the whole reason a declaration exists rather than three
+ * copies of a value. So it is declared beside the definition being edited, and *bound* in the
+ * properties panel where the part is — two panels because they are two questions, and a reader
+ * who has selected a rectangle is asking about that rectangle.
+ *
+ * ## Why a name cannot be edited and a label can
+ *
+ * The name is what a part binds to and what every placement answers, in the document — so
+ * renaming one is a migration through every deck that ever copied this card, not an edit. The
+ * label is what a reader reads. The same rule as a definition's `id`, a part's `partId` and a
+ * shape's motion name, for the same reason: a durable reference is only durable if nothing
+ * renames it.
+ */
+function VarList({ editor, definition }: { editor: Editor | null; definition: ComponentDef }) {
+  const [adding, setAdding] = useState('');
+
+  const set = (payload: Record<string, unknown>) =>
+    void (editor as any)?.executeCommand?.('setComponentVar', {
+      componentId: definition.id,
+      ...payload
+    });
+
+  const add = () => {
+    const name = adding.trim();
+    if (!name) return;
+    set({ name, label: name, kind: 'text', value: '' });
+    setAdding('');
+  };
+
+  return (
+    <div className="sl-var-list" data-var-list={definition.id}>
+      <div className="sl-var-title">변수</div>
+
+      {definition.vars.length === 0 ? (
+        <p className="sl-var-empty">
+          변수를 만들면 이 컴포넌트를 놓은 자리마다 다르게 채울 수 있습니다.
+        </p>
+      ) : (
+        <ol className="sl-var-rows">
+          {definition.vars.map((one) => (
+            <li key={one.name} data-var-row={one.name}>
+              {/* The name, shown and not editable — see above. */}
+              <code className="sl-var-name">{one.name}</code>
+              <TextField
+                ariaLabel={`${one.name} 이름표`}
+                value={one.label}
+                onCommit={(label) => set({ name: one.name, label })}
+              />
+              <Choice
+                ariaLabel={`${one.name} 종류`}
+                value={one.kind}
+                onChange={(kind) => set({ name: one.name, kind })}
+              >
+                <option value="text">글자</option>
+                <option value="color">색</option>
+                <option value="number">숫자</option>
+                <option value="boolean">켜기</option>
+                <option value="choice">고르기</option>
+              </Choice>
+              <TextField
+                ariaLabel={`${one.name} 기본값`}
+                value={one.value}
+                onCommit={(value) => set({ name: one.name, value })}
+              />
+              {/*
+                * Choices, as one line of text.
+                *
+                * A list of options is a list, and a row of controls for adding and removing
+                * one at a time is a form. Comma-separated is what a reader can type and read
+                * back, and the command takes an array — so the splitting is here, once.
+                */}
+              {one.kind === 'choice' && (
+                <TextField
+                  ariaLabel={`${one.name} 고를 것`}
+                  value={one.choices.join(', ')}
+                  onCommit={(text) =>
+                    set({
+                      name: one.name,
+                      choices: text
+                        .split(',')
+                        .map((choice) => choice.trim())
+                        .filter((choice) => choice.length > 0)
+                    })
+                  }
+                />
+              )}
+              <IconButton
+                label={`${one.name} 지우기`}
+                data={{ 'var-remove': one.name }}
+                onClick={() => set({ name: one.name, remove: true })}
+              >
+                <Icon name="close" size={12} />
+              </IconButton>
+            </li>
+          ))}
+        </ol>
+      )}
+
+      <div className="sl-var-add">
+        <TextField
+          ariaLabel="새 변수 이름"
+          testClass="sl-var-new"
+          data={{ 'var-new': '' }}
+          value={adding}
+          onChange={setAdding}
+          onKeys={(event) => {
+            if (event.key === 'Enter') add();
+          }}
+        />
+        <Button title="이 이름으로 변수를 만듭니다" data={{ 'var-add': '' }} disabled={!adding.trim()} onClick={add}>
+          추가
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 /**
  * The components a deck defines, and the way in and out of one.
@@ -158,6 +282,9 @@ export function ComponentPanel({
           </Button>
         </div>
       )}
+
+      {/* What this card can be asked for — declared here, bound on the parts themselves. */}
+      {editing && <VarList editor={editor} definition={editing} />}
 
       {/*
         * Making one, which is the gesture the whole feature starts from.

@@ -376,9 +376,14 @@ shipped features marked undone.
 
   Still open, and each is a real gap rather than a tidy-up:
 
-  - **Nothing declares a variable yet.** `componentVar` is read everywhere — the panel
-    draws the fields, apply substitutes them — and the only way to add one is to write
-    it into the document. The definition's own panel is the next item.
+  - ~~**Nothing declares a variable yet.**~~ Done: the 변수 list in the components panel
+    while a definition is open, and a part's 컴포넌트 부품 group for the bindings. Two
+    panels because they are two questions — a variable belongs to the card, a binding to
+    the box the reader has selected. A variable's **name** cannot be changed and the
+    label can: the name is what a part binds to and what every placement answers, in the
+    document, so renaming one is a migration through every deck that copied the card.
+    Removing one takes the bindings and the placements' answers with it, in one
+    transaction, because a binding pointing at nothing draws whatever it last had.
   - **Resizing a placement** does nothing to its parts. Figma answers "it depends on the
     child's constraints", which is a layout model this schema does not have; a frame
     part inside a placement *does* arrange its children, so the honest first answer may

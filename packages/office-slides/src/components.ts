@@ -184,6 +184,26 @@ export function deckComponents(doc: DeckAccess): ComponentDef[] {
   return found;
 }
 
+/**
+ * The definition a node is **inside**, walking out through whatever contains it.
+ *
+ * The question a panel about a *part* has to ask: a box selected while a definition is open is
+ * a part of it, and a box on a slide is not — and the difference decides whether the panel
+ * offers "what this part takes from the card" at all. `slideAt` is the same walk for the same
+ * reason, and this is the other half of it: a definition is not a surface, so that one walks
+ * past it.
+ */
+export function definitionAt(doc: DeckAccess, sid: string | undefined): string | undefined {
+  let current = sid ? doc.getNode(sid) : undefined;
+  let depth = 0;
+  while (current && depth++ < 64) {
+    if (current.stype === 'component') return (current.sid ?? sid) as string;
+    const parentId = (current as { parentId?: unknown }).parentId;
+    current = typeof parentId === 'string' ? doc.getNode(parentId) : undefined;
+  }
+  return undefined;
+}
+
 /** The definition a placement points at, or nothing when it is gone. */
 export function componentOf(
   doc: DeckAccess,

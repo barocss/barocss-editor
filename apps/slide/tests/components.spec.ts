@@ -461,3 +461,121 @@ test.describe('working with a component', () => {
     expect(kinds).toContain('group');
   });
 });
+
+/**
+ * Declaring what a card takes, and binding a part to it — the half that had no way in.
+ *
+ * Everything downstream of a `componentVar` worked before this: the properties panel drew a
+ * field per variable, apply substituted the values, the sample deck's card declared four. And
+ * the only way to *make* one was to write it into the document by hand — a feature that works
+ * and nothing can start, which is the same failure as a command nothing surfaces, one layer up.
+ *
+ * So this test is the whole loop pressed: declare a variable, bind a part to it, and check the
+ * words on the *slide* change when the placement is asked.
+ */
+test.describe('declaring what a card takes', () => {
+  test('declares a variable, binds a part to it, and the placement follows', async ({ page }) => {
+    await openDeck(page);
+    await openPanel(page);
+
+    // A card of the reader's own, so the test is not reading the sample's declaration.
+    const boxes = (await visibleBoxes(page)).slice(0, 2);
+    await page.mouse.click(boxes[0].x, boxes[0].y);
+    await page.keyboard.down('Shift');
+    await page.mouse.click(boxes[1].x, boxes[1].y);
+    await page.keyboard.up('Shift');
+    await page.locator('[data-component-make]').click();
+    await page.waitForTimeout(600);
+
+    /*
+     * Open **the card that was just made**, by asking the placement which definition it points
+     * at. Reading the library's first child instead opened the sample deck's card and declared
+     * a variable on the wrong one, which is a mistake a test can make quietly: everything
+     * passed until the placement was asked for a value it had never heard of.
+     */
+    const made = await page.evaluate(() => {
+      const editor = (window as any).editor;
+      const store = editor.dataStore;
+      const sid = document
+        .querySelector('.sl-filmstrip button[data-current="true"]')
+        ?.getAttribute('data-slide');
+      const placement = ((store.getNode(sid)?.content ?? []) as string[]).find(
+        (one: string) => store.getNode(one)?.stype === 'instance'
+      );
+      return store.getNode(placement)?.attributes?.componentId as string;
+    });
+    await page.locator(`.sl-components [data-component-id="${made}"]`).click();
+    await page.waitForTimeout(500);
+
+    await expect(page.locator('.sl-var-list')).toHaveCount(1);
+    await page.locator('[data-var-new] input, input[data-var-new]').fill('heading');
+    await page.locator('[data-var-add]').click();
+    await page.waitForTimeout(500);
+    await expect(page.locator('[data-var-row="heading"]')).toHaveCount(1);
+
+    // Bind the definition's text part to it, from the part's own panel.
+    const part = await page.evaluate((id) => {
+      const editor = (window as any).editor;
+      const store = editor.dataStore;
+      const root = store.getNode(editor.getRootId());
+      const library = ((root.content ?? []) as string[])
+        .map((sid: string) => store.getNode(sid))
+        .find((node: any) => node?.stype === 'components');
+      const definition = ((library.content ?? []) as string[]).find(
+        (sid: string) => store.getNode(sid)?.attributes?.id === id
+      );
+      const found = ((store.getNode(definition)?.content ?? []) as string[]).find(
+        (sid: string) => store.getNode(sid)?.stype === 'textFrame'
+      );
+      void editor.executeCommand('setNode', { nodeIds: [found] });
+      return found;
+    }, made);
+    await page.waitForTimeout(400);
+
+    await page.locator('.sl-properties').getByLabel('글자').selectOption('heading');
+    await page.waitForTimeout(500);
+    expect(
+      await page.evaluate(
+        (sid) => (window as any).editor.dataStore.getNode(sid)?.attributes?.bindText,
+        part
+      )
+    ).toBe('heading');
+
+    // Back to the deck, and ask the placement for its value.
+    await page.locator('[data-component-close]').click();
+    await page.waitForTimeout(500);
+    const placement = await page.evaluate(() => {
+      const editor = (window as any).editor;
+      const store = editor.dataStore;
+      const sid = document
+        .querySelector('.sl-filmstrip button[data-current="true"]')
+        ?.getAttribute('data-slide');
+      const found = ((store.getNode(sid)?.content ?? []) as string[]).find(
+        (one: string) => store.getNode(one)?.stype === 'instance'
+      );
+      void editor.executeCommand('setNode', { nodeIds: [found] });
+      return found;
+    });
+    await page.waitForTimeout(400);
+
+    const field = page.locator('input[data-component-var="heading"], [data-component-var="heading"] input');
+    await expect(field).toHaveCount(1);
+    await field.fill('한 엔진, 두 제품');
+    await field.press('Enter');
+    await page.waitForTimeout(600);
+
+    const words = await page.evaluate((sid) => {
+      const store = (window as any).editor.dataStore;
+      const part = ((store.getNode(sid)?.content ?? []) as string[]).find((one: string) => {
+        const node = store.getNode(one);
+        return node?.stype === 'textFrame';
+      });
+      const line = ((store.getNode(part)?.content ?? []) as string[])[0];
+      const run = ((store.getNode(line)?.content ?? []) as string[])[0];
+      return store.getNode(run)?.text;
+    }, placement);
+    // Declared in one panel, bound in another, answered in a third — and the words on the
+    // slide are the answer.
+    expect(words).toBe('한 엔진, 두 제품');
+  });
+});

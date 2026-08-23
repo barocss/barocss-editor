@@ -273,6 +273,117 @@ describe('the component commands', () => {
     });
   });
 
+  /**
+   * The definition's own side: declaring what a placement can be asked for, and saying which
+   * part takes it.
+   *
+   * Until this existed the whole variable half was unreachable — the panel drew the fields and
+   * apply substituted them, and the only way to *declare* one was to write it into the
+   * document by hand. Which is the failure `every-command-can-be-reached` exists for, one layer
+   * up: a feature that works and nothing can start.
+   */
+  describe('declaring what a card takes', () => {
+    let definition: string;
+
+    beforeEach(async () => {
+      select(...boxes());
+      await run('createComponent', { name: '카드', id: 'card' });
+      definition = deckComponents(doc)[0].sid;
+    });
+
+    it('refuses a nameless variable and a definition that is not there', () => {
+      expect((editor as any).canExecuteCommand('setComponentVar', { componentId: 'card' })).toBe(false);
+      expect(
+        (editor as any).canExecuteCommand('setComponentVar', { componentId: 'nope', name: 'title' })
+      ).toBe(false);
+    });
+
+    it('declares one before the parts, where the schema says it goes', async () => {
+      expect(
+        await run('setComponentVar', {
+          componentId: 'card',
+          name: 'title',
+          label: '이름',
+          value: '지표'
+        })
+      ).toBe(true);
+
+      // A definition's variables are its interface: the file reads "what it can be asked for",
+      // then "what it is made of".
+      expect(childrenOf(doc.getNode(definition)).map((sid) => doc.getNode(sid)?.stype)).toEqual([
+        'componentVar',
+        'rectangle',
+        'textFrame'
+      ]);
+      const [card] = deckComponents(doc);
+      expect(card.vars.map((one) => [one.name, one.label, one.value])).toEqual([
+        ['title', '이름', '지표']
+      ]);
+      // And it is not counted as a part, so no placement looks one behind.
+      expect(card.parts).toHaveLength(2);
+    });
+
+    it('changes only what it was told to change', async () => {
+      await run('setComponentVar', { componentId: 'card', name: 'title', value: '지표' });
+      await run('setComponentVar', { componentId: 'card', name: 'title', label: '제목' });
+
+      const [one] = deckComponents(doc)[0].vars;
+      // The default survives a label change: a panel that reset the value every time somebody
+      // renamed a field would be a panel nobody could use twice.
+      expect([one.label, one.value]).toEqual(['제목', '지표']);
+      expect(deckComponents(doc)[0].vars).toHaveLength(1);
+    });
+
+    it('takes the bindings and the placements’ answers with it when it goes', async () => {
+      await run('setComponentVar', { componentId: 'card', name: 'title', value: '지표' });
+      const part = deckComponents(doc)[0].parts[1];
+      await run('bindComponentPart', { nodeId: part, bindText: 'title' });
+      const placement = boxes()[0];
+      await run('setComponentValue', { nodeId: placement, name: 'title', value: '매출' });
+
+      expect(await run('setComponentVar', { componentId: 'card', name: 'title', remove: true })).toBe(true);
+
+      /*
+       * Nothing is left pointing at it. A binding on a variable that is gone is a part that
+       * silently draws whatever it last had, and an answer to a question nobody asks is junk
+       * in the file that would come back to life the day the name was declared again.
+       */
+      expect(deckComponents(doc)[0].vars).toEqual([]);
+      expect(doc.getNode(part)?.attributes?.bindText).toBeUndefined();
+      expect(
+        childrenOf(doc.getNode(placement)).filter(
+          (sid) => doc.getNode(sid)?.stype === 'componentValue'
+        )
+      ).toEqual([]);
+    });
+
+    it('binds a part to a variable, and lets go of it again', async () => {
+      const part = deckComponents(doc)[0].parts[1];
+      expect(await run('bindComponentPart', { nodeId: part, bindText: 'title' })).toBe(true);
+      expect(doc.getNode(part)?.attributes?.bindText).toBe('title');
+
+      // Clearing is the same gesture: an empty answer from a control means "takes nothing".
+      await run('bindComponentPart', { nodeId: part, bindText: '' });
+      expect(doc.getNode(part)?.attributes?.bindText).toBeUndefined();
+    });
+
+    it('refuses to bind a box that is not in a definition', async () => {
+      await run('placeComponent', { componentId: 'card', slideId: slide, x: 9000, y: 3000 });
+      const onSlide = childrenOf(doc.getNode(boxes()[1]))[0];
+      // A binding on a box that is on a slide is a claim about a card that does not exist, and
+      // nothing would ever read it.
+      expect(
+        (editor as any).canExecuteCommand('bindComponentPart', { nodeId: onSlide, bindText: 'title' })
+      ).toBe(false);
+    });
+
+    it('marks a part as the slot, which is where a reader’s own things go', async () => {
+      const part = deckComponents(doc)[0].parts[0];
+      await run('bindComponentPart', { nodeId: part, slot: 'items' });
+      expect(doc.getNode(part)?.attributes?.slot).toBe('items');
+    });
+  });
+
   describe('detaching', () => {
     it('leaves a group, with the parts still arranged', async () => {
       select(...boxes());

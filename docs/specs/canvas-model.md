@@ -1283,6 +1283,26 @@ the value and **nothing else** — the runs collapse to one, keeping the first o
 because writing into the first run and leaving the others puts the value on the page followed by
 whatever the definition happened to say next.
 
+#### Where a variable is declared, and why a name is fixed
+
+Two panels, because they are two questions and the reader has selected a different thing in
+each: the **card's** variables are declared beside the definition being edited (the components
+panel's 변수 list), and a **part's** bindings are set in the properties panel where that part
+is. A variable belongs to the card — an accent colour used by three parts is one decision,
+which is the whole reason a declaration exists rather than three copies of a value.
+
+A variable's `name` cannot be edited. It is what a part binds to and what every placement
+answers, both written in the document, so renaming one means rewriting every part of the
+definition and every placement's answers in every deck that ever copied the card — a migration,
+not an edit. The **label** is what a reader changes. Which is the rule this document already
+follows for a definition's `id`, a part's `partId` and a shape's motion name, for the same
+reason: a durable reference is only durable if nothing renames it.
+
+Removing one takes the bindings that name it and the placements' answers to it with it, in one
+transaction. A binding pointing at a variable that is gone is a part that silently draws
+whatever it last had, and an answer to a question nobody asks is junk in the file that would
+come back to life the day the name was declared again.
+
 ### 10b-8. The slot: where the reader's own things go
 
 Figma added slots because instance-swap could not say "put whatever you like here", and paid for

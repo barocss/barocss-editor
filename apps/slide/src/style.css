@@ -2315,6 +2315,70 @@ body {
   padding: 0 8px 6px;
 }
 
+/*
+ * What a definition can be asked for, while it is open.
+ *
+ * A dense list, because it is a list of *declarations* and a reader reads down it: the name, a
+ * label they can change, what kind of thing it is, and what a placement gets when it says
+ * nothing. The name is drawn as code because it is what the document is written in — a part
+ * binds to it and every placement answers it — and it is the one thing here that cannot be
+ * edited.
+ */
+.sl-var-list {
+  border-bottom: 1px solid var(--sl-line);
+  padding: 8px;
+}
+
+.sl-var-title {
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--sl-faint, #a3a3a3);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.sl-var-empty {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--sl-faint, #a3a3a3);
+}
+
+.sl-var-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sl-var-rows li {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  align-items: center;
+  gap: 4px;
+}
+
+/* The durable name, spanning the row above its own controls. */
+.sl-var-name {
+  grid-column: 1 / -1;
+  font-size: 10px;
+  color: var(--sl-faint, #a3a3a3);
+}
+
+.sl-var-add {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+/* Said rather than left blank: an empty group looks like a broken one. */
+.sl-part-none {
+  font-size: 11px;
+  color: var(--sl-faint, #a3a3a3);
+}
+
 /* Not in the show, like the rulers and the guides: an audience is looking. */
 .sl-shell[data-presenting='true'] .sl-components,
 .sl-shell[data-presenting='true'] .sl-components-closed {
