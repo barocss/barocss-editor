@@ -454,6 +454,14 @@ shipped features marked undone.
     write the same alt text on twenty slides. The fault is still counted once per placement:
     three slides with an undescribed picture are three slides.
 
+- [x] **Four answers to "what can a reader go inside".** The overlay's (for the double-click
+  that enters one), the layer list's (which rows have children), the deck's own check (which got
+  it wrong and never looked inside a group at all) and the slide's *name* (which did not descend,
+  so a title inside a frame or a placed card left the filmstrip blank). `isContainerType` is the
+  one list now — a frame, a group and a placement — and the reason a placement is on it is
+  written where the list is: its parts are real boxes a reader may edit, which is how an
+  override is made.
+
 **Still open and not in a phase**
 
 - [ ] **Per-level formatting** for a body placeholder: PowerPoint formats by

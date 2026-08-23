@@ -56,6 +56,30 @@ export const isSceneType = (stype: unknown): stype is SceneType =>
   typeof stype === 'string' && SCENE.has(stype);
 
 /**
+ * The node types a reader can go **inside**, and therefore that every walk of a slide has to
+ * go inside too.
+ *
+ * One list, because there were four. The overlay decided it (`isContainer`, for the
+ * double-click that enters one), the layer list decided it again (which rows have children),
+ * the audit decided it a third time — and got it *wrong*, filtering the slide's direct children
+ * so a picture with no alt text inside a group was never looked at — and the deck's own
+ * `nameOf` decided it a fourth time by not descending at all.
+ *
+ * A frame and a group are containers by construction. A **placement** is one because its parts
+ * are real boxes a reader may edit, which is exactly how an override is made (§10d): go in, edit
+ * the part, and it now differs from the one it was copied from.
+ *
+ * What is *not* here: a `textFrame`, whose children are words rather than boxes, and a table,
+ * whose cells are text. A walk that went into those would be answering a question about writing
+ * with a list of shapes.
+ */
+const CONTAINER_TYPES = ['group', 'frame', 'instance'] as const;
+const CONTAINERS = new Set<string>(CONTAINER_TYPES);
+
+export const isContainerType = (stype: unknown): boolean =>
+  typeof stype === 'string' && CONTAINERS.has(stype);
+
+/**
  * The boxes *inside* a box, in the order they are drawn.
  *
  * What "animate this group" turns out to mean half the time: not the group, but

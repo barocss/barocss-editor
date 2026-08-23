@@ -13,6 +13,7 @@ import {
   type ConnectorSpec
 } from '@barocss/office-word';
 import { SLIDE_16_9, slideSize } from './geometry';
+import { isContainerType } from './selection';
 /**
  * Reading a deck: which slides it has, and what belongs to each.
  *
@@ -113,13 +114,35 @@ function nameOf(doc: DeckAccess, surface: DeckNode): string {
   const given = attrString(surface, 'name');
   if (given) return given;
 
-  for (const child of childrenOf(surface)) {
-    const node = doc.getNode(child);
-    if (node?.stype !== 'textFrame') continue;
-    if (attrString(node, 'role') !== 'title') continue;
+  /**
+   * Inside the containers too, because a title may be in one.
+   *
+   * It looked at the slide's direct children only, which was true for as long as a slide was a
+   * flat row of boxes — and a header inside a frame that arranges, or a title inside a placed
+   * card, left the filmstrip with no name at all. The same fault the deck's own check had, and
+   * `isContainerType` is the one list of what to go into.
+   */
+  const find = (sid: string, depth: number): string => {
+    if (depth > 8) return '';
+    const node = doc.getNode(sid);
+    if (!node) return '';
 
-    const text = textOf(doc, child).trim();
-    if (text) return text;
+    if (node.stype === 'textFrame' && attrString(node, 'role') === 'title') {
+      const text = textOf(doc, sid).trim();
+      if (text) return text;
+    }
+
+    if (!isContainerType(node.stype)) return '';
+    for (const child of childrenOf(node)) {
+      const found = find(child, depth + 1);
+      if (found) return found;
+    }
+    return '';
+  };
+
+  for (const child of childrenOf(surface)) {
+    const found = find(child, 0);
+    if (found) return found;
   }
 
   return '';

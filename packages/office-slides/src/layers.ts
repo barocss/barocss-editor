@@ -1,6 +1,7 @@
 import { childrenOf, type DeckAccess, type DeckNode } from './deck';
 import { CANVAS_NAMES, nameOfNode } from '@barocss/office-controls';
 import { isVisible } from './geometry';
+import { isContainerType } from './selection';
 
 /**
  * The slide's contents as a list, in the order they are stacked.
@@ -222,7 +223,7 @@ export function layerRows(
      * another with. The conformance exemption for `componentValue` says exactly that, and this
      * is the code that keeps it true.
      */
-    if (node.stype === 'group' || node.stype === 'frame' || node.stype === 'instance') {
+    if (isContainerType(node.stype)) {
       for (const child of childrenOf(node)) {
         if (doc.getNode(child)?.stype === 'componentValue') continue;
         walk(child, depth + 1);

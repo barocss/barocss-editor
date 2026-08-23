@@ -44,6 +44,7 @@ import {
   withoutGuide,
   intersects,
   isSceneType,
+  isContainerType,
   laysOut,
   layoutModeOf,
   reorderIndexAt,
@@ -562,10 +563,10 @@ export function SelectionOverlay({
    * never learns the word "override" — they type, and what they typed is theirs (§10d).
    */
   const isContainer = useCallback(
-    (sid?: string) => {
-      const stype = sid ? (doc?.getNode(sid) as any)?.stype : undefined;
-      return stype === 'frame' || stype === 'group' || stype === 'instance';
-    },
+    // The suite's list, not this file's: four places decided what a container is — this one,
+    // the layer list, the deck's own check (which got it wrong and never looked inside a group)
+    // and the slide's name. `isContainerType` is the one answer now.
+    (sid?: string) => isContainerType((sid ? (doc?.getNode(sid) as any)?.stype : undefined)),
     [doc]
   );
 

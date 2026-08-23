@@ -1,6 +1,7 @@
 import { childrenOf, deckSlides, spaceOriginOf, type DeckAccess, type DeckNode } from './deck';
 import { boxOf, slideSize, type Box } from './geometry';
 import { intersects } from './manipulate';
+import { isContainerType } from './selection';
 import { backgroundOf, resolveDeckFormat } from './layout-format';
 import { paintsOf } from './paints';
 
@@ -92,17 +93,6 @@ const BIG_TEXT = 36;
 
 /** The node types that hold a picture and therefore need describing. */
 const NEEDS_ALT = new Set(['picture', 'mediaVideo']);
-
-/**
- * The containers this walks **into**.
- *
- * The same three the layer list descends into, for the same reason: a picture inside a group,
- * a frame or a placement is a picture on the slide. Measured — the sweep looked at the slide's
- * own children and stopped, so a card's picture with no alt text came back clean, and the panel
- * said "훑었습니다. 걸린 것이 없습니다" about half a deck. A check that reports nothing has to be
- * telling the truth about what it looked at.
- */
-const CONTAINERS = new Set(['group', 'frame', 'instance']);
 
 /** Whether the node is a thing placed on the canvas rather than text inside one. */
 const PLACED = new Set([
@@ -211,7 +201,7 @@ export function auditDeck(doc: DeckAccess): AuditHit[] {
        * with the group's sid — a row that selects the group and leaves the reader looking for
        * the words. Which is what it did before this walk went inside anything.
        */
-      if (CONTAINERS.has(node.stype ?? '')) continue;
+      if (isContainerType(node.stype)) continue;
 
       const small = smallestText(doc, sid, size.height);
       if (small) {
@@ -306,7 +296,7 @@ function shapesOn(
       box: { ...own, x: own.x + origin.x, y: own.y + origin.y }
     });
 
-    if (!CONTAINERS.has(node.stype ?? '')) return;
+    if (!isContainerType(node.stype)) return;
     for (const child of childrenOf(node)) walk(child, depth + 1);
   };
 

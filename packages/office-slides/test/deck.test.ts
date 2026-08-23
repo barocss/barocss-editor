@@ -436,3 +436,49 @@ describe('the box the stage has to fit', () => {
     expect(stageFit(mixed(), 'lib')).toEqual({ width: 19200, height: 10800 });
   });
 });
+
+/**
+ * What a slide is **called**, when its title is not a direct child.
+ *
+ * It looked at the slide's own children only, which was true for as long as a slide was a flat
+ * row of boxes — and a header inside a frame that arranges, or a title inside a placed card,
+ * left the filmstrip with no name at all. The same fault the deck's own check had, in the one
+ * place a reader sees on every slide.
+ */
+describe('the name a slide gets', () => {
+  const named = (holder: Record<string, unknown>): DeckAccess => {
+    const nodes: Record<string, DeckNode> = {
+      doc: { stype: 'document', content: ['s'] },
+      s: { sid: 's', stype: 'surface', attributes: { kind: 'slide' }, content: ['holder'] },
+      holder: { sid: 'holder', attributes: {}, content: ['title'], ...holder },
+      title: {
+        sid: 'title',
+        stype: 'textFrame',
+        attributes: { role: 'title' },
+        content: ['line'],
+        parentId: 'holder'
+      },
+      line: { sid: 'line', stype: 'paragraph', content: ['words'], parentId: 'title' },
+      words: { sid: 'words', stype: 'inline-text', text: '무엇을 만들었나', parentId: 'line' }
+    };
+    return { rootId: 'doc', getNode: (sid) => nodes[sid] };
+  };
+
+  it('reads a title inside a frame', () => {
+    expect(deckSlides(named({ stype: 'frame' }))[0].name).toBe('무엇을 만들었나');
+  });
+
+  it('reads a title inside a group and inside a placed card', () => {
+    expect(deckSlides(named({ stype: 'group' }))[0].name).toBe('무엇을 만들었나');
+    expect(
+      deckSlides(named({ stype: 'instance', attributes: { componentId: 'card' } }))[0].name
+    ).toBe('무엇을 만들었나');
+  });
+
+  it('does not go looking inside the words themselves', () => {
+    // A `textFrame`'s children are words, not boxes: a walk that went into them would be
+    // answering a question about writing with a list of shapes.
+    const inText = named({ stype: 'textFrame' });
+    expect(deckSlides(inText)[0].name).toBe('');
+  });
+});

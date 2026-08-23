@@ -603,6 +603,7 @@ export {
   agreedAttr,
   boxesInside,
   isSceneType,
+  isContainerType,
   slideAt,
   toSurface,
   fromSurface,
