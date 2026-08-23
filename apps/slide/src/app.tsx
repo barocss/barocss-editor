@@ -19,6 +19,7 @@ import {
 import {
   advanceShow,
   deckComponents,
+  deckDesigns,
   stageFit,
   scrollToStop,
   scrollStops,
@@ -135,6 +136,21 @@ export function App({
     if (!store || !rootId) return [];
     return deckComponents({ rootId, getNode: (sid: string) => store.getNode(sid) } as never);
   }, [editor, revision]);
+
+  /**
+   * What the deck **inherits from**: its layouts and its master.
+   *
+   * Openable for the same reason a component's definition is, and the argument is the one
+   * canvas-model §10c made when the first definition was opened: the same mechanism serves all
+   * three, and building it for components alone would be building it twice. Until now a reader
+   * could say which layout a slide *follows* and nothing could change what the layout was.
+   */
+  const designs = useMemo(() => {
+    const store = (editor as any)?.dataStore;
+    const rootId = (editor as any)?.getRootId?.();
+    if (!store || !rootId) return [];
+    return deckDesigns({ rootId, getNode: (sid: string) => store.getNode(sid) } as never);
+  }, [editor, revision]);
   /**
    * Follow the deck: the first slide to start, and never somewhere the reader is no longer.
    *
@@ -152,16 +168,23 @@ export function App({
     const here =
       !!current &&
       (slides.some((slide) => slide.sid === current) ||
-        components.some((one) => one.sid === current));
+        components.some((one) => one.sid === current) ||
+        designs.some((one) => one.sid === current));
     if (here) return;
     if (slides.length === 0) return setCurrent(undefined);
     setCurrent(slides[0].sid);
-  }, [slides, components, current]);
+  }, [slides, components, designs, current]);
 
-  /** The definition being edited, if the reader has opened one. */
+  /** The component's definition being edited, if the reader has opened one. */
   const editingComponent = useMemo(
     () => components.find((one) => one.sid === current),
     [components, current]
+  );
+
+  /** Or the layout, or the master — the same question with three answers. */
+  const editingDesign = useMemo(
+    () => designs.find((one) => one.sid === current),
+    [designs, current]
   );
   /**
    * And the selection goes with the surface.
@@ -179,15 +202,24 @@ export function App({
     void (editor as any)?.executeCommand?.('setNode', { nodeIds: [] });
   }, [editor]);
 
-  const openComponent = useCallback(
+  /**
+   * Open a definition — a component's, a layout, a master.
+   *
+   * One function, because "where to go back to" has one rule: the slide the reader was on when
+   * they left it, remembered at that moment rather than worked out on the way out (a deck they
+   * have since edited may not have the slide that was showing). Opening a *second* definition
+   * from inside the first must not overwrite it, which is what the guard says.
+   */
+  const openDefinition = useCallback(
     (sid: string) => {
-      setWasOn((was) => (components.some((one) => one.sid === current) ? was : current));
+      const inside = (one: { sid: string }) => one.sid === current;
+      setWasOn((was) => (components.some(inside) || designs.some(inside) ? was : current));
       setCurrent(sid);
       leaveSelection();
     },
-    [components, current, leaveSelection]
+    [components, designs, current, leaveSelection]
   );
-  const closeComponent = useCallback(() => {
+  const closeDefinition = useCallback(() => {
     setCurrent(wasOn ?? slides[0]?.sid);
     leaveSelection();
   }, [wasOn, slides, leaveSelection]);
@@ -1444,9 +1476,8 @@ export function App({
           editor={editor}
           open={componentsOpen}
           editing={editingComponent}
-          onOpen={openComponent}
+          onOpen={openDefinition}
           onClose={() => setComponentsOpen((was) => !was)}
-          onCloseDefinition={closeComponent}
           canMake={canMakeComponent}
           onMake={makeComponent}
           onPlace={placeComponent}
@@ -1454,6 +1485,50 @@ export function App({
         />
 
         <AppMain as="main" className="sl-main">
+          {/*
+            * Where the reader is, when it is not a slide — and the way back.
+            *
+            * Above the stage rather than in a panel, and that is the correction: the way out of
+            * a component's definition lived in the components panel, so opening a **layout**
+            * would have needed a second one somewhere else. What all three share is the
+            * sentence "you are not on a slide"; a reader who cannot see how to get back to
+            * their deck has been trapped by a feature, whichever kind of definition they
+            * opened.
+            */}
+          {(editingComponent || editingDesign) && !presenting && (
+            <div
+              className="sl-editing"
+              data-editing={editingComponent ? 'component' : editingDesign?.kind}
+              data-editing-id={editingComponent?.id ?? editingDesign?.id}
+              data-editing-sid={current}
+            >
+              <span>
+                {editingComponent
+                  ? `컴포넌트 편집 중: ${editingComponent.name || '이름 없음'}`
+                  : editingDesign?.kind === 'master'
+                    ? `마스터 편집 중: ${editingDesign.name || '이름 없음'}`
+                    : `레이아웃 편집 중: ${editingDesign?.name || '이름 없음'}`}
+              </span>
+              {/*
+                * And what the change reaches, said as a number: 스무 장 is a different decision
+                * from 한 장. A component's count is in its panel; a design's is here, because a
+                * layout is the one thing a reader edits *in order to* change other slides.
+                */}
+              {editingDesign && (
+                <span className="sl-editing-reach" data-editing-reach={editingDesign.slides}>
+                  {editingDesign.slides}장에 적용됩니다
+                </span>
+              )}
+              <Button
+                title="슬라이드로 돌아가기"
+                data={{ 'editing-close': '' }}
+                onClick={closeDefinition}
+              >
+                슬라이드로 돌아가기
+              </Button>
+            </div>
+          )}
+
           {/*
             * Across the top of the slide's own column, not the window.
             *
@@ -1678,6 +1753,8 @@ export function App({
         current={current}
         open={dialog === 'layout'}
         onClose={() => setDialog(null)}
+        /* The way into a layout or the master: the same opening a component's definition uses. */
+        onEdit={openDefinition}
       />
       {/*
         * The theme's own slots.

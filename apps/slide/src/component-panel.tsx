@@ -157,7 +157,6 @@ export function ComponentPanel({
   editing,
   onOpen,
   onClose,
-  onCloseDefinition,
   canMake,
   onMake,
   onPlace,
@@ -170,8 +169,6 @@ export function ComponentPanel({
   onOpen: (sid: string) => void;
   /** Close the panel. */
   onClose: () => void;
-  /** Leave the definition and go back to the deck. */
-  onCloseDefinition: () => void;
   /** Whether anything is selected to make a component out of. */
   canMake: boolean;
   onMake: () => void;
@@ -260,28 +257,13 @@ export function ComponentPanel({
       </div>
 
       {/*
-        * Where a reader is, and the way back.
+        * Where a reader is and the way back are **not here** any more.
         *
-        * Drawn only while a definition is open, because a way out of somewhere you are not is
-        * a control that means nothing.
+        * They were, and then a layout became something a reader could open — so the way out of
+        * a definition would have needed a second copy somewhere else, for a panel that may not
+        * even be open. What all three kinds share is the sentence "you are not on a slide", so
+        * it is drawn once above the stage (`sl-editing` in `app.tsx`).
         */}
-      {/*
-        * Named by the **durable id**, like the row is: a test and a reader are asking about the
-        * same component, and the sid is only where it happens to be in this session.
-        */}
-      {editing && (
-        <div
-          className="sl-components-editing"
-          data-editing-component={editing.id}
-          data-editing-sid={editing.sid}
-        >
-          <span>편집 중: {editing.name || '이름 없음'}</span>
-          {/* A real button, because it is the way out: the suite's, not this file's. */}
-          <Button title="슬라이드로 돌아가기" data={{ 'component-close': '' }} onClick={onCloseDefinition}>
-            슬라이드로 돌아가기
-          </Button>
-        </div>
-      )}
 
       {/* What this card can be asked for — declared here, bound on the parts themselves. */}
       {editing && <VarList editor={editor} definition={editing} />}

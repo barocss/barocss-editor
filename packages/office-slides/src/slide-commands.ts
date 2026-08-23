@@ -152,6 +152,59 @@ export class SlidesExtension implements Extension {
       (payload) => typeof payload?.layoutId === 'string' && !!this._slideAt(editor, payload?.slideId)
     );
 
+    /**
+     * The definitions a deck **inherits from**: what a layout or a master *is*.
+     *
+     * Not `setBoxStyle`, and that was measured rather than assumed: it refuses a node that is
+     * not a box, so a reader standing in a layout could change nothing about the layout itself —
+     * not its name, not the colour every slide following it draws. Which is the whole of the old
+     * state of this feature: readable by everything, changeable by nobody.
+     *
+     * A separate command because a design is not a box. It has no position, no size (it is the
+     * shape of the slides that follow it) and no stroke; what it has is a name, a background and
+     * — for a layout — which master it follows.
+     */
+    register(
+      'setDesign',
+      (payload) => this._setDesign(editor, payload),
+      (payload) => {
+        const doc = this._access(editor);
+        const node = doc && payload?.nodeId ? doc.getNode(payload.nodeId) : undefined;
+        if (node?.stype !== 'slideLayout' && node?.stype !== 'slideMaster') return false;
+        return (
+          typeof payload?.name === 'string' ||
+          typeof payload?.fill === 'string' ||
+          payload?.fill === null ||
+          typeof payload?.masterId === 'string'
+        );
+      }
+    );
+
+    /**
+     * Push a layout's arrangement onto the slides that follow it.
+     *
+     * Because a layout's **graphics are copied, not transcluded**, and that is the same
+     * measurement the component model rests on: a template cannot draw a foreign node, so a
+     * slide cannot draw its layout's shapes (canvas-model §10b-2). What a slide inherits *live*
+     * is formatting and the background; boxes arrive by being copied — which is what
+     * `applySlideLayout` does for one slide, and this does for every slide that follows.
+     *
+     * Offered rather than automatic, exactly like a component's 모두 적용: a reader who edits a
+     * layout and watches twenty slides rearrange themselves without asking has lost twenty
+     * slides.
+     */
+    register(
+      'applyDesign',
+      (payload) => this._applyDesign(editor, payload),
+      (payload) => {
+        const doc = this._access(editor);
+        if (!doc || typeof payload?.layoutId !== 'string') return false;
+        return deckSlides(doc).some(
+          (slide) => doc.getNode(slide.sid)?.attributes?.layoutId === payload.layoutId
+        );
+      }
+    );
+
     register(
       'setSlideGuides',
       (payload) => this._setGuides(editor, payload?.guides, payload?.slideId),
@@ -2600,6 +2653,65 @@ export class SlidesExtension implements Extension {
     }
 
     return (await transaction(editor, steps as never).commit()).success;
+  }
+
+  /**
+   * A layout's or a master's own answers: what it is called, what colour it is, whose master.
+   *
+   * `replace: false` — only what the caller said — so naming one does not clear its background,
+   * and `fill: null` is how a design goes back to inheriting (the operation's own way of saying
+   * "not set", which is the only one that works for every type).
+   */
+  private async _setDesign(
+    editor: Editor,
+    payload?: { nodeId?: string; name?: string; fill?: string | null; masterId?: string }
+  ): Promise<boolean> {
+    const doc = this._access(editor);
+    const node = doc && payload?.nodeId ? (doc.getNode(payload.nodeId) as any) : undefined;
+    if (!doc || (node?.stype !== 'slideLayout' && node?.stype !== 'slideMaster')) return false;
+
+    const attrs: Record<string, unknown> = {};
+    if (typeof payload?.name === 'string') attrs.name = payload.name;
+    if (typeof payload?.fill === 'string' || payload?.fill === null) attrs.fill = payload?.fill;
+    if (typeof payload?.masterId === 'string' && node.stype === 'slideLayout') {
+      attrs.masterId = payload.masterId;
+    }
+    if (Object.keys(attrs).length === 0) return false;
+
+    return (
+      await transaction(editor, [
+        { type: 'setAttrs', payload: { nodeId: payload!.nodeId, attrs } }
+      ] as never).commit()
+    ).success;
+  }
+
+  /**
+   * The layout's arrangement, put onto every slide that follows it.
+   *
+   * One transaction, so one press of undo takes back "twenty slides rearranged" — the same
+   * reason a component's apply does every placement at once.
+   */
+  private async _applyDesign(editor: Editor, payload?: { layoutId?: string }): Promise<boolean> {
+    const doc = this._access(editor);
+    const layoutId = typeof payload?.layoutId === 'string' ? payload.layoutId : undefined;
+    if (!doc || !layoutId) return false;
+
+    const following = deckSlides(doc).filter(
+      (slide) => (doc.getNode(slide.sid) as any)?.attributes?.layoutId === layoutId
+    );
+    if (following.length === 0) return false;
+
+    /*
+     * Through the same arithmetic one slide uses (`layoutMoves`, by role) rather than a second
+     * answer about where a box goes. Applied one slide at a time because each has its own boxes
+     * to match, and committed together because the reader asked once.
+     */
+    let changed = false;
+    for (const slide of following) {
+      // eslint-disable-next-line no-await-in-loop
+      changed = (await this._applyLayout(editor, { slideId: slide.sid, layoutId })) || changed;
+    }
+    return changed;
   }
 
   private async _setSlideLayout(

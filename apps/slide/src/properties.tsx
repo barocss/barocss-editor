@@ -51,6 +51,7 @@ import {
   transitionOf,
   componentOf,
   componentStale,
+  deckDesigns,
   placementFills,
   definitionAt,
   deckComponents,
@@ -246,6 +247,25 @@ export function Properties({
   }, [editor, tick]);
 
   const here = useMemo(() => slides.find((slide) => slide.sid === current), [slides, current]);
+
+  /**
+   * Or the **design** they are standing in: a layout, or the master.
+   *
+   * The same "what am I on" question, and the answer a reader could never act on: nothing has
+   * ever changed what a layout *is*. `deckDesigns` is the model's list, so this reads the name,
+   * the background and how many slides a change reaches from the one place that derives them.
+   */
+  const design = useMemo(() => {
+    const store = (editor as any)?.dataStore;
+    const rootId = (editor as any)?.getRootId?.();
+    if (!store || !rootId || !current) return undefined;
+    const node = store.getNode(current);
+    if (node?.stype !== 'slideLayout' && node?.stype !== 'slideMaster') return undefined;
+    const doc = { rootId, getNode: (sid: string) => store.getNode(sid) };
+    const found = deckDesigns(doc as never).find((one) => one.sid === current);
+    if (!found) return undefined;
+    return { ...found, fill: node.attributes?.fill };
+  }, [editor, current, tick]);
 
   /**
    * The **definition** the reader is standing in, when they are not standing on a slide.
@@ -1438,6 +1458,69 @@ export function Properties({
             />
           )}
         </>
+      ) : design ? (
+        /*
+         * A **layout** or the **master**, with nothing selected in it: the thing the deck
+         * inherits from. Where a slide's group would be, because it is the same question — what
+         * am I standing on — and until now this had no third answer, which is exactly the state
+         * the feature was in: readable by everything, changeable by nobody.
+         */
+        <PropertyGroup
+          label={design.kind === 'master' ? `마스터 · ${design.name || design.id}` : `레이아웃 · ${design.name || design.id}`}
+        >
+          <PropertyRow label="이름">
+            <TextField
+              ariaLabel="정의 이름"
+              value={design.name}
+              onCommit={(name) =>
+                void (editor as any)?.executeCommand?.('setDesign', { nodeId: design.sid, name })
+              }
+            />
+          </PropertyRow>
+          <PropertyRow label="배경">
+            {/*
+              * The colour every slide that follows it draws — which is the one thing a layout
+              * has always been able to give a slide *live* (`backgroundOf` reads the chain:
+              * the slide's own, then its layout's, then the master's).
+              */}
+            <ColorField
+              ariaLabel="정의 배경"
+              value={typeof design.fill === 'string' ? design.fill : null}
+              themeSwatches={themeSwatches}
+              onChange={(fill) =>
+                void (editor as any)?.executeCommand?.('setDesign', { nodeId: design.sid, fill })
+              }
+              onClear={() =>
+                void (editor as any)?.executeCommand?.('setDesign', { nodeId: design.sid, fill: null })
+              }
+            />
+          </PropertyRow>
+          <PropertyRow label="따르는 장">
+            <span className="text-neutral-500" data-design-reach={design.slides}>
+              {design.slides}장
+            </span>
+            {/*
+              * And the way to push this layout's arrangement onto them.
+              *
+              * Because a layout's **graphics are copied, not transcluded**: a template cannot
+              * draw a foreign node (canvas-model §10b-2), so a slide draws its layout's
+              * formatting and background live and its *boxes* never. Offered rather than
+              * automatic, like a component's 모두 적용 — a reader who edits a layout and watches
+              * twenty slides rearrange without asking has lost twenty slides.
+              */}
+            {design.kind === 'layout' && design.slides > 0 && (
+              <Button
+                title="이 레이아웃을 따르는 장들의 상자를 각자의 자리로 옮깁니다"
+                data={{ 'design-apply': design.id }}
+                onClick={() =>
+                  void (editor as any)?.executeCommand?.('applyDesign', { layoutId: design.id })
+                }
+              >
+                따르는 장에 적용
+              </Button>
+            )}
+          </PropertyRow>
+        </PropertyGroup>
       ) : definition ? (
         /*
          * A **definition** with nothing selected in it: the card itself.

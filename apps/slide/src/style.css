@@ -2184,7 +2184,14 @@ body {
   every mapping from a DOM position back to the model goes through that. The stage shows
   the one that is focused (see the inline rule it writes), and this is what that shows.
 */
-.sl-def-component {
+/*
+  Every definition a reader can open looks the same while they are in it: a page in the middle of
+  the stage. A component's card, a layout and a master — three things, one appearance, because
+  what a reader is doing in all three is the same thing.
+*/
+.sl-def-component,
+.sl-def-layout,
+.sl-def-master {
   position: relative;
   margin: 0 auto;
   background: #ffffff;
@@ -2313,6 +2320,33 @@ body {
   display: flex;
   gap: 4px;
   padding: 0 8px 6px;
+}
+
+/*
+ * Where the reader is, when it is not a slide.
+ *
+ * Above the stage and across it, because it is not about any one panel: a component's
+ * definition, a layout and a master are three things a reader can be standing in, and all three
+ * need the same sentence and the same way out. It was in the components panel, which would have
+ * meant a second copy the day a layout became openable — and a panel that may not be open.
+ */
+.sl-editing {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 11px;
+  background: color-mix(in srgb, var(--sl-accent, #2563eb) 12%, transparent);
+  border-bottom: 1px solid var(--sl-line);
+}
+
+/* What the change reaches, quiet beside what is being changed. */
+.sl-editing-reach {
+  color: var(--sl-faint, #a3a3a3);
+}
+
+.sl-editing button {
+  margin-left: auto;
 }
 
 /*

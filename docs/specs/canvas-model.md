@@ -1546,6 +1546,34 @@ opened.
    every deck, the slide re-fitted, and the ruler test found the misalignment. It draws nothing
    at all when there are no components.
 
+#### 10c-2. And then it was built for the other two
+
+The paragraph above says the argument settles it because a master and a layout need the same
+mechanism. They have it now, and building it for them found two things a component's definition
+had hidden:
+
+- **A master was drawn by nothing.** `slideMaster` had no renderer, and neither did `theme` —
+  so a master's placeholders were read by the formatting cascade and could be clicked by nobody,
+  which is the sentence beside `slideLayout` biting: *a node with no element has no place in the
+  sid map.* The conformance harness could not see it either (`every-node-is-drawn` walks what a
+  canvas can hold, and a resource is reachable only through `resources`) — a known blind spot in
+  the backlog, and this is the second thing it hid.
+- **A layout has no size of its own.** It is the shape of the slides that follow it, so the fit
+  comes from `stageFit` and arrives in the stage's generated rule. A renderer resolving the
+  deck's size through the environment would have put a foreign read in the one place this design
+  keeps plain.
+
+And one thing a reader can now do that no command allowed: **change what a layout is.**
+`setBoxStyle` refuses a node that is not a box, so a layout's name and the background every slide
+following it draws were unreachable. `setDesign` is that, in the panel of the thing the reader is
+standing in.
+
+**A layout's graphics are copied, not transcluded**, and it is the components' measurement again:
+a template cannot draw a foreign node (§10b-2), so a slide draws its layout's *formatting* and
+*background* live and its boxes never. `applyDesign` puts the arrangement onto every slide that
+follows — offered rather than automatic, because a reader who edits a layout and watches twenty
+slides rearrange themselves without asking has lost twenty slides.
+
 #### One state, one meaning
 
 `current` becomes **the surface the reader is on**: a slide, or a definition being edited.

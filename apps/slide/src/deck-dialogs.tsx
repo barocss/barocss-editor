@@ -13,6 +13,7 @@ import { WORD_FONTS } from '@barocss/office-word';
 import {
   CUSTOM_THEME,
   DECK_TEMPLATES,
+  deckDesigns,
   DECK_THEMES,
   SLIDE_16_9,
   SLIDE_4_3,
@@ -23,6 +24,7 @@ import {
   templateSketch,
   themeNow,
   twipToPx,
+  type DeckDesign,
   type Slide,
   type ThemeColourSlot
 } from '@barocss/office-slides';
@@ -149,36 +151,43 @@ export function SlideLayoutDialog({
   editor,
   current,
   open,
-  onClose
+  onClose,
+  onEdit
 }: {
   editor: Editor | null;
   current?: string;
   open: boolean;
   onClose: () => void;
+  /**
+   * Open a design for editing — the app's job, because *where the reader is* is app state.
+   *
+   * A dialog that set it itself would be a second place that decides which surface is being
+   * worked on, and that variable has already cost this product one measured fault (a reader
+   * bounced back to slide 1, canvas-model §10c).
+   */
+  onEdit?: (sid: string) => void;
 }) {
-  /** Every layout the deck defines, read from `resources`. */
-  const layouts = useMemo(() => {
+  /**
+   * The deck's designs, from the model.
+   *
+   * This walked `resources` itself and built its own list, while `resourceById` walked it again
+   * to answer one question and the properties panel asked a third way. `deckDesigns` is the one
+   * answer — and it carries what this dialog now needs beyond a label: where each design *is*,
+   * so it can be opened, and how many slides a change to it would reach.
+   */
+  const designs = useMemo(() => {
     const store = (editor as any)?.dataStore;
     const rootId = (editor as any)?.getRootId?.();
-    if (!store || !rootId) return [] as { id: string; label: string }[];
-
-    const root = store.getNode(rootId);
-    const found: { id: string; label: string }[] = [];
-
-    for (const sid of (root?.content ?? []) as string[]) {
-      const node = store.getNode(sid);
-      if (node?.stype !== 'resources') continue;
-      for (const child of (node.content ?? []) as string[]) {
-        const layout = store.getNode(child);
-        if (layout?.stype !== 'slideLayout') continue;
-        const id = layout.attributes?.id;
-        if (typeof id === 'string') {
-          found.push({ id, label: String(layout.attributes?.name ?? id) });
-        }
-      }
-    }
-    return found;
+    if (!store || !rootId) return [] as DeckDesign[];
+    return deckDesigns({ rootId, getNode: (sid: string) => store.getNode(sid) } as never);
+    // `open` is in here because a dialog that is closed is not re-rendered for a document
+    // change, and its list has to be right the moment it opens.
   }, [editor, open]);
+
+  const layouts = useMemo(
+    () => designs.filter((one) => one.kind === 'layout').map((one) => ({ id: one.id, label: one.name || one.id })),
+    [designs]
+  );
 
   const following = useMemo(() => {
     const store = (editor as any)?.dataStore;
@@ -258,6 +267,34 @@ export function SlideLayoutDialog({
             value={chosen}
             onChange={setChosen}
           />
+        </PropertyRow>
+      )}
+
+      {/*
+        * And the way **in**.
+        *
+        * Here rather than in a panel of its own, because this dialog is already where a reader
+        * thinks about layouts: two of its buttons say what a slide should *follow*, and this one
+        * says what the thing being followed **is**. Until now nothing said that at all — a deck
+        * could point every slide at "Title and content" and no reader could change what that
+        * looked like.
+        */}
+      {onEdit && (
+        <PropertyRow label="정의 편집">
+          <span className="flex flex-wrap items-center gap-1">
+            {designs.map((design) => (
+              <DialogButton
+                key={design.sid}
+                data-design-edit={design.id}
+                onClick={() => {
+                  onEdit(design.sid);
+                  onClose();
+                }}
+              >
+                {design.kind === 'master' ? `마스터: ${design.name || design.id}` : design.name || design.id}
+              </DialogButton>
+            ))}
+          </span>
         </PropertyRow>
       )}
     </Dialog>

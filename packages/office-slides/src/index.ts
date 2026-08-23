@@ -277,8 +277,10 @@ export {
   inheritedFormat,
   backgroundOf,
   masterOf,
+  deckDesigns,
   placeholderChainFor,
   placeholderFor,
+  type DeckDesign,
   withLayouts,
   createDeckEnv,
   type DeckFormatScope

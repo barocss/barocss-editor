@@ -3,7 +3,13 @@ import { DataStore } from '@barocss/datastore';
 import { createSchema } from '@barocss/schema';
 import { createSlidesEditor } from '../src/slides-kit';
 import { getSlidesSchemaDefinition } from '../src/slides-schema';
-import { createDeckEnv, placeholderFor, resolveDeckFormat, type DeckAccess } from '../src/index';
+import {
+  createDeckEnv,
+  deckDesigns,
+  placeholderFor,
+  resolveDeckFormat,
+  type DeckAccess
+} from '../src/index';
 
 /**
  * A slide's formatting, resolved through its layout.
@@ -300,5 +306,71 @@ describe('the layout, inside Word’s cascade', () => {
     // The frame itself is not a block the cascade formats; what matters is that
     // asking does not invent a size.
     expect(styles.resolveNodeWith(loose, 'character', []).fontSize).toBeUndefined();
+  });
+});
+
+/**
+ * What a deck's **design** is made of — and the reason it is a list at all.
+ *
+ * `applySlideLayout` and `setSlideLayout` say which layout a slide *follows*; nothing has ever
+ * changed what a layout **is**. The definitions a deck inherits from were readable by
+ * everything and changeable by nobody, and opening one needs three things this answers: a list
+ * to open from, a name to put on it, and how many slides a change will reach.
+ *
+ * It also replaces two inline walks — the layout dialog built its own list and `resourceById`
+ * walked `resources` again — which is the duplication this repository keeps finding.
+ */
+describe('the deck’s design', () => {
+  const deck = (): DeckAccess => {
+    const nodes: Record<string, any> = {
+      doc: { stype: 'document', content: ['s1', 's2', 's3', 'res'] },
+      s1: { sid: 's1', stype: 'surface', attributes: { kind: 'slide', layoutId: 'title' } },
+      s2: { sid: 's2', stype: 'surface', attributes: { kind: 'slide', layoutId: 'body' } },
+      s3: { sid: 's3', stype: 'surface', attributes: { kind: 'slide', layoutId: 'body' } },
+      res: { sid: 'res', stype: 'resources', content: ['m1', 'l1', 'l2', 'theme'] },
+      m1: { sid: 'm1', stype: 'slideMaster', attributes: { id: 'master-1', name: 'Office' } },
+      l1: {
+        sid: 'l1',
+        stype: 'slideLayout',
+        attributes: { id: 'title', name: 'Title slide', masterId: 'master-1' }
+      },
+      l2: {
+        sid: 'l2',
+        stype: 'slideLayout',
+        attributes: { id: 'body', name: 'Title and content', masterId: 'master-1' }
+      },
+      theme: { sid: 'theme', stype: 'theme', attributes: { id: 'theme-1', name: 'Office' } }
+    };
+    return { rootId: 'doc', getNode: (sid) => nodes[sid] };
+  };
+
+  it('lists the layouts and the masters, and nothing else', () => {
+    expect(deckDesigns(deck()).map((one) => [one.kind, one.id])).toEqual([
+      ['master', 'master-1'],
+      ['layout', 'title'],
+      ['layout', 'body']
+    ]);
+  });
+
+  it('counts what a change to each would reach', () => {
+    const found = deckDesigns(deck());
+    // A layout: the slides that follow it. A master: the slides of every layout that follows
+    // *it*, because that is what a reader is about to change.
+    expect(found.find((one) => one.id === 'body')?.slides).toBe(2);
+    expect(found.find((one) => one.id === 'title')?.slides).toBe(1);
+    expect(found.find((one) => one.id === 'master-1')?.slides).toBe(3);
+  });
+
+  it('is not a design without an id, because no slide could follow it', () => {
+    const nameless: DeckAccess = {
+      rootId: 'doc',
+      getNode: (sid) =>
+        (({
+          doc: { stype: 'document', content: ['res'] },
+          res: { sid: 'res', stype: 'resources', content: ['l'] },
+          l: { sid: 'l', stype: 'slideLayout', attributes: { name: 'Nameless' } }
+        }) as never)[sid]
+    };
+    expect(deckDesigns(nameless)).toEqual([]);
   });
 });

@@ -1315,6 +1315,46 @@ export function registerSlidesRenderers(): void {
   );
 
   /**
+   * A **master**, drawn the same way — and it was drawn by nothing at all.
+   *
+   * Measured while opening one for editing: `slideMaster` had no renderer, and neither did
+   * `theme`. Which is the sentence beside `slideLayout` biting: *a node with no element has no
+   * place in the sid map, and every mapping from a DOM position back to the model goes through
+   * that.* So a master's placeholders could be read by the formatting cascade and could not be
+   * clicked, moved or typed in — there was nothing on the page to point at.
+   *
+   * The conformance harness could not see it either, which is a known blind spot rather than a
+   * surprise: `every-node-is-drawn` walks what a *canvas* can hold, and a resource is reachable
+   * only through `resources`. It is in `docs/BACKLOG.md`, and this is the second thing it hid.
+   */
+  define(
+    'slideMaster',
+    element('div', { className: 'sl-def sl-def-master', style: { display: 'none' } }, [
+      slot('content')
+    ])
+  );
+
+  /**
+   * And the **theme**, which has nothing to draw and still has to be drawn.
+   *
+   * Its whole content is attributes — twelve colours and two fonts — so this is an empty hidden
+   * span, exactly like a component's variable. Not for the reader: for the sid map, so a theme
+   * is a node the product can point at, and so the harness has something to ask about instead of
+   * a hole it cannot see.
+   */
+  define(
+    'theme',
+    element('span', {
+      className: 'sl-def sl-def-theme',
+      style: { display: 'none' },
+      'data-theme-id': (d: NodeData) =>
+        typeof attrsOf(d).id === 'string' ? attrsOf(d).id : undefined,
+      'data-theme-name': (d: NodeData) =>
+        typeof attrsOf(d).name === 'string' ? attrsOf(d).name : undefined
+    } as never)
+  );
+
+  /**
    * The **library**: where the definitions live.
    *
    * A container beside `resources` rather than inside it, and the reason is right here in the

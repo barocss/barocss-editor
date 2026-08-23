@@ -1583,7 +1583,31 @@ export function Stage({
            * becomes a child of the stage, exactly like the slide it replaces.
            */
           `.sl-stage[data-focus="${focus}"] .sl-library { display: contents !important; }` +
-          `.sl-stage[data-focus="${focus}"] .sl-def-component[data-bc-sid="${focus}"] { display: block !important; }`
+          /*
+           * And `resources`, for a **layout** or a **master** — which live there with the theme
+           * and the notes, and are the two things a deck inherits from that nothing could ever
+           * change. Same `display: contents`, same reason: no box, so the ruler stays where it
+           * was.
+           */
+          `.sl-stage[data-focus="${focus}"] .w-resources { display: contents !important; }` +
+          /*
+           * Any definition, by sid — not the component's class.
+           *
+           * A layout and a master are drawn by the same rule as a component's definition now,
+           * and naming one class was how this file would have grown a third copy of it. What is
+           * shared is "a definition the reader has opened"; what differs is nothing.
+           */
+          `.sl-stage[data-focus="${focus}"] .sl-def[data-bc-sid="${focus}"] { display: block !important;` +
+          /*
+           * With the size the app measured, because a layout has none of its own.
+           *
+           * A slide and a component carry a width and a height; a layout and a master are the
+           * *shape of the slides that follow them* (`stageFit`), and their renderer cannot know
+           * that without reading the document. So the size arrives here, where it is already
+           * known — and the alternative, a renderer resolving the deck's size through the
+           * environment, would put a foreign read in the one place this design keeps plain.
+           */
+          ` width: ${twipToPx(fitTo.width)}px; height: ${twipToPx(fitTo.height)}px; }`
         }</style>
       )}
 

@@ -196,12 +196,26 @@ export function isSlideSurface(node: DeckNode | undefined): node is DeckNode {
 export function editableSurface(doc: DeckAccess, sid?: string): string | undefined {
   if (sid) {
     const node = doc.getNode(sid);
-    // A slide, or a component's **definition** — which is a resource rather than a page, and
-    // is exactly the thing a reader opens in order to put shapes in it.
-    return node?.stype === 'surface' || node?.stype === 'component' ? sid : undefined;
+    return EDITABLE.has(node?.stype ?? '') ? sid : undefined;
   }
   return deckSlides(doc)[0]?.sid;
 }
+
+/**
+ * What a reader can open and put shapes in.
+ *
+ * A slide, a component's **definition**, and — since this list existed at all — a **layout** and
+ * a **master**. The argument for the last two was written when the first definition was opened
+ * (canvas-model §10c) and is worth repeating because it is the whole reason this is a set rather
+ * than a comparison: *the same mechanism a definition needs is what a master and a layout need,
+ * and neither had ever been editable in this product.* A deck could say which layout a slide
+ * follows and nothing could change what the layout **was** — readable by everything, changeable
+ * by nobody.
+ *
+ * A `theme` is deliberately not here: it is a set of colours and two fonts, edited in a dialog
+ * because there is nothing on a canvas to point at.
+ */
+const EDITABLE = new Set(['surface', 'component', 'slideLayout', 'slideMaster']);
 
 /**
  * The box the stage has to fit, and the length its rulers measure.
@@ -235,6 +249,12 @@ export function stageFit(doc: DeckAccess, focus?: string): { width: number; heig
      * `slideSize` reads `width`/`height` with the 16:9 fallback, and a definition declares
      * exactly those two attributes — so the same function answers for both rather than a
      * second copy of the fallback living here.
+     */
+    /*
+     * A slide and a definition carry their own size. A **layout** and a **master** do not: they
+     * are the shape of the slides that follow them, so `slideSize` would hand them the 16:9
+     * fallback and a 4:3 deck would edit its layouts at the wrong shape. The deck's own answer
+     * is below, which is what they fall through to.
      */
     if (node?.stype === 'surface' || node?.stype === 'component') return slideSize(node.attributes);
   }

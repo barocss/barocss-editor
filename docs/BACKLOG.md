@@ -488,6 +488,22 @@ shipped features marked undone.
   the answer for anything built out of frames, which is the recommended shape for a resizable
   card.
 
+- [x] **The definitions a deck inherits from are editable.** A layout and the master open the
+  way a component's definition does — the mechanism §10c said would serve all three — with their
+  own panel group (name, background, how many slides a change reaches) and 따르는 장에 적용.
+  Three measurements came out of it: `slideMaster` and `theme` were **drawn by nothing**, so a
+  master's placeholders could be read and clicked by nobody; a layout has **no size of its own**
+  (it is the shape of the slides that follow it, so the fit arrives from `stageFit`); and
+  `setBoxStyle` refuses a node that is not a box, which is why nothing could ever change what a
+  layout *was*.
+
+- [ ] **A layout's own graphics do not appear on the slides that follow it.** Measured: a
+  rectangle added to a layout draws on no slide. Which is the components' rule in a second place
+  — a template cannot draw a foreign node — so the honest options are what `applyDesign` does
+  (copy the arrangement when asked) or a real transclusion, and the second one has the hazard
+  written up in §10b-2: everything that walks the tree, including the save, would see children
+  that are not in the document. PowerPoint draws master graphics live; this does not, and says so.
+
 **Still open and not in a phase**
 
 - [ ] **Per-level formatting** for a body placeholder: PowerPoint formats by

@@ -232,6 +232,17 @@ describe('Slides draws what its schema declares', () => {
         bindComponentPart:
           'the properties panel — a part’s 컴포넌트 부품 group, while the reader is inside a definition: which variable its words, its colour or its presence take, and whether a frame is the slot. Two panels because they are two questions, and the reader has selected a different thing in each',
 
+        // ── The definitions a deck inherits from ───────────────────────────
+        /**
+         * `applySlideLayout` and `setSlideLayout` have always said what a slide *follows*, and
+         * nothing said what a layout **is**. These two are that, reached from where a reader is
+         * standing when they have opened one.
+         */
+        setDesign:
+          'the properties panel — a layout’s or the master’s own group, drawn while the reader is standing in one: its name and the background every slide that follows it draws. Not `setBoxStyle`, which refuses a node that is not a box — measured, and it was the whole of the old state of this feature',
+        applyDesign:
+          'the properties panel — 따르는 장에 적용 in that group. Offered rather than automatic, because a layout’s **graphics are copied, not transcluded** (a template cannot draw a foreign node, canvas-model §10b-2): a slide draws its layout’s formatting and background live and its boxes never, so moving them is a thing a reader asks for',
+
         setSlideGuides:
           'the rulers — a guide is pulled out of one, dragged along the slide, and thrown away by being dragged off it',
 

@@ -104,6 +104,100 @@ function resourceById(doc: DeckAccess, stype: string, id: string): DeckNode | un
 }
 
 /**
+ * What a deck's **design** is made of: its layouts and its masters.
+ *
+ * ## Why this is a model and not two inline walks
+ *
+ * It was two. The layout dialog walked `resources` itself to build its list, `resourceById`
+ * walked it again to answer one question, and the properties panel asked a third way. A deck's
+ * design is one question — *what does this deck inherit from* — and the answer belongs where
+ * both a dialog and a panel can read it, in one shape, tested in milliseconds.
+ *
+ * ## And why it now needs to exist
+ *
+ * Because a reader can open one. `applySlideLayout` and `setSlideLayout` say which layout a
+ * slide *follows*; nothing has ever changed what a layout **is** — the definitions a deck
+ * inherits from were readable by everything and changeable by nobody. Editing one needs a list
+ * to open from, a name to put on it, and the count of what a change will reach.
+ */
+export interface DeckDesign {
+  /** The durable id a slide names, and a layout names its master with. */
+  id: string;
+  /** Where it is in this session, which is what an editing surface is opened by. */
+  sid: string;
+  name: string;
+  kind: 'layout' | 'master';
+  /** For a layout: the master it follows, when it follows one. */
+  masterId?: string;
+  /**
+   * How many slides a change to it reaches.
+   *
+   * Counted rather than recorded: a layout does not know who follows it, and a number kept on
+   * it would be derived state in the document — the fault this repository keeps finding. For a
+   * master it is the slides of every layout that follows it, because that is what a reader is
+   * about to change.
+   */
+  slides: number;
+}
+
+/** The deck's layouts and masters, in document order. */
+export function deckDesigns(doc: DeckAccess): DeckDesign[] {
+  const root = doc.getNode(doc.rootId);
+  const found: DeckDesign[] = [];
+  const followers = new Map<string, number>();
+
+  for (const sid of childrenOf(root)) {
+    const node = doc.getNode(sid);
+    if (node?.stype !== 'surface') continue;
+    const layoutId = node.attributes?.layoutId;
+    if (typeof layoutId !== 'string' || layoutId.length === 0) continue;
+    followers.set(layoutId, (followers.get(layoutId) ?? 0) + 1);
+  }
+
+  for (const sid of childrenOf(root)) {
+    const node = doc.getNode(sid);
+    if (node?.stype !== 'resources') continue;
+
+    for (const child of childrenOf(node)) {
+      const resource = doc.getNode(child);
+      const kind =
+        resource?.stype === 'slideLayout'
+          ? 'layout'
+          : resource?.stype === 'slideMaster'
+            ? 'master'
+            : undefined;
+      if (!kind) continue;
+
+      const id = resource?.attributes?.id;
+      // A design nothing can name is one no slide could follow, so it is not one.
+      if (typeof id !== 'string' || id.length === 0) continue;
+      const masterId = resource?.attributes?.masterId;
+
+      found.push({
+        id,
+        sid: child,
+        name: typeof resource?.attributes?.name === 'string' ? resource.attributes.name : '',
+        kind,
+        ...(typeof masterId === 'string' && masterId.length > 0 ? { masterId } : {}),
+        slides: 0
+      });
+    }
+  }
+
+  return found.map((design) =>
+    design.kind === 'layout'
+      ? { ...design, slides: followers.get(design.id) ?? 0 }
+      : {
+          ...design,
+          // A master's reach is every slide of every layout that follows it.
+          slides: found
+            .filter((one) => one.kind === 'layout' && one.masterId === design.id)
+            .reduce((total, one) => total + (followers.get(one.id) ?? 0), 0)
+        }
+  );
+}
+
+/**
  * The master a layout follows, if it follows one.
  *
  * By id, like every other binding in this deck: a layout is written before its

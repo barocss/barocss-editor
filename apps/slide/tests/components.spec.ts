@@ -176,9 +176,15 @@ test.describe('a component’s definition', () => {
     await row(page, 'card').click();
     await page.waitForTimeout(400);
 
-    // A reader who opens a definition and cannot see how to get back has been trapped.
-    await expect(page.locator('[data-editing-component="card"]')).toHaveCount(1);
-    await page.locator('[data-component-close]').click();
+    /*
+     * A reader who opens a definition and cannot see how to get back has been trapped.
+     *
+     * Above the stage rather than in the components panel, which is where it used to be: a
+     * layout and a master are openable now, and all three need the same sentence and the same
+     * way out — so there is one banner, saying which kind it is.
+     */
+    await expect(page.locator('[data-editing="component"][data-editing-id="card"]')).toHaveCount(1);
+    await page.locator('[data-editing-close]').click();
     await page.waitForTimeout(400);
 
     // The slide they were on, remembered from the moment they left it.
@@ -542,7 +548,7 @@ test.describe('declaring what a card takes', () => {
     ).toBe('heading');
 
     // Back to the deck, and ask the placement for its value.
-    await page.locator('[data-component-close]').click();
+    await page.locator('[data-editing-close]').click();
     await page.waitForTimeout(500);
     const placement = await page.evaluate(() => {
       const editor = (window as any).editor;
