@@ -155,6 +155,15 @@ export interface LayerRow {
    * sit in different groups.
    */
   depth: number;
+  /**
+   * The definition part this row came from, when it is inside a **placement**.
+   *
+   * So the list can say where a row comes from: a card's parts are real boxes a reader may
+   * edit, and they are also the definition's — "the badge, from the card" is a different thing
+   * to be looking at from "the badge I drew". Absent for a reader's own box, including one they
+   * added inside a placement's slot, which is exactly the distinction apply makes.
+   */
+  partOf?: string;
 }
 
 /**
@@ -180,6 +189,7 @@ export function layerRows(
     const node = doc.getNode(sid);
     if (!node) return;
 
+    const partOf = node.attributes?.partOf;
     rows.push({
       sid,
       label: labelOfBox(doc, sid),
@@ -188,7 +198,8 @@ export function layerRows(
       locked: node.attributes?.locked === true,
       motion: where.animated?.has(sid) === true,
       selected: chosen.has(sid),
-      depth
+      depth,
+      ...(typeof partOf === 'string' && partOf.length > 0 ? { partOf } : {})
     });
 
     /**
@@ -198,8 +209,24 @@ export function layerRows(
      * in document order here and come out under their parent with their own front
      * on top — the same rule at every level, applied once.
      */
-    if (node.stype === 'group' || node.stype === 'frame') {
-      for (const child of childrenOf(node)) walk(child, depth + 1);
+    /**
+     * Into a group, a frame — and a **placement**.
+     *
+     * A placement was left out and it was the one container a reader could not get into from
+     * here: a card's badge is a real box, covered by nothing and reachable only by clicking
+     * exactly on it. Which is the whole reason this list exists (picking what is underneath),
+     * so leaving out the container that holds five boxes was leaving out the case.
+     *
+     * A placement's `componentValue` children are skipped, because they are not boxes: they are
+     * what the card was *asked for*, and "값" is not a name a reader could tell one row from
+     * another with. The conformance exemption for `componentValue` says exactly that, and this
+     * is the code that keeps it true.
+     */
+    if (node.stype === 'group' || node.stype === 'frame' || node.stype === 'instance') {
+      for (const child of childrenOf(node)) {
+        if (doc.getNode(child)?.stype === 'componentValue') continue;
+        walk(child, depth + 1);
+      }
     }
   };
 

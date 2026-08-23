@@ -682,3 +682,63 @@ test.describe('how big a card is', () => {
     expect(sizes.placement).toBe(sizes.card);
   });
 });
+
+/**
+ * A card's parts in the layer list — the only way to reach one that is covered.
+ *
+ * The list descended into a group and a frame and stopped at a placement, so a card's badge was
+ * reachable by clicking exactly on it and by nothing else. Picking what is underneath is the
+ * whole reason the list exists (`layers.ts`), so leaving out the container that holds five boxes
+ * left out the case.
+ */
+test.describe('a card in the layer list', () => {
+  test('lists the parts, marks where they came from, and takes the reader to one', async ({
+    page
+  }) => {
+    await openDeck(page);
+
+    // The card slide, and the layer pane open on it.
+    const slide = await page.evaluate(() => {
+      const editor = (window as any).editor;
+      const store = editor.dataStore;
+      const root = store.getNode(editor.getRootId());
+      return ((root.content ?? []) as string[]).find((one: string) => {
+        const node = store.getNode(one);
+        return (
+          node?.stype === 'surface' &&
+          ((node.content ?? []) as string[]).some(
+            (child: string) => store.getNode(child)?.stype === 'instance'
+          )
+        );
+      });
+    });
+    await page.locator(`.sl-filmstrip button[data-slide="${slide}"]`).click();
+    await page.waitForTimeout(400);
+    await page.locator('.sl-layers-closed').click();
+    await expect(page.locator('.sl-layers')).toHaveCount(1);
+    await page.waitForTimeout(400);
+
+    // Rows that came from the card say so, and there are as many as the card has parts.
+    const parts = page.locator('.sl-layers-list li[data-layer-part]');
+    await expect(parts.first()).toBeVisible();
+    expect(await parts.count()).toBeGreaterThanOrEqual(5);
+
+    // And a value the card was asked for is not a row: "값" is not a name to tell rows by.
+    const labels = await page.evaluate(() =>
+      [...document.querySelectorAll('.sl-layers-list .sl-layer-name')].map((n) => n.textContent)
+    );
+    expect(labels).not.toContain('값');
+
+    // Pressing one selects that part — which is what the list is for: the badge inside a card
+    // is covered by nothing a click can pass through.
+    const badge = page.locator('.sl-layers-list li[data-layer-part="badge"] [data-layer-pick]').first();
+    await badge.click();
+    await page.waitForTimeout(400);
+    const picked = await page.evaluate(() => {
+      const editor = (window as any).editor;
+      const sid = editor.selection?.nodeIds?.[0];
+      return sid ? editor.dataStore.getNode(sid)?.attributes?.partOf : null;
+    });
+    expect(picked).toBe('badge');
+  });
+});

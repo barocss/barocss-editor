@@ -2316,6 +2316,17 @@ body {
 }
 
 /*
+ * A row that came from a card, marked and not named.
+ *
+ * The name is what a reader scans for, so "◇" sits where the motion dot does: quiet, in the
+ * gutter, and with a label for anyone reading the list rather than looking at it.
+ */
+.sl-layer-from {
+  font-size: 9px;
+  color: var(--sl-faint, #a3a3a3);
+}
+
+/*
  * What a definition can be asked for, while it is open.
  *
  * A dense list, because it is a list of *declarations* and a reader reads down it: the name, a

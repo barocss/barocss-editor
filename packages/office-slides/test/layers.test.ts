@@ -194,3 +194,63 @@ describe('a row dropped at a place in the list', () => {
     expect(positionFromRow(0, 0)).toBe(0);
   });
 });
+
+/**
+ * A **placement's** parts are rows too.
+ *
+ * The list descended into a group and a frame and stopped at a placement — which is the one
+ * container a reader could not get into from here. A card's badge is a real box: covered by
+ * nothing that would let a click through, reachable only by hitting exactly it. Picking what is
+ * underneath is the whole reason this list exists, so leaving out the container that holds five
+ * boxes was leaving out the case.
+ */
+describe('what is inside a placement', () => {
+  const deck = (): DeckAccess => {
+    const nodes: Record<string, DeckNode> = {
+      slide: { sid: 'slide', stype: 'surface', attributes: {}, content: ['card', 'note'] },
+      card: {
+        sid: 'card',
+        stype: 'instance',
+        attributes: { componentId: 'metric' },
+        content: ['said', 'back', 'badge', 'items']
+      },
+      said: { sid: 'said', stype: 'componentValue', attributes: { name: 'title', value: '매출' } },
+      back: { sid: 'back', stype: 'rectangle', attributes: { partOf: 'back' } },
+      badge: { sid: 'badge', stype: 'ellipse', attributes: { partOf: 'badge' } },
+      items: {
+        sid: 'items',
+        stype: 'frame',
+        attributes: { partOf: 'items', slot: 'items' },
+        content: ['own']
+      },
+      // What the reader added in the slot: theirs, and it says so by having no origin.
+      own: { sid: 'own', stype: 'textFrame', attributes: {} },
+      note: { sid: 'note', stype: 'sticky', attributes: {} }
+    };
+    return { rootId: 'doc', getNode: (sid) => nodes[sid] };
+  };
+
+  it('lists the parts under the card, and not what it was asked for', () => {
+    const rows = layerRows(deck(), 'slide');
+    /*
+     * Front first: the sticky on top of the card, then the card's parts in their own paint
+     * order — and the card's own row under them, which is how a container has always come out
+     * here (the whole list is reversed once, so a parent collected before its children ends up
+     * after them). What matters for this test is that the parts are *there*.
+     */
+    expect(rows.map((row) => row.sid)).toEqual(['note', 'own', 'items', 'badge', 'back', 'card']);
+    // A `componentValue` is not a box: "값" is not a name a reader could tell a row by, and the
+    // conformance exemption for it says it never appears in a list.
+    expect(rows.some((row) => row.sid === 'said')).toBe(false);
+  });
+
+  it('says which rows came from the definition, and which are the reader’s', () => {
+    const rows = layerRows(deck(), 'slide');
+    const from = (sid: string) => rows.find((row) => row.sid === sid)?.partOf;
+    expect([from('back'), from('badge'), from('items')]).toEqual(['back', 'badge', 'items']);
+    // The box a reader added inside the slot has no origin — which is exactly the distinction
+    // apply makes, and the reason it can leave their work alone.
+    expect(from('own')).toBeUndefined();
+    expect(from('note')).toBeUndefined();
+  });
+});

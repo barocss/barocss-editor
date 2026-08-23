@@ -1400,6 +1400,20 @@ the reader could no longer see, the definition's own row never appeared, and the
 that box's handles over the card. A selection is "what I am working on", and a reader who has
 changed surfaces is not working on it any more.
 
+### 10b-13. A card's parts are rows in the layer list
+
+The list descended into a `group` and a `frame` and stopped at a placement, which made a card
+the one container a reader could not get into from the list — and a badge inside a card is
+reachable by clicking exactly on it and by nothing else. Picking what is underneath is the whole
+reason the list exists, so leaving out the container that holds five boxes left out the case.
+
+Rows that came from the definition say so (`partOf` on the row, `data-layer-part` in the
+markup), because "the badge, from the card" is a different thing to be looking at from "the
+badge I drew" — and it is the same distinction apply makes, which is what lets it leave a
+reader's own boxes alone. A placement's `componentValue` children are skipped: they are what the
+card was *asked for*, not boxes, and "값" is not a name a reader could tell one row from another
+with. That is also the code that keeps the conformance exemption for `componentValue` true.
+
 ### 10b-5. Everything is pointed at by a **durable** id
 
 `componentId` and `partOf` held sids, and that would have destroyed placements the first time

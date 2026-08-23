@@ -390,9 +390,10 @@ shipped features marked undone.
     its definition's — no resize handles, greyed fields with the reason, and a 크기 row on
     the definition that moves every placement with it. Scaling **one** placement still
     waits for a constraint model; the half-guess puts a badge outside its card.
-  - **A placement's parts are not in the layer list**, which descends into `group` and
-    `frame` only. A reader who wants to pick the badge inside a card has the canvas and
-    nothing else.
+  - ~~**A placement's parts are not in the layer list.**~~ Fixed: the list descends into a
+    placement too, marks the rows that came from the card (`data-layer-part`), and skips
+    the `componentValue` children — which is what keeps the conformance exemption saying
+    "it never appears in such a list" true.
   - ~~**The stage scales a focused definition by the slide's size.**~~ Fixed, and it was
     worse than the note said: the stage fitted the **constant** `SLIDE_16_9`, so a 4:3
     deck drew at the scale for a wider one with 662px of ruler across a 497px slide, and
