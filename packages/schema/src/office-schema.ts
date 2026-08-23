@@ -84,6 +84,33 @@ export const CANVAS_PRESENCE_ATTRS = {
    * cannot be written in sids.
    */
   partId: { type: 'string' as const, required: false },
+  /**
+   * What this part takes from a **component variable**: its words, its colour, whether it is
+   * there at all.
+   *
+   * Three attributes rather than one map, and the three are what a component property is
+   * anywhere: text, a colour, and a state. (Figma's fourth — swapping one instance for another
+   * — is not needed here, because a placement may simply *hold* whatever a reader puts in it.)
+   *
+   * Named rather than positional, like everything else in this schema that refers to something:
+   * a part says `bindText: 'title'`, and renaming a part cannot break it.
+   */
+  bindText: { type: 'string' as const, required: false },
+  bindFill: { type: 'string' as const, required: false },
+  bindVisible: { type: 'string' as const, required: false },
+  /**
+   * That this part is the **slot**: where a placement's own children go.
+   *
+   * Figma added slots because instance-swap could not say "put whatever you like here", and
+   * paid for it with a second layout system inside components. Here the slot is an ordinary
+   * `frame` part — so the layout is the frame's, which already exists, is already tested, and
+   * already knows that a drag inside it means the order (§5a). What this attribute adds is one
+   * sentence: a placement's parts that came from nowhere live **in** this frame rather than
+   * beside the definition's.
+   *
+   * Named, so a definition may have two.
+   */
+  slot: { type: 'string' as const, required: false },
   partOf: { type: 'string' as const, required: false },
   /**
    * What the placement's definition said when its parts were last taken from it.
@@ -548,14 +575,97 @@ export function getCanvasNodeDefinitions(): Record<string, NodeTypeDefinition> {
      */
     component: {
       name: 'component',
-      group: 'resource',
-      content: '(scene | frame)*',
+      group: 'component',
+      /**
+       * What it **declares**, then what it **draws**.
+       *
+       * The variables come first because they are the definition's interface: a reader looking
+       * at the file sees what a placement of this can be asked for before seeing what it is
+       * made of.
+       */
+      content: 'componentVar* (scene | frame)*',
       attrs: {
         id: { type: 'string' as const, required: true },
         name: { type: 'string' as const, required: false },
         /** The room the definition is drawn in while it is being edited. */
         width: { type: 'number' as const, required: false },
         height: { type: 'number' as const, required: false }
+      }
+    },
+
+    /**
+     * One thing a placement can be asked for: a **component variable**.
+     *
+     * ## Why a node rather than a list in an attribute
+     *
+     * Because a value nothing can check is the fault this schema keeps finding. A blob of JSON
+     * in one attribute cannot be validated, cannot be probed by the conformance harness, and
+     * cannot be read by a panel without a parser — the argument already made twice, against
+     * keeping a connector's spec in one attribute and against keeping a placement's overrides
+     * in one. A declaration made of nodes is a declaration the product can be held to.
+     *
+     * ## Why variables at all, when a placement can be edited freely
+     *
+     * A placement holds real nodes, so a reader can already change anything in it. Three things
+     * that cannot do:
+     *
+     * - **One value in more than one place.** An accent colour used by three parts is one
+     *   decision, and editing three copies of it is three chances to disagree.
+     * - **A state.** "Show the badge" is a `boolean`, and a set of them is a `choice` with its
+     *   options declared — which is what stops variants multiplying into a matrix, the thing
+     *   Figma had to bolt component properties on to escape.
+     * - **A panel worth having.** "This card: title, number, badge" is a list a reader can be
+     *   shown; free editing gives no list at all.
+     *
+     * ## What a variable is *not*
+     *
+     * It is not resolved when the placement is drawn. Values are substituted into a placement's
+     * parts when the definition is **applied** (canvas-model §10b-4), for the same reason the
+     * parts themselves are copied: a template cannot draw a foreign node, so the drawing stays
+     * plain.
+     */
+    componentVar: {
+      name: 'componentVar',
+      group: 'componentVar',
+      atom: true,
+      attrs: {
+        /** What a part binds to and a placement names. Durable, like every other reference. */
+        name: { type: 'string' as const, required: true },
+        /** What a reader is shown beside the field, when the name is not enough. */
+        label: { type: 'string' as const, required: false },
+        kind: {
+          type: 'string' as const,
+          default: 'text',
+          options: ['text', 'color', 'number', 'boolean', 'choice']
+        },
+        /**
+         * The values a `choice` may take.
+         *
+         * An array, which the conformance probe abstains from rather than inventing a value for
+         * — the same abstention a connector's waypoints get, and for the same reason: a shape
+         * the schema does not describe is one a probe would be guessing at.
+         */
+        choices: { type: 'array' as const, required: false },
+        /** What a placement gets when it says nothing. */
+        value: { type: 'string' as const, required: false }
+      }
+    },
+
+    /**
+     * What one placement says a variable is.
+     *
+     * A node for the reason above, and a **string** for the value whatever the kind: the
+     * variable's declared `kind` is the contract that says how to read it, and one shape here
+     * means one thing to write, one thing to diff in a file and one thing to check. A number
+     * kept as `"12"` is a number a person can read in a pull request.
+     */
+    componentValue: {
+      name: 'componentValue',
+      group: 'componentValue',
+      atom: true,
+      attrs: {
+        name: { type: 'string' as const, required: true },
+        value: { type: 'string' as const, required: false }
       }
     },
 
@@ -595,7 +705,14 @@ export function getCanvasNodeDefinitions(): Record<string, NodeTypeDefinition> {
     instance: {
       name: 'instance',
       group: SCENE,
-      content: '(scene | frame)*',
+      /**
+       * What it **says**, then what it **holds**.
+       *
+       * The values first, for the same reason a definition's variables come first: they are
+       * this placement's answers to the definition's questions, and they are what a reader —
+       * or a diff — wants to see before the parts.
+       */
+      content: 'componentValue* (scene | frame)*',
       attrs: { componentId: { type: 'string', required: true }, ...geometry }
     },
 
@@ -658,6 +775,14 @@ export function getMetaNodeDefinitions(): Record<string, NodeTypeDefinition> {
     docAuthor: { name: 'docAuthor', group: META, content: 'inline*' },
 
     resources: { name: 'resources', group: 'document', content: 'resource*' },
+
+    /**
+     * The deck's component **library**: the definitions its placements point at.
+     *
+     * Its own container rather than a corner of `resources` — see `document` for the reason,
+     * which is that this is the one kind of definition that appears on the screen.
+     */
+    components: { name: 'components', group: 'document', content: 'component*' },
 
     // Bodies referenced from the flow by `footnoteRef` / `endnoteRef` marks.
     footnoteDef: {
@@ -750,10 +875,29 @@ export function getMetaNodeDefinitions(): Record<string, NodeTypeDefinition> {
 export function getSurfaceNodeDefinitions(): Record<string, NodeTypeDefinition> {
   return {
     /**
-     * `meta? surface+ resources?` — metadata and referenced definitions are
-     * siblings of the pages, not children of them. See getMetaNodeDefinitions.
+     * `meta? surface+ resources? components?` — metadata, referenced definitions and the
+     * component library are siblings of the pages, not children of them.
+     *
+     * ## Why the library is not inside `resources`
+     *
+     * It was, and it worked: a component is a definition pages refer to, which is what
+     * `resources` holds. What decided the move is not taxonomy but **display and ownership**.
+     *
+     * Every definition in `resources` is hidden as a group (`.w-resources { display: none }`),
+     * because none of them belongs on the screen — and a component's definition is the one
+     * that does, while it is being edited. Showing it meant punching a hole in that rule with
+     * a `:has()` selector naming the group that happens to hold the focused one, and the first
+     * attempt un-hid the whole group and put the ruler six pixels off the slide (measured). A
+     * container whose *whole* purpose is components can simply be shown.
+     *
+     * And a library is a thing to own: where a name would go, where "imported from that deck"
+     * would go, and what a brand kit would be. `resources` has no such identity — it is a bag.
      */
-    document: { name: 'document', group: 'document', content: 'docMeta? surface+ resources?' },
+    document: {
+      name: 'document',
+      group: 'document',
+      content: 'docMeta? surface+ resources? components?'
+    },
     /**
      * One page / slide / canvas / web page.
      *

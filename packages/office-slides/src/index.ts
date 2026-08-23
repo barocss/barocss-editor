@@ -57,6 +57,7 @@ export {
 export { createSlideCommands, SlidesExtension } from './slide-commands';
 
 export { createBoxCommands, SlidesBoxExtension } from './box-commands';
+export { createComponentCommands, SlidesComponentExtension } from './component-commands';
 export { createClipboardCommands, SlidesClipboardExtension } from './clipboard-commands';
 export { createConnectorCommands, SlidesConnectorExtension } from './connector-commands';
 /**
@@ -131,9 +132,10 @@ export {
   type LayoutMove
 } from './layout-arrange';
 /**
- * Components: a definition is a surface of its own kind, and a placement holds its own
- * children which win **by role** — an instance is to a component what a slide is to a
- * layout. See `canvas-model.md` §10 for why this is not Figma's model.
+ * Components: a definition lives in the document's **library**, declares what a placement can
+ * be asked for, and a placement holds **real** parts paired to it by durable id. See
+ * `canvas-model.md` §10 for why this is not Figma's model, and §10b-2 for why a placement is
+ * materialised rather than resolved when it is drawn.
  */
 export {
   deckComponents,
@@ -141,11 +143,17 @@ export {
   partIdOf,
   partSignature,
   componentSignature,
+  definitionSignature,
   componentStale,
   instanceState,
+  instanceVars,
+  instanceValues,
+  instanceSlot,
+  slotNameOf,
   componentApplyPlan,
   partCopy,
   type ComponentDef,
+  type ComponentVar,
   type PartState,
   type ApplyPlan
 } from './components';

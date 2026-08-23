@@ -1,6 +1,6 @@
 import type { Editor } from '@barocss/editor-core';
 import { Button, Icon, IconButton } from '@barocss/office-ui';
-import { componentSignature, componentStale, deckComponents, type ComponentDef } from '@barocss/office-slides';
+import { componentStale, deckComponents, type ComponentDef } from '@barocss/office-slides';
 import { useEditorRevision } from './revision';
 
 /**
@@ -33,7 +33,11 @@ export function ComponentPanel({
   editing,
   onOpen,
   onClose,
-  onCloseDefinition
+  onCloseDefinition,
+  canMake,
+  onMake,
+  onPlace,
+  onApplyAll
 }: {
   editor: Editor | null;
   open: boolean;
@@ -44,6 +48,13 @@ export function ComponentPanel({
   onClose: () => void;
   /** Leave the definition and go back to the deck. */
   onCloseDefinition: () => void;
+  /** Whether anything is selected to make a component out of. */
+  canMake: boolean;
+  onMake: () => void;
+  /** Put one on the surface the reader is on — which only the app knows. */
+  onPlace: (componentId: string) => void;
+  /** Bring every placement of it up to date. */
+  onApplyAll: (componentId: string) => void;
 }) {
   const revision = useEditorRevision(editor);
 
@@ -66,14 +77,20 @@ export function ComponentPanel({
    */
   const behind = (definition: ComponentDef): number => {
     if (!doc) return 0;
-    const signature = componentSignature(doc as never, definition);
-    void signature;
     let count = 0;
     const walk = (sid: string, depth: number) => {
       if (depth > 32) return;
       const node = (doc as any).getNode(sid);
       if (!node) return;
-      if (node.stype === 'instance' && node.attributes?.componentId === definition.sid) {
+      /*
+       * By the **durable** id, which is what a placement points at.
+       *
+       * This compared the placement's `componentId` with the definition's *sid* — so it
+       * matched nothing, and the count was always zero: a badge that could never appear,
+       * about the one thing the panel is here to say. Saving strips sids, which is why the
+       * document is written in durable ids in the first place (canvas-model §10b-5).
+       */
+      if (node.stype === 'instance' && node.attributes?.componentId === definition.id) {
         if (componentStale(doc as never, node, definition)) count += 1;
       }
       for (const child of node.content ?? []) if (typeof child === 'string') walk(child, depth + 1);
@@ -142,6 +159,27 @@ export function ComponentPanel({
         </div>
       )}
 
+      {/*
+        * Making one, which is the gesture the whole feature starts from.
+        *
+        * The reader's boxes *become* the definition and what stays on the slide is a placement
+        * of it — anything else leaves two things that look identical and behave differently,
+        * which is the fault of every tool where "create component" copies.
+        *
+        * Always drawn, disabled when nothing is selected, because a control that appears only
+        * once you have done the right thing cannot teach anybody the gesture.
+        */}
+      <div className="sl-components-make">
+        <Button
+          title="고른 상자들을 하나의 컴포넌트로 만듭니다"
+          data={{ 'component-make': '' }}
+          disabled={!canMake}
+          onClick={onMake}
+        >
+          고른 것으로 만들기
+        </Button>
+      </div>
+
       {components.length === 0 ? (
         <p className="sl-components-empty">
           아직 컴포넌트가 없습니다. 여러 상자를 고르고 컴포넌트로 만들면 여기에 나타납니다.
@@ -179,6 +217,32 @@ export function ComponentPanel({
                     </span>
                   )}
                 </button>
+                {/*
+                  * What a reader does with a definition that is *not* opening it: put one on
+                  * the slide they are looking at, and — when placements have fallen behind —
+                  * bring all of them up to date at once.
+                  *
+                  * "All of them" is the useful one: a definition is edited once and forty
+                  * slides are behind it, and asking a reader to visit forty is not an answer.
+                  */}
+                <span className="sl-component-actions">
+                  <Button
+                    title="이 컴포넌트를 지금 보고 있는 곳에 놓습니다"
+                    data={{ 'component-place': definition.id }}
+                    onClick={() => onPlace(definition.id)}
+                  >
+                    놓기
+                  </Button>
+                  {stale > 0 && (
+                    <Button
+                      title={`${stale}곳에 이 정의를 다시 적용합니다`}
+                      data={{ 'component-apply-all': definition.id }}
+                      onClick={() => onApplyAll(definition.id)}
+                    >
+                      모두 적용
+                    </Button>
+                  )}
+                </span>
               </li>
             );
           })}

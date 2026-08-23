@@ -1232,6 +1232,106 @@ finished, and both of these are in the layer below the model:
   hides what is not focused, and one rule hides a definition from the strip where nothing is
   focused at all.
 
+### 10b-6. The library: a container of its own, beside `resources`
+
+`resources` was the second answer and it *worked* — a definition drew hidden exactly as a
+layout does, and the stage's focus rule showed the one a reader had opened. What moved it out is
+**display and ownership**, and both are about the screen rather than the model:
+
+- Everything in `resources` is hidden **as a group**, because none of it belongs on the screen.
+  A definition being edited is the one thing that does, so showing it meant reaching past a
+  `display: none` written to hide layouts and themes — a `:has()` rule, written because
+  un-hiding that container outright put the ruler six pixels off the slide it measures.
+- A library is a thing to **own**: a name, a source, a brand kit. `resources` is a bag of what
+  this document refers to; `components` is what it defines.
+
+So `document` is `docMeta? surface+ resources? components?`, and the container is hidden with
+its children hidden too — the stage shows the focused definition with the container set to
+`display: contents`, which contributes no box at all. That third answer is the first one the
+ruler agrees with: a library left *visible* because its children carried their own
+`display: none` still put a box in the stage's flow, and the same ruler test found the same six
+pixels a second time.
+
+### 10b-7. What a placement can be **asked for**: variables
+
+A placement holds real nodes, so a reader can already change anything in it. Three things that
+cannot do, and they are why a declaration exists at all:
+
+- **One value in more than one place.** An accent colour used by three parts is one decision,
+  and editing three copies of it is three chances to disagree.
+- **A state.** "Show the badge" is a `boolean`, and a set of them is a `choice` with its options
+  declared — which is what stops variants multiplying into the matrix Figma had to bolt
+  component properties on to escape.
+- **A panel worth having.** "This card: title, number, badge" is a list a reader can be shown.
+  Free editing gives no list at all.
+
+A definition declares them as `componentVar` **nodes** (`name`, `label`, `kind`, `choices`,
+`value`) and a placement answers with `componentValue` nodes. Nodes rather than a blob in one
+attribute, for the third time in this schema: a declaration made of nodes is one the validator
+checks, the conformance probe reads, and a panel draws without a parser.
+
+A part says what it takes with `bindText`, `bindFill` or `bindVisible` — three attributes rather
+than one map, and the three are what a component property is anywhere (text, a colour, a state;
+Figma's fourth, swapping one instance for another, is not needed here because a placement may
+simply *hold* whatever a reader puts in it).
+
+**Substituted at apply, not at draw.** The same measurement the whole materialised design rests
+on: a template cannot draw a foreign node, so the value is written into the placement's own copy
+of the part and the drawing stays plain. Which is also what keeps a placement's text
+searchable, spell-checkable and measurable without the definition in hand. A bound part draws
+the value and **nothing else** — the runs collapse to one, keeping the first one's formatting —
+because writing into the first run and leaving the others puts the value on the page followed by
+whatever the definition happened to say next.
+
+### 10b-8. The slot: where the reader's own things go
+
+Figma added slots because instance-swap could not say "put whatever you like here", and paid for
+it with a second layout system inside components. Here a slot is an ordinary part — very often a
+`frame`, so the arrangement is the frame's, which already exists, is already tested, and already
+knows that a drag inside it means the order (§5a) — and the `slot` marker buys exactly one
+sentence: a placement's own children go **in** it rather than beside the definition's parts.
+
+It is also the one place apply can destroy a reader's work, because their boxes live *under* a
+part that has an origin and rule 1 does not reach them. So apply reads the marker twice: a slot
+is compared with its origin **without its contents**, and it is rewritten with `keepChildren`.
+The first half was measured: a slot part is always different from its origin — the reader's
+boxes are in it — so rule 3 protected it, and with that a definition's change to the frame
+itself (its gap, its padding, its size) could never reach a placement anybody had used.
+
+### 10b-9. Measured: apply compared against the wrong thing, and did nothing
+
+The four rules as first written compared each part with **its origin as it stands**. The command
+tests found what that means: the moment a definition changes, *every* part differs from it — so
+rule 3 ("a part that differs is the reader's") protected all of them and apply changed nothing
+whatever. The rule reads correctly and is unimplementable as stated.
+
+The question is not "does this part match the definition" but **"has the reader touched it since
+it was written"**. So a copy records what it was *given* — `appliedFrom` on the part, the
+signature of the copy at the moment it was made — and "changed" is that record against the part
+now. Two records, two questions, and both are needed: the part's answers *whose* a part is, and
+the placement's answers *is there anything new to take*.
+
+A part with no record is one from before this existed — a hand-authored placement, a deck saved
+by an earlier version — and the honest fallback is the old comparison: it cannot tell a stale
+part from an edited one, so it treats a difference as the reader's and leaves it alone.
+
+Two smaller faults from the same afternoon, both the kind that look like a working feature:
+
+- The panel's "how many placements are behind" compared a placement's `componentId` with the
+  definition's **sid**, so it matched nothing and the count was always zero — a badge that could
+  never appear, about the one thing that panel is there to say.
+- `transformNode`'s `newAttrs` **merges**, so a detached placement kept its `componentId` and
+  would have been picked up by the next 모두 적용. Removing an attribute is `setAttrs` with
+  `null`, which is the one way to say "not set" for every type.
+
+### 10b-10. A definition's colours are the deck's
+
+Found by the theme test, which asserts that nothing in the document repeats the theme's hex: the
+sample card's back held `#2563eb`, so a deck re-coloured to another theme kept three off-brand
+cards — and a *definition* holding a literal makes more of them for ever. A colour variable
+whose default names a theme slot (`theme:accent1`) is what a brand kit is: the card follows the
+deck, and a placement that wants its own colour still says so.
+
 ### 10b-5. Everything is pointed at by a **durable** id
 
 `componentId` and `partOf` held sids, and that would have destroyed placements the first time

@@ -69,7 +69,8 @@ test.describe('the deck around the slide', () => {
     await page.waitForTimeout(500);
 
     await expect(page.locator('.sl-filmstrip button[data-current="true"] .sl-filmstrip-number')).toHaveText('3');
-    await expect(page.locator('.sl-count')).toHaveText('3 / 5');
+    // Six slides in the sample deck: the sixth is the one that places a component three times.
+    await expect(page.locator('.sl-count')).toHaveText('3 / 6');
   });
 });
 

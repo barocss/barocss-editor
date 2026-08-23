@@ -5,19 +5,27 @@ import { childrenOf, copyOf, type DeckAccess, type DeckNode } from './deck';
  *
  * ## The two decisions, and where they came from
  *
- * **A definition is a resource.** Not a box on a slide — which would be drawn twice, once as
- * itself and once through every placement, and be selectable by clicking the master copy — and
- * not a *surface*, which was this file's first answer and was wrong for a reason worth keeping:
- * a surface is a **page**, so saying a definition was one made every reader of the page
- * sequence ask whether each page counted, and two of them leaked before the third was written.
+ * **A definition lives in the document's library**, a `components` container beside
+ * `resources`. It took three tries to land there and each move was measured:
  *
- * `resources` is where this document already keeps what pages refer to: a layout, a master, a
- * theme. And it costs nothing in editing, which was the fear that put it in the wrong place:
- * `slideLayout` is already **drawn hidden** — *a node with no element has no place in the sid
- * map, and every mapping from a DOM position back to the model goes through that* — so a
- * definition is drawn the same way and *shown* when a reader opens it. The stage's own focus
- * rule does the showing, and the overlay, the panel and the guides key on sids rather than on
- * what kind of thing they are looking at.
+ * - Not a box on a slide: it would be drawn twice, once as itself and once through every
+ *   placement, and be selectable by clicking the master copy.
+ * - Not a *surface*, which was the first answer. A surface is a **page**, so saying a
+ *   definition was one made every reader of the page sequence ask whether each page counted,
+ *   and two of them leaked before the third was written.
+ * - Not a corner of `resources`, which was the second answer and *worked* — a definition drew
+ *   hidden exactly as `slideLayout` does, and the stage's focus rule showed it. What moved it
+ *   out was **display and ownership**: everything in `resources` is hidden as a group because
+ *   none of it belongs on the screen, and a definition being edited is the one thing that
+ *   does, so showing it meant reaching through the container that exists to hide things —
+ *   a `:has()` rule, written because un-hiding the container outright put the ruler 6px off.
+ *   A container whose whole purpose is components can simply be shown. And a library is a
+ *   thing to own: a name, a source, a brand kit.
+ *
+ * Hidden is still how a definition draws when nobody has opened it — *a node with no element
+ * has no place in the sid map, and every mapping from a DOM position back to the model goes
+ * through that* — and the overlay, the panel and the guides key on sids rather than on what
+ * kind of thing they are looking at.
  *
  * **A placement holds its own children, and they win by role.** Which is not Figma's model,
  * on purpose: there, any property of any descendant may be overridden and the override is
@@ -60,6 +68,83 @@ export interface ComponentDef {
   name: string;
   /** What the definition holds, as the sids of its parts in this session. */
   parts: string[];
+  /** What a placement of it can be asked for, in the order it declares them. */
+  vars: ComponentVar[];
+}
+
+/**
+ * One thing a placement can be asked for.
+ *
+ * Read out of the definition's `componentVar` children rather than parsed from an attribute,
+ * which is the same argument this repository has made against every structured value in one
+ * opaque string: a declaration made of nodes is one the validator checks, the conformance
+ * probe reads, and a panel draws without a parser.
+ */
+export interface ComponentVar {
+  name: string;
+  label: string;
+  kind: 'text' | 'color' | 'number' | 'boolean' | 'choice';
+  /** The values a `choice` may take; empty for every other kind. */
+  choices: string[];
+  /** What a placement gets when it says nothing. */
+  value: string;
+}
+
+const VAR_KINDS = ['text', 'color', 'number', 'boolean', 'choice'] as const;
+
+/** The variables one definition declares, in document order. */
+function componentVarsOf(doc: DeckAccess, definition: DeckNode): ComponentVar[] {
+  const found: ComponentVar[] = [];
+  for (const sid of childrenOf(definition)) {
+    const node = doc.getNode(sid);
+    if (node?.stype !== 'componentVar') continue;
+    const name = node.attributes?.name;
+    // A variable with no name is one nothing can bind to, which is not a variable.
+    if (typeof name !== 'string' || name.length === 0) continue;
+    const kind = node.attributes?.kind;
+    found.push({
+      name,
+      label: typeof node.attributes?.label === 'string' ? node.attributes.label : name,
+      // The schema's own set, so a kind this does not know reads as text rather than as
+      // nothing: a field a reader can still type in beats a field that vanishes.
+      kind: VAR_KINDS.includes(kind as never) ? (kind as ComponentVar['kind']) : 'text',
+      choices: Array.isArray(node.attributes?.choices)
+        ? node.attributes.choices.filter((one: unknown): one is string => typeof one === 'string')
+        : [],
+      value: typeof node.attributes?.value === 'string' ? node.attributes.value : ''
+    });
+  }
+  return found;
+}
+
+/**
+ * What one placement says its variables are: the definition's declaration, with the
+ * placement's own `componentValue` children on top.
+ *
+ * Every declared variable comes back whether the placement mentions it or not, because the
+ * question a panel asks is "what can this be asked for", and a field that appears only once a
+ * value exists is a field a reader cannot use to set the first one.
+ */
+export function instanceVars(
+  doc: DeckAccess,
+  instance: DeckNode | undefined,
+  definition: ComponentDef | undefined
+): Array<ComponentVar & { set: boolean }> {
+  if (!definition) return [];
+  const said = new Map<string, string>();
+  for (const sid of childrenOf(instance)) {
+    const node = doc.getNode(sid);
+    if (node?.stype !== 'componentValue') continue;
+    const name = node.attributes?.name;
+    if (typeof name !== 'string' || name.length === 0) continue;
+    said.set(name, typeof node.attributes?.value === 'string' ? node.attributes.value : '');
+  }
+  return definition.vars.map((one) => ({
+    ...one,
+    value: said.has(one.name) ? (said.get(one.name) as string) : one.value,
+    /** Whether *this placement* said it, which is what a panel shows as "changed". */
+    set: said.has(one.name)
+  }));
 }
 
 /** Every component this document defines, in document order. */
@@ -70,7 +155,8 @@ export function deckComponents(doc: DeckAccess): ComponentDef[] {
   const found: ComponentDef[] = [];
   for (const sid of childrenOf(root)) {
     const node = doc.getNode(sid);
-    if (node?.stype !== 'resources') continue;
+    // The library, not `resources`: see the header for why they are two containers.
+    if (node?.stype !== 'components') continue;
 
     for (const child of childrenOf(node)) {
       const definition = doc.getNode(child);
@@ -82,7 +168,16 @@ export function deckComponents(doc: DeckAccess): ComponentDef[] {
         id,
         sid: child,
         name: typeof definition.attributes?.name === 'string' ? definition.attributes.name : '',
-        parts: childrenOf(definition)
+        /**
+         * What it draws — its **variables left out**.
+         *
+         * A declaration is not a part: nothing copies it into a placement, nothing pairs it by
+         * `partId`, and counting it as one would make every placement look one part behind.
+         */
+        parts: childrenOf(definition).filter(
+          (child) => doc.getNode(child)?.stype !== 'componentVar'
+        ),
+        vars: componentVarsOf(doc, definition)
       });
     }
   }
@@ -90,7 +185,10 @@ export function deckComponents(doc: DeckAccess): ComponentDef[] {
 }
 
 /** The definition a placement points at, or nothing when it is gone. */
-export function componentOf(doc: DeckAccess, instance: DeckNode | undefined): ComponentDef | undefined {
+export function componentOf(
+  doc: DeckAccess,
+  instance: DeckNode | undefined
+): ComponentDef | undefined {
   const id = instance?.attributes?.componentId;
   if (typeof id !== 'string') return undefined;
   return deckComponents(doc).find((one) => one.id === id);
@@ -132,16 +230,33 @@ export interface PartState {
  * is in, including position — a part a reader has *moved* has been changed, and pretending
  * otherwise would let apply put it back.
  */
-export function partSignature(doc: DeckAccess, sid: string, depth = 0): string {
+export function partSignature(
+  doc: DeckAccess,
+  sid: string,
+  depth = 0,
+  /**
+   * `'own'` leaves the children out, which is the **slot** comparison.
+   *
+   * Measured: a slot part is *always* different from its origin, because the reader's own boxes
+   * are inside it. So rule 3 protected it — and with that, a definition's change to the slot
+   * frame itself (its gap, its padding, its size) could never reach a placement a reader had
+   * put anything in. Comparing the part without its contents is the question apply actually
+   * has about a slot: *has the container changed*, not *is it still empty*.
+   */
+  scope: 'all' | 'own' = 'all'
+): string {
   if (depth > 24) return '…';
   const node = doc.getNode(sid);
   if (!node) return '';
 
   const attrs = { ...((node.attributes ?? {}) as Record<string, unknown>) };
-  // Both are identity rather than content: `partOf` is a fact about a copy, and `partId` is
-  // the original's own name — a copy is not different from its original for having one.
+  // Identity and bookkeeping rather than content: `partOf` is a fact about a copy, `partId` is
+  // the original's own name — a copy is not different from its original for having one — and
+  // `appliedFrom` is the copy's record of what it was *given*, which is a fact about the last
+  // apply and not about what the part says.
   delete attrs.partOf;
   delete attrs.partId;
+  delete attrs.appliedFrom;
   const own = (node as { text?: unknown }).text;
 
   return JSON.stringify([
@@ -150,7 +265,7 @@ export function partSignature(doc: DeckAccess, sid: string, depth = 0): string {
       .sort()
       .map((key) => [key, attrs[key]]),
     typeof own === 'string' ? own : null,
-    childrenOf(node).map((child) => partSignature(doc, child, depth + 1))
+    scope === 'own' ? null : childrenOf(node).map((child) => partSignature(doc, child, depth + 1))
   ]);
 }
 
@@ -171,7 +286,34 @@ export function partSignature(doc: DeckAccess, sid: string, depth = 0): string {
  */
 export function componentSignature(doc: DeckAccess, definition: ComponentDef | undefined): string {
   if (!definition) return '';
-  return JSON.stringify(definition.parts.map((sid) => partSignature(doc, sid)));
+  return definitionSignature(
+    definition.vars,
+    definition.parts.map((sid) => partSignature(doc, sid))
+  );
+}
+
+/**
+ * The **shape** of a definition's signature, in one place.
+ *
+ * Two callers compute one: this file, from a definition in the document, and `createComponent`,
+ * from a definition that is not in the document yet — the placement it leaves behind has to
+ * record what it was given, and the transaction that adds the definition has not run. Two
+ * places writing the same JSON by hand is how the two answers come to disagree about a deck,
+ * so the shape is stated once and both hand it their pieces.
+ */
+export function definitionSignature(vars: ComponentVar[], parts: string[]): string {
+  return JSON.stringify([
+    /**
+     * The declaration as well as the drawing.
+     *
+     * A definition that gains a variable, renames one, or changes a default has moved on just
+     * as surely as one whose card grew a badge — and a placement's fields come from the
+     * declaration, so leaving it out would let the panel go quietly out of date while the
+     * badge said everything was current.
+     */
+    vars.map((one) => [one.name, one.kind, one.choices, one.value]),
+    parts
+  ]);
 }
 
 /**
@@ -229,31 +371,114 @@ export function instanceState(
     if (id) origins.set(id, part);
   }
 
-  return childrenOf(instance).map((sid) => {
-    const origin = doc.getNode(sid)?.attributes?.partOf;
-    if (typeof origin !== 'string' || origin.length === 0) {
-      return { sid, changed: false };
-    }
-    if (!origins.has(origin)) {
-      // The definition no longer has it. Whether it may go is apply's decision, and it needs
-      // to know whether the reader had touched it — which cannot be compared against a part
-      // that is not there, so "changed" is the honest false and apply asks another way.
-      return { sid, origin, changed: false };
-    }
-    return {
-      sid,
-      origin,
-      changed: partSignature(doc, sid) !== partSignature(doc, origins.get(origin) as string)
-    };
-  });
+  return (
+    childrenOf(instance)
+      /**
+       * The parts, not what the placement *says*.
+       *
+       * A `componentValue` is an answer to the declaration, and it has no origin — so counting
+       * it here would report it as a part the reader added, and a panel would show a card with
+       * three parts as having four.
+       */
+      .filter((sid) => doc.getNode(sid)?.stype !== 'componentValue')
+      .map((sid) => {
+        const origin = doc.getNode(sid)?.attributes?.partOf;
+        if (typeof origin !== 'string' || origin.length === 0) {
+          return { sid, changed: false };
+        }
+        if (!origins.has(origin)) {
+          // The definition no longer has it. Whether it may go is apply's decision, and it needs
+          // to know whether the reader had touched it — which cannot be compared against a part
+          // that is not there, so "changed" is the honest false and apply asks another way.
+          return { sid, origin, changed: false };
+        }
+        const from = origins.get(origin) as string;
+        // A slot is compared without its contents: see `partSignature`'s `scope`.
+        const scope = slotNameOf(doc, from) ? 'own' : 'all';
+        /**
+         * Against what this part was **given**, not against what the definition says now.
+         *
+         * Measured, and it is the correction that makes apply work at all: comparing a part
+         * with its origin as it stands means that the moment a definition changes, *every*
+         * part differs from it — so rule 3 ("a part that differs is the reader's") protected
+         * all of them and apply did nothing whatever. The question is not "does this part
+         * match the definition" but "has the reader touched it since it was written", and the
+         * answer is the signature the copy recorded when it was made (`appliedFrom` on the
+         * part).
+         *
+         * A part with no record is one from before this was written — a hand-authored
+         * placement, a deck saved by an earlier version — and the honest fallback is the old
+         * comparison: it cannot tell a stale part from an edited one, so it treats a
+         * difference as the reader's and leaves it alone.
+         */
+        const given = doc.getNode(sid)?.attributes?.appliedFrom;
+        if (typeof given === 'string' && given.length > 0) {
+          return { sid, origin, changed: partSignature(doc, sid, 0, scope) !== given };
+        }
+        return {
+          sid,
+          origin,
+          changed: partSignature(doc, sid, 0, scope) !== partSignature(doc, from, 0, scope)
+        };
+      })
+  );
+}
+
+/**
+ * The signature of a node that is **not in the document yet** — a copy on its way in.
+ *
+ * The same string `partSignature` computes, from a literal tree instead of from sids, because
+ * the copy has to record what it was given *before* anything can look it up. Two functions
+ * saying the same thing is the fault this repository keeps finding, so the shape is stated
+ * once here and both walk it the same way: type, attributes without the bookkeeping, own text,
+ * children.
+ */
+export function signatureOfLiteral(node: DeckNode, scope: 'all' | 'own', depth = 0): string {
+  if (depth > 24) return '…';
+  const attrs = { ...((node.attributes ?? {}) as Record<string, unknown>) };
+  delete attrs.partOf;
+  delete attrs.partId;
+  delete attrs.appliedFrom;
+  const own = (node as { text?: unknown }).text;
+  const children = Array.isArray((node as { content?: unknown }).content)
+    ? ((node as { content: unknown[] }).content as DeckNode[])
+    : [];
+
+  return JSON.stringify([
+    node.stype,
+    Object.keys(attrs)
+      .sort()
+      .map((key) => [key, attrs[key]]),
+    typeof own === 'string' ? own : null,
+    scope === 'own' ? null : children.map((child) => signatureOfLiteral(child, 'all', depth + 1))
+  ]);
+}
+
+/** A placement's values by name, which is what a copy is bound with. */
+export function instanceValues(
+  doc: DeckAccess,
+  instance: DeckNode | undefined,
+  definition: ComponentDef | undefined
+): Map<string, string> {
+  const said = new Map<string, string>();
+  for (const one of instanceVars(doc, instance, definition)) said.set(one.name, one.value);
+  return said;
 }
 
 /** What applying a definition to one placement changes. */
 export interface ApplyPlan {
   /** Parts to take out: their origin is gone and the reader had not touched them. */
   remove: string[];
-  /** Parts to write again from the definition: `{ sid, from }`. */
-  rewrite: { sid: string; from: string }[];
+  /**
+   * Parts to write again from the definition.
+   *
+   * `keepChildren` is the **slot** rule: the part is a container the reader puts their own
+   * things in, so its own attributes come from the definition and what is inside it stays.
+   * Without it a slot would be the one place in this model where apply destroys the reader's
+   * work — their boxes are descendants of a part that *does* have an origin, so rule 1 does
+   * not protect them.
+   */
+  rewrite: { sid: string; from: string; keepChildren?: boolean }[];
   /** Definition parts this placement does not have yet, in the definition's order. */
   add: string[];
   /** What to record on the placement, so staleness can be asked later. */
@@ -285,6 +510,9 @@ export interface ApplyPlan {
  *    nothing declared and nothing hidden — a reader who typed a number into a card does not
  *    lose it to somebody else's edit. (The cost, stated in §10b: the granularity is a whole
  *    part, so a definition's colour change does not reach a part whose text was edited.)
+ * 5. **A slot's contents are the reader's.** A part the definition marks as a `slot` is
+ *    rewritten like any other, but what is *inside* it stays: it is the one place a reader's
+ *    own boxes live under a part that has an origin, so rule 1 does not reach them.
  * 4. **A part whose origin is gone goes**, unless the reader had touched it — and "touched"
  *    cannot be compared against a part that is not there, so the honest test is whether it
  *    still matches *any* signature the definition has ever had. It cannot, so the rule is
@@ -312,7 +540,17 @@ export function componentApplyPlan(
 
   const rewrite = state
     .filter((part) => part.origin && !part.changed && byId.has(part.origin))
-    .map((part) => ({ sid: part.sid, from: byId.get(part.origin as string) as string }));
+    .map((part) => {
+      const from = byId.get(part.origin as string) as string;
+      const entry: { sid: string; from: string; keepChildren?: boolean } = {
+        sid: part.sid,
+        from
+      };
+      // Rule 5: a slot's contents are the reader's, whatever the definition now says the slot
+      // itself looks like.
+      if (slotNameOf(doc, from)) entry.keepChildren = true;
+      return entry;
+    });
 
   /**
    * A part whose origin the definition no longer has.
@@ -337,7 +575,125 @@ export function componentApplyPlan(
     return !!id && !held.has(id);
   });
 
-  return { remove, rewrite, add, appliedFrom: componentSignature(doc, definition) };
+  return {
+    remove,
+    rewrite,
+    add,
+    appliedFrom: componentSignature(doc, definition)
+  };
+}
+
+/** The name a part gives its slot, when it is one. */
+export function slotNameOf(doc: DeckAccess, sid: string): string | undefined {
+  const name = doc.getNode(sid)?.attributes?.slot;
+  return typeof name === 'string' && name.length > 0 ? name : undefined;
+}
+
+/**
+ * The part in a placement that a reader's own boxes belong in.
+ *
+ * Figma added slots because instance-swap could not say "put whatever you like here", and paid
+ * for it with a second layout system inside components. Here a slot is an ordinary part — very
+ * often a `frame`, so the arrangement is the frame's, which already exists and already knows
+ * that a drag inside it means the order (§5a) — and this is the one sentence the marker buys:
+ * a placement's own children go **in** it rather than beside the definition's parts.
+ */
+export function instanceSlot(
+  doc: DeckAccess,
+  instance: DeckNode | undefined,
+  definition: ComponentDef | undefined,
+  name?: string
+): string | undefined {
+  if (!definition) return undefined;
+  const wanted = new Set<string>();
+  for (const part of definition.parts) {
+    const slot = slotNameOf(doc, part);
+    if (!slot) continue;
+    if (name && slot !== name) continue;
+    const id = partIdOf(doc, part);
+    if (id) wanted.add(id);
+  }
+  if (wanted.size === 0) return undefined;
+
+  for (const sid of childrenOf(instance)) {
+    const origin = doc.getNode(sid)?.attributes?.partOf;
+    if (typeof origin === 'string' && wanted.has(origin)) return sid;
+  }
+  return undefined;
+}
+
+/**
+ * What a part **binds**, and what that turns into once a placement's values are known.
+ *
+ * Substituted here, when the definition is applied, and *not* when the placement is drawn —
+ * for exactly the reason the parts themselves are copied: a template cannot draw a foreign
+ * node (§10b-2), so the drawing stays plain and every reader of the document sees the value
+ * that is really there. A renderer resolving a binding would also mean a placement's text
+ * could not be searched, spell-checked or measured without the definition in hand.
+ */
+function bindValues(node: DeckNode, values: Map<string, string>): DeckNode {
+  const attrs = { ...((node.attributes ?? {}) as Record<string, unknown>) };
+  let next: DeckNode & { text?: string; content?: unknown } = { ...node };
+
+  const named = (key: string): string | undefined => {
+    const name = attrs[key];
+    if (typeof name !== 'string' || name.length === 0) return undefined;
+    return values.get(name);
+  };
+
+  const fill = named('bindFill');
+  if (fill !== undefined && fill.length > 0) attrs.fill = fill;
+
+  const visible = named('bindVisible');
+  if (visible !== undefined) {
+    /**
+     * A state, written as the string the schema keeps every value in.
+     *
+     * `false`, empty and `0` are the same answer: the part is not there. Only `visible: false`
+     * is written when it is hidden — a `visible: true` beside no `visible` at all is the same
+     * drawing, which is the asymmetry the conformance probe found in every boolean.
+     */
+    const off = visible === 'false' || visible === '' || visible === '0';
+    if (off) attrs.visible = false;
+    else delete attrs.visible;
+  }
+
+  const text = named('bindText');
+  if (text !== undefined) next = { ...next, ...withText(next, text) };
+
+  const children = childrenOf(node);
+  if (children.length > 0 && Array.isArray((node as { content?: unknown }).content)) {
+    // A detached copy: `content` holds nodes rather than sids, which is what `copyOf` builds.
+    const content = (node as { content: unknown[] }).content;
+    if (content.length > 0 && typeof content[0] === 'object') {
+      next = {
+        ...next,
+        content: content.map((child) => bindValues(child as DeckNode, values))
+      } as never;
+    }
+  }
+
+  return { ...next, attributes: attrs } as DeckNode;
+}
+
+/**
+ * A bound part **draws the value and nothing else**.
+ *
+ * So the runs collapse to one: the first one's formatting is kept, so the definition's font
+ * and colour survive, and the rest go. Writing into the first run and leaving the others would
+ * put the value on the page followed by whatever the definition happened to say next — a card
+ * reading "매출을 쓰세요" beside the number a reader had just typed.
+ */
+function withText(node: DeckNode, text: string): Partial<DeckNode> & { text?: string } {
+  const content = (node as { content?: unknown }).content;
+  if (typeof (node as { text?: unknown }).text === 'string') return { text };
+  if (!Array.isArray(content) || content.length === 0 || typeof content[0] !== 'object') {
+    return {};
+  }
+
+  const first = content[0] as DeckNode;
+  const rest = withText(first, text);
+  return { content: [{ ...first, ...rest }] } as never;
 }
 
 /**
@@ -347,8 +703,19 @@ export function componentApplyPlan(
  * heading not rewrite the definition, and `partOf` is what makes it possible to tell later
  * that this box came from there. Both halves of the same sentence.
  */
-export function partCopy(doc: DeckAccess, origin: string): DeckNode | undefined {
-  const copy = copyOf(doc, origin);
+export function partCopy(
+  doc: DeckAccess,
+  origin: string,
+  /**
+   * What this placement says its variables are, by name.
+   *
+   * Optional, because a definition that declares none needs none — and a copy made without
+   * them is a copy that still draws the definition's own defaults rather than an empty box.
+   */
+  values?: Map<string, string>
+): DeckNode | undefined {
+  const plain = copyOf(doc, origin);
+  const copy = plain && values && values.size > 0 ? bindValues(plain, values) : plain;
   const id = partIdOf(doc, origin);
   if (!copy || !id) return undefined;
 
@@ -356,5 +723,23 @@ export function partCopy(doc: DeckAccess, origin: string): DeckNode | undefined 
   // The copy points at the original's durable name and does not carry it: two boxes claiming
   // to *be* the same part is how a definition ends up pointing at a placement.
   delete attributes.partId;
-  return { ...copy, attributes: { ...attributes, partOf: id } };
+  delete attributes.appliedFrom;
+
+  /**
+   * And it records **what it was given**, so a later apply can tell "the definition has moved
+   * on" from "the reader edited this".
+   *
+   * Of the copy rather than of the origin, because the two differ by exactly the substitution:
+   * a part bound to `title` is written with the placement's words in it, and recording the
+   * definition's own signature would make every bound part look edited the moment it was made.
+   *
+   * A slot records only itself (`'own'`), because what goes inside it is the reader's by
+   * design — see `ApplyPlan.rewrite`.
+   */
+  const written: DeckNode = { ...copy, attributes: { ...attributes, partOf: id } };
+  const scope = slotNameOf(doc, origin) ? 'own' : 'all';
+  return {
+    ...written,
+    attributes: { ...written.attributes, appliedFrom: signatureOfLiteral(written, scope) }
+  };
 }

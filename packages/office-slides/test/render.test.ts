@@ -67,11 +67,56 @@ describe('a deck draws', () => {
   const slides = () => [...container.querySelectorAll<HTMLElement>('.sl-slide')];
 
   it('draws every slide in the deck, hidden ones included', () => {
-    // Five surfaces, one of them hidden — which is in the document, in the
+    // Six surfaces, one of them hidden — which is in the document, in the
     // outline and addressable, and is the difference between hiding a slide
     // and deleting it.
-    expect(slides()).toHaveLength(5);
+    expect(slides()).toHaveLength(6);
     expect(slides().filter((slide) => slide.dataset.hidden === 'true')).toHaveLength(1);
+  });
+
+  /**
+   * And the deck's **definitions** are drawn, and not on the screen.
+   *
+   * Both halves matter. Drawn, because a node with no element has no place in the sid map and
+   * every mapping from a DOM position back to the model goes through that — a definition that
+   * was left out could not be selected, moved or edited when a reader opened it. Hidden,
+   * because it is not a page: the card belongs to the deck, not to slide six.
+   */
+  it('draws a definition, hidden, out of the page sequence', () => {
+    const definitions = [...container.querySelectorAll<HTMLElement>('.sl-def-component')];
+    expect(definitions).toHaveLength(1);
+    expect(definitions[0].dataset.componentId).toBe('metric-card');
+    expect(definitions[0].style.display).toBe('none');
+    // Not one of the slides, which is what the count, the filmstrip and the presenter read.
+    expect(definitions[0].closest('.sl-slide')).toBeNull();
+  });
+
+  /**
+   * A placement draws its own parts — which is the whole of the materialised design.
+   *
+   * A template cannot draw a foreign node (canvas-model §10b-2): `slot(name)` renders *this*
+   * node's data and a raw node among an element's children is dropped. So a placement holds
+   * real copies and drawing one is drawing its children, exactly like a group.
+   */
+  it('draws a placement as its own parts', () => {
+    const placements = [...container.querySelectorAll<HTMLElement>('.sl-instance')];
+    expect(placements).toHaveLength(3);
+    for (const placement of placements) {
+      expect(placement.dataset.componentId).toBe('metric-card');
+      // The back, the badge, the two texts and the slot — plus what the placement *says*,
+      // which is drawn as nothing a reader can see or click: a variable's field belongs in a
+      // panel, and a declaration on the canvas would be a box nobody could name.
+      expect(placement.querySelectorAll(':scope > .sl-value').length).toBeGreaterThan(0);
+      for (const said of placement.querySelectorAll<HTMLElement>(':scope > .sl-value')) {
+        expect(said.style.display).toBe('none');
+      }
+      expect(placement.querySelectorAll(':scope > :not(.sl-value)')).toHaveLength(5);
+    }
+    // The one whose badge its placement turned off draws nothing where the badge is.
+    const hidden = [...container.querySelectorAll<HTMLElement>('.sl-instance .sl-ellipse')].filter(
+      (badge) => badge.style.display === 'none'
+    );
+    expect(hidden).toHaveLength(1);
   });
 
   it('gives each slide its natural size, which the app scales', () => {

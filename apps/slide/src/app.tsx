@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
+import { selectedNodeIds } from '@barocss/editor-core';
 import type { EditorViewDOM } from '@barocss/editor-view-dom';
 import { FileActions } from './file-actions';
 import { Filmstrip } from './filmstrip';
@@ -63,6 +64,7 @@ import { Properties } from './properties';
 import { Ribbon } from './ribbon';
 import { Stage } from './stage';
 import { useDeck, useRevision } from './deck-model';
+import { useEditorRevision } from './revision';
 
 /**
  * The deck app.
@@ -97,6 +99,12 @@ export function App({
   const view = instance?.view ?? null;
   const slides = useDeck(editor);
   const revision = useRevision(editor);
+  /**
+   * And the **selection**, which is a different question: `revision` counts content changes,
+   * and clicking a shape changes no content. `useEditorRevision` is the one that knows which of
+   * the editor's events mean an answer could be different now (`watchAnswers`).
+   */
+  const answers = useEditorRevision(editor);
 
   /**
    * The surface being worked on: a slide, or a **definition** the reader has opened.
@@ -164,6 +172,46 @@ export function App({
   const closeComponent = useCallback(() => {
     setCurrent(wasOn ?? slides[0]?.sid);
   }, [wasOn, slides]);
+
+  /**
+   * The three things a reader does to a component from the panel.
+   *
+   * Wired here, and not in the panel, for the reason every other command in this app is: the
+   * app is the only thing that knows **where the reader is** — a slide, or a definition they
+   * have opened. A panel that passed no `slideId` would put every card on slide 1, which was
+   * measured once already with the ribbon's insert buttons.
+   */
+  /**
+   * Whether there is anything to make a component *of*.
+   *
+   * Watched with `useEditorRevision`, not the app's `revision`: that one counts
+   * `editor:content.change`, and a **selection** is not a content change — so the button stayed
+   * disabled however many boxes a reader clicked. The one line that knows which events mean
+   * "an answer could be different now" is `watchAnswers`, and this is a reader of the
+   * selection like the ribbon and the properties panel.
+   */
+  const canMakeComponent = useMemo(() => {
+    const chosen = selectedNodeIds((editor as any)?.selection);
+    return chosen.length > 0;
+  }, [editor, answers]);
+
+  const makeComponent = useCallback(() => {
+    void (editor as any)?.executeCommand?.('createComponent', {});
+  }, [editor]);
+
+  const placeComponent = useCallback(
+    (componentId: string) => {
+      void (editor as any)?.executeCommand?.('placeComponent', { componentId, slideId: current });
+    },
+    [editor, current]
+  );
+
+  const applyComponentEverywhere = useCallback(
+    (componentId: string) => {
+      void (editor as any)?.executeCommand?.('applyComponent', { componentId });
+    },
+    [editor]
+  );
 
   /**
    * One slide, or the deck as a strip.
@@ -1352,6 +1400,10 @@ export function App({
           onOpen={openComponent}
           onClose={() => setComponentsOpen((was) => !was)}
           onCloseDefinition={closeComponent}
+          canMake={canMakeComponent}
+          onMake={makeComponent}
+          onPlace={placeComponent}
+          onApplyAll={applyComponentEverywhere}
         />
 
         <AppMain as="main" className="sl-main">

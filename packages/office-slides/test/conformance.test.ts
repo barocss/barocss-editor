@@ -207,6 +207,23 @@ describe('Slides draws what its schema declares', () => {
         setSlideTransition: 'the properties panel — the slide’s 전환 row and its length',
         setBoxBuild: 'the properties panel — the box’s 애니메이션 row',
         setDeckTheme: 'the properties panel — the slide’s 테마 row, which re-colours the deck',
+        // ── The components panel and a placement's own rows ────────────────
+        /**
+         * A component is made from a *selection* and placed *where the reader is*, and neither
+         * is a thing a toolbar button can say. So these are in the panel beside the deck and
+         * in the properties panel, and this is where that is written down.
+         */
+        createComponent:
+          'the components panel — 고른 것으로 만들기, with boxes selected. Not a toolbar button because the gesture is about the selection: the reader’s boxes *become* the definition and a placement of it stays on the slide',
+        placeComponent:
+          'the components panel — 놓기 on a definition’s row, which puts one on the surface the reader is on. The app passes that surface, because it is the only thing that knows whether the reader is on a slide or inside a definition',
+        applyComponent:
+          'two places, and they are two questions: 적용 in the properties panel for *this* placement, and 모두 적용 on a definition’s row for every placement that has fallen behind it. Asked for rather than automatic — a definition pushing every edit into forty placements is two hundred document writes per keystroke',
+        setComponentValue:
+          'the properties panel — a placement’s 컴포넌트 group, one field per variable the definition declares. The fields come from the document, so a card that declares a colour and a state gets a swatch and a switch',
+        detachComponent:
+          'the properties panel — 분리 on a placement, which leaves a group: the parts a reader arranged stay arranged',
+
         setSlideGuides:
           'the rulers — a guide is pulled out of one, dragged along the slide, and thrown away by being dragged off it',
 
@@ -264,6 +281,26 @@ describe('Slides draws what its schema declares', () => {
           'components — a placement holds *real* nodes (a template cannot draw a foreign node, canvas-model §10b-2), so a copy remembers the definition part it came from. That pairing is what apply reads, and it is deliberately not a role or a position: it survives renaming, reordering and editing, which is what breaks an override in every tool that matches structurally',
         appliedFrom:
           'components — what the definition said when this placement last took its parts, so `componentStale` can tell "the definition has moved on" from "the reader edited this placement". A signature rather than a version number, because a number would have to be maintained by a write on every edit',
+
+        /**
+         * ── A binding is substituted, not resolved ─────────────────────────
+         *
+         * These four *look* unread to a check that asks the drawing, and they are read by
+         * `components.ts` — at **apply**, where the value is written into the placement's copy
+         * of the part. The renderer deliberately does not read them, and that is the same
+         * measurement the whole materialised design rests on: a template cannot draw a foreign
+         * node (§10b-2), so a placement holds real nodes and the drawing stays plain. A
+         * renderer resolving a binding would also mean a placement's text could not be
+         * searched, spell-checked or measured without the definition in hand.
+         */
+        bindText:
+          'components — `partCopy` writes the placement’s value into the part when the definition is applied, and the runs collapse to one so the value is *all* the part says. Read at apply rather than at draw: the drawing is plain nodes, which is what lets the text be found, checked and measured',
+        bindFill:
+          'components — the same substitution, for a colour used in more than one place. One decision instead of three copies of it, which is the thing free editing of a placement cannot do',
+        bindVisible:
+          'components — the same substitution, for a state. Only the falsy half is ever written (`visible: false`), because `visible: true` beside no `visible` at all is the same drawing — the asymmetry this very probe finds in every boolean',
+        slot:
+          'components — `componentApplyPlan` reads it twice: a slot part is compared with its origin *without its contents* (a slot is always different otherwise, so a definition’s change to the frame could never reach a placement anybody had used), and it is rewritten with `keepChildren`, which is what stops apply taking the reader’s own boxes out with it. The slot draws as the ordinary frame it is',
         noteId:
           'the notes pane — a slide names its note the way it names its header, and `noteOf` resolves it in `deck.ts`',
         trackId:
@@ -305,6 +342,19 @@ describe('Slides draws what its schema declares', () => {
           'the field needs a clock, and a clock arrives on the environment — with none the field draws nothing whatever the format says. Word tests the formats directly in `date-field.test.ts`',
         'paragraph.placeholder':
           'nothing reads it, and this is a gap rather than a decision: the prompt would show on an *empty* paragraph, and an empty paragraph here holds a caret filler, so `:empty` is not the test. Slides prompts from its layouts instead. See `docs/BACKLOG.md`',
+
+        /**
+         * ── A declaration is not a drawing ────────────────────────────────
+         *
+         * Asked about because an `instance` is a scene container, and a check that walks
+         * containers cannot know that one of its children is a *value* rather than a box.
+         * The layer list descends into `group` and `frame` only (`layerRows`), so a
+         * placement's values are never rows in it — and if they were, "값" is not a name a
+         * reader could tell one row from another with. What they are for is a field in a
+         * panel, beside the placement.
+         */
+        componentValue:
+          'a declaration, not a box: what one placement says a variable is. The layer list descends into `group` and `frame` only, so it is never a row in one — its place is a field in the panel beside the placement',
 
         // ── Commands that put no node in the document ──────────────────────
         insertText: 'writes characters into a run; makes no node',

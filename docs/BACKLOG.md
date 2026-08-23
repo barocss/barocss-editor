@@ -347,9 +347,50 @@ shipped features marked undone.
 
 **Deck 5 — templates, and what a reader starts from.**
 
-- [ ] **`component` and `instance` get a producer.** Declared since the canvas
-  nodes were written, drawn by nothing, and they are the schema's answer to a
-  reusable piece — which is what a template is made of.
+- [x] **`component` and `instance` get a producer.** Done. Reading (1) below is what
+  shipped — a placement holds real copies and following the definition is a command —
+  and every "measured before starting" note under it turned out to be *half* right,
+  which is why they are kept.
+
+  What the notes got wrong, and how: a definition is not on a slide (it is in a
+  **library** of its own, `components`, beside `resources`; the schema refused it in
+  `resources` because it was in the scene group, and the answer was to give it a group
+  and a container rather than to put it on a page); and the shared-schema decision the
+  note said was needed was made — `instance` is not an atom, because a placement has to
+  be able to hold a whole region a reader added.
+
+  Four things measured *after* starting, each of which changed the design:
+
+  - **Apply compared against the wrong thing and did nothing.** Comparing a part with
+    its origin as it stands means every part differs the moment the definition changes,
+    so the "an edited part is the reader's" rule protected all of them. A part now
+    records what it was **given** (canvas-model §10b-9).
+  - **A slot is always "edited"**, because the reader's boxes are in it — so a
+    definition's change to the frame itself could never reach a placement anybody had
+    used. A slot is compared without its contents and rewritten keeping them.
+  - **A definition holding a literal colour is off-brand for ever.** The theme test
+    found it: a colour variable's default names a theme slot (§10b-10).
+  - **The library must contribute no box.** The ruler test found the same six pixels
+    twice — once for `resources`, once for a library left visible because its children
+    were hidden. `display: contents` is the answer (§10b-6).
+
+  Still open, and each is a real gap rather than a tidy-up:
+
+  - **Nothing declares a variable yet.** `componentVar` is read everywhere — the panel
+    draws the fields, apply substitutes them — and the only way to add one is to write
+    it into the document. The definition's own panel is the next item.
+  - **Resizing a placement** does nothing to its parts. Figma answers "it depends on the
+    child's constraints", which is a layout model this schema does not have; a frame
+    part inside a placement *does* arrange its children, so the honest first answer may
+    be "a placement resizes like a frame".
+  - **A placement's parts are not in the layer list**, which descends into `group` and
+    `frame` only. A reader who wants to pick the badge inside a card has the canvas and
+    nothing else.
+  - **The stage scales a focused definition by the slide's size.** Measured: a 4000×2400
+    card and a 30000×18000 component both drew at 0.3797, because the fit is computed
+    from `slideSize`. A definition has its own width and height.
+
+  The original notes, kept because they are the argument the design came out of:
 
   **Two things measured before starting, because they decide the shape of it.**
 

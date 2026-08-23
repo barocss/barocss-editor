@@ -80,7 +80,7 @@ describe('a placement draws', () => {
       {
         // The definition is a **resource**, not a page: it is not in the deck's sequence, it
         // is never presented, and it is drawn hidden until a reader opens it.
-        stype: 'resources',
+        stype: 'components',
         attributes: {},
         content: [
           {

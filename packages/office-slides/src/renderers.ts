@@ -1313,4 +1313,65 @@ export function registerSlidesRenderers(): void {
       slot('content')
     ])
   );
+
+  /**
+   * The **library**: where the definitions live.
+   *
+   * A container beside `resources` rather than inside it, and the reason is right here in the
+   * drawing. `resources` is hidden as a whole because none of it belongs on the screen; a
+   * definition being edited is the one thing that does. Showing it through that container meant
+   * a `:has()` rule reaching past a `display: none` written to hide layouts and themes —
+   * un-hiding the container outright put the ruler 6px off, because it then took part in the
+   * stage's layout.
+   *
+   * So it is hidden as a whole *and* its children carry their own `display: none`, and the
+   * stage shows the focused definition with the container set to `display: contents` — no box
+   * of its own, so the definition becomes a child of the stage exactly like the slide it
+   * replaces. Measured the other way first: a library left visible because its children were
+   * hidden anyway still put a box in the stage's flow, and the ruler came out six pixels off
+   * the slide it measures — the same fault as `resources`, in the container written to avoid
+   * it.
+   */
+  define(
+    'components',
+    element('div', { className: 'sl-library', style: { display: 'none' } }, [slot('content')])
+  );
+
+  /**
+   * A **declaration**, drawn as nothing a reader can see or click.
+   *
+   * Drawn at all for the sid-map reason above — and drawn *empty*, because what it says is not
+   * something to look at on the canvas: a variable's field belongs in a panel, beside the
+   * placement being edited. `data-var` is how a test can see the document reached the page.
+   */
+  define(
+    'componentVar',
+    element('span', {
+      className: 'sl-var',
+      style: { display: 'none' },
+      'data-var': (d: NodeData) =>
+        typeof attrsOf(d).name === 'string' ? attrsOf(d).name : undefined,
+      'data-var-kind': (d: NodeData) =>
+        typeof attrsOf(d).kind === 'string' ? attrsOf(d).kind : 'text',
+      'data-var-label': (d: NodeData) =>
+        typeof attrsOf(d).label === 'string' ? attrsOf(d).label : undefined,
+      'data-var-choices': (d: NodeData) =>
+        Array.isArray(attrsOf(d).choices) ? (attrsOf(d).choices as unknown[]).join('|') : undefined,
+      'data-var-value': (d: NodeData) =>
+        typeof attrsOf(d).value === 'string' ? attrsOf(d).value : undefined
+    } as never)
+  );
+
+  /** What one placement answers. Hidden for the same reason, and read by the same panel. */
+  define(
+    'componentValue',
+    element('span', {
+      className: 'sl-value',
+      style: { display: 'none' },
+      'data-value-of': (d: NodeData) =>
+        typeof attrsOf(d).name === 'string' ? attrsOf(d).name : undefined,
+      'data-value': (d: NodeData) =>
+        typeof attrsOf(d).value === 'string' ? attrsOf(d).value : undefined
+    } as never)
+  );
 }

@@ -1553,14 +1553,21 @@ export function Stage({
            * has to say so louder. Measured: without it the definition stayed hidden with the
            * stage focused on it, which looks like the whole feature not working.
            *
-           * And the **container** too — but only when it holds the definition being focused,
-           * which is what `:has()` says. Definitions are drawn inside `resources`, hidden as a
-           * group, so a definition alone came out `display: block` inside a parent that was
-           * `display: none` — the same thing as hidden. Un-hiding the group unconditionally
-           * was worse and was measured: it put a block into the document's flow on *every*
-           * slide, and the ruler came out six pixels off the slide it measures.
+           * And the **library** too, as `display: contents` — which is the third answer to this
+           * and the first one the ruler agrees with. Measured, twice:
+           *
+           * - Un-hiding the container as a **block** puts a box in the stage's flow, and the
+           *   ruler came out six pixels off the slide it measures. (That was `resources`, which
+           *   is also why the definitions moved out of it: showing one meant reaching past a
+           *   `display: none` written to hide layouts, with `:has()`.)
+           * - Leaving the library visible *always* — its children carry their own
+           *   `display: none`, so it looked free — is the same six pixels on every slide,
+           *   which is how the ruler test found it a second time.
+           *
+           * `display: contents` makes the container contribute no box at all: the definition
+           * becomes a child of the stage, exactly like the slide it replaces.
            */
-          `.sl-stage[data-focus="${focus}"] .w-resources:has(.sl-def-component[data-bc-sid="${focus}"]) { display: block !important; }` +
+          `.sl-stage[data-focus="${focus}"] .sl-library { display: contents !important; }` +
           `.sl-stage[data-focus="${focus}"] .sl-def-component[data-bc-sid="${focus}"] { display: block !important; }`
         }</style>
       )}

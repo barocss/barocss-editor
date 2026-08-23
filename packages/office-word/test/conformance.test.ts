@@ -203,6 +203,22 @@ const schema = createSchema('word', getWordSchemaDefinition());
       ratchet: { 'every-attribute-is-read': 184 },
 
       exempt: {
+        /**
+         * ── A component's bindings, declared by the suite ──────────────────
+         *
+         * Read by Slides at **apply** — `partCopy` writes the placement's value into its copy
+         * of the part — and by nothing here, because Word has no library. Declared on the
+         * shared canvas attributes rather than in the slides schema because the component
+         * model is the suite's: `component` and `instance` are in the office schema that both
+         * products read, and splitting the bindings out would mean naming every canvas node
+         * type twice.
+         */
+        bindText: 'components — substituted at apply by Slides’ `partCopy`; Word has no library',
+        bindFill: 'the same, for a colour used in more than one place',
+        bindVisible: 'the same, for a state — and only the falsy half is ever written',
+        slot:
+          'components — where a reader’s own boxes go inside a placement, read by `componentApplyPlan` so apply does not take them out. Word has no library',
+
         // ── Attributes read by something that is not a renderer ────────────
         /**
          * `every-attribute-is-read` asks the drawing, because that is the answer it
@@ -394,6 +410,20 @@ const schema = createSchema('word', getWordSchemaDefinition());
           'selection and IME inside one are unreliable across browsers — the same ' +
           'reason Slides draws its slides as HTML rather than as one SVG',
         instance: 'a placement of one; Word has no components',
+        /**
+         * ── The document's **library** ─────────────────────────────────────
+         *
+         * The office schema declares `components` beside `resources` because the component
+         * model is the *suite's*: `component`, `instance` and the shared canvas attributes
+         * were always in the schema both products read. Slides is the product that has one.
+         *
+         * A page could have one — a reusable figure, a bordered callout — and when it does
+         * these come off, which is exactly what an exemption being a checked claim is for.
+         */
+        components: 'the document’s library of definitions; Word has none to keep',
+        component: 'a definition; Word has no library',
+        componentVar: 'what a placement of a definition can be asked for; Word has no definitions',
+        componentValue: 'what one placement answers; the same',
 
         // ── Where the inherited write-offs went ────────────────────────────
         // Twenty-three lines used to sit here: thirteen marked `BUG:` — a

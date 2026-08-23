@@ -49,6 +49,9 @@ import {
   isCropped,
   laysOut,
   transitionOf,
+  componentOf,
+  componentStale,
+  instanceVars,
   type Slide
 } from '@barocss/office-slides';
 
@@ -813,6 +816,18 @@ export function Properties({
             * itself is here: the way it goes, how far it bows, and what is drawn where
             * it arrives.
             */}
+          {/*
+            * A **placement** of a component: what it can be asked for, and the two decisions
+            * about following.
+            *
+            * Drawn from the definition's own declaration (`instanceVars`), so the fields are
+            * whatever the card says it takes — a panel with a fixed list of fields would be a
+            * second place that has to know what a card is.
+            */}
+          {box?.stype === 'instance' && (
+            <ComponentGroup editor={editor} sid={box.sid as string} locked={locked} tick={tick} />
+          )}
+
           {declares('startNodeId') && (
             <PropertyGroup label="연결선">
               <PropertyRow label="경로">
@@ -1438,6 +1453,133 @@ export function Properties({
  * the difference the reader cares about — naming both "텍스트 상자" would make
  * the panel say the same thing about two different jobs.
  */
+/**
+ * What one placement of a component can be asked for.
+ *
+ * ## Why the fields come from the document
+ *
+ * A card declares its own variables (`componentVar`), so this draws what *this* definition
+ * says it takes: a name, a number, a colour, a state. A panel with its own list of fields
+ * would be a second place that has to know what a card is — the fault this repository keeps
+ * finding, and the reason the declaration is nodes rather than a blob in one attribute.
+ *
+ * ## Why setting one writes the parts as well
+ *
+ * The value is substituted into the placement's copy of the part when it is written, not while
+ * it is drawn (canvas-model §10b-2): a template cannot draw a foreign node, so a placement
+ * holds real nodes and the drawing stays plain. `setComponentValue` does both halves in one
+ * transaction, so one press of undo takes back the field *and* what it changed on the slide.
+ *
+ * ## The two buttons
+ *
+ * **적용** takes what the definition now says — offered rather than automatic, because a
+ * definition that pushed every edit into forty placements as a reader typed would be two
+ * hundred document writes per keystroke. **분리** stops the placement following at all, and
+ * leaves a group: the parts a reader arranged stay arranged.
+ */
+function ComponentGroup({
+  editor,
+  sid,
+  locked,
+  tick
+}: {
+  editor: Editor | null;
+  sid: string;
+  locked: boolean;
+  /** The document's revision, so the fields are never older than the slide. */
+  tick: number;
+}) {
+  const { vars, definition, behind } = useMemo(() => {
+    const store = (editor as any)?.dataStore;
+    const rootId = (editor as any)?.getRootId?.();
+    if (!store || !rootId) return { vars: [], definition: undefined, behind: false };
+    const doc = { rootId, getNode: (one: string) => store.getNode(one) };
+    const node = store.getNode(sid);
+    const found = componentOf(doc as never, node);
+    return {
+      vars: instanceVars(doc as never, node, found),
+      definition: found,
+      behind: componentStale(doc as never, node, found)
+    };
+  }, [editor, sid, tick]);
+
+  const set = (name: string, value: string) =>
+    void (editor as any)?.executeCommand?.('setComponentValue', { nodeId: sid, name, value });
+
+  return (
+    <PropertyGroup label={definition ? `컴포넌트 · ${definition.name || '이름 없음'}` : '컴포넌트'}>
+      {vars.map((one) => (
+        <PropertyRow key={one.name} label={one.label}>
+          {one.kind === 'boolean' ? (
+            <PropertyToggle
+              ariaLabel={one.label}
+              label="보이기"
+              value={one.value !== 'false' && one.value !== ''}
+              disabled={locked}
+              onChange={(next) => set(one.name, next ? 'true' : 'false')}
+            />
+          ) : one.kind === 'color' ? (
+            <ColorField
+              ariaLabel={one.label}
+              value={one.value}
+              disabled={locked}
+              onChange={(next) => set(one.name, next)}
+            />
+          ) : one.kind === 'choice' ? (
+            <PropertyChoice
+              ariaLabel={one.label}
+              value={one.value}
+              options={one.choices.map((choice) => ({ id: choice, label: choice }))}
+              disabled={locked}
+              onChange={(next) => set(one.name, next)}
+            />
+          ) : (
+            <TextField
+              ariaLabel={one.label}
+              testClass={`sl-var-${one.name}`}
+              data={{ 'component-var': one.name }}
+              value={one.value}
+              disabled={locked}
+              /**
+               * Committed on Enter and on blur, not typed live.
+               *
+               * The distinction is `TextField`'s own and the reason is exactly this field: a
+               * value writes the placement's `componentValue` **and** rewrites the parts that
+               * bind it, so a live field would put one history entry and one part-rewrite in
+               * for every keystroke — a hundred of them for one word.
+               */
+              onCommit={(next) => set(one.name, next)}
+            />
+          )}
+        </PropertyRow>
+      ))}
+
+      <PropertyRow label="정의">
+        {/*
+          * Said in words rather than by a colour, and only when there *is* something to take:
+          * a badge on every placement is a badge a reader learns to ignore.
+          */}
+        <Button
+          title={behind ? '정의가 달라졌습니다 — 이 컴포넌트를 다시 적용합니다' : '정의를 다시 적용합니다'}
+          data={{ 'component-apply': '' }}
+          disabled={locked || !definition}
+          onClick={() => void (editor as any)?.executeCommand?.('applyComponent', { nodeId: sid })}
+        >
+          {behind ? '뒤처짐 · 적용' : '적용'}
+        </Button>
+        <Button
+          title="이 자리의 상자로 만듭니다 — 더 이상 정의를 따르지 않습니다"
+          data={{ 'component-detach': '' }}
+          disabled={locked}
+          onClick={() => void (editor as any)?.executeCommand?.('detachComponent', { nodeId: sid })}
+        >
+          분리
+        </Button>
+      </PropertyRow>
+    </PropertyGroup>
+  );
+}
+
 function labelFor(stype: string, role?: string): string {
   if (role === 'title') return '제목 상자';
   if (role === 'subtitle') return '부제목 상자';

@@ -152,12 +152,39 @@ describe('containers enforce their own shape', () => {
     expect(schema.getNodeType('rectangle')?.content).toBeUndefined();
   });
 
-  it('a definition is a resource, and holds a canvas', () => {
-    // Not a page and not a box on a slide: `resources` is where a layout, a master and a theme
-    // live, and a component is the same kind of thing — something the pages refer to.
-    expect(schema.getNodeType('component')?.group).toBe('resource');
-    expect(schema.validateContent('component', [n('rectangle'), n('frame')]).valid).toBe(true);
+  it('a definition lives in the library, and declares before it draws', () => {
+    /*
+     * Not a page, not a box on a slide, and not a corner of `resources` either — which it was,
+     * and which worked. What moved it is display and ownership: every definition in
+     * `resources` is hidden as a group because none of them belongs on the screen, and a
+     * component's is the one that does while it is being edited. A container whose whole
+     * purpose is components can simply be shown, and is a thing to own — a name, a source,
+     * a brand kit.
+     */
+    expect(schema.getNodeType('component')?.group).toBe('component');
+    expect(schema.validateContent('components', [n('component')]).valid).toBe(true);
+    expect(schema.validateContent('document', [n('surface'), n('components')]).valid).toBe(true);
+
+    // Its variables first — the definition's interface — then what it is made of.
+    expect(
+      schema.validateContent('component', [n('componentVar'), n('rectangle'), n('frame')]).valid
+    ).toBe(true);
     expect(schema.getNodeType('component')?.attrs?.id?.required).toBe(true);
+  });
+
+  it('declares its variables as nodes, so they can be checked', () => {
+    // A blob of JSON in one attribute cannot be validated, probed or read by a panel without a
+    // parser — the argument this schema has already made twice.
+    const kinds = schema.getNodeType('componentVar')?.attrs?.kind?.options;
+    expect(kinds).toEqual(['text', 'color', 'number', 'boolean', 'choice']);
+    expect(schema.getNodeType('componentVar')?.attrs?.name?.required).toBe(true);
+    expect(schema.getNodeType('componentValue')?.attrs?.name?.required).toBe(true);
+  });
+
+  it('a placement says what its variables are, then holds its parts', () => {
+    expect(
+      schema.validateContent('instance', [n('componentValue'), n('rectangle')]).valid
+    ).toBe(true);
   });
 
   it('a placement of a component is not an atom, and that is the design', () => {
@@ -170,10 +197,8 @@ describe('containers enforce their own shape', () => {
      * under it, which is the thing every component system that resolves children at draw time
      * cannot do — there is nowhere to put them.
      */
-    expect(schema.getNodeType('instance')?.content).toBe('(scene | frame)*');
-    expect(
-      schema.validateContent('instance', [n('rectangle'), n('frame')]).valid
-    ).toBe(true);
+    expect(schema.getNodeType('instance')?.content).toBe('componentValue* (scene | frame)*');
+    expect(schema.validateContent('instance', [n('rectangle'), n('frame')]).valid).toBe(true);
   });
 });
 

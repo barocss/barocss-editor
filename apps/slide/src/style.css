@@ -2297,6 +2297,24 @@ body {
   color: #b45309;
 }
 
+/*
+ * Making one, and what a row offers besides opening.
+ *
+ * The row itself is the whole width and stays a single press — opening a definition is the
+ * commonest thing here — so 놓기 and 모두 적용 sit under it rather than beside its name, where
+ * they would squeeze the one part of the row a reader reads.
+ */
+.sl-components-make {
+  padding: 8px;
+  border-bottom: 1px solid var(--sl-line);
+}
+
+.sl-component-actions {
+  display: flex;
+  gap: 4px;
+  padding: 0 8px 6px;
+}
+
 /* Not in the show, like the rulers and the guides: an audience is looking. */
 .sl-shell[data-presenting='true'] .sl-components,
 .sl-shell[data-presenting='true'] .sl-components-closed {

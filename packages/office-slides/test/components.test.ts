@@ -5,7 +5,10 @@ import {
   componentSignature,
   componentStale,
   deckComponents,
+  instanceSlot,
   instanceState,
+  instanceValues,
+  instanceVars,
   partCopy,
   partSignature
 } from '../src/components';
@@ -17,10 +20,13 @@ import { editableSurface, isSlideSurface, type DeckAccess } from '../src/deck';
  * Two decisions, and both were arrived at by being wrong first — which is why they are worth
  * restating here rather than only in the source:
  *
- * - **A definition is a resource, not a page.** It was a `surface` with a kind of its own, and
- *   then every reader of the page sequence had to ask whether each page counted: the slide
- *   list, the strip, the presenter, the count. Two of them leaked before the third was
- *   written. `resources` is where this document already keeps what pages refer to.
+ * - **A definition lives in the library, not on a page.** It was a `surface` with a kind of
+ *   its own, and then every reader of the page sequence had to ask whether each page counted:
+ *   the slide list, the strip, the presenter, the count. Two of them leaked before the third
+ *   was written. It was then a corner of `resources`, which worked — and moved out because
+ *   `resources` is hidden as a group, so showing the definition a reader had opened meant
+ *   reaching past a `display: none` written to hide layouts, and un-hiding that container
+ *   outright put the ruler 6px off.
  * - **Everything is pointed at by a durable id.** `componentId` and `partOf` held *sids*, and
  *   saving strips those — so a saved deck would have come back with every part of every
  *   placement looking orphaned, and apply would have taken them all out. The same rule motion
@@ -29,12 +35,12 @@ import { editableSurface, isSlideSurface, type DeckAccess } from '../src/deck';
 const doc = (nodes: Record<string, Record<string, unknown>>): DeckAccess =>
   ({ rootId: 'root', getNode: (sid: string) => nodes[sid] as never }) as DeckAccess;
 
-/** A deck with one definition in its resources and one placement on its slide. */
+/** A deck with one definition in its library and one placement on its slide. */
 const card = () =>
   doc({
-    root: { sid: 'root', stype: 'document', content: ['slide', 'res'] },
+    root: { sid: 'root', stype: 'document', content: ['slide', 'lib'] },
     slide: { sid: 'slide', stype: 'surface', attributes: { kind: 'slide' }, content: ['one'] },
-    res: { sid: 'res', stype: 'resources', attributes: {}, content: ['card'] },
+    lib: { sid: 'lib', stype: 'components', attributes: {}, content: ['card'] },
     card: {
       sid: 'card',
       stype: 'component',
@@ -57,7 +63,7 @@ const card = () =>
   });
 
 describe('a component and its placements', () => {
-  it('is a resource, so it is not in the page sequence at all', () => {
+  it('is in the library, so it is not in the page sequence at all', () => {
     const access = card();
     expect(deckComponents(access).map((one) => one.id)).toEqual(['card']);
     expect(isSlideSurface(access.getNode('card') as never)).toBe(false);
@@ -76,8 +82,8 @@ describe('a component and its placements', () => {
 
   it('is not a definition at all without an id, because nothing could point at it', () => {
     const access = doc({
-      root: { sid: 'root', stype: 'document', content: ['res'] },
-      res: { sid: 'res', stype: 'resources', attributes: {}, content: ['nameless'] },
+      root: { sid: 'root', stype: 'document', content: ['lib'] },
+      lib: { sid: 'lib', stype: 'components', attributes: {}, content: ['nameless'] },
       nameless: { sid: 'nameless', stype: 'component', attributes: {}, content: [] }
     });
     expect(deckComponents(access)).toEqual([]);
@@ -93,9 +99,9 @@ describe('a component and its placements', () => {
     // What an override *is* here: nothing declared, nothing hidden. A part a reader has moved
     // has been changed, and pretending otherwise would let apply put it back.
     const access = doc({
-      root: { sid: 'root', stype: 'document', content: ['slide', 'res'] },
+      root: { sid: 'root', stype: 'document', content: ['slide', 'lib'] },
       slide: { sid: 'slide', stype: 'surface', attributes: { kind: 'slide' }, content: ['one'] },
-      res: { sid: 'res', stype: 'resources', attributes: {}, content: ['card'] },
+      lib: { sid: 'lib', stype: 'components', attributes: {}, content: ['card'] },
       card: { sid: 'card', stype: 'component', attributes: { id: 'card' }, content: ['t'] },
       t: { sid: 't', stype: 'textFrame', attributes: { partId: 'title', x: 0, y: 0 } },
       one: { sid: 'one', stype: 'instance', attributes: { componentId: 'card' }, content: ['mine'] },
@@ -108,9 +114,9 @@ describe('a component and its placements', () => {
 
   it('reports a part whose origin the definition has dropped', () => {
     const access = doc({
-      root: { sid: 'root', stype: 'document', content: ['slide', 'res'] },
+      root: { sid: 'root', stype: 'document', content: ['slide', 'lib'] },
       slide: { sid: 'slide', stype: 'surface', attributes: { kind: 'slide' }, content: ['one'] },
-      res: { sid: 'res', stype: 'resources', attributes: {}, content: ['card'] },
+      lib: { sid: 'lib', stype: 'components', attributes: {}, content: ['card'] },
       card: { sid: 'card', stype: 'component', attributes: { id: 'card' }, content: [] },
       one: { sid: 'one', stype: 'instance', attributes: { componentId: 'card' }, content: ['gone'] },
       gone: { sid: 'gone', stype: 'rectangle', attributes: { partOf: 'was-here' } }
@@ -128,9 +134,9 @@ describe('a component and its placements', () => {
      * to overwrite.
      */
     const access = doc({
-      root: { sid: 'root', stype: 'document', content: ['slide', 'res'] },
+      root: { sid: 'root', stype: 'document', content: ['slide', 'lib'] },
       slide: { sid: 'slide', stype: 'surface', attributes: { kind: 'slide' }, content: ['one'] },
-      res: { sid: 'res', stype: 'resources', attributes: {}, content: ['card'] },
+      lib: { sid: 'lib', stype: 'components', attributes: {}, content: ['card'] },
       card: { sid: 'card', stype: 'component', attributes: { id: 'card' }, content: ['t'] },
       t: { sid: 't', stype: 'textFrame', attributes: { partId: 'title' } },
       one: {
@@ -170,6 +176,236 @@ describe('a component and its placements', () => {
  * Two copies of the same box have different sids and the same signature, which is what lets a
  * placement be compared with its definition without either knowing about the other.
  */
+/**
+ * What a placement can be **asked for**.
+ *
+ * A placement holds real nodes, so a reader can already change anything in it. What free
+ * editing cannot do is the three things below — one value used in two places, a state with its
+ * options declared, and a list a panel can show — which is why a declaration exists at all.
+ */
+describe('what a placement can be asked for', () => {
+  const carded = () =>
+    doc({
+      root: { sid: 'root', stype: 'document', content: ['slide', 'lib'] },
+      slide: { sid: 'slide', stype: 'surface', attributes: { kind: 'slide' }, content: ['one'] },
+      lib: { sid: 'lib', stype: 'components', attributes: {}, content: ['card'] },
+      card: {
+        sid: 'card',
+        stype: 'component',
+        attributes: { id: 'card', name: '카드' },
+        content: ['v-title', 'v-badge', 'def-back']
+      },
+      'v-title': {
+        sid: 'v-title',
+        stype: 'componentVar',
+        attributes: { name: 'title', label: '제목', value: '제목을 쓰세요' }
+      },
+      'v-badge': {
+        sid: 'v-badge',
+        stype: 'componentVar',
+        attributes: { name: 'badge', kind: 'boolean', value: 'true' }
+      },
+      'def-back': { sid: 'def-back', stype: 'rectangle', attributes: { partId: 'back' } },
+      one: {
+        sid: 'one',
+        stype: 'instance',
+        attributes: { componentId: 'card' },
+        content: ['said', 'one-back']
+      },
+      said: { sid: 'said', stype: 'componentValue', attributes: { name: 'title', value: '매출' } },
+      'one-back': { sid: 'one-back', stype: 'rectangle', attributes: { partOf: 'back' } }
+    });
+
+  it('declares its variables in order, and reads them as fields', () => {
+    const [card] = deckComponents(carded());
+    expect(card.vars.map((one) => [one.name, one.kind, one.label])).toEqual([
+      ['title', 'text', '제목'],
+      // No label of its own: the name, so a panel always has something to write beside the
+      // field rather than an empty gutter.
+      ['badge', 'boolean', 'badge']
+    ]);
+  });
+
+  it('does not count a declaration as a part', () => {
+    // A variable is not copied into a placement and is not paired by `partId`, so counting it
+    // would make every placement look one part behind.
+    const access = carded();
+    const [card] = deckComponents(access);
+    expect(card.parts).toEqual(['def-back']);
+    expect(
+      instanceState(access, access.getNode('one') as never, card).map((part) => part.origin)
+    ).toEqual(['back']);
+  });
+
+  it('answers with the placement’s value, and with the default when it said nothing', () => {
+    const access = carded();
+    const said = instanceVars(access, access.getNode('one') as never, deckComponents(access)[0]);
+    expect(said.map((one) => [one.name, one.value, one.set])).toEqual([
+      ['title', '매출', true],
+      // Every declared variable comes back whether the placement mentions it or not: a field
+      // that appears only once a value exists is a field a reader cannot set the first one in.
+      ['badge', 'true', false]
+    ]);
+  });
+
+  it('is behind when the declaration changes, not only when the drawing does', () => {
+    const access = carded();
+    const before = componentSignature(access, deckComponents(access)[0]);
+    (access.getNode('v-title') as never as { attributes: Record<string, unknown> }).attributes = {
+      name: 'title',
+      label: '제목',
+      value: '다른 기본값'
+    };
+    // A placement's fields come from the declaration, so leaving it out of the signature would
+    // let the panel go quietly out of date while the badge said everything was current.
+    expect(componentSignature(access, deckComponents(access)[0])).not.toBe(before);
+  });
+});
+
+/**
+ * What a **binding** is for, and why it is substituted by apply rather than by the renderer.
+ *
+ * A placement holds real nodes, so the value has to *get into* them. Doing it at draw time
+ * would mean a placement's text could not be searched, spell-checked or measured without the
+ * definition in hand — and a template cannot draw a foreign node anyway (§10b-2), which is the
+ * measurement that settled the whole materialised design.
+ */
+describe('a part bound to a variable', () => {
+  const bound = () =>
+    doc({
+      root: { sid: 'root', stype: 'document', content: ['slide', 'lib'] },
+      slide: { sid: 'slide', stype: 'surface', attributes: { kind: 'slide' }, content: ['one'] },
+      lib: { sid: 'lib', stype: 'components', attributes: {}, content: ['card'] },
+      card: {
+        sid: 'card',
+        stype: 'component',
+        attributes: { id: 'card', name: '카드' },
+        content: ['v-title', 'v-accent', 'v-badge', 'def-title', 'def-badge', 'def-items']
+      },
+      'v-title': { sid: 'v-title', stype: 'componentVar', attributes: { name: 'title', value: '제목' } },
+      'v-accent': {
+        sid: 'v-accent',
+        stype: 'componentVar',
+        attributes: { name: 'accent', kind: 'color', value: '#111111' }
+      },
+      'v-badge': {
+        sid: 'v-badge',
+        stype: 'componentVar',
+        attributes: { name: 'showBadge', kind: 'boolean', value: 'true' }
+      },
+      'def-title': {
+        sid: 'def-title',
+        stype: 'textFrame',
+        attributes: { partId: 'title', bindText: 'title', bindFill: 'accent' },
+        content: ['def-line']
+      },
+      'def-line': { sid: 'def-line', stype: 'paragraph', attributes: { fontSize: 44 }, content: ['def-run'] },
+      'def-run': { sid: 'def-run', stype: 'inline-text', attributes: {}, text: '제목' },
+      'def-badge': {
+        sid: 'def-badge',
+        stype: 'rectangle',
+        attributes: { partId: 'badge', bindVisible: 'showBadge' }
+      },
+      'def-items': {
+        sid: 'def-items',
+        stype: 'frame',
+        attributes: { partId: 'items', slot: 'items', layoutMode: 'column' },
+        content: []
+      },
+      one: {
+        sid: 'one',
+        stype: 'instance',
+        attributes: { componentId: 'card' },
+        content: ['said-title', 'said-badge', 'one-items', 'one-own']
+      },
+      'said-title': {
+        sid: 'said-title',
+        stype: 'componentValue',
+        attributes: { name: 'title', value: '매출' }
+      },
+      'said-badge': {
+        sid: 'said-badge',
+        stype: 'componentValue',
+        attributes: { name: 'showBadge', value: 'false' }
+      },
+      // What apply leaves behind: the definition's own attributes, `partOf` in place of
+      // `partId`, and the reader's boxes inside it.
+      'one-items': {
+        sid: 'one-items',
+        stype: 'frame',
+        attributes: { partOf: 'items', slot: 'items', layoutMode: 'column' },
+        content: ['one-own']
+      },
+      'one-own': { sid: 'one-own', stype: 'textFrame', attributes: {} }
+    });
+
+  const values = (access: DeckAccess) =>
+    instanceValues(access, access.getNode('one') as never, deckComponents(access)[0]);
+
+  it('draws the value and nothing else', () => {
+    const access = bound();
+    const copy = partCopy(access, 'def-title', values(access)) as never as {
+      content: [{ attributes: Record<string, unknown>; content: [{ text: string }] }];
+    };
+    // The first run's formatting is kept — the definition's font survives — and the rest go.
+    // Writing into the first and leaving the others would put the value on the page followed
+    // by whatever the definition said next.
+    expect(copy.content[0].attributes.fontSize).toBe(44);
+    expect(copy.content[0].content[0].text).toBe('매출');
+  });
+
+  it('takes a colour by name, so one decision is not three copies', () => {
+    const access = bound();
+    const copy = partCopy(access, 'def-title', values(access)) as never as {
+      attributes: Record<string, unknown>;
+    };
+    expect(copy.attributes.fill).toBe('#111111');
+  });
+
+  it('is not there when its state says so, and writes only the falsy half', () => {
+    const access = bound();
+    const off = partCopy(access, 'def-badge', values(access)) as never as {
+      attributes: Record<string, unknown>;
+    };
+    // `visible: true` beside no `visible` at all is the same drawing — the asymmetry the
+    // conformance probe finds in every boolean — so only `false` is ever written.
+    expect(off.attributes.visible).toBe(false);
+    (access.getNode('said-badge') as never as { attributes: Record<string, unknown> }).attributes = {
+      name: 'showBadge',
+      value: 'true'
+    };
+    const on = partCopy(access, 'def-badge', values(access)) as never as {
+      attributes: Record<string, unknown>;
+    };
+    expect('visible' in on.attributes).toBe(false);
+  });
+
+  it('keeps what the reader put in a slot when the definition is applied', () => {
+    const access = bound();
+    const plan = componentApplyPlan(
+      access,
+      access.getNode('one') as never,
+      deckComponents(access)[0]
+    );
+    /*
+     * The one place rule 1 does not reach: the reader's boxes are *inside* a part that has an
+     * origin, so without this apply would rewrite the slot and take them out with it.
+     */
+    const slot = plan?.rewrite.find((part) => part.sid === 'one-items');
+    expect(slot?.keepChildren).toBe(true);
+    /*
+     * And it is in the rewrite at all only because a slot is compared *without* its contents.
+     * Measured the other way first: a slot part is always different from its origin — the
+     * reader's boxes are in it — so rule 3 left it alone, and a definition's change to the
+     * frame's own gap or padding could never reach a placement anybody had used.
+     */
+    expect(plan?.rewrite.find((part) => part.sid === 'said-title')).toBeUndefined();
+    expect(instanceSlot(access, access.getNode('one') as never, deckComponents(access)[0])).toBe(
+      'one-items'
+    );
+  });
+});
+
 describe('signatures', () => {
   const two = doc({
     root: { sid: 'root', stype: 'document', content: [] },
@@ -218,9 +454,9 @@ describe('signatures', () => {
 describe('a placement that has fallen behind', () => {
   const deck = (over: Record<string, unknown> = {}, said = '카드') =>
     doc({
-      root: { sid: 'root', stype: 'document', content: ['slide', 'res'] },
+      root: { sid: 'root', stype: 'document', content: ['slide', 'lib'] },
       slide: { sid: 'slide', stype: 'surface', attributes: { kind: 'slide' }, content: ['one'] },
-      res: { sid: 'res', stype: 'resources', attributes: {}, content: ['card'] },
+      lib: { sid: 'lib', stype: 'components', attributes: {}, content: ['card'] },
       card: { sid: 'card', stype: 'component', attributes: { id: 'card' }, content: ['t'] },
       t: { sid: 't', stype: 'textFrame', attributes: { partId: 'title', name: said } },
       one: {
@@ -272,9 +508,9 @@ describe('applying a definition to a placement', () => {
       { sid: 'h2', partOf: 'p2' }
     ];
     const nodes: Record<string, Record<string, unknown>> = {
-      root: { sid: 'root', stype: 'document', content: ['slide', 'res'] },
+      root: { sid: 'root', stype: 'document', content: ['slide', 'lib'] },
       slide: { sid: 'slide', stype: 'surface', attributes: { kind: 'slide' }, content: ['one'] },
-      res: { sid: 'res', stype: 'resources', attributes: {}, content: ['card'] },
+      lib: { sid: 'lib', stype: 'components', attributes: {}, content: ['card'] },
       card: { sid: 'card', stype: 'component', attributes: { id: 'card' }, content: parts },
       one: {
         sid: 'one',
@@ -362,10 +598,10 @@ describe('applying a definition to a placement', () => {
  */
 describe('the surface an action lands on', () => {
   const deck = doc({
-    root: { sid: 'root', stype: 'document', content: ['one', 'two', 'res'] },
+    root: { sid: 'root', stype: 'document', content: ['one', 'two', 'lib'] },
     one: { sid: 'one', stype: 'surface', attributes: { kind: 'slide' }, content: [] },
     two: { sid: 'two', stype: 'surface', attributes: { kind: 'slide' }, content: [] },
-    res: { sid: 'res', stype: 'resources', attributes: {}, content: ['card'] },
+    lib: { sid: 'lib', stype: 'components', attributes: {}, content: ['card'] },
     card: { sid: 'card', stype: 'component', attributes: { id: 'card' }, content: [] }
   });
 
@@ -379,7 +615,7 @@ describe('the surface an action lands on', () => {
   });
 
   it('refuses what is neither', () => {
-    expect(editableSurface(deck, 'res')).toBeUndefined();
+    expect(editableSurface(deck, 'lib')).toBeUndefined();
     expect(editableSurface(deck, 'nowhere')).toBeUndefined();
   });
 });

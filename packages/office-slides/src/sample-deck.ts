@@ -55,6 +55,133 @@ const cellText = (text: string, attributes: Record<string, unknown> = {}): INode
   attributes
 });
 
+/** The card's own size, which its parts are placed against. */
+const CARD_WIDTH = 5040;
+const CARD_HEIGHT = 3960;
+
+/**
+ * One **placement** of the deck's card, written the way the document really holds one.
+ *
+ * A placement is materialised: it says what its variables are (`componentValue`) *and* holds
+ * real copies of the definition's parts, each pointing back at the part it came from by a
+ * durable name. The values are substituted into those copies when the definition is applied —
+ * not while it is drawn — so what is written here is what `applyComponent` would leave behind,
+ * with the substitution already done. See `components.ts`.
+ *
+ * `partOf` and never `partId`: two boxes claiming to *be* the same part is how a definition
+ * ends up pointing at a placement.
+ */
+const card = (
+  place: { x: number; y: number },
+  /** What this placement says, which is recorded in the document as its own nodes. */
+  said: { title: string; value: string; accent?: string; showBadge?: string },
+  /** What its parts therefore look like, plus whatever the reader did to them. */
+  drawn: {
+    title: string;
+    value: string;
+    accent?: string;
+    badgeOff?: boolean;
+    /** True when the reader edited the value part, so apply must leave it alone. */
+    overridden?: boolean;
+    /** What the reader put **inside the slot**, which apply must also leave. */
+    rows?: string[];
+  }
+): INode => ({
+  stype: 'instance',
+  attributes: {
+    componentId: 'metric-card',
+    x: place.x,
+    y: place.y,
+    width: CARD_WIDTH,
+    height: CARD_HEIGHT
+  },
+  content: [
+    /*
+     * What it was asked for, first — the declaration's answers. No `appliedFrom` is written:
+     * a placement that has never recorded one is *not* stale (see `componentStale`), and a
+     * signature cannot be written by hand without becoming a lie the first time the card is
+     * edited.
+     */
+    { stype: 'componentValue', attributes: { name: 'title', value: said.title } },
+    { stype: 'componentValue', attributes: { name: 'value', value: said.value } },
+    ...(said.accent
+      ? [{ stype: 'componentValue', attributes: { name: 'accent', value: said.accent } }]
+      : []),
+    ...(said.showBadge
+      ? [{ stype: 'componentValue', attributes: { name: 'showBadge', value: said.showBadge } }]
+      : []),
+
+    {
+      stype: 'rectangle',
+      attributes: {
+        partOf: 'back',
+        bindFill: 'accent',
+        x: 0,
+        y: 0,
+        width: CARD_WIDTH,
+        height: CARD_HEIGHT,
+        // The substituted value, which is why it is a copy at all — and a theme slot unless
+        // this placement said otherwise, so a re-coloured deck re-colours its cards.
+        fill: drawn.accent ?? 'theme:accent1',
+        cornerRadius: 180
+      }
+    },
+    {
+      stype: 'ellipse',
+      attributes: {
+        partOf: 'badge',
+        bindVisible: 'showBadge',
+        x: 4320,
+        y: 240,
+        width: 480,
+        height: 480,
+        fill: '#fbbf24',
+        /*
+         * Only the falsy half is ever written: `visible: true` beside no `visible` at all is
+         * the same drawing, which is the asymmetry the conformance probe finds in every
+         * boolean.
+         */
+        ...(drawn.badgeOff ? { visible: false } : {})
+      }
+    },
+    {
+      stype: 'textFrame',
+      attributes: { partOf: 'title', bindText: 'title', x: 360, y: 480, width: 3840, height: 600 },
+      content: [line(drawn.title, { fontSize: 32, bold: true, color: '#ffffff' })]
+    },
+    {
+      stype: 'textFrame',
+      attributes: { partOf: 'value', bindText: 'value', x: 360, y: 1080, width: 4320, height: 1200 },
+      content: [line(drawn.value, { fontSize: 80, bold: true, color: '#ffffff' })]
+    },
+    {
+      stype: 'frame',
+      /*
+       * The slot: the reader's own things live **in** it. Its own attributes still come from
+       * the definition — apply rewrites those and keeps the children (`keepChildren`), which
+       * is the one place in this model where rule 1 does not reach the reader's work.
+       */
+      attributes: {
+        partOf: 'items',
+        slot: 'items',
+        x: 360,
+        y: 2520,
+        width: 4320,
+        height: 1200,
+        layoutMode: 'column',
+        gap: 120,
+        padding: 0,
+        clipsContent: false
+      },
+      content: (drawn.rows ?? []).map((text) => ({
+        stype: 'textFrame',
+        attributes: { x: 0, y: 0, width: 4320, height: 420 },
+        content: [line(text, { fontSize: 28, color: '#ffffff' })]
+      }))
+    }
+  ]
+});
+
 export function createSampleDeck(): INode {
   return {
     stype: 'document',
@@ -441,6 +568,71 @@ export function createSampleDeck(): INode {
         ]
       },
 
+      // ── 6. One card, three places ────────────────────────────────────────
+      /**
+       * What a component is *for*, on a slide.
+       *
+       * Three placements of one definition, and each is here to show a different half of the
+       * design rather than to fill the slide:
+       *
+       * - **매출** takes the definition exactly as it stands.
+       * - **신규 고객** turns the badge off — a `boolean` variable, which is a thing free
+       *   editing of a copy cannot express: "this card has no badge" is a decision, and
+       *   deleting the shape is a hole.
+       * - **이탈** gives it a colour of its own, has one part the reader *edited* (so apply
+       *   leaves it), and has two rows the reader added **inside the slot** (so apply leaves
+       *   those too, and still updates the frame around them).
+       *
+       * Written out node by node on purpose. A placement holds **real** nodes — a template
+       * cannot draw a foreign node (canvas-model §10b-2) — so this is what the document
+       * actually looks like after `applyComponent`, and a sample that pretended otherwise
+       * would be testing a design the product does not have.
+       */
+      {
+        stype: 'surface',
+        attributes: { kind: 'slide', name: 'One card, three places' },
+        content: [
+          {
+            stype: 'textFrame',
+            attributes: { role: 'title', x: 1440, y: 960, width: 16320, height: 1680 },
+            content: [line('One card, three places', { fontSize: 66, bold: true, color: TITLE })]
+          },
+
+          // 1. As the definition stands.
+          card(
+            { x: 1440, y: 3600 },
+            { title: '매출', value: '1,240만' },
+            { title: '매출', value: '1,240만' }
+          ),
+
+          // 2. A state, said by the placement: no badge.
+          card(
+            { x: 7200, y: 3600 },
+            { title: '신규 고객', value: '312', showBadge: 'false' },
+            { title: '신규 고객', value: '312', badgeOff: true }
+          ),
+
+          /*
+           * 3. A colour of its own, a part the reader edited, and two rows they added in the
+           * slot. All three are things apply has a rule about, and this is the one card in the
+           * deck that exercises them.
+           */
+          card(
+            { x: 12960, y: 3600 },
+            { title: '이탈', value: '1.8%', accent: '#ef4444' },
+            {
+              title: '이탈',
+              // Not what the binding would write: the reader typed the arrow in, which is what
+              // makes this part an override — nothing declared, nothing hidden.
+              value: '1.8% ↓',
+              overridden: true,
+              accent: '#ef4444',
+              rows: ['지난주 2.1%', '목표 1.5%']
+            }
+          )
+        ]
+      },
+
       {
         stype: 'resources',
         attributes: {},
@@ -563,6 +755,156 @@ export function createSampleDeck(): INode {
             content: [
               line('The point of this slide is that nothing on it is new.'),
               line('Every renderer drawing these bullets was written for Word.')
+            ]
+          }
+        ]
+      },
+
+      /**
+       * The **library**: what this deck defines, as opposed to what it refers to.
+       *
+       * A container of its own beside `resources`, and the reason is on the screen rather than
+       * in the model. Everything in `resources` is hidden as a group because none of it belongs
+       * there — a layout, a master, a theme, a note — and a definition a reader has *opened* is
+       * the one thing that does. Showing it through a container written to hide things meant a
+       * `:has()` rule, because un-hiding that container outright put the ruler 6px off.
+       *
+       * A definition still draws hidden until it is opened: a node with no element has no place
+       * in the sid map, and every mapping from a DOM position back to the model goes through
+       * that — the same reason `slideLayout` is drawn.
+       */
+      {
+        stype: 'components',
+        content: [
+          {
+            stype: 'component',
+            attributes: {
+              id: 'metric-card',
+              name: '지표 카드',
+              width: CARD_WIDTH,
+              height: CARD_HEIGHT
+            },
+            content: [
+              /*
+               * What a placement can be **asked for**, declared before what the card is made
+               * of: the variables are the definition's interface, and a reader looking at the
+               * file sees what a card can be asked for before seeing how it is drawn.
+               *
+               * Nodes rather than a blob in one attribute — the argument this repository has
+               * already made against a connector's spec and a placement's overrides. A
+               * declaration made of nodes is one the validator checks, the conformance probe
+               * reads, and a panel draws without a parser.
+               */
+              {
+                stype: 'componentVar',
+                attributes: { name: 'title', label: '이름', kind: 'text', value: '지표' }
+              },
+              {
+                stype: 'componentVar',
+                attributes: { name: 'value', label: '값', kind: 'text', value: '0' }
+              },
+              {
+                stype: 'componentVar',
+                /**
+                 * A **slot**, not a colour.
+                 *
+                 * Found by the theme test, which asserts that nothing in the document repeats
+                 * the theme's hex: the card's back held `#2563eb`, so a deck re-coloured to
+                 * another theme kept three off-brand cards and a definition that would make
+                 * more. A colour variable whose default names a theme slot is what a brand kit
+                 * *is* — the card follows the deck, and a placement that wants its own colour
+                 * still says so (the third one does).
+                 */
+                attributes: { name: 'accent', label: '색', kind: 'color', value: 'theme:accent1' }
+              },
+              {
+                stype: 'componentVar',
+                attributes: { name: 'showBadge', label: '배지', kind: 'boolean', value: 'true' }
+              },
+
+              /*
+               * The parts. Each carries `partId` — its own durable name, which a placement's
+               * copy points at — and the bindings that say which variable it takes.
+               *
+               * Placed against the card's own origin, exactly as a slide's boxes are placed
+               * against the slide's: a definition is a canvas, which is what makes the whole
+               * editing apparatus work on one for nothing.
+               */
+              {
+                stype: 'rectangle',
+                attributes: {
+                  partId: 'back',
+                  bindFill: 'accent',
+                  x: 0,
+                  y: 0,
+                  width: CARD_WIDTH,
+                  height: CARD_HEIGHT,
+                  // The variable's default, substituted: a definition holds the same kind of
+                  // value a placement does.
+                  fill: 'theme:accent1',
+                  cornerRadius: 180
+                }
+              },
+              {
+                stype: 'ellipse',
+                attributes: {
+                  partId: 'badge',
+                  bindVisible: 'showBadge',
+                  x: 4320,
+                  y: 240,
+                  width: 480,
+                  height: 480,
+                  fill: '#fbbf24'
+                }
+              },
+              {
+                stype: 'textFrame',
+                attributes: {
+                  partId: 'title',
+                  bindText: 'title',
+                  x: 360,
+                  y: 480,
+                  width: 3840,
+                  height: 600
+                },
+                content: [line('지표', { fontSize: 32, bold: true, color: '#ffffff' })]
+              },
+              {
+                stype: 'textFrame',
+                attributes: {
+                  partId: 'value',
+                  bindText: 'value',
+                  x: 360,
+                  y: 1080,
+                  width: 4320,
+                  height: 1200
+                },
+                content: [line('0', { fontSize: 80, bold: true, color: '#ffffff' })]
+              },
+              /*
+               * The **slot**, which is an ordinary frame.
+               *
+               * Figma added slots because instance-swap could not say "put whatever you like
+               * here", and paid for it with a second layout system inside components. Here the
+               * arrangement is the frame's — it already exists, is already tested, and already
+               * knows that a drag inside it means the order (§5a) — and the marker buys one
+               * sentence: a placement's own things go *in* this, not beside the card's parts.
+               */
+              {
+                stype: 'frame',
+                attributes: {
+                  partId: 'items',
+                  slot: 'items',
+                  x: 360,
+                  y: 2520,
+                  width: 4320,
+                  height: 1200,
+                  layoutMode: 'column',
+                  gap: 120,
+                  padding: 0,
+                  clipsContent: false
+                }
+              }
             ]
           }
         ]

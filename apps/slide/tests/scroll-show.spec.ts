@@ -71,7 +71,8 @@ test.describe('scrolling through a deck', () => {
     await page.waitForTimeout(400);
 
     const start = await currentSlide(page);
-    expect(await hint(page)).toBe('1 / 4');
+    // Five stops: the deck's visible slides — the hidden one is skipped, as in any show.
+    expect(await hint(page)).toBe('1 / 5');
 
     await scrollBy(page, 300, 6);
     const on = await currentSlide(page);
@@ -83,7 +84,7 @@ test.describe('scrolling through a deck', () => {
      */
     await scrollBy(page, -300, 6);
     expect(await currentSlide(page)).toBe(start);
-    expect(await hint(page)).toBe('1 / 4');
+    expect(await hint(page)).toBe('1 / 5');
   });
 
   test('a key press changes the picture, every time', async ({ page }) => {

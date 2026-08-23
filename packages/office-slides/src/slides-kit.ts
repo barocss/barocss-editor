@@ -21,6 +21,7 @@ import { getSlidesSchemaDefinition } from './slides-schema';
 import { createSlideCommands } from './slide-commands';
 import { createBoxCommands } from './box-commands';
 import { createArrangeCommands } from './arrange-commands';
+import { createComponentCommands } from './component-commands';
 import { createConnectorCommands } from './connector-commands';
 import { createClipboardCommands } from './clipboard-commands';
 import { createLayoutCommands, createWordTables } from '@barocss/office-word';
@@ -115,7 +116,17 @@ export function createSlidesOwnExtensions(): Extension[] {
      * report as "a deck has no arrows yet" — that exemption is deleted, which is the
      * harness doing its job.
      */
-    createConnectorCommands()
+    createConnectorCommands(),
+
+    /**
+     * A card made once and placed on twenty slides, and the way its changes reach them.
+     *
+     * `component` and `instance` were in the office schema from the start, named in the shared
+     * vocabulary, exempted in both conformance reports as "no components yet" — the fifth time
+     * this repository found a whole feature declared and unreachable. The definitions, the
+     * variables and apply are all a reader can press now.
+     */
+    createComponentCommands()
   ];
 }
 
