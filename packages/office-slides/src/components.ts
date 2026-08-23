@@ -5,11 +5,19 @@ import { childrenOf, copyOf, type DeckAccess, type DeckNode } from './deck';
  *
  * ## The two decisions, and where they came from
  *
- * **A definition is a surface of its own kind.** Not a box on a slide (which would be drawn
- * twice — once as itself, once through every instance — and selectable by clicking the master
- * copy), and not a node in `resources` (which would have no editing surface, because a
- * surface is the thing this editor edits). `SurfaceKind.Component`, so the stage, the overlay,
- * the panel, the guides and the layer list all work on one without being told anything.
+ * **A definition is a resource.** Not a box on a slide — which would be drawn twice, once as
+ * itself and once through every placement, and be selectable by clicking the master copy — and
+ * not a *surface*, which was this file's first answer and was wrong for a reason worth keeping:
+ * a surface is a **page**, so saying a definition was one made every reader of the page
+ * sequence ask whether each page counted, and two of them leaked before the third was written.
+ *
+ * `resources` is where this document already keeps what pages refer to: a layout, a master, a
+ * theme. And it costs nothing in editing, which was the fear that put it in the wrong place:
+ * `slideLayout` is already **drawn hidden** — *a node with no element has no place in the sid
+ * map, and every mapping from a DOM position back to the model goes through that* — so a
+ * definition is drawn the same way and *shown* when a reader opens it. The stage's own focus
+ * rule does the showing, and the overlay, the panel and the guides key on sids rather than on
+ * what kind of thing they are looking at.
  *
  * **A placement holds its own children, and they win by role.** Which is not Figma's model,
  * on purpose: there, any property of any descendant may be overridden and the override is
@@ -38,12 +46,19 @@ import { childrenOf, copyOf, type DeckAccess, type DeckNode } from './deck';
  * every placement it updated. `instanceParts` below is what that rewrite is computed from.
  */
 
-/** A component's definition: the surface it is edited on. */
+/** A component's definition, as its readers need it. */
 export interface ComponentDef {
-  /** The surface's own sid, which is what an instance points at. */
+  /**
+   * The **durable** id a placement points at — the `id` attribute, not the sid.
+   *
+   * Saving strips sids, so a reference written in one breaks the first time the deck is opened
+   * again. A layout is referenced this way for the same reason.
+   */
+  id: string;
+  /** Where the definition is *now*, for reading its parts out of this document. */
   sid: string;
   name: string;
-  /** What the definition draws, as the sids of its children. */
+  /** What the definition holds, as the sids of its parts in this session. */
   parts: string[];
 }
 
@@ -55,12 +70,21 @@ export function deckComponents(doc: DeckAccess): ComponentDef[] {
   const found: ComponentDef[] = [];
   for (const sid of childrenOf(root)) {
     const node = doc.getNode(sid);
-    if (node?.stype !== 'surface' || node.attributes?.kind !== 'component') continue;
-    found.push({
-      sid,
-      name: typeof node.attributes?.name === 'string' ? node.attributes.name : '',
-      parts: childrenOf(node)
-    });
+    if (node?.stype !== 'resources') continue;
+
+    for (const child of childrenOf(node)) {
+      const definition = doc.getNode(child);
+      if (definition?.stype !== 'component') continue;
+      const id = definition.attributes?.id;
+      // A definition with no id is one nothing can point at, which is not a definition.
+      if (typeof id !== 'string' || id.length === 0) continue;
+      found.push({
+        id,
+        sid: child,
+        name: typeof definition.attributes?.name === 'string' ? definition.attributes.name : '',
+        parts: childrenOf(definition)
+      });
+    }
   }
   return found;
 }
@@ -69,7 +93,13 @@ export function deckComponents(doc: DeckAccess): ComponentDef[] {
 export function componentOf(doc: DeckAccess, instance: DeckNode | undefined): ComponentDef | undefined {
   const id = instance?.attributes?.componentId;
   if (typeof id !== 'string') return undefined;
-  return deckComponents(doc).find((one) => one.sid === id);
+  return deckComponents(doc).find((one) => one.id === id);
+}
+
+/** A definition part's durable name, which is what a placement's copy points at. */
+export function partIdOf(doc: DeckAccess, sid: string): string | undefined {
+  const id = doc.getNode(sid)?.attributes?.partId;
+  return typeof id === 'string' && id.length > 0 ? id : undefined;
 }
 
 /**
@@ -108,7 +138,10 @@ export function partSignature(doc: DeckAccess, sid: string, depth = 0): string {
   if (!node) return '';
 
   const attrs = { ...((node.attributes ?? {}) as Record<string, unknown>) };
+  // Both are identity rather than content: `partOf` is a fact about a copy, and `partId` is
+  // the original's own name — a copy is not different from its original for having one.
   delete attrs.partOf;
+  delete attrs.partId;
   const own = (node as { text?: unknown }).text;
 
   return JSON.stringify([
@@ -182,7 +215,19 @@ export function instanceState(
   instance: DeckNode | undefined,
   definition: ComponentDef | undefined
 ): PartState[] {
-  const origins = new Set(definition?.parts ?? []);
+  /**
+   * The definition's parts by their **durable** names.
+   *
+   * Not by sid: a placement's `partOf` has to survive being saved, and saving strips sids —
+   * so a sid-paired placement would come back from a file with every part looking orphaned,
+   * and apply would take them all out. Caught before it shipped, and it is the same rule
+   * motion follows for naming a shape.
+   */
+  const origins = new Map<string, string>();
+  for (const part of definition?.parts ?? []) {
+    const id = partIdOf(doc, part);
+    if (id) origins.set(id, part);
+  }
 
   return childrenOf(instance).map((sid) => {
     const origin = doc.getNode(sid)?.attributes?.partOf;
@@ -198,7 +243,7 @@ export function instanceState(
     return {
       sid,
       origin,
-      changed: partSignature(doc, sid) !== partSignature(doc, origin)
+      changed: partSignature(doc, sid) !== partSignature(doc, origins.get(origin) as string)
     };
   });
 }
@@ -258,9 +303,16 @@ export function componentApplyPlan(
     state.map((part) => part.origin).filter((origin): origin is string => !!origin)
   );
 
+  /** The definition's parts by durable name, which is what a placement points at. */
+  const byId = new Map<string, string>();
+  for (const part of definition.parts) {
+    const id = partIdOf(doc, part);
+    if (id) byId.set(id, part);
+  }
+
   const rewrite = state
-    .filter((part) => part.origin && !part.changed && definition.parts.includes(part.origin))
-    .map((part) => ({ sid: part.sid, from: part.origin as string }));
+    .filter((part) => part.origin && !part.changed && byId.has(part.origin))
+    .map((part) => ({ sid: part.sid, from: byId.get(part.origin as string) as string }));
 
   /**
    * A part whose origin the definition no longer has.
@@ -275,10 +327,15 @@ export function componentApplyPlan(
    * reader's own undo entry, which is where a decision they can disagree with belongs.
    */
   const remove = state
-    .filter((part) => part.origin && !definition.parts.includes(part.origin))
+    .filter((part) => part.origin && !byId.has(part.origin))
     .map((part) => part.sid);
 
-  const add = definition.parts.filter((sid) => !held.has(sid));
+  const add = definition.parts.filter((sid) => {
+    const id = partIdOf(doc, sid);
+    // A part with no durable name cannot be pointed at, so it cannot be given to a placement
+    // — and saying so here is better than copying one that could never be paired again.
+    return !!id && !held.has(id);
+  });
 
   return { remove, rewrite, add, appliedFrom: componentSignature(doc, definition) };
 }
@@ -292,6 +349,12 @@ export function componentApplyPlan(
  */
 export function partCopy(doc: DeckAccess, origin: string): DeckNode | undefined {
   const copy = copyOf(doc, origin);
-  if (!copy) return undefined;
-  return { ...copy, attributes: { ...(copy.attributes ?? {}), partOf: origin } };
+  const id = partIdOf(doc, origin);
+  if (!copy || !id) return undefined;
+
+  const attributes = { ...(copy.attributes ?? {}) };
+  // The copy points at the original's durable name and does not carry it: two boxes claiming
+  // to *be* the same part is how a definition ends up pointing at a placement.
+  delete attributes.partId;
+  return { ...copy, attributes: { ...attributes, partOf: id } };
 }

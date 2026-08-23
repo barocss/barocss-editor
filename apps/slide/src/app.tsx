@@ -17,6 +17,7 @@ import {
 } from '@barocss/office-ui';
 import {
   advanceShow,
+  deckComponents,
   scrollToStop,
   scrollStops,
   scrollTopOf,
@@ -52,6 +53,7 @@ import {
   ThemeDialog
 } from './deck-dialogs';
 import { LayerPanel } from './layer-panel';
+import { ComponentPanel } from './component-panel';
 import { FindBar } from './find-bar';
 import { AuditPanel } from './audit-panel';
 import { Present } from './present';
@@ -97,19 +99,71 @@ export function App({
   const revision = useRevision(editor);
 
   /**
-   * Which slide is being worked on.
+   * The surface being worked on: a slide, or a **definition** the reader has opened.
    *
-   * The app's, not the document's. Two people editing one deck are not looking
-   * at the same slide, and a document that recorded "the current slide" would
-   * be saying something about a reader rather than about itself.
+   * The app's, not the document's. Two people editing one deck are not looking at the same
+   * slide, and a document that recorded "the current slide" would be saying something about a
+   * reader rather than about itself.
+   *
+   * One state and not two, and that was decided by a measurement: the insert commands
+   * validate their `slideId`, so a second variable would mean every call site that forgot it
+   * inserted onto slide 1 while the reader looked at a component — silently — and every call
+   * site that remembered was refused (canvas-model §10c).
    */
   const [current, setCurrent] = useState<string | undefined>();
+
+  /**
+   * Where to go back to when a definition is closed.
+   *
+   * Remembered when one is opened rather than worked out on the way out: "the slide I was on"
+   * is a fact about the moment the reader left it, and a deck they have since edited may not
+   * have the slide that was showing.
+   */
+  const [wasOn, setWasOn] = useState<string | undefined>();
+  const components = useMemo(() => {
+    const store = (editor as any)?.dataStore;
+    const rootId = (editor as any)?.getRootId?.();
+    if (!store || !rootId) return [];
+    return deckComponents({ rootId, getNode: (sid: string) => store.getNode(sid) } as never);
+  }, [editor, revision]);
+  /**
+   * Follow the deck: the first slide to start, and never somewhere the reader is no longer.
+   *
+   * Two measurements shaped this. It used to fall back whenever `current` was not one of the
+   * deck's **slides**, which is the same sentence right up until a definition can be opened —
+   * and then it bounced the reader back to slide 1 the instant they opened one. So it became
+   * "does this node still exist", and that was wrong in the other direction: loading a new
+   * document leaves the old nodes in the store, so the old `current` still *existed* and the
+   * deck came up with its count reading `—`.
+   *
+   * The precise question is neither: is the reader on a page of **this** deck, or on one of
+   * its definitions.
+   */
   useEffect(() => {
-    // Follow the deck: the first slide to start, and never a slide that has
-    // been deleted out from under the selection.
+    const here =
+      !!current &&
+      (slides.some((slide) => slide.sid === current) ||
+        components.some((one) => one.sid === current));
+    if (here) return;
     if (slides.length === 0) return setCurrent(undefined);
-    if (!current || !slides.some((slide) => slide.sid === current)) setCurrent(slides[0].sid);
-  }, [slides, current]);
+    setCurrent(slides[0].sid);
+  }, [slides, components, current]);
+
+  /** The definition being edited, if the reader has opened one. */
+  const editingComponent = useMemo(
+    () => components.find((one) => one.sid === current),
+    [components, current]
+  );
+  const openComponent = useCallback(
+    (sid: string) => {
+      setWasOn((was) => (components.some((one) => one.sid === current) ? was : current));
+      setCurrent(sid);
+    },
+    [components, current]
+  );
+  const closeComponent = useCallback(() => {
+    setCurrent(wasOn ?? slides[0]?.sid);
+  }, [wasOn, slides]);
 
   /**
    * One slide, or the deck as a strip.
@@ -518,6 +572,14 @@ export function App({
    * itself takes room from the slide every time the app starts.
    */
   const [layersOpen, setLayersOpen] = useState(false);
+  /**
+   * Whether the components list is showing.
+   *
+   * Closed by default and remembered for the session, like the layer list: a deck with no
+   * components has nothing to say here, and a panel that opens itself takes room from the
+   * slide every time the app starts.
+   */
+  const [componentsOpen, setComponentsOpen] = useState(false);
 
   /**
    * Whether the find bar is showing.
@@ -1275,6 +1337,23 @@ export function App({
           onToggle={() => setLayersOpen((was) => !was)}
         />
 
+        {/*
+          * The components a deck defines, and the way in and out of one.
+          *
+          * Beside the layer list because both answer "which thing" — and a definition has to
+          * be opened from *somewhere*: it is a resource rather than a page, so there is no
+          * filmstrip row to click. See `component-panel.tsx` for why that is the right place
+          * for it rather than a page of the file you scroll to.
+          */}
+        <ComponentPanel
+          editor={editor}
+          open={componentsOpen}
+          editing={editingComponent}
+          onOpen={openComponent}
+          onClose={() => setComponentsOpen((was) => !was)}
+          onCloseDefinition={closeComponent}
+        />
+
         <AppMain as="main" className="sl-main">
           {/*
             * Across the top of the slide's own column, not the window.
@@ -1314,7 +1393,14 @@ export function App({
            */}
           <Stage
             host={host}
-            focus={presenting || focused ? current : undefined}
+            /**
+             * One page, one definition, or the deck as a strip.
+             *
+             * A definition is **always** focused while it is open, whatever the 전체 보기
+             * toggle says: it is not part of the strip (it is a resource), so a reader who
+             * opened one in strip mode would be looking at a deck with nothing to edit.
+             */
+            focus={editingComponent ? current : presenting || focused ? current : undefined}
             /*
              * The transition, while presenting and not while editing.
              *

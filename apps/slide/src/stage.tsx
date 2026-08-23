@@ -1534,7 +1534,35 @@ export function Stage({
        * document rather than about the product.
        */}
       {focus && (
-        <style>{`.sl-stage[data-focus="${focus}"] .sl-slide:not([data-bc-sid="${focus}"]) { display: none; }`}</style>
+        <style>{
+          /*
+           * One page, or one **definition**.
+           *
+           * A component's definition is drawn hidden, like every other definition in
+           * `resources` — so focusing it means showing that one and hiding the slides, which
+           * is the same sentence the other way round. Two rules rather than a class on the
+           * stage, because both name a sid.
+           */
+          `.sl-stage[data-focus="${focus}"] .sl-slide:not([data-bc-sid="${focus}"]) { display: none; }` +
+          /*
+           * `!important`, and this is the one place it is the honest answer.
+           *
+           * A definition's own renderer writes `display: none` **inline**, so that it stays
+           * hidden wherever it is drawn without an app's stylesheet — a thumbnail, an export,
+           * a test. An inline style beats any rule, so showing the one a reader has opened
+           * has to say so louder. Measured: without it the definition stayed hidden with the
+           * stage focused on it, which looks like the whole feature not working.
+           *
+           * And the **container** too — but only when it holds the definition being focused,
+           * which is what `:has()` says. Definitions are drawn inside `resources`, hidden as a
+           * group, so a definition alone came out `display: block` inside a parent that was
+           * `display: none` — the same thing as hidden. Un-hiding the group unconditionally
+           * was worse and was measured: it put a block into the document's flow on *every*
+           * slide, and the ruler came out six pixels off the slide it measures.
+           */
+          `.sl-stage[data-focus="${focus}"] .w-resources:has(.sl-def-component[data-bc-sid="${focus}"]) { display: block !important; }` +
+          `.sl-stage[data-focus="${focus}"] .sl-def-component[data-bc-sid="${focus}"] { display: block !important; }`
+        }</style>
       )}
 
       {/*

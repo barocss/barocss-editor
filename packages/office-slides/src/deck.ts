@@ -134,36 +134,20 @@ function nameOf(doc: DeckAccess, surface: DeckNode): string {
  * missed that would put every layout in the rail.
  */
 /**
- * The kinds of surface that are **not** pages of the deck.
+ * Whether a node is one of the deck's **pages**.
  *
- * A component's definition is edited on a surface of its own — which is what gives it the
- * whole editing apparatus for nothing — and it is not a slide: it is not in the sequence, it
- * is never presented, and it is drawn only when a reader opens it.
- */
-const DEFINITION_KINDS = new Set(['component']);
-
-/**
- * Whether a surface is one of the deck's **slides**.
+ * Every surface is, and that is the point of where the other things live: a layout, a master,
+ * a theme and now a component's definition are all in `resources`, so nothing has to be
+ * filtered out of the page sequence.
  *
- * ## Why this is not `kind === 'slide'`
- *
- * Measured: a deck this product writes always says `kind: 'slide'`, and plenty of documents
- * do not — most of this package's own fixtures leave it out, and so would a converter or an
- * older version. Filtering *for* `'slide'` would make those documents look like decks with no
- * slides in them, which is the worst possible answer for a file somebody already had.
- *
- * So a surface is a page unless it says it is a **definition**. Named in one place because
- * six readers ask this question, and the day a second kind of definition arrives they should
- * not each have to learn about it.
- *
- * This is also the fault that decided the component design: `deckSlides` asked only about
- * `stype`, so the moment a document held any surface that was not a slide it appeared in the
- * filmstrip, in the count, in the presenter's *next slide* — and would have been presented.
+ * It stayed as a named question after the definitions moved out of `surface+`, because the
+ * fault it was written for is worth keeping visible: `deckSlides` asked only about `stype`,
+ * and for as long as a definition *was* a surface it appeared in the filmstrip, in the count,
+ * in the presenter's *next slide* — and would have been presented. A reader asking "is this a
+ * page?" is asking something real, whatever the current answer happens to be.
  */
 export function isSlideSurface(node: DeckNode | undefined): node is DeckNode {
-  if (node?.stype !== 'surface') return false;
-  const kind = node.attributes?.kind;
-  return typeof kind !== 'string' || !DEFINITION_KINDS.has(kind);
+  return node?.stype === 'surface';
 }
 
 /**
@@ -188,7 +172,9 @@ export function isSlideSurface(node: DeckNode | undefined): node is DeckNode {
 export function editableSurface(doc: DeckAccess, sid?: string): string | undefined {
   if (sid) {
     const node = doc.getNode(sid);
-    return node?.stype === 'surface' ? sid : undefined;
+    // A slide, or a component's **definition** — which is a resource rather than a page, and
+    // is exactly the thing a reader opens in order to put shapes in it.
+    return node?.stype === 'surface' || node?.stype === 'component' ? sid : undefined;
   }
   return deckSlides(doc)[0]?.sid;
 }

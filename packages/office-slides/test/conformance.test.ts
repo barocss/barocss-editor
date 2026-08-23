@@ -258,6 +258,8 @@ describe('Slides draws what its schema declares', () => {
           'the commands — `moveBoxes`, the arrange commands and `setBoxLocked` all refuse a locked box — and the layer list draws the padlock. A drawing that changed would be a shape that looks different from the one beside it for a reason about editing',
         name:
           'motion — a step names its box by it (`namedBoxes` in `timeline.ts`), `setBoxBuild` assigns one as it goes, and the deck file format is written in those names. A durable identity is the point: a sid is handed out at load, so a saved animation cannot be written in sids. A slide’s own `name` is read by the filmstrip (`titleOf` in `deck.ts`)',
+        partId:
+          'components — a definition part’s own durable name, which a placement’s copy points at. Not a sid, because saving strips those: a placement paired by sid would come back from a file with every part looking orphaned, and apply would take them all out. Caught before it shipped',
         partOf:
           'components — a placement holds *real* nodes (a template cannot draw a foreign node, canvas-model §10b-2), so a copy remembers the definition part it came from. That pairing is what apply reads, and it is deliberately not a role or a position: it survives renaming, reordering and editing, which is what breaks an override in every tool that matches structurally',
         appliedFrom:

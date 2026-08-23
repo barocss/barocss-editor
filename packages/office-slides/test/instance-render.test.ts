@@ -78,12 +78,20 @@ describe('a placement draws', () => {
         ]
       },
       {
-        stype: 'surface',
-        attributes: { kind: 'component', name: '카드' },
+        // The definition is a **resource**, not a page: it is not in the deck's sequence, it
+        // is never presented, and it is drawn hidden until a reader opens it.
+        stype: 'resources',
+        attributes: {},
         content: [
           {
-            stype: 'rectangle',
-            attributes: { partOf: 'p1', x: 0, y: 0, width: 4000, height: 2000, fill: '#eee' }
+            stype: 'component',
+            attributes: { id: 'card', name: '카드', width: 4000, height: 2000 },
+            content: [
+              {
+                stype: 'rectangle',
+                attributes: { partId: 'p1', x: 0, y: 0, width: 4000, height: 2000, fill: '#eee' }
+              }
+            ]
           }
         ]
       }
@@ -142,13 +150,19 @@ describe('a placement draws', () => {
     expect(container.querySelector('.sl-instance')?.querySelectorAll('.sl-shape')).toHaveLength(0);
   });
 
-  it('draws a definition’s own surface, and marks it as one', () => {
-    // The renderer draws what the document has — that is its job. Which surface is a *page*
-    // is the view's question, and the app's stylesheet answers it the way it answers "which
-    // slide is showing".
+  it('draws the definition hidden, and only one page', () => {
+    /*
+     * The deck has one slide, and the definition is not one of them — which is the whole
+     * reason it moved out of `surface+`. It is still *drawn*, for `slideLayout`'s reason: a
+     * node with no element has no place in the sid map, and every mapping from a DOM position
+     * back to the model goes through that. The stage shows it when a reader opens it.
+     */
     const container = drawn(deckWith([]));
-    const surfaces = [...container.querySelectorAll<HTMLElement>('.sl-slide')];
-    expect(surfaces).toHaveLength(2);
-    expect(surfaces.some((one) => one.dataset.kind === 'component')).toBe(true);
+    expect(container.querySelectorAll('.sl-slide')).toHaveLength(1);
+
+    const definition = container.querySelector<HTMLElement>('.sl-def-component');
+    expect(definition, '정의가 그려지지 않았습니다').not.toBeNull();
+    expect(definition!.style.display).toBe('none');
+    expect(definition!.getAttribute('data-component-id')).toBe('card');
   });
 });

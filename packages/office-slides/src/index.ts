@@ -138,6 +138,7 @@ export {
 export {
   deckComponents,
   componentOf,
+  partIdOf,
   partSignature,
   componentSignature,
   componentStale,

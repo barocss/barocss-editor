@@ -89,7 +89,15 @@
   outline-offset: 3px;
 }
 
-/* Definitions live in the document and belong nowhere on the screen. */
+/*
+  Definitions live in the document and belong nowhere on the screen — with one exception,
+  which is where a component's definition is *edited*.
+
+  The stage writes a rule naming the one it is focused on (see `stage.tsx`), and that rule
+  has to be louder than both hidings: this class, and the definition's own inline
+  `display: none` — which it keeps so that it stays hidden wherever it is drawn without an
+  app's stylesheet at all, in a thumbnail or an export.
+*/
 .sl-def,
 .w-def,
 .w-resources {

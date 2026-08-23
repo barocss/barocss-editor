@@ -152,6 +152,14 @@ describe('containers enforce their own shape', () => {
     expect(schema.getNodeType('rectangle')?.content).toBeUndefined();
   });
 
+  it('a definition is a resource, and holds a canvas', () => {
+    // Not a page and not a box on a slide: `resources` is where a layout, a master and a theme
+    // live, and a component is the same kind of thing — something the pages refer to.
+    expect(schema.getNodeType('component')?.group).toBe('resource');
+    expect(schema.validateContent('component', [n('rectangle'), n('frame')]).valid).toBe(true);
+    expect(schema.getNodeType('component')?.attrs?.id?.required).toBe(true);
+  });
+
   it('a placement of a component is not an atom, and that is the design', () => {
     /*
      * It was `atom: true`, which said a placement could only ever be *placed*. A placement
@@ -225,14 +233,12 @@ describe('the document vocabulary survives the merge', () => {
 
   it('names the surface kinds the built-in products use', () => {
     /*
-     * `component` is a definition rather than a page: not in a deck's sequence, never
-     * presented, drawn only when a reader opens it. A surface because that is what an editor
-     * already knows how to edit — which is what gives a definition the overlay, the panel,
-     * the guides and the layer list for nothing, and is why Figma's "the main component is
-     * art on the canvas" is a consequence of having one kind of container rather than a
-     * decision (canvas-model §10c).
+     * Three, and a component's definition is deliberately not a fourth. It was, briefly, and
+     * then every reader of the page sequence had to ask whether each page counted — two of
+     * them leaked before the third was written. A definition is a **resource**, which is
+     * where this document already keeps what pages refer to (canvas-model §10).
      */
-    expect(Object.values(SurfaceKind)).toEqual(['flow', 'slide', 'board', 'component']);
+    expect(Object.values(SurfaceKind)).toEqual(['flow', 'slide', 'board']);
     expect(schema.getNodeType('surface')?.attrs?.kind?.default).toBe('flow');
   });
 });

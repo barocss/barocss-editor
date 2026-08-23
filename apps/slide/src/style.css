@@ -2177,14 +2177,128 @@ body {
 }
 
 /*
-  A definition is **not a page of the deck**.
+  A component's definition, while a reader is editing it.
 
-  `isSlideSurface` keeps it out of the lists — the filmstrip, the count, the presenter —
-  and the renderer draws every surface it is given, which is right: it draws what the
-  document has. Which is a page is the *view's* question, and the answer is the same
-  mechanism slides already use — the stage hides what is not focused, and this hides a
-  definition from the strip where nothing is focused at all.
+  It is drawn hidden — like every other definition in `resources`, for the reason written
+  where `slideLayout` decided it: a node with no element has no place in the sid map, and
+  every mapping from a DOM position back to the model goes through that. The stage shows
+  the one that is focused (see the inline rule it writes), and this is what that shows.
 */
-.sl-stage:not([data-focus]) .sl-slide[data-kind='component'] {
+.sl-def-component {
+  position: relative;
+  margin: 0 auto;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 12%);
+}
+
+/* The components list: the same shape as the layer list, beside it. */
+.sl-components {
+  flex: none;
+  width: 200px;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  background: var(--sl-panel);
+  border-right: 1px solid var(--sl-line);
+  font-size: 12px;
+}
+
+.sl-components-closed {
+  flex: none;
+  width: 24px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 8px;
+  color: var(--sl-muted);
+  background: var(--sl-panel);
+  border-right: 1px solid var(--sl-line);
+}
+
+.sl-components-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--sl-muted);
+  border-bottom: 1px solid var(--sl-line);
+}
+
+/*
+  Where the reader is, and the way back.
+
+  Drawn only while a definition is open — a way out of somewhere you are not is a control
+  that means nothing — and it is the loudest thing in the panel on purpose: a reader who
+  cannot see how to get back to their deck has been trapped by a feature.
+*/
+.sl-components-editing {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  background: color-mix(in srgb, var(--sl-accent, #2563eb) 12%, transparent);
+  border-bottom: 1px solid var(--sl-line);
+}
+
+.sl-components-editing button {
+  align-self: flex-start;
+  color: var(--sl-accent, #2563eb);
+  font-size: 11px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.sl-components-empty {
+  margin: 0;
+  padding: 10px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--sl-faint, #a3a3a3);
+}
+
+.sl-components-list {
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+}
+
+.sl-components-list button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 5px 8px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sl-components-list button[aria-current='true'] {
+  background: color-mix(in srgb, var(--sl-accent, #2563eb) 14%, transparent);
+}
+
+.sl-component-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sl-component-parts {
+  font-size: 10px;
+  color: var(--sl-faint, #a3a3a3);
+}
+
+/* A count, not a dot: "three placements have not taken this" is something to decide with. */
+.sl-component-behind {
+  font-size: 10px;
+  color: #b45309;
+}
+
+/* Not in the show, like the rulers and the guides: an audience is looking. */
+.sl-shell[data-presenting='true'] .sl-components,
+.sl-shell[data-presenting='true'] .sl-components-closed {
   display: none;
 }

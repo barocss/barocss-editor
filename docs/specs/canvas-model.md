@@ -1091,11 +1091,23 @@ template is made of, and nothing a starting one needs.
 Every question a component model has to answer already has a precedent here, which is the
 argument for building it this way rather than Figma's way.
 
-1. **A definition is not drawn where it sits.** `component` is declared in the scene group
-   today, meaning it could sit on a slide — where it would be drawn twice (once as itself,
-   once through each instance) and a reader could select the master copy by clicking it. A
-   `slideLayout`, a `slideMaster` and a `theme` all live in `resources` and are drawn
-   nowhere; a component belongs there for the same reason.
+1. **A definition is not drawn where it sits, and it is not a page.** `component` was
+   declared in the scene group, so it could sit on a slide — drawn twice (once as itself, once
+   through each placement) and selectable by clicking the master copy. That is Figma's model,
+   and it is why a Figma file has a page of furniture belonging to no design.
+
+   The next answer was *a surface of its own kind*, and it was also wrong: a surface is a
+   **page**, so saying a definition was one made every reader of the page sequence ask whether
+   each page counted — the slide list, the strip, the presenter, the count — and two of them
+   leaked before the third was written. A `slideLayout`, a `slideMaster` and a `theme` live in
+   `resources`; a component belongs there, and then there is nothing to filter anywhere.
+
+   The fear that put it in the wrong place was that a resource has no editing surface. It was
+   unfounded, and `slideLayout` says why in the place that decided it: a definition is **drawn
+   hidden**, because *a node with no element has no place in the sid map, and every mapping
+   from a DOM position back to the model goes through that*. So the stage shows the definition
+   it is focused on, and the overlay, the panel and the guides key on a sid rather than on what
+   kind of thing they are looking at.
 2. **An instance's content is derived from a node that is not its own**, which is exactly the
    connector's case (§8.11) and the one this repository has already been bitten by: the view
    redraws a node when *that node* changes, so editing a definition would leave every
@@ -1220,7 +1232,24 @@ finished, and both of these are in the layer below the model:
   hides what is not focused, and one rule hides a definition from the strip where nothing is
   focused at all.
 
-### 10c. Editing one: a surface the reader **opens**, not a place on a canvas
+### 10b-5. Everything is pointed at by a **durable** id
+
+`componentId` and `partOf` held sids, and that would have destroyed placements the first time
+a deck was saved and reopened: `forFile` strips `sid` and `parentId` — *they are the store's,
+not the document's* — so every part of every placement would have come back orphaned, and
+apply's fourth rule would have taken them all out.
+
+The document already knew this. A layout is referenced by its `id` attribute, and motion names
+a shape by a name it carries, with the reason written beside it: *a sid is handed out at load,
+so a saved animation cannot be written in sids.* So a definition carries `id`, each of its
+parts carries `partId`, and a placement's copy carries `partOf` — the part's durable name, and
+not its own (two boxes claiming to *be* the same part is how a definition ends up pointing at a
+placement).
+
+Both halves of the pairing are left out of a part's signature, because they are identity rather
+than content: a copy is not different from its original for having been copied.
+
+### 10c. Editing one: a **definition the reader opens**, not a place on a canvas
 
 Figma keeps a main component on the canvas, and it is worth being clear that this is not a
 design decision — it is a consequence of Figma having exactly one kind of container. There is
@@ -1228,16 +1257,43 @@ nowhere else to put anything. What follows from it is the part readers complain 
 of furniture that is not part of any design, a master that can be moved or deleted by
 accident, and navigation by panning to wherever somebody left it.
 
-This engine has surfaces — several, kinded, and the document is a sequence of them — so it
-has somewhere to put a definition that is not "on a canvas at coordinates": **a surface of
-its own kind, that a reader opens.** Which is the shape readers already know from
-PowerPoint's *slide master view*: a separate view, its own rail, and a way back.
+This engine keeps definitions in `resources` — a layout, a master, a theme — so it has
+somewhere to put one that is neither "on a canvas at coordinates" nor a page: **a definition
+the reader opens.** Which is the shape readers already know from PowerPoint's *slide master
+view*: a separate view, its own list, and a way back.
 
 **The argument that settles it is not about components.** The same mechanism is what a master
 and a layout need, and neither has ever been editable in this product: the definitions a deck
 inherits from can be *read* by everything and changed by nobody. One notion — "a surface the
 reader has opened for editing" — answers all three, and building it for components alone
 would be building it twice.
+
+#### Five faults on the way in, all measured
+
+Written down because the *design* being right did not stop any of them, and each is the same
+shape: a thing that was true for slides and stopped being true when a definition could be
+opened.
+
+1. **The reader was bounced out.** The app fell back to slide 1 whenever `current` was not one
+   of the deck's slides — right for "never a slide deleted out from under them", and it undid
+   the opening instantly. Then the fix that only asked "does this node exist" was wrong the
+   other way: loading a new document leaves the old nodes in the store, so the old `current`
+   still existed and the count came up `—`. The precise question is neither: *is the reader on
+   a page of this deck, or on one of its definitions.*
+2. **A definition stayed hidden with the stage focused on it.** Its renderer writes
+   `display: none` inline — so that it stays hidden in a thumbnail or an export, with no app
+   stylesheet at all — and an inline style beats any rule.
+3. **And its container was hidden too.** Definitions are drawn inside `resources`, hidden as a
+   group, so the definition came out `display: block` inside a `display: none` parent.
+   Un-hiding the group *unconditionally* then put a block into the flow on every slide and the
+   ruler came out six pixels off the slide it measures — so the rule names the group that holds
+   the focused definition (`:has()`) rather than all of them.
+4. **The ribbon put a new shape on slide 1.** It passed `slideId` only for controls the toolbar
+   model marks `needsSlide`, which was right while "where" could only be a slide. The app is the
+   only thing that knows where the reader is, so it says so on every control.
+5. **A strip for a feature no deck used.** The components panel's closed strip took 24px from
+   every deck, the slide re-fitted, and the ruler test found the misalignment. It draws nothing
+   at all when there are no components.
 
 #### One state, one meaning
 

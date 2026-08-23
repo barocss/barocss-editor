@@ -246,6 +246,8 @@ const schema = createSchema('word', getWordSchemaDefinition());
          * the same canvas: the day it has components it reads these, and this claim goes
          * stale and says so.
          */
+        partId:
+          'the deck’s component apply — a definition part’s durable name. Word’s canvas has no components yet',
         partOf:
           'the deck’s component apply — a placement’s part remembers the definition part it was copied from. Word’s canvas has no components yet',
         appliedFrom:

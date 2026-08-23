@@ -89,6 +89,14 @@ const REMAINING: Record<string, { count: number; why: string }> = {
     count: 1,
     why: 'a finding’s row — three columns of text that is a *place to go*, not a control with a label. The same shape as the layer list’s row and the filmstrip’s, and waiting on the same thing: a list row `office-ui` has no primitive for'
   },
+  'component-panel.tsx': {
+    count: 1,
+    why: 'a component’s row — a name, a part count and a “behind” badge that is a *place to go* rather than a control with a label. The same shape as the layer list’s row, the filmstrip’s and the audit list’s, and waiting on the same thing: a list row `office-ui` has no primitive for'
+  },
+  'deck-dialogs.tsx': {
+    count: 1,
+    why: 'a template tile: it draws the *shape* of a deck — its slides as small boxes, from the document itself — which is a gallery rather than a button, the same as `preset-gallery.tsx`'
+  },
   'layer-panel.tsx': {
     count: 1,
     why: 'the row itself — a picture, a name and two badges that are a *place to go* rather than a control with a label. The same shape as the filmstrip’s row and the audit list’s, and waiting on the same thing: a list row `office-ui` has no primitive for. Its four icon buttons came off when `IconButton` was extracted'

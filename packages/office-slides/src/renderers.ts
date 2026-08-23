@@ -1272,6 +1272,41 @@ export function registerSlidesRenderers(): void {
    * has no place in the sid map, and every mapping from a DOM position back to
    * the model goes through that.
    */
+  /**
+   * A component's **definition**: drawn, and hidden until a reader opens it.
+   *
+   * The same shape as a layout's for the same reason, written where that was decided: *a node
+   * with no element has no place in the sid map, and every mapping from a DOM position back to
+   * the model goes through that.* So it is not left out of the drawing — it is drawn
+   * `display: none`, and the stage shows the one it is focused on.
+   *
+   * Which is what gives a definition the whole editing apparatus for nothing: the overlay, the
+   * panel, the guides and the layer list key on a sid and its children, not on what kind of
+   * thing they are looking at.
+   */
+  define(
+    'component',
+    element(
+      'div',
+      {
+        className: 'sl-def sl-def-component',
+        'data-component-id': (d: NodeData) =>
+          typeof attrsOf(d).id === 'string' ? attrsOf(d).id : undefined,
+        style: (d: NodeData): CssStyle => {
+          const attrs = attrsOf(d);
+          const width = typeof attrs.width === 'number' ? attrs.width : 4000;
+          const height = typeof attrs.height === 'number' ? attrs.height : 3000;
+          return {
+            display: 'none',
+            width: `${twipToPx(width)}px`,
+            height: `${twipToPx(height)}px`
+          };
+        }
+      } as never,
+      [slot('content')]
+    )
+  );
+
   define(
     'slideLayout',
     element('div', { className: 'sl-def sl-def-layout', style: { display: 'none' } }, [

@@ -62,7 +62,7 @@ export const CANVAS_PRESENCE_ATTRS = {
   locked: { type: 'boolean' as const, default: false },
   visible: { type: 'boolean' as const, default: true },
   /**
-   * Where this box **came from**: the id of the definition part it was copied from.
+   * Where this box **came from**: the `partId` of the definition part it was copied from.
    *
    * A placement of a component holds real nodes (canvas-model §10b-2), so a copy has to
    * remember its original or nothing can tell later which of a placement's boxes are the
@@ -74,6 +74,16 @@ export const CANVAS_PRESENCE_ATTRS = {
    * Absent means "the reader's own", which is the honest default: everything on a slide is
    * the reader's until it was copied from somewhere.
    */
+  /**
+   * This part's own durable name inside a definition, for a placement's copy to point at.
+   *
+   * Written on the definition's parts, and it is not a sid: saving strips those, so a
+   * placement's `partOf` written in sids would point at nothing the first time the deck was
+   * opened again — and then every part of every placement would look orphaned and apply would
+   * remove them all. The same rule motion follows, for the same reason: a saved animation
+   * cannot be written in sids.
+   */
+  partId: { type: 'string' as const, required: false },
   partOf: { type: 'string' as const, required: false },
   /**
    * What the placement's definition said when its parts were last taken from it.
@@ -509,21 +519,59 @@ export function getCanvasNodeDefinitions(): Record<string, NodeTypeDefinition> {
     },
     /** Reusable definition and its placements (Figma component / instance). */
     /**
+     * A component's **definition**: named parts a placement is made from.
+     *
+     * ## Where it lives, and why that is not the page sequence
+     *
+     * A definition is not a page of the document, and putting it in `surface+` said that it
+     * was — after which every reader of "the document's surfaces" had to ask whether each one
+     * counted: the slide list, the strip, the presenter, the count. Two of those leaked before
+     * the third was written. `resources` is where this document keeps the things pages *refer
+     * to* — a layout, a master, a theme, a footnote body — and a component is one of those.
+     *
+     * ## Drawn, and hidden
+     *
+     * The reason it is not simply left out of the drawing is `slideLayout`'s, written where
+     * that decision was made: *a node with no element has no place in the sid map, and every
+     * mapping from a DOM position back to the model goes through that.* So a definition is
+     * drawn `display: none` and shown when a reader **opens** it — which is how it gets the
+     * whole editing apparatus without anything being told about components.
+     *
+     * ## `id`, because a sid does not survive a file
+     *
+     * Saving strips `sid` and `parentId` — they are the store's, not the document's — so a
+     * reference written in sids is a reference that breaks the first time a deck is opened
+     * again. A layout is referenced by `id` for that reason, and motion names a shape rather
+     * than pointing at it. This is the same rule, and getting it wrong here would be
+     * expensive in a particular way: every placement's parts would look orphaned after a
+     * reload, and apply would take them all out.
+     */
+    component: {
+      name: 'component',
+      group: 'resource',
+      content: '(scene | frame)*',
+      attrs: {
+        id: { type: 'string' as const, required: true },
+        name: { type: 'string' as const, required: false },
+        /** The room the definition is drawn in while it is being edited. */
+        width: { type: 'number' as const, required: false },
+        height: { type: 'number' as const, required: false }
+      }
+    },
+
+    /**
      * A placement of a component's definition.
      *
      * ## Where the definition is, and why it is not here
      *
-     * There used to be a `component` node beside this one, in the scene group — a definition
-     * that could sit on a slide, where it would be drawn twice (once as itself, once through
-     * every instance) and a reader could select the master copy by clicking it. Figma's model,
-     * and the thing that gives a Figma file a page of furniture that is not part of any
-     * design.
+     * Not on a slide, which is where it used to be allowed: a definition drawn where it sits
+     * is drawn twice — once as itself and once through every placement — and a reader could
+     * select the master copy by clicking it. That is Figma's model, and the thing that gives a
+     * Figma file a page of furniture belonging to no design.
      *
-     * A definition is a **surface** of its own kind instead (`SurfaceKind.Component`), which
-     * is the same answer this schema already gives for a layout, a master and a theme — a
-     * definition is drawn nowhere it sits — and it costs nothing, because a surface is
-     * already the thing an editor can edit. So the node type went, and one concept has one
-     * representation.
+     * And not a surface either, which is where this schema put it next: a surface is a *page*,
+     * and saying a definition was one meant every reader of the page sequence had to ask
+     * whether each page counted. It is a **resource** — see `component` above.
      *
      * ## Why this holds children
      *
@@ -860,16 +908,7 @@ export const SurfaceKind = {
   /** Slide: fixed-size canvas. */
   Slide: 'slide',
   /** FigJam: unbounded canvas. */
-  Board: 'board',
-  /**
-   * A component's **definition**, edited on a surface of its own.
-   *
-   * Not a page of the document: it is not in the deck's sequence, it is never presented, and
-   * it is drawn only when a reader opens it. Which is what a definition is everywhere else in
-   * this schema — a layout, a master, a theme are all drawn nowhere they sit — and this way
-   * the whole editing apparatus works on one without being told anything.
-   */
-  Component: 'component'
+  Board: 'board'
 } as const;
 
 export type SurfaceKindValue = (typeof SurfaceKind)[keyof typeof SurfaceKind];

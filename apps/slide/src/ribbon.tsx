@@ -245,11 +245,22 @@ export function Ribbon({
   };
 
   const payloadFor = (control: SlidesToolbarControl): Record<string, unknown> | undefined => {
-    if (!control.needsSlide) return control.payload;
     if (control.id === 'slide-new') return { after: current };
     if (control.id === 'slide-up') return { slideId: current, to: (here?.number ?? 1) - 2 };
     if (control.id === 'slide-down') return { slideId: current, to: here?.number ?? 0 };
-    return { slideId: current };
+    /**
+     * **Where the reader is**, on every control, whether the model says it needs one or not.
+     *
+     * `needsSlide` gated this, which was right while "where" could only ever be a slide: an
+     * insert command with no `slideId` falls back to the deck's first slide, and that is the
+     * correct answer for a console or a test. It is the wrong answer for a *reader*, and
+     * measured: with a component's definition open, pressing 타원 put the ellipse on slide 1.
+     *
+     * The app is the only thing that knows where the reader is (canvas-model §10c), so it
+     * says so every time. A command that does not take a `slideId` reads the keys it wants and
+     * ignores this one.
+     */
+    return { ...(control.payload ?? {}), ...(current ? { slideId: current } : {}) };
   };
 
   /**
