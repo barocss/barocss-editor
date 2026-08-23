@@ -17,12 +17,22 @@ import { settled } from './helpers';
  *   uses seven of them.
  */
 
-/** A paragraph with text in it, numbered or not. */
+/** A paragraph, by the two sids a test needs to work with it. */
+type Found = { block: string; run: string } | null;
+
+/**
+ * A paragraph with text in it, numbered or not.
+ *
+ * The return type is stated rather than inferred: Playwright maps what `evaluate`
+ * sends back through its own serialisable type, and a `{ … } | null` comes out the
+ * other side as `never` — so every `plain!.run` in this file was an error the compiler
+ * would have reported, if anything had ever compiled these specs. Nineteen of them.
+ */
 async function paragraphs(page: import('@playwright/test').Page) {
-  return page.evaluate(() => {
+  return page.evaluate<{ plain: Found; listed: Found }>(() => {
     const store = (window as any).editor.dataStore;
-    let plain: { block: string; run: string } | null = null;
-    let listed: { block: string; run: string } | null = null;
+    let plain: Found = null;
+    let listed: Found = null;
     const walk = (sid: string) => {
       const node = store.getNode(sid);
       if (!node) return;

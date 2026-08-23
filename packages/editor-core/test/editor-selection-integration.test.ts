@@ -378,7 +378,7 @@ describe.skip('Editor + SelectionManager 통합 테스트', () => {
       // Simulate multi-step selection changes
       const selectionChanges: string[] = [];
       
-      editor.on('selectionChange', (data) => {
+      editor.on('selectionChange', (data: { selection: { textContent: string } }) => {
         selectionChanges.push(data.selection.textContent);
       });
 

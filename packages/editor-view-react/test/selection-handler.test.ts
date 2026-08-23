@@ -268,14 +268,10 @@ describe('ReactSelectionHandler', () => {
     });
     const handler = new ReactSelectionHandler(editor, () => root);
 
-    handler.convertModelSelectionToDOM({
-      type: 'node',
-      nodeId: 'node-1',
-      startNodeId: 'node-1',
-      startOffset: 0,
-      endNodeId: 'node-1',
-      endOffset: 4
-    });
+    // A node selection is a node and nothing else — the four range fields were here
+    // as well, which `convertNodeSelectionToDOM` never looks at. The compiler said so
+    // the first time it was allowed to read this file.
+    handler.convertModelSelectionToDOM({ type: 'node', nodeId: 'node-1' });
 
     const selection = window.getSelection();
     expect(selection).not.toBeNull();

@@ -1535,6 +1535,41 @@ export class InputHandlerImpl implements InputHandler {
       at: Date.now()
     };
 
+    /**
+     * Tell the model where the typing is, before the edit rather than after.
+     *
+     * A click and a keystroke in the same tick used to put the character in one
+     * paragraph and the caret in another. `selectionchange` is asynchronous, so
+     * at this instant the editor's selection can still be wherever the reader
+     * was *before* they clicked. The edit itself is fine — `getTargetRanges()`
+     * describes the DOM and the DOM is right — but everything downstream reads
+     * `editor.selection`: the transaction maps it, the caret is restored from
+     * it, and the restore drags the reader back to the old paragraph. From there
+     * every further character goes to the wrong place, which is what makes this
+     * visible at all: the first letter lands correctly and the rest do not.
+     *
+     * So the handler says what it has just worked out. It is the only thing that
+     * knows — the DOM has the answer and the model has not been told yet.
+     *
+     * `applySelectionToView: false` because the DOM caret is already there; this
+     * is the model catching up, and writing the selection back to the browser
+     * mid-keystroke is how carets end up fighting each other.
+     */
+    const known: any = (this.editor as any).selection;
+    const modelAgrees =
+      known?.type === 'range' &&
+      known.startNodeId === range.startNodeId &&
+      known.startOffset === range.startOffset &&
+      known.endNodeId === range.endNodeId &&
+      known.endOffset === range.endOffset;
+    if (!modelAgrees) {
+      this.editor.updateSelection({
+        selection: range,
+        applySelectionToView: false,
+        source: 'input'
+      } as never);
+    }
+
     this.editor.executeCommand('replaceText', { range, text }).then((success) => {
       if (!success) {
         console.warn('[InputHandler] tryHandleInsertViaGetTargetRanges: replaceText failed');

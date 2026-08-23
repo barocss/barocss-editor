@@ -20,6 +20,7 @@ import {
   getWordFields,
   getWordNow,
   getWordLayout,
+  getWordNumbering,
   getWordStyles,
   getTab
 } from './render-context';
@@ -44,6 +45,7 @@ import { leaderStyle } from './tabs';
 import { imageCss } from './image-layout';
 import {
   canvasCss,
+  frameCss,
   canvasViewBox,
   ellipseAttrs,
   isVisible,
@@ -248,6 +250,34 @@ export function registerWordRenderers(): void {
           : settings?.attributes?.evenAndOddHeaders === true
     };
 
+    /**
+     * The chapter headings this section numbers its pages by, if it does.
+     *
+     * Word's `1-1`: the page number with its chapter's number in front, which is
+     * how a manual is numbered so a chapter can be reprinted without renumbering
+     * the book. Found once for the section rather than once per page per header —
+     * it is a walk over every block, and a header is drawn twice a page.
+     *
+     * Built only when the section asks. `pageNumberChapterStyle` names the
+     * heading style whose headings start chapters, and a document that names
+     * none pays nothing.
+     */
+    const chapterStyle =
+      typeof format.pageNumberChapterStyle === 'string' ? format.pageNumberChapterStyle : '';
+    const chapters =
+      chapterStyle && doc
+        ? tocEntries({
+            doc,
+            // This renderer's node *is* the section, so there is nothing to find.
+            surface: node as never,
+            // Every level: which heading *starts* a chapter is decided by the
+            // style it carries, not by how deep it is.
+            levels: '1-9',
+            styleFilter: chapterStyle,
+            pageOfBlock: layout?.pageOfBlock
+          })
+        : [];
+
     const furniture: any[] = [];
     if (doc && layout) {
       for (const page of layout.pages) {
@@ -269,7 +299,9 @@ export function registerWordRenderers(): void {
             page: context,
             metrics: layout.metrics,
             format,
-            placement
+            placement,
+            chapters,
+            numbering: getWordNumbering(env)
           });
           if (drawn) furniture.push(drawn);
         }
@@ -715,28 +747,28 @@ export function registerWordRenderers(): void {
   );
 
   /**
-   * A frame, and a group: the two containers a canvas can hold.
+   * A group on a canvas: `<g>` with a translate.
    *
-   * `<g>` with a translate, because that is what a container *is* in SVG — the
-   * children carry coordinates relative to their parent, which is the rule for
-   * every canvas node (`docs/specs/canvas-model.md`), and a translated group is
-   * exactly that rule expressed in the drawing.
+   * That is what a container *is* in SVG — the children carry coordinates
+   * relative to their parent, which is the rule for every canvas node
+   * (`docs/specs/canvas-model.md`), and a translated group is exactly that rule
+   * expressed in the drawing.
    *
-   * These were exempted from the conformance check for years with the reason
-   * "Word has no canvas surface". True, and about the wrong thing: Word has a
-   * canvas *block*, `canvasBlock` holds `scene*`, and `frame` is a scene node.
-   * A Word document could hold a frame full of shapes and draw an empty space
-   * where they were.
+   * It was exempted from the conformance check for as long as Word has had one,
+   * with the reason "Word has no canvas surface". True, and about the wrong
+   * thing: Word has a canvas *block*, and a group is a scene node, so a Word
+   * document could hold one full of shapes and draw a blank space where they
+   * were.
    *
-   * A frame paints; a group does not. That is not an oversight in the schema —
-   * a group has no appearance of its own, it is the fact that things move
-   * together, and the schema gives it no `fill` to draw with.
+   * A group has no appearance of its own — it is the fact that things move
+   * together — so it paints nothing, and the schema gives it no `fill` to paint
+   * with.
    *
-   * `clipsContent` is not honoured yet. It needs a `clipPath` per frame, which
-   * is a second element with an id, and an id in a document that may hold two
-   * copies of the same canvas is its own problem. Logged rather than guessed at.
+   * A **frame** is drawn separately, below, and as a `<div>`: it is a block now,
+   * a layout box in the flow rather than a drawing, and a box that arranges
+   * blocks has to be something the browser can lay out.
    */
-  const container = (stype: 'frame' | 'group', painted: boolean) => {
+  const container = (stype: 'group', painted: boolean) => {
     // The frame's own surface, drawn at the origin because the translate below
     // has already moved the group to it. Built here rather than spread into the
     // call so the tag and the children infer as one shape.
@@ -774,8 +806,48 @@ export function registerWordRenderers(): void {
     );
   };
 
-  container('frame', true);
   container('group', false);
+
+  /**
+   * A frame: a box that holds other things and decides where they go.
+   *
+   * A `<div>`, and that is the whole point. A frame is a *layout* box — two
+   * columns of text in a report, a row of cards, a grid of pictures — and a box
+   * that arranges blocks has to be something the browser can lay out. Drawn as
+   * an SVG `<g>` it could hold shapes and nothing else, which is a drawing tool
+   * pretending to be a layout one.
+   *
+   * `layoutMode` is honoured two ways, and needs no second mechanism because
+   * the difference is in the contents rather than in the frame:
+   *
+   * - **Blocks have no coordinates**, so the browser lays them out: `flex` for a
+   *   row or a column, `grid` for a grid, with the gap and padding the frame
+   *   declares.
+   * - **Scene nodes carry `x` and `y`**, so the model computes them — see
+   *   `canvas-layout.ts` — and the CSS below does nothing to them, since an
+   *   absolutely positioned child ignores a flex container's placement.
+   *
+   * One frame, one renderer, and a document and a slide arranging the same node
+   * the same way. What a frame *cannot* do is sit inside Word's `canvasBlock`,
+   * which is an `<svg>`: a `<div>` in there is kept by the parser and laid out
+   * by nothing. The conformance check says so and Word exempts that pair with
+   * the reason.
+   */
+  define(
+    'frame',
+    element(
+      'div',
+      {
+        className: 'w-frame',
+        'data-layout': (d: Record<string, any>) => {
+          const mode = (d.attributes as any)?.layoutMode;
+          return mode === 'row' || mode === 'column' || mode === 'grid' ? mode : undefined;
+        },
+        style: (d: Record<string, any>) => frameCss(d.attributes as never)
+      } as never,
+      [slot('content')]
+    )
+  );
 
   /**
    * A picture on a canvas.
@@ -861,8 +933,36 @@ export function registerWordRenderers(): void {
     })
   );
 
-  define('pageBreak', element('div', { className: 'w-page-break', role: 'separator' }));
-  define('columnBreak', element('div', { className: 'w-column-break', role: 'separator' }));
+  /**
+   * A hard break the author put in, and the reason it has to read its push.
+   *
+   * Every other block gets its position from `blockStyle`, which asks the layout
+   * how far down the page it should be pushed. These two were drawn as bare
+   * `<div>`s and asked nothing — and a break is *exactly* the block that needs
+   * to: the paginator ends the page before it and makes the break the first
+   * fragment of the next one, so the push that moves the flow onto that page is
+   * set on the break's own sid. Nothing applied it, so nothing moved.
+   *
+   * Measured before the fix: a paragraph at y=427, the break it was split by at
+   * 469, and the second half at 482 — all three on the first sheet, with the
+   * document one page taller and no break anywhere on it.
+   */
+  define(
+    'pageBreak',
+    element('div', {
+      className: 'w-page-break',
+      role: 'separator',
+      style: (d: Record<string, any>, env?: RenderEnv) => blockStyle(d, env)
+    })
+  );
+  define(
+    'columnBreak',
+    element('div', {
+      className: 'w-column-break',
+      role: 'separator',
+      style: (d: Record<string, any>, env?: RenderEnv) => blockStyle(d, env)
+    })
+  );
   define('horizontalRule', element('hr', { className: 'w-rule' }));
 
   define('contentControl', element('div', { className: 'w-content-control', 'data-tag': (d: Record<string, any>) => String(d.attributes?.tag ?? '') }, [slot('content')]));
@@ -974,8 +1074,30 @@ export function registerWordRenderers(): void {
       const doc = getWordDocument(env);
       const styles = getWordStyles(env);
       const format = doc && styles ? rowFormat(styles, doc, node as never) : {};
+      const style = tableRowCss(format);
 
-      return element(tag, { className, style: tableRowCss(format) }, [slot('content')]);
+      /**
+       * A header group holds its cells directly and is one row, so it draws one.
+       *
+       * The schema says a `bTableHeader` contains `bTableHeaderCell+` with no row
+       * between — "a header IS a row", as `collectRows` puts it — and this drew
+       * that shape literally: `<thead>` with `<th>` children. Browsers render it,
+       * which is why it went unnoticed, and it is not HTML: a `<thead>` may
+       * contain only rows. Anything reading the table as a table — a screen
+       * reader, `querySelectorAll('tr')`, a copy to another application — sees a
+       * header of no rows.
+       *
+       * The `<tr>` is drawn here rather than added to the model, because it is
+       * not in the document: the row is the header, and inventing a node for it
+       * would be the renderer changing what the document says.
+       */
+      if (tag === 'thead') {
+        return element('thead', { className, style }, [
+          element('tr', { className: 'w-tr' }, [slot('content')])
+        ]);
+      }
+
+      return element(tag, { className, style }, [slot('content')]);
     });
 
   rowNode('bTableRow', 'tr', 'w-tr');

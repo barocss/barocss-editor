@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { Editor } from '../src/editor';
-import { textNode } from '@barocss/model';
 
 describe('Editor History Integration', () => {
   let editor: Editor;

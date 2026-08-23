@@ -59,8 +59,9 @@ describe('EditorSchemaManager', () => {
 
   describe('getAllEditorIds', () => {
     it('should return all editor IDs', () => {
-      const editor1 = manager.createEditor('editor1');
-      const editor2 = manager.createEditor('editor2');
+      // Made, not kept: this test is about what the manager lists afterwards.
+      manager.createEditor('editor1');
+      manager.createEditor('editor2');
       
       const allIds = manager.getAllEditorIds();
       expect(allIds).toHaveLength(2);

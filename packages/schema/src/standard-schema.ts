@@ -45,7 +45,7 @@ export function getStandardSchemaDefinition(): SchemaDefinition {
       column: { name: 'column', group: 'block', content: 'block+', attrs: { width: { type: 'string', required: false } } },
       toc: { name: 'toc', group: 'block', atom: true },
       footnoteDef: { name: 'footnoteDef', group: 'block', content: 'inline*', attrs: { id: { type: 'string', required: true } } },
-      list: { name: 'list', group: 'block', content: 'listItem+', attrs: { type: { type: 'string', default: 'bullet' } } },
+      list: { name: 'list', group: 'block', content: 'listItem+', attrs: { type: { type: 'string', default: 'bullet', options: ['bullet', 'ordered'] } } },
       listItem: { name: 'listItem', group: 'block', content: 'block+' },
       taskItem: { name: 'taskItem', group: 'block', content: 'inline*', attrs: { checked: { type: 'boolean', default: false } } },
       callout: { name: 'callout', group: 'block', content: 'block+', attrs: { type: { type: 'string', default: 'info' }, title: { type: 'string', required: false } } },
@@ -75,16 +75,35 @@ export function getStandardSchemaDefinition(): SchemaDefinition {
       fieldDocTitle: { name: 'fieldDocTitle', group: 'inline', atom: true },
       fieldAuthor: { name: 'fieldAuthor', group: 'inline', atom: true },
       bookmarkAnchor: { name: 'bookmarkAnchor', group: 'inline', atom: true, attrs: { id: { type: 'string', required: true } } },
+      /**
+       * A table is a block. **Its parts are not**, and that is the whole of this
+       * comment: only `bTable` carries `group: 'block'`, and the six pieces
+       * below are reachable through its content expression and nowhere else.
+       *
+       * All seven were blocks. What that said, to anything reading the schema
+       * rather than the intent, was that a blockquote may contain a bare
+       * `<tbody>` and a list item may contain a loose `<tr>` — because both hold
+       * `block+`, and a row was a block. Nothing in either product could draw
+       * that: the HTML parser moves a `<tr>` straight out of a `<div>`, leaving
+       * an empty one, which is what `every-drawing-keeps-its-children` reported
+       * across twelve pairs the day it was written.
+       *
+       * The advice was already in this repository's own spec — §9.1 of
+       * `docs/specs/standard-schema.md`, about vector nodes: "do **not** put them
+       * in `group: 'block'` so they cannot appear at document top level. They are
+       * allowed only where a content expression references them." A table's
+       * insides are the same shape of thing and had the opposite treatment.
+       */
       bTable: { name: 'bTable', group: 'block', content: '(bTableHeader)? bTableBody+ (bTableFooter)?', attrs: { caption: { type: 'string', required: false } } },
-      bTableHeader: { name: 'bTableHeader', group: 'block', content: 'bTableHeaderCell+' },
-      bTableBody: { name: 'bTableBody', group: 'block', content: 'bTableRow+' },
-      bTableFooter: { name: 'bTableFooter', group: 'block', content: 'bTableRow+' },
-      bTableHeaderCell: { name: 'bTableHeaderCell', group: 'block', content: 'inline*', attrs: { colspan: { type: 'number', default: 1 }, rowspan: { type: 'number', default: 1 } } },
+      bTableHeader: { name: 'bTableHeader', content: 'bTableHeaderCell+' },
+      bTableBody: { name: 'bTableBody', content: 'bTableRow+' },
+      bTableFooter: { name: 'bTableFooter', content: 'bTableRow+' },
+      bTableHeaderCell: { name: 'bTableHeaderCell', content: 'inline*', attrs: { colspan: { type: 'number', default: 1 }, rowspan: { type: 'number', default: 1 } } },
       // 'bTableCell*', not '+': a row entirely covered by a rowspan from above
       // legitimately owns no cells of its own. HTML and OOXML both allow this,
       // and merging a whole row would otherwise produce an invalid table.
-      bTableRow: { name: 'bTableRow', group: 'block', content: 'bTableCell*' },
-      bTableCell: { name: 'bTableCell', group: 'block', content: 'inline*', attrs: { colspan: { type: 'number', default: 1 }, rowspan: { type: 'number', default: 1 } } },
+      bTableRow: { name: 'bTableRow', content: 'bTableCell*' },
+      bTableCell: { name: 'bTableCell', content: 'inline*', attrs: { colspan: { type: 'number', default: 1 }, rowspan: { type: 'number', default: 1 } } },
       'inline-image': { name: 'inline-image', group: 'inline', atom: true, attrs: { src: { type: 'string', required: true }, alt: { type: 'string', required: false } } },
       emoji: { name: 'emoji', group: 'inline', atom: true, attrs: { shortcode: { type: 'string', required: false }, unicode: { type: 'string', required: false } } },
       'inline-text': { name: 'inline-text', group: 'inline' },
@@ -92,19 +111,26 @@ export function getStandardSchemaDefinition(): SchemaDefinition {
     marks: {
       bold: { name: 'bold', group: 'text-style', attrs: { weight: { type: 'string', default: 'bold' } } },
       italic: { name: 'italic', group: 'text-style', attrs: { style: { type: 'string', default: 'italic' } } },
-      fontColor: { name: 'fontColor', group: 'text-style', attrs: { color: { type: 'string', default: '#000000' } } },
-      bgColor: { name: 'bgColor', group: 'text-style', attrs: { bgColor: { type: 'string', default: '#ffff00' } } },
+      /**
+       * `single`, because a character has one colour, one highlight, one size and
+       * one family. Applying used to append, so red text made green carried both
+       * marks and the reader kept the red. Everything else here stacks — two
+       * comments overlap on the same sentence, and so do an insertion and a
+       * colour.
+       */
+      fontColor: { name: 'fontColor', group: 'text-style', single: true, attrs: { color: { type: 'string', default: '#000000' } } },
+      bgColor: { name: 'bgColor', group: 'text-style', single: true, attrs: { bgColor: { type: 'string', default: '#ffff00' } } },
       underline: { name: 'underline', group: 'text-style', attrs: { style: { type: 'string', default: 'underline' } } },
       strikethrough: { name: 'strikethrough', group: 'text-style', attrs: { style: { type: 'string', default: 'line-through' } } },
       code: { name: 'code', group: 'text-style', attrs: { language: { type: 'string', default: 'text' } } },
       link: { name: 'link', group: 'text-style', attrs: { href: { type: 'string', required: true }, title: { type: 'string', required: false } } },
-      highlight: { name: 'highlight', group: 'text-style', attrs: { color: { type: 'string', default: '#ffff00' } } },
-      fontSize: { name: 'fontSize', group: 'text-style', attrs: { size: { type: 'string', default: '14px' } } },
-      fontFamily: { name: 'fontFamily', group: 'text-style', attrs: { family: { type: 'string', default: 'Arial' } } },
+      highlight: { name: 'highlight', group: 'text-style', single: true, attrs: { color: { type: 'string', default: '#ffff00' } } },
+      fontSize: { name: 'fontSize', group: 'text-style', single: true, attrs: { size: { type: 'string', default: '14px' } } },
+      fontFamily: { name: 'fontFamily', group: 'text-style', single: true, attrs: { family: { type: 'string', default: 'Arial' } } },
       subscript: { name: 'subscript', group: 'text-style', attrs: { position: { type: 'string', default: 'sub' } } },
       superscript: { name: 'superscript', group: 'text-style', attrs: { position: { type: 'string', default: 'super' } } },
       smallCaps: { name: 'smallCaps', group: 'text-style', attrs: { variant: { type: 'string', default: 'small-caps' } } },
-      letterSpacing: { name: 'letterSpacing', group: 'text-style', attrs: { spacing: { type: 'string', default: '0.1em' } } },
+      letterSpacing: { name: 'letterSpacing', group: 'text-style', single: true, attrs: { spacing: { type: 'string', default: '0.1em' } } },
       wordSpacing: { name: 'wordSpacing', group: 'text-style', attrs: { spacing: { type: 'string', default: '0.2em' } } },
       lineHeight: { name: 'lineHeight', group: 'text-style', attrs: { height: { type: 'string', default: '1.5' } } },
       textShadow: { name: 'textShadow', group: 'text-style', attrs: { shadow: { type: 'string', default: '1px 1px 2px rgba(0,0,0,0.3)' } } },

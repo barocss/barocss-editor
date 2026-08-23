@@ -12,14 +12,12 @@ function createFakeEditor(selection?: ModelSelection | null): Editor & {
   const events: Map<string, Function[]> = new Map();
 
   return {
-    // @ts-expect-error - Only minimal implementation provided
     registerCommand: (cmd: any) => {
       commands[cmd.name] = cmd;
     },
     __getCommand(name: string) {
       return commands[name];
     },
-    // @ts-expect-error - May differ from actual Editor interface
     selection: selection || null,
     clearSelection: vi.fn(),
     emit: vi.fn((event: string, data?: any) => {
@@ -32,7 +30,7 @@ function createFakeEditor(selection?: ModelSelection | null): Editor & {
       }
       events.get(event)!.push(listener);
     }
-  } as Editor & { 
+  } as unknown as Editor & { 
     __getCommand: (name: string) => any; 
     selection: ModelSelection | null;
     clearSelection: () => void;

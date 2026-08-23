@@ -1,6 +1,7 @@
 import { characterFormatAttrs, createWordEnv, paragraphFormatAttrs } from '@barocss/office-word';
-import { deckSlides, layoutPlaceholderSids, type DeckAccess, type DeckNode } from './deck';
+import { childrenOf, deckSlides, layoutPlaceholderSids, type DeckAccess, type DeckNode } from './deck';
 import { boxAt, isSceneType, slideAt } from './selection';
+import { resolveThemeAttrs, resolveThemeValue, themeFor } from './theme';
 
 /**
  * Where a slide's formatting comes from.
@@ -87,36 +88,123 @@ function formatOnly(
   return out;
 }
 
-const childrenOf = (node: DeckNode | undefined): string[] =>
-  Array.isArray(node?.content)
-    ? (node!.content as unknown[]).filter((c): c is string => typeof c === 'string')
-    : [];
+
+/** A resource of a given kind, by the id something names it with. */
+function resourceById(doc: DeckAccess, stype: string, id: string): DeckNode | undefined {
+  const root = doc.getNode(doc.rootId);
+  for (const sid of childrenOf(root)) {
+    const node = doc.getNode(sid);
+    if (node?.stype !== 'resources') continue;
+    for (const child of childrenOf(node)) {
+      const resource = doc.getNode(child);
+      if (resource?.stype === stype && resource.attributes?.id === id) return resource;
+    }
+  }
+  return undefined;
+}
 
 /**
- * The layout placeholder a box inherits from, or nothing.
+ * The master a layout follows, if it follows one.
  *
- * Exported because "which placeholder is this box following" is a question a
- * panel will want to show a reader, and answering it twice is how the panel and
- * the resolver come to disagree.
+ * By id, like every other binding in this deck: a layout is written before its
+ * sids exist, so it cannot name one.
  */
-export function placeholderFor(doc: DeckAccess, sid: string | undefined): DeckNode | undefined {
+export function masterOf(doc: DeckAccess, layoutId: string | undefined): DeckNode | undefined {
+  if (!layoutId) return undefined;
+  const layout = resourceById(doc, 'slideLayout', layoutId);
+  const masterId = layout?.attributes?.masterId;
+  return typeof masterId === 'string' && masterId
+    ? resourceById(doc, 'slideMaster', masterId)
+    : undefined;
+}
+
+/**
+ * The placeholders a box inherits from, nearest last.
+ *
+ * The master's first, then the layout's — the order the cascade applies them, so
+ * a layout that sets a size wins over the master that set another and a role the
+ * layout never mentions still finds the master's.
+ *
+ * Matched by *role* at every level, never by position, for the reason in this
+ * file's header: a slide that has moved or deleted a box would otherwise be
+ * formatted from whichever placeholder happened to be third.
+ */
+export function placeholderChainFor(doc: DeckAccess, sid: string | undefined): DeckNode[] {
   const box = boxAt(doc, sid);
-  if (!box?.role) return undefined;
+  if (!box?.role) return [];
 
   const slide = slideAt(doc, sid);
-  if (!slide) return undefined;
+  if (!slide) return [];
 
   const layoutId = deckSlides(doc).find((entry) => entry.sid === slide)?.layoutId;
-  if (!layoutId) return undefined;
+  if (!layoutId) return [];
+
+  const byRole = (holder: DeckNode | undefined): DeckNode | undefined =>
+    childrenOf(holder)
+      .map((child) => doc.getNode(child))
+      .find((candidate) => candidate?.attributes?.role === box.role);
+
+  const chain: DeckNode[] = [];
+  const master = byRole(masterOf(doc, layoutId));
+  if (master) chain.push(master);
 
   /**
    * The live node, not `layoutPlaceholders`' copy. A copy's children are nested
    * nodes rather than sids, so reading the paragraphs that carry the formatting
    * would find nothing — which is exactly what it did.
    */
-  return layoutPlaceholderSids(doc, layoutId)
-    .map((sid) => doc.getNode(sid))
+  const layout = layoutPlaceholderSids(doc, layoutId)
+    .map((placeholder) => doc.getNode(placeholder))
     .find((candidate) => candidate?.attributes?.role === box.role);
+  if (layout) chain.push(layout);
+
+  return chain;
+}
+
+/**
+ * The layout placeholder a box inherits from, or nothing.
+ *
+ * Exported because "which placeholder is this box following" is a question a
+ * panel will want to show a reader, and answering it twice is how the panel and
+ * the resolver come to disagree. The *nearest* of the chain, which is the layout
+ * when there is one and the master when the layout says nothing.
+ */
+export function placeholderFor(doc: DeckAccess, sid: string | undefined): DeckNode | undefined {
+  const chain = placeholderChainFor(doc, sid);
+  return chain[chain.length - 1];
+}
+
+/**
+ * The background a slide shows: its own, the layout's, then the master's.
+ *
+ * The same order as the formatting and for the same reason — the nearest thing
+ * that says anything wins — and the reason a master is worth having at all: one
+ * place says what colour this deck is, instead of every layout repeating it.
+ */
+export function backgroundOf(doc: DeckAccess, surfaceSid: string): string | undefined {
+  const layoutId = deckSlides(doc).find((entry) => entry.sid === surfaceSid)?.layoutId;
+  const layout = layoutId ? resourceById(doc, 'slideLayout', layoutId) : undefined;
+  const masterId = layout?.attributes?.masterId;
+  const master = layoutId ? masterOf(doc, layoutId) : undefined;
+
+  /**
+   * Resolved through the theme, because any of the three may name a slot rather
+   * than a colour — `fill: 'theme:light1'` is how a master says "the deck's
+   * paper" without repeating a hex string that a theme is there to own.
+   *
+   * Resolving here rather than in the renderer is what stops the background from
+   * being the one colour in the product that a slot cannot fill: the renderer
+   * asks one question and gets a colour, whatever the document said.
+   */
+  const theme = themeFor(doc, typeof masterId === 'string' ? masterId : undefined);
+  const said = (value: unknown): string | undefined => {
+    if (typeof value !== 'string' || !value) return undefined;
+    return resolveThemeValue(theme, value);
+  };
+
+  return said(doc.getNode(surfaceSid)?.attributes?.fill) ??
+    said(layout?.attributes?.fill) ??
+    said(master?.attributes?.fill);
 }
 
 /**
@@ -159,8 +247,35 @@ export function inheritedFormat(
   const node = sid ? doc.getNode(sid) : undefined;
   if (!node) return {};
 
-  const placeholder = placeholderFor(doc, sid);
-  return placeholder ? fromPlaceholder(doc, placeholder, node, scope) : {};
+  /**
+   * Every level, nearest last, so the layout wins over the master it follows.
+   *
+   * A role the layout never mentions still finds the master's placeholder, which
+   * is the whole point of there being a master: one place says what a title
+   * looks like in this deck.
+   */
+  let inherited: Record<string, unknown> = {};
+  for (const placeholder of placeholderChainFor(doc, sid)) {
+    inherited = { ...inherited, ...fromPlaceholder(doc, placeholder, node, scope) };
+  }
+
+  /**
+   * And the theme's faces, for a master that names a slot rather than a font.
+   *
+   * `fontFamily: 'theme:major'` on a master's title is what makes a theme worth
+   * having for text: changing the deck's heading face is one attribute rather
+   * than one per layout. Resolved here, at the end, so a layout that names a
+   * real font still wins — it is nearer, and this only fills in what a slot left.
+   */
+  const slide = slideAt(doc, sid);
+  const layoutId = slide
+    ? deckSlides(doc).find((entry) => entry.sid === slide)?.layoutId
+    : undefined;
+  const masterId = layoutId
+    ? (resourceById(doc, 'slideLayout', layoutId)?.attributes?.masterId as string | undefined)
+    : undefined;
+
+  return resolveThemeAttrs(themeFor(doc, masterId), inherited);
 }
 
 /**

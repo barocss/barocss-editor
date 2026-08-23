@@ -99,3 +99,84 @@ export async function attr(page: Page, sid: string, key: string): Promise<unknow
     [sid, key] as const
   );
 }
+
+/** One fill of a shape, as the element it is drawn as. */
+export interface DrawnFill {
+  /** The layer's own `background-image`: a gradient, or nothing for a picture. */
+  background: string;
+  /** Real now, and applied to the element rather than baked into the colours. */
+  opacity: string;
+  blend: string;
+  /** The picture inside the layer, for an image fill that is not tiled. */
+  image: { src: string | null; fit: string; scale: string } | null;
+}
+
+/**
+ * What a shape's fill is **drawn** as — the layer element, not the box.
+ *
+ * A stack of fills used to be one `background` on the shape, and every test that
+ * asked about a gradient read `backgroundImage` there. It is elements now, for
+ * the three reasons in `office-slides/src/fill-layers.ts`, so the box reports
+ * `none` and the paint is in here. The index is the **model's** — the row the
+ * panel draws and a reader clicks — which is why it is on the element as
+ * `data-fill` rather than left to a position among siblings (they are reversed:
+ * a later sibling paints on top).
+ */
+export async function drawnFill(page: Page, sid: string, index = 0): Promise<DrawnFill | null> {
+  return await page.evaluate(
+    ([id, at]) => {
+      const layer = document.querySelector(
+        `.sl-stage [data-bc-sid="${CSS.escape(id as string)}"] .sl-fill[data-fill="${at}"]`
+      );
+      if (!layer) return null;
+      const style = getComputedStyle(layer);
+      const image = layer.querySelector('img');
+      return {
+        background: style.backgroundImage,
+        opacity: style.opacity,
+        blend: style.mixBlendMode,
+        image: image
+          ? {
+              src: image.getAttribute('src'),
+              fit: getComputedStyle(image).objectFit,
+              scale: getComputedStyle(image).scale
+            }
+          : null
+      };
+    },
+    [sid, String(index)]
+  );
+}
+
+/** How many fills a shape draws as elements — nothing for one flat colour. */
+export async function drawnFills(page: Page, sid: string): Promise<number> {
+  return await page.evaluate(
+    (id) =>
+      document.querySelectorAll(`.sl-stage [data-bc-sid="${CSS.escape(id)}"] .sl-fill`).length,
+    sid
+  );
+}
+
+/**
+ * Pin the zoom, so the stage stops re-fitting under the test.
+ *
+ * A test that measures the same thing twice — a line's width before and after a
+ * motion, a handle's position before and after a drag — is comparing pixels, and
+ * pixels are only comparable at one scale. The stage re-fits whenever the room it
+ * has changes, and the timeline pane opening is exactly that: the slide is drawn
+ * smaller and every measurement moves with it.
+ *
+ * Typed into the zoom box, which is a reader's own gesture and the thing that
+ * turns *fitting* off: an explicit zoom is kept until it is cleared, so nothing
+ * the chrome does afterwards changes the scale. Cheaper and more honest than
+ * asserting in twips, because what these tests are about is what is drawn.
+ */
+export async function pinZoom(page: Page, percent = 60): Promise<void> {
+  const box = page.getByLabel('확대/축소');
+  await box.fill(`${percent}%`);
+  await box.press('Enter');
+  await page.waitForFunction(
+    (want) => document.querySelector('[data-zoom]')?.getAttribute('data-zoom') === want,
+    (percent / 100).toFixed(2)
+  );
+}

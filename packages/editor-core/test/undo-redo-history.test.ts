@@ -2,6 +2,20 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Editor } from '../src/editor';
 import { textNode } from '@barocss/model';
 
+/**
+ * The first child's **sid**.
+ *
+ * `INode.content` is `(INode | string)[]` because both are real: a loaded document
+ * holds child sids, and a literal tree holds the children themselves. These tests
+ * walk a loaded document, so a child is a sid — said once here rather than asserted at
+ * every step, which is what they did before anything type-checked them.
+ */
+const firstChildSid = (node: { content?: unknown } | null | undefined): string | null => {
+  const first = Array.isArray(node?.content) ? node!.content[0] : null;
+  return typeof first === 'string' ? first : null;
+};
+
+
 function normalizeSelection(value: any) {
   return value ? JSON.parse(JSON.stringify(value)) : null;
 }
@@ -125,9 +139,9 @@ describe('Undo/Redo History Management', () => {
     ]).commit();
 
     const rootNode = editor.dataStore.getNode(rootId!);
-    const firstParagraphId = Array.isArray(rootNode?.content) ? rootNode!.content[0] : null;
+    const firstParagraphId = firstChildSid(rootNode);
     const firstParagraph = firstParagraphId ? editor.dataStore.getNode(firstParagraphId) : null;
-    const firstTextId = Array.isArray(firstParagraph?.content) ? firstParagraph!.content[0] : null;
+    const firstTextId = firstChildSid(firstParagraph);
     expect(firstTextId).toBeDefined();
 
     editor.setRange({
@@ -151,10 +165,6 @@ describe('Undo/Redo History Management', () => {
       } } }
     ]).commit();
 
-    const afterSecondRoot = editor.dataStore.getNode(rootId!);
-    const secondParagraphId = Array.isArray(afterSecondRoot?.content) ? afterSecondRoot.content[1] : null;
-    const secondParagraph = secondParagraphId ? editor.dataStore.getNode(secondParagraphId as string) : null;
-    const secondTextId = Array.isArray(secondParagraph?.content) ? secondParagraph!.content[0] : null;
     const selectionAfter = normalizeSelection(editor.selection);
     expect(selectionAfter).not.toBeNull();
     expect(selectionAfter).not.toEqual(selectionBefore);
@@ -188,9 +198,9 @@ describe('Undo/Redo History Management', () => {
     ]).commit();
 
     const rootNode = editor.dataStore.getNode(rootId!)!;
-    const firstParagraphId = Array.isArray(rootNode?.content) ? rootNode!.content[0] : null;
+    const firstParagraphId = firstChildSid(rootNode);
     const firstParagraph = firstParagraphId ? editor.dataStore.getNode(firstParagraphId) : null;
-    const firstTextNodeId = Array.isArray(firstParagraph?.content) ? firstParagraph!.content[0] : null;
+    const firstTextNodeId = firstChildSid(firstParagraph);
     expect(firstTextNodeId).toBeDefined();
 
     editor.setRange({
@@ -230,9 +240,9 @@ describe('Undo/Redo History Management', () => {
     ]).commit();
 
     const rootNode = editor.dataStore.getNode(rootId!);
-    const paragraphId = Array.isArray(rootNode?.content) ? rootNode!.content[0] : null;
+    const paragraphId = firstChildSid(rootNode);
     const paragraph = paragraphId ? editor.dataStore.getNode(paragraphId) : null;
-    const textId = Array.isArray(paragraph?.content) ? paragraph!.content[0] : null;
+    const textId = firstChildSid(paragraph);
     expect(textId).toBeDefined();
 
     editor.setRange({
@@ -278,9 +288,9 @@ describe('Undo/Redo History Management', () => {
     ]).commit();
 
     const rootNode = editor.dataStore.getNode(rootId!);
-    const paragraphId = Array.isArray(rootNode?.content) ? rootNode!.content[0] : null;
+    const paragraphId = firstChildSid(rootNode);
     const paragraph = paragraphId ? editor.dataStore.getNode(paragraphId) : null;
-    const textId = Array.isArray(paragraph?.content) ? paragraph!.content[0] : null;
+    const textId = firstChildSid(paragraph);
     expect(textId).toBeDefined();
 
     editor.setRange({
@@ -323,9 +333,9 @@ describe('Undo/Redo History Management', () => {
     ]).commit();
 
     const rootNode = editor.dataStore.getNode(rootId!);
-    const paragraphId = Array.isArray(rootNode?.content) ? rootNode!.content[0] : null;
+    const paragraphId = firstChildSid(rootNode);
     const paragraph = paragraphId ? editor.dataStore.getNode(paragraphId) : null;
-    const textId = Array.isArray(paragraph?.content) ? paragraph!.content[0] : null;
+    const textId = firstChildSid(paragraph);
     expect(textId).toBeDefined();
 
     editor.setRange({
@@ -383,9 +393,9 @@ describe('Undo/Redo History Management', () => {
     ]).commit();
 
     const rootNode = editor.dataStore.getNode(rootId!);
-    const paragraphId = Array.isArray(rootNode?.content) ? rootNode!.content[0] : null;
+    const paragraphId = firstChildSid(rootNode);
     const paragraph = paragraphId ? editor.dataStore.getNode(paragraphId) : null;
-    const textId = Array.isArray(paragraph?.content) ? paragraph!.content[0] : null;
+    const textId = firstChildSid(paragraph);
     expect(textId).toBeDefined();
 
     editor.setRange({
@@ -531,9 +541,9 @@ describe('Undo/Redo History Management', () => {
     }]).commit();
 
     const rootNode = editor.dataStore.getNode(rootId!);
-    const paragraphId = Array.isArray(rootNode?.content) ? rootNode!.content[0] : null;
+    const paragraphId = firstChildSid(rootNode);
     const paragraph = paragraphId ? editor.dataStore.getNode(paragraphId) : null;
-    const textId = Array.isArray(paragraph?.content) ? paragraph!.content[0] : null;
+    const textId = firstChildSid(paragraph);
     expect(textId).toBeDefined();
 
     editor.setRange({
@@ -609,9 +619,9 @@ describe('Undo/Redo History Management', () => {
     }]).commit();
 
     const rootNode = editor.dataStore.getNode(rootId!);
-    const paragraphId = Array.isArray(rootNode?.content) ? rootNode!.content[0] : null;
+    const paragraphId = firstChildSid(rootNode);
     const paragraph = paragraphId ? editor.dataStore.getNode(paragraphId) : null;
-    const textId = Array.isArray(paragraph?.content) ? paragraph!.content[0] : null;
+    const textId = firstChildSid(paragraph);
     expect(textId).toBeDefined();
 
     editor.setRange({
@@ -651,9 +661,9 @@ describe('Undo/Redo History Management', () => {
     ]).commit();
 
     const rootNode = editor.dataStore.getNode(rootId!);
-    const paragraphId = Array.isArray(rootNode?.content) ? rootNode!.content[0] : null;
+    const paragraphId = firstChildSid(rootNode);
     const paragraph = paragraphId ? editor.dataStore.getNode(paragraphId) : null;
-    const textId = Array.isArray(paragraph?.content) ? paragraph!.content[0] : null;
+    const textId = firstChildSid(paragraph);
     expect(textId).toBeDefined();
 
     const onSelectionModel = vi.fn();
@@ -699,9 +709,9 @@ describe('Undo/Redo History Management', () => {
     ]).commit();
 
     const rootNode = editor.dataStore.getNode(rootId!);
-    const paragraphId = Array.isArray(rootNode?.content) ? rootNode!.content[0] : null;
+    const paragraphId = firstChildSid(rootNode);
     const paragraph = paragraphId ? editor.dataStore.getNode(paragraphId) : null;
-    const textId = Array.isArray(paragraph?.content) ? paragraph!.content[0] : null;
+    const textId = firstChildSid(paragraph);
     expect(textId).toBeDefined();
 
     const remoteSelection = {
@@ -764,7 +774,7 @@ describe('Undo/Redo History Management', () => {
     ]).commit();
 
     const rootNode = editor.dataStore.getNode(rootId!);
-    const paragraphId = Array.isArray(rootNode?.content) ? rootNode!.content[0] : null;
+    const paragraphId = firstChildSid(rootNode);
     expect(paragraphId).toBeDefined();
 
     const onSelectionModel = vi.fn();

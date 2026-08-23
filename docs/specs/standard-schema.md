@@ -247,6 +247,29 @@ Barocss uses **one schema per editor**. There is no runtime concept of "nested s
 | How to have document + vector in one editor? | One schema; add vector node types and merge with document schema. Vector block (`vectorCanvas`) has `group: 'block'`; vector-only nodes are referenced only in content expressions under vectorCanvas. |
 | Where to define "vector schema"? | As a `SchemaDefinition` (or preset) and merge with document schema via `createSchema(base, { nodes: { ...vectorNodes } })` or by merging definition objects. |
 
+### 9.2 Take the node types you offer, not all of them
+
+The merges above are written as `{ ...getStandardSchemaDefinition().nodes, ...ownNodes }`, which is the natural thing to write and is wrong for a domain that does not want the whole standard vocabulary. **A schema declaring a node type is a promise that a document may contain one.** If nothing in the product draws it, that promise is a reader's text sitting in the file and nothing on the page.
+
+Measured, with two products built on one office schema that spread the standard nodes entire: Word and Slides drew *exactly the same* standard types and wrote off exactly the same twenty-five, forty-six lines of "inherited; this product offers no …" between them. One product's write-off list is an opinion about that product. Two identical lists are the shared schema claiming a domain it does not have.
+
+So a domain schema **names** what it takes:
+
+```ts
+const OFFICE_STANDARD_NODES = ['paragraph', 'heading', 'list', /* … */] as const;
+for (const name of OFFICE_STANDARD_NODES) {
+  const node = standard.nodes[name];
+  if (!node) throw new Error(`names a standard node that does not exist: ${name}`);
+  nodes[name] = node;
+}
+```
+
+Three things this asks of you, each of which found something real:
+
+- **Check the set is closed.** A type you drop may be named in a content expression of one you keep. Office's twenty-three turned out to reference only each other (`bFigure` names `bFigcaption`, `descList` names its terms), so the cut was clean — but that was checked, not assumed.
+- **Look for the twin.** The types worth the most attention are the ones your domain has *and does differently*: office keeps equations, a contents page and page numbers, and each had an unused standard-schema twin sitting beside its real implementation. A second way to say the same thing is a second thing to keep working.
+- **Grep the documents, not just the tests.** Every unit suite passed with `fieldPageNumber` wrongly dropped. The document that used it — a footer holding one among its words — lives in an app.
+
 ---
 
 ## 10. Comparison with other editors

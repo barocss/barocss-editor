@@ -1,4 +1,5 @@
 import type { IMark } from '../types';
+import { clearMarkOverRange, markIsSingleValued } from './mark-range';
 import type { ModelSelection } from '@barocss/editor-core';
 import type { DataStore } from '../data-store';
 
@@ -521,6 +522,14 @@ export class RangeOperations {
    */
   applyMark(contentRange: ModelSelection, mark: IMark): IMark {
     const { startNodeId, startOffset, endNodeId, endOffset } = contentRange;
+    /**
+     * Whether this mark takes the place of one of its own kind — a colour, a
+     * highlight, a size — or stacks with it, as a comment does. The schema says;
+     * see `mark-range.ts` for what appending alone did to a recoloured run.
+     */
+    const replaces = markIsSingleValued(this.dataStore.getActiveSchema?.() as never, mark.stype);
+    const room = (marks: IMark[] | undefined, range: [number, number], length: number): IMark[] =>
+      replaces ? clearMarkOverRange(marks, mark.stype, range, length) : [...(marks || [])];
     const sameNode = startNodeId === endNodeId;
     if (sameNode) {
       const node = this.dataStore.getNode(startNodeId);
@@ -532,7 +541,9 @@ export class RangeOperations {
         return mark;
       }
       const nodeMark: IMark = { ...mark, range: [s, e] } as any;
-      const next = [ ...(node.marks || []), nodeMark ];
+      // Room made first, then the mark. Appending alone left a run carrying two
+      // colours over the same characters and the reader keeping the older one.
+      const next = [ ...room(node.marks, [s, e], text.length), nodeMark ];
       // normalize via marks.setMarks for consistency
       this.dataStore.marks.setMarks(startNodeId, next, { normalize: true });
       return mark;
@@ -545,7 +556,7 @@ export class RangeOperations {
       const e = (startNode.text as string).length;
       if (s < e) {
         const nodeMark: IMark = { ...mark, range: [s, e] } as any;
-        const next = [ ...(startNode.marks || []), nodeMark ];
+        const next = [ ...room(startNode.marks, [s, e], e), nodeMark ];
         this.dataStore.marks.setMarks(startNodeId, next, { normalize: true });
       }
     }
@@ -554,7 +565,7 @@ export class RangeOperations {
       const e = Math.max(0, Math.min(endOffset, (endNode.text as string).length));
       if (s < e) {
         const nodeMark: IMark = { ...mark, range: [s, e] } as any;
-        const next = [ ...(endNode.marks || []), nodeMark ];
+        const next = [ ...room(endNode.marks, [s, e], (endNode.text as string).length), nodeMark ];
         this.dataStore.marks.setMarks(endNodeId, next, { normalize: true });
       }
     }

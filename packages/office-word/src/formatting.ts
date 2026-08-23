@@ -37,13 +37,43 @@ export const borderAttrs = (prefix: string): Attrs => ({
   [`${prefix}Space`]: num()           // points between border and content
 });
 
+/**
+ * The four edges every box has, and nothing else.
+ *
+ * `borderBetween` and the two interior borders used to be in here, which meant a
+ * **page** was declared to have interior borders and a **table cell** to have a
+ * between-border. Twelve attributes on four kinds of box, forty-eight of them
+ * describing nothing that could ever be drawn — found by `every-attribute-is-read`,
+ * and the same fault the office schema had at the node level: one generous list
+ * handed to everything, so every reader of the schema promises what it cannot keep.
+ *
+ * Each kind adds the edges it actually has, below.
+ */
 export const boxBorderAttrs = (): Attrs => ({
   ...borderAttrs('borderTop'),
   ...borderAttrs('borderBottom'),
   ...borderAttrs('borderLeft'),
-  ...borderAttrs('borderRight'),
-  ...borderAttrs('borderBetween'),    // between paragraphs sharing a border
-  ...borderAttrs('borderInsideH'),    // table interiors
+  ...borderAttrs('borderRight')
+});
+
+/**
+ * A block's fifth border: the one *between* consecutive blocks that share it.
+ *
+ * A paragraph thing and only a paragraph thing — Word draws one line where two
+ * bordered paragraphs meet rather than two. Nothing draws it here yet.
+ */
+export const betweenBorderAttrs = (): Attrs => ({
+  ...borderAttrs('borderBetween')
+});
+
+/**
+ * A table's interior: the lines between its rows and between its columns.
+ *
+ * Stated once for the whole table (and, in Word, overridable per cell), which is why
+ * this is separate from the four edges — a page has no interior.
+ */
+export const insideBorderAttrs = (): Attrs => ({
+  ...borderAttrs('borderInsideH'),
   ...borderAttrs('borderInsideV')
 });
 
@@ -92,6 +122,7 @@ export const paragraphFormatAttrs = (): Attrs => ({
   tabs: arr(),               // [{ pos, align, leader }], positions in twips
 
   ...boxBorderAttrs(),
+  ...betweenBorderAttrs(),
   ...shadingAttrs(),
 
   /** Numbering: which definition, and at which level. */
@@ -180,6 +211,16 @@ export const pageSetupAttrs = (): Attrs => ({
   pageNumberFormat: str(),            // decimal | upperRoman | lowerLetter ...
   pageNumberStart: num(),
   pageNumberChapterStyle: str(),
+  /**
+   * What goes between the chapter and the page in `1-1`. Word's `w:chapSep`,
+   * stored as a name — `hyphen`, `period`, `colon`, `emDash`, `enDash` — and a
+   * hyphen when the section says nothing, which is Word's default and the form
+   * everyone recognises: `1.1` reads as a decimal.
+   *
+   * Added with the reader, not before it. A schema that declares an attribute
+   * nothing reads is the pattern this product keeps finding in itself.
+   */
+  pageNumberChapterSeparator: str(),
 
   verticalAlign: str('top'),          // top | center | both | bottom
   titlePage: bool(false),             // distinct first-page header/footer
@@ -225,6 +266,7 @@ export const tableFormatAttrs = (): Attrs => ({
   caption: str(),
   description: str(),
   ...boxBorderAttrs(),
+  ...insideBorderAttrs(),
   ...shadingAttrs()
 });
 
@@ -251,6 +293,7 @@ export const tableCellFormatAttrs = (): Attrs => ({
   marginLeft: num(),
   marginRight: num(),
   ...boxBorderAttrs(),
+  ...insideBorderAttrs(),
   ...shadingAttrs()
 });
 

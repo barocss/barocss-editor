@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { tocEntries, type TocEntry } from '@barocss/office-word';
+import { Icon } from '@barocss/office-icons';
+import { IconButton } from '@barocss/office-ui';
 
 /**
  * The document's headings, down the side.
@@ -115,9 +117,17 @@ export function OutlinePane({
   // reader closes once.
   if (!open) {
     return (
-      <button type="button" className="w-outline-closed" onClick={onToggle} title="개요 열기">
-        <span aria-hidden="true">☰</span>
-      </button>
+      <IconButton label="개요 열기" testClass="w-outline-closed"
+        /*
+         * A closed pane is a *strip*, not a square: the width, the ground and the border
+         * are this app's furniture, and the component's own square sizing has to get out
+         * of the way for them. `cn` merges at the call site, so saying so here is enough.
+         */
+        className="h-auto w-auto items-start rounded-none" onClick={onToggle}>
+        {/* The ribbon's own outline button draws this; the strip that opens the
+            same pane should not draw a different picture of it. */}
+        <Icon name="outline" size={15} />
+      </IconButton>
     );
   }
 
@@ -125,9 +135,9 @@ export function OutlinePane({
     <nav className="w-outline" aria-label="문서 개요">
       <div className="w-outline-title">
         개요
-        <button type="button" onClick={onToggle} title="개요 닫기" aria-label="개요 닫기">
-          ×
-        </button>
+        <IconButton label="개요 닫기" onClick={onToggle}>
+          <Icon name="close" size={14} />
+        </IconButton>
       </div>
       {entries.length === 0 ? (
         <p className="w-outline-empty">제목이 없습니다.</p>

@@ -287,8 +287,17 @@ test.describe('a table’s declared columns', () => {
     await page.goto('/');
     await settled(page);
 
+    /**
+     * A *body* row, named as one.
+     *
+     * `.w-table .w-tr` used to mean "the first body row", because the header
+     * group drew its cells straight into a `<thead>` with no row around them —
+     * which is not HTML, and is fixed. The header is a row now and comes first,
+     * and this table's header has a merged cell in it, so an unscoped selector
+     * measures two columns where it means three.
+     */
     const even = await page.evaluate(() =>
-      [...document.querySelector('.w-table .w-tr')!.children].map((cell) =>
+      [...document.querySelector('.w-tbody .w-tr')!.children].map((cell) =>
         Math.round(cell.getBoundingClientRect().width)
       )
     );
@@ -320,7 +329,7 @@ test.describe('a table’s declared columns', () => {
       return {
         columns: table.querySelectorAll('col').length,
         layout: getComputedStyle(table).tableLayout,
-        widths: [...table.querySelector('.w-tr')!.children].map((cell) =>
+        widths: [...table.querySelector('.w-tbody .w-tr')!.children].map((cell) =>
           Math.round(cell.getBoundingClientRect().width)
         )
       };
@@ -368,7 +377,7 @@ test.describe('a table’s declared columns', () => {
     await page.waitForTimeout(1200);
 
     const drawn = await page.evaluate(() => {
-      const rows = [...document.querySelectorAll('.w-table .w-tr')];
+      const rows = [...document.querySelectorAll('.w-tbody .w-tr')];
       const width = (cell: Element, side: string) =>
         parseFloat(getComputedStyle(cell).getPropertyValue(`border-${side}-width`));
       const first = rows[0].children[0];
@@ -401,7 +410,7 @@ test.describe('a table’s style', () => {
   const cells = (page: import('@playwright/test').Page) =>
     page.evaluate(() => {
       const table = document.querySelector('.w-table')!;
-      const rows = [...table.querySelectorAll('.w-thead, .w-tr')].filter(
+      const rows = [...table.querySelectorAll('.w-thead, .w-tbody .w-tr')].filter(
         (row) => row.querySelectorAll('.w-cell').length > 0
       );
       return rows.map((row) =>
@@ -838,10 +847,18 @@ test.describe('the table style controls', () => {
 });
 
 test.describe('table commands', () => {
+  /**
+   * The body's shape, which is what these commands change.
+   *
+   * Scoped to `.w-tbody`, because the header is a row now — it drew its cells
+   * straight into a `<thead>` before, which is not HTML — and this table's
+   * header has a merged cell in it, so counting the first row's children counts
+   * two columns where the table has three.
+   */
   const shape = (page: import('@playwright/test').Page) =>
     page.evaluate(() => ({
-      rows: document.querySelectorAll('.w-table .w-tr').length,
-      columns: document.querySelector('.w-table .w-tr')?.children.length ?? 0
+      rows: document.querySelectorAll('.w-tbody .w-tr').length,
+      columns: document.querySelector('.w-tbody .w-tr')?.children.length ?? 0
     }));
 
   test('add and remove rows and columns around the caret', async ({ page }) => {
@@ -899,4 +916,31 @@ test.describe('the table buttons', () => {
       rowsBefore + 1
     );
   });
+});
+
+/**
+ * The document this product ships is one its own schema accepts.
+ *
+ * `loadDocument` checks what it is given now — every *operation* validates what
+ * it writes, so a document built by editing is checked at every step, and one
+ * handed to the loader went in exactly as written. A product's fixture is the
+ * only document that arrives that way, and it was the one nothing looked at.
+ *
+ * The deck's did not: its sample table's rows sat directly under `bTable`, where
+ * the schema says `bTableBody+`. It drew perfectly and every table operation
+ * refused it, reporting a fact about a grid builder four levels from the fault.
+ *
+ * Read from `documentFaults` rather than from the console, because a warning is
+ * gone by the time a test thinks to look and this is the ratchet: the day this
+ * document grows a fault, this says which node and where.
+ */
+test('the sample document is one the schema accepts', async ({ page }) => {
+  await page.goto('/');
+  await settled(page);
+
+  const faults = await page.evaluate(() => (window as any).editor?.documentFaults ?? []);
+  expect(
+    faults,
+    `\n${faults.map((f: any) => `${f.path}: ${f.message}`).join('\n')}\n`
+  ).toEqual([]);
 });

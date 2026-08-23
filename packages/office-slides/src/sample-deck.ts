@@ -35,6 +35,26 @@ const line = (text: string, attributes: Record<string, unknown> = {}): INode => 
   content: [{ stype: 'inline-text', text }]
 });
 
+/**
+ * What goes *in a table cell*, which is not a paragraph.
+ *
+ * `bTableCell` is `inline*`: a cell holds runs directly, which is what
+ * `insertTable` builds and what Word's own sample document contains. The deck's
+ * table was built with `line()` and so held paragraphs — a document the schema
+ * refuses, which drew perfectly because loading a document does not validate it,
+ * and which every table *operation* rejected the moment one was asked to touch
+ * a cell.
+ *
+ * That a cell cannot hold a paragraph is a real limitation — a cell with two
+ * paragraphs or a list in it is ordinary in a word processor — and it is logged
+ * rather than worked around here; see docs/BACKLOG.md.
+ */
+const cellText = (text: string, attributes: Record<string, unknown> = {}): INode => ({
+  stype: 'inline-text',
+  text,
+  attributes
+});
+
 export function createSampleDeck(): INode {
   return {
     stype: 'document',
@@ -132,7 +152,7 @@ export function createSampleDeck(): INode {
             content: [
               {
                 stype: 'list',
-                attributes: { listType: 'bullet' },
+                attributes: { type: 'bullet' },
                 content: [
                   /*
                    * The size is on the *item*, not only on the paragraph inside
@@ -205,7 +225,10 @@ export function createSampleDeck(): INode {
                   y: 720,
                   width: 2880,
                   height: 1440,
-                  fill: ACCENT,
+                  // The theme's slot rather than the colour: this is the shape
+                  // that shows what a theme buys, since re-colouring the deck
+                  // now means editing one attribute in one place.
+                  fill: 'theme:accent1',
                   cornerRadius: 120
                 }
               },
@@ -216,7 +239,7 @@ export function createSampleDeck(): INode {
                   y: 3120,
                   width: 2880,
                   height: 1920,
-                  fill: '#fbbf24'
+                  fill: 'theme:accent2'
                 }
               },
               {
@@ -306,25 +329,67 @@ export function createSampleDeck(): INode {
                   borderBottomWidth: 8,
                   borderBottomColor: '#94a3b8'
                 },
+                /**
+                 * A header group and a body group, which is what the schema
+                 * says a table is: `(bTableHeader)? bTableBody+ (bTableFooter)?`.
+                 *
+                 * This was three `bTableRow`s directly under the table — a
+                 * document the schema refuses, hand-written here and never
+                 * validated because loading a document does not validate it. It
+                 * drew perfectly, and every table *operation* failed on it:
+                 * `buildTableGrid` reads a table's children as groups and a
+                 * group's children as rows, so it read each row as a group and
+                 * each cell as a row, and merging two cells reported "cell not
+                 * found in table".
+                 *
+                 * The header holds its cells directly, with no row between —
+                 * also the schema's, and the reason `collectRows` treats a
+                 * header as one row rather than as a group of them.
+                 */
                 content: [
                   {
-                    stype: 'bTableRow',
+                    stype: 'bTableHeader',
                     attributes: {},
                     content: [
                       {
                         stype: 'bTableHeaderCell',
                         attributes: {},
-                        content: [line('Product', { fontSize: 32, bold: true })]
+                        content: [cellText('Product', { fontSize: 32, bold: true })]
                       },
                       {
                         stype: 'bTableHeaderCell',
                         attributes: {},
-                        content: [line('Layout', { fontSize: 32, bold: true })]
+                        content: [cellText('Layout', { fontSize: 32, bold: true })]
                       },
                       {
                         stype: 'bTableHeaderCell',
                         attributes: {},
-                        content: [line('Lines of it', { fontSize: 32, bold: true })]
+                        content: [cellText('Lines of it', { fontSize: 32, bold: true })]
+                      }
+                    ]
+                  },
+                  {
+                    stype: 'bTableBody',
+                    attributes: {},
+                    content: [
+                  {
+                    stype: 'bTableRow',
+                    attributes: {},
+                    content: [
+                      {
+                        stype: 'bTableCell',
+                        attributes: {},
+                        content: [cellText('Word', { fontSize: 32 })]
+                      },
+                      {
+                        stype: 'bTableCell',
+                        attributes: {},
+                        content: [cellText('Measure, break, converge', { fontSize: 32 })]
+                      },
+                      {
+                        stype: 'bTableCell',
+                        attributes: {},
+                        content: [cellText('~900', { fontSize: 32 })]
                       }
                     ]
                   },
@@ -335,39 +400,20 @@ export function createSampleDeck(): INode {
                       {
                         stype: 'bTableCell',
                         attributes: {},
-                        content: [line('Word', { fontSize: 32 })]
+                        content: [cellText('Slides', { fontSize: 32 })]
                       },
                       {
                         stype: 'bTableCell',
                         attributes: {},
-                        content: [line('Measure, break, converge', { fontSize: 32 })]
+                        content: [cellText('Convert coordinates', { fontSize: 32 })]
                       },
                       {
                         stype: 'bTableCell',
                         attributes: {},
-                        content: [line('~900', { fontSize: 32 })]
+                        content: [cellText('~60', { fontSize: 32 })]
                       }
                     ]
-                  },
-                  {
-                    stype: 'bTableRow',
-                    attributes: {},
-                    content: [
-                      {
-                        stype: 'bTableCell',
-                        attributes: {},
-                        content: [line('Slides', { fontSize: 32 })]
-                      },
-                      {
-                        stype: 'bTableCell',
-                        attributes: {},
-                        content: [line('Convert coordinates', { fontSize: 32 })]
-                      },
-                      {
-                        stype: 'bTableCell',
-                        attributes: {},
-                        content: [line('~60', { fontSize: 32 })]
-                      }
+                  }
                     ]
                   }
                 ]
@@ -404,9 +450,69 @@ export function createSampleDeck(): INode {
            * definition, referenced by `layoutId` and never drawn — the same
            * relationship a paragraph has with its style.
            */
+          /**
+           * The master: what every layout starts from.
+           *
+           * Without it each layout repeats the deck's background and the deck's
+           * idea of what a title looks like, and two layouts that disagree are a
+           * deck with no design and no way to tell which one was the mistake.
+           *
+           * It says the two things every slide here shares — the paper and the
+           * face a title is set in — and says nothing about *where* a title
+           * goes, because that is exactly what the layouts differ about.
+           */
+          /**
+           * The theme: the colours and faces this deck is designed in.
+           *
+           * A shape says *which slot* it uses and this says what the slots are,
+           * so re-colouring a deck is one edit rather than forty — including the
+           * forty on the slide nobody scrolled to.
+           */
+          {
+            stype: 'theme',
+            attributes: {
+              id: 'theme-1',
+              name: 'Office',
+              dark1: '#0f172a',
+              light1: '#ffffff',
+              dark2: '#334155',
+              light2: '#f1f5f9',
+              accent1: ACCENT,
+              accent2: '#fbbf24',
+              accent3: '#22c55e',
+              accent4: '#a855f7',
+              accent5: '#ef4444',
+              accent6: '#14b8a6',
+              hyperlink: '#2563eb',
+              followedHyperlink: '#7c3aed',
+              majorFont: 'Georgia',
+              minorFont: 'Georgia'
+            }
+          },
+          {
+            stype: 'slideMaster',
+            attributes: {
+              id: 'master-1',
+              name: 'Office',
+              fill: 'theme:light1',
+              themeId: 'theme-1'
+            },
+            content: [
+              {
+                stype: 'textFrame',
+                attributes: { role: 'title', x: 1440, y: 960, width: 16320, height: 1680 },
+                content: [line('Title', { fontFamily: 'theme:major', fontSize: 66 })]
+              },
+              {
+                stype: 'textFrame',
+                attributes: { role: 'body', x: 1440, y: 3120, width: 16320, height: 6240 },
+                content: [line('Body', { fontFamily: 'theme:minor', fontSize: 40 })]
+              }
+            ]
+          },
           {
             stype: 'slideLayout',
-            attributes: { id: 'layout-title', name: 'Title slide' },
+            attributes: { id: 'layout-title', name: 'Title slide', masterId: 'master-1' },
             content: [
               {
                 stype: 'textFrame',
@@ -418,23 +524,29 @@ export function createSampleDeck(): INode {
                   height: 2400,
                   verticalAlign: 'middle'
                 },
+                /**
+                 * Only what this layout *differs* about: the alignment and the
+                 * size of a title slide's title. The face comes from the master,
+                 * which is the whole reason there is one.
+                 */
                 content: [line('Click to add a title', { alignment: 'center', fontSize: 108 })]
               }
             ]
           },
           {
             stype: 'slideLayout',
-            attributes: { id: 'layout-body', name: 'Title and content' },
+            attributes: { id: 'layout-body', name: 'Title and content', masterId: 'master-1' },
             content: [
+              // Neither of these says a font: both take the master's.
               {
                 stype: 'textFrame',
                 attributes: { role: 'title', x: 1440, y: 960, width: 16320, height: 1680 },
-                content: [line('Click to add a title', { fontSize: 66 })]
+                content: [line('Click to add a title')]
               },
               {
                 stype: 'textFrame',
                 attributes: { role: 'body', x: 1440, y: 3120, width: 16320, height: 6240 },
-                content: [line('Click to add text', { fontSize: 40 })]
+                content: [line('Click to add text')]
               }
             ]
           },

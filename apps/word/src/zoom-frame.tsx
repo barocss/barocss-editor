@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 
 /**
  * The room a scaled page takes up.
@@ -38,13 +38,6 @@ export function ZoomFrame({ zoom, children }: { zoom: number; children: React.Re
     return () => observer.disconnect();
   }, []);
 
-  useEffect(() => {
-    const el = inner.current;
-    if (!el) return;
-    el.style.transform = zoom === 1 ? '' : `scale(${zoom})`;
-    el.style.transformOrigin = 'top center';
-  }, [zoom]);
-
   return (
     <div
       className="w-zoom-frame"
@@ -55,7 +48,30 @@ export function ZoomFrame({ zoom, children }: { zoom: number; children: React.Re
           : undefined
       }
     >
-      <div ref={inner} className="w-zoom-page" style={zoom !== 1 ? { width: size?.width } : undefined}>
+      {/*
+        The transform is written **in the render**, not in an effect.
+        
+        It was `el.style.transform = ...` inside a `useEffect`, which put it a
+        frame behind the frame's own width and height — those come from the render
+        above, so for one paint the box was the drawn size and the page inside it
+        was not yet drawn at that size. Nobody saw it, and something else did:
+        anything measuring the page from a *layout* effect read the untransformed
+        rectangle, because effects run after layout effects. The wheel zoom's
+        pointer anchoring measured exactly zero drift that way — it was correcting
+        against a size that had not changed yet, and reported success.
+        
+        Written in the render, the transform is in the DOM at commit, which is
+        before any effect of either kind and in any subtree.
+      */}
+      <div
+        ref={inner}
+        className="w-zoom-page"
+        style={
+          zoom === 1
+            ? undefined
+            : { width: size?.width, transform: `scale(${zoom})`, transformOrigin: 'top center' }
+        }
+      >
         {children}
       </div>
     </div>

@@ -1,6 +1,13 @@
 import { Editor, Extension, selectedNodeIds } from '@barocss/editor-core';
 import { transaction } from '@barocss/model';
-import { copyOf, deckSlides, type DeckAccess, type DeckNode } from './deck';
+import {
+  connectorFreezeSteps,
+  copyForPaste,
+  deckSlides,
+  pastable,
+  type DeckAccess,
+  type DeckNode
+} from './deck';
 import { SLIDE_16_9, boxOf, slideSize } from './geometry';
 import { isSceneType, slideAt } from './selection';
 
@@ -58,7 +65,22 @@ const DEFAULTS: Record<string, Record<string, unknown>> = {
   line: { stroke: '#1f2937', strokeWidth: 30 },
   // A text box is transparent on purpose: it is put over something most of the
   // time, and a white rectangle behind the words would hide it.
-  textFrame: { verticalAlign: 'top' }
+  textFrame: { verticalAlign: 'top' },
+  /**
+   * A frame arrives empty, so it has to be visible as itself.
+   *
+   * Every other shape here is something you can see the moment it appears — a
+   * blue rectangle, a dark line. A frame is a *container*: what a reader does
+   * with it is drag things into it, so it starts with nothing in it, and a
+   * container with no fill and no outline is a box nobody can find, select or
+   * drop anything onto.
+   *
+   * A pale fill and a grey outline rather than a strong colour, because it is
+   * meant to sit behind its contents and not compete with them. It is still a
+   * real fill: a frame that only showed an outline would let a click pass
+   * straight through the middle of it to the slide behind.
+   */
+  frame: { fill: '#f1f5f9', stroke: '#94a3b8', strokeWidth: 15 }
 };
 
 export class SlidesBoxExtension implements Extension {
@@ -78,6 +100,21 @@ export class SlidesBoxExtension implements Extension {
     shape('insertEllipse', 'ellipse');
     shape('insertLine', 'line');
     shape('insertTextBox', 'textFrame');
+    /**
+     * A frame, which the deck has drawn and arranged all along and never made.
+     *
+     * `setFrameLayout` is a command, the properties panel has controls for it,
+     * `layoutChildren` computes positions for what is inside one — and the only
+     * frames that existed were the two in the sample deck, because nothing put
+     * one on a slide. A feature that works and cannot be reached, which is the
+     * failure this repository keeps finding in its own code.
+     *
+     * No `layoutMode` here: a new frame is a plain box, and arranging what is in
+     * it is a decision the reader makes afterwards with the controls that already
+     * exist. Creating it already arranging would move whatever they drop into it
+     * before they have said they want that.
+     */
+    shape('insertFrame', 'frame');
 
     /**
      * A picture, placed on the slide.
@@ -106,6 +143,38 @@ export class SlidesBoxExtension implements Extension {
         payload.src.length > 0 &&
         !!this._slideFor(editor, payload?.slideId)
     });
+
+    /**
+     * A film and a sound, each with its own command.
+     *
+     * Written first as one `insertMedia` with a `kind`, and the conformance
+     * check refused it within a minute: a command named as though it puts a node
+     * in the document has to say *which* node, and "it depends" is the answer
+     * that check exists to refuse. The shapes are one command each for the same
+     * reason, and the standard schema's own media commands are already named
+     * this way.
+     *
+     * The size is the caller's for the same reason a picture's is: only the
+     * caller has seen the file, and a film in a box of the wrong shape is
+     * letterboxed on a projector in front of an audience.
+     */
+    const media = (name: string, stype: string, extra: (payload: any) => Record<string, unknown>) => {
+      (editor as any).registerCommand({
+        name,
+        execute: async (_ed: Editor, payload?: any) =>
+          await this._insert(editor, stype, {
+            ...payload,
+            attributes: { src: payload?.src, ...extra(payload), ...(payload?.attributes ?? {}) }
+          }),
+        canExecute: (_ed: Editor, payload?: any) =>
+          typeof payload?.src === 'string' &&
+          payload.src.length > 0 &&
+          !!this._slideFor(editor, payload?.slideId)
+      });
+    };
+
+    media('insertVideo', 'mediaVideo', (payload) => ({ poster: payload?.poster }));
+    media('insertAudio', 'mediaAudio', () => ({}));
 
     const onSelection = (
       name: string,
@@ -195,10 +264,23 @@ export class SlidesBoxExtension implements Extension {
     const slide = this._containerOf(doc, chosen[0].sid);
     if (!slide) return false;
 
-    const steps = chosen.map((entry) => ({
-      type: 'removeChild',
-      payload: { parentId: slide, childId: entry.sid }
-    }));
+    /**
+     * The lines that hold these shapes are told first.
+     *
+     * A connector keeps the *place* of each end so that deleting a shape leaves the line
+     * where it was drawn rather than making it vanish — and this is the only moment that
+     * place can still be read. Afterwards the shape is gone.
+     *
+     * In the same transaction, so it is one undo: a line frozen without the deletion it
+     * was frozen for would be a line pinned to nothing.
+     */
+    const steps = [
+      ...connectorFreezeSteps(doc, chosen.map((entry) => entry.sid)),
+      ...chosen.map((entry) => ({
+        type: 'removeChild',
+        payload: { parentId: slide, childId: entry.sid }
+      }))
+    ];
 
     const result = await transaction(editor, steps as never).commit();
     if (!result.success) return false;
@@ -221,8 +303,18 @@ export class SlidesBoxExtension implements Extension {
 
     const OFFSET = 144; // a tenth of an inch
 
-    const steps = chosen.map((entry) => {
-      const copy = copyOf(doc, entry.sid)!;
+    /**
+     * The same fault the clipboard had: a duplicated line pointed at the **originals**,
+     * so duplicating a diagram gave two sets of shapes with both lines attached to the
+     * first. `copyForPaste` makes the references inside the copy local to it and
+     * `pastable` resolves them to sids this names itself — one transaction, one undo.
+     */
+    const store = (editor as any).dataStore;
+    const copies = pastable(
+      copyForPaste(doc, chosen.map((entry) => entry.sid)),
+      () => store.generateId()
+    );
+    const steps = copies.map((copy) => {
       const box = boxOf(copy.attributes as never);
       copy.attributes = { ...copy.attributes, x: box.x + OFFSET, y: box.y + OFFSET };
       return { type: 'addChild', payload: { parentId: slide, child: copy } };

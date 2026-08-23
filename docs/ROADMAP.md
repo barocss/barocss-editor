@@ -204,6 +204,103 @@ core, and building a canvas first would prove only that a canvas can be drawn on
 
 ---
 
+## Slides, to the level of PowerPoint, Keynote, Canva and CapCut
+
+Named as the target on 2026-08-19. Those four are not one product, and the
+distance to each is different in kind — so this is what the deck already has,
+what separates it from each of them, and the order that makes the next step
+cheaper. Measured rather than guessed: 139 commands, fifteen canvas node types
+declared, ten toolbar groups.
+
+**What is already there.** Shapes, pictures, text frames, frames with auto
+layout, groups whose box follows their children, tables with cell selection,
+layouts with formatting that cascades through them, snapping and guides, align
+and distribute, grouping and going inside a container, a clipboard, speaker
+notes over one document, real thumbnails, presenting, zoom, and a properties
+panel. Every one of those is drawn, reachable and covered by the harness. What
+follows is not a rewrite of any of it.
+
+### What separates the deck from each of them
+
+- **PowerPoint and Keynote** — *animation*. Transitions between slides, builds on
+  the objects, a presenter view. Without them this is a drawing tool that happens
+  to be slide-shaped, and it is the largest single gap.
+- **Canva** — *design depth*. A shape's whole style is `fill`, `stroke` and
+  `strokeWidth` today. No gradient, no shadow, no blur, no dashes, no per-corner
+  radius, no image crop. These are what a reader thinks of as "designing".
+- **CapCut** — *time as a first-class dimension*. Video and audio on a slide, a
+  timeline, keyframes, and an export that is a file rather than a screen.
+
+### The order, and why
+
+**Deck 1 — depth on the objects that already exist.** Gradients, shadows,
+opacity, dashes, per-corner radii; crop and fit for a picture. Cheapest, most
+visible, and the foundation for everything after it: a theme has nothing to
+resolve until a shape has colour *slots*, and an animation has nothing worth
+watching until the thing it moves looks designed. *Done when* the properties
+panel can produce a slide a reader would show someone.
+
+**Deck 2 — transitions, then builds.** A transition is one slide replacing
+another, which needs no per-object timing and is the smallest possible first use
+of time. Builds — entrance, emphasis, exit, in an order, with delays — come after
+it and reuse the same track. Both live **beside** the document, per §4 of
+`canvas-model.md`: a track naming shapes by sid, so a node that knows nothing
+about animation can still be animated and a deck with no timeline pays nothing.
+*Done when* a deck presents with motion and the document holding it has no time
+field on any node.
+
+**Deck 3 — masters and themes.** `slideLayout` exists; a master is the layer
+above it, and a theme is the colour and font set the whole deck resolves through.
+The resolver seam is already built — `withLayouts` puts a layer into
+`resolveNodeWith` — so this is another layer rather than another mechanism.
+*Done when* changing a theme changes every slide, and a slide that overrode
+something keeps it.
+
+**Deck 4 — media, and then the timeline. Done.** `mediaVideo` and `mediaAudio`
+were taken out of the office schema the day it stopped declaring what nothing
+drew; they came back *with* a renderer, a command and a control, and then the
+timeline: tracks per shape, bars on an axis, a playhead that runs while the
+preview does, curves, springs, presets, text animated by the letter, and the
+trim — which was the last part open and is the first thing here that edits *time
+inside a shape* rather than time on a slide. And a deck can be saved to a file and
+opened again, which is what made the rest of it worth having.
+
+The trim taught the thing worth keeping from this whole item: **a film is the one
+step whose length is not in the document.** It is in the file, so the out-point
+has no honest default and `0` means "to the end" — see `motion-model.md` §7g. It
+is dragged now as well as typed, and its bar is the only one on the axis whose
+edges are not "when" and "how long" (§7g-2).
+
+Two things closed after this that belong to it: a shape's fills are drawn as
+**elements**, which is what made the Ken Burns zoom, a real per-fill opacity and a
+cross-fade between two photographs possible at all (§8d); and going **backwards**
+through a show un-plays one press instead of leaving the slide, which turned up two
+faults worse than the missing feature — an exit that came back on the next press,
+and every exit but `fadeOut` hiding its shape from the moment the slide arrived
+(§7h).
+
+**Deck 5 — templates, and what a reader starts from. Half done.** A new deck now
+starts from something: one title slide with the definitions under it — a theme, a
+master and the layouts a slide is made from — because an empty document is a white
+rectangle with nothing to click. What is left of this item is the *reusable piece*:
+`component` and `instance` have been declared since the canvas nodes were written
+and nothing makes one, and they are what a template is made **of**.
+
+Two engine faults came out of the easy half, and both are the same shape: **a root
+held across a load is the wrong root.** The view preferred the last tree it drew —
+right for an edit, since that tree is a live proxy, wrong for `loadDocument`, which
+makes a new root — and the environment the renderers resolve formatting against
+had captured `rootId` at mount, so a new deck's theme was looked for under the old
+document's. Both measured in the product, both fixed in the engine. See
+`canvas-model.md` §7.
+
+**What is deliberately not on this list yet.** Charts, which need a data model
+rather than a drawing; collaboration, which the whole product has no second
+reader for; and an exporter to `.pptx`, which is worth doing when the model has
+stopped moving.
+
+---
+
 ## What would make this roadmap wrong
 
 Worth writing down, so it is checked rather than assumed:

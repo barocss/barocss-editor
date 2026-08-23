@@ -183,15 +183,24 @@ test.describe('snapping', () => {
       await page.waitForTimeout(400);
     };
 
-    // Four pixels short of the guide: inside the threshold, so it is pulled on.
+    /**
+     * Four pixels short of the guide: inside the threshold, so it is pulled on.
+     *
+     * To within a pixel, and deliberately. Everything here is measured in screen
+     * pixels through a stage that scales the slide, so the model's twips land on
+     * a half-pixel and round — and the assertion is "it snapped to the
+     * neighbour's edge", not "it landed on a whole number at this particular
+     * zoom". It read 602 against 603 the day the timeline pane made the stage
+     * shorter and changed the fit; the snap was working perfectly.
+     */
     const guide = other!.left + other!.width;
     await dragEastTo(guide - 4);
-    expect(await rightEdge()).toBe(guide);
+    expect(Math.abs((await rightEdge()) - guide)).toBeLessThanOrEqual(1);
 
     // The same drag with Shift held asks for proportions, and a snap would
-    // break them — so it stays where it was put.
+    // break them — so it stays where it was put, four pixels short.
     await dragEastTo(guide - 4, ['Shift']);
-    expect(await rightEdge()).toBe(guide - 4);
+    expect(Math.abs((await rightEdge()) - (guide - 4))).toBeLessThanOrEqual(1);
   });
 });
 

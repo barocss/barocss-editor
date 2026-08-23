@@ -325,3 +325,34 @@ export function markState(state: SelectionSummary, type: string): MarkState {
   if (state.mixedMarks.includes(type)) return 'mixed';
   return 'off';
 }
+
+/**
+ * The value the whole selection agrees on for one of a mark's attributes, or
+ * nothing when it does not agree — `fontSize`'s `size`, `fontFamily`'s `family`.
+ *
+ * Nothing rather than a guess, and this is the important half: showing one of the
+ * two fonts in a selection that spans both would apply it to *everything*
+ * selected on the reader's next change. A control drawn blank is a control saying
+ * "the selection disagrees", which is exactly what has happened.
+ *
+ * A string, because a control shows and compares text — the document's own type
+ * is whatever the mark stores (a font size is a number of half-points) and
+ * converting it back for display is the *declaration's* business, not this one's.
+ *
+ * Here beside `markState` because it is the same kind of question — what does the
+ * selection say about this mark — and because it was being asked twice, in two
+ * hand-written copies inside one product's toolbar model, one for choices and one
+ * for colours.
+ */
+export function markAttribute(
+  state: SelectionSummary,
+  type: string,
+  attr: string
+): string | null {
+  // Mixed first: a selection with two different sizes *has* a value under each
+  // mark, and reporting either of them is the failure described above.
+  if (state.mixedMarks.includes(type)) return null;
+
+  const value = state.markAttributes?.[type]?.[attr];
+  return value === undefined || value === null ? null : String(value);
+}

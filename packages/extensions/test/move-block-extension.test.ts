@@ -29,17 +29,15 @@ function createFakeEditor(dataStore: any, schema?: any): Editor & { __getCommand
   const commands: Record<string, any> = {};
 
   return {
-    // @ts-expect-error - Only minimal implementation provided
     registerCommand: (cmd: any) => {
       commands[cmd.name] = cmd;
     },
     __getCommand(name: string) {
       return commands[name];
     },
-    // @ts-expect-error - May differ from actual Editor interface
     dataStore,
     getActiveSchema: () => schema
-  } as Editor & { __getCommand: (name: string) => any; dataStore: any };
+  } as unknown as Editor & { __getCommand: (name: string) => any; dataStore: any };
 }
 
 describe('MoveBlockExtension', () => {

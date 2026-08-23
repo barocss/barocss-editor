@@ -9,8 +9,16 @@ import {
   unionOf,
   type Align
 } from './manipulate';
+import {
+  layoutGraph,
+  rankGapFor,
+  type GraphDirection,
+  type GraphEdge,
+  type GraphNode
+} from '@barocss/office-word';
+import { fitGroupToChildren } from './group-bounds';
 import { fromSurface, isSceneType, slideAt, toSurface } from './selection';
-import type { DeckAccess } from './deck';
+import { deckSlides, type DeckAccess } from './deck';
 
 /**
  * Arranging what is on a slide: what is in front, and what lines up with what.
@@ -50,6 +58,31 @@ export class SlidesArrangeExtension implements Extension {
       });
     };
 
+    /**
+     * A group's box follows what is in it.
+     *
+     * A group is not a shape a reader drew — it is the fact that these things
+     * move together — so its rectangle has one honest value: the bounds of its
+     * children. Nothing kept it there. Moving a child out of a group is
+     * legitimate in the model, and it left the group's own rectangle describing
+     * an area its contents had left: a child nudged 6000 twips to the right
+     * stuck that far out of a group whose width never changed, and the handles,
+     * the marquee, the hit test and aligning were all reading a rectangle that
+     * had stopped meaning anything.
+     *
+     * A reaction rather than a step inside each command, because *anything* can
+     * move a child: a drag, a nudge, an align, a paste, an undo. Adding the fit
+     * to each of them would be the same rule written six times, and the seventh
+     * command would forget it.
+     *
+     * It does not feed itself for the reason the frame layout does not: the
+     * arithmetic answers with what *differs*, so a group that already agrees
+     * produces nothing and the second pass finds no work.
+     */
+    editor.on('editor:content.change', () => {
+      void this._fitGroups(editor);
+    });
+
     // ── In front, behind ─────────────────────────────────────────────────────
     const order = (name: string, where: 'front' | 'back' | 'forward' | 'backward') =>
       register(
@@ -62,6 +95,29 @@ export class SlidesArrangeExtension implements Extension {
     order('sendToBack', 'back');
     order('bringForward', 'forward');
     order('sendBackward', 'backward');
+
+    /**
+     * Straight to a place in the stack.
+     *
+     * The four above are the four buttons every Office product has, and they are
+     * four answers to a question whose real answer is a **position**: moving the
+     * fourth of six shapes to second means pressing 앞으로 twice and counting. A
+     * list beside the canvas asks it properly — a row dragged to where it should be
+     * — and this is the command that takes that.
+     *
+     * One shape from a list, and **several from a drag**.
+     *
+     * It began as one only: a drag in a list moves the row that was picked up, and
+     * "move these three to position 2" had no meaning a reader could predict. A drag
+     * inside a frame that *arranges* gave it one — the shapes go in at that place,
+     * keeping the order they already had between them — so a payload may name several
+     * and they move together, in one entry.
+     */
+    register(
+      'moveBoxTo',
+      (payload) => this._moveTo(editor, this._namedBoxes(payload), payload?.position),
+      (payload) => this._canMoveTo(editor, this._namedBoxes(payload), payload?.position)
+    );
 
     // ── Lining up ────────────────────────────────────────────────────────────
     const align = (name: string, how: Align) =>
@@ -114,6 +170,25 @@ export class SlidesArrangeExtension implements Extension {
       'ungroupBoxes',
       () => this._ungroup(editor),
       () => this._boxes(editor).some((entry) => this._isGroup(editor, entry.sid))
+    );
+
+    // ── Tidying a diagram ────────────────────────────────────────────────────
+    /**
+     * Put the diagram in rows.
+     *
+     * A reader draws a flow chart the way they think of it and after a dozen boxes the
+     * picture is right and the *placement* is a mess. Every diagram tool has one button
+     * for this, and the arithmetic is `layoutGraph` — ranks, an ordering that stops the
+     * lines crossing, and a pull that puts a parent over the middle of its children.
+     *
+     * One transaction, so it is one press of undo. That is not a detail: a reader will
+     * only dare press a button that moves everything they have drawn if it costs one
+     * keystroke to change their mind.
+     */
+    register(
+      'arrangeGraph',
+      (payload) => this._graph(editor, payload),
+      (payload) => this._graphOf(editor, payload).edges.length > 0
     );
   }
 
@@ -266,6 +341,107 @@ export class SlidesArrangeExtension implements Extension {
 
     if (steps.length === 0) return false;
     return (await transaction(editor, steps as never).commit()).success;
+  }
+
+  /**
+   * Which parent a box sits in, and where in it.
+   *
+   * Its own reading rather than `_containerOf` plus an `indexOf` at each call
+   * site: both the command and its guard need the same two numbers, and a guard
+   * that computed them differently from the command is a button that is enabled
+   * for something that then does nothing.
+   */
+  private _placeOf(
+    editor: Editor,
+    nodeId: string | undefined
+  ): { parent: string; children: string[]; at: number } | null {
+    const doc = this._access(editor);
+    if (!doc || !nodeId) return null;
+
+    const parent = this._containerOf(doc, nodeId);
+    const node: any = parent ? doc.getNode(parent) : undefined;
+    const children: string[] = Array.isArray(node?.content) ? [...node.content] : [];
+    const at = children.indexOf(nodeId);
+    return parent && at >= 0 ? { parent, children, at } : null;
+  }
+
+  /** The boxes a payload names, one or several. */
+  private _namedBoxes(payload: any): string[] {
+    if (Array.isArray(payload?.nodeIds)) {
+      return payload.nodeIds.filter((sid: unknown): sid is string => typeof sid === 'string');
+    }
+    return typeof payload?.nodeId === 'string' ? [payload.nodeId] : [];
+  }
+
+  private _canMoveTo(editor: Editor, nodeIds: string[], position?: number): boolean {
+    if (typeof position !== 'number' || !Number.isInteger(position)) return false;
+    const order = this._orderFor(editor, nodeIds, position);
+    return !!order && order.steps.length > 0;
+  }
+
+  /**
+   * The children in the order this move means, and the fewest moves that get there.
+   *
+   * ## Why the whole order and not one `moveNode`
+   *
+   * `moveNode` removes the node and inserts it into the **shortened** array, so a
+   * position means an index in the list without the moving shape. That is fine for one.
+   * For several it is a trap: moving `[a, b]` to place 2 of `[a, b, c, d]` one at a time
+   * gives `[c, a, d, b]` — the second move's index was computed against a list the first
+   * move had already changed. Worked through on paper, then written down here.
+   *
+   * So the answer is built as a *final order* and realised left to right: at each place,
+   * if the child that should be there is not, move it there. Everything to the left is
+   * already settled and nothing touches it, and a child that is already in place costs
+   * no operation — which is what keeps a drag that changes two things from writing five.
+   */
+  private _orderFor(
+    editor: Editor,
+    nodeIds: string[],
+    position: number
+  ): { parent: string; steps: { type: string; payload: Record<string, unknown> }[] } | null {
+    if (nodeIds.length === 0 || position < 0) return null;
+
+    const place = this._placeOf(editor, nodeIds[0]);
+    if (!place) return null;
+    // One parent, because a place in an order is a place among *siblings*.
+    const moving = nodeIds.filter((sid) => place.children.includes(sid));
+    if (moving.length !== nodeIds.length) return null;
+
+    const rest = place.children.filter((sid) => !moving.includes(sid));
+    if (position > rest.length) return null;
+
+    // Their own order between them is the reader's, and a drag does not reverse it.
+    const block = place.children.filter((sid) => moving.includes(sid));
+    const wanted = [...rest.slice(0, position), ...block, ...rest.slice(position)];
+
+    const steps: { type: string; payload: Record<string, unknown> }[] = [];
+    const now = [...place.children];
+    for (const [index, sid] of wanted.entries()) {
+      if (now[index] === sid) continue;
+      steps.push({
+        type: 'moveNode',
+        payload: { nodeId: sid, newParentId: place.parent, position: index }
+      });
+      now.splice(now.indexOf(sid), 1);
+      now.splice(index, 0, sid);
+    }
+
+    return { parent: place.parent, steps };
+  }
+
+  private async _moveTo(
+    editor: Editor,
+    nodeIds: string[],
+    position?: number
+  ): Promise<boolean> {
+    if (typeof position !== 'number' || !Number.isInteger(position)) return false;
+    const order = this._orderFor(editor, nodeIds, position);
+    // Nothing to do is not a failure to report as success: a drag that lands where it
+    // started should leave no entry in the history for a reader to undo into nothing.
+    if (!order || order.steps.length === 0) return false;
+
+    return (await transaction(editor, order.steps as never).commit()).success;
   }
 
   private async _align(editor: Editor, how: Align, toSlide: boolean): Promise<boolean> {
@@ -482,8 +658,286 @@ export class SlidesArrangeExtension implements Extension {
 
     return (await transaction(editor, steps as never).commit()).success;
   }
-}
+  /** Guards against re-entering while a fit is in flight. */
+  private _fitting = false;
 
+  /** Every group brought back into agreement with its children. */
+  private async _fitGroups(editor: Editor): Promise<void> {
+    if (this._fitting) return;
+
+    const doc = this._access(editor);
+    if (!doc) return;
+
+    const steps: { type: string; payload: Record<string, unknown> }[] = [];
+    const seen = new Set<string>();
+
+    const walk = (sid: string, depth: number): void => {
+      if (depth > 32 || seen.has(sid)) return;
+      seen.add(sid);
+
+      const node: any = doc.getNode(sid);
+      if (!node) return;
+
+      /**
+       * Children first, so a group of groups settles in one pass: an inner
+       * group's box has to be right before the outer one measures it.
+       */
+      for (const child of Array.isArray(node.content) ? node.content : []) {
+        if (typeof child === 'string') walk(child, depth + 1);
+      }
+
+      if (node.stype !== 'group') return;
+
+      const children = (Array.isArray(node.content) ? node.content : [])
+        .filter((child: unknown): child is string => typeof child === 'string')
+        .map((child: string) => ({ sid: child, placement: (doc.getNode(child) as any)?.attributes }))
+        .filter((child: { placement: unknown }) => !!child.placement);
+
+      const fit = fitGroupToChildren(node.attributes, children as never);
+      if (fit.group) {
+        steps.push({ type: 'setAttrs', payload: { nodeId: sid, attrs: { ...fit.group } } });
+      }
+      for (const [child, at] of fit.children) {
+        steps.push({ type: 'setAttrs', payload: { nodeId: child, attrs: { x: at.x, y: at.y } } });
+      }
+    };
+
+    walk(doc.rootId, 0);
+    if (steps.length === 0) return;
+
+    this._fitting = true;
+    try {
+      /**
+       * Into the entry of the edit that caused it — not its own, and not nowhere.
+       *
+       * Both of the other answers were measured and both are wrong here. **Recorded**:
+       * a reader moved one shape inside a group and three presses of undo changed
+       * nothing at all, because each press undid this fit and this reaction — which runs
+       * on every document change, an undo included — wrote it straight back.
+       * **Unrecorded**: the child came back and the group did not, because this pass does
+       * not only write derived numbers. It re-origins: the group moves right by 3000 and
+       * every child moves left by 3000, which together change nothing on screen. Undo
+       * restored one child's relative `x` into a coordinate space that had moved, and put
+       * the shape somewhere it had never been.
+       *
+       * The fit is a *consequence* of the edit, so it goes in the edit's entry and one
+       * undo takes back both halves exactly. `recordInHistory: false` stays right for
+       * state the reader never writes — a connector's route, a laid-out frame's children
+       * (canvas-model §8.11).
+       */
+      await transaction(editor, steps as never, { appendToPreviousEntry: true }).commit();
+    } finally {
+      this._fitting = false;
+    }
+  }
+
+  /**
+   * What there is to tidy: the shapes, and the lines between them.
+   *
+   * **Where** is the same question every command here asks — the selection's container
+   * when there is a selection, and otherwise the slide the caller named or the first one
+   * (the rule the insert commands follow, so a command with no argument is still useful
+   * from a console).
+   *
+   * **Which shapes** has one more turn to it: two or more boxes selected means *those*,
+   * so a slide with two diagrams on it can have one of them tidied. With one box or none
+   * selected it is the whole container, because "tidy this" said about a single shape
+   * cannot mean that shape alone.
+   */
+  private _graphOf(
+    editor: Editor,
+    payload?: { slideId?: string; direction?: GraphDirection }
+  ): {
+    doc: DeckAccess | null;
+    container?: string;
+    nodes: GraphNode[];
+    edges: GraphEdge[];
+    lines: { label?: string; strokeWidth?: number }[];
+    boxes: { sid: string; box: Box }[];
+  } {
+    const doc = this._access(editor);
+    const empty = {
+      doc,
+      nodes: [] as GraphNode[],
+      edges: [] as GraphEdge[],
+      lines: [] as { label?: string; strokeWidth?: number }[],
+      boxes: []
+    };
+    if (!doc) return empty;
+
+    const selected = selectedNodeIds((editor as any).selection);
+    const container =
+      selected.length > 0
+        ? this._containerOf(doc, selected[0])
+        : (payload?.slideId ?? deckSlides(doc)[0]?.sid);
+    if (!container) return empty;
+
+    const children: string[] = Array.isArray((doc.getNode(container) as any)?.content)
+      ? ((doc.getNode(container) as any).content as string[])
+      : [];
+
+    const chosen = selected.length >= 2 ? new Set(selected) : null;
+    const boxes = children
+      .map((sid) => ({ sid, node: doc.getNode(sid) as any }))
+      .filter((entry) => entry.node && isSceneType(entry.node.stype))
+      // A connector is a scene node too, and it is an *edge* here rather than a box: it
+      // has no place of its own to move to (canvas-model §8.1).
+      .filter((entry) => entry.node.stype !== 'connector')
+      .filter((entry) => !chosen || chosen.has(entry.sid))
+      .map((entry) => ({
+        sid: entry.sid,
+        node: entry.node,
+        box: toSurface(doc, entry.sid, boxOf(entry.node.attributes))
+      }));
+
+    const here = new Set(boxes.map((entry) => entry.sid));
+    const joined = children
+      .map((sid) => doc.getNode(sid) as any)
+      .filter((node) => node?.stype === 'connector')
+      .map((node) => ({
+        from: node.attributes?.startNodeId as string | undefined,
+        to: node.attributes?.endNodeId as string | undefined,
+        label: node.attributes?.label,
+        strokeWidth: node.attributes?.strokeWidth
+      }))
+      // Both ends held, and both of them shapes being tidied. A line with a free end has
+      // no relationship to rank by, and one pointing at another line is not a rank
+      // either — it hangs off wherever that line ends up (§8.6).
+      .filter((edge) => edge.from && edge.to && here.has(edge.from) && here.has(edge.to));
+
+    return {
+      doc,
+      container,
+      nodes: boxes.map((entry) => ({
+        sid: entry.sid,
+        width: entry.box.width,
+        height: entry.box.height,
+        at: { x: entry.box.x, y: entry.box.y },
+        /**
+         * A **locked** shape is a pin, and this is where the answer to "is the tidy a
+         * mode?" lands in the product.
+         *
+         * It is not a mode: it runs once and writes plain coordinates, so a reader
+         * arranges what they like afterwards — but press it again and their arrangement
+         * is gone. `locked` already means "I have decided where this goes", it already
+         * has a command and a control, and a new `pinnedForLayout` beside it would be a
+         * second word for the same decision.
+         *
+         * Anchoring rather than *excluding*: dropping a locked shape from the graph took
+         * its lines out with it, so one locked box in a chain made the whole diagram
+         * untidiable. Now the diagram is laid out **around** it.
+         */
+        pinned: entry.node.attributes?.locked === true
+      })),
+      edges: joined.map((edge) => ({ from: edge.from!, to: edge.to! })),
+      /**
+       * What each of those lines *draws*, which is what the gap between two ranks has to
+       * hold. The document's answer — the label a reader typed, the weight they chose —
+       * read here because reading the document is this method's job.
+       */
+      lines: joined.map((edge) => ({
+        label: typeof edge.label === 'string' ? edge.label : undefined,
+        strokeWidth: typeof edge.strokeWidth === 'number' ? edge.strokeWidth : undefined
+      })),
+      boxes: boxes.map((entry) => ({ sid: entry.sid, box: entry.box }))
+    };
+  }
+
+  private async _graph(
+    editor: Editor,
+    payload?: {
+      slideId?: string;
+      direction?: GraphDirection;
+      rankGap?: number;
+      nodeGap?: number;
+    }
+  ): Promise<boolean> {
+    const { doc, container, nodes, edges, lines, boxes } = this._graphOf(editor, payload);
+    if (!doc || !container || edges.length === 0) return false;
+
+    /**
+     * Where the tidied diagram goes: the corner of where it already is.
+     *
+     * Not the corner of the slide. A reader who has put a diagram in the lower half of a
+     * slide, under a title, means it to stay in the lower half — a tidy that also *moves*
+     * the picture is two changes wearing one name.
+     */
+    const moving = new Set(edges.flatMap((edge) => [edge.from, edge.to]));
+    const inside = boxes.filter((entry) => moving.has(entry.sid));
+    if (inside.length === 0) return false;
+    const origin = {
+      x: Math.min(...inside.map((entry) => entry.box.x)),
+      y: Math.min(...inside.map((entry) => entry.box.y))
+    };
+
+    const direction: GraphDirection = payload?.direction === 'right' ? 'right' : 'down';
+    /**
+     * The gaps are **measured**, not picked.
+     *
+     * `rankGapFor` reads this diagram's own labels and line weights: between two ranks
+     * there is a line, an arrowhead and a label pill, and a gap that does not hold the
+     * pill draws it over the shape below. A caller may say otherwise — a number from a
+     * console, a test, a future panel — and a number that is not a positive one is not an
+     * answer, so it falls back rather than being written.
+     */
+    const asked = (value: unknown): number | undefined =>
+      typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined;
+
+    const placed = layoutGraph(nodes, edges, {
+      direction,
+      rankGap: asked(payload?.rankGap) ?? rankGapFor(lines, direction),
+      nodeGap: asked(payload?.nodeGap),
+      origin
+    });
+    if (placed.length === 0) return false;
+
+    const steps: unknown[] = [];
+    for (const one of placed) {
+      const was = boxes.find((entry) => entry.sid === one.sid)?.box;
+      // Only what actually moves. A tidy of a diagram that is already tidy should be a
+      // no-op the reader can see, not an undo entry that changes nothing.
+      if (was && was.x === one.x && was.y === one.y) continue;
+      const parent = (doc.getNode(one.sid) as any)?.parentId as string | undefined;
+      const at = fromSurface(doc, parent, { ...(was ?? { width: 0, height: 0 }), ...one });
+      steps.push({
+        type: 'setAttrs',
+        payload: { nodeId: one.sid, attrs: { x: at.x, y: at.y } }
+      });
+    }
+
+    /**
+     * And the bends the reader placed by hand come off the lines being tidied.
+     *
+     * A waypoint (§8.12) and a `bend` describe a route through a picture that no longer
+     * exists — a detour around a shape that has moved, an offset that used to separate
+     * two lines and now pushes one through a box. They are decisions, so nothing but a
+     * reader's own gesture may clear them; asking for a tidy **is** that gesture.
+     *
+     * In the same transaction, so one undo puts the diagram *and* its bends back.
+     */
+    const container_ = doc.getNode(container) as any;
+    for (const sid of (container_?.content ?? []) as string[]) {
+      const node = doc.getNode(sid) as any;
+      if (node?.stype !== 'connector') continue;
+      if (!moving.has(node.attributes?.startNodeId) && !moving.has(node.attributes?.endNodeId)) {
+        continue;
+      }
+      const bent = node.attributes?.bend;
+      const through = node.attributes?.waypoints;
+      if (!bent && !(Array.isArray(through) && through.length > 0)) continue;
+      steps.push({
+        type: 'setAttrs',
+        // `null` removes, rather than leaving a zero that reads as a decision to keep
+        // the line where it is — the model's own rule for absence.
+        payload: { nodeId: sid, attrs: { bend: null, waypoints: null } }
+      });
+    }
+
+    if (steps.length === 0) return false;
+    return (await transaction(editor, steps as never).commit()).success;
+  }
+
+}
 export function createArrangeCommands(): SlidesArrangeExtension {
   return new SlidesArrangeExtension();
 }

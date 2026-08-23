@@ -92,6 +92,20 @@ function namespaceOf(tag: string): string | null {
 }
 
 /** For the message: the word a reader uses for the namespace. */
+/**
+ * Whether a tag is HTML's, for a caller that only has business with HTML.
+ *
+ * Exported so the sibling check can ask. `every-drawing-keeps-its-children`
+ * decides its question by writing markup and reading back what the *HTML* parser
+ * did with it, which is meaningless for an SVG pair — an HTML parser turns
+ * `<image>` into `<img>` and has never heard of `<g>`, so a perfectly good
+ * drawing came back reported as rearranged. Which namespace a pair is in is this
+ * check's question, and one answer serves both.
+ */
+export function isHtmlTag(tag: string): boolean {
+  return namespaceOf(tag) === HTML_NS;
+}
+
 function nameOf(namespace: string | null): string {
   if (namespace === SVG_NS) return 'SVG';
   if (namespace === HTML_NS) return 'HTML';
@@ -103,7 +117,7 @@ export const everyDrawingCanHoldWhatItContains: Check = {
   describe:
     'a node type drawn in one namespace is not allowed to contain a node type drawn in another',
 
-  run: ({ schema, drawnAs }) => {
+  run: ({ schema, drawnAs, holdsIn }) => {
     const findings: Finding[] = [];
     let examined = 0;
 
@@ -112,16 +126,30 @@ export const everyDrawingCanHoldWhatItContains: Check = {
     if (!drawnAs) return { findings, examined };
 
     const placeable = placeableTypes(schema.nodes, schema.topNode ?? 'document');
+
+    /** What a node draws as — the answer for the *child* of a pair. */
     const tagOf = new Map<string, string | null>();
     const tag = (type: string): string | null => {
       if (!tagOf.has(type)) tagOf.set(type, drawnAs(type));
       return tagOf.get(type) ?? null;
     };
 
+    /**
+     * What holds a node's children — the answer for the *parent* of a pair, and
+     * not the same question. A renderer that draws a tree puts its content
+     * somewhere inside it: a header drawn as `<thead>` holds its cells in a
+     * `<tr>`, and only that answer decides whether a cell is legally placed.
+     */
+    const holderOf = new Map<string, string | null>();
+    const holder = (type: string): string | null => {
+      if (!holderOf.has(type)) holderOf.set(type, (holdsIn ?? drawnAs)(type));
+      return holderOf.get(type) ?? null;
+    };
+
     for (const [parent] of schema.nodes) {
       if (!placeable.has(parent)) continue;
 
-      const parentTag = tag(parent);
+      const parentTag = holder(parent);
       if (!parentTag) continue;
       const parentNs = namespaceOf(parentTag);
       if (!parentNs) continue;

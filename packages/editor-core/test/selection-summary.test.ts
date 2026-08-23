@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { markState, readSelectionSummary } from '../src/selection-summary';
+import { markAttribute, markState, readSelectionSummary } from '../src/selection-summary';
 import type { ModelSelection } from '../src/types';
 
 /**
@@ -346,5 +346,48 @@ describe('the values a mark carries', () => {
     const state = readSelectionSummary(doc, range('t', 0, 't', 11));
     expect(state.mixedMarks).toContain('fontSize');
     expect(state.markAttributes.fontSize).toBeUndefined();
+  });
+});
+
+/**
+ * The value the whole selection agrees on for one of a mark's attributes.
+ *
+ * Asked by every choice control and every colour palette in the suite, and it
+ * was two hand-written copies of the same three lines inside one product's
+ * toolbar model — one for choices and one for colours.
+ */
+describe('an attribute the selection agrees on', () => {
+  const summary = (over: Record<string, unknown>) =>
+    ({ marks: [], mixedMarks: [], markAttributes: {}, ...over }) as never;
+
+  it('is the value, as a string', () => {
+    // A string because a control shows and compares text. The document stores a
+    // font size in half-points, and turning that back into points is the
+    // *declaration's* business — see `labelOf` in office-controls.
+    expect(markAttribute(summary({ markAttributes: { fontSize: { size: 22 } } }), 'fontSize', 'size')).toBe('22');
+  });
+
+  it('is nothing when the selection does not agree', () => {
+    // Mixed is checked first, and that is the point: a selection spanning two
+    // sizes still *has* a value under the mark, and answering with it would
+    // apply that size to everything selected on the reader's next change.
+    expect(
+      markAttribute(
+        summary({ mixedMarks: ['fontSize'], markAttributes: { fontSize: { size: 22 } } }),
+        'fontSize',
+        'size'
+      )
+    ).toBeNull();
+  });
+
+  it('is nothing when there is no such mark or no such attribute', () => {
+    expect(markAttribute(summary({}), 'fontSize', 'size')).toBeNull();
+    expect(markAttribute(summary({ markAttributes: { fontSize: {} } }), 'fontSize', 'size')).toBeNull();
+  });
+
+  it('keeps a value that is falsy but real', () => {
+    // `0` and `''` are values. An `undefined`-or-null test rather than a truthy
+    // one, because a zero letter-spacing is a letter-spacing.
+    expect(markAttribute(summary({ markAttributes: { spacing: { value: 0 } } }), 'spacing', 'value')).toBe('0');
   });
 });

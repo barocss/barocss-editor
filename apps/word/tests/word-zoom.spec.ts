@@ -139,3 +139,109 @@ test('takes a number typed into it, and a fit to the pane', async ({ page }) => 
   });
   expect(Math.abs(fitted.page - fitted.room)).toBeLessThanOrEqual(3);
 });
+
+/**
+ * Ctrl (or ⌘) with the wheel.
+ *
+ * It worked here before and it did not **anchor**: the page zoomed about the
+ * pane's origin, so zooming in on a paragraph half way down the page walked that
+ * paragraph off the screen and read as the tool dodging the reader. A deck had
+ * solved that with three measured corrections and neither product knew the other
+ * had this gesture at all; the shared `useWheelZoom` is the deck's version, and
+ * this is what Word gained by asking for it.
+ */
+test.describe('zooming with the wheel', () => {
+  const pointAt = (page: import('@playwright/test').Page, at: { x: number; y: number }) =>
+    page.evaluate((pointer) => {
+      const page_ = document.querySelector('.w-surface');
+      if (!page_) return null;
+      const box = page_.getBoundingClientRect();
+      return {
+        x: (pointer.x - box.left) / box.width,
+        y: (pointer.y - box.top) / box.height,
+        width: Math.round(box.width),
+        zoom: Number(document.querySelector('[data-zoom]')?.getAttribute('data-zoom') ?? 0)
+      };
+    }, at);
+
+  test('keeps the point under the pointer', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-surface');
+    await page.waitForTimeout(400);
+
+    /**
+     * Zoomed in first, so the page is wider than its pane.
+     *
+     * The correction gives way at the edges and must: a point cannot be held
+     * while the pane is already at scroll zero. At the starting zoom this page
+     * *fits* its pane sideways, so there is no horizontal scroll to spend and the
+     * first notches drift by design — measured 2.8% of the page's width, which is
+     * the limitation rather than the behaviour. Three presses of the zoom box put
+     * the page past the pane, where the claim is actually testable.
+     */
+    for (let press = 0; press < 3; press += 1) {
+      await page.locator('[data-zoom-in]').click();
+      await page.waitForTimeout(120);
+    }
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const pane = document.querySelector('.w-shell-document')!;
+          return pane.scrollWidth > pane.clientWidth;
+        })
+      )
+      .toBe(true);
+
+    /**
+     * Off centre and away from the top, but **inside the window**.
+     *
+     * A fraction of `.w-surface` is not a point on the screen: the surface is
+     * every page stacked, 7,536px tall in this sample, so 35% of it is 2,800px
+     * down and the pointer lands on nothing at all. Measured that way first —
+     * zero wheel events reached the window, which reads exactly like a broken
+     * listener. The aim is a fraction of the *pane*, and the anchor is then
+     * measured against the surface where the pointer actually is.
+     */
+    const aim = await page.evaluate(() => {
+      const box = document.querySelector('.w-shell-document')!.getBoundingClientRect();
+      return { x: Math.round(box.left + box.width * 0.62), y: Math.round(box.top + box.height * 0.45) };
+    });
+
+    await page.mouse.move(aim.x, aim.y);
+    const before = (await pointAt(page, aim))!;
+
+    await page.keyboard.down('Control');
+    for (let notch = 0; notch < 3; notch += 1) {
+      await page.mouse.wheel(0, -120);
+      await page.waitForTimeout(140);
+    }
+    await page.keyboard.up('Control');
+
+    const after = (await pointAt(page, aim))!;
+    expect(after.zoom, '휠이 확대를 하지 못했습니다').toBeGreaterThan(before.zoom * 1.2);
+    expect(after.width).toBeGreaterThan(before.width * 1.2);
+
+    // Half a per cent of the page's width, now that there is scroll to spend in
+    // both directions. The deck's suite holds the same claim to 1%.
+    expect(Math.abs(after.x - before.x), 'X 가 포인터 아래에서 밀렸습니다').toBeLessThan(0.005);
+    expect(Math.abs(after.y - before.y), 'Y 가 포인터 아래에서 밀렸습니다').toBeLessThan(0.005);
+  });
+
+  test('leaves a plain wheel alone', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-surface');
+    const zoom = () =>
+      page.evaluate(() => Number(document.querySelector('[data-zoom]')?.getAttribute('data-zoom') ?? 0));
+    const before = await zoom();
+
+    const middle = await page.evaluate(() => {
+      const box = document.querySelector('.w-surface')!.getBoundingClientRect();
+      return { x: Math.round(box.left + box.width / 2), y: Math.round(box.top + 40) };
+    });
+    await page.mouse.move(middle.x, middle.y);
+    await page.mouse.wheel(0, 300);
+    await page.waitForTimeout(250);
+    // It scrolled the document rather than zooming it.
+    expect(await zoom()).toBe(before);
+  });
+});

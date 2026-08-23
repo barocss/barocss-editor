@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createSchema } from '../src/schema';
-import type { SchemaDefinition } from '../src/types';
 
 describe('Schema Extension', () => {
   let baseSchema: any;

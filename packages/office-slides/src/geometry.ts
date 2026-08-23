@@ -27,6 +27,8 @@
  * in the schema rather than in two files' comments.
  */
 
+import { flipCss } from './flip';
+
 /** Pixels per twip at 96dpi: exact, which is why placement never drifts. */
 const PX_PER_TWIP = 96 / 1440;
 
@@ -51,6 +53,9 @@ export interface Placement {
   opacity?: number;
   visible?: boolean;
   locked?: boolean;
+  /** Mirrored, which composes with the rotation — see `flip.ts`. */
+  flipX?: boolean;
+  flipY?: boolean;
 }
 
 const finite = (value: unknown, fallback: number): number =>
@@ -119,8 +124,22 @@ export function placementCss(placement: Placement | undefined): CssStyle {
     height: `${twipToPx(box.height)}px`
   };
 
+  /**
+   * The turn and the mirror, in one `transform` and in that order.
+   *
+   * Rotation first: rotating a mirrored box and mirroring a rotated one are
+   * different pictures, and every tool shows the second — the shape turns as the
+   * reader set it and the mirror is applied to the result. Which also means a
+   * flip never changes the rotation a reader typed.
+   *
+   * Written only when there is something to write, because `transform` makes the
+   * element a containing block and a slide is made of dozens of these.
+   */
   const rotation = finite(placement?.rotation, 0);
-  if (rotation !== 0) css.transform = `rotate(${rotation}deg)`;
+  const mirror = flipCss(placement as never);
+  const turn = rotation !== 0 ? `rotate(${rotation}deg)` : '';
+  const transform = [turn, mirror].filter(Boolean).join(' ');
+  if (transform) css.transform = transform;
 
   // Only when it is not 1: an opacity of 1 still makes the element its own
   // compositing layer, and a slide is made of dozens of these.
@@ -226,46 +245,16 @@ export const ZOOM_STEPS = [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4];
 export const clampZoom = (zoom: number): number =>
   Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom));
 
-/**
- * Which point of the content is under the pointer, as a fraction of it.
- *
- * A fraction rather than a distance, because it is the one description that
- * survives the content being redrawn at a different size — which is the whole
- * of what zooming does.
+/*
+ * `anchorOf` and `anchorShift` were here — how to keep the point under the
+ * pointer while zooming. They are `@barocss/office-ui`'s now, beside
+ * `useWheelZoom`, because Word had the same gesture without them: it zoomed about
+ * the pane's origin, so zooming in on a paragraph half way down walked that
+ * paragraph off the screen. Nothing about them was a slide's, and nothing in this
+ * package called them — only the stage did.
  */
-export function anchorOf(
-  pointer: { x: number; y: number },
-  content: { left: number; top: number; width: number; height: number }
-): { x: number; y: number } {
-  return {
-    x: content.width > 0 ? (pointer.x - content.left) / content.width : 0.5,
-    y: content.height > 0 ? (pointer.y - content.top) / content.height : 0.5
-  };
-}
 
-/**
- * How far to scroll so that fraction lands back under the pointer.
- *
- * Measured after the fact rather than predicted, and that is the correction
- * this replaced: the first version computed the new scroll from the old one,
- * assuming the content's origin was `-scrollLeft`. It is not — the stage
- * centres the slide while it is smaller than the pane, so the origin also
- * carries a margin that changes as the zoom crosses the point where the slide
- * stops fitting. Measured drift on a four-notch zoom: 12% of the slide's width.
- *
- * Reading where the content actually ended up asks no question about how it got
- * there, so centring, padding and scrollbars are all already accounted for.
- */
-export function anchorShift(
-  pointer: { x: number; y: number },
-  content: { left: number; top: number; width: number; height: number },
-  anchor: { x: number; y: number }
-): { dx: number; dy: number } {
-  return {
-    dx: content.left + anchor.x * content.width - pointer.x,
-    dy: content.top + anchor.y * content.height - pointer.y
-  };
-}
+
 
 /**
  * The next zoom up or down the ladder.

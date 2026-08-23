@@ -31,7 +31,10 @@ const setSelection = (editor: Editor, selection: ModelSelection) => {
   (editor as any)._selectionManager.getCurrentSelection = () => selection;
 };
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  // Braces: the arrow's value would be handed to vitest as a cleanup function.
+  vi.restoreAllMocks();
+});
 
 describe('canRun', () => {
   it('answers no when a command predicate throws, rather than propagating', () => {

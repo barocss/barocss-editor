@@ -125,7 +125,24 @@ export class ContentOperations {
    * - Updates node.parentId via updateNode(false) and mirrors locally.
    * - Emits an atomic 'move' operation with nodeId, parentId, position.
    */
-  moveNode(nodeId: string, newParentId: string, position?: number): void {
+  moveNode(nodeIdOrAlias: string, newParentIdOrAlias: string, position?: number): void {
+    /**
+     * Both names resolved **first**, and everything below uses the real ones.
+     *
+     * A transaction may name what it is about to create (`$alias`), and `getNode`
+     * resolves one — so every *read* here worked while the two *writes* stored the
+     * alias: the new parent's `content` held a name, and the child's `parentId` held a
+     * name, both of which exist only inside that transaction.
+     *
+     * A test pinned this as the expected behaviour with a note that the implementation
+     * "has issues" — which is worse than the bug, because it makes it look intended.
+     * What found it was the first feature to walk **up**: a connector asked which
+     * container its shape was in, so it could put the two into one coordinate space,
+     * found `sl-new-group`, and drew the line to the corner of the slide.
+     */
+    const nodeId = this.dataStore.resolveAlias(nodeIdOrAlias);
+    const newParentId = this.dataStore.resolveAlias(newParentIdOrAlias);
+
     const node = this.dataStore.getNode(nodeId);
     if (!node) {
       throw new Error(`Node not found: ${nodeId}`);

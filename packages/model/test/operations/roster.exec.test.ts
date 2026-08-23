@@ -223,6 +223,19 @@ const ROSTER: Record<string, Scenario> = {
 
   // ── blocks ────────────────────────────────────────────────────────────────
   insertParagraph: { select: caretIn('r-2', 1) },
+  /**
+   * A page break at the caret, with the rest of the paragraph moved onto the new
+   * page and the caret moved with it — Word's Ctrl+Enter. Distinct from the
+   * shared kit's `insertPageBreak`, which puts the break after the whole block
+   * and leaves the caret on the break node itself.
+   */
+  insertPageBreakAtCaret: {
+    select: caretIn('r-2', 1),
+    // The operation takes the type to insert, and this roster's schema has no
+    // `pageBreak` — a horizontal rule is the same shape of thing, an atom block
+    // between two paragraphs, which is all the operation cares about.
+    payload: { stype: 'horizontalRule' }
+  },
   splitBlockNode: { payload: { nodeId: 'p-1', splitPosition: 1 } },
   mergeBlockNodes: { payload: { leftNodeId: 'p-1', rightNodeId: 'p-2' } },
   splitListItem: { select: caretIn('lr-1', 3) },

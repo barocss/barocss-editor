@@ -466,12 +466,21 @@ describe('DataStore Content Update Operations', () => {
       const updatedP2 = dataStore.getNode('p2');
       const movedChild = dataStore.getNode('t1');
 
-      // Note: Current implementation has issues with alias resolution in moveNode
-      // The moveNode function doesn't properly resolve aliases in content arrays or parentId
-      // For now, we test the actual behavior where aliases remain unresolved
-      expect(updatedP1?.content).toEqual(['text-1']); // Original content remains
-      expect(updatedP2?.content).toEqual(['t1']); // Alias is used instead of resolved ID
-      expect(movedChild?.parentId).toBe('p2'); // Alias is used instead of resolved ID
+      /**
+       * Resolved on the way in, both names.
+       *
+       * This used to assert the opposite, with a note saying the implementation "has
+       * issues with alias resolution" — a test pinning a defect, which is worse than the
+       * defect: it makes it look intended, and the next person to read it believes the
+       * document is supposed to hold a name that only exists inside one transaction.
+       *
+       * What found it was the first feature to walk **up** the tree: a connector asked
+       * which container its shape was in, so it could put the two into one coordinate
+       * space, found `sl-new-group`, and drew the line to the corner of the slide.
+       */
+      expect(updatedP1?.content).toEqual([]); // the child left
+      expect(updatedP2?.content).toEqual(['text-1']); // by its real name
+      expect(movedChild?.parentId).toBe('para-2');
 
       dataStore.end();
       dataStore.commit();

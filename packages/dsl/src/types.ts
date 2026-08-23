@@ -161,6 +161,16 @@ export interface ComponentContext {
 }
 
 export interface ExternalComponent {
+  /**
+   * What the registry sorts on: `registry.ts` reads `type === 'external'` to decide
+   * that this belongs in the components map rather than the renderers map.
+   *
+   * It read it through an `as any` and the interface did not declare it, so the only
+   * way to write one down was to cast — which is how a test came to say
+   * `type: 'external' as any` inside a typed literal. Found when the tests were
+   * type-checked for the first time.
+   */
+  type?: 'external';
   template?: ContextualComponent;
   mount: (props: Record<string, any>, container: HTMLElement) => HTMLElement;
   update?: (instance: ComponentInstance, prevProps: Record<string, any>, nextProps: Record<string, any>) => void;

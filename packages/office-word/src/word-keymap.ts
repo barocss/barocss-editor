@@ -110,6 +110,17 @@ export const WORD_KEYBINDINGS: Keybinding[] = [
   { key: 'Mod+Alt+Shift+Backspace', command: 'deleteColumn', when: 'editorFocus && inTable' },
   { key: 'Mod+Alt+u', command: 'mergeCells', when: 'editorFocus && inTable' },
   { key: 'Mod+Alt+Shift+u', command: 'splitCell', when: 'editorFocus && inTable' },
+  /**
+   * Delete takes the table away — but only when the *table* is what is selected.
+   *
+   * `tableSelected` and not `inTable`: with a caret in a cell these keys delete a
+   * character, and binding them on "somewhere in a table" would make Backspace
+   * the most destructive key in the product. The handle at a table's corner is
+   * the only way to get into this state, which is what makes the binding safe to
+   * have at all.
+   */
+  { key: 'Delete', command: 'deleteTable', when: 'editorFocus && tableSelected' },
+  { key: 'Backspace', command: 'deleteTable', when: 'editorFocus && tableSelected' },
 
   // ── Review ─────────────────────────────────────────────────────────────────
   { key: 'Mod+Shift+e', command: 'toggleTrackChanges', when: 'editorFocus' },

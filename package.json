@@ -27,7 +27,8 @@
     "version-packages": "changeset version",
     "release": "pnpm build && changeset publish",
     "test:e2e:word": "pnpm --filter @barocss/word-app test:e2e",
-    "test:e2e:slide": "pnpm --filter @barocss/slide-app test:e2e"
+    "test:e2e:slide": "pnpm --filter @barocss/slide-app test:e2e",
+    "type-check:tests": "node scripts/typecheck-tests.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.10",

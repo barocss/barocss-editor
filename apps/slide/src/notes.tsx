@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { EditorViewDOM } from '@barocss/editor-view-dom';
 import { getGlobalRegistry } from '@barocss/dsl';
@@ -6,6 +6,8 @@ import { WORD_ENV_KEY } from '@barocss/office-word';
 import { SLIDES_ENV_KEY, noteFor,
   createDeckEnv
 } from '@barocss/office-slides';
+import { Button } from '@barocss/office-ui';
+import { useDocumentRevision } from './revision';
 
 /**
  * The note the presenter reads and the audience does not.
@@ -57,15 +59,13 @@ export function NotesPane({
 }) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorViewDOM | null>(null);
-  const [tick, bump] = useReducer((n: number) => n + 1, 0);
-
-  useEffect(() => {
-    if (!editor) return;
-    editor.on('editor:content.change', bump);
-    return () => {
-      (editor as any).off?.('editor:content.change', bump);
-    };
-  }, [editor]);
+  /**
+   * Only the content, because notes are a document and not a selection: a caret
+   * moving changes nothing here, and rebuilding on every keystroke of the *slide*
+   * would be work for nothing. `useDocumentRevision` is the suite's name for that
+   * narrower question.
+   */
+  const tick = useDocumentRevision(editor);
 
   /** Which note this slide has, if it has one. */
   const noteSid = useMemo(() => {
@@ -149,13 +149,11 @@ export function NotesPane({
       {missing ? (
         <p className="sl-notes-empty">
           이 슬라이드에는 노트가 없습니다. 아래를 눌러 추가하세요.
-          <button
-            type="button"
-            className="sl-notes-add"
+          <Button
             onClick={() => void (editor as any)?.executeCommand?.('addSlideNote', { slideId: slideSid })}
           >
             노트 추가
-          </button>
+          </Button>
         </p>
       ) : null}
       <div ref={host} className="sl-notes-host" hidden={missing} />

@@ -88,7 +88,10 @@ describe('SelectionManager', () => {
 
   describe('setNode', () => {
     it('should set node selection via setNode', () => {
-      selectionManager.setNode({ nodeId: 'p-1', selectAll: true });
+      // As the API is written: `setNode` takes a node selection and reads `nodeId`
+      // (or `startNodeId`) — there is no `selectAll`, and the `type` is not optional.
+      // The old call passed one and omitted the other, and worked by accident.
+      selectionManager.setNode({ type: 'node', nodeId: 'p-1' });
       const sel = selectionManager.getCurrentSelection();
       expect(sel).not.toBeNull();
       expect(sel!.type).toBe('node');
@@ -97,7 +100,7 @@ describe('SelectionManager', () => {
     });
 
     it('should clear selection when setNode(null)', () => {
-      selectionManager.setNode({ nodeId: 'p-1' });
+      selectionManager.setNode({ type: 'node', nodeId: 'p-1' });
       selectionManager.setNode(null);
       expect(selectionManager.getCurrentSelection()).toBeNull();
     });

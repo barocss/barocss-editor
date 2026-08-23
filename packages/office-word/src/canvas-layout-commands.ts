@@ -145,7 +145,13 @@ export class CanvasLayoutExtension implements Extension {
 
     this._applying = true;
     try {
-      await transaction(editor, steps as never).commit();
+      /**
+       * Not recorded, for the same reason a connector's remembered ends are not: an
+       * arrangement is derived from the frame's settings and its children, and nobody
+       * asked for it. Recorded, it made undo undo the *arrangement* — which this then
+       * put straight back, because an undo is a document change and this runs on those.
+       */
+      await transaction(editor, steps as never, { recordInHistory: false }).commit();
     } finally {
       this._applying = false;
     }

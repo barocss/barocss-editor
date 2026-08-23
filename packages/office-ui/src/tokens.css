@@ -1,0 +1,101 @@
+/**
+ * What every Office product's chrome is made of, as tokens.
+ *
+ * ## Why this file exists
+ *
+ * `office-ui`'s components were written in Tailwind's own palette —
+ * `border-neutral-300`, `text-neutral-500` — and the products they sit in have
+ * their own. Measured on 2026-08-20 in one row of the deck's step inspector: a
+ * hand-rolled `<select>` beside an `office-ui` colour field came out
+ *
+ * ```
+ *  select      22px tall   border #d8dce4   radius 3px
+ *  ColorField  28px tall   border #d4d4d4   radius 4px
+ * ```
+ *
+ * Two greys, two radii, three heights, in a row eight pixels wide. So "use the
+ * shared component" meant "have two visual languages in one panel", and the
+ * cheapest way out was always to hand-roll one more control. That is how a
+ * design system loses.
+ *
+ * ## The contract
+ *
+ * Every component here draws with these variables and **nothing else**. A product
+ * maps its own palette onto them once — `--ou-line: var(--sl-line)` — and every
+ * shared control matches everything around it, including the ones written next
+ * year.
+ *
+ * The defaults are the palette the components already used, so a product that
+ * maps nothing looks exactly as it did.
+ *
+ * ## Density is a token, not a component
+ *
+ * A properties panel and a timeline inspector are the same controls at different
+ * sizes: 28px rows against 22px, 12px text against 11px. Written as two
+ * components they drift; written as `[data-density="dense"]` they cannot, and a
+ * product picks the size by saying which kind of surface a subtree is.
+ */
+
+:root {
+  /* Surfaces. */
+  --ou-panel: #ffffff;
+  --ou-ground: #f5f5f5;
+  --ou-line: #d4d4d4;
+
+  /* Ink. */
+  --ou-ink: #171717;
+  --ou-muted: #737373;
+  --ou-faint: #a3a3a3;
+
+  /* The one colour that means "this one". */
+  --ou-accent: #2563eb;
+  --ou-accent-ink: #ffffff;
+
+  /* Controls. A field, a button and a swatch are all one height. */
+  --ou-control-h: 28px;
+  /**
+   * An icon button inside a **list row**.
+   *
+   * Smaller than a control on purpose: a row is 26px, and a form control's 28px in it is
+   * the wrong control rather than a shared one. See `IconButton`.
+   */
+  --ou-icon-h: 18px;
+  --ou-radius: 4px;
+  --ou-text: 12px;
+  --ou-text-small: 11px;
+  /**
+   * The label column of a labelled row.
+   *
+   * One number, because the whole point of a label column is that every control
+   * in a panel starts at the same x — and two panels with two widths is the same
+   * fault one level up.
+   */
+  --ou-label-w: 68px;
+}
+
+/**
+ * A dense surface: a timeline inspector, a status bar, anything that is a
+ * *instrument* rather than a form.
+ *
+ * Only the sizes change. The palette does not, because a dense control that was
+ * also a different grey would be the thing this file exists to stop.
+ */
+[data-density='dense'] {
+  --ou-control-h: 22px;
+  --ou-icon-h: 16px;
+  --ou-radius: 3px;
+  --ou-text: 11px;
+  --ou-text-small: 10px;
+  --ou-label-w: 62px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ou-panel: #171717;
+    --ou-ground: #0a0a0a;
+    --ou-line: #404040;
+    --ou-ink: #fafafa;
+    --ou-muted: #a3a3a3;
+    --ou-faint: #737373;
+  }
+}

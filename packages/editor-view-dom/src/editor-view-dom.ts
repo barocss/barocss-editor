@@ -12,6 +12,27 @@ import { RendererRegistry } from '@barocss/dsl';
 import type { DecoratorExportData, LoadDecoratorsPatternFunctions } from './types';
 import { getKeyString, isTypingKey } from '@barocss/shared';
 
+/**
+ * Whether a selection of this kind survives a caret appearing somewhere.
+ *
+ * Every kind but `range`. A range *is* a text position, so a caret is the same
+ * sort of thing and replacing one with another is right. The rest select whole
+ * things — shapes on a slide, a block of table cells — and have no text position
+ * at all, so the caret the DOM happens to be holding is not a description of
+ * them; it is wherever the browser last put one, which after an edit is inside
+ * the very node that was made and after a drag across cells is wherever the
+ * button came up.
+ *
+ * Written as a question rather than `=== 'node'`, which is what it said while a
+ * node selection was the only kind anything produced. A `cell` selection reaches
+ * exactly the same way and for exactly the same reason: measured, a drag across
+ * five cells put five cells in the model twice, and the `selectionchange` after
+ * the mouse came up replaced them with a caret in one of them.
+ */
+function holdsAgainstTheCaret(type: string | undefined): boolean {
+  return type === 'node' || type === 'cell' || type === 'table';
+}
+
 export class EditorViewDOM implements IEditorViewDOM {
   // Unique ID for instance tracking
   private readonly __instanceId: string;
@@ -97,6 +118,18 @@ export class EditorViewDOM implements IEditorViewDOM {
   private _hasRendered: boolean = false;
   // Store last rendered modelData (reused when only decorator is updated)
   private _lastRenderedModelData: ModelData | null = null;
+  /**
+   * Whether the last rendered tree came from the **editor** or from a caller.
+   *
+   * Not derivable from the tree, which is the only reason it is a flag: "who gave
+   * me this" is not written in it, and the two answers need opposite treatment
+   * when the document is replaced. A caller-supplied tree is the caller's to
+   * replace — a test or a preview renders one and re-renders for a decorator, and
+   * reaching for the editor's document there would draw an empty one over it. A
+   * tree the editor gave is only good while it is still the editor's *root*: it is
+   * a live proxy of that root, and `loadDocument` makes a new one.
+   */
+  private _lastRenderedFromEditor = false;
   // Options for synchronous rendering in test environment
   private _renderOptions: { sync?: boolean } = {};
 
@@ -431,9 +464,9 @@ export class EditorViewDOM implements IEditorViewDOM {
         return;
       }
 
-      // A node selection holds until the reader touches the text; see
-      // `_processSelectionChange`.
-      if (selectionEvent.selection?.type === 'node') {
+      // A selection of whole things holds until the reader touches the text;
+      // see `_processSelectionChange` and `holdsAgainstTheCaret`.
+      if (holdsAgainstTheCaret(selectionEvent.selection?.type)) {
         this._nodeSelectionHoldsUntilGesture = true;
       }
 
@@ -920,7 +953,7 @@ export class EditorViewDOM implements IEditorViewDOM {
        * through an overlay drawn on top of the editor.
        */
       const model = (this.editor as any).selection;
-      if (model?.type === 'node' && this._nodeSelectionHoldsUntilGesture) {
+      if (holdsAgainstTheCaret(model?.type) && this._nodeSelectionHoldsUntilGesture) {
         return;
       }
 
@@ -1630,15 +1663,47 @@ export class EditorViewDOM implements IEditorViewDOM {
       this._sanitizeTreeContent(tree);
       // Use directly without conversion
       modelData = tree as ModelData;
+      this._lastRenderedFromEditor = false;
     } else {
-      // No tree passed: prefer last rendered tree (e.g. after addDecorator re-render) so we don't replace it with empty editor document
+      /**
+       * No tree passed: the last rendered one, which is a *proxy* over the store
+       * and therefore still live — every ordinary edit shows up in it without
+       * anything being exported again. Preferred over asking the editor because a
+       * re-render for a decorator must not replace it with an empty document.
+       *
+       * **Unless the document itself was replaced.** A proxy is live for *its
+       * root*, and `loadDocument` makes a new one — so the last rendered tree is
+       * the old document, permanently, and a bare `render()` re-drew it forever.
+       * Measured in the deck app: opening a new deck left the model holding one
+       * slide and the DOM holding the previous five, and an explicit `render()`
+       * changed nothing, because the staleness was in here rather than in the
+       * caller.
+       *
+       * Compared by sid rather than tracked with a flag: the root the view drew
+       * and the root the editor has are both readable, and a flag would be a
+       * third thing to keep in step with them.
+       */
       try {
-        if (this._lastRenderedModelData) {
+        const rootId = this.editor.getRootId?.();
+        const drawnRoot = (this._lastRenderedModelData as { sid?: string } | null)?.sid;
+        /**
+         * Only a tree the **editor** gave can go stale this way, and only when the
+         * root has actually changed. A caller-supplied tree stays: the layer tests
+         * render one by hand into an editor that has no document at all, and
+         * treating that as a replacement drew an empty document over it.
+         */
+        const replaced =
+          this._lastRenderedFromEditor && !!rootId && !!drawnRoot && rootId !== drawnRoot;
+
+        if (this._lastRenderedModelData && !replaced) {
           modelData = this._lastRenderedModelData;
         } else {
           const exported = this.editor.getDocumentProxy?.();
           if (exported) {
             modelData = exported as ModelData;
+            this._lastRenderedFromEditor = true;
+          } else if (this._lastRenderedModelData) {
+            modelData = this._lastRenderedModelData;
           }
         }
       } catch (error) {

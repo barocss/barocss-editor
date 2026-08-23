@@ -436,14 +436,20 @@ describe('the commands a box has', () => {
     });
 
     /**
-     * `cornerRadius` belongs to `rectangle` and to nothing else, so asking a
-     * text frame for one writes nothing. This is what reading the *node's own*
-     * declaration buys over one list for every box.
+     * `layoutMode` belongs to `frame` and to nothing else, so asking a text
+     * frame to arrange its children writes nothing. This is what reading the
+     * *node's own* declaration buys over one list for every box.
+     *
+     * It used to ask this with `cornerRadius`, which belonged to the rectangle
+     * alone — until a text frame, a frame, a sticky and a picture gained corners
+     * of their own, because a rounded text box is a thing a reader asks for and
+     * only the rectangle could be rounded. The check is the same; the attribute
+     * no shape but one declares had to be a different one.
      */
     it('refuses an attribute this shape does not declare', async () => {
-      expect(can('setBoxStyle', { nodeId: box, cornerRadius: 120 })).toBe(false);
-      expect(await run('setBoxStyle', { nodeId: box, cornerRadius: 120 })).toBeFalsy();
-      expect(attrs(box).cornerRadius).toBeUndefined();
+      expect(can('setBoxStyle', { nodeId: box, layoutMode: 'row' })).toBe(false);
+      expect(await run('setBoxStyle', { nodeId: box, layoutMode: 'row' })).toBeFalsy();
+      expect(attrs(box).layoutMode).toBeUndefined();
     });
 
     it('refuses a value of the wrong type rather than coercing it', async () => {

@@ -28,17 +28,27 @@ export function createSampleDocument(): INode {
             attributes: {},
             content: [{ stype: 'inline-text', text: 'Barocss Word' }]
           },
-          {
-            stype: 'docAuthor',
-            attributes: {},
-            content: [{ stype: 'inline-text', text: 'Jinho Park' }]
-          },
+          /**
+           * Subtitle before author, which is the order the schema states:
+           * `docTitle? docSubtitle? docAuthor*`.
+           *
+           * It was the other way round, and nothing noticed for as long as the
+           * fixture existed — a document that is *loaded* went in exactly as
+           * written, and the title bar draws these three by name rather than in
+           * document order, so it looked right. Found the day `loadDocument`
+           * started checking what it is given.
+           */
           {
             stype: 'docSubtitle',
             attributes: {},
             content: [
               { stype: 'inline-text', text: 'One engine, one schema, four products' }
             ]
+          },
+          {
+            stype: 'docAuthor',
+            attributes: {},
+            content: [{ stype: 'inline-text', text: 'Jinho Park' }]
           }
         ]
       },

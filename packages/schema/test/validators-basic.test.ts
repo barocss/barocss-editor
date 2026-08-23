@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { Validator } from '../src/validators';
+import type { AttributeDefinition } from '../src/types';
 
 describe('Basic Validators', () => {
   describe('Validator.validateType', () => {
@@ -45,7 +46,7 @@ describe('Basic Validators', () => {
 
   describe('Validator.validateObjectSchema', () => {
     it('should validate object with required properties', () => {
-      const schema = {
+      const schema: Record<string, AttributeDefinition> = {
         name: { type: 'string', required: true },
         age: { type: 'number', required: true }
       };
@@ -58,7 +59,7 @@ describe('Basic Validators', () => {
     });
 
     it('should return errors for missing required properties', () => {
-      const schema = {
+      const schema: Record<string, AttributeDefinition> = {
         name: { type: 'string', required: true },
         age: { type: 'number', required: true }
       };
@@ -71,7 +72,7 @@ describe('Basic Validators', () => {
     });
 
     it('should validate optional properties', () => {
-      const schema = {
+      const schema: Record<string, AttributeDefinition> = {
         name: { type: 'string', required: true },
         email: { type: 'string', required: false }
       };
@@ -84,7 +85,7 @@ describe('Basic Validators', () => {
     });
 
     it('should validate nested object schemas', () => {
-      const schema = {
+      const schema: Record<string, AttributeDefinition> = {
         user: {
           type: 'object',
           required: true,
@@ -105,7 +106,7 @@ describe('Basic Validators', () => {
     });
 
     it('should return errors for invalid nested objects', () => {
-      const schema = {
+      const schema: Record<string, AttributeDefinition> = {
         user: {
           type: 'object',
           required: true,
@@ -126,7 +127,7 @@ describe('Basic Validators', () => {
     });
 
     it('should validate custom validators', () => {
-      const schema = {
+      const schema: Record<string, AttributeDefinition> = {
         email: {
           type: 'string',
           required: true,
@@ -146,7 +147,7 @@ describe('Basic Validators', () => {
     });
 
     it('should detect undefined properties', () => {
-      const schema = {
+      const schema: Record<string, AttributeDefinition> = {
         name: { type: 'string', required: true }
       };
       

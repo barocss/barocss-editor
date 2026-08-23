@@ -51,7 +51,6 @@ describe('evaluateWhenExpression', () => {
     });
 
     it('should respect operator precedence with various combinations', () => {
-      const context = { foo: true, bar: true, baz: false };
 
       // !foo && bar should be interpreted as (!foo) && bar
       expect(evaluateWhenExpression('!foo && bar', { foo: false, bar: true })).toBe(true);

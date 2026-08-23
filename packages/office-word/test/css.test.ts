@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   paragraphCss, characterCss, pageCss, tableCss, tableCellCss, tableRowCss, rowClipHeight,
-  twipToCss, halfPointToCss, normalizeColor, flowCss, mirroredIndents, hyphenationCss
+  twipToCss, halfPointToCss, normalizeColor, flowCss, mirroredIndents, hyphenationCss, shadingCss
 } from '../src/css';
 
 /**
@@ -137,6 +137,45 @@ describe('paragraph CSS', () => {
   it('maps borders from eighths of a point', () => {
     const css = paragraphCss({ borderTopStyle: 'single', borderTopWidth: 8, borderTopColor: '000000' });
     expect(css.borderTop).toBe('1pt solid 000000');
+  });
+
+  /**
+   * The room a border leaves the text.
+   *
+   * `*Space` was declared on paragraphs, tables, cells and pages and read by nothing,
+   * so every bordered paragraph had its line hard against the letters — found by
+   * `every-attribute-is-read`.
+   */
+  describe('the space between a border and the text', () => {
+    it('is drawn as padding, in the points Word stores it in', () => {
+      const css = paragraphCss({ borderTopStyle: 'single', borderTopSpace: 6 });
+      expect(css.paddingTop).toBe('6pt');
+    });
+
+    it('is nothing without a border to be spaced from', () => {
+      // Word's reading too: a space with no line is not an indent by another name.
+      const css = paragraphCss({ borderTopSpace: 6, borderLeftSpace: 4 });
+      expect(css.paddingTop).toBeUndefined();
+      expect(css.paddingLeft).toBeUndefined();
+    });
+
+    it('adds to a padding that is already there', () => {
+      // A hanging indent is a `padding-left` and it is applied first. Replacing it
+      // would make a left-bordered list item lose its hang.
+      const css = paragraphCss({
+        indentLeft: 720,
+        indentHanging: 360,
+        borderLeftStyle: 'single',
+        borderLeftSpace: 5
+      });
+      expect(css.paddingLeft).toBe('calc(18pt + 5pt)');
+    });
+
+    it('ignores a space of nothing', () => {
+      const css = paragraphCss({ borderBottomStyle: 'single', borderBottomSpace: 0 });
+      expect(css.borderBottom).toBeDefined();
+      expect(css.paddingBottom).toBeUndefined();
+    });
   });
 });
 
@@ -331,5 +370,97 @@ describe('the flow, once pages are painted separately', () => {
     });
     expect(css.paddingLeft).toBe('72pt');
     expect(css.paddingTop).toBeUndefined();
+  });
+});
+
+/**
+ * Shading: three attributes, of which one was read.
+ *
+ * `shadingFill` was drawn and `shadingColor`/`shadingPattern` were on the list of
+ * things the schema declares and nothing reads — so a document asking for a 25%
+ * grey stipple over white drew as plain white, and the same two lines of
+ * fill-only code were written out four times in this file.
+ *
+ * The mapping is Word's own reading, and two parts of it surprise people: a
+ * `solid` shading shows the *pattern* colour and ignores the fill, and a pattern
+ * with no colour is just the fill.
+ */
+describe('the three parts of a shading', () => {
+  it('draws a plain fill, which is nearly all real shading', () => {
+    expect(shadingCss({ shadingFill: 'D9E2F3' })).toEqual({ backgroundColor: '#D9E2F3' });
+    expect(shadingCss({ shadingFill: 'D9E2F3', shadingPattern: 'clear' })).toEqual({
+      backgroundColor: '#D9E2F3'
+    });
+  });
+
+  it('lets "auto" mean the reader decides', () => {
+    expect(shadingCss({ shadingFill: 'auto' }).backgroundColor).toBeUndefined();
+  });
+
+  it('shows the pattern colour and not the fill, for solid', () => {
+    // Word's reading. A solid shading is the pattern at full strength, so the
+    // fill is not visible at all.
+    expect(shadingCss({ shadingFill: 'FFFFFF', shadingColor: 'C00000', shadingPattern: 'solid' })).toEqual({
+      backgroundColor: '#C00000'
+    });
+  });
+
+  it('blends a percentage of the pattern colour over the fill', () => {
+    const css = shadingCss({
+      shadingFill: 'FFFFFF',
+      shadingColor: '000000',
+      shadingPattern: 'pct25'
+    });
+    expect(css.backgroundColor).toBe('color-mix(in srgb, #000000 25% , #FFFFFF)'.replace(' ,', ','));
+  });
+
+  it('takes the percentage from the name, whatever it is', () => {
+    expect(shadingCss({ shadingColor: '000000', shadingPattern: 'pct5' }).backgroundColor).toContain('5%');
+    expect(shadingCss({ shadingColor: '000000', shadingPattern: 'pct60' }).backgroundColor).toContain('60%');
+    // No fill to blend into: white, which is the page.
+    expect(shadingCss({ shadingColor: '000000', shadingPattern: 'pct60' }).backgroundColor).toContain('white');
+  });
+
+  it('draws stripes at the angle the name says', () => {
+    expect(shadingCss({ shadingColor: '808080', shadingPattern: 'horzStripe' }).backgroundImage)
+      .toContain('0deg');
+    expect(shadingCss({ shadingColor: '808080', shadingPattern: 'vertStripe' }).backgroundImage)
+      .toContain('90deg');
+    expect(shadingCss({ shadingColor: '808080', shadingPattern: 'reverseDiagStripe' }).backgroundImage)
+      .toContain('-45deg');
+  });
+
+  it('crosses two runs of stripes at right angles', () => {
+    const css = shadingCss({ shadingColor: '808080', shadingPattern: 'diagCross' });
+    expect(css.backgroundImage?.match(/repeating-linear-gradient/g)).toHaveLength(2);
+    expect(css.backgroundImage).toContain('45deg');
+    expect(css.backgroundImage).toContain('-45deg');
+  });
+
+  /**
+   * A pattern with no colour has nothing to draw, and a pattern nobody has
+   * mapped is drawn as its fill — the reader asked for a shaded cell and the
+   * shade is the part we have. Neither is a reason to draw nothing.
+   */
+  it('falls back to the fill rather than to nothing', () => {
+    expect(shadingCss({ shadingFill: 'EEEEEE', shadingPattern: 'pct25' })).toEqual({
+      backgroundColor: '#EEEEEE'
+    });
+    expect(shadingCss({ shadingFill: 'EEEEEE', shadingColor: '000000', shadingPattern: 'trellis' })).toEqual({
+      backgroundColor: '#EEEEEE'
+    });
+  });
+
+  it('is what every level of the document uses', () => {
+    // One function, four callers: a table, a row, a cell and a paragraph. It was
+    // the same two lines four times, each reading the fill alone.
+    for (const css of [
+      tableCss({ shadingFill: 'EDF2F7' }),
+      tableRowCss({ shadingFill: 'EDF2F7' }),
+      tableCellCss({ shadingFill: 'EDF2F7' }),
+      paragraphCss({ shadingFill: 'EDF2F7' })
+    ]) {
+      expect(css.backgroundColor).toBe('#EDF2F7');
+    }
   });
 });

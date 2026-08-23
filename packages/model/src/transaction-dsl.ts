@@ -94,6 +94,52 @@ export interface TransactionOptions {
    * This allows local operations that should keep selection as-is on undo/redo.
    */
   preserveSelectionInHistory?: boolean;
+
+  /**
+   * When false, the transaction is **not recorded in the history**.
+   *
+   * For a write that maintains *derived* state — a reaction, not an edit. A connector's
+   * remembered end points, a laid-out frame's children: nobody asked for them and nobody
+   * should have to undo them.
+   *
+   * ## Why this is not a nicety
+   *
+   * The connector reaction runs on every document change and writes the ends whenever a
+   * shape has moved — so every drag put **two** entries in the history: the reader's
+   * move, and the reaction's. Undo then undid the reaction; the reaction ran again
+   * (an undo is a document change) and wrote the same numbers back. Measured: undo
+   * pressed twice, `historyUndo` reporting success both times, and the slide unchanged —
+   * the reader could not undo their own move at all.
+   *
+   * Recomputing is what makes this safe: derived state does not need to be *restored*
+   * by an undo, because the reaction that owns it runs again afterwards and works it out
+   * from what the document now says.
+   */
+  recordInHistory?: boolean;
+
+  /**
+   * Put this write **into the entry of the edit that caused it**, rather than in one of
+   * its own or nowhere.
+   *
+   * The third answer, and the one the two above cannot give. `recordInHistory: false` is
+   * right for state derived from nothing the reader writes — a connector's route, a
+   * laid-out frame's children. It is *wrong* when the maintenance rewrites the reader's
+   * own numbers, and one place does: a group's rectangle is the bounds of its children
+   * **and** the origin their coordinates are relative to, so keeping it honest re-origins
+   * them — the group moves right by 3000 and every child moves left by 3000, which
+   * together change nothing on screen.
+   *
+   * Unrecorded, that pairing comes apart at the first undo: the reader's `x` is restored
+   * into a coordinate space that has since moved, and the shape lands somewhere it has
+   * never been (measured — and with the write *recorded* instead, three presses of undo
+   * changed nothing at all). The maintenance is a consequence of the edit, so it belongs
+   * in the edit's entry, where one undo takes back both halves exactly.
+   *
+   * Refused when there is no edit to belong to, or when the top of the stack is an entry
+   * the reader may still redo; then nothing is recorded, which is safe because an undo
+   * restores a state the maintenance already agrees with.
+   */
+  appendToPreviousEntry?: boolean;
 }
 
 export interface TransactionBuilder {

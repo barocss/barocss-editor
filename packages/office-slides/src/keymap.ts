@@ -74,7 +74,28 @@ export const SLIDES_KEYS: SlidesKey[] = [
   { key: 'Shift+ArrowLeft', command: 'nudgeBoxes', payload: nudge(-1, 0, COARSE), needsSelection: true },
   { key: 'Shift+ArrowRight', command: 'nudgeBoxes', payload: nudge(1, 0, COARSE), needsSelection: true },
   { key: 'Shift+ArrowUp', command: 'nudgeBoxes', payload: nudge(0, -1, COARSE), needsSelection: true },
-  { key: 'Shift+ArrowDown', command: 'nudgeBoxes', payload: nudge(0, 1, COARSE), needsSelection: true }
+  { key: 'Shift+ArrowDown', command: 'nudgeBoxes', payload: nudge(0, 1, COARSE), needsSelection: true },
+
+  /**
+   * A guide, from the keyboard.
+   *
+   * The rulers are controls — `role="separator"` with a label — and nothing placed a guide
+   * without a drag, so the reader who most needs to be told the ruler is there could not
+   * use it. `Alt+.` and `Alt+,` for the two axes, and `Alt+<` to clear them: away from every
+   * text chord, and next to each other on the keyboard for two halves of one idea.
+   *
+   * The clear chord is written `<` and not `,` **because that is the key that arrives**.
+   * Measured: Shift composes the character before the event is dispatched, so a binding
+   * matched on `,` with Shift required matches nothing at all — the same trap the nudge
+   * bindings hit from the other side, where `ArrowRight` matched with or without Shift and
+   * the coarse nudge silently did not happen.
+   *
+   * Not `needsSelection`: with nothing picked the guide goes down the middle of the slide,
+   * which is where the first guide on an empty slide belongs anyway.
+   */
+  { key: 'Alt+.', command: 'addSlideGuide', payload: { axis: 'x' } },
+  { key: 'Alt+,', command: 'addSlideGuide', payload: { axis: 'y' } },
+  { key: 'Alt+Shift+<', command: 'clearSlideGuides' }
 ];
 
 /** Every command a key can run, for the check that asks what is reachable. */
@@ -108,4 +129,52 @@ export function matchesKey(entry: SlidesKey, event: {
   if (shift !== event.shiftKey) return false;
   if (alt !== event.altKey) return false;
   return true;
+}
+
+/**
+ * The chord a command is bound to, if it is bound to one.
+ *
+ * The *first* binding, because several keys can run one command — every nudge is
+ * `nudgeBoxes` — and what a button wants to say is one chord rather than eight.
+ * A control asks by command, which is the only name it has for the thing it does.
+ */
+export function shortcutOf(command: string): string | undefined {
+  return SLIDES_KEYS.find((entry) => entry.command === command)?.key;
+}
+
+/** The symbols a chord is drawn with, which is not what it is written as. */
+const SIGNS: Record<string, string> = {
+  Shift: '⇧',
+  Alt: '⌥',
+  ArrowLeft: '←',
+  ArrowRight: '→',
+  ArrowUp: '↑',
+  ArrowDown: '↓',
+  Delete: 'Del',
+  Backspace: '⌫',
+  Escape: 'Esc'
+};
+
+/**
+ * A chord as a reader reads it — `Mod+d` → `⌘D` on a Mac, `Ctrl+D` elsewhere.
+ *
+ * Two conventions, and they are not a preference: Apple writes chords as symbols
+ * with nothing between them and everyone else writes them as words joined by
+ * plus signs. A tool that shows `Ctrl+D` on a Mac looks like it was ported, which
+ * is the whole thing this is for.
+ *
+ * `apple` comes in rather than being sniffed here, because a pure function of the
+ * platform is testable and `navigator` is not — and the caller knows anyway.
+ */
+export function keyLabel(chord: string | undefined, apple: boolean): string | undefined {
+  if (!chord) return undefined;
+
+  const parts = chord.split('+').map((part) => {
+    if (part === 'Mod') return apple ? '⌘' : 'Ctrl';
+    if (SIGNS[part]) return apple ? SIGNS[part] : part;
+    // A single letter is shown as a capital: `⌘D`, not `⌘d`.
+    return part.length === 1 ? part.toUpperCase() : part;
+  });
+
+  return apple ? parts.join('') : parts.join('+');
 }

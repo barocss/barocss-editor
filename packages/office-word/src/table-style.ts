@@ -29,7 +29,12 @@
  * table's direct borders are. Left in the cell layer instead, every cell would
  * take the outer frame as its own and draw it on all four sides.
  */
-import { boxBorderAttrs, shadingAttrs } from './formatting';
+import {
+  betweenBorderAttrs,
+  boxBorderAttrs,
+  insideBorderAttrs,
+  shadingAttrs
+} from './formatting';
 import type { EffectiveFormat, StyleResolver } from './style-resolver';
 import {
   childrenOf,
@@ -306,8 +311,22 @@ export function rowRegionsAt(
   );
 }
 
-/** Borders and shading: what a region says about the box rather than the text. */
-const BOX_KEYS = new Set([...Object.keys(boxBorderAttrs()), ...Object.keys(shadingAttrs())]);
+/**
+ * Borders and shading: what a region says about the box rather than the text.
+ *
+ * Every border group, including the interior ones — this is a list of keys to *keep
+ * out* of a cell's text layer, so it has to name them all whatever any one node type
+ * declares. `boxBorderAttrs()` was the whole set until it was split into the edges a
+ * box has, the between-border a block has and the interior a table has; taking the
+ * split literally here would have started painting a table-wide inside border onto
+ * every cell, which no test would have noticed.
+ */
+const BOX_KEYS = new Set([
+  ...Object.keys(boxBorderAttrs()),
+  ...Object.keys(betweenBorderAttrs()),
+  ...Object.keys(insideBorderAttrs()),
+  ...Object.keys(shadingAttrs())
+]);
 
 function without(attrs: Record<string, unknown>, keys: Set<string>): Record<string, unknown> {
   const out: Record<string, unknown> = {};

@@ -66,7 +66,11 @@ const editorWith = (Extension: any, selection: ModelSelection | null) => {
   return { editor, commands };
 };
 
-beforeEach(() => (ops.length = 0));
+beforeEach(() => {
+  // Braces: an arrow returning the new length hands vitest a number where it expects
+  // a cleanup function.
+  ops.length = 0;
+});
 
 describe.each(MARKS)('$name', ({ command, Extension }) => {
   it('toggles the mark rather than applying it', async () => {

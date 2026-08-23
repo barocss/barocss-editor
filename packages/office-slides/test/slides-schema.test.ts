@@ -144,7 +144,7 @@ describe('a deck is a document whose surfaces are slides', () => {
     // A deck's schema is the document's, so a Word page still validates in it —
     // which is what lets a deck hold an imported document and round-trip it.
     const nodes = getSlidesSchemaDefinition().nodes;
-    expect(nodes.surface.content).toBe('block+ | scene*');
+    expect(nodes.surface.content).toBe('block+ | (scene | frame)*');
     expect(nodes.paragraph).toBeDefined();
     expect(nodes.bTable).toBeDefined();
   });

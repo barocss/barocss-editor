@@ -51,8 +51,8 @@ describe('history coalescing', () => {
 
     const entry = h.undo()!;
     // Newest edit is undone first
-    expect(entry.inverseOperations[0].payload.start).toBe(1);
-    expect(entry.inverseOperations[1].payload.start).toBe(0);
+    expect(entry.inverseOperations[0]!.payload!.start).toBe(1);
+    expect(entry.inverseOperations[1]!.payload!.start).toBe(0);
   });
 
   it('restores the caret to where the burst started', () => {

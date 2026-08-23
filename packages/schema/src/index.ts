@@ -33,6 +33,12 @@ export {
 // Validators
 export { Validator } from './validators';
 
+/**
+ * Checking a whole document, which nothing did: operations validate what they
+ * write and a *loaded* document went in as written.
+ */
+export { validateTree, describeFindings, type TreeFinding } from './validate-tree';
+
 // Editor Manager
 export { 
   EditorSchemaManager,

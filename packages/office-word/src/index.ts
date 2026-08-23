@@ -18,7 +18,9 @@ export {
   tableCellFormatAttrs,
   revisionAttrs,
   borderAttrs,
+  betweenBorderAttrs,
   boxBorderAttrs,
+  insideBorderAttrs,
   shadingAttrs
 } from './formatting';
 
@@ -58,6 +60,21 @@ export {
   type RowPlacement
 } from './table-style';
 export {
+  cellRectangle,
+  cellsInRectangle,
+  cellsBetween,
+  cellContaining,
+  rowsCovered,
+  columnsCovered,
+  type CellRectangle
+} from './table-selection';
+export {
+  installCellSelection,
+  isCellType,
+  CELL_SELECTED_ATTRIBUTE,
+  type CellSelectionHandle
+} from './table-selection-view';
+export {
   borderCss,
   borderOf,
   cellBorders,
@@ -93,7 +110,7 @@ export {
   type WordEnv
 } from './render-context';
 export {
-  paragraphCss, characterCss, pageCss, tableCss, tableRowCss, tableCellCss,
+  paragraphCss, characterCss, pageCss, tableCss, tableRowCss, tableCellCss, shadingCss,
   rowClipHeight, verticalTextCss,
   twipToCss, halfPointToCss, normalizeColor, type CssStyle
 } from './css';
@@ -142,6 +159,20 @@ export {
 } from './page-furniture';
 
 export { tocEntries, tocPageNumber, parseLevels, type TocEntry } from './toc';
+
+/**
+ * Word's `1-1`: a page number carrying the number of the chapter it is in.
+ *
+ * Pure, and separate from the furniture that calls it, because which chapter a
+ * page is under is arithmetic over the headings and the layout — the kind that
+ * is worth testing in milliseconds rather than in a browser.
+ */
+export {
+  chapterAt,
+  chapterNumber,
+  chapterSeparator,
+  pageNumberWithChapter
+} from './chapter-numbering';
 
 export { createFieldResolver, type FieldResolver } from './field-resolver';
 
@@ -203,6 +234,7 @@ export {
 } from './fonts';
 
 export {
+  choiceOptions,
   currentChoice,
   inheritedChoice,
   listState,
@@ -211,11 +243,15 @@ export {
   currentStyle,
   toolbarMarkTypes,
   toolbarCommands,
+  toolbarIcons,
+  currentPaletteColor,
   WORD_FONTS,
   WORD_FONT_SIZES,
   WORD_TOOLBAR,
   WORD_STYLES,
-  type ToolbarChoice,
+  WORD_TEXT_COLOR,
+  WORD_TEXT_HIGHLIGHT,
+  WORD_CELL_SHADING,
   type ToolbarControl,
   type ToolbarGroup
 } from './toolbar-model';
@@ -272,7 +308,7 @@ export {
  * claim about two packages agreeing has to be testable from a place that can
  * see both.
  */
-export { canvasCss, canvasViewBox } from './shapes';
+export { canvasCss, canvasViewBox, frameCss } from './shapes';
 
 /**
  * A frame that arranges what is in it.
@@ -286,8 +322,115 @@ export {
   layoutChildren,
   childrenToLayOut,
   laysOut,
+  reorderIndexAt,
   layoutModeOf,
   type LayoutMode,
   type LaidOutChild
 } from './canvas-layout';
 export { createLayoutCommands, CanvasLayoutExtension } from './canvas-layout-commands';
+/**
+ * A line that remembers **what it joins** — the canvas's, for the same reason the
+ * arrangement is: a connector is a scene node, and two products with two answers for
+ * where a line leaves a circle would be one document drawn two ways.
+ *
+ * See `docs/specs/canvas-model.md` §8 for the decisions this holds to.
+ */
+export {
+  borderPoint,
+  capAngle,
+  capDrawing,
+  capInset,
+  capSizeOf,
+  CAP_MIN,
+  centreOf,
+  connectorBoxOf,
+  connectorBounds,
+  connectorCapsOf,
+  connectorChanges,
+  connectorPath,
+  segmentCrossings,
+  JUMP,
+  connectorPoints,
+  connectorSpecOf,
+  curvePoints,
+  magnetPoints,
+  nearestMagnet,
+  labelAt,
+  labelNear,
+  endLabelOf,
+  LABEL_INSET,
+  labelBox,
+  labelOf,
+  arcPoints,
+  avoidArc,
+  connectorTrack,
+  midHandleOf,
+  CORNER,
+  bendFromDrag,
+  canBendByDrag,
+  nearestOnPath,
+  pairKeyOf,
+  separationBend,
+  hasOwnBend,
+  SEPARATION,
+  pointOnPath,
+  readWaypoints,
+  throughWaypoints,
+  LABEL_MAX,
+  LABEL_SIZE,
+  MAGNET_SNAP,
+  elbowPoints,
+  nearestSides,
+  normalOf,
+  pulledBack,
+  resolveEnds,
+  rotateAround,
+  sidePoint,
+  sideTowards,
+  withEndPlaces,
+  withoutMissing,
+  type CapDrawing,
+  type ConnectorBox,
+  type ConnectorCap,
+  type ConnectorEnd,
+  type ConnectorKind,
+  type ConnectorSide,
+  type ConnectorSpec,
+  type Point,
+  type ResolvedEnds
+} from './canvas-connector';
+
+/**
+ * Tidying a diagram: where the shapes go, given what joins them. The canvas's, like the
+ * connector geometry beside it — the slides product re-exports both.
+ */
+export {
+  layoutGraph,
+  rankGapFor,
+  RANK_GAP,
+  NODE_GAP,
+  type GraphNode,
+  type GraphEdge,
+  type GraphDirection,
+  type GraphLayoutOptions,
+  type GraphPlacement
+} from './canvas-graph-layout';
+/**
+ * Word's table commands, which a deck needs for the same reason Word does: the
+ * shared kit's were written for a schema without the header/body group between a
+ * table and its rows, and both products store tables with it.
+ */
+export {
+  createWordTables,
+  WordTableExtension,
+  nextTextDirection,
+  type WordTableOptions
+} from './table-commands';
+export {
+  createWordFrames,
+  WordFrameExtension,
+  frameNode,
+  FRAME_LAYOUTS,
+  type FrameLayout,
+  type InsertFrameOptions
+} from './frame-commands';

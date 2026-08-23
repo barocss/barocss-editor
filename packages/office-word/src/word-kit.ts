@@ -24,6 +24,7 @@ import {
 } from '@barocss/extensions';
 import { Editor, type EditorOptions, type Extension, type Keybinding } from '@barocss/editor-core';
 import { createWordCommands } from './word-commands';
+import { createWordFrames } from './frame-commands';
 import { createWordListCommands } from './list-commands';
 import { createWordComments, type CommentAuthor } from './comment-commands';
 import { createWordRevisions } from './revision-commands';
@@ -106,6 +107,9 @@ export function createWordExtensions(author: CommentAuthor = DEFAULT_AUTHOR): Ex
     createWordMath(),
     // The table operations knew this schema all along; nothing called them.
     createWordTables(),
+    // The other way to put two things side by side, and the one that is not a
+    // table with its borders turned off.
+    createWordFrames(),
     // Last, so it wraps the delete commands whichever extension registered them.
     // With tracking on, deleting stops deleting — which is a different operation
     // and has to be decided before the original one runs.

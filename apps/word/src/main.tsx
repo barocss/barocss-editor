@@ -24,6 +24,7 @@ import {
   registerTableHeaderRepeat,
   getWordSchemaDefinition,
   registerWordRenderers,
+  installCellSelection,
   WORD_ENV_KEY,
   type SurfaceLayout
 } from '@barocss/office-word';
@@ -122,9 +123,22 @@ export function mountWord(container: HTMLElement): { editor: Editor; view: Edito
     revision += 1;
   });
 
+  /**
+   * The document the renderers resolve against — with a **live** root.
+   *
+   * A getter rather than a value, because a captured root is the wrong root the
+   * moment a document is replaced: `loadDocument` makes a new one, and every
+   * lookup that goes through here (a style, a numbering, a resource) would be
+   * looking under a root that is no longer the document's. Word replaces nothing
+   * today; the deck does, and it was measured there — a new deck's title drew in
+   * `system-ui` because its theme was being looked for under the old root. Written
+   * the same way here so the pair cannot disagree later.
+   */
   const doc = {
     getNode: (id: string) => dataStore.getNode(id) as never,
-    rootId: editor.getRootId()!
+    get rootId() {
+      return editor.getRootId()!;
+    }
   };
 
   /**
@@ -454,6 +468,16 @@ export function mountWord(container: HTMLElement): { editor: Editor; view: Edito
   });
   printPages.attach();
   window.wordPrintPages = printPages;
+
+  /**
+   * Dragging across cells selects them.
+   *
+   * Installed here rather than inside the kit because it is about *pointers on
+   * this container* — the kit is what can be done to a document, and this is how
+   * one reader says which cells they mean. The same reason the deck's overlay
+   * lives in its app.
+   */
+  installCellSelection(editor, container, doc as never);
 
   window.editor = editor;
   window.editorView = view;

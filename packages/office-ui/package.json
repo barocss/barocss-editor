@@ -11,7 +11,8 @@
       "types": "./src/index.ts",
       "import": "./src/index.ts",
       "default": "./src/index.ts"
-    }
+    },
+    "./tokens.css": "./src/tokens.css"
   },
   "publishConfig": {
     "main": "./dist/index.js",
@@ -22,7 +23,8 @@
         "types": "./dist/index.d.ts",
         "import": "./dist/index.js",
         "default": "./dist/index.js"
-      }
+      },
+      "./tokens.css": "./dist/tokens.css"
     },
     "files": ["dist"]
   },
@@ -35,13 +37,13 @@
     "test:run": "vitest run"
   },
   "dependencies": {
-    "@barocss/editor-core": "workspace:*",
+    "@barocss/office-icons": "workspace:*",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-select": "^2.3.7",
     "@radix-ui/react-toolbar": "^1.1.19",
     "@radix-ui/react-tooltip": "^1.2.16",
     "clsx": "^2.1.1",
-    "lucide-react": "^1.28.0",
+    "react-colorful": "^5.8.0",
     "tailwind-merge": "^3.6.0"
   },
   "peerDependencies": {

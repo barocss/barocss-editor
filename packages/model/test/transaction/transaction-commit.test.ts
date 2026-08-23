@@ -52,7 +52,7 @@ describe('Transaction Commit', () => {
       selectionManager,
       emit: vi.fn(),
       updateSelection: vi.fn(),
-      historyManager: { push: vi.fn() }
+      historyManager: { push: vi.fn(), appendToLast: vi.fn().mockReturnValue(true) }
     };
   });
 
@@ -92,6 +92,78 @@ describe('Transaction Commit', () => {
       // operations now include result field; compare types and payload.node.stype
       expect(result.operations?.map(o => ({ type: o.type, nodeType: o.payload.node.stype })))
         .toEqual(operations.map(o => ({ type: o.type, nodeType: (o as any).payload.node.stype })));
+    });
+  });
+
+  /**
+   * A write that maintains **derived** state, kept out of the history.
+   *
+   * The connector reaction runs on every document change and writes the ends whenever a
+   * shape has moved, so every drag put two entries in the history: the reader's move and
+   * the reaction's. Undo undid the reaction; the reaction ran again — an undo is a
+   * document change — and wrote the same numbers back. Measured in a browser: undo
+   * pressed twice, reporting success both times, and the slide unchanged. The reader
+   * could not undo their own move at all.
+   */
+  describe('recordInHistory', () => {
+    it('records an edit', async () => {
+      await transaction(mockEditor, [create(textNode('inline-text', 'edit'))]).commit();
+      expect(mockEditor.historyManager.push).toHaveBeenCalled();
+    });
+
+    it('leaves a derived write out', async () => {
+      await transaction(mockEditor, [create(textNode('inline-text', 'derived'))], {
+        recordInHistory: false
+      }).commit();
+      expect(mockEditor.historyManager.push).not.toHaveBeenCalled();
+    });
+
+    it('still does the work — it is the *recording* that is skipped', async () => {
+      const result = await transaction(mockEditor, [create(textNode('inline-text', 'x'))], {
+        recordInHistory: false
+      }).commit();
+      expect(result.success).toBe(true);
+      expect(result.operations?.length).toBe(1);
+    });
+  });
+
+  /**
+   * The third answer: a write that is a **consequence** of the reader's edit.
+   *
+   * Neither of the two above fits a group's rectangle, which is the bounds of its
+   * children *and* the origin their coordinates are relative to — so keeping it honest
+   * re-origins them, and that pairing has to be undone together with the edit that caused
+   * it. Recorded on its own, undo undid the maintenance; unrecorded, undo restored a
+   * child's relative `x` into a coordinate space that had moved.
+   */
+  describe('appendToPreviousEntry', () => {
+    it('goes into the last entry instead of making one', async () => {
+      await transaction(mockEditor, [create(textNode('inline-text', 'consequence'))], {
+        appendToPreviousEntry: true
+      }).commit();
+
+      expect(mockEditor.historyManager.push).not.toHaveBeenCalled();
+      expect(mockEditor.historyManager.appendToLast).toHaveBeenCalled();
+    });
+
+    it('carries the operations and their inverses, so one undo takes back both halves', async () => {
+      await transaction(mockEditor, [create(textNode('inline-text', 'consequence'))], {
+        appendToPreviousEntry: true
+      }).commit();
+
+      const appended = (mockEditor.historyManager.appendToLast as any).mock.calls[0][0];
+      expect(appended.operations.length).toBeGreaterThan(0);
+      expect(appended.inverseOperations.length).toBe(appended.operations.length);
+    });
+
+    it('does the work whether or not the history takes it', async () => {
+      // The append refuses when there is no edit to belong to. The write still happened:
+      // a group whose box is wrong is wrong whatever the history says.
+      (mockEditor.historyManager.appendToLast as any).mockReturnValue(false);
+      const result = await transaction(mockEditor, [create(textNode('inline-text', 'x'))], {
+        appendToPreviousEntry: true
+      }).commit();
+      expect(result.success).toBe(true);
     });
   });
 
@@ -309,7 +381,7 @@ describe('a selection left on a deleted node', () => {
       selectionManager,
       emit: vi.fn(),
       updateSelection: vi.fn(),
-      historyManager: { push: vi.fn() }
+      historyManager: { push: vi.fn(), appendToLast: vi.fn().mockReturnValue(true) }
     };
 
     warn = vi.spyOn(console, 'warn').mockImplementation(() => {});

@@ -80,7 +80,22 @@ defineOperation('applyMark', async (operation: { payload: ApplyMarkOperationPayl
       }
       const contentRange = { type: 'range' as const, startNodeId, startOffset, endNodeId, endOffset };
       const mark = { stype: markType, attrs };
-      const before = startNodeId === endNodeId ? marksBefore(context.dataStore, startNodeId) : null;
+      /**
+       * Every node this will write to, as it was.
+       *
+       * Both ends, not just the first. Applying a mark now *replaces* the marks
+       * of its type over the range — a run has one colour, and appending left
+       * the reader with the older of two — so an inverse that restored only the
+       * start node would undo half of it and leave the far end recoloured with
+       * nothing said. `range.applyMark` writes to the two endpoints and no
+       * further, which is the same lightweight path this has always taken.
+       */
+      const before: Array<{ nodeId: string; marks: unknown[] }> = [
+        { nodeId: startNodeId, marks: marksBefore(context.dataStore, startNodeId) },
+        ...(startNodeId === endNodeId
+          ? []
+          : [{ nodeId: endNodeId, marks: marksBefore(context.dataStore, endNodeId) }])
+      ];
       context.dataStore.range.applyMark(contentRange, mark);
       /**
        * An inverse, so that undo takes the mark off again.
@@ -88,15 +103,20 @@ defineOperation('applyMark', async (operation: { payload: ApplyMarkOperationPayl
        * Only the single-node form used to report one, so applying bold across a
        * selection — the way a reader actually applies bold — produced nothing
        * for undo to do, and Ctrl+Z left the text bold.
+       *
+       * Exactly what each node carried before, not "take this range off": the
+       * range may have been partly marked already, and clearing it would take
+       * away formatting this operation never added.
        */
+      const undo = before.map((was) => ({
+        type: 'setMarks',
+        payload: { nodeId: was.nodeId, marks: was.marks }
+      }));
       return {
         ok: true,
         data: context.dataStore.getNode(startNodeId === endNodeId ? startNodeId : endNodeId),
-        // `removeMark` works on one node at a time, so a mark applied across
-        // several has no single operation that takes it off. Better to say so
-        // than to offer an inverse that only clears the first node.
-        // Exactly what the node carried before, not "take this range off".
-        ...(before ? { inverse: { type: 'setMarks', payload: { nodeId: startNodeId, marks: before } } } : {})
+        inverse:
+          undo.length === 1 ? undo[0] : { type: 'batch', payload: { operations: undo } }
       };
     }
 
@@ -108,16 +128,37 @@ defineOperation('applyMark', async (operation: { payload: ApplyMarkOperationPayl
     if (typeof start !== 'number' || typeof end !== 'number' || start >= end || start < 0 || end > (node.text as string).length) {
       throw new Error('Invalid range');
     }
-    const res = context.dataStore.marks.setMarks(nodeId, [
-      ...((node.marks as any[]) || []),
-      { stype: markType, attrs, range: [start, end] as [number, number] }
-    ]);
-    if (!res || res.valid !== true) throw new Error(res?.errors?.[0] || 'Apply mark failed');
+    // Read before the write, since the write is what it is the inverse of.
+    const had = marksBefore(context.dataStore, nodeId);
+    /**
+     * Applied through the store's own range path rather than by writing the
+     * mark list here.
+     *
+     * That path makes room before it adds — a character has one colour, and
+     * appending left a recoloured run carrying both marks with the older one
+     * winning — and which marks that happens to is the schema's answer, not this
+     * operation's. Writing the list here meant a second copy of that rule, and
+     * a second copy is where the two would disagree.
+     */
+    if (!context.dataStore.range || typeof context.dataStore.range.applyMark !== 'function') {
+      throw new Error('DataStore.range.applyMark is not available');
+    }
+    context.dataStore.range.applyMark(
+      { type: 'range' as const, startNodeId: nodeId, startOffset: start, endNodeId: nodeId, endOffset: end },
+      { stype: markType, attrs } as never
+    );
     
     return {
       ok: true,
       data: context.dataStore.getNode(nodeId),
-      inverse: { type: 'removeMark', payload: { nodeId, markType, range: [start, end] } }
+      /**
+       * What the node carried, rather than "take this range off".
+       *
+       * `removeMark` over the range was near enough while applying only
+       * appended; now that it replaces, the marks it cut have to come back, and
+       * only the list can say what they were.
+       */
+      inverse: { type: 'setMarks', payload: { nodeId, marks: had } }
     };
   } catch (e) {
     throw new Error(`Failed to apply mark: ${e instanceof Error ? e.message : 'Unknown error'}`);

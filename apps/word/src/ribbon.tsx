@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useReducer } from 'react';
+import { useMemo } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import {
+  choiceOptions,
   currentChoice,
   inheritedChoice,
   listKindOf,
@@ -15,18 +16,31 @@ import {
   WORD_FONT_SIZES,
   WORD_STYLES,
   WORD_TOOLBAR,
-  getWordStyles,
-  type ToolbarChoice
+  WORD_TEXT_COLOR,
+  WORD_TEXT_HIGHLIGHT,
+  WORD_CELL_SHADING,
+  currentPaletteColor,
+  getWordStyles
 } from '@barocss/office-word';
+/**
+ * The control shapes come from the shared layer, not from this product.
+ *
+ * They were declared in `office-word` — which is how the deck's ribbon ended up
+ * importing its own font box's type from Word. What a choice control and a
+ * palette *are* is nobody's product; what this file declares with them is Word's.
+ */
+import type { ChoiceControl, PaletteControl } from '@barocss/office-controls';
 import type { EditorViewDOM } from '@barocss/editor-view-dom';
 import {
   ChoiceSelect,
-  ControlIcon,
+  ColorPalette,
+  Icon,
   Toolbar,
   ToolbarGroup,
   ToolbarSeparator,
   ToolbarToggle
 } from '@barocss/office-ui';
+import { useEditorRevision } from './revision';
 import { ZoomControl } from './zoom';
 import type { FontLoader } from './font-loader';
 
@@ -81,18 +95,13 @@ export function Ribbon({
    * left Accept lit with nothing to accept, and it was never only that button:
    * anything whose availability turns on the document rather than the selection
    * was stale until something else forced a render.
+   *
+   * The subscription is the suite's now (`useEditorRevision`), which is how this
+   * ribbon gained the third event it was missing: a *cleared* selection is
+   * announced on `selection.change` alone, and deleting a table clears it. Slides
+   * had learnt that and written it down; this file had not.
    */
-  const [tick, bump] = useReducer((n: number) => n + 1, 0);
-
-  useEffect(() => {
-    editor.on('editor:selection.model', bump);
-    editor.on('editor:content.change', bump);
-    bump();
-    return () => {
-      editor.off('editor:selection.model', bump);
-      editor.off('editor:content.change', bump);
-    };
-  }, [editor]);
+  const tick = useEditorRevision(editor);
 
   const summary = useMemo(() => editor.getSelectionSummary(), [editor, tick]);
 
@@ -123,7 +132,7 @@ export function Ribbon({
     return node;
   };
 
-  const inherited = (model: ToolbarChoice) =>
+  const inherited = (model: ChoiceControl) =>
     inheritedChoice(model, getWordStyles(view.getEnv()), blockAtCaret());
 
   /**
@@ -151,13 +160,44 @@ export function Ribbon({
    * A font or size control: the same control with different options, so it is
    * built from the model rather than written twice.
    */
-  const choice = (model: ToolbarChoice, width: string) => (
+  /**
+   * A colour control, from the model that says which command it runs.
+   *
+   * The current colour comes from two different places and the model says which:
+   * a mark for text, an attribute for a cell. Neither is something the palette
+   * component knows about — it draws swatches and reports one back.
+   */
+  const palette = (model: PaletteControl) => (
+    <ColorPalette
+      key={model.id}
+      id={model.id}
+      label={model.label}
+      icon={<Icon name={model.icon} />}
+      value={currentPaletteColor(model, summary, cell)}
+      swatches={model.swatches}
+      // `canRun` with a real colour in it: `setFontColor` refuses a payload
+      // with no colour, so asking with an empty one would report every colour
+      // control as permanently unavailable — the same trap the picture button
+      // fell into in the deck.
+      disabled={!editor.canRun(model.command, { [model.key]: model.swatches[0].value })}
+      clearLabel={model.clearCommand || model.cellAttribute ? '없음' : undefined}
+      onPick={(value) => void editor.run(model.command, { [model.key]: value })}
+      onClear={() =>
+        void editor.run(model.clearCommand ?? model.command, model.clearCommand ? undefined : {})
+      }
+    />
+  );
+
+  const choice = (model: ChoiceControl, width: string) => (
     <ChoiceSelect
       key={model.id}
       testClass={`w-toolbar-${model.id}`}
       ariaLabel={model.label}
       className={width}
-      options={model.options.map((option) => ({ id: String(option.value), label: option.label }))}
+      // The current value is among them even when it is not a preset: a
+      // paragraph set in 13pt used to leave this box blank, which reads as "the
+      // selection disagrees with itself" when it agrees perfectly.
+      options={choiceOptions(model, currentChoice(model, summary, () => inherited(model)))}
       value={currentChoice(model, summary, () => inherited(model))}
       disabled={
         summary.empty || !editor.canRun(model.command, { [model.key]: model.options[0].value })
@@ -192,6 +232,16 @@ export function Ribbon({
       <ToolbarSeparator />
       {choice(WORD_FONTS, 'min-w-40')}
       {choice(WORD_FONT_SIZES, 'min-w-16')}
+      {palette(WORD_TEXT_COLOR)}
+      {/*
+        The highlighter's colour, beside the highlighter itself.
+
+        The toggle in the character group applies Word's yellow in one press,
+        which is what that button means; this is the choice of colour, and it
+        runs `setHighlight` rather than the toggle because pressing yellow on
+        green text means "make it yellow" and a toggle would take it off.
+      */}
+      {palette(WORD_TEXT_HIGHLIGHT)}
 
       {table && tableStyles.length > 0 && (
         <>
@@ -219,6 +269,13 @@ export function Ribbon({
       )}
 
       {/*
+        Shading, beside the table style and only inside a table — the same rule
+        the style gallery follows, and for the same reason: a shading control
+        with no cell to shade is a button that cannot do anything.
+      */}
+      {cell && palette(WORD_CELL_SHADING)}
+
+      {/*
         What is showing, which is the host's and not the document's — and last,
         because it is the group a reader reaches for least.
       */}
@@ -231,7 +288,7 @@ export function Ribbon({
             state={panes.outline ? 'on' : 'off'}
             onActivate={panes.onOutline}
           >
-            ☰
+            <Icon name="outline" />
           </ToolbarToggle>
           <ToolbarToggle
             id="view-comments"
@@ -239,7 +296,7 @@ export function Ribbon({
             state={panes.comments ? 'on' : 'off'}
             onActivate={panes.onComments}
           >
-            💬
+            <Icon name="comments" />
           </ToolbarToggle>
         </ToolbarGroup>
       </span>
@@ -278,7 +335,7 @@ export function Ribbon({
                 disabled={!editor.canRun(control.command, control.payload)}
                 onActivate={() => void editor.run(control.command, control.payload)}
               >
-                <ControlIcon id={control.id} fallback={control.icon} />
+                <Icon name={control.icon} />
               </ToolbarToggle>
             ))}
           </ToolbarGroup>

@@ -1,5 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import { deckSlides, noteFor, type DeckAccess, type DeckNode } from '../src/deck';
+import {
+  connectorFreezeSteps,
+  connectorRouteOf,
+  copyForPaste,
+  deckSlides,
+  pastable,
+  noteFor,
+  spaceOriginOf,
+  type DeckAccess,
+  type DeckNode
+} from '../src/deck';
 
 /**
  * Reading a deck, with no DOM and no editor — which is the point of it living
@@ -113,5 +123,255 @@ describe('reading a deck', () => {
       t1: { stype: 'textFrame', attributes: { role: 'title' }, content: ['t1'] }
     });
     expect(deckSlides(looped)[0].name).toBe('');
+  });
+});
+
+/**
+ * A line joined to a shape **inside a group**.
+ *
+ * Every placed thing's `x` is its container's, so a shape put into a group keeps its
+ * looks and changes its numbers. A connector on the slide that read those numbers as the
+ * slide's drew to a point a group's width away from the shape it is attached to —
+ * measured in a browser: an end at (9000, 6500) jumped to (1000, 5000) the moment the
+ * shape was grouped, and the arrowhead pointed at nothing.
+ */
+describe('a connector across coordinate spaces', () => {
+  const doc = (): DeckAccess => {
+    const nodes: Record<string, Record<string, unknown>> = {
+      root: { sid: 'root', stype: 'document', content: ['slide'] },
+      slide: { sid: 'slide', stype: 'surface', parentId: 'root', content: ['a', 'group', 'line'] },
+      a: {
+        sid: 'a',
+        stype: 'rectangle',
+        parentId: 'slide',
+        attributes: { x: 1000, y: 1000, width: 2000, height: 1000 }
+      },
+      group: {
+        sid: 'group',
+        stype: 'group',
+        parentId: 'slide',
+        content: ['b'],
+        attributes: { x: 8000, y: 5000, width: 3000, height: 2000 }
+      },
+      // Inside the group: its own numbers are the group's, not the slide's.
+      b: {
+        sid: 'b',
+        stype: 'rectangle',
+        parentId: 'group',
+        attributes: { x: 500, y: 400, width: 2000, height: 1000 }
+      },
+      line: {
+        sid: 'line',
+        stype: 'connector',
+        parentId: 'slide',
+        attributes: { startNodeId: 'a', endNodeId: 'b', kind: 'straight' }
+      }
+    };
+    return { rootId: 'root', getNode: (sid: string) => nodes[sid] as never } as DeckAccess;
+  };
+
+  it('adds up the containers a shape sits in', () => {
+    expect(spaceOriginOf(doc(), 'a')).toEqual({ x: 0, y: 0 });
+    // The group's origin, and the surface contributes nothing — it *is* the space.
+    expect(spaceOriginOf(doc(), 'b')).toEqual({ x: 8000, y: 5000 });
+    expect(spaceOriginOf(doc(), 'slide')).toEqual({ x: 0, y: 0 });
+  });
+
+  it('draws to where the shape actually is on the slide', () => {
+    const route = connectorRouteOf(doc(), 'line');
+    const end = route[route.length - 1];
+    /*
+     * The shape is at 8500..10500 across and 5400..6400 down in the slide's own
+     * coordinates. Read as the slide's, its numbers would have put this end near
+     * (500, 400) — the top-left corner of the slide, nowhere near the shape.
+     */
+    expect(end.x).toBeGreaterThan(8000);
+    expect(end.y).toBeGreaterThan(5000);
+  });
+});
+
+/**
+ * Copying a diagram.
+ *
+ * Copy two shapes and the line joining them, paste, and the pasted line pointed at the
+ * **originals** — a duplicated diagram was two sets of shapes with both lines attached
+ * to the first set. Measured in a browser, and it is the classic form of the fault: an
+ * identity that means something in one place travelling to another where it means
+ * something else.
+ */
+describe('copying shapes that are joined', () => {
+  const doc = (): DeckAccess => {
+    const nodes: Record<string, Record<string, unknown>> = {
+      root: { sid: 'root', stype: 'document', content: ['slide'] },
+      slide: { sid: 'slide', stype: 'surface', parentId: 'root', content: ['a', 'b', 'line', 'lone'] },
+      a: { sid: 'a', stype: 'rectangle', parentId: 'slide', attributes: { x: 0, y: 0, width: 100, height: 100 } },
+      b: { sid: 'b', stype: 'rectangle', parentId: 'slide', attributes: { x: 500, y: 0, width: 100, height: 100 } },
+      line: {
+        sid: 'line',
+        stype: 'connector',
+        parentId: 'slide',
+        attributes: { startNodeId: 'a', endNodeId: 'b', kind: 'elbow' }
+      },
+      lone: {
+        sid: 'lone',
+        stype: 'connector',
+        parentId: 'slide',
+        attributes: { startNodeId: 'a', endNodeId: 'outside', kind: 'elbow' }
+      }
+    };
+    return { rootId: 'root', getNode: (sid: string) => nodes[sid] as never } as DeckAccess;
+  };
+
+  /** Sids a test can read: the store's own are `session:counter`. */
+  const counter = () => {
+    let at = 0;
+    return () => `new:${(at += 1)}`;
+  };
+
+  it('points a copied line at the copied shapes', () => {
+    const copied = copyForPaste(doc(), ['a', 'b', 'line']);
+    const ready = pastable(copied, counter());
+
+    const [shapeA, shapeB, line] = ready as Array<{ sid?: string; attributes?: Record<string, unknown> }>;
+    expect(line.attributes?.startNodeId).toBe(shapeA.sid);
+    expect(line.attributes?.endNodeId).toBe(shapeB.sid);
+    // And not at the originals, which is the whole point.
+    expect(line.attributes?.startNodeId).not.toBe('a');
+  });
+
+  it('keeps a reference **out** of the copy as it was', () => {
+    /*
+     * A reader who copies one line and not the shapes it joins means the shapes it
+     * joins. In another deck that dangles, and the connector reaction releases it —
+     * leaving the line where it was drawn, which is the rule for a deleted shape too.
+     */
+    const ready = pastable(copyForPaste(doc(), ['lone']), counter()) as Array<{
+      attributes?: Record<string, unknown>;
+    }>;
+    expect(ready[0].attributes?.startNodeId).toBe('a');
+    expect(ready[0].attributes?.endNodeId).toBe('outside');
+  });
+
+  it('names every node, so a paste is one transaction', () => {
+    /*
+     * The sids are made before the commit rather than read back after it: a pasted line
+     * has to point at pasted shapes, and their sids do not exist until they are added.
+     * Two transactions would be two undos for one gesture.
+     */
+    const ready = pastable(copyForPaste(doc(), ['a', 'line']), counter()) as Array<{ sid?: string }>;
+    expect(ready.every((node) => typeof node.sid === 'string')).toBe(true);
+    expect(new Set(ready.map((node) => node.sid)).size).toBe(2);
+  });
+
+  it('carries none of its own bookkeeping into the document', () => {
+    const ready = pastable(copyForPaste(doc(), ['a', 'b', 'line']), counter()) as Array<
+      Record<string, unknown>
+    >;
+    for (const node of ready) {
+      expect('__ref' in node).toBe(false);
+      expect('__startRef' in node).toBe(false);
+    }
+  });
+
+  it('copies what is inside a container too, and names all of it', () => {
+    const nested = (): DeckAccess => {
+      const nodes: Record<string, Record<string, unknown>> = {
+        root: { sid: 'root', stype: 'document', content: ['slide'] },
+        slide: { sid: 'slide', stype: 'surface', parentId: 'root', content: ['g'] },
+        g: {
+          sid: 'g',
+          stype: 'group',
+          parentId: 'slide',
+          content: ['x', 'y', 'inner'],
+          attributes: { x: 0, y: 0, width: 900, height: 400 }
+        },
+        x: { sid: 'x', stype: 'rectangle', parentId: 'g', attributes: { x: 0, y: 0, width: 100, height: 100 } },
+        y: { sid: 'y', stype: 'rectangle', parentId: 'g', attributes: { x: 700, y: 0, width: 100, height: 100 } },
+        inner: {
+          sid: 'inner',
+          stype: 'connector',
+          parentId: 'g',
+          attributes: { startNodeId: 'x', endNodeId: 'y', kind: 'elbow' }
+        }
+      };
+      return { rootId: 'root', getNode: (sid: string) => nodes[sid] as never } as DeckAccess;
+    };
+
+    const ready = pastable(copyForPaste(nested(), ['g']), counter()) as Array<{
+      sid?: string;
+      content?: Array<{ sid?: string; stype?: string; attributes?: Record<string, unknown> }>;
+    }>;
+    const inside = ready[0].content ?? [];
+    const line = inside.find((node) => node.stype === 'connector')!;
+    // The line inside the group points at the copies of *its* siblings, not at the
+    // originals in the group it came from.
+    expect(line.attributes?.startNodeId).toBe(inside[0].sid);
+    expect(line.attributes?.startNodeId).not.toBe('x');
+  });
+});
+
+/**
+ * What is written on the lines that hold a shape about to be deleted.
+ *
+ * Both halves have to happen while the shape still exists — the place of the end, and
+ * the release of the hold — and both belong in the *deleting* transaction, which is the
+ * reader's own undo entry. A reaction doing it afterwards would need its own undo, and
+ * undoing the deletion would leave the line let go of a shape that had come back.
+ */
+describe('freezing a line when its shape goes', () => {
+  const doc = (): DeckAccess => {
+    const nodes: Record<string, Record<string, unknown>> = {
+      root: { sid: 'root', stype: 'document', content: ['slide'] },
+      slide: { sid: 'slide', stype: 'surface', parentId: 'root', content: ['a', 'b', 'line', 'other'] },
+      a: { sid: 'a', stype: 'rectangle', parentId: 'slide', attributes: { x: 0, y: 0, width: 2000, height: 1000 } },
+      b: { sid: 'b', stype: 'rectangle', parentId: 'slide', attributes: { x: 6000, y: 0, width: 2000, height: 1000 } },
+      line: {
+        sid: 'line',
+        stype: 'connector',
+        parentId: 'slide',
+        attributes: { startNodeId: 'a', endNodeId: 'b', startSide: 'e', endSide: 'w' }
+      },
+      other: {
+        sid: 'other',
+        stype: 'connector',
+        parentId: 'slide',
+        attributes: { startNodeId: 'a', endNodeId: 'a', startSide: 'n', endSide: 's' }
+      }
+    };
+    return { rootId: 'root', getNode: (sid: string) => nodes[sid] as never } as DeckAccess;
+  };
+
+  it('writes the place the end had, and lets go', () => {
+    const [step] = connectorFreezeSteps(doc(), ['b']);
+    expect(step.payload.nodeId).toBe('line');
+    expect(step.payload.attrs).toEqual({
+      // Where the end *was*, read while the shape is still there — this is what keeps the
+      // line on the slide instead of vanishing with the shape.
+      startX: 2000,
+      startY: 500,
+      endX: 6000,
+      endY: 500,
+      endNodeId: null
+    });
+  });
+
+  it('says nothing about the lines that hold nothing going', () => {
+    // Only the connectors that actually hold one of the doomed shapes: a freeze written
+    // on every line would be a document rewritten for a deletion that did not touch it.
+    const steps = connectorFreezeSteps(doc(), ['b']);
+    expect(steps).toHaveLength(1);
+    expect(connectorFreezeSteps(doc(), [])).toEqual([]);
+    expect(connectorFreezeSteps(doc(), ['nothing-like-this'])).toEqual([]);
+  });
+
+  it('lets go of both ends when both shapes go', () => {
+    const [step] = connectorFreezeSteps(doc(), ['a', 'b']);
+    expect(step.payload.attrs).toMatchObject({ startNodeId: null, endNodeId: null });
+  });
+
+  it('says nothing about a line that is itself being deleted', () => {
+    // It is going too; writing its ends first would be an edit to a node that is about
+    // to be removed, and one more thing in the undo entry to put back.
+    expect(connectorFreezeSteps(doc(), ['line'])).toEqual([]);
   });
 });

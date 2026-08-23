@@ -29,6 +29,13 @@ export function assertConforms(input: ConformanceInput): void {
     problems.push(`${report.staleExemptions.length} exemption(s) that no longer exempt anything`);
   }
 
+  for (const entry of report.ratcheted) {
+    if (entry.found === entry.allowed) continue;
+    problems.push(
+      `${entry.check}: ${entry.found} finding(s) against a ratchet of ${entry.allowed}`
+    );
+  }
+
   const silent = Object.entries(report.examined)
     .filter(([, count]) => count === 0)
     .map(([name]) => name);

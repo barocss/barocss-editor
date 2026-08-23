@@ -65,7 +65,7 @@ describe('IndentExtension', () => {
 
   describe('indentNode command', () => {
     it('indentNode: indentable한 노드를 들여쓰기한다', async () => {
-      const fakeDataStore = {
+      const fakeDataStore: Record<string, (...args: any[]) => any> = {
         getNode: (sid: string) => {
           if (sid === 'para-1') {
             return { sid, stype: 'paragraph', parentId: 'doc' };
@@ -119,7 +119,7 @@ describe('IndentExtension', () => {
     });
 
     it('indentNode: selection에서 자동으로 대상 노드를 찾아 들여쓰기한다', async () => {
-      const fakeDataStore = {
+      const fakeDataStore: Record<string, (...args: any[]) => any> = {
         getNode: (sid: string) => {
           if (sid === 'para-1') {
             return { sid, stype: 'paragraph', parentId: 'doc' };
@@ -175,7 +175,7 @@ describe('IndentExtension', () => {
     });
 
     it('indentNode: Node Selection에서 선택된 노드를 들여쓰기한다', async () => {
-      const fakeDataStore = {
+      const fakeDataStore: Record<string, (...args: any[]) => any> = {
         getNode: (sid: string) => {
           if (sid === 'para-1') {
             return { sid, stype: 'paragraph', parentId: 'doc' };
@@ -217,7 +217,7 @@ describe('IndentExtension', () => {
     });
 
     it('indentNode: indentable하지 않은 노드는 들여쓰기하지 않는다', async () => {
-      const fakeDataStore = {
+      const fakeDataStore: Record<string, (...args: any[]) => any> = {
         getNode: (sid: string) => {
           if (sid === 'para-1') {
             return { sid, stype: 'paragraph', parentId: 'doc' };
@@ -253,7 +253,7 @@ describe('IndentExtension', () => {
 
   describe('outdentNode command', () => {
     it('outdentNode: indentable한 노드를 내어쓰기한다', async () => {
-      const fakeDataStore = {
+      const fakeDataStore: Record<string, (...args: any[]) => any> = {
         getNode: (sid: string) => {
           if (sid === 'para-1') {
             return { sid, stype: 'paragraph', parentId: 'doc' };
@@ -295,7 +295,7 @@ describe('IndentExtension', () => {
     });
 
     it('outdentNode: 부모가 없는 노드는 내어쓰기하지 않는다', async () => {
-      const fakeDataStore = {
+      const fakeDataStore: Record<string, (...args: any[]) => any> = {
         getNode: (sid: string) => {
           if (sid === 'para-1') {
             return { sid, stype: 'paragraph', parentId: null }; // No parent
@@ -331,7 +331,7 @@ describe('IndentExtension', () => {
 
   describe('canExecute', () => {
     it('indentNode: indentable한 노드만 실행 가능', () => {
-      const fakeDataStore = {
+      const fakeDataStore: Record<string, (...args: any[]) => any> = {
         getNode: (sid: string) => {
           if (sid === 'para-1') {
             return { sid, stype: 'paragraph', parentId: 'doc' };
@@ -365,7 +365,7 @@ describe('IndentExtension', () => {
     });
 
     it('outdentNode: only indentable nodes with parent can execute', () => {
-      const fakeDataStore = {
+      const fakeDataStore: Record<string, (...args: any[]) => any> = {
         getNode: (sid: string) => {
           if (sid === 'para-1') {
             return { sid, stype: 'paragraph', parentId: 'doc' };

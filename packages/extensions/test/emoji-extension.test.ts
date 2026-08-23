@@ -31,7 +31,7 @@ function createFakeEditor(dataStore: any, schema?: any): Editor & { __getCommand
     },
     dataStore,
     getActiveSchema: () => schema
-  } as Editor & { __getCommand: (name: string) => any; dataStore: any };
+  } as unknown as Editor & { __getCommand: (name: string) => any; dataStore: any };
 }
 
 describe('EmojiExtension', () => {

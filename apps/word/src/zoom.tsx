@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { ZoomControl as SuiteZoomControl } from '@barocss/office-ui';
+import { useEffect, useRef } from 'react';
+import { ZoomControl as SuiteZoomControl, useWheelZoom } from '@barocss/office-ui';
 
 /**
  * How large the page is drawn.
@@ -80,18 +80,44 @@ export function ZoomControl({
   zoom: number;
   onChange: (zoom: number) => void;
 }) {
-  // Ctrl/Cmd with the wheel is what every reader already tries. Scoped to the
-  // document pane, so the same gesture over the ribbon is the browser's.
+  /**
+   * Ctrl/Cmd with the wheel is what every reader already tries.
+   *
+   * The suite's gesture now, and this product gained two things by asking for it.
+   * It used to scope the listener with `closest('.w-shell-document')` — which
+   * works here and fails over a canvas, where a fixed overlay sits above the pane
+   * — and it **never anchored**: the page zoomed about the pane's origin, so
+   * zooming in on a paragraph half way down walked that paragraph off the screen.
+   * The deck had solved that with three measured corrections; see `useWheelZoom`.
+   *
+   * The pane is found rather than held in a ref, because this control is drawn in
+   * the ribbon and the pane it acts on is the frame's — the same query the fit
+   * calculation below already makes.
+   */
+  const pane = useRef<HTMLElement | null>(null);
   useEffect(() => {
-    const onWheel = (event: WheelEvent) => {
-      if (!event.ctrlKey && !event.metaKey) return;
-      if (!(event.target as Element | null)?.closest?.('.w-shell-document')) return;
-      event.preventDefault();
-      onChange(clamp(zoom * (event.deltaY < 0 ? 1.1 : 1 / 1.1)));
-    };
-    window.addEventListener('wheel', onWheel, { passive: false });
-    return () => window.removeEventListener('wheel', onWheel);
-  }, [zoom, onChange]);
+    pane.current = document.querySelector<HTMLElement>('.w-shell-document');
+  });
+
+  useWheelZoom({
+    pane,
+    /**
+     * The whole document column, which is the right rectangle and not the
+     * obvious one.
+     *
+     * `.w-surface` is every page stacked — measured 7,536px tall for this
+     * sample, against a 900px window — and anchoring on it is still exact,
+     * because the column is what the transform scales and a *fraction* of it
+     * survives being scaled. A single page would be wrong the moment a reader
+     * zooms while looking at the second one: the page under the pointer is not
+     * the one the rectangle describes.
+     */
+    content: () => document.querySelector('.w-surface')?.getBoundingClientRect(),
+    zoom,
+    onZoom: onChange,
+    min: ZOOM_MIN,
+    max: ZOOM_MAX
+  });
 
   return (
     <SuiteZoomControl

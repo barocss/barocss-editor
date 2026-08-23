@@ -4,6 +4,7 @@ import './moveNode';
 import './reorderChildren';
 import './addChild';
 import './insertParagraph';
+import './insertPageBreakAtCaret';
 import './removeChild';
 import './moveChildren';
 import './removeChildren';

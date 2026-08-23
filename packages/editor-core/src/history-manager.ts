@@ -163,6 +163,54 @@ export class HistoryManager {
   }
 
   /**
+   * Put a derived write **into the edit that caused it**.
+   *
+   * ## The state this exists to prevent
+   *
+   * Some derived state lives in the document because it *is* a coordinate space: a
+   * group's rectangle is the bounds of its children, and its children's coordinates are
+   * relative to that rectangle. So maintaining it re-origins them — the group moves right
+   * by 3000 and every child moves left by 3000, which together change nothing on screen.
+   *
+   * A maintaining write like that cannot be its own history entry: undo would undo the
+   * maintenance rather than the reader's edit, and the reaction would immediately write it
+   * back. Measured on a group, and it was worse than that — **three presses of undo
+   * changed nothing at all**, because each press undid the fit and each fit ran again.
+   *
+   * Nor can it simply go unrecorded, which is the right answer for state derived from
+   * *nothing the reader writes* (a connector's route, a laid-out frame's children). Here
+   * the reader's own numbers are among the ones rewritten: undo restored a child's
+   * relative `x` into a coordinate space that had since been re-origined, and put the
+   * shape somewhere it had never been.
+   *
+   * The write is a **consequence** of the edit, so it belongs in the edit's entry. Then
+   * one undo takes back both halves, exactly, and a redo replays both.
+   *
+   * ## Why it can refuse
+   *
+   * There has to *be* an edit to belong to, and it has to be the one at the top of the
+   * stack. After an undo the top entry is one the reader may still redo, and appending a
+   * later consequence to it would make that redo replay something else. In that case the
+   * caller records nothing — which is safe, because an undo restores a state the
+   * maintenance already agrees with.
+   */
+  appendToLast(entry: Pick<HistoryEntry, 'operations' | 'inverseOperations'>): boolean {
+    if (this.history.length === 0) return false;
+    // Not while there is a redo stack: that entry is the reader's to replay.
+    if (this.currentIndex !== this.history.length - 1) return false;
+    if (!entry.operations || entry.operations.length === 0) return false;
+
+    const previous = this.history[this.currentIndex];
+    previous.operations = [...previous.operations, ...entry.operations];
+    // Inverses undo newest-first, so the consequence has to be undone before the edit
+    // that caused it.
+    previous.inverseOperations = [...entry.inverseOperations, ...previous.inverseOperations];
+    // The timestamp and the selection stay the edit's own: a reader's caret belongs where
+    // *they* left it, not where a maintenance pass finished.
+    return true;
+  }
+
+  /**
    * Undo - revert to previous state
    */
   undo(): HistoryEntry | null {

@@ -1,13 +1,24 @@
 import { everyNodeIsDrawn } from './checks/every-node-is-drawn';
 import { everyDrawingCanHoldWhatItContains } from './checks/every-drawing-can-hold-what-it-contains';
+import { everyDrawingKeepsItsChildren } from './checks/every-drawing-keeps-its-children';
+import { everyDrawingCanBeNamed } from './checks/every-drawing-can-be-named';
+import { everyAttributeIsRead } from './checks/every-attribute-is-read';
+import { everyIconHasAPicture } from './checks/every-icon-has-a-picture';
 import { everyCommandCanBeSeen, type CommandProducing } from './checks/every-command-can-be-seen';
 import { everyCommandMakesSomethingReal } from './checks/every-command-makes-something-real';
 import { everyInsertIsAccountedFor } from './checks/every-insert-is-accounted-for';
 import { everyCommandCanBeReached } from './checks/every-command-can-be-reached';
-import type { Check, Exemptions, Report, Subject } from './types';
+import type { Check, Exemptions, Ratchets, Report, Subject } from './types';
 
 /** The checks that need nothing from the product but its schema and renderers. */
-export const CHECKS: Check[] = [everyNodeIsDrawn, everyDrawingCanHoldWhatItContains];
+export const CHECKS: Check[] = [
+  everyNodeIsDrawn,
+  everyDrawingCanHoldWhatItContains,
+  everyDrawingKeepsItsChildren,
+  everyDrawingCanBeNamed,
+  everyAttributeIsRead,
+  everyIconHasAPicture
+];
 
 export interface ConformanceInput {
   /** The product's schema — anything with a `nodes` map. */
@@ -22,11 +33,38 @@ export interface ConformanceInput {
    */
   drawnAs?: Subject['drawnAs'];
   /**
+   * The element a node type's children land in, when that is not the element the
+   * node itself draws as. See `Subject.holdsIn`.
+   */
+  holdsIn?: Subject['holdsIn'];
+  /**
+   * What the product calls a node type, for the list a reader reads beside the
+   * canvas. Leave it out and that check abstains rather than guessing.
+   */
+  nameOf?: Subject['nameOf'];
+  /**
+   * Whether setting an attribute changes what the product draws, by drawing it
+   * twice. Leave it out and that check abstains rather than guessing.
+   */
+  attributeRead?: Subject['attributeRead'];
+  /**
+   * The icon names the product's controls ask for, and whether the suite draws each.
+   *
+   * Both or neither: the check abstains without them, and its `examined` count is
+   * what keeps the abstaining visible.
+   */
+  iconsAsked?: Subject['iconsAsked'];
+  iconDrawn?: Subject['iconDrawn'];
+  /**
    * Findings the product expects, and why.
    *
-   * Keyed by subject. The reason is the whole value of the entry: it is what a
-   * reader needs to decide whether the exemption still applies, and it is what
-   * separates a decision from an oversight.
+   * Keyed by subject, or by the family a check groups findings into — see
+   * `Finding.family`, which exists so that a fact about an attribute is written
+   * once rather than once per node type that declares it.
+   *
+   * The reason is the whole value of the entry: it is what a reader needs to
+   * decide whether the exemption still applies, and it is what separates a
+   * decision from an oversight.
    */
   exempt?: Exemptions;
   /**
@@ -65,6 +103,14 @@ export interface ConformanceInput {
    * in the package rather than a handler in the host.
    */
   reachable?: string[];
+  /**
+   * Findings a check is allowed while the product works them off, by check name.
+   *
+   * For adopting a check that finds hundreds at once — see `Ratchets` for why this is
+   * a count rather than hundreds of written reasons, and why going *below* the count
+   * fails as well.
+   */
+  ratchet?: Ratchets;
   /** Run a subset, for a product adopting the harness one check at a time. */
   only?: string[];
 }
@@ -102,20 +148,64 @@ export function conformance(input: ConformanceInput): Report {
   const subject: Subject = {
     schema: input.schema,
     hasRenderer: input.hasRenderer,
-    drawnAs: input.drawnAs
+    drawnAs: input.drawnAs,
+    holdsIn: input.holdsIn,
+    nameOf: input.nameOf,
+    attributeRead: input.attributeRead,
+    iconsAsked: input.iconsAsked,
+    iconDrawn: input.iconDrawn
   };
 
   const findings = [];
   const examined: Record<string, number> = {};
   const matched = new Set<string>();
+  const ratchet: Ratchets = input.ratchet ?? {};
+  const ratcheted: Report['ratcheted'] = [];
 
   for (const check of checks) {
     const result = check.run(subject);
     examined[check.name] = result.examined;
 
+    /**
+     * A check the product is still working off: counted, not reported.
+     *
+     * The families rather than the subjects, because that is the size the work is
+     * done at — one reason covers an attribute wherever it appears, and a list of
+     * three hundred subjects is not a work list anybody reads.
+     */
+    if (check.name in ratchet) {
+      const unexpected = result.findings.filter(
+        (finding) =>
+          !(finding.subject in exempt) && !(finding.family && finding.family in exempt)
+      );
+      for (const finding of result.findings) {
+        if (finding.subject in exempt) matched.add(finding.subject);
+        else if (finding.family && finding.family in exempt) matched.add(finding.family);
+      }
+      ratcheted.push({
+        check: check.name,
+        allowed: ratchet[check.name],
+        found: unexpected.length,
+        families: [...new Set(unexpected.map((finding) => finding.family ?? finding.subject))].sort()
+      });
+      continue;
+    }
+
     for (const finding of result.findings) {
-      if (finding.subject in exempt) {
-        matched.add(finding.subject);
+      /**
+       * The subject first, then the family it belongs to.
+       *
+       * The subject is the more specific claim, so it wins — a decision about one
+       * node is not overruled by a decision about the attribute everywhere.
+       */
+      const key =
+        finding.subject in exempt
+          ? finding.subject
+          : finding.family && finding.family in exempt
+            ? finding.family
+            : undefined;
+      if (key !== undefined) {
+        matched.add(key);
         continue;
       }
       findings.push(finding);
@@ -128,7 +218,7 @@ export function conformance(input: ConformanceInput): Report {
     .filter(([subjectName]) => !matched.has(subjectName))
     .map(([subjectName, reason]) => ({ subject: subjectName, reason }));
 
-  return { findings, staleExemptions, examined };
+  return { findings, staleExemptions, examined, ratcheted };
 }
 
 /**
@@ -157,6 +247,17 @@ export function describeReport(report: Report): string {
     for (const stale of report.staleExemptions) {
       lines.push(`  · ${stale.subject} — "${stale.reason}"`);
     }
+  }
+
+  for (const entry of report.ratcheted) {
+    if (entry.found === entry.allowed) continue;
+    lines.push(
+      '',
+      entry.found > entry.allowed
+        ? `${entry.check}: ${entry.found} finding(s), and ${entry.allowed} were allowed. Something that used to hold no longer does.`
+        : `${entry.check}: ${entry.found} finding(s), and ${entry.allowed} were allowed. Lower the ratchet to ${entry.found} — a number that is not the truth leaves room to break things quietly.`,
+      `  ${entry.families.join(', ')}`
+    );
   }
 
   const counted = Object.entries(report.examined)

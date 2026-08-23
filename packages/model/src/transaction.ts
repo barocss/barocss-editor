@@ -197,8 +197,34 @@ export class TransactionManager {
       const selectionAfter = context.selection.current;
       this._warnOnDanglingSelection(selectionBefore, selectionAfter, executedOperations);
 
-      // 7. Add to history (only on success)
-      if (executedOperations.length > 0 && this._shouldAddToHistory(executedOperations)) {
+      /**
+       * 7. Add to history (only on success, and only if this is an *edit*)
+       *
+       * `recordInHistory: false` is for a write that maintains derived state — see the
+       * option. A reaction that recorded made undo undo *it* rather than the reader's
+       * edit, and then ran again and wrote the same thing back.
+       */
+      /**
+       * A write that is a *consequence* of the reader's edit goes into that edit's own
+       * entry — see `appendToPreviousEntry` and `HistoryManager.appendToLast`. It refuses
+       * when there is no edit to belong to, and then this records nothing, which is the
+       * same answer `recordInHistory: false` gives.
+       */
+      if (
+        options?.appendToPreviousEntry === true &&
+        executedOperations.length > 0 &&
+        this._shouldAddToHistory(executedOperations)
+      ) {
+        this._editor.historyManager.appendToLast({
+          operations: executedOperations,
+          inverseOperations: inverseOperations.reverse()
+        });
+      } else if (
+        options?.recordInHistory !== false &&
+        options?.appendToPreviousEntry !== true &&
+        executedOperations.length > 0 &&
+        this._shouldAddToHistory(executedOperations)
+      ) {
         const shouldPreserveSelection = options?.preserveSelectionInHistory !== false;
         this._editor.historyManager.push({
           operations: executedOperations,

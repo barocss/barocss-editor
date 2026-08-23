@@ -3,6 +3,45 @@ export interface AttributeDefinition {
   default?: any;
   required?: boolean | ((attrs: Record<string, any>) => boolean);
   validator?: (value: any, attrs?: Record<string, any>) => boolean;
+  /**
+   * The values this attribute may take, when it is one of a fixed set.
+   *
+   * ## Why this exists rather than a comment
+   *
+   * The set was already written down — in prose, above the declaration:
+   * *"`linear` or `radial`. Anything else is drawn as linear."*, *"`solid`, `dash`,
+   * `dot` or `dashDot`."* A comment is not readable by anything, so the same fixed
+   * set was written again in every toolbar that offers it and every check that
+   * wants to know what a legal value looks like — and a value added to the drawing
+   * and not to the prose is invisible.
+   *
+   * Found by a conformance check: `gradientKind` looked **unread** on six node
+   * types. It was read; the check had set it to a value no renderer recognised, so
+   * the drawing fell back to linear and the two renders agreed. A check cannot
+   * invent a legal value for a set nobody declares.
+   *
+   * Two things read it today — `Validator.validateAttributes` rejects a value
+   * outside the set, and the harness's attribute probe picks one inside it — which
+   * is the standard this repository holds itself to: a declaration nothing reads is
+   * a promise nothing keeps.
+   */
+  options?: readonly string[];
+  /**
+   * The range a number may take, when it has one.
+   *
+   * The same argument as `options`, for the other kind of attribute whose meaning is
+   * narrower than its type. A picture's `cropLeft` is declared `type: 'number'` and is
+   * a **fraction of the picture**: `fraction()` clamps anything above 1, so a crop of
+   * 4000 is a crop of 1, and four of those crop the picture out of existence.
+   *
+   * Found the same way `options` was: the attribute probe set all four crops to a
+   * number outside the range, the drawing came back uncropped, and the check reported
+   * four attributes unread about the file that reads them. Declared here so the
+   * validator can reject a value the product would silently clamp, and so a check can
+   * pick one the product will actually use.
+   */
+  min?: number;
+  max?: number;
   transform?: (value: any) => any;
   customType?: string;
   // Object schema for detailed object validation
@@ -195,6 +234,25 @@ export interface MarkDefinition {
   excludes?: string[]; // Other marks that cannot be used together
   group?: string; // Mark group
   inclusive?: boolean; // Default: true
+  /**
+   * That a character can carry only one of these, so applying replaces.
+   *
+   * A colour, a highlight, a size, a family: each is a single value the reader
+   * chose, and a run that carried two of them would be a document nobody can
+   * draw — which of them won would be whatever the renderer nested last. It was
+   * exactly that: applying a mark appended it, so text that was red and was then
+   * made green kept the red, in every product, by every route.
+   *
+   * Off by default, because the marks that legitimately stack are the ones where
+   * getting this wrong destroys something: two comments overlap on the same
+   * sentence, and so do an insertion and a colour. Only marks that are one value
+   * say so.
+   *
+   * Not `excludes`, which is about *other* marks and is checked by
+   * `validateMarks`: a mark listed as excluding itself would make a text node
+   * with a red word and a blue word invalid.
+   */
+  single?: boolean;
 }
 
 // Mark instance

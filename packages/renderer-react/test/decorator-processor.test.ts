@@ -90,7 +90,9 @@ describe('decorator processor', () => {
     it('filters out decorators with missing or invalid target', () => {
       const list: Decorator[] = [
         makeInline('d1', 't1', 0, 1),
-        { sid: 'd2', stype: 'x', category: 'inline', target: null as any },
+        // Deliberately malformed — the case under test — so it is cast once, here,
+        // rather than by widening the array's type and losing the check on the rest.
+        { sid: 'd2', stype: 'x', category: 'inline', target: null } as unknown as Decorator
       ].filter(Boolean);
       const withNull = [
         makeInline('d1', 't1', 0, 1),

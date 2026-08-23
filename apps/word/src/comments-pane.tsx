@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import type { EditorViewDOM } from '@barocss/editor-view-dom';
 import { commentThreads, type CommentThread } from '@barocss/office-word';
-import { Check, MessageSquarePlus, Pencil, Reply, Trash2 } from 'lucide-react';
+import { Icon } from '@barocss/office-icons';
 import { cn } from '@barocss/office-ui';
 
 /**
@@ -133,7 +133,9 @@ export function CommentsPane({
         title={threads.length > 0 ? `댓글 ${threads.length}개 열기` : '댓글 열기'}
         data-comment-count={threads.length}
       >
-        <span aria-hidden="true">💬</span>
+        {/* The same drawing the ribbon's own comments button uses, because it is
+            the same pane — an emoji here and an icon there read as two features. */}
+        <Icon name="comments" size={15} />
         {threads.length > 0 ? <span className="w-comments-count">{threads.length}</span> : null}
       </button>
     );
@@ -159,7 +161,9 @@ export function CommentsPane({
           title="댓글 닫기"
           aria-label="댓글 닫기"
         >
-          ×
+          {/* Not the `×` character, which is a multiplication sign at whatever
+              weight the body face has. The find bar next door already drew this. */}
+          <Icon name="close" size={14} />
         </button>
         <button
           aria-label="Add comment"
@@ -168,7 +172,7 @@ export function CommentsPane({
           disabled={!anchorTo}
           onClick={() => void add()}
         >
-          <MessageSquarePlus size={15} />
+          <Icon name="comment-new" size={15} />
         </button>
       </div>
 
@@ -201,7 +205,7 @@ export function CommentsPane({
                       setEditing({ sid: entry.sid, text: entry.text });
                     }}
                   >
-                    <Pencil size={12} />
+                    <Icon name="edit" size={12} />
                   </button>
                 </div>
 
@@ -265,7 +269,7 @@ export function CommentsPane({
                   setReplies((all) => ({ ...all, [thread.id]: '' }));
                 }}
               >
-                <Reply size={14} />
+                <Icon name="reply" size={14} />
               </button>
             </div>
 
@@ -277,14 +281,14 @@ export function CommentsPane({
                   void editor.run('resolveComment', { id: thread.id, resolved: !thread.resolved })
                 }
               >
-                <Check size={14} />
+                <Icon name="resolve" size={14} />
               </button>
               <button
                 aria-label="Delete comment"
                 className="inline-flex h-6 w-6 items-center justify-center rounded hover:bg-neutral-100 dark:hover:bg-neutral-800"
                 onClick={() => void editor.run('deleteComment', { id: thread.id })}
               >
-                <Trash2 size={14} />
+                <Icon name="delete" size={14} />
               </button>
             </div>
           </li>

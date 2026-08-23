@@ -1,0 +1,40 @@
+{
+  /**
+   * Type-checking, including the tests.
+   *
+   * ## Why this is not `tsconfig.json`
+   *
+   * That one is the **build's**: `vite build` reads it to decide what to compile and
+   * what declarations to emit, so a test file added to its `include` ends up in
+   * `dist`. Which is why every package's `include` was `src/**` only — and why the
+   * tests of twenty-two packages were never once read by the compiler.
+   *
+   * ## Why that matters
+   *
+   * A test is the thing that says the code is right. A test the compiler never reads
+   * is a claim nothing checked: a field written on an object that has no such field
+   * passed twenty-five green tests here (`hit.needs` on an `AuditHit`), and Word has
+   * nineteen more of exactly that in one spec file.
+   *
+   * `rootDir` is the repository, not the package: a sibling package is imported
+   * through `paths` and resolves to its **source**, which is outside this directory —
+   * without this, tsc reports every cross-package import as being outside the root and
+   * says nothing about the code. Inert otherwise, since nothing is emitted.
+   *
+   * Held to by `pnpm type-check:tests` — see `scripts/typecheck-tests.mjs`, which
+   * carries the count each package is still working off.
+   */
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": "../..",
+    /**
+     * `describe`, `it`, `vi` — several packages set `globals: true` in their vitest
+     * config and their tests use them without importing. Named here so the compiler
+     * knows the same names the runner does; without it a test file that runs is a
+     * file that will not compile, which is the wrong way round.
+     */
+    "types": ["vitest/globals", "node"]
+  },
+  "include": ["src/**/*", "test/**/*"]
+}

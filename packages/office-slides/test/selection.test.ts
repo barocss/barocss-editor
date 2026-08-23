@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createSchema } from '@barocss/schema';
-import { boxAt, isSceneType, SCENE_TYPES, slideAt } from '../src/selection';
+import { agreed, agreedAttr, boxAt, isSceneType, SCENE_TYPES, slideAt } from '../src/selection';
 import { getSlidesSchemaDefinition } from '../src/slides-schema';
 import type { DeckAccess, DeckNode } from '../src/deck';
 
@@ -83,21 +83,80 @@ describe('finding the box the reader is in', () => {
    * added to the schema's `scene` group without a thought here would be silently
    * unselectable — a box nobody could get the properties of, with nothing
    * failing.
+   *
+   * The scene group **and `frame`**, which is the one exception and is written
+   * down rather than absorbed. A frame is a *layout box* — a thing that holds
+   * other things and decides where they go — which is as useful in a document
+   * as on a slide, so the schema makes it a block and the canvas containers
+   * name it. On a slide it is still a box a reader selects, drags and gives a
+   * fill, so this product treats it as one.
    */
-  it('lists exactly the schema’s scene group', () => {
+  it('lists the schema’s scene group, and the frame that left it', () => {
     const schema = createSchema('slides', getSlidesSchemaDefinition());
     const inGroup = [...(schema as any).nodes.values()]
       .filter((node: any) => node.group === 'scene')
       .map((node: any) => node.name)
       .sort();
 
-    expect([...SCENE_TYPES].sort()).toEqual(inGroup);
+    expect([...SCENE_TYPES].sort()).toEqual([...inGroup, 'frame'].sort());
     for (const name of inGroup) expect(isSceneType(name)).toBe(true);
+    expect(isSceneType('frame')).toBe(true);
   });
 
   it('says no to anything that is not one', () => {
     expect(isSceneType('paragraph')).toBe(false);
     expect(isSceneType(undefined)).toBe(false);
     expect(isSceneType(42)).toBe(false);
+  });
+});
+
+/**
+ * What several boxes agree on.
+ *
+ * The fault this was written for was measured in a browser: with a 6000-twip
+ * rectangle and a 2000-twip ellipse both selected, the properties panel showed
+ * the rectangle's width as if it were the selection's, and typing a width changed
+ * the rectangle and left the ellipse alone. The controls had been ready for it
+ * since Word's ruler — `PropertyNumber` draws a `null` as an empty field with a
+ * placeholder — and nothing ever passed one.
+ */
+describe('what a selection agrees on', () => {
+  it('is the shared value, or nothing at all', () => {
+    expect(agreed([4, 4, 4])).toBe(4);
+    expect(agreed([4, 9])).toBeNull();
+    // One box is a selection that agrees with itself.
+    expect(agreed(['x'])).toBe('x');
+    // And nothing selected has nothing to say, which is not the same as zero.
+    expect(agreed([])).toBeNull();
+    expect(agreed([false, false])).toBe(false);
+  });
+
+  /**
+   * A box that has never heard of the attribute is skipped rather than counted as
+   * a disagreement: a rectangle and an ellipse differ about `cornerRadius` only in
+   * that one of them does not have corners, and blanking the row would answer a
+   * question nobody asked.
+   */
+  it('skips the boxes that do not declare it', () => {
+    const doc = {
+      rootId: 'root',
+      getNode: (sid: string) =>
+        ({
+          rect: { sid: 'rect', stype: 'rectangle', attributes: { width: 6000, cornerRadius: 120 } },
+          oval: { sid: 'oval', stype: 'ellipse', attributes: { width: 6000 } },
+          wide: { sid: 'wide', stype: 'rectangle', attributes: { width: 2000, cornerRadius: 120 } }
+        })[sid] as never
+    };
+
+    // They agree about the width…
+    expect(agreedAttr(doc as never, ['rect', 'oval'], 'width')).toBe(6000);
+    // …and the radius is the rectangle's alone, so it is the answer.
+    expect(agreedAttr(doc as never, ['rect', 'oval'], 'cornerRadius')).toBe(120);
+    // Two rectangles at different widths agree about nothing.
+    expect(agreedAttr(doc as never, ['rect', 'wide'], 'width')).toBeNull();
+    // And an attribute none of them has is nothing rather than `undefined`, so a
+    // field draws its placeholder instead of the word "undefined".
+    expect(agreedAttr(doc as never, ['rect', 'oval'], 'nonsense')).toBeNull();
+    expect(agreedAttr(doc as never, [], 'width')).toBeNull();
   });
 });

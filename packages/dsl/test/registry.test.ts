@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { RendererRegistry } from '../src/registry';
-import { element, define } from '../src/template-builders';
+import { element } from '../src/template-builders';
 import type { RendererDefinition, ExternalComponent, ContextualComponent } from '../src/types';
 
 describe('RendererRegistry', () => {
@@ -99,7 +99,7 @@ describe('RendererRegistry', () => {
   describe('auto-registration of external components', () => {
     it('stores external component in _components, not _renderers', () => {
       const comp: ExternalComponent = {
-        type: 'external' as any,
+        type: 'external',
         mount: (_props, container) => container,
         unmount: () => {},
         managesDOM: true

@@ -94,3 +94,6 @@ playwright-report/
 
 # recordings of hand-typed input, written by the dev server
 apps/word/.input-lab/
+
+# The turn log of the agent that works in this repo, not the product.
+.omx/

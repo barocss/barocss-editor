@@ -26,6 +26,18 @@ export interface SlidesEnv {
    * that can disagree.
    */
   showsNotes?: boolean;
+  /**
+   * Where every connector goes, worked out by the layout pass.
+   *
+   * On the environment rather than in the document because a route is **derived**: it
+   * depends on the shapes a line joins, the shapes in the way and any line an end holds
+   * — none of which are the connector's own node, which is why the view had no reason to
+   * redraw it when they changed. See `connector-pass.ts`.
+   *
+   * Absent for a render with no pass — a thumbnail built before the deck is loaded, a
+   * test rendering one node — and the renderer works the route out itself there.
+   */
+  routes?: Map<string, { x: number; y: number }[]>;
 }
 
 /** Whether the view being rendered is the one that shows notes. */

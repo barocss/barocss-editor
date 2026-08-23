@@ -13,6 +13,9 @@
     "@barocss/dsl": "workspace:*",
     "@barocss/editor-core": "workspace:*",
     "@barocss/editor-view-dom": "workspace:*",
+    "@barocss/office-controls": "workspace:*",
+    "@barocss/office-icons": "workspace:*",
+    "@barocss/office-ui": "workspace:*",
     "@barocss/office-word": "workspace:*",
     "@barocss/schema": "workspace:*",
     "@radix-ui/react-select": "^2.3.7",
@@ -21,11 +24,9 @@
     "@radix-ui/react-toolbar": "^1.1.19",
     "@radix-ui/react-tooltip": "^1.2.16",
     "clsx": "^2.1.1",
-    "lucide-react": "^1.28.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "tailwind-merge": "^3.6.0",
-    "@barocss/office-ui": "workspace:*"
+    "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",

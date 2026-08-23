@@ -27,15 +27,54 @@ import type { Page } from '@playwright/test';
  * and silently do nothing.
  */
 export async function placeCaret(page: Page, selector: string, index = 0) {
-  await page.locator(selector).nth(index).click();
+  const target = page.locator(selector).nth(index);
+  await target.click();
+
+  /**
+   * Wait for the caret to be *here*, not merely for there to be a caret.
+   *
+   * This used to poll for `selection.type === 'range'`, which is already true
+   * whenever anything has been clicked or typed before — so it returned on the
+   * previous caret's position and the test typed against a selection still
+   * pointing at the last paragraph. Silent, because the first character goes in
+   * at the DOM caret and looks right; the render that follows restores the
+   * model's caret, and every character after it lands where the *old* selection
+   * was. Measured in a frame's two halves: "오" in the right one and "른쪽" in
+   * the left.
+   *
+   * So the wait asks the question the caller is actually asking — is the model's
+   * selection inside the thing I clicked — by matching the model's node against
+   * the sids this element covers.
+   *
+   * Which is not simply its subtree. Plenty of what a test clicks is *part of a
+   * text node's rendering rather than a node*: `.w-insertion` is a revision
+   * mark, a span with no sid inside the inline-text it marks, so a caret in it
+   * belongs to the sid *above*. So an element that names no node of its own
+   * takes its nearest ancestor's — which still fails for a caret left in a
+   * different paragraph, because that one is neither above nor below.
+   */
   await expect
     .poll(async () =>
-      page.evaluate(() => {
+      target.evaluate((el) => {
         const sel = (window as any).editor?.selection;
-        return sel?.type === 'range' ? sel.startNodeId : null;
+        if (sel?.type !== 'range' || !sel.startNodeId) return false;
+
+        const sids = new Set<string>();
+        const own = el.getAttribute('data-bc-sid');
+        if (own) sids.add(own);
+        for (const node of el.querySelectorAll('[data-bc-sid]')) {
+          sids.add(node.getAttribute('data-bc-sid')!);
+        }
+        // A span that is decoration rather than a node: the caret lands in
+        // whatever node draws it.
+        if (sids.size === 0) {
+          const above = el.parentElement?.closest('[data-bc-sid]');
+          if (above) sids.add(above.getAttribute('data-bc-sid')!);
+        }
+        return sids.has(sel.startNodeId);
       })
     )
-    .not.toBeNull();
+    .toBe(true);
 }
 
 /**

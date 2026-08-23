@@ -38,3 +38,69 @@
 [data-bc-filler] {
   user-select: none;
 }
+
+/*
+ * A selected block of cells, and a selected table.
+ *
+ * Written by `installCellSelection` rather than by a renderer, because being
+ * selected is a fact about this reader and not about the document — the same
+ * division that makes a text selection the browser's to paint.
+ *
+ * Here rather than in a product's own stylesheet for the reason this file
+ * exists: the deck draws its tables with these renderers too, and the first
+ * version of these rules lived in `apps/word/src/style.css`. Dragging across
+ * cells on a slide set the attribute on two cells, reported both as selected,
+ * and painted nothing — the same shape as the bullets that came out unmarked.
+ */
+
+/*
+ * `box-shadow` and not `background-color`, which is why this looks odd. A cell's
+ * shading is resolved from its table style and written as an *inline*
+ * background, and an inline style beats a stylesheet however specific the
+ * selector — measured: the attribute was set, both cells reported as painted,
+ * and the screen did not change. An inset shadow is a property no renderer here
+ * writes, and it lays a translucent sheet over whatever the cell is shaded with,
+ * so a selected header still reads as a header.
+ */
+.w-cell[data-cell-selected] {
+  box-shadow: inset 0 0 0 100vmax rgba(37, 99, 235, 0.22);
+}
+
+/*
+ * A selected table gets an outline rather than a wash: the cells inside keep
+ * their own shading, and selecting a table is about the *box*.
+ */
+.w-table[data-table-selected] {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+/*
+ * The handle at a table's top-left corner — the gesture that means "this table,
+ * as one thing". Outside the contenteditable, in the container that holds it: a
+ * control inside the editable region would be a node the model does not have,
+ * and a caret could be put in it.
+ */
+.w-table-handle {
+  position: absolute;
+  z-index: 5;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  cursor: pointer;
+  border: 1px solid #94a3b8;
+  border-radius: 2px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.15);
+}
+.w-table-handle::after {
+  content: '⊞';
+  display: block;
+  font-size: 10px;
+  line-height: 12px;
+  color: #475569;
+}
+.w-table-handle:hover {
+  border-color: #2563eb;
+  background: #eff6ff;
+}

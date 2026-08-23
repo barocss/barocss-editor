@@ -35,6 +35,14 @@ jobs:
       - name: Type check
         run: pnpm type-check
 
+      # The tests as well, held to a per-package count (`typecheck-budgets.json`).
+      # `pnpm type-check` reads each package's `src` only, because that config is the
+      # build's — so for a long time a test could name a field that does not exist and
+      # pass. Fails when a count grows *and* when it shrinks without the number coming
+      # down: a budget above the truth leaves room to break that much again quietly.
+      - name: Type check the tests
+        run: pnpm type-check:tests
+
       - name: Unit tests
         run: pnpm test
 

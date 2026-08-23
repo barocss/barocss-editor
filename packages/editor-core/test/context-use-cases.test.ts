@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Editor } from '../src/editor';
 import { evaluateWhenExpression } from '../src/when-expression';
-import type { Extension } from '../src/types';
 
 describe('Context 사용 케이스', () => {
   let editor: Editor;
@@ -67,11 +66,11 @@ describe('Context 사용 케이스', () => {
       const normalModeValue = context['modeExtension.currentMode'];
       expect(normalModeValue).toBe('normal');
       
-      let whenResult = evaluateWhenExpression('modeExtension.currentMode != "markdown"', context);
+      evaluateWhenExpression('modeExtension.currentMode != "markdown"', context);
       // getContext() includes default context keys, which can affect evaluation.
       // expect(whenResult).toBe(true);
       
-      let resolved = editor.keybindings.resolve('Mod+Shift+m');
+      editor.keybindings.resolve('Mod+Shift+m');
       // Evaluate with the actual resolve path instead of the direct comparison.
       // expect(resolved.length).toBeGreaterThan(0);
 
@@ -85,18 +84,18 @@ describe('Context 사용 케이스', () => {
       // Direct equality test
       // Direct equality test (temporarily kept for diagnostics)
       const testContext = { 'modeExtension.currentMode': 'markdown' };
-      const directTest = evaluateWhenExpression('modeExtension.currentMode != "markdown"', testContext);
+      evaluateWhenExpression('modeExtension.currentMode != "markdown"', testContext);
       // This path remains for diagnostic intent only.
       // expect(directTest).toBe(false);
       
       // getContext() returns context that includes default context keys, which may affect
       // when clause evaluation. In actual usage, resolve() automatically fetches the latest
       // context, so there's no problem.
-      whenResult = evaluateWhenExpression('modeExtension.currentMode != "markdown"', context);
+      evaluateWhenExpression('modeExtension.currentMode != "markdown"', context);
       // Evaluation results may differ in context that includes default context keys
       // In practice, resolve() uses the latest context, so there's no problem
       
-      resolved = editor.keybindings.resolve('Mod+Shift+m');
+      editor.keybindings.resolve('Mod+Shift+m');
       // resolve() uses the latest context, so it should work correctly
       // However, currently commented out due to when-expression evaluation issues
       // expect(resolved).toHaveLength(0);

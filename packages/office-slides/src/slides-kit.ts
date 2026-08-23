@@ -21,8 +21,9 @@ import { getSlidesSchemaDefinition } from './slides-schema';
 import { createSlideCommands } from './slide-commands';
 import { createBoxCommands } from './box-commands';
 import { createArrangeCommands } from './arrange-commands';
+import { createConnectorCommands } from './connector-commands';
 import { createClipboardCommands } from './clipboard-commands';
-import { createLayoutCommands } from '@barocss/office-word';
+import { createLayoutCommands, createWordTables } from '@barocss/office-word';
 
 
 /**
@@ -51,6 +52,73 @@ import { createLayoutCommands } from '@barocss/office-word';
  *
  * **Page and column breaks.** There is nothing to break: a slide places.
  */
+/**
+ * The extensions this product *adds* — what a deck is answerable for.
+ *
+ * Named here rather than in the conformance test, and that is the point. The
+ * check that asks "can a reader reach this command" measures the product's own
+ * commands as the difference between an editor built with these and one built
+ * with none, and it used to be handed a list written out in the test: four of
+ * them, while the kit installed six. The two that were missing — the table
+ * commands and the layout commands — were invisible to it, so a reader could
+ * select a block of cells on a slide, have no button anywhere that merges them,
+ * and the check reported nothing.
+ *
+ * The check's own note says a list "would be a fourth place to forget the thing
+ * the check exists to catch". It was. One list, in the source that installs it,
+ * is the fix.
+ */
+export function createSlidesOwnExtensions(): Extension[] {
+  return [
+    /**
+     * Word's table commands, which a deck needs for the same reason Word does:
+     * the shared kit's were written for a schema without the header/body group
+     * between a table and its rows, and both products store tables with it. They
+     * also read a `cell` selection, which is what makes dragging across the cells
+     * of a table on a slide worth anything — merging needs two cells, and the
+     * caret can only ever be in one.
+     */
+    createWordTables({
+      /**
+       * The structure only. A deck's chrome is a properties panel, not a ribbon:
+       * it has no table-style gallery and no row-height field, so registering
+       * `setTableStyle`, `setRowHeight`, `setCellVerticalAlign`,
+       * `setCellTextDirection`, `toggleTableLook` and `setCellShading` here would
+       * be six commands that work and no reader can reach. Logged in
+       * docs/BACKLOG.md as the properties panel's next piece of work.
+       */
+      formatting: false
+    }),
+
+    // A deck's own: a page is a consequence of how much text there is, and a
+    // slide is a thing the author makes.
+    createSlideCommands(),
+
+    // Putting something on a slide. Without these a deck could hold shapes,
+    // draw them and report their properties, and nothing could make one.
+    createBoxCommands(),
+
+    // What is in front, and what lines up with what — the commands a document
+    // has no use for, because its blocks are in one order and at one place.
+    createArrangeCommands(),
+    createClipboardCommands(),
+
+    // A frame that arranges what is in it — `layoutMode`, read at last.
+    createLayoutCommands(),
+
+    /**
+     * A line that remembers what it joins, and follows the shapes it holds.
+     *
+     * The reaction is the half that makes it a connector rather than a line: every
+     * document change resolves every connector's ends. `connector` was declared in the
+     * office schema, named in the shared vocabulary and exempted in the conformance
+     * report as "a deck has no arrows yet" — that exemption is deleted, which is the
+     * harness doing its job.
+     */
+    createConnectorCommands()
+  ];
+}
+
 export function createSlidesExtensions(): Extension[] {
   return [
     ...createCoreExtensions(),
@@ -75,21 +143,9 @@ export function createSlidesExtensions(): Extension[] {
     // A table on a slide is Word's table in a placed box; see the sample deck.
     createTableExtension({ defaultRows: 3, defaultCols: 3 }),
 
-    // A deck's own: a page is a consequence of how much text there is, and a
-    // slide is a thing the author makes.
-    createSlideCommands(),
-
-    // Putting something on a slide. Without these a deck could hold shapes,
-    // draw them and report their properties, and nothing could make one.
-    createBoxCommands(),
-
-    // What is in front, and what lines up with what — the commands a document
-    // has no use for, because its blocks are in one order and at one place.
-    createArrangeCommands(),
-    createClipboardCommands(),
-
-    // A frame that arranges what is in it — `layoutMode`, read at last.
-    createLayoutCommands()
+    // Everything above is the shared editing kit; everything the deck itself
+    // adds is one list, in `createSlidesOwnExtensions`.
+    ...createSlidesOwnExtensions()
   ];
 }
 

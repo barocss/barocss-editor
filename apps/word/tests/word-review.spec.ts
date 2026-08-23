@@ -466,9 +466,15 @@ test.describe('recording changes as they are made', () => {
       .toBe(true);
   };
 
-  /** The paragraph the caret is in, model-side. */
+  /**
+   * The paragraph the caret is in, model-side.
+   *
+   * Typed at the boundary: what `evaluate` hands back goes through Playwright's own
+   * serialisable mapping, and `marks` came out as something the callbacks below could
+   * not be inferred from — six `(m) => …` with no type at all.
+   */
   const caretRun = (page: import('@playwright/test').Page) =>
-    page.evaluate(() => {
+    page.evaluate<{ text: string; marks: string[] }>(() => {
       const ed = (window as any).editor;
       const node = ed.dataStore.getNode(ed.selection.startNodeId);
       return {

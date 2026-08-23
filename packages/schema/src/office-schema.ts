@@ -46,22 +46,50 @@ const SCENE = 'scene';
  * Restated in two places is restated wrongly eventually. There is one
  * declaration and the commands read it.
  */
+/**
+ * What every placed thing has, box or not: whether it is shown, whether it may be
+ * moved, and how solid it is.
+ *
+ * Separate from the geometry because a **connector** has all three and none of the
+ * geometry: its extent is whatever the two shapes it joins happen to make, and
+ * `width` below is `required`. A schema that demands a width from a thing that has no
+ * width is a promise a document can only keep by inventing a number — which is the
+ * fault this repository keeps finding in itself, one level down from the borders that
+ * were handed to every box.
+ */
+export const CANVAS_PRESENCE_ATTRS = {
+  opacity: { type: 'number' as const, default: 1, min: 0, max: 1 },
+  locked: { type: 'boolean' as const, default: false },
+  visible: { type: 'boolean' as const, default: true }
+};
+
 export const CANVAS_GEOMETRY_ATTRS = {
   x: { type: 'number' as const, default: 0 },
   y: { type: 'number' as const, default: 0 },
   width: { type: 'number' as const, required: true },
   height: { type: 'number' as const, required: true },
   rotation: { type: 'number' as const, default: 0 },
-  opacity: { type: 'number' as const, default: 1 },
-  locked: { type: 'boolean' as const, default: false },
-  visible: { type: 'boolean' as const, default: true }
+  ...CANVAS_PRESENCE_ATTRS
 };
 
-/** How a box is painted. Shared by every scene node that has a surface to fill. */
-export const CANVAS_STYLE_ATTRS = {
-  fill: { type: 'string' as const, required: false },
+/**
+ * The ink: what a shape's edge is drawn with.
+ *
+ * Separate from the fill because a **line** and a **connector** have no interior, and
+ * declaring `fill` on them is a promise nothing can keep — the drawing has nothing to
+ * put a colour in. Both were exempted in the conformance report as "a line has no
+ * interior to fill", twice, which is the harness saying the schema is the wrong shape
+ * rather than the product.
+ */
+export const CANVAS_LINE_STYLE_ATTRS = {
   stroke: { type: 'string' as const, required: false },
   strokeWidth: { type: 'number' as const, default: 1 }
+};
+
+/** How a box is painted. Every scene node that has a surface to fill. */
+export const CANVAS_STYLE_ATTRS = {
+  fill: { type: 'string' as const, required: false },
+  ...CANVAS_LINE_STYLE_ATTRS
 };
 
 const geometry = CANVAS_GEOMETRY_ATTRS;
@@ -93,25 +121,95 @@ export function getCanvasNodeDefinitions(): Record<string, NodeTypeDefinition> {
      */
     frame: {
       name: 'frame',
-      group: SCENE,
-      content: 'scene*',
+      /**
+       * A block, and still a scene node wherever a canvas names it.
+       *
+       * A frame is a *layout box*: a thing that holds other things and decides
+       * where they go. That is as useful in a document as on a slide — two
+       * columns of text, a row of cards, a grid of pictures — and a word
+       * processor has no node for it, so a reader who wants three boxes side by
+       * side in a document has to draw a table.
+       *
+       * A node carries one group, and `block` is the one that makes a frame
+       * reachable in the flow. The canvas containers name it explicitly instead:
+       * `(scene | frame)*` rather than `scene*`, which says the same thing it
+       * said before.
+       */
+      group: 'block',
+      /**
+       * Blocks in a document, scene nodes on a canvas — the same shape
+       * `surface` has, and for the same reason: what a container holds depends
+       * on which kind of surface it is standing on.
+       *
+       * The arrangement follows from that and needs no second mechanism. Blocks
+       * have no coordinates, so a frame full of blocks is laid out by the
+       * browser; scene nodes carry `x` and `y`, so a frame full of those has
+       * them computed — see `docs/specs/canvas-model.md`.
+       */
+      content: 'scene* | block+',
       attrs: {
         name: { type: 'string', required: false },
         clipsContent: { type: 'boolean', default: true },
-        layoutMode: { type: 'string', required: false },
+        /** `row`, `column` or `grid`; `none` and anything absent leave the children where
+         * they were put. Declared so `layoutModeOf`'s set is readable — see options. */
+        layoutMode: {
+          type: 'string',
+          required: false,
+          options: ['none', 'row', 'column', 'grid']
+        },
         gap: { type: 'number', default: 0 },
         padding: { type: 'number', default: 0 },
-        alignItems: { type: 'string', default: 'start' },
+        /** Where a child sits across the arrangement's axis — see `layoutChildren`. */
+        alignItems: { type: 'string', default: 'start', options: ['start', 'center', 'end'] },
         columns: { type: 'number', default: 2 },
         ...geometry,
+        /**
+         * A size the frame may not have, which every other placed node must.
+         *
+         * `geometry` requires a width and a height because a shape with neither
+         * cannot be drawn — a rectangle of no stated size is a bug caught at the
+         * transaction rather than a blank spot noticed a week later. A frame in
+         * the flow is the one case where that guard is wrong: it is as wide as
+         * the column it sits in, and that width is the page's to decide. An
+         * author who had to state one in twips would be writing down a number
+         * that goes stale the moment a margin moves, which is most of the reason
+         * to want a frame in a document at all.
+         *
+         * So the requirement moves to where it can be stated truthfully: a frame
+         * *placed on a canvas* is given a size by the command that places it,
+         * and `frameCss` writes `width` only when there is one to write.
+         */
+        width: { type: 'number', required: false },
+        height: { type: 'number', required: false },
         ...style
       }
     },
     group: {
       name: 'group',
       group: SCENE,
-      // A group with nothing in it is not a group.
-      content: 'scene+',
+      /**
+       * `*`, not `+`, and the reason is **when validation runs**.
+       *
+       * A group with nothing in it is not a group, and nothing here keeps one: grouping
+       * refuses fewer than two shapes and ungrouping deletes the group it empties. But
+       * ungrouping *has to pass through* the empty state — the children leave one at a
+       * time and the group is removed after the last one — and a transaction is
+       * validated as a whole. With `+` that gesture could not be expressed at all:
+       * every ungroup was rejected with "Content of 'group' ended early".
+       *
+       * It went unnoticed because of a second bug that hid it. `moveNode` wrote the
+       * *alias* it was given into the child's `parentId`, so a grouped child pointed at
+       * a name that existed only inside that transaction; the later ungroup then failed
+       * to find the old parent, never removed the child from the group's content, and
+       * the group was never empty. Two faults cancelling out, and the pair only showed
+       * up when a connector became the first thing to walk **up** the tree.
+       *
+       * So the rule stays a *product* rule, where it can be enforced by the commands
+       * that make and unmake groups, rather than a schema rule that also governs the
+       * inside of a transaction. `frame` is named because it is a block now — see the
+       * note there.
+       */
+      content: '(scene | frame)*',
       attrs: { name: { type: 'string', required: false }, ...geometry }
     },
 
@@ -123,7 +221,16 @@ export function getCanvasNodeDefinitions(): Record<string, NodeTypeDefinition> {
       attrs: { cornerRadius: { type: 'number', default: 0 }, ...geometry, ...style }
     },
     ellipse: { name: 'ellipse', group: SCENE, atom: true, attrs: { ...geometry, ...style } },
-    line: { name: 'line', group: SCENE, atom: true, attrs: { ...geometry, ...style } },
+    /**
+     * Two points, drawn between. No `fill`: a line has no interior, and the attribute
+     * was on it only because one style list was handed to every shape.
+     */
+    line: {
+      name: 'line',
+      group: SCENE,
+      atom: true,
+      attrs: { ...geometry, ...CANVAS_LINE_STYLE_ATTRS }
+    },
     /**
      * A picture placed on a canvas.
      *
@@ -150,16 +257,174 @@ export function getCanvasNodeDefinitions(): Record<string, NodeTypeDefinition> {
         ...style
       }
     },
+    /**
+     * A line that remembers **what it joins** rather than where it is.
+     *
+     * Which is the whole difference from a `line`: move either shape and the
+     * connector follows, so a flowchart survives being rearranged. See
+     * `docs/specs/canvas-model.md` §8 for the decisions, and `canvas-connector.ts`
+     * for the arithmetic.
+     *
+     * No geometry, deliberately — §8.1. Its extent is whatever the two shapes make,
+     * and `width` is a required attribute a connector could only satisfy by inventing
+     * a number. Every consumer derives the bounds from the ends.
+     */
     connector: {
       name: 'connector',
       group: SCENE,
       atom: true,
-      // FigJam's arrows: endpoints reference other scene nodes by sid.
       attrs: {
+        /** The shape each end is attached to. Absent is an end pinned to the canvas. */
         startNodeId: { type: 'string', required: false },
         endNodeId: { type: 'string', required: false },
-        ...geometry,
-        ...style
+        /**
+         * Where each end **is**, in the container's twips.
+         *
+         * Carried even while attached, and written back every time the ends are resolved:
+         * when the shape an end holds is deleted, the attachment is dropped and the
+         * line stays where it last was. A line that vanished with its shape would take
+         * the relationship out of the picture silently — §8.2.
+         */
+        startX: { type: 'number', default: 0 },
+        startY: { type: 'number', default: 0 },
+        endX: { type: 'number', default: 0 },
+        endY: { type: 'number', default: 0 },
+        /**
+         * How far along the **line** an end holds, when what it holds is another
+         * connector — a flowchart's branch off the middle of a flow.
+         *
+         * A fraction of that line's *length*, `0` to `1`. It has to be a length rather
+         * than a side, because a line has no sides to be a magnet of; and the halfway
+         * of an elbow whose first leg is twice its second is not its corner, it is the
+         * halfway a reader can see.
+         */
+        startT: { type: 'number', required: false, min: 0, max: 1 },
+        endT: { type: 'number', required: false, min: 0, max: 1 },
+        /**
+         * Which magnet each end holds: a side, the centre, or `auto` for the nearest
+         * pair. A straight connector uses the centre and clips at the outline — a
+         * straight line to a side's midpoint cuts through the shape (§8.3).
+         */
+        startSide: {
+          type: 'string',
+          default: 'auto',
+          options: ['auto', 'n', 'e', 's', 'w', 'c']
+        },
+        endSide: {
+          type: 'string',
+          default: 'auto',
+          options: ['auto', 'n', 'e', 's', 'w', 'c']
+        },
+        /**
+         * Whether the line **flows**: dashes travelling along it.
+         *
+         * An arrowhead says where the relationship points and says it standing still. A
+         * flow says the same thing moving, which is stronger — with six lines on a
+         * slide, the one that flows is the one the eye follows, and that is what a
+         * presenter wants while they are talking about one path through a diagram.
+         */
+        flow: { type: 'boolean', default: false },
+        /**
+         * A word on the line — what the relationship *is*.
+         *
+         * "yes", "no", "1..n", "on failure": a flowchart without them is a picture of
+         * boxes. Plain text and short on purpose (`LABEL_MAX`): a line carries a word,
+         * and a paragraph on one is a text box that should have been placed as one.
+         */
+        label: { type: 'string', required: false },
+        /**
+         * The points a reader has told the line to go **through**.
+         *
+         * `[{ x, y }]` in the connector's own coordinates. In the document when the route
+         * itself is not (§8.11) because these are the opposite of derived: there is
+         * nothing to work a hand-placed bend out *from*, and a reader who has routed a
+         * line around a table they will move later means that route to stay.
+         *
+         * With any of these, nothing routes around anything — they have said where it
+         * goes. `type: 'array'` is what the schema takes for a list, the same way a
+         * slide's guides and a shape's fills are expressed.
+         */
+        waypoints: { type: 'array', required: false },
+        /** The route it takes — §8.4. */
+        kind: {
+          type: 'string',
+          default: 'elbow',
+          options: ['straight', 'elbow', 'curve', 'arc']
+        },
+        /**
+         * How far the route bows out, in twips.
+         *
+         * What it moves depends on the route: an elbow's midpoint slides, a curve's
+         * handles push sideways, and a straight line has nothing to bow. Signed, so a
+         * reader can separate two connectors between the same pair of shapes.
+         */
+        bend: { type: 'number', default: 0 },
+        /**
+         * What is drawn at each end. A vocabulary rather than a preference: a flow is
+         * an arrow, an association a dot, and UML's inheritance and composition a
+         * hollow triangle and a diamond — §8.6.
+         */
+        /**
+         * The label's own type: how big, what colour, and whether it is bold.
+         *
+         * Three attributes rather than one style object, for the reason the whole
+         * connector is flat: the schema can then declare the *range* and the validator and
+         * the conformance probe can both read it. A JSON blob in one attribute is a value
+         * nothing can check.
+         *
+         * Twips, like every other length here (canvas-model §1) — 200 is ten point. The
+         * range is a reader's range: below about half that a label on a projected slide is
+         * unreadable, and above it the pill is bigger than the shapes.
+         */
+        /**
+         * A word for each **end**, beside the one in the middle.
+         *
+         * The middle label names the relationship; these say something about that end —
+         * UML's multiplicity (`1` here, `0..*` there) is the notation everyone knows, and
+         * it is the difference between "an order has items" and "an order has many items".
+         *
+         * Two attributes rather than a list of `{ t, text }`, for the reason the whole
+         * connector is flat: a list of objects is a value the validator and the
+         * conformance probe cannot read, and the notation readers actually draw is these
+         * three words.
+         */
+        startLabel: { type: 'string', required: false },
+        endLabel: { type: 'string', required: false },
+        labelSize: { type: 'number', default: 195, min: 90, max: 800 },
+        labelColor: { type: 'string', required: false },
+        labelBold: { type: 'boolean', default: false },
+        startCap: {
+          type: 'string',
+          default: 'none',
+          options: [
+            'none',
+            'arrow',
+            'open',
+            'triangle',
+            'hollow',
+            'circle',
+            'diamond',
+            'bar',
+            'cross'
+          ]
+        },
+        endCap: {
+          type: 'string',
+          default: 'arrow',
+          options: [
+            'none',
+            'arrow',
+            'open',
+            'triangle',
+            'hollow',
+            'circle',
+            'diamond',
+            'bar',
+            'cross'
+          ]
+        },
+        ...CANVAS_PRESENCE_ATTRS,
+        ...CANVAS_LINE_STYLE_ATTRS
       }
     },
     path: {
@@ -184,13 +449,43 @@ export function getCanvasNodeDefinitions(): Record<string, NodeTypeDefinition> {
       name: 'textFrame',
       group: SCENE,
       content: 'block+',
-      attrs: { verticalAlign: { type: 'string', default: 'top' }, ...geometry, ...style }
+      attrs: {
+        /**
+         * Where the text sits in a box taller than it.
+         *
+         * `center` is in the set because `verticalAlignCss` accepts it as a spelling of
+         * `middle`, and a set that excluded a value the renderer draws would make the
+         * validator disagree with the product.
+         */
+        verticalAlign: {
+          type: 'string',
+          default: 'top',
+          options: ['top', 'middle', 'center', 'bottom']
+        },
+        /**
+         * The room between the box's edge and the text in it, in twips.
+         *
+         * PowerPoint calls it the internal margin and gives it four sides;
+         * this is one value, like the `padding` a frame already carries, and a
+         * per-side `insetLeft` would sit beside it rather than instead of it if
+         * a reader ever asks. One is what the common case needs — a text box
+         * with a fill, whose words would otherwise touch its border — and four
+         * numbers to set the common case is four chances to set three of them.
+         *
+         * Zero by default, not PowerPoint's 0.1in: a default is what every
+         * document that says nothing gets, and changing it would shift the text
+         * in every deck already written by 144 twips.
+         */
+        textInset: { type: 'number', default: 0 },
+        ...geometry,
+        ...style
+      }
     },
     /** Reusable definition and its placements (Figma component / instance). */
     component: {
       name: 'component',
       group: SCENE,
-      content: 'scene*',
+      content: '(scene | frame)*',
       attrs: { name: { type: 'string', required: true }, ...geometry }
     },
     instance: {
@@ -200,7 +495,18 @@ export function getCanvasNodeDefinitions(): Record<string, NodeTypeDefinition> {
       attrs: { componentId: { type: 'string', required: true }, ...geometry }
     },
 
-    /** A canvas embedded inside flow content — a diagram in the middle of a Word document. */
+    /**
+     * A canvas embedded inside flow content — a diagram in the middle of a Word
+     * document.
+     *
+     * `scene*` and not `(scene | frame)*` like the containers above it, which is
+     * a distinction worth stating because it looks like an omission. This is the
+     * one canvas that is *inside* the flow, and a frame is already a block: a
+     * reader who wants two columns of text puts a frame in the document, next to
+     * this drawing rather than inside it. Naming a frame here would say a drawing
+     * can hold a layout box, and the product where that reads as a real offer is
+     * the one where it draws nothing.
+     */
     canvasBlock: {
       name: 'canvasBlock',
       group: 'block',
@@ -355,7 +661,7 @@ export function getSurfaceNodeDefinitions(): Record<string, NodeTypeDefinition> 
     surface: {
       name: 'surface',
       group: 'surface',
-      content: 'block+ | scene*',
+      content: 'block+ | (scene | frame)*',
       attrs: {
         kind: { type: 'string', default: 'flow' },
         name: { type: 'string', required: false },
@@ -367,7 +673,89 @@ export function getSurfaceNodeDefinitions(): Record<string, NodeTypeDefinition> 
 }
 
 /**
- * The whole Office vocabulary: standard document nodes + canvas nodes, under a
+ * The standard nodes an Office document is made of.
+ *
+ * Named, rather than taken whole. Office used to spread the standard schema's
+ * entire node set and let each product write off what it could not draw, and
+ * two products' lists came back **identical**: the same twenty-three types, in
+ * Word's exemptions as `BUG:` and in Slides' as `inherited`. One product's list
+ * is an opinion; two identical lists are the schema declaring things nothing in
+ * this domain offers.
+ *
+ * What that cost, exactly: a document could legally contain a `callout`, a
+ * `mediaVideo` or a `descList`, no renderer would draw it, and the reader's text
+ * would be in the file and invisible on the page. Every product after these two
+ * would have written the same list again.
+ *
+ * So the rule is the one the frame taught: **if a check can be turned into a
+ * schema, it should be.** A node office does not offer is now a node office does
+ * not declare, and a document that tries one is refused when it is written.
+ *
+ * ## What is left out, and where it went
+ *
+ * Nothing is deleted — these all remain in the standard schema, for a product
+ * whose domain is the web rather than the office: `bFigure`/`bFigcaption`,
+ * `bDetails`/`bSummary`, `columns`/`column`, `descList`/`descTerm`/`descDef`,
+ * `mediaVideo`/`mediaAudio`/`mediaEmbed`, `callout`, `pullQuote`, `taskItem`,
+ * `chart`, `emoji`, `toc`, `docSection`, `mathInline`/`mathBlock` and
+ * `fieldPageNumber`/`fieldPageCount`.
+ *
+ * The last three groups are the interesting ones, because office has all three
+ * *and does them differently*: Word draws equations from OMML node names, its
+ * page numbers are furniture the layout pass paints rather than nodes in the
+ * flow, and its contents page is `tableOfContents`, computed from the headings.
+ * A second way to say the same thing is not a spare — it is a second thing to
+ * keep working.
+ *
+ * They form a closed set: every reference to one of them comes from another one
+ * of them (`bFigure` names `bFigcaption` and the media types, `descList` names
+ * its own terms), so nothing that stays points at something that went.
+ */
+const OFFICE_STANDARD_NODES = [
+  // The flow itself.
+  'paragraph',
+  'heading',
+  'blockQuote',
+  'codeBlock',
+  'horizontalRule',
+  'pageBreak',
+  'list',
+  'listItem',
+  'hardBreak',
+  'inline-text',
+  'inline-image',
+  'bookmarkAnchor',
+
+  // Tables, all seven parts.
+  'bTable',
+  'bTableHeader',
+  'bTableBody',
+  'bTableFooter',
+  'bTableRow',
+  'bTableHeaderCell',
+  'bTableCell',
+
+  // The fields office resolves from the document rather than from the page.
+  'fieldDateTime',
+  'fieldDocTitle',
+  'fieldAuthor',
+
+  /**
+   * Bodies and definitions — declared here and re-declared as resources below,
+   * which is the point of naming them: they are reachable through `resources`
+   * and nowhere else, so a footnote's body cannot sit between two paragraphs.
+   */
+  'footnoteDef',
+  'endnoteDef',
+  'commentThread',
+  'bibliography',
+  'indexBlock',
+  'docHeader',
+  'docFooter'
+] as const;
+
+/**
+ * The whole Office vocabulary: the standard nodes above + canvas nodes, under a
  * document → surface root.
  *
  * Products install different kits over this one schema rather than defining
@@ -376,10 +764,21 @@ export function getSurfaceNodeDefinitions(): Record<string, NodeTypeDefinition> 
 export function getOfficeSchemaDefinition(): SchemaDefinition {
   const standard = getStandardSchemaDefinition();
 
-  // The standard schema roots at `document → block+`. Office roots at
-  // `document → surface+` so a file can hold several pages/slides/boards, so the
-  // standard `document` definition is replaced rather than merged.
-  const { document: _standardDocument, ...standardNodes } = standard.nodes;
+  /**
+   * The standard schema roots at `document → block+`. Office roots at
+   * `document → surface+` so a file can hold several pages/slides/boards, so
+   * the standard `document` definition is left out rather than merged — as is
+   * everything office does not offer; see `OFFICE_STANDARD_NODES`.
+   */
+  const standardNodes: Record<string, NodeTypeDefinition> = {};
+  for (const name of OFFICE_STANDARD_NODES) {
+    const node = standard.nodes[name];
+    // A name here that the standard schema no longer has is a rename nobody
+    // followed through, and silence would turn it into a node type that stopped
+    // existing without anything saying so.
+    if (!node) throw new Error(`office schema names a standard node that does not exist: ${name}`);
+    standardNodes[name] = node;
+  }
 
   return {
     topNode: 'document',

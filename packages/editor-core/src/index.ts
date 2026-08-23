@@ -22,6 +22,15 @@ export {
 export {
   readSelectionSummary,
   markState,
+  markAttribute,
   type SelectionSummary,
   type MarkState
 } from './selection-summary';
+
+/**
+ * "Tell me when something could change what I would answer."
+ *
+ * Which events mean that is the editor's own knowledge, not a panel's — see the
+ * file for the bug six panels produced by each guessing at it.
+ */
+export { watchAnswers, watchContent } from './watch';

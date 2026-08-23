@@ -173,7 +173,7 @@ describe('Unified Schema', () => {
     });
 
     it('should reject content that does not match model', () => {
-      const invalidContent = []; // doc requires block+ (at least one block)
+      const invalidContent: unknown[] = []; // doc requires block+ (at least one block)
       const result = schema.validateContent('doc', invalidContent);
       expect(result.valid).toBe(false);
     });

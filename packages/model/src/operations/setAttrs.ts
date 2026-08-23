@@ -36,18 +36,43 @@ defineOperation('setAttrs', async (operation: any, context: TransactionContext) 
    */
   const previous = { ...(node.attributes || {}) };
 
+  /**
+   * `null` **removes** the attribute.
+   *
+   * Because there was no other way to take one off. A string could pretend with `''`
+   * and an array with `null` — which stored a null rather than removing anything — and
+   * a **number** had nothing at all: `0` is a value, and the schema refuses `''` for a
+   * number, so the whole transaction was rejected. Measured on a connector's `endT`,
+   * the fraction along a line an end holds: moving that end onto a shape returned
+   * false and the reader's drag did nothing.
+   *
+   * So "not set" is expressible for every type, once, here — rather than each product
+   * inventing a value that means absent and every reader of the attribute having to
+   * know which one it was.
+   *
+   * Only on the **merge**. `replace` is the inverse's path and restores exactly what
+   * the node had, nulls included: a document that arrived with one keeps it through an
+   * undo rather than being quietly tidied.
+   */
+  const removing = replace
+    ? []
+    : Object.keys(attrs ?? {}).filter((key) => attrs[key] === null || attrs[key] === undefined);
+
+  const merged = { ...previous, ...attrs };
+  for (const key of removing) delete merged[key];
+
   // Use updateNode to go through schema validation
-  const next = replace ? { ...attrs } : { ...previous, ...attrs };
+  const next = replace ? { ...attrs } : merged;
   const result = context.dataStore.updateNode(nodeId, { attributes: next });
   if (!result || result.valid !== true) {
     const message = result?.errors?.[0] || 'Update failed';
     throw new Error(message);
   }
-  if (replace) {
-    // `updateNode` merges, so an attribute the node no longer has would survive
-    // the merge. Undo has to be able to take one away.
+  if (replace || removing.length > 0) {
+    // `updateNode` merges, so an attribute the node no longer has would survive the
+    // merge — which is true of a removal for the same reason it is true of undo.
     const current = context.dataStore.getNode(nodeId);
-    if (current) context.dataStore.setNode({ ...current, attributes: { ...attrs } } as any, false);
+    if (current) context.dataStore.setNode({ ...current, attributes: { ...next } } as any, false);
   }
   return {
     ok: true,

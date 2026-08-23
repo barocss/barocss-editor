@@ -2,18 +2,27 @@ import { useMemo, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import {
   ChoiceSelect,
+  ColorField,
   Dialog,
   DialogButton,
   PropertyNumber,
   PropertyRow
 } from '@barocss/office-ui';
+/** The suite's font list — shared content, see the ribbon's note about it. */
+import { WORD_FONTS } from '@barocss/office-word';
 import {
+  CUSTOM_THEME,
+  DECK_THEMES,
   SLIDE_16_9,
   SLIDE_4_3,
+  THEME_COLOUR_SLOTS,
   pxToTwip,
   slideSize,
+  themeFor,
+  themeNow,
   twipToPx,
-  type Slide
+  type Slide,
+  type ThemeColourSlot
 } from '@barocss/office-slides';
 
 /**
@@ -222,6 +231,188 @@ export function SlideLayoutDialog({
           />
         </PropertyRow>
       )}
+    </Dialog>
+  );
+}
+
+/**
+ * The twelve slots a theme is, and their two faces.
+ *
+ * ## Why this exists
+ *
+ * The deck could be *given* a theme from a list and a shape's colour could
+ * **reference** a slot — `theme:accent1`, offered as swatches in every colour
+ * field — but the slots themselves were whatever the named preset said. So the
+ * one thing every real deck starts with, the company's own accent, was the one
+ * thing that could not be typed in.
+ *
+ * The command was ready: `setDeckTheme` takes any subset of the slots and merges
+ * it into the deck's theme, making one if there is none. What was missing was
+ * somewhere to type.
+ *
+ * ## A dialog, not a panel row
+ *
+ * Fourteen controls do not belong in a side panel beside a shape's position, and
+ * PowerPoint puts these in a dialog for the same reason. It is also where a
+ * reader looks: this product's other two deck-wide settings — the size and the
+ * layout — are dialogs already.
+ *
+ * ## Applied on 적용, not as it is typed
+ *
+ * A theme re-colours every shape that follows the deck, so twelve fields typed
+ * one at a time would be twelve re-colourings and twelve entries of history. The
+ * dialog holds the whole set and writes it once, which is also what makes 취소
+ * mean something.
+ */
+const SLOT_LABELS: { slot: ThemeColourSlot; label: string }[] = [
+  { slot: 'dark1', label: '어두운 텍스트 1' },
+  { slot: 'light1', label: '밝은 배경 1' },
+  { slot: 'dark2', label: '어두운 텍스트 2' },
+  { slot: 'light2', label: '밝은 배경 2' },
+  { slot: 'accent1', label: '강조 1' },
+  { slot: 'accent2', label: '강조 2' },
+  { slot: 'accent3', label: '강조 3' },
+  { slot: 'accent4', label: '강조 4' },
+  { slot: 'accent5', label: '강조 5' },
+  { slot: 'accent6', label: '강조 6' },
+  { slot: 'hyperlink', label: '하이퍼링크' },
+  { slot: 'followedHyperlink', label: '방문한 링크' }
+];
+
+export function ThemeDialog({
+  editor,
+  open,
+  onClose
+}: {
+  editor: Editor | null;
+  open: boolean;
+  onClose: () => void;
+}) {
+  /** The deck's theme now, with the gaps filled — see `themeNow`. */
+  const current = useMemo(() => {
+    const store = (editor as any)?.dataStore;
+    const rootId = (editor as any)?.getRootId?.();
+    if (!store || !rootId) return themeNow(undefined);
+    const doc = { rootId, getNode: (sid: string) => store.getNode(sid) } as never;
+    return themeNow(themeFor(doc, undefined));
+  }, [editor, open]);
+
+  const [draft, setDraft] = useState(current);
+  // Reopened, so it shows the deck rather than whatever was typed last time —
+  // the same rule the size dialog beside it follows.
+  const [was, setWas] = useState(open);
+  if (was !== open) {
+    setWas(open);
+    if (open) setDraft(current);
+  }
+
+  /**
+   * Which preset the draft is, if it is one.
+   *
+   * Read from the values and not from the name, so changing one accent takes the
+   * list back to nothing chosen rather than leaving it claiming "Office". A
+   * truthful third state, like the size dialog's when the numbers are the
+   * author's own.
+   */
+  const preset = DECK_THEMES.find(
+    (entry) =>
+      entry.majorFont === draft.majorFont &&
+      entry.minorFont === draft.minorFont &&
+      THEME_COLOUR_SLOTS.every((slot) => entry.colours[slot] === draft.colours[slot])
+  );
+
+  const apply = () => {
+    void (editor as any)?.executeCommand?.('setDeckTheme', {
+      // The name is the preset's when the draft *is* one, and this product's word
+      // for "not a preset any more" when it is not. A theme called Office with a
+      // red accent is a name that outlived the thing it named.
+      name: preset ? preset.name : CUSTOM_THEME,
+      ...draft.colours,
+      majorFont: draft.majorFont,
+      minorFont: draft.minorFont
+    });
+    onClose();
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => !next && onClose()}
+      title="테마 색"
+      description="덱 전체에 적용됩니다. 슬롯을 따라가는 도형만 다시 칠해지고, 자기 색을 고른 도형은 그대로 있습니다."
+      footer={
+        <>
+          <DialogButton onClick={onClose}>취소</DialogButton>
+          <DialogButton variant="primary" data-theme-apply onClick={apply}>
+            적용
+          </DialogButton>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-3">
+        <PropertyRow label="테마">
+          <ChoiceSelect
+            ariaLabel="테마 프리셋"
+            testClass="sl-dialog-theme"
+            className="min-w-48"
+            options={DECK_THEMES.map((entry) => ({ id: entry.name, label: entry.name }))}
+            value={preset?.name ?? null}
+            onChange={(name) => {
+              const chosen = DECK_THEMES.find((entry) => entry.name === name);
+              // Choosing a preset fills every field, so a reader who has changed
+              // three things and wants to start again has one way back.
+              if (chosen) setDraft({ ...chosen });
+            }}
+          />
+        </PropertyRow>
+
+        {/*
+          Two columns, because twelve stacked rows is a dialog taller than the
+          window on a laptop — measured at 14 rows in the size dialog's own shape.
+        */}
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1" data-theme-slots>
+          {SLOT_LABELS.map(({ slot, label }) => (
+            <PropertyRow key={slot} label={label}>
+              <ColorField
+                ariaLabel={label}
+                value={draft.colours[slot]}
+                onChange={(value) =>
+                  setDraft((was) => ({ ...was, colours: { ...was.colours, [slot]: value } }))
+                }
+              />
+            </PropertyRow>
+          ))}
+        </div>
+
+        {/*
+          The two faces. Every theme has them — one for headings and one for
+          everything else — and nothing in this product could set either.
+        */}
+        <PropertyRow label="제목 글꼴">
+          <ChoiceSelect
+            ariaLabel="제목 글꼴"
+            className="min-w-48"
+            options={WORD_FONTS.options.map((option) => ({
+              id: String(option.value),
+              label: option.label
+            }))}
+            value={draft.majorFont}
+            onChange={(family) => setDraft((was) => ({ ...was, majorFont: family }))}
+          />
+        </PropertyRow>
+        <PropertyRow label="본문 글꼴">
+          <ChoiceSelect
+            ariaLabel="본문 글꼴"
+            className="min-w-48"
+            options={WORD_FONTS.options.map((option) => ({
+              id: String(option.value),
+              label: option.label
+            }))}
+            value={draft.minorFont}
+            onChange={(family) => setDraft((was) => ({ ...was, minorFont: family }))}
+          />
+        </PropertyRow>
+      </div>
     </Dialog>
   );
 }

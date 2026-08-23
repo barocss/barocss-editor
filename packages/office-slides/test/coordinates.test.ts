@@ -43,10 +43,23 @@ describe('a box in one container, expressed in another', () => {
                 stype: 'frame',
                 attributes: { x: 1000, y: 500, width: 5000, height: 4000 },
                 content: [
+                  /**
+                   * A group whose box already agrees with its children.
+                   *
+                   * It held one child at (30,20), which is a group describing an
+                   * area its contents do not fill — and a group's box follows
+                   * its children now, so the deck tightened it the moment the
+                   * document loaded and this test measured the tightened
+                   * numbers. The subject here is the coordinate conversion, so
+                   * the fixture is a document the fitting rule has nothing to
+                   * say about: a second child at the origin, and the offsets
+                   * this test is about survive untouched.
+                   */
                   {
                     stype: 'group',
                     attributes: { x: 200, y: 100, width: 2000, height: 1500 },
                     content: [
+                      { stype: 'rectangle', attributes: { x: 0, y: 0, width: 2000, height: 1500 } },
                       { stype: 'rectangle', attributes: { x: 30, y: 20, width: 400, height: 300 } }
                     ]
                   },
@@ -69,7 +82,8 @@ describe('a box in one container, expressed in another', () => {
     loose = onSlide[1];
     const inFrame = (store.getNode(frame) as any).content;
     inner = inFrame[0];
-    deep = ((store.getNode(inner) as any).content ?? [])[0];
+    // The second child: the first is the one that holds the group's origin.
+    deep = ((store.getNode(inner) as any).content ?? [])[1];
   });
 
   const box = (sid: string) => {

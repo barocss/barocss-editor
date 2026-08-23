@@ -1,6 +1,6 @@
 import { Editor, Extension, selectedNodeIds } from '@barocss/editor-core';
 import { transaction } from '@barocss/model';
-import { copyOf, type DeckAccess, type DeckNode } from './deck';
+import { copyForPaste, pastable, type DeckAccess, type DeckNode } from './deck';
 import { boxOf } from './geometry';
 import { fromSurface, isSceneType, slideAt, toSurface } from './selection';
 
@@ -145,15 +145,18 @@ export class SlidesClipboardExtension implements Extension {
      * self-contained: what is on the clipboard is "a box that looked like it
      * was here", and where it lands is the paste's problem.
      */
-    const boxes = chosen
-      .map((sid) => {
-        const copy = copyOf(doc, sid);
-        if (!copy) return undefined;
-        const placed = toSurface(doc, sid, boxOf(copy.attributes as never));
-        copy.attributes = { ...copy.attributes, x: placed.x, y: placed.y };
-        return copy;
-      })
-      .filter((node): node is DeckNode => node !== undefined);
+    /**
+     * With the references inside the copy made **local to it** — see `copyForPaste`.
+     *
+     * Without that, pasting two shapes and the line joining them gave a line pointing at
+     * the *originals*: a duplicated diagram was two sets of shapes with both lines
+     * attached to the first set.
+     */
+    const boxes = copyForPaste(doc, chosen).map((copy, at) => {
+      const placed = toSurface(doc, chosen[at], boxOf(copy.attributes as never));
+      copy.attributes = { ...copy.attributes, x: placed.x, y: placed.y };
+      return copy;
+    });
 
     if (boxes.length === 0) return false;
 
@@ -196,8 +199,17 @@ export class SlidesClipboardExtension implements Extension {
     const first = boxOf(payload.boxes[0].attributes as never);
     const shift = at ? { x: at.x - first.x, y: at.y - first.y } : { x: OFFSET, y: OFFSET };
 
-    const steps = payload.boxes.map((node) => {
-      const child = JSON.parse(JSON.stringify(node)) as DeckNode;
+    /**
+     * Sids made here rather than read back after the commit.
+     *
+     * A pasted line has to point at the pasted shapes, and their sids do not exist until
+     * they are added — so either the paste is two transactions (and two undos for one
+     * gesture) or it names the nodes itself. `addChild` honours a `sid` a caller
+     * provides, so it names them.
+     */
+    const store = (editor as any).dataStore;
+    const steps = pastable(payload.boxes, () => store.generateId()).map((node) => {
+      const child = node as DeckNode;
       const box = boxOf(child.attributes as never);
       const placed = fromSurface(doc, into, {
         x: box.x + shift.x,

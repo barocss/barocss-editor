@@ -352,6 +352,25 @@ export class Validator {
         }
       }
 
+      // Outside the range the attribute declares. Clamping it quietly is what the
+      // products do and is why a value out of range was invisible for so long.
+      if (typeof value === 'number') {
+        if (typeof definition.min === 'number' && value < definition.min) {
+          errors.push(`Attribute '${key}' must be at least ${definition.min}, got ${value}.`);
+        }
+        if (typeof definition.max === 'number' && value > definition.max) {
+          errors.push(`Attribute '${key}' must be at most ${definition.max}, got ${value}.`);
+        }
+      }
+
+      // One of a fixed set, and this value is not in it. The set is the schema's
+      // (`options`) rather than each toolbar's copy of it.
+      if (definition.options && !definition.options.includes(value)) {
+        errors.push(
+          `Attribute '${key}' must be one of ${definition.options.join(', ')}, got '${value}'.`
+        );
+      }
+
       if (definition.validator && !definition.validator(value, attributes)) {
         errors.push(`Attribute '${key}' failed custom validation.`);
       }

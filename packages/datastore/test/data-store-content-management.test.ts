@@ -448,6 +448,30 @@ describe('DataStore Content Management Functions', () => {
       expect(updatedText1!.parentId).toBe('paragraph-2');
     });
 
+    /**
+     * Moving a node **into a node the transaction has not committed yet**.
+     *
+     * A transaction may name what it is about to create — `$alias` — and every read in
+     * `moveNode` goes through `getNode`, which resolves one. The `parentId` write did
+     * not: the child's back-link became the alias *string*, pointing at a name that
+     * exists only inside that transaction.
+     *
+     * Nothing noticed for a long time, because the content arrays were right and almost
+     * everything walks *down*. It broke the first feature to walk **up**: a connector
+     * asked which container its shape was in, so it could put the two into one
+     * coordinate space, found `sl-new-group`, and drew the line to the corner of the
+     * slide — a group's width away from the shape it was attached to.
+     */
+    it('writes a resolved parent, never the alias it was given', () => {
+      dataStore.setAlias('$new-group', 'paragraph-2');
+      dataStore.moveNode('text-1', '$new-group');
+
+      const moved = dataStore.getNode('text-1');
+      expect(moved!.parentId).toBe('paragraph-2');
+      // And the content arrays are the same either way, which is why this hid.
+      expect(dataStore.getNode('paragraph-2')!.content).toContain('text-1');
+    });
+
     it('should handle complex copy operations', () => {
       // Copy paragraph-1
       const newParagraphId = dataStore.cloneNodeWithChildren('paragraph-1', 'document');

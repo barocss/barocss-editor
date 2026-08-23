@@ -3,12 +3,18 @@ import { Schema } from '@barocss/schema';
 import { getWordSchemaDefinition } from '../src/word-schema';
 import {
   cellAttributeState,
+  choiceOptions,
+  currentPaletteColor,
   currentStyle,
   tableLookState,
   toolbarCommands,
   toolbarMarkTypes,
+  WORD_FONTS,
+  WORD_FONT_SIZES,
   WORD_STYLES,
-  WORD_TOOLBAR
+  WORD_TOOLBAR,
+  WORD_TEXT_COLOR,
+  WORD_CELL_SHADING
 } from '../src/toolbar-model';
 import { nextTextDirection } from '../src/table-commands';
 import { WORD_KEYBINDINGS } from '../src/word-keymap';
@@ -193,5 +199,166 @@ describe('the direction a cell’s text is turned to next', () => {
     // Unset is the ordinary direction, so the first press has to move off it
     expect(nextTextDirection('')).toBe('tbRl');
     expect(nextTextDirection('something else')).toBe('tbRl');
+  });
+});
+
+/**
+ * The colour controls, and where each reads its current value.
+ *
+ * Two palettes, one shape. Text colour is a *mark* on a range and cell shading
+ * is an *attribute* on a node, and neither the component that draws swatches nor
+ * the model that lists them should have to know which — so the palette says
+ * where to look and this answers.
+ *
+ * `setFontColor` was registered in Word's kit from the day the kit had marks and
+ * was on no toolbar: this word processor could not change the colour of its own
+ * text. The palette exists because the same control answers both.
+ */
+describe('what colour a palette shows', () => {
+  const summary = (over: Partial<SelectionSummary>): SelectionSummary =>
+    ({
+      marks: [],
+      mixedMarks: [],
+      markAttributes: {},
+      blocks: [],
+      blockAttributes: {},
+      mixedAttributes: [],
+      collapsed: false,
+      empty: false,
+      ...over
+    }) as SelectionSummary;
+
+  it('reads a mark, for text', () => {
+    expect(
+      currentPaletteColor(
+        WORD_TEXT_COLOR,
+        summary({ markAttributes: { fontColor: { color: 'C00000' } } })
+      )
+    ).toBe('C00000');
+  });
+
+  /**
+   * Nothing rather than one of them. A palette showing red for a selection that
+   * is half red and half blue is a palette that applies red to all of it on the
+   * next press.
+   */
+  it('shows nothing when the selection disagrees', () => {
+    expect(
+      currentPaletteColor(
+        WORD_TEXT_COLOR,
+        summary({ mixedMarks: ['fontColor'], markAttributes: { fontColor: { color: 'C00000' } } })
+      )
+    ).toBeNull();
+  });
+
+  it('shows nothing when there is no colour, which is not white', () => {
+    expect(currentPaletteColor(WORD_TEXT_COLOR, summary({}))).toBeNull();
+  });
+
+  it('reads an attribute, for a cell', () => {
+    const cell = { sid: 'c', stype: 'bTableCell', attributes: { shadingFill: 'FFC000' } } as never;
+    expect(currentPaletteColor(WORD_CELL_SHADING, summary({}), cell)).toBe('FFC000');
+  });
+
+  /**
+   * An empty fill is how this schema says "no shading" — the store skips a write
+   * that compares equal to what is there, so clearing has to write a real value
+   * rather than remove the attribute. The palette has to read it back as none.
+   */
+  it('treats an empty fill as no shading', () => {
+    const cell = { sid: 'c', stype: 'bTableCell', attributes: { shadingFill: '' } } as never;
+    expect(currentPaletteColor(WORD_CELL_SHADING, summary({}), cell)).toBeNull();
+    expect(currentPaletteColor(WORD_CELL_SHADING, summary({}), undefined)).toBeNull();
+  });
+
+  it('offers the same colours to both, and no duplicates', () => {
+    const values = WORD_TEXT_COLOR.swatches.map((swatch) => swatch.value);
+    expect(new Set(values).size).toBe(values.length);
+    expect(WORD_CELL_SHADING.swatches).toEqual(WORD_TEXT_COLOR.swatches);
+    // Bare hex, the way Word stores a colour and the way `normalizeColor` reads
+    // one. A `#` here would round-trip into a document as an unrecognised value.
+    for (const value of values) expect(value).toMatch(/^[0-9A-F]{6}$/);
+  });
+});
+
+/**
+ * Delete is bound to taking a table away, and only where that is what it means.
+ *
+ * `inTable` is true with a caret in any cell, and binding Delete on it would make
+ * Backspace the most destructive key in the product: a reader deleting a
+ * character would lose the table. `tableSelected` is only true after the handle
+ * at a table's corner has been used, which is the gesture that means "this table,
+ * as one thing" — and the last of the four selection types to get a producer.
+ */
+describe('what Delete is allowed to remove', () => {
+  const bindings = WORD_KEYBINDINGS.filter((binding) => binding.command === 'deleteTable');
+
+  it('is bound to Delete and Backspace', () => {
+    expect(bindings.map((binding) => binding.key).sort()).toEqual(['Backspace', 'Delete']);
+  });
+
+  it('is guarded by the table being selected, not by being in one', () => {
+    for (const binding of bindings) {
+      expect(binding.when, `${binding.key}이 표 안이기만 하면 지웁니다`).toContain('tableSelected');
+      expect(binding.when).not.toContain('inTable');
+    }
+  });
+
+  /**
+   * And nothing else takes the plain Delete keys, which is what makes the guard
+   * load-bearing rather than decorative: a second binding on the same key with a
+   * looser guard would win somewhere.
+   */
+  it('is the only thing bound to a plain Delete or Backspace', () => {
+    const plain = WORD_KEYBINDINGS.filter(
+      (binding) => binding.key === 'Delete' || binding.key === 'Backspace'
+    );
+    expect(plain.map((binding) => binding.command)).toEqual(['deleteTable', 'deleteTable']);
+  });
+});
+
+/**
+ * A value the presets do not list is still the value.
+ *
+ * A deck's layouts are set in whatever the designer chose — 54pt for a title —
+ * and the size control offers a dozen round numbers. A value outside them left
+ * the box blank, which reads as *the selection disagrees with itself* when it
+ * agrees perfectly.
+ *
+ * Here rather than in either app: it was fixed in the deck's ribbon with a
+ * comment saying Word had the same gap and it was logged rather than copied. A
+ * gap logged in one product and fixed in the other is the thing this repository
+ * keeps finding and calling a defect.
+ */
+describe('the options a choice control offers', () => {
+  it('is the presets, when the value is one of them', () => {
+    const options = choiceOptions(WORD_FONT_SIZES, '24');
+    expect(options).toHaveLength(WORD_FONT_SIZES.options.length);
+    expect(options[0].id).toBe(String(WORD_FONT_SIZES.options[0].value));
+  });
+
+  it('puts an unlisted value at the front, so the box is never blank', () => {
+    // 26 half-points is 13pt, which no preset offers.
+    const options = choiceOptions(WORD_FONT_SIZES, '26');
+    expect(options).toHaveLength(WORD_FONT_SIZES.options.length + 1);
+    expect(options[0]).toEqual({ id: '26', label: '13' });
+  });
+
+  /**
+   * The label is the model's business, not the app's. The document stores
+   * half-points and a reader reads points, and an app that divided by two would
+   * be an app that knew a `.docx` detail.
+   */
+  it('shows an unlisted value in the unit a reader reads', () => {
+    expect(choiceOptions(WORD_FONT_SIZES, '27')[0].label).toBe('13.5');
+    // A control with no unit of its own shows the value as it is.
+    expect(choiceOptions(WORD_FONTS, 'Comic Sans')[0]).toEqual({
+      id: 'Comic Sans',
+      label: 'Comic Sans'
+    });
+  });
+
+  it('leaves the list alone when there is no value to show', () => {
+    expect(choiceOptions(WORD_FONT_SIZES, null)).toHaveLength(WORD_FONT_SIZES.options.length);
   });
 });

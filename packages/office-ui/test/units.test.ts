@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { fromDisplay, stepFor, toDisplay, unitSuffix, type LengthUnit } from '../src/units';
+import {
+  fromDisplay,
+  rulerStep,
+  stepFor,
+  toDisplay,
+  unitSuffix,
+  type LengthUnit
+} from '../src/units';
 
 /**
  * A length, as a reader sees it and as they type it.
@@ -54,5 +61,43 @@ describe('showing a length', () => {
   it('says what it is', () => {
     expect(unitSuffix('in')).toBe('"');
     expect(unitSuffix('cm')).toBe('cm');
+  });
+});
+
+/**
+ * How a ruler steps in each unit — the judgement, which is *how many labels fit*.
+ *
+ * Tested apart from `axisTicks` because this is the half that is
+ * about a reader: a 16:9 slide is 45.7cm / 18in / 1296pt / 1728px wide, and past
+ * about fifty labels a ruler is a grey band. The counting itself is tested in
+ * `office-slides`, which owns it and must not import this package.
+ */
+describe('how a ruler steps', () => {
+  const across = 25920; // A 16:9 slide, in twips.
+  const labels = (unit: Parameters<typeof rulerStep>[0]) => {
+    const { per, major } = rulerStep(unit);
+    return Math.floor(across / (per * major)) + 1;
+  };
+
+  it('fits between fifteen and fifty labels across a slide', () => {
+    for (const unit of ['cm', 'mm', 'in', 'pt', 'px'] as const) {
+      expect(labels(unit), unit).toBeGreaterThanOrEqual(15);
+      expect(labels(unit), unit).toBeLessThanOrEqual(50);
+    }
+  });
+
+  it('labels millimetres every ten, the way a printed ruler does', () => {
+    // 457 labels otherwise, which is a smear.
+    expect(rulerStep('mm').major).toBe(10);
+    expect(rulerStep('mm').minor).toBe(5);
+  });
+
+  it('quarters an inch, because halves are four ticks across a slide', () => {
+    expect(rulerStep('in')).toEqual({ per: 1440, major: 1, minor: 0.25 });
+  });
+
+  it('takes the twips in a unit from the one table that holds them', () => {
+    expect(rulerStep('cm').per).toBeCloseTo(1440 / 2.54, 6);
+    expect(rulerStep('px').per).toBe(15);
   });
 });

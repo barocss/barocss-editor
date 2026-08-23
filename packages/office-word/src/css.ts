@@ -145,15 +145,37 @@ function borderCss(format: EffectiveFormat, prefix: string): string | undefined 
   return `${cssWidth} ${BORDER_STYLE[style] ?? 'solid'} ${color}`;
 }
 
+/**
+ * The four edges, and the room each one leaves the text.
+ *
+ * `*Space` — points between the border and what it encloses — was declared on every
+ * kind of box and drawn nowhere, so every bordered paragraph in the product had its
+ * line hard against the letters. Found by `every-attribute-is-read`.
+ *
+ * Only where there **is** a border, which is Word's reading too: a space with no line
+ * to be spaced from is not a paragraph indent by another name.
+ *
+ * Added to any padding already there rather than replacing it, in `calc()` because the
+ * two are in different units. A hanging indent is a `padding-left` (see
+ * `paragraphCss`) and it runs before this: overwriting it would have made a
+ * left-bordered list item lose its hang, which is the kind of fault that only shows up
+ * in a document nobody has yet.
+ */
 function applyBorders(out: CssStyle, format: EffectiveFormat): void {
-  for (const [prefix, property] of [
-    ['borderTop', 'borderTop'],
-    ['borderBottom', 'borderBottom'],
-    ['borderLeft', 'borderLeft'],
-    ['borderRight', 'borderRight']
+  for (const [prefix, property, padding] of [
+    ['borderTop', 'borderTop', 'paddingTop'],
+    ['borderBottom', 'borderBottom', 'paddingBottom'],
+    ['borderLeft', 'borderLeft', 'paddingLeft'],
+    ['borderRight', 'borderRight', 'paddingRight']
   ] as const) {
     const value = borderCss(format, prefix);
-    if (value) out[property] = value;
+    if (!value) continue;
+    out[property] = value;
+
+    const space = num(format[`${prefix}Space`]);
+    if (space === undefined || space <= 0) continue;
+    const already = out[padding];
+    out[padding] = already ? `calc(${already} + ${round(space)}pt)` : `${round(space)}pt`;
   }
 }
 
@@ -204,8 +226,7 @@ export function paragraphCss(format: EffectiveFormat): CssStyle {
 
   if (str(format.textDirection) === 'rtl') out.direction = 'rtl';
 
-  const shading = str(format.shadingFill);
-  if (shading && shading !== 'auto') out.backgroundColor = normalizeColor(shading);
+  Object.assign(out, shadingCss(format));
 
   applyBorders(out, format);
   return out;
@@ -403,8 +424,7 @@ export function tableCss(format: EffectiveFormat): CssStyle {
   const indent = num(format.indent);
   if (indent !== undefined) out.marginLeft = twipToCss(indent);
 
-  const shading = str(format.shadingFill);
-  if (shading && shading !== 'auto') out.backgroundColor = normalizeColor(shading);
+  Object.assign(out, shadingCss(format));
 
   applyBorders(out, format);
   return out;
@@ -428,8 +448,7 @@ export function tableRowCss(format: EffectiveFormat): CssStyle {
   const rule = str(format.heightRule) ?? 'auto';
   if (height !== undefined && height > 0 && rule !== 'auto') out.height = twipToCss(height);
 
-  const shading = str(format.shadingFill);
-  if (shading && shading !== 'auto') out.backgroundColor = normalizeColor(shading);
+  Object.assign(out, shadingCss(format));
 
   return out;
 }
@@ -502,8 +521,7 @@ export function tableCellCss(format: EffectiveFormat): CssStyle {
 
   if (bool(format.noWrap)) out.whiteSpace = 'nowrap';
 
-  const shading = str(format.shadingFill);
-  if (shading && shading !== 'auto') out.backgroundColor = normalizeColor(shading);
+  Object.assign(out, shadingCss(format));
 
   applyBorders(out, format);
   return out;
@@ -513,6 +531,113 @@ export function tableCellCss(format: EffectiveFormat): CssStyle {
  * Word writes colours as bare hex (`FF0000`) and uses `auto` for "let the reader
  * decide". Pass anything else through so a product can store CSS colours too.
  */
+/**
+ * How much of the pattern colour a percentage shading shows.
+ *
+ * Word writes these as `pct5`, `pct12`, `pct25` … and a handful of aliases with
+ * no number in them at all. The number *is* the answer — `pct25` is a quarter of
+ * the pattern colour over the fill — so there is nothing to look up; what needs
+ * saying is only what the wordless ones mean.
+ */
+function patternPercent(pattern: string): number | undefined {
+  const numbered = /^pct(\d+)$/.exec(pattern);
+  if (numbered) return Math.min(100, Math.max(0, Number(numbered[1])));
+  return undefined;
+}
+
+/** The stripes, and the angle each one runs at. */
+const STRIPES: Record<string, number> = {
+  horzStripe: 0,
+  thinHorzStripe: 0,
+  vertStripe: 90,
+  thinVertStripe: 90,
+  diagStripe: 45,
+  thinDiagStripe: 45,
+  reverseDiagStripe: -45,
+  thinReverseDiagStripe: -45
+};
+
+/** The crosses: two runs of stripes at right angles. */
+const CROSSES = new Set([
+  'horzCross',
+  'thinHorzCross',
+  'diagCross',
+  'thinDiagCross'
+]);
+
+/**
+ * A cell's, row's, paragraph's or table's shading, as CSS.
+ *
+ * Word's shading is three things and this file used to read one of them. `fill`
+ * is the background colour, `color` is the colour a *pattern* is drawn in, and
+ * `val` says which pattern — and the same two lines were written out four times,
+ * each reading `shadingFill` alone. So a document that arrived asking for a 25%
+ * grey stipple over white drew as plain white, and `shadingColor` and
+ * `shadingPattern` were on the list of attributes the schema declares and nothing
+ * reads.
+ *
+ * What the patterns become:
+ *
+ * - **`clear`, or nothing** — the fill, and that is all. The overwhelming
+ *   majority of real shading.
+ * - **`solid`** — the *pattern* colour covers the cell. Word's own reading, and
+ *   it surprises people: a solid shading ignores the fill entirely.
+ * - **`pctN`** — N% of the pattern colour over the fill. CSS has no stipple, and
+ *   a blend is not an approximation of one so much as what a stipple *is* for at
+ *   this size: `color-mix` gives the grey the reader expects at any zoom, where a
+ *   real dot pattern would alias into stripes.
+ * - **stripes and crosses** — a repeating gradient at the angle the name says.
+ *   Drawn as `backgroundImage` over the fill, so the fill is still the background
+ *   and a pattern is a thing on top of it.
+ */
+export function shadingCss(format: EffectiveFormat): CssStyle {
+  const fill = str(format.shadingFill);
+  const color = str(format.shadingColor);
+  const pattern = str(format.shadingPattern) ?? 'clear';
+
+  const out: CssStyle = {};
+  const background = fill && fill !== 'auto' ? normalizeColor(fill) : undefined;
+  if (background) out.backgroundColor = background;
+
+  // A pattern needs a colour to be drawn in. Without one there is nothing to
+  // draw, which is also true of Word: `w:shd` with a `val` and no `color` shows
+  // the fill.
+  if (!color || color === 'auto' || pattern === 'clear' || pattern === 'nil') return out;
+
+  const ink = normalizeColor(color);
+
+  if (pattern === 'solid') {
+    // The pattern covers everything, so the fill is not visible at all.
+    out.backgroundColor = ink;
+    return out;
+  }
+
+  const percent = patternPercent(pattern);
+  if (percent !== undefined) {
+    out.backgroundColor = `color-mix(in srgb, ${ink} ${percent}%, ${background ?? 'white'})`;
+    return out;
+  }
+
+  const angle = STRIPES[pattern];
+  if (angle !== undefined) {
+    out.backgroundImage = `repeating-linear-gradient(${angle}deg, ${ink} 0 1px, transparent 1px 4px)`;
+    return out;
+  }
+
+  if (CROSSES.has(pattern)) {
+    const diagonal = pattern.toLowerCase().includes('diag');
+    const [a, b] = diagonal ? [45, -45] : [0, 90];
+    out.backgroundImage =
+      `repeating-linear-gradient(${a}deg, ${ink} 0 1px, transparent 1px 4px), ` +
+      `repeating-linear-gradient(${b}deg, ${ink} 0 1px, transparent 1px 4px)`;
+    return out;
+  }
+
+  // A pattern this does not know is drawn as its fill rather than as nothing:
+  // the reader asked for a shaded cell and the shade is the part we have.
+  return out;
+}
+
 export function normalizeColor(value: string): string {
   if (value === 'auto') return 'currentColor';
   if (/^[0-9a-fA-F]{6}$/.test(value)) return `#${value}`;

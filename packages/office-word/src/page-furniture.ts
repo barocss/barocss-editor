@@ -16,6 +16,9 @@
  */
 import { element, type ElementTemplate } from '@barocss/dsl';
 import { formatCounter, type NumberFormatValue } from '@barocss/shared';
+import { pageNumberWithChapter } from './chapter-numbering';
+import type { NumberingResolver } from './numbering-resolver';
+import type { TocEntry } from './toc';
 import { twipToPx } from './css';
 import { childrenOf, type DocumentAccess, type DocumentNode } from './document-access';
 import type { SheetMetrics } from './layout';
@@ -77,8 +80,30 @@ export function pageNumberFor(index: number, format: EffectiveFormat): number {
   return start + index;
 }
 
-/** The page number as text, in the section's numbering format. */
-export function pageNumberText(value: number, format: EffectiveFormat): string {
+/**
+ * The page number as text, in the section's numbering format — and with its
+ * chapter in front when the section asks for one.
+ *
+ * `chapters` and `numbering` are what the join needs and neither is the
+ * furniture's to compute: which headings start chapters is a question for
+ * `toc.ts`, and what a heading is numbered is the numbering resolver's. Both are
+ * optional, and without them this is exactly what it was.
+ */
+export function pageNumberText(
+  value: number,
+  format: EffectiveFormat,
+  chapter?: { chapters: TocEntry[]; numbering?: NumberingResolver; pageIndex: number }
+): string {
+  if (chapter) {
+    return pageNumberWithChapter(
+      value,
+      format,
+      chapter.chapters,
+      chapter.numbering,
+      chapter.pageIndex
+    );
+  }
+
   const style = typeof format.pageNumberFormat === 'string' ? format.pageNumberFormat : 'decimal';
   return formatCounter(value, style as NumberFormatValue);
 }
@@ -90,14 +115,25 @@ export function pageNumberText(value: number, format: EffectiveFormat): string {
  * or a sequence number is a document-wide question, and answering it from inside
  * a per-page draw would give a different answer on each page.
  */
-function textOf(doc: DocumentAccess, node: DocumentNode, page: PageContext, format: EffectiveFormat): string {
-  if (node.stype === 'fieldPageNumber') return pageNumberText(page.number, format);
+function textOf(
+  doc: DocumentAccess,
+  node: DocumentNode,
+  page: PageContext,
+  format: EffectiveFormat,
+  chapter?: { chapters: TocEntry[]; numbering?: NumberingResolver; pageIndex: number }
+): string {
+  if (node.stype === 'fieldPageNumber') return pageNumberText(page.number, format, chapter);
+  /**
+   * The *count* takes no chapter. `1-12` on a page that says "page 1-1 of 1-12"
+   * would be claiming the document has twelve pages in chapter one, which is a
+   * different fact and usually a false one.
+   */
   if (node.stype === 'fieldPageCount') return pageNumberText(page.total, format);
   if (node.stype === 'tab') return '\t';
   if (typeof node.text === 'string') return node.text;
 
   return childrenOf(doc, node)
-    .map((child) => textOf(doc, child, page, format))
+    .map((child) => textOf(doc, child, page, format, chapter))
     .join('');
 }
 
@@ -124,9 +160,10 @@ function furnitureBlock(
   doc: DocumentAccess,
   block: DocumentNode,
   page: PageContext,
-  format: EffectiveFormat
+  format: EffectiveFormat,
+  chapter?: { chapters: TocEntry[]; numbering?: NumberingResolver; pageIndex: number }
 ): ElementTemplate {
-  const parts = textOf(doc, block, page, format).split('\t');
+  const parts = textOf(doc, block, page, format, chapter).split('\t');
   const alignment = String(block.attributes?.alignment ?? 'left');
 
   if (parts.length === 1) {
@@ -164,6 +201,16 @@ export interface FurnitureOptions {
   metrics: SheetMetrics;
   format: EffectiveFormat;
   placement: 'header' | 'footer';
+  /**
+   * The document's chapter headings and their numbering, for a section that
+   * numbers its pages `1-1`.
+   *
+   * Passed in rather than computed here: which headings start chapters depends
+   * on a style the *section* names, and finding them is a walk over the whole
+   * document that would otherwise happen once per page per header.
+   */
+  chapters?: TocEntry[];
+  numbering?: NumberingResolver;
 }
 
 /**
@@ -174,7 +221,15 @@ export interface FurnitureOptions {
  * would see the body text start lower on pages that happen to have no header.
  */
 export function furnitureTemplate(options: FurnitureOptions): ElementTemplate | null {
-  const { doc, node, page, metrics, format, placement } = options;
+  const { doc, node, page, metrics, format, placement, chapters, numbering } = options;
+  /**
+   * Only built when the section asks for chapter numbering, so a document that
+   * does not — which is nearly all of them — pays nothing for this.
+   */
+  const chapter =
+    typeof format.pageNumberChapterStyle === 'string' && format.pageNumberChapterStyle
+      ? { chapters: chapters ?? [], numbering, pageIndex: page.index }
+      : undefined;
   if (!node) return null;
 
   const blocks = childrenOf(doc, node);
@@ -204,7 +259,7 @@ export function furnitureTemplate(options: FurnitureOptions): ElementTemplate | 
           : { top: `${sheetTop + metrics.height - distance}px`, transform: 'translateY(-100%)' })
       }
     },
-    blocks.map((block) => furnitureBlock(doc, block, page, format))
+    blocks.map((block) => furnitureBlock(doc, block, page, format, chapter))
   );
 }
 

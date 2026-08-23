@@ -39,6 +39,10 @@ export const SCENE_TYPES = [
   'path',
   'sticky',
   'textFrame',
+  // A film and a sound are placed boxes like any other: dragged, resized,
+  // aligned and deleted by everything that already works on a box.
+  'mediaVideo',
+  'mediaAudio',
   'component',
   'instance'
 ] as const;
@@ -49,6 +53,28 @@ const SCENE = new Set<string>(SCENE_TYPES);
 
 export const isSceneType = (stype: unknown): stype is SceneType =>
   typeof stype === 'string' && SCENE.has(stype);
+
+/**
+ * The boxes *inside* a box, in the order they are drawn.
+ *
+ * What "animate this group" turns out to mean half the time: not the group, but
+ * the eight cards in it, a beat apart. A parent's own motion already carries its
+ * children — measured, `docs/specs/motion-model.md` §7a — so the thing that was
+ * missing was never the animation but this list.
+ *
+ * One level down, deliberately. A frame holding two groups of four is a reader
+ * who means the two groups; walking to the leaves would animate eight cards they
+ * did not point at, and they can point at a group when they mean it.
+ */
+export function boxesInside(doc: DeckAccess, sid: string | undefined): string[] {
+  const node = sid ? doc.getNode(sid) : undefined;
+  if (!node || !Array.isArray(node.content)) return [];
+
+  return (node.content as unknown[]).filter(
+    (child): child is string =>
+      typeof child === 'string' && isSceneType(doc.getNode(child)?.stype)
+  );
+}
 
 /** A placed box, and enough about it for a panel to draw. */
 export interface PlacedBox {
@@ -197,4 +223,52 @@ export function fromSurface<T extends Positioned>(
 ): T {
   const origin = originOf(doc, containerId);
   return { ...box, x: box.x - origin.x, y: box.y - origin.y };
+}
+
+/**
+ * What several boxes agree on, for a panel that must not invent an answer.
+ *
+ * ## The fault this exists for
+ *
+ * Measured on 2026-08-20: with a 6000-twip rectangle and a 2000-twip ellipse both
+ * selected, the properties panel showed **10.58cm** — the rectangle's width,
+ * presented as the selection's — and typing a width changed the rectangle and left
+ * the ellipse alone. A reader who selects two shapes and types a number is asking
+ * for two shapes to be that wide.
+ *
+ * The controls were ready for this before the panel was: `PropertyNumber`'s own
+ * comment says a `null` value is drawn as an empty field with a placeholder, so
+ * that *committing* an empty field is a no-op rather than setting both to zero.
+ * Nothing ever passed it one.
+ *
+ * ## Why `null` and not the first value
+ *
+ * Because a panel that shows one of two values will apply it to both the next time
+ * anything else changes — a reformat nobody asked for. "They disagree" is a state
+ * of its own, and the same rule the toolbar states for a mixed paragraph style.
+ */
+export function agreed<T>(values: T[]): T | null {
+  if (values.length === 0) return null;
+  const [first] = values;
+  return values.every((value) => value === first) ? first : null;
+}
+
+/**
+ * One attribute across every box in a selection: the value they share, or `null`.
+ *
+ * Boxes that do not *declare* the attribute are skipped rather than counted as
+ * `undefined` — a rectangle and an ellipse disagree about `cornerRadius` only in
+ * the sense that one of them has never heard of it, and greying the row out for
+ * the rectangle would be answering a question nobody asked.
+ */
+export function agreedAttr(
+  doc: DeckAccess,
+  sids: string[],
+  key: string
+): unknown | null {
+  const held = sids
+    .map((sid) => doc.getNode(sid)?.attributes)
+    .filter((attrs): attrs is Record<string, unknown> => !!attrs && key in attrs)
+    .map((attrs) => attrs[key]);
+  return held.length === 0 ? null : agreed(held);
 }

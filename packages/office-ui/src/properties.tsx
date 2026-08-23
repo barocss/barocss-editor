@@ -1,4 +1,5 @@
 import { cn } from './cn';
+import { CONTROL, NumberField } from './controls';
 
 /**
  * The properties of the thing that is selected.
@@ -22,7 +23,7 @@ import { cn } from './cn';
  * field is a no-op rather than setting both to zero.
  */
 export function PropertyPanel({
-  title,
+ title,
   children,
   className,
   /**
@@ -43,30 +44,118 @@ export function PropertyPanel({
     <aside
       aria-label={title}
       className={cn(
-        'office-properties flex w-64 shrink-0 flex-col overflow-y-auto',
-        'border-l border-neutral-200 bg-white text-neutral-900',
-        'dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100',
-        className
+        /*
+         * 288px, up from 256.
+         *
+         * A fill row is a swatch, a kind, an opacity, an eye and a bin — five
+         * controls — and at 256 the opacity box showed "10C". The panel's width
+ * is not a taste: it is whatever the widest row honestly needs.
+ */
+        'office-properties flex w-72 shrink-0 flex-col overflow-y-auto',
+ 'border-l border-[color:var(--ou-line)] bg-[color:var(--ou-panel)] text-[color:var(--ou-ink)]',
+ className
       )}
     >
-      <div className="flex items-center justify-between gap-2 border-b border-neutral-200 px-3 py-1.5 dark:border-neutral-800">
-        <h2 className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
-          {title}
+      <div className="flex items-center justify-between gap-2 border-b border-[color:var(--ou-line)] px-3 py-1.5">
+ <h2 className="text-[length:var(--ou-text-small)] font-semibold uppercase tracking-wider text-[color:var(--ou-muted)]">
+ {title}
         </h2>
         {action}
       </div>
-      <div className="flex flex-col gap-4 p-3">{children}</div>
-    </aside>
+      {/* No padding here: a section's rule has to reach both edges, so the
+          padding belongs to the sections. */}
+      <div className="flex flex-col">{children}</div>
+ </aside>
   );
 }
 
 /** A titled group of rows, the way a Format pane divides itself up. */
-export function PropertyGroup({ label, children }: { label: string; children: React.ReactNode }) {
+/**
+ * A section of the panel, with a rule above it.
+ *
+ * The panel was a stack of headed lists with even spacing throughout, and a
+ * reader scanning it had nothing to tell them where one thing ended and the next
+ * began — everything looked like one long form. Figma's answer, which every
+ * design tool has since copied, is a hairline between sections and a header row
+ * that can hold an action: the rule does the separating, so the spacing can be
+ * tight, and the header is where "add another fill" belongs because that is what
+ * the section *is*.
+ *
+ * `action` rather than a slot for anything: a section header holds one control,
+ * and a second would be a toolbar nobody asked for.
+ */
+export function PropertyGroup({
+ label,
+ action,
+  children
+}: {
+  label: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
-    <section className="flex flex-col gap-1.5">
-      <h3 className="text-[11px] font-medium text-neutral-500">{label}</h3>
+    <section
+      className={cn(
+        'flex flex-col gap-1.5 px-3 py-2.5',
+ // The rule between sections, and none above the first: a line at the top
+        // of a panel is a line under its own header.
+        'border-t border-[color:var(--ou-line)] first:border-t-0'
+ )}
+    >
+      <div className="flex h-5 items-center justify-between">
+ <h3 className="text-[length:var(--ou-text-small)] font-semibold uppercase tracking-wide text-[color:var(--ou-muted)]">
+ {label}
+        </h3>
+        {action}
+      </div>
       {children}
     </section>
+  );
+}
+
+/**
+ * The panel's tabs.
+ *
+ * A shape has two kinds of answer — what it *is* and what it *does* — and they
+ * are used at different times: nobody sets a corner radius and an entrance
+ * effect in the same minute. One column of nine sections made the second kind
+ * something a reader scrolled past, which is how a feature comes to look
+ * missing.
+ */
+export function PropertyTabs({
+  tabs,
+  active,
+  onChange
+}: {
+  tabs: { id: string; label: string }[];
+  active: string;
+  onChange: (id: string) => void;
+}) {
+  return (
+    <div
+      role="tablist"
+ aria-label="속성 탭"
+ className="flex border-b border-[color:var(--ou-line)] px-1"
+ >
+      {tabs.map((tab) => (
+        <button
+          key={tab.id}
+          type="button"
+ role="tab"
+ data-tab={tab.id}
+          aria-selected={tab.id === active}
+          onClick={() => onChange(tab.id)}
+          className={cn(
+            'flex-1 border-b-2 px-2 py-1.5 text-[11px] font-medium',
+ tab.id === active
+              ? 'border-[color:var(--ou-accent)] text-[color:var(--ou-ink)]'
+ : 'border-transparent text-[color:var(--ou-muted)] hover:text-[color:var(--ou-ink)]'
+ )}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -74,9 +163,9 @@ export function PropertyGroup({ label, children }: { label: string; children: Re
 export function PropertyRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="flex items-center gap-2 text-xs">
-      <span className="w-14 shrink-0 text-neutral-500">{label}</span>
-      <span className="flex flex-1 items-center gap-1.5">{children}</span>
-    </label>
+ <span className="w-[var(--ou-label-w)] shrink-0 truncate text-[color:var(--ou-muted)]">{label}</span>
+ <span className="flex flex-1 items-center gap-1.5">{children}</span>
+ </label>
   );
 }
 
@@ -93,8 +182,8 @@ export function PropertyRow({ label, children }: { label: string; children: Reac
  * number that does not change the document.
  */
 export function PropertyNumber({
-  value,
-  onCommit,
+ value,
+ onCommit,
   suffix,
   disabled,
   ariaLabel,
@@ -108,66 +197,31 @@ export function PropertyNumber({
   ariaLabel: string;
   step?: number;
 }) {
-  const shown = value === null ? '' : String(Math.round(value * 100) / 100);
-
-  const commit = (text: string) => {
-    const parsed = Number.parseFloat(text);
-    // An emptied field is "leave it alone", not "set it to zero" — the only
-    // reading that lets a reader clear a mixed value and change their mind.
-    if (!Number.isFinite(parsed)) return;
-    if (parsed === value) return;
-    onCommit(parsed);
-  };
-
+  /**
+   * `NumberField` in a row's shape — and it used to be a **second copy** of it.
+   *
+   * The two were the same control written twice: the same `key`/`defaultValue`
+   * trick, the same "an emptied field means leave it alone", the same Enter that
+   * has to be prevented rather than merely stopped. `controls.tsx` even said it
+   * was "the same code rather than a second copy of it", which was true of the
+   * rule and not of the code. One of them is enough, and the lesson that took a
+   * browser to find — Enter's pending `beforeinput` splitting the paragraph inside
+   * the box being resized — now lives in exactly one place.
+   *
+   * What a row genuinely wants differently is the two decimals (a third decimal of
+   * a centimetre is noise) and a little more padding.
+   */
   return (
-    <span className="inline-flex flex-1 items-center gap-1">
-      <input
-        type="number"
-        step={step}
-        aria-label={ariaLabel}
-        disabled={disabled}
-        // Keyed by the model's value so a change from elsewhere — an undo, a
-        // drag, another reader — is drawn. Without this the field keeps whatever
-        // the browser has and quietly disagrees with the document.
-        key={shown}
-        defaultValue={shown}
-        placeholder={value === null ? '—' : undefined}
-        onBlur={(event) => commit(event.target.value)}
-        onKeyDown={(event) => {
-          /**
-           * A field's keys are the field's, not the document's.
-           *
-           * Without this, the Enter that commits a number also split the very
-           * paragraph inside the box being resized: one keystroke, two edits,
-           * and two presses of undo to get back. It took measuring to see why,
-           * and the reason is worth writing down because it is not the obvious
-           * one — the editor listens for `keydown` on its own contenteditable,
-           * so the key never reached it. What reached it was **`beforeinput`**:
-           * Enter's default action was still pending when `blur()` moved focus,
-           * and the browser delivered it to whatever was editable next.
-           *
-           * So `stopPropagation` alone was not enough and was not the point.
-           * Preventing the default is: this field is handling Enter, and a
-           * handled key has no default left to run.
-           */
-          event.stopPropagation();
-
-          if (event.key === 'Enter' || event.key === 'Escape') event.preventDefault();
-
-          if (event.key === 'Enter') (event.target as HTMLInputElement).blur();
-          if (event.key === 'Escape') {
-            (event.target as HTMLInputElement).value = shown;
-            (event.target as HTMLInputElement).blur();
-          }
-        }}
-        className={cn(
-          'h-7 w-full min-w-0 rounded border border-neutral-300 px-1.5 text-xs tabular-nums',
-          'dark:border-neutral-700 dark:bg-neutral-900',
-          'disabled:pointer-events-none disabled:opacity-40'
-        )}
-      />
-      {suffix && <span className="shrink-0 text-[11px] text-neutral-400">{suffix}</span>}
-    </span>
+    <NumberField
+      value={value}
+      onCommit={onCommit}
+      suffix={suffix}
+      step={step}
+      decimals={2}
+      padding="px-1.5"
+      disabled={disabled}
+      ariaLabel={ariaLabel}
+    />
   );
 }
 
@@ -179,7 +233,7 @@ export function PropertyNumber({
  * usually wants it. The swatch sets one and the button beside it clears it.
  */
 export function PropertyColor({
-  value,
+ value,
   onChange,
   onClear,
   disabled,
@@ -194,26 +248,28 @@ export function PropertyColor({
 }) {
   return (
     <span className="inline-flex flex-1 items-center gap-1.5">
-      <input
+ <input
         type="color"
-        aria-label={ariaLabel}
+ aria-label={ariaLabel}
         disabled={disabled}
         value={value ?? '#ffffff'}
-        onChange={(event) => onChange(event.target.value)}
+ onChange={(event) => onChange(event.target.value)}
         className={cn(
-          'h-7 w-9 shrink-0 cursor-pointer rounded border border-neutral-300 bg-transparent p-0.5',
-          'dark:border-neutral-700',
-          'disabled:pointer-events-none disabled:opacity-40'
-        )}
+          CONTROL,
+          'w-[calc(var(--ou-control-h)*1.3)] shrink-0 cursor-pointer bg-transparent p-0.5',
+ 'disabled:pointer-events-none disabled:opacity-40'
+ )}
       />
-      <span className="flex-1 text-[11px] tabular-nums text-neutral-500">{value ?? '없음'}</span>
+      <span className="flex-1 text-[length:var(--ou-text-small)] tabular-nums text-[color:var(--ou-muted)]">
+ {value ?? '없음'}
+ </span>
       {onClear && (
         <button
           type="button"
-          disabled={disabled || value === null}
+ disabled={disabled || value === null}
           onClick={onClear}
-          className="rounded px-1.5 py-0.5 text-[11px] text-neutral-500 hover:bg-neutral-100 disabled:opacity-40 dark:hover:bg-neutral-800"
-        >
+          className="rounded-[var(--ou-radius)] px-1.5 py-0.5 text-[length:var(--ou-text-small)] text-[color:var(--ou-muted)] hover:bg-[color:var(--ou-ground)] disabled:opacity-40"
+ >
           지우기
         </button>
       )}
@@ -230,7 +286,7 @@ export function PropertyColor({
  * a column of near-empty rows.
  */
 export function PropertyToggle({
-  value,
+ value,
   onChange,
   label,
   disabled,
@@ -243,15 +299,15 @@ export function PropertyToggle({
   ariaLabel: string;
 }) {
   return (
-    <label className="inline-flex flex-1 items-center gap-1.5 text-xs text-neutral-600 dark:text-neutral-300">
-      <input
+    <label className="inline-flex flex-1 items-center gap-1.5 text-[length:var(--ou-text)] text-[color:var(--ou-ink)]">
+ <input
         type="checkbox"
-        aria-label={ariaLabel}
+ aria-label={ariaLabel}
         disabled={disabled}
         checked={value}
         onChange={(event) => onChange(event.target.checked)}
         className="h-3.5 w-3.5 shrink-0 accent-blue-600 disabled:opacity-40"
-      />
+ />
       {label}
     </label>
   );
@@ -266,7 +322,7 @@ export function PropertyToggle({
  * keyboard-accessible and already looks like a form.
  */
 export function PropertyChoice({
-  value,
+ value,
   options,
   onChange,
   disabled,
@@ -285,9 +341,8 @@ export function PropertyChoice({
       value={value}
       onChange={(event) => onChange(event.target.value)}
       className={cn(
-        'h-7 w-full min-w-0 rounded border border-neutral-300 bg-transparent px-1 text-xs',
-        'dark:border-neutral-700 dark:bg-neutral-900',
-        'disabled:pointer-events-none disabled:opacity-40'
+        CONTROL,
+        'w-full min-w-0 bg-transparent px-1'
       )}
     >
       {options.map((option) => (
@@ -301,5 +356,9 @@ export function PropertyChoice({
 
 /** What the panel says when nothing is selected — which is most of the time. */
 export function PropertyEmpty({ children }: { children: React.ReactNode }) {
-  return <p className="px-1 text-xs leading-relaxed text-neutral-500">{children}</p>;
+  return (
+    <p className="px-1 text-[length:var(--ou-text)] leading-relaxed text-[color:var(--ou-muted)]">
+      {children}
+    </p>
+  );
 }

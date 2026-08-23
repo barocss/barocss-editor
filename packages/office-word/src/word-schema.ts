@@ -444,6 +444,54 @@ export function getWordSchemaDefinition(): SchemaDefinition {
       ...office.nodes,
 
       /**
+       * A frame in a document holds blocks, and only blocks.
+       *
+       * The shared declaration is `scene* | block+`, because a frame is a layout
+       * box on either kind of surface and on a canvas it holds placed things.
+       * Word has one HTML layout box and one SVG drawing surface, and they do
+       * not mix: a frame is a `<div>`, every shape Word draws is an SVG element,
+       * and a `<div>` full of `<rect>`s is markup the parser keeps and nothing
+       * paints — a blank space where the drawing was.
+       *
+       * Said here rather than exempted. Eight pairs used to be listed in Word's
+       * conformance exemptions, each carrying the same sentence, and every one of
+       * them was a fact about *what Word's frame may contain* written down in the
+       * place where you record things a check cannot know. A content model is the
+       * place a schema says what a node holds, so a document that tries it is now
+       * refused at the transaction rather than drawn as nothing.
+       *
+       * Slides keeps both halves: it draws every scene node as HTML, so a frame
+       * there really does hold either.
+       */
+      frame: { ...office.nodes.frame, content: 'block+' },
+
+      /**
+       * And the drawing surface, the same way round.
+       *
+       * A group is Word's `<g>`, so it holds what an `<svg>` can hold. The shared
+       * declaration names `frame` because a group on a slide can hold one.
+       */
+      group: { ...office.nodes.group, content: 'scene+' },
+
+      /**
+       * The page number, and how many pages there are.
+       *
+       * Word's, and only Word's. A slide has no page number, so the office
+       * schema does not declare these — the rule it now follows is that a
+       * vocabulary declares what its domain offers, and "the page you are on" is
+       * a fact a paginated document has and a deck does not.
+       *
+       * They are nodes rather than furniture the app draws, because they sit
+       * *inside* a footer's paragraph among the words and tabs: `barocss ⇥ 3 / 12`
+       * is one line of flow content, and the numbers take their place in it. No
+       * renderer draws either — `page-furniture.ts` resolves them to text while
+       * drawing the footer, because the answer depends on which page is being
+       * drawn and a renderer is handed a node rather than a page.
+       */
+      fieldPageNumber: { name: 'fieldPageNumber', group: 'inline', atom: true },
+      fieldPageCount: { name: 'fieldPageCount', group: 'inline', atom: true },
+
+      /**
        * A picture, which in Word is a good deal more than a source.
        *
        * How the text behaves around it is the important part: an inline picture

@@ -42,12 +42,14 @@
     "test:run": "vitest run"
   },
   "dependencies": {
-    "@barocss/schema": "workspace:*",
+    "@barocss/dsl": "workspace:*",
     "@barocss/editor-core": "workspace:*",
     "@barocss/extensions": "workspace:*",
     "@barocss/model": "workspace:*",
-    "@barocss/shared": "workspace:*",
-    "@barocss/dsl": "workspace:*"
+    "@barocss/office-controls": "workspace:*",
+    "@barocss/office-icons": "workspace:*",
+    "@barocss/schema": "workspace:*",
+    "@barocss/shared": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.9.3",

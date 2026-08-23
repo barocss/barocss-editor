@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import type { EditorViewDOM } from '@barocss/editor-view-dom';
+import { AppBody, AppChrome, AppMain, AppShell } from '@barocss/office-ui';
 import type { FontLoader } from './font-loader';
 import { Ribbon } from './ribbon';
 import { FindPanel } from './find-panel';
@@ -86,8 +87,8 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    * the document.
    */
   return (
-    <div className="w-shell">
-      <div className="w-chrome">
+    <AppShell className="w-shell">
+      <AppChrome className="w-chrome">
         {instance ? <DocumentTitle editor={instance.editor} /> : null}
         {instance ? (
           <Ribbon
@@ -107,16 +108,16 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
         {/* Above the page and as wide as it, because every position on it is a
             position in the text below. */}
         {instance ? <Ruler editor={instance.editor} zoom={zoom} /> : null}
-      </div>
+      </AppChrome>
 
-      <div className="w-shell-body">
+      <AppBody className="w-shell-body">
         {instance ? <OutlinePane
             editor={instance.editor}
             open={outlining}
             onToggle={() => setOutlining((shown) => !shown)}
           /> : null}
 
-        <div className="w-shell-document relative">
+        <AppMain className="w-shell-document relative">
           {instance ? (
             <FindPanel
               editor={instance.editor}
@@ -133,7 +134,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
           <ZoomFrame zoom={zoom}>
             <div ref={host} id="editor" />
           </ZoomFrame>
-        </div>
+        </AppMain>
 
         {instance ? (
           <CommentsPane
@@ -144,7 +145,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
           />
         ) : null}
         {instance && lab ? <InputLab editor={instance.editor} view={instance.view} /> : null}
-      </div>
-    </div>
+      </AppBody>
+    </AppShell>
   );
 }

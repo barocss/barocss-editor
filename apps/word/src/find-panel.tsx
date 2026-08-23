@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import type { EditorViewDOM } from '@barocss/editor-view-dom';
 import { findMatches, replaceMatches, step, type Match } from '@barocss/office-word';
-import { ChevronDown, ChevronUp, X } from 'lucide-react';
-import { cn } from '@barocss/office-ui';
+import { Icon } from '@barocss/office-icons';
+import { Button, cn, IconButton } from '@barocss/office-ui';
 
 /**
  * Find and replace.
@@ -140,15 +140,19 @@ export function FindPanel({
         <span className="w-find-count w-16 text-right text-xs tabular-nums text-neutral-500">
           {matches.length === 0 ? (query ? 'None' : '') : `${current + 1} / ${matches.length}`}
         </span>
-        <button aria-label="Previous match" className={buttonClass} onClick={() => go(-1)}>
-          <ChevronUp size={14} />
-        </button>
-        <button aria-label="Next match" className={buttonClass} onClick={() => go(1)}>
-          <ChevronDown size={14} />
-        </button>
-        <button aria-label="Close find" className={buttonClass} onClick={onClose}>
-          <X size={14} />
-        </button>
+        {/*
+          * Three icon buttons that used to carry a class of their own — `h-7 w-7` with this
+          * file's own hover grey, which is 28px by coincidence rather than by the token.
+          */}
+        <IconButton label="Previous match" onClick={() => go(-1)}>
+          <Icon name="previous" size={14} />
+        </IconButton>
+        <IconButton label="Next match" onClick={() => go(1)}>
+          <Icon name="next" size={14} />
+        </IconButton>
+        <IconButton label="Close find" onClick={onClose}>
+          <Icon name="close" size={14} />
+        </IconButton>
       </div>
 
       <div className="mt-2 flex items-center gap-1">
@@ -159,23 +163,19 @@ export function FindPanel({
           value={replacement}
           onChange={(event) => setReplacement(event.target.value)}
         />
-        <button
-          className={cn(buttonClass, 'w-auto px-2 text-xs')}
-          disabled={current < 0}
-          onClick={() => void replaceCurrent()}
-        >
+        {/* Words, so these are the *form control* — `Button` — and not the icon one. */}
+        <Button disabled={current < 0} onClick={() => void replaceCurrent()}>
           Replace
-        </button>
-        <button
+        </Button>
+        <Button
           // Named in full for anything that reads it aloud: "All" on its own is
           // not a thing anyone can act on.
-          aria-label="Replace all"
-          className={cn(buttonClass, 'w-auto px-2 text-xs')}
+          ariaLabel="Replace all"
           disabled={matches.length === 0}
           onClick={() => void replaceAll()}
         >
           All
-        </button>
+        </Button>
       </div>
 
       <div className="mt-2 flex gap-3 text-xs text-neutral-600 dark:text-neutral-400">
@@ -201,9 +201,5 @@ export function FindPanel({
     </div>
   );
 }
-
-const buttonClass =
-  'inline-flex h-7 w-7 items-center justify-center rounded text-neutral-700 ' +
-  'hover:bg-neutral-100 disabled:opacity-40 dark:text-neutral-200 dark:hover:bg-neutral-800';
 
 export { MATCH_STYPE };

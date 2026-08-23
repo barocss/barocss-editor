@@ -158,3 +158,72 @@ export function canvasCss(attrs: { width?: number; height?: number } | undefined
 export function canvasViewBox(attrs: { width?: number; height?: number } | undefined): string {
   return `0 0 ${number(attrs?.width, 0)} ${number(attrs?.height, 0)}`;
 }
+
+/**
+ * How a frame draws itself, and how it arranges blocks.
+ *
+ * A frame is a layout box rather than a drawing, so this is CSS: `flex` for a
+ * row or a column, `grid` for a grid, with the gap and the padding the frame
+ * declares. Scene children are unaffected — an absolutely positioned child
+ * ignores a flex container's placement — which is what lets one node arrange a
+ * document's blocks *and* a canvas's shapes without knowing which it holds.
+ *
+ * Placed like any other scene node when it carries a position, and left to the
+ * flow when it does not: a frame in a document is a block among blocks, and a
+ * frame on a slide is a box at a coordinate. The same attributes answer both —
+ * `width` and `height` are the box's, and `x`/`y` are absent in the flow.
+ */
+export function frameCss(
+  attrs:
+    | (ShapeGeometry & ShapeStyle & {
+        layoutMode?: string;
+        gap?: number;
+        padding?: number;
+        alignItems?: string;
+        columns?: number;
+        clipsContent?: boolean;
+      })
+    | undefined
+): CssStyle {
+  const css: CssStyle = {
+    // Its children's coordinates are measured from it, whichever kind they are.
+    position: typeof attrs?.x === 'number' || typeof attrs?.y === 'number' ? 'absolute' : 'relative',
+    boxSizing: 'border-box'
+  };
+
+  if (typeof attrs?.x === 'number') css.left = `${twipToPx(attrs.x)}px`;
+  if (typeof attrs?.y === 'number') css.top = `${twipToPx(attrs.y)}px`;
+  if (typeof attrs?.width === 'number') css.width = `${twipToPx(attrs.width)}px`;
+  if (typeof attrs?.height === 'number') css.height = `${twipToPx(attrs.height)}px`;
+
+  if (attrs?.clipsContent === false) css.overflow = 'visible';
+  else css.overflow = 'hidden';
+
+  if (typeof attrs?.fill === 'string' && attrs.fill.length > 0) css.background = attrs.fill;
+  if (typeof attrs?.stroke === 'string' && attrs.stroke.length > 0) {
+    css.border = `${twipToPx(number(attrs.strokeWidth, 15))}px solid ${attrs.stroke}`;
+  }
+
+  const gap = `${twipToPx(number(attrs?.gap, 0))}px`;
+  const padding = `${twipToPx(number(attrs?.padding, 0))}px`;
+  const align =
+    attrs?.alignItems === 'center' ? 'center' : attrs?.alignItems === 'end' ? 'flex-end' : 'flex-start';
+
+  switch (attrs?.layoutMode) {
+    case 'row':
+      return { ...css, display: 'flex', flexDirection: 'row', gap, padding, alignItems: align };
+    case 'column':
+      return { ...css, display: 'flex', flexDirection: 'column', gap, padding, alignItems: align };
+    case 'grid':
+      return {
+        ...css,
+        display: 'grid',
+        gridTemplateColumns: `repeat(${Math.max(1, Math.round(number(attrs?.columns, 2)))}, minmax(0, 1fr))`,
+        gap,
+        padding,
+        alignItems: attrs?.alignItems === 'center' ? 'center' : attrs?.alignItems === 'end' ? 'end' : 'start'
+      };
+    default:
+      return { ...css, padding };
+  }
+}

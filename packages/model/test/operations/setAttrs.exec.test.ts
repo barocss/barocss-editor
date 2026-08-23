@@ -75,6 +75,88 @@ describe('setAttrs operation (exec)', () => {
     expect(selectionManager.getCurrentSelection()).toEqual({ type: 'range' as const, startNodeId: 't1', startOffset: 2, endNodeId: 't1', endOffset: 4 });
   });
 
+  /**
+   * Taking an attribute *off* a node.
+   *
+   * There was no way to do it. A string could pretend with `''` and an array with
+   * `null` — which stored a null rather than removing anything — and a **number** had
+   * nothing: `0` is a value and the schema refuses `''`, so the transaction was
+   * rejected and the edit silently did nothing. Found on a connector's `endT`, the
+   * fraction along a line one of its ends holds.
+   */
+  describe('removing an attribute', () => {
+    beforeEach(() => {
+      schema = new Schema('test-schema', {
+        nodes: {
+          'inline-text': {
+            name: 'inline-text',
+            content: 'text*',
+            attrs: {
+              class: { type: 'string', required: false },
+              along: { type: 'number', required: false }
+            }
+          }
+        }
+      });
+      dataStore = new DataStore(undefined, schema);
+      selectionManager = new SelectionManager({ dataStore });
+      context = createTransactionContext(dataStore, selectionManager, schema);
+    });
+
+    it('takes a number off with `null`, where no value could mean absent', async () => {
+      dataStore.setNode({ sid: 't1', stype: 'inline-text', text: 'A', attributes: { along: 0.5, class: 'keep' } } as any);
+      const op = globalOperationRegistry.get('setAttrs');
+
+      await op!.execute({ type: 'setAttrs', payload: { nodeId: 't1', attrs: { along: null } } } as any, context);
+
+      const after = dataStore.getNode('t1');
+      expect('along' in (after?.attributes ?? {})).toBe(false);
+      // And nothing else moved: this is a removal, not a replacement.
+      expect(after?.attributes?.class).toBe('keep');
+    });
+
+    it('removes rather than storing a null, so a reader cannot find one', async () => {
+      dataStore.setNode({ sid: 't1', stype: 'inline-text', text: 'A', attributes: { class: 'x' } } as any);
+      const op = globalOperationRegistry.get('setAttrs');
+      await op!.execute({ type: 'setAttrs', payload: { nodeId: 't1', attrs: { class: null } } } as any, context);
+      expect(dataStore.getNode('t1')?.attributes).toEqual({});
+    });
+
+    it('puts it back on undo', async () => {
+      dataStore.setNode({ sid: 't1', stype: 'inline-text', text: 'A', attributes: { along: 0.25 } } as any);
+      const op = globalOperationRegistry.get('setAttrs');
+      const result: any = await op!.execute(
+        { type: 'setAttrs', payload: { nodeId: 't1', attrs: { along: null } } } as any,
+        context
+      );
+
+      expect(dataStore.getNode('t1')?.attributes?.along).toBeUndefined();
+      await op!.execute(result.inverse, context);
+      expect(dataStore.getNode('t1')?.attributes?.along).toBe(0.25);
+    });
+
+    it('treats `undefined` the same way, because a caller spreading an absent value means absent', async () => {
+      dataStore.setNode({ sid: 't1', stype: 'inline-text', text: 'A', attributes: { along: 1 } } as any);
+      const op = globalOperationRegistry.get('setAttrs');
+      await op!.execute({ type: 'setAttrs', payload: { nodeId: 't1', attrs: { along: undefined } } } as any, context);
+      expect('along' in (dataStore.getNode('t1')?.attributes ?? {})).toBe(false);
+    });
+
+    it('restores a null the document already had, rather than tidying it away', async () => {
+      /*
+       * `replace` is the inverse's path and it is exact: a document that arrived with a
+       * null keeps it through an undo. Only the merge reads `null` as "remove".
+       */
+      dataStore.setNode({ sid: 't1', stype: 'inline-text', text: 'A', attributes: { class: 'x' } } as any);
+      const op = globalOperationRegistry.get('setAttrs');
+      await op!.execute(
+        { type: 'setAttrs', payload: { nodeId: 't1', attrs: { class: null }, replace: true } } as any,
+        context
+      );
+      expect(dataStore.getNode('t1')?.attributes).toEqual({ class: null });
+    });
+  });
+
   it('should fail when schema rejects attribute type', async () => {
     // schema: class is string|null. Put a number to trigger validation.
     dataStore.setNode({ sid: 't1', stype: 'inline-text', text: 'A', attributes: { class: 'ok' } } as any);

@@ -1,5 +1,11 @@
 import { Transaction, TransactionManager, type TransactionOperation, type TransactionResult, type TransactionOptions } from '@barocss/model';
-import { createSchema, getMinimalSchemaDefinition } from '@barocss/schema';
+import {
+  createSchema,
+  describeFindings,
+  getMinimalSchemaDefinition,
+  validateTree,
+  type TreeFinding
+} from '@barocss/schema';
 import {
   DocumentState,
   SelectionState,
@@ -364,6 +370,27 @@ export class Editor implements ContextProvider {
   }
 
   // -------- Load/Export helpers (DX-oriented, keep responsibilities thin) --------
+  /**
+   * Load a document, and say so if it is not one the schema accepts.
+   *
+   * Every *operation* validates what it writes, so a document built by editing is
+   * checked at every step. A document handed to this went in exactly as written
+   * and nothing looked at it — which is a gap in the shape of a fixture, because
+   * a product's own sample documents are the only ones that arrive this way.
+   *
+   * It cost four rounds of debugging once: a deck's sample table had its rows
+   * directly under `bTable`, where the schema says `bTableBody+`. It drew
+   * perfectly, because renderers walk whatever they are given, and every table
+   * operation refused it — reporting `cell not found in table`, which is a fact
+   * about a grid builder rather than about the document, four levels from the
+   * fault.
+   *
+   * **Reported, not refused.** A document that disagrees with the schema in one
+   * corner still opens: a reader with a file that will not open and no way to see
+   * why is worse off than one whose file opens with a warning. Refusing is also
+   * the wrong default for a product that imports other people's documents, which
+   * is most of them.
+   */
   loadDocument(treeDocument: any, sessionId: string = 'editor-session'): void {
     const loader = new DataStoreLoader(this._dataStore, sessionId);
     const rootId = loader.loadDocument(treeDocument);
@@ -372,7 +399,44 @@ export class Editor implements ContextProvider {
     const tree = exporter.exportToTree(rootId);
     this._document = this._convertToDocumentState(tree);
     this._addToHistory(this._document);
+
+    this._reportDocumentFaults(treeDocument);
     this.emit('editor:content.change', { content: this.document, transaction: null, rootId });
+  }
+
+  /**
+   * What was wrong with the document this editor was last given.
+   *
+   * Empty for a document the schema accepts. Kept rather than only emitted, so a
+   * test or a host can ask after the fact — an event is gone by the time anything
+   * thinks to look.
+   */
+  get documentFaults(): TreeFinding[] {
+    return this._documentFaults;
+  }
+
+  private _documentFaults: TreeFinding[] = [];
+
+  private _reportDocumentFaults(treeDocument: any): void {
+    // The schema lives on the store, which is where every operation reads it.
+    const schema: any = this._dataStore?.getActiveSchema?.();
+    if (!schema || typeof schema.hasNodeType !== 'function') return;
+
+    try {
+      this._documentFaults = validateTree(schema, treeDocument);
+    } catch {
+      // A validator that throws must not stop a document opening.
+      this._documentFaults = [];
+      return;
+    }
+    if (this._documentFaults.length === 0) return;
+
+    // One message with all of them: a fixture with three faults should take one
+    // run to fix rather than three.
+    console.warn(
+      `[editor] the document does not match the schema:\n${describeFindings(this._documentFaults)}`
+    );
+    this.emit('editor:document.invalid', { findings: this._documentFaults } as never);
   }
 
   exportDocument(rootId?: string): any | null {

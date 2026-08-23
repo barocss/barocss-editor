@@ -1,15 +1,13 @@
 import { describe, it } from 'vitest';
-import { assertConforms, drawnTagFrom } from '@barocss/conformance';
+import { assertConforms, attributeReadFrom, contentTagFrom, drawnTagFrom } from '@barocss/conformance';
 import { createSchema } from '@barocss/schema';
+import { iconNames } from '@barocss/office-icons';
 import { getGlobalRegistry } from '@barocss/dsl';
 import { getSlidesSchemaDefinition } from '../src/slides-schema';
 import { registerSlidesRenderers } from '../src/renderers';
-import { createSlidesEditor } from '../src/slides-kit';
-import { createSlideCommands } from '../src/slide-commands';
-import { createBoxCommands } from '../src/box-commands';
-import { createArrangeCommands } from '../src/arrange-commands';
-import { createClipboardCommands } from '../src/clipboard-commands';
-import { slidesToolbarCommands } from '../src/toolbar-model';
+import { createSlidesEditor, createSlidesOwnExtensions } from '../src/slides-kit';
+import { kindOfBox } from '../src/layers';
+import { slidesToolbarCommands, slidesToolbarIcons } from '../src/toolbar-model';
 import { slidesKeyCommands } from '../src/keymap';
 
 /**
@@ -27,6 +25,13 @@ import { slidesKeyCommands } from '../src/keymap';
  * quietly. That is the whole design — the operation roster allowed exemptions
  * with written reasons, fourteen went stale, and the checks they silenced
  * stayed off for months looking exactly like coverage.
+ *
+ * There are ten. There were twenty-seven, and seventeen of them said "inherited"
+ * — a callout, a description list, a video the office schema declared because it
+ * took the standard schema's node set entire. Word wrote the same list. The
+ * schema names what an office document is made of now, so those are not
+ * exemptions here or anywhere; what is left is about *this product*, which is
+ * what an exemption is for.
  */
 describe('Slides draws what its schema declares', () => {
   registerSlidesRenderers();
@@ -59,6 +64,27 @@ describe('Slides draws what its schema declares', () => {
     // `inline-image` in a paragraph. A picture on a slide is placed.
     { command: 'insertPicture', produces: 'picture' },
     { command: 'insertTextBox', produces: 'textFrame' },
+    /**
+     * One command each, and this list is why: written first as a single
+     * `insertMedia({ kind })`, which this check refused because it could only
+     * answer "it depends" here.
+     */
+    { command: 'insertVideo', produces: 'mediaVideo' },
+    { command: 'insertAudio', produces: 'mediaAudio' },
+    { command: 'insertFrame', produces: 'frame' },
+    /**
+     * A line that remembers what it joins — the last of the office schema's canvas
+     * nodes a deck could not make. `connector` was declared, named in the shared
+     * vocabulary, and exempted here as "a deck has no arrows yet".
+     */
+    { command: 'insertConnector', produces: 'connector' },
+    /**
+     * Makes **two** things: the line, and a shape of the same kind as the one it grew
+     * out of. The line is what is named here — the shapes it may make are each already
+     * in this list under their own insert command, and naming one of them would be
+     * choosing arbitrarily between them.
+     */
+    { command: 'insertConnectedShape', produces: 'connector' },
 
     { command: 'insertParagraph', produces: 'paragraph' },
     { command: 'insertHardBreak', produces: 'hardBreak' },
@@ -85,14 +111,18 @@ describe('Slides draws what its schema declares', () => {
    */
   const own = (() => {
     const bare = new Set(createSlidesEditor({ kit: [] }).commandNames());
-    const mine = createSlidesEditor({
-      kit: [
-        createSlideCommands(),
-        createBoxCommands(),
-        createArrangeCommands(),
-        createClipboardCommands()
-      ]
-    }).commandNames();
+    /**
+     * The product's own extensions, read from the product.
+     *
+     * This used to be a list written out here — `[createSlideCommands,
+     * createBoxCommands, createArrangeCommands, createClipboardCommands]` —
+     * while the kit installed six, and the check's own note says a list "would be
+     * a fourth place to forget the thing the check exists to catch". It was: the
+     * table commands and the layout commands were invisible to it, so a reader
+     * could select a block of cells on a slide, find nothing anywhere that merged
+     * them, and this reported no findings.
+     */
+    const mine = createSlidesEditor({ kit: createSlidesOwnExtensions() }).commandNames();
     return mine.filter((name: string) => !bare.has(name));
   })();
 
@@ -111,6 +141,41 @@ describe('Slides draws what its schema declares', () => {
       hasRenderer: (nodeType) => registry.has(nodeType),
       // Taken from the renderers rather than written down; see `drawnTagFrom`.
       drawnAs: drawnTagFrom(registry as never),
+      // Where a node's *children* land, which is not always the element the node
+      // draws as: a table header draws a `<thead>` and holds its cells in a
+      // `<tr>` inside it.
+      holdsIn: contentTagFrom(registry as never),
+      /**
+       * What this product calls a node type in a list — the layer panel's rows.
+       *
+       * `kindOfBox` and nothing else: it returns nothing for a type it has no word
+       * for, which is what lets the check see a missing name. `labelOfBox` would
+       * have answered "상자" for every one of them, which is a fallback and is the
+       * failure the check is about.
+       */
+      nameOf: (type: string) => kindOfBox(type) ?? null,
+      /**
+       * Whether drawing a node changes when an attribute is set.
+       *
+       * Which replaces a list a person had to re-measure — see the check. The shapes
+       * come from the same schema the check walks, so the probe value matches the
+       * type the attribute declares.
+       */
+      attributeRead: attributeReadFrom(registry as never, (type: string) =>
+        (schema.nodes.get(type) as { attrs?: Record<string, never> } | undefined)?.attrs
+      ),
+      /**
+       * Every icon the deck's controls ask for, and whether the suite draws it.
+       *
+       * From the **declaration**, which is the point: the browser test asserts that
+       * nothing *on screen* fell back to drawing its own name, and a control on a tab
+       * nobody opened is declared exactly like a visible one.
+       *
+       * `iconNames()` is the table `Icon` itself reads, so this is the product's own
+       * answer rather than a second list about it.
+       */
+      iconsAsked: slidesToolbarIcons(),
+      iconDrawn: (name: string) => iconNames().includes(name),
       produces,
       commands,
       own,
@@ -126,6 +191,112 @@ describe('Slides draws what its schema declares', () => {
         setDeckSize: 'the slide-size dialog',
         setSlideLayout: 'the layout dialog',
         addSlideNote: 'the button in the notes pane, shown when a slide has no note',
+        setFrameLayout: 'the properties panel — a frame’s direction, gap, padding and columns',
+        setConnector:
+          'the properties panel — a connector’s 연결선 group: its route, its bow and the shape at each end. Dragging an end onto another shape runs the same command',
+        insertConnectedShape:
+          'the canvas — a line pulled out of a shape’s magnet and let go in empty space, which makes the next shape and joins it. The gesture a flow chart is made of, and it has no button because a button could not say *where*',
+        reverseConnector:
+          'the properties panel — 연결선 › 방향 › 뒤집기. A relationship drawn the wrong way round had two ways back before this: delete the line and draw it again, or drag both ends past each other',
+        spliceIntoConnector:
+          'the canvas — a shape dragged onto a line, which highlights while it is held and splits into two lines on release. Like `insertConnectedShape` it has no button, because a button could not say *which line*',
+        cropPicture:
+          'the crop handles on the stage — double-click a picture — and the panel’s way back',
+        setSlideTransition: 'the properties panel — the slide’s 전환 row and its length',
+        setBoxBuild: 'the properties panel — the box’s 애니메이션 row',
+        setDeckTheme: 'the properties panel — the slide’s 테마 row, which re-colours the deck',
+        setSlideGuides:
+          'the rulers — a guide is pulled out of one, dragged along the slide, and thrown away by being dragged off it',
+
+        // ── The layer list ─────────────────────────────────────────────────
+        // What is on the slide, stacked. Two of its three gestures are commands
+        // the toolbar has no button for, because the question each answers is
+        // about *one row* rather than about the selection.
+        setBoxVisible:
+          'the layer list — the eye on a row. An attribute the shared schema declared and the renderers already read (`isVisible` → `display: none`), with nothing able to set it',
+        moveBoxTo:
+          'the layer list — a row dragged to a place in the stack, which is the question 맨 앞으로/앞으로/뒤로/맨 뒤로 answer four ways; and a drag inside a frame that *arranges*, where a move has nowhere to go and the order is what a drag means (canvas-model §5)',
+
+        // ── The timeline pane ──────────────────────────────────────────────
+        // A slide's steps as one list: the order, the timing, and a film made
+        // part of the sequence. Three of these are rows in that list; the fourth
+        // is the properties panel's 재생 row on a film.
+        setMotionStep:
+          'the timeline pane — a step’s effect, start, length, delay, curve, colour, unit, trail, trigger and which fill or shadow it aims at',
+        addBoxBuild: 'the timeline pane — 효과 추가 on a shape’s track',
+        addBoxPath:
+          'the properties panel — the 경로 gallery in the 모션 tab, beside the motion presets',
+        addBoxCombo:
+          'the properties panel — the 함께 gallery in the 모션 tab: one tile, two motions at once',
+        addBoxesMotion:
+          'the properties panel — the same galleries, with more than one box selected: a tile then animates all of them a beat apart',
+        moveMotionStep: 'the timeline pane — the arrows on a step',
+        shiftMotionSteps:
+          'the timeline pane — dragging bars, and the arrow keys on a selected bar',
+        removeMotionStep: 'the timeline pane — the delete button on a step',
+        setBoxPlayback: 'the properties panel — a film’s 재생 row',
+        setMediaTrim: 'the timeline pane — a play step’s 필름 group, 시작점 and 끝점',
+
+        // ── Attributes read by something that is not a renderer ────────────
+        /**
+         * `every-attribute-is-read` asks the drawing, because that is the answer it can
+         * take from the product rather than from a claim. An attribute that reaches a
+         * reader some other way looks unread to it, and this is where that is written
+         * down — **once per decision**, keyed by the attribute rather than by the node,
+         * which is what `Finding.family` is for. `locked` came back on eleven node
+         * types for one reason; eleven copies of it is the failure this harness is
+         * named after.
+         *
+         * Each of these was verified by reading the reader, not by assuming one. Two of
+         * the things that came back were not read anywhere at all, and are fixed rather
+         * than listed: a path now takes the deck's paint (`svg-paint.ts`) and a slide
+         * records its `kind` the way Word's surface always did.
+         */
+        locked:
+          'the commands — `moveBoxes`, the arrange commands and `setBoxLocked` all refuse a locked box — and the layer list draws the padlock. A drawing that changed would be a shape that looks different from the one beside it for a reason about editing',
+        name:
+          'motion — a step names its box by it (`namedBoxes` in `timeline.ts`), `setBoxBuild` assigns one as it goes, and the deck file format is written in those names. A durable identity is the point: a sid is handed out at load, so a saved animation cannot be written in sids. A slide’s own `name` is read by the filmstrip (`titleOf` in `deck.ts`)',
+        noteId:
+          'the notes pane — a slide names its note the way it names its header, and `noteOf` resolves it in `deck.ts`',
+        trackId:
+          'the timeline — `trackFor` in `motion.ts` resolves it. Time lives beside the document, so a slide carries a name rather than keyframes',
+        trimStart: 'playback — `media-trim.ts`, when a play step starts a film part-way in',
+        trimEnd: 'playback — the same file, which is the only thing that can act on a moment in time',
+
+        // A frame arranges what is *in* it, so the change is in the children's
+        // positions and not in the frame's own drawing. One entry each because they
+        // are separate attributes, and one reader for all of them.
+        layoutMode: 'the arrangement — `layoutChildren` in `canvas-layout.ts` moves the children; a frame with none of them draws the same either way',
+        gap: 'the arrangement — `layoutChildren`',
+        padding: 'the arrangement — `layoutChildren`',
+        alignItems: 'the arrangement — `layoutChildren`, across the axis',
+        columns: 'the arrangement — `layoutChildren`, in grid mode',
+
+        /**
+         * ── An attribute whose value is a **reference** ─────────────────────
+         *
+         * The renderer reads both of these — resolving them against the document is
+         * the whole of what a connector does — and the probe cannot demonstrate it: a
+         * made-up string names no node, so both ends fall back to their remembered
+         * places and the drawing is unchanged.
+         *
+         * The third shape of this. A fixed set the schema does not declare (fixed by
+         * `options`), a set whose reader tolerates anything (exempted in Word), and now
+         * a value that has to *exist elsewhere in the document*. A probe that invented
+         * a legal sid would be building a document, which is a different check.
+         */
+        startNodeId:
+          'the shape the end holds — `connectorSpecOf` reads it and the renderer resolves it against the document. A probe value names no node, so there is nothing to resolve',
+        endNodeId: 'the other end’s shape — the same',
+        startT:
+          'how far along the *line* the end holds — read by `connectorRouteOf`, and only meaningful beside a `startNodeId` that names a connector. The probe can name no node, so there is no line to be a fraction of',
+        endT: 'the other end’s fraction — the same',
+
+        // ── One node, not the attribute everywhere ─────────────────────────
+        'fieldDateTime.format':
+          'the field needs a clock, and a clock arrives on the environment — with none the field draws nothing whatever the format says. Word tests the formats directly in `date-field.test.ts`',
+        'paragraph.placeholder':
+          'nothing reads it, and this is a gap rather than a decision: the prompt would show on an *empty* paragraph, and an empty paragraph here holds a caret filler, so `:empty` is not the test. Slides prompts from its layouts instead. See `docs/BACKLOG.md`',
 
         // ── Commands that put no node in the document ──────────────────────
         insertText: 'writes characters into a run; makes no node',
@@ -136,43 +307,21 @@ describe('Slides draws what its schema declares', () => {
         // this product can make one — but a board pasted into a deck could
         // carry them, and then they would draw nothing. Logged rather than
         // called fine.
-        connector: 'a board arrow between two nodes; a deck has no arrows yet',
         component: 'a reusable canvas definition; a deck has no components',
         instance: 'a placement of one; a deck has no components',
 
-        // ── Inherited from the standard schema ─────────────────────────────
-        // The office schema is built on the standard one and takes its whole
-        // node set, so every product pays this tax and writes almost the same
-        // list. Word writes it too, which is the second proof that the office
-        // schema should declare what it offers rather than inheriting
-        // everything — one product's list is an opinion, two identical lists
-        // are a design fault. See docs/BACKLOG.md.
+        // ── The twenty-three "inherited" lines are gone ────────────────────
+        // They said the same thing twenty-three times — a callout, a checklist,
+        // a description list, a video, a contents page: declared by the schema
+        // and offered by nothing. Word's list was the same twenty-three, which
+        // is what settled it. A list one product writes is an opinion; the same
+        // list written twice is the schema claiming things the domain does not
+        // have.
         //
-        // None has a command in Slides' kit, so no reader can make one; a
-        // document that arrived holding one would draw nothing.
-        callout: 'inherited; a deck offers no callouts',
-        taskItem: 'inherited; a deck offers no checklists',
-        pullQuote: 'inherited; a deck offers no pull quotes',
-        columns: 'inherited; a slide places boxes instead of splitting a column',
-        column: 'inherited; reachable through columns, which a deck does not offer',
-        docSection: 'inherited; a deck has slides, not sections',
-        toc: 'inherited; a deck has no contents page',
-        bDetails: 'inherited; a deck offers no disclosure blocks',
-        bSummary: 'inherited; reachable through bDetails',
-        bFigure: 'inherited; a deck places a picture rather than captioning one in the flow',
-        bFigcaption: 'inherited; reachable through bFigure',
-        descList: 'inherited; a deck offers no description lists',
-        descTerm: 'inherited; a deck offers no description lists',
-        descDef: 'inherited; a deck offers no description lists',
-        mathInline: 'inherited; a deck offers no equations yet',
-        mathBlock: 'inherited; a deck offers no equations yet',
-        mediaVideo: 'inherited; a deck embeds no media yet',
-        mediaAudio: 'inherited; a deck embeds no media yet',
-        mediaEmbed: 'inherited; a deck embeds no media yet',
-        chart: 'inherited; a deck offers no charts yet',
-        emoji: 'inherited; a deck types emoji as text',
-        fieldPageNumber: 'inherited; a slide has no page number',
-        fieldPageCount: 'inherited; a slide has no page number'
+        // `OFFICE_STANDARD_NODES` in `packages/schema/src/office-schema.ts` now
+        // names what an office document is made of, and these are not in it.
+        // They remain in the standard schema for a product whose domain is the
+        // web — nothing was deleted, only un-claimed.
       }
     });
   });

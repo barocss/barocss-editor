@@ -37,12 +37,67 @@ describe('Office schema: one model, four products', () => {
 describe('domain isolation is by group, not by a second schema', () => {
   it('scene nodes cannot appear where blocks are expected', () => {
     expect(schema.validateContent('blockQuote', [n('rectangle')]).valid).toBe(false);
-    expect(schema.validateContent('listItem', [n('frame')]).valid).toBe(false);
+    expect(schema.validateContent('listItem', [n('sticky')]).valid).toBe(false);
   });
 
   it('blocks cannot appear where scene nodes are expected', () => {
-    expect(schema.validateContent('frame', [n('paragraph')]).valid).toBe(false);
     expect(schema.validateContent('group', [n('heading')]).valid).toBe(false);
+    expect(schema.validateContent('canvasBlock', [n('paragraph')]).valid).toBe(false);
+  });
+
+  /**
+   * A frame is the exception, and deliberately.
+   *
+   * It is a *layout box* — a thing that holds other things and decides where
+   * they go — which is as useful in a document as on a slide, so it is a block
+   * and it holds either kind. Two columns of text in a report and a row of
+   * cards on a slide are the same node; what differs is what is in it, which is
+   * the shape `surface` already had.
+   *
+   * The arrangement follows from the contents and needs no second mechanism:
+   * blocks have no coordinates, so the browser lays them out, and scene nodes
+   * carry `x` and `y`, so the model computes them.
+   */
+  it('a frame is a block, and holds either kind', () => {
+    expect(schema.validateContent('listItem', [n('frame')]).valid).toBe(true);
+    expect(schema.validateContent('frame', [n('paragraph'), n('list')]).valid).toBe(true);
+    expect(schema.validateContent('frame', [n('rectangle'), n('ellipse')]).valid).toBe(true);
+  });
+
+  it('keeps the two kinds from mixing inside one frame', () => {
+    // The same choice `surface` makes: one or the other, not a mixture.
+    expect(schema.validateContent('frame', [n('paragraph'), n('rectangle')]).valid).toBe(false);
+  });
+
+  it('is still reachable on a canvas, which names it', () => {
+    expect(schema.validateContent('surface', [n('frame'), n('sticky')]).valid).toBe(true);
+    expect(schema.validateContent('group', [n('frame')]).valid).toBe(true);
+  });
+
+  /**
+   * And not inside the one canvas that is already in the flow.
+   *
+   * `canvasBlock` is a drawing embedded in a document, and a frame is a block —
+   * so a reader who wants an arrangement puts the frame *around* the drawing.
+   * Naming it inside as well would offer a route that only reads as sensible
+   * until you ask what it looks like.
+   */
+  it('is not offered inside a canvas that is itself in the flow', () => {
+    expect(schema.validateContent('canvasBlock', [n('frame')]).valid).toBe(false);
+    expect(schema.validateContent('canvasBlock', [n('rectangle')]).valid).toBe(true);
+  });
+
+  /**
+   * A frame in the flow has no width, and that is not an omission.
+   *
+   * Every other placed node must state one — a shape of no size cannot be drawn
+   * — but a frame in a document is as wide as the column it sits in, and a
+   * width written into the file would be a number that goes stale the first
+   * time a margin moves.
+   */
+  it('lets a frame in the flow take its width from the page', () => {
+    expect(schema.validateAttributes('frame', {}).valid).toBe(true);
+    expect(schema.validateAttributes('rectangle', {}).valid).toBe(false);
   });
 });
 
@@ -67,8 +122,25 @@ describe('the seams between domains are deliberate', () => {
 });
 
 describe('containers enforce their own shape', () => {
-  it('a group must not be empty', () => {
-    expect(schema.validateContent('group', [])).toHaveProperty('valid', false);
+  /**
+   * A group may be empty **to the schema**, and never is to a reader.
+   *
+   * This asserted the opposite, and the rule it was asserting is real: a group with
+   * nothing in it is not a group. What made it wrong here is *when* validation runs — on
+   * the whole transaction — and ungrouping has to pass through the empty state: the
+   * children leave one at a time and the group is removed after the last one. With `+`
+   * every ungroup was rejected with "Content of 'group' ended early", so the gesture
+   * could not be expressed at all.
+   *
+   * It hid behind a second bug for a long time (`moveNode` wrote an alias into the
+   * child's `parentId`, so the children never actually left the group's content) and only
+   * surfaced when a connector became the first thing to walk *up* the tree.
+   *
+   * The rule now lives with the commands that make and unmake groups: grouping refuses
+   * fewer than two shapes, and ungrouping deletes the group it empties.
+   */
+  it('may be empty, because ungrouping passes through that state', () => {
+    expect(schema.validateContent('group', []).valid).toBe(true);
     expect(schema.validateContent('group', [n('rectangle')]).valid).toBe(true);
   });
 
@@ -83,12 +155,51 @@ describe('containers enforce their own shape', () => {
 });
 
 describe('the document vocabulary survives the merge', () => {
-  it('keeps the standard compound structures working', () => {
+  it('keeps the standard compound structures it offers', () => {
     expect(
       schema.validateContent('bTable', [n('bTableHeader'), n('bTableBody')]).valid
     ).toBe(true);
-    expect(schema.validateContent('descList', [n('descTerm'), n('descDef')]).valid).toBe(true);
-    expect(schema.validateContent('bDetails', [n('bSummary'), n('paragraph')]).valid).toBe(true);
+    expect(schema.validateContent('list', [n('listItem'), n('listItem')]).valid).toBe(true);
+    expect(schema.validateContent('listItem', [n('paragraph')]).valid).toBe(true);
+  });
+
+  /**
+   * And declares none of what it does not offer.
+   *
+   * This test used to assert that `descList` and `bDetails` worked here, which
+   * was true and was the fault: office took the standard schema's node set
+   * entire, so a document could legally hold a description list, a disclosure
+   * block or a video that no office product draws — the text in the file and
+   * nothing on the page. Two products wrote the same twenty-three write-offs.
+   *
+   * They are still in the standard schema for a product whose domain is the web.
+   * Office simply does not claim them.
+   */
+  it('declares nothing it has no way to draw', () => {
+    for (const absent of [
+      'callout',
+      'pullQuote',
+      'taskItem',
+      'columns',
+      'column',
+      'descList',
+      'bDetails',
+      'bFigure',
+      'mediaVideo',
+      'chart',
+      'emoji',
+      'toc',
+      'docSection'
+    ]) {
+      expect(schema.getNodeType(absent), `${absent}이 여전히 선언되어 있습니다`).toBeUndefined();
+    }
+
+    // The three office does differently rather than not at all: equations are
+    // OMML node names, a page number is furniture the layout pass paints, and a
+    // contents page is `tableOfContents`, computed from the headings.
+    for (const instead of ['mathInline', 'mathBlock', 'fieldPageNumber', 'fieldPageCount']) {
+      expect(schema.getNodeType(instead), `${instead}이 여전히 선언되어 있습니다`).toBeUndefined();
+    }
   });
 
   it('keeps every standard mark', () => {

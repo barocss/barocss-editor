@@ -48,45 +48,57 @@ const body = () => ({
   settings: { sid: 'settings', stype: 'docSettings', attributes: { trackRevisions: false } }
 });
 
-beforeEach(() => (committed.length = 0));
+beforeEach(() => {
+  // Braces, not an expression body: an arrow that *returns* the new length hands
+  // vitest a number where it expects a cleanup function, which the compiler says and
+  // nothing else would.
+  committed.length = 0;
+});
 
-describe('a column break', () => {
-  it('goes after the block the caret is in, not after the text node', () => {
-    // The caret is in t1, but a break between two text nodes inside a paragraph
-    // is not a break at all — it has to land among the paragraph's siblings.
+/**
+ * Both breaks split at the caret.
+ *
+ * These used to say a column break "goes after the block the caret is in", which
+ * is what the shared kit does and what Word replaced: a break after the whole
+ * block leaves the caret where it was — measured in the browser as the caret
+ * landing on the break node itself, off the paper, with nowhere for the next
+ * keystroke to go.
+ *
+ * What "break here" means is the same for both, so both run one operation with a
+ * different node type rather than two commands that disagree about where a break
+ * goes.
+ */
+describe('breaking at the caret', () => {
+  for (const [command, stype] of [
+    ['insertPageBreak', 'pageBreak'],
+    ['insertColumnBreak', 'columnBreak']
+  ] as const) {
+    it(`${command} splits where the caret is, and inserts a ${stype}`, async () => {
+      const { editor, commands } = editorOf(body());
+      await commands.get(command).execute(editor, { selection: caret('t1') });
+
+      expect(committed[0]).toEqual([
+        { type: 'insertPageBreakAtCaret', payload: { stype } }
+      ]);
+    });
+
+    it(`${command} does nothing without a text selection, and says so`, async () => {
+      const { editor, commands } = editorOf(body());
+      expect(commands.get(command).canExecute(editor, {})).toBe(false);
+      expect(await commands.get(command).execute(editor, {})).toBe(false);
+      expect(committed).toHaveLength(0);
+    });
+  }
+
+  /**
+   * Where the break lands, and where the caret ends up, is the operation's — and
+   * it is pinned there, in `model/test/operations/insertPageBreakAtCaret.exec`,
+   * against a real document rather than a mocked transaction.
+   */
+  it('leaves where to split to the operation', async () => {
     const { editor, commands } = editorOf(body());
-    commands.get('insertColumnBreak').execute(editor, { selection: caret('t1') });
-
-    expect(committed[0]).toEqual([
-      {
-        type: 'addChild',
-        payload: {
-          parentId: 'body',
-          child: { stype: 'columnBreak', attributes: {} },
-          position: 1
-        }
-      }
-    ]);
-  });
-
-  it('goes after the block itself when the caret is on one', async () => {
-    const { editor, commands } = editorOf(body());
-    await commands.get('insertColumnBreak').execute(editor, { selection: caret('p2') });
-    expect(committed[0][0].payload.position).toBe(2);
-  });
-
-  it('does nothing without a selection, and says so', async () => {
-    const { editor, commands } = editorOf(body());
-    expect(commands.get('insertColumnBreak').canExecute(editor, {})).toBe(false);
-    expect(await commands.get('insertColumnBreak').execute(editor, {})).toBe(false);
-    expect(committed).toHaveLength(0);
-  });
-
-  it('does nothing when the caret is on a node with no parent to insert into', async () => {
-    const { editor, commands } = editorOf({ orphan: { sid: 'orphan', stype: 'paragraph' } });
-    expect(await commands.get('insertColumnBreak').execute(editor, { selection: caret('orphan') }))
-      .toBe(false);
-    expect(committed).toHaveLength(0);
+    await commands.get('insertPageBreak').execute(editor, { selection: caret('p2') });
+    expect(committed[0][0].type).toBe('insertPageBreakAtCaret');
   });
 });
 

@@ -1,3 +1,5 @@
+import type { AxisStep } from './axis';
+
 /**
  * What a length looks like to a reader.
  *
@@ -93,4 +95,38 @@ export function fromDisplay(value: number, unit: LengthUnit): number {
  */
 export function stepFor(unit: LengthUnit): number {
   return UNITS[unit].decimals >= 2 ? 0.1 : 1;
+}
+
+/**
+ * How a ruler steps in this unit: the twips in one, and how far apart the
+ * labelled and unlabelled ticks go.
+ *
+ * Here because it is the same question `UNITS` above answers — what a length
+ * looks like to a reader. The *drawing* is the product's and the *counting* is
+ * `axisTicks`'s; this is only which numbers to count in — the same shape of answer
+ * `timeStep` gives for a clock, from a span instead of from a unit.
+ *
+ * The steps are a judgement, and the judgement is **how many labels fit**: a 16:9
+ * slide is 25920 twips, which is 45.7cm, 18 inches, 1296pt or 1728px — so one
+ * label per centimetre is 45 of them and one per inch is 18. Past about fifty a
+ * ruler is a grey band rather than a scale, which is why millimetres are labelled
+ * every ten (457 labels otherwise) and points every 72. Exactly what every
+ * printed ruler does with millimetres.
+ */
+export function rulerStep(unit: LengthUnit): AxisStep {
+  const per = UNITS[unit].twips;
+  switch (unit) {
+    case 'mm':
+      return { per, major: 10, minor: 5 };
+    // Quarters, because an inch ruler with halves is four ticks across a slide's
+    // width and nobody can place anything against it.
+    case 'in':
+      return { per, major: 1, minor: 0.25 };
+    case 'pt':
+      return { per, major: 72, minor: 36 };
+    case 'px':
+      return { per, major: 100, minor: 50 };
+    default:
+      return { per, major: 1, minor: 0.5 };
+  }
 }

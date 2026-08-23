@@ -21,6 +21,21 @@
 @import "@barocss/office-slides/slides.css";
 
 /*
+ * The suite's control tokens, and this deck's palette mapped onto them.
+ *
+ * `office-ui`'s components used to draw with Tailwind's own greys while this file
+ * drew with `--sl-*`, and the two do not agree: measured on 2026-08-20 in one row
+ * of the step inspector, a hand-rolled select came out 22px tall with a #d8dce4
+ * border and 3px corners next to a shared colour field at 28px, #d4d4d4 and 4px.
+ * Two greys and three heights in one row is what made hand-rolling the *cheaper*
+ * option every time, which is how a shared package stops being used.
+ *
+ * So the deck says what its colours are, once, and every shared control matches
+ * everything around it — including the ones written next year.
+ */
+@import "@barocss/office-ui/tokens.css";
+
+/*
  * Chrome for the deck, not for the slides.
  *
  * Everything inside a `.sl-slide` is drawn from the model by the renderers — a
@@ -37,6 +52,20 @@
   --sl-ink: #1e2430;
   --sl-muted: #6b7480;
   --sl-accent: #2563eb;
+
+  /* The suite's controls, drawn in this deck's palette. */
+  --ou-panel: var(--sl-panel);
+  --ou-ground: var(--sl-ground);
+  --ou-line: var(--sl-line);
+  --ou-ink: var(--sl-ink);
+  --ou-muted: var(--sl-muted);
+  --ou-accent: var(--sl-accent);
+  /*
+   * The faint one has no `--sl-` of its own: a unit beside a number is quieter
+   * than a label, and this file had been writing `#9aa0aa` inline wherever it
+   * needed one. Named here rather than left as four literals.
+   */
+  --ou-faint: color-mix(in srgb, var(--sl-muted) 65%, var(--sl-panel));
 }
 
 @media (prefers-color-scheme: dark) {
@@ -69,12 +98,12 @@ body {
   overflow: hidden;
 }
 
-.sl-shell {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  min-height: 0;
-}
+/*
+  The frame — the column, the `flex`es and the two `min-*: 0`s — is `AppShell` and
+  friends in `@barocss/office-ui`. It was written here and again in Word with
+  identical declarations. `.sl-shell` stays on the element because eight rules
+  below key off it while presenting.
+*/
 
 /* ── Top bar ───────────────────────────────────────────────────────────── */
 .sl-topbar {
@@ -108,43 +137,14 @@ body {
   gap: 6px;
 }
 
-.sl-topbar-actions button {
-  font-size: 12px;
-  padding: 5px 12px;
-  border-radius: 6px;
-  border: 1px solid var(--sl-line);
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-}
-
-.sl-topbar-actions button:hover:not(:disabled) {
-  border-color: var(--sl-accent);
-  color: var(--sl-accent);
-}
-
-.sl-topbar-actions button:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
-.sl-topbar-actions button[aria-pressed='true'] {
-  border-color: var(--sl-accent);
-  color: var(--sl-accent);
-}
-
 /* ── Body ──────────────────────────────────────────────────────────────── */
-.sl-body {
-  display: flex;
-  flex: 1;
-  min-height: 0;
-}
 
+/* The row itself is `AppBody`. What is left is this product's own centre: a
+   *column*, because a deck's middle holds a stage above the presenter's notes,
+   where Word's holds one scrolling document. */
 .sl-main {
   display: flex;
   flex-direction: column;
-  flex: 1;
-  min-width: 0;
   min-height: 0;
 }
 
@@ -248,6 +248,129 @@ body {
   justify-content: center;
 }
 
+/* ── The rulers ──────────────────────────────────────────────────────────── */
+/* Along the top and the left of the deck, in a two-by-two grid with it, so they
+   line up by construction rather than by measurement. `sticky` keeps them against
+   the edge of the scrolling pane, which is where a ruler has to stay to be one. */
+.sl-stage {
+  /* [corner ruler-x] / [ruler-y frame] — and the frame keeps centring itself. */
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto 1fr;
+  justify-items: center;
+  align-content: start;
+}
+
+.sl-ruler-corner {
+  grid-area: 1 / 1;
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 3;
+  width: 18px;
+  height: 18px;
+  background: var(--sl-panel, #fff);
+  border-right: 1px solid var(--sl-line);
+  border-bottom: 1px solid var(--sl-line);
+}
+
+.sl-ruler {
+  position: sticky;
+  z-index: 2;
+  flex: none;
+  background: var(--sl-panel, #fff);
+  color: var(--sl-muted);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+}
+
+.sl-ruler[data-ruler='x'] {
+  grid-area: 1 / 2;
+  top: 0;
+  height: 18px;
+  border-bottom: 1px solid var(--sl-line);
+}
+
+.sl-ruler[data-ruler='y'] {
+  grid-area: 2 / 1;
+  left: 0;
+  width: 18px;
+  border-right: 1px solid var(--sl-line);
+  /*
+   * Centred the same way the frame is.
+   *
+   * The frame uses `margin: auto` — deliberately, because `align-items` clips
+   * anything taller than the pane instead of letting it scroll — so a ruler
+   * aligned to the *start* of the row sits above the slide by half the slack.
+   * Measured: 46 pixels of it, and every vertical tick wrong by that much.
+   */
+  align-self: center;
+}
+
+.sl-ruler-tick {
+  position: absolute;
+  background: var(--sl-line);
+}
+
+/* A minor tick is a stub and a major one reaches across, which is what makes a
+   ruler countable at a glance. */
+.sl-ruler[data-ruler='x'] .sl-ruler-tick {
+  bottom: 0;
+  width: 1px;
+  height: 4px;
+}
+
+.sl-ruler[data-ruler='x'] .sl-ruler-tick[data-major='true'] {
+  height: 8px;
+}
+
+.sl-ruler[data-ruler='y'] .sl-ruler-tick {
+  right: 0;
+  height: 1px;
+  width: 4px;
+}
+
+.sl-ruler[data-ruler='y'] .sl-ruler-tick[data-major='true'] {
+  width: 8px;
+}
+
+.sl-ruler-tick i {
+  position: absolute;
+  font-style: normal;
+  line-height: 1;
+}
+
+.sl-ruler[data-ruler='x'] .sl-ruler-tick i {
+  top: 1px;
+  left: 2px;
+}
+
+.sl-ruler[data-ruler='y'] .sl-ruler-tick i {
+  left: 1px;
+  top: 2px;
+  /* Turned, because a vertical ruler's numbers are read along it. */
+  writing-mode: vertical-rl;
+}
+
+/* Where the pointer is, which is the question a ruler is asked most. */
+.sl-ruler-pointer {
+  position: absolute;
+  background: var(--sl-accent);
+}
+
+.sl-ruler[data-ruler='x'] .sl-ruler-pointer {
+  top: 0;
+  bottom: 0;
+  width: 1px;
+}
+
+.sl-ruler[data-ruler='y'] .sl-ruler-pointer {
+  left: 0;
+  right: 0;
+  height: 1px;
+}
+
 .sl-stage-frame {
   /* Sized by the component to the room the scaled deck actually takes up. */
   flex: none;
@@ -305,20 +428,6 @@ body {
   align-items: center;
   gap: 8px;
   color: var(--sl-muted);
-}
-
-.sl-notes-add {
-  padding: 2px 8px;
-  font-size: 12px;
-  color: inherit;
-  background: transparent;
-  border: 1px solid var(--sl-line);
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.sl-notes-add:hover {
-  background: var(--sl-hover, rgba(127, 127, 127, 0.12));
 }
 
 /*
@@ -391,6 +500,7 @@ body {
 .sl-shell[data-presenting='true'] .sl-topbar,
 .sl-shell[data-presenting='true'] .sl-filmstrip,
 .sl-shell[data-presenting='true'] .sl-notes,
+.sl-shell[data-presenting='true'] .sl-timeline,
 .sl-shell[data-presenting='true'] .sl-properties {
   display: none;
 }
@@ -457,8 +567,62 @@ body {
  * not the selection's — the reader is being told *why the shape moved*, which is
  * a different message from *what is selected*.
  */
+/* What a drag is doing, in numbers — the badge every drawing tool draws while a
+   shape is held. Dark on light so it reads over a slide of any colour, and
+   `pointer-events: none` because it is a label rather than a control. */
+.sl-readout {
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #111827;
+  color: #f9fafb;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.3);
+}
+
 .sl-guide {
   background: #f43f5e;
+}
+
+/*
+  A guide the reader placed.
+  
+  The band is nine pixels so it can be grabbed; the line inside it is one, drawn
+  by a border rather than a background so the band itself stays invisible. A
+  nine-pixel coloured strip across a slide would be a guide nobody could see past.
+  
+  Cyan rather than the snap lines' pink: while a shape is being pulled onto a
+  guide both are on screen at once, and a reader has to be able to tell "the line
+  I put here" from "the line this jumped to".
+*/
+.sl-placed-guide {
+  --sl-guide-ink: #06b6d4;
+}
+
+.sl-placed-guide[data-guide-axis='x'] {
+  border-left: 1px solid var(--sl-guide-ink);
+  /* Centred in the band, so the line is where the number says and the grab area
+     is even on both sides of it. */
+  margin-left: 4px;
+}
+
+.sl-placed-guide[data-guide-axis='y'] {
+  border-top: 1px solid var(--sl-guide-ink);
+  margin-top: 4px;
+}
+
+/* Held: thicker while it is being dragged, so the reader can see which one. */
+.sl-placed-guide[data-guide-held='true'] {
+  --sl-guide-ink: #0891b2;
+}
+
+.sl-placed-guide[data-guide-held='true'][data-guide-axis='x'] {
+  border-left-width: 2px;
+}
+
+.sl-placed-guide[data-guide-held='true'][data-guide-axis='y'] {
+  border-top-width: 2px;
 }
 
 /* Space held: the pane is a thing to move rather than a thing to click into. */
@@ -498,4 +662,1432 @@ body {
 /* A hidden slide is dimmed rather than absent: the rail still lists it. */
 .sl-filmstrip button[data-hidden='true'] .sl-thumb {
   opacity: 0.45;
+}
+
+/*
+ * The presenter's screen, which is the audience's with a second half.
+ *
+ * A mode of the same shell again, and for the same reason as presenting itself:
+ * the slide on show stays the one the editor is drawing. All this does is give
+ * it less of the window and put what a presenter needs beside it.
+ */
+.sl-shell[data-presenter='true'] .sl-stage {
+  /*
+   * `margin`, not `padding`.
+   *
+   * The stage fits the slide to the room it is drawn in, and it re-measures on
+   * its own `ResizeObserver` — which watches the element's *box*. Padding
+   * changes the room inside a box of the same size, so the observer never fired
+   * and the slide stayed exactly as wide as it had been, with a third of it
+   * behind the presenter's panel. Measured: 1280 before and 1280 after.
+   */
+  margin-right: 340px;
+}
+
+.sl-presenter {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  overflow-y: auto;
+  background: #111;
+  color: #e5e5e5;
+  border-left: 1px solid #2a2a2a;
+  z-index: 40;
+}
+
+.sl-presenter h2 {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8a8a8a;
+}
+
+.sl-presenter-thumb {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* The thumbnail draws the slide again at its own size and is scaled down; the
+   box around it is what keeps the column from being as wide as a slide. */
+.sl-presenter-thumb > :first-child {
+  overflow: hidden;
+  border: 1px solid #2a2a2a;
+  border-radius: 4px;
+  background: #fff;
+}
+
+.sl-presenter-caption {
+  font-size: 12px;
+  color: #a3a3a3;
+}
+
+.sl-presenter-notes {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* Notes are read standing up, from a metre away. */
+.sl-presenter-notes p {
+  margin: 0 0 8px;
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.sl-presenter-empty {
+  margin: 0;
+  font-size: 13px;
+  color: #6b6b6b;
+}
+
+.sl-presenter-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #2a2a2a;
+  font-size: 13px;
+  color: #a3a3a3;
+}
+
+.sl-presenter-meta [data-presenter-clock] {
+  font-size: 24px;
+  font-variant-numeric: tabular-nums;
+  color: #fafafa;
+}
+
+/*
+  The presenter's screen in a window of its own.
+
+  The same element as the pane beside the slide, because a presenter should be shown one
+  thing in one arrangement — what changes is that it now has a whole window instead of a
+  340px strip, so it stops being fixed to an edge and fills what it is given. The next
+  slide's thumbnail grows with it; the notes take the rest, which is the right way round
+  for a screen read from a lectern.
+*/
+.sl-presenter-window {
+  margin: 0;
+  background: #111;
+}
+
+.sl-presenter-window .sl-presenter {
+  position: static;
+  width: auto;
+  border-left: none;
+  min-height: 100vh;
+  gap: 20px;
+  padding: 24px;
+}
+
+.sl-presenter-window .sl-presenter-notes {
+  /* The rest of the window: a note is what a presenter is actually reading. */
+  flex: 1;
+  font-size: 17px;
+  line-height: 1.6;
+}
+
+.sl-presenter-window .sl-presenter-meta [data-presenter-clock] {
+  font-size: 34px;
+}
+
+/* Words, because this screen is read at a glance from a lectern. */
+.sl-presenter-controls {
+  display: flex;
+  gap: 8px;
+}
+
+
+/*
+ * The slide's timeline: tracks down the side, time across.
+ *
+ * A list was PowerPoint's animation pane; this is the shape every tool the
+ * product is measured against uses, and the shape follows from what the reader
+ * is doing — arranging *when* things happen, which is a distance and not a
+ * number.
+ */
+.sl-timeline {
+  /* The name column and the tail. On the pane rather than the scroll container so
+     the ruler's margins and the track's fixed children read the same two numbers
+     wherever they sit. */
+  --sl-labels: 110px;
+  --sl-tail: 28px;
+  position: relative;
+  /*
+   * The window's own bottom, not the stage's.
+   *
+   * It sat inside the stage's column — between the filmstrip and the properties
+   * panel — which gave a left-to-right instrument about half the width it needs
+   * and put it at the same level as the presenter's note, which is a *slide's*
+   * text. A timeline is read against a clock; the axis is what wants room.
+   */
+  flex: none;
+  /* The height is the reader's, dragged from the top edge; this is only the
+     ceiling, so a pane cannot eat the slide it is describing. */
+  max-height: 70%;
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 16px 14px;
+  border-top: 1px solid var(--sl-line);
+  background: var(--sl-panel);
+  /*
+   * The pane does not scroll; its *tracks* do.
+   *
+   * It scrolled as a whole at first, and the curve panel — which opens upward
+   * from a control at the bottom — was clipped by it. Not clipped in a way
+   * anybody would notice: the handle was still there and still had a position,
+   * and the pointer landed on the scroll container instead of on it. A popup
+   * that opens out of a box has to open out of a box that does not clip.
+   */
+  overflow: visible;
+}
+
+.sl-timeline-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sl-timeline-head h2 {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+
+.sl-timeline-total {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: #9ca3af;
+}
+
+/* The presses: a slide's clock stops at each one, so each is its own axis. */
+.sl-timeline-presses {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.sl-timeline-presses button {
+  min-width: 20px;
+  height: 20px;
+  border: 1px solid var(--sl-line);
+  border-radius: 3px;
+  background: transparent;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.sl-timeline-presses button[aria-selected='true'] {
+  border-color: #2563eb;
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.sl-timeline-head [data-timeline-preview] {
+  margin-left: auto;
+  height: 24px;
+  padding: 0 10px;
+  border: 1px solid var(--sl-line);
+  border-radius: 4px;
+  background: transparent;
+  font-size: 11px;
+}
+
+.sl-timeline-head [data-timeline-preview]:disabled {
+  opacity: 0.4;
+}
+
+.sl-timeline-empty {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #9ca3af;
+}
+
+/* ── The ruler, and the playhead that runs along it ─────────────────────── */
+.sl-timeline-ruler {
+  position: relative;
+  height: 18px;
+  /* The lane starts where the track's name ends, so the seconds line up with the
+     bars underneath them — from the *same* two variables the name column and the
+     ＋ button are sized by, because two hand-tuned numbers had already drifted
+     six pixels apart and a tick that is not over its bar is a clock that lies. */
+  margin-left: var(--sl-labels);
+  margin-right: var(--sl-tail);
+  border-bottom: 1px solid var(--sl-line);
+  cursor: ew-resize;
+  user-select: none;
+}
+
+.sl-timeline-tick {
+  position: absolute;
+  bottom: 0;
+  height: 5px;
+  border-left: 1px solid var(--sl-line);
+  font-size: 9px;
+  line-height: 1;
+  color: #9ca3af;
+  padding-left: 2px;
+  white-space: nowrap;
+}
+
+.sl-timeline-tick[data-major='true'] {
+  height: 10px;
+}
+
+.sl-timeline-playhead {
+  position: absolute;
+  top: -2px;
+  bottom: -1000px;
+  width: 0;
+  border-left: 1px solid #dc2626;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.sl-timeline-playhead::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -4px;
+  width: 8px;
+  height: 8px;
+  background: #dc2626;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+
+/* ── A track per shape: its name, its lane, and a way to add to it ──────── */
+.sl-timeline-tracks {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  position: relative;
+  /* The one part that can grow without bound: a slide may animate twenty
+     shapes, and the header, the ruler and the editor row must stay put. */
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.sl-timeline-track {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  /* Was a fixed 24px, which is one motion's worth. A shape with two motions at
+     one moment needs two lanes and the row has to grow to hold them — a fixed
+     height drew the second bar outside the row, where the reader could neither
+     see it nor grab it. */
+  min-height: 24px;
+}
+
+.sl-timeline-target {
+  width: var(--sl-labels);
+  flex: none;
+  overflow: hidden;
+  padding-right: 6px;
+  border: 0;
+  background: none;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: inherit;
+  cursor: pointer;
+}
+
+.sl-timeline-target:disabled {
+  color: #b91c1c;
+  cursor: default;
+}
+
+.sl-timeline-lane {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  border-radius: 3px;
+  background: repeating-linear-gradient(
+    to right,
+    transparent,
+    transparent calc(25% - 1px),
+    var(--sl-line) calc(25% - 1px),
+    var(--sl-line) 25%
+  );
+}
+
+/* A bar: left edge is when, width is how long. That is the whole idea. */
+.sl-timeline-bar {
+  position: absolute;
+  /* `top` is the lane, written inline; the height is fixed so two lanes are two
+     rows rather than two half-height bars. A bar used to stretch from top to
+     bottom of its lane, which is right for one motion and impossible for two. */
+  height: 22px;
+  min-width: 12px;
+  display: flex;
+  align-items: center;
+  padding: 0 6px;
+  border-radius: 3px;
+  background: #93c5fd;
+  color: #1e3a8a;
+  font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  cursor: grab;
+  user-select: none;
+}
+
+/* Emphasis and exit read as different things, because they are. */
+.sl-timeline-bar[data-effect='pulse'],
+.sl-timeline-bar[data-effect='spin'],
+.sl-timeline-bar[data-effect='flash'],
+.sl-timeline-bar[data-effect='nudge'] {
+  background: #fcd34d;
+  color: #78350f;
+}
+
+.sl-timeline-bar[data-effect='fadeOut'],
+.sl-timeline-bar[data-effect='flyOutLeft'],
+.sl-timeline-bar[data-effect='shrinkOut'] {
+  background: #fca5a5;
+  color: #7f1d1d;
+}
+
+.sl-timeline-bar[data-kind='play'] {
+  background: #a7f3d0;
+  color: #064e3b;
+}
+
+.sl-timeline-bar[data-selected='true'] {
+  outline: 2px solid #2563eb;
+  outline-offset: -1px;
+}
+
+.sl-timeline-bar-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* An end of a bar: the duration for a build, and for a film the part of the file
+   that plays — a head as well as a tail, which is a video editor's clip and the
+   reason `data-edge` exists. */
+.sl-timeline-grip {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 7px;
+  cursor: ew-resize;
+  background: linear-gradient(to right, transparent, rgba(0, 0, 0, 0.18));
+}
+
+.sl-timeline-grip[data-edge='head'] {
+  right: auto;
+  left: 0;
+  /* Mirrored, so the shading points out of the bar at both ends — which is what
+     says "this edge moves" without a label on a 40-pixel bar. */
+  background: linear-gradient(to left, transparent, rgba(0, 0, 0, 0.18));
+}
+
+.sl-timeline-add {
+  /* Plus its margin, this is `--sl-tail`. */
+  width: 24px;
+  flex: none;
+  border: 1px dashed var(--sl-line);
+  border-radius: 3px;
+  margin-left: 4px;
+  background: transparent;
+  font-size: 11px;
+  color: #6b7280;
+}
+
+/* ── The axis and the selected step, side by side ────────────────────────── */
+/* The pane's two halves: the strip, which wants every pixel of width, and the
+   inspector, which wants a fixed one. `min-height: 0` on both, or the tracks'
+   own scroll container refuses to shrink and pushes the pane past its height. */
+.sl-timeline-body {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  gap: 12px;
+}
+
+.sl-timeline-body .sl-timeline-scroll {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── The selected step, in a column ──────────────────────────────────────── */
+/*
+ * Measured on 2026-08-20, when this was a row: eighteen controls, 1340px of them
+ * in an 1100px box, the last five past the right edge of a 1280 window and the
+ * whole page grown a sideways scrollbar to reach them. A column costs a row per
+ * attribute and never runs out of width, which is why every tool with this many
+ * attributes has one.
+ */
+.sl-step-inspector {
+  flex: none;
+  width: 232px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-left: 12px;
+  border-left: 1px solid var(--sl-line);
+  /* The column scrolls; the pane does not. Its two popovers — the colour picker
+     and the curve — are positioned in the *window* for exactly this reason: an
+     absolutely-placed panel is clipped by a scrolling ancestor whichever way it
+     opens. */
+  overflow-y: auto;
+  font-size: 11px;
+}
+
+/* Whose step this is, kept in view while the rows below it scroll. */
+.sl-step-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 4px;
+  background: var(--sl-panel);
+}
+
+.sl-step-name {
+  font-weight: 600;
+}
+
+/*
+ * The rows, the labels and the controls are `office-ui`'s now — `Field`,
+ * `FieldGroup`, `Choice`, `NumberField` and `Button`, drawn from the tokens this
+ * file maps at the top. What was here was a second copy of the properties
+ * panel's own controls at a different size, in a different grey, with a number
+ * field that wrote to the document on every keystroke: measured, typing `1.8`
+ * into the length put 10.68 seconds in the document.
+ *
+ * What is left below is what is genuinely this pane's: the two spans that are not
+ * controls, and the strip its actions sit in.
+ */
+
+/* A step's kind, where a build has a dropdown: a path is a path and a film is a
+   film, and neither is a choice this control could offer. */
+.sl-step-kind {
+  color: inherit;
+}
+
+/* What a path is, in words: how far it goes and where to edit it. A note rather
+   than a field — the path itself is dragged on the slide, which is the only
+   place it can be. */
+.sl-step-note {
+  margin: 2px 0 0;
+  color: var(--sl-muted);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+/* The actions, pinned to the bottom of the column: what a reader does *to* a
+   step, which is not part of what a step is. */
+.sl-step-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  gap: 2px;
+  margin-top: auto;
+  padding: 6px 0 2px;
+  border-top: 1px solid var(--sl-line);
+  background: var(--sl-panel);
+}
+
+.sl-step-actions button {
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--sl-line);
+  border-radius: 3px;
+  background: transparent;
+  color: inherit;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.sl-step-actions button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ── The curve, which is the one control that has to be drawn ───────────── */
+.sl-timeline-curve {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sl-timeline-curve [data-curve-open] {
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--sl-line);
+  border-radius: 3px;
+  background: transparent;
+}
+
+/* Placed in the window rather than in the control: the inspector column it sits
+   in scrolls, and a scrolling ancestor clips an absolutely-placed child
+   whichever direction it opens. `top`/`left` come from the component, which
+   measures the button and flips when the window has no room above it. */
+.sl-timeline-curve-panel {
+  position: fixed;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px;
+  border: 1px solid var(--sl-line);
+  border-radius: 6px;
+  background: var(--sl-panel);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+.sl-curve-bed {
+  fill: rgba(148, 163, 184, 0.14);
+}
+
+.sl-curve-line {
+  fill: none;
+  stroke: #2563eb;
+  stroke-width: 3;
+}
+
+.sl-curve-arm {
+  stroke: #94a3b8;
+  stroke-width: 1.5;
+  stroke-dasharray: 3 3;
+}
+
+.sl-curve-handle {
+  fill: #fff;
+  stroke: #2563eb;
+  stroke-width: 3;
+  cursor: grab;
+}
+
+.sl-timeline-curve-panel code {
+  font-size: 9px;
+  color: #6b7280;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* 정도: a range, because "how much" is a quantity a reader compares by feel.
+   The number it is at is in the row's unit column, because a slider with no
+   number is a control a reader cannot come back to. */
+.sl-step-row input[type='range'] {
+  height: 16px;
+  padding: 0;
+  border: none;
+}
+
+
+/* ── The pane's own edge and fold ───────────────────────────────────────── */
+.sl-timeline-resize {
+  position: absolute;
+  top: -3px;
+  left: 0;
+  right: 0;
+  height: 7px;
+  cursor: ns-resize;
+  z-index: 5;
+}
+
+.sl-timeline-resize:hover {
+  background: rgba(37, 99, 235, 0.25);
+}
+
+.sl-timeline-fold {
+  width: 20px;
+  height: 20px;
+  border: 0;
+  background: none;
+  font-size: 10px;
+  color: #6b7280;
+  cursor: pointer;
+}
+
+/* Folded, it is a strip: the reader can see it is there and what it holds. */
+.sl-timeline[data-open='false'] {
+  height: auto;
+  padding-bottom: 8px;
+}
+
+/* A bar's width is *one pass*; the count says how many there are. */
+.sl-timeline-bar-repeat {
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+}
+
+.sl-timeline-bar[data-repeat] {
+  /* Striped, so a repeating bar reads as one at a glance rather than by its
+     label — the axis says when things happen, and this is a thing that keeps
+     happening. */
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.35),
+    rgba(255, 255, 255, 0.35) 4px,
+    transparent 4px,
+    transparent 8px
+  );
+}
+
+/* ── The preset gallery: a tile that plays what it promises ───────────────── */
+/* Drawn here rather than in the panel's own utilities because it is the same
+   grid in two places — the properties panel's 모션 tab and, later, wherever else
+   a whole motion is chosen. One stylesheet, one gallery. */
+.sl-presets {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sl-presets-label {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--sl-muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.sl-presets-grid {
+  display: grid;
+  /* Three across at the panel's width, and the tiles stay square-ish: a name
+     under a stage is a shape a reader scans, and a two-line name would make
+     every row in the grid a different height. */
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.sl-preset {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--sl-line);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: center;
+}
+
+.sl-preset:hover,
+.sl-preset:focus-visible {
+  border-color: var(--sl-accent);
+}
+
+.sl-preset[data-active='true'] {
+  border-color: var(--sl-accent);
+  box-shadow: inset 0 0 0 1px var(--sl-accent);
+}
+
+.sl-preset:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* The stage a chip moves *within*: the preview has to be clipped, or a fly
+   preset's chip leaves its own tile and lands on its neighbour's. */
+.sl-preset-stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--sl-ink) 6%, transparent);
+}
+
+.sl-preset-chip {
+  width: 16px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--sl-accent);
+}
+
+.sl-preset-name {
+  /* One line, ellipsised: the label is the promise and the tile is the proof, so
+     a name too long for the tile is still identifiable by what it does. */
+  overflow: hidden;
+  font-size: 9px;
+  line-height: 1.2;
+  color: var(--sl-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── The spring half of the curve panel ──────────────────────────────────── */
+/* Two numbers instead of two handles: a spring has no control points to drag, so
+   what the reader adjusts is the physics and what the panel draws is the result
+   — the same samples the browser is given. */
+.sl-timeline-curve-panel[data-curve-spring] {
+  width: 150px;
+}
+
+.sl-curve-slider {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  color: var(--sl-muted);
+  font-size: 10px;
+}
+
+.sl-curve-slider input {
+  flex: 1;
+  /* The panel's own `input` rule gives every field a 52px box and a right-aligned
+     number, which for a range would be a slider the width of a word. */
+  width: auto;
+  min-width: 0;
+  height: 14px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.sl-curve-fit {
+  width: 100%;
+  height: 20px;
+  border: 1px solid var(--sl-line);
+  border-radius: 3px;
+  background: transparent;
+  color: inherit;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.sl-curve-fit:hover {
+  border-color: var(--sl-accent);
+  color: var(--sl-accent);
+}
+
+/* What was wrong with a file the reader tried to open — in the chrome, so it
+   stays until they try again, where an alert is gone before it can be read
+   twice. */
+.sl-file-problem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 320px;
+  padding: 2px 6px;
+  border: 1px solid #dc2626;
+  border-radius: 4px;
+  color: #dc2626;
+  font-size: 11px;
+}
+
+
+/* ── Two motions at once, on one shape ───────────────────────────────────── */
+/* A lane per overlap. The row grows to fit them, which is what a video editor's
+   track does and the only arrangement where a reader can grab the bar
+   underneath. */
+.sl-timeline-lane[data-lanes] {
+  /* The height is written inline, one lane per overlap. Stretching would make it
+     the row's height, which is the thing being computed. */
+  align-self: flex-start;
+  flex: 1 1 auto;
+}
+
+/* A bar that *adds* to the one it overlaps. Hatched, so "these two combine" is
+   visible at a glance rather than only in the label — the same reasoning as the
+   stripes on a repeating bar. */
+.sl-timeline-bar[data-composite='add'] {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(255, 255, 255, 0.45),
+    rgba(255, 255, 255, 0.45) 3px,
+    transparent 3px,
+    transparent 7px
+  );
+}
+
+.sl-timeline-bar-with {
+  margin-right: 2px;
+  font-weight: 700;
+  opacity: 0.8;
+}
+
+/* A clash is not a style: it is a motion that will not do what the bar says,
+   because the browser cannot composite two of them. Outlined in the warning
+   colour, with the reason on the title. */
+.sl-timeline-bar[data-clash] {
+  outline: 1px solid #dc2626;
+  outline-offset: -1px;
+}
+
+/* A path preset draws its path rather than playing it: a chip travelling 4800
+   twips inside a 28-pixel tile is a chip that leaves the tile. What the reader is
+   choosing is a shape of travel, and that is what is drawn. */
+.sl-path-preview {
+  width: 100%;
+  height: 100%;
+}
+
+.sl-path-preview path {
+  fill: none;
+  stroke: var(--sl-accent);
+  stroke-width: 300;
+  stroke-linecap: round;
+}
+
+.sl-path-preview circle {
+  fill: var(--sl-accent);
+}
+
+/* ── A magnified axis, which scrolls ─────────────────────────────────────── */
+/* One container for the ruler and every track: two would drift, and a reader
+   scrolling the bars while the ruler stayed put is a timeline whose clock lies.
+   `--sl-axis` is the width the magnification asks for. */
+.sl-timeline-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 0;
+  overflow: auto;
+}
+
+/**
+ * The axis, magnified.
+ *
+ * The track row carries the whole width — the pinned name, the lane, the ＋ — and
+ * the ruler carries the lane's share of it, which is why the two expressions
+ * differ by exactly the name and the tail. Giving both `width: var(--sl-axis)`
+ * was the first attempt and made the pane scroll *at fit*: the ruler's box was
+ * 100% wide with 138px of margins outside it.
+ */
+.sl-timeline-scroll .sl-timeline-track {
+  width: var(--sl-axis, 100%);
+  min-width: 100%;
+}
+
+.sl-timeline-scroll .sl-timeline-ruler {
+  width: calc(var(--sl-axis, 100%) - var(--sl-labels) - var(--sl-tail));
+  min-width: calc(100% - var(--sl-labels) - var(--sl-tail));
+}
+
+/* Pinned, because the names are how a reader knows which lane they are looking
+   at — and the first thing to scroll away without this. */
+.sl-timeline-scroll .sl-timeline-target {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--sl-panel);
+}
+
+.sl-timeline-magnify {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 10px;
+  color: var(--sl-muted);
+}
+
+.sl-timeline-magnify button {
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--sl-line);
+  border-radius: 3px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.sl-timeline-magnify button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.sl-timeline-magnify [data-timeline-magnified] {
+  min-width: 26px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The snap guide: drawn only while a drag is caught on something. */
+.sl-timeline-snapline {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  left: var(--sl-snap, 0);
+  width: 1px;
+  background: #f59e0b;
+  opacity: 0;
+  pointer-events: none;
+  /* Over the bars, not under them. It is drawn first in the DOM — before the
+     bars, which are absolutely positioned and paint on top — so without this the
+     guide was behind the very bar whose edge it is marking. */
+  z-index: 3;
+}
+
+.sl-timeline-lane[data-snapped='true'] .sl-timeline-snapline {
+  opacity: 1;
+}
+
+/* A bar a reader has tabbed to: the arrows nudge it, so it has to look focused. */
+.sl-timeline-bar:focus-visible {
+  outline: 2px solid var(--sl-accent);
+  outline-offset: 1px;
+}
+
+/* How many bars the inspector is editing, when it is more than one: every
+   control in it writes to all of them, so a heading that looked like one
+   shape's would be a surprise. */
+.sl-step-name[data-editing-count] {
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--sl-accent);
+  color: #fff;
+}
+
+/* Placing a path's points: a mode, so the button says it is on. */
+.sl-timeline-draw {
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--sl-line);
+  border-radius: 3px;
+  background: transparent;
+  color: inherit;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.sl-timeline-draw[aria-pressed='true'] {
+  border-color: var(--sl-accent);
+  background: var(--sl-accent);
+  color: #fff;
+}
+
+/* The rubber band: drawn in the window's own coordinates, because that is where
+   the bars' rectangles are and comparing the two is the whole gesture. */
+.sl-timeline-band {
+  z-index: 40;
+  border: 1px solid var(--sl-accent);
+  background: color-mix(in srgb, var(--sl-accent) 14%, transparent);
+  pointer-events: none;
+}
+
+/* The one motion value that is a colour: it takes the control column, which is
+   what the field's own `flex-1` wanted all along and could not have in a row. */
+.sl-step-row > span:nth-child(2) > span {
+  min-width: 0;
+  flex: 1;
+}
+
+/* ── The transport ───────────────────────────────────────────────────────── */
+/* Play is also pause, because they are one control on every instrument that has
+   ever had them. The frame steps sit either side of it, and the moment reads to
+   the hundredth — which is the resolution a frame is. */
+.sl-timeline-transport {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.sl-timeline-transport button {
+  height: 22px;
+  min-width: 24px;
+  padding: 0 6px;
+  border: 1px solid var(--sl-line);
+  border-radius: 3px;
+  background: transparent;
+  color: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.sl-timeline-transport button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.sl-timeline-transport button[data-playing='true'] {
+  border-color: var(--sl-accent);
+  color: var(--sl-accent);
+}
+
+.sl-timeline-moment {
+  min-width: 46px;
+  margin-left: 4px;
+  color: var(--sl-muted);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── What a press costs to draw ──────────────────────────────────────────── */
+/* Said in the pane, because the alternative is a reader finding out in front of
+   an audience. A warning colour at a dozen; a note at four. */
+.sl-timeline-cost {
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  background: color-mix(in srgb, #f59e0b 18%, transparent);
+  color: #92400e;
+}
+
+.sl-timeline-cost[data-timeline-cost='heavy'] {
+  background: color-mix(in srgb, #dc2626 16%, transparent);
+  color: #991b1b;
+}
+
+/* And which bars they are: a dotted underline, because it is information rather
+   than a fault — one repainting shape is exactly what a filter is for. */
+.sl-timeline-bar[data-cost] {
+  border-bottom: 2px dotted #92400e;
+}
+
+/* ── The layer list ──────────────────────────────────────────────────────── */
+/*
+  What is on this slide, stacked. Figma's list: a dense row, the kind on the left,
+  the name, and toggles that appear on hover — a column of twelve identical open
+  eyes is noise that buries the thing the list is for.
+*/
+.sl-layers {
+  flex: none;
+  width: 200px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--sl-panel);
+  border-right: 1px solid var(--sl-line);
+}
+
+.sl-layers-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: none;
+  padding: 6px 6px 6px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--sl-muted);
+  border-bottom: 1px solid var(--sl-line);
+}
+
+.sl-layers-title button {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 3px;
+  color: var(--sl-muted);
+}
+
+/* Closed, it is a strip to open it by — the same shape Word's panes use. */
+.sl-layers-closed {
+  flex: none;
+  width: 24px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 8px;
+  color: var(--sl-muted);
+  background: var(--sl-panel);
+  border-right: 1px solid var(--sl-line);
+}
+
+.sl-layers-empty {
+  margin: 0;
+  padding: 10px;
+  font-size: 11px;
+  color: var(--sl-faint, #a3a3a3);
+}
+
+.sl-layers-list {
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.sl-layers-list li {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  /* One height for every row, so the drag can find which one the pointer is over
+     by its box rather than by dividing by a magic number. */
+  height: 26px;
+  padding-right: 4px;
+  font-size: 11px;
+  color: var(--sl-ink, #171717);
+}
+
+.sl-layers-list li:hover {
+  background: var(--sl-ground, #f5f5f5);
+}
+
+.sl-layers-list li[data-layer-selected='true'] {
+  background: color-mix(in srgb, var(--sl-accent, #2563eb) 14%, transparent);
+}
+
+/* Hidden: the row stays legible but says it is not being drawn. */
+.sl-layers-list li[data-layer-hidden='true'] .sl-layer-name,
+.sl-layers-list li[data-layer-hidden='true'] .sl-layer-kind {
+  opacity: 0.45;
+}
+
+/* Where a dragged row would land. A line, not a gap: a gap makes every other row
+   move, and a reader loses the one they are carrying. */
+.sl-layers-list li[data-layer-over='true'] {
+  box-shadow: inset 0 2px 0 0 var(--sl-accent, #2563eb);
+}
+
+.sl-layer-pick {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  cursor: default;
+}
+
+.sl-layer-kind {
+  flex: none;
+  font-size: 9px;
+  color: var(--sl-faint, #a3a3a3);
+  /* The kind is a badge and the name is the row: one is scanned and the other is
+     read, so they cannot be the same size. */
+  width: 3.6em;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.sl-layer-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.sl-layer-motion {
+  flex: none;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--sl-accent, #2563eb);
+}
+
+/*
+  On hover, or when it is *off*.
+
+  A lock that is on has to be visible without hunting for it; an open eye on every
+  visible row is a column of twelve identical marks. So the toggles are hidden
+  until the pointer is on the row, and a row that is hidden or locked shows its own
+  toggle always.
+*/
+/*
+  Only what is this app's: which toggles are *shown*. The size, the corner and the
+  hover are `IconButton`'s — and a descendant rule of this app's beating a shared
+  control's own classes is the fault this stylesheet has been caught at before.
+*/
+.sl-layer-toggle {
+  color: var(--sl-muted);
+  visibility: hidden;
+}
+
+.sl-layers-list li:hover .sl-layer-toggle,
+.sl-layers-list li[data-layer-hidden='true'] [data-layer-visible],
+.sl-layers-list li[data-layer-locked='true'] [data-layer-locked] {
+  visibility: visible;
+}
+
+/* Not in the show, like the rulers and the guides: an audience is looking. */
+.sl-shell[data-presenting='true'] .sl-layers,
+.sl-shell[data-presenting='true'] .sl-layers-closed {
+  display: none;
+}
+
+/* ── Find and replace ────────────────────────────────────────────────────── */
+/*
+  Across the top of the slide's own column, not the window: a find bar belongs over
+  the thing being searched, and this one changes which *slide* is showing — so it has
+  to stay put while the slide under it changes.
+*/
+.sl-find {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: var(--sl-panel);
+  border-bottom: 1px solid var(--sl-line);
+  font-size: 11px;
+}
+
+.sl-find input {
+  height: 24px;
+  min-width: 0;
+  width: 12ch;
+  padding: 0 6px;
+  border: 1px solid var(--sl-line);
+  border-radius: 3px;
+  background: transparent;
+  font-size: 11px;
+}
+
+.sl-find input:focus {
+  outline: none;
+  border-color: var(--sl-accent, #2563eb);
+}
+
+/* The count and the two readouts beside it: numbers a reader glances at, so they
+   line up rather than jumping as the digits change. */
+.sl-find-count {
+  min-width: 11ch;
+  color: var(--sl-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.sl-find-where,
+.sl-find-slides {
+  color: var(--sl-faint, #a3a3a3);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  max-width: 16ch;
+}
+
+/* Pushed to the right, like every dialog's affirmative button: the close is not
+   part of the row of things a reader is using. */
+.sl-find [data-find-close] {
+  margin-left: auto;
+}
+
+/* Not in the show — the same rule the rulers, the guides and the layer list follow. */
+.sl-shell[data-presenting='true'] .sl-find {
+  display: none;
+}
+
+/* ── The deck's own check ─────────────────────────────────────────────────── */
+/*
+  Above the slide, like the find bar, and for the same reason: every row is
+  somewhere to go, so it has to stay put while the slide under it changes.
+*/
+.sl-audit {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  max-height: 40%;
+  background: var(--sl-panel);
+  border-bottom: 1px solid var(--sl-line);
+  font-size: 11px;
+}
+
+.sl-audit-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  padding: 6px 8px 6px 10px;
+  font-weight: 600;
+  color: var(--sl-muted);
+  border-bottom: 1px solid var(--sl-line);
+}
+
+/* Two counts rather than one number: 고칠 것 and 볼 것 are two different
+   afternoons, and "3개" says nothing a reader can decide with. */
+.sl-audit-count {
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.sl-audit-title [data-audit-close] {
+  margin-left: auto;
+}
+
+.sl-audit-empty {
+  margin: 0;
+  padding: 10px;
+  color: var(--sl-faint, #a3a3a3);
+}
+
+.sl-audit-list {
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.sl-audit-list button {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 10px;
+  text-align: left;
+}
+
+.sl-audit-list button:hover {
+  background: var(--sl-ground, #f5f5f5);
+}
+
+/*
+  The level as a word, in its own column.
+
+  Not only a colour: a reader who cannot tell red from amber still has to be able to
+  read this list — and the word is what makes the two counts above legible as the
+  same thing.
+*/
+.sl-audit-level {
+  flex: none;
+  width: 4.5em;
+  font-weight: 600;
+}
+
+.sl-audit-list li[data-audit-level='must'] .sl-audit-level {
+  color: #dc2626;
+}
+
+.sl-audit-list li[data-audit-level='check'] .sl-audit-level {
+  color: #b45309;
+}
+
+.sl-audit-where {
+  flex: none;
+  width: 10em;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--sl-muted);
+}
+
+.sl-audit-what {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Not in the show, like everything else a reader works with. */
+.sl-shell[data-presenting='true'] .sl-audit {
+  display: none;
 }

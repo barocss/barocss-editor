@@ -1,6 +1,20 @@
 import { describe, it, expect } from 'vitest';
 import { conformance } from '../src/run';
+import type { Report } from '../src/types';
 import { drawnTagFrom } from '../src/drawn-as';
+
+/**
+ * This file is about one check, so it reads one check's findings.
+ *
+ * `conformance()` runs them all, and its sibling
+ * `every-drawing-keeps-its-children` has things to say about the same fixtures —
+ * a `<table>` holding a `<td>` directly is a real fault and not this check's.
+ * Reading `report.findings` whole made a test about namespaces fail on a
+ * finding about HTML structure, which is two checks working and one assertion
+ * asking the wrong question.
+ */
+const namespaceFindings = (report: Report) =>
+  report.findings.filter((finding) => finding.check === 'every-drawing-can-hold-what-it-contains');
 
 /**
  * The check that a container's drawing can hold the drawings inside it.
@@ -53,9 +67,9 @@ describe('a drawing that cannot hold what it contains', () => {
       drawnAs: draws({ canvas: 'svg', shape: 'div' })
     });
 
-    expect(report.findings.map((f) => f.subject)).toEqual(['canvas > shape']);
-    expect(report.findings[0].check).toBe(check);
-    expect(report.findings[0].detail).toContain('<div> inside a <svg>');
+    expect(namespaceFindings(report).map((f) => f.subject)).toEqual(['canvas > shape']);
+    expect(namespaceFindings(report)[0].check).toBe(check);
+    expect(namespaceFindings(report)[0].detail).toContain('<div> inside a <svg>');
   });
 
   it('says nothing when both are SVG', () => {
@@ -64,7 +78,7 @@ describe('a drawing that cannot hold what it contains', () => {
       hasRenderer: () => true,
       drawnAs: draws({ canvas: 'svg', shape: 'rect' })
     });
-    expect(report.findings).toEqual([]);
+    expect(namespaceFindings(report)).toEqual([]);
   });
 
   it('says nothing when both are HTML', () => {
@@ -73,7 +87,7 @@ describe('a drawing that cannot hold what it contains', () => {
       hasRenderer: () => true,
       drawnAs: draws({ canvas: 'div', shape: 'div' })
     });
-    expect(report.findings).toEqual([]);
+    expect(namespaceFindings(report)).toEqual([]);
   });
 
   /**
@@ -93,7 +107,7 @@ describe('a drawing that cannot hold what it contains', () => {
         row: 'tr', cell: 'td', chunk: 'section'
       })
     });
-    expect(report.findings).toEqual([]);
+    expect(namespaceFindings(report)).toEqual([]);
   });
 
   it('allows an <svg> inside HTML, which is how a drawing gets on a page', () => {
@@ -102,7 +116,7 @@ describe('a drawing that cannot hold what it contains', () => {
       hasRenderer: () => true,
       drawnAs: draws({ para: 'p', canvas: 'svg' })
     });
-    expect(report.findings).toEqual([]);
+    expect(namespaceFindings(report)).toEqual([]);
   });
 
   it('allows HTML inside a foreignObject, which is SVG’s door back', () => {
@@ -114,7 +128,7 @@ describe('a drawing that cannot hold what it contains', () => {
       hasRenderer: () => true,
       drawnAs: draws({ canvas: 'svg', hole: 'foreignObject', para: 'p' })
     });
-    expect(report.findings).toEqual([]);
+    expect(namespaceFindings(report)).toEqual([]);
   });
 
   it('finds an SVG shape drawn straight into HTML, with no <svg> around it', () => {
@@ -123,7 +137,7 @@ describe('a drawing that cannot hold what it contains', () => {
       hasRenderer: () => true,
       drawnAs: draws({ para: 'p', shape: 'rect' })
     });
-    expect(report.findings.map((f) => f.subject)).toEqual(['para > shape']);
+    expect(namespaceFindings(report).map((f) => f.subject)).toEqual(['para > shape']);
   });
 
   it('follows a group the way the schema means it', () => {
@@ -141,7 +155,7 @@ describe('a drawing that cannot hold what it contains', () => {
     });
     // `blob` is fine and `box` is not, which is only visible if the group was
     // expanded to its members rather than treated as a type.
-    expect(report.findings.map((f) => f.subject)).toEqual(['canvas > box']);
+    expect(namespaceFindings(report).map((f) => f.subject)).toEqual(['canvas > box']);
   });
 
   /**
@@ -181,7 +195,7 @@ describe('a drawing that cannot hold what it contains', () => {
       schema: schemaOf({ canvas: { content: 'shape' }, shape: {} }, ['canvas']),
       hasRenderer: () => true
     });
-    expect(report.findings).toEqual([]);
+    expect(namespaceFindings(report)).toEqual([]);
     expect(report.examined[check]).toBe(0);
   });
 
@@ -193,7 +207,7 @@ describe('a drawing that cannot hold what it contains', () => {
       // external component: no answer, and a guess would be worse than none.
       drawnAs: (name) => (name === 'shape' ? null : 'svg')
     });
-    expect(report.findings).toEqual([]);
+    expect(namespaceFindings(report)).toEqual([]);
   });
 });
 

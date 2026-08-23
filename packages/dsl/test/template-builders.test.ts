@@ -1,14 +1,11 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
   element, el, data, attr, slot, when, text, each,
   component, define, renderer, external, getGlobalRegistry,
   defineDecorator, portal, defineMark,
   addDecoratorAttribute, addMarkClassAttribute
 } from '../src/index';
-import type {
-  ElementTemplate, DataTemplate, SlotTemplate, ConditionalTemplate,
-  ComponentTemplate, PortalTemplate, EachTemplate, RendererDefinition
-} from '../src/index';
+import type { ElementTemplate, DataTemplate, ComponentTemplate } from '../src/index';
 
 describe('element()', () => {
   it('creates element with tag only', () => {
@@ -63,7 +60,7 @@ describe('element()', () => {
   });
 
   it('flattens nested children arrays', () => {
-    const el = element('div', [[element('a'), element('b')], element('c')] as any);
+    const el = element('div', [[element('a'), element('b')], element('i')] as any);
     expect(el.children).toHaveLength(3);
   });
 

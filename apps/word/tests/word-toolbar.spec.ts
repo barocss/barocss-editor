@@ -36,7 +36,6 @@ test.describe('the toolbar', () => {
       const editor = (window as any).editor;
       const marked = document.querySelector('.mark-code')!.closest('[data-bc-sid]')!;
       const sid = marked.getAttribute('data-bc-sid')!;
-      const next = (editor.dataStore.getNode(sid).text ?? '').length;
 
       // From inside the marked node into the one after it
       const parent = editor.dataStore.getParent(sid);
@@ -65,20 +64,36 @@ test.describe('the toolbar', () => {
     await page.waitForSelector('.w-toolbar');
     await placeCaret(page, '.w-paragraph', 1);
 
+    /**
+     * The toggles, which is `[data-state]` and not `[data-control]`.
+     *
+     * A colour palette carries `data-control` too and is not a toggle: it has no
+     * pressed state to be three-valued about — what it shows is the colour it
+     * would apply, in a bar under the letter, and `aria-pressed` on it would tell
+     * a screen reader that a button which opens a panel is switched off. Asking
+     * every `[data-control]` for a state failed the moment one appeared that
+     * legitimately has none.
+     */
     const states = await page.evaluate(() =>
-      Array.from(document.querySelectorAll('[data-control]')).map(
+      Array.from(document.querySelectorAll('[data-control][data-state]')).map(
         (b) => (b as HTMLElement).dataset.state
       )
     );
+    expect(states.length).toBeGreaterThan(10);
     expect(states.every((state) => ['on', 'mixed', 'off'].includes(state!))).toBe(true);
 
     // A screen reader has to be told "partially pressed" rather than "not pressed"
     const pressed = await page.evaluate(() =>
-      Array.from(document.querySelectorAll('[data-control]')).map((b) =>
+      Array.from(document.querySelectorAll('[data-control][data-state]')).map((b) =>
         b.getAttribute('aria-pressed')
       )
     );
     expect(pressed.every((value) => ['true', 'false', 'mixed'].includes(value!))).toBe(true);
+
+    // And the palette says what it is instead: a button that opens something.
+    const palette = page.locator('[data-control="font-color"]');
+    await expect(palette).toHaveAttribute('aria-expanded', 'false');
+    expect(await palette.getAttribute('aria-pressed'), '팔레트가 눌림 상태를 주장합니다').toBeNull();
   });
 
   test('shows the style the blocks agree on, and nothing when they do not', async ({ page }) => {
@@ -318,6 +333,37 @@ test.describe('the toolbar', () => {
     await placeCaret(page, '.w-paragraph', 1);
     await expect(page.locator('[data-control="bold"]')).toBeEnabled();
   });
+
+  /**
+   * Notices a selection that has been *cleared*, not only one that has moved.
+   *
+   * These are two different events, which is the whole point: `selection.model`
+   * is emitted for a selection that *is* something, and a selection cleared is
+   * announced on `selection.change` and nowhere else. Measured, before the
+   * subscription became the suite's: this ribbon listened to the first and not
+   * the second, so nothing here re-read — and `deleteTable` clears the selection
+   * when it succeeds, so a reader could delete a table and leave a toolbar
+   * describing the cells that used to be under the caret.
+   *
+   * Slides had already found this and written the reason down in its own copy of
+   * the subscription. That is what made it worth sharing rather than fixing here.
+   */
+  test('notices a selection that is cleared, not only one that moves', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-toolbar');
+    await placeCaret(page, '.w-paragraph', 1);
+
+    const font = page.locator('.w-toolbar-font-family');
+    await expect(font).toBeEnabled();
+    await expect(page.locator('.w-toolbar-style')).toContainText('Body text');
+
+    // Cleared the way the document clears it — `deleteTable` does exactly this.
+    await page.evaluate(() => (window as any).editor.updateSelection(null));
+
+    // There is nothing to set a font on, and the ribbon has to say so.
+    await expect(font).toBeDisabled();
+    await expect(page.locator('.w-toolbar-style')).toHaveText('—');
+  });
 })
 
 /**
@@ -373,5 +419,136 @@ test.describe('the ribbon at any width', () => {
         .filter((group) => group.rows > 1)
     );
     expect(split).toEqual([]);
+  });
+});
+
+/**
+ * Every control is drawn with an icon, not with a letter.
+ *
+ * The model says which **act** a control performs — `icon: 'accept-all'` — and the
+ * shared table turns that into a drawing; a name it does not know draws as the
+ * name in text. That is the right fallback and a bad default: one control added
+ * without an entry reads as `accept-all` beside twenty icons and nothing else
+ * fails. Eleven were drawing a glyph when this was written, three of them from
+ * before the session that found it.
+ *
+ * Asked of the DOM rather than of the map, because that is the question: not
+ * "is there an entry" but "does this button draw an icon".
+ */
+test.describe('the toolbar’s icons', () => {
+  test('every control draws one, and none falls back to a glyph', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-toolbar');
+    await placeCaret(page, '.w-paragraph', 1);
+
+    const withoutIcon = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('.w-toolbar [data-control]'))
+        .filter((control) => !control.querySelector('svg'))
+        .map((control) => control.getAttribute('data-control'))
+    );
+    expect(withoutIcon, '아이콘 없이 글리프로 그려진 컨트롤이 있습니다').toEqual([]);
+  });
+
+  /**
+   * And the panes, which is where the letters were still hiding.
+   *
+   * The toolbar was swept twice; the two side panes never were, because nothing
+   * asked. Measured before this test existed: the outline strip drew `☰`, the
+   * comments strip drew `💬`, and both panes' close buttons drew `×` — a
+   * multiplication sign at whatever weight the body face happens to have, beside
+   * a ribbon of drawn icons.
+   *
+   * Asked of both panes *open*, because a closed pane is one button and the
+   * interesting ones (reply, resolve, delete, close) only exist inside. The find
+   * bar too, which is the third place a close button lives.
+   */
+  test('and so does every button in the panes beside it', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.w-toolbar');
+    await placeCaret(page, '.w-paragraph', 1);
+
+    /**
+     * Opened by the strip that is showing, not by pressing the toggle twice.
+     *
+     * Which of the two panes starts open is the app's choice and it is not the
+     * same for both — the outline is open when the document loads and the
+     * comments are not. A test that pressed both toggles closed the one that was
+     * already open, and then looked for buttons in a pane that was a strip.
+     */
+    const reveal = async (strip: string, pane: string) => {
+      if ((await page.locator(strip).count()) > 0) await page.locator(strip).click();
+      await expect(page.locator(pane)).toHaveCount(1);
+    };
+    await reveal('.w-outline-closed', '.w-outline');
+    await reveal('.w-comments-closed', '.w-comments-pane');
+
+    // Ctrl+F rather than a control, because the find bar has none — it is bound
+    // and nothing else opens it.
+    await page.keyboard.press('Control+f');
+    await expect(page.locator('.w-find-panel')).toHaveCount(1);
+
+    /**
+     * And one comment, because four of the drawings only exist inside a thread.
+     *
+     * An empty pane has two buttons in it; a thread adds edit, reply, resolve and
+     * delete, which is where most of the comment icons are. Made through the
+     * command rather than by selecting and pressing, because what is being tested
+     * here is the drawing and not the making — `word-review.spec.ts` owns that.
+     */
+    await page.evaluate(async () => {
+      const editor = (window as any).editor;
+      const store = editor.dataStore;
+      const longEnough = (sid: string): string | null => {
+        const node = store.getNode(sid);
+        if (!node) return null;
+        if (typeof node.text === 'string') return node.text.length >= 15 ? sid : null;
+        for (const child of (node.content ?? []) as string[]) {
+          const found = longEnough(child);
+          if (found) return found;
+        }
+        return null;
+      };
+      const run = longEnough(store.getRootNodeId())!;
+      await editor.run('insertComment', {
+        selection: {
+          type: 'range',
+          startNodeId: run,
+          startOffset: 0,
+          endNodeId: run,
+          endOffset: 10,
+          collapsed: false
+        },
+        text: '아이콘을 그릴 만한 댓글'
+      });
+    });
+    await expect(page.locator('.w-comments-pane [data-comment]')).toHaveCount(1);
+
+    /**
+     * A button whose whole content is text, in any of the three.
+     *
+     * Not "has no svg": a button that is *meant* to be words — 바꾸기, 모두
+     * 바꾸기, a heading in the outline list — is right to be words. The fault is a
+     * button the size of an icon whose content is one character, so that is what
+     * this asks: short text, and no drawing.
+     */
+    const buttons = await page.evaluate(() => {
+      const all = Array.from(
+        document.querySelectorAll('.w-outline button, .w-comments-pane button, .w-find-panel button')
+      );
+      return {
+        drawn: all.filter((button) => button.querySelector('svg')).length,
+        lettered: all
+          .filter((button) => !button.querySelector('svg'))
+          .map((button) => (button.textContent ?? '').trim())
+          .filter((text) => text.length > 0 && text.length <= 2)
+      };
+    });
+    expect(buttons.lettered, '아이콘 대신 글자 한 자를 그린 버튼이 있습니다').toEqual([]);
+    // And it looked at something: an empty list of buttons would satisfy the
+    // assertion above while proving nothing, which is how this kind of test rots.
+    expect(buttons.drawn, '창에서 아이콘을 그린 버튼을 찾지 못했습니다').toBeGreaterThanOrEqual(9);
+
+    // And nothing in the chrome fell back to its own name, which the table marks.
+    expect(await page.locator('[data-icon-missing]').count()).toBe(0);
   });
 });

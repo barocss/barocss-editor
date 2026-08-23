@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import type { INode } from '@barocss/datastore';
+import type { SelectionState } from '../src/types';
 import { CommandManager, InsertTextCommand, InsertNodeCommand, DeleteNodeCommand, SetSelectionCommand } from '../src/commands';
 import { DocumentState } from '../src/types';
 
@@ -42,11 +44,14 @@ describe('Command classes', () => {
       ]
     };
 
-    const command = new InsertNodeCommand({
-      id: 'p-2',
-      type: 'paragraph',
-      text: 'second'
-    }, 1);
+    // `{ id, type }` is the shape these commands were written against, and the model's
+    // node is `{ sid, stype }` — the command splices whatever it is given, so the test
+    // still says something true about *where* the node lands. Cast at the boundary
+    // rather than quietly: the mismatch is the interesting part.
+    const command = new InsertNodeCommand(
+      { id: 'p-2', type: 'paragraph', text: 'second' } as unknown as INode,
+      1
+    );
     const next = command.execute(state);
 
     expect(next.content).toHaveLength(2);
@@ -81,6 +86,9 @@ describe('Command classes', () => {
       content: []
     };
 
+    // Same story as above: a `SelectionState` is a DOM selection — anchor node,
+    // focus node, offsets — and this is the model-side shape the command was written
+    // against. It stores what it is given, which is what the assertion is about.
     const command = new SetSelectionCommand({
       type: 'range',
       startNodeId: 'a',
@@ -88,7 +96,7 @@ describe('Command classes', () => {
       endNodeId: 'a',
       endOffset: 1,
       collapsed: false
-    });
+    } as unknown as SelectionState);
     const next = command.execute(state);
 
     expect(next).toEqual(state);

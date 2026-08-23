@@ -161,3 +161,122 @@ describe('grouping', () => {
     });
   });
 });
+
+/**
+ * Undoing a move inside a group.
+ *
+ * The group's rectangle follows what is in it, which nothing kept true until a reaction
+ * was written to keep it — and *that* is where this got interesting. The fit is not only
+ * derived numbers: it **re-origins**, moving the group one way and every child the other
+ * by the same amount, which together change nothing on screen. Both of the obvious
+ * answers about the history were measured and both were wrong.
+ */
+describe('a move inside a group, and the undo of it', () => {
+  let editor: Editor;
+  let store: DataStore;
+  let slide: string;
+
+  const node = (sid: string) => store.getNode(sid) as any;
+  const named = (name: string): string => {
+    const find = (sid: string): string | undefined => {
+      if (node(sid)?.attributes?.name === name) return sid;
+      for (const child of (node(sid)?.content ?? []) as string[]) {
+        const found = find(child);
+        if (found) return found;
+      }
+      return undefined;
+    };
+    return find((editor as any).getRootId())!;
+  };
+  const boxOf = (name: string) => {
+    const { x, y, width, height } = node(named(name)).attributes;
+    return { x, y, width, height };
+  };
+  /** The reaction runs on the document change, so a beat has to pass. */
+  const settle = async () => await new Promise((resolve) => setTimeout(resolve, 20));
+
+  beforeEach(async () => {
+    const schema = createSchema('slides', getSlidesSchemaDefinition());
+    store = new DataStore(undefined, schema);
+    editor = createSlidesEditor({ editable: true, schema, dataStore: store });
+    editor.loadDocument(
+      {
+        stype: 'document',
+        attributes: {},
+        content: [
+          {
+            stype: 'surface',
+            attributes: { kind: 'slide' },
+            content: [
+              {
+                stype: 'group',
+                attributes: { name: 'g', x: 1000, y: 1000, width: 4000, height: 2000 },
+                content: [
+                  { stype: 'rectangle', attributes: { name: 'a', x: 0, y: 0, width: 1000, height: 1000 } },
+                  { stype: 'rectangle', attributes: { name: 'b', x: 3000, y: 1000, width: 1000, height: 1000 } }
+                ]
+              }
+            ]
+          }
+        ]
+      } as never,
+      'slides'
+    );
+    slide = (store.getNode((editor as any).getRootId()) as any).content[0];
+    void slide;
+    await settle();
+  });
+
+  it('is taken back by one press, exactly', async () => {
+    const before = { a: boxOf('a'), b: boxOf('b'), g: boxOf('g') };
+
+    await (editor as any).executeCommand('setBoxGeometry', { nodeId: named('a'), x: 6000 });
+    await settle();
+    expect(boxOf('a')).not.toEqual(before.a);
+    // The fit re-origined: the group moved right and both children moved left by the
+    // same amount, so nothing moved on screen.
+    expect(boxOf('g').x).toBeGreaterThan(before.g.x);
+
+    await (editor as any).executeCommand('historyUndo');
+    await settle();
+
+    /*
+     * All three, from one press. Measured before this was fixed: recorded as its own
+     * entry, **three** presses of undo changed nothing at all — each undid the fit and
+     * the reaction wrote it straight back. Left out of the history entirely, the child
+     * came back and the group did not: the reader's relative `x` was restored into a
+     * coordinate space that had since moved, putting the shape somewhere it had never
+     * been.
+     */
+    expect(boxOf('a')).toEqual(before.a);
+    expect(boxOf('b')).toEqual(before.b);
+    expect(boxOf('g')).toEqual(before.g);
+  });
+
+  it('is put back by a redo, both halves of it', async () => {
+    await (editor as any).executeCommand('setBoxGeometry', { nodeId: named('a'), x: 6000 });
+    await settle();
+    const after = { a: boxOf('a'), b: boxOf('b'), g: boxOf('g') };
+
+    await (editor as any).executeCommand('historyUndo');
+    await settle();
+    await (editor as any).executeCommand('historyRedo');
+    await settle();
+
+    // A redo replays the edit and its consequence together, because they are one entry.
+    expect({ a: boxOf('a'), b: boxOf('b'), g: boxOf('g') }).toEqual(after);
+  });
+
+  it('keeps the group honest while the reader works', async () => {
+    // The reason the reaction exists at all: a child moved out left a group describing an
+    // area its contents had left, and the handles, the marquee, the hit test and aligning
+    // were all reading a rectangle that had stopped meaning anything.
+    await (editor as any).executeCommand('setBoxGeometry', { nodeId: named('b'), x: 9000 });
+    await settle();
+
+    const group = boxOf('g');
+    const b = boxOf('b');
+    expect(b.x + b.width).toBeLessThanOrEqual(group.width);
+    expect(b.x).toBeGreaterThanOrEqual(0);
+  });
+});

@@ -20,16 +20,14 @@ function createFakeEditor(dataStore: any): Editor & { __getCommand: (name: strin
   const commands: Record<string, any> = {};
 
   return {
-    // @ts-expect-error - Only provides minimal implementation
     registerCommand: (cmd: any) => {
       commands[cmd.name] = cmd;
     },
     __getCommand(name: string) {
       return commands[name];
     },
-    // @ts-expect-error - May differ from actual Editor interface
     dataStore
-  } as Editor & { __getCommand: (name: string) => any; dataStore: any };
+  } as unknown as Editor & { __getCommand: (name: string) => any; dataStore: any };
 }
 
 describe('UnderlineExtension - toggleUnderline', () => {

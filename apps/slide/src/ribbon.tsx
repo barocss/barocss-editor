@@ -1,22 +1,48 @@
-import { useEffect, useMemo, useReducer } from 'react';
+import { useMemo } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import {
   ChoiceSelect,
-  ControlIcon,
+  ColorPalette,
+  Icon,
   Toolbar,
   ToolbarGroup,
   ToolbarSeparator,
   ToolbarToggle
 } from '@barocss/office-ui';
+import { useEditorRevision } from './revision';
+/**
+ * The vocabulary from the shared layer, the *content* from the text model.
+ *
+ * These were one import from `@barocss/office-word` — a deck's font box typed as
+ * `ToolbarChoice`, a Word type, and read with Word's functions. The shapes and
+ * the readers are nobody's product now (`office-controls`), which is what lets
+ * this ribbon be declared without Word in it.
+ *
+ * The four constants below are a different thing and still Word's import: a font
+ * catalogue and a set of text colours are shared *content*, and their home is
+ * wherever the shared text model ends up (`office-text`, in the backlog). Two
+ * products disagreeing about what a text-colour button offers would be one of
+ * them wrong, so sharing them is right; the package they are shared from is the
+ * open question.
+ */
+import {
+  choiceOptions,
+  currentChoice,
+  currentPaletteColor,
+  type ChoiceControl,
+  type PaletteControl
+} from '@barocss/office-controls';
 import {
   WORD_FONTS,
   WORD_FONT_SIZES,
-  currentChoice,
-  type ToolbarChoice
+  WORD_TEXT_COLOR,
+  WORD_TEXT_HIGHLIGHT
 } from '@barocss/office-word';
 import {
   SLIDES_TOOLBAR,
+  keyLabel,
   resolveDeckFormat,
+  shortcutOf,
   type Slide,
   type SlidesToolbarControl
 } from '@barocss/office-slides';
@@ -46,24 +72,31 @@ export function Ribbon({
   current?: string;
 }) {
   /**
+   * Which way to draw a chord, asked once.
+   *
+   * Apple writes `⌘⇧G` and everyone else writes `Ctrl+Shift+G`; a tool that shows
+   * the wrong one looks ported. `userAgentData` where it exists and the old
+   * `platform` where it does not, which is the only pair that covers every
+   * browser this runs in today.
+   */
+  const apple = useMemo(() => {
+    const nav = navigator as Navigator & { userAgentData?: { platform?: string } };
+    const name = nav.userAgentData?.platform ?? nav.platform ?? '';
+    return /mac|iphone|ipad/i.test(name);
+  }, []);
+
+  /**
    * A count of the events that can change an answer here, not the answers
    * themselves. Keeping the answers would mean keeping a second copy of the
    * document's state, which is the thing this component exists not to do.
    */
-  const [tick, bump] = useReducer((n: number) => n + 1, 0);
-  useEffect(() => {
-    if (!editor) return;
-    // `selection.model`, not `selection.change`. Copied wrongly from Word's
-    // ribbon at first, and nothing said so: the handler simply never ran, so the
-    // toolbar and this panel kept whatever they had read at mount and looked
-    // like a caret that never moved.
-    editor.on('editor:selection.model', bump);
-    editor.on('editor:content.change', bump);
-    return () => {
-      (editor as any).off?.('editor:selection.model', bump);
-      (editor as any).off?.('editor:content.change', bump);
-    };
-  }, [editor]);
+  /**
+   * Which events those are is the suite's answer, not this file's — see
+   * `useEditorRevision`, where the three of them and the reason for each are
+   * written down once. It was hand-rolled here, and the copy in Word's ribbon
+   * was missing one of the three for months.
+   */
+  const tick = useEditorRevision(editor);
 
   /**
    * `getSelectionSummary`, not `selectionSummary`.
@@ -130,10 +163,13 @@ export function Ribbon({
    * a photograph expects neither. The natural size is scaled to fit a quarter of
    * the slide, keeping its proportions.
    */
-  const pickPicture = (run: (payload: Record<string, unknown>) => void) => {
+  const pickPicture = (
+    run: (payload: Record<string, unknown>) => void,
+    accept = 'image/*'
+  ) => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'image/*';
+    input.accept = accept;
     input.onchange = () => {
       const file = input.files?.[0];
       if (!file) return;
@@ -142,6 +178,45 @@ export function Ribbon({
       reader.onload = () => {
         const src = String(reader.result ?? '');
         if (!src) return;
+
+        /**
+         * A film is measured the same way a picture is, from the file itself.
+         *
+         * `videoWidth` is only known once the browser has read the metadata, so
+         * this waits for that event rather than the load — a film's first frame
+         * may be megabytes away and its dimensions are in the first kilobyte.
+         *
+         * A sound has no dimensions at all, so it takes a strip: full width of a
+         * quarter-slide and the height of the browser's own player.
+         */
+        if (file.type.startsWith('video/')) {
+          const video = document.createElement('video');
+          video.preload = 'metadata';
+          const place = () => {
+            const limit = { width: 19200 / 2, height: 10800 / 2 };
+            const natural = {
+              width: (video.videoWidth || 640) * 15,
+              height: (video.videoHeight || 360) * 15
+            };
+            const scale = Math.min(limit.width / natural.width, limit.height / natural.height, 1);
+            run({
+              src,
+              width: Math.round(natural.width * scale),
+              height: Math.round(natural.height * scale)
+            });
+          };
+          video.onloadedmetadata = place;
+          // A file the browser cannot decode still goes in, at the default box,
+          // rather than silently doing nothing to a reader who chose it.
+          video.onerror = () => run({ src });
+          video.src = src;
+          return;
+        }
+
+        if (file.type.startsWith('audio/')) {
+          run({ src, width: 9600, height: 810 });
+          return;
+        }
 
         const image = new Image();
         image.onload = () => {
@@ -214,32 +289,17 @@ export function Ribbon({
    * read "—" for a title that is plainly 66pt, because nothing on the slide
    * sets a size — the layout does, and the slide follows it.
    */
-  const choice = (model: ToolbarChoice, width: string) => {
+  const choice = (model: ChoiceControl, width: string) => {
     const current = summary ? currentChoice(model, summary as never, () => inherited(model)) : null;
-    const options = model.options.map((option) => ({
-      id: String(option.value),
-      label: option.label
-    }));
-
     /**
-     * A size the presets do not offer is still the size.
+     * A size the presets do not offer is still the size — see `choiceOptions`.
      *
-     * The layouts in a deck are set in whatever the designer chose — this
-     * deck's title is 54pt — and the control offers a dozen round numbers. A
-     * value not among them left the box blank, which reads as "the selection
-     * disagrees with itself" when it agrees perfectly. So the real value joins
-     * the list.
-     *
-     * Word's ribbon has the same gap for the same reason; it is logged rather
-     * than fixed in two places by copying this.
+     * This block lived here, with a comment saying Word's ribbon had the same
+     * gap and it was logged rather than copied. A gap logged in one product and
+     * fixed in the other is the state this repository keeps finding and calling
+     * a defect, so it moved to the toolbar model both products read.
      */
-    if (current !== null && !options.some((option) => option.id === current)) {
-      const points = Number(current);
-      options.unshift({
-        id: current,
-        label: model.id === 'font-size' && Number.isFinite(points) ? String(points / 2) : current
-      });
-    }
+    const options = choiceOptions(model, current);
 
     return (
     <ChoiceSelect
@@ -259,10 +319,57 @@ export function Ribbon({
     );
   };
 
+  /**
+   * A colour control, which is Word's for the same reason the font boxes are.
+   *
+   * Asked with a real colour in the payload: `setFontColor` refuses a payload
+   * with no colour, so asking with an empty one would report every colour
+   * control as permanently unavailable — the trap the picture button fell into
+   * here.
+   */
+  const palette = (model: PaletteControl) => (
+    <ColorPalette
+      key={model.id}
+      id={model.id}
+      label={model.label}
+      icon={<Icon name={model.icon} />}
+      value={summary ? currentPaletteColor(model, summary as never) : null}
+      swatches={model.swatches}
+      disabled={
+        !summary ||
+        (editor as any).canExecuteCommand?.(model.command, {
+          [model.key]: model.swatches[0].value
+        }) === false
+      }
+      clearLabel={model.clearCommand ? '없음' : undefined}
+      onPick={(value) =>
+        void (editor as any).executeCommand?.(model.command, { [model.key]: value })
+      }
+      onClear={() => void (editor as any).executeCommand?.(model.clearCommand!)}
+    />
+  );
+
   return (
     <Toolbar className="sl-toolbar" label="슬라이드 서식">
       {choice(WORD_FONTS, 'min-w-36')}
       {choice(WORD_FONT_SIZES, 'min-w-16')}
+      {/*
+        * Word's palettes, because a colour means the same thing in both.
+        *
+        * `setFontColor` and `removeFontColor` were registered in this deck from
+        * the day it had marks and were on no toolbar and bound to no key — the
+        * deck could not change the colour of its text. They come from the shared
+        * kit rather than from the deck's own extensions, so the check that finds
+        * an unreachable command could not see them; Word had the identical gap
+        * and grew this control a day earlier.
+        *
+        * The same precedent as the font and size boxes above, which are also
+        * Word's: two products disagreeing about what a text-colour button does
+        * would be one of them wrong, and that is the rule for what belongs in one
+        * place.
+        */}
+      {palette(WORD_TEXT_COLOR)}
+      {palette(WORD_TEXT_HIGHLIGHT)}
       <ToolbarSeparator />
       {SLIDES_TOOLBAR.map((group, index) => (
         <span key={group.id} className="contents">
@@ -273,22 +380,43 @@ export function Ribbon({
                 key={control.id}
                 id={control.id}
                 label={control.label}
+                /**
+                 * The chord, from the keymap rather than from a second list.
+                 *
+                 * A toolbar is how a reader finds a command and the keyboard is
+                 * how they use it the next time — a tool that never shows the
+                 * chord teaches nobody the chord. Which symbols to draw is the
+                 * reader's platform's business, which is why `apple` comes from
+                 * here and not from inside the model.
+                 */
+                shortcut={keyLabel(shortcutOf(control.command), apple)}
                 state={stateOf(control) as never}
                 disabled={!enabled(control)}
                 onActivate={() => {
                   if (control.needsFile) {
-                    pickPicture((payload) =>
-                      void (editor as any).executeCommand?.(control.command, {
-                        ...payloadFor(control),
-                        ...payload
-                      })
+                    // What the picker will accept, from what the command makes:
+                    // a video button that offered every image is a button that
+                    // produces a film with a picture in it.
+                    const accept =
+                      control.command === 'insertVideo'
+                        ? 'video/*'
+                        : control.command === 'insertAudio'
+                          ? 'audio/*'
+                          : 'image/*';
+                    pickPicture(
+                      (payload) =>
+                        void (editor as any).executeCommand?.(control.command, {
+                          ...payloadFor(control),
+                          ...payload
+                        }),
+                      accept
                     );
                     return;
                   }
                   void (editor as any).executeCommand?.(control.command, payloadFor(control));
                 }}
               >
-                <ControlIcon id={control.id} fallback={control.icon} />
+                <Icon name={control.icon} />
               </ToolbarToggle>
             ))}
           </ToolbarGroup>

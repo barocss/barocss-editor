@@ -95,3 +95,95 @@
 .w-resources {
   display: none;
 }
+
+/*
+ * An untouched placeholder says what it is for.
+ *
+ * A new deck is one title slide with *empty* placeholders, because PowerPoint's
+ * prompt text is not in the document either — it is drawn by the app and gone the
+ * moment anything is typed. So this is that prompt, and it is drawn from the DOM
+ * rather than from an attribute: an empty `inline-text` renders a marked
+ * zero-width filler (`data-bc-filler`), so "this placeholder has nothing in it" is
+ * a fact the stylesheet can see. Measured: 6 frames match on a new deck — the
+ * slide's two and the four in the master and the layout, which are inside
+ * `display: none` definitions and so cost nothing.
+ *
+ * Not while presenting: an audience is not being invited to type.
+ */
+.sl-shell:not([data-presenting='true']) .sl-text-frame[data-role]:has([data-bc-filler]) {
+  outline: 1px dashed color-mix(in srgb, currentColor 25%, transparent);
+  outline-offset: -1px;
+}
+
+.sl-shell:not([data-presenting='true']) .sl-text-frame[data-role]:has([data-bc-filler])::before {
+  /*
+   * Placed rather than flowed: the frame is a flex column holding real
+   * paragraphs, and a prompt that took part in that layout would push the first
+   * line down by its own height — visible the instant a reader typed, because it
+   * disappears.
+   */
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  /* A hint is not content: it cannot be clicked, selected or dragged. */
+  pointer-events: none;
+  /*
+   * Sized in the *slide's* pixels rather than the screen's, because the stage
+   * scales the whole slide with a transform: 14px looked right in the stylesheet
+   * and came out at eight on screen at fit zoom, which is a hint nobody can read.
+   * 40px is about a body line, which is also what it is a hint about.
+   */
+  font-size: 40px;
+  font-weight: 400;
+  color: color-mix(in srgb, currentColor 45%, transparent);
+  content: '두 번 눌러 입력';
+}
+
+/* What each kind of placeholder is for, in the word a reader would use. */
+.sl-shell:not([data-presenting='true'])
+  .sl-text-frame[data-role='title']:has([data-bc-filler])::before {
+  content: '제목을 입력하세요';
+}
+
+.sl-shell:not([data-presenting='true'])
+  .sl-text-frame[data-role='subtitle']:has([data-bc-filler])::before {
+  content: '부제목을 입력하세요';
+}
+
+.sl-shell:not([data-presenting='true'])
+  .sl-text-frame[data-role='body']:has([data-bc-filler])::before {
+  content: '텍스트를 입력하세요';
+}
+
+/**
+ * A line that flows.
+ *
+ * The dashes travel along the stroke, which says *which way* while moving — stronger
+ * than an arrowhead standing still, and what a presenter wants when they are talking
+ * about one path through a diagram.
+ *
+ * In CSS rather than in the renderer for two reasons. The presenting view is a **clone**
+ * of this DOM, so a CSS animation goes on flowing there with nothing to re-run; and a
+ * reader who has asked their system for less motion gets a still line, which a
+ * JavaScript loop would have to remember to check.
+ *
+ * `--sl-flow` is one period of the dash pattern, written by the renderer: shifting the
+ * offset by exactly that lands on the same picture, so the loop has no seam. A fixed
+ * distance judders on every line whose weight is not the one it was chosen for.
+ */
+@keyframes sl-conn-flow {
+  to {
+    stroke-dashoffset: calc(var(--sl-flow, 100) * -1);
+  }
+}
+
+.sl-conn-flow {
+  animation: sl-conn-flow 1.1s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sl-conn-flow {
+    animation: none;
+  }
+}

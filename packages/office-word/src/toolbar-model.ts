@@ -19,22 +19,38 @@
  * that silently reformats everything the user had selected.
  */
 import type { MarkState, SelectionSummary } from '@barocss/editor-core';
-import { markState } from '@barocss/editor-core';
+import {
+  choiceOptions,
+  commandsIn,
+  currentChoice,
+  currentPaletteColor,
+  iconsIn,
+  markTypesIn,
+  stateOfAttribute,
+  stateOfMark,
+  type ChoiceControl,
+  type Control,
+  type ControlGroup,
+  type PaletteControl
+} from '@barocss/office-controls';
 import type { StyleResolver } from './style-resolver';
 import type { DocumentNode } from './document-access';
 import { WORD_FONT_CATALOGUE } from './fonts';
 import type { ListKind } from './list-commands';
 import { parseTableLook, type TableLook } from './table-style';
 
-export interface ToolbarControl {
-  id: string;
-  label: string;
-  /** What the button shows. */
-  icon: string;
-  command: string;
-  payload?: Record<string, unknown>;
-  /** How to read this control's state out of the selection. */
-  state?: ((summary: SelectionSummary) => MarkState) & { markType?: string };
+/**
+ * A control in Word's toolbar: the suite's `Control` plus what only a word
+ * processor's controls need.
+ *
+ * `id`, `label`, `icon`, `command`, `payload` and `state` mean the same thing in
+ * every product and are declared once, in `@barocss/office-controls`. They were
+ * restated here, and restated again in Slides — so the shared half existed twice
+ * and the two could disagree about it. What is left below is genuinely Word's:
+ * all three are things the *host* has to answer because a selection summary
+ * cannot.
+ */
+export interface ToolbarControl extends Control {
   /**
    * That this control turns a list of this kind on and off.
    *
@@ -64,103 +80,104 @@ export interface ToolbarControl {
 }
 
 /**
- * The marks the toolbar reads, so a schema can be asked whether they exist.
+ * The marks Word's toolbar reads, and the commands it runs — its own inventory,
+ * over the suite's counting.
  *
- * The toolbar curates rather than mirroring: a schema with forty marks does not
- * make a usable toolbar, and Word's own shows a dozen. But what it curates has
- * to be real, and this is what lets a test say so.
+ * Kept as no-argument functions because that is how the checks read: "every mark
+ * this toolbar names exists in the schema", "every command it names is
+ * registered". The counting itself is `markTypesIn` / `commandsIn`, which both
+ * products now share — each had written it, and each had to remember to include
+ * its own palettes in the command list.
  */
 export function toolbarMarkTypes(groups: ToolbarGroup[] = WORD_TOOLBAR): string[] {
-  return groups
-    .flatMap((group) => group.controls)
-    .map((control) => control.state?.markType)
-    .filter((type): type is string => typeof type === 'string');
+  return markTypesIn(groups);
 }
 
-/** The commands the toolbar runs, so the same can be asked of an editor. */
-export function toolbarCommands(groups: ToolbarGroup[] = WORD_TOOLBAR): string[] {
-  return [...new Set(groups.flatMap((group) => group.controls).map((control) => control.command))];
+/**
+ * The icons Word's controls ask for — the declaration, not the screen, which is what
+ * lets `every-icon-has-a-picture` see a control on a tab nobody opened.
+ */
+export function toolbarIcons(groups: ToolbarGroup[] = WORD_TOOLBAR): string[] {
+  return iconsIn(groups, [WORD_TEXT_COLOR, WORD_TEXT_HIGHLIGHT, WORD_CELL_SHADING]);
 }
+
+export function toolbarCommands(groups: ToolbarGroup[] = WORD_TOOLBAR): string[] {
+  return commandsIn(groups, [WORD_TEXT_COLOR, WORD_TEXT_HIGHLIGHT, WORD_CELL_SHADING]);
+}
+
 
 /** A group of controls, drawn together with a separator between groups. */
-export interface ToolbarGroup {
-  id: string;
-  controls: ToolbarControl[];
-}
+/** A run of Word's controls. The shape is the suite's; the controls are Word's. */
+export type ToolbarGroup = ControlGroup<ToolbarControl>;
 
 /**
- * Reads a mark: on when it covers everything, mixed when it covers some.
+ * Reading a mark and reading a block attribute — the suite's, under local names.
  *
- * The mark's name is recorded on the control as well, so that the schema can be
- * asked whether it exists. A control naming a mark the schema does not define
- * is a button that is always off — it reads something nothing ever writes — and
- * that is a mistake nobody notices, because an off button looks like an off
- * button.
+ * Both were written here with the same bodies as Slides' copies of them, which is
+ * two products disagreeing waiting to happen. Aliased rather than spelled out at
+ * every use, because `mark('bold')` reads better in a hundred-line declaration
+ * than the longer name does.
  */
-const mark = (type: string) => {
-  const read = (summary: SelectionSummary): MarkState => markState(summary, type);
-  read.markType = type;
-  return read as ((summary: SelectionSummary) => MarkState) & { markType: string };
-};
+const mark = stateOfMark;
+const attribute = stateOfAttribute;
 
 /**
- * Reads a block attribute: on when every block agrees on this value, mixed when
- * they disagree.
+ * The choice and palette readers: the suite's, re-exported because Word's own
+ * ribbon reads its declarations with them and one import is kinder than two.
  *
- * Disagreement has to be visible. An alignment button that showed "off" for a
- * selection of a left-aligned and a centred paragraph would tell the user
- * neither is centred, which is false.
+ * The *types* are not re-exported. They were `ChoiceControl` and `PaletteControl`
+ * here, which is how Slides came to import its own font box's type from
+ * `@barocss/office-word` — a product depending on a sibling product for a shape
+ * neither owns. Callers name them `ChoiceControl` and `PaletteControl` from
+ * `@barocss/office-controls`, so there is one name for one thing.
  */
-const attribute = (key: string, value: unknown) => (summary: SelectionSummary): MarkState => {
-  if (summary.mixedAttributes.includes(key)) return 'mixed';
-  return summary.blockAttributes[key] === value ? 'on' : 'off';
-};
+export { choiceOptions, currentChoice, currentPaletteColor };
 
 export const WORD_TOOLBAR: ToolbarGroup[] = [
   {
     id: 'history',
     controls: [
-      { id: 'undo', label: 'Undo', icon: '↶', command: 'historyUndo' },
-      { id: 'redo', label: 'Redo', icon: '↷', command: 'historyRedo' }
+      { id: 'undo', label: 'Undo', icon: 'undo', command: 'historyUndo' },
+      { id: 'redo', label: 'Redo', icon: 'redo', command: 'historyRedo' }
     ]
   },
   {
     id: 'character',
     controls: [
-      { id: 'bold', label: 'Bold', icon: 'B', command: 'toggleBold', state: mark('bold') },
-      { id: 'italic', label: 'Italic', icon: 'I', command: 'toggleItalic', state: mark('italic') },
+      { id: 'bold', label: 'Bold', icon: 'bold', command: 'toggleBold', state: mark('bold') },
+      { id: 'italic', label: 'Italic', icon: 'italic', command: 'toggleItalic', state: mark('italic') },
       {
         id: 'underline',
         label: 'Underline',
-        icon: 'U',
+        icon: 'underline',
         command: 'toggleUnderline',
         state: mark('underline')
       },
       {
         id: 'strike',
         label: 'Strikethrough',
-        icon: 'S',
+        icon: 'strike',
         command: 'toggleStrikeThrough',
         state: mark('strikethrough')
       },
       {
         id: 'superscript',
         label: 'Superscript',
-        icon: 'x²',
+        icon: 'superscript',
         command: 'toggleSuperscript',
         state: mark('superscript')
       },
       {
         id: 'subscript',
         label: 'Subscript',
-        icon: 'x₂',
+        icon: 'subscript',
         command: 'toggleSubscript',
         state: mark('subscript')
       },
       {
         id: 'small-caps',
         label: 'Small capitals',
-        icon: 'ᴀ',
+        icon: 'small-caps',
         command: 'toggleSmallCaps',
         state: mark('smallCaps')
       },
@@ -170,7 +187,7 @@ export const WORD_TOOLBAR: ToolbarGroup[] = [
         // opened.
         id: 'highlight',
         label: 'Highlight',
-        icon: '▨',
+        icon: 'highlight',
         command: 'toggleHighlight',
         payload: { color: 'yellow' },
         state: mark('highlight')
@@ -180,10 +197,10 @@ export const WORD_TOOLBAR: ToolbarGroup[] = [
   {
     id: 'list',
     controls: [
-      { id: 'bullet-list', label: 'Bulleted list', icon: '•', command: 'toggleBulletList', listKind: 'bullet' },
-      { id: 'ordered-list', label: 'Numbered list', icon: '1.', command: 'toggleOrderedList', listKind: 'ordered' },
-      { id: 'outdent', label: 'Decrease indent', icon: '⇤', command: 'outdentText' },
-      { id: 'indent', label: 'Increase indent', icon: '⇥', command: 'indentText' }
+      { id: 'bullet-list', label: 'Bulleted list', icon: 'bullet-list', command: 'toggleBulletList', listKind: 'bullet' },
+      { id: 'ordered-list', label: 'Numbered list', icon: 'ordered-list', command: 'toggleOrderedList', listKind: 'ordered' },
+      { id: 'outdent', label: 'Decrease indent', icon: 'outdent', command: 'outdentText' },
+      { id: 'indent', label: 'Increase indent', icon: 'indent', command: 'indentText' }
     ]
   },
   {
@@ -192,28 +209,28 @@ export const WORD_TOOLBAR: ToolbarGroup[] = [
       {
         id: 'align-left',
         label: 'Align left',
-        icon: '⟸',
+        icon: 'align-left',
         command: 'alignLeft',
         state: attribute('alignment', 'left')
       },
       {
         id: 'align-center',
         label: 'Centre',
-        icon: '⟺',
+        icon: 'align-center',
         command: 'alignCenter',
         state: attribute('alignment', 'center')
       },
       {
         id: 'align-right',
         label: 'Align right',
-        icon: '⟹',
+        icon: 'align-right',
         command: 'alignRight',
         state: attribute('alignment', 'right')
       },
       {
         id: 'align-justify',
         label: 'Justify',
-        icon: '☰',
+        icon: 'align-justify',
         command: 'alignJustify',
         state: attribute('alignment', 'justify')
       }
@@ -230,6 +247,48 @@ export const WORD_TOOLBAR: ToolbarGroup[] = [
    * unavailable exactly when there is no change to accept.
    */
   /**
+   * Layout: putting blocks side by side without drawing a table to do it.
+   *
+   * Deliberately next to the table group, because these are the two answers to
+   * the same question and a reader should meet them together. A table is for
+   * data with rows and columns that mean something; a frame is for a page whose
+   * *arrangement* is two columns of text or a row of cards, which is a thing
+   * word processors have always made people fake with an invisible table.
+   *
+   * Three controls rather than one with a menu: each is a layout a reader can
+   * point at, and "insert frame" followed by "now choose" is two decisions where
+   * there was one. The payload is the whole difference between them.
+   *
+   * No `state`, and for the table group's reason — inserting is never "on".
+   */
+  {
+    id: 'layout',
+    controls: [
+      {
+        id: 'frame-row',
+        label: 'Side by side',
+        icon: 'frame-row',
+        command: 'insertFrame',
+        payload: { layoutMode: 'row', columns: 2 }
+      },
+      {
+        id: 'frame-column',
+        label: 'Stacked',
+        icon: 'frame-column',
+        command: 'insertFrame',
+        payload: { layoutMode: 'column', columns: 2 }
+      },
+      {
+        id: 'frame-grid',
+        label: 'Grid',
+        icon: 'frame-grid',
+        command: 'insertFrame',
+        payload: { layoutMode: 'grid', columns: 4 }
+      }
+    ]
+  },
+
+  /**
    * Tables.
    *
    * No `state` on any of them: a table command is never "on", it either applies
@@ -240,21 +299,21 @@ export const WORD_TOOLBAR: ToolbarGroup[] = [
   {
     id: 'table',
     controls: [
-      { id: 'row-above', label: 'Insert row above', icon: '⤒', command: 'insertRowAbove' },
-      { id: 'row-below', label: 'Insert row below', icon: '⤓', command: 'insertRowBelow' },
-      { id: 'row-delete', label: 'Delete row', icon: '⌫', command: 'deleteRow' },
-      { id: 'column-left', label: 'Insert column left', icon: '⇤', command: 'insertColumnLeft' },
-      { id: 'column-right', label: 'Insert column right', icon: '⇥', command: 'insertColumnRight' },
-      { id: 'column-delete', label: 'Delete column', icon: '⌦', command: 'deleteColumn' },
-      { id: 'cells-merge', label: 'Merge cells', icon: '⊞', command: 'mergeCells' },
-      { id: 'cell-split', label: 'Split cell', icon: '⊟', command: 'splitCell' },
+      { id: 'row-above', label: 'Insert row above', icon: 'row-above', command: 'insertRowAbove' },
+      { id: 'row-below', label: 'Insert row below', icon: 'row-below', command: 'insertRowBelow' },
+      { id: 'row-delete', label: 'Delete row', icon: 'row-delete', command: 'deleteRow' },
+      { id: 'column-left', label: 'Insert column left', icon: 'column-left', command: 'insertColumnLeft' },
+      { id: 'column-right', label: 'Insert column right', icon: 'column-right', command: 'insertColumnRight' },
+      { id: 'column-delete', label: 'Delete column', icon: 'column-delete', command: 'deleteColumn' },
+      { id: 'cells-merge', label: 'Merge cells', icon: 'merge-cells', command: 'mergeCells' },
+      { id: 'cell-split', label: 'Split cell', icon: 'split-cell', command: 'splitCell' },
       // Which regions of its style the table wants. They are switches on the
       // table and not formatting of their own: with no table style applied they
       // are still meaningful, and become visible the moment one is.
       {
         id: 'look-header-row',
         label: 'Header row',
-        icon: '▤',
+        icon: 'header-row',
         command: 'toggleTableLook',
         payload: { flag: 'firstRow' },
         lookFlag: 'firstRow'
@@ -262,7 +321,7 @@ export const WORD_TOOLBAR: ToolbarGroup[] = [
       {
         id: 'look-first-column',
         label: 'First column',
-        icon: '▮',
+        icon: 'first-column',
         command: 'toggleTableLook',
         payload: { flag: 'firstColumn' },
         lookFlag: 'firstColumn'
@@ -270,7 +329,7 @@ export const WORD_TOOLBAR: ToolbarGroup[] = [
       {
         id: 'look-banded-rows',
         label: 'Banded rows',
-        icon: '▨',
+        icon: 'banded-rows',
         command: 'toggleTableLook',
         payload: { flag: 'bandedRows' },
         lookFlag: 'bandedRows'
@@ -280,7 +339,7 @@ export const WORD_TOOLBAR: ToolbarGroup[] = [
       {
         id: 'cell-align-top',
         label: 'Align top',
-        icon: '⌃',
+        icon: 'align-cell-top',
         command: 'setCellVerticalAlign',
         payload: { align: 'top' },
         cellAttribute: { key: 'verticalAlign', value: 'top', whenUnset: true }
@@ -288,7 +347,7 @@ export const WORD_TOOLBAR: ToolbarGroup[] = [
       {
         id: 'cell-align-middle',
         label: 'Align middle',
-        icon: '−',
+        icon: 'align-cell-middle',
         command: 'setCellVerticalAlign',
         payload: { align: 'center' },
         cellAttribute: { key: 'verticalAlign', value: 'center' }
@@ -296,7 +355,7 @@ export const WORD_TOOLBAR: ToolbarGroup[] = [
       {
         id: 'cell-align-bottom',
         label: 'Align bottom',
-        icon: '⌄',
+        icon: 'align-cell-bottom',
         command: 'setCellVerticalAlign',
         payload: { align: 'bottom' },
         cellAttribute: { key: 'verticalAlign', value: 'bottom' }
@@ -305,24 +364,33 @@ export const WORD_TOOLBAR: ToolbarGroup[] = [
         // No payload: the button moves to the next direction, as Word's does.
         id: 'cell-text-direction',
         label: 'Text direction',
-        icon: '⇅',
+        icon: 'text-direction',
         command: 'setCellTextDirection'
-      }
+      },
+      /**
+       * Shading is a *palette* — `WORD_CELL_SHADING` — and not four buttons here.
+       *
+       * It was four: three fills and a way back to none, with a comment saying a
+       * colour picker was a second dialog to build before the common case worked
+       * at all. That was true of the picker and not of the *control*: text colour
+       * was the same shape and had nothing at all, so one palette written once
+       * answers both, and neither is three colours a reader has to accept.
+       */
     ]
   },
   {
     id: 'review',
     controls: [
-      { id: 'track-changes', label: 'Track changes', icon: '✎', command: 'toggleTrackChanges' },
+      { id: 'track-changes', label: 'Track changes', icon: 'track-changes', command: 'toggleTrackChanges' },
       // One button, two directions: an equation becomes the line it came from,
       // and a line that describes an equation becomes one.
-      { id: 'math-linear', label: 'Linear', icon: '≡', command: 'toggleMathLinear' },
-      { id: 'prev-revision', label: 'Previous change', icon: '◀', command: 'previousRevision' },
-      { id: 'next-revision', label: 'Next change', icon: '▶', command: 'nextRevision' },
-      { id: 'accept-revision', label: 'Accept', icon: '✓', command: 'acceptRevision' },
-      { id: 'reject-revision', label: 'Reject', icon: '✕', command: 'rejectRevision' },
-      { id: 'accept-all-revisions', label: 'Accept all', icon: '✓✓', command: 'acceptAllRevisions' },
-      { id: 'reject-all-revisions', label: 'Reject all', icon: '✕✕', command: 'rejectAllRevisions' }
+      { id: 'math-linear', label: 'Linear', icon: 'math', command: 'toggleMathLinear' },
+      { id: 'prev-revision', label: 'Previous change', icon: 'previous', command: 'previousRevision' },
+      { id: 'next-revision', label: 'Next change', icon: 'next', command: 'nextRevision' },
+      { id: 'accept-revision', label: 'Accept', icon: 'accept', command: 'acceptRevision' },
+      { id: 'reject-revision', label: 'Reject', icon: 'reject', command: 'rejectRevision' },
+      { id: 'accept-all-revisions', label: 'Accept all', icon: 'accept-all', command: 'acceptAllRevisions' },
+      { id: 'reject-all-revisions', label: 'Reject all', icon: 'reject-all', command: 'rejectAllRevisions' }
     ]
   }
 ];
@@ -334,21 +402,9 @@ export const WORD_TOOLBAR: ToolbarGroup[] = [
  * "the blocks disagree", which is a third state a toggle has no room for. The
  * command takes the chosen value in its payload under `key`.
  */
-export interface ToolbarChoice {
-  id: string;
-  label: string;
-  command: string;
-  /** The payload field the chosen value goes in. */
-  key: string;
-  /** The mark this reads, so the current value can be shown. */
-  markType: string;
-  /** Where the value sits in the mark's attributes. */
-  attr: string;
-  options: { value: string | number; label: string }[];
-}
 
 /** The fonts offered, drawn from the catalogue; see fonts.ts for what is in it. */
-export const WORD_FONTS: ToolbarChoice = {
+export const WORD_FONTS: ChoiceControl = {
   id: 'font-family',
   label: 'Font',
   command: 'setFontFamily',
@@ -365,7 +421,7 @@ export const WORD_FONTS: ToolbarChoice = {
  * number as — 22 is eleven point. The labels are points, because that is what a
  * writer means by "eleven".
  */
-export const WORD_FONT_SIZES: ToolbarChoice = {
+export const WORD_FONT_SIZES: ChoiceControl = {
   id: 'font-size',
   label: 'Size',
   command: 'setFontSize',
@@ -375,35 +431,119 @@ export const WORD_FONT_SIZES: ToolbarChoice = {
   options: [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 36, 48, 72].map((points) => ({
     value: points * 2,
     label: String(points)
-  }))
+  })),
+  /**
+   * The document stores half-points and a reader reads points, so a size that is
+   * not one of the presets has to be turned back before it is shown. Named on
+   * the model because the model is what knows the unit — an app that divided by
+   * two would be an app that knew a `.docx` detail.
+   */
+  labelOf: (value) => String(Number(value) / 2)
+};
+
+
+/**
+ * A control that opens a set of colours.
+ *
+ * Distinct from `ChoiceControl`, which is a list of named values and reads a
+ * mark. A colour is neither: the set on offer is a convenience rather than the
+ * whole domain — any colour is valid — and what it applies to may be a mark on
+ * the text or an attribute on a cell. So a palette says which command it runs
+ * and where the colour goes in the payload, and leaves the drawing to a host
+ * that knows what a swatch looks like.
+ *
+ * Two exist. Both are commands that were already registered and reachable by
+ * nothing: `setFontColor` has been in the kit since the kit had marks, and this
+ * word processor could not change the colour of its text.
+ */
+
+/**
+ * The colours offered, and why these.
+ *
+ * Word's own theme colours and its standard row, which is what a reader
+ * recognises — and a small set on purpose: a palette of forty is a colour picker
+ * with extra steps, and the point of the swatches is that the common answer is
+ * one press away. Anything else is the free field beside them.
+ */
+const THEME_SWATCHES: { value: string; label: string }[] = [
+  { value: '000000', label: 'Black' },
+  { value: '404040', label: 'Dark grey' },
+  { value: '808080', label: 'Grey' },
+  { value: 'D9D9D9', label: 'Light grey' },
+  { value: 'FFFFFF', label: 'White' },
+  { value: 'C00000', label: 'Dark red' },
+  { value: 'FF0000', label: 'Red' },
+  { value: 'ED7D31', label: 'Orange' },
+  { value: 'FFC000', label: 'Yellow' },
+  { value: '70AD47', label: 'Green' },
+  { value: '2F5496', label: 'Dark blue' },
+  { value: '4472C4', label: 'Blue' },
+  { value: '9DC3E6', label: 'Light blue' },
+  { value: 'D9E2F3', label: 'Pale blue' },
+  { value: '7030A0', label: 'Purple' }
+];
+
+/** The colour of the text itself. */
+export const WORD_TEXT_COLOR: PaletteControl = {
+  id: 'font-color',
+  label: 'Text colour',
+  icon: 'font-color',
+  command: 'setFontColor',
+  key: 'color',
+  clearCommand: 'removeFontColor',
+  markType: 'fontColor',
+  attr: 'color',
+  swatches: THEME_SWATCHES
 };
 
 /**
- * The value a choice control should show, or nothing when the selection does not
- * agree on one.
+ * The colour behind the text — the highlighter.
  *
- * Nothing rather than a guess: showing one of two fonts in a selection that
- * spans both would apply it to the whole selection on the next change.
+ * Its own swatches: a highlighter's colours are the pen colours, and offering
+ * the theme's dark blues as a highlight gives a reader a way to make their own
+ * text unreadable in one press. The last is white, which is what a highlighter
+ * has instead of nothing when the text sits on a coloured shape.
+ *
+ * `setHighlight`, not `toggleHighlight`: the toggle takes a colour but toggles,
+ * so pressing yellow on green text would take the highlight off rather than
+ * turning it yellow. The toggle stays on the toolbar as the one-press
+ * highlighter; this is the choice of colour, the same pair as bold and a font.
  */
-export function currentChoice(
-  choice: ToolbarChoice,
-  summary: SelectionSummary,
-  inherited?: () => string | number | undefined
-): string | null {
-  if (summary.mixedMarks.includes(choice.markType)) return null;
+export const WORD_TEXT_HIGHLIGHT: PaletteControl = {
+  id: 'highlight-color',
+  label: 'Highlight colour',
+  icon: 'highlight',
+  command: 'setHighlight',
+  key: 'color',
+  clearCommand: 'removeHighlight',
+  markType: 'highlight',
+  attr: 'color',
+  swatches: [
+    { value: 'FFFF00', label: 'Yellow' },
+    { value: 'A5F3A0', label: 'Green' },
+    { value: '7FDBFF', label: 'Turquoise' },
+    { value: 'FF9AD5', label: 'Pink' },
+    { value: 'FFC08A', label: 'Orange' },
+    { value: 'D9D9D9', label: 'Grey' },
+    { value: 'C7B9FF', label: 'Violet' },
+    { value: 'FFFFFF', label: 'White' }
+  ]
+};
 
-  const value = summary.markAttributes?.[choice.markType]?.[choice.attr];
-  if (value !== undefined && value !== null) return String(value);
+/** The colour behind a block of cells. */
+export const WORD_CELL_SHADING: PaletteControl = {
+  id: 'cell-shading',
+  label: 'Cell shading',
+  icon: 'shading',
+  command: 'setCellShading',
+  key: 'fill',
+  // No separate clear command: `setCellShading` with no fill writes an empty
+  // one, which is how this schema says "none" — see the command.
+  cellAttribute: 'shadingFill',
+  swatches: THEME_SWATCHES
+};
 
-  // No mark is not the same as no value. Almost no text in a Word document
-  // carries direct font formatting — it inherits from its style, and its
-  // style's parent, and the document defaults. A box that showed "—" for a
-  // paragraph plainly set in Georgia would be saying the selection disagrees
-  // with itself when it agrees perfectly, which is the one thing that state is
-  // supposed to mean.
-  const resolved = inherited?.();
-  return resolved === undefined ? null : String(resolved);
-}
+
 
 /**
  * What a choice control resolves to for a block, following the style cascade.
@@ -412,7 +552,7 @@ export function currentChoice(
  * someone typed it in directly.
  */
 export function inheritedChoice(
-  choice: ToolbarChoice,
+  choice: ChoiceControl,
   styles: StyleResolver | undefined,
   block: DocumentNode | undefined
 ): string | number | undefined {

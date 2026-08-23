@@ -1,6 +1,19 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Editor, type Extension } from '../src/index';
-import { DEFAULT_KEYBINDINGS } from '../src/keybinding/default-keybindings';
+
+/**
+ * The first child's **sid**.
+ *
+ * `INode.content` is `(INode | string)[]` because both are real: a loaded document
+ * holds child sids, and a literal tree holds the children themselves. These tests
+ * walk a loaded document, so a child is a sid — said once here rather than asserted at
+ * every step, which is what they did before anything type-checked them.
+ */
+const firstChildSid = (node: { content?: unknown } | null | undefined): string | null => {
+  const first = Array.isArray(node?.content) ? node!.content[0] : null;
+  return typeof first === 'string' ? first : null;
+};
+
 
 describe('Editor', () => {
   let editor: Editor;
@@ -209,10 +222,6 @@ describe('Editor', () => {
   });
 
   describe('명령어 시스템', () => {
-    const defaultKeybindingCommands = Array.from(new Set(
-      DEFAULT_KEYBINDINGS.map(binding => binding.command).filter(Boolean)
-    ));
-
     it('명령어를 등록할 수 있어야 함', () => {
       const command = {
         name: 'testCommand',
@@ -341,11 +350,11 @@ describe('Editor', () => {
       ]).commit();
 
       const rootNode = editor.dataStore.getNode(rootId!);
-      const paragraphNodeId = Array.isArray(rootNode?.content) ? rootNode!.content[0] : null;
+      const paragraphNodeId = firstChildSid(rootNode);
       expect(paragraphNodeId).toBeDefined();
 
       const paragraphNode = editor.dataStore.getNode(paragraphNodeId as string);
-      const textNodeId = Array.isArray(paragraphNode?.content) ? paragraphNode!.content[0] : null;
+      const textNodeId = firstChildSid(paragraphNode);
       expect(textNodeId).toBeDefined();
 
       const setRangeResult = await editor.executeCommand('setRange', {
@@ -415,7 +424,7 @@ describe('Editor', () => {
       ]).commit();
 
       const rootNode = editor.dataStore.getNode(rootId!);
-      const paragraphNodeId = Array.isArray(rootNode?.content) ? rootNode!.content[0] : null;
+      const paragraphNodeId = firstChildSid(rootNode);
       expect(paragraphNodeId).toBeDefined();
 
       const onSelectionModel = vi.fn();
@@ -458,9 +467,9 @@ describe('Editor', () => {
       ]).commit();
 
       const rootNode = editor.dataStore.getNode(rootId!);
-      const paragraphNodeId = Array.isArray(rootNode?.content) ? rootNode!.content[0] : null;
+      const paragraphNodeId = firstChildSid(rootNode);
       const paragraphNode = paragraphNodeId ? editor.dataStore.getNode(paragraphNodeId) : null;
-      const textNodeId = Array.isArray(paragraphNode?.content) ? paragraphNode!.content[0] : null;
+      const textNodeId = firstChildSid(paragraphNode);
       expect(textNodeId).toBeDefined();
 
       const onSelectionModel = vi.fn();
@@ -509,9 +518,9 @@ describe('Editor', () => {
       ]).commit();
 
       const rootNode = editor.dataStore.getNode(rootId!);
-      const paragraphNodeId = Array.isArray(rootNode?.content) ? rootNode!.content[0] : null;
+      const paragraphNodeId = firstChildSid(rootNode);
       const paragraphNode = paragraphNodeId ? editor.dataStore.getNode(paragraphNodeId) : null;
-      const textNodeId = Array.isArray(paragraphNode?.content) ? paragraphNode!.content[0] : null;
+      const textNodeId = firstChildSid(paragraphNode);
       expect(textNodeId).toBeDefined();
 
       const onSelectionModel = vi.fn();

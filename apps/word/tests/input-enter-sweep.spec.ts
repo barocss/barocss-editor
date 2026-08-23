@@ -34,13 +34,37 @@ type Split = {
   onPage?: boolean;
 };
 
+/**
+ * Whether a paragraph is drawn on the paper.
+ *
+ * By geometry, because the sheets are drawn *behind* the flow rather than around
+ * it: a paragraph's ancestors are the section and the document, and the pages are
+ * boxes underneath. So "on a page" means its rectangle falls inside one of them.
+ *
+ * This used to be `closest('.w-page')`, and there is no `.w-page` anywhere in the
+ * product — only a stale mention in a stylesheet comment. The check could never
+ * pass, so the last of the sweep's conditions had never once been satisfied; it
+ * only ever surfaced when a split got past the earlier ones. A test-side version
+ * of exactly the fault this repository keeps finding: a name nothing writes.
+ */
+const isOnPaper = (el: Element): boolean => {
+  const box = el.getBoundingClientRect();
+  if (box.height === 0) return false;
+
+  return [...document.querySelectorAll('.w-sheet')].some((sheet) => {
+    const paper = sheet.getBoundingClientRect();
+    const middle = box.top + box.height / 2;
+    return middle >= paper.top && middle <= paper.bottom && box.left >= paper.left - 1;
+  });
+};
+
 const survey = () =>
   [...document.querySelectorAll('.w-paragraph')].map((el, index) => ({
     index,
     sid: el.getAttribute('data-bc-sid'),
     text: (el.textContent ?? '').replace(/﻿/g, ''),
     top: el.getBoundingClientRect().top,
-    onPage: !!el.closest('.w-page'),
+    onPage: isOnPaper(el),
     inTable: !!el.closest('.w-cell'),
     inFurniture: !!el.closest('.w-header, .w-footer')
   }));
@@ -56,13 +80,29 @@ const caretParagraph = () => {
   return {
     index: all.indexOf(paragraph),
     text: (paragraph.textContent ?? '').replace(/﻿/g, ''),
-    onPage: !!paragraph.closest('.w-page'),
+    onPage: isOnPaper(paragraph),
     offset: (window as any).editor.selection?.startOffset as number
   };
 };
 
 for (const where of ['/', '/?lab']) {
 test(`Enter splits in order wherever it is pressed (${where})`, async ({ page }) => {
+  /**
+   * Legitimately long, and said so rather than left to fail under load.
+   *
+   * The sweep reloads the whole document once per paragraph — deliberately, so
+   * one bad split cannot explain the next — which is around forty page loads and
+   * forty paginations in one test. At the suite's 30-second budget that fits on
+   * an idle machine and does not while anything else is running: it failed once
+   * in a full run and twice in the next, always inside `settled()` waiting for a
+   * page count that had not stopped moving, and passed alone every time.
+   *
+   * `test.slow()` rather than a bigger number everywhere: the budget is right for
+   * every other test in this suite, and a test that takes forty page loads should
+   * be the one that says so.
+   */
+  test.slow();
+
   await page.goto(where);
   await settled(page);
 
@@ -110,7 +150,46 @@ test(`Enter splits in order wherever it is pressed (${where})`, async ({ page })
     if (!head || !tail) continue; // nothing to split
 
     await page.keyboard.press('Enter');
-    await page.waitForTimeout(450);
+
+    /**
+     * Wait for the split *and* for the paginator to have placed it.
+     *
+     * This was a flat 450ms, which is a guess at how long pagination takes and
+     * was wrong under load: the split was correct — right head, right tail, right
+     * order — and the new paragraph had not been put on a page yet, so the sweep
+     * reported "새 문단이 페이지 밖에 그려졌습니다" for a document that was
+     * about to be fine. Twice in six runs, and never alone.
+     *
+     * Polling for the state the assertions are about keeps the failure real: a
+     * paragraph that never lands on a page still fails, with the same message,
+     * after this gives up.
+     */
+    await expect
+      .poll(
+        async () =>
+          page.evaluate((expected) => {
+            const paragraphs = [...document.querySelectorAll('.w-paragraph')];
+            if (paragraphs.length !== expected) return false;
+            const sid = (window as any).editor.selection?.startNodeId;
+            const node = sid
+              ? document.querySelector(`[data-bc-sid="${CSS.escape(sid)}"]`)
+              : null;
+            const paragraph = node?.closest('.w-paragraph');
+            if (!paragraph) return false;
+            const box = paragraph.getBoundingClientRect();
+            return [...document.querySelectorAll('.w-sheet')].some((sheet) => {
+              const paper = sheet.getBoundingClientRect();
+              const middle = box.top + box.height / 2;
+              return box.height > 0 && middle >= paper.top && middle <= paper.bottom;
+            });
+          }, before.length + 1),
+        { timeout: 4000, intervals: [50, 100, 200] }
+      )
+      .toBe(true)
+      .catch(() => {
+        // Not the assertion: the records below say what went wrong and where,
+        // which is more use than "expected true".
+      });
 
     const after = await page.evaluate(survey);
     const mine = await page.evaluate(caretParagraph);

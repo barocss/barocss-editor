@@ -7,6 +7,8 @@ import { createSlidesEditor } from '../src/slides-kit';
 import { getSlidesSchemaDefinition } from '../src/slides-schema';
 import { registerSlidesRenderers } from '../src/renderers';
 import { createSampleDeck } from '../src/sample-deck';
+import { createDeckEnv } from '../src/layout-format';
+import { WORD_ENV_KEY } from '@barocss/office-word';
 
 /**
  * A deck, drawn.
@@ -37,8 +39,27 @@ describe('a deck draws', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
 
+    /**
+     * With the deck's environment, which is what the product renders with.
+     *
+     * The stage, the notes pane and every thumbnail build one — `createDeckEnv`
+     * exists so that three places cannot drift apart — and it carries the
+     * document that a *slot* is resolved in: a shape saying `theme:accent1`, a
+     * slide taking its background from a master. Rendered without it, this test
+     * drew a rectangle with no fill at all and said so, which is the honest
+     * behaviour and not the product's.
+     */
     // No `registerLayoutPass`. A slide places; there is nothing to converge.
-    const view = new EditorViewDOM(editor, { container, registry: getGlobalRegistry() });
+    const view = new EditorViewDOM(editor, {
+      container,
+      registry: getGlobalRegistry(),
+      env: {
+        [WORD_ENV_KEY]: createDeckEnv({
+          rootId: (editor as any).getRootId(),
+          getNode: (sid: string) => dataStore.getNode(sid) as never
+        })
+      }
+    } as never);
     // One pass, synchronously, and that is the whole of it.
     view.render(undefined, { sync: true });
   });
@@ -119,7 +140,19 @@ describe('a deck draws', () => {
       const rect = frame!.querySelector<HTMLElement>('.sl-rectangle');
       // 720 twips from the frame's edge, not from the slide's.
       expect(rect!.style.left).toBe('48px');
-      expect(rect!.style.background).toBe('rgb(37, 99, 235)');
+      /**
+       * The colour through its track, and the shape's own declaration beside it.
+       *
+       * Read from the declaration rather than from the resolved value on purpose:
+       * a fill goes through `var(--sl-f0-color)` now, and **jsdom does not resolve
+       * custom properties** — it hands back the `var()` untouched. A browser does,
+       * which is checked where a browser is (`apps/slide/tests/theme.spec.ts` reads
+       * the computed `backgroundColor` and still gets `rgb(37, 99, 235)`).
+       */
+      expect(rect!.style.background).toBe('var(--sl-f0-color, transparent)');
+      // Kept as written, not normalised: a custom property is a token stream, so
+      // jsdom hands back the hex the document holds rather than a colour it parsed.
+      expect(rect!.style.getPropertyValue('--sl-f0-color')).toBe('#2563eb');
       expect(rect!.style.borderRadius).toBe('8px');
     });
 
@@ -201,6 +234,33 @@ describe('a deck draws', () => {
       // But it still positions its children, so its own box has to be honest.
       expect(group!.style.left).toBe('672px'); // 10080 twips
     });
+  });
+
+  /**
+   * The kind of list the *model* says, not a name the renderer made up.
+   *
+   * This drew `data-list-type` from `listType`, an attribute nothing writes:
+   * `wrapInList` writes `type`, the schema declares `type`, and the PDF exporter
+   * reads `type`. So the numbered-list button produced a list drawn with bullets,
+   * and the sample deck agreed with the renderer instead of the schema, so every
+   * test passed.
+   *
+   * Asked of the template directly rather than through a document, which is what
+   * makes it cheap enough to do for one attribute: the drawing is a function of the
+   * node, so a node is all it takes.
+   */
+  it('draws a list as the kind the model writes', () => {
+    const template = getGlobalRegistry().get('list')?.template as
+      | { component?: (props: unknown, node?: unknown, ctx?: unknown) => any }
+      | undefined;
+    const drawn = (type: string) => {
+      const node = { sid: 'x:1', stype: 'list', attributes: { type }, content: [] };
+      const kind = template!.component!(node, node, { env: {} })?.attributes?.['data-list-type'];
+      return typeof kind === 'function' ? kind(node) : kind;
+    };
+
+    expect(drawn('ordered')).toBe('ordered');
+    expect(drawn('bullet')).toBe('bullet');
   });
 
   /**

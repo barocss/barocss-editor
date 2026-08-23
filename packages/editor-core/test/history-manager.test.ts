@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { HistoryManager, HistoryEntry } from '../src/history-manager';
+import { HistoryManager } from '../src/history-manager';
 
 describe('HistoryManager', () => {
   let historyManager: HistoryManager;

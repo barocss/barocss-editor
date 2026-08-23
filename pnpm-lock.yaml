@@ -265,6 +265,9 @@ importers:
       '@barocss/editor-view-dom':
         specifier: workspace:*
         version: link:../../packages/editor-view-dom
+      '@barocss/office-controls':
+        specifier: workspace:*
+        version: link:../../packages/office-controls
       '@barocss/office-slides':
         specifier: workspace:*
         version: link:../../packages/office-slides
@@ -283,9 +286,6 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
-      lucide-react:
-        specifier: ^1.28.0
-        version: 1.28.0(react@19.2.8)
       react:
         specifier: ^19.2.8
         version: 19.2.8
@@ -329,6 +329,12 @@ importers:
       '@barocss/editor-view-dom':
         specifier: workspace:*
         version: link:../../packages/editor-view-dom
+      '@barocss/office-controls':
+        specifier: workspace:*
+        version: link:../../packages/office-controls
+      '@barocss/office-icons':
+        specifier: workspace:*
+        version: link:../../packages/office-icons
       '@barocss/office-ui':
         specifier: workspace:*
         version: link:../../packages/office-ui
@@ -356,9 +362,6 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
-      lucide-react:
-        specifier: ^1.28.0
-        version: 1.28.0(react@19.2.8)
       react:
         specifier: ^19.2.8
         version: 19.2.8
@@ -782,6 +785,38 @@ importers:
         specifier: ^1.6.1
         version: 1.6.1(@types/node@20.19.30)(@vitest/ui@1.6.1)
 
+  packages/office-controls:
+    dependencies:
+      '@barocss/editor-core':
+        specifier: workspace:*
+        version: link:../editor-core
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.30)(@vitest/ui@1.6.1)
+
+  packages/office-icons:
+    dependencies:
+      lucide-react:
+        specifier: ^1.28.0
+        version: 1.28.0(react@19.2.8)
+      react-dom:
+        specifier: '>=18'
+        version: 19.2.8(react@19.2.8)
+    devDependencies:
+      '@types/react':
+        specifier: ^19.0.0
+        version: 19.2.10
+      react:
+        specifier: ^19.2.8
+        version: 19.2.8
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
   packages/office-slides:
     dependencies:
       '@barocss/datastore':
@@ -799,6 +834,12 @@ importers:
       '@barocss/model':
         specifier: workspace:*
         version: link:../model
+      '@barocss/office-controls':
+        specifier: workspace:*
+        version: link:../office-controls
+      '@barocss/office-icons':
+        specifier: workspace:*
+        version: link:../office-icons
       '@barocss/office-word':
         specifier: workspace:*
         version: link:../office-word
@@ -833,9 +874,9 @@ importers:
 
   packages/office-ui:
     dependencies:
-      '@barocss/editor-core':
+      '@barocss/office-icons':
         specifier: workspace:*
-        version: link:../editor-core
+        version: link:../office-icons
       '@radix-ui/react-dialog':
         specifier: ^1.1.15
         version: 1.1.23(@types/react-dom@19.2.3)(@types/react@19.2.10)(react-dom@19.2.8)(react@19.2.8)
@@ -851,9 +892,9 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
-      lucide-react:
-        specifier: ^1.28.0
-        version: 1.28.0(react@19.2.8)
+      react-colorful:
+        specifier: ^5.8.0
+        version: 5.8.0(react-dom@19.2.8)(react@19.2.8)
       tailwind-merge:
         specifier: ^3.6.0
         version: 3.6.0
@@ -894,6 +935,12 @@ importers:
       '@barocss/model':
         specifier: workspace:*
         version: link:../model
+      '@barocss/office-controls':
+        specifier: workspace:*
+        version: link:../office-controls
+      '@barocss/office-icons':
+        specifier: workspace:*
+        version: link:../office-icons
       '@barocss/schema':
         specifier: workspace:*
         version: link:../schema
@@ -14220,6 +14267,16 @@ packages:
       ini: 1.3.8
       minimist: 1.2.8
       strip-json-comments: 2.0.1
+    dev: false
+
+  /react-colorful@5.8.0(react-dom@19.2.8)(react@19.2.8):
+    resolution: {integrity: sha512-Wy9OzPfjSN9bF12OB8N7UQvlsZ0I+7wHxpN+bV5BjNQGxOj6IiwkRjevJK9yOBjJWGQvAaf1OXtn8rUeEatAng==}
+    peerDependencies:
+      react: '>=16.8.0'
+      react-dom: '>=16.8.0'
+    dependencies:
+      react: 19.2.8
+      react-dom: 19.2.8(react@19.2.8)
     dev: false
 
   /react-dom@18.3.1(react@18.3.1):

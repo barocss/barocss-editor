@@ -90,6 +90,75 @@ export function laysOut(attributes: Record<string, unknown> | undefined): boolea
 }
 
 /**
+ * Which place in the order a drag inside an arranging frame means.
+ *
+ * ## Why a drag has to mean *something*
+ *
+ * A frame that arranges owns its children's coordinates (canvas-model §5), so a drag of
+ * one of them has nowhere to go: measured — `setBoxGeometry` reported success, the layout
+ * put the shape straight back, and pressing undo did nothing because the reader's own
+ * entry restored the number the layout had already restored. A gesture that reports
+ * success and changes nothing is the worst of the three possible answers.
+ *
+ * The other two are refusing it and giving it a meaning. Refusing leaves a reader holding
+ * a shape they cannot put anywhere; the meaning is the one every auto-layout tool settled
+ * on — **the order**, which is the one thing about an arranged child that is still the
+ * reader's to decide.
+ *
+ * ## Here rather than in a pointer handler
+ *
+ * The same reason `positionFromRow` is in the model: an off-by-one is a drag that
+ * reorders backwards, which is the one fault a reader cannot explain. And the index is
+ * one *without the moving shape in the list*, because that is what `moveNode` takes — it
+ * removes first and inserts into the shortened array.
+ */
+export function reorderIndexAt(
+  /** The siblings in document order, boxed in the same space as `at`. */
+  items: { sid: string; box: { x: number; y: number; width: number; height: number } }[],
+  at: { x: number; y: number },
+  mode: LayoutMode,
+  /** The shape being dragged, which is not one of the places it can go. */
+  moving?: string
+): number {
+  // A frame that does not arrange gives a drag its plain meaning — a move — so there is
+  // no order to answer about. −1 rather than 0, which is a real position and would
+  // silently send the shape to the front.
+  if (mode === 'none') return -1;
+
+  const others = items.filter((item) => item.sid !== moving);
+  if (others.length === 0) return 0;
+
+  const centre = (item: (typeof others)[number]) => ({
+    x: item.box.x + item.box.width / 2,
+    y: item.box.y + item.box.height / 2
+  });
+
+  let before = 0;
+  for (const item of others) {
+    const middle = centre(item);
+    if (mode === 'row') {
+      if (middle.x < at.x) before += 1;
+      continue;
+    }
+    if (mode === 'column') {
+      if (middle.y < at.y) before += 1;
+      continue;
+    }
+    /**
+     * A grid is read the way it is written: earlier rows first, then left to right.
+     *
+     * The row is decided by the shape's own half-height rather than a fixed band, because
+     * a grid of cards and a grid of thumbnails have nothing in common but their order.
+     */
+    const band = item.box.height / 2;
+    if (middle.y < at.y - band) before += 1;
+    else if (Math.abs(middle.y - at.y) <= band && middle.x < at.x) before += 1;
+  }
+
+  return Math.max(0, Math.min(before, others.length));
+}
+
+/**
  * Where each child goes, in the frame's own coordinates.
  *
  * Returns only the children whose position *changes*, which is what lets the
@@ -189,7 +258,38 @@ export function layoutChildren(
   return moved;
 }
 
-/** The children of a frame, in document order, as the arrangement needs them. */
+/**
+ * Whether this child is one the arithmetic may move.
+ *
+ * A frame holds placed things on a canvas and ordinary blocks in a document,
+ * and only the first kind has anywhere to be put. Writing `x` and `y` onto a
+ * paragraph would be writing coordinates into a node that has no use for them
+ * and no renderer that reads them — the value would sit in the document,
+ * survive a save, and mean nothing.
+ *
+ * A size is what separates the two, and truthfully rather than by luck: the
+ * schema requires a width and a height of every scene node, because a shape of
+ * no stated size cannot be drawn, and no flow block has either. A frame is the
+ * one node that may be either kind, and its own size is exactly what says which
+ * — a frame placed on a canvas is given one, and a frame in the flow takes the
+ * column's width and has none.
+ *
+ * Not `x`, which every scene node has a default `0` for, so a shape that has
+ * genuinely never been placed is indistinguishable from one placed at the
+ * origin.
+ */
+function isPlaced(attributes: Record<string, unknown> | undefined): boolean {
+  const stated = (value: unknown) => typeof value === 'number' && Number.isFinite(value);
+  return stated(attributes?.width) || stated(attributes?.height);
+}
+
+/**
+ * The children of a frame, in document order, as the arrangement needs them.
+ *
+ * Flow children are left out rather than laid out — see `isPlaced`. A frame of
+ * paragraphs therefore answers "nothing moves", and its arrangement is the CSS
+ * `frameCss` writes, which is the browser's business and better at it.
+ */
 export function childrenToLayOut(
   getNode: (sid: string) => { sid?: string; stype?: string; attributes?: Record<string, unknown> } | undefined,
   content: unknown
@@ -198,6 +298,6 @@ export function childrenToLayOut(
   return content
     .filter((sid): sid is string => typeof sid === 'string')
     .map((sid) => ({ sid, node: getNode(sid) }))
-    .filter((entry) => !!entry.node)
+    .filter((entry) => !!entry.node && isPlaced(entry.node.attributes))
     .map((entry) => ({ sid: entry.sid, box: boxOf(entry.node!.attributes as never) }));
 }

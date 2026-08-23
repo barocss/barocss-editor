@@ -18,6 +18,18 @@
 @import "@barocss/office-word/text.css";
 
 /*
+ * The suite's control tokens.
+ *
+ * Imported and *not* remapped: Word's chrome is Tailwind's own palette, which is
+ * what `tokens.css` defaults to, so this changes nothing on screen. It has to be
+ * here all the same — the shared controls draw with `var(--ou-…)` now, and a
+ * `var()` with no value is invalid at computed-value time and takes the whole
+ * declaration with it. A panel with no borders rather than a panel with grey
+ * ones, which is the failure mode worth writing down.
+ */
+@import "@barocss/office-ui/tokens.css";
+
+/*
  * Chrome for the page, not for the document.
  *
  * Everything inside .w-page is styled from the model by the renderers — a rule
@@ -49,33 +61,22 @@ body {
   overflow: hidden;
 }
 
-.w-shell {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  min-height: 0;
-}
+/*
+  The frame itself is `AppShell` / `AppChrome` / `AppBody` / `AppMain` in
+  `@barocss/office-ui` — the column, the two `min-*: 0`s and the `flex`es, which
+  were written here and again in the deck with identical declarations. What is
+  left here is what makes this window look like Word rather than like a deck.
+*/
 
-/* Ribbon, title and ruler: as tall as they need and never any taller. */
+/* Ribbon, title and ruler: the look, the height is the frame's. */
 .w-shell > .w-chrome {
-  flex: 0 0 auto;
   padding: 0 24px;
   background: #f1f3f5;
   border-bottom: 1px solid #dee2e6;
 }
 
-/* Everything below it, sharing the rest of the window. */
-.w-shell-body {
-  display: flex;
-  align-items: stretch;
-  flex: 1 1 auto;
-  min-height: 0;
-}
-
-/* The one thing that scrolls. */
+/* The one thing that scrolls — which is this product's choice, not the frame's. */
 .w-shell-document {
-  flex: 1 1 auto;
-  min-width: 0;
   overflow: auto;
   padding: 24px;
 }
@@ -206,6 +207,31 @@ body {
 
 
 /* The list marker and the caret filler come from `office-word/text.css`. */
+
+/* A frame: the layout box. `frameCss` writes what the frame itself does —
+   display, gap, padding — and these three rules say what its *children* do,
+   which inline styles on the frame cannot reach.
+
+   Without them a row of two empty paragraphs is two zero-width boxes: a flex
+   item is as wide as its contents, and an empty paragraph has none. So the
+   frame a reader just inserted would look like nothing happened, and there
+   would be no way to click into either half. `flex: 1 1 0` divides the width
+   evenly regardless of what is typed later, which is what "side by side"
+   means; `min-width: 0` lets a long word wrap instead of forcing the column
+   wider than its share. */
+.w-frame[data-layout='row'] > * { flex: 1 1 0; min-width: 0; }
+/* A stack fills the width — the cross axis of a column is horizontal, and a
+   paragraph that shrank to its text would be a ragged left edge. */
+.w-frame[data-layout='column'] > * { width: 100%; }
+/* Somewhere to aim at while it is still empty. One line, so the box is the
+   size it will be once there is a line in it. */
+.w-frame { min-height: 1.2em; }
+
+/* The cell and table selection rules — the wash, the outline and the corner
+   handle — come from `office-word/text.css`, beside the list marker and the
+   caret filler. They were written here, and the deck draws its tables with the
+   same renderers and got none of them: dragging across cells on a slide set the
+   attribute on two of them, reported both as selected, and painted nothing. */
 
 .w-table { width: 100%; }
 .w-cell { border: 1px solid #ccc; padding: 4px 8px; }
