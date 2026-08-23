@@ -2,7 +2,15 @@ import { Editor, Extension, selectedNodeIds } from '@barocss/editor-core';
 import { CANVAS_GEOMETRY_ATTRS, CANVAS_STYLE_ATTRS } from '@barocss/schema';
 import { transaction } from '@barocss/model';
 import { laysOut } from '@barocss/office-word';
-import { copyOf, deckSlides, layoutPlaceholders, noteFor, type DeckAccess, type DeckNode } from './deck';
+import {
+  copyOf,
+  deckSlides,
+  layoutPlaceholderSids,
+  layoutPlaceholders,
+  noteFor,
+  type DeckAccess,
+  type DeckNode
+} from './deck';
 import { boxOf, slideSize } from './geometry';
 import { isSceneType, slideAt, toSurface } from './selection';
 import { THEME_COLOUR_SLOTS, themeFor } from './theme';
@@ -13,6 +21,7 @@ import { FACINGS, pathPointsOf, pathPreset } from './motion-path';
 import { comboAttrs, comboById } from './motion-presets';
 import { trimChanges, trimOf } from './media-trim';
 import { guidePlace, readGuides, withGuide } from './guides';
+import { layoutMoves } from './layout-arrange';
 import { flipChange, type FlipAxis } from './flip';
 import {
   BUILD_STARTS,
@@ -129,6 +138,19 @@ export class SlidesExtension implements Extension {
      * The arithmetic — what is a duplicate, what is off the slide, how a guide is
      * named while it is being dragged — is `guides.ts`, and tested there.
      */
+    /**
+     * Put this slide into a layout — the arrangement, not just the inheritance.
+     *
+     * The gesture Canva calls *Layouts*, and the question a reader actually asks: "make this
+     * page look like that one", with the content they already have. Refused when there is
+     * nothing to move and the slide already follows it.
+     */
+    register(
+      'applySlideLayout',
+      (payload) => this._applyLayout(editor, payload),
+      (payload) => typeof payload?.layoutId === 'string' && !!this._slideAt(editor, payload?.slideId)
+    );
+
     register(
       'setSlideGuides',
       (payload) => this._setGuides(editor, payload?.guides, payload?.slideId),
@@ -2505,6 +2527,71 @@ export class SlidesExtension implements Extension {
       }));
 
     if (steps.length === 0) return false;
+    return (await transaction(editor, steps as never).commit()).success;
+  }
+
+  /**
+   * Put this slide **into** a layout: the arrangement, not just the inheritance.
+   *
+   * `setSlideLayout` says which layout a slide *follows*, which decides what its formatting
+   * inherits (`layout-format.ts`) and moves nothing. This is the other half, and the one a
+   * reader means by "make this page look like that": every box goes to the slot for what it
+   * is — matched by role, never by position — and the slide starts following that layout in
+   * the same transaction, because it is one gesture.
+   *
+   * Nothing is added and nothing is deleted; see `layoutMoves` for why an empty slot is left
+   * empty rather than filled with a box nobody typed.
+   */
+  private async _applyLayout(
+    editor: Editor,
+    payload?: { slideId?: string; layoutId?: string }
+  ): Promise<boolean> {
+    const doc = this._access(editor);
+    const sid = this._slideAt(editor, payload?.slideId);
+    const layoutId = typeof payload?.layoutId === 'string' ? payload.layoutId : undefined;
+    if (!doc || !sid || !layoutId) return false;
+
+    const slide = doc.getNode(sid) as any;
+    const boxes = (Array.isArray(slide?.content) ? slide.content : [])
+      .map((child: unknown) => (typeof child === 'string' ? (doc.getNode(child) as any) : undefined))
+      .filter((node: any) => node && isSceneType(node.stype))
+      .map((node: any) => ({
+        sid: node.sid as string,
+        role: typeof node.attributes?.role === 'string' ? node.attributes.role : undefined,
+        box: boxOf(node.attributes)
+      }));
+
+    /**
+     * The layout's own placeholders, read rather than copied.
+     *
+     * `layoutPlaceholders` copies for a caller putting them *in* a slide; this one only
+     * wants to know where they are, and a copy's children are nested rather than sids —
+     * which is the distinction that cost a debugging session once already.
+     */
+    const slots = layoutPlaceholderSids(doc, layoutId)
+      .map((placeholder) => doc.getNode(placeholder) as any)
+      .filter((node: any) => !!node)
+      .map((node: any) => ({
+        role: typeof node.attributes?.role === 'string' ? node.attributes.role : undefined,
+        box: boxOf(node.attributes)
+      }));
+
+    const moves = layoutMoves(boxes, slots);
+    const following = (slide?.attributes?.layoutId ?? null) !== layoutId;
+    // Nothing to move and already following it: an entry that undoes to itself.
+    if (moves.length === 0 && !following) return false;
+
+    const steps: unknown[] = moves.map((move) => ({
+      type: 'setAttrs',
+      payload: { nodeId: move.sid, attrs: { ...move.box } }
+    }));
+    if (following) {
+      steps.push({
+        type: 'setAttrs',
+        payload: { nodeId: sid, attrs: { ...(slide?.attributes ?? {}), layoutId }, replace: true }
+      });
+    }
+
     return (await transaction(editor, steps as never).commit()).success;
   }
 

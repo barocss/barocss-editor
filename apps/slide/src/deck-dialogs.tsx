@@ -200,15 +200,42 @@ export function SlideLayoutDialog({
     onClose();
   };
 
+  /**
+   * The other half of a layout: the **arrangement**.
+   *
+   * Following a layout decides what a slide's formatting inherits and moves nothing —
+   * which is right, and is not what a reader means by "make this page look like that
+   * one". This puts each box in the slot for what it is (matched by role, never by
+   * position) and starts following the layout in the same transaction, so it is one press
+   * of undo.
+   *
+   * A second button rather than a mode on the first, because the two are different
+   * promises: one changes what a slide *is like*, the other moves the reader's boxes.
+   */
+  const arrange = () => {
+    void (editor as any)?.executeCommand?.('applySlideLayout', {
+      slideId: current,
+      layoutId: chosen
+    });
+    onClose();
+  };
+
   return (
     <Dialog
       open={open}
       onOpenChange={(next) => !next && onClose()}
       title="레이아웃"
-      description="새 슬라이드가 이 레이아웃의 자리 표시자로 시작합니다."
+      description="적용하면 이 슬라이드가 그 레이아웃을 따릅니다. 이 장을 이 배치로 옮기면 지금 있는 상자가 각자의 자리로 갑니다."
       footer={
         <>
           <DialogButton onClick={onClose}>취소</DialogButton>
+          <DialogButton
+            data-layout-arrange
+            disabled={chosen === 'none'}
+            onClick={arrange}
+          >
+            이 장을 이 배치로
+          </DialogButton>
           <DialogButton variant="primary" data-layout-apply onClick={apply}>
             적용
           </DialogButton>

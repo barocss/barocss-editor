@@ -110,6 +110,16 @@ export {
   type GraphDirection,
   type GraphPlacement
 } from '@barocss/office-word';
+/**
+ * Applying a layout to a slide that already has something on it: Canva's *Layouts*, and
+ * the rule it follows is the formatting cascade's — matched by role, never by position.
+ */
+export {
+  layoutMoves,
+  type Arrangeable,
+  type LayoutSlot,
+  type LayoutMove
+} from './layout-arrange';
 export { SLIDES_ENV_KEY, showsNotes, type SlidesEnv } from './render-context';
 /**
  * Where every connector goes, worked out once per render.

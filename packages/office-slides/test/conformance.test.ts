@@ -202,6 +202,8 @@ describe('Slides draws what its schema declares', () => {
           'the canvas — a shape dragged onto a line, which highlights while it is held and splits into two lines on release. Like `insertConnectedShape` it has no button, because a button could not say *which line*',
         cropPicture:
           'the crop handles on the stage — double-click a picture — and the panel’s way back',
+        applySlideLayout:
+          'the 레이아웃 dialog — “이 장을 이 배치로”, beside the button that only makes the slide *follow* the layout. Two buttons because they are two promises: one changes what a slide is like, the other moves the reader’s boxes',
         setSlideTransition: 'the properties panel — the slide’s 전환 row and its length',
         setBoxBuild: 'the properties panel — the box’s 애니메이션 row',
         setDeckTheme: 'the properties panel — the slide’s 테마 row, which re-colours the deck',

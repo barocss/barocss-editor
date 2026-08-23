@@ -1492,6 +1492,35 @@ Newest first. The surprise each one produced is the part worth keeping.
   nodes that join the forty. Fixed by resolving the connector's attributes the way every
   other painted thing in that file already did.
 
+- **Putting a slide *into* a layout — the arrangement, not the inheritance.**
+
+  Asked whether templates could work "like Canva", the answer needed measuring rather than
+  guessing. The substrate is **stronger** than Canva's: master → layout → slide inheritance
+  and `theme:accent1` references mean re-colouring a deck is already one edit, which Canva
+  imitates with per-element styles. What was missing was Canva's *Layouts* gesture — "make
+  this page look like that one", with the content a reader already has. `setSlideLayout` said
+  which layout a slide **follows** (what its formatting inherits) and moved nothing.
+
+  So `layoutMoves`, and it follows the rule the formatting cascade already had: **matched by
+  role, never by position.** Repeating that rule is the point — pairing the slide's third box
+  with the layout's third slot moves the wrong one, and does it more often the more a reader
+  has edited, which is the worst failure shape there is because it looks like the tool
+  rearranging your work at random.
+
+  Two decisions worth the words. **Nothing is added and nothing is deleted**: a box with a
+  role the layout does not declare keeps its place, and a slot with no box is left empty
+  rather than filled — Canva does fill them, and doing that would let "apply a layout" put a
+  box on the slide that nobody typed, which then prints as nothing, shows up in the deck's own
+  check, and has to be found and deleted. And it is **one transaction** with the change of
+  which layout the slide follows, because a reader pressed one button.
+
+  The harness caught the button before I did, again: `applySlideLayout` was registered,
+  tested and reachable by nothing.
+
+  What is left of Canva-likeness: a **gallery** to start a deck from, and `component` /
+  `instance` — declared since the canvas nodes were written, made by nothing, and what a
+  template is actually made *of*.
+
 - **Showing a deck by scrolling it, and what that does to the motion.**
 
   A presenter clicks; a reader sent a link scrolls. The design is one sentence — **a scroll
