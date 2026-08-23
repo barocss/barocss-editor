@@ -1069,6 +1069,54 @@ and the test asserted that as though it were the design. Two rules fall out:
   both would mean stretching the ranks to reach them — a picture neither reader asked for.
   A diagram where *everything* is pinned reports nothing to do.
 
+### 5b. What a child asks of the frame that arranges it
+
+Two attributes, and the measurement that made them worth having. A frame with a `layoutMode`
+decided **where** its children went and never how big they were: widening one from 6000 to 10000
+twips moved its children — re-centred on the new width — and left every one of them its old
+size. So a card built out of a frame could be made wider and its rows would sit in the middle of
+it, which is not what anybody means by a wider card.
+
+- `layoutStretch` — as big as the frame **across** the axis (its width in a column, its height in
+  a row, its cell in a grid), less the padding. A stretched child starts at the padding, because
+  there is no room left to align it in.
+- `layoutGrow` — `flex-grow`'s share of what is left **along** the axis, with the child's own size
+  as the basis. Nothing shrinks: a frame too small for its children overflows, which is what a
+  canvas does everywhere else here, and shrinking needs a minimum size per shape to be anything
+  but a guess. In a grid `grow` is ignored — a grid wraps, so "along the axis" is a question it
+  does not have.
+
+Both are the **child's** decision and not the frame's, because two rows in one frame — one
+filling its width, one keeping its own — is an ordinary card.
+
+#### What propagates when a container is resized, measured
+
+The question this settles is whether a resizable card is possible at all. Four answers, and only
+one of them is the browser's:
+
+| resized | what reaches its children | how |
+| --- | --- | --- |
+| a frame that arranges | positions **and** the sizes of the children that asked | the reaction on `editor:content.change` runs `layoutChildren`, which answers "what differs" |
+| a nest of such frames | all the way down, one level per pass | each write is a document change, and the passes converge because the answer empties |
+| a group | **nothing** | a group's box is derived from its children: writing 8000×4000 came back 2000×1000 and no child moved |
+| flow content — a `textFrame`'s blocks, a table cell | reflows | the browser, and this is the only case where it is |
+| an absolutely placed box | **nothing** | `x`/`y`/`width`/`height` are written from the model into inline styles; an absolutely positioned child does not reflow |
+
+So "we are on the DOM, surely it propagates" is half true: it propagates for text and for an
+arranging frame's children, and not at all for placed boxes. Figma's **constraints** are the
+answer to the last row — what is pinned to which edge, what scales — and that stays out of this
+schema until something needs it; these two attributes are the part of it auto-layout actually
+spends.
+
+#### And a frame may hold a frame, which it could not
+
+Measured while writing the nested test: `frame > [frame]` validated — through the `block+` branch,
+since a frame is a block — and `frame > [rectangle, frame]` was **refused**. So a card could not
+be a frame holding a title and a row of cells, which is the shape almost every card has. The
+comment beside `frame`'s content model already claimed the canvas containers named `frame`
+explicitly; the container most likely to hold another was the one that did not. It is
+`(scene | frame)* | block+` now, like `surface` and `group`.
+
 ## 10. A component is a definition, and an instance is a drawing of it
 
 `component` and `instance` have been in the schema since the canvas nodes were declared and

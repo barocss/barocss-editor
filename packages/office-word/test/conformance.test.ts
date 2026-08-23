@@ -214,6 +214,14 @@ const schema = createSchema('word', getWordSchemaDefinition());
          * type twice.
          */
         bindText: 'components — substituted at apply by Slides’ `partCopy`; Word has no library',
+        /*
+         * What a child asks of the frame that arranges it. Read by `layoutChildren` in this
+         * package — the canvas is Word's, and a frame is reachable through `canvasBlock` — and a
+         * box with no arranging frame around it draws the same either way, which is what this
+         * check measures.
+         */
+        layoutStretch: 'the arrangement — `layoutChildren` gives a stretched child the frame’s room across the axis',
+        layoutGrow: 'the arrangement — the same, sharing what is left along the axis',
         bindFill: 'the same, for a colour used in more than one place',
         bindVisible: 'the same, for a state — and only the falsy half is ever written',
         slot:

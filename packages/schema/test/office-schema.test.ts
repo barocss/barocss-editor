@@ -341,3 +341,22 @@ describe('document metadata and referenced definitions', () => {
     expect(schema.getNodeType('docFooter')?.group).toBe('resource');
   });
 });
+
+/**
+ * A frame holds a **frame**, which is what makes an arrangement nest.
+ *
+ * It did not, and the comment beside it said it did: the canvas containers were described as
+ * naming `frame` explicitly — `(scene | frame)*` — and the container most likely to hold
+ * another said `scene*`. Measured: `frame > [frame]` validated through the `block+` branch (a
+ * frame is a block) and `frame > [rectangle, frame]` was **refused**, so a card could not be a
+ * frame holding a title and a row of cells. Which is the shape almost every card has.
+ */
+describe('a frame that holds another', () => {
+  it('takes a shape and a frame together', () => {
+    expect(schema.validateContent('frame', [n('rectangle'), n('frame')]).valid).toBe(true);
+  });
+
+  it('still takes a document’s blocks, because a frame in flow is a layout box too', () => {
+    expect(schema.validateContent('frame', [n('paragraph')]).valid).toBe(true);
+  });
+});

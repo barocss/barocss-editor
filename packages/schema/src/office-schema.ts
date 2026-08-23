@@ -132,6 +132,30 @@ export const CANVAS_GEOMETRY_ATTRS = {
   width: { type: 'number' as const, required: true },
   height: { type: 'number' as const, required: true },
   rotation: { type: 'number' as const, default: 0 },
+  /**
+   * What this box asks of the **frame that arranges it**: fill it, or share what is left of it.
+   *
+   * ## Why these two and not a constraint model
+   *
+   * A frame with a `layoutMode` decides where its children go — and, until these, never how big
+   * they are. Measured: widening a frame from 6000 to 10000 twips moved its children (re-centred
+   * on the new width) and left every one of them its old size, so a card built out of a frame
+   * could be made wider and its rows would sit in the middle of it. Which is not what anybody
+   * means by a wider card.
+   *
+   * Figma answers the general question with **constraints** — what is pinned to which edge, what
+   * scales — and that is a layout model this schema does not have. These two are the part of it
+   * that auto-layout actually spends: `layoutStretch` is "as wide as its frame" (across the
+   * axis) and `layoutGrow` is `flex-grow`'s share of what is left (along it). Everything else
+   * about a placed box stays what it says it is.
+   *
+   * On the geometry group because they *are* geometry: what a reader gets is a different width.
+   * Read by `layoutChildren` in `office-word/canvas-layout.ts` — a box in a frame that arranges
+   * nothing draws the same either way, which is why the conformance check needs an exemption
+   * naming the arrangement, exactly as `gap` and `padding` do.
+   */
+  layoutStretch: { type: 'boolean' as const, required: false },
+  layoutGrow: { type: 'number' as const, required: false },
   ...CANVAS_PRESENCE_ATTRS
 };
 
@@ -200,7 +224,7 @@ export function getCanvasNodeDefinitions(): Record<string, NodeTypeDefinition> {
        */
       group: 'block',
       /**
-       * Blocks in a document, scene nodes on a canvas — the same shape
+       * Blocks in a document, scene nodes **and frames** on a canvas — the same shape
        * `surface` has, and for the same reason: what a container holds depends
        * on which kind of surface it is standing on.
        *
@@ -208,8 +232,16 @@ export function getCanvasNodeDefinitions(): Record<string, NodeTypeDefinition> {
        * have no coordinates, so a frame full of blocks is laid out by the
        * browser; scene nodes carry `x` and `y`, so a frame full of those has
        * them computed — see `docs/specs/canvas-model.md`.
+       *
+       * `(scene | frame)*` and not `scene*`, which is what it said — and the comment above
+       * already claimed the canvas containers named `frame` explicitly, while this one, the
+       * container most likely to hold another, did not. Measured: `frame > [frame]` validated
+       * (through the `block+` branch, since a frame is a block) and `frame > [rectangle,
+       * frame]` was **refused**, so a card could not be a frame holding a title and a row of
+       * cells — which is the shape almost every card has, and the whole point of an
+       * arrangement that nests.
        */
-      content: 'scene* | block+',
+      content: '(scene | frame)* | block+',
       attrs: {
         name: { type: 'string', required: false },
         clipsContent: { type: 'boolean', default: true },

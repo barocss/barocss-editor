@@ -264,3 +264,88 @@ describe('which place in the order a drag means', () => {
     expect(reorderIndexAt([row[0]], { x: 9000, y: 0 }, 'row', 'a')).toBe(0);
   });
 });
+
+/**
+ * What a child asks of the frame: **fill it**, or **share what is left of it**.
+ *
+ * The half of auto-layout this had none of, and the measurement that made it worth having:
+ * widening a frame from 6000 to 10000 twips moved its children — re-centred on the new width —
+ * and left every one of them its old size. So a card built out of a frame could be made wider
+ * and its rows would sit in the middle of it, which is not what anybody means by a wider card.
+ *
+ * `layoutStretch` is "as wide as its frame" across the axis; `layoutGrow` is `flex-grow`'s
+ * share along it. Figma's constraints answer the general question — what is pinned to which
+ * edge, what scales — and that is a layout model this schema does not have. These two are the
+ * part of it auto-layout actually spends.
+ */
+describe('a child that fills its frame', () => {
+  const frame = (attributes: Record<string, unknown>) => ({
+    attributes: { width: 10000, height: 6000, ...attributes }
+  });
+
+  it('takes the frame’s width in a column, less the padding', () => {
+    const moved = layoutChildren(frame({ layoutMode: 'column', gap: 200, padding: 100 }), [
+      { sid: 'a', box: { x: 0, y: 0, width: 1000, height: 500 }, stretch: true },
+      { sid: 'b', box: { x: 0, y: 0, width: 1000, height: 500 } }
+    ]);
+    // 10000 less 100 either side. And it starts at the padding: there is no room left to align
+    // a child that fills the whole of it.
+    expect(moved.get('a')).toEqual({ x: 100, y: 100, width: 9800 });
+    // The one that asked for nothing keeps its size, and is still aligned as the frame says.
+    expect(moved.get('b')).toEqual({ x: 100, y: 800 });
+  });
+
+  it('takes the frame’s height in a row', () => {
+    const moved = layoutChildren(frame({ layoutMode: 'row', padding: 300 }), [
+      { sid: 'a', box: { x: 0, y: 0, width: 1000, height: 500 }, stretch: true }
+    ]);
+    expect(moved.get('a')).toEqual({ x: 300, y: 300, height: 5400 });
+  });
+
+  it('shares what is left along the axis, in proportion', () => {
+    /*
+     * 10000 wide, 200 padding either side and one gap of 200: 9400 of room, 2000 of it used by
+     * the two children's own widths, so 7400 left — a third to the first and two thirds to the
+     * second.
+     */
+    const moved = layoutChildren(frame({ layoutMode: 'row', gap: 200, padding: 200 }), [
+      { sid: 'a', box: { x: 0, y: 0, width: 1000, height: 500 }, grow: 1 },
+      { sid: 'b', box: { x: 0, y: 0, width: 1000, height: 500 }, grow: 2 }
+    ]);
+    expect(moved.get('a')?.width).toBe(3467);
+    expect(moved.get('b')?.width).toBe(5933);
+    // And the second one starts after the first's *new* width, not its old one — the sizes are
+    // decided before the positions, or the gap would land in the middle of a child.
+    expect(moved.get('b')?.x).toBe(200 + 3467 + 200);
+  });
+
+  it('does not shrink a frame’s children to fit it', () => {
+    // A canvas overflows everywhere else in this engine, and shrinking needs a minimum size per
+    // shape to be anything but a guess. So `grow` gives out nothing when there is nothing left.
+    const moved = layoutChildren(frame({ layoutMode: 'row', padding: 0, width: 1000 }), [
+      { sid: 'a', box: { x: 0, y: 0, width: 4000, height: 500 }, grow: 1 }
+    ]);
+    expect(moved.get('a')?.width).toBeUndefined();
+  });
+
+  it('fills its cell in a grid, and ignores a share it cannot answer', () => {
+    const moved = layoutChildren(frame({ layoutMode: 'grid', columns: 2, gap: 100, padding: 100 }), [
+      { sid: 'a', box: { x: 0, y: 0, width: 1000, height: 400 }, stretch: true, grow: 3 },
+      { sid: 'b', box: { x: 0, y: 0, width: 2000, height: 600 } }
+    ]);
+    // The column is as wide as its widest item and the row as tall as its tallest, so a
+    // stretched cell is 1000×600 — and `grow` says nothing here, because a grid wraps and has
+    // no axis to share along.
+    expect(moved.get('a')).toEqual({ x: 100, y: 100, height: 600 });
+    expect(moved.get('b')).toEqual({ x: 1200, y: 100 });
+  });
+
+  it('answers nothing once the document already agrees', () => {
+    // The property the whole reaction rests on: run against a document that already says what
+    // the arrangement wants, this is empty — so writing cannot feed itself.
+    const settled = layoutChildren(frame({ layoutMode: 'column', padding: 100 }), [
+      { sid: 'a', box: { x: 100, y: 100, width: 9800, height: 500 }, stretch: true }
+    ]);
+    expect(settled.size).toBe(0);
+  });
+});

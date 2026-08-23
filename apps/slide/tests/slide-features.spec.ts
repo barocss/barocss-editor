@@ -312,6 +312,53 @@ test.describe('a frame that arranges what is in it', () => {
     expect(placed).not.toBe('9999,9999');
     expect(Number(placed.split(',')[1])).toBe(0);
   });
+
+  /**
+   * And a child that **fills** it, which is the half auto-layout was missing.
+   *
+   * Measured before it existed: widening a frame moved its children — they were re-centred on
+   * the new width — and left every one of them its old size. So a card built out of a frame
+   * could be made wider and its rows would sit in the middle of it, which is not what anybody
+   * means by a wider card. The DOM does not do this for us: a slide *places*, and an absolutely
+   * positioned child does not reflow when its parent's box changes.
+   */
+  test('gives a child the frame’s width when it is told to fill it', async ({ page }) => {
+    const frame = await openFrame(page);
+    test.skip(!frame, 'this slide has no frame');
+
+    await page.evaluate((sid) => (window as any).editor.executeCommand('setNode', { nodeIds: [sid] }), frame!.sid);
+    await page.waitForTimeout(300);
+    await page.locator('.sl-properties').getByLabel('배치 방향').selectOption('column');
+    await page.waitForTimeout(600);
+
+    // The first child, told to fill its frame from its own panel.
+    const child = frame!.kids[0];
+    await page.evaluate((sid) => (window as any).editor.executeCommand('setNode', { nodeIds: [sid] }), child);
+    await page.waitForTimeout(400);
+    const panel = page.locator('.sl-properties');
+    await expect(panel).toContainText('프레임 안에서');
+    // Not `채우기`, which in this panel is the *paint* — 채우기 추가, 1번 채우기, and three more.
+    await panel.getByLabel('프레임 가득 채우기').click();
+    await page.waitForTimeout(700);
+
+    const widths = await page.evaluate(
+      (ids) =>
+        ids.map((sid: string) => {
+          const store = (window as any).editor.dataStore;
+          return {
+            width: store.getNode(sid).attributes.width,
+            frame: store.getNode(store.getNode(sid).parentId).attributes.width,
+            padding: store.getNode(store.getNode(sid).parentId).attributes.padding ?? 0
+          };
+        }),
+      [child, frame!.kids[1]]
+    );
+    // The frame's room across the axis, less the padding either side.
+    expect(widths[0].width).toBe(widths[0].frame - widths[0].padding * 2);
+    // And the sibling that asked for nothing keeps its own — which is why filling is a child's
+    // decision rather than the frame's.
+    expect(widths[1].width).not.toBe(widths[0].width);
+  });
 });
 
 test.describe('a layout', () => {

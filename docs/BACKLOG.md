@@ -462,6 +462,22 @@ shipped features marked undone.
   written where the list is: its parts are real boxes a reader may edit, which is how an
   override is made.
 
+- [x] **A frame arranged its children and never sized them.** `layoutStretch` (fill the frame
+  across the axis) and `layoutGrow` (share what is left along it) — the part of Figma's
+  constraint model that auto-layout actually spends. Measured on the way: a frame **could not
+  hold a frame** unless it held nothing else (`frame > [rectangle, frame]` was refused), so the
+  ordinary card shape — a frame with a title and a row of cells — was impossible; `frame` is
+  `(scene | frame)* | block+` now. And the word 채우기 was already taken in the properties panel
+  by *paint*, so the switch is 가득.
+
+- [ ] **Per-edge constraints** for an absolutely placed box — pin to an edge, scale with the
+  parent. What Figma answers the general question with, and what a *placement* would need to be
+  resized on its own (canvas-model §10b-12). The measured reason to wait: nothing propagates to
+  a placed box at all today, so a half-answer (scale everything proportionally) puts a badge
+  outside its card the first time a reader drags a corner sideways. The frame's arrangement is
+  the answer for anything built out of frames, which is the recommended shape for a resizable
+  card.
+
 **Still open and not in a phase**
 
 - [ ] **Per-level formatting** for a body placeholder: PowerPoint formats by

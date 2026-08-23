@@ -69,10 +69,42 @@ export interface FrameLayout {
   columns?: unknown;
 }
 
-/** One child, as the arrangement needs it: a size and nothing else. */
+/** One child, as the arrangement needs it: a size, and what it asks of the frame. */
 export interface LaidOutChild {
   sid: string;
   box: Box;
+  /**
+   * That it fills the frame **across** the arrangement's axis.
+   *
+   * The half of Figma's auto-layout that this had none of. Measured before it existed: widening
+   * a frame from 6000 to 10000 twips moved its children (`x: 0 → 4000`, re-centred on the new
+   * width) and left every one of them its old size — so a card built out of a frame could be
+   * made wider and its rows would sit in the middle of it, which is not what anybody means by
+   * a wider card.
+   *
+   * A boolean rather than a per-edge constraint: "as wide as its frame" is the case that comes
+   * up, and the general answer (what is pinned to which edge, what scales) is a layout model
+   * this schema does not have — see `docs/BACKLOG.md`.
+   */
+  stretch?: boolean;
+  /**
+   * Its share of what is left **along** the axis.
+   *
+   * `flex-grow`'s meaning, with the child's own size as the basis: the leftover room is shared
+   * out in proportion. Nothing **shrinks** — a frame too small for its children overflows, which
+   * is what a canvas does everywhere else in this engine, and shrinking is a separate decision
+   * with its own minimum-size question.
+   */
+  grow?: number;
+}
+
+/** What the arrangement decides for one child: where it goes, and how big it is. */
+export interface LaidOutPlace {
+  x: number;
+  y: number;
+  /** Present only when the arrangement changes it — a stretch or a share of the room. */
+  width?: number;
+  height?: number;
 }
 
 const number = (value: unknown, fallback: number): number =>
@@ -172,8 +204,8 @@ export function reorderIndexAt(
 export function layoutChildren(
   frame: { attributes?: Record<string, unknown> } | undefined,
   children: LaidOutChild[]
-): Map<string, { x: number; y: number }> {
-  const moved = new Map<string, { x: number; y: number }>();
+): Map<string, LaidOutPlace> {
+  const moved = new Map<string, LaidOutPlace>();
 
   const attributes = frame?.attributes ?? {};
   const mode = layoutModeOf({ mode: attributes.layoutMode });
@@ -192,12 +224,27 @@ export function layoutChildren(
     return padding;
   };
 
-  const place = (sid: string, x: number, y: number, box: Box) => {
-    const at = { x: Math.round(x), y: Math.round(y) };
-    if (at.x !== box.x || at.y !== box.y) moved.set(sid, at);
+  /**
+   * What differs, and only what differs — which is what lets the reaction that calls this run
+   * on every content change without feeding itself. A size is in the answer on the same terms
+   * as a position: written when the arrangement decides it and the child does not already say
+   * it.
+   */
+  const place = (sid: string, x: number, y: number, was: Box, size?: Partial<Box>) => {
+    const at: LaidOutPlace = { x: Math.round(x), y: Math.round(y) };
+    if (typeof size?.width === 'number' && Math.round(size.width) !== was.width) {
+      at.width = Math.round(size.width);
+    }
+    if (typeof size?.height === 'number' && Math.round(size.height) !== was.height) {
+      at.height = Math.round(size.height);
+    }
+    if (at.x !== was.x || at.y !== was.y || at.width !== undefined || at.height !== undefined) {
+      moved.set(sid, at);
+    }
   };
 
   if (mode === 'row' || mode === 'column') {
+    /** How much room there is across the axis, which is what a stretch fills. */
     const room = Math.max(
       0,
       (mode === 'row'
@@ -206,14 +253,52 @@ export function layoutChildren(
         padding * 2
     );
 
-    let along = padding;
-    for (const child of children) {
+    /**
+     * And how much is left **along** it, for the children that asked to share it.
+     *
+     * The leftover after everything's own size and every gap — `flex-grow` with the child's
+     * size as the basis. Never negative: a frame too small for its children overflows rather
+     * than squeezing them, which is what a canvas does everywhere else here, and shrinking
+     * would need a minimum size per shape to be anything but a guess.
+     */
+    const along = Math.max(0, number(mode === 'row' ? attributes.width : attributes.height, 0)) -
+      padding * 2;
+    const used =
+      children.reduce(
+        (total, child) => total + (mode === 'row' ? child.box.width : child.box.height),
+        0
+      ) + gap * Math.max(0, children.length - 1);
+    const shares = children.reduce((total, child) => total + Math.max(0, child.grow ?? 0), 0);
+    const spare = shares > 0 ? Math.max(0, along - used) : 0;
+
+    /** The size this child ends up with along the axis, and across it. */
+    const sizeOf = (child: LaidOutChild) => {
+      const share = Math.max(0, child.grow ?? 0);
+      const extra = shares > 0 && share > 0 ? (spare * share) / shares : 0;
       if (mode === 'row') {
-        place(child.sid, along, across(child.box.height, room), child.box);
-        along += child.box.width + gap;
+        return {
+          width: child.box.width + extra,
+          height: child.stretch ? room : child.box.height
+        };
+      }
+      return {
+        width: child.stretch ? room : child.box.width,
+        height: child.box.height + extra
+      };
+    };
+
+    let at = padding;
+    for (const child of children) {
+      const size = sizeOf(child);
+      if (mode === 'row') {
+        // A stretched child starts at the padding: there is no room left to align it in.
+        const y = child.stretch ? padding : across(size.height, room);
+        place(child.sid, at, y, child.box, size);
+        at += size.width + gap;
       } else {
-        place(child.sid, across(child.box.width, room), along, child.box);
-        along += child.box.height + gap;
+        const x = child.stretch ? padding : across(size.width, room);
+        place(child.sid, x, at, child.box, size);
+        at += size.height + gap;
       }
     }
     return moved;
@@ -243,12 +328,23 @@ export function layoutChildren(
 
     let left = padding;
     row.forEach((child, column) => {
-      const y = align === 'center'
-        ? top + (tallest - child.box.height) / 2
-        : align === 'end'
-          ? top + (tallest - child.box.height)
-          : top;
-      place(child.sid, left, y, child.box);
+      /**
+       * A stretch in a grid fills its **cell**, which is the column's width.
+       *
+       * `grow` has no meaning here and is ignored: a grid's main axis is the one thing a grid
+       * does not have — it wraps — so "a share of what is left along it" is a question with no
+       * answer rather than one worth guessing at.
+       */
+      const size = child.stretch ? { width: widths[column], height: tallest } : undefined;
+      const height = size?.height ?? child.box.height;
+      const y = child.stretch
+        ? top
+        : align === 'center'
+          ? top + (tallest - height) / 2
+          : align === 'end'
+            ? top + (tallest - height)
+            : top;
+      place(child.sid, left, y, child.box, size);
       left += widths[column] + gap;
     });
 
@@ -299,5 +395,15 @@ export function childrenToLayOut(
     .filter((sid): sid is string => typeof sid === 'string')
     .map((sid) => ({ sid, node: getNode(sid) }))
     .filter((entry) => !!entry.node && isPlaced(entry.node.attributes))
-    .map((entry) => ({ sid: entry.sid, box: boxOf(entry.node!.attributes as never) }));
+    .map((entry) => ({
+      sid: entry.sid,
+      box: boxOf(entry.node!.attributes as never),
+      /*
+       * What the child asks of the frame, read from the child — because it is the child's
+       * decision: two rows in one frame, one filling its width and one keeping its own, is an
+       * ordinary card.
+       */
+      stretch: entry.node!.attributes?.layoutStretch === true,
+      grow: number(entry.node!.attributes?.layoutGrow, 0)
+    }));
 }

@@ -390,6 +390,9 @@ export function Properties({
     return typeof value === 'number' ? value : fallback;
   };
 
+  /** A switch, where absent means off — which is how the document writes "not set". */
+  const plainBool = (key: string): boolean => shared(key) === true;
+
   const setGeometry = (key: string, value: number) => {
     void (editor as any)?.executeCommand?.('setBoxGeometry', {
       nodeIds: targets,
@@ -723,6 +726,56 @@ export function Properties({
                 onCommit={(value) => setGeometry('height', value)}
               />
             </PropertyRow>
+            {/*
+              * What this box asks of the frame that arranges it.
+              *
+              * Only inside one, because that is the only place it means anything — and it is the
+              * other half of the greyed position fields above: the frame owns where a child
+              * goes, and these are what the child gets to say about how it is treated.
+              *
+              * Measured before they existed: widening a frame moved its children and left every
+              * one of them its old size, so a card built out of a frame could be made wider and
+              * its rows would sit in the middle of it.
+              */}
+            {arranged && (
+              <PropertyRow label="프레임 안에서">
+                {/*
+                  * Not called 채우기, and that is a real distinction rather than a test's
+                  * convenience: in this panel 채우기 already means **paint** — 채우기 추가, 1번
+                  * 채우기, 1번 채우기 종류 — so a switch of that name beside them would be a
+                  * reader asking which of the two the row is about. 가득 is what it does to the
+                  * frame's room; the colour is what goes in it.
+                  */}
+                <PropertyToggle
+                  ariaLabel="프레임 가득 채우기"
+                  label="가득"
+                  value={plainBool('layoutStretch')}
+                  disabled={locked}
+                  onChange={(on) =>
+                    void (editor as any)?.executeCommand?.('setBoxLayout', {
+                      nodeIds: targets,
+                      stretch: on
+                    })
+                  }
+                />
+                <PropertyNumber
+                  ariaLabel="남은 공간 늘리기"
+                  // A share, not a length: 0 keeps its own size, 1 takes what is left, and two
+                  // children at 1 halve it — `flex-grow`'s meaning, which is the one readers of
+                  // any other tool already know.
+                  value={plain('layoutGrow', 0) ?? 0}
+                  suffix="↔"
+                  step={1}
+                  disabled={locked}
+                  onCommit={(value) =>
+                    void (editor as any)?.executeCommand?.('setBoxLayout', {
+                      nodeIds: targets,
+                      grow: Math.max(0, value)
+                    })
+                  }
+                />
+              </PropertyRow>
+            )}
             {declares('rotation') && (
               <PropertyRow label="회전">
                 <PropertyNumber

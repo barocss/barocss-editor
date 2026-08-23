@@ -192,6 +192,8 @@ describe('Slides draws what its schema declares', () => {
         setSlideLayout: 'the layout dialog',
         addSlideNote: 'the button in the notes pane, shown when a slide has no note',
         setFrameLayout: 'the properties panel — a frame’s direction, gap, padding and columns',
+        setBoxLayout:
+          'the properties panel — a child’s 프레임 안에서 row (채우기 and 늘리기), drawn only inside a frame that arranges. The other half of the greyed position fields: the frame owns where a child goes, and this is what the child says about how it is treated',
         setConnector:
           'the properties panel — a connector’s 연결선 group: its route, its bow and the shape at each end. Dragging an end onto another shape runs the same command',
         insertConnectedShape:
@@ -318,6 +320,14 @@ describe('Slides draws what its schema declares', () => {
         // positions and not in the frame's own drawing. One entry each because they
         // are separate attributes, and one reader for all of them.
         layoutMode: 'the arrangement — `layoutChildren` in `canvas-layout.ts` moves the children; a frame with none of them draws the same either way',
+        /*
+         * The other side of the arrangement: what a *child* asks of the frame it is in. Read by
+         * the same `layoutChildren`, which writes the child a width or a height — so a box on a
+         * slide, with no arranging frame around it, draws exactly the same either way.
+         */
+        layoutStretch:
+          'the arrangement — `layoutChildren` gives a stretched child the frame’s room across the axis. A box that is not in a frame that arranges draws the same either way, which is what this check is measuring',
+        layoutGrow: 'the arrangement — the same, sharing what is left along the axis',
         gap: 'the arrangement — `layoutChildren`',
         padding: 'the arrangement — `layoutChildren`',
         alignItems: 'the arrangement — `layoutChildren`, across the axis',

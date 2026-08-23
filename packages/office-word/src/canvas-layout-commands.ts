@@ -50,6 +50,28 @@ export class CanvasLayoutExtension implements Extension {
       }
     });
 
+    (editor as any).registerCommand({
+      name: 'setBoxLayout',
+      execute: async (_ed: Editor, payload?: any) => await this._setBox(editor, payload),
+      canExecute: (_ed: Editor, payload?: any) => {
+        const doc = this._access(editor);
+        const ids: string[] = Array.isArray(payload?.nodeIds)
+          ? payload.nodeIds
+          : typeof payload?.nodeId === 'string'
+            ? [payload.nodeId]
+            : [];
+        if (!doc || ids.length === 0) return false;
+        if (typeof payload?.stretch !== 'boolean' && typeof payload?.grow !== 'number') return false;
+        // Only inside a frame that arranges: filling a frame that puts nothing anywhere is a
+        // setting nothing would read, and the panel does not offer it there either.
+        return ids.some((sid) => {
+          const parent = (doc.getNode(sid) as { parentId?: unknown } | undefined)?.parentId;
+          const frame = typeof parent === 'string' ? doc.getNode(parent) : undefined;
+          return frame?.stype === 'frame' && laysOut(frame.attributes);
+        });
+      }
+    });
+
     /**
      * Arranged again whenever the document changes.
      *
@@ -81,6 +103,68 @@ export class CanvasLayoutExtension implements Extension {
     return out;
   }
 
+  /**
+   * What one **child** of an arranging frame asks of it: fill it, or share what is left.
+   *
+   * A separate command from `setFrameLayout` because it is a separate decision, made about a
+   * different node — the frame says *how* its children are arranged, and each child says how it
+   * wants to be treated by that arrangement. Two rows in one frame, one filling its width and
+   * one keeping its own, is an ordinary card.
+   *
+   * The arrangement runs in the same transaction for the same reason turning a layout on does:
+   * a reader who presses 채우기 and watches nothing move has been told the button does nothing.
+   */
+  private async _setBox(editor: Editor, payload: any): Promise<boolean> {
+    const doc = this._access(editor);
+    if (!doc) return false;
+
+    const ids: string[] = Array.isArray(payload?.nodeIds)
+      ? payload.nodeIds.filter((sid: unknown): sid is string => typeof sid === 'string')
+      : typeof payload?.nodeId === 'string'
+        ? [payload.nodeId]
+        : [];
+    const attrs: Record<string, unknown> = {};
+    if (typeof payload?.stretch === 'boolean') {
+      // `false` is written as *absent*: a child that does not fill its frame is the ordinary
+      // case, and an attribute saying so on every shape is noise in the file.
+      attrs.layoutStretch = payload.stretch ? true : null;
+    }
+    if (typeof payload?.grow === 'number' && Number.isFinite(payload.grow)) {
+      attrs.layoutGrow = payload.grow > 0 ? Math.max(0, payload.grow) : null;
+    }
+    if (ids.length === 0 || Object.keys(attrs).length === 0) return false;
+
+    const steps: { type: string; payload: Record<string, unknown> }[] = ids.map((sid) => ({
+      type: 'setAttrs',
+      payload: { nodeId: sid, attrs }
+    }));
+
+    /** And the frames those children are in, arranged with the new answer in hand. */
+    const frames = new Set<string>();
+    for (const sid of ids) {
+      const parent = (doc.getNode(sid) as { parentId?: unknown } | undefined)?.parentId;
+      if (typeof parent === 'string') frames.add(parent);
+    }
+    for (const sid of frames) {
+      const frame: any = doc.getNode(sid);
+      if (frame?.stype !== 'frame' || !laysOut(frame.attributes)) continue;
+      const children = childrenToLayOut(doc.getNode as never, frame.content).map((child) =>
+        ids.includes(child.sid)
+          ? {
+              ...child,
+              stretch: 'layoutStretch' in attrs ? attrs.layoutStretch === true : child.stretch,
+              grow: 'layoutGrow' in attrs ? Math.max(0, Number(attrs.layoutGrow) || 0) : child.grow
+            }
+          : child
+      );
+      for (const [child, at] of layoutChildren(frame, children)) {
+        steps.push({ type: 'setAttrs', payload: { nodeId: child, attrs: { ...at } } });
+      }
+    }
+
+    return (await transaction(editor, steps as never).commit()).success;
+  }
+
   private async _set(editor: Editor, payload: any): Promise<boolean> {
     const doc = this._access(editor);
     const frame = payload?.nodeId ? doc?.getNode(payload.nodeId) : undefined;
@@ -104,7 +188,9 @@ export class CanvasLayoutExtension implements Extension {
       { type: 'setAttrs', payload: { nodeId: payload.nodeId, attrs: settings } },
       ...[...moved].map(([sid, at]) => ({
         type: 'setAttrs',
-        payload: { nodeId: sid, attrs: { x: at.x, y: at.y } }
+        // The size as well, for a child that fills the frame or shares what is left of it —
+        // the arrangement decides those the same way it decides a position.
+        payload: { nodeId: sid, attrs: { ...at } }
       }))
     ];
 
@@ -131,7 +217,7 @@ export class CanvasLayoutExtension implements Extension {
       if (node.stype === 'frame' && laysOut(node.attributes)) {
         const children = childrenToLayOut(doc.getNode as never, node.content);
         for (const [child, at] of layoutChildren(node, children)) {
-          steps.push({ type: 'setAttrs', payload: { nodeId: child, attrs: { x: at.x, y: at.y } } });
+          steps.push({ type: 'setAttrs', payload: { nodeId: child, attrs: { ...at } } });
         }
       }
 
