@@ -102,6 +102,18 @@ type NodeData = Record<string, any>;
 const attrsOf = (data: NodeData): Placement & NodeData => (data?.attributes ?? {}) as never;
 
 /**
+ * How many children a node's data has, for a container that must be visible when empty.
+ *
+ * The data's own `content`, not the document's: a renderer is handed a node and answers about
+ * that node, and a count taken from anywhere else would be a second opinion about the same
+ * thing.
+ */
+const childCount = (data: NodeData): number =>
+  Array.isArray((data as { content?: unknown[] })?.content)
+    ? ((data as { content?: unknown[] }).content as unknown[]).length
+    : 0;
+
+/**
  * A box where the model says it is, plus whatever this drawing adds.
  *
  * ## `display: none` wins
@@ -657,6 +669,50 @@ export function registerSlidesRenderers(): void {
     element(
       'div',
       { className: 'sl-group', style: (d: NodeData): CssStyle => placed(d) } as never,
+      [slot('content')]
+    )
+  );
+
+  /**
+   * A **placement** of a component: a box whose children came from a definition.
+   *
+   * ## Why this is nearly a group, and not the hard thing it looks like
+   *
+   * The obvious expectation is that a placement has to reach one hop further and draw the
+   * *definition's* children. It cannot, and that was measured rather than assumed: a template
+   * can only render nodes through `slot(name)`, which reads **this** node's own data, and a
+   * raw node put among an element's children is silently dropped (canvas-model §10b-2). So a
+   * placement holds real nodes — its parts are copies that remember where they came from
+   * (`partOf`) — and drawing it is drawing its children, exactly like a group.
+   *
+   * What the definition decides therefore arrives at **apply** time, not at draw time. Which
+   * is also why the parts' coordinates work: they are relative to their parent, so a copy of
+   * a definition's part keeps the numbers it had on the definition's own surface and lands in
+   * the same arrangement wherever the placement is put.
+   *
+   * ## The three things it does that a group's does not
+   *
+   * - **It says what it is a placement of** (`data-component-id`), because the panel, the
+   *   overlay's badge and a test all need to ask — and because a placement that looked like
+   *   an ordinary box would be one nobody could tell had a definition behind it.
+   * - **It is visible when it is empty.** A placement whose definition has no parts yet draws
+   *   nothing at all, and a box nobody can find is the fault the frame's outline exists for.
+   * - **It reads nothing foreign.** Whether the definition has moved on is *not* drawn here:
+   *   an instance's node does not change when its definition does, so a renderer that read the
+   *   definition would draw a stale answer — the connector's fault (§8.11) in a new place. The
+   *   badge belongs to the overlay, which redraws with the document.
+   */
+  define(
+    'instance',
+    element(
+      'div',
+      {
+        className: (d: NodeData) =>
+          `sl-instance${childCount(d) === 0 ? ' sl-instance-empty' : ''}`,
+        'data-component-id': (d: NodeData) =>
+          typeof attrsOf(d).componentId === 'string' ? attrsOf(d).componentId : undefined,
+        style: (d: NodeData): CssStyle => placed(d)
+      } as never,
       [slot('content')]
     )
   );

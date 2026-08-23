@@ -313,8 +313,6 @@ describe('Slides draws what its schema declares', () => {
         // this product can make one — but a board pasted into a deck could
         // carry them, and then they would draw nothing. Logged rather than
         // called fine.
-        instance:
-          'a placement of a component’s definition; a deck has no components yet. The definition itself is a *surface* now — `SurfaceKind.Component` — because a definition drawn where it sits is drawn twice, which is the Figma model this schema deliberately does not copy (canvas-model §10)',
 
         // ── The twenty-three "inherited" lines are gone ────────────────────
         // They said the same thing twenty-three times — a callout, a checklist,

@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
+  componentApplyPlan,
   componentOf,
+  partCopy,
   componentSignature,
   componentStale,
   deckComponents,
@@ -284,5 +286,123 @@ describe('the surface an action lands on', () => {
   it('refuses what is not a surface at all', () => {
     expect(editableSurface(deck, 'root')).toBeUndefined();
     expect(editableSurface(deck, 'nowhere')).toBeUndefined();
+  });
+});
+
+/**
+ * What apply does, and what it refuses to do.
+ *
+ * The four rules, each of which is a decision about **whose** a box is. The one worth reading
+ * twice is the third: a part that differs from its origin is left alone, which is what an
+ * override is here — nothing declared, nothing hidden, and no "reset" to go hunting for.
+ */
+describe('applying a definition to a placement', () => {
+  const deck = (over: {
+    parts?: string[];
+    held?: { sid: string; partOf?: string; x?: number }[];
+  } = {}) => {
+    const parts = over.parts ?? ['p1', 'p2'];
+    const held = over.held ?? [
+      { sid: 'h1', partOf: 'p1' },
+      { sid: 'h2', partOf: 'p2' }
+    ];
+    const nodes: Record<string, Record<string, unknown>> = {
+      root: { sid: 'root', stype: 'document', content: ['card', 'slide'] },
+      slide: { sid: 'slide', stype: 'surface', attributes: { kind: 'slide' }, content: ['one'] },
+      card: { sid: 'card', stype: 'surface', attributes: { kind: 'component' }, content: parts },
+      one: {
+        sid: 'one',
+        stype: 'instance',
+        attributes: { componentId: 'card' },
+        content: held.map((part) => part.sid)
+      }
+    };
+    for (const sid of parts) {
+      nodes[sid] = { sid, stype: 'rectangle', attributes: { x: 0, y: 0, name: sid } };
+    }
+    for (const part of held) {
+      nodes[part.sid] = {
+        sid: part.sid,
+        stype: 'rectangle',
+        attributes: {
+          x: part.x ?? 0,
+          y: 0,
+          name: part.partOf ?? part.sid,
+          ...(part.partOf ? { partOf: part.partOf } : {})
+        }
+      };
+    }
+    return doc(nodes);
+  };
+
+  const planFor = (access: DeckAccess) =>
+    componentApplyPlan(access, access.getNode('one') as never, deckComponents(access)[0]);
+
+  it('rewrites the parts that still say what the definition says', () => {
+    const plan = planFor(deck())!;
+    expect(plan.rewrite).toEqual([
+      { sid: 'h1', from: 'p1' },
+      { sid: 'h2', from: 'p2' }
+    ]);
+    expect(plan.remove).toEqual([]);
+    expect(plan.add).toEqual([]);
+  });
+
+  it('leaves a part the reader has changed', () => {
+    // The third rule, and the one an override *is*: a reader who moved or typed into a part
+    // does not lose it to somebody else's edit.
+    const plan = planFor(deck({ held: [{ sid: 'h1', partOf: 'p1', x: 900 }, { sid: 'h2', partOf: 'p2' }] }))!;
+    expect(plan.rewrite.map((one) => one.sid)).toEqual(['h2']);
+  });
+
+  it('never touches a box the reader added', () => {
+    // No origin, nothing to compare, nothing to overwrite — which is what lets a reader put a
+    // whole region of their own inside a placement.
+    const plan = planFor(
+      deck({ held: [{ sid: 'h1', partOf: 'p1' }, { sid: 'mine' }] })
+    )!;
+    expect(plan.remove).toEqual([]);
+    expect(plan.rewrite.map((one) => one.sid)).toEqual(['h1']);
+    // And the definition's other part is still owed to this placement.
+    expect(plan.add).toEqual(['p2']);
+  });
+
+  it('adds what the definition has and the placement has not', () => {
+    const plan = planFor(deck({ held: [{ sid: 'h1', partOf: 'p1' }] }))!;
+    expect(plan.add).toEqual(['p2']);
+  });
+
+  it('takes out a part whose original the definition has dropped', () => {
+    /*
+     * Or a definition could never lose a part: every placement would keep its copy for ever,
+     * and a reader deleting something from the card would watch it stay on forty slides.
+     */
+    const plan = planFor(deck({ parts: ['p1'] }))!;
+    expect(plan.remove).toEqual(['h2']);
+  });
+
+  it('records what the definition said, so staleness can be asked later', () => {
+    const access = deck();
+    const plan = planFor(access)!;
+    expect(plan.appliedFrom).toBe(componentSignature(access, deckComponents(access)[0]));
+    // And a placement carrying it is not stale until the definition says something else.
+    expect(plan.appliedFrom.length).toBeGreaterThan(0);
+  });
+
+  it('answers nothing without a definition to apply', () => {
+    const access = deck();
+    expect(componentApplyPlan(access, access.getNode('one') as never, undefined)).toBeUndefined();
+  });
+
+  it('copies a part with its origin written on it', () => {
+    /*
+     * Both halves of one sentence: the **copy** is what makes editing one placement's heading
+     * not rewrite the definition, and `partOf` is what makes it possible to tell later that
+     * this box came from there.
+     */
+    const access = deck();
+    const copy = partCopy(access, 'p1')!;
+    expect(copy.attributes?.partOf).toBe('p1');
+    expect(copy.stype).toBe('rectangle');
   });
 });

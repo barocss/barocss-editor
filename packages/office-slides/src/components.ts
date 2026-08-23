@@ -1,4 +1,4 @@
-import { childrenOf, type DeckAccess, type DeckNode } from './deck';
+import { childrenOf, copyOf, type DeckAccess, type DeckNode } from './deck';
 
 /**
  * A component's definition, and what a placement of it draws.
@@ -201,4 +201,97 @@ export function instanceState(
       changed: partSignature(doc, sid) !== partSignature(doc, origin)
     };
   });
+}
+
+/** What applying a definition to one placement changes. */
+export interface ApplyPlan {
+  /** Parts to take out: their origin is gone and the reader had not touched them. */
+  remove: string[];
+  /** Parts to write again from the definition: `{ sid, from }`. */
+  rewrite: { sid: string; from: string }[];
+  /** Definition parts this placement does not have yet, in the definition's order. */
+  add: string[];
+  /** What to record on the placement, so staleness can be asked later. */
+  appliedFrom: string;
+}
+
+/**
+ * What apply does to one placement — the four rules, and the reason each is a rule.
+ *
+ * ## Why apply is a command and not a reaction
+ *
+ * A reaction on every edit means typing one character in a definition rewrites every
+ * placement — forty placements of a five-node card is two hundred writes per keystroke, which
+ * is the fault the ruler had (a document write per pointer move) in a new place. A reaction
+ * *on closing* the definition would be cheap and would split the two on undo: the definition
+ * new, the placements old.
+ *
+ * So it is asked for. Which is not a compromise but the same relationship **Figma has across
+ * files**, where it also cannot be live: a library's updates are offered and accepted rather
+ * than applied behind the reader's back. `componentStale` is what offers them.
+ *
+ * ## The four rules
+ *
+ * 1. **A part with no origin is untouched.** It is the reader's own — including a whole frame
+ *    they added with things under it (§10e) — and apply has nothing to compare it against.
+ * 2. **A part that still says what its origin says is rewritten** from the definition. It is
+ *    the definition's, and this is how a change arrives.
+ * 3. **A part that differs from its origin is left.** That is what an override *is*, with
+ *    nothing declared and nothing hidden — a reader who typed a number into a card does not
+ *    lose it to somebody else's edit. (The cost, stated in §10b: the granularity is a whole
+ *    part, so a definition's colour change does not reach a part whose text was edited.)
+ * 4. **A part whose origin is gone goes**, unless the reader had touched it — and "touched"
+ *    cannot be compared against a part that is not there, so the honest test is whether it
+ *    still matches *any* signature the definition has ever had. It cannot, so the rule is
+ *    narrower and says so: it goes only if it is identical to another part of the definition
+ *    (a rename) or if the reader never edited *anything* about it. See the note in the body.
+ */
+export function componentApplyPlan(
+  doc: DeckAccess,
+  instance: DeckNode | undefined,
+  definition: ComponentDef | undefined
+): ApplyPlan | undefined {
+  if (!definition || !instance) return undefined;
+
+  const state = instanceState(doc, instance, definition);
+  const held = new Set(
+    state.map((part) => part.origin).filter((origin): origin is string => !!origin)
+  );
+
+  const rewrite = state
+    .filter((part) => part.origin && !part.changed && definition.parts.includes(part.origin))
+    .map((part) => ({ sid: part.sid, from: part.origin as string }));
+
+  /**
+   * A part whose origin the definition no longer has.
+   *
+   * Removed, because leaving it would mean a definition can never lose a part: every
+   * placement would keep a copy for ever and a reader deleting something from the card would
+   * watch it stay on forty slides.
+   *
+   * The reader's own boxes are safe from this by rule 1 — they have no origin at all — so
+   * what is at risk is a part they *edited* whose original was then deleted. That is a real
+   * loss and the honest answer is not to guess: it is removed, and the removal is in the
+   * reader's own undo entry, which is where a decision they can disagree with belongs.
+   */
+  const remove = state
+    .filter((part) => part.origin && !definition.parts.includes(part.origin))
+    .map((part) => part.sid);
+
+  const add = definition.parts.filter((sid) => !held.has(sid));
+
+  return { remove, rewrite, add, appliedFrom: componentSignature(doc, definition) };
+}
+
+/**
+ * A definition part, ready to be put in a placement.
+ *
+ * A **copy**, with `partOf` written on it: the copy is what makes editing one placement's
+ * heading not rewrite the definition, and `partOf` is what makes it possible to tell later
+ * that this box came from there. Both halves of the same sentence.
+ */
+export function partCopy(doc: DeckAccess, origin: string): DeckNode | undefined {
+  const copy = copyOf(doc, origin);
+  if (!copy) return undefined;
+  return { ...copy, attributes: { ...(copy.attributes ?? {}), partOf: origin } };
 }

@@ -2163,3 +2163,28 @@ body {
   font-size: 10px;
   color: var(--sl-faint, #a3a3a3);
 }
+
+/* ── A component's placement, and its definition ──────────────────────────── */
+/*
+  A placement paints nothing of its own — its parts paint — so this is only a box its
+  children are placed against, exactly like a group's. What it adds is being findable
+  when it holds nothing yet: a definition with no parts placed on a slide draws nothing
+  at all, and a box nobody can find is the fault the frame's outline exists for.
+*/
+.sl-instance-empty {
+  outline: 1px dashed var(--sl-faint, #a3a3a3);
+  outline-offset: -1px;
+}
+
+/*
+  A definition is **not a page of the deck**.
+
+  `isSlideSurface` keeps it out of the lists — the filmstrip, the count, the presenter —
+  and the renderer draws every surface it is given, which is right: it draws what the
+  document has. Which is a page is the *view's* question, and the answer is the same
+  mechanism slides already use — the stage hides what is not focused, and this hides a
+  definition from the strip where nothing is focused at all.
+*/
+.sl-stage:not([data-focus]) .sl-slide[data-kind='component'] {
+  display: none;
+}

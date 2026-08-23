@@ -554,11 +554,17 @@ export function SelectionOverlay({
     []
   );
 
-  /** Whether a node is one a reader can go inside. */
+  /**
+   * Whether a node is one a reader can go inside.
+   *
+   * A placement of a component is one, and that is how an **override** is made: go in, edit
+   * the part, and the part now differs from the one it was copied from. Which means a reader
+   * never learns the word "override" — they type, and what they typed is theirs (§10d).
+   */
   const isContainer = useCallback(
     (sid?: string) => {
       const stype = sid ? (doc?.getNode(sid) as any)?.stype : undefined;
-      return stype === 'frame' || stype === 'group';
+      return stype === 'frame' || stype === 'group' || stype === 'instance';
     },
     [doc]
   );

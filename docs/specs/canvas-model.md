@@ -1102,11 +1102,21 @@ argument for building it this way rather than Figma's way.
    instance stale. The mechanism is built — a layout pass whose answer changes when the
    definition does — and an instance that skipped it would look like it worked until the
    second edit.
-3. **Overrides are matched by role, never by position.** A placement that says "this card's
-   heading is different" is the same question a layout answers for a placeholder, and the
-   answer is already written down (§3, `layout-format.ts`): a child whose role the definition
-   does not declare inherits nothing, which is the honest answer rather than a guess. Keying
-   overrides by index would rewrite the wrong child the first time the definition gained one.
+3. **Overrides are paired by an *origin id*, not by a role and not by a position.** This
+   started as "matched by role, like a layout's placeholders" and the measurement in §10b-2
+   corrected it: once a placement holds *real* nodes, a reader can edit any of them, so the
+   question is not what to allow but what apply must **preserve** — and a role is still a
+   structural match, which mis-applies the moment the definition is renamed. Each copied part
+   carries `partOf`, the id of the definition part it came from, and that survives renaming,
+   reordering **and** editing. (A role keeps its other job: the formatting cascade, §3.)
+
+   What this model does *not* do, and it is a real limit rather than an oversight: the
+   granularity is a **whole part**. If a placement has changed a card's text and the
+   definition then changes that same part's colour, apply leaves the part alone and the
+   colour does not arrive. Per-attribute overrides are what Figma has for this, and they are
+   also where its complexity lives. The middle path — take the definition's attributes and
+   keep the placement's children — is a *guess* about which half is the reader's, so it is
+   not taken until something measures that readers want it.
 4. **The instance's stored box means "where it was".** Its extent is the definition's, so the
    numbers on the node are the frozen answer for when the definition is gone — the same rule
    as a connector's remembered ends (§8.2).
@@ -1168,6 +1178,47 @@ consequence-write into the entry of the edit that caused it. So:
 What it costs, honestly: a deck with forty placements writes forty subtrees when the
 definition changes, and the file holds forty copies. For a deck that is the right trade — the
 alternative is a save that has to know which children are real.
+
+### 10b-4. What apply does, and why it is asked for
+
+Four rules, each a decision about **whose** a box is:
+
+1. A part with **no origin** is untouched — it is the reader's own, including a whole region
+   they added (§10e), and there is nothing to compare it against.
+2. A part that **still says what its origin says** is rewritten from the definition. This is
+   how a change arrives.
+3. A part that **differs** from its origin is left. That is what an override is here: nothing
+   declared, nothing hidden, and no "reset" to hunt for.
+4. A part whose **origin is gone** goes. Otherwise a definition could never lose a part — every
+   placement would keep its copy for ever, and a reader deleting something from the card would
+   watch it stay on forty slides. The risk this takes is a part the reader had *edited* whose
+   original was then deleted; it is removed, in the reader's own undo entry, which is where a
+   decision they might disagree with belongs.
+
+And it is a **command**, not a reaction. A reaction per edit means typing one character in a
+definition rewrites every placement — forty placements of a five-node card is two hundred
+writes per keystroke, which is the ruler's fault (a document write per pointer move) in a new
+place. A reaction on *closing* the definition would be cheap and would split the two on undo:
+the definition new, the placements old. So it is offered instead, by `componentStale` — the
+same relationship Figma has **across files**, where it also cannot be live.
+
+### 10b-3. Two leaks the design has not closed yet, measured rather than assumed
+
+Written down because the *frame* being right is not the same as the implementation being
+finished, and both of these are in the layer below the model:
+
+- ~~**An instance draws nothing.**~~ Closed. Measured first: a deck holding one rendered
+  *without error* and put nothing on the slide — not a crash, which is worse in one way,
+  because it looks like it worked. The renderer is a `div` that places its children, the same
+  shape as a group's, plus the three things a group's does not do: it says what it is a
+  placement of, it is findable when it holds nothing yet, and it reads **nothing foreign** —
+  whether the definition has moved on is the overlay's to draw, because an instance's node
+  does not change when its definition does (§8.11 in a new place).
+- ~~**A definition surface is drawn as a page.**~~ Closed, and in the view rather than the
+  renderer. The renderer draws what the document has, which is its job; *which surface is a
+  page* is the view's question, and the answer is the mechanism slides already use — the stage
+  hides what is not focused, and one rule hides a definition from the strip where nothing is
+  focused at all.
 
 ### 10c. Editing one: a surface the reader **opens**, not a place on a canvas
 

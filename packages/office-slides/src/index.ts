@@ -142,8 +142,11 @@ export {
   componentSignature,
   componentStale,
   instanceState,
+  componentApplyPlan,
+  partCopy,
   type ComponentDef,
-  type PartState
+  type PartState,
+  type ApplyPlan
 } from './components';
 export { SLIDES_ENV_KEY, showsNotes, type SlidesEnv } from './render-context';
 /**
