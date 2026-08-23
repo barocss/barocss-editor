@@ -1,4 +1,4 @@
-import { childrenOf, deckSlides, type DeckAccess, type DeckNode } from './deck';
+import { childrenOf, deckSlides, spaceOriginOf, type DeckAccess, type DeckNode } from './deck';
 import { boxOf, slideSize, type Box } from './geometry';
 import { intersects } from './manipulate';
 import { backgroundOf, resolveDeckFormat } from './layout-format';
@@ -93,6 +93,17 @@ const BIG_TEXT = 36;
 /** The node types that hold a picture and therefore need describing. */
 const NEEDS_ALT = new Set(['picture', 'mediaVideo']);
 
+/**
+ * The containers this walks **into**.
+ *
+ * The same three the layer list descends into, for the same reason: a picture inside a group,
+ * a frame or a placement is a picture on the slide. Measured — the sweep looked at the slide's
+ * own children and stopped, so a card's picture with no alt text came back clean, and the panel
+ * said "훑었습니다. 걸린 것이 없습니다" about half a deck. A check that reports nothing has to be
+ * telling the truth about what it looked at.
+ */
+const CONTAINERS = new Set(['group', 'frame', 'instance']);
+
 /** Whether the node is a thing placed on the canvas rather than text inside one. */
 const PLACED = new Set([
   'rectangle',
@@ -106,7 +117,13 @@ const PLACED = new Set([
   'group',
   'mediaVideo',
   'mediaAudio',
-  'connector'
+  'connector',
+  /**
+   * A **placement** of a component, which is a thing placed on the canvas in the plainest
+   * sense of the word — and was missing, so the sweep did not even reach it, let alone its
+   * parts. A card off the edge of a slide is as clipped by the projector as any other box.
+   */
+  'instance'
 ]);
 
 const attrString = (node: DeckNode | undefined, key: string): string | undefined => {
@@ -121,9 +138,7 @@ export function auditDeck(doc: DeckAccess): AuditHit[] {
   for (const slide of deckSlides(doc)) {
     const surface = doc.getNode(slide.sid);
     const size = slideSize(surface?.attributes);
-    const shapes = childrenOf(surface).filter((sid) =>
-      PLACED.has(doc.getNode(sid)?.stype ?? '')
-    );
+    const shapes = shapesOn(doc, slide.sid);
 
     if (shapes.length === 0) {
       hits.push({
@@ -140,15 +155,27 @@ export function auditDeck(doc: DeckAccess): AuditHit[] {
       });
     }
 
-    /** The pictures on this slide, for the "text over a photograph" look. */
+    /**
+     * The pictures on this slide, for the "text over a photograph" look — in the **slide's**
+     * coordinates, because a picture inside a frame and a text box outside it are compared.
+     */
     const pictures = shapes
-      .filter((sid) => doc.getNode(sid)?.stype === 'picture')
-      .map((sid) => ({ sid, box: boxOf(doc.getNode(sid)?.attributes as never) }));
+      .filter((shape) => shape.node.stype === 'picture')
+      .map((shape) => ({ sid: shape.sid, box: shape.box }));
 
-    for (const sid of shapes) {
-      const node = doc.getNode(sid);
-      if (!node) continue;
-      const box = boxOf(node.attributes as never);
+    for (const shape of shapes) {
+      const { sid, node, box } = shape;
+      /**
+       * Whether this box came from a **card**, which changes the advice and not the fault.
+       *
+       * A part with an origin is the definition's, so the fix is in the card and it fixes every
+       * placement at once — worth saying, because the reader is otherwise about to fix the same
+       * thing on twenty slides. The fault is still reported once per placement: three slides
+       * with unreadable text are three slides a projector will show.
+       */
+      const fromCard = typeof node.attributes?.partOf === 'string';
+      const also = (hint: string) =>
+        fromCard ? `${hint} 컴포넌트의 부품이라 정의에서 고치면 놓인 곳 모두 고쳐집니다.` : hint;
 
       if (NEEDS_ALT.has(node.stype ?? '') && !attrString(node, 'alt')) {
         hits.push({
@@ -159,7 +186,7 @@ export function auditDeck(doc: DeckAccess): AuditHit[] {
           slideSid: slide.sid,
           sid,
           what: '그림에 대체 텍스트가 없습니다.',
-          hint: '무엇이 담겨 있는지 한 줄로 적으세요. 장식이라면 빈 값 대신 그렇게 적어 두세요.'
+          hint: also('무엇이 담겨 있는지 한 줄로 적으세요. 장식이라면 빈 값 대신 그렇게 적어 두세요.')
         });
       }
 
@@ -174,9 +201,17 @@ export function auditDeck(doc: DeckAccess): AuditHit[] {
           slideSid: slide.sid,
           sid,
           what: '도형이 슬라이드 밖으로 나가 있습니다.',
-          hint: '슬라이드 안으로 옮기세요. 일부러 걸친 것이면 잘려 보인다는 것만 알아 두세요.'
+          hint: also('슬라이드 안으로 옮기세요. 일부러 걸친 것이면 잘려 보인다는 것만 알아 두세요.')
         });
       }
+
+      /*
+       * The text checks ask about the box that *holds* the text, and a container holds none of
+       * its own: `textRuns` walks a subtree, so a group would report its child's small text
+       * with the group's sid — a row that selects the group and leaves the reader looking for
+       * the words. Which is what it did before this walk went inside anything.
+       */
+      if (CONTAINERS.has(node.stype ?? '')) continue;
 
       const small = smallestText(doc, sid, size.height);
       if (small) {
@@ -186,7 +221,7 @@ export function auditDeck(doc: DeckAccess): AuditHit[] {
           slideSid: slide.sid,
           sid,
           what: `글자가 작습니다 — ${small.points}pt.`,
-          hint: '강의실 뒤에서도 읽히려면 슬라이드 높이의 3% 이상이 안전합니다.'
+          hint: also('강의실 뒤에서도 읽히려면 슬라이드 높이의 3% 이상이 안전합니다.')
         });
       }
 
@@ -209,7 +244,7 @@ export function auditDeck(doc: DeckAccess): AuditHit[] {
             slideSid: slide.sid,
             sid,
             what: `글자와 배경의 대비가 ${poor.ratio.toFixed(1)}:1 입니다 — ${poor.needs}:1 이 필요합니다.`,
-            hint: '글자를 더 진하게 하거나 배경을 더 밝게 하세요. 글자를 키우면 기준이 3:1 로 내려갑니다.'
+            hint: also('글자를 더 진하게 하거나 배경을 더 밝게 하세요. 글자를 키우면 기준이 3:1 로 내려갑니다.')
           });
         }
       }
@@ -230,7 +265,7 @@ export function auditDeck(doc: DeckAccess): AuditHit[] {
             slideSid: slide.sid,
             sid,
             what: '사진 위에 글자가 있습니다.',
-            hint: '사진의 밝은 부분에서도 읽히는지 보세요. 글자 뒤에 반투명 판을 깔면 확실합니다.'
+            hint: also('사진의 밝은 부분에서도 읽히는지 보세요. 글자 뒤에 반투명 판을 깔면 확실합니다.')
           });
         }
       }
@@ -238,6 +273,45 @@ export function auditDeck(doc: DeckAccess): AuditHit[] {
   }
 
   return hits;
+}
+
+/**
+ * Every shape on a slide, however deep, with its box in the **slide's** coordinates.
+ *
+ * A child's `x` is its container's, so a rectangle 1000 twips inside a group at 18000 is at
+ * 19000 on the slide — and comparing the raw number against the slide's width would call every
+ * nested shape safely inside whatever its container was doing. `spaceOriginOf` is the one
+ * implementation of that rule (canvas-model §5), so this asks it rather than accumulating a
+ * second answer.
+ */
+function shapesOn(
+  doc: DeckAccess,
+  slideSid: string
+): Array<{ sid: string; node: DeckNode; box: Box }> {
+  const found: Array<{ sid: string; node: DeckNode; box: Box }> = [];
+
+  const walk = (sid: string, depth: number) => {
+    if (depth > 16) return;
+    const node = doc.getNode(sid);
+    if (!node) return;
+    // A `componentValue` is not a box: it is what a card was *asked for*, with no size, no
+    // place and nothing to describe.
+    if (!PLACED.has(node.stype ?? '')) return;
+
+    const origin = spaceOriginOf(doc, sid);
+    const own = boxOf(node.attributes as never);
+    found.push({
+      sid,
+      node,
+      box: { ...own, x: own.x + origin.x, y: own.y + origin.y }
+    });
+
+    if (!CONTAINERS.has(node.stype ?? '')) return;
+    for (const child of childrenOf(node)) walk(child, depth + 1);
+  };
+
+  for (const child of childrenOf(doc.getNode(slideSid))) walk(child, 0);
+  return found;
 }
 
 /** How far outside the slide the box reaches, in twips — 0 when it is inside. */

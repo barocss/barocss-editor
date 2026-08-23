@@ -435,6 +435,25 @@ shipped features marked undone.
 
   (1) is the one the engine supports and the one Figma's own format resembles. It
   needs a decision on the shared schema first.
+- [x] **The deck's own check looked at half the deck.** Measured while reading how the layer
+  list stops at a placement: `auditDeck` filtered the slide's **direct children** and never
+  descended — so a picture with no alt text inside a group, a frame or a card was not looked at,
+  and the panel said *"훑었습니다. 걸린 것이 없습니다"* about a deck full of them. `PLACED` even
+  named `group` and `frame`, so the containers were counted as shapes while their contents were
+  not, and `instance` was not in it at all.
+
+  Three things fell out of fixing it, each its own small correction:
+
+  - A nested box is measured against the slide, not against its container — a rectangle 1000
+    twips inside a group at 18000 is at 19000, and the raw number called it safely inside.
+    `spaceOriginOf` is the one implementation of that rule.
+  - The **text** checks now ask the box that holds the text. `textRuns` walks a subtree, so a
+    group reported its child's small text with the group's sid: a row that selects the group and
+    leaves the reader looking for the words.
+  - A fault inside a card says the fix is in the card, because otherwise the reader is about to
+    write the same alt text on twenty slides. The fault is still counted once per placement:
+    three slides with an undescribed picture are three slides.
+
 **Still open and not in a phase**
 
 - [ ] **Per-level formatting** for a body placeholder: PowerPoint formats by

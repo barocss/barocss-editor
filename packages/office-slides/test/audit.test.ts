@@ -145,6 +145,85 @@ describe('text that is too small', () => {
   });
 });
 
+/**
+ * What the sweep can **see**.
+ *
+ * Measured: it looked at the slide's own children and stopped there — so a picture with no alt
+ * text inside a group, a frame or a placement was not looked at, and the deck came back clean.
+ * `PLACED` even names `group` and `frame`, so the containers were counted as shapes and their
+ * contents were not: a check that reports nothing has to say what it looked at, and this one
+ * was saying it about half the deck.
+ */
+describe('what the sweep can see', () => {
+  const nested = (container: Record<string, unknown>) =>
+    deck({
+      root: { sid: 'root', stype: 'document', attributes: {}, content: ['s'] },
+      s: { sid: 's', stype: 'surface', attributes: {}, content: ['box'] },
+      box: { sid: 'box', attributes: at({ x: 2000, y: 1000, width: 6000, height: 4000 }), ...container },
+      p: { sid: 'p', stype: 'picture', attributes: { x: 200, y: 200, width: 1000, height: 800, src: 'x.png' }, parentId: 'box' }
+    });
+
+  it('looks inside a group', () => {
+    const hits = auditDeck(nested({ stype: 'group', content: ['p'] }));
+    expect(kinds(hits)).toContain('alt');
+  });
+
+  it('looks inside a frame', () => {
+    expect(kinds(auditDeck(nested({ stype: 'frame', content: ['p'] })))).toContain('alt');
+  });
+
+  it('looks inside a placement, and says the fix is in the card', () => {
+    const hits = auditDeck(
+      deck({
+        root: { sid: 'root', stype: 'document', attributes: {}, content: ['s'] },
+        s: { sid: 's', stype: 'surface', attributes: {}, content: ['i'] },
+        i: { sid: 'i', stype: 'instance', attributes: at({ width: 6000, height: 4000 }), content: ['p'] },
+        p: {
+          sid: 'p',
+          stype: 'picture',
+          attributes: { x: 200, y: 200, width: 1000, height: 800, src: 'x.png', partOf: 'photo' },
+          parentId: 'i'
+        }
+      })
+    );
+    const found = hits.find((hit) => hit.kind === 'alt');
+    expect(found?.sid).toBe('p');
+    /*
+     * The fault is the slide's and the fix is the card's, so the advice says so — otherwise the
+     * reader is about to write the same alt text on twenty slides. It is still reported once
+     * per placement: three slides with an undescribed picture are three slides.
+     */
+    expect(found?.hint).toContain('컴포넌트의 부품');
+  });
+
+  it('measures a nested shape against the slide, not against its container', () => {
+    // A child's coordinates are its container's, so a box 200 twips inside a frame at 2000 is
+    // at 2200 on the slide. Comparing the raw numbers would report every nested shape as
+    // inside the slide however far out its container was.
+    const out = deck({
+      root: { sid: 'root', stype: 'document', attributes: {}, content: ['s'] },
+      s: { sid: 's', stype: 'surface', attributes: {}, content: ['g'] },
+      g: { sid: 'g', stype: 'group', attributes: at({ x: 18000, y: 1000, width: 4000, height: 2000 }), content: ['r'] },
+      r: { sid: 'r', stype: 'rectangle', attributes: { x: 1000, y: 0, width: 3000, height: 2000 }, parentId: 'g' }
+    });
+    const outside = auditDeck(out).filter((hit) => hit.kind === 'outside');
+    // The group itself is out, and so is the rectangle inside it — two real shapes off the
+    // slide, which is what a projector will clip.
+    expect(outside.map((hit) => hit.sid).sort()).toEqual(['g', 'r']);
+  });
+
+  it('does not count what a card was asked for as a shape', () => {
+    const card = deck({
+      root: { sid: 'root', stype: 'document', attributes: {}, content: ['s'] },
+      s: { sid: 's', stype: 'surface', attributes: {}, content: ['i'] },
+      i: { sid: 'i', stype: 'instance', attributes: at(), content: ['v'] },
+      v: { sid: 'v', stype: 'componentValue', attributes: { name: 'title', value: '매출' }, parentId: 'i' }
+    });
+    // A value is not a box: it has no size, no place and nothing to describe.
+    expect(kinds(auditDeck(card))).not.toContain('outside');
+  });
+});
+
 describe('a slide with nothing on it', () => {
   it('is a look rather than a fix', () => {
     const blank = deck({
