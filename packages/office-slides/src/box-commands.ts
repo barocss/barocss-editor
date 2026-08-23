@@ -3,7 +3,7 @@ import { transaction } from '@barocss/model';
 import {
   connectorFreezeSteps,
   copyForPaste,
-  deckSlides,
+  editableSurface,
   pastable,
   type DeckAccess,
   type DeckNode
@@ -370,9 +370,15 @@ export class SlidesBoxExtension implements Extension {
     const doc = this._access(editor);
     if (!doc) return undefined;
 
-    const slides = deckSlides(doc);
-    if (slideId) return slides.some((slide) => slide.sid === slideId) ? slideId : undefined;
-    return slides[0]?.sid;
+    /**
+     * Any surface a reader can edit, not only a slide.
+     *
+     * Asked of the deck (`editableSurface`) because the answer changed when a component's
+     * definition became a surface of its own: validating against `deckSlides` refused the
+     * definition's own sid, and defaulting to the first slide put a reader's new shape on
+     * slide 1 while they were looking at a component.
+     */
+    return editableSurface(doc, slideId);
   }
 
   private async _insert(

@@ -60,7 +60,33 @@ const SCENE = 'scene';
 export const CANVAS_PRESENCE_ATTRS = {
   opacity: { type: 'number' as const, default: 1, min: 0, max: 1 },
   locked: { type: 'boolean' as const, default: false },
-  visible: { type: 'boolean' as const, default: true }
+  visible: { type: 'boolean' as const, default: true },
+  /**
+   * Where this box **came from**: the id of the definition part it was copied from.
+   *
+   * A placement of a component holds real nodes (canvas-model §10b-2), so a copy has to
+   * remember its original or nothing can tell later which of a placement's boxes are the
+   * component's and which the reader added. That pairing is what makes the component
+   * survive the things that break Figma's: it is not structural, so **renaming or
+   * reordering the definition's parts cannot mis-apply an override**, and neither can
+   * editing one.
+   *
+   * Absent means "the reader's own", which is the honest default: everything on a slide is
+   * the reader's until it was copied from somewhere.
+   */
+  partOf: { type: 'string' as const, required: false },
+  /**
+   * What the placement's definition said when its parts were last taken from it.
+   *
+   * A signature rather than a version number, because a number would have to be
+   * *maintained* — a write on the definition every time it changed, which is derived state in
+   * the document and the fault this repository keeps finding. A signature is computed when
+   * somebody asks, so nothing is written until a reader applies.
+   *
+   * It is what tells "the definition has moved on" from "the reader edited this placement":
+   * with materialised parts both show up as a difference, and only this says which.
+   */
+  appliedFrom: { type: 'string' as const, required: false }
 };
 
 export const CANVAS_GEOMETRY_ATTRS = {
@@ -482,16 +508,46 @@ export function getCanvasNodeDefinitions(): Record<string, NodeTypeDefinition> {
       }
     },
     /** Reusable definition and its placements (Figma component / instance). */
-    component: {
-      name: 'component',
-      group: SCENE,
-      content: '(scene | frame)*',
-      attrs: { name: { type: 'string', required: true }, ...geometry }
-    },
+    /**
+     * A placement of a component's definition.
+     *
+     * ## Where the definition is, and why it is not here
+     *
+     * There used to be a `component` node beside this one, in the scene group — a definition
+     * that could sit on a slide, where it would be drawn twice (once as itself, once through
+     * every instance) and a reader could select the master copy by clicking it. Figma's model,
+     * and the thing that gives a Figma file a page of furniture that is not part of any
+     * design.
+     *
+     * A definition is a **surface** of its own kind instead (`SurfaceKind.Component`), which
+     * is the same answer this schema already gives for a layout, a master and a theme — a
+     * definition is drawn nowhere it sits — and it costs nothing, because a surface is
+     * already the thing an editor can edit. So the node type went, and one concept has one
+     * representation.
+     *
+     * ## Why this holds children
+     *
+     * It was `atom: true`, meaning an instance could only ever be *placed*. But a placement
+     * has to be able to differ — a card with this heading, that number — and the two ways to
+     * say so are not equal:
+     *
+     * - Figma's way: any property of any descendant may be overridden, matched structurally.
+     *   Which is where every complaint about components comes from — rename a layer and the
+     *   overrides mis-apply, and nothing shows a reader which properties have stopped
+     *   following the definition.
+     * - This schema's way, already written for slides: a slide references a `layoutId` and
+     *   holds **its own** placeholders, which override the layout's by **role, never by
+     *   position** (`layout-format.ts`). An instance is to a component exactly what a slide
+     *   is to a layout, so it holds its own children and they win by role.
+     *
+     * The gain is that an override is an ordinary node the validator can check and the
+     * conformance probe can read, and that renaming or reordering the definition's children
+     * cannot break a placement — there is no structural matching to break.
+     */
     instance: {
       name: 'instance',
       group: SCENE,
-      atom: true,
+      content: '(scene | frame)*',
       attrs: { componentId: { type: 'string', required: true }, ...geometry }
     },
 
@@ -804,7 +860,16 @@ export const SurfaceKind = {
   /** Slide: fixed-size canvas. */
   Slide: 'slide',
   /** FigJam: unbounded canvas. */
-  Board: 'board'
+  Board: 'board',
+  /**
+   * A component's **definition**, edited on a surface of its own.
+   *
+   * Not a page of the document: it is not in the deck's sequence, it is never presented, and
+   * it is drawn only when a reader opens it. Which is what a definition is everywhere else in
+   * this schema — a layout, a master, a theme are all drawn nowhere they sit — and this way
+   * the whole editing apparatus works on one without being told anything.
+   */
+  Component: 'component'
 } as const;
 
 export type SurfaceKindValue = (typeof SurfaceKind)[keyof typeof SurfaceKind];

@@ -1,7 +1,13 @@
 import { useMemo } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { Icon, IconButton } from '@barocss/office-ui';
-import { auditCount, auditDeck, labelOfBox, type AuditHit } from '@barocss/office-slides';
+import {
+  auditCount,
+  auditDeck,
+  deckSlides,
+  labelOfBox,
+  type AuditHit
+} from '@barocss/office-slides';
 import { useEditorRevision } from './revision';
 
 /**
@@ -56,14 +62,16 @@ export function AuditPanel({
 
   const counted = auditCount(hits);
 
-  /** Where the deck's slides are numbered, so a row can say "4장". */
+  /**
+   * Where the deck's slides are numbered, so a row can say "4장".
+   *
+   * `deckSlides` rather than a list built here: a slide is a surface that is not a
+   * *definition* (`isSlideSurface`), and a second derivation of that would number a
+   * component's editing surface as though it were slide 6.
+   */
   const numberOf = (slideSid: string) => {
-    const store = (editor as any)?.dataStore;
-    const root = store?.getNode((editor as any)?.getRootId?.());
-    const slides = ((root?.content ?? []) as string[]).filter(
-      (sid) => store?.getNode(sid)?.stype === 'surface'
-    );
-    return slides.indexOf(slideSid) + 1;
+    if (!doc) return 0;
+    return deckSlides(doc as never).findIndex((slide) => slide.sid === slideSid) + 1;
   };
 
   const goTo = (hit: AuditHit) => {

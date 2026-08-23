@@ -258,6 +258,10 @@ describe('Slides draws what its schema declares', () => {
           'the commands — `moveBoxes`, the arrange commands and `setBoxLocked` all refuse a locked box — and the layer list draws the padlock. A drawing that changed would be a shape that looks different from the one beside it for a reason about editing',
         name:
           'motion — a step names its box by it (`namedBoxes` in `timeline.ts`), `setBoxBuild` assigns one as it goes, and the deck file format is written in those names. A durable identity is the point: a sid is handed out at load, so a saved animation cannot be written in sids. A slide’s own `name` is read by the filmstrip (`titleOf` in `deck.ts`)',
+        partOf:
+          'components — a placement holds *real* nodes (a template cannot draw a foreign node, canvas-model §10b-2), so a copy remembers the definition part it came from. That pairing is what apply reads, and it is deliberately not a role or a position: it survives renaming, reordering and editing, which is what breaks an override in every tool that matches structurally',
+        appliedFrom:
+          'components — what the definition said when this placement last took its parts, so `componentStale` can tell "the definition has moved on" from "the reader edited this placement". A signature rather than a version number, because a number would have to be maintained by a write on every edit',
         noteId:
           'the notes pane — a slide names its note the way it names its header, and `noteOf` resolves it in `deck.ts`',
         trackId:
@@ -309,8 +313,8 @@ describe('Slides draws what its schema declares', () => {
         // this product can make one — but a board pasted into a deck could
         // carry them, and then they would draw nothing. Logged rather than
         // called fine.
-        component: 'a reusable canvas definition; a deck has no components',
-        instance: 'a placement of one; a deck has no components',
+        instance:
+          'a placement of a component’s definition; a deck has no components yet. The definition itself is a *surface* now — `SurfaceKind.Component` — because a definition drawn where it sits is drawn twice, which is the Figma model this schema deliberately does not copy (canvas-model §10)',
 
         // ── The twenty-three "inherited" lines are gone ────────────────────
         // They said the same thing twenty-three times — a callout, a checklist,

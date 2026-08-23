@@ -43,7 +43,8 @@ export const SCENE_TYPES = [
   // aligned and deleted by everything that already works on a box.
   'mediaVideo',
   'mediaAudio',
-  'component',
+  // A definition is a *surface* now, not a box on a slide — see `office-schema.ts`. What is
+  // left here is the placement.
   'instance'
 ] as const;
 

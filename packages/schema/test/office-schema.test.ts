@@ -150,7 +150,22 @@ describe('containers enforce their own shape', () => {
 
   it('atoms take no children', () => {
     expect(schema.getNodeType('rectangle')?.content).toBeUndefined();
-    expect(schema.getNodeType('instance')?.content).toBeUndefined();
+  });
+
+  it('a placement of a component is not an atom, and that is the design', () => {
+    /*
+     * It was `atom: true`, which said a placement could only ever be *placed*. A placement
+     * has to be able to differ — this card, with that number — and it holds its own boxes to
+     * say so: an instance is to a component what a slide is to a layout (canvas-model §10).
+     *
+     * It is also what lets a reader add a whole region **inside** a placement and put things
+     * under it, which is the thing every component system that resolves children at draw time
+     * cannot do — there is nowhere to put them.
+     */
+    expect(schema.getNodeType('instance')?.content).toBe('(scene | frame)*');
+    expect(
+      schema.validateContent('instance', [n('rectangle'), n('frame')]).valid
+    ).toBe(true);
   });
 });
 
@@ -209,7 +224,15 @@ describe('the document vocabulary survives the merge', () => {
   });
 
   it('names the surface kinds the built-in products use', () => {
-    expect(Object.values(SurfaceKind)).toEqual(['flow', 'slide', 'board']);
+    /*
+     * `component` is a definition rather than a page: not in a deck's sequence, never
+     * presented, drawn only when a reader opens it. A surface because that is what an editor
+     * already knows how to edit — which is what gives a definition the overlay, the panel,
+     * the guides and the layer list for nothing, and is why Figma's "the main component is
+     * art on the canvas" is a consequence of having one kind of container rather than a
+     * decision (canvas-model §10c).
+     */
+    expect(Object.values(SurfaceKind)).toEqual(['flow', 'slide', 'board', 'component']);
     expect(schema.getNodeType('surface')?.attrs?.kind?.default).toBe('flow');
   });
 });

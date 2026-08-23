@@ -234,6 +234,23 @@ const schema = createSchema('word', getWordSchemaDefinition());
         suppressAutoHyphens:
           '`hyphenationCss`, and only when the *document* has hyphenation on — a paragraph saying no to something only the document can have said yes to. The probe renders against an empty document',
 
+        /**
+         * The two the shared **canvas** attributes declare for components.
+         *
+         * A placement of a component holds real nodes and each remembers the definition part
+         * it came from (`partOf`), and the placement remembers what the definition said when
+         * it last took them (`appliedFrom`) — see `canvas-model.md` §10. Both are read by the
+         * deck's component apply, and Word's canvas has no components today.
+         *
+         * Exempted here rather than moved out of the shared group, because Word's canvas is
+         * the same canvas: the day it has components it reads these, and this claim goes
+         * stale and says so.
+         */
+        partOf:
+          'the deck’s component apply — a placement’s part remembers the definition part it was copied from. Word’s canvas has no components yet',
+        appliedFrom:
+          'the deck’s component apply — what the definition said when a placement last took its parts. Word’s canvas has no components yet',
+
         // The gutter down the side of the page.
         suppressLineNumbers: 'the line-number gutter — `line-numbers.ts`',
         lineNumberingCountBy: 'the line-number gutter — `line-numbers.ts`',
@@ -374,7 +391,6 @@ const schema = createSchema('word', getWordSchemaDefinition());
           'rich text on a canvas needs a `foreignObject`, and caret placement, ' +
           'selection and IME inside one are unreliable across browsers — the same ' +
           'reason Slides draws its slides as HTML rather than as one SVG',
-        component: 'a reusable canvas definition; Word has no components',
         instance: 'a placement of one; Word has no components',
 
         // ── Where the inherited write-offs went ────────────────────────────

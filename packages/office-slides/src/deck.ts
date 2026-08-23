@@ -133,6 +133,66 @@ function nameOf(doc: DeckAccess, surface: DeckNode): string {
  * `slideLayout` full of `textFrame`s and is not a slide, and the walk that
  * missed that would put every layout in the rail.
  */
+/**
+ * The kinds of surface that are **not** pages of the deck.
+ *
+ * A component's definition is edited on a surface of its own — which is what gives it the
+ * whole editing apparatus for nothing — and it is not a slide: it is not in the sequence, it
+ * is never presented, and it is drawn only when a reader opens it.
+ */
+const DEFINITION_KINDS = new Set(['component']);
+
+/**
+ * Whether a surface is one of the deck's **slides**.
+ *
+ * ## Why this is not `kind === 'slide'`
+ *
+ * Measured: a deck this product writes always says `kind: 'slide'`, and plenty of documents
+ * do not — most of this package's own fixtures leave it out, and so would a converter or an
+ * older version. Filtering *for* `'slide'` would make those documents look like decks with no
+ * slides in them, which is the worst possible answer for a file somebody already had.
+ *
+ * So a surface is a page unless it says it is a **definition**. Named in one place because
+ * six readers ask this question, and the day a second kind of definition arrives they should
+ * not each have to learn about it.
+ *
+ * This is also the fault that decided the component design: `deckSlides` asked only about
+ * `stype`, so the moment a document held any surface that was not a slide it appeared in the
+ * filmstrip, in the count, in the presenter's *next slide* — and would have been presented.
+ */
+export function isSlideSurface(node: DeckNode | undefined): node is DeckNode {
+  if (node?.stype !== 'surface') return false;
+  const kind = node.attributes?.kind;
+  return typeof kind !== 'string' || !DEFINITION_KINDS.has(kind);
+}
+
+/**
+ * The surface a reader's action applies to: a slide, or a **definition** they have opened.
+ *
+ * ## The fault this exists for
+ *
+ * Every insert command took a `slideId` and validated it against `deckSlides`. Measured, and
+ * both halves are wrong the moment a definition can be edited: a caller that passed the
+ * definition's sid was **refused** (a definition is not one of the deck's slides), and a
+ * caller that passed nothing inserted onto **slide 1** while the reader was looking at a
+ * component — silently, which is the worse of the two.
+ *
+ * So there is one question, asked in one place: *is this a surface a reader can edit?* A
+ * slide is, and so is a component's definition. What is not is anything that is not a
+ * surface at all.
+ *
+ * The default stays the first **slide**, because a command with no argument is answering
+ * "put it on the deck" — which is what a console, a test and a toolbar with nothing open all
+ * mean.
+ */
+export function editableSurface(doc: DeckAccess, sid?: string): string | undefined {
+  if (sid) {
+    const node = doc.getNode(sid);
+    return node?.stype === 'surface' ? sid : undefined;
+  }
+  return deckSlides(doc)[0]?.sid;
+}
+
 export function deckSlides(doc: DeckAccess): Slide[] {
   const root = doc.getNode(doc.rootId);
   if (!root) return [];
@@ -140,7 +200,7 @@ export function deckSlides(doc: DeckAccess): Slide[] {
   const slides: Slide[] = [];
   for (const sid of childrenOf(root)) {
     const node = doc.getNode(sid);
-    if (node?.stype !== 'surface') continue;
+    if (!isSlideSurface(node)) continue;
 
     slides.push({
       sid,

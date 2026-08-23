@@ -1124,6 +1124,113 @@ re-lays it out. Figma answers "it depends on the child's constraints", which is 
 model this schema does not have — so an instance is drawn at its definition's own size until
 that decision is made, rather than half-guessed.
 
+### 10b-2. Measured: a placement is **materialised**, not transcluded
+
+The design above assumed an instance could *draw* its definition's parts. The render pipeline
+says otherwise, and it is worth writing down because it is the kind of assumption that
+survives a whole feature and then collapses:
+
+**A template cannot render a foreign node.** The only thing that renders nodes is
+`slot(name)`, which reads `data[name]` — and the data is the store's own proxy of *this*
+node. A function template may build elements, but a raw node object placed among an element's
+children is silently dropped: no branch in the factory handles it. So there is no way for an
+instance's renderer to say "and now draw those five nodes from over there".
+
+The general fix would be **transclusion** — teaching the proxy that an instance's `content`
+resolves to the definition's parts. That is the deepest possible place to put it and it would
+make everything work at once, and it carries a hazard this repository is already careful
+about: everything that walks the tree would see children that **are not in the document**,
+and one of those walkers is the *save*. A file would either be written with resolved copies
+in it (a lie about what the reader has) or would need every walker to learn the difference.
+
+So a placement is **materialised**: it holds real nodes, and the document says exactly what is
+on the slide. Which is this engine's own precedent rather than a compromise —
+`layoutPlaceholders` copies a layout's placeholders into a new slide, with the reason written
+beside it: *"a new slide owns its boxes, and editing the title of slide four must not rewrite
+the layout every other slide follows."*
+
+#### What makes it a component rather than a copy
+
+The link is not a render-time lookup; it is an **edit-time consequence**. Editing a definition
+is the reader's edit, and updating its placements is a consequence of it — which is the exact
+shape the engine gained a primitive for two items ago: `appendToPreviousEntry` (§8.11a) puts a
+consequence-write into the entry of the edit that caused it. So:
+
+- Edit the definition, and every placement follows **in the same history entry** — one press
+  of undo takes back the definition's change *and* the forty placements it rewrote.
+- A placement's **overrides survive**, because the re-apply skips the parts whose role the
+  placement has taken over (§10b, and the same role rule).
+- **Detaching is free**: take the `componentId` off, and what is left is what was already
+  there. No copy, no cliff.
+- Everything downstream — selection, motion, the audit, the exporter, the save — keeps
+  working, because there is nothing unusual in the tree.
+
+What it costs, honestly: a deck with forty placements writes forty subtrees when the
+definition changes, and the file holds forty copies. For a deck that is the right trade — the
+alternative is a save that has to know which children are real.
+
+### 10c. Editing one: a surface the reader **opens**, not a place on a canvas
+
+Figma keeps a main component on the canvas, and it is worth being clear that this is not a
+design decision — it is a consequence of Figma having exactly one kind of container. There is
+nowhere else to put anything. What follows from it is the part readers complain about: a page
+of furniture that is not part of any design, a master that can be moved or deleted by
+accident, and navigation by panning to wherever somebody left it.
+
+This engine has surfaces — several, kinded, and the document is a sequence of them — so it
+has somewhere to put a definition that is not "on a canvas at coordinates": **a surface of
+its own kind, that a reader opens.** Which is the shape readers already know from
+PowerPoint's *slide master view*: a separate view, its own rail, and a way back.
+
+**The argument that settles it is not about components.** The same mechanism is what a master
+and a layout need, and neither has ever been editable in this product: the definitions a deck
+inherits from can be *read* by everything and changed by nobody. One notion — "a surface the
+reader has opened for editing" — answers all three, and building it for components alone
+would be building it twice.
+
+#### One state, one meaning
+
+`current` becomes **the surface the reader is on**: a slide, or a definition being edited.
+Not a second variable beside it, and the reason is a measured fault rather than tidiness.
+
+The insert commands take a `slideId` and validate it against `deckSlides` — so with a second
+variable, every call site that forgot to pass it would insert onto **slide 1** while the
+reader was looking at a component, silently; and every call site that did pass it would be
+*refused*, because a definition is not in `deckSlides`. Both were measured. So the commands
+learn one thing instead: a `slideId` may name any **editable surface**, a slide or a
+definition, and defaults to the first slide.
+
+The readers that need something narrower ask a named question, which they should have been
+asking anyway — `isSlideSurface`. The cost is small and was measured too: the deck's count
+already draws `—` when the current surface is not one of its slides, and the filmstrip simply
+highlights nothing.
+
+**What is off while a definition is open**, and why: presenting (a definition is not in the
+sequence and has no audience), the timeline (it has no motion of its own — an instance's
+motion belongs to the slide it is placed on), and the deck's own check (a definition has no
+alt text to be missing, and counting its faults would double-count every placement's).
+
+#### 10d. What a reader does most: an override made on demand
+
+The commonest edit is "this card, with this heading". With overrides declared by role, that
+needs the placement to *have* a child with that role — and asking a reader to declare one
+first would be asking them to learn the model before they can type.
+
+So the gesture is the one they already have: **double-click the part**, and the placement
+gains its own copy of it with the caret in it. Which is exactly what a new slide does with a
+layout's placeholders (`layoutPlaceholders` copies, because a shared node would make editing
+one slide rewrite every other), and it means the reader never learns the word "override" —
+they type, and what they typed is theirs.
+
+Two guards the model needs, both of which a definition can otherwise walk into:
+
+- **A cycle.** A definition may hold an instance — a card containing a badge is the ordinary
+  case — so it may hold an instance of *itself*, and drawing that is an infinite descent.
+  Refused where the parts are resolved, with a depth limit as well as a visited set: the limit
+  catches the mutual case (A holds B, B holds A) that a per-instance check does not.
+- **A definition that is gone.** The placement draws what it holds and nothing else, which
+  keeps the boxes a reader typed into rather than making them vanish with the definition.
+
 ## What the first three have in common
 
 Each was a fact that the code already depended on and no single place stated:

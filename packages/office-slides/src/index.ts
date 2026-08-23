@@ -130,6 +130,21 @@ export {
   type LayoutSlot,
   type LayoutMove
 } from './layout-arrange';
+/**
+ * Components: a definition is a surface of its own kind, and a placement holds its own
+ * children which win **by role** — an instance is to a component what a slide is to a
+ * layout. See `canvas-model.md` §10 for why this is not Figma's model.
+ */
+export {
+  deckComponents,
+  componentOf,
+  partSignature,
+  componentSignature,
+  componentStale,
+  instanceState,
+  type ComponentDef,
+  type PartState
+} from './components';
 export { SLIDES_ENV_KEY, showsNotes, type SlidesEnv } from './render-context';
 /**
  * Where every connector goes, worked out once per render.
@@ -595,6 +610,8 @@ export {
 export {
   copyOf,
   deckSlides,
+  isSlideSurface,
+  editableSurface,
   layoutPlaceholders,
   layoutPlaceholderSids,
   noteFor,
