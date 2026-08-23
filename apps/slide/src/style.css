@@ -2091,3 +2091,75 @@ body {
 .sl-shell[data-presenting='true'] .sl-audit {
   display: none;
 }
+
+/* ── The template gallery ─────────────────────────────────────────────────── */
+/*
+  Tiles that draw the *shape* of a deck rather than a picture of it: each slide as a
+  small 16:9 box with its placeholders where the document says they are. Which is what
+  a reader is choosing between — a title slide, a title with a body, five in a row —
+  and it cannot go stale, because it is drawn from the template itself.
+*/
+.sl-templates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.sl-template {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  text-align: left;
+  border: 1px solid var(--sl-line);
+  border-radius: 6px;
+  background: var(--sl-panel);
+  cursor: pointer;
+}
+
+.sl-template[aria-pressed='true'] {
+  border-color: var(--sl-accent, #2563eb);
+  box-shadow: inset 0 0 0 1px var(--sl-accent, #2563eb);
+}
+
+.sl-template-slides {
+  display: flex;
+  gap: 3px;
+}
+
+/* One slide, at the deck's own proportions. */
+.sl-template-slide {
+  position: relative;
+  flex: 1;
+  aspect-ratio: 16 / 9;
+  background: var(--sl-ground, #f5f5f5);
+  border: 1px solid var(--sl-line);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.sl-template-box {
+  position: absolute;
+  background: var(--sl-faint, #cbd5e1);
+  border-radius: 1px;
+}
+
+/* A title reads darker, because that is how it reads on the slide. */
+.sl-template-box[data-role='title'] {
+  background: var(--sl-muted, #64748b);
+}
+
+.sl-template-name {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.sl-template-note {
+  font-size: 11px;
+  color: var(--sl-muted);
+}
+
+.sl-template-count {
+  font-size: 10px;
+  color: var(--sl-faint, #a3a3a3);
+}

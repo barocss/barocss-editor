@@ -279,12 +279,26 @@ faults worse than the missing feature — an exit that came back on the next pre
 and every exit but `fadeOut` hiding its shape from the moment the slide arrived
 (§7h).
 
-**Deck 5 — templates, and what a reader starts from. Half done.** A new deck now
-starts from something: one title slide with the definitions under it — a theme, a
-master and the layouts a slide is made from — because an empty document is a white
-rectangle with nothing to click. What is left of this item is the *reusable piece*:
-`component` and `instance` have been declared since the canvas nodes were written
-and nothing makes one, and they are what a template is made **of**.
+**Deck 5 — templates, and what a reader starts from. Done, and one claim in it was
+wrong.** A new deck starts from something — one title slide with the definitions
+under it, because an empty document is a white rectangle with nothing to click —
+and a **gallery** now answers the question 새로 만들기 cannot: *what am I making?* A
+talk has a contents slide and section dividers, a report puts its summary first,
+and those are five slides in an order nobody types from memory. The design is one
+sentence: **a template is a document**, the same shape as one opened from disk, so
+everything that already reads a deck reads a template.
+
+The claim this entry used to make — that `component` and `instance` "are what a
+template is made of" — **conflated two features**, and it is worth correcting
+rather than quietly dropping. A template is a whole document to *start from*, and
+it needs no components at all. `component`/`instance` are about **reuse with
+identity**: one definition, many placements, and the placements follow the
+definition. Where the two meet is a template *library* — the card, the quote
+block, the logo lockup a reader drops onto a page, and a brand template that stays
+consistent because its slides are made *of* those pieces rather than of copies. So
+components are what a **living** template is made of, and nothing a starting one
+needs. They are still declared and still made by nothing; the design for them is
+in `docs/specs/canvas-model.md` §10.
 
 Two engine faults came out of the easy half, and both are the same shape: **a root
 held across a load is the wrong root.** The view preferred the last tree it drew —

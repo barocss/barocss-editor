@@ -42,7 +42,17 @@ export { createSampleDeck } from './sample-deck';
  * What a **new** deck is: one title slide with the definitions under it. See
  * `starter-deck.ts` for why an empty document is not an answer.
  */
-export { createStarterDeck } from './starter-deck';
+export { createStarterDeck, deckDefinitions, blankLine } from './starter-deck';
+/**
+ * The decks a reader can start from. A template **is a document** — the same shape as one
+ * opened from disk — which is why the gallery costs so little.
+ */
+export {
+  DECK_TEMPLATES,
+  templateSketch,
+  type DeckTemplate,
+  type SketchedSlide
+} from './templates';
 
 export { createSlideCommands, SlidesExtension } from './slide-commands';
 

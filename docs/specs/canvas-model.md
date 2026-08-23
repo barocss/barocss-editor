@@ -1069,6 +1069,61 @@ and the test asserted that as though it were the design. Two rules fall out:
   both would mean stretching the ranks to reach them — a picture neither reader asked for.
   A diagram where *everything* is pinned reports nothing to do.
 
+## 10. A component is a definition, and an instance is a drawing of it
+
+`component` and `instance` have been in the schema since the canvas nodes were declared and
+nothing makes one. Before building them, two questions had to be answered honestly.
+
+### 10a. They are not what a *template* is made of
+
+That claim was in the roadmap and it conflated two features. A **template** is a whole
+document to start from; the gallery needs no components at all, because a template is a
+deck. **Components** are reuse with identity: one definition, many placements, and the
+placements *follow* the definition.
+
+Where they meet is a template **library** — the card, the quote block, the logo lockup a
+reader drops onto a page — and a brand template that stays consistent because its slides are
+made *of* those pieces rather than of copies of them. So a component is what a **living**
+template is made of, and nothing a starting one needs.
+
+### 10b. What it costs to get wrong, and the six answers this engine already has
+
+Every question a component model has to answer already has a precedent here, which is the
+argument for building it this way rather than Figma's way.
+
+1. **A definition is not drawn where it sits.** `component` is declared in the scene group
+   today, meaning it could sit on a slide — where it would be drawn twice (once as itself,
+   once through each instance) and a reader could select the master copy by clicking it. A
+   `slideLayout`, a `slideMaster` and a `theme` all live in `resources` and are drawn
+   nowhere; a component belongs there for the same reason.
+2. **An instance's content is derived from a node that is not its own**, which is exactly the
+   connector's case (§8.11) and the one this repository has already been bitten by: the view
+   redraws a node when *that node* changes, so editing a definition would leave every
+   instance stale. The mechanism is built — a layout pass whose answer changes when the
+   definition does — and an instance that skipped it would look like it worked until the
+   second edit.
+3. **Overrides are matched by role, never by position.** A placement that says "this card's
+   heading is different" is the same question a layout answers for a placeholder, and the
+   answer is already written down (§3, `layout-format.ts`): a child whose role the definition
+   does not declare inherits nothing, which is the honest answer rather than a guess. Keying
+   overrides by index would rewrite the wrong child the first time the definition gained one.
+4. **The instance's stored box means "where it was".** Its extent is the definition's, so the
+   numbers on the node are the frozen answer for when the definition is gone — the same rule
+   as a connector's remembered ends (§8.2).
+5. **Detaching is a copy**, and `copyOf` already exists for it: a layout's placeholders are
+   copied into a new slide for the same reason, because a shared node would make editing one
+   slide rewrite every other.
+6. **Going inside is not editing the definition.** The double-click gesture means "work on
+   what is in this" for a frame and a group, and on an instance it would mean editing every
+   other placement — a reader who double-clicks a card on slide 3 does not expect slide 7 to
+   change. `instance` is declared `atom: true`, and that is the right answer: it is selected,
+   moved and overridden, and the definition is edited where the definition lives.
+
+What is deliberately *not* answered yet: whether resizing an instance scales its content or
+re-lays it out. Figma answers "it depends on the child's constraints", which is a layout
+model this schema does not have — so an instance is drawn at its definition's own size until
+that decision is made, rather than half-guessed.
+
 ## What the first three have in common
 
 Each was a fact that the code already depended on and no single place stated:

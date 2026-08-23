@@ -45,7 +45,12 @@ import {
   transitionOf,
   type TimelineStep
 } from '@barocss/office-slides';
-import { SlideLayoutDialog, SlideSizeDialog, ThemeDialog } from './deck-dialogs';
+import {
+  SlideLayoutDialog,
+  SlideSizeDialog,
+  TemplateDialog,
+  ThemeDialog
+} from './deck-dialogs';
 import { LayerPanel } from './layer-panel';
 import { FindBar } from './find-bar';
 import { AuditPanel } from './audit-panel';
@@ -169,7 +174,7 @@ export function App({
    * The app's, like every other piece of chrome state: a dialog is a fact about
    * one reader's screen, and the editor has no idea one exists.
    */
-  const [dialog, setDialog] = useState<'size' | 'layout' | 'theme' | null>(null);
+  const [dialog, setDialog] = useState<'size' | 'layout' | 'theme' | 'template' | null>(null);
 
   /**
    * How large the slide is drawn.
@@ -1185,6 +1190,13 @@ export function App({
             * arriving from the other side: not a hand-rolled control, but a
             * hand-rolled control's leftover rules restyling a shared one.
             */}
+          <Button
+            title="템플릿으로 시작"
+            onClick={() => setDialog('template')}
+            data={{ 'deck-template': '' }}
+          >
+            템플릿
+          </Button>
           <Button title="슬라이드 크기" onClick={() => setDialog('size')} data={{ 'slide-size': '' }}>
             크기
           </Button>
@@ -1491,6 +1503,27 @@ export function App({
         editor={editor}
         open={dialog === 'theme'}
         onClose={() => setDialog(null)}
+      />
+      {/*
+        * What a reader is *making*, which 새로 만들기 cannot ask.
+        *
+        * That button makes the least a deck can be, and it stays exactly that. This is the
+        * other question — a talk, a report, a proposal — and it is five slides in an order
+        * nobody types from memory.
+        */}
+      <TemplateDialog
+        editor={editor}
+        open={dialog === 'template'}
+        onClose={() => setDialog(null)}
+        onOpened={() => {
+          // A new document is a new deck: the slide that was on screen is not in it, and
+          // neither is the press the presenter was on. The same forgetting `FileActions`
+          // does when a file is opened.
+          setStepEdit([]);
+          setCurrent(undefined);
+          setPlayed(0);
+          setPlayhead(0);
+        }}
       />
 
       {presenting && (

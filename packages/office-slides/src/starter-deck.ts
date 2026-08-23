@@ -37,8 +37,14 @@ import type { INode } from '@barocss/datastore';
  * has nowhere to go in it.
  */
 
-/** An empty line, which is what an untouched placeholder holds. */
-const blank = (attributes: Record<string, unknown> = {}): INode => ({
+/**
+ * An empty line, which is what an untouched placeholder holds.
+ *
+ * Exported because the templates build slides out of the same placeholders, and a second
+ * spelling of "an empty paragraph" is a second thing to get wrong — a `textFrame` is
+ * `block+`, so a frame with no block is a document the schema refuses.
+ */
+export const blankLine = (attributes: Record<string, unknown> = {}): INode => ({
   stype: 'paragraph',
   attributes,
   content: [{ stype: 'inline-text', text: '' }]
@@ -91,7 +97,7 @@ export function createStarterDeck(): INode {
             },
             // The size and the alignment are the *title layout's* answer, which
             // this repeats because a slide's own placeholder is what gets edited.
-            content: [blank({ alignment: 'center', fontSize: 108, bold: true })]
+            content: [blankLine({ alignment: 'center', fontSize: 108, bold: true })]
           },
           {
             stype: 'textFrame',
@@ -103,12 +109,26 @@ export function createStarterDeck(): INode {
               height: 1200,
               verticalAlign: 'top'
             },
-            content: [blank({ alignment: 'center', fontSize: 44, color: '#64748b' })]
+            content: [blankLine({ alignment: 'center', fontSize: 44, color: '#64748b' })]
           }
         ]
       },
 
-      {
+      deckDefinitions()
+    ]
+  };
+}
+
+/**
+ * The half of a deck that is not slides: the theme, the master and the layouts.
+ *
+ * Its own function because **every** deck this product makes needs it — the starter and
+ * every template — and a template that restated it would be a second answer to what the
+ * colours and the faces are. Which is the same reason `layoutPlaceholders` copies from one
+ * definition rather than each slide carrying its own.
+ */
+export function deckDefinitions(): INode {
+  return {
         stype: 'resources',
         attributes: {},
         content: [
@@ -145,12 +165,12 @@ export function createStarterDeck(): INode {
               {
                 stype: 'textFrame',
                 attributes: { role: 'title', x: 1440, y: 960, width: 16320, height: 1680 },
-                content: [blank({ fontFamily: 'theme:major', fontSize: 66 })]
+                content: [blankLine({ fontFamily: 'theme:major', fontSize: 66 })]
               },
               {
                 stype: 'textFrame',
                 attributes: { role: 'body', x: 1440, y: 3120, width: 16320, height: 6240 },
-                content: [blank({ fontFamily: 'theme:minor', fontSize: 40 })]
+                content: [blankLine({ fontFamily: 'theme:minor', fontSize: 40 })]
               }
             ]
           },
@@ -168,7 +188,7 @@ export function createStarterDeck(): INode {
                   height: 2400,
                   verticalAlign: 'middle'
                 },
-                content: [blank({ alignment: 'center', fontSize: 108 })]
+                content: [blankLine({ alignment: 'center', fontSize: 108 })]
               },
               {
                 stype: 'textFrame',
@@ -179,7 +199,7 @@ export function createStarterDeck(): INode {
                   width: 15360,
                   height: 1200
                 },
-                content: [blank({ alignment: 'center', fontSize: 44 })]
+                content: [blankLine({ alignment: 'center', fontSize: 44 })]
               }
             ]
           },
@@ -190,17 +210,15 @@ export function createStarterDeck(): INode {
               {
                 stype: 'textFrame',
                 attributes: { role: 'title', x: 1440, y: 960, width: 16320, height: 1680 },
-                content: [blank()]
+                content: [blankLine()]
               },
               {
                 stype: 'textFrame',
                 attributes: { role: 'body', x: 1440, y: 3120, width: 16320, height: 6240 },
-                content: [blank()]
+                content: [blankLine()]
               }
             ]
           }
         ]
-      }
-    ]
   };
 }
