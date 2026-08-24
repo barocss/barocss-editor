@@ -1809,6 +1809,39 @@ before its first card could not then have a card at all, because the library was
 after `variables`. So `documentChildSpot` answers where a container goes, from the same list the
 content model is written in, and both commands ask it.
 
+### 10j. Carrying a card to another deck
+
+A copy of a placement is a copy of a **name** — that is what a reference means — so the clipboard has
+to carry what the name needs. Measured before it did, and it is the worst shape a fault takes: the
+paste **succeeded**, the placement drew nothing, and the deck's own check said nothing either.
+
+What travels: the definitions the copied boxes name, the definitions *those* name (a card holding a
+badge is the ordinary case), and the document variables the bindings and the copied attributes
+reference (§10h). What the paste adds is only what the destination has not got, **in the paste's own
+transaction** — a definition arriving in an entry of its own would mean two presses of undo for one
+gesture, with a library left behind after the first.
+
+Three decisions, each a refusal of the obvious thing:
+
+- **A pasted card is a plain copy, not a brand-kit import.** `importComponentPlan` records where a
+  definition came from (`fromDeck`, a library name or an address the host can resolve, §11i), which
+  is what makes "the library has moved on" answerable later. A clipboard has no such name: what was
+  copied may have come from a deck that was never saved, in another window. Writing the source
+  document's *title* there would be a reference nothing can resolve.
+- **A name the destination already uses keeps the destination's card.** Compared by **signature**,
+  not by id: the same card means the pasted placement points at the deck's own (the common case —
+  two slides of one deck, two windows on one file), and a *different* card of that name means the
+  arriving one comes in renamed and the pasted placements are repointed. Overwriting would change
+  every slide already using it, from a paste.
+- **A variable of the same name keeps the destination's value.** A paste that re-coloured the deck it
+  landed in would be changing slides nobody was looking at. The pasted card follows the destination's
+  decision, which is what a variable is for.
+
+And the net beside it, because a clipboard is not the only way to get a placement with no definition
+— an older file, a card deleted while placements of it sat on slide 40: the audit reports
+`missing-card` as 고칠 것, naming the id, because "a component is missing" is not something a reader
+can act on and "metric-card is missing" tells them which deck to go back to.
+
 ### 10i. Finding and replacing what a card draws
 
 Measured on the sample deck, and the numbers are why this counted as *wrong* rather than

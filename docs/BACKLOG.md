@@ -94,10 +94,24 @@ sees). Measured, one walk at a time:
 2. **Motion by name** (`namedBoxes`) reads the document. A step naming a shape inside a card would
    not resolve, which means a card's badge cannot be animated per placement. Not urgent; the honest
    answer may be "motion belongs to the card".
-3. **Copy of a placement.** The clipboard copies document nodes, so copying a card carries the
-   placement and its values — correct, and only if the destination deck defines the same
-   `componentId`. Pasting into a deck that does not is the brand-kit import (§10f), and nothing
-   joins the two yet.
+3. - [x] **Copy of a placement carries the card now.** Measured first, and it was the worst shape a
+     fault takes: pasting a placement into a deck without its definition **succeeded**, drew an
+     invisible empty box, and no check anywhere mentioned it. The clipboard payload carries what the
+     boxes need — the definitions they name, the definitions *those* name (a card holding a badge),
+     and the document variables the bindings and the copied attributes reference — and the paste adds
+     what the destination has not got, in the paste's own transaction so one undo takes back one
+     gesture.
+
+     Three decisions worth keeping: a pasted card is a **plain copy**, not a brand-kit import,
+     because a clipboard has no library name to record and a reference that cannot be resolved should
+     not be written; a destination that already has that id keeps **its own** card and the arriving
+     one is renamed (comparing by signature, not by id), because overwriting would change every
+     slide already using it; and a variable of the same name keeps the **destination's** value,
+     because a paste that re-colours the deck it lands in is changing slides nobody was looking at.
+
+     The net beside it: the audit reports `missing-card` (고칠 것), because a clipboard is not the
+     only way to get one — an older file, or a definition deleted while placements of it sat on
+     slide 40.
 
 ### All four selection types have a producer now
 

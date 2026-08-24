@@ -735,6 +735,77 @@ test.describe('a card in the layer list', () => {
 });
 
 /**
+ * A card carried to **another deck**.
+ *
+ * The one thing a copy of a placement is: a copy of a *name*. Measured before the clipboard carried
+ * definitions — pasting into a deck without the card left an invisible empty box, the paste reported
+ * success, and nothing said so. The model and the command are tested in milliseconds
+ * (`office-slides/test/paste-cards.test.ts`, `clipboard-commands.test.ts`); what a browser adds is
+ * that the pasted thing is actually **drawn**, through the resolver the view reads children with.
+ */
+test.describe('a card pasted into another deck', () => {
+  test('arrives with its definition and draws it', async ({ page }) => {
+    await openDeck(page);
+
+    // Copy the first placement on the sample's cards slide.
+    await page.evaluate(async () => {
+      const editor = (window as any).editor;
+      const store = editor.dataStore;
+      const slide = ((store.getNode(editor.getRootId()).content ?? []) as string[]).find(
+        (one: string) => store.getNode(one)?.attributes?.id === 'cards'
+      );
+      const placement = ((store.getNode(slide)?.content ?? []) as string[]).find(
+        (one: string) => store.getNode(one)?.stype === 'instance'
+      );
+      editor.setNode({ nodeIds: [placement] });
+      await editor.executeCommand('copyBoxes', {});
+    });
+    await page.waitForTimeout(400);
+
+    // A deck with nothing in it — which is what another window is, as far as the model can tell.
+    await page.evaluate(() => {
+      (window as any).editor.loadDocument(
+        {
+          stype: 'document',
+          attributes: {},
+          content: [{ stype: 'surface', attributes: { kind: 'slide', name: '빈 장' }, content: [] }]
+        },
+        'slides'
+      );
+    });
+    await page.waitForTimeout(600);
+
+    await page.evaluate(async () => {
+      const editor = (window as any).editor;
+      const store = editor.dataStore;
+      const slide = (store.getNode(editor.getRootId()).content ?? [])[0];
+      await editor.executeCommand('pasteBoxes', { parentId: slide });
+    });
+    await page.waitForTimeout(800);
+
+    /*
+     * Drawn, not merely present: a placement whose definition is missing is an empty box that looks
+     * like an empty box somebody left there, so the assertion is on what the stage has inside it.
+     */
+    const drawn = await page.evaluate(() => {
+      const card = document.querySelector('.sl-stage .sl-instance');
+      return {
+        parts: card ? card.querySelectorAll('[data-bc-sid]').length : 0,
+        words: card?.textContent ?? ''
+      };
+    });
+    expect(drawn.parts).toBeGreaterThan(0);
+    // The placement's own value came with it, which is the other half of what was copied.
+    expect(drawn.words).toContain('매출');
+
+    // And the deck it landed in now defines the card, so it is a card here rather than a picture of
+    // one: the panel lists it.
+    await openPanel(page);
+    await expect(page.locator('.sl-components [data-component-id="metric-card"]')).toHaveCount(1);
+  });
+});
+
+/**
  * A card that **can** be resized, because it was built out of a frame.
  *
  * The refusal in the group above is right for a card of absolutely placed parts: the drag writes

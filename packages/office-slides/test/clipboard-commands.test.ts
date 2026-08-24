@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { DataStore } from '@barocss/datastore';
 import { createSchema } from '@barocss/schema';
 import type { Editor } from '@barocss/editor-core';
+import { instanceParts } from '@barocss/office-word';
 import { createSlidesEditor } from '../src/slides-kit';
 import { getSlidesSchemaDefinition } from '../src/slides-schema';
 
@@ -198,5 +199,162 @@ describe('the clipboard', () => {
     await run('pasteBoxes');
     await (editor as any).undo();
     expect(childrenOf(slide)).toHaveLength(2);
+  });
+
+  /**
+   * A **card**, which is a copy of a *name* rather than of what it draws.
+   *
+   * Measured before this worked: pasting one into a deck that does not define its card left an
+   * invisible empty box, the paste reported success, and nothing anywhere said so. What the
+   * clipboard carries and what a paste adds is `paste-cards.ts`; what a *command* has to get right
+   * is the transaction — the library and the placement arriving together, so one press of undo takes
+   * back one gesture.
+   */
+  describe('a placement of a card', () => {
+    const carded = () => {
+      editor.loadDocument(
+        {
+          stype: 'document',
+          attributes: {},
+          content: [
+            {
+              stype: 'surface',
+              attributes: { kind: 'slide' },
+              content: [
+                {
+                  stype: 'instance',
+                  attributes: { componentId: 'card', x: 1000, y: 1000, width: 3000, height: 2000 },
+                  content: [
+                    { stype: 'componentValue', attributes: { name: 'title', value: '매출' } }
+                  ]
+                }
+              ]
+            },
+            { stype: 'surface', attributes: { kind: 'slide' }, content: [] },
+            {
+              stype: 'components',
+              content: [
+                {
+                  stype: 'component',
+                  attributes: { id: 'card', name: '카드' },
+                  content: [
+                    {
+                      stype: 'componentVar',
+                      attributes: { name: 'title', kind: 'text', value: '지표' }
+                    },
+                    {
+                      stype: 'componentBind',
+                      attributes: { part: 'title', attr: 'text', var: 'title' }
+                    },
+                    { stype: 'rectangle', attributes: { partId: 'title', width: 3000, height: 2000 } }
+                  ]
+                }
+              ]
+            }
+          ]
+        } as never,
+        'slides'
+      );
+      const root = store.getNode((editor as any).getRootId()) as any;
+      return { slide: root.content[0], other: root.content[1] };
+    };
+
+    it('carries the definition, so pasting into a deck without it draws something', async () => {
+      const first = carded();
+      select([childrenOf(first.slide)[0]]);
+      expect(await run('copyBoxes')).toBe(true);
+
+      // A different deck: the same editor, a document with no library at all — which is what
+      // pasting into another window is, as far as the model can tell.
+      editor.loadDocument(
+        {
+          stype: 'document',
+          attributes: {},
+          content: [{ stype: 'surface', attributes: { kind: 'slide' }, content: [] }]
+        } as never,
+        'slides'
+      );
+      const root = () => store.getNode((editor as any).getRootId()) as any;
+      const into = root().content[0];
+
+      expect(await run('pasteBoxes', { parentId: into })).toBe(true);
+
+      /*
+       * The library arrived with the placement, and in the *same* entry: undoing once takes back the
+       * whole paste rather than leaving a library behind — which is what two transactions would have
+       * done.
+       */
+      const kinds = () => (root().content as string[]).map((sid: string) => (store.getNode(sid) as any)?.stype);
+      expect(kinds()).toEqual(['surface', 'components']);
+      const placement = childrenOf(into)[0];
+      expect(instanceParts(
+        { rootId: (editor as any).getRootId(), getNode: (sid: string) => store.getNode(sid) } as never,
+        store.getNode(placement) as never
+      )).toHaveLength(1);
+
+      await (editor as any).undo();
+      expect(kinds()).toEqual(['surface']);
+      expect(childrenOf(into)).toEqual([]);
+    });
+
+    it('points a pasted placement at the deck’s own card when it is the same one', async () => {
+      const first = carded();
+      select([childrenOf(first.slide)[0]]);
+      await run('copyBoxes');
+      expect(await run('pasteBoxes', { parentId: first.other })).toBe(true);
+
+      // One library, one card: the common case has to cost nothing, or every paste inside one deck
+      // would make a second copy of everything it touched.
+      const root = store.getNode((editor as any).getRootId()) as any;
+      const libraries = (root.content as string[]).filter(
+        (sid: string) => (store.getNode(sid) as any)?.stype === 'components'
+      );
+      expect(libraries).toHaveLength(1);
+      expect(childrenOf(libraries[0])).toHaveLength(1);
+      expect(attrs(childrenOf(first.other)[0]).componentId).toBe('card');
+    });
+
+    it('repoints it when the destination has a different card of that name', async () => {
+      const first = carded();
+      select([childrenOf(first.slide)[0]]);
+      await run('copyBoxes');
+
+      // A deck whose `card` says something else entirely.
+      editor.loadDocument(
+        {
+          stype: 'document',
+          attributes: {},
+          content: [
+            { stype: 'surface', attributes: { kind: 'slide' }, content: [] },
+            {
+              stype: 'components',
+              content: [
+                {
+                  stype: 'component',
+                  attributes: { id: 'card', name: '다른 카드' },
+                  content: [
+                    { stype: 'ellipse', attributes: { partId: 'dot', width: 400, height: 400 } }
+                  ]
+                }
+              ]
+            }
+          ]
+        } as never,
+        'slides'
+      );
+      const root = () => store.getNode((editor as any).getRootId()) as any;
+      const into = root().content[0];
+      expect(await run('pasteBoxes', { parentId: into })).toBe(true);
+
+      /*
+       * The arriving card came in under a new name and the pasted placement points at it.
+       * Overwriting the destination's would have changed every slide already using it, from a paste.
+       */
+      const library = (root().content as string[]).find(
+        (sid: string) => (store.getNode(sid) as any)?.stype === 'components'
+      ) as string;
+      expect(childrenOf(library).map((sid) => attrs(sid).id)).toEqual(['card', 'card-2']);
+      expect(attrs(childrenOf(into)[0]).componentId).toBe('card-2');
+    });
   });
 });

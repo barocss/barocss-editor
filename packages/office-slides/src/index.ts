@@ -60,6 +60,15 @@ export { createBoxCommands, SlidesBoxExtension } from './box-commands';
 export { createComponentCommands, SlidesComponentExtension } from './component-commands';
 export { createVariableCommands, SlidesVariableExtension, documentVarUses } from './variable-commands';
 export { createClipboardCommands, SlidesClipboardExtension } from './clipboard-commands';
+/**
+ * What a copied **card** travels with, and what a paste does with it.
+ *
+ * A placement holds no parts, so copying one copies a *name*: measured against a fresh deck, it
+ * pasted an invisible empty box and nothing said so. See `paste-cards.ts` — including why a pasted
+ * card is a plain copy rather than a brand-kit import, and what happens when the destination already
+ * has that name.
+ */
+export { cardsFor, pasteCardsPlan, type CardsCarried, type PastePlan } from './paste-cards';
 export { createConnectorCommands, SlidesConnectorExtension } from './connector-commands';
 /**
  * Arranging a frame is canvas behaviour and lives in `office-word`, which owns

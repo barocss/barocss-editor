@@ -172,6 +172,32 @@ describe('what the sweep can see', () => {
     expect(kinds(auditDeck(nested({ stype: 'frame', content: ['p'] })))).toContain('alt');
   });
 
+  it('says where a placement names a card the deck does not define', () => {
+    /*
+     * The fault a clipboard used to make in silence: a placement holds no parts, so one with no
+     * definition draws **nothing** — an empty box that looks like an empty box somebody left there.
+     * Measured before the clipboard carried definitions: the paste said it had worked, the slide had
+     * an invisible box on it, and no check anywhere mentioned it.
+     */
+    const hits = auditDeck(
+      deck({
+        root: { sid: 'root', stype: 'document', attributes: {}, content: ['s'] },
+        s: { sid: 's', stype: 'surface', attributes: {}, content: ['i'] },
+        i: {
+          sid: 'i',
+          stype: 'instance',
+          attributes: at({ width: 4000, height: 2400, componentId: 'metric-card' }),
+          content: []
+        }
+      })
+    );
+    const missing = hits.filter((hit) => hit.kind === 'missing-card');
+    expect(missing.map((hit) => [hit.sid, hit.level])).toEqual([['i', 'must']]);
+    // Named, because "a component is missing" is not something a reader can act on and
+    // "metric-card is missing" tells them which deck to go back to.
+    expect(missing[0].what).toContain('metric-card');
+  });
+
   it('says where a shape names a variable the document has lost', () => {
     /*
      * The other half of "removing a variable does not rewrite the shapes that named it". There is

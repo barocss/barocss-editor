@@ -1,6 +1,7 @@
 import { Editor, Extension, selectedNodeIds } from '@barocss/editor-core';
 import { transaction } from '@barocss/model';
 import { copyForPaste, pastable, type DeckAccess, type DeckNode } from './deck';
+import { cardsFor, pasteCardsPlan, type CardsCarried } from './paste-cards';
 import { boxOf } from './geometry';
 import { fromSurface, isSceneType, slideAt, toSurface } from './selection';
 
@@ -42,6 +43,17 @@ interface Payload {
   barocssSlides: 1;
   /** Each box, in the slide's coordinates rather than its container's. */
   boxes: DeckNode[];
+  /**
+   * What the boxes **need**: the card definitions they name, and the document variables those need.
+   *
+   * A placement holds no parts, so a copy of one is a copy of a *name* — measured against a fresh
+   * deck, it pasted an invisible empty box and nothing said so. See `paste-cards.ts` for what the
+   * paste does with these, and for why a pasted card is a plain copy rather than a brand-kit import.
+   *
+   * Optional, because a payload written before this existed is still a payload: a paste that finds
+   * none behaves exactly as it used to.
+   */
+  needs?: CardsCarried;
 }
 
 const MARKER = 'barocssSlides';
@@ -160,7 +172,7 @@ export class SlidesClipboardExtension implements Extension {
 
     if (boxes.length === 0) return false;
 
-    this._held = { barocssSlides: 1, boxes };
+    this._held = { barocssSlides: 1, boxes, needs: cardsFor(doc, boxes) };
     await this._write(this._held);
     return true;
   }
@@ -207,17 +219,42 @@ export class SlidesClipboardExtension implements Extension {
      * gesture) or it names the nodes itself. `addChild` honours a `sid` a caller
      * provides, so it names them.
      */
+    /**
+     * What this deck is missing before any of it can be drawn.
+     *
+     * The definitions the copy names, and the variables they need — in **this** transaction, so one
+     * press of undo takes the paste back rather than leaving a library behind. `renames` is what a
+     * clash produces: the deck already has that id and says something else, so the arriving card
+     * comes in under a new name and the pasted placements have to point at it.
+     */
+    const plan = pasteCardsPlan(doc, payload.needs);
+
     const store = (editor as any).dataStore;
-    const steps = pastable(payload.boxes, () => store.generateId()).map((node) => {
-      const child = node as DeckNode;
-      const box = boxOf(child.attributes as never);
-      const placed = fromSurface(doc, into, {
-        x: box.x + shift.x,
-        y: box.y + shift.y
-      });
-      child.attributes = { ...child.attributes, x: placed.x, y: placed.y };
-      return { type: 'addChild', payload: { parentId: into, child } };
-    });
+    const repoint = (node: DeckNode, depth = 0): void => {
+      if (depth > 32) return;
+      const id = node.attributes?.componentId;
+      if (typeof id === 'string' && plan.renames[id]) {
+        node.attributes = { ...node.attributes, componentId: plan.renames[id] };
+      }
+      for (const child of ((node as { content?: unknown }).content ?? []) as unknown[]) {
+        if (child && typeof child === 'object') repoint(child as DeckNode, depth + 1);
+      }
+    };
+
+    const steps = [
+      ...plan.steps,
+      ...pastable(payload.boxes, () => store.generateId()).map((node) => {
+        const child = node as DeckNode;
+        const box = boxOf(child.attributes as never);
+        const placed = fromSurface(doc, into, {
+          x: box.x + shift.x,
+          y: box.y + shift.y
+        });
+        child.attributes = { ...child.attributes, x: placed.x, y: placed.y };
+        repoint(child);
+        return { type: 'addChild', payload: { parentId: into, child } };
+      })
+    ];
 
     const before = this._childrenOf(doc, into).length;
     const result = await transaction(editor, steps as never).commit();

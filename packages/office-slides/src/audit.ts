@@ -5,7 +5,13 @@ import { jumpFaults } from './jump';
 import { isContainerType } from './selection';
 import { backgroundOf, resolveDeckFormat } from './layout-format';
 import { paintsOf } from './paints';
-import { documentVars, instanceParts, isVarRef, varNameOf } from '@barocss/office-word';
+import {
+  componentOf,
+  documentVars,
+  instanceParts,
+  isVarRef,
+  varNameOf
+} from '@barocss/office-word';
 
 /**
  * A look over the deck before it is given to anybody.
@@ -52,7 +58,9 @@ export type AuditKind =
   /** A button into another deck, which this document cannot check. */
   | 'away'
   /** A shape naming a variable the document no longer declares. */
-  | 'dead-var';
+  | 'dead-var'
+  /** A placement naming a card the deck does not define. */
+  | 'missing-card';
 
 export interface AuditHit {
   kind: AuditKind;
@@ -182,6 +190,30 @@ export function auditDeck(doc: DeckAccess): AuditHit[] {
       const fromCard = typeof node.attributes?.partId === 'string';
       const also = (hint: string) =>
         fromCard ? `${hint} 컴포넌트의 부품이라 정의에서 고치면 놓인 곳 모두 고쳐집니다.` : hint;
+
+      /**
+       * A placement of a card this deck does not define.
+       *
+       * Certainly wrong, and **invisible** in the worst way: a placement holds no parts, so one with
+       * no definition draws nothing at all — an empty box on the slide that looks like an empty box
+       * somebody left there. Measured: copying a card into a deck without its definition pasted
+       * exactly that, the paste said it had worked, and nothing anywhere said otherwise.
+       *
+       * The clipboard carries the definitions now (`paste-cards.ts`), so this is the net rather than
+       * the fix: a deck saved by an earlier version, a definition somebody deleted while placements
+       * of it were on slide 40, a hand-written file.
+       */
+      if (node.stype === 'instance' && !componentOf(doc as never, node as never)) {
+        const named = node.attributes?.componentId;
+        hits.push({
+          kind: 'missing-card',
+          level: 'must',
+          slideSid: slide.sid,
+          sid,
+          what: `없는 컴포넌트를 놓았습니다: ${typeof named === 'string' && named ? named : '이름 없음'}`,
+          hint: '그 컴포넌트가 있는 덱에서 다시 복사해 오거나, 이 자리를 지우세요. 지금은 아무것도 그려지지 않습니다.'
+        });
+      }
 
       /**
        * A reference to a variable the document does not declare.
