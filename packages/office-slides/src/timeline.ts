@@ -519,8 +519,22 @@ export function hiddenUntilPlayed(steps: TimelineStep[], played: number): Set<st
     const done = mine.filter((step) => step.group <= played);
 
     if (done.length > 0) {
-      // The story so far ends where it ends: gone if it left, on the slide if not.
-      if (categoryOf(done[done.length - 1].effect) === 'exit') hidden.add(target);
+      const last = done[done.length - 1];
+      /**
+       * The story so far ends where it ends: gone if it left, on the slide if not.
+       *
+       * **Except in the arrival group**, which never hides anything. A card's own motion lands
+       * there (§10l) and `group: 0` is "outside the sequence", so `0 <= played` is true from the
+       * first moment — and an *exit* read that way hid the shape before its exit had run. Measured:
+       * a card part given 날아가기 was simply absent the moment the slide arrived, the animation
+       * playing on something already invisible, and in a scrolling show — where the arrival group is
+       * never run — it stayed absent for good.
+       *
+       * Nothing is needed after it runs either: the stage animates with `fill: 'both'`, so an exit
+       * that has played holds its own end state. This is the same fault this function was written to
+       * fix once already, arriving through a door that did not exist then.
+       */
+      if (last.group > 0 && categoryOf(last.effect) === 'exit') hidden.add(target);
       continue;
     }
 

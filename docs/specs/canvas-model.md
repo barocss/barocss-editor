@@ -2033,6 +2033,24 @@ leaves the first one sitting still.
 to animate and to wait for on a *slide's* track, and a card's part is not one of those (§10k) — two
 placements would offer one name twice and neither would mean anything there.
 
+#### In a **scrolling** show it is held, not replayed
+
+Never measured until it was asked for, and the answer follows the scrolling show's own principle: a
+scroll is *scrubbing with a different input device*, so a build is held at the moment the scroll has
+reached rather than played on arrival. A card's motion costs no presses, so the scroll's clock has
+nothing to say about it — the parts are simply **held at their end state**, which is what scrubbing
+does to every build it has passed.
+
+What a reader must never see is a card that is *missing* because its animation never ran, and that
+was a real fault: `group: 0` means "outside the sequence", so `0 <= played` reads as *already played*
+— and an **exit** read that way hid the shape before its exit had run. A card part given 날아가기 was
+absent the moment the slide arrived, the animation playing on something already invisible, and in a
+scrolling show, where the arrival group is never run, it stayed absent for good.
+
+So the arrival group never hides anything: before it runs it has not happened, and after it runs the
+stage's `fill: 'both'` holds its own end state. Which is the fault `hiddenUntilPlayed` was written to
+fix once already, arriving through a door that did not exist then.
+
 #### The fault this found on the way
 
 Motion addresses a shape by its sid in the DOM, and a drawn part's sid was made of the **definition's**

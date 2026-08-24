@@ -165,6 +165,140 @@ test.describe('scrolling through a deck', () => {
     expect((await read()).at).toBe(0);
   });
 
+  /**
+   * A **card's own motion** in a scrolling show.
+   *
+   * Never measured until it was asked for, and the answer follows this file's own principle: a scroll
+   * is *scrubbing with a different input device*, and scrubbing holds a build at the moment it has
+   * reached rather than replaying it. A card's motion is an **arrival** — it costs no presses (§10l),
+   * so the scroll's clock has nothing to say about it — and what a reader must never see is a card
+   * that is *missing* because its animation never ran.
+   */
+  test('holds a card’s own motion at its end state rather than losing it', async ({ page }) => {
+    await openDeck(page);
+
+    // A card whose badge fades in, placed twice on a slide that also has a build of its own.
+    await page.evaluate(() => {
+      (window as any).editor.loadDocument(
+        {
+          stype: 'document',
+          attributes: {},
+          content: [
+            {
+              stype: 'surface',
+              attributes: { kind: 'slide', name: '카드 두 장', trackId: 'slide-t' },
+              content: [
+                {
+                  stype: 'rectangle',
+                  attributes: { name: 'own-1', x: 600, y: 600, width: 1200, height: 800, fill: '#94a3b8' }
+                },
+                {
+                  stype: 'instance',
+                  attributes: { componentId: 'card', x: 3000, y: 600, width: 3000, height: 2000 },
+                  content: []
+                },
+                {
+                  stype: 'instance',
+                  attributes: { componentId: 'card', x: 7000, y: 600, width: 3000, height: 2000 },
+                  content: []
+                }
+              ]
+            },
+            { stype: 'surface', attributes: { kind: 'slide', name: '다음' }, content: [] },
+            {
+              stype: 'resources',
+              attributes: {},
+              content: [
+                {
+                  stype: 'motionTrack',
+                  attributes: { id: 'slide-t' },
+                  content: [
+                    {
+                      stype: 'motionStep',
+                      attributes: { kind: 'build', target: 'own-1', effect: 'fadeIn', duration: 400 }
+                    }
+                  ]
+                },
+                {
+                  stype: 'motionTrack',
+                  attributes: { id: 'card-t' },
+                  content: [
+                    {
+                      stype: 'motionStep',
+                      attributes: { kind: 'build', target: 'card-badge', effect: 'fadeIn', duration: 300 }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              stype: 'components',
+              content: [
+                {
+                  stype: 'component',
+                  attributes: { id: 'card', name: '카드', width: 3000, height: 2000, trackId: 'card-t' },
+                  content: [
+                    {
+                      stype: 'rectangle',
+                      attributes: { partId: 'back', x: 0, y: 0, width: 3000, height: 2000, fill: '#e2e8f0' }
+                    },
+                    {
+                      stype: 'ellipse',
+                      attributes: {
+                        partId: 'badge',
+                        name: 'card-badge',
+                        x: 200,
+                        y: 200,
+                        width: 500,
+                        height: 500,
+                        fill: '#2563eb'
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        'slides'
+      );
+    });
+    await page.waitForTimeout(700);
+
+    await page.locator('[data-scroll-present]').click();
+    await page.waitForTimeout(600);
+
+    /** Every badge a placement draws, as the reader sees it. */
+    const badges = () =>
+      page.evaluate(() =>
+        [...document.querySelectorAll('.sl-stage .sl-instance .sl-ellipse')].map((one) => ({
+          visibility: getComputedStyle(one as Element).visibility,
+          opacity: Number(getComputedStyle(one as Element).opacity)
+        }))
+      );
+
+    const before = await badges();
+    expect(before.length).toBeGreaterThanOrEqual(2);
+    /*
+     * Held at the end state, in both placements: nothing hidden and nothing at zero. The fault this
+     * pins is a card that vanishes in a scrolling deck because its arrival was never run — which is
+     * exactly what an *exit* used to do, before the arrival group stopped being read as "already
+     * played" (`hiddenUntilPlayed`).
+     */
+    for (const badge of before) {
+      expect(badge.visibility).toBe('visible');
+      expect(badge.opacity).toBeGreaterThan(0);
+    }
+
+    // And scrolling through the slide's own build leaves them exactly as they were: the scroll's
+    // clock is about the presses, and a card's motion is not one.
+    await scrollBy(page, 240, 3);
+    for (const badge of await badges()) {
+      expect(badge.visibility).toBe('visible');
+      expect(badge.opacity).toBeGreaterThan(0);
+    }
+  });
+
   test('counts a build’s room only where there is a build', async ({ page }) => {
     await openDeck(page);
     const span = async () =>

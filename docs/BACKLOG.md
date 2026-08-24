@@ -124,6 +124,12 @@ sees). Measured, one walk at a time:
      from `slideAt` rather than widening it, because the clipboard, the arrangement and the layout
      cascade all mean the surface when they say slide.
 
+   - [x] **A card's motion in a scrolling show** — held at its end state, not replayed, because a
+     scroll is scrubbing with another input device and a card's motion costs no presses. Measured on
+     the way, and it was a fault: `group: 0` reads as *already played*, so an **exit** hid the shape
+     before it had run — absent the moment the slide arrived, and absent for good in a scrolling show,
+     where the arrival group is never run. The arrival group now never hides anything (§10l).
+
    - [x] **A trigger inside a card** works, and the belief that stopped it was half wrong: the show's
      click walk asks the **innermost** `[data-bc-sid]` first, so the element a reader pressed *is* the
      drawn part — only a name for it was missing. A card's trigger carries the placement in its `on`,

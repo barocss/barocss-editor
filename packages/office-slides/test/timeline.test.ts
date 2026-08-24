@@ -19,6 +19,7 @@ import {
   reorderSteps,
   cardSteps,
   drawnNames,
+  hiddenUntilPlayed,
   namedBoxes,
   slideTimeline,
   snapPoints,
@@ -2494,6 +2495,55 @@ describe('what a card animates, wherever it is placed', () => {
     ]);
     // And the slide's own list still says nothing about them.
     expect([...namedBoxes(deck({ second: true }), 'slide').keys()]).toEqual([]);
+  });
+
+  it('never hides an arrival step’s shape, whichever way the motion goes', () => {
+    /*
+     * Measured as a fault: `group: 0` means "outside the sequence", so `0 <= played` is true from the
+     * first moment and an **exit** read that way hid the shape *before* its exit had run. A card part
+     * given 날아가기 was simply absent when the slide arrived, the animation playing on something
+     * already invisible — and in a scrolling show, where the arrival group is never run, it stayed
+     * absent for good.
+     *
+     * Nothing is needed after it runs either: the stage animates with `fill: 'both'`, so an exit that
+     * has played holds its own end state. This is the fault `hiddenUntilPlayed` was written to fix
+     * once already, arriving through a door that did not exist then.
+     */
+    const exiting = deck();
+    (exiting.getNode('s1') as never as { attributes: Record<string, unknown> }).attributes = {
+      kind: 'build',
+      target: 'card-back',
+      effect: 'fadeOut',
+      duration: 300
+    };
+
+    const steps = cardSteps(exiting, 'slide');
+    // The card's three steps: the rewritten first one, the badge's, and the trigger.
+    expect(steps).toHaveLength(3);
+    for (const played of [0, 1, 5]) {
+      expect([...hiddenUntilPlayed(steps, played)]).toEqual([]);
+    }
+  });
+
+  it('leaves a slide’s own exit hiding the shape, as it always did', () => {
+    // The rule is about the *arrival* group, not about exits: a slide's own step is in a press, and a
+    // shape that has flown away stays away.
+    const steps: TimelineStep[] = [
+      {
+        sid: 'x',
+        kind: 'build',
+        target: 'own-1',
+        targetSid: 'own',
+        effect: 'fadeOut',
+        label: '상자',
+        duration: 300,
+        delay: 0,
+        repeat: 1,
+        startsWith: 'onClick',
+        group: 1
+      } as never as TimelineStep
+    ];
+    expect([...hiddenUntilPlayed(steps, 1)]).toEqual(['own-1']);
   });
 
   it('answers nothing for a card with no track of its own', () => {
