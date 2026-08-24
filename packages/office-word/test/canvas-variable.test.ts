@@ -1,14 +1,18 @@
 import { describe, it, expect } from 'vitest';
 import {
+  boundAttrs,
+  boundText,
   documentVar,
   documentVars,
   isVarRef,
   resolveVarValue,
+  varBindsOf,
   varRef,
-  varUses
+  varUses,
+  UNBINDABLE
 } from '../src/canvas-variable';
 import { componentsOf, instanceValues } from '../src/canvas-component';
-import { instanceParts } from '../src/canvas-instance';
+import { contentWithWords, instanceParts } from '../src/canvas-instance';
 import type { CanvasAccess } from '../src/canvas-access';
 
 /**
@@ -231,5 +235,152 @@ describe('a card built against the document', () => {
     expect(instanceValues(access, access.getNode('one'), componentsOf(access)[0]).get('강조')).toBe(
       '#0f766e'
     );
+  });
+});
+
+/**
+ * What a **shape** takes from a variable.
+ *
+ * The other half of §10h, and the one the measurement forced into a different shape: a reference in
+ * the attribute works for a colour and is **refused** in a number or a boolean, so a bare shape
+ * needs a *declaration* — `varBinds` on itself, for the reasons the schema's comment gives (a child
+ * node would make every atom a container; a list keyed by the shape's `name` would be ambiguous,
+ * because `namedBoxes` already takes the first of a name).
+ */
+describe('a shape bound to a variable', () => {
+  const shaped = (binds: unknown, over: Record<string, unknown> = {}) =>
+    doc({
+      root: { sid: 'root', stype: 'document', content: ['slide', 'vars'] },
+      slide: { sid: 'slide', stype: 'surface', attributes: { kind: 'slide' }, content: ['box'] },
+      box: {
+        sid: 'box',
+        stype: 'rectangle',
+        attributes: {
+          x: 100,
+          y: 100,
+          width: 1000,
+          height: 800,
+          cornerRadius: 40,
+          visible: true,
+          varBinds: binds,
+          ...over
+        }
+      },
+      vars: { sid: 'vars', stype: 'variables', attributes: {}, content: ['round', 'on', 'accent'] },
+      round: {
+        sid: 'round',
+        stype: 'variable',
+        attributes: { name: '둥글기', kind: 'number', value: '240' }
+      },
+      on: { sid: 'on', stype: 'variable', attributes: { name: '보이기', kind: 'boolean', value: 'false' } },
+      accent: {
+        sid: 'accent',
+        stype: 'variable',
+        attributes: { name: '강조', kind: 'color', value: '#0f766e' }
+      }
+    });
+
+  it('reads its declarations, and ignores rubbish in the list', () => {
+    const access = shaped([
+      { attr: 'cornerRadius', var: '둥글기' },
+      { attr: '', var: '둥글기' },
+      { var: '둥글기' },
+      'nonsense',
+      null
+    ]);
+    // A document is an author's: half of a declaration is not one, and a file that holds junk must
+    // not take the editor down with it.
+    expect(varBindsOf(access.getNode('box')).map((one) => one.attr)).toEqual(['cornerRadius']);
+  });
+
+  it('writes a number where a number goes', () => {
+    const access = shaped([{ attr: 'cornerRadius', var: '둥글기' }]);
+    /*
+     * The conversion a card's binding already does, for the same reason: the document keeps a value
+     * as a string — one shape to write, diff and check — and a length has to be a number by the time
+     * it is drawn.
+     */
+    expect(boundAttrs(access, access.getNode('box'))?.cornerRadius).toBe(240);
+  });
+
+  it('writes only the falsy half of a state', () => {
+    const off = shaped([{ attr: 'visible', var: '보이기' }]);
+    expect(boundAttrs(off, off.getNode('box'))?.visible).toBe(false);
+
+    (off.getNode('on') as never as { attributes: Record<string, unknown> }).attributes = {
+      name: '보이기',
+      kind: 'boolean',
+      value: 'true'
+    };
+    // `visible: true` beside no `visible` at all is the same drawing — the asymmetry the conformance
+    // probe finds in every boolean — so only `false` is ever written.
+    expect('visible' in (boundAttrs(off, off.getNode('box')) ?? {})).toBe(false);
+  });
+
+  it('answers nothing when nothing is bound, so a plain deck copies nothing', () => {
+    // Asked on every read of every container, so the cheap answer matters: one array check, no copy.
+    expect(boundAttrs(shaped(undefined), shaped(undefined).getNode('box'))).toBeUndefined();
+    expect(boundAttrs(shaped([]), shaped([]).getNode('box'))).toBeUndefined();
+  });
+
+  it('refuses geometry, in the model rather than in a panel', () => {
+    const access = shaped([
+      { attr: 'width', var: '둥글기' },
+      { attr: 'x', var: '둥글기' },
+      { attr: 'rotation', var: '둥글기' }
+    ]);
+    /*
+     * Measured rather than chosen: a bound size is *drawn* where the resolution says and *answered*
+     * where the document says, and the overlay, the guides, the snapping and every command read the
+     * answer — so the handles would sit where the shape is not. In the model so the panel and the
+     * command cannot disagree about the list.
+     */
+    expect(boundAttrs(access, access.getNode('box'))).toBeUndefined();
+    expect([...UNBINDABLE]).toContain('width');
+  });
+
+  it('leaves the attribute alone when the variable is gone', () => {
+    const access = shaped([{ attr: 'cornerRadius', var: '없는것' }]);
+    /*
+     * Different from a `var:` reference on purpose, and the difference is what the document *said*: a
+     * reference says "this value **is** the variable", so losing it draws nothing; a binding says
+     * "take it from the variable if there is one", so losing it leaves what the shape holds. Both are
+     * reported by the deck's own check.
+     */
+    expect(boundAttrs(access, access.getNode('box'))).toBeUndefined();
+    expect(access.getNode('box')?.attributes?.cornerRadius).toBe(40);
+  });
+
+  it('answers a shape’s words separately, because characters are content', () => {
+    const access = doc({
+      root: { sid: 'root', stype: 'document', content: ['slide', 'vars'] },
+      slide: { sid: 'slide', stype: 'surface', attributes: { kind: 'slide' }, content: ['frame'] },
+      frame: {
+        sid: 'frame',
+        stype: 'textFrame',
+        attributes: { x: 0, y: 0, width: 2000, height: 400, varBinds: [{ attr: 'text', var: '회사' }] },
+        content: ['line']
+      },
+      line: { sid: 'line', stype: 'paragraph', attributes: { fontSize: 44 }, content: ['a', 'b'] },
+      a: { sid: 'a', stype: 'inline-text', attributes: {}, text: '옛 이름' },
+      b: { sid: 'b', stype: 'inline-text', attributes: {}, text: ' 그리고 더' },
+      vars: { sid: 'vars', stype: 'variables', attributes: {}, content: ['v'] },
+      v: { sid: 'v', stype: 'variable', attributes: { name: '회사', value: '바로씨에스' } }
+    });
+
+    expect(boundText(access, access.getNode('frame'))).toBe('바로씨에스');
+    // `text` is not an attribute, so it is not in the attribute answer at all.
+    expect(boundAttrs(access, access.getNode('frame'))).toBeUndefined();
+
+    const drawn = contentWithWords(access, access.getNode('frame'), '바로씨에스') as never as {
+      attributes: Record<string, unknown>;
+      content: { text?: string }[];
+    }[];
+    // One run, the first one's formatting, the variable's characters — the rule a card's bound part
+    // follows, because writing into the first and leaving the rest puts the value on the page
+    // followed by whatever was there next.
+    expect(drawn).toHaveLength(1);
+    expect(drawn[0].attributes.fontSize).toBe(44);
+    expect(drawn[0].content).toEqual([{ sid: 'a', stype: 'inline-text', attributes: {}, text: '바로씨에스' }]);
   });
 });

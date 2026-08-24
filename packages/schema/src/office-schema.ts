@@ -75,6 +75,50 @@ export const CANVAS_PRESENCE_ATTRS = {
    */
   partId: { type: 'string' as const, required: false },
   /**
+   * What this shape takes from the document's **variables**: `[{ attr, var }]`.
+   *
+   * ## Why a shape needs this at all, measured
+   *
+   * A reference where the value goes (`fill: 'var:주의'`, §10h) reaches every attribute the schema
+   * declares as a **string** — and is refused, correctly, in a number or a boolean: an attribute
+   * whose type is "a number, or a string that might name something" is one no reader can trust. So a
+   * corner radius, an opacity, a stroke width and a state could follow a variable **only inside a
+   * card**, where a `componentBind` is a declaration and the value is converted off the document.
+   * A bare rectangle could not, which is an arbitrary line for a reader to meet.
+   *
+   * ## Why an attribute, when this schema has refused a map three times
+   *
+   * The three refusals were about **declarations with an interface** — a variable's name, kind and
+   * label; a placement's answers; a connector's ends and waypoints — things a panel draws rows for
+   * and a validator can hold a document to. Two other shapes were measured and are worse here:
+   *
+   * - **A child node**, like `componentBind` is on a card. Measured against the schema: every scene
+   *   shape is `atom: true`, so this would make rectangles, ellipses, lines and pictures
+   *   *containers* — changing what an atom means for selection, editing, the DOM mapping and paste
+   *   normalisation, to hold two strings.
+   * - **A list beside `variables`**, naming its target. A shape's only durable name is `name`, and
+   *   that is not unique: `namedBoxes` already takes the *first* shape of a name per surface, so a
+   *   binding would silently apply to one of two same-named shapes with nothing to say why.
+   *
+   * What is left is a list of pairs on the shape itself, which also travels with a copy, survives
+   * grouping and reordering, and costs the shared vocabulary **one** attribute rather than one per
+   * bindable attribute — the ceiling that `bindText`/`bindFill`/`bindVisible` had and that
+   * `componentBind` was created to escape (§10g-2).
+   *
+   * ## What may **not** be bound, and why that is measured rather than chosen
+   *
+   * Geometry: `x`, `y`, `width`, `height`, `rotation`. A bound value is resolved where the view
+   * reads a node's children, so what is *drawn* would move while `getNode` still answered the
+   * stored number — and the overlay, the guides, the snapping and every command read that. The
+   * handles would sit where the shape is not. A frame's arrangement is the answer for size (§5b),
+   * and the command refuses these by name.
+   *
+   * Nothing validates `attr` here, deliberately, for `componentBind`'s reason: a content model
+   * cannot see across to another node's declared attributes. The **panel** offers only what the
+   * shape declares and the **command** refuses the rest, which is where that check can be made.
+   */
+  varBinds: { type: 'array' as const, required: false },
+  /**
    * That pressing this box **shows another page**, and which one.
    *
    * ## Why a box and not a link in the text

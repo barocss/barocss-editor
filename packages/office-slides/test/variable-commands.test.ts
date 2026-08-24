@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { DataStore } from '@barocss/datastore';
+import { DataStore, DataStoreExporter } from '@barocss/datastore';
 import { createSchema } from '@barocss/schema';
 import type { Editor } from '@barocss/editor-core';
 import { documentVars, varUses } from '@barocss/office-word';
@@ -121,6 +121,89 @@ describe('the document variable commands', () => {
       expect(await run('setBoxStyle', { nodeIds: [box()], fill: 'var:강조' })).toBe(true);
       expect(doc.getNode(box())?.attributes?.fill).toBe('var:강조');
       expect(varUses(doc as never, '강조')).toBe(1);
+    });
+  });
+
+  /**
+   * What a **shape** takes from one, which is the half a reference could not do.
+   *
+   * A reference commits into a string attribute and is refused in a number or a boolean — measured,
+   * §10h — so a bare shape's corner radius, opacity, state and words need a *declaration* on the
+   * shape. What a command has to get right is the refusals and what the document looks like after.
+   */
+  describe('binding a shape to one', () => {
+    const canBind = (payload?: unknown) =>
+      (editor as never as { canExecuteCommand: (name: string, payload?: unknown) => boolean })
+        .canExecuteCommand('setVarBind', payload);
+
+    beforeEach(async () => {
+      await run('setDocumentVar', { name: '둥글기', kind: 'number', value: '240' });
+      await run('setDocumentVar', { name: '보이기', kind: 'boolean', value: 'false' });
+    });
+
+    it('refuses geometry by name, and an attribute the shape does not declare', () => {
+      /*
+       * Geometry is refused because a bound size is drawn where the resolution says and answered
+       * where the document says — and the overlay, the guides and the snapping read the answer, so
+       * the handles would sit where the shape is not.
+       */
+      for (const attr of ['x', 'y', 'width', 'height', 'rotation']) {
+        expect(canBind({ nodeIds: [box()], attr, var: '둥글기' })).toBe(false);
+      }
+      // The check the schema cannot make: a content model cannot see across to another node's
+      // attributes, so the command asks the schema what this shape declares.
+      expect(canBind({ nodeIds: [box()], attr: 'notAThing', var: '둥글기' })).toBe(false);
+      expect(canBind({ nodeIds: [box()], attr: 'cornerRadius', var: '둥글기' })).toBe(true);
+      // And a variable that is not declared: a binding pointing at nothing is a shape that draws
+      // whatever it last had, with nothing saying why.
+      expect(canBind({ nodeIds: [box()], attr: 'cornerRadius', var: '없음' })).toBe(false);
+      // Taking one off is always allowed, because it can only ever remove something.
+      expect(canBind({ nodeIds: [box()], attr: 'cornerRadius', var: null })).toBe(true);
+    });
+
+    it('writes one declaration, and replaces it rather than adding a second', async () => {
+      expect(await run('setVarBind', { nodeIds: [box()], attr: 'cornerRadius', var: '둥글기' })).toBe(true);
+      expect(doc.getNode(box())?.attributes?.varBinds).toEqual([
+        { attr: 'cornerRadius', var: '둥글기' }
+      ]);
+
+      await run('setVarBind', { nodeIds: [box()], attr: 'visible', var: '보이기' });
+      await run('setVarBind', { nodeIds: [box()], attr: 'cornerRadius', var: '보이기' });
+      /*
+       * One entry per attribute: two about `cornerRadius` would be a shape whose corners depended on
+       * which the resolution read last.
+       */
+      expect(doc.getNode(box())?.attributes?.varBinds).toEqual([
+        { attr: 'visible', var: '보이기' },
+        { attr: 'cornerRadius', var: '보이기' }
+      ]);
+    });
+
+    it('writes the list away entirely when the last one goes', async () => {
+      await run('setVarBind', { nodeIds: [box()], attr: 'cornerRadius', var: '둥글기' });
+      expect(await run('setVarBind', { nodeIds: [box()], attr: 'cornerRadius', var: null })).toBe(true);
+      // Absent, not empty: a shape that takes nothing from a variable is the ordinary case, and an
+      // empty array on every shape is noise in the file.
+      expect(doc.getNode(box())?.attributes?.varBinds).toBeUndefined();
+    });
+
+    it('draws the bound value, and leaves the document saying what it said', async () => {
+      await run('setVarBind', { nodeIds: [box()], attr: 'cornerRadius', var: '둥글기' });
+
+      /*
+       * Through the store's own resolution — the proxy the view reads children with — because that
+       * is where a bound attribute is answered: `attrsOf` is read in 62 places inside the renderers
+       * and has no document to look a variable up in.
+       */
+      const proxy = new DataStoreExporter(store as never).toProxy(doc.rootId) as never as {
+        content: { content: { attributes: Record<string, unknown> }[] }[];
+      };
+      const drawn = proxy.content[0].content[0];
+      expect(drawn.attributes.cornerRadius).toBe(240);
+
+      // And the document is untouched: the shape says what it takes, not what it took. Changing the
+      // variable is one write, and nothing on any slide has to be rewritten.
+      expect(doc.getNode(box())?.attributes?.cornerRadius).toBeUndefined();
     });
   });
 

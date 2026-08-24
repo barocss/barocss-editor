@@ -211,3 +211,48 @@ function withText(node: CanvasNode, text: string): Partial<CanvasNode> & { text?
   const first = content[0] as CanvasNode;
   return { content: [{ ...first, ...withText(first, text) }] } as never;
 }
+
+/**
+ * The children a node draws when its **words** come from a variable.
+ *
+ * The same rule a bound part follows — the runs collapse to one, keeping the first one's formatting,
+ * so the shape's font survives and the value is all it says. Written into resolved *copies*, so the
+ * document still holds whatever the reader typed and taking the binding off brings it back.
+ *
+ * Children resolved from their sids first, because a bare shape's are stored ids where a resolved
+ * part's are already objects: one function, both callers, and the walk is where the difference lives.
+ */
+export function contentWithWords(
+  doc: CanvasAccess,
+  node: CanvasNode | undefined,
+  words: string
+): CanvasNode[] {
+  const kids = childrenOf(node)
+    .map((sid) => doc.getNode(sid))
+    .filter((child): child is CanvasNode => !!child);
+
+  // Nothing to write into: a text frame with no paragraph draws nothing either way, and inventing
+  // one here would be this function deciding what a paragraph looks like.
+  if (kids.length === 0) return kids;
+
+  const [first] = kids;
+  const rewritten = { ...first, ...withText(deepen(doc, first), words) };
+  return [rewritten as CanvasNode];
+}
+
+/**
+ * A node with its children as objects, one level at a time, so `withText` can walk into it.
+ *
+ * A stored node's `content` is sids and `withText` reads objects — it was written for the resolved
+ * tree, where children already are. Resolving lazily rather than copying the whole subtree keeps a
+ * long paragraph from being rebuilt to change one run.
+ */
+function deepen(doc: CanvasAccess, node: CanvasNode, depth = 0): CanvasNode {
+  if (depth > 8) return node;
+  const kids = childrenOf(node).map((sid) => doc.getNode(sid));
+  if (kids.length === 0) return node;
+  return {
+    ...node,
+    content: kids.filter(Boolean).map((child) => deepen(doc, child as CanvasNode, depth + 1))
+  } as never;
+}

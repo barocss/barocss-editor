@@ -625,6 +625,16 @@ export {
   varNameOf,
   varRef,
   varUses,
+  /**
+   * What a **shape** takes from a variable, for the attributes a reference cannot sit in — a number,
+   * a state, a shape's words. `UNBINDABLE` is what a binding may not touch, and it is in the model so
+   * the panel and the command cannot disagree about it.
+   */
+  varBindsOf,
+  boundAttrs,
+  boundText,
+  UNBINDABLE,
+  type VarBind,
   type DocumentVar
 } from '@barocss/office-word';
 

@@ -230,6 +230,8 @@ describe('Slides draws what its schema declares', () => {
           'the properties panel — a definition’s own 크기 row, drawn while the reader is standing in one. The only place a card’s size can be changed: a placement’s extent *is* the card’s, so its own fields are greyed and the overlay draws it no resize handles',
         setComponentVar:
           'the components panel — the 변수 list, drawn while a definition is open: a label, a kind, a default, and 추가 for a new one. Beside the definition rather than on a part, because a variable belongs to the card — an accent colour used by three parts is one decision, which is the whole reason a declaration exists',
+        setVarBind:
+          'the properties panel — the 문서 변수 연결 group on an ordinary shape: one row per attribute the shape declares, each offering the document variables whose kind fits. Beside the card’s own rows rather than mixed into them, because they are two scopes and a reader has to see which they are choosing. Geometry is not offered at all (`UNBINDABLE`), which is measured rather than chosen: a bound size would be drawn where the resolution says and answered where the document says, and the overlay reads the answer',
         setDocumentVar:
           'the components panel — the 문서 변수 list, above the card’s and drawn always, because a document variable is a fact about the document and there is nothing to be standing in. Each row says how many places name it (`varUses`), which is what a reader needs before changing one everywhere or deleting one: a reference to a name that is gone draws nothing',
         setComponentBind:

@@ -23,7 +23,7 @@ import { createBoxCommands } from './box-commands';
 import { createArrangeCommands } from './arrange-commands';
 import { createComponentCommands } from './component-commands';
 import { createVariableCommands } from './variable-commands';
-import { instanceParts } from '@barocss/office-word';
+import { boundAttrs, boundText, contentWithWords, instanceParts } from '@barocss/office-word';
 import { createConnectorCommands } from './connector-commands';
 import { createClipboardCommands } from './clipboard-commands';
 import { createLayoutCommands, createWordTables } from '@barocss/office-word';
@@ -215,10 +215,46 @@ export function createSlidesEditor(options: SlidesEditorOptions = {}): Editor {
    */
   const store = (editor as any).dataStore;
   store?.setContentResolver?.((node: any, getNode: (sid: string) => any) => {
-    if (node?.stype !== 'instance') return undefined;
     const rootId = (editor as any).getRootId?.();
     if (!rootId) return undefined;
-    return instanceParts({ rootId, getNode } as never, node as never) as never;
+    const doc = { rootId, getNode } as never;
+
+    if (node?.stype === 'instance') return instanceParts(doc, node as never) as never;
+
+    /**
+     * And a shape that takes something from a **variable** (`varBinds`, §10h-2).
+     *
+     * Here for the reason the same question was asked of the renderers and answered no: `attrsOf` is
+     * read in 62 places inside them and has no document to look a variable up in, so a bound corner
+     * radius would have reached the paint and not the border radius. Children are resolved in one
+     * place, and a parent's resolution is the one place that can hand back a child *as it is drawn*.
+     *
+     * Two halves, and both are declarations rather than references in typed attributes:
+     *
+     * - a child's **attributes**, with its bindings written in (`boundAttrs`), because a number and
+     *   a state cannot be written as `var:` and be validated;
+     * - this node's own **words** (`boundText`), because characters are content and not an attribute
+     *   at all — the same reason a card's binding may say `text`.
+     *
+     * Answers `undefined` unless something is actually bound, so a deck with no bindings copies
+     * nothing and pays one array check per node.
+     */
+    const words = boundText(doc, node as never);
+    if (words !== undefined) return contentWithWords(doc, node as never, words) as never;
+
+    const kids = Array.isArray(node?.content) ? (node.content as unknown[]) : [];
+    if (kids.length === 0) return undefined;
+
+    const resolved = kids.map((child) => {
+      const held = typeof child === 'string' ? getNode(child) : (child as any);
+      if (!held) return held;
+      const attrs = boundAttrs(doc, held as never);
+      return attrs ? { ...held, attributes: attrs } : held;
+    });
+
+    return resolved.some((child, at) => child !== (typeof kids[at] === 'string' ? getNode(kids[at] as string) : kids[at]))
+      ? (resolved as never)
+      : undefined;
   });
 
   return editor;

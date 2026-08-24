@@ -1801,6 +1801,61 @@ The panel says **how many places use it** before the reader presses 지우기, c
 rather than remembered: a number kept on the declaration would have to be maintained by a write on
 every shape that took the colour.
 
+#### 10h-2. What a **shape** takes from a variable
+
+The table above is the whole reason this section has a second half: a reference reaches every
+attribute the schema declares as a string and is refused, correctly, in a number or a boolean. So a
+corner radius, an opacity, a stroke width, a state and a shape's words could follow a variable **only
+inside a card** — and "make it a component first" is an arbitrary thing to say to somebody who wants
+one rectangle's corners to follow the deck.
+
+A shape says it in a **declaration** instead: `varBinds: [{ attr, var }]`, the same two fields a
+card's `componentBind` has, on the shape itself.
+
+##### Three shapes were measured; two are worse
+
+| | why not |
+| --- | --- |
+| a child node, like a card's `componentBind` | every scene shape is `atom: true` — this would make rectangles, ellipses, lines and pictures *containers*, changing what an atom means for selection, editing, the DOM mapping and paste normalisation, to hold two strings |
+| a list beside `variables`, naming its target | a shape's only durable name is `name`, and it is not unique: `namedBoxes` already takes the **first** shape of a name per surface, so a binding would silently apply to one of two same-named shapes |
+| one attribute per bindable attribute (`cornerRadiusVar`, …) | the `bindText`/`bindFill`/`bindVisible` ceiling that `componentBind` was created to escape (§10g-2): one entry in the *shared* canvas vocabulary per attribute, each costing an exemption in every product that does not read it |
+
+What is left costs the shared vocabulary one attribute, travels with a copy, and survives grouping
+and reordering — and it is the fourth time this schema has been asked for a map in an attribute. The
+three refusals were about **declarations with an interface** (a variable's name, kind and label; a
+placement's answers; a connector's ends and waypoints) that a panel draws rows for and a validator
+can hold a document to. This is a list of two strings whose target the schema could not check anyway
+— which is exactly what `componentBind` says about `attr`, and why the *command* checks it.
+
+##### Where it is resolved, and why not in the renderers
+
+In the content resolver, beside the placements (§10b-2a). Asked of the renderers first and answered
+no by measurement: `attrsOf` is read in **62 places** inside them and takes no environment, so a
+bound corner radius would have reached the paint (which does have the document) and not the border
+radius (which does not).
+
+Two halves, for the same reason the card's binding has two: a child's **attributes** are resolved by
+the parent handing back the child as it is drawn, and a node's own **words** are resolved as its
+children, because characters are content and not an attribute. The resolver answers `undefined`
+unless something is actually bound, so a deck with no bindings copies nothing.
+
+##### Geometry is refused, and that is measured rather than chosen
+
+`x`, `y`, `width`, `height`, `rotation`. A bound value is resolved where the view reads children, so
+what is **drawn** would move while `getNode` went on answering the stored number — and the overlay,
+the guides, the snapping and every command read `getNode`. The handles would sit where the shape is
+not, which is the fault §10b-12 exists to avoid one node type along. A frame's arrangement (§5b) is
+the answer for size, and `UNBINDABLE` lives in the model so the panel and the command cannot
+disagree about the list.
+
+##### A binding that points at nothing keeps the shape's own value
+
+Different from a dead *reference*, and the difference is what the document said. `fill: 'var:주의'`
+says *this value **is** the variable*, so a missing name draws nothing (고칠 것). `varBinds` says *take
+it from the variable if there is one*, so a missing name leaves the shape drawing what it holds — the
+slide is not broken, and the reader has a declaration that does nothing, which the check reports as
+볼 것.
+
 #### Where the containers go, measured
 
 `document` is `docMeta? surface+ resources? components? variables?`, and the order is not decoration:

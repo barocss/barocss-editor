@@ -690,14 +690,32 @@ shipped features marked undone.
   shape through a card, where a binding is a declaration and the conversion happens off the
   document.
 
-- [ ] **A bare shape cannot take a number, a state or its words from a variable.** The three cases
-  the measurement above rules out, and the honest fix is one thing: a **per-shape binding
-  declaration**, the same shape as `componentBind` (`{attr, var}`), so the reference lives in a node
-  instead of in a typed attribute. Two open questions worth measuring before writing it: where the
-  declaration lives (a child of the shape means widening every scene node's content model; a list
-  beside `variables` means naming the shape, which needs a durable id — shapes have `name`, which
-  motion already relies on), and whether the resolution belongs in the content resolver (which would
-  then be resolving *attributes*, not children, for the first time).
+- [x] **A bare shape takes a number, a state or its words from a variable now** — `varBinds` on the
+  shape, `{attr, var}` like a card's binding, resolved in the content resolver (§10h-2). Both open
+  questions were answered by measurement rather than by argument:
+
+  - **Where the declaration lives.** Not a child node: every scene shape is `atom: true`, so that
+    would turn rectangles, ellipses, lines and pictures into containers — changing what an atom means
+    for selection, editing, the DOM mapping and paste normalisation, to hold two strings. Not a list
+    beside `variables` either: a shape's only durable name is `name` and it is not unique
+    (`namedBoxes` takes the first of a name per surface), so a binding would silently apply to one of
+    two same-named shapes.
+  - **Where it is resolved.** The renderers cannot: `attrsOf` is read in **62 places** inside them
+    and takes no environment, so a bound corner radius would have reached the paint and not the
+    border radius. The resolver it is — and it resolves *attributes* there for the first time, by a
+    parent handing back a child as it is drawn, with a node's own words resolved as its children
+    because characters are content.
+
+  And one refusal, measured: geometry (`x`, `y`, `width`, `height`, `rotation`) cannot be bound,
+  because a bound size would be drawn where the resolution says and answered where the document says
+  — and the overlay, the guides, the snapping and every command read the answer. `UNBINDABLE` is in
+  the model so the panel and the command cannot disagree.
+
+- [ ] **A bound *geometry* would need the overlay to read what is drawn.** Refused above for a
+  measured reason rather than a permanent one: the day the overlay, the guides and the snapping ask
+  the resolution instead of `getNode`, a width could follow a variable. That is a change to how the
+  chrome reads the document, so it wants its own measurement — start by counting the places that read
+  `getNode` for geometry.
 
 - [ ] **A variable cannot be renamed**, like every other durable reference here. The label is what a
   reader changes. If renaming is ever wanted it is a migration — every attribute in every slide and

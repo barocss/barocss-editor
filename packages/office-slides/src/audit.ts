@@ -10,6 +10,7 @@ import {
   documentVars,
   instanceParts,
   isVarRef,
+  varBindsOf,
   varNameOf
 } from '@barocss/office-word';
 
@@ -212,6 +213,27 @@ export function auditDeck(doc: DeckAccess): AuditHit[] {
           sid,
           what: `없는 컴포넌트를 놓았습니다: ${typeof named === 'string' && named ? named : '이름 없음'}`,
           hint: '그 컴포넌트가 있는 덱에서 다시 복사해 오거나, 이 자리를 지우세요. 지금은 아무것도 그려지지 않습니다.'
+        });
+      }
+
+      /**
+       * A **binding** naming a variable the document does not declare.
+       *
+       * A look rather than a fault, and the difference from the reference below is what the document
+       * *said*: a reference says "this value **is** the variable", so losing it draws nothing; a
+       * binding says "take it from the variable if there is one", so losing it leaves the shape
+       * drawing whatever it holds. Nothing is broken on the slide — but the reader has a declaration
+       * that does nothing, and no other way to find out.
+       */
+      for (const bind of varBindsOf(node as never)) {
+        if (documentVars(doc as never).some((one) => one.name === bind.var)) continue;
+        hits.push({
+          kind: 'dead-var',
+          level: 'check',
+          slideSid: slide.sid,
+          sid,
+          what: `없는 변수에 연결돼 있습니다: ${bind.var}`,
+          hint: also(`문서 변수 ${bind.var}을 다시 만들거나, 이 연결을 지우세요. 지금은 상자에 있는 값이 그려집니다.`)
         });
       }
 

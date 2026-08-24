@@ -57,7 +57,11 @@ import {
   componentsOf,
   instanceVars,
   documentVars,
+  varBindsOf,
   varRef,
+  UNBINDABLE,
+  type DocumentVar,
+  type VarBind,
   type Slide
 } from '@barocss/office-slides';
 
@@ -1181,6 +1185,19 @@ export function Properties({
             */}
           {box?.sid && <PartGroup editor={editor} sid={box.sid as string} locked={locked} tick={tick} />}
 
+          {/*
+            * And what an **ordinary shape** takes from the document's variables.
+            *
+            * The same rows as a card's part, about the document instead of the card — because a
+            * reference (`fill: 'var:주의'`) only fits where the schema says a string goes, and a
+            * number, a state and a shape's words needed a declaration (§10h-2). Drawn only when the
+            * document has variables of its own: a group of empty selects on every shape is chrome
+            * for a feature the deck is not using.
+            */}
+          {box?.sid && targets.length > 0 && (
+            <BindGroup editor={editor} sids={targets} locked={locked} tick={tick} />
+          )}
+
           {declares('startNodeId') && (
             <PropertyGroup label="연결선">
               <PropertyRow label="경로">
@@ -2072,6 +2089,127 @@ function ComponentGroup({
  * only produce a value nothing draws — and the kinds are the schema's own, which is what makes this
  * a filter rather than an opinion.
  */
+/**
+ * What an ordinary shape takes from the **document's** variables.
+ *
+ * ## Why this exists beside the colour picker
+ *
+ * A colour can already be a reference typed into the attribute (`fill: 'var:주의'`) and the picker
+ * offers those — but a **number**, a **state** and a shape's **words** cannot: measured with a
+ * transaction, a reference commits into a string attribute and is refused in a number or a boolean,
+ * which is the validator doing its job (§10h). So those need a declaration, and this is where a
+ * reader makes one.
+ *
+ * ## Why the rows are the same as a card part's
+ *
+ * Because it is the same question one scope out: *what drives this attribute*. A reader who has
+ * bound a card's badge to a state should meet the same control on a rectangle, and the only
+ * difference is which list of variables is offered — the card's, or the document's.
+ *
+ * Geometry is not offered, and that is the measured half: a bound size would be **drawn** where the
+ * resolution says and **answered** where the document says, and the overlay, the guides and the
+ * snapping all read the answer — so the handles would sit where the shape is not. `UNBINDABLE` is
+ * that list, in the model, so the panel and the command cannot disagree about it.
+ */
+function BindGroup({
+  editor,
+  sids,
+  locked,
+  tick
+}: {
+  editor: Editor | null;
+  /** Every selected shape: one binding, written to all of them, or refused for all of them. */
+  sids: string[];
+  locked: boolean;
+  tick: number;
+}) {
+  const { vars, binds, stype, declares, inCard } = useMemo(() => {
+    const store = (editor as any)?.dataStore;
+    const rootId = (editor as any)?.getRootId?.();
+    const nothing = {
+      vars: [] as DocumentVar[],
+      binds: [] as VarBind[],
+      stype: undefined as string | undefined,
+      declares: [] as string[],
+      inCard: false
+    };
+    if (!store || !rootId || sids.length === 0) return nothing;
+
+    const doc = { rootId, getNode: (one: string) => store.getNode(one) };
+    const node = store.getNode(sids[0]);
+    const schema = store.getActiveSchema?.();
+    const declared = schema?.getNodeType?.(node?.stype ?? '')?.attrs ?? {};
+
+    return {
+      vars: documentVars(doc as never) as DocumentVar[],
+      /*
+       * The first shape's bindings, and the rows are written to all of them. A selection that
+       * disagrees shows the first one's answer, which is what every other multi-select row here does
+       * — and editing one writes it to the whole selection, which is what a reader means by
+       * selecting three things.
+       */
+      binds: varBindsOf(node as never) as VarBind[],
+      stype: node?.stype as string | undefined,
+      declares: Object.keys(declared).filter(
+        (name) => !OFF_LIMITS.has(name) && !UNBINDABLE.has(name)
+      ),
+      // Inside a definition the *card's* rows are the ones that make sense, and they are drawn by
+      // `PartGroup` right above. Two groups offering two lists for one attribute is a panel asking
+      // the reader to know which is which.
+      inCard: !!definitionAt(doc as never, sids[0])
+    };
+  }, [editor, sids, tick]);
+
+  // Nothing to bind to, or a place where the card's own bindings are the answer.
+  if (vars.length === 0 || inCard) return null;
+
+  const bind = (attr: string, name: string | null) =>
+    void (editor as any)?.executeCommand?.('setVarBind', { nodeIds: sids, attr, var: name });
+
+  const bound = (attr: string) => binds.find((one) => one.attr === attr)?.var ?? '';
+
+  /** The variables whose kind fits an attribute — the same rule the card's rows follow. */
+  const fitting = (attr: string) => {
+    const kinds =
+      attr === 'text'
+        ? ['text', 'number', 'choice']
+        : COLOUR_ATTRS.has(attr)
+          ? ['color', 'text']
+          : BOOLEAN_ATTRS.has(attr)
+            ? ['boolean']
+            : ['number', 'text'];
+    return [
+      { id: '', label: '없음' },
+      ...vars
+        .filter((one) => kinds.includes(one.kind))
+        .map((one) => ({ id: one.name, label: one.label || one.name }))
+    ];
+  };
+
+  const rows = [
+    ...(stype === 'textFrame' || stype === 'sticky' ? ['text'] : []),
+    ...declares.filter((name) => name !== 'text')
+  ];
+
+  return (
+    <PropertyGroup label="문서 변수 연결">
+      {rows.map((attr) => (
+        <PropertyRow key={attr} label={LABELS[attr] ?? attr}>
+          {/* Named rather than marked in the markup: `PropertyChoice` is a shared control and
+              takes no `data` — a test finds this row by the label, like every other row here. */}
+          <PropertyChoice
+            ariaLabel={`${LABELS[attr] ?? attr} 문서 변수`}
+            value={bound(attr)}
+            options={fitting(attr)}
+            disabled={locked}
+            onChange={(name) => bind(attr, name || null)}
+          />
+        </PropertyRow>
+      ))}
+    </PropertyGroup>
+  );
+}
+
 function PartGroup({
   editor,
   sid,

@@ -375,7 +375,14 @@ export {
  * is the one place a node's children are read for a reader. See `canvas-model.md` §10b-2a for why
  * it is there rather than in a renderer — measured both ways.
  */
-export { instanceParts } from './canvas-instance';
+export {
+  instanceParts,
+  /**
+   * The children a node draws when its **words** come from a variable — one run, the first one's
+   * formatting, the variable's characters. The same rule a card's bound part follows.
+   */
+  contentWithWords
+} from './canvas-instance';
 /**
  * The document's own **named values** — one place says what a value is, everything else says its
  * name.
@@ -393,6 +400,19 @@ export {
   varNameOf,
   varRef,
   varUses,
+  /**
+   * What a **shape** takes from a variable, for the attributes a reference cannot sit in.
+   *
+   * A number, a state and a shape's words could follow a variable only inside a card, where a
+   * binding is a declaration; this is that declaration for a bare shape. `UNBINDABLE` is the
+   * measured half — geometry is refused, because a bound size would be drawn in one place and
+   * answered in another, and the overlay reads the answer.
+   */
+  varBindsOf,
+  boundAttrs,
+  boundText,
+  UNBINDABLE,
+  type VarBind,
   type DocumentVar
 } from './canvas-variable';
 /**

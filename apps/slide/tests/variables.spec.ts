@@ -84,6 +84,71 @@ test.describe('the deck’s own variables', () => {
     expect(after.filter((colour) => colour === 'rgb(239, 68, 68)')).toHaveLength(0);
   });
 
+  /**
+   * A **number** from a variable, which a reference could not do.
+   *
+   * Measured with a transaction: a reference commits into a string attribute and is refused in a
+   * number or a boolean, so this is the half that needed a declaration on the shape. What only a
+   * browser shows is that the declaration reaches the **drawing** — the resolution runs where the
+   * view reads children, and nothing in the renderers had to learn about variables.
+   */
+  test('drive a number on an ordinary shape, through the panel', async ({ page }) => {
+    await openDeck(page);
+    await panel(page);
+
+    // A number variable of the deck's own.
+    await page.locator('[data-doc-var-new] input, input[data-doc-var-new]').fill('둥글기');
+    await page.locator('[data-doc-var-add]').click();
+    await page.waitForTimeout(500);
+    await page.locator('[data-doc-var-row="둥글기"] select').first().selectOption('number');
+    await page.waitForTimeout(400);
+    const value = page.locator('[data-doc-var-value="둥글기"] input, input[data-doc-var-value="둥글기"]');
+    await value.fill('600');
+    await value.press('Enter');
+    await page.waitForTimeout(500);
+
+    // A rectangle of the reader's own.
+    await page.getByRole('button', { name: '사각형' }).click();
+    await expect
+      .poll(() => page.evaluate(() => (window as any).editor?.selection?.nodeIds?.[0] ?? null))
+      .not.toBeNull();
+
+    /*
+     * The row is in the properties panel beside the card's own, and it offers only the variables
+     * whose kind fits: a colour in a 둥근 정도 row would be a swatch with nothing to draw.
+     */
+    const row = page.locator('.sl-properties').getByLabel('둥근 정도 문서 변수');
+    await expect(row).toHaveCount(1);
+    await row.selectOption('둥글기');
+    await page.waitForTimeout(700);
+
+    // Drawn: 600 twips is 40px at 1:1, scaled by the stage, so the assertion is that the corner is
+    // rounded by more than a hairline.
+    const rounded = await page.evaluate(() => {
+      const sid = (window as any).editor.selection?.nodeIds?.[0];
+      const box = document.querySelector(`.sl-stage [data-bc-sid="${sid}"]`) as HTMLElement | null;
+      return box ? parseFloat(getComputedStyle(box).borderTopLeftRadius) : 0;
+    });
+    expect(rounded).toBeGreaterThan(2);
+
+    /*
+     * And the document says what it *takes*, not what it took: one declaration, no `cornerRadius` on
+     * the shape at all. Which is the whole point — changing the variable is one write and every
+     * shape bound to it is drawn again.
+     */
+    const held = await page.evaluate(() => {
+      const editor = (window as any).editor;
+      const attrs = editor.dataStore.getNode(editor.selection?.nodeIds?.[0])?.attributes ?? {};
+      return { binds: attrs.varBinds, own: attrs.cornerRadius };
+    });
+    expect(held.binds).toEqual([{ attr: 'cornerRadius', var: '둥글기' }]);
+    expect(held.own).toBeUndefined();
+
+    // Geometry is not offered at all, which is the measured refusal: a bound size would be drawn
+    // where the resolution says and answered where the document says.
+    await expect(page.locator('.sl-properties').getByLabel('너비 문서 변수')).toHaveCount(0);
+  });
+
   test('are offered where a colour is chosen, so nobody types “var:”', async ({ page }) => {
     await openDeck(page);
     await cardsSlide(page);

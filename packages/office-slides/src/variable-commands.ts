@@ -1,7 +1,7 @@
 import { Editor, Extension } from '@barocss/editor-core';
 import { transaction } from '@barocss/model';
 import { documentChildSpot } from '@barocss/schema';
-import { documentVars, varUses } from '@barocss/office-word';
+import { documentVars, varBindsOf, varUses, UNBINDABLE, type VarBind } from '@barocss/office-word';
 import { childrenOf, type DeckAccess } from './deck';
 
 /**
@@ -71,6 +71,92 @@ export class SlidesVariableExtension implements Extension {
         return said.remove === true ? declared : true;
       }
     );
+
+    /**
+     * What a **shape** takes from a variable: `setVarBind({ nodeIds, attr, var })`, and `var: null`
+     * takes it off.
+     *
+     * A declaration on the shape (`varBinds`), not a reference in the attribute, because a reference
+     * only fits where the schema says a string goes — measured, §10h. This is what lets a bare
+     * rectangle's corner radius, a shape's opacity, a state and a text box's words follow the
+     * document, which until now only worked inside a card.
+     *
+     * ## The two refusals
+     *
+     * **Geometry.** `x`, `y`, `width`, `height`, `rotation` are refused by name: a bound value is
+     * resolved where the view reads children, so what is drawn would move while `getNode` answered
+     * the stored number — and the overlay, the guides, the snapping and every command read
+     * `getNode`. The handles would sit where the shape is not.
+     *
+     * **An attribute the shape does not declare.** The schema cannot check the target of a binding
+     * (a content model cannot see across to another node's attributes), so the check is here, which
+     * is the same division `setComponentBind` makes. `text` is always allowed and is not an
+     * attribute: the words are content.
+     */
+    register(
+      'setVarBind',
+      async (payload) => await this._setBind(editor, payload as never),
+      (payload) => {
+        const said = payload as
+          | { nodeIds?: unknown; nodeId?: unknown; attr?: unknown; var?: unknown }
+          | undefined;
+        const doc = this._access(editor);
+        if (!doc || typeof said?.attr !== 'string' || !said.attr) return false;
+        if (UNBINDABLE.has(said.attr)) return false;
+
+        const ids = idsOf(said);
+        if (ids.length === 0) return false;
+        // Every one of them, because a gesture that half applies is worse than one that refuses:
+        // the panel greys out and the reader is told rather than left guessing which box took it.
+        if (!ids.every((sid) => bindableOn(editor, doc, sid, said.attr as string))) return false;
+
+        if (said.var === null) return true;
+        return (
+          typeof said.var === 'string' &&
+          documentVars(doc as never).some((one) => one.name === said.var)
+        );
+      }
+    );
+  }
+
+  /**
+   * Write — or take away — one binding on each of the given shapes.
+   *
+   * Replaced rather than added when the same attribute is named again: a shape that took 주의 in its
+   * fill and now takes 강조 is one decision, and two entries about one attribute would be a shape
+   * whose colour depended on which the resolution read last.
+   */
+  private async _setBind(
+    editor: Editor,
+    payload: { nodeIds?: string[]; nodeId?: string; attr?: string; var?: string | null }
+  ): Promise<boolean> {
+    const doc = this._access(editor);
+    if (!doc || typeof payload?.attr !== 'string' || !payload.attr) return false;
+
+    const steps: unknown[] = [];
+    for (const sid of idsOf(payload)) {
+      const node = doc.getNode(sid);
+      if (!node) continue;
+
+      const kept = varBindsOf(node as never).filter((one) => one.attr !== payload.attr);
+      const next: VarBind[] =
+        typeof payload.var === 'string' && payload.var
+          ? [...kept, { attr: payload.attr, var: payload.var }]
+          : kept;
+
+      steps.push({
+        type: 'setAttrs',
+        payload: {
+          nodeId: sid,
+          // An empty list is written as **absent**: a shape that takes nothing from a variable is
+          // the ordinary case, and an empty array on every shape is noise in the file.
+          attrs: { varBinds: next.length > 0 ? next : null }
+        }
+      });
+    }
+
+    if (steps.length === 0) return false;
+    return (await transaction(editor, steps as never).commit()).success === true;
   }
 
   private _access(editor: Editor): DeckAccess | null {
@@ -214,4 +300,30 @@ export function documentVarUses(doc: DeckAccess, name: string): number {
 
 export function createVariableCommands(): Extension {
   return new SlidesVariableExtension();
+}
+
+/** The shapes a payload names, one or many. */
+function idsOf(payload: { nodeIds?: unknown; nodeId?: unknown } | undefined): string[] {
+  if (Array.isArray(payload?.nodeIds)) {
+    return payload!.nodeIds.filter((sid): sid is string => typeof sid === 'string');
+  }
+  return typeof payload?.nodeId === 'string' ? [payload.nodeId] : [];
+}
+
+/**
+ * Whether this shape declares that attribute — the check the schema cannot make.
+ *
+ * Asked of the **schema**, through the store, so it is the same answer the validator would give
+ * rather than a list kept here that would go out of date the day an attribute was added.
+ */
+function bindableOn(editor: Editor, doc: DeckAccess, sid: string, attr: string): boolean {
+  const node = doc.getNode(sid);
+  if (!node) return false;
+  // The words are content, not an attribute, and every node that holds text can take them.
+  if (attr === 'text') return true;
+
+  const schema = (editor as never as { dataStore?: { getActiveSchema?: () => unknown } }).dataStore?.getActiveSchema?.();
+  const attrs = (schema as { getNodeType?: (t: string) => { attrs?: Record<string, unknown> } })
+    ?.getNodeType?.(node.stype ?? '')?.attrs;
+  return !!attrs && attr in attrs;
 }

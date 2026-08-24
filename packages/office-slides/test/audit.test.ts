@@ -172,6 +172,34 @@ describe('what the sweep can see', () => {
     expect(kinds(auditDeck(nested({ stype: 'frame', content: ['p'] })))).toContain('alt');
   });
 
+  it('tells a reader about a binding that points at nothing, as a look rather than a fault', () => {
+    /*
+     * The difference from a dead *reference* is what the document said: a reference says "this value
+     * **is** the variable", so losing it draws nothing and is 고칠 것; a binding says "take it from the
+     * variable if there is one", so losing it leaves the shape drawing what it holds — nothing is
+     * broken on the slide, and the reader still has a declaration that does nothing.
+     */
+    const hits = auditDeck(
+      deck({
+        root: { sid: 'root', stype: 'document', attributes: {}, content: ['s'] },
+        s: { sid: 's', stype: 'surface', attributes: {}, content: ['a'] },
+        a: {
+          sid: 'a',
+          stype: 'rectangle',
+          attributes: at({
+            width: 1000,
+            height: 800,
+            cornerRadius: 40,
+            varBinds: [{ attr: 'cornerRadius', var: '없음' }]
+          })
+        }
+      })
+    );
+    const dead = hits.filter((hit) => hit.kind === 'dead-var');
+    expect(dead.map((hit) => [hit.sid, hit.level])).toEqual([['a', 'check']]);
+    expect(dead[0].what).toContain('없음');
+  });
+
   it('says where a placement names a card the deck does not define', () => {
     /*
      * The fault a clipboard used to make in silence: a placement holds no parts, so one with no

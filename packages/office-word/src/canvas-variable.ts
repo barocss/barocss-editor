@@ -196,3 +196,115 @@ export function varUses(doc: CanvasAccess, name: string): number {
   walk(doc.rootId, 0, false);
   return count;
 }
+
+/**
+ * One thing a **shape** takes from a variable: which of its attributes, and which variable.
+ *
+ * A card says this with a `componentBind` node; a shape says it in a list on itself (`varBinds`) —
+ * the schema's comment has the three shapes that were measured and why this is the one left. What
+ * they have in common is the important part: a **declaration**, so the reference never has to sit in
+ * a typed attribute and be refused by the validator.
+ */
+export interface VarBind {
+  /** The attribute to write — or the reserved word `text`, because words are content. */
+  attr: string;
+  /** The variable's name. */
+  var: string;
+}
+
+/**
+ * What a reader may **not** bind, and this is the measured half of the feature.
+ *
+ * A bound value is resolved where the view reads a node's children, so a bound `width` would be
+ * *drawn* at one size while `getNode` went on answering the stored one — and the overlay, the
+ * guides, the snapping and every command read `getNode`. The handles would sit where the shape is
+ * not, which is the fault §10b-12 exists to avoid in another place.
+ *
+ * `rotation` is here for the same reason, and a frame's arrangement (§5b) is the answer for size.
+ */
+export const UNBINDABLE = new Set(['x', 'y', 'width', 'height', 'rotation']);
+
+/** The bindings a node declares, read defensively — a document is an author's. */
+export function varBindsOf(node: CanvasNode | undefined): VarBind[] {
+  const held = node?.attributes?.varBinds;
+  if (!Array.isArray(held)) return [];
+
+  const found: VarBind[] = [];
+  for (const entry of held) {
+    if (!entry || typeof entry !== 'object') continue;
+    const attr = (entry as { attr?: unknown }).attr;
+    const name = (entry as { var?: unknown }).var;
+    if (typeof attr !== 'string' || !attr || typeof name !== 'string' || !name) continue;
+    found.push({ attr, var: name });
+  }
+  return found;
+}
+
+/**
+ * A value as the attribute needs it: a number where a number goes, `false` where a state is off.
+ *
+ * The same conversion a card's binding does (`canvas-instance.ts`), and for the same reason: the
+ * document keeps a variable's value as a string — one shape to write, diff and check — and an
+ * attribute that means a length has to be a number by the time it is drawn.
+ *
+ * `true` is written as **absent**, because that is what the drawing says: `visible: true` beside no
+ * `visible` at all is the same drawing, which is the asymmetry the conformance probe finds in every
+ * boolean.
+ */
+function asAttribute(value: string): { skip: boolean; value?: unknown } {
+  if (value === 'true') return { skip: true };
+  if (value === 'false') return { skip: false, value: false };
+
+  const asNumber = Number(value);
+  if (value.trim() !== '' && Number.isFinite(asNumber)) return { skip: false, value: asNumber };
+  return { skip: false, value };
+}
+
+/**
+ * The node's attributes with its bindings written in, or **nothing** when there is no binding.
+ *
+ * Answering `undefined` rather than a copy is what keeps this cheap enough to ask on every read: a
+ * deck with no bindings pays one array check per node and copies nothing.
+ *
+ * A binding naming a variable the document does not declare leaves the attribute **alone** — the
+ * shape keeps whatever it says, rather than losing it. That differs from a `var:` reference in an
+ * attribute, which resolves to nothing and draws nothing, and the difference is honest: there the
+ * document says "this value *is* the variable", here it says "take it from the variable if there is
+ * one". The deck's own check reports both.
+ */
+export function boundAttrs(
+  doc: CanvasAccess,
+  node: CanvasNode | undefined
+): Record<string, unknown> | undefined {
+  const binds = varBindsOf(node).filter((bind) => bind.attr !== 'text' && !UNBINDABLE.has(bind.attr));
+  if (binds.length === 0) return undefined;
+
+  const attrs = { ...((node?.attributes ?? {}) as Record<string, unknown>) };
+  let touched = false;
+
+  for (const bind of binds) {
+    const found = documentVar(doc, bind.var);
+    if (!found || found.value === '') continue;
+
+    const written = asAttribute(found.value);
+    touched = true;
+    if (written.skip) delete attrs[bind.attr];
+    else attrs[bind.attr] = written.value;
+  }
+
+  return touched ? attrs : undefined;
+}
+
+/**
+ * The words a node takes from a variable, when it takes its words from one.
+ *
+ * `text` is not an attribute — the characters are *content* — so this is answered separately and
+ * applied where a node's children are resolved. A text frame bound to 회사이름 draws the company
+ * name and holds none of it, exactly as a card's bound part does.
+ */
+export function boundText(doc: CanvasAccess, node: CanvasNode | undefined): string | undefined {
+  const bind = varBindsOf(node).find((one) => one.attr === 'text');
+  if (!bind) return undefined;
+  const found = documentVar(doc, bind.var);
+  return found && found.value !== '' ? found.value : undefined;
+}
