@@ -124,10 +124,12 @@ sees). Measured, one walk at a time:
      from `slideAt` rather than widening it, because the clipboard, the arrangement and the layout
      cascade all mean the surface when they say slide.
 
-   - [ ] **A trigger inside a card** — a step waiting for a click on one of its parts. A click inside a
-     placement resolves to the placement, which is what makes a card one thing to select, so which
-     drawn part was pressed is a question the product cannot answer yet. `cardSteps` drops those rather
-     than offering a trigger that never fires.
+   - [x] **A trigger inside a card** works, and the belief that stopped it was half wrong: the show's
+     click walk asks the **innermost** `[data-bc-sid]` first, so the element a reader pressed *is* the
+     drawn part — only a name for it was missing. A card's trigger carries the placement in its `on`,
+     `drawnNames` maps that name to the element, and pressing the badge on the second card leaves the
+     first one still. Kept out of `namedBoxes`, because that list is what a *slide's* track may name
+     and a card's part is not one of those (§10k).
 3. - [x] **Copy of a placement carries the card now.** Measured first, and it was the worst shape a
      fault takes: pasting a placement into a deck without its definition **succeeded**, drew an
      invisible empty box, and no check anywhere mentioned it. The clipboard payload carries what the

@@ -906,6 +906,148 @@ test.describe('a card with motion of its own', () => {
 });
 
 /**
+ * A **button inside a card**, pressed in one placement and not in the others.
+ *
+ * The half that was left out of §10l at first, on the belief that a click inside a placement can only
+ * resolve to the placement. Half true: the show's click walk asks the **innermost** element first, so
+ * what a reader pressed *is* the drawn part — what was missing was a name for it (`drawnNames`).
+ *
+ * Only a browser can answer this one, because it is about what a click means.
+ */
+test.describe('a button inside a card', () => {
+  test('fires that placement’s step, and leaves the other placements alone', async ({ page }) => {
+    await openDeck(page);
+
+    /*
+     * A card whose badge waits for a click on its back, placed twice. Written straight into the
+     * document because what is being tested is the *press*, not the panel that authors it.
+     */
+    await page.evaluate(() => {
+      (window as any).editor.loadDocument(
+        {
+          stype: 'document',
+          attributes: {},
+          content: [
+            {
+              stype: 'surface',
+              attributes: { kind: 'slide', name: '두 장' },
+              content: [
+                {
+                  stype: 'instance',
+                  attributes: { componentId: 'card', x: 1000, y: 1000, width: 4000, height: 3000 },
+                  content: []
+                },
+                {
+                  stype: 'instance',
+                  attributes: { componentId: 'card', x: 7000, y: 1000, width: 4000, height: 3000 },
+                  content: []
+                }
+              ]
+            },
+            {
+              stype: 'resources',
+              attributes: {},
+              content: [
+                {
+                  stype: 'motionTrack',
+                  attributes: { id: 'card-track' },
+                  content: [
+                    {
+                      stype: 'motionStep',
+                      attributes: {
+                        kind: 'build',
+                        target: 'card-badge',
+                        effect: 'fadeIn',
+                        duration: 300,
+                        on: 'card-back'
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              stype: 'components',
+              content: [
+                {
+                  stype: 'component',
+                  attributes: { id: 'card', name: '카드', width: 4000, height: 3000, trackId: 'card-track' },
+                  content: [
+                    {
+                      stype: 'rectangle',
+                      attributes: {
+                        partId: 'back',
+                        name: 'card-back',
+                        x: 0,
+                        y: 0,
+                        width: 4000,
+                        height: 3000,
+                        fill: '#e2e8f0'
+                      }
+                    },
+                    {
+                      stype: 'ellipse',
+                      attributes: {
+                        partId: 'badge',
+                        name: 'card-badge',
+                        x: 200,
+                        y: 200,
+                        width: 600,
+                        height: 600,
+                        fill: '#2563eb'
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        'slides'
+      );
+    });
+    await page.waitForTimeout(700);
+
+    // Into the show, where a click means something.
+    await page.locator('[data-present]').click();
+    await page.waitForTimeout(600);
+
+    /** The drawn parts of a placement: `<placement>~<part>`, one set per card. */
+    const parts = await page.evaluate(() => {
+      const sids = [...document.querySelectorAll('.sl-stage .sl-instance [data-bc-sid]')].map((one) =>
+        one.getAttribute('data-bc-sid')
+      );
+      return sids.filter((sid): sid is string => !!sid && sid.includes('~'));
+    });
+    expect(parts.length).toBeGreaterThanOrEqual(4);
+
+    const running = async (sid: string) =>
+      await page.evaluate((one) => {
+        const element = document.querySelector(`.sl-stage [data-bc-sid="${CSS.escape(one)}"]`);
+        return element ? (element as HTMLElement).getAnimations().length : -1;
+      }, sid);
+
+    // The first card's back, pressed.
+    const [firstBack] = parts;
+    const firstBadge = parts[1];
+    const secondBadge = parts[3];
+
+    await page.locator(`.sl-stage [data-bc-sid="${firstBack}"]`).click({ force: true });
+    await page.waitForTimeout(500);
+
+    /*
+     * That placement's badge ran, and the other card's did not. Which is the whole point of the
+     * placement being in the name: one card is a button, the other is the same card sitting still.
+     */
+    expect(await running(firstBadge)).toBeGreaterThan(0);
+    expect(await running(secondBadge)).toBe(0);
+
+    // And the press did not advance the deck, which is the rule a trigger already had.
+    await expect(page.locator('.sl-present-hint')).toContainText('1');
+  });
+});
+
+/**
  * A card that **can** be resized, because it was built out of a frame.
  *
  * The refusal in the group above is right for a card of absolutely placed parts: the drag writes

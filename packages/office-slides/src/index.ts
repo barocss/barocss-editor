@@ -404,6 +404,11 @@ export {
    * and landed in the arrival so they cost no presses (§10l).
    */
   cardSteps,
+  /**
+   * Every **drawn part** on a slide by the name a card's step watches — the other half of a card's
+   * trigger, and deliberately not in `namedBoxes` (§10k).
+   */
+  drawnNames,
   shiftedDelays,
   snapPoints,
   snapTo,

@@ -10,7 +10,7 @@ import { KNOWN_EFFECT_IDS, NOT_ADDITIVE, categoryOf, propertiesOf } from './moti
 /** Naming lives with the kinds table — see `layers.ts`. */
 import { labelOfBox } from './layers';
 import { isSceneType } from './selection';
-import { componentOf } from '@barocss/office-word';
+import { componentOf, instanceParts } from '@barocss/office-word';
 import { DEFAULT_STAGGER, TEXT_UNITS, unitCount, unitSpan, type TextUnit } from './text-units';
 import { FACINGS, pathPointsOf, type Facing, type PathPoint } from './motion-path';
 import { trimOf, trimmedLength, type MediaTrim } from './media-trim';
@@ -986,12 +986,16 @@ export function delayForStart(steps: TimedStep[], sid: string, startAt: number):
  * with the placement. The name as well, because `hiddenUntilPlayed` works in names: shared names
  * would hide two placements' parts as one.
  *
- * ## What is left out, deliberately
+ * ## A step **waiting for a click** works too, and it needed the drawn part's name
  *
- * A step **waiting for a click** on a shape (`on`). A click inside a placement resolves to the
- * placement — that is what makes a card one thing to select — so which drawn part was pressed is a
- * question the product cannot answer yet, and half-supporting it would mean a trigger that never
- * fires. Written down in `docs/BACKLOG.md` rather than guessed at.
+ * It was left out at first, on the belief that a click inside a placement resolves to the placement
+ * and so could never name a part. Measured, and that is only half true: the show's click walk asks
+ * the **innermost** `[data-bc-sid]` first and works outwards, so the element a reader actually
+ * pressed *is* the drawn part — what was missing was a name for it. So a card's trigger carries the
+ * placement in its `on` as well, and `drawnNames` is the map from that name to the element.
+ *
+ * Which keeps each placement its own: pressing the badge on the second card runs the second card's
+ * step, and the first one stays where it is.
  */
 export function cardSteps(doc: DeckAccess, surfaceSid: string): TimelineStep[] {
   const found: TimelineStep[] = [];
@@ -1018,7 +1022,7 @@ export function cardSteps(doc: DeckAccess, surfaceSid: string): TimelineStep[] {
 
 /** One placement's copy of its card's steps. */
 function stepsFor(doc: DeckAccess, placement: string, definition: string): TimelineStep[] {
-  const own = slideTimeline(doc, definition).filter((step) => !step.on);
+  const own = slideTimeline(doc, definition);
 
   return own.map((step, at) => ({
     ...step,
@@ -1027,10 +1031,71 @@ function stepsFor(doc: DeckAccess, placement: string, definition: string): Timel
      * rather than after whatever the last placement did: `withTiming` chains within a group in list
      * order, so a second card's `afterPrevious` would otherwise wait for the first card to finish —
      * three cards would fade in one after another instead of together.
+     *
+     * A trigger is outside the sequence either way — `stepsAtPress` skips anything with an `on` —
+     * so the group says nothing about it and its own delay is its timing.
      */
     group: 0,
     startsWith: at === 0 ? 'onClick' : step.startsWith,
     target: `${placement}~${step.target}`,
-    targetSid: step.targetSid ? `${placement}~${step.targetSid}` : undefined
+    targetSid: step.targetSid ? `${placement}~${step.targetSid}` : undefined,
+    // The shape it waits for is *this placement's*, or pressing one card would fire another's.
+    ...(step.on ? { on: `${placement}~${step.on}` } : {})
   }));
+}
+
+/**
+ * Every **drawn part** on a slide, by the name a card's step watches: `<placement>~<name>`.
+ *
+ * The other half of a card's trigger. A step holds a name and a click lands on an element, so
+ * something has to translate — `namedBoxes` does it for the slide's own shapes, and this does it for
+ * the parts a placement draws.
+ *
+ * Deliberately **not** part of `namedBoxes`: that map is what the timeline panel offers as things to
+ * animate and to wait for on a *slide's* track, and a card's part is not one of those (§10k) — two
+ * placements would offer the same name twice and neither would mean anything on the slide. This map
+ * exists for the show's click walk, which asks about an element it already has.
+ */
+export function drawnNames(doc: DeckAccess, surfaceSid: string): Map<string, string> {
+  const found = new Map<string, string>();
+
+  const walk = (sid: string, depth: number) => {
+    if (depth > 16) return;
+    const node = doc.getNode(sid);
+    if (!node) return;
+
+    if (node.stype === 'instance') {
+      for (const part of instanceParts(doc as never, node as never) as never as DeckNode[]) {
+        named(doc, part, sid, found, 0);
+      }
+      return;
+    }
+
+    for (const child of childrenOf(node)) walk(child, depth + 1);
+  };
+
+  for (const child of childrenOf(doc.getNode(surfaceSid))) walk(child, 0);
+  return found;
+}
+
+/** One drawn part and everything under it, by name. */
+function named(
+  doc: DeckAccess,
+  part: DeckNode,
+  placement: string,
+  into: Map<string, string>,
+  depth: number
+) {
+  if (depth > 16 || !part || typeof part !== 'object') return;
+
+  const name = attrString(part, 'name');
+  // A real node inside a card's slot is the reader's own and is already in `namedBoxes`.
+  const drawn = typeof part.sid === 'string' && part.sid.includes('~') ? part.sid : undefined;
+  if (name && drawn && isSceneType(part.stype) && !into.has(`${placement}~${name}`)) {
+    into.set(`${placement}~${name}`, drawn);
+  }
+
+  for (const child of ((part as { content?: unknown }).content ?? []) as DeckNode[]) {
+    named(doc, child, placement, into, depth + 1);
+  }
 }

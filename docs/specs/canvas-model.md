@@ -2008,12 +2008,21 @@ One thing had to be got right for that: `withTiming` chains within a group in li
 second placement's `afterPrevious` would have waited for the first placement to *finish* — three
 cards fading in one after another. The first step of each placement's block starts its chain again.
 
-#### What is left out, and why it is not half-done
+#### A button **inside** a card
 
-A step **waiting for a click** on a shape. A click inside a placement resolves to the placement —
-that is what makes a card one thing to select — so which drawn part was pressed is a question this
-product cannot answer yet, and a trigger that never fires is worse than one that is not offered.
-`cardSteps` drops those, and `docs/BACKLOG.md` holds the question.
+Left out at first, on the belief that a click inside a placement can only resolve to the placement.
+Half true, and the measurement is what settled it: the show's click walk asks the **innermost**
+`[data-bc-sid]` first and works outwards, so the element a reader pressed *is* the drawn part. What
+was missing was a name for it.
+
+So a card's trigger carries the placement in its `on` as well, and `drawnNames` is the map from that
+name to the element — the same translation `namedBoxes` does for a slide's own shapes, in the one
+direction the show needs it. Pressing the badge on the second card runs the second card's step and
+leaves the first one sitting still.
+
+`drawnNames` is deliberately **not** part of `namedBoxes`: that map is what the panel offers as things
+to animate and to wait for on a *slide's* track, and a card's part is not one of those (§10k) — two
+placements would offer one name twice and neither would mean anything there.
 
 #### The fault this found on the way
 

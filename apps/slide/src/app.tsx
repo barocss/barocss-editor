@@ -53,6 +53,7 @@ import {
   namedBoxes,
   slideTimeline,
   cardSteps,
+  drawnNames,
   stepMoment,
   triggersOn,
   stepsAtPress,
@@ -1360,6 +1361,14 @@ export function App({
 
     const out: Record<string, string> = {};
     for (const [name, sid] of namedBoxes(doc as never, current)) {
+      if (watched.has(name)) out[sid] = name;
+    }
+    /*
+     * And the parts a **card** draws, whose names carry their placement (§10l). The show's click walk
+     * asks the innermost element first, so a press on a badge inside the second card finds that
+     * card's step and not the first one's.
+     */
+    for (const [name, sid] of drawnNames(doc as never, current)) {
       if (watched.has(name)) out[sid] = name;
     }
     return out;

@@ -18,6 +18,7 @@ import {
   pressCount,
   reorderSteps,
   cardSteps,
+  drawnNames,
   namedBoxes,
   slideTimeline,
   snapPoints,
@@ -2393,6 +2394,8 @@ describe('what a card animates, wherever it is placed', () => {
      */
     expect(steps.map((step) => [step.target, step.targetSid])).toEqual([
       ['one~card-back', 'one~back'],
+      ['one~card-badge', 'one~badge'],
+      // The trigger too, and the shape it waits for is this placement's — see below.
       ['one~card-badge', 'one~badge']
     ]);
   });
@@ -2403,8 +2406,15 @@ describe('what a card animates, wherever it is placed', () => {
     // cost three times the presses for one decision made inside the card.
     expect(steps.every((step) => step.group === 0)).toBe(true);
     expect(pressCount(steps)).toBe(0);
-    // And they are what press 0 runs, which is the moment the slide comes up.
-    expect(stepsAtPress(withTiming(steps), 0)).toHaveLength(steps.length);
+    /*
+     * And what press 0 runs is everything **except** the triggers: `stepsAtPress` skips anything with
+     * an `on`, which is the collision that was measured once already — group 0 is both "outside the
+     * sequence" and "before the first press", so a shape waiting to be clicked used to animate the
+     * moment the slide arrived.
+     */
+    const runs = stepsAtPress(withTiming(steps), 0);
+    expect(runs).toHaveLength(steps.filter((step) => !step.on).length);
+    expect(runs.some((step) => step.on)).toBe(false);
   });
 
   it('plays in each placement at the same moment, not one after another', () => {
@@ -2423,10 +2433,34 @@ describe('what a card animates, wherever it is placed', () => {
     expect(startOf('two~badge')).toBe(300);
   });
 
-  it('leaves a click-triggered step out, because a click lands on the placement', () => {
-    // A card is one thing to select, so which drawn part was pressed is a question the product cannot
-    // answer yet — and a trigger that never fires is worse than one that is not offered.
-    expect(cardSteps(deck(), 'slide').some((step) => step.on)).toBe(false);
+  it('keeps a click-triggered step, waiting for **this** placement’s shape', () => {
+    /*
+     * Left out at first, on the belief that a click inside a placement can only resolve to the
+     * placement. Half true: the show's click walk asks the innermost element first, so what a reader
+     * pressed *is* the drawn part — what was missing was a name for it.
+     */
+    const steps = cardSteps(deck({ second: true }), 'slide');
+    expect(steps.filter((step) => step.on).map((step) => [step.on, step.targetSid])).toEqual([
+      ['one~card-back', 'one~badge'],
+      ['two~card-back', 'two~badge']
+    ]);
+  });
+
+  it('gives the show a name for every drawn part it may be asked about', () => {
+    /*
+     * The other half: a step holds a name, a click lands on an element. `drawnNames` is that
+     * translation for the parts a placement draws — and it is deliberately not in `namedBoxes`, which
+     * is what the panel offers on a *slide's* track: two placements would offer one name twice and
+     * neither would mean anything there (§10k).
+     */
+    expect([...drawnNames(deck({ second: true }), 'slide').entries()].sort()).toEqual([
+      ['one~card-back', 'one~back'],
+      ['one~card-badge', 'one~badge'],
+      ['two~card-back', 'two~back'],
+      ['two~card-badge', 'two~badge']
+    ]);
+    // And the slide's own list still says nothing about them.
+    expect([...namedBoxes(deck({ second: true }), 'slide').keys()]).toEqual([]);
   });
 
   it('answers nothing for a card with no track of its own', () => {
