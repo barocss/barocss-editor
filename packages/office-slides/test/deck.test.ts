@@ -527,3 +527,60 @@ describe('the surface an action lands on', () => {
     expect(isSlideSurface(deck.getNode('card') as never)).toBe(false);
   });
 });
+
+/**
+ * One attribute, two things a `name` can mean — and no reader that confuses them.
+ *
+ * A **surface**'s name is what the slide is called: the filmstrip draws it, and a reader typed it. A
+ * **scene node**'s name is the durable id motion resolves a step's target through, generated as
+ * `shape-1`, `shape-2` and never shown. Two namespaces in one attribute, which is only safe as long
+ * as every reader knows which it is asking about — so this pins that, because the last three faults
+ * in this area were all a walk reading `name` off whatever it was standing on.
+ */
+describe('what a name means depends on what carries it', () => {
+  const access = (nodes: Record<string, Record<string, unknown>>): DeckAccess =>
+    ({ rootId: 'root', getNode: (sid: string) => nodes[sid] as never }) as DeckAccess;
+
+  it('takes the slide’s own name for the rail, and no shape’s', () => {
+    const deck = access({
+      root: { sid: 'root', stype: 'document', content: ['s'] },
+      s: { sid: 's', stype: 'surface', attributes: { kind: 'slide', name: '표지' }, content: ['box'] },
+      // A shape called `shape-1`, which is a machine name and must never reach the rail.
+      box: { sid: 'box', stype: 'rectangle', attributes: { name: 'shape-1' }, parentId: 's' }
+    });
+    expect(deckSlides(deck)[0].name).toBe('표지');
+  });
+
+  it('falls back to what the slide says, not to what its shapes are called', () => {
+    const deck = access({
+      root: { sid: 'root', stype: 'document', content: ['s'] },
+      s: { sid: 's', stype: 'surface', attributes: { kind: 'slide' }, content: ['box', 'title'] },
+      box: { sid: 'box', stype: 'rectangle', attributes: { name: 'shape-1' }, parentId: 's' },
+      title: {
+        sid: 'title',
+        stype: 'textFrame',
+        attributes: { role: 'title', name: 'shape-2' },
+        content: ['p'],
+        parentId: 's'
+      },
+      p: { sid: 'p', stype: 'paragraph', attributes: {}, content: ['t'], parentId: 'title' },
+      t: { sid: 't', stype: 'inline-text', text: '한 엔진, 두 제품', parentId: 'p' }
+    });
+    /*
+     * The title placeholder's **words**, which is what the slide is about — where a shape's `name` is
+     * `shape-2`, a name the reader has never seen and would not recognise in a rail.
+     */
+    expect(deckSlides(deck)[0].name).toBe('한 엔진, 두 제품');
+  });
+
+  it('gives nothing rather than inventing a name', () => {
+    const deck = access({
+      root: { sid: 'root', stype: 'document', content: ['s'] },
+      s: { sid: 's', stype: 'surface', attributes: { kind: 'slide' }, content: ['box'] },
+      box: { sid: 'box', stype: 'rectangle', attributes: { name: 'shape-1' }, parentId: 's' }
+    });
+    // A name invented here would be indistinguishable from one the author chose; the caller draws
+    // "4장" instead.
+    expect(deckSlides(deck)[0].name).toBe('');
+  });
+});

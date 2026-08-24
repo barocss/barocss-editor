@@ -2058,6 +2058,27 @@ id — so three placements of one card each drew `metric-card~slides:138`. Three
 identity, `querySelector` answering the first for all three, and per-placement motion impossible. The
 prefix is the placement's own sid now (§10b-2a).
 
+### 10k-2. One attribute, two things a `name` means
+
+Worth stating because the last three faults in this area were the same shape: a walk reading `name`
+off whatever it was standing on.
+
+| carried by | means | read by |
+| --- | --- | --- |
+| a **surface** | what the slide is **called** — a reader typed it | the filmstrip, the presenter, the outline (`nameOf` / `deckSlides`) |
+| a **scene node** | the durable **id** a step's target resolves through, generated as `shape-1` | motion (`namedBoxes`, `_freeShapeName`, `_nameTaken`) |
+
+Two namespaces in one attribute, which is safe only while every reader knows which it is asking
+about. Measured, three times over: `namedBoxes` offered the slide itself and a placement's *answers*
+as things to animate (§10k); `_nameTaken` counted a `variable` called `shape-1` as taken; and
+`nameOf` has always been careful — it reads the surface it was handed and falls back to the **title
+placeholder's words**, never to a shape's name, because `shape-2` in a rail is a name no reader would
+recognise.
+
+The separation is by node type and by *which track is read*: the motion panel filters the timeline of
+the surface the reader is on, so a shape on a slide and a part inside a card can carry the same name
+and never meet. Both directions are pinned by tests now, in `deck.test.ts` and `timeline.test.ts`.
+
 ### 10k. What motion may name, and what a card's parts cannot be
 
 A step names its target by the `name` the shape carries, and one map — `namedBoxes` — is what every

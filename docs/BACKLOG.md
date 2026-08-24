@@ -157,6 +157,14 @@ sees). Measured, one walk at a time:
 
 ### A name means "a box motion can find", in both places that ask
 
+- [x] **And a surface's `name` is the other thing entirely** — what the slide is *called*, drawn in
+  the rail. Two namespaces in one attribute, which is safe only while every reader knows which it is
+  asking about, and the last three faults here were all a walk reading `name` off whatever it stood
+  on. Measured in both directions and pinned by tests: a slide called `shape-1` is not offered to
+  motion, and a shape called `shape-2` never reaches the rail — `nameOf` falls back to the title
+  placeholder's **words**, because `shape-2` in a rail is a name no reader would recognise (§10k-2).
+
+
 - [x] `_nameTaken` and `_freeShapeName` read `name` off **every** node, while `namedBoxes` — the map a
   step's target is actually resolved through — offers only what a canvas places. So a `variable`
   called `shape-1`, or a `componentValue` whose `name` says which variable it answers, made `shape-1`

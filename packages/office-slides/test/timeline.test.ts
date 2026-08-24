@@ -140,6 +140,27 @@ describe('the shapes a step can name', () => {
     expect([...namedBoxes(carded(), 's').keys()]).toEqual(['shape-1', 'shape-2', 'shape-3']);
   });
 
+  it('does not offer a slide, whatever the slide is called', () => {
+    /*
+     * The other side of the same attribute. A **surface**'s name is what the slide is called and the
+     * filmstrip draws it; a **scene node**'s name is the machine id a step resolves through. A slide
+     * called `shape-1` — which a reader may well type — must not become something to animate, and a
+     * slide called 표지 must not either.
+     */
+    const nodes = {
+      root: { sid: 'root', stype: 'document', content: ['s'] },
+      s: {
+        sid: 's',
+        stype: 'surface',
+        attributes: { kind: 'slide', name: 'shape-1' },
+        content: ['box']
+      },
+      box: { sid: 'box', stype: 'rectangle', attributes: { name: 'shape-2' }, parentId: 's' }
+    };
+    const deck = ({ rootId: 'root', getNode: (sid: string) => (nodes as never)[sid] }) as never as DeckAccess;
+    expect([...namedBoxes(deck, 's').keys()]).toEqual(['shape-2']);
+  });
+
   it('offers the placement itself, because a card animates as a whole', () => {
     // Its parts are the definition's and are resolved at draw time, so naming one from a slide's
     // track would name something the document does not have — and two placements of one card would
