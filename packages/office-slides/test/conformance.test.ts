@@ -225,6 +225,9 @@ describe('Slides draws what its schema declares', () => {
           'the properties panel — a placement’s 컴포넌트 group, one field per variable the definition declares. The fields come from the document, so a card that declares a colour and a state gets a swatch and a switch',
         detachComponent:
           'the properties panel — 분리 on a placement, which leaves a group: the parts a reader arranged stay arranged',
+        importComponent:
+          'the library dialog — 컴포넌트 on a deck’s row lists what it defines, and 가져오기 / 다시 가져오기 brings one in. There because the *storage* is there: whether a deck is a name in the library or an address to fetch is the host’s question, and the command takes the parsed deck rather than reaching for it',
+
         setComponentSize:
           'the properties panel — a definition’s own 크기 row, drawn while the reader is standing in one. The only place a card’s size can be changed: a placement’s extent *is* the card’s, so its own fields are greyed and the overlay draws it no resize handles',
         setComponentVar:
@@ -304,6 +307,21 @@ describe('Slides draws what its schema declares', () => {
           'components — a definition part’s own durable name, which a placement’s copy points at. Not a sid, because saving strips those: a placement paired by sid would come back from a file with every part looking orphaned, and apply would take them all out. Caught before it shipped',
         partOf:
           'components — a placement holds *real* nodes (a template cannot draw a foreign node, canvas-model §10b-2), so a copy remembers the definition part it came from. That pairing is what apply reads, and it is deliberately not a role or a position: it survives renaming, reordering and editing, which is what breaks an override in every tool that matches structurally',
+        /**
+         * ── Where a definition came from ───────────────────────────────────
+         *
+         * A brand kit is a deck, and using one here is a **copy** that remembers its source — a
+         * template cannot draw a foreign node (§10b-2), so a reference was never available. Read by
+         * `componentSourceOf` and `componentBehindSource`: the panel says which definitions are the
+         * library's and which of them have moved on. A definition's drawing is the same either way,
+         * which is right — a card from a brand kit is still just a card.
+         */
+        fromDeck:
+          'components — the deck a definition was brought in from, read by `componentSourceOf`; the copy is what makes it drawable at all, and the drawing is the same either way',
+        fromId: 'components — its id in that deck, which may differ from its id here: two decks can both define a `card`',
+        fromSignature:
+          'components — what that definition said when it was copied, so `componentBehindSource` can offer the library’s changes. A signature rather than a version, for the reason `appliedFrom` is one',
+
         appliedFrom:
           'components — what the definition said when this placement last took its parts, so `componentStale` can tell "the definition has moved on" from "the reader edited this placement". A signature rather than a version number, because a number would have to be maintained by a write on every edit',
 

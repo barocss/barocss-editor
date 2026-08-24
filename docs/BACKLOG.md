@@ -541,10 +541,17 @@ shipped features marked undone.
   now holds a name *or* an address, resolved by the host, because the same deck is a name here and
   an address on a machine that has never seen this library.
 
-- [ ] **A shared component library** — definitions from a library deck used in this one. The other
-  half of what the library was for (§10): the pieces are there now (`deckComponents`, `partCopy`,
-  a library row is a whole document), and what is left to decide is what a placement records about
-  *which* deck its definition came from, since `componentId` is durable only within a document.
+- [x] **A shared component library.** A definition copied in from another deck, remembering the
+  deck, its id there and what it said (`fromDeck`/`fromId`/`fromSignature`) — so "the brand kit has
+  moved on" is a string comparison and the newer copy is *offered*. A reference was never available
+  (a template cannot draw a foreign node), which is why this is the same shape Figma has across
+  files. `accessOfTree` is the piece that made it possible at all: another deck answered like a
+  store, without being loaded.
+
+- [ ] **Placements do not follow a re-imported definition by themselves**, and should not — but the
+  offer is currently only in the library dialog. A definition that is behind its source should say
+  so in the components panel too, which means the panel needs the source deck in hand: storage,
+  from a component that has none today.
 
 - [ ] **Picking a library deck from a list** in the 누르면 → 다른 덱 field, which is a free-text box
   today. It accepts a name or an address and a reader has to know which they want; the names are

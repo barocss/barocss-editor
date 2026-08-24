@@ -1500,6 +1500,41 @@ placement).
 Both halves of the pairing are left out of a part's signature, because they are identity rather
 than content: a copy is not different from its original for having been copied.
 
+### 10f. A brand kit: a definition from another deck
+
+The other half of what a library is for (§11i). A brand kit **is** a deck — the card, the quote
+block, the logo lockup — and using one here cannot be a reference, on the measurement the whole
+materialised design rests on: a template cannot draw a foreign node (§10b-2). So the definition is
+**copied**, and what makes that a library rather than a paste is that the copy remembers where it
+came from.
+
+Which is, again, the relationship Figma has **across files** — offered and accepted rather than
+live — and this time not by choice but by the same constraint.
+
+A copy records three things: the deck (`fromDeck`, a library name or an address, resolved by the
+host), the definition's id **there** (`fromId` — two decks can both define a `card`, and the one
+that arrives second is renamed here), and what that definition said at the moment it was copied
+(`fromSignature`). The last is a signature rather than a version for the reason a placement's
+`appliedFrom` is one: a number would have to be maintained by a write on every edit of the brand
+kit, and a signature is maintained by nobody.
+
+Four decisions fell out of building it:
+
+- **Reading another deck must not load it.** Everything that reads a deck takes `rootId` +
+  `getNode(sid)`, which is what a *loaded* document is; a parsed file is nested nodes with no sids.
+  So `accessOfTree` answers a file like a store — which is what lets the library dialog say what a
+  deck defines while the deck on screen stays where it is.
+- **The command takes the source in its payload.** Whether `brand-kit` is a name in the reader's
+  library or an address to fetch is the host's question (§11i), and a model that reached for storage
+  is a model nobody can test in milliseconds.
+- **Bringing the same definition in twice replaces the copy**, in place, keeping its id here — so
+  every placement of it is still a placement of it. What it does *not* do is touch the placements:
+  taking the new parts is `applyComponent`, offered by the badge, because a reader who refreshes a
+  brand kit and finds forty slides rearranged has lost forty slides.
+- **A stale list is worse than no list.** Measured in the dialog: the definitions of one deck stayed
+  from the last time it was open, so the button that opens the list closed it — and that list is
+  precisely the thing that may have changed in between, which is the case the feature exists for.
+
 ### 10c. Editing one: a **definition the reader opens**, not a place on a canvas
 
 Figma keeps a main component on the canvas, and it is worth being clear that this is not a

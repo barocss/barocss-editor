@@ -2298,6 +2298,58 @@ body {
   color: var(--sl-faint, #a3a3a3);
 }
 
+/* Whose definition this is, when it is not this deck's own. */
+.sl-component-from {
+  font-size: 9px;
+  padding: 0 3px;
+  border-radius: 2px;
+  color: var(--sl-faint, #a3a3a3);
+  border: 1px solid var(--sl-line);
+}
+
+/*
+ * What another deck defines, listed under its row.
+ *
+ * Three states per definition and three different sentences — not here, here, here and behind —
+ * because a library that could only *say* something has moved on would be a badge, and offering the
+ * newer copy beside it is what makes it a library.
+ */
+.sl-library-parts {
+  margin: 2px 0 4px 12px;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+}
+
+.sl-library-parts li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.sl-library-parts li > span:first-child {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sl-library-have {
+  color: var(--sl-faint, #a3a3a3);
+}
+
+.sl-library-behind {
+  color: #b45309;
+}
+
+.sl-library-none {
+  color: var(--sl-faint, #a3a3a3);
+}
+
 /* A count, not a dot: "three placements have not taken this" is something to decide with. */
 .sl-component-behind {
   font-size: 10px;

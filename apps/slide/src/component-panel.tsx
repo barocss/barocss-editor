@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { Button, Choice, Icon, IconButton, TextField } from '@barocss/office-ui';
-import { componentStale, deckComponents, type ComponentDef } from '@barocss/office-slides';
+import { componentSourceOf, componentStale, deckComponents, type ComponentDef } from '@barocss/office-slides';
 import { useEditorRevision } from './revision';
 
 /**
@@ -190,6 +190,16 @@ export function ComponentPanel({
   void revision;
 
   /**
+   * The deck a definition came from, when it came from one.
+   *
+   * Whether it has since **moved on** is not asked here, and that is deliberate: answering it means
+   * reading the other deck, which is storage — the library dialog has the file in its hand and says
+   * it there, beside the button that brings the newer copy in.
+   */
+  const from = (definition: ComponentDef): string | undefined =>
+    componentSourceOf(doc as never, definition)?.deck;
+
+  /**
    * How many placements of this definition have fallen behind it.
    *
    * Counted from the document rather than remembered, because it is derived: what a placement
@@ -315,6 +325,16 @@ export function ComponentPanel({
                 >
                   <span className="sl-component-name">{definition.name || '이름 없음'}</span>
                   <span className="sl-component-parts">{definition.parts.length}개</span>
+                  {/*
+                    * Whose definition this is. Said only about the ones that came from somewhere —
+                    * a deck's own cards are the ordinary case, and a badge on every row would be a
+                    * badge a reader stops reading.
+                    */}
+                  {from(definition) && (
+                    <span className="sl-component-from" data-component-from={from(definition)}>
+                      {from(definition)}
+                    </span>
+                  )}
                   {/*
                     * A count rather than a dot: "three placements have not taken this" is
                     * something a reader can decide with, and a dot is something they have to

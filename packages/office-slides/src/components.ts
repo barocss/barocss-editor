@@ -489,6 +489,144 @@ export function signatureOfLiteral(node: DeckNode, scope: 'all' | 'own', depth =
   ]);
 }
 
+/**
+ * Bringing a definition in **from another deck**, and telling later that it has moved on.
+ *
+ * ## Why a copy and not a reference
+ *
+ * The measurement the whole materialised design rests on: a template cannot draw a foreign node
+ * (§10b-2). A definition in another document could not be drawn here however it was referenced, so
+ * it is **copied** — and what makes it a library rather than a paste is that the copy remembers
+ * where it came from and can be brought in again. Which is the relationship Figma has across files,
+ * and for the same reason: it cannot be live there either, so updates are offered and accepted.
+ *
+ * ## What a copy remembers
+ *
+ * The deck (a library name or an address, resolved by the host), the definition's id **there**, and
+ * what it said at that moment. The last one is a signature rather than a version, for the reason a
+ * placement's `appliedFrom` is: a number would have to be maintained by a write on every edit, and
+ * a signature is maintained by nobody.
+ */
+export interface ImportPlan {
+  /** The definition to add here, ready for a transaction. */
+  node: DeckNode;
+  /** The id it will have **here**, which may not be the id it has there. */
+  id: string;
+  /** The definition it replaces, when this deck already has that import. */
+  replaces?: string;
+}
+
+/**
+ * What bringing `id` from `source` into `host` changes.
+ *
+ * The renaming is the part with a rule. Two decks can both define `card`, so an import cannot
+ * simply keep its id — and it cannot mint a fresh one each time either, or bringing the same
+ * definition in twice would leave two cards and every placement pointing at the older one. So: if
+ * this deck already has *that import* (same deck, same id there), it is **replaced**; otherwise a
+ * free id is taken, derived from the id it has there so a person reading the file can still tell
+ * what it is.
+ */
+export function importComponentPlan(
+  host: DeckAccess,
+  source: DeckAccess,
+  id: string,
+  /** What the source deck is called, as this deck will remember it. */
+  fromDeck: string
+): ImportPlan | undefined {
+  const definition = deckComponents(source).find((one) => one.id === id);
+  if (!definition) return undefined;
+
+  const copy = copyOf(source, definition.sid);
+  if (!copy) return undefined;
+
+  const here = deckComponents(host);
+  const already = here.find(
+    (one) =>
+      doc(host, one.sid)?.fromDeck === fromDeck &&
+      (doc(host, one.sid)?.fromId ?? doc(host, one.sid)?.id) === id
+  );
+
+  const taken = new Set(here.map((one) => one.id).filter((one) => one !== already?.id));
+  let mine = already?.id ?? id;
+  if (!already) {
+    let next = 2;
+    while (taken.has(mine)) mine = `${id}-${next++}`;
+  }
+
+  return {
+    id: mine,
+    ...(already ? { replaces: already.sid } : {}),
+    node: {
+      ...copy,
+      attributes: {
+        ...(copy.attributes ?? {}),
+        id: mine,
+        fromDeck,
+        fromId: id,
+        // What it said when it was copied, so staleness is a comparison and not a record to keep.
+        fromSignature: componentSignature(source, definition)
+      }
+    }
+  };
+}
+
+/** A definition's own attributes, which this file otherwise reads through `ComponentDef`. */
+function doc(access: DeckAccess, sid: string): Record<string, any> | undefined {
+  return access.getNode(sid)?.attributes as Record<string, any> | undefined;
+}
+
+/**
+ * Where an imported definition came from, as its readers need it.
+ *
+ * Absent for a definition this deck made itself, which is the ordinary case — so a panel can say
+ * "this one is the brand kit's" only about the ones that are.
+ */
+export interface ComponentSource {
+  deck: string;
+  /** Its id in that deck. */
+  id: string;
+  /** What that definition said when this copy was made. */
+  signature?: string;
+}
+
+export function componentSourceOf(
+  doc: DeckAccess,
+  definition: ComponentDef | undefined
+): ComponentSource | undefined {
+  const attrs = definition ? doc.getNode(definition.sid)?.attributes : undefined;
+  const deck = attrs?.fromDeck;
+  if (typeof deck !== 'string' || deck.length === 0) return undefined;
+  const id = attrs?.fromId;
+  return {
+    deck,
+    id: typeof id === 'string' && id.length > 0 ? id : definition!.id,
+    signature: typeof attrs?.fromSignature === 'string' ? attrs.fromSignature : undefined
+  };
+}
+
+/**
+ * Whether the deck it came from has moved on since this copy was made.
+ *
+ * The same question `componentStale` asks about a placement, one level up — and the same honest
+ * answer when there is nothing to compare: a copy with no recorded signature is not behind, it is
+ * a copy from before this was written, and calling every one of them behind would put a badge on
+ * every deck.
+ *
+ * `source` is the other deck, which the caller has to have in hand: this file cannot fetch, and the
+ * host is what knows whether a name is in a library or an address to get (§11i).
+ */
+export function componentBehindSource(
+  host: DeckAccess,
+  definition: ComponentDef | undefined,
+  source: DeckAccess | undefined
+): boolean {
+  const from = componentSourceOf(host, definition);
+  if (!from?.signature || !source) return false;
+  const there = deckComponents(source).find((one) => one.id === from.id);
+  if (!there) return false;
+  return componentSignature(source, there) !== from.signature;
+}
+
 /** A placement's values by name, which is what a copy is bound with. */
 export function instanceValues(
   doc: DeckAccess,

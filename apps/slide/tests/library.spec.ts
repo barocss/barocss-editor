@@ -141,3 +141,143 @@ test.describe('a library of decks', () => {
     await page.keyboard.press('Escape');
   });
 });
+
+/**
+ * A **brand kit**: a definition brought in from another deck.
+ *
+ * The other half of what the library was for. A reference was never available — a template cannot
+ * draw a foreign node (canvas-model §10b-2) — so the definition is copied and remembers where it
+ * came from, and *that* is what makes it a library rather than a paste: bringing it in again
+ * replaces the copy, and the deck it came from can be asked whether it has moved on.
+ *
+ * Which is the relationship Figma has across files, and for the same reason: it cannot be live
+ * there either.
+ */
+test.describe('a component from another deck', () => {
+  /** Keep the sample deck (which defines a card) and start a deck of the reader's own. */
+  const withKit = async (page: Page) => {
+    await openDeck(page);
+    await page.locator('[data-deck-library]').click();
+    await page.locator('[data-library-keep]').click();
+    await page.waitForTimeout(700);
+    await page.locator('[data-library-close]').click();
+    await page.waitForTimeout(300);
+
+    // A new deck: the library keeps the old one, which is the point.
+    page.once('dialog', (dialog) => void dialog.accept());
+    await page.locator('[data-deck-new]').click();
+    await page.waitForTimeout(700);
+  };
+
+  test('lists what another deck defines, and brings one in', async ({ page }) => {
+    await withKit(page);
+
+    await page.locator('[data-deck-library]').click();
+    await page.locator('[data-library-look="one-engine-two-products"]').click();
+    await page.waitForTimeout(600);
+
+    // What that deck defines — read without loading it, so the deck on screen stays put.
+    const part = page.locator('[data-library-part="metric-card"]');
+    await expect(part).toHaveCount(1);
+    await expect(part).toContainText('가져오기');
+
+    await page.locator('[data-library-bring="metric-card"]').click();
+    await page.waitForTimeout(800);
+    // And now this deck has it: same definition, and it knows whose it is.
+    await expect(page.locator('[data-library-have="metric-card"]')).toHaveCount(1);
+
+    const here = await page.evaluate(() => {
+      const editor = (window as any).editor;
+      const store = editor.dataStore;
+      const root = store.getNode(editor.getRootId());
+      const library = ((root.content ?? []) as string[])
+        .map((sid: string) => store.getNode(sid))
+        .find((one: any) => one?.stype === 'components');
+      const card = store.getNode(((library?.content ?? []) as string[])[0]);
+      return {
+        id: card?.attributes?.id,
+        fromDeck: card?.attributes?.fromDeck,
+        fromId: card?.attributes?.fromId,
+        recorded: typeof card?.attributes?.fromSignature === 'string',
+        parts: ((card?.content ?? []) as string[]).length
+      };
+    });
+    expect(here).toMatchObject({
+      id: 'metric-card',
+      fromDeck: 'one-engine-two-products',
+      fromId: 'metric-card',
+      recorded: true
+    });
+    // Its variables and its parts came with it: four declarations and five parts.
+    expect(here.parts).toBe(9);
+  });
+
+  test('says when the deck it came from has moved on, and brings the newer copy', async ({
+    page
+  }) => {
+    await withKit(page);
+
+    await page.locator('[data-deck-library]').click();
+    await page.locator('[data-library-look="one-engine-two-products"]').click();
+    await page.waitForTimeout(500);
+    await page.locator('[data-library-bring="metric-card"]').click();
+    await page.waitForTimeout(800);
+    await expect(page.locator('[data-library-behind]')).toHaveCount(0);
+    await page.locator('[data-library-close]').click();
+    await page.waitForTimeout(300);
+
+    /*
+     * The brand kit changes — as it would if a reader opened it, edited the card and kept it again.
+     * Written straight into the library here, because what is under test is the *offer*, not the
+     * round trip through the editor.
+     */
+    await page.evaluate(async () => {
+      const request = indexedDB.open('barocss-slides', 1);
+      const db: IDBDatabase = await new Promise((resolve, reject) => {
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      const read = db.transaction('decks', 'readonly').objectStore('decks').get('one-engine-two-products');
+      const kept: any = await new Promise((resolve) => {
+        read.onsuccess = () => resolve(read.result);
+      });
+      const file = JSON.parse(kept.text);
+      const library = file.document.content.find((one: any) => one.stype === 'components');
+      // The card's back, a different colour there now.
+      library.content[0].content[4].attributes.fill = '#ff0000';
+      kept.text = JSON.stringify(file);
+      db.transaction('decks', 'readwrite').objectStore('decks').put(kept);
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      db.close();
+    });
+
+
+    await page.locator('[data-deck-library]').click();
+    await page.locator('[data-library-look="one-engine-two-products"]').click();
+    await page.waitForTimeout(600);
+
+
+    // Offered, not applied: a reader who refreshes a brand kit and finds forty slides rearranged
+    // has lost forty slides.
+    await expect(page.locator('[data-library-behind]')).toHaveCount(1);
+    await expect(page.locator('[data-library-part="metric-card"]')).toContainText('다시 가져오기');
+
+    await page.locator('[data-library-bring="metric-card"]').click();
+    await page.waitForTimeout(800);
+    await expect(page.locator('[data-library-behind]')).toHaveCount(0);
+
+    // One definition, not two: every placement of it goes on pointing at the same one.
+    const ids = await page.evaluate(() => {
+      const editor = (window as any).editor;
+      const store = editor.dataStore;
+      const root = store.getNode(editor.getRootId());
+      const library = ((root.content ?? []) as string[])
+        .map((sid: string) => store.getNode(sid))
+        .find((one: any) => one?.stype === 'components');
+      return ((library?.content ?? []) as string[]).map(
+        (sid: string) => store.getNode(sid)?.attributes?.id
+      );
+    });
+    expect(ids).toEqual(['metric-card']);
+  });
+});

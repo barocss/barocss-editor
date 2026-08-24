@@ -667,6 +667,26 @@ export function getCanvasNodeDefinitions(): Record<string, NodeTypeDefinition> {
       content: 'componentVar* (scene | frame)*',
       attrs: {
         id: { type: 'string' as const, required: true },
+        /**
+         * That this definition was **brought in from another deck**, and from where.
+         *
+         * A brand kit is a deck: the card, the quote block, the logo lockup. Using one here cannot
+         * be a *reference* — a template cannot draw a foreign node (canvas-model §10b-2), which is
+         * the measurement the whole materialised design rests on — so the definition is **copied**
+         * and remembers where it came from. Which is exactly the relationship Figma has across
+         * files, and for the same reason: it cannot be live either, so updates are offered and
+         * accepted rather than applied behind the reader's back.
+         *
+         * `fromDeck` is a library name or an address, resolved by the host (§11i). `fromId` is the
+         * definition's own id *there*, which may differ from its id here — two decks can both have
+         * a `card`, and the one that arrives second is renamed. `fromSignature` is what that
+         * definition said at the moment it was copied, so "the brand kit has moved on" is a string
+         * comparison and nothing has to be maintained — the same trick a placement's `appliedFrom`
+         * uses, for the same reason a version number was refused there.
+         */
+        fromDeck: { type: 'string' as const, required: false },
+        fromId: { type: 'string' as const, required: false },
+        fromSignature: { type: 'string' as const, required: false },
         name: { type: 'string' as const, required: false },
         /** The room the definition is drawn in while it is being edited. */
         width: { type: 'number' as const, required: false },

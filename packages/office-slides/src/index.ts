@@ -145,6 +145,11 @@ export {
   partSignature,
   componentSignature,
   definitionSignature,
+  importComponentPlan,
+  componentSourceOf,
+  componentBehindSource,
+  type ImportPlan,
+  type ComponentSource,
   componentStale,
   instanceState,
   instanceVars,
@@ -188,6 +193,11 @@ export { deckMap, type DeckMap, type MapPage, type MapLink } from './deck-map';
  * about documents. Where they are kept is the app's: a browser has IndexedDB, another host would
  * have a directory. See `canvas-model.md` §11i.
  */
+/**
+ * A deck read straight out of a file, answered like a loaded one — which is how anything can be
+ * asked about *another* deck without replacing the one on screen.
+ */
+export { accessOfTree } from './tree-access';
 export {
   libraryName,
   libraryEntry,

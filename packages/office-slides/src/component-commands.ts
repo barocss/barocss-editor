@@ -1,11 +1,13 @@
 import { Editor, Extension, selectedNodeIds } from '@barocss/editor-core';
 import { transaction } from '@barocss/model';
 import { childrenOf, editableSurface, type DeckAccess, type DeckNode } from './deck';
+import { accessOfTree } from './tree-access';
 import { boxOf } from './geometry';
 import {
   componentApplyPlan,
   componentOf,
   definitionAt,
+  importComponentPlan,
   componentSignature,
   definitionSignature,
   signatureOfLiteral,
@@ -164,6 +166,37 @@ export class SlidesComponentExtension implements Extension {
         if (!doc) return false;
         if (typeof payload?.nodeId === 'string') return !!componentOf(doc, doc.getNode(payload.nodeId));
         return !!deckComponents(doc).find((one) => one.id === payload?.componentId);
+      }
+    );
+
+    /**
+     * Bring a definition in **from another deck**.
+     *
+     * ## Why the source arrives in the payload
+     *
+     * This file cannot fetch and must not: whether `brand-kit` is a name in the reader's own
+     * library or an address to get is a fact about the *host* (§11i), and a model that reached for
+     * the network would be a model that cannot be tested in milliseconds. So the app resolves the
+     * deck, parses it, and hands over the tree; `accessOfTree` reads it without loading it, which
+     * is what keeps the deck on screen where it is.
+     *
+     * ## Bringing the same one in twice is not two cards
+     *
+     * The second import **replaces** the first — same deck, same id there — and every placement
+     * goes on pointing at the same `componentId`, which is the whole point of remembering where a
+     * definition came from. What it does *not* do is touch the placements: taking the new parts is
+     * `applyComponent`, offered by the badge, because a reader who refreshes a brand kit and finds
+     * forty slides rearranged has lost forty slides.
+     */
+    register(
+      'importComponent',
+      async (payload) => await this._import(editor, payload),
+      (payload) => {
+        const doc = this._access(editor);
+        if (!doc || typeof payload?.componentId !== 'string') return false;
+        if (typeof payload?.deck !== 'string' || payload.deck.length === 0) return false;
+        const source = payload?.source ? accessOfTree(payload.source as never) : undefined;
+        return !!source && deckComponents(source).some((one) => one.id === payload.componentId);
       }
     );
 
@@ -589,6 +622,46 @@ export class SlidesComponentExtension implements Extension {
       for (const child of (fresh as { content?: unknown[] }).content ?? []) {
         steps.push({ type: 'addChild', payload: { parentId: part, child } });
       }
+    }
+
+    return (await transaction(editor, steps as never).commit()).success === true;
+  }
+
+  /** Copy a definition in from another deck, replacing the copy this deck already had of it. */
+  private async _import(
+    editor: Editor,
+    payload: { deck?: string; componentId?: string; source?: unknown }
+  ): Promise<boolean> {
+    const doc = this._access(editor);
+    if (!doc || typeof payload?.deck !== 'string' || typeof payload?.componentId !== 'string') {
+      return false;
+    }
+    const source = accessOfTree(payload.source as never);
+    const plan = importComponentPlan(doc, source, payload.componentId, payload.deck);
+    if (!plan) return false;
+
+    const steps: unknown[] = [];
+    const library = libraryOf(doc);
+
+    if (plan.replaces) {
+      /*
+       * Replaced in place: the definition keeps its id here, so every placement of it is still a
+       * placement of it. Its **parts** are what changed, and that is what the badge then offers to
+       * carry into the placements.
+       */
+      const parent = (doc.getNode(plan.replaces) as { parentId?: unknown } | undefined)?.parentId;
+      if (typeof parent !== 'string') return false;
+      steps.push({ type: 'removeChild', payload: { parentId: parent, childId: plan.replaces } });
+      steps.push({ type: 'addChild', payload: { parentId: parent, child: plan.node } });
+    } else if (library) {
+      steps.push({ type: 'addChild', payload: { parentId: library, child: plan.node } });
+    } else {
+      // A deck with no library yet: made in the same transaction, so one press of undo takes back
+      // "I brought a card in" rather than leaving an empty container behind.
+      steps.push({
+        type: 'addChild',
+        payload: { parentId: doc.rootId, child: { stype: 'components', content: [plan.node] } }
+      });
     }
 
     return (await transaction(editor, steps as never).commit()).success === true;

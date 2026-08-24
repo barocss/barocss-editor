@@ -1,7 +1,14 @@
 import { useEffect, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { Dialog, DialogButton, PropertyRow } from '@barocss/office-ui';
-import { deckFileText, readDeckFile } from '@barocss/office-slides';
+import {
+  accessOfTree,
+  componentBehindSource,
+  componentSourceOf,
+  deckComponents,
+  deckFileText,
+  readDeckFile
+} from '@barocss/office-slides';
 import { dropFromLibrary, keepInLibrary, libraryDeck, libraryRows, type LibraryRow } from './library';
 
 /**
@@ -39,6 +46,18 @@ export function LibraryDialog({
 }) {
   const [rows, setRows] = useState<LibraryRow[]>([]);
   const [problem, setProblem] = useState<string>();
+  /**
+   * The definitions one library deck offers, once a reader asks to look inside it.
+   *
+   * Read on asking rather than for every row: a library of ten decks is ten files, and a list a
+   * reader is scanning does not need to have opened all of them. `accessOfTree` is what makes this
+   * cheap at all — the deck is answered *without being loaded*, so the deck on screen stays where
+   * it is.
+   */
+  const [inside, setInside] = useState<{
+    deck: string;
+    parts: Array<{ id: string; name: string; here?: string; behind: boolean }>;
+  } | null>(null);
 
   const reread = () => {
     void libraryRows()
@@ -47,7 +66,18 @@ export function LibraryDialog({
   };
 
   useEffect(() => {
-    if (open) reread();
+    if (!open) return;
+    reread();
+    /*
+     * And what was open inside a deck is **forgotten**.
+     *
+     * Measured: the list of one deck's definitions stayed from the last time the dialog was open,
+     * so the button that opens it closed it instead — and worse, that list is exactly the thing
+     * that may have changed in between. A brand kit a reader edited two minutes ago is the case
+     * this whole feature is for.
+     */
+    setInside(null);
+    setSources({});
     // Re-read on opening rather than watching the store: another tab could have changed it, and a
     // list a reader is not looking at is a list nobody has to keep fresh.
   }, [open]);
@@ -93,6 +123,67 @@ export function LibraryDialog({
     onName?.(row.name);
     onClose();
     onOpened?.();
+  };
+
+  /**
+   * What that deck defines, and what this deck already has of it.
+   *
+   * Three states per definition, and they are three different sentences: not here yet, here and
+   * the same, here and **behind**. The last one is the whole reason a library is not a paste —
+   * `componentBehindSource` compares what the copy recorded with what the source says now.
+   */
+  const look = async (row: LibraryRow) => {
+    const text = await libraryDeck(row.name);
+    if (!text) return setProblem('그 덱을 찾을 수 없습니다.');
+    const read = readDeckFile(text);
+    if ('error' in read) return setProblem(read.error);
+
+    const source = accessOfTree(read.document as never);
+    const store = (editor as any)?.dataStore;
+    const rootId = (editor as any)?.getRootId?.();
+    const host =
+      store && rootId ? { rootId, getNode: (sid: string) => store.getNode(sid) } : undefined;
+    const mine = host ? deckComponents(host as never) : [];
+
+    setSources((was) => ({ ...was, [row.name]: read.document }));
+    setInside({
+      deck: row.name,
+      parts: deckComponents(source).map((one) => {
+        const copy = mine.find((made) => {
+          const from = componentSourceOf(host as never, made);
+          return from?.deck === row.name && from.id === one.id;
+        });
+        return {
+          id: one.id,
+          name: one.name || one.id,
+          here: copy?.id,
+          behind: copy ? componentBehindSource(host as never, copy, source) : false
+        };
+      })
+    });
+    setProblem(undefined);
+  };
+
+  /** The decks read while looking, so an import does not fetch the same file twice. */
+  const [sources, setSources] = useState<Record<string, unknown>>({});
+
+  const bring = async (deck: string, componentId: string) => {
+    const source = sources[deck] ?? (await (async () => {
+      const text = await libraryDeck(deck);
+      if (!text) return undefined;
+      const read = readDeckFile(text);
+      return 'error' in read ? undefined : read.document;
+    })());
+    if (!source) return setProblem('그 덱을 읽을 수 없습니다.');
+
+    /*
+     * The command does the document work and this hands it the source, because whether `brand-kit`
+     * is a name in a library or an address to fetch is the host's question (§11i) and a model that
+     * reached for storage would be a model nobody could test in milliseconds.
+     */
+    await (editor as any)?.executeCommand?.('importComponent', { deck, componentId, source });
+    const row = rows.find((one) => one.name === deck);
+    if (row) await look(row);
   };
 
   const drop = async (row: LibraryRow) => {
@@ -141,6 +232,13 @@ export function LibraryDialog({
                 <span className="sl-library-pages">{row.pages}장</span>
               </span>
               <span className="sl-library-actions">
+                {/* What this deck *defines*, which is the other half of what a library is for. */}
+                <DialogButton
+                  data-library-look={row.name}
+                  onClick={() => void (inside?.deck === row.name ? setInside(null) : look(row))}
+                >
+                  컴포넌트
+                </DialogButton>
                 <DialogButton data-library-open={row.name} onClick={() => void load(row)}>
                   열기
                 </DialogButton>
@@ -148,6 +246,40 @@ export function LibraryDialog({
                   지우기
                 </DialogButton>
               </span>
+              {/*
+                * The definitions that deck offers, in three states — not here, here, here and
+                * behind. A library that could only *say* something has moved on would be a badge;
+                * offering the newer copy beside it is what makes it a library.
+                */}
+              {inside?.deck === row.name && (
+                <ol className="sl-library-parts" data-library-parts={row.name}>
+                  {inside.parts.length === 0 ? (
+                    <li className="sl-library-none">이 덱에는 컴포넌트가 없습니다.</li>
+                  ) : (
+                    inside.parts.map((part) => (
+                      <li key={part.id} data-library-part={part.id}>
+                        <span>{part.name}</span>
+                        {part.here && !part.behind && (
+                          <span className="sl-library-have" data-library-have={part.here}>
+                            가져와 있음
+                          </span>
+                        )}
+                        {part.behind && (
+                          <span className="sl-library-behind" data-library-behind={part.here}>
+                            뒤처짐
+                          </span>
+                        )}
+                        <DialogButton
+                          data-library-bring={part.id}
+                          onClick={() => void bring(row.name, part.id)}
+                        >
+                          {part.behind ? '다시 가져오기' : part.here ? '덮어쓰기' : '가져오기'}
+                        </DialogButton>
+                      </li>
+                    ))
+                  )}
+                </ol>
+              )}
             </li>
           ))}
         </ol>
