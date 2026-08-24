@@ -6,6 +6,7 @@ import {
   componentsOf,
   documentVarUses,
   documentVars,
+  surfaceVars,
   type ComponentDef,
   type DocumentVar
 } from '@barocss/office-slides';
@@ -38,17 +39,34 @@ import { useEditorRevision } from './revision';
 function DocumentVarList({
   editor,
   vars,
-  uses
+  uses,
+  scope = 'document',
+  slideId
 }: {
   editor: Editor | null;
   vars: DocumentVar[];
   /** How many places name each one, counted from the document by the model. */
   uses: (name: string) => number;
+  /**
+   * Which scope this list is about.
+   *
+   * One component for two scopes, because it is the same question at two sizes and a reader setting a
+   * value should meet the same control either way — a second list with its own controls is how a
+   * product ends up with two kinds of colour picker. What differs is the command it calls, the title,
+   * and the words in the empty state.
+   */
+  scope?: 'document' | 'slide';
+  /** The page, when this is a page's own list. */
+  slideId?: string;
 }) {
   const [adding, setAdding] = useState('');
+  const onPage = scope === 'slide';
 
   const set = (payload: Record<string, unknown>) =>
-    void (editor as any)?.executeCommand?.('setDocumentVar', payload);
+    void (editor as any)?.executeCommand?.(
+      onPage ? 'setSlideVar' : 'setDocumentVar',
+      onPage ? { slideId, ...payload } : payload
+    );
 
   const add = () => {
     const name = adding.trim();
@@ -58,18 +76,22 @@ function DocumentVarList({
   };
 
   return (
-    <div className="sl-var-list" data-doc-var-list="">
-      <div className="sl-var-title">문서 변수</div>
+    <div
+      className="sl-var-list"
+      {...(onPage ? { 'data-slide-var-list': slideId ?? '' } : { 'data-doc-var-list': '' })}
+    >
+      <div className="sl-var-title">{onPage ? '이 장 변수' : '문서 변수'}</div>
 
       {vars.length === 0 ? (
         <p className="sl-var-empty">
-          문서 변수를 만들면 덱 어디서나 이름으로 쓸 수 있습니다. 색을 고르는 자리에서 고르거나,
-          컴포넌트가 이름으로 가져다 씁니다.
+          {onPage
+            ? '이 장에서만 다른 값을 쓰려면 같은 이름으로 여기에 만드세요. 이 장 안에서는 문서 변수보다 이것이 먼저입니다.'
+            : '문서 변수를 만들면 덱 어디서나 이름으로 쓸 수 있습니다. 색을 고르는 자리에서 고르거나, 컴포넌트가 이름으로 가져다 씁니다.'}
         </p>
       ) : (
         <ol className="sl-var-rows">
           {vars.map((one) => (
-            <li key={one.name} data-doc-var-row={one.name}>
+            <li key={one.name} {...(onPage ? { 'data-slide-var-row': one.name } : { 'data-doc-var-row': one.name })}>
               {/* The name, shown and not editable: every reference in the deck is written in it. */}
               <code className="sl-var-name">{one.name}</code>
               <TextField
@@ -90,7 +112,7 @@ function DocumentVarList({
               </Choice>
               <TextField
                 ariaLabel={`${one.name} 값`}
-                data={{ 'doc-var-value': one.name }}
+                data={onPage ? { 'slide-var-value': one.name } : { 'doc-var-value': one.name }}
                 value={one.value}
                 onCommit={(value) => set({ name: one.name, value })}
               />
@@ -110,12 +132,16 @@ function DocumentVarList({
                 />
               )}
               {/* What a change reaches, and what a delete would lose. */}
-              <span className="sl-var-uses" data-doc-var-uses={one.name}>
-                {uses(one.name)}곳
-              </span>
+              {/* A page's own value reaches only this page, so the count is the document's business
+                  and this list says nothing about it. */}
+              {!onPage && (
+                <span className="sl-var-uses" data-doc-var-uses={one.name}>
+                  {uses(one.name)}곳
+                </span>
+              )}
               <IconButton
                 label={`${one.name} 지우기`}
-                data={{ 'doc-var-remove': one.name }}
+                data={onPage ? { 'slide-var-remove': one.name } : { 'doc-var-remove': one.name }}
                 onClick={() => set({ name: one.name, remove: true })}
               >
                 <Icon name="close" size={12} />
@@ -127,9 +153,9 @@ function DocumentVarList({
 
       <div className="sl-var-add">
         <TextField
-          ariaLabel="새 문서 변수 이름"
-          testClass="sl-doc-var-new"
-          data={{ 'doc-var-new': '' }}
+          ariaLabel={onPage ? '새 이 장 변수 이름' : '새 문서 변수 이름'}
+          testClass={onPage ? 'sl-slide-var-new' : 'sl-doc-var-new'}
+          data={onPage ? { 'slide-var-new': '' } : { 'doc-var-new': '' }}
           value={adding}
           onChange={setAdding}
           onKeys={(event) => {
@@ -137,8 +163,8 @@ function DocumentVarList({
           }}
         />
         <Button
-          title="이 이름으로 문서 변수를 만듭니다"
-          data={{ 'doc-var-add': '' }}
+          title={onPage ? '이 장에서만 쓰는 값을 만듭니다' : '이 이름으로 문서 변수를 만듭니다'}
+          data={onPage ? { 'slide-var-add': '' } : { 'doc-var-add': '' }}
           disabled={!adding.trim()}
           onClick={add}
         >
@@ -309,7 +335,8 @@ export function ComponentPanel({
   canMake,
   onMake,
   behindSource,
-  onPlace
+  onPlace,
+  slideId
 }: {
   editor: Editor | null;
   open: boolean;
@@ -323,6 +350,14 @@ export function ComponentPanel({
   onMake: () => void;
   /** Put one on the surface the reader is on — which only the app knows. */
   onPlace: (componentId: string) => void;
+  /**
+   * The slide showing, for its own variables — and only the app knows which that is.
+   *
+   * The same reason `onPlace` takes one: where the reader *is* belongs to the app, and a panel that
+   * worked it out for itself would be a second answer to a question the filmstrip, the stage and the
+   * presenter already share.
+   */
+  slideId?: string;
   /**
    * The imported definitions whose source deck has moved on, by sid.
    *
@@ -439,6 +474,22 @@ export function ComponentPanel({
           editor={editor}
           vars={documentVars(doc as never)}
           uses={(name) => documentVarUses(doc as never, name)}
+        />
+      )}
+
+      {/*
+        * And **this page's** own, under the document's — widest scope first, which is the order a
+        * reader resolves a name in: the document says what the deck's values are, and the page may
+        * say something else for itself. Drawn only while a slide is showing, because a page's
+        * variable needs a page.
+        */}
+      {doc && slideId && (
+        <DocumentVarList
+          editor={editor}
+          scope="slide"
+          slideId={slideId}
+          vars={surfaceVars(doc as never, slideId)}
+          uses={() => 0}
         />
       )}
 

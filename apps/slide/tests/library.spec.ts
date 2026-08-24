@@ -169,6 +169,65 @@ test.describe('a component from another deck', () => {
     await page.waitForTimeout(700);
   };
 
+  test('brings a value in from the same deck, and remembers whose it is', async ({ page }) => {
+    await withKit(page);
+
+    await page.locator('[data-deck-library]').click();
+    await page.locator('[data-library-look="one-engine-two-products"]').click();
+    await page.waitForTimeout(600);
+
+    /*
+     * A brand kit is a card **and** a colour, so the values are listed beside the definitions — one
+     * read of one file, three states each. The sample deck declares 주의, which is what this brings in.
+     */
+    const value = page.locator('[data-library-value="주의"]');
+    await expect(value).toHaveCount(1);
+    await expect(value).toContainText('가져오기');
+
+    await page.locator('[data-library-bring-value="주의"]').click();
+    await page.waitForTimeout(800);
+    await expect(page.locator('[data-library-value-have="주의"]')).toHaveCount(1);
+
+    // This deck has it now, with where it came from — which is what makes it a library rather than a
+    // paste: a copy that remembers.
+    const held = await page.evaluate(() => {
+      const editor = (window as any).editor;
+      const store = editor.dataStore;
+      const root = store.getNode(editor.getRootId());
+      const container = ((root.content ?? []) as string[])
+        .map((sid: string) => store.getNode(sid))
+        .find((one: any) => one?.stype === 'variables');
+      const one = store.getNode(((container?.content ?? []) as string[])[0]);
+      return {
+        name: one?.attributes?.name,
+        value: one?.attributes?.value,
+        fromDeck: one?.attributes?.fromDeck,
+        fromValue: one?.attributes?.fromValue
+      };
+    });
+    expect(held.name).toBe('주의');
+    expect(held.fromDeck).toBe('one-engine-two-products');
+    expect(held.fromValue).toBe(held.value);
+
+    /*
+     * "Behind" is deliberately about the **source**, not about this deck: editing the value here is a
+     * reader deciding something for this deck, and a badge calling that stale would be the library
+     * telling them off for it. The comparison both ways is tested in milliseconds
+     * (`canvas-variable.test.ts`), where a brand can be made to change its mind without saving a
+     * file.
+     */
+    await page.evaluate(async () => {
+      const editor = (window as any).editor;
+      await editor.executeCommand('setDocumentVar', { name: '주의', value: '#15803d' });
+    });
+    await page.locator('[data-library-look="one-engine-two-products"]').click();
+    await page.locator('[data-library-look="one-engine-two-products"]').click();
+    await page.waitForTimeout(700);
+    await expect(page.locator('[data-library-value-behind="주의"]')).toHaveCount(0);
+    // Still marked as brought in, which is the fact that matters on the row.
+    await expect(page.locator('[data-library-value-have="주의"]')).toHaveCount(1);
+  });
+
   test('lists what another deck defines, and brings one in', async ({ page }) => {
     await withKit(page);
 

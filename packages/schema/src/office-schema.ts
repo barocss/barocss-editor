@@ -1035,7 +1035,27 @@ export function getMetaNodeDefinitions(): Record<string, NodeTypeDefinition> {
          * one thing to check. A number kept as `"120"` is a number a person can read in a pull
          * request.
          */
-        value: { type: 'string' as const, required: false }
+        value: { type: 'string' as const, required: false },
+        /**
+         * That this value was **brought in from another document**, and what it said then.
+         *
+         * A brand's colours are used by twenty decks, and another document is not in this one — so
+         * it is a **copy that remembers its source**, exactly as a definition from a brand kit is
+         * (§10f). `fromDeck` is a library name or an address, resolved by the host (§11i);
+         * `fromValue` is what the source said at the moment it was copied, so "the brand has moved
+         * on" is a string comparison and nothing has to be maintained.
+         *
+         * There is no `fromName` beside them, and that is the difference from a component: a card
+         * that clashes can be *renamed* here (`fromId` remembers what it is called there), while a
+         * variable's name **is** the reference — every attribute in the deck is written in it — so
+         * an import under a different name would change nothing that already names it. A clash is
+         * therefore the reader asking for the library's value, and the value is what changes.
+         *
+         * An imported variable is still this document's own: it draws, resolves and scopes exactly
+         * like any other, and what the two fields buy is one badge on its row.
+         */
+        fromDeck: { type: 'string' as const, required: false },
+        fromValue: { type: 'string' as const, required: false }
       }
     },
 
@@ -1214,11 +1234,23 @@ export function getSurfaceNodeDefinitions(): Record<string, NodeTypeDefinition> 
      * PageBuilder page hold blocks, a slide and a FigJam board hold scene nodes.
      * `kind` records which, so a product can filter surfaces it understands
      * while still round-tripping the ones it does not.
+     *
+     * ## Why a page may declare **variables**
+     *
+     * `variable*` first, the way a `component` declares before it draws — and for the same reason a
+     * reader looking at the file should see what a page can be asked for before what is on it.
+     *
+     * The scope this adds is the one a deck actually wants: the document says what the deck's values
+     * are, and **this page** may say something else for itself. "Every card is our accent, except on
+     * the summary page" is one declaration here instead of a per-shape override on nine shapes. The
+     * order of the two is the ordinary specificity rule — the narrower scope wins — with one
+     * exception written down where it is resolved: a **card's own** declaration still beats both, so
+     * that carrying a card onto a page cannot change what the card means.
      */
     surface: {
       name: 'surface',
       group: 'surface',
-      content: 'block+ | (scene | frame)*',
+      content: 'variable* (block+ | (scene | frame)*)',
       attrs: {
         kind: { type: 'string', default: 'flow' },
         /**

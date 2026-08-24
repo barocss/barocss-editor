@@ -1,5 +1,5 @@
 import { childrenOf, copyOf, type CanvasAccess, type CanvasNode } from './canvas-access';
-import { documentVars, isVarRef, resolveVarValue } from './canvas-variable';
+import { documentVars, isVarRef, resolveVarValue, surfaceOf, surfaceVars } from './canvas-variable';
 
 /**
  * A component's definition, and what a placement of one is.
@@ -520,16 +520,29 @@ export function instanceValues(
   definition: ComponentDef | undefined
 ): Map<string, string> {
   const said = new Map<string, string>();
-  // The document's, first into the map and last in precedence — the card's own overwrite them.
+
+  /*
+   * Three scopes, widest first, so the narrower ones overwrite: the **document**, then the **page
+   * this placement is on**, then the card's own declarations and this placement's answers.
+   *
+   * The page is in the chain because that is what a page's variables are for — "every card is our
+   * accent, except on the summary page" — and it is *this* placement's page rather than the card's,
+   * because a card is not on a page at all: a definition is not a slide.
+   */
   for (const one of documentVars(doc)) said.set(one.name, one.value);
+  for (const one of surfaceVars(doc, surfaceOf(doc, instance?.sid))) said.set(one.name, one.value);
 
   for (const one of instanceVars(doc, instance, definition)) {
     /*
      * A reference where a value goes, resolved here rather than at the binding: a placement may
      * answer a card's question with a variable too, so both halves — the card's default and the
-     * placement's answer — arrive as one string that may name something.
+     * placement's answer — arrive as one string that may name something. Resolved in the
+     * placement's scope, so a page's declaration reaches a card that names it.
      */
-    said.set(one.name, isVarRef(one.value) ? (resolveVarValue(doc, one.value) ?? '') : one.value);
+    said.set(
+      one.name,
+      isVarRef(one.value) ? (resolveVarValue(doc, one.value, instance?.sid) ?? '') : one.value
+    );
   }
   return said;
 }

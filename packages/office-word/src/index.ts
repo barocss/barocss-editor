@@ -395,11 +395,34 @@ export {
 export {
   documentVars,
   documentVar,
+  /**
+   * The scope chain: a **page's** own declarations, then the document's.
+   *
+   * The narrower scope wins, which is what a page's variables are for — one exception is written
+   * where it lives: a card's own declaration beats both (`instanceValues`), so carrying a card onto a
+   * page cannot change what the card means.
+   */
+  surfaceVars,
+  surfaceOf,
+  varInScope,
   resolveVarValue,
   isVarRef,
   varNameOf,
   varRef,
   varUses,
+  /**
+   * Where an imported value came from, whether the source has moved on, and what bringing one in
+   * would write.
+   *
+   * The brand kit's argument applied to a value: another document is not in this one, so it is a copy
+   * that remembers its source (§10f). A clash **overwrites** where a card's clash renames, because a
+   * variable's name *is* the reference — see `importVariablePlan`.
+   */
+  variableSourceOf,
+  variableBehindSource,
+  importVariablePlan,
+  type VariableSource,
+  type VariableImport,
   /**
    * What a **shape** takes from a variable, for the attributes a reference cannot sit in.
    *

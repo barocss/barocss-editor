@@ -232,6 +232,10 @@ describe('Slides draws what its schema declares', () => {
           'the components panel — the 변수 list, drawn while a definition is open: a label, a kind, a default, and 추가 for a new one. Beside the definition rather than on a part, because a variable belongs to the card — an accent colour used by three parts is one decision, which is the whole reason a declaration exists',
         setVarBind:
           'the properties panel — the 문서 변수 연결 group on an ordinary shape: one row per attribute the shape declares, each offering the document variables whose kind fits. Beside the card’s own rows rather than mixed into them, because they are two scopes and a reader has to see which they are choosing. Geometry is not offered at all (`UNBINDABLE`), which is measured rather than chosen: a bound size would be drawn where the resolution says and answered where the document says, and the overlay reads the answer',
+        importVariable:
+          'the library dialog — 안에 있는 것 on a deck’s row lists the values it declares beside the cards, and 가져오기 / 다시 가져오기 brings one in. There because the *storage* is there: whether a deck is a name in the library or an address to fetch is the host’s question, and the command takes the parsed deck rather than reaching for it',
+        setSlideVar:
+          'the components panel — the 이 장 변수 list, under the document’s and drawn while a slide is showing. The same control at a narrower scope, because setting a value should feel the same wherever the value lives; what the list says instead of a use count is that this page’s answer comes first inside it',
         setDocumentVar:
           'the components panel — the 문서 변수 list, above the card’s and drawn always, because a document variable is a fact about the document and there is nothing to be standing in. Each row says how many places name it (`varUses`), which is what a reader needs before changing one everywhere or deleting one: a reference to a name that is gone draws nothing',
         setComponentBind:
@@ -321,6 +325,20 @@ describe('Slides draws what its schema declares', () => {
         fromDeck:
           'components — the deck a definition was brought in from, read by `componentSourceOf`; the copy is what makes it drawable at all, and the drawing is the same either way',
         fromId: 'components — its id in that deck, which may differ from its id here: two decks can both define a `card`',
+        /**
+         * ── A value that came from **another deck** ─────────────────────────
+         *
+         * The brand kit's answer (§10f) for a value rather than a card: another document is not in
+         * this one, so it is a copy that remembers its source. Read by `variableSourceOf` and
+         * `variableBehindSource` — the library dialog says which of a brand's values this deck has and
+         * which of them the brand has since changed.
+         *
+         * An imported value is otherwise **this deck's own**: it draws, resolves and scopes exactly
+         * like any other, which is why the drawing is identical either way and why there is no third
+         * list anywhere.
+         */
+        fromValue:
+          'the library dialog — what the source deck said when this value was copied, so `variableBehindSource` can offer the newer one. A value rather than a signature, because a variable *is* its value; a hash of one string would be one string more to read',
         fromSignature:
           'components — what that definition said when it was copied, so `componentBehindSource` can offer the library’s changes. A signature rather than a version, because a number would have to be maintained by a write on every edit of the source deck',
 

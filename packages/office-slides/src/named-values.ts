@@ -1,4 +1,4 @@
-import { documentVar, isVarRef, varNameOf } from '@barocss/office-word';
+import { isVarRef, resolveVarValue, varInScope, varNameOf } from '@barocss/office-word';
 import { isThemeRef, resolveThemeValue, themeFor } from './theme';
 import type { DeckAccess, DeckNode } from './deck';
 
@@ -135,14 +135,16 @@ export function resolveDeckValue(
   doc: DeckAccess,
   masterId: string | undefined,
   value: unknown,
+  /** Where the value is, so a **page's** own declaration can win over the document's (§10h-3). */
+  at?: string,
   depth = 0
 ): string | undefined {
   if (depth > 4) return undefined;
 
   if (isVarRef(value)) {
-    const found = documentVar(doc, varNameOf(value))?.value;
+    const found = varInScope(doc, at, varNameOf(value))?.value;
     if (found === undefined || found === '') return undefined;
-    return resolveDeckValue(doc, masterId, found, depth + 1);
+    return resolveDeckValue(doc, masterId, found, at, depth + 1);
   }
 
   const themed = resolveThemeValue(themeFor(doc, masterId), value);
@@ -155,10 +157,33 @@ export function resolveDeckValue(
 export function resolveDeckAttrs<T extends Record<string, unknown>>(
   doc: DeckAccess,
   masterId: string | undefined,
+  attrs: T | undefined,
+  /** Where the attributes are, when the caller knows — a page's declaration wins there. */
+  at?: string
+): T {
+  return resolveNamedAttrs(
+    { isRef: isNamedRef, resolve: (value) => resolveDeckValue(doc, masterId, value, at) },
+    attrs
+  );
+}
+
+/**
+ * Every reference in a set of attributes, resolved **where the node is** — the page, then the
+ * document.
+ *
+ * Used where children are read (the content resolver), which is the only place that knows *which*
+ * node a value belongs to. The renderers resolve references too, at document scope, and the two do
+ * not overlap: a shape on a page has been through this one first and arrives at the renderer holding
+ * values, so what is left for the renderer is what has no page to be on — a master's paint, a
+ * layout's placeholder, a theme.
+ */
+export function resolveVarAttrs<T extends Record<string, unknown>>(
+  doc: DeckAccess,
+  at: string | undefined,
   attrs: T | undefined
 ): T {
   return resolveNamedAttrs(
-    { isRef: isNamedRef, resolve: (value) => resolveDeckValue(doc, masterId, value) },
+    { isRef: isVarRef, resolve: (value) => resolveVarValue(doc, value, at) },
     attrs
   );
 }

@@ -2,7 +2,13 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { DataStore, DataStoreExporter } from '@barocss/datastore';
 import { createSchema } from '@barocss/schema';
 import type { Editor } from '@barocss/editor-core';
-import { documentVars, varUses } from '@barocss/office-word';
+import {
+  documentVars,
+  surfaceVars,
+  varInScope,
+  variableSourceOf,
+  varUses
+} from '@barocss/office-word';
 import { createSlidesEditor } from '../src/slides-kit';
 import { getSlidesSchemaDefinition } from '../src/slides-schema';
 import { childrenOf, type DeckAccess } from '../src/deck';
@@ -106,6 +112,66 @@ describe('the document variable commands', () => {
       expect([found.label, found.kind, found.value]).toEqual(['강조색', 'color', '#0f766e']);
       // And one declaration, not two: the same name is the same variable.
       expect(documentVars(doc as never)).toHaveLength(1);
+    });
+  });
+
+  /**
+   * The same, for **one page**.
+   *
+   * A page's declaration hangs from the page itself (`variable*` first among its children), where the
+   * document's hangs from a `variables` container — two scopes, two commands, one writer.
+   */
+  describe('declaring one for a single slide', () => {
+    const slide = () => childrenOf(doc.getNode(doc.rootId))[0];
+    const canSlide = (payload?: unknown) =>
+      (editor as never as { canExecuteCommand: (name: string, payload?: unknown) => boolean })
+        .canExecuteCommand('setSlideVar', payload);
+
+    it('refuses a page that is not one, and a nameless variable', () => {
+      expect(canSlide({ slideId: slide(), name: '강조' })).toBe(true);
+      expect(canSlide({ slideId: slide() })).toBe(false);
+      expect(canSlide({ name: '강조' })).toBe(false);
+      // A box is not a page: a declaration hung from it would be a `variable` the content model of
+      // that node never allowed, and the transaction would be refused after the fact.
+      expect(canSlide({ slideId: box(), name: '강조' })).toBe(false);
+      // And removing one the page has not got is a gesture with no answer.
+      expect(canSlide({ slideId: slide(), name: '없음', remove: true })).toBe(false);
+    });
+
+    it('writes it into the page, first among its children', async () => {
+      expect(await run('setSlideVar', { slideId: slide(), name: '강조', kind: 'color', value: '#b45309' })).toBe(
+        true
+      );
+      /*
+       * `variable* (block+ | (scene | frame)*)` is an order: appended, the declaration would land
+       * after the shapes and be refused — the same lesson `documentChildSpot` came from one level up.
+       */
+      expect(childrenOf(doc.getNode(slide())).map((sid) => doc.getNode(sid)?.stype)).toEqual([
+        'variable',
+        'rectangle'
+      ]);
+      expect(surfaceVars(doc as never, slide()).map((one) => one.value)).toEqual(['#b45309']);
+      // And the document has none: this is the page's own, and nothing else changed.
+      expect(documentVars(doc as never)).toEqual([]);
+    });
+
+    it('is what a shape on that page means, over the document', async () => {
+      await run('setDocumentVar', { name: '강조', kind: 'color', value: '#0f766e' });
+      await run('setBoxStyle', { nodeIds: [box()], fill: 'var:강조' });
+      await run('setSlideVar', { slideId: slide(), name: '강조', kind: 'color', value: '#b45309' });
+
+      // The narrower scope wins, which is the whole of what a page's variables are for.
+      expect(varInScope(doc as never, box(), '강조')?.value).toBe('#b45309');
+
+      // Taking the page's away leaves the document's, and the shape keeps drawing something.
+      expect(await run('setSlideVar', { slideId: slide(), name: '강조', remove: true })).toBe(true);
+      expect(varInScope(doc as never, box(), '강조')?.value).toBe('#0f766e');
+    });
+
+    it('takes one press of undo to make and to unmake', async () => {
+      await run('setSlideVar', { slideId: slide(), name: '강조', value: '#b45309' });
+      await (editor as never as { undo: () => Promise<unknown> }).undo();
+      expect(surfaceVars(doc as never, slide())).toEqual([]);
     });
   });
 
@@ -306,6 +372,80 @@ describe('the document variable commands', () => {
       ) as string;
       const row = childrenOf(doc.getNode(frame))[0];
       expect(doc.getNode(row)?.attributes?.width).toBe(6000);
+    });
+  });
+
+  /**
+   * Bringing one in from **another deck**.
+   *
+   * The command's own half of the brand kit: what the document looks like afterwards, and that one
+   * press of undo takes it back. What a *plan* is is tested in milliseconds next door.
+   */
+  describe('importing one from a library deck', () => {
+    /** A brand kit, as a parsed deck rather than a file: storage is the host's business (§11i). */
+    const brand = () => ({
+      stype: 'document',
+      attributes: {},
+      content: [
+        { stype: 'surface', attributes: { kind: 'slide' }, content: [] },
+        {
+          stype: 'variables',
+          content: [
+            {
+              stype: 'variable',
+              attributes: { name: '강조', kind: 'color', label: '브랜드 강조', value: '#0f766e' }
+            }
+          ]
+        }
+      ]
+    });
+
+    const canImport = (payload?: unknown) =>
+      (editor as never as { canExecuteCommand: (name: string, payload?: unknown) => boolean })
+        .canExecuteCommand('importVariable', payload);
+
+    it('refuses a deck that declares nothing of that name', () => {
+      expect(canImport({ deck: 'brand-kit', name: '강조', source: brand() })).toBe(true);
+      expect(canImport({ deck: 'brand-kit', name: '없음', source: brand() })).toBe(false);
+      expect(canImport({ name: '강조', source: brand() })).toBe(false);
+      expect(canImport({ deck: 'brand-kit', name: '강조' })).toBe(false);
+    });
+
+    it('adds it with where it came from, in one entry', async () => {
+      expect(await run('importVariable', { deck: 'brand-kit', name: '강조', source: brand() })).toBe(
+        true
+      );
+
+      const [found] = documentVars(doc as never);
+      expect([found.name, found.value, found.label]).toEqual(['강조', '#0f766e', '브랜드 강조']);
+      expect(variableSourceOf(doc as never, '강조')).toEqual({
+        deck: 'brand-kit',
+        value: '#0f766e'
+      });
+
+      // The container came with it, and one press of undo takes back the whole gesture.
+      await (editor as never as { undo: () => Promise<unknown> }).undo();
+      expect(documentVars(doc as never)).toEqual([]);
+      expect(childrenOf(doc.getNode(doc.rootId)).map((sid) => doc.getNode(sid)?.stype)).toEqual([
+        'surface'
+      ]);
+    });
+
+    it('replaces the value under a name this deck already uses, and nothing else', async () => {
+      await run('setDocumentVar', { name: '강조', kind: 'color', value: '#b45309' });
+      await run('setBoxStyle', { nodeIds: [box()], fill: 'var:강조' });
+
+      expect(await run('importVariable', { deck: 'brand-kit', name: '강조', source: brand() })).toBe(
+        true
+      );
+
+      /*
+       * One declaration, the library's value under it — and the shape that names it is untouched,
+       * which is the point: the name is the reference, so changing the value reaches everything that
+       * names it without rewriting any of them.
+       */
+      expect(documentVars(doc as never).map((one) => one.value)).toEqual(['#0f766e']);
+      expect(doc.getNode(box())?.attributes?.fill).toBe('var:강조');
     });
   });
 

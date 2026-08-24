@@ -1883,6 +1883,89 @@ it from the variable if there is one*, so a missing name leaves the shape drawin
 slide is not broken, and the reader has a declaration that does nothing, which the check reports as
 볼 것.
 
+#### 10h-3. Two scopes: the document, and **one page**
+
+Asked as a question — *"덱에도 변수가 있지만 문서 전체에도 변수가 있을 수 있는 거 아니야?"* — and the answer
+begins with vocabulary, because two words were doing one job. **A deck *is* a document**: one
+`document` node, one file (`barocss-slides`), holding many `surface` slides. So the `variables`
+container was already document-wide, and "문서 변수" in the panel is exactly what it says.
+
+What was missing is the scope *inside* it: **a page saying something else for itself.**
+
+`surface` content is `variable* (block+ | (scene | frame)*)` now — declarations first, the way a
+`component` declares before it draws. "Every card is our accent, except on the summary page" is one
+declaration on that page instead of an override on each of nine shapes.
+
+##### The order, and the one exception
+
+Widest to narrowest: **document → page → card's own declaration → the placement's answer.** The
+narrower wins, which is the ordinary rule and needs no argument. The exception does:
+
+> A **card's own** declaration beats the page as well as the document.
+
+Because a card carried onto a page that happens to declare that name must not change meaning — a
+brand kit whose cards meant something different per page is not a brand kit. And it is the
+**placement's** page that counts, not the card's: a definition is not on a page at all.
+
+##### Where a reference is resolved, and why there are two places
+
+| what | resolved where | scope it can see |
+| --- | --- | --- |
+| a shape on a page | the content resolver, as its parent hands it back | the page, then the document |
+| a card's binding | `instanceValues`, from the placement | the placement's page, then the document |
+| a page's own attribute (its background) | `resolveDeckFormat` | that page, then the document |
+| a master's paint, a layout's placeholder, a theme slot | the renderers | the document — they are on no page |
+
+Two mechanisms, and they do not overlap: a shape on a page has been through the resolver first and
+arrives at the renderer holding *values*, so what is left for the renderer is exactly what has no page
+to be on. Scope is a property of **where a node is**, so it is resolved where a node's identity is
+known — which is why this could not live in `attrsOf`, read in 62 places with no document and no sid.
+
+##### What the check has to know
+
+`dead-var` is asked in the shape's scope now: a name this page declares is not missing, and reporting
+it would send a reader to fix something that is right.
+
+##### Removing one, and an asymmetry that is on purpose
+
+Taking a variable away takes the **card** bindings that named it — a card is a definition the whole
+deck follows, so a binding left pointing at nothing is a fault in a shared thing, repaired at the
+source. A **shape's** binding is left exactly where it is: that is the reader's own declaration on
+their own box, they may re-declare the name in a minute, and the shape goes on drawing what it holds.
+The check reports it as 볼 것 rather than the command editing their slide behind them.
+
+#### 10h-4. A value from **another** document
+
+The third scope, and the one no resolver can reach: a brand's colours used by twenty decks. Another
+document is **not in this one**, which is the same wall §10f hit with components — so the answer is
+the same, a **copy that remembers its source**, and remembering is the whole difference between a
+library and a paste.
+
+A `variable` gains `fromDeck` (a library name or an address, resolved by the host, §11i) and
+`fromValue` (what the source said when it was copied, so "the brand has moved on" is a string
+comparison and nothing has to be maintained). The library dialog lists a deck's **values beside its
+cards** — one read of one file, three states each: not here, here, here and behind.
+
+##### A clash overwrites, where a card's clash renames
+
+A card that clashes is renamed and goes on being the same card: `fromId` remembers what it is called
+there, and every placement of *this* deck's card still points at this deck's card. A variable cannot
+do that, because its **name is the reference** — every attribute and every binding in the deck is
+written in that string, so an import under another name would change nothing that already names it,
+and the reader would be looking at a value that does nothing.
+
+So a clash is read as what the gesture plainly is: *give me the library's value for this name.* And
+that is the difference from a **paste**, which keeps the destination's value (§10j) because nobody
+asked about it — an import is somebody asking.
+
+##### There is no third word, and that is the finding
+
+The question that started this ("변수가 문서 전체에도 있을 수 있는 거 아니야?") looked like it needed a new
+name for a layer above the document — 라이브러리 변수, 브랜드 값. It does not. An imported value **is
+this document's own**: it draws, resolves and scopes exactly like any other document variable, and
+what the two remembered fields buy is one badge on one row. A third list with a third word would have
+been a scope the model does not have.
+
 #### Where the containers go, measured
 
 `document` is `docMeta? surface+ resources? components? variables?`, and the order is not decoration:

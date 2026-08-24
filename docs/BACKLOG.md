@@ -755,6 +755,27 @@ shipped features marked undone.
   and `x`/`y`/`rotation` stay refused, because a box that snaps back when you drag it is worse to meet
   than a size you cannot type, and what a drag on one should mean wants its own measurement.
 
+- [x] **A page can declare its own variables** (§10h-3), which is the scope a deck wanted beside the
+  document's: "every card is our accent, except on the summary page" is one declaration on that page
+  rather than an override on nine shapes. `surface` content is `variable* (block+ | (scene | frame)*)`,
+  the order is document → page → card → placement, and the one exception is written where it lives: a
+  **card's own** declaration beats both, because a card carried onto a page must not change meaning.
+
+  The question behind it was really about vocabulary — *a deck **is** a document*, one `document`
+  node and one file, so the `variables` container was already document-wide. What did not exist was
+  the narrower scope.
+
+- [x] **Variables shared across documents** (§10h-4): `fromDeck` and `fromValue` on a `variable`,
+  `importVariable`, and the library dialog listing a deck's **values beside its cards** — three states
+  each, like a definition's. A clash **overwrites** where a card's clash renames, because a variable's
+  name *is* the reference: importing under another name would change nothing that already names it.
+  Which is also what separates an import from a paste — a paste keeps the destination's value because
+  nobody asked, and an import is somebody asking.
+
+  And the naming problem dissolved rather than being solved: an imported value **is this document's
+  own**, drawing and resolving and scoping like any other, so there is no third list and no third
+  word. What the two remembered fields buy is one badge on one row.
+
 - [ ] **A variable cannot be renamed**, like every other durable reference here. The label is what a
   reader changes. If renaming is ever wanted it is a migration — every attribute in every slide and
   every card that names it — and the honest version is a command that does exactly that walk.

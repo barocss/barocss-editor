@@ -1749,6 +1749,7 @@ export function App({
           canMake={canMakeComponent}
           onMake={makeComponent}
           onPlace={placeComponent}
+          slideId={current}
         />
 
         <AppMain as="main" className="sl-main">

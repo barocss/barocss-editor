@@ -292,7 +292,13 @@ export function backgroundOf(doc: DeckAccess, surfaceSid: string): string | unde
    */
   const said = (value: unknown): string | undefined => {
     if (typeof value !== 'string' || !value) return undefined;
-    return resolveDeckValue(doc, typeof masterId === 'string' ? masterId : undefined, value);
+    /*
+     * In the **slide's** scope: a page that declares its own 배경색 means it on itself, and this is
+     * the one place a surface's own attribute is resolved (§10h-3). The layout's and the master's
+     * come through the same call with their own sid, which has no page above it — document scope,
+     * which is right for a definition every page follows.
+     */
+    return resolveDeckValue(doc, typeof masterId === 'string' ? masterId : undefined, value, surfaceSid);
   };
 
   return said(doc.getNode(surfaceSid)?.attributes?.fill) ??

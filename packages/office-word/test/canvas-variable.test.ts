@@ -2,8 +2,14 @@ import { describe, it, expect } from 'vitest';
 import {
   boundAttrs,
   boundGeometry,
+  importVariablePlan,
+  variableBehindSource,
+  variableSourceOf,
   boundText,
   sizeIsBound,
+  surfaceOf,
+  surfaceVars,
+  varInScope,
   documentVar,
   documentVars,
   isVarRef,
@@ -420,5 +426,261 @@ describe('a shape bound to a variable', () => {
     expect(drawn).toHaveLength(1);
     expect(drawn[0].attributes.fontSize).toBe(44);
     expect(drawn[0].content).toEqual([{ sid: 'a', stype: 'inline-text', attributes: {}, text: '바로씨에스' }]);
+  });
+});
+
+/**
+ * **Scope**: the document says what the deck's values are, and one page may say something else.
+ *
+ * The ordinary specificity rule — the narrower wins — with one exception that lives in
+ * `instanceValues` and is tested with the cards: a **card's own** declaration beats both, so carrying
+ * a card onto a page cannot change what the card means.
+ */
+describe('a page that declares its own', () => {
+  const scoped = () =>
+    doc({
+      root: { sid: 'root', stype: 'document', content: ['one', 'two', 'lib', 'vars'] },
+
+      // A page with a declaration of its own, first among its children where the schema says.
+      one: {
+        sid: 'one',
+        stype: 'surface',
+        attributes: { kind: 'slide', name: '요약' },
+        content: ['v-page', 'box']
+      },
+      'v-page': {
+        sid: 'v-page',
+        stype: 'variable',
+        attributes: { name: '강조', kind: 'color', value: '#b45309' }
+      },
+      box: {
+        sid: 'box',
+        stype: 'rectangle',
+        attributes: { fill: 'var:강조', cornerRadius: 10, varBinds: [{ attr: 'cornerRadius', var: '둥글기' }] },
+        parentId: 'one'
+      },
+
+      // A page with none: the document's is what its shapes mean.
+      two: { sid: 'two', stype: 'surface', attributes: { kind: 'slide' }, content: ['other'] },
+      other: { sid: 'other', stype: 'rectangle', attributes: { fill: 'var:강조' }, parentId: 'two' },
+
+      lib: { sid: 'lib', stype: 'components', attributes: {}, content: [] },
+      vars: { sid: 'vars', stype: 'variables', attributes: {}, content: ['v-doc', 'v-round'] },
+      'v-doc': { sid: 'v-doc', stype: 'variable', attributes: { name: '강조', kind: 'color', value: '#0f766e' } },
+      'v-round': { sid: 'v-round', stype: 'variable', attributes: { name: '둥글기', kind: 'number', value: '240' } }
+    });
+
+  it('lists what the page declares, and nothing from anywhere else', () => {
+    expect(surfaceVars(scoped(), 'one').map((one) => [one.name, one.value])).toEqual([
+      ['강조', '#b45309']
+    ]);
+    expect(surfaceVars(scoped(), 'two')).toEqual([]);
+    // Asked of something that is not a page: nothing, rather than a guess about its children.
+    expect(surfaceVars(scoped(), 'lib')).toEqual([]);
+  });
+
+  it('finds the page a shape is on, and nothing for a shape that is on none', () => {
+    // By `parentId`, because the node knows where it is — and a card's part has no page at all,
+    // which is why what a card draws takes its scope from the placement.
+    expect(surfaceOf(scoped(), 'box')).toBe('one');
+    expect(surfaceOf(scoped(), 'vars')).toBeUndefined();
+  });
+
+  it('lets the page win where it declares, and the document answer where it does not', () => {
+    const access = scoped();
+    expect(varInScope(access, 'box', '강조')?.value).toBe('#b45309');
+    expect(varInScope(access, 'other', '강조')?.value).toBe('#0f766e');
+    // A name only the document declares is the document's on every page.
+    expect(varInScope(access, 'box', '둥글기')?.value).toBe('240');
+    // And a name nobody declares is nothing, wherever it is asked from.
+    expect(varInScope(access, 'box', '없음')).toBeUndefined();
+  });
+
+  it("reaches a card through the placement's page, and stops at the card's own name", () => {
+    const access = doc({
+      root: { sid: 'root', stype: 'document', content: ['page', 'lib', 'vars'] },
+
+      page: {
+        sid: 'page',
+        stype: 'surface',
+        attributes: { kind: 'slide' },
+        content: ['v-page', 'one', 'two']
+      },
+      'v-page': {
+        sid: 'v-page',
+        stype: 'variable',
+        attributes: { name: '강조', kind: 'color', value: '#b45309' }
+      },
+      one: {
+        sid: 'one',
+        stype: 'instance',
+        attributes: { componentId: 'open' },
+        content: [],
+        parentId: 'page'
+      },
+      two: {
+        sid: 'two',
+        stype: 'instance',
+        attributes: { componentId: 'own' },
+        content: [],
+        parentId: 'page'
+      },
+
+      lib: { sid: 'lib', stype: 'components', attributes: {}, content: ['open', 'own'] },
+      // A card that names 강조 and declares nothing: it takes what its page says.
+      open: { sid: 'open', stype: 'component', attributes: { id: 'open' }, content: ['b1', 'p1'] },
+      b1: { sid: 'b1', stype: 'componentBind', attributes: { part: 'back', attr: 'fill', var: '강조' } },
+      p1: { sid: 'p1', stype: 'rectangle', attributes: { partId: 'back' }, parentId: 'open' },
+      // A card that declares 강조 itself: nothing outside it can change what it means.
+      own: { sid: 'own', stype: 'component', attributes: { id: 'own' }, content: ['v-own', 'b2', 'p2'] },
+      'v-own': {
+        sid: 'v-own',
+        stype: 'componentVar',
+        attributes: { name: '강조', kind: 'color', value: '#ef4444' }
+      },
+      b2: { sid: 'b2', stype: 'componentBind', attributes: { part: 'back', attr: 'fill', var: '강조' } },
+      p2: { sid: 'p2', stype: 'rectangle', attributes: { partId: 'back' }, parentId: 'own' },
+
+      vars: { sid: 'vars', stype: 'variables', attributes: {}, content: ['v-doc'] },
+      'v-doc': { sid: 'v-doc', stype: 'variable', attributes: { name: '강조', kind: 'color', value: '#0f766e' } }
+    });
+
+    const fillOf = (sid: string) =>
+      (instanceParts(access, access.getNode(sid) as never) as never as {
+        attributes?: Record<string, unknown>;
+      }[])[0].attributes?.fill;
+
+    /*
+     * The page's, because the card asked for a name it does not declare — and it is the
+     * **placement's** page, not the card's: a definition is not on a page at all.
+     */
+    expect(fillOf('one')).toBe('#b45309');
+    /*
+     * And the card's own, because carrying a card onto a page that happens to declare that name must
+     * not change what the card means. A brand kit whose cards meant something different per page is
+     * not a brand kit.
+     */
+    expect(fillOf('two')).toBe('#ef4444');
+  });
+
+  it('resolves a reference and a binding in the scope of the shape that holds it', () => {
+    const access = scoped();
+    expect(resolveVarValue(access, 'var:강조', 'box')).toBe('#b45309');
+    expect(resolveVarValue(access, 'var:강조', 'other')).toBe('#0f766e');
+    // Asked with no scope at all — a master's paint, a layout's placeholder — the document answers.
+    expect(resolveVarValue(access, 'var:강조')).toBe('#0f766e');
+
+    // A binding takes the same road: `둥글기` is only the document's, so both pages get 240.
+    expect(boundAttrs(access, access.getNode('box'))?.cornerRadius).toBe(240);
+  });
+});
+
+/**
+ * A value that came from **another deck**.
+ *
+ * The brand kit's argument (§10f) applied to a value rather than a card: twenty decks use one brand's
+ * colours, another document is not in this one, and no engine trick makes it so. So it is a copy that
+ * remembers its source — and remembering is the whole difference between a library and a paste.
+ */
+describe('bringing a value in from a library', () => {
+  const brand = () =>
+    doc({
+      root: { sid: 'root', stype: 'document', content: ['vars'] },
+      vars: { sid: 'vars', stype: 'variables', attributes: {}, content: ['v1', 'v2'] },
+      v1: {
+        sid: 'v1',
+        stype: 'variable',
+        attributes: { name: '강조', kind: 'color', label: '브랜드 강조', value: '#0f766e' }
+      },
+      v2: {
+        sid: 'v2',
+        stype: 'variable',
+        attributes: { name: '분기', kind: 'choice', choices: ['1Q', '2Q'], value: '2Q' }
+      }
+    });
+
+  const deckWith = (nodes: Record<string, Record<string, unknown>>) =>
+    doc({ root: { sid: 'root', stype: 'document', content: Object.keys(nodes) }, ...nodes });
+
+  it('copies the value with what a reader needs to read it', () => {
+    const plan = importVariablePlan(deckWith({}), brand(), '강조', 'brand-kit');
+    expect(plan?.replaces).toBeUndefined();
+    // The label, the kind and the choices come too: a value whose name a reader cannot read is half
+    // a declaration.
+    expect(plan?.node.attributes).toEqual({
+      name: '강조',
+      kind: 'color',
+      label: '브랜드 강조',
+      value: '#0f766e',
+      fromDeck: 'brand-kit',
+      fromValue: '#0f766e'
+    });
+  });
+
+  it('brings a choice’s options with it', () => {
+    const plan = importVariablePlan(deckWith({}), brand(), '분기', 'brand-kit');
+    expect(plan?.node.attributes?.choices).toEqual(['1Q', '2Q']);
+  });
+
+  it('answers nothing for a name that deck does not declare', () => {
+    // A button that reports success and brings nothing is worse than one that is greyed.
+    expect(importVariablePlan(deckWith({}), brand(), '없음', 'brand-kit')).toBeUndefined();
+  });
+
+  it('overwrites a name this deck already has, where a card would be renamed', () => {
+    const host = doc({
+      root: { sid: 'root', stype: 'document', content: ['vars'] },
+      vars: { sid: 'vars', stype: 'variables', attributes: {}, content: ['mine'] },
+      mine: { sid: 'mine', stype: 'variable', attributes: { name: '강조', value: '#b45309' } }
+    });
+
+    const plan = importVariablePlan(host, brand(), '강조', 'brand-kit');
+    /*
+     * A card that clashes is renamed and goes on being the same card. A variable cannot: its **name
+     * is the reference** — every attribute and binding in the deck is written in that string — so an
+     * import under another name would change nothing that already names it. So the gesture is read as
+     * what it plainly is: *give me the library's value for this name*.
+     */
+    expect(plan?.replaces).toBe('mine');
+    expect(plan?.node.attributes?.value).toBe('#0f766e');
+  });
+
+  it('says when the deck it came from has moved on, and not before', () => {
+    const imported = doc({
+      root: { sid: 'root', stype: 'document', content: ['vars'] },
+      vars: { sid: 'vars', stype: 'variables', attributes: {}, content: ['copy', 'own'] },
+      copy: {
+        sid: 'copy',
+        stype: 'variable',
+        attributes: { name: '강조', value: '#0f766e', fromDeck: 'brand-kit', fromValue: '#0f766e' }
+      },
+      // This deck's own value, which came from nowhere and can never be behind anything.
+      own: { sid: 'own', stype: 'variable', attributes: { name: '주의', value: '#ef4444' } }
+    });
+
+    expect(variableSourceOf(imported, '강조')).toEqual({ deck: 'brand-kit', value: '#0f766e' });
+    expect(variableSourceOf(imported, '주의')).toBeUndefined();
+    expect(variableBehindSource(imported, brand(), '강조')).toBe(false);
+
+    // The brand changes its mind.
+    const moved = brand();
+    (moved.getNode('v1') as never as { attributes: Record<string, unknown> }).attributes = {
+      name: '강조',
+      kind: 'color',
+      value: '#15803d'
+    };
+    expect(variableBehindSource(imported, moved, '강조')).toBe(true);
+  });
+
+  it('is not behind when there is nothing to compare', () => {
+    // A copy from before this existed, or a value the reader typed over: not behind, because calling
+    // every one of them behind would put a badge on every deck.
+    const vague = doc({
+      root: { sid: 'root', stype: 'document', content: ['vars'] },
+      vars: { sid: 'vars', stype: 'variables', attributes: {}, content: ['copy'] },
+      copy: { sid: 'copy', stype: 'variable', attributes: { name: '강조', value: '#000', fromDeck: 'brand-kit' } }
+    });
+    expect(variableBehindSource(vague, brand(), '강조')).toBe(false);
+    expect(variableBehindSource(vague, undefined, '강조')).toBe(false);
   });
 });

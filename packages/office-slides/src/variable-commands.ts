@@ -1,11 +1,36 @@
 import { Editor, Extension } from '@barocss/editor-core';
 import { transaction } from '@barocss/model';
 import { documentChildSpot } from '@barocss/schema';
-import { documentVars, varBindsOf, varUses, UNBINDABLE, type VarBind } from '@barocss/office-word';
+import {
+  documentVars,
+  importVariablePlan,
+  surfaceVars,
+  varInScope,
+  varBindsOf,
+  varUses,
+  UNBINDABLE,
+  type VarBind
+} from '@barocss/office-word';
 import { childrenOf, type DeckAccess } from './deck';
+import { accessOfTree } from './tree-access';
 
 /**
- * Declaring the document's own **named values**, and taking one away.
+ * Declaring **named values** — the document's, and one page's — and taking one away.
+ *
+ * Two scopes, two commands (`setDocumentVar`, `setSlideVar`), one writer: what a declaration looks
+ * like is one thing to get right, and where it hangs is the difference. The document's are children
+ * of a `variables` container; a page's are children of the page itself, first among them, where its
+ * content model says a declaration goes.
+ *
+ * ## What removing one takes with it, and the asymmetry that is on purpose
+ *
+ * A **card's** bindings that name it go with it. A card is a definition the whole deck follows, so a
+ * binding left pointing at nothing is a fault in a shared thing, repaired at the source — the same
+ * reason a card's variable removal takes them.
+ *
+ * A **shape's** binding is left exactly where it is. That is the reader's own declaration on their
+ * own box, they may re-declare the name in a minute, and the shape goes on drawing what it holds; the
+ * deck's own check reports it as 볼 것 rather than this command editing their slide behind them.
  *
  * ## Why a command and not a dialog's own writing
  *
@@ -73,6 +98,65 @@ export class SlidesVariableExtension implements Extension {
     );
 
     /**
+     * The same, for **one page**: `setSlideVar({ slideId, name, … })`.
+     *
+     * A separate command rather than `setDocumentVar({ scope })`, because a command should say what
+     * it does — the rule the harness gave when media tried to be one command with a `what`. And it
+     * is the same three fields, because a reader setting a value should meet the same control
+     * wherever the value lives.
+     *
+     * What a page's variable *is* for is written in the schema and §10h-3: "every card is our
+     * accent, except on the summary page" is one declaration here instead of an override on each of
+     * nine shapes.
+     */
+    register(
+      'setSlideVar',
+      async (payload) => await this._set(editor, payload as never),
+      (payload) => {
+        const said = payload as { slideId?: unknown; name?: unknown; remove?: unknown } | undefined;
+        const doc = this._access(editor);
+        if (!doc || typeof said?.name !== 'string' || said.name.length === 0) return false;
+        if (typeof said.slideId !== 'string' || doc.getNode(said.slideId)?.stype !== 'surface') {
+          return false;
+        }
+        const declared = surfaceVars(doc as never, said.slideId).some(
+          (one) => one.name === said.name
+        );
+        return said.remove === true ? declared : true;
+      }
+    );
+
+    /**
+     * Bring one in from **another deck**: `importVariable({ deck, name, source })`.
+     *
+     * The brand kit's gesture (§10f) for a value instead of a card, and the command takes the parsed
+     * source deck rather than fetching it — whether `brand-kit` is a name in a library or an address
+     * is the host's question (§11i), and a model that reached for storage is a model nobody can test
+     * in milliseconds.
+     *
+     * A name this deck already has is **overwritten**, which is what the gesture plainly asks for:
+     * a variable's name is the reference every attribute in the deck is written in, so importing
+     * under another name would change nothing that already names it. That is also what makes this
+     * different from a paste, which keeps the destination's value because nobody asked (§10j).
+     */
+    register(
+      'importVariable',
+      async (payload) => await this._import(editor, payload as never),
+      (payload) => {
+        const said = payload as { deck?: unknown; name?: unknown; source?: unknown } | undefined;
+        const doc = this._access(editor);
+        if (!doc || typeof said?.deck !== 'string' || !said.deck) return false;
+        if (typeof said?.name !== 'string' || !said.name) return false;
+        if (!said.source || typeof said.source !== 'object') return false;
+        // The source has to actually declare it: a button that reports success and brings nothing
+        // is worse than one that is greyed.
+        return documentVars(accessOfTree(said.source as never) as never).some(
+          (one) => one.name === said.name
+        );
+      }
+    );
+
+    /**
      * What a **shape** takes from a variable: `setVarBind({ nodeIds, attr, var })`, and `var: null`
      * takes it off.
      *
@@ -111,10 +195,9 @@ export class SlidesVariableExtension implements Extension {
         if (!ids.every((sid) => bindableOn(editor, doc, sid, said.attr as string))) return false;
 
         if (said.var === null) return true;
-        return (
-          typeof said.var === 'string' &&
-          documentVars(doc as never).some((one) => one.name === said.var)
-        );
+        // In the shape's own scope, so a **page's** variable can be bound as well as the document's
+        // (§10h-3). Asked of the first target, which is the one the panel's list was drawn from.
+        return typeof said.var === 'string' && !!varInScope(doc as never, ids[0], said.var);
       }
     );
   }
@@ -176,6 +259,8 @@ export class SlidesVariableExtension implements Extension {
   private async _set(
     editor: Editor,
     payload: {
+      /** A page, when the variable is that page's own rather than the document's. */
+      slideId?: string;
       name?: string;
       label?: string;
       kind?: string;
@@ -187,12 +272,25 @@ export class SlidesVariableExtension implements Extension {
     const doc = this._access(editor);
     if (!doc || typeof payload?.name !== 'string' || payload.name.length === 0) return false;
 
-    const declared = documentVars(doc as never).find((one) => one.name === payload.name);
+    /**
+     * Which scope this is about — and therefore which node the declaration hangs from.
+     *
+     * A page's variables are children of the **surface** (`variable*` in its content model), where
+     * the document's are children of a `variables` container. Two places because they are two
+     * scopes; one function because writing a declaration is one thing to get right (only what the
+     * caller said, one entry per name, and the list written away when the last one goes).
+     */
+    const onPage = typeof payload.slideId === 'string' && payload.slideId.length > 0;
+    if (onPage && doc.getNode(payload.slideId as string)?.stype !== 'surface') return false;
+
+    const declared = onPage
+      ? surfaceVars(doc as never, payload.slideId).find((one) => one.name === payload.name)
+      : documentVars(doc as never).find((one) => one.name === payload.name);
     const steps: unknown[] = [];
 
     if (payload.remove) {
       if (!declared) return false;
-      const container = this._container(doc);
+      const container = onPage ? payload.slideId : this._container(doc);
       if (!container) return false;
       steps.push({ type: 'removeChild', payload: { parentId: container, childId: declared.sid } });
 
@@ -217,6 +315,20 @@ export class SlidesVariableExtension implements Extension {
 
     if (declared) {
       steps.push({ type: 'setAttrs', payload: { nodeId: declared.sid, attrs } });
+    } else if (onPage) {
+      /*
+       * **First** among the page's children, because that is where the content model says a
+       * declaration goes (`variable* (block+ | (scene | frame)*)`) — appended, it would land after
+       * the shapes and be refused, which is the same lesson `documentChildSpot` came from.
+       */
+      steps.push({
+        type: 'addChild',
+        payload: {
+          parentId: payload.slideId,
+          child: { stype: 'variable', attributes: attrs },
+          position: surfaceVars(doc as never, payload.slideId).length
+        }
+      });
     } else {
       const container = this._container(doc);
       /*
@@ -241,6 +353,56 @@ export class SlidesVariableExtension implements Extension {
           payload: {
             parentId: doc.rootId,
             child: { stype: 'variables', content: [{ stype: 'variable', attributes: attrs }] },
+            position: documentChildSpot(
+              childrenOf(doc.getNode(doc.rootId)).map((sid) => doc.getNode(sid)?.stype),
+              'variables'
+            )
+          }
+        });
+      }
+    }
+
+    return (await transaction(editor, steps as never).commit()).success === true;
+  }
+
+  /**
+   * Bring one value in from another document, in one entry.
+   *
+   * The container comes with it when the deck has none, for the reason every other maker of one does:
+   * one press of undo takes back "I brought a value in" rather than leaving an empty container behind.
+   */
+  private async _import(
+    editor: Editor,
+    payload: { deck?: string; name?: string; source?: unknown }
+  ): Promise<boolean> {
+    const doc = this._access(editor);
+    if (!doc || typeof payload?.deck !== 'string' || typeof payload?.name !== 'string') return false;
+
+    const source = accessOfTree(payload.source as never);
+    const plan = importVariablePlan(doc as never, source as never, payload.name, payload.deck);
+    if (!plan) return false;
+
+    const steps: unknown[] = [];
+    if (plan.replaces) {
+      /*
+       * Replaced in place rather than added beside: the name is the reference, so what has to change
+       * is the value under it — and everything in the deck that names it is drawn again with no
+       * further writing.
+       */
+      const parent = (doc.getNode(plan.replaces) as { parentId?: unknown } | undefined)?.parentId;
+      if (typeof parent !== 'string') return false;
+      steps.push({ type: 'removeChild', payload: { parentId: parent, childId: plan.replaces } });
+      steps.push({ type: 'addChild', payload: { parentId: parent, child: plan.node } });
+    } else {
+      const container = this._container(doc);
+      if (container) {
+        steps.push({ type: 'addChild', payload: { parentId: container, child: plan.node } });
+      } else {
+        steps.push({
+          type: 'addChild',
+          payload: {
+            parentId: doc.rootId,
+            child: { stype: 'variables', content: [plan.node] },
             position: documentChildSpot(
               childrenOf(doc.getNode(doc.rootId)).map((sid) => doc.getNode(sid)?.stype),
               'variables'

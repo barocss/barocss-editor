@@ -24,6 +24,7 @@ import { createArrangeCommands } from './arrange-commands';
 import { createComponentCommands } from './component-commands';
 import { createVariableCommands } from './variable-commands';
 import { boundAttrs, boundText, contentWithWords, instanceParts } from '@barocss/office-word';
+import { resolveVarAttrs } from './named-values';
 import { createConnectorCommands } from './connector-commands';
 import { createClipboardCommands } from './clipboard-commands';
 import { createLayoutCommands, createWordTables } from '@barocss/office-word';
@@ -248,8 +249,19 @@ export function createSlidesEditor(options: SlidesEditorOptions = {}): Editor {
     const resolved = kids.map((child) => {
       const held = typeof child === 'string' ? getNode(child) : (child as any);
       if (!held) return held;
-      const attrs = boundAttrs(doc, held as never);
-      return attrs ? { ...held, attributes: attrs } : held;
+
+      /*
+       * Two things about a child's attributes are settled here, and both need to know *which* node
+       * it is — which is why they are here and not in a renderer:
+       *
+       * - what its **bindings** decide (`boundAttrs`), because a number cannot be written as `var:`
+       *   and be validated;
+       * - what its **references** mean in scope (`resolveVarAttrs`), because a page may declare a
+       *   name the document also declares and the page's wins.
+       */
+      const bound = boundAttrs(doc, held as never);
+      const attrs = resolveVarAttrs(doc, held.sid, (bound ?? held.attributes) as never);
+      return attrs !== held.attributes ? { ...held, attributes: attrs } : held;
     });
 
     return resolved.some((child, at) => child !== (typeof kids[at] === 'string' ? getNode(kids[at] as string) : kids[at]))

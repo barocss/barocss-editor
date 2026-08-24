@@ -120,6 +120,64 @@ export function documentVar(doc: CanvasAccess, name: string | undefined): Docume
 }
 
 /**
+ * The variables a **page** declares for itself, in the author's order.
+ *
+ * The scope a deck actually wants beside the document's: "every card is our accent, **except on the
+ * summary page**" is one declaration on that page rather than an override on each of nine shapes.
+ * Declared before what the page holds, the way a card declares before it draws (`variable*` in the
+ * `surface` content model).
+ */
+export function surfaceVars(doc: CanvasAccess, surfaceSid: string | undefined): DocumentVar[] {
+  if (!surfaceSid) return [];
+  const node = doc.getNode(surfaceSid);
+  if (node?.stype !== 'surface') return [];
+
+  const found: DocumentVar[] = [];
+  for (const sid of childrenOf(node)) {
+    const declared = varOf(doc.getNode(sid), sid);
+    if (declared) found.push(declared);
+  }
+  return found;
+}
+
+/**
+ * The page a node is on, or nothing when it is not on one.
+ *
+ * By `parentId`, because the node knows where it is and the alternative is walking every surface
+ * looking for it. Nothing for a card's **part**: a definition is not a page, so a part has no page
+ * scope of its own — what a card draws takes its scope from the *placement*, which is where it is
+ * drawn (`instanceValues`).
+ */
+export function surfaceOf(doc: CanvasAccess, sid: string | undefined): string | undefined {
+  let at = sid;
+  for (let depth = 0; at && depth < 32; depth += 1) {
+    const node = doc.getNode(at);
+    if (!node) return undefined;
+    if (node.stype === 'surface') return at;
+    at = (node as { parentId?: string }).parentId;
+  }
+  return undefined;
+}
+
+/**
+ * What a name means **where this node is**: the page first, then the document.
+ *
+ * The ordinary specificity rule — the narrower scope wins — and it is the whole of what a page's
+ * variables are for. One exception lives elsewhere and is written down there: a **card's own**
+ * declaration beats both (`instanceValues`), so carrying a card onto a page cannot change what the
+ * card means.
+ */
+export function varInScope(
+  doc: CanvasAccess,
+  at: string | undefined,
+  name: string | undefined
+): DocumentVar | undefined {
+  if (!name) return undefined;
+  const page = surfaceVars(doc, surfaceOf(doc, at)).find((one) => one.name === name);
+  return page ?? documentVar(doc, name);
+}
+
+/**
  * A value with a variable's name filled in, or the value itself.
  *
  * Anything that is not a reference comes back untouched, which is what keeps every document written
@@ -128,9 +186,14 @@ export function documentVar(doc: CanvasAccess, name: string | undefined): Docume
  * and for the same reason: a missing name is a document that has lost something, and inventing a
  * colour for it hides that.
  */
-export function resolveVarValue(doc: CanvasAccess, value: unknown): string | undefined {
+export function resolveVarValue(
+  doc: CanvasAccess,
+  value: unknown,
+  /** Where the value is, so a **page's** own declaration can win — see `varInScope`. */
+  at?: string
+): string | undefined {
   if (!isVarRef(value)) return typeof value === 'string' ? value : undefined;
-  return documentVar(doc, varNameOf(value))?.value || undefined;
+  return varInScope(doc, at, varNameOf(value))?.value || undefined;
 }
 
 /**
@@ -308,7 +371,8 @@ export function boundAttrs(
   let touched = false;
 
   for (const bind of binds) {
-    const found = documentVar(doc, bind.var);
+    // In this node's scope: a page's own declaration beats the document's (`varInScope`).
+    const found = varInScope(doc, node?.sid, bind.var);
     if (!found || found.value === '') continue;
 
     const written = asAttribute(found.value);
@@ -330,7 +394,7 @@ export function boundAttrs(
 export function boundText(doc: CanvasAccess, node: CanvasNode | undefined): string | undefined {
   const bind = varBindsOf(node).find((one) => one.attr === 'text');
   if (!bind) return undefined;
-  const found = documentVar(doc, bind.var);
+  const found = varInScope(doc, node?.sid, bind.var);
   return found && found.value !== '' ? found.value : undefined;
 }
 
@@ -355,7 +419,7 @@ export function boundGeometry(
   const differs: Record<string, number> = {};
 
   for (const bind of binds) {
-    const found = documentVar(doc, bind.var);
+    const found = varInScope(doc, node?.sid, bind.var);
     if (!found) continue;
 
     const asNumber = Number(found.value);
@@ -370,4 +434,116 @@ export function boundGeometry(
 /** Whether this shape's size is a variable's answer rather than the reader's. */
 export function sizeIsBound(node: CanvasNode | undefined): boolean {
   return varBindsOf(node).some((bind) => DRAWN_BY_WRITE.has(bind.attr));
+}
+
+/**
+ * Where an imported value came from, and what it said then.
+ *
+ * The brand kit's argument (§10f) applied to a value rather than to a card: twenty decks use one
+ * brand's colours, another document is **not in this one**, and no engine trick makes it so. So it is
+ * a copy that remembers its source, and remembering is what makes it a library rather than a paste.
+ */
+export interface VariableSource {
+  /** A library name or an address — the host resolves which (§11i). */
+  deck: string;
+  /** What the source said when this copy was made, or nothing for a copy from before this existed. */
+  value?: string;
+}
+
+/** What a variable remembers about where it came from, or nothing when it is this deck's own. */
+export function variableSourceOf(
+  doc: CanvasAccess,
+  name: string | undefined
+): VariableSource | undefined {
+  const found = documentVar(doc, name);
+  if (!found) return undefined;
+
+  const attrs = doc.getNode(found.sid)?.attributes ?? {};
+  const deck = attrs.fromDeck;
+  if (typeof deck !== 'string' || deck.length === 0) return undefined;
+
+  return {
+    deck,
+    ...(typeof attrs.fromValue === 'string' ? { value: attrs.fromValue } : {})
+  };
+}
+
+/**
+ * Whether the deck it came from says something else now.
+ *
+ * The same honest answer a definition's gets when there is nothing to compare: a copy with no
+ * recorded value is not behind, it is a copy from before this was written — and calling every one of
+ * them behind would put a badge on every deck.
+ *
+ * `source` is the other document, which the caller has to have in hand: this file cannot fetch, and
+ * whether a name is a library entry or an address to get is the host's question.
+ */
+export function variableBehindSource(
+  host: CanvasAccess,
+  source: CanvasAccess | undefined,
+  name: string
+): boolean {
+  const from = variableSourceOf(host, name);
+  if (!from?.value || !source) return false;
+
+  const there = documentVar(source, name);
+  if (!there) return false;
+  return there.value !== from.value;
+}
+
+/** What importing one would write here: the node, and the declaration it replaces. */
+export interface VariableImport {
+  node: CanvasNode;
+  /** The sid of the declaration this replaces, when the deck already has that name. */
+  replaces?: string;
+}
+
+/**
+ * Bringing one value in from another document.
+ *
+ * ## Why a clash overwrites, where a card's clash renames
+ *
+ * A card that clashes is renamed here and goes on being the same card — `fromId` remembers what it is
+ * called there, and every placement of *this* deck's card keeps pointing at this deck's card. A
+ * variable cannot do that: its **name is the reference**. Every attribute and every binding in the
+ * deck that names it is written in that string, so importing under another name would change nothing
+ * that already names it, and the reader would be looking at a value that does nothing.
+ *
+ * So a clash is read as what the gesture plainly is — *give me the library's value for this name* —
+ * and the value is what changes. Which is also the difference from a **paste**: a paste carries
+ * whatever a copied card needed and keeps the destination's own value, because nobody asked about it;
+ * an import is somebody asking (§10j).
+ *
+ * The `label`, the `kind` and the `choices` come with it, because a value a reader cannot read the
+ * name of is half a declaration.
+ */
+export function importVariablePlan(
+  host: CanvasAccess,
+  source: CanvasAccess,
+  name: string,
+  /** What the source deck is called, as this deck will remember it. */
+  fromDeck: string
+): VariableImport | undefined {
+  const there = documentVar(source, name);
+  if (!there) return undefined;
+
+  const mine = documentVar(host, name);
+
+  return {
+    ...(mine ? { replaces: mine.sid } : {}),
+    node: {
+      stype: 'variable',
+      attributes: {
+        name: there.name,
+        kind: there.kind,
+        ...(there.label && there.label !== there.name ? { label: there.label } : {}),
+        ...(there.choices.length > 0 ? { choices: [...there.choices] } : {}),
+        value: there.value,
+        fromDeck,
+        // What it said when it was copied, so "the brand has moved on" is a comparison rather than a
+        // record somebody has to keep up to date.
+        fromValue: there.value
+      }
+    } as never as CanvasNode
+  };
 }

@@ -7,10 +7,10 @@ import { backgroundOf, resolveDeckFormat } from './layout-format';
 import { paintsOf } from './paints';
 import {
   componentOf,
-  documentVars,
   instanceParts,
   isVarRef,
   varBindsOf,
+  varInScope,
   varNameOf
 } from '@barocss/office-word';
 
@@ -226,7 +226,8 @@ export function auditDeck(doc: DeckAccess): AuditHit[] {
        * that does nothing, and no other way to find out.
        */
       for (const bind of varBindsOf(node as never)) {
-        if (documentVars(doc as never).some((one) => one.name === bind.var)) continue;
+        // In the shape's own scope: a name this page declares is not missing (§10h-3).
+        if (varInScope(doc as never, sid, bind.var)) continue;
         hits.push({
           kind: 'dead-var',
           level: 'check',
@@ -500,13 +501,16 @@ function shapesOn(
  * check that read only the first would pass a deck whose gradient has lost a colour.
  */
 function deadVarsIn(doc: DeckAccess, node: DeckNode): string[] {
-  const declared = new Set(documentVars(doc as never).map((one) => one.name));
   const dead = new Set<string>();
 
   const look = (value: unknown, depth = 0) => {
     if (isVarRef(value)) {
       const name = varNameOf(value);
-      if (!declared.has(name)) dead.add(name);
+      /*
+       * In this shape's scope, not the document's: a page may declare the name for itself, and
+       * reporting that as missing would send a reader to fix something that is right (§10h-3).
+       */
+      if (!varInScope(doc as never, node.sid, name)) dead.add(name);
       return;
     }
     if (depth > 3 || !value || typeof value !== 'object') return;

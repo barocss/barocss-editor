@@ -7,7 +7,10 @@ import {
   componentSourceOf,
   componentsOf,
   deckFileText,
-  readDeckFile
+  documentVar,
+  documentVars,
+  readDeckFile,
+  variableBehindSource
 } from '@barocss/office-slides';
 import { dropFromLibrary, keepInLibrary, libraryDeck, libraryRows, type LibraryRow } from './library';
 
@@ -57,6 +60,14 @@ export function LibraryDialog({
   const [inside, setInside] = useState<{
     deck: string;
     parts: Array<{ id: string; name: string; here?: string; behind: boolean }>;
+    /**
+     * And the **values** that deck declares, in the same three states.
+     *
+     * Beside the cards rather than behind another button: a brand kit is a card *and* a colour, and a
+     * reader looking inside a library deck is asking what it has to offer. Read from the same file in
+     * the same breath, so looking costs one read either way.
+     */
+    values: Array<{ name: string; label: string; value: string; here: boolean; behind: boolean }>;
   } | null>(null);
 
   const reread = () => {
@@ -148,6 +159,21 @@ export function LibraryDialog({
     setSources((was) => ({ ...was, [row.name]: read.document }));
     setInside({
       deck: row.name,
+      values: documentVars(source as never).map((one: { name: string; label: string; value: string }) => {
+        const here = host ? documentVar(host as never, one.name) : undefined;
+        return {
+          name: one.name,
+          label: one.label,
+          value: one.value,
+          here: !!here,
+          /*
+           * "Behind" is what a library is *for*: `variableBehindSource` compares what this deck's
+           * copy recorded when it was brought in with what the brand says now — one string, and
+           * nothing anybody has to keep up to date.
+           */
+          behind: host ? variableBehindSource(host as never, source as never, one.name) : false
+        };
+      }),
       parts: componentsOf(source).map((one) => {
         const copy = mine.find((made) => {
           const from = componentSourceOf(host as never, made);
@@ -182,6 +208,21 @@ export function LibraryDialog({
      * reached for storage would be a model nobody could test in milliseconds.
      */
     await (editor as any)?.executeCommand?.('importComponent', { deck, componentId, source });
+    const row = rows.find((one) => one.name === deck);
+    if (row) await look(row);
+  };
+
+  /** The same gesture for a **value**: the command does the document work, this hands it the file. */
+  const bringValue = async (deck: string, name: string) => {
+    const source = sources[deck] ?? (await (async () => {
+      const text = await libraryDeck(deck);
+      if (!text) return undefined;
+      const read = readDeckFile(text);
+      return 'error' in read ? undefined : read.document;
+    })());
+    if (!source) return setProblem('그 덱을 읽을 수 없습니다.');
+
+    await (editor as any)?.executeCommand?.('importVariable', { deck, name, source });
     const row = rows.find((one) => one.name === deck);
     if (row) await look(row);
   };
@@ -232,12 +273,15 @@ export function LibraryDialog({
                 <span className="sl-library-pages">{row.pages}장</span>
               </span>
               <span className="sl-library-actions">
-                {/* What this deck *defines*, which is the other half of what a library is for. */}
+                {/*
+                  * What this deck *defines* — its cards **and** its values, which is what a brand kit
+                  * is. One button because it is one read of one file.
+                  */}
                 <DialogButton
                   data-library-look={row.name}
                   onClick={() => void (inside?.deck === row.name ? setInside(null) : look(row))}
                 >
-                  컴포넌트
+                  안에 있는 것
                 </DialogButton>
                 <DialogButton data-library-open={row.name} onClick={() => void load(row)}>
                   열기
@@ -278,6 +322,42 @@ export function LibraryDialog({
                       </li>
                     ))
                   )}
+                </ol>
+              )}
+
+              {/*
+                * And the values that deck declares — the other half of a brand kit.
+                *
+                * An imported value is **this deck's own** afterwards: it draws, resolves and scopes
+                * like any other document variable, and what the two remembered fields buy is the
+                * badge on this row. So there is no third list anywhere and no new word for it.
+                */}
+              {inside?.deck === row.name && inside.values.length > 0 && (
+                <ol className="sl-library-parts" data-library-values={row.name}>
+                  {inside.values.map((one) => (
+                    <li key={one.name} data-library-value={one.name}>
+                      <span>
+                        {one.label}
+                        <code className="sl-library-value">{one.value}</code>
+                      </span>
+                      {one.here && !one.behind && (
+                        <span className="sl-library-have" data-library-value-have={one.name}>
+                          가져와 있음
+                        </span>
+                      )}
+                      {one.behind && (
+                        <span className="sl-library-behind" data-library-value-behind={one.name}>
+                          뒤처짐
+                        </span>
+                      )}
+                      <DialogButton
+                        data-library-bring-value={one.name}
+                        onClick={() => void bringValue(row.name, one.name)}
+                      >
+                        {one.behind ? '다시 가져오기' : one.here ? '덮어쓰기' : '가져오기'}
+                      </DialogButton>
+                    </li>
+                  ))}
                 </ol>
               )}
             </li>

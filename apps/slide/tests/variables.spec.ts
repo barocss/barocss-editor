@@ -211,6 +211,52 @@ test.describe('the deck’s own variables', () => {
     await expect.poll(() => width()).toBe(3600);
   });
 
+  /**
+   * A value **this page** says instead.
+   *
+   * The scope a deck actually wants beside the document's: "every card is our accent, except on the
+   * summary page" is one declaration on that page rather than an override on each of nine shapes. The
+   * model is tested in milliseconds; what a browser adds is that the two lists are two lists, and
+   * that the page's answer is what reaches the slide.
+   */
+  test('a page can say something else, and its shapes follow it', async ({ page }) => {
+    await openDeck(page);
+    await cardsSlide(page);
+    await panel(page);
+
+    // The deck's 주의 is #ef4444 and two things on this slide are drawn in it.
+    const red = async () =>
+      (await painted(page)).filter((colour) => colour === 'rgb(239, 68, 68)').length;
+    expect(await red()).toBeGreaterThanOrEqual(2);
+
+    /*
+     * The same name, declared on this page. Two lists in one pane, widest scope first, so a reader
+     * can see which they are setting.
+     */
+    await page.locator('[data-slide-var-new] input, input[data-slide-var-new]').fill('주의');
+    await page.locator('[data-slide-var-add]').click();
+    await page.waitForTimeout(500);
+    await page.locator('[data-slide-var-row="주의"] select').first().selectOption('color');
+    await page.waitForTimeout(400);
+    const value = page.locator(
+      '[data-slide-var-value="주의"] input, input[data-slide-var-value="주의"]'
+    );
+    await value.fill('#15803d');
+    await value.press('Enter');
+    await page.waitForTimeout(700);
+
+    // Everything on this page that names it follows the page — including the card, which never
+    // declared the name and takes it through the placement's page.
+    const after = await painted(page);
+    expect(after.filter((colour) => colour === 'rgb(21, 128, 61)').length).toBeGreaterThanOrEqual(2);
+    expect(after.filter((colour) => colour === 'rgb(239, 68, 68)')).toHaveLength(0);
+
+    // The document's own value is untouched: this was a page saying something for itself.
+    await expect(page.locator('[data-doc-var-value="주의"] input, input[data-doc-var-value="주의"]')).toHaveValue(
+      '#ef4444'
+    );
+  });
+
   test('are offered where a colour is chosen, so nobody types “var:”', async ({ page }) => {
     await openDeck(page);
     await cardsSlide(page);
