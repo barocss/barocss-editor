@@ -200,6 +200,83 @@ describe('what the sweep can see', () => {
     expect(dead[0].what).toContain('없음');
   });
 
+  it('says when a card is nested too deep to draw, and when it holds itself', () => {
+    /*
+     * The resolution stops at a depth because a card holding a card is ordinary and a card holding
+     * itself is an infinite descent. What is not ordinary is doing that in silence: measured, a chain
+     * twelve deep drew nine levels and lost the rest with nothing anywhere saying so.
+     */
+    const nested = (depth: number) => {
+      const nodes: Record<string, Record<string, unknown>> = {
+        root: { sid: 'root', stype: 'document', attributes: {}, content: ['s', 'lib'] },
+        s: { sid: 's', stype: 'surface', attributes: {}, content: ['i'] },
+        i: {
+          sid: 'i',
+          stype: 'instance',
+          attributes: at({ width: 2000, height: 1200, componentId: 'c0' }),
+          content: []
+        },
+        lib: { sid: 'lib', stype: 'components', attributes: {}, content: [] }
+      };
+      const library: string[] = [];
+      for (let one = 0; one < depth; one += 1) {
+        const card = `c${one}`;
+        library.push(card);
+        const kids = [`${card}-box`];
+        if (one + 1 < depth) kids.push(`${card}-inner`);
+        nodes[card] = { sid: card, stype: 'component', attributes: { id: card }, content: kids };
+        nodes[`${card}-box`] = {
+          sid: `${card}-box`,
+          stype: 'rectangle',
+          attributes: { partId: `b${one}`, x: 0, y: 0, width: 100, height: 100 },
+          parentId: card
+        };
+        if (one + 1 < depth) {
+          nodes[`${card}-inner`] = {
+            sid: `${card}-inner`,
+            stype: 'instance',
+            attributes: { partId: `in${one}`, componentId: `c${one + 1}`, x: 0, y: 0, width: 100, height: 100 },
+            parentId: card
+          };
+        }
+      }
+      nodes.lib.content = library;
+      return deck(nodes);
+    };
+
+    // Deep, but inside the limit: nothing to say.
+    expect(auditDeck(nested(3)).filter((hit) => hit.kind === 'deep-card')).toEqual([]);
+
+    // Past it: a look rather than a fault, because the limit is a fact about this product.
+    const deep = auditDeck(nested(12)).filter((hit) => hit.kind === 'deep-card');
+    expect(deep.map((hit) => [hit.sid, hit.level])).toEqual([['i', 'check']]);
+    expect(deep[0].what).toContain('겹');
+
+    // A card that holds itself is something a document cannot mean.
+    const looped = auditDeck(
+      deck({
+        root: { sid: 'root', stype: 'document', attributes: {}, content: ['s', 'lib'] },
+        s: { sid: 's', stype: 'surface', attributes: {}, content: ['i'] },
+        i: {
+          sid: 'i',
+          stype: 'instance',
+          attributes: at({ width: 2000, height: 1200, componentId: 'card' }),
+          content: []
+        },
+        lib: { sid: 'lib', stype: 'components', attributes: {}, content: ['card'] },
+        card: { sid: 'card', stype: 'component', attributes: { id: 'card' }, content: ['inner'] },
+        inner: {
+          sid: 'inner',
+          stype: 'instance',
+          attributes: { partId: 'inner', componentId: 'card', x: 0, y: 0, width: 100, height: 100 },
+          parentId: 'card'
+        }
+      })
+    ).filter((hit) => hit.kind === 'deep-card');
+    expect(looped.map((hit) => hit.level)).toEqual(['must']);
+    expect(looped[0].what).toContain('자기 자신');
+  });
+
   it('says where a placement names a card the deck does not define', () => {
     /*
      * The fault a clipboard used to make in silence: a placement holds no parts, so one with no

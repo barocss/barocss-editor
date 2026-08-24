@@ -1585,6 +1585,36 @@ they are what the card was *asked for*, not boxes, and "값" is not a name a rea
 from another with. That is also the code that keeps the conformance exemption for `componentValue`
 true.
 
+### 10b-15. What resolving a placement costs, measured
+
+Asked because a cache looked obviously necessary: twenty placements of a ten-part card is two hundred
+resolutions per render, and nobody had timed one. Rendered in jsdom, counting what the store's
+resolver is asked and how long a render takes:
+
+| deck | first render | re-render | resolver calls | parts handed back | elements |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 1 card × 10 parts | 23ms | 2ms | 97 | 50 | 31 |
+| 5 × 10 | 13 | 4 | 265 | 250 | 83 |
+| 20 × 10 | 35 | 16 | 895 | 1,000 | 278 |
+| 20 × 20 | 45 | 18 | 1,525 | 2,000 | 488 |
+| 60 × 10 | 67 | 27 | 2,575 | 3,000 | 798 |
+
+Two things fall out, and they point in opposite directions.
+
+**A placement's parts are resolved five times per render.** 20 cards × 10 parts = 200, and 1,000 parts
+came back — the view reads a node's `content` about five times in a pass (children, keys, then
+drawing). That looks like the thing to fix.
+
+**And it is not worth fixing.** The same 1,000 resolutions, timed on their own, cost **2.7ms** —
+0.003ms per part. The 16ms re-render is the renderer and the DOM; resolution is a sixth of it at
+worst. A cache would buy about two milliseconds and cost an invalidation rule, a place to keep it, and
+a new way to be wrong: a stale part drawn after an edit is the fault this whole design exists to
+avoid, and it would appear exactly where nobody looks.
+
+So: **no cache**, recorded with the numbers so the next person does not have to guess either. The
+measurement is a probe rather than a test, because a timing assertion in CI is a flake with a
+schedule; the script is in `docs/BACKLOG.md`.
+
 ### 10b-14. Where this lives: the canvas layer, not the deck
 
 The model and the resolution are in `office-word` (`canvas-component.ts`, `canvas-instance.ts`),

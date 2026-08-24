@@ -8,6 +8,8 @@ import { paintsOf } from './paints';
 import {
   componentOf,
   instanceParts,
+  nestingOf,
+  NEST_LIMIT,
   isVarRef,
   varBindsOf,
   varInScope,
@@ -61,7 +63,9 @@ export type AuditKind =
   /** A shape naming a variable the document no longer declares. */
   | 'dead-var'
   /** A placement naming a card the deck does not define. */
-  | 'missing-card';
+  | 'missing-card'
+  /** A card nested so deep that the drawing had to stop, or one that holds itself. */
+  | 'deep-card';
 
 export interface AuditHit {
   kind: AuditKind;
@@ -236,6 +240,46 @@ export function auditDeck(doc: DeckAccess): AuditHit[] {
           what: `없는 변수에 연결돼 있습니다: ${bind.var}`,
           hint: also(`문서 변수 ${bind.var}을 다시 만들거나, 이 연결을 지우세요. 지금은 상자에 있는 값이 그려집니다.`)
         });
+      }
+
+      /**
+       * A card nested too deep to draw, or one that holds **itself**.
+       *
+       * The resolution stops at a depth because a card holding a card is ordinary and a card holding
+       * *itself* is an infinite descent (`NEST_LIMIT`). What is not ordinary is doing that in
+       * silence: measured, a chain twelve deep drew nine levels and lost the rest with nothing
+       * anywhere saying so — the reader sees a card missing its inside and has no way to learn why.
+       *
+       * A **cycle** is certainly wrong: a document cannot mean it. Reaching the **limit** is a fact
+       * about this product rather than a mistake, so it is a look rather than a fault.
+       */
+      /*
+       * Asked of a placement **in the document**, not of the ones a card draws inside itself: the
+       * nesting is a fact about the definitions, so a chain twelve deep would otherwise report the
+       * same fault once per level, all of them pointing at the same box on the slide. Measured as
+       * exactly that — three hits for one card.
+       */
+      if (node.stype === 'instance' && !String(node.sid ?? '').includes('~')) {
+        const nesting = nestingOf(doc as never, node as never);
+        if (nesting.cut === 'cycle') {
+          hits.push({
+            kind: 'deep-card',
+            level: 'must',
+            slideSid: slide.sid,
+            sid,
+            what: '컴포넌트가 자기 자신을 담고 있습니다.',
+            hint: '그 컴포넌트를 열어 안에 있는 같은 컴포넌트를 빼세요. 지금은 그 안쪽이 그려지지 않습니다.'
+          });
+        } else if (nesting.cut === 'deep') {
+          hits.push({
+            kind: 'deep-card',
+            level: 'check',
+            slideSid: slide.sid,
+            sid,
+            what: `컴포넌트가 ${NEST_LIMIT + 1}겹보다 깊게 겹쳐 있습니다.`,
+            hint: '더 깊은 안쪽은 그려지지 않습니다. 겹을 줄이거나, 안쪽을 따로 놓으세요.'
+          });
+        }
       }
 
       /**

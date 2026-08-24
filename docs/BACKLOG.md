@@ -46,6 +46,36 @@ entries are that.
 
 ## Open
 
+### Resolving a placement is not worth a cache, and the numbers say so
+
+- [x] Twenty placements of a ten-part card is two hundred resolutions per render, so a cache looked
+  obviously necessary. Timed instead (jsdom, counting the store's resolver): a 20-card slide renders in
+  **35ms**, re-renders in **16ms**, and asks for **1,000 parts** — because the view reads a node's
+  `content` about five times in a pass. Those same 1,000 resolutions cost **2.7ms** on their own,
+  0.003ms each.
+
+  So resolution is a sixth of a re-render at worst, and a cache would buy ~2ms for an invalidation
+  rule, somewhere to keep it, and a new way to be wrong — a stale part drawn after an edit, which is
+  the fault the whole reference design exists to avoid. **No cache**, and §10b-15 keeps the table so
+  nobody has to guess again.
+
+  Re-run it with a probe rather than a test — a timing assertion in CI is a flake with a schedule:
+
+  ```ts
+  // packages/office-slides/test/zz-perf.test.ts (temporary)
+  // Build a deck of N placements of a card with M parts, wrap `store.contentResolver` with a
+  // counter, render twice with EditorViewDOM({ sync: true }), and print calls / ms / parts.
+  ```
+
+- [x] **A chain of cards is drawn nine deep and then stops** (`NEST_LIMIT`), which is the cycle guard
+  rather than a taste: a card holding a badge is ordinary, a card holding itself is an infinite
+  descent, and a depth catches the mutual case a visited set alone does not. Measured: a chain twelve
+  deep drew nine levels and **lost the rest in silence**. `nestingOf` walks the definitions — the only
+  way to see past the point the resolution gave up — and the deck's own check now says it: 고칠 것 for a
+  card that holds itself (a document cannot mean that), 볼 것 for reaching the limit (a fact about this
+  product). Asked only of placements *in the document*, or a twelve-deep chain reports the same fault
+  once per level at the same box.
+
 ### A placement draws its definition, and every walk had to say which tree it reads
 
 A component follows its definition now (`canvas-model` §10b-2a): a placement holds no copies, and

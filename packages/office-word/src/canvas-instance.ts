@@ -74,8 +74,9 @@ export function instanceParts(
   // but is honest — and the deck's own check is what says the definition is missing.
   if (!definition) return [];
   // A card inside itself. Refused rather than drawn, and the depth is what catches the mutual case
-  // (A holds B, B holds A) that a visited set alone does not.
-  if (inside.includes(definition.id) || inside.length > 8) return [];
+  // (A holds B, B holds A) that a visited set alone does not. `nestingOf` answers *why* it stopped,
+  // so the deck's own check can say so rather than the tail going missing in silence.
+  if (inside.includes(definition.id) || inside.length > NEST_LIMIT) return [];
 
   const values = instanceValues(doc, instance, definition);
   const binds = definition.binds;
@@ -274,4 +275,74 @@ function deepen(doc: CanvasAccess, node: CanvasNode, depth = 0): CanvasNode {
     ...node,
     content: kids.filter(Boolean).map((child) => deepen(doc, child as CanvasNode, depth + 1))
   } as never;
+}
+
+/**
+ * How deep a card may hold a card, and it is the **cycle guard** rather than a taste.
+ *
+ * A card holding a badge is ordinary, so nesting cannot be refused outright; a card holding *itself*
+ * is an infinite descent, so it must be. A depth limit catches the mutual case a visited set alone
+ * does not (A holds B, B holds A, drawn from C).
+ *
+ * Eight is arbitrary in the way every such number is, and what makes it honest is that the deck's own
+ * check reports a document that reaches it — measured: a chain twelve deep drew nine levels and lost
+ * the rest with no word about it.
+ */
+export const NEST_LIMIT = 8;
+
+/** Why a chain of placements stopped, when it stopped for a reason. */
+export type NestingCut = 'cycle' | 'deep';
+
+/**
+ * How deep the chain of cards under a placement goes, and whether the drawing had to stop.
+ *
+ * Walks the **definitions** rather than the drawn tree, which is the only way to see past the point
+ * the resolution gave up: from the outside, a placement that drew nothing because of a cycle and one
+ * whose card has no parts look exactly alike.
+ *
+ * A card may hold several placements; the depth is the deepest of them, and the first reason found is
+ * the one reported — a cycle is a fault in the document, where the limit is a fact about this
+ * product.
+ */
+export function nestingOf(
+  doc: CanvasAccess,
+  instance: CanvasNode | undefined
+): { depth: number; cut?: NestingCut } {
+  let deepest = 0;
+  let cut: NestingCut | undefined;
+
+  const walk = (id: unknown, inside: readonly string[]) => {
+    if (typeof id !== 'string' || !id) return;
+
+    const definition = componentsOf(doc).find((one) => one.id === id);
+    if (!definition) return;
+
+    if (inside.includes(definition.id)) {
+      cut ??= 'cycle';
+      return;
+    }
+    if (inside.length > NEST_LIMIT) {
+      cut ??= 'deep';
+      return;
+    }
+
+    const chain = [...inside, definition.id];
+    deepest = Math.max(deepest, chain.length);
+
+    /** Every placement inside the definition, however deep among its parts. */
+    const inParts = (sid: string, depth: number) => {
+      if (depth > 32) return;
+      const node = doc.getNode(sid);
+      if (!node) return;
+      if (node.stype === 'instance') {
+        walk(node.attributes?.componentId, chain);
+        return;
+      }
+      for (const child of childrenOf(node)) inParts(child, depth + 1);
+    };
+    for (const part of definition.parts) inParts(part, 0);
+  };
+
+  walk(instance?.attributes?.componentId, []);
+  return { depth: deepest, ...(cut ? { cut } : {}) };
 }

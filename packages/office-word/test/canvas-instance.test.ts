@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { instanceParts } from '../src/canvas-instance';
+import { instanceParts, nestingOf, NEST_LIMIT } from '../src/canvas-instance';
 import type { CanvasAccess } from '../src/canvas-access';
 
 /**
@@ -257,6 +257,111 @@ describe('a card that holds itself', () => {
     // only where it comes back to a definition already being drawn.
     expect(parts).toHaveLength(1);
     expect((parts[0] as { content?: unknown[] }).content).toEqual([]);
+  });
+});
+
+/**
+ * How deep a card may hold a card, and why the number is honest.
+ *
+ * The limit is the **cycle guard**: a card holding a badge is ordinary, a card holding *itself* is an
+ * infinite descent, and a depth catches the mutual case a visited set alone does not. What makes an
+ * arbitrary number acceptable is that the deck's own check reports a document that reaches it —
+ * measured, a chain twelve deep drew nine levels and lost the rest in silence.
+ */
+describe('cards inside cards', () => {
+  /** A chain of cards, each holding a placement of the next. */
+  const chain = (depth: number) => {
+    const nodes: Record<string, Record<string, unknown>> = {
+      root: { sid: 'root', stype: 'document', content: ['slide', 'lib'] },
+      slide: { sid: 'slide', stype: 'surface', attributes: { kind: 'slide' }, content: ['one'] },
+      one: {
+        sid: 'one',
+        stype: 'instance',
+        attributes: { componentId: 'c0' },
+        content: [],
+        parentId: 'slide'
+      },
+      lib: { sid: 'lib', stype: 'components', attributes: {}, content: [] }
+    };
+    const library: string[] = [];
+    for (let at = 0; at < depth; at += 1) {
+      const card = `c${at}`;
+      library.push(card);
+      const kids = [`${card}-box`];
+      if (at + 1 < depth) kids.push(`${card}-inner`);
+      nodes[card] = { sid: card, stype: 'component', attributes: { id: card }, content: kids };
+      nodes[`${card}-box`] = {
+        sid: `${card}-box`,
+        stype: 'rectangle',
+        attributes: { partId: `box${at}` },
+        parentId: card
+      };
+      if (at + 1 < depth) {
+        nodes[`${card}-inner`] = {
+          sid: `${card}-inner`,
+          stype: 'instance',
+          attributes: { partId: `inner${at}`, componentId: `c${at + 1}` },
+          parentId: card
+        };
+      }
+    }
+    nodes.lib.content = library;
+    return doc(nodes);
+  };
+
+  const deepest = (parts: unknown[], level = 1): number => {
+    let found = level;
+    for (const part of parts as { content?: unknown[] }[]) {
+      if (Array.isArray(part.content) && part.content.length > 0) {
+        found = Math.max(found, deepest(part.content, level + 1));
+      }
+    }
+    return found;
+  };
+
+  it('draws a chain of cards to the limit and no further', () => {
+    const shallow = chain(3);
+    expect(deepest(instanceParts(shallow, shallow.getNode('one') as never))).toBe(3);
+
+    // Nine levels for a limit of eight, and the twelfth card's contents are simply not drawn.
+    const deep = chain(12);
+    expect(deepest(instanceParts(deep, deep.getNode('one') as never))).toBe(NEST_LIMIT + 1);
+  });
+
+  it('says how deep it goes, and why it stopped', () => {
+    /*
+     * Answered by walking the **definitions**, which is the only way to see past the point the
+     * resolution gave up: from the outside, a placement that drew nothing because of a cycle and one
+     * whose card has no parts look exactly alike.
+     */
+    expect(nestingOf(chain(3), chain(3).getNode('one') as never)).toEqual({ depth: 3 });
+
+    const deep = chain(12);
+    expect(nestingOf(deep, deep.getNode('one') as never)).toEqual({
+      depth: NEST_LIMIT + 1,
+      cut: 'deep'
+    });
+  });
+
+  it('calls a card that holds itself a cycle, not a depth', () => {
+    const looped = doc({
+      root: { sid: 'root', stype: 'document', content: ['slide', 'lib'] },
+      slide: { sid: 'slide', stype: 'surface', attributes: { kind: 'slide' }, content: ['one'] },
+      one: { sid: 'one', stype: 'instance', attributes: { componentId: 'card' }, content: [], parentId: 'slide' },
+      lib: { sid: 'lib', stype: 'components', attributes: {}, content: ['card'] },
+      card: { sid: 'card', stype: 'component', attributes: { id: 'card' }, content: ['inner'] },
+      inner: {
+        sid: 'inner',
+        stype: 'instance',
+        attributes: { partId: 'inner', componentId: 'card' },
+        parentId: 'card'
+      }
+    });
+    /*
+     * Two different sentences for a reader: a cycle is something a document cannot mean, where the
+     * limit is a fact about this product. The check says 고칠 것 for the first and 볼 것 for the second.
+     */
+    expect(nestingOf(looped, looped.getNode('one') as never)).toEqual({ depth: 1, cut: 'cycle' });
   });
 });
 

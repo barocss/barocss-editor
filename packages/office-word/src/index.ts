@@ -378,6 +378,16 @@ export {
 export {
   instanceParts,
   /**
+   * How deep a card holds a card, and why the drawing stopped when it did.
+   *
+   * The limit is the **cycle guard** — a card holding a badge is ordinary, a card holding itself is an
+   * infinite descent — and what makes a number honest is that the deck's own check reports a document
+   * that reaches it. Measured: a chain twelve deep drew nine levels and lost the rest in silence.
+   */
+  nestingOf,
+  NEST_LIMIT,
+  type NestingCut,
+  /**
    * The children a node draws when its **words** come from a variable — one run, the first one's
    * formatting, the variable's characters. The same rule a card's bound part follows.
    */

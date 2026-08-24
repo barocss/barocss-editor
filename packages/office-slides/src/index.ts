@@ -178,6 +178,8 @@ export {
    * node's children are read for a reader.
    */
   instanceParts,
+  nestingOf,
+  NEST_LIMIT,
   type ComponentDef,
   type ComponentVar,
   type ComponentBind
