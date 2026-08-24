@@ -2,14 +2,20 @@ import { Editor, Extension, selectedNodeIds } from '@barocss/editor-core';
 import { transaction } from '@barocss/model';
 import { childrenOf, editableSurface, type DeckAccess, type DeckNode } from './deck';
 import { accessOfTree } from './tree-access';
-import { instanceParts } from './instance-parts';
 import { boxOf } from './geometry';
+/*
+ * The model and the resolution are the canvas's, not the deck's (`docs/SHARED-LAYER.md`): the
+ * office schema declares `component` and `instance`, so what a card *is* can be said without
+ * naming a product. What is in this file cannot — making one out of a selection needs the surface
+ * the reader is on, and that is a deck's question.
+ */
 import {
   componentOf,
   definitionAt,
   importComponentPlan,
-  deckComponents,
-} from './components';
+  componentsOf,
+  instanceParts
+} from '@barocss/office-word';
 
 /**
  * Making a component, placing one, and telling a placement what it is.
@@ -19,7 +25,7 @@ import {
  * `applyComponent` was here, and it was the biggest thing in the file: a plan comparing every
  * part of every placement with the definition, a recorded signature per placement, and a badge
  * offering the work. All of it is gone, because a placement no longer holds copies — it draws the
- * definition (`instance-parts.ts`), so a change to a card is on the screen in every placement of
+ * definition (`canvas-instance.ts`), so a change to a card is on the screen in every placement of
  * it before the transaction has finished committing.
  *
  * The reason it existed is worth keeping, because it is what makes the new answer *cheap*: with
@@ -30,8 +36,9 @@ import {
  *
  * ## Where the arithmetic is
  *
- * In `components.ts` (what a card declares, what a placement was asked for) and
- * `instance-parts.ts` (what it draws). This file turns those answers into transactions and knows
+ * In `office-word`, which owns the canvas: `canvas-component.ts` (what a card declares, what a
+ * placement was asked for) and `canvas-instance.ts` (what it draws). This file turns those answers
+ * into transactions and knows
  * nothing about bindings or arrangement — the same split every other model here has, and the reason
  * the design was testable in milliseconds before any of it could be pressed.
  */
@@ -70,7 +77,7 @@ function partNames(doc: DeckAccess, parts: string[]): Map<string, string> {
 
 /** An id for a definition that nothing else in the document is using. */
 function freeComponentId(doc: DeckAccess, wanted: string): string {
-  const taken = new Set(deckComponents(doc).map((one) => one.id));
+  const taken = new Set(componentsOf(doc).map((one) => one.id));
   if (!taken.has(wanted)) return wanted;
   let next = 2;
   while (taken.has(`${wanted}-${next}`)) next += 1;
@@ -131,7 +138,7 @@ export class SlidesComponentExtension implements Extension {
       async (payload) => await this._place(editor, payload),
       (payload) => {
         const doc = this._access(editor);
-        return !!doc && !!deckComponents(doc).find((one) => one.id === payload?.componentId);
+        return !!doc && !!componentsOf(doc).find((one) => one.id === payload?.componentId);
       }
     );
 
@@ -161,7 +168,7 @@ export class SlidesComponentExtension implements Extension {
         if (!doc || typeof payload?.componentId !== 'string') return false;
         if (typeof payload?.deck !== 'string' || payload.deck.length === 0) return false;
         const source = payload?.source ? accessOfTree(payload.source as never) : undefined;
-        return !!source && deckComponents(source).some((one) => one.id === payload.componentId);
+        return !!source && componentsOf(source).some((one) => one.id === payload.componentId);
       }
     );
 
@@ -179,7 +186,7 @@ export class SlidesComponentExtension implements Extension {
       (payload) => {
         const doc = this._access(editor);
         if (!doc) return false;
-        const found = deckComponents(doc).find((one) => one.id === payload?.componentId);
+        const found = componentsOf(doc).find((one) => one.id === payload?.componentId);
         return !!found && (numberOr(payload?.width, 0) > 0 || numberOr(payload?.height, 0) > 0);
       }
     );
@@ -230,7 +237,7 @@ export class SlidesComponentExtension implements Extension {
       (payload) => {
         const doc = this._access(editor);
         if (!doc || typeof payload?.name !== 'string' || payload.name.length === 0) return false;
-        return !!payload?.componentId && !!deckComponents(doc).find((one) => one.id === payload.componentId);
+        return !!payload?.componentId && !!componentsOf(doc).find((one) => one.id === payload.componentId);
       }
     );
 
@@ -255,7 +262,7 @@ export class SlidesComponentExtension implements Extension {
         if (!doc || typeof payload?.part !== 'string' || typeof payload?.attr !== 'string') {
           return false;
         }
-        const definition = deckComponents(doc).find((one) => one.id === payload?.componentId);
+        const definition = componentsOf(doc).find((one) => one.id === payload?.componentId);
         if (!definition) return false;
         if (payload?.var === null) return true;
         if (typeof payload?.var !== 'string' || !definition.vars.some((one) => one.name === payload.var)) {
@@ -413,7 +420,7 @@ export class SlidesComponentExtension implements Extension {
     const doc = this._access(editor);
     if (!doc) return false;
     const where = editableSurface(doc, payload?.slideId);
-    const definition = deckComponents(doc).find((one) => one.id === payload?.componentId);
+    const definition = componentsOf(doc).find((one) => one.id === payload?.componentId);
     if (!where || !definition) return false;
 
     const size = {
@@ -548,7 +555,7 @@ export class SlidesComponentExtension implements Extension {
     payload: { componentId?: string; width?: number; height?: number }
   ): Promise<boolean> {
     const doc = this._access(editor);
-    const definition = doc && deckComponents(doc).find((one) => one.id === payload?.componentId);
+    const definition = doc && componentsOf(doc).find((one) => one.id === payload?.componentId);
     if (!doc || !definition) return false;
 
     const attrs: Record<string, unknown> = {};
@@ -585,7 +592,7 @@ export class SlidesComponentExtension implements Extension {
     }
   ): Promise<boolean> {
     const doc = this._access(editor);
-    const definition = doc && deckComponents(doc).find((one) => one.id === payload?.componentId);
+    const definition = doc && componentsOf(doc).find((one) => one.id === payload?.componentId);
     if (!doc || !definition || typeof payload?.name !== 'string') return false;
 
     const declared = childrenOf(doc.getNode(definition.sid)).find((sid) => {
@@ -666,7 +673,7 @@ export class SlidesComponentExtension implements Extension {
     payload: { componentId?: string; part?: string; attr?: string; var?: string | null }
   ): Promise<boolean> {
     const doc = this._access(editor);
-    const definition = doc && deckComponents(doc).find((one) => one.id === payload?.componentId);
+    const definition = doc && componentsOf(doc).find((one) => one.id === payload?.componentId);
     if (!doc || !definition || typeof payload?.part !== 'string' || typeof payload?.attr !== 'string') {
       return false;
     }

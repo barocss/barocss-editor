@@ -1,7 +1,22 @@
-import { childrenOf, copyOf, type DeckAccess, type DeckNode } from './deck';
+import { childrenOf, copyOf, type CanvasAccess, type CanvasNode } from './canvas-access';
 
 /**
- * A component's definition, and what a placement of it draws.
+ * A component's definition, and what a placement of one is.
+ *
+ * ## Why this is in the shared canvas layer and not in the deck
+ *
+ * The schema that declares `component`, `instance`, `componentVar`, `componentBind` and
+ * `componentValue` is the **office** schema — the one both products build on, so Word's canvas
+ * already has cards in its document format and simply has nothing that reads them. Two products
+ * reading the same node types differently is not a design choice; it is one of them being wrong,
+ * which is the rule `docs/SHARED-LAYER.md` states. And the whole of this file passes that
+ * document's test for a shared thing: **it can be said without naming a product.** What a card
+ * declares, what a placement was asked for, which part a binding names — none of that is about
+ * slides.
+ *
+ * What stays with the product, for the same test: the **commands** (making a card out of a
+ * selection needs "the surface the reader is on", which is a deck's question), the panels, and the
+ * deck library that imports a card from another file.
  *
  * ## The two decisions, and where they came from
  *
@@ -22,36 +37,23 @@ import { childrenOf, copyOf, type DeckAccess, type DeckNode } from './deck';
  *   A container whose whole purpose is components can simply be shown. And a library is a
  *   thing to own: a name, a source, a brand kit.
  *
- * Hidden is still how a definition draws when nobody has opened it — *a node with no element
- * has no place in the sid map, and every mapping from a DOM position back to the model goes
- * through that* — and the overlay, the panel and the guides key on sids rather than on what
- * kind of thing they are looking at.
- *
- * **A placement holds its own children, and they win by role.** Which is not Figma's model,
- * on purpose: there, any property of any descendant may be overridden and the override is
- * matched structurally, so renaming a layer mis-applies it and nothing shows a reader which
- * properties have stopped following the definition. Here an instance is to a component
- * exactly what a **slide is to a layout** — it references one, holds its own boxes, and those
- * override by *role, never by position* (§3, `layout-format.ts`).
+ * **A placement holds no parts: it draws the definition.** That is the second answer and the
+ * first one is worth remembering, because it was a true measurement taken as the wrong
+ * conclusion — a *template* cannot draw a foreign node, so parts were copied into every
+ * placement and a change had to be carried across by an apply. A template is a document you
+ * copy and then own; a component follows its definition as the definition is edited. Children
+ * are resolved in exactly one place — the proxy the view reads them through — and that is where
+ * a placement's parts come from now (`canvas-instance.ts`, canvas-model §10b-2a).
  *
  * Three things follow, and they are the answer to why this model rather than the incumbent:
  *
- * - Renaming or reordering the definition's children **cannot break a placement**, because
- *   nothing is matched positionally.
- * - What a placement overrides *is* its list of children: there is no hidden state, and no
- *   "reset override" a reader has to go hunting for.
- * - An override is an ordinary node, so the validator checks it and the conformance probe can
- *   read it — the argument this repository has already made twice against keeping structured
- *   values in one opaque attribute.
- *
- * ## And a placement is **materialised**
- *
- * Measured in the render pipeline: a template cannot draw a foreign node. `slot(name)` renders
- * `data[name]` — this node's own proxy — and a raw node object among an element's children is
- * silently dropped. So an instance holds *real* nodes, and what makes it a component rather
- * than a copy is that editing the definition rewrites them **in the entry of that edit**
- * (`appendToPreviousEntry`, §8.11a): one press of undo takes back the definition's change and
- * every placement it updated. `instanceParts` below is what that rewrite is computed from.
+ * - Renaming or reordering a definition's parts **cannot break a placement**, because nothing is
+ *   matched positionally: a binding names a part, and a placement names a definition.
+ * - What a placement differs by is what it **says** — its variables — and what it puts in the
+ *   slot. There is no hidden per-part state and no "reset override" to go hunting for.
+ * - A value is an ordinary node, so the validator checks it and the conformance probe can read
+ *   it — the argument this repository has already made twice against keeping structured values
+ *   in one opaque attribute.
  */
 
 /** A component's definition, as its readers need it. */
@@ -111,7 +113,7 @@ export interface ComponentVar {
 const VAR_KINDS = ['text', 'color', 'number', 'boolean', 'choice'] as const;
 
 /** The variables one definition declares, in document order. */
-function componentVarsOf(doc: DeckAccess, definition: DeckNode): ComponentVar[] {
+function componentVarsOf(doc: CanvasAccess, definition: CanvasNode): ComponentVar[] {
   const found: ComponentVar[] = [];
   for (const sid of childrenOf(definition)) {
     const node = doc.getNode(sid);
@@ -136,7 +138,7 @@ function componentVarsOf(doc: DeckAccess, definition: DeckNode): ComponentVar[] 
 }
 
 /** The bindings one definition declares, in document order. */
-function componentBindsOf(doc: DeckAccess, definition: DeckNode): ComponentBind[] {
+function componentBindsOf(doc: CanvasAccess, definition: CanvasNode): ComponentBind[] {
   const found: ComponentBind[] = [];
   for (const sid of childrenOf(definition)) {
     const node = doc.getNode(sid);
@@ -162,8 +164,8 @@ function componentBindsOf(doc: DeckAccess, definition: DeckNode): ComponentBind[
  * value exists is a field a reader cannot use to set the first one.
  */
 export function instanceVars(
-  doc: DeckAccess,
-  instance: DeckNode | undefined,
+  doc: CanvasAccess,
+  instance: CanvasNode | undefined,
   definition: ComponentDef | undefined
 ): Array<ComponentVar & { set: boolean }> {
   if (!definition) return [];
@@ -184,7 +186,7 @@ export function instanceVars(
 }
 
 /** Every component this document defines, in document order. */
-export function deckComponents(doc: DeckAccess): ComponentDef[] {
+export function componentsOf(doc: CanvasAccess): ComponentDef[] {
   const root = doc.getNode(doc.rootId);
   if (!root) return [];
 
@@ -233,7 +235,7 @@ export function deckComponents(doc: DeckAccess): ComponentDef[] {
  * reason, and this is the other half of it: a definition is not a surface, so that one walks
  * past it.
  */
-export function definitionAt(doc: DeckAccess, sid: string | undefined): string | undefined {
+export function definitionAt(doc: CanvasAccess, sid: string | undefined): string | undefined {
   let current = sid ? doc.getNode(sid) : undefined;
   let depth = 0;
   while (current && depth++ < 64) {
@@ -246,16 +248,16 @@ export function definitionAt(doc: DeckAccess, sid: string | undefined): string |
 
 /** The definition a placement points at, or nothing when it is gone. */
 export function componentOf(
-  doc: DeckAccess,
-  instance: DeckNode | undefined
+  doc: CanvasAccess,
+  instance: CanvasNode | undefined
 ): ComponentDef | undefined {
   const id = instance?.attributes?.componentId;
   if (typeof id !== 'string') return undefined;
-  return deckComponents(doc).find((one) => one.id === id);
+  return componentsOf(doc).find((one) => one.id === id);
 }
 
 /** A definition part's durable name, which is what a **binding** names. */
-export function partIdOf(doc: DeckAccess, sid: string): string | undefined {
+export function partIdOf(doc: CanvasAccess, sid: string): string | undefined {
   const id = doc.getNode(sid)?.attributes?.partId;
   return typeof id === 'string' && id.length > 0 ? id : undefined;
 }
@@ -274,7 +276,7 @@ export function partIdOf(doc: DeckAccess, sid: string): string | undefined {
  * position — two libraries whose card differs by 200 twips are two different cards.
  */
 export function partSignature(
-  doc: DeckAccess,
+  doc: CanvasAccess,
   sid: string,
   depth = 0
 ): string {
@@ -321,7 +323,7 @@ export function partSignature(
  * A signature needs no maintenance — it is computed when somebody asks — so an imported card is
  * compared with its library without either deck having written anything.
  */
-export function componentSignature(doc: DeckAccess, definition: ComponentDef | undefined): string {
+export function componentSignature(doc: CanvasAccess, definition: ComponentDef | undefined): string {
   if (!definition) return '';
   return definitionSignature(
     definition.vars,
@@ -374,7 +376,7 @@ export function definitionSignature(vars: ComponentVar[], parts: string[]): stri
  */
 export interface ImportPlan {
   /** The definition to add here, ready for a transaction. */
-  node: DeckNode;
+  node: CanvasNode;
   /** The id it will have **here**, which may not be the id it has there. */
   id: string;
   /** The definition it replaces, when this deck already has that import. */
@@ -392,19 +394,19 @@ export interface ImportPlan {
  * what it is.
  */
 export function importComponentPlan(
-  host: DeckAccess,
-  source: DeckAccess,
+  host: CanvasAccess,
+  source: CanvasAccess,
   id: string,
   /** What the source deck is called, as this deck will remember it. */
   fromDeck: string
 ): ImportPlan | undefined {
-  const definition = deckComponents(source).find((one) => one.id === id);
+  const definition = componentsOf(source).find((one) => one.id === id);
   if (!definition) return undefined;
 
   const copy = copyOf(source, definition.sid);
   if (!copy) return undefined;
 
-  const here = deckComponents(host);
+  const here = componentsOf(host);
   const already = here.find(
     (one) =>
       doc(host, one.sid)?.fromDeck === fromDeck &&
@@ -436,7 +438,7 @@ export function importComponentPlan(
 }
 
 /** A definition's own attributes, which this file otherwise reads through `ComponentDef`. */
-function doc(access: DeckAccess, sid: string): Record<string, any> | undefined {
+function doc(access: CanvasAccess, sid: string): Record<string, any> | undefined {
   return access.getNode(sid)?.attributes as Record<string, any> | undefined;
 }
 
@@ -455,7 +457,7 @@ export interface ComponentSource {
 }
 
 export function componentSourceOf(
-  doc: DeckAccess,
+  doc: CanvasAccess,
   definition: ComponentDef | undefined
 ): ComponentSource | undefined {
   const attrs = definition ? doc.getNode(definition.sid)?.attributes : undefined;
@@ -484,21 +486,21 @@ export function componentSourceOf(
  * host is what knows whether a name is in a library or an address to get (§11i).
  */
 export function componentBehindSource(
-  host: DeckAccess,
+  host: CanvasAccess,
   definition: ComponentDef | undefined,
-  source: DeckAccess | undefined
+  source: CanvasAccess | undefined
 ): boolean {
   const from = componentSourceOf(host, definition);
   if (!from?.signature || !source) return false;
-  const there = deckComponents(source).find((one) => one.id === from.id);
+  const there = componentsOf(source).find((one) => one.id === from.id);
   if (!there) return false;
   return componentSignature(source, there) !== from.signature;
 }
 
 /** A placement's values by name, which is what a copy is bound with. */
 export function instanceValues(
-  doc: DeckAccess,
-  instance: DeckNode | undefined,
+  doc: CanvasAccess,
+  instance: CanvasNode | undefined,
   definition: ComponentDef | undefined
 ): Map<string, string> {
   const said = new Map<string, string>();
@@ -507,7 +509,7 @@ export function instanceValues(
 }
 
 /** The name a part gives its slot, when it is one. */
-export function slotNameOf(doc: DeckAccess, sid: string): string | undefined {
+export function slotNameOf(doc: CanvasAccess, sid: string): string | undefined {
   const name = doc.getNode(sid)?.attributes?.slot;
   return typeof name === 'string' && name.length > 0 ? name : undefined;
 }
@@ -526,15 +528,15 @@ export function slotNameOf(doc: DeckAccess, sid: string): string | undefined {
  * so the old form of this question — "does this placement have a filling child" — cannot be asked
  * of the document any more.
  */
-export function instanceResizable(doc: DeckAccess, instance: DeckNode | undefined): boolean {
+export function instanceResizable(doc: CanvasAccess, instance: CanvasNode | undefined): boolean {
   const definition = definitionOf(doc, instance);
   if (!definition) return false;
   return definition.parts.some((part) => doc.getNode(part)?.attributes?.layoutStretch === true);
 }
 
 /** The definition a placement names, or nothing — the lookup every placement question starts with. */
-export function definitionOf(doc: DeckAccess, instance: DeckNode | undefined): ComponentDef | undefined {
+export function definitionOf(doc: CanvasAccess, instance: CanvasNode | undefined): ComponentDef | undefined {
   const id = instance?.attributes?.componentId;
   if (typeof id !== 'string' || !id) return undefined;
-  return deckComponents(doc).find((one) => one.id === id);
+  return componentsOf(doc).find((one) => one.id === id);
 }

@@ -58,7 +58,7 @@ the split is not between products, it is between *how a control is drawn* and
 
 ## What Slides actually took
 
-Three import sites, four symbols:
+It began as three import sites and four symbols:
 
 | From `@barocss/office-word` | Used for |
 | --- | --- |
@@ -66,8 +66,29 @@ Three import sites, four symbols:
 | `WORD_ENV_KEY`, `createWordEnv()` | style resolution: a renderer resolves a node against the document rather than reading its attributes |
 | `text.css` | the two rules CSS has to finish |
 
-Four symbols out of a package of ~13,800 lines. The dependency is **narrow and
-load-bearing**: nothing else is touched, and nothing works without it.
+Four symbols out of a package of ~13,800 lines: **narrow and load-bearing**.
+
+### Re-measured, and it has grown a second half
+
+**22 import sites, 65 symbols**, and the growth is all one thing: the *canvas* moved here as it
+was built, one feature at a time.
+
+| What Slides now takes | Why it is here and not there |
+| --- | --- |
+| the text stack (the original four) | two products drawing a paragraph differently is one of them wrong |
+| the **arrangement** — `layoutChildren`, `fillChildren`, `laysOut` | a frame is a scene node; one document must arrange the same way in both |
+| the **connector** — geometry, caps, labels, routing, `layoutGraph` | two answers for where a line leaves a circle is one document drawn two ways |
+| the **component** — `componentsOf`, `instanceParts`, the signatures, the import plan | the office schema declares `component` and `instance`, so a card is in the document format both products read |
+| `canvasChildrenOf`, `copyOf`, `CanvasAccess` | a copy that keeps its sid gives two nodes one identity, and every DOM-to-model mapping resolves through a sid |
+
+Each move passed the test at the bottom of this file — *can it be stated without naming a
+product?* — and each one left the product's half behind: the panels, the commands that need "the
+surface the reader is on", the deck library, `isSlideSurface`.
+
+**Which makes the naming problem worse rather than better, and that is the finding.** A deck now
+takes a third of its canvas from a package called `office-word`, and none of the five rows above is
+about a word processor. The extraction below is no longer only tidiness; the dependency it would
+straighten is now load-bearing in both directions of the reader's understanding.
 
 ## Where the seam actually is
 
@@ -93,7 +114,9 @@ So the boundary is not a refactor of a package. It is a split of one file.
 
 ## The proposal
 
-An `office-text` package holding what both products draw with:
+**Two** packages, and the second one is what building the canvas discovered.
+
+An `office-text` package holding what both products *draw text with*:
 
     document-access   style-resolver   formatting   css
     numbering-resolver   field-resolver   footnotes
@@ -101,6 +124,17 @@ An `office-text` package holding what both products draw with:
     renderers for: paragraph, heading, run, marks, list, table, image, math
     render-context (the env channel)
     text.css
+
+An `office-canvas` package holding what both products *place things with* — every file already
+named `canvas-*` in `office-word`, which is the boundary drawing itself:
+
+    canvas-access   canvas-layout   canvas-layout-commands
+    canvas-connector   canvas-graph-layout
+    canvas-component   canvas-instance
+
+That list is not a plan; it is a measurement. Those seven files arrived one at a time, each because
+a deck needed it and *neither product could be allowed a second answer* — and every one of them
+would read the same if Word had never existed.
 
 Word keeps everything about a *page*: `surface`, pagination, layout,
 furniture, line numbers, contents, plus all 33 files already outside the
@@ -131,7 +165,15 @@ What should happen first is smaller and unblocks it:
 3. **Name the coupling.** `@barocss/office-slides` depending on
    `@barocss/office-word` means "Word" is load-bearing in a product that is not
    Word. `office-slides/slides.css` importing `office-word/text.css` is not
-   sharing, it is a dependency pointed at a sibling.
+   sharing, it is a dependency pointed at a sibling. This got heavier, not
+   lighter: a third of what a deck's canvas does now lives in `canvas-*` files
+   inside the word processor, and none of it is about a word processor.
+4. **`office-canvas` may not need the third product.** The argument for waiting
+   is that Slides alone cannot say where the line is — true of the *text* stack,
+   where Slides reused Word's answers. It is not true of the canvas: those files
+   were written for a deck and Word reads none of them, so the line is already
+   drawn by which package the code was written in. Waiting there is buying a data
+   point about a boundary that has nothing on the other side of it.
 
 ### The test for anything proposed as shared
 
@@ -140,6 +182,23 @@ filename today, which is exactly why it is on the list above rather than
 considered finished.
 
 ## Re-running the measurement
+
+```sh
+# What Slides takes from Word: import sites, and distinct symbols
+python3 - <<'PY'
+import re, glob
+sites, syms = 0, set()
+for f in glob.glob('packages/office-slides/src/*.ts') + glob.glob('packages/office-slides/test/*.ts'):
+    for m in re.finditer(r"import\s+(?:type\s+)?\{([^}]*)\}\s*from\s*'@barocss/office-word'",
+                         open(f).read(), re.S):
+        sites += 1
+        for part in re.sub(r'/\*.*?\*/', '', m.group(1), flags=re.S).split(','):
+            name = part.strip().replace('type ', '').split(' as ')[0].strip()
+            if name:
+                syms.add(name)
+print(f"{sites} import sites, {len(syms)} symbols")
+PY
+```
 
 ```sh
 # The import closure of the renderers, against the whole package

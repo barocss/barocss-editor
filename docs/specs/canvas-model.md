@@ -1252,7 +1252,7 @@ still says exactly what a reader has: a placement, where it sits, and the values
 - **The arrangement moved into the resolution too**, and it had to: a reaction writes document
   nodes, and a resolved part is not one. So `fillChildren` and `layoutChildren` — the same
   functions the canvas uses — run over the resolved tree, parent before child, so a part given the
-  placement's box arranges its own children against **that** box (`instance-parts.ts`).
+  placement's box arranges its own children against **that** box (`canvas-instance.ts`).
 - **A resize now costs nothing.** One drag used to write a box into every part of every placement;
   it writes the placement's own box and nothing else, and twenty placements cost twenty
   arrangements at draw time. The write cost that made apply a *command* rather than a reaction
@@ -1536,7 +1536,7 @@ means"**:
 
 **Where that arithmetic runs changed with the references, and it is the better place.** A reaction
 wrote those boxes into the document; it cannot, because a resolved part is not a document node. So
-`fillChildren` and `layoutChildren` run inside the resolution (`instance-parts.ts`), parent before
+`fillChildren` and `layoutChildren` run inside the resolution (`canvas-instance.ts`), parent before
 child — the placement's box gives the filling part its size, and that part arranges its own children
 against the size it has just been given. The convergence problem the reaction had (a pass whose
 writes changed a deeper pass's inputs, with a re-entry guard stopping the pass that would have fixed
@@ -1578,6 +1578,31 @@ be looking at from "a rectangle". A placement's `componentValue` children are sk
 they are what the card was *asked for*, not boxes, and "값" is not a name a reader could tell one row
 from another with. That is also the code that keeps the conformance exemption for `componentValue`
 true.
+
+### 10b-14. Where this lives: the canvas layer, not the deck
+
+The model and the resolution are in `office-word` (`canvas-component.ts`, `canvas-instance.ts`),
+re-exported by `office-slides` the way the arrangement and the connector geometry are. The reason is
+the **schema**: `component`, `instance`, `componentVar`, `componentBind` and `componentValue` are
+declared in the *office* schema, so Word's canvas already has cards in its document format and
+simply has nothing that reads them. Two products reading the same node types differently is not a
+design choice — it is one of them being wrong, which is `docs/SHARED-LAYER.md`'s rule.
+
+Its test for a shared thing is the one that decided the split: **can it be stated without naming a
+product?**
+
+| Shared | Stays with the deck |
+| --- | --- |
+| what a card declares, what a placement was asked for, which part a binding names | making a card out of a selection — it needs *the surface the reader is on* |
+| what a placement draws, and how the parts arrange inside it | the panels, the layer list's reading, the deck library |
+| a signature, so a copy can be compared with its source | `isSlideSurface` — which surfaces the deck counts as pages |
+| a copy carries no sid (`copyOf`), a node's children as sids | the sample deck, the audit's sweep of slides |
+
+Two things fell out of the move, and both are the kind that only a move finds. `DeckAccess` and
+`DeckNode` were declared field-for-field identically in both packages — two places for one of them
+to gain a field — and are now the canvas's, aliased under the deck's names because every reader in
+that package is written in them. And `deckComponents` was renamed `componentsOf`: a function in the
+shared layer whose name says "deck" fails the test in its signature.
 
 ### 10b-5. Everything is pointed at by a **durable** id
 

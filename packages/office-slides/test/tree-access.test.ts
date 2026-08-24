@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { accessOfTree } from '../src/tree-access';
-import { deckComponents, componentSignature } from '../src/components';
+import { componentsOf, componentSignature } from '@barocss/office-word';
 import { deckSlides } from '../src/deck';
 import { createSampleDeck } from '../src/sample-deck';
 
@@ -16,7 +16,7 @@ describe('a deck that has not been loaded', () => {
   it('answers the same questions a loaded one does', () => {
     const doc = accessOfTree(createSampleDeck() as never);
     expect(deckSlides(doc).map((slide) => slide.name)).toContain('One card, three places');
-    const [card] = deckComponents(doc);
+    const [card] = componentsOf(doc);
     expect(card.id).toBe('metric-card');
     expect(card.vars.map((one) => one.name)).toEqual(['title', 'value', 'accent', 'showBadge']);
     expect(card.parts).toHaveLength(5);
@@ -30,14 +30,14 @@ describe('a deck that has not been loaded', () => {
      */
     const one = accessOfTree(createSampleDeck() as never);
     const two = accessOfTree(createSampleDeck() as never);
-    expect(componentSignature(one, deckComponents(one)[0])).toBe(
-      componentSignature(two, deckComponents(two)[0])
+    expect(componentSignature(one, componentsOf(one)[0])).toBe(
+      componentSignature(two, componentsOf(two)[0])
     );
   });
 
   it('answers nothing for nothing, rather than throwing', () => {
     const empty = accessOfTree(undefined);
     expect(deckSlides(empty)).toEqual([]);
-    expect(deckComponents(empty)).toEqual([]);
+    expect(componentsOf(empty)).toEqual([]);
   });
 });

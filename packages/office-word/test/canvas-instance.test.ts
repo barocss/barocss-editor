@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { instanceParts } from '../src/instance-parts';
-import type { DeckAccess } from '../src/deck';
+import { instanceParts } from '../src/canvas-instance';
+import type { CanvasAccess } from '../src/canvas-access';
 
 /**
  * What a placement **draws**.
@@ -18,8 +18,8 @@ import type { DeckAccess } from '../src/deck';
  * Tested here rather than through a render because it is arithmetic: substitution, the slot, the
  * arrangement, and the refusal of a card inside itself. Milliseconds instead of a browser.
  */
-const doc = (nodes: Record<string, Record<string, unknown>>): DeckAccess =>
-  ({ rootId: 'root', getNode: (sid: string) => nodes[sid] as never }) as DeckAccess;
+const doc = (nodes: Record<string, Record<string, unknown>>): CanvasAccess =>
+  ({ rootId: 'root', getNode: (sid: string) => nodes[sid] as never }) as CanvasAccess;
 
 /** A card that takes three variables, binds them to three different kinds of thing, and has a slot. */
 const bound = () =>
@@ -109,7 +109,7 @@ const bound = () =>
   });
 
 /** The drawn parts of the placement, by the name the definition gave them. */
-const drawn = (access: DeckAccess, sid = 'one') => {
+const drawn = (access: CanvasAccess, sid = 'one') => {
   const parts = instanceParts(access, access.getNode(sid) as never) as never as {
     sid: string;
     stype: string;

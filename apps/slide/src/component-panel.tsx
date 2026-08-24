@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { Button, Choice, Icon, IconButton, TextField } from '@barocss/office-ui';
-import { componentSourceOf, deckComponents, type ComponentDef } from '@barocss/office-slides';
+import { componentSourceOf, componentsOf, type ComponentDef } from '@barocss/office-slides';
 import { useEditorRevision } from './revision';
 
 /**
@@ -195,7 +195,7 @@ export function ComponentPanel({
     return { rootId, getNode: (sid: string) => store.getNode(sid) };
   })();
 
-  const components = doc ? deckComponents(doc as never) : [];
+  const components = doc ? componentsOf(doc as never) : [];
   void revision;
 
   /**

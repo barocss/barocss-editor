@@ -132,13 +132,19 @@ export {
   type LayoutMove
 } from './layout-arrange';
 /**
- * Components: a definition lives in the document's **library**, declares what a placement can
- * be asked for, and a placement holds **real** parts paired to it by durable id. See
- * `canvas-model.md` §10 for why this is not Figma's model, and §10b-2 for why a placement is
- * materialised rather than resolved when it is drawn.
+ * Components: a definition lives in the document's **library**, declares what a placement can be
+ * asked for, and a placement **draws** it (`canvas-model.md` §10b-2a).
+ *
+ * The model and the resolution live in `office-word`, which owns the canvas, and are re-exported
+ * so a deck's callers do not have to know that — the same arrangement the arrangement and the
+ * connector geometry have. They are there because the *schema* is shared: the office schema
+ * declares `component` and `instance`, so Word's canvas already has cards in its document format,
+ * and two products reading them differently would be one of them being wrong
+ * (`docs/SHARED-LAYER.md`). What stays here is what cannot be said without naming a deck — the
+ * commands, the panels, and importing a card from another file.
  */
 export {
-  deckComponents,
+  componentsOf,
   componentOf,
   definitionAt,
   partIdOf,
@@ -155,10 +161,17 @@ export {
   instanceResizable,
   definitionOf,
   slotNameOf,
+  /**
+   * What a **placement draws**: the definition's parts, live, with this placement's values in them.
+   *
+   * Registered as the store's content resolver by `createSlidesEditor`, which is the one place a
+   * node's children are read for a reader.
+   */
+  instanceParts,
   type ComponentDef,
   type ComponentVar,
-  type ComponentBind,
-} from './components';
+  type ComponentBind
+} from '@barocss/office-word';
 /**
  * A deck that is **not a line**: a shape a reader presses, and the page it shows.
  *
@@ -182,13 +195,6 @@ export {
  *
  * A view of the buttons rather than a second place to keep them — see `canvas-model.md` §11b.
  */
-/**
- * What a **placement draws**: the definition's parts, live, with this placement's values in them.
- *
- * Registered as the store's content resolver by `createSlidesEditor`, which is the one place a
- * node's children are read for a reader. See `canvas-model.md` §10b-2a.
- */
-export { instanceParts } from './instance-parts';
 export { deckMap, type DeckMap, type MapPage, type MapLink } from './deck-map';
 /**
  * A reader's own decks, **by name** — the naming half, which is the only half that is a question

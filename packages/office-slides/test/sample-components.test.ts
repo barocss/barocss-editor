@@ -6,8 +6,13 @@ import { createSlidesEditor } from '../src/slides-kit';
 import { getSlidesSchemaDefinition } from '../src/slides-schema';
 import { createSampleDeck } from '../src/sample-deck';
 import { childrenOf, deckSlides, type DeckAccess } from '../src/deck';
-import { instanceParts } from '../src/instance-parts';
-import { componentOf, deckComponents, instanceResizable, instanceVars } from '../src/components';
+import {
+  componentOf,
+  componentsOf,
+  instanceParts,
+  instanceResizable,
+  instanceVars
+} from '@barocss/office-word';
 
 /**
  * The deck this product ships, read as a **component document**.
@@ -47,7 +52,7 @@ describe('the deck’s own components', () => {
   };
 
   it('keeps its definition in the library, out of the page sequence', () => {
-    const [card] = deckComponents(doc);
+    const [card] = componentsOf(doc);
     expect(card.id).toBe('metric-card');
     expect(card.name).toBe('지표 카드');
     // A definition is not a page: the filmstrip, the presenter and the count all read
@@ -56,7 +61,7 @@ describe('the deck’s own components', () => {
   });
 
   it('declares what a card can be asked for, and does not count that as a part', () => {
-    const [card] = deckComponents(doc);
+    const [card] = componentsOf(doc);
     expect(card.vars.map((one) => [one.name, one.kind])).toEqual([
       ['title', 'text'],
       ['value', 'text'],
@@ -68,7 +73,7 @@ describe('the deck’s own components', () => {
   });
 
   it('answers each placement’s own values, and falls back to the declaration', () => {
-    const [card] = deckComponents(doc);
+    const [card] = componentsOf(doc);
     const said = placements().map((sid) =>
       Object.fromEntries(
         instanceVars(doc, doc.getNode(sid), card).map((one) => [one.name, one.value])
@@ -160,7 +165,7 @@ describe('the deck’s own components', () => {
      * What is left of "apply" belongs to the **brand kit** (§10f), where a copy really is a copy:
      * another deck's definition is not in this document, so it is brought in and can fall behind.
      */
-    const [card] = deckComponents(doc);
+    const [card] = componentsOf(doc);
     for (const sid of placements()) {
       const parts = instanceParts(doc, doc.getNode(sid));
       expect(parts).toHaveLength(card.parts.length);

@@ -65,7 +65,7 @@ export const CANVAS_PRESENCE_ATTRS = {
    * This part's own durable name inside a definition — what a **binding** names.
    *
    * Written on a definition's parts, and read where a placement's children are resolved
-   * (`instance-parts.ts`): a binding says *this variable drives this attribute of the part called
+   * (`canvas-instance.ts`): a binding says *this variable drives this attribute of the part called
    * `title`*, and this is that name. Not a sid, because saving strips those — a binding written in
    * sids would name nothing the first time the deck was opened again. The same rule motion
    * follows, for the same reason: a saved animation cannot be written in sids.

@@ -4,14 +4,14 @@ import {
   laysOut,
   layoutChildren,
   type LaidOutPlace
-} from '@barocss/office-word';
-import { childrenOf, type DeckAccess, type DeckNode } from './deck';
+} from './canvas-layout';
+import { childrenOf, type CanvasAccess, type CanvasNode } from './canvas-access';
 import {
-  deckComponents,
+  componentsOf,
   instanceValues,
   slotNameOf,
   type ComponentBind
-} from './components';
+} from './canvas-component';
 
 /**
  * What a **placement draws**: the definition's parts, with this placement's values in them.
@@ -61,15 +61,15 @@ import {
  */
 
 export function instanceParts(
-  doc: DeckAccess,
-  instance: DeckNode | undefined,
+  doc: CanvasAccess,
+  instance: CanvasNode | undefined,
   /** The definitions this resolution is already inside, which is how a cycle is refused. */
   inside: readonly string[] = []
-): DeckNode[] {
+): CanvasNode[] {
   const id = instance?.attributes?.componentId;
-  if (typeof id !== 'string' || !id) return childrenOf(instance).map((sid) => doc.getNode(sid) as DeckNode).filter(Boolean);
+  if (typeof id !== 'string' || !id) return childrenOf(instance).map((sid) => doc.getNode(sid) as CanvasNode).filter(Boolean);
 
-  const definition = deckComponents(doc).find((one) => one.id === id);
+  const definition = componentsOf(doc).find((one) => one.id === id);
   // A definition that is gone: the placement draws its own children, which is nothing to look at
   // but is honest — and the deck's own check is what says the definition is missing.
   if (!definition) return [];
@@ -80,7 +80,7 @@ export function instanceParts(
   const values = instanceValues(doc, instance, definition);
   const binds = definition.binds;
   const own = childrenOf(instance)
-    .map((sid) => doc.getNode(sid) as DeckNode)
+    .map((sid) => doc.getNode(sid) as CanvasNode)
     .filter((node) => node && node.stype !== 'componentValue');
 
   const slot = definition.parts.find((part) => slotNameOf(doc, part));
@@ -111,16 +111,16 @@ export function instanceParts(
 
 /** One part, with the values in it and the reader's own things in the slot. */
 function resolvePart(
-  doc: DeckAccess,
+  doc: CanvasAccess,
   sid: string,
   values: Map<string, string>,
   binds: ComponentBind[],
-  where: { slotOf?: string; own: DeckNode[]; inside: readonly string[] },
+  where: { slotOf?: string; own: CanvasNode[]; inside: readonly string[] },
   /** What the container above decided about this part, when it decided anything. */
   at?: LaidOutPlace,
   depth = 0
-): DeckNode {
-  const node = doc.getNode(sid) as DeckNode;
+): CanvasNode {
+  const node = doc.getNode(sid) as CanvasNode;
   const attrs = { ...((node?.attributes ?? {}) as Record<string, unknown>) };
   const partId = typeof attrs.partId === 'string' ? attrs.partId : undefined;
 
@@ -177,10 +177,10 @@ function resolvePart(
   const mine = sid === where.slotOf ? where.own : [];
   const nested =
     node?.stype === 'instance'
-      ? instanceParts(doc, { ...node, sid } as DeckNode, where.inside)
+      ? instanceParts(doc, { ...node, sid } as CanvasNode, where.inside)
       : [];
 
-  const resolved: DeckNode & { text?: string; content?: unknown } = {
+  const resolved: CanvasNode & { text?: string; content?: unknown } = {
     ...node,
     attributes: attrs,
     /**
@@ -204,10 +204,10 @@ function resolvePart(
  * A bound part draws the value and nothing else: the runs collapse to one, keeping the first one's
  * formatting, so the definition's font survives and the value is all the part says.
  */
-function withText(node: DeckNode, text: string): Partial<DeckNode> & { text?: string } {
+function withText(node: CanvasNode, text: string): Partial<CanvasNode> & { text?: string } {
   const content = (node as { content?: unknown }).content;
   if (typeof (node as { text?: unknown }).text === 'string') return { text };
   if (!Array.isArray(content) || content.length === 0 || typeof content[0] !== 'object') return {};
-  const first = content[0] as DeckNode;
+  const first = content[0] as CanvasNode;
   return { content: [{ ...first, ...withText(first, text) }] } as never;
 }

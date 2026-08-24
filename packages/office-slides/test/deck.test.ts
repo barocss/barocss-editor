@@ -4,6 +4,8 @@ import {
   connectorRouteOf,
   copyForPaste,
   deckSlides,
+  editableSurface,
+  isSlideSurface,
   stageFit,
   pastable,
   noteFor,
@@ -480,5 +482,48 @@ describe('the name a slide gets', () => {
     // answering a question about writing with a list of shapes.
     const inText = named({ stype: 'textFrame' });
     expect(deckSlides(inText)[0].name).toBe('');
+  });
+});
+
+/**
+ * Which surface an action lands on — the deck's question, and the reason it stayed here when the
+ * component model moved to the canvas layer.
+ *
+ * A definition is a surface a reader **opens and puts shapes in**, and a slide is a surface the
+ * deck **counts**. Both facts are about pages, which is a product's idea rather than a canvas's:
+ * what a card declares can be said without the word "slide" in it, and this cannot.
+ */
+describe('the surface an action lands on', () => {
+  const access = (nodes: Record<string, Record<string, unknown>>): DeckAccess =>
+    ({ rootId: 'root', getNode: (sid: string) => nodes[sid] as never }) as DeckAccess;
+
+  const deck = access({
+    root: { sid: 'root', stype: 'document', content: ['one', 'two', 'lib'] },
+    one: { sid: 'one', stype: 'surface', attributes: { kind: 'slide' }, content: [] },
+    two: { sid: 'two', stype: 'surface', attributes: { kind: 'slide' }, content: [] },
+    lib: { sid: 'lib', stype: 'components', attributes: {}, content: ['card'] },
+    card: { sid: 'card', stype: 'component', attributes: { id: 'card' }, content: [] }
+  });
+
+  it('takes a definition, which is what a reader opens to put shapes in', () => {
+    expect(editableSurface(deck, 'card')).toBe('card');
+  });
+
+  it('takes a slide, and defaults to the deck’s first one', () => {
+    expect(editableSurface(deck, 'two')).toBe('two');
+    expect(editableSurface(deck)).toBe('one');
+  });
+
+  it('refuses what is neither', () => {
+    expect(editableSurface(deck, 'lib')).toBeUndefined();
+    expect(editableSurface(deck, 'nowhere')).toBeUndefined();
+  });
+
+  it('counts a slide as a page and a definition as not one', () => {
+    // The pair the slide list, the strip, the presenter and the count all read. A definition that
+    // answered `true` here was the first design, and two of those four leaked before the third
+    // was written.
+    expect(isSlideSurface(deck.getNode('one') as never)).toBe(true);
+    expect(isSlideSurface(deck.getNode('card') as never)).toBe(false);
   });
 });

@@ -2,15 +2,22 @@ import { describe, it, expect } from 'vitest';
 import {
   componentOf,
   componentSignature,
-  deckComponents,
+  componentsOf,
   instanceValues,
   instanceVars,
   partSignature
-} from '../src/components';
-import { editableSurface, isSlideSurface, type DeckAccess } from '../src/deck';
+} from '../src/canvas-component';
+import type { CanvasAccess } from '../src/canvas-access';
 
 /**
  * A component's definition, and what a placement of it is.
+ *
+ * In this package rather than in the deck's, and the reason is the **schema**: the office schema
+ * declares `component` and `instance`, so a card is part of the document format both products read.
+ * Two products answering "what does this card declare" differently would be one of them being
+ * wrong, which is the rule in `docs/SHARED-LAYER.md` — and every question below can be asked
+ * without the word "slide" in it, which is that document's test for a shared thing. What stayed
+ * with the deck is what cannot: which surface an action lands on, and the panels.
  *
  * Two decisions, and both were arrived at by being wrong first — which is why they are worth
  * restating here rather than only in the source:
@@ -27,8 +34,8 @@ import { editableSurface, isSlideSurface, type DeckAccess } from '../src/deck';
  *   placement looking orphaned, and apply would have taken them all out. The same rule motion
  *   follows: a saved animation cannot be written in sids.
  */
-const doc = (nodes: Record<string, Record<string, unknown>>): DeckAccess =>
-  ({ rootId: 'root', getNode: (sid: string) => nodes[sid] as never }) as DeckAccess;
+const doc = (nodes: Record<string, Record<string, unknown>>): CanvasAccess =>
+  ({ rootId: 'root', getNode: (sid: string) => nodes[sid] as never }) as CanvasAccess;
 
 /** A deck with one definition in its library and one placement on its slide. */
 const card = () =>
@@ -60,13 +67,15 @@ const card = () =>
 describe('a component and its placements', () => {
   it('is in the library, so it is not in the page sequence at all', () => {
     const access = card();
-    expect(deckComponents(access).map((one) => one.id)).toEqual(['card']);
-    expect(isSlideSurface(access.getNode('card') as never)).toBe(false);
-    expect(isSlideSurface(access.getNode('slide') as never)).toBe(true);
+    expect(componentsOf(access).map((one) => one.id)).toEqual(['card']);
+    // And it is *not* in the surfaces: a definition is a thing the document defines, beside the
+    // pages rather than among them. Which page counts as one is the product's question — the deck
+    // asks it in `isSlideSurface` — and this is the half that has to be true for it to work.
+    expect(access.getNode('card')?.stype).toBe('component');
   });
 
   it('names itself, so a list of components can be read', () => {
-    expect(deckComponents(card())[0].name).toBe('카드');
+    expect(componentsOf(card())[0].name).toBe('카드');
   });
 
   it('is pointed at by a durable id, which a saved file keeps', () => {
@@ -81,7 +90,7 @@ describe('a component and its placements', () => {
       lib: { sid: 'lib', stype: 'components', attributes: {}, content: ['nameless'] },
       nameless: { sid: 'nameless', stype: 'component', attributes: {}, content: [] }
     });
-    expect(deckComponents(access)).toEqual([]);
+    expect(componentsOf(access)).toEqual([]);
   });
 });
 
@@ -118,7 +127,7 @@ describe('what a placement can be asked for', () => {
     });
 
   it('declares its variables in order, and reads them as fields', () => {
-    const [card] = deckComponents(carded());
+    const [card] = componentsOf(carded());
     expect(card.vars.map((one) => [one.name, one.kind, one.label])).toEqual([
       ['title', 'text', '제목'],
       // No label of its own: the name, so a panel always has something to write beside the
@@ -131,13 +140,13 @@ describe('what a placement can be asked for', () => {
     // A declaration is not something a placement draws, so counting it would put an empty box
     // on the slide for every variable the card takes.
     const access = carded();
-    const [card] = deckComponents(access);
+    const [card] = componentsOf(access);
     expect(card.parts).toEqual(['def-back']);
   });
 
   it('answers with the placement’s value, and with the default when it said nothing', () => {
     const access = carded();
-    const said = instanceVars(access, access.getNode('one') as never, deckComponents(access)[0]);
+    const said = instanceVars(access, access.getNode('one') as never, componentsOf(access)[0]);
     expect(said.map((one) => [one.name, one.value, one.set])).toEqual([
       ['title', '매출', true],
       // Every declared variable comes back whether the placement mentions it or not: a field
@@ -148,7 +157,7 @@ describe('what a placement can be asked for', () => {
 
   it('is behind when the declaration changes, not only when the drawing does', () => {
     const access = carded();
-    const before = componentSignature(access, deckComponents(access)[0]);
+    const before = componentSignature(access, componentsOf(access)[0]);
     (access.getNode('v-title') as never as { attributes: Record<string, unknown> }).attributes = {
       name: 'title',
       label: '제목',
@@ -156,7 +165,7 @@ describe('what a placement can be asked for', () => {
     };
     // A placement's fields come from the declaration, so leaving it out of the signature would
     // let the panel go quietly out of date while the badge said everything was current.
-    expect(componentSignature(access, deckComponents(access)[0])).not.toBe(before);
+    expect(componentSignature(access, componentsOf(access)[0])).not.toBe(before);
   });
 });
 
@@ -199,29 +208,5 @@ describe('signatures', () => {
       y: { sid: 'y', stype: 'frame', attributes: {}, content: ['x'] }
     });
     expect(typeof partSignature(loop, 'x')).toBe('string');
-  });
-});
-
-describe('the surface an action lands on', () => {
-  const deck = doc({
-    root: { sid: 'root', stype: 'document', content: ['one', 'two', 'lib'] },
-    one: { sid: 'one', stype: 'surface', attributes: { kind: 'slide' }, content: [] },
-    two: { sid: 'two', stype: 'surface', attributes: { kind: 'slide' }, content: [] },
-    lib: { sid: 'lib', stype: 'components', attributes: {}, content: ['card'] },
-    card: { sid: 'card', stype: 'component', attributes: { id: 'card' }, content: [] }
-  });
-
-  it('takes a definition, which is what a reader opens to put shapes in', () => {
-    expect(editableSurface(deck, 'card')).toBe('card');
-  });
-
-  it('takes a slide, and defaults to the deck’s first one', () => {
-    expect(editableSurface(deck, 'two')).toBe('two');
-    expect(editableSurface(deck)).toBe('one');
-  });
-
-  it('refuses what is neither', () => {
-    expect(editableSurface(deck, 'lib')).toBeUndefined();
-    expect(editableSurface(deck, 'nowhere')).toBeUndefined();
   });
 });

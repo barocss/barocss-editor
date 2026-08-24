@@ -22,7 +22,7 @@ import { createSlideCommands } from './slide-commands';
 import { createBoxCommands } from './box-commands';
 import { createArrangeCommands } from './arrange-commands';
 import { createComponentCommands } from './component-commands';
-import { instanceParts } from './instance-parts';
+import { instanceParts } from '@barocss/office-word';
 import { createConnectorCommands } from './connector-commands';
 import { createClipboardCommands } from './clipboard-commands';
 import { createLayoutCommands, createWordTables } from '@barocss/office-word';

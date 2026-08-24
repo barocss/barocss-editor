@@ -22,7 +22,7 @@ import {
   componentBehindSource,
   componentSourceOf,
   deckAdvance,
-  deckComponents,
+  componentsOf,
   deckSlides,
   isLibraryName,
   readDeckFile,
@@ -148,7 +148,7 @@ export function App({
     const store = (editor as any)?.dataStore;
     const rootId = (editor as any)?.getRootId?.();
     if (!store || !rootId) return [];
-    return deckComponents({ rootId, getNode: (sid: string) => store.getNode(sid) } as never);
+    return componentsOf({ rootId, getNode: (sid: string) => store.getNode(sid) } as never);
   }, [editor, revision]);
 
   /**

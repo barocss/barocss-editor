@@ -5,7 +5,7 @@ import {
   accessOfTree,
   componentBehindSource,
   componentSourceOf,
-  deckComponents,
+  componentsOf,
   deckFileText,
   readDeckFile
 } from '@barocss/office-slides';
@@ -143,12 +143,12 @@ export function LibraryDialog({
     const rootId = (editor as any)?.getRootId?.();
     const host =
       store && rootId ? { rootId, getNode: (sid: string) => store.getNode(sid) } : undefined;
-    const mine = host ? deckComponents(host as never) : [];
+    const mine = host ? componentsOf(host as never) : [];
 
     setSources((was) => ({ ...was, [row.name]: read.document }));
     setInside({
       deck: row.name,
-      parts: deckComponents(source).map((one) => {
+      parts: componentsOf(source).map((one) => {
         const copy = mine.find((made) => {
           const from = componentSourceOf(host as never, made);
           return from?.deck === row.name && from.id === one.id;

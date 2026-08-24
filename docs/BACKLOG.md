@@ -640,6 +640,17 @@ shipped features marked undone.
   blind to everything inside a placement. Both fixed; the second is the entry at the top of this
   file, because it is a question every walk in the product now has to answer.
 
+- [x] **The component model moved to the shared canvas layer** (`canvas-component.ts`,
+  `canvas-instance.ts` in `office-word`), because the schema that declares `component` and
+  `instance` is the office schema — Word's canvas already has cards in its document format and just
+  has nothing that reads them, so two readings would be one of them wrong. The commands, the panels
+  and the deck library stayed: making a card out of a selection needs "the surface the reader is
+  on", which is a deck's question. Found by the move: `DeckAccess`/`DeckNode` were declared
+  field-for-field twice, and `deckComponents` had a product's name on a shared function
+  (`componentsOf` now). Re-measured what Slides takes from Word — **22 import sites, 65 symbols**,
+  up from four — and `docs/SHARED-LAYER.md` now proposes a second package, `office-canvas`, out of
+  the seven `canvas-*` files that a word processor reads none of.
+
 - [ ] **Document-wide variables.** A `variables` container beside `components`, and a binding that
   may name either a component's variable or the document's. Asked for explicitly; the theme covers
   colours today and nothing covers a number or a string.

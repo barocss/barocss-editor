@@ -54,7 +54,7 @@ import {
   jumpOf,
   instanceResizable,
   definitionAt,
-  deckComponents,
+  componentsOf,
   instanceVars,
   type Slide
 } from '@barocss/office-slides';
@@ -304,7 +304,7 @@ export function Properties({
     const node = store.getNode(current);
     if (node?.stype !== 'component') return undefined;
     const doc = { rootId, getNode: (sid: string) => store.getNode(sid) };
-    const found = deckComponents(doc as never).find((one) => one.sid === current);
+    const found = componentsOf(doc as never).find((one) => one.sid === current);
     if (!found) return undefined;
 
     /** How many placements it has, counted from the document — it is derived, not recorded. */
@@ -2057,8 +2057,8 @@ function PartGroup({
     const store = (editor as any)?.dataStore;
     const rootId = (editor as any)?.getRootId?.();
     const nothing = {
-      vars: [] as ReturnType<typeof deckComponents>[number]['vars'],
-      binds: [] as ReturnType<typeof deckComponents>[number]['binds'],
+      vars: [] as ReturnType<typeof componentsOf>[number]['vars'],
+      binds: [] as ReturnType<typeof componentsOf>[number]['binds'],
       part: undefined as string | undefined,
       stype: undefined as string | undefined,
       attrs: {} as Record<string, unknown>,
@@ -2069,7 +2069,7 @@ function PartGroup({
 
     const doc = { rootId, getNode: (one: string) => store.getNode(one) };
     const owner = definitionAt(doc as never, sid);
-    const found = owner ? deckComponents(doc as never).find((one) => one.sid === owner) : undefined;
+    const found = owner ? componentsOf(doc as never).find((one) => one.sid === owner) : undefined;
     if (!found) return nothing;
 
     const node = store.getNode(sid);

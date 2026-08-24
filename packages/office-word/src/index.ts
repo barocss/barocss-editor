@@ -332,6 +332,58 @@ export {
   type LaidOutPlace
 } from './canvas-layout';
 export { createLayoutCommands, CanvasLayoutExtension } from './canvas-layout-commands';
+
+/**
+ * A **component** and what a placement of one draws.
+ *
+ * Here for the same reason the arrangement and the connector are, and the reason is the schema: the
+ * office schema declares `component`, `instance`, `componentVar`, `componentBind` and
+ * `componentValue`, so Word's canvas already has cards in its document format — it simply has
+ * nothing that reads them yet. Two products reading the same node types differently is one of them
+ * being wrong, which is `docs/SHARED-LAYER.md`'s rule; and every function here passes that
+ * document's test for a shared thing, because none of it can be said with the word "slide" in it.
+ *
+ * A product keeps what needs a product: the commands (making a card out of a selection needs the
+ * surface the reader is on), the panels, and importing a card from another file.
+ */
+export {
+  componentsOf,
+  componentOf,
+  definitionOf,
+  definitionAt,
+  partIdOf,
+  partSignature,
+  componentSignature,
+  definitionSignature,
+  importComponentPlan,
+  componentSourceOf,
+  componentBehindSource,
+  instanceVars,
+  instanceValues,
+  instanceResizable,
+  slotNameOf,
+  type ComponentDef,
+  type ComponentVar,
+  type ComponentBind,
+  type ComponentSource,
+  type ImportPlan
+} from './canvas-component';
+/**
+ * What a placement **draws**, resolved where a node's children are read.
+ *
+ * Registered as the store's content resolver by the product (`DataStore.setContentResolver`), which
+ * is the one place a node's children are read for a reader. See `canvas-model.md` §10b-2a for why
+ * it is there rather than in a renderer — measured both ways.
+ */
+export { instanceParts } from './canvas-instance';
+/**
+ * What a canvas reader needs of a document, and the two walks all of them do.
+ *
+ * `childrenOf` answers **sids** here, where the text stack's answers nodes: a canvas is addressed
+ * by id (a placement names a definition, a connector remembers an end), and a fixture tree holds
+ * objects where a loaded document holds sids.
+ */
+export { childrenOf as canvasChildrenOf, copyOf, type CanvasAccess, type CanvasNode } from './canvas-access';
 /**
  * A line that remembers **what it joins** — the canvas's, for the same reason the
  * arrangement is: a connector is a scene node, and two products with two answers for

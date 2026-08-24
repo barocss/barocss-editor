@@ -722,7 +722,7 @@ export function registerSlidesRenderers(): void {
    *
    * A placement draws the **definition**, live, and this template does not know that: it draws
    * its children like a group, and its children *are* the definition's parts — resolved one
-   * layer down, in the proxy the view reads children through (`instance-parts.ts`, §10b-2a).
+   * layer down, in the proxy the view reads children through (`canvas-instance.ts`, §10b-2a).
    *
    * Measured both ways, and the order matters. A first attempt had this template reach into the
    * definition itself, which cannot work: a template renders nodes through `slot(name)`, which

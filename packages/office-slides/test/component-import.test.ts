@@ -7,13 +7,13 @@ import { getSlidesSchemaDefinition } from '../src/slides-schema';
 import { createSampleDeck } from '../src/sample-deck';
 import { accessOfTree } from '../src/tree-access';
 import { childrenOf, type DeckAccess } from '../src/deck';
-import { instanceParts } from '../src/instance-parts';
 import {
   componentBehindSource,
   componentSourceOf,
-  deckComponents,
-  importComponentPlan
-} from '../src/components';
+  componentsOf,
+  importComponentPlan,
+  instanceParts
+} from '@barocss/office-word';
 
 /**
  * A **brand kit**: a definition brought in from another deck.
@@ -70,7 +70,7 @@ describe('a definition from another deck', () => {
   it('brings it in, library and all, in one press of undo', async () => {
     expect(await run('importComponent', { deck: 'brand-kit', componentId: 'metric-card', source: createSampleDeck() })).toBe(true);
 
-    const [card] = deckComponents(doc);
+    const [card] = componentsOf(doc);
     expect(card.id).toBe('metric-card');
     // Everything the definition is came with it: its variables and its parts.
     expect(card.vars.map((one) => one.name)).toEqual(['title', 'value', 'accent', 'showBadge']);
@@ -80,7 +80,7 @@ describe('a definition from another deck', () => {
     await (editor as any).undo();
     // The library was made by the import, so one press takes back "I brought a card in" rather
     // than leaving an empty container behind.
-    expect(deckComponents(doc)).toEqual([]);
+    expect(componentsOf(doc)).toEqual([]);
   });
 
   it('is placeable here like any other definition', async () => {
@@ -110,11 +110,11 @@ describe('a definition from another deck', () => {
     void slide;
 
     await run('importComponent', { deck: 'brand-kit', componentId: 'metric-card', source: createSampleDeck() });
-    const ids = deckComponents(doc).map((one) => one.id);
+    const ids = componentsOf(doc).map((one) => one.id);
     // Two decks can both define a `card`; the one that arrives second is renamed, and it still
     // knows what it is called *there*.
     expect(ids).toEqual(['metric-card', 'metric-card-2']);
-    expect(componentSourceOf(doc, deckComponents(doc)[1])).toMatchObject({ id: 'metric-card' });
+    expect(componentSourceOf(doc, componentsOf(doc)[1])).toMatchObject({ id: 'metric-card' });
   });
 
   it('replaces the copy rather than making a second one', async () => {
@@ -124,12 +124,12 @@ describe('a definition from another deck', () => {
      * Bringing the same definition in twice is not two cards: every placement goes on pointing at
      * the same `componentId`, which is the whole point of remembering where it came from.
      */
-    expect(deckComponents(doc).map((one) => one.id)).toEqual(['metric-card']);
+    expect(componentsOf(doc).map((one) => one.id)).toEqual(['metric-card']);
   });
 
   it('says when the deck it came from has moved on', async () => {
     await run('importComponent', { deck: 'brand-kit', componentId: 'metric-card', source: createSampleDeck() });
-    const card = deckComponents(doc)[0];
+    const card = componentsOf(doc)[0];
 
     // The same brand kit: nothing to take.
     expect(componentBehindSource(doc, card, kit())).toBe(false);
@@ -158,7 +158,7 @@ describe('a definition from another deck', () => {
       stype: 'components',
       content: [{ stype: 'component', attributes: { id: 'mine' }, content: [] }]
     } as never);
-    const mine = deckComponents(doc).find((one) => one.id === 'mine');
+    const mine = componentsOf(doc).find((one) => one.id === 'mine');
     expect(componentSourceOf(doc, mine)).toBeUndefined();
     expect(componentBehindSource(doc, mine, kit())).toBe(false);
   });

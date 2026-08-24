@@ -5,7 +5,7 @@ import { jumpFaults } from './jump';
 import { isContainerType } from './selection';
 import { backgroundOf, resolveDeckFormat } from './layout-format';
 import { paintsOf } from './paints';
-import { instanceParts } from './instance-parts';
+import { instanceParts } from '@barocss/office-word';
 
 /**
  * A look over the deck before it is given to anybody.

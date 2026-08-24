@@ -5,8 +5,12 @@ import type { Editor } from '@barocss/editor-core';
 import { createSlidesEditor } from '../src/slides-kit';
 import { getSlidesSchemaDefinition } from '../src/slides-schema';
 import { childrenOf, type DeckAccess } from '../src/deck';
-import { deckComponents, instanceResizable, instanceVars } from '../src/components';
-import { instanceParts } from '../src/instance-parts';
+import {
+  componentsOf,
+  instanceParts,
+  instanceResizable,
+  instanceVars
+} from '@barocss/office-word';
 
 /**
  * Making a component, placing one, and taking a definition's changes.
@@ -75,7 +79,7 @@ describe('the component commands', () => {
       select(...boxes());
       expect(await run('createComponent', { name: '카드', id: 'card' })).toBe(true);
 
-      const [definition] = deckComponents(doc);
+      const [definition] = componentsOf(doc);
       expect(definition?.id).toBe('card');
       expect(definition?.name).toBe('카드');
       // Its parts have durable names derived from what they are, so a person reading the file
@@ -113,7 +117,7 @@ describe('the component commands', () => {
       await (editor as any).undo();
 
       // The library, the definition and the placement all go; the reader's two boxes come back.
-      expect(deckComponents(doc)).toEqual([]);
+      expect(componentsOf(doc)).toEqual([]);
       expect(boxes()).toHaveLength(2);
       expect(doc.getNode(boxes()[0])?.stype).toBe('rectangle');
     });
@@ -123,7 +127,7 @@ describe('the component commands', () => {
       await run('createComponent', { id: 'card' });
       select(boxes()[0]);
       await run('createComponent', { id: 'card' });
-      expect(deckComponents(doc).map((one) => one.id)).toEqual(['card', 'card-2']);
+      expect(componentsOf(doc).map((one) => one.id)).toEqual(['card', 'card-2']);
     });
   });
 
@@ -160,7 +164,7 @@ describe('the component commands', () => {
     });
 
     it('is on the screen already: there is nothing to apply', async () => {
-      const definition = deckComponents(doc)[0];
+      const definition = componentsOf(doc)[0];
       await run('setBoxStyle', { nodeIds: [definition.parts[0]], fill: '#ef4444' });
 
       /*
@@ -176,7 +180,7 @@ describe('the component commands', () => {
 
     it('reaches every placement at once, because they all draw it', async () => {
       await run('placeComponent', { componentId: 'card', slideId: slide, x: 12000, y: 3000 });
-      const definition = deckComponents(doc)[0];
+      const definition = componentsOf(doc)[0];
       await run('setBoxStyle', { nodeIds: [definition.parts[0]], fill: '#0f766e' });
 
       for (const sid of boxes().filter((one) => doc.getNode(one)?.stype === 'instance')) {
@@ -199,7 +203,7 @@ describe('the component commands', () => {
        * definition's own panel, and the next item. What is under test here is the *placement*
        * side: a value written, and the words on the slide changing with it.
        */
-      const definition = deckComponents(doc)[0];
+      const definition = componentsOf(doc)[0];
       store.addChild(definition.sid, {
         stype: 'componentVar',
         attributes: { name: 'title', label: '이름', value: '지표' }
@@ -223,7 +227,7 @@ describe('the component commands', () => {
     it('is written on the placement, and substituted into the part that binds it', async () => {
       expect(await run('setComponentValue', { nodeId: placement, name: 'title', value: '매출' })).toBe(true);
 
-      const said = instanceVars(doc, doc.getNode(placement), deckComponents(doc)[0]);
+      const said = instanceVars(doc, doc.getNode(placement), componentsOf(doc)[0]);
       expect(said.map((one) => [one.name, one.value, one.set])).toEqual([['title', '매출', true]]);
 
       /*
@@ -264,7 +268,7 @@ describe('the component commands', () => {
     beforeEach(async () => {
       select(...boxes());
       await run('createComponent', { name: '카드', id: 'card' });
-      definition = deckComponents(doc)[0].sid;
+      definition = componentsOf(doc)[0].sid;
     });
 
     it('refuses a nameless variable and a definition that is not there', () => {
@@ -291,7 +295,7 @@ describe('the component commands', () => {
         'rectangle',
         'textFrame'
       ]);
-      const [card] = deckComponents(doc);
+      const [card] = componentsOf(doc);
       expect(card.vars.map((one) => [one.name, one.label, one.value])).toEqual([
         ['title', '이름', '지표']
       ]);
@@ -303,16 +307,16 @@ describe('the component commands', () => {
       await run('setComponentVar', { componentId: 'card', name: 'title', value: '지표' });
       await run('setComponentVar', { componentId: 'card', name: 'title', label: '제목' });
 
-      const [one] = deckComponents(doc)[0].vars;
+      const [one] = componentsOf(doc)[0].vars;
       // The default survives a label change: a panel that reset the value every time somebody
       // renamed a field would be a panel nobody could use twice.
       expect([one.label, one.value]).toEqual(['제목', '지표']);
-      expect(deckComponents(doc)[0].vars).toHaveLength(1);
+      expect(componentsOf(doc)[0].vars).toHaveLength(1);
     });
 
     it('takes the bindings and the placements’ answers with it when it goes', async () => {
       await run('setComponentVar', { componentId: 'card', name: 'title', value: '지표' });
-      const part = deckComponents(doc)[0].parts[1];
+      const part = componentsOf(doc)[0].parts[1];
       await run('bindComponentPart', { nodeId: part, bindText: 'title' });
       const placement = boxes()[0];
       await run('setComponentValue', { nodeId: placement, name: 'title', value: '매출' });
@@ -324,7 +328,7 @@ describe('the component commands', () => {
        * silently draws whatever it last had, and an answer to a question nobody asks is junk
        * in the file that would come back to life the day the name was declared again.
        */
-      expect(deckComponents(doc)[0].vars).toEqual([]);
+      expect(componentsOf(doc)[0].vars).toEqual([]);
       expect(doc.getNode(part)?.attributes?.bindText).toBeUndefined();
       expect(
         childrenOf(doc.getNode(placement)).filter(
@@ -338,14 +342,14 @@ describe('the component commands', () => {
       expect(
         await run('setComponentBind', { componentId: 'card', part: 'title', attr: 'text', var: 'title' })
       ).toBe(true);
-      expect(deckComponents(doc)[0].binds).toEqual([
+      expect(componentsOf(doc)[0].binds).toEqual([
         { part: 'title', attr: 'text', var: 'title' }
       ]);
 
       // Clearing is the same command: `null` takes it off, and there is nothing left saying the
       // part takes anything.
       await run('setComponentBind', { componentId: 'card', part: 'title', attr: 'text', var: null });
-      expect(deckComponents(doc)[0].binds).toEqual([]);
+      expect(componentsOf(doc)[0].binds).toEqual([]);
     });
 
     it('replaces the declaration about one piece and one attribute', async () => {
@@ -357,7 +361,7 @@ describe('the component commands', () => {
        * One decision, not two: a card whose colour depends on which declaration apply read last is
        * a card nobody can reason about.
        */
-      expect(deckComponents(doc)[0].binds).toEqual([{ part: 'rectangle', attr: 'fill', var: 'b' }]);
+      expect(componentsOf(doc)[0].binds).toEqual([{ part: 'rectangle', attr: 'fill', var: 'b' }]);
     });
 
     it('refuses an attribute the part does not declare, and a variable that is not declared', async () => {
@@ -395,7 +399,7 @@ describe('the component commands', () => {
     });
 
     it('marks a frame part as the slot, which is not a binding', async () => {
-      const part = deckComponents(doc)[0].parts[0];
+      const part = componentsOf(doc)[0].parts[0];
       // It says where a reader's own things go, not what a part takes — and it was only in the same
       // command as the bindings because both were attributes on a part.
       await run('setComponentSlot', { nodeId: part, slot: 'items' });
@@ -428,7 +432,7 @@ describe('the component commands', () => {
     it('changes the card and every placement of it, in one entry', async () => {
       expect(await run('setComponentSize', { componentId: 'card', width: 6000, height: 4200 })).toBe(true);
 
-      const definition = deckComponents(doc)[0];
+      const definition = componentsOf(doc)[0];
       expect(doc.getNode(definition.sid)?.attributes?.width).toBe(6000);
       for (const sid of boxes()) {
         expect(doc.getNode(sid)?.attributes?.width).toBe(6000);
@@ -443,18 +447,18 @@ describe('the component commands', () => {
     });
 
     it('does not touch what is in the card', async () => {
-      const definition = deckComponents(doc)[0];
+      const definition = componentsOf(doc)[0];
       const before = definition.parts.map((sid) => doc.getNode(sid)?.attributes?.width);
       await run('setComponentSize', { componentId: 'card', width: 6000, height: 4200 });
       // A card's size is not an edit to what is in it: scaling the parts would need a
       // constraint model, and half-guessing it puts a badge outside its card.
-      expect(deckComponents(doc)[0].parts.map((sid) => doc.getNode(sid)?.attributes?.width)).toEqual(
+      expect(componentsOf(doc)[0].parts.map((sid) => doc.getNode(sid)?.attributes?.width)).toEqual(
         before
       );
     });
 
     it('draws a placement that was never told the card grew', async () => {
-      const definition = deckComponents(doc)[0];
+      const definition = componentsOf(doc)[0];
       // A card resized by something that does not know about placements — a reader dragging the
       // definition's own handles, an older deck, a file from another product. There is nothing to
       // bring back into agreement any more: the parts are the definition's, so they are already it.
@@ -519,7 +523,7 @@ describe('the component commands', () => {
       // A definition made of one frame that fills the card and arranges a column inside it.
       select(...boxes());
       await run('createComponent', { id: 'card' });
-      definition = deckComponents(doc)[0].sid;
+      definition = componentsOf(doc)[0].sid;
 
       await (editor as never as { transaction: (steps: unknown[]) => { commit: () => Promise<unknown> } })
         .transaction([
@@ -563,7 +567,7 @@ describe('the component commands', () => {
 
     /** The definition's filling frame, found by the name it was given rather than by position. */
     const bodyPart = () =>
-      deckComponents(doc)[0].parts.find(
+      componentsOf(doc)[0].parts.find(
         (sid) => doc.getNode(sid)?.attributes?.partId === 'body'
       ) as string;
 

@@ -10,7 +10,11 @@ import {
   readWaypoints,
   separationBend,
   type ConnectorBox,
-  type ConnectorSpec
+  type ConnectorSpec,
+  canvasChildrenOf,
+  copyOf,
+  type CanvasAccess,
+  type CanvasNode
 } from '@barocss/office-word';
 import { SLIDE_16_9, slideSize } from './geometry';
 import { isContainerType } from './selection';
@@ -24,29 +28,16 @@ import { isContainerType } from './selection';
  * it is testable in milliseconds and usable from any of them.
  */
 
-/** The little of a document this needs, so a caller can pass anything. */
-export interface DeckAccess {
-  getNode: (sid: string) => DeckNode | undefined;
-  rootId: string;
-}
-
-export interface DeckNode {
-  sid?: string;
-  stype?: string;
-  attributes?: Record<string, unknown>;
-  /**
-   * The characters, for the one node type that is text rather than a box.
-   *
-   * Read here already — `firstText` in `layers.ts` labels a shape by its first words
-   * and reached for it through `(node as { text?: unknown }).text`, because this
-   * interface did not say a node could have any. So every fixture that built an
-   * inline-text was writing a property the type denied, which the compiler said the
-   * first time it was allowed to read the tests.
-   */
-  text?: string;
-  /** Child sids, which is how a loaded document holds its children. */
-  content?: unknown;
-}
+/**
+ * The little of a document a deck reader needs — which is the canvas's answer, not a second one.
+ *
+ * These were declared here, field for field identical to the canvas layer's, and two identical
+ * interfaces are two places for one of them to gain a field. A deck is a canvas, so it reads a
+ * document the way a canvas does; the names stay because every reader in this package is written in
+ * them, and renaming 400 call sites buys nothing.
+ */
+export type DeckAccess = CanvasAccess;
+export type DeckNode = CanvasNode;
 
 /** One slide, as the chrome around a deck needs it. */
 export interface Slide {
@@ -62,18 +53,14 @@ export interface Slide {
 }
 
 /**
- * A node's children, as sids.
+ * A node's children, as sids — the canvas's, re-exported under the name this package uses.
  *
- * Exported because it was written **seven times** in this package — deck, deck
- * file, layout format, motion, text units, theme, timeline — with two spellings of
- * the same filter. Nothing had gone wrong yet, and that is the point: seven copies
- * of a predicate is seven chances for one of them to decide differently about a
- * node whose `content` holds something that is not a sid.
+ * It was written **seven times** in here (deck, deck file, layout format, motion, text units,
+ * theme, timeline) with two spellings of the same filter, which is why it was gathered into one;
+ * it is now gathered one layer further out, because a canvas child is a canvas child in both
+ * products.
  */
-export const childrenOf = (node: DeckNode | undefined): string[] =>
-  Array.isArray(node?.content)
-    ? (node!.content as unknown[]).filter((child): child is string => typeof child === 'string')
-    : [];
+export const childrenOf = canvasChildrenOf;
 
 const attrString = (node: DeckNode | undefined, key: string): string | undefined => {
   const value = node?.attributes?.[key];
@@ -295,36 +282,13 @@ export function deckSlides(doc: DeckAccess): Slide[] {
 }
 
 /**
- * A subtree, copied as a plain tree with no identity.
+ * A subtree, copied as a plain tree with no identity — the canvas's `copyOf`.
  *
- * Sids are deliberately dropped. A sid is `session:counter` and belongs to one
- * node; a copy is a different node, and carrying the original's sid across
- * would give two nodes one identity — which every mapping from a DOM position
- * back to the model, and every reference by id, resolves through.
- *
- * Depth-limited for the same reason the text walk is: this reads an author's
- * document, and a malformed one must not take the editor down with it.
+ * Re-exported rather than reimplemented: "a copy carries no sid" is a rule two products cannot be
+ * allowed to answer differently, because every mapping from a DOM position back to the model
+ * resolves through a sid, and two nodes with one identity break all of them.
  */
-export function copyOf(doc: DeckAccess, sid: string, depth = 0): DeckNode | undefined {
-  if (depth > 32) return undefined;
-  const node = doc.getNode(sid);
-  if (!node) return undefined;
-
-  const copy: DeckNode & { text?: string } = {
-    stype: node.stype,
-    attributes: { ...(node.attributes ?? {}) }
-  };
-
-  const text = (node as { text?: unknown }).text;
-  if (typeof text === 'string') copy.text = text;
-
-  const children = childrenOf(node)
-    .map((child) => copyOf(doc, child, depth + 1))
-    .filter((child): child is DeckNode => child !== undefined);
-  if (children.length > 0) copy.content = children;
-
-  return copy;
-}
+export { copyOf };
 
 /**
  * A payload-local name, so a copied line can point at a copied shape.
