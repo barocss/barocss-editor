@@ -97,6 +97,42 @@ export class DataStore {
   // Temporary alias set used during createNodeWithChildren to detect duplicates
   private _tempAliasSet: Set<string> | undefined;
 
+  /**
+   * What a node's children are **for a reader**, when they are not what the document holds.
+   *
+   * One product needs this: a slide's *placement* of a component draws the component's parts, and
+   * those parts belong to the definition rather than to the placement. Everything downstream — a
+   * shape's own coordinates, the words in a text frame, the slot a nested renderer fills — has to
+   * be evaluated against the part itself, so the substitution has to happen where children are
+   * resolved and not in a renderer.
+   *
+   * `toProxy` is that place, and it is the only one: it is how the view reads children, while the
+   * save (`exportToTree`) walks the stored nodes directly. So a resolver changes what is *drawn*
+   * and cannot change what is written, which is exactly the separation this needed.
+   *
+   * The store knows nothing about components. A product registers a function; `undefined` means
+   * "the ordinary children", which is what every node but one returns.
+   */
+  private _contentResolver:
+    | ((node: INode, getNode: (sid: string) => INode | undefined) => INode[] | undefined)
+    | undefined;
+
+  /** Register what a node's children are for a reader. See `_contentResolver`. */
+  setContentResolver(
+    resolver:
+      | ((node: INode, getNode: (sid: string) => INode | undefined) => INode[] | undefined)
+      | undefined
+  ): void {
+    this._contentResolver = resolver;
+  }
+
+  /** The registered resolver, for the exporter that builds the view's proxy. */
+  get contentResolver():
+    | ((node: INode, getNode: (sid: string) => INode | undefined) => INode[] | undefined)
+    | undefined {
+    return this._contentResolver;
+  }
+
   // Global lock and queue management
   private _currentLock: {
     lockId: string;

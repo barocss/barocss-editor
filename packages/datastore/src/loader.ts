@@ -156,6 +156,28 @@ export class DataStoreExporter {
     
     return new Proxy(node, {
       get(target: INode, prop: string | symbol): any {
+        /**
+         * What this node's children are **for a reader**, when a product says they are not what the
+         * document holds.
+         *
+         * The one case that needs it: a placement of a component draws the *definition's* parts. It
+         * has to happen here because everything downstream is evaluated against the child that
+         * arrives — a shape's own coordinates, the words in a text frame, the slot a nested
+         * renderer fills — and a renderer that built those elements itself would evaluate all of
+         * them against the placement instead. Measured: two parts came out with the placement's
+         * box and the placement's sid.
+         *
+         * And it is safe *here* rather than anywhere else: this proxy is how the view reads
+         * children, while the save walks the stored nodes (`_exportNodeToTree`). So a resolver
+         * changes what is drawn and cannot change what is written.
+         */
+        if (prop === 'content') {
+          const resolved = dataStore.contentResolver?.(target, (sid: string) =>
+            dataStore.getNode(sid)
+          );
+          if (resolved) return resolved.map((child) => createProxy(child));
+        }
+
         // Lazy evaluation on content access
         if (prop === 'content' && target.content) {
           return target.content.map((item: any) => {

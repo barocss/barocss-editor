@@ -6,6 +6,7 @@ import { createSlidesEditor } from '../src/slides-kit';
 import { getSlidesSchemaDefinition } from '../src/slides-schema';
 import { createSampleDeck } from '../src/sample-deck';
 import { childrenOf, deckSlides, type DeckAccess } from '../src/deck';
+import { instanceParts } from '../src/instance-parts';
 import {
   componentApplyPlan,
   componentOf,
@@ -99,47 +100,50 @@ describe('the deck’s own components', () => {
     expect(instanceVars(doc, doc.getNode(placements()[0]), card)[2].set).toBe(false);
   });
 
-  it('pairs every part with the definition, by durable name', () => {
-    const [card] = deckComponents(doc);
+  it('holds no parts at all: it draws the definition’s', () => {
     for (const sid of placements()) {
-      const state = instanceState(doc, doc.getNode(sid), card);
-      expect(state.map((part) => part.origin)).toEqual([
-        'back',
-        'badge',
-        'title',
-        'value',
-        'items'
-      ]);
-      // And the placement's `componentValue` children are not in that list: they are what it
-      // *says*, not what it is made of.
-      expect(state).toHaveLength(5);
+      const kids = childrenOf(doc.getNode(sid)).map((one: string) => doc.getNode(one)?.stype);
+      /*
+       * A placement says what its variables are and holds whatever the reader put in its slot.
+       * Nothing else. Copying the parts in would make it a *template* — a document you copy and
+       * then own — and a component follows its definition as the definition is edited.
+       */
+      for (const stype of kids) expect(['componentValue', 'textFrame']).toContain(stype);
     }
   });
 
-  it('knows which parts a reader edited and which are still the definition’s', () => {
-    const [card] = deckComponents(doc);
-    const changed = (sid: string) =>
-      instanceState(doc, doc.getNode(sid), card)
-        .filter((part) => part.changed)
-        .map((part) => part.origin);
+  it('resolves the definition’s parts, with this placement’s values in them', () => {
+    const [first, , third] = placements();
 
-    /*
-     * Every substituted part differs from the definition — that is what substitution *is* —
-     * so what this really shows is the cost stated in §10b: with materialised placements, the
-     * granularity of an override is a whole part. The third card's value says `1.8% ↓`, which
-     * the reader typed; the first card's says `1,240만`, which apply wrote. The model cannot
-     * tell those two apart, and the product does not pretend to: what it can tell apart is
-     * "the definition has moved on" (`componentStale`), which is the question a badge answers.
-     */
-    expect(changed(placements()[0])).toContain('title');
-    expect(changed(placements()[2])).toContain('value');
-    // The slot is compared *without its contents*, so the two rows the reader added inside the
-    // third card do not make it an override — otherwise a change to the frame itself could
-    // never reach a placement anybody had used.
-    expect(changed(placements()[2])).not.toContain('items');
+    const drawnBy = (sid: string) => instanceParts(doc, doc.getNode(sid));
+    // Five parts, from the card: the back, the badge, the two texts and the slot.
+    expect(drawnBy(first)).toHaveLength(5);
+
+    /** The words in a resolved part, however deep they sit. */
+    const words = (node: any): string => {
+      if (typeof node?.text === 'string') return node.text;
+      return (node?.content ?? []).map(words).join('');
+    };
+    const titleOf = (sid: string) =>
+      words(drawnBy(sid).find((part: any) => part.attributes?.partId === 'title'));
+
+    // Each placement's own value, live: nothing was applied and nothing was copied.
+    expect(titleOf(first)).toBe('매출');
+    expect(titleOf(third)).toBe('이탈');
   });
 
-  it('is not behind, because nothing has been applied to it yet', () => {
+  it('puts the reader’s own things inside the slot', () => {
+    const third = placements()[2];
+    const parts = instanceParts(doc, doc.getNode(third));
+    const slot = parts.find((part: any) => typeof part.attributes?.slot === 'string');
+    /*
+     * The two rows this placement holds are drawn *inside* the definition's frame, so the
+     * arrangement belongs to the card and the rows belong to the reader.
+     */
+    expect((slot?.content ?? []).length).toBe(2);
+  });
+
+  it('is never behind its definition, because it draws it', () => {
     const [card] = deckComponents(doc);
     // A placement with no `appliedFrom` is not stale: it is a placement from before this was
     // written, and calling every one of them behind would put a badge on the whole deck.
@@ -149,18 +153,21 @@ describe('the deck’s own components', () => {
     }
   });
 
-  it('has a slot the reader has already put things in, and apply keeps them', () => {
+  it('needs no apply at all, because there is nothing to carry', () => {
+    /*
+     * The machinery this replaces: with copied parts, a definition's change had to be *carried*
+     * into every placement, so there was a plan (rewrite these, add those, remove the rest), a
+     * recorded signature per part, and a badge offering the work. A placement that draws the
+     * definition has none of that: the change is already on the screen.
+     *
+     * What is left of "apply" belongs to the **brand kit** (§10f), where a copy really is a copy:
+     * another deck's definition is not in this document, so it is brought in and can fall behind.
+     */
     const [card] = deckComponents(doc);
-    const third = doc.getNode(placements()[2]);
-    const slot = instanceSlot(doc, third, card);
-    expect(slot).toBeTruthy();
-    expect(childrenOf(doc.getNode(slot as string))).toHaveLength(2);
-
-    const plan = componentApplyPlan(doc, third, card);
-    // Nothing to add and nothing to take out: the placement holds a copy of every part the
-    // definition has, which is what apply leaves behind.
-    expect(plan?.add).toEqual([]);
-    expect(plan?.remove).toEqual([]);
-    expect(plan?.rewrite.find((part) => part.sid === slot)?.keepChildren).toBe(true);
+    for (const sid of placements()) {
+      const parts = instanceParts(doc, doc.getNode(sid));
+      expect(parts).toHaveLength(card.parts.length);
+    }
   });
+
 });

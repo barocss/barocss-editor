@@ -62,30 +62,21 @@ const CARD_HEIGHT = 3960;
 /**
  * One **placement** of the deck's card, written the way the document really holds one.
  *
- * A placement is materialised: it says what its variables are (`componentValue`) *and* holds
- * real copies of the definition's parts, each pointing back at the part it came from by a
- * durable name. The values are substituted into those copies when the definition is applied —
- * not while it is drawn — so what is written here is what `applyComponent` would leave behind,
- * with the substitution already done. See `components.ts`.
+ * Which is: the definition it points at, where it sits, what its variables are, and whatever the
+ * reader put in its slot. **No parts.** A placement draws the definition, live, so copying the
+ * parts into it would be a template rather than a component: a template is a document you copy and
+ * then own, and a component follows its definition as the definition is edited.
  *
- * `partOf` and never `partId`: two boxes claiming to *be* the same part is how a definition
- * ends up pointing at a placement.
+ * The parts are resolved where children are read (`instanceParts`, through the store's content
+ * resolver), which is the one place each part can arrive as *itself* — its own coordinates, its own
+ * colour, its own words with this placement's values in them.
  */
 const card = (
   place: { x: number; y: number },
-  /** What this placement says, which is recorded in the document as its own nodes. */
+  /** What this placement says, which is the whole of how it differs from the others. */
   said: { title: string; value: string; accent?: string; showBadge?: string },
-  /** What its parts therefore look like, plus whatever the reader did to them. */
-  drawn: {
-    title: string;
-    value: string;
-    accent?: string;
-    badgeOff?: boolean;
-    /** True when the reader edited the value part, so apply must leave it alone. */
-    overridden?: boolean;
-    /** What the reader put **inside the slot**, which apply must also leave. */
-    rows?: string[];
-  }
+  /** What the reader put **in the slot**, if anything. */
+  rows: string[] = []
 ): INode => ({
   stype: 'instance',
   attributes: {
@@ -96,12 +87,6 @@ const card = (
     height: CARD_HEIGHT
   },
   content: [
-    /*
-     * What it was asked for, first — the declaration's answers. No `appliedFrom` is written:
-     * a placement that has never recorded one is *not* stale (see `componentStale`), and a
-     * signature cannot be written by hand without becoming a lie the first time the card is
-     * edited.
-     */
     { stype: 'componentValue', attributes: { name: 'title', value: said.title } },
     { stype: 'componentValue', attributes: { name: 'value', value: said.value } },
     ...(said.accent
@@ -111,72 +96,15 @@ const card = (
       ? [{ stype: 'componentValue', attributes: { name: 'showBadge', value: said.showBadge } }]
       : []),
 
-    {
-      stype: 'rectangle',
-      attributes: {
-        partOf: 'back',
-        x: 0,
-        y: 0,
-        width: CARD_WIDTH,
-        height: CARD_HEIGHT,
-        // The substituted value, which is why it is a copy at all — and a theme slot unless
-        // this placement said otherwise, so a re-coloured deck re-colours its cards.
-        fill: drawn.accent ?? 'theme:accent1',
-        cornerRadius: 180
-      }
-    },
-    {
-      stype: 'ellipse',
-      attributes: {
-        partOf: 'badge',
-        x: 4320,
-        y: 240,
-        width: 480,
-        height: 480,
-        fill: '#fbbf24',
-        /*
-         * Only the falsy half is ever written: `visible: true` beside no `visible` at all is
-         * the same drawing, which is the asymmetry the conformance probe finds in every
-         * boolean.
-         */
-        ...(drawn.badgeOff ? { visible: false } : {})
-      }
-    },
-    {
+    /*
+     * The reader's own rows. They are placed inside the definition's slot when the card is drawn,
+     * so the frame that arranges them belongs to the card and the rows belong to the reader.
+     */
+    ...rows.map((text) => ({
       stype: 'textFrame',
-      attributes: { partOf: 'title', x: 360, y: 480, width: 3840, height: 600 },
-      content: [line(drawn.title, { fontSize: 32, bold: true, color: '#ffffff' })]
-    },
-    {
-      stype: 'textFrame',
-      attributes: { partOf: 'value', x: 360, y: 1080, width: 4320, height: 1200 },
-      content: [line(drawn.value, { fontSize: 80, bold: true, color: '#ffffff' })]
-    },
-    {
-      stype: 'frame',
-      /*
-       * The slot: the reader's own things live **in** it. Its own attributes still come from
-       * the definition — apply rewrites those and keeps the children (`keepChildren`), which
-       * is the one place in this model where rule 1 does not reach the reader's work.
-       */
-      attributes: {
-        partOf: 'items',
-        slot: 'items',
-        x: 360,
-        y: 2520,
-        width: 4320,
-        height: 1200,
-        layoutMode: 'column',
-        gap: 120,
-        padding: 0,
-        clipsContent: false
-      },
-      content: (drawn.rows ?? []).map((text) => ({
-        stype: 'textFrame',
-        attributes: { x: 0, y: 0, width: 4320, height: 420 },
-        content: [line(text, { fontSize: 28, color: '#ffffff' })]
-      }))
-    }
+      attributes: { x: 0, y: 0, width: 4320, height: 420 },
+      content: [line(text, { fontSize: 28, color: '#ffffff' })]
+    }))
   ]
 });
 
@@ -607,28 +535,27 @@ export function createSampleDeck(): INode {
           },
 
           // 1. As the definition stands.
-          card(
-            { x: 1440, y: 3600 },
-            { title: '매출', value: '1,240만' },
-            { title: '매출', value: '1,240만' }
-          ),
+          card({ x: 1440, y: 3600 }, { title: '매출', value: '1,240만' }),
 
           // 2. A state, said by the placement: no badge.
+          card({ x: 7200, y: 3600 }, { title: '신규 고객', value: '312', showBadge: 'false' }),
+
+          /*
+           * 3. A colour of its own, and two rows the reader added in the slot. Both are things a
+           * placement says rather than things it holds.
+           */
           card(
-            { x: 7200, y: 3600 },
-            { title: '신규 고객', value: '312', showBadge: 'false' },
-            { title: '신규 고객', value: '312', badgeOff: true }
+            { x: 12960, y: 3600 },
+            { title: '이탈', value: '1.8%', accent: '#ef4444' },
+            ['지난주 2.1%', '목표 1.5%']
           ),
 
           /**
            * And a **button**: pressing it shows the cover.
            *
-           * Here because a deck that is not a line has to be a document the product really
-           * opens, not a fixture — every design in this repository that was decided against a
-           * fixture had to be decided twice. It names its page by the page's durable `id`, and
-           * while an audience is looking a press on it goes there instead of advancing: the rule
-           * `present.tsx` already had for a trigger, written when a build could be fired by a
-           * click — *a press that fires one does not also move the deck on.*
+           * Here because a deck that is not a line has to be a document the product really opens,
+           * not a fixture. It names its page by the page's durable `id`, and while an audience is
+           * looking a press on it goes there instead of advancing.
            */
           {
             stype: 'rectangle',
@@ -657,26 +584,7 @@ export function createSampleDeck(): INode {
               goTo: 'cut',
               name: 'to-appendix'
             }
-          },
-
-          /*
-           * 3. A colour of its own, a part the reader edited, and two rows they added in the
-           * slot. All three are things apply has a rule about, and this is the one card in the
-           * deck that exercises them.
-           */
-          card(
-            { x: 12960, y: 3600 },
-            { title: '이탈', value: '1.8%', accent: '#ef4444' },
-            {
-              title: '이탈',
-              // Not what the binding would write: the reader typed the arrow in, which is what
-              // makes this part an override — nothing declared, nothing hidden.
-              value: '1.8% ↓',
-              overridden: true,
-              accent: '#ef4444',
-              rows: ['지난주 2.1%', '목표 1.5%']
-            }
-          )
+          }
         ]
       },
 

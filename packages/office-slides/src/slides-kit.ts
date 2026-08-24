@@ -22,6 +22,7 @@ import { createSlideCommands } from './slide-commands';
 import { createBoxCommands } from './box-commands';
 import { createArrangeCommands } from './arrange-commands';
 import { createComponentCommands } from './component-commands';
+import { instanceParts } from './instance-parts';
 import { createConnectorCommands } from './connector-commands';
 import { createClipboardCommands } from './clipboard-commands';
 import { createLayoutCommands, createWordTables } from '@barocss/office-word';
@@ -186,6 +187,28 @@ export function createSlidesEditor(options: SlidesEditorOptions = {}): Editor {
 
   const registry = (editor as any).keybindings;
   for (const binding of keybindings ?? []) registry?.register?.(binding);
+
+  /**
+   * A **placement draws its definition**, live.
+   *
+   * Registered here because this is where a deck's editor is assembled, and because the store must
+   * not know what a component is: it takes a function and asks it what a node's children are for a
+   * reader (`setContentResolver`).
+   *
+   * Why the store and not a renderer: a renderer that built the parts' elements itself evaluated
+   * every one of them against the *placement*, so two parts came out with the placement's box and
+   * the placement's sid. Resolved where children are read, each part arrives as itself.
+   *
+   * And the save is untouched — it walks the stored nodes — so a file says what a reader has: a
+   * placement, and the values it was given.
+   */
+  const store = (editor as any).dataStore;
+  store?.setContentResolver?.((node: any, getNode: (sid: string) => any) => {
+    if (node?.stype !== 'instance') return undefined;
+    const rootId = (editor as any).getRootId?.();
+    if (!rootId) return undefined;
+    return instanceParts({ rootId, getNode } as never, node as never) as never;
+  });
 
   return editor;
 }

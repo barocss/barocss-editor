@@ -1194,6 +1194,60 @@ re-lays it out. Figma answers "it depends on the child's constraints", which is 
 model this schema does not have — so an instance is drawn at its definition's own size until
 that decision is made, rather than half-guessed.
 
+### 10b-2a. And then it was **transcluded** after all: a component follows its definition
+
+The section below was the first answer and it was wrong about the engine, which is worth keeping in
+full because of *how* it was wrong. It said a placement cannot draw its definition's parts, because
+the only thing that renders nodes is `slot(name)`, which reads this node's own data. That is true of
+a **renderer** and it is not true of the product: children are resolved in exactly one place, and it
+is not the renderer.
+
+**The distinction that settled it: a template is not a component.** A template is a document you
+copy and then own, and it is right for it not to change under the reader. A component has to follow
+its definition as the definition is edited, or it is a copy with extra steps.
+
+#### Where the resolution belongs, measured twice
+
+- **In a renderer**: the instance's template resolves the definition and builds the parts' elements
+  itself. Tried, and it draws — but every part is evaluated against the **placement**, because the
+  vnode's attribute functions are called later with the node the renderer is rendering. Measured:
+  two parts came out with the placement's box and the placement's sid, and a text frame's words were
+  empty because its `slot('content')` read the placement's children.
+- **In the proxy the view reads children through** (`DataStoreExporter.toProxy`): a resolver there
+  returns the definition's parts, and each one arrives *as itself* — its own coordinates, its own
+  colour, its own words, its own children. Measured: the parts drew at `left: 0px` and `left:
+  13.3px` with the definition's fill, and the text was the **placement's** value rather than the
+  definition's default.
+
+So the store gained one hook — `setContentResolver` — and it knows nothing about components: it asks
+a function what a node's children are for a reader. Slides registers `instanceParts`.
+
+#### Why this is safe where the first answer feared it would not be
+
+The hazard written below is that everything walking the tree would see children that are not in the
+document, **including the save**. It does not, and the reason is structural rather than lucky: the
+save has its own walk (`exportToTree` reads the stored nodes), and the resolver is only consulted by
+the proxy. A resolver can change what is **drawn** and cannot change what is **written**. So a file
+still says exactly what a reader has: a placement, where it sits, and the values it was given.
+
+#### What follows from a placement holding nothing
+
+- **Nothing to apply, and nothing to fall behind.** The plan, the per-part recorded signature and
+  the badge that offered the work all belonged to copies. A definition's change is already on the
+  screen. What is left of "apply" belongs to the **brand kit** (§10f), where a copy really is a copy
+  because another deck's definition is not in this document.
+- **Overrides are values.** A placement differs by what it *says* — its variables — and by what it
+  puts in the slot. There is no per-placement copy of a part to edit, which is also why the layer
+  list shows a placement's slot contents and not the card's parts: the parts are worked on by
+  opening the card.
+- **A drawn part has a synthetic id** (`<component>~<part sid>`). Two placements of one card would
+  otherwise draw two elements claiming the same identity, and every lookup by sid would find both.
+  Nothing in a store's ids contains `~`, so a reader of the DOM can tell a piece of a placement from
+  a node a reader can select.
+- **A placement's text is not in the document.** Find-and-replace, the deck's own check and a spell
+  checker do not see it. That is inherent to a reference and it is the price of the thing being a
+  component; the way out, if it is ever wanted, is a second walk that reads the resolved tree.
+
 ### 10b-2. Measured: a placement is **materialised**, not transcluded
 
 The design above assumed an instance could *draw* its definition's parts. The render pipeline

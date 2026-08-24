@@ -92,25 +92,26 @@ describe('a deck draws', () => {
   });
 
   /**
-   * A placement draws its own parts — which is the whole of the materialised design.
+   * A placement draws **the definition**, live.
    *
-   * A template cannot draw a foreign node (canvas-model §10b-2): `slot(name)` renders *this*
-   * node's data and a raw node among an element's children is dropped. So a placement holds
-   * real copies and drawing one is drawing its children, exactly like a group.
+   * The first design copied the parts into the placement, because a renderer cannot draw a foreign
+   * node. The engine can: children are resolved in one place — the proxy the view reads them
+   * through — and a resolver there hands back the definition's parts, each arriving as itself.
+   * Which is what a component is, as against a template: a template is copied and then owned, and a
+   * component follows.
    */
-  it('draws a placement as its own parts', () => {
+  it('draws a placement as the definition’s parts', () => {
     const placements = [...container.querySelectorAll<HTMLElement>('.sl-instance')];
     expect(placements).toHaveLength(3);
     for (const placement of placements) {
       expect(placement.dataset.componentId).toBe('metric-card');
-      // The back, the badge, the two texts and the slot — plus what the placement *says*,
-      // which is drawn as nothing a reader can see or click: a variable's field belongs in a
-      // panel, and a declaration on the canvas would be a box nobody could name.
-      expect(placement.querySelectorAll(':scope > .sl-value').length).toBeGreaterThan(0);
-      for (const said of placement.querySelectorAll<HTMLElement>(':scope > .sl-value')) {
-        expect(said.style.display).toBe('none');
+      // The card's five parts: the back, the badge, the two texts and the slot. Drawn from the
+      // definition, so a placement's own children are only what a reader put in the slot.
+      expect(placement.children).toHaveLength(5);
+      // And each is marked as a piece of a placement rather than a node in the document.
+      for (const part of placement.children) {
+        expect(part.getAttribute('data-bc-sid')).toContain('~');
       }
-      expect(placement.querySelectorAll(':scope > :not(.sl-value)')).toHaveLength(5);
     }
     // The one whose badge its placement turned off draws nothing where the badge is.
     const hidden = [...container.querySelectorAll<HTMLElement>('.sl-instance .sl-ellipse')].filter(

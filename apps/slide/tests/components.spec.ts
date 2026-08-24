@@ -348,21 +348,17 @@ test.describe('working with a component', () => {
     await field.press('Enter');
     await page.waitForTimeout(600);
 
-    const words = await page.evaluate((sid) => {
-      const store = (window as any).editor.dataStore;
-      const part = (((store.getNode(sid)?.content ?? []) as string[]) ?? []).find(
-        (one: string) => store.getNode(one)?.attributes?.partOf === 'title'
-      );
-      const line = ((store.getNode(part)?.content ?? []) as string[])[0];
-      const run = ((store.getNode(line)?.content ?? []) as string[])[0];
-      return store.getNode(run)?.text;
-    }, placement);
     /*
-     * The value is substituted into the placement's own copy when it is written, not while it
-     * is drawn: a template cannot draw a foreign node (canvas-model §10b-2), and a placement
-     * whose text lived somewhere else could not be searched or spell-checked.
+     * Read from the **screen**, because that is where a placement's words are now: the parts belong
+     * to the definition and the value is substituted while they are resolved. Which is what makes it
+     * a component rather than a template — and the cost, said plainly: a placement's text is not in
+     * the document, so find-and-replace and the deck's own check do not see it.
      */
-    expect(words).toBe('영업이익');
+    const words = await page.evaluate((sid) => {
+      const box = document.querySelector(`.sl-stage [data-bc-sid="${sid}"]`);
+      return box?.textContent ?? '';
+    }, placement);
+    expect(words).toContain('영업이익');
   });
 
   test('says how far behind the placements are, and brings them up to date', async ({ page }) => {
@@ -706,7 +702,7 @@ test.describe('how big a card is', () => {
  * left out the case.
  */
 test.describe('a card in the layer list', () => {
-  test('lists the parts, marks where they came from, and takes the reader to one', async ({
+  test('lists what the placement itself holds, and takes the reader to it', async ({
     page
   }) => {
     await openDeck(page);
@@ -732,28 +728,29 @@ test.describe('a card in the layer list', () => {
     await expect(page.locator('.sl-layers')).toHaveCount(1);
     await page.waitForTimeout(400);
 
-    // Rows that came from the card say so, and there are as many as the card has parts.
-    const parts = page.locator('.sl-layers-list li[data-layer-part]');
-    await expect(parts.first()).toBeVisible();
-    expect(await parts.count()).toBeGreaterThanOrEqual(5);
-
-    // And a value the card was asked for is not a row: "값" is not a name to tell rows by.
+    /*
+     * The list shows what the **document** holds, and a placement now holds only what a reader put
+     * in its slot: the card's parts belong to the definition, so they are worked on by opening the
+     * card. That is the honest consequence of a component that follows its definition — there is no
+     * per-placement copy of a part to select.
+     */
+    const rows = page.locator('.sl-layers-list li[data-layer]');
+    expect(await rows.count()).toBeGreaterThan(0);
     const labels = await page.evaluate(() =>
       [...document.querySelectorAll('.sl-layers-list .sl-layer-name')].map((n) => n.textContent)
     );
+    // A value the card was asked for is not a row: "값" is not a name a reader could tell rows by.
     expect(labels).not.toContain('값');
 
-    // Pressing one selects that part — which is what the list is for: the badge inside a card
-    // is covered by nothing a click can pass through.
-    const badge = page.locator('.sl-layers-list li[data-layer-part="badge"] [data-layer-pick]').first();
-    await badge.click();
+    // The placement itself is a row, and pressing it selects a node in the document.
+    await page.locator('.sl-layers-list li [data-layer-pick]').first().click();
     await page.waitForTimeout(400);
     const picked = await page.evaluate(() => {
       const editor = (window as any).editor;
       const sid = editor.selection?.nodeIds?.[0];
-      return sid ? editor.dataStore.getNode(sid)?.attributes?.partOf : null;
+      return sid ? editor.dataStore.getNode(sid)?.stype : null;
     });
-    expect(picked).toBe('badge');
+    expect(typeof picked).toBe('string');
   });
 });
 

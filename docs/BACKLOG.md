@@ -577,6 +577,23 @@ shipped features marked undone.
   Figma; the reasons are in canvas-model §10g. Worth revisiting only with a measurement: a card that
   genuinely needs a *structurally* different shape per state is the case a `choice` cannot cover.
 
+- [x] **A placement draws its definition, live.** The engine can transclude after all, and the first
+  answer was wrong about *where*: a renderer that builds the parts' elements evaluates every one of
+  them against the placement (measured — two parts with the placement's box and sid), while a
+  resolver in the proxy the view reads children through gives each part its own data. One hook on the
+  store (`setContentResolver`), and the save is untouched because the save has its own walk.
+
+- [ ] **Take out the machinery that copies belonged to.** `applyComponent`, `componentApplyPlan`,
+  `instanceState`, `componentStale`, `appliedFrom`, `partOf`, `partCopy`, `placementFills` and their
+  panel controls are now unused for placements inside one deck. What stays is the brand kit's copy
+  (§10f), where a definition really is in another document. Also: a placement's resize should be
+  answered by the resolver (a part that fills the card takes the placement's box) rather than by the
+  arrangement's reaction, which cannot write nodes that are not in the document.
+
+- [ ] **Document-wide variables.** A `variables` container beside `components`, and a binding that
+  may name either a component's variable or the document's. Asked for explicitly; the theme covers
+  colours today and nothing covers a number or a string.
+
 **Still open and not in a phase**
 
 - [ ] **Per-level formatting** for a body placeholder: PowerPoint formats by

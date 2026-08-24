@@ -188,6 +188,13 @@ export {
  *
  * A view of the buttons rather than a second place to keep them — see `canvas-model.md` §11b.
  */
+/**
+ * What a **placement draws**: the definition's parts, live, with this placement's values in them.
+ *
+ * Registered as the store's content resolver by `createSlidesEditor`, which is the one place a
+ * node's children are read for a reader. See `canvas-model.md` §10b-2a.
+ */
+export { instanceParts } from './instance-parts';
 export { deckMap, type DeckMap, type MapPage, type MapLink } from './deck-map';
 /**
  * A reader's own decks, **by name** — the naming half, which is the only half that is a question
