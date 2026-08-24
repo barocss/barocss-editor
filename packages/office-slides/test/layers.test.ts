@@ -205,6 +205,12 @@ describe('a row dropped at a place in the list', () => {
  * boxes was leaving out the case.
  */
 describe('what is inside a placement', () => {
+  /**
+   * A placement holds the reader's own things and **nothing else**: its parts are the definition's
+   * and are resolved at draw time (§10b-2a). So this list shows a card as one row with the
+   * reader's own boxes under it — which is the cost of references, written down here rather than
+   * only in the spec: the parts of a card cannot be reordered or hidden from the layer list.
+   */
   const deck = (): DeckAccess => {
     const nodes: Record<string, DeckNode> = {
       slide: { sid: 'slide', stype: 'surface', attributes: {}, content: ['card', 'note'] },
@@ -212,45 +218,48 @@ describe('what is inside a placement', () => {
         sid: 'card',
         stype: 'instance',
         attributes: { componentId: 'metric' },
-        content: ['said', 'back', 'badge', 'items']
+        content: ['said', 'own']
       },
       said: { sid: 'said', stype: 'componentValue', attributes: { name: 'title', value: '매출' } },
-      back: { sid: 'back', stype: 'rectangle', attributes: { partOf: 'back' } },
-      badge: { sid: 'badge', stype: 'ellipse', attributes: { partOf: 'badge' } },
-      items: {
-        sid: 'items',
-        stype: 'frame',
-        attributes: { partOf: 'items', slot: 'items' },
-        content: ['own']
-      },
-      // What the reader added in the slot: theirs, and it says so by having no origin.
+      // What the reader added in the slot: theirs, with its own sid, so it is a row they can act on.
       own: { sid: 'own', stype: 'textFrame', attributes: {} },
       note: { sid: 'note', stype: 'sticky', attributes: {} }
     };
     return { rootId: 'doc', getNode: (sid) => nodes[sid] };
   };
 
-  it('lists the parts under the card, and not what it was asked for', () => {
+  it('lists the reader’s own things under the card, and not what it was asked for', () => {
     const rows = layerRows(deck(), 'slide');
-    /*
-     * Front first: the sticky on top of the card, then the card's parts in their own paint
-     * order — and the card's own row under them, which is how a container has always come out
-     * here (the whole list is reversed once, so a parent collected before its children ends up
-     * after them). What matters for this test is that the parts are *there*.
-     */
-    expect(rows.map((row) => row.sid)).toEqual(['note', 'own', 'items', 'badge', 'back', 'card']);
+    // Front first: the sticky on top of the card, the reader's box, then the card's own row —
+    // which is how a container has always come out here (the whole list is reversed once, so a
+    // parent collected before its children ends up after them).
+    expect(rows.map((row) => row.sid)).toEqual(['note', 'own', 'card']);
     // A `componentValue` is not a box: "값" is not a name a reader could tell a row by, and the
     // conformance exemption for it says it never appears in a list.
     expect(rows.some((row) => row.sid === 'said')).toBe(false);
   });
 
-  it('says which rows came from the definition, and which are the reader’s', () => {
-    const rows = layerRows(deck(), 'slide');
-    const from = (sid: string) => rows.find((row) => row.sid === sid)?.partOf;
-    expect([from('back'), from('badge'), from('items')]).toEqual(['back', 'badge', 'items']);
-    // The box a reader added inside the slot has no origin — which is exactly the distinction
-    // apply makes, and the reason it can leave their work alone.
-    expect(from('own')).toBeUndefined();
-    expect(from('note')).toBeUndefined();
+  it('names a part while the reader is standing in the definition', () => {
+    /*
+     * The other side of the same list. Inside a card, the parts *are* the boxes in front of the
+     * reader, and "the badge" is a different thing to be looking at from "a rectangle" — so a row
+     * carries the name the definition gave it.
+     */
+    const nodes: Record<string, DeckNode> = {
+      card: {
+        sid: 'card',
+        stype: 'component',
+        attributes: { id: 'metric' },
+        content: ['back', 'badge']
+      },
+      back: { sid: 'back', stype: 'rectangle', attributes: { partId: 'back' } },
+      badge: { sid: 'badge', stype: 'ellipse', attributes: {} }
+    };
+    const rows = layerRows({ rootId: 'doc', getNode: (sid) => nodes[sid] }, 'card');
+    const from = (sid: string) => rows.find((row) => row.sid === sid)?.partName;
+    expect(from('back')).toBe('back');
+    // A part with no name of its own says nothing, which is the ordinary case: a background
+    // usually takes no value and needs no name.
+    expect(from('badge')).toBeUndefined();
   });
 });

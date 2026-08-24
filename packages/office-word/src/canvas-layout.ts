@@ -394,6 +394,21 @@ function isPlaced(attributes: Record<string, unknown> | undefined): boolean {
  *
  * Answers what differs, like `layoutChildren`, so the reaction that calls it cannot feed itself.
  */
+/**
+ * Whether a container **sizes** the children that were told to fill it.
+ *
+ * The question `setBoxLayout` has to ask before it offers 가득: filling a container that puts
+ * nothing anywhere is a setting nothing would read. A frame answers it through `laysOut`; these
+ * two answer it by being containers whose box is a decision rather than a consequence.
+ *
+ * A `component` is on the list beside an `instance` because a definition being *edited* has to
+ * show what a placement of it will draw — the part fills the card on the definition's own surface
+ * too, or the reader designs one thing and places another.
+ */
+export function fillsChildren(node: { stype?: string } | undefined): boolean {
+  return node?.stype === 'instance' || node?.stype === 'component';
+}
+
 export function fillChildren(
   container: { attributes?: Record<string, unknown> } | undefined,
   children: LaidOutChild[]

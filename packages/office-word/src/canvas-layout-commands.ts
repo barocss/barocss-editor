@@ -1,6 +1,6 @@
 import { Editor, Extension } from '@barocss/editor-core';
 import { transaction } from '@barocss/model';
-import { childrenToLayOut, fillChildren, laysOut, layoutChildren } from './canvas-layout';
+import { childrenToLayOut, fillChildren, fillsChildren, laysOut, layoutChildren } from './canvas-layout';
 
 /** The little of a document this needs, so a caller can pass anything. */
 interface CanvasAccess {
@@ -62,12 +62,20 @@ export class CanvasLayoutExtension implements Extension {
             : [];
         if (!doc || ids.length === 0) return false;
         if (typeof payload?.stretch !== 'boolean' && typeof payload?.grow !== 'number') return false;
-        // Only inside a frame that arranges: filling a frame that puts nothing anywhere is a
-        // setting nothing would read, and the panel does not offer it there either.
+        /*
+         * Only inside a container that would read it: filling a frame that puts nothing anywhere
+         * is a setting nothing would read, and the panel does not offer it there either.
+         *
+         * A **card's own part** is the second case, and it was missing: a part told to fill the
+         * card is the whole of §5b, and its parent is a `component` rather than a frame — so the
+         * one gesture the feature is about was refused. Measured while the placements became
+         * references, where a card's part is the only place the filling can be set at all.
+         */
         return ids.some((sid) => {
           const parent = (doc.getNode(sid) as { parentId?: unknown } | undefined)?.parentId;
-          const frame = typeof parent === 'string' ? doc.getNode(parent) : undefined;
-          return frame?.stype === 'frame' && laysOut(frame.attributes);
+          const container = typeof parent === 'string' ? doc.getNode(parent) : undefined;
+          if (fillsChildren(container)) return true;
+          return container?.stype === 'frame' && laysOut(container.attributes);
         });
       }
     });
@@ -253,14 +261,14 @@ export class CanvasLayoutExtension implements Extension {
       }
 
       /**
-       * And a **placement**, whose children were told to fill it.
+       * And a container that **sizes** what fills it — a card, and a card being edited.
        *
-       * The single sentence that makes a card resizable: a placement has no arrangement of its
-       * own — no mode, no gap, no order — but a part told to fill it is as big as it is. Which
-       * is what carries a reader's resize down into the card: the part is usually a frame, and
-       * that frame arranges its own children against the size it has just been given.
+       * A placement's parts are no longer in the document, so this is now about the **definition**:
+       * its own parts fill its box on its editing surface, or a reader designs one card and places
+       * another. What a *placement* draws is answered by `instanceParts`, in the resolution, where
+       * nothing has to be written at all.
        */
-      if (node.stype === 'instance') {
+      if (fillsChildren(node)) {
         decide(fillChildren(settled, childrenToLayOut(asDecided, node.content)));
       }
 

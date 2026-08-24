@@ -173,21 +173,43 @@ describe('what the sweep can see', () => {
   });
 
   it('looks inside a placement, and says the fix is in the card', () => {
+    /*
+     * The placement holds **nothing**: what it draws is the definition, resolved. So the sweep has
+     * to resolve it too, and the day it did not, a deck of twenty cards audited as twenty empty
+     * boxes — every picture, caption and colour inside them invisible to the check.
+     */
     const hits = auditDeck(
       deck({
-        root: { sid: 'root', stype: 'document', attributes: {}, content: ['s'] },
+        root: { sid: 'root', stype: 'document', attributes: {}, content: ['s', 'lib'] },
         s: { sid: 's', stype: 'surface', attributes: {}, content: ['i'] },
-        i: { sid: 'i', stype: 'instance', attributes: at({ width: 6000, height: 4000 }), content: ['p'] },
+        lib: { sid: 'lib', stype: 'components', attributes: {}, content: ['card'] },
+        card: {
+          sid: 'card',
+          stype: 'component',
+          attributes: { id: 'card', width: 6000, height: 4000 },
+          content: ['p']
+        },
         p: {
           sid: 'p',
           stype: 'picture',
-          attributes: { x: 200, y: 200, width: 1000, height: 800, src: 'x.png', partOf: 'photo' },
-          parentId: 'i'
+          attributes: { x: 200, y: 200, width: 1000, height: 800, src: 'x.png', partId: 'photo' },
+          parentId: 'card'
+        },
+        i: {
+          sid: 'i',
+          stype: 'instance',
+          attributes: at({ width: 6000, height: 4000, componentId: 'card' }),
+          content: []
         }
       })
     );
     const found = hits.find((hit) => hit.kind === 'alt');
-    expect(found?.sid).toBe('p');
+    /*
+     * Reported against the **placement**, because that is what a reader can act on: a drawn part
+     * has a synthetic sid no command accepts, so sending them to it would be a row in the list
+     * that goes nowhere.
+     */
+    expect(found?.sid).toBe('i');
     /*
      * The fault is the slide's and the fix is the card's, so the advice says so — otherwise the
      * reader is about to write the same alt text on twenty slides. It is still reported once

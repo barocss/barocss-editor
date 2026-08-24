@@ -7,15 +7,7 @@ import { getSlidesSchemaDefinition } from '../src/slides-schema';
 import { createSampleDeck } from '../src/sample-deck';
 import { childrenOf, deckSlides, type DeckAccess } from '../src/deck';
 import { instanceParts } from '../src/instance-parts';
-import {
-  componentApplyPlan,
-  componentOf,
-  componentStale,
-  deckComponents,
-  instanceSlot,
-  instanceState,
-  instanceVars
-} from '../src/components';
+import { componentOf, deckComponents, instanceResizable, instanceVars } from '../src/components';
 
 /**
  * The deck this product ships, read as a **component document**.
@@ -144,12 +136,17 @@ describe('the deck’s own components', () => {
   });
 
   it('is never behind its definition, because it draws it', () => {
-    const [card] = deckComponents(doc);
-    // A placement with no `appliedFrom` is not stale: it is a placement from before this was
-    // written, and calling every one of them behind would put a badge on the whole deck.
+    /*
+     * There is no such state left to be in. A placement holds no copy of the card, so "has the
+     * definition moved on since this was applied" is a question about a mechanism that no longer
+     * exists — and the sample is the document that has to prove it, because it is what the product
+     * really opens.
+     */
     for (const sid of placements()) {
-      expect(componentStale(doc, doc.getNode(sid), card)).toBe(false);
       expect(componentOf(doc, doc.getNode(sid))?.id).toBe('metric-card');
+      expect(childrenOf(doc.getNode(sid)).every((child) => doc.getNode(child)?.stype !== 'rectangle')).toBe(
+        true
+      );
     }
   });
 

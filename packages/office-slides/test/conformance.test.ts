@@ -219,8 +219,6 @@ describe('Slides draws what its schema declares', () => {
           'the components panel — 고른 것으로 만들기, with boxes selected. Not a toolbar button because the gesture is about the selection: the reader’s boxes *become* the definition and a placement of it stays on the slide',
         placeComponent:
           'the components panel — 놓기 on a definition’s row, which puts one on the surface the reader is on. The app passes that surface, because it is the only thing that knows whether the reader is on a slide or inside a definition',
-        applyComponent:
-          'two places, and they are two questions: 적용 in the properties panel for *this* placement, and 모두 적용 on a definition’s row for every placement that has fallen behind it. Asked for rather than automatic — a definition pushing every edit into forty placements is two hundred document writes per keystroke',
         setComponentValue:
           'the properties panel — a placement’s 컴포넌트 group, one field per variable the definition declares. The fields come from the document, so a card that declares a colour and a state gets a swatch and a switch',
         detachComponent:
@@ -306,9 +304,7 @@ describe('Slides draws what its schema declares', () => {
         name:
           'motion — a step names its box by it (`namedBoxes` in `timeline.ts`), `setBoxBuild` assigns one as it goes, and the deck file format is written in those names. A durable identity is the point: a sid is handed out at load, so a saved animation cannot be written in sids. A slide’s own `name` is read by the filmstrip (`titleOf` in `deck.ts`)',
         partId:
-          'components — a definition part’s own durable name, which a placement’s copy points at. Not a sid, because saving strips those: a placement paired by sid would come back from a file with every part looking orphaned, and apply would take them all out. Caught before it shipped',
-        partOf:
-          'components — a placement holds *real* nodes (a template cannot draw a foreign node, canvas-model §10b-2), so a copy remembers the definition part it came from. That pairing is what apply reads, and it is deliberately not a role or a position: it survives renaming, reordering and editing, which is what breaks an override in every tool that matches structurally',
+          'components — a definition part’s own durable name. Read by `instanceParts` (which binding applies to which part) and by the properties panel, which says which piece of the card the reader is standing in. Not a sid, because saving strips those: a binding written in sids would come back from a file naming nothing',
         /**
          * ── Where a definition came from ───────────────────────────────────
          *
@@ -322,24 +318,24 @@ describe('Slides draws what its schema declares', () => {
           'components — the deck a definition was brought in from, read by `componentSourceOf`; the copy is what makes it drawable at all, and the drawing is the same either way',
         fromId: 'components — its id in that deck, which may differ from its id here: two decks can both define a `card`',
         fromSignature:
-          'components — what that definition said when it was copied, so `componentBehindSource` can offer the library’s changes. A signature rather than a version, for the reason `appliedFrom` is one',
-
-        appliedFrom:
-          'components — what the definition said when this placement last took its parts, so `componentStale` can tell "the definition has moved on" from "the reader edited this placement". A signature rather than a version number, because a number would have to be maintained by a write on every edit',
+          'components — what that definition said when it was copied, so `componentBehindSource` can offer the library’s changes. A signature rather than a version, because a number would have to be maintained by a write on every edit of the source deck',
 
         /**
-         * ── A binding is substituted, not resolved ─────────────────────────
+         * ── A binding is read where the children are, not by a renderer ─────
          *
-         * These four *look* unread to a check that asks the drawing, and they are read by
-         * `components.ts` — at **apply**, where the value is written into the placement's copy
-         * of the part. The renderer deliberately does not read them, and that is the same
-         * measurement the whole materialised design rests on: a template cannot draw a foreign
-         * node (§10b-2), so a placement holds real nodes and the drawing stays plain. A
-         * renderer resolving a binding would also mean a placement's text could not be
-         * searched, spell-checked or measured without the definition in hand.
+         * These *look* unread to a check that asks the drawing, and they are read by
+         * `instance-parts.ts` — in the resolver the view reads children through, which hands a
+         * placement the definition's parts with this placement's values already in them. So the
+         * renderer never sees a binding: by the time a part reaches a template it is an ordinary
+         * node with an ordinary fill and ordinary words.
+         *
+         * Measured the other way first. A renderer that built the parts itself evaluated every one
+         * of them against the *placement*, so two parts came out with the placement's box and the
+         * placement's sid — the reason this is resolved in the datastore rather than drawn in a
+         * template (§10b-2a).
          */
         slot:
-          'components — `componentApplyPlan` reads it twice: a slot part is compared with its origin *without its contents* (a slot is always different otherwise, so a definition’s change to the frame could never reach a placement anybody had used), and it is rewritten with `keepChildren`, which is what stops apply taking the reader’s own boxes out with it. The slot draws as the ordinary frame it is',
+          'components — `instanceParts` puts a placement’s own children *inside* the part marked with it, rather than beside the definition’s parts. The slot draws as the ordinary frame it is, which is the point: the arrangement is the frame’s and already knows what a drag inside it means',
         noteId:
           'the notes pane — a slide names its note the way it names its header, and `noteOf` resolves it in `deck.ts`',
         trackId:

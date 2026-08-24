@@ -271,13 +271,6 @@ export function App({
     [editor, current]
   );
 
-  const applyComponentEverywhere = useCallback(
-    (componentId: string) => {
-      void (editor as any)?.executeCommand?.('applyComponent', { componentId });
-    },
-    [editor]
-  );
-
   /**
    * One slide, or the deck as a strip.
    *
@@ -1756,7 +1749,6 @@ export function App({
           canMake={canMakeComponent}
           onMake={makeComponent}
           onPlace={placeComponent}
-          onApplyAll={applyComponentEverywhere}
         />
 
         <AppMain as="main" className="sl-main">

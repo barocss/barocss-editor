@@ -5,14 +5,8 @@ import type { Editor } from '@barocss/editor-core';
 import { createSlidesEditor } from '../src/slides-kit';
 import { getSlidesSchemaDefinition } from '../src/slides-schema';
 import { childrenOf, type DeckAccess } from '../src/deck';
-import {
-  componentApplyPlan,
-  componentStale,
-  deckComponents,
-  placementFills,
-  instanceState,
-  instanceVars
-} from '../src/components';
+import { deckComponents, instanceResizable, instanceVars } from '../src/components';
+import { instanceParts } from '../src/instance-parts';
 
 /**
  * Making a component, placing one, and taking a definition's changes.
@@ -92,20 +86,25 @@ describe('the component commands', () => {
       ]);
 
       /*
-       * And the reader's boxes are *gone from the slide*: what is there is a placement. Two
-       * things that look identical and behave differently is the fault of every tool where
-       * "create component" leaves the original behind.
+       * And the reader's boxes are *gone from the slide*: what is there is a placement, and it holds
+       * **nothing**. A placement draws the definition, so copying the parts into it would make it a
+       * template — a document you copy and then own — rather than a component.
        */
       expect(boxes()).toHaveLength(1);
       const placement = doc.getNode(boxes()[0]);
       expect(placement?.stype).toBe('instance');
       expect(placement?.attributes?.componentId).toBe('card');
-      // At the selection's own corner, and the parts rebased to it: a definition is a card at
+      expect(childrenOf(placement)).toEqual([]);
+      // At the selection's own corner, and the parts rebased to the card: a definition is a card at
       // 0,0 rather than a card that remembers it was once on slide four.
       expect(placement?.attributes?.x).toBe(2000);
       expect(placement?.attributes?.y).toBe(1000);
       expect(doc.getNode(definition.parts[0])?.attributes?.x).toBe(0);
-      expect(doc.getNode(childrenOf(placement)[1])?.attributes?.x).toBe(400);
+      // And what it draws is the definition's parts, each with its own place.
+      expect(instanceParts(doc, placement).map((part) => part.attributes?.partId)).toEqual([
+        'rectangle',
+        'title'
+      ]);
     });
 
     it('takes it all back in one press of undo', async () => {
@@ -138,80 +137,50 @@ describe('the component commands', () => {
       expect((editor as any).canExecuteCommand('placeComponent', { componentId: 'nope' })).toBe(false);
     });
 
-    it('holds a copy of every part, paired to the definition', async () => {
+    it('holds nothing, and draws the definition', async () => {
       expect(await run('placeComponent', { componentId: 'card', slideId: slide, x: 8000, y: 3000 })).toBe(true);
 
       const placed = doc.getNode(boxes()[1]);
       expect(placed?.attributes?.x).toBe(8000);
-      expect(instanceState(doc, placed, deckComponents(doc)[0]).map((part) => part.origin)).toEqual([
-        'rectangle',
-        'title'
-      ]);
-      /*
-       * And it records what the definition said, so staleness can be asked later. A signature
-       * rather than a version number: a number would have to be maintained by a write on every
-       * edit of the definition.
-       */
-      expect(typeof placed?.attributes?.appliedFrom).toBe('string');
-      expect(componentStale(doc, placed, deckComponents(doc)[0])).toBe(false);
+      // Nothing in the document, everything on the screen: no copies, and nothing recorded about
+      // what the definition said, because there is nothing to fall behind.
+      expect(childrenOf(placed)).toEqual([]);
+      expect(instanceParts(doc, placed)).toHaveLength(2);
     });
   });
 
-  describe('taking what the definition now says', () => {
+  describe('a definition that changes', () => {
     let placement: string;
 
     beforeEach(async () => {
       select(...boxes());
       await run('createComponent', { name: '카드', id: 'card' });
       await run('placeComponent', { componentId: 'card', slideId: slide, x: 8000, y: 3000 });
-      placement = boxes()[1];
+      placement = boxes().find((sid) => doc.getNode(sid)?.stype === 'instance') as string;
     });
 
-    it('is offered only once the definition has moved on', async () => {
-      const definition = deckComponents(doc)[0];
-      expect(componentStale(doc, doc.getNode(placement), definition)).toBe(false);
-
-      await run('setBoxStyle', { nodeIds: [definition.parts[0]], fill: '#ef4444' });
-      expect(componentStale(doc, doc.getNode(placement), deckComponents(doc)[0])).toBe(true);
-    });
-
-    it('rewrites the parts the reader had not touched, and records what it took', async () => {
+    it('is on the screen already: there is nothing to apply', async () => {
       const definition = deckComponents(doc)[0];
       await run('setBoxStyle', { nodeIds: [definition.parts[0]], fill: '#ef4444' });
-      expect(await run('applyComponent', { nodeId: placement })).toBe(true);
-
-      const parts = childrenOf(doc.getNode(placement));
-      expect(doc.getNode(parts[0])?.attributes?.fill).toBe('#ef4444');
-      // And it is not behind any more, which is the same question the badge asks.
-      expect(componentStale(doc, doc.getNode(placement), deckComponents(doc)[0])).toBe(false);
-    });
-
-    it('leaves a part the reader edited alone', async () => {
-      const definition = deckComponents(doc)[0];
-      const parts = childrenOf(doc.getNode(placement));
-      // The reader's own colour on this placement's rectangle.
-      await run('setBoxStyle', { nodeIds: [parts[0]], fill: '#22c55e' });
-      await run('setBoxStyle', { nodeIds: [definition.parts[0]], fill: '#ef4444' });
-      await run('applyComponent', { nodeId: placement });
 
       /*
-       * That is what an override *is* here: nothing declared and nothing hidden. The cost is
-       * stated in the model — the granularity is a whole part — and the alternative is
-       * guessing which half of a part is the reader's.
+       * The machinery this replaces: with copied parts a change had to be *carried* into every
+       * placement, so there was a plan, a recorded signature per part and a badge offering the work.
+       * A placement draws the definition, so the change is drawn.
        */
-      expect(doc.getNode(parts[0])?.attributes?.fill).toBe('#22c55e');
+      const drawn = instanceParts(doc, doc.getNode(placement));
+      expect(drawn[0].attributes?.fill).toBe('#ef4444');
+      // And no command for it: `applyComponent` is gone, because there is nothing for it to do.
+      expect((editor as any).commandNames().includes('applyComponent')).toBe(false);
     });
 
-    it('does every placement at once when asked by definition', async () => {
+    it('reaches every placement at once, because they all draw it', async () => {
       await run('placeComponent', { componentId: 'card', slideId: slide, x: 12000, y: 3000 });
       const definition = deckComponents(doc)[0];
-      await run('setBoxStyle', { nodeIds: [definition.parts[0]], fill: '#ef4444' });
+      await run('setBoxStyle', { nodeIds: [definition.parts[0]], fill: '#0f766e' });
 
-      // Asking a reader to visit forty slides is not an answer.
-      expect(await run('applyComponent', { componentId: 'card' })).toBe(true);
       for (const sid of boxes().filter((one) => doc.getNode(one)?.stype === 'instance')) {
-        expect(componentStale(doc, doc.getNode(sid), deckComponents(doc)[0])).toBe(false);
-        expect(doc.getNode(childrenOf(doc.getNode(sid))[0])?.attributes?.fill).toBe('#ef4444');
+        expect(instanceParts(doc, doc.getNode(sid))[0].attributes?.fill).toBe('#0f766e');
       }
     });
   });
@@ -258,16 +227,15 @@ describe('the component commands', () => {
       expect(said.map((one) => [one.name, one.value, one.set])).toEqual([['title', '매출', true]]);
 
       /*
-       * The words on the slide, not just a value in an attribute. A field a reader types into
-       * that changes nothing on the slide is the worst of both designs — and the substitution
-       * happens here rather than at draw time because a template cannot draw a foreign node.
+       * The words on the slide, not just a value in an attribute. A field a reader types into that
+       * changes nothing on the slide is the worst of both designs — and the substitution is in the
+       * *drawing* rather than in the document, because a placement holds no parts to write it into.
        */
-      const bound = childrenOf(doc.getNode(placement)).find(
-        (sid) => doc.getNode(sid)?.attributes?.partOf === 'title'
-      ) as string;
-      const line = childrenOf(doc.getNode(bound))[0];
-      const words = childrenOf(doc.getNode(line))[0];
-      expect((doc.getNode(words) as { text?: string })?.text).toBe('매출');
+      const bound = instanceParts(doc, doc.getNode(placement)).find(
+        (part) => part.attributes?.partId === 'title'
+      );
+      const line = ((bound as { content?: { content?: { text?: string }[] }[] }).content ?? [])[0];
+      expect((line?.content ?? [])[0]?.text).toBe('매출');
     });
 
     it('changes the same value again without adding a second answer', async () => {
@@ -416,14 +384,14 @@ describe('the component commands', () => {
       await run('placeComponent', { componentId: 'card', slideId: slide, x: 9000, y: 3000 });
 
       const placed = boxes().filter((sid) => doc.getNode(sid)?.stype === 'instance').pop() as string;
-      const back = childrenOf(doc.getNode(placed))[0];
+      const back = instanceParts(doc, doc.getNode(placed))[0];
       /*
        * The document keeps a variable's value as a string — one shape to write, diff and check —
        * and an attribute that means a length has to be a number, so the conversion happens at the
        * one place a value becomes an attribute. A card's corners were unreachable before this:
        * `number` could only ever be text.
        */
-      expect(doc.getNode(back)?.attributes?.cornerRadius).toBe(180);
+      expect(back?.attributes?.cornerRadius).toBe(180);
     });
 
     it('marks a frame part as the slot, which is not a binding', async () => {
@@ -485,10 +453,11 @@ describe('the component commands', () => {
       );
     });
 
-    it('brings a placement’s box back into agreement on apply', async () => {
+    it('draws a placement that was never told the card grew', async () => {
       const definition = deckComponents(doc)[0];
       // A card resized by something that does not know about placements — a reader dragging the
-      // definition's own handles, an older deck, a file from another product.
+      // definition's own handles, an older deck, a file from another product. There is nothing to
+      // bring back into agreement any more: the parts are the definition's, so they are already it.
       store.setNode(
         {
           ...(store.getNode(definition.sid) as never as Record<string, unknown>),
@@ -501,11 +470,8 @@ describe('the component commands', () => {
         false
       );
 
-      const placement = boxes()[1];
-      const plan = componentApplyPlan(doc, doc.getNode(placement), deckComponents(doc)[0]);
-      expect(plan?.box).toEqual({ width: 7000, height: 2000 });
-      await run('applyComponent', { nodeId: placement });
-      expect(doc.getNode(placement)?.attributes?.width).toBe(7000);
+      const placement = boxes().find((sid) => doc.getNode(sid)?.stype === 'instance') as string;
+      expect(instanceParts(doc, doc.getNode(placement))).toHaveLength(2);
     });
   });
 
@@ -525,9 +491,10 @@ describe('the component commands', () => {
       // Not scattered across the slide: a detach that dissolved the group would have destroyed
       // the thing the reader was detaching.
       expect(childrenOf(node)).toHaveLength(2);
-      // And nothing claims to be part of a definition any more, so no later apply picks it up.
+      // And nothing claims to be a part of a definition any more: these are the reader's own
+      // boxes, so a later change to the card must not reach them.
       for (const sid of childrenOf(node)) {
-        expect(doc.getNode(sid)?.attributes?.partOf).toBeUndefined();
+        expect(doc.getNode(sid)?.attributes?.partId).toBeUndefined();
       }
     });
   });
@@ -535,38 +502,31 @@ describe('the component commands', () => {
   /**
    * A card a reader **can** resize — because it was built out of a frame.
    *
-   * The refusal in the group above is right for a card of absolutely placed parts: the drag writes
-   * a box and nothing that can be seen changes. It is wrong for a card whose parts were told to
-   * fill it, and that is the whole point of `layoutStretch`: the part takes the placement's new
-   * box, and when it is a frame it arranges its own children one pass later. So the product
-   * refuses exactly where it has no answer.
+   * The refusal is right for a card of absolutely placed parts: the drag writes a box and nothing
+   * that can be seen changes. It is wrong for a card whose parts were told to fill it, and that is
+   * the whole point of `layoutStretch`. What changed with references is **where the answer comes
+   * from**: no reaction can write a size into a part that is not in the document, so the
+   * arrangement runs in the resolution instead — and a resize costs no document write at all.
    */
   describe('a card built out of a frame', () => {
     let placement: string;
-    let body: string;
+    let definition: string;
 
-    /** The reaction runs on the document change, so its writes land after the await. */
+    /** A reaction could still be in flight; a resize should need none of it. */
     const settle = () => new Promise((resolve) => setTimeout(resolve, 40));
 
     beforeEach(async () => {
       // A definition made of one frame that fills the card and arranges a column inside it.
       select(...boxes());
       await run('createComponent', { id: 'card' });
-      const [definition] = deckComponents(doc);
-      for (const part of definition.parts) {
-        await run('removeNode', { nodeId: part }).catch(() => undefined);
-      }
+      definition = deckComponents(doc)[0].sid;
 
-      await run('placeComponent', { componentId: 'card', slideId: slide, x: 2000, y: 2000 });
-      placement = boxes().find((sid) => doc.getNode(sid)?.stype === 'instance') as string;
-
-      // The body: a frame that fills the placement, holding two rows that fill the frame.
       await (editor as never as { transaction: (steps: unknown[]) => { commit: () => Promise<unknown> } })
         .transaction([
           {
             type: 'addChild',
             payload: {
-              parentId: placement,
+              parentId: definition,
               child: {
                 stype: 'frame',
                 attributes: {
@@ -578,7 +538,7 @@ describe('the component commands', () => {
                   layoutMode: 'column',
                   gap: 100,
                   padding: 100,
-                  partOf: 'body'
+                  partId: 'body'
                 },
                 content: [
                   {
@@ -596,53 +556,62 @@ describe('the component commands', () => {
         ])
         .commit();
       await settle();
-      body = childrenOf(doc.getNode(placement)).find(
-        (sid) => doc.getNode(sid)?.stype === 'frame'
-      ) as string;
+
+      await run('placeComponent', { componentId: 'card', slideId: slide, x: 2000, y: 2000 });
+      placement = boxes().find((sid) => doc.getNode(sid)?.stype === 'instance') as string;
     });
 
-    it('owns its size, so the model says it may be resized', () => {
-      expect(placementFills(doc, doc.getNode(placement))).toBe(true);
+    /** The definition's filling frame, found by the name it was given rather than by position. */
+    const bodyPart = () =>
+      deckComponents(doc)[0].parts.find(
+        (sid) => doc.getNode(sid)?.attributes?.partId === 'body'
+      ) as string;
+
+    /** The same part as it is **drawn** inside the placement. */
+    const drawnBody = () =>
+      instanceParts(doc, doc.getNode(placement)).find(
+        (part) => part.attributes?.partId === 'body'
+      ) as { attributes?: Record<string, unknown>; content?: { attributes?: Record<string, unknown> }[] };
+
+    it('says a reader may resize it, because a part answers the gesture', async () => {
+      expect(instanceResizable(doc, doc.getNode(placement))).toBe(true);
+
+      // And a card of absolutely placed parts does not, which is the refusal that measurement
+      // bought: a drag that writes a box nothing reads. Asked by taking the filling away, because
+      // that is the only difference between the two cards.
+      await run('setBoxLayout', { nodeIds: [bodyPart()], stretch: false });
+      expect(instanceResizable(doc, doc.getNode(placement))).toBe(false);
     });
 
     it('carries a resize down into the card, and one pass further', async () => {
       await run('setBoxGeometry', { nodeIds: [placement], width: 8000, height: 5000 });
       await settle();
 
+      const body = drawnBody();
       // The part told to fill the card is as big as the card…
-      expect(doc.getNode(body)?.attributes?.width).toBe(8000);
-      expect(doc.getNode(body)?.attributes?.height).toBe(5000);
-      // …and the frame then arranged its own children, which is the pass after.
-      for (const row of childrenOf(doc.getNode(body))) {
-        expect(doc.getNode(row)?.attributes?.width).toBe(8000 - 200);
+      expect(body.attributes?.width).toBe(8000);
+      expect(body.attributes?.height).toBe(5000);
+      // …and that frame then arranged its own children against the size it had just been given,
+      // which is the pass that used to need a second transaction.
+      for (const row of body.content ?? []) {
+        expect(row.attributes?.width).toBe(8000 - 200);
       }
     });
 
-    it('is not dragged back to the card’s size by apply', async () => {
+    it('writes nothing into the document to do it', async () => {
       await run('setBoxGeometry', { nodeIds: [placement], width: 8000, height: 5000 });
-      await settle();
-      await run('applyComponent', { nodeId: placement });
       await settle();
 
       /*
-       * The definition says how big the card is **by default**, not how big every placement of it
-       * must stay. A placement that owns its size keeps it, and the parts still follow the
-       * definition — which is what the signature ignoring an arranged box buys.
+       * The definition is untouched — which is the point. One drag used to write a box into every
+       * part of every placement of the card; now the placement's own box is the only change, and
+       * twenty placements cost twenty arrangements at draw time and no writes.
        */
-      expect(doc.getNode(placement)?.attributes?.width).toBe(8000);
-      expect(doc.getNode(body)?.attributes?.width).toBe(8000);
-    });
-
-    it('does not look edited just because it was resized', async () => {
-      await run('setBoxGeometry', { nodeIds: [placement], width: 8000, height: 5000 });
-      await settle();
-
-      const state = instanceState(doc, doc.getNode(placement), deckComponents(doc)[0]);
-      const filled = state.find((part) => part.sid === body);
-      // A part whose box an arrangement decided is not saying anything of its own about its box.
-      // Without that, a resized placement would look edited in every part and apply would leave
-      // the whole card alone for ever.
-      expect(filled?.changed).toBe(false);
+      const part = bodyPart();
+      expect(doc.getNode(part)?.attributes?.width).toBe(3000);
+      for (const row of childrenOf(doc.getNode(part))) {
+        expect(doc.getNode(row)?.attributes?.width).toBe(2800);
+      }
     });
   });
 });

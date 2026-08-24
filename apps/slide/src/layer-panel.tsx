@@ -175,12 +175,11 @@ export function LayerPanel({
               data-layer-locked={row.locked ? 'true' : undefined}
               data-layer-over={drag?.over === index && drag.from !== index ? 'true' : undefined}
               /*
-               * That this row came from a **definition**, said in the markup so the list can
-               * mark it and a test can ask. A card's parts are real boxes a reader may edit —
-               * and they are also the card's, which is a different thing to be looking at from
-               * a box they drew.
+               * The name this row has as a **part of a card**, said in the markup so the list can
+               * mark it and a test can ask. Only ever set while the reader is standing inside a
+               * definition: "the badge" is a different thing to be looking at from "a rectangle".
                */
-              data-layer-part={row.partOf}
+              data-layer-part={row.partName}
               style={{ paddingLeft: 8 + row.depth * 12 }}
             >
               {/*
@@ -203,10 +202,10 @@ export function LayerPanel({
                 {/* A dot rather than a word: the list is scanned, and 모션 on
                     every animated row would be read as part of the name. */}
                 {row.motion && <span className="sl-layer-motion" aria-label="모션 있음" />}
-                {/* From the card, not from the reader: a mark rather than a word, because the
-                    name is what a reader is scanning for. */}
-                {row.partOf && (
-                  <span className="sl-layer-from" aria-label={`컴포넌트 부품 ${row.partOf}`}>
+                {/* A named piece of the card: a mark rather than a word, because the name is what
+                    a reader is scanning for. */}
+                {row.partName && (
+                  <span className="sl-layer-from" aria-label={`컴포넌트 부품 ${row.partName}`}>
                     ◇
                   </span>
                 )}

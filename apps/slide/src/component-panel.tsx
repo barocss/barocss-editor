@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { Button, Choice, Icon, IconButton, TextField } from '@barocss/office-ui';
-import { componentSourceOf, componentStale, deckComponents, type ComponentDef } from '@barocss/office-slides';
+import { componentSourceOf, deckComponents, type ComponentDef } from '@barocss/office-slides';
 import { useEditorRevision } from './revision';
 
 /**
@@ -145,11 +145,15 @@ function VarList({ editor, definition }: { editor: Editor | null; definition: Co
  *
  * ## What a row says
  *
- * Its name, and whether the deck has placements that have **fallen behind** it. That second
- * one is the whole reason apply is offered rather than automatic (§10b-4), and it belongs
- * here rather than in the renderer: an instance's node does not change when its definition
- * does, so a renderer that drew this would draw a stale answer — the connector's fault
- * (§8.11), which this panel avoids by being redrawn with the document.
+ * Its name, how many pieces it is made of, and **how many places use it** — which is the
+ * question a reader actually has before editing a card: this change is about to appear in
+ * eleven places. It used to say how many placements had fallen *behind* the definition, and that
+ * whole state is gone: a placement draws the definition, so there is nothing to fall behind and
+ * nothing to apply (§10b-2a).
+ *
+ * Counted here rather than drawn by a renderer for the reason the connector taught us (§8.11): an
+ * instance's own node does not change when its definition does, so a renderer would draw a stale
+ * answer. This panel is redrawn with the document.
  */
 export function ComponentPanel({
   editor,
@@ -160,8 +164,7 @@ export function ComponentPanel({
   canMake,
   onMake,
   behindSource,
-  onPlace,
-  onApplyAll
+  onPlace
 }: {
   editor: Editor | null;
   open: boolean;
@@ -175,8 +178,6 @@ export function ComponentPanel({
   onMake: () => void;
   /** Put one on the surface the reader is on — which only the app knows. */
   onPlace: (componentId: string) => void;
-  /** Bring every placement of it up to date. */
-  onApplyAll: (componentId: string) => void;
   /**
    * The imported definitions whose source deck has moved on, by sid.
    *
@@ -208,13 +209,13 @@ export function ComponentPanel({
     componentSourceOf(doc as never, definition)?.deck;
 
   /**
-   * How many placements of this definition have fallen behind it.
+   * How many places use this definition.
    *
-   * Counted from the document rather than remembered, because it is derived: what a placement
-   * last took (`appliedFrom`) against what the definition says now. Nothing is written until
-   * a reader asks for it to be applied.
+   * Counted from the document rather than remembered, for the reason every derived thing here is:
+   * a number kept on the definition would have to be maintained by a write on every placement
+   * added, moved or deleted — and would then be wrong exactly when it mattered.
    */
-  const behind = (definition: ComponentDef): number => {
+  const placed = (definition: ComponentDef): number => {
     if (!doc) return 0;
     let count = 0;
     const walk = (sid: string, depth: number) => {
@@ -229,9 +230,7 @@ export function ComponentPanel({
        * about the one thing the panel is here to say. Saving strips sids, which is why the
        * document is written in durable ids in the first place (canvas-model §10b-5).
        */
-      if (node.stype === 'instance' && node.attributes?.componentId === definition.id) {
-        if (componentStale(doc as never, node, definition)) count += 1;
-      }
+      if (node.stype === 'instance' && node.attributes?.componentId === definition.id) count += 1;
       for (const child of node.content ?? []) if (typeof child === 'string') walk(child, depth + 1);
     };
     walk((doc as any).rootId, 0);
@@ -314,7 +313,7 @@ export function ComponentPanel({
       ) : (
         <ol className="sl-components-list">
           {components.map((definition) => {
-            const stale = behind(definition);
+            const uses = placed(definition);
             return (
               <li key={definition.sid} data-component={definition.id}>
                 {/*
@@ -358,23 +357,21 @@ export function ComponentPanel({
                     </span>
                   )}
                   {/*
-                    * A count rather than a dot: "three placements have not taken this" is
-                    * something a reader can decide with, and a dot is something they have to
-                    * press to find out about.
+                    * A count rather than a dot: "eleven places use this" is something a reader can
+                    * decide with before they edit it, and a dot is something they have to press to
+                    * find out about.
                     */}
-                  {stale > 0 && (
-                    <span className="sl-component-behind" data-component-behind={stale}>
-                      {stale}곳 뒤처짐
+                  {uses > 0 && (
+                    <span className="sl-component-uses" data-component-uses={uses}>
+                      {uses}곳에 놓임
                     </span>
                   )}
                 </button>
                 {/*
-                  * What a reader does with a definition that is *not* opening it: put one on
-                  * the slide they are looking at, and — when placements have fallen behind —
-                  * bring all of them up to date at once.
-                  *
-                  * "All of them" is the useful one: a definition is edited once and forty
-                  * slides are behind it, and asking a reader to visit forty is not an answer.
+                  * What a reader does with a definition that is *not* opening it: put one on the
+                  * slide they are looking at. 모두 적용 stood beside it and is gone — every
+                  * placement already draws this definition, so the button's whole job was done by
+                  * removing the copies.
                   */}
                 <span className="sl-component-actions">
                   <Button
@@ -384,15 +381,6 @@ export function ComponentPanel({
                   >
                     놓기
                   </Button>
-                  {stale > 0 && (
-                    <Button
-                      title={`${stale}곳에 이 정의를 다시 적용합니다`}
-                      data={{ 'component-apply-all': definition.id }}
-                      onClick={() => onApplyAll(definition.id)}
-                    >
-                      모두 적용
-                    </Button>
-                  )}
                 </span>
               </li>
             );

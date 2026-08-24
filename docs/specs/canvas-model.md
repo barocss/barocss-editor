@@ -1162,13 +1162,13 @@ argument for building it this way rather than Figma's way.
    instance stale. The mechanism is built — a layout pass whose answer changes when the
    definition does — and an instance that skipped it would look like it worked until the
    second edit.
-3. **Overrides are paired by an *origin id*, not by a role and not by a position.** This
-   started as "matched by role, like a layout's placeholders" and the measurement in §10b-2
-   corrected it: once a placement holds *real* nodes, a reader can edit any of them, so the
-   question is not what to allow but what apply must **preserve** — and a role is still a
-   structural match, which mis-applies the moment the definition is renamed. Each copied part
-   carries `partOf`, the id of the definition part it came from, and that survives renaming,
-   reordering **and** editing. (A role keeps its other job: the formatting cascade, §3.)
+3. **Overrides are values, and a part is named rather than matched.** This started as "matched by
+   role, like a layout's placeholders", became "paired by the id of the part it was copied from"
+   when placements held copies (§10b-2), and ended as neither: a placement holds nothing, so there
+   is nothing to pair. What a card takes is *declared* (`componentVar`) and what drives a part is
+   *declared* (`componentBind`, naming the part by its `partId`) — never a structural match, which
+   mis-applies the moment the definition is reordered. (A role keeps its other job: the formatting
+   cascade, §3.)
 
    What this model does *not* do, and it is a real limit rather than an oversight: the
    granularity is a **whole part**. If a placement has changed a card's text and the
@@ -1244,11 +1244,25 @@ still says exactly what a reader has: a placement, where it sits, and the values
   otherwise draw two elements claiming the same identity, and every lookup by sid would find both.
   Nothing in a store's ids contains `~`, so a reader of the DOM can tell a piece of a placement from
   a node a reader can select.
-- **A placement's text is not in the document.** Find-and-replace, the deck's own check and a spell
-  checker do not see it. That is inherent to a reference and it is the price of the thing being a
-  component; the way out, if it is ever wanted, is a second walk that reads the resolved tree.
+- **A placement's text is not in the document.** Find-and-replace and a spell checker do not see
+  it. That is inherent to a reference and it is the price of the thing being a component; the way
+  out is a second walk that reads the resolved tree — which the deck's own check now does
+  (`auditDeck` resolves each placement), because the alternative was measured and it was a deck of
+  twenty cards auditing as twenty empty boxes.
+- **The arrangement moved into the resolution too**, and it had to: a reaction writes document
+  nodes, and a resolved part is not one. So `fillChildren` and `layoutChildren` — the same
+  functions the canvas uses — run over the resolved tree, parent before child, so a part given the
+  placement's box arranges its own children against **that** box (`instance-parts.ts`).
+- **A resize now costs nothing.** One drag used to write a box into every part of every placement;
+  it writes the placement's own box and nothing else, and twenty placements cost twenty
+  arrangements at draw time. The write cost that made apply a *command* rather than a reaction
+  (§10b-4) is simply gone.
 
-### 10b-2. Measured: a placement is **materialised**, not transcluded
+### 10b-2. Measured: a placement is **materialised**, not transcluded (superseded by §10b-2a)
+
+Kept in full because of *how* it was wrong: a true measurement of the renderer, taken as an answer
+about the engine. Everything below is correct about templates and wrong about where children come
+from.
 
 The design above assumed an instance could *draw* its definition's parts. The render pipeline
 says otherwise, and it is worth writing down because it is the kind of assumption that
@@ -1293,7 +1307,11 @@ What it costs, honestly: a deck with forty placements writes forty subtrees when
 definition changes, and the file holds forty copies. For a deck that is the right trade — the
 alternative is a save that has to know which children are real.
 
-### 10b-4. What apply does, and why it is asked for
+### 10b-4. What apply did, and why it is gone (history)
+
+**Removed.** Everything in this section was about carrying a definition's change into copies, and
+there are no copies (§10b-2a). It is kept because the *reason* it worked this way is what makes the
+new answer cheap: the whole design was shaped around a write cost that resolution does not have.
 
 Four rules, each a decision about **whose** a box is:
 
@@ -1309,12 +1327,14 @@ Four rules, each a decision about **whose** a box is:
    original was then deleted; it is removed, in the reader's own undo entry, which is where a
    decision they might disagree with belongs.
 
-And it is a **command**, not a reaction. A reaction per edit means typing one character in a
-definition rewrites every placement — forty placements of a five-node card is two hundred
-writes per keystroke, which is the ruler's fault (a document write per pointer move) in a new
-place. A reaction on *closing* the definition would be cheap and would split the two on undo:
-the definition new, the placements old. So it is offered instead, by `componentStale` — the
-same relationship Figma has **across files**, where it also cannot be live.
+And it was a **command**, not a reaction, for the write cost: a reaction per edit means typing one
+character in a definition rewrites every placement — forty placements of a five-node card is two
+hundred writes per keystroke, which is the ruler's fault (a document write per pointer move) in a
+new place.
+
+That cost is what the resolution removes. Nothing is written, so nothing has to be batched, offered
+or asked for, and the relationship Figma has **across files** is now the only place this product has
+it too: a brand kit (§10f), where the other deck's definition really is in another document.
 
 ### 10b-3. Two leaks the design has not closed yet, measured rather than assumed
 
@@ -1356,8 +1376,9 @@ pixels a second time.
 
 ### 10b-7. What a placement can be **asked for**: variables
 
-A placement holds real nodes, so a reader can already change anything in it. Three things that
-cannot do, and they are why a declaration exists at all:
+A placement holds no parts, so a variable is the *only* way it can differ from the card — but the
+argument for declaring them was made when a reader could edit anything in a placement, and it is
+worth keeping, because it is what a component property is for. Three things free editing cannot do:
 
 - **One value in more than one place.** An accent colour used by three parts is one decision,
   and editing three copies of it is three chances to disagree.
@@ -1372,18 +1393,20 @@ A definition declares them as `componentVar` **nodes** (`name`, `label`, `kind`,
 attribute, for the third time in this schema: a declaration made of nodes is one the validator
 checks, the conformance probe reads, and a panel draws without a parser.
 
-A part says what it takes with `bindText`, `bindFill` or `bindVisible` — three attributes rather
-than one map, and the three are what a component property is anywhere (text, a colour, a state;
-Figma's fourth, swapping one instance for another, is not needed here because a placement may
-simply *hold* whatever a reader puts in it).
+A **binding** is a declaration of the definition's — a `componentBind` node saying *this variable
+drives this attribute of the part called `title`* — rather than three attributes on the part. The
+three attributes (`bindText`, `bindFill`, `bindVisible`) were the first answer and they were a
+ceiling: a variable could drive exactly three things, so a card's corner radius, a frame's gap and a
+badge's opacity were unreachable, and a `number` could only ever be text (§10g-2).
 
-**Substituted at apply, not at draw.** The same measurement the whole materialised design rests
-on: a template cannot draw a foreign node, so the value is written into the placement's own copy
-of the part and the drawing stays plain. Which is also what keeps a placement's text
-searchable, spell-checkable and measurable without the definition in hand. A bound part draws
-the value and **nothing else** — the runs collapse to one, keeping the first one's formatting —
+**Substituted where the children are resolved, so the renderer never sees a binding.** By the time a
+part reaches a template it is an ordinary node with an ordinary fill and ordinary words. A bound part
+draws the value and **nothing else** — the runs collapse to one, keeping the first one's formatting —
 because writing into the first run and leaving the others puts the value on the page followed by
 whatever the definition happened to say next.
+
+What that costs is the other half of §10b-2a: the value is not in the document as text, so
+find-and-replace and a spell checker do not see it.
 
 #### Where a variable is declared, and why a name is fixed
 
@@ -1413,14 +1436,19 @@ it with a second layout system inside components. Here a slot is an ordinary par
 knows that a drag inside it means the order (§5a) — and the `slot` marker buys exactly one
 sentence: a placement's own children go **in** it rather than beside the definition's parts.
 
-It is also the one place apply can destroy a reader's work, because their boxes live *under* a
-part that has an origin and rule 1 does not reach them. So apply reads the marker twice: a slot
-is compared with its origin **without its contents**, and it is rewritten with `keepChildren`.
-The first half was measured: a slot part is always different from its origin — the reader's
-boxes are in it — so rule 3 protected it, and with that a definition's change to the frame
-itself (its gap, its padding, its size) could never reach a placement anybody had used.
+It used to be the one place apply could destroy a reader's work — their boxes live *under* a part
+that has an origin, where rule 1 does not reach — and two careful readings of the marker existed to
+stop that. Both are gone with apply: a placement's own children are simply *put inside* the resolved
+slot, keeping their own sids, so they are the reader's nodes in the card's frame. Nothing rewrites
+them, so nothing can lose them.
 
-### 10b-9. Measured: apply compared against the wrong thing, and did nothing
+### 10b-9. Measured: apply compared against the wrong thing, and did nothing (history)
+
+**About a mechanism that no longer exists** (§10b-2a), and kept for one reason: this is the fault
+that made the copy design expensive enough to look at again. Every fix for it added a thing the
+document had to *remember* — a signature per part, a signature per placement — and derived state in
+the document is what this repository keeps finding as its own worst fault. The reference design
+remembers nothing.
 
 The four rules as first written compared each part with **its origin as it stands**. The command
 tests found what that means: the moment a definition changes, *every* part differs from it — so
@@ -1444,7 +1472,9 @@ Two smaller faults from the same afternoon, both the kind that look like a worki
   never appear, about the one thing that panel is there to say.
 - `transformNode`'s `newAttrs` **merges**, so a detached placement kept its `componentId` and
   would have been picked up by the next 모두 적용. Removing an attribute is `setAttrs` with
-  `null`, which is the one way to say "not set" for every type.
+  `null`, which is the one way to say "not set" for every type. Still true and still needed:
+  detaching now materialises the resolved parts into the document and then takes the
+  `componentId` off, and a placement that kept it would draw the definition *and* the copies.
 
 ### 10b-10. A definition's colours are the deck's
 
@@ -1478,7 +1508,7 @@ stayed exactly 5040×3960. The selection outline grew, the card did not change, 
 so — the refused frame drag (§5a) in a new place, and the lesson from that one was to make the
 refusal *visible* rather than accept a gesture with no answer.
 
-A placement's extent **is** its definition's (§10b-4). So:
+A placement's extent **is** its definition's, unless something in the card says otherwise. So:
 
 - The overlay draws a placement **no resize handles**, and the panel's size fields are greyed
   with the reason written beside them. Rotation stays: turning a card is a transform of the
@@ -1487,9 +1517,9 @@ A placement's extent **is** its definition's (§10b-4). So:
   a reader is standing in one with nothing selected — and every placement's box moves with it,
   in one transaction, so one press of undo takes back "the card is bigger" rather than leaving
   twenty placements at the new size and the card at the old one.
-- `applyComponent` carries the box too, for the placements a size change could not reach: a
-  deck saved by an earlier version, a card resized by something else. The same job the group
-  fitter does for a group, one node type along.
+- There is nothing left to carry the size *to*: a placement draws the definition (§10b-2a), so a
+  card that grows is drawn bigger in every placement of it, including in a deck saved by an
+  earlier version.
 
 **And then it *was* done, for the cards that have an answer.** A placement has no arrangement of
 its own, but a part told to fill it (`layoutStretch`, §5b) is as big as it is — so a card built
@@ -1504,14 +1534,21 @@ means"**:
 - Nothing in it fills it → refused as above, because the drag would write a box and change
   nothing that can be seen.
 
-Two things had to be true for that to hold. A part whose box an **arrangement** decided is left
-out of its signature — otherwise a resized placement looks edited in every part and apply leaves
-the whole card alone for ever, which is the granularity cost swallowing the feature. And the
-arrangement had to converge in **one** pass: the reaction guards against re-entering while its
-own write is in flight, so a pass whose writes changed a deeper pass's inputs left the tree
-half-arranged — the rows of a frame that had just been given a new width were computed against
-the old one, and the pass that would have fixed it never ran. It now carries what it has decided
-down the walk, parent before child.
+**Where that arithmetic runs changed with the references, and it is the better place.** A reaction
+wrote those boxes into the document; it cannot, because a resolved part is not a document node. So
+`fillChildren` and `layoutChildren` run inside the resolution (`instance-parts.ts`), parent before
+child — the placement's box gives the filling part its size, and that part arranges its own children
+against the size it has just been given. The convergence problem the reaction had (a pass whose
+writes changed a deeper pass's inputs, with a re-entry guard stopping the pass that would have fixed
+it) does not exist here: one walk, top down, and nothing is written at all.
+
+The same "parent before child" fault was measured in both places, which is why it is worth stating
+twice: rows of a frame that had just been given a new width computed against the old one — a card
+that grew with its contents still the size of the library's copy.
+
+The `setBoxLayout` guard had to widen for this to be *reachable*: it offered 가득 only inside a frame
+that arranges, and a card's own part has a `component` for a parent. So the one gesture §5b exists
+for was refused exactly where the feature needs it (`fillsChildren`).
 
 **Still not done:** per-edge constraints for the absolutely placed parts — a badge that should
 stay in the top-right corner of a card that grows. It stays where it was put, which is honest and
@@ -1523,53 +1560,58 @@ the reader could no longer see, the definition's own row never appeared, and the
 that box's handles over the card. A selection is "what I am working on", and a reader who has
 changed surfaces is not working on it any more.
 
-### 10b-13. A card's parts are rows in the layer list
+### 10b-13. What a card is in the layer list, and what it is not
 
-The list descended into a `group` and a `frame` and stopped at a placement, which made a card
-the one container a reader could not get into from the list — and a badge inside a card is
-reachable by clicking exactly on it and by nothing else. Picking what is underneath is the whole
-reason the list exists, so leaving out the container that holds five boxes left out the case.
+The list descends into a `group` and a `frame`, and into a placement — but what it finds in a
+placement is only what the **document** holds there: the reader's own things in the slot. The card's
+parts are the definition's, so they are worked on by opening the card, and the list says nothing
+about them.
 
-Rows that came from the definition say so (`partOf` on the row, `data-layer-part` in the
-markup), because "the badge, from the card" is a different thing to be looking at from "the
-badge I drew" — and it is the same distinction apply makes, which is what lets it leave a
-reader's own boxes alone. A placement's `componentValue` children are skipped: they are what the
-card was *asked for*, not boxes, and "값" is not a name a reader could tell one row from another
-with. That is also the code that keeps the conformance exemption for `componentValue` true.
+That is a real loss and it is written down rather than hidden: a badge inside a card cannot be picked
+from the list, hidden, locked or reordered per placement. It is the same loss as "a placement's text
+is not in the document" and it has the same cause — the thing being a reference. What is offered
+instead is the card itself: one row, one press to open it, and a change there is a change everywhere.
+
+The other side of the same list: inside a definition, a part carries the name the card gave it
+(`partName` on the row, `data-layer-part` in the markup), because "the badge" is a different thing to
+be looking at from "a rectangle". A placement's `componentValue` children are skipped everywhere:
+they are what the card was *asked for*, not boxes, and "값" is not a name a reader could tell one row
+from another with. That is also the code that keeps the conformance exemption for `componentValue`
+true.
 
 ### 10b-5. Everything is pointed at by a **durable** id
 
-`componentId` and `partOf` held sids, and that would have destroyed placements the first time
-a deck was saved and reopened: `forFile` strips `sid` and `parentId` — *they are the store's,
-not the document's* — so every part of every placement would have come back orphaned, and
-apply's fourth rule would have taken them all out.
+`componentId` and the part references held sids, and that would have destroyed placements the first
+time a deck was saved and reopened: `forFile` strips `sid` and `parentId` — *they are the store's,
+not the document's* — so every reference would have come back pointing at nothing.
 
 The document already knew this. A layout is referenced by its `id` attribute, and motion names
 a shape by a name it carries, with the reason written beside it: *a sid is handed out at load,
-so a saved animation cannot be written in sids.* So a definition carries `id`, each of its
-parts carries `partId`, and a placement's copy carries `partOf` — the part's durable name, and
-not its own (two boxes claiming to *be* the same part is how a definition ends up pointing at a
-placement).
+so a saved animation cannot be written in sids.* So a definition carries `id`, each of its parts
+carries `partId`, and a placement names a definition by `componentId` and a binding names a part by
+`partId`.
 
-Both halves of the pairing are left out of a part's signature, because they are identity rather
-than content: a copy is not different from its original for having been copied.
+A part's name is left out of its **signature**, because it is how this deck refers to the part rather
+than something the part says: two libraries that named the same part differently are not two
+different cards.
 
 ### 10f. A brand kit: a definition from another deck
 
 The other half of what a library is for (§11i). A brand kit **is** a deck — the card, the quote
-block, the logo lockup — and using one here cannot be a reference, on the measurement the whole
-materialised design rests on: a template cannot draw a foreign node (§10b-2). So the definition is
-**copied**, and what makes that a library rather than a paste is that the copy remembers where it
-came from.
+block, the logo lockup — and using one here cannot be a reference for a reason no engine trick gets
+around: the definition is **not in this document**. So it is **copied**, and what makes that a
+library rather than a paste is that the copy remembers where it came from.
 
-Which is, again, the relationship Figma has **across files** — offered and accepted rather than
-live — and this time not by choice but by the same constraint.
+Which is, again, the relationship Figma has **across files** — offered and accepted rather than live.
+Since placements became references (§10b-2a) this is the *only* place in the product where anything
+can fall behind anything, and that is the right shape: within a deck a card is followed live, across
+decks it is copied and the newer copy is offered.
 
 A copy records three things: the deck (`fromDeck`, a library name or an address, resolved by the
 host), the definition's id **there** (`fromId` — two decks can both define a `card`, and the one
 that arrives second is renamed here), and what that definition said at the moment it was copied
-(`fromSignature`). The last is a signature rather than a version for the reason a placement's
-`appliedFrom` is one: a number would have to be maintained by a write on every edit of the brand
+(`fromSignature`). The last is a signature rather than a version for the reason every derived thing
+here is computed rather than stored: a number would have to be maintained by a write on every edit of the brand
 kit, and a signature is maintained by nobody.
 
 Four decisions fell out of building it:
@@ -1658,9 +1700,9 @@ one level up.
 Written now because it decides nothing today and will decide the shape of an exporter:
 
 - A **placement** flattens to a group: PowerPoint has no instance, so a `.pptx` export writes the
-  parts and loses the link. Which is survivable precisely *because* placements are materialised
-  (§10b-2) — the drawing is already plain nodes, so flattening is deleting an attribute rather than
-  resolving anything.
+  parts and loses the link. It is the same work `detachComponent` already does — resolve the parts,
+  copy them in, drop the `componentId` — so the exporter has a tested answer to reach for rather
+  than a new walk to write (§10b-2a).
 - A **jump** is a PowerPoint *action setting*, which is a real round trip: `goTo` ↔ "hyperlink to
   slide". `back`/`next`/`first`/`last` map to its own "previous/next/first/last slide" actions.
 - **Links only** is PowerPoint's "advance slide on mouse click" switched off, deck-wide.
@@ -1783,11 +1825,16 @@ And one thing a reader can now do that no command allowed: **change what a layou
 following it draws were unreachable. `setDesign` is that, in the panel of the thing the reader is
 standing in.
 
-**A layout's graphics are copied, not transcluded**, and it is the components' measurement again:
-a template cannot draw a foreign node (§10b-2), so a slide draws its layout's *formatting* and
-*background* live and its boxes never. `applyDesign` puts the arrangement onto every slide that
+**A layout's boxes are copied, not drawn from the layout**: a slide draws its layout's *formatting*
+and *background* live and its boxes never. `applyDesign` puts the arrangement onto every slide that
 follows — offered rather than automatic, because a reader who edits a layout and watches twenty
 slides rearrange themselves without asking has lost twenty slides.
+
+This is now a **decision** rather than a limit, and it is worth being explicit: a placement follows
+its definition live (§10b-2a) and the same machinery could make a slide follow its layout's boxes.
+It should not. A slide's boxes are the reader's — they type in them — and a layout that owned them
+would take their words away when it changed. A layout is a *template* in the sense §10b-2a draws:
+something you copy and then own.
 
 #### One state, one meaning
 

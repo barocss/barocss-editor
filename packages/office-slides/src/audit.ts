@@ -5,6 +5,7 @@ import { jumpFaults } from './jump';
 import { isContainerType } from './selection';
 import { backgroundOf, resolveDeckFormat } from './layout-format';
 import { paintsOf } from './paints';
+import { instanceParts } from './instance-parts';
 
 /**
  * A look over the deck before it is given to anybody.
@@ -169,14 +170,14 @@ export function auditDeck(doc: DeckAccess): AuditHit[] {
     for (const shape of shapes) {
       const { sid, node, box } = shape;
       /**
-       * Whether this box came from a **card**, which changes the advice and not the fault.
+       * Whether this box is a **card's part**, which changes the advice and not the fault.
        *
-       * A part with an origin is the definition's, so the fix is in the card and it fixes every
+       * A named part belongs to a definition, so the fix is in the card and it fixes every
        * placement at once — worth saying, because the reader is otherwise about to fix the same
        * thing on twenty slides. The fault is still reported once per placement: three slides
        * with unreadable text are three slides a projector will show.
        */
-      const fromCard = typeof node.attributes?.partOf === 'string';
+      const fromCard = typeof node.attributes?.partId === 'string';
       const also = (hint: string) =>
         fromCard ? `${hint} 컴포넌트의 부품이라 정의에서 고치면 놓인 곳 모두 고쳐집니다.` : hint;
 
@@ -365,8 +366,50 @@ function shapesOn(
       box: { ...own, x: own.x + origin.x, y: own.y + origin.y }
     });
 
+    /**
+     * A **placement**'s parts are not in the document, so they are resolved rather than walked.
+     *
+     * Without this the sweep went blind the day placements became references: a card's picture
+     * with no alt text, its 8pt caption, its unreadable contrast were all inside a definition the
+     * slide only *names*, so a deck of twenty cards audited as twenty empty boxes. The parts are
+     * asked for the same way the view asks for them (`instanceParts`), which is what keeps the two
+     * answers from drifting.
+     */
+    if (node.stype === 'instance') {
+      for (const part of instanceParts(doc, node)) {
+        drawn(part, { x: own.x + origin.x, y: own.y + origin.y }, depth + 1, sid);
+      }
+      return;
+    }
+
     if (!isContainerType(node.stype)) return;
     for (const child of childrenOf(node)) walk(child, depth + 1);
+  };
+
+  /**
+   * The same walk over nodes that are **drawn** rather than stored.
+   *
+   * Two things differ, and both are about identity. A resolved part has a synthetic sid (`card~…`)
+   * that no command can act on, so the fault is reported against the **placement** — which is
+   * what a reader can select, move and detach. And a part's box cannot be asked of
+   * `spaceOriginOf`, because that walks parents in the document, so the origin is carried down.
+   *
+   * The reader's own things inside a slot keep their real sid, and a fault in one of those is
+   * reported against *it*: it is their box, and they can go and fix it.
+   */
+  const drawn = (node: DeckNode, at: { x: number; y: number }, depth: number, actOn: string) => {
+    if (depth > 16) return;
+    if (!PLACED.has(node.stype ?? '')) return;
+
+    const own = boxOf(node.attributes as never);
+    const mine = typeof node.sid === 'string' && !node.sid.includes('~') ? node.sid : actOn;
+    found.push({ sid: mine, node, box: { ...own, x: own.x + at.x, y: own.y + at.y } });
+
+    if (!isContainerType(node.stype)) return;
+    for (const child of ((node as { content?: unknown }).content ?? []) as DeckNode[]) {
+      if (!child || typeof child !== 'object') continue;
+      drawn(child, { x: own.x + at.x, y: own.y + at.y }, depth + 1, actOn);
+    }
   };
 
   for (const child of childrenOf(doc.getNode(slideSid))) walk(child, 0);

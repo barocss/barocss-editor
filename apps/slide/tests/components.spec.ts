@@ -38,22 +38,15 @@ const deckWithComponent = async (page: Page) =>
             stype: 'surface',
             attributes: { kind: 'slide', name: '한 장' },
             content: [
+              /*
+               * A placement, holding **nothing**: what it draws is the definition below, resolved
+               * as the view reads its children (§10b-2a). A fixture that copied the part into it
+               * would be testing a design the product no longer has.
+               */
               {
                 stype: 'instance',
                 attributes: { componentId: 'card', x: 2000, y: 2000, width: 4000, height: 2400 },
-                content: [
-                  {
-                    stype: 'rectangle',
-                    attributes: {
-                      partOf: 'back',
-                      x: 0,
-                      y: 0,
-                      width: 4000,
-                      height: 2400,
-                      fill: '#e2e8f0'
-                    }
-                  }
-                ]
+                content: []
               }
             ]
           },
@@ -192,47 +185,25 @@ test.describe('a component’s definition', () => {
     await expect(page.locator('.sl-def-component[data-component-id="card"]')).toBeHidden();
   });
 
-  test('says how many placements have fallen behind it', async ({ page }) => {
+  test('says how many places use it', async ({ page }) => {
     await openDeck(page);
     await deckWithComponent(page);
     await page.waitForTimeout(500);
     await openPanel(page);
 
-    // The placement has never recorded what it took, so nothing is behind: calling every
-    // placement stale would put a badge on the whole deck and teach a reader to ignore it.
-    await expect(page.locator('[data-component-behind]')).toHaveCount(0);
-
-    // Record it, then change the definition: now there is something to take.
-    await page.evaluate(() => {
-      const editor = (window as any).editor;
-      const store = editor.dataStore;
-      const root = store.getNode(editor.getRootId());
-      const slide = (root.content as string[])
-        .map((sid: string) => store.getNode(sid))
-        .find((node: any) => node?.stype === 'surface');
-      const instance = (slide.content as string[])[0];
-      const library = (root.content as string[])
-        .map((sid: string) => store.getNode(sid))
-        .find((node: any) => node?.stype === 'components');
-      const definition = (library.content as string[])[0];
-      const part = (store.getNode(definition).content as string[])[0];
-
-      // What the definition says now, recorded on the placement…
-      const signature = (window as any).__sig;
-      void signature;
-      return editor
-        .executeCommand('setBoxStyle', { nodeId: part, fill: '#ff0000' })
-        .then(() => ({ instance, definition }));
-    });
-    await page.waitForTimeout(500);
-
     /*
-     * Still nothing, because the placement never recorded a signature — which is the honest
-     * answer and the one this test is here to pin. The badge appears once a placement has been
-     * applied from a definition and the definition then says something else, and that is what
-     * the apply command will write.
+     * This row used to say how many placements had **fallen behind** the definition, and that
+     * whole state is gone: a placement draws the definition, so there is nothing to fall behind.
+     * What is worth saying instead is the question a reader has *before* editing a card — this
+     * change is about to appear in this many places.
      */
-    await expect(page.locator('[data-component-behind]')).toHaveCount(0);
+    await expect(page.locator('[data-component-uses="1"]')).toHaveCount(1);
+    await expect(page.locator('[data-component-apply-all]')).toHaveCount(0);
+
+    // And a second placement is a second use, counted from the document rather than remembered.
+    await page.locator('[data-component-place="card"]').click();
+    await page.waitForTimeout(600);
+    await expect(page.locator('[data-component-uses="2"]')).toHaveCount(1);
   });
 });
 
@@ -361,19 +332,28 @@ test.describe('working with a component', () => {
     expect(words).toContain('영업이익');
   });
 
-  test('says how far behind the placements are, and brings them up to date', async ({ page }) => {
+  test('carries a definition’s change to every placement, with nothing to press', async ({ page }) => {
     await openDeck(page);
     await cardSlide(page);
     await openPanel(page);
 
     /*
-     * A placement made by the product records what it was given, so it can be told apart from
-     * one a reader has edited. The sample deck's three are hand-authored and carry no such
-     * record — deliberately, because that is what a deck from an earlier version looks like —
-     * so this places a fresh one and edits the definition under it.
+     * The measurement this test exists for. There is no 적용 and no 모두 적용 any more: editing the
+     * definition is the whole gesture, and what the audience would see changes in the same breath.
+     * Read from the screen rather than from the document, because that is where a placement's parts
+     * are now — the document holds a placement and its values, and nothing else (§10b-2a).
      */
-    await page.locator('[data-component-place="metric-card"]').click();
-    await page.waitForTimeout(500);
+    const painted = async () =>
+      await page.evaluate(() => {
+        const found: string[] = [];
+        for (const box of Array.from(document.querySelectorAll('.sl-stage [data-bc-sid]'))) {
+          const fill = getComputedStyle(box as Element).backgroundColor;
+          if (fill) found.push(fill);
+        }
+        return found;
+      });
+
+    const before = (await painted()).filter((colour) => colour === 'rgb(15, 118, 110)').length;
 
     await page.evaluate(() => {
       const editor = (window as any).editor;
@@ -390,12 +370,10 @@ test.describe('working with a component', () => {
     });
     await page.waitForTimeout(600);
 
-    // The count is the offer: "there is something new to take", said in a number rather than
-    // by a dot a reader has to press to understand.
-    await expect(page.locator('[data-component-behind]')).toHaveCount(1);
-    await page.locator('[data-component-apply-all="metric-card"]').click();
-    await page.waitForTimeout(800);
-    await expect(page.locator('[data-component-behind]')).toHaveCount(0);
+    // Three placements of the card on this slide, all three repainted, and no button was pressed.
+    const after = (await painted()).filter((colour) => colour === 'rgb(15, 118, 110)').length;
+    expect(after).toBeGreaterThan(before);
+    await expect(page.locator('[data-component-apply]')).toHaveCount(0);
   });
 
   /**
@@ -574,19 +552,19 @@ test.describe('declaring what a card takes', () => {
     await field.press('Enter');
     await page.waitForTimeout(600);
 
+    /*
+     * Read off the **screen**, because that is the only place a placement's words are: the part is
+     * the definition's, and the value is put into it while the children are resolved (§10b-2a). The
+     * cost, said plainly: find-and-replace and the deck's own check cannot see these words in the
+     * document — the check resolves placements itself for exactly that reason.
+     */
     const words = await page.evaluate((sid) => {
-      const store = (window as any).editor.dataStore;
-      const part = ((store.getNode(sid)?.content ?? []) as string[]).find((one: string) => {
-        const node = store.getNode(one);
-        return node?.stype === 'textFrame';
-      });
-      const line = ((store.getNode(part)?.content ?? []) as string[])[0];
-      const run = ((store.getNode(line)?.content ?? []) as string[])[0];
-      return store.getNode(run)?.text;
+      const box = document.querySelector(`.sl-stage [data-bc-sid="${sid}"]`);
+      return box?.textContent ?? '';
     }, placement);
     // Declared in one panel, bound in another, answered in a third — and the words on the
     // slide are the answer.
-    expect(words).toBe('한 엔진, 두 제품');
+    expect(words).toContain('한 엔진, 두 제품');
   });
 });
 
@@ -778,33 +756,7 @@ test.describe('a card built out of a frame', () => {
                 {
                   stype: 'instance',
                   attributes: { componentId: 'card', x: 2000, y: 2000, width: 6000, height: 4000 },
-                  content: [
-                    {
-                      stype: 'frame',
-                      attributes: {
-                        partOf: 'body',
-                        x: 0,
-                        y: 0,
-                        width: 6000,
-                        height: 4000,
-                        layoutStretch: true,
-                        layoutMode: 'column',
-                        gap: 200,
-                        padding: 200,
-                        fill: '#e2e8f0'
-                      },
-                      content: [
-                        {
-                          stype: 'rectangle',
-                          attributes: { x: 0, y: 0, width: 5600, height: 1000, layoutStretch: true, fill: '#2563eb' }
-                        },
-                        {
-                          stype: 'rectangle',
-                          attributes: { x: 0, y: 0, width: 5600, height: 1000, layoutStretch: true, fill: '#94a3b8' }
-                        }
-                      ]
-                    }
-                  ]
+                  content: []
                 }
               ]
             },
@@ -830,7 +782,16 @@ test.describe('a card built out of a frame', () => {
                         padding: 200,
                         fill: '#e2e8f0'
                       },
-                      content: []
+                      content: [
+                        {
+                          stype: 'rectangle',
+                          attributes: { x: 0, y: 0, width: 5600, height: 1000, layoutStretch: true, fill: '#2563eb' }
+                        },
+                        {
+                          stype: 'rectangle',
+                          attributes: { x: 0, y: 0, width: 5600, height: 1000, layoutStretch: true, fill: '#94a3b8' }
+                        }
+                      ]
                     }
                   ]
                 }
@@ -865,12 +826,23 @@ test.describe('a card built out of a frame', () => {
     await expect(handle).toHaveCount(1);
     await expect(page.locator('.sl-properties').getByLabel('너비')).toBeEnabled();
 
-    const before = await page.evaluate((sid) => {
-      const store = (window as any).editor.dataStore;
-      const body = ((store.getNode(sid)?.content ?? []) as string[])[0];
-      const row = ((store.getNode(body)?.content ?? []) as string[])[0];
-      return { card: store.getNode(sid).attributes.width, body: store.getNode(body).attributes.width, row: store.getNode(row).attributes.width };
-    }, placement);
+    /**
+     * Measured off the **drawing**, in pixels.
+     *
+     * The parts are not in the document any more — the placement holds nothing and what is on the
+     * screen is the definition, resolved with the placement's box — so there is nothing to read
+     * `width` off. Which is exactly what this test should be checking: the reader's drag has to
+     * change what the audience sees, whatever the document does about it.
+     */
+    const shown = async (sid: string) =>
+      await page.evaluate((one) => {
+        const card = document.querySelector(`.sl-stage [data-bc-sid="${one}"]`) as HTMLElement | null;
+        const parts = card ? [...card.querySelectorAll('[data-bc-sid]')] : [];
+        const rect = (el: Element | null) => (el ? (el as HTMLElement).getBoundingClientRect().width : 0);
+        return { card: rect(card), body: rect(parts[0] ?? null), row: rect(parts[1] ?? null) };
+      }, sid);
+
+    const before = await shown(placement);
 
     const box = (await handle.boundingBox())!;
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
@@ -879,19 +851,20 @@ test.describe('a card built out of a frame', () => {
     await page.mouse.up();
     await page.waitForTimeout(700);
 
-    const after = await page.evaluate((sid) => {
-      const store = (window as any).editor.dataStore;
-      const body = ((store.getNode(sid)?.content ?? []) as string[])[0];
-      const row = ((store.getNode(body)?.content ?? []) as string[])[0];
-      return { card: store.getNode(sid).attributes.width, body: store.getNode(body).attributes.width, row: store.getNode(row).attributes.width };
-    }, placement);
+    const after = await shown(placement);
 
-    // The card, the part that fills it, and the row inside that part — three levels, one drag,
-    // and none of it the browser's doing: a slide places, and an absolutely positioned child
-    // does not reflow when its parent's box changes.
+    /*
+     * The card, the part that fills it, and the row inside that part — three levels, one drag, and
+     * none of it the browser's doing: a slide places, and an absolutely positioned child does not
+     * reflow when its parent's box changes. All three are answered while the children are
+     * resolved, which is why no document write was needed to move any of them.
+     */
     expect(after.card).toBeGreaterThan(before.card);
-    expect(after.body).toBe(after.card);
-    expect(after.row).toBe(after.body - 400);
+    expect(Math.round(after.body)).toBe(Math.round(after.card));
+    // The frame's padding, 200 twips a side, in pixels at the stage's scale.
+    const inset = (after.card - after.row) / 2;
+    expect(inset).toBeGreaterThan(0);
+    expect(Math.round(after.row)).toBe(Math.round(after.body - inset * 2));
   });
 });
 
@@ -971,16 +944,19 @@ test.describe('a variable that drives an attribute', () => {
     await page.locator('[data-component-place="metric-card"]').click();
     await page.waitForTimeout(700);
 
-    const drawn = await page.evaluate(() => {
-      const editor = (window as any).editor;
-      const store = editor.dataStore;
-      const sid = editor.selection?.nodeIds?.[0];
-      const back = ((store.getNode(sid)?.content ?? []) as string[]).find(
-        (one: string) => store.getNode(one)?.attributes?.partOf === 'back'
-      );
-      return store.getNode(back)?.attributes?.cornerRadius;
+    /*
+     * Read off the screen: the value is put into the part while the placement's children are
+     * resolved, so a corner radius a reader chose is a **rounded corner** and not an attribute in
+     * the document. 400 twips is 26.67px at 1:1, scaled by the stage — so the assertion is that it
+     * is rounded at all, and by more than a hairline.
+     */
+    const rounded = await page.evaluate(() => {
+      const sid = (window as any).editor.selection?.nodeIds?.[0];
+      const card = document.querySelector(`.sl-stage [data-bc-sid="${sid}"]`);
+      const back = card?.querySelector('[data-bc-sid]') as HTMLElement | null;
+      return back ? parseFloat(getComputedStyle(back).borderTopLeftRadius) : 0;
     });
-    expect(drawn).toBe(400);
+    expect(rounded).toBeGreaterThan(1);
     void back;
   });
 });

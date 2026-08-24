@@ -1,3 +1,10 @@
+import {
+  childrenToLayOut,
+  fillChildren,
+  laysOut,
+  layoutChildren,
+  type LaidOutPlace
+} from '@barocss/office-word';
 import { childrenOf, type DeckAccess, type DeckNode } from './deck';
 import {
   deckComponents,
@@ -34,7 +41,25 @@ import {
  *
  * A definition that contains a placement of itself. Drawing that is an infinite descent, so the
  * resolution carries the definitions it is already inside and stops.
+ *
+ * ## Why the arrangement happens here as well
+ *
+ * A card that can be resized is a card whose parts were told to fill it, and until now a
+ * *reaction* wrote those sizes into the document. It cannot any more: a resolved part is not a
+ * document node, and nothing in a transaction can touch it.
+ *
+ * So the same arithmetic runs here instead — `fillChildren` for what fills the placement,
+ * `layoutChildren` for a frame that arranges what is in it — over the resolved tree, parent before
+ * child, so a frame given the placement's new width arranges its own rows against **that** width
+ * rather than the one still stored in the definition.
+ *
+ * This is better rather than worse, and the reason is the write cost: resizing a placement now
+ * changes nothing in the document at all, so twenty placements of one card cost twenty
+ * arrangements at draw time and **zero** document writes — where before, one drag wrote a box into
+ * every part of every placement, and the drawing could disagree with the document until the
+ * reaction had caught up.
  */
+
 export function instanceParts(
   doc: DeckAccess,
   instance: DeckNode | undefined,
@@ -60,12 +85,27 @@ export function instanceParts(
 
   const slot = definition.parts.find((part) => slotNameOf(doc, part));
 
+  /**
+   * The parts that were told to fill the placement take its box.
+   *
+   * A placement has no arrangement of its own — no mode, no gap, no order — and this one sentence
+   * is what makes a card resizable: `fillChildren` is the same function the canvas uses for it, so
+   * a card and a frame answer the question the same way.
+   */
+  const fills = fillChildren(
+    { attributes: instance?.attributes as Record<string, unknown> },
+    childrenToLayOut(doc.getNode as never, definition.parts)
+  );
+
   return definition.parts.map((part) =>
-    resolvePart(doc, part, values, binds, {
-      slotOf: slot,
-      own,
-      inside: [...inside, definition.id]
-    })
+    resolvePart(
+      doc,
+      part,
+      values,
+      binds,
+      { slotOf: slot, own, inside: [...inside, definition.id] },
+      fills.get(part)
+    )
   );
 }
 
@@ -76,11 +116,22 @@ function resolvePart(
   values: Map<string, string>,
   binds: ComponentBind[],
   where: { slotOf?: string; own: DeckNode[]; inside: readonly string[] },
+  /** What the container above decided about this part, when it decided anything. */
+  at?: LaidOutPlace,
   depth = 0
 ): DeckNode {
   const node = doc.getNode(sid) as DeckNode;
   const attrs = { ...((node?.attributes ?? {}) as Record<string, unknown>) };
   const partId = typeof attrs.partId === 'string' ? attrs.partId : undefined;
+
+  // Only what the arrangement decided: a width it did not answer is the part's own, which is the
+  // same contract `layoutChildren` has with the reaction that writes its answers.
+  if (at) {
+    attrs.x = at.x;
+    attrs.y = at.y;
+    if (typeof at.width === 'number') attrs.width = at.width;
+    if (typeof at.height === 'number') attrs.height = at.height;
+  }
 
   let text: string | undefined;
   for (const bind of partId ? binds.filter((one) => one.part === partId) : []) {
@@ -107,8 +158,21 @@ function resolvePart(
    * A placement of a component *inside* a definition is resolved here too, which is what makes a
    * card that holds a badge work — and `inside` is what stops a card that holds itself.
    */
+  /**
+   * And this part's own arrangement, decided **before** its children are resolved.
+   *
+   * Parent before child, because a frame that has just been given the placement's width has to
+   * arrange its rows against that width — reading the document here would give the width the
+   * definition stores, and the rows would come out the size of the card as it was drawn in the
+   * library. Measured as exactly that fault when the reaction did this work.
+   */
+  const inner =
+    node?.stype === 'frame' && laysOut(attrs)
+      ? layoutChildren({ attributes: attrs }, childrenToLayOut(doc.getNode as never, childrenOf(node)))
+      : undefined;
+
   const kids = childrenOf(node).map((child) =>
-    resolvePart(doc, child, values, binds, where, depth + 1)
+    resolvePart(doc, child, values, binds, where, inner?.get(child), depth + 1)
   );
   const mine = sid === where.slotOf ? where.own : [];
   const nested =

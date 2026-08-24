@@ -45,7 +45,7 @@ import {
   intersects,
   isSceneType,
   isContainerType,
-  placementFills,
+  instanceResizable,
   laysOut,
   layoutModeOf,
   reorderIndexAt,
@@ -613,12 +613,12 @@ export function SelectionOverlay({
     const node = doc.getNode(ids[0]);
     if (node?.stype !== 'instance') return false;
     /*
-     * Unless something in the card was told to **fill** it, which is what makes the drag reach
-     * the card: the part takes the new box and, when it is a frame, arranges its own children a
-     * pass later. So the handles are refused exactly where the model has no answer, and offered
-     * where it does.
+     * Unless something in the card was told to **fill** it, which is what makes the drag reach the
+     * card: the part takes the new box and, when it is a frame, arranges its own children in the
+     * same breath. So the handles are refused exactly where the model has no answer, and offered
+     * where it does — asked of the definition now, because that is where the parts are.
      */
-    return !placementFills(doc as never, node);
+    return !instanceResizable(doc as never, node);
   }, [editor, doc, tick]);
 
   const size = useMemo(

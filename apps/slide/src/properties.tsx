@@ -50,10 +50,9 @@ import {
   laysOut,
   transitionOf,
   componentOf,
-  componentStale,
   deckDesigns,
   jumpOf,
-  placementFills,
+  instanceResizable,
   definitionAt,
   deckComponents,
   instanceVars,
@@ -358,12 +357,13 @@ export function Properties({
     const rootId = (editor as any)?.getRootId?.();
     if (!store || !rootId) return false;
     const doc = { rootId, getNode: (sid: string) => store.getNode(sid) };
-    // A card whose parts **fill** it is one a reader may resize: the drag reaches the card
+    // A card with a part that **fills** it is one a reader may resize: the drag reaches the card
     // instead of writing a box nothing reads. So the fields are greyed only where the model has
-    // no answer, which is the whole rule this pair follows.
+    // no answer, which is the whole rule this pair follows. Asked of the definition, because that
+    // is where the parts are — a placement holds none.
     return targets.some((sid) => {
       const node = store.getNode(sid);
-      return node?.stype === 'instance' && !placementFills(doc as never, node);
+      return node?.stype === 'instance' && !instanceResizable(doc as never, node);
     });
   }, [editor, targets, tick]);
 
@@ -1677,11 +1677,12 @@ export function Properties({
             {/*
               * And the way to push this layout's arrangement onto them.
               *
-              * Because a layout's **graphics are copied, not transcluded**: a template cannot
-              * draw a foreign node (canvas-model §10b-2), so a slide draws its layout's
-              * formatting and background live and its *boxes* never. Offered rather than
-              * automatic, like a component's 모두 적용 — a reader who edits a layout and watches
-              * twenty slides rearrange without asking has lost twenty slides.
+              * Because a layout's **boxes are copied, not drawn from the layout**: a slide draws
+              * its layout's formatting and background live and its boxes never. Offered rather
+              * than automatic — a reader who edits a layout and watches twenty slides rearrange
+              * without asking has lost twenty slides. A *component* is the other decision, and
+              * deliberately: a card's parts are the definition's, so nothing is offered because
+              * nothing has to be carried (§10b-2a).
               */}
             {design.kind === 'layout' && design.slides > 0 && (
               <Button
@@ -1902,19 +1903,19 @@ export function Properties({
  * would be a second place that has to know what a card is — the fault this repository keeps
  * finding, and the reason the declaration is nodes rather than a blob in one attribute.
  *
- * ## Why setting one writes the parts as well
+ * ## What setting one writes
  *
- * The value is substituted into the placement's copy of the part when it is written, not while
- * it is drawn (canvas-model §10b-2): a template cannot draw a foreign node, so a placement
- * holds real nodes and the drawing stays plain. `setComponentValue` does both halves in one
- * transaction, so one press of undo takes back the field *and* what it changed on the slide.
+ * One small node: the placement's `componentValue`. The value is put into the part while the
+ * placement's children are **resolved** (§10b-2a), so nothing on the slide is rewritten — where the
+ * first design substituted it into a copy of the part and had to write both halves in one
+ * transaction to keep undo honest.
  *
- * ## The two buttons
+ * ## The one button
  *
- * **적용** takes what the definition now says — offered rather than automatic, because a
- * definition that pushed every edit into forty placements as a reader typed would be two
- * hundred document writes per keystroke. **분리** stops the placement following at all, and
- * leaves a group: the parts a reader arranged stay arranged.
+ * **분리** stops the placement following the definition at all, and leaves a group: the parts are
+ * copied into the document at that moment, so what the reader was looking at is what they get. 적용
+ * stood beside it and is gone — a placement is the definition as it stands, so there was never
+ * anything for it to carry.
  */
 function ComponentGroup({
   editor,
@@ -1928,18 +1929,14 @@ function ComponentGroup({
   /** The document's revision, so the fields are never older than the slide. */
   tick: number;
 }) {
-  const { vars, definition, behind } = useMemo(() => {
+  const { vars, definition } = useMemo(() => {
     const store = (editor as any)?.dataStore;
     const rootId = (editor as any)?.getRootId?.();
-    if (!store || !rootId) return { vars: [], definition: undefined, behind: false };
+    if (!store || !rootId) return { vars: [], definition: undefined };
     const doc = { rootId, getNode: (one: string) => store.getNode(one) };
     const node = store.getNode(sid);
     const found = componentOf(doc as never, node);
-    return {
-      vars: instanceVars(doc as never, node, found),
-      definition: found,
-      behind: componentStale(doc as never, node, found)
-    };
+    return { vars: instanceVars(doc as never, node, found), definition: found };
   }, [editor, sid, tick]);
 
   const set = (name: string, value: string) =>
@@ -1995,10 +1992,10 @@ function ComponentGroup({
               /**
                * Committed on Enter and on blur, not typed live.
                *
-               * The distinction is `TextField`'s own and the reason is exactly this field: a
-               * value writes the placement's `componentValue` **and** rewrites the parts that
-               * bind it, so a live field would put one history entry and one part-rewrite in
-               * for every keystroke — a hundred of them for one word.
+               * The distinction is `TextField`'s own and the reason is exactly this field: every
+               * commit is a history entry, so a live field would put a hundred of them in for one
+               * word. What it writes is now one small node — the placement's `componentValue` —
+               * because the parts that bind it are drawn from the definition rather than rewritten.
                */
               onCommit={(next) => set(one.name, next)}
             />
@@ -2008,17 +2005,10 @@ function ComponentGroup({
 
       <PropertyRow label="정의">
         {/*
-          * Said in words rather than by a colour, and only when there *is* something to take:
-          * a badge on every placement is a badge a reader learns to ignore.
+          * 적용 stood here, beside 분리, and it is gone: this placement *is* the definition as it
+          * stands, so there was nothing left for the button to carry. What remains is the one
+          * decision a reader still makes — stop following it (§10b-2a).
           */}
-        <Button
-          title={behind ? '정의가 달라졌습니다 — 이 컴포넌트를 다시 적용합니다' : '정의를 다시 적용합니다'}
-          data={{ 'component-apply': '' }}
-          disabled={locked || !definition}
-          onClick={() => void (editor as any)?.executeCommand?.('applyComponent', { nodeId: sid })}
-        >
-          {behind ? '뒤처짐 · 적용' : '적용'}
-        </Button>
         <Button
           title="이 자리의 상자로 만듭니다 — 더 이상 정의를 따르지 않습니다"
           data={{ 'component-detach': '' }}
@@ -2215,8 +2205,6 @@ const OFF_LIMITS = new Set([
   'x',
   'y',
   'partId',
-  'partOf',
-  'appliedFrom',
   'slot',
   'name',
   'role',

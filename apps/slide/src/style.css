@@ -2350,7 +2350,13 @@ body {
   color: var(--sl-faint, #a3a3a3);
 }
 
-/* A count, not a dot: "three placements have not taken this" is something to decide with. */
+/* A count, not a dot: "eleven places use this" is something to decide with before editing it. */
+.sl-component-uses {
+  font-size: 10px;
+  color: var(--sl-faint, #a3a3a3);
+}
+
+/* The one thing still worth an amber word: an imported card whose library has moved on. */
 .sl-component-behind {
   font-size: 10px;
   color: #b45309;
@@ -2360,8 +2366,8 @@ body {
  * Making one, and what a row offers besides opening.
  *
  * The row itself is the whole width and stays a single press — opening a definition is the
- * commonest thing here — so 놓기 and 모두 적용 sit under it rather than beside its name, where
- * they would squeeze the one part of the row a reader reads.
+ * commonest thing here — so 놓기 sits under it rather than beside its name, where it would
+ * squeeze the one part of the row a reader reads.
  */
 .sl-components-make {
   padding: 8px;

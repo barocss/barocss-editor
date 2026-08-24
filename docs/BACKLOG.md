@@ -46,6 +46,47 @@ entries are that.
 
 ## Open
 
+### A placement draws its definition, and every walk had to say which tree it reads
+
+A component follows its definition now (`canvas-model` §10b-2a): a placement holds no copies, and
+what it draws is resolved in the proxy the view reads children through. The design is settled and
+tested; what this entry is for is the thing that came *out* of it, which is more general than
+components.
+
+**There are now two trees, and every walk has to decide which one it means.** The document (what a
+file holds, what a command may act on, what undo can take back) and the drawing (what an audience
+sees). Measured, one walk at a time:
+
+- **The deck's own check** read the document and went blind: a deck of twenty cards audited as
+  twenty empty boxes — every picture without alt text, every 8pt caption, every unreadable
+  contrast inside a definition the slide only *names*. Fixed by resolving each placement in the
+  sweep (`auditDeck`), reporting the fault against the placement, because a drawn part's sid is
+  synthetic and no command accepts it.
+- **The arrangement** read and wrote the document, and could not write a part that is not in it.
+  Moved into the resolution, where it costs no writes at all — and a resize of a card is now
+  **zero** document changes rather than one per part per placement.
+- **The layer list** reads the document, deliberately: a card is one row, and its parts are worked
+  on by opening the card. The cost is written down in §10b-13 rather than hidden — a badge inside
+  a card cannot be hidden, locked or reordered per placement.
+- **The save** reads the document, structurally: `exportToTree` walks the stored nodes and the
+  resolver is only consulted by the proxy. This is what makes the whole design safe.
+
+**Still to decide, in order:**
+
+1. **Find and replace cannot see a placement's words.** They are the card's text with a value
+   substituted, so a reader searching for "매출" does not find the card that says it. The audit's
+   answer (resolve while sweeping) applies, and *replace* then has a real question: the words are
+   the definition's, so replacing them either edits the card everywhere or writes a value on the
+   placement. The second is probably right — a bound part's text **is** a value — and it needs a
+   measurement before it is written.
+2. **Motion by name** (`namedBoxes`) reads the document. A step naming a shape inside a card would
+   not resolve, which means a card's badge cannot be animated per placement. Not urgent; the honest
+   answer may be "motion belongs to the card".
+3. **Copy of a placement.** The clipboard copies document nodes, so copying a card carries the
+   placement and its values — correct, and only if the destination deck defines the same
+   `componentId`. Pasting into a deck that does not is the brand-kit import (§10f), and nothing
+   joins the two yet.
+
 ### All four selection types have a producer now
 
 `SelectionType` is `'range' | 'node' | 'cell' | 'table'`, and for a long time two
@@ -583,12 +624,21 @@ shipped features marked undone.
   resolver in the proxy the view reads children through gives each part its own data. One hook on the
   store (`setContentResolver`), and the save is untouched because the save has its own walk.
 
-- [ ] **Take out the machinery that copies belonged to.** `applyComponent`, `componentApplyPlan`,
-  `instanceState`, `componentStale`, `appliedFrom`, `partOf`, `partCopy`, `placementFills` and their
-  panel controls are now unused for placements inside one deck. What stays is the brand kit's copy
-  (§10f), where a definition really is in another document. Also: a placement's resize should be
-  answered by the resolver (a part that fills the card takes the placement's box) rather than by the
-  arrangement's reaction, which cannot write nodes that are not in the document.
+- [x] **Took out the machinery that copies belonged to.** `applyComponent`, `componentApplyPlan`,
+  `instanceState`, `componentStale`, `partCopy`, `placementFills`, `instanceSlot` and the `partOf` /
+  `appliedFrom` attributes are gone, with the 적용 button, the 모두 적용 button and the 뒤처짐 badge.
+  What stays is the brand kit's copy (§10f), where a definition really is in another document — now
+  the only place in the product where anything can fall behind anything. What replaced the panel's
+  count is the question a reader actually has: **how many places use this card**, so an edit is made
+  knowing what it reaches.
+
+  The resize moved into the resolver as planned, and it turned out to be the better place rather
+  than the necessary one: `fillChildren` and `layoutChildren` run over the resolved tree, parent
+  before child, so one drag changes the placement's own box and **nothing else** in the document.
+  Two things fell out of it — `setBoxLayout` refused 가득 on a card's own part (its guard demanded a
+  laying-out frame for a parent, and a card's part has a `component`), and the deck's own check went
+  blind to everything inside a placement. Both fixed; the second is the entry at the top of this
+  file, because it is a question every walk in the product now has to answer.
 
 - [ ] **Document-wide variables.** A `variables` container beside `components`, and a binding that
   may name either a component's variable or the document's. Asked for explicitly; the theme covers

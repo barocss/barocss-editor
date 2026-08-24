@@ -157,14 +157,15 @@ export interface LayerRow {
    */
   depth: number;
   /**
-   * The definition part this row came from, when it is inside a **placement**.
+   * The name this row has **as a part of a card**, when it has one.
    *
-   * So the list can say where a row comes from: a card's parts are real boxes a reader may
-   * edit, and they are also the definition's — "the badge, from the card" is a different thing
-   * to be looking at from "the badge I drew". Absent for a reader's own box, including one they
-   * added inside a placement's slot, which is exactly the distinction apply makes.
+   * Only ever set while the reader is standing inside a definition, and that is the whole of
+   * what it is for now: a card's parts are the boxes in front of them, and "the badge" is a
+   * different thing to be looking at from "a rectangle". A *placement's* rows no longer carry
+   * one, because a placement holds no copies to carry it — what it draws is the definition, and
+   * the list shows the reader's own things in its slot (§10b-2a).
    */
-  partOf?: string;
+  partName?: string;
 }
 
 /**
@@ -190,7 +191,7 @@ export function layerRows(
     const node = doc.getNode(sid);
     if (!node) return;
 
-    const partOf = node.attributes?.partOf;
+    const partName = node.attributes?.partId;
     rows.push({
       sid,
       label: labelOfBox(doc, sid),
@@ -200,7 +201,7 @@ export function layerRows(
       motion: where.animated?.has(sid) === true,
       selected: chosen.has(sid),
       depth,
-      ...(typeof partOf === 'string' && partOf.length > 0 ? { partOf } : {})
+      ...(typeof partName === 'string' && partName.length > 0 ? { partName } : {})
     });
 
     /**

@@ -62,26 +62,16 @@ export const CANVAS_PRESENCE_ATTRS = {
   locked: { type: 'boolean' as const, default: false },
   visible: { type: 'boolean' as const, default: true },
   /**
-   * Where this box **came from**: the `partId` of the definition part it was copied from.
+   * This part's own durable name inside a definition — what a **binding** names.
    *
-   * A placement of a component holds real nodes (canvas-model §10b-2), so a copy has to
-   * remember its original or nothing can tell later which of a placement's boxes are the
-   * component's and which the reader added. That pairing is what makes the component
-   * survive the things that break Figma's: it is not structural, so **renaming or
-   * reordering the definition's parts cannot mis-apply an override**, and neither can
-   * editing one.
+   * Written on a definition's parts, and read where a placement's children are resolved
+   * (`instance-parts.ts`): a binding says *this variable drives this attribute of the part called
+   * `title`*, and this is that name. Not a sid, because saving strips those — a binding written in
+   * sids would name nothing the first time the deck was opened again. The same rule motion
+   * follows, for the same reason: a saved animation cannot be written in sids.
    *
-   * Absent means "the reader's own", which is the honest default: everything on a slide is
-   * the reader's until it was copied from somewhere.
-   */
-  /**
-   * This part's own durable name inside a definition, for a placement's copy to point at.
-   *
-   * Written on the definition's parts, and it is not a sid: saving strips those, so a
-   * placement's `partOf` written in sids would point at nothing the first time the deck was
-   * opened again — and then every part of every placement would look orphaned and apply would
-   * remove them all. The same rule motion follows, for the same reason: a saved animation
-   * cannot be written in sids.
+   * Absent means the part has nothing said about it, which is the honest default: a card's
+   * background usually takes no value and needs no name.
    */
   partId: { type: 'string' as const, required: false },
   /**
@@ -145,20 +135,14 @@ export const CANVAS_PRESENCE_ATTRS = {
    *
    * Named, so a definition may have two.
    */
-  slot: { type: 'string' as const, required: false },
-  partOf: { type: 'string' as const, required: false },
-  /**
-   * What the placement's definition said when its parts were last taken from it.
-   *
-   * A signature rather than a version number, because a number would have to be
-   * *maintained* — a write on the definition every time it changed, which is derived state in
-   * the document and the fault this repository keeps finding. A signature is computed when
-   * somebody asks, so nothing is written until a reader applies.
-   *
-   * It is what tells "the definition has moved on" from "the reader edited this placement":
-   * with materialised parts both show up as a difference, and only this says which.
+  slot: { type: 'string' as const, required: false }
+  /*
+   * `partOf` and `appliedFrom` were here, and both are gone with the copies they were about: one
+   * said which definition part a placement's copy came from, the other what the definition said
+   * when that copy was taken. A placement holds no copies — it draws the definition — so neither
+   * question can be asked, and an attribute nothing reads is a field a file could record and
+   * nothing would honour. See §10b-2a.
    */
-  appliedFrom: { type: 'string' as const, required: false }
 };
 
 export const CANVAS_GEOMETRY_ATTRS = {
@@ -657,11 +641,11 @@ export function getCanvasNodeDefinitions(): Record<string, NodeTypeDefinition> {
          * That this definition was **brought in from another deck**, and from where.
          *
          * A brand kit is a deck: the card, the quote block, the logo lockup. Using one here cannot
-         * be a *reference* — a template cannot draw a foreign node (canvas-model §10b-2), which is
-         * the measurement the whole materialised design rests on — so the definition is **copied**
-         * and remembers where it came from. Which is exactly the relationship Figma has across
-         * files, and for the same reason: it cannot be live either, so updates are offered and
-         * accepted rather than applied behind the reader's back.
+         * be a *reference* for a reason no engine trick gets around — the definition is not in this
+         * document (canvas-model §10f) — so it is **copied** and remembers where it came from.
+         * Which is exactly the relationship Figma has across files, and for the same reason: it
+         * cannot be live either, so updates are offered and accepted rather than applied behind the
+         * reader's back. Within a deck, a placement follows its definition live (§10b-2a).
          *
          * `fromDeck` is a library name or an address, resolved by the host (§11i). `fromId` is the
          * definition's own id *there*, which may differ from its id here — two decks can both have

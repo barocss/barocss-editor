@@ -515,14 +515,13 @@ export function createSampleDeck(): INode {
        * - **신규 고객** turns the badge off — a `boolean` variable, which is a thing free
        *   editing of a copy cannot express: "this card has no badge" is a decision, and
        *   deleting the shape is a hole.
-       * - **이탈** gives it a colour of its own, has one part the reader *edited* (so apply
-       *   leaves it), and has two rows the reader added **inside the slot** (so apply leaves
-       *   those too, and still updates the frame around them).
+       * - **이탈** gives it a colour of its own and has two rows the reader added **inside the
+       *   slot** — the card's frame arranges them, and they are the reader's nodes with their own
+       *   sids, so a click selects one and typing into it writes to the document.
        *
-       * Written out node by node on purpose. A placement holds **real** nodes — a template
-       * cannot draw a foreign node (canvas-model §10b-2) — so this is what the document
-       * actually looks like after `applyComponent`, and a sample that pretended otherwise
-       * would be testing a design the product does not have.
+       * Each is written as a placement and its **values**, and nothing else: a placement holds no
+       * copy of the card (§10b-2a), so this is what a saved deck really contains — which is the
+       * point of putting it in the sample rather than in a fixture.
        */
       {
         stype: 'surface',

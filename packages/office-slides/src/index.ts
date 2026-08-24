@@ -150,20 +150,14 @@ export {
   componentBehindSource,
   type ImportPlan,
   type ComponentSource,
-  componentStale,
-  instanceState,
   instanceVars,
   instanceValues,
-  instanceSlot,
-  placementFills,
+  instanceResizable,
+  definitionOf,
   slotNameOf,
-  componentApplyPlan,
-  partCopy,
   type ComponentDef,
   type ComponentVar,
   type ComponentBind,
-  type PartState,
-  type ApplyPlan
 } from './components';
 /**
  * A deck that is **not a line**: a shape a reader presses, and the page it shows.

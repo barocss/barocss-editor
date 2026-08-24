@@ -266,23 +266,19 @@ const schema = createSchema('word', getWordSchemaDefinition());
           '`hyphenationCss`, and only when the *document* has hyphenation on — a paragraph saying no to something only the document can have said yes to. The probe renders against an empty document',
 
         /**
-         * The two the shared **canvas** attributes declare for components.
+         * What the shared **canvas** attributes declare for components.
          *
-         * A placement of a component holds real nodes and each remembers the definition part
-         * it came from (`partOf`), and the placement remembers what the definition said when
-         * it last took them (`appliedFrom`) — see `canvas-model.md` §10. Both are read by the
-         * deck's component apply, and Word's canvas has no components today.
+         * A card's part carries its own durable name, which is what a binding names — read where a
+         * placement's children are resolved (`instance-parts.ts` in the deck, `canvas-model.md`
+         * §10b-2a). `partOf` and `appliedFrom` stood beside it and are gone with the copies they
+         * were about, which is why this list is one line shorter than it was.
          *
          * Exempted here rather than moved out of the shared group, because Word's canvas is
-         * the same canvas: the day it has components it reads these, and this claim goes
+         * the same canvas: the day it has components it reads this, and this claim goes
          * stale and says so.
          */
         partId:
-          'the deck’s component apply — a definition part’s durable name. Word’s canvas has no components yet',
-        partOf:
-          'the deck’s component apply — a placement’s part remembers the definition part it was copied from. Word’s canvas has no components yet',
-        appliedFrom:
-          'the deck’s component apply — what the definition said when a placement last took its parts. Word’s canvas has no components yet',
+          'the deck’s components — a definition part’s durable name, which a binding names. Word’s canvas has no components yet',
 
         // The gutter down the side of the page.
         suppressLineNumbers: 'the line-number gutter — `line-numbers.ts`',

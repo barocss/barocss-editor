@@ -2,47 +2,38 @@ import { Editor, Extension, selectedNodeIds } from '@barocss/editor-core';
 import { transaction } from '@barocss/model';
 import { childrenOf, editableSurface, type DeckAccess, type DeckNode } from './deck';
 import { accessOfTree } from './tree-access';
+import { instanceParts } from './instance-parts';
 import { boxOf } from './geometry';
 import {
-  componentApplyPlan,
   componentOf,
   definitionAt,
   importComponentPlan,
-  componentSignature,
-  definitionSignature,
-  signatureOfLiteral,
   deckComponents,
-  instanceSlot,
-  instanceValues,
-  partCopy,
-  partIdOf,
-  type ComponentDef
 } from './components';
 
 /**
- * Making a component, placing one, and taking a definition's changes.
+ * Making a component, placing one, and telling a placement what it is.
  *
- * ## Why these are commands and not reactions
+ * ## What is **not** here any more, and why that is the whole design
  *
- * Apply is the one worth stating. A definition that pushed every edit into its placements as
- * the reader typed would be a document write per keystroke per placement — forty placements of
- * a five-part card is two hundred writes for one character, which is the ruler's fault (a
- * write per pointer move) in a new place. Pushing them when the definition *closes* would be
- * cheap and would split the two halves on undo: the definition new, the placements old, one
- * press of undo taking back only one of them.
+ * `applyComponent` was here, and it was the biggest thing in the file: a plan comparing every
+ * part of every placement with the definition, a recorded signature per placement, and a badge
+ * offering the work. All of it is gone, because a placement no longer holds copies — it draws the
+ * definition (`instance-parts.ts`), so a change to a card is on the screen in every placement of
+ * it before the transaction has finished committing.
  *
- * So a definition's changes are **offered** — `componentStale` is the offer — and taken when
- * asked for. Which is not a compromise: it is the relationship Figma has across files, where
- * it also cannot be live, and it is the only one that leaves a reader in charge of when forty
- * slides change.
+ * The reason it existed is worth keeping, because it is what makes the new answer *cheap*: with
+ * copies, a definition that pushed every edit into its placements as the reader typed would be a
+ * document write per keystroke per placement — forty placements of a five-part card is two hundred
+ * writes for one character, the ruler's fault (a write per pointer move) in a new place. Resolving
+ * at draw time costs **zero** writes, so the thing apply was avoiding is no longer a cost at all.
  *
  * ## Where the arithmetic is
  *
- * In `components.ts`, all of it: what a placement's variables are, which parts pair with
- * which, what apply must rewrite, remove and add, and what a bound part looks like once the
- * values are substituted. This file turns those answers into transactions and knows nothing
- * about pairing or staleness — the same split every other model here has, and the reason the
- * design was testable in milliseconds before any of it could be pressed.
+ * In `components.ts` (what a card declares, what a placement was asked for) and
+ * `instance-parts.ts` (what it draws). This file turns those answers into transactions and knows
+ * nothing about bindings or arrangement — the same split every other model here has, and the reason
+ * the design was testable in milliseconds before any of it could be pressed.
  */
 
 /** Where the deck's definitions live, or nothing when it has no library yet. */
@@ -100,18 +91,6 @@ function placementsOf(doc: DeckAccess, id: string): string[] {
   return found;
 }
 
-/** The card's own answers, for a placement that has not been asked anything yet. */
-function defaultsOf(definition: ComponentDef): Map<string, string> {
-  return new Map(definition.vars.map((one) => [one.name, one.value]));
-}
-
-/** What a placement of this definition holds: a copy of every part, values substituted. */
-function partsFor(doc: DeckAccess, definition: ComponentDef, values: Map<string, string>) {
-  return definition.parts
-    .map((part) => partCopy(doc, part, values, definition.binds))
-    .filter((part): part is DeckNode => !!part);
-}
-
 export class SlidesComponentExtension implements Extension {
   name = 'slides-components';
   priority = 46;
@@ -157,24 +136,6 @@ export class SlidesComponentExtension implements Extension {
     );
 
     /**
-     * Take what the definition now says — for one placement, or for all of them.
-     *
-     * All of them is the useful one: a definition is edited once and forty slides are behind
-     * it, and asking a reader to visit forty is not an answer. One is what a badge on a
-     * placement offers.
-     */
-    register(
-      'applyComponent',
-      async (payload) => await this._apply(editor, payload),
-      (payload) => {
-        const doc = this._access(editor);
-        if (!doc) return false;
-        if (typeof payload?.nodeId === 'string') return !!componentOf(doc, doc.getNode(payload.nodeId));
-        return !!deckComponents(doc).find((one) => one.id === payload?.componentId);
-      }
-    );
-
-    /**
      * Bring a definition in **from another deck**.
      *
      * ## Why the source arrives in the payload
@@ -187,11 +148,10 @@ export class SlidesComponentExtension implements Extension {
      *
      * ## Bringing the same one in twice is not two cards
      *
-     * The second import **replaces** the first — same deck, same id there — and every placement
-     * goes on pointing at the same `componentId`, which is the whole point of remembering where a
-     * definition came from. What it does *not* do is touch the placements: taking the new parts is
-     * `applyComponent`, offered by the badge, because a reader who refreshes a brand kit and finds
-     * forty slides rearranged has lost forty slides.
+     * The second import **replaces** the first — same deck, same id there — and every placement goes
+     * on pointing at the same `componentId`. Which is now the whole of it: a placement draws the
+     * definition, so the new parts are on the screen the moment the copy is replaced. Nothing has to
+     * be carried into forty slides, because nothing was ever copied into them.
      */
     register(
       'importComponent',
@@ -208,10 +168,10 @@ export class SlidesComponentExtension implements Extension {
     /**
      * How big the card is.
      *
-     * The definition's own size, and therefore every placement's: a placement gets no resize
-     * handles, because its extent is the card's and scaling one on its own needs a constraint
-     * model this schema does not have (canvas-model §10b-12). So this is the way a reader
-     * changes a card's size, and `applyComponent` carries it to the placements.
+     * The definition's own size, and therefore every placement's default: a placement gets no
+     * resize handles unless a part was told to **fill** the card, because otherwise the drag writes
+     * a box nothing reads (`instanceResizable`, §10b-12). So this is the way a reader changes a
+     * card's size, and every placement of it is drawn at the new one immediately.
      */
     register(
       'setComponentSize',
@@ -383,11 +343,8 @@ export class SlidesComponentExtension implements Extension {
     const name = payload?.name ?? '컴포넌트';
 
     /**
-     * The definition's parts: the reader's own boxes, moved to the card's corner and given a
-     * durable name each.
-     *
-     * `copyOf` through `partCopy` is not used here — that is for making a *placement* from a
-     * definition, and this is the other direction.
+     * The definition's parts: the reader's own boxes, moved to the card's corner and given a durable
+     * name each. That name is what a binding points at (§10g-2).
      */
     const parts = chosen.map((sid) => {
       const copy = copyRebased(doc, sid, left, top);
@@ -404,43 +361,16 @@ export class SlidesComponentExtension implements Extension {
     };
 
     /**
-     * What the slide gets instead: a placement, holding a copy of each part.
+     * What the slide gets instead: a placement that **holds nothing**.
      *
-     * Each copy records **what it was given** — the same thing `partCopy` writes when a
-     * definition is applied — and so does the placement. Measured without it: the placement
-     * left behind by 만들기 had no record on any part, so the first 모두 적용 treated every one
-     * of them as a part the reader had edited and changed nothing. A component made from a
-     * selection has to be indistinguishable from one that was placed.
+     * It names the definition and sits where the reader's boxes were. What is drawn is the
+     * definition itself, resolved where children are read (§10b-2a) — so there is nothing to copy
+     * into it, nothing to record about what it was given, and nothing to carry into it later.
      */
     const placement: DeckNode = {
       stype: 'instance',
-      attributes: {
-        componentId: id,
-        x: left,
-        y: top,
-        width,
-        height,
-        // The same shape `componentSignature` builds — from the literal parts, because the
-        // transaction that puts the definition in the document has not run yet.
-        appliedFrom: definitionSignature(
-          [],
-          parts.map((part) => signatureOfLiteral(part, 'all'))
-        )
-      },
-      content: chosen.map((sid) => {
-        const copy = copyRebased(doc, sid, left, top);
-        const written = {
-          ...copy,
-          attributes: { ...(copy?.attributes ?? {}), partOf: names.get(sid) }
-        } as DeckNode;
-        return {
-          ...written,
-          attributes: {
-            ...written.attributes,
-            appliedFrom: signatureOfLiteral(written, 'all')
-          }
-        } as DeckNode;
-      }) as never
+      attributes: { componentId: id, x: left, y: top, width, height },
+      content: [] as never
     };
 
     const library = libraryOf(doc);
@@ -496,14 +426,7 @@ export class SlidesComponentExtension implements Extension {
         componentId: definition.id,
         x: numberOr(payload?.x, 1440),
         y: numberOr(payload?.y, 1440),
-        ...size,
-        /*
-         * What the definition said when the parts were taken, so `componentStale` can tell
-         * "the definition has moved on" from "the reader edited this placement" later. Written
-         * here rather than computed on demand for the reason a signature exists at all: a
-         * version number would have to be maintained by a write on every edit.
-         */
-        appliedFrom: componentSignature(doc, definition)
+        ...size
       },
       /**
        * With the definition's **defaults** substituted, not with nothing.
@@ -513,7 +436,11 @@ export class SlidesComponentExtension implements Extension {
        * only looked right while the bindings lived *on* the parts and the author had written the
        * same words twice. A placement starts as the card describes itself.
        */
-      content: partsFor(doc, definition, defaultsOf(definition)) as never
+      /*
+       * Nothing. A placement draws the definition, and its variables answer with the card's own
+       * defaults until a reader says otherwise — so an empty placement is a complete one.
+       */
+      content: [] as never
     };
 
     const result = await transaction(editor, [
@@ -525,77 +452,6 @@ export class SlidesComponentExtension implements Extension {
     const last = made[made.length - 1];
     if (last) (editor as any).setNode?.({ nodeIds: [last] });
     return true;
-  }
-
-  private async _apply(
-    editor: Editor,
-    payload: { nodeId?: string; componentId?: string }
-  ): Promise<boolean> {
-    const doc = this._access(editor);
-    if (!doc) return false;
-
-    const targets =
-      typeof payload?.nodeId === 'string'
-        ? [payload.nodeId]
-        : placementsOf(doc, payload?.componentId ?? '');
-    if (targets.length === 0) return false;
-
-    const steps: unknown[] = [];
-    for (const sid of targets) {
-      const instance = doc.getNode(sid);
-      const definition = componentOf(doc, instance);
-      const plan = componentApplyPlan(doc, instance, definition);
-      if (!definition || !plan) continue;
-      const values = instanceValues(doc, instance, definition);
-
-      for (const gone of plan.remove) {
-        steps.push({ type: 'removeChild', payload: { parentId: sid, childId: gone } });
-      }
-
-      for (const part of plan.rewrite) {
-        const fresh = partCopy(doc, part.from, values, definition.binds);
-        if (!fresh) continue;
-        /*
-         * The part's own attributes, and its children only when it is not a slot.
-         *
-         * A slot's contents are the reader's — they are the one thing living *under* a part
-         * that has an origin, so the "a part with no origin is untouched" rule does not reach
-         * them, and a rewrite that replaced them would be apply deleting the reader's work.
-         */
-        steps.push({
-          type: 'setAttrs',
-          payload: { nodeId: part.sid, attrs: fresh.attributes ?? {} }
-        });
-        if (part.keepChildren) continue;
-        for (const old of childrenOf(doc.getNode(part.sid))) {
-          steps.push({ type: 'removeChild', payload: { parentId: part.sid, childId: old } });
-        }
-        for (const child of (fresh as { content?: unknown[] }).content ?? []) {
-          steps.push({ type: 'addChild', payload: { parentId: part.sid, child } });
-        }
-      }
-
-      for (const added of plan.add) {
-        const fresh = partCopy(doc, added, values, definition.binds);
-        if (fresh) steps.push({ type: 'addChild', payload: { parentId: sid, child: fresh } });
-      }
-
-      steps.push({
-        type: 'setAttrs',
-        payload: {
-          nodeId: sid,
-          attrs: {
-            appliedFrom: plan.appliedFrom,
-            // The box as well, when the card is a different size than this placement says: a
-            // placement's extent *is* its definition's, and nothing else keeps them in step.
-            ...(plan.box ?? {})
-          }
-        }
-      });
-    }
-
-    if (steps.length === 0) return false;
-    return (await transaction(editor, steps as never).commit()).success === true;
   }
 
   private async _setValue(
@@ -637,42 +493,13 @@ export class SlidesComponentExtension implements Extension {
       });
     }
 
-    /**
-     * And the parts that bind it, rewritten from the definition with the new value.
+    /*
+     * And that is the whole of it.
      *
-     * Only the parts that *bind this name*: a value is not an excuse to overwrite a placement
-     * whole. A part the reader edited is rewritten when it binds the name they just changed —
-     * see the command's note — and left alone otherwise.
+     * With copied parts, writing a value also meant rewriting every part that bound it — the value
+     * had to be pushed into the copies. A placement draws the definition now, and the value is
+     * substituted while the parts are resolved, so saying it *is* changing what is on the screen.
      */
-    const values = new Map(instanceValues(doc, instance, definition));
-    values.set(payload.name, payload.value ?? '');
-    /**
-     * Which of the definition's pieces take this variable — asked of the **definition's** list.
-     *
-     * It used to ask the *part* (three attributes on the copy), which is what limited a variable to
-     * three things and what made a placement's file carry bindings it never read. A bind names a
-     * `partId` anywhere inside a part, so a top-level part is rewritten when it or anything under
-     * it takes the name.
-     */
-    const named = new Set(
-      definition.binds.filter((bind) => bind.var === payload.name).map((bind) => bind.part)
-    );
-    for (const part of childrenOf(instance)) {
-      const origin = doc.getNode(part)?.attributes?.partOf;
-      if (typeof origin !== 'string') continue;
-      const from = definition.parts.find((one) => partIdOf(doc, one) === origin);
-      if (!from || !takesName(doc, from, named)) continue;
-      const fresh = partCopy(doc, from, values, definition.binds);
-      if (!fresh) continue;
-      steps.push({ type: 'setAttrs', payload: { nodeId: part, attrs: fresh.attributes ?? {} } });
-      for (const old of childrenOf(doc.getNode(part))) {
-        steps.push({ type: 'removeChild', payload: { parentId: part, childId: old } });
-      }
-      for (const child of (fresh as { content?: unknown[] }).content ?? []) {
-        steps.push({ type: 'addChild', payload: { parentId: part, child } });
-      }
-    }
-
     return (await transaction(editor, steps as never).commit()).success === true;
   }
 
@@ -904,46 +731,48 @@ export class SlidesComponentExtension implements Extension {
     );
   }
 
+  /**
+   * Stop following: the placement becomes a group holding **real copies** of what it was drawing.
+   *
+   * This is the one place a copy is still made, and it is the whole meaning of the gesture. A
+   * placement holds nothing of its own now — it draws the definition — so "stop following" cannot
+   * be "take an attribute off": there would be an empty group where a card was. The parts are
+   * resolved (values and all, exactly as they were on the screen) and written into the document,
+   * which is what makes them the reader's.
+   *
+   * A **template**, in other words. Which is the distinction this whole change turns on: a template
+   * is a document you copy and then own, and a component follows its definition. Detaching converts
+   * one into the other, and that is a thing a reader asks for by name.
+   */
   private async _detach(editor: Editor, payload: { nodeId?: string }): Promise<boolean> {
     const doc = this._access(editor);
     const instance = doc?.getNode(payload?.nodeId as string);
     if (!doc || !instance || instance.stype !== 'instance') return false;
 
+    /** What it was drawing, one press ago. */
+    const drawn = instanceParts(doc, { ...instance, sid: payload!.nodeId } as never);
     const steps: unknown[] = [];
+
+    // What the placement itself held — its values, and whatever went in the slot — is replaced by
+    // the resolved parts, which already contain the slot's contents in their place.
     for (const sid of childrenOf(instance)) {
-      const node = doc.getNode(sid);
-      if (node?.stype === 'componentValue') {
-        steps.push({ type: 'removeChild', payload: { parentId: payload!.nodeId, childId: sid } });
-        continue;
-      }
-      // The pairing goes, or a re-attached copy would be picked up by the next apply — and
-      // `partOf` on a box in a group is a claim about a definition that no longer holds.
+      steps.push({ type: 'removeChild', payload: { parentId: payload!.nodeId, childId: sid } });
+    }
+    for (const part of drawn) {
       steps.push({
-        type: 'setAttrs',
-        payload: {
-          nodeId: sid,
-          attrs: {
-            partOf: null,
-            appliedFrom: null,
-            bindText: null,
-            bindFill: null,
-            bindVisible: null,
-            slot: null
-          }
-        }
+        type: 'addChild',
+        payload: { parentId: payload!.nodeId, child: ownCopyOf(part) }
       });
     }
+
     /*
-     * Two steps, and the order matters: the claim comes off, then the node becomes a group.
-     *
-     * `transformNode`'s `newAttrs` merges, so the `componentId` survived it — measured, and a
-     * detached card that still said which definition it was a placement of would be picked up
-     * by the next 모두 적용. Removing an attribute is `setAttrs` with `null`, which is the one
-     * way to say "not set" for every type (see the operation).
+     * Then the claim comes off and the node becomes a group. `transformNode`'s `newAttrs` merges, so
+     * `componentId` had to be removed by `setAttrs` with `null` — measured, and a detached card that
+     * still named a definition would go on drawing it.
      */
     steps.push({
       type: 'setAttrs',
-      payload: { nodeId: payload!.nodeId, attrs: { componentId: null, appliedFrom: null } }
+      payload: { nodeId: payload!.nodeId, attrs: { componentId: null } }
     });
     steps.push({
       type: 'transformNode',
@@ -998,18 +827,27 @@ function pieceNamed(
 }
 
 /**
- * Whether this part — or anything inside it — is one of the pieces named.
+ * A resolved part, turned into a node the document can hold.
  *
- * A binding names a durable `partId`, and a nested piece may have one, so the question is about the
- * whole subtree: rewriting a part is how a value reaches the words three levels down in it.
+ * Two things come off. The **synthetic id**, because it says "a piece of a placement" and this is
+ * about to be a box a reader owns. And the definition's own names (`partId`, `slot`), because a
+ * detached box that still carried them would be claiming to be a piece of a card it no longer
+ * follows.
  */
-function takesName(doc: DeckAccess, sid: string, named: Set<string>, depth = 0): boolean {
-  if (depth > 24) return false;
-  const node = doc.getNode(sid);
-  if (!node) return false;
-  const id = node.attributes?.partId;
-  if (typeof id === 'string' && named.has(id)) return true;
-  return childrenOf(node).some((child) => takesName(doc, child, named, depth + 1));
+function ownCopyOf(part: DeckNode, depth = 0): DeckNode {
+  const attrs = { ...((part.attributes ?? {}) as Record<string, unknown>) };
+  delete attrs.partId;
+  delete attrs.slot;
+  const kids = Array.isArray((part as { content?: unknown }).content)
+    ? ((part as { content: DeckNode[] }).content as DeckNode[])
+    : [];
+  const copy: DeckNode & { content?: unknown; sid?: string } = {
+    ...part,
+    attributes: attrs,
+    ...(depth > 24 || kids.length === 0 ? {} : { content: kids.map((one) => ownCopyOf(one, depth + 1)) })
+  } as never;
+  delete copy.sid;
+  return copy as DeckNode;
 }
 
 /** A deep copy of a box, moved so that the group's corner is the origin. */
@@ -1049,4 +887,3 @@ export function createComponentCommands(): SlidesComponentExtension {
 }
 
 /** What a placement's slot is, re-exported so a caller need not reach into the model. */
-export { instanceSlot };

@@ -718,19 +718,21 @@ export function registerSlidesRenderers(): void {
   /**
    * A **placement** of a component: a box whose children came from a definition.
    *
-   * ## Why this is nearly a group, and not the hard thing it looks like
+   * ## Why this is nearly a group, and where the definition's parts come from
    *
-   * The obvious expectation is that a placement has to reach one hop further and draw the
-   * *definition's* children. It cannot, and that was measured rather than assumed: a template
-   * can only render nodes through `slot(name)`, which reads **this** node's own data, and a
-   * raw node put among an element's children is silently dropped (canvas-model §10b-2). So a
-   * placement holds real nodes — its parts are copies that remember where they came from
-   * (`partOf`) — and drawing it is drawing its children, exactly like a group.
+   * A placement draws the **definition**, live, and this template does not know that: it draws
+   * its children like a group, and its children *are* the definition's parts — resolved one
+   * layer down, in the proxy the view reads children through (`instance-parts.ts`, §10b-2a).
    *
-   * What the definition decides therefore arrives at **apply** time, not at draw time. Which
-   * is also why the parts' coordinates work: they are relative to their parent, so a copy of
-   * a definition's part keeps the numbers it had on the definition's own surface and lands in
-   * the same arrangement wherever the placement is put.
+   * Measured both ways, and the order matters. A first attempt had this template reach into the
+   * definition itself, which cannot work: a template renders nodes through `slot(name)`, which
+   * reads **this** node's own data, so every part was evaluated against the placement and two of
+   * them came out with the placement's box and the placement's sid. Resolved in the datastore,
+   * each part arrives as itself and this template stays as simple as a group's.
+   *
+   * The parts' coordinates work for the same reason they did when they were copies: they are
+   * relative to their parent, so a part keeps the numbers it had on the definition's own surface
+   * and lands in the same arrangement wherever the placement is put.
    *
    * ## The three things it does that a group's does not
    *

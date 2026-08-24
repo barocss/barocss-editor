@@ -186,13 +186,15 @@ export class SlidesExtension implements Extension {
     /**
      * Push a layout's arrangement onto the slides that follow it.
      *
-     * Because a layout's **graphics are copied, not transcluded**, and that is the same
-     * measurement the component model rests on: a template cannot draw a foreign node, so a
-     * slide cannot draw its layout's shapes (canvas-model §10b-2). What a slide inherits *live*
-     * is formatting and the background; boxes arrive by being copied — which is what
-     * `applySlideLayout` does for one slide, and this does for every slide that follows.
+     * Because a layout's **boxes are copied, not drawn from the layout**, and that is a decision
+     * rather than a limit: a placement follows its definition live (canvas-model §10b-2a) and the
+     * same machinery could make a slide follow its layout's boxes. It must not — a slide's boxes
+     * are the reader's, they type in them, and a layout that owned them would take their words
+     * away when it changed. What a slide inherits *live* is formatting and the background; boxes
+     * arrive by being copied — which is what `applySlideLayout` does for one slide, and this does
+     * for every slide that follows.
      *
-     * Offered rather than automatic, exactly like a component's 모두 적용: a reader who edits a
+     * Offered rather than automatic: a reader who edits a
      * layout and watches twenty slides rearrange themselves without asking has lost twenty
      * slides.
      */

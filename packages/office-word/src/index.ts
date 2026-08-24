@@ -321,12 +321,15 @@ export { canvasCss, canvasViewBox, frameCss } from './shapes';
 export {
   layoutChildren,
   fillChildren,
+  fillsChildren,
   childrenToLayOut,
   laysOut,
   reorderIndexAt,
   layoutModeOf,
   type LayoutMode,
-  type LaidOutChild
+  type LaidOutChild,
+  /** What an arrangement decided about one child — read by whoever applies it. */
+  type LaidOutPlace
 } from './canvas-layout';
 export { createLayoutCommands, CanvasLayoutExtension } from './canvas-layout-commands';
 /**

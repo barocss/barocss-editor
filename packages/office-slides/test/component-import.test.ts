@@ -7,12 +7,12 @@ import { getSlidesSchemaDefinition } from '../src/slides-schema';
 import { createSampleDeck } from '../src/sample-deck';
 import { accessOfTree } from '../src/tree-access';
 import { childrenOf, type DeckAccess } from '../src/deck';
+import { instanceParts } from '../src/instance-parts';
 import {
   componentBehindSource,
   componentSourceOf,
   deckComponents,
-  importComponentPlan,
-  instanceState
+  importComponentPlan
 } from '../src/components';
 
 /**
@@ -89,9 +89,9 @@ describe('a definition from another deck', () => {
     expect(await run('placeComponent', { componentId: 'metric-card', slideId: slide })).toBe(true);
 
     const placement = childrenOf(doc.getNode(slide))[0];
-    // Real parts, paired to the definition by durable name — nothing about a placement knows or
-    // cares that its definition came from somewhere else.
-    expect(instanceState(doc, doc.getNode(placement), deckComponents(doc)[0]).map((p) => p.origin)).toEqual([
+    // It draws the imported definition's parts, by the durable names that definition gave them —
+    // nothing about a placement knows or cares that its definition came from somewhere else.
+    expect(instanceParts(doc, doc.getNode(placement)).map((p) => p.attributes?.partId)).toEqual([
       'back',
       'badge',
       'title',
