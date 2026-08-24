@@ -633,7 +633,10 @@ export {
   varBindsOf,
   boundAttrs,
   boundText,
+  boundGeometry,
+  sizeIsBound,
   UNBINDABLE,
+  DRAWN_BY_WRITE,
   type VarBind,
   type DocumentVar
 } from '@barocss/office-word';

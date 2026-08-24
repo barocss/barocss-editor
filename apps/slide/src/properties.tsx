@@ -57,6 +57,7 @@ import {
   componentsOf,
   instanceVars,
   documentVars,
+  sizeIsBound,
   varBindsOf,
   varRef,
   UNBINDABLE,
@@ -358,6 +359,21 @@ export function Properties({
    * fields have to say so too: a number a reader can type that changes nothing on the slide is
    * the fault the arranged-frame pair was fixed for.
    */
+  /**
+   * Whether any of them has a **variable** for its size.
+   *
+   * The same refusal as a placement's, one cause along: a bound size is written into the document by
+   * the pass that settles derived geometry, so a number a reader types here is put back on the next
+   * change — a field that changes nothing, which this product refuses visibly rather than quietly.
+   *
+   * The way to change it is the variable, which is one field for every shape bound to it.
+   */
+  const sizedByVar = useMemo(() => {
+    const store = (editor as any)?.dataStore;
+    if (!store) return false;
+    return targets.some((sid) => sizeIsBound(store.getNode(sid)));
+  }, [editor, targets, tick]);
+
   const placed = useMemo(() => {
     const store = (editor as any)?.dataStore;
     const rootId = (editor as any)?.getRootId?.();
@@ -794,6 +810,13 @@ export function Properties({
                 컴포넌트를 놓은 자리입니다. 크기는 컴포넌트가 정합니다.
               </PropertyEmpty>
             )}
+            {/*
+              * And a size a **variable** owns, said in words for the same reason: the pass that
+              * settles derived geometry writes it back, so typing here would change nothing.
+              */}
+            {sizedByVar && !placed && (
+              <PropertyEmpty>크기를 문서 변수가 정합니다. 변수를 바꾸면 여기도 바뀝니다.</PropertyEmpty>
+            )}
             <PropertyRow label="위치">
               {/*
                 * Greyed inside a frame that arranges, because the frame owns the
@@ -824,7 +847,7 @@ export function Properties({
                 value={number('width')}
                 suffix="W"
                 step={stepFor(unit)}
-                disabled={locked || placed}
+                disabled={locked || placed || sizedByVar}
                 onCommit={(value) => setGeometry('width', value)}
               />
               <PropertyNumber
@@ -832,7 +855,7 @@ export function Properties({
                 value={number('height')}
                 suffix="H"
                 step={stepFor(unit)}
-                disabled={locked || placed}
+                disabled={locked || placed || sizedByVar}
                 onCommit={(value) => setGeometry('height', value)}
               />
             </PropertyRow>
@@ -2378,6 +2401,15 @@ function PartGroup({
  */
 const BINDABLE_ROWS = [
   'text',
+  /*
+   * A **size**, which is geometry and reaches the shape by a different road: the pass that settles
+   * derived geometry writes it into the document, because the geometry is read by `boxOf` in 31
+   * places and a size that was only *drawn* would be answered differently by every one of them
+   * (§10h-2). A position is not offered — see `UNBINDABLE` — because a box that snaps back when you
+   * drag it is a worse thing to meet than a size you cannot type.
+   */
+  'width',
+  'height',
   'fill',
   'stroke',
   'strokeWidth',

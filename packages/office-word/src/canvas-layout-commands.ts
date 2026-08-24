@@ -1,6 +1,7 @@
 import { Editor, Extension } from '@barocss/editor-core';
 import { transaction } from '@barocss/model';
 import { childrenToLayOut, fillChildren, fillsChildren, laysOut, layoutChildren } from './canvas-layout';
+import { boundGeometry } from './canvas-variable';
 
 /** The little of a document this needs, so a caller can pass anything. */
 interface CanvasAccess {
@@ -241,7 +242,16 @@ export class CanvasLayoutExtension implements Extension {
       return node ? { ...node, attributes: attrsOf(sid) } : undefined;
     }) as never;
 
-    const decide = (results: Map<string, { x: number; y: number; width?: number; height?: number }>) => {
+    /**
+     * Numbers this pass has settled, as steps and as what the rest of the walk believes.
+     *
+     * A loose shape rather than `LaidOutPlace`, because two kinds of answer come through here now:
+     * an arrangement's place (a position, sometimes a size) and a **binding's** size on its own. A
+     * signature demanding `x` would have made the second one lie about the first.
+     */
+    const decide = (
+      results: Map<string, { x?: number; y?: number; width?: number; height?: number }>
+    ) => {
       for (const [child, at] of results) {
         steps.push({ type: 'setAttrs', payload: { nodeId: child, attrs: { ...at } } });
         pending.set(child, { ...(pending.get(child) ?? {}), ...at });
@@ -254,6 +264,36 @@ export class CanvasLayoutExtension implements Extension {
 
       const node: any = doc.getNode(sid);
       if (!node) return;
+
+      /**
+       * A size a **variable** owns, written before the container has its say.
+       *
+       * Here rather than in the resolution the view draws with, and that was counted: the geometry
+       * is read by `boxOf` in 31 places across 14 files — the outline, the handles, the guides, the
+       * snapping, alignment, group bounds, the audit's "off the edge" check — so a size that was
+       * only *drawn* would be answered differently by every one of them. Written, they all keep
+       * working and none of them learns anything.
+       *
+       * Which is derived state in the document, and it is the same trade this pass already made for
+       * the arrangement, with the same convergence rule: `boundGeometry` answers **what differs**, so
+       * a document that already agrees writes nothing and the reaction cannot feed itself.
+       *
+       * And the **container wins**, which is measured rather than asserted: a child told to fill its
+       * frame *and* bound to a variable is a contradiction the reader made, and the frame's answer is
+       * a consequence of where they put the shape. The walk is parent before child, so by the time it
+       * arrives here the container's decision is already in `pending` — and a binding that wrote over
+       * it would be the later of two answers rather than the right one. Written the other way first,
+       * and the test said 2400 where the frame had said 6000.
+       */
+      const bound = boundGeometry(doc as never, { ...node, attributes: attrsOf(sid) } as never);
+      if (bound) {
+        const already = pending.get(sid) ?? {};
+        const mine = Object.fromEntries(
+          Object.entries(bound).filter(([attr]) => !(attr in already))
+        );
+        if (Object.keys(mine).length > 0) decide(new Map([[sid, mine]]));
+      }
+
       const settled = { attributes: attrsOf(sid) };
 
       if (node.stype === 'frame' && laysOut(settled.attributes)) {

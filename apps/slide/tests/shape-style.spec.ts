@@ -208,10 +208,15 @@ test.describe('a panel about more than one shape', () => {
     const panel = page.locator('.sl-properties');
 
     // The widths differ, so the field is empty rather than one of the two.
-    await expect(panel.getByLabel('너비')).toHaveValue('');
+    /*
+     * Exactly named: a shape's panel now has a second control per bindable attribute
+     * ("너비 문서 변수", §10h-2), and `getByLabel` matches by substring. Two controls about one word
+     * is ordinary in a panel; the substring match is the loose half.
+     */
+    await expect(panel.getByLabel('너비', { exact: true })).toHaveValue('');
     // The heights agree, so it says so — a blank field for everything would be
     // its own kind of lie.
-    await expect(panel.getByLabel('높이')).not.toHaveValue('');
+    await expect(panel.getByLabel('높이', { exact: true })).not.toHaveValue('');
     // And the heading says what the fields are about.
     await expect(panel.locator('h3').first()).toHaveText('2개 선택');
   });
@@ -221,8 +226,8 @@ test.describe('a panel about more than one shape', () => {
     const { rect, oval } = await two(page);
     const panel = page.locator('.sl-properties');
 
-    await panel.getByLabel('너비').fill('10');
-    await panel.getByLabel('너비').blur();
+    await panel.getByLabel('너비', { exact: true }).fill('10');
+    await panel.getByLabel('너비', { exact: true }).blur();
     await page.waitForTimeout(500);
 
     // 10cm is 5669 twips, and both of them are it.

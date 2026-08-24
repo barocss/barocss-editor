@@ -629,7 +629,7 @@ test.describe('how big a card is', () => {
     // And the panel says it in words as well as by the greyed fields, because a number a
     // reader can type that changes nothing is the same fault as a drag that does nothing.
     await expect(page.locator('.sl-properties')).toContainText('크기는 컴포넌트가 정합니다');
-    await expect(page.locator('.sl-properties').getByLabel('너비')).toBeDisabled();
+    await expect(page.locator('.sl-properties').getByLabel('너비', { exact: true })).toBeDisabled();
   });
 
   test('changes the card’s size, and every placement follows', async ({ page }) => {
@@ -897,7 +897,7 @@ test.describe('a card built out of a frame', () => {
     // Offered, because the model has an answer for the drag.
     const handle = page.locator('[data-handle="se"]');
     await expect(handle).toHaveCount(1);
-    await expect(page.locator('.sl-properties').getByLabel('너비')).toBeEnabled();
+    await expect(page.locator('.sl-properties').getByLabel('너비', { exact: true })).toBeEnabled();
 
     /**
      * Measured off the **drawing**, in pixels.

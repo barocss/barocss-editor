@@ -1,7 +1,7 @@
 import { Editor, Extension, selectedNodeIds } from '@barocss/editor-core';
 import { CANVAS_GEOMETRY_ATTRS, CANVAS_STYLE_ATTRS } from '@barocss/schema';
 import { transaction } from '@barocss/model';
-import { laysOut } from '@barocss/office-word';
+import { laysOut, sizeIsBound } from '@barocss/office-word';
 import {
   copyOf,
   deckSlides,
@@ -1144,13 +1144,24 @@ export class SlidesExtension implements Extension {
       : undefined;
     const arranged = !!parent && laysOut((doc?.getNode(parent) as any)?.attributes);
 
+    /**
+     * And a **size a variable owns** is not the reader's either.
+     *
+     * The same shape of refusal one cause along: a bound size is written by the pass that settles
+     * derived geometry, so a width written here is put straight back — the command would report
+     * success, the shape would not change, and undo would do nothing. Refusing is what lets the
+     * panel grey the two fields and say why, and the overlay draw no handles (§10h-2).
+     */
+    const sized = payload?.nodeId ? sizeIsBound(doc?.getNode(payload.nodeId) as never) : false;
+
     return this._valuesFor(
       payload,
       this._declaredAttrs(editor, payload?.nodeId),
       (key) =>
         key !== 'locked' &&
         key in CANVAS_GEOMETRY_ATTRS &&
-        !(arranged && (key === 'x' || key === 'y'))
+        !(arranged && (key === 'x' || key === 'y')) &&
+        !(sized && (key === 'width' || key === 'height'))
     );
   }
 

@@ -144,9 +144,71 @@ test.describe('the deck’s own variables', () => {
     expect(held.binds).toEqual([{ attr: 'cornerRadius', var: '둥글기' }]);
     expect(held.own).toBeUndefined();
 
-    // Geometry is not offered at all, which is the measured refusal: a bound size would be drawn
-    // where the resolution says and answered where the document says.
-    await expect(page.locator('.sl-properties').getByLabel('너비 문서 변수')).toHaveCount(0);
+    /*
+     * A **position** is not offered, which is the refusal that stayed: a box that snaps back when you
+     * drag it is a worse thing to meet than a size you cannot type. A size *is* offered, and takes a
+     * different road — written into the document rather than drawn (the test below).
+     */
+    await expect(page.locator('.sl-properties').getByLabel('X 문서 변수')).toHaveCount(0);
+  });
+
+  /**
+   * A **size** a variable owns, which is the one thing the resolver could not carry.
+   *
+   * Counted rather than argued: the geometry is read by `boxOf` in 31 places across 14 files — the
+   * outline, the handles, the guides, the snapping, alignment, group bounds, the audit's "off the
+   * edge" check — so a size that was only drawn would be answered differently by every one of them.
+   * It is written into the document instead, by the pass that already settles derived geometry.
+   *
+   * What only a browser shows is the refusal that has to come with it: the handles and the fields.
+   */
+  test('own a shape’s size, and take the resize away while they do', async ({ page }) => {
+    await openDeck(page);
+    await panel(page);
+
+    await page.locator('[data-doc-var-new] input, input[data-doc-var-new]').fill('카드폭');
+    await page.locator('[data-doc-var-add]').click();
+    await page.waitForTimeout(500);
+    await page.locator('[data-doc-var-row="카드폭"] select').first().selectOption('number');
+    await page.waitForTimeout(400);
+    const value = page.locator('[data-doc-var-value="카드폭"] input, input[data-doc-var-value="카드폭"]');
+    await value.fill('2400');
+    await value.press('Enter');
+    await page.waitForTimeout(500);
+
+    await page.getByRole('button', { name: '사각형' }).click();
+    await expect
+      .poll(() => page.evaluate(() => (window as any).editor?.selection?.nodeIds?.[0] ?? null))
+      .not.toBeNull();
+
+    const width = () =>
+      page.evaluate(() => {
+        const editor = (window as any).editor;
+        return editor.dataStore.getNode(editor.selection?.nodeIds?.[0])?.attributes?.width;
+      });
+
+    await page.locator('.sl-properties').getByLabel('너비 문서 변수').selectOption('카드폭');
+    await page.waitForTimeout(700);
+
+    // Written into the document, which is what keeps all 31 readers of the geometry working.
+    expect(await width()).toBe(2400);
+
+    /*
+     * And the reader's own size is refused while a variable owns it: a width typed here would be put
+     * straight back by the next pass, which is a field that changes nothing — the fault the
+     * placement's refused handles were measured for.
+     */
+    await expect(page.locator('.sl-properties').getByLabel('너비', { exact: true })).toBeDisabled();
+    await expect(page.locator('[data-handle="se"]')).toHaveCount(0);
+    await expect(page.locator('.sl-properties')).toContainText('크기를 문서 변수가 정합니다');
+
+    // The position is still theirs: only what the variable owns is taken away.
+    await expect(page.locator('.sl-properties').getByLabel('X', { exact: true })).toBeEnabled();
+
+    // And changing the variable moves the shape — one field, every shape bound to it.
+    await value.fill('3600');
+    await value.press('Enter');
+    await expect.poll(() => width()).toBe(3600);
   });
 
   test('are offered where a colour is chosen, so nobody types “var:”', async ({ page }) => {

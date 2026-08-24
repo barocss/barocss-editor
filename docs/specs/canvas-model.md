@@ -1839,14 +1839,41 @@ the parent handing back the child as it is drawn, and a node's own **words** are
 children, because characters are content and not an attribute. The resolver answers `undefined`
 unless something is actually bound, so a deck with no bindings copies nothing.
 
-##### Geometry is refused, and that is measured rather than chosen
+##### Geometry takes a different road, and the count is why
 
-`x`, `y`, `width`, `height`, `rotation`. A bound value is resolved where the view reads children, so
-what is **drawn** would move while `getNode` went on answering the stored number — and the overlay,
-the guides, the snapping and every command read `getNode`. The handles would sit where the shape is
-not, which is the fault §10b-12 exists to avoid one node type along. A frame's arrangement (§5b) is
-the answer for size, and `UNBINDABLE` lives in the model so the panel and the command cannot
-disagree about the list.
+A bound value resolved at draw time is drawn at one number while `getNode` answers another, and the
+geometry readers were counted before anything was decided:
+
+| | |
+| --- | ---: |
+| `boxOf(…)` call sites | **31**, in 14 files |
+| direct reads of `x`/`y`/`width`/`height` | 6 |
+
+The outline, the handles, the guides, the snapping, alignment, group bounds, the audit's "off the
+edge" check, hit testing. Teaching all 37 to ask the resolution is not the expensive part — the
+expensive part is that every *new* reader would be silently wrong until somebody noticed.
+
+So a bound **size** is *written* into the document, by the pass that already settles derived geometry
+(`canvas-layout-commands.ts`). All 37 readers and every writer keep working unchanged, and the write
+is derived state in the document — the fault this repository keeps finding, and the **same trade the
+arrangement already made**, for the same reason, with the same convergence rule: `boundGeometry`
+answers only what differs, so a document that already agrees writes nothing and the reaction cannot
+feed itself.
+
+Three consequences, each measured:
+
+- **The container wins.** A child told to fill its frame *and* bound to a variable is a contradiction
+  the reader made. The walk is parent before child, so the frame's answer is already decided when the
+  binding is asked — written the other way first, and the test said 2400 where the frame had said
+  6000.
+- **The reader's own size is refused while a variable owns it.** A width typed into the panel would be
+  put back by the next pass: the command would report success, nothing would move, and undo would do
+  nothing. So `setBoxGeometry` refuses `width`/`height` on a bound shape, the panel greys the two
+  fields and says why, and the overlay draws no resize handles — the same visible refusal a
+  placement's size gets (§10b-12).
+- **A position and a rotation are still refused outright** (`UNBINDABLE`), and not because the
+  mechanism could not carry them: a box that snaps back when you drag it is a worse thing to meet
+  than a size you cannot type, and what a drag on one should *mean* wants its own measurement.
 
 ##### A binding that points at nothing keeps the shape's own value
 

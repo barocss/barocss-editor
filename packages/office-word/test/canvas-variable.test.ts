@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import {
   boundAttrs,
+  boundGeometry,
   boundText,
+  sizeIsBound,
   documentVar,
   documentVars,
   isVarRef,
@@ -323,20 +325,56 @@ describe('a shape bound to a variable', () => {
     expect(boundAttrs(shaped([]), shaped([]).getNode('box'))).toBeUndefined();
   });
 
-  it('refuses geometry, in the model rather than in a panel', () => {
+  it('draws no geometry: a size is written, and a position is refused', () => {
     const access = shaped([
       { attr: 'width', var: '둥글기' },
       { attr: 'x', var: '둥글기' },
       { attr: 'rotation', var: '둥글기' }
     ]);
     /*
-     * Measured rather than chosen: a bound size is *drawn* where the resolution says and *answered*
-     * where the document says, and the overlay, the guides, the snapping and every command read the
-     * answer — so the handles would sit where the shape is not. In the model so the panel and the
-     * command cannot disagree about the list.
+     * Counted rather than argued: the geometry is read by `boxOf` in 31 places across 14 files — the
+     * outline, the handles, the guides, the snapping, alignment, group bounds, the audit's "off the
+     * edge" check — so a size that was only *drawn* would be answered differently by every one of
+     * them. So the drawing resolves none of it.
      */
     expect(boundAttrs(access, access.getNode('box'))).toBeUndefined();
-    expect([...UNBINDABLE]).toContain('width');
+
+    // A **size** is settled by a write instead, in the pass that already settles derived geometry.
+    expect(boundGeometry(access, access.getNode('box'))).toEqual({ width: 240 });
+    // A position and a rotation are refused outright: not because the mechanism could not carry
+    // them, but because of what a reader would meet — a box that snaps back when you drag it.
+    expect([...UNBINDABLE].sort()).toEqual(['rotation', 'x', 'y']);
+  });
+
+  it('answers only what differs, so the pass that writes it cannot feed itself', () => {
+    // The arrangement's own rule, and for the same reason: this is read by a reaction that runs on
+    // every document change, so an answer already in the document has to be no answer at all.
+    const settled = shaped([{ attr: 'width', var: '둥글기' }], { width: 240 });
+    expect(boundGeometry(settled, settled.getNode('box'))).toBeUndefined();
+  });
+
+  it('ignores a variable that is not a number, rather than collapsing the shape', () => {
+    const access = shaped([{ attr: 'width', var: '둥글기' }]);
+    // The good case first, so the assertion below is about the value and not about the fixture.
+    expect(boundGeometry(access, access.getNode('box'))).toEqual({ width: 240 });
+
+    (access.getNode('round') as never as { attributes: Record<string, unknown> }).attributes = {
+      name: '둥글기',
+      kind: 'number',
+      value: '넓게'
+    };
+    /*
+     * `"넓게"` in a width is a document saying something this cannot act on. Writing 0 would collapse
+     * the shape to nothing, and a reader would then see the fault without its cause.
+     */
+    expect(boundGeometry(access, access.getNode('box'))).toBeUndefined();
+  });
+
+  it('says when a shape’s size is a variable’s answer rather than the reader’s', () => {
+    // What the overlay and the panel ask before offering a resize: a drag that is written back by
+    // the next pass is a gesture that changes nothing, which this product refuses visibly.
+    expect(sizeIsBound(shaped([{ attr: 'width', var: '둥글기' }]).getNode('box'))).toBe(true);
+    expect(sizeIsBound(shaped([{ attr: 'cornerRadius', var: '둥글기' }]).getNode('box'))).toBe(false);
   });
 
   it('leaves the attribute alone when the variable is gone', () => {

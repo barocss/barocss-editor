@@ -411,7 +411,17 @@ export {
   varBindsOf,
   boundAttrs,
   boundText,
+  /**
+   * A **size** a variable owns, and whether a shape has one.
+   *
+   * Written into the document by the pass that settles derived geometry rather than resolved at draw
+   * time, and that was counted rather than argued: `boxOf` is read in 31 places across 14 files, so a
+   * size that was only drawn would be answered differently by every one of them.
+   */
+  boundGeometry,
+  sizeIsBound,
   UNBINDABLE,
+  DRAWN_BY_WRITE,
   type VarBind,
   type DocumentVar
 } from './canvas-variable';

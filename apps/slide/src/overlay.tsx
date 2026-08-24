@@ -46,6 +46,7 @@ import {
   isSceneType,
   isContainerType,
   instanceResizable,
+  sizeIsBound,
   laysOut,
   layoutModeOf,
   reorderIndexAt,
@@ -619,6 +620,22 @@ export function SelectionOverlay({
      * where it does — asked of the definition now, because that is where the parts are.
      */
     return !instanceResizable(doc as never, node);
+  }, [editor, doc, tick]);
+
+  /**
+   * And a box whose **size a variable owns**, which gets no resize handles either.
+   *
+   * The same rule from the other direction: a bound size is written into the document by the pass
+   * that settles derived geometry, so a drag would be put back on the next change — a gesture that
+   * changes nothing, which is exactly what the placement's refused handles were measured to avoid
+   * (§10h-2). The panel says so in words beside its greyed fields.
+   *
+   * Every selected box, because a drag resizes all of them: one that cannot is enough to refuse.
+   */
+  const sizedByVar = useMemo(() => {
+    const ids = selectedNodeIds((editor as any)?.selection);
+    if (ids.length === 0 || !doc) return false;
+    return ids.some((sid) => sizeIsBound(doc.getNode(sid) as never));
   }, [editor, doc, tick]);
 
   const size = useMemo(
@@ -3184,6 +3201,7 @@ export function SelectionOverlay({
           }}
         >
           {!onlyPlacement &&
+            !sizedByVar &&
             RESIZE_HANDLES.map((handle) => (
               <span
                 key={handle}

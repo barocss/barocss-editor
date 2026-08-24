@@ -738,11 +738,22 @@ shipped features marked undone.
   — and the overlay, the guides, the snapping and every command read the answer. `UNBINDABLE` is in
   the model so the panel and the command cannot disagree.
 
-- [ ] **A bound *geometry* would need the overlay to read what is drawn.** Refused above for a
-  measured reason rather than a permanent one: the day the overlay, the guides and the snapping ask
-  the resolution instead of `getNode`, a width could follow a variable. That is a change to how the
-  chrome reads the document, so it wants its own measurement — start by counting the places that read
-  `getNode` for geometry.
+- [x] **A shape's *size* follows a variable now, and the count decided how.** The places that read
+  geometry were counted first, as this entry asked: `boxOf` in **31 call sites across 14 files**, plus
+  six direct reads — the outline, the handles, the guides, the snapping, alignment, group bounds, the
+  audit's "off the edge" check, hit testing. Teaching all 37 to ask the resolution is not the
+  expensive part; the expensive part is that every *new* reader would be silently wrong until somebody
+  noticed.
+
+  So a bound size is **written** into the document by the pass that already settles derived geometry,
+  which leaves all 37 readers and every writer untouched. It is derived state in the document — and
+  the same trade the arrangement already made, for the same reason, with the same convergence rule
+  (answer only what differs). Three things fell out, each measured: the **container wins** over a
+  binding (parent before child in one pass — written the other way first, and the test said 2400 where
+  the frame said 6000); the reader's own size is **refused** while a variable owns it (greyed fields,
+  no handles, `setBoxGeometry` says no), because a width written there is put back by the next pass;
+  and `x`/`y`/`rotation` stay refused, because a box that snaps back when you drag it is worse to meet
+  than a size you cannot type, and what a drag on one should mean wants its own measurement.
 
 - [ ] **A variable cannot be renamed**, like every other durable reference here. The label is what a
   reader changes. If renaming is ever wanted it is a migration — every attribute in every slide and

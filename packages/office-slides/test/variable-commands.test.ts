@@ -143,13 +143,16 @@ describe('the document variable commands', () => {
 
     it('refuses geometry by name, and an attribute the shape does not declare', () => {
       /*
-       * Geometry is refused because a bound size is drawn where the resolution says and answered
-       * where the document says — and the overlay, the guides and the snapping read the answer, so
-       * the handles would sit where the shape is not.
+       * A **position** is refused, and not because the mechanism could not carry it: a box that
+       * snaps back when you drag it is a worse thing to meet than a size you cannot type, and what a
+       * drag on one should mean wants its own measurement.
        */
-      for (const attr of ['x', 'y', 'width', 'height', 'rotation']) {
+      for (const attr of ['x', 'y', 'rotation']) {
         expect(canBind({ nodeIds: [box()], attr, var: '둥글기' })).toBe(false);
       }
+      // A **size** is allowed, and reaches the shape by being written rather than drawn (§10h-2).
+      expect(canBind({ nodeIds: [box()], attr: 'width', var: '둥글기' })).toBe(true);
+      expect(canBind({ nodeIds: [box()], attr: 'height', var: '둥글기' })).toBe(true);
       // The check the schema cannot make: a content model cannot see across to another node's
       // attributes, so the command asks the schema what this shape declares.
       expect(canBind({ nodeIds: [box()], attr: 'notAThing', var: '둥글기' })).toBe(false);
@@ -204,6 +207,105 @@ describe('the document variable commands', () => {
       // And the document is untouched: the shape says what it takes, not what it took. Changing the
       // variable is one write, and nothing on any slide has to be rewritten.
       expect(doc.getNode(box())?.attributes?.cornerRadius).toBeUndefined();
+    });
+  });
+
+  /**
+   * A **size** a variable owns, which is the half that had to be written rather than drawn.
+   *
+   * Counted before it was designed: the geometry is read by `boxOf` in 31 places across 14 files —
+   * the outline, the handles, the guides, the snapping, alignment, group bounds, the audit's "off the
+   * edge" check — so a size that was only resolved for the drawing would be answered differently by
+   * every one of them. The pass that already settles derived geometry writes it instead, which is
+   * the same trade the arrangement made and for the same reason.
+   */
+  describe('a size a variable owns', () => {
+    /** The pass runs on the document change, so its write lands after the await. */
+    const settle = () => new Promise((resolve) => setTimeout(resolve, 60));
+
+    beforeEach(async () => {
+      await run('setDocumentVar', { name: '카드폭', kind: 'number', value: '2400' });
+    });
+
+    it('is written into the document, so every reader of the geometry keeps working', async () => {
+      expect(await run('setVarBind', { nodeIds: [box()], attr: 'width', var: '카드폭' })).toBe(true);
+      await settle();
+
+      // In the document — not only in the drawing — which is the whole decision.
+      expect(doc.getNode(box())?.attributes?.width).toBe(2400);
+    });
+
+    it('follows the variable when it changes, in one write per shape', async () => {
+      await run('setVarBind', { nodeIds: [box()], attr: 'width', var: '카드폭' });
+      await settle();
+      await run('setDocumentVar', { name: '카드폭', value: '3600' });
+      await settle();
+      expect(doc.getNode(box())?.attributes?.width).toBe(3600);
+    });
+
+    it('refuses the reader’s own size, rather than being written back behind them', async () => {
+      await run('setVarBind', { nodeIds: [box()], attr: 'width', var: '카드폭' });
+      await settle();
+
+      /*
+       * A width typed here would be put straight back by the next pass: the command would report
+       * success, the shape would not change, and undo would do nothing. So it is refused — and the
+       * panel greys the two fields and says why, and the overlay draws no resize handles.
+       */
+      expect(
+        (editor as never as { canExecuteCommand: (n: string, p?: unknown) => boolean })
+          .canExecuteCommand('setBoxGeometry', { nodeIds: [box()], width: 9999 })
+      ).toBe(false);
+      // The position is still the reader's: only what the variable owns is refused.
+      expect(
+        (editor as never as { canExecuteCommand: (n: string, p?: unknown) => boolean })
+          .canExecuteCommand('setBoxGeometry', { nodeIds: [box()], x: 500 })
+      ).toBe(true);
+    });
+
+    it('lets the frame that arranges it win, because that is where the reader put it', async () => {
+      /*
+       * A child told to fill its frame *and* bound to a variable is a contradiction the reader made.
+       * Both answers are decided in one pass, the container's after the binding's, so there is
+       * nothing to oscillate — and the frame wins, because it is a consequence of where the shape is.
+       */
+      await (editor as never as {
+        transaction: (steps: unknown[]) => { commit: () => Promise<unknown> };
+      })
+        .transaction([
+          {
+            type: 'addChild',
+            payload: {
+              parentId: childrenOf(doc.getNode(doc.rootId))[0],
+              child: {
+                stype: 'frame',
+                attributes: { x: 0, y: 0, width: 6000, height: 3000, layoutMode: 'column', padding: 0 },
+                content: [
+                  {
+                    stype: 'rectangle',
+                    attributes: {
+                      x: 0,
+                      y: 0,
+                      width: 1000,
+                      height: 400,
+                      layoutStretch: true,
+                      varBinds: [{ attr: 'width', var: '카드폭' }]
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ])
+        .commit();
+      await settle();
+
+      const slide = childrenOf(doc.getNode(doc.rootId))[0];
+      const frame = childrenOf(doc.getNode(slide)).find(
+        (sid) => doc.getNode(sid)?.stype === 'frame'
+      ) as string;
+      const row = childrenOf(doc.getNode(frame))[0];
+      expect(doc.getNode(row)?.attributes?.width).toBe(6000);
     });
   });
 

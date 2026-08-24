@@ -213,16 +213,33 @@ export interface VarBind {
 }
 
 /**
- * What a reader may **not** bind, and this is the measured half of the feature.
+ * The attributes a binding **cannot draw its way into**, so they are *written* instead.
  *
- * A bound value is resolved where the view reads a node's children, so a bound `width` would be
- * *drawn* at one size while `getNode` went on answering the stored one — and the overlay, the
- * guides, the snapping and every command read `getNode`. The handles would sit where the shape is
- * not, which is the fault §10b-12 exists to avoid in another place.
+ * ## Counted, then decided
  *
- * `rotation` is here for the same reason, and a frame's arrangement (§5b) is the answer for size.
+ * A bound value resolved at draw time is drawn at one number while `getNode` answers another — and
+ * the geometry readers are `boxOf` in **31 places across 14 files**, plus six direct reads: the
+ * overlay's outline and handles, the guides, the snapping, alignment, group bounds, the audit's
+ * "off the edge" check, hit testing. Every one of them would have to learn to ask the resolution,
+ * and every new one would be silently wrong until somebody noticed.
+ *
+ * So a bound **size** is written into the document by the pass that already settles derived
+ * geometry (`canvas-layout-commands.ts`), which means all 37 readers and every writer keep working
+ * unchanged. That is derived state in the document — the fault this repository keeps finding — and
+ * it is the *same* trade the arrangement already made, for the same reason and with the same
+ * convergence rule: answer only what differs, and a pass that agrees writes nothing.
+ *
+ * ## What is still refused, and why it is a different question
+ *
+ * `x`, `y` and `rotation`. Not because the mechanism could not carry them — it could, identically —
+ * but because of what the reader would then meet: a shape they cannot **move**. A size a variable
+ * owns is a card that is always 3000 wide; a *position* a variable owns is a box that snaps back
+ * when you drag it, and that wants its own measurement about what a drag on it should mean.
  */
-export const UNBINDABLE = new Set(['x', 'y', 'width', 'height', 'rotation']);
+export const DRAWN_BY_WRITE = new Set(['width', 'height']);
+
+/** What a binding may not name at all — see `DRAWN_BY_WRITE` for the ones written instead. */
+export const UNBINDABLE = new Set(['x', 'y', 'rotation']);
 
 /** The bindings a node declares, read defensively — a document is an author's. */
 export function varBindsOf(node: CanvasNode | undefined): VarBind[] {
@@ -276,7 +293,15 @@ export function boundAttrs(
   doc: CanvasAccess,
   node: CanvasNode | undefined
 ): Record<string, unknown> | undefined {
-  const binds = varBindsOf(node).filter((bind) => bind.attr !== 'text' && !UNBINDABLE.has(bind.attr));
+  const binds = varBindsOf(node).filter(
+    (bind) =>
+      bind.attr !== 'text' &&
+      !UNBINDABLE.has(bind.attr) &&
+      // A size is *written* into the document rather than drawn (see `DRAWN_BY_WRITE`), so
+      // resolving it here as well would make the drawing disagree with what every reader of the
+      // geometry answers — which is the whole thing that decision avoids.
+      !DRAWN_BY_WRITE.has(bind.attr)
+  );
   if (binds.length === 0) return undefined;
 
   const attrs = { ...((node?.attributes ?? {}) as Record<string, unknown>) };
@@ -307,4 +332,42 @@ export function boundText(doc: CanvasAccess, node: CanvasNode | undefined): stri
   if (!bind) return undefined;
   const found = documentVar(doc, bind.var);
   return found && found.value !== '' ? found.value : undefined;
+}
+
+/**
+ * The geometry a shape's bindings decide, and **only what differs** from what it holds.
+ *
+ * The convergence rule the arrangement follows, for the same reason: this is read by a reaction that
+ * runs on every document change, so a pass whose answer is already in the document must write
+ * nothing or it would feed itself for ever.
+ *
+ * A variable holding something that is not a number is ignored rather than guessed at: `"넓게"` in a
+ * width is a document saying something this cannot act on, and writing 0 would collapse the shape.
+ */
+export function boundGeometry(
+  doc: CanvasAccess,
+  node: CanvasNode | undefined
+): Record<string, number> | undefined {
+  const binds = varBindsOf(node).filter((bind) => DRAWN_BY_WRITE.has(bind.attr));
+  if (binds.length === 0) return undefined;
+
+  const attrs = (node?.attributes ?? {}) as Record<string, unknown>;
+  const differs: Record<string, number> = {};
+
+  for (const bind of binds) {
+    const found = documentVar(doc, bind.var);
+    if (!found) continue;
+
+    const asNumber = Number(found.value);
+    if (found.value.trim() === '' || !Number.isFinite(asNumber) || asNumber < 0) continue;
+    if (attrs[bind.attr] === asNumber) continue;
+    differs[bind.attr] = asNumber;
+  }
+
+  return Object.keys(differs).length > 0 ? differs : undefined;
+}
+
+/** Whether this shape's size is a variable's answer rather than the reader's. */
+export function sizeIsBound(node: CanvasNode | undefined): boolean {
+  return varBindsOf(node).some((bind) => DRAWN_BY_WRITE.has(bind.attr));
 }

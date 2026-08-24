@@ -172,7 +172,7 @@ test.describe('a drag inside a frame that arranges', () => {
     await expect(page.locator('.sl-properties').getByLabel('Y', { exact: true })).toBeDisabled();
     // The size is still the reader's: an arrangement places children and does not resize
     // them.
-    await expect(page.locator('.sl-properties').getByLabel('너비')).toBeEnabled();
+    await expect(page.locator('.sl-properties').getByLabel('너비', { exact: true })).toBeEnabled();
 
     const refused = await page.evaluate(
       (sid) => (window as any).editor.executeCommand('setBoxGeometry', { nodeId: sid, x: 6000 }),
