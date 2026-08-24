@@ -1,7 +1,7 @@
 import { Editor, Extension, selectedNodeIds } from '@barocss/editor-core';
 import { CANVAS_GEOMETRY_ATTRS, CANVAS_STYLE_ATTRS } from '@barocss/schema';
 import { transaction } from '@barocss/model';
-import { laysOut, sizeIsBound } from '@barocss/office-word';
+import { laysOut, placeIsBound, sizeIsBound, turnIsBound } from '@barocss/office-word';
 import {
   copyOf,
   deckSlides,
@@ -1153,7 +1153,10 @@ export class SlidesExtension implements Extension {
      * success, the shape would not change, and undo would do nothing. Refusing is what lets the
      * panel grey the two fields and say why, and the overlay draw no handles (§10h-2).
      */
-    const sized = payload?.nodeId ? sizeIsBound(doc?.getNode(payload.nodeId) as never) : false;
+    const node = payload?.nodeId ? doc?.getNode(payload.nodeId) : undefined;
+    const sized = sizeIsBound(node as never);
+    const placed = placeIsBound(node as never);
+    const turned = turnIsBound(node as never);
 
     return this._valuesFor(
       payload,
@@ -1162,7 +1165,9 @@ export class SlidesExtension implements Extension {
         key !== 'locked' &&
         key in CANVAS_GEOMETRY_ATTRS &&
         !(arranged && (key === 'x' || key === 'y')) &&
-        !(sized && (key === 'width' || key === 'height'))
+        !(sized && (key === 'width' || key === 'height')) &&
+        !(placed && (key === 'x' || key === 'y')) &&
+        !(turned && key === 'rotation')
     );
   }
 

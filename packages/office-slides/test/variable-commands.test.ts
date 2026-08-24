@@ -207,18 +207,15 @@ describe('the document variable commands', () => {
       await run('setDocumentVar', { name: '보이기', kind: 'boolean', value: 'false' });
     });
 
-    it('refuses geometry by name, and an attribute the shape does not declare', () => {
+    it('refuses an attribute the shape does not declare, and allows every part of its box', () => {
       /*
-       * A **position** is refused, and not because the mechanism could not carry it: a box that
-       * snaps back when you drag it is a worse thing to meet than a size you cannot type, and what a
-       * drag on one should mean wants its own measurement.
+       * Geometry reaches a shape by being **written** rather than drawn (§10h-2), so all of it can be
+       * bound — including the place and the turn, which were refused until the *behaviour* was fixed:
+       * the drag is now refused before it previews, so nothing follows the pointer and jumps back.
        */
-      for (const attr of ['x', 'y', 'rotation']) {
-        expect(canBind({ nodeIds: [box()], attr, var: '둥글기' })).toBe(false);
+      for (const attr of ['x', 'y', 'rotation', 'width', 'height']) {
+        expect(canBind({ nodeIds: [box()], attr, var: '둥글기' })).toBe(true);
       }
-      // A **size** is allowed, and reaches the shape by being written rather than drawn (§10h-2).
-      expect(canBind({ nodeIds: [box()], attr: 'width', var: '둥글기' })).toBe(true);
-      expect(canBind({ nodeIds: [box()], attr: 'height', var: '둥글기' })).toBe(true);
       // The check the schema cannot make: a content model cannot see across to another node's
       // attributes, so the command asks the schema what this shape declares.
       expect(canBind({ nodeIds: [box()], attr: 'notAThing', var: '둥글기' })).toBe(false);
@@ -307,6 +304,28 @@ describe('the document variable commands', () => {
       await run('setDocumentVar', { name: '카드폭', value: '3600' });
       await settle();
       expect(doc.getNode(box())?.attributes?.width).toBe(3600);
+    });
+
+    it('refuses the reader’s own place too, and only what the variable owns', async () => {
+      await run('setDocumentVar', { name: '왼쪽', kind: 'number', value: '1200' });
+      await run('setVarBind', { nodeIds: [box()], attr: 'x', var: '왼쪽' });
+      await settle();
+
+      // Written, like a size: the document holds the number, so every reader of the geometry works.
+      expect(doc.getNode(box())?.attributes?.x).toBe(1200);
+
+      const can = (payload: unknown) =>
+        (editor as never as { canExecuteCommand: (n: string, p?: unknown) => boolean })
+          .canExecuteCommand('setBoxGeometry', payload);
+
+      /*
+       * The drag ends in this command, so refusing here is what stops a shape being written back
+       * behind the reader — and the overlay refuses the drag *before* it previews, so nothing follows
+       * the pointer and jumps back.
+       */
+      expect(can({ nodeIds: [box()], x: 500 })).toBe(false);
+      // Its size is still its own: one binding takes one gesture away, not all of them.
+      expect(can({ nodeIds: [box()], width: 2000 })).toBe(true);
     });
 
     it('refuses the reader’s own size, rather than being written back behind them', async () => {

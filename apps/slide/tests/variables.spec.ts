@@ -145,11 +145,12 @@ test.describe('the deck’s own variables', () => {
     expect(held.own).toBeUndefined();
 
     /*
-     * A **position** is not offered, which is the refusal that stayed: a box that snaps back when you
-     * drag it is a worse thing to meet than a size you cannot type. A size *is* offered, and takes a
-     * different road — written into the document rather than drawn (the test below).
+     * Every part of a box's box is offered — the place and the turn as well as the size — because all
+     * of it takes the same road: written into the document by the pass that settles derived geometry,
+     * never drawn. What each one takes away is a gesture, refused where it happens: the resize
+     * handles, the move drag, the rotate grip. The two tests below are those.
      */
-    await expect(page.locator('.sl-properties').getByLabel('X 문서 변수')).toHaveCount(0);
+    await expect(page.locator('.sl-properties').getByLabel('X 문서 변수')).toHaveCount(1);
   });
 
   /**
@@ -255,6 +256,80 @@ test.describe('the deck’s own variables', () => {
     await expect(page.locator('[data-doc-var-value="주의"] input, input[data-doc-var-value="주의"]')).toHaveValue(
       '#ef4444'
     );
+  });
+
+  /**
+   * A **place** a variable owns, and the drag that must not lie about it.
+   *
+   * Refused at first with a sentence about behaviour — "a box that snaps back when you drag it is a
+   * worse thing to meet than a size you cannot type" — and allowed once the behaviour was fixed. Only
+   * a browser can show that fix: the shape has to stay where it is *under the pointer*, not jump back
+   * when the button is released.
+   */
+  test('own where a shape is, and refuse the drag rather than undoing it', async ({ page }) => {
+    await openDeck(page);
+    await panel(page);
+
+    await page.locator('[data-doc-var-new] input, input[data-doc-var-new]').fill('왼쪽');
+    await page.locator('[data-doc-var-add]').click();
+    await page.waitForTimeout(500);
+    await page.locator('[data-doc-var-row="왼쪽"] select').first().selectOption('number');
+    await page.waitForTimeout(400);
+    const value = page.locator('[data-doc-var-value="왼쪽"] input, input[data-doc-var-value="왼쪽"]');
+    await value.fill('1200');
+    await value.press('Enter');
+    await page.waitForTimeout(500);
+
+    await page.getByRole('button', { name: '사각형' }).click();
+    await expect
+      .poll(() => page.evaluate(() => (window as any).editor?.selection?.nodeIds?.[0] ?? null))
+      .not.toBeNull();
+    const sid = await page.evaluate(() => (window as any).editor.selection.nodeIds[0] as string);
+
+    await page.locator('.sl-properties').getByLabel('X 문서 변수').selectOption('왼쪽');
+    await page.waitForTimeout(700);
+
+    const placed = () =>
+      page.evaluate((one) => {
+        const store = (window as any).editor.dataStore;
+        const element = document.querySelector(`.sl-stage [data-bc-sid="${CSS.escape(one)}"]`) as HTMLElement;
+        return { x: store.getNode(one)?.attributes?.x, left: element?.style.left };
+      }, sid);
+
+    const before = await placed();
+    expect(before.x).toBe(1200);
+
+    // Drag it, and watch the *preview* as well as what lands: a shape that followed the pointer and
+    // jumped back would have told the reader it moved and then taken it away.
+    const box = await page.locator(`.sl-stage [data-bc-sid="${sid}"]`).boundingBox();
+    if (box) {
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(box.x + box.width / 2 + 120, box.y + box.height / 2 + 60, { steps: 8 });
+      const mid = await page.evaluate((one) => {
+        const element = document.querySelector(`.sl-stage [data-bc-sid="${CSS.escape(one)}"]`) as HTMLElement;
+        return element?.style.left;
+      }, sid);
+      await page.mouse.up();
+      await page.waitForTimeout(500);
+      // It never moved under the pointer.
+      expect(mid).toBe(before.left);
+    }
+
+    const after = await placed();
+    expect(after.x).toBe(1200);
+
+    // And the panel says why the two fields are greyed, rather than leaving a reader to discover it.
+    await expect(page.locator('.sl-properties').getByLabel('X', { exact: true })).toBeDisabled();
+    await expect(page.locator('.sl-properties')).toContainText('자리를 문서 변수가 정합니다');
+
+    // Its size is still the reader's: one binding takes one gesture away.
+    await expect(page.locator('.sl-properties').getByLabel('너비', { exact: true })).toBeEnabled();
+
+    // And changing the variable moves it — which is the point of having done any of this.
+    await value.fill('3600');
+    await value.press('Enter');
+    await expect.poll(async () => (await placed()).x).toBe(3600);
   });
 
   test('are offered where a colour is chosen, so nobody types “var:”', async ({ page }) => {

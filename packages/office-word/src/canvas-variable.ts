@@ -299,10 +299,22 @@ export interface VarBind {
  * owns is a card that is always 3000 wide; a *position* a variable owns is a box that snaps back
  * when you drag it, and that wants its own measurement about what a drag on it should mean.
  */
-export const DRAWN_BY_WRITE = new Set(['width', 'height']);
+export const DRAWN_BY_WRITE = new Set(['x', 'y', 'width', 'height', 'rotation']);
 
-/** What a binding may not name at all — see `DRAWN_BY_WRITE` for the ones written instead. */
-export const UNBINDABLE = new Set(['x', 'y', 'rotation']);
+/**
+ * What a binding may not name at all — nothing, now.
+ *
+ * `x`, `y` and `rotation` were here, refused with the sentence *"a box that snaps back when you drag
+ * it is a worse thing to meet than a size you cannot type"* — and that sentence was about a
+ * behaviour, not about the value. Measured: a **locked** box already refuses the pointer outright
+ * (the hit test goes through it), so the product has a standard for "this cannot be moved"; a bound
+ * position needs a softer one, since the shape must still be selectable to be unbound. The drag is
+ * refused before it previews, so nothing snaps back and nothing is written.
+ *
+ * Kept as a name rather than deleted: the panel and the command both ask it, and an empty set says
+ * "we thought about which of these to refuse" where removing it would say nothing.
+ */
+export const UNBINDABLE = new Set<string>();
 
 /** The bindings a node declares, read defensively — a document is an author's. */
 export function varBindsOf(node: CanvasNode | undefined): VarBind[] {
@@ -423,7 +435,14 @@ export function boundGeometry(
     if (!found) continue;
 
     const asNumber = Number(found.value);
-    if (found.value.trim() === '' || !Number.isFinite(asNumber) || asNumber < 0) continue;
+    if (found.value.trim() === '' || !Number.isFinite(asNumber)) continue;
+    /*
+     * A **size** cannot be negative and a **place** can: a shape at -200 is one hanging off the left
+     * edge, which is an ordinary thing on a canvas, while a width of -200 is a shape turned inside
+     * out. `boxOf` normalises the second one for the drawing, and a variable that meant it would be a
+     * reader misled twice.
+     */
+    if ((bind.attr === 'width' || bind.attr === 'height') && asNumber < 0) continue;
     if (attrs[bind.attr] === asNumber) continue;
     differs[bind.attr] = asNumber;
   }
@@ -431,9 +450,32 @@ export function boundGeometry(
   return Object.keys(differs).length > 0 ? differs : undefined;
 }
 
-/** Whether this shape's size is a variable's answer rather than the reader's. */
+/**
+ * Whether this shape's **size** is a variable's answer rather than the reader's.
+ *
+ * What the overlay asks before offering resize handles and the panel before letting a width be
+ * typed: a number written there is put back by the next pass, and a field that changes nothing is
+ * what this product refuses visibly.
+ */
 export function sizeIsBound(node: CanvasNode | undefined): boolean {
-  return varBindsOf(node).some((bind) => DRAWN_BY_WRITE.has(bind.attr));
+  return varBindsOf(node).some((bind) => bind.attr === 'width' || bind.attr === 'height');
+}
+
+/**
+ * Whether this shape's **place** is a variable's answer — asked before a drag may move it.
+ *
+ * The same refusal one axis along, and the reason it can be allowed at all: the drag is refused
+ * *before* it previews, so the shape does not follow the pointer and snap back. A reader can still
+ * select it — which they must, to take the binding off — and the panel says why the two fields are
+ * greyed.
+ */
+export function placeIsBound(node: CanvasNode | undefined): boolean {
+  return varBindsOf(node).some((bind) => bind.attr === 'x' || bind.attr === 'y');
+}
+
+/** Whether this shape's turn is a variable's answer, which takes the rotate handle away. */
+export function turnIsBound(node: CanvasNode | undefined): boolean {
+  return varBindsOf(node).some((bind) => bind.attr === 'rotation');
 }
 
 /**

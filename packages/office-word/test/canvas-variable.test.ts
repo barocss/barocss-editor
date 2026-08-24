@@ -3,6 +3,8 @@ import {
   boundAttrs,
   boundGeometry,
   importVariablePlan,
+  placeIsBound,
+  turnIsBound,
   variableBehindSource,
   variableSourceOf,
   boundText,
@@ -331,7 +333,7 @@ describe('a shape bound to a variable', () => {
     expect(boundAttrs(shaped([]), shaped([]).getNode('box'))).toBeUndefined();
   });
 
-  it('draws no geometry: a size is written, and a position is refused', () => {
+  it('draws no geometry at all: every bit of it is written instead', () => {
     const access = shaped([
       { attr: 'width', var: '둥글기' },
       { attr: 'x', var: '둥글기' },
@@ -340,16 +342,52 @@ describe('a shape bound to a variable', () => {
     /*
      * Counted rather than argued: the geometry is read by `boxOf` in 31 places across 14 files — the
      * outline, the handles, the guides, the snapping, alignment, group bounds, the audit's "off the
-     * edge" check — so a size that was only *drawn* would be answered differently by every one of
-     * them. So the drawing resolves none of it.
+     * edge" check — so geometry that was only *drawn* would be answered differently by every one of
+     * them. So the drawing resolves none of it, and the pass that settles derived geometry writes it.
      */
     expect(boundAttrs(access, access.getNode('box'))).toBeUndefined();
+    expect(boundGeometry(access, access.getNode('box'))).toEqual({
+      width: 240,
+      x: 240,
+      rotation: 240
+    });
 
-    // A **size** is settled by a write instead, in the pass that already settles derived geometry.
-    expect(boundGeometry(access, access.getNode('box'))).toEqual({ width: 240 });
-    // A position and a rotation are refused outright: not because the mechanism could not carry
-    // them, but because of what a reader would meet — a box that snaps back when you drag it.
-    expect([...UNBINDABLE].sort()).toEqual(['rotation', 'x', 'y']);
+    /*
+     * And nothing is refused outright any more. `x`, `y` and `rotation` were, with a sentence about
+     * behaviour rather than about the value — "a box that snaps back when you drag it" — and the
+     * behaviour is what changed: the drag is refused *before* it previews, so nothing snaps back.
+     */
+    expect([...UNBINDABLE]).toEqual([]);
+  });
+
+  it('lets a place be negative and refuses a negative size', () => {
+    // A shape at -200 hangs off the left edge, which is ordinary on a canvas. A width of -200 is a
+    // shape turned inside out — `boxOf` normalises that for the drawing, so a variable meaning it
+    // would mislead a reader twice.
+    const access = shaped([{ attr: 'x', var: '둥글기' }, { attr: 'width', var: '보이기' }]);
+    (access.getNode('round') as never as { attributes: Record<string, unknown> }).attributes = {
+      name: '둥글기',
+      kind: 'number',
+      value: '-200'
+    };
+    (access.getNode('on') as never as { attributes: Record<string, unknown> }).attributes = {
+      name: '보이기',
+      kind: 'number',
+      value: '-200'
+    };
+    expect(boundGeometry(access, access.getNode('box'))).toEqual({ x: -200 });
+  });
+
+  it('says which parts of a box a variable owns, one question per gesture', () => {
+    /*
+     * Three questions because they are three gestures, each refused in its own place: the resize
+     * handles and the size fields, the move drag, and the rotate handle.
+     */
+    expect(sizeIsBound(shaped([{ attr: 'width', var: '둥글기' }]).getNode('box'))).toBe(true);
+    expect(placeIsBound(shaped([{ attr: 'width', var: '둥글기' }]).getNode('box'))).toBe(false);
+    expect(placeIsBound(shaped([{ attr: 'y', var: '둥글기' }]).getNode('box'))).toBe(true);
+    expect(turnIsBound(shaped([{ attr: 'rotation', var: '둥글기' }]).getNode('box'))).toBe(true);
+    expect(turnIsBound(shaped([{ attr: 'x', var: '둥글기' }]).getNode('box'))).toBe(false);
   });
 
   it('answers only what differs, so the pass that writes it cannot feed itself', () => {

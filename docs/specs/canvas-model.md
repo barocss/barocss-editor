@@ -1877,9 +1877,18 @@ Three consequences, each measured:
   nothing. So `setBoxGeometry` refuses `width`/`height` on a bound shape, the panel greys the two
   fields and says why, and the overlay draws no resize handles — the same visible refusal a
   placement's size gets (§10b-12).
-- **A position and a rotation are still refused outright** (`UNBINDABLE`), and not because the
-  mechanism could not carry them: a box that snaps back when you drag it is a worse thing to meet
-  than a size you cannot type, and what a drag on one should *mean* wants its own measurement.
+- **A position and a rotation are bound the same way**, and getting there was a lesson about what a
+  refusal is *for*. They were refused with a sentence about **behaviour** — "a box that snaps back
+  when you drag it is a worse thing to meet than a size you cannot type" — and a behaviour can be
+  fixed. Measured: a **locked** box is already refused one step earlier (the hit test goes straight
+  through it), which is right for "I have decided where this goes" and wrong here, since a reader
+  must be able to select a shape to take its binding off. So the drag is left out **before it
+  previews**: the shape does not follow the pointer at all, nothing jumps back, and the panel says
+  which fields are greyed and why. The rotate grip goes the same way.
+
+  What is refused now is only identity and reference — a durable name, a role, a link, a lock. A
+  variable driving one of those would be a document naming things by a value that can change under
+  it, which is what every durable id here exists to prevent.
 
 ##### A binding that points at nothing keeps the shape's own value
 

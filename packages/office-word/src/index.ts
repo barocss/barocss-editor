@@ -443,6 +443,8 @@ export {
    */
   boundGeometry,
   sizeIsBound,
+  placeIsBound,
+  turnIsBound,
   UNBINDABLE,
   DRAWN_BY_WRITE,
   type VarBind,

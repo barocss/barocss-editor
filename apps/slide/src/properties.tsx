@@ -57,6 +57,7 @@ import {
   componentsOf,
   instanceVars,
   documentVars,
+  placeIsBound,
   sizeIsBound,
   varBindsOf,
   varRef,
@@ -372,6 +373,19 @@ export function Properties({
     const store = (editor as any)?.dataStore;
     if (!store) return false;
     return targets.some((sid) => sizeIsBound(store.getNode(sid)));
+  }, [editor, targets, tick]);
+
+  /**
+   * And whether a variable owns **where** it is, or which way it faces.
+   *
+   * Three questions rather than one because they are three gestures, each refused in its own place:
+   * the resize handles, the move drag, the rotate grip. A reader who bound only the width can still
+   * drag the shape.
+   */
+  const placedByVar = useMemo(() => {
+    const store = (editor as any)?.dataStore;
+    if (!store) return false;
+    return targets.some((sid) => placeIsBound(store.getNode(sid)));
   }, [editor, targets, tick]);
 
   const placed = useMemo(() => {
@@ -817,6 +831,13 @@ export function Properties({
             {sizedByVar && !placed && (
               <PropertyEmpty>크기를 문서 변수가 정합니다. 변수를 바꾸면 여기도 바뀝니다.</PropertyEmpty>
             )}
+            {/*
+              * And the place, said the same way — the drag is refused before it starts, so the shape
+              * does not follow the pointer and jump back.
+              */}
+            {placedByVar && (
+              <PropertyEmpty>자리를 문서 변수가 정합니다. 끌어서 옮길 수 없습니다.</PropertyEmpty>
+            )}
             <PropertyRow label="위치">
               {/*
                 * Greyed inside a frame that arranges, because the frame owns the
@@ -829,7 +850,7 @@ export function Properties({
                 value={number('x')}
                 suffix="X"
                 step={stepFor(unit)}
-                disabled={locked || arranged}
+                disabled={locked || arranged || placedByVar}
                 onCommit={(value) => setGeometry('x', value)}
               />
               <PropertyNumber
@@ -837,7 +858,7 @@ export function Properties({
                 value={number('y')}
                 suffix="Y"
                 step={stepFor(unit)}
-                disabled={locked || arranged}
+                disabled={locked || arranged || placedByVar}
                 onCommit={(value) => setGeometry('y', value)}
               />
             </PropertyRow>
@@ -2402,6 +2423,14 @@ function PartGroup({
 const BINDABLE_ROWS = [
   'text',
   /*
+   * Where it is and which way it faces. Refused at first with a sentence about *behaviour* — "a box
+   * that snaps back when you drag it" — and allowed once the behaviour was fixed: the drag is refused
+   * before it previews, the rotate grip goes, and the panel says why (§10h-2).
+   */
+  'x',
+  'y',
+  'rotation',
+  /*
    * A **size**, which is geometry and reaches the shape by a different road: the pass that settles
    * derived geometry writes it into the document, because the geometry is read by `boxOf` in 31
    * places and a size that was only *drawn* would be answered differently by every one of them
@@ -2430,8 +2459,15 @@ const BINDABLE_ROWS = [
  * variable can drive.
  */
 const OFF_LIMITS = new Set([
-  'x',
-  'y',
+  /*
+   * What is left here is **identity and reference**: a durable name, a role, a link, a lock. A
+   * variable driving one of those would be a document naming things by a value that can change under
+   * it, which is the one thing every durable id in this model exists to prevent.
+   *
+   * `x` and `y` were here, for a reason that has since been answered: a place is written into the
+   * document by the pass that settles derived geometry, and the gestures it takes away are refused
+   * before they happen (§10h-2).
+   */
   'partId',
   'slot',
   'name',
@@ -2450,6 +2486,9 @@ const BOOLEAN_ATTRS = new Set(['visible', 'clipsContent', 'layoutStretch', 'flip
 /** The reader's word for an attribute, where the schema's name is not one. */
 const LABELS: Record<string, string> = {
   text: '글자',
+  // The two the position row shows as suffixes; a binding row needs a word for each.
+  x: 'X',
+  y: 'Y',
   fill: '색',
   stroke: '선 색',
   strokeWidth: '선 굵기',

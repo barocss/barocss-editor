@@ -751,10 +751,14 @@ shipped features marked undone.
   labels **exactly**: two controls about 간격 in one panel is ordinary, and a substring match is the
   loose half.
 
-  And one refusal, measured: geometry (`x`, `y`, `width`, `height`, `rotation`) cannot be bound,
-  because a bound size would be drawn where the resolution says and answered where the document says
-  — and the overlay, the guides, the snapping and every command read the answer. `UNBINDABLE` is in
-  the model so the panel and the command cannot disagree.
+  And one refusal that has since been lifted: `x`, `y` and `rotation` were refused with a sentence
+  about **behaviour** — "a box that snaps back when you drag it is a worse thing to meet than a size
+  you cannot type" — and a behaviour can be fixed. Measured: a **locked** box is refused one step
+  earlier still (the hit test goes through it), which is right for "I have decided where this goes"
+  and wrong here, since a reader must be able to select a shape to unbind it. So the move drag is left
+  out **before it previews** — the shape never follows the pointer — and the rotate grip goes with it.
+  What `UNBINDABLE` holds now is nothing; what `OFF_LIMITS` holds is identity and reference, where a
+  variable would mean a document naming things by a value that can change under it.
 
 - [x] **A shape's *size* follows a variable now, and the count decided how.** The places that read
   geometry were counted first, as this entry asked: `boxOf` in **31 call sites across 14 files**, plus

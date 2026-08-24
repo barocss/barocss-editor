@@ -46,7 +46,9 @@ import {
   isSceneType,
   isContainerType,
   instanceResizable,
+  placeIsBound,
   sizeIsBound,
+  turnIsBound,
   laysOut,
   layoutModeOf,
   reorderIndexAt,
@@ -636,6 +638,13 @@ export function SelectionOverlay({
     const ids = selectedNodeIds((editor as any)?.selection);
     if (ids.length === 0 || !doc) return false;
     return ids.some((sid) => sizeIsBound(doc.getNode(sid) as never));
+  }, [editor, doc, tick]);
+
+  /** And the turn, which takes the rotate grip away for the same reason. */
+  const turnedByVar = useMemo(() => {
+    const ids = selectedNodeIds((editor as any)?.selection);
+    if (ids.length === 0 || !doc) return false;
+    return ids.some((sid) => turnIsBound(doc.getNode(sid) as never));
   }, [editor, doc, tick]);
 
   const size = useMemo(
@@ -1378,9 +1387,23 @@ export function SelectionOverlay({
     select(next);
     setEditing(undefined);
 
-    // A press on a selected box starts a move; the drag only becomes an edit if
-    // the pointer actually travels.
-    const dragging = boxes.filter((entry) => next.includes(entry.sid));
+    /**
+     * A press on a selected box starts a move; the drag only becomes an edit if the pointer actually
+     * travels.
+     *
+     * **Unless a variable owns where it is** (§10h-2). Left out of the drag rather than refused at
+     * the end of it, and that is the whole difference between this and a fault: a box that follows
+     * the pointer and jumps back has told the reader it moved and then lied. It stays *selectable* —
+     * which it must be, or there would be no way to take the binding off — and the panel says why
+     * its two fields are greyed.
+     *
+     * A **locked** box is refused harder, one step earlier: the hit test goes straight through it.
+     * That is right for "I have decided where this goes" and wrong here, where the reader has to be
+     * able to reach the shape to change their mind.
+     */
+    const dragging = boxes.filter(
+      (entry) => next.includes(entry.sid) && !placeIsBound(doc?.getNode(entry.sid) as never)
+    );
     setDrag({
       handle: 'move',
       from: point,
@@ -3221,8 +3244,11 @@ export function SelectionOverlay({
               />
             ))}
 
-          {/* One box turns; a set of them has no single centre to turn about. */}
-          {selected.length === 1 && (
+          {/*
+            * One box turns; a set of them has no single centre to turn about — and none turns while a
+            * **variable** owns the angle, for the reason the resize handles go (§10h-2).
+            */}
+          {selected.length === 1 && !turnedByVar && (
             <span
               data-handle="rotate"
               className="sl-handle sl-handle-rotate"
