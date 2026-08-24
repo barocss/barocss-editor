@@ -52,6 +52,7 @@ import {
   withGuide,
   namedBoxes,
   slideTimeline,
+  cardSteps,
   stepMoment,
   triggersOn,
   stepsAtPress,
@@ -494,7 +495,12 @@ export function App({
      * gets to it — and reading only the builds meant the presenter's key skipped
      * straight past a row the timeline pane was drawing. One list, one count.
      */
-    const steps = slideTimeline(doc as never, current);
+    /*
+     * And what the slide's **cards** animate, which is not in the slide's own track: a card's motion
+     * belongs to the card and plays in every placement of it, on arrival, costing no presses (§10l).
+     * Concatenated here because this is already the one place that crosses from names to sids.
+     */
+    const steps = [...slideTimeline(doc as never, current), ...cardSteps(doc as never, current)];
     return { steps, presses: pressCount(steps) };
   }, [editor, current, revision]);
 

@@ -10,6 +10,7 @@ import { KNOWN_EFFECT_IDS, NOT_ADDITIVE, categoryOf, propertiesOf } from './moti
 /** Naming lives with the kinds table — see `layers.ts`. */
 import { labelOfBox } from './layers';
 import { isSceneType } from './selection';
+import { componentOf } from '@barocss/office-word';
 import { DEFAULT_STAGGER, TEXT_UNITS, unitCount, unitSpan, type TextUnit } from './text-units';
 import { FACINGS, pathPointsOf, type Facing, type PathPoint } from './motion-path';
 import { trimOf, trimmedLength, type MediaTrim } from './media-trim';
@@ -961,4 +962,75 @@ export function delayForStart(steps: TimedStep[], sid: string, startAt: number):
         : 0;
 
   return Math.max(0, Math.round(startAt - base));
+}
+
+/**
+ * What the **cards on a slide** animate, as steps the slide's own player can run.
+ *
+ * ## Why a card's motion is not the slide's presses
+ *
+ * A card's track belongs to the card, so it plays in *every* placement of it — and a slide with
+ * three of one card would otherwise cost three times the presses for one decision. So these steps
+ * arrive in **group 0**, the arrival: they run when the slide comes up, they add no presses
+ * (`pressCount` takes the highest group), and each placement animates on its own targets at the
+ * same moment.
+ *
+ * That is also what makes it a *card* animating rather than a slide animating something: the reader
+ * arranged it inside the definition, once, and every placement plays it.
+ *
+ * ## What is remapped, and why it has to be
+ *
+ * A step names its target by the `name` its shape carries, and `slideTimeline` has already resolved
+ * that to a sid **inside the definition** — a node the slide does not have. What the slide has is the
+ * drawn part, whose sid is `<placement>~<part>` (§10b-2a), so both the sid and the name are prefixed
+ * with the placement. The name as well, because `hiddenUntilPlayed` works in names: shared names
+ * would hide two placements' parts as one.
+ *
+ * ## What is left out, deliberately
+ *
+ * A step **waiting for a click** on a shape (`on`). A click inside a placement resolves to the
+ * placement — that is what makes a card one thing to select — so which drawn part was pressed is a
+ * question the product cannot answer yet, and half-supporting it would mean a trigger that never
+ * fires. Written down in `docs/BACKLOG.md` rather than guessed at.
+ */
+export function cardSteps(doc: DeckAccess, surfaceSid: string): TimelineStep[] {
+  const found: TimelineStep[] = [];
+
+  const walk = (sid: string, depth: number) => {
+    if (depth > 16) return;
+    const node = doc.getNode(sid);
+    if (!node) return;
+
+    if (node.stype === 'instance') {
+      const definition = componentOf(doc as never, node as never);
+      // A placement of a card with no track of its own: nothing to add, and nothing to walk into —
+      // what is inside it is the definition's, resolved at draw time.
+      if (definition) found.push(...stepsFor(doc, sid, definition.sid));
+      return;
+    }
+
+    for (const child of childrenOf(node)) walk(child, depth + 1);
+  };
+
+  for (const child of childrenOf(doc.getNode(surfaceSid))) walk(child, 0);
+  return found;
+}
+
+/** One placement's copy of its card's steps. */
+function stepsFor(doc: DeckAccess, placement: string, definition: string): TimelineStep[] {
+  const own = slideTimeline(doc, definition).filter((step) => !step.on);
+
+  return own.map((step, at) => ({
+    ...step,
+    /**
+     * The arrival, not a press. And the **first** step of each placement's block starts at zero
+     * rather than after whatever the last placement did: `withTiming` chains within a group in list
+     * order, so a second card's `afterPrevious` would otherwise wait for the first card to finish —
+     * three cards would fade in one after another instead of together.
+     */
+    group: 0,
+    startsWith: at === 0 ? 'onClick' : step.startsWith,
+    target: `${placement}~${step.target}`,
+    targetSid: step.targetSid ? `${placement}~${step.targetSid}` : undefined
+  }));
 }

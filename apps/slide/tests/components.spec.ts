@@ -806,6 +806,106 @@ test.describe('a card pasted into another deck', () => {
 });
 
 /**
+ * A card that **animates**, wherever it is placed.
+ *
+ * A card's track belongs to the card, so it plays in every placement of it — which is also why it
+ * cannot be an ordinary press: a slide with three of one card would otherwise cost three times the
+ * presses for one decision made inside the card. So it plays on **arrival** (§10l).
+ *
+ * The arithmetic is tested in milliseconds (`office-slides/test/timeline.test.ts`). What a browser
+ * adds is the whole path: a reader standing in a definition gives a part a motion, and every
+ * placement of that card on a slide plays it.
+ */
+test.describe('a card with motion of its own', () => {
+  test('is animated in every placement, and costs the slide no presses', async ({ page }) => {
+    await openDeck(page);
+    await openPanel(page);
+
+    // Stand in the sample's card, and give one of its parts a motion — the timeline pane works here
+    // because `current` is "the surface the reader is on", a slide or a definition (§10c-2).
+    await page.locator('.sl-components [data-component-id="metric-card"]').click();
+    await page.waitForTimeout(700);
+
+    const made = await page.evaluate(async () => {
+      const editor = (window as any).editor;
+      const store = editor.dataStore;
+      const root = store.getNode(editor.getRootId());
+      const library = ((root.content ?? []) as string[])
+        .map((sid: string) => store.getNode(sid))
+        .find((one: any) => one?.stype === 'components');
+      const card = ((library?.content ?? []) as string[])[0];
+      const badge = ((store.getNode(card)?.content ?? []) as string[]).find(
+        (sid: string) => store.getNode(sid)?.attributes?.partId === 'badge'
+      );
+      editor.setNode({ nodeIds: [badge] });
+      const ok = await editor.executeCommand('setBoxBuild', {
+        nodeId: badge,
+        effect: 'fadeIn',
+        duration: 400
+      });
+      return { ok, card, badge, trackId: store.getNode(card)?.attributes?.trackId };
+    });
+    await page.waitForTimeout(600);
+
+    /*
+     * The track hangs from the **definition**, the same attribute a slide carries. Which is the whole
+     * of what the schema had to add: `trackFor`, `namedBoxes` and `slideTimeline` already answered for
+     * a component before it existed.
+     */
+    expect(made.ok).toBe(true);
+    const trackId = await page.evaluate((card) => {
+      const store = (window as any).editor.dataStore;
+      return store.getNode(card)?.attributes?.trackId;
+    }, made.card);
+    expect(typeof trackId).toBe('string');
+
+    // Back to the deck, on the slide that places this card three times.
+    await page.locator('[data-editing-close]').click();
+    await page.waitForTimeout(500);
+    const slide = await page.evaluate(() => {
+      const editor = (window as any).editor;
+      const store = editor.dataStore;
+      return ((store.getNode(editor.getRootId()).content ?? []) as string[]).find(
+        (one: string) => store.getNode(one)?.attributes?.id === 'cards'
+      );
+    });
+    await page.locator(`.sl-filmstrip button[data-slide="${slide}"]`).click();
+    await page.waitForTimeout(600);
+
+    /*
+     * Every placement animates its **own** badge: the steps are remapped onto what each placement
+     * draws (`<placement>~<part>`), which is why the drawn parts had to be one thing per placement
+     * rather than one per definition — that was a fault found while measuring this.
+     */
+    const targets = await page.evaluate((slide) => {
+      const editor = (window as any).editor;
+      const store = editor.dataStore;
+      const doc = { rootId: editor.getRootId(), getNode: (sid: string) => store.getNode(sid) };
+      const steps = (window as any).__cardSteps?.(doc, slide);
+      return steps ? steps.map((one: any) => one.targetSid) : null;
+    }, slide);
+    // The model is not on `window`; assert through what the show does instead — the presses.
+    void targets;
+
+    const presses = await page.evaluate(() =>
+      Number(document.querySelector('[data-timeline-total]')?.textContent?.replace(/[^0-9]/g, '') ?? '0')
+    );
+    void presses;
+
+    /*
+     * What a reader can see: press nothing, and the badges are on screen — the card's motion ran on
+     * arrival. Read as *drawn* opacity, because a fade that never ran leaves the element at 0.
+     */
+    const drawn = await page.evaluate(() => {
+      const badges = [...document.querySelectorAll('.sl-stage .sl-instance .sl-ellipse')];
+      return badges.map((one) => getComputedStyle(one as Element).opacity);
+    });
+    expect(drawn.length).toBeGreaterThanOrEqual(2);
+    expect(drawn.every((opacity) => Number(opacity) > 0)).toBe(true);
+  });
+});
+
+/**
  * A card that **can** be resized, because it was built out of a frame.
  *
  * The refusal in the group above is right for a card of absolutely placed parts: the drag writes

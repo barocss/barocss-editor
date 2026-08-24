@@ -1980,6 +1980,48 @@ before its first card could not then have a card at all, because the library was
 after `variables`. So `documentChildSpot` answers where a container goes, from the same list the
 content model is written in, and both commands ask it.
 
+### 10l. A card that animates
+
+The feature §10k left open, and the measurement made it small: given a `component` carrying a
+`trackId`, `trackFor`, `namedBoxes` and `slideTimeline` **already answered correctly**. Time lives
+beside the document (§4) and a track is named rather than nested, so nothing about the timeline model
+knew or cared that it was reading a slide. What was missing was one schema attribute and one reader.
+
+- **Where the track hangs**: `trackId` on `component`, the same attribute a surface carries. A card is
+  the other thing a reader opens and puts shapes in.
+- **What the slide plays**: `cardSteps(doc, slideSid)` — for every placement on the slide, its card's
+  own steps with both the target's **name** and its **sid** prefixed by that placement
+  (`<placement>~<part>`). The name as well as the sid, because `hiddenUntilPlayed` works in names and
+  two placements sharing one would hide as a single thing.
+
+#### The press question, answered by what it would cost
+
+A card's steps arrive in **group 0** — the arrival — so they run when the slide comes up and add no
+presses (`pressCount` takes the highest group). Because the alternative prices it absurdly: a slide
+with three of one card would cost three times the presses for one decision made inside the card, and
+the reader who made that decision made it once.
+
+It is also what "a card animates" should mean: the motion belongs to the card, so it plays wherever
+the card is, on its own targets, at the same moment.
+
+One thing had to be got right for that: `withTiming` chains within a group in list order, so the
+second placement's `afterPrevious` would have waited for the first placement to *finish* — three
+cards fading in one after another. The first step of each placement's block starts its chain again.
+
+#### What is left out, and why it is not half-done
+
+A step **waiting for a click** on a shape. A click inside a placement resolves to the placement —
+that is what makes a card one thing to select — so which drawn part was pressed is a question this
+product cannot answer yet, and a trigger that never fires is worse than one that is not offered.
+`cardSteps` drops those, and `docs/BACKLOG.md` holds the question.
+
+#### The fault this found on the way
+
+Motion addresses a shape by its sid in the DOM, and a drawn part's sid was made of the **definition's**
+id — so three placements of one card each drew `metric-card~slides:138`. Three elements claiming one
+identity, `querySelector` answering the first for all three, and per-placement motion impossible. The
+prefix is the placement's own sid now (§10b-2a).
+
 ### 10k. What motion may name, and what a card's parts cannot be
 
 A step names its target by the `name` the shape carries, and one map — `namedBoxes` — is what every

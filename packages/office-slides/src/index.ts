@@ -399,6 +399,11 @@ export {
   withTiming,
   reorderSteps,
   slideTimeline,
+  /**
+   * What the **cards on a slide** animate: their own tracks, remapped to what each placement draws
+   * and landed in the arrival so they cost no presses (§10l).
+   */
+  cardSteps,
   shiftedDelays,
   snapPoints,
   snapTo,
@@ -559,6 +564,13 @@ export {
   type BuildEffect,
   type BuildStart,
   trackFor,
+  /**
+   * What a box's motion hangs from: the nearest surface, **or the nearest card** (§10l).
+   *
+   * `slideAt` is right for everything about a slide and wrong for one thing — a card's part has a
+   * `component` above it and no surface at all, so every motion command refused it.
+   */
+  trackHostAt,
   transitionFrom,
   transitionOf,
   transitionStepOf,

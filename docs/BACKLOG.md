@@ -106,12 +106,28 @@ sees). Measured, one walk at a time:
      *is* offered, because animating a card as a whole is ordinary, and so is anything the reader put
      in its slot.
 
-   - [ ] **A card's own motion** — a track on the definition, played inside every placement of it — is
-     the feature that would let a badge fade in. Two questions to measure first: where the track
-     hangs (a `component` is not a surface and has no `trackId`), and what a placement's *own* step
-     means when the card also animates (two clocks, or one nested inside the other). A definition
-     already has an editing surface, so the timeline panel would work there unchanged; what does not
-     exist is playing a nested track.
+   - [x] **A card's own motion** (§10l), and the measurement made it small: given a `component`
+     carrying a `trackId`, `trackFor`, `namedBoxes` and `slideTimeline` **already answered** — time
+     lives beside the document, so nothing in the timeline model knew it was reading a slide. One
+     schema attribute (`component.trackId`) and one reader (`cardSteps`) were the whole feature.
+
+     Both questions answered by what the alternative would cost: the track hangs from the card, and a
+     card's steps land in the **arrival group** so they add no presses — a slide with three of one card
+     would otherwise cost three times the presses for one decision made inside the card. `withTiming`
+     needed one correction for it: the first step of each placement's block restarts the chain, or the
+     second card's `afterPrevious` waits for the first card to finish.
+
+     Found on the way, and fixed first: motion addresses a shape by its sid, and a drawn part's sid was
+     made of the *definition's* id — three placements of one card drew three elements claiming one
+     identity. And the motion commands all refused a card's part, because `slideAt` walks to the
+     nearest `surface` and a part has a `component` above it; `trackHostAt` is that walk, kept separate
+     from `slideAt` rather than widening it, because the clipboard, the arrangement and the layout
+     cascade all mean the surface when they say slide.
+
+   - [ ] **A trigger inside a card** — a step waiting for a click on one of its parts. A click inside a
+     placement resolves to the placement, which is what makes a card one thing to select, so which
+     drawn part was pressed is a question the product cannot answer yet. `cardSteps` drops those rather
+     than offering a trigger that never fires.
 3. - [x] **Copy of a placement carries the card now.** Measured first, and it was the worst shape a
      fault takes: pasting a placement into a deck without its definition **succeeded**, drew an
      invisible empty box, and no check anywhere mentioned it. The clipboard payload carries what the

@@ -13,7 +13,7 @@ import {
   type DeckNode
 } from './deck';
 import { boxOf, slideSize } from './geometry';
-import { isSceneType, slideAt, toSurface } from './selection';
+import { isSceneType, toSurface } from './selection';
 import { THEME_COLOUR_SLOTS, themeFor } from './theme';
 import { reorderSteps, shiftedDelays, slideTimeline, withTiming } from './timeline';
 import { DIRECTIONS, KNOWN_EFFECT_IDS, easingCss, effectDefinition } from './motion-effects';
@@ -29,6 +29,7 @@ import {
   DEFAULT_TRANSITION_MS,
   TRANSITIONS,
   trackFor,
+  trackHostAt,
   transitionStepOf
 } from './motion';
 import { SLIDE_16_9 } from './geometry';
@@ -1326,7 +1327,7 @@ export class SlidesExtension implements Extension {
     const node = doc.getNode(nodeId);
     if (!node || !isSceneType(node.stype)) return false;
 
-    const slide = slideAt(doc, nodeId);
+    const slide = trackHostAt(doc, nodeId);
     if (!slide) return false;
 
     const existing = typeof node.attributes?.name === 'string' ? node.attributes.name : '';
@@ -1409,7 +1410,7 @@ export class SlidesExtension implements Extension {
     const effect = typeof payload?.effect === 'string' ? payload.effect : undefined;
     if (!path && !(effect && KNOWN_EFFECT_IDS.includes(effect))) return false;
 
-    const slide = slideAt(doc, nodeIds[0]);
+    const slide = trackHostAt(doc, nodeIds[0]);
     if (!slide) return false;
 
     /**
@@ -1434,7 +1435,7 @@ export class SlidesExtension implements Extension {
       if (!node || !isSceneType(node.stype)) return;
       // Every shape on the same slide: a step lives in *a* slide's track, and
       // shapes from two slides would need two.
-      if (slideAt(doc, nodeId) !== slide) return;
+      if (trackHostAt(doc, nodeId) !== slide) return;
 
       const existing = typeof node.attributes?.name === 'string' ? node.attributes.name : '';
       let name = existing;
@@ -1548,7 +1549,7 @@ export class SlidesExtension implements Extension {
     const node = doc.getNode(nodeId);
     if (!node || !isSceneType(node.stype)) return false;
 
-    const slide = slideAt(doc, nodeId);
+    const slide = trackHostAt(doc, nodeId);
     if (!slide) return false;
 
     const existing = typeof node.attributes?.name === 'string' ? node.attributes.name : '';
@@ -2005,7 +2006,7 @@ export class SlidesExtension implements Extension {
     const name = node?.attributes?.name;
     if (!doc || typeof name !== 'string' || !name) return [];
 
-    const slide = slideAt(doc, nodeId!);
+    const slide = trackHostAt(doc, nodeId);
     if (!slide) return [];
 
     return slideTimeline(doc, slide)
@@ -2031,7 +2032,7 @@ export class SlidesExtension implements Extension {
     const node = doc.getNode(nodeId);
     if (node?.stype !== 'mediaVideo' && node?.stype !== 'mediaAudio') return false;
 
-    const slide = slideAt(doc, nodeId);
+    const slide = trackHostAt(doc, nodeId);
     if (!slide) return false;
 
     const existing = this._playStepsFor(editor, nodeId);
@@ -2169,7 +2170,7 @@ export class SlidesExtension implements Extension {
     const name = node?.attributes?.name;
     if (!doc || typeof name !== 'string' || !name) return [];
 
-    const slide = slideAt(doc, nodeId!);
+    const slide = trackHostAt(doc, nodeId);
     if (!slide) return [];
 
     return slideTimeline(doc, slide)
@@ -2255,7 +2256,7 @@ export class SlidesExtension implements Extension {
     const node = doc.getNode(nodeId);
     if (!node || !isSceneType(node.stype)) return false;
 
-    const slide = slideAt(doc, nodeId);
+    const slide = trackHostAt(doc, nodeId);
     if (!slide) return false;
 
     if (effect === 'none') {

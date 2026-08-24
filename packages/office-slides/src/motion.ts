@@ -82,6 +82,31 @@ function* resourcesOf(doc: DeckAccess): Generator<{ sid: string; node: DeckNode 
  * slide carries an id it was written with, and the resource carries the matching
  * one, so neither has to know a sid.
  */
+/**
+ * What a box's motion **hangs from**: the nearest surface, or the nearest **card**.
+ *
+ * `slideAt` walks up to the nearest `surface`, which is right for everything about a slide and wrong
+ * for one thing: a card's part has a `component` above it and no surface at all, so every motion
+ * command answered "not on a slide" and refused. Measured — a reader standing in a definition could
+ * pick a part, press 모션 추가, and watch the command report nothing.
+ *
+ * A card is the other thing a reader opens and puts shapes in, and now the other thing that can hold
+ * a track (§10l). So this is the walk those commands need, and it is *narrower* than widening
+ * `slideAt` itself: the clipboard's destination, the arrangement and the layout cascade all mean the
+ * surface when they say slide, and one of them quietly meaning "or a card" is how a shared helper
+ * becomes a bug.
+ */
+export function trackHostAt(doc: DeckAccess, sid: string | undefined): string | undefined {
+  let at = sid;
+  for (let depth = 0; at && depth < 64; depth += 1) {
+    const node = doc.getNode(at);
+    if (!node) return undefined;
+    if (node.stype === 'surface' || node.stype === 'component') return at;
+    at = (node as { parentId?: string }).parentId;
+  }
+  return undefined;
+}
+
 export function trackFor(doc: DeckAccess, surfaceSid: string): string | undefined {
   const trackId = attrString(doc.getNode(surfaceSid), 'trackId');
   if (!trackId) return undefined;

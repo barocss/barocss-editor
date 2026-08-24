@@ -17,6 +17,7 @@ import {
   withTiming,
   pressCount,
   reorderSteps,
+  cardSteps,
   namedBoxes,
   slideTimeline,
   snapPoints,
@@ -2296,5 +2297,143 @@ describe('the effects that were impossible', () => {
     const frames = framesFor('soften', { amount: 0 });
     expect(frames[0].borderRadius).toBe('12px');
     expect(frames[1].borderRadius).toBe('0px');
+  });
+});
+
+/**
+ * What the **cards on a slide** animate.
+ *
+ * A card's track belongs to the card, so it plays in every placement of it — which is the whole
+ * feature, and also the reason it cannot be an ordinary press: a slide with three of one card would
+ * cost three times the presses for one decision. So these steps arrive in the **arrival group**.
+ *
+ * Measured before any of it was written: given a `component` carrying a `trackId`, `trackFor`,
+ * `namedBoxes` and `slideTimeline` already answered correctly, so what was missing was one schema
+ * attribute and one reader — not new machinery.
+ */
+describe('what a card animates, wherever it is placed', () => {
+  const access = (nodes: Record<string, Record<string, unknown>>): DeckAccess =>
+    ({ rootId: 'root', getNode: (sid: string) => nodes[sid] as never }) as DeckAccess;
+
+  const deck = (over: { second?: boolean } = {}) =>
+    access({
+      root: { sid: 'root', stype: 'document', content: ['slide', 'lib', 'res'] },
+      slide: {
+        sid: 'slide',
+        stype: 'surface',
+        attributes: { kind: 'slide' },
+        content: over.second ? ['one', 'two'] : ['one']
+      },
+      one: {
+        sid: 'one',
+        stype: 'instance',
+        attributes: { componentId: 'card' },
+        content: [],
+        parentId: 'slide'
+      },
+      two: {
+        sid: 'two',
+        stype: 'instance',
+        attributes: { componentId: 'card' },
+        content: [],
+        parentId: 'slide'
+      },
+
+      lib: { sid: 'lib', stype: 'components', attributes: {}, content: ['card'] },
+      card: {
+        sid: 'card',
+        stype: 'component',
+        attributes: { id: 'card', trackId: 'card-track' },
+        content: ['back', 'badge']
+      },
+      back: { sid: 'back', stype: 'rectangle', attributes: { partId: 'back', name: 'card-back' }, parentId: 'card' },
+      badge: { sid: 'badge', stype: 'ellipse', attributes: { partId: 'badge', name: 'card-badge' }, parentId: 'card' },
+
+      res: { sid: 'res', stype: 'resources', attributes: {}, content: ['track'] },
+      track: {
+        sid: 'track',
+        stype: 'motionTrack',
+        attributes: { id: 'card-track' },
+        content: ['s1', 's2', 's3'],
+        parentId: 'res'
+      },
+      s1: {
+        sid: 's1',
+        stype: 'motionStep',
+        attributes: { kind: 'build', target: 'card-back', effect: 'fadeIn', duration: 300 },
+        parentId: 'track'
+      },
+      s2: {
+        sid: 's2',
+        stype: 'motionStep',
+        attributes: {
+          kind: 'build',
+          target: 'card-badge',
+          effect: 'fadeIn',
+          duration: 200,
+          startsWith: 'afterPrevious'
+        },
+        parentId: 'track'
+      },
+      // A step waiting for a click, which a placement cannot answer: left out rather than half done.
+      s3: {
+        sid: 's3',
+        stype: 'motionStep',
+        attributes: { kind: 'build', target: 'card-badge', effect: 'fadeIn', on: 'card-back' },
+        parentId: 'track'
+      }
+    });
+
+  it('remaps every step onto what that placement draws', () => {
+    const steps = cardSteps(deck(), 'slide');
+    /*
+     * A step names its target by name and `slideTimeline` resolved it to a sid **inside the
+     * definition** — a node the slide does not have. What the slide has is the drawn part, so both the
+     * sid and the name carry the placement.
+     */
+    expect(steps.map((step) => [step.target, step.targetSid])).toEqual([
+      ['one~card-back', 'one~back'],
+      ['one~card-badge', 'one~badge']
+    ]);
+  });
+
+  it('costs the slide no presses at all', () => {
+    const steps = cardSteps(deck({ second: true }), 'slide');
+    // The arrival: `pressCount` takes the highest group, and a slide with three of one card must not
+    // cost three times the presses for one decision made inside the card.
+    expect(steps.every((step) => step.group === 0)).toBe(true);
+    expect(pressCount(steps)).toBe(0);
+    // And they are what press 0 runs, which is the moment the slide comes up.
+    expect(stepsAtPress(withTiming(steps), 0)).toHaveLength(steps.length);
+  });
+
+  it('plays in each placement at the same moment, not one after another', () => {
+    const timed = withTiming(cardSteps(deck({ second: true }), 'slide'));
+    const startOf = (sid: string) => timed.find((step) => step.targetSid === sid)?.startAt;
+
+    /*
+     * `withTiming` chains within a group in list order, so the second card's `afterPrevious` would
+     * have waited for the first card to finish — three cards fading in one after another instead of
+     * together. The first step of each placement's block starts the chain again.
+     */
+    expect(startOf('one~back')).toBe(0);
+    expect(startOf('two~back')).toBe(0);
+    // Inside one placement the chain is kept: the badge still waits for its own card's back.
+    expect(startOf('one~badge')).toBe(300);
+    expect(startOf('two~badge')).toBe(300);
+  });
+
+  it('leaves a click-triggered step out, because a click lands on the placement', () => {
+    // A card is one thing to select, so which drawn part was pressed is a question the product cannot
+    // answer yet — and a trigger that never fires is worse than one that is not offered.
+    expect(cardSteps(deck(), 'slide').some((step) => step.on)).toBe(false);
+  });
+
+  it('answers nothing for a card with no track of its own', () => {
+    const plain = deck();
+    (plain.getNode('card') as never as { attributes: Record<string, unknown> }).attributes = {
+      id: 'card'
+    };
+    expect(cardSteps(plain, 'slide')).toEqual([]);
   });
 });

@@ -82,6 +82,24 @@ export function getSlidesSchemaDefinition(): SchemaDefinition {
        * holding a single flow of blocks is what a Word document looks like, and
        * a deck imported from one should round-trip rather than be refused.
        */
+      /**
+       * A **card**, which may hold a track of its own.
+       *
+       * The same attribute a slide carries, on the one other thing a reader opens and puts shapes
+       * in: a definition. What it buys is *a card that animates* — its badge fading in wherever the
+       * card is placed — and nothing else about it is new, because `trackFor`, `namedBoxes` and
+       * `slideTimeline` all read whatever node they are handed. Measured before this attribute
+       * existed: given a `component` with a `trackId`, all three already answered correctly, so the
+       * feature was one attribute and one reader away (§10l).
+       */
+      component: {
+        ...(office.nodes as Record<string, any>).component,
+        attrs: {
+          ...(office.nodes as Record<string, any>).component?.attrs,
+          trackId: { type: 'string', required: false }
+        }
+      },
+
       surface: {
         ...office.nodes.surface,
         attrs: {
