@@ -778,6 +778,25 @@ export class SlidesExtension implements Extension {
     );
 
     /**
+     * How a reader moves through this deck: by pressing on, or by its **links only**.
+     *
+     * The first deck-level setting this product has, and it has to be one: "what does a click mean
+     * here" cannot be answered per page, because a deck where half the pages advance and half do
+     * not is a deck nobody can present.
+     *
+     * What it changes, and all of it is somewhere a reader would notice — the show stops at the
+     * end of a page's builds instead of moving on (`advanceShow`), the map stops drawing a spine
+     * because there is none, the deck's own check asks the larger question (every page a button
+     * does not name is an island), and the scroll show is refused: a scroll is a line, and a deck
+     * that is not one has nothing for it to run along.
+     */
+    register(
+      'setDeckShow',
+      (payload) => this._setShow(editor, payload),
+      (payload) => payload?.advance === 'press' || payload?.advance === 'links'
+    );
+
+    /**
      * Make a shape a **button**: pressing it shows another page.
      *
      * ## The interesting half: the reader picks a *page*, the document holds an *id*
@@ -2699,6 +2718,23 @@ export class SlidesExtension implements Extension {
    * and `fill: null` is how a design goes back to inheriting (the operation's own way of saying
    * "not set", which is the only one that works for every type).
    */
+  /** How the deck is moved through — one attribute on the document itself. */
+  private async _setShow(editor: Editor, payload?: { advance?: string }): Promise<boolean> {
+    const doc = this._access(editor);
+    if (!doc || (payload?.advance !== 'press' && payload?.advance !== 'links')) return false;
+    /*
+     * `press` is written as **absent**: it is what every deck has always been, and an attribute on
+     * every document saying so is noise in every file — the same rule a placement's `visible` and
+     * a child's `layoutStretch` follow.
+     */
+    const attrs = { advance: payload.advance === 'links' ? 'links' : null };
+    return (
+      await transaction(editor, [
+        { type: 'setAttrs', payload: { nodeId: doc.rootId, attrs } }
+      ] as never).commit()
+    ).success;
+  }
+
   /**
    * A page's durable id, minting one when it has none.
    *

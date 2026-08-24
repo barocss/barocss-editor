@@ -27,6 +27,18 @@ import { isContainerType } from './selection';
  * button asked for it (`kind: 'back'`).
  */
 
+/**
+ * How a reader moves through this deck: by pressing on, or by its links only.
+ *
+ * The deck-level answer, read from the document's own attribute — one decision, because a deck
+ * where half the pages advance and half do not is a deck nobody can present. `links` is Keynote's
+ * *links only*: a press plays the next build and then stops, and the deck moves when a reader
+ * presses a button.
+ */
+export function deckAdvance(doc: DeckAccess): 'press' | 'links' {
+  return doc.getNode(doc.rootId)?.attributes?.advance === 'links' ? 'links' : 'press';
+}
+
 /** What one button says. */
 export interface Jump {
   /** The shape a reader presses. */
@@ -206,6 +218,16 @@ export function jumpFaults(doc: DeckAccess): JumpFault[] {
    * When "links only" exists, the flow edges stop existing and this same function answers the
    * larger question with no change.
    */
+  /**
+   * With **links only**, the order is not alive and the question grows.
+   *
+   * The flow is what reaches a page in an ordinary deck, so an island is a hidden page nothing
+   * links to (below). Once a deck says its links are the only way through, *every* page a button
+   * does not name is an island — which is the larger question this function was always going to
+   * have to answer, and the reason it is one function rather than two.
+   */
+  const linksOnly = deckAdvance(doc) === 'links';
+
   const named = new Set<string>();
   for (const jump of jumps) {
     if (jump.kind === 'page' && jump.toSid) named.add(jump.toSid);
@@ -220,10 +242,16 @@ export function jumpFaults(doc: DeckAccess): JumpFault[] {
     }
   }
 
+  const shownSlides = deckSlides(doc).filter((slide) => !slide.hidden);
   for (const slide of deckSlides(doc)) {
-    // Only a hidden page can be an island: the show walks the rest.
-    if (!slide.hidden) continue;
+    // Where the deck is walked, only a hidden page can be an island: the show reaches the rest.
+    if (!linksOnly && !slide.hidden) continue;
     if (named.has(slide.sid)) continue;
+    /*
+     * And the page a links-only show **starts on** is reached by starting: it is where the reader
+     * arrives, not somewhere they have to be sent.
+     */
+    if (linksOnly && shownSlides[0]?.sid === slide.sid) continue;
     faults.push({ kind: 'unreachable', slideSid: slide.sid });
   }
 

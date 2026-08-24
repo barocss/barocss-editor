@@ -211,12 +211,27 @@ export function advanceShow(
     builds: number;
     /** How many presses another slide holds, for stepping *back* into it. */
     pressesOf?: (sid: string) => number;
+    /**
+     * That this deck moves by its **links only**, so a press never leaves the page.
+     *
+     * Keynote's *links only*, and the behaviour is the whole of it: a press plays the next build
+     * and then stops. What a quiz, a menu or a kiosk needs is precisely that landing on the next
+     * page by accident is impossible — the deck moves when a reader presses a **button**, and
+     * that goes through `jumpTarget` rather than through here.
+     *
+     * The builds still run, because a build is a press about *this* page and has nothing to do
+     * with the order of the deck.
+     */
+    linksOnly?: boolean;
   }
 ): { played: number; back?: boolean; slide?: string } | null {
   const { shown, at, played, builds } = where;
 
   if (step > 0 && played < builds) return { played: played + 1 };
   if (step < 0 && played > 0) return { played: played - 1, back: true };
+
+  // Nothing left to play, and nowhere a press may take the reader.
+  if (where.linksOnly) return null;
 
   const next = at < 0 ? 0 : at + step;
   if (next < 0 || next >= shown.length) return null;

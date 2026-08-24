@@ -956,7 +956,26 @@ export function getSurfaceNodeDefinitions(): Record<string, NodeTypeDefinition> 
     document: {
       name: 'document',
       group: 'document',
-      content: 'docMeta? surface+ resources? components?'
+      content: 'docMeta? surface+ resources? components?',
+      attrs: {
+        /**
+         * How a reader moves through it: by **pressing on**, or by its **links only**.
+         *
+         * The first deck-level setting this schema has had, and it needs one because the answer
+         * cannot be per page: "what does a click mean in this document" is one decision, and a
+         * deck where half the pages advance and half do not is a deck nobody can present.
+         *
+         * `press` is what every deck has always been — a click shows the next page, which is what
+         * a slide projector did. `links` is Keynote's *links only*: a click plays the next build
+         * and then **stops**, and the deck moves when a reader presses a button (`goTo`,
+         * §11). Which is what a quiz, a menu of sections or a kiosk is: a deck where landing on
+         * the next page by accident is the fault.
+         *
+         * On `document` rather than on `docMeta`, which is what the document is *called* — a
+         * title, a subtitle, the authors — and not how it behaves.
+         */
+        advance: { type: 'string', default: 'press', options: ['press', 'links'] }
+      }
     },
     /**
      * One page / slide / canvas / web page.

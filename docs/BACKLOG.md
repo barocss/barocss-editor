@@ -523,6 +523,11 @@ shipped features marked undone.
   two pages (a page holds one, four or none), so the drag takes hold of the button that is already
   there and making a new one stays in the panel.
 
+- [x] **Links only.** `document.advance` — the first deck-level setting this schema has, because
+  "what does a click mean here" cannot be answered per page. A press plays the next build and then
+  stops; the scroll show is refused (a scroll is a line); the presenter is not promised a next
+  page; the map draws no spine and the check asks the larger reachability question.
+
 - [ ] **A button that opens another deck** at a page. Needs a reference to a *document* — a file,
   an address — which is a decision outside the model: there is no library of decks yet. The
   attribute is shaped so it can be added beside `goTo`.

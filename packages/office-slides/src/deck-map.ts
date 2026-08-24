@@ -1,7 +1,7 @@
 import { connectorPath, connectorPoints, layoutGraph, type ConnectorBox } from '@barocss/office-word';
 import { deckSlides, type DeckAccess } from './deck';
 import { slideSize } from './geometry';
-import { deckJumps, jumpFaults, jumpTarget } from './jump';
+import { deckAdvance, deckJumps, jumpFaults, jumpTarget } from './jump';
 
 /**
  * The deck as a **graph**: which page leads where.
@@ -122,8 +122,15 @@ export function deckMap(
    * with the show about where a press goes.
    */
   const edges: Array<{ from: string; to: string; kind: 'jump' | 'flow'; sid?: string }> = [];
-  for (let at = 0; at + 1 < shown.length; at += 1) {
-    edges.push({ from: shown[at].sid, to: shown[at + 1].sid, kind: 'flow' });
+  /*
+   * The spine, unless the deck says its links are the only way through — then there is no spine
+   * to draw, and the picture is the whole truth about where a reader can get to. Which is the
+   * point of drawing a map of such a deck at all.
+   */
+  if (deckAdvance(doc) === 'press') {
+    for (let at = 0; at + 1 < shown.length; at += 1) {
+      edges.push({ from: shown[at].sid, to: shown[at + 1].sid, kind: 'flow' });
+    }
   }
   for (const jump of jumps) {
     const to = jumpTarget(doc, jump, { at: jump.from });

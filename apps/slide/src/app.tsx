@@ -18,6 +18,7 @@ import {
 } from '@barocss/office-ui';
 import {
   advanceShow,
+  deckAdvance,
   deckComponents,
   deckDesigns,
   jumpsOn,
@@ -295,6 +296,21 @@ export function App({
   const [mapping, setMapping] = useState(false);
 
   /**
+   * How this deck is moved through: by pressing on, or by its **links only**.
+   *
+   * Read from the document, because it is the deck's own answer and has to survive being saved —
+   * and read *here* because four things need it: the show (a press stops at the end of a page's
+   * builds), the scroll show (refused — a scroll is a line), the presenter's next-page preview
+   * (there is no next) and the map (no spine to draw).
+   */
+  const moveBy = useMemo(() => {
+    const store = (editor as any)?.dataStore;
+    const rootId = (editor as any)?.getRootId?.();
+    if (!store || !rootId) return 'press' as const;
+    return deckAdvance({ rootId, getNode: (sid: string) => store.getNode(sid) } as never);
+  }, [editor, revision]);
+
+  /**
    * The surface the stage draws **alone** — or nothing, when it draws the deck as a strip.
    *
    * One expression, because two readers of it are two chances to disagree: the stage hides
@@ -506,6 +522,12 @@ export function App({
         at,
         played,
         builds: built.presses,
+        /*
+         * A links-only deck stops at the end of a page's builds: the deck moves when a reader
+         * presses a **button**, and landing on the next page by accident is the thing the mode
+         * exists to make impossible.
+         */
+        linksOnly: moveBy === 'links',
         pressesOf
       });
       if (!next) return;
@@ -1494,7 +1516,18 @@ export function App({
             * reader already was, so opening it does not lose their place.
             */}
           <Button
-            title="스크롤로 보기"
+            /*
+             * Refused in a **links-only** deck, visibly and with the reason: a scroll is a *line*,
+             * and a deck that is not one has nothing for it to run along. Greying it is the rule
+             * this product follows wherever the model has no answer — the frame's refused drag and
+             * a placement's size fields — rather than letting a reader scroll through a maze.
+             */
+            title={
+              moveBy === 'links'
+                ? '버튼으로만 이동하는 덱은 스크롤로 볼 수 없습니다 — 스크롤은 한 줄이기 때문입니다'
+                : '스크롤로 보기'
+            }
+            disabled={moveBy === 'links'}
             onClick={() => {
               setScrolled(scrollTopOf(current, stretches));
               setScrolling(true);
@@ -1668,6 +1701,10 @@ export function App({
                * the same command the properties panel runs — the map decides nothing about the
                * document, it just says where the reader let go.
                */
+              advance={moveBy}
+              onAdvance={(next) =>
+                void (editor as any)?.executeCommand?.('setDeckShow', { advance: next })
+              }
               onRetarget={(sid, pageSid) =>
                 void (editor as any)?.executeCommand?.('setBoxJump', {
                   nodeIds: [sid],
@@ -1960,6 +1997,8 @@ export function App({
           builds={built.presses}
           played={played}
           since={showStarted}
+          /* No next page to promise when the deck moves by its buttons. */
+          links={moveBy === 'links'}
         />
       )}
 

@@ -243,6 +243,9 @@ describe('Slides draws what its schema declares', () => {
         applyDesign:
           'the properties panel — 따르는 장에 적용 in that group. Offered rather than automatic, because a layout’s **graphics are copied, not transcluded** (a template cannot draw a foreign node, canvas-model §10b-2): a slide draws its layout’s formatting and background live and its boxes never, so moving them is a thing a reader asks for',
 
+        setDeckShow:
+          'the map’s bar — 눌러서 다음 장 / 버튼으로만 이동. There because that is where a reader thinks about a deck that is not a line, and because the picture beside it is what the setting is *about*: turn it on and the spine disappears, which is an honest preview of what a press will no longer do',
+
         setBoxJump:
           'the properties panel — the 누르면 row on a shape: a page picked by name, or 다음/이전/처음/끝/돌아가기. The pages are offered by name because that is what a reader knows; what the command writes is the page’s durable id, minting one if the page has none — the same thing motion does when a build first names a shape',
 
@@ -377,6 +380,17 @@ describe('Slides draws what its schema declares', () => {
          * keys on; this is what survives being saved (`forFile` strips sids), which is the whole
          * reason it exists.
          */
+        /**
+         * How a reader moves through the deck — the first deck-level setting this schema has.
+         *
+         * Read by the show (`advanceShow`), the map (there is no spine to draw), the deck's own
+         * check (every page a button does not name is an island) and the scroll show (refused: a
+         * scroll is a line). Nothing in the *drawing* reads it, and that is right — a page in a
+         * links-only deck looks exactly like a page in any other.
+         */
+        'document.advance':
+          'how the deck is moved through: read by `advanceShow`, `deckMap`, `jumpFaults` and the scroll show. A page in a links-only deck looks like any other, so the drawing does not read it',
+
         'surface.id':
           'a page’s durable name, resolved by `slideById` in `jump.ts` so a button can point at it across a save. Nothing in the drawing reads it, and a linked page looks like any other',
 

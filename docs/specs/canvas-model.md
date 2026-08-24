@@ -1734,7 +1734,35 @@ which page is under the pointer is asked of the browser (`elementsFromPoint`) ra
 comparing the pointer with the model's scaled boxes: a second conversion is a second chance to be
 a pixel out, and the page a reader can see under their finger is the honest answer.
 
-### 11g. Still open
+### 11g. Links only, which is one decision about the whole deck
+
+`document.advance` — `press` or `links`. The first deck-level setting this schema has, and it has
+to be one: *what does a click mean here* cannot be answered per page, because a deck where half
+the pages advance and half do not is a deck nobody can present.
+
+`links` is Keynote's mode, and the behaviour is the whole of it: a press plays the next build and
+then **stops**. The builds still run, because a build is a press about *this* page and has nothing
+to do with the order of the deck. What a quiz, a menu of sections or a kiosk needs is precisely
+that landing on the next page by accident is impossible.
+
+Four things follow, and every one of them is somewhere a reader would otherwise be lied to:
+
+- **The show** stops at the end of a page (`advanceShow`'s `linksOnly`).
+- **The scroll show is refused**, greyed with the reason: a scroll is a *line*, and a deck that is
+  not one has nothing for it to run along. The rule this product follows wherever the model has no
+  answer — the frame's refused drag, a placement's size fields.
+- **The presenter's next page** is not shown, because there is not one: a thumbnail of "the page
+  after this in the file" would be telling a presenter something that is not going to happen.
+- **The map draws no spine** — there is none — so the picture becomes the whole truth about where a
+  reader can get to, which is the point of drawing a map of such a deck at all. And the deck's own
+  check asks the larger question: every page a button does not name is an island (the same
+  function, §11f).
+
+Written as **absent** when it is `press`, because that is what every deck has always been and an
+attribute on every document saying so is noise in every file — the same rule a placement's
+`visible` and a child's `layoutStretch` follow.
+
+### 11h. Still open
 
 **Between decks.** A button that opens another deck at a page needs a reference to a *document* —
 a file, an address — and that is a decision outside the model: there is no library of decks yet.

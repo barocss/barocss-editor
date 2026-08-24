@@ -58,7 +58,8 @@ export function Presenter({
    * a pointer — a remote is a pointer as often as it is a keyboard.
    */
   onGo,
-  onExit
+  onExit,
+  links
 }: {
   editor: Editor | null;
   slides: Slide[];
@@ -69,10 +70,17 @@ export function Presenter({
   since: number;
   onGo?: (step: number) => void;
   onExit?: () => void;
+  /** That this deck moves by its links only, so there is no next page to show. */
+  links?: boolean;
 }) {
   const shown = slides.filter((slide) => !slide.hidden);
   const at = shown.findIndex((slide) => slide.sid === current);
-  const next = at >= 0 ? shown[at + 1] : undefined;
+  /*
+   * In a **links-only** deck there is no next slide to show a presenter — the deck moves when
+   * somebody presses a button, and a thumbnail of "the page after this one in the file" would be
+   * this screen telling a presenter something that is not going to happen.
+   */
+  const next = links ? undefined : at >= 0 ? shown[at + 1] : undefined;
 
   const notes = (() => {
     const store = (editor as any)?.dataStore;
@@ -93,7 +101,9 @@ export function Presenter({
             </span>
           </div>
         ) : (
-          <p className="sl-presenter-empty">마지막 슬라이드입니다</p>
+          <p className="sl-presenter-empty" data-presenter-none>
+            {links ? '버튼을 눌러 이동합니다' : '마지막 슬라이드입니다'}
+          </p>
         )}
       </section>
 

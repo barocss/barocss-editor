@@ -167,6 +167,7 @@ export {
  * thing to trigger rather than a new mechanism. See `canvas-model.md` §11.
  */
 export {
+  deckAdvance,
   slideById,
   jumpOf,
   jumpsOn,

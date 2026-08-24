@@ -260,3 +260,41 @@ describe('showing a deck that is being scrolled', () => {
     expect(showing({ ...base, scroll: { press: 0, moment: 0 } })).toBeUndefined();
   });
 });
+
+/**
+ * A deck that moves by its **links only**.
+ *
+ * Keynote's mode, and the behaviour is the whole of it: a press plays the next build and then
+ * stops. What a quiz, a menu of sections or a kiosk needs is exactly that landing on the next page
+ * by accident is impossible — the deck moves when a reader presses a button, which goes through
+ * `jumpTarget` and not through here.
+ */
+describe('a show that moves by its links', () => {
+  const shown = [{ sid: 'a' }, { sid: 'b' }, { sid: 'c' }];
+
+  it('plays the page’s builds, because a build is about this page', () => {
+    expect(advanceShow(1, { shown, at: 0, played: 0, builds: 2, linksOnly: true })).toEqual({
+      played: 1
+    });
+    expect(advanceShow(-1, { shown, at: 0, played: 1, builds: 2, linksOnly: true })).toEqual({
+      played: 0,
+      back: true
+    });
+  });
+
+  it('then stops, rather than showing the next page', () => {
+    // The one difference, and the reason the mode exists: a reader cannot arrive somewhere they
+    // did not choose.
+    expect(advanceShow(1, { shown, at: 0, played: 2, builds: 2, linksOnly: true })).toBeNull();
+    expect(advanceShow(-1, { shown, at: 1, played: 0, builds: 0, linksOnly: true })).toBeNull();
+  });
+
+  it('is not what an ordinary deck does', () => {
+    // The same press, in the deck every deck has always been.
+    expect(advanceShow(1, { shown, at: 0, played: 2, builds: 2 })).toEqual({
+      played: 0,
+      back: false,
+      slide: 'b'
+    });
+  });
+});

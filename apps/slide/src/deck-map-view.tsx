@@ -32,6 +32,8 @@ export function DeckMapView({
   current,
   onGoTo,
   onRetarget,
+  advance,
+  onAdvance,
   onClose
 }: {
   editor: Editor | null;
@@ -47,6 +49,9 @@ export function DeckMapView({
    * commands would be a view with an opinion about the document.
    */
   onRetarget: (sid: string, pageSid: string) => void;
+  /** How the deck is moved through, and the way to change it — the deck's own setting. */
+  advance: 'press' | 'links';
+  onAdvance: (advance: 'press' | 'links') => void;
   onClose: () => void;
 }) {
   const [direction, setDirection] = useState<'down' | 'right'>('down');
@@ -121,6 +126,22 @@ export function DeckMapView({
         >
           <option value="down">아래로</option>
           <option value="right">오른쪽으로</option>
+        </Choice>
+        {/*
+          * How a reader moves through the deck.
+          *
+          * Here because this is where a reader thinks about a deck that is not a line: the picture
+          * beside it is what the setting is *about* — turn it on and the spine disappears, which
+          * is the honest preview of what a press will no longer do.
+          */}
+        <Choice
+          ariaLabel="덱 이동 방식"
+          className="w-auto"
+          value={advance}
+          onChange={(picked) => onAdvance(picked as 'press' | 'links')}
+        >
+          <option value="press">눌러서 다음 장</option>
+          <option value="links">버튼으로만 이동</option>
         </Choice>
         {map && map.dead.length > 0 && (
           <span className="sl-map-dead" data-map-dead={map.dead.length}>

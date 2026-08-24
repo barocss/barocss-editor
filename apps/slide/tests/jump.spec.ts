@@ -14,6 +14,22 @@ import { openDeck, currentSlide } from './helpers';
  * durable id. A fixture would have proved less: every design in this repository that was decided
  * against one had to be decided twice.
  */
+/**
+ * Which page is **on screen**, asked by computed style.
+ *
+ * Not `:not([style*="display: none"])`, which is what this suite tried first: the stage hides the
+ * pages it is not focused on with a **generated stylesheet** (it names a sid, so it cannot be in
+ * the app's own CSS file), and an inline-style selector matches every slide element in the DOM.
+ * The test then read the *first* one and compared it with itself.
+ */
+const onScreen = (page: Page) =>
+  page.evaluate(() => {
+    const shown = [...document.querySelectorAll<HTMLElement>('.sl-stage .sl-slide')].find(
+      (one) => getComputedStyle(one).display !== 'none'
+    );
+    return shown?.getAttribute('data-bc-sid') ?? null;
+  });
+
 const cardSlide = async (page: Page) => {
   const sid = await page.evaluate(() => {
     const editor = (window as any).editor;
@@ -51,13 +67,14 @@ test.describe('a button on a slide', () => {
     await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2);
     await page.waitForTimeout(700);
 
-    const to = await page.evaluate(() => {
-      const editor = (window as any).editor;
-      const store = editor.dataStore;
-      const showing = document.querySelector('.sl-stage .sl-slide:not([style*="display: none"])');
-      const sid = showing?.getAttribute('data-bc-sid');
-      return { sid, id: sid ? store.getNode(sid)?.attributes?.id : null };
-    });
+    const sid = await onScreen(page);
+    const to = {
+      sid,
+      id: await page.evaluate(
+        (one) => (one ? (window as any).editor.dataStore.getNode(one)?.attributes?.id : null),
+        sid
+      )
+    };
     // The cover, not the page after the card slide: the press was the button's, and a press that
     // both jumped and advanced would land a reader one page past what they chose.
     expect(to.id).toBe('title');
@@ -361,5 +378,82 @@ test.describe('moving a jump in the map', () => {
     // A button that quietly lost its page because a reader let go in the wrong place is worse
     // than a drag that fails.
     expect(after).toBe(before.goTo);
+  });
+});
+
+/**
+ * A deck that moves by its **links only** — Keynote's mode, and the one setting a deck has.
+ *
+ * "What does a click mean here" cannot be answered per page: a deck where half the pages advance
+ * and half do not is a deck nobody can present. So it is one decision on the document, and what it
+ * changes is everything a press touches.
+ */
+test.describe('a deck that moves by its links', () => {
+  const setLinksOnly = async (page: Page) => {
+    await page.locator('[data-deck-map]').click();
+    await page.waitForTimeout(400);
+    await page.locator('.sl-map').getByLabel('덱 이동 방식').selectOption('links');
+    await page.waitForTimeout(500);
+  };
+
+  test('stops a press at the end of a page, and moves on a button', async ({ page }) => {
+    await openDeck(page);
+    await setLinksOnly(page);
+    // Onto the card slide, which has the sample's buttons.
+    const from = await page.evaluate(() => {
+      const editor = (window as any).editor;
+      const store = editor.dataStore;
+      const root = store.getNode(editor.getRootId());
+      return ((root.content ?? []) as string[]).find(
+        (sid: string) => store.getNode(sid)?.attributes?.id === 'cards'
+      );
+    });
+    await page.locator(`[data-map-page="${from}"]`).click();
+    await page.waitForTimeout(400);
+
+    await page.locator('[data-present]').click();
+    await page.waitForTimeout(600);
+
+    // A press on empty slide: nothing moves. Landing on the next page by accident is the thing
+    // this mode exists to make impossible.
+    const showing = () => onScreen(page);
+    const was = await showing();
+    await page.keyboard.press('ArrowRight');
+    await page.waitForTimeout(500);
+    expect(await showing()).toBe(was);
+
+    // A press on the button moves it, because that is the only thing that does.
+    const box = (await page.locator('.sl-stage [data-go-to="title"]').boundingBox())!;
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    await page.waitForTimeout(600);
+    expect(await showing()).not.toBe(was);
+
+    await page.keyboard.press('Escape');
+  });
+
+  test('refuses the scroll show, visibly and with the reason', async ({ page }) => {
+    await openDeck(page);
+    await setLinksOnly(page);
+    await page.locator('[data-map-close]').click();
+    await page.waitForTimeout(300);
+
+    // A scroll is a line, and a deck that is not one has nothing for it to run along. Greyed
+    // rather than left to fail, which is the rule wherever the model has no answer.
+    const scroll = page.locator('[data-scroll-present]');
+    await expect(scroll).toBeDisabled();
+    await expect(scroll).toHaveAttribute('title', /스크롤은 한 줄/);
+  });
+
+  test('draws no spine in the map, because there is none', async ({ page }) => {
+    await openDeck(page);
+    await setLinksOnly(page);
+
+    // The picture becomes the whole truth about where a reader can get to — which is the point of
+    // drawing a map of such a deck at all.
+    await expect(page.locator('[data-map-link="flow"]')).toHaveCount(0);
+    expect(await page.locator('[data-map-link="jump"]').count()).toBe(2);
+    // And the pages a button does not name are islands now: the larger question, asked by the
+    // same function.
+    expect(await page.locator('[data-map-unreachable="true"]').count()).toBeGreaterThan(0);
   });
 });
