@@ -18,6 +18,9 @@ import {
 } from '@barocss/office-ui';
 import {
   advanceShow,
+  accessOfTree,
+  componentBehindSource,
+  componentSourceOf,
   deckAdvance,
   deckComponents,
   deckSlides,
@@ -75,7 +78,7 @@ import { Ribbon } from './ribbon';
 import { Stage } from './stage';
 import { DeckMapView } from './deck-map-view';
 import { LibraryDialog } from './library-dialog';
-import { libraryDeck } from './library';
+import { libraryDeck, libraryRows } from './library';
 import { useDeck, useRevision } from './deck-model';
 import { useEditorRevision } from './revision';
 
@@ -760,6 +763,71 @@ export function App({
    * slide every time the app starts.
    */
   const [componentsOpen, setComponentsOpen] = useState(false);
+
+  /**
+   * Which of this deck's **imported** definitions are behind the deck they came from.
+   *
+   * The comparison is pure — a recorded signature against the source's current one — and the
+   * reading is not: it means opening another deck out of the library. So the reading happens here,
+   * once, when the reader opens the panel that shows it, and the panel is handed the answer.
+   *
+   * Not on every document change: a keystroke is not a reason to open three files, and a brand kit
+   * does not change while somebody is typing in *this* deck.
+   */
+  const [behindSource, setBehindSource] = useState<Set<string>>(new Set());
+
+  /**
+   * The names in the reader's library, for the panel that offers them.
+   *
+   * Read once and after the library dialog has been used, because that is the only thing in this
+   * app that changes them — and a list of names is cheap enough to keep while a deck is edited.
+   */
+  const [libraryDecks, setLibraryDecks] = useState<string[]>([]);
+  useEffect(() => {
+    void libraryRows()
+      .then((rows) => setLibraryDecks(rows.map((row) => row.name)))
+      .catch(() => setLibraryDecks([]));
+  }, [dialog]);
+
+  useEffect(() => {
+    if (!componentsOpen || components.length === 0) return;
+    let dropped = false;
+
+    void (async () => {
+      const store = (editor as any)?.dataStore;
+      const rootId = (editor as any)?.getRootId?.();
+      if (!store || !rootId) return;
+      const doc = { rootId, getNode: (sid: string) => store.getNode(sid) };
+
+      /** One read per deck, however many definitions came from it. */
+      const decks = new Set<string>();
+      for (const one of components) {
+        const from = componentSourceOf(doc as never, one);
+        if (from) decks.add(from.deck);
+      }
+      if (decks.size === 0) return setBehindSource(new Set());
+
+      const found = new Set<string>();
+      for (const deck of decks) {
+        // eslint-disable-next-line no-await-in-loop
+        const text = isLibraryName(deck) ? await libraryDeck(deck) : undefined;
+        if (!text) continue;
+        const read = readDeckFile(text);
+        if ('error' in read) continue;
+        const source = accessOfTree(read.document as never);
+        for (const one of components) {
+          if (componentBehindSource(doc as never, one, source)) found.add(one.sid);
+        }
+      }
+      if (!dropped) setBehindSource(found);
+    })();
+
+    return () => {
+      dropped = true;
+    };
+    // On opening, and when the deck's own definitions change — a definition just re-imported is no
+    // longer behind, and the badge has to stop saying so.
+  }, [componentsOpen, components, editor]);
 
   /**
    * Whether the find bar is showing.
@@ -1684,6 +1752,7 @@ export function App({
           editing={editingComponent}
           onOpen={openDefinition}
           onClose={() => setComponentsOpen((was) => !was)}
+          behindSource={behindSource}
           canMake={canMakeComponent}
           onMake={makeComponent}
           onPlace={placeComponent}
@@ -1944,6 +2013,8 @@ export function App({
           onUnit={setUnit}
           /** The theme's own slots, which the panel's 테마 row names. */
           onEditTheme={() => setDialog('theme')}
+          /** The reader's own decks, for a button that points at one by name. */
+          libraryDecks={libraryDecks}
         />
       </AppBody>
 

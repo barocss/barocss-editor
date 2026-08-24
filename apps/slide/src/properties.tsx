@@ -187,7 +187,8 @@ export function Properties({
   onStopEdit,
   unit,
   onUnit,
-  onEditTheme
+  onEditTheme,
+  libraryDecks = []
 }: {
   editor: Editor | null;
   slides: Slide[];
@@ -214,6 +215,13 @@ export function Properties({
    * that opened its own would be a second place that knows about them.
    */
   onEditTheme?: () => void;
+  /**
+   * The decks in the reader's own library, by name — for a button that points at one.
+   *
+   * Handed in rather than read here: the names are storage (the app's), and this panel has none.
+   * Empty is the ordinary case and draws no control at all.
+   */
+  libraryDecks?: string[];
 }) {
   /**
    * Which events those are is the suite's answer, not this file's — see
@@ -916,6 +924,35 @@ export function Properties({
               */}
             {!many && (naming || jumpDeck) && (
               <PropertyRow label="다른 덱">
+                {/*
+                  * The reader's own decks by **name**, and 직접 입력 for anything else.
+                  *
+                  * Both, because `goToDeck` is both: a name in the library survives the deck being
+                  * moved, and an address is the only thing that can be followed on a machine that
+                  * has never seen this library (§11i). A free-text box alone was the first version
+                  * and asked a reader to know which they wanted, with the names one dialog away.
+                  */}
+                {libraryDecks.length > 0 && (
+                  <PropertyChoice
+                    ariaLabel="라이브러리 덱"
+                    value={
+                      jumpDeck && libraryDecks.includes(jumpDeck) ? jumpDeck : 'typed'
+                    }
+                    options={[
+                      ...libraryDecks.map((name) => ({ id: name, label: name })),
+                      { id: 'typed', label: '직접 입력' }
+                    ]}
+                    disabled={locked}
+                    onChange={(picked) => {
+                      if (picked === 'typed') return setNaming(true);
+                      void (editor as any)?.executeCommand?.('setBoxJump', {
+                        nodeIds: targets,
+                        deck: picked,
+                        to: jumpDeckPage ?? undefined
+                      });
+                    }}
+                  />
+                )}
                 <TextField
                   ariaLabel="다른 덱 주소"
                   data={{ 'jump-deck': '' }}

@@ -548,14 +548,14 @@ shipped features marked undone.
   files. `accessOfTree` is the piece that made it possible at all: another deck answered like a
   store, without being loaded.
 
-- [ ] **Placements do not follow a re-imported definition by themselves**, and should not — but the
-  offer is currently only in the library dialog. A definition that is behind its source should say
-  so in the components panel too, which means the panel needs the source deck in hand: storage,
-  from a component that has none today.
+- [x] **A definition behind its brand kit says so in the components panel**, not only in the
+  library dialog. The comparison is pure and the reading is storage, so the app reads (when the
+  panel opens — a keystroke is not a reason to open three files) and the panel is handed a set.
 
-- [ ] **Picking a library deck from a list** in the 누르면 → 다른 덱 field, which is a free-text box
-  today. It accepts a name or an address and a reader has to know which they want; the names are
-  one dialog away, which is one dialog too many.
+- [x] **The 다른 덱 field offers the library's names**, and keeps 직접 입력 for an address. It was a
+  free-text box asking a reader to type a name they had no way to see.
+
+
 
 **Still open and not in a phase**
 

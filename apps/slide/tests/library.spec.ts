@@ -281,3 +281,102 @@ test.describe('a component from another deck', () => {
     expect(ids).toEqual(['metric-card']);
   });
 });
+
+/**
+ * The two places a library's name has to appear where a reader is already looking.
+ *
+ * Both are the same shape of fault: the answer existed and was one dialog away. A definition that
+ * is behind its brand kit said so only in the library dialog, and a button pointing at another deck
+ * asked a reader to type a name they had no way to see.
+ */
+test.describe('a library where the reader is looking', () => {
+  test('says in the components panel that a definition’s deck has moved on', async ({ page }) => {
+    await openDeck(page);
+    // Keep this deck as a brand kit, then start a deck of the reader's own and import the card.
+    await page.locator('[data-deck-library]').click();
+    await page.locator('[data-library-keep]').click();
+    await page.waitForTimeout(700);
+    await page.locator('[data-library-close]').click();
+    page.once('dialog', (dialog) => void dialog.accept());
+    await page.locator('[data-deck-new]').click();
+    await page.waitForTimeout(700);
+
+    await page.locator('[data-deck-library]').click();
+    await page.locator('[data-library-look="one-engine-two-products"]').click();
+    await page.waitForTimeout(500);
+    await page.locator('[data-library-bring="metric-card"]').click();
+    await page.waitForTimeout(700);
+    await page.locator('[data-library-close]').click();
+    await page.waitForTimeout(300);
+
+    // The panel says whose it is — a badge only on the ones that came from somewhere.
+    await page.locator('.sl-components-closed').click();
+    await page.waitForTimeout(600);
+    await expect(page.locator('[data-component-from="one-engine-two-products"]')).toHaveCount(1);
+    await expect(page.locator('[data-component-outdated]')).toHaveCount(0);
+
+    // The brand kit changes under it, as it would if a reader edited and kept it again.
+    await page.evaluate(async () => {
+      const request = indexedDB.open('barocss-slides', 1);
+      const db: IDBDatabase = await new Promise((resolve) => {
+        request.onsuccess = () => resolve(request.result);
+      });
+      const read = db
+        .transaction('decks', 'readonly')
+        .objectStore('decks')
+        .get('one-engine-two-products');
+      const kept: any = await new Promise((resolve) => {
+        read.onsuccess = () => resolve(read.result);
+      });
+      const file = JSON.parse(kept.text);
+      const library = file.document.content.find((one: any) => one.stype === 'components');
+      library.content[0].content[4].attributes.fill = '#00aa00';
+      kept.text = JSON.stringify(file);
+      db.transaction('decks', 'readwrite').objectStore('decks').put(kept);
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      db.close();
+    });
+
+    /*
+     * Closed and opened again, because that is when the reading happens: a keystroke is not a
+     * reason to open three files, and a brand kit does not change while somebody is typing here.
+     */
+    await page.locator('.sl-components [aria-label="컴포넌트 닫기"]').click();
+    await page.waitForTimeout(300);
+    await page.locator('.sl-components-closed').click();
+    await page.waitForTimeout(900);
+    await expect(page.locator('[data-component-outdated="metric-card"]')).toHaveCount(1);
+  });
+
+  test('offers the library’s names to a button that points at another deck', async ({ page }) => {
+    await openDeck(page);
+    await page.locator('[data-deck-library]').click();
+    await page.locator('[data-library-keep]').click();
+    await page.waitForTimeout(700);
+    await page.locator('[data-library-close]').click();
+    await page.waitForTimeout(300);
+
+    const made = await page.evaluate(async () => {
+      const editor = (window as any).editor;
+      await editor.executeCommand('insertRectangle', {});
+      return editor.selection?.nodeIds?.[0];
+    });
+    await page.waitForTimeout(400);
+
+    await page.locator('.sl-properties').getByLabel('누르면 이동').selectOption('deck');
+    await page.waitForTimeout(400);
+
+    // The reader's own decks, by name — and 직접 입력 for an address, because `goToDeck` is both.
+    const decks = page.locator('.sl-properties').getByLabel('라이브러리 덱');
+    await expect(decks).toHaveCount(1);
+    await decks.selectOption('one-engine-two-products');
+    await page.waitForTimeout(600);
+
+    expect(
+      await page.evaluate(
+        (sid) => (window as any).editor.dataStore.getNode(sid)?.attributes?.goToDeck,
+        made
+      )
+    ).toBe('one-engine-two-products');
+  });
+});

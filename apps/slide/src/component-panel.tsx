@@ -159,6 +159,7 @@ export function ComponentPanel({
   onClose,
   canMake,
   onMake,
+  behindSource,
   onPlace,
   onApplyAll
 }: {
@@ -176,6 +177,13 @@ export function ComponentPanel({
   onPlace: (componentId: string) => void;
   /** Bring every placement of it up to date. */
   onApplyAll: (componentId: string) => void;
+  /**
+   * The imported definitions whose source deck has moved on, by sid.
+   *
+   * A set rather than a question this panel can ask: the answer needs the *other* deck open, which
+   * is storage, and this panel has none.
+   */
+  behindSource?: Set<string>;
 }) {
   const revision = useEditorRevision(editor);
 
@@ -333,6 +341,20 @@ export function ComponentPanel({
                   {from(definition) && (
                     <span className="sl-component-from" data-component-from={from(definition)}>
                       {from(definition)}
+                    </span>
+                  )}
+                  {/*
+                    * And whether that deck has **moved on** since this copy was made.
+                    *
+                    * Handed in rather than worked out here: answering it means opening the other
+                    * deck, which is storage, and this panel has none — the same split the whole
+                    * library follows (the naming is a question about documents, the bytes are the
+                    * host's). What a reader does about it is in the library dialog, where the file
+                    * already is.
+                    */}
+                  {behindSource?.has(definition.sid) && (
+                    <span className="sl-component-behind" data-component-outdated={definition.id}>
+                      라이브러리가 새로워짐
                     </span>
                   )}
                   {/*

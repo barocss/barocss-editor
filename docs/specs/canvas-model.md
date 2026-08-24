@@ -1535,6 +1535,20 @@ Four decisions fell out of building it:
   from the last time it was open, so the button that opens the list closed it — and that list is
   precisely the thing that may have changed in between, which is the case the feature exists for.
 
+#### Where a library's answers have to appear
+
+Two faults of the same shape, found by using it: the answer existed and was **one dialog away**.
+
+- A definition that is behind its brand kit said so only in the library dialog. It says so in the
+  **components panel** now — and the split holds: the *comparison* is pure (a recorded signature
+  against the source's current one) and the *reading* is storage, so the app reads and the panel is
+  handed a set. It reads when the panel is opened, not on every document change: a keystroke is not
+  a reason to open three files, and a brand kit does not change while somebody is typing in this
+  deck.
+- A button pointing at another deck asked a reader to **type a name they had no way to see**. The
+  row offers the library's names, and keeps 직접 입력 for an address — because `goToDeck` is both, and
+  which one it is depends on the machine (§11i).
+
 ### 10c. Editing one: a **definition the reader opens**, not a place on a canvas
 
 Figma keeps a main component on the canvas, and it is worth being clear that this is not a
