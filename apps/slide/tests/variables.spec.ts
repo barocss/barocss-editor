@@ -60,6 +60,69 @@ test.describe('the deck’s own variables', () => {
     await expect(page.locator('[data-doc-var-uses="분기"]')).toHaveText('0곳');
   });
 
+  /**
+   * A value is authored in the control its **declared kind** asks for.
+   *
+   * It was a text box whatever the kind: a `boolean` was typed as the word `true`, and a `choice` was
+   * typed instead of chosen from the options declared right beside it. A *placement's* variables were
+   * already drawn this way, so the product had two controls for one idea — which is how it ends up
+   * with two kinds of colour picker.
+   */
+  test('are set with the control their kind asks for, not a text box', async ({ page }) => {
+    await openDeck(page);
+    await panel(page);
+
+    // A choice, with its options.
+    await page.locator('[data-doc-var-new] input, input[data-doc-var-new]').fill('분기말');
+    await page.locator('[data-doc-var-add]').click();
+    await page.waitForTimeout(500);
+    const row = page.locator('[data-doc-var-row="분기말"]');
+    await row.locator('select').first().selectOption('choice');
+    await page.waitForTimeout(400);
+
+    const options = page.locator('.sl-components').getByLabel('분기말 고를 것');
+    await options.fill('1Q, 2Q, 3Q');
+    await options.press('Enter');
+    await page.waitForTimeout(500);
+
+    /*
+     * The value is a **select** of what this variable declares, and it took the first option: a
+     * `choice` holding something it no longer offers is a select drawing a value nobody can pick
+     * again, which is what a free-text field left behind every time the options changed.
+     */
+    const value = page.locator('.sl-components').getByLabel('분기말 값');
+    await expect(value).toHaveValue('1Q');
+    expect(
+      await value.evaluate((one) => [...(one as HTMLSelectElement).options].map((option) => option.value))
+    ).toEqual(['1Q', '2Q', '3Q']);
+
+    await value.selectOption('3Q');
+    await page.waitForTimeout(500);
+    expect(
+      await page.evaluate(() => {
+        const editor = (window as any).editor;
+        const store = editor.dataStore;
+        const root = store.getNode(editor.getRootId());
+        const container = ((root.content ?? []) as string[])
+          .map((sid: string) => store.getNode(sid))
+          .find((one: any) => one?.stype === 'variables');
+        const found = ((container?.content ?? []) as string[])
+          .map((sid: string) => store.getNode(sid))
+          .find((one: any) => one?.attributes?.name === '분기말');
+        return found?.attributes?.value;
+      })
+    ).toBe('3Q');
+
+    // And a state is a switch, not the word `true` typed into a box.
+    await page.locator('[data-doc-var-new] input, input[data-doc-var-new]').fill('배지보이기');
+    await page.locator('[data-doc-var-add]').click();
+    await page.waitForTimeout(500);
+    await page.locator('[data-doc-var-row="배지보이기"] select').first().selectOption('boolean');
+    await page.waitForTimeout(400);
+    const toggle = page.locator('.sl-components').getByLabel('배지보이기 값');
+    await expect(toggle).toHaveAttribute('type', 'checkbox');
+  });
+
   test('re-colour everything that names them, from one field', async ({ page }) => {
     await openDeck(page);
     await cardsSlide(page);
@@ -70,7 +133,10 @@ test.describe('the deck’s own variables', () => {
     const before = (await painted(page)).filter((colour) => colour === 'rgb(239, 68, 68)').length;
     expect(before).toBeGreaterThanOrEqual(2);
 
-    const value = page.locator('[data-doc-var-value="주의"] input, input[data-doc-var-value="주의"]');
+    // Named rather than marked: the row carries the marker and the control carries its name, which
+    // holds for every kind — a marker on the text branch only would tie a test to the kind it is not
+    // testing.
+    const value = page.locator('.sl-components').getByLabel('주의 값');
     await value.fill('#15803d');
     await value.press('Enter');
     await page.waitForTimeout(700);
@@ -102,7 +168,7 @@ test.describe('the deck’s own variables', () => {
     await page.waitForTimeout(500);
     await page.locator('[data-doc-var-row="둥글기"] select').first().selectOption('number');
     await page.waitForTimeout(400);
-    const value = page.locator('[data-doc-var-value="둥글기"] input, input[data-doc-var-value="둥글기"]');
+    const value = page.locator('.sl-components').getByLabel('둥글기 값');
     await value.fill('600');
     await value.press('Enter');
     await page.waitForTimeout(500);
@@ -172,7 +238,7 @@ test.describe('the deck’s own variables', () => {
     await page.waitForTimeout(500);
     await page.locator('[data-doc-var-row="카드폭"] select').first().selectOption('number');
     await page.waitForTimeout(400);
-    const value = page.locator('[data-doc-var-value="카드폭"] input, input[data-doc-var-value="카드폭"]');
+    const value = page.locator('.sl-components').getByLabel('카드폭 값');
     await value.fill('2400');
     await value.press('Enter');
     await page.waitForTimeout(500);
@@ -239,9 +305,7 @@ test.describe('the deck’s own variables', () => {
     await page.waitForTimeout(500);
     await page.locator('[data-slide-var-row="주의"] select').first().selectOption('color');
     await page.waitForTimeout(400);
-    const value = page.locator(
-      '[data-slide-var-value="주의"] input, input[data-slide-var-value="주의"]'
-    );
+    const value = page.locator('[data-slide-var-list]').getByLabel('주의 값');
     await value.fill('#15803d');
     await value.press('Enter');
     await page.waitForTimeout(700);
@@ -253,9 +317,7 @@ test.describe('the deck’s own variables', () => {
     expect(after.filter((colour) => colour === 'rgb(239, 68, 68)')).toHaveLength(0);
 
     // The document's own value is untouched: this was a page saying something for itself.
-    await expect(page.locator('[data-doc-var-value="주의"] input, input[data-doc-var-value="주의"]')).toHaveValue(
-      '#ef4444'
-    );
+    await expect(page.locator('[data-doc-var-list]').getByLabel('주의 값')).toHaveValue('#ef4444');
   });
 
   /**
@@ -275,7 +337,7 @@ test.describe('the deck’s own variables', () => {
     await page.waitForTimeout(500);
     await page.locator('[data-doc-var-row="왼쪽"] select').first().selectOption('number');
     await page.waitForTimeout(400);
-    const value = page.locator('[data-doc-var-value="왼쪽"] input, input[data-doc-var-value="왼쪽"]');
+    const value = page.locator('.sl-components').getByLabel('왼쪽 값');
     await value.fill('1200');
     await value.press('Enter');
     await page.waitForTimeout(500);

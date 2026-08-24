@@ -1,6 +1,15 @@
 import { useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
-import { Button, Choice, Icon, IconButton, TextField } from '@barocss/office-ui';
+import {
+  Button,
+  Choice,
+  Icon,
+  IconButton,
+  PropertyChoice,
+  PropertyNumber,
+  PropertyToggle,
+  TextField
+} from '@barocss/office-ui';
 import {
   componentSourceOf,
   componentsOf,
@@ -110,25 +119,85 @@ function DocumentVarList({
                 <option value="boolean">켜기</option>
                 <option value="choice">고르기</option>
               </Choice>
-              <TextField
-                ariaLabel={`${one.name} 값`}
-                data={onPage ? { 'slide-var-value': one.name } : { 'doc-var-value': one.name }}
-                value={one.value}
-                onCommit={(value) => set({ name: one.name, value })}
-              />
+              {/*
+                * The value, in the control its **declared kind** asks for.
+                *
+                * It was a text box whatever the kind, and that was the panel ignoring what the
+                * document says about itself: a `boolean` was typed as the word `true`, a `choice`
+                * was typed instead of chosen from the options declared right beside it, and a
+                * `number` had no arrows. A *placement's* variables were already drawn this way
+                * (`ComponentGroup`), so the product had two controls for one idea — which is how
+                * it ends up with two kinds of colour picker.
+                *
+                * The document still holds one **string** whatever the kind (`componentValue`'s
+                * argument, one layer up): the control is how a reader authors it correctly, not a
+                * second shape for it.
+                */}
+              {one.kind === 'boolean' ? (
+                <PropertyToggle
+                  ariaLabel={`${one.name} 값`}
+                  label="켜기"
+                  value={one.value !== 'false' && one.value !== ''}
+                  onChange={(next) => set({ name: one.name, value: next ? 'true' : 'false' })}
+                />
+              ) : one.kind === 'number' ? (
+                <PropertyNumber
+                  ariaLabel={`${one.name} 값`}
+                  value={Number(one.value) || 0}
+                  step={1}
+                  onCommit={(next) => set({ name: one.name, value: String(next) })}
+                />
+              ) : one.kind === 'choice' ? (
+                /*
+                 * Chosen from what this variable declares — and nothing when it declares nothing
+                 * yet, which is a reader who has just changed the kind and has the 고를 것 field
+                 * below to fill in.
+                 */
+                <PropertyChoice
+                  ariaLabel={`${one.name} 값`}
+                  value={one.value}
+                  options={
+                    one.choices.length > 0
+                      ? one.choices.map((choice) => ({ id: choice, label: choice }))
+                      : [{ id: one.value, label: one.value || '고를 것을 먼저 적으세요' }]
+                  }
+                  onChange={(value) => set({ name: one.name, value })}
+                />
+              ) : (
+                /*
+                 * No marker of its own: the **row** carries one (`data-doc-var-row`) and the control
+                 * carries its name, and that pair holds for every kind. A marker on this branch only
+                 * would have been a handle that existed for a text variable and vanished for a
+                 * number — which is how a test comes to depend on the kind it is not testing.
+                 */
+                <TextField
+                  ariaLabel={`${one.name} 값`}
+                  value={one.value}
+                  onCommit={(value) => set({ name: one.name, value })}
+                />
+              )}
               {one.kind === 'choice' && (
                 <TextField
                   ariaLabel={`${one.name} 고를 것`}
                   value={one.choices.join(', ')}
-                  onCommit={(text) =>
+                  onCommit={(text) => {
+                    const choices = text
+                      .split(',')
+                      .map((choice) => choice.trim())
+                      .filter((choice) => choice.length > 0);
+                    /*
+                     * And the value follows the options: a `choice` holding something it no longer
+                     * offers is a select drawing a value nobody can pick again, which is the state
+                     * a free-text field left behind every time the options changed.
+                     */
                     set({
                       name: one.name,
-                      choices: text
-                        .split(',')
-                        .map((choice) => choice.trim())
-                        .filter((choice) => choice.length > 0)
-                    })
-                  }
+                      choices,
+                      ...(choices.length > 0 && !choices.includes(one.value)
+                        ? { value: choices[0] }
+                        : {})
+                    });
+                  }}
                 />
               )}
               {/* What a change reaches, and what a delete would lose. */}

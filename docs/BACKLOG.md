@@ -824,6 +824,19 @@ shipped features marked undone.
   own**, drawing and resolving and scoping like any other, so there is no third list and no third
   word. What the two remembered fields buy is one badge on one row.
 
+- [x] **A variable's value is authored in the control its kind asks for.** It was a text box whatever
+  the kind: a `boolean` typed as the word `true`, a `choice` typed instead of chosen from the options
+  declared right beside it, a `number` with no arrows. A *placement's* variables were already drawn
+  this way (`ComponentGroup`), so the product had two controls for one idea — which is how it ends up
+  with two kinds of colour picker. The document still holds one string whatever the kind; the control
+  is how a reader authors it correctly. Changing a `choice`'s options now moves the value onto one of
+  them, because a select drawing a value nobody can pick again is what the free-text field left behind
+  every time.
+
+  Found on the way: the value control's `data-` marker only existed on the text branch, so a test
+  looking for it was tied to the kind it was not testing. The **row** carries the marker and the
+  control carries its name, and that pair holds for every kind.
+
 - [ ] **A variable cannot be renamed**, like every other durable reference here. The label is what a
   reader changes. If renaming is ever wanted it is a migration — every attribute in every slide and
   every card that names it — and the honest version is a command that does exactly that walk.
