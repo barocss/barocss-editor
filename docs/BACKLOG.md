@@ -528,9 +528,15 @@ shipped features marked undone.
   stops; the scroll show is refused (a scroll is a line); the presenter is not promised a next
   page; the map draws no spine and the check asks the larger reachability question.
 
-- [ ] **A button that opens another deck** at a page. Needs a reference to a *document* — a file,
-  an address — which is a decision outside the model: there is no library of decks yet. The
-  attribute is shaped so it can be added beside `goTo`.
+- [x] **A button that opens another deck** at a page. `goToDeck` + `goTo`, where what can be
+  pointed at is a **source the product can fetch** — there is no library of decks, so there is no
+  id for "the pricing deck". Three things follow from *another document is not in this one*: the
+  model resolves nothing, the check warns (볼 것) rather than telling, and a failure to open is
+  said out loud instead of being a button that does nothing in front of a room.
+
+- [ ] **A library of decks**, which is what would turn `goToDeck` from an address into a name. Also
+  what a shared component library needs (§10) — the two wants are the same want, and it is a
+  product and storage decision rather than a model one.
 
 **Still open and not in a phase**
 

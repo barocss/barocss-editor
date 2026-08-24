@@ -150,6 +150,17 @@ const jumpData = {
   'data-go-to-kind': (d: NodeData) => {
     const kind = attrsOf(d).goToKind;
     return typeof kind === 'string' && kind.length > 0 ? kind : undefined;
+  },
+  /**
+   * And that the page is in **another deck**, which a reader has to be able to see.
+   *
+   * A button that leaves the deck is a different promise from one that moves inside it — the deck
+   * it points at has to exist wherever the reader is presenting from — so it is in the drawing
+   * too, and the stylesheet can mark it while the show is running.
+   */
+  'data-go-to-deck': (d: NodeData) => {
+    const deck = attrsOf(d).goToDeck;
+    return typeof deck === 'string' && deck.length > 0 ? deck : undefined;
   }
 };
 

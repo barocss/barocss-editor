@@ -2508,6 +2508,27 @@ body {
 }
 
 /*
+ * A button out of the deck that could not be followed.
+ *
+ * Where the reader is looking, and drawn while presenting too: an audience being shown a broken
+ * link is better off with the message than without it.
+ */
+.sl-away {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 11px;
+  color: #7f1d1d;
+  background: #fee2e2;
+  border-bottom: 1px solid #fecaca;
+}
+
+.sl-away button {
+  margin-left: auto;
+}
+
+/*
  * Where the reader is, when it is not a slide.
  *
  * Above the stage and across it, because it is not about any one panel: a component's

@@ -47,7 +47,9 @@ export type AuditKind =
   /** A button pointing at a page the deck no longer has. */
   | 'dead-jump'
   /** A page nothing can reach, in a deck that has buttons. */
-  | 'unreachable';
+  | 'unreachable'
+  /** A button into another deck, which this document cannot check. */
+  | 'away';
 
 export interface AuditHit {
   kind: AuditKind;
@@ -282,6 +284,25 @@ export function auditDeck(doc: DeckAccess): AuditHit[] {
    * "which pages can be reached" is a question about the whole deck rather than about one page.
    */
   for (const fault of jumpFaults(doc)) {
+    if (fault.kind === 'away') {
+      hits.push({
+        kind: 'away',
+        /**
+         * A look, and it cannot be anything else.
+         *
+         * Another document is not in this one, so whether that page is still there is a question
+         * this check cannot answer — and answering it anyway is exactly what a check must not do.
+         * What it can say is *there is a link out of this deck*, which is worth a reader's eye
+         * before they present: the deck it points at has to exist wherever they are showing from.
+         */
+        level: 'check',
+        slideSid: fault.slideSid,
+        sid: fault.sid,
+        what: '다른 덱으로 가는 버튼입니다.',
+        hint: `발표하는 곳에서 그 덱을 열 수 있는지 확인하세요 — ${fault.to ?? ''}`
+      });
+      continue;
+    }
     if (fault.kind === 'dead-jump') {
       hits.push({
         kind: 'dead-jump',

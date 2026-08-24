@@ -230,6 +230,14 @@ const schema = createSchema('word', getWordSchemaDefinition());
          */
         goTo: 'a deck’s button — the page it shows, read by Slides’ `jumpsOn`/`jumpTarget`; a Word page is not presented',
         goToKind: 'the same, for the presses with no page to name (다음/이전/처음/끝/돌아가기)',
+        goToDeck: 'the same, for a button whose page is in another document',
+        /*
+         * How a deck is moved through — by pressing on, or by its links only. A Word document has
+         * no show to advance, and the setting is on `document` because it cannot be answered per
+         * page (a deck where half the pages advance and half do not is unpresentable).
+         */
+        'document.advance':
+          'how a deck is moved through, read by Slides’ show, map and check; a Word document is not presented',
         'surface.id':
           'a page’s durable name, so a button can point at it across a save (`slideById`). Nothing in a Word document points at a page, and nothing in either product’s drawing reads it',
         layoutStretch: 'the arrangement — `layoutChildren` gives a stretched child the frame’s room across the axis',

@@ -1762,7 +1762,39 @@ Written as **absent** when it is `press`, because that is what every deck has al
 attribute on every document saying so is noise in every file — the same rule a placement's
 `visible` and a child's `layoutStretch` follow.
 
-### 11h. Still open
+### 11h. A button into another deck
+
+A deck of a hundred slides is really four decks, and the link between them is the thing every other
+tool makes you fake: export to one file, or paste the pages in and let them go stale. `goToDeck`
+names the other document and `goTo` names the page **inside it**, so the pair reads as one
+sentence.
+
+**What it can point at is a source the product can fetch**, and that is a limit rather than a shape
+to be generous about: this engine has no library of decks, so there is no id space for "the deck
+about pricing" and anything but a name the runtime can resolve would be a reference nothing could
+follow. When a library exists, this is where its id goes and a fetchable source stays legal.
+
+Three things follow from *another document is not in this one*:
+
+- **Nothing in the model resolves it.** `jumpOf` reports the deck and no `toSid`; `jumpTarget`
+  answers nothing. The **show** is what opens it — a fetch, `readDeckFile` (the same reader the
+  열기 button uses, so a bad file says the same thing in a show as in the editor), `loadDocument`,
+  and then the page by its durable id, resolved *after* the load because until then it does not
+  exist in this session.
+- **The check warns rather than telling.** A cross-deck button is 볼 것, not 고칠 것: whether that
+  page is there is not a question this document can answer, and a reader who deleted the button on
+  a 고칠 것 would have lost a working link. What the check *can* say is worth saying — the deck it
+  points at has to exist wherever they are presenting from.
+- **A failure is said, not swallowed.** A button that silently does nothing in front of a room is
+  the fault this whole feature's check exists to prevent, so an unreachable deck puts a message
+  where the reader is looking — including while presenting, because an audience being shown a
+  broken link is better off with the message than without it.
+
+And nothing is confirmed on the way: a reader presenting has already chosen this by pressing the
+button, and a dialog in the middle of a show is worse than any work it could save. The editor's own
+열기 still asks, because there it is the reader's own file being replaced.
+
+### 11i. Still open
 
 **Between decks.** A button that opens another deck at a page needs a reference to a *document* —
 a file, an address — and that is a decision outside the model: there is no library of decks yet.

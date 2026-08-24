@@ -221,3 +221,64 @@ describe('what is wrong with a deck’s links', () => {
     ]);
   });
 });
+
+/**
+ * A button into **another deck**.
+ *
+ * A deck of a hundred slides is really four decks, and the link between them is the thing every
+ * other tool makes you fake — export to one file, or paste the pages in and let them go stale.
+ *
+ * What this file can and cannot say about one is the whole design: `goTo` is a page in *that*
+ * document, so nothing here resolves it, and the deck's own check **warns** rather than telling.
+ * Answering a question that is not in the model is exactly what a check must not do.
+ */
+describe('a button into another deck', () => {
+  const away = () =>
+    deck({
+      doc: { stype: 'document', content: ['a', 'b'] },
+      a: {
+        sid: 'a',
+        stype: 'surface',
+        attributes: { kind: 'slide', id: 'a' },
+        content: ['out', 'in']
+      },
+      out: {
+        sid: 'out',
+        stype: 'rectangle',
+        attributes: { goToDeck: '/decks/pricing.slides.json', goTo: 'plans' }
+      },
+      in: { sid: 'in', stype: 'rectangle', attributes: { goTo: 'b' } },
+      b: { sid: 'b', stype: 'surface', attributes: { kind: 'slide', id: 'b' }, content: [] }
+    });
+
+  it('says where the other document is, and does not pretend to resolve the page', () => {
+    const jump = jumpOf(away(), away().getNode('out'));
+    expect(jump).toEqual({
+      sid: 'out',
+      kind: 'page',
+      to: 'plans',
+      deck: '/decks/pricing.slides.json'
+    });
+    // No `toSid`: another document is not in this one. A button whose page *is* here still gets
+    // one, which is what keeps the two cases apart everywhere downstream.
+    expect(jumpOf(away(), away().getNode('in'))?.toSid).toBe('b');
+  });
+
+  it('goes nowhere in this deck, because the page is not in it', () => {
+    // The show is what opens another document; the model's answer is honestly nothing.
+    expect(jumpTarget(away(), jumpOf(away(), away().getNode('out')), { at: 'a' })).toBeUndefined();
+  });
+
+  it('is a thing to look at, not a dead button', () => {
+    const faults = jumpFaults(away());
+    // The page may well be there. Calling it dead would be this check answering a question it
+    // cannot ask — and a reader who then deleted the button would lose a working link.
+    expect(faults.find((one) => one.kind === 'dead-jump')).toBeUndefined();
+    expect(faults.find((one) => one.kind === 'away')).toEqual({
+      kind: 'away',
+      slideSid: 'a',
+      sid: 'out',
+      to: '/decks/pricing.slides.json'
+    });
+  });
+});

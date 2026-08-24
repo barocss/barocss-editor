@@ -52,6 +52,18 @@ export interface Jump {
   kind: 'page' | 'back' | 'next' | 'previous' | 'first' | 'last';
   /** The durable id of the page it shows, for `kind: 'page'`. */
   to?: string;
+  /**
+   * Where the **other document** is, when the page is not in this one.
+   *
+   * A deck of a hundred slides is really four decks, and this is the link between them. What can
+   * be resolved is a *source the product can fetch* — there is no library of decks in this engine,
+   * so there is no id space for "the deck about pricing" (canvas-model §11h).
+   *
+   * Nothing in this file can follow it: another document is not in this one. So `toSid` is absent
+   * for such a jump, the show is what opens the deck, and the deck's own check warns rather than
+   * telling — the page may well be there.
+   */
+  deck?: string;
   /** Where that page is *now*, or nothing when the deck no longer has it. */
   toSid?: string;
 }
@@ -76,6 +88,14 @@ export function jumpOf(doc: DeckAccess, node: DeckNode | undefined): Jump | unde
   const declared = attrs.goToKind;
   const kind = KINDS.includes(declared as never) ? (declared as Jump['kind']) : undefined;
   const to = typeof attrs.goTo === 'string' && attrs.goTo.length > 0 ? attrs.goTo : undefined;
+  const deck =
+    typeof attrs.goToDeck === 'string' && attrs.goToDeck.length > 0 ? attrs.goToDeck : undefined;
+
+  /*
+   * Another deck first, because then `goTo` is a page *there* and resolving it here would answer
+   * about the wrong document — the mistake that would make a cross-deck button look dead.
+   */
+  if (deck) return { sid, kind: 'page', to, deck };
 
   /*
    * A `goTo` with no kind is a page — which is the common case and what a reader means by
@@ -181,7 +201,8 @@ export function jumpTarget(
  * is the whole shape of thing the deck's own check exists for (`audit.ts` reads this).
  */
 export interface JumpFault {
-  kind: 'dead-jump' | 'unreachable';
+  /** `away` is a button into another document, which this one cannot check. */
+  kind: 'dead-jump' | 'unreachable' | 'away';
   /** The page the fault is on: the button's page, or the page nothing reaches. */
   slideSid: string;
   /** The button, for a dead jump. */
@@ -197,6 +218,15 @@ export function jumpFaults(doc: DeckAccess): JumpFault[] {
   for (const jump of jumps) {
     if (jump.kind !== 'page') continue;
     if (jump.toSid) continue;
+    /*
+     * A button into **another deck** is not a dead one: the page may well be there, and this
+     * document cannot say. It is reported as something to look at instead (`audit.ts`), which is
+     * the same honesty the check uses wherever the answer is not in the model.
+     */
+    if (jump.deck) {
+      faults.push({ kind: 'away', slideSid: jump.from, sid: jump.sid, to: jump.deck });
+      continue;
+    }
     faults.push({ kind: 'dead-jump', slideSid: jump.from, sid: jump.sid, to: jump.to });
   }
 

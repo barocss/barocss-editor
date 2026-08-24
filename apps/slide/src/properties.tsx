@@ -247,6 +247,21 @@ export function Properties({
     return ids.filter((sid): sid is string => typeof sid === 'string');
   }, [editor, tick]);
 
+  /** The other deck this button names, and the page in it — read from the document. */
+  const jumpDeck = useMemo(() => {
+    const store = (editor as any)?.dataStore;
+    const node = box?.sid ? store?.getNode(box.sid) : undefined;
+    const deck = node?.attributes?.goToDeck;
+    return typeof deck === 'string' && deck.length > 0 ? deck : undefined;
+  }, [editor, box, tick]);
+
+  const jumpDeckPage = useMemo(() => {
+    const store = (editor as any)?.dataStore;
+    const node = box?.sid ? store?.getNode(box.sid) : undefined;
+    const page = node?.attributes?.goTo;
+    return jumpDeck && typeof page === 'string' && page.length > 0 ? page : undefined;
+  }, [editor, box, tick, jumpDeck]);
+
   const here = useMemo(() => slides.find((slide) => slide.sid === current), [slides, current]);
 
   /**
@@ -432,6 +447,9 @@ export function Properties({
    * document's own shape is the same one decision — `goTo` **or** `goToKind` — which is why the
    * command clears the other half whenever it writes one.
    */
+  /** Whether the reader has just asked for another deck and not yet said which. */
+  const [naming, setNaming] = useState(false);
+
   const jumpValue = useMemo(() => {
     const store = (editor as any)?.dataStore;
     const rootId = (editor as any)?.getRootId?.();
@@ -439,6 +457,9 @@ export function Properties({
     const doc = { rootId, getNode: (sid: string) => store.getNode(sid) };
     const jump = jumpOf(doc as never, store.getNode(box.sid));
     if (!jump) return '';
+    // Another document is its own answer: the page is not in this one, so no page option can be
+    // the value the control shows.
+    if (jump.deck) return 'deck';
     if (jump.kind !== 'page') return `kind:${jump.kind}`;
     // The page as it is *now*: a button pointing at a page the deck no longer has shows as
     // nothing chosen, and the deck's own check is what says so out loud.
@@ -852,6 +873,9 @@ export function Properties({
                     { id: 'kind:first', label: '처음 장' },
                     { id: 'kind:last', label: '끝 장' },
                     { id: 'kind:back', label: '돌아가기' },
+                    /* A page in another document — the deck of a hundred slides that is really
+                       four decks. See `goToDeck`. */
+                    { id: 'deck', label: '다른 덱…' },
                     ...slides.map((slide) => ({
                       id: `page:${slide.sid}`,
                       label: `${slide.number}. ${slide.name || '제목 없음'}`
@@ -860,6 +884,14 @@ export function Properties({
                   disabled={locked}
                   onChange={(picked) => {
                     if (!picked) return void (editor as any)?.executeCommand?.('setBoxJump', { nodeIds: targets, to: null });
+                    if (picked === 'deck') {
+                      /*
+                       * Another document: the two fields below are what it needs, and the command
+                       * is not run until there is a source to run it with — a button pointing at
+                       * an empty address is a button that does nothing.
+                       */
+                      return setNaming(true);
+                    }
                     if (picked.startsWith('kind:')) {
                       return void (editor as any)?.executeCommand?.('setBoxJump', {
                         nodeIds: targets,
@@ -871,6 +903,44 @@ export function Properties({
                       to: picked.slice(5)
                     });
                   }}
+                />
+              </PropertyRow>
+            )}
+            {/*
+              * Where the other deck is, and which page of it.
+              *
+              * Two fields rather than one, because they are two answers — a *source this product
+              * can fetch* (there is no library of decks, so there is no id for "the pricing deck")
+              * and a page's durable id **in that document**, which this one cannot check. The
+              * deck's own check says so out loud: 볼 것, not 고칠 것.
+              */}
+            {!many && (naming || jumpDeck) && (
+              <PropertyRow label="다른 덱">
+                <TextField
+                  ariaLabel="다른 덱 주소"
+                  data={{ 'jump-deck': '' }}
+                  value={jumpDeck ?? ''}
+                  disabled={locked}
+                  onCommit={(source) =>
+                    void (editor as any)?.executeCommand?.('setBoxJump', {
+                      nodeIds: targets,
+                      deck: source,
+                      to: jumpDeckPage ?? undefined
+                    })
+                  }
+                />
+                <TextField
+                  ariaLabel="다른 덱의 장"
+                  data={{ 'jump-deck-page': '' }}
+                  value={jumpDeckPage ?? ''}
+                  disabled={locked || !jumpDeck}
+                  onCommit={(pageId) =>
+                    void (editor as any)?.executeCommand?.('setBoxJump', {
+                      nodeIds: targets,
+                      deck: jumpDeck as string,
+                      to: pageId
+                    })
+                  }
                 />
               </PropertyRow>
             )}

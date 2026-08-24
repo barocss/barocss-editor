@@ -107,6 +107,26 @@ export const CANVAS_PRESENCE_ATTRS = {
    * `goTo`, because a page whose id is literally "next" is a page this would have lied about.
    */
   goTo: { type: 'string' as const, required: false },
+  /**
+   * That the page it shows is in **another document**, and where that document is.
+   *
+   * A deck of a hundred slides is really four decks, and the link between them is the thing every
+   * other tool makes you fake — export to one file, or paste the pages in and let them go stale.
+   * `goTo` names the page *inside* that document, so the pair reads as one sentence: this button
+   * shows that page of that deck.
+   *
+   * **A source the product can fetch**, and that is a deliberate limit rather than a shape to be
+   * generous about. This engine has no library of decks: there is no id space for "the deck about
+   * pricing", so anything but a name the runtime can resolve — a URL, a path — would be a
+   * reference nothing could follow. When a library exists, this becomes the place its id goes, and
+   * a fetchable source stays legal.
+   *
+   * What it costs, said out loud: the deck's own check **cannot** tell whether the page is there.
+   * Another document is not in this one, so a dead link across decks is a thing a reader is warned
+   * about (볼 것) rather than told (고칠 것) — the same honesty the audit uses wherever the answer
+   * is not in the model.
+   */
+  goToDeck: { type: 'string' as const, required: false },
   goToKind: {
     type: 'string' as const,
     required: false,

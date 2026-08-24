@@ -825,6 +825,8 @@ export class SlidesExtension implements Extension {
         if (!doc) return false;
         if (payload?.to === null || payload?.kind === null) return true;
         if (typeof payload?.kind === 'string') return JUMP_KINDS.includes(payload.kind);
+        // Another deck: a source this product can fetch, and a page id it cannot check.
+        if (typeof payload?.deck === 'string') return payload.deck.length > 0;
         // A page, named by *where it is* — the panel knows sids, and this turns one into an id.
         return typeof payload?.to === 'string' && !!doc.getNode(payload.to);
       }
@@ -2767,7 +2769,14 @@ export class SlidesExtension implements Extension {
   /** Write the button, and the page's id if the page did not have one. */
   private async _setJump(
     editor: Editor,
-    payload?: { nodeIds?: string[]; nodeId?: string; to?: string | null; kind?: string | null }
+    payload?: {
+      nodeIds?: string[];
+      nodeId?: string;
+      to?: string | null;
+      kind?: string | null;
+      /** Where the other document is, when the page is not in this one. */
+      deck?: string;
+    }
   ): Promise<boolean> {
     const doc = this._access(editor);
     const boxes = this._boxesNamed(payload as never);
@@ -2779,9 +2788,19 @@ export class SlidesExtension implements Extension {
     if (payload?.to === null || payload?.kind === null) {
       // Off: both halves, so a shape that was a 다음 button and then a page button does not keep
       // the other answer lying in the document.
-      attrs = { goTo: null, goToKind: null };
+      attrs = { goTo: null, goToKind: null, goToDeck: null };
     } else if (typeof payload?.kind === 'string' && payload.kind !== 'page') {
-      attrs = { goTo: null, goToKind: payload.kind };
+      attrs = { goTo: null, goToKind: payload.kind, goToDeck: null };
+    } else if (typeof payload?.deck === 'string' && payload.deck.length > 0) {
+      /*
+       * Another document: `goTo` is a page *there*, so it is taken as written and no id is minted
+       * — minting one would be this deck naming a page in a deck it cannot see.
+       */
+      attrs = {
+        goToDeck: payload.deck,
+        goTo: typeof payload.to === 'string' && payload.to.length > 0 ? payload.to : null,
+        goToKind: null
+      };
     } else if (typeof payload?.to === 'string') {
       const target = this._pageIdFor(doc, payload.to);
       if (target.mint) {
@@ -2792,7 +2811,7 @@ export class SlidesExtension implements Extension {
        * case, and an attribute saying so on every button is noise in the file — the same rule a
        * child's `layoutStretch` and a placement's `visible` follow.
        */
-      attrs = { goTo: target.id, goToKind: null };
+      attrs = { goTo: target.id, goToKind: null, goToDeck: null };
     }
     if (!attrs) return false;
 

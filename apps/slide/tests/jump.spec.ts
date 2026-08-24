@@ -457,3 +457,180 @@ test.describe('a deck that moves by its links', () => {
     expect(await page.locator('[data-map-unreachable="true"]').count()).toBeGreaterThan(0);
   });
 });
+
+/**
+ * A button that opens **another deck** at a page.
+ *
+ * The link between the four decks a hundred-slide deck really is. What it can point at is a
+ * *source this product can fetch* — there is no library of decks, so there is no id for "the
+ * pricing deck" — and the honesty that comes with that: the deck's own check warns about such a
+ * button (볼 것) instead of telling (고칠 것), because whether that page is there is not a question
+ * this document can answer.
+ */
+test.describe('a button into another deck', () => {
+  /** A second deck, served to the app the way any file would be. */
+  const otherDeck = {
+    // The format the reader's own 열기 button accepts, from `deck-file.ts`: a test that invented
+    // its own would be testing a file this product would refuse.
+    format: 'barocss-slides',
+    version: 1,
+    document: {
+      stype: 'document',
+      attributes: {},
+      content: [
+        {
+          stype: 'surface',
+          attributes: { kind: 'slide', id: 'cover', name: '가격표 표지' },
+          content: [
+            {
+              stype: 'textFrame',
+              attributes: { role: 'title', x: 1440, y: 3600, width: 16320, height: 2400 },
+              content: [
+                {
+                  stype: 'paragraph',
+                  attributes: {},
+                  content: [{ stype: 'inline-text', text: '가격표' }]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          stype: 'surface',
+          attributes: { kind: 'slide', id: 'plans', name: '요금제' },
+          content: [
+            {
+              stype: 'textFrame',
+              attributes: { role: 'title', x: 1440, y: 3600, width: 16320, height: 2400 },
+              content: [
+                {
+                  stype: 'paragraph',
+                  attributes: {},
+                  content: [{ stype: 'inline-text', text: '요금제' }]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  };
+
+  test('is written from the panel, and the check warns rather than telling', async ({ page }) => {
+    await openDeck(page);
+
+    // A shape of the reader's own, made a button into another deck.
+    const made = await page.evaluate(async () => {
+      const editor = (window as any).editor;
+      await editor.executeCommand('insertRectangle', {});
+      return editor.selection?.nodeIds?.[0];
+    });
+    await page.waitForTimeout(400);
+
+    await page.locator('.sl-properties').getByLabel('누르면 이동').selectOption('deck');
+    await page.waitForTimeout(300);
+    const source = page.locator('.sl-properties').getByLabel('다른 덱 주소');
+    await source.fill('/other-deck.slides.json');
+    await source.press('Enter');
+    await page.waitForTimeout(500);
+    const which = page.locator('.sl-properties').getByLabel('다른 덱의 장');
+    await which.fill('plans');
+    await which.press('Enter');
+    await page.waitForTimeout(500);
+
+    const written = await page.evaluate(
+      (sid) => (window as any).editor.dataStore.getNode(sid)?.attributes,
+      made
+    );
+    expect(written.goToDeck).toBe('/other-deck.slides.json');
+    expect(written.goTo).toBe('plans');
+
+    // 볼 것: whether that page is there is not a question this document can answer, and a reader
+    // who deleted the button on a 고칠 것 would have lost a working link.
+    await page.locator('[data-audit]').first().click();
+    await page.waitForTimeout(500);
+    const row = page.locator('.sl-audit-list li[data-audit="away"]');
+    await expect(row).toHaveCount(1);
+    await expect(row).toContainText('볼 것');
+  });
+
+  test('opens that deck at that page when it is pressed in the show', async ({ page }) => {
+    // Served from the app's own origin: the reader's press is a fetch, and a test can answer it.
+    await page.route('**/other-deck.slides.json', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(otherDeck) })
+    );
+
+    await openDeck(page);
+    const made = await page.evaluate(async () => {
+      const editor = (window as any).editor;
+      await editor.executeCommand('insertRectangle', {});
+      const sid = editor.selection?.nodeIds?.[0];
+      await editor.executeCommand('setBoxJump', {
+        nodeIds: [sid],
+        deck: '/other-deck.slides.json',
+        to: 'plans'
+      });
+      return sid;
+    });
+    await page.waitForTimeout(500);
+
+    await page.locator('[data-present]').click();
+    await page.waitForTimeout(600);
+
+    const box = (await page.locator(`.sl-stage [data-bc-sid="${made}"]`).boundingBox())!;
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    await page.waitForTimeout(1200);
+
+    const now = await page.evaluate(() => {
+      const editor = (window as any).editor;
+      const store = editor.dataStore;
+      const root = store.getNode(editor.getRootId());
+      const pages = ((root.content ?? []) as string[])
+        .map((sid: string) => store.getNode(sid))
+        .filter((one: any) => one?.stype === 'surface')
+        .map((one: any) => one.attributes?.id);
+      const shown = [...document.querySelectorAll<HTMLElement>('.sl-stage .sl-slide')].find(
+        (one) => getComputedStyle(one).display !== 'none'
+      );
+      const sid = shown?.getAttribute('data-bc-sid');
+      return { pages, at: sid ? store.getNode(sid)?.attributes?.id : null };
+    });
+
+    // The other deck is open, and the reader is on the page the button named — by that page's
+    // durable id, resolved after the load because until then it does not exist in this session.
+    expect(now.pages).toEqual(['cover', 'plans']);
+    expect(now.at).toBe('plans');
+
+    await page.keyboard.press('Escape');
+  });
+
+  test('says so, rather than silently doing nothing, when the deck cannot be opened', async ({
+    page
+  }) => {
+    await page.route('**/missing-deck.slides.json', (route) => route.fulfill({ status: 404, body: '' }));
+
+    await openDeck(page);
+    const made = await page.evaluate(async () => {
+      const editor = (window as any).editor;
+      await editor.executeCommand('insertRectangle', {});
+      const sid = editor.selection?.nodeIds?.[0];
+      await editor.executeCommand('setBoxJump', {
+        nodeIds: [sid],
+        deck: '/missing-deck.slides.json'
+      });
+      return sid;
+    });
+    await page.waitForTimeout(500);
+
+    await page.locator('[data-present]').click();
+    await page.waitForTimeout(600);
+    const box = (await page.locator(`.sl-stage [data-bc-sid="${made}"]`).boundingBox())!;
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    await page.waitForTimeout(1000);
+
+    // A button that silently does nothing in front of a room is the fault this feature's own
+    // check exists to prevent, so the failure is said where the reader is looking.
+    await expect(page.locator('[data-jump-away]')).toHaveCount(1);
+    await page.keyboard.press('Escape');
+  });
+});

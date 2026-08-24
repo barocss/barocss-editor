@@ -20,6 +20,9 @@ import {
   advanceShow,
   deckAdvance,
   deckComponents,
+  deckSlides,
+  readDeckFile,
+  slideById,
   deckDesigns,
   jumpsOn,
   jumpTarget,
@@ -1326,12 +1329,57 @@ export function App({
       const store = (editor as any)?.dataStore;
       const rootId = (editor as any)?.getRootId?.();
       if (!store || !rootId) return;
+      const jump = jumps[sid];
+
+      /**
+       * A button into **another deck**: fetched, read and opened, then the page.
+       *
+       * Here because opening a document is the app's business — the model cannot follow a source
+       * it has no way to read, and the show should not be the thing that knows about the network.
+       * `readDeckFile` is the same reader the 열기 button uses, so a bad file says the same thing
+       * in both places rather than failing differently in a show.
+       *
+       * Nothing is confirmed on the way: a reader **presenting** has already chosen this by
+       * pressing the button, and a dialog in the middle of a show in front of an audience is
+       * worse than any work it could save. The editor's own 열기 asks, because there it is a
+       * reader's file being replaced by another.
+       */
+      if (jump?.deck) {
+        void (async () => {
+          try {
+            const response = await fetch(jump.deck as string);
+            const read = readDeckFile(await response.text());
+            if ('error' in read) return setAway(read.error);
+            (editor as any)?.loadDocument?.(read.document, 'slides');
+            /*
+             * And the page *in that deck*, by its durable id — resolved after the load, because
+             * until then the page does not exist in this session.
+             */
+            const opened = {
+              rootId: (editor as any)?.getRootId?.(),
+              getNode: (one: string) => (editor as any)?.dataStore?.getNode(one)
+            };
+            const page = jump.to ? slideById(opened as never, jump.to) : undefined;
+            setCurrent(page ?? deckSlides(opened as never)[0]?.sid);
+            setVisited([]);
+          } catch {
+            // Said, not swallowed: a button that silently does nothing in front of a room is the
+            // fault this whole feature's check exists to prevent.
+            setAway('다른 덱을 열 수 없습니다.');
+          }
+        })();
+        return;
+      }
+
       const doc = { rootId, getNode: (one: string) => store.getNode(one) };
-      const to = jumpTarget(doc as never, jumps[sid], { at: current, history: visited });
+      const to = jumpTarget(doc as never, jump, { at: current, history: visited });
       if (to) setCurrent(to);
     },
     [editor, jumps, current, visited]
   );
+
+  /** What went wrong following a button out of the deck, if anything. */
+  const [away, setAway] = useState<string | undefined>();
 
   const arrival = useMemo(() => {
     const store = (editor as any)?.dataStore;
@@ -1608,6 +1656,23 @@ export function App({
             * their deck has been trapped by a feature, whichever kind of definition they
             * opened.
             */}
+          {/*
+            * What went wrong following a button **out** of the deck.
+            *
+            * Said where the reader is looking, and not swallowed: a button that silently does
+            * nothing in front of a room is the fault this feature's own check exists to prevent.
+            * Drawn while presenting too — it is the one message an audience being shown a broken
+            * link is better off with than without.
+            */}
+          {away && (
+            <div className="sl-away" role="alert" data-jump-away>
+              <span>{away}</span>
+              <Button title="닫기" data={{ 'away-close': '' }} onClick={() => setAway(undefined)}>
+                닫기
+              </Button>
+            </div>
+          )}
+
           {(editingComponent || editingDesign) && !presenting && (
             <div
               className="sl-editing"
