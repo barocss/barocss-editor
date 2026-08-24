@@ -103,7 +103,20 @@ export function instanceParts(
       part,
       values,
       binds,
-      { slotOf: slot, own, inside: [...inside, definition.id] },
+      {
+        slotOf: slot,
+        own,
+        inside: [...inside, definition.id],
+        /**
+         * **This placement**, which is what makes a drawn part's identity its own.
+         *
+         * It used to be the definition's id, and that was measured as exactly the fault the comment
+         * below says it avoids: three placements of one card on the sample's slide drew
+         * `metric-card~slides:138` three times, so `querySelector` found the first one and any motion,
+         * hit test or lookup aimed at the third reached the first.
+         */
+        owner: instance?.sid ?? definition.id
+      },
       fills.get(part)
     )
   );
@@ -115,7 +128,7 @@ function resolvePart(
   sid: string,
   values: Map<string, string>,
   binds: ComponentBind[],
-  where: { slotOf?: string; own: CanvasNode[]; inside: readonly string[] },
+  where: { slotOf?: string; own: CanvasNode[]; inside: readonly string[]; owner: string },
   /** What the container above decided about this part, when it decided anything. */
   at?: LaidOutPlace,
   depth = 0
@@ -177,22 +190,28 @@ function resolvePart(
   const mine = sid === where.slotOf ? where.own : [];
   const nested =
     node?.stype === 'instance'
-      ? instanceParts(doc, { ...node, sid } as CanvasNode, where.inside)
+      ? // With the **drawn** sid as the placement, so a badge inside a card inside a card is still one
+        // thing per outermost placement rather than one per definition.
+        instanceParts(doc, { ...node, sid: `${where.owner}~${sid}` } as CanvasNode, where.inside)
       : [];
 
   const resolved: CanvasNode & { text?: string; content?: unknown } = {
     ...node,
     attributes: attrs,
     /**
-     * A **synthetic** sid: this piece is not in the document, and two placements of one card would
-     * otherwise draw two elements claiming the same identity — which every lookup by sid would then
-     * find twice.
+     * A **synthetic** sid, made of **this placement** and the part it draws.
      *
-     * Distinguishable on purpose: nothing in a store's own ids contains `~`, so a reader of the DOM
-     * can tell "a piece of a placement" from "a node in the document", and a click on one selects
-     * the placement rather than something the reader cannot edit.
+     * Two things at once, and the first was measured wrong before it was measured right:
+     *
+     * - *Unique per placement.* It was the definition's id, so three placements of one card drew
+     *   three elements claiming `metric-card~slides:138`, and `querySelector` answered the first one
+     *   for all three. The placement's own sid makes each drawn part its own thing, which is what any
+     *   motion, hit test or lookup aimed at a part needs.
+     * - *Recognisably not a document node.* Nothing in a store's own ids contains `~`, so a reader of
+     *   the DOM can tell "a piece of a placement" from "a node in the document" — and a click on one
+     *   selects the placement rather than something nobody can edit.
      */
-    sid: `${(where.inside[where.inside.length - 1] ?? 'x')}~${sid}`,
+    sid: `${where.owner}~${sid}`,
     content: node?.stype === 'instance' ? nested : [...kids, ...mine]
   } as never;
 

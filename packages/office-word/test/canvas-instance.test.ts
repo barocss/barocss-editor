@@ -191,14 +191,41 @@ describe('what a reader puts in a card', () => {
 describe('a drawn part is not a node in the document', () => {
   it('says so in its sid, so nothing mistakes it for one', () => {
     /*
-     * Two placements of one card would otherwise draw two elements claiming the same identity,
-     * and every lookup by sid would find it twice. `~` never appears in a store's own ids, so a
-     * reader of the DOM can tell a piece of a placement from a node in the document — which is
-     * what makes a click select the placement rather than something nobody can edit.
+     * `~` never appears in a store's own ids, so a reader of the DOM can tell a piece of a placement
+     * from a node in the document — which is what makes a click select the placement rather than
+     * something nobody can edit.
      */
     for (const part of drawn(bound()).all) {
       expect(part.sid.includes('~')).toBe(true);
     }
+  });
+
+  it('is its **own** thing in each placement of the card', () => {
+    /*
+     * Measured as the opposite first, which is why this test exists: the sid was made of the
+     * *definition's* id, so the sample deck's three placements of one card each drew
+     * `metric-card~slides:138` — three elements claiming one identity, and `querySelector` answering
+     * the first for all three. Any motion, hit test or lookup aimed at the third reached the first.
+     *
+     * The placement's own sid is the prefix now, so a part drawn twice is two things.
+     */
+    const access = bound();
+    (access.getNode('slide') as never as { content: string[] }).content = ['one', 'two'];
+    (access as never as { getNode: (sid: string) => unknown }).getNode('one');
+    const twin = {
+      ...(access.getNode('one') as never as Record<string, unknown>),
+      sid: 'two'
+    };
+    const doubled = {
+      rootId: 'root',
+      getNode: (sid: string) => (sid === 'two' ? twin : access.getNode(sid))
+    } as never;
+
+    const first = instanceParts(doubled, access.getNode('one') as never) as never as { sid: string }[];
+    const second = instanceParts(doubled, twin as never) as never as { sid: string }[];
+    expect(first[0].sid).not.toBe(second[0].sid);
+    expect(first[0].sid.startsWith('one~')).toBe(true);
+    expect(second[0].sid.startsWith('two~')).toBe(true);
   });
 });
 

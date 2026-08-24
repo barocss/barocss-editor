@@ -1240,10 +1240,16 @@ still says exactly what a reader has: a placement, where it sits, and the values
   puts in the slot. There is no per-placement copy of a part to edit, which is also why the layer
   list shows a placement's slot contents and not the card's parts: the parts are worked on by
   opening the card.
-- **A drawn part has a synthetic id** (`<component>~<part sid>`). Two placements of one card would
-  otherwise draw two elements claiming the same identity, and every lookup by sid would find both.
-  Nothing in a store's ids contains `~`, so a reader of the DOM can tell a piece of a placement from
-  a node a reader can select.
+- **A drawn part has a synthetic id**, made of **the placement** and the part: `<placement
+  sid>~<part sid>`. Nothing in a store's ids contains `~`, so a reader of the DOM can tell a piece of
+  a placement from a node a reader can select.
+
+  It was `<component id>~<part sid>` first, and that was measured as exactly the fault the id exists
+  to avoid: the sample deck's three placements of one card each drew `metric-card~slides:138`, so
+  three elements claimed one identity and `querySelector` answered the first for all three. Anything
+  aimed at a part — a motion, a hit test, a lookup — reached the wrong placement. Nothing had failed
+  yet, because the audit and find both report against the *placement*; it was found while measuring
+  whether a card could animate at all.
 - **A placement's text is not in the document.** A spell checker does not see it. That is inherent
   to a reference and it is the price of the thing being a component; the way out is a second walk
   that reads the resolved tree, and two walks now do it: the deck's own check (`auditDeck` — the
