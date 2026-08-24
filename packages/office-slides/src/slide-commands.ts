@@ -1519,12 +1519,24 @@ export class SlidesExtension implements Extension {
     ]);
   }
 
-  /** Whether any node already carries a name, which `_freeShapeName` also asks. */
+  /**
+   * Whether a **box** already carries this name, which `_freeShapeName` also asks.
+   *
+   * A box, not any node, and the two answers had drifted apart: this read `name` off everything it
+   * walked, while `namedBoxes` — the map a step's target is actually resolved through — offers only
+   * what a canvas places. So a `variable` called `shape-3`, or a `componentValue` whose `name` says
+   * which variable it answers, made `shape-3` "taken" for a name nothing could ever resolve to it.
+   *
+   * Harmless in practice, which is why it sat: the generator only ever asks about `shape-N`, and
+   * skipping a number costs nothing. Narrowed anyway, because two readers of one idea that answer
+   * differently is how the next person gets the idea wrong — and `namedBoxes` is the one that decides
+   * what a name *means*.
+   */
   private _nameTaken(doc: DeckAccess, name: string): boolean {
     const walk = (sid: string, depth: number): boolean => {
       if (depth > 32) return false;
       const node = doc.getNode(sid);
-      if (node?.attributes?.name === name) return true;
+      if (isSceneType(node?.stype) && node?.attributes?.name === name) return true;
       for (const child of Array.isArray(node?.content) ? (node!.content as string[]) : []) {
         if (typeof child === 'string' && walk(child, depth + 1)) return true;
       }
@@ -2212,7 +2224,8 @@ export class SlidesExtension implements Extension {
       if (depth > 32) return;
       const node = doc.getNode(sid);
       const name = node?.attributes?.name;
-      if (typeof name === 'string') {
+      // A box's name, for the reason `_nameTaken` gives: a name is what a canvas places carries.
+      if (typeof name === 'string' && isSceneType(node?.stype)) {
         const match = /^shape-(\d+)$/.exec(name);
         if (match) highest = Math.max(highest, Number(match[1]));
       }

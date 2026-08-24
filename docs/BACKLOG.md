@@ -149,6 +149,18 @@ sees). Measured, one walk at a time:
      only way to get one — an older file, or a definition deleted while placements of it sat on
      slide 40.
 
+### A name means "a box motion can find", in both places that ask
+
+- [x] `_nameTaken` and `_freeShapeName` read `name` off **every** node, while `namedBoxes` — the map a
+  step's target is actually resolved through — offers only what a canvas places. So a `variable`
+  called `shape-1`, or a `componentValue` whose `name` says which variable it answers, made `shape-1`
+  "taken" for a name nothing could ever resolve to it.
+
+  Harmless in practice, which is why it sat: the generator only ever asks about `shape-N` and skipping
+  a number costs nothing. Narrowed to scene nodes anyway, because two readers of one idea that answer
+  differently is how the next person gets the idea wrong — and `namedBoxes` is the one that decides
+  what a name means.
+
 ### All four selection types have a producer now
 
 `SelectionType` is `'range' | 'node' | 'cell' | 'table'`, and for a long time two

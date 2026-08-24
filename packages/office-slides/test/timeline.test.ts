@@ -209,6 +209,39 @@ describe('a slide’s timeline', () => {
     expect(timeline()).toEqual([]);
   });
 
+  it('names the shape it animates without minding what else carries that name', async () => {
+    /*
+     * A name means "a box motion can find", and `namedBoxes` says so: only what a canvas places is in
+     * that map. The name generator disagreed — it read `name` off every node — so a `variable` called
+     * `shape-1`, or a `componentValue` whose `name` says which variable it answers, made `shape-1`
+     * taken for a name nothing could ever resolve to it.
+     *
+     * Harmless, which is why it sat: skipping a number costs nothing. Narrowed because two readers of
+     * one idea answering differently is how the next person gets the idea wrong.
+     */
+    await (editor as never as {
+      transaction: (steps: unknown[]) => { commit: () => Promise<unknown> };
+    })
+      .transaction([
+        {
+          type: 'addChild',
+          payload: {
+            parentId: (editor as never as { getRootId: () => string }).getRootId(),
+            child: {
+              stype: 'variables',
+              content: [{ stype: 'variable', attributes: { name: 'shape-1', value: '1' } }]
+            }
+          }
+        }
+      ])
+      .commit();
+
+    await run('setBoxBuild', { nodeId: title, effect: 'fadeIn' });
+    expect((doc().getNode(title) as { attributes?: Record<string, unknown> })?.attributes?.name).toBe(
+      'shape-1'
+    );
+  });
+
   it('lists a build with what a panel needs to draw it', async () => {
     await run('setBoxBuild', { nodeId: title, effect: 'fadeIn' });
 
