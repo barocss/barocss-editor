@@ -308,6 +308,36 @@ had captured `rootId` at mount, so a new deck's theme was looked for under the o
 document's. Both measured in the product, both fixed in the engine. See
 `canvas-model.md` §7.
 
+**Deck 6 — reuse, inheritance, and a deck that is not a line. Done.** Four things
+that turned out to be one thing: *something defined once and used in many
+places*, at four scales.
+
+- **A component**, with variables a placement can be asked for, a slot for the
+  reader's own things, and apply as a command. The measurement that shaped all of
+  it: **a template cannot draw a foreign node**, so a placement holds real copies
+  and following a definition is an edit rather than a lookup — which is the
+  relationship Figma has across files, arrived at from the other direction.
+- **A layout and a master**, editable at last: `applySlideLayout` had always said
+  what a slide *follows* and nothing said what a layout **is**. The same
+  editing-surface mechanism the first definition needed, which is what
+  `canvas-model.md` §10c predicted when it was built.
+- **A deck that is not a line**: a shape a reader presses, the deck's **map**
+  drawn from those presses, and Keynote's *links only* as the first deck-level
+  setting this schema has. The click was already there — `present.tsx` knew that
+  a press which fires a trigger must not also advance the deck — so a jump was a
+  new consequence rather than a new mechanism.
+- **A library**: the reader's own decks by name (IndexedDB, chosen by measuring
+  that a pictureless deck is 8–42KB and one photograph is a base64 megabyte), a
+  button that opens another deck at a page, and a **brand kit** — a definition
+  copied in from another deck that remembers where it came from and offers its
+  newer self.
+
+What this item kept teaching, in five different places: **the answer a reader
+needs is usually one dialog away from where they are looking.** The way out of a
+definition lived in a panel that might be closed; a stale brand kit said so only
+in the dialog; a button pointing at another deck asked for a name nothing showed.
+Each was a real fault and none of them was a missing feature.
+
 **What is deliberately not on this list yet.** Charts, which need a data model
 rather than a drawing; collaboration, which the whole product has no second
 reader for; and an exporter to `.pptx`, which is worth doing when the model has
