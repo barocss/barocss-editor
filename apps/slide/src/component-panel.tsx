@@ -1,8 +1,153 @@
 import { useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { Button, Choice, Icon, IconButton, TextField } from '@barocss/office-ui';
-import { componentSourceOf, componentsOf, type ComponentDef } from '@barocss/office-slides';
+import {
+  componentSourceOf,
+  componentsOf,
+  documentVarUses,
+  documentVars,
+  type ComponentDef,
+  type DocumentVar
+} from '@barocss/office-slides';
 import { useEditorRevision } from './revision';
+
+/**
+ * The **document's** own variables: one value the whole deck can name.
+ *
+ * ## Three things that name a value, and why this is the third
+ *
+ * A **theme slot** is one of a fixed twelve, because that set round-trips with PowerPoint — it is
+ * the deck's design. A **card's variable** is a question that card asks, answered per placement. A
+ * **document variable** is neither: `회사이름`, `분기`, the accent that is not one of the theme's
+ * twelve. Named by the author, one value, and anything in the deck may say `var:회사이름` where a
+ * string goes.
+ *
+ * ## Why the count is on every row
+ *
+ * Because the reader is about to change something they cannot see all of. "3곳" is the difference
+ * between editing a value and editing a value *everywhere*, and it is the same reason a card's row
+ * says how many places use it. It also makes the delete honest: a reference to a name that is gone
+ * draws **nothing**, so the number is what a reader needs before pressing 지우기.
+ *
+ * ## Why it is always here, and the card's list only while one is open
+ *
+ * A document variable is a fact about the document, so there is nothing to be standing in. A card's
+ * variable needs the card — which is exactly the distinction that was conflated twice while this
+ * was designed, drawn as two lists in one pane so a reader can see it.
+ */
+function DocumentVarList({
+  editor,
+  vars,
+  uses
+}: {
+  editor: Editor | null;
+  vars: DocumentVar[];
+  /** How many places name each one, counted from the document by the model. */
+  uses: (name: string) => number;
+}) {
+  const [adding, setAdding] = useState('');
+
+  const set = (payload: Record<string, unknown>) =>
+    void (editor as any)?.executeCommand?.('setDocumentVar', payload);
+
+  const add = () => {
+    const name = adding.trim();
+    if (!name) return;
+    set({ name, label: name, kind: 'text', value: '' });
+    setAdding('');
+  };
+
+  return (
+    <div className="sl-var-list" data-doc-var-list="">
+      <div className="sl-var-title">문서 변수</div>
+
+      {vars.length === 0 ? (
+        <p className="sl-var-empty">
+          문서 변수를 만들면 덱 어디서나 이름으로 쓸 수 있습니다. 색을 고르는 자리에서 고르거나,
+          컴포넌트가 이름으로 가져다 씁니다.
+        </p>
+      ) : (
+        <ol className="sl-var-rows">
+          {vars.map((one) => (
+            <li key={one.name} data-doc-var-row={one.name}>
+              {/* The name, shown and not editable: every reference in the deck is written in it. */}
+              <code className="sl-var-name">{one.name}</code>
+              <TextField
+                ariaLabel={`${one.name} 이름표`}
+                value={one.label}
+                onCommit={(label) => set({ name: one.name, label })}
+              />
+              <Choice
+                ariaLabel={`${one.name} 종류`}
+                value={one.kind}
+                onChange={(kind) => set({ name: one.name, kind })}
+              >
+                <option value="text">글자</option>
+                <option value="color">색</option>
+                <option value="number">숫자</option>
+                <option value="boolean">켜기</option>
+                <option value="choice">고르기</option>
+              </Choice>
+              <TextField
+                ariaLabel={`${one.name} 값`}
+                data={{ 'doc-var-value': one.name }}
+                value={one.value}
+                onCommit={(value) => set({ name: one.name, value })}
+              />
+              {one.kind === 'choice' && (
+                <TextField
+                  ariaLabel={`${one.name} 고를 것`}
+                  value={one.choices.join(', ')}
+                  onCommit={(text) =>
+                    set({
+                      name: one.name,
+                      choices: text
+                        .split(',')
+                        .map((choice) => choice.trim())
+                        .filter((choice) => choice.length > 0)
+                    })
+                  }
+                />
+              )}
+              {/* What a change reaches, and what a delete would lose. */}
+              <span className="sl-var-uses" data-doc-var-uses={one.name}>
+                {uses(one.name)}곳
+              </span>
+              <IconButton
+                label={`${one.name} 지우기`}
+                data={{ 'doc-var-remove': one.name }}
+                onClick={() => set({ name: one.name, remove: true })}
+              >
+                <Icon name="close" size={12} />
+              </IconButton>
+            </li>
+          ))}
+        </ol>
+      )}
+
+      <div className="sl-var-add">
+        <TextField
+          ariaLabel="새 문서 변수 이름"
+          testClass="sl-doc-var-new"
+          data={{ 'doc-var-new': '' }}
+          value={adding}
+          onChange={setAdding}
+          onKeys={(event) => {
+            if (event.key === 'Enter') add();
+          }}
+        />
+        <Button
+          title="이 이름으로 문서 변수를 만듭니다"
+          data={{ 'doc-var-add': '' }}
+          disabled={!adding.trim()}
+          onClick={add}
+        >
+          추가
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 /**
  * What a definition can be **asked for**, declared while it is open.
@@ -281,6 +426,21 @@ export function ComponentPanel({
         * even be open. What all three kinds share is the sentence "you are not on a slide", so
         * it is drawn once above the stage (`sl-editing` in `app.tsx`).
         */}
+
+      {/*
+        * The document's own values first, then the card's.
+        *
+        * In that order because that is the order of scope: what the deck says, then what this one
+        * card asks. And the document's is always drawn — there is nothing to be standing in for a
+        * fact about the document.
+        */}
+      {doc && (
+        <DocumentVarList
+          editor={editor}
+          vars={documentVars(doc as never)}
+          uses={(name) => documentVarUses(doc as never, name)}
+        />
+      )}
 
       {/* What this card can be asked for — declared here, bound on the parts themselves. */}
       {editing && <VarList editor={editor} definition={editing} />}

@@ -2726,6 +2726,19 @@ body {
   color: var(--sl-faint, #a3a3a3);
 }
 
+/*
+ * How many places name a document variable, said in the row that changes it.
+ *
+ * Faint and small: the reader is reading names and values, and this is the thing they need only at
+ * the moment they are about to change one.
+ */
+.sl-var-uses {
+  font-size: 10px;
+  color: var(--sl-faint, #a3a3a3);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
 .sl-var-add {
   display: flex;
   gap: 4px;

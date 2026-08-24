@@ -13,6 +13,7 @@ import {
   instanceResizable,
   instanceVars
 } from '@barocss/office-word';
+import { resolveDeckValue } from '../src/named-values';
 
 /**
  * The deck this product ships, read as a **component document**.
@@ -91,10 +92,40 @@ describe('the deck’s own components', () => {
       showBadge: 'true'
     });
     expect(said[1].showBadge).toBe('false');
-    expect(said[2].accent).toBe('#ef4444');
+    /*
+     * And the third card's colour is a **document variable**, not a hex either: `instanceVars`
+     * answers what the placement *says*, which is the reference, and the substitution resolves it
+     * when the parts are drawn. Two named things, two levels — the theme is the design's, the
+     * variable is this document's, and neither is a colour copied onto a slide.
+     */
+    expect(said[2].accent).toBe('var:주의');
     // The first card never mentions its colour, and still has one: a declaration's default is
     // what makes a field a reader can set the *first* value in.
     expect(instanceVars(doc, doc.getNode(placements()[0]), card)[2].set).toBe(false);
+  });
+
+  it('draws the document variable resolved, in both places that name it', () => {
+    /*
+     * Two uses of one name, which is the point of the sample having a variable at all: the third
+     * card's fill answers with `var:주의`, and the button on the same slide names it in an ordinary
+     * attribute. Both come out `#ef4444`, and changing the declaration is one write.
+     */
+    const card = componentsOf(doc)[0];
+    const third = placements()[2];
+    const back = instanceParts(doc, doc.getNode(third)).find(
+      (part: any) => part.attributes?.partId === 'back'
+    );
+    expect((back as any)?.attributes?.fill).toBe('#ef4444');
+
+    const slide = doc.getNode(childrenOf(doc.getNode(third as string)) && (doc.getNode(third) as any)?.parentId);
+    const button = childrenOf(slide).find(
+      (sid: string) => doc.getNode(sid)?.attributes?.name === 'to-appendix'
+    ) as string;
+    // The document still says the reference — resolution is for drawing, and the file keeps the
+    // name so one edit still reaches every use.
+    expect(doc.getNode(button)?.attributes?.fill).toBe('var:주의');
+    expect(resolveDeckValue(doc, undefined, doc.getNode(button)?.attributes?.fill)).toBe('#ef4444');
+    void card;
   });
 
   it('holds no parts at all: it draws the definition’s', () => {

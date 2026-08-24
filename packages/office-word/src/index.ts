@@ -377,6 +377,25 @@ export {
  */
 export { instanceParts } from './canvas-instance';
 /**
+ * The document's own **named values** — one place says what a value is, everything else says its
+ * name.
+ *
+ * Shared for the reason the component model is: the office schema declares `variables` and
+ * `variable`, so this is part of the document format both products read, and "what is this document
+ * called" is a sentence with no product in it. What is *not* here is where a reference is resolved:
+ * a product resolves it where it resolves its theme, because that is where a product draws.
+ */
+export {
+  documentVars,
+  documentVar,
+  resolveVarValue,
+  isVarRef,
+  varNameOf,
+  varRef,
+  varUses,
+  type DocumentVar
+} from './canvas-variable';
+/**
  * What a canvas reader needs of a document, and the two walks all of them do.
  *
  * `childrenOf` answers **sids** here, where the text stack's answers nodes: a canvas is addressed

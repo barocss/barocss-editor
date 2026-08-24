@@ -32,7 +32,7 @@ import { ColorPicker } from './color-picker';
  */
 
 export interface ThemeSwatch {
- /** What the document stores — `theme:accent1`. */
+ /** What the document stores — `theme:accent1`, or `var:강조`. */
  value: string;
   /** What it resolves to today, which is what the swatch draws as. */
   colour: string;
@@ -42,14 +42,24 @@ export interface ThemeSwatch {
 export function ColorField({
   value,
   themeSwatches = [],
+  varSwatches = [],
   onChange,
   onClear,
   disabled,
   ariaLabel
 }: {
-  /** What the document holds: a colour, a `theme:` slot, or nothing. */
+  /** What the document holds: a colour, a `theme:` slot, a `var:` name, or nothing. */
   value: string | null;
   themeSwatches?: ThemeSwatch[];
+  /**
+   * The **document's** own colours, offered beside the theme's.
+   *
+   * The same shape and a different list, because they are a different decision: a theme slot is one
+   * of a fixed twelve that round-trip with PowerPoint, a document variable is one the author named.
+   * Two lists so a reader can see which they are choosing; one control because "follow something"
+   * is one gesture.
+   */
+  varSwatches?: ThemeSwatch[];
   onChange: (value: string) => void;
   onClear?: () => void;
   disabled?: boolean;
@@ -58,8 +68,11 @@ export function ColorField({
   const [open, setOpen] = useState(false);
   const panel = useRef<HTMLSpanElement>(null);
 
-  const slot = themeSwatches.find((swatch) => swatch.value === value);
-  const shown = slot ? slot.colour : (value ?? null);
+  // Whatever the value *names*, from either list: the trigger draws the colour it resolves to, so
+  // a field showing the literal `var:강조` would be the one place in the product that leaked a
+  // reference to the reader.
+  const named = [...themeSwatches, ...varSwatches].find((swatch) => swatch.value === value);
+  const shown = named ? named.colour : (value ?? null);
 
   /**
    * Where the panel goes: the window's coordinates, not the field's.
@@ -157,10 +170,10 @@ export function ColorField({
  />
       </button>
 
-      {/* What the document says, in the document's own words: a slot shows its
-          name, because following the theme is a different fact from being blue. */}
+      {/* What the document says, in the document's own words: a slot or a variable shows its
+          name, because following something is a different fact from being blue. */}
       <span className="flex-1 truncate text-[length:var(--ou-text-small)] tabular-nums text-[color:var(--ou-muted)]">
- {slot ? slot.label : (value ?? '없음')}
+ {named ? named.label : (value ?? '없음')}
  </span>
 
       {onClear && (
@@ -205,6 +218,7 @@ export function ColorField({
           <ColorPicker
             value={value ?? '#000000'}
  themeSwatches={themeSwatches}
+            varSwatches={varSwatches}
             onChange={(next) => onChange(next)}
           />
 

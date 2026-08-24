@@ -651,9 +651,31 @@ shipped features marked undone.
   up from four — and `docs/SHARED-LAYER.md` now proposes a second package, `office-canvas`, out of
   the seven `canvas-*` files that a word processor reads none of.
 
-- [ ] **Document-wide variables.** A `variables` container beside `components`, and a binding that
-  may name either a component's variable or the document's. Asked for explicitly; the theme covers
-  colours today and nothing covers a number or a string.
+- [x] **Document-wide variables.** A `variables` container beside `components`, `variable` nodes, a
+  reference written where the value goes (`fill: 'var:주의'`), one walk resolving it beside the
+  theme's, a panel that says how many places use each one, and the picker offering the document's
+  colours beside the theme's twelve — so nobody types `var:`. A `componentBind` may name either the
+  card's variable or the document's, **card first**, so importing a card into a deck with the same
+  name cannot change what the card means. §10h.
+
+  What the measurement allowed, and it shaped the whole scope: a reference **commits** into a string
+  attribute and is **refused** in a number or a boolean (`cornerRadius`, `width`, `visible` — the
+  whole transaction fails, which is the validator doing its job). So a number or a state reaches a
+  shape through a card, where a binding is a declaration and the conversion happens off the
+  document.
+
+- [ ] **A bare shape cannot take a number, a state or its words from a variable.** The three cases
+  the measurement above rules out, and the honest fix is one thing: a **per-shape binding
+  declaration**, the same shape as `componentBind` (`{attr, var}`), so the reference lives in a node
+  instead of in a typed attribute. Two open questions worth measuring before writing it: where the
+  declaration lives (a child of the shape means widening every scene node's content model; a list
+  beside `variables` means naming the shape, which needs a durable id — shapes have `name`, which
+  motion already relies on), and whether the resolution belongs in the content resolver (which would
+  then be resolving *attributes*, not children, for the first time).
+
+- [ ] **A variable cannot be renamed**, like every other durable reference here. The label is what a
+  reader changes. If renaming is ever wanted it is a migration — every attribute in every slide and
+  every card that names it — and the honest version is a command that does exactly that walk.
 
 **Still open and not in a phase**
 

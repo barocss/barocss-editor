@@ -22,6 +22,7 @@ import { createSlideCommands } from './slide-commands';
 import { createBoxCommands } from './box-commands';
 import { createArrangeCommands } from './arrange-commands';
 import { createComponentCommands } from './component-commands';
+import { createVariableCommands } from './variable-commands';
 import { instanceParts } from '@barocss/office-word';
 import { createConnectorCommands } from './connector-commands';
 import { createClipboardCommands } from './clipboard-commands';
@@ -127,7 +128,17 @@ export function createSlidesOwnExtensions(): Extension[] {
      * this repository found a whole feature declared and unreachable. The definitions, the
      * variables and apply are all a reader can press now.
      */
-    createComponentCommands()
+    createComponentCommands(),
+
+    /**
+     * The document's own named values, which is the other half of what "a variable" means here.
+     *
+     * A card's variable is a question that card asks, answered per placement; a **document**
+     * variable is one value for the whole deck — the company name, the quarter, the accent that is
+     * not one of the theme's twelve slots. Asked for explicitly, and the distinction is written in
+     * `canvas-variable.ts` because it was conflated twice while being designed.
+     */
+    createVariableCommands()
   ];
 }
 

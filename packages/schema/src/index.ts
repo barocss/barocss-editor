@@ -74,5 +74,13 @@ export {
   CANVAS_GEOMETRY_ATTRS,
   CANVAS_STYLE_ATTRS,
   SurfaceKind,
+  /**
+   * Where a document-level container belongs, from the same list the content model is written in.
+   *
+   * A command that appends one is a command that works until the document has the container that
+   * comes after it — measured, and refused by the validator (see the function).
+   */
+  DOCUMENT_CHILD_ORDER,
+  documentChildSpot,
   type SurfaceKindValue
 } from './office-schema';

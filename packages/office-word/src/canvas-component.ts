@@ -1,4 +1,5 @@
 import { childrenOf, copyOf, type CanvasAccess, type CanvasNode } from './canvas-access';
+import { documentVars, isVarRef, resolveVarValue } from './canvas-variable';
 
 /**
  * A component's definition, and what a placement of one is.
@@ -497,14 +498,39 @@ export function componentBehindSource(
   return componentSignature(source, there) !== from.signature;
 }
 
-/** A placement's values by name, which is what a copy is bound with. */
+/**
+ * Every name a binding in this card can resolve, and what it is worth here.
+ *
+ * Two sources, and the order is the decision: the **card** first, then the **document**.
+ *
+ * - A card's own declaration wins, because it is the more specific one and because of what the
+ *   other order would do: importing a card into a deck that happens to have a variable of the same
+ *   name would quietly change what the card means, and a brand kit whose cards changed meaning per
+ *   deck is not a brand kit.
+ * - The document's variables are then in scope, so a card can be built *against the document* — a
+ *   badge that takes the deck's accent, a footer that takes the company name — without declaring
+ *   the same thing again per card and answering it again per placement.
+ *
+ * A card's **default** may itself be a reference (`value: 'var:강조'`), which is how a card says
+ * "mine, unless the document says otherwise" — the theme's composition (§10b-10) one layer along.
+ */
 export function instanceValues(
   doc: CanvasAccess,
   instance: CanvasNode | undefined,
   definition: ComponentDef | undefined
 ): Map<string, string> {
   const said = new Map<string, string>();
-  for (const one of instanceVars(doc, instance, definition)) said.set(one.name, one.value);
+  // The document's, first into the map and last in precedence — the card's own overwrite them.
+  for (const one of documentVars(doc)) said.set(one.name, one.value);
+
+  for (const one of instanceVars(doc, instance, definition)) {
+    /*
+     * A reference where a value goes, resolved here rather than at the binding: a placement may
+     * answer a card's question with a variable too, so both halves — the card's default and the
+     * placement's answer — arrive as one string that may name something.
+     */
+    said.set(one.name, isVarRef(one.value) ? (resolveVarValue(doc, one.value) ?? '') : one.value);
+  }
   return said;
 }
 

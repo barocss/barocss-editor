@@ -487,7 +487,9 @@ test.describe('declaring what a card takes', () => {
     await page.locator(`.sl-components [data-component-id="${made}"]`).click();
     await page.waitForTimeout(500);
 
-    await expect(page.locator('.sl-var-list')).toHaveCount(1);
+    // The card's list, by the attribute that names the card: the pane now holds two lists — the
+    // document's own variables above and this one — which is the distinction §10h is about.
+    await expect(page.locator('[data-var-list]')).toHaveCount(1);
     await page.locator('[data-var-new] input, input[data-var-new]').fill('heading');
     await page.locator('[data-var-add]').click();
     await page.waitForTimeout(500);

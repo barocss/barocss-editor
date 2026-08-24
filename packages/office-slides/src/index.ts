@@ -58,6 +58,7 @@ export { createSlideCommands, SlidesExtension } from './slide-commands';
 
 export { createBoxCommands, SlidesBoxExtension } from './box-commands';
 export { createComponentCommands, SlidesComponentExtension } from './component-commands';
+export { createVariableCommands, SlidesVariableExtension, documentVarUses } from './variable-commands';
 export { createClipboardCommands, SlidesClipboardExtension } from './clipboard-commands';
 export { createConnectorCommands, SlidesConnectorExtension } from './connector-commands';
 /**
@@ -552,7 +553,6 @@ export {
   THEME_COLOUR_SLOTS,
   THEME_FONT_SLOTS,
   isThemeRef,
-  resolveThemeAttrs,
   resolveThemeValue,
   slotOf,
   themeFor,
@@ -570,6 +570,38 @@ export {
   type ThemeColourSlot,
   type ThemeFontSlot
 } from './theme';
+
+/**
+ * A value that **names** something, resolved: a theme slot (`theme:accent1`) or one of the
+ * document's own variables (`var:강조`).
+ *
+ * One walk for both, because both hide in the same three places — an attribute, a paint in a list
+ * of paints, a stop in a gradient — and two walks would be two chances for one of them to miss the
+ * stop. Which is not hypothetical: the theme's own walk read the top level only at first, so
+ * picking a theme colour for a fill made the shape lose its colour.
+ */
+export {
+  resolveDeckAttrs,
+  resolveDeckValue,
+  resolveThemeAttrs,
+  resolveNamedAttrs,
+  isNamedRef,
+  type Named
+} from './named-values';
+/**
+ * The document's own variables, from the canvas layer — one place says what a value is, and
+ * everything that uses it says its name. Re-exported for the reason the component model is.
+ */
+export {
+  documentVars,
+  documentVar,
+  resolveVarValue,
+  isVarRef,
+  varNameOf,
+  varRef,
+  varUses,
+  type DocumentVar
+} from '@barocss/office-word';
 
 /**
  * What a shape is painted with, as a list — see `paints.ts` for why a stack

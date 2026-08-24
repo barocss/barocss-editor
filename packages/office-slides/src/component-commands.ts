@@ -1,5 +1,6 @@
 import { Editor, Extension, selectedNodeIds } from '@barocss/editor-core';
 import { transaction } from '@barocss/model';
+import { documentChildSpot } from '@barocss/schema';
 import { childrenOf, editableSurface, type DeckAccess, type DeckNode } from './deck';
 import { accessOfTree } from './tree-access';
 import { boxOf } from './geometry';
@@ -42,6 +43,20 @@ import {
  * nothing about bindings or arrangement — the same split every other model here has, and the reason
  * the design was testable in milliseconds before any of it could be pressed.
  */
+
+/**
+ * Where the library goes among the document's containers.
+ *
+ * From the schema's own list (`documentChildSpot`), so this cannot drift from the content model —
+ * they were the same thing said twice, and the day a second container was declared *after*
+ * `components` the appended one was refused.
+ */
+function spotForLibrary(doc: DeckAccess): number {
+  return documentChildSpot(
+    childrenOf(doc.getNode(doc.rootId)).map((sid) => doc.getNode(sid)?.stype),
+    'components'
+  );
+}
 
 /** Where the deck's definitions live, or nothing when it has no library yet. */
 function libraryOf(doc: DeckAccess): string | undefined {
@@ -386,11 +401,19 @@ export class SlidesComponentExtension implements Extension {
      * A library, if the deck has none yet. Made in the same transaction as the definition, so
      * one press of undo takes back "made a component" rather than leaving an empty container
      * behind — the deck was a deck without one a moment ago.
+     *
+     * **At the place the schema says**, not appended. Measured: a deck that had gained a document
+     * variable first could not then have a card at all — the library landed after `variables` and
+     * the validator refused the whole transaction, which is it doing its job.
      */
     if (!library) {
       steps.push({
         type: 'addChild',
-        payload: { parentId: doc.rootId, child: { stype: 'components', content: [definition] } }
+        payload: {
+          parentId: doc.rootId,
+          child: { stype: 'components', content: [definition] },
+          position: spotForLibrary(doc)
+        }
       });
     } else {
       steps.push({ type: 'addChild', payload: { parentId: library, child: definition } });
@@ -540,10 +563,15 @@ export class SlidesComponentExtension implements Extension {
       steps.push({ type: 'addChild', payload: { parentId: library, child: plan.node } });
     } else {
       // A deck with no library yet: made in the same transaction, so one press of undo takes back
-      // "I brought a card in" rather than leaving an empty container behind.
+      // "I brought a card in" rather than leaving an empty container behind — and in the schema's
+      // own place among the containers, for the reason `spotForLibrary` gives.
       steps.push({
         type: 'addChild',
-        payload: { parentId: doc.rootId, child: { stype: 'components', content: [plan.node] } }
+        payload: {
+          parentId: doc.rootId,
+          child: { stype: 'components', content: [plan.node] },
+          position: spotForLibrary(doc)
+        }
       });
     }
 

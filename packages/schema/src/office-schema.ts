@@ -688,12 +688,16 @@ export function getCanvasNodeDefinitions(): Record<string, NodeTypeDefinition> {
      * - **A panel worth having.** "This card: title, number, badge" is a list a reader can be
      *   shown; free editing gives no list at all.
      *
-     * ## What a variable is *not*
+     * ## Where it is answered, and where a *document* variable differs
      *
-     * It is not resolved when the placement is drawn. Values are substituted into a placement's
-     * parts when the definition is **applied** (canvas-model §10b-4), for the same reason the
-     * parts themselves are copied: a template cannot draw a foreign node, so the drawing stays
-     * plain.
+     * A placement answers it with a `componentValue`, and the answer is put into the part while the
+     * placement's children are **resolved** (canvas-model §10b-2a) — so a card's variable is a
+     * question with one answer per placement.
+     *
+     * A `variable` in the document's `variables` container is the other thing: one value for the
+     * whole document, named from an attribute (`fill: 'var:강조'`). A binding may name either, and
+     * the card is looked in **first** — so importing a card into a deck that happens to have a
+     * variable of the same name cannot quietly change what the card means.
      */
     componentVar: {
       name: 'componentVar',
@@ -896,6 +900,101 @@ export function getMetaNodeDefinitions(): Record<string, NodeTypeDefinition> {
      */
     components: { name: 'components', group: 'document', content: 'component*' },
 
+    /**
+     * The document's own **named values**, beside the cards it defines.
+     *
+     * ## Three things that are not each other
+     *
+     * This schema now has three places a value can be named, and they were conflated twice before
+     * being separated, so the difference is written here rather than learned again:
+     *
+     * - A **theme slot** (`theme:accent1`) is one of a *fixed* set — six accents, two lights, two
+     *   darks, two faces — because it round-trips with PowerPoint, where that set is the format.
+     *   It is the deck's **design**, bound to a master.
+     * - A **document variable** is named by the author: `회사이름`, `분기`, `카드둥근정도`. Any
+     *   name, any kind, and nothing outside this document knows about it.
+     * - A **component variable** is a *question a card asks*, answered per placement. "This card's
+     *   title" is not a fact about the document; it is a fact about the card on slide four.
+     *
+     * ## Why a container of nodes
+     *
+     * The fourth time this schema has refused a map in an attribute, for the reason it refused it
+     * the first three: a value nothing can check is the fault it keeps finding. A declaration made
+     * of nodes is one the validator checks, the conformance probe reads, and a panel draws without
+     * a parser.
+     *
+     * Beside `components` rather than inside `resources`, and the same argument decided both: a
+     * variable is something the document **defines and owns**, where a resource is something it
+     * refers to. And `resources` is hidden as a group, which a definition a reader is editing
+     * cannot be — see `document`.
+     */
+    variables: { name: 'variables', group: 'document', content: 'variable*' },
+
+    /**
+     * One of them: a name, what kind of thing it is, and its value.
+     *
+     * ## Where a reference to it may go, measured
+     *
+     * A `variable` is named from an attribute the way a theme slot is — `fill: 'var:강조'` beside
+     * `fill: 'theme:accent1'` — and the prefix is what makes that unambiguous, because no CSS
+     * colour and no font name begins with `var:`. Resolved where the theme is resolved, so a deck
+     * written before variables draws exactly as it did.
+     *
+     * **And a reference only fits where the schema says a string goes.** Measured, with a
+     * transaction rather than assumed: `fill: 'var:강조'` and `name: 'var:x'` commit, while
+     * `cornerRadius: 'var:둥글기'`, `width: 'var:넓이'` and `visible: 'var:켜짐'` are **refused** —
+     * the attribute is declared a number or a boolean and a reference is a string, so the whole
+     * write fails. Which is the validator doing its job, not a bug to route around: an attribute
+     * whose type is "a number, or a string that might name something" is an attribute no reader can
+     * trust.
+     *
+     * So a number or a state reaches a shape through a **card**: a `componentBind` is a
+     * declaration, and the conversion happens while the placement's parts are resolved, where the
+     * result is not a document node. A bare shape on a slide cannot take a number from a variable
+     * yet, and what that would need is a per-shape binding declaration of the same shape as
+     * `componentBind` — written down in `docs/BACKLOG.md` rather than guessed at here.
+     *
+     * ## The fields, and why they are `componentVar`'s
+     *
+     * Deliberately the same five. A reader setting a value should meet the same control whether it
+     * is the document's or the card's, and a panel that draws one draws the other — a swatch for a
+     * colour, a switch for a state, a spinner for a number. Two vocabularies for one idea is how a
+     * product ends up with two kinds of colour picker.
+     */
+    variable: {
+      name: 'variable',
+      group: 'variable',
+      atom: true,
+      attrs: {
+        /**
+         * What a reference names. **Durable**, and not renameable once anything uses it.
+         *
+         * `forFile` strips sids, so a reference written in one would name nothing the first time
+         * the deck was reopened — the rule motion, layouts and components already follow. Renaming
+         * would mean rewriting every attribute in the deck that names it, which is a migration
+         * rather than an edit; the `label` is what a reader changes.
+         */
+        name: { type: 'string' as const, required: true },
+        label: { type: 'string' as const, required: false },
+        kind: {
+          type: 'string' as const,
+          default: 'text',
+          options: ['text', 'color', 'number', 'boolean', 'choice']
+        },
+        /** The values a `choice` may take — an array, which the probe abstains from. */
+        choices: { type: 'array' as const, required: false },
+        /**
+         * The value itself, as a **string** whatever the kind.
+         *
+         * `componentValue`'s argument, one layer up: the declared `kind` is the contract that says
+         * how to read it, and one shape means one thing to write, one thing to diff in a file and
+         * one thing to check. A number kept as `"120"` is a number a person can read in a pull
+         * request.
+         */
+        value: { type: 'string' as const, required: false }
+      }
+    },
+
     // Bodies referenced from the flow by `footnoteRef` / `endnoteRef` marks.
     footnoteDef: {
       name: 'footnoteDef',
@@ -981,6 +1080,41 @@ export function getMetaNodeDefinitions(): Record<string, NodeTypeDefinition> {
 }
 
 /**
+ * The order the document's own containers go in — **the same order the content model above says**.
+ *
+ * Two places state it and they must agree, so they are next to each other and this comment is the
+ * reason: a container added in the wrong place is *refused*, and that was measured rather than
+ * reasoned about. A deck that gained a variable before its first card could not then have a card —
+ * the library was appended, which put it after `variables`, and the validator said exactly what it
+ * should: "Node at index 2 of type 'components' is not allowed here by content model
+ * 'docMeta? surface+ resources? components? variables?'".
+ *
+ * So a command that makes a container asks **where it goes** instead of appending it.
+ */
+export const DOCUMENT_CHILD_ORDER = [
+  'docMeta',
+  'surface',
+  'resources',
+  'components',
+  'variables'
+] as const;
+
+/**
+ * Where a new document-level container belongs, given what the document already holds.
+ *
+ * Before the first child that comes *after* it in the order, and at the end when there is none —
+ * which is the whole rule, and it is one function because two callers deriving it separately is how
+ * the second one gets it wrong.
+ */
+export function documentChildSpot(kinds: readonly (string | undefined)[], stype: string): number {
+  const rank = DOCUMENT_CHILD_ORDER.indexOf(stype as never);
+  if (rank < 0) return kinds.length;
+
+  const at = kinds.findIndex((kind) => DOCUMENT_CHILD_ORDER.indexOf(kind as never) > rank);
+  return at === -1 ? kinds.length : at;
+}
+
+/**
  * Surfaces: the per-product page. All four products use the same node type and
  * differ only in `kind` and which content they hold.
  */
@@ -1008,7 +1142,7 @@ export function getSurfaceNodeDefinitions(): Record<string, NodeTypeDefinition> 
     document: {
       name: 'document',
       group: 'document',
-      content: 'docMeta? surface+ resources? components?',
+      content: 'docMeta? surface+ resources? components? variables?',
       attrs: {
         /**
          * How a reader moves through it: by **pressing on**, or by its **links only**.

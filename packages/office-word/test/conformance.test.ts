@@ -436,6 +436,18 @@ const schema = createSchema('word', getWordSchemaDefinition());
         componentVar: 'what a placement of a definition can be asked for; Word has no definitions',
         componentValue: 'what one placement answers; the same',
         /**
+         * ── The document's own **named values** ────────────────────────────
+         *
+         * Declared in the same shared schema and for the same reason: "this document's accent, its
+         * company name, its quarter" is a sentence about a document rather than about a deck, so a
+         * page will want them the day anything in Word can take a reference. The *model* is already
+         * shared (`canvas-variable.ts` in this package); what Word has none of is a **drawing** —
+         * these two nodes draw as nothing anywhere, and a product that never shows a panel of them
+         * has nothing to hide.
+         */
+        variables: 'the document’s named values; Word draws none of them and offers no panel yet',
+        variable: 'one named value; the same — and it is never drawn on a canvas either, only in a panel',
+        /**
          * Which piece of a definition takes which variable.
          *
          * A **declaration node** rather than attributes on the parts, which is what took three

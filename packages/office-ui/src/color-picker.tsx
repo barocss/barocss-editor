@@ -35,6 +35,8 @@ export interface ColorPickerProps {
   onChange: (value: string) => void;
   /** The deck's slots, offered above the picker — following, not copying. */
  themeSwatches?: ThemeSwatch[];
+  /** The document's own named colours, offered beside them and labelled as their own thing. */
+  varSwatches?: ThemeSwatch[];
   /** Recently used colours, which is the other half of how a deck stays coherent. */
   recent?: string[];
 }
@@ -93,7 +95,13 @@ function toCss({ r, g, b, a }: { r: number; g: number; b: number; a: number }): 
     : `rgba(${round(r)}, ${round(g)}, ${round(b)}, ${Math.round(a * 100) / 100})`;
 }
 
-export function ColorPicker({ value, onChange, themeSwatches = [], recent = [] }: ColorPickerProps) {
+export function ColorPicker({
+  value,
+  onChange,
+  themeSwatches = [],
+  varSwatches = [],
+  recent = []
+}: ColorPickerProps) {
   const parsed = parse(value);
   const [hexText, setHexText] = useState(() => toHex(parsed).slice(1).toUpperCase());
   const held = useRef(value);
@@ -226,6 +234,40 @@ export function ColorPicker({ value, onChange, themeSwatches = [], recent = [] }
                   'h-5 w-5 rounded-sm border border-[color:var(--ou-line)]',
  'hover:outline hover:outline-2 hover:outline-sky-400',
  value === swatch.value && 'outline outline-2 outline-sky-500'
+                )}
+                style={{ background: swatch.colour }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/*
+        * The document's own colours, in their own section.
+        *
+        * Not mixed into 테마 색, because the two are different promises: a theme slot is one of a
+        * fixed twelve and re-colouring the deck changes it, a document variable is a name the author
+        * made and only they change it. A reader choosing "follow something" has to be able to see
+        * which something.
+        */}
+      {varSwatches.length > 0 && (
+        <div>
+          <span className="mb-1 block text-[10px] uppercase tracking-wide text-[color:var(--ou-muted)]">
+            문서 변수
+          </span>
+          <div className="grid grid-cols-6 gap-1">
+            {varSwatches.map((swatch) => (
+              <button
+                key={swatch.value}
+                type="button"
+                data-var-swatch={swatch.value}
+                aria-label={swatch.label}
+                title={swatch.label}
+                onClick={() => emit(swatch.value)}
+                className={cn(
+                  'h-5 w-5 rounded-sm border border-[color:var(--ou-line)]',
+                  'hover:outline hover:outline-2 hover:outline-sky-400',
+                  value === swatch.value && 'outline outline-2 outline-sky-500'
                 )}
                 style={{ background: swatch.colour }}
               />

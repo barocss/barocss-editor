@@ -540,12 +540,17 @@ export function createSampleDeck(): INode {
           card({ x: 7200, y: 3600 }, { title: '신규 고객', value: '312', showBadge: 'false' }),
 
           /*
-           * 3. A colour of its own, and two rows the reader added in the slot. Both are things a
-           * placement says rather than things it holds.
+           * 3. A colour of its own — **named**, not typed — and two rows the reader added in the
+           * slot. Both are things a placement says rather than things it holds.
+           *
+           * `var:주의` is the document's own variable (`variables`, below): one place says what the
+           * colour is, and this card and the button beside it both name it. A placement may answer
+           * a card's question with a reference exactly as it may answer with a value, which is what
+           * makes "our warning red" one decision in a deck rather than one per slide.
            */
           card(
             { x: 12960, y: 3600 },
-            { title: '이탈', value: '1.8%', accent: '#ef4444' },
+            { title: '이탈', value: '1.8%', accent: 'var:주의' },
             ['지난주 2.1%', '목표 1.5%']
           ),
 
@@ -578,7 +583,10 @@ export function createSampleDeck(): INode {
               y: 8880,
               width: 2400,
               height: 720,
-              fill: 'theme:accent3',
+              // The same variable as the card above, in an ordinary attribute: `var:주의` is
+              // written where a colour goes, exactly like `theme:accent3` beside it. Two uses of
+              // one name is what the panel counts, and what "3곳에서 씁니다" is for.
+              fill: 'var:주의',
               cornerRadius: 120,
               goTo: 'cut',
               name: 'to-appendix'
@@ -873,6 +881,55 @@ export function createSampleDeck(): INode {
                 }
               }
             ]
+          }
+        ]
+      },
+
+      /**
+       * The document's own **named values**.
+       *
+       * A `variables` container beside the library, and the last of the three ways a value can be
+       * named here — which are three different things and were conflated twice before they were
+       * separated:
+       *
+       * - A **theme slot** (`theme:accent1`) is one of a fixed twelve, because that set is
+       *   PowerPoint's format and round-trips with it. It is the deck's *design*.
+       * - A **document variable** is named by the author: 주의 is "our warning red", and nothing
+       *   outside this deck knows about it.
+       * - A **card's variable** is a question the card asks, answered per placement.
+       *
+       * Used twice on the cards slide — once as a placement's answer, once as an ordinary fill —
+       * because one use demonstrates nothing about a *variable*. The point is that both change
+       * together, and that changing them is one write.
+       */
+      {
+        stype: 'variables',
+        attributes: {},
+        content: [
+          {
+            stype: 'variable',
+            attributes: {
+              name: '주의',
+              label: '주의 색',
+              kind: 'color',
+              // A hex of the document's own, not a theme slot: the theme has no "warning" and this
+              // is the case a variable exists for — a value the design does not name.
+              value: '#ef4444'
+            }
+          },
+          {
+            stype: 'variable',
+            attributes: {
+              name: '분기',
+              label: '분기',
+              kind: 'text',
+              /*
+               * Declared and used by nothing yet, on purpose: the panel shows **0곳**, which is the
+               * state a reader meets the moment they make one. A sample where every declaration is
+               * already wired up hides the first thing that happens.
+               */
+              value: '2026 2분기'
+            }
           }
         ]
       }

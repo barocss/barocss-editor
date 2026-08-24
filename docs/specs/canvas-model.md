@@ -1715,10 +1715,99 @@ one level up.
 - **Instance swap.** A property whose value is *another component*. Our placement holds real nodes
   and a reader may already put anything in a slot, which is most of what swap is used for. Noted as
   possible later; not needed to make a card usable.
-- **Bound variables everywhere** (a variable on any property of any node, at document scope). That
-  is a whole second data model — collections, scoping, aliasing between variables — and this
-  schema's answer is smaller on purpose: a variable belongs to a **component**, because that is
-  where "asked for" has a meaning. Deck-wide values are the theme's.
+- ~~**Bound variables everywhere**~~ (a variable on any property of any node, at document scope).
+  **Taken, in the half that measures well** — see §10h. What is still refused is the rest of Figma's
+  data model: collections, scoping, and aliasing between variables. One flat list of names, one
+  value each, and a reference written where the value goes.
+
+### 10h. The document's own variables
+
+Asked for directly — *"변수는 문서 전역 + 컴포넌트 속성으로 해야해"* — and the design is what the
+measurement allowed rather than what Figma has.
+
+#### Three things that name a value, and they are not each other
+
+| | who names it | how many | where it round-trips |
+| --- | --- | --- | --- |
+| `theme` slot | the **format** — a fixed twelve | one set per theme | PowerPoint, exactly |
+| `variable` | the **author** — any name, any kind | one value per document | nowhere; it is ours |
+| `componentVar` | the **card**, as a question | one answer per placement | Figma's component properties |
+
+They were conflated twice while this was being designed, and both times the symptom was the same: a
+value that belongs to one document offered as though every deck had it, or a document-wide decision
+copied onto forty placements. So the table is the section's first paragraph.
+
+#### How a reference is written, and the measurement that shaped it
+
+`fill: 'var:주의'`, in the attribute where a colour goes — the theme's shape (§10b-10) for the theme's
+reason: a second attribute beside the first means every reader checks two places and decides which
+wins. The prefix makes it unambiguous, because no CSS colour and no font name begins with `var:`.
+
+**Measured with a transaction rather than assumed**, and it decided the whole scope:
+
+| written into | result |
+| --- | --- |
+| `fill: 'var:주의'` (a string attribute) | **commits** |
+| `name: 'var:x'` (a string attribute) | **commits** |
+| `cornerRadius: 'var:둥글기'` | **refused** — the whole transaction fails |
+| `width: 'var:넓이'` | **refused** |
+| `visible: 'var:켜짐'` | **refused** |
+
+That is the validator doing its job: an attribute whose type is "a number, *or* a string that might
+name something" is an attribute no reader can trust. So the honest shape of this feature is:
+
+- **A string attribute takes a reference directly.** Colours (including inside a paint and inside a
+  gradient stop), font names, anything declared `string`.
+- **A number or a state reaches a shape through a card.** A `componentBind` is a *declaration*, and
+  the conversion happens while a placement's parts are resolved — off the document, where the schema
+  is not the constraint (§10b-2a). This is why a card's corner radius can follow a variable and a
+  bare rectangle's cannot.
+- **Text is content, not an attribute**, so the same is true of words: a card's part can be bound to
+  a text variable; a text box on a slide cannot name one. In `docs/BACKLOG.md`.
+
+#### One walk for both prefixes
+
+`resolveDeckAttrs` resolves `theme:` and `var:` in a single traversal, because both hide in the same
+three places — an attribute, a paint in a list of paints, a stop in a gradient — and two walks are
+two chances for one of them to miss the third. Which is not hypothetical: the theme's own walk read
+only the top level at first, so choosing a theme colour for a fill made the shape lose its colour.
+
+A variable may hold a theme slot (`variable 주의 = theme:accent1`), so resolution follows the chain,
+depth-limited: a document that pointed two variables at each other must not take the editor down
+with it. A theme slot may **not** hold a variable — the theme's values are colours and faces, and a
+slot holding a reference would be a second indirection nothing can check.
+
+#### The card is looked in first
+
+A `componentBind` names a variable; the **card's** declaration wins over the document's of the same
+name. Because of what the other order would do: a card carried into a deck that happens to have a
+variable of that name would quietly change meaning, and a brand kit whose cards meant something
+different per deck is not a brand kit. With that rule, a card can be built *against the document* —
+a badge that takes the deck's accent, a footer that takes the company name — without declaring the
+same thing again per card and answering it again per placement.
+
+#### What removing one does, and why it is not tidied up
+
+The declaration goes, and every **binding** that names it goes with it — a part pointing at a name
+nothing declares draws whatever it last had, which is the one outcome worse than losing the colour.
+
+**References in attributes are left exactly as they were.** There is no honest value to put in their
+place: a shape whose fill quietly became `#000000` is worse than one that plainly lost it, because a
+reader can see the second. So the shape draws nothing and the deck's own check reports it
+(`dead-var`, 고칠 것) — which is the same division the audit already makes everywhere the model
+cannot answer for the author.
+
+The panel says **how many places use it** before the reader presses 지우기, counted from the document
+rather than remembered: a number kept on the declaration would have to be maintained by a write on
+every shape that took the colour.
+
+#### Where the containers go, measured
+
+`document` is `docMeta? surface+ resources? components? variables?`, and the order is not decoration:
+a container **appended** in the wrong place is refused. Measured — a deck that gained a variable
+before its first card could not then have a card at all, because the library was appended and landed
+after `variables`. So `documentChildSpot` answers where a container goes, from the same list the
+content model is written in, and both commands ask it.
 
 #### What interop costs, when it comes
 

@@ -7,12 +7,12 @@ import {
   DECK_THEMES,
   isThemeRef,
   resolveDeckFormat,
-  resolveThemeAttrs,
   resolveThemeValue,
   themeFor,
   themeMatching,
   themeNow,
   themeRef,
+  resolveThemeAttrs,
   type DeckAccess
 } from '../src/index';
 

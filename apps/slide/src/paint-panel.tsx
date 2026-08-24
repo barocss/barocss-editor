@@ -80,6 +80,7 @@ export function PaintList({
   paints,
   note,
   themeSwatches,
+  varSwatches,
   disabled,
   /**
    * Which row is open, held by the app rather than by the row.
@@ -98,6 +99,8 @@ export function PaintList({
   label: string;
   paints: Paint[];
   themeSwatches?: ThemeSwatch[];
+  /** The document's own named colours, offered beside the theme's — the same shape, another list. */
+  varSwatches?: ThemeSwatch[];
   disabled?: boolean;
   editing?: number | null;
   onEditing?: (index: number | null) => void;
@@ -144,6 +147,7 @@ export function PaintList({
               index={index}
               paint={paint}
               themeSwatches={themeSwatches}
+              varSwatches={varSwatches}
               disabled={disabled}
               dragging={order.dragging === index}
               onGrab={order.grab(index)}
@@ -165,6 +169,7 @@ function PaintRow({
   index,
   paint,
   themeSwatches,
+  varSwatches,
   disabled,
   dragging,
   onGrab,
@@ -178,6 +183,8 @@ function PaintRow({
   index: number;
   paint: Paint;
   themeSwatches?: ThemeSwatch[];
+  /** The document's own named colours, offered beside the theme's — the same shape, another list. */
+  varSwatches?: ThemeSwatch[];
   disabled?: boolean;
   dragging?: boolean;
   onGrab?: (event: React.PointerEvent) => void;
@@ -208,6 +215,7 @@ function PaintRow({
         <ColorPicker
           value={paint.color ?? '#000000'}
           themeSwatches={themeSwatches}
+          varSwatches={varSwatches}
           onChange={(colour) => onChange({ ...paint, color: colour })}
         />
       ) : paint.kind === 'image' ? (
@@ -218,6 +226,7 @@ function PaintRow({
           paint={paint}
           disabled={disabled}
           themeSwatches={themeSwatches}
+          varSwatches={varSwatches}
           chosen={stopEditing ?? 0}
           onChosen={onStopEditing}
           onChange={onChange}
@@ -458,6 +467,7 @@ function GradientBar({
   paint,
   disabled,
   themeSwatches,
+  varSwatches,
   /**
    * Which stop is selected — the *app's*, not this bar's.
    *
@@ -474,6 +484,8 @@ function GradientBar({
   paint: Paint;
   disabled?: boolean;
   themeSwatches?: ThemeSwatch[];
+  /** The document's own named colours, offered beside the theme's — the same shape, another list. */
+  varSwatches?: ThemeSwatch[];
   chosen: number;
   onChosen?: (index: number) => void;
   onChange: (paint: Paint) => void;
@@ -604,6 +616,7 @@ function GradientBar({
         <ColorPicker
           value={stop.color}
           themeSwatches={themeSwatches}
+          varSwatches={varSwatches}
           onChange={(colour) =>
             setStops(
               stops.map((entry, entryIndex) =>
@@ -634,12 +647,15 @@ const cnStop = (selected: boolean) =>
 export function EffectList({
   effects,
   themeSwatches,
+  varSwatches,
   disabled,
   note,
   onChange
 }: {
   effects: ShapeEffect[];
   themeSwatches?: ThemeSwatch[];
+  /** The document's own named colours, offered beside the theme's — the same shape, another list. */
+  varSwatches?: ThemeSwatch[];
   disabled?: boolean;
   /** Said when the selection does not agree about this list — see `PaintList`. */
   note?: string;
@@ -674,6 +690,7 @@ export function EffectList({
               index={index}
               effect={effect}
               themeSwatches={themeSwatches}
+              varSwatches={varSwatches}
               disabled={disabled}
               dragging={order.dragging === index}
               onGrab={order.grab(index)}
@@ -691,6 +708,7 @@ function EffectRow({
   index,
   effect,
   themeSwatches,
+  varSwatches,
   disabled,
   dragging,
   onGrab,
@@ -700,6 +718,8 @@ function EffectRow({
   index: number;
   effect: ShapeEffect;
   themeSwatches?: ThemeSwatch[];
+  /** The document's own named colours, offered beside the theme's — the same shape, another list. */
+  varSwatches?: ThemeSwatch[];
   disabled?: boolean;
   dragging?: boolean;
   onGrab?: (event: React.PointerEvent) => void;
@@ -732,6 +752,7 @@ function EffectRow({
           <ColorPicker
             value={effect.color ?? 'rgba(0, 0, 0, 0.25)'}
             themeSwatches={themeSwatches}
+            varSwatches={varSwatches}
             onChange={(colour) => onChange({ ...effect, color: colour })}
           />
         ) : undefined

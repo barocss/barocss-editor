@@ -230,6 +230,8 @@ describe('Slides draws what its schema declares', () => {
           'the properties panel — a definition’s own 크기 row, drawn while the reader is standing in one. The only place a card’s size can be changed: a placement’s extent *is* the card’s, so its own fields are greyed and the overlay draws it no resize handles',
         setComponentVar:
           'the components panel — the 변수 list, drawn while a definition is open: a label, a kind, a default, and 추가 for a new one. Beside the definition rather than on a part, because a variable belongs to the card — an accent colour used by three parts is one decision, which is the whole reason a declaration exists',
+        setDocumentVar:
+          'the components panel — the 문서 변수 list, above the card’s and drawn always, because a document variable is a fact about the document and there is nothing to be standing in. Each row says how many places name it (`varUses`), which is what a reader needs before changing one everywhere or deleting one: a reference to a name that is gone draws nothing',
         setComponentBind:
           'the properties panel — a part’s 컴포넌트 부품 group, while the reader is inside a definition: one row per attribute the part declares, each offering the variables of a kind that fits. A declaration on the definition rather than an attribute on the part, so a variable can drive anything the part has (canvas-model §10g-2)',
         setComponentSlot:

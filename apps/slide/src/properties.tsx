@@ -56,6 +56,8 @@ import {
   definitionAt,
   componentsOf,
   instanceVars,
+  documentVars,
+  varRef,
   type Slide
 } from '@barocss/office-slides';
 
@@ -579,6 +581,29 @@ export function Properties({
         ? { value: themeRef(slot), colour, label: SLOT_NAMES[slot] ?? slot }
         : undefined;
     }).filter((swatch): swatch is { value: string; colour: string; label: string } => !!swatch);
+  }, [editor, tick]);
+
+  /**
+   * The **document's** own colours, offered beside the theme's in every colour field.
+   *
+   * The gesture that makes a document variable worth having for a bare shape: a reader picks 강조
+   * from the picker and the shape stores `var:강조`, which is the same mechanism a theme slot uses
+   * and needs no new command — `setBoxStyle` writes it the way it writes a hex.
+   *
+   * Only the ones of kind `color`, because that is what a swatch can be: a number or a state in
+   * this list would be a swatch with no colour to draw. Those reach a shape through a card, where a
+   * binding is a declaration and the value is converted while the parts are resolved — the
+   * measurement is in `canvas-variable.ts`.
+   */
+  const varSwatches = useMemo(() => {
+    const store = (editor as any)?.dataStore;
+    const rootId = (editor as any)?.getRootId?.();
+    if (!store || !rootId) return [];
+
+    const doc = { rootId, getNode: (sid: string) => store.getNode(sid) };
+    return documentVars(doc as never)
+      .filter((one) => one.kind === 'color' && one.value)
+      .map((one) => ({ value: varRef(one.name), colour: one.value, label: one.label }));
   }, [editor, tick]);
 
   /**
@@ -1328,6 +1353,7 @@ export function Properties({
                     <ColorField
                       ariaLabel="이름표 색"
                       themeSwatches={themeSwatches}
+                      varSwatches={varSwatches}
                       value={colour('labelColor')}
                       disabled={locked}
                       onChange={(value) => setConnector({ labelColor: value })}
@@ -1377,6 +1403,7 @@ export function Properties({
               <ColorField
                 ariaLabel="선 색"
                 themeSwatches={themeSwatches}
+                      varSwatches={varSwatches}
                 value={colour('stroke')}
                 disabled={locked}
                 onChange={(value) => setStyle({ stroke: value })}
@@ -1587,6 +1614,7 @@ export function Properties({
               note={paintNote}
               paints={paints}
               themeSwatches={themeSwatches}
+                      varSwatches={varSwatches}
               disabled={locked}
               editing={paintEdit ?? null}
               onEditing={onPaintEdit}
@@ -1620,6 +1648,7 @@ export function Properties({
               effects={effects}
               note={effectNote}
               themeSwatches={themeSwatches}
+                      varSwatches={varSwatches}
               disabled={locked}
               onChange={(next) =>
                 setStyle({
@@ -1662,6 +1691,7 @@ export function Properties({
               ariaLabel="정의 배경"
               value={typeof design.fill === 'string' ? design.fill : null}
               themeSwatches={themeSwatches}
+                      varSwatches={varSwatches}
               onChange={(fill) =>
                 void (editor as any)?.executeCommand?.('setDesign', { nodeId: design.sid, fill })
               }

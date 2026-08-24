@@ -91,7 +91,7 @@ import { textBoxCss } from './text-box';
 import { cornerCss } from './corners';
 import { cropCss } from './crop';
 import { showsNotes } from './render-context';
-import { resolveThemeAttrs, themeFor } from './theme';
+import { resolveDeckAttrs } from './named-values';
 import { backgroundOf } from './layout-format';
 import { connectorRouteOf, type DeckAccess } from './deck';
 import { jumpsFromEnv, routeFromEnv } from './connector-pass';
@@ -188,15 +188,14 @@ const placed = (data: NodeData, extra: CssStyle = {}): CssStyle => {
  */
 function paintCss(data: NodeData, ctx?: any): CssStyle {
   /**
-   * Through the theme, when the view has a document to find one in.
+   * Through the theme **and the document's variables**, when the view has a document to look in.
    *
-   * A shape may say `theme:accent1` where a colour goes, and the slot is filled
-   * in here rather than in `deckPaintCss` — the CSS knows what a gradient is and
-   * the document knows what accent 1 is, and neither has to learn the other.
+   * A shape may say `theme:accent1` or `var:강조` where a colour goes, and both are filled in here
+   * rather than in `deckPaintCss` — the CSS knows what a gradient is and the document knows what
+   * accent 1 and 강조 are, and neither has to learn the other.
    */
   const doc = getWordDocument(ctx?.env) as unknown as DeckAccess | undefined;
-  const theme = doc ? themeFor(doc, undefined) : undefined;
-  return deckPaintCss(resolveThemeAttrs(theme, attrsOf(data)) as never);
+  return deckPaintCss(resolveDeckAttrs(doc as never, undefined, attrsOf(data)) as never);
 }
 
 /**
@@ -212,13 +211,13 @@ function paintCss(data: NodeData, ctx?: any): CssStyle {
  * common shape — one opaque colour is still the box's own `background` — so a
  * plain rectangle gains no elements at all.
  *
- * Through the theme, like the CSS beside it: a fill may say `theme:accent1`, and
- * only the environment carries the document that knows what that is.
+ * Through the theme and the document's variables, like the CSS beside it: a fill
+ * may say `theme:accent1` or `var:강조`, and only the environment carries the
+ * document that knows what either of those is.
  */
 function fillElements(data: NodeData, ctx?: any): any[] {
   const doc = getWordDocument(ctx?.env) as unknown as DeckAccess | undefined;
-  const theme = doc ? themeFor(doc, undefined) : undefined;
-  return deckFillLayers(resolveThemeAttrs(theme, attrsOf(data)) as never).map((layer) =>
+  return deckFillLayers(resolveDeckAttrs(doc as never, undefined, attrsOf(data)) as never).map((layer) =>
     element(
       'div',
       {
@@ -949,7 +948,7 @@ export function registerSlidesRenderers(): void {
        * adding the label's own colour: the label had to resolve, and there was no reason
        * the stroke should not.
        */
-      const attrs = resolveThemeAttrs(doc ? themeFor(doc, undefined) : undefined, attrsOf(node));
+      const attrs = resolveDeckAttrs(doc as never, undefined, attrsOf(node));
 
       const spec = connectorSpecOf(node as never);
       const caps = connectorCapsOf(node as never);
@@ -1426,6 +1425,40 @@ export function registerSlidesRenderers(): void {
   define(
     'components',
     element('div', { className: 'sl-library', style: { display: 'none' } }, [slot('content')])
+  );
+
+  /**
+   * The document's **variables**, and each declaration in it.
+   *
+   * Hidden exactly as the library is, and for the sid-map reason every hidden thing here is drawn
+   * at all: a node with no element has no place in the map, and every mapping from a DOM position
+   * back to the model goes through it. Unlike the library, this container is *never* shown — there
+   * is nothing in it to stand in front of, because what a variable says belongs in a panel.
+   *
+   * `data-variable` is how a browser test can see that the document reached the page, which is the
+   * only reason a value nobody can see carries its name into the markup.
+   */
+  define(
+    'variables',
+    element('div', { className: 'sl-variables', style: { display: 'none' } }, [slot('content')])
+  );
+
+  define(
+    'variable',
+    element('span', {
+      className: 'sl-variable',
+      style: { display: 'none' },
+      'data-variable': (d: NodeData) =>
+        typeof attrsOf(d).name === 'string' ? attrsOf(d).name : undefined,
+      'data-variable-kind': (d: NodeData) =>
+        typeof attrsOf(d).kind === 'string' ? attrsOf(d).kind : 'text',
+      'data-variable-label': (d: NodeData) =>
+        typeof attrsOf(d).label === 'string' ? attrsOf(d).label : undefined,
+      'data-variable-choices': (d: NodeData) =>
+        Array.isArray(attrsOf(d).choices) ? (attrsOf(d).choices as unknown[]).join('|') : undefined,
+      'data-variable-value': (d: NodeData) =>
+        typeof attrsOf(d).value === 'string' ? attrsOf(d).value : undefined
+    } as never)
   );
 
   /**

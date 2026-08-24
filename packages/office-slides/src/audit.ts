@@ -5,7 +5,7 @@ import { jumpFaults } from './jump';
 import { isContainerType } from './selection';
 import { backgroundOf, resolveDeckFormat } from './layout-format';
 import { paintsOf } from './paints';
-import { instanceParts } from '@barocss/office-word';
+import { documentVars, instanceParts, isVarRef, varNameOf } from '@barocss/office-word';
 
 /**
  * A look over the deck before it is given to anybody.
@@ -50,7 +50,9 @@ export type AuditKind =
   /** A page nothing can reach, in a deck that has buttons. */
   | 'unreachable'
   /** A button into another deck, which this document cannot check. */
-  | 'away';
+  | 'away'
+  /** A shape naming a variable the document no longer declares. */
+  | 'dead-var';
 
 export interface AuditHit {
   kind: AuditKind;
@@ -180,6 +182,26 @@ export function auditDeck(doc: DeckAccess): AuditHit[] {
       const fromCard = typeof node.attributes?.partId === 'string';
       const also = (hint: string) =>
         fromCard ? `${hint} 컴포넌트의 부품이라 정의에서 고치면 놓인 곳 모두 고쳐집니다.` : hint;
+
+      /**
+       * A reference to a variable the document does not declare.
+       *
+       * Certainly wrong, and **invisible while editing** in the worst way: the reference resolves
+       * to nothing, so the shape simply draws no fill — which looks like a shape somebody meant to
+       * leave unpainted. Deleting a variable does not rewrite the shapes that named it (there is no
+       * honest value to put in their place), so this is the half of that decision that keeps it
+       * honest: the document says where they are.
+       */
+      for (const dead of deadVarsIn(doc, node)) {
+        hits.push({
+          kind: 'dead-var',
+          level: 'must',
+          slideSid: slide.sid,
+          sid,
+          what: `없는 변수를 씁니다: ${dead}`,
+          hint: also(`문서 변수 ${dead}을 다시 만들거나, 이 값에 색을 직접 고르세요.`)
+        });
+      }
 
       if (NEEDS_ALT.has(node.stype ?? '') && !attrString(node, 'alt')) {
         hits.push({
@@ -414,6 +436,31 @@ function shapesOn(
 
   for (const child of childrenOf(doc.getNode(slideSid))) walk(child, 0);
   return found;
+}
+
+/**
+ * Every variable name this node refers to that the document does not declare.
+ *
+ * One level of objects inside one level of arrays, like the resolution's own walk: a reference hides
+ * in an attribute, in a paint, and in a gradient stop, and the resolution reads all three — so a
+ * check that read only the first would pass a deck whose gradient has lost a colour.
+ */
+function deadVarsIn(doc: DeckAccess, node: DeckNode): string[] {
+  const declared = new Set(documentVars(doc as never).map((one) => one.name));
+  const dead = new Set<string>();
+
+  const look = (value: unknown, depth = 0) => {
+    if (isVarRef(value)) {
+      const name = varNameOf(value);
+      if (!declared.has(name)) dead.add(name);
+      return;
+    }
+    if (depth > 3 || !value || typeof value !== 'object') return;
+    for (const inner of Array.isArray(value) ? value : Object.values(value)) look(inner, depth + 1);
+  };
+
+  for (const value of Object.values(node.attributes ?? {})) look(value);
+  return [...dead];
 }
 
 /** How far outside the slide the box reaches, in twips — 0 when it is inside. */

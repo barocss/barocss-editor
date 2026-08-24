@@ -172,6 +172,42 @@ describe('what the sweep can see', () => {
     expect(kinds(auditDeck(nested({ stype: 'frame', content: ['p'] })))).toContain('alt');
   });
 
+  it('says where a shape names a variable the document has lost', () => {
+    /*
+     * The other half of "removing a variable does not rewrite the shapes that named it". There is
+     * no honest value to put in their place, so the reference stays and the shape draws **no
+     * fill** — which looks exactly like a shape somebody meant to leave unpainted. So the check is
+     * what makes that decision honest.
+     */
+    const hits = auditDeck(
+      deck({
+        root: { sid: 'root', stype: 'document', attributes: {}, content: ['s', 'vars'] },
+        s: { sid: 's', stype: 'surface', attributes: {}, content: ['a', 'b'] },
+        a: {
+          sid: 'a',
+          stype: 'rectangle',
+          attributes: at({ width: 1000, height: 800, fill: 'var:있음' })
+        },
+        b: {
+          sid: 'b',
+          stype: 'rectangle',
+          // Inside a gradient stop, which is the place a reference hides that a top-level read
+          // would pass.
+          attributes: at({
+            width: 1000,
+            height: 800,
+            fills: [{ kind: 'gradient', stops: [{ color: 'var:없음' }, { color: '#fff' }] }]
+          })
+        },
+        vars: { sid: 'vars', stype: 'variables', attributes: {}, content: ['v1'] },
+        v1: { sid: 'v1', stype: 'variable', attributes: { name: '있음', value: '#0f766e' } }
+      })
+    );
+    const dead = hits.filter((hit) => hit.kind === 'dead-var');
+    expect(dead.map((hit) => [hit.sid, hit.level])).toEqual([['b', 'must']]);
+    expect(dead[0].what).toContain('없음');
+  });
+
   it('looks inside a placement, and says the fix is in the card', () => {
     /*
      * The placement holds **nothing**: what it draws is the definition, resolved. So the sweep has

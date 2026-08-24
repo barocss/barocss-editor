@@ -1,7 +1,7 @@
 import { characterFormatAttrs, createWordEnv, paragraphFormatAttrs } from '@barocss/office-word';
 import { childrenOf, deckSlides, layoutPlaceholderSids, type DeckAccess, type DeckNode } from './deck';
 import { boxAt, isSceneType, slideAt } from './selection';
-import { resolveThemeAttrs, resolveThemeValue, themeFor } from './theme';
+import { resolveDeckAttrs, resolveDeckValue } from './named-values';
 
 /**
  * Where a slide's formatting comes from.
@@ -290,10 +290,9 @@ export function backgroundOf(doc: DeckAccess, surfaceSid: string): string | unde
    * being the one colour in the product that a slot cannot fill: the renderer
    * asks one question and gets a colour, whatever the document said.
    */
-  const theme = themeFor(doc, typeof masterId === 'string' ? masterId : undefined);
   const said = (value: unknown): string | undefined => {
     if (typeof value !== 'string' || !value) return undefined;
-    return resolveThemeValue(theme, value);
+    return resolveDeckValue(doc, typeof masterId === 'string' ? masterId : undefined, value);
   };
 
   return said(doc.getNode(surfaceSid)?.attributes?.fill) ??
@@ -369,7 +368,7 @@ export function inheritedFormat(
     ? (resourceById(doc, 'slideLayout', layoutId)?.attributes?.masterId as string | undefined)
     : undefined;
 
-  return resolveThemeAttrs(themeFor(doc, masterId), inherited);
+  return resolveDeckAttrs(doc, masterId, inherited);
 }
 
 /**

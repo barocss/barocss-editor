@@ -202,6 +202,22 @@ describe('a deck draws', () => {
       expect(rect!.style.borderRadius).toBe('8px');
     });
 
+    it('draws a **document variable** as the colour it names', () => {
+      /*
+       * The cards slide's button says `fill: 'var:주의'`, and what reaches the page is the value the
+       * document declares — resolved in the same walk that fills in a theme slot, because both hide
+       * in the same three places (an attribute, a paint, a gradient stop) and two walks would be
+       * two chances to miss the third.
+       *
+       * Read from the custom property for the reason above: jsdom hands back the token stream, so
+       * this is the value the renderer wrote rather than a colour a browser parsed.
+       */
+      const button = [...slides()[5].querySelectorAll<HTMLElement>('.sl-rectangle')].find(
+        (shape) => shape.dataset.bcSid && shape.style.getPropertyValue('--sl-f0-color') === '#ef4444'
+      );
+      expect(button).toBeDefined();
+    });
+
     it('draws an ellipse as a box that is round', () => {
       const ellipse = shapesSlide().querySelector<HTMLElement>('.sl-ellipse');
       expect(ellipse!.style.borderRadius).toBe('50%');
