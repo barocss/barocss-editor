@@ -1244,11 +1244,11 @@ still says exactly what a reader has: a placement, where it sits, and the values
   otherwise draw two elements claiming the same identity, and every lookup by sid would find both.
   Nothing in a store's ids contains `~`, so a reader of the DOM can tell a piece of a placement from
   a node a reader can select.
-- **A placement's text is not in the document.** Find-and-replace and a spell checker do not see
-  it. That is inherent to a reference and it is the price of the thing being a component; the way
-  out is a second walk that reads the resolved tree — which the deck's own check now does
-  (`auditDeck` resolves each placement), because the alternative was measured and it was a deck of
-  twenty cards auditing as twenty empty boxes.
+- **A placement's text is not in the document.** A spell checker does not see it. That is inherent
+  to a reference and it is the price of the thing being a component; the way out is a second walk
+  that reads the resolved tree, and two walks now do it: the deck's own check (`auditDeck` — the
+  alternative was measured, and it was a deck of twenty cards auditing as twenty empty boxes) and
+  **find and replace** (`deckMatches`, §10i).
 - **The arrangement moved into the resolution too**, and it had to: a reaction writes document
   nodes, and a resolved part is not one. So `fillChildren` and `layoutChildren` — the same
   functions the canvas uses — run over the resolved tree, parent before child, so a part given the
@@ -1808,6 +1808,44 @@ a container **appended** in the wrong place is refused. Measured — a deck that
 before its first card could not then have a card at all, because the library was appended and landed
 after `variables`. So `documentChildSpot` answers where a container goes, from the same list the
 content model is written in, and both commands ask it.
+
+### 10i. Finding and replacing what a card draws
+
+Measured on the sample deck, and the numbers are why this counted as *wrong* rather than
+unfinished:
+
+| query | on the screen | found, before |
+| --- | --- | --- |
+| `매출` | a card's title, from the placement's own value | 0 |
+| `1,240만` | the same | 0 |
+| `지표` | the card's own default text | 0 |
+| `One card` | an ordinary title on the slide | 1 |
+| `목표 1.5%` | a row the reader put in a card's slot | 1 |
+
+A search that cannot find words a reader is looking at is not a search. So `deckMatches` resolves
+each placement on the slide as well — the same answer the audit needed — and the interesting half is
+what **replace** then means, because it is three different acts and not two:
+
+1. **This placement's answer.** The words are a `componentBind` on `text` with this placement's
+   value behind them, so the write is that placement's `componentValue`: fixing a product name on
+   slide 6 changes slide 6. A placement that had answered nothing gets its **first** answer, which
+   is exactly what an override is here.
+2. **The card's own words.** Rewriting them would change every placement of the card in the deck,
+   from a find box, without saying so. **Refused**: found, named 카드, taken to — and 바꾸기 greys out
+   with the reason while 모두 says how many it left. The same division the audit makes when the fix
+   belongs to the card.
+3. **The reader's own things in a slot.** Ordinary document nodes with ordinary sids, found by the
+   ordinary walk. The resolution walk skips anything whose sid has no `~`, or every one of them would
+   be reported twice — measured as exactly that.
+
+A value that is itself a reference to a document variable (§10h) is refused with group 2, one layer
+along: writing a literal over it would quietly stop that card following the document, which is not
+what "replace" means.
+
+**One transaction per slide, for both kinds of write.** `replacePlan` puts the run rewrites and the
+value rewrites in one list, so a slide's replacement is one press of undo — a slide with half its
+occurrences replaced is not a state anybody asked for. Two matches inside one value are one write,
+spliced from the end so the earlier offsets are still true.
 
 #### What interop costs, when it comes
 

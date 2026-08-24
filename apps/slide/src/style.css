@@ -1977,6 +1977,18 @@ body {
   max-width: 16ch;
 }
 
+/*
+ * What 모두 바꾸기 left alone: a card's own words, which it may not rewrite.
+ *
+ * Amber and in words, not a badge with a number: the reader has just done something across sixty
+ * slides and this is the sentence that says it was not all of them.
+ */
+.sl-find-left {
+  color: #b45309;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
 /* Pushed to the right, like every dialog's affirmative button: the close is not
    part of the row of things a reader is using. */
 .sl-find [data-find-close] {

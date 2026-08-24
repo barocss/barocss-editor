@@ -283,7 +283,23 @@ export {
   type AuditKind
 } from './audit';
 
-export { boxOfMatch, deckMatches, matchesOn, matchesPerSlide, type DeckMatch } from './find';
+export {
+  boxOfMatch,
+  deckMatches,
+  matchesOn,
+  matchesPerSlide,
+  /**
+   * What replacing would write, and what it must refuse.
+   *
+   * A deck holds two kinds of text now — a run in the document and a value a placement answers with
+   * — and a card's *own* words are a third that a find box may not rewrite: doing so would change
+   * every placement of the card without saying so.
+   */
+  replacePlan,
+  replaceInDeck,
+  type ReplacePlan,
+  type DeckMatch
+} from './find';
 
 export {
   kindOfBox,

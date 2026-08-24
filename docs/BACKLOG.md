@@ -73,12 +73,24 @@ sees). Measured, one walk at a time:
 
 **Still to decide, in order:**
 
-1. **Find and replace cannot see a placement's words.** They are the card's text with a value
-   substituted, so a reader searching for "매출" does not find the card that says it. The audit's
-   answer (resolve while sweeping) applies, and *replace* then has a real question: the words are
-   the definition's, so replacing them either edits the card everywhere or writes a value on the
-   placement. The second is probably right — a bound part's text **is** a value — and it needs a
-   measurement before it is written.
+1. - [x] **Find and replace see a placement's words now.** Measured on the sample deck first, and it
+     is why this was wrong rather than incomplete: `매출`, `1,240만`, `이탈` are all drawn on the
+     cards slide and all came back **없음**, while an ordinary title and a row in a card's slot were
+     found. `deckMatches` resolves each placement (the audit's answer), and the question replace
+     had turned out to have **three** answers rather than two:
+
+     - the words are this **placement's answer** → replaceable, and the write is that placement's
+       `componentValue`, so fixing a name on slide 6 changes slide 6;
+     - the words are the **card's own** → found, named 카드, and **refused**: rewriting them from a
+       find box would change every placement in the deck without saying so, so 바꾸기 greys out with
+       the reason and 모두 says how many it left;
+     - the words are the reader's own in a **slot** → ordinary document text, and the resolution walk
+       skips anything with a real sid so they are not found twice.
+
+     A value that is itself a reference to a document variable is refused with the second group: a
+     literal written over it would quietly stop that card following the document. `replacePlan` puts
+     a slide's run rewrites and value rewrites in **one** transaction, so a slide's replacement is
+     one press of undo.
 2. **Motion by name** (`namedBoxes`) reads the document. A step naming a shape inside a card would
    not resolve, which means a card's badge cannot be animated per placement. Not urgent; the honest
    answer may be "motion belongs to the card".
