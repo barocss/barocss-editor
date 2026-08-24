@@ -2417,6 +2417,42 @@ body {
   outline-offset: 1px;
 }
 
+/*
+ * The grip at the end of a jump, and the page a reader is about to drop it on.
+ *
+ * Small and on the arrow's own end, because that is what a reader takes hold of — the same
+ * gesture a connector's end has on a slide, and the same reason it is the right one: rewiring is
+ * what a map is *for*.
+ */
+.sl-map-grip {
+  position: absolute;
+  width: 11px;
+  height: 11px;
+  margin-left: -5.5px;
+  margin-top: -5.5px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1.5px solid #ffffff;
+  background: var(--sl-accent, #2563eb);
+  cursor: grab;
+  touch-action: none;
+  z-index: 2;
+}
+
+.sl-map-grip:active {
+  cursor: grabbing;
+}
+
+/* While it is being moved: the line it belongs to, and the page it would land on. */
+.sl-map-moving {
+  stroke-dasharray: 4 3;
+}
+
+.sl-map-page[data-map-over='true'] {
+  outline: 2px dashed var(--sl-accent, #2563eb);
+  outline-offset: 1px;
+}
+
 /* A page kept in the deck and skipped in the show, drawn as what it is. */
 .sl-map-page[data-map-hidden='true'] {
   opacity: 0.55;

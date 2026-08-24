@@ -259,3 +259,107 @@ test.describe('the deck’s map', () => {
     await expect(page.locator('.sl-map')).toHaveCount(0);
   });
 });
+
+/**
+ * Rewiring the deck **in the map**, which is what a map is for.
+ *
+ * The gesture a connector already has — pick up the end, drop it on something else — and the
+ * reason it is the right one here: "which button" is a question a drag between two pages cannot
+ * answer, and this one takes hold of the button that is already there. Making a *new* button is
+ * still the panel's 누르면 row, because there would be no shape for a page-to-page drag to attach
+ * to and inventing one would be the map deciding what a reader meant.
+ */
+test.describe('moving a jump in the map', () => {
+  test('drops an arrow’s end on another page, and the button follows', async ({ page }) => {
+    await openDeck(page);
+    await page.locator('[data-deck-map]').click();
+    await expect(page.locator('.sl-map')).toHaveCount(1);
+    await page.waitForTimeout(500);
+
+    // The sample's 표지로 button: an arrow with a grip on its end.
+    const button = await page.evaluate(() => {
+      const editor = (window as any).editor;
+      const store = editor.dataStore;
+      const root = store.getNode(editor.getRootId());
+      const cards = ((root.content ?? []) as string[]).find(
+        (sid: string) => store.getNode(sid)?.attributes?.id === 'cards'
+      );
+      const found = ((store.getNode(cards)?.content ?? []) as string[]).find(
+        (sid: string) => store.getNode(sid)?.attributes?.goTo === 'title'
+      );
+      return found;
+    });
+    const grip = page.locator(`[data-map-grip="${button}"]`);
+    await expect(grip).toHaveCount(1);
+
+    // Drop it on the third page.
+    const target = await page.evaluate(() => {
+      const editor = (window as any).editor;
+      const store = editor.dataStore;
+      const root = store.getNode(editor.getRootId());
+      return ((root.content ?? []) as string[]).filter(
+        (sid: string) => store.getNode(sid)?.stype === 'surface'
+      )[2];
+    });
+
+    const from = (await grip.boundingBox())!;
+    const to = (await page.locator(`[data-map-page="${target}"]`).boundingBox())!;
+    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 12 });
+    // The page says it is where the drop would land, which is the only thing a reader has to go on.
+    await expect(page.locator(`[data-map-page="${target}"][data-map-over="true"]`)).toHaveCount(1);
+    await page.mouse.up();
+    await page.waitForTimeout(700);
+
+    const now = await page.evaluate(
+      (ids) => {
+        const store = (window as any).editor.dataStore;
+        return {
+          goTo: store.getNode(ids.button)?.attributes?.goTo,
+          targetId: store.getNode(ids.target)?.attributes?.id
+        };
+      },
+      { button, target }
+    );
+    // The button points at the page it was dropped on — by that page's durable id, minted by the
+    // command if the page had none.
+    expect(typeof now.targetId).toBe('string');
+    expect(now.goTo).toBe(now.targetId);
+  });
+
+  test('changes nothing when the end is dropped on no page', async ({ page }) => {
+    await openDeck(page);
+    await page.locator('[data-deck-map]').click();
+    await page.waitForTimeout(500);
+
+    const before = await page.evaluate(() => {
+      const store = (window as any).editor.dataStore;
+      const root = store.getNode((window as any).editor.getRootId());
+      const cards = ((root.content ?? []) as string[]).find(
+        (sid: string) => store.getNode(sid)?.attributes?.id === 'cards'
+      );
+      const found = ((store.getNode(cards)?.content ?? []) as string[]).find(
+        (sid: string) => store.getNode(sid)?.attributes?.goTo === 'title'
+      );
+      return { sid: found, goTo: store.getNode(found)?.attributes?.goTo };
+    });
+
+    const grip = page.locator(`[data-map-grip="${before.sid}"]`);
+    const box = (await grip.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    // Out over the empty part of the pane.
+    await page.mouse.move(box.x + 6, box.y - 120, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForTimeout(500);
+
+    const after = await page.evaluate(
+      (sid) => (window as any).editor.dataStore.getNode(sid)?.attributes?.goTo,
+      before.sid
+    );
+    // A button that quietly lost its page because a reader let go in the wrong place is worse
+    // than a drag that fails.
+    expect(after).toBe(before.goTo);
+  });
+});

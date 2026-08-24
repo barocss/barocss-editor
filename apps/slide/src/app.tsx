@@ -1663,6 +1663,17 @@ export function App({
                  */
                 setMapping(false);
               }}
+              /*
+               * Rewiring, from the map: an arrow's end dropped on another page. `setBoxJump` is
+               * the same command the properties panel runs — the map decides nothing about the
+               * document, it just says where the reader let go.
+               */
+              onRetarget={(sid, pageSid) =>
+                void (editor as any)?.executeCommand?.('setBoxJump', {
+                  nodeIds: [sid],
+                  to: pageSid
+                })
+              }
               onClose={() => setMapping(false)}
             />
           )}

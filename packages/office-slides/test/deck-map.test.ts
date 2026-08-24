@@ -113,3 +113,27 @@ describe('the deck as a graph', () => {
     expect(deckMap(empty)).toEqual({ pages: [], links: [], width: 0, height: 0, dead: [] });
   });
 });
+
+/**
+ * Where a reader takes hold of an arrow.
+ *
+ * A jump is moved the way a connector's end is moved — pick up the end, drop it on another page —
+ * so where the arrow *arrives* is arithmetic about the route and belongs with the route. An app
+ * drawing a grip "somewhere near the end" would be a second answer to where the line ends.
+ */
+describe('taking hold of an arrow', () => {
+  it('says where each arrow arrives, inside the page it points at', () => {
+    const map = deckMap(menu());
+    const jump = map.links.find((link) => link.kind === 'jump');
+    const target = map.pages.find((page) => page.sid === jump?.to);
+    expect(jump && target).toBeTruthy();
+
+    // On the target's outline, not at its centre: the route is clipped to the box, which is what
+    // makes a grip land on the edge a reader is looking at.
+    const slack = 1;
+    expect(jump!.end.x).toBeGreaterThanOrEqual(target!.x - slack);
+    expect(jump!.end.x).toBeLessThanOrEqual(target!.x + target!.width + slack);
+    expect(jump!.end.y).toBeGreaterThanOrEqual(target!.y - slack);
+    expect(jump!.end.y).toBeLessThanOrEqual(target!.y + target!.height + slack);
+  });
+});

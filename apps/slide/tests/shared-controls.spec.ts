@@ -98,8 +98,8 @@ const REMAINING: Record<string, { count: number; why: string }> = {
     why: 'a template tile: it draws the *shape* of a deck — its slides as small boxes, from the document itself — which is a gallery rather than a button, the same as `preset-gallery.tsx`'
   },
   'deck-map-view.tsx': {
-    count: 1,
-    why: 'a page in the map — the slide *drawn*, with its number and two fault badges over it, which is a place to go rather than a control with a label. The same shape as the filmstrip’s row and the template tile (`deck-dialogs.tsx`), which draws a deck rather than naming one, and waiting on the same thing: `office-ui` has no primitive for a picture that is somewhere to go'
+    count: 2,
+    why: 'a page in the map — the slide *drawn*, with its number and two fault badges over it, which is a place to go rather than a control with a label (the same shape as the filmstrip’s row and the template tile) — and the **grip** on an arrow’s end, which is a handle dragged onto a page, the same kind of thing as a gradient stop in `paint-panel.tsx`. Both are waiting on the same thing: `office-ui` has no primitive for a picture that is somewhere to go, or for a handle'
   },
   'layer-panel.tsx': {
     count: 1,

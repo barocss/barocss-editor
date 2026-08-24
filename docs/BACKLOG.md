@@ -518,11 +518,10 @@ shipped features marked undone.
   rule reported five of the sample's six pages as unreachable the moment one button existed,
   because *pressing on* still reaches them; an island is a **hidden** page nothing links to.
 
-- [ ] **Dragging a jump in the map.** Creating a button by dragging from a page to a page needs an
-  answer to "from which shape" — Figma drags from a layer, and the map's honest equivalent is a
-  dot per button on a page's edge, like a connector's magnets. Left out of the first version
-  rather than guessed at: the map's value is *seeing* the structure, and making one is already the
-  properties panel's 누르면 row.
+- [x] **Dragging a jump in the map.** An arrow's end, dropped on another page — the connector's
+  own gesture. The question that decided it: *which button* is not answerable by a drag between
+  two pages (a page holds one, four or none), so the drag takes hold of the button that is already
+  there and making a new one stays in the panel.
 
 - [ ] **A button that opens another deck** at a page. Needs a reference to a *document* — a file,
   an address — which is a decision outside the model: there is no library of decks yet. The

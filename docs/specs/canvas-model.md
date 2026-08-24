@@ -1716,6 +1716,24 @@ questions afterwards and never wired up. Which is a fault a filmstrip cannot sho
 will find. (The sample deck's hidden page has a button now, and that is the pattern a hidden page
 is for.)
 
+#### Rewiring in the map
+
+An arrow's end is taken hold of and dropped on another page — the gesture a connector already has,
+and the right one here for a reason worth stating: **"which button" is a question a drag between
+two pages cannot answer.** A page holds one, four or none; a drag from page to page would have the
+map choosing, which is the map deciding what a reader meant. Taking hold of the button that is
+already there asks nothing.
+
+So making a *new* button stays in the properties panel's 누르면 row, and the map moves the ones
+that exist. Dropped on nothing changes nothing: a button that quietly lost its page because a
+reader let go in the wrong place is worse than a drag that fails.
+
+Where a route *arrives* is the model's answer (`MapLink.end`), because the grip sits on it — an
+app drawing a grip "somewhere near the end" would be a second answer to where the line ends. And
+which page is under the pointer is asked of the browser (`elementsFromPoint`) rather than by
+comparing the pointer with the model's scaled boxes: a second conversion is a second chance to be
+a pixel out, and the page a reader can see under their finger is the honest answer.
+
 ### 11g. Still open
 
 **Between decks.** A button that opens another deck at a page needs a reference to a *document* —

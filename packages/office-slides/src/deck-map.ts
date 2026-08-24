@@ -72,6 +72,14 @@ export interface MapLink {
   sid?: string;
   /** The path, ready to draw — in twips, in the map's own space. */
   path: string;
+  /**
+   * Where the arrow **arrives**, which is where a reader takes hold of it.
+   *
+   * A jump is moved the way a connector's end is moved: pick up the end and drop it on another
+   * page. So the grip's place is arithmetic about the route, and it belongs with the route — the
+   * app drawing a grip "somewhere near the end" would be a second answer to where the line ends.
+   */
+  end: { x: number; y: number };
 }
 
 export interface DeckMap {
@@ -193,7 +201,8 @@ export function deckMap(
       { kind: 'elbow', start: { x: 0, y: 0 }, end: { x: 0, y: 0 } } as never,
       { start, end }
     );
-    return { ...edge, path: connectorPath(points, 'elbow') };
+    const last = points[points.length - 1] ?? { x: 0, y: 0 };
+    return { ...edge, path: connectorPath(points, 'elbow'), end: { x: last.x, y: last.y } };
   });
 
   const width = pages.reduce((most, page) => Math.max(most, page.x + page.width), 0);

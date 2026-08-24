@@ -31,6 +31,7 @@ export function DeckMapView({
   revision,
   current,
   onGoTo,
+  onRetarget,
   onClose
 }: {
   editor: Editor | null;
@@ -39,11 +40,26 @@ export function DeckMapView({
   current?: string;
   /** Take the reader to a page — which is the one thing a press in here does. */
   onGoTo: (sid: string) => void;
+  /**
+   * Point an existing button at another page: the one thing a *drag* in here does.
+   *
+   * The app runs the command, like every other write in this product — a view that executed
+   * commands would be a view with an opinion about the document.
+   */
+  onRetarget: (sid: string, pageSid: string) => void;
   onClose: () => void;
 }) {
   const [direction, setDirection] = useState<'down' | 'right'>('down');
   const frame = useRef<HTMLDivElement>(null);
   const [room, setRoom] = useState({ width: 0, height: 0 });
+  /**
+   * The arrow being **moved**, and the page under the pointer.
+   *
+   * Held here and not in the model, because it is a gesture in flight: the document says where a
+   * button goes, and until the reader lets go they have not said anything. Which is the same rule
+   * the guide being pulled out of a ruler follows.
+   */
+  const [dragging, setDragging] = useState<{ sid: string; over?: string } | null>(null);
 
   const map = useMemo(() => {
     const store = (editor as any)?.dataStore;
@@ -154,11 +170,69 @@ export function DeckMapView({
                   key={`${link.from}-${link.to}-${link.kind}-${index}`}
                   d={link.path}
                   data-map-link={link.kind}
-                  className={link.kind === 'jump' ? 'sl-map-jump' : 'sl-map-flow'}
+                  className={
+                    (link.kind === 'jump' ? 'sl-map-jump' : 'sl-map-flow') +
+                    (dragging?.sid && dragging.sid === link.sid ? ' sl-map-moving' : '')
+                  }
                   markerEnd="url(#sl-map-arrow)"
                 />
               ))}
             </svg>
+
+            {/*
+              * A grip at the end of every jump, dragged onto another page.
+              *
+              * The gesture a connector already has — pick up the end, drop it on a shape — and the
+              * reason it is the right one here: rewiring a deck is the thing a map is *for*, and
+              * "which button" is a question a drag between two pages cannot answer. This one
+              * takes hold of the button that is already there.
+              *
+              * Making a *new* button is still the properties panel's 누르면 row: there is no shape
+              * for a drag between two pages to attach to, and inventing one would be the map
+              * deciding what a reader meant.
+              */}
+            {map.links
+              .filter((link) => link.kind === 'jump' && link.sid)
+              .map((link) => (
+                <button
+                  key={`grip-${link.sid}`}
+                  type="button"
+                  className="sl-map-grip"
+                  data-map-grip={link.sid}
+                  aria-label="이동할 장 바꾸기"
+                  style={{ left: px(link.end.x), top: px(link.end.y) }}
+                  onPointerDown={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+                    setDragging({ sid: link.sid as string });
+                  }}
+                  onPointerMove={(event) => {
+                    if (!dragging) return;
+                    /*
+                     * Which page is under the pointer, asked of the *document* the browser has —
+                     * `elementsFromPoint` — rather than by comparing the pointer with the model's
+                     * boxes. The boxes are in twips and scaled, and a second conversion here is a
+                     * second chance to be a pixel out; the page a reader can see under their
+                     * finger is the honest answer.
+                     */
+                    const under = document
+                      .elementsFromPoint(event.clientX, event.clientY)
+                      .find((node) => (node as HTMLElement).dataset?.mapPage);
+                    const over = (under as HTMLElement | undefined)?.dataset?.mapPage;
+                    setDragging((was) => (was && was.over !== over ? { ...was, over } : was));
+                  }}
+                  onPointerUp={() => {
+                    const moving = dragging;
+                    setDragging(null);
+                    if (!moving?.over) return;
+                    // Dropped on nothing changes nothing: a button that quietly lost its page
+                    // because a reader let go in the wrong place is worse than a drag that fails.
+                    onRetarget(moving.sid, moving.over);
+                  }}
+                  onPointerCancel={() => setDragging(null)}
+                />
+              ))}
 
             {map.pages.map((page) => (
               <button
@@ -168,6 +242,7 @@ export function DeckMapView({
                 data-map-page={page.sid}
                 data-map-current={page.sid === current ? 'true' : undefined}
                 data-map-unreachable={page.unreachable ? 'true' : undefined}
+                data-map-over={dragging?.over === page.sid ? 'true' : undefined}
                 data-map-hidden={page.hidden ? 'true' : undefined}
                 style={{
                   left: px(page.x),
