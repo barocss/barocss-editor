@@ -2033,6 +2033,18 @@ leaves the first one sitting still.
 to animate and to wait for on a *slide's* track, and a card's part is not one of those (§10k) — two
 placements would offer one name twice and neither would mean anything there.
 
+#### What the slide's timeline says about it
+
+Not rows. The motion belongs to the card, so it is arranged inside the card — once, for every
+placement — and rows in the slide's pane would offer a reader the chance to edit one placement's copy
+of a decision that has no copies. The same call the layer list makes about a card's parts (§10b-13).
+
+But a reader standing on the slide has to be *told*, or the cards move on arrival and nothing on
+screen says why. So one line above the axis names the cards that animate themselves and offers the way
+in — the same shape as the "you are not on a slide" banner: say where the decision lives rather than
+draw a badge. Above the axis rather than in it, because these cost no presses and a lane for them
+would be a lane with nowhere to sit on the clock.
+
 #### In a **scrolling** show it is held, not replayed
 
 Never measured until it was asked for, and the answer follows the scrolling show's own principle: a

@@ -916,6 +916,32 @@ body {
   color: #9ca3af;
 }
 
+/*
+ * What the **cards** on this slide do, said once above the axis.
+ *
+ * They cost no presses, so they have no place on the clock — a lane for them would be a lane with
+ * nowhere to sit. A line of words and a way in is the whole of it, which is the same shape the
+ * "you are not on a slide" banner has: tell the reader where the decision lives.
+ */
+.sl-timeline-cards {
+  margin: 0 0 6px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--sl-muted, #6b7280);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sl-timeline-cards button {
+  border: 1px solid var(--sl-line);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 11px;
+  color: inherit;
+  background: transparent;
+}
+
 /* ── The ruler, and the playhead that runs along it ─────────────────────── */
 .sl-timeline-ruler {
   position: relative;

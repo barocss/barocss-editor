@@ -2044,6 +2044,16 @@ export function App({
         <TimelinePane
           editor={editor}
           slideSid={current}
+          /*
+           * Opening the card the pane names, by its durable id — the pane says *which* cards on this
+           * slide animate themselves, and where the reader has to go to change that. Resolved here
+           * because the sid a definition happens to have is this session's, and where the reader is
+           * belongs to the app.
+           */
+          onOpenCard={(componentId) => {
+            const found = components.find((one) => one.id === componentId);
+            if (found) openDefinition(found.sid);
+          }}
           revision={revision}
           previewing={playing}
           onPreview={() =>

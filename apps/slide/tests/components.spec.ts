@@ -906,6 +906,68 @@ test.describe('a card with motion of its own', () => {
 });
 
 /**
+ * What the slide's timeline **says** about a card that animates itself.
+ *
+ * Not rows: the motion belongs to the card, so it is arranged inside the card — once, for every
+ * placement — and rows here would offer a reader the chance to edit one placement's copy of a
+ * decision that has no copies. That is the same call the layer list makes about a card's parts
+ * (§10b-13).
+ *
+ * But a reader standing on the slide has to be *told*, or the cards move on arrival and nothing on
+ * screen says why. So: one line, naming the cards, and a way in.
+ */
+test.describe('the timeline’s line about a card', () => {
+  test('names the cards that animate themselves, and opens the one it names', async ({ page }) => {
+    await openDeck(page);
+    await openPanel(page);
+
+    // Give the sample's card a motion of its own, standing inside it.
+    await page.locator('.sl-components [data-component-id="metric-card"]').click();
+    await page.waitForTimeout(700);
+    await page.evaluate(async () => {
+      const editor = (window as any).editor;
+      const store = editor.dataStore;
+      const root = store.getNode(editor.getRootId());
+      const library = ((root.content ?? []) as string[])
+        .map((sid: string) => store.getNode(sid))
+        .find((one: any) => one?.stype === 'components');
+      const card = ((library?.content ?? []) as string[])[0];
+      const badge = ((store.getNode(card)?.content ?? []) as string[]).find(
+        (sid: string) => store.getNode(sid)?.attributes?.partId === 'badge'
+      );
+      editor.setNode({ nodeIds: [badge] });
+      await editor.executeCommand('setBoxBuild', { nodeId: badge, effect: 'fadeIn', duration: 400 });
+    });
+    await page.waitForTimeout(600);
+
+    // Back to the deck, on the slide that places that card.
+    await page.locator('[data-editing-close]').click();
+    await page.waitForTimeout(500);
+    const slide = await page.evaluate(() => {
+      const editor = (window as any).editor;
+      const store = editor.dataStore;
+      return ((store.getNode(editor.getRootId()).content ?? []) as string[]).find(
+        (one: string) => store.getNode(one)?.attributes?.id === 'cards'
+      );
+    });
+    await page.locator(`.sl-filmstrip button[data-slide="${slide}"]`).click();
+    await page.waitForTimeout(600);
+
+    // The line says which card, once — three placements of one card is one decision.
+    const line = page.locator('[data-timeline-cards]');
+    await expect(line).toHaveCount(1);
+    await expect(line).toHaveAttribute('data-timeline-cards', '1');
+    await expect(line).toContainText('지표 카드');
+    await expect(line).toContainText('도착할 때');
+
+    // And it is a way in: pressing it stands the reader inside that card.
+    await page.locator('[data-timeline-card-open="metric-card"]').click();
+    await page.waitForTimeout(700);
+    await expect(page.locator('[data-editing="component"]')).toHaveCount(1);
+  });
+});
+
+/**
  * A **button inside a card**, pressed in one placement and not in the others.
  *
  * The half that was left out of §10l at first, on the belief that a click inside a placement can only

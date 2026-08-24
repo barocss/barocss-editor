@@ -119,6 +119,17 @@ const REMAINING: Record<string, { count: number; why: string }> = {
  */
 const RAW = /<(select|input|button)[\s>]/g;
 
+/**
+ * The source with its **comments taken out**, because this counts controls and not mentions of them.
+ *
+ * Measured: a comment saying *"the suite's own control, not a bare `<button>`"* — written beside the
+ * very change that removed a raw button — counted as a raw button, and the check reported a file
+ * going up while it was coming down. A guard that can be tripped by prose teaches the next person to
+ * write worse prose.
+ */
+const code = (source: string): string =>
+  source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, (_all, before) => before);
+
 test('the deck’s chrome does not grow its own controls', () => {
   // ESM: the tests run as modules, so there is no `__dirname` to ask.
   const source = join(dirname(fileURLToPath(import.meta.url)), '..', 'src');
@@ -127,7 +138,7 @@ test('the deck’s chrome does not grow its own controls', () => {
   for (const file of readdirSync(source).filter((name) => name.endsWith('.tsx'))) {
     if (NOT_CHROME[file]) continue;
 
-    const raw = (readFileSync(join(source, file), 'utf8').match(RAW) ?? []).length;
+    const raw = (code(readFileSync(join(source, file), 'utf8')).match(RAW) ?? []).length;
     const allowed = REMAINING[file]?.count ?? 0;
 
     if (raw > allowed) {

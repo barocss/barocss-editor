@@ -124,6 +124,11 @@ sees). Measured, one walk at a time:
      from `slideAt` rather than widening it, because the clipboard, the arrangement and the layout
      cascade all mean the surface when they say slide.
 
+   - [x] **The slide's timeline says which cards animate themselves** — one line above the axis,
+     naming them, with a press that opens the card. Not rows: the motion belongs to the card and has
+     no per-placement copy to edit, which is the layer list's call about a card's parts (§10b-13). And
+     not a lane, because these cost no presses and a lane would have nowhere to sit on the clock.
+
    - [x] **A card's motion in a scrolling show** — held at its end state, not replayed, because a
      scroll is scrubbing with another input device and a card's motion costs no presses. Measured on
      the way, and it was a fault: `group: 0` reads as *already played*, so an **exit** hid the shape

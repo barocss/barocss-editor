@@ -57,6 +57,8 @@ import {
   costLabel,
   pressCost,
   slideTimeline,
+  cardSteps,
+  componentOf,
   snapPoints,
   stepElements,
   stepTier,
@@ -132,6 +134,7 @@ export function TimelinePane({
   moment,
   press,
   onPress,
+  onOpenCard,
   /**
    * Which step is selected, held by the app.
    *
@@ -162,6 +165,14 @@ export function TimelinePane({
   moment?: React.MutableRefObject<(() => number) | undefined>;
   press?: number;
   onPress?: (press: number) => void;
+  /**
+   * Open a **card** by its durable id, for the line that says which cards animate themselves.
+   *
+   * Taken rather than done here for the reason every "where the reader is" decision in this app is
+   * the app's: opening a definition changes the surface being edited, and the stage, the filmstrip
+   * and the components panel all have to agree about that.
+   */
+  onOpenCard?: (componentId: string) => void;
   /** Every selected bar, so several can be dragged, retimed or deleted at once. */
   selected?: string[];
   onSelected?: (sids: string[]) => void;
@@ -188,6 +199,34 @@ export function TimelinePane({
     return withTiming(
       slideTimeline({ rootId, getNode: (sid: string) => store.getNode(sid) }, slideSid)
     );
+  }, [editor, slideSid, revision, tick]);
+
+  /**
+   * The **cards** on this slide that animate themselves, and what they are called.
+   *
+   * Not rows in this pane, and that is the same decision the layer list makes about a card's parts
+   * (§10b-13): the motion belongs to the card, so it is arranged inside the card — once, for every
+   * placement. Rows here would offer a reader the chance to edit one placement's copy of a decision
+   * that has no copies.
+   *
+   * But a reader standing on the slide has to be *told*, or the cards move on arrival and nothing on
+   * screen says why. So: one line, naming the cards, and a press opens the one it names — the same
+   * courtesy the layer list gives, which is a way in rather than a badge.
+   */
+  const animatingCards = useMemo(() => {
+    const store = (editor as any)?.dataStore;
+    const rootId = (editor as any)?.getRootId?.();
+    if (!store || !rootId || !slideSid) return [];
+
+    const doc = { rootId, getNode: (sid: string) => store.getNode(sid) };
+    const named = new Map<string, { id: string; name: string }>();
+    for (const step of cardSteps(doc as never, slideSid)) {
+      const placement = String(step.target).split('~')[0];
+      const definition = componentOf(doc as never, store.getNode(placement));
+      if (!definition || named.has(definition.id)) continue;
+      named.set(definition.id, { id: definition.id, name: definition.name || definition.id });
+    }
+    return [...named.values()];
   }, [editor, slideSid, revision, tick]);
 
   const presses = pressCount(steps);
@@ -700,11 +739,38 @@ export function TimelinePane({
         </span>
       </header>
 
-      {!open ? null : steps.length === 0 ? (
+      {/*
+        * What the **cards** on this slide do, said once and out of the way.
+        *
+        * Above the axis rather than in it: these cost no presses (§10l), so a lane for them would be
+        * a lane with no place on the clock — and drawn even when the slide has no motion of its own,
+        * because that is exactly the deck where a reader is most puzzled by things moving.
+        */}
+      {open && animatingCards.length > 0 && (
+        <p className="sl-timeline-cards" data-timeline-cards={animatingCards.length}>
+          {animatingCards.map((card) => card.name).join(', ')} 이(가) 도착할 때 스스로 움직입니다.
+          {onOpenCard && (
+            /*
+              * The suite's own control, not a bare `<button>`: the chrome check counts those and it
+              * counted this one — which is what it is for. One border, one focus ring, one hover, in
+              * the one place they are decided.
+              */
+            <Button
+              title="이 카드를 열어 모션을 고칩니다"
+              data={{ 'timeline-card-open': animatingCards[0].id }}
+              onClick={() => onOpenCard(animatingCards[0].id)}
+            >
+              카드 열기
+            </Button>
+          )}
+        </p>
+      )}
+
+      {!open ? null : steps.length === 0 && animatingCards.length === 0 ? (
         <p className="sl-timeline-empty">
           이 슬라이드에는 애니메이션이 없습니다. 상자를 선택하고 속성에서 효과를 고르세요.
         </p>
-      ) : (
+      ) : steps.length === 0 ? null : (
         /*
           * The axis and the selected step's detail, side by side.
           *
